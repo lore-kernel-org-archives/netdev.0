@@ -1,26 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/15][pull request] Intel Wired LAN Driver Updates
- 2014-06-11
-Date: Wed, 11 Jun 2014 12:25:27 -0700 (PDT)
-Message-ID: <20140611.122527.735349513237818111.davem@davemloft.net>
-References: <1402504404-8954-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net 1/4] bnx2x: Fix link for KR with swapped polarity
+ lane
+Date: Wed, 11 Jun 2014 12:27:17 -0700 (PDT)
+Message-ID: <20140611.122717.1580710630812722628.davem@davemloft.net>
+References: <1402493248-5427-2-git-send-email-yuval.mintz@qlogic.com>
+	<53985B45.9020604@cogentembedded.com>
+	<B5657A6538887040AD3A81F1008BEC63AE83CA@avmb3.qlogic.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Cc: sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org,
+	Yaniv.Rosner@qlogic.com, Ariel.Elior@qlogic.com
+To: Yuval.Mintz@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46699 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46704 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752625AbaFKTZ1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 15:25:27 -0400
-In-Reply-To: <1402504404-8954-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	with ESMTP id S1752921AbaFKT1S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 15:27:18 -0400
+In-Reply-To: <B5657A6538887040AD3A81F1008BEC63AE83CA@avmb3.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Wed, 11 Jun 2014 09:33:09 -0700
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Date: Wed, 11 Jun 2014 18:40:35 +0000
 
-> This series contains updates to igb, i40e and i40evf.
+>>> +                             MDIO_WC_REG_RX0_PCI_CTRL + (0x10 * lane), &val);
+> 
+>>    () around * not needed. You could also replace it by (lane << 4).
+> 
+> Hi,
+> 
+> bnx2x_link.c is full of format inconsistencies, as well as many cases of
+> unnecessary parenthesis.
+> It might be reasonable to send a semantic script to `net-next' in order
+> to fix all those issues, but I'm not sure we should re-spin this series
+> only because of such `common' inconsistencies.
+> 
+> Dave - whichever you prefer; If you want me to re-spin it, I will.
 
-Pulled, thanks Jeff.
+Please respin.
