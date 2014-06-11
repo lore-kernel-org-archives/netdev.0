@@ -1,35 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] ip_vti: Fix 'ip tunnel add' with 'key' parameters
-Date: Wed, 11 Jun 2014 00:31:17 -0700 (PDT)
-Message-ID: <20140611.003117.1126488754203319453.davem@davemloft.net>
-References: <20140608020625.87ea7e0baeb32c77f2028742@qrator.net>
+Subject: Re: [PATCH net-next 0/2] mlx4 SRIOV fixes
+Date: Wed, 11 Jun 2014 00:33:27 -0700 (PDT)
+Message-ID: <20140611.003327.2058600077859953054.davem@davemloft.net>
+References: <1402224586-21187-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, steffen.klassert@secunet.com,
-	herbert@gondor.apana.org.au, sergei.shtylyov@cogentembedded.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: ixaphire@qrator.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140608020625.87ea7e0baeb32c77f2028742@qrator.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, amirv@mellanox.com
+To: ogerlitz@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43071 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751627AbaFKHd2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 03:33:28 -0400
+In-Reply-To: <1402224586-21187-1-git-send-email-ogerlitz@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dmitry Popov <ixaphire@qrator.net>
-Date: Sun, 8 Jun 2014 02:06:25 +0400
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Date: Sun,  8 Jun 2014 13:49:44 +0300
 
-> ip tunnel add remote 10.2.2.1 local 10.2.2.2 mode vti ikey 1 okey 2
-> translates to p->iflags = VTI_ISVTI|GRE_KEY and p->i_key = 1, but GRE_KEY !=
-> TUNNEL_KEY, so ip_tunnel_ioctl would set i_key to 0 (same story with o_key) 
-> making us unable to create vti tunnels with [io]key via ip tunnel.
+> The patch from Wei Yang is a designed fix to a regression introduced
+> by earlier commit of him. Jack added a fix to the resource
+> management which we got from IBM.
 > 
-> We cannot simply translate GRE_KEY to TUNNEL_KEY (as GRE module does) because 
-> vti_tunnels with same local/remote addresses but different ikeys will be treated
-> as different then. So, imo the best option here is to move p->i_flags & *_KEY 
-> check for vti tunnels from ip_tunnel.c to ip_vti.c and to think about [io]_mark
-> field for ip_tunnel_parm in the future.
-> 
-> Signed-off-by: Dmitry Popov <ixaphire@qrator.net>
+> Let's get that into 3.16-rc1 1st and later see to what stable
+> version/s this should go.
 
-Applied, thanks.
+Series applied to net-next, thanks.
