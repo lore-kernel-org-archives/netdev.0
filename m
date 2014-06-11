@@ -1,69 +1,75 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PULL] vhost: infrastructure changes for 3.16
-Date: Wed, 11 Jun 2014 16:44:47 +0300
-Message-ID: <20140611134447.GA8208@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, linux-scsi@vger.kernel.org, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, nab@daterainc.com
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next 1/5] ktime: add ktime_after and ktime_before helper
+Date: Wed, 11 Jun 2014 16:34:53 +0200
+Message-ID: <1402497297-27100-2-git-send-email-dborkman@redhat.com>
+References: <1402497297-27100-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:18351 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752187AbaFKOfD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Jun 2014 10:35:03 -0400
+In-Reply-To: <1402497297-27100-1-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Linus,
-Please pull the following.
-Please note this needs to be merged before merging
-target-pending PULL which Nicholas will be sending
-out shortly.
+Add two minimal helper functions analogous to time_before() and
+time_after() that will later on both be needed by SCTP code.
 
-Thanks!
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ include/linux/ktime.h    | 24 ++++++++++++++++++++++++
+ net/sctp/sm_make_chunk.c |  2 +-
+ 2 files changed, 25 insertions(+), 1 deletion(-)
 
-The following changes since commit 1860e379875dfe7271c649058aeddffe5afd9d0d:
-
-  Linux 3.15 (2014-06-08 11:19:54 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
-
-for you to fetch changes up to 47283bef7ed356629467d1fac61687756e48f254:
-
-  vhost: move memory pointer to VQs (2014-06-09 16:21:07 +0300)
-
-----------------------------------------------------------------
-vhost: infrastructure changes for 3.16
-
-This reworks vhost core dropping unnecessary RCU uses in favor of VQ mutexes
-which are used on fast path anyway.  This fixes worst-case latency for users
-which change the memory mappings a lot.
-Memory allocation for vhost-net now supports fallback on vmalloc (same as for
-vhost-scsi) this makes it possible to create the device on systems where memory
-is very fragmented, with slightly lower performance.
-
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-
-----------------------------------------------------------------
-Michael S. Tsirkin (4):
-      vhost-net: extend device allocation to vmalloc
-      vhost: replace rcu with mutex
-      vhost: move acked_features to VQs
-      vhost: move memory pointer to VQs
-
- drivers/vhost/vhost.h | 19 ++++------
- drivers/vhost/net.c   | 35 ++++++++++++-------
- drivers/vhost/scsi.c  | 26 ++++++++------
- drivers/vhost/test.c  | 11 +++---
- drivers/vhost/vhost.c | 97 ++++++++++++++++++++++++++-------------------------
- 5 files changed, 101 insertions(+), 87 deletions(-)
+diff --git a/include/linux/ktime.h b/include/linux/ktime.h
+index 31c0cd1..3787f33 100644
+--- a/include/linux/ktime.h
++++ b/include/linux/ktime.h
+@@ -304,6 +304,30 @@ static inline int ktime_compare(const ktime_t cmp1, const ktime_t cmp2)
+ 	return 0;
+ }
+ 
++/**
++ * ktime_after - Compare if a ktime_t value is bigger than another one.
++ * @cmp1:	comparable1
++ * @cmp2:	comparable2
++ *
++ * Return: true if cmp1 happened after cmp2.
++ */
++static inline bool ktime_after(const ktime_t cmp1, const ktime_t cmp2)
++{
++	return ktime_compare(cmp1, cmp2) > 0;
++}
++
++/**
++ * ktime_after - Compare if a ktime_t value is smaller than another one.
++ * @cmp1:	comparable1
++ * @cmp2:	comparable2
++ *
++ * Return: true if cmp1 happened before cmp2.
++ */
++static inline bool ktime_before(const ktime_t cmp1, const ktime_t cmp2)
++{
++	return ktime_compare(cmp1, cmp2) < 0;
++}
++
+ static inline s64 ktime_to_us(const ktime_t kt)
+ {
+ 	struct timeval tv = ktime_to_timeval(kt);
+diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+index fee5552..ae0e616 100644
+--- a/net/sctp/sm_make_chunk.c
++++ b/net/sctp/sm_make_chunk.c
+@@ -1782,7 +1782,7 @@ no_hmac:
+ 	else
+ 		kt = ktime_get();
+ 
+-	if (!asoc && ktime_compare(bear_cookie->expiration, kt) < 0) {
++	if (!asoc && ktime_before(bear_cookie->expiration, kt)) {
+ 		/*
+ 		 * Section 3.3.10.3 Stale Cookie Error (3)
+ 		 *
+-- 
+1.7.11.7
