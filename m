@@ -1,49 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/4] net: Checksum offload changes - Part IV
-Date: Wed, 11 Jun 2014 15:46:35 -0700 (PDT)
-Message-ID: <20140611.154635.2203844517927313680.davem@davemloft.net>
-References: <alpine.DEB.2.02.1406101848350.5666@tomh.mtv.corp.google.com>
+Subject: Re: [PATCH] net/core: Add VF link state control policy
+Date: Wed, 11 Jun 2014 15:59:06 -0700 (PDT)
+Message-ID: <20140611.155906.1312485071758432085.davem@davemloft.net>
+References: <74ee0f0299e2043de14be353dd7d34fe07ecdf92.1402497459.git.dledford@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: therbert@google.com
+Cc: netdev@vger.kernel.org, ronye@mellanox.com, ogerlitz@mellanox.com
+To: dledford@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47783 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47827 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751797AbaFKWqf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 18:46:35 -0400
-In-Reply-To: <alpine.DEB.2.02.1406101848350.5666@tomh.mtv.corp.google.com>
+	with ESMTP id S1752377AbaFKW7I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 18:59:08 -0400
+In-Reply-To: <74ee0f0299e2043de14be353dd7d34fe07ecdf92.1402497459.git.dledford@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Tue, 10 Jun 2014 18:54:03 -0700 (PDT)
+From: Doug Ledford <dledford@redhat.com>
+Date: Wed, 11 Jun 2014 10:38:03 -0400
 
-> I am working on overhauling RX checksum offload. Goals of this effort
-> are:
+> Commit 1d8faf48c7 (net/core: Add VF link state control) added VF link state
+> control to the netlink VF nested structure, but failed to add a proper entry
+> for the new structure into the VF policy table.  Add the missing entry so
+> the table and the actual data copied into the netlink nested struct are in
+> sync.
 > 
-> - Specify what exactly it means when driver returns CHECKSUM_UNNECESSARY
-> - Preserve CHECKSUM_COMPLETE through encapsulation layers
-> - Don't do skb_checksum more than once per packet
-> - Unify GRO and non-GRO csum verification as much as possible
-> - Unify the checksum functions (checksum_init)
-> - Simply code
-> 
-> What is in this fourth patch set:
-> 
-> - Preserve CHECKSUM_COMPLETE instead of changing it to
->   CHECKSUM_UNNECESSARY. This allows correct reuse in validating multiple
->   csums in a packet.
-> - When SW needs to compute the packet checksum, save it as
->   CHECKSUM_COMPLETE. Also mark that checksum was compute by SW.
-> - Add skb_gro_postpull_rcsum to udp and vxlan to make GRO work with
->   CHECKSUM_COMPLETE.
-> 
-> v2: Removed patch setting skb_encapsulation when validating checksum
->     in tcp_gro_receive
-> 
-> Please review carefully and test if possible, mucking with basic
-> checksum functions is always a little precarious :-)
+> Signed-off-by: Doug Ledford <dledford@redhat.com>
 
-Series applied, thanks Tom.
+Applied, thanks.
