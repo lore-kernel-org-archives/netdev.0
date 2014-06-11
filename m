@@ -1,57 +1,261 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next 3/5] ipv6: consider net.ipv6.conf.all sysctls
- when making decisions
-Date: Wed, 11 Jun 2014 15:32:25 -0700 (PDT)
-Message-ID: <20140611.153225.671693159592497903.davem@davemloft.net>
-References: <1402417153-2551-4-git-send-email-milos.vyletel@gmail.com>
-	<20140610101334.565bc484@nehalam.linuxnetplumber.net>
-	<CAAFXRd1Stuyj2t8Oinr6SQysGbMJKPpY5qe=mO_m0xKR1eSjOQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, amwang@redhat.com,
-	netdev@vger.kernel.org, oliver@neukum.org, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	pshelar@nicira.com, nicolas.dichtel@6wind.com,
-	mike.rapoport@ravellosystems.com, dborkman@redhat.com,
-	ogerlitz@mellanox.com, therbert@google.com,
-	hannes@stressinduktion.org, florent.fourcot@enst-bretagne.fr,
-	edumazet@google.com, Paul.Durrant@citrix.com,
-	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org
-To: milos.vyletel@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAAFXRd1Stuyj2t8Oinr6SQysGbMJKPpY5qe=mO_m0xKR1eSjOQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Octavian Purdila <octavian.purdila@intel.com>
+Subject: [PATCH net-next v5] net: add __pskb_copy_fclone and pskb_copy_for_clone
+Date: Thu, 12 Jun 2014 01:36:26 +0300
+Message-ID: <1402526186-18619-1-git-send-email-octavian.purdila@intel.com>
+Cc: christoph.paasch@uclouvain.be,
+	Octavian Purdila <octavian.purdila@intel.com>,
+	Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
+	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
+	Marek Lindner <mareklindner@neomailbox.ch>,
+	Simon Wunderlich <sw@simonwunderlich.de>,
+	Antonio Quartulli <antonio@meshcoding.com>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	Gustavo Padovan <gustavo@padovan.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>,
+	Arvid Brodin <arvid.brodin@alten.se>,
+	Patrick McHardy <kaber@trash.net>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	Lauro Ramos Venancio <lauro.venancio@openbossa.org>,
+	Aloisio Almeida Jr <aloisio.almeida@openbossa.org>,
+	Samuel Ortiz <sameo@linux.intel.com>,
+	Jon Maloy <jon.maloy@ericsson.com>,
+	Allan Stephens <allan.stephens@windriver.com>,
+	Andrew Hendry <andrew.hendry@gmail.com>,
+	Eric Dumazet <edumazet
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:1361 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751797AbaFKWgp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Jun 2014 18:36:45 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Milos Vyletel <milos.vyletel@gmail.com>
-Date: Tue, 10 Jun 2014 13:49:35 -0400
+There are several instances where a pskb_copy or __pskb_copy is
+immediately followed by an skb_clone.
 
-> On Tue, Jun 10, 2014 at 1:13 PM, Stephen Hemminger
-> <stephen@networkplumber.org> wrote:
->> On Tue, 10 Jun 2014 12:19:11 -0400
->> Milos Vyletel <milos.vyletel@gmail.com> wrote:
->>
->>> As it is right now net.ipv6.conf.all.* are mostly ignored and instead
->>> we're only making decisions based on interface specific settings. These
->>> settings are coppied from net.ipv6.conf.default and changing either all
->>> or default settings have no effect.
->>
->> Although this is the right idea conceptually, it risks creating unhappy
->> users because it changes the semantics of the API. This will probably break
->> somebody's configuration.
-> 
-> You're right but in this case I feel we are moving in the right
-> direction. While the
-> behavior will change in some cases this change is only adding well known ipv4
-> behavior for ipv6 sysctls. In fact documentation briefly mentioned that
-> net.ipv6.conf.all.* should change all the interface-specific settings
-> but that was
-> not the case until now.
+Add a couple of new functions to allow the copy skb to be allocated
+from the fclone cache and thus speed up subsequent skb_clone calls.
 
-You can't just break things on people, no matter how much you think the
-current behavior is "poorly designed", "inconsistent with other areas of
-the networking", etc.  None of those things matter if you have to break
-things on people to "fix" it.
+Cc: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
+Cc: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
+Cc: Marek Lindner <mareklindner@neomailbox.ch>
+Cc: Simon Wunderlich <sw@simonwunderlich.de>
+Cc: Antonio Quartulli <antonio@meshcoding.com>
+Cc: Marcel Holtmann <marcel@holtmann.org>
+Cc: Gustavo Padovan <gustavo@padovan.org>
+Cc: Johan Hedberg <johan.hedberg@gmail.com>
+Cc: Arvid Brodin <arvid.brodin@alten.se>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+Cc: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Cc: Lauro Ramos Venancio <lauro.venancio@openbossa.org>
+Cc: Aloisio Almeida Jr <aloisio.almeida@openbossa.org>
+Cc: Samuel Ortiz <sameo@linux.intel.com>
+Cc: Jon Maloy <jon.maloy@ericsson.com>
+Cc: Allan Stephens <allan.stephens@windriver.com>
+Cc: Andrew Hendry <andrew.hendry@gmail.com>
+Cc: Eric Dumazet <edumazet@google.com>
+Reviewed-by: Christoph Paasch <christoph.paasch@uclouvain.be>
+Signed-off-by: Octavian Purdila <octavian.purdila@intel.com>
+---
 
-I'm not applying this series, sorry.
+Changes since v4:
+ * Oops, as Dave noticed, there is no need to rewrite pskb_copy()
+
+Changes since v3:
+ * As suggested by David and Dave add new functions to keep the
+   existing signatures unchanged and avoid unnecessary changes  
+
+Changes since v2:
+ * As suggested by Dave, use a bool instead of directly exposing the
+   internal allocation flags
+
+
+Changes since v1:
+ * add new parameter to pskb_copy as well, as suggested by Christoph
+
+ include/linux/skbuff.h                 | 16 +++++++++++++++-
+ net/batman-adv/distributed-arp-table.c |  2 +-
+ net/batman-adv/network-coding.c        |  2 +-
+ net/bluetooth/hci_sock.c               |  6 +++---
+ net/core/skbuff.c                      | 14 +++++++++-----
+ net/nfc/llcp_core.c                    |  4 ++--
+ net/nfc/rawsock.c                      |  4 ++--
+ net/tipc/bcast.c                       |  2 +-
+ 8 files changed, 34 insertions(+), 16 deletions(-)
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index c705808..1f50bfe 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -744,7 +744,13 @@ struct sk_buff *skb_morph(struct sk_buff *dst, struct sk_buff *src);
+ int skb_copy_ubufs(struct sk_buff *skb, gfp_t gfp_mask);
+ struct sk_buff *skb_clone(struct sk_buff *skb, gfp_t priority);
+ struct sk_buff *skb_copy(const struct sk_buff *skb, gfp_t priority);
+-struct sk_buff *__pskb_copy(struct sk_buff *skb, int headroom, gfp_t gfp_mask);
++struct sk_buff *__pskb_copy_fclone(struct sk_buff *skb, int headroom,
++				   gfp_t gfp_mask, bool fclone);
++static inline struct sk_buff *__pskb_copy(struct sk_buff *skb, int headroom,
++					  gfp_t gfp_mask)
++{
++	return __pskb_copy_fclone(skb, headroom, gfp_mask, false);
++}
+ 
+ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail, gfp_t gfp_mask);
+ struct sk_buff *skb_realloc_headroom(struct sk_buff *skb,
+@@ -2238,6 +2244,14 @@ static inline struct sk_buff *pskb_copy(struct sk_buff *skb,
+ 	return __pskb_copy(skb, skb_headroom(skb), gfp_mask);
+ }
+ 
++
++static inline struct sk_buff *pskb_copy_for_clone(struct sk_buff *skb,
++						  gfp_t gfp_mask)
++{
++	return __pskb_copy_fclone(skb, skb_headroom(skb), gfp_mask, true);
++}
++
++
+ /**
+  *	skb_clone_writable - is the header of a clone writable
+  *	@skb: buffer to check
+diff --git a/net/batman-adv/distributed-arp-table.c b/net/batman-adv/distributed-arp-table.c
+index dcd99b2..f2c066b 100644
+--- a/net/batman-adv/distributed-arp-table.c
++++ b/net/batman-adv/distributed-arp-table.c
+@@ -594,7 +594,7 @@ static bool batadv_dat_send_data(struct batadv_priv *bat_priv,
+ 		if (!neigh_node)
+ 			goto free_orig;
+ 
+-		tmp_skb = pskb_copy(skb, GFP_ATOMIC);
++		tmp_skb = pskb_copy_for_clone(skb, GFP_ATOMIC);
+ 		if (!batadv_send_skb_prepare_unicast_4addr(bat_priv, tmp_skb,
+ 							   cand[i].orig_node,
+ 							   packet_subtype)) {
+diff --git a/net/batman-adv/network-coding.c b/net/batman-adv/network-coding.c
+index 40a2fc4..8d04d17 100644
+--- a/net/batman-adv/network-coding.c
++++ b/net/batman-adv/network-coding.c
+@@ -1344,7 +1344,7 @@ static void batadv_nc_skb_store_before_coding(struct batadv_priv *bat_priv,
+ 	struct ethhdr *ethhdr;
+ 
+ 	/* Copy skb header to change the mac header */
+-	skb = pskb_copy(skb, GFP_ATOMIC);
++	skb = pskb_copy_for_clone(skb, GFP_ATOMIC);
+ 	if (!skb)
+ 		return;
+ 
+diff --git a/net/bluetooth/hci_sock.c b/net/bluetooth/hci_sock.c
+index f608bff..80d25c1 100644
+--- a/net/bluetooth/hci_sock.c
++++ b/net/bluetooth/hci_sock.c
+@@ -143,7 +143,7 @@ void hci_send_to_sock(struct hci_dev *hdev, struct sk_buff *skb)
+ 
+ 		if (!skb_copy) {
+ 			/* Create a private copy with headroom */
+-			skb_copy = __pskb_copy(skb, 1, GFP_ATOMIC);
++			skb_copy = __pskb_copy_fclone(skb, 1, GFP_ATOMIC, true);
+ 			if (!skb_copy)
+ 				continue;
+ 
+@@ -247,8 +247,8 @@ void hci_send_to_monitor(struct hci_dev *hdev, struct sk_buff *skb)
+ 			struct hci_mon_hdr *hdr;
+ 
+ 			/* Create a private copy with headroom */
+-			skb_copy = __pskb_copy(skb, HCI_MON_HDR_SIZE,
+-					       GFP_ATOMIC);
++			skb_copy = __pskb_copy_fclone(skb, HCI_MON_HDR_SIZE,
++						      GFP_ATOMIC, true);
+ 			if (!skb_copy)
+ 				continue;
+ 
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 05f4bef..b9e85e6 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -951,10 +951,13 @@ struct sk_buff *skb_copy(const struct sk_buff *skb, gfp_t gfp_mask)
+ EXPORT_SYMBOL(skb_copy);
+ 
+ /**
+- *	__pskb_copy	-	create copy of an sk_buff with private head.
++ *	__pskb_copy_fclone	-  create copy of an sk_buff with private head.
+  *	@skb: buffer to copy
+  *	@headroom: headroom of new skb
+  *	@gfp_mask: allocation priority
++ *	@fclone: if true allocate the copy of the skb from the fclone
++ *	cache instead of the head cache; it is recommended to set this
++ *	to true for the cases where the copy will likely be cloned
+  *
+  *	Make a copy of both an &sk_buff and part of its data, located
+  *	in header. Fragmented data remain shared. This is used when
+@@ -964,11 +967,12 @@ EXPORT_SYMBOL(skb_copy);
+  *	The returned buffer has a reference count of 1.
+  */
+ 
+-struct sk_buff *__pskb_copy(struct sk_buff *skb, int headroom, gfp_t gfp_mask)
++struct sk_buff *__pskb_copy_fclone(struct sk_buff *skb, int headroom,
++				   gfp_t gfp_mask, bool fclone)
+ {
+ 	unsigned int size = skb_headlen(skb) + headroom;
+-	struct sk_buff *n = __alloc_skb(size, gfp_mask,
+-					skb_alloc_rx_flag(skb), NUMA_NO_NODE);
++	int flags = skb_alloc_rx_flag(skb) | (fclone ? SKB_ALLOC_FCLONE : 0);
++	struct sk_buff *n = __alloc_skb(size, gfp_mask, flags, NUMA_NO_NODE);
+ 
+ 	if (!n)
+ 		goto out;
+@@ -1008,7 +1012,7 @@ struct sk_buff *__pskb_copy(struct sk_buff *skb, int headroom, gfp_t gfp_mask)
+ out:
+ 	return n;
+ }
+-EXPORT_SYMBOL(__pskb_copy);
++EXPORT_SYMBOL(__pskb_copy_fclone);
+ 
+ /**
+  *	pskb_expand_head - reallocate header of &sk_buff
+diff --git a/net/nfc/llcp_core.c b/net/nfc/llcp_core.c
+index f6278da..51e7887 100644
+--- a/net/nfc/llcp_core.c
++++ b/net/nfc/llcp_core.c
+@@ -680,8 +680,8 @@ void nfc_llcp_send_to_raw_sock(struct nfc_llcp_local *local,
+ 			continue;
+ 
+ 		if (skb_copy == NULL) {
+-			skb_copy = __pskb_copy(skb, NFC_RAW_HEADER_SIZE,
+-					       GFP_ATOMIC);
++			skb_copy = __pskb_copy_fclone(skb, NFC_RAW_HEADER_SIZE,
++						      GFP_ATOMIC, true);
+ 
+ 			if (skb_copy == NULL)
+ 				continue;
+diff --git a/net/nfc/rawsock.c b/net/nfc/rawsock.c
+index 55eefee..11c3544 100644
+--- a/net/nfc/rawsock.c
++++ b/net/nfc/rawsock.c
+@@ -378,8 +378,8 @@ void nfc_send_to_raw_sock(struct nfc_dev *dev, struct sk_buff *skb,
+ 
+ 	sk_for_each(sk, &raw_sk_list.head) {
+ 		if (!skb_copy) {
+-			skb_copy = __pskb_copy(skb, NFC_RAW_HEADER_SIZE,
+-				     GFP_ATOMIC);
++			skb_copy = __pskb_copy_fclone(skb, NFC_RAW_HEADER_SIZE,
++						      GFP_ATOMIC, true);
+ 			if (!skb_copy)
+ 				continue;
+ 
+diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
+index 671f981..2663167 100644
+--- a/net/tipc/bcast.c
++++ b/net/tipc/bcast.c
+@@ -653,7 +653,7 @@ static int tipc_bcbearer_send(struct sk_buff *buf, struct tipc_bearer *unused1,
+ 			tipc_bearer_send(b->identity, buf, &b->bcast_addr);
+ 		} else {
+ 			/* Avoid concurrent buffer access */
+-			tbuf = pskb_copy(buf, GFP_ATOMIC);
++			tbuf = pskb_copy_for_clone(buf, GFP_ATOMIC);
+ 			if (!tbuf)
+ 				break;
+ 			tipc_bearer_send(b->identity, tbuf, &b->bcast_addr);
+-- 
+1.8.3.2
