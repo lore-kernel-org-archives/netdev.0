@@ -1,75 +1,29 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH] vhost-scsi: don't open-code kvfree
-Date: Thu, 12 Jun 2014 19:02:08 +0300
-Message-ID: <1402588896-25446-1-git-send-email-mst@redhat.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 1/1] net_sched: drr: warn when qdisc is not work conserving
+Date: Thu, 12 Jun 2014 18:03:08 +0200
+Message-ID: <aa75d9b0-e643-4fbe-b2bd-1c85982752e0@email.android.com>
+References: <1402511718-24203-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+ charset=UTF-8
+Content-Transfer-Encoding: 8bit
+To: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stinky.trash.net ([213.144.137.162]:56896 "EHLO
+	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755968AbaFLQDS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2014 12:03:18 -0400
+In-Reply-To: <1402511718-24203-1-git-send-email-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Now that we have kvfree, use it in vhost-scsi instead of
-the open-coded version.
+On 11. Juni 2014 20:35:18 MESZ, Florian Westphal <fw@strlen.de> wrote:
+>The DRR scheduler requires that items on the active list are work
+>conserving, i.e. do not hold on to skbs for throttling purposes, etc.
+>Attaching e.g. tbf renders DRR useless because all other classes on the
+>active list are delayed as well.
+>
+>So, warn users that this configuration won't work as expected; we
+>already do this in couple of other qdiscs, see e.g.
 
-Cc: Nicholas Bellinger <nab@linux-iscsi.org>
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
-
-I have this queued for -rc2.
-Nicholas could you review ack pls?
-
- drivers/vhost/scsi.c | 12 ++----------
- 1 file changed, 2 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/vhost/scsi.c b/drivers/vhost/scsi.c
-index 83b834b..b08863e 100644
---- a/drivers/vhost/scsi.c
-+++ b/drivers/vhost/scsi.c
-@@ -1396,14 +1396,6 @@ static int vhost_scsi_set_features(struct vhost_scsi *vs, u64 features)
- 	return 0;
- }
- 
--static void vhost_scsi_free(struct vhost_scsi *vs)
--{
--	if (is_vmalloc_addr(vs))
--		vfree(vs);
--	else
--		kfree(vs);
--}
--
- static int vhost_scsi_open(struct inode *inode, struct file *f)
- {
- 	struct vhost_scsi *vs;
-@@ -1443,7 +1435,7 @@ static int vhost_scsi_open(struct inode *inode, struct file *f)
- 	return 0;
- 
- err_vqs:
--	vhost_scsi_free(vs);
-+	kvfree(vs);
- err_vs:
- 	return r;
- }
-@@ -1462,7 +1454,7 @@ static int vhost_scsi_release(struct inode *inode, struct file *f)
- 	/* Jobs can re-queue themselves in evt kick handler. Do extra flush. */
- 	vhost_scsi_flush(vs);
- 	kfree(vs->dev.vqs);
--	vhost_scsi_free(vs);
-+	kvfree(vs);
- 	return 0;
- }
- 
--- 
-MST
+Why don't prevent this during configuration time in the first place? It doesn't work, a warning might trigger long after creating the broken configuration and will more likely go unnoticed.
