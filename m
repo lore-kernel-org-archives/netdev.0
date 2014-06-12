@@ -1,54 +1,39 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: Linux 3.4.92 breaks forwarding with netfilter enabled
-Date: Thu, 12 Jun 2014 10:54:27 -0700
-Message-ID: <20140612175427.GB30060@kroah.com>
-References: <20140610220325.GG1970@breakpoint.cc>
- <53980015.5010409@suse.cz>
- <20140611081053.GH1970@breakpoint.cc>
- <20140612172516.GA2556@bender.morinfr.org>
+From: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
+Subject: Re: [PATCH] vhost-scsi: don't open-code kvfree
+Date: Thu, 12 Jun 2014 10:59:03 -0700
+Message-ID: <1402595943.18202.0.camel@haakon3.risingtidesystems.com>
+References: <1402588896-25446-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Florian Westphal <fw@strlen.de>, Jiri Slaby <jslaby@suse.cz>,
-	stable@vger.kernel.org, ML netdev <netdev@vger.kernel.org>
-Return-path: <stable-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140612172516.GA2556@bender.morinfr.org>
-Sender: stable-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1402588896-25446-1-git-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 12, 2014 at 07:25:16PM +0200, Guillaume Morin wrote:
-> On 11 Jun 10:10, Florian Westphal wrote:
-> >
-> > Jiri Slaby <jslaby@suse.cz> wrote:
-> > > > Gergely, please either revert
-> > > > 
-> > > > commit bd91cb56f951a7b0da8c3098ea9cd56854ece66c
-> > > > Author: Florian Westphal <fw@strlen.de>
-> > > > net: ipv4: ip_forward: fix inverted local_df test
-> > > > [ Upstream commit ca6c5d4ad216d5942ae544bbf02503041bd802aa ]
-> > > > 
-> > > > Or, alternatively, also apply upstream commit 895162b1101b3ea5db08ca6822ae9672717efec0
-> > > > Author: Florian Westphal <fw@strlen.de>
-> > > > Date:   Fri May 2 15:32:16 2014 +0200
-> > > > netfilter: ipv4: defrag: set local_df flag on defragmented skb
-> > > > 
-> > > > on top of your 3.4.92 kernel.
-> > > > 
-> > > > (The latter might be a better option since it will also fix the
-> > > >  long-standing issue where netfilter sends bogus frag-needed message
-> > > >  under very rare circumstances).
-> > > 
-> > > I believe, the same holds for 3.12, right? (I have just applied "defrag:
-> > > set local_df flag on defragmented skb".)
-> > 
-> > Yes, its true for all -stable kernels (except new 3.15).
-> > 
-> > Thanks for taking care of this.
+On Thu, 2014-06-12 at 19:02 +0300, Michael S. Tsirkin wrote:
+> Now that we have kvfree, use it in vhost-scsi instead of
+> the open-coded version.
 > 
-> Greg, could you apply this one to 3.4,3.10,3.14 as well please?
+> Cc: Nicholas Bellinger <nab@linux-iscsi.org>
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> ---
+> 
+> I have this queued for -rc2.
+> Nicholas could you review ack pls?
 
-I just did that :)
 
-thanks,
+Reviewed-by + Acked-by: Nicholas Bellinger <nab@linux-iscsi.org>
 
-greg k-h
+Thanks MST!
