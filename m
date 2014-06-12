@@ -1,105 +1,66 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net-next v2 RESEND 1/4] macvlan: support mac address changes
- when fwd_priv is enable
-Date: Thu, 12 Jun 2014 10:24:55 -0400
-Message-ID: <5399B837.3020000@redhat.com>
-References: <1402127143-6456-1-git-send-email-dingtianhong@huawei.com> <1402127143-6456-2-git-send-email-dingtianhong@huawei.com> <5395E617.5080307@redhat.com> <53990628.9070202@huawei.com>
-Reply-To: vyasevic@redhat.com
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH v2] sctp: Fix sk_ack_backlog wrap-around problem
+Date: Thu, 12 Jun 2014 10:29:46 -0400
+Message-ID: <5399B95A.9080804@gmail.com>
+References: <1402541616-15117-1-git-send-email-xufeng.zhang@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, John Fastabend <john.r.fastabend@intel.com>
-To: Ding Tianhong <dingtianhong@huawei.com>, kaber@trash.net,
-	davem@davemloft.net, edumazet@google.com,
-	makita.toshiaki@lab.ntt.co.jp
+Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Xufeng Zhang <xufeng.zhang@windriver.com>, nhorman@tuxdriver.com,
+	davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:23866 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755910AbaFLOZU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Jun 2014 10:25:20 -0400
-In-Reply-To: <53990628.9070202@huawei.com>
+Received: from mail-qa0-f44.google.com ([209.85.216.44]:38322 "EHLO
+	mail-qa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755910AbaFLO3v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2014 10:29:51 -0400
+In-Reply-To: <1402541616-15117-1-git-send-email-xufeng.zhang@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/11/2014 09:45 PM, Ding Tianhong wrote:
-> On 2014/6/10 0:51, Vlad Yasevich wrote:
->> [.. CC John Fastabend <john.r.fastabend@intel.com> ]
->>
->> On 06/07/2014 03:45 AM, Ding Tianhong wrote:
->>> If lowerdev supports L2 forwarding offload, the macvlan's hw address
->>> will be set to the rar of the lowerdev and no need to set uc list,
->>> and when the macvlan's hw address changes, the macvlan should remove
->>> the old fwd and rebuild a new fwd for the macvlan.
->>>
->>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
->>> ---
->>>  drivers/net/macvlan.c | 21 +++++++++++++++++++++
->>>  1 file changed, 21 insertions(+)
->>>
->>> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
->>> index 453d55a..67485ab 100644
->>> --- a/drivers/net/macvlan.c
->>> +++ b/drivers/net/macvlan.c
->>> @@ -523,6 +523,27 @@ static int macvlan_sync_address(struct net_device *dev, unsigned char *addr)
->>>  		if (macvlan_addr_busy(vlan->port, addr))
->>>  			return -EBUSY;
->>>  
->>> +		if (vlan->fwd_priv) {
->>> +			lowerdev->netdev_ops->ndo_dfwd_del_station(lowerdev,
->>> +								   vlan->fwd_priv);
->>> +			vlan->fwd_priv = NULL;
->>> +			ether_addr_copy(dev->perm_addr, dev->dev_addr);
->>> +			ether_addr_copy(dev->dev_addr, addr);
->>> +			vlan->fwd_priv =
->>> +			    lowerdev->netdev_ops->ndo_dfwd_add_station(lowerdev,
->>> +								       dev);
->>> +			/* If we get a NULL pointer back, or if we get an error
->>> +			 * then we should restore the old mac address and fwd.
->>> +			 */
->>> +			if (IS_ERR_OR_NULL(vlan->fwd_priv)) {
->>> +				ether_addr_copy(dev->dev_addr, dev->perm_addr);
->>> +				vlan->fwd_priv =
->>> +				    lowerdev->netdev_ops->ndo_dfwd_add_station(lowerdev,
->>> +									       dev);
->>> +				return -EINVAL;
->>> +			}
->>> +			return 0;
->>> +		}
->>
->> Calling del_stations add_station causes all sorts of VMDQ/ring
->> operations to happen...  Not sure if we can do that while we have a live
->> macvlan/macvtap that is capable of transmitting data.
->>
->> Wouldn't it be sufficient to have a call to call to update with mac
->> filter with the appropriate VMDQ.
->>
->> John, I defer to you here.  The above looks really heavy-weight and
->> I am not sure if its correct.
->>
->> Thanks
->> -vlad
+On 06/11/2014 10:53 PM, Xufeng Zhang wrote:
+> Consider the scenario:
+> For a TCP-style socket, while processing the COOKIE_ECHO chunk in
+> sctp_sf_do_5_1D_ce(), after it has passed a series of sanity check,
+> a new association would be created in sctp_unpack_cookie(), but afterwards,
+> some processing maybe failed, and sctp_association_free() will be called to
+> free the previously allocated association, in sctp_association_free(),
+> sk_ack_backlog value is decremented for this socket, since the initial
+> value for sk_ack_backlog is 0, after the decrement, it will be 65535,
+> a wrap-around problem happens, and if we want to establish new associations
+> afterward in the same socket, ABORT would be triggered since sctp deem the
+> accept queue as full.
+> Fix this issue by only decrementing sk_ack_backlog for associations in
+> the endpoint's list.
 > 
-> I have used two 82599 nic to test this problem, I modify the ixgbe drivers and set the  L2 forwarding offload default,
-> without this patch, when I change the macvlan mac address, the kernel oops, and if I apply this patch, the ixgbe could
-> work well with the maclvan, so I don't think this solution has problem.
+> Fix-suggested-by: Neil Horman <nhorman@tuxdriver.com>
+> Signed-off-by: Xufeng Zhang <xufeng.zhang@windriver.com>
 
-Have you tried changing the address while at the same time
-transmitting data through the macvlan?
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
 
+Thanks
 -vlad
 
+
+> ---
+> Change for v2:
+>   Drop the redundant test for temp suggested by Vlad Yasevich.
 > 
-> Thanks
-> Ding
+>  net/sctp/associola.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
 > 
->>
->>>  		if (!vlan->port->passthru) {
->>>  			err = dev_uc_add(lowerdev, addr);
->>>  			if (err)
->>>
->>
->>
->> .
->>
-> 
+> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+> index 39579c3..0b99998 100644
+> --- a/net/sctp/associola.c
+> +++ b/net/sctp/associola.c
+> @@ -330,7 +330,7 @@ void sctp_association_free(struct sctp_association *asoc)
+>  	/* Only real associations count against the endpoint, so
+>  	 * don't bother for if this is a temporary association.
+>  	 */
+> -	if (!asoc->temp) {
+> +	if (!list_empty(&asoc->asocs)) {
+>  		list_del(&asoc->asocs);
+>  
+>  		/* Decrement the backlog value for a TCP-style listening
 > 
