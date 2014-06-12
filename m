@@ -1,50 +1,76 @@
-From: =?UTF-8?B?RnJhbsOnb2lzIENhY2hlcmV1bA==?= <f.cachereul@alphalink.fr>
-Subject: [PATCH] via-rhine: fix full-duplex with autoneg disable
-Date: Thu, 12 Jun 2014 12:11:25 +0200
-Message-ID: <53997CCD.4010200@alphalink.fr>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [-next] Regression: ssh log in slowdown
+Date: Thu, 12 Jun 2014 13:28:18 +0200
+Message-ID: <CAMuHMdUzd92Tu+f+-iwQs2C__rjBQX8kSq2u-WNN6VyQNSUSVg@mail.gmail.com>
+References: <CAMuHMdU6rrpx6xFw71HKexDJUZtfFtL+um6dxZ=EaycgVO312A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: f.cachereul@alphalink.fr, netdev@vger.kernel.org
-To: Roger Luethi <rl@hellgate.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:52247 "EHLO
-	mail-2-cbv2.admin.alphalink.fr" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S932878AbaFLKR5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2014 06:17:57 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Linux-Next <linux-next@vger.kernel.org>,
+	Linux-sh list <linux-sh@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <CAMuHMdU6rrpx6xFw71HKexDJUZtfFtL+um6dxZ=EaycgVO312A@mail.gmail.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-With some specific configuration (VT6105M on Soekris 5510 and depending
-on the device at the other end), fragmented packets were not transmitte=
-d
-when forcing 100 full-duplex with autoneg disable.
+cc netdev@vger.kernel.org
 
-This fix now write full-duplex chips register when forcing full or
-half-duplex not only when autoneg is enable.
+On Thu, Jun 12, 2014 at 1:26 PM, Geert Uytterhoeven
+<geert@linux-m68k.org> wrote:
+> When logging in remotely using ssh, there's now a 10 second delay,
+> cfr. the "ssh -v" output below:
+>
+> debug1: ssh_ecdsa_verify: signature correct
+> debug1: SSH2_MSG_NEWKEYS sent
+> debug1: expecting SSH2_MSG_NEWKEYS
+> debug1: SSH2_MSG_NEWKEYS received
+> debug1: Roaming not allowed by server
+> debug1: SSH2_MSG_SERVICE_REQUEST sent
+> debug1: SSH2_MSG_SERVICE_ACCEPT received
+>
+> ----- 10 s delay ---
+>
+> debug1: Authentications that can continue: publickey,password
+> debug1: Next authentication method: publickey
+>
+> Wireshark doesn't show anything suspicious, just that there's a 10 s gap
+> before I receive an "encrypted response packet" on the client.
+>
+> Hardware is r8a7791/koelsch, using sh_eth.
+>
+> I bisected this to
+> commit 7e3cead5172927732f51fde77fef6f521e22f209
+> Author: Tom Herbert <therbert@google.com>
+> Date:   Tue Jun 10 18:54:19 2014 -0700
+>
+>     net: Save software checksum complete
+>
+>     In skb_checksum complete, if we need to compute the checksum for the
+>     packet (via skb_checksum) save the result as CHECKSUM_COMPLETE.
+>     Subsequent checksum verification can use this.
+>
+>     Also, added csum_complete_sw flag to distinguish between software and
+>     hardware generated checksum complete, we should always be able to trust
+>     the software computation.
+>
+>     Signed-off-by: Tom Herbert <therbert@google.com>
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
+>
+> Reverting this commit fixes the issue.
+>
+> Anyone with a clue?
+>
+> Thanks!
 
-Signed-off-by: Fran=C3=A7ois Cachereul <f.cachereul@alphalink.fr>
----
- drivers/net/ethernet/via/via-rhine.c |    5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+Gr{oetje,eeting}s,
 
-diff --git a/drivers/net/ethernet/via/via-rhine.c b/drivers/net/etherne=
-t/via/via-rhine.c
-index f61dc2b..25bb25b 100644
---- a/drivers/net/ethernet/via/via-rhine.c
-+++ b/drivers/net/ethernet/via/via-rhine.c
-@@ -1278,8 +1278,9 @@ static void rhine_set_carrier(struct mii_if_info =
-*mii)
- 		/* autoneg is off: Link is always assumed to be up */
- 		if (!netif_carrier_ok(dev))
- 			netif_carrier_on(dev);
--	} else	/* Let MMI library update carrier status */
--		rhine_check_media(dev, 0);
-+	}
-+
-+	rhine_check_media(dev, 0);
-=20
- 	netif_info(rp, link, dev, "force_media %d, carrier %d\n",
- 		   mii->force_media, netif_carrier_ok(dev));
---=20
-1.7.10.4
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvald
