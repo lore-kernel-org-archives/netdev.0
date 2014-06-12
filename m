@@ -1,90 +1,147 @@
-From: Rich Felker <dalias@libc.org>
-Subject: Re: recvmmsg/sendmmsg result types inconsistent, integer overflows?
-Date: Thu, 12 Jun 2014 10:13:27 -0400
-Message-ID: <20140612141327.GY179@brightrain.aerifal.cx>
-References: <20140611041243.GA1475@brightrain.aerifal.cx>
- <1402464261.5195.21.camel@marge.simpson.net>
- <1402465808.3645.454.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140611151511.GU179@brightrain.aerifal.cx>
- <CAKgNAkh7ihJyZ4gOXAeb3x-Su7ayshLdi9m6ML4n840n3bx=0Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Mike Galbraith <umgwanakikbuti@gmail.com>,
-	lkml <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: "Michael Kerrisk (man-pages)" <mtk.manpages@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAKgNAkh7ihJyZ4gOXAeb3x-Su7ayshLdi9m6ML4n840n3bx=0Q@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next] openvswitch: introduce rtnl ops stub
+Date: Thu, 12 Jun 2014 16:20:08 +0200
+Message-ID: <1402582808-10443-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, pshelar@nicira.com, cwang@twopensource.com,
+	nicolas.dichtel@6wind.com, ebiederm@xmission.com,
+	david@gibson.dropbear.id.au, sfeldma@cumulusnetworks.com,
+	sucheta.chakraborty@qlogic.com, stephen@networkplumber.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f173.google.com ([74.125.82.173]:51151 "EHLO
+	mail-we0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752874AbaFLOUS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2014 10:20:18 -0400
+Received: by mail-we0-f173.google.com with SMTP id t60so1358340wes.4
+        for <netdev@vger.kernel.org>; Thu, 12 Jun 2014 07:20:11 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 12, 2014 at 08:04:54AM +0200, Michael Kerrisk (man-pages) wrote:
-> Rich,
-> 
-> On Wed, Jun 11, 2014 at 5:15 PM, Rich Felker <dalias@libc.org> wrote:
-> > On Tue, Jun 10, 2014 at 10:50:08PM -0700, Eric Dumazet wrote:
-> >> On Wed, 2014-06-11 at 07:24 +0200, Mike Galbraith wrote:
-> >> > (CCs network wizard hangout)
-> >> >
-> >> > On Wed, 2014-06-11 at 00:12 -0400, Rich Felker wrote:
-> >> > > While looking to add support for the recvmmsg and sendmmsg syscalls in
-> >> > > musl libc, I ran into some disturbing findings on the kernel side. In
-> >> > > the struct mmsghdr, the field where the result for each message is
-> >> > > stored has type int, which is inconsistent with the return type
-> >> > > ssize_t of recvmsg/sendmsg. So I tried to track down what happens when
-> >> > > the result is or would be larger than 2GB, and quickly found an
-> >> > > explanation for why the type in the structure was defined wrong:
-> >> > > internally, the kernel uses int as the return type for revcmsg and
-> >> > > sendmsg. Oops.
-> >> > >
-> >> > > A bit more RTFS'ing brought me to tcp_sendmsg in net/ipv4/tcp.c (I
-> >> > > figured let's look at a stream-based protocol, since datagrams can
-> >> > > likely never be that big for any existing protocol), and as far as I
-> >> > > can tell, it's haphazardly mixing int and size_t with no checks for
-> >> > > overflows. I looked for anywhere the kernel might try to verify before
-> >> > > starting that the sum of the lengths of all the iovec components
-> >> > > doesn't overflow INT_MAX or even SIZE_MAX, but didn't find any such
-> >> > > checks.
-> >> > >
-> >> > > Is there some magic that makes this all safe, or is this a big mess of
-> >> > > possibly-security-relevant bugs?
-> >> > >
-> >> > > Rich
-> >> > > --
-> >> > > To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> >> > > the body of a message to majordomo@vger.kernel.org
-> >> > > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> >> > > Please read the FAQ at  http://www.tux.org/lkml/
-> >> >
-> >>
-> >>
-> >> See commit 8acfe468b0384e834a303f08ebc4953d72fb690a
-> >> ("net: Limit socket I/O iovec total length to INT_MAX.")
-> >>
-> >> (or grep for verify_iovec() )
-> >
-> > Thanks; that addresses my concern about safety. There's still the ugly
-> > API inconsistency which it seems too late to fix. Michael, perhaps
-> > this should at least be documented in the man pages for sendmmsg and
-> > recvmmsg since it's certain to be confusing to anyone familiar with
-> > the sendmsg and recvmsg API, but not with kernel internals, who's
-> > trying to use these functions...
-> 
-> Care to send me a patch?
+This stub now allows userspace to see IFLA_INFO_KIND for ovs master and
+IFLA_INFO_SLAVE_KIND for slave.
 
-I'm not at all familiar with man format, but I could write some
-suggested text if that would be ok.
+Note that I added ops->setup check into newlink and dellink in order to
+prevent creating and deleting openvswitch instances using rtnl for now.
 
-Unrelated (at least not directly) to man pages, one concern I have is
-that, if these interfaces move towards standardization, the
-inconsistent return type is going to be a point of contention that
-could result in an incompatible version of the interfaces being
-adopted in the standard. From that standpoint, it might make sense to
-do something like documenting them returning socklen_t rather than
-int (IIRC these are always the same on Linux). It's not quite logical,
-but at least a bit more logical from a non-Linux-centric perspective
-than using int.
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+ net/core/rtnetlink.c                 |  5 ++++-
+ net/openvswitch/datapath.c           |  9 ++++++++-
+ net/openvswitch/vport-internal_dev.c | 16 ++++++++++++++++
+ net/openvswitch/vport-internal_dev.h |  2 ++
+ 4 files changed, 30 insertions(+), 2 deletions(-)
 
-Rich
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 233b5ae..b874139 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1767,7 +1767,7 @@ static int rtnl_dellink(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 		return -ENODEV;
+ 
+ 	ops = dev->rtnl_link_ops;
+-	if (!ops)
++	if (!ops || !ops->setup)
+ 		return -EOPNOTSUPP;
+ 
+ 	ops->dellink(dev, &list_kill);
+@@ -2028,6 +2028,9 @@ replay:
+ 			return -EOPNOTSUPP;
+ 		}
+ 
++		if (!ops->setup)
++			return -EOPNOTSUPP;
++
+ 		if (!ifname[0])
+ 			snprintf(ifname, IFNAMSIZ, "%s%%d", ops->kind);
+ 
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index 0d407bc..5692fb1 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -2070,12 +2070,18 @@ static int __init dp_init(void)
+ 	if (err)
+ 		goto error_netns_exit;
+ 
++	err = ovs_internal_dev_rtnl_link_register();
++	if (err)
++		goto error_unreg_notifier;
++
+ 	err = dp_register_genl();
+ 	if (err < 0)
+-		goto error_unreg_notifier;
++		goto error_unreg_rtnl_link;
+ 
+ 	return 0;
+ 
++error_unreg_rtnl_link:
++	ovs_internal_dev_rtnl_link_unregister();
+ error_unreg_notifier:
+ 	unregister_netdevice_notifier(&ovs_dp_device_notifier);
+ error_netns_exit:
+@@ -2091,6 +2097,7 @@ error:
+ static void dp_cleanup(void)
+ {
+ 	dp_unregister_genl(ARRAY_SIZE(dp_genl_families));
++	ovs_internal_dev_rtnl_link_unregister();
+ 	unregister_netdevice_notifier(&ovs_dp_device_notifier);
+ 	unregister_pernet_device(&ovs_net_ops);
+ 	rcu_barrier();
+diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
+index 789af92..295471a 100644
+--- a/net/openvswitch/vport-internal_dev.c
++++ b/net/openvswitch/vport-internal_dev.c
+@@ -26,6 +26,7 @@
+ 
+ #include <net/dst.h>
+ #include <net/xfrm.h>
++#include <net/rtnetlink.h>
+ 
+ #include "datapath.h"
+ #include "vport-internal_dev.h"
+@@ -121,6 +122,10 @@ static const struct net_device_ops internal_dev_netdev_ops = {
+ 	.ndo_get_stats64 = internal_dev_get_stats,
+ };
+ 
++static struct rtnl_link_ops internal_dev_link_ops __read_mostly = {
++	.kind = "openvswitch",
++};
++
+ static void do_setup(struct net_device *netdev)
+ {
+ 	ether_setup(netdev);
+@@ -131,6 +136,7 @@ static void do_setup(struct net_device *netdev)
+ 	netdev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
+ 	netdev->destructor = internal_dev_destructor;
+ 	netdev->ethtool_ops = &internal_dev_ethtool_ops;
++	netdev->rtnl_link_ops = &internal_dev_link_ops;
+ 	netdev->tx_queue_len = 0;
+ 
+ 	netdev->features = NETIF_F_LLTX | NETIF_F_SG | NETIF_F_FRAGLIST |
+@@ -248,3 +254,13 @@ struct vport *ovs_internal_dev_get_vport(struct net_device *netdev)
+ 
+ 	return internal_dev_priv(netdev)->vport;
+ }
++
++int ovs_internal_dev_rtnl_link_register(void)
++{
++	return rtnl_link_register(&internal_dev_link_ops);
++}
++
++void ovs_internal_dev_rtnl_link_unregister(void)
++{
++	rtnl_link_unregister(&internal_dev_link_ops);
++}
+diff --git a/net/openvswitch/vport-internal_dev.h b/net/openvswitch/vport-internal_dev.h
+index 9a7d30e..1b179a1 100644
+--- a/net/openvswitch/vport-internal_dev.h
++++ b/net/openvswitch/vport-internal_dev.h
+@@ -24,5 +24,7 @@
+ 
+ int ovs_is_internal_dev(const struct net_device *);
+ struct vport *ovs_internal_dev_get_vport(struct net_device *);
++int ovs_internal_dev_rtnl_link_register(void);
++void ovs_internal_dev_rtnl_link_unregister(void);
+ 
+ #endif /* vport-internal_dev.h */
+-- 
+1.9.0
