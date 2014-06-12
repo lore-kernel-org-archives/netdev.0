@@ -1,36 +1,56 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [net-next 07/15] i40e: Separate out DCB capability and enabled flags
-Date: Thu, 12 Jun 2014 11:22:05 +0300
-Message-ID: <CAJZOPZLQ+OUgkHpaSr_aEYLLvyeEHMVwXaruUnj5JZxZ1Wm5RQ@mail.gmail.com>
-References: <1402504404-8954-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1402504404-8954-8-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: net_timedelta() affected by settimeofday() (was: [patch 12/13]
+ net: mac80211: Remove silly timespec dance)
+Date: Thu, 12 Jun 2014 10:39:59 +0200
+Message-ID: <1402562399.8095.5.camel@jlt4.sipsolutions.net>
+References: <20140611234024.103571777@linutronix.de>
+	 <20140611234607.683770899@linutronix.de>
+	 <1402555774.4224.1.camel@jlt4.sipsolutions.net>
+	 <alpine.DEB.2.10.1406121017500.5170@nanos>
+	 <1402562114.8095.3.camel@jlt4.sipsolutions.net>
+	 (sfid-20140612_103558_525847_209A5C98)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Neerav Parikh <neerav.parikh@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f174.google.com ([209.85.216.174]:57073 "EHLO
-	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752154AbaFLIWH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2014 04:22:07 -0400
-Received: by mail-qc0-f174.google.com with SMTP id x13so1356676qcv.5
-        for <netdev@vger.kernel.org>; Thu, 12 Jun 2014 01:22:05 -0700 (PDT)
-In-Reply-To: <1402504404-8954-8-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	John Stultz <john.stultz@linaro.org>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Ingo Molnar <mingo@kernel.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev <netdev@vger.kernel.org>
+To: Thomas Gleixner <tglx@linutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1402562114.8095.3.camel@jlt4.sipsolutions.net> (sfid-20140612_103558_525847_209A5C98)
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 11, 2014 at 7:33 PM, Jeff Kirsher
-<jeffrey.t.kirsher@intel.com> wrote:
-> From: Neerav Parikh <neerav.parikh@intel.com>
->
-> Currently if the firmware reports DCB capability the driver enables
-> I40E_FLAG_DCB_ENABLED flag. When this flag is enabled the driver
-> inserts a tag when transmitting a packet from the port
+On Thu, 2014-06-12 at 10:35 +0200, Johannes Berg wrote:
+> +netdev, Stephen
 
-what is this tag (vlan?) and how it's determined?
+Well, stupid me. Fixing that netdev address.
 
-> even if there are no DCB traffic classes configured at the port.
+> On Thu, 2014-06-12 at 10:19 +0200, Thomas Gleixner wrote:
+> > On Thu, 12 Jun 2014, Johannes Berg wrote:
+> > 
+> > > On Wed, 2014-06-11 at 23:59 +0000, Thomas Gleixner wrote:
+> > > 
+> > > > +	msrmnt = ktime_to_ms(net_timedelta(skb_arv));
+> > > 
+> > > This is probably more of a question about net_timedelta(), but is
+> > > ktime_get_real() really appropriate for duration measurements? Isn't
+> > > that non-monotonic?
+> > 
+> > Well, it's monotonic, but might be affected by settimeofday().
+> 
+> Right, but isn't that odd? Suddenly your delay measurement here might be
+> minutes, hours, or years if you settimeofday() between timestamping and
+> calculating the delta. That seems very strange to me, why would that be
+> the right behaviour in any way?
+> 
+> Now, it seems that there are only two current users of net_timedelta()
+> (in DCCP) so perhaps it's not too late to change some of this?
+> 
+> Maybe in general the skb timestamp should be based on a different clock
+> and only adjusted to real time when used in userspace?
