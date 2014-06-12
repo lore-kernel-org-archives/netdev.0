@@ -1,142 +1,76 @@
-From: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-Subject: Re: net_timedelta() affected by settimeofday() (was: [patch 12/13]
- net: mac80211: Remove silly timespec dance)
-Date: Thu, 12 Jun 2014 16:09:32 +0200 (CEST)
-Message-ID: <alpine.DEB.2.10.1406121605470.5170@nanos>
-References: <20140611234024.103571777@linutronix.de>   <20140611234607.683770899@linutronix.de>   <1402555774.4224.1.camel@jlt4.sipsolutions.net>   <alpine.DEB.2.10.1406121017500.5170@nanos>   <1402562114.8095.3.camel@jlt4.sipsolutions.net>  
- (sfid-20140612_103558_525847_209A5C98) <1402562399.8095.5.camel@jlt4.sipsolutions.net>  <alpine.DEB.2.10.1406121047280.5170@nanos> <1402564914.8095.9.camel@jlt4.sipsolutions.net>
+From: Michal Schmidt <mschmidt@redhat.com>
+Subject: Re: [PATCH net] rtnetlink: fix userspace API breakage for iproute2
+ < v3.9.0
+Date: Thu, 12 Jun 2014 16:13:09 +0200
+Message-ID: <5399B575.7070604@redhat.com>
+References: <1401279319-29088-1-git-send-email-mschmidt@redhat.com> <20140530.174248.715408523447246496.davem@davemloft.net> <538DBDB3.7030505@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Stephen Hemminger <shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1402564914.8095.9.camel-8Nb76shvtaUJvtFkdXX2HixXY32XiHfO@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
+	alexander.h.duyck@intel.com, michael.riesch@omicron.at
+To: David Miller <davem@davemloft.net>,
+	Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:37717 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752823AbaFLON0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Jun 2014 10:13:26 -0400
+In-Reply-To: <538DBDB3.7030505@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 12 Jun 2014, Johannes Berg wrote:
-
-> On Thu, 2014-06-12 at 10:57 +0200, Thomas Gleixner wrote:
+On 06/03/2014 02:21 PM, Michal Schmidt wrote:
+> On 05/31/2014 02:42 AM, David Miller wrote:
+>> From: Michal Schmidt <mschmidt@redhat.com>
+>> Date: Wed, 28 May 2014 14:15:19 +0200
+>>
+>>> When running RHEL6 userspace on a current upstream kernel, "ip link"
+>>> fails to show VF information.
+>>>
+>>> The reason is a kernel<->userspace API change introduced by commit
+>>> 88c5b5ce5cb57 ("rtnetlink: Call nlmsg_parse() with correct header length"),
+>>> after which the kernel does not see iproute2's IFLA_EXT_MASK attribute
+>>> in the netlink request.
+>>>
+>>> iproute2 adjusted for the API change in its commit 63338dca4513
+>>> ("libnetlink: Use ifinfomsg instead of rtgenmsg in rtnl_wilddump_req_filter").
+>>>
+>>> The problem has been noticed before:
+>>> http://marc.info/?l=linux-netdev&m=136692296022182&w=2
+>>> (Subject: Re: getting VF link info seems to be broken in 3.9-rc8)
+>>>
+>>> We can do better than tell those with old userspace to upgrade. We can
+>>> recognize the old iproute2 in the kernel by checking the netlink message
+>>> length. Even when including the IFLA_EXT_MASK attribute, its netlink
+>>> message is shorter than struct ifinfomsg.
+>>>
+>>> With this patch "ip link" shows VF information in both old and new
+>>> iproute2 versions.
+>>>
+>>> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+>>
+>> The userspace tool should be fixed on the system, rather than having the
+>> kernel cater to a user tool bug.
+>>
+>> I'm not applying this, sorry.
 > 
-> > > > Right, but isn't that odd? Suddenly your delay measurement here might be
-> > > > minutes, hours, or years if you settimeofday() between timestamping and
-> > > > calculating the delta. That seems very strange to me, why would that be
-> > > > the right behaviour in any way?
-> > 
-> > Indeed. clock monotonic is the appropriate one for measurements.
+> David,
 > 
-> And that's what we had here with ktime_get_ts()? I thought so, just
-> making sure.
->  
-> > > > Now, it seems that there are only two current users of net_timedelta()
-> > > > (in DCCP) so perhaps it's not too late to change some of this?
-> > > > 
-> > > > Maybe in general the skb timestamp should be based on a different clock
-> > > > and only adjusted to real time when used in userspace?
-> > 
-> > You have the same problem then, just at a different place:
-> > 
-> >     ts = ktime_get();
-> > 
-> > 			settimeofday()
-> > 			   offset_mono_to_real = new value;
-> > 
-> >     userts = mono_to_real(ts);
+> the old version of the userspace tool did what it had to do in order to
+> work with a contemporary kernel. You can call that a bug, but the fact
+> is that it used to work that way.
 > 
-> Right. I'm not really sure if that's an issue though.
-> 
-> > But maybe that's not a real issue, as ktime_get_real() can race with
-> > settimeofday() or NTP as well.
-> > 
-> >    ts = ktime_get_real();
-> > 				settimeofday();
-> >    userts = ts;
-> > 
-> > So the user might see a weird timestamp for a packet, which cannot be
-> > correlated with the user space gettimeofday().
-> 
-> Right, once settimeofday() is called the timestamps from before/during
-> it can't really be correlated any more.
-> 
-> This is part of the userspace API already, but might it have been better
-> to expose the monotonic clock, since userspace can also get at it? Not
-> sure.
-> 
-> Either way it's an issue I guess; however I'm thinking your patch is
-> making it worse for the measurement in this particular code (where the
-> userspace issue doesn't come in, it should never be accessible there)
+> I do not see a difference between "catering to a user tool bug" and
+> "not breaking applications, whether we like them or not" (paraphrasing
+> Linus's message on this very mailing list just 10 days ago).
 
-Fair enough. Still the timespec is silly. Here is an updated version.
+Dave,
+I am sorry for harping on this, but could you please either reconsider
+the NAK, or explain what considerations are more important than
+userspace compatibility in this case?
 
-Thanks,
+> I could understand your objection if my proposed patch could break
+> something else, but you are not saying that, are you?
 
-	tglx
-
------------------->
-
-Subject: net: Mac80211: Remove silly timespec dance
-From: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-Date: Wed, 11 Jun 2014 23:59:18 -0000
-
-Converting time from one format to another seems to give coders a warm
-and fuzzy feeling.
-
-Use the proper interfaces.
-
-Signed-off-by: Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>
-Cc: John Stultz <john.stultz-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Cc: Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Cc: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
----
- net/mac80211/status.c |    7 ++-----
- net/mac80211/tx.c     |    5 +----
- 2 files changed, 3 insertions(+), 9 deletions(-)
-
-
-Index: tip/net/mac80211/status.c
-===================================================================
---- tip.orig/net/mac80211/status.c
-+++ tip/net/mac80211/status.c
-@@ -473,8 +473,6 @@ static void ieee80211_tx_latency_end_msr
- 					    struct sta_info *sta,
- 					    struct ieee80211_hdr *hdr)
- {
--	ktime_t skb_dprt;
--	struct timespec dprt_time;
- 	u32 msrmnt;
- 	u16 tid;
- 	u8 *qc;
-@@ -506,9 +504,8 @@ static void ieee80211_tx_latency_end_msr
- 
- 	tx_lat = &sta->tx_lat[tid];
- 
--	ktime_get_ts(&dprt_time); /* time stamp completion time */
--	skb_dprt = ktime_set(dprt_time.tv_sec, dprt_time.tv_nsec);
--	msrmnt = ktime_to_ms(ktime_sub(skb_dprt, skb_arv));
-+	/* Calculate the latency */
-+	msrmnt = ktime_to_ms(ktime_sub(ktime_get(), skb_arv);
- 
- 	if (tx_lat->max < msrmnt) /* update stats */
- 		tx_lat->max = msrmnt;
-Index: tip/net/mac80211/tx.c
-===================================================================
---- tip.orig/net/mac80211/tx.c
-+++ tip/net/mac80211/tx.c
-@@ -1767,15 +1767,12 @@ fail:
- static void ieee80211_tx_latency_start_msrmnt(struct ieee80211_local *local,
- 					      struct sk_buff *skb)
- {
--	struct timespec skb_arv;
- 	struct ieee80211_tx_latency_bin_ranges *tx_latency;
- 
- 	tx_latency = rcu_dereference(local->tx_latency);
- 	if (!tx_latency)
- 		return;
+Michal
