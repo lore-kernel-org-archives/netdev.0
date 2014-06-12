@@ -1,103 +1,62 @@
-From: Michael Braun <michael-dev-1SGGS//iJ+Y38rf8aCqVIw@public.gmane.org>
-Subject: [PATCH v2 1/2] rt2800usb:fix efuse detection
-Date: Thu, 12 Jun 2014 19:33:36 +0200
-Message-ID: <20140612173336.15935.17359.stgit@charlie.fem.tu-ilmenau.de>
-References: <20140612173057.15935.14194.stgit@charlie.fem.tu-ilmenau.de>
+From: Nandita Dukkipati <nanditad@google.com>
+Subject: Re: [PATCH v2 1/1] tcp: fixing TLP's FIN recovery
+Date: Thu, 12 Jun 2014 10:36:42 -0700
+Message-ID: <CAB_+Fg69Ub-AQn3FyvcGTq7PQK9Lxi=zF8xPW+f4Qjhr6oJ+JA@mail.gmail.com>
+References: <1402583577.3645.477.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1402585712-12103-1-git-send-email-per.hurtig@kau.se>
+	<1402586916.3645.485.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	users-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Ivo van Doorn <IvDoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Helmut Schaa <helmut.schaa-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
-Return-path: <users-bounces-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org>
-In-Reply-To: <20140612173057.15935.14194.stgit-T1IWWRiYoUTeQ37wNh6nHvMwkO6i8y0ws0AfqQuZ5sE@public.gmane.org>
-List-Unsubscribe: <http://rt2x00.serialmonkey.com/mailman/options/users_rt2x00.serialmonkey.com>,
-	<mailto:users-request-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://rt2x00.serialmonkey.com/pipermail/users_rt2x00.serialmonkey.com/>
-List-Post: <mailto:users-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org>
-List-Help: <mailto:users-request-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org?subject=help>
-List-Subscribe: <http://rt2x00.serialmonkey.com/mailman/listinfo/users_rt2x00.serialmonkey.com>,
-	<mailto:users-request-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org?subject=subscribe>
-Errors-To: users-bounces-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org
-Sender: "users" <users-bounces-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Per Hurtig <per.hurtig@kau.se>, panweiping3@gmail.com,
+	Netdev <netdev@vger.kernel.org>,
+	=?UTF-8?Q?Anna_Brunstr=C3=B6m?= <anna.brunstrom@kau.se>,
+	mohammad.rajiullah@kau.se, Neal Cardwell <ncardwell@google.com>,
+	sergei.shtylyov@cogentembedded.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f44.google.com ([209.85.219.44]:63735 "EHLO
+	mail-oa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756471AbaFLRgn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2014 13:36:43 -0400
+Received: by mail-oa0-f44.google.com with SMTP id i7so1702730oag.17
+        for <netdev@vger.kernel.org>; Thu, 12 Jun 2014 10:36:42 -0700 (PDT)
+In-Reply-To: <1402586916.3645.485.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The device 057c:8501 (AVM Fritz! WLAN v2 rev. B) currently does not
-load. One thing observed is that the vendors driver detects EFUSE mode
-for this device, but rt2800usb does not. This is due to rt2800usb
-lacking a check for the firmware mode present in the vendors driver,
-that this patch adopts for rt2800usb.
+On Thu, Jun 12, 2014 at 8:28 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Thu, 2014-06-12 at 17:08 +0200, Per Hurtig wrote:
+>> Fix to a problem observed when losing a FIN segment that does not
+>> contain data.  In such situations, TLP is unable to recover from
+>> *any* tail loss and instead adds at least PTO ms to the
+>> retransmission process, i.e., RTO = RTO + PTO.
+>>
+>> Signed-off-by: Per Hurtig <per.hurtig@kau.se>
+>> ---
+>>  net/ipv4/tcp_output.c | 4 +---
+>>  1 file changed, 1 insertion(+), 3 deletions(-)
+>>
+>> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+>> index ad7549f..819bf0c 100644
+>> --- a/net/ipv4/tcp_output.c
+>> +++ b/net/ipv4/tcp_output.c
+>> @@ -2131,9 +2131,7 @@ void tcp_send_loss_probe(struct sock *sk)
+>>       if (WARN_ON(!skb || !tcp_skb_pcount(skb)))
+>>               goto rearm_timer;
+>>
+>> -     /* Probe with zero data doesn't trigger fast recovery. */
+>> -     if (skb->len > 0)
+>> -             err = __tcp_retransmit_skb(sk, skb);
+>> +     err = __tcp_retransmit_skb(sk, skb);
+>>
+>>       /* Record snd_nxt for loss detection. */
+>>       if (likely(!err))
+>
+> Thanks a lot Per
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-With this patch applied, the 'RF chipset' detection does no longer fail.
+Acked-by: Nandita Dukkipati <nanditad@google.com>
 
-Signed-off-by: Michael Braun <michael-dev-1SGGS//iJ+Y38rf8aCqVIw@public.gmane.org>
----
- drivers/net/wireless/rt2x00/rt2800usb.c |   30 +++++++++++++++++++++++++++++-
- drivers/net/wireless/rt2x00/rt2x00usb.h |    1 +
- 2 files changed, 30 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/wireless/rt2x00/rt2800usb.c b/drivers/net/wireless/rt2x00/rt2800usb.c
-index a49c3d7..11583ca 100644
---- a/drivers/net/wireless/rt2x00/rt2800usb.c
-+++ b/drivers/net/wireless/rt2x00/rt2800usb.c
-@@ -229,6 +229,27 @@ static enum hrtimer_restart rt2800usb_tx_sta_fifo_timeout(struct hrtimer *timer)
- /*
-  * Firmware functions
-  */
-+static int rt2800usb_autorun_detect(struct rt2x00_dev *rt2x00dev)
-+{
-+	__le32 reg;
-+	u32 fw_mode;
-+
-+	/* cannot use rt2x00usb_register_read here as it uses different
-+	 * mode (MULTI_READ vs. DEVICE_MODE) and does not pass the
-+	 * magic value USB_MODE_AUTORUN (0x11) to the device, thus the
-+	 * returned value would be invalid.
-+	 */
-+	rt2x00usb_vendor_request(rt2x00dev, USB_DEVICE_MODE,
-+				 USB_VENDOR_REQUEST_IN, 0, USB_MODE_AUTORUN,
-+				 &reg, sizeof(reg), REGISTER_TIMEOUT_FIRMWARE);
-+	fw_mode = le32_to_cpu(reg);
-+
-+	if ((fw_mode & 0x00000003) == 2)
-+		return 1;
-+
-+	return 0;
-+}
-+
- static char *rt2800usb_get_firmware_name(struct rt2x00_dev *rt2x00dev)
- {
- 	return FIRMWARE_RT2870;
-@@ -735,11 +756,18 @@ static void rt2800usb_fill_rxdone(struct queue_entry *entry,
- /*
-  * Device probe functions.
-  */
-+static int rt2800usb_efuse_detect(struct rt2x00_dev *rt2x00dev)
-+{
-+	if (rt2800usb_autorun_detect(rt2x00dev))
-+		return 1;
-+	return rt2800_efuse_detect(rt2x00dev);
-+}
-+
- static int rt2800usb_read_eeprom(struct rt2x00_dev *rt2x00dev)
- {
- 	int retval;
- 
--	if (rt2800_efuse_detect(rt2x00dev))
-+	if (rt2800usb_efuse_detect(rt2x00dev))
- 		retval = rt2800_read_eeprom_efuse(rt2x00dev);
- 	else
- 		retval = rt2x00usb_eeprom_read(rt2x00dev, rt2x00dev->eeprom,
-diff --git a/drivers/net/wireless/rt2x00/rt2x00usb.h b/drivers/net/wireless/rt2x00/rt2x00usb.h
-index e7bcf62..831b65f 100644
---- a/drivers/net/wireless/rt2x00/rt2x00usb.h
-+++ b/drivers/net/wireless/rt2x00/rt2x00usb.h
-@@ -93,6 +93,7 @@ enum rt2x00usb_mode_offset {
- 	USB_MODE_SLEEP = 7,	/* RT73USB */
- 	USB_MODE_FIRMWARE = 8,	/* RT73USB */
- 	USB_MODE_WAKEUP = 9,	/* RT73USB */
-+	USB_MODE_AUTORUN = 17, /* RT2800USB */
- };
- 
- /**
+Thanks Per and Eric. This is nice addition that makes TLP more useful
+for tail losses.
