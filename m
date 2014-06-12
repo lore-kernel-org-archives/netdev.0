@@ -1,108 +1,52 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the net-next tree
-Date: Thu, 12 Jun 2014 12:14:05 +1000
-Message-ID: <20140612121405.29828461@canb.auug.org.au>
+From: Xufeng Zhang <xufeng.zhang@windriver.com>
+Subject: [PATCH v2] sctp: Fix sk_ack_backlog wrap-around problem
+Date: Thu, 12 Jun 2014 10:53:36 +0800
+Message-ID: <1402541616-15117-1-git-send-email-xufeng.zhang@windriver.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/mutqB3Sa9oEFTbX8sn6949V"; protocol="application/pgp-signature"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Linus =?UTF-8?B?TMO8c3Npbmc=?= <linus.luessing@web.de>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: <linux-sctp@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: <vyasevich@gmail.com>, <nhorman@tuxdriver.com>,
+	<davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Sig_/mutqB3Sa9oEFTbX8sn6949V
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+Consider the scenario:
+For a TCP-style socket, while processing the COOKIE_ECHO chunk in
+sctp_sf_do_5_1D_ce(), after it has passed a series of sanity check,
+a new association would be created in sctp_unpack_cookie(), but afterwards,
+some processing maybe failed, and sctp_association_free() will be called to
+free the previously allocated association, in sctp_association_free(),
+sk_ack_backlog value is decremented for this socket, since the initial
+value for sk_ack_backlog is 0, after the decrement, it will be 65535,
+a wrap-around problem happens, and if we want to establish new associations
+afterward in the same socket, ABORT would be triggered since sctp deem the
+accept queue as full.
+Fix this issue by only decrementing sk_ack_backlog for associations in
+the endpoint's list.
 
-Hi all,
+Fix-suggested-by: Neil Horman <nhorman@tuxdriver.com>
+Signed-off-by: Xufeng Zhang <xufeng.zhang@windriver.com>
+---
+Change for v2:
+  Drop the redundant test for temp suggested by Vlad Yasevich.
 
-After merging the net-next tree, today's linux-next build (powerpc
-ppc64_defconfig) failed like this:
+ net/sctp/associola.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-net/bridge/br_multicast.c: In function 'br_multicast_has_querier_adjacent':
-net/bridge/br_multicast.c:2248:25: error: 'struct net_bridge' has no member=
- named 'ip6_other_query'
-   if (!timer_pending(&br->ip6_other_query.timer) ||
-                         ^
-In file included from include/linux/idr.h:18:0,
-                 from include/linux/kernfs.h:14,
-                 from include/linux/sysfs.h:15,
-                 from include/linux/kobject.h:21,
-                 from include/linux/device.h:17,
-                 from include/linux/dma-mapping.h:5,
-                 from arch/powerpc/include/asm/machdep.h:14,
-                 from arch/powerpc/include/asm/archrandom.h:6,
-                 from include/linux/random.h:81,
-                 from include/linux/net.h:22,
-                 from include/linux/skbuff.h:27,
-                 from include/linux/if_ether.h:23,
-                 from net/bridge/br_multicast.c:15:
-net/bridge/br_multicast.c:2249:25: error: 'struct net_bridge' has no member=
- named 'ip6_querier'
-       rcu_dereference(br->ip6_querier.port) =3D=3D port)
-                         ^
-net/bridge/br_multicast.c:2249:25: error: 'struct net_bridge' has no member=
- named 'ip6_querier'
-       rcu_dereference(br->ip6_querier.port) =3D=3D port)
-                         ^
-In file included from include/linux/err.h:4:0,
-                 from net/bridge/br_multicast.c:13:
-net/bridge/br_multicast.c:2249:25: error: 'struct net_bridge' has no member=
- named 'ip6_querier'
-       rcu_dereference(br->ip6_querier.port) =3D=3D port)
-                         ^
-net/bridge/br_multicast.c:2249:25: error: 'struct net_bridge' has no member=
- named 'ip6_querier'
-       rcu_dereference(br->ip6_querier.port) =3D=3D port)
-                         ^
-In file included from include/linux/idr.h:18:0,
-                 from include/linux/kernfs.h:14,
-                 from include/linux/sysfs.h:15,
-                 from include/linux/kobject.h:21,
-                 from include/linux/device.h:17,
-                 from include/linux/dma-mapping.h:5,
-                 from arch/powerpc/include/asm/machdep.h:14,
-                 from arch/powerpc/include/asm/archrandom.h:6,
-                 from include/linux/random.h:81,
-                 from include/linux/net.h:22,
-                 from include/linux/skbuff.h:27,
-                 from include/linux/if_ether.h:23,
-                 from net/bridge/br_multicast.c:15:
-net/bridge/br_multicast.c:2249:25: error: 'struct net_bridge' has no member=
- named 'ip6_querier'
-       rcu_dereference(br->ip6_querier.port) =3D=3D port)
-                         ^
-
-Caused by commit 2cd4143192e8 ("bridge: memorize and export selected
-IGMP/MLD querier port").  This build has CONFIG_IPV6 not set.
-
-I have reverted that commit for today.
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
---Sig_/mutqB3Sa9oEFTbX8sn6949V
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJTmQzyAAoJEMDTa8Ir7ZwVoasP/18eb3g7lmiVBUH2WNK8HXbU
-sl9xTFefW5j0nTV1ZdmgTuukxoyj9LpykAywo+e90MXk44ABXpTTh7vTUO5jTf9D
-v7ivmd3illypy//r49iSa5KMbqYVmSZAOy9yELdxiwAlppWnz5tlkyHwQ+H0v/z0
-4YIKYj1lcXdKR1jlnyJCRYHAHgM5DuYUSMtrQafI1DcgYdC1GxHFUU4lQF20P+8k
-Jy5igjz6PB6GdahaftXEE/jSOjdhnebP4F0tC+OkT/isLl26oJnSMcqvGLGmbWod
-ZvUo4e1gCUSG/Nd0dA3vhWYTTqgCcDa/a27hLysVZ7Sk9NyzJLg4b498FJbris3S
-1T/+aL/0vsSIirjj/LXGKeQC57jaBU5fZGbAWLaE0mvKJxofLQL9tACZkuvEEylg
-NORS8K23IxsIdnPmwSMCE5oFvX0knUAXUakrKv7gT0KUeUmvmGxWBifYHcQ1jhnk
-J06VoR83vkxOcQXq9CgTrGjbbTwgooxqNdvH+KHyrkoYTbq7osivFKaFK4mTiyI7
-dm0mFWfWyXnGH9y1z/2A7w7DHUM1+mOd2MKHj0eqXHKIPlHBPFbSLMlGFo2rArh6
-woxPVBefrKair5oQwxKESjW4gQvcwQapsb/RVyxC2U+bZYYKEBoFYNnNMdRv+nxw
-dUS7exuBWlsMCXssRGOq
-=LMOH
------END PGP SIGNATURE-----
-
---Sig_/mutqB3Sa9oEFTbX8sn6949V--
+diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+index 39579c3..0b99998 100644
+--- a/net/sctp/associola.c
++++ b/net/sctp/associola.c
+@@ -330,7 +330,7 @@ void sctp_association_free(struct sctp_association *asoc)
+ 	/* Only real associations count against the endpoint, so
+ 	 * don't bother for if this is a temporary association.
+ 	 */
+-	if (!asoc->temp) {
++	if (!list_empty(&asoc->asocs)) {
+ 		list_del(&asoc->asocs);
+ 
+ 		/* Decrement the backlog value for a TCP-style listening
+-- 
+1.7.0.2
