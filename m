@@ -1,73 +1,77 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next] openvswitch: introduce rtnl ops stub
-Date: Thu, 12 Jun 2014 17:03:26 +0200
-Message-ID: <20140612150326.GD2974@minipsycho.orion>
-References: <1402582808-10443-1-git-send-email-jiri@resnulli.us>
- <5399BD2D.6050609@6wind.com>
+From: Milos Vyletel <milos.vyletel@gmail.com>
+Subject: Re: [patch net-next 3/5] ipv6: consider net.ipv6.conf.all sysctls
+ when making decisions
+Date: Thu, 12 Jun 2014 11:07:00 -0400
+Message-ID: <CAAFXRd3A32vfZUZv8yz=Fj83Eg7uiUMa3pmbQCh9zXauq2rdWg@mail.gmail.com>
+References: <1402417153-2551-4-git-send-email-milos.vyletel@gmail.com>
+	<20140610101334.565bc484@nehalam.linuxnetplumber.net>
+	<CAAFXRd1Stuyj2t8Oinr6SQysGbMJKPpY5qe=mO_m0xKR1eSjOQ@mail.gmail.com>
+	<20140611.153225.671693159592497903.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net, pshelar@nicira.com,
-	cwang@twopensource.com, ebiederm@xmission.com,
-	david@gibson.dropbear.id.au, sfeldma@cumulusnetworks.com,
-	sucheta.chakraborty@qlogic.com, stephen@networkplumber.org
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:60504 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752898AbaFLPDd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2014 11:03:33 -0400
-Received: by mail-wg0-f44.google.com with SMTP id x13so1389074wgg.15
-        for <netdev@vger.kernel.org>; Thu, 12 Jun 2014 08:03:28 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <5399BD2D.6050609@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: stephen@networkplumber.org, amwang@redhat.com,
+	netdev@vger.kernel.org, oliver@neukum.org, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	pshelar@nicira.com, nicolas.dichtel@6wind.com,
+	mike.rapoport@ravellosystems.com, dborkman@redhat.com,
+	ogerlitz@mellanox.com, therbert@google.com,
+	hannes@stressinduktion.org, florent.fourcot@enst-bretagne.fr,
+	edumazet@google.com, Paul.Durrant@citrix.com,
+	linux-usb@vger.kernel.org,
+	"open list:X86 ARCHITECTURE..." <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140611.153225.671693159592497903.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Thu, Jun 12, 2014 at 04:46:05PM CEST, nicolas.dichtel@6wind.com wrote:
->Le 12/06/2014 16:20, Jiri Pirko a =E9crit :
->>This stub now allows userspace to see IFLA_INFO_KIND for ovs master a=
-nd
->>IFLA_INFO_SLAVE_KIND for slave.
->>
->>Note that I added ops->setup check into newlink and dellink in order =
-to
->>prevent creating and deleting openvswitch instances using rtnl for no=
-w.
->>
->>Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->net-next is closed ;-)
+David,
+
+my words may have been poorly chosen. Last thing I want is to break things...
+
+What I meant to say is that this changes the behavior of conf.all.*
+sysctls from no-op to be part of decision along with interface
+specific ones. Default settings still work the same way unless
+conf.all.* was manually modified by user (for example setting
+conf.all.accept_ra_defrtr=0 did not stop kernel from setting default
+router before but it would with this change).
+
+If this is not desired functionality I'm fine with it not being
+applied. However if that's the case I suggest removing conf.all.*
+altogether since it's no-op and pretty confusing for users (myself
+included).
+
+Milos
+
+On Wed, Jun 11, 2014 at 6:32 PM, David Miller <davem@davemloft.net> wrote:
+> From: Milos Vyletel <milos.vyletel@gmail.com>
+> Date: Tue, 10 Jun 2014 13:49:35 -0400
 >
->>---
->>  net/core/rtnetlink.c                 |  5 ++++-
->>  net/openvswitch/datapath.c           |  9 ++++++++-
->>  net/openvswitch/vport-internal_dev.c | 16 ++++++++++++++++
->>  net/openvswitch/vport-internal_dev.h |  2 ++
->>  4 files changed, 30 insertions(+), 2 deletions(-)
+>> On Tue, Jun 10, 2014 at 1:13 PM, Stephen Hemminger
+>> <stephen@networkplumber.org> wrote:
+>>> On Tue, 10 Jun 2014 12:19:11 -0400
+>>> Milos Vyletel <milos.vyletel@gmail.com> wrote:
+>>>
+>>>> As it is right now net.ipv6.conf.all.* are mostly ignored and instead
+>>>> we're only making decisions based on interface specific settings. These
+>>>> settings are coppied from net.ipv6.conf.default and changing either all
+>>>> or default settings have no effect.
+>>>
+>>> Although this is the right idea conceptually, it risks creating unhappy
+>>> users because it changes the semantics of the API. This will probably break
+>>> somebody's configuration.
 >>
->>diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
->>index 233b5ae..b874139 100644
->>--- a/net/core/rtnetlink.c
->>+++ b/net/core/rtnetlink.c
->>@@ -1767,7 +1767,7 @@ static int rtnl_dellink(struct sk_buff *skb, st=
-ruct nlmsghdr *nlh)
->>  		return -ENODEV;
->>
->>  	ops =3D dev->rtnl_link_ops;
->>-	if (!ops)
->>+	if (!ops || !ops->setup)
->>  		return -EOPNOTSUPP;
->>
->>  	ops->dellink(dev, &list_kill);
->>@@ -2028,6 +2028,9 @@ replay:
->>  			return -EOPNOTSUPP;
->>  		}
->>
->>+		if (!ops->setup)
->>+			return -EOPNOTSUPP;
->>+
->For this one, you could just add a ops->validate in openvswitch which =
-returns
->always -EOPNOTSUPP.
-
-yeah, I wanted the check in newlink and dellink to be the same
+>> You're right but in this case I feel we are moving in the right
+>> direction. While the
+>> behavior will change in some cases this change is only adding well known ipv4
+>> behavior for ipv6 sysctls. In fact documentation briefly mentioned that
+>> net.ipv6.conf.all.* should change all the interface-specific settings
+>> but that was
+>> not the case until now.
+>
+> You can't just break things on people, no matter how much you think the
+> current behavior is "poorly designed", "inconsistent with other areas of
+> the networking", etc.  None of those things matter if you have to break
+> things on people to "fix" it.
+>
+> I'm not applying this series, sorry.
