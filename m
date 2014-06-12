@@ -1,45 +1,52 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH 2/4] udp: call __skb_checksum_complete when doing full
- checksum
-Date: Thu, 12 Jun 2014 16:04:01 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1406121553370.29725@tomh.mtv.corp.google.com>
+Subject: [PATCH 3/4] net: add skb_pop_rcv_encapsulation
+Date: Thu, 12 Jun 2014 16:04:16 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1406121554350.29731@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f201.google.com ([209.85.160.201]:33497 "EHLO
-	mail-yk0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750862AbaFLXED (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2014 19:04:03 -0400
-Received: by mail-yk0-f201.google.com with SMTP id 9so105237ykp.2
-        for <netdev@vger.kernel.org>; Thu, 12 Jun 2014 16:04:01 -0700 (PDT)
+Received: from mail-pb0-f73.google.com ([209.85.160.73]:45680 "EHLO
+	mail-pb0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750907AbaFLXER (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2014 19:04:17 -0400
+Received: by mail-pb0-f73.google.com with SMTP id ma3so186899pbc.2
+        for <netdev@vger.kernel.org>; Thu, 12 Jun 2014 16:04:16 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In __udp_lib_checksum_complete check if checksum is being done over all
-the data (len is equal to skb->len) and if it is call
-__skb_checksum_complete instead of __skb_checksum_complete_head. This
-allows checksum to be saved in checksum complete.
+This function is used by UDP encapsulation protocols in RX when
+crossing encapsulation boundary. If ip_summed is set to
+CHECKSUM_UNNECESSARY and encapsulation is not set, change to
+CHECKSUM_NONE since the checksum has not been validated within the
+encapsulation.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- include/net/udp.h | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ include/linux/skbuff.h | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
 
-diff --git a/include/net/udp.h b/include/net/udp.h
-index 2ecfc6e..68a1fef 100644
---- a/include/net/udp.h
-+++ b/include/net/udp.h
-@@ -111,7 +111,9 @@ struct sk_buff;
-  */
- static inline __sum16 __udp_lib_checksum_complete(struct sk_buff *skb)
- {
--	return __skb_checksum_complete_head(skb, UDP_SKB_CB(skb)->cscov);
-+	return (UDP_SKB_CB(skb)->cscov == skb->len ?
-+		__skb_checksum_complete(skb) :
-+		__skb_checksum_complete_head(skb, UDP_SKB_CB(skb)->cscov));
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 5b5cd31..fdb510c 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -1853,6 +1853,17 @@ static inline int pskb_network_may_pull(struct sk_buff *skb, unsigned int len)
+ 	return pskb_may_pull(skb, skb_network_offset(skb) + len);
  }
  
- static inline int udp_lib_checksum_complete(struct sk_buff *skb)
++static inline void skb_pop_rcv_encapsulation(struct sk_buff *skb)
++{
++	/* Only continue with checksum unnecessary if device indicated
++	 * it is valid across encapsulation (skb->encapsulation was set).
++	 */
++	if (skb->ip_summed == CHECKSUM_UNNECESSARY && !skb->encapsulation)
++		skb->ip_summed = CHECKSUM_NONE;
++
++	skb->encapsulation = 0;
++}
++
+ /*
+  * CPUs often take a performance hit when accessing unaligned memory
+  * locations. The actual performance hit varies, it can be small if the
 -- 
 2.0.0.526.g5318336
