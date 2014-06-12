@@ -1,53 +1,80 @@
-From: dormando <dormando@rydia.net>
-Subject: Re: [PATCH] ipv4: fix a race in ip4_datagram_release_cb()
-Date: Wed, 11 Jun 2014 21:05:43 -0700 (PDT)
-Message-ID: <alpine.DEB.2.10.1406112102500.7354@dinf>
-References: <CA+FTKhs45vD66xSQRgijwFjSuy-Mt8EGr3cRv60oCcEnFPKnaQ@mail.gmail.com>   <1402407781.3645.426.camel@edumazet-glaptop2.roam.corp.google.com>   <alpine.DEB.2.02.1406101726390.11647@dtop>   <1402448128.3645.437.camel@edumazet-glaptop2.roam.corp.google.com>
-  <1402449173.3645.440.camel@edumazet-glaptop2.roam.corp.google.com>   <1402450009.3645.444.camel@edumazet-glaptop2.roam.corp.google.com>   <alpine.DEB.2.10.1406102114520.28698@dinf>   <1402466090.3645.456.camel@edumazet-glaptop2.roam.corp.google.com>  
- <alpine.DEB.2.02.1406110011170.11647@dtop>   <alpine.DEB.2.02.1406110022550.11647@dtop>   <alpine.DEB.2.02.1406110036490.11647@dtop>   <1402490462.3645.463.camel@edumazet-glaptop2.roam.corp.google.com>  <1402492373.3645.466.camel@edumazet-glaptop2.roam.corp.google.com>
-  <alpine.DEB.2.02.1406111851140.18470@dtop> <1402544609.3645.473.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Yuval Mintz <yuval.mintz@qlogic.com>
+Subject: [PATCH v2 net 1/4] bnx2x: Fix link for KR with swapped polarity lane
+Date: Thu, 12 Jun 2014 07:55:29 +0300
+Message-ID: <1402548932-30520-2-git-send-email-yuval.mintz@qlogic.com>
+References: <1402548932-30520-1-git-send-email-yuval.mintz@qlogic.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Alexey Preobrazhensky <preobr@google.com>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	David Miller <davem@davemloft.net>, paulmck@linux.vnet.ibm.com,
-	netdev@vger.kernel.org, Kostya Serebryany <kcc@google.com>,
-	Dmitry Vyukov <dvyukov@google.com>,
-	Lars Bull <larsbull@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Bruce Curtis <brutus@google.com>,
-	=?ISO-8859-2?Q?Maciej_=AFenczykowski?= <maze@google.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Cc: <ariel.elior@qlogic.com>, Yaniv Rosner <yaniv.rosner@qlogic.com>,
+	Yuval Mintz <yuval.mintz@qlogic.com>
+To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from rydia.net ([69.46.88.68]:55581 "EHLO mail.rydia.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750795AbaFLEFs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Jun 2014 00:05:48 -0400
-In-Reply-To: <1402544609.3645.473.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:47110 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751134AbaFLEzm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2014 00:55:42 -0400
+In-Reply-To: <1402548932-30520-1-git-send-email-yuval.mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 11 Jun 2014, Eric Dumazet wrote:
+From: Yaniv Rosner <yaniv.rosner@qlogic.com>
 
-> On Wed, 2014-06-11 at 18:55 -0700, dormando wrote:
->
-> > I sent the udpkill utility in an off-list mail (in case that got binned by
-> > anyone).
-> >
-> > Just threw this patch on top of the other two, on 3.10.42. udpkill's been
-> > running for an hour without fault. I've just put traffic back onto the
-> > machine am leaving udpkill enabled for a while longer.
-> >
-> > So, this is an improvement :)
->
-> Nice. I suspect regression came with 3.6 ip route cache removal, but I
-> am lazy to point the exact commit.
->
+This avoids clearing the RX polarity setting in KR mode when polarity lane
+is swapped, as otherwise this will result in failed link.
 
-Think I owe you a keg at this point. I'll let this bake and we'll see if
-the other crashes come back... it'll take a week or two.
+Signed-off-by: Yaniv Rosner <yaniv.rosner@qlogic.com>
+Signed-off-by: Yuval Mintz <yuval.mintz@qlogic.com>
+Signed-off-by: Ariel Elior <ariel.elior@qlogic.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c | 25 ++++++++++++++++++------
+ 1 file changed, 19 insertions(+), 6 deletions(-)
 
-I'll have to circle back around to figure out what's gone wrong with 3.14.
-
-Please let me know if there's anything else to test.
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
+index 9b6b3d7..b052f56 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_link.c
+@@ -3703,7 +3703,8 @@ static void bnx2x_warpcore_restart_AN_KR(struct bnx2x_phy *phy,
+ static void bnx2x_warpcore_enable_AN_KR(struct bnx2x_phy *phy,
+ 					struct link_params *params,
+ 					struct link_vars *vars) {
+-	u16 lane, i, cl72_ctrl, an_adv = 0;
++	u16 lane, i, cl72_ctrl, an_adv = 0, val;
++	u32 wc_lane_config;
+ 	struct bnx2x *bp = params->bp;
+ 	static struct bnx2x_reg_set reg_set[] = {
+ 		{MDIO_WC_DEVAD, MDIO_WC_REG_SERDESDIGITAL_CONTROL1000X2, 0x7},
+@@ -3822,15 +3823,27 @@ static void bnx2x_warpcore_enable_AN_KR(struct bnx2x_phy *phy,
+ 		/* Enable Auto-Detect to support 1G over CL37 as well */
+ 		bnx2x_cl45_write(bp, phy, MDIO_WC_DEVAD,
+ 				 MDIO_WC_REG_SERDESDIGITAL_CONTROL1000X1, 0x10);
+-
++		wc_lane_config = REG_RD(bp, params->shmem_base +
++					offsetof(struct shmem_region, dev_info.
++					shared_hw_config.wc_lane_config));
++		bnx2x_cl45_read(bp, phy, MDIO_WC_DEVAD,
++				MDIO_WC_REG_RX0_PCI_CTRL + (lane << 4), &val);
+ 		/* Force cl48 sync_status LOW to avoid getting stuck in CL73
+ 		 * parallel-detect loop when CL73 and CL37 are enabled.
+ 		 */
+-		CL22_WR_OVER_CL45(bp, phy, MDIO_REG_BANK_AER_BLOCK,
+-				  MDIO_AER_BLOCK_AER_REG, 0);
++		val |= 1 << 11;
++
++		/* Restore Polarity settings in case it was run over by
++		 * previous link owner
++		 */
++		if (wc_lane_config &
++		    (SHARED_HW_CFG_RX_LANE0_POL_FLIP_ENABLED << lane))
++			val |= 3 << 2;
++		else
++			val &= ~(3 << 2);
+ 		bnx2x_cl45_write(bp, phy, MDIO_WC_DEVAD,
+-				 MDIO_WC_REG_RXB_ANA_RX_CONTROL_PCI, 0x0800);
+-		bnx2x_set_aer_mmd(params, phy);
++				 MDIO_WC_REG_RX0_PCI_CTRL + (lane << 4),
++				 val);
+ 
+ 		bnx2x_disable_kr2(params, vars, phy);
+ 	}
+-- 
+1.8.1.4
