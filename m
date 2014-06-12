@@ -1,81 +1,85 @@
-From: "Michael Kerrisk (man-pages)" <mtk.manpages@gmail.com>
-Subject: Re: recvmmsg/sendmmsg result types inconsistent, integer overflows?
-Date: Thu, 12 Jun 2014 08:04:54 +0200
-Message-ID: <CAKgNAkh7ihJyZ4gOXAeb3x-Su7ayshLdi9m6ML4n840n3bx=0Q@mail.gmail.com>
-References: <20140611041243.GA1475@brightrain.aerifal.cx> <1402464261.5195.21.camel@marge.simpson.net>
- <1402465808.3645.454.camel@edumazet-glaptop2.roam.corp.google.com> <20140611151511.GU179@brightrain.aerifal.cx>
-Reply-To: mtk.manpages@gmail.com
+From: Chen Weilong <chenweilong@huawei.com>
+Subject: [request for stable inclusion] ipv6: reallocate addrconf router for ipv6 address when lo device up
+Date: Thu, 12 Jun 2014 14:17:31 +0800
+Message-ID: <1402553851-8944-1-git-send-email-chenweilong@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Mike Galbraith <umgwanakikbuti@gmail.com>,
-	lkml <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Rich Felker <dalias@libc.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140611151511.GU179@brightrain.aerifal.cx>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, Weilong Chen <chenweilong@huawei.com>
+To: <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
+	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:5083 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751479AbaFLGS4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2014 02:18:56 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Rich,
+From: Weilong Chen <chenweilong@huawei.com>
 
-On Wed, Jun 11, 2014 at 5:15 PM, Rich Felker <dalias@libc.org> wrote:
-> On Tue, Jun 10, 2014 at 10:50:08PM -0700, Eric Dumazet wrote:
->> On Wed, 2014-06-11 at 07:24 +0200, Mike Galbraith wrote:
->> > (CCs network wizard hangout)
->> >
->> > On Wed, 2014-06-11 at 00:12 -0400, Rich Felker wrote:
->> > > While looking to add support for the recvmmsg and sendmmsg syscalls in
->> > > musl libc, I ran into some disturbing findings on the kernel side. In
->> > > the struct mmsghdr, the field where the result for each message is
->> > > stored has type int, which is inconsistent with the return type
->> > > ssize_t of recvmsg/sendmsg. So I tried to track down what happens when
->> > > the result is or would be larger than 2GB, and quickly found an
->> > > explanation for why the type in the structure was defined wrong:
->> > > internally, the kernel uses int as the return type for revcmsg and
->> > > sendmsg. Oops.
->> > >
->> > > A bit more RTFS'ing brought me to tcp_sendmsg in net/ipv4/tcp.c (I
->> > > figured let's look at a stream-based protocol, since datagrams can
->> > > likely never be that big for any existing protocol), and as far as I
->> > > can tell, it's haphazardly mixing int and size_t with no checks for
->> > > overflows. I looked for anywhere the kernel might try to verify before
->> > > starting that the sum of the lengths of all the iovec components
->> > > doesn't overflow INT_MAX or even SIZE_MAX, but didn't find any such
->> > > checks.
->> > >
->> > > Is there some magic that makes this all safe, or is this a big mess of
->> > > possibly-security-relevant bugs?
->> > >
->> > > Rich
->> > > --
->> > > To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
->> > > the body of a message to majordomo@vger.kernel.org
->> > > More majordomo info at  http://vger.kernel.org/majordomo-info.html
->> > > Please read the FAQ at  http://www.tux.org/lkml/
->> >
->>
->>
->> See commit 8acfe468b0384e834a303f08ebc4953d72fb690a
->> ("net: Limit socket I/O iovec total length to INT_MAX.")
->>
->> (or grep for verify_iovec() )
->
-> Thanks; that addresses my concern about safety. There's still the ugly
-> API inconsistency which it seems too late to fix. Michael, perhaps
-> this should at least be documented in the man pages for sendmmsg and
-> recvmmsg since it's certain to be confusing to anyone familiar with
-> the sendmsg and recvmsg API, but not with kernel internals, who's
-> trying to use these functions...
+"commit 33d99113b1102c2d2f8603b9ba72d89d915c13f5
+ipv6: reallocate addrconf router for ipv6 address when lo device up."
+This commit don't have a stable tag, but it fix the bug
+no reply after loopback down-up.I think it should be
+applied to stable 3.4.x kernels.
 
-Care to send me a patch?
+The bug is 67951 on bugzilla
+https://bugzilla.kernel.org/show_bug.cgi?id=67951
 
-Thanks,
+The patch can't be applied directly. And it used the function introduced
+by "commit 94e187c0" ip6_rt_put(), this patch can't be applied directly
+either. 
 
-Michael
+Signed-off-by: Weilong Chen <chenweilong@huawei.com>
+---
+ include/net/ip6_fib.h |  9 +++++++++
+ net/ipv6/addrconf.c   | 14 ++++++++++++--
+ 2 files changed, 21 insertions(+), 2 deletions(-)
 
-
+diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
+index 0ae759a..7c17c35 100644
+--- a/include/net/ip6_fib.h
++++ b/include/net/ip6_fib.h
+@@ -171,6 +171,15 @@ static inline void rt6_set_from(struct rt6_info *rt, struct rt6_info *from)
+ 	dst_hold(new);
+ }
+ 
++static inline void ip6_rt_put(struct rt6_info *rt)
++{
++	/* dst_release() accepts a NULL parameter.
++	 * We rely on dst being first structure in struct rt6_info
++	 */
++	BUILD_BUG_ON(offsetof(struct rt6_info, dst) != 0);
++	dst_release(&rt->dst);
++}
++
+ struct fib6_walker_t {
+ 	struct list_head lh;
+ 	struct fib6_node *root, *node;
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 9b8c3c6..00a0904 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -2424,8 +2424,18 @@ static void init_loopback(struct net_device *dev)
+ 			if (sp_ifa->flags & (IFA_F_DADFAILED | IFA_F_TENTATIVE))
+ 				continue;
+ 
+-			if (sp_ifa->rt)
+-				continue;
++			if (sp_ifa->rt) {
++				/* This dst has been added to garbage list when
++				 * lo device down, release this obsolete dst and
++				 * reallocate a new router for ifa.
++				 */
++				if (sp_ifa->rt->dst.obsolete > 0) {
++					ip6_rt_put(sp_ifa->rt);
++					sp_ifa->rt = NULL;
++				} else {
++					continue;
++				}
++			}
+ 
+ 			sp_rt = addrconf_dst_alloc(idev, &sp_ifa->addr, 0);
+ 
 -- 
-Michael Kerrisk
-Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
-Linux/UNIX System Programming Training: http://man7.org/training/
+1.7.12
