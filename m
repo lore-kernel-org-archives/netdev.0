@@ -1,66 +1,52 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH v2] sctp: Fix sk_ack_backlog wrap-around problem
-Date: Thu, 12 Jun 2014 10:29:46 -0400
-Message-ID: <5399B95A.9080804@gmail.com>
-References: <1402541616-15117-1-git-send-email-xufeng.zhang@windriver.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] tcp: fixing TLP's FIN recovery
+Date: Thu, 12 Jun 2014 07:32:57 -0700
+Message-ID: <1402583577.3645.477.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <539319F6.2090907@cogentembedded.com>
+		<1402151680-11434-1-git-send-email-per.hurtig@kau.se>
+		<1402196305.3645.318.camel@edumazet-glaptop2.roam.corp.google.com>
+		<539413BA.7060903@kau.se>
+	 <CAB_+Fg5=Z0wfaAZgUMXKttHKx9WoVLQv5ZqDeUQJmGA0LJTwPg@mail.gmail.com>
+	 <5399B762.5090002@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Xufeng Zhang <xufeng.zhang@windriver.com>, nhorman@tuxdriver.com,
-	davem@davemloft.net
+Cc: Nandita Dukkipati <nanditad@google.com>,
+	Per Hurtig <per.hurtig@kau.se>,
+	Netdev <netdev@vger.kernel.org>,
+	Anna =?ISO-8859-1?Q?Brunstr=F6m?= <anna.brunstrom@kau.se>,
+	mohammad.rajiullah@kau.se, Neal Cardwell <ncardwell@google.com>,
+	sergei.shtylyov@cogentembedded.com
+To: Weiping Pan <panweiping3@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f44.google.com ([209.85.216.44]:38322 "EHLO
-	mail-qa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755910AbaFLO3v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2014 10:29:51 -0400
-In-Reply-To: <1402541616-15117-1-git-send-email-xufeng.zhang@windriver.com>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:45553 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933291AbaFLOc7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2014 10:32:59 -0400
+Received: by mail-pd0-f172.google.com with SMTP id fp1so1033072pdb.3
+        for <netdev@vger.kernel.org>; Thu, 12 Jun 2014 07:32:59 -0700 (PDT)
+In-Reply-To: <5399B762.5090002@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/11/2014 10:53 PM, Xufeng Zhang wrote:
-> Consider the scenario:
-> For a TCP-style socket, while processing the COOKIE_ECHO chunk in
-> sctp_sf_do_5_1D_ce(), after it has passed a series of sanity check,
-> a new association would be created in sctp_unpack_cookie(), but afterwards,
-> some processing maybe failed, and sctp_association_free() will be called to
-> free the previously allocated association, in sctp_association_free(),
-> sk_ack_backlog value is decremented for this socket, since the initial
-> value for sk_ack_backlog is 0, after the decrement, it will be 65535,
-> a wrap-around problem happens, and if we want to establish new associations
-> afterward in the same socket, ABORT would be triggered since sctp deem the
-> accept queue as full.
-> Fix this issue by only decrementing sk_ack_backlog for associations in
-> the endpoint's list.
+On Thu, 2014-06-12 at 22:21 +0800, Weiping Pan wrote:
+> When we queue an out of order pure FIN packet, we do not check whether 
+> it has data or not.
+> tcp_rcv_established
+> -->tcp_data_queue
+> ---->tcp_data_queue_ofo
 > 
-> Fix-suggested-by: Neil Horman <nhorman@tuxdriver.com>
-> Signed-off-by: Xufeng Zhang <xufeng.zhang@windriver.com>
+> Then the pure FIN packet can generate SACK, which will trigger fast 
+> recovery or early retransmit on the sender.
+> >
+> > If you have verified that a pure FIN does indeed trigger recovery, can
+> > you tell me what part of the code makes that happen?
+> Here is the patch I use, I think the original if statement is useless, 
+> so I delete it.
 
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+Yes, this is exactly what we agreed, and what we tested as well here at
+Google.
+
+Per, can you submit an updated official version of the patch ?
 
 Thanks
--vlad
-
-
-> ---
-> Change for v2:
->   Drop the redundant test for temp suggested by Vlad Yasevich.
-> 
->  net/sctp/associola.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-> index 39579c3..0b99998 100644
-> --- a/net/sctp/associola.c
-> +++ b/net/sctp/associola.c
-> @@ -330,7 +330,7 @@ void sctp_association_free(struct sctp_association *asoc)
->  	/* Only real associations count against the endpoint, so
->  	 * don't bother for if this is a temporary association.
->  	 */
-> -	if (!asoc->temp) {
-> +	if (!list_empty(&asoc->asocs)) {
->  		list_del(&asoc->asocs);
->  
->  		/* Decrement the backlog value for a TCP-style listening
-> 
