@@ -1,28 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5 0/6] net: fec: Enable Software TSO to improve the tx
- performance
-Date: Thu, 12 Jun 2014 11:02:27 -0700 (PDT)
-Message-ID: <20140612.110227.1273030855716016175.davem@davemloft.net>
-References: <1402532183-14910-1-git-send-email-b38611@freescale.com>
+Subject: Re: [PATCH net-next] mrf24j40: separate h/w init and add checkings
+Date: Thu, 12 Jun 2014 11:03:24 -0700 (PDT)
+Message-ID: <20140612.110324.932062947770396872.davem@davemloft.net>
+References: <1402564248-20606-1-git-send-email-varkab@cdac.in>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ezequiel.garcia@free-electrons.com,
-	b20596@freescale.com, David.Laight@ACULAB.COM,
-	eric.dumazet@gmail.com
-To: b38611@freescale.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53372 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750803AbaFLSC2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2014 14:02:28 -0400
-In-Reply-To: <1402532183-14910-1-git-send-email-b38611@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, alex.bluesman.smirnov@gmail.com,
+	dbaryshkov@gmail.com, linux-zigbee-devel@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, varkab@cdac.in
+To: varkabhadram@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1402564248-20606-1-git-send-email-varkab@cdac.in>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Fugang Duan <b38611@freescale.com>
-Date: Thu, 12 Jun 2014 08:16:17 +0800
+From: Varka Bhadram <varkabhadram@gmail.com>
+Date: Thu, 12 Jun 2014 14:40:48 +0530
 
-> Add SG and software TSO support for FEC.
+> separate the mrf24j40 hardware initialisation from probe()
+> and adds the sanity checkings.
+> 
+> These checkings are required if somebody hasn't a right spi configuration 
+> the probe function should fail. So we have to return from there.
+> 
+> Signed-off-by: Varka Bhadram <varkab@cdac.in>
 
-Series applied, thanks.
+Applied, thanks.
