@@ -1,62 +1,45 @@
-From: Nandita Dukkipati <nanditad@google.com>
-Subject: Re: [PATCH v2 1/1] tcp: fixing TLP's FIN recovery
-Date: Thu, 12 Jun 2014 10:36:42 -0700
-Message-ID: <CAB_+Fg69Ub-AQn3FyvcGTq7PQK9Lxi=zF8xPW+f4Qjhr6oJ+JA@mail.gmail.com>
-References: <1402583577.3645.477.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1402585712-12103-1-git-send-email-per.hurtig@kau.se>
-	<1402586916.3645.485.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] sctp: Fix sk_ack_backlog wrap-around problem
+Date: Thu, 12 Jun 2014 10:38:14 -0700 (PDT)
+Message-ID: <20140612.103814.1635322528200849616.davem@davemloft.net>
+References: <1402541616-15117-1-git-send-email-xufeng.zhang@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Per Hurtig <per.hurtig@kau.se>, panweiping3@gmail.com,
-	Netdev <netdev@vger.kernel.org>,
-	=?UTF-8?Q?Anna_Brunstr=C3=B6m?= <anna.brunstrom@kau.se>,
-	mohammad.rajiullah@kau.se, Neal Cardwell <ncardwell@google.com>,
-	sergei.shtylyov@cogentembedded.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: vyasevich@gmail.com, nhorman@tuxdriver.com,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: xufeng.zhang@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f44.google.com ([209.85.219.44]:63735 "EHLO
-	mail-oa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756471AbaFLRgn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2014 13:36:43 -0400
-Received: by mail-oa0-f44.google.com with SMTP id i7so1702730oag.17
-        for <netdev@vger.kernel.org>; Thu, 12 Jun 2014 10:36:42 -0700 (PDT)
-In-Reply-To: <1402586916.3645.485.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53092 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750716AbaFLRiQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2014 13:38:16 -0400
+In-Reply-To: <1402541616-15117-1-git-send-email-xufeng.zhang@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 12, 2014 at 8:28 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2014-06-12 at 17:08 +0200, Per Hurtig wrote:
->> Fix to a problem observed when losing a FIN segment that does not
->> contain data.  In such situations, TLP is unable to recover from
->> *any* tail loss and instead adds at least PTO ms to the
->> retransmission process, i.e., RTO = RTO + PTO.
->>
->> Signed-off-by: Per Hurtig <per.hurtig@kau.se>
->> ---
->>  net/ipv4/tcp_output.c | 4 +---
->>  1 file changed, 1 insertion(+), 3 deletions(-)
->>
->> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
->> index ad7549f..819bf0c 100644
->> --- a/net/ipv4/tcp_output.c
->> +++ b/net/ipv4/tcp_output.c
->> @@ -2131,9 +2131,7 @@ void tcp_send_loss_probe(struct sock *sk)
->>       if (WARN_ON(!skb || !tcp_skb_pcount(skb)))
->>               goto rearm_timer;
->>
->> -     /* Probe with zero data doesn't trigger fast recovery. */
->> -     if (skb->len > 0)
->> -             err = __tcp_retransmit_skb(sk, skb);
->> +     err = __tcp_retransmit_skb(sk, skb);
->>
->>       /* Record snd_nxt for loss detection. */
->>       if (likely(!err))
->
-> Thanks a lot Per
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+From: Xufeng Zhang <xufeng.zhang@windriver.com>
+Date: Thu, 12 Jun 2014 10:53:36 +0800
 
-Acked-by: Nandita Dukkipati <nanditad@google.com>
+> Consider the scenario:
+> For a TCP-style socket, while processing the COOKIE_ECHO chunk in
+> sctp_sf_do_5_1D_ce(), after it has passed a series of sanity check,
+> a new association would be created in sctp_unpack_cookie(), but afterwards,
+> some processing maybe failed, and sctp_association_free() will be called to
+> free the previously allocated association, in sctp_association_free(),
+> sk_ack_backlog value is decremented for this socket, since the initial
+> value for sk_ack_backlog is 0, after the decrement, it will be 65535,
+> a wrap-around problem happens, and if we want to establish new associations
+> afterward in the same socket, ABORT would be triggered since sctp deem the
+> accept queue as full.
+> Fix this issue by only decrementing sk_ack_backlog for associations in
+> the endpoint's list.
+> 
+> Fix-suggested-by: Neil Horman <nhorman@tuxdriver.com>
+> Signed-off-by: Xufeng Zhang <xufeng.zhang@windriver.com>
+> ---
+> Change for v2:
+>   Drop the redundant test for temp suggested by Vlad Yasevich.
 
-Thanks Per and Eric. This is nice addition that makes TLP more useful
-for tail losses.
+Applied and queued up for -stable, thanks.
