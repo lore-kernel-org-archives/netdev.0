@@ -1,66 +1,94 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH 2/2] openvswitch: Enable tunnel GSO for OVS bridge.
-Date: Thu, 12 Jun 2014 08:41:09 -0700
-Message-ID: <CALnjE+qqNcRC2NhqCu=OpLhN3exDsSR91fyzcx8AeHvyvCRZbA@mail.gmail.com>
-References: <1401017985-1574-1-git-send-email-pshelar@nicira.com>
-	<CAJZOPZKhxTWP_vGYKADBc6-B4HSj-QJygdATGkd6cHqHO+PHoQ@mail.gmail.com>
+From: =?utf-8?B?U8O2cmVu?= Brinkmann <soren.brinkmann@xilinx.com>
+Subject: Re: [PATCH] net/cadence/macb: clear interrupts simply and correctly
+Date: Thu, 12 Jun 2014 08:44:38 -0700
+Message-ID: <9f5be687-d127-49a4-90ea-c1033505452d@BN1BFFO11FD019.protection.gbl>
+References: <1402563054-8546-1-git-send-email-neidhard.kim@lge.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Or Gerlitz <or.gerlitz@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog120.obsmtp.com ([74.125.149.140]:54249 "HELO
-	na3sys009aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752950AbaFLPlK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2014 11:41:10 -0400
-Received: by mail-ve0-f170.google.com with SMTP id oz11so1979480veb.15
-        for <netdev@vger.kernel.org>; Thu, 12 Jun 2014 08:41:09 -0700 (PDT)
-In-Reply-To: <CAJZOPZKhxTWP_vGYKADBc6-B4HSj-QJygdATGkd6cHqHO+PHoQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Nicolas Ferre <nicolas.ferre@atmel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hayun Hwang <hwang.hayun@lge.com>,
+	Youngkyu Choi <youngkyu7.choi@lge.com>
+To: Jongsung Kim <neidhard.kim@lge.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1402563054-8546-1-git-send-email-neidhard.kim@lge.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 12, 2014 at 2:27 AM, Or Gerlitz <or.gerlitz@gmail.com> wrote:
-> On Sun, May 25, 2014 at 2:39 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
->> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
->> ---
->>  include/linux/netdev_features.h      | 4 ++++
->>  net/openvswitch/vport-internal_dev.c | 3 ++-
->>  2 files changed, 6 insertions(+), 1 deletion(-)
->>
->> diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
->> index e5a5894..12118a5 100644
->> --- a/include/linux/netdev_features.h
->> +++ b/include/linux/netdev_features.h
->> @@ -152,6 +152,10 @@ enum {
->>  #define NETIF_F_ALL_FCOE       (NETIF_F_FCOE_CRC | NETIF_F_FCOE_MTU | \
->>                                  NETIF_F_FSO)
->>
->> +#define NETIF_F_ALL_ENCAP_GSO   (NETIF_F_GSO_GRE | NETIF_F_GSO_GRE_CSUM | \
->> +                                NETIF_F_GSO_IPIP | NETIF_F_GSO_SIT |     \
->> +                                NETIF_F_GSO_UDP_TUNNEL | NETIF_F_GSO_MPLS)
->> +
->>  /*
->>   * If one device supports one of these features, then enable them
->>   * for all in netdev_increment_features.
->> diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
->> index 789af92..b971610 100644
->> --- a/net/openvswitch/vport-internal_dev.c
->> +++ b/net/openvswitch/vport-internal_dev.c
->> @@ -134,7 +134,8 @@ static void do_setup(struct net_device *netdev)
->>         netdev->tx_queue_len = 0;
->>
->>         netdev->features = NETIF_F_LLTX | NETIF_F_SG | NETIF_F_FRAGLIST |
->> -                          NETIF_F_HIGHDMA | NETIF_F_HW_CSUM | NETIF_F_GSO_SOFTWARE;
->> +                          NETIF_F_HIGHDMA | NETIF_F_HW_CSUM | NETIF_F_GSO_SOFTWARE |
->> +                          NETIF_F_ALL_ENCAP_GSO;
->>
->>         netdev->vlan_features = netdev->features;
->>         netdev->features |= NETIF_F_HW_VLAN_CTAG_TX;
->
-> OK, I guess this commit is similar in spirit to 82d8189 "veth: extend
-> features to support tunneling"
->
-> So in that respect, don't you need to set also dev->hw_enc_features
-> for the NETIF_F_GSO_YYY to come into play?
+Hi Jongsung,
 
-Right, I will send updated patch.
+On Thu, 2014-06-12 at 05:50PM +0900, Jongsung Kim wrote:
+> The "Rx used bit read" interrupt is enabled but not cleared for some
+> systems with the ISR (Interrupt Status Register) configured as clear-
+> on-write.
+Does this interrupt need to be enabled? There is nothing checking
+that bit and handling this IRQ in the handler, AFAICT. And you solve
+this by simply clearing the bit. So, I wonder whether not enabling this
+IRQ in the first place would solve things too.
+
+> This interrupt may be asserted when the CPU does not handle
+> Rx-complete interrupts for a long time. (e.g., if the CPU is stopped
+> by debugger) Once asserted, it'll not be cleared, and the CPU will
+> loop infinitly in the interrupt handler.
+>=20
+> This patch forces to use a dedicated function for reading the ISR,
+> and the function clears it if clear-on-write. So the ISR is always
+> cleared after read, regardless of clear-on-write configuration.
+>=20
+> Reported-by: Hayun Hwang <hwang.hayun@lge.com>
+> Signed-off-by: Youngkyu Choi <youngkyu7.choi@lge.com>
+> Signed-off-by: Jongsung Kim <neidhard.kim@lge.com>
+> Tested-by: Hayun Hwang <hwang.hayun@lge.com>
+> ---
+>  drivers/net/ethernet/cadence/macb.c |   37 ++++++++++++++-----------=
+---------
+>  1 files changed, 15 insertions(+), 22 deletions(-)
+>=20
+> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethern=
+et/cadence/macb.c
+> index e9daa07..21cc022 100644
+> --- a/drivers/net/ethernet/cadence/macb.c
+> +++ b/drivers/net/ethernet/cadence/macb.c
+> @@ -98,6 +98,16 @@ static void *macb_rx_buffer(struct macb *bp, unsig=
+ned int index)
+>  	return bp->rx_buffers + bp->rx_buffer_size * macb_rx_ring_wrap(inde=
+x);
+>  }
+> =20
+> +static u32 macb_read_isr(struct macb *bp)
+> +{
+> +	u32 status =3D macb_readl(bp, ISR);
+> +
+> +	if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
+> +		macb_writel(bp, ISR, status);
+> +
+> +	return status;
+> +}
+> +
+>  void macb_set_hwaddr(struct macb *bp)
+>  {
+>  	u32 bottom;
+> @@ -552,9 +562,6 @@ static void macb_tx_interrupt(struct macb *bp)
+>  	status =3D macb_readl(bp, TSR);
+>  	macb_writel(bp, TSR, status);
+> =20
+> -	if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
+> -		macb_writel(bp, ISR, MACB_BIT(TCOMP));
+> -
+>  	netdev_vdbg(bp->dev, "macb_tx_interrupt status =3D 0x%03lx\n",
+>  		(unsigned long)status);
+> =20
+> @@ -883,13 +890,10 @@ static int macb_poll(struct napi_struct *napi, =
+int budget)
+> =20
+>  		/* Packets received while interrupts were disabled */
+>  		status =3D macb_readl(bp, RSR);
+This is now clearing all IRQ flags which is probably not what we want
+here. This is handling RX only. We still want the non-RX interrupts to =
+go to
+the actual interrupt service routing.
+
+	S=C3=B6ren
