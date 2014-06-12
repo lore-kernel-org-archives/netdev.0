@@ -1,7 +1,7 @@
 From: Fugang Duan <b38611@freescale.com>
-Subject: [PATCH v5 2/6] net: fec: Enable IP header hardware checksum
-Date: Thu, 12 Jun 2014 08:16:19 +0800
-Message-ID: <1402532183-14910-3-git-send-email-b38611@freescale.com>
+Subject: [PATCH v5 3/6] net: fec: Factorize feature setting
+Date: Thu, 12 Jun 2014 08:16:20 +0800
+Message-ID: <1402532183-14910-4-git-send-email-b38611@freescale.com>
 References: <1402532183-14910-1-git-send-email-b38611@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,51 +10,51 @@ Cc: <netdev@vger.kernel.org>, <b38611@freescale.com>,
 	<David.Laight@ACULAB.COM>, <eric.dumazet@gmail.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2lp0241.outbound.protection.outlook.com ([207.46.163.241]:46568
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+Received: from mail-bn1blp0185.outbound.protection.outlook.com ([207.46.163.185]:22168
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754528AbaFLBmN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Jun 2014 21:42:13 -0400
+	id S1754528AbaFLBmR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 11 Jun 2014 21:42:17 -0400
 In-Reply-To: <1402532183-14910-1-git-send-email-b38611@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-IP header checksum is calcalated by network layer in default.
-To support software TSO, it is better to use HW calculate the
-IP header checksum.
-
-FEC hw checksum feature request the checksum field in frame
-is zero, otherwise the calculative CRC is not correct.
-
-For segmentated TCP packet, HW calculate the IP header checksum again,
-it doesn't bring any impact. For SW TSO, HW calculated checksum bring
-better performance.
+In order to enhance the code readable, let's factorize the
+feature list.
 
 Signed-off-by: Fugang Duan <B38611@freescale.com>
 ---
- drivers/net/ethernet/freescale/fec_main.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+ drivers/net/ethernet/freescale/fec_main.c |    8 +++-----
+ 1 files changed, 3 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index ee8e547..55b55d2 100644
+index 55b55d2..f943cd1 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -314,6 +314,7 @@ fec_enet_clear_csum(struct sk_buff *skb, struct net_device *ndev)
- 	if (unlikely(skb_cow_head(skb, 0)))
- 		return -1;
+@@ -2087,21 +2087,19 @@ static int fec_enet_init(struct net_device *ndev)
+ 	writel(FEC_RX_DISABLED_IMASK, fep->hwp + FEC_IMASK);
+ 	netif_napi_add(ndev, &fep->napi, fec_enet_rx_napi, NAPI_POLL_WEIGHT);
  
-+	ip_hdr(skb)->check = 0;
- 	*(__sum16 *)(skb->head + skb->csum_start + skb->csum_offset) = 0;
+-	if (id_entry->driver_data & FEC_QUIRK_HAS_VLAN) {
++	if (id_entry->driver_data & FEC_QUIRK_HAS_VLAN)
+ 		/* enable hw VLAN support */
+ 		ndev->features |= NETIF_F_HW_VLAN_CTAG_RX;
+-		ndev->hw_features |= NETIF_F_HW_VLAN_CTAG_RX;
+-	}
  
- 	return 0;
-@@ -395,7 +396,7 @@ static int txq_submit_skb(struct sk_buff *skb, struct net_device *ndev)
- 			 * are done by the kernel
- 			 */
- 			if (skb->ip_summed == CHECKSUM_PARTIAL)
--				ebdp->cbd_esc |= BD_ENET_TX_PINS;
-+				ebdp->cbd_esc |= BD_ENET_TX_PINS | BD_ENET_TX_IINS;
- 		}
+ 	if (id_entry->driver_data & FEC_QUIRK_HAS_CSUM) {
+ 		/* enable hw accelerator */
+ 		ndev->features |= (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM
+ 				| NETIF_F_RXCSUM);
+-		ndev->hw_features |= (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM
+-				| NETIF_F_RXCSUM);
+ 		fep->csum_flags |= FLAG_RX_CSUM_ENABLED;
  	}
  
++	ndev->hw_features = ndev->features;
++
+ 	fec_restart(ndev, 0);
+ 
+ 	return 0;
 -- 
 1.7.8
