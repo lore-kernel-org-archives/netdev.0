@@ -1,74 +1,54 @@
-From: dormando <dormando@rydia.net>
-Subject: Re: [PATCH] ipv4: fix a race in ip4_datagram_release_cb()
-Date: Wed, 11 Jun 2014 18:55:20 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1406111851140.18470@dtop>
-References: <CA+FTKhs45vD66xSQRgijwFjSuy-Mt8EGr3cRv60oCcEnFPKnaQ@mail.gmail.com>  <1402407781.3645.426.camel@edumazet-glaptop2.roam.corp.google.com>  <alpine.DEB.2.02.1406101726390.11647@dtop>  <1402448128.3645.437.camel@edumazet-glaptop2.roam.corp.google.com>
-  <1402449173.3645.440.camel@edumazet-glaptop2.roam.corp.google.com>  <1402450009.3645.444.camel@edumazet-glaptop2.roam.corp.google.com>  <alpine.DEB.2.10.1406102114520.28698@dinf>  <1402466090.3645.456.camel@edumazet-glaptop2.roam.corp.google.com>
- <alpine.DEB.2.02.1406110011170.11647@dtop>  <alpine.DEB.2.02.1406110022550.11647@dtop>  <alpine.DEB.2.02.1406110036490.11647@dtop>  <1402490462.3645.463.camel@edumazet-glaptop2.roam.corp.google.com>
- <1402492373.3645.466.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
+Subject: Re: [PATCH v5 4/4] drivers: net: Add APM X-Gene SoC ethernet driver support.
+Date: Wed, 11 Jun 2014 18:59:47 -0700
+Message-ID: <CAKh23F=F3YOc830v45FavdToOvHEXO7tw6duRvn7-32GUb6cjw@mail.gmail.com>
+References: <1401737954-26152-1-git-send-email-isubramanian@apm.com>
+	<1401737954-26152-5-git-send-email-isubramanian@apm.com>
+	<20140605.004555.658378024391856482.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Alexey Preobrazhensky <preobr@google.com>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	David Miller <davem@davemloft.net>, paulmck@linux.vnet.ibm.com,
-	netdev@vger.kernel.org, Kostya Serebryany <kcc@google.com>,
-	Dmitry Vyukov <dvyukov@google.com>,
-	Lars Bull <larsbull@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Bruce Curtis <brutus@google.com>,
-	=?ISO-8859-2?Q?Maciej_=AFenczykowski?= <maze@google.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rydia.net ([69.46.88.68]:55167 "EHLO mail.rydia.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754411AbaFLBzV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Jun 2014 21:55:21 -0400
-In-Reply-To: <1402492373.3645.466.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	"jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, patches <patches-qTEPVZfXA3Y@public.gmane.org>,
+	Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>, Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140605.004555.658378024391856482.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 11 Jun 2014, Eric Dumazet wrote:
+On Thu, Jun 5, 2014 at 12:45 AM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+> From: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
+> Date: Mon,  2 Jun 2014 12:39:14 -0700
+>
+>> +     netdev_err(ndev, "LERR: %d ring_num: %d ", status, ring->num);
+>> +     switch (status) {
+>> +     case HBF_READ_DATA:
+>> +             netdev_err(ndev, "HBF read data error\n");
+>> +             break;
+>
+> This is not really appropriate.
+>
+> We have statistics like the ones you are incrementing in this
+> function as the mechanism people can use to learn what events
+> happened on an interface, and how many times they happened.
+>
+> Therefore, emitting a log message for each one of those events too is
+> not necessary.
+>
+> We don't emit a netdev_err() for every packet that the IPv4 stack
+> drops due to a bad checksum, for example.
+>
+> Please get rid of this.
 
-> On Wed, 2014-06-11 at 05:41 -0700, Eric Dumazet wrote:
->
-> >
-> > OK then we probably have another bug in UDP, which is that we call
-> > sk_dst_set(sk, dst_clone(&rt->dst)); with a dst having DST_NOCACHE set
-> >
-> > Its a problem, because sk_dst_get() cannot deal safely with such dst.
->
-> You could try this in top of other patches.
->
-> diff --git a/include/net/sock.h b/include/net/sock.h
-> index 21569cf456ed..427ac7cc50fc 100644
-> --- a/include/net/sock.h
-> +++ b/include/net/sock.h
-> @@ -1728,8 +1728,8 @@ sk_dst_get(struct sock *sk)
->
->  	rcu_read_lock();
->  	dst = rcu_dereference(sk->sk_dst_cache);
-> -	if (dst)
-> -		dst_hold(dst);
-> +	if (dst && !atomic_inc_not_zero(&dst->__refcnt))
-> +		dst = NULL;
->  	rcu_read_unlock();
->  	return dst;
->  }
->
->
->
+Sure.  I will remove the error message prints and clean up the function.
 
-I sent the udpkill utility in an off-list mail (in case that got binned by
-anyone).
-
-Just threw this patch on top of the other two, on 3.10.42. udpkill's been
-running for an hour without fault. I've just put traffic back onto the
-machine am leaving udpkill enabled for a while longer.
-
-So, this is an improvement :)
-
-I have exactly one machine which (for whatever lucky reason) is really
-prone to hitting this problem without needing udpkill. It'll take a few
-days to get it going there though. I've not been able to reproduce the
-crash from other angles yet.
+>
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
