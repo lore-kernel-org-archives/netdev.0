@@ -1,85 +1,42 @@
-From: Chen Weilong <chenweilong@huawei.com>
-Subject: [request for stable inclusion] ipv6: reallocate addrconf router for ipv6 address when lo device up
-Date: Thu, 12 Jun 2014 14:17:31 +0800
-Message-ID: <1402553851-8944-1-git-send-email-chenweilong@huawei.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH v2] sctp: Fix sk_ack_backlog wrap-around problem
+Date: Thu, 12 Jun 2014 10:04:55 +0200
+Message-ID: <53995F27.4050308@redhat.com>
+References: <1402541616-15117-1-git-send-email-xufeng.zhang@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, Weilong Chen <chenweilong@huawei.com>
-To: <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
-	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: vyasevich@gmail.com, nhorman@tuxdriver.com, davem@davemloft.net,
+	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Xufeng Zhang <xufeng.zhang@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:5083 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751479AbaFLGS4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2014 02:18:56 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:50646 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752389AbaFLIGJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Jun 2014 04:06:09 -0400
+In-Reply-To: <1402541616-15117-1-git-send-email-xufeng.zhang@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Weilong Chen <chenweilong@huawei.com>
+On 06/12/2014 04:53 AM, Xufeng Zhang wrote:
+> Consider the scenario:
+> For a TCP-style socket, while processing the COOKIE_ECHO chunk in
+> sctp_sf_do_5_1D_ce(), after it has passed a series of sanity check,
+> a new association would be created in sctp_unpack_cookie(), but afterwards,
+> some processing maybe failed, and sctp_association_free() will be called to
+> free the previously allocated association, in sctp_association_free(),
+> sk_ack_backlog value is decremented for this socket, since the initial
+> value for sk_ack_backlog is 0, after the decrement, it will be 65535,
+> a wrap-around problem happens, and if we want to establish new associations
+> afterward in the same socket, ABORT would be triggered since sctp deem the
+> accept queue as full.
+> Fix this issue by only decrementing sk_ack_backlog for associations in
+> the endpoint's list.
+>
+> Fix-suggested-by: Neil Horman <nhorman@tuxdriver.com>
+> Signed-off-by: Xufeng Zhang <xufeng.zhang@windriver.com>
 
-"commit 33d99113b1102c2d2f8603b9ba72d89d915c13f5
-ipv6: reallocate addrconf router for ipv6 address when lo device up."
-This commit don't have a stable tag, but it fix the bug
-no reply after loopback down-up.I think it should be
-applied to stable 3.4.x kernels.
+Looks good to me, thanks. This also needs to go to -stable.
 
-The bug is 67951 on bugzilla
-https://bugzilla.kernel.org/show_bug.cgi?id=67951
-
-The patch can't be applied directly. And it used the function introduced
-by "commit 94e187c0" ip6_rt_put(), this patch can't be applied directly
-either. 
-
-Signed-off-by: Weilong Chen <chenweilong@huawei.com>
----
- include/net/ip6_fib.h |  9 +++++++++
- net/ipv6/addrconf.c   | 14 ++++++++++++--
- 2 files changed, 21 insertions(+), 2 deletions(-)
-
-diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
-index 0ae759a..7c17c35 100644
---- a/include/net/ip6_fib.h
-+++ b/include/net/ip6_fib.h
-@@ -171,6 +171,15 @@ static inline void rt6_set_from(struct rt6_info *rt, struct rt6_info *from)
- 	dst_hold(new);
- }
- 
-+static inline void ip6_rt_put(struct rt6_info *rt)
-+{
-+	/* dst_release() accepts a NULL parameter.
-+	 * We rely on dst being first structure in struct rt6_info
-+	 */
-+	BUILD_BUG_ON(offsetof(struct rt6_info, dst) != 0);
-+	dst_release(&rt->dst);
-+}
-+
- struct fib6_walker_t {
- 	struct list_head lh;
- 	struct fib6_node *root, *node;
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 9b8c3c6..00a0904 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -2424,8 +2424,18 @@ static void init_loopback(struct net_device *dev)
- 			if (sp_ifa->flags & (IFA_F_DADFAILED | IFA_F_TENTATIVE))
- 				continue;
- 
--			if (sp_ifa->rt)
--				continue;
-+			if (sp_ifa->rt) {
-+				/* This dst has been added to garbage list when
-+				 * lo device down, release this obsolete dst and
-+				 * reallocate a new router for ifa.
-+				 */
-+				if (sp_ifa->rt->dst.obsolete > 0) {
-+					ip6_rt_put(sp_ifa->rt);
-+					sp_ifa->rt = NULL;
-+				} else {
-+					continue;
-+				}
-+			}
- 
- 			sp_rt = addrconf_dst_alloc(idev, &sp_ifa->addr, 0);
- 
--- 
-1.7.12
+Acked-by: Daniel Borkmann <dborkman@redhat.com>
