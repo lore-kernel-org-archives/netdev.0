@@ -1,117 +1,81 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: TCP_DEFER_ACCEPT wakes up without data
-Date: Thu, 12 Jun 2014 09:00:11 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1406120641490.1769@ja.home.ssi.bg>
-References: <538FB666.9050303@yahoo-inc.com> <alpine.LFD.2.11.1406071441260.2287@ja.home.ssi.bg> <5397A98F.2030206@yahoo-inc.com>
+From: "Michael Kerrisk (man-pages)" <mtk.manpages@gmail.com>
+Subject: Re: recvmmsg/sendmmsg result types inconsistent, integer overflows?
+Date: Thu, 12 Jun 2014 08:04:54 +0200
+Message-ID: <CAKgNAkh7ihJyZ4gOXAeb3x-Su7ayshLdi9m6ML4n840n3bx=0Q@mail.gmail.com>
+References: <20140611041243.GA1475@brightrain.aerifal.cx> <1402464261.5195.21.camel@marge.simpson.net>
+ <1402465808.3645.454.camel@edumazet-glaptop2.roam.corp.google.com> <20140611151511.GU179@brightrain.aerifal.cx>
+Reply-To: mtk.manpages@gmail.com
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: Wayne Badger <badger@yahoo-inc.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:33179 "EHLO ja.home.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751134AbaFLGAY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Jun 2014 02:00:24 -0400
-In-Reply-To: <5397A98F.2030206@yahoo-inc.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Mike Galbraith <umgwanakikbuti@gmail.com>,
+	lkml <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Rich Felker <dalias@libc.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140611151511.GU179@brightrain.aerifal.cx>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+Rich,
+
+On Wed, Jun 11, 2014 at 5:15 PM, Rich Felker <dalias@libc.org> wrote:
+> On Tue, Jun 10, 2014 at 10:50:08PM -0700, Eric Dumazet wrote:
+>> On Wed, 2014-06-11 at 07:24 +0200, Mike Galbraith wrote:
+>> > (CCs network wizard hangout)
+>> >
+>> > On Wed, 2014-06-11 at 00:12 -0400, Rich Felker wrote:
+>> > > While looking to add support for the recvmmsg and sendmmsg syscalls in
+>> > > musl libc, I ran into some disturbing findings on the kernel side. In
+>> > > the struct mmsghdr, the field where the result for each message is
+>> > > stored has type int, which is inconsistent with the return type
+>> > > ssize_t of recvmsg/sendmsg. So I tried to track down what happens when
+>> > > the result is or would be larger than 2GB, and quickly found an
+>> > > explanation for why the type in the structure was defined wrong:
+>> > > internally, the kernel uses int as the return type for revcmsg and
+>> > > sendmsg. Oops.
+>> > >
+>> > > A bit more RTFS'ing brought me to tcp_sendmsg in net/ipv4/tcp.c (I
+>> > > figured let's look at a stream-based protocol, since datagrams can
+>> > > likely never be that big for any existing protocol), and as far as I
+>> > > can tell, it's haphazardly mixing int and size_t with no checks for
+>> > > overflows. I looked for anywhere the kernel might try to verify before
+>> > > starting that the sum of the lengths of all the iovec components
+>> > > doesn't overflow INT_MAX or even SIZE_MAX, but didn't find any such
+>> > > checks.
+>> > >
+>> > > Is there some magic that makes this all safe, or is this a big mess of
+>> > > possibly-security-relevant bugs?
+>> > >
+>> > > Rich
+>> > > --
+>> > > To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+>> > > the body of a message to majordomo@vger.kernel.org
+>> > > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> > > Please read the FAQ at  http://www.tux.org/lkml/
+>> >
+>>
+>>
+>> See commit 8acfe468b0384e834a303f08ebc4953d72fb690a
+>> ("net: Limit socket I/O iovec total length to INT_MAX.")
+>>
+>> (or grep for verify_iovec() )
+>
+> Thanks; that addresses my concern about safety. There's still the ugly
+> API inconsistency which it seems too late to fix. Michael, perhaps
+> this should at least be documented in the man pages for sendmmsg and
+> recvmmsg since it's certain to be confusing to anyone familiar with
+> the sendmsg and recvmsg API, but not with kernel internals, who's
+> trying to use these functions...
+
+Care to send me a patch?
+
+Thanks,
+
+Michael
 
 
-	Hello,
-
-On Tue, 10 Jun 2014, Wayne Badger wrote:
-
-> On 6/7/14, 10:41 AM, Julian Anastasov wrote:
-> >
-> >     This discussion (http://marc.info/?t=125541062900001&r=1&w=2)
-> > has some hints about using TCP_SYNCNT.
-> 
-> Thanks for the pointer.  I have read through this discussion, but I
-> can't see how it helps with the current implementation.  TCP_SYNCNT
-> (or sysctl.tcp_synack_retries if TCP_SYNCNT is unused) allows you to
-> set the number of retries, but inet_csk_reqsk_queue_prune essentially
-> ignores the TCP_SYNCNT value if TCP_DEFER_ACCEPT is in use.
-> 
->         if (queue->rskq_defer_accept)
->             max_retries = queue->rskq_defer_accept;
-
-	You are right, I missed that. So, we send just
-one SYN+ACK when period is about to expire.
-
-> I have so far been unable to obtain the behavior documented for
-> TCP_DEFER_ACCEPT, even with various settings of TCP_SYNCNT.  No setting
-> of TCP_SYNCNT can make it be used in the calculations in favor of the
-> TCP_DEFER_ACCEPT value.  No matter which value I choose for TCP_SYNCNT,
-> the connection is always promoted to a full socket and moved to the
-> accept queue.
-> 
-> Would you verify whether a server ever accepts the socket if data is
-> not sent?  I've been using v3.14.0 with default sysctl settings and a
-> TCP_DEFER_ACCEPT value of 30 and don't see that behavior.
-
-	syn_ack_recalc() schedules SYN+ACK, so under
-normal conditions, it triggers ACK from client and
-child is created, even without DATA. Request will
-expire only when last SYN+ACK or the following ACK
-is lost (or not sent).
-
-> The behavior that we want is for the receipt of the duplicate bare
-> ACK to not result in waking up user space.  The socket still hasn't
-> received any data, so there's no point in the process accepting the
-> socket since there's nothing the process can do.
-
-	One problem with this behavior is that after first ACK
-more ACKs are not expected. Your RST logic still relies on the
-last SYN+ACK we sent to trigger additional ACK. I guess,
-we can live with this because for firewalls it is not worse
-than current behavior. We replace accept() with RST.
-
-> I would prefer that we send a RST upon receipt of a bare ACK for a
-> socket that has completed the 3way handshake, waited the
-> TCP_DEFER_ACCEPT timeout and has never received any
-> data.  If it has timed out, then the server should be done with the
-> connection request.
-
-	I'm ok with this idea.
-
-> >     The best place would be to send this reset in
-> > inet_csk_reqsk_queue_prune() after the /* Drop this request */
-> > comment if inet_rsk(req)->acked is set because we are not
-> > sure if our SYN+ACKs after the period will lead to new packets
-> > from client. But we have no skb to reply, not sure if
-> > the open request contains data to build a reset.
-> 
-> We could drop the connection in inet_csk_reqsk_queue_prune, but we have
-> to ensure that the receipt of the bare ACK response from the duplicate
-> SYN-ACK doesn't promote the socket as it is doing now.  We'll also have
-
-	Agreed. I'm just not sure for the implementation
-needed for inet_csk_reqsk_queue_prune. TCP experts
-can help here.
-
-> to do something for syncookies because a valid bare ACK received for
-> a socket that doesn't even have a minisock should behave similarly.
-> The code to handle this can't go in inet_csk_reqsk_queue_prune because
-> there is no socket of any type to prune so we'll at least need to have the
-> code in two places but we could easily commonize it in a function.
-
-	I don't know the syn-cookie code. Even now
-inet_csk_reqsk_queue_prune() expires acked requests,
-isn't inet_csk_reqsk_queue_drop sufficient?
-
-> Was it the intent with commit d1b99ba41d to change the semantics
-> of TCP_DEFER_ACCEPT such that sockets were always promoted to full
-> sockets and moved to the accept queue?  I want to make sure that we
-> are all on the same page with what the semantics mean because if we
-> have a disagreement there, then nothing else matters.  I'm just trying
-> to get a socket to stay in the kernel and not wake up the listener before
-> there is any data.
-
-	IIRC, the main idea is to remove connection from
-firewalls, the idea with triggered ACK was the easiest
-solution.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+-- 
+Michael Kerrisk
+Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
+Linux/UNIX System Programming Training: http://man7.org/training/
