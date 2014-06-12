@@ -1,74 +1,96 @@
-From: Jim Baxter <jim_baxter@mentor.com>
-Subject: Re: [PATCH v1 3/3] usb: gadget: NCM: Stop RX TCP Bursts getting dropped.
-Date: Thu, 12 Jun 2014 10:38:11 +0100
-Message-ID: <53997503.7040109@mentor.com>
-References: <Jim Baxter <jim_baxter@mentor.com>	 <1401383543-10181-1-git-send-email-jim_baxter@mentor.com>	 <1401383543-10181-4-git-send-email-jim_baxter@mentor.com> <1401390263.3645.51.camel@edumazet-glaptop2.roam.corp.google.com> <53886ABC.8030303@mentor.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PULL] vhost: infrastructure changes for 3.16
+Date: Thu, 12 Jun 2014 12:39:15 +0300
+Message-ID: <20140612093915.GD22230@redhat.com>
+References: <20140611134447.GA8208@redhat.com>
+	<87mwdiwmbp.fsf@kima.orebokech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Felipe Balbi <balbi@ti.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	<linux-usb@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	=?UTF-8?B?QmrDuA==?= =?UTF-8?B?cm4gTW9yaw==?= <bjorn@mork.no>,
-	David Laight <David.Laight@ACULAB.COM>,
-	<netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay1.mentorg.com ([192.94.38.131]:61985 "EHLO
-	relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932740AbaFLJiT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2014 05:38:19 -0400
-In-Reply-To: <53886ABC.8030303@mentor.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sfr@canb.auug.org.au, linux-scsi@vger.kernel.org, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Al Viro <viro@zeniv.linux.org.uk>, nab@daterainc.com,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: Romain Francoise <romain@orebokech.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <87mwdiwmbp.fsf@kima.orebokech.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 30/05/14 12:25, Jim Baxter wrote:
-> On 29/05/14 20:04, Eric Dumazet wrote:
->> On Thu, 2014-05-29 at 18:12 +0100, Jim Baxter wrote:
->>
->> Note the patch is OK, but changelog a bit misleading ;)
->>
->> Kernel was not running out of memory, because truesize was correct.
->>
->> The problem here is that a frame was consuming more kernel memory than
->> really needed, so chances of hitting socket sk_rcvbuf limit was high.
->>
->> BTW :
->> #define NTB_OUT_SIZE              16384
->>
->> alloc_skb(size) ->
->> 	kmalloc(16384 + sizeof(struct skb_shared_info)) ->
->> 		roundup() => 32768
->>
->> So truesize of the skb was infact ~32KB, which is really insane indeed.
->> After your patch, its back to ~2KB
->>
->> Acked-by: Eric Dumazet <edumazet@google.com>
->>
->>
->>
+On Thu, Jun 12, 2014 at 10:42:34AM +0200, Romain Francoise wrote:
+> "Michael S. Tsirkin" <mst@redhat.com> writes:
 > 
-> Thank you, I will clarify the description.
+> > Memory allocation for vhost-net now supports fallback on vmalloc (same
+> > as for vhost-scsi) this makes it possible to create the device on
+> > systems where memory is very fragmented, with slightly lower
+> > performance.
 > 
-> Jim
+> Thanks Michael, I'm glad to see that this change made its way into
+> mainline after all! Would you be willing to take the following on top?
 > 
+> 
+> From: Romain Francoise <romain@orebokech.com>
+> Date: Thu, 12 Jun 2014 10:26:40 +0200
+> Subject: [PATCH] vhost-net: don't open-code kvfree
+> 
+> Commit 23cc5a991c ("vhost-net: extend device allocation to vmalloc")
+> added another open-coded version of kvfree (which is available since
+> v3.15-rc5), nuke it.
+> 
+> Signed-off-by: Romain Francoise <romain@orebokech.com>
+> ---
 
-Hi Eric,
+Absolutely, I'll queue this up, thanks!
 
-Is this commit log more correct?
-
-
-This fixes a problem with dropped packets over 16k CDC-NCM
-when the connection is being heavily used.
-
-The issue was that the extracted frames cloned from the
-received frame were consuming more memory than necessary
-due to the truesize being ~32KB instead of ~2KB, this
-meant there was a high chance of reaching the sk_rcvbuf
-limit.
-
-Acked-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Jim Baxter <jim_baxter@mentor.com>
-
-Thank you,
-Jim
+>  drivers/vhost/net.c | 12 ++----------
+>  1 file changed, 2 insertions(+), 10 deletions(-)
+> 
+> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+> index 971a760..8dae2f7 100644
+> --- a/drivers/vhost/net.c
+> +++ b/drivers/vhost/net.c
+> @@ -700,14 +700,6 @@ static void handle_rx_net(struct vhost_work *work)
+>  	handle_rx(net);
+>  }
+>  
+> -static void vhost_net_free(void *addr)
+> -{
+> -	if (is_vmalloc_addr(addr))
+> -		vfree(addr);
+> -	else
+> -		kfree(addr);
+> -}
+> -
+>  static int vhost_net_open(struct inode *inode, struct file *f)
+>  {
+>  	struct vhost_net *n;
+> @@ -723,7 +715,7 @@ static int vhost_net_open(struct inode *inode, struct file *f)
+>  	}
+>  	vqs = kmalloc(VHOST_NET_VQ_MAX * sizeof(*vqs), GFP_KERNEL);
+>  	if (!vqs) {
+> -		vhost_net_free(n);
+> +		kvfree(n);
+>  		return -ENOMEM;
+>  	}
+>  
+> @@ -840,7 +832,7 @@ static int vhost_net_release(struct inode *inode, struct file *f)
+>  	 * since jobs can re-queue themselves. */
+>  	vhost_net_flush(n);
+>  	kfree(n->dev.vqs);
+> -	vhost_net_free(n);
+> +	kvfree(n);
+>  	return 0;
+>  }
+>  
+> -- 
+> 2.0.0
