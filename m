@@ -1,34 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] via-rhine: fix full-duplex with autoneg disable
-Date: Thu, 12 Jun 2014 10:32:03 -0700 (PDT)
-Message-ID: <20140612.103203.1223568534065505346.davem@davemloft.net>
-References: <53997CCD.4010200@alphalink.fr>
+From: Michael Braun <michael-dev-1SGGS//iJ+Y38rf8aCqVIw@public.gmane.org>
+Subject: [PATCH v2 2/2] rt2800usb:fix hang during firmware load
+Date: Thu, 12 Jun 2014 19:33:41 +0200
+Message-ID: <20140612173341.15935.7058.stgit@charlie.fem.tu-ilmenau.de>
+References: <20140612173057.15935.14194.stgit@charlie.fem.tu-ilmenau.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: rl@hellgate.ch, netdev@vger.kernel.org
-To: f.cachereul@alphalink.fr
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53013 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753116AbaFLRcE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2014 13:32:04 -0400
-In-Reply-To: <53997CCD.4010200@alphalink.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, users-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Ivo van Doorn <IvDoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Helmut Schaa <helmut.schaa-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140612173057.15935.14194.stgit-T1IWWRiYoUTeQ37wNh6nHvMwkO6i8y0ws0AfqQuZ5sE@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Fran=E7ois Cachereul <f.cachereul@alphalink.fr>
-Date: Thu, 12 Jun 2014 12:11:25 +0200
+The device 057c:8501 (AVM Fritz! WLAN v2 rev. B) boots into a state that does
+not actually require loading a firmware file. The vendors driver finds out
+about this by checking a firmware state register, so this patch adds this here.
 
-> With some specific configuration (VT6105M on Soekris 5510 and dependi=
-ng
-> on the device at the other end), fragmented packets were not transmit=
-ted
-> when forcing 100 full-duplex with autoneg disable.
->=20
-> This fix now write full-duplex chips register when forcing full or
-> half-duplex not only when autoneg is enable.
->=20
-> Signed-off-by: Fran=E7ois Cachereul <f.cachereul@alphalink.fr>
+Finally, with this patch applied, my wifi dongle actually becomes
+useful (scan + connect to wpa network works).
 
-Applied.
+Signed-off-by: Michael Braun <michael-dev-1SGGS//iJ+Y38rf8aCqVIw@public.gmane.org>
+---
+ drivers/net/wireless/rt2x00/rt2800usb.c |    9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/rt2x00/rt2800usb.c b/drivers/net/wireless/rt2x00/rt2800usb.c
+index 11583ca..e11dab2 100644
+--- a/drivers/net/wireless/rt2x00/rt2800usb.c
++++ b/drivers/net/wireless/rt2x00/rt2800usb.c
+@@ -278,8 +278,13 @@ static int rt2800usb_write_firmware(struct rt2x00_dev *rt2x00dev,
+ 	/*
+ 	 * Write firmware to device.
+ 	 */
+-	rt2x00usb_register_multiwrite(rt2x00dev, FIRMWARE_IMAGE_BASE,
+-				      data + offset, length);
++	if (rt2800usb_autorun_detect(rt2x00dev)) {
++		rt2x00_info(rt2x00dev,
++			    "Firmware loading not required - NIC in AutoRun mode\n");
++	} else {
++		rt2x00usb_register_multiwrite(rt2x00dev, FIRMWARE_IMAGE_BASE,
++					      data + offset, length);
++	}
+ 
+ 	rt2x00usb_register_write(rt2x00dev, H2M_MAILBOX_CID, ~0);
+ 	rt2x00usb_register_write(rt2x00dev, H2M_MAILBOX_STATUS, ~0);
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
