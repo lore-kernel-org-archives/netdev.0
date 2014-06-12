@@ -1,145 +1,82 @@
-From: Jongsung Kim <neidhard.kim@lge.com>
-Subject: [PATCH] net/cadence/macb: clear interrupts simply and correctly
-Date: Thu, 12 Jun 2014 17:50:54 +0900
-Message-ID: <1402563054-8546-1-git-send-email-neidhard.kim@lge.com>
-Cc: linux-kernel@vger.kernel.org,
-	Nicolas Ferre <nicolas.ferre@atmel.com>,
-	Soren Brinkmann <soren.brinkmann@xilinx.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hayun Hwang <hwang.hayun@lge.com>,
-	Jongsung Kim <neidhard.kim@lge.com>,
-	Youngkyu Choi <youngkyu7.choi@lge.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Thomas Gleixner <tglx@linutronix.de>
+Subject: Re: net_timedelta() affected by settimeofday() (was: [patch 12/13]
+ net: mac80211: Remove silly timespec dance)
+Date: Thu, 12 Jun 2014 10:57:57 +0200 (CEST)
+Message-ID: <alpine.DEB.2.10.1406121047280.5170@nanos>
+References: <20140611234024.103571777@linutronix.de>  <20140611234607.683770899@linutronix.de>  <1402555774.4224.1.camel@jlt4.sipsolutions.net>  <alpine.DEB.2.10.1406121017500.5170@nanos>  <1402562114.8095.3.camel@jlt4.sipsolutions.net>
+ (sfid-20140612_103558_525847_209A5C98) <1402562399.8095.5.camel@jlt4.sipsolutions.net>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	John Stultz <john.stultz@linaro.org>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Ingo Molnar <mingo@kernel.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org,
+	Stephen Hemminger <shemminger@linux-foundation.org>,
+	netdev <netdev@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www.linutronix.de ([62.245.132.108]:38464 "EHLO
+	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932673AbaFLI6M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2014 04:58:12 -0400
+In-Reply-To: <1402562399.8095.5.camel@jlt4.sipsolutions.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The "Rx used bit read" interrupt is enabled but not cleared for some
-systems with the ISR (Interrupt Status Register) configured as clear-
-on-write. This interrupt may be asserted when the CPU does not handle
-Rx-complete interrupts for a long time. (e.g., if the CPU is stopped
-by debugger) Once asserted, it'll not be cleared, and the CPU will
-loop infinitly in the interrupt handler.
+On Thu, 12 Jun 2014, Johannes Berg wrote:
 
-This patch forces to use a dedicated function for reading the ISR,
-and the function clears it if clear-on-write. So the ISR is always
-cleared after read, regardless of clear-on-write configuration.
+> On Thu, 2014-06-12 at 10:35 +0200, Johannes Berg wrote:
+> > +netdev, Stephen
+> 
+> Well, stupid me. Fixing that netdev address.
+> 
+> > On Thu, 2014-06-12 at 10:19 +0200, Thomas Gleixner wrote:
+> > > On Thu, 12 Jun 2014, Johannes Berg wrote:
+> > > 
+> > > > On Wed, 2014-06-11 at 23:59 +0000, Thomas Gleixner wrote:
+> > > > 
+> > > > > +	msrmnt = ktime_to_ms(net_timedelta(skb_arv));
+> > > > 
+> > > > This is probably more of a question about net_timedelta(), but is
+> > > > ktime_get_real() really appropriate for duration measurements? Isn't
+> > > > that non-monotonic?
+> > > 
+> > > Well, it's monotonic, but might be affected by settimeofday().
+> > 
+> > Right, but isn't that odd? Suddenly your delay measurement here might be
+> > minutes, hours, or years if you settimeofday() between timestamping and
+> > calculating the delta. That seems very strange to me, why would that be
+> > the right behaviour in any way?
 
-Reported-by: Hayun Hwang <hwang.hayun@lge.com>
-Signed-off-by: Youngkyu Choi <youngkyu7.choi@lge.com>
-Signed-off-by: Jongsung Kim <neidhard.kim@lge.com>
-Tested-by: Hayun Hwang <hwang.hayun@lge.com>
----
- drivers/net/ethernet/cadence/macb.c |   37 ++++++++++++++--------------------
- 1 files changed, 15 insertions(+), 22 deletions(-)
+Indeed. clock monotonic is the appropriate one for measurements.
+ 
+> > Now, it seems that there are only two current users of net_timedelta()
+> > (in DCCP) so perhaps it's not too late to change some of this?
+> > 
+> > Maybe in general the skb timestamp should be based on a different clock
+> > and only adjusted to real time when used in userspace?
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index e9daa07..21cc022 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -98,6 +98,16 @@ static void *macb_rx_buffer(struct macb *bp, unsigned int index)
- 	return bp->rx_buffers + bp->rx_buffer_size * macb_rx_ring_wrap(index);
- }
- 
-+static u32 macb_read_isr(struct macb *bp)
-+{
-+	u32 status = macb_readl(bp, ISR);
-+
-+	if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
-+		macb_writel(bp, ISR, status);
-+
-+	return status;
-+}
-+
- void macb_set_hwaddr(struct macb *bp)
- {
- 	u32 bottom;
-@@ -552,9 +562,6 @@ static void macb_tx_interrupt(struct macb *bp)
- 	status = macb_readl(bp, TSR);
- 	macb_writel(bp, TSR, status);
- 
--	if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
--		macb_writel(bp, ISR, MACB_BIT(TCOMP));
--
- 	netdev_vdbg(bp->dev, "macb_tx_interrupt status = 0x%03lx\n",
- 		(unsigned long)status);
- 
-@@ -883,13 +890,10 @@ static int macb_poll(struct napi_struct *napi, int budget)
- 
- 		/* Packets received while interrupts were disabled */
- 		status = macb_readl(bp, RSR);
--		if (status) {
--			if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
--				macb_writel(bp, ISR, MACB_BIT(RCOMP));
-+		if (status)
- 			napi_reschedule(napi);
--		} else {
-+		else
- 			macb_writel(bp, IER, MACB_RX_INT_FLAGS);
--		}
- 	}
- 
- 	/* TODO: Handle errors */
-@@ -903,7 +907,7 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
- 	struct macb *bp = netdev_priv(dev);
- 	u32 status;
- 
--	status = macb_readl(bp, ISR);
-+	status = macb_read_isr(bp);
- 
- 	if (unlikely(!status))
- 		return IRQ_NONE;
-@@ -928,8 +932,6 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
- 			 * now.
- 			 */
- 			macb_writel(bp, IDR, MACB_RX_INT_FLAGS);
--			if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
--				macb_writel(bp, ISR, MACB_BIT(RCOMP));
- 
- 			if (napi_schedule_prep(&bp->napi)) {
- 				netdev_vdbg(bp->dev, "scheduling RX softirq\n");
-@@ -941,9 +943,6 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
- 			macb_writel(bp, IDR, MACB_TX_INT_FLAGS);
- 			schedule_work(&bp->tx_error_task);
- 
--			if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
--				macb_writel(bp, ISR, MACB_TX_ERR_FLAGS);
--
- 			break;
- 		}
- 
-@@ -961,9 +960,6 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
- 				bp->hw_stats.gem.rx_overruns++;
- 			else
- 				bp->hw_stats.macb.rx_overruns++;
--
--			if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
--				macb_writel(bp, ISR, MACB_BIT(ISR_ROVR));
- 		}
- 
- 		if (status & MACB_BIT(HRESP)) {
-@@ -973,12 +969,9 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
- 			 * (work queue?)
- 			 */
- 			netdev_err(dev, "DMA bus error: HRESP not OK\n");
--
--			if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
--				macb_writel(bp, ISR, MACB_BIT(HRESP));
- 		}
- 
--		status = macb_readl(bp, ISR);
-+		status = macb_read_isr(bp);
- 	}
- 
- 	spin_unlock(&bp->lock);
-@@ -1273,7 +1266,7 @@ static void macb_reset_hw(struct macb *bp)
- 
- 	/* Disable all interrupts */
- 	macb_writel(bp, IDR, -1);
--	macb_readl(bp, ISR);
-+	macb_read_isr(bp);
- }
- 
- static u32 gem_mdc_clk_div(struct macb *bp)
--- 
-1.7.1
+You have the same problem then, just at a different place:
+
+    ts = ktime_get();
+
+			settimeofday()
+			   offset_mono_to_real = new value;
+
+    userts = mono_to_real(ts);
+
+But maybe that's not a real issue, as ktime_get_real() can race with
+settimeofday() or NTP as well.
+
+   ts = ktime_get_real();
+				settimeofday();
+   userts = ts;
+
+So the user might see a weird timestamp for a packet, which cannot be
+correlated with the user space gettimeofday().
+
+Thanks,
+
+	tglx
