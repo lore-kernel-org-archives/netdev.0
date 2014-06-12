@@ -1,56 +1,34 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next] mrf24j40: separate h/w
-	init and add checkings
-Date: Thu, 12 Jun 2014 11:05:19 -0700 (PDT)
-Message-ID: <20140612.110519.583755215428272991.davem@davemloft.net>
-References: <1402564248-20606-1-git-send-email-varkab@cdac.in>
-	<20140612.110324.932062947770396872.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 1/1] tcp: fixing TLP's FIN recovery
+Date: Thu, 12 Jun 2014 11:06:11 -0700 (PDT)
+Message-ID: <20140612.110611.584155630422154338.davem@davemloft.net>
+References: <1402583577.3645.477.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1402585712-12103-1-git-send-email-per.hurtig@kau.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-7"
-Content-Transfer-Encoding: base64
-Cc: varkab-If5XQcfNmg0@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: varkabhadram-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <20140612.110324.932062947770396872.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, panweiping3@gmail.com, nanditad@google.com,
+	netdev@vger.kernel.org, anna.brunstrom@kau.se,
+	mohammad.rajiullah@kau.se, ncardwell@google.com,
+	sergei.shtylyov@cogentembedded.com
+To: per.hurtig@kau.se
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53418 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751315AbaFLSGM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2014 14:06:12 -0400
+In-Reply-To: <1402585712-12103-1-git-send-email-per.hurtig@kau.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogVGh1LCAxMiBK
-dW4gMjAxNCAxMTowMzoyNCAtMDcwMCAoUERUKQ0KDQo+IEZyb206IFZhcmthIEJoYWRyYW0gPHZh
-cmthYmhhZHJhbUBnbWFpbC5jb20+DQo+IERhdGU6IFRodSwgMTIgSnVuIDIwMTQgMTQ6NDA6NDgg
-KzA1MzANCj4gDQo+PiBzZXBhcmF0ZSB0aGUgbXJmMjRqNDAgaGFyZHdhcmUgaW5pdGlhbGlzYXRp
-b24gZnJvbSBwcm9iZSgpDQo+PiBhbmQgYWRkcyB0aGUgc2FuaXR5IGNoZWNraW5ncy4NCj4+IA0K
-Pj4gVGhlc2UgY2hlY2tpbmdzIGFyZSByZXF1aXJlZCBpZiBzb21lYm9keSBoYXNuJ3QgYSByaWdo
-dCBzcGkgY29uZmlndXJhdGlvbiANCj4+IHRoZSBwcm9iZSBmdW5jdGlvbiBzaG91bGQgZmFpbC4g
-U28gd2UgaGF2ZSB0byByZXR1cm4gZnJvbSB0aGVyZS4NCj4+IA0KPj4gU2lnbmVkLW9mZi1ieTog
-VmFya2EgQmhhZHJhbSA8dmFya2FiQGNkYWMuaW4+DQo+IA0KPiBBcHBsaWVkLCB0aGFua3MuDQoN
-ClJldmVydGVkLCBkaWQgeW91IGV2ZW4gY29tcGlsZSB0ZXN0IHRoaXMgY2hhbmdlPw0KDQpkcml2
-ZXJzL25ldC9pZWVlODAyMTU0L21yZjI0ajQwLmM6IEluIGZ1bmN0aW9uIKFtcmYyNGo0MF9wcm9i
-ZaI6DQpkcml2ZXJzL25ldC9pZWVlODAyMTU0L21yZjI0ajQwLmM6NzQxOjEwOiBlcnJvcjogoWVy
-cl9od19pbml0oiB1bmRlY2xhcmVkIChmaXJzdCB1c2UgaW4gdGhpcyBmdW5jdGlvbikNCmRyaXZl
-cnMvbmV0L2llZWU4MDIxNTQvbXJmMjRqNDAuYzo3NDE6MTA6IG5vdGU6IGVhY2ggdW5kZWNsYXJl
-ZCBpZGVudGlmaWVyIGlzIHJlcG9ydGVkIG9ubHkgb25jZSBmb3IgZWFjaCBmdW5jdGlvbiBpdCBh
-cHBlYXJzIGluDQpkcml2ZXJzL25ldC9pZWVlODAyMTU0L21yZjI0ajQwLmM6NzU5OjE6IHdhcm5p
-bmc6IGxhYmVsIKFlcnJfaHdfaW5pdKIgZGVmaW5lZCBidXQgbm90IHVzZWQgWy1XdW51c2VkLWxh
-YmVsXQ0KZHJpdmVycy9uZXQvaWVlZTgwMjE1NC9tcmYyNGo0MC5jOjcwMjo1OiB3YXJuaW5nOiB1
-bnVzZWQgdmFyaWFibGUgoXZhbKIgWy1XdW51c2VkLXZhcmlhYmxlXQ0KbWFrZVsxXTogKioqIFtk
-cml2ZXJzL25ldC9pZWVlODAyMTU0L21yZjI0ajQwLm9dIEVycm9yIDENCm1ha2U6ICoqKiBbZHJp
-dmVycy9uZXQvaWVlZTgwMjE1NC9tcmYyNGo0MC5vXSBFcnJvciAyDQotLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0KSFBDQyBTeXN0ZW1zIE9wZW4gU291cmNlIEJpZyBEYXRhIFBsYXRmb3JtIGZyb20gTGV4
-aXNOZXhpcyBSaXNrIFNvbHV0aW9ucwpGaW5kIFdoYXQgTWF0dGVycyBNb3N0IGluIFlvdXIgQmln
-IERhdGEgd2l0aCBIUENDIFN5c3RlbXMKT3BlbiBTb3VyY2UuIEZhc3QuIFNjYWxhYmxlLiBTaW1w
-bGUuIElkZWFsIGZvciBEaXJ0eSBEYXRhLgpMZXZlcmFnZXMgR3JhcGggQW5hbHlzaXMgZm9yIEZh
-c3QgUHJvY2Vzc2luZyAmIEVhc3kgRGF0YSBFeHBsb3JhdGlvbgpodHRwOi8vcC5zZi5uZXQvc2Z1
-L2hwY2NzeXN0ZW1zCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fCkxpbnV4LXppZ2JlZS1kZXZlbCBtYWlsaW5nIGxpc3QKTGludXgtemlnYmVlLWRldmVsQGxp
-c3RzLnNvdXJjZWZvcmdlLm5ldApodHRwczovL2xpc3RzLnNvdXJjZWZvcmdlLm5ldC9saXN0cy9s
-aXN0aW5mby9saW51eC16aWdiZWUtZGV2ZWwK
+From: Per Hurtig <per.hurtig@kau.se>
+Date: Thu, 12 Jun 2014 17:08:32 +0200
+
+> Fix to a problem observed when losing a FIN segment that does not
+> contain data.  In such situations, TLP is unable to recover from
+> *any* tail loss and instead adds at least PTO ms to the
+> retransmission process, i.e., RTO = RTO + PTO.
+> 
+> Signed-off-by: Per Hurtig <per.hurtig@kau.se>
+
+Applied, thanks.
