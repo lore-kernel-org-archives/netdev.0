@@ -1,77 +1,46 @@
-From: Milos Vyletel <milos.vyletel@gmail.com>
-Subject: Re: [patch net-next 3/5] ipv6: consider net.ipv6.conf.all sysctls
- when making decisions
-Date: Thu, 12 Jun 2014 11:07:00 -0400
-Message-ID: <CAAFXRd3A32vfZUZv8yz=Fj83Eg7uiUMa3pmbQCh9zXauq2rdWg@mail.gmail.com>
-References: <1402417153-2551-4-git-send-email-milos.vyletel@gmail.com>
-	<20140610101334.565bc484@nehalam.linuxnetplumber.net>
-	<CAAFXRd1Stuyj2t8Oinr6SQysGbMJKPpY5qe=mO_m0xKR1eSjOQ@mail.gmail.com>
-	<20140611.153225.671693159592497903.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: stephen@networkplumber.org, amwang@redhat.com,
-	netdev@vger.kernel.org, oliver@neukum.org, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	pshelar@nicira.com, nicolas.dichtel@6wind.com,
-	mike.rapoport@ravellosystems.com, dborkman@redhat.com,
-	ogerlitz@mellanox.com, therbert@google.com,
-	hannes@stressinduktion.org, florent.fourcot@enst-bretagne.fr,
-	edumazet@google.com, Paul.Durrant@citrix.com,
-	linux-usb@vger.kernel.org,
-	"open list:X86 ARCHITECTURE..." <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140611.153225.671693159592497903.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Per Hurtig <per.hurtig@kau.se>
+Subject: [PATCH v2 1/1] tcp: fixing TLP's FIN recovery
+Date: Thu, 12 Jun 2014 17:08:32 +0200
+Message-ID: <1402585712-12103-1-git-send-email-per.hurtig@kau.se>
+References: <1402583577.3645.477.camel@edumazet-glaptop2.roam.corp.google.com>
+Cc: Per Hurtig <per.hurtig@kau.se>, panweiping3@gmail.com,
+	nanditad@google.com, netdev@vger.kernel.org, anna.brunstrom@kau.se,
+	mohammad.rajiullah@kau.se, ncardwell@google.com,
+	sergei.shtylyov@cogentembedded.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.kau.se ([193.10.220.39]:11598 "EHLO nasse.dc.kau.se"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752900AbaFLPRS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Jun 2014 11:17:18 -0400
+In-Reply-To: <1402583577.3645.477.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David,
+Fix to a problem observed when losing a FIN segment that does not
+contain data.  In such situations, TLP is unable to recover from
+*any* tail loss and instead adds at least PTO ms to the
+retransmission process, i.e., RTO = RTO + PTO.
 
-my words may have been poorly chosen. Last thing I want is to break things...
+Signed-off-by: Per Hurtig <per.hurtig@kau.se>
+---
+ net/ipv4/tcp_output.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-What I meant to say is that this changes the behavior of conf.all.*
-sysctls from no-op to be part of decision along with interface
-specific ones. Default settings still work the same way unless
-conf.all.* was manually modified by user (for example setting
-conf.all.accept_ra_defrtr=0 did not stop kernel from setting default
-router before but it would with this change).
-
-If this is not desired functionality I'm fine with it not being
-applied. However if that's the case I suggest removing conf.all.*
-altogether since it's no-op and pretty confusing for users (myself
-included).
-
-Milos
-
-On Wed, Jun 11, 2014 at 6:32 PM, David Miller <davem@davemloft.net> wrote:
-> From: Milos Vyletel <milos.vyletel@gmail.com>
-> Date: Tue, 10 Jun 2014 13:49:35 -0400
->
->> On Tue, Jun 10, 2014 at 1:13 PM, Stephen Hemminger
->> <stephen@networkplumber.org> wrote:
->>> On Tue, 10 Jun 2014 12:19:11 -0400
->>> Milos Vyletel <milos.vyletel@gmail.com> wrote:
->>>
->>>> As it is right now net.ipv6.conf.all.* are mostly ignored and instead
->>>> we're only making decisions based on interface specific settings. These
->>>> settings are coppied from net.ipv6.conf.default and changing either all
->>>> or default settings have no effect.
->>>
->>> Although this is the right idea conceptually, it risks creating unhappy
->>> users because it changes the semantics of the API. This will probably break
->>> somebody's configuration.
->>
->> You're right but in this case I feel we are moving in the right
->> direction. While the
->> behavior will change in some cases this change is only adding well known ipv4
->> behavior for ipv6 sysctls. In fact documentation briefly mentioned that
->> net.ipv6.conf.all.* should change all the interface-specific settings
->> but that was
->> not the case until now.
->
-> You can't just break things on people, no matter how much you think the
-> current behavior is "poorly designed", "inconsistent with other areas of
-> the networking", etc.  None of those things matter if you have to break
-> things on people to "fix" it.
->
-> I'm not applying this series, sorry.
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index ad7549f..819bf0c 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2131,9 +2131,7 @@ void tcp_send_loss_probe(struct sock *sk)
+ 	if (WARN_ON(!skb || !tcp_skb_pcount(skb)))
+ 		goto rearm_timer;
+ 
+-	/* Probe with zero data doesn't trigger fast recovery. */
+-	if (skb->len > 0)
+-		err = __tcp_retransmit_skb(sk, skb);
++	err = __tcp_retransmit_skb(sk, skb);
+ 
+ 	/* Record snd_nxt for loss detection. */
+ 	if (likely(!err))
+-- 
+1.9.1
