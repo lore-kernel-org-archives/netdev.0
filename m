@@ -1,42 +1,36 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH v2] sctp: Fix sk_ack_backlog wrap-around problem
-Date: Thu, 12 Jun 2014 10:04:55 +0200
-Message-ID: <53995F27.4050308@redhat.com>
-References: <1402541616-15117-1-git-send-email-xufeng.zhang@windriver.com>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [net-next 07/15] i40e: Separate out DCB capability and enabled flags
+Date: Thu, 12 Jun 2014 11:22:05 +0300
+Message-ID: <CAJZOPZLQ+OUgkHpaSr_aEYLLvyeEHMVwXaruUnj5JZxZ1Wm5RQ@mail.gmail.com>
+References: <1402504404-8954-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1402504404-8954-8-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: vyasevich@gmail.com, nhorman@tuxdriver.com, davem@davemloft.net,
-	linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Xufeng Zhang <xufeng.zhang@windriver.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Neerav Parikh <neerav.parikh@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50646 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752389AbaFLIGJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Jun 2014 04:06:09 -0400
-In-Reply-To: <1402541616-15117-1-git-send-email-xufeng.zhang@windriver.com>
+Received: from mail-qc0-f174.google.com ([209.85.216.174]:57073 "EHLO
+	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752154AbaFLIWH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2014 04:22:07 -0400
+Received: by mail-qc0-f174.google.com with SMTP id x13so1356676qcv.5
+        for <netdev@vger.kernel.org>; Thu, 12 Jun 2014 01:22:05 -0700 (PDT)
+In-Reply-To: <1402504404-8954-8-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/12/2014 04:53 AM, Xufeng Zhang wrote:
-> Consider the scenario:
-> For a TCP-style socket, while processing the COOKIE_ECHO chunk in
-> sctp_sf_do_5_1D_ce(), after it has passed a series of sanity check,
-> a new association would be created in sctp_unpack_cookie(), but afterwards,
-> some processing maybe failed, and sctp_association_free() will be called to
-> free the previously allocated association, in sctp_association_free(),
-> sk_ack_backlog value is decremented for this socket, since the initial
-> value for sk_ack_backlog is 0, after the decrement, it will be 65535,
-> a wrap-around problem happens, and if we want to establish new associations
-> afterward in the same socket, ABORT would be triggered since sctp deem the
-> accept queue as full.
-> Fix this issue by only decrementing sk_ack_backlog for associations in
-> the endpoint's list.
+On Wed, Jun 11, 2014 at 7:33 PM, Jeff Kirsher
+<jeffrey.t.kirsher@intel.com> wrote:
+> From: Neerav Parikh <neerav.parikh@intel.com>
 >
-> Fix-suggested-by: Neil Horman <nhorman@tuxdriver.com>
-> Signed-off-by: Xufeng Zhang <xufeng.zhang@windriver.com>
+> Currently if the firmware reports DCB capability the driver enables
+> I40E_FLAG_DCB_ENABLED flag. When this flag is enabled the driver
+> inserts a tag when transmitting a packet from the port
 
-Looks good to me, thanks. This also needs to go to -stable.
+what is this tag (vlan?) and how it's determined?
 
-Acked-by: Daniel Borkmann <dborkman@redhat.com>
+> even if there are no DCB traffic classes configured at the port.
