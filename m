@@ -1,82 +1,58 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: Re: net_timedelta() affected by settimeofday() (was: [patch 12/13]
- net: mac80211: Remove silly timespec dance)
-Date: Thu, 12 Jun 2014 10:57:57 +0200 (CEST)
-Message-ID: <alpine.DEB.2.10.1406121047280.5170@nanos>
-References: <20140611234024.103571777@linutronix.de>  <20140611234607.683770899@linutronix.de>  <1402555774.4224.1.camel@jlt4.sipsolutions.net>  <alpine.DEB.2.10.1406121017500.5170@nanos>  <1402562114.8095.3.camel@jlt4.sipsolutions.net>
- (sfid-20140612_103558_525847_209A5C98) <1402562399.8095.5.camel@jlt4.sipsolutions.net>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH] net: xen-netback: include linux/vmalloc.h again
+Date: Thu, 12 Jun 2014 10:07:45 +0100
+Message-ID: <20140612090745.GV11959@zion.uk.xensource.com>
+References: <5508988.K5Wec8A6hA@wuerfel>
+ <20140610084454.GB28084@zion.uk.xensource.com>
+ <20140611.151901.986995853392690449.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	John Stultz <john.stultz@linaro.org>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev <netdev@vger.kernel.org>
-To: Johannes Berg <johannes@sipsolutions.net>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <wei.liu2@citrix.com>, <arnd@arndb.de>, <netdev@vger.kernel.org>,
+	<andrew.bennieston@citrix.com>, <xen-devel@lists.xenproject.org>,
+	<jwboyer@fedoraproject.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.linutronix.de ([62.245.132.108]:38464 "EHLO
-	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932673AbaFLI6M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2014 04:58:12 -0400
-In-Reply-To: <1402562399.8095.5.camel@jlt4.sipsolutions.net>
+Received: from smtp.citrix.com ([66.165.176.89]:27847 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932728AbaFLJHs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 12 Jun 2014 05:07:48 -0400
+Content-Disposition: inline
+In-Reply-To: <20140611.151901.986995853392690449.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 12 Jun 2014, Johannes Berg wrote:
-
-> On Thu, 2014-06-12 at 10:35 +0200, Johannes Berg wrote:
-> > +netdev, Stephen
+On Wed, Jun 11, 2014 at 03:19:01PM -0700, David Miller wrote:
+> From: Wei Liu <wei.liu2@citrix.com>
+> Date: Tue, 10 Jun 2014 09:44:54 +0100
 > 
-> Well, stupid me. Fixing that netdev address.
+> > On Tue, Jun 10, 2014 at 10:34:36AM +0200, Arnd Bergmann wrote:
+> >> commit e9ce7cb6b107 ("xen-netback: Factor queue-specific data into
+> >> queue struct") added a use of vzalloc/vfree to interface.c, but
+> >> removed the #include <linux/vmalloc.h> statement at the same time,
+> >> which causes this build error:
+> >> 
+> >> drivers/net/xen-netback/interface.c: In function 'xenvif_free':
+> >> drivers/net/xen-netback/interface.c:754:2: error: implicit declaration of function 'vfree' [-Werror=implicit-function-declaration]
+> >>   vfree(vif->queues);
+> >>   ^
+> >> cc1: some warnings being treated as errors
+> >> 
+> >> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> >> Cc: Wei Liu <wei.liu2@citrix.com>
+> >> Cc: Andrew J. Bennieston <andrew.bennieston@citrix.com>
+> > 
+> > Acked-by: Wei Liu <wei.liu2@citrix.com>
+> > 
+> > This didn't happen to me when I built it on x86 though. Just curious,
+> > did you build it on othet platform, say, ARM?
 > 
-> > On Thu, 2014-06-12 at 10:19 +0200, Thomas Gleixner wrote:
-> > > On Thu, 12 Jun 2014, Johannes Berg wrote:
-> > > 
-> > > > On Wed, 2014-06-11 at 23:59 +0000, Thomas Gleixner wrote:
-> > > > 
-> > > > > +	msrmnt = ktime_to_ms(net_timedelta(skb_arv));
-> > > > 
-> > > > This is probably more of a question about net_timedelta(), but is
-> > > > ktime_get_real() really appropriate for duration measurements? Isn't
-> > > > that non-monotonic?
-> > > 
-> > > Well, it's monotonic, but might be affected by settimeofday().
-> > 
-> > Right, but isn't that odd? Suddenly your delay measurement here might be
-> > minutes, hours, or years if you settimeofday() between timestamping and
-> > calculating the delta. That seems very strange to me, why would that be
-> > the right behaviour in any way?
+> ARM and PowerPC will both show this problem.
+> 
+> The issue is that x86 get's linux/vmalloc.h implicitly through one of
+> it's asm/ headers, thus you'll never hit the issue if you only build
+> test on that arch.
 
-Indeed. clock monotonic is the appropriate one for measurements.
- 
-> > Now, it seems that there are only two current users of net_timedelta()
-> > (in DCCP) so perhaps it's not too late to change some of this?
-> > 
-> > Maybe in general the skb timestamp should be based on a different clock
-> > and only adjusted to real time when used in userspace?
+Good to know. I shall keep an eye on this in the future.
 
-You have the same problem then, just at a different place:
-
-    ts = ktime_get();
-
-			settimeofday()
-			   offset_mono_to_real = new value;
-
-    userts = mono_to_real(ts);
-
-But maybe that's not a real issue, as ktime_get_real() can race with
-settimeofday() or NTP as well.
-
-   ts = ktime_get_real();
-				settimeofday();
-   userts = ts;
-
-So the user might see a weird timestamp for a packet, which cannot be
-correlated with the user space gettimeofday().
-
-Thanks,
-
-	tglx
+Thanks
+Wei.
