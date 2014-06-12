@@ -1,76 +1,90 @@
-From: Michal Schmidt <mschmidt@redhat.com>
-Subject: Re: [PATCH net] rtnetlink: fix userspace API breakage for iproute2
- < v3.9.0
-Date: Thu, 12 Jun 2014 16:13:09 +0200
-Message-ID: <5399B575.7070604@redhat.com>
-References: <1401279319-29088-1-git-send-email-mschmidt@redhat.com> <20140530.174248.715408523447246496.davem@davemloft.net> <538DBDB3.7030505@redhat.com>
+From: Rich Felker <dalias@libc.org>
+Subject: Re: recvmmsg/sendmmsg result types inconsistent, integer overflows?
+Date: Thu, 12 Jun 2014 10:13:27 -0400
+Message-ID: <20140612141327.GY179@brightrain.aerifal.cx>
+References: <20140611041243.GA1475@brightrain.aerifal.cx>
+ <1402464261.5195.21.camel@marge.simpson.net>
+ <1402465808.3645.454.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20140611151511.GU179@brightrain.aerifal.cx>
+ <CAKgNAkh7ihJyZ4gOXAeb3x-Su7ayshLdi9m6ML4n840n3bx=0Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
-	alexander.h.duyck@intel.com, michael.riesch@omicron.at
-To: David Miller <davem@davemloft.net>,
-	Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37717 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752823AbaFLON0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Jun 2014 10:13:26 -0400
-In-Reply-To: <538DBDB3.7030505@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Mike Galbraith <umgwanakikbuti@gmail.com>,
+	lkml <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: "Michael Kerrisk (man-pages)" <mtk.manpages@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAKgNAkh7ihJyZ4gOXAeb3x-Su7ayshLdi9m6ML4n840n3bx=0Q@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/03/2014 02:21 PM, Michal Schmidt wrote:
-> On 05/31/2014 02:42 AM, David Miller wrote:
->> From: Michal Schmidt <mschmidt@redhat.com>
->> Date: Wed, 28 May 2014 14:15:19 +0200
->>
->>> When running RHEL6 userspace on a current upstream kernel, "ip link"
->>> fails to show VF information.
->>>
->>> The reason is a kernel<->userspace API change introduced by commit
->>> 88c5b5ce5cb57 ("rtnetlink: Call nlmsg_parse() with correct header length"),
->>> after which the kernel does not see iproute2's IFLA_EXT_MASK attribute
->>> in the netlink request.
->>>
->>> iproute2 adjusted for the API change in its commit 63338dca4513
->>> ("libnetlink: Use ifinfomsg instead of rtgenmsg in rtnl_wilddump_req_filter").
->>>
->>> The problem has been noticed before:
->>> http://marc.info/?l=linux-netdev&m=136692296022182&w=2
->>> (Subject: Re: getting VF link info seems to be broken in 3.9-rc8)
->>>
->>> We can do better than tell those with old userspace to upgrade. We can
->>> recognize the old iproute2 in the kernel by checking the netlink message
->>> length. Even when including the IFLA_EXT_MASK attribute, its netlink
->>> message is shorter than struct ifinfomsg.
->>>
->>> With this patch "ip link" shows VF information in both old and new
->>> iproute2 versions.
->>>
->>> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
->>
->> The userspace tool should be fixed on the system, rather than having the
->> kernel cater to a user tool bug.
->>
->> I'm not applying this, sorry.
+On Thu, Jun 12, 2014 at 08:04:54AM +0200, Michael Kerrisk (man-pages) wrote:
+> Rich,
 > 
-> David,
+> On Wed, Jun 11, 2014 at 5:15 PM, Rich Felker <dalias@libc.org> wrote:
+> > On Tue, Jun 10, 2014 at 10:50:08PM -0700, Eric Dumazet wrote:
+> >> On Wed, 2014-06-11 at 07:24 +0200, Mike Galbraith wrote:
+> >> > (CCs network wizard hangout)
+> >> >
+> >> > On Wed, 2014-06-11 at 00:12 -0400, Rich Felker wrote:
+> >> > > While looking to add support for the recvmmsg and sendmmsg syscalls in
+> >> > > musl libc, I ran into some disturbing findings on the kernel side. In
+> >> > > the struct mmsghdr, the field where the result for each message is
+> >> > > stored has type int, which is inconsistent with the return type
+> >> > > ssize_t of recvmsg/sendmsg. So I tried to track down what happens when
+> >> > > the result is or would be larger than 2GB, and quickly found an
+> >> > > explanation for why the type in the structure was defined wrong:
+> >> > > internally, the kernel uses int as the return type for revcmsg and
+> >> > > sendmsg. Oops.
+> >> > >
+> >> > > A bit more RTFS'ing brought me to tcp_sendmsg in net/ipv4/tcp.c (I
+> >> > > figured let's look at a stream-based protocol, since datagrams can
+> >> > > likely never be that big for any existing protocol), and as far as I
+> >> > > can tell, it's haphazardly mixing int and size_t with no checks for
+> >> > > overflows. I looked for anywhere the kernel might try to verify before
+> >> > > starting that the sum of the lengths of all the iovec components
+> >> > > doesn't overflow INT_MAX or even SIZE_MAX, but didn't find any such
+> >> > > checks.
+> >> > >
+> >> > > Is there some magic that makes this all safe, or is this a big mess of
+> >> > > possibly-security-relevant bugs?
+> >> > >
+> >> > > Rich
+> >> > > --
+> >> > > To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> >> > > the body of a message to majordomo@vger.kernel.org
+> >> > > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> >> > > Please read the FAQ at  http://www.tux.org/lkml/
+> >> >
+> >>
+> >>
+> >> See commit 8acfe468b0384e834a303f08ebc4953d72fb690a
+> >> ("net: Limit socket I/O iovec total length to INT_MAX.")
+> >>
+> >> (or grep for verify_iovec() )
+> >
+> > Thanks; that addresses my concern about safety. There's still the ugly
+> > API inconsistency which it seems too late to fix. Michael, perhaps
+> > this should at least be documented in the man pages for sendmmsg and
+> > recvmmsg since it's certain to be confusing to anyone familiar with
+> > the sendmsg and recvmsg API, but not with kernel internals, who's
+> > trying to use these functions...
 > 
-> the old version of the userspace tool did what it had to do in order to
-> work with a contemporary kernel. You can call that a bug, but the fact
-> is that it used to work that way.
-> 
-> I do not see a difference between "catering to a user tool bug" and
-> "not breaking applications, whether we like them or not" (paraphrasing
-> Linus's message on this very mailing list just 10 days ago).
+> Care to send me a patch?
 
-Dave,
-I am sorry for harping on this, but could you please either reconsider
-the NAK, or explain what considerations are more important than
-userspace compatibility in this case?
+I'm not at all familiar with man format, but I could write some
+suggested text if that would be ok.
 
-> I could understand your objection if my proposed patch could break
-> something else, but you are not saying that, are you?
+Unrelated (at least not directly) to man pages, one concern I have is
+that, if these interfaces move towards standardization, the
+inconsistent return type is going to be a point of contention that
+could result in an incompatible version of the interfaces being
+adopted in the standard. From that standpoint, it might make sense to
+do something like documenting them returning socklen_t rather than
+int (IIRC these are always the same on Linux). It's not quite logical,
+but at least a bit more logical from a non-Linux-centric perspective
+than using int.
 
-Michal
+Rich
