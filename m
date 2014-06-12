@@ -1,58 +1,166 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH] net: xen-netback: include linux/vmalloc.h again
-Date: Thu, 12 Jun 2014 10:07:45 +0100
-Message-ID: <20140612090745.GV11959@zion.uk.xensource.com>
-References: <5508988.K5Wec8A6hA@wuerfel>
- <20140610084454.GB28084@zion.uk.xensource.com>
- <20140611.151901.986995853392690449.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <wei.liu2@citrix.com>, <arnd@arndb.de>, <netdev@vger.kernel.org>,
-	<andrew.bennieston@citrix.com>, <xen-devel@lists.xenproject.org>,
-	<jwboyer@fedoraproject.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:27847 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932728AbaFLJHs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Jun 2014 05:07:48 -0400
-Content-Disposition: inline
-In-Reply-To: <20140611.151901.986995853392690449.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Varka Bhadram <varkabhadram@gmail.com>
+Subject: [PATCH net-next] mrf24j40: separate h/w init and add checkings
+Date: Thu, 12 Jun 2014 14:40:48 +0530
+Message-ID: <1402564248-20606-1-git-send-email-varkab@cdac.in>
+Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
+	linux-zigbee-devel@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, davem@davemloft.net,
+	Varka Bhadram <varkab@cdac.in>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 11, 2014 at 03:19:01PM -0700, David Miller wrote:
-> From: Wei Liu <wei.liu2@citrix.com>
-> Date: Tue, 10 Jun 2014 09:44:54 +0100
-> 
-> > On Tue, Jun 10, 2014 at 10:34:36AM +0200, Arnd Bergmann wrote:
-> >> commit e9ce7cb6b107 ("xen-netback: Factor queue-specific data into
-> >> queue struct") added a use of vzalloc/vfree to interface.c, but
-> >> removed the #include <linux/vmalloc.h> statement at the same time,
-> >> which causes this build error:
-> >> 
-> >> drivers/net/xen-netback/interface.c: In function 'xenvif_free':
-> >> drivers/net/xen-netback/interface.c:754:2: error: implicit declaration of function 'vfree' [-Werror=implicit-function-declaration]
-> >>   vfree(vif->queues);
-> >>   ^
-> >> cc1: some warnings being treated as errors
-> >> 
-> >> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> >> Cc: Wei Liu <wei.liu2@citrix.com>
-> >> Cc: Andrew J. Bennieston <andrew.bennieston@citrix.com>
-> > 
-> > Acked-by: Wei Liu <wei.liu2@citrix.com>
-> > 
-> > This didn't happen to me when I built it on x86 though. Just curious,
-> > did you build it on othet platform, say, ARM?
-> 
-> ARM and PowerPC will both show this problem.
-> 
-> The issue is that x86 get's linux/vmalloc.h implicitly through one of
-> it's asm/ headers, thus you'll never hit the issue if you only build
-> test on that arch.
+separate the mrf24j40 hardware initialisation from probe()
+and adds the sanity checkings.
 
-Good to know. I shall keep an eye on this in the future.
+These checkings are required if somebody hasn't a right spi configuration 
+the probe function should fail. So we have to return from there.
 
-Thanks
-Wei.
+Signed-off-by: Varka Bhadram <varkab@cdac.in>
+---
+ drivers/net/ieee802154/mrf24j40.c |  114 +++++++++++++++++++++++++++++--------
+ 1 file changed, 89 insertions(+), 25 deletions(-)
+
+diff --git a/drivers/net/ieee802154/mrf24j40.c b/drivers/net/ieee802154/mrf24j40.c
+index 4048062..9574d10 100644
+--- a/drivers/net/ieee802154/mrf24j40.c
++++ b/drivers/net/ieee802154/mrf24j40.c
+@@ -610,6 +610,92 @@ out:
+ 	return IRQ_HANDLED;
+ }
+ 
++static int mrf24j40_hw_init(struct mrf24j40 *devrec)
++{
++	int ret;
++	u8 val;
++
++	/* Initialize the device.
++		From datasheet section 3.2: Initialization. */
++	ret = write_short_reg(devrec, REG_SOFTRST, 0x07);
++	if (ret)
++		goto err_ret;
++
++	ret = write_short_reg(devrec, REG_PACON2, 0x98);
++	if (ret)
++		goto err_ret;
++
++	ret = write_short_reg(devrec, REG_TXSTBL, 0x95);
++	if (ret)
++		goto err_ret;
++
++	ret = write_long_reg(devrec, REG_RFCON0, 0x03);
++	if (ret)
++		goto err_ret;
++
++	ret = write_long_reg(devrec, REG_RFCON1, 0x01);
++	if (ret)
++		goto err_ret;
++
++	ret = write_long_reg(devrec, REG_RFCON2, 0x80);
++	if (ret)
++		goto err_ret;
++
++	ret = write_long_reg(devrec, REG_RFCON6, 0x90);
++	if (ret)
++		goto err_ret;
++
++	ret = write_long_reg(devrec, REG_RFCON7, 0x80);
++	if (ret)
++		goto err_ret;
++
++	ret = write_long_reg(devrec, REG_RFCON8, 0x10);
++	if (ret)
++		goto err_ret;
++
++	ret = write_long_reg(devrec, REG_SLPCON1, 0x21);
++	if (ret)
++		goto err_ret;
++
++	ret = write_short_reg(devrec, REG_BBREG2, 0x80);
++	if (ret)
++		goto err_ret;
++
++	ret = write_short_reg(devrec, REG_CCAEDTH, 0x60);
++	if (ret)
++		goto err_ret;
++
++	ret = write_short_reg(devrec, REG_BBREG6, 0x40);
++	if (ret)
++		goto err_ret;
++
++	ret = write_short_reg(devrec, REG_RFCTL, 0x04);
++	if (ret)
++		goto err_ret;
++
++	ret = write_short_reg(devrec, REG_RFCTL, 0x0);
++	if (ret)
++		goto err_ret;
++
++	udelay(192);
++
++	/* Set RX Mode. RXMCR<1:0>: 0x0 normal, 0x1 promisc, 0x2 error */
++	ret = read_short_reg(devrec, REG_RXMCR, &val);
++	if (ret)
++		goto err_ret;
++
++	val &= ~0x3; /* Clear RX mode (normal) */
++
++	ret = write_short_reg(devrec, REG_RXMCR, val);
++	if (ret)
++		goto err_ret;
++
++	return 0;
++
++err_ret:
++	return ret;
++}
++
+ static int mrf24j40_probe(struct spi_device *spi)
+ {
+ 	int ret = -ENOMEM;
+@@ -650,31 +736,9 @@ static int mrf24j40_probe(struct spi_device *spi)
+ 	if (ret)
+ 		goto err_register_device;
+ 
+-	/* Initialize the device.
+-		From datasheet section 3.2: Initialization. */
+-	write_short_reg(devrec, REG_SOFTRST, 0x07);
+-	write_short_reg(devrec, REG_PACON2, 0x98);
+-	write_short_reg(devrec, REG_TXSTBL, 0x95);
+-	write_long_reg(devrec, REG_RFCON0, 0x03);
+-	write_long_reg(devrec, REG_RFCON1, 0x01);
+-	write_long_reg(devrec, REG_RFCON2, 0x80);
+-	write_long_reg(devrec, REG_RFCON6, 0x90);
+-	write_long_reg(devrec, REG_RFCON7, 0x80);
+-	write_long_reg(devrec, REG_RFCON8, 0x10);
+-	write_long_reg(devrec, REG_SLPCON1, 0x21);
+-	write_short_reg(devrec, REG_BBREG2, 0x80);
+-	write_short_reg(devrec, REG_CCAEDTH, 0x60);
+-	write_short_reg(devrec, REG_BBREG6, 0x40);
+-	write_short_reg(devrec, REG_RFCTL, 0x04);
+-	write_short_reg(devrec, REG_RFCTL, 0x0);
+-	udelay(192);
+-
+-	/* Set RX Mode. RXMCR<1:0>: 0x0 normal, 0x1 promisc, 0x2 error */
+-	ret = read_short_reg(devrec, REG_RXMCR, &val);
++	ret = mrf24j40_hw_init(devrec);
+ 	if (ret)
+-		goto err_read_reg;
+-	val &= ~0x3; /* Clear RX mode (normal) */
+-	write_short_reg(devrec, REG_RXMCR, val);
++		return err_hw_init;
+ 
+ 	ret = devm_request_threaded_irq(&spi->dev,
+ 					spi->irq,
+@@ -692,7 +756,7 @@ static int mrf24j40_probe(struct spi_device *spi)
+ 	return 0;
+ 
+ err_irq:
+-err_read_reg:
++err_hw_init:
+ 	ieee802154_unregister_device(devrec->dev);
+ err_register_device:
+ 	ieee802154_free_device(devrec->dev);
+-- 
+1.7.9.5
