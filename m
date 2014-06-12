@@ -1,56 +1,91 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: net_timedelta() affected by settimeofday() (was: [patch 12/13]
- net: mac80211: Remove silly timespec dance)
-Date: Thu, 12 Jun 2014 10:39:59 +0200
-Message-ID: <1402562399.8095.5.camel@jlt4.sipsolutions.net>
-References: <20140611234024.103571777@linutronix.de>
-	 <20140611234607.683770899@linutronix.de>
-	 <1402555774.4224.1.camel@jlt4.sipsolutions.net>
-	 <alpine.DEB.2.10.1406121017500.5170@nanos>
-	 <1402562114.8095.3.camel@jlt4.sipsolutions.net>
-	 (sfid-20140612_103558_525847_209A5C98)
+From: Romain Francoise <romain@orebokech.com>
+Subject: Re: [PULL] vhost: infrastructure changes for 3.16
+Date: Thu, 12 Jun 2014 10:42:34 +0200
+Message-ID: <87mwdiwmbp.fsf@kima.orebokech.com>
+References: <20140611134447.GA8208@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	John Stultz <john.stultz@linaro.org>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org,
-	Stephen Hemminger <shemminger@linux-foundation.org>,
-	netdev <netdev@vger.kernel.org>
-To: Thomas Gleixner <tglx@linutronix.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1402562114.8095.3.camel@jlt4.sipsolutions.net> (sfid-20140612_103558_525847_209A5C98)
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: sfr@canb.auug.org.au, linux-scsi@vger.kernel.org, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Al Viro <viro@zeniv.linux.org.uk>, nab@daterainc.com,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20140611134447.GA8208@redhat.com> (Michael S. Tsirkin's message
+	of "Wed, 11 Jun 2014 16:44:47 +0300")
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-06-12 at 10:35 +0200, Johannes Berg wrote:
-> +netdev, Stephen
+"Michael S. Tsirkin" <mst@redhat.com> writes:
 
-Well, stupid me. Fixing that netdev address.
+> Memory allocation for vhost-net now supports fallback on vmalloc (same
+> as for vhost-scsi) this makes it possible to create the device on
+> systems where memory is very fragmented, with slightly lower
+> performance.
 
-> On Thu, 2014-06-12 at 10:19 +0200, Thomas Gleixner wrote:
-> > On Thu, 12 Jun 2014, Johannes Berg wrote:
-> > 
-> > > On Wed, 2014-06-11 at 23:59 +0000, Thomas Gleixner wrote:
-> > > 
-> > > > +	msrmnt = ktime_to_ms(net_timedelta(skb_arv));
-> > > 
-> > > This is probably more of a question about net_timedelta(), but is
-> > > ktime_get_real() really appropriate for duration measurements? Isn't
-> > > that non-monotonic?
-> > 
-> > Well, it's monotonic, but might be affected by settimeofday().
-> 
-> Right, but isn't that odd? Suddenly your delay measurement here might be
-> minutes, hours, or years if you settimeofday() between timestamping and
-> calculating the delta. That seems very strange to me, why would that be
-> the right behaviour in any way?
-> 
-> Now, it seems that there are only two current users of net_timedelta()
-> (in DCCP) so perhaps it's not too late to change some of this?
-> 
-> Maybe in general the skb timestamp should be based on a different clock
-> and only adjusted to real time when used in userspace?
+Thanks Michael, I'm glad to see that this change made its way into
+mainline after all! Would you be willing to take the following on top?
+
+
+From: Romain Francoise <romain@orebokech.com>
+Date: Thu, 12 Jun 2014 10:26:40 +0200
+Subject: [PATCH] vhost-net: don't open-code kvfree
+
+Commit 23cc5a991c ("vhost-net: extend device allocation to vmalloc")
+added another open-coded version of kvfree (which is available since
+v3.15-rc5), nuke it.
+
+Signed-off-by: Romain Francoise <romain@orebokech.com>
+---
+ drivers/vhost/net.c | 12 ++----------
+ 1 file changed, 2 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index 971a760..8dae2f7 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -700,14 +700,6 @@ static void handle_rx_net(struct vhost_work *work)
+ 	handle_rx(net);
+ }
+ 
+-static void vhost_net_free(void *addr)
+-{
+-	if (is_vmalloc_addr(addr))
+-		vfree(addr);
+-	else
+-		kfree(addr);
+-}
+-
+ static int vhost_net_open(struct inode *inode, struct file *f)
+ {
+ 	struct vhost_net *n;
+@@ -723,7 +715,7 @@ static int vhost_net_open(struct inode *inode, struct file *f)
+ 	}
+ 	vqs = kmalloc(VHOST_NET_VQ_MAX * sizeof(*vqs), GFP_KERNEL);
+ 	if (!vqs) {
+-		vhost_net_free(n);
++		kvfree(n);
+ 		return -ENOMEM;
+ 	}
+ 
+@@ -840,7 +832,7 @@ static int vhost_net_release(struct inode *inode, struct file *f)
+ 	 * since jobs can re-queue themselves. */
+ 	vhost_net_flush(n);
+ 	kfree(n->dev.vqs);
+-	vhost_net_free(n);
++	kvfree(n);
+ 	return 0;
+ }
+ 
+-- 
+2.0.0
