@@ -1,110 +1,95 @@
-From: Fugang Duan <b38611@freescale.com>
-Subject: [PATCH v5 4/6] net: fec: Increase buffer descriptor entry number
-Date: Thu, 12 Jun 2014 08:16:21 +0800
-Message-ID: <1402532183-14910-5-git-send-email-b38611@freescale.com>
-References: <1402532183-14910-1-git-send-email-b38611@freescale.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net-next v2 RESEND 1/4] macvlan: support mac address changes
+ when fwd_priv is enable
+Date: Thu, 12 Jun 2014 09:45:12 +0800
+Message-ID: <53990628.9070202@huawei.com>
+References: <1402127143-6456-1-git-send-email-dingtianhong@huawei.com> <1402127143-6456-2-git-send-email-dingtianhong@huawei.com> <5395E617.5080307@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <b38611@freescale.com>,
-	<ezequiel.garcia@free-electrons.com>, <b20596@freescale.com>,
-	<David.Laight@ACULAB.COM>, <eric.dumazet@gmail.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>,
+	John Fastabend <john.r.fastabend@intel.com>
+To: <vyasevic@redhat.com>, <kaber@trash.net>, <davem@davemloft.net>,
+	<edumazet@google.com>, <makita.toshiaki@lab.ntt.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2lp0235.outbound.protection.outlook.com ([207.46.163.235]:56576
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755212AbaFLBmQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 11 Jun 2014 21:42:16 -0400
-In-Reply-To: <1402532183-14910-1-git-send-email-b38611@freescale.com>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:60033 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754411AbaFLBqE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 11 Jun 2014 21:46:04 -0400
+In-Reply-To: <5395E617.5080307@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In order to support SG, software TSO, let's increase BD entry number.
+On 2014/6/10 0:51, Vlad Yasevich wrote:
+> [.. CC John Fastabend <john.r.fastabend@intel.com> ]
+> 
+> On 06/07/2014 03:45 AM, Ding Tianhong wrote:
+>> If lowerdev supports L2 forwarding offload, the macvlan's hw address
+>> will be set to the rar of the lowerdev and no need to set uc list,
+>> and when the macvlan's hw address changes, the macvlan should remove
+>> the old fwd and rebuild a new fwd for the macvlan.
+>>
+>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>> ---
+>>  drivers/net/macvlan.c | 21 +++++++++++++++++++++
+>>  1 file changed, 21 insertions(+)
+>>
+>> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+>> index 453d55a..67485ab 100644
+>> --- a/drivers/net/macvlan.c
+>> +++ b/drivers/net/macvlan.c
+>> @@ -523,6 +523,27 @@ static int macvlan_sync_address(struct net_device *dev, unsigned char *addr)
+>>  		if (macvlan_addr_busy(vlan->port, addr))
+>>  			return -EBUSY;
+>>  
+>> +		if (vlan->fwd_priv) {
+>> +			lowerdev->netdev_ops->ndo_dfwd_del_station(lowerdev,
+>> +								   vlan->fwd_priv);
+>> +			vlan->fwd_priv = NULL;
+>> +			ether_addr_copy(dev->perm_addr, dev->dev_addr);
+>> +			ether_addr_copy(dev->dev_addr, addr);
+>> +			vlan->fwd_priv =
+>> +			    lowerdev->netdev_ops->ndo_dfwd_add_station(lowerdev,
+>> +								       dev);
+>> +			/* If we get a NULL pointer back, or if we get an error
+>> +			 * then we should restore the old mac address and fwd.
+>> +			 */
+>> +			if (IS_ERR_OR_NULL(vlan->fwd_priv)) {
+>> +				ether_addr_copy(dev->dev_addr, dev->perm_addr);
+>> +				vlan->fwd_priv =
+>> +				    lowerdev->netdev_ops->ndo_dfwd_add_station(lowerdev,
+>> +									       dev);
+>> +				return -EINVAL;
+>> +			}
+>> +			return 0;
+>> +		}
+> 
+> Calling del_stations add_station causes all sorts of VMDQ/ring
+> operations to happen...  Not sure if we can do that while we have a live
+> macvlan/macvtap that is capable of transmitting data.
+> 
+> Wouldn't it be sufficient to have a call to call to update with mac
+> filter with the appropriate VMDQ.
+> 
+> John, I defer to you here.  The above looks really heavy-weight and
+> I am not sure if its correct.
+> 
+> Thanks
+> -vlad
 
-CC: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-CC: Eric Dumazet <eric.dumazet@gmail.com>
-CC: David Laight <David.Laight@ACULAB.COM>
-Signed-off-by: Fugang Duan <B38611@freescale.com>
----
- drivers/net/ethernet/freescale/fec.h      |    4 ++--
- drivers/net/ethernet/freescale/fec_main.c |   29 +++++++++++++++--------------
- 2 files changed, 17 insertions(+), 16 deletions(-)
+I have used two 82599 nic to test this problem, I modify the ixgbe drivers and set the  L2 forwarding offload default,
+without this patch, when I change the macvlan mac address, the kernel oops, and if I apply this patch, the ixgbe could
+work well with the maclvan, so I don't think this solution has problem.
 
-diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
-index db967a0..5ffd323 100644
---- a/drivers/net/ethernet/freescale/fec.h
-+++ b/drivers/net/ethernet/freescale/fec.h
-@@ -246,8 +246,8 @@ struct bufdesc_ex {
- #define RX_RING_SIZE		(FEC_ENET_RX_FRPPG * FEC_ENET_RX_PAGES)
- #define FEC_ENET_TX_FRSIZE	2048
- #define FEC_ENET_TX_FRPPG	(PAGE_SIZE / FEC_ENET_TX_FRSIZE)
--#define TX_RING_SIZE		16	/* Must be power of two */
--#define TX_RING_MOD_MASK	15	/*   for this to work */
-+#define TX_RING_SIZE		512	/* Must be power of two */
-+#define TX_RING_MOD_MASK	511	/*   for this to work */
- 
- #define BD_ENET_RX_INT          0x00800000
- #define BD_ENET_RX_PTP          ((ushort)0x0400)
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index f943cd1..b27a729 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -173,10 +173,6 @@ MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
- #endif
- #endif /* CONFIG_M5272 */
- 
--#if (((RX_RING_SIZE + TX_RING_SIZE) * 32) > PAGE_SIZE)
--#error "FEC: descriptor ring size constants too large"
--#endif
--
- /* Interrupt events/masks. */
- #define FEC_ENET_HBERR	((uint)0x80000000)	/* Heartbeat error */
- #define FEC_ENET_BABR	((uint)0x40000000)	/* Babbling receiver */
-@@ -2048,9 +2044,21 @@ static int fec_enet_init(struct net_device *ndev)
- 	const struct platform_device_id *id_entry =
- 				platform_get_device_id(fep->pdev);
- 	struct bufdesc *cbd_base;
-+	int bd_size;
-+
-+	/* init the tx & rx ring size */
-+	fep->tx_ring_size = TX_RING_SIZE;
-+	fep->rx_ring_size = RX_RING_SIZE;
-+
-+	if (fep->bufdesc_ex)
-+		fep->bufdesc_size = sizeof(struct bufdesc_ex);
-+	else
-+		fep->bufdesc_size = sizeof(struct bufdesc);
-+	bd_size = (fep->tx_ring_size + fep->rx_ring_size) *
-+			fep->bufdesc_size;
- 
- 	/* Allocate memory for buffer descriptors. */
--	cbd_base = dma_alloc_coherent(NULL, PAGE_SIZE, &fep->bd_dma,
-+	cbd_base = dma_alloc_coherent(NULL, bd_size, &fep->bd_dma,
- 				      GFP_KERNEL);
- 	if (!cbd_base)
- 		return -ENOMEM;
-@@ -2064,20 +2072,13 @@ static int fec_enet_init(struct net_device *ndev)
- 	/* make sure MAC we just acquired is programmed into the hw */
- 	fec_set_mac_address(ndev, NULL);
- 
--	/* init the tx & rx ring size */
--	fep->tx_ring_size = TX_RING_SIZE;
--	fep->rx_ring_size = RX_RING_SIZE;
--
- 	/* Set receive and transmit descriptor base. */
- 	fep->rx_bd_base = cbd_base;
--	if (fep->bufdesc_ex) {
-+	if (fep->bufdesc_ex)
- 		fep->tx_bd_base = (struct bufdesc *)
- 			(((struct bufdesc_ex *)cbd_base) + fep->rx_ring_size);
--		fep->bufdesc_size = sizeof(struct bufdesc_ex);
--	} else {
-+	else
- 		fep->tx_bd_base = cbd_base + fep->rx_ring_size;
--		fep->bufdesc_size = sizeof(struct bufdesc);
--	}
- 
- 	/* The FEC Ethernet specific entries in the device structure */
- 	ndev->watchdog_timeo = TX_TIMEOUT;
--- 
-1.7.8
+Thanks
+Ding
+
+> 
+>>  		if (!vlan->port->passthru) {
+>>  			err = dev_uc_add(lowerdev, addr);
+>>  			if (err)
+>>
+> 
+> 
+> .
+> 
