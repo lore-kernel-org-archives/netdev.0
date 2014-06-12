@@ -1,34 +1,65 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: hard_header_len vs needed_headroom
-Date: Thu, 12 Jun 2014 11:42:02 -0700
-Message-ID: <CAHA+R7Nc7G1m7sJUgGOUY3=w6zdy07cmaBpoYAY7px0jP9UupA@mail.gmail.com>
-References: <CAHA+R7Nyi9TvpN+fJrFt7krhLLXyJ5ify1ONvAse+rJFU0kbKg@mail.gmail.com>
-	<CALnjE+pNfhB_-o1POjDpJj2F3opUv7ei1U8uO+bacCoP5vwxHg@mail.gmail.com>
-	<CAHA+R7NERb0ZDbw7CX73A9VQSHs-+5DBfe=1-4rjPpoOGpnk8A@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	=?UTF-8?Q?Timo_Ter=C3=A4s?= <timo.teras@iki.fi>,
-	netdev <netdev@vger.kernel.org>
-To: Pravin Shelar <pshelar@nicira.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net] vxlan: use dev->needed_headroom instead of dev->hard_header_len
+Date: Thu, 12 Jun 2014 11:53:10 -0700
+Message-ID: <1402599190-24350-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	stephen hemminger <stephen@networkplumber.org>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Cong Wang <cwang@twopensource.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f169.google.com ([209.85.216.169]:52294 "EHLO
-	mail-qc0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750716AbaFLSmE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2014 14:42:04 -0400
-Received: by mail-qc0-f169.google.com with SMTP id c9so2644552qcz.0
-        for <netdev@vger.kernel.org>; Thu, 12 Jun 2014 11:42:03 -0700 (PDT)
-In-Reply-To: <CAHA+R7NERb0ZDbw7CX73A9VQSHs-+5DBfe=1-4rjPpoOGpnk8A@mail.gmail.com>
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:52954 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750790AbaFLSxY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2014 14:53:24 -0400
+Received: by mail-pd0-f175.google.com with SMTP id v10so367139pde.34
+        for <netdev@vger.kernel.org>; Thu, 12 Jun 2014 11:53:23 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 9, 2014 at 4:37 PM, Cong Wang <cwang@twopensource.com> wrote:
->
-> It's not whether LL_RESERVED_SPACE() is used or not, it's whether
-> dev->hard_header_len is always the offset from mac_header to
-> network_header. mirred is not alone, tpacket_fill_skb() uses this as well.
-> So I think we have to fix dev->hard_header_len for tunnels.
+From: Cong Wang <cwang@twopensource.com>
 
-Thinking a bit more, I think this behavior is correct, the mirror device should
-see the same packets as the tunnel device, that means for ipip tunnel its
-dev->hard_header_len should be 0. vxlan tunnel needs to fix actually.
+When we mirror packets from a vxlan tunnel to other device,
+the mirror device should see the same packets (that is, without
+outer header). Because vxlan tunnel sets dev->hard_header_len,
+tcf_mirred() resets mac header back to outer mac, the mirror device
+actually sees packets with outer headers
+
+Vxlan tunnel should set dev->needed_headroom instead of
+dev->hard_header_len, like what other ip tunnels do. This fixes
+the above problem.
+
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: stephen hemminger <stephen@networkplumber.org>
+Cc: Pravin B Shelar <pshelar@nicira.com>
+Signed-off-by: Cong Wang <cwang@twopensource.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+
+---
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 1610d51..e0995ff 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -2247,9 +2247,9 @@ static void vxlan_setup(struct net_device *dev)
+ 	eth_hw_addr_random(dev);
+ 	ether_setup(dev);
+ 	if (vxlan->default_dst.remote_ip.sa.sa_family == AF_INET6)
+-		dev->hard_header_len = ETH_HLEN + VXLAN6_HEADROOM;
++		dev->needed_headroom = ETH_HLEN + VXLAN6_HEADROOM;
+ 	else
+-		dev->hard_header_len = ETH_HLEN + VXLAN_HEADROOM;
++		dev->needed_headroom = ETH_HLEN + VXLAN_HEADROOM;
+ 
+ 	dev->netdev_ops = &vxlan_netdev_ops;
+ 	dev->destructor = free_netdev;
+@@ -2646,8 +2646,7 @@ static int vxlan_newlink(struct net *net, struct net_device *dev,
+ 		if (!tb[IFLA_MTU])
+ 			dev->mtu = lowerdev->mtu - (use_ipv6 ? VXLAN6_HEADROOM : VXLAN_HEADROOM);
+ 
+-		/* update header length based on lower device */
+-		dev->hard_header_len = lowerdev->hard_header_len +
++		dev->needed_headroom = lowerdev->hard_header_len +
+ 				       (use_ipv6 ? VXLAN6_HEADROOM : VXLAN_HEADROOM);
+ 	} else if (use_ipv6)
+ 		vxlan->flags |= VXLAN_F_IPV6;
