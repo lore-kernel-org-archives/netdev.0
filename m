@@ -1,178 +1,88 @@
-From: Florian Klink <flokli@flokli.de>
-Subject: Re: cdc-wdm: unable to connect after suspend
-Date: Thu, 12 Jun 2014 22:10:15 +0200
-Message-ID: <539A0927.6010308@flokli.de>
-References: <ln6m4k$q49$1@ger.gmane.org> <874mzt55kz.fsf@nemi.mork.no> <53971171.5070001@flokli.de> <539712BA.5010004@flokli.de> <87lht350y0.fsf@nemi.mork.no> <53982AA7.3090508@flokli.de> <CAAP7ucKXPt=Ya3+mfVJ8rEjEkKabFrK0Z4Khaw7U6k-vUuU_Eg@mail.gmail.com> <53983C1B.5090805@flokli.de> <87y4x33bnw.fsf@nemi.mork.no> <CAAP7ucJ+3wM9wWYSXOBbfAY3zTt1q3TA1h5MWq=XUUqDPqWf=g@mail.gmail.com>
+From: Zachary <zacharyw09264@gmail.com>
+Subject: Re: Very Minor Patch to loopback.c
+Date: Thu, 12 Jun 2014 16:24:03 -0400
+Message-ID: <CAECMkcMGgCjCF-GVjyywn+B9cgMLwCsPQB3y1R2eMsck-=qv8Q@mail.gmail.com>
+References: <CAECMkcNrXmuE4saV2==GrCwjwEUzAaGi+NroP5ZXxrRpqr0AwA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="4MekaOUUVpTb9NSdxfU0IomemjQGBjjUh"
-Cc: "ModemManager (development)"
-	<modemmanager-devel@lists.freedesktop.org>, netdev@vger.kernel.org
-To: Aleksander Morgado <aleksander@aleksander.es>,
-	=?UTF-8?B?QmrDuHJuIE1v?= =?UTF-8?B?cms=?= <bjorn@mork.no>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from asterix.flokli.de ([78.46.104.9]:36474 "EHLO asterix.flokli.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751809AbaFLUKT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 12 Jun 2014 16:10:19 -0400
-In-Reply-To: <CAAP7ucJ+3wM9wWYSXOBbfAY3zTt1q3TA1h5MWq=XUUqDPqWf=g@mail.gmail.com>
+Received: from mail-qc0-f179.google.com ([209.85.216.179]:38370 "EHLO
+	mail-qc0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751856AbaFLUYF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2014 16:24:05 -0400
+Received: by mail-qc0-f179.google.com with SMTP id x3so1647623qcv.10
+        for <netdev@vger.kernel.org>; Thu, 12 Jun 2014 13:24:04 -0700 (PDT)
+In-Reply-To: <CAECMkcNrXmuE4saV2==GrCwjwEUzAaGi+NroP5ZXxrRpqr0AwA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---4MekaOUUVpTb9NSdxfU0IomemjQGBjjUh
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Updated due to Richard Weinberger's info in linux-kernel
 
-Am 11.06.2014 17:05, schrieb Aleksander Morgado:
-> On Wed, Jun 11, 2014 at 1:53 PM, Bj=C3=B8rn Mork <bjorn@mork.no> wrote:=
+diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
+index bb96409..fc03883 100644
+--- a/drivers/net/loopback.c
++++ b/drivers/net/loopback.c
+@@ -72,7 +72,6 @@ static netdev_tx_t loopback_xmit(struct sk_buff *skb,
+                                 struct net_device *dev)
+ {
+        struct pcpu_lstats *lb_stats;
+-       int len;
 
->> ModemManager[1861]: <info>  [1402484754.484416] [mm-iface-modem-3gpp.c=
-:1167] update_registration_state(): Modem /org/freedesktop/ModemManager1/=
-Modem/0: 3GPP Registration state changed (home -> idle)
->> ModemManager[1861]: <info>  [1402484754.484496] [mm-iface-modem-locati=
-on.c:293] notify_3gpp_location_update(): Modem /org/freedesktop/ModemMana=
-ger1/Modem/0: 3GPP location updated (MCC: '0', MNC: '0', Location area co=
-de: '0', Cell ID: '0')
->> ModemManager[1861]: <debug> [1402484754.484540] [mm-bearer.c:261] mode=
-m_3gpp_registration_state_changed(): Bearer not allowed to connect, not r=
-egistered in 3GPP network
->> ModemManager[1861]: <info>  [1402484754.484570] [mm-iface-modem.c:894]=
- mm_iface_modem_update_access_technologies(): Modem /org/freedesktop/Mode=
-mManager1/Modem/0: access technology changed (umts, hsdpa, hsupa -> unkno=
-wn)
->> NetworkManager[1862]: <warn> (cdc-wdm1) failed to connect modem: Netwo=
-rk timeout
->> NetworkManager[1862]: <info> (cdc-wdm1): device state change: prepare =
--> failed (reason 'gsm-registration-timeout') [40 120 32]
->> NetworkManager[1862]: <info> NetworkManager state is now DISCONNECTED
->> NetworkManager[1862]: <debug> [1402484754.485784] [nm-manager.c:4165] =
-policy_activating_device_changed(): ActivatingConnection now (none)
->> NetworkManager[1862]: <warn> Activation (cdc-wdm1) failed for connecti=
-on 'FONIC Vorgabe'
->> NetworkManager[1862]: <debug> [1402484754.485885] [nm-device.c:5261] n=
-m_device_queue_state(): (cdc-wdm1): queued state change to disconnected (=
-id 431)
->> NetworkManager[1862]: <debug> [1402484754.486259] [nm-device.c:5219] q=
-ueued_set_state(): (cdc-wdm1): running queued state change to disconnecte=
-d (id 431)
->> NetworkManager[1862]: <info> (cdc-wdm1): device state change: failed -=
-> disconnected (reason 'none') [120 30 0]
->> NetworkManager[1862]: <info> (cdc-wdm1): deactivating device (reason '=
-none') [0]
->> NetworkManager[1862]: <debug> [1402484754.486360] [nm-firewall-manager=
-=2Ec:166] nm_firewall_manager_remove_from_zone(): (cdc-wdm1) firewall zon=
-e remove skipped (not running)
->> NetworkManager[1862]: <debug> [1402484754.486649] [nm-dns-manager.c:99=
-5] nm_dns_manager_begin_updates(): (update_routing_and_dns): queueing DNS=
- updates (1)
->> NetworkManager[1862]: <debug> [1402484754.486718] [nm-dns-manager.c:10=
-13] nm_dns_manager_end_updates(): (nm_dns_manager_end_updates): DNS confi=
-guration did not change
->> NetworkManager[1862]: <debug> [1402484754.486745] [nm-dns-manager.c:10=
-17] nm_dns_manager_end_updates(): (update_routing_and_dns): no DNS change=
-s to commit (0)
->>
->>
->>
->> But there are no MBIM messages explaining why MM sets the state to
->> 'idle'.  Is this because of the missing reply, Alexander?  Why don't w=
-e
->> just trust the (more current) result from the indication?  We do know
->> that the modem is registered to the home network here, or?
->=20
-> Gah....
->=20
-> Yeah, that's the thing:
->=20
-> static void
-> register_in_network_context_failed (RegisterInNetworkContext *ctx,
->                                     GError *error)
-> {
->     mm_iface_modem_3gpp_update_cs_registration_state (ctx->self,
-> MM_MODEM_3GPP_REGISTRATION_STATE_IDLE);
->     mm_iface_modem_3gpp_update_ps_registration_state (ctx->self,
-> MM_MODEM_3GPP_REGISTRATION_STATE_IDLE);
->     mm_iface_modem_3gpp_update_eps_registration_state (ctx->self,
-> MM_MODEM_3GPP_REGISTRATION_STATE_IDLE);
->     mm_iface_modem_3gpp_update_access_technologies (ctx->self,
-> MM_MODEM_ACCESS_TECHNOLOGY_UNKNOWN);
->     mm_iface_modem_3gpp_update_location (ctx->self, 0, 0);
->=20
->     g_simple_async_result_take_error (ctx->result, error);
-> }
->=20
-> Well, I guess we should try to detect the indication and if so, use it
-> as 'reply' to the request we sent. Luckily both the indication and the
-> response will have the same info:
->=20
->     imbim_message_register_state_notification_parse (
->             notification,
->             NULL, /* nw_error */
->             &register_state,
->             NULL, /* register_mode */
->             &available_data_classes,
->             NULL, /* current_cellular_class */
->             &provider_id,
->             &provider_name,
->             NULL, /* roaming_text */
->             NULL, /* registration_flag */
->             NULL)
->=20
->         mbim_message_register_state_response_parse (
->             response,
->             NULL, /* nw_error */
->             &register_state,
->             NULL, /* register_mode */
->             &available_data_classes,
->             NULL, /* current_cellular_class */
->             &provider_id,
->             &provider_name,
->             NULL, /* roaming_text */
->             NULL, /* registration_flag */
->             NULL)
+        skb_orphan(skb);
+
+@@ -86,10 +85,9 @@ static netdev_tx_t loopback_xmit(struct sk_buff *skb,
+        /* it's OK to use per_cpu_ptr() because BHs are off */
+        lb_stats = this_cpu_ptr(dev->lstats);
+
+-       len = skb->len;
+        if (likely(netif_rx(skb) == NET_RX_SUCCESS)) {
+                u64_stats_update_begin(&lb_stats->syncp);
+-               lb_stats->bytes += len;
++               lb_stats->bytes += skb->len;
+                lb_stats->packets++;
+                u64_stats_update_end(&lb_stats->syncp);
+        }
+
+On Thu, Jun 12, 2014 at 3:53 PM, Zachary <zacharyw09264@gmail.com> wrote:
+> Very minor patch to loopback.c that I noticed while comparing the
+> dummy.c code to loopback.c code (dummy.c was based on loopback.c).  I
+> did not see a maintainer in MAINTAINERS in my cursory glance, so I
+> apologize if this is to the wrong place.  I am testing this patch
+> right now on my laptop and it appears to be working without issues.
+> It also compiled without warnings.
 >
-> Ugly hack, but I guess there's no other way to handle this firmware iss=
-ue?
-
-
-I'd think this approach at least seems to be less error-prone than the
-one suggested below. Can you provide me a patch that treats the
-indication as a reply?
-I never touched libmbim, but I'd happily test a patch :-)
-
-
-Florian
-
-
-> Another option would be to avoid moving the state to IDLE when
-> registration check fails, but that's pretty generic in every flow for
-> every modem, not sure if we should touch that.
->=20
-
-
---4MekaOUUVpTb9NSdxfU0IomemjQGBjjUh
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBAgAGBQJTmgknAAoJEInyWbj6DRgfsioP/RFIc0tN1RTf04zdwJgq25yZ
-KlE98dZPDAlaRtvLhyuhA1h33dG10mJzfnVKD0cE1ASaBj/44U5aX6u97UejmvG3
-MqolVufLXwE3Y5ZgR+ulA0Xl7/DH76JJLsQE2PdcrF8MrgGjCtAIvS6t/rwjKeCQ
-Cxt8ovpIKvB7sLrROjf99EnV6Znrzmd120ujRcvFLxT+TFTXu0d1hmHyQkbU8YlO
-AzlsbRGcyLwaeL53t9DMnVdU39DwA8dEVfMB/87stMuaTHMRRoP36qS3St2vSUXt
-rpHDa5+MHGtMeRyYgE1vZugxAzstRnJFDy8vs9Oz7NNDHC9LbBua69jgdyByeo/0
-FEQd2b8y49BUqVg/gcG61LCM1BLohspJbAVKLAM1XUoJI1OtkXN2JxtFL9X7CObr
-ELAGeZKDPV9d1ZN2FAJ0aylpd6PF5FLNBHx0VhEoXFiwFHdZ1I0sSK7VnInx8uS9
-TMyAb1NYycNNtl7fV86Sq70xUbq7Oj/wkLtkp/umNfHp1I7aKZr53/8snfTspfMw
-CluPCa/5o6TPLU4I/7MfSQcgZ1NYELGbeZKlCfWNJJFpGNZbfFtr1z3pLw4h7Bpm
-Yd23ZbqYF6cdXqjBGDwm+SBGIRQRHsol9QuooB3+IMw1NXw0kHwJ3oYg05tycuZt
-0V5Ap163BsR/3jhhq7YC
-=c/oP
------END PGP SIGNATURE-----
-
---4MekaOUUVpTb9NSdxfU0IomemjQGBjjUh--
+> diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
+> index bb96409..f9f88d7 100644
+> --- a/drivers/net/loopback.c
+> +++ b/drivers/net/loopback.c
+> @@ -22,6 +22,7 @@
+>   *                                      interface.
+>   *             Alexey Kuznetsov:       Potential hang under some extreme
+>   *                                     cases removed.
+> + *             Zachary Winnerman:  Extremely minor patch in loopback_xmit
+>   *
+>   *             This program is free software; you can redistribute it and/or
+>   *             modify it under the terms of the GNU General Public License
+> @@ -72,7 +73,6 @@ static netdev_tx_t loopback_xmit(struct sk_buff *skb,
+>                                  struct net_device *dev)
+>  {
+>         struct pcpu_lstats *lb_stats;
+> -       int len;
+>
+>         skb_orphan(skb);
+>
+> @@ -86,10 +86,9 @@ static netdev_tx_t loopback_xmit(struct sk_buff *skb,
+>         /* it's OK to use per_cpu_ptr() because BHs are off */
+>         lb_stats = this_cpu_ptr(dev->lstats);
+>
+> -       len = skb->len;
+>         if (likely(netif_rx(skb) == NET_RX_SUCCESS)) {
+>                 u64_stats_update_begin(&lb_
+> stats->syncp);
+> -               lb_stats->bytes += len;
+> +               lb_stats->bytes += skb->len;
+>                 lb_stats->packets++;
+>                 u64_stats_update_end(&lb_stats->syncp);
+>         }
