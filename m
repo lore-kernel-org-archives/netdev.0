@@ -1,49 +1,56 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 1/1] net_sched: drr: warn when qdisc is not work conserving
-Date: Thu, 12 Jun 2014 19:09:24 +0200
-Message-ID: <16234197-96e8-4d6c-ae5d-c66e0d4862ce@email.android.com>
-References: <1402511718-24203-1-git-send-email-fw@strlen.de> <aa75d9b0-e643-4fbe-b2bd-1c85982752e0@email.android.com> <20140612163803.GD1982@breakpoint.cc>
+From: Guillaume Morin <guillaume@morinfr.org>
+Subject: Re: Linux 3.4.92 breaks forwarding with netfilter enabled
+Date: Thu, 12 Jun 2014 19:25:16 +0200
+Message-ID: <20140612172516.GA2556@bender.morinfr.org>
+References: <20140610220325.GG1970@breakpoint.cc>
+ <53980015.5010409@suse.cz>
+ <20140611081053.GH1970@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:57333 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753017AbaFLRJl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 12 Jun 2014 13:09:41 -0400
-In-Reply-To: <20140612163803.GD1982@breakpoint.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Slaby <jslaby@suse.cz>, stable@vger.kernel.org,
+	ML netdev <netdev@vger.kernel.org>
+To: gregkh@linuxfoundation.org, Florian Westphal <fw@strlen.de>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140611081053.GH1970@breakpoint.cc>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 12. Juni 2014 18:38:03 MESZ, Florian Westphal <fw@strlen.de> wrote:
->Patrick McHardy <kaber@trash.net> wrote:
->> On 11. Juni 2014 20:35:18 MESZ, Florian Westphal <fw@strlen.de>
->wrote:
->> >The DRR scheduler requires that items on the active list are work
->> >conserving, i.e. do not hold on to skbs for throttling purposes,
->etc.
->> >Attaching e.g. tbf renders DRR useless because all other classes on
->the
->> >active list are delayed as well.
->> >
->> >So, warn users that this configuration won't work as expected; we
->> >already do this in couple of other qdiscs, see e.g.
->> 
->> Why don't prevent this during configuration time in the first place?
->> It doesn't work, a warning might trigger long after creating the
->broken
->> configuration and will more likely go unnoticed.
+On 11 Jun 10:10, Florian Westphal wrote:
 >
->That would be nice.
->
->But that would require some annotation of the qdiscs wheter they're
->wc or not, right?
->
->With such annotation, qdisc_graft() could refuse such request.
->
->Is that what you have in mind?
+> Jiri Slaby <jslaby@suse.cz> wrote:
+> > > Gergely, please either revert
+> > > 
+> > > commit bd91cb56f951a7b0da8c3098ea9cd56854ece66c
+> > > Author: Florian Westphal <fw@strlen.de>
+> > > net: ipv4: ip_forward: fix inverted local_df test
+> > > [ Upstream commit ca6c5d4ad216d5942ae544bbf02503041bd802aa ]
+> > > 
+> > > Or, alternatively, also apply upstream commit 895162b1101b3ea5db08ca6822ae9672717efec0
+> > > Author: Florian Westphal <fw@strlen.de>
+> > > Date:   Fri May 2 15:32:16 2014 +0200
+> > > netfilter: ipv4: defrag: set local_df flag on defragmented skb
+> > > 
+> > > on top of your 3.4.92 kernel.
+> > > 
+> > > (The latter might be a better option since it will also fix the
+> > >  long-standing issue where netfilter sends bogus frag-needed message
+> > >  under very rare circumstances).
+> > 
+> > I believe, the same holds for 3.12, right? (I have just applied "defrag:
+> > set local_df flag on defragmented skb".)
+> 
+> Yes, its true for all -stable kernels (except new 3.15).
+> 
+> Thanks for taking care of this.
 
-Exactly. Probably this needs to be determined during initialization since f.i. HFSC can work in both modes.
+Greg, could you apply this one to 3.4,3.10,3.14 as well please?
+
+Or do have concerns about it?
+
+Thanks,
+
+Guillaume.
+
+-- 
+Guillaume Morin <guillaume@morinfr.org>
