@@ -1,123 +1,77 @@
-From: Himangi Saraogi <himangi774@gmail.com>
-Subject: [PATCH v2] net/nxp/lpc_eth: use devm_ functions
-Date: Fri, 13 Jun 2014 23:33:56 +0530
-Message-ID: <20140613180356.GA8582@himangi-Dell>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: SCTP seems to lose its socket state.
+Date: Fri, 13 Jun 2014 14:48:52 -0400
+Message-ID: <539B4794.4010700@gmail.com>
+References: <063D6719AE5E284EB5DD2968C1650D6D1724E53D@AcuExch.aculab.com> <063D6719AE5E284EB5DD2968C1650D6D17258A67@AcuExch.aculab.com> <063D6719AE5E284EB5DD2968C1650D6D17259993@AcuExch.aculab.com> <539638EB.9010802@gmail.com> <063D6719AE5E284EB5DD2968C1650D6D1725C172@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: julia.lawall@lip6.fr
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+To: David Laight <David.Laight@ACULAB.COM>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f46.google.com ([209.85.216.46]:61451 "EHLO
+	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751414AbaFMSsz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jun 2014 14:48:55 -0400
+Received: by mail-qa0-f46.google.com with SMTP id i13so4108517qae.5
+        for <netdev@vger.kernel.org>; Fri, 13 Jun 2014 11:48:54 -0700 (PDT)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1725C172@AcuExch.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The various devm_ functions allocate memory that is released when a
-driver detaches. This patch uses dmam_alloc_coherent, devm_ioremap
-devm_clk_get etc. for data that is allocated in the probe function of
-platform device and is only freed in the remove function. The
-corresponding free functions are removed and many labels are done
-away with.
+On 06/13/2014 06:53 AM, David Laight wrote:
+> From: Vlad Yasevich 
+>> Can you try the attached patch and let me know if it solves this problem
+>> for you.
+> 
+> I've finally got around to trying it, and then fighting grub2 to get a
+> serial console (after finding a COM header and cables).
+> (Why can't I configure two entries for the same kernel, with and without
+> the serial console...)
+> 
+> As soon as the COOKIE_ECHO is received I get:
+> 
+> [   65.756811] kernel BUG at /home/dsl/linux/net/sctp/command.c:50!
+> 
+> It has hit the limit for SCTP_MAX_NUM_COMMANDS.
+> I increased it to 20 and traced the entries when the exceeded
+> the old limit (of 14).
+> 
+> [  102.250614] sctp_add_cmd_sf: seq  0, 36(          (null))
+> [  102.266575] sctp_add_cmd_sf: seq  1, 15(0000000000000008)
+> [  102.282500] sctp_add_cmd_sf: seq  2, 2b(          (null))
+> [  102.298426] sctp_add_cmd_sf: seq  3, 15(0000000000000005)
+> [  102.314352] sctp_add_cmd_sf: seq  4, 40(          (null))
+> [  102.330279] sctp_add_cmd_sf: seq  5, 2a(ffff88022f3b4000)
+> [  102.346206] sctp_add_cmd_sf: seq  6,  b(ffff8800bc4df128)
+> [  102.361874] sctp_add_cmd_sf: seq  7,  c(ffff8800bc4de800)
+> [  102.377540] sctp_add_cmd_sf: seq  8, 2c(ffff8800bc4df000)
+> [  102.393470] sctp_add_cmd_sf: seq  9, 12(0000000000000003)
+> [  102.409397] sctp_add_cmd_sf: seq 10, 14(0000000000000006)
+> [  102.425583] sctp_add_cmd_sf: seq 11,  3(0000000000000005)
+> [  102.441510] sctp_add_cmd_sf: seq 12, 20(          (null))
+> [  102.457699] sctp_add_cmd_sf: seq 13,  c(ffff8800bc4df000)
+> [  102.521433] sctp_add_cmd_sf: seq 14, 41(ffff88022f3b4000)
+> [  102.538658] sctp_add_cmd_sf: seq 15,  2(          (null))
+> [  102.555626] sctp_add_cmd_sf: seq 16, 41(ffff88023525e000)
+> 
+> I've not tried to see what these are.
 
-Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
-Acked-by: Julia Lawall <julia.lawall@lip6.fr>
----
-v2: undo use of devm_request_irq
-Not compile tested
-To send to: netdev@vger.kernel.org,linux-kernel@vger.kernel.org
- drivers/net/ethernet/nxp/lpc_eth.c | 31 ++++++++-----------------------
- 1 file changed, 8 insertions(+), 23 deletions(-)
+Yeah.  We do end up queuing a bit more commands. Need to see if
+all them are necessary..
 
-diff --git a/drivers/net/ethernet/nxp/lpc_eth.c b/drivers/net/ethernet/nxp/lpc_eth.c
-index 422d9b5..35bdbad9 100644
---- a/drivers/net/ethernet/nxp/lpc_eth.c
-+++ b/drivers/net/ethernet/nxp/lpc_eth.c
-@@ -1350,7 +1350,7 @@ static int lpc_eth_drv_probe(struct platform_device *pdev)
- 	ndev->irq = irq;
- 
- 	/* Get clock for the device */
--	pldat->clk = clk_get(&pdev->dev, NULL);
-+	pldat->clk = devm_clk_get(&pdev->dev, NULL);
- 	if (IS_ERR(pldat->clk)) {
- 		dev_err(&pdev->dev, "error getting clock.\n");
- 		ret = PTR_ERR(pldat->clk);
-@@ -1361,7 +1361,8 @@ static int lpc_eth_drv_probe(struct platform_device *pdev)
- 	__lpc_eth_clock_enable(pldat, true);
- 
- 	/* Map IO space */
--	pldat->net_base = ioremap(res->start, res->end - res->start + 1);
-+	pldat->net_base = devm_ioremap(&pdev->dev, res->start,
-+				       resource_size(res));
- 	if (!pldat->net_base) {
- 		dev_err(&pdev->dev, "failed to map registers\n");
- 		ret = -ENOMEM;
-@@ -1371,7 +1372,7 @@ static int lpc_eth_drv_probe(struct platform_device *pdev)
- 			  ndev->name, ndev);
- 	if (ret) {
- 		dev_err(&pdev->dev, "error requesting interrupt.\n");
--		goto err_out_iounmap;
-+		goto err_out_disable_clocks;
- 	}
- 
- 	/* Fill in the fields of the device structure with ethernet values. */
-@@ -1407,9 +1408,9 @@ static int lpc_eth_drv_probe(struct platform_device *pdev)
- 		/* Allocate a chunk of memory for the DMA ethernet buffers
- 		   and descriptors */
- 		pldat->dma_buff_base_v =
--			dma_alloc_coherent(&pldat->pdev->dev,
--					   pldat->dma_buff_size, &dma_handle,
--					   GFP_KERNEL);
-+			dmam_alloc_coherent(&pldat->pdev->dev,
-+					    pldat->dma_buff_size, &dma_handle,
-+					    GFP_KERNEL);
- 		if (pldat->dma_buff_base_v == NULL) {
- 			ret = -ENOMEM;
- 			goto err_out_free_irq;
-@@ -1465,7 +1466,7 @@ static int lpc_eth_drv_probe(struct platform_device *pdev)
- 	ret = register_netdev(ndev);
- 	if (ret) {
- 		dev_err(&pdev->dev, "Cannot register net device, aborting.\n");
--		goto err_out_dma_unmap;
-+		goto err_out_free_irq;
- 	}
- 	platform_set_drvdata(pdev, ndev);
- 
-@@ -1485,19 +1486,10 @@ static int lpc_eth_drv_probe(struct platform_device *pdev)
- 
- err_out_unregister_netdev:
- 	unregister_netdev(ndev);
--err_out_dma_unmap:
--	if (!use_iram_for_net(&pldat->pdev->dev) ||
--	    pldat->dma_buff_size > lpc32xx_return_iram_size())
--		dma_free_coherent(&pldat->pdev->dev, pldat->dma_buff_size,
--				  pldat->dma_buff_base_v,
--				  pldat->dma_buff_base_p);
- err_out_free_irq:
- 	free_irq(ndev->irq, ndev);
--err_out_iounmap:
--	iounmap(pldat->net_base);
- err_out_disable_clocks:
- 	clk_disable(pldat->clk);
--	clk_put(pldat->clk);
- err_out_free_dev:
- 	free_netdev(ndev);
- err_exit:
-@@ -1512,17 +1504,10 @@ static int lpc_eth_drv_remove(struct platform_device *pdev)
- 
- 	unregister_netdev(ndev);
- 
--	if (!use_iram_for_net(&pldat->pdev->dev) ||
--	    pldat->dma_buff_size > lpc32xx_return_iram_size())
--		dma_free_coherent(&pldat->pdev->dev, pldat->dma_buff_size,
--				  pldat->dma_buff_base_v,
--				  pldat->dma_buff_base_p);
- 	free_irq(ndev->irq, ndev);
--	iounmap(pldat->net_base);
- 	mdiobus_unregister(pldat->mii_bus);
- 	mdiobus_free(pldat->mii_bus);
- 	clk_disable(pldat->clk);
--	clk_put(pldat->clk);
- 	free_netdev(ndev);
- 
- 	return 0;
--- 
-1.9.1
+> 
+> tcpdump then shows it sending a shutdown bundled with the cookie ack
+> and the disconnect completes.
+
+Thanks.  I'll take a look at all the commands we queue up and make
+an official submission.
+
+-vlad
+
+> 
+> 	David
+> 
+> 
+> 
+> 
