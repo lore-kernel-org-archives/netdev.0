@@ -1,43 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Silence a W=1 compiler warning
-Date: Fri, 13 Jun 2014 13:28:29 -0700 (PDT)
-Message-ID: <20140613.132829.1371591602611461717.davem@davemloft.net>
-References: <539B06E1.4050005@acm.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: vyasevic@redhat.com, netdev@vger.kernel.org
-To: bvanassche@acm.org
+From: Dimitris Michailidis <dm@chelsio.com>
+Subject: [PATCH net] MAINTAINERS: update cxgb4 maintainer
+Date: Fri, 13 Jun 2014 14:11:14 -0700
+Message-ID: <1402693874-6984-1-git-send-email-dm@chelsio.com>
+Cc: netdev@vger.kernel.org, Dimitris Michailidis <dm@chelsio.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60474 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751456AbaFMU2a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jun 2014 16:28:30 -0400
-In-Reply-To: <539B06E1.4050005@acm.org>
+Received: from 99-65-72-228.uvs.sntcca.sbcglobal.net ([99.65.72.228]:18350
+	"EHLO stargate.chelsio.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751811AbaFMVM4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jun 2014 17:12:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bart Van Assche <bvanassche@acm.org>
-Date: Fri, 13 Jun 2014 16:12:49 +0200
+Hari's been doing the patch submissions for a while now and he'll be
+taking over as maintainer.
 
-> Avoid that the following compiler warning is reported when building
-> with W=1:
-> 
-> include/linux/netdevice.h: In function 'netif_addr_lock_nested':
-> include/linux/netdevice.h:2865:6: warning: variable 'subclass' set but not used [-Wunused-but-set-variable]
->   int subclass = SINGLE_DEPTH_NESTING;
->       ^
-> 
-> This patch does not change any functionality.
-> 
-> Signed-off-by: Bart Van Assche <bvanassche@acm.org>
+Signed-off-by: Dimitris Michailidis <dm@chelsio.com>
+---
+ MAINTAINERS | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-This has already been discussed.
-
-The spin_lock_nested() with your configuration should be adjusted to
-mark the argument as used.
-
-There is nothing wrong with this code, it should not warn, it's
-simply the spin locking macros that need to be fixed.
-
-I'm not applying this patch, sorry.
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 055f952..134483f 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -2594,7 +2594,7 @@ S:	Supported
+ F:	drivers/infiniband/hw/cxgb3/
+ 
+ CXGB4 ETHERNET DRIVER (CXGB4)
+-M:	Dimitris Michailidis <dm@chelsio.com>
++M:	Hariprasad S <hariprasad@chelsio.com>
+ L:	netdev@vger.kernel.org
+ W:	http://www.chelsio.com
+ S:	Supported
+-- 
+1.8.3.1
