@@ -1,57 +1,42 @@
-From: Bart Van Assche <bvanassche@acm.org>
-Subject: [PATCH] net: Silence a W=1 compiler warning
-Date: Fri, 13 Jun 2014 16:12:49 +0200
-Message-ID: <539B06E1.4050005@acm.org>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [GIT] Networking
+Date: Fri, 13 Jun 2014 07:28:33 -0700
+Message-ID: <CA+55aFw-UTwA0+dmCnqwjSEW244s0CLK4V5vuh2TmLku7A0mDQ@mail.gmail.com>
+References: <20140612.121445.484288603919840829.davem@davemloft.net>
+	<CA+55aFy=CThoSKAJ6J3Jt-SJDkiGzwg=5tdF7_g+vyTEoPFzMQ@mail.gmail.com>
+	<1402642787.4478.5.camel@jlt4.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from michel.telenet-ops.be ([195.130.137.88]:55221 "EHLO
-	michel.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751339AbaFMOMv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jun 2014 10:12:51 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Intel Linux Wireless <ilw@linux.intel.com>,
+	Tom Herbert <therbert@google.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1402642787.4478.5.camel@jlt4.sipsolutions.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Avoid that the following compiler warning is reported when building
-with W=1:
+On Thu, Jun 12, 2014 at 11:59 PM, Johannes Berg
+<johannes@sipsolutions.net> wrote:
+>
+> is to be believed, then I'm not sure why you think iwlwifi is involved
+> though.
 
-include/linux/netdevice.h: In function 'netif_addr_lock_nested':
-include/linux/netdevice.h:2865:6: warning: variable 'subclass' set but not used [-Wunused-but-set-variable]
-  int subclass = SINGLE_DEPTH_NESTING;
-      ^
+Mainly just because I don't see the issue on my desktop, and iwlwifi
+is the only network device (apart from looback) on my laptop. And it
+does say "hw checksum", so that made me think it's the driver.
 
-This patch does not change any functionality.
+But:
 
-Signed-off-by: Bart Van Assche <bvanassche@acm.org>
-Cc: Vlad Yasevich <vyasevic@redhat.com>
-Cc: David S. Miller <davem@davemloft.net>
----
- include/linux/netdevice.h | 10 ++++------
- 1 file changed, 4 insertions(+), 6 deletions(-)
+> If it's iwlwifi, then maybe that commit broke something with devices
+> that don't support checksumming?
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index abe3de1..3c0a2e7 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2951,12 +2951,10 @@ static inline void netif_addr_lock(struct net_device *dev)
- 
- static inline void netif_addr_lock_nested(struct net_device *dev)
- {
--	int subclass = SINGLE_DEPTH_NESTING;
--
--	if (dev->netdev_ops->ndo_get_lock_subclass)
--		subclass = dev->netdev_ops->ndo_get_lock_subclass(dev);
--
--	spin_lock_nested(&dev->addr_list_lock, subclass);
-+	spin_lock_nested(&dev->addr_list_lock,
-+			 dev->netdev_ops->ndo_get_lock_subclass ?
-+			 dev->netdev_ops->ndo_get_lock_subclass(dev) :
-+			 SINGLE_DEPTH_NESTING);
- }
- 
- static inline void netif_addr_lock_bh(struct net_device *dev)
--- 
-1.8.4.5
+that sounds quite possible.
+
+                Linus
