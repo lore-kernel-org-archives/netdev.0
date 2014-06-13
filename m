@@ -1,54 +1,60 @@
-From: Dan Aloni <dan@kernelim.com>
-Subject: Re: mm/sched/net: BUG when running simple code
-Date: Fri, 13 Jun 2014 06:27:54 +0300
-Message-ID: <20140613032754.GA20729@gmail.com>
-References: <539A6850.4090408@oracle.com>
+From: Varka Bhadram <varkabhadram-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next] mrf24j40: separate h/w
+	init and add checkings
+Date: Fri, 13 Jun 2014 09:06:52 +0530
+Message-ID: <CAEUmHyZFvaMRbxDrnE=bbnA=FGn2jAFUgzg_oZVswHHzLGR1iw@mail.gmail.com>
+References: <1402564248-20606-1-git-send-email-varkab@cdac.in>
+	<20140612.110324.932062947770396872.davem@davemloft.net>
+	<20140612.110519.583755215428272991.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "linux-mm@kvack.org" <linux-mm@kvack.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Ingo Molnar <mingo@kernel.org>,
-	Peter Zijlstra <peterz@infradead.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Dave Jones <davej@redhat.com>
-To: Sasha Levin <sasha.levin@oracle.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <539A6850.4090408@oracle.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Varka Bhadram <varkab-If5XQcfNmg0@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <20140612.110519.583755215428272991.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 12, 2014 at 10:56:16PM -0400, Sasha Levin wrote:
-> Hi all,
-> 
-> Okay, I'm really lost. I got the following when fuzzing, and can't really explain what's
-> going on. It seems that we get a "unable to handle kernel paging request" when running
-> rather simple code, and I can't figure out how it would cause it.
-[..]
-> Which agrees with the trace I got:
-> 
-> [  516.309720] BUG: unable to handle kernel paging request at ffffffffa0f12560
-> [  516.309720] IP: netlink_getsockopt (net/netlink/af_netlink.c:2271)
-[..]
-> [  516.309720] RIP netlink_getsockopt (net/netlink/af_netlink.c:2271)
-> [  516.309720]  RSP <ffff8803fc85fed8>
-> [  516.309720] CR2: ffffffffa0f12560
-> 
-> They only theory I had so far is that netlink is a module, and has gone away while the code
-> was executing, but netlink isn't a module on my kernel.
-
-The RIP - 0xffffffffa0f12560 is in the range (from Documentation/x86/x86_64/mm.txt):
-
-    ffffffffa0000000 - ffffffffff5fffff (=1525 MB) module mapping space
-
-So seems it was in a module.
-
--- 
-Dan Aloni
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+SGkgRGF2aWQsCgpTb3JyeSBmb3IgdGhlIG5vaXNlLiBpIHdpbGwgc2VuZCB0aGUgZml4ZWQgcGF0
+Y2guCgpUaGFua3MuCgotVmFya2EgQmhhZHJhbQoKT24gVGh1LCBKdW4gMTIsIDIwMTQgYXQgMTE6
+MzUgUE0sIERhdmlkIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4gd3JvdGU6Cj4gRnJvbTog
+RGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pgo+IERhdGU6IFRodSwgMTIgSnVuIDIw
+MTQgMTE6MDM6MjQgLTA3MDAgKFBEVCkKPgo+PiBGcm9tOiBWYXJrYSBCaGFkcmFtIDx2YXJrYWJo
+YWRyYW1AZ21haWwuY29tPgo+PiBEYXRlOiBUaHUsIDEyIEp1biAyMDE0IDE0OjQwOjQ4ICswNTMw
+Cj4+Cj4+PiBzZXBhcmF0ZSB0aGUgbXJmMjRqNDAgaGFyZHdhcmUgaW5pdGlhbGlzYXRpb24gZnJv
+bSBwcm9iZSgpCj4+PiBhbmQgYWRkcyB0aGUgc2FuaXR5IGNoZWNraW5ncy4KPj4+Cj4+PiBUaGVz
+ZSBjaGVja2luZ3MgYXJlIHJlcXVpcmVkIGlmIHNvbWVib2R5IGhhc24ndCBhIHJpZ2h0IHNwaSBj
+b25maWd1cmF0aW9uCj4+PiB0aGUgcHJvYmUgZnVuY3Rpb24gc2hvdWxkIGZhaWwuIFNvIHdlIGhh
+dmUgdG8gcmV0dXJuIGZyb20gdGhlcmUuCj4+Pgo+Pj4gU2lnbmVkLW9mZi1ieTogVmFya2EgQmhh
+ZHJhbSA8dmFya2FiQGNkYWMuaW4+Cj4+Cj4+IEFwcGxpZWQsIHRoYW5rcy4KPgo+IFJldmVydGVk
+LCBkaWQgeW91IGV2ZW4gY29tcGlsZSB0ZXN0IHRoaXMgY2hhbmdlPwo+Cj4gZHJpdmVycy9uZXQv
+aWVlZTgwMjE1NC9tcmYyNGo0MC5jOiBJbiBmdW5jdGlvbiDigJhtcmYyNGo0MF9wcm9iZeKAmToK
+PiBkcml2ZXJzL25ldC9pZWVlODAyMTU0L21yZjI0ajQwLmM6NzQxOjEwOiBlcnJvcjog4oCYZXJy
+X2h3X2luaXTigJkgdW5kZWNsYXJlZCAoZmlyc3QgdXNlIGluIHRoaXMgZnVuY3Rpb24pCj4gZHJp
+dmVycy9uZXQvaWVlZTgwMjE1NC9tcmYyNGo0MC5jOjc0MToxMDogbm90ZTogZWFjaCB1bmRlY2xh
+cmVkIGlkZW50aWZpZXIgaXMgcmVwb3J0ZWQgb25seSBvbmNlIGZvciBlYWNoIGZ1bmN0aW9uIGl0
+IGFwcGVhcnMgaW4KPiBkcml2ZXJzL25ldC9pZWVlODAyMTU0L21yZjI0ajQwLmM6NzU5OjE6IHdh
+cm5pbmc6IGxhYmVsIOKAmGVycl9od19pbml04oCZIGRlZmluZWQgYnV0IG5vdCB1c2VkIFstV3Vu
+dXNlZC1sYWJlbF0KPiBkcml2ZXJzL25ldC9pZWVlODAyMTU0L21yZjI0ajQwLmM6NzAyOjU6IHdh
+cm5pbmc6IHVudXNlZCB2YXJpYWJsZSDigJh2YWzigJkgWy1XdW51c2VkLXZhcmlhYmxlXQo+IG1h
+a2VbMV06ICoqKiBbZHJpdmVycy9uZXQvaWVlZTgwMjE1NC9tcmYyNGo0MC5vXSBFcnJvciAxCj4g
+bWFrZTogKioqIFtkcml2ZXJzL25ldC9pZWVlODAyMTU0L21yZjI0ajQwLm9dIEVycm9yIDIKCi0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLQpIUENDIFN5c3RlbXMgT3BlbiBTb3VyY2UgQmlnIERhdGEgUGxh
+dGZvcm0gZnJvbSBMZXhpc05leGlzIFJpc2sgU29sdXRpb25zCkZpbmQgV2hhdCBNYXR0ZXJzIE1v
+c3QgaW4gWW91ciBCaWcgRGF0YSB3aXRoIEhQQ0MgU3lzdGVtcwpPcGVuIFNvdXJjZS4gRmFzdC4g
+U2NhbGFibGUuIFNpbXBsZS4gSWRlYWwgZm9yIERpcnR5IERhdGEuCkxldmVyYWdlcyBHcmFwaCBB
+bmFseXNpcyBmb3IgRmFzdCBQcm9jZXNzaW5nICYgRWFzeSBEYXRhIEV4cGxvcmF0aW9uCmh0dHA6
+Ly9wLnNmLm5ldC9zZnUvaHBjY3N5c3RlbXMKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX18KTGludXgtemlnYmVlLWRldmVsIG1haWxpbmcgbGlzdApMaW51eC16
+aWdiZWUtZGV2ZWxAbGlzdHMuc291cmNlZm9yZ2UubmV0Cmh0dHBzOi8vbGlzdHMuc291cmNlZm9y
+Z2UubmV0L2xpc3RzL2xpc3RpbmZvL2xpbnV4LXppZ2JlZS1kZXZlbAo=
