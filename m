@@ -1,9 +1,10 @@
 From: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v2 1/2] rt2800usb:fix efuse detection
-Date: Fri, 13 Jun 2014 15:10:02 +0200
-Message-ID: <20140613131001.GB2211@redhat.com>
+Subject: Re: [PATCH v2 2/2] rt2800usb:fix hang during
+	firmware load
+Date: Fri, 13 Jun 2014 15:10:35 +0200
+Message-ID: <20140613131035.GC2211@redhat.com>
 References: <20140612173057.15935.14194.stgit@charlie.fem.tu-ilmenau.de>
-	<20140612173336.15935.17359.stgit@charlie.fem.tu-ilmenau.de>
+	<20140612173341.15935.7058.stgit@charlie.fem.tu-ilmenau.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -12,7 +13,7 @@ Cc: users-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org, netdev-u79uwXL29TY7
 To: Michael Braun <michael-dev-1SGGS//iJ+Y38rf8aCqVIw@public.gmane.org>
 Return-path: <users-bounces-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20140612173336.15935.17359.stgit-T1IWWRiYoUTeQ37wNh6nHvMwkO6i8y0ws0AfqQuZ5sE@public.gmane.org>
+In-Reply-To: <20140612173341.15935.7058.stgit-T1IWWRiYoUTeQ37wNh6nHvMwkO6i8y0ws0AfqQuZ5sE@public.gmane.org>
 List-Unsubscribe: <http://rt2x00.serialmonkey.com/mailman/options/users_rt2x00.serialmonkey.com>,
 	<mailto:users-request-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://rt2x00.serialmonkey.com/pipermail/users_rt2x00.serialmonkey.com/>
@@ -24,14 +25,13 @@ Errors-To: users-bounces-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org
 Sender: "users" <users-bounces-poMEt7QlJxcwIE2E9O76wjtx2kNaKg5H@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 12, 2014 at 07:33:36PM +0200, Michael Braun wrote:
-> The device 057c:8501 (AVM Fritz! WLAN v2 rev. B) currently does not
-> load. One thing observed is that the vendors driver detects EFUSE mode
-> for this device, but rt2800usb does not. This is due to rt2800usb
-> lacking a check for the firmware mode present in the vendors driver,
-> that this patch adopts for rt2800usb.
+On Thu, Jun 12, 2014 at 07:33:41PM +0200, Michael Braun wrote:
+> The device 057c:8501 (AVM Fritz! WLAN v2 rev. B) boots into a state that does
+> not actually require loading a firmware file. The vendors driver finds out
+> about this by checking a firmware state register, so this patch adds this here.
 > 
-> With this patch applied, the 'RF chipset' detection does no longer fail.
+> Finally, with this patch applied, my wifi dongle actually becomes
+> useful (scan + connect to wpa network works).
 > 
 > Signed-off-by: Michael Braun <michael-dev-1SGGS//iJ+Y38rf8aCqVIw@public.gmane.org>
 Acked-by: Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
