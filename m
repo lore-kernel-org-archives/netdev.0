@@ -1,57 +1,71 @@
-From: Michal Privoznik <mprivozn@redhat.com>
-Subject: Re: [PATCH] net-sysfs: Report link speed only when possible
-Date: Fri, 13 Jun 2014 11:19:51 +0200
-Message-ID: <539AC237.40402@redhat.com>
-References: <771f792d4d4391c656305a522557c53c4e84a666.1402043894.git.mprivozn@redhat.com>	<20140606085733.GJ2984@minipsycho.orion> <20140606.125447.1665616708152334692.davem@davemloft.net>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [-next] Regression: ssh log in slowdown
+Date: Fri, 13 Jun 2014 11:54:00 +0200
+Message-ID: <CAMuHMdXOY8NF78gnpqHdNueDKDs5kTZ+xqV+dVXCYCu8MkSFng@mail.gmail.com>
+References: <alpine.DEB.2.02.1406130111280.1551@tomh.mtv.corp.google.com>
+	<CAMuHMdW4kYeqEby3iABzdbjyAkPKq=x4dyopokFbHWT0Q4fjcw@mail.gmail.com>
+	<063D6719AE5E284EB5DD2968C1650D6D1725C134@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, jiri@resnulli.us
+Content-Type: text/plain; charset=UTF-8
+Cc: Tom Herbert <therbert@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux-Next <linux-next@vger.kernel.org>,
+	Linux-sh list <linux-sh@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@aculab.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140606.125447.1665616708152334692.davem@davemloft.net>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1725C134@AcuExch.aculab.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06.06.2014 21:54, David Miller wrote:
-> From: Jiri Pirko <jiri@resnulli.us>
-> Date: Fri, 6 Jun 2014 10:57:33 +0200
->
->> Fri, Jun 06, 2014 at 10:40:30AM CEST, mprivozn@redhat.com wrote:
->>> The link speed is available at /sys/class/net/$nic/speed.
->>> However, in some cases, depending on the driver, if the link is
->>> not plugged, -1 is reported (this is the case of e1000e for
->>> instance). To make things worse, the value is printed out as an
->>
->> Actually, SPEED_UNKNOWN is also -1
->> So e1000e is not any exception.
->
-> And pity the person who is handling this by evaluating that unsigned
-> value, we'll break them.
->
-> We can't keep changing behavior for the SPEED_UNKOWN case back and
-> forth.
->
-> A program that wants to work with all kernels now has to handle three
-> different kinds of behavior if we apply this patch, that's not making
-> things better, it's making things worse.
+Hi David,
 
-I don't think this is a good reason to keep things broken. By the same 
-token we wouldn't need to fix any bug since there already might be an 
-application that learned how to deal with it.
+On Fri, Jun 13, 2014 at 10:49 AM, David Laight <David.Laight@aculab.com> wrote:
+> From: Of Geert Uytterhoeven
+> ...
+>> Note that I'm also using NFS root, which doesn't seem to be affected.
+>> I can happily run "ls -R /" on the serial console during the 10 s delay in ssh.
+>
+> Are you sure that the delay during ssh login isn't just
+> a reverse DNS timeout?
 
-This patch is not introducing any new class that applications need to 
-learn. It just barely removes the spurious one. And it's perfectly okay 
-in some ecosystems to require minimal version of some programs, 
-including kernel. So if I were developing brand new application I could 
-say: I'm dropping all this workaround code and have it clean and require 
-say 3.16 kernel at least. Moreover, using an older application would do, 
-as the workaround code will never be executed.
+Indeed, the ssh server sends a reverse DNS request twice, with 5s in between:
 
-But okay, maybe for some reason you're hesitant to change net-sysfs.c. 
-Would it be more convenient to change the broken drivers instead? Yes, 
-some drivers don't report nor 0, nor -1, but rather random value. For 
-instance a tap device returns '10',  igb '65535', etc.
+01:01:16.334257 2e:09:0a:00:6d:85 > 00:0c:42:12:75:1d, ethertype IPv4
+(0x0800), length 86: <ssh-server-ip>.55318 > <dns-server-ip>.53: 2907+
+PTR? <ssh-client-rev-ip>.in-addr.arpa. (44)
+01:01:16.337282 00:0c:42:12:75:1d > 2e:09:0a:00:6d:85, ethertype IPv4
+(0x0800), length 114: <dns-server-ip>.53 > <ssh-server-ip>.55318:
+2907* 1/0/0 PTR <ssh-client-name>. (72)
+01:01:16.356440 2e:09:0a:00:6d:85 > 74:d0:2b:c8:05:49, ethertype IPv4
+(0x0800), length 66: <ssh-server-ip>.22 > <ssh-client-ip>.53536: Flags
+[.], ack 2194, win 272, options [nop,nop,TS val 4294938665 ecr
+480138541], length 0
 
-Michal
+01:01:21.342072 2e:09:0a:00:6d:85 > 00:0c:42:12:75:1d, ethertype IPv4
+(0x0800), length 86: <ssh-server-ip>.55318 > <dns-server-ip>.53: 2907+
+PTR? <ssh-client-rev-ip>.in-addr.arpa. (44)
+01:01:21.344844 00:0c:42:12:75:1d > 2e:09:0a:00:6d:85, ethertype IPv4
+(0x0800), length 114: <dns-server-ip>.53 > <ssh-server-ip>.55318:
+2907* 1/0/0 PTR <ssh-client-name>. (72)
+
+01:01:26.353667 2e:09:0a:00:6d:85 > 74:d0:2b:c8:05:49, ethertype IPv4
+(0x0800), length 118: <ssh-server-ip>.22 > <ssh-client-ip>.53536:
+Flags [P.], seq 1999:2051, ack 2194, win 272, options [nop,nop,TS val
+4294939944 ecr 480138541], length 52
+
+Interestingly, I don't see the forward DNS request after that, which
+does happen in the
+good case.
+
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
