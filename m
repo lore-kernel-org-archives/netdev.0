@@ -1,59 +1,46 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH] ipvs: stop tot_stats estimator only under CONFIG_SYSCTL
-Date: Fri, 13 Jun 2014 16:37:09 +0900
-Message-ID: <1402645029-21756-2-git-send-email-horms@verge.net.au>
-References: <1402645029-21756-1-git-send-email-horms@verge.net.au>
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:34883 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751164AbaFMHhS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jun 2014 03:37:18 -0400
-In-Reply-To: <1402645029-21756-1-git-send-email-horms@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT] Networking
+Date: Fri, 13 Jun 2014 00:53:22 -0700 (PDT)
+Message-ID: <20140613.005322.2144989764990353623.davem@davemloft.net>
+References: <20140612.121445.484288603919840829.davem@davemloft.net>
+	<CA+55aFy=CThoSKAJ6J3Jt-SJDkiGzwg=5tdF7_g+vyTEoPFzMQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: johannes.berg@intel.com, emmanuel.grumbach@intel.com,
+	linville@tuxdriver.com, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ilw@linux.intel.com
+To: torvalds@linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+55aFy=CThoSKAJ6J3Jt-SJDkiGzwg=5tdF7_g+vyTEoPFzMQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Julian Anastasov <ja@ssi.bg>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Thu, 12 Jun 2014 23:48:57 -0700
 
-The tot_stats estimator is started only when CONFIG_SYSCTL
-is defined. But it is stopped without checking CONFIG_SYSCTL.
-Fix the crash by moving ip_vs_stop_estimator into
-ip_vs_control_net_cleanup_sysctl.
+> On Thu, Jun 12, 2014 at 12:14 PM, David Miller <davem@davemloft.net> wrote:
+>>
+>>   git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
+> 
+> Hmm. I get *lots* of the appended messages from iwlwifi now. Things
+> still seem to work, but ...
+> 
+> This is a Haswell laptop with bog-standard intel wireless:
+> 
+>   01:00.0 Network controller: Intel Corporation Wireless 7260 (rev 6b)
+> 
+> Any ideas?
 
-The change is needed after commit 14e405461e664b
-("IPVS: Add __ip_vs_control_{init,cleanup}_sysctl()") from 2.6.39.
+Tom Herbert posted some checksumming fixes today, they might do the
+trick.
 
-Reported-by: Jet Chen <jet.chen@intel.com>
-Tested-by: Jet Chen <jet.chen@intel.com>
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- net/netfilter/ipvs/ip_vs_ctl.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+I'll push them to you tomorrow.
 
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index c42e83d..581a658 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -3778,6 +3778,7 @@ static void __net_exit ip_vs_control_net_cleanup_sysctl(struct net *net)
- 	cancel_delayed_work_sync(&ipvs->defense_work);
- 	cancel_work_sync(&ipvs->defense_work.work);
- 	unregister_net_sysctl_table(ipvs->sysctl_hdr);
-+	ip_vs_stop_estimator(net, &ipvs->tot_stats);
- }
- 
- #else
-@@ -3840,7 +3841,6 @@ void __net_exit ip_vs_control_net_cleanup(struct net *net)
- 	struct netns_ipvs *ipvs = net_ipvs(net);
- 
- 	ip_vs_trash_cleanup(net);
--	ip_vs_stop_estimator(net, &ipvs->tot_stats);
- 	ip_vs_control_net_cleanup_sysctl(net);
- 	remove_proc_entry("ip_vs_stats_percpu", net->proc_net);
- 	remove_proc_entry("ip_vs_stats", net->proc_net);
--- 
-2.0.0.rc2
+For reference:
+
+http://patchwork.ozlabs.org/patch/359390/
+http://patchwork.ozlabs.org/patch/359391/
+http://patchwork.ozlabs.org/patch/359392/
+http://patchwork.ozlabs.org/patch/359393/
