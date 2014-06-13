@@ -1,28 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] MAINTAINERS: update cxgb4 maintainer
-Date: Fri, 13 Jun 2014 14:55:55 -0700 (PDT)
-Message-ID: <20140613.145555.1297273245894697043.davem@davemloft.net>
-References: <1402693874-6984-1-git-send-email-dm@chelsio.com>
+From: ra Raji <ra1090864@gmail.com>
+Subject: Greetings From Sivia
+Date: Fri, 13 Jun 2014 22:21:07 +0000
+Message-ID: <CAEjJUmo7BmEoqEa6w0_p46mJyQuZkvHqq7x3Ftfrer60diJpQA__44779.6418135569$1402698097$gmane$org@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dm@chelsio.com
+Content-Type: text/plain; charset=UTF-8
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60847 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753365AbaFMVz4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jun 2014 17:55:56 -0400
-In-Reply-To: <1402693874-6984-1-git-send-email-dm@chelsio.com>
+Received: from mail-qc0-f195.google.com ([209.85.216.195]:49538 "EHLO
+	mail-qc0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751262AbaFMWVI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jun 2014 18:21:08 -0400
+Received: by mail-qc0-f195.google.com with SMTP id o8so1484253qcw.6
+        for <netdev@vger.kernel.org>; Fri, 13 Jun 2014 15:21:07 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dimitris Michailidis <dm@chelsio.com>
-Date: Fri, 13 Jun 2014 14:11:14 -0700
+Greetings From Sivia
 
-> Hari's been doing the patch submissions for a while now and he'll be
-> taking over as maintainer.
-> 
-> Signed-off-by: Dimitris Michailidis <dm@chelsio.com>
-
-Applied, thanks.
+Dear how are you today? and how is things moving with you? hope fine and you
+are in good health.My name is Sivia, I am looking for a very nice
+person of love, caring, sincere, easy going, matured, and
+understanding, i came across your Email today and decided to be in
+touch with you, so i will like you to write me via my
+email address which is as follow( siviaba24@yahoo.com )so that i will
+give you my picture for further discussion, because i am really looking forward
+for a serious friendship with you,
+Yours New Sivia
+( siviaba24@yahoo.com )
