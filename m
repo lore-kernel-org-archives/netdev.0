@@ -1,54 +1,72 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: [GIT] Networking
-Date: Fri, 13 Jun 2014 10:44:05 -0400
-Message-ID: <20140613144405.GA7122@redhat.com>
-References: <20140612.121445.484288603919840829.davem@davemloft.net>
- <CA+55aFy=CThoSKAJ6J3Jt-SJDkiGzwg=5tdF7_g+vyTEoPFzMQ@mail.gmail.com>
- <1402642787.4478.5.camel@jlt4.sipsolutions.net>
- <CA+55aFw-UTwA0+dmCnqwjSEW244s0CLK4V5vuh2TmLku7A0mDQ@mail.gmail.com>
+From: Sasha Levin <sasha.levin@oracle.com>
+Subject: Re: mm/sched/net: BUG when running simple code
+Date: Fri, 13 Jun 2014 11:13:46 -0400
+Message-ID: <539B152A.5030801@oracle.com>
+References: <539A6850.4090408@oracle.com> <20140613032754.GA20729@gmail.com> <539A77A1.60700@oracle.com> <20140613041331.GA31688@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	David Miller <davem@davemloft.net>,
-	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: Dave Jones <davej@redhat.com>, Dan Aloni <dan@kernelim.com>,
+	"linux-mm@kvack.org" <linux-mm@kvack.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Intel Linux Wireless <ilw@linux.intel.com>,
-	Tom Herbert <therbert@google.com>,
-	linux-wireless <linux-wireless@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:62982 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751964AbaFMOo3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 13 Jun 2014 10:44:29 -0400
-Content-Disposition: inline
-In-Reply-To: <CA+55aFw-UTwA0+dmCnqwjSEW244s0CLK4V5vuh2TmLku7A0mDQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Ingo Molnar <mingo@kernel.org>,
+	Peter Zijlstra <peterz@infradead.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140613041331.GA31688@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 13, 2014 at 07:28:33AM -0700, Linus Torvalds wrote:
- > On Thu, Jun 12, 2014 at 11:59 PM, Johannes Berg
- > <johannes@sipsolutions.net> wrote:
- > >
- > > is to be believed, then I'm not sure why you think iwlwifi is involved
- > > though.
- > 
- > Mainly just because I don't see the issue on my desktop, and iwlwifi
- > is the only network device (apart from looback) on my laptop. And it
- > does say "hw checksum", so that made me think it's the driver.
- > 
- > But:
- > 
- > > If it's iwlwifi, then maybe that commit broke something with devices
- > > that don't support checksumming?
- > 
- > that sounds quite possible.
+On 06/13/2014 12:13 AM, Dave Jones wrote:
+> On Fri, Jun 13, 2014 at 12:01:37AM -0400, Sasha Levin wrote:
+>  > On 06/12/2014 11:27 PM, Dan Aloni wrote:
+>  > > On Thu, Jun 12, 2014 at 10:56:16PM -0400, Sasha Levin wrote:
+>  > >> > Hi all,
+>  > >> > 
+>  > >> > Okay, I'm really lost. I got the following when fuzzing, and can't really explain what's
+>  > >> > going on. It seems that we get a "unable to handle kernel paging request" when running
+>  > >> > rather simple code, and I can't figure out how it would cause it.
+>  > > [..]
+>  > >> > Which agrees with the trace I got:
+>  > >> > 
+>  > >> > [  516.309720] BUG: unable to handle kernel paging request at ffffffffa0f12560
+>  > >> > [  516.309720] IP: netlink_getsockopt (net/netlink/af_netlink.c:2271)
+>  > > [..]
+>  > >> > [  516.309720] RIP netlink_getsockopt (net/netlink/af_netlink.c:2271)
+>  > >> > [  516.309720]  RSP <ffff8803fc85fed8>
+>  > >> > [  516.309720] CR2: ffffffffa0f12560
+>  > >> > 
+>  > >> > They only theory I had so far is that netlink is a module, and has gone away while the code
+>  > >> > was executing, but netlink isn't a module on my kernel.
+>  > > The RIP - 0xffffffffa0f12560 is in the range (from Documentation/x86/x86_64/mm.txt):
+>  > > 
+>  > >     ffffffffa0000000 - ffffffffff5fffff (=1525 MB) module mapping space
+>  > > 
+>  > > So seems it was in a module.
+>  > 
+>  > Yup, that's why that theory came up, but when I checked my config:
+>  > ... 
+>  > that theory went away. (also confirmed by not finding a netlink module.)
+>  > 
+>  > What about the kernel .text overflowing into the modules space? The loader
+>  > checks for that, but can something like that happen after everything is
+>  > up and running? I'll look into that tomorrow.
+> 
+> another theory: Trinity can sometimes generate plausible looking module
+> addresses and pass those in structs etc.
+> 
+> I wonder if there's somewhere in that path that isn't checking that the address
+> in the optval it got is actually a userspace address before it tries to write to it.
 
-I see it on my router with two r8169 cards too.
-That does seem to support hw csum, though only on jumbo frames maybe?
+This is, the access happened way before touching optval. The only thing that happened
+before is reading optlen from userspace, but that happened using get_user() which should
+mean that it was safe.
+
+According to that trace, we died when *executing* a piece of code, not when accessing
+some other memory. None of the instructions around the instruction we failed on don't
+touch memory at all for that matter.
 
 
-	Dave
+Thanks,
+Sasha
