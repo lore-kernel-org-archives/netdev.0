@@ -1,18 +1,27 @@
-From: "Le Ngoc. Thong" <thongln@neu.edu.vn>
-Subject: Personal Donation to you
-Date: Fri, 13 Jun 2014 12:40:23 +0000
-Message-ID: <7144010471976B46BF3B779C3709DE6547DE6289@NEU-EX-03.neu.edu.vn>
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Subject: Re: [PATCH v2 0/2] rt2800usb: Fix support for USB 057c:8501
+Date: Fri, 13 Jun 2014 15:08:17 +0200
+Message-ID: <20140613130816.GA2211@redhat.com>
+References: <20140612173057.15935.14194.stgit@charlie.fem.tu-ilmenau.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from static.vdc.vn ([123.30.16.89]:33343 "EHLO NEU-EX-02.neu.edu.vn"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751172AbaFMMu7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jun 2014 08:50:59 -0400
-Content-Language: en-CA
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Ivo van Doorn <IvDoorn@gmail.com>,
+	Helmut Schaa <helmut.schaa@googlemail.com>,
+	netdev@vger.kernel.org, users@rt2x00.serialmonkey.com,
+	linux-wireless@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-kernel@vger.kernel.org
+To: Michael Braun <michael-dev@fami-braun.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140612173057.15935.14194.stgit@charlie.fem.tu-ilmenau.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2,000,000 USD A Personal Donation to you from Mr. Pedro Quezada, Contact Mr. Pedro Quezada On (p.quezada4ever@3mail.ie) for more details.
+On Thu, Jun 12, 2014 at 07:33:31PM +0200, Michael Braun wrote:
+> v2: fix endianness and coding style. Using rt2x00usb_register_read does not work for me.
+
+I missed that it use USB_MULTI_READ request and you need
+USB_DEVICE_MODE instead, sorry.
+
+Stanislaw
