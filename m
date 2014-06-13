@@ -1,29 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net-sysfs: Report link speed only when possible
-Date: Fri, 13 Jun 2014 13:03:50 -0700 (PDT)
-Message-ID: <20140613.130350.1729507484821351177.davem@davemloft.net>
-References: <20140606085733.GJ2984@minipsycho.orion>
-	<20140606.125447.1665616708152334692.davem@davemloft.net>
-	<539AC237.40402@redhat.com>
+Subject: Re: [PATCH 0/4] Checksum fixes
+Date: Fri, 13 Jun 2014 13:27:01 -0700 (PDT)
+Message-ID: <20140613.132701.1226816839536831499.davem@davemloft.net>
+References: <alpine.DEB.2.02.1406121554310.30089@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, gregkh@linuxfoundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: mprivozn@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <539AC237.40402@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: therbert@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60468 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751811AbaFMU1E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jun 2014 16:27:04 -0400
+In-Reply-To: <alpine.DEB.2.02.1406121554310.30089@tomh.mtv.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Michal Privoznik <mprivozn@redhat.com>
-Date: Fri, 13 Jun 2014 11:19:51 +0200
+From: Tom Herbert <therbert@google.com>
+Date: Thu, 12 Jun 2014 16:02:52 -0700 (PDT)
 
-> So if I were developing brand new application I could say: I'm
-> dropping all this workaround code and have it clean and require say
-> 3.16 kernel at least.
+> Fixes related to some recent checksum modifications.
+> 
+> - Fix logic in saving checksums complete in __skb_checksum_complete
+> - Call __skb_checksum_complete from UDP if we are checksumming over
+>   whole packet in order to save checksum.
+> - Fixes to VXLAN to work correctly with checksum complete
 
-Then your application wouldn't be usable on %99 of systems for a long
-long time.
-
-I don't think this is the right tradeoff at all.
+I figure this series will need to be respun after you figure out the
+problems Geert is still seeing with the full series applied.
