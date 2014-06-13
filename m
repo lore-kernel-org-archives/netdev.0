@@ -1,72 +1,79 @@
-From: Sasha Levin <sasha.levin@oracle.com>
-Subject: Re: mm/sched/net: BUG when running simple code
-Date: Fri, 13 Jun 2014 11:13:46 -0400
-Message-ID: <539B152A.5030801@oracle.com>
-References: <539A6850.4090408@oracle.com> <20140613032754.GA20729@gmail.com> <539A77A1.60700@oracle.com> <20140613041331.GA31688@redhat.com>
+From: Tom Herbert <therbert@google.com>
+Subject: [-next] Regression: ssh log in slowdown
+Date: Fri, 13 Jun 2014 08:37:51 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1406130829370.23090@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: Dave Jones <davej@redhat.com>, Dan Aloni <dan@kernelim.com>,
-	"linux-mm@kvack.org" <linux-mm@kvack.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Ingo Molnar <mingo@kernel.org>,
-	Peter Zijlstra <peterz@infradead.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: davem@davemloft.net, linux-next@vger.kernel.org,
+	linux-sh@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: geert@linux-m68k.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140613041331.GA31688@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06/13/2014 12:13 AM, Dave Jones wrote:
-> On Fri, Jun 13, 2014 at 12:01:37AM -0400, Sasha Levin wrote:
->  > On 06/12/2014 11:27 PM, Dan Aloni wrote:
->  > > On Thu, Jun 12, 2014 at 10:56:16PM -0400, Sasha Levin wrote:
->  > >> > Hi all,
->  > >> > 
->  > >> > Okay, I'm really lost. I got the following when fuzzing, and can't really explain what's
->  > >> > going on. It seems that we get a "unable to handle kernel paging request" when running
->  > >> > rather simple code, and I can't figure out how it would cause it.
->  > > [..]
->  > >> > Which agrees with the trace I got:
->  > >> > 
->  > >> > [  516.309720] BUG: unable to handle kernel paging request at ffffffffa0f12560
->  > >> > [  516.309720] IP: netlink_getsockopt (net/netlink/af_netlink.c:2271)
->  > > [..]
->  > >> > [  516.309720] RIP netlink_getsockopt (net/netlink/af_netlink.c:2271)
->  > >> > [  516.309720]  RSP <ffff8803fc85fed8>
->  > >> > [  516.309720] CR2: ffffffffa0f12560
->  > >> > 
->  > >> > They only theory I had so far is that netlink is a module, and has gone away while the code
->  > >> > was executing, but netlink isn't a module on my kernel.
->  > > The RIP - 0xffffffffa0f12560 is in the range (from Documentation/x86/x86_64/mm.txt):
->  > > 
->  > >     ffffffffa0000000 - ffffffffff5fffff (=1525 MB) module mapping space
->  > > 
->  > > So seems it was in a module.
->  > 
->  > Yup, that's why that theory came up, but when I checked my config:
->  > ... 
->  > that theory went away. (also confirmed by not finding a netlink module.)
->  > 
->  > What about the kernel .text overflowing into the modules space? The loader
->  > checks for that, but can something like that happen after everything is
->  > up and running? I'll look into that tomorrow.
-> 
-> another theory: Trinity can sometimes generate plausible looking module
-> addresses and pass those in structs etc.
-> 
-> I wonder if there's somewhere in that path that isn't checking that the address
-> in the optval it got is actually a userspace address before it tries to write to it.
+> Thanks, I applied the series "[PATCH 0/4] Checksum fixes", and the fix
+> above, but it doesn't help.
+>
+> Note that I'm also using NFS root, which doesn't seem to be affected.
+> I can happily run "ls -R /" on the serial console during the 10 s delay 
+in ssh.
+>
+Geert,
 
-This is, the access happened way before touching optval. The only thing that happened
-before is reading optlen from userspace, but that happened using get_user() which should
-mean that it was safe.
+Thanks for your patience!
 
-According to that trace, we died when *executing* a piece of code, not when accessing
-some other memory. None of the instructions around the instruction we failed on don't
-touch memory at all for that matter.
-
+Can you try one more patch below with the series applied? Also, can you 
+look at 'netstat -s' to see if UDP checksum errors are being reported.
 
 Thanks,
-Sasha
+Tom 
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index fdb510c..4b722bc 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -2820,8 +2820,8 @@ static inline __sum16 __skb_checksum_validate_complete(struct sk_buff *skb,
+ 	if (complete || skb->len <= CHECKSUM_BREAK) {
+ 		__sum16 csum;
+ 
++		/* skb->csum valid set in __skb_checksum_complete */
+ 		csum = __skb_checksum_complete(skb);
+-		skb->csum_valid = !csum;
+ 		return csum;
+ 	}
+ 
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index cf6cc4e..488dd1a 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -744,6 +744,7 @@ __sum16 __skb_checksum_complete_head(struct sk_buff *skb, int len)
+ 		    !skb->csum_complete_sw)
+ 			netdev_rx_csum_fault(skb->dev);
+ 	}
++	skb->csum_valid = !sum;
+ 	return sum;
+ }
+ EXPORT_SYMBOL(__skb_checksum_complete_head);
+@@ -767,6 +768,7 @@ __sum16 __skb_checksum_complete(struct sk_buff *skb)
+ 	skb->csum = csum;
+ 	skb->ip_summed = CHECKSUM_COMPLETE;
+ 	skb->csum_complete_sw = 1;
++	skb->csum_valid = !sum;
+ 
+ 	return sum;
+ }
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index bf92824..9cd5344 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -689,6 +689,9 @@ static void __copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
+ 	new->ooo_okay		= old->ooo_okay;
+ 	new->no_fcs		= old->no_fcs;
+ 	new->encapsulation	= old->encapsulation;
++	new->encap_hdr_csum	= old->encap_hdr_csum;
++	new->csum_valid		= old->csum_valid;
++	new->csum_complete_sw	= old->csum_complete_sw;
+ #ifdef CONFIG_XFRM
+ 	new->sp			= secpath_get(old->sp);
+ #endif
