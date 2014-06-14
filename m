@@ -1,43 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] udp: ipv4: do not waste time in
- __udp4_lib_mcast_demux_lookup
-Date: Fri, 13 Jun 2014 15:39:47 -0700 (PDT)
-Message-ID: <20140613.153947.1190933976866000224.davem@davemloft.net>
-References: <1402614786.3645.500.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Joseph Gasparakis <joseph.gasparakis@intel.com>
+Subject: No GSOs to i40e with VXLAN
+Date: Fri, 13 Jun 2014 17:15:57 -0700 (PDT)
+Message-ID: <alpine.LFD.2.11.1406131657240.4926@fvl-a0.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sbohrer@rgmadvisors.com, drheld@google.com,
-	willemb@google.com
-To: eric.dumazet@gmail.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, jesse.brandeburg@intel.com
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:32821 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751183AbaFMWjs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 13 Jun 2014 18:39:48 -0400
-In-Reply-To: <1402614786.3645.500.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mga09.intel.com ([134.134.136.24]:52181 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754292AbaFNAMt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 13 Jun 2014 20:12:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 12 Jun 2014 16:13:06 -0700
+Hi all,
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Its too easy to add thousand of UDP sockets on a particular bucket,
-> and slow down an innocent multicast receiver.
-> 
-> Early demux is supposed to be an optimization, we should avoid spending
-> too much time in it.
-> 
-> It is interesting to note __udp4_lib_demux_lookup() only tries to
-> match first socket in the chain.
-> 
-> 10 is the threshold we already have in __udp4_lib_lookup() to switch
-> to secondary hash.
-> 
-> Fixes: 421b3885bf6d5 ("udp: ipv4: Add udp early demux")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: David Held <drheld@google.com>
+I quickly tested VXLAN on i40e with net-next with commit id 
+f9da455b93f6ba076935b4ef4589f61e529ae046 and the i40e driver has stopped 
+receiving GSOs even when advertising tx-udp_tnl-segmentation which means 
+our VXLAN segmentation offload. I am guessing this has something to do
+with Tom's recent UDP work but this is just a guess as unfortunatly I
+do not have the time to debug this, but I am signing up to review and test 
+patches fixing this issue.
 
-Applied and queued up for -stable, thanks Eric.
+The driver still gets GSOs with non VXLAN traffic (tested with TCP).
+
+Thanks
+
+Joseph
