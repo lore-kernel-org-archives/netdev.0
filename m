@@ -1,61 +1,95 @@
-From: Peter Wu <peter@lekensteyn.nl>
-Subject: Re: [PATCH v2] net: wireless: rtlwifi: rtl8188ee: hw.c:  Cleaning up if statement that always evaluates to false
-Date: Sat, 14 Jun 2014 15:28:37 +0200
-Message-ID: <2259587.sBdtJmoxcK@al>
-References: <1402752272-13696-1-git-send-email-rickard_strandqvist@spectrumdigital.se> <1402752272-13696-2-git-send-email-rickard_strandqvist@spectrumdigital.se>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: No GSOs to i40e with VXLAN
+Date: Sat, 14 Jun 2014 11:38:26 -0700
+Message-ID: <CA+mtBx9UGO7h9S3Q90LwvPeO66UBAn1OFThGLdviKFmHsP+wug@mail.gmail.com>
+References: <alpine.LFD.2.11.1406131657240.4926@fvl-a0.jf.intel.com>
+	<CA+mtBx_6BWhHm4eK2qqR737jwQHi_dyrv-Md_-_f5AEghWNAKg@mail.gmail.com>
+	<alpine.LFD.2.11.1406132119570.5273@fvl-a0.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Larry Finger <Larry.Finger@lwfinger.net>,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Joe Perches <joe@perches.com>, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+To: Joseph Gasparakis <joseph.gasparakis@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lekensteyn.nl ([178.21.112.251]:42427 "EHLO lekensteyn.nl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754678AbaFNN2w (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 14 Jun 2014 09:28:52 -0400
-In-Reply-To: <1402752272-13696-2-git-send-email-rickard_strandqvist@spectrumdigital.se>
+Received: from mail-ig0-f179.google.com ([209.85.213.179]:62843 "EHLO
+	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751142AbaFNSi1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jun 2014 14:38:27 -0400
+Received: by mail-ig0-f179.google.com with SMTP id r2so1596333igi.12
+        for <netdev@vger.kernel.org>; Sat, 14 Jun 2014 11:38:26 -0700 (PDT)
+In-Reply-To: <alpine.LFD.2.11.1406132119570.5273@fvl-a0.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Saturday 14 June 2014 15:24:32 Rickard Strandqvist wrote:
-> I found a logical error in an if statement that always evaluates to false.
-> 
-> This has after same discussion resulted in that we add a macro to handle this.
+I was able to debug the issue (thanks for lending me the machines with
+i40 Eric!). Problem is that SKB_GSO_* bits are out of sync with the
+corresponding NETIF flags. I post a fix today along with adding the
+BUILD_BUG_ONs in net_gso_ok that are intended to detect this.
 
-This commit message is useless. If you really need to refer to a mailing
-list thread, use something like:
+Thanks,
+Tom
 
-Link: http://lkml.kernel.org/r/MESSAGE_ID_HERE
-
-... but it would even be better if you *explain* why the previous behavior
-is wrong, and what this patch does in an attempt to fix that.
-
-> Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-> ---
->  drivers/net/wireless/rtlwifi/rtl8188ee/hw.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/wireless/rtlwifi/rtl8188ee/hw.c b/drivers/net/wireless/rtlwifi/rtl8188ee/hw.c
-> index 94cd9df..9bdac68 100644
-> --- a/drivers/net/wireless/rtlwifi/rtl8188ee/hw.c
-> +++ b/drivers/net/wireless/rtlwifi/rtl8188ee/hw.c
-> @@ -1231,7 +1231,7 @@ static int _rtl88ee_set_media_status(struct ieee80211_hw *hw,
->  
->  	rtl_write_byte(rtlpriv, (MSR), bt_msr);
->  	rtlpriv->cfg->ops->led_control(hw, ledaction);
-> -	if ((bt_msr & 0xfc) == MSR_AP)
-> +	if ((bt_msr & MSR_MASK) == MSR_AP)
-
-There is no such constant as MSR_MASK. Please compile test before sending.
-
->  		rtl_write_byte(rtlpriv, REG_BCNTCFG + 1, 0x00);
->  	else
->  		rtl_write_byte(rtlpriv, REG_BCNTCFG + 1, 0x66);
-> 
-
-Kind regards,
-Peter
+On Fri, Jun 13, 2014 at 9:38 PM, Joseph Gasparakis
+<joseph.gasparakis@intel.com> wrote:
+>
+>
+> On Fri, 13 Jun 2014, Tom Herbert wrote:
+>
+>> On Fri, Jun 13, 2014 at 5:15 PM, Joseph Gasparakis
+>> <joseph.gasparakis@intel.com> wrote:
+>> > Hi all,
+>> >
+>> > I quickly tested VXLAN on i40e with net-next with commit id
+>> > f9da455b93f6ba076935b4ef4589f61e529ae046 and the i40e driver has stopped
+>> > receiving GSOs even when advertising tx-udp_tnl-segmentation which means
+>> > our VXLAN segmentation offload. I am guessing this has something to do
+>> > with Tom's recent UDP work but this is just a guess as unfortunatly I
+>> > do not have the time to debug this, but I am signing up to review and test
+>> > patches fixing this issue.
+>> >
+>> I verified tunnel offload works properly with bnx2x (I'm using simple
+>> vxlan interfaces not OVS).
+>>
+>
+> Ok, I will try to have a quick look at bnx2x and i40e and see the
+> differences in what the two drivers advertise in terms of netdev features and
+> hw_enc_features.
+>
+>> One possibility I can think of is that UDP checksums are somehow
+>> enabled. If you're using IPv6 this probably the case (but I assume
+>> you're seeing this with IPv4). If checksums are inadvertently enabled
+>> somehow in IPv4 this should should up in tcpdump on the Ethernet
+>> interface.
+>
+> Let me explain a bit my setup:
+>
+> I am using two linux boxes back to back, on my DUT I have an i40e and I
+> am bringing a vxlan interface in both machines. No bridge, no VMs, no OVS.
+>
+> I am using some simple perl scripts using TCP sockets to send a number of
+> bytes from DUT to my link partner and even if I send 50k in one message I
+> don't see any GSOs. Instead I get many non-GSO skbs leading me to the
+> conclusion that the stack must have segmented the skb before passing it on
+> to the driver. I am also using netperf with TCP_STREAM and I don't see any
+> GSOs either. All the above done using IPv4 only. And if I do the same on
+> the i40e interface instead of vxlan I do see GSOs again.
+>
+> Both these tests would result to the stack sending GSOs last time I did a
+> smoke test on vxlan and i40e (about 3 weeks ago or so...).
+>
+> The checksum offloads seem to be working as before however.
+>
+> Thanks
+>
+> Joseph
+>
+>>
+>> Thanks,
+>> Tom
+>>
+>> > The driver still gets GSOs with non VXLAN traffic (tested with TCP).
+>> >
+>> > Thanks
+>> >
+>> > Joseph
+>>
