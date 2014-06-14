@@ -1,60 +1,151 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [PATCH 08/24] net, diet: Make TCP metrics optional
-Date: Sat, 14 Jun 2014 22:33:26 +0200
-Message-ID: <20140614203326.GC3853@xo-6d-61-c0.localdomain>
-References: <20140506155703.GA20391@cloud>
- <20140506.115941.428706504757835279.davem@davemloft.net>
- <20140506164108.GA20536@cloud>
- <20140506.131643.994244006906866938.davem@davemloft.net>
- <20140506175547.GE20776@cloud>
- <CAM_iQpUgj7BqpzRL070DEGQ32SWwN68BRgM5DtFqvBLjGGOLQA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Josh Triplett <josh@joshtriplett.org>,
-	David Miller <davem@davemloft.net>,
-	Andi Kleen <andi@firstfloor.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>, tom.zanussi@linux.intel.com,
-	Andi Kleen <ak@linux.intel.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAM_iQpUgj7BqpzRL070DEGQ32SWwN68BRgM5DtFqvBLjGGOLQA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net] net: sctp: fix permissions for rto_alpha and rto_beta knobs
+Date: Sun, 15 Jun 2014 00:59:14 +0200
+Message-ID: <1402786754-16807-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	Vlad Yasevich <vyasevich@gmail.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:11432 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750861AbaFNW7T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 14 Jun 2014 18:59:19 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue 2014-05-06 11:33:11, Cong Wang wrote:
-> On Tue, May 6, 2014 at 10:55 AM,  <josh@joshtriplett.org> wrote:
-> > On Tue, May 06, 2014 at 01:16:43PM -0400, David Miller wrote:
-> >> From: josh@joshtriplett.org
-> >> Date: Tue, 6 May 2014 09:41:08 -0700
-> >>
-> >> > Every KB of RAM costs real money and SoC die area (for eDRAM/eSRAM).
-> >>
-> >> Another poster commented that 16MB of DRAM would be cheaper than
-> >> the 2MB of ram you have on these boards, probably one that fits
-> >> your size profile is available as well.
-> >>
-> >> 2MB is just a rediculous restriction.
-> >
-> > Embedded systems experts disagree with you there; there *are* systems
-> > where the most cost-efficient approach is a few MB (or a few hundred KB)
-> > of non-discrete memory.  We're not talking about socketed memory or even
-> > soldered-down memory; we're talking about entire systems that fit on a
-> > small SoC die.  The space not used by that extra RAM may well be better
-> > spent on CPU optimizations, or some other integrated component.
-> >
-> > Such boards will be built, and many of them will run Linux, despite your
-> > incredulity.  When you're building millions of a board, it's well worth
-> > optimizing software to eliminate components from the bill of materials.
-> 
-> So why bothers 3.15+ Linux kernel? Why not use an old kernel e.g. 2.4.x?
-> 2.4.x kernel doesn't have so many new features you want to get rid of here.
+Commit 3fd091e73b81 ("[SCTP]: Remove multiple levels of msecs
+to jiffies conversions.") has silently changed permissions for
+rto_alpha and rto_beta knobs from 0644 to 0444. The purpose of
+this was to discourage users from tweaking rto_alpha and
+rto_beta knobs in production environments since they are key
+to correctly compute rtt/srtt.
 
-So.. what is kernel composed of? Ton of drivers and a bit of generic code.
+RFC4960 under section 6.3.1. RTO Calculation says regarding
+rto_alpha and rto_beta under rule C3 and C4:
 
-And when doing this, you probably need the drivers from 3.x for your hardware.
+  [...]
+  C3)  When a new RTT measurement R' is made, set
 
+       RTTVAR <- (1 - RTO.Beta) * RTTVAR + RTO.Beta * |SRTT - R'|
+
+       and
+
+       SRTT <- (1 - RTO.Alpha) * SRTT + RTO.Alpha * R'
+
+       Note: The value of SRTT used in the update to RTTVAR
+       is its value before updating SRTT itself using the
+       second assignment. After the computation, update
+       RTO <- SRTT + 4 * RTTVAR.
+
+  C4)  When data is in flight and when allowed by rule C5
+       below, a new RTT measurement MUST be made each round
+       trip. Furthermore, new RTT measurements SHOULD be
+       made no more than once per round trip for a given
+       destination transport address. There are two reasons
+       for this recommendation: First, it appears that
+       measuring more frequently often does not in practice
+       yield any significant benefit [ALLMAN99]; second,
+       if measurements are made more often, then the values
+       of RTO.Alpha and RTO.Beta in rule C3 above should be
+       adjusted so that SRTT and RTTVAR still adjust to
+       changes at roughly the same rate (in terms of how many
+       round trips it takes them to reflect new values) as
+       they would if making only one measurement per
+       round-trip and using RTO.Alpha and RTO.Beta as given
+       in rule C3. However, the exact nature of these
+       adjustments remains a research issue.
+  [...]
+
+While it is discouraged to adjust rto_alpha and rto_beta
+and not further specified how to adjust them, the RFC also
+doesn't explicitly forbid it, but rather gives a RECOMMENDED
+default value (rto_alpha=3, rto_beta=2). We have a couple
+of users relying on the old permissions before they got
+changed. That said, if someone really has the urge to adjust
+them, we could allow it with a warning in the log.
+
+Fixes: 3fd091e73b81 ("[SCTP]: Remove multiple levels of msecs to jiffies conversions.")
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Cc: Vlad Yasevich <vyasevich@gmail.com>
+---
+ net/sctp/sysctl.c | 32 ++++++++++++++++++++++++++++----
+ 1 file changed, 28 insertions(+), 4 deletions(-)
+
+diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
+index 7e5eb75..dcb1959 100644
+--- a/net/sctp/sysctl.c
++++ b/net/sctp/sysctl.c
+@@ -34,6 +34,8 @@
+  *    Sridhar Samudrala     <sri@us.ibm.com>
+  */
+ 
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
+ #include <net/sctp/structs.h>
+ #include <net/sctp/sctp.h>
+ #include <linux/sysctl.h>
+@@ -46,6 +48,11 @@ static int sack_timer_min = 1;
+ static int sack_timer_max = 500;
+ static int addr_scope_max = 3; /* check sctp_scope_policy_t in include/net/sctp/constants.h for max entries */
+ static int rwnd_scale_max = 16;
++static int rto_alpha_min = 0;
++static int rto_beta_min = 0;
++static int rto_alpha_max = 1000;
++static int rto_beta_max = 1000;
++
+ static unsigned long max_autoclose_min = 0;
+ static unsigned long max_autoclose_max =
+ 	(MAX_SCHEDULE_TIMEOUT / HZ > UINT_MAX)
+@@ -64,6 +71,9 @@ static int proc_sctp_do_rto_min(struct ctl_table *ctl, int write,
+ static int proc_sctp_do_rto_max(struct ctl_table *ctl, int write,
+ 				void __user *buffer, size_t *lenp,
+ 				loff_t *ppos);
++static int proc_sctp_do_alpha_beta(struct ctl_table *ctl, int write,
++				   void __user *buffer, size_t *lenp,
++				   loff_t *ppos);
+ static int proc_sctp_do_auth(struct ctl_table *ctl, int write,
+ 			     void __user *buffer, size_t *lenp,
+ 			     loff_t *ppos);
+@@ -126,15 +136,19 @@ static struct ctl_table sctp_net_table[] = {
+ 		.procname	= "rto_alpha_exp_divisor",
+ 		.data		= &init_net.sctp.rto_alpha,
+ 		.maxlen		= sizeof(int),
+-		.mode		= 0444,
+-		.proc_handler	= proc_dointvec,
++		.mode		= 0644,
++		.proc_handler	= proc_sctp_do_alpha_beta,
++		.extra1		= &rto_alpha_min,
++		.extra2		= &rto_alpha_max,
+ 	},
+ 	{
+ 		.procname	= "rto_beta_exp_divisor",
+ 		.data		= &init_net.sctp.rto_beta,
+ 		.maxlen		= sizeof(int),
+-		.mode		= 0444,
+-		.proc_handler	= proc_dointvec,
++		.mode		= 0644,
++		.proc_handler	= proc_sctp_do_alpha_beta,
++		.extra1		= &rto_beta_min,
++		.extra2		= &rto_beta_max,
+ 	},
+ 	{
+ 		.procname	= "max_burst",
+@@ -403,6 +417,16 @@ static int proc_sctp_do_rto_max(struct ctl_table *ctl, int write,
+ 	return ret;
+ }
+ 
++static int proc_sctp_do_alpha_beta(struct ctl_table *ctl, int write,
++				   void __user *buffer, size_t *lenp,
++				   loff_t *ppos)
++{
++	pr_warn_once("Changing rto_alpha or rto_beta may lead to "
++		     "suboptimal rtt/srtt estimations!\n");
++
++	return proc_dointvec_minmax(ctl, write, buffer, lenp, ppos);
++}
++
+ static int proc_sctp_do_auth(struct ctl_table *ctl, int write,
+ 			     void __user *buffer, size_t *lenp,
+ 			     loff_t *ppos)
 -- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+1.7.11.7
