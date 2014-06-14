@@ -1,82 +1,153 @@
-From: Joseph Gasparakis <joseph.gasparakis@intel.com>
-Subject: Re: No GSOs to i40e with VXLAN
-Date: Fri, 13 Jun 2014 21:38:55 -0700 (PDT)
-Message-ID: <alpine.LFD.2.11.1406132119570.5273@fvl-a0.jf.intel.com>
-References: <alpine.LFD.2.11.1406131657240.4926@fvl-a0.jf.intel.com> <CA+mtBx_6BWhHm4eK2qqR737jwQHi_dyrv-Md_-_f5AEghWNAKg@mail.gmail.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH net-next v2 RESEND 1/4] macvlan: support mac address changes
+ when fwd_priv is enable
+Date: Sat, 14 Jun 2014 13:01:05 +0800
+Message-ID: <539BD711.30501@huawei.com>
+References: <1402127143-6456-1-git-send-email-dingtianhong@huawei.com> <1402127143-6456-2-git-send-email-dingtianhong@huawei.com> <5395E617.5080307@redhat.com> <53990628.9070202@huawei.com> <5399B837.3020000@redhat.com> <539A6BAB.9040009@huawei.com> <539AFCF1.6020402@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>,
+	John Fastabend <john.r.fastabend@intel.com>
+To: Vlad Yasevich <vyasevich@gmail.com>, <vyasevic@redhat.com>,
+	<kaber@trash.net>, <davem@davemloft.net>, <edumazet@google.com>,
+	<makita.toshiaki@lab.ntt.co.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:18322 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750772AbaFNEfw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 14 Jun 2014 00:35:52 -0400
-In-Reply-To: <CA+mtBx_6BWhHm4eK2qqR737jwQHi_dyrv-Md_-_f5AEghWNAKg@mail.gmail.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:45451 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751142AbaFNFDZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 14 Jun 2014 01:03:25 -0400
+In-Reply-To: <539AFCF1.6020402@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On Fri, 13 Jun 2014, Tom Herbert wrote:
-
-> On Fri, Jun 13, 2014 at 5:15 PM, Joseph Gasparakis
-> <joseph.gasparakis@intel.com> wrote:
-> > Hi all,
-> >
-> > I quickly tested VXLAN on i40e with net-next with commit id
-> > f9da455b93f6ba076935b4ef4589f61e529ae046 and the i40e driver has stopped
-> > receiving GSOs even when advertising tx-udp_tnl-segmentation which means
-> > our VXLAN segmentation offload. I am guessing this has something to do
-> > with Tom's recent UDP work but this is just a guess as unfortunatly I
-> > do not have the time to debug this, but I am signing up to review and test
-> > patches fixing this issue.
-> >
-> I verified tunnel offload works properly with bnx2x (I'm using simple
-> vxlan interfaces not OVS).
+On 2014/6/13 21:30, Vlad Yasevich wrote:
+> On 06/12/2014 11:10 PM, Ding Tianhong wrote:
+>> On 2014/6/12 22:24, Vlad Yasevich wrote:
+>>> On 06/11/2014 09:45 PM, Ding Tianhong wrote:
+>>>> On 2014/6/10 0:51, Vlad Yasevich wrote:
+>>>>> [.. CC John Fastabend <john.r.fastabend@intel.com> ]
+>>>>>
+>>>>> On 06/07/2014 03:45 AM, Ding Tianhong wrote:
+>>>>>> If lowerdev supports L2 forwarding offload, the macvlan's hw address
+>>>>>> will be set to the rar of the lowerdev and no need to set uc list,
+>>>>>> and when the macvlan's hw address changes, the macvlan should remove
+>>>>>> the old fwd and rebuild a new fwd for the macvlan.
+>>>>>>
+>>>>>> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+>>>>>> ---
+>>>>>>  drivers/net/macvlan.c | 21 +++++++++++++++++++++
+>>>>>>  1 file changed, 21 insertions(+)
+>>>>>>
+>>>>>> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+>>>>>> index 453d55a..67485ab 100644
+>>>>>> --- a/drivers/net/macvlan.c
+>>>>>> +++ b/drivers/net/macvlan.c
+>>>>>> @@ -523,6 +523,27 @@ static int macvlan_sync_address(struct net_device *dev, unsigned char *addr)
+>>>>>>  		if (macvlan_addr_busy(vlan->port, addr))
+>>>>>>  			return -EBUSY;
+>>>>>>  
+>>>>>> +		if (vlan->fwd_priv) {
+>>>>>> +			lowerdev->netdev_ops->ndo_dfwd_del_station(lowerdev,
+>>>>>> +								   vlan->fwd_priv);
+>>>>>> +			vlan->fwd_priv = NULL;
+>>>>>> +			ether_addr_copy(dev->perm_addr, dev->dev_addr);
+>>>>>> +			ether_addr_copy(dev->dev_addr, addr);
+>>>>>> +			vlan->fwd_priv =
+>>>>>> +			    lowerdev->netdev_ops->ndo_dfwd_add_station(lowerdev,
+>>>>>> +								       dev);
+>>>>>> +			/* If we get a NULL pointer back, or if we get an error
+>>>>>> +			 * then we should restore the old mac address and fwd.
+>>>>>> +			 */
+>>>>>> +			if (IS_ERR_OR_NULL(vlan->fwd_priv)) {
+>>>>>> +				ether_addr_copy(dev->dev_addr, dev->perm_addr);
+>>>>>> +				vlan->fwd_priv =
+>>>>>> +				    lowerdev->netdev_ops->ndo_dfwd_add_station(lowerdev,
+>>>>>> +									       dev);
+>>>>>> +				return -EINVAL;
+>>>>>> +			}
+>>>>>> +			return 0;
+>>>>>> +		}
+>>>>>
+>>>>> Calling del_stations add_station causes all sorts of VMDQ/ring
+>>>>> operations to happen...  Not sure if we can do that while we have a live
+>>>>> macvlan/macvtap that is capable of transmitting data.
+>>>>>
+>>>>> Wouldn't it be sufficient to have a call to call to update with mac
+>>>>> filter with the appropriate VMDQ.
+>>>>>
+>>>>> John, I defer to you here.  The above looks really heavy-weight and
+>>>>> I am not sure if its correct.
+>>>>>
+>>>>> Thanks
+>>>>> -vlad
+>>>>
+>>>> I have used two 82599 nic to test this problem, I modify the ixgbe drivers and set the  L2 forwarding offload default,
+>>>> without this patch, when I change the macvlan mac address, the kernel oops, and if I apply this patch, the ixgbe could
+>>>> work well with the maclvan, so I don't think this solution has problem.
+>>>
+>>> Have you tried changing the address while at the same time
+>>> transmitting data through the macvlan?
+>>>
+>>> -vlad
+>>>
+>>
+>> Yes, I tried, the lowerdev will be closed when calling ixgbe_fwd_del, then the transmitting was broken and about 1 second later,
+>> the transmitting restored and start to work again.
+>>
+>> 64 bytes from 192.168.10.8: icmp_seq=14 ttl=64 time=0.109 ms
+>> 64 bytes from 192.168.10.8: icmp_seq=15 ttl=64 time=0.112 ms
+>> ping: sendmsg: Network is down
+>> 64 bytes from 192.168.10.8: icmp_seq=17 ttl=64 time=1000 ms
+>> 64 bytes from 192.168.10.8: icmp_seq=18 ttl=64 time=0.147 ms
+>>
+> 
+> Right.  This is what I figured would happen and doesn't happen
+> with any other device when changing the mac address.
+> 
+> If this behavior is OK with other folks, I'll shut up, but IMO
+> we shouldn't just correctly update the mac filter and leave the
+> VMDQs alone.
+> 
+> -vlad
 > 
 
-Ok, I will try to have a quick look at bnx2x and i40e and see the 
-differences in what the two drivers advertise in terms of netdev features and 
-hw_enc_features.
+Yes, according to your important suggestion, we could further analysis this problem,
+and can you explain more about how to fix it better, just like the VMDQ, I am not very
+clear about this, thanks for any feedback.
 
-> One possibility I can think of is that UDP checksums are somehow
-> enabled. If you're using IPv6 this probably the case (but I assume
-> you're seeing this with IPv4). If checksums are inadvertently enabled
-> somehow in IPv4 this should should up in tcpdump on the Ethernet
-> interface.
+Regards
+Ding 
 
-Let me explain a bit my setup:
-
-I am using two linux boxes back to back, on my DUT I have an i40e and I 
-am bringing a vxlan interface in both machines. No bridge, no VMs, no OVS.
-
-I am using some simple perl scripts using TCP sockets to send a number of 
-bytes from DUT to my link partner and even if I send 50k in one message I 
-don't see any GSOs. Instead I get many non-GSO skbs leading me to the 
-conclusion that the stack must have segmented the skb before passing it on 
-to the driver. I am also using netperf with TCP_STREAM and I don't see any 
-GSOs either. All the above done using IPv4 only. And if I do the same on 
-the i40e interface instead of vxlan I do see GSOs again.
-
-Both these tests would result to the stack sending GSOs last time I did a 
-smoke test on vxlan and i40e (about 3 weeks ago or so...).  
-
-The checksum offloads seem to be working as before however.
-
-Thanks
-
-Joseph
- 
+>> Ding
+>>
+>>>>
+>>>> Thanks
+>>>> Ding
+>>>>
+>>>>>
+>>>>>>  		if (!vlan->port->passthru) {
+>>>>>>  			err = dev_uc_add(lowerdev, addr);
+>>>>>>  			if (err)
+>>>>>>
+>>>>>
+>>>>>
+>>>>> .
+>>>>>
+>>>>
+>>>>
+>>>
+>>>
+>>> .
+>>>
+>>
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>
 > 
-> Thanks,
-> Tom
 > 
-> > The driver still gets GSOs with non VXLAN traffic (tested with TCP).
-> >
-> > Thanks
-> >
-> > Joseph
+> .
 > 
