@@ -1,92 +1,112 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH v2 1/5] net: Fix GSO constants to match NETIF flags
-Date: Sat, 14 Jun 2014 23:23:52 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1406142315220.17425@tomh.mtv.corp.google.com>
+Subject: [PATCH v2 2/5] net: Fix save software checksum complete
+Date: Sat, 14 Jun 2014 23:24:03 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1406142315001.17124@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: joseph.gasparakis@intel.com
+Cc: geert@linux-m68k.org
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f74.google.com ([209.85.219.74]:49312 "EHLO
-	mail-oa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752162AbaFOGXy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jun 2014 02:23:54 -0400
-Received: by mail-oa0-f74.google.com with SMTP id i7so824841oag.3
-        for <netdev@vger.kernel.org>; Sat, 14 Jun 2014 23:23:53 -0700 (PDT)
+Received: from mail-oa0-f73.google.com ([209.85.219.73]:51941 "EHLO
+	mail-oa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752162AbaFOGYF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jun 2014 02:24:05 -0400
+Received: by mail-oa0-f73.google.com with SMTP id eb12so826372oac.2
+        for <netdev@vger.kernel.org>; Sat, 14 Jun 2014 23:24:03 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Joseph Gasparakis reported that VXLAN GSO offload stopped working with
-i40e device after recent UDP changes. The problem is that the
-SKB_GSO_* bits are out of sync with the corresponding NETIF flags. This
-patch fixes that. Also, we add BUILD_BUG_ONs in net_gso_ok for several
-GSO constants that were missing to avoid the problem in the future.
+Geert reported issues regarding checksum complete and UDP.
+The logic introduced in commit 7e3cead5172927732f51fde
+("net: Save software checksum complete") is not correct.
 
-Reported-by: Joseph Gasparakis <joseph.gasparakis@intel.com>
+This patch:
+1) Restores code in __skb_checksum_complete_header except for setting
+   CHECKSUM_UNNECESSARY. This function may be calculating checksum on
+   something less than skb->len.
+2) Adds saving checksum to __skb_checksum_complete. The full packet
+   checksum 0..skb->len is calculated without adding in pseudo header.
+   This value is saved in skb->csum and then the pseudo header is added
+   to that to derive the checksum for validation.
+3) In both __skb_checksum_complete_header and __skb_checksum_complete,
+   set skb->csum_valid to whether checksum of zero was computed. This
+   allows skb_csum_unnecessary to return true without changing to
+   CHECKSUM_UNNECESSARY which was done previously.
+4) Copy new csum related bits in __copy_skb_header.
+
+Reported-by: Geert Uytterhoeven <geert@linux-m68k.org>
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- include/linux/netdev_features.h |  1 +
- include/linux/netdevice.h       |  7 +++++++
- include/linux/skbuff.h          | 11 ++++++-----
- 3 files changed, 14 insertions(+), 5 deletions(-)
+ net/core/datagram.c | 36 ++++++++++++++++++++++++++----------
+ net/core/skbuff.c   |  3 +++
+ 2 files changed, 29 insertions(+), 10 deletions(-)
 
-diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
-index e5a5894..d99800c 100644
---- a/include/linux/netdev_features.h
-+++ b/include/linux/netdev_features.h
-@@ -117,6 +117,7 @@ enum {
- #define NETIF_F_GSO_IPIP	__NETIF_F(GSO_IPIP)
- #define NETIF_F_GSO_SIT		__NETIF_F(GSO_SIT)
- #define NETIF_F_GSO_UDP_TUNNEL	__NETIF_F(GSO_UDP_TUNNEL)
-+#define NETIF_F_GSO_UDP_TUNNEL_CSUM __NETIF_F(GSO_UDP_TUNNEL_CSUM)
- #define NETIF_F_GSO_MPLS	__NETIF_F(GSO_MPLS)
- #define NETIF_F_HW_VLAN_STAG_FILTER __NETIF_F(HW_VLAN_STAG_FILTER)
- #define NETIF_F_HW_VLAN_STAG_RX	__NETIF_F(HW_VLAN_STAG_RX)
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 774e539..80f1e41 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -3305,6 +3305,13 @@ static inline bool net_gso_ok(netdev_features_t features, int gso_type)
- 	BUILD_BUG_ON(SKB_GSO_TCP_ECN != (NETIF_F_TSO_ECN >> NETIF_F_GSO_SHIFT));
- 	BUILD_BUG_ON(SKB_GSO_TCPV6   != (NETIF_F_TSO6 >> NETIF_F_GSO_SHIFT));
- 	BUILD_BUG_ON(SKB_GSO_FCOE    != (NETIF_F_FSO >> NETIF_F_GSO_SHIFT));
-+	BUILD_BUG_ON(SKB_GSO_GRE     != (NETIF_F_GSO_GRE >> NETIF_F_GSO_SHIFT));
-+	BUILD_BUG_ON(SKB_GSO_GRE_CSUM != (NETIF_F_GSO_GRE_CSUM >> NETIF_F_GSO_SHIFT));
-+	BUILD_BUG_ON(SKB_GSO_IPIP    != (NETIF_F_GSO_IPIP >> NETIF_F_GSO_SHIFT));
-+	BUILD_BUG_ON(SKB_GSO_SIT     != (NETIF_F_GSO_SIT >> NETIF_F_GSO_SHIFT));
-+	BUILD_BUG_ON(SKB_GSO_UDP_TUNNEL != (NETIF_F_GSO_UDP_TUNNEL >> NETIF_F_GSO_SHIFT));
-+	BUILD_BUG_ON(SKB_GSO_UDP_TUNNEL_CSUM != (NETIF_F_GSO_UDP_TUNNEL_CSUM >> NETIF_F_GSO_SHIFT));
-+	BUILD_BUG_ON(SKB_GSO_MPLS    != (NETIF_F_GSO_MPLS >> NETIF_F_GSO_SHIFT));
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index 6b1c04c..488dd1a 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -739,22 +739,38 @@ __sum16 __skb_checksum_complete_head(struct sk_buff *skb, int len)
+ 	__sum16 sum;
  
- 	return (features & feature) == feature;
+ 	sum = csum_fold(skb_checksum(skb, 0, len, skb->csum));
+-	if (unlikely(skb->ip_summed == CHECKSUM_COMPLETE) && !sum &&
+-	    !skb->csum_complete_sw)
+-		netdev_rx_csum_fault(skb->dev);
+-
+-	/* Save checksum complete for later use */
+-	skb->csum = sum;
+-	skb->ip_summed = CHECKSUM_COMPLETE;
+-	skb->csum_complete_sw = 1;
+-
++	if (likely(!sum)) {
++		if (unlikely(skb->ip_summed == CHECKSUM_COMPLETE) &&
++		    !skb->csum_complete_sw)
++			netdev_rx_csum_fault(skb->dev);
++	}
++	skb->csum_valid = !sum;
+ 	return sum;
  }
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 5b5cd31..e13ed90 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -338,17 +338,18 @@ enum {
+ EXPORT_SYMBOL(__skb_checksum_complete_head);
  
- 	SKB_GSO_GRE = 1 << 6,
- 
--	SKB_GSO_IPIP = 1 << 7,
-+	SKB_GSO_GRE_CSUM = 1 << 7,
- 
--	SKB_GSO_SIT = 1 << 8,
-+	SKB_GSO_IPIP = 1 << 8,
- 
--	SKB_GSO_UDP_TUNNEL = 1 << 9,
-+	SKB_GSO_SIT = 1 << 9,
- 
--	SKB_GSO_MPLS = 1 << 10,
-+	SKB_GSO_UDP_TUNNEL = 1 << 10,
- 
- 	SKB_GSO_UDP_TUNNEL_CSUM = 1 << 11,
- 
--	SKB_GSO_GRE_CSUM = 1 << 12,
-+	SKB_GSO_MPLS = 1 << 12,
+ __sum16 __skb_checksum_complete(struct sk_buff *skb)
+ {
+-	return __skb_checksum_complete_head(skb, skb->len);
++	__wsum csum;
++	__sum16 sum;
 +
- };
++	csum = skb_checksum(skb, 0, skb->len, 0);
++
++	/* skb->csum holds pseudo checksum */
++	sum = csum_fold(csum_add(skb->csum, csum));
++	if (likely(!sum)) {
++		if (unlikely(skb->ip_summed == CHECKSUM_COMPLETE) &&
++		    !skb->csum_complete_sw)
++			netdev_rx_csum_fault(skb->dev);
++	}
++
++	/* Save full packet checksum */
++	skb->csum = csum;
++	skb->ip_summed = CHECKSUM_COMPLETE;
++	skb->csum_complete_sw = 1;
++	skb->csum_valid = !sum;
++
++	return sum;
+ }
+ EXPORT_SYMBOL(__skb_checksum_complete);
  
- #if BITS_PER_LONG > 32
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index bf92824..9cd5344 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -689,6 +689,9 @@ static void __copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
+ 	new->ooo_okay		= old->ooo_okay;
+ 	new->no_fcs		= old->no_fcs;
+ 	new->encapsulation	= old->encapsulation;
++	new->encap_hdr_csum	= old->encap_hdr_csum;
++	new->csum_valid		= old->csum_valid;
++	new->csum_complete_sw	= old->csum_complete_sw;
+ #ifdef CONFIG_XFRM
+ 	new->sp			= secpath_get(old->sp);
+ #endif
 -- 
 2.0.0.526.g5318336
