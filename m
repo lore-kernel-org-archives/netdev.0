@@ -1,151 +1,101 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net] net: sctp: fix permissions for rto_alpha and rto_beta knobs
-Date: Sun, 15 Jun 2014 00:59:14 +0200
-Message-ID: <1402786754-16807-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	Vlad Yasevich <vyasevich@gmail.com>
-To: davem@davemloft.net
+From: Joseph Gasparakis <joseph.gasparakis@intel.com>
+Subject: Re: No GSOs to i40e with VXLAN
+Date: Sat, 14 Jun 2014 17:04:31 -0700 (PDT)
+Message-ID: <alpine.LFD.2.11.1406141645220.10864@fvl-a0.jf.intel.com>
+References: <alpine.LFD.2.11.1406131657240.4926@fvl-a0.jf.intel.com> <CA+mtBx_6BWhHm4eK2qqR737jwQHi_dyrv-Md_-_f5AEghWNAKg@mail.gmail.com> <alpine.LFD.2.11.1406132119570.5273@fvl-a0.jf.intel.com>
+ <CA+mtBx9UGO7h9S3Q90LwvPeO66UBAn1OFThGLdviKFmHsP+wug@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:11432 "EHLO mx1.redhat.com"
+Received: from mga09.intel.com ([134.134.136.24]:26523 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750861AbaFNW7T (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 14 Jun 2014 18:59:19 -0400
+	id S1750861AbaFOABZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 14 Jun 2014 20:01:25 -0400
+In-Reply-To: <CA+mtBx9UGO7h9S3Q90LwvPeO66UBAn1OFThGLdviKFmHsP+wug@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 3fd091e73b81 ("[SCTP]: Remove multiple levels of msecs
-to jiffies conversions.") has silently changed permissions for
-rto_alpha and rto_beta knobs from 0644 to 0444. The purpose of
-this was to discourage users from tweaking rto_alpha and
-rto_beta knobs in production environments since they are key
-to correctly compute rtt/srtt.
 
-RFC4960 under section 6.3.1. RTO Calculation says regarding
-rto_alpha and rto_beta under rule C3 and C4:
 
-  [...]
-  C3)  When a new RTT measurement R' is made, set
+On Sat, 14 Jun 2014, Tom Herbert wrote:
 
-       RTTVAR <- (1 - RTO.Beta) * RTTVAR + RTO.Beta * |SRTT - R'|
+> I was able to debug the issue (thanks for lending me the machines with
+> i40 Eric!). Problem is that SKB_GSO_* bits are out of sync with the
+> corresponding NETIF flags. I post a fix today along with adding the
+> BUILD_BUG_ONs in net_gso_ok that are intended to detect this.
+>
 
-       and
-
-       SRTT <- (1 - RTO.Alpha) * SRTT + RTO.Alpha * R'
-
-       Note: The value of SRTT used in the update to RTTVAR
-       is its value before updating SRTT itself using the
-       second assignment. After the computation, update
-       RTO <- SRTT + 4 * RTTVAR.
-
-  C4)  When data is in flight and when allowed by rule C5
-       below, a new RTT measurement MUST be made each round
-       trip. Furthermore, new RTT measurements SHOULD be
-       made no more than once per round trip for a given
-       destination transport address. There are two reasons
-       for this recommendation: First, it appears that
-       measuring more frequently often does not in practice
-       yield any significant benefit [ALLMAN99]; second,
-       if measurements are made more often, then the values
-       of RTO.Alpha and RTO.Beta in rule C3 above should be
-       adjusted so that SRTT and RTTVAR still adjust to
-       changes at roughly the same rate (in terms of how many
-       round trips it takes them to reflect new values) as
-       they would if making only one measurement per
-       round-trip and using RTO.Alpha and RTO.Beta as given
-       in rule C3. However, the exact nature of these
-       adjustments remains a research issue.
-  [...]
-
-While it is discouraged to adjust rto_alpha and rto_beta
-and not further specified how to adjust them, the RFC also
-doesn't explicitly forbid it, but rather gives a RECOMMENDED
-default value (rto_alpha=3, rto_beta=2). We have a couple
-of users relying on the old permissions before they got
-changed. That said, if someone really has the urge to adjust
-them, we could allow it with a warning in the log.
-
-Fixes: 3fd091e73b81 ("[SCTP]: Remove multiple levels of msecs to jiffies conversions.")
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Cc: Vlad Yasevich <vyasevich@gmail.com>
----
- net/sctp/sysctl.c | 32 ++++++++++++++++++++++++++++----
- 1 file changed, 28 insertions(+), 4 deletions(-)
-
-diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
-index 7e5eb75..dcb1959 100644
---- a/net/sctp/sysctl.c
-+++ b/net/sctp/sysctl.c
-@@ -34,6 +34,8 @@
-  *    Sridhar Samudrala     <sri@us.ibm.com>
-  */
+Thanks for this Tom. Looking forward to your patch.
  
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
- #include <net/sctp/structs.h>
- #include <net/sctp/sctp.h>
- #include <linux/sysctl.h>
-@@ -46,6 +48,11 @@ static int sack_timer_min = 1;
- static int sack_timer_max = 500;
- static int addr_scope_max = 3; /* check sctp_scope_policy_t in include/net/sctp/constants.h for max entries */
- static int rwnd_scale_max = 16;
-+static int rto_alpha_min = 0;
-+static int rto_beta_min = 0;
-+static int rto_alpha_max = 1000;
-+static int rto_beta_max = 1000;
-+
- static unsigned long max_autoclose_min = 0;
- static unsigned long max_autoclose_max =
- 	(MAX_SCHEDULE_TIMEOUT / HZ > UINT_MAX)
-@@ -64,6 +71,9 @@ static int proc_sctp_do_rto_min(struct ctl_table *ctl, int write,
- static int proc_sctp_do_rto_max(struct ctl_table *ctl, int write,
- 				void __user *buffer, size_t *lenp,
- 				loff_t *ppos);
-+static int proc_sctp_do_alpha_beta(struct ctl_table *ctl, int write,
-+				   void __user *buffer, size_t *lenp,
-+				   loff_t *ppos);
- static int proc_sctp_do_auth(struct ctl_table *ctl, int write,
- 			     void __user *buffer, size_t *lenp,
- 			     loff_t *ppos);
-@@ -126,15 +136,19 @@ static struct ctl_table sctp_net_table[] = {
- 		.procname	= "rto_alpha_exp_divisor",
- 		.data		= &init_net.sctp.rto_alpha,
- 		.maxlen		= sizeof(int),
--		.mode		= 0444,
--		.proc_handler	= proc_dointvec,
-+		.mode		= 0644,
-+		.proc_handler	= proc_sctp_do_alpha_beta,
-+		.extra1		= &rto_alpha_min,
-+		.extra2		= &rto_alpha_max,
- 	},
- 	{
- 		.procname	= "rto_beta_exp_divisor",
- 		.data		= &init_net.sctp.rto_beta,
- 		.maxlen		= sizeof(int),
--		.mode		= 0444,
--		.proc_handler	= proc_dointvec,
-+		.mode		= 0644,
-+		.proc_handler	= proc_sctp_do_alpha_beta,
-+		.extra1		= &rto_beta_min,
-+		.extra2		= &rto_beta_max,
- 	},
- 	{
- 		.procname	= "max_burst",
-@@ -403,6 +417,16 @@ static int proc_sctp_do_rto_max(struct ctl_table *ctl, int write,
- 	return ret;
- }
- 
-+static int proc_sctp_do_alpha_beta(struct ctl_table *ctl, int write,
-+				   void __user *buffer, size_t *lenp,
-+				   loff_t *ppos)
-+{
-+	pr_warn_once("Changing rto_alpha or rto_beta may lead to "
-+		     "suboptimal rtt/srtt estimations!\n");
-+
-+	return proc_dointvec_minmax(ctl, write, buffer, lenp, ppos);
-+}
-+
- static int proc_sctp_do_auth(struct ctl_table *ctl, int write,
- 			     void __user *buffer, size_t *lenp,
- 			     loff_t *ppos)
--- 
-1.7.11.7
+> Thanks,
+> Tom
+> 
+> On Fri, Jun 13, 2014 at 9:38 PM, Joseph Gasparakis
+> <joseph.gasparakis@intel.com> wrote:
+> >
+> >
+> > On Fri, 13 Jun 2014, Tom Herbert wrote:
+> >
+> >> On Fri, Jun 13, 2014 at 5:15 PM, Joseph Gasparakis
+> >> <joseph.gasparakis@intel.com> wrote:
+> >> > Hi all,
+> >> >
+> >> > I quickly tested VXLAN on i40e with net-next with commit id
+> >> > f9da455b93f6ba076935b4ef4589f61e529ae046 and the i40e driver has stopped
+> >> > receiving GSOs even when advertising tx-udp_tnl-segmentation which means
+> >> > our VXLAN segmentation offload. I am guessing this has something to do
+> >> > with Tom's recent UDP work but this is just a guess as unfortunatly I
+> >> > do not have the time to debug this, but I am signing up to review and test
+> >> > patches fixing this issue.
+> >> >
+> >> I verified tunnel offload works properly with bnx2x (I'm using simple
+> >> vxlan interfaces not OVS).
+> >>
+> >
+> > Ok, I will try to have a quick look at bnx2x and i40e and see the
+> > differences in what the two drivers advertise in terms of netdev features and
+> > hw_enc_features.
+> >
+> >> One possibility I can think of is that UDP checksums are somehow
+> >> enabled. If you're using IPv6 this probably the case (but I assume
+> >> you're seeing this with IPv4). If checksums are inadvertently enabled
+> >> somehow in IPv4 this should should up in tcpdump on the Ethernet
+> >> interface.
+> >
+> > Let me explain a bit my setup:
+> >
+> > I am using two linux boxes back to back, on my DUT I have an i40e and I
+> > am bringing a vxlan interface in both machines. No bridge, no VMs, no OVS.
+> >
+> > I am using some simple perl scripts using TCP sockets to send a number of
+> > bytes from DUT to my link partner and even if I send 50k in one message I
+> > don't see any GSOs. Instead I get many non-GSO skbs leading me to the
+> > conclusion that the stack must have segmented the skb before passing it on
+> > to the driver. I am also using netperf with TCP_STREAM and I don't see any
+> > GSOs either. All the above done using IPv4 only. And if I do the same on
+> > the i40e interface instead of vxlan I do see GSOs again.
+> >
+> > Both these tests would result to the stack sending GSOs last time I did a
+> > smoke test on vxlan and i40e (about 3 weeks ago or so...).
+> >
+> > The checksum offloads seem to be working as before however.
+> >
+> > Thanks
+> >
+> > Joseph
+> >
+> >>
+> >> Thanks,
+> >> Tom
+> >>
+> >> > The driver still gets GSOs with non VXLAN traffic (tested with TCP).
+> >> >
+> >> > Thanks
+> >> >
+> >> > Joseph
+> >>
+> 
