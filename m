@@ -1,49 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: sctp: fix permissions for rto_alpha and
- rto_beta knobs
-Date: Sun, 15 Jun 2014 01:18:30 -0700 (PDT)
-Message-ID: <20140615.011830.1834645975843111936.davem@davemloft.net>
-References: <1402786754-16807-1-git-send-email-dborkman@redhat.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [-next] Regression: ssh log in slowdown
+Date: Sun, 15 Jun 2014 10:42:57 +0200
+Message-ID: <CAMuHMdV+wjdEqKANwu4b=LX1t6X8dhfZKdyCkWB-9KXztPmNhg@mail.gmail.com>
+References: <alpine.DEB.2.02.1406130829370.23090@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	vyasevich@gmail.com
-To: dborkman@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39131 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750993AbaFOISc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jun 2014 04:18:32 -0400
-In-Reply-To: <1402786754-16807-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux-Next <linux-next@vger.kernel.org>,
+	Linux-sh list <linux-sh@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.02.1406130829370.23090@tomh.mtv.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Sun, 15 Jun 2014 00:59:14 +0200
+Hi Tom,
 
-> Commit 3fd091e73b81 ("[SCTP]: Remove multiple levels of msecs
-> to jiffies conversions.") has silently changed permissions for
-> rto_alpha and rto_beta knobs from 0644 to 0444. The purpose of
-> this was to discourage users from tweaking rto_alpha and
-> rto_beta knobs in production environments since they are key
-> to correctly compute rtt/srtt.
-> 
-> RFC4960 under section 6.3.1. RTO Calculation says regarding
-> rto_alpha and rto_beta under rule C3 and C4:
- ...
-> While it is discouraged to adjust rto_alpha and rto_beta
-> and not further specified how to adjust them, the RFC also
-> doesn't explicitly forbid it, but rather gives a RECOMMENDED
-> default value (rto_alpha=3, rto_beta=2). We have a couple
-> of users relying on the old permissions before they got
-> changed. That said, if someone really has the urge to adjust
-> them, we could allow it with a warning in the log.
-> 
-> Fixes: 3fd091e73b81 ("[SCTP]: Remove multiple levels of msecs to jiffies conversions.")
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+On Fri, Jun 13, 2014 at 5:37 PM, Tom Herbert <therbert@google.com> wrote:
+>> Thanks, I applied the series "[PATCH 0/4] Checksum fixes", and the fix
+>> above, but it doesn't help.
+>>
+>> Note that I'm also using NFS root, which doesn't seem to be affected.
+>> I can happily run "ls -R /" on the serial console during the 10 s delay
+> in ssh.
+>
+> Can you try one more patch below with the series applied? Also, can you
 
-This permission change seemed unintentional, and doesn't make
-much sense anyways to me.
+This patch fixes the issue. Thanks!
 
-So I'm applying this, thanks Daniel.
+> look at 'netstat -s' to see if UDP checksum errors are being reported.
+
+Indeed, errors are reported under Udp/InCsumErrors.
+With this new patch, no errors are reported.
+
+Thanks!
+
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
