@@ -1,56 +1,45 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH v2 5/5] vxlan: Checksum fixes
-Date: Sat, 14 Jun 2014 23:24:36 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1406142315390.17735@tomh.mtv.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Missing return check against Null for return value of
+ netdev_alloc_dev_skb()
+Date: Sat, 14 Jun 2014 23:53:00 -0700 (PDT)
+Message-ID: <20140614.235300.1228145928404410306.davem@davemloft.net>
+References: <1402805139-6363-1-git-send-email-xerofoify@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f202.google.com ([209.85.128.202]:42880 "EHLO
-	mail-ve0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753092AbaFOGYh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jun 2014 02:24:37 -0400
-Received: by mail-ve0-f202.google.com with SMTP id oy12so247414veb.3
-        for <netdev@vger.kernel.org>; Sat, 14 Jun 2014 23:24:36 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: andriy.shevchenko@linux.intel.com, dvhart@linux.intel.com,
+	jeffrey.t.kirsher@intel.com, ast@plumgrid.com, dborkman@redhat.com,
+	bhutchings@solarflare.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: xerofoify@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1402805139-6363-1-git-send-email-xerofoify@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Call skb_pop_rcv_encapsulation and postpull_rcsum for the Ethernet
-header to work properly with checksum complete.
+From: Nick <xerofoify@gmail.com>
+Date: Sun, 15 Jun 2014 00:05:39 -0400
 
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- drivers/net/vxlan.c | 11 ++---------
- 1 file changed, 2 insertions(+), 9 deletions(-)
+> Signed-off-by: Nick <xerofoify@gmail.com>
+> ---
+>  drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c | 2 ++
+>  1 file changed, 2 insertions(+)
+> 
+> diff --git a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+> index 73e6683..704cf63 100644
+> --- a/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+> +++ b/drivers/net/ethernet/oki-semi/pch_gbe/pch_gbe_main.c
+> @@ -1515,6 +1515,8 @@ static void pch_gbe_alloc_tx_buffers(struct pch_gbe_adapter *adapter,
+>  	for (i = 0; i < tx_ring->count; i++) {
+>  		buffer_info = &tx_ring->buffer_info[i];
+>  		skb = netdev_alloc_skb(adapter->netdev, bufsz);
+> +		if (!skb)
+> +			return NULL;
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 1610d51..0016fcc 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1156,15 +1156,7 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
- 	if (!vs)
- 		goto drop;
- 
--	/* If the NIC driver gave us an encapsulated packet
--	 * with the encapsulation mark, the device checksummed it
--	 * for us. Otherwise force the upper layers to verify it.
--	 */
--	if ((skb->ip_summed != CHECKSUM_UNNECESSARY && skb->ip_summed != CHECKSUM_PARTIAL) ||
--	    !skb->encapsulation)
--		skb->ip_summed = CHECKSUM_NONE;
--
--	skb->encapsulation = 0;
-+	skb_pop_rcv_encapsulation(skb);
- 
- 	vs->rcv(vs, skb, vxh->vx_vni);
- 	return 0;
-@@ -1201,6 +1193,7 @@ static void vxlan_rcv(struct vxlan_sock *vs,
- 	skb_reset_mac_header(skb);
- 	skb_scrub_packet(skb, !net_eq(vxlan->net, dev_net(vxlan->dev)));
- 	skb->protocol = eth_type_trans(skb, vxlan->dev);
-+	skb_postpull_rcsum(skb, eth_hdr(skb), ETH_HLEN);
- 
- 	/* Ignore packet loops (and multicast echo) */
- 	if (ether_addr_equal(eth_hdr(skb)->h_source, vxlan->dev->dev_addr))
--- 
-2.0.0.526.g5318336
+You didn't even compile test this.
+
+The function has a void return type, you can't return NULL.
+
+Furthermore, you have to adjust things so that the caller knows that
+this operation failed, because the device cannot be brought up
+successfully unless all the TX buffer slots get allocated properly.
