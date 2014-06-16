@@ -1,193 +1,128 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: Re: [Linux-zigbee-devel] [PATCH net-next 1/3] ieee802154: cc2520:
- driver for TI cc2520 radio
-Date: Mon, 16 Jun 2014 20:58:33 +0200
-Message-ID: <20140616185830.GA30538@omega>
-References: <1402894318-30349-1-git-send-email-varkab@cdac.in>
- <1402894318-30349-2-git-send-email-varkab@cdac.in>
- <20140616073853.GA20343@omega>
- <539EB007.9000302@cdac.in>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: tcp: multiple ssthresh reductions before all packets are retransmitted
+Date: Mon, 16 Jun 2014 12:04:37 -0700
+Message-ID: <CAK6E8=dwh1btNzX80YNre9u7rS+SgochXxHxDhQYQZCvY8yVMQ@mail.gmail.com>
+References: <20140616153515.GA4907@unicorn.suse.cz> <CAK6E8=cFnDut3xYhNqHkhV9FNXkuTtrT=iB19Way80A43LAXwQ@mail.gmail.com>
+ <20140616174721.GA15406@lion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Varka Bhadram <varkabhadram@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	linux-zigbee-devel@lists.sourceforge.net, davem@davemloft.net
-To: Varka Bhadram <varkab@cdac.in>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <539EB007.9000302@cdac.in>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Michal Kubecek <mkubecek@suse.cz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f176.google.com ([209.85.223.176]:59043 "EHLO
+	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751127AbaFPTFS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2014 15:05:18 -0400
+Received: by mail-ie0-f176.google.com with SMTP id rd18so5482275iec.35
+        for <netdev@vger.kernel.org>; Mon, 16 Jun 2014 12:05:17 -0700 (PDT)
+In-Reply-To: <20140616174721.GA15406@lion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Mon, Jun 16, 2014 at 10:47 AM, Michal Kubecek <mkubecek@suse.cz> wrote:
+> On Mon, Jun 16, 2014 at 10:02:08AM -0700, Yuchung Cheng wrote:
+>> On Mon, Jun 16, 2014 at 8:35 AM, Michal Kubecek <mkubecek@suse.cz> wrote:
+>> >
+>> > RFC 5681 says that ssthresh reduction in response to RTO should be done
+>> > only once and should not be repeated until all packets from the first
+>> > loss are retransmitted. RFC 6582 (as well as its predecessor RFC 3782)
+>> > is even more specific and says that when loss is detected, one should
+>> > mark current SND.NXT and ssthresh shouldn't be reduced again due to
+>> > a loss until SND.UNA reaches this remembered value.
+>> >
+>> > Linux implementation does exactly that but in TCP_CA_Loss state,
+>> > tcp_enter_loss() also takes icsk_retransmits into account:
+>> >
+>> >         /* Reduce ssthresh if it has not yet been made inside this window. */
+>> >         if (icsk->icsk_ca_state <= TCP_CA_Disorder ||
+>> >             !after(tp->high_seq, tp->snd_una) ||
+>> >             (icsk->icsk_ca_state == TCP_CA_Loss && !icsk->icsk_retransmits)) {
+>> >                 new_recovery = true;
+>> >                 tp->prior_ssthresh = tcp_current_ssthresh(sk);
+>> >                 tp->snd_ssthresh = icsk->icsk_ca_ops->ssthresh(sk);
+>> >                 tcp_ca_event(sk, CA_EVENT_LOSS);
+>> >         }
+>> >
+>> > This seems correct as icsk_retransmits is supposed to mean "we still
+>> > have packets to retransmit". But icsk_retransmits is reset in
+>> > tcp_process_loss() if one of two conditions is satisfied:
+>>
+>> icsk_retransmits indicates the number of recurring timeouts (of the
+>> same sequence). so it is reset when the recovery is done or SND_UNA is
+>> advanced. the variable name however is confusing.
+>
+> In that case, I suppose the problem would be this part
+>
+>     (icsk->icsk_ca_state == TCP_CA_Loss && !icsk->icsk_retransmits)
+>
+> of the condition above (in tcp_enter_loss()). As that would mean we
+> would allow further ssthresh reduction as soon as SND.UNA moves forward
+> (not when it reaches high_seq).
 
-On Mon, Jun 16, 2014 at 02:21:19PM +0530, Varka Bhadram wrote:
-...
-> >>+
-> >>+static void cc2520_unregister(struct cc2520_private *priv)
-> >>+{
-> >>+	ieee802154_unregister_device(priv->dev);
-> >>+	ieee802154_free_device(priv->dev);
-> >>+}
-> >Only used in remove callback of module. It's small enough to do this in
-> >the remove callback.
-> >
+Nice catch. That check is incorrect and should be removed. I have used
+packetdrill to verify it fixes the ssthresh problem.
 
-There is no context switch here. It's a little bit faster because you
-don't put some things on the stack. Alternative would be to add a inline
-keyword to this function.
+`../common/defaults.sh`
 
-> Ya its nice . We can save the cpu context switching time also....
-> >>+
-> >>+static void cc2520_fifop_irqwork(struct work_struct *work)
-> >>+{
-> >>+	struct cc2520_private *priv
-> >>+		= container_of(work, struct cc2520_private, fifop_irqwork);
-> >>+
-> >>+	dev_dbg(&priv->spi->dev, "fifop interrupt received\n");
-> >>+
-> >>+	if (gpio_get_value(priv->fifo_pin))
-> >>+		cc2520_rx(priv);
-> >>+	else
-> >>+		dev_err(&priv->spi->dev, "rxfifo overflow\n");
-> >>+
-> >>+	cc2520_cmd_strobe(priv, CC2520_CMD_SFLUSHRX);
-> >>+	cc2520_cmd_strobe(priv, CC2520_CMD_SFLUSHRX);
-> >>+}
-> >>+
-> >>+static irqreturn_t cc2520_fifop_isr(int irq, void *data)
-> >>+{
-> >>+	struct cc2520_private *priv = data;
-> >>+
-> >>+	schedule_work(&priv->fifop_irqwork);
-> >>+
-> >>+	return IRQ_HANDLED;
-> >>+}
-> >>+
-> >>+static irqreturn_t cc2520_sfd_isr(int irq, void *data)
-> >>+{
-> >>+	struct cc2520_private *priv = data;
-> >>+
-> >>+	spin_lock(&priv->lock);
-> >You need to use here spin_lock_irqsave and spin_unlock_irqrestore here.
-> >Please verify you locking with PROVE_LOCKING enabled in your kernel.
-> >
-> >In your xmit callback you use a irqsave spinlocks there. You need always
-> >save to the "strongest" context which is a interrupt in your case.
-> This type of mechanism is needed when you want to remember the interrupt
-> status for the
-> IRQ/system.
+0.000 socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
+   +0 setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
+   +0 bind(3, ..., ...) = 0
+   +0 listen(3, 1) = 0
 
-Yes you need I spinlock here, but spin_lock isn't irqsave but you need a
-spin_lock function which is irqsave. This is
-spin_lock_irqsave/spin_unlock_irqrestore.
+   +0 < S 0:0(0) win 32792 <mss 1000,sackOK,nop,nop,nop,wscale 7>
+   +0 > S. 0:0(0) ack 1 <mss 1460,nop,nop,sackOK,nop,wscale 6>
 
-You use these function in xmit callback for locking and that makes no
-sense. You need to use spin_lock_irqsave/spin_unlock_irqrestore there of
-course. But using in one function
-spin_lock_irqsave/spin_unlock_irqrestore and in the other function
-spin_lock/spin_unlock for the same spinlock is wrong.
-In your case the strongest context is an irq, so you need for your
-locking irqsave functions.
++.020 < . 1:1(0) ack 1 win 257
+   +0 accept(3, ..., ...) = 4
+   +0 write(4, ..., 11000) = 11000
+   +0 > . 1:10001(10000) ack 1
 
-Please compile your kernel with PROVE_LOCKING and test your driver, then
-you will see some warnings about deadlocks.
+// TLP (is dropped too)
++.040 > P. 10001:11001(1000) ack 1
 
-> >>+	if (priv->is_tx) {
-> >>+		dev_dbg(&priv->spi->dev, "SFD for TX\n");
-> >>+		priv->is_tx = 0;
-> >>+		complete(&priv->tx_complete);
-> >>+	} else
-> >>+		dev_dbg(&priv->spi->dev, "SFD for RX\n");
-> >make brackets in the else branch if you have brackets in the "if" branch.
-> >
-> >You don't need to lock all the things here I think:
-> >
-> >--snip
-> >	spin_lock_irqsave(&priv->lock, flags);
-> >	if (priv->is_tx) {
-> >		priv->is_tx = 0;
-> >		spin_unlock_irqrestore(&priv->lock, flags);
-> >		dev_dbg(&priv->spi->dev, "SFD for TX\n");
-> >		complete(&priv->tx_complete);
-> >	} else {
-> >		spin_unlock_irqrestore(&priv->lock, flags);
-> >		dev_dbg(&priv->spi->dev, "SFD for RX\n");
-> >	}
-> >--snap
-> >
-> Ya this can be the good approach...
-> >>+	spin_unlock(&priv->lock);
-> >>+
-> >>+	return IRQ_HANDLED
-> >>+/*Driver probe function*/
-> >>+static int cc2520_probe(struct spi_device *spi)
-> >>+{
-> >>+	struct cc2520_private *priv;
-> >>+	struct pinctrl *pinctrl;
-> >>+	struct cc2520_platform_data *pdata;
-> >>+	struct device_node __maybe_unused *np = spi->dev.of_node;
-> >>+	int ret;
-> >>+
-> >>+	priv = kzalloc(sizeof(struct cc2520_private), GFP_KERNEL);
-> >>+	if (!priv) {
-> >>+		ret = -ENOMEM;
-> >>+		goto err_free_local;
-> >>+	}
-> >why not devm_ calls?
-> I will surely change it to devm_....
-> >>+
-> >>+	spi_set_drvdata(spi, priv);
-> >>+
-> >>+	pinctrl = devm_pinctrl_get_select_default(&spi->dev);
-> >>+
-> >>+	if (gpio_is_valid(pdata->vreg)) {
-> >>+		ret = devm_gpio_request_one(&spi->dev, pdata->vreg,
-> >>+					GPIOF_OUT_INIT_LOW, "vreg");
-> >>+		if (ret)
-> >>+			goto err_hw_init;
-> >>+	}
-> >You should check on the not optional pins if you can request them. You
-> >use in the above code the pins vreg, reset, fifo_irq, sfd. And this
+// RTO and retransmit head, SST is set
++.221 > . 1:1001(1000) ack 1
+   +0 %{ sst = tcpi_snd_ssthresh }%
 
-s/above/below
++.020 < . 1:1(0) ack 1001 win 257
+   +0 > . 1001:2001(1000) ack 1
+   +0 > . 2001:3001(1000) ack 1
 
-> >failed if the gpio's are not valid.
-> >
-> >means:
-> >
-> >if (!gpio_is_valid(pdata->vreg)) {
-> >	dev_err(....)
-> >	ret = -EINVAL;
-> >	goto ...;
-> >}
-> >
-> >on all pins which are needed to use your chip.
-> >
-> >>+
-> >>+	gpio_set_value(pdata->vreg, HIGH);
-> >>+	udelay(100);
-> >>+
-> >>+	gpio_set_value(pdata->reset, HIGH);
-> >>+	udelay(200);
-> >>+
-> >>+	ret = cc2520_hw_init(priv);
-> >>+	if (ret)
-> >>+		goto err_hw_init;
-> >>+
-> >>+	/*Set up fifop interrupt */
-> >>+	priv->fifo_irq = gpio_to_irq(pdata->fifop);
-...
-> >>+static const struct spi_device_id cc2520_ids[] = {
-> >>+	{"cc2520", 0},
-> >You don't need to set the driver_data to 0. Simple:
-> >	{ "cc2520", },
-> this does not make any difference.
++.020 < . 1:1(0) ack 2001 win 257
+   +0 > . 3001:4001(1000) ack 1
+   +0 > . 4001:5001(1000) ack 1
 
-Yes, but saves code. :-)
+// Another timeout during recovery. Check SST remains the same
++.020 < . 1:1(0) ack 2001 win 257
++.421 > . 2001:3001(1000) ack 1
+   +0 %{ assert tcpi_snd_ssthresh == sst }%
 
-Usual prefer coding is:
++.020 < . 1:1(0) ack 3001 win 257
+   +0 > . 3001:4001(1000) ack 1
+   +0 > . 4001:5001(1000) ack 1
 
-"(no difference + more code) < (no difference + less code)"
++.020 < . 1:1(0) ack 5001 win 257
+   +0 > . 5001:6001(1000) ack 1
+   +0 > . 6001:7001(1000) ack 1
+   +0 > . 7001:8001(1000) ack 1
+   +0 > . 8001:9001(1000) ack 1
 
-- Alex
++.020 < . 1:1(0) ack 9001 win 257
+   +0 > . 9001:10001(1000) ack 1
+   +0 > P. 10001:11001(1000) ack 1
+
+// Recovery is done. Check SST remains the same
++0.20 < . 1:1(0) ack 11001 win 257
+   +0 %{ assert tcpi_snd_ssthresh == sst }%
+
+Do you want to submit a one-liner patch? or I am happy to do that.
+
+
+>
+>> does your suggested change fix the problem you are observing?
+>
+> It does, with it ssthresh isn't lowered again until all lost packets are
+> retransmitted (at which time, cwnd is already reasonably high).
+>
+>                                                           Michal Kubecek
+>
