@@ -1,37 +1,40 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] Missing return check against Null for return value of
- netdev_alloc_dev_skb()
-Date: Mon, 16 Jun 2014 17:32:25 +0400
-Message-ID: <539EF1E9.8070607@cogentembedded.com>
-References: <1402805139-6363-1-git-send-email-xerofoify@gmail.com>	<20140614.235300.1228145928404410306.davem@davemloft.net> <CAPDOMVgV8V8fPpZupwQaDERiK-0OMLt66LULR6Biw1=8LJhOKw@mail.gmail.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: How does the linux kernel select the MAC address for TAP devices?
+Date: Mon, 16 Jun 2014 09:39:29 -0400
+Message-ID: <539EF391.2040100@gmail.com>
+References: <CAPRaSD6_TUBLNJu3GC84FwWmPOqLnhgmoq61mZX03dJFM8cyrw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: andriy.shevchenko@linux.intel.com, dvhart@linux.intel.com,
-	jeffrey.t.kirsher@intel.com, ast@plumgrid.com, dborkman@redhat.com,
-	bhutchings@solarflare.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Nick Krause <xerofoify@gmail.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAPDOMVgV8V8fPpZupwQaDERiK-0OMLt66LULR6Biw1=8LJhOKw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Albert Krenz <albert.krenz87@googlemail.com>,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f45.google.com ([209.85.216.45]:48422 "EHLO
+	mail-qa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750775AbaFPNjd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2014 09:39:33 -0400
+Received: by mail-qa0-f45.google.com with SMTP id v10so7264217qac.4
+        for <netdev@vger.kernel.org>; Mon, 16 Jun 2014 06:39:32 -0700 (PDT)
+In-Reply-To: <CAPRaSD6_TUBLNJu3GC84FwWmPOqLnhgmoq61mZX03dJFM8cyrw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On 06/16/2014 04:00 AM, Albert Krenz wrote:
+> As stated in the email subject: Where does the kernel get the used
+> MAC-Adress for a newly create TAP device? Are they randomly generated
+> or does it select one from a fixed pool of reserved MAC-Adresses?
+> 
+> I have not found any official documentation about the selection of
+> MAC-addresses for TAP-devices. Most sites like
+> http://backreference.org/2010/03/26/tuntap-interface-tutorial/ state
+> that the MAC addresses are auto-generated and can be changed. But they
+> do not explain the generation rules.
+> 
+> Does anyone know an official document (preferably from kernel.org)
+> explaining the MAC selection process? Or is it only explained in the
+> Source?
 
-On 06/16/2014 12:27 AM, Nick Krause wrote:
+Yes, it is explained in the source.  In particular look at the function
+tun_net_init().  The default MAC is random.
 
->  From 62b0d77a1430f74b7f5c008c5e8bec11604b33b0 Mon Sep 17 00:00:00 2001
-> From: Nick <xerofoify@gmail.com>
-> Date: Sun, 15 Jun 2014 16:16:14 -0400
-> Subject: [PATCHv2] Fixes return logic of function of pch_gbe_alloc_tx_buffers()
-> Here is the fixed patch changed return type of function to int in
-> order to use return -ENOMEM as with the function above it , seems to
-> fit , otherwise returns 0.
->   Report if it breaks anything related to this driver.
-> Signed-off-by: Nick <xerofoify@gmail.com>
-
-    You should specify your full name in the "Signed-off:" line.
-
-WBR, Sergei
+-vlad
