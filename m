@@ -1,67 +1,59 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: [PATCH net] tcp: avoid multiple ssthresh reductions in on retransmit
- window
-Date: Mon, 16 Jun 2014 23:19:54 +0200 (CEST)
-Message-ID: <20140616211954.6E12BA3A89@unicorn.suse.cz>
-References: <CAK6E8=dwh1btNzX80YNre9u7rS+SgochXxHxDhQYQZCvY8yVMQ@mail.gmail.com>
-Cc: netdev@vger.kernel.org, Yuchung Cheng <ycheng@google.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: "David S. Miller" <davem@davemloft.net>
+From: Chris Mason <clm@fb.com>
+Subject: perf regression from ipv6: use net->rt_genid to check dst validity
+Date: Mon, 16 Jun 2014 17:31:15 -0400
+Message-ID: <539F6223.4040006@fb.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:39566 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755363AbaFPVT6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Jun 2014 17:19:58 -0400
-In-Reply-To: <CAK6E8=dwh1btNzX80YNre9u7rS+SgochXxHxDhQYQZCvY8yVMQ@mail.gmail.com>
+Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:16606 "EHLO
+	mx0b-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754312AbaFPV0G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2014 17:26:06 -0400
+Received: from pps.filterd (m0004060 [127.0.0.1])
+	by mx0b-00082601.pphosted.com (8.14.5/8.14.5) with SMTP id s5GLPhJM014557
+	for <netdev@vger.kernel.org>; Mon, 16 Jun 2014 14:26:04 -0700
+Received: from mail.thefacebook.com (mailwest.thefacebook.com [173.252.71.148])
+	by mx0b-00082601.pphosted.com with ESMTP id 1mga64p8aq-1
+	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=OK)
+	for <netdev@vger.kernel.org>; Mon, 16 Jun 2014 14:26:04 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RFC 5681 says that ssthresh reduction in response to RTO should
-be done only once and should not be repeated until all packets
-from the first loss are retransmitted. RFC 6582 (as well as its
-predecessor RFC 3782) is even more specific and says that when
-loss is detected, one should mark current SND.NXT and ssthresh
-shouldn't be reduced again due to a loss until SND.UNA reaches
-this remembered value.
+Hi everyone,
 
-In Linux implementation, this is done in tcp_enter_loss() but an
-additional condition
+I tracked down a perf regression last week in our 3.10-stable based
+kernel.  fib6_lookup_1 was at the top of the profiles, being called very
+frequently during sends.  The 2.6.38 kernel we were comparing
+against only called fib6_lookup_1 during recv.
 
-  (icsk->icsk_ca_state == TCP_CA_Loss && !icsk->icsk_retransmits)
+The call chain was doing the lookups because we were always tossing the
+destination cache.  A little trial and error led me to this commit:
 
-allows to further reduce ssthresh before snd_una reaches the
-high_seq (the snd_nxt value at the previous loss) as
-icsk_retransmits is reset as soon as snd_una moves forward. As a
-result, if a retransmit timeout ouccurs early in the retransmit
-phase, we can adjust snd_ssthresh based on very low value of
-cwnd. This can be especially harmful for reno congestion control
-with slow linear cwnd growth in congestion avoidance phase.
+	commit 6f3118b571b8a4c06c7985dc3172c3526cb86253
+	Author: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+	Date:   Mon Sep 10 22:09:46 2012 +0000
 
-The patch removes the condition above so that snd_ssthresh is
-not reduced again until snd_una reaches high_seq as described in
-RFC 5681 and 6582.
+	    ipv6: use net->rt_genid to check dst validity
 
-Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
----
- net/ipv4/tcp_input.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+The workload was our in memory database, and dropping this commit gave
+us a 10% boost to overall queries per second.
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 40661fc..768ba88 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -1917,8 +1917,7 @@ void tcp_enter_loss(struct sock *sk, int how)
- 
- 	/* Reduce ssthresh if it has not yet been made inside this window. */
- 	if (icsk->icsk_ca_state <= TCP_CA_Disorder ||
--	    !after(tp->high_seq, tp->snd_una) ||
--	    (icsk->icsk_ca_state == TCP_CA_Loss && !icsk->icsk_retransmits)) {
-+	    !after(tp->high_seq, tp->snd_una)) {
- 		new_recovery = true;
- 		tp->prior_ssthresh = tcp_current_ssthresh(sk);
- 		tp->snd_ssthresh = icsk->icsk_ca_ops->ssthresh(sk);
--- 
-1.8.4.5
+Moving up to mainline, it looks like we're still failing the validity
+check most of the time.  A few printks show when we do fail, it's always
+this line:
+
+       if (rt->rt6i_genid != rt_genid_ipv6(dev_net(rt->dst.dev)))
+
+The cached dst had a genid of 2 and the dev_net version was 3.
+
+What I haven't done yet is fully reproduce the 10% hit on mainline.  I
+have a few patches to port in and I'll get a workload running on 3.15.
+But it doesn't look like this part has changed.  Somehow we're hanging
+onto a destination cache with an old genid and we're hammering on lookups
+because of it.
+
+Any ideas before I shower things with printk?
+
+-chris
