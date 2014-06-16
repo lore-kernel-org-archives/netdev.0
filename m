@@ -1,108 +1,27 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: tcp: multiple ssthresh reductions before all packets are retransmitted
-Date: Mon, 16 Jun 2014 10:02:08 -0700
-Message-ID: <CAK6E8=cFnDut3xYhNqHkhV9FNXkuTtrT=iB19Way80A43LAXwQ@mail.gmail.com>
-References: <20140616153515.GA4907@unicorn.suse.cz>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCH net V2 0/2] net: delete duplicate dev_set_rx_mode() call
+Date: Mon, 16 Jun 2014 10:14:55 -0700
+Message-ID: <CAHA+R7PHTGDJ2X15G1gYKK5vV68g4d-jEfNESQR4HiEoxxv=PA@mail.gmail.com>
+References: <cover.1402926490.git.panweiping3@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Michal Kubecek <mkubecek@suse.cz>
+Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
+To: Weiping Pan <panweiping3@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f178.google.com ([209.85.223.178]:40817 "EHLO
-	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751573AbaFPRCt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2014 13:02:49 -0400
-Received: by mail-ie0-f178.google.com with SMTP id rd18so5291606iec.37
-        for <netdev@vger.kernel.org>; Mon, 16 Jun 2014 10:02:49 -0700 (PDT)
-In-Reply-To: <20140616153515.GA4907@unicorn.suse.cz>
+Received: from mail-qc0-f172.google.com ([209.85.216.172]:58199 "EHLO
+	mail-qc0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751545AbaFPRO4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2014 13:14:56 -0400
+Received: by mail-qc0-f172.google.com with SMTP id o8so8351395qcw.31
+        for <netdev@vger.kernel.org>; Mon, 16 Jun 2014 10:14:55 -0700 (PDT)
+In-Reply-To: <cover.1402926490.git.panweiping3@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 16, 2014 at 8:35 AM, Michal Kubecek <mkubecek@suse.cz> wrote:
-> Hello,
+On Mon, Jun 16, 2014 at 6:57 AM, Weiping Pan <panweiping3@gmail.com> wrote:
+> This patchset delete duplicate dev_set_rx_mode() call, and it also make some
+> functions return void instead of int.
 >
-> while investigating a problem with TCP loss recovery, I noticed that if
-> large window is lost and another loss happens before the recovery is
-> finished, ssthresh can drop to very low values. This is especially
-> harmful with Reno congestion control where cwnd growth in congestion
-> avoidance phase is linear and rather slow. This is 100% reproducible
-> on older (3.0) kernels but I was able to reproduce it on 3.15 as well.
->
-> RFC 5681 says that ssthresh reduction in response to RTO should be done
-> only once and should not be repeated until all packets from the first
-> loss are retransmitted. RFC 6582 (as well as its predecessor RFC 3782)
-> is even more specific and says that when loss is detected, one should
-> mark current SND.NXT and ssthresh shouldn't be reduced again due to
-> a loss until SND.UNA reaches this remembered value.
->
-> Linux implementation does exactly that but in TCP_CA_Loss state,
-> tcp_enter_loss() also takes icsk_retransmits into account:
->
->         /* Reduce ssthresh if it has not yet been made inside this window. */
->         if (icsk->icsk_ca_state <= TCP_CA_Disorder ||
->             !after(tp->high_seq, tp->snd_una) ||
->             (icsk->icsk_ca_state == TCP_CA_Loss && !icsk->icsk_retransmits)) {
->                 new_recovery = true;
->                 tp->prior_ssthresh = tcp_current_ssthresh(sk);
->                 tp->snd_ssthresh = icsk->icsk_ca_ops->ssthresh(sk);
->                 tcp_ca_event(sk, CA_EVENT_LOSS);
->         }
->
-> This seems correct as icsk_retransmits is supposed to mean "we still
-> have packets to retransmit". But icsk_retransmits is reset in
-> tcp_process_loss() if one of two conditions is satisfied:
 
-icsk_retransmits indicates the number of recurring timeouts (of the
-same sequence). so it is reset when the recovery is done or SND_UNA is
-advanced. the variable name however is confusing.
-
-does your suggested change fix the problem you are observing?
-
->
->         bool recovered = !before(tp->snd_una, tp->high_seq);
-> ...
->         if (recovered) {
->                 /* F-RTO RFC5682 sec 3.1 step 2.a and 1st part of step 3.a */
->                 icsk->icsk_retransmits = 0;
->                 tcp_try_undo_recovery(sk);
->                 return;
->         }
->         if (flag & FLAG_DATA_ACKED)
->                 icsk->icsk_retransmits = 0;
->
-> First part implements the condition from RFC. But the second part can
-> reset icsk_retransmits much earlier than all previously lost data are
-> retransmitted so that ssthresh can be reduced more than once.
->
-> The first is recent and comes from commits ab42d9ee3 ("tcp: refactor
-> CA_Loss state processing") and e33099f96 ("tcp: implement RFC5682
-> F-RTO"). Second test is much older and predates the start of git tree.
->
-> I believe this code is actually wrong and we should remove those two
-> lines:
->
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index 40661fc..f534723 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -2710,8 +2710,6 @@ static void tcp_process_loss(struct sock *sk, int flag, bool is_dupack)
->                 tcp_try_undo_recovery(sk);
->                 return;
->         }
-> -       if (flag & FLAG_DATA_ACKED)
-> -               icsk->icsk_retransmits = 0;
->         if (tcp_is_reno(tp)) {
->                 /* A Reno DUPACK means new data in F-RTO step 2.b above are
->                  * delivered. Lower inflight to clock out (re)tranmissions.
->
-> But as I don't know where do they come from, I can't be sure they don't
-> serve some purpose so I wanted to ask first if someone knows the logic
-> behind them.
->
-> Thanks in advance,
-> Michal Kubecek
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Why for -net not -net-next?
+This probably doesn't fix any bug, at least the second one.
