@@ -1,57 +1,187 @@
-From: Nick Krause <xerofoify@gmail.com>
-Subject: Re: [PATCH] Missing return check against Null for return value of netdev_alloc_dev_skb()
-Date: Sun, 15 Jun 2014 23:28:50 -0400
-Message-ID: <CAPDOMVhV3eKJ78-d_F_TTFjM+GDEdqpMSMFEQ8jOEnrbBchHqw@mail.gmail.com>
-References: <1402805139-6363-1-git-send-email-xerofoify@gmail.com>
-	<20140614.235300.1228145928404410306.davem@davemloft.net>
-	<CAPDOMVgV8V8fPpZupwQaDERiK-0OMLt66LULR6Biw1=8LJhOKw@mail.gmail.com>
-	<20140615.192635.533361731164638772.davem@davemloft.net>
+From: Varka Bhadram <varkabhadram-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net-next] mrf24j40: separate h/w init
+	and add checkings
+Date: Mon, 16 Jun 2014 09:12:31 +0530
+Message-ID: <1402890152-2803-1-git-send-email-varkab@cdac.in>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: andriy.shevchenko@linux.intel.com, dvhart@linux.intel.com,
-	jeffrey.t.kirsher@intel.com, ast@plumgrid.com, dborkman@redhat.com,
-	bhutchings@solarflare.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140615.192635.533361731164638772.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Varka Bhadram <varkab-If5XQcfNmg0@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Fair enjoy I was wondering if it fails I can run a goto statement and
-then free the memory for the tx as needed.
-Cheers Nick
-P.S. That was really stupid I didn't think that through at all :)
+separate the mrf24j40 hardware initialisation from probe()
+and adds the sanity checkings.
 
-On Sun, Jun 15, 2014 at 10:26 PM, David Miller <davem@davemloft.net> wrote:
-> From: Nick Krause <xerofoify@gmail.com>
-> Date: Sun, 15 Jun 2014 16:27:23 -0400
->
->> From 62b0d77a1430f74b7f5c008c5e8bec11604b33b0 Mon Sep 17 00:00:00 2001
->> From: Nick <xerofoify@gmail.com>
->> Date: Sun, 15 Jun 2014 16:16:14 -0400
->> Subject: [PATCHv2] Fixes return logic of function of pch_gbe_alloc_tx_buffers()
->> Here is the fixed patch changed return type of function to int in
->> order to use return -ENOMEM as with the function above it , seems to
->> fit , otherwise returns 0.
->>  Report if it breaks anything related to this driver.
->> Signed-off-by: Nick <xerofoify@gmail.com>
->
-> Nobody is checking the return value, you can't just change the function to
-> return an error code, you have to make the caller act upon it appropriately
-> as well.
->
-> I'm very much not confident that you are willing to put in the effort
-> necessary to fix this problem properly.
->
-> I told you explicitly that if this memory allocation failure occurs, the
-> bringup of the device has to fail.
->
-> Your patch is making the situation worse, it breaks when there is an
-> allocation failure, leaving the TX run partially allocated so that the
-> driver will crash with an OOPS later.
->
-> From your first iteration, you aren't build testing this change, and I
-> therefore severely doubt you are functionally testing this change either.
->
-> I hate to be harsh, but this is an extremely _poor_ patch submission.
+These checkings are required if somebody hasn't a right spi configuration
+the probe function should fail. So we have to return from there.
+
+Signed-off-by: Varka Bhadram <varkab-If5XQcfNmg0@public.gmane.org>
+---
+ drivers/net/ieee802154/mrf24j40.c |  115 ++++++++++++++++++++++++++++---------
+ 1 file changed, 89 insertions(+), 26 deletions(-)
+
+diff --git a/drivers/net/ieee802154/mrf24j40.c b/drivers/net/ieee802154/mrf24j40.c
+index 4048062..9e6a124 100644
+--- a/drivers/net/ieee802154/mrf24j40.c
++++ b/drivers/net/ieee802154/mrf24j40.c
+@@ -610,10 +610,95 @@ out:
+ 	return IRQ_HANDLED;
+ }
+ 
++static int mrf24j40_hw_init(struct mrf24j40 *devrec)
++{
++	int ret;
++	u8 val;
++
++	/* Initialize the device.
++		From datasheet section 3.2: Initialization. */
++	ret = write_short_reg(devrec, REG_SOFTRST, 0x07);
++	if (ret)
++		goto err_ret;
++
++	ret = write_short_reg(devrec, REG_PACON2, 0x98);
++	if (ret)
++		goto err_ret;
++
++	ret = write_short_reg(devrec, REG_TXSTBL, 0x95);
++	if (ret)
++		goto err_ret;
++
++	ret = write_long_reg(devrec, REG_RFCON0, 0x03);
++	if (ret)
++		goto err_ret;
++
++	ret = write_long_reg(devrec, REG_RFCON1, 0x01);
++	if (ret)
++		goto err_ret;
++
++	ret = write_long_reg(devrec, REG_RFCON2, 0x80);
++	if (ret)
++		goto err_ret;
++
++	ret = write_long_reg(devrec, REG_RFCON6, 0x90);
++	if (ret)
++		goto err_ret;
++
++	ret = write_long_reg(devrec, REG_RFCON7, 0x80);
++	if (ret)
++		goto err_ret;
++
++	ret = write_long_reg(devrec, REG_RFCON8, 0x10);
++	if (ret)
++		goto err_ret;
++
++	ret = write_long_reg(devrec, REG_SLPCON1, 0x21);
++	if (ret)
++		goto err_ret;
++
++	ret = write_short_reg(devrec, REG_BBREG2, 0x80);
++	if (ret)
++		goto err_ret;
++
++	ret = write_short_reg(devrec, REG_CCAEDTH, 0x60);
++	if (ret)
++		goto err_ret;
++
++	ret = write_short_reg(devrec, REG_BBREG6, 0x40);
++	if (ret)
++		goto err_ret;
++
++	ret = write_short_reg(devrec, REG_RFCTL, 0x04);
++	if (ret)
++		goto err_ret;
++
++	ret = write_short_reg(devrec, REG_RFCTL, 0x0);
++	if (ret)
++		goto err_ret;
++
++	udelay(192);
++
++	/* Set RX Mode. RXMCR<1:0>: 0x0 normal, 0x1 promisc, 0x2 error */
++	ret = read_short_reg(devrec, REG_RXMCR, &val);
++	if (ret)
++		goto err_ret;
++
++	val &= ~0x3; /* Clear RX mode (normal) */
++
++	ret = write_short_reg(devrec, REG_RXMCR, val);
++	if (ret)
++		goto err_ret;
++
++	return 0;
++
++err_ret:
++	return ret;
++}
++
+ static int mrf24j40_probe(struct spi_device *spi)
+ {
+ 	int ret = -ENOMEM;
+-	u8 val;
+ 	struct mrf24j40 *devrec;
+ 
+ 	printk(KERN_INFO "mrf24j40: probe(). IRQ: %d\n", spi->irq);
+@@ -650,31 +735,9 @@ static int mrf24j40_probe(struct spi_device *spi)
+ 	if (ret)
+ 		goto err_register_device;
+ 
+-	/* Initialize the device.
+-		From datasheet section 3.2: Initialization. */
+-	write_short_reg(devrec, REG_SOFTRST, 0x07);
+-	write_short_reg(devrec, REG_PACON2, 0x98);
+-	write_short_reg(devrec, REG_TXSTBL, 0x95);
+-	write_long_reg(devrec, REG_RFCON0, 0x03);
+-	write_long_reg(devrec, REG_RFCON1, 0x01);
+-	write_long_reg(devrec, REG_RFCON2, 0x80);
+-	write_long_reg(devrec, REG_RFCON6, 0x90);
+-	write_long_reg(devrec, REG_RFCON7, 0x80);
+-	write_long_reg(devrec, REG_RFCON8, 0x10);
+-	write_long_reg(devrec, REG_SLPCON1, 0x21);
+-	write_short_reg(devrec, REG_BBREG2, 0x80);
+-	write_short_reg(devrec, REG_CCAEDTH, 0x60);
+-	write_short_reg(devrec, REG_BBREG6, 0x40);
+-	write_short_reg(devrec, REG_RFCTL, 0x04);
+-	write_short_reg(devrec, REG_RFCTL, 0x0);
+-	udelay(192);
+-
+-	/* Set RX Mode. RXMCR<1:0>: 0x0 normal, 0x1 promisc, 0x2 error */
+-	ret = read_short_reg(devrec, REG_RXMCR, &val);
++	ret = mrf24j40_hw_init(devrec);
+ 	if (ret)
+-		goto err_read_reg;
+-	val &= ~0x3; /* Clear RX mode (normal) */
+-	write_short_reg(devrec, REG_RXMCR, val);
++		goto err_hw_init;
+ 
+ 	ret = devm_request_threaded_irq(&spi->dev,
+ 					spi->irq,
+@@ -692,7 +755,7 @@ static int mrf24j40_probe(struct spi_device *spi)
+ 	return 0;
+ 
+ err_irq:
+-err_read_reg:
++err_hw_init:
+ 	ieee802154_unregister_device(devrec->dev);
+ err_register_device:
+ 	ieee802154_free_device(devrec->dev);
+-- 
+1.7.9.5
+
+
+------------------------------------------------------------------------------
+HPCC Systems Open Source Big Data Platform from LexisNexis Risk Solutions
+Find What Matters Most in Your Big Data with HPCC Systems
+Open Source. Fast. Scalable. Simple. Ideal for Dirty Data.
+Leverages Graph Analysis for Fast Processing & Easy Data Exploration
+http://p.sf.net/sfu/hpccsystems
