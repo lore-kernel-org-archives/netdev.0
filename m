@@ -1,64 +1,95 @@
-From: =?utf-8?B?U8O2cmVu?= Brinkmann <soren.brinkmann@xilinx.com>
-Subject: Re: [PATCH] net/cadence/macb: clear interrupts simply and correctly
-Date: Mon, 16 Jun 2014 07:56:27 -0700
-Message-ID: <ea57b37f-1f1c-40a0-84a6-46b0b78ec6b4@BY2FFO11FD034.protection.gbl>
-References: <1402563054-8546-1-git-send-email-neidhard.kim@lge.com>
- <9f5be687-d127-49a4-90ea-c1033505452d@BN1BFFO11FD019.protection.gbl>
- <539E79F1.1090006@lge.com>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: tcp: multiple ssthresh reductions before all packets are
+ retransmitted
+Date: Mon, 16 Jun 2014 17:35:15 +0200
+Message-ID: <20140616153515.GA4907@unicorn.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hayun Hwang <hwang.hayun@lge.com>,
-	Youngkyu Choi <youngkyu7.choi@lge.com>
-To: Jongsung Kim <neidhard.kim@lge.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:33320 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752199AbaFPPfR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Jun 2014 11:35:17 -0400
+Received: from relay2.suse.de (charybdis-ext.suse.de [195.135.220.254])
+	by mx2.suse.de (Postfix) with ESMTP id 97D8BAD18
+	for <netdev@vger.kernel.org>; Mon, 16 Jun 2014 15:35:15 +0000 (UTC)
 Content-Disposition: inline
-In-Reply-To: <539E79F1.1090006@lge.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-06-16 at 02:00PM +0900, Jongsung Kim wrote:
-> On 06/13/2014 12:44 AM, S=C3=B6ren Brinkmann wrote:
-> > Hi Jongsung,
->=20
-> Hi S=C3=B6ren,
->=20
-> > Does this interrupt need to be enabled? There is nothing checking
-> > that bit and handling this IRQ in the handler, AFAICT. And you solv=
-e
-> > this by simply clearing the bit. So, I wonder whether not enabling =
-this
-> > IRQ in the first place would solve things too.
->=20
-> The driver actually checks the bit, but does not clear it. Disabling =
-the
-> "Rx used bit read" interrupt you said may be a solution. However, I t=
-hink
-> it is the better way to clear the exceptional HW-state rather than ju=
-st to
-> mask it.
-Hmm, I must have missed that.
+Hello,
 
->=20
-> > This is now clearing all IRQ flags which is probably not what we wa=
-nt
-> > here. This is handling RX only. We still want the non-RX interrupts=
- to go to
-> > the actual interrupt service routing.
->=20
-> The ISR(Interrupt Status Register) is read only in the interrupt serv=
-ice
-> routine, macb_interrupt. But is partially cleared here and there. Fur=
-ther
-> handler-functions decide jobs to be done by reading/checking other st=
-atus
-> registers. (e.g., TSR, RSR) So, clearing the ISR after reading looks =
-not
-> a bad idea.
-But you are clearing _all_ interrupt flags in the RX NAPI handler.
-Doesn't that mean we might miss certain events?
+while investigating a problem with TCP loss recovery, I noticed that if
+large window is lost and another loss happens before the recovery is
+finished, ssthresh can drop to very low values. This is especially
+harmful with Reno congestion control where cwnd growth in congestion
+avoidance phase is linear and rather slow. This is 100% reproducible
+on older (3.0) kernels but I was able to reproduce it on 3.15 as well.
 
-	S=C3=B6ren
+RFC 5681 says that ssthresh reduction in response to RTO should be done
+only once and should not be repeated until all packets from the first
+loss are retransmitted. RFC 6582 (as well as its predecessor RFC 3782)
+is even more specific and says that when loss is detected, one should
+mark current SND.NXT and ssthresh shouldn't be reduced again due to
+a loss until SND.UNA reaches this remembered value.
+
+Linux implementation does exactly that but in TCP_CA_Loss state,
+tcp_enter_loss() also takes icsk_retransmits into account:
+
+	/* Reduce ssthresh if it has not yet been made inside this window. */
+	if (icsk->icsk_ca_state <= TCP_CA_Disorder ||
+	    !after(tp->high_seq, tp->snd_una) ||
+	    (icsk->icsk_ca_state == TCP_CA_Loss && !icsk->icsk_retransmits)) {
+		new_recovery = true;
+		tp->prior_ssthresh = tcp_current_ssthresh(sk);
+		tp->snd_ssthresh = icsk->icsk_ca_ops->ssthresh(sk);
+		tcp_ca_event(sk, CA_EVENT_LOSS);
+	}
+
+This seems correct as icsk_retransmits is supposed to mean "we still
+have packets to retransmit". But icsk_retransmits is reset in
+tcp_process_loss() if one of two conditions is satisfied:
+
+	bool recovered = !before(tp->snd_una, tp->high_seq);
+...
+	if (recovered) {
+		/* F-RTO RFC5682 sec 3.1 step 2.a and 1st part of step 3.a */
+		icsk->icsk_retransmits = 0;
+		tcp_try_undo_recovery(sk);
+		return;
+	}
+	if (flag & FLAG_DATA_ACKED)
+		icsk->icsk_retransmits = 0;
+
+First part implements the condition from RFC. But the second part can
+reset icsk_retransmits much earlier than all previously lost data are
+retransmitted so that ssthresh can be reduced more than once.
+
+The first is recent and comes from commits ab42d9ee3 ("tcp: refactor
+CA_Loss state processing") and e33099f96 ("tcp: implement RFC5682
+F-RTO"). Second test is much older and predates the start of git tree.
+
+I believe this code is actually wrong and we should remove those two
+lines:
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 40661fc..f534723 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2710,8 +2710,6 @@ static void tcp_process_loss(struct sock *sk, int flag, bool is_dupack)
+ 		tcp_try_undo_recovery(sk);
+ 		return;
+ 	}
+-	if (flag & FLAG_DATA_ACKED)
+-		icsk->icsk_retransmits = 0;
+ 	if (tcp_is_reno(tp)) {
+ 		/* A Reno DUPACK means new data in F-RTO step 2.b above are
+ 		 * delivered. Lower inflight to clock out (re)tranmissions.
+
+But as I don't know where do they come from, I can't be sure they don't
+serve some purpose so I wanted to ask first if someone knows the logic
+behind them.
+
+Thanks in advance,
+Michal Kubecek
