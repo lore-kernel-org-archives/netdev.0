@@ -1,38 +1,50 @@
-From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
-Subject: netconsole breaks netpoll on bridge
-Date: Mon, 16 Jun 2014 14:51:58 +0200
-Message-ID: <539EE86E.6030806@profihost.ag>
+From: "Mrs.Blessing Lee" <blessing03.loans@gmail.com>
+Subject: LOAN OFFER
+Date: Mon, 16 Jun 2014 04:04:02 -0500 (CDT)
+Message-ID: <63998.208.98.48.44.1402909442.squirrel@webmail.patai.th.edu>
+Reply-To: blessing03.loans@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: bridge@lists.linux-foundation.org,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: stephen@networkplumber.org, David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ph.de-nserver.de ([85.158.179.214]:34863 "EHLO
-	mail-ph.de-nserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751007AbaFPM5Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2014 08:57:24 -0400
+Received: from patai.th.edu ([203.155.2.130]:52033 "HELO patai.th.edu"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with SMTP
+	id S1751423AbaFPNEl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Jun 2014 09:04:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-i'm using a vanilla 3.10.43 kernel and netconsole on top of a bridge.
+Hello,
 
-netconsole is used with vmbr0 (bridge) which is on top of bond0.
+I am Mrs.Blessing Lee a certified and a registered loan lender i give out
+loan of all kinds in a very fast and easy way, Home Loan, Student Loan,
+Business Loan, Investor loan etc. I offer loan to every individuals,
+firms, and company that are in need of financial assistance i in a low
+interest rate of 3%.
 
-If i want to add another bridge to vmbr0 is fails as long as netconsole
-is in use.
+I am offering you all to the best of my knowledge and to your satisfaction
+any interested individuals, firms, and companies that are interested in
+getting loan in my company should contact me asap via email:
+blessing03.loans@gmail.com
 
-# brctl addif vmbr0 fwpr2004p0
-can't add fwpr2004p0 to bridge vmbr0: Unknown error 524
+you are to fill the required information below in order for us to proceed.
 
-Kernel output:
-netpoll: (null): fwpr2004p0 doesn't support polling, aborting
+BORROWER'S DATE
 
-If i do rmmod netconsole - everything is working fine again.
+1)Full Names:
+2)Country:
+3)Address:
+4)State:
+5)Sex:
+6)Occupation:
+8)Phone Number:
+7)Loan Amount Needed:
+8)Loan Duration:
+9)Purpose Of Loan:
 
-Greets,
-Stefan
+I will be looking Forward to hear from you.
+
+Regards,
+Mrs.Blessing Lee
