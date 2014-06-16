@@ -1,56 +1,67 @@
-From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
-Subject: Re: netconsole breaks netpoll on bridge
-Date: Mon, 16 Jun 2014 20:41:38 +0200
-Message-ID: <6B8712E6-8012-42C3-9D98-0EBD943F2894@profihost.ag>
-References: <539EE86E.6030806@profihost.ag> <CAHA+R7OrT+x_jvDeqKgFc=ndebhB6qwecJBcT5y0ZAA+hBCJ3Q@mail.gmail.com>
-Mime-Version: 1.0 (1.0)
-Content-Type: text/plain;
-	charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	David Miller <davem@davemloft.net>,
-	"bridge@lists.linux-foundation.org"
-	<bridge@lists.linux-foundation.org>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Cong Wang <cwang@twopensource.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHA+R7OrT+x_jvDeqKgFc=ndebhB6qwecJBcT5y0ZAA+hBCJ3Q@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: tcp: multiple ssthresh reductions before all packets are
+ retransmitted
+Date: Mon, 16 Jun 2014 20:48:23 +0200
+Message-ID: <20140616184823.GA20932@unicorn.suse.cz>
+References: <20140616153515.GA4907@unicorn.suse.cz>
+ <CAK6E8=cFnDut3xYhNqHkhV9FNXkuTtrT=iB19Way80A43LAXwQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>
+To: Yuchung Cheng <ycheng@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:36611 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932566AbaFPSsZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Jun 2014 14:48:25 -0400
+Content-Disposition: inline
+In-Reply-To: <CAK6E8=cFnDut3xYhNqHkhV9FNXkuTtrT=iB19Way80A43LAXwQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-> Am 16.06.2014 um 20:05 schrieb Cong Wang <cwang@twopensource.com>:
+On Mon, Jun 16, 2014 at 10:02:08AM -0700, Yuchung Cheng wrote:
+> On Mon, Jun 16, 2014 at 8:35 AM, Michal Kubecek <mkubecek@suse.cz> wrote:
+> >
+> > RFC 5681 says that ssthresh reduction in response to RTO should be done
+> > only once and should not be repeated until all packets from the first
+> > loss are retransmitted. RFC 6582 (as well as its predecessor RFC 3782)
+> > is even more specific and says that when loss is detected, one should
+> > mark current SND.NXT and ssthresh shouldn't be reduced again due to
+> > a loss until SND.UNA reaches this remembered value.
+> >
+> > Linux implementation does exactly that but in TCP_CA_Loss state,
+> > tcp_enter_loss() also takes icsk_retransmits into account:
+> >
+> >         /* Reduce ssthresh if it has not yet been made inside this window. */
+> >         if (icsk->icsk_ca_state <= TCP_CA_Disorder ||
+> >             !after(tp->high_seq, tp->snd_una) ||
+> >             (icsk->icsk_ca_state == TCP_CA_Loss && !icsk->icsk_retransmits)) {
+> >                 new_recovery = true;
+> >                 tp->prior_ssthresh = tcp_current_ssthresh(sk);
+> >                 tp->snd_ssthresh = icsk->icsk_ca_ops->ssthresh(sk);
+> >                 tcp_ca_event(sk, CA_EVENT_LOSS);
+> >         }
+> >
+> > This seems correct as icsk_retransmits is supposed to mean "we still
+> > have packets to retransmit". But icsk_retransmits is reset in
+> > tcp_process_loss() if one of two conditions is satisfied:
 > 
-> On Mon, Jun 16, 2014 at 5:51 AM, Stefan Priebe - Profihost AG
-> <s.priebe@profihost.ag> wrote:
->> Hi,
->> 
->> i'm using a vanilla 3.10.43 kernel and netconsole on top of a bridge.
->> 
->> netconsole is used with vmbr0 (bridge) which is on top of bond0.
->> 
->> If i want to add another bridge to vmbr0 is fails as long as netconsole
->> is in use.
->> 
->> # brctl addif vmbr0 fwpr2004p0
->> can't add fwpr2004p0 to bridge vmbr0: Unknown error 524
->> 
->> Kernel output:
->> netpoll: (null): fwpr2004p0 doesn't support polling, aborting
->> 
->> If i do rmmod netconsole - everything is working fine again.
-> 
-> This is expected, you can't add an interface which doesn't support
-> netpoll to a bridge which is running netpoll.
+> icsk_retransmits indicates the number of recurring timeouts (of the
+> same sequence). so it is reset when the recovery is done or SND_UNA is
+> advanced. the variable name however is confusing.
 
-Thanks, so i can't use netconsole at a bridge used for vms?
+In that case, I suppose the problem would be this part
 
-> 
-> You should stop netpoll before adding it.
+    (icsk->icsk_ca_state == TCP_CA_Loss && !icsk->icsk_retransmits)
 
-How to do that? What disadvantage does this have?
+of the condition above (in tcp_enter_loss()). As that would mean we
+would allow further ssthresh reduction as soon as SND.UNA moves forward
+(not when it reaches high_seq).
 
-Thanks!
+> does your suggested change fix the problem you are observing?
 
-Stefan
+It does, with it ssthresh isn't lowered again until all lost packets are
+retransmitted (at which time, cwnd is already reasonably high). But
+I wasn't sure it wouldn't break something else.
+
+                                                          Michal Kubecek
