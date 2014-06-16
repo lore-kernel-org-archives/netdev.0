@@ -1,50 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/2] net: delete duplicate dev_set_rx_mode() call
-Date: Sun, 15 Jun 2014 20:05:20 -0700 (PDT)
-Message-ID: <20140615.200520.1683239215774653858.davem@davemloft.net>
-References: <cover.1402826534.git.panweiping3@gmail.com>
-	<cover.1402826534.git.panweiping3@gmail.com>
-	<f470381d8e466741c71a38e5ad396c3850d10721.1402826534.git.panweiping3@gmail.com>
+From: chenweilong <chenweilong@huawei.com>
+Subject: Re: [request for stable inclusion] ipv6: reallocate addrconf router
+ for ipv6 address when lo device up
+Date: Mon, 16 Jun 2014 11:14:39 +0800
+Message-ID: <539E611F.6000805@huawei.com>
+References: <1402884279-11896-1-git-send-email-chenweilong@huawei.com> <20140615.192955.2126802764510967888.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com
-To: panweiping3@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44046 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752491AbaFPDFX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jun 2014 23:05:23 -0400
-In-Reply-To: <f470381d8e466741c71a38e5ad396c3850d10721.1402826534.git.panweiping3@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <gregkh@linuxfoundation.org>, <gaofeng@cn.fujitsu.com>,
+	<stable@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<hannes@stressinduktion.org>, <sd@queasysnail.net>,
+	<lizefan@huawei.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20140615.192955.2126802764510967888.davem@davemloft.net>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Weiping Pan <panweiping3@gmail.com>
-Date: Sun, 15 Jun 2014 18:05:09 +0800
+Oh..sorry,
 
-> In __dev_open(), it already calls dev_set_rx_mode().
-> and dev_set_rx_mode() has no effect for a net device which does not have
-> IFF_UP flag set.
-> 
-> So the call of dev_set_rx_mode() is duplicate in __dev_change_flags().
-> 
-> Signed-off-by: Weiping Pan <panweiping3@gmail.com>
-> ---
->  net/core/dev.c | 3 ---
->  1 file changed, 3 deletions(-)
-> 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index 30eedf6..002678f 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -5434,9 +5434,6 @@ int __dev_change_flags(struct net_device *dev, unsigned int flags)
->  	ret = 0;
->  	if ((old_flags ^ flags) & IFF_UP) {	/* Bit is different  ? */
->  		ret = ((old_flags & IFF_UP) ? __dev_close : __dev_open)(dev);
-> -
-> -		if (!ret)
-> -			dev_set_rx_mode(dev);
->  	}
+I must missed something important!
+What's the right way?
 
-A single line statement is what we end up with, so kill the curly braces
-as they are no longer necessary.
+This patch solves the bug is 67951 on bugzilla
+https://bugzilla.kernel.org/show_bug.cgi?id=67951
+It's very worthy to be applied to stable 3.4.x kernels.
+As this patch can't be applied directly, I just modify
+it in my last mail,
+
+Thanks,
+
+Weilong
+
+On 2014/6/16 10:29, David Miller wrote:
+> From: Chen Weilong <chenweilong@huawei.com>
+> Date: Mon, 16 Jun 2014 10:04:39 +0800
+> 
+>> From: Gao feng <gaofeng@cn.fujitsu.com>
+>>
+>> commit 33d99113b1102c2d2f8603b9ba72d89d915c13f5 upstream.
+>>
+>> /* CHANGELOG */
+>>
+> 
+> No, this is not how you ask for networking changes to be submitted to
+> -stable.
+> 
+> 
