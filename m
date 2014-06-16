@@ -1,46 +1,41 @@
-From: "Karim Wattara" <k.wattara@laposte.net>
-Subject: Are You interested?
-Date: Mon, 16 Jun 2014 23:54:54 +0800
-Message-ID: <20140616155322.M3878@laposte.net>
-Reply-To: mr.wattara22@yahoo.com
+From: Ben Greear <greearb@candelatech.com>
+Subject: How to load config info before loading firmware?
+Date: Mon, 16 Jun 2014 09:02:11 -0700
+Message-ID: <539F1503.7050602@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=utf-8
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from y-p-l.com.tw ([211.20.201.10]:46066 "EHLO mail.y-p-l.com.tw"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752984AbaFPPyy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Jun 2014 11:54:54 -0400
+Received: from mail2.candelatech.com ([208.74.158.173]:33657 "EHLO
+	mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752834AbaFPQCM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2014 12:02:12 -0400
+Received: from [192.168.100.236] (firewall.candelatech.com [70.89.124.249])
+	(using TLSv1 with cipher DHE-RSA-CAMELLIA256-SHA (256/256 bits))
+	(No client certificate requested)
+	by mail2.candelatech.com (Postfix) with ESMTPSA id 94D4040A79A
+	for <netdev@vger.kernel.org>; Mon, 16 Jun 2014 09:02:11 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Greeting's,
+It would be nice to be able to configure some info before
+loading firmware on at least the ath10k NIC.  The problem is,
+there is no debugfs available before loading firmware, ethtool
+would at best require restarting the NIC/firmware, and loading
+binary config blobs attached to firmware is unpleasant.
 
-I know that this mail will come to you as a surprise as we have never met before, but
-need not to worry as I am contacting you independently of my investigation and no one is
-informed of this communication. I need your urgent assistance in transferring the sum of
-$19.3 Million Dollars mmediately to your private account. The money has been here in our
-Bank lying dormant for years now without anybody coming for the claim of it.
+Module parameters are generally frowned upon and may be difficult
+to implement properly if we have multiple NICs with different
+desired configuration in a single machine.
 
-I want to release the money to you as the relative to our deceased customer (the account
-owner) who died a long with her supposed NEXT OF KIN since 31 January 2000. The Banking
-law here does not allow such money to stay more than 15 years, because the money will be
-recalled to the Bank treasury account as unclaimed fund.
+Are there any suggestions on how to do this sort of config?
 
-Please, you have to respect the secrecy of most executives as my bank does not have to
-know about my dealings with you. I mean that most officials of my bank, my security they
-do not have to know I have a hand deuce this operation or that I who gave you guidance
-on how to claim these funds. The money will be transferred to your account for us you
-and I share in a proportion of 60% for me and 40% to you. For you and expenses
-incidental occur during the transfer will be incur by both of us.
+Any other drivers currently allowing such things?
 
-The transfer is risk free on both sides hence you are going to follow my instruction.
-More details information will be forwarded to you to breakdown explaining comprehensively.
+Thanks,
+Ben
 
-Please delete if you are not interested. Have a nice day and hope to hear your response
-on k.wattara@laposte.net
-
-Regards,
-
-Mr Karim Wattara.
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
