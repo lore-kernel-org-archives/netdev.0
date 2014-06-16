@@ -1,49 +1,57 @@
-From: chenweilong <chenweilong@huawei.com>
-Subject: Re: [request for stable inclusion] ipv6: reallocate addrconf router
- for ipv6 address when lo device up
-Date: Mon, 16 Jun 2014 11:14:39 +0800
-Message-ID: <539E611F.6000805@huawei.com>
-References: <1402884279-11896-1-git-send-email-chenweilong@huawei.com> <20140615.192955.2126802764510967888.davem@davemloft.net>
+From: Nick Krause <xerofoify@gmail.com>
+Subject: Re: [PATCH] Missing return check against Null for return value of netdev_alloc_dev_skb()
+Date: Sun, 15 Jun 2014 23:28:50 -0400
+Message-ID: <CAPDOMVhV3eKJ78-d_F_TTFjM+GDEdqpMSMFEQ8jOEnrbBchHqw@mail.gmail.com>
+References: <1402805139-6363-1-git-send-email-xerofoify@gmail.com>
+	<20140614.235300.1228145928404410306.davem@davemloft.net>
+	<CAPDOMVgV8V8fPpZupwQaDERiK-0OMLt66LULR6Biw1=8LJhOKw@mail.gmail.com>
+	<20140615.192635.533361731164638772.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <gregkh@linuxfoundation.org>, <gaofeng@cn.fujitsu.com>,
-	<stable@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<hannes@stressinduktion.org>, <sd@queasysnail.net>,
-	<lizefan@huawei.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: andriy.shevchenko@linux.intel.com, dvhart@linux.intel.com,
+	jeffrey.t.kirsher@intel.com, ast@plumgrid.com, dborkman@redhat.com,
+	bhutchings@solarflare.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <20140615.192955.2126802764510967888.davem@davemloft.net>
-Sender: stable-owner@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140615.192635.533361731164638772.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Oh..sorry,
+Fair enjoy I was wondering if it fails I can run a goto statement and
+then free the memory for the tx as needed.
+Cheers Nick
+P.S. That was really stupid I didn't think that through at all :)
 
-I must missed something important!
-What's the right way?
-
-This patch solves the bug is 67951 on bugzilla
-https://bugzilla.kernel.org/show_bug.cgi?id=67951
-It's very worthy to be applied to stable 3.4.x kernels.
-As this patch can't be applied directly, I just modify
-it in my last mail,
-
-Thanks,
-
-Weilong
-
-On 2014/6/16 10:29, David Miller wrote:
-> From: Chen Weilong <chenweilong@huawei.com>
-> Date: Mon, 16 Jun 2014 10:04:39 +0800
-> 
->> From: Gao feng <gaofeng@cn.fujitsu.com>
->>
->> commit 33d99113b1102c2d2f8603b9ba72d89d915c13f5 upstream.
->>
->> /* CHANGELOG */
->>
-> 
-> No, this is not how you ask for networking changes to be submitted to
-> -stable.
-> 
-> 
+On Sun, Jun 15, 2014 at 10:26 PM, David Miller <davem@davemloft.net> wrote:
+> From: Nick Krause <xerofoify@gmail.com>
+> Date: Sun, 15 Jun 2014 16:27:23 -0400
+>
+>> From 62b0d77a1430f74b7f5c008c5e8bec11604b33b0 Mon Sep 17 00:00:00 2001
+>> From: Nick <xerofoify@gmail.com>
+>> Date: Sun, 15 Jun 2014 16:16:14 -0400
+>> Subject: [PATCHv2] Fixes return logic of function of pch_gbe_alloc_tx_buffers()
+>> Here is the fixed patch changed return type of function to int in
+>> order to use return -ENOMEM as with the function above it , seems to
+>> fit , otherwise returns 0.
+>>  Report if it breaks anything related to this driver.
+>> Signed-off-by: Nick <xerofoify@gmail.com>
+>
+> Nobody is checking the return value, you can't just change the function to
+> return an error code, you have to make the caller act upon it appropriately
+> as well.
+>
+> I'm very much not confident that you are willing to put in the effort
+> necessary to fix this problem properly.
+>
+> I told you explicitly that if this memory allocation failure occurs, the
+> bringup of the device has to fail.
+>
+> Your patch is making the situation worse, it breaks when there is an
+> allocation failure, leaving the TX run partially allocated so that the
+> driver will crash with an OOPS later.
+>
+> From your first iteration, you aren't build testing this change, and I
+> therefore severely doubt you are functionally testing this change either.
+>
+> I hate to be harsh, but this is an extremely _poor_ patch submission.
