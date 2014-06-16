@@ -1,75 +1,50 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH] net-sysfs: Report link speed only when possible
-Date: Mon, 16 Jun 2014 11:01:18 +0200
-Message-ID: <20140616090118.GB3085@minipsycho.orion>
-References: <539E9D93.9040405@redhat.com>
- <20140616.011148.2001285440663327901.davem@davemloft.net>
- <539EAB23.3020101@redhat.com>
- <20140616.014430.163976160998454211.davem@davemloft.net>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH v2 0/5] Checksum fixes
+Date: Mon, 16 Jun 2014 11:22:06 +0200
+Message-ID: <CAMuHMdUg1yoffmBN=X_zUXQrrmf0UM5g6g8_je4JvWaqEpCQPQ@mail.gmail.com>
+References: <alpine.DEB.2.02.1406142312290.17261@tomh.mtv.corp.google.com>
+	<20140615.010113.950904601534084657.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mprivozn@redhat.com, gregkh@linuxfoundation.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Tom Herbert <therbert@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	joseph.gasparakis@intel.com
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140616.014430.163976160998454211.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:38098 "EHLO
+	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750775AbaFPJWH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2014 05:22:07 -0400
+Received: by mail-wi0-f181.google.com with SMTP id n3so3658815wiv.8
+        for <netdev@vger.kernel.org>; Mon, 16 Jun 2014 02:22:06 -0700 (PDT)
+In-Reply-To: <20140615.010113.950904601534084657.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Mon, Jun 16, 2014 at 10:44:30AM CEST, davem@davemloft.net wrote:
->From: Michal Privoznik <mprivozn@redhat.com>
->Date: Mon, 16 Jun 2014 10:30:27 +0200
->
->> On 16.06.2014 10:11, David Miller wrote:
->>> From: Michal Privoznik <mprivozn@redhat.com>
->>> Date: Mon, 16 Jun 2014 09:32:35 +0200
->>>
->>>> On 13.06.2014 22:03, David Miller wrote:
->>>>> From: Michal Privoznik <mprivozn@redhat.com>
->>>>> Date: Fri, 13 Jun 2014 11:19:51 +0200
->>>>>
->>>>>> So if I were developing brand new application I could say: I'm
->>>>>> dropping all this workaround code and have it clean and require say
->>>>>> 3.16 kernel at least.
->>>>>
->>>>> Then your application wouldn't be usable on %99 of systems for a long
->>>>> long time.
->>>>>
->>>>
->>>> How come? The application is going to be usable for as long as
->>>> library/kernel APIs won't change.
->>>
->>> Because %99 of users are using a distribution kernel which is
->>> definitely
->>> going to be pre-3.16 for years.
->>>
->> 
->> That's why every distribution out there has a mechanism to install
->> packages of a certain version, or those providing certain symbol,
->> whatever. Or distributions can then backport some kernel patches or
->> something. But, that's completely unrelated to the problem I'm fixing
->> here. I don't think this bikeshedding is useful for anything, sorry.
->
->You're being entirely impractical.
->
->By restricting an application to a kernel version or behavior "via
->backported patches" which doesn't even exist yet, you are foolishly
->restricting your userbase.
->
->People just cope with what the current kernels support, when possible,
->and that's the right thing to do because we cannot break it on them
->exactly because people can depend upon the behavior.
->
->NOBODY is checking for -EINVAL returns when reading the link speed
->sysfs file, and therefore by signalling it you will break
->applications.
->
->So I will not apply a patch which adds that new behavior, sorry.
->
->I am not willing to discuss this further, this is fundamental and
->simple as far as I'm concerned.
->
+Hi Tom, David,
 
-Let's just hope we do not introduce some other, more serious bug
-somewhere else in user api. I see that such things are unfixable :/
+On Sun, Jun 15, 2014 at 10:01 AM, David Miller <davem@davemloft.net> wrote:
+>> Fixes related to some recent checksum modifications.
+>>
+>> - Fix GSO constants to match NETIF flags
+>> - Fix logic in saving checksum complete in __skb_checksum_complete
+>> - Call __skb_checksum_complete from UDP if we are checksumming over
+>>   whole packet in order to save checksum.
+>> - Fixes to VXLAN to work correctly with checksum complete
+>
+> Series applied, thanks Tom.
+
+I can confirm I see no more UDP checksum errors nor packet receive errors.
+
+Thanks!
+
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
