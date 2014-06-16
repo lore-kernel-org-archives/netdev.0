@@ -1,22 +1,25 @@
-From: Michal Privoznik <mprivozn@redhat.com>
+From: Jiri Pirko <jiri@resnulli.us>
 Subject: Re: [PATCH] net-sysfs: Report link speed only when possible
-Date: Mon, 16 Jun 2014 10:59:56 +0200
-Message-ID: <539EB20C.5000103@redhat.com>
-References: <539E9D93.9040405@redhat.com>	<20140616.011148.2001285440663327901.davem@davemloft.net>	<539EAB23.3020101@redhat.com> <20140616.014430.163976160998454211.davem@davemloft.net>
+Date: Mon, 16 Jun 2014 11:01:18 +0200
+Message-ID: <20140616090118.GB3085@minipsycho.orion>
+References: <539E9D93.9040405@redhat.com>
+ <20140616.011148.2001285440663327901.davem@davemloft.net>
+ <539EAB23.3020101@redhat.com>
+ <20140616.014430.163976160998454211.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, gregkh@linuxfoundation.org,
+Content-Type: text/plain; charset=us-ascii
+Cc: mprivozn@redhat.com, gregkh@linuxfoundation.org,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
 In-Reply-To: <20140616.014430.163976160998454211.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 16.06.2014 10:44, David Miller wrote:
-> From: Michal Privoznik <mprivozn@redhat.com>
-> Date: Mon, 16 Jun 2014 10:30:27 +0200
+Mon, Jun 16, 2014 at 10:44:30AM CEST, davem@davemloft.net wrote:
+>From: Michal Privoznik <mprivozn@redhat.com>
+>Date: Mon, 16 Jun 2014 10:30:27 +0200
 >
 >> On 16.06.2014 10:11, David Miller wrote:
 >>> From: Michal Privoznik <mprivozn@redhat.com>
@@ -41,59 +44,32 @@ On 16.06.2014 10:44, David Miller wrote:
 >>> definitely
 >>> going to be pre-3.16 for years.
 >>>
->>
+>> 
 >> That's why every distribution out there has a mechanism to install
 >> packages of a certain version, or those providing certain symbol,
 >> whatever. Or distributions can then backport some kernel patches or
 >> something. But, that's completely unrelated to the problem I'm fixing
 >> here. I don't think this bikeshedding is useful for anything, sorry.
 >
-> You're being entirely impractical.
+>You're being entirely impractical.
 >
-> By restricting an application to a kernel version or behavior "via
-> backported patches" which doesn't even exist yet, you are foolishly
-> restricting your userbase.
-
-So? Users still have choice of not using my application. I'm okay with that.
-
+>By restricting an application to a kernel version or behavior "via
+>backported patches" which doesn't even exist yet, you are foolishly
+>restricting your userbase.
 >
-> People just cope with what the current kernels support, when possible,
-> and that's the right thing to do because we cannot break it on them
-> exactly because people can depend upon the behavior.
-
-Once again, we are not breaking anything. Current applications continue 
-to work. I don't understand why you keep writing the opposite over and 
-over again.
-
+>People just cope with what the current kernels support, when possible,
+>and that's the right thing to do because we cannot break it on them
+>exactly because people can depend upon the behavior.
 >
-> NOBODY is checking for -EINVAL returns when reading the link speed
-> sysfs file, and therefore by signalling it you will break
-> applications.
-
-That's very interesting thing to say, since even now one can experience 
-EINVAL:
-
-# cat /sys/class/net/wlan0/speed
-cat: /sys/class/net/wlan0/speed: Invalid argument
-
-How do you know for sure that NOBODY is checking -EINVAL?
-For example libvirt does check EINVAL:
-
-http://libvirt.org/git/?p=libvirt.git;a=blob;f=src/util/virnetdev.c;h=a551f9820b97aac41bbcb19c84d102c0ec3bd0aa;hb=HEAD#l1891
-
-How can a kernel developer state that NOBODY isn't using possible kernel 
-API anyway?
-
+>NOBODY is checking for -EINVAL returns when reading the link speed
+>sysfs file, and therefore by signalling it you will break
+>applications.
 >
-> So I will not apply a patch which adds that new behavior, sorry.
-
-That's okay.
-
+>So I will not apply a patch which adds that new behavior, sorry.
 >
-> I am not willing to discuss this further, this is fundamental and
-> simple as far as I'm concerned.
+>I am not willing to discuss this further, this is fundamental and
+>simple as far as I'm concerned.
 >
 
-Sure it is. That's why I'm surprised we even need to have this discussion.
-
-Michal
+Let's just hope we do not introduce some other, more serious bug
+somewhere else in user api. I see that such things are unfixable :/
