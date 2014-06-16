@@ -1,41 +1,34 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: How to load config info before loading firmware?
-Date: Mon, 16 Jun 2014 09:02:11 -0700
-Message-ID: <539F1503.7050602@candelatech.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH net 2/2] net: make some functions return void
+Date: Mon, 16 Jun 2014 18:16:57 +0200
+Message-ID: <87tx7kzv5y.fsf@nemi.mork.no>
+References: <cover.1402926490.git.panweiping3@gmail.com>
+	<cover.1402926490.git.panweiping3@gmail.com>
+	<611ae0d4d819f57c4d0c67afa8ed58b16c7d102a.1402926490.git.panweiping3@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Weiping Pan <panweiping3@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.candelatech.com ([208.74.158.173]:33657 "EHLO
-	mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752834AbaFPQCM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2014 12:02:12 -0400
-Received: from [192.168.100.236] (firewall.candelatech.com [70.89.124.249])
-	(using TLSv1 with cipher DHE-RSA-CAMELLIA256-SHA (256/256 bits))
-	(No client certificate requested)
-	by mail2.candelatech.com (Postfix) with ESMTPSA id 94D4040A79A
-	for <netdev@vger.kernel.org>; Mon, 16 Jun 2014 09:02:11 -0700 (PDT)
+Received: from canardo.mork.no ([148.122.252.1]:43600 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750804AbaFPQRF convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2014 12:17:05 -0400
+In-Reply-To: <611ae0d4d819f57c4d0c67afa8ed58b16c7d102a.1402926490.git.panweiping3@gmail.com>
+	(Weiping Pan's message of "Mon, 16 Jun 2014 21:57:23 +0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It would be nice to be able to configure some info before
-loading firmware on at least the ath10k NIC.  The problem is,
-there is no debugfs available before loading firmware, ethtool
-would at best require restarting the NIC/firmware, and loading
-binary config blobs attached to firmware is unpleasant.
+Weiping Pan <panweiping3@gmail.com> writes:
 
-Module parameters are generally frowned upon and may be difficult
-to implement properly if we have multiple NICs with different
-desired configuration in a single machine.
+> dev_close_many(), __dev_close_many() and __dev_close() do not need to=
+ return a
+> int, so make them return void, and modify __dev_change_flags() accord=
+ingly.
 
-Are there any suggestions on how to do this sort of config?
+They may not need to return anything, but IMHO it is more logical to
+keep the returned type identical to dev_close().
 
-Any other drivers currently allowing such things?
 
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Bj=C3=B8rn
