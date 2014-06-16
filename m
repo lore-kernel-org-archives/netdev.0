@@ -1,129 +1,56 @@
-From: Tyler Hall <tylerwhall@gmail.com>
-Subject: [PATCH 2/2] slcan: Port write_wakeup deadlock fix from slip
-Date: Sun, 15 Jun 2014 22:23:17 -0400
-Message-ID: <1402885397-21062-2-git-send-email-tylerwhall@gmail.com>
-References: <1402885397-21062-1-git-send-email-tylerwhall@gmail.com>
-Cc: Tyler Hall <tylerwhall@gmail.com>,
-	Oliver Hartkopp <socketcan@hartkopp.net>,
-	Andre Naujoks <nautsch2@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Missing return check against Null for return value of
+ netdev_alloc_dev_skb()
+Date: Sun, 15 Jun 2014 19:26:35 -0700 (PDT)
+Message-ID: <20140615.192635.533361731164638772.davem@davemloft.net>
+References: <1402805139-6363-1-git-send-email-xerofoify@gmail.com>
+	<20140614.235300.1228145928404410306.davem@davemloft.net>
+	<CAPDOMVgV8V8fPpZupwQaDERiK-0OMLt66LULR6Biw1=8LJhOKw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: andriy.shevchenko@linux.intel.com, dvhart@linux.intel.com,
+	jeffrey.t.kirsher@intel.com, ast@plumgrid.com, dborkman@redhat.com,
+	bhutchings@solarflare.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1402885397-21062-1-git-send-email-tylerwhall@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: xerofoify@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43865 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752968AbaFPC0j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 15 Jun 2014 22:26:39 -0400
+In-Reply-To: <CAPDOMVgV8V8fPpZupwQaDERiK-0OMLt66LULR6Biw1=8LJhOKw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The commit "slip: Fix deadlock in write_wakeup" fixes a deadlock caused
-by a change made in both slcan and slip. This is a direct port of that
-fix.
+From: Nick Krause <xerofoify@gmail.com>
+Date: Sun, 15 Jun 2014 16:27:23 -0400
 
-Signed-off-by: Tyler Hall <tylerwhall@gmail.com>
-Cc: Oliver Hartkopp <socketcan@hartkopp.net>
-Cc: Andre Naujoks <nautsch2@gmail.com>
-Cc: David S. Miller <davem@davemloft.net>
-Cc: linux-kernel@vger.kernel.org
----
- drivers/net/can/slcan.c | 37 +++++++++++++++++++++++++++----------
- 1 file changed, 27 insertions(+), 10 deletions(-)
+> From 62b0d77a1430f74b7f5c008c5e8bec11604b33b0 Mon Sep 17 00:00:00 2001
+> From: Nick <xerofoify@gmail.com>
+> Date: Sun, 15 Jun 2014 16:16:14 -0400
+> Subject: [PATCHv2] Fixes return logic of function of pch_gbe_alloc_tx_buffers()
+> Here is the fixed patch changed return type of function to int in
+> order to use return -ENOMEM as with the function above it , seems to
+> fit , otherwise returns 0.
+>  Report if it breaks anything related to this driver.
+> Signed-off-by: Nick <xerofoify@gmail.com>
 
-diff --git a/drivers/net/can/slcan.c b/drivers/net/can/slcan.c
-index dcf9196..ea4d4f1 100644
---- a/drivers/net/can/slcan.c
-+++ b/drivers/net/can/slcan.c
-@@ -52,6 +52,7 @@
- #include <linux/delay.h>
- #include <linux/init.h>
- #include <linux/kernel.h>
-+#include <linux/workqueue.h>
- #include <linux/can.h>
- #include <linux/can/skb.h>
- 
-@@ -85,6 +86,7 @@ struct slcan {
- 	struct tty_struct	*tty;		/* ptr to TTY structure	     */
- 	struct net_device	*dev;		/* easy for intr handling    */
- 	spinlock_t		lock;
-+	struct work_struct	tx_work;	/* Flushes transmit buffer   */
- 
- 	/* These are pointers to the malloc()ed frame buffers. */
- 	unsigned char		rbuff[SLC_MTU];	/* receiver buffer	     */
-@@ -309,36 +311,46 @@ static void slc_encaps(struct slcan *sl, struct can_frame *cf)
- 	sl->dev->stats.tx_bytes += cf->can_dlc;
- }
- 
--/*
-- * Called by the driver when there's room for more data.  If we have
-- * more packets to send, we send them here.
-- */
--static void slcan_write_wakeup(struct tty_struct *tty)
-+/* Write out any remaining transmit buffer. Scheduled when tty is writable */
-+static void slcan_transmit(struct work_struct *work)
- {
-+	struct slcan *sl = container_of(work, struct slcan, tx_work);
- 	int actual;
--	struct slcan *sl = (struct slcan *) tty->disc_data;
- 
-+	spin_lock_bh(&sl->lock);
- 	/* First make sure we're connected. */
--	if (!sl || sl->magic != SLCAN_MAGIC || !netif_running(sl->dev))
-+	if (!sl->tty || sl->magic != SLCAN_MAGIC || !netif_running(sl->dev)) {
-+		spin_unlock_bh(&sl->lock);
- 		return;
-+	}
- 
--	spin_lock_bh(&sl->lock);
- 	if (sl->xleft <= 0)  {
- 		/* Now serial buffer is almost free & we can start
- 		 * transmission of another packet */
- 		sl->dev->stats.tx_packets++;
--		clear_bit(TTY_DO_WRITE_WAKEUP, &tty->flags);
-+		clear_bit(TTY_DO_WRITE_WAKEUP, &sl->tty->flags);
- 		spin_unlock_bh(&sl->lock);
- 		netif_wake_queue(sl->dev);
- 		return;
- 	}
- 
--	actual = tty->ops->write(tty, sl->xhead, sl->xleft);
-+	actual = sl->tty->ops->write(sl->tty, sl->xhead, sl->xleft);
- 	sl->xleft -= actual;
- 	sl->xhead += actual;
- 	spin_unlock_bh(&sl->lock);
- }
- 
-+/*
-+ * Called by the driver when there's room for more data.
-+ * Schedule the transmit.
-+ */
-+static void slcan_write_wakeup(struct tty_struct *tty)
-+{
-+	struct slcan *sl = tty->disc_data;
-+
-+	schedule_work(&sl->tx_work);
-+}
-+
- /* Send a can_frame to a TTY queue. */
- static netdev_tx_t slc_xmit(struct sk_buff *skb, struct net_device *dev)
- {
-@@ -528,6 +540,7 @@ static struct slcan *slc_alloc(dev_t line)
- 	sl->magic = SLCAN_MAGIC;
- 	sl->dev	= dev;
- 	spin_lock_init(&sl->lock);
-+	INIT_WORK(&sl->tx_work, slcan_transmit);
- 	slcan_devs[i] = dev;
- 
- 	return sl;
-@@ -626,8 +639,12 @@ static void slcan_close(struct tty_struct *tty)
- 	if (!sl || sl->magic != SLCAN_MAGIC || sl->tty != tty)
- 		return;
- 
-+	spin_lock_bh(&sl->lock);
- 	tty->disc_data = NULL;
- 	sl->tty = NULL;
-+	spin_unlock_bh(&sl->lock);
-+
-+	flush_work(&sl->tx_work);
- 
- 	/* Flush network side */
- 	unregister_netdev(sl->dev);
--- 
-2.0.0
+Nobody is checking the return value, you can't just change the function to
+return an error code, you have to make the caller act upon it appropriately
+as well.
+
+I'm very much not confident that you are willing to put in the effort
+necessary to fix this problem properly.
+
+I told you explicitly that if this memory allocation failure occurs, the
+bringup of the device has to fail.
+
+Your patch is making the situation worse, it breaks when there is an
+allocation failure, leaving the TX run partially allocated so that the
+driver will crash with an OOPS later.
+
+>From your first iteration, you aren't build testing this change, and I
+therefore severely doubt you are functionally testing this change either.
+
+I hate to be harsh, but this is an extremely _poor_ patch submission.
