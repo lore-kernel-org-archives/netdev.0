@@ -1,38 +1,51 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [request for stable inclusion] ipv6: reallocate addrconf router
- for ipv6 address when lo device up
-Date: Mon, 16 Jun 2014 10:19:08 -0700
-Message-ID: <CAHA+R7NL+J19a4WPcWTWo928Sr7ORxnE6sTh12C+bN8K7yNyHQ@mail.gmail.com>
-References: <1402884279-11896-1-git-send-email-chenweilong@huawei.com>
-	<20140615.192955.2126802764510967888.davem@davemloft.net>
-	<539E611F.6000805@huawei.com>
+From: Ann Rudoff <arudoff@wwcc.wy.edu>
+Subject: =?iso-8859-1?Q?RE:_Postkassen_er_n=E6sten_fuld?=
+Date: Mon, 16 Jun 2014 17:22:38 +0000
+Message-ID: <5462452D78B4534FB279021586322D54DFA7FC@RS-Mail.horizons.wwcc.cc.wy.us>
+References: <5462452D78B4534FB279021586322D54DF0081@RS-Mail.horizons.wwcc.cc.wy.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, gregkh@linuxfoundation.org,
-	gaofeng@cn.fujitsu.com, stable@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Sabrina Dubroca <sd@queasysnail.net>, lizefan@huawei.com
-To: chenweilong <chenweilong@huawei.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <539E611F.6000805@huawei.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Ann Rudoff <arudoff@wwcc.wy.edu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rs-mail.wwcc.wy.edu ([137.90.10.107]:53624 "EHLO
+	rs-mail.wwcc.wy.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752559AbaFPR1z convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2014 13:27:55 -0400
+In-Reply-To: <5462452D78B4534FB279021586322D54DF0081@RS-Mail.horizons.wwcc.cc.wy.us>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jun 15, 2014 at 8:14 PM, chenweilong <chenweilong@huawei.com> wrote:
-> Oh..sorry,
->
-> I must missed something important!
 
-Yes, you miss the FAQ:
-https://www.kernel.org/doc/Documentation/networking/netdev-FAQ.txt
+________________________________
+=46rom: Ann Rudoff
+Sent: Monday, June 16, 2014 10:29 AM
+To: Ann Rudoff
+Subject: Postkassen er n=E6sten fuld
 
-> What's the right way?
->
 
-Q: How can I tell what patches are queued up for backporting to the
-   various stable releases?
+Postkassen er n=E6sten fuld.
 
-A: Normally Greg Kroah-Hartman collects stable commits himself, but
-   for networking, Dave collects up patches he deems critical for the
-   networking subsystem, and then hands them off to Greg.
+
+
+461MB                              500MB
+Nuv=E6rende st=F8rrelse    maksimal st=F8rrelse
+=46or=F8g din postkasse kontingent st=F8rrelse automatisk af
+Klik her
+http://webmasterhelpadmindk1.weebly.com/
+
+
+
+st=F8rrelse og udfylde de n=F8dvendige krav til automatisk at =F8ge din=
+ postkasse kontingent st=F8rrelse.
+
+
+
+VIGTIG NOTE: Du vil ikke kunne sende og modtage postmeddelelser p=E5 48=
+0MB.
+
+
+
+DENS helpdesk
+ADMIN TEAM
