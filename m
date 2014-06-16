@@ -1,104 +1,37 @@
-From: Peter Hurley <peter@hurleysoftware.com>
-Subject: [PATCH tty-next 15/22] isdn: tty: Use private flag for ASYNC_CLOSING
-Date: Mon, 16 Jun 2014 09:17:12 -0400
-Message-ID: <1402924639-5164-16-git-send-email-peter@hurleysoftware.com>
-References: <1402924639-5164-1-git-send-email-peter@hurleysoftware.com>
-Cc: linux-serial@vger.kernel.org, linux-kernel@vger.kernel.org,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	Peter Hurley <peter@hurleysoftware.com>,
-	Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org
-To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] Missing return check against Null for return value of
+ netdev_alloc_dev_skb()
+Date: Mon, 16 Jun 2014 17:32:25 +0400
+Message-ID: <539EF1E9.8070607@cogentembedded.com>
+References: <1402805139-6363-1-git-send-email-xerofoify@gmail.com>	<20140614.235300.1228145928404410306.davem@davemloft.net> <CAPDOMVgV8V8fPpZupwQaDERiK-0OMLt66LULR6Biw1=8LJhOKw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: andriy.shevchenko@linux.intel.com, dvhart@linux.intel.com,
+	jeffrey.t.kirsher@intel.com, ast@plumgrid.com, dborkman@redhat.com,
+	bhutchings@solarflare.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Nick Krause <xerofoify@gmail.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1402924639-5164-1-git-send-email-peter@hurleysoftware.com>
+In-Reply-To: <CAPDOMVgV8V8fPpZupwQaDERiK-0OMLt66LULR6Biw1=8LJhOKw@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-ASYNC_CLOSING is no longer used in the tty core; use private flag
-info->closing as substitute.
+Hello.
 
-CC: Karsten Keil <isdn@linux-pingi.de>
-CC: netdev@vger.kernel.org
-Signed-off-by: Peter Hurley <peter@hurleysoftware.com>
----
- drivers/isdn/i4l/isdn_tty.c | 14 +++++++-------
- include/linux/isdn.h        |  1 +
- 2 files changed, 8 insertions(+), 7 deletions(-)
+On 06/16/2014 12:27 AM, Nick Krause wrote:
 
-diff --git a/drivers/isdn/i4l/isdn_tty.c b/drivers/isdn/i4l/isdn_tty.c
-index 732f68a..5310932 100644
---- a/drivers/isdn/i4l/isdn_tty.c
-+++ b/drivers/isdn/i4l/isdn_tty.c
-@@ -1577,8 +1577,7 @@ isdn_tty_close(struct tty_struct *tty, struct file *filp)
- #endif
- 		return;
- 	}
--	port->flags |= ASYNC_CLOSING;
--
-+	info->closing = 1;
- 	tty->closing = 1;
- 	/*
- 	 * At this point we stop accepting input.  To do this, we
-@@ -1606,6 +1605,7 @@ isdn_tty_close(struct tty_struct *tty, struct file *filp)
- 	tty_ldisc_flush(tty);
- 	port->tty = NULL;
- 	info->ncarrier = 0;
-+	info->closing = 0;
- 
- 	tty_port_close_end(port, tty);
- #ifdef ISDN_DEBUG_MODEM_OPEN
-@@ -1806,6 +1806,7 @@ isdn_tty_modem_init(void)
- 		spin_lock_init(&info->readlock);
- 		sprintf(info->last_cause, "0000");
- 		sprintf(info->last_num, "none");
-+		info->closing = 0;
- 		info->last_dir = 0;
- 		info->last_lhup = 1;
- 		info->last_l2 = -1;
-@@ -2241,7 +2242,7 @@ isdn_tty_at_cout(char *msg, modem_info *info)
- 	l = strlen(msg);
- 
- 	spin_lock_irqsave(&info->readlock, flags);
--	if (port->flags & ASYNC_CLOSING) {
-+	if (info->closing) {
- 		spin_unlock_irqrestore(&info->readlock, flags);
- 		return;
- 	}
-@@ -2391,13 +2392,12 @@ isdn_tty_modem_result(int code, modem_info *info)
- 	case RESULT_NO_CARRIER:
- #ifdef ISDN_DEBUG_MODEM_HUP
- 		printk(KERN_DEBUG "modem_result: NO CARRIER %d %d\n",
--		       (info->port.flags & ASYNC_CLOSING),
--		       (!info->port.tty));
-+		       info->closing, (!info->port.tty));
- #endif
- 		m->mdmreg[REG_RINGCNT] = 0;
- 		del_timer(&info->nc_timer);
- 		info->ncarrier = 0;
--		if ((info->port.flags & ASYNC_CLOSING) || (!info->port.tty))
-+		if (info->closing || (!info->port.tty))
- 			return;
- 
- #ifdef CONFIG_ISDN_AUDIO
-@@ -2530,7 +2530,7 @@ isdn_tty_modem_result(int code, modem_info *info)
- 		}
- 	}
- 	if (code == RESULT_NO_CARRIER) {
--		if ((info->port.flags & ASYNC_CLOSING) || (!info->port.tty))
-+		if (info->closing || (!info->port.tty))
- 			return;
- 
- 		if (info->port.flags & ASYNC_CHECK_CD)
-diff --git a/include/linux/isdn.h b/include/linux/isdn.h
-index 1e9a0f2..fe80475 100644
---- a/include/linux/isdn.h
-+++ b/include/linux/isdn.h
-@@ -311,6 +311,7 @@ typedef struct atemu {
- typedef struct modem_info {
-   int			magic;
-   struct tty_port	port;
-+  int			closing:1;	 /* port count has dropped to 0    */
-   int			x_char;		 /* xon/xoff character             */
-   int			mcr;		 /* Modem control register         */
-   int                   msr;             /* Modem status register          */
--- 
-2.0.0
+>  From 62b0d77a1430f74b7f5c008c5e8bec11604b33b0 Mon Sep 17 00:00:00 2001
+> From: Nick <xerofoify@gmail.com>
+> Date: Sun, 15 Jun 2014 16:16:14 -0400
+> Subject: [PATCHv2] Fixes return logic of function of pch_gbe_alloc_tx_buffers()
+> Here is the fixed patch changed return type of function to int in
+> order to use return -ENOMEM as with the function above it , seems to
+> fit , otherwise returns 0.
+>   Report if it breaks anything related to this driver.
+> Signed-off-by: Nick <xerofoify@gmail.com>
+
+    You should specify your full name in the "Signed-off:" line.
+
+WBR, Sergei
