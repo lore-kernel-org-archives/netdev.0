@@ -1,43 +1,46 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH tty-next 15/22] isdn: tty: Use private flag for
- ASYNC_CLOSING
-Date: Mon, 16 Jun 2014 15:37:44 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1725D13A@AcuExch.aculab.com>
-References: <1402924639-5164-1-git-send-email-peter@hurleysoftware.com>
- <1402924639-5164-16-git-send-email-peter@hurleysoftware.com>
+From: "Karim Wattara" <k.wattara@laposte.net>
+Subject: Are You interested?
+Date: Mon, 16 Jun 2014 23:54:54 +0800
+Message-ID: <20140616155322.M3878@laposte.net>
+Reply-To: mr.wattara22@yahoo.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-serial@vger.kernel.org" <linux-serial@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"One Thousand Gnomes" <gnomes@lxorguk.ukuu.org.uk>,
-	Karsten Keil <isdn@linux-pingi.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Peter Hurley' <peter@hurleysoftware.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <linux-serial-owner@vger.kernel.org>
-In-Reply-To: <1402924639-5164-16-git-send-email-peter@hurleysoftware.com>
-Content-Language: en-US
-Sender: linux-serial-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset=utf-8
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from y-p-l.com.tw ([211.20.201.10]:46066 "EHLO mail.y-p-l.com.tw"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752984AbaFPPyy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 16 Jun 2014 11:54:54 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Of Peter Hurley
-> ASYNC_CLOSING is no longer used in the tty core; use private flag
-> info->closing as substitute.
-...
-> @@ -311,6 +311,7 @@ typedef struct atemu {
->  typedef struct modem_info {
->    int			magic;
->    struct tty_port	port;
-> +  int			closing:1;	 /* port count has dropped to 0    */
->    int			x_char;		 /* xon/xoff character             */
->    int			mcr;		 /* Modem control register         */
->    int                   msr;             /* Modem status register          */
+Greeting's,
 
-That should probably be a bool and set to true/false.
-You are probably adding a load of padding.
+I know that this mail will come to you as a surprise as we have never met before, but
+need not to worry as I am contacting you independently of my investigation and no one is
+informed of this communication. I need your urgent assistance in transferring the sum of
+$19.3 Million Dollars mmediately to your private account. The money has been here in our
+Bank lying dormant for years now without anybody coming for the claim of it.
 
-	David
+I want to release the money to you as the relative to our deceased customer (the account
+owner) who died a long with her supposed NEXT OF KIN since 31 January 2000. The Banking
+law here does not allow such money to stay more than 15 years, because the money will be
+recalled to the Bank treasury account as unclaimed fund.
 
+Please, you have to respect the secrecy of most executives as my bank does not have to
+know about my dealings with you. I mean that most officials of my bank, my security they
+do not have to know I have a hand deuce this operation or that I who gave you guidance
+on how to claim these funds. The money will be transferred to your account for us you
+and I share in a proportion of 60% for me and 40% to you. For you and expenses
+incidental occur during the transfer will be incur by both of us.
 
+The transfer is risk free on both sides hence you are going to follow my instruction.
+More details information will be forwarded to you to breakdown explaining comprehensively.
 
+Please delete if you are not interested. Have a nice day and hope to hear your response
+on k.wattara@laposte.net
+
+Regards,
+
+Mr Karim Wattara.
