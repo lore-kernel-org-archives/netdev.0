@@ -1,34 +1,27 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH net 2/2] net: make some functions return void
-Date: Mon, 16 Jun 2014 18:16:57 +0200
-Message-ID: <87tx7kzv5y.fsf@nemi.mork.no>
-References: <cover.1402926490.git.panweiping3@gmail.com>
-	<cover.1402926490.git.panweiping3@gmail.com>
-	<611ae0d4d819f57c4d0c67afa8ed58b16c7d102a.1402926490.git.panweiping3@gmail.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH] ptp: In the testptp utility, use clock_adjtime from
+ glibc when available
+Date: Mon, 16 Jun 2014 18:26:41 +0200
+Message-ID: <20140616162641.GA3732@localhost.localdomain>
+References: <1402922805-3664-1-git-send-email-christian.riesch@omicron.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Weiping Pan <panweiping3@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Christian Riesch <christian.riesch@omicron.at>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:43600 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750804AbaFPQRF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2014 12:17:05 -0400
-In-Reply-To: <611ae0d4d819f57c4d0c67afa8ed58b16c7d102a.1402926490.git.panweiping3@gmail.com>
-	(Weiping Pan's message of "Mon, 16 Jun 2014 21:57:23 +0800")
+Received: from mail-we0-f171.google.com ([74.125.82.171]:61906 "EHLO
+	mail-we0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751573AbaFPQ1I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2014 12:27:08 -0400
+Received: by mail-we0-f171.google.com with SMTP id q58so5921958wes.2
+        for <netdev@vger.kernel.org>; Mon, 16 Jun 2014 09:27:07 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1402922805-3664-1-git-send-email-christian.riesch@omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Weiping Pan <panweiping3@gmail.com> writes:
+On Mon, Jun 16, 2014 at 02:46:45PM +0200, Christian Riesch wrote:
+> clock_adjtime was included in glibc 2.14. _GNU_SOURCE must be defined
+> to make it available.
 
-> dev_close_many(), __dev_close_many() and __dev_close() do not need to=
- return a
-> int, so make them return void, and modify __dev_change_flags() accord=
-ingly.
-
-They may not need to return anything, but IMHO it is more logical to
-keep the returned type identical to dev_close().
-
-
-Bj=C3=B8rn
+Acked-by: Richard Cochran <richardcochran@gmail.com>
