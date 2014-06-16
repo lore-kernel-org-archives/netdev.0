@@ -1,46 +1,68 @@
-From: Peter Hurley <peter@hurleysoftware.com>
-Subject: Re: [PATCH tty-next 15/22] isdn: tty: Use private flag for ASYNC_CLOSING
-Date: Mon, 16 Jun 2014 17:01:28 -0400
-Message-ID: <539F5B28.9080000@hurleysoftware.com>
-References: <1402924639-5164-1-git-send-email-peter@hurleysoftware.com> <1402924639-5164-16-git-send-email-peter@hurleysoftware.com> <063D6719AE5E284EB5DD2968C1650D6D1725D13A@AcuExch.aculab.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH -next 12/26] intel: Use dma_zalloc_coherent
+Date: Mon, 16 Jun 2014 14:15:06 -0700
+Message-ID: <1402953306.2247.0.camel@jtkirshe-mobl.jf.intel.com>
+References: <cover.1402863904.git.joe@perches.com>
+	 <98cd6b066087e10da2dbf2a92080197a40a5e4ec.1402863905.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "linux-serial@vger.kernel.org" <linux-serial@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	Karsten Keil <isdn@linux-pingi.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <linux-serial-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1725D13A@AcuExch.aculab.com>
-Sender: linux-serial-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-Wx3P/8cQ5s26qFOQCdVv"
+Cc: linux-kernel@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	Alex Duyck <alexander.h.duyck@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	Linux NICS <linux.nics@intel.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <98cd6b066087e10da2dbf2a92080197a40a5e4ec.1402863905.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi David,
 
-On 06/16/2014 11:37 AM, David Laight wrote:
-> From: Of Peter Hurley
->> ASYNC_CLOSING is no longer used in the tty core; use private flag
->> info->closing as substitute.
-> ...
->> @@ -311,6 +311,7 @@ typedef struct atemu {
->>   typedef struct modem_info {
->>     int			magic;
->>     struct tty_port	port;
->> +  int			closing:1;	 /* port count has dropped to 0    */
->>     int			x_char;		 /* xon/xoff character             */
->>     int			mcr;		 /* Modem control register         */
->>     int                   msr;             /* Modem status register          */
->
-> That should probably be a bool and set to true/false.
-> You are probably adding a load of padding.
+--=-Wx3P/8cQ5s26qFOQCdVv
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-struct modem_info is over 1K, with several existing int-as-bool fields.
-An array of 64 struct modem_info are statically allocated with every isdn device.
+On Sun, 2014-06-15 at 13:37 -0700, Joe Perches wrote:
+> Use the zeroing function instead of dma_alloc_coherent & memset(,0,)
+>=20
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-It doesn't look like memory consumption has been a consideration with the isdn driver.
+Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-Regards,
-Peter Hurley
+> ---
+>  drivers/net/ethernet/intel/ixgb/ixgb_main.c | 6 ++----
+>  1 file changed, 2 insertions(+), 4 deletions(-)
+
+
+
+--=-Wx3P/8cQ5s26qFOQCdVv
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.22 (GNU/Linux)
+
+iQIcBAABCgAGBQJTn15aAAoJEOVv75VaS+3OaSMP/j2/Dcsam+xILQUiptBHNDxP
+7m38P5wHRLqqKty6nXFug/ndvKGBmNO+8OzMKrZ9A37ep+sYSeJGaD+GrZ20masK
+M4GQk2LLtWrtWV68ODvmDcCFR0A8m3WDBo5/LsTqY8tOmARS30ed5IfNdpZMAcdS
+lmwxQ67sGG12/4/hfla10ni7ae0UhFgyxlg2iUT7zYmjQAH0girsf+0d8rVMlwm8
+BG4PaYpFf3ZzelnvxAN25ZPMU/VGXD6Sqe2vxSC3VWJk9q0MDOTIw+f2wgCsL7qF
+HPPCsMMtSwQdlRF1+vtxZJKQXrAE4PLGqIC+Ru8iuRNxcRXWY/7yEb3MJpr2vOIt
+ukLk0URwqo1D6iFOLnlN0uxJ2FmDFIPlqODgVwHud/dIBCsJm7bSseOl+++bVBeI
+86AKmo4Ohyx5wUSLZsK9I7Kd1f9eEOhOUquTO0dDAjAndMfE46Ifvxmmcb9jLTy9
+pt4aGDhNXtLq6NoP5w6UuRZ5/ZbNHqtqIesPgEm52LCGhbsRxJWxY1TZ/rusg0o9
+dhQV/NJXHVhnD/qjcYIxsrz/Hc/BSyxK5Xjih0tsLxN9P2cySK0GgMOdlJignDDf
+pVJQshZ9l/4fKpA8Q8mn/Wjx8gyoT3mQdemIjYuJZHCHyS5Fe5URhkOdDHMfXhKS
+dmHk5okTTBAwdwPO609W
+=pwP3
+-----END PGP SIGNATURE-----
+
+--=-Wx3P/8cQ5s26qFOQCdVv--
