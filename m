@@ -1,73 +1,54 @@
-From: Varka Bhadram <varkabhadram-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next 3/3] devicetree: add
-	devicetree bindings for cc2520 driver
-Date: Mon, 16 Jun 2014 10:21:58 +0530
-Message-ID: <1402894318-30349-4-git-send-email-varkab@cdac.in>
-References: <1402894318-30349-1-git-send-email-varkab@cdac.in>
+From: Jongsung Kim <neidhard.kim@lge.com>
+Subject: Re: [PATCH] net/cadence/macb: clear interrupts simply and correctly
+Date: Mon, 16 Jun 2014 14:00:33 +0900
+Message-ID: <539E79F1.1090006@lge.com>
+References: <1402563054-8546-1-git-send-email-neidhard.kim@lge.com> <9f5be687-d127-49a4-90ea-c1033505452d@BN1BFFO11FD019.protection.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Varka Bhadram <varkab-If5XQcfNmg0@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1402894318-30349-1-git-send-email-varkab-If5XQcfNmg0@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Nicolas Ferre <nicolas.ferre@atmel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hayun Hwang <hwang.hayun@lge.com>,
+	Youngkyu Choi <youngkyu7.choi@lge.com>
+To: =?UTF-8?B?U8O2cmVuIEJyaW5rbWFubg==?= <soren.brinkmann@xilinx.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <9f5be687-d127-49a4-90ea-c1033505452d@BN1BFFO11FD019.protection.gbl>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On 06/13/2014 12:44 AM, S=C3=B6ren Brinkmann wrote:
+> Hi Jongsung,
 
-Signed-off-by: Varka Bhadram <varkab-If5XQcfNmg0@public.gmane.org>
----
- .../devicetree/bindings/net/ieee802154/cc2520.txt  |   26 ++++++++++++++++++++
- 1 file changed, 26 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/ieee802154/cc2520.txt
+Hi S=C3=B6ren,
 
-diff --git a/Documentation/devicetree/bindings/net/ieee802154/cc2520.txt b/Documentation/devicetree/bindings/net/ieee802154/cc2520.txt
-new file mode 100644
-index 0000000..f0a749d
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/ieee802154/cc2520.txt
-@@ -0,0 +1,26 @@
-+CC2520 IEEE 802.15.4 Compatible Radio
-+
-+Required properties:
-+	- compatible:		should be "ti,cc2520"
-+	- spi-max-frequency:	maximal bus speed (8000000), should be set to 4000000 depends
-+				sync or async operation mode
-+	- reg:			the chipselect index
-+	- mode:			SPI mode
-+Example:
-+
-+	cc2520@0 {
-+		compatible = "ti,cc2520";
-+		reg = <0>;
-+		spi-max-frequency = <4000000>;
-+		mode = <1>;
-+
-+		pinctrl-names = "default";
-+		pinctrl-0 = <&cc2520_cape_pins>;	/*GPIO pin muxing details*/
-+
-+		fifo-gpio = <&gpio1 18 0>;
-+		fifop-gpio = <&gpio1 19 0>;
-+		sfd-gpio = <&gpio1 13 0>;
-+		cca-gpio = <&gpio1 16 0>;
-+		vreg-gpio = <&gpio0 31 0>;
-+		reset-gpio = <&gpio1 12 0>;
-+	};
--- 
-1.7.9.5
+> Does this interrupt need to be enabled? There is nothing checking
+> that bit and handling this IRQ in the handler, AFAICT. And you solve
+> this by simply clearing the bit. So, I wonder whether not enabling th=
+is
+> IRQ in the first place would solve things too.
 
+The driver actually checks the bit, but does not clear it. Disabling th=
+e
+"Rx used bit read" interrupt you said may be a solution. However, I thi=
+nk
+it is the better way to clear the exceptional HW-state rather than just=
+ to
+mask it.
 
-------------------------------------------------------------------------------
-HPCC Systems Open Source Big Data Platform from LexisNexis Risk Solutions
-Find What Matters Most in Your Big Data with HPCC Systems
-Open Source. Fast. Scalable. Simple. Ideal for Dirty Data.
-Leverages Graph Analysis for Fast Processing & Easy Data Exploration
-http://p.sf.net/sfu/hpccsystems
+> This is now clearing all IRQ flags which is probably not what we want
+> here. This is handling RX only. We still want the non-RX interrupts t=
+o go to
+> the actual interrupt service routing.
+
+The ISR(Interrupt Status Register) is read only in the interrupt servic=
+e
+routine, macb_interrupt. But is partially cleared here and there. Furth=
+er
+handler-functions decide jobs to be done by reading/checking other stat=
+us
+registers. (e.g., TSR, RSR) So, clearing the ISR after reading looks no=
+t
+a bad idea.
+
+Jongsung
