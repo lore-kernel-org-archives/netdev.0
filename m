@@ -1,15 +1,15 @@
 From: Geir Ola Vaagland <geirola@gmail.com>
-Subject: [PATCH net-next 1/6] Support for SCTP_RECVRCVINFO socket option
-Date: Tue, 17 Jun 2014 13:57:48 +0200
-Message-ID: <1403006273-27859-2-git-send-email-geirola@gmail.com>
+Subject: [PATCH net-next 6/6] Support for SCTP_DEFAULT_SNDINFO socket option
+Date: Tue, 17 Jun 2014 13:57:53 +0200
+Message-ID: <1403006273-27859-7-git-send-email-geirola@gmail.com>
 References: <1403006273-27859-1-git-send-email-geirola@gmail.com>
 Cc: linux-sctp@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f50.google.com ([209.85.215.50]:53467 "EHLO
-	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756115AbaFQL6A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2014 07:58:00 -0400
+Received: from mail-la0-f48.google.com ([209.85.215.48]:34062 "EHLO
+	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756288AbaFQL6H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2014 07:58:07 -0400
 In-Reply-To: <1403006273-27859-1-git-send-email-geirola@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -17,120 +17,145 @@ List-ID: <netdev.vger.kernel.org>
 CC: Vlad Yasevich <vyasevich@gmail.com>
 Signed-off-by: Geir Ola Vaagland <geirola@gmail.com>
 ---
- include/net/sctp/structs.h |  1 +
- include/uapi/linux/sctp.h  |  2 ++
- net/sctp/socket.c          | 48 ++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 51 insertions(+)
+ include/uapi/linux/sctp.h |  1 +
+ net/sctp/socket.c         | 94 +++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 95 insertions(+)
 
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index 0a248b3..75c598a 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -216,6 +216,7 @@ struct sctp_sock {
- 	__u8 frag_interleave;
- 	__u32 adaptation_ind;
- 	__u32 pd_point;
-+	__u8 recvrcvinfo;
- 
- 	atomic_t pd_mode;
- 	/* Receive to here while partial delivery is in effect. */
 diff --git a/include/uapi/linux/sctp.h b/include/uapi/linux/sctp.h
-index ca451e9..a7db3b3 100644
+index 986563e..133df4e 100644
 --- a/include/uapi/linux/sctp.h
 +++ b/include/uapi/linux/sctp.h
-@@ -97,6 +97,8 @@ typedef __s32 sctp_assoc_t;
- #define SCTP_AUTO_ASCONF       30
- #define SCTP_PEER_ADDR_THLDS	31
+@@ -99,6 +99,7 @@ typedef __s32 sctp_assoc_t;
  
-+#define SCTP_RECVRCVINFO 32
-+
+ #define SCTP_RECVRCVINFO 32
+ #define SCTP_RECVNXTINFO 33
++#define SCTP_DEFAULT_SNDINFO 34
+ 
  /* Internal Socket Options. Some of the sctp library functions are
   * implemented using these socket options.
-  */
 diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 146b35d..1f3281b 100644
+index 57106e8..a725376 100644
 --- a/net/sctp/socket.c
 +++ b/net/sctp/socket.c
-@@ -3566,6 +3566,24 @@ static int sctp_setsockopt_paddr_thresholds(struct sock *sk,
+@@ -2801,6 +2801,55 @@ static int sctp_setsockopt_default_send_param(struct sock *sk,
+ 
  	return 0;
  }
- 
-+static int sctp_setsockopt_recvrcvinfo(struct sock *sk,
++/*
++ * 8.1.31. Set Default Send Parameters (SCTP_DEFAULT_SNDINFO)
++ *
++ *   Applications that wish to use the sendto() system call may wish to
++ *   specify a default set of parameters that would normally be supplied
++ *   through the inclusion of ancillary data.  This socket option allows
++ *   such an application to set the default sctp_sndinfo structure.  The
++ *   application that wishes to use this socket option simply passes the
++ *   sctp_sndinfo structure (defined in Section 5.3.4) to this call.  The
++ *   input parameters accepted by this call include snd_sid, snd_flags,
++ *   snd_ppid, and snd_context.  The snd_flags parameter is composed of a
++ *   bitwise OR of SCTP_UNORDERED, SCTP_EOF, and SCTP_SENDALL.  The
++ *   snd_assoc_id field specifies the association to which to apply the
++ *   parameters.  For a one-to-many style socket, any of the predefined
++ *   constants are also allowed in this field.  The field is ignored for
++ *   one-to-one style sockets.
++ */
++static int sctp_setsockopt_default_sndinfo(struct sock *sk,
 +		char __user *optval,
 +		unsigned int optlen){
++	struct sctp_sndinfo info;
++	struct sctp_association *asoc;
++	struct sctp_sock *sp = sctp_sk(sk);
 +
-+	int val;
++	if (optlen != sizeof(struct sctp_sndinfo))
++		return -EINVAL;
++	if (copy_from_user(&info, optval, optlen))
++		return -EFAULT;
 +
-+	if(optlen < sizeof(int))
++	asoc = sctp_id2assoc(sk, info.snd_assoc_id);
++	if (!asoc && info.snd_assoc_id && sctp_style(sk, UDP))
 +		return -EINVAL;
 +
-+	if(get_user(val, (int __user*)optval)){
-+		return -EFAULT;
++	/* Note! asoc->default_timetolive is not set in this way anymore.
++	 * The PR-SCTP extension needs to be implemented.  */
++	if (asoc) {
++		asoc->default_stream = info.snd_sid;
++		asoc->default_flags = info.snd_flags;
++		asoc->default_ppid = info.snd_ppid;
++		asoc->default_context = info.snd_context;
++	} else {
++		sp->default_stream = info.snd_sid;
++		sp->default_flags = info.snd_flags;
++		sp->default_ppid = info.snd_ppid;
++		sp->default_context = info.snd_context;
 +	}
-+	sctp_sk(sk)->recvrcvinfo = (val == 0) ? 0 : 1;
 +	return 0;
 +}
 +
-+
-+
- /* API 6.2 setsockopt(), getsockopt()
+ 
+ /* 7.1.10 Set Primary Address (SCTP_PRIMARY_ADDR)
   *
-  * Applications use setsockopt() and getsockopt() to set or retrieve
-@@ -3717,6 +3735,9 @@ static int sctp_setsockopt(struct sock *sk, int level, int optname,
- 	case SCTP_PEER_ADDR_THLDS:
- 		retval = sctp_setsockopt_paddr_thresholds(sk, optval, optlen);
+@@ -3724,6 +3773,9 @@ static int sctp_setsockopt(struct sock *sk, int level, int optname,
+ 		retval = sctp_setsockopt_default_send_param(sk, optval,
+ 							    optlen);
  		break;
-+	case SCTP_RECVRCVINFO:
-+		retval = sctp_setsockopt_recvrcvinfo(sk, optval, optlen);
++	case SCTP_DEFAULT_SNDINFO:
++		retval = sctp_setsockopt_default_sndinfo(sk, optval, optlen);
 +		break;
- 	default:
- 		retval = -ENOPROTOOPT;
+ 	case SCTP_PRIMARY_ADDR:
+ 		retval = sctp_setsockopt_primary_addr(sk, optval, optlen);
  		break;
-@@ -3963,6 +3984,9 @@ static int sctp_init_sock(struct sock *sk)
- 	/* Enable Nagle algorithm by default.  */
- 	sp->nodelay           = 0;
+@@ -5063,6 +5115,45 @@ static int sctp_getsockopt_default_send_param(struct sock *sk,
  
-+	/* No SCTP_RECVRCVINFO by default. */
-+	sp->recvrcvinfo = 0;
-+
- 	/* Enable by default. */
- 	sp->v4mapped          = 1;
- 
-@@ -5734,6 +5758,27 @@ static int sctp_getsockopt_assoc_stats(struct sock *sk, int len,
  	return 0;
  }
- 
-+static int sctp_getsockopt_recvrcvinfo(struct sock *sk,
-+		int len,
-+		char __user *optval,
-+		int __user *optlen){
++static int sctp_getsockopt_default_sndinfo(struct sock *sk,
++		int len, char __user *optval,
++		int __user *optlen)
++{
++	struct sctp_sndinfo info;
++	struct sctp_association *asoc;
++	struct sctp_sock *sp = sctp_sk(sk);
 +
-+	int val;
-+
-+	if (len < sizeof(int))
++	if (len < sizeof(struct sctp_sndinfo))
 +		return -EINVAL;
 +
-+	len = sizeof(int);
-+	val = (sctp_sk(sk)->recvrcvinfo == 1);
++	len = sizeof(struct sctp_sndinfo);
++
++	if (copy_from_user(&info, optval, len))
++		return -EFAULT;
++
++	asoc = sctp_id2assoc(sk, info.snd_assoc_id);
++	if (!asoc && info.snd_assoc_id && sctp_style(sk, UDP))
++		return -EINVAL;
++
++	if (asoc) {
++		info.snd_sid = asoc->default_stream;
++		info.snd_flags = asoc->default_flags;
++		info.snd_ppid = asoc->default_ppid;
++		info.snd_context = asoc->default_context;
++	} else {
++		info.snd_sid = sp->default_stream;
++		info.snd_flags = sp->default_flags;
++		info.snd_ppid = sp->default_ppid;
++		info.snd_context = sp->default_context;
++	}
++
 +	if (put_user(len, optlen))
 +		return -EFAULT;
-+	if (copy_to_user(optval, &val, len))
++	if (copy_to_user(optval, &info, len))
 +		return -EFAULT;
++
 +	return 0;
 +}
-+
-+
-+
- static int sctp_getsockopt(struct sock *sk, int level, int optname,
- 			   char __user *optval, int __user *optlen)
- {
-@@ -5877,6 +5922,9 @@ static int sctp_getsockopt(struct sock *sk, int level, int optname,
- 	case SCTP_GET_ASSOC_STATS:
- 		retval = sctp_getsockopt_assoc_stats(sk, len, optval, optlen);
+ 
+ /*
+  *
+@@ -5917,6 +6008,9 @@ static int sctp_getsockopt(struct sock *sk, int level, int optname,
+ 		retval = sctp_getsockopt_default_send_param(sk, len,
+ 							    optval, optlen);
  		break;
-+	case SCTP_RECVRCVINFO:
-+		retval = sctp_getsockopt_recvrcvinfo(sk, len, optval, optlen);
++	case SCTP_DEFAULT_SNDINFO:
++		retval = sctp_getsockopt_default_sndinfo(sk, len, optval, optlen);
 +		break;
- 	default:
- 		retval = -ENOPROTOOPT;
+ 	case SCTP_PRIMARY_ADDR:
+ 		retval = sctp_getsockopt_primary_addr(sk, len, optval, optlen);
  		break;
