@@ -1,37 +1,59 @@
-From: Pannirselvam Kanagaratnam <pannir@xsmail.com>
-Subject: Re: Device Tree Binding for Marvell DSA on P1023RDB
-Date: Tue, 17 Jun 2014 14:41:00 +0800
-Message-ID: <539FE2FC.4020105@xsmail.com>
-References: <539F1B3F.6060203@xsmail.com> <539F1B8E.30503@xsmail.com> <CAGVrzcbxBE0yk5J1Pvkz5Yx+ugHTBjRSTLsvN9NACt20vjmgjw@mail.gmail.com>
+From: Varka Bhadram <varkabhadram-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net-next v1 0/3] Driver for TI CC2520
+	radio
+Date: Tue, 17 Jun 2014 12:44:55 +0530
+Message-ID: <1402989298-8898-1-git-send-email-varkab@cdac.in>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:60519 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752160AbaFQGlH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2014 02:41:07 -0400
-In-Reply-To: <CAGVrzcbxBE0yk5J1Pvkz5Yx+ugHTBjRSTLsvN9NACt20vjmgjw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Varka Bhadram <varkab-If5XQcfNmg0@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
+
+Hi,
+ This patch series adds the driver support for TI cc2520 radio and also
+adds the device tree bindings for cc2520 driver.
+
+changes:
+	- Improvements in the locking mechanism in Tx and SFD ISR.
+	- Proper checkings for GPIO pins.
+	- avoids the memory leak for priv.
+	- used devm_* APIs.
+	- moved the code from header file to .c file
+	- removed cc2520_unregister()
+
+Varka Bhadram (3):
+  ieee802154: cc2520: adds driver for TI CC2520 radio
+  ieee802154: cc2520: add driver to kernel build system
+  devicetree: add device tree bindings for cc2520 driver
+
+ .../devicetree/bindings/net/ieee802154/cc2520.txt  |   26 +
+ drivers/net/ieee802154/Kconfig                     |   11 +
+ drivers/net/ieee802154/Makefile                    |    1 +
+ drivers/net/ieee802154/cc2520.c                    |  966 ++++++++++++++++++++
+ include/linux/spi/cc2520.h                         |   26 +
+ 5 files changed, 1030 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/ieee802154/cc2520.txt
+ create mode 100644 drivers/net/ieee802154/cc2520.c
+ create mode 100644 include/linux/spi/cc2520.h
+
+-- 
+1.7.9.5
 
 
-On 17/06/2014 12:38 AM, Florian Fainelli wrote:
-> 2014-06-16 9:30 GMT-07:00 Pannirselvam Kanagaratnam <pannir@xsmail.com>:
-> Distributed Switch Architecture driver version 0.1
-> dsa: probe of dsa.16 failed with error -22
-> This error might not come from dsa_of_probe(), please instrument the
-> code where -EINVAL is returned to see exactly which part of the
-> probing code is failing.
-
-The error is coming from:
-
-dev = dev_to_net_device(pd->netdev);
-if (dev == NULL) {
-		ret = -EINVAL;
-		goto out;
-	}
-
-Is my device tree ok?
+------------------------------------------------------------------------------
+HPCC Systems Open Source Big Data Platform from LexisNexis Risk Solutions
+Find What Matters Most in Your Big Data with HPCC Systems
+Open Source. Fast. Scalable. Simple. Ideal for Dirty Data.
+Leverages Graph Analysis for Fast Processing & Easy Data Exploration
+http://p.sf.net/sfu/hpccsystems
