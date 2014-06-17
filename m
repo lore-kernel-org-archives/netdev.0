@@ -1,62 +1,40 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [PATCH net] tcp: avoid multiple ssthresh reductions in on
- retransmit window
-Date: Tue, 17 Jun 2014 14:35:23 -0700
-Message-ID: <CAK6E8=e=EoxMfGMFnO90MVfBWGmoua8=4ptG978-jfD2S-J8Fw@mail.gmail.com>
-References: <CAK6E8=dwh1btNzX80YNre9u7rS+SgochXxHxDhQYQZCvY8yVMQ@mail.gmail.com>
- <20140616211954.6E12BA3A89@unicorn.suse.cz> <CAK6E8=dxszKmHssR7ib7Fxfm6hQRdbwBG1ygRvOXoSAXddBSPA@mail.gmail.com>
- <CADVnQy=sd2V2A5Rzd+OtcH1a+un3-fATSn_acKdMKUcdbpGadg@mail.gmail.com>
- <CAK6E8=fb0x5Z0dnA6PDbxJKYn3z1y42Pr555t7apLbT97R8O-Q@mail.gmail.com>
- <CADVnQykk0pmryWdRjq21OXYK3Pvi5xWCkaB7Jf2acF5qtnzANg@mail.gmail.com> <20140617122038.GA7275@unicorn.suse.cz>
+From: Ben Greear <greearb@candelatech.com>
+Subject: How is IPv6 dhcp supposed to work?
+Date: Tue, 17 Jun 2014 14:41:43 -0700
+Message-ID: <53A0B617.6070600@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Neal Cardwell <ncardwell@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Michal Kubecek <mkubecek@suse.cz>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f169.google.com ([209.85.223.169]:38261 "EHLO
-	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964852AbaFQVgD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2014 17:36:03 -0400
-Received: by mail-ie0-f169.google.com with SMTP id at1so7034415iec.28
-        for <netdev@vger.kernel.org>; Tue, 17 Jun 2014 14:36:03 -0700 (PDT)
-In-Reply-To: <20140617122038.GA7275@unicorn.suse.cz>
+Received: from mail2.candelatech.com ([208.74.158.173]:46716 "EHLO
+	mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964931AbaFQVlo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2014 17:41:44 -0400
+Received: from [192.168.100.236] (firewall.candelatech.com [70.89.124.249])
+	(using TLSv1 with cipher DHE-RSA-CAMELLIA256-SHA (256/256 bits))
+	(No client certificate requested)
+	by mail2.candelatech.com (Postfix) with ESMTPSA id 6904740A5C4
+	for <netdev@vger.kernel.org>; Tue, 17 Jun 2014 14:41:43 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 17, 2014 at 5:20 AM, Michal Kubecek <mkubecek@suse.cz> wrote:
-> On Mon, Jun 16, 2014 at 08:44:04PM -0400, Neal Cardwell wrote:
->> On Mon, Jun 16, 2014 at 8:25 PM, Yuchung Cheng <ycheng@google.com> wrote:
->> > However Linux is inconsistent on the loss of a retransmission. It
->> > reduces ssthresh (and cwnd) if this happens on a timeout, but not in
->> > fast recovery (tcp_mark_lost_retrans). We should fix that and that
->> > should help dealing with traffic policers.
->>
->> Yes, great point!
->
-> Does it mean the patch itself would be acceptable if the reasoning in
-> its commit message was changed? Or would you prefer a different way to
-> unify the two situations?
+I'm trying to understand how DHCP for ipv6 is supposed to work.
 
-It's the latter but it seems to belong to a different patch (and it'll
-not solve the problem you are seeing).
+I am able to get a global-scope address and prefix from
+dhclient, but dhclient is not providing a gateway address.
 
-The idea behind the RFC is that TCP should reduce cwnd and ssthresh
-across round trips of send, but not within an RTT. Suppose cwnd was
-10 on first timeout, so cwnd becomes 1 and ssthresh is 5. Then after 3
-round trips, we time out again. By the design of Reno this should
-reset cwnd from 8 to 1, and ssthresh from 5 to 2.5.
+I see the dhclient interface doing a Router Solicitation, but
+I don't see any answers.
 
-Of course this may not make sense in various cases. But it will be a
-design bug in the congestion control rather than an implementation bug
-in the loss recovery. We are seeing many similar issues where
-non-queue-overflow drops mess up CCs relying on ssthresh :(
+Are we supposed to run radvd or something like that as well?
 
->
->                                                         Michal Kubecek
->
+Or is there some other automated magic that is supposed to
+find the default gateway?
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
