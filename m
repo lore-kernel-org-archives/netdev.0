@@ -1,80 +1,35 @@
-From: chenweilong <chenweilong@huawei.com>
-Subject: [PATCH 3.4-stable] ipv6: reallocate addrconf router for ipv6 address
- when lo, device up
-Date: Tue, 17 Jun 2014 18:23:59 +0800
-Message-ID: <53A0173F.8090107@huawei.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: How does the linux kernel select the MAC address for TAP devices?
+Date: Tue, 17 Jun 2014 12:25:29 +0200
+Message-ID: <53A01799.5060304@redhat.com>
+References: <CAPRaSD6_TUBLNJu3GC84FwWmPOqLnhgmoq61mZX03dJFM8cyrw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, <stable@vger.kernel.org>,
-	Li Zefan <lizefan@huawei.com>
-To: <gregkh@linuxfoundation.org>, David Miller <davem@davemloft.net>
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Albert Krenz <albert.krenz87@googlemail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:31601 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753935AbaFQKZd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jun 2014 06:25:33 -0400
+In-Reply-To: <CAPRaSD6_TUBLNJu3GC84FwWmPOqLnhgmoq61mZX03dJFM8cyrw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Greg,
+On 06/16/2014 10:00 AM, Albert Krenz wrote:
+> As stated in the email subject: Where does the kernel get the used
+> MAC-Adress for a newly create TAP device? Are they randomly generated
+> or does it select one from a fixed pool of reserved MAC-Adresses?
+>
+> I have not found any official documentation about the selection of
+> MAC-addresses for TAP-devices. Most sites like
+> http://backreference.org/2010/03/26/tuntap-interface-tutorial/ state
+> that the MAC addresses are auto-generated and can be changed. But they
+> do not explain the generation rules.
+>
+> Does anyone know an official document (preferably from kernel.org)
+> explaining the MAC selection process? Or is it only explained in the
+> Source?
 
-Please queue this for 3.4 stable kernel.
-
-It fix the bug 67951 on bugzilla
-https://bugzilla.kernel.org/show_bug.cgi?id=67951
-
-The patch can't be applied directly, as it' used the function introduced
-by "commit 94e187c0" ip6_rt_put(), that patch can't be applied directly
-either. So I had to write this one.
-
-====================
-
-From: Gao feng <gaofeng@cn.fujitsu.com>
-
-commit 33d99113b1102c2d2f8603b9ba72d89d915c13f5 upstream.
-
-This commit don't have a stable tag, but it fix the bug
-no reply after loopback down-up.It's very worthy to be
-applied to stable 3.4 kernels.
-
-The bug is 67951 on bugzilla
-https://bugzilla.kernel.org/show_bug.cgi?id=67951
-
-
-CC: Sabrina Dubroca <sd@queasysnail.net>
-CC: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Reported-by: Weilong Chen <chenweilong@huawei.com>
-Signed-off-by: Weilong Chen <chenweilong@huawei.com>
-Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-[weilong: s/ip6_rt_put/dst_release]
-Signed-off-by: Chen Weilong <chenweilong@huawei.com>
-Signed-off-by: Li Zefan <lizefan@huawei.com>
----
- net/ipv6/addrconf.c | 14 ++++++++++++--
- 1 file changed, 12 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index abfa007..25399bf 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -2435,8 +2435,18 @@ static void init_loopback(struct net_device *dev)
- 			if (sp_ifa->flags & (IFA_F_DADFAILED | IFA_F_TENTATIVE))
- 				continue;
-
--			if (sp_ifa->rt)
--				continue;
-+			if (sp_ifa->rt) {
-+				/* This dst has been added to garbage list when
-+				 * lo device down, release this obsolete dst and
-+				 * reallocate a new router for ifa.
-+				 */
-+				if (sp_ifa->rt->dst.obsolete > 0) {
-+					dst_release(sp_ifa->rt);
-+					sp_ifa->rt = NULL;
-+				} else {
-+					continue;
-+				}
-+			}
-
- 			sp_rt = addrconf_dst_alloc(idev, &sp_ifa->addr, 0);
-
--- 1.7.12
+See: drivers/net/tun.c +936
