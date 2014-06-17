@@ -1,33 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net/nxp/lpc_eth: use devm_ functions
-Date: Tue, 17 Jun 2014 15:31:14 -0700 (PDT)
-Message-ID: <20140617.153114.745988923921147057.davem@davemloft.net>
-References: <20140613180356.GA8582@himangi-Dell>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next] mrf24j40: separate h/w
+	init and add checkings
+Date: Tue, 17 Jun 2014 15:31:36 -0700 (PDT)
+Message-ID: <20140617.153136.653057237840817486.davem@davemloft.net>
+References: <1402890152-2803-1-git-send-email-varkab@cdac.in>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	julia.lawall@lip6.fr
-To: himangi774@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140613180356.GA8582@himangi-Dell>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: varkab-If5XQcfNmg0@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: varkabhadram-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1402890152-2803-1-git-send-email-varkab-If5XQcfNmg0@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Himangi Saraogi <himangi774@gmail.com>
-Date: Fri, 13 Jun 2014 23:33:56 +0530
+From: Varka Bhadram <varkabhadram-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Mon, 16 Jun 2014 09:12:31 +0530
 
-> The various devm_ functions allocate memory that is released when a
-> driver detaches. This patch uses dmam_alloc_coherent, devm_ioremap
-> devm_clk_get etc. for data that is allocated in the probe function of
-> platform device and is only freed in the remove function. The
-> corresponding free functions are removed and many labels are done
-> away with.
+> separate the mrf24j40 hardware initialisation from probe()
+> and adds the sanity checkings.
 > 
-> Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
-> Acked-by: Julia Lawall <julia.lawall@lip6.fr>
-> ---
-> v2: undo use of devm_request_irq
-> Not compile tested
+> These checkings are required if somebody hasn't a right spi configuration
+> the probe function should fail. So we have to return from there.
+> 
+> Signed-off-by: Varka Bhadram <varkab-If5XQcfNmg0@public.gmane.org>
 
-This doesn't apply cleanly to any of my trees.
+Applied.
+
+------------------------------------------------------------------------------
+HPCC Systems Open Source Big Data Platform from LexisNexis Risk Solutions
+Find What Matters Most in Your Big Data with HPCC Systems
+Open Source. Fast. Scalable. Simple. Ideal for Dirty Data.
+Leverages Graph Analysis for Fast Processing & Easy Data Exploration
+http://p.sf.net/sfu/hpccsystems
