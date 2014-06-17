@@ -1,401 +1,120 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: Re: [Linux-zigbee-devel] [PATCH net-next v1 1/3] ieee802154: cc2520:
- adds driver for TI CC2520 radio
-Date: Tue, 17 Jun 2014 11:51:14 +0200
-Message-ID: <20140617095112.GA30654@omega>
-References: <1929819035.7546.1402996542810.JavaMail.open-xchange@webmail.cdac.in>
+From: Fugang Duan <b38611@freescale.com>
+Subject: [PATCH] net: fec: remove HW IP header checksum for IPV6 frame
+Date: Tue, 17 Jun 2014 16:31:35 +0800
+Message-ID: <1402993895-10955-1-git-send-email-b38611@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Varka Bhadram <varkabhadram@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	linux-zigbee-devel@lists.sourceforge.net, davem@davemloft.net
-To: Varka Bhadram <varkab@cdac.in>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1929819035.7546.1402996542810.JavaMail.open-xchange@webmail.cdac.in>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux@arm.linux.org.uk>,
+	<b38611@freescale.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2lp0208.outbound.protection.outlook.com ([207.46.163.208]:18913
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751147AbaFQJ7X (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jun 2014 05:59:23 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+The commit 96c50caa5148 (net: fec: Enable IP header hardware checksum)
+enable HW IP header checksum for IPV4 and IPV6, which causes IPV6 TCP/UDP
+cannot work. (The issue is reported by Russell King)
 
-On Tue, Jun 17, 2014 at 02:45:42PM +0530, Varka Bhadram wrote:
-> On 06/17/2014 02:11 PM, Alexander Aring wrote:
-> 
-> > 
-> >     Hi Varka,
-...
-> > >         +
-> > >         +/* Generic Functions */
-> > >         +static int
-> > >         +cc2520_cmd_strobe(struct cc2520_private *priv, u8 cmd)
-> > >         +{
-> > >         + int ret;
-> > >         + u8 status = 0xff;
-> > >         + struct spi_message msg;
-> > >         + struct spi_transfer xfer = {
-> > >         +  .len = 0,
-> > >         +  .tx_buf = priv->buf,
-> > >         +  .rx_buf = priv->buf,
-> > >         + };
-> > >         +
-> > >         + spi_message_init(&msg);
-> > >         + spi_message_add_tail(&xfer, &msg);
-> > >         +
-> > >         + mutex_lock(&priv->buffer_mutex);
-> > >         + priv->buf[xfer.len++] = cmd;
-> > >         + dev_vdbg(&priv->spi->dev,
-> > >         +   "command strobe buf[0] = %02x\n",
-> > >         +   priv->buf[0]);
-> > >         +
-> > >         + ret = spi_sync(priv->spi, &msg);
-> > >         + if (!ret)
-> > >         +  status = priv->buf[0];
-> > >         + dev_vdbg(&priv->spi->dev,
-> > >         +   "buf[0] = %02x\n", priv->buf[0]);
-> > >         + mutex_unlock(&priv->buffer_mutex);
-> > >         +
-> > >         + return ret;
-> > >         +}
-> > > 
-> > >     > 
-> >     What's about to drop the lowlevel spi calls and use spi helper functions?
-> > 
-> > 
-> Many of the people are suggesting to use spi_sync() functions instead of spi
-> helper functions.
-> 
+The reason is that FEC HW IP cannot detect the transmit frame type (can
+detect received frame type), and treats all packets as IPv4, overwrites
+the point in the packet which would be the IPv4 checksum field. Since IPV6
+don't have IP header checksum, so this results in the frame being corrupted.
 
-The spi helper function do the same what do you there in several
-functions in this driver. Look in 'drivers/spi/spi.c'. This would
-decrease much the code count.
+The patch just add software detect the current packet type, if it is IPV6
+frame, it don't enable IP header checksum.
 
-> > 
-> >         > > 
-> > >         +
-> > >         +static int
-> > >         +cc2520_get_status(struct cc2520_private *priv, u8 *status)
-> > >         +{
-> > >         + int ret;
-> > >         + struct spi_message msg;
-> > >         + struct spi_transfer xfer = {
-> > >         +  .len = 0,
-> > >         +  .tx_buf = priv->buf,
-> > >         +  .rx_buf = priv->buf,
-> > >         + };
-> > >         +
-> > >         + spi_message_init(&msg);
-> > >         + spi_message_add_tail(&xfer, &msg);
-> > >         +
-> > >         + mutex_lock(&priv->buffer_mutex);
-> > >         + priv->buf[xfer.len++] = CC2520_CMD_SNOP;
-> > >         + dev_vdbg(&priv->spi->dev,
-> > >         +   "get status command buf[0] = %02x\n", priv->buf[0]);
-> > >         +
-> > >         + ret = spi_sync(priv->spi, &msg);
-> > >         + if (!ret)
-> > >         +  *status = priv->buf[0];
-> > >         + dev_vdbg(&priv->spi->dev,
-> > >         +   "buf[0] = %02x\n", priv->buf[0]);
-> > >         + mutex_unlock(&priv->buffer_mutex);
-> > >         +
-> > >         + return ret;
-> > >         +}
-> > >         +
-> > >         +static int
-> > >         +cc2520_write_register(struct cc2520_private *priv, u8 reg, u8
-> > > value)
-> > >         +{
-> > >         + int status;
-> > >         + struct spi_message msg;
-> > >         + struct spi_transfer xfer = {
-> > >         +  .len = 0,
-> > >         +  .tx_buf = priv->buf,
-> > >         +  .rx_buf = priv->buf,
-> > >         + };
-> > >         +
-> > >         + spi_message_init(&msg);
-> > >         + spi_message_add_tail(&xfer, &msg);
-> > >         +
-> > >         + mutex_lock(&priv->buffer_mutex);
-> > >         +
-> > >         + if (reg <= CC2520_FREG_MASK) {
-> > >         +  priv->buf[xfer.len++] = CC2520_CMD_REGISTER_WRITE | reg;
-> > >         +  priv->buf[xfer.len++] = value;
-> > >         + } else {
-> > >         +  priv->buf[xfer.len++] = CC2520_CMD_MEMORY_WRITE;
-> > >         +  priv->buf[xfer.len++] = reg;
-> > >         +  priv->buf[xfer.len++] = value;
-> > >         + }
-> > >         + status = spi_sync(priv->spi, &msg);
-> > >         + if (msg.status)
-> > >         +  status = msg.status;
-> > >         +
-> > >         + mutex_unlock(&priv->buffer_mutex);
-> > >         +
-> > >         + return status;
-> > >         +}
-> > >         +
-> > >         +static int
-> > >         +cc2520_read_register(struct cc2520_private *priv, u8 reg, u8 *data)
-> > >         +{
-> > >         + int status;
-> > >         + struct spi_message msg;
-> > >         + struct spi_transfer xfer1 = {
-> > >         +  .len = 0,
-> > >         +  .tx_buf = priv->buf,
-> > >         +  .rx_buf = priv->buf,
-> > >         + };
-> > >         +
-> > >         + struct spi_transfer xfer2 = {
-> > >         +  .len = 1,
-> > >         +  .rx_buf = data,
-> > >         + };
-> > >         +
-> > >         + spi_message_init(&msg);
-> > >         + spi_message_add_tail(&xfer1, &msg);
-> > >         + spi_message_add_tail(&xfer2, &msg);
-> > >         +
-> > >         + mutex_lock(&priv->buffer_mutex);
-> > >         + priv->buf[xfer1.len++] = CC2520_CMD_MEMORY_READ;
-> > >         + priv->buf[xfer1.len++] = reg;
-> > >         +
-> > >         + status = spi_sync(priv->spi, &msg);
-> > >         + dev_dbg(&priv->spi->dev,
-> > >         +  "spi status = %d\n", status);
-> > >         + if (msg.status)
-> > >         +  status = msg.status;
-> > >         +
-> > >         + mutex_unlock(&priv->buffer_mutex);
-> > >         +
-> > >         + return status;
-> > >         +}
-> > >         +
-> > >         +static int
-> > >         +cc2520_write_txfifo(struct cc2520_private *priv, u8 *data, u8 len)
-> > >         +{
-> > >         + int status;
-> > >         +
-> > >         + /*
-> > >         +  *length byte must include FCS even
-> > >         +  *if it is calculated in the hardware
-> > >         +  */
-> > >         + int len_byte = len + 2;
-> > >         +
-> > >         + struct spi_message msg;
-> > >         +
-> > >         + struct spi_transfer xfer_head = {
-> > >         +  .len = 0,
-> > >         +  .tx_buf = priv->buf,
-> > >         +  .rx_buf = priv->buf,
-> > >         + };
-> > >         + struct spi_transfer xfer_len = {
-> > >         +  .len = 1,
-> > >         +  .tx_buf = &len_byte,
-> > >         + };
-> > >         + struct spi_transfer xfer_buf = {
-> > >         +  .len = len,
-> > >         +  .tx_buf = data,
-> > >         + };
-> > >         +
-> > >         + spi_message_init(&msg);
-> > >         + spi_message_add_tail(&xfer_head, &msg);
-> > >         + spi_message_add_tail(&xfer_len, &msg);
-> > >         + spi_message_add_tail(&xfer_buf, &msg);
-> > >         +
-> > >         + mutex_lock(&priv->buffer_mutex);
-> > >         + priv->buf[xfer_head.len++] = CC2520_CMD_TXBUF;
-> > >         + dev_vdbg(&priv->spi->dev,
-> > >         +   "TX_FIFO cmd buf[0] = %02x\n", priv->buf[0]);
-> > >         +
-> > >         + status = spi_sync(priv->spi, &msg);
-> > >         + dev_vdbg(&priv->spi->dev, "status = %d\n", status);
-> > >         + if (msg.status)
-> > >         +  status = msg.status;
-> > >         + dev_vdbg(&priv->spi->dev, "status = %d\n", status);
-> > >         + dev_vdbg(&priv->spi->dev, "buf[0] = %02x\n", priv->buf[0]);
-> > >         + mutex_unlock(&priv->buffer_mutex);
-> > >         +
-> > >         + return status;
-> > >         +}
-> > >         +
-> > >         +static int
-> > >         +cc2520_read_rxfifo(struct cc2520_private *priv, u8 *data, u8 *len,
-> > > u8 *lqi)
-> > > 
-> > >     > 
-> >     why is len a pointer here? It's never changed in this function I would
-> >     prefer const u8 len.
-> > 
-> Good catch. Its my mistake. Previously i updated the len pointer and i used in
-> cc2520_rx().
-> Thanx
-> 
-> > 
-> > 
-> > 
-> >         > > 
-> > >         +{
-> > >         + int status;
-> > >         + struct spi_message msg;
-> > >         +
-> > >         + struct spi_transfer xfer_head = {
-> > >         +  .len = 0,
-> > >         +  .tx_buf = priv->buf,
-> > >         +  .rx_buf = priv->buf,
-> > >         + };
-> > >         + struct spi_transfer xfer_buf = {
-> > >         +  .len = *len,
-> > >         +  .rx_buf = data,
-> > >         + };
-> > >         +
-> > >         + spi_message_init(&msg);
-> > >         + spi_message_add_tail(&xfer_head, &msg);
-> > >         + spi_message_add_tail(&xfer_buf, &msg);
-> > >         +
-> > >         + mutex_lock(&priv->buffer_mutex);
-> > >         + priv->buf[xfer_head.len++] = CC2520_CMD_RXBUF;
-> > >         +
-> > >         + dev_vdbg(&priv->spi->dev, "read rxfifo buf[0] = %02x\n",
-> > > priv->buf[0]);
-> > >         + dev_vdbg(&priv->spi->dev, "buf[1] = %02x\n", priv->buf[1]);
-> > >         +
-> > >         + status = spi_sync(priv->spi, &msg);
-> > >         + dev_vdbg(&priv->spi->dev, "status = %d\n", status);
-> > >         + if (msg.status)
-> > >         +  status = msg.status;
-> > >         + dev_vdbg(&priv->spi->dev, "status = %d\n", status);
-> > >         + dev_vdbg(&priv->spi->dev,
-> > >         +   "return status buf[0] = %02x\n", priv->buf[0]);
-> > >         + dev_vdbg(&priv->spi->dev, "length buf[1] = %02x\n", priv->buf[1]);
-> > >         +
-> > >         + *lqi = data[priv->buf[1] - 1] & 0x7f;
-> > >         +
-> > >         + mutex_unlock(&priv->buffer_mutex);
-> > >         +
-> > >         + return status;
-> > >         +}
-> > >         +
-> > >         +static int cc2520_start(struct ieee802154_dev *dev)
-> > >         +{
-> > >         + return cc2520_cmd_strobe(dev->priv, CC2520_CMD_SRXON);
-> > >         +}
-> > >         +
-> > >         +static void cc2520_stop(struct ieee802154_dev *dev)
-> > >         +{
-> > >         + cc2520_cmd_strobe(dev->priv, CC2520_CMD_SRFOFF);
-> > >         +}
-> > >         +
-> > >         +static int
-> > >         +cc2520_tx(struct ieee802154_dev *dev, struct sk_buff *skb)
-> > >         +{
-> > >         + struct cc2520_private *priv = dev->priv;
-> > >         + unsigned long flags;
-> > >         + int rc;
-> > >         + u8 status = 0;
-> > >         +
-> > >         + rc = cc2520_cmd_strobe(priv, CC2520_CMD_SFLUSHTX);
-> > >         + if (rc)
-> > >         +  goto err_tx;
-> > >         +
-> > >         + rc = cc2520_write_txfifo(priv, skb->data, skb->len);
-> > >         + if (rc)
-> > >         +  goto err_tx;
-> > >         +
-> > >         + rc = cc2520_get_status(priv, &status);
-> > >         + if (rc)
-> > >         +  goto err_tx;
-> > >         +
-> > >         + if (status & CC2520_STATUS_TX_UNDERFLOW) {
-> > >         +  dev_err(&priv->spi->dev, "cc2520 tx underflow exception\n");
-> > >         +  goto err_tx;
-> > >         + }
-> > >         +
-> > >         + spin_lock_irqsave(&priv->lock, flags);
-> > >         + BUG_ON(priv->is_tx);
-> > >         + priv->is_tx = 1;
-> > >         + spin_unlock_irqrestore(&priv->lock, flags);
-> > >         +
-> > >         + rc = cc2520_cmd_strobe(priv, CC2520_CMD_STXONCCA);
-> > >         + if (rc)
-> > >         +  goto err;
-> > >         +
-> > >         + rc = wait_for_completion_interruptible(&priv->tx_complete);
-> > >         + if (rc < 0)
-> > >         +  goto err;
-> > > 
-> > >     > 
-> >     mhhh, I never see a reinit_completion and ask myself how the driver can
-> >     ever work?
-> > 
-> >     We should also use a wait_for_completion_timeout here, then you need to
-> >     handle the error handling with if (!rc).
-> > 
-> I initialized the work completion in the cc2520_probe():
->                           init_completion(&priv->tx_complete);
-> 
+Cc: Russell King <linux@arm.linux.org.uk>
+Signed-off-by: Fugang Duan <B38611@freescale.com>
+---
+ drivers/net/ethernet/freescale/fec_main.c |   36 +++++++++++++++++++++-------
+ 1 files changed, 27 insertions(+), 9 deletions(-)
 
-Ah, we only need a reinit_completion after a complete_all. Ok, sorry :-)
-
-> It will wait until the SFD interrupt to raise and get the completion signal from
-> sfd_isr() by:
->                           complete(&priv->tx_complete)
-> 
-> wait_for_completion_interruptible() API will put the thread in interruptible
-> state.
-> 
-
-Yes, you are right but there is also a
-wait_for_completion_interruptible_timeout. I mean for the case if you
-waiting forever and no irq hits.
-
-> > 
-> > 
-> > 
-...
-> > >         +
-> > >         + mutex_init(&priv->buffer_mutex);
-> > >         + INIT_WORK(&priv->fifop_irqwork, cc2520_fifop_irqwork);
-> > >         + spin_lock_init(&priv->lock);
-> > >         + init_completion(&priv->tx_complete);
-> > >         +
-> > >         + /* Request all the gpio's */
-> > >         + if (!gpio_is_valid(pdata->fifo)) {
-> > >         +  dev_err(&spi->dev, "fifo gpio is not valid\n");
-> > >         +  ret = -EINVAL;
-> > >         +  goto err_hw_init;
-> > >         + } else {
-> > >         +  ret = devm_gpio_request_one(&spi->dev, pdata->fifo,
-> > >         +         GPIOF_IN, "fifo");
-> > >         +  if (ret)
-> > >         +   goto err_hw_init;
-> > >         + }
-> > > 
-> > >     > 
-> >     you can drop the else branch here...
-> > 
-> 
-> gpio_is_valid() will only check whether the GPIO PIN number is within the range
-> of GPIO numbers or not.
-> devm_gpio_request_one() request for the GPIO number. If other driver try to
-> requst for the same number
-> GPIO/Pinctrl subsytems through an error saying that 'The GPIO number is already
-> used by someone else'
-> 
-> 
-
-I meant something like this:
-
-if (!gpio_is_valid(pdata->fifo)) {
-	dev_err(&spi->dev, "fifo gpio is not valid\n");
-	ret = -EINVAL;
-	goto err_hw_init;
-}
-
-ret = devm_gpio_request_one(&spi->dev, pdata->fifo,
-			    GPIOF_IN, "fifo");
-if (ret)
-	goto err_hw_init;
-
-...
-
-- Alex
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 38d9d27..c13185a 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -320,6 +320,11 @@ static void *swap_buffer(void *bufaddr, int len)
+ 	return bufaddr;
+ }
+ 
++static inline bool is_ipv4_pkt(struct sk_buff *skb)
++{
++	return skb->protocol == htons(ETH_P_IP) && ip_hdr(skb)->version == 4;
++}
++
+ static int
+ fec_enet_clear_csum(struct sk_buff *skb, struct net_device *ndev)
+ {
+@@ -330,7 +335,8 @@ fec_enet_clear_csum(struct sk_buff *skb, struct net_device *ndev)
+ 	if (unlikely(skb_cow_head(skb, 0)))
+ 		return -1;
+ 
+-	ip_hdr(skb)->check = 0;
++	if (is_ipv4_pkt(skb))
++		ip_hdr(skb)->check = 0;
+ 	*(__sum16 *)(skb->head + skb->csum_start + skb->csum_offset) = 0;
+ 
+ 	return 0;
+@@ -391,8 +397,11 @@ fec_enet_txq_submit_frag_skb(struct sk_buff *skb, struct net_device *ndev)
+ 		}
+ 
+ 		if (fep->bufdesc_ex) {
+-			if (skb->ip_summed == CHECKSUM_PARTIAL)
+-				estatus |= BD_ENET_TX_PINS | BD_ENET_TX_IINS;
++			if (skb->ip_summed == CHECKSUM_PARTIAL) {
++				estatus |= BD_ENET_TX_PINS;
++				if (is_ipv4_pkt(skb))
++					estatus |= BD_ENET_TX_IINS;
++			}
+ 			ebdp->cbd_bdu = 0;
+ 			ebdp->cbd_esc = estatus;
+ 		}
+@@ -518,8 +527,11 @@ static int fec_enet_txq_submit_skb(struct sk_buff *skb, struct net_device *ndev)
+ 			fep->hwts_tx_en))
+ 			skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
+ 
+-		if (skb->ip_summed == CHECKSUM_PARTIAL)
+-			estatus |= BD_ENET_TX_PINS | BD_ENET_TX_IINS;
++		if (skb->ip_summed == CHECKSUM_PARTIAL) {
++			estatus |= BD_ENET_TX_PINS;
++			if (is_ipv4_pkt(skb))
++				estatus |= BD_ENET_TX_IINS;
++		}
+ 
+ 		ebdp->cbd_bdu = 0;
+ 		ebdp->cbd_esc = estatus;
+@@ -590,8 +602,11 @@ fec_enet_txq_put_data_tso(struct sk_buff *skb, struct net_device *ndev,
+ 	}
+ 
+ 	if (fep->bufdesc_ex) {
+-		if (skb->ip_summed == CHECKSUM_PARTIAL)
+-			estatus |= BD_ENET_TX_PINS | BD_ENET_TX_IINS;
++		if (skb->ip_summed == CHECKSUM_PARTIAL) {
++			estatus |= BD_ENET_TX_PINS;
++			if (is_ipv4_pkt(skb))
++				estatus |= BD_ENET_TX_IINS;
++		}
+ 		ebdp->cbd_bdu = 0;
+ 		ebdp->cbd_esc = estatus;
+ 	}
+@@ -652,8 +667,11 @@ fec_enet_txq_put_hdr_tso(struct sk_buff *skb, struct net_device *ndev,
+ 	bdp->cbd_datlen = hdr_len;
+ 
+ 	if (fep->bufdesc_ex) {
+-		if (skb->ip_summed == CHECKSUM_PARTIAL)
+-			estatus |= BD_ENET_TX_PINS | BD_ENET_TX_IINS;
++		if (skb->ip_summed == CHECKSUM_PARTIAL) {
++			estatus |= BD_ENET_TX_PINS;
++			if (is_ipv4_pkt(skb))
++				estatus |= BD_ENET_TX_IINS;
++		}
+ 		ebdp->cbd_bdu = 0;
+ 		ebdp->cbd_esc = estatus;
+ 	}
+-- 
+1.7.8
