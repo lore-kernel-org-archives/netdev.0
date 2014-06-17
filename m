@@ -1,42 +1,42 @@
-From: chenweilong <chenweilong@huawei.com>
-Subject: Re: [request for stable inclusion] ipv6: reallocate addrconf router
- for ipv6 address when lo device up
-Date: Tue, 17 Jun 2014 11:27:52 +0800
-Message-ID: <539FB5B8.3040401@huawei.com>
-References: <1402884279-11896-1-git-send-email-chenweilong@huawei.com>	<20140615.192955.2126802764510967888.davem@davemloft.net>	<539E611F.6000805@huawei.com> <CAHA+R7NL+J19a4WPcWTWo928Sr7ORxnE6sTh12C+bN8K7yNyHQ@mail.gmail.com>
+From: Jongsung Kim <neidhard.kim@lge.com>
+Subject: Re: [PATCH] net/cadence/macb: clear interrupts simply and correctly
+Date: Tue, 17 Jun 2014 12:39:32 +0900
+Message-ID: <539FB874.1040003@lge.com>
+References: <1402563054-8546-1-git-send-email-neidhard.kim@lge.com> <7e888b59-d27b-49dc-9ffc-1c7d56f11773@BN1AFFO11FD007.protection.gbl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <gregkh@linuxfoundation.org>,
-	<gaofeng@cn.fujitsu.com>, <stable@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Sabrina Dubroca <sd@queasysnail.net>, <lizefan@huawei.com>
-To: Cong Wang <cwang@twopensource.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <CAHA+R7NL+J19a4WPcWTWo928Sr7ORxnE6sTh12C+bN8K7yNyHQ@mail.gmail.com>
-Sender: stable-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Nicolas Ferre <nicolas.ferre@atmel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hayun Hwang <hwang.hayun@lge.com>,
+	Youngkyu Choi <youngkyu7.choi@lge.com>
+To: =?UTF-8?B?U8O2cmVuIEJyaW5rbWFubg==?= <soren.brinkmann@xilinx.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <7e888b59-d27b-49dc-9ffc-1c7d56f11773@BN1AFFO11FD007.protection.gbl>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thanks!
+On 06/17/2014 06:28 AM, S=C3=B6ren Brinkmann wrote:
+> Shouldn't it be sufficient to replace 'MACB_BIT(RCOMP) with 'MACB_RX_=
+INT_FLAGS'
+> to clear all the RX IRQ flags.
 
-On 2014/6/17 1:19, Cong Wang wrote:
-> On Sun, Jun 15, 2014 at 8:14 PM, chenweilong <chenweilong@huawei.com> wrote:
->> Oh..sorry,
->>
->> I must missed something important!
-> 
-> Yes, you miss the FAQ:
-> https://www.kernel.org/doc/Documentation/networking/netdev-FAQ.txt
-> 
->> What's the right way?
->>
-> 
-> Q: How can I tell what patches are queued up for backporting to the
->    various stable releases?
-> 
-> A: Normally Greg Kroah-Hartman collects stable commits himself, but
->    for networking, Dave collects up patches he deems critical for the
->    networking subsystem, and then hands them off to Greg.
-> 
-> 
+I'm afraid not.
+
+You know, this driver initially targeted only GEMs configured with "gem=
+_irq_clear_read."
+=46or this implementation of GEM, the ISR is automatically cleared by r=
+eading. The driver
+was designed to operate with the value read from ISR, not with the ISR =
+itself.
+
+However, there are other GEMs configured without "gem_irq_clear_read," =
+people like you
+and I working with. To support them, they insert similar codes conditio=
+nally clearing
+the ISR here and there. Now they are found at 6 places. Not enough yet.=
+ Do you want to
+insert another at the end of macb_reset_hw..? Maybe not.
+
+Jongsung
