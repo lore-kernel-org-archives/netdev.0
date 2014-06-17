@@ -1,98 +1,63 @@
-From: James M Leddy <james.leddy@redhat.com>
-Subject: [PATCH] udp: Add MIB counters for rcvbuferrors
-Date: Tue, 17 Jun 2014 16:13:02 -0400
-Message-ID: <1403035982-6548-1-git-send-email-james.leddy@redhat.com>
-Cc: James M Leddy <james.leddy@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60049 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932927AbaFQUNf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jun 2014 16:13:35 -0400
-Received: from int-mx11.intmail.prod.int.phx2.redhat.com (int-mx11.intmail.prod.int.phx2.redhat.com [10.5.11.24])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s5HKDZ1u014263
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Tue, 17 Jun 2014 16:13:35 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v6 4/4] drivers: net: Add APM X-Gene SoC ethernet
+ driver support.
+Date: Tue, 17 Jun 2014 13:20:24 -0700 (PDT)
+Message-ID: <20140617.132024.1213369771856463527.davem@davemloft.net>
+References: <1402964326-11147-5-git-send-email-isubramanian@apm.com>
+	<20140616.214247.1154200670003936158.davem@davemloft.net>
+	<CAKh23F=2undAW=nWibOreAM8DJiQKpLx=OboCX=fNZE+OU=AbA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	patches-qTEPVZfXA3Y@public.gmane.org, rapatel-qTEPVZfXA3Y@public.gmane.org, kchudgar-qTEPVZfXA3Y@public.gmane.org
+To: isubramanian-qTEPVZfXA3Y@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAKh23F=2undAW=nWibOreAM8DJiQKpLx=OboCX=fNZE+OU=AbA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Add MIB counters for rcvbuferrors in UDP to help diagnose problems.
+From: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
+Date: Tue, 17 Jun 2014 12:21:08 -0700
 
-Signed-off-by: James M Leddy <james.leddy@redhat.com>
----
- net/ipv4/udp.c |   13 ++++++++-----
- net/ipv6/udp.c |   15 ++++++++++-----
- 2 files changed, 18 insertions(+), 10 deletions(-)
+> On Mon, Jun 16, 2014 at 9:42 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
+>> From: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
+>> Date: Mon, 16 Jun 2014 17:18:46 -0700
+>>
+>>> +static netdev_tx_t xgene_enet_start_xmit(struct sk_buff *skb,
+>>> +                                      struct net_device *ndev)
+>>> +{
+>>> +     struct xgene_enet_pdata *pdata = netdev_priv(ndev);
+>>> +     struct xgene_enet_desc_ring *tx_ring = pdata->tx_ring;
+>>> +     struct xgene_enet_desc_ring *cp_ring = tx_ring->cp_ring;
+>>> +     u32 tx_level, cq_level;
+>>> +
+>>> +     tx_level = xgene_enet_ring_len(tx_ring);
+>>> +     cq_level = xgene_enet_ring_len(cp_ring);
+>>> +     if (unlikely(tx_level > pdata->tx_qcnt_hi ||
+>>> +                  cq_level > pdata->cp_qcnt_hi)) {
+>>> +             netif_stop_queue(ndev);
+>>> +             return NETDEV_TX_BUSY;
+>>> +     }
+>>> +
+>>> +     if (xgene_enet_setup_tx_desc(tx_ring, skb))
+>>> +             return NETDEV_TX_OK;
+>>
+>> If you return NETDEV_TX_OK, it is your responsibility to deal with the
+>> SKB, because you own it.
+>>
+>> In particular, you have to free the packet.
+> 
+> skb freeing happens in xgene_enet_tx_completion().
 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 4468e1a..8059902 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1542,12 +1542,17 @@ int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
- 	}
- 
- 	if (rcu_access_pointer(sk->sk_filter) &&
--	    udp_lib_checksum_complete(skb))
--		goto csum_error;
-+	    udp_lib_checksum_complete(skb)) {
-+		UDP_INC_STATS_BH(sock_net(sk), UDP_MIB_CSUMERRORS, is_udplite);
-+		goto drop;
-+	}
- 
- 
--	if (sk_rcvqueues_full(sk, skb, sk->sk_rcvbuf))
-+	if (sk_rcvqueues_full(sk, skb, sk->sk_rcvbuf)) {
-+		UDP_INC_STATS_BH(sock_net(sk), UDP_MIB_RCVBUFERRORS,
-+				 is_udplite);
- 		goto drop;
-+	}
- 
- 	rc = 0;
- 
-@@ -1563,8 +1568,6 @@ int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
- 
- 	return rc;
- 
--csum_error:
--	UDP_INC_STATS_BH(sock_net(sk), UDP_MIB_CSUMERRORS, is_udplite);
- drop:
- 	UDP_INC_STATS_BH(sock_net(sk), UDP_MIB_INERRORS, is_udplite);
- 	atomic_inc(&sk->sk_drops);
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 1e586d9..94ba69c 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -666,12 +666,18 @@ int udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
- 	}
- 
- 	if (rcu_access_pointer(sk->sk_filter)) {
--		if (udp_lib_checksum_complete(skb))
--			goto csum_error;
-+		if (udp_lib_checksum_complete(skb)) {
-+			UDP6_INC_STATS_BH(sock_net(sk),
-+					  UDP_MIB_CSUMERRORS, is_udplite);
-+			goto drop;
-+		}
- 	}
- 
--	if (sk_rcvqueues_full(sk, skb, sk->sk_rcvbuf))
-+	if (sk_rcvqueues_full(sk, skb, sk->sk_rcvbuf)) {
-+		UDP6_INC_STATS_BH(sock_net(sk),
-+				  UDP_MIB_RCVBUFERRORS, is_udplite);
- 		goto drop;
-+	}
- 
- 	skb_dst_drop(skb);
- 
-@@ -686,8 +692,7 @@ int udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
- 	bh_unlock_sock(sk);
- 
- 	return rc;
--csum_error:
--	UDP6_INC_STATS_BH(sock_net(sk), UDP_MIB_CSUMERRORS, is_udplite);
-+
- drop:
- 	UDP6_INC_STATS_BH(sock_net(sk), UDP_MIB_INERRORS, is_udplite);
- 	atomic_inc(&sk->sk_drops);
--- 
-1.7.1
+You're not queueing up the packet when DMA mapping the packet fails,
+which is the only condition that causes xgene_enet_setup_tx_desc() to
+return an error, so xgene_enet_tx_completion() will not be called.
+
+Can you really not see this?
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
