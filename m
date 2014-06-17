@@ -1,164 +1,216 @@
 From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net-next 1/6] Support for SCTP_RECVRCVINFO socket option
-Date: Tue, 17 Jun 2014 09:57:01 -0400
-Message-ID: <53A0492D.9010409@gmail.com>
-References: <1403006273-27859-1-git-send-email-geirola@gmail.com> <1403006273-27859-2-git-send-email-geirola@gmail.com>
+Subject: Re: [PATCH net-next 2/6] Support for SCTP_RCVINFO ancillary data
+Date: Tue, 17 Jun 2014 10:07:42 -0400
+Message-ID: <53A04BAE.8090709@gmail.com>
+References: <1403006273-27859-1-git-send-email-geirola@gmail.com> <1403006273-27859-3-git-send-email-geirola@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: linux-sctp@vger.kernel.org
 To: Geir Ola Vaagland <geirola@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f47.google.com ([209.85.216.47]:49370 "EHLO
-	mail-qa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932133AbaFQN5F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2014 09:57:05 -0400
-In-Reply-To: <1403006273-27859-2-git-send-email-geirola@gmail.com>
+Received: from mail-qg0-f43.google.com ([209.85.192.43]:52246 "EHLO
+	mail-qg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932133AbaFQOHp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2014 10:07:45 -0400
+In-Reply-To: <1403006273-27859-3-git-send-email-geirola@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On 06/17/2014 07:57 AM, Geir Ola Vaagland wrote:
-
-Again,  some description and a pointer to RFC/Section
-for what this patch is implementing.
-
 > CC: Vlad Yasevich <vyasevich@gmail.com>
 > Signed-off-by: Geir Ola Vaagland <geirola@gmail.com>
 > ---
->  include/net/sctp/structs.h |  1 +
->  include/uapi/linux/sctp.h  |  2 ++
->  net/sctp/socket.c          | 48 ++++++++++++++++++++++++++++++++++++++++++++++
->  3 files changed, 51 insertions(+)
+>  include/net/sctp/ulpevent.h |  2 +
+>  include/uapi/linux/sctp.h   | 23 ++++++++++++
+>  net/sctp/socket.c           |  6 +++
+>  net/sctp/ulpevent.c         | 91 +++++++++++++++++++++++++++++++++++++++++++++
+>  4 files changed, 122 insertions(+)
 > 
-> diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-> index 0a248b3..75c598a 100644
-> --- a/include/net/sctp/structs.h
-> +++ b/include/net/sctp/structs.h
-> @@ -216,6 +216,7 @@ struct sctp_sock {
->  	__u8 frag_interleave;
->  	__u32 adaptation_ind;
->  	__u32 pd_point;
-> +	__u8 recvrcvinfo;
+> diff --git a/include/net/sctp/ulpevent.h b/include/net/sctp/ulpevent.h
+> index 27b9f5c..2f42831 100644
+> --- a/include/net/sctp/ulpevent.h
+> +++ b/include/net/sctp/ulpevent.h
+> @@ -131,6 +131,8 @@ struct sctp_ulpevent *sctp_ulpevent_make_sender_dry_event(
 >  
->  	atomic_t pd_mode;
->  	/* Receive to here while partial delivery is in effect. */
+>  void sctp_ulpevent_read_sndrcvinfo(const struct sctp_ulpevent *event,
+>  	struct msghdr *);
+> +void sctp_ulpevent_read_rcvinfo(const struct sctp_ulpevent *event,
+> +	struct msghdr *);
+
+Gah...  This whole file doesn't conform to coding style. :(
+
+Please make this change conform to style standards, and we can clean up the
+file later.
+
+>  __u16 sctp_ulpevent_get_notification_type(const struct sctp_ulpevent *event);
+>  
+>  /* Is this event type enabled? */
 > diff --git a/include/uapi/linux/sctp.h b/include/uapi/linux/sctp.h
-> index ca451e9..a7db3b3 100644
+> index a7db3b3..7e8736b 100644
 > --- a/include/uapi/linux/sctp.h
 > +++ b/include/uapi/linux/sctp.h
-> @@ -97,6 +97,8 @@ typedef __s32 sctp_assoc_t;
->  #define SCTP_AUTO_ASCONF       30
->  #define SCTP_PEER_ADDR_THLDS	31
+> @@ -158,6 +158,27 @@ struct sctp_sndrcvinfo {
+>  };
 >  
-> +#define SCTP_RECVRCVINFO 32
+>  /*
+> + *  5.3.5 SCTP Receive Information Structure (SCTP_RCVINFO)
+> + *
+> + *   This cmsghdr structure specifies SCTP options for sendmsg().
+> + *
+> + *   cmsg_level    cmsg_type      cmsg_data[]
+> + *   ------------  ------------   -------------------
+> + *   IPPROTO_SCTP  SCTP_RCVINFO   struct sctp_rcvinfo
+> + *
+> + */
+> +struct sctp_rcvinfo {
+> +	__u16 rcv_sid;
+> +	__u16 rcv_ssn;
+> +	__u16 rcv_flags;
+> +	__u32 rcv_ppid;
+> +	__u32 rcv_tsn;
+> +	__u32 rcv_cumtsn;
+> +	__u32 rcv_context;
+> +	sctp_assoc_t rcv_assoc_id;
+> +};
 > +
-
-The above probably shouldn't have an empty line between options 31 and 32.
-
->  /* Internal Socket Options. Some of the sctp library functions are
->   * implemented using these socket options.
->   */
+> +/*
+>   *  sinfo_flags: 16 bits (unsigned integer)
+>   *
+>   *   This field may contain any of the following flags and is composed of
+> @@ -184,6 +205,8 @@ typedef enum sctp_cmsg_type {
+>  #define SCTP_INIT	SCTP_INIT
+>  	SCTP_SNDRCV,            /* 5.2.2 SCTP Header Information Structure */
+>  #define SCTP_SNDRCV	SCTP_SNDRCV
+> +	SCTP_RCVINFO,
+> +#define SCTP_RCVINFO SCTP_RCVINFO
+>  } sctp_cmsg_t;
+>  
+>  /*
 > diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index 146b35d..1f3281b 100644
+> index 1f3281b..aee161b 100644
 > --- a/net/sctp/socket.c
 > +++ b/net/sctp/socket.c
-> @@ -3566,6 +3566,24 @@ static int sctp_setsockopt_paddr_thresholds(struct sock *sk,
->  	return 0;
->  }
+> @@ -2094,6 +2094,12 @@ static int sctp_recvmsg(struct kiocb *iocb, struct sock *sk,
+>  		sp->pf->skb_msgname(skb, msg->msg_name, addr_len);
+>  	}
 >  
-> +static int sctp_setsockopt_recvrcvinfo(struct sock *sk,
-> +		char __user *optval,
-> +		unsigned int optlen){
-
-Coding style. Please put a space between ) and {.  Also,
-please align definitions with above 'struct sock'.
-As in:
-+static int sctp_setsockopt_recvrcvinfo(struct sock *sk,
-+		                        char __user *optval,
-+		                        unsigned int optlen) {
-
-For more info on coding style see Documentation/CodingStyle
-in the kernel tree.
-
 > +
-> +	int val;
-> +
-> +	if(optlen < sizeof(int))
-> +		return -EINVAL;
-> +
-> +	if(get_user(val, (int __user*)optval)){
-> +		return -EFAULT;
+> +	/* Check if SCTP_RCVINFO should be included */
+> +	if(sp->recvrcvinfo){
+> +		sctp_ulpevent_read_rcvinfo(event, msg);
 > +	}
-> +	sctp_sk(sk)->recvrcvinfo = (val == 0) ? 0 : 1;
-> +	return 0;
-> +}
 > +
-> +
-> +
->  /* API 6.2 setsockopt(), getsockopt()
->   *
->   * Applications use setsockopt() and getsockopt() to set or retrieve
-> @@ -3717,6 +3735,9 @@ static int sctp_setsockopt(struct sock *sk, int level, int optname,
->  	case SCTP_PEER_ADDR_THLDS:
->  		retval = sctp_setsockopt_paddr_thresholds(sk, optval, optlen);
->  		break;
-> +	case SCTP_RECVRCVINFO:
-> +		retval = sctp_setsockopt_recvrcvinfo(sk, optval, optlen);
-> +		break;
->  	default:
->  		retval = -ENOPROTOOPT;
->  		break;
-> @@ -3963,6 +3984,9 @@ static int sctp_init_sock(struct sock *sk)
->  	/* Enable Nagle algorithm by default.  */
->  	sp->nodelay           = 0;
->  
-> +	/* No SCTP_RECVRCVINFO by default. */
-> +	sp->recvrcvinfo = 0;
-> +
->  	/* Enable by default. */
->  	sp->v4mapped          = 1;
->  
-> @@ -5734,6 +5758,27 @@ static int sctp_getsockopt_assoc_stats(struct sock *sk, int len,
->  	return 0;
+>  	/* Check if we allow SCTP_SNDRCVINFO. */
+>  	if (sp->subscribe.sctp_data_io_event)
+>  		sctp_ulpevent_read_sndrcvinfo(event, msg);
+> diff --git a/net/sctp/ulpevent.c b/net/sctp/ulpevent.c
+> index 81089ed..d1b9a02 100644
+> --- a/net/sctp/ulpevent.c
+> +++ b/net/sctp/ulpevent.c
+> @@ -900,6 +900,97 @@ __u16 sctp_ulpevent_get_notification_type(const struct sctp_ulpevent *event)
+>  	return notification->sn_header.sn_type;
 >  }
 >  
-> +static int sctp_getsockopt_recvrcvinfo(struct sock *sk,
-> +		int len,
-> +		char __user *optval,
-> +		int __user *optlen){
+> +void sctp_ulpevent_read_rcvinfo(const struct sctp_ulpevent *event,
+> +		struct msghdr *msghdr)
+> +{
+> +	struct sctp_rcvinfo rinfo;
+> +
+> +	if (sctp_ulpevent_is_notification(event)){
+> +		return;
+> +	}
 > +
 
-Indent issue.
+As David Laight mentioned, the spec defines sctp_rcvinfo with a hole in it.
+To prevent passing kernel stack data to user space, you need to zero-out the
+data first.
 
 -vlad
 
-> +	int val;
+> +	/* Sockets API Extensions for SCTP
+> +	 * Section 5.3.5 SCTP Receive Information Structure (SCTP_SNDRCV)
+> +	 *
+> +	 * rcv_sid: 16 bits (unsigned integer)
+> +	 *
+> +	 * The SCTP stack places the message's stream number in this
+> +	 * value.
+> +	 */
+> +	rinfo.rcv_sid = event->stream;
 > +
-> +	if (len < sizeof(int))
-> +		return -EINVAL;
+> +	/* rcv_ssn: 16 bits (unsigned integer)
+> +	 * This value contains the stream sequence number that the
+> +	 * remote endpoint placed in the DATA chunk.  For fragmented
+> +	 * messages, this is the same number for all deliveries of the
+> +	 * message (if more than one recvmsg() is needed to read
+> +	 * the message)
+> +	 */
+> +	rinfo.rcv_ssn = event->ssn;
 > +
-> +	len = sizeof(int);
-> +	val = (sctp_sk(sk)->recvrcvinfo == 1);
-> +	if (put_user(len, optlen))
-> +		return -EFAULT;
-> +	if (copy_to_user(optval, &val, len))
-> +		return -EFAULT;
-> +	return 0;
+> +
+> +	/* rcv_ppid: 32 bits (unsigned integer)
+> +	 *
+> +	 * This value is the same information that was passed by the
+> +	 * upper layer in the peer application.  Please note that the SCTP
+> +	 * stack performs no byte order modification of this field.
+> +	 * For example, if the DATA chunk has to contain a given
+> +	 * value in network byte order, the SCTP user has to perform the
+> +	 * ntohl() computation.
+> +	 */
+> +	rinfo.rcv_ppid = event->ppid;
+> +
+> +	/* rcv_flags: 16 bits (unsigned integer)
+> +	 *
+> +	 * This field may contain any of the following flags and is composed of
+> +	 * a bitwise OR of these values.
+> +	 *
+> +	 * recvmsg() flags:
+> +	 *
+> +	 * SCTP_UNORDERED - This flag is present when the message was sent
+> +	 *                 non-ordered.
+> +	 */
+> +
+> +	rinfo.rcv_flags = event->flags;
+> +
+> +	/* rcv_tsn: 32 bits (unsigned integer)
+> +	 *
+> +	 * This field holds a TSN that was assigned to one of the SCTP
+> +	 * DATA chunks.
+> +	 */
+> +	rinfo.rcv_tsn = event->tsn;
+> +
+> +	/* rcv_cumtsn: 32 bits (unsigned integer)
+> +	 *
+> +	 * This field will hold the current cumulative TSN as known
+> +	 * by the underlying SCTP layer.
+> +	 */
+> +	rinfo.rcv_cumtsn = event->cumtsn;
+> +
+> +	/* rcv_assoc_id: sizeof (sctp_assoc_t)
+> +	 *
+> +	 * The association handle field, sinfo_assoc_id, holds the identifier
+> +	 * for the association announced in the COMMUNICATION_UP notification.
+> +	 * All notifications for a given association have the same identifier.
+> +	 * Ignored for one-to-one style sockets.
+> +	 */
+> +	rinfo.rcv_assoc_id = sctp_assoc2id(event->asoc);
+> +
+> +	/* rcv_context: 32 bits (unsigned integer)
+> +	 *
+> +	 * This value is an opaque 32-bit context datum that was
+> +	 * set by the user with the SCTP_CONTEXT socket option.  This
+> +	 * value is passed back to the upper layer if an error occurs on
+> +	 * the send of a message and is retrieved with each undelivered
+> +	 * message.
+> +	 */
+> +	rinfo.rcv_context = event->asoc->default_rcv_context;
+> +
+> +	put_cmsg(msghdr, IPPROTO_SCTP, SCTP_RCVINFO,
+> +			sizeof(struct sctp_rcvinfo), (void *)&rinfo);
 > +}
 > +
 > +
-> +
->  static int sctp_getsockopt(struct sock *sk, int level, int optname,
->  			   char __user *optval, int __user *optlen)
->  {
-> @@ -5877,6 +5922,9 @@ static int sctp_getsockopt(struct sock *sk, int level, int optname,
->  	case SCTP_GET_ASSOC_STATS:
->  		retval = sctp_getsockopt_assoc_stats(sk, len, optval, optlen);
->  		break;
-> +	case SCTP_RECVRCVINFO:
-> +		retval = sctp_getsockopt_recvrcvinfo(sk, len, optval, optlen);
-> +		break;
->  	default:
->  		retval = -ENOPROTOOPT;
->  		break;
+>  /* Copy out the sndrcvinfo into a msghdr.  */
+>  void sctp_ulpevent_read_sndrcvinfo(const struct sctp_ulpevent *event,
+>  				   struct msghdr *msghdr)
 > 
