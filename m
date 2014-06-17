@@ -1,54 +1,32 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 3/6] Support for SCTP_SNDINFO ancillary data
-Date: Tue, 17 Jun 2014 14:42:19 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1725DDDD@AcuExch.aculab.com>
-References: <1403006273-27859-1-git-send-email-geirola@gmail.com>
- <1403006273-27859-4-git-send-email-geirola@gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6D1725DC7D@AcuExch.aculab.com>
- <53A050B3.3060203@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
-To: 'Vlad Yasevich' <vyasevich@gmail.com>,
-	'Geir Ola Vaagland' <geirola@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+From: Geir Ola Vaagland <geirola@gmail.com>
+Subject: [PATCH net-next 0/6] A step closer to RFC 6458 compliancy
+Date: Tue, 17 Jun 2014 17:01:30 +0200
+Message-ID: <1403017296-28469-1-git-send-email-geirola@gmail.com>
+Cc: linux-sctp@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:52104 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S932973AbaFQOnc convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2014 10:43:32 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 30473-01 for <netdev@vger.kernel.org>;
- Tue, 17 Jun 2014 15:43:24 +0100 (BST)
-In-Reply-To: <53A050B3.3060203@gmail.com>
-Content-Language: en-US
+Received: from mail-lb0-f176.google.com ([209.85.217.176]:52480 "EHLO
+	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932999AbaFQPBm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2014 11:01:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich
-> On 06/17/2014 08:38 AM, David Laight wrote:
-> > From: Geir Ola Vaagland
-> > ...
-> >> +		case SCTP_SNDINFO:
-> >> +			/* SCTP Socket API Extension
-> >> +			 * 5.3.4 SCTP Send Information Structure (SCTP_SNDINFO)
-> >> +			 *
-> >> +			 * This cmsghdr structure specifies SCTP options for
-> >> +			 * sendmsg(). This structure and SCTP_RCVINFO replaces
-> >> +			 * SCTP_SNDRCV which has been depleted.
-> >
-> > What do you mean by 'depleted'?
-> 
-> I think he meant deprecated.
+These patches are part of my master thesis project. I have been searching for discrepancies between 
+the socket API specificiation in RFC 6458 and the current Linux SCTP implementation. The following 
+patches are my humble attempts at getting somewhat closer to compliancy. 
 
-Hmm.... that isn't going to work well, is it!
+Geir Ola Vaagland (6):
+  Support for SCTP_RECVRCVINFO socket option
+  Support for SCTP_RCVINFO ancillary data
+  Support for SCTP_SNDINFO ancillary data
+  Support for SCTP_NXTINFO socket option
+  Support for receiving SCTP_NXTINFO ancillary data
+  Support for SCTP_DEFAULT_SNDINFO socket option
 
-I presume the 'standard' only requires that the structure contain
-the required fields?
-Which probably means it could contain the required padding to make
-it binary compatible with the existing 'struct sctp_sndrcvinfo'
-(which also contains pad bytes!)
-
-	David
+ include/net/sctp/structs.h  |  11 +-
+ include/net/sctp/ulpevent.h |   4 +
+ include/uapi/linux/sctp.h   |  46 ++++++++
+ net/sctp/socket.c           | 260 ++++++++++++++++++++++++++++++++++++++++++--
+ net/sctp/ulpevent.c         | 158 +++++++++++++++++++++++++++
+ 5 files changed, 470 insertions(+), 9 deletions(-)
