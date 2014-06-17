@@ -1,40 +1,46 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: How is IPv6 dhcp supposed to work?
-Date: Tue, 17 Jun 2014 14:41:43 -0700
-Message-ID: <53A0B617.6070600@candelatech.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH V2 net-next] LISP: Locator/Identifier Separation Protocol
+Date: Tue, 17 Jun 2014 14:43:26 -0700
+Message-ID: <CA+mtBx-dvUa6cWj+4QZ00RdQc3qYb3tXf-74cSA89Xxegxv7-w@mail.gmail.com>
+References: <4D3092DF-BB04-4C50-88B9-EBBA349C7B17@logicalelegance.com>
+	<CA+mtBx9OdgWad6WJvNoUWreoyef9sd0AbHAsNWTSHaD1z=Tj8A@mail.gmail.com>
+	<5F3B797F-9DE9-43AC-91E1-C11B51DB2B2C@logicalelegance.com>
+	<CA+mtBx9-iJjuCrL2J+jzcnztvVJsFjccs_FKO1z33HRkSw2PRg@mail.gmail.com>
+	<D412AF6C-7930-48E1-B4AD-FB4E7588460E@logicalelegance.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	"Vina Ermagan (vermagan)" <vermagan@cisco.com>,
+	"Lorand Jakab -X (lojakab - M SQUARED CONSULTING INC. at Cisco)"
+	<lojakab@cisco.com>
+To: Christopher White <chris@logicalelegance.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.candelatech.com ([208.74.158.173]:46716 "EHLO
-	mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964931AbaFQVlo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2014 17:41:44 -0400
-Received: from [192.168.100.236] (firewall.candelatech.com [70.89.124.249])
-	(using TLSv1 with cipher DHE-RSA-CAMELLIA256-SHA (256/256 bits))
-	(No client certificate requested)
-	by mail2.candelatech.com (Postfix) with ESMTPSA id 6904740A5C4
-	for <netdev@vger.kernel.org>; Tue, 17 Jun 2014 14:41:43 -0700 (PDT)
+Received: from mail-ig0-f178.google.com ([209.85.213.178]:37167 "EHLO
+	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965209AbaFQVn0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2014 17:43:26 -0400
+Received: by mail-ig0-f178.google.com with SMTP id hn18so95044igb.5
+        for <netdev@vger.kernel.org>; Tue, 17 Jun 2014 14:43:26 -0700 (PDT)
+In-Reply-To: <D412AF6C-7930-48E1-B4AD-FB4E7588460E@logicalelegance.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm trying to understand how DHCP for ipv6 is supposed to work.
+On Tue, Jun 17, 2014 at 2:37 PM, Christopher White
+<chris@logicalelegance.com> wrote:
+>
+> On Jun 17, 2014, at 1:52 PM, Tom Herbert <therbert@google.com> wrote:
+>
+>
+> In udp.c perhaps? udp_tunnel_create_v4_sock()?
+>
+> It might make sense for this to udp_offload.c (along with
+> skb_udp_tunnel_segment).
+>
+>
+> skb_udp_tunnel_segment() is currently in udp.c, do you want me to move it to
+> udp_offload.c?
+>
+Yes, please do.
 
-I am able to get a global-scope address and prefix from
-dhclient, but dhclient is not providing a gateway address.
-
-I see the dhclient interface doing a Router Solicitation, but
-I don't see any answers.
-
-Are we supposed to run radvd or something like that as well?
-
-Or is there some other automated magic that is supposed to
-find the default gateway?
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+> -Chris
+>
