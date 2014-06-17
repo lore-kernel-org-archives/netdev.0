@@ -1,33 +1,41 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: pull request (net-next): ipsec-next 2014-05-22
-Date: Tue, 17 Jun 2014 06:46:59 +0200
-Message-ID: <20140617044659.GK32371@secunet.com>
-References: <1400749598-29603-1-git-send-email-steffen.klassert@secunet.com>
- <20140522.160026.2099363558788045248.davem@davemloft.net>
+From: Stefan Priebe - Profihost AG <s.priebe@profihost.ag>
+Subject: Re: netconsole breaks netpoll on bridge
+Date: Tue, 17 Jun 2014 08:06:58 +0200
+Message-ID: <539FDB02.2020700@profihost.ag>
+References: <539EE86E.6030806@profihost.ag> <CAHA+R7OrT+x_jvDeqKgFc=ndebhB6qwecJBcT5y0ZAA+hBCJ3Q@mail.gmail.com> <6B8712E6-8012-42C3-9D98-0EBD943F2894@profihost.ag> <CAHA+R7NUKXJhaX45+OQx3ufxrWjkjnhO84cNznbijOZWru7u6w@mail.gmail.com> <CE582178-E749-473F-9D88-E6D7789A3B73@profihost.ag> <CAHA+R7Ncr_96hcTCgnxWnjXpKvW09DWMZ7J_W4n3GK0VtEo9VA@mail.gmail.com> <835D3F57-EB3A-4D30-B19C-7CC987D06C55@profihost.ag> <20140616213019.GA31594@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <herbert@gondor.apana.org.au>, <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Cong Wang <cwang@twopensource.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	David Miller <davem@davemloft.net>,
+	"bridge@lists.linux-foundation.org"
+	<bridge@lists.linux-foundation.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:48224 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751353AbaFQErH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jun 2014 00:47:07 -0400
-Content-Disposition: inline
-In-Reply-To: <20140522.160026.2099363558788045248.davem@davemloft.net>
+Received: from mail-ph.de-nserver.de ([85.158.179.214]:39031 "EHLO
+	mail-ph.de-nserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755130AbaFQGHB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2014 02:07:01 -0400
+In-Reply-To: <20140616213019.GA31594@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 22, 2014 at 04:00:26PM -0400, David Miller wrote:
-> From: Steffen Klassert <steffen.klassert@secunet.com>
-> Date: Thu, 22 May 2014 11:06:35 +0200
+Am 16.06.2014 23:30, schrieb Francois Romieu:
+> Stefan Priebe - Profihost AG <s.priebe@profihost.ag> :
+> [...]
+>> That sounds great! Is there anything I can do or some code I can port to veth?
 > 
-> > This is the last ipsec pull request before I leave for
-> > a three weeks vacation tomorrow. David, can you please
-> > take urgent ipsec patches directly into net/net-next
-> > during this time?
+> You may add an empty handler for .ndo_poll_controller in drivers/net/veth.c
+> and give it a try on current kernel.
 > 
-> Ok, will do.
+> It should not be too bad.
+> 
+Why is an empty poll controller enough to fix it? This sounds a bit
+crazy to me.
 
-I'm back and continue to run the ipsec/ipsec-next tree.
-Thanks a lot for helping out!
+
+Greets,
+Stefan
