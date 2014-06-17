@@ -1,42 +1,62 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: Fw: [Bug 78161] New: Missing NULL check of the return value of
- nla_nest_start() in function sfb_dump()
-Date: Tue, 17 Jun 2014 14:31:36 -0700
-Message-ID: <CAHA+R7NY2g+tEeBXYPWaDRgrqq23Zo7uwV8PVFHAu0frprYYZw@mail.gmail.com>
-References: <20140617135211.2a768f1b@nehalam.linuxnetplumber.net>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH net] tcp: avoid multiple ssthresh reductions in on
+ retransmit window
+Date: Tue, 17 Jun 2014 14:35:23 -0700
+Message-ID: <CAK6E8=e=EoxMfGMFnO90MVfBWGmoua8=4ptG978-jfD2S-J8Fw@mail.gmail.com>
+References: <CAK6E8=dwh1btNzX80YNre9u7rS+SgochXxHxDhQYQZCvY8yVMQ@mail.gmail.com>
+ <20140616211954.6E12BA3A89@unicorn.suse.cz> <CAK6E8=dxszKmHssR7ib7Fxfm6hQRdbwBG1ygRvOXoSAXddBSPA@mail.gmail.com>
+ <CADVnQy=sd2V2A5Rzd+OtcH1a+un3-fATSn_acKdMKUcdbpGadg@mail.gmail.com>
+ <CAK6E8=fb0x5Z0dnA6PDbxJKYn3z1y42Pr555t7apLbT97R8O-Q@mail.gmail.com>
+ <CADVnQykk0pmryWdRjq21OXYK3Pvi5xWCkaB7Jf2acF5qtnzANg@mail.gmail.com> <20140617122038.GA7275@unicorn.suse.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: Neal Cardwell <ncardwell@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Michal Kubecek <mkubecek@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f53.google.com ([209.85.216.53]:55982 "EHLO
-	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965077AbaFQVbh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2014 17:31:37 -0400
-Received: by mail-qa0-f53.google.com with SMTP id j15so9703373qaq.40
-        for <netdev@vger.kernel.org>; Tue, 17 Jun 2014 14:31:36 -0700 (PDT)
-In-Reply-To: <20140617135211.2a768f1b@nehalam.linuxnetplumber.net>
+Received: from mail-ie0-f169.google.com ([209.85.223.169]:38261 "EHLO
+	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964852AbaFQVgD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2014 17:36:03 -0400
+Received: by mail-ie0-f169.google.com with SMTP id at1so7034415iec.28
+        for <netdev@vger.kernel.org>; Tue, 17 Jun 2014 14:36:03 -0700 (PDT)
+In-Reply-To: <20140617122038.GA7275@unicorn.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 17, 2014 at 1:52 PM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
-> Function nla_nest_start() may return a NULL pointer, and its return value shall
-> be checked before used. But in function sfb_dump() after nla_nest_start() is
-> called(at net/sched/sch_sfb.c:559), the return value is immediately used as a
-> parameter of nla_nest_end() without NULL check. Besides, there is no check
-> before the parameter is dereferenced in the callee function nla_nest_end(). So
-> an invalid memory access may be triggered.
-> The related code snippets in sfb_dump() are as following.
-> sfb_dump() @@net/sched/sch_sfb.c:559
-> 559         opts = nla_nest_start(skb, TCA_OPTIONS);
-> 560         NLA_PUT(skb, TCA_SFB_PARMS, sizeof(opt), &opt);
-> 561         return nla_nest_end(skb, opts);
+On Tue, Jun 17, 2014 at 5:20 AM, Michal Kubecek <mkubecek@suse.cz> wrote:
+> On Mon, Jun 16, 2014 at 08:44:04PM -0400, Neal Cardwell wrote:
+>> On Mon, Jun 16, 2014 at 8:25 PM, Yuchung Cheng <ycheng@google.com> wrote:
+>> > However Linux is inconsistent on the loss of a retransmission. It
+>> > reduces ssthresh (and cwnd) if this happens on a timeout, but not in
+>> > fast recovery (tcp_mark_lost_retrans). We should fix that and that
+>> > should help dealing with traffic policers.
+>>
+>> Yes, great point!
+>
+> Does it mean the patch itself would be acceptable if the reasoning in
+> its commit message was changed? Or would you prefer a different way to
+> unify the two situations?
 
-This was fixed by:
+It's the latter but it seems to belong to a different patch (and it'll
+not solve the problem you are seeing).
 
-commit 7ac2908e4b2edaec60e9090ddb4d9ceb76c05e7d
-Author: Alan Cox <alan@linux.intel.com>
-Date:   Thu Jul 12 03:39:11 2012 +0000
+The idea behind the RFC is that TCP should reduce cwnd and ssthresh
+across round trips of send, but not within an RTT. Suppose cwnd was
+10 on first timeout, so cwnd becomes 1 and ssthresh is 5. Then after 3
+round trips, we time out again. By the design of Reno this should
+reset cwnd from 8 to 1, and ssthresh from 5 to 2.5.
 
-    sch_sfb: Fix missing NULL check
+Of course this may not make sense in various cases. But it will be a
+design bug in the congestion control rather than an implementation bug
+in the loss recovery. We are seeing many similar issues where
+non-queue-overflow drops mess up CCs relying on ssthresh :(
+
+>
+>                                                         Michal Kubecek
+>
