@@ -1,42 +1,48 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 3/6] Support for SCTP_SNDINFO ancillary data
-Date: Tue, 17 Jun 2014 12:38:24 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1725DC7D@AcuExch.aculab.com>
-References: <1403006273-27859-1-git-send-email-geirola@gmail.com>
- <1403006273-27859-4-git-send-email-geirola@gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [GIT PULL nf] IPVS Fixes for v3.16
+Date: Tue, 17 Jun 2014 21:40:34 +0900
+Message-ID: <20140617124034.GB22424@verge.net.au>
+References: <1402645029-21756-1-git-send-email-horms@verge.net.au>
+ <20140616111115.GA25199@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-	Vlad Yasevich <vyasevich@gmail.com>
-To: 'Geir Ola Vaagland' <geirola@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:49653 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S932209AbaFQMji convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2014 08:39:38 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 03817-10 for <netdev@vger.kernel.org>;
- Tue, 17 Jun 2014 13:39:28 +0100 (BST)
-In-Reply-To: <1403006273-27859-4-git-send-email-geirola@gmail.com>
-Content-Language: en-US
+Received: from kirsty.vergenet.net ([202.4.237.240]:46196 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932555AbaFQMki (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2014 08:40:38 -0400
+Content-Disposition: inline
+In-Reply-To: <20140616111115.GA25199@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Geir Ola Vaagland
-...
-> +		case SCTP_SNDINFO:
-> +			/* SCTP Socket API Extension
-> +			 * 5.3.4 SCTP Send Information Structure (SCTP_SNDINFO)
-> +			 *
-> +			 * This cmsghdr structure specifies SCTP options for
-> +			 * sendmsg(). This structure and SCTP_RCVINFO replaces
-> +			 * SCTP_SNDRCV which has been depleted.
+On Mon, Jun 16, 2014 at 01:11:15PM +0200, Pablo Neira Ayuso wrote:
+> On Fri, Jun 13, 2014 at 04:37:08PM +0900, Simon Horman wrote:
+> > Hi Pablo,
+> > 
+> > Please consider this IPVS fix for v3.16.
+> > 
+> > Fix for panic due use of tot_stats estimator outside of CONFIG_SYSCTL
+> > 
+> > It has been present since v3.6.39.
+> > 
+> > I would like this fix considered for -stable and I have checked that it
+> > applies cleanly on top of v3.15, v3.14.7, v3.12.22, v3.10.43 and v3.2.60.
+> > 
+> > 
+> > The following changes since commit f44a5f45f544561302e855e7bd104e5f506ec01b:
+> > 
+> >   ipvs: Fix panic due to non-linear skb (2014-05-26 10:22:46 +0900)
+> > 
+> > are available in the git repository at:
+> > 
+> >   git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs.git ipvs-fixes-for-v3.16
+> 
+> Pulled, thanks Simon.
 
-What do you mean by 'depleted'?
-Support for it cannot be removed because it will break existing
-applications.
-
-	David
+Thanks!
