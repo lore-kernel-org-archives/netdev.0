@@ -1,15 +1,15 @@
 From: Geir Ola Vaagland <geirola@gmail.com>
-Subject: [PATCH net-next 5/6] Support for receiving SCTP_NXTINFO ancillary data
-Date: Tue, 17 Jun 2014 17:01:35 +0200
-Message-ID: <1403017296-28469-6-git-send-email-geirola@gmail.com>
+Subject: [PATCH net-next 3/6] Support for SCTP_SNDINFO ancillary data
+Date: Tue, 17 Jun 2014 17:01:33 +0200
+Message-ID: <1403017296-28469-4-git-send-email-geirola@gmail.com>
 References: <1403017296-28469-1-git-send-email-geirola@gmail.com>
 Cc: linux-sctp@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f45.google.com ([209.85.215.45]:61391 "EHLO
-	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933324AbaFQPBt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2014 11:01:49 -0400
+Received: from mail-lb0-f171.google.com ([209.85.217.171]:58219 "EHLO
+	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933261AbaFQPBq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2014 11:01:46 -0400
 In-Reply-To: <1403017296-28469-1-git-send-email-geirola@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -17,142 +17,164 @@ List-ID: <netdev.vger.kernel.org>
 CC: Vlad Yasevich <vyasevich@gmail.com>
 Signed-off-by: Geir Ola Vaagland <geirola@gmail.com>
 ---
- include/net/sctp/ulpevent.h |  2 ++
- net/sctp/socket.c           | 16 +++++++++--
- net/sctp/ulpevent.c         | 67 +++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 82 insertions(+), 3 deletions(-)
+ include/net/sctp/structs.h |  9 +++++++-
+ include/uapi/linux/sctp.h  | 19 +++++++++++++++++
+ net/sctp/socket.c          | 53 +++++++++++++++++++++++++++++++++++++++++-----
+ 3 files changed, 75 insertions(+), 6 deletions(-)
 
-diff --git a/include/net/sctp/ulpevent.h b/include/net/sctp/ulpevent.h
-index 2f42831..d15b835 100644
---- a/include/net/sctp/ulpevent.h
-+++ b/include/net/sctp/ulpevent.h
-@@ -133,6 +133,8 @@ void sctp_ulpevent_read_sndrcvinfo(const struct sctp_ulpevent *event,
- 	struct msghdr *);
- void sctp_ulpevent_read_rcvinfo(const struct sctp_ulpevent *event,
- 	struct msghdr *);
-+void sctp_ulpevent_read_nxtinfo(const struct sctp_ulpevent *event,
-+	struct msghdr *, struct sk_buff *);
- __u16 sctp_ulpevent_get_notification_type(const struct sctp_ulpevent *event);
+diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
+index 75c598a..5ed8a3c 100644
+--- a/include/net/sctp/structs.h
++++ b/include/net/sctp/structs.h
+@@ -1921,9 +1921,16 @@ struct sctp_chunk *sctp_get_ecne_prepend(struct sctp_association *asoc);
+ /* A convenience structure to parse out SCTP specific CMSGs. */
+ typedef struct sctp_cmsgs {
+ 	struct sctp_initmsg *init;
+-	struct sctp_sndrcvinfo *info;
++	union {
++		struct sctp_sndrcvinfo *srinfo;
++		struct sctp_sndinfo *sinfo;
++	} info;
++	sctp_cmsg_t cmsg_type;
+ } sctp_cmsgs_t;
  
- /* Is this event type enabled? */
++#define sr_info info.srinfo
++#define s_info info.sinfo
++
+ /* Structure for tracking memory objects */
+ typedef struct {
+ 	char *label;
+diff --git a/include/uapi/linux/sctp.h b/include/uapi/linux/sctp.h
+index 7e8736b..d725e30 100644
+--- a/include/uapi/linux/sctp.h
++++ b/include/uapi/linux/sctp.h
+@@ -156,6 +156,23 @@ struct sctp_sndrcvinfo {
+ 	__u32 sinfo_cumtsn;
+ 	sctp_assoc_t sinfo_assoc_id;
+ };
++/*
++ * 5.3.4 SCTP Send Information Structure (SCTP_SNDINFO)
++ *
++ *   This cmsghdr structure specifies SCTP options for sendmsg().
++ *
++ *   cmsg_level    cmsg_type      cmsg_data[]
++ *   ------------  ------------   -------------------
++ *   IPPROTO_SCTP  SCTP_SNDINFO   struct sctp_sndinfo
++ *
++ */
++struct sctp_sndinfo {
++	__u16 snd_sid;
++	__u16 snd_flags;
++	__u32 snd_ppid;
++	__u32 snd_context;
++	sctp_assoc_t snd_assoc_id;
++};
+ 
+ /*
+  *  5.3.5 SCTP Receive Information Structure (SCTP_RCVINFO)
+@@ -207,6 +224,8 @@ typedef enum sctp_cmsg_type {
+ #define SCTP_SNDRCV	SCTP_SNDRCV
+ 	SCTP_RCVINFO,
+ #define SCTP_RCVINFO SCTP_RCVINFO
++	SCTP_SNDINFO,
++#define SCTP_SNDINFO SCTP_SNDINFO
+ } sctp_cmsg_t;
+ 
+ /*
 diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 10e12da..57106e8 100644
+index aee161b..57657b6 100644
 --- a/net/sctp/socket.c
 +++ b/net/sctp/socket.c
-@@ -2061,11 +2061,11 @@ static int sctp_recvmsg(struct kiocb *iocb, struct sock *sk,
- 			struct msghdr *msg, size_t len, int noblock,
- 			int flags, int *addr_len)
- {
--	struct sctp_ulpevent *event = NULL;
-+	struct sctp_ulpevent *event = NULL, *nxt_event = NULL;
- 	struct sctp_sock *sp = sctp_sk(sk);
--	struct sk_buff *skb;
-+	struct sk_buff *skb, *nxtskb = NULL;
- 	int copied;
--	int err = 0;
-+	int err = 0, err2 = 0;
- 	int skb_len;
- 
- 	pr_debug("%s: sk:%p, msghdr:%p, len:%zd, noblock:%d, flags:0x%x, "
-@@ -2113,6 +2113,14 @@ static int sctp_recvmsg(struct kiocb *iocb, struct sock *sk,
- 		sctp_ulpevent_read_rcvinfo(event, msg);
+@@ -1648,10 +1648,21 @@ static int sctp_sendmsg(struct kiocb *iocb, struct sock *sk,
+ 		msg_name = msg->msg_name;
  	}
  
-+	if (sp->recvnxtinfo) {
-+		nxtskb = sctp_skb_recv_datagram(sk, MSG_PEEK, 1, &err2);
-+		if (nxtskb && nxtskb->len) {
-+			nxt_event = sctp_skb2event(nxtskb);
-+			sctp_ulpevent_read_nxtinfo(nxt_event, msg, nxtskb);
-+		}
+-	sinfo = cmsgs.info;
++	if (cmsgs.cmsg_type == SCTP_SNDINFO) {
++		memset(&default_sinfo, 0, sizeof(default_sinfo));
++		default_sinfo.sinfo_flags = cmsgs.s_info->snd_flags;
++		default_sinfo.sinfo_stream = cmsgs.s_info->snd_sid;
++		default_sinfo.sinfo_assoc_id = cmsgs.s_info->snd_assoc_id;
++		default_sinfo.sinfo_ppid = cmsgs.s_info->snd_ppid;
++		default_sinfo.sinfo_context = cmsgs.s_info->snd_context;
++		sinfo = &default_sinfo;
++	} else {
++		sinfo = cmsgs.sr_info;
 +	}
 +
- 	/* Check if we allow SCTP_SNDRCVINFO. */
- 	if (sp->subscribe.sctp_data_io_event)
- 		sctp_ulpevent_read_sndrcvinfo(event, msg);
-@@ -2162,6 +2170,8 @@ out_free:
- 		sctp_ulpevent_free(event);
- 	}
- out:
-+	if (nxtskb)
-+		kfree_skb(nxtskb);
- 	sctp_release_sock(sk);
- 	return err;
- }
-diff --git a/net/sctp/ulpevent.c b/net/sctp/ulpevent.c
-index d1b9a02..94da2b4 100644
---- a/net/sctp/ulpevent.c
-+++ b/net/sctp/ulpevent.c
-@@ -900,6 +900,73 @@ __u16 sctp_ulpevent_get_notification_type(const struct sctp_ulpevent *event)
- 	return notification->sn_header.sn_type;
- }
+ 	sinit = cmsgs.init;
  
-+void sctp_ulpevent_read_nxtinfo(const struct sctp_ulpevent *event,
-+		struct msghdr *msghdr, struct sk_buff *skb)
-+{
-+	struct sctp_nxtinfo nxtinfo;
+-	/* Did the user specify SNDRCVINFO?  */
++	/* Did the user specify SNDINFO/SNDRCVINFO?  */
+ 	if (sinfo) {
+ 		sinfo_flags = sinfo->sinfo_flags;
+ 		associd = sinfo->sinfo_assoc_id;
+@@ -1858,7 +1869,7 @@ static int sctp_sendmsg(struct kiocb *iocb, struct sock *sk,
+ 	pr_debug("%s: we have a valid association\n", __func__);
+ 
+ 	if (!sinfo) {
+-		/* If the user didn't specify SNDRCVINFO, make up one with
++		/* If the user didn't specify SNDINFO/SNDRCVINFO,
+ 		 * make up one with some defaults.
+ 		 */
+ 		memset(&default_sinfo, 0, sizeof(default_sinfo));
+@@ -1869,6 +1880,8 @@ static int sctp_sendmsg(struct kiocb *iocb, struct sock *sk,
+ 		default_sinfo.sinfo_timetolive = asoc->default_timetolive;
+ 		default_sinfo.sinfo_assoc_id = sctp_assoc2id(asoc);
+ 		sinfo = &default_sinfo;
++	} else {
++		sinfo->sinfo_timetolive = asoc->default_timetolive;
+ 	}
+ 
+ 	/* API 7.1.7, the sndbuf size per association bounds the
+@@ -6473,16 +6486,47 @@ static int sctp_msghdr_parse(const struct msghdr *msg, sctp_cmsgs_t *cmsgs)
+ 			    CMSG_LEN(sizeof(struct sctp_sndrcvinfo)))
+ 				return -EINVAL;
+ 
+-			cmsgs->info =
++			cmsgs->info.srinfo =
+ 				(struct sctp_sndrcvinfo *)CMSG_DATA(cmsg);
+ 
+ 			/* Minimally, validate the sinfo_flags. */
+-			if (cmsgs->info->sinfo_flags &
++			if (cmsgs->sr_info->sinfo_flags &
+ 			    ~(SCTP_UNORDERED | SCTP_ADDR_OVER |
+ 			      SCTP_ABORT | SCTP_EOF))
+ 				return -EINVAL;
+ 			break;
+ 
++		case SCTP_SNDINFO:
++			/* SCTP Socket API Extension
++			 * 5.3.4 SCTP Send Information Structure (SCTP_SNDINFO)
++			 *
++			 * This cmsghdr structure specifies SCTP options for
++			 * sendmsg(). This structure and SCTP_RCVINFO replaces
++			 * SCTP_SNDRCV which has been deprecated.
++			 *
++			 * cmsg_level    cmsg_type      cmsg_data[]
++			 * ------------  ------------   ---------------------
++			 * IPPROTO_SCTP  SCTP_SNDINFO    struct sctp_sndinfo
++			 */
++			if (cmsg->cmsg_len !=
++					CMSG_LEN(sizeof(struct sctp_sndinfo))) {
 +
++				return -EINVAL;
++			}
 +
-+	/* Sockets API Extensions for SCTP
-+	 * Section 5.3.6 SCTP Next Receive Information Structure (SCTP_NXTINFO)
-+	 *
-+	 * nxt_sid: 16 bits (unsigned integer)
-+	 *
-+	 * The SCTP stack places the next message's stream number in
-+	 * this value.
-+	 */
-+	nxtinfo.nxt_sid = event->stream;
++			/* SCTP_SENDALL should also be added here when
++			 * it is implemented
++			*/
++			cmsgs->info.sinfo =
++				(struct sctp_sndinfo *)CMSG_DATA(cmsg);
++			cmsgs->cmsg_type = SCTP_SNDINFO;
 +
-+	/* nxt_ppid: 32 bits (unsigned integer)
-+	 *
-+	 * This value is the same information that was passed by the
-+	 * upper layer in the peer application for the next message.  Please
-+	 * note  that the SCTP stack performs no byte order modification of
-+	 * this field.  For example, if the DATA chunk has to contain a given
-+	 * value in network byte order, the SCTP user has to perform the
-+	 * ntohl() computation.
-+	 */
-+	nxtinfo.nxt_ppid = event->ppid;
++			if (cmsgs->s_info->snd_flags &
++					~(SCTP_UNORDERED | SCTP_ADDR_OVER |
++						SCTP_ABORT | SCTP_EOF)){
++				return -EINVAL;
++			}
++			break;
 +
-+	/* nxt_flags: 16 bits (unsigned integer)
-+	 *
-+	 * This field may contain any of the following flags and is
-+	 * composed of a bitwise OR of these values.
-+	 */
-+	nxtinfo.nxt_flags = event->flags;
-+
-+
-+	/* SCTP_NOTIFICATION is not set in Linux yet.
-+	 *
-+	 * if (sctp_ulpevent_is_notification(event)){
-+	 *     nxtinfo.nxt_flags |= SCTP_NOTIFICATION;
-+	 * }
-+	 *
-+	 */
-+
-+	/* nxt_length: 32 bits (unsigned integer)
-+	 *
-+	 * This value is the length of the message currently within
-+	 * the socket buffer.  This might NOT be the entire length of the
-+	 * message, since a partial delivery may be in progress.  Only if the
-+	 * flag SCTP_COMPLETE is set in the nxt_flags field does this field
-+	 * represent the size of the entire next message.
-+	 */
-+	nxtinfo.nxt_length = skb->len;
-+
-+	/* nxt_assoc_id: sizeof(sctp_assoc_t)
-+	 * The association handle field of the next message,
-+	 * nxt_assoc_id, holds the identifier for the association
-+	 * announced in the SCTP_COMM_UP notification.  All
-+	 * notifications for a given association have the same
-+	 * identifier.  This field is ignored for one-to-one style
-+	 * sockets.
-+	 */
-+	nxtinfo.nxt_assoc_id = sctp_assoc2id(event->asoc);
-+
-+	put_cmsg(msghdr, IPPROTO_SCTP, SCTP_NXTINFO,
-+			sizeof(struct sctp_nxtinfo), (void *)&nxtinfo);
-+}
-+
- void sctp_ulpevent_read_rcvinfo(const struct sctp_ulpevent *event,
- 		struct msghdr *msghdr)
- {
+ 		default:
+ 			return -EINVAL;
+ 		}
