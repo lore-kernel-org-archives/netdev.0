@@ -1,29 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ptp: ptp_pch depends on x86_32
-Date: Tue, 17 Jun 2014 15:44:03 -0700 (PDT)
-Message-ID: <20140617.154403.435352200906683933.davem@davemloft.net>
-References: <20140617115920.677401c3@endymion.delvare>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Can not remove FAILED neigh entry??
+Date: Tue, 17 Jun 2014 16:12:28 -0700
+Message-ID: <CAHA+R7MqbSNaegwwEiGwmgWKtE_ZkGy6-NoHzZJV2RMK5uiPbw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, richardcochran@gmail.com
-To: jdelvare@suse.de
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57381 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965557AbaFQWoE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2014 18:44:04 -0400
-In-Reply-To: <20140617115920.677401c3@endymion.delvare>
+Received: from mail-qa0-f49.google.com ([209.85.216.49]:62404 "EHLO
+	mail-qa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751718AbaFQXM3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2014 19:12:29 -0400
+Received: by mail-qa0-f49.google.com with SMTP id w8so44027qac.8
+        for <netdev@vger.kernel.org>; Tue, 17 Jun 2014 16:12:28 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jean Delvare <jdelvare@suse.de>
-Date: Tue, 17 Jun 2014 11:59:20 +0200
+Hi, all
 
-> The ptp_pch driver is for a companion chip to the Intel Atom E600
-> series processors. These are 32-bit x86 processors so the driver is
-> only needed on X86_32.
-> 
-> Signed-off-by: Jean Delvare <jdelvare@suse.de>
 
-Applied, thanks.
+I am wondering if the following behavior is expected, I can't
+manually delete or flush a neigh entry:
+
+[root@localhost ~]# ip -s -s neigh show
+192.168.122.1 dev eth0 lladdr 52:54:00:5e:f5:1e used 22/22/5 probes 4 STALE
+[root@localhost ~]#
+[root@localhost ~]# ip neigh del 192.168.122.1 dev eth0
+[root@localhost ~]# ip -s -s neigh show
+192.168.122.1 dev eth0  used 34/34/17 probes 4 FAILED
+[root@localhost ~]# ip -s -s neigh flush all
+Nothing to flush.
+[root@localhost ~]# ip -s -s neigh show
+192.168.122.1 dev eth0  used 42/42/26 probes 4 FAILED
+[root@localhost ~]# sleep 60
+[root@localhost ~]# ip -s -s neigh show
+192.168.122.1 dev eth0  used 130/130/113 probes 4 FAILED
+
+I thought it would timeout (gc_stale_time) after it becomes FAILED,
+but apparently it is still there after a long time. If this is what we expect,
+then what's the right way to remove an entry from a neigh table manually?
+
+
+Thanks!
