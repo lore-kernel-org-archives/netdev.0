@@ -1,71 +1,55 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [PATCH] net: fec: remove HW IP header checksum for IPV6 frame
-Date: Tue, 17 Jun 2014 17:31:21 +0100
-Message-ID: <20140617163121.GM23430@n2100.arm.linux.org.uk>
-References: <1402993895-10955-1-git-send-email-b38611@freescale.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: Device Tree Binding for Marvell DSA on P1023RDB
+Date: Tue, 17 Jun 2014 09:44:58 -0700
+Message-ID: <CAGVrzcY-khbCM3rB5qsNSq2Y+ekeH-4RyW-A-3+Di1MUVhXy4w@mail.gmail.com>
+References: <539F1B3F.6060203@xsmail.com> <539F1B8E.30503@xsmail.com>
+ <CAGVrzcbxBE0yk5J1Pvkz5Yx+ugHTBjRSTLsvN9NACt20vjmgjw@mail.gmail.com> <539FE2FC.4020105@xsmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Fugang Duan <b38611@freescale.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Pannirselvam Kanagaratnam <pannir@xsmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:33102 "EHLO
-	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S964847AbaFQQbj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2014 12:31:39 -0400
-Content-Disposition: inline
-In-Reply-To: <1402993895-10955-1-git-send-email-b38611@freescale.com>
+Received: from mail-oa0-f53.google.com ([209.85.219.53]:64340 "EHLO
+	mail-oa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965229AbaFQQpj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2014 12:45:39 -0400
+Received: by mail-oa0-f53.google.com with SMTP id l6so9036402oag.40
+        for <netdev@vger.kernel.org>; Tue, 17 Jun 2014 09:45:38 -0700 (PDT)
+In-Reply-To: <539FE2FC.4020105@xsmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 17, 2014 at 04:31:35PM +0800, Fugang Duan wrote:
-> The commit 96c50caa5148 (net: fec: Enable IP header hardware checksum)
-> enable HW IP header checksum for IPV4 and IPV6, which causes IPV6 TCP/UDP
-> cannot work. (The issue is reported by Russell King)
-> 
-> The reason is that FEC HW IP cannot detect the transmit frame type (can
-> detect received frame type), and treats all packets as IPv4, overwrites
-> the point in the packet which would be the IPv4 checksum field. Since IPV6
-> don't have IP header checksum, so this results in the frame being corrupted.
-> 
-> The patch just add software detect the current packet type, if it is IPV6
-> frame, it don't enable IP header checksum.
-> 
-> Cc: Russell King <linux@arm.linux.org.uk>
-> Signed-off-by: Fugang Duan <B38611@freescale.com>
-> ---
->  drivers/net/ethernet/freescale/fec_main.c |   36 +++++++++++++++++++++-------
->  1 files changed, 27 insertions(+), 9 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-> index 38d9d27..c13185a 100644
-> --- a/drivers/net/ethernet/freescale/fec_main.c
-> +++ b/drivers/net/ethernet/freescale/fec_main.c
-> @@ -320,6 +320,11 @@ static void *swap_buffer(void *bufaddr, int len)
->  	return bufaddr;
->  }
->  
-> +static inline bool is_ipv4_pkt(struct sk_buff *skb)
-> +{
-> +	return skb->protocol == htons(ETH_P_IP) && ip_hdr(skb)->version == 4;
-> +}
-> +
->  static int
->  fec_enet_clear_csum(struct sk_buff *skb, struct net_device *ndev)
->  {
-> @@ -330,7 +335,8 @@ fec_enet_clear_csum(struct sk_buff *skb, struct net_device *ndev)
->  	if (unlikely(skb_cow_head(skb, 0)))
->  		return -1;
->  
-> -	ip_hdr(skb)->check = 0;
-> +	if (is_ipv4_pkt(skb))
-> +		ip_hdr(skb)->check = 0;
->  	*(__sum16 *)(skb->head + skb->csum_start + skb->csum_offset) = 0;
->  
->  	return 0;
+On Jun 16, 2014 11:41 PM, "Pannirselvam Kanagaratnam" <pannir@xsmail.com> wrote:
+>
+>
+> On 17/06/2014 12:38 AM, Florian Fainelli wrote:
+>>
+>> 2014-06-16 9:30 GMT-07:00 Pannirselvam Kanagaratnam <pannir@xsmail.com>:
+>> Distributed Switch Architecture driver version 0.1
+>> dsa: probe of dsa.16 failed with error -22
+>> This error might not come from dsa_of_probe(), please instrument the
+>> code where -EINVAL is returned to see exactly which part of the
+>> probing code is failing.
+>
+>
+> The error is coming from:
+>
+> dev = dev_to_net_device(pd->netdev);
+> if (dev == NULL) {
+>                 ret = -EINVAL;
+>                 goto out;
+>         }
 
-As I suspected, just applying the above two hunks fixes the problem
-I was seeing.
+Ok, I could not find which Freescale Ethernet driver you are using,
+but my guess is that we cannot look up the struct net_device that is
+associated with the struct platform_device of your network driver,
+most likely because the network driver failed to call
+SET_NETDEV_DEV(). Also, if your Ethernet driver is modular, that might
+be a problem if it get probed after DSA.
 
--- 
-FTTC broadband for 0.8mile line: now at 9.7Mbps down 460kbps up... slowly
-improving, and getting towards what was expected from it.
+>
+> Is my device tree ok?
+
+It is.
+--
+Florian
