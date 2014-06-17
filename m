@@ -1,138 +1,114 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: [GIT] Networking
-Date: Mon, 16 Jun 2014 19:42:54 -0400
-Message-ID: <20140616234254.GA15332@redhat.com>
-References: <20140615.193312.2155181077359902619.davem@davemloft.net>
- <20140616230450.GA12887@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	therbert@google.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56764 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751438AbaFPXnG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 16 Jun 2014 19:43:06 -0400
-Content-Disposition: inline
-In-Reply-To: <20140616230450.GA12887@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
+Subject: [PATCH v6 0/4] net: Add APM X-Gene SoC Ethernet driver support
+Date: Mon, 16 Jun 2014 17:18:42 -0700
+Message-ID: <1402964326-11147-1-git-send-email-isubramanian@apm.com>
+Cc: gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	patches-qTEPVZfXA3Y@public.gmane.org, Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>,
+	Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>, Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 16, 2014 at 07:04:50PM -0400, Dave Jones wrote:
- > On Sun, Jun 15, 2014 at 07:33:12PM -0700, David Miller wrote:
- > 
- >  > 1) Fix checksumming regressions, from Tom Herbert.
- > 
- > Something still not right for me here.
- > After about 5 minutes, I get an oops and then instant reboot/lock up.
- > 
- > I haven't managed to get a trace over usb-serial because it seems to
- > crash before it completes. Hand transcribed one looks like..
- > 
- > rbp: ffff880236403970 r08: 0000000000000000 r09: 0000000000000000
- > r10: 000000000000005a r11: 00000000000002d7 f12: ffff880233000d80
- > r13: ffff8800aa1a6fc2 r14: ffff880233001d40 f15: 00000000ffffac82
- > fs: 0 fs: ffff880236400000 knlGS: 0
- > CS: 10 DS: 0 ES: 0 CR0: 80050033
- > CR2: ffff8800aa1a8000 CR3: 1a0d000 CR4: 407f0
- > Stack:
- >  ffff880236403988 ffffffff81298bbc 00000000000016c0 ffff8802364039e8
- >  ffffffff814ca05a ffff880233001d40 000005a80000e397 ffff880233001680
- >  0000000000000000 0d420685ffffac82 000000000000012a 000000000000004e
- > Call Trace:
- > <IRQ>
- > csum_partial
- > tcp_gso_segment
- > inet_gso_segment
- > ? update_dl_migration
- > skb_mac_gso_segment
- > __skb_gso_segment
- > dev_hard_start_xmit
- > sch_direct_xmit
- > __dev_queue_xmit
- > ? dev_hard_start_xmit
- > dev_queue_xmit
- > ip_finish_output
- > ? ip_output
- > ip_output
- > ip_forward_finish
- > ip_forward
- > ip_rcv_finish
- > ip_rcv
- > __netif_receive_skb_core
- > ? __netif_receive_skb_core
- > ? trace_hardirqs_on
- > __netif_receive_skb
- > netif_receive_skb_internal
- > napi_gro_complete
- > ? napi_gro_complete
- > dev_gro_receive
- > ? dev_gro_receive
- > napi_gro_receive
- > rtl8169_poll
- > net_rx_action
- > __do_softirq
- > irq_exit
- > do_IRQ
- > common_interrupt
- > <EOI>
- > cpuidle_enter_state
- > cpuidle_enter
- > cpu_startup_entry
- > rest_init
- > ? csum_partial_copy_generic
- > start_kernel
- > RIP: do_csum+0x83/0x180
- > 
- > Code: 41 89 d2 74 45 89 d1 45 31 c0 48 89 fa 0f 1f 00 48 03 02 48 13 42
- > 08 48 13 42 10 48 13 42 20 48 13 42 28 48 13 42 30 <48> 13 42 38 4c 11
- > c0 48 83 c2 40 83 e9 01 75 d5 41 83 ea 01 49
- > 
- > All code
- > ========
- >    0:	41 89 d2             	mov    %edx,%r10d
- >    3:	74 45                	je     0x4a
- >    5:	89 d1                	mov    %edx,%ecx
- >    7:	45 31 c0             	xor    %r8d,%r8d
- >    a:	48 89 fa             	mov    %rdi,%rdx
- >    d:	0f 1f 00             	nopl   (%rax)
- >   10:	48 03 02             	add    (%rdx),%rax
- >   13:	48 13 42 08          	adc    0x8(%rdx),%rax
- >   17:	48 13 42 10          	adc    0x10(%rdx),%rax
- >   1b:	48 13 42 20          	adc    0x20(%rdx),%rax
- >   1f:	48 13 42 28          	adc    0x28(%rdx),%rax
- >   23:	48 13 42 30          	adc    0x30(%rdx),%rax
- >   27:*	48 13 42 38          	adc    0x38(%rdx),%rax     <-- trapping instruction
- >   2b:	4c 11 c0             	adc    %r8,%rax
- >   2e:	48 83 c2 40          	add    $0x40,%rdx
- >   32:	83 e9 01             	sub    $0x1,%ecx
- >   35:	75 d5                	jne    0xc
- >   37:	41 83 ea 01          	sub    $0x1,%r10d
- >   3b:	49                   	rex.WB
- > 
- > Typical, rdx and rax had scrolled off the screen.
+Adding APM X-Gene SoC Ethernet driver.
 
-after removing the dump_stack invocations, I noticed that the reason
-this is rebooting is probably because right after the initial oops
-we hit the WARN_ON at arch/x86/kernel/smp.c:124
+v6: Address comments from v5 review
+* added basic ethtool support
+* added ndo_get_stats64 call back
+* deleted priting Rx error messages
+* renamed set_bits to xgene_set_bits to fix kbuild error (make ARCH=powerpc)
 
-        if (unlikely(cpu_is_offline(cpu))) {
-                WARN_ON(1);
-                return;
-        }
+v5: Address comments from v4 review
+* Documentation: Added phy-handle, reg-names and changed mdio part
+* dtb: Added reg-names supplemental property
+* changed platform_get_resource to platform_get_resource_byname
+* added separate tx/rx set_desc/get_desc functions to do raw_write/raw_read
+* removed set_desc/get_desc table lookup logic
+* added error handling logic based on per packet descriptor bits
+* added software managed Rx packet and error counters
+* added busy wait for register read/writes
+* changed mdio_bus->id to avoid conflict
+* fixed mdio_bus leak in case of mdio_config error
+* changed phy reg hard coded value to MII_BMSR
+* changed phy addr hard coded value to phy_device->addr
+* added paranthesis around macro arguments
+* converted helper macros to inline functions
+* changed use of goto's only to common work such as cleanup
 
-lol.
+v4: Address comments from v3 review
+* MAINTAINERS: changed status to supported
+* Kconfig: made default to no
+* changed to bool data type wherever applicable
+* cleaned up single bit set and masking code
+* removed statistics counters masking
+* removed unnecessary OOM message printing
+* fixed dma_map_single and dma_unmap_single size parameter
+* changed set bits macro body using new set_bits function
 
-Anwyay, before all that nonsense, I now have the top of the oops..
+v3: Address comments from v2 review
+* cleaned up set_desc and get_desc functions
+* added dtb mdio node and phy-handle subnode
+* renamed dtb phy-mode to phy-connection-type
+* added of_phy_connect call to connec to PHY
+* added empty line after last local variable declaration
+* removed type casting when not required
+* removed inline keyword from source files
+* removed CONFIG_CPU_BIG_ENDIAN ifdef
 
-BUG: unable to handle kernel paging request at ffff880218c18000
-IP: do_csum+0x68
-PGD: 2c6a067 PUD: 2c6d067 PMD 23fd1c067 PTE: 80000000218c18060
-RAX: 2090539bbf7b28f2 RBX: 00000000acb23d4e RCX: 000000000000000b
-RDX: ffff880218c18000 RSI: 0000000000001c62 RDI: ffff880218c16680
+v2
+* Completely redesigned ethernet driver
+* Added support to work with big endian kernel
+* Renamed dtb phyid entry to phy_addr
+* Changed dtb local-mac-address entry to byte string format
+* Renamed dtb eth8clk entry to menetclk
 
-Maybe also notable here is that the kernel is built with DEBUG_PAGEALLOC on.
+v1
+* Initial version
 
-	Dave
+Signed-off-by: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
+Signed-off-by: Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>
+Signed-off-by: Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>
+---
+
+Iyappan Subramanian (4):
+  MAINTAINERS: Add entry for APM X-Gene SoC ethernet driver
+  Documentation: dts: Add bindings for APM X-Gene SoC ethernet driver
+  dts: Add bindings for APM X-Gene SoC ethernet driver
+  drivers: net: Add APM X-Gene SoC ethernet driver support.
+
+ .../devicetree/bindings/net/apm-xgene-enet.txt     |  72 ++
+ MAINTAINERS                                        |   8 +
+ arch/arm64/boot/dts/apm-mustang.dts                |   4 +
+ arch/arm64/boot/dts/apm-storm.dtsi                 |  30 +-
+ drivers/net/ethernet/Kconfig                       |   1 +
+ drivers/net/ethernet/Makefile                      |   1 +
+ drivers/net/ethernet/apm/Kconfig                   |   1 +
+ drivers/net/ethernet/apm/Makefile                  |   5 +
+ drivers/net/ethernet/apm/xgene/Kconfig             |   9 +
+ drivers/net/ethernet/apm/xgene/Makefile            |   6 +
+ .../net/ethernet/apm/xgene/xgene_enet_ethtool.c    | 125 +++
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.c     | 848 +++++++++++++++++++
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.h     | 394 +++++++++
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c   | 937 +++++++++++++++++++++
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.h   | 109 +++
+ 15 files changed, 2547 insertions(+), 3 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/apm-xgene-enet.txt
+ create mode 100644 drivers/net/ethernet/apm/Kconfig
+ create mode 100644 drivers/net/ethernet/apm/Makefile
+ create mode 100644 drivers/net/ethernet/apm/xgene/Kconfig
+ create mode 100644 drivers/net/ethernet/apm/xgene/Makefile
+ create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_ethtool.c
+ create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
+ create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
+ create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+ create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_main.h
+
+-- 
+1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
