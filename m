@@ -1,34 +1,56 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] vmxnet3: adjust ring sizes when interface is down
-Date: Mon, 16 Jun 2014 21:26:55 -0700 (PDT)
-Message-ID: <20140616.212655.977321958825501859.davem@davemloft.net>
-References: <1402668201-26628-1-git-send-email-nhorman@tuxdriver.com>
+Subject: Re: [PATCH 1/2] slip: Fix deadlock in write_wakeup
+Date: Mon, 16 Jun 2014 21:29:54 -0700 (PDT)
+Message-ID: <20140616.212954.1788116276092825753.davem@davemloft.net>
+References: <1402885397-21062-1-git-send-email-tylerwhall@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sbhatewara@vmware.com,
-	pv-drivers@vmware.com
-To: nhorman@tuxdriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51254 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751040AbaFQE06 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2014 00:26:58 -0400
-In-Reply-To: <1402668201-26628-1-git-send-email-nhorman@tuxdriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, socketcan@hartkopp.net, nautsch2@gmail.com,
+	linux-kernel@vger.kernel.org
+To: tylerwhall@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1402885397-21062-1-git-send-email-tylerwhall@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Fri, 13 Jun 2014 10:03:21 -0400
+From: Tyler Hall <tylerwhall@gmail.com>
+Date: Sun, 15 Jun 2014 22:23:16 -0400
 
-> If ethtool is used to update ring sizes on a vmxnet3 interface that isn't
-> running, the change isn't stored, meaning the ring update is effectively is
-> ignored and lost without any indication to the user.
+> Use schedule_work() to avoid potentially taking the spinlock in
+> interrupt context.
 > 
-> Other network drivers store the ring size update so that ring allocation uses
-> the new sizes next time the interface is brought up.  This patch modifies
-> vmxnet3 to behave this way as well
+> Commit cc9fa74e2a ("slip/slcan: added locking in wakeup function") added
+> necessary locking to the wakeup function and 367525c8c2/ddcde142be ("can:
+> slcan: Fix spinlock variant") converted it to spin_lock_bh() because the lock
+> is also taken in timers.
 > 
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> Disabling softirqs is not sufficient, however, as tty drivers may call
+> write_wakeup from interrupt context. This driver calls tty->ops->write() with
+> its spinlock held, which may immediately cause an interrupt on the same CPU and
+> subsequent spin_bug().
+> 
+> Simply converting to spin_lock_irq/irqsave() prevents this deadlock, but
+> causes lockdep to point out a possible circular locking dependency
+> between these locks:
+> 
+> (&(&sl->lock)->rlock){-.....}, at: slip_write_wakeup
+> (&port_lock_key){-.....}, at: serial8250_handle_irq.part.13
+> 
+> The slip transmit is holding the slip spinlock when calling the tty write.
+> This grabs the port lock. On an interrupt, the handler grabs the port
+> lock and calls write_wakeup which grabs the slip lock. This could be a
+> problem if a serial interrupt occurs on another CPU during the slip
+> transmit.
+> 
+> To deal with these issues, don't grab the lock in the wakeup function by
+> deferring the writeout to a workqueue. Also hold the lock during close
+> when de-assigning the tty pointer to safely disarm the worker and
+> timers.
+> 
+> This bug is easily reproducible on the first transmit when slip is
+> used with the standard 8250 serial driver.
+ ...
+> Signed-off-by: Tyler Hall <tylerwhall@gmail.com>
 
-This is fine, applied, thanks Neil.
+Applied and queued up for -stable.
