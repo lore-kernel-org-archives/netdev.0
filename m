@@ -1,9 +1,9 @@
 From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 2/6] Support for SCTP_RCVINFO ancillary data
-Date: Tue, 17 Jun 2014 12:36:42 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1725DC64@AcuExch.aculab.com>
+Subject: RE: [PATCH net-next 3/6] Support for SCTP_SNDINFO ancillary data
+Date: Tue, 17 Jun 2014 12:38:24 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1725DC7D@AcuExch.aculab.com>
 References: <1403006273-27859-1-git-send-email-geirola@gmail.com>
- <1403006273-27859-3-git-send-email-geirola@gmail.com>
+ <1403006273-27859-4-git-send-email-geirola@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="Windows-1252"
 Content-Transfer-Encoding: 8BIT
@@ -12,34 +12,31 @@ Cc: "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
 To: 'Geir Ola Vaagland' <geirola@gmail.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:49599 "HELO mx0.aculab.com"
+Received: from mx0.aculab.com ([213.249.233.131]:49653 "HELO mx0.aculab.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S932209AbaFQMhy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2014 08:37:54 -0400
+	id S932209AbaFQMji convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2014 08:39:38 -0400
 Received: from mx0.aculab.com ([127.0.0.1])
  by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 02047-06 for <netdev@vger.kernel.org>;
- Tue, 17 Jun 2014 13:37:46 +0100 (BST)
-In-Reply-To: <1403006273-27859-3-git-send-email-geirola@gmail.com>
+ id 03817-10 for <netdev@vger.kernel.org>;
+ Tue, 17 Jun 2014 13:39:28 +0100 (BST)
+In-Reply-To: <1403006273-27859-4-git-send-email-geirola@gmail.com>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Geir Ola Vaagland
 ...
-> +struct sctp_rcvinfo {
-> +	__u16 rcv_sid;
-> +	__u16 rcv_ssn;
-> +	__u16 rcv_flags;
-> +	__u32 rcv_ppid;
-> +	__u32 rcv_tsn;
-> +	__u32 rcv_cumtsn;
-> +	__u32 rcv_context;
-> +	sctp_assoc_t rcv_assoc_id;
-> +};
+> +		case SCTP_SNDINFO:
+> +			/* SCTP Socket API Extension
+> +			 * 5.3.4 SCTP Send Information Structure (SCTP_SNDINFO)
+> +			 *
+> +			 * This cmsghdr structure specifies SCTP options for
+> +			 * sendmsg(). This structure and SCTP_RCVINFO replaces
+> +			 * SCTP_SNDRCV which has been depleted.
 
-There are two pad bytes in the middle of the above.
-You leak kernel data to userspace.
+What do you mean by 'depleted'?
+Support for it cannot be removed because it will break existing
+applications.
 
-...
 	David
