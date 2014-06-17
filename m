@@ -1,55 +1,49 @@
-From: KY Srinivasan <kys@microsoft.com>
-Subject: RE: hyperv: fix apparent cut-n-paste error in send path teardown
-Date: Tue, 17 Jun 2014 10:13:25 +0000
-Message-ID: <1c8d2b180c6c45e09f41282904ebdb1c@BY2PR03MB299.namprd03.prod.outlook.com>
-References: <20140616205902.GA7331@redhat.com>
+From: Mirko Lindner <mlindner@marvell.com>
+Subject: [PATCH net-next] Added FS A8NE-FM to the list of 32bit DMA boards
+Date: Tue, 17 Jun 2014 12:53:39 +0200
+Message-ID: <53A01E33.7000905@marvell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: Dave Jones <davej@redhat.com>,
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+To: "David S. Miller" <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1lp0145.outbound.protection.outlook.com ([207.46.163.145]:30157
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751994AbaFQK3C convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2014 06:29:02 -0400
-In-Reply-To: <20140616205902.GA7331@redhat.com>
-Content-Language: en-US
+Received: from mx0a-0016f401.pphosted.com ([67.231.148.174]:23825 "EHLO
+	mx0a-0016f401.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753304AbaFQKxm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2014 06:53:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Added FUJITSU SIEMENS A8NE-FM to the list of 32bit DMA boards
 
+>From Tomi O.:
+After I added an entry to this MB into the skge.c
+driver in order to enable the mentioned 64bit dma disable quirk,
+the network data corruptions ended and everything is fine again.
 
-> -----Original Message-----
-> From: Dave Jones [mailto:davej@redhat.com]
-> Sent: Monday, June 16, 2014 1:59 PM
-> To: netdev@vger.kernel.org
-> Cc: KY Srinivasan
-> Subject: hyperv: fix apparent cut-n-paste error in send path teardown
-> 
-> c25aaf814a63: "hyperv: Enable sendbuf mechanism on the send path" added
-> some teardown code that looks like it was copied from the recieve path
-> above, but missed a variable name replacement.
+Signed-off-by: Mirko Lindner <mlindner@marvell.com>
+---
+ drivers/net/ethernet/marvell/skge.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
 
-Thank you.
-
-K. Y
-> 
-> Signed-off-by: Dave Jones <davej@redhat.com>
-> 
-> diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c index
-> c041f63a6d30..4ed38eaecea8 100644
-> --- a/drivers/net/hyperv/netvsc.c
-> +++ b/drivers/net/hyperv/netvsc.c
-> @@ -189,7 +189,7 @@ static int netvsc_destroy_buf(struct netvsc_device
-> *net_device)
->  				   "unable to teardown send buffer's
-> gpadl\n");
->  			return ret;
->  		}
-> -		net_device->recv_buf_gpadl_handle = 0;
-> +		net_device->send_buf_gpadl_handle = 0;
->  	}
->  	if (net_device->send_buf) {
->  		/* Free up the receive buffer */
+diff --git a/drivers/net/ethernet/marvell/skge.c b/drivers/net/ethernet/marvell/skge.c
+index 7f81ae6..e912b68 100644
+--- a/drivers/net/ethernet/marvell/skge.c
++++ b/drivers/net/ethernet/marvell/skge.c
+@@ -4199,6 +4199,13 @@ static struct dmi_system_id skge_32bit_dma_boards[] = {
+ 			DMI_MATCH(DMI_BOARD_NAME, "P5NSLI")
+ 		},
+ 	},
++	{
++		.ident = "FUJITSU SIEMENS A8NE-FM",
++		.matches = {
++			DMI_MATCH(DMI_BOARD_VENDOR, "ASUSTek Computer INC."),
++			DMI_MATCH(DMI_BOARD_NAME, "A8NE-FM")
++		},
++	},
+ 	{}
+ };
+ 
+-- 
+1.8.4.5
