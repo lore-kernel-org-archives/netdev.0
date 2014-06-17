@@ -1,57 +1,82 @@
-From: Wei Yang <weiyang@linux.vnet.ibm.com>
-Subject: Re: [PATCH 3.14-stable] net/mlx4_core: Preserve pci_dev_data after
- __mlx4_remove_one()
-Date: Tue, 17 Jun 2014 11:08:49 +0800
-Message-ID: <20140617030849.GA12893@richard>
-References: <1401607475-8367-1-git-send-email-weiyang@linux.vnet.ibm.com>
- <20140617024951.GB7886@richard>
- <20140616.200348.1292584099498677236.davem@davemloft.net>
-Reply-To: Wei Yang <weiyang@linux.vnet.ibm.com>
+From: Sasha Levin <sasha.levin@oracle.com>
+Subject: Re: mm/sched/net: BUG when running simple code
+Date: Mon, 16 Jun 2014 23:17:55 -0400
+Message-ID: <539FB363.1070302@oracle.com>
+References: <539A6850.4090408@oracle.com> <20140613032754.GA20729@gmail.com> <539A77A1.60700@oracle.com> <20140613041331.GA31688@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: weiyang@linux.vnet.ibm.com, netdev@vger.kernel.org,
-	bhelgaas@google.com, amirv@mellanox.com, jackm@dev.mellanox.co.il,
-	ogerlitz@mellanox.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e23smtp05.au.ibm.com ([202.81.31.147]:47478 "EHLO
-	e23smtp05.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754046AbaFQDJE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2014 23:09:04 -0400
-Received: from /spool/local
-	by e23smtp05.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <weiyang@linux.vnet.ibm.com>;
-	Tue, 17 Jun 2014 13:08:56 +1000
-Received: from d23relay04.au.ibm.com (d23relay04.au.ibm.com [9.190.234.120])
-	by d23dlp03.au.ibm.com (Postfix) with ESMTP id 570E93578048
-	for <netdev@vger.kernel.org>; Tue, 17 Jun 2014 13:08:52 +1000 (EST)
-Received: from d23av01.au.ibm.com (d23av01.au.ibm.com [9.190.234.96])
-	by d23relay04.au.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s5H2qd3a29556832
-	for <netdev@vger.kernel.org>; Tue, 17 Jun 2014 12:52:40 +1000
-Received: from d23av01.au.ibm.com (localhost [127.0.0.1])
-	by d23av01.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s5H38odB005823
-	for <netdev@vger.kernel.org>; Tue, 17 Jun 2014 13:08:51 +1000
-Content-Disposition: inline
-In-Reply-To: <20140616.200348.1292584099498677236.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: Dave Jones <davej@redhat.com>, Dan Aloni <dan@kernelim.com>,
+        "linux-mm@kvack.org" <linux-mm@kvack.org>,
+        Andrew Morton <akpm@linux-foundation.org>,
+        Ingo Molnar <mingo@kernel.org>, Peter Zijlstra <peterz@infradead.org>,
+        LKML <linux-kernel@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20140613041331.GA31688@redhat.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 16, 2014 at 08:03:48PM -0700, David Miller wrote:
->From: Wei Yang <weiyang@linux.vnet.ibm.com>
->Date: Tue, 17 Jun 2014 10:49:51 +0800
->
->> I saw the fix for the crash during reboot is merged in mainline, while I am
->> not sure how to check these backport is merged in the stable tree(not familiar
->> to check it in stable tree.)
->> 
->> Do you suggest me to include that fix and send these backport again? Or?
->
->I haven't gotten around to working with your backports, it's in my queue.
+On 06/13/2014 12:13 AM, Dave Jones wrote:
+> On Fri, Jun 13, 2014 at 12:01:37AM -0400, Sasha Levin wrote:
+>  > On 06/12/2014 11:27 PM, Dan Aloni wrote:
+>  > > On Thu, Jun 12, 2014 at 10:56:16PM -0400, Sasha Levin wrote:
+>  > >> > Hi all,
+>  > >> > 
+>  > >> > Okay, I'm really lost. I got the following when fuzzing, and can't really explain what's
+>  > >> > going on. It seems that we get a "unable to handle kernel paging request" when running
+>  > >> > rather simple code, and I can't figure out how it would cause it.
+>  > > [..]
+>  > >> > Which agrees with the trace I got:
+>  > >> > 
+>  > >> > [  516.309720] BUG: unable to handle kernel paging request at ffffffffa0f12560
+>  > >> > [  516.309720] IP: netlink_getsockopt (net/netlink/af_netlink.c:2271)
+>  > > [..]
+>  > >> > [  516.309720] RIP netlink_getsockopt (net/netlink/af_netlink.c:2271)
+>  > >> > [  516.309720]  RSP <ffff8803fc85fed8>
+>  > >> > [  516.309720] CR2: ffffffffa0f12560
+>  > >> > 
+>  > >> > They only theory I had so far is that netlink is a module, and has gone away while the code
+>  > >> > was executing, but netlink isn't a module on my kernel.
+>  > > The RIP - 0xffffffffa0f12560 is in the range (from Documentation/x86/x86_64/mm.txt):
+>  > > 
+>  > >     ffffffffa0000000 - ffffffffff5fffff (=1525 MB) module mapping space
+>  > > 
+>  > > So seems it was in a module.
+>  > 
+>  > Yup, that's why that theory came up, but when I checked my config:
+>  > ... 
+>  > that theory went away. (also confirmed by not finding a netlink module.)
+>  > 
+>  > What about the kernel .text overflowing into the modules space? The loader
+>  > checks for that, but can something like that happen after everything is
+>  > up and running? I'll look into that tomorrow.
+> 
+> another theory: Trinity can sometimes generate plausible looking module
+> addresses and pass those in structs etc.
+> 
+> I wonder if there's somewhere in that path that isn't checking that the address
+> in the optval it got is actually a userspace address before it tries to write to it.
 
-Oh, got it :-)
+It happened again, and this time I've left the kernel addresses in, and it's quite
+interesting:
 
-If any issue, please let me know.
+[   88.837926] Call Trace:
+[   88.837926]  [<ffffffff9ff6a792>] __sock_create+0x292/0x3c0
+[   88.837926]  [<ffffffff9ff6a610>] ? __sock_create+0x110/0x3c0
+[   88.837926]  [<ffffffff9ff6a920>] sock_create+0x30/0x40
+[   88.837926]  [<ffffffff9ff6ad4c>] SyS_socket+0x2c/0x70
+[   88.837926]  [<ffffffffa0561c30>] ? tracesys+0x7e/0xe6
+[   88.837926]  [<ffffffffa0561c93>] tracesys+0xe1/0xe6
 
--- 
-Richard Yang
-Help you, Help me
+tracesys() seems to live inside a module space here?
+
+
+Thanks,
+Sasha
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
