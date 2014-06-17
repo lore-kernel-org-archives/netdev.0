@@ -1,55 +1,45 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: SCTP data chunk bundling when SCTP_NODELAY is set
-Date: Tue, 17 Jun 2014 14:17:06 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1725DD38@AcuExch.aculab.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH net-next 3/6] Support for SCTP_SNDINFO ancillary data
+Date: Tue, 17 Jun 2014 10:29:07 -0400
+Message-ID: <53A050B3.3060203@gmail.com>
+References: <1403006273-27859-1-git-send-email-geirola@gmail.com> <1403006273-27859-4-git-send-email-geirola@gmail.com> <063D6719AE5E284EB5DD2968C1650D6D1725DC7D@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>,
+	'Geir Ola Vaagland' <geirola@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:51485 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S932316AbaFQOST convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2014 10:18:19 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 24495-04 for <netdev@vger.kernel.org>;
- Tue, 17 Jun 2014 15:18:11 +0100 (BST)
-Content-Language: en-US
+Received: from mail-qg0-f48.google.com ([209.85.192.48]:63259 "EHLO
+	mail-qg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932410AbaFQO3L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2014 10:29:11 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1725DC7D@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If SCTP_NODELAY is set it is difficult to get SCTP to bundle
-data chunks into ethernet packets.
-This leads to very high packet rates which bundling could easily
-reduce by a factor or 8 or 10.
+On 06/17/2014 08:38 AM, David Laight wrote:
+> From: Geir Ola Vaagland
+> ...
+>> +		case SCTP_SNDINFO:
+>> +			/* SCTP Socket API Extension
+>> +			 * 5.3.4 SCTP Send Information Structure (SCTP_SNDINFO)
+>> +			 *
+>> +			 * This cmsghdr structure specifies SCTP options for
+>> +			 * sendmsg(). This structure and SCTP_RCVINFO replaces
+>> +			 * SCTP_SNDRCV which has been depleted.
+> 
+> What do you mean by 'depleted'?
 
-Nagle can't really be enabled because it generates unwanted delays
-when traffic is light (Nagle only really works for unidirectional bulk
-data and command-response when the messages are smaller than the mtu).
+I think he meant deprecated.
 
-Even if the sending application knows it has more data to send,
-there isn't much it can do to get the chunks bundled.
+-vlad
 
-AFAICT 'corking' the socket even stops full sized packets being
-sent - so the application will deadlock if the socket write
-buffer size is reached before the socket is 'uncorked'.
-This also means that the application can't send back to back
-full sized packets unless it uncorks the socket at exactly
-the right places.
-
-MSG_MORE isn't supported by SCTP, but I'm not sure it would help.
-You really need a MSG_NO_MORE flag and to leave Nagle enabled.
-
-About the only thing I can think of is to normally have Nagle
-enabled, and then perform the following sequence to force the
-buffered data chunks be sent:
-1) disable Nagle
-2) cork the socket
-3) uncork the socket
-4) enable Nagle
-Four socket calls is a little excessive!
-
-Any other ideas ?
-
-	David
+> Support for it cannot be removed because it will break existing
+> applications.
+> 
+> 	David
+> 
+> 
+> 
