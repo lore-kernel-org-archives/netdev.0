@@ -1,73 +1,80 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: How is IPv6 dhcp supposed to work?
-Date: Tue, 17 Jun 2014 17:34:31 -0500
-Message-ID: <1403044471.16272.20.camel@dcbw.local>
-References: <53A0B617.6070600@candelatech.com>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [PATCH net] tcp: avoid multiple ssthresh reductions in on
+ retransmit window
+Date: Wed, 18 Jun 2014 00:42:41 +0200
+Message-ID: <20140617224241.GA17969@unicorn.suse.cz>
+References: <CAK6E8=dwh1btNzX80YNre9u7rS+SgochXxHxDhQYQZCvY8yVMQ@mail.gmail.com>
+ <20140616211954.6E12BA3A89@unicorn.suse.cz>
+ <CAK6E8=dxszKmHssR7ib7Fxfm6hQRdbwBG1ygRvOXoSAXddBSPA@mail.gmail.com>
+ <CADVnQy=sd2V2A5Rzd+OtcH1a+un3-fATSn_acKdMKUcdbpGadg@mail.gmail.com>
+ <CAK6E8=fb0x5Z0dnA6PDbxJKYn3z1y42Pr555t7apLbT97R8O-Q@mail.gmail.com>
+ <CADVnQykk0pmryWdRjq21OXYK3Pvi5xWCkaB7Jf2acF5qtnzANg@mail.gmail.com>
+ <20140617122038.GA7275@unicorn.suse.cz>
+ <CAK6E8=e=EoxMfGMFnO90MVfBWGmoua8=4ptG978-jfD2S-J8Fw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Neal Cardwell <ncardwell@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Yuchung Cheng <ycheng@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37574 "EHLO mx1.redhat.com"
+Received: from cantor2.suse.de ([195.135.220.15]:33300 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S966286AbaFQWed (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jun 2014 18:34:33 -0400
-In-Reply-To: <53A0B617.6070600@candelatech.com>
+	id S966474AbaFQWmp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jun 2014 18:42:45 -0400
+Content-Disposition: inline
+In-Reply-To: <CAK6E8=e=EoxMfGMFnO90MVfBWGmoua8=4ptG978-jfD2S-J8Fw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-06-17 at 14:41 -0700, Ben Greear wrote:
-> I'm trying to understand how DHCP for ipv6 is supposed to work.
+On Tue, Jun 17, 2014 at 02:35:23PM -0700, Yuchung Cheng wrote:
+> On Tue, Jun 17, 2014 at 5:20 AM, Michal Kubecek <mkubecek@suse.cz> wrote:
+> > On Mon, Jun 16, 2014 at 08:44:04PM -0400, Neal Cardwell wrote:
+> >> On Mon, Jun 16, 2014 at 8:25 PM, Yuchung Cheng <ycheng@google.com> wrote:
+> >> > However Linux is inconsistent on the loss of a retransmission. It
+> >> > reduces ssthresh (and cwnd) if this happens on a timeout, but not in
+> >> > fast recovery (tcp_mark_lost_retrans). We should fix that and that
+> >> > should help dealing with traffic policers.
+> >>
+> >> Yes, great point!
+> >
+> > Does it mean the patch itself would be acceptable if the reasoning in
+> > its commit message was changed? Or would you prefer a different way to
+> > unify the two situations?
 > 
-> I am able to get a global-scope address and prefix from
-> dhclient, but dhclient is not providing a gateway address.
+> It's the latter but it seems to belong to a different patch (and it'll
+> not solve the problem you are seeing).
 
-That's because it doesn't; DHCPv6 isn't supposed to be used standalone
-for global IPv6 connectivity.  That's what router advertisements are
-for.  The normal flow is this:
+OK, thank you. I guess we will have to persuade them to move to cubic
+which handles their problems much better.
 
-1) your router advertisement provides your prefix, prefix length (eg
-subnet mask), and default gateway/router
+> The idea behind the RFC is that TCP should reduce cwnd and ssthresh
+> across round trips of send, but not within an RTT. Suppose cwnd was
+> 10 on first timeout, so cwnd becomes 1 and ssthresh is 5. Then after 3
+> round trips, we time out again. By the design of Reno this should
+> reset cwnd from 8 to 1, and ssthresh from 5 to 2.5.
 
-2) your prefix gets combined with your local Interface Identifier (often
-your MAC address or a hashed version of your MAC, or delivered via PPP,
-or hashed InfiniBand port GUID, or GRE tunnel address, etc) to provide
-your global IPv6 address.  See
-net/ipv6/addrconf.c::ipv6_generate_eui64().
+Shouldn't that be from 5 to 4? We reduce ssthresh to half of current
+cwnd, not current ssthresh.
 
-3) the RA can also provide search domains, DNS servers, routes, MTU,
-etc.
+BtW, this is exactly the problem our customer is facing: they have
+relatively fast line (15 Mb/s) but with big buffers so that the
+roundtrip times can rise from unloaded 35 ms up to something like 1.5 s
+under full load.
 
-4) if there's anything else your administrator really wants to use DHCP
-for (NTP servers, etc) then they set the M (Managed) or O (Other Config)
-bits in the router advertisement.
+What happens is this: cwnd initally rises to ~2100 then first drops
+are encountered, cwnd is set to 1 and ssthresh to ~1050. The slow start
+lets cwnd reach ssthresh but after that, a slow linear growth follows.
+In this state, all in-flight packets are dropped (simulation of what
+happens on router switchover) so that cwnd is reset to 1 again and
+ssthresh to something like 530-550 (cwnd was a bit higher than ssthresh).
+If a packet loss comes shortly after that, cwnd is still very low and
+ssthresh is reduced to half of that cwnd (i.e. much lower than to half
+of ssthresh). If unlucky, one can even end up with ssthresh reduced to 2
+which takes really long to recover from.
 
-5) In both cases, that requests that the client run DHCPv6; in M mode
-you do get a lease from the DHCP server and that address becomes
-preferred, in the O case no lease is obtained but other options can be
-delivered
-
-6) In all cases, the default gateways (and their respective priorities)
-are always delivered by Router Advertisements; there can be multiple
-default gateways in the broadcast domain for redundancy, and the network
-administrator sets their relative priority.
-
-> I see the dhclient interface doing a Router Solicitation, but
-> I don't see any answers.
-> 
-> Are we supposed to run radvd or something like that as well?
-
-Yes.  If you're not using static addressing, then you must run radvd to
-deliver router advertisements to your network.  See 'man radvd.conf' for
-more information on configuring the additional options that DHCP used to
-be used for (RDNSS, DNSSL, AdvLinkMTU, route, etc).
-
-> Or is there some other automated magic that is supposed to
-> find the default gateway?
-
-Router Advertisements via radvd.  You probably want to evaluate whether
-you really need DHCPv6 at all, since RA can deliver most of the options
-that people use DHCP for.
-
-Dan
+                                                        Michal Kubecek
