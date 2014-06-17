@@ -1,46 +1,33 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH V2 net-next] LISP: Locator/Identifier Separation Protocol
-Date: Tue, 17 Jun 2014 14:43:26 -0700
-Message-ID: <CA+mtBx-dvUa6cWj+4QZ00RdQc3qYb3tXf-74cSA89Xxegxv7-w@mail.gmail.com>
-References: <4D3092DF-BB04-4C50-88B9-EBBA349C7B17@logicalelegance.com>
-	<CA+mtBx9OdgWad6WJvNoUWreoyef9sd0AbHAsNWTSHaD1z=Tj8A@mail.gmail.com>
-	<5F3B797F-9DE9-43AC-91E1-C11B51DB2B2C@logicalelegance.com>
-	<CA+mtBx9-iJjuCrL2J+jzcnztvVJsFjccs_FKO1z33HRkSw2PRg@mail.gmail.com>
-	<D412AF6C-7930-48E1-B4AD-FB4E7588460E@logicalelegance.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] net/nxp/lpc_eth: use devm_ functions
+Date: Tue, 17 Jun 2014 15:31:14 -0700 (PDT)
+Message-ID: <20140617.153114.745988923921147057.davem@davemloft.net>
+References: <20140613180356.GA8582@himangi-Dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	"Vina Ermagan (vermagan)" <vermagan@cisco.com>,
-	"Lorand Jakab -X (lojakab - M SQUARED CONSULTING INC. at Cisco)"
-	<lojakab@cisco.com>
-To: Christopher White <chris@logicalelegance.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f178.google.com ([209.85.213.178]:37167 "EHLO
-	mail-ig0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965209AbaFQVn0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2014 17:43:26 -0400
-Received: by mail-ig0-f178.google.com with SMTP id hn18so95044igb.5
-        for <netdev@vger.kernel.org>; Tue, 17 Jun 2014 14:43:26 -0700 (PDT)
-In-Reply-To: <D412AF6C-7930-48E1-B4AD-FB4E7588460E@logicalelegance.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	julia.lawall@lip6.fr
+To: himangi774@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140613180356.GA8582@himangi-Dell>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 17, 2014 at 2:37 PM, Christopher White
-<chris@logicalelegance.com> wrote:
->
-> On Jun 17, 2014, at 1:52 PM, Tom Herbert <therbert@google.com> wrote:
->
->
-> In udp.c perhaps? udp_tunnel_create_v4_sock()?
->
-> It might make sense for this to udp_offload.c (along with
-> skb_udp_tunnel_segment).
->
->
-> skb_udp_tunnel_segment() is currently in udp.c, do you want me to move it to
-> udp_offload.c?
->
-Yes, please do.
+From: Himangi Saraogi <himangi774@gmail.com>
+Date: Fri, 13 Jun 2014 23:33:56 +0530
 
-> -Chris
->
+> The various devm_ functions allocate memory that is released when a
+> driver detaches. This patch uses dmam_alloc_coherent, devm_ioremap
+> devm_clk_get etc. for data that is allocated in the probe function of
+> platform device and is only freed in the remove function. The
+> corresponding free functions are removed and many labels are done
+> away with.
+> 
+> Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
+> Acked-by: Julia Lawall <julia.lawall@lip6.fr>
+> ---
+> v2: undo use of devm_request_irq
+> Not compile tested
+
+This doesn't apply cleanly to any of my trees.
