@@ -1,88 +1,1109 @@
-From: Octavian Purdila <octavian.purdila@intel.com>
-Subject: [PATCH net-next] tcp: move ir_mark initialization to tcp_openreq_init
-Date: Tue, 17 Jun 2014 11:25:37 +0300
-Message-ID: <1402993537-6411-1-git-send-email-octavian.purdila@intel.com>
-Cc: Octavian Purdila <octavian.purdila@intel.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:49574 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932074AbaFQIZo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 17 Jun 2014 04:25:44 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next v1 1/3] ieee802154:
+ cc2520: adds driver for TI CC2520 radio
+Date: Tue, 17 Jun 2014 10:41:44 +0200
+Message-ID: <20140617084141.GA28358@omega>
+References: <1402989298-8898-1-git-send-email-varkab@cdac.in>
+	<1402989298-8898-2-git-send-email-varkab@cdac.in>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, Varka Bhadram <varkab-If5XQcfNmg0@public.gmane.org>
+To: Varka Bhadram <varkabhadram-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1402989298-8898-2-git-send-email-varkab-If5XQcfNmg0@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-ir_mark initialization is done for both TCP v4 and v6, move it in the
-common tcp_openreq_init function.
+Hi Varka,
 
-Signed-off-by: Octavian Purdila <octavian.purdila@intel.com>
----
- include/net/tcp.h   | 3 ++-
- net/ipv4/tcp_ipv4.c | 3 +--
- net/ipv6/tcp_ipv6.c | 3 +--
- 3 files changed, 4 insertions(+), 5 deletions(-)
+you are on v2 not v1. :-)
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 7286db8..06a3023 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1098,7 +1098,7 @@ static inline int tcp_full_space(const struct sock *sk)
- 
- static inline void tcp_openreq_init(struct request_sock *req,
- 				    struct tcp_options_received *rx_opt,
--				    struct sk_buff *skb)
-+				    struct sk_buff *skb, struct sock *sk)
- {
- 	struct inet_request_sock *ireq = inet_rsk(req);
- 
-@@ -1117,6 +1117,7 @@ static inline void tcp_openreq_init(struct request_sock *req,
- 	ireq->ecn_ok = 0;
- 	ireq->ir_rmt_port = tcp_hdr(skb)->source;
- 	ireq->ir_num = ntohs(tcp_hdr(skb)->dest);
-+	ireq->ir_mark = inet_request_mark(sk, skb);
- }
- 
- extern void tcp_openreq_init_rwin(struct request_sock *req,
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 77cccda..180336d 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1311,14 +1311,13 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
- 		tcp_clear_options(&tmp_opt);
- 
- 	tmp_opt.tstamp_ok = tmp_opt.saw_tstamp;
--	tcp_openreq_init(req, &tmp_opt, skb);
-+	tcp_openreq_init(req, &tmp_opt, skb, sk);
- 
- 	ireq = inet_rsk(req);
- 	ireq->ir_loc_addr = daddr;
- 	ireq->ir_rmt_addr = saddr;
- 	ireq->no_srccheck = inet_sk(sk)->transparent;
- 	ireq->opt = tcp_v4_save_options(skb);
--	ireq->ir_mark = inet_request_mark(sk, skb);
- 
- 	if (security_inet_conn_request(sk, skb, req))
- 		goto drop_and_free;
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 229239a..08ae3da 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1025,7 +1025,7 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
- 		tcp_clear_options(&tmp_opt);
- 
- 	tmp_opt.tstamp_ok = tmp_opt.saw_tstamp;
--	tcp_openreq_init(req, &tmp_opt, skb);
-+	tcp_openreq_init(req, &tmp_opt, skb, sk);
- 
- 	ireq = inet_rsk(req);
- 	ireq->ir_v6_rmt_addr = ipv6_hdr(skb)->saddr;
-@@ -1034,7 +1034,6 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
- 		TCP_ECN_create_request(req, skb, sock_net(sk));
- 
- 	ireq->ir_iif = sk->sk_bound_dev_if;
--	ireq->ir_mark = inet_request_mark(sk, skb);
- 
- 	/* So that link locals have meaning */
- 	if (!sk->sk_bound_dev_if &&
--- 
-1.8.3.2
+On Tue, Jun 17, 2014 at 12:44:56PM +0530, Varka Bhadram wrote:
+> This patch adds the driver support for TI cc2520 radio.
+> 
+> Few points about CC2520:
+> 	- The CC2520 is TI's second generation IEEE 802.15.4 RF transceiver 
+> 	for the 2.4 GHz unlicensed ISM band.
+> 	- DSSS baseband modem with 250 kbps data rate
+> 	- Programmable output power up to +5 dBm
+> 	- Excellent receiver sensitivity (-98 dBm)
+> 
+
+I meant here more what the driver supports... not what the Transceiver
+hardware supports.
+
+> Signed-off-by: Varka Bhadram <varkab-If5XQcfNmg0@public.gmane.org>
+> ---
+>  drivers/net/ieee802154/cc2520.c |  966 +++++++++++++++++++++++++++++++++++++++
+>  include/linux/spi/cc2520.h      |   26 ++
+>  2 files changed, 992 insertions(+)
+>  create mode 100644 drivers/net/ieee802154/cc2520.c
+>  create mode 100644 include/linux/spi/cc2520.h
+> 
+> diff --git a/drivers/net/ieee802154/cc2520.c b/drivers/net/ieee802154/cc2520.c
+> new file mode 100644
+> index 0000000..7e6afe3
+> --- /dev/null
+> +++ b/drivers/net/ieee802154/cc2520.c
+> @@ -0,0 +1,966 @@
+> +/* Driver for TI CC2520 802.15.4 Wireless-PAN Networking controller
+> + *
+> + * Copyright (C) 2014 Varka Bhadram <varkab-If5XQcfNmg0@public.gmane.org>
+> + *		      Md.Jamal Mohiuddin <mjmohiuddin-If5XQcfNmg0@public.gmane.org>
+> + *		      P Sowjanya <sowjanyap-If5XQcfNmg0@public.gmane.org>
+> + *
+> + * This program is free software; you can redistribute it and/or modify
+> + * it under the terms of the GNU General Public License as published by
+> + * the Free Software Foundation; either version 2 of the License, or
+> + * (at your option) any later version.
+> + *
+> + */
+> +
+> +#include <linux/kernel.h>
+> +#include <linux/module.h>
+> +#include <linux/gpio.h>
+> +#include <linux/delay.h>
+> +#include <linux/spi/spi.h>
+> +#include <linux/spi/cc2520.h>
+> +#include <linux/workqueue.h>
+> +#include <linux/interrupt.h>
+> +
+> +#include <linux/skbuff.h>
+> +
+> +#include <linux/pinctrl/consumer.h>
+> +
+> +#include <linux/of_device.h>
+> +#include <linux/of_platform.h>
+> +#include <linux/of_gpio.h>
+> +
+> +#include <net/mac802154.h>
+> +#include <net/wpan-phy.h>
+> +
+> +#define	SPI_COMMAND_BUFFER	3
+> +#define	HIGH			1
+> +#define	LOW			0
+> +#define	STATE_IDLE		0
+> +#define RSSI_VALID		0
+> +#define RSSI_OFFSET		78
+> +
+> +#define CC2520_RAM_SIZE		640
+> +#define CC2520_FIFO_SIZE	128
+> +
+> +#define CC2520RAM_TXFIFO	0x100,
+> +#define CC2520RAM_RXFIFO	0x180,
+> +#define CC2520RAM_IEEEADDR	0x3EA,
+> +#define CC2520RAM_PANID		0x3F2,
+> +#define CC2520RAM_SHORTADDR	0x3F4,
+> +
+> +#define CC2520_FREG_MASK	0x3F
+> +
+> +/*status byte values */
+> +#define	CC2520_STATUS_XOSC32M_STABLE	(1 << 7)
+> +#define	CC2520_STATUS_RSSI_VALID	(1 << 6)
+> +#define	CC2520_STATUS_TX_UNDERFLOW	(1 << 3)
+> +
+> +/*IEEE 802.15.4 defined constants (2.4 GHz logical channels) */
+> +#define CC2520_MINCHANNEL		11
+> +#define CC2520_MAXCHANNEL		26
+> +#define CC2520_CHANNEL_SPACING		5
+> +
+> +/*command strobes*/
+> +#define	CC2520_CMD_SNOP			0x00
+> +#define	CC2520_CMD_IBUFLD		0x02
+> +#define	CC2520_CMD_SIBUFEX		0x03
+> +#define	CC2520_CMD_SSAMPLECCA		0x04
+> +#define	CC2520_CMD_SRES			0x0f
+> +#define	CC2520_CMD_MEMORY_MASK		0x0f
+> +#define	CC2520_CMD_MEMORY_READ		0x10
+> +#define	CC2520_CMD_MEMORY_WRITE		0x20
+> +#define	CC2520_CMD_RXBUF		0x30
+> +#define	CC2520_CMD_RXBUFCP		0x38
+> +#define	CC2520_CMD_RXBUFMOV		0x32
+> +#define	CC2520_CMD_TXBUF		0x3A
+> +#define	CC2520_CMD_TXBUFCP		0x3E
+> +#define	CC2520_CMD_RANDOM		0x3C
+> +#define	CC2520_CMD_SXOSCON		0x40
+> +#define	CC2520_CMD_STXCAL		0x41
+> +#define	CC2520_CMD_SRXON		0x42
+> +#define	CC2520_CMD_STXON		0x43
+> +#define	CC2520_CMD_STXONCCA		0x44
+> +#define	CC2520_CMD_SRFOFF		0x45
+> +#define	CC2520_CMD_SXOSCOFF		0x46
+> +#define	CC2520_CMD_SFLUSHRX		0x47
+> +#define	CC2520_CMD_SFLUSHTX		0x48
+> +#define	CC2520_CMD_SACK			0x49
+> +#define	CC2520_CMD_SACKPEND		0x4A
+> +#define	CC2520_CMD_SNACK		0x4B
+> +#define	CC2520_CMD_SRXMASKBITSET	0x4C
+> +#define	CC2520_CMD_SRXMASKBITCLR	0x4D
+> +#define	CC2520_CMD_RXMASKAND		0x4E
+> +#define	CC2520_CMD_RXMASKOR		0x4F
+> +#define	CC2520_CMD_MEMCP		0x50
+> +#define	CC2520_CMD_MEMCPR		0x52
+> +#define	CC2520_CMD_MEMXCP		0x54
+> +#define	CC2520_CMD_MEMXWR		0x56
+> +#define	CC2520_CMD_BCLR			0x58
+> +#define	CC2520_CMD_BSET			0x59
+> +#define	CC2520_CMD_CTR_UCTR		0x60
+> +#define	CC2520_CMD_CBCMAC		0x64
+> +#define	CC2520_CMD_UCBCMAC		0x66
+> +#define	CC2520_CMD_CCM			0x68
+> +#define	CC2520_CMD_UCCM			0x6A
+> +#define	CC2520_CMD_ECB			0x70
+> +#define	CC2520_CMD_ECBO			0x72
+> +#define	CC2520_CMD_ECBX			0x74
+> +#define	CC2520_CMD_INC			0x78
+> +#define	CC2520_CMD_ABORT		0x7F
+> +#define	CC2520_CMD_REGISTER_READ	0x80
+> +#define	CC2520_CMD_REGISTER_WRITE	0xC0
+> +
+> +/* status registers */
+> +#define	CC2520_CHIPID			0x40
+> +#define	CC2520_VERSION			0x42
+> +#define	CC2520_EXTCLOCK			0x44
+> +#define	CC2520_MDMCTRL0			0x46
+> +#define	CC2520_MDMCTRL1			0x47
+> +#define	CC2520_FREQEST			0x48
+> +#define	CC2520_RXCTRL			0x4A
+> +#define	CC2520_FSCTRL			0x4C
+> +#define	CC2520_FSCAL0			0x4E
+> +#define	CC2520_FSCAL1			0x4F
+> +#define	CC2520_FSCAL2			0x50
+> +#define	CC2520_FSCAL3			0x51
+> +#define	CC2520_AGCCTRL0			0x52
+> +#define	CC2520_AGCCTRL1			0x53
+> +#define	CC2520_AGCCTRL2			0x54
+> +#define	CC2520_AGCCTRL3			0x55
+> +#define	CC2520_ADCTEST0			0x56
+> +#define	CC2520_ADCTEST1			0x57
+> +#define	CC2520_ADCTEST2			0x58
+> +#define	CC2520_MDMTEST0			0x5A
+> +#define	CC2520_MDMTEST1			0x5B
+> +#define CC2520_DACTEST0			0x5C
+> +#define CC2520_DACTEST1			0x5D
+> +#define CC2520_ATEST			0x5E
+> +#define CC2520_DACTEST2			0x5F
+> +#define CC2520_PTEST0			0x60
+> +#define CC2520_PTEST1			0x61
+> +#define CC2520_RESERVED			0x62
+> +#define CC2520_DPUBIST			0x7A
+> +#define CC2520_ACTBIST			0x7C
+> +#define CC2520_RAMBIST			0x7E
+> +
+> +/*frame registers*/
+> +#define CC2520_FRMFILT0			0x00
+> +#define CC2520_FRMFILT1			0x01
+> +#define CC2520_SRCMATCH			0x02
+> +#define CC2520_SRCSHORTEN0		0x04
+> +#define CC2520_SRCSHORTEN1		0x05
+> +#define CC2520_SRCSHORTEN2		0x06
+> +#define CC2520_SRCEXTEN0		0x08
+> +#define CC2520_SRCEXTEN1		0x09
+> +#define CC2520_SRCEXTEN2		0x0A
+> +#define CC2520_FRMCTRL0			0x0C
+> +#define CC2520_FRMCTRL1			0x0D
+> +#define CC2520_RXENABLE0		0x0E
+> +#define CC2520_RXENABLE1		0x0F
+> +#define CC2520_EXCFLAG0			0x10
+> +#define CC2520_EXCFLAG1			0x11
+> +#define CC2520_EXCFLAG2			0x12
+> +#define CC2520_EXCMASKA0		0x14
+> +#define CC2520_EXCMASKA1		0x15
+> +#define CC2520_EXCMASKA2		0x16
+> +#define CC2520_EXCMASKB0		0x18
+> +#define CC2520_EXCMASKB1		0x19
+> +#define CC2520_EXCMASKB2		0x1A
+> +#define CC2520_EXCBINDX0		0x1C
+> +#define CC2520_EXCBINDX1		0x1D
+> +#define CC2520_EXCBINDY0		0x1E
+> +#define CC2520_EXCBINDY1		0x1F
+> +#define CC2520_GPIOCTRL0		0x20
+> +#define CC2520_GPIOCTRL1		0x21
+> +#define CC2520_GPIOCTRL2		0x22
+> +#define CC2520_GPIOCTRL3		0x23
+> +#define CC2520_GPIOCTRL4		0x24
+> +#define CC2520_GPIOCTRL5		0x25
+> +#define CC2520_GPIOPOLARITY		0x26
+> +#define CC2520_GPIOCTRL			0x28
+> +#define CC2520_DPUCON			0x2A
+> +#define CC2520_DPUSTAT			0x2C
+> +#define CC2520_FREQCTRL			0x2E
+> +#define CC2520_FREQTUNE			0x2F
+> +#define CC2520_TXPOWER			0x30
+> +#define CC2520_TXCTRL			0x31
+> +#define CC2520_FSMSTAT0			0x32
+> +#define CC2520_FSMSTAT1			0x33
+> +#define CC2520_FIFOPCTRL		0x34
+> +#define CC2520_FSMCTRL			0x35
+> +#define CC2520_CCACTRL0			0x36
+> +#define CC2520_CCACTRL1			0x37
+> +#define CC2520_RSSI			0x38
+> +#define CC2520_RSSISTAT			0x39
+> +#define CC2520_RXFIRST			0x3C
+> +#define CC2520_RXFIFOCNT		0x3E
+> +#define CC2520_TXFIFOCNT		0x3F
+> +
+> +/* Driver private information */
+> +struct cc2520_private {
+> +	struct spi_device *spi;		/* spi device structure */
+> +	struct ieee802154_dev *dev;	/* Ieee802.15.4 device */
+> +	u8 *buf;			/* SPI TX/Rx data buffer */
+> +	struct mutex buffer_mutex;	/* SPI buffer mutex */
+> +	unsigned is_tx:1;		/* Flag for sync b/w Tx and Rx */
+> +	int fifo_pin;			/* FIFO GPIO pin number */
+> +	struct work_struct fifop_irqwork;/* Workqueue for FIFOP */
+> +	spinlock_t lock;		/* Spin lock */
+> +	struct completion tx_complete;	/* Work completion for Tx */
+> +};
+> +
+> +/* Generic Functions */
+> +static int
+> +cc2520_cmd_strobe(struct cc2520_private *priv, u8 cmd)
+> +{
+> +	int ret;
+> +	u8 status = 0xff;
+> +	struct spi_message msg;
+> +	struct spi_transfer xfer = {
+> +		.len = 0,
+> +		.tx_buf = priv->buf,
+> +		.rx_buf = priv->buf,
+> +	};
+> +
+> +	spi_message_init(&msg);
+> +	spi_message_add_tail(&xfer, &msg);
+> +
+> +	mutex_lock(&priv->buffer_mutex);
+> +	priv->buf[xfer.len++] = cmd;
+> +	dev_vdbg(&priv->spi->dev,
+> +		 "command strobe buf[0] = %02x\n",
+> +		 priv->buf[0]);
+> +
+> +	ret = spi_sync(priv->spi, &msg);
+> +	if (!ret)
+> +		status = priv->buf[0];
+> +	dev_vdbg(&priv->spi->dev,
+> +		 "buf[0] = %02x\n", priv->buf[0]);
+> +	mutex_unlock(&priv->buffer_mutex);
+> +
+> +	return ret;
+> +}
+
+What's about to drop the lowlevel spi calls and use spi helper functions?
+
+> +
+> +static int
+> +cc2520_get_status(struct cc2520_private *priv, u8 *status)
+> +{
+> +	int ret;
+> +	struct spi_message msg;
+> +	struct spi_transfer xfer = {
+> +		.len = 0,
+> +		.tx_buf = priv->buf,
+> +		.rx_buf = priv->buf,
+> +	};
+> +
+> +	spi_message_init(&msg);
+> +	spi_message_add_tail(&xfer, &msg);
+> +
+> +	mutex_lock(&priv->buffer_mutex);
+> +	priv->buf[xfer.len++] = CC2520_CMD_SNOP;
+> +	dev_vdbg(&priv->spi->dev,
+> +		 "get status command buf[0] = %02x\n", priv->buf[0]);
+> +
+> +	ret = spi_sync(priv->spi, &msg);
+> +	if (!ret)
+> +		*status = priv->buf[0];
+> +	dev_vdbg(&priv->spi->dev,
+> +		 "buf[0] = %02x\n", priv->buf[0]);
+> +	mutex_unlock(&priv->buffer_mutex);
+> +
+> +	return ret;
+> +}
+> +
+> +static int
+> +cc2520_write_register(struct cc2520_private *priv, u8 reg, u8 value)
+> +{
+> +	int status;
+> +	struct spi_message msg;
+> +	struct spi_transfer xfer = {
+> +		.len = 0,
+> +		.tx_buf = priv->buf,
+> +		.rx_buf = priv->buf,
+> +	};
+> +
+> +	spi_message_init(&msg);
+> +	spi_message_add_tail(&xfer, &msg);
+> +
+> +	mutex_lock(&priv->buffer_mutex);
+> +
+> +	if (reg <= CC2520_FREG_MASK) {
+> +		priv->buf[xfer.len++] = CC2520_CMD_REGISTER_WRITE | reg;
+> +		priv->buf[xfer.len++] = value;
+> +	} else {
+> +		priv->buf[xfer.len++] = CC2520_CMD_MEMORY_WRITE;
+> +		priv->buf[xfer.len++] = reg;
+> +		priv->buf[xfer.len++] = value;
+> +	}
+> +	status = spi_sync(priv->spi, &msg);
+> +	if (msg.status)
+> +		status = msg.status;
+> +
+> +	mutex_unlock(&priv->buffer_mutex);
+> +
+> +	return status;
+> +}
+> +
+> +static int
+> +cc2520_read_register(struct cc2520_private *priv, u8 reg, u8 *data)
+> +{
+> +	int status;
+> +	struct spi_message msg;
+> +	struct spi_transfer xfer1 = {
+> +		.len = 0,
+> +		.tx_buf = priv->buf,
+> +		.rx_buf = priv->buf,
+> +	};
+> +
+> +	struct spi_transfer xfer2 = {
+> +		.len = 1,
+> +		.rx_buf = data,
+> +	};
+> +
+> +	spi_message_init(&msg);
+> +	spi_message_add_tail(&xfer1, &msg);
+> +	spi_message_add_tail(&xfer2, &msg);
+> +
+> +	mutex_lock(&priv->buffer_mutex);
+> +	priv->buf[xfer1.len++] = CC2520_CMD_MEMORY_READ;
+> +	priv->buf[xfer1.len++] = reg;
+> +
+> +	status = spi_sync(priv->spi, &msg);
+> +	dev_dbg(&priv->spi->dev,
+> +		"spi status = %d\n", status);
+> +	if (msg.status)
+> +		status = msg.status;
+> +
+> +	mutex_unlock(&priv->buffer_mutex);
+> +
+> +	return status;
+> +}
+> +
+> +static int
+> +cc2520_write_txfifo(struct cc2520_private *priv, u8 *data, u8 len)
+> +{
+> +	int status;
+> +
+> +	/*
+> +	 *length byte must include FCS even
+> +	 *if it is calculated in the hardware
+> +	 */
+> +	int len_byte = len + 2;
+> +
+> +	struct spi_message msg;
+> +
+> +	struct spi_transfer xfer_head = {
+> +		.len = 0,
+> +		.tx_buf = priv->buf,
+> +		.rx_buf = priv->buf,
+> +	};
+> +	struct spi_transfer xfer_len = {
+> +		.len = 1,
+> +		.tx_buf = &len_byte,
+> +	};
+> +	struct spi_transfer xfer_buf = {
+> +		.len = len,
+> +		.tx_buf = data,
+> +	};
+> +
+> +	spi_message_init(&msg);
+> +	spi_message_add_tail(&xfer_head, &msg);
+> +	spi_message_add_tail(&xfer_len, &msg);
+> +	spi_message_add_tail(&xfer_buf, &msg);
+> +
+> +	mutex_lock(&priv->buffer_mutex);
+> +	priv->buf[xfer_head.len++] = CC2520_CMD_TXBUF;
+> +	dev_vdbg(&priv->spi->dev,
+> +		 "TX_FIFO cmd buf[0] = %02x\n", priv->buf[0]);
+> +
+> +	status = spi_sync(priv->spi, &msg);
+> +	dev_vdbg(&priv->spi->dev, "status = %d\n", status);
+> +	if (msg.status)
+> +		status = msg.status;
+> +	dev_vdbg(&priv->spi->dev, "status = %d\n", status);
+> +	dev_vdbg(&priv->spi->dev, "buf[0] = %02x\n", priv->buf[0]);
+> +	mutex_unlock(&priv->buffer_mutex);
+> +
+> +	return status;
+> +}
+> +
+> +static int
+> +cc2520_read_rxfifo(struct cc2520_private *priv, u8 *data, u8 *len, u8 *lqi)
+
+why is len a pointer here? It's never changed in this function I would
+prefer const u8 len. 
+
+> +{
+> +	int status;
+> +	struct spi_message msg;
+> +
+> +	struct spi_transfer xfer_head = {
+> +		.len = 0,
+> +		.tx_buf = priv->buf,
+> +		.rx_buf = priv->buf,
+> +	};
+> +	struct spi_transfer xfer_buf = {
+> +		.len = *len,
+> +		.rx_buf = data,
+> +	};
+> +
+> +	spi_message_init(&msg);
+> +	spi_message_add_tail(&xfer_head, &msg);
+> +	spi_message_add_tail(&xfer_buf, &msg);
+> +
+> +	mutex_lock(&priv->buffer_mutex);
+> +	priv->buf[xfer_head.len++] = CC2520_CMD_RXBUF;
+> +
+> +	dev_vdbg(&priv->spi->dev, "read rxfifo buf[0] = %02x\n", priv->buf[0]);
+> +	dev_vdbg(&priv->spi->dev, "buf[1] = %02x\n", priv->buf[1]);
+> +
+> +	status = spi_sync(priv->spi, &msg);
+> +	dev_vdbg(&priv->spi->dev, "status = %d\n", status);
+> +	if (msg.status)
+> +		status = msg.status;
+> +	dev_vdbg(&priv->spi->dev, "status = %d\n", status);
+> +	dev_vdbg(&priv->spi->dev,
+> +		 "return status buf[0] = %02x\n", priv->buf[0]);
+> +	dev_vdbg(&priv->spi->dev, "length buf[1] = %02x\n", priv->buf[1]);
+> +
+> +	*lqi = data[priv->buf[1] - 1] & 0x7f;
+> +
+> +	mutex_unlock(&priv->buffer_mutex);
+> +
+> +	return status;
+> +}
+> +
+> +static int cc2520_start(struct ieee802154_dev *dev)
+> +{
+> +	return cc2520_cmd_strobe(dev->priv, CC2520_CMD_SRXON);
+> +}
+> +
+> +static void cc2520_stop(struct ieee802154_dev *dev)
+> +{
+> +	cc2520_cmd_strobe(dev->priv, CC2520_CMD_SRFOFF);
+> +}
+> +
+> +static int
+> +cc2520_tx(struct ieee802154_dev *dev, struct sk_buff *skb)
+> +{
+> +	struct cc2520_private *priv = dev->priv;
+> +	unsigned long flags;
+> +	int rc;
+> +	u8 status = 0;
+> +
+> +	rc = cc2520_cmd_strobe(priv, CC2520_CMD_SFLUSHTX);
+> +	if (rc)
+> +		goto err_tx;
+> +
+> +	rc = cc2520_write_txfifo(priv, skb->data, skb->len);
+> +	if (rc)
+> +		goto err_tx;
+> +
+> +	rc = cc2520_get_status(priv, &status);
+> +	if (rc)
+> +		goto err_tx;
+> +
+> +	if (status & CC2520_STATUS_TX_UNDERFLOW) {
+> +		dev_err(&priv->spi->dev, "cc2520 tx underflow exception\n");
+> +		goto err_tx;
+> +	}
+> +
+> +	spin_lock_irqsave(&priv->lock, flags);
+> +	BUG_ON(priv->is_tx);
+> +	priv->is_tx = 1;
+> +	spin_unlock_irqrestore(&priv->lock, flags);
+> +
+> +	rc = cc2520_cmd_strobe(priv, CC2520_CMD_STXONCCA);
+> +	if (rc)
+> +		goto err;
+> +
+> +	rc = wait_for_completion_interruptible(&priv->tx_complete);
+> +	if (rc < 0)
+> +		goto err;
+
+mhhh, I never see a reinit_completion and ask myself how the driver can
+ever work?
+
+We should also use a wait_for_completion_timeout here, then you need to
+handle the error handling with if (!rc).
+
+> +
+> +	cc2520_cmd_strobe(priv, CC2520_CMD_SFLUSHTX);
+> +	cc2520_cmd_strobe(priv, CC2520_CMD_SRXON);
+> +
+> +	return rc;
+> +err:
+> +	spin_lock_irqsave(&priv->lock, flags);
+> +	priv->is_tx = 0;
+> +	spin_unlock_irqrestore(&priv->lock, flags);
+> +err_tx:
+> +	return rc;
+> +}
+> +
+> +
+> +static int cc2520_rx(struct cc2520_private *priv)
+> +{
+> +	u8 len = 0, lqi = 0, bytes = 1;
+> +	struct sk_buff *skb;
+> +
+> +	cc2520_read_rxfifo(priv, &len, &bytes, &lqi);
+> +
+> +	skb = alloc_skb(len, GFP_KERNEL);
+> +	if (!skb)
+> +		return -ENOMEM;
+> +
+> +	cc2520_read_rxfifo(priv, skb_put(skb, len), &len, &lqi);
+> +	if (len < 2) {
+> +		kfree_skb(skb);
+> +		return -EINVAL;
+> +	}
+> +
+> +	skb_trim(skb, skb->len - 2);
+> +
+> +	ieee802154_rx_irqsafe(priv->dev, skb, lqi);
+> +
+> +	dev_vdbg(&priv->spi->dev, "RXFIFO: %x %x\n", len, lqi);
+> +
+> +	return 0;
+> +}
+> +
+> +static int
+> +cc2520_ed(struct ieee802154_dev *dev, u8 *level)
+> +{
+> +	struct cc2520_private *priv = dev->priv;
+> +	u8 status = 0xff;
+> +	u8 rssi;
+> +	int ret;
+> +
+> +	ret = cc2520_read_register(priv , CC2520_RSSISTAT, &status);
+> +	if (ret)
+> +		return ret;
+> +
+> +	if (status != RSSI_VALID) {
+> +		ret = -EINVAL;
+> +		return ret;
+> +	}
+> +
+> +	ret = cc2520_read_register(priv , CC2520_RSSI, &rssi);
+> +	if (ret)
+> +		return ret;
+> +
+> +	/* level = RSSI(rssi) - OFFSET [dBm] : offset is 76dBm*/
+> +	*level = rssi - RSSI_OFFSET;
+> +
+> +	return ret;
+> +}
+> +
+> +static int
+> +cc2520_set_channel(struct ieee802154_dev *dev, int page, int channel)
+> +{
+> +	struct cc2520_private *priv = dev->priv;
+> +	int ret;
+> +
+> +	might_sleep();
+> +	dev_dbg(&priv->spi->dev, "trying to set channel\n");
+> +
+> +	BUG_ON(page != 0);
+> +	BUG_ON(channel < CC2520_MINCHANNEL);
+> +	BUG_ON(channel > CC2520_MAXCHANNEL);
+> +
+> +	ret = cc2520_write_register(priv, CC2520_FREQCTRL,
+> +				    11 + 5*(channel - 11));
+> +
+> +	return ret;
+> +}
+> +
+> +static struct ieee802154_ops cc2520_ops = {
+> +	.owner = THIS_MODULE,
+> +	.start = cc2520_start,
+> +	.stop = cc2520_stop,
+> +	.xmit = cc2520_tx,
+> +	.ed = cc2520_ed,
+> +	.set_channel = cc2520_set_channel,
+> +};
+> +
+> +static int cc2520_register(struct cc2520_private *priv)
+> +{
+> +	int ret = -ENOMEM;
+> +
+> +	priv->dev = ieee802154_alloc_device(sizeof(*priv), &cc2520_ops);
+> +	if (!priv->dev)
+> +		goto err_ret;
+> +
+> +	priv->dev->priv = priv;
+> +	priv->dev->parent = &priv->spi->dev;
+> +	priv->dev->extra_tx_headroom = 0;
+> +
+> +	/* We do support only 2.4 Ghz */
+> +	priv->dev->phy->channels_supported[0] = 0x7FFF800;
+> +	priv->dev->flags = IEEE802154_HW_OMIT_CKSUM;
+> +
+> +	dev_vdbg(&priv->spi->dev, "registered cc2520\n");
+> +	ret = ieee802154_register_device(priv->dev);
+> +	if (ret)
+> +		goto err_free_device;
+> +
+> +	return 0;
+> +
+> +err_free_device:
+> +	ieee802154_free_device(priv->dev);
+> +err_ret:
+> +	return ret;
+> +}
+> +
+> +static void cc2520_fifop_irqwork(struct work_struct *work)
+> +{
+> +	struct cc2520_private *priv
+> +		= container_of(work, struct cc2520_private, fifop_irqwork);
+> +
+> +	dev_dbg(&priv->spi->dev, "fifop interrupt received\n");
+> +
+> +	if (gpio_get_value(priv->fifo_pin))
+> +		cc2520_rx(priv);
+> +	else
+> +		dev_err(&priv->spi->dev, "rxfifo overflow\n");
+> +
+> +	cc2520_cmd_strobe(priv, CC2520_CMD_SFLUSHRX);
+> +	cc2520_cmd_strobe(priv, CC2520_CMD_SFLUSHRX);
+> +}
+> +
+> +static irqreturn_t cc2520_fifop_isr(int irq, void *data)
+> +{
+> +	struct cc2520_private *priv = data;
+> +
+> +	schedule_work(&priv->fifop_irqwork);
+> +
+> +	return IRQ_HANDLED;
+> +}
+> +
+> +static irqreturn_t cc2520_sfd_isr(int irq, void *data)
+> +{
+> +	struct cc2520_private *priv = data;
+> +	unsigned long flags;
+> +
+> +	spin_lock_irqsave(&priv->lock, flags);
+> +	if (priv->is_tx) {
+> +		priv->is_tx = 0;
+> +		spin_unlock_irqrestore(&priv->lock, flags);
+> +		dev_dbg(&priv->spi->dev, "SFD for TX\n");
+> +		complete(&priv->tx_complete);
+> +	} else {
+> +		spin_unlock_irqrestore(&priv->lock, flags);
+> +		dev_dbg(&priv->spi->dev, "SFD for RX\n");
+> +	}
+> +
+> +	return IRQ_HANDLED;
+> +}
+> +
+> +static int cc2520_hw_init(struct cc2520_private *priv)
+> +{
+> +	u8 status = 0, state = 0xff;
+> +	int ret;
+> +	int timeout = 100;
+> +
+> +	ret = cc2520_read_register(priv, CC2520_FSMSTAT1, &state);
+> +	if (ret)
+> +		goto err_ret;
+> +
+> +	if (state != STATE_IDLE)
+> +		return -EINVAL;
+> +
+> +	do {
+> +		ret = cc2520_get_status(priv, &status);
+> +		if (ret)
+> +			goto err_ret;
+> +
+> +		if (timeout-- <= 0) {
+> +			dev_err(&priv->spi->dev, "oscillator start failed!\n");
+> +			return ret;
+> +		}
+> +		udelay(1);
+> +	} while (!(status & CC2520_STATUS_XOSC32M_STABLE));
+> +
+> +	dev_vdbg(&priv->spi->dev, "oscillator successfully brought up\n");
+> +
+> +	/*Registers default value: section 28.1 in Datasheet*/
+> +	ret = cc2520_write_register(priv, CC2520_TXPOWER, 0xF7);
+> +	if (ret)
+> +		goto err_ret;
+> +
+> +	ret = cc2520_write_register(priv, CC2520_CCACTRL0, 0x1A);
+> +	if (ret)
+> +		goto err_ret;
+> +
+> +	ret = cc2520_write_register(priv, CC2520_MDMCTRL0, 0x85);
+> +	if (ret)
+> +		goto err_ret;
+> +
+> +	ret = cc2520_write_register(priv, CC2520_MDMCTRL1, 0x14);
+> +	if (ret)
+> +		goto err_ret;
+> +
+> +	ret = cc2520_write_register(priv, CC2520_RXCTRL, 0x3f);
+> +	if (ret)
+> +		goto err_ret;
+> +
+> +	ret = cc2520_write_register(priv, CC2520_FSCTRL, 0x5a);
+> +	if (ret)
+> +		goto err_ret;
+> +
+> +	ret = cc2520_write_register(priv, CC2520_FSCAL1, 0x2b);
+> +	if (ret)
+> +		goto err_ret;
+> +
+> +	ret = cc2520_write_register(priv, CC2520_AGCCTRL1, 0x11);
+> +	if (ret)
+> +		goto err_ret;
+> +
+> +	ret = cc2520_write_register(priv, CC2520_ADCTEST0, 0x10);
+> +	if (ret)
+> +		goto err_ret;
+> +
+> +	ret = cc2520_write_register(priv, CC2520_ADCTEST1, 0x0e);
+> +	if (ret)
+> +		goto err_ret;
+> +
+> +	ret = cc2520_write_register(priv, CC2520_ADCTEST2, 0x03);
+> +	if (ret)
+> +		goto err_ret;
+> +
+> +	ret = cc2520_write_register(priv, CC2520_FRMCTRL0, 0x60);
+> +	if (ret)
+> +		goto err_ret;
+> +
+> +	ret = cc2520_write_register(priv, CC2520_FRMCTRL1, 0x03);
+> +	if (ret)
+> +		goto err_ret;
+> +
+> +	ret = cc2520_write_register(priv, CC2520_FRMFILT0, 0x00);
+> +	if (ret)
+> +		goto err_ret;
+> +
+> +	ret = cc2520_write_register(priv, CC2520_FIFOPCTRL, 127);
+> +	if (ret)
+> +		goto err_ret;
+> +
+> +	return 0;
+> +
+> +err_ret:
+> +	return ret;
+> +}
+> +
+> +static struct cc2520_platform_data *
+> +cc2520_get_platform_data(struct spi_device *spi)
+> +{
+> +	struct cc2520_platform_data *pdata;
+> +	struct device_node __maybe_unused *np = spi->dev.of_node;
+> +	struct cc2520_private *priv = spi_get_drvdata(spi);
+> +
+> +	if (!IS_ENABLED(CONFIG_OF) || !np)
+> +		return spi->dev.platform_data;
+> +
+> +	pdata = devm_kzalloc(&spi->dev, sizeof(*pdata), GFP_KERNEL);
+> +	if (!pdata)
+> +		goto done;
+> +
+> +	pdata->fifo = of_get_named_gpio(np, "fifo-gpio", 0);
+> +	priv->fifo_pin = pdata->fifo;
+> +
+> +	pdata->fifop = of_get_named_gpio(np, "fifop-gpio", 0);
+> +
+> +	pdata->sfd = of_get_named_gpio(np, "sfd-gpio", 0);
+> +	pdata->cca = of_get_named_gpio(np, "cca-gpio", 0);
+> +	pdata->vreg = of_get_named_gpio(np, "vreg-gpio", 0);
+> +	pdata->reset = of_get_named_gpio(np, "reset-gpio", 0);
+> +
+> +	spi->dev.platform_data = pdata;
+> +
+> +done:
+> +	return pdata;
+> +}
+> +
+> +static int cc2520_probe(struct spi_device *spi)
+> +{
+> +	struct cc2520_private *priv;
+> +	struct pinctrl *pinctrl;
+> +	struct cc2520_platform_data *pdata;
+> +	struct device_node __maybe_unused *np = spi->dev.of_node;
+> +	int ret;
+> +
+> +	priv = devm_kzalloc(&spi->dev,
+> +			    sizeof(struct cc2520_private), GFP_KERNEL);
+> +	if (!priv) {
+> +		ret = -ENOMEM;
+> +		goto err_ret;
+> +	}
+> +
+> +	spi_set_drvdata(spi, priv);
+> +
+> +	pinctrl = devm_pinctrl_get_select_default(&spi->dev);
+> +	if (IS_ERR(pinctrl))
+> +		dev_warn(&spi->dev,
+> +			 "pinctrl pins are not configured from the driver");
+> +
+> +	pdata = cc2520_get_platform_data(spi);
+> +	if (!pdata) {
+> +		dev_err(&spi->dev, "no platform data\n");
+> +		return -EINVAL;
+> +	}
+> +
+> +	priv->spi = spi;
+> +
+> +	priv->buf = devm_kzalloc(&spi->dev,
+> +				 SPI_COMMAND_BUFFER, GFP_KERNEL);
+> +	if (!priv->buf) {
+> +		ret = -ENOMEM;
+> +		goto err_ret;
+> +	}
+> +
+> +	mutex_init(&priv->buffer_mutex);
+> +	INIT_WORK(&priv->fifop_irqwork, cc2520_fifop_irqwork);
+> +	spin_lock_init(&priv->lock);
+> +	init_completion(&priv->tx_complete);
+> +
+> +	/* Request all the gpio's */
+> +	if (!gpio_is_valid(pdata->fifo)) {
+> +		dev_err(&spi->dev, "fifo gpio is not valid\n");
+> +		ret = -EINVAL;
+> +		goto err_hw_init;
+> +	} else {
+> +		ret = devm_gpio_request_one(&spi->dev, pdata->fifo,
+> +					    GPIOF_IN, "fifo");
+> +		if (ret)
+> +			goto err_hw_init;
+> +	}
+
+you can drop the else branch here...
+
+> +
+> +	if (!gpio_is_valid(pdata->cca)) {
+> +		dev_err(&spi->dev, "cca gpio is not valid\n");
+> +		ret = -EINVAL;
+> +		goto err_hw_init;
+> +	} else {
+> +		ret = devm_gpio_request_one(&spi->dev, pdata->cca,
+> +					    GPIOF_IN, "cca");
+> +		if (ret)
+> +			goto err_hw_init;
+> +	}
+> +
+
+Same here.
+
+> +	if (!gpio_is_valid(pdata->fifop)) {
+> +		dev_err(&spi->dev, "fifop gpio is not valid\n");
+> +		ret = -EINVAL;
+> +		goto err_hw_init;
+> +	} else {
+> +		ret = devm_gpio_request_one(&spi->dev, pdata->fifop,
+> +					    GPIOF_IN, "fifop");
+> +		if (ret)
+> +			goto err_hw_init;
+> +	}
+> +
+
+Same here.
+
+> +	if (!gpio_is_valid(pdata->sfd)) {
+> +		dev_err(&spi->dev, "sfd gpio is not valid\n");
+> +		ret = -EINVAL;
+> +		goto err_hw_init;
+> +	} else {
+> +		ret = devm_gpio_request_one(&spi->dev, pdata->sfd,
+> +					    GPIOF_IN, "sfd");
+> +		if (ret)
+> +			goto err_hw_init;
+> +	}
+> +
+
+Same here.
+
+> +	if (!gpio_is_valid(pdata->reset)) {
+> +		dev_err(&spi->dev, "reset gpio is not valid\n");
+> +		ret = -EINVAL;
+> +		goto err_hw_init;
+> +	} else {
+> +		ret = devm_gpio_request_one(&spi->dev, pdata->reset,
+> +					    GPIOF_OUT_INIT_LOW, "reset");
+> +		if (ret)
+> +			goto err_hw_init;
+> +	}
+> +
+
+Same here.
+
+> +	if (!gpio_is_valid(pdata->vreg)) {
+> +		dev_err(&spi->dev, "vreg gpio is not valid\n");
+> +		ret = -EINVAL;
+> +		goto err_hw_init;
+> +	} else {
+> +		ret = devm_gpio_request_one(&spi->dev, pdata->vreg,
+> +					    GPIOF_OUT_INIT_LOW, "vreg");
+> +		if (ret)
+> +			goto err_hw_init;
+> +	}
+> +
+
+Same here.
+
+> +	gpio_set_value(pdata->vreg, HIGH);
+> +	udelay(100);
+> +
+> +	gpio_set_value(pdata->reset, HIGH);
+> +	udelay(200);
+> +
+> +	ret = cc2520_hw_init(priv);
+> +	if (ret)
+> +		goto err_hw_init;
+> +
+> +	/* Set up fifop interrupt */
+> +	ret = devm_request_irq(&spi->dev,
+> +			       gpio_to_irq(pdata->fifop),
+> +			       cc2520_fifop_isr,
+> +			       IRQF_TRIGGER_RISING,
+> +			       dev_name(&spi->dev),
+> +			       priv);
+> +	if (ret) {
+> +		dev_err(&spi->dev, "could not get fifop irq\n");
+> +		goto err_hw_init;
+> +	}
+> +
+> +	/* Set up sfd interrupt */
+> +	ret = devm_request_irq(&spi->dev,
+> +			       gpio_to_irq(pdata->sfd),
+> +			       cc2520_sfd_isr,
+> +			       IRQF_TRIGGER_FALLING,
+> +			       dev_name(&spi->dev),
+> +			       priv);
+> +	if (ret) {
+> +		dev_err(&spi->dev, "could not get sfd irq\n");
+> +		goto err_hw_init;
+> +	}
+> +
+> +	ret = cc2520_register(priv);
+> +	if (ret)
+> +		goto err_hw_init;
+> +
+> +	return 0;
+> +
+> +err_hw_init:
+> +	mutex_destroy(&priv->buffer_mutex);
+> +	flush_work(&priv->fifop_irqwork);
+> +
+> +err_ret:
+> +	return ret;
+> +}
+> +
+> +static int cc2520_remove(struct spi_device *spi)
+> +{
+> +	struct cc2520_private *priv = spi_get_drvdata(spi);
+> +
+> +	ieee802154_unregister_device(priv->dev);
+> +	ieee802154_free_device(priv->dev);
+> +
+> +	mutex_destroy(&priv->buffer_mutex);
+> +	flush_work(&priv->fifop_irqwork);
+> +
+> +	return 0;
+> +}
+> +
+> +static const struct spi_device_id cc2520_ids[] = {
+> +	{"cc2520", },
+> +	{},
+> +};
+> +MODULE_DEVICE_TABLE(spi, cc2520_ids);
+> +
+> +static const struct of_device_id cc2520_of_ids[] = {
+> +	{.compatible = "ti,cc2520", },
+> +	{},
+> +};
+> +MODULE_DEVICE_TABLE(of, cc2520_of_ids);
+> +
+> +/*SPI driver structure*/
+> +static struct spi_driver cc2520_driver = {
+> +	.driver = {
+> +		.name = "cc2520",
+> +		.bus = &spi_bus_type,
+> +		.owner = THIS_MODULE,
+> +		.of_match_table = of_match_ptr(cc2520_of_ids),
+> +	},
+> +	.id_table = cc2520_ids,
+> +	.probe = cc2520_probe,
+> +	.remove = cc2520_remove,
+> +};
+> +module_spi_driver(cc2520_driver);
+> +
+> +MODULE_DESCRIPTION("CC2520 Transceiver Driver");
+> +MODULE_LICENSE("GPL v2");
+> diff --git a/include/linux/spi/cc2520.h b/include/linux/spi/cc2520.h
+> new file mode 100644
+> index 0000000..56ce81e
+> --- /dev/null
+> +++ b/include/linux/spi/cc2520.h
+> @@ -0,0 +1,26 @@
+> +/* Header file for cc2520 driver
+> + *
+> + * Copyright (C) 2014 Varka Bhadram <varkab-If5XQcfNmg0@public.gmane.org>
+> + *                    Md.Jamal Mohiuddin <mjmohiuddin-If5XQcfNmg0@public.gmane.org>
+> + *                    P Sowjanya <sowjanyap-If5XQcfNmg0@public.gmane.org>
+> + *
+> + * This program is free software; you can redistribute it and/or modify
+> + * it under the terms of the GNU General Public License as published by
+> + * the Free Software Foundation; either version 2 of the License, or
+> + * (at your option) any later version.
+> + *
+> + */
+> +
+> +#ifndef __CC2520_H
+> +#define __CC2520_H
+> +
+> +struct cc2520_platform_data {
+> +	int fifo;
+> +	int fifop;
+> +	int cca;
+> +	int sfd;
+> +	int reset;
+> +	int vreg;
+> +};
+> +
+> +#endif
+> -- 
+> 1.7.9.5
+> 
+> 
+> ------------------------------------------------------------------------------
+> HPCC Systems Open Source Big Data Platform from LexisNexis Risk Solutions
+> Find What Matters Most in Your Big Data with HPCC Systems
+> Open Source. Fast. Scalable. Simple. Ideal for Dirty Data.
+> Leverages Graph Analysis for Fast Processing & Easy Data Exploration
+> http://p.sf.net/sfu/hpccsystems
+> _______________________________________________
+> Linux-zigbee-devel mailing list
+> Linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+> https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
+
+------------------------------------------------------------------------------
+HPCC Systems Open Source Big Data Platform from LexisNexis Risk Solutions
+Find What Matters Most in Your Big Data with HPCC Systems
+Open Source. Fast. Scalable. Simple. Ideal for Dirty Data.
+Leverages Graph Analysis for Fast Processing & Easy Data Exploration
+http://p.sf.net/sfu/hpccsystems
