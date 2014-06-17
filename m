@@ -1,30 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] isdn: hisax: Drop duplicate Kconfig entry
-Date: Mon, 16 Jun 2014 21:31:55 -0700 (PDT)
-Message-ID: <20140616.213155.1969199453902048889.davem@davemloft.net>
-References: <1402906177.13305.1.camel@chaos.site>
-	<1402906435.13305.6.camel@chaos.site>
+Subject: Re: [PATCH] ptp: In the testptp utility, use clock_adjtime from
+ glibc when available
+Date: Mon, 16 Jun 2014 21:32:43 -0700 (PDT)
+Message-ID: <20140616.213243.1726778958774333018.davem@davemloft.net>
+References: <1402922805-3664-1-git-send-email-christian.riesch@omicron.at>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, isdn@linux-pingi.de, sam@ravnborg.org
-To: jdelvare@suse.de
+Cc: netdev@vger.kernel.org, richardcochran@gmail.com
+To: christian.riesch@omicron.at
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51291 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51295 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932378AbaFQEb4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2014 00:31:56 -0400
-In-Reply-To: <1402906435.13305.6.camel@chaos.site>
+	with ESMTP id S932093AbaFQEco (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2014 00:32:44 -0400
+In-Reply-To: <1402922805-3664-1-git-send-email-christian.riesch@omicron.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jean Delvare <jdelvare@suse.de>
-Date: Mon, 16 Jun 2014 10:13:55 +0200
+From: Christian Riesch <christian.riesch@omicron.at>
+Date: Mon, 16 Jun 2014 14:46:45 +0200
 
-> There are 2 HISAX_AVM_A1_PCMCIA Kconfig entries. The kbuild system
-> ignores the second one, and apparently nobody noticed the problem so
-> far, so let's remove that second entry.
+> clock_adjtime was included in glibc 2.14. _GNU_SOURCE must be defined
+> to make it available.
 > 
-> Signed-off-by: Jean Delvare <jdelvare@suse.de>
+> Signed-off-by: Christian Riesch <christian.riesch@omicron.at>
 
-Applied.
+Applied, thank you.
