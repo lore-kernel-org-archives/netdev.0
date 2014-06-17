@@ -1,63 +1,106 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v6 4/4] drivers: net: Add APM X-Gene SoC ethernet
- driver support.
-Date: Tue, 17 Jun 2014 13:20:24 -0700 (PDT)
-Message-ID: <20140617.132024.1213369771856463527.davem@davemloft.net>
-References: <1402964326-11147-5-git-send-email-isubramanian@apm.com>
-	<20140616.214247.1154200670003936158.davem@davemloft.net>
-	<CAKh23F=2undAW=nWibOreAM8DJiQKpLx=OboCX=fNZE+OU=AbA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	patches-qTEPVZfXA3Y@public.gmane.org, rapatel-qTEPVZfXA3Y@public.gmane.org, kchudgar-qTEPVZfXA3Y@public.gmane.org
-To: isubramanian-qTEPVZfXA3Y@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAKh23F=2undAW=nWibOreAM8DJiQKpLx=OboCX=fNZE+OU=AbA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Christopher White <chris@logicalelegance.com>
+Subject: Re: [PATCH V2 net-next] LISP: Locator/Identifier Separation Protocol
+Date: Tue, 17 Jun 2014 13:41:04 -0700
+Message-ID: <5F3B797F-9DE9-43AC-91E1-C11B51DB2B2C@logicalelegance.com>
+References: <4D3092DF-BB04-4C50-88B9-EBBA349C7B17@logicalelegance.com> <CA+mtBx9OdgWad6WJvNoUWreoyef9sd0AbHAsNWTSHaD1z=Tj8A@mail.gmail.com>
+Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.2\))
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	"Vina Ermagan (vermagan)" <vermagan@cisco.com>,
+	"Lorand Jakab -X (lojakab - M SQUARED CONSULTING INC. at Cisco)"
+	<lojakab@cisco.com>
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail6.webfaction.com ([74.55.86.74]:51761 "EHLO
+	smtp.webfaction.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933275AbaFQUlI convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2014 16:41:08 -0400
+In-Reply-To: <CA+mtBx9OdgWad6WJvNoUWreoyef9sd0AbHAsNWTSHaD1z=Tj8A@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
-Date: Tue, 17 Jun 2014 12:21:08 -0700
+Thanks Tom, some quick questions as I wrap this up=85.
 
-> On Mon, Jun 16, 2014 at 9:42 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
->> From: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
->> Date: Mon, 16 Jun 2014 17:18:46 -0700
->>
->>> +static netdev_tx_t xgene_enet_start_xmit(struct sk_buff *skb,
->>> +                                      struct net_device *ndev)
->>> +{
->>> +     struct xgene_enet_pdata *pdata = netdev_priv(ndev);
->>> +     struct xgene_enet_desc_ring *tx_ring = pdata->tx_ring;
->>> +     struct xgene_enet_desc_ring *cp_ring = tx_ring->cp_ring;
->>> +     u32 tx_level, cq_level;
->>> +
->>> +     tx_level = xgene_enet_ring_len(tx_ring);
->>> +     cq_level = xgene_enet_ring_len(cp_ring);
->>> +     if (unlikely(tx_level > pdata->tx_qcnt_hi ||
->>> +                  cq_level > pdata->cp_qcnt_hi)) {
->>> +             netif_stop_queue(ndev);
->>> +             return NETDEV_TX_BUSY;
->>> +     }
->>> +
->>> +     if (xgene_enet_setup_tx_desc(tx_ring, skb))
->>> +             return NETDEV_TX_OK;
->>
->> If you return NETDEV_TX_OK, it is your responsibility to deal with the
->> SKB, because you own it.
->>
->> In particular, you have to free the packet.
-> 
-> skb freeing happens in xgene_enet_tx_completion().
+On Jun 5, 2014, at 3:12 PM, Tom Herbert <therbert@google.com> wrote:
 
-You're not queueing up the packet when DMA mapping the packet fails,
-which is the only condition that causes xgene_enet_setup_tx_desc() to
-return an error, so xgene_enet_tx_completion() will not be called.
+>=20
+>> +static inline struct rtable *find_route(struct net *net,
+>> +                                       __be32 *saddr, __be32 daddr,
+>> +                                       u8 ipproto, u8 tos, u32 skb_=
+mark)
+>> +{
+>> +       struct rtable *rt;
+>> +
+>> +       /* Tunnel configuration keeps DSCP part of TOS bits, But Lin=
+ux
+>> +        * router expect RT_TOS bits only.
+>> +        */
+>> +       struct flowi4 fl =3D { .daddr             =3D daddr,
+>> +                            .saddr             =3D *saddr,
+>> +                            .flowi4_tos        =3D RT_TOS(tos),
+>> +                            .flowi4_mark       =3D skb_mark,
+>> +                            .flowi4_proto      =3D ipproto };
+>> +
+>> +       rt =3D ip_route_output_key(net, &fl);
+>> +       *saddr =3D fl.saddr;
+>> +       return rt;
+>> +}
+>> +
+> Looks like a function that should be in common header file?
+>=20
 
-Can you really not see this?
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I=92m not certain where the right place would be for this. A new file p=
+erhaps?
+
+>=20
+>> +static int create_v4_sock(struct net *net, __be16 port, struct sock=
+et **psock,
+>> +                         u32 flags)
+>> +{
+>> +       struct sock *sk;
+>> +       struct socket *sock;
+>> +       struct sockaddr_in lisp_addr =3D {
+>> +               .sin_family             =3D AF_INET,
+>> +               .sin_addr.s_addr        =3D htonl(INADDR_ANY),
+>> +               .sin_port               =3D port,
+>> +       };
+>> +       int rc;
+>> +
+>> +       /* Create UDP socket for encapsulation receive. */
+>> +       rc =3D sock_create_kern(AF_INET, SOCK_DGRAM, IPPROTO_UDP, &s=
+ock);
+>> +       if (rc < 0) {
+>> +               pr_debug("UDP socket create failed\n");
+>> +               return rc;
+>> +       }
+>> +
+>> +       /* Put in proper namespace */
+>> +       sk =3D sock->sk;
+>> +       sk_change_net(sk, net);
+>> +
+>> +       rc =3D kernel_bind(sock, (struct sockaddr *)&lisp_addr,
+>> +                        sizeof(lisp_addr));
+>> +       if (rc < 0) {
+>> +               pr_debug("bind for UDP socket %pI4:%u (%d)\n",
+>> +                        &lisp_addr.sin_addr, ntohs(lisp_addr.sin_po=
+rt), rc);
+>> +               sk_release_kernel(sk);
+>> +               return rc;
+>> +       }
+>> +
+>> +       *psock =3D sock;
+>> +       /* Disable multicast loopback */
+>> +       inet_sk(sk)->mc_loop =3D 0;
+>> +
+>> +       if (!(flags & LISP_F_UDP_CSUM))
+>> +               sock->sk->sk_no_check_tx =3D 1;
+>> +       return 0;
+>> +}
+> Another function that is common among UDP tunneling protocols and
+> should be in common code.
+
+In udp.c perhaps? udp_tunnel_create_v4_sock()?
+
+Thanks!
+-Chris
