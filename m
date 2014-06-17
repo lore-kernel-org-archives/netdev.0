@@ -1,40 +1,44 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH net] tcp: avoid multiple ssthresh reductions in on
- retransmit window
-Date: Mon, 16 Jun 2014 20:44:04 -0400
-Message-ID: <CADVnQykk0pmryWdRjq21OXYK3Pvi5xWCkaB7Jf2acF5qtnzANg@mail.gmail.com>
-References: <CAK6E8=dwh1btNzX80YNre9u7rS+SgochXxHxDhQYQZCvY8yVMQ@mail.gmail.com>
-	<20140616211954.6E12BA3A89@unicorn.suse.cz>
-	<CAK6E8=dxszKmHssR7ib7Fxfm6hQRdbwBG1ygRvOXoSAXddBSPA@mail.gmail.com>
-	<CADVnQy=sd2V2A5Rzd+OtcH1a+un3-fATSn_acKdMKUcdbpGadg@mail.gmail.com>
-	<CAK6E8=fb0x5Z0dnA6PDbxJKYn3z1y42Pr555t7apLbT97R8O-Q@mail.gmail.com>
+From: Jongsung Kim <neidhard.kim@lge.com>
+Subject: Re: [PATCH] net/cadence/macb: clear interrupts simply and correctly
+Date: Tue, 17 Jun 2014 11:38:44 +0900
+Message-ID: <539FAA34.9030002@lge.com>
+References: <1402563054-8546-1-git-send-email-neidhard.kim@lge.com> <9f5be687-d127-49a4-90ea-c1033505452d@BN1BFFO11FD019.protection.gbl> <539E79F1.1090006@lge.com> <ea57b37f-1f1c-40a0-84a6-46b0b78ec6b4@BY2FFO11FD034.protection.gbl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Michal Kubecek <mkubecek@suse.cz>,
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Nicolas Ferre <nicolas.ferre@atmel.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Yuchung Cheng <ycheng@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:34444 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752144AbaFQAoG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 16 Jun 2014 20:44:06 -0400
-Received: by mail-wi0-f170.google.com with SMTP id cc10so6090394wib.3
-        for <netdev@vger.kernel.org>; Mon, 16 Jun 2014 17:44:04 -0700 (PDT)
-In-Reply-To: <CAK6E8=fb0x5Z0dnA6PDbxJKYn3z1y42Pr555t7apLbT97R8O-Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Hayun Hwang <hwang.hayun@lge.com>,
+	Youngkyu Choi <youngkyu7.choi@lge.com>
+To: =?UTF-8?B?U8O2cmVuIEJyaW5rbWFubg==?= <soren.brinkmann@xilinx.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <ea57b37f-1f1c-40a0-84a6-46b0b78ec6b4@BY2FFO11FD034.protection.gbl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 16, 2014 at 8:25 PM, Yuchung Cheng <ycheng@google.com> wrote:
-> However Linux is inconsistent on the loss of a retransmission. It
-> reduces ssthresh (and cwnd) if this happens on a timeout, but not in
-> fast recovery (tcp_mark_lost_retrans). We should fix that and that
-> should help dealing with traffic policers.
+On 06/16/2014 11:56 PM, S=C3=B6ren Brinkmann wrote:
+> On Mon, 2014-06-16 at 02:00PM +0900, Jongsung Kim wrote:
+>> On 06/13/2014 12:44 AM, S=C3=B6ren Brinkmann wrote:
+>>> This is now clearing all IRQ flags which is probably not what we wa=
+nt
+>>> here. This is handling RX only. We still want the non-RX interrupts=
+ to go to
+>>> the actual interrupt service routing.
+>>
+>> The ISR(Interrupt Status Register) is read only in the interrupt ser=
+vice
+>> routine, macb_interrupt. But is partially cleared here and there. Fu=
+rther
+>> handler-functions decide jobs to be done by reading/checking other s=
+tatus
+>> registers. (e.g., TSR, RSR) So, clearing the ISR after reading looks=
+ not
+>> a bad idea.
+>
+> But you are clearing _all_ interrupt flags in the RX NAPI handler.
+> Doesn't that mean we might miss certain events?
 
-Yes, great point!
-
-neal
+Please inspect my patch again. What I did in the macb_poll is removing
+statements clearing the Rx-complete interrupt, not clearing all the
+interrupts.
