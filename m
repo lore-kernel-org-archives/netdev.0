@@ -1,54 +1,80 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [PATCH] net: fec: remove HW IP header checksum for IPV6 frame
-Date: Tue, 17 Jun 2014 11:20:25 +0100
-Message-ID: <20140617102024.GF23430@n2100.arm.linux.org.uk>
-References: <1402993895-10955-1-git-send-email-b38611@freescale.com>
+From: chenweilong <chenweilong@huawei.com>
+Subject: [PATCH 3.4-stable] ipv6: reallocate addrconf router for ipv6 address
+ when lo, device up
+Date: Tue, 17 Jun 2014 18:23:59 +0800
+Message-ID: <53A0173F.8090107@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Fugang Duan <b38611@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:60326 "EHLO
-	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752704AbaFQKUa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2014 06:20:30 -0400
-Content-Disposition: inline
-In-Reply-To: <1402993895-10955-1-git-send-email-b38611@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, <stable@vger.kernel.org>,
+	Li Zefan <lizefan@huawei.com>
+To: <gregkh@linuxfoundation.org>, David Miller <davem@davemloft.net>
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 17, 2014 at 04:31:35PM +0800, Fugang Duan wrote:
-> The commit 96c50caa5148 (net: fec: Enable IP header hardware checksum)
-> enable HW IP header checksum for IPV4 and IPV6, which causes IPV6 TCP/UDP
-> cannot work. (The issue is reported by Russell King)
-> 
-> The reason is that FEC HW IP cannot detect the transmit frame type (can
-> detect received frame type), and treats all packets as IPv4, overwrites
-> the point in the packet which would be the IPv4 checksum field. Since IPV6
-> don't have IP header checksum, so this results in the frame being corrupted.
-> 
-> The patch just add software detect the current packet type, if it is IPV6
-> frame, it don't enable IP header checksum.
+Hi Greg,
 
-I think it /can/ detect the packet type - the hardware showed no signs of
-overwriting the checksum field with a non-zero value.  The zeroing of the
-bytes seems to come purely from the driver assuming that every partial
-checksummed packet is an IPv4 packet:
+Please queue this for 3.4 stable kernel.
 
-> @@ -330,7 +335,8 @@ fec_enet_clear_csum(struct sk_buff *skb, struct net_device *ndev)
->  	if (unlikely(skb_cow_head(skb, 0)))
->  		return -1;
->  
-> -	ip_hdr(skb)->check = 0;
-> +	if (is_ipv4_pkt(skb))
-> +		ip_hdr(skb)->check = 0;
->  	*(__sum16 *)(skb->head + skb->csum_start + skb->csum_offset) = 0;
->  
->  	return 0;
+It fix the bug 67951 on bugzilla
+https://bugzilla.kernel.org/show_bug.cgi?id=67951
 
-So, I will first test whether avoiding this resolves the issue I'm
-seeing before deciding whether to test the remainder of the patch.
+The patch can't be applied directly, as it' used the function introduced
+by "commit 94e187c0" ip6_rt_put(), that patch can't be applied directly
+either. So I had to write this one.
 
--- 
-FTTC broadband for 0.8mile line: now at 9.7Mbps down 460kbps up... slowly
-improving, and getting towards what was expected from it.
+====================
+
+From: Gao feng <gaofeng@cn.fujitsu.com>
+
+commit 33d99113b1102c2d2f8603b9ba72d89d915c13f5 upstream.
+
+This commit don't have a stable tag, but it fix the bug
+no reply after loopback down-up.It's very worthy to be
+applied to stable 3.4 kernels.
+
+The bug is 67951 on bugzilla
+https://bugzilla.kernel.org/show_bug.cgi?id=67951
+
+
+CC: Sabrina Dubroca <sd@queasysnail.net>
+CC: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Reported-by: Weilong Chen <chenweilong@huawei.com>
+Signed-off-by: Weilong Chen <chenweilong@huawei.com>
+Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+[weilong: s/ip6_rt_put/dst_release]
+Signed-off-by: Chen Weilong <chenweilong@huawei.com>
+Signed-off-by: Li Zefan <lizefan@huawei.com>
+---
+ net/ipv6/addrconf.c | 14 ++++++++++++--
+ 1 file changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index abfa007..25399bf 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -2435,8 +2435,18 @@ static void init_loopback(struct net_device *dev)
+ 			if (sp_ifa->flags & (IFA_F_DADFAILED | IFA_F_TENTATIVE))
+ 				continue;
+
+-			if (sp_ifa->rt)
+-				continue;
++			if (sp_ifa->rt) {
++				/* This dst has been added to garbage list when
++				 * lo device down, release this obsolete dst and
++				 * reallocate a new router for ifa.
++				 */
++				if (sp_ifa->rt->dst.obsolete > 0) {
++					dst_release(sp_ifa->rt);
++					sp_ifa->rt = NULL;
++				} else {
++					continue;
++				}
++			}
+
+ 			sp_rt = addrconf_dst_alloc(idev, &sp_ifa->addr, 0);
+
+-- 1.7.12
