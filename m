@@ -1,48 +1,73 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [GIT PULL nf] IPVS Fixes for v3.16
-Date: Tue, 17 Jun 2014 21:40:34 +0900
-Message-ID: <20140617124034.GB22424@verge.net.au>
-References: <1402645029-21756-1-git-send-email-horms@verge.net.au>
- <20140616111115.GA25199@localhost>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net] bonding: Advertize vxlan offload features when supported
+Date: Tue, 17 Jun 2014 16:11:09 +0300
+Message-ID: <1403010669-19731-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, vfalico@gmail.com,
+	amirv@mellanox.com, Or Gerlitz <ogerlitz@mellanox.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:46196 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932555AbaFQMki (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 17 Jun 2014 08:40:38 -0400
-Content-Disposition: inline
-In-Reply-To: <20140616111115.GA25199@localhost>
+Received: from mailp.voltaire.com ([193.47.165.129]:41344 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755274AbaFQNLQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 17 Jun 2014 09:11:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 16, 2014 at 01:11:15PM +0200, Pablo Neira Ayuso wrote:
-> On Fri, Jun 13, 2014 at 04:37:08PM +0900, Simon Horman wrote:
-> > Hi Pablo,
-> > 
-> > Please consider this IPVS fix for v3.16.
-> > 
-> > Fix for panic due use of tot_stats estimator outside of CONFIG_SYSCTL
-> > 
-> > It has been present since v3.6.39.
-> > 
-> > I would like this fix considered for -stable and I have checked that it
-> > applies cleanly on top of v3.15, v3.14.7, v3.12.22, v3.10.43 and v3.2.60.
-> > 
-> > 
-> > The following changes since commit f44a5f45f544561302e855e7bd104e5f506ec01b:
-> > 
-> >   ipvs: Fix panic due to non-linear skb (2014-05-26 10:22:46 +0900)
-> > 
-> > are available in the git repository at:
-> > 
-> >   git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs.git ipvs-fixes-for-v3.16
-> 
-> Pulled, thanks Simon.
+When the underlying device supports TCP offloads for VXLAN/UDP
+encapulated traffic, we need to reflect that through the hw_enc_features
+field of the bonding net-device. This will cause the xmit path
+in the core networking stack to provide bonding with encapsulated
+GSO frames to offload into the HW etc.
 
-Thanks!
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ drivers/net/bonding/bond_main.c |    9 +++++++++
+ 1 files changed, 9 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 04f35f9..3a451b6 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1025,10 +1025,14 @@ static netdev_features_t bond_fix_features(struct net_device *dev,
+ 				 NETIF_F_FRAGLIST | NETIF_F_ALL_TSO | \
+ 				 NETIF_F_HIGHDMA | NETIF_F_LRO)
+ 
++#define BOND_ENC_FEATURES	(NETIF_F_ALL_CSUM | NETIF_F_SG | NETIF_F_RXCSUM |\
++				 NETIF_F_TSO | NETIF_F_GSO_UDP_TUNNEL)
++
+ static void bond_compute_features(struct bonding *bond)
+ {
+ 	unsigned int flags, dst_release_flag = IFF_XMIT_DST_RELEASE;
+ 	netdev_features_t vlan_features = BOND_VLAN_FEATURES;
++	netdev_features_t enc_features  = BOND_ENC_FEATURES;
+ 	struct net_device *bond_dev = bond->dev;
+ 	struct list_head *iter;
+ 	struct slave *slave;
+@@ -1044,6 +1048,9 @@ static void bond_compute_features(struct bonding *bond)
+ 		vlan_features = netdev_increment_features(vlan_features,
+ 			slave->dev->vlan_features, BOND_VLAN_FEATURES);
+ 
++		enc_features = netdev_increment_features(enc_features,
++							 slave->dev->hw_enc_features,
++							 BOND_ENC_FEATURES);
+ 		dst_release_flag &= slave->dev->priv_flags;
+ 		if (slave->dev->hard_header_len > max_hard_header_len)
+ 			max_hard_header_len = slave->dev->hard_header_len;
+@@ -1054,6 +1061,7 @@ static void bond_compute_features(struct bonding *bond)
+ 
+ done:
+ 	bond_dev->vlan_features = vlan_features;
++	bond_dev->hw_enc_features = enc_features;
+ 	bond_dev->hard_header_len = max_hard_header_len;
+ 	bond_dev->gso_max_segs = gso_max_segs;
+ 	netif_set_gso_max_size(bond_dev, gso_max_size);
+@@ -3975,6 +3983,7 @@ void bond_setup(struct net_device *bond_dev)
+ 				NETIF_F_HW_VLAN_CTAG_FILTER;
+ 
+ 	bond_dev->hw_features &= ~(NETIF_F_ALL_CSUM & ~NETIF_F_HW_CSUM);
++	bond_dev->hw_features |= NETIF_F_GSO_UDP_TUNNEL;
+ 	bond_dev->features |= bond_dev->hw_features;
+ }
+ 
+-- 
+1.7.1
