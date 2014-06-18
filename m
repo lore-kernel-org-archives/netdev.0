@@ -1,117 +1,126 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: SCTP data chunk bundling when SCTP_NODELAY is set
-Date: Wed, 18 Jun 2014 16:38:44 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1725EB40@AcuExch.aculab.com>
-References: <063D6719AE5E284EB5DD2968C1650D6D1725DD38@AcuExch.aculab.com>
- <53A062A9.70806@gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6D1725DF55@AcuExch.aculab.com>
- <53A071A2.20909@gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6D1725E88C@AcuExch.aculab.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH net] tcp: avoid multiple ssthresh reductions in on
+ retransmit window
+Date: Wed, 18 Jun 2014 09:56:19 -0700
+Message-ID: <CAK6E8=d8G_VCmb-PGssuS08xAFOSgUF=TaKzbDMtgRFd9v3PFw@mail.gmail.com>
+References: <CAK6E8=dwh1btNzX80YNre9u7rS+SgochXxHxDhQYQZCvY8yVMQ@mail.gmail.com>
+ <20140616211954.6E12BA3A89@unicorn.suse.cz> <CAK6E8=dxszKmHssR7ib7Fxfm6hQRdbwBG1ygRvOXoSAXddBSPA@mail.gmail.com>
+ <CADVnQy=sd2V2A5Rzd+OtcH1a+un3-fATSn_acKdMKUcdbpGadg@mail.gmail.com>
+ <CAK6E8=fb0x5Z0dnA6PDbxJKYn3z1y42Pr555t7apLbT97R8O-Q@mail.gmail.com>
+ <CADVnQykk0pmryWdRjq21OXYK3Pvi5xWCkaB7Jf2acF5qtnzANg@mail.gmail.com>
+ <20140617122038.GA7275@unicorn.suse.cz> <CAK6E8=e=EoxMfGMFnO90MVfBWGmoua8=4ptG978-jfD2S-J8Fw@mail.gmail.com>
+ <20140617224241.GA17969@unicorn.suse.cz> <2421.1403051930@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-To: David Laight <David.Laight@ACULAB.COM>,
-	'Vlad Yasevich' <vyasevich@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Michal Kubecek <mkubecek@suse.cz>,
+	Neal Cardwell <ncardwell@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Jay Vosburgh <jay.vosburgh@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:47359 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1753310AbaFRQkA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 12:40:00 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 01325-07 for <netdev@vger.kernel.org>;
- Wed, 18 Jun 2014 17:39:51 +0100 (BST)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1725E88C@AcuExch.aculab.com>
-Content-Language: en-US
+Received: from mail-ig0-f179.google.com ([209.85.213.179]:45566 "EHLO
+	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751684AbaFRQ5B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 12:57:01 -0400
+Received: by mail-ig0-f179.google.com with SMTP id r2so1018538igi.0
+        for <netdev@vger.kernel.org>; Wed, 18 Jun 2014 09:57:01 -0700 (PDT)
+In-Reply-To: <2421.1403051930@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Laight
-> From: Vlad Yasevich
-> ...
-> > >> I suppose we could implement SCTP_CORK to do the right thing.
-> > >>
-> > >> I thought is possibly utilizing something like sendmmsg() and passing
-> > >> an extra flag to let it be know that this is a multi-message send
-> > >> that should be queued up by sctp..
-> > >
-> > > It would be as easy to expose the extra flag to the 'application'
-> > > allowing it to use sendmsg() or sendmmsg().
-> > > While sendmmsg() saves a system call, it is fairly horrid to use.
-> > > (and I'm sending from a kernel driver so don't care about the
-> > > system call cost!)
-> > >
-> > > Possibly MSG_MORE with Nagle disabled could invoke the Nagle send
-> > > delay - but you'd need to know whether any chunks in the queue
-> > > had MSG_MORE clear.
-> >
-> > That's why doing this with cork would be simpler.  The ULP can just
-> > queue up a bunch of small data and if we pass nagle checks, it will be
-> > flushed.  If not, uncork will flush it.
-> 
-> I think you need only care about the 'MSG_MORE' flag of the last data chunk.
-> Any earlier data (with MSG_MORE clear) will usually have been sent (unless
-> prevented by Nagle or flow control), so you probably wouldn't be able to
-> send it regardless of the state of MSG_MORE on a chunk being queued.
-> There is also the expectation that another send without MSG_MORE will
-> happen almost immediately.
-> 
-> So MSG_MORE could have the same effect as corking the socket.
-> Although you'd need separate bits - but uncork could clear both.
-> 
-> What I would like to implement (from M3UA) is to hold data for a maximum
-> of (say) 5ms awaiting M3UA data chunks. To do this properly requires
-> knowledge of the actual ethernet packet boundaries.
-> 
-> The problem is there are (at least) three cases:
-> 1) This data should be sent as soon as possible.
-> 2) Send this data some time soonish.
-> 3) I've got another data block I'm going to give you after this one.
-> 
-> > I could work up a patch for you if you want.
-> 
-> I was thinking I might try to write one.
+On Tue, Jun 17, 2014 at 5:38 PM, Jay Vosburgh
+<jay.vosburgh@canonical.com> wrote:
+> Michal Kubecek <mkubecek@suse.cz> wrote:
+>
+>>On Tue, Jun 17, 2014 at 02:35:23PM -0700, Yuchung Cheng wrote:
+>>> On Tue, Jun 17, 2014 at 5:20 AM, Michal Kubecek <mkubecek@suse.cz> wrote:
+>>> > On Mon, Jun 16, 2014 at 08:44:04PM -0400, Neal Cardwell wrote:
+>>> >> On Mon, Jun 16, 2014 at 8:25 PM, Yuchung Cheng <ycheng@google.com> wrote:
+>>> >> > However Linux is inconsistent on the loss of a retransmission. It
+>>> >> > reduces ssthresh (and cwnd) if this happens on a timeout, but not in
+>>> >> > fast recovery (tcp_mark_lost_retrans). We should fix that and that
+>>> >> > should help dealing with traffic policers.
+>>> >>
+>>> >> Yes, great point!
+>>> >
+>>> > Does it mean the patch itself would be acceptable if the reasoning in
+>>> > its commit message was changed? Or would you prefer a different way to
+>>> > unify the two situations?
+>>>
+>>> It's the latter but it seems to belong to a different patch (and it'll
+>>> not solve the problem you are seeing).
+>>
+>>OK, thank you. I guess we will have to persuade them to move to cubic
+>>which handles their problems much better.
+>>
+>>> The idea behind the RFC is that TCP should reduce cwnd and ssthresh
+>>> across round trips of send, but not within an RTT. Suppose cwnd was
+>>> 10 on first timeout, so cwnd becomes 1 and ssthresh is 5. Then after 3
+>>> round trips, we time out again. By the design of Reno this should
+>>> reset cwnd from 8 to 1, and ssthresh from 5 to 2.5.
+>>
+>>Shouldn't that be from 5 to 4? We reduce ssthresh to half of current
+>>cwnd, not current ssthresh.
+Oops yes it should be 8 to 4.
+>>
+>>BtW, this is exactly the problem our customer is facing: they have
+>>relatively fast line (15 Mb/s) but with big buffers so that the
+>>roundtrip times can rise from unloaded 35 ms up to something like 1.5 s
+>>under full load.
+>>
+>>What happens is this: cwnd initally rises to ~2100 then first drops
+>>are encountered, cwnd is set to 1 and ssthresh to ~1050. The slow start
+>>lets cwnd reach ssthresh but after that, a slow linear growth follows.
+>>In this state, all in-flight packets are dropped (simulation of what
+>>happens on router switchover) so that cwnd is reset to 1 again and
+>>ssthresh to something like 530-550 (cwnd was a bit higher than ssthresh).
+>>If a packet loss comes shortly after that, cwnd is still very low and
+>>ssthresh is reduced to half of that cwnd (i.e. much lower than to half
+>>of ssthresh). If unlucky, one can even end up with ssthresh reduced to 2
+>>which takes really long to recover from.
+>
+>         I'm also looking into a problem that exhibits very similar TCP
+> characteristics, even down to cwnd and ssthresh values similar to what
+> you cite.  In this case, the situation has to do with high RTT (around
+> 80 ms) connections competing with low RTT (1 ms) connections.  This case
+> is already using cubic.
+>
+>         Essentially, a high RTT connection to the server transfers data
+> in at a reasonable and steady rate until something causes some packets
+> to be lost (in this case, another transfer from a low RTT host to the
+> same server).  Some packets are lost, and cwnd drops from ~2200 to ~300
+> (in stages, first to ~1500, then ~600, then to ~300, ).  The ssthresh
+> starts at around 1100, then drops to ~260, which is the lowest cwnd
+> value.
+>
+>         The recovery from the low cwnd situation is very slow; cwnd
+> climbs a bit and then remains essentially flat for around 5 seconds.  It
+> then begins to climb until a few packets are lost again, and the cycle
+> repeats.  If no futher losses occur (if the competing traffic has
+> ceased, for example), recovery from a low cwnd (300 - 750 ish) to the
+> full value (~2200) requires on the order of 20 seconds.  The connection
+> exits recovery state fairly quickly, and most of the 20 seconds is spent
+> in open state.
 
-Actually this might work for what I'm trying to do.
-(untested).
+ssthresh is problematic. Both cases show the same shortcoming of
+Reno/Cubic using losses and ssthresh.
+If losses are not caused by queue overflows but by link flaps, bursts,
+etc, the ssthresh is not indicative of BDP. It's kinda a random
+value (>> BDP on BB, <<BDP in these cases). TCP throughput goes
+south if we hit two losses within a few RTT and it's a point of no
+return :( Hopefully someone can come up a more intelligent control.
 
-diff --git a/net/sctp/output.c b/net/sctp/output.c
-index 0f4d15f..51030bc 100644
---- a/net/sctp/output.c
-+++ b/net/sctp/output.c
-@@ -691,7 +691,7 @@ static sctp_xmit_t sctp_packet_can_append_data(struct sctp_packet *packet,
- 	 * if any previously transmitted data on the connection remains
- 	 * unacknowledged.
- 	 */
--	if (!sctp_sk(asoc->base.sk)->nodelay && sctp_packet_empty(packet) &&
-+	if (sctp_sk(asoc->base.sk)->nodelay != 1 && sctp_packet_empty(packet) &&
- 	    inflight && sctp_state(asoc, ESTABLISHED)) {
- 		unsigned int max = transport->pathmtu - packet->overhead;
- 		unsigned int len = chunk->skb->len + q->out_qlen;
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index fee06b9..084b957 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -1928,7 +1928,10 @@ static int sctp_sendmsg(struct kiocb *iocb, struct sock *sk,
- 	}
- 
- 	/* Break the message into multiple chunks of maximum size. */
-+	if (msg->msg_flags & MSG_MORE)
-+		sp->nodelay |= 2;
- 	datamsg = sctp_datamsg_from_user(asoc, sinfo, msg, msg_len);
-+	sp->nodelay &= 1;
- 	if (IS_ERR(datamsg)) {
- 		err = PTR_ERR(datamsg);
- 		goto out_free;
+Several posts in tcpm also discuss the low ssthresh issues.
 
-Ideally MSG_MORE should delay sending even if 'inflight' is false.
-But that would require 'flush on timeout'.
-I'd prefer that, and with a configurable timeout.
-But I can implement the timeout in the 'application'.
+http://www.ietf.org/mail-archive/web/tcpm/current/msg08145.html
+http://www.ietf.org/mail-archive/web/tcpm/current/msg08778.html
 
-Given the way Nagle is implemented in sctp, I could keep flipping
-it on and off - but that probably has undocumented behaviour
-(ie it might suddenly change).
-
-	David
+>
+>         -J
+>
+> ---
+>         -Jay Vosburgh, jay.vosburgh@canonical.com
