@@ -1,59 +1,1849 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] tcp: avoid multiple ssthresh reductions in on
- retransmit window
-Date: Wed, 18 Jun 2014 00:17:32 -0700
-Message-ID: <1403075852.4559.5.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAK6E8=dwh1btNzX80YNre9u7rS+SgochXxHxDhQYQZCvY8yVMQ@mail.gmail.com>
-	 <20140616211954.6E12BA3A89@unicorn.suse.cz>
-	 <CAK6E8=dxszKmHssR7ib7Fxfm6hQRdbwBG1ygRvOXoSAXddBSPA@mail.gmail.com>
-	 <CADVnQy=sd2V2A5Rzd+OtcH1a+un3-fATSn_acKdMKUcdbpGadg@mail.gmail.com>
-	 <CAK6E8=fb0x5Z0dnA6PDbxJKYn3z1y42Pr555t7apLbT97R8O-Q@mail.gmail.com>
-	 <CADVnQykk0pmryWdRjq21OXYK3Pvi5xWCkaB7Jf2acF5qtnzANg@mail.gmail.com>
-	 <20140617122038.GA7275@unicorn.suse.cz>
-	 <CAK6E8=e=EoxMfGMFnO90MVfBWGmoua8=4ptG978-jfD2S-J8Fw@mail.gmail.com>
-	 <20140617224241.GA17969@unicorn.suse.cz>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH v2.60] datapath: Add basic MPLS support to kernel
+Date: Wed, 18 Jun 2014 16:27:36 +0900
+Message-ID: <20140618072736.GA14968@verge.net.au>
+References: <1402050531-12599-1-git-send-email-horms@verge.net.au>
+ <20140617132045.GA11070@verge.net.au>
+ <CAEP_g=_hpDnmrbi-n5TGK7nKTEsjhO06zQm8sNQWv0p-dEACjA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Michal Kubecek <mkubecek@suse.cz>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>, Ravi K <rkerur@gmail.com>,
+	Joe Stringer <joe@wand.net.nz>, Thomas Graf <tgraf@suug.ch>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f47.google.com ([74.125.82.47]:59730 "EHLO
-	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751798AbaFRHRi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 03:17:38 -0400
-Received: by mail-wg0-f47.google.com with SMTP id k14so369341wgh.30
-        for <netdev@vger.kernel.org>; Wed, 18 Jun 2014 00:17:36 -0700 (PDT)
-In-Reply-To: <20140617224241.GA17969@unicorn.suse.cz>
+Received: from kirsty.vergenet.net ([202.4.237.240]:33807 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753268AbaFRH1l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 03:27:41 -0400
+Content-Disposition: inline
+In-Reply-To: <CAEP_g=_hpDnmrbi-n5TGK7nKTEsjhO06zQm8sNQWv0p-dEACjA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-06-18 at 00:42 +0200, Michal Kubecek wrote:
+On Tue, Jun 17, 2014 at 11:02:21PM -0700, Jesse Gross wrote:
+> I'm currently seeing this compiler error:
+>=20
+>   CC [M]  /home/jesse/openvswitch/datapath/linux/gso.o
+> /home/jesse/openvswitch/datapath/linux/gso.c: In function =E2=80=98tn=
+l_skb_gso_segment=E2=80=99:
+> /home/jesse/openvswitch/datapath/linux/gso.c:199:2: error: implicit
+> declaration of function =E2=80=98skb_inner_mac_offset=E2=80=99
+> [-Werror=3Dimplicit-function-declaration]
+>   int mac_offset =3D skb_inner_mac_offset(skb);
+>   ^
+> /home/jesse/openvswitch/datapath/linux/gso.c:233:3: error: implicit
+> declaration of function =E2=80=98OVS_GSO_CB=E2=80=99
+> [-Werror=3Dimplicit-function-declaration]
+>    if (OVS_GSO_CB(skb)->fix_segment)
+>    ^
+> /home/jesse/openvswitch/datapath/linux/gso.c:233:22: error: invalid
+> type argument of =E2=80=98->=E2=80=99 (have =E2=80=98int=E2=80=99)
+>    if (OVS_GSO_CB(skb)->fix_segment)
+>                       ^
+> /home/jesse/openvswitch/datapath/linux/gso.c:234:19: error: invalid
+> type argument of =E2=80=98->=E2=80=99 (have =E2=80=98int=E2=80=99)
+>     OVS_GSO_CB(skb)->fix_segment(skb);
+>=20
+> This is on 3.13. I was originally planning on trying to fix this
+> myself but I'm obviously just slowing things down at this point :)
+>=20
+> This is a consequence of the recent extension of the versions that th=
+e
+> compat code is covering. One thing that comes to mind is how do have
+> correct behavior but avoid forcing unnecessary software segmentation
+> for tunnels on later kernels.
 
-> BtW, this is exactly the problem our customer is facing: they have
-> relatively fast line (15 Mb/s) but with big buffers so that the
-> roundtrip times can rise from unloaded 35 ms up to something like 1.5 s
-> under full load.
+Thanks Jesse,
 
-It looks like some cwnd limiting would be nice ;)
+I thought that I had checked that but clearly I missed something.
+I'll try and fix that up and repost.
 
-BDP is about 45 packets for a 35ms rtt and 15 Mb/s link.
-
-> 
-> What happens is this: cwnd initally rises to ~2100 then first drops
-> are encountered, cwnd is set to 1 and ssthresh to ~1050. The slow start
-> lets cwnd reach ssthresh but after that, a slow linear growth follows.
-> In this state, all in-flight packets are dropped (simulation of what
-> happens on router switchover) so that cwnd is reset to 1 again and
-> ssthresh to something like 530-550 (cwnd was a bit higher than ssthresh).
-> If a packet loss comes shortly after that, cwnd is still very low and
-> ssthresh is reduced to half of that cwnd (i.e. much lower than to half
-> of ssthresh). If unlucky, one can even end up with ssthresh reduced to 2
-> which takes really long to recover from.
+>=20
+> On Tue, Jun 17, 2014 at 6:20 AM, Simon Horman <horms@verge.net.au> wr=
+ote:
+> > Hi Jesse,
+> >
+> > I think this is getting pretty close.
+> > Is there anything I can do to help edge it over the line?
+> >
+> > On Fri, Jun 06, 2014 at 07:28:51PM +0900, Simon Horman wrote:
+> >> Allow datapath to recognize and extract MPLS labels into flow keys
+> >> and execute actions which push, pop, and set labels on packets.
+> >>
+> >> Based heavily on work by Leo Alterman, Ravi K, Isaku Yamahata and =
+Joe Stringer.
+> >>
+> >> Cc: Ravi K <rkerur@gmail.com>
+> >> Cc: Leo Alterman <lalterman@nicira.com>
+> >> Cc: Isaku Yamahata <yamahata@valinux.co.jp>
+> >> Cc: Joe Stringer <joe@wand.net.nz>
+> >> Signed-off-by: Simon Horman <horms@verge.net.au>
+> >>
+> >> ---
+> >> v2.60
+> >> * Add missing break statement in do_execute_actions().
+> >>   Previously there was a fall-through from OVS_ACTION_ATTR_HASH
+> >>   to OVS_ACTION_ATTR_PUSH_MPLS which is incorrect.
+> >>   (Thanks to a private tip-off.)
+> >>
+> >> v2.59
+> >> * Increase coverage of compatibility code from v3.11 to v3.16.
+> >>   Although MPLS GSO segmentation support was added in v3.11 it did=
+ not
+> >>   use mpls_features to enable it. It turns out that due to the fea=
+tures
+> >>   (n.b. not mpls_features) set by the drivers for most NICs (inclu=
+ding the
+> >>   one in my test environment) that it was activated anyway. But to=
+ be safe
+> >>   increase compatibility coverage.
+> >>   N.B.: The mpls_features has been queued up for v3.16 as
+> >>         "MPLS: Use mpls_features to activate software MPLS GSO seg=
+mentation"
+> >> * As suggested by Jesse Gross
+> >>   - Prohibit pop MPLS actions in the presence of VLANS.
+> >>     This addresses the following:
+> >>     "* Difference between push and pop underneath vlan tags.
+> >>      * Pop with multiple vlan tags
+> >>      * Differences with varying EtherTypes used for vlans"
+> >>
+> >> v2.58
+> >> * Make ovs_gso_cb small enough to fit in skb->cb
+> >> * As suggested by Jesse Gross
+> >>   - Do not free skb on error in push_mpls.
+> >>     Instead let the caller's regular error handling do so.
+> >>   - Remove handling of impossible error case for too-short skb
+> >>     in pop_mpls()
+> >>   - Call ovs_skb_set_inner_protocol() in push_mpls()
+> >>     This is to support GSO segmentation.
+> >>     This mysteriously went missing in v2.54.
+> >>   - Only call ovs_skb_init_inner_protocol if recirc is false
+> >>     to avoid inner_protocol being clobbered on recirculation.
+> >>   - Reject MPLS push on VLAN packets by inspecting TCI during
+> >>     flow verification
+> >>   - dev_supports_vlan_tx should return true for
+> >>     kernel versions >=3D 2.6.37 rather than < 2.6.37.
+> >>   - Update rpl_skb_gso_segment() to allow for MPLS inside VLANs
+> >> * Update __skb_network_protocol() to allow for MPLS inside VLANs
+> >> * Detect MPLS in the presence of VLAN tags in rpl_dev_queue_xmit()
+> >>
+> >> v2.57
+> >> * The sample action has been changed such that its nested actions =
+no
+> >>   longer have side affects. Accordingly remove the complex logic t=
+o verify
+> >>   multiple possible ethtype changes resulting from MPLS actions in=
+side the
+> >>   nested actions of a sample action. Instead provide much simpler =
+logic
+> >>   that tracks changes to the single possible ethtype a packet may =
+have.
+> >>
+> >>   By my calculations this reduces the size of the patch by about 2=
+5%.
+> >>
+> >> v2.56
+> >> * Update whitelist of ethtypes where mpls_push may be used to incl=
+ude
+> >>   the MPLS ethtypes. The whitelist is now:
+> >>   - ETH_P_IP (0x0800)
+> >>   - ETH_P_ARP (0x0806)
+> >>   - ETH_P_RARP (0x0835)
+> >>   - ETH_P_IPV6 (0x86DD)
+> >>   - ETH_P_MPLS_UC (0x8847)
+> >>   - ETH_P_MPLS_MC (0x8847)
+> >> * Rebase for
+> >>   - 6d328fa23ddf5c75
+> >>     ("ofproto: Honour Table Mod settings for  table-miss handling"=
+)
+> >>   - 708fb4c50aa5547f
+> >>     ("datapath: Compact sw_flow_key.")
+> >>   - 0962036c0ec3db8a
+> >>     ("recirculation: Adjust ovs_key_attr ABI")
+> >>
+> >> v2.55
+> >> * Use a whitelist of ethtypes where mpls_push may be used
+> >>   rather than a blacklist of ethtypes where mpls_push may not be u=
+sed.
+> >>   This is a more restrictive and more conservative approach that g=
+uarantees
+> >>   that the tag order is known and defined.
+> >>   The new whitelist is:
+> >>   - ETH_P_IP (0x0800)
+> >>   - ETH_P_ARP (0x0806)
+> >>   - ETH_P_RARP (0x0835)
+> >>   - ETH_P_IPV6 (0x86DD)
+> >>   The old blacklist was:
+> >>   - ETH_P_8021Q (0x8100)
+> >>   - ETH_P_8021AD (0x88A8)
+> >>   - ETH_P_QINQ1 (0x0x9100)
+> >>   - ETH_P_QINQ2 (0x0x9200)
+> >>   - ETH_P_QINQ3 (0x0x9300)
+> >> * Rebase for
+> >>   29c71cfa0c137abd ("datapath: Add support for Linux 3.12")
+> >>   982a47eceac1be71 ("datapath: Use ether_addr_copy")
+> >>
+> >> v2.54
+> >> * Do not allow push MPLS in the presence of VLANs
+> >> * Remove support for push MPLS in the presence of VLANs from actio=
+ns.c
+> >>
+> >> v2.53
+> >> * Push MPLS labels after VLAN tags
+> >>   - This is consistent with OF1.2 and plans for OF1.3.4, and OF1.5=
++.
+> >>     It is inconsistent with OF1.4, which appears to be an aberrati=
+on
+> >>
+> >> v2.52
+> >> * Do not guard __skb_network_protocol with KERNEL_VERSION(3.11.0)
+> >>   It was not guarded before this patch and should not be guarded
+> >>   afterwards as it is currently needed regardless of the kernel ve=
+rsion
+> >>
+> >> v2.50 - v2.51
+> >> * No change
+> >>
+> >> v2.49
+> >> * Remove MPLS items from OPENFLOW-1.1+. They should now be complet=
+e.
+> >>
+> >> v2.47
+> >> * Rebase for HAVE_RHEL_OVS_HOOK and OVS_KEY_ATTR_TCP_FLAGS
+> >>
+> >> v2.43 - v2.46
+> >> * No change
+> >>
+> >> v2.42
+> >> * Rebase for:
+> >>   + 0585f7a ("datapath: Simplify mega-flow APIs.")
+> >>   + a097c0b ("datapath: Restructure datapath.c and flow.c")
+> >> * As suggested by Jesse Gross
+> >>   + Take into account that push_mpls() will have freed the skb on =
+error
+> >>   + Remove dubious !eth_p_mpls(skb->protocol) condition from push_=
+mpls
+> >>     The !eth_p_mpls(skb->protocol) condition on setting inner_prot=
+ocol
+> >>     has no effect. Its motivation was to ensure that inner_protoco=
+l was
+> >>     only set the first time that mpls_push occured. However this i=
+s already
+> >>     ensured by the !ovs_skb_get_inner_protocol(skb) condition.
+> >>   + Return -EINVAL instead of -ENOMEM from pop_mpls() if the skb i=
+s too short
+> >>   + Do not add @inner_protocol to kernel doc for struct ovs_skb_cb=
+=2E
+> >>     The patch no longer adds an inner_protocol member to struct ov=
+s_skb_cb
+> >>   + Do not add and set otherwise unsued inner_protocol variable in
+> >>     rpl_dev_queue_xmit()
+> >> * As suggested by Pravin Shelar
+> >>   + Implement compatibility code in existing rpl_skb_gso_segment
+> >>     rather than introducing to use rpl___skb_gso_segment
+> >>
+> >> v2.41
+> >> * No change
+> >>
+> >> v2.40
+> >> * Rebase for:
+> >>   + New dev_queue_xmit compat code
+> >>   + Updated put_vlan()
+> >> * As suggested by Jesse Gross
+> >>   + Remove bogus mac_len update from push_mpls()
+> >>   + Slightly simplify push_mpls() by using eth_hdr()
+> >>   + Remove dubious condition !eth_p_mpls(inner_protocol) on
+> >>     an skb being considered to be MPLS in netdev_send()
+> >>   + Only use compatibility code for MPLS GSO segmentation on kerne=
+ls
+> >>     older than 3.11
+> >>   + Revamp setting of inner_protocol
+> >>     1. Do not unconditionally set inner_protocol to the value of
+> >>        skb->protocol in ovs_execute_actions().
+> >>     2. Initialise inner_protocol it to zero only if compatibility =
+code is in
+> >>        use. In the case where compatibility code is not in use it =
+will either
+> >>        be zero due since the allocation of the skb or some other v=
+alue set
+> >>        by some other user.
+> >>     3. Conditionally set the inner_protocol in push_mpls() to the =
+value of
+> >>        skb->protocol when entering push_mpls(). The condition is t=
+hat
+> >>        inner_protocol is zero and the value of skb->protocol is no=
+t an MPLS
+> >>        ethernet type.
+> >>     - This new scheme:
+> >>       + Pushes logic to set inner_protocol closer to the case wher=
+e it is
+> >>       needed.
+> >>       + Avoids over-writing values set by other users.
+> >> * As suggested by Pravin Shelar
+> >>   + Only set and restore skb->protocol in rpl___skb_gso_segment() =
+in the
+> >>     case of MPLS
+> >>   + Add inner_protocol field to struct ovs_gso_cb instead of ovs_s=
+kb_cb.
+> >>     This moves compatibility code closer to where it is used
+> >>     and creates fewer differences with mainline.
+> >> * Update comment on mac_len updates in datapath/actions.c
+> >> * Remove HAVE_INNER_PROCOTOL and instead just check
+> >>   against kernel version 3.11 directly.
+> >>   HAVE_INNER_PROCOTOL is a hang-over from work done prior
+> >>   to the merge of inner_protocol into the kernel.
+> >> * Remove dubious condition !eth_p_mpls(inner_protocol) on
+> >>   using inner_protocol as the type in rpl_skb_network_protocol()
+> >> * Do not update type of features in rpl_dev_queue_xmit.
+> >>   Though arguably correct this is not an inherent part of
+> >>   the changes made by this patch.
+> >> * Use skb_cow_head() in push_mpls()
+> >>   + Call skb_cow_head(skb, MPLS_HLEN) instead of
+> >>     make_writable(skb, skb->mac_len) to ensure that there is enoug=
+h head
+> >>     room to push an MPLS LSE regardless of whether the skb is clon=
+ed or not.
+> >>   + This is consistent with the behaviour of rpl__vlan_put_tag().
+> >>   + This is a fix for crashes reported when performing mpls_push
+> >>     with headroom less than 4. This problem was introduced in v3.3=
+6.
+> >> * Skip popping in mpls_pop if the skb is too short to contain an M=
+PLS LSE
+> >>
+> >> v2.39
+> >> * Rebase for removal of vlan, checksum and skb->mark compat code
+> >>
+> >> v2.38
+> >> * Rebase for SCTP support
+> >> * Refactor validate_tp_port() to iterate over eth_types rather
+> >>   than open-coding the loop. With the addition of SCTP this logic
+> >>   is now used three times.
+> >>
+> >> v2.37
+> >> * Rebase
+> >>
+> >> v2.36
+> >> * Do not add set_ethertype() to datapath/actions.c.
+> >>   As this patch has evolved this function had devolved into
+> >>   to sets of functionality wrapped into a single function with
+> >>   only one line of common code. Refactor things to simply
+> >>   open-code setting the ether type in the two locations where
+> >>   set_ethertype() was previously used. The aim here is to improve
+> >>   readability.
+> >>
+> >> * Update setting skb->protocol after mpls push and pop.
+> >>   - In the case of push_mpls it should be set unconditionally
+> >>     as in v2.35 the behaviour of this function to always push
+> >>     an MPLS LSE before any VLAN tags.
+> >>   - In the case of mpls_pop eth_p_mpls(skb->protocol) is a better
+> >>     test than skb->protocol !=3D htons(ETH_P_8021Q) as it will giv=
+e the
+> >>     correct behaviour in the presence of other VLAN ethernet types=
+,
+> >>     for example 0x88a8 which is used by 802.1ad. Moreover, it seem=
+s
+> >>     correct to update the ethernet type if it was previously set
+> >>     according to the top-most MPLS LSE.
+> >>
+> >> * Deaccelerate VLANs when pushing MPLS tags the
+> >>   - Since v2.35 MPLS push will insert an MPLS LSE before any VLAN =
+tags.
+> >>     This means that if an accelerated tag is present it should be
+> >>     deaccelerated to ensure it ends up in the correct position.
+> >>
+> >> * Update skb->mac_len in push_mpls() so that it will be correct
+> >>   when used by a subsequent call to pop_mpls().
+> >>
+> >>   As things stand I do not believe this is strictly necessary as
+> >>   ovs-vswitchd will not send a pop MPLS action after a push MPLS a=
+ction.
+> >>   However, I have added this in order to code more defensively as =
+I believe
+> >>   that if such a sequence did occur it would be rather unobvious w=
+hy
+> >>   it didn't work.
+> >>
+> >> * Do not add skb_cow_head() call in push_mpls().
+> >>   It is unnecessary as there is a make_writable() call.
+> >>   This change was also made in v2.30 but some how the
+> >>   code regressed between then and v2.35.
+> >>
+> >> v2.35
+> >> * Rebase
+> >> * Move MPLS constants to mpls.h
+> >> * Push MPLS tags after ethernet, before VLAN tags
+> >>   - This is consistent with the OpenFlow 1.3 specification
+> >>   - Compatibility with OpenFlow 1.2 and earlier versions
+> >>     may be provided by ovs-vswitchd.
+> >> * Correct GSO behaviour in the presence of MPLS but absence of VLA=
+Ns
+> >>
+> >> v2.34
+> >> * Rebase for megaflow changes
+> >>
+> >> v2.33
+> >> * Ensure that inner_protocol is always set to to the current
+> >>   skb->protocol value in ovs_execute_actions(). This ensures
+> >>   it is set to the correct value in the absence of a push_mpls act=
+ion.
+> >>   Also remove setting of inner_protocol in push_mpls() as
+> >>   it duplicates the code now in ovs_execute_actions().
+> >> * Call __skb_gso_segment() instead of skb_gso_segment() from
+> >>   rpl___skb_gso_segment() in the case that HAVE___SKB_GSO_SEGMENT =
+is set.
+> >>   This was a typo.
+> >>
+> >> v2.32
+> >> * As suggested by Jesse Gross
+> >>   - Use int instead of size_t in validate_and_copy_actions__().
+> >>   - Fix crazy edit mess in pop_mpls() action comment
+> >>   - Move eth_p_mpls() into mpls.h
+> >>   - Refactor skb_gso_segment MPLS handling into rpl_skb_gso_segmen=
+t
+> >>     Address Jesse's comments regarding this code:
+> >>     "Can we push this completely into the skb_gso_segment() compat=
+ibility
+> >>      code? It's both nicer and may make the interactions with the =
+vlan code
+> >>      less confusing."
+> >>   - Move GSO compatibility code into linux/compat/gso.*
+> >>   - Set skb->protocol on mpls_push and mpls_pop in the presence
+> >>     of an offloaded VLAN.
+> >>
+> >> v2.31
+> >> * As suggested by Jesse Gross
+> >>   - There is no need to make mac_header_end inline as it is not in=
+ a header file
+> >>   - Remove dubious if (*skb_ethertype =3D=3D ethertype) optimisati=
+on from
+> >>     set_ethertype
+> >>   - Only set skb->protocol in push_mpls() or pop_mpls() for non-VL=
+AN packets
+> >>   - Use MAX_ETH_TYPES instead of SAMPLE_ACTION_DEPTH for array siz=
+e
+> >>     of types in struct eth_types. This corrects a typo/thinko.
+> >>   - Correct eth type tracking logic such that start isn't advanced
+> >>     when entering a sample action, ensuring that all possibly type=
+s
+> >>     are checked when verifying nested actions.
+> >> * Define HAVE_INNER_PROTOCOL based on kernel version.
+> >>   inner_protocol has been merged into net-next and should appear i=
+n
+> >>   v3.11 so there is no longer a need for a acinclude.m4 test to ch=
+eck for it.
+> >> * Add MPLS GSO compatibility code.
+> >>   This is for use on kernels that do not have MPLS GSO support.
+> >>   Thanks to Joe Stringer for his work on this.
+> >>
+> >> v2.30
+> >> * As suggested by Jesse Gross
+> >>   - Use skb_cow_head in push_mpls to ensure there is sufficient he=
+adroom for
+> >>     skb_push
+> >>   - Call make_writable with skb->mac_len instead of skb->mac_len +=
+ MPLS_HLEN
+> >>     in push_mpls as only the first skb->mac_len bytes of existing =
+packet data
+> >>     are modified.
+> >>   - Rename skb_mac_header_end as mac_header_end, this seems
+> >>     to be a more appropriate name for a local function.
+> >>   - Remove OVS_CSUM_COMPLETE code from set_ethertype().
+> >>     Inside OVS the ethernet header is not covered by OVS_CSUM_COMP=
+LETE.
+> >>   - Use __skb_pull() instead of skb_pull() in pop_mpls()
+> >>   - Decrement and decrement skb->mac_len when poping and pushing V=
+LAN tags.
+> >>     Previously mac_len was reset, but this would result in forgett=
+ing
+> >>     the MPLS label stack.
+> >>   - Remove spurious comment from before do_execute_actions().
+> >>   - Move OVS_KEY_ATTR_MPLS attribute to its final, upstreamable, l=
+ocation.
+> >>   - Correct ethertype check for OVS_ACTION_ATTR_POP_MPLS case in
+> >>     validate_and_copy_actions() to check for MPLS ethertypes rathe=
+r than
+> >>     ETH_P_IP.
+> >>   - Rewrite tracking of eth types used to verify actions in the pr=
+esence
+> >>     of sample actions. There is a large comment above struct eth_t=
+ypes
+> >>     describing the new implementation.
+> >>
+> >> v2.29
+> >> * Break include/ and lib/ portions of the patch out into a
+> >>   separate patch "datapath: Add basic MPLS support to kernel"
+> >> * Update for new MPLS GSO scheme
+> >>   - skb->protocol is set to the new ethertype of the packet
+> >>     on MPLS push and pop
+> >>   - When pushing the first MPLS LSE onto a previously non-MPLS
+> >>     packet set skb->inner_protocol to the original ethertype.
+> >>   - skb->inner_protocol may be used by the network stack
+> >>     for GSO of the inner-packet.
+> >> * Drop const from ethertype parameter of set_ethertype.
+> >>   This appears to be a legacy of this parameter being a pointer.
+> >> * Pass the ethertype patrameter of pop_mpls as a value rather
+> >>   than a pointer.
+> >>
+> >> v2.28
+> >> * Kernel Datapath changes as suggested by Jarno Rajahalme
+> >>   + Correct the logic introduced in v2.27 to set the network_heade=
+r
+> >>     to after the MPLS label stack in the case of an MPLS packet.
+> >>     - Increment stack_len offset so that label stacks of depth gre=
+ater
+> >>       than two do not cause an infinite loop.
+> >>     - Correct offset passed to check_header to include skb->mac le=
+n
+> >>
+> >> v2.27
+> >> * Kernel Datapath changes as suggested by Jarno Rajahalme and Jess=
+e Gross:
+> >>   + Previously the mac_len and network_header of an skb correspond=
+ed
+> >>     to the end of the L2 header.  To support GSO, just before tran=
+smission,
+> >>     do_output, with the results as follows:
+> >>
+> >>     Input: non-MPLS skb: Output: network header and mac_len corres=
+pond
+> >>                          to the beginning of the L3 headers
+> >>     Input: MPLS:         Output: network header and mac_len corres=
+pond to the
+> >>                          end of the L2 headers.
+> >>
+> >>     This is somewhat confusing.
+> >>
+> >>   + The new scheme is as follows:
+> >>     - The mac_len always corresponds to the end of the L2 header.
+> >>     - The network header always corresponds to the beginning of th=
+e
+> >>       L3 header.
+> >>
+> >>   + Note that in the case of MPLS output the end of the L2 headers=
+ and the
+> >>   beginning of the L3 headers will differ.
+> >>
+> >> * Remove unused declaration of skb_cb_mpls_stack()
+> >>
+> >> v2.26
+> >> * Rebase on master
+> >> * Kernel Datapath changes as suggested by Jarno Rajahalme
+> >>   - Use skb_network_header() instead of skb_mac_header() to locate
+> >>     the ethertype to set in set_ethertype() as the latter will
+> >>     be wrong in the presence of VLAN tags. This resolves
+> >>     a regression introduced in v2.24.
+> >>   - Enhance comment in do_output()
+> >>   - do_execute_actions(): Do not alter mpls_stack_depth if
+> >>     a MPLS push or pop action fail. This is achieved by altering
+> >>     mpls_stack_depth at the end of push_mpls() and pop_mpls().
+> >>
+> >> v2.25
+> >> * Rebase on master
+> >> * Pass big-endian value as the last argument of eth_types_set() in
+> >>   validate_and_copy_actions__()
+> >> * Use revised GSO support as provided by the patch series
+> >>   "[PATCH 0/2] Small Modifications to GSO to allow segmentation of=
+ MPLS"
+> >>   - Set skb->mac_len to the length of the l2 header + MPLS stack l=
+ength
+> >>   - Update skb->network_header accordingly
+> >>   - Set skb->encapsulated_features
+> >>
+> >> v2.24
+> >> * Use skb_mac_header() in set_ethertype()
+> >> * Set skb->encapsulation in set_ethertype() to support MPLS GSO.
+> >>   Also add a note about the other requirements for MPLS GSO.
+> >>   MPLS GSO support will be posted as a patch net-next (Linux mainl=
+ine)
+> >>   "MPLS: Add limited GSO support"
+> >> * Do not add ETH_TYPE_MIN, it is no longer used
+> >>
+> >> v2.23
+> >> * As suggested by Jesse Gross:
+> >>   - Verify the current ethernet type when validating sample action=
+s
+> >>     both for the taken and not-taken path if the sample action.
+> >>   - Document that the OVS_KEY_ATTR_MPLS attribute accepts a list o=
+f
+> >>     struct ovs_key_mpls but that an implementation may restrict
+> >>     the length it accepts.
+> >>   - Restrict the array length of the OVS_KEY_ATTR_MPLS to one.
+> >>     + Don't add ovs_flow_verify_key_len as it was added to
+> >>       handle attributes whose values are arrays but there are
+> >>       no attributes with values that are arrays (of length greater=
+ than one).
+> >>
+> >> v2.22
+> >> * As suggested by Jesse Gross:
+> >>   - Fix sparse warning in validate_and_copy_actions()
+> >>     I have no idea why sparse doesn't show this up this on my syst=
+em.
+> >>   - Remove call to skb_cow_head() from push_mpls() as it
+> >>     is already covered by a call to make_writable()
+> >>   - Check (key_type > OVS_KEY_ATTR_MAX) in ovs_flow_verify_key_len=
+()
+> >>   - Disallow set actions on l2.5+ data and MPLS push and pop actio=
+ns
+> >>     after an MPLS pop action as there is no verification that the =
+packet
+> >>     is actually of the new ethernet type. This may later be suppor=
+ted
+> >>     using recirculation or by other means.
+> >>   - Do not add spurious debuging message to ovs_flow_cmd_new_or_se=
+t()
+> >>
+> >> v2.21
+> >> * As suggested by Jesse Gross:
+> >>   - Verify that l3 and l4 actions always always occur prior to
+> >>     a push_mpls action and use the network header pointer of an sk=
+b
+> >>     to track the top of the MPLS stack. This avoids adding an l2_s=
+ize
+> >>     element to the skb callback.
+> >>
+> >> v2.20
+> >> * As suggested by Jesse Gross:
+> >>   - Do not add ovs_dp_ioctl_hook
+> >>     + This appears to be garbage from a rebase
+> >>   - Do not add skb_cb_set_l2_size. Instead set OVS_CB(skb)->l2_siz=
+e
+> >>     in ovs_flow_extract().
+> >>   - Do not free skb on error in push_mpls(), it is freed in the ca=
+ller
+> >>   - Call skb_reset_mac_len() in pop_mpls() and push_mpls()
+> >>   - Update checksums in pop_mpls(), push_mpls() and set_mpls().
+> >>   - Rename skb_cb_mpls_bos() as skb_cb_mpls_stack().
+> >>     It returns the top not the bottom of the stack.
+> >>   - Track the current eth_type in validate_and_copy_actions
+> >>     which is initially the eth_type of the flow and may be modifie=
+d
+> >>     by push_mpls and pop_mpls actions. Use this to correctly valid=
+ate
+> >>     mpls_set actions. This is to allow mpls_set actions to be appl=
+ied
+> >>     to a non-MPLS frame after an mpls_push action (although ovs-vs=
+witchd
+> >>     doesn't currently do that).
+> >>     Also:
+> >>     + Remove the check of the eth_type in set_mpls() as the new va=
+lidation
+> >>       scheme should ensure it cannot be incorrect.
+> >>     + Use the current eth_type to validate mpls_pop actions and re=
+move
+> >>       the eth_type check from pop_mpls().
+> >>   - Move OVS_KEY_ATTR_MPLS to non-upstream group in ovs_key_lens
+> >>   - Remove unnecessary memset of mpls_key in ovs_flow_to_nlattrs()
+> >>   - Make a union of the mpls and ip elements of struct sw_flow_key=
+=2E
+> >>     Currently the code stops parsing after an MPLS header so it is
+> >>     not possible for the ip and mpls elements to be used simultane=
+ously
+> >>     and some space can be saved by using a union.
+> >>   - Allow an array of MPLS key attributes
+> >>     + Currently all but the first element is ignored
+> >>     + User-space needs to be updated to accept more than one eleme=
+nt,
+> >>       currently it will treat their presence as an error
+> >>   - Do not update network header in ovs_flow_extract() for after p=
+arsing
+> >>     the MPLS stack as it is never used because no l3+ processing
+> >>     occurs on MPLS frames.
+> >>   - Allow multiple MPLS entries in a match by allowing the OVS_KEY=
+_ATTR_MPLS
+> >>     to be an array of struct ovs_key_mpls with at least one entry.
+> >>     Currently only one entry is used which is byte-for-byte compat=
+ible with
+> >>     the previous scheme of having OVS_KEY_ATTR_MPLS as a struct
+> >>     ovs_key_mpls.
+> >> * Make skb writable in pop_mpls(), push_mpls() and set_mpls().
+> >>
+> >> v2.18 - v2.19
+> >> * No change
+> >>
+> >> v2.17
+> >> * As suggested by Ben Pfaff
+> >>   - Use consistent terminology for MPLS.
+> >>     + Consistently refer to the MPLS component of a packet as the
+> >>       MPLS label stack and entries in the stack as MPLS label stac=
+k entries
+> >>       (LSE).  An MPLS label is a component of an MPLS label stack =
+entry.
+> >>       The other components are the traffic class (TC), time to liv=
+e (TTL)
+> >>       and bottom of stack (BoS) bit.
+> >>   - Rename compose_.*mpls_ functions as execute_.*mpls_
+> >>
+> >> v2.16
+> >> * No change
+> >>
+> >> v2.15
+> >> * As suggested by Ben Pfaff
+> >>   - Use OVS_ACTION_SET to set OVS_KEY_ATTR_MPLS instead of
+> >>     OVS_ACTION_ATTR_SET_MPLS
+> >>
+> >> v2.14
+> >> * Remove include/linux/openvswitch.h portion which added add
+> >>   new key and action attributes. This
+> >>   now present in "User-Space MPLS actions and matches"
+> >>   which is now a dependency of this patch
+> >>
+> >> v2.13
+> >> * As suggested by Jarno Rajahalme
+> >>   - Rename mpls_bos element of ovs_skb_cb as l2_size as it is set =
+and used
+> >>     regardless of if an MPLS stack is present or not. Update the n=
+ame of
+> >>     helper functions and documentation accordingly.
+> >>   - Ensure that skb_cb_mpls_bos() never returns NULL
+> >> * Correct endieness in eth_p_mpls()
+> >>
+> >> v2.12
+> >> * Update skb and network header on MPLS extraction in ovs_flow_ext=
+ract()
+> >> * Use NULL in skb_cb_mpls_bos()
+> >> * Add eth_p_mpls helper
+> >>
+> >> v2.10 - v2.11
+> >> * No change
+> >>
+> >> v2.9
+> >> * datapath: Always update the mpls bos if  vlan_pop is successful
+> >>
+> >>   Regardless of the details of how a successful
+> >>   vlan_pop is achieved, the mpls bos needs to be updated.
+> >>
+> >>   Without this fix it has been observed that the following
+> >>   results in malformed packets
+> >>
+> >> v2.8
+> >> * No change
+> >>
+> >> v2.7
+> >> * Rebase
+> >>
+> >> v2.6
+> >> * As suggested by Yamahata-san
+> >>   - Do not guard against label =3D=3D 0 for
+> >>     OVS_ACTION_ATTR_SET_MPLS in validate_actions().
+> >>     A label of 0 is valid
+> >>   - Remove comment stupulating that if
+> >>     the top_label element of struct sw_flow_key is 0 then
+> >>     there is no MPLS label. An MPLS label of 0 is valid
+> >>     and the correct check if ethertype is
+> >>     ntohs(ETH_TYPE_MPLS) or ntohs(ETH_TYPE_MPLS_MCAST)
+> >>
+> >> v2.4 - v2.5
+> >> * No change
+> >>
+> >> v2.3
+> >> * s/mpls_stack/mpls_bos/
+> >>   This is in keeping with the naming used in the OpenFlow 1.3 spec=
+ification
+> >>
+> >> v2.2
+> >> * Call skb_reset_mac_header() in skb_cb_set_mpls_stack()
+> >>   eth_hdr(skb) is non-NULL when called in skb_cb_set_mpls_stack().
+> >> * Add a call to skb_cb_set_mpls_stack() in ovs_packet_cmd_execute(=
+).
+> >>   I apologise that I have mislaid my notes on this but
+> >>   it avoids a kernel panic. I can investigate again if necessary.
+> >> * Use struct ovs_action_push_mpls instead of
+> >>   __be16 to decode OVS_ACTION_ATTR_PUSH_MPLS in validate_actions()=
+=2E This is
+> >>   consistent with the data format for the attribute.
+> >> * Indentation fix in skb_cb_mpls_stack(). [cosmetic]
+> >>
+> >> v2.1
+> >> * Manual rebase
+> >> ---
+> >>  OPENFLOW-1.1+                                   |   4 -
+> >>  datapath/Modules.mk                             |   1 +
+> >>  datapath/actions.c                              | 116 +++++++++++=
++++++++++-
+> >>  datapath/datapath.c                             |   6 +-
+> >>  datapath/flow.c                                 |  29 ++++++
+> >>  datapath/flow.h                                 |  17 ++--
+> >>  datapath/flow_netlink.c                         | 130 +++++++++++=
++++++++++----
+> >>  datapath/flow_netlink.h                         |   2 +-
+> >>  datapath/linux/compat/gso.c                     |  78 +++++++++++=
+---
+> >>  datapath/linux/compat/gso.h                     |  41 +++++++-
+> >>  datapath/linux/compat/include/linux/netdevice.h |   6 +-
+> >>  datapath/linux/compat/netdevice.c               |  10 +-
+> >>  datapath/mpls.h                                 |  15 +++
+> >>  include/linux/openvswitch.h                     |   9 +-
+> >>  14 files changed, 409 insertions(+), 55 deletions(-)
+> >>  create mode 100644 datapath/mpls.h
+> >>
+> >> diff --git a/OPENFLOW-1.1+ b/OPENFLOW-1.1+
+> >> index 927962a..049576c 100644
+> >> --- a/OPENFLOW-1.1+
+> >> +++ b/OPENFLOW-1.1+
+> >> @@ -54,10 +54,6 @@ OpenFlow 1.1
+> >>  The list of remaining work items for OpenFlow 1.1 is below.  It i=
+s
+> >>  probably incomplete.
+> >>
+> >> -    * MPLS.  Simon Horman maintains a patch series that adds this
+> >> -      feature.  This is partially merged.
+> >> -      [optional for OF1.1+]
+> >> -
+> >>      * Match and set double-tagged VLANs (QinQ).  This requires ke=
+rnel
+> >>        work for reasonable performance.
+> >>        [optional for OF1.1+]
+> >> diff --git a/datapath/Modules.mk b/datapath/Modules.mk
+> >> index b652411..6aa80e5 100644
+> >> --- a/datapath/Modules.mk
+> >> +++ b/datapath/Modules.mk
+> >> @@ -26,6 +26,7 @@ openvswitch_headers =3D \
+> >>       flow.h \
+> >>       flow_netlink.h \
+> >>       flow_table.h \
+> >> +     mpls.h \
+> >>       vlan.h \
+> >>       vport.h \
+> >>       vport-internal_dev.h \
+> >> diff --git a/datapath/actions.c b/datapath/actions.c
+> >> index 603c7cb..e9cecdf 100644
+> >> --- a/datapath/actions.c
+> >> +++ b/datapath/actions.c
+> >> @@ -35,6 +35,8 @@
+> >>  #include <net/sctp/checksum.h>
+> >>
+> >>  #include "datapath.h"
+> >> +#include "gso.h"
+> >> +#include "mpls.h"
+> >>  #include "vlan.h"
+> >>  #include "vport.h"
+> >>
+> >> @@ -49,6 +51,99 @@ static int make_writable(struct sk_buff *skb, i=
+nt write_len)
+> >>       return pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
+> >>  }
+> >>
+> >> +/* The end of the mac header.
+> >> + *
+> >> + * For non-MPLS skbs this will correspond to the network header.
+> >> + * For MPLS skbs it will be before the network_header as the MPLS
+> >> + * label stack lies between the end of the mac header and the net=
+work
+> >> + * header. That is, for MPLS skbs the end of the mac header
+> >> + * is the top of the MPLS label stack.
+> >> + */
+> >> +static unsigned char *mac_header_end(const struct sk_buff *skb)
+> >> +{
+> >> +     return skb_mac_header(skb) + skb->mac_len;
+> >> +}
+> >> +
+> >> +static int push_mpls(struct sk_buff *skb,
+> >> +                  const struct ovs_action_push_mpls *mpls)
+> >> +{
+> >> +     __be32 *new_mpls_lse;
+> >> +     struct ethhdr *hdr;
+> >> +
+> >> +     if (skb_cow_head(skb, MPLS_HLEN) < 0) {
+> >> +             return -ENOMEM;
+> >> +     }
+> >> +
+> >> +     skb_push(skb, MPLS_HLEN);
+> >> +     memmove(skb_mac_header(skb) - MPLS_HLEN, skb_mac_header(skb)=
+,
+> >> +             skb->mac_len);
+> >> +     skb_reset_mac_header(skb);
+> >> +
+> >> +     new_mpls_lse =3D (__be32 *)mac_header_end(skb);
+> >> +     *new_mpls_lse =3D mpls->mpls_lse;
+> >> +
+> >> +     if (skb->ip_summed =3D=3D CHECKSUM_COMPLETE)
+> >> +             skb->csum =3D csum_add(skb->csum, csum_partial(new_m=
+pls_lse,
+> >> +                                                          MPLS_HL=
+EN, 0));
+> >> +
+> >> +     hdr =3D eth_hdr(skb);
+> >> +     hdr->h_proto =3D mpls->mpls_ethertype;
+> >> +     if (!ovs_skb_get_inner_protocol(skb))
+> >> +             ovs_skb_set_inner_protocol(skb, skb->protocol);
+> >> +     skb->protocol =3D mpls->mpls_ethertype;
+> >> +     return 0;
+> >> +}
+> >> +
+> >> +static int pop_mpls(struct sk_buff *skb, const __be16 ethertype)
+> >> +{
+> >> +     struct ethhdr *hdr;
+> >> +     int err;
+> >> +
+> >> +     err =3D make_writable(skb, skb->mac_len + MPLS_HLEN);
+> >> +     if (unlikely(err))
+> >> +             return err;
+> >> +
+> >> +     if (skb->ip_summed =3D=3D CHECKSUM_COMPLETE)
+> >> +             skb->csum =3D csum_sub(skb->csum,
+> >> +                                  csum_partial(mac_header_end(skb=
+),
+> >> +                                               MPLS_HLEN, 0));
+> >> +
+> >> +     memmove(skb_mac_header(skb) + MPLS_HLEN, skb_mac_header(skb)=
+,
+> >> +             skb->mac_len);
+> >> +
+> >> +     __skb_pull(skb, MPLS_HLEN);
+> >> +     skb_reset_mac_header(skb);
+> >> +
+> >> +     /* mac_header_end() is used to locate the ethertype
+> >> +      * field correctly in the presence of VLAN tags.
+> >> +      */
+> >> +     hdr =3D (struct ethhdr *)(mac_header_end(skb) - ETH_HLEN);
+> >> +     hdr->h_proto =3D ethertype;
+> >> +     if (eth_p_mpls(skb->protocol))
+> >> +             skb->protocol =3D ethertype;
+> >> +     return 0;
+> >> +}
+> >> +
+> >> +static int set_mpls(struct sk_buff *skb, const __be32 *mpls_lse)
+> >> +{
+> >> +     __be32 *stack =3D (__be32 *)mac_header_end(skb);
+> >> +     int err;
+> >> +
+> >> +     err =3D make_writable(skb, skb->mac_len + MPLS_HLEN);
+> >> +     if (unlikely(err))
+> >> +             return err;
+> >> +
+> >> +     if (skb->ip_summed =3D=3D CHECKSUM_COMPLETE) {
+> >> +             __be32 diff[] =3D { ~(*stack), *mpls_lse };
+> >> +             skb->csum =3D ~csum_partial((char *)diff, sizeof(dif=
+f),
+> >> +                                       ~skb->csum);
+> >> +     }
+> >> +
+> >> +     *stack =3D *mpls_lse;
+> >> +
+> >> +     return 0;
+> >> +}
+> >> +
+> >>  /* remove VLAN header from packet and update csum accordingly. */
+> >>  static int __pop_vlan_tci(struct sk_buff *skb, __be16 *current_tc=
+i)
+> >>  {
+> >> @@ -71,7 +166,8 @@ static int __pop_vlan_tci(struct sk_buff *skb, =
+__be16 *current_tci)
+> >>
+> >>       vlan_set_encap_proto(skb, vhdr);
+> >>       skb->mac_header +=3D VLAN_HLEN;
+> >> -     skb_reset_mac_len(skb);
+> >> +     /* Update mac_len for subsequent MPLS actions */
+> >> +     skb->mac_len -=3D VLAN_HLEN;
+> >>
+> >>       return 0;
+> >>  }
+> >> @@ -116,6 +212,9 @@ static int push_vlan(struct sk_buff *skb, cons=
+t struct ovs_action_push_vlan *vla
+> >>               if (!__vlan_put_tag(skb, skb->vlan_proto, current_ta=
+g))
+> >>                       return -ENOMEM;
+> >>
+> >> +             /* Update mac_len for subsequent MPLS actions */
+> >> +             skb->mac_len +=3D VLAN_HLEN;
+> >> +
+> >>               if (skb->ip_summed =3D=3D CHECKSUM_COMPLETE)
+> >>                       skb->csum =3D csum_add(skb->csum, csum_parti=
+al(skb->data
+> >>                                       + (2 * ETH_ALEN), VLAN_HLEN,=
+ 0));
+> >> @@ -545,6 +644,10 @@ static int execute_set_action(struct sk_buff =
+*skb,
+> >>       case OVS_KEY_ATTR_SCTP:
+> >>               err =3D set_sctp(skb, nla_data(nested_attr));
+> >>               break;
+> >> +
+> >> +     case OVS_KEY_ATTR_MPLS:
+> >> +             err =3D set_mpls(skb, nla_data(nested_attr));
+> >> +             break;
+> >>       }
+> >>
+> >>       return err;
+> >> @@ -606,6 +709,14 @@ static int do_execute_actions(struct datapath=
+ *dp, struct sk_buff *skb,
+> >>                       execute_hash(skb, a);
+> >>                       break;
+> >>
+> >> +             case OVS_ACTION_ATTR_PUSH_MPLS:
+> >> +                     err =3D push_mpls(skb, nla_data(a));
+> >> +                     break;
+> >> +
+> >> +             case OVS_ACTION_ATTR_POP_MPLS:
+> >> +                     err =3D pop_mpls(skb, nla_get_be16(a));
+> >> +                     break;
+> >> +
+> >>               case OVS_ACTION_ATTR_PUSH_VLAN:
+> >>                       err =3D push_vlan(skb, nla_data(a));
+> >>                       if (unlikely(err)) /* skb already freed. */
+> >> @@ -701,6 +812,9 @@ int ovs_execute_actions(struct datapath *dp, s=
+truct sk_buff *skb, bool recirc)
+> >>               goto out_loop;
+> >>       }
+> >>
+> >> +     if (!recirc)
+> >> +             ovs_skb_init_inner_protocol(skb);
+> >> +
+> >>       OVS_CB(skb)->tun_key =3D NULL;
+> >>       error =3D do_execute_actions(dp, skb, acts->actions, acts->a=
+ctions_len);
+> >>
+> >> diff --git a/datapath/datapath.c b/datapath/datapath.c
+> >> index 81ecc0f..cd52d92 100644
+> >> --- a/datapath/datapath.c
+> >> +++ b/datapath/datapath.c
+> >> @@ -576,7 +576,7 @@ static int ovs_packet_cmd_execute(struct sk_bu=
+ff *skb, struct genl_info *info)
+> >>               goto err_flow_free;
+> >>
+> >>       err =3D ovs_nla_copy_actions(a[OVS_PACKET_ATTR_ACTIONS],
+> >> -                                &flow->key, 0, &acts);
+> >> +                                &flow->key, &acts);
+> >>       rcu_assign_pointer(flow->sf_acts, acts);
+> >>       if (err)
+> >>               goto err_flow_free;
+> >> @@ -861,7 +861,7 @@ static int ovs_flow_cmd_new(struct sk_buff *sk=
+b, struct genl_info *info)
+> >>               goto err_kfree_flow;
+> >>
+> >>       error =3D ovs_nla_copy_actions(a[OVS_FLOW_ATTR_ACTIONS], &ne=
+w_flow->key,
+> >> -                                  0, &acts);
+> >> +                                  &acts);
+> >>       if (error) {
+> >>               OVS_NLERR("Flow actions may not be safe on all match=
+ing packets.\n");
+> >>               goto err_kfree_acts;
+> >> @@ -985,7 +985,7 @@ static int ovs_flow_cmd_set(struct sk_buff *sk=
+b, struct genl_info *info)
+> >>
+> >>               ovs_flow_mask_key(&masked_key, &key, &mask);
+> >>               error =3D ovs_nla_copy_actions(a[OVS_FLOW_ATTR_ACTIO=
+NS],
+> >> -                                          &masked_key, 0, &acts);
+> >> +                                          &masked_key, &acts);
+> >>               if (error) {
+> >>                       OVS_NLERR("Flow actions may not be safe on a=
+ll matching packets.\n");
+> >>                       goto err_kfree_acts;
+> >> diff --git a/datapath/flow.c b/datapath/flow.c
+> >> index c52081b..cbba1cf 100644
+> >> --- a/datapath/flow.c
+> >> +++ b/datapath/flow.c
+> >> @@ -45,6 +45,7 @@
+> >>  #include <net/ipv6.h>
+> >>  #include <net/ndisc.h>
+> >>
+> >> +#include "mpls.h"
+> >>  #include "vlan.h"
+> >>
+> >>  u64 ovs_flow_used_time(unsigned long flow_jiffies)
+> >> @@ -480,6 +481,7 @@ int ovs_flow_extract(struct sk_buff *skb, u16 =
+in_port, struct sw_flow_key *key)
+> >>               return -ENOMEM;
+> >>
+> >>       skb_reset_network_header(skb);
+> >> +     skb_reset_mac_len(skb);
+> >>       __skb_push(skb, skb->data - skb_mac_header(skb));
+> >>
+> >>       /* Network layer. */
+> >> @@ -563,6 +565,33 @@ int ovs_flow_extract(struct sk_buff *skb, u16=
+ in_port, struct sw_flow_key *key)
+> >>                       ether_addr_copy(key->ipv4.arp.sha, arp->ar_s=
+ha);
+> >>                       ether_addr_copy(key->ipv4.arp.tha, arp->ar_t=
+ha);
+> >>               }
+> >> +     } else if (eth_p_mpls(key->eth.type)) {
+> >> +             size_t stack_len =3D MPLS_HLEN;
+> >> +
+> >> +             /* In the presence of an MPLS label stack the end of=
+ the L2
+> >> +              * header and the beginning of the L3 header differ.
+> >> +              *
+> >> +              * Advance network_header to the beginning of the L3
+> >> +              * header. mac_len corresponds to the end of the L2 =
+header.
+> >> +              */
+> >> +             while (1) {
+> >> +                     __be32 lse;
+> >> +
+> >> +                     error =3D check_header(skb, skb->mac_len + s=
+tack_len);
+> >> +                     if (unlikely(error))
+> >> +                             return 0;
+> >> +
+> >> +                     memcpy(&lse, skb_network_header(skb), MPLS_H=
+LEN);
+> >> +
+> >> +                     if (stack_len =3D=3D MPLS_HLEN)
+> >> +                             memcpy(&key->mpls.top_lse, &lse, MPL=
+S_HLEN);
+> >> +
+> >> +                     skb_set_network_header(skb, skb->mac_len + s=
+tack_len);
+> >> +                     if (lse & htonl(MPLS_BOS_MASK))
+> >> +                             break;
+> >> +
+> >> +                     stack_len +=3D MPLS_HLEN;
+> >> +             }
+> >>       } else if (key->eth.type =3D=3D htons(ETH_P_IPV6)) {
+> >>               int nh_len;             /* IPv6 Header + Extensions =
+*/
+> >>
+> >> diff --git a/datapath/flow.h b/datapath/flow.h
+> >> index 2018691..ca29d56 100644
+> >> --- a/datapath/flow.h
+> >> +++ b/datapath/flow.h
+> >> @@ -82,12 +82,17 @@ struct sw_flow_key {
+> >>               __be16 tci;             /* 0 if no VLAN, VLAN_TAG_PR=
+ESENT set otherwise. */
+> >>               __be16 type;            /* Ethernet frame type. */
+> >>       } eth;
+> >> -     struct {
+> >> -             u8     proto;           /* IP protocol or lower 8 bi=
+ts of ARP opcode. */
+> >> -             u8     tos;             /* IP ToS. */
+> >> -             u8     ttl;             /* IP TTL/hop limit. */
+> >> -             u8     frag;            /* One of OVS_FRAG_TYPE_*. *=
+/
+> >> -     } ip;
+> >> +     union {
+> >> +             struct {
+> >> +                     __be32 top_lse;         /* top label stack e=
+ntry */
+> >> +             } mpls;
+> >> +             struct {
+> >> +                     u8     proto;           /* IP protocol or lo=
+wer 8 bits of ARP opcode. */
+> >> +                     u8     tos;                 /* IP ToS. */
+> >> +                     u8     ttl;                 /* IP TTL/hop li=
+mit. */
+> >> +                     u8     frag;            /* One of OVS_FRAG_T=
+YPE_*. */
+> >> +             } ip;
+> >> +     };
+> >>       struct {
+> >>               __be16 src;             /* TCP/UDP/SCTP source port.=
+ */
+> >>               __be16 dst;             /* TCP/UDP/SCTP destination =
+port. */
+> >> diff --git a/datapath/flow_netlink.c b/datapath/flow_netlink.c
+> >> index 803a94c..bcd05b3 100644
+> >> --- a/datapath/flow_netlink.c
+> >> +++ b/datapath/flow_netlink.c
+> >> @@ -20,6 +20,7 @@
+> >>
+> >>  #include "flow.h"
+> >>  #include "datapath.h"
+> >> +#include "mpls.h"
+> >>  #include <linux/uaccess.h>
+> >>  #include <linux/netdevice.h>
+> >>  #include <linux/etherdevice.h>
+> >> @@ -123,7 +124,8 @@ static bool match_validate(const struct sw_flo=
+w_match *match,
+> >>                       | (1ULL << OVS_KEY_ATTR_ICMP)
+> >>                       | (1ULL << OVS_KEY_ATTR_ICMPV6)
+> >>                       | (1ULL << OVS_KEY_ATTR_ARP)
+> >> -                     | (1ULL << OVS_KEY_ATTR_ND));
+> >> +                     | (1ULL << OVS_KEY_ATTR_ND)
+> >> +                     | (1ULL << OVS_KEY_ATTR_MPLS));
+> >>
+> >>       /* Always allowed mask fields. */
+> >>       mask_allowed |=3D ((1ULL << OVS_KEY_ATTR_TUNNEL)
+> >> @@ -138,6 +140,13 @@ static bool match_validate(const struct sw_fl=
+ow_match *match,
+> >>                       mask_allowed |=3D 1ULL << OVS_KEY_ATTR_ARP;
+> >>       }
+> >>
+> >> +
+> >> +     if (eth_p_mpls(match->key->eth.type)) {
+> >> +             key_expected |=3D 1ULL << OVS_KEY_ATTR_MPLS;
+> >> +             if (match->mask && (match->mask->key.eth.type =3D=3D=
+ htons(0xffff)))
+> >> +                     mask_allowed |=3D 1ULL << OVS_KEY_ATTR_MPLS;
+> >> +     }
+> >> +
+> >>       if (match->key->eth.type =3D=3D htons(ETH_P_IP)) {
+> >>               key_expected |=3D 1ULL << OVS_KEY_ATTR_IPV4;
+> >>               if (match->mask && (match->mask->key.eth.type =3D=3D=
+ htons(0xffff)))
+> >> @@ -255,6 +264,7 @@ static const int ovs_key_lens[OVS_KEY_ATTR_MAX=
+ + 1] =3D {
+> >>       [OVS_KEY_ATTR_DP_HASH] =3D sizeof(u32),
+> >>       [OVS_KEY_ATTR_RECIRC_ID] =3D sizeof(u32),
+> >>       [OVS_KEY_ATTR_TUNNEL] =3D -1,
+> >> +     [OVS_KEY_ATTR_MPLS] =3D sizeof(struct ovs_key_mpls),
+> >>  };
+> >>
+> >>  static bool is_all_zero(const u8 *fp, size_t size)
+> >> @@ -643,6 +653,16 @@ static int ovs_key_from_nlattrs(struct sw_flo=
+w_match *match, u64 attrs,
+> >>               attrs &=3D ~(1ULL << OVS_KEY_ATTR_ARP);
+> >>       }
+> >>
+> >> +     if (attrs & (1ULL << OVS_KEY_ATTR_MPLS)) {
+> >> +             const struct ovs_key_mpls *mpls_key;
+> >> +
+> >> +             mpls_key =3D nla_data(a[OVS_KEY_ATTR_MPLS]);
+> >> +             SW_FLOW_KEY_PUT(match, mpls.top_lse,
+> >> +                             mpls_key->mpls_lse, is_mask);
+> >> +
+> >> +             attrs &=3D ~(1ULL << OVS_KEY_ATTR_MPLS);
+> >> +      }
+> >> +
+> >>       if (attrs & (1ULL << OVS_KEY_ATTR_TCP)) {
+> >>               const struct ovs_key_tcp *tcp_key;
+> >>
+> >> @@ -1009,6 +1029,14 @@ int ovs_nla_put_flow(const struct sw_flow_k=
+ey *swkey,
+> >>               arp_key->arp_op =3D htons(output->ip.proto);
+> >>               ether_addr_copy(arp_key->arp_sha, output->ipv4.arp.s=
+ha);
+> >>               ether_addr_copy(arp_key->arp_tha, output->ipv4.arp.t=
+ha);
+> >> +     } else if (eth_p_mpls(swkey->eth.type)) {
+> >> +             struct ovs_key_mpls *mpls_key;
+> >> +
+> >> +             nla =3D nla_reserve(skb, OVS_KEY_ATTR_MPLS, sizeof(*=
+mpls_key));
+> >> +             if (!nla)
+> >> +                     goto nla_put_failure;
+> >> +             mpls_key =3D nla_data(nla);
+> >> +             mpls_key->mpls_lse =3D output->mpls.top_lse;
+> >>       }
+> >>
+> >>       if ((swkey->eth.type =3D=3D htons(ETH_P_IP) ||
+> >> @@ -1200,9 +1228,15 @@ static inline void add_nested_action_end(st=
+ruct sw_flow_actions *sfa,
+> >>       a->nla_len =3D sfa->actions_len - st_offset;
+> >>  }
+> >>
+> >> +static int ovs_nla_copy_actions__(const struct nlattr *attr,
+> >> +                               const struct sw_flow_key *key,
+> >> +                               int depth, struct sw_flow_actions =
+**sfa,
+> >> +                               __be16 eth_type, __be16 vlan_tci);
+> >> +
+> >>  static int validate_and_copy_sample(const struct nlattr *attr,
+> >>                                   const struct sw_flow_key *key, i=
+nt depth,
+> >> -                                 struct sw_flow_actions **sfa)
+> >> +                                 struct sw_flow_actions **sfa,
+> >> +                                 __be16 eth_type, __be16 vlan_tci=
+)
+> >>  {
+> >>       const struct nlattr *attrs[OVS_SAMPLE_ATTR_MAX + 1];
+> >>       const struct nlattr *probability, *actions;
+> >> @@ -1239,7 +1273,8 @@ static int validate_and_copy_sample(const st=
+ruct nlattr *attr,
+> >>       if (st_acts < 0)
+> >>               return st_acts;
+> >>
+> >> -     err =3D ovs_nla_copy_actions(actions, key, depth + 1, sfa);
+> >> +     err =3D ovs_nla_copy_actions__(actions, key, depth + 1, sfa,
+> >> +                                  eth_type, vlan_tci);
+> >>       if (err)
+> >>               return err;
+> >>
+> >> @@ -1249,10 +1284,10 @@ static int validate_and_copy_sample(const =
+struct nlattr *attr,
+> >>       return 0;
+> >>  }
+> >>
+> >> -static int validate_tp_port(const struct sw_flow_key *flow_key)
+> >> +static int validate_tp_port(const struct sw_flow_key *flow_key,
+> >> +                         __be16 eth_type)
+> >>  {
+> >> -     if ((flow_key->eth.type =3D=3D htons(ETH_P_IP) ||
+> >> -          flow_key->eth.type =3D=3D htons(ETH_P_IPV6)) &&
+> >> +     if ((eth_type =3D=3D htons(ETH_P_IP) || eth_type =3D=3D hton=
+s(ETH_P_IPV6)) &&
+> >>           (flow_key->tp.src || flow_key->tp.dst))
+> >>               return 0;
+> >>
+> >> @@ -1301,7 +1336,7 @@ static int validate_and_copy_set_tun(const s=
+truct nlattr *attr,
+> >>  static int validate_set(const struct nlattr *a,
+> >>                       const struct sw_flow_key *flow_key,
+> >>                       struct sw_flow_actions **sfa,
+> >> -                     bool *set_tun)
+> >> +                     bool *set_tun, __be16 eth_type)
+> >>  {
+> >>       const struct nlattr *ovs_key =3D nla_data(a);
+> >>       int key_type =3D nla_type(ovs_key);
+> >> @@ -1333,7 +1368,7 @@ static int validate_set(const struct nlattr =
+*a,
+> >>               break;
+> >>
+> >>       case OVS_KEY_ATTR_IPV4:
+> >> -             if (flow_key->eth.type !=3D htons(ETH_P_IP))
+> >> +             if (eth_type !=3D htons(ETH_P_IP))
+> >>                       return -EINVAL;
+> >>
+> >>               if (!flow_key->ip.proto)
+> >> @@ -1349,7 +1384,7 @@ static int validate_set(const struct nlattr =
+*a,
+> >>               break;
+> >>
+> >>       case OVS_KEY_ATTR_IPV6:
+> >> -             if (flow_key->eth.type !=3D htons(ETH_P_IPV6))
+> >> +             if (eth_type !=3D htons(ETH_P_IPV6))
+> >>                       return -EINVAL;
+> >>
+> >>               if (!flow_key->ip.proto)
+> >> @@ -1371,19 +1406,24 @@ static int validate_set(const struct nlatt=
+r *a,
+> >>               if (flow_key->ip.proto !=3D IPPROTO_TCP)
+> >>                       return -EINVAL;
+> >>
+> >> -             return validate_tp_port(flow_key);
+> >> +             return validate_tp_port(flow_key, eth_type);
+> >>
+> >>       case OVS_KEY_ATTR_UDP:
+> >>               if (flow_key->ip.proto !=3D IPPROTO_UDP)
+> >>                       return -EINVAL;
+> >>
+> >> -             return validate_tp_port(flow_key);
+> >> +             return validate_tp_port(flow_key, eth_type);
+> >> +
+> >> +     case OVS_KEY_ATTR_MPLS:
+> >> +             if (!eth_p_mpls(eth_type))
+> >> +                     return -EINVAL;
+> >> +             break;
+> >>
+> >>       case OVS_KEY_ATTR_SCTP:
+> >>               if (flow_key->ip.proto !=3D IPPROTO_SCTP)
+> >>                       return -EINVAL;
+> >>
+> >> -             return validate_tp_port(flow_key);
+> >> +             return validate_tp_port(flow_key, eth_type);
+> >>
+> >>       default:
+> >>               return -EINVAL;
+> >> @@ -1427,10 +1467,10 @@ static int copy_action(const struct nlattr=
+ *from,
+> >>       return 0;
+> >>  }
+> >>
+> >> -int ovs_nla_copy_actions(const struct nlattr *attr,
+> >> -                      const struct sw_flow_key *key,
+> >> -                      int depth,
+> >> -                      struct sw_flow_actions **sfa)
+> >> +static int ovs_nla_copy_actions__(const struct nlattr *attr,
+> >> +                               const struct sw_flow_key *key,
+> >> +                               int depth, struct sw_flow_actions =
+**sfa,
+> >> +                               __be16 eth_type, __be16 vlan_tci)
+> >>  {
+> >>       const struct nlattr *a;
+> >>       int rem, err;
+> >> @@ -1444,6 +1484,8 @@ int ovs_nla_copy_actions(const struct nlattr=
+ *attr,
+> >>                       [OVS_ACTION_ATTR_OUTPUT] =3D sizeof(u32),
+> >>                       [OVS_ACTION_ATTR_RECIRC] =3D sizeof(u32),
+> >>                       [OVS_ACTION_ATTR_USERSPACE] =3D (u32)-1,
+> >> +                     [OVS_ACTION_ATTR_PUSH_MPLS] =3D sizeof(struc=
+t ovs_action_push_mpls),
+> >> +                     [OVS_ACTION_ATTR_POP_MPLS] =3D sizeof(__be16=
+),
+> >>                       [OVS_ACTION_ATTR_PUSH_VLAN] =3D sizeof(struc=
+t ovs_action_push_vlan),
+> >>                       [OVS_ACTION_ATTR_POP_VLAN] =3D 0,
+> >>                       [OVS_ACTION_ATTR_SET] =3D (u32)-1,
+> >> @@ -1497,19 +1539,63 @@ int ovs_nla_copy_actions(const struct nlat=
+tr *attr,
+> >>                               return -EINVAL;
+> >>                       if (!(vlan->vlan_tci & htons(VLAN_TAG_PRESEN=
+T)))
+> >>                               return -EINVAL;
+> >> +                     vlan_tci =3D vlan->vlan_tci;
+> >>                       break;
+> >>
+> >>               case OVS_ACTION_ATTR_RECIRC:
+> >>                       break;
+> >>
+> >> +             case OVS_ACTION_ATTR_PUSH_MPLS: {
+> >> +                     const struct ovs_action_push_mpls *mpls =3D =
+nla_data(a);
+> >> +
+> >> +                     if (!eth_p_mpls(mpls->mpls_ethertype))
+> >> +                             return -EINVAL;
+> >> +                     /* Prohibit push MPLS other than to a white =
+list
+> >> +                      * for packets that have a known tag order.
+> >> +                      *
+> >> +                      * vlan_tci indicates that the packet at one
+> >> +                      * point had a VLAN. It may have been subseq=
+uently
+> >> +                      * removed using pop VLAN so this rule is st=
+ricter
+> >> +                      * than necessary. This is because it is not
+> >> +                      * possible to know if a VLAN is still prese=
+nt
+> >> +                      * after a pop VLAN action. */
+> >> +                     if (vlan_tci & htons(VLAN_TAG_PRESENT) ||
+> >> +                         (eth_type !=3D htons(ETH_P_IP) &&
+> >> +                          eth_type !=3D htons(ETH_P_IPV6) &&
+> >> +                          eth_type !=3D htons(ETH_P_ARP) &&
+> >> +                          eth_type !=3D htons(ETH_P_RARP) &&
+> >> +                          !eth_p_mpls(eth_type)))
+> >> +                             return -EINVAL;
+> >> +                     eth_type =3D mpls->mpls_ethertype;
+> >> +                     break;
+> >> +             }
+> >> +
+> >> +             case OVS_ACTION_ATTR_POP_MPLS:
+> >> +                     if (vlan_tci & htons(VLAN_TAG_PRESENT) ||
+> >> +                         !eth_p_mpls(eth_type))
+> >> +                             return -EINVAL;
+> >> +
+> >> +                     /* Disallow subsequent L2.5+ set and mpls_po=
+p actions
+> >> +                      * as there is no check here to ensure that =
+the new
+> >> +                      * eth_type is valid and thus set actions co=
+uld
+> >> +                      * write off the end of the packet or otherw=
+ise
+> >> +                      * corrupt it.
+> >> +                      *
+> >> +                      * Support for these actions is planned usin=
+g packet
+> >> +                      * recirculation.
+> >> +                      */
+> >> +                     eth_type =3D htons(0);
+> >> +                     break;
+> >> +
+> >>               case OVS_ACTION_ATTR_SET:
+> >> -                     err =3D validate_set(a, key, sfa, &skip_copy=
+);
+> >> +                     err =3D validate_set(a, key, sfa, &skip_copy=
+, eth_type);
+> >>                       if (err)
+> >>                               return err;
+> >>                       break;
+> >>
+> >>               case OVS_ACTION_ATTR_SAMPLE:
+> >> -                     err =3D validate_and_copy_sample(a, key, dep=
+th, sfa);
+> >> +                     err =3D validate_and_copy_sample(a, key, dep=
+th, sfa,
+> >> +                                                    eth_type, vla=
+n_tci);
+> >>                       if (err)
+> >>                               return err;
+> >>                       skip_copy =3D true;
+> >> @@ -1531,6 +1617,14 @@ int ovs_nla_copy_actions(const struct nlatt=
+r *attr,
+> >>       return 0;
+> >>  }
+> >>
+> >> +int ovs_nla_copy_actions(const struct nlattr *attr,
+> >> +                      const struct sw_flow_key *key,
+> >> +                      struct sw_flow_actions **sfa)
+> >> +{
+> >> +     return ovs_nla_copy_actions__(attr, key, 0, sfa, key->eth.ty=
+pe,
+> >> +                                   key->eth.tci);
+> >> +}
+> >> +
+> >>  static int sample_action_to_attr(const struct nlattr *attr, struc=
+t sk_buff *skb)
+> >>  {
+> >>       const struct nlattr *a;
+> >> diff --git a/datapath/flow_netlink.h b/datapath/flow_netlink.h
+> >> index 4401510..b471ece 100644
+> >> --- a/datapath/flow_netlink.h
+> >> +++ b/datapath/flow_netlink.h
+> >> @@ -49,7 +49,7 @@ int ovs_nla_get_match(struct sw_flow_match *matc=
+h,
+> >>                     const struct nlattr *);
+> >>
+> >>  int ovs_nla_copy_actions(const struct nlattr *attr,
+> >> -                      const struct sw_flow_key *key, int depth,
+> >> +                      const struct sw_flow_key *key,
+> >>                        struct sw_flow_actions **sfa);
+> >>  int ovs_nla_put_actions(const struct nlattr *attr,
+> >>                       int len, struct sk_buff *skb);
+> >> diff --git a/datapath/linux/compat/gso.c b/datapath/linux/compat/g=
+so.c
+> >> index 9ded17c..dc1e537 100644
+> >> --- a/datapath/linux/compat/gso.c
+> >> +++ b/datapath/linux/compat/gso.c
+> >> @@ -17,11 +17,12 @@
+> >>   */
+> >>
+> >>  #include <linux/version.h>
+> >> -#if LINUX_VERSION_CODE < KERNEL_VERSION(3,12,0)
+> >> +#if LINUX_VERSION_CODE < KERNEL_VERSION(3,16,0)
+> >>
+> >>  #include <linux/module.h>
+> >>  #include <linux/if.h>
+> >>  #include <linux/if_tunnel.h>
+> >> +#include <linux/if_vlan.h>
+> >>  #include <linux/icmp.h>
+> >>  #include <linux/in.h>
+> >>  #include <linux/ip.h>
+> >> @@ -38,6 +39,8 @@
+> >>  #include <net/xfrm.h>
+> >>
+> >>  #include "gso.h"
+> >> +#include "mpls.h"
+> >> +#include "vlan.h"
+> >>
+> >>  #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,37) && \
+> >>       !defined(HAVE_VLAN_BUG_WORKAROUND)
+> >> @@ -50,10 +53,11 @@ MODULE_PARM_DESC(vlan_tso, "Enable TSO for VLA=
+N packets");
+> >>  #define vlan_tso true
+> >>  #endif
+> >>
+> >> -#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,37)
+> >>  static bool dev_supports_vlan_tx(struct net_device *dev)
+> >>  {
+> >> -#if defined(HAVE_VLAN_BUG_WORKAROUND)
+> >> +#if LINUX_VERSION_CODE >=3D KERNEL_VERSION(2,6,37)
+> >> +     return true;
+> >> +#elif defined(HAVE_VLAN_BUG_WORKAROUND)
+> >>       return dev->features & NETIF_F_HW_VLAN_TX;
+> >>  #else
+> >>       /* Assume that the driver is buggy. */
+> >> @@ -61,24 +65,70 @@ static bool dev_supports_vlan_tx(struct net_de=
+vice *dev)
+> >>  #endif
+> >>  }
+> >>
+> >> +/* Strictly this is not needed and will be optimised out
+> >> + * as this code is guarded by if LINUX_VERSION_CODE < KERNEL_VERS=
+ION(3,16,0).
+> >> + * It is here to make things explicit should the compatibility
+> >> + * code be extended in some way prior extending its life-span
+> >> + * beyond v3.16.
+> >> + */
+> >> +static bool supports_mpls_gso(void)
+> >> +{
+> >> +/* MPLS GSO was introduced in v3.11, however it was not correctly
+> >> + * activated using mpls_features until v3.16. */
+> >> +#if LINUX_VERSION_CODE >=3D KERNEL_VERSION(3,16,0)
+> >> +     return true;
+> >> +#else
+> >> +     return false;
+> >> +#endif
+> >> +}
+> >> +
+> >>  int rpl_dev_queue_xmit(struct sk_buff *skb)
+> >>  {
+> >>  #undef dev_queue_xmit
+> >>       int err =3D -ENOMEM;
+> >> +     bool vlan, mpls;
+> >>
+> >> -     if (vlan_tx_tag_present(skb) && !dev_supports_vlan_tx(skb->d=
+ev)) {
+> >> +     vlan =3D mpls =3D false;
+> >> +
+> >> +     /* Avoid traversing any VLAN tags that are present to determ=
+ine if
+> >> +      * the ethtype is MPLS. Instead compare the mac_len (end of =
+L2) and
+> >> +      * skb_network_offset() (beginning of L3) whose inequality w=
+ill
+> >> +      * indicate the presence of an MPLS label stack. */
+> >> +     if (skb->mac_len !=3D skb_network_offset(skb) && !supports_m=
+pls_gso())
+> >> +             mpls =3D true;
+> >> +
+> >> +     if (vlan_tx_tag_present(skb) && !dev_supports_vlan_tx(skb->d=
+ev))
+> >> +             vlan =3D true;
+> >> +
+> >> +     if (vlan || mpls) {
+> >>               int features;
+> >>
+> >>               features =3D netif_skb_features(skb);
+> >>
+> >> -             if (!vlan_tso)
+> >> -                     features &=3D ~(NETIF_F_TSO | NETIF_F_TSO6 |
+> >> -                                   NETIF_F_UFO | NETIF_F_FSO);
+> >> +             if (vlan) {
+> >> +                     if (!vlan_tso)
+> >> +                             features &=3D ~(NETIF_F_TSO | NETIF_=
+=46_TSO6 |
+> >> +                                           NETIF_F_UFO | NETIF_F_=
+=46SO);
+> >>
+> >> -             skb =3D __vlan_put_tag(skb, skb->vlan_proto, vlan_tx=
+_tag_get(skb));
+> >> -             if (unlikely(!skb))
+> >> -                     return err;
+> >> -             vlan_set_tci(skb, 0);
+> >> +                     skb =3D __vlan_put_tag(skb, skb->vlan_proto,
+> >> +                                          vlan_tx_tag_get(skb));
+> >> +                     if (unlikely(!skb))
+> >> +                             return err;
+> >> +                     vlan_set_tci(skb, 0);
+> >> +             }
+> >> +
+> >> +             /* As of v3.11 the kernel provides an mpls_features =
+field in
+> >> +              * struct net_device which allows devices to adverti=
+se which
+> >> +              * features its supports for MPLS. This value defaul=
+ts to
+> >> +              * NETIF_F_SG and as of v3.16.
+> >> +              *
+> >> +              * This compatibility code is intended for kernels o=
+lder
+> >> +              * than v3.16 that do not support MPLS GSO and do no=
+t
+> >> +              * use mpls_features. Thus this code uses NETIF_F_SG
+> >> +              * directly in place of mpls_features.
+> >> +              */
+> >> +             if (mpls)
+> >> +                     features &=3D NETIF_F_SG;
+> >>
+> >>               if (netif_needs_gso(skb, features)) {
+> >>                       struct sk_buff *nskb;
+> >> @@ -117,7 +167,6 @@ drop:
+> >>       kfree_skb(skb);
+> >>       return err;
+> >>  }
+> >> -#endif /* kernel version < 2.6.37 */
+> >>
+> >>  static __be16 __skb_network_protocol(struct sk_buff *skb)
+> >>  {
+> >> @@ -135,6 +184,9 @@ static __be16 __skb_network_protocol(struct sk=
+_buff *skb)
+> >>               vlan_depth +=3D VLAN_HLEN;
+> >>       }
+> >>
+> >> +     if (eth_p_mpls(type))
+> >> +             type =3D ovs_skb_get_inner_protocol(skb);
+> >> +
+> >>       return type;
+> >>  }
+> >>
+> >> @@ -232,4 +284,4 @@ int rpl_ip_local_out(struct sk_buff *skb)
+> >>       }
+> >>       return ret;
+> >>  }
+> >> -#endif /* 3.12 */
+> >> +#endif /* 3.16 */
+> >> diff --git a/datapath/linux/compat/gso.h b/datapath/linux/compat/g=
+so.h
+> >> index 3041e88..1393173 100644
+> >> --- a/datapath/linux/compat/gso.h
+> >> +++ b/datapath/linux/compat/gso.h
+> >> @@ -4,6 +4,7 @@
+> >>  #include <linux/version.h>
+> >>  #if LINUX_VERSION_CODE < KERNEL_VERSION(3,12,0)
+> >>
+> >> +#include <linux/netdevice.h>
+> >>  #include <linux/skbuff.h>
+> >>  #include <net/protocol.h>
+> >>
+> >> @@ -11,9 +12,11 @@
+> >>
+> >>  struct ovs_gso_cb {
+> >>       struct ovs_skb_cb dp_cb;
+> >> +#if LINUX_VERSION_CODE < KERNEL_VERSION(3,11,0)
+> >> +     __be16          inner_protocol;
+> >> +#endif
+> >>       u16             inner_network_header;   /* Offset from
+> >>                                                * inner_mac_header =
+*/
+> >> -     /* 16bit hole */
+> >>       sk_buff_data_t  inner_mac_header;       /* Offset from skb->=
+head */
+> >>       void (*fix_segment)(struct sk_buff *);
+> >>  };
+> >> @@ -72,4 +75,40 @@ static inline void skb_reset_inner_headers(stru=
+ct sk_buff *skb)
+> >>  int ip_local_out(struct sk_buff *skb);
+> >>
+> >>  #endif /* 3.12 */
+> >> +
+> >> +#if LINUX_VERSION_CODE < KERNEL_VERSION(3,11,0)
+> >> +static inline void ovs_skb_init_inner_protocol(struct sk_buff *sk=
+b) {
+> >> +     OVS_GSO_CB(skb)->inner_protocol =3D htons(0);
+> >> +}
+> >> +
+> >> +static inline void ovs_skb_set_inner_protocol(struct sk_buff *skb=
+,
+> >> +                                           __be16 ethertype) {
+> >> +     OVS_GSO_CB(skb)->inner_protocol =3D ethertype;
+> >> +}
+> >> +
+> >> +static inline __be16 ovs_skb_get_inner_protocol(struct sk_buff *s=
+kb)
+> >> +{
+> >> +     return OVS_GSO_CB(skb)->inner_protocol;
+> >> +}
+> >> +
+> >> +#else
+> >> +
+> >> +static inline void ovs_skb_init_inner_protocol(struct sk_buff *sk=
+b) {
+> >> +     /* Nothing to do. The inner_protocol is either zero or
+> >> +      * has been set to a value by another user.
+> >> +      * Either way it may be considered initialised.
+> >> +      */
+> >> +}
+> >> +
+> >> +static inline void ovs_skb_set_inner_protocol(struct sk_buff *skb=
+,
+> >> +                                           __be16 ethertype)
+> >> +{
+> >> +     skb->inner_protocol =3D ethertype;
+> >> +}
+> >> +
+> >> +static inline __be16 ovs_skb_get_inner_protocol(struct sk_buff *s=
+kb)
+> >> +{
+> >> +     return skb->inner_protocol;
+> >> +}
+> >> +#endif /* 3.11 */
+> >>  #endif
+> >> diff --git a/datapath/linux/compat/include/linux/netdevice.h b/dat=
+apath/linux/compat/include/linux/netdevice.h
+> >> index d726390..886c2f8 100644
+> >> --- a/datapath/linux/compat/include/linux/netdevice.h
+> >> +++ b/datapath/linux/compat/include/linux/netdevice.h
+> >> @@ -64,11 +64,13 @@ static inline struct net_device *dev_get_by_in=
+dex_rcu(struct net *net, int ifind
+> >>  typedef u32 netdev_features_t;
+> >>  #endif
+> >>
+> >> -#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,38)
+> >> +#if LINUX_VERSION_CODE < KERNEL_VERSION(3,16,0)
+> >>  #define skb_gso_segment rpl_skb_gso_segment
+> >>  struct sk_buff *rpl_skb_gso_segment(struct sk_buff *skb,
+> >>                                      netdev_features_t features);
+> >> +#endif
+> >>
+> >> +#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,38)
+> >>  #define netif_skb_features rpl_netif_skb_features
+> >>  netdev_features_t rpl_netif_skb_features(struct sk_buff *skb);
+> >>
+> >> @@ -113,7 +115,7 @@ static inline struct net_device *netdev_master=
+_upper_dev_get(struct net_device *
+> >>  }
+> >>  #endif
+> >>
+> >> -#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,37)
+> >> +#if LINUX_VERSION_CODE < KERNEL_VERSION(3,16,0)
+> >>  #define dev_queue_xmit rpl_dev_queue_xmit
+> >>  int dev_queue_xmit(struct sk_buff *skb);
+> >>  #endif
+> >> diff --git a/datapath/linux/compat/netdevice.c b/datapath/linux/co=
+mpat/netdevice.c
+> >> index 1dc5abf..72bdec5 100644
+> >> --- a/datapath/linux/compat/netdevice.c
+> >> +++ b/datapath/linux/compat/netdevice.c
+> >> @@ -1,6 +1,9 @@
+> >>  #include <linux/netdevice.h>
+> >>  #include <linux/if_vlan.h>
+> >>
+> >> +#include "mpls.h"
+> >> +#include "gso.h"
+> >> +
+> >>  #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,38)
+> >>  #ifndef HAVE_CAN_CHECKSUM_PROTOCOL
+> >>  static bool can_checksum_protocol(netdev_features_t features, __b=
+e16 protocol)
+> >> @@ -69,7 +72,9 @@ netdev_features_t rpl_netif_skb_features(struct =
+sk_buff *skb)
+> >>               return harmonize_features(skb, protocol, features);
+> >>       }
+> >>  }
+> >> +#endif       /* kernel version < 2.6.38 */
+> >>
+> >> +#if LINUX_VERSION_CODE < KERNEL_VERSION(3,16,0)
+> >>  struct sk_buff *rpl_skb_gso_segment(struct sk_buff *skb,
+> >>                                   netdev_features_t features)
+> >>  {
+> >> @@ -89,6 +94,9 @@ struct sk_buff *rpl_skb_gso_segment(struct sk_bu=
+ff *skb,
+> >>               vlan_depth +=3D VLAN_HLEN;
+> >>       }
+> >>
+> >> +     if (eth_p_mpls(type))
+> >> +             type =3D ovs_skb_get_inner_protocol(skb);
+> >> +
+> >>       /* this hack needed to get regular skb_gso_segment() */
+> >>  #undef skb_gso_segment
+> >>       skb_proto =3D skb->protocol;
+> >> @@ -98,4 +106,4 @@ struct sk_buff *rpl_skb_gso_segment(struct sk_b=
+uff *skb,
+> >>       skb->protocol =3D skb_proto;
+> >>       return skb_gso;
+> >>  }
+> >> -#endif       /* kernel version < 2.6.38 */
+> >> +#endif       /* kernel version < 3.16.0 */
+> >> diff --git a/datapath/mpls.h b/datapath/mpls.h
+> >> new file mode 100644
+> >> index 0000000..7eab104
+> >> --- /dev/null
+> >> +++ b/datapath/mpls.h
+> >> @@ -0,0 +1,15 @@
+> >> +#ifndef MPLS_H
+> >> +#define MPLS_H 1
+> >> +
+> >> +#include <linux/if_ether.h>
+> >> +
+> >> +#define MPLS_BOS_MASK        0x00000100
+> >> +#define MPLS_HLEN 4
+> >> +
+> >> +static inline bool eth_p_mpls(__be16 eth_type)
+> >> +{
+> >> +     return eth_type =3D=3D htons(ETH_P_MPLS_UC) ||
+> >> +             eth_type =3D=3D htons(ETH_P_MPLS_MC);
+> >> +}
+> >> +
+> >> +#endif
+> >> diff --git a/include/linux/openvswitch.h b/include/linux/openvswit=
+ch.h
+> >> index d7f85ff..1095ece 100644
+> >> --- a/include/linux/openvswitch.h
+> >> +++ b/include/linux/openvswitch.h
+> >> @@ -318,15 +318,14 @@ enum ovs_key_attr {
+> >>       OVS_KEY_ATTR_DP_HASH,   /* u32 hash value. Value 0 indicates=
+ the hash
+> >>                                  is not computed by the datapath. =
+*/
+> >>       OVS_KEY_ATTR_RECIRC_ID, /* u32 recirc id */
+> >> +     OVS_KEY_ATTR_MPLS,      /* array of struct ovs_key_mpls.
+> >> +                              * The implementation may restrict
+> >> +                              * the accepted length of the array.=
+ */
+> >> +
+> >>  #ifdef __KERNEL__
+> >>       /* Only used within kernel data path. */
+> >>       OVS_KEY_ATTR_IPV4_TUNNEL,  /* struct ovs_key_ipv4_tunnel */
+> >>  #endif
+> >> -     /* Experimental */
+> >> -
+> >> -     OVS_KEY_ATTR_MPLS =3D 62, /* array of struct ovs_key_mpls.
+> >> -                              * The implementation may restrict
+> >> -                              * the accepted length of the array.=
+ */
+> >>       __OVS_KEY_ATTR_MAX
+> >>  };
+> >>
+> >> --
+> >> 2.0.0.rc2
+> >>
+> >> --
+> >> To unsubscribe from this list: send the line "unsubscribe netdev" =
+in
+> >> the body of a message to majordomo@vger.kernel.org
+> >> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> >>
+>=20
