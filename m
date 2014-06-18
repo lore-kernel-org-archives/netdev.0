@@ -1,56 +1,48 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [net PATCH 1/1] drivers: net: cpsw: fix dual EMAC stall when connected to same switch
-Date: Wed, 18 Jun 2014 17:21:48 +0530
-Message-ID: <1403092308-31380-1-git-send-email-mugunthanvnm@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, Mugunthan V N <mugunthanvnm@ti.com>,
-	Yegor Yefremov <yegorslists@googlemail.com>,
-	Felipe Balbi <balbi@ti.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from comal.ext.ti.com ([198.47.26.152]:43370 "EHLO comal.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965876AbaFRLvx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Jun 2014 07:51:53 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Varka Bhadram <varkabhadram@gmail.com>
+Subject: [PATCH net-next v3 0/3] Driver for TI CC2520 Radio.
+Date: Wed, 18 Jun 2014 17:50:29 +0530
+Message-ID: <1403094032-6121-1-git-send-email-varkab@cdac.in>
+Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
+	linux-zigbee-devel@lists.sourceforge.net,
+	linux-kernel@vger.kernel.org, davem@davemloft.net,
+	devicetree@vger.kernel.org, Varka Bhadram <varkab@cdac.in>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In commit 629c9a8fd0bbdfc6d702526b327470166ec39c6b (drivers: net: cpsw: Add
-default vlan for dual emac case also), api cpsw_add_default_vlan() also
-changes the port vlan which is required to seperate the ports which results
-in the following behavior
+This series adds the driver support for TI cc2520 radio.
+also devicetree bindings for the driver.
 
-In Dual EMAC mode, when both the Etnernet connected is connected to same
-switch, it creates a loop in the switch and when a broadcast packet is
-received it is forwarded to the other port which stalls the whole switch
-and needs a reset/power cycle to the switch to recover. So intead of using
-the api, add only the default VLAN entry in dual EMAC case.
+changes since v2:
+	- drop spi mode dt binding
 
-Cc: Yegor Yefremov <yegorslists@googlemail.com>
-Cc: Felipe Balbi <balbi@ti.com>
-Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
----
- drivers/net/ethernet/ti/cpsw.c | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
+changes since v1:
+        - improverment in gpio setup
+        - changed len pointer to len variable
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index ff380da..b988d16 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -1212,7 +1212,12 @@ static int cpsw_ndo_open(struct net_device *ndev)
- 	for_each_slave(priv, cpsw_slave_open, priv);
- 
- 	/* Add default VLAN */
--	cpsw_add_default_vlan(priv);
-+	if (!priv->data.dual_emac)
-+		cpsw_add_default_vlan(priv);
-+	else
-+		cpsw_ale_add_vlan(priv->ale, priv->data.default_vlan,
-+				  ALE_ALL_PORTS << priv->host_port,
-+				  ALE_ALL_PORTS << priv->host_port, 0, 0);
- 
- 	if (!cpsw_common_res_usage_state(priv)) {
- 		/* setup tx dma to fixed prio and zero offset */
+changes before v1:
+	- improvements in the locking mechanism in Tx and SFD ISR.
+	- proper checkings for GPIO pins.
+	- avoids the memory leak for priv.
+	- used devm_* APIs.
+	- moved the code from header file to .c file
+	- removed cc2520_unregister()
+
+Varka Bhadram (3):
+  ieee802154: cc2520: adds driver for TI CC2520 radio
+  ieee802154: cc2520: add driver to kernel build system
+  devicetree: add device tree bindings for cc2520 driver
+
+ .../devicetree/bindings/net/ieee802154/cc2520.txt  |   29 +
+ drivers/net/ieee802154/Kconfig                     |   11 +
+ drivers/net/ieee802154/Makefile                    |    1 +
+ drivers/net/ieee802154/cc2520.c                    |  968 ++++++++++++++++++++
+ include/linux/spi/cc2520.h                         |   26 +
+ 5 files changed, 1035 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/ieee802154/cc2520.txt
+ create mode 100644 drivers/net/ieee802154/cc2520.c
+ create mode 100644 include/linux/spi/cc2520.h
+
 -- 
-1.9.2.459.g68773ac
+1.7.9.5
