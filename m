@@ -1,63 +1,81 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: Re: [PATCH 09/28] Remove ATHEROS_AR231X
-Date: Wed, 18 Jun 2014 12:25:19 +0200
-Message-ID: <1403087119.1984.93.camel@x220>
-References: <1391971686-9517-1-git-send-email-richard@nod.at>
-	 <1391971686-9517-10-git-send-email-richard@nod.at>
-	 <52F7D480.1050106@hauke-m.de> <52F7DF21.70207@nod.at>
-	 <CAHNKnsS7Mv4ZhBWZa53go9L9nZimJ7_FG5HFJ9C3kkGMAEz-mA@mail.gmail.com>
-	 <52F8C373.9060108@rempel-privat.de>
-	 <CAHNKnsQF5Hdf3JT91moPraRQzn4kMpdD2NSiJ7b30wQhS1W4MA@mail.gmail.com>
-	 <CAGVrzcYnECx5Q=i+m6qZn29y4JALDpw5SWoUNP-S6HgPR3_ygQ@mail.gmail.com>
-	 <CAHNKnsRACSo=DfOyiHxqV3acv_wfZmz4tMnYAW0wo4OCibwdfA@mail.gmail.com>
-	 <CAHNKnsRQp7WLSJNAXEYPTd=qs1DquOfNgKtHES-Utvcy1=FEgQ@mail.gmail.com>
-	 <20140213201421.GJ22203@tuxdriver.com> <1397581703.8212.5.camel@x220>
-	 <CAHNKnsQQ42-XnXrubHAy4PF3H2ynbGDdSMP7MvDS_1aRozYF=A@mail.gmail.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: How is IPv6 dhcp supposed to work?
+Date: Wed, 18 Jun 2014 12:37:37 +0200
+Message-ID: <87ha3isdu6.fsf@nemi.mork.no>
+References: <53A0B617.6070600@candelatech.com>
+	<1403044471.16272.20.camel@dcbw.local>
+	<53A0CC31.6090707@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Sergey Ryazanov <ryazanov.s.a@gmail.com>,
-	Oleksij Rempel <linux@rempel-privat.de>,
-	Richard Weinberger <richard@nod.at>,
-	Jonathan Bither <jonbither@gmail.com>,
-	Hauke Mehrtens <hauke@hauke-m.de>,
-	ath5k-devel@venema.h4ckr.net, open@hauke-m.de, list@hauke-m.de,
-	antonynpavlov@gmail.com, openwrt-devel@lists.openwrt.org,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jiri Slaby <jirislaby@gmail.com>,
-	Nick Kossifidis <mickflemm@gmail.com>,
-	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	"John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHNKnsQQ42-XnXrubHAy4PF3H2ynbGDdSMP7MvDS_1aRozYF=A@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Dan Williams <dcbw@redhat.com>, netdev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from canardo.mork.no ([148.122.252.1]:52315 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S966142AbaFRKiA convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 06:38:00 -0400
+In-Reply-To: <53A0CC31.6090707@candelatech.com> (Ben Greear's message of "Tue,
+	17 Jun 2014 16:16:01 -0700")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jiri, Nick, Luis, John,
+Ben Greear <greearb@candelatech.com> writes:
 
-On Wed, 2014-04-16 at 13:20 +0400, Sergey Ryazanov wrote:
-> 2014-04-15 21:08 GMT+04:00 Paul Bolle <pebolle@tiscali.nl>:
-> > On Thu, 2014-02-13 at 15:14 -0500, John W. Linville wrote:
-> >> On Wed, Feb 12, 2014 at 02:50:30PM +0400, Sergey Ryazanov wrote:
-> >> > John, can you delay the merging of this patch for a few months, I will
-> >> > try to prepare the necessary patches to add AR231x architecture to the
-> >> > kernel and send them to linux-mips.
-> >>
-> >> OK -- looking forward to your patches.
-> >
-> > So am I. Is there any news on this front?
-> >
-> 
-> Work still in progress :(
+> Does that router advert below look proper?=20
 
-ATHEROS_AR231X and the things depending on it, like AHB bus support,
-have been discussed for three years now. When will you (re)consider a
-patch to remove all currently dead code?
+No, it doesn't.  How did you create this?
 
-And to state the obvious: AHB bus support, and the other code depending
-on ATHEROS_AR231X, can always be re-added once ATHEROS_AR231X gets added
-to the tree.
+> I'm going printk diving in
+> the IPv6 stack in the meantime...
+>
+>
+> [root@simech2-f17x64 lanforge]# cat pkt.txt
+> No.     Time        Source                Destination           Proto=
+col Length Info
+>      34 229.636063  fe80::e4be:86ff:fe27:a33 ff02::1               IC=
+MPv6   110    Router Advertisement from e6:be:86:27:0a:33
+>
+> Frame 34: 110 bytes on wire (880 bits), 110 bytes captured (880 bits)
+> Ethernet II, Src: e6:be:86:27:0a:33 (e6:be:86:27:0a:33), Dst: IPv6mca=
+st_00:00:00:01 (33:33:00:00:00:01)
+> Internet Protocol Version 6, Src: fe80::e4be:86ff:fe27:a33 (fe80::e4b=
+e:86ff:fe27:a33), Dst: ff02::1 (ff02::1)
+> Internet Control Message Protocol v6
+>     Type: Router Advertisement (134)
+>     Code: 0
+>     Checksum: 0x6088 [correct]
+>     Cur hop limit: 64
+>     Flags: 0x00
+>     Router lifetime (s): 300
+>     Reachable time (ms): 0
+>     Retrans timer (ms): 0
+>     ICMPv6 Option (Prefix information : 2001:78::1/64)
+>         Type: Prefix information (3)
+>         Length: 4 (32 bytes)
+>         Prefix Length: 64
+>         Flag: 0xe0
+>         Valid Lifetime: 86400
+>         Preferred Lifetime: 14400
+>         Reserved
+>         Prefix: 2001:78::1 (2001:78::1)
+
+Quoting RFC 4861 (http://tools.ietf.org/html/rfc4861#section-4.6.2 ):
+
+      Prefix         An IP address or a prefix of an IP address.  The
+                     Prefix Length field contains the number of valid
+                     leading bits in the prefix.  The bits in the prefi=
+x
+                     after the prefix length are reserved and MUST be
+                     initialized to zero by the sender and ignored by
+                     the receiver.=20
 
 
-Paul Bolle
+So that prefix should have been '2001:78::'
+
+Note that you don't necessarily need to include a prefix option in the
+RA.  If you don't want clients on the link connected to the router to
+communicate directly on L2.  This is the typical ISP use case.
+
+
+Bj=C3=B8rn
