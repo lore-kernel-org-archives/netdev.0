@@ -1,66 +1,58 @@
-From: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-Subject: Re: [PATCH net] xen-netback: bookkeep number of queues in our own
- module
-Date: Wed, 18 Jun 2014 10:30:37 -0400
-Message-ID: <53A1A28D.6060203@oracle.com>
-References: <1403100558-12866-1-git-send-email-wei.liu2@citrix.com> <53A19FCA.1090205@oracle.com> <20140618142152.GC20819@zion.uk.xensource.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
-	Ian Campbell <ian.campbell@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>
-To: Wei Liu <wei.liu2@citrix.com>
+From: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+Subject: [PATCH net] at86rf230: fix irq setup
+Date: Wed, 18 Jun 2014 16:28:49 +0200
+Message-ID: <1403101729-29448-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+Cc: linux-zigbee-devel@lists.sourceforge.net, davem@davemloft.net,
+	Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:47841 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752191AbaFRO3F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 10:29:05 -0400
-In-Reply-To: <20140618142152.GC20819@zion.uk.xensource.com>
+Received: from mailgw1.uni-kl.de ([131.246.120.220]:52084 "EHLO
+	mailgw1.uni-kl.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S967088AbaFRO3W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 10:29:22 -0400
+Received: from itwm2.itwm.fhg.de (itwm2.itwm.fhg.de [131.246.191.3])
+	by mailgw1.uni-kl.de (8.14.4/8.14.4/Debian-7) with ESMTP id s5IETGjg026421
+	(version=TLSv1/SSLv3 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Wed, 18 Jun 2014 16:29:16 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/18/2014 10:21 AM, Wei Liu wrote:
-> On Wed, Jun 18, 2014 at 10:18:50AM -0400, Boris Ostrovsky wrote:
->> On 06/18/2014 10:09 AM, Wei Liu wrote:
->>> The original code uses netdev->real_num_tx_queues to bookkeep number of
->>> queues and invokes netif_set_real_num_tx_queues to set the number of
->>> queues. However, netif_set_real_num_tx_queues doesn't allow
->>> real_num_tx_queues to be smaller than 1, which means setting the number
->>> to 0 will not work and real_num_tx_queues is untouched.
->>>
->>> This is bogus when xenvif_free is invoked before any number of queues is
->>> allocated. That function needs to iterate through all queues to free
->>> resources. Using the wrong number of queues results in NULL pointer
->>> dereference.
->>>
->>> So we bookkeep the number of queues in xen-netback to solve this
->>> problem. The usage of real_num_tx_queues in core driver is to cap queue
->>> index to a valid value. In start_xmit we've already guarded against out
->>> of range queue index so we should be fine.
->>>
->>> This fixes a regression introduced by multiqueue patchset in 3.16-rc1.
->>
->> David sent a couple of patches earlier today that I have been testing and
->> they appear to fix both netfront and netback. (I am waiting for 32-bit to
->> finish)
->>
->> http://lists.xenproject.org/archives/html/xen-devel/2014-06/msg02308.html
->>
-> I saw that, but they don't fix this backend bug. Try crashing the guest
-> before it connects to backend. As I said in commit message:
+Commit 8eba0eefae24953962067 ("at86rf230: remove irq_type in
+request_irq") removed the trigger configuration when requesting an irq,
+and instead relied on the interrupt trigger to be properly configured
+already. This does not seem to be an assumption that can be safely made,
+since boards disable all interrupt triggers on boot.
 
-Apparently it doesn't indeed since 32-bit just crashed on me in 
-xenvif_free() (the moment I hit Send on my response to you). But 64-bit 
-run completed without failures. And even 32-bit test ran fine for a while.
+On these boards, force the irq to trigger on rising edge, which is also
+the default for the chip.
 
+Signed-off-by: Phoebe Buckheister <phoebe.buckheister@itwm.fraunhofer.de>
+---
+ drivers/net/ieee802154/at86rf230.c |    5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
--boris
-
-
->
->>> This is bogus when xenvif_free is invoked before any number of queues is
->>> allocated. That function needs to iterate through all queues to free
-> netif_set_real_num_tx_queues will need to be removed anyway.
->
-> Wei.
+diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
+index 4517b14..5089941 100644
+--- a/drivers/net/ieee802154/at86rf230.c
++++ b/drivers/net/ieee802154/at86rf230.c
+@@ -1137,6 +1137,8 @@ static int at86rf230_probe(struct spi_device *spi)
+ 	dev->flags = IEEE802154_HW_OMIT_CKSUM | IEEE802154_HW_AACK;
+ 
+ 	irq_type = irq_get_trigger_type(spi->irq);
++	if (!irq_type)
++		irq_type = IRQF_TRIGGER_RISING;
+ 	if (irq_type & (IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING)) {
+ 		irq_worker = at86rf230_irqwork;
+ 		irq_handler = at86rf230_isr;
+@@ -1168,7 +1170,8 @@ static int at86rf230_probe(struct spi_device *spi)
+ 	if (rc)
+ 		goto err_hw_init;
+ 
+-	rc = devm_request_irq(&spi->dev, spi->irq, irq_handler, IRQF_SHARED,
++	rc = devm_request_irq(&spi->dev, spi->irq, irq_handler,
++			      IRQF_SHARED | irq_type,
+ 			      dev_name(&spi->dev), lp);
+ 	if (rc)
+ 		goto err_hw_init;
+-- 
+1.7.9.5
