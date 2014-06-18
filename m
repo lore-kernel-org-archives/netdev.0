@@ -1,35 +1,38 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [RFC PATCH net-next] bridge: Add bridge port learn filter and
- priority
-Date: Wed, 18 Jun 2014 13:34:05 -0700
-Message-ID: <20140618133405.515b3741@nehalam.linuxnetplumber.net>
-References: <1403075767-31908-1-git-send-email-roopa@cumulusnetworks.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [net] b58537a1f56: +89.2% netperf.Throughput_Mbps
+Date: Wed, 18 Jun 2014 22:38:49 +0200
+Message-ID: <53A1F8D9.7070704@redhat.com>
+References: <53A10291.7090301@intel.com> <alpine.DEB.2.02.1406181328160.10339@chino.kir.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	wkok@cumulusnetworks.com, scotte@cumulusnetworks.com,
-	ddutt@cumulusnetworks.com, shm@cumulusnetworks.com,
-	nolan@cumulusnetworks.com, sfeldma@cumulusnetworks.com,
-	jhs@mojatatu.com
-To: roopa@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:58308 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753611AbaFRUeK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 16:34:10 -0400
-Received: by mail-pd0-f173.google.com with SMTP id r10so1048394pdi.4
-        for <netdev@vger.kernel.org>; Wed, 18 Jun 2014 13:34:09 -0700 (PDT)
-In-Reply-To: <1403075767-31908-1-git-send-email-roopa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jet Chen <jet.chen@intel.com>, LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, lkp@01.org,
+	Fengguang Wu <fengguang.wu@intel.com>
+To: David Rientjes <rientjes@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.02.1406181328160.10339@chino.kir.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 18 Jun 2014 00:16:07 -0700
-roopa@cumulusnetworks.com wrote:
+On 06/18/2014 10:29 PM, David Rientjes wrote:
+> On Wed, 18 Jun 2014, Jet Chen wrote:
+>
+>> Hi Daniel,
+>>
+>> FYI, we noticed the below changes on
+>>
+>> commit b58537a1f5629bdc98a8b9dc2051ce0e952f6b4b ("net: sctp: fix permissions
+>> for rto_alpha and rto_beta knobs")
+>
+> There's no way this is legitimate, that commit cannot possibly affect the
+> performance of netperf.  I wouldn't bother to spend any time investigating
+> this.
 
-> One such topology is when there are multiple paths to a dual-homed host.
+One assumption could be that netperf was setting this knob
+internally and ignoring the result of it (error/success), but
+that we might need to look up in netperf source to confirm.
 
-That is called a loop.
-Loops are not allowed on bridge networks.
-Sorry, this is just the kind of things spanning tree and TRILL were supposed
-to address. Solving in local bridge is not a good idea.
+Cheers,
+
+Daniel
