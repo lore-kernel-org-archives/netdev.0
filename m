@@ -1,48 +1,67 @@
-From: Yegor Yefremov <yegorslists@googlemail.com>
-Subject: Re: [net PATCH 1/1] drivers: net: cpsw: fix dual EMAC stall when
- connected to same switch
-Date: Wed, 18 Jun 2014 15:01:29 +0200
-Message-ID: <CAGm1_ktygja8o3wmnyErxJZk=_Wc7DHLUd1BPhjPb=JXKEDMqg@mail.gmail.com>
-References: <1403092308-31380-1-git-send-email-mugunthanvnm@ti.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Felipe Balbi <balbi@ti.com>,
-	Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-To: Mugunthan V N <mugunthanvnm@ti.com>
+From: Michael Tuexen <Michael.Tuexen@lurchi.franken.de>
+Subject: Re: [PATCH net-next 0/6] A step closer to RFC 6458 compliancy
+Date: Wed, 18 Jun 2014 14:43:31 +0200
+Message-ID: <84A786A6-D242-4DC6-8FC4-573A91A88311@lurchi.franken.de>
+References: <1403017296-28469-1-git-send-email-geirola@gmail.com> <063D6719AE5E284EB5DD2968C1650D6D1725DEC9@AcuExch.aculab.com> <53A08C10.70103@gmail.com> <063D6719AE5E284EB5DD2968C1650D6D1725E555@AcuExch.aculab.com>
+Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.2\))
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8BIT
+Cc: Vlad Yasevich <vyasevich@gmail.com>,
+	Geir Ola Vaagland <geirola@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f54.google.com ([209.85.160.54]:41220 "EHLO
-	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966308AbaFRNBu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 09:01:50 -0400
-Received: by mail-pb0-f54.google.com with SMTP id un15so722719pbc.41
-        for <netdev@vger.kernel.org>; Wed, 18 Jun 2014 06:01:49 -0700 (PDT)
-In-Reply-To: <1403092308-31380-1-git-send-email-mugunthanvnm@ti.com>
+Received: from mail-n.franken.de ([193.175.24.27]:44703 "EHLO
+	mail-n.franken.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966290AbaFRNH2 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 09:07:28 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1725E555@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 18, 2014 at 1:51 PM, Mugunthan V N <mugunthanvnm@ti.com> wrote:
-> In commit 629c9a8fd0bbdfc6d702526b327470166ec39c6b (drivers: net: cpsw: Add
-> default vlan for dual emac case also), api cpsw_add_default_vlan() also
-> changes the port vlan which is required to seperate the ports which results
-> in the following behavior
->
-> In Dual EMAC mode, when both the Etnernet connected is connected to same
-> switch, it creates a loop in the switch and when a broadcast packet is
-> received it is forwarded to the other port which stalls the whole switch
-> and needs a reset/power cycle to the switch to recover. So intead of using
-> the api, add only the default VLAN entry in dual EMAC case.
->
-> Cc: Yegor Yefremov <yegorslists@googlemail.com>
-> Cc: Felipe Balbi <balbi@ti.com>
-> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
-> ---
+On 18 Jun 2014, at 10:42, David Laight <David.Laight@ACULAB.COM> wrote:
 
-Thanks a lot. I have two interfaces connected to the same switch with
-different subnets and everything is working.
+> From: Vlad Yasevich
+>> On 06/17/2014 11:36 AM, David Laight wrote:
+>>> From: Of Geir Ola Vaagland
+>>>> These patches are part of my master thesis project. I have been searching for discrepancies between
+>>>> the socket API specificiation in RFC 6458 and the current Linux SCTP implementation. The following
+>>>> patches are my humble attempts at getting somewhat closer to compliancy.
+>>> 
+>>> I've just been reading RFC 6458 - HTF did it get past the editors and
+>>> then published in its current form?
+>>> Lots of the structures have implied padding.
+> ...
+>> I've argued the padding issue, but the editor stance is that it's implementation
+>> dependent.
+> 
+> It wouldn't be as bad if the RFC said that the structure contained the
+> fields that followed (as is typical of the posix definitions),
+> but instead it gives a definition of the structure.
+That would have been a possibility, but it was never suggested.
+As far as I know, C does not guarantee the memory layout for structs,
+except for the sequence of the components. So a compiler might add
+some padding at any place. When implementing this, you need to take
+care of this (and your job might be simpler, since you might only
+work with a specific set of compilers).
+In FreeBSD we also added some padding to some structures since they
+"evolved" during the lifetime of of the internet draft and we wanted
+to preserve some compatibility.
+I agree, that one must take care of the implied padding and I will double
+check how this is handled in FreeBSD. Not sure...
 
-Tested-by: Yegor Yefremov <yegorslists@googlemail.com>
-
-Regards,
-Yegor
+Best regards
+Michael
+> 
+> That isn't implementation friendly at all.
+> 
+> 	David
+> 
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
