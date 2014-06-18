@@ -1,83 +1,58 @@
-From: Michael Tuexen <Michael.Tuexen@lurchi.franken.de>
-Subject: Re: [PATCH net-next 0/6] A step closer to RFC 6458 compliancy
-Date: Wed, 18 Jun 2014 15:29:34 +0200
-Message-ID: <B7899B51-FDA0-4189-8DBA-FDC193C1D6ED@lurchi.franken.de>
-References: <1403017296-28469-1-git-send-email-geirola@gmail.com> <063D6719AE5E284EB5DD2968C1650D6D1725DEC9@AcuExch.aculab.com> <53A08C10.70103@gmail.com> <063D6719AE5E284EB5DD2968C1650D6D1725E555@AcuExch.aculab.com> <84A786A6-D242-4DC6-8FC4-573A91A88311@lurchi.franken.de> <063D6719AE5E284EB5DD2968C1650D6D1725E8B7@AcuExch.aculab.com> <53A19339.80908@gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.2\))
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 8BIT
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	Geir Ola Vaagland <geirola@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
-To: Vlad Yasevich <vyasevich@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-n.franken.de ([193.175.24.27]:49781 "EHLO
-	mail-n.franken.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966501AbaFRN3h convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 09:29:37 -0400
-In-Reply-To: <53A19339.80908@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mark Rutland <mark.rutland@arm.com>
+Subject: Re: [PATCH net-next v2 1/3] ieee802154: cc2520: adds driver for TI
+ CC2520 radio
+Date: Wed, 18 Jun 2014 14:39:58 +0100
+Message-ID: <20140618133958.GC11895@leverpostej>
+References: <1403068565-32224-1-git-send-email-varkab@cdac.in>
+ <1403068565-32224-2-git-send-email-varkab@cdac.in>
+ <20140618091010.GB26461@leverpostej>
+ <53A15B38.6060404@gmail.com>
+ <20140618095519.GE26461@leverpostej>
+ <53A17442.8010009@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"alex.bluesman.smirnov@gmail.com" <alex.bluesman.smirnov@gmail.com>,
+	"dbaryshkov@gmail.com" <dbaryshkov@gmail.com>,
+	"linux-zigbee-devel@lists.sourceforge.net"
+	<linux-zigbee-devel@lists.sourceforge.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Varka Bhadram <varkab@cdac.in>
+To: Varka Bhadram <varkabhadram@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <53A17442.8010009@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Wed, Jun 18, 2014 at 12:13:06PM +0100, Varka Bhadram wrote:
+> On 06/18/2014 03:25 PM, Mark Rutland wrote:
+> > On Wed, Jun 18, 2014 at 10:26:16AM +0100, Varka Bhadram wrote:
+> >> +static int cc2520_probe(struct spi_device *spi)
+> >> +{
+> >> +       struct cc2520_private *priv;
+> >> +       struct pinctrl *pinctrl;
+> >> +       struct cc2520_platform_data *pdata;
+> >> +       struct device_node __maybe_unused *np =3D spi->dev.of_node=
+;
+> >>
+> >> This looks to be definitely unused rather than __maybe_unused. The=
+re are
+> >> no other occuences of "np" in this function.
+> >>
+> >> This macro defined like this.
+> >> #define __maybe_unused  __attribute__((unused))
+> > Sure, but that's irrelevant. There's absolutely no point in this
+> > variable existing at all, and it can simply disappear.
+> >
+> > Mark.
+>=20
+> If we don't use that macro the compiler triggers warnings saying that=
+:  warning: unused variable =E2=80=98np=E2=80=99 [-Wunused-variable]
 
-On 18 Jun 2014, at 15:25, Vlad Yasevich <vyasevich@gmail.com> wrote:
+Then drop the _variable_, not just the annotation.
 
-> On 06/18/2014 09:16 AM, David Laight wrote:
->> From: Michael Tuexen [ 
->>> On 18 Jun 2014, at 10:42, David Laight <David.Laight@ACULAB.COM> wrote:
->>> 
->>>> From: Vlad Yasevich
->>>>> On 06/17/2014 11:36 AM, David Laight wrote:
->>>>>> From: Of Geir Ola Vaagland
->>>>>>> These patches are part of my master thesis project. I have been searching for discrepancies
->>> between
->>>>>>> the socket API specificiation in RFC 6458 and the current Linux SCTP implementation. The
->>> following
->>>>>>> patches are my humble attempts at getting somewhat closer to compliancy.
->>>>>> 
->>>>>> I've just been reading RFC 6458 - HTF did it get past the editors and
->>>>>> then published in its current form?
->>>>>> Lots of the structures have implied padding.
->>>> ...
->>>>> I've argued the padding issue, but the editor stance is that it's implementation
->>>>> dependent.
->>>> 
->>>> It wouldn't be as bad if the RFC said that the structure contained the
->>>> fields that followed (as is typical of the posix definitions),
->>>> but instead it gives a definition of the structure.
->> 
->>> That would have been a possibility, but it was never suggested.
->>> As far as I know, C does not guarantee the memory layout for structs,
->>> except for the sequence of the components. So a compiler might add
->>> some padding at any place. When implementing this, you need to take
->>> care of this (and your job might be simpler, since you might only
->>> work with a specific set of compilers).
->>> In FreeBSD we also added some padding to some structures since they
->>> "evolved" during the lifetime of of the internet draft and we wanted
->>> to preserve some compatibility.
->>> I agree, that one must take care of the implied padding and I will double
->>> check how this is handled in FreeBSD. Not sure...
->> 
->> You need to add explicit named pad fields in order to zero them.
->> (since you don't really want a memset())
->> That is against my reading of the RFC.
->> 
->> What does FreeBSD do about the 'sockaddr_storage'?
->> I'd have thought it had the same rules as NetBSD - where (IIRC) it should never
->> be instantiated, but only exists as a pointer type for function parameters.
->> 
-> 
-> I don't remember any such rules when sockaddr_storage was defined.  Can you
-> point to any document stating such rules?
-> It is definitely useful as a container object at times.
-I agree. The description would be OK for struct sockaddr. I have never instantiated
-a variable of that type. The only use (I know of) of struct sockaddr_storage
-is as a container object.
-
-Best regards
-Michael
-> 
-> -vlad
-> 
-> 
+Mark.
