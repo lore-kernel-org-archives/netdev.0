@@ -1,178 +1,139 @@
-From: greearb@candelatech.com
-Subject: [PATCH 2/2] ipv6:  Allow accepting RA from local IP addresses.
-Date: Wed, 18 Jun 2014 10:50:06 -0700
-Message-ID: <1403113806-13004-2-git-send-email-greearb@candelatech.com>
-References: <1403113806-13004-1-git-send-email-greearb@candelatech.com>
-Cc: Ben Greear <greearb@candelatech.com>
-To: netdev@vger.kernel.org
+From: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH net,stable] net: huawei_cdc_ncm: increase command buffer size
+Date: Wed, 18 Jun 2014 19:55:50 +0200
+Message-ID: <c498d030-8335-482c-aede-66e7bcdfebb0@email.android.com>
+References: <1403094084-13588-1-git-send-email-bjorn@mork.no> <1403100197.2266.14.camel@dcbw.local> <alpine.LNX.2.03.1406181831060.596@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
+To: Enrico Mioso <mrkiko.rs@gmail.com>, Dan Williams <dcbw@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.candelatech.com ([208.74.158.173]:54988 "EHLO
-	mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751888AbaFRRuN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 13:50:13 -0400
-In-Reply-To: <1403113806-13004-1-git-send-email-greearb@candelatech.com>
+Received: from canardo.mork.no ([148.122.252.1]:58277 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750823AbaFRR4D (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Jun 2014 13:56:03 -0400
+In-Reply-To: <alpine.LNX.2.03.1406181831060.596@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Greear <greearb@candelatech.com>
+No problem. I think Dan's testing is sufficient verification that this =
+doesn't have unexpected side effects.
 
-This can be used in virtual networking applications, and
-may have other uses as well.  The option is disabled by
-default, so no change to current operating behaviour
-without the user explicitly changing the behaviour.
 
-Signed-off-by: Ben Greear <greearb@candelatech.com>
----
+Bj=C3=B8rn
 
-This is against 3.14.7+
-
- Documentation/networking/ip-sysctl.txt | 12 ++++++++++++
- include/linux/ipv6.h                   |  1 +
- include/uapi/linux/ipv6.h              |  1 +
- include/uapi/linux/sysctl.h            |  1 +
- kernel/sysctl_binary.c                 |  1 +
- net/ipv6/addrconf.c                    | 10 ++++++++++
- net/ipv6/ndisc.c                       |  8 ++++++--
- 7 files changed, 32 insertions(+), 2 deletions(-)
-
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index a30ecc6..322cf5f 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -1223,6 +1223,18 @@ accept_ra_defrtr - BOOLEAN
- 	Functional default: enabled if accept_ra is enabled.
- 			    disabled if accept_ra is disabled.
- 
-+accept_ra_from_local - BOOLEAN
-+	Accept RA with source-address that is found on local machine
-+        if the RA is otherwise proper and able to be accepted.
-+        Default is to NOT accept these as it may be an un-intended
-+        network loop.
-+
-+	Functional default:
-+           enabled if accept_ra_from_local is enabled
-+               on specific interface or 'all'.
-+	   disabled if accept_ra_from_local is disabled
-+               on 'all' AND on specific interface.
-+
- accept_ra_pinfo - BOOLEAN
- 	Learn Prefix Information in Router Advertisement.
- 
-diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index 2faef33..de635d1 100644
---- a/include/linux/ipv6.h
-+++ b/include/linux/ipv6.h
-@@ -39,6 +39,7 @@ struct ipv6_devconf {
- #endif
- 	__s32		proxy_ndp;
- 	__s32		accept_source_route;
-+	__s32		accept_ra_from_local;
- #ifdef CONFIG_IPV6_OPTIMISTIC_DAD
- 	__s32		optimistic_dad;
- #endif
-diff --git a/include/uapi/linux/ipv6.h b/include/uapi/linux/ipv6.h
-index 593b0e3..efa2666 100644
---- a/include/uapi/linux/ipv6.h
-+++ b/include/uapi/linux/ipv6.h
-@@ -163,6 +163,7 @@ enum {
- 	DEVCONF_MLDV1_UNSOLICITED_REPORT_INTERVAL,
- 	DEVCONF_MLDV2_UNSOLICITED_REPORT_INTERVAL,
- 	DEVCONF_SUPPRESS_FRAG_NDISC,
-+	DEVCONF_ACCEPT_RA_FROM_LOCAL,
- 	DEVCONF_MAX
- };
- 
-diff --git a/include/uapi/linux/sysctl.h b/include/uapi/linux/sysctl.h
-index 7544146..ce15796 100644
---- a/include/uapi/linux/sysctl.h
-+++ b/include/uapi/linux/sysctl.h
-@@ -568,6 +568,7 @@ enum {
- 	NET_IPV6_ACCEPT_RA_RT_INFO_MAX_PLEN=22,
- 	NET_IPV6_PROXY_NDP=23,
- 	NET_IPV6_ACCEPT_SOURCE_ROUTE=25,
-+	NET_IPV6_ACCEPT_RA_FROM_LOCAL=26,
- 	__NET_IPV6_MAX
- };
- 
-diff --git a/kernel/sysctl_binary.c b/kernel/sysctl_binary.c
-index 6eacbcf..e10b51a 100644
---- a/kernel/sysctl_binary.c
-+++ b/kernel/sysctl_binary.c
-@@ -523,6 +523,7 @@ static const struct bin_table bin_net_ipv6_conf_var_table[] = {
- 	{ CTL_INT,	NET_IPV6_ACCEPT_RA_RT_INFO_MAX_PLEN,	"accept_ra_rt_info_max_plen" },
- 	{ CTL_INT,	NET_IPV6_PROXY_NDP,			"proxy_ndp" },
- 	{ CTL_INT,	NET_IPV6_ACCEPT_SOURCE_ROUTE,		"accept_source_route" },
-+	{ CTL_INT,	NET_IPV6_ACCEPT_RA_FROM_LOCAL,		"accept_ra_from_local" },
- 	{}
- };
- 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 6c7fa08..f0b7305 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -186,6 +186,7 @@ static struct ipv6_devconf ipv6_devconf __read_mostly = {
- 	.max_desync_factor	= MAX_DESYNC_FACTOR,
- 	.max_addresses		= IPV6_MAX_ADDRESSES,
- 	.accept_ra_defrtr	= 1,
-+	.accept_ra_from_local	= 0,
- 	.accept_ra_pinfo	= 1,
- #ifdef CONFIG_IPV6_ROUTER_PREF
- 	.accept_ra_rtr_pref	= 1,
-@@ -222,6 +223,7 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
- 	.max_desync_factor	= MAX_DESYNC_FACTOR,
- 	.max_addresses		= IPV6_MAX_ADDRESSES,
- 	.accept_ra_defrtr	= 1,
-+	.accept_ra_from_local	= 0,
- 	.accept_ra_pinfo	= 1,
- #ifdef CONFIG_IPV6_ROUTER_PREF
- 	.accept_ra_rtr_pref	= 1,
-@@ -4326,6 +4328,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
- 	array[DEVCONF_FORCE_TLLAO] = cnf->force_tllao;
- 	array[DEVCONF_NDISC_NOTIFY] = cnf->ndisc_notify;
- 	array[DEVCONF_SUPPRESS_FRAG_NDISC] = cnf->suppress_frag_ndisc;
-+	array[DEVCONF_ACCEPT_RA_FROM_LOCAL] = cnf->accept_ra_from_local;
- }
- 
- static inline size_t inet6_ifla6_size(void)
-@@ -5173,6 +5176,13 @@ static struct addrconf_sysctl_table
- 			.proc_handler	= proc_dointvec
- 		},
- 		{
-+			.procname	= "accept_ra_from_local",
-+			.data		= &ipv6_devconf.accept_ra_from_local,
-+			.maxlen		= sizeof(int),
-+			.mode		= 0644,
-+			.proc_handler	= proc_dointvec,
-+		},
-+		{
- 			/* sentinel */
- 		}
- 	},
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 2fef3d5..f074e8c 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -1151,7 +1151,9 @@ static void ndisc_router_discovery(struct sk_buff *skb)
- 		goto skip_defrtr;
- 	}
- 
--	if (ipv6_chk_addr(dev_net(in6_dev->dev), &ipv6_hdr(skb)->saddr,
-+	if (!(in6_dev->cnf.accept_ra_from_local ||
-+	      dev_net(in6_dev->dev)->ipv6.devconf_all->accept_ra_from_local) &&
-+	    ipv6_chk_addr(dev_net(in6_dev->dev), &ipv6_hdr(skb)->saddr,
- 			  NULL, 0)) {
- 		ND_PRINTK(2, info,
- 			  "RA: %s, chk_addr failed for dev: %s\n",
-@@ -1293,7 +1295,9 @@ skip_linkparms:
- 	}
- 
- #ifdef CONFIG_IPV6_ROUTE_INFO
--	if (ipv6_chk_addr(dev_net(in6_dev->dev), &ipv6_hdr(skb)->saddr,
-+	if (!(in6_dev->cnf.accept_ra_from_local ||
-+	      dev_net(in6_dev->dev)->ipv6.devconf_all->accept_ra_from_local) &&
-+	    ipv6_chk_addr(dev_net(in6_dev->dev), &ipv6_hdr(skb)->saddr,
- 			  NULL, 0)) {
- 		ND_PRINTK(2, info,
- 			  "RA: %s, chk-addr (route info) is false for dev: %s\n",
--- 
-1.7.11.7
+On 18 June 2014 18:32:58 CEST, Enrico Mioso <mrkiko.rs@gmail.com> wrote=
+:
+>I am sorry - I am not in good conditions to perform the testing. But -
+>I think=20
+>it sould be fine anyway.
+>Sorry Bjorn. I might be able to do it in the weekend if you would like=
+=2E
+>Enrico
+>
+>
+>On Wed, 18 Jun 2014, Dan Williams wrote:
+>
+>=3D=3DDate: Wed, 18 Jun 2014 16:03:17
+>=3D=3DFrom: Dan Williams <dcbw@redhat.com>
+>=3D=3DTo: Bj=C3=B8rn Mork <bjorn@mork.no>
+>=3D=3DCc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+>=3D=3D    Enrico Mioso <mrkiko.rs@gmail.com>
+>=3D=3DSubject: Re: [PATCH net,
+>=3D=3D    stable] net: huawei_cdc_ncm: increase command buffer size
+>=3D=3D
+>=3D=3DOn Wed, 2014-06-18 at 14:21 +0200, Bj=C3=B8rn Mork wrote:
+>=3D=3D> Messages from the modem exceeding 256 bytes cause communicatio=
+n
+>=3D=3D> failure.
+>=3D=3D>=20
+>=3D=3D> The WDM protocol is strictly "read on demand", meaning that we=
+ only
+>=3D=3D> poll for unread data after receiving a notification from the m=
+odem.
+>=3D=3D> Since we have no way to know how much data the modem has to se=
+nd,
+>=3D=3D> we must make sure that the buffer we provide is "big enough".
+>=3D=3D> Message truncation does not work. Truncated messages are left
+>unread
+>=3D=3D> until the modem has another message to send.  Which often won'=
+t
+>=3D=3D> happen until the userspace application has given up waiting fo=
+r the
+>=3D=3D> final part of the last message, and therefore sends another
+>command.
+>=3D=3D>=20
+>=3D=3D> With a proper CDC WDM function there is a descriptor telling u=
+s
+>=3D=3D> which buffer size the modem uses. But with this vendor specifi=
+c
+>=3D=3D> implementation there is no known way to calculate the exact "b=
+ig
+>=3D=3D> enough" number.  It is an unknown property of the modem firmwa=
+re.
+>=3D=3D> Experience has shown that 256 is too small.  The discussion of
+>=3D=3D> this failure ended up concluding that 512 might be too small a=
+s
+>=3D=3D> well. So 1024 seems like a reasonable value for now.
+>=3D=3D>=20
+>=3D=3D> Fixes: 41c47d8cfd68 ("net: huawei_cdc_ncm: Introduce the
+>huawei_cdc_ncm driver")
+>=3D=3D> Cc: Enrico Mioso <mrkiko.rs@gmail.com>
+>=3D=3D> Reported-by: Dan Williams <dcbw@redhat.com>
+>=3D=3D> Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+>=3D=3D
+>=3D=3DTested-by: Dan Williams <dcbw@redhat.com>
+>=3D=3D
+>=3D=3D'<CR><LF>^SYSCFGEX:
+>=3D=3D("00","01","02","03","99"),((400380,"GSM900/GSM1800/WCDMA2100"),=
+(6a80000,"GSM850/GSM1900/WCDMA850/AWS/WCDMA1900"),(3fffffff,"All
+>bands")),(0-2),(0-4),((1081b,"LTE_B1/LTE_B2/LTE_B4/LTE_B5/LTE_B12/LTE_=
+B17"),(7fffffffffffffff,"All
+>bands"))<CR><LF><CR><LF>OK<CR><LF>'
+>=3D=3D
+>=3D=3DI get the last "<LF>" now :)
+>=3D=3D
+>=3D=3D> ---
+>=3D=3D>=20
+>=3D=3D> The problem is a showstopper for anyone hitting it, so I belie=
+ve
+>this
+>=3D=3D> fix should go into all maintained stable kernels with this dri=
+ver.
+>=3D=3D> That is anything based on v3.13 or newer.
+>=3D=3D>=20
+>=3D=3D> Thanks,
+>=3D=3D> Bj=C3=B8rn
+>=3D=3D>=20
+>=3D=3D>=20
+>=3D=3D>  drivers/net/usb/huawei_cdc_ncm.c | 7 ++++---
+>=3D=3D>  1 file changed, 4 insertions(+), 3 deletions(-)
+>=3D=3D>=20
+>=3D=3D> diff --git a/drivers/net/usb/huawei_cdc_ncm.c
+>b/drivers/net/usb/huawei_cdc_ncm.c
+>=3D=3D> index f9822bc75425..5d95a13dbe2a 100644
+>=3D=3D> --- a/drivers/net/usb/huawei_cdc_ncm.c
+>=3D=3D> +++ b/drivers/net/usb/huawei_cdc_ncm.c
+>=3D=3D> @@ -84,12 +84,13 @@ static int huawei_cdc_ncm_bind(struct usbn=
+et
+>*usbnet_dev,
+>=3D=3D>  	ctx =3D drvstate->ctx;
+>=3D=3D> =20
+>=3D=3D>  	if (usbnet_dev->status)
+>=3D=3D> -		/* CDC-WMC r1.1 requires wMaxCommand to be "at least 256
+>=3D=3D> -		 * decimal (0x100)"
+>=3D=3D> +		/* The wMaxCommand buffer must be big enough to hold
+>=3D=3D> +		 * any message from the modem. Experience has shown
+>=3D=3D> +		 * that some replies are more than 256 bytes long
+>=3D=3D>  		 */
+>=3D=3D>  		subdriver =3D usb_cdc_wdm_register(ctx->control,
+>=3D=3D>  						 &usbnet_dev->status->desc,
+>=3D=3D> -						 256, /* wMaxCommand */
+>=3D=3D> +						 1024, /* wMaxCommand */
+>=3D=3D>  						 huawei_cdc_ncm_wdm_manage_power);
+>=3D=3D>  	if (IS_ERR(subdriver)) {
+>=3D=3D>  		ret =3D PTR_ERR(subdriver);
+>=3D=3D
+>=3D=3D
+>=3D=3D
