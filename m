@@ -1,56 +1,40 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 01/13] ipvs: stop tot_stats estimator only under CONFIG_SYSCTL
-Date: Wed, 18 Jun 2014 11:44:27 +0200
-Message-ID: <1403084679-11227-2-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 07/13] netfilter: nf_tables: fix wrong type in transaction when replacing rules
+Date: Wed, 18 Jun 2014 11:44:33 +0200
+Message-ID: <1403084679-11227-8-git-send-email-pablo@netfilter.org>
 References: <1403084679-11227-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:41389 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:41433 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965553AbaFRJou (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Jun 2014 05:44:50 -0400
+	id S965670AbaFRJoz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Jun 2014 05:44:55 -0400
 In-Reply-To: <1403084679-11227-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
+In b380e5c ("netfilter: nf_tables: add message type to transactions"),
+I used the wrong message type in the rule replacement case. The rule
+that is replaced needs to be handled as a deleted rule.
 
-The tot_stats estimator is started only when CONFIG_SYSCTL
-is defined. But it is stopped without checking CONFIG_SYSCTL.
-Fix the crash by moving ip_vs_stop_estimator into
-ip_vs_control_net_cleanup_sysctl.
-
-The change is needed after commit 14e405461e664b
-("IPVS: Add __ip_vs_control_{init,cleanup}_sysctl()") from 2.6.39.
-
-Reported-by: Jet Chen <jet.chen@intel.com>
-Tested-by: Jet Chen <jet.chen@intel.com>
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipvs/ip_vs_ctl.c |    2 +-
+ net/netfilter/nf_tables_api.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index c42e83d..581a658 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -3778,6 +3778,7 @@ static void __net_exit ip_vs_control_net_cleanup_sysctl(struct net *net)
- 	cancel_delayed_work_sync(&ipvs->defense_work);
- 	cancel_work_sync(&ipvs->defense_work.work);
- 	unregister_net_sysctl_table(ipvs->sysctl_hdr);
-+	ip_vs_stop_estimator(net, &ipvs->tot_stats);
- }
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index 19f438d..39369ea 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -1792,7 +1792,7 @@ static int nf_tables_newrule(struct sock *nlsk, struct sk_buff *skb,
  
- #else
-@@ -3840,7 +3841,6 @@ void __net_exit ip_vs_control_net_cleanup(struct net *net)
- 	struct netns_ipvs *ipvs = net_ipvs(net);
- 
- 	ip_vs_trash_cleanup(net);
--	ip_vs_stop_estimator(net, &ipvs->tot_stats);
- 	ip_vs_control_net_cleanup_sysctl(net);
- 	remove_proc_entry("ip_vs_stats_percpu", net->proc_net);
- 	remove_proc_entry("ip_vs_stats", net->proc_net);
+ 	if (nlh->nlmsg_flags & NLM_F_REPLACE) {
+ 		if (nft_rule_is_active_next(net, old_rule)) {
+-			trans = nft_trans_rule_add(&ctx, NFT_MSG_NEWRULE,
++			trans = nft_trans_rule_add(&ctx, NFT_MSG_DELRULE,
+ 						   old_rule);
+ 			if (trans == NULL) {
+ 				err = -ENOMEM;
 -- 
 1.7.10.4
