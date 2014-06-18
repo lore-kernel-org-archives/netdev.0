@@ -1,7 +1,7 @@
 From: <ganesanr@broadcom.com>
-Subject: [PATCH 1/3] Staging: Fix compilation error
-Date: Wed, 18 Jun 2014 18:43:56 +0530
-Message-ID: <21dec378b0ed417152176d2cc1600ce7c61ad486.1403096668.git.ganesanr@broadcom.com>
+Subject: [PATCH 2/3] Staging: PHY address calculation fix
+Date: Wed, 18 Jun 2014 18:43:57 +0530
+Message-ID: <20fcbf14feaa9b27cd043a1d6af21debacacf63a.1403096668.git.ganesanr@broadcom.com>
 References: <cover.1403096668.git.ganesanr@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,50 +10,35 @@ Cc: Ganesan Ramalingam <ganesanr@broadcom.com>,
 	<ralf@linux-mips.org>, <netdev@vger.kernel.org>
 To: <kristina.martsenko@gmail.com>, <gregkh@linuxfoundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:47504 "EHLO
-	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966138AbaFRMfg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 08:35:36 -0400
+Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:26699 "EHLO
+	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966138AbaFRMfk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 08:35:40 -0400
 In-Reply-To: <cover.1403096668.git.ganesanr@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ganesan Ramalingam <ganesanr@broadcom.com>
 
-Cop2 save and restore function names are changed, added that change
+SGMII PHY address calculation should be based on phy_addr of priv data
 
 Signed-off-by: Ganesan Ramalingam <ganesanr@broadcom.com>
 ---
- drivers/staging/netlogic/xlr_net.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/staging/netlogic/xlr_net.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/staging/netlogic/xlr_net.c b/drivers/staging/netlogic/xlr_net.c
-index 75d7c63..69ae8b6 100644
+index 69ae8b6..6d7a6a7 100644
 --- a/drivers/staging/netlogic/xlr_net.c
 +++ b/drivers/staging/netlogic/xlr_net.c
-@@ -125,9 +125,9 @@ static int send_to_rfr_fifo(struct xlr_net_priv *priv, void *addr)
- 	msg.msg3 = 0;
- 	stnid = priv->nd->rfr_station;
- 	do {
--		mflags = nlm_cop2_enable();
-+		mflags = nlm_cop2_enable_irqsave();
- 		ret = nlm_fmn_send(1, 0, stnid, &msg);
--		nlm_cop2_restore(mflags);
-+		nlm_cop2_disable_irqrestore(mflags);
- 		if (ret == 0)
- 			return 0;
- 	} while (++num_try < 10000);
-@@ -299,9 +299,9 @@ static netdev_tx_t xlr_net_start_xmit(struct sk_buff *skb,
- 	u32 flags;
+@@ -776,7 +776,7 @@ static void xlr_sgmii_init(struct xlr_net_priv *priv)
+ 	xlr_nae_wreg(priv->gpio_addr, 0x21, 0x7104);
  
- 	xlr_make_tx_desc(&msg, virt_to_phys(skb->data), skb);
--	flags = nlm_cop2_enable();
-+	flags = nlm_cop2_enable_irqsave();
- 	ret = nlm_fmn_send(2, 0, priv->nd->tx_stnid, &msg);
--	nlm_cop2_restore(flags);
-+	nlm_cop2_disable_irqrestore(flags);
- 	if (ret)
- 		dev_kfree_skb_any(skb);
- 	return NETDEV_TX_OK;
+ 	/* enable autoneg - more magic */
+-	phy = priv->port_id % 4 + 27;
++	phy = priv->phy_addr % 4 + 27;
+ 	xlr_phy_write(priv->pcs_addr, phy, 0, 0x1000);
+ 	xlr_phy_write(priv->pcs_addr, phy, 0, 0x0200);
+ }
 -- 
 1.7.9.5
