@@ -1,115 +1,121 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: How is IPv6 dhcp supposed to work?
-Date: Wed, 18 Jun 2014 10:18:33 +0200
-Message-ID: <53A14B59.2020907@6wind.com>
-References: <53A0B617.6070600@candelatech.com> <1403044471.16272.20.camel@dcbw.local> <53A0CC31.6090707@candelatech.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
+Subject: Re: [PATCH v2.60] datapath: Add basic MPLS support to
+	kernel
+Date: Wed, 18 Jun 2014 17:18:56 +0900
+Message-ID: <20140618081855.GC14968@verge.net.au>
+References: <1402050531-12599-1-git-send-email-horms@verge.net.au>
+ <20140617132045.GA11070@verge.net.au>
+ <CAEP_g=_hpDnmrbi-n5TGK7nKTEsjhO06zQm8sNQWv0p-dEACjA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>,
-	Dan Williams <dcbw@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f46.google.com ([74.125.82.46]:50173 "EHLO
-	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756377AbaFRISh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 04:18:37 -0400
-Received: by mail-wg0-f46.google.com with SMTP id y10so442468wgg.29
-        for <netdev@vger.kernel.org>; Wed, 18 Jun 2014 01:18:35 -0700 (PDT)
-In-Reply-To: <53A0CC31.6090707@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Ravi K <rkerur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CAEP_g=_hpDnmrbi-n5TGK7nKTEsjhO06zQm8sNQWv0p-dEACjA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Le 18/06/2014 01:16, Ben Greear a =C3=A9crit :
-> On 06/17/2014 03:34 PM, Dan Williams wrote:
->> On Tue, 2014-06-17 at 14:41 -0700, Ben Greear wrote:
->>> I'm trying to understand how DHCP for ipv6 is supposed to work.
->>>
->>> I am able to get a global-scope address and prefix from
->>> dhclient, but dhclient is not providing a gateway address.
->>
->> That's because it doesn't; DHCPv6 isn't supposed to be used standalo=
-ne
->> for global IPv6 connectivity.  That's what router advertisements are
->> for.  The normal flow is this:
->>
->> 1) your router advertisement provides your prefix, prefix length (eg
->> subnet mask), and default gateway/router
->>
->> 2) your prefix gets combined with your local Interface Identifier (o=
-ften
->> your MAC address or a hashed version of your MAC, or delivered via P=
-PP,
->> or hashed InfiniBand port GUID, or GRE tunnel address, etc) to provi=
-de
->> your global IPv6 address.  See
->> net/ipv6/addrconf.c::ipv6_generate_eui64().
->>
->> 3) the RA can also provide search domains, DNS servers, routes, MTU,
->> etc.
->>
->> 4) if there's anything else your administrator really wants to use D=
-HCP
->> for (NTP servers, etc) then they set the M (Managed) or O (Other Con=
-fig)
->> bits in the router advertisement.
->>
->> 5) In both cases, that requests that the client run DHCPv6; in M mod=
-e
->> you do get a lease from the DHCP server and that address becomes
->> preferred, in the O case no lease is obtained but other options can =
-be
->> delivered
->>
->> 6) In all cases, the default gateways (and their respective prioriti=
-es)
->> are always delivered by Router Advertisements; there can be multiple
->> default gateways in the broadcast domain for redundancy, and the net=
-work
->> administrator sets their relative priority.
->>
->>> I see the dhclient interface doing a Router Solicitation, but
->>> I don't see any answers.
->>>
->>> Are we supposed to run radvd or something like that as well?
->>
->> Yes.  If you're not using static addressing, then you must run radvd=
- to
->> deliver router advertisements to your network.  See 'man radvd.conf'=
- for
->> more information on configuring the additional options that DHCP use=
-d to
->> be used for (RDNSS, DNSSL, AdvLinkMTU, route, etc).
->>
->>> Or is there some other automated magic that is supposed to
->>> find the default gateway?
->>
->> Router Advertisements via radvd.  You probably want to evaluate whet=
-her
->> you really need DHCPv6 at all, since RA can deliver most of the opti=
-ons
->> that people use DHCP for.
->
-> Thanks for the detailed answer.  A user told me that 'dhcpv6 didn't w=
-ork'.
->
-> And it doesn't, but I think maybe they were using the equivalent of r=
-advd
-> anyway....trying to verify that.
->
-> Now, I still have troubles though.  I see the router solicit, and rou=
-ter advertisement,
-> but 'ip monitor route' doesn't show any default route being added (an=
-d neither does
-> the route show up in some other way I know to look.)
->
-> I'm using routing rules, veth pairs, and such stuff, and have some lo=
-cal code
-> hacks, so maybe it's my fault.  Don't think I've mucked with IPv6 muc=
-h though...
-Naive question, what is the value of accept_ra?
-cat /proc/sys/net/ipv6/conf/*/accept_ra
-
-See Documentation/networking/ip-sysctl.txt
+T24gVHVlLCBKdW4gMTcsIDIwMTQgYXQgMTE6MDI6MjFQTSAtMDcwMCwgSmVzc2UgR3Jvc3Mgd3Jv
+dGU6Cj4gSSdtIGN1cnJlbnRseSBzZWVpbmcgdGhpcyBjb21waWxlciBlcnJvcjoKPiAKPiAgIEND
+IFtNXSAgL2hvbWUvamVzc2Uvb3BlbnZzd2l0Y2gvZGF0YXBhdGgvbGludXgvZ3NvLm8KPiAvaG9t
+ZS9qZXNzZS9vcGVudnN3aXRjaC9kYXRhcGF0aC9saW51eC9nc28uYzogSW4gZnVuY3Rpb24g4oCY
+dG5sX3NrYl9nc29fc2VnbWVudOKAmToKPiAvaG9tZS9qZXNzZS9vcGVudnN3aXRjaC9kYXRhcGF0
+aC9saW51eC9nc28uYzoxOTk6MjogZXJyb3I6IGltcGxpY2l0Cj4gZGVjbGFyYXRpb24gb2YgZnVu
+Y3Rpb24g4oCYc2tiX2lubmVyX21hY19vZmZzZXTigJkKPiBbLVdlcnJvcj1pbXBsaWNpdC1mdW5j
+dGlvbi1kZWNsYXJhdGlvbl0KPiAgIGludCBtYWNfb2Zmc2V0ID0gc2tiX2lubmVyX21hY19vZmZz
+ZXQoc2tiKTsKPiAgIF4KPiAvaG9tZS9qZXNzZS9vcGVudnN3aXRjaC9kYXRhcGF0aC9saW51eC9n
+c28uYzoyMzM6MzogZXJyb3I6IGltcGxpY2l0Cj4gZGVjbGFyYXRpb24gb2YgZnVuY3Rpb24g4oCY
+T1ZTX0dTT19DQuKAmQo+IFstV2Vycm9yPWltcGxpY2l0LWZ1bmN0aW9uLWRlY2xhcmF0aW9uXQo+
+ICAgIGlmIChPVlNfR1NPX0NCKHNrYiktPmZpeF9zZWdtZW50KQo+ICAgIF4KPiAvaG9tZS9qZXNz
+ZS9vcGVudnN3aXRjaC9kYXRhcGF0aC9saW51eC9nc28uYzoyMzM6MjI6IGVycm9yOiBpbnZhbGlk
+Cj4gdHlwZSBhcmd1bWVudCBvZiDigJgtPuKAmSAoaGF2ZSDigJhpbnTigJkpCj4gICAgaWYgKE9W
+U19HU09fQ0Ioc2tiKS0+Zml4X3NlZ21lbnQpCj4gICAgICAgICAgICAgICAgICAgICAgIF4KPiAv
+aG9tZS9qZXNzZS9vcGVudnN3aXRjaC9kYXRhcGF0aC9saW51eC9nc28uYzoyMzQ6MTk6IGVycm9y
+OiBpbnZhbGlkCj4gdHlwZSBhcmd1bWVudCBvZiDigJgtPuKAmSAoaGF2ZSDigJhpbnTigJkpCj4g
+ICAgIE9WU19HU09fQ0Ioc2tiKS0+Zml4X3NlZ21lbnQoc2tiKTsKPiAKPiBUaGlzIGlzIG9uIDMu
+MTMuIEkgd2FzIG9yaWdpbmFsbHkgcGxhbm5pbmcgb24gdHJ5aW5nIHRvIGZpeCB0aGlzCj4gbXlz
+ZWxmIGJ1dCBJJ20gb2J2aW91c2x5IGp1c3Qgc2xvd2luZyB0aGluZ3MgZG93biBhdCB0aGlzIHBv
+aW50IDopCj4gCj4gVGhpcyBpcyBhIGNvbnNlcXVlbmNlIG9mIHRoZSByZWNlbnQgZXh0ZW5zaW9u
+IG9mIHRoZSB2ZXJzaW9ucyB0aGF0IHRoZQo+IGNvbXBhdCBjb2RlIGlzIGNvdmVyaW5nLgoKSSBj
+YW1lIHVwIHdpdGggdHdvIHdheXMgdG8gcmVzb2x2ZSB0aGlzIHByb2JsZW0uCgoxLiBUd2VhayB0
+aGUgS0VSTkVMX1ZFUlNJT04oMywxMiwwKSBsaW5lIHRvIEtFUk5FTF9WRVJTSU9OKDMsMTYsMCkK
+ICAgbmVhciB0aGUgdG9wIG9mIGRhdGFwYXRoL2xpbnV4L2NvbXBhdC9nc28uaCBhbmQgdXBkYXRl
+IHRoZSBjb21tZW50CiAgIGEgYml0IGZ1cnRoZXIgZG93biBhY2NvcmRpbmdseS4KCiAgIEkgdGhp
+bmsgdGhpcyBzaG91bGQgYmUgY29ycmVjdCBidXQgaXQgc2VlbXMgYSBidXQgZGlydHkKICAgdG8g
+aGF2ZSBzdHJ1Y3Qgb3ZzX2dzb19jYiB3aGVuIGl0IGlzbid0IHJlYWxseSBuZWVkZWQgYW55IG1v
+cmUuCgoyLiBUaGUgZm9sbG93aW5nIGNoYW5nZSB3aGljaCBhdm9pZHMgdXNpbmcgc3RydWN0IG92
+c19nc29fY2IgYWZ0ZXIKICAgdjMuMTIgYW5kIGFsbG93cyB1c2luZyBza2JfaW5uZXJfbWFjX29m
+ZnNldCB1cCB0byB2My4xNi4KCiAgIFRoaXMgaXMgbXkgcHJlZmVycmVkIGFwcHJvYWNoLgoKZGlm
+ZiAtLWdpdCBhL2RhdGFwYXRoL2xpbnV4L2NvbXBhdC9nc28uYyBiL2RhdGFwYXRoL2xpbnV4L2Nv
+bXBhdC9nc28uYwppbmRleCBkYzFlNTM3Li44MzQ0MjkzIDEwMDY0NAotLS0gYS9kYXRhcGF0aC9s
+aW51eC9jb21wYXQvZ3NvLmMKKysrIGIvZGF0YXBhdGgvbGludXgvY29tcGF0L2dzby5jCkBAIC0x
+OTAsNiArMTkwLDE2IEBAIHN0YXRpYyBfX2JlMTYgX19za2JfbmV0d29ya19wcm90b2NvbChzdHJ1
+Y3Qgc2tfYnVmZiAqc2tiKQogCXJldHVybiB0eXBlOwogfQogCisjaWYgTElOVVhfVkVSU0lPTl9D
+T0RFIDwgS0VSTkVMX1ZFUlNJT04oMywxMiwwKQorc3RhdGljIHZvaWQgdG5sX2ZpeF9zZWdtZW50
+KHN0cnVjdCBza19idWZmICpza2IpCit7CisJaWYgKE9WU19HU09fQ0Ioc2tiKS0+Zml4X3NlZ21l
+bnQpCisJCU9WU19HU09fQ0Ioc2tiKS0+Zml4X3NlZ21lbnQoc2tiKTsKK30KKyNlbHNlCitzdGF0
+aWMgdm9pZCB0bmxfZml4X3NlZ21lbnQoc3RydWN0IHNrX2J1ZmYgKnNrYikgeyB9CisjZW5kaWYK
+Kwogc3RhdGljIHN0cnVjdCBza19idWZmICp0bmxfc2tiX2dzb19zZWdtZW50KHN0cnVjdCBza19i
+dWZmICpza2IsCiAJCQkJCSAgIG5ldGRldl9mZWF0dXJlc190IGZlYXR1cmVzLAogCQkJCQkgICBi
+b29sIHR4X3BhdGgpCkBAIC0yMzAsOCArMjQwLDcgQEAgc3RhdGljIHN0cnVjdCBza19idWZmICp0
+bmxfc2tiX2dzb19zZWdtZW50KHN0cnVjdCBza19idWZmICpza2IsCiAKIAkJbWVtY3B5KGlwX2hk
+cihza2IpLCBpcGgsIHBrdF9obGVuKTsKIAkJbWVtY3B5KHNrYi0+Y2IsIGNiLCBzaXplb2YoY2Ip
+KTsKLQkJaWYgKE9WU19HU09fQ0Ioc2tiKS0+Zml4X3NlZ21lbnQpCi0JCQlPVlNfR1NPX0NCKHNr
+YiktPmZpeF9zZWdtZW50KHNrYik7CisJCXRubF9maXhfc2VnbWVudChza2IpOwogCiAJCXNrYi0+
+cHJvdG9jb2wgPSBwcm90bzsKIAkJc2tiID0gc2tiLT5uZXh0OwpkaWZmIC0tZ2l0IGEvZGF0YXBh
+dGgvbGludXgvY29tcGF0L2dzby5oIGIvZGF0YXBhdGgvbGludXgvY29tcGF0L2dzby5oCmluZGV4
+IDEzOTMxNzMuLmIwOGFkNDEgMTAwNjQ0Ci0tLSBhL2RhdGFwYXRoL2xpbnV4L2NvbXBhdC9nc28u
+aAorKysgYi9kYXRhcGF0aC9saW51eC9jb21wYXQvZ3NvLmgKQEAgLTU0LDEyICs1NCw2IEBAIHN0
+YXRpYyBpbmxpbmUgaW50IHNrYl9pbm5lcl9uZXR3b3JrX29mZnNldChjb25zdCBzdHJ1Y3Qgc2tf
+YnVmZiAqc2tiKQogCXJldHVybiBza2JfaW5uZXJfbmV0d29ya19oZWFkZXIoc2tiKSAtIHNrYi0+
+ZGF0YTsKIH0KIAotI2RlZmluZSBza2JfaW5uZXJfbWFjX29mZnNldCBycGxfc2tiX2lubmVyX21h
+Y19vZmZzZXQKLXN0YXRpYyBpbmxpbmUgaW50IHNrYl9pbm5lcl9tYWNfb2Zmc2V0KGNvbnN0IHN0
+cnVjdCBza19idWZmICpza2IpCi17Ci0JcmV0dXJuIHNrYl9pbm5lcl9tYWNfaGVhZGVyKHNrYikg
+LSBza2ItPmRhdGE7Ci19Ci0KICNkZWZpbmUgc2tiX3Jlc2V0X2lubmVyX2hlYWRlcnMgcnBsX3Nr
+Yl9yZXNldF9pbm5lcl9oZWFkZXJzCiBzdGF0aWMgaW5saW5lIHZvaWQgc2tiX3Jlc2V0X2lubmVy
+X2hlYWRlcnMoc3RydWN0IHNrX2J1ZmYgKnNrYikKIHsKQEAgLTc2LDYgKzcwLDE0IEBAIGludCBp
+cF9sb2NhbF9vdXQoc3RydWN0IHNrX2J1ZmYgKnNrYik7CiAKICNlbmRpZiAvKiAzLjEyICovCiAK
+KyNpZiBMSU5VWF9WRVJTSU9OX0NPREUgPCBLRVJORUxfVkVSU0lPTigzLDE2LDApCisjZGVmaW5l
+IHNrYl9pbm5lcl9tYWNfb2Zmc2V0IHJwbF9za2JfaW5uZXJfbWFjX29mZnNldAorc3RhdGljIGlu
+bGluZSBpbnQgc2tiX2lubmVyX21hY19vZmZzZXQoY29uc3Qgc3RydWN0IHNrX2J1ZmYgKnNrYikK
+K3sKKwlyZXR1cm4gc2tiX2lubmVyX21hY19oZWFkZXIoc2tiKSAtIHNrYi0+ZGF0YTsKK30KKyNl
+bmRpZgorCiAjaWYgTElOVVhfVkVSU0lPTl9DT0RFIDwgS0VSTkVMX1ZFUlNJT04oMywxMSwwKQog
+c3RhdGljIGlubGluZSB2b2lkIG92c19za2JfaW5pdF9pbm5lcl9wcm90b2NvbChzdHJ1Y3Qgc2tf
+YnVmZiAqc2tiKSB7CiAJT1ZTX0dTT19DQihza2IpLT5pbm5lcl9wcm90b2NvbCA9IGh0b25zKDAp
+OwoKCgpJIGFsc28gcmFuIGludG8gYSBuZXcgY29tcGlsZSBwcm9ibGVtIHdoZW4gcmViYXNpbmcu
+IE15IHByb3Bvc2VkIHNvbHV0aW9uCmlzIGFzIGZvbGxvd3M6CgpkaWZmIC0tZ2l0IGEvZGF0YXBh
+dGgvZGF0YXBhdGguYyBiL2RhdGFwYXRoL2RhdGFwYXRoLmMKaW5kZXggNjQwNDFmZi4uNzNjMjE1
+YiAxMDA2NDQKLS0tIGEvZGF0YXBhdGgvZGF0YXBhdGguYworKysgYi9kYXRhcGF0aC9kYXRhcGF0
+aC5jCkBAIC0zODIsNyArMzgyLDcgQEAgc3RhdGljIHNpemVfdCBrZXlfYXR0cl9zaXplKHZvaWQp
+CiB7CiAJLyogV2hlbmV2ZXIgYWRkaW5nIG5ldyBPVlNfS0VZXyBGSUVMRFMsIHdlIHNob3VsZCBj
+b25zaWRlcgogCSAqIHVwZGF0aW5nIHRoaXMgZnVuY3Rpb24uICAqLwotCUJVSUxEX0JVR19PTihP
+VlNfS0VZX0FUVFJfSVBWNF9UVU5ORUwgIT0gMjEpOworCUJVSUxEX0JVR19PTihPVlNfS0VZX0FU
+VFJfSVBWNF9UVU5ORUwgIT0gMjIpOwogCiAJcmV0dXJuICAgIG5sYV90b3RhbF9zaXplKDQpICAg
+LyogT1ZTX0tFWV9BVFRSX1BSSU9SSVRZICovCiAJCSsgbmxhX3RvdGFsX3NpemUoMCkgICAvKiBP
+VlNfS0VZX0FUVFJfVFVOTkVMICovCkBAIC0zOTcsNiArMzk3LDcgQEAgc3RhdGljIHNpemVfdCBr
+ZXlfYXR0cl9zaXplKHZvaWQpCiAJCSsgbmxhX3RvdGFsX3NpemUoNCkgICAvKiBPVlNfS0VZX0FU
+VFJfU0tCX01BUksgKi8KIAkJKyBubGFfdG90YWxfc2l6ZSg0KSAgIC8qIE9WU19LRVlfQVRUUl9E
+UF9IQVNIICovCiAJCSsgbmxhX3RvdGFsX3NpemUoNCkgICAvKiBPVlNfS0VZX0FUVFJfUkVDSVJD
+X0lEICovCisJCSsgbmxhX3RvdGFsX3NpemUoNCkgICAvKiBPVlNfS0VZX0FUVFJfTVBMUyAqLwog
+CQkrIG5sYV90b3RhbF9zaXplKDEyKSAgLyogT1ZTX0tFWV9BVFRSX0VUSEVSTkVUICovCiAJCSsg
+bmxhX3RvdGFsX3NpemUoMikgICAvKiBPVlNfS0VZX0FUVFJfRVRIRVJUWVBFICovCiAJCSsgbmxh
+X3RvdGFsX3NpemUoNCkgICAvKiBPVlNfS0VZX0FUVFJfODAyMVEgKi8KCj4gT25lIHRoaW5nIHRo
+YXQgY29tZXMgdG8gbWluZCBpcyBob3cgZG8gaGF2ZQo+IGNvcnJlY3QgYmVoYXZpb3IgYnV0IGF2
+b2lkIGZvcmNpbmcgdW5uZWNlc3Nhcnkgc29mdHdhcmUgc2VnbWVudGF0aW9uCj4gZm9yIHR1bm5l
+bHMgb24gbGF0ZXIga2VybmVscy4KCkFuIGludGVyZXN0aW5nIHByb2JsZW0gdGhhdCBJIGhhZCBu
+b3QgY29uc2lkZXJlZC4KCklzIHRoZSBwcm9ibGVtIHJlbGF0ZWQgdG8gdGhlIHByZXNlbmNlIG9m
+IE1QTFMgb3IgdGhlIGZhY3QKdGhhdCB0aGUgY29tcGF0aWJpbGl0eSBjb2RlIGlzIG5vdyB1c2Vk
+IGluIG5ld2VyIGtlcm5lbHM/CgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29w
+ZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
