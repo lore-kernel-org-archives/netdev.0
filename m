@@ -1,128 +1,84 @@
-From: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net,stable] net: huawei_cdc_ncm: increase command buffer
- size
-Date: Wed, 18 Jun 2014 15:41:04 +0200 (CEST)
-Message-ID: <alpine.LNX.2.03.1406181534510.1519@gmail.com>
-References: <1403094084-13588-1-git-send-email-bjorn@mork.no>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: How is IPv6 dhcp supposed to work?
+Date: Wed, 18 Jun 2014 08:43:10 -0500
+Message-ID: <1403098990.2266.13.camel@dcbw.local>
+References: <53A0B617.6070600@candelatech.com>
+	 <1403044471.16272.20.camel@dcbw.local> <53A0CC31.6090707@candelatech.com>
+	 <87ha3isdu6.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-213642212-1403098865=:1519"
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: =?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1403094084-13588-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Greear <greearb@candelatech.com>,
+	netdev <netdev@vger.kernel.org>
+To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:2209 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S966707AbaFRNnS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Jun 2014 09:43:18 -0400
+In-Reply-To: <87ha3isdu6.fsf@nemi.mork.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On Wed, 2014-06-18 at 12:37 +0200, Bj=C3=B8rn Mork wrote:
+> Ben Greear <greearb@candelatech.com> writes:
+>=20
+> > Does that router advert below look proper?=20
+>=20
+> No, it doesn't.  How did you create this?
+>=20
+> > I'm going printk diving in
+> > the IPv6 stack in the meantime...
+> >
+> >
+> > [root@simech2-f17x64 lanforge]# cat pkt.txt
+> > No.     Time        Source                Destination           Pro=
+tocol Length Info
+> >      34 229.636063  fe80::e4be:86ff:fe27:a33 ff02::1               =
+ICMPv6   110    Router Advertisement from e6:be:86:27:0a:33
+> >
+> > Frame 34: 110 bytes on wire (880 bits), 110 bytes captured (880 bit=
+s)
+> > Ethernet II, Src: e6:be:86:27:0a:33 (e6:be:86:27:0a:33), Dst: IPv6m=
+cast_00:00:00:01 (33:33:00:00:00:01)
+> > Internet Protocol Version 6, Src: fe80::e4be:86ff:fe27:a33 (fe80::e=
+4be:86ff:fe27:a33), Dst: ff02::1 (ff02::1)
+> > Internet Control Message Protocol v6
+> >     Type: Router Advertisement (134)
+> >     Code: 0
+> >     Checksum: 0x6088 [correct]
+> >     Cur hop limit: 64
+> >     Flags: 0x00
+> >     Router lifetime (s): 300
+> >     Reachable time (ms): 0
+> >     Retrans timer (ms): 0
+> >     ICMPv6 Option (Prefix information : 2001:78::1/64)
+> >         Type: Prefix information (3)
+> >         Length: 4 (32 bytes)
+> >         Prefix Length: 64
+> >         Flag: 0xe0
+> >         Valid Lifetime: 86400
+> >         Preferred Lifetime: 14400
+> >         Reserved
+> >         Prefix: 2001:78::1 (2001:78::1)
+>=20
+> Quoting RFC 4861 (http://tools.ietf.org/html/rfc4861#section-4.6.2 ):
+>=20
+>       Prefix         An IP address or a prefix of an IP address.  The
+>                      Prefix Length field contains the number of valid
+>                      leading bits in the prefix.  The bits in the pre=
+fix
+>                      after the prefix length are reserved and MUST be
+>                      initialized to zero by the sender and ignored by
+>                      the receiver.=20
+>=20
+>=20
+> So that prefix should have been '2001:78::'
 
---8323328-213642212-1403098865=:1519
-Content-Type: TEXT/PLAIN; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
+This is actually a problem in the wild, and radvd doesn't prevent this
+being configured (thanks radvd!!!).  So client implementations do need
+to mask off any host bits in the received prefix, no matter what the RF=
+C
+says :(
 
-I think this is good, even if I admit I am starting to feel pretty 
-unconfortable with this situation where a firmware is using an unknown 
-combination of two protocols, not respecting both AT spec and CDC WDM one.
-That may explain why the device refuses some commands sometimes, such as
-at+clac
-.
-
-I hope I'll be able to come back at this driver some day and try to figure out 
-something more.
-I can not promise anything - but I would like to modify cdc-wdm as per our last 
-discussion (and I might ask you to point me to the right message from Oliver 
-again).
-Regarding the buffer size - I do not know if there is a way to obtain it. Might 
-USB sniffing help in this, to see if we are receiving the data in some 
-unexpected location?
-I am asking myself how this thing is implemented in Windows Huawei drivers: 
-just out of curiosity.
-i can tell also - i experienced some crash with E3251 where I had to close and 
-re-open the seiral port, but this usually happened after simple
-AT
-commands, and it seemd a problem with minicom, but it was only an impression, 
-not confirmed by anything, so it can very easily wrong. I like to play and try 
-to understand.
-
-So - I acknoledge the patch.
-Please can you CC Oliver so that he knows?
-
-
-Acked-By: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-
-On Wed, 18 Jun 2014, Bjørn Mork wrote:
-
-==Date: Wed, 18 Jun 2014 14:21:24
-==From: Bjørn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-==To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-==Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bjørn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>,
-==    Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-==Subject: [PATCH net,stable] net: huawei_cdc_ncm: increase command buffer size
-==
-==Messages from the modem exceeding 256 bytes cause communication
-==failure.
-==
-==The WDM protocol is strictly "read on demand", meaning that we only
-==poll for unread data after receiving a notification from the modem.
-==Since we have no way to know how much data the modem has to send,
-==we must make sure that the buffer we provide is "big enough".
-==Message truncation does not work. Truncated messages are left unread
-==until the modem has another message to send.  Which often won't
-==happen until the userspace application has given up waiting for the
-==final part of the last message, and therefore sends another command.
-==
-==With a proper CDC WDM function there is a descriptor telling us
-==which buffer size the modem uses. But with this vendor specific
-==implementation there is no known way to calculate the exact "big
-==enough" number.  It is an unknown property of the modem firmware.
-==Experience has shown that 256 is too small.  The discussion of
-==this failure ended up concluding that 512 might be too small as
-==well. So 1024 seems like a reasonable value for now.
-==
-==Fixes: 41c47d8cfd68 ("net: huawei_cdc_ncm: Introduce the huawei_cdc_ncm driver")
-==Cc: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-==Reported-by: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-==Signed-off-by: Bjørn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-==---
-==
-==The problem is a showstopper for anyone hitting it, so I believe this
-==fix should go into all maintained stable kernels with this driver.
-==That is anything based on v3.13 or newer.
-==
-==Thanks,
-==Bjørn
-==
-==
-== drivers/net/usb/huawei_cdc_ncm.c | 7 ++++---
-== 1 file changed, 4 insertions(+), 3 deletions(-)
-==
-==diff --git a/drivers/net/usb/huawei_cdc_ncm.c b/drivers/net/usb/huawei_cdc_ncm.c
-==index f9822bc75425..5d95a13dbe2a 100644
-==--- a/drivers/net/usb/huawei_cdc_ncm.c
-==+++ b/drivers/net/usb/huawei_cdc_ncm.c
-==@@ -84,12 +84,13 @@ static int huawei_cdc_ncm_bind(struct usbnet *usbnet_dev,
-== 	ctx = drvstate->ctx;
-== 
-== 	if (usbnet_dev->status)
-==-		/* CDC-WMC r1.1 requires wMaxCommand to be "at least 256
-==-		 * decimal (0x100)"
-==+		/* The wMaxCommand buffer must be big enough to hold
-==+		 * any message from the modem. Experience has shown
-==+		 * that some replies are more than 256 bytes long
-== 		 */
-== 		subdriver = usb_cdc_wdm_register(ctx->control,
-== 						 &usbnet_dev->status->desc,
-==-						 256, /* wMaxCommand */
-==+						 1024, /* wMaxCommand */
-== 						 huawei_cdc_ncm_wdm_manage_power);
-== 	if (IS_ERR(subdriver)) {
-== 		ret = PTR_ERR(subdriver);
-==-- 
-==2.0.0
-==
-==
---8323328-213642212-1403098865=:1519--
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Dan
