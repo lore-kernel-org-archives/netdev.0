@@ -1,84 +1,58 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: How is IPv6 dhcp supposed to work?
-Date: Wed, 18 Jun 2014 08:43:10 -0500
-Message-ID: <1403098990.2266.13.camel@dcbw.local>
-References: <53A0B617.6070600@candelatech.com>
-	 <1403044471.16272.20.camel@dcbw.local> <53A0CC31.6090707@candelatech.com>
-	 <87ha3isdu6.fsf@nemi.mork.no>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: [ath5k-devel] [PATCH 09/28] Remove ATHEROS_AR231X
+Date: Wed, 18 Jun 2014 15:42:57 +0200
+Message-ID: <1403098977.1984.111.camel@x220>
+References: <1391971686-9517-1-git-send-email-richard@nod.at>
+	 <1391971686-9517-10-git-send-email-richard@nod.at>
+	 <52F7D480.1050106@hauke-m.de> <52F7DF21.70207@nod.at>
+	 <CAHNKnsS7Mv4ZhBWZa53go9L9nZimJ7_FG5HFJ9C3kkGMAEz-mA@mail.gmail.com>
+	 <52F8C373.9060108@rempel-privat.de>
+	 <CAHNKnsQF5Hdf3JT91moPraRQzn4kMpdD2NSiJ7b30wQhS1W4MA@mail.gmail.com>
+	 <CAGVrzcYnECx5Q=i+m6qZn29y4JALDpw5SWoUNP-S6HgPR3_ygQ@mail.gmail.com>
+	 <CAHNKnsRACSo=DfOyiHxqV3acv_wfZmz4tMnYAW0wo4OCibwdfA@mail.gmail.com>
+	 <CAHNKnsRQp7WLSJNAXEYPTd=qs1DquOfNgKtHES-Utvcy1=FEgQ@mail.gmail.com>
+	 <20140213201421.GJ22203@tuxdriver.com> <1397581703.8212.5.camel@x220>
+	 <CAHNKnsQQ42-XnXrubHAy4PF3H2ynbGDdSMP7MvDS_1aRozYF=A@mail.gmail.com>
+	 <1403087119.1984.93.camel@x220>
+	 <CAHNKnsSfaT7xC5_wv=TrGLEQ2pjC91Q1XG891_n64OuR0fA9Jg@mail.gmail.com>
+	 <1403091974.1984.102.camel@x220>
+	 <CAOpc7mE+829tBdy5atjtoJnGWDAnAHT_U0swXCuS3n_DMave1Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Greear <greearb@candelatech.com>,
-	netdev <netdev@vger.kernel.org>
-To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Sergey Ryazanov <ryazanov.s.a@gmail.com>,
+	List <openwrt-devel@lists.openwrt.org>,
+	open list <linux-kernel@vger.kernel.org>,
+	Jiri Slaby <jirislaby@gmail.com>, Richard@venema.h4ckr.net,
+	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>, open@hauke-m.de,
+	Weinberger <richard@nod.at>, ath5k-devel@venema.h4ckr.net,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Oleksij Rempel <linux@rempel-privat.de>,
+	Hauke@venema.h4ckr.net, Mehrtens <hauke@hauke-m.de>,
+	"list@hauke-m.de:NETWORKING DRIVERS" <list@hauke-m.de>,
+	Jonathan Bither <jonbither@gmail.com>,
+	"list@hauke-m.de:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
+	OpenWrt@venema.h4ckr.net,
+	"antonynpavlov@gmail.com" <antonynpavlov@gmail.com>
+To: Holger Schurig <holgerschurig@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:2209 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S966707AbaFRNnS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Jun 2014 09:43:18 -0400
-In-Reply-To: <87ha3isdu6.fsf@nemi.mork.no>
+Received: from cpsmtpb-ews06.kpnxchange.com ([213.75.39.9]:64604 "EHLO
+	cpsmtpb-ews06.kpnxchange.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S966364AbaFRNnA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 09:43:00 -0400
+In-Reply-To: <CAOpc7mE+829tBdy5atjtoJnGWDAnAHT_U0swXCuS3n_DMave1Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-06-18 at 12:37 +0200, Bj=C3=B8rn Mork wrote:
-> Ben Greear <greearb@candelatech.com> writes:
->=20
-> > Does that router advert below look proper?=20
->=20
-> No, it doesn't.  How did you create this?
->=20
-> > I'm going printk diving in
-> > the IPv6 stack in the meantime...
-> >
-> >
-> > [root@simech2-f17x64 lanforge]# cat pkt.txt
-> > No.     Time        Source                Destination           Pro=
-tocol Length Info
-> >      34 229.636063  fe80::e4be:86ff:fe27:a33 ff02::1               =
-ICMPv6   110    Router Advertisement from e6:be:86:27:0a:33
-> >
-> > Frame 34: 110 bytes on wire (880 bits), 110 bytes captured (880 bit=
-s)
-> > Ethernet II, Src: e6:be:86:27:0a:33 (e6:be:86:27:0a:33), Dst: IPv6m=
-cast_00:00:00:01 (33:33:00:00:00:01)
-> > Internet Protocol Version 6, Src: fe80::e4be:86ff:fe27:a33 (fe80::e=
-4be:86ff:fe27:a33), Dst: ff02::1 (ff02::1)
-> > Internet Control Message Protocol v6
-> >     Type: Router Advertisement (134)
-> >     Code: 0
-> >     Checksum: 0x6088 [correct]
-> >     Cur hop limit: 64
-> >     Flags: 0x00
-> >     Router lifetime (s): 300
-> >     Reachable time (ms): 0
-> >     Retrans timer (ms): 0
-> >     ICMPv6 Option (Prefix information : 2001:78::1/64)
-> >         Type: Prefix information (3)
-> >         Length: 4 (32 bytes)
-> >         Prefix Length: 64
-> >         Flag: 0xe0
-> >         Valid Lifetime: 86400
-> >         Preferred Lifetime: 14400
-> >         Reserved
-> >         Prefix: 2001:78::1 (2001:78::1)
->=20
-> Quoting RFC 4861 (http://tools.ietf.org/html/rfc4861#section-4.6.2 ):
->=20
->       Prefix         An IP address or a prefix of an IP address.  The
->                      Prefix Length field contains the number of valid
->                      leading bits in the prefix.  The bits in the pre=
-fix
->                      after the prefix length are reserved and MUST be
->                      initialized to zero by the sender and ignored by
->                      the receiver.=20
->=20
->=20
-> So that prefix should have been '2001:78::'
+On Wed, 2014-06-18 at 15:15 +0200, Holger Schurig wrote:
+> Hmm, wouldn't the obvious thing than to add the driver in it's current
+> form into staging?  Is it well-separated from the rest of  Atheros
+> WLAN drivers ?
 
-This is actually a problem in the wild, and radvd doesn't prevent this
-being configured (thanks radvd!!!).  So client implementations do need
-to mask off any host bits in the received prefix, no matter what the RF=
-C
-says :(
+A quick glance at the code shows an include of ar231x_platform.h (which
+doesn't exist) and uses of struct ar231x_board_config (ditto). So it
+won't build as is and therefor needs work to qualify for staging.
 
-Dan
+
+Paul Bolle
