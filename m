@@ -1,49 +1,58 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 0/6] A step closer to RFC 6458 compliancy
-Date: Wed, 18 Jun 2014 08:42:07 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1725E555@AcuExch.aculab.com>
-References: <1403017296-28469-1-git-send-email-geirola@gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6D1725DEC9@AcuExch.aculab.com>
- <53A08C10.70103@gmail.com>
+From: Jongsung Kim <neidhard.kim@lge.com>
+Subject: Re: [PATCH] net/cadence/macb: clear interrupts simply and correctly
+Date: Wed, 18 Jun 2014 17:44:31 +0900
+Message-ID: <53A1516F.7010201@lge.com>
+References: <1402563054-8546-1-git-send-email-neidhard.kim@lge.com> <7e888b59-d27b-49dc-9ffc-1c7d56f11773@BN1AFFO11FD007.protection.gbl> <539FB874.1040003@lge.com> <539FF43E.2020002@atmel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
-To: 'Vlad Yasevich' <vyasevich@gmail.com>,
-	'Geir Ola Vaagland' <geirola@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:36209 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S933182AbaFRInY convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 04:43:24 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 04276-09 for <netdev@vger.kernel.org>;
- Wed, 18 Jun 2014 09:43:15 +0100 (BST)
-In-Reply-To: <53A08C10.70103@gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Hayun Hwang <hwang.hayun@lge.com>,
+	Youngkyu Choi <youngkyu7.choi@lge.com>,
+	Cyrille Pitchen <cyrille.pitchen@atmel.com>
+To: Nicolas Ferre <nicolas.ferre@atmel.com>,
+	=?UTF-8?B?U8O2cmVuIEJyaW5rbWE=?= =?UTF-8?B?bm4=?=
+	<soren.brinkmann@xilinx.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <539FF43E.2020002@atmel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Vlad Yasevich
-> On 06/17/2014 11:36 AM, David Laight wrote:
-> > From: Of Geir Ola Vaagland
-> >> These patches are part of my master thesis project. I have been searching for discrepancies between
-> >> the socket API specificiation in RFC 6458 and the current Linux SCTP implementation. The following
-> >> patches are my humble attempts at getting somewhat closer to compliancy.
-> >
-> > I've just been reading RFC 6458 - HTF did it get past the editors and
-> > then published in its current form?
-> > Lots of the structures have implied padding.
-...
-> I've argued the padding issue, but the editor stance is that it's implementation
-> dependent.
+On 06/17/2014 04:54 PM, Nicolas Ferre wrote:
 
-It wouldn't be as bad if the RFC said that the structure contained the
-fields that followed (as is typical of the posix definitions),
-but instead it gives a definition of the structure.
+Hi Nicolas,
 
-That isn't implementation friendly at all.
+> On 17/06/2014 05:39, Jongsung Kim :
+>> On 06/17/2014 06:28 AM, S=C3=B6ren Brinkmann wrote:
+>>> Shouldn't it be sufficient to replace 'MACB_BIT(RCOMP) with 'MACB_R=
+X_INT_FLAGS'
+>>> to clear all the RX IRQ flags.
+>>
+>> I'm afraid not.
+>>
+>> You know, this driver initially targeted only GEMs configured with "=
+gem_irq_clear_read."
+>> For this implementation of GEM, the ISR is automatically cleared by =
+reading. The driver
+>> was designed to operate with the value read from ISR, not with the I=
+SR itself.
+>>
+>> However, there are other GEMs configured without "gem_irq_clear_read=
+," people like you
+>> and I working with. To support them, they insert similar codes condi=
+tionally clearing
+>> the ISR here and there. Now they are found at 6 places. Not enough y=
+et. Do you want to
+>> insert another at the end of macb_reset_hw..? Maybe not.
+>=20
+> Can't we separate a bit more the implementations of "clear on read" a=
+nd
+> "clear on write" so that we do not spread the tests that you are talk=
+ing
+> about all over the place and slower the driver's hot paths?
 
-	David
+I see. I'll revise my patch. Thank you for your advice.
+
+Regards,
+Jongsung
