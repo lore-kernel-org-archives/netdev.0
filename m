@@ -1,84 +1,86 @@
-From: Daniel Mack <zonque@gmail.com>
-Subject: [PATCH v2 2/3] net: phy: at803x: use #defines for supported PHY ids
-Date: Wed, 18 Jun 2014 11:01:42 +0200
-Message-ID: <1403082103-23709-3-git-send-email-zonque@gmail.com>
-References: <1403082103-23709-1-git-send-email-zonque@gmail.com>
-Cc: davem@davemloft.net, marek.belisko@gmail.com, ujhelyi.m@gmail.com,
-	Daniel Mack <zonque@gmail.com>
-To: netdev@vger.kernel.org, f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f43.google.com ([74.125.82.43]:64588 "EHLO
-	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965543AbaFRJB4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 05:01:56 -0400
-Received: by mail-wg0-f43.google.com with SMTP id b13so486873wgh.26
-        for <netdev@vger.kernel.org>; Wed, 18 Jun 2014 02:01:55 -0700 (PDT)
-In-Reply-To: <1403082103-23709-1-git-send-email-zonque@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Mark Rutland <mark.rutland@arm.com>
+Subject: Re: [PATCH net-next v2 3/3] devicetree: add devicetree bindings for
+ cc2520 driver
+Date: Wed, 18 Jun 2014 10:05:00 +0100
+Message-ID: <20140618090500.GA26461@leverpostej>
+References: <1403068565-32224-1-git-send-email-varkab@cdac.in>
+ <1403068565-32224-4-git-send-email-varkab@cdac.in>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"alex.bluesman.smirnov@gmail.com" <alex.bluesman.smirnov@gmail.com>,
+	"dbaryshkov@gmail.com" <dbaryshkov@gmail.com>,
+	"linux-zigbee-devel@lists.sourceforge.net"
+	<linux-zigbee-devel@lists.sourceforge.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Varka Bhadram <varkab@cdac.in>
+To: Varka Bhadram <varkabhadram@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1403068565-32224-4-git-send-email-varkab@cdac.in>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This removes magic values from two tables and also allows us to match
-against specific PHY models at runtime.
+On Wed, Jun 18, 2014 at 06:16:05AM +0100, Varka Bhadram wrote:
+> devicetree bindings for cc2520 radio driver.
+> 
+> Signed-off-by: Varka Bhadram <varkab@cdac.in>
+> ---
+>  .../devicetree/bindings/net/ieee802154/cc2520.txt  |   26 ++++++++++++++++++++
+>  1 file changed, 26 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/ieee802154/cc2520.txt
+> 
+> diff --git a/Documentation/devicetree/bindings/net/ieee802154/cc2520.txt b/Documentation/devicetree/bindings/net/ieee802154/cc2520.txt
+> new file mode 100644
+> index 0000000..f0a749d
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/ieee802154/cc2520.txt
+> @@ -0,0 +1,26 @@
+> +CC2520 IEEE 802.15.4 Compatible Radio
+> +
+> +Required properties:
+> +	- compatible:		should be "ti,cc2520"
+> +	- spi-max-frequency:	maximal bus speed (8000000), should be set to 4000000 depends
+> +				sync or async operation mode
+> +	- reg:			the chipselect index
+> +	- mode:			SPI mode
 
-Signed-off-by: Daniel Mack <zonque@gmail.com>
----
- drivers/net/phy/at803x.c | 16 ++++++++++------
- 1 file changed, 10 insertions(+), 6 deletions(-)
+What exactly is this property? It doesn't seem to be used by the driver,
+the example is opaque, and this doesn't seem to match any existing
+bindings (a grep for "mode" in Documentation/devicetree/bindings/spi
+only found me a string "mode" property).
 
-diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
-index b256083..045e446 100644
---- a/drivers/net/phy/at803x.c
-+++ b/drivers/net/phy/at803x.c
-@@ -35,6 +35,10 @@
- #define AT803X_DEBUG_SYSTEM_MODE_CTRL		0x05
- #define AT803X_DEBUG_RGMII_TX_CLK_DLY		BIT(8)
- 
-+#define ATH8030_PHY_ID 0x004dd076
-+#define ATH8031_PHY_ID 0x004dd074
-+#define ATH8035_PHY_ID 0x004dd072
-+
- MODULE_DESCRIPTION("Atheros 803x PHY driver");
- MODULE_AUTHOR("Matus Ujhelyi");
- MODULE_LICENSE("GPL");
-@@ -192,7 +196,7 @@ static int at803x_config_intr(struct phy_device *phydev)
- static struct phy_driver at803x_driver[] = {
- {
- 	/* ATHEROS 8035 */
--	.phy_id		= 0x004dd072,
-+	.phy_id		= ATH8035_PHY_ID,
- 	.name		= "Atheros 8035 ethernet",
- 	.phy_id_mask	= 0xffffffef,
- 	.config_init	= at803x_config_init,
-@@ -209,7 +213,7 @@ static struct phy_driver at803x_driver[] = {
- 	},
- }, {
- 	/* ATHEROS 8030 */
--	.phy_id		= 0x004dd076,
-+	.phy_id		= ATH8030_PHY_ID,
- 	.name		= "Atheros 8030 ethernet",
- 	.phy_id_mask	= 0xffffffef,
- 	.config_init	= at803x_config_init,
-@@ -226,7 +230,7 @@ static struct phy_driver at803x_driver[] = {
- 	},
- }, {
- 	/* ATHEROS 8031 */
--	.phy_id		= 0x004dd074,
-+	.phy_id		= ATH8031_PHY_ID,
- 	.name		= "Atheros 8031 ethernet",
- 	.phy_id_mask	= 0xffffffef,
- 	.config_init	= at803x_config_init,
-@@ -261,9 +265,9 @@ module_init(atheros_init);
- module_exit(atheros_exit);
- 
- static struct mdio_device_id __maybe_unused atheros_tbl[] = {
--	{ 0x004dd076, 0xffffffef },
--	{ 0x004dd074, 0xffffffef },
--	{ 0x004dd072, 0xffffffef },
-+	{ ATH8030_PHY_ID, 0xffffffef },
-+	{ ATH8031_PHY_ID, 0xffffffef },
-+	{ ATH8035_PHY_ID, 0xffffffef },
- 	{ }
- };
- 
--- 
-1.9.3
+The example has several properties (the GPIOs and pinctrl) not listed
+here...
+
+Mark.
+
+> +Example:
+> +
+> +	cc2520@0 {
+> +		compatible = "ti,cc2520";
+> +		reg = <0>;
+> +		spi-max-frequency = <4000000>;
+> +		mode = <1>;
+> +
+> +		pinctrl-names = "default";
+> +		pinctrl-0 = <&cc2520_cape_pins>;	/*GPIO pin muxing details*/
+> +
+> +		fifo-gpio = <&gpio1 18 0>;
+> +		fifop-gpio = <&gpio1 19 0>;
+> +		sfd-gpio = <&gpio1 13 0>;
+> +		cca-gpio = <&gpio1 16 0>;
+> +		vreg-gpio = <&gpio0 31 0>;
+> +		reset-gpio = <&gpio1 12 0>;
+> +	};
+> -- 
+> 1.7.9.5
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe devicetree" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
