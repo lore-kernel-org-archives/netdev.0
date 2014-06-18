@@ -1,75 +1,31 @@
-From: Varka Bhadram <varkabhadram-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next v2 3/3] devicetree: add
-	devicetree bindings for cc2520 driver
-Date: Wed, 18 Jun 2014 10:46:05 +0530
-Message-ID: <1403068565-32224-4-git-send-email-varkab@cdac.in>
-References: <1403068565-32224-1-git-send-email-varkab@cdac.in>
+From: David Miller <davem@davemloft.net>
+Subject: netlink permission checks for -stable
+Date: Tue, 17 Jun 2014 22:23:09 -0700 (PDT)
+Message-ID: <20140617.222309.545580698366469088.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Varka Bhadram <varkab-If5XQcfNmg0@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1403068565-32224-1-git-send-email-varkab-If5XQcfNmg0@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-devicetree bindings for cc2520 radio driver.
-
-Signed-off-by: Varka Bhadram <varkab-If5XQcfNmg0@public.gmane.org>
----
- .../devicetree/bindings/net/ieee802154/cc2520.txt  |   26 ++++++++++++++++++++
- 1 file changed, 26 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/ieee802154/cc2520.txt
-
-diff --git a/Documentation/devicetree/bindings/net/ieee802154/cc2520.txt b/Documentation/devicetree/bindings/net/ieee802154/cc2520.txt
-new file mode 100644
-index 0000000..f0a749d
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/ieee802154/cc2520.txt
-@@ -0,0 +1,26 @@
-+CC2520 IEEE 802.15.4 Compatible Radio
-+
-+Required properties:
-+	- compatible:		should be "ti,cc2520"
-+	- spi-max-frequency:	maximal bus speed (8000000), should be set to 4000000 depends
-+				sync or async operation mode
-+	- reg:			the chipselect index
-+	- mode:			SPI mode
-+Example:
-+
-+	cc2520@0 {
-+		compatible = "ti,cc2520";
-+		reg = <0>;
-+		spi-max-frequency = <4000000>;
-+		mode = <1>;
-+
-+		pinctrl-names = "default";
-+		pinctrl-0 = <&cc2520_cape_pins>;	/*GPIO pin muxing details*/
-+
-+		fifo-gpio = <&gpio1 18 0>;
-+		fifop-gpio = <&gpio1 19 0>;
-+		sfd-gpio = <&gpio1 13 0>;
-+		cca-gpio = <&gpio1 16 0>;
-+		vreg-gpio = <&gpio0 31 0>;
-+		reset-gpio = <&gpio1 12 0>;
-+	};
--- 
-1.7.9.5
+Cc: ebiederm@xmission.com, luto@amacapital.net
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58919 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751576AbaFRFXK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 01:23:10 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-------------------------------------------------------------------------------
-HPCC Systems Open Source Big Data Platform from LexisNexis Risk Solutions
-Find What Matters Most in Your Big Data with HPCC Systems
-Open Source. Fast. Scalable. Simple. Ideal for Dirty Data.
-Leverages Graph Analysis for Fast Processing & Easy Data Exploration
-http://p.sf.net/sfu/hpccsystems
+I was able to do the backporting for everything back to v3.10
+but for v3.2 and v3.4 it was beyond my means.
+
+Could you guys help me out and do backport of mainline commits:
+
+5187cd055b6e81fc6526109456f8b20623148d5f
+a53b72c83a4216f2eb883ed45a0cbce014b8e62d
+a3b299da869d6e78cf42ae0b1b41797bcb8c5e4b
+aa4cf9452f469f16cea8c96283b641b4576d4a7b
+90f62cf30a78721641e08737bda787552428061e
+2d7a85f4b06e9c27ff629f07a524c48074f07f81
+
+for v3.2 and v3.4 -stable?  Thanks!
