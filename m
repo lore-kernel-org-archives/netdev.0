@@ -1,103 +1,56 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 00/13] netfilter fixes for net
-Date: Wed, 18 Jun 2014 11:44:26 +0200
-Message-ID: <1403084679-11227-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 01/13] ipvs: stop tot_stats estimator only under CONFIG_SYSCTL
+Date: Wed, 18 Jun 2014 11:44:27 +0200
+Message-ID: <1403084679-11227-2-git-send-email-pablo@netfilter.org>
+References: <1403084679-11227-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:41389 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965553AbaFRJou (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Jun 2014 05:44:50 -0400
+In-Reply-To: <1403084679-11227-1-git-send-email-pablo@netfilter.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+From: Julian Anastasov <ja@ssi.bg>
 
-The following patchset contains netfilter updates for your net tree,
-they are:
+The tot_stats estimator is started only when CONFIG_SYSCTL
+is defined. But it is stopped without checking CONFIG_SYSCTL.
+Fix the crash by moving ip_vs_stop_estimator into
+ip_vs_control_net_cleanup_sysctl.
 
-1) Fix refcount leak when dumping the dying/unconfirmed conntrack lists,
-   from Florian Westphal.
+The change is needed after commit 14e405461e664b
+("IPVS: Add __ip_vs_control_{init,cleanup}_sysctl()") from 2.6.39.
 
-2) Fix crash in NAT when removing a netnamespace, also from Florian.
+Reported-by: Jet Chen <jet.chen@intel.com>
+Tested-by: Jet Chen <jet.chen@intel.com>
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
+---
+ net/netfilter/ipvs/ip_vs_ctl.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-3) Fix a crash in IPVS when trying to remove an estimator out of the
-   sysctl scope, from Julian Anastasov.
-
-4) Add zone attribute to the routing to calculate the message size in
-   ctnetlink events, from Ken-ichirou MATSUZAWA.
-
-5) Another fix for the dying/unconfirmed list which was preventing to
-   dump more than one memory page of entries (~17 entries in x86_64).
-
-6) Fix missing RCU-safe list insertion in the rule replacement code
-   in nf_tables.
-
-7) Since the new transaction infrastructure is in place, we have to
-   upgrade the chain use counter from u16 to u32 to avoid overflow
-   after more than 2^16 rules are added.
-
-8) Fix refcount leak when replacing rule in nf_tables. This problem
-   was also introduced in new transaction.
-
-9) Call the ->destroy() callback when releasing nft-xt rules to fix
-   module refcount leaks.
-
-10) Set the family in the netlink messages that contain set elements
-    in nf_tables to make it consistent with other object types.
-
-11) Don't dump NAT port information if it is unset in nft_nat.
-
-12) Update the MAINTAINERS file, I have merged the ebtables entry
-    into netfilter. While at it, also removed the netfilter users
-    mailing list, the development list should be enough.
-
-You can pull these changes from:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
-
-Thanks!
-
-----------------------------------------------------------------
-
-The following changes since commit 7171511eaec5bf23fb06078f59784a3a0626b38f:
-
-  Linux 3.16-rc1 (2014-06-15 17:45:28 -1000)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
-
-for you to fetch changes up to db9cf3a345d310bd459f369e8fa5f039076293f2:
-
-  MAINTAINERS: merge ebtables into netfilter entry (2014-06-18 11:27:03 +0200)
-
-----------------------------------------------------------------
-Florian Westphal (2):
-      netfilter: ctnetlink: fix refcnt leak in dying/unconfirmed list dumper
-      netfilter: nf_nat: fix oops on netns removal
-
-Julian Anastasov (1):
-      ipvs: stop tot_stats estimator only under CONFIG_SYSCTL
-
-Ken-ichirou MATSUZAWA (1):
-      netfilter: ctnetlink: add zone size to length
-
-Pablo Neira Ayuso (10):
-      netfilter: ctnetlink: fix dumping of dying/unconfirmed conntracks
-      netfilter: nf_tables: use RCU-safe list insertion when replacing rules
-      netfilter: nf_tables: use u32 for chain use counter
-      netfilter: nf_tables: decrement chain use counter when replacing rules
-      netfilter: nf_tables: fix wrong type in transaction when replacing rules
-      netfilter: nft_compat: call {target, match}->destroy() to cleanup entry
-      netfilter: nf_tables: indicate family when dumping set elements
-      netfilter: nft_nat: don't dump port information if unset
-      Merge branch 'ipvs'
-      MAINTAINERS: merge ebtables into netfilter entry
-
- MAINTAINERS                          |   11 +----------
- include/net/netfilter/nf_tables.h    |    6 +++---
- net/netfilter/ipvs/ip_vs_ctl.c       |    2 +-
- net/netfilter/nf_conntrack_netlink.c |   20 ++++++++++++-------
- net/netfilter/nf_nat_core.c          |   35 +++++++++++++++++++++++++++++++++-
- net/netfilter/nf_tables_api.c        |   11 ++++++++---
- net/netfilter/nft_compat.c           |   18 +++++++++++++++++
- net/netfilter/nft_nat.c              |   14 ++++++++------
- 8 files changed, 86 insertions(+), 31 deletions(-)
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index c42e83d..581a658 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -3778,6 +3778,7 @@ static void __net_exit ip_vs_control_net_cleanup_sysctl(struct net *net)
+ 	cancel_delayed_work_sync(&ipvs->defense_work);
+ 	cancel_work_sync(&ipvs->defense_work.work);
+ 	unregister_net_sysctl_table(ipvs->sysctl_hdr);
++	ip_vs_stop_estimator(net, &ipvs->tot_stats);
+ }
+ 
+ #else
+@@ -3840,7 +3841,6 @@ void __net_exit ip_vs_control_net_cleanup(struct net *net)
+ 	struct netns_ipvs *ipvs = net_ipvs(net);
+ 
+ 	ip_vs_trash_cleanup(net);
+-	ip_vs_stop_estimator(net, &ipvs->tot_stats);
+ 	ip_vs_control_net_cleanup_sysctl(net);
+ 	remove_proc_entry("ip_vs_stats_percpu", net->proc_net);
+ 	remove_proc_entry("ip_vs_stats", net->proc_net);
+-- 
+1.7.10.4
