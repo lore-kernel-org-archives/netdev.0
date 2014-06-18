@@ -1,82 +1,40 @@
-From: Arvid Brodin <arvid.brodin@alten.se>
-Subject: Re: net/hsr: not working :  High-availability Seamless Redundancy
- (HSRv0)
-Date: Wed, 18 Jun 2014 18:00:52 +0200
-Message-ID: <53A1B7B4.8010105@alten.se>
-References: <5396FD42.1070100@kalkitech.in> <53972641.2070205@alten.se> <539EE434.7050901@kalkitech.in>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: [PATCH 0/3] XLR/XLS network driver update and fixes
+Date: Wed, 18 Jun 2014 18:03:10 +0200
+Message-ID: <20140618160309.GG26335@linux-mips.org>
+References: <cover.1403096668.git.ganesanr@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <davem@davemloft.net>
-To: Gokul C G <gokul.g@kalkitech.in>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: kristina.martsenko@gmail.com, gregkh@linuxfoundation.org,
+	jchandra@broadcom.com, linux-mips@linux-mips.org,
+	netdev@vger.kernel.org
+To: ganesanr@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spam1.webland.se ([91.207.112.90]:58111 "EHLO spam1.webland.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750977AbaFRQAa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Jun 2014 12:00:30 -0400
-In-Reply-To: <539EE434.7050901@kalkitech.in>
+Received: from eddie.linux-mips.org ([78.24.191.182]:43526 "EHLO
+	cvs.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751125AbaFRQDU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 12:03:20 -0400
+Received: from localhost.localdomain ([127.0.0.1]:34135 "EHLO linux-mips.org"
+        rhost-flags-OK-OK-OK-FAIL) by eddie.linux-mips.org with ESMTP
+        id S6859954AbaFRQDR4PIto (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Wed, 18 Jun 2014 18:03:17 +0200
+Content-Disposition: inline
+In-Reply-To: <cover.1403096668.git.ganesanr@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014-06-16 14:33, Gokul C G wrote:
-> Hi,
->=20
-> PRP is protected by a number of patents. Does we need to  obtain
-> license for those to make use of the patented technology and offer a
-> PRP driver to end customers , if we use linux in embedded platform
-> ??
+On Wed, Jun 18, 2014 at 06:43:55PM +0530, ganesanr@broadcom.com wrote:
 
-I am not a patent expert, nor a lawyer, so I cannot advise you in this =
-matter.
-My understanding as a layman is that if there is a valid patent that co=
-vers the
-code, then yes, you need to obtain a license to be allowed to offer a p=
-roduct
-making use of the technology to end customers.
+> From: Ganesan Ramalingam <ganesanr@broadcom.com>
+> 
+> Patches has following changes:
+> 
+>  * Fixed compilation failure caused by change in COP2 API
+>  * SGMII PHY address calculation was wrong, fixed
+>  * Updated the driver to have single parent device for a XLR/XLS
+>    network block with multiple network devices under it
+>  * Fixed comment format
 
+Patches 1 and 2 apply cleanly but I'm getting a reject for patch 3.
 
-> I could find something like following while googling about HSR/PRP ,=20
-> "In order to be compliant with the Linux open source licensing model,
-> the Linux implementation of the PRP driver is in user space, not
-> kernel space."  I couldn't understand the same !!
-
-=46rom a patent perspective, I don't *think* it matters if the implemen=
-tation is=20
-in kernel space or user space; you'd need a license either way. By impl=
-ementing=20
-the driver in user space you don't have to make the source code availab=
-le under=20
-GPL, though. Again, I am not a lawyer, so don't take my word for it.
-
-
-> whether Kernel implementation of HSR is problematic from a legal
-> point of view (patent violation, see above for PRP) ??
-
-Possibly. The HSRv0 standard cautions about patents regarding PRP (the =
-PRP=20
-duplicate discard algorithm, using a Redundancy Control Trailer) and in=
-teractions
-between HSR and PRP nets. HSR does not use a Redundancy Control Trailer=
-=2E
-
-The HSRv1 standard also cautions about patent claims for interconnectin=
-g HSR nets
-though QuadBoxes, and additional PRP patents.=20
-
-I have no idea if these claims are valid, and I don't know if these are=
- the only=20
-parts of the standard which may be patent encumbered.=20
-
-=46rom the standard: "ISO (www.iso.org/patents) and IEC (http://patents=
-=2Eiec.ch)=20
-maintain on-line data bases of patents relevant to their standards. Use=
-rs are=20
-encouraged to consult the data bases for the most up to date informatio=
-n=20
-concerning patents."
-
-
---=20
-Arvid Brodin | Consultant (Linux)
-ALTEN | Knarrarn=E4sgatan 7 | SE-164 40 Kista | Sweden
-arvid.brodin@alten.se | www.alten.se/en/
+  Ralf
