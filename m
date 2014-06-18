@@ -1,58 +1,101 @@
-From: Paul Bolle <pebolle@tiscali.nl>
-Subject: Re: [ath5k-devel] [PATCH 09/28] Remove ATHEROS_AR231X
-Date: Wed, 18 Jun 2014 15:42:57 +0200
-Message-ID: <1403098977.1984.111.camel@x220>
-References: <1391971686-9517-1-git-send-email-richard@nod.at>
-	 <1391971686-9517-10-git-send-email-richard@nod.at>
-	 <52F7D480.1050106@hauke-m.de> <52F7DF21.70207@nod.at>
-	 <CAHNKnsS7Mv4ZhBWZa53go9L9nZimJ7_FG5HFJ9C3kkGMAEz-mA@mail.gmail.com>
-	 <52F8C373.9060108@rempel-privat.de>
-	 <CAHNKnsQF5Hdf3JT91moPraRQzn4kMpdD2NSiJ7b30wQhS1W4MA@mail.gmail.com>
-	 <CAGVrzcYnECx5Q=i+m6qZn29y4JALDpw5SWoUNP-S6HgPR3_ygQ@mail.gmail.com>
-	 <CAHNKnsRACSo=DfOyiHxqV3acv_wfZmz4tMnYAW0wo4OCibwdfA@mail.gmail.com>
-	 <CAHNKnsRQp7WLSJNAXEYPTd=qs1DquOfNgKtHES-Utvcy1=FEgQ@mail.gmail.com>
-	 <20140213201421.GJ22203@tuxdriver.com> <1397581703.8212.5.camel@x220>
-	 <CAHNKnsQQ42-XnXrubHAy4PF3H2ynbGDdSMP7MvDS_1aRozYF=A@mail.gmail.com>
-	 <1403087119.1984.93.camel@x220>
-	 <CAHNKnsSfaT7xC5_wv=TrGLEQ2pjC91Q1XG891_n64OuR0fA9Jg@mail.gmail.com>
-	 <1403091974.1984.102.camel@x220>
-	 <CAOpc7mE+829tBdy5atjtoJnGWDAnAHT_U0swXCuS3n_DMave1Q@mail.gmail.com>
+From: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net,stable] net: huawei_cdc_ncm: increase command buffer
+ size
+Date: Wed, 18 Jun 2014 15:45:03 +0200 (CEST)
+Message-ID: <alpine.LNX.2.03.1406181541460.1519@gmail.com>
+References: <1403094084-13588-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Sergey Ryazanov <ryazanov.s.a@gmail.com>,
-	List <openwrt-devel@lists.openwrt.org>,
-	open list <linux-kernel@vger.kernel.org>,
-	Jiri Slaby <jirislaby@gmail.com>, Richard@venema.h4ckr.net,
-	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>, open@hauke-m.de,
-	Weinberger <richard@nod.at>, ath5k-devel@venema.h4ckr.net,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Oleksij Rempel <linux@rempel-privat.de>,
-	Hauke@venema.h4ckr.net, Mehrtens <hauke@hauke-m.de>,
-	"list@hauke-m.de:NETWORKING DRIVERS" <list@hauke-m.de>,
-	Jonathan Bither <jonbither@gmail.com>,
-	"list@hauke-m.de:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
-	OpenWrt@venema.h4ckr.net,
-	"antonynpavlov@gmail.com" <antonynpavlov@gmail.com>
-To: Holger Schurig <holgerschurig@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cpsmtpb-ews06.kpnxchange.com ([213.75.39.9]:64604 "EHLO
-	cpsmtpb-ews06.kpnxchange.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S966364AbaFRNnA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 09:43:00 -0400
-In-Reply-To: <CAOpc7mE+829tBdy5atjtoJnGWDAnAHT_U0swXCuS3n_DMave1Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-1925975995-1403099104=:1519"
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: =?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1403094084-13588-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-06-18 at 15:15 +0200, Holger Schurig wrote:
-> Hmm, wouldn't the obvious thing than to add the driver in it's current
-> form into staging?  Is it well-separated from the rest of  Atheros
-> WLAN drivers ?
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-A quick glance at the code shows an include of ar231x_platform.h (which
-doesn't exist) and uses of struct ar231x_board_config (ditto). So it
-won't build as is and therefor needs work to qualify for staging.
+--8323328-1925975995-1403099104=:1519
+Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
 
+Oh - I forgot to say: I can provide a tested-by in some hours. I have my E3131 
+at something like 2.1  KM going by feets, from here at University. 
 
-Paul Bolle
+On Wed, 18 Jun 2014, Bjørn Mork wrote:
+
+==Date: Wed, 18 Jun 2014 14:21:24
+==From: Bjørn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+==To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+==Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bjørn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>,
+==    Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+==Subject: [PATCH net,stable] net: huawei_cdc_ncm: increase command buffer size
+==
+==Messages from the modem exceeding 256 bytes cause communication
+==failure.
+==
+==The WDM protocol is strictly "read on demand", meaning that we only
+==poll for unread data after receiving a notification from the modem.
+==Since we have no way to know how much data the modem has to send,
+==we must make sure that the buffer we provide is "big enough".
+==Message truncation does not work. Truncated messages are left unread
+==until the modem has another message to send.  Which often won't
+==happen until the userspace application has given up waiting for the
+==final part of the last message, and therefore sends another command.
+==
+==With a proper CDC WDM function there is a descriptor telling us
+==which buffer size the modem uses. But with this vendor specific
+==implementation there is no known way to calculate the exact "big
+==enough" number.  It is an unknown property of the modem firmware.
+==Experience has shown that 256 is too small.  The discussion of
+==this failure ended up concluding that 512 might be too small as
+==well. So 1024 seems like a reasonable value for now.
+==
+==Fixes: 41c47d8cfd68 ("net: huawei_cdc_ncm: Introduce the huawei_cdc_ncm driver")
+==Cc: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+==Reported-by: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+==Signed-off-by: Bjørn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+==---
+==
+==The problem is a showstopper for anyone hitting it, so I believe this
+==fix should go into all maintained stable kernels with this driver.
+==That is anything based on v3.13 or newer.
+==
+==Thanks,
+==Bjørn
+==
+==
+== drivers/net/usb/huawei_cdc_ncm.c | 7 ++++---
+== 1 file changed, 4 insertions(+), 3 deletions(-)
+==
+==diff --git a/drivers/net/usb/huawei_cdc_ncm.c b/drivers/net/usb/huawei_cdc_ncm.c
+==index f9822bc75425..5d95a13dbe2a 100644
+==--- a/drivers/net/usb/huawei_cdc_ncm.c
+==+++ b/drivers/net/usb/huawei_cdc_ncm.c
+==@@ -84,12 +84,13 @@ static int huawei_cdc_ncm_bind(struct usbnet *usbnet_dev,
+== 	ctx = drvstate->ctx;
+== 
+== 	if (usbnet_dev->status)
+==-		/* CDC-WMC r1.1 requires wMaxCommand to be "at least 256
+==-		 * decimal (0x100)"
+==+		/* The wMaxCommand buffer must be big enough to hold
+==+		 * any message from the modem. Experience has shown
+==+		 * that some replies are more than 256 bytes long
+== 		 */
+== 		subdriver = usb_cdc_wdm_register(ctx->control,
+== 						 &usbnet_dev->status->desc,
+==-						 256, /* wMaxCommand */
+==+						 1024, /* wMaxCommand */
+== 						 huawei_cdc_ncm_wdm_manage_power);
+== 	if (IS_ERR(subdriver)) {
+== 		ret = PTR_ERR(subdriver);
+==-- 
+==2.0.0
+==
+==
+--8323328-1925975995-1403099104=:1519--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
