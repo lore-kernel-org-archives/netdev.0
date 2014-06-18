@@ -1,50 +1,43 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: MIPS: Add MSI support for XLP9XX
-Date: Wed, 18 Jun 2014 09:00:08 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1725E5A8@AcuExch.aculab.com>
-References: <20140610013104.DF5A8660F61@gitolite.kernel.org>
- <20140618001837.GA24753@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"ganesanr@broadcom.com" <ganesanr@broadcom.com>
-To: 'Dave Jones' <davej@redhat.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140618001837.GA24753@redhat.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Mack <zonque@gmail.com>
+Subject: [PATCH v2 0/3] Handle stuck TX queue bug in AT8030 PHY
+Date: Wed, 18 Jun 2014 11:01:40 +0200
+Message-ID: <1403082103-23709-1-git-send-email-zonque@gmail.com>
+Cc: davem@davemloft.net, marek.belisko@gmail.com, ujhelyi.m@gmail.com,
+	Daniel Mack <zonque@gmail.com>
+To: netdev@vger.kernel.org, f.fainelli@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f50.google.com ([74.125.82.50]:45317 "EHLO
+	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964781AbaFRJBy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 05:01:54 -0400
+Received: by mail-wg0-f50.google.com with SMTP id x13so485520wgg.33
+        for <netdev@vger.kernel.org>; Wed, 18 Jun 2014 02:01:53 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dave Jones
-> On Tue, Jun 10, 2014 at 01:31:04AM +0000, Linux Kernel wrote:
->  > Gitweb:     http://git.kernel.org/linus/;a=commit;h=d66f3f0e10b49df8d0cc0d8eb5bf2ef9863a33cf
->  > Commit:     d66f3f0e10b49df8d0cc0d8eb5bf2ef9863a33cf
->  > Parent:     1c98398662c9b4e2f03f64344f83dd6cb14e0420
->  > Refname:    refs/heads/master
->  > Author:     Ganesan Ramalingam <ganesanr@broadcom.com>
->  > AuthorDate: Fri May 9 16:35:49 2014 +0530
->  > Committer:  Ralf Baechle <ralf@linux-mips.org>
->  > CommitDate: Fri May 30 16:51:02 2014 +0200
->  >
->  >     MIPS: Add MSI support for XLP9XX
-> 
-> ...
-> 
->  > +		if (cpu_is_xlp9xx()) {
->  > +			val = ((node * nlm_threads_per_node()) << 7 |
->  > +				PIC_PCIE_MSIX_IRQ(link) << 1 | 0 << 0);
-> 
-> Should this be..
-> 
-> 			val = ((node * nlm_threads_per_node()) << 7 |
-> 				PIC_PCIE_MSIX_IRQ(link) << 1);
-> 			val &= ~(1 << 0);
-> 
-> perhaps ? because shifting a zero is a nop, as is ORing it.
+These three small patches circument a hardware bug in AT8030 PHYs that
+leads to stuck TX FIFO queues when the link goes away while there are
+pending patches in der outbound queue. This bug has been confirmed by
+the vendor, and their only proposed fix is to apply a hardware reset
+every time the link goes down.
 
-Unlikely, it looks to me as though it is just being explicit that the
-low bit of the compound word (whatever it is) is zero.
 
-	David
+Thanks,
+Daniel
+
+v1 -> v2:
+	* Rename phy device callback from adjust_state to link_change_notify
+
+
+Daniel Mack (3):
+  net: phylib: add link_change_notify callback to phy device
+  net: phy: at803x: use #defines for supported PHY ids
+  net: phy: at803x: Add support for hardware reset
+
+ drivers/net/phy/at803x.c | 195 ++++++++++++++++++++++++++++++++++++-----------
+ drivers/net/phy/phy.c    |   3 +
+ include/linux/phy.h      |   9 +++
+ 3 files changed, 163 insertions(+), 44 deletions(-)
+
+-- 
+1.9.3
