@@ -1,33 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bonding: Advertize vxlan offload features when
- supported
-Date: Wed, 18 Jun 2014 16:50:56 -0700 (PDT)
-Message-ID: <20140618.165056.1727314662187072206.davem@davemloft.net>
-References: <1403010669-19731-1-git-send-email-ogerlitz@mellanox.com>
+Subject: Re: [PATCH 23/24] net: return actual error on
+ register_queue_kobjects
+Date: Wed, 18 Jun 2014 16:59:11 -0700 (PDT)
+Message-ID: <20140618.165911.2120049330133778152.davem@davemloft.net>
+References: <53A0518A.7020300@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, vfalico@gmail.com,
-	amirv@mellanox.com
-To: ogerlitz@mellanox.com
+Cc: netdev@vger.kernel.org
+To: jeff.liu@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36238 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36263 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756568AbaFRXu6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 19:50:58 -0400
-In-Reply-To: <1403010669-19731-1-git-send-email-ogerlitz@mellanox.com>
+	with ESMTP id S1756554AbaFRX7M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 19:59:12 -0400
+In-Reply-To: <53A0518A.7020300@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Tue, 17 Jun 2014 16:11:09 +0300
+From: Jeff Liu <jeff.liu@oracle.com>
+Date: Tue, 17 Jun 2014 22:32:42 +0800
 
-> When the underlying device supports TCP offloads for VXLAN/UDP
-> encapulated traffic, we need to reflect that through the hw_enc_features
-> field of the bonding net-device. This will cause the xmit path
-> in the core networking stack to provide bonding with encapsulated
-> GSO frames to offload into the HW etc.
+> From: Jie Liu <jeff.liu@oracle.com>
 > 
-> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+> Return the actual error code if call kset_create_and_add() failed
+> 
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Jie Liu <jeff.liu@oracle.com>
 
-Applied, thank you.
+Applied, thanks.
