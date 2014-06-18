@@ -1,60 +1,51 @@
 From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH net] xen-netback: bookkeep number of queues in our own
- module
-Date: Wed, 18 Jun 2014 15:21:53 +0100
-Message-ID: <20140618142152.GC20819@zion.uk.xensource.com>
-References: <1403100558-12866-1-git-send-email-wei.liu2@citrix.com>
- <53A19FCA.1090205@oracle.com>
+Subject: Re: [Xen-devel] [PATCH 1/2] xen-netfront: fix oops when disconnected
+ from backend
+Date: Wed, 18 Jun 2014 15:23:01 +0100
+Message-ID: <20140618142300.GD20819@zion.uk.xensource.com>
+References: <1403084848-12872-1-git-send-email-david.vrabel@citrix.com>
+ <1403084848-12872-2-git-send-email-david.vrabel@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: Wei Liu <wei.liu2@citrix.com>, <xen-devel@lists.xen.org>,
-	<netdev@vger.kernel.org>, Ian Campbell <ian.campbell@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>
-To: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
+	<wei.liu2@citrix.com>
+To: David Vrabel <david.vrabel@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:63686 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S967046AbaFROWn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Jun 2014 10:22:43 -0400
+Received: from smtp02.citrix.com ([66.165.176.63]:45250 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752191AbaFROXK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 10:23:10 -0400
 Content-Disposition: inline
-In-Reply-To: <53A19FCA.1090205@oracle.com>
+In-Reply-To: <1403084848-12872-2-git-send-email-david.vrabel@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 18, 2014 at 10:18:50AM -0400, Boris Ostrovsky wrote:
-> On 06/18/2014 10:09 AM, Wei Liu wrote:
-> >The original code uses netdev->real_num_tx_queues to bookkeep number of
-> >queues and invokes netif_set_real_num_tx_queues to set the number of
-> >queues. However, netif_set_real_num_tx_queues doesn't allow
-> >real_num_tx_queues to be smaller than 1, which means setting the number
-> >to 0 will not work and real_num_tx_queues is untouched.
-> >
-> >This is bogus when xenvif_free is invoked before any number of queues is
-> >allocated. That function needs to iterate through all queues to free
-> >resources. Using the wrong number of queues results in NULL pointer
-> >dereference.
-> >
-> >So we bookkeep the number of queues in xen-netback to solve this
-> >problem. The usage of real_num_tx_queues in core driver is to cap queue
-> >index to a valid value. In start_xmit we've already guarded against out
-> >of range queue index so we should be fine.
-> >
-> >This fixes a regression introduced by multiqueue patchset in 3.16-rc1.
+On Wed, Jun 18, 2014 at 10:47:27AM +0100, David Vrabel wrote:
+> xennet_disconnect_backend() was not correctly iterating over all the
+> queues.
 > 
-> 
-> David sent a couple of patches earlier today that I have been testing and
-> they appear to fix both netfront and netback. (I am waiting for 32-bit to
-> finish)
-> 
-> http://lists.xenproject.org/archives/html/xen-devel/2014-06/msg02308.html
-> 
+> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
 
-I saw that, but they don't fix this backend bug. Try crashing the guest
-before it connects to backend. As I said in commit message:
+Reviewed-by: Wei Liu <wei.liu2@citrix.com>
 
-> >This is bogus when xenvif_free is invoked before any number of queues is
-> >allocated. That function needs to iterate through all queues to free
+> ---
+>  drivers/net/xen-netfront.c |    5 +++--
+>  1 file changed, 3 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+> index 5a7872a..daaf1e5 100644
+> --- a/drivers/net/xen-netfront.c
+> +++ b/drivers/net/xen-netfront.c
+> @@ -1287,7 +1287,7 @@ static irqreturn_t xennet_rx_interrupt(int irq, void *dev_id)
+>  
+>  	if (likely(netif_carrier_ok(dev) &&
+>  		   RING_HAS_UNCONSUMED_RESPONSES(&queue->rx)))
+> -			napi_schedule(&queue->napi);
+> +		napi_schedule(&queue->napi);
+>  
 
-netif_set_real_num_tx_queues will need to be removed anyway.
+This indentation fix is not actually related to this bug. IMHO it should
+either be removed or noted in commit message.
 
 Wei.
