@@ -1,97 +1,114 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [PATCH] net: fec: Don't clear IPV6 header checksum field when
-	IP accelerator enable
-Date: Wed, 18 Jun 2014 17:09:13 +0100
-Message-ID: <20140618160913.GH32514@n2100.arm.linux.org.uk>
-References: <1403051632-32113-1-git-send-email-b38611@freescale.com>
+From: Enrico Mioso <mrkiko.rs@gmail.com>
+Subject: Re: [PATCH net,stable] net: huawei_cdc_ncm: increase command buffer
+ size
+Date: Wed, 18 Jun 2014 18:32:58 +0200 (CEST)
+Message-ID: <alpine.LNX.2.03.1406181831060.596@gmail.com>
+References: <1403094084-13588-1-git-send-email-bjorn@mork.no> <1403100197.2266.14.camel@dcbw.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Fugang Duan <b38611@freescale.com>
+Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-1880649394-1403109181=:596"
+Cc: =?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn@mork.no>,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org
+To: Dan Williams <dcbw@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:34562 "EHLO
-	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751007AbaFRQJV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 12:09:21 -0400
-Content-Disposition: inline
-In-Reply-To: <1403051632-32113-1-git-send-email-b38611@freescale.com>
+Received: from mail-we0-f173.google.com ([74.125.82.173]:64800 "EHLO
+	mail-we0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753586AbaFRQci (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 12:32:38 -0400
+In-Reply-To: <1403100197.2266.14.camel@dcbw.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 18, 2014 at 08:33:52AM +0800, Fugang Duan wrote:
-> The commit 96c50caa5148 (net: fec: Enable IP header hardware checksum)
-> enable HW IP header checksum for IPV4 and IPV6, which causes IPV6 TCP/UDP
-> cannot work. (The issue is reported by Russell King)
-> 
-> For FEC IP header checksum function: Insert IP header checksum. This "IINS"
-> bit is written by the user. If set, IP accelerator calculates the IP header
-> checksum and overwrites the IINS corresponding header field with the calculated
-> value. The checksum field must be cleared by user, otherwise the checksum
-> always is 0xFFFF.
-> 
-> So the previous patch clear IP header checksum field regardless of IP frame
-> type.
-> 
-> In fact, IP HW detect the packet as IPV6 type, even if the "IINS" bit is set,
-> the IP accelerator is not triggered to calculates IPV6 header checksum because
-> IPV6 frame format don't have checksum.
-> 
-> So this results in the IPV6 frame being corrupted.
-> 
-> The patch just add software detect the current packet type, if it is IPV6
-> frame, it don't clear IP header checksum field.
-> 
-> Cc: Russell King <linux@arm.linux.org.uk>
-> Reported-and-tested-by: Russell King <linux@arm.linux.org.uk>
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-Please use rmk+kernel@arm.linux.org.uk and drop the Cc line as I'm now
-mentioned in these tags, thanks.
+--8323328-1880649394-1403109181=:596
+Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
 
-Secondly, there's another couple of bugs in the merged patches:
+I am sorry - I am not in good conditions to perform the testing. But - I think 
+it sould be fine anyway.
+Sorry Bjorn. I might be able to do it in the weekend if you would like.
+Enrico
 
-	net: fec: Add Scatter/gather support
 
-+static int
-+fec_enet_txq_submit_frag_skb(struct sk_buff *skb, struct net_device *ndev)
-+{
-...
-+		if (dma_mapping_error(&fep->pdev->dev, bdp->cbd_bufaddr)) {
-...
-+			goto dma_mapping_error;
-... successful exit ...
-+	return 0;
-+
-+dma_mapping_error:
-... failure exit ...
-+	return NETDEV_TX_OK;
-+}
+On Wed, 18 Jun 2014, Dan Williams wrote:
 
-+static int fec_enet_txq_submit_skb(struct sk_buff *skb, struct net_device *ndev)
-+{
-...
-+		ret = fec_enet_txq_submit_frag_skb(skb, ndev);
-+		if (ret)
-+			return ret;
-
-Firstly, NETDEV_TX_OK is enumerated as value zero.  So, whatever happens
-in fec_enet_txq_submit_frag_skb(), this function always returns zero
-even if we have an error.  This would lead to the packet ring being
-left in a confused state, with the header part of the packet sitting
-in the ring without the LAST bit set, and then the next packet to be
-submitted may cause the "packet" as seen by the hardware to be
-completed with a LAST buffer.
-
-Secondly, if fec_enet_txq_submit_skb() were to be fixed not to return
-zero, this still doesn't help the situation much - where's the error
-handling to clean up the header part of the packet?
-
-I'm currently porting my FEC patch set on top of your patches which
-were merged in the last window, which is causing me to notice various
-problems such as the above, which annoyingly I had already addressed
-in my version of SG support.  I'm working towards being able to post
-them, but it's going to be something like a week of solid work on my
-patches before I'm ready to do that.
-
--- 
-FTTC broadband for 0.8mile line: now at 9.7Mbps down 460kbps up... slowly
-improving, and getting towards what was expected from it.
+==Date: Wed, 18 Jun 2014 16:03:17
+==From: Dan Williams <dcbw@redhat.com>
+==To: Bjørn Mork <bjorn@mork.no>
+==Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+==    Enrico Mioso <mrkiko.rs@gmail.com>
+==Subject: Re: [PATCH net,
+==    stable] net: huawei_cdc_ncm: increase command buffer size
+==
+==On Wed, 2014-06-18 at 14:21 +0200, Bjørn Mork wrote:
+==> Messages from the modem exceeding 256 bytes cause communication
+==> failure.
+==> 
+==> The WDM protocol is strictly "read on demand", meaning that we only
+==> poll for unread data after receiving a notification from the modem.
+==> Since we have no way to know how much data the modem has to send,
+==> we must make sure that the buffer we provide is "big enough".
+==> Message truncation does not work. Truncated messages are left unread
+==> until the modem has another message to send.  Which often won't
+==> happen until the userspace application has given up waiting for the
+==> final part of the last message, and therefore sends another command.
+==> 
+==> With a proper CDC WDM function there is a descriptor telling us
+==> which buffer size the modem uses. But with this vendor specific
+==> implementation there is no known way to calculate the exact "big
+==> enough" number.  It is an unknown property of the modem firmware.
+==> Experience has shown that 256 is too small.  The discussion of
+==> this failure ended up concluding that 512 might be too small as
+==> well. So 1024 seems like a reasonable value for now.
+==> 
+==> Fixes: 41c47d8cfd68 ("net: huawei_cdc_ncm: Introduce the huawei_cdc_ncm driver")
+==> Cc: Enrico Mioso <mrkiko.rs@gmail.com>
+==> Reported-by: Dan Williams <dcbw@redhat.com>
+==> Signed-off-by: Bjørn Mork <bjorn@mork.no>
+==
+==Tested-by: Dan Williams <dcbw@redhat.com>
+==
+=='<CR><LF>^SYSCFGEX:
+==("00","01","02","03","99"),((400380,"GSM900/GSM1800/WCDMA2100"),(6a80000,"GSM850/GSM1900/WCDMA850/AWS/WCDMA1900"),(3fffffff,"All bands")),(0-2),(0-4),((1081b,"LTE_B1/LTE_B2/LTE_B4/LTE_B5/LTE_B12/LTE_B17"),(7fffffffffffffff,"All bands"))<CR><LF><CR><LF>OK<CR><LF>'
+==
+==I get the last "<LF>" now :)
+==
+==> ---
+==> 
+==> The problem is a showstopper for anyone hitting it, so I believe this
+==> fix should go into all maintained stable kernels with this driver.
+==> That is anything based on v3.13 or newer.
+==> 
+==> Thanks,
+==> Bjørn
+==> 
+==> 
+==>  drivers/net/usb/huawei_cdc_ncm.c | 7 ++++---
+==>  1 file changed, 4 insertions(+), 3 deletions(-)
+==> 
+==> diff --git a/drivers/net/usb/huawei_cdc_ncm.c b/drivers/net/usb/huawei_cdc_ncm.c
+==> index f9822bc75425..5d95a13dbe2a 100644
+==> --- a/drivers/net/usb/huawei_cdc_ncm.c
+==> +++ b/drivers/net/usb/huawei_cdc_ncm.c
+==> @@ -84,12 +84,13 @@ static int huawei_cdc_ncm_bind(struct usbnet *usbnet_dev,
+==>  	ctx = drvstate->ctx;
+==>  
+==>  	if (usbnet_dev->status)
+==> -		/* CDC-WMC r1.1 requires wMaxCommand to be "at least 256
+==> -		 * decimal (0x100)"
+==> +		/* The wMaxCommand buffer must be big enough to hold
+==> +		 * any message from the modem. Experience has shown
+==> +		 * that some replies are more than 256 bytes long
+==>  		 */
+==>  		subdriver = usb_cdc_wdm_register(ctx->control,
+==>  						 &usbnet_dev->status->desc,
+==> -						 256, /* wMaxCommand */
+==> +						 1024, /* wMaxCommand */
+==>  						 huawei_cdc_ncm_wdm_manage_power);
+==>  	if (IS_ERR(subdriver)) {
+==>  		ret = PTR_ERR(subdriver);
+==
+==
+==
+--8323328-1880649394-1403109181=:596--
