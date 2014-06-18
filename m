@@ -1,32 +1,75 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: How is IPv6 dhcp supposed to work?
-Date: Wed, 18 Jun 2014 13:43:55 +0200
-Message-ID: <CAPh34me+ukPUtwhANiBMJr-vmiDwy+9+kZaRgXgxi5Ba2YA99Q@mail.gmail.com>
-References: <53A0B617.6070600@candelatech.com>
-	<1403044471.16272.20.camel@dcbw.local>
-	<53A0CC31.6090707@candelatech.com>
-	<87ha3isdu6.fsf@nemi.mork.no>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Re: [PATCH 09/28] Remove ATHEROS_AR231X
+Date: Wed, 18 Jun 2014 13:46:14 +0200
+Message-ID: <1403091974.1984.102.camel@x220>
+References: <1391971686-9517-1-git-send-email-richard@nod.at>
+	 <1391971686-9517-10-git-send-email-richard@nod.at>
+	 <52F7D480.1050106@hauke-m.de> <52F7DF21.70207@nod.at>
+	 <CAHNKnsS7Mv4ZhBWZa53go9L9nZimJ7_FG5HFJ9C3kkGMAEz-mA@mail.gmail.com>
+	 <52F8C373.9060108@rempel-privat.de>
+	 <CAHNKnsQF5Hdf3JT91moPraRQzn4kMpdD2NSiJ7b30wQhS1W4MA@mail.gmail.com>
+	 <CAGVrzcYnECx5Q=i+m6qZn29y4JALDpw5SWoUNP-S6HgPR3_ygQ@mail.gmail.com>
+	 <CAHNKnsRACSo=DfOyiHxqV3acv_wfZmz4tMnYAW0wo4OCibwdfA@mail.gmail.com>
+	 <CAHNKnsRQp7WLSJNAXEYPTd=qs1DquOfNgKtHES-Utvcy1=FEgQ@mail.gmail.com>
+	 <20140213201421.GJ22203@tuxdriver.com> <1397581703.8212.5.camel@x220>
+	 <CAHNKnsQQ42-XnXrubHAy4PF3H2ynbGDdSMP7MvDS_1aRozYF=A@mail.gmail.com>
+	 <1403087119.1984.93.camel@x220>
+	 <CAHNKnsSfaT7xC5_wv=TrGLEQ2pjC91Q1XG891_n64OuR0fA9Jg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Ben Greear <greearb@candelatech.com>,
-	Dan Williams <dcbw@redhat.com>, netdev <netdev@vger.kernel.org>
-To: =?UTF-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f176.google.com ([209.85.220.176]:61335 "EHLO
-	mail-vc0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933979AbaFRLn4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 07:43:56 -0400
-Received: by mail-vc0-f176.google.com with SMTP id ik5so639385vcb.35
-        for <netdev@vger.kernel.org>; Wed, 18 Jun 2014 04:43:56 -0700 (PDT)
-In-Reply-To: <87ha3isdu6.fsf@nemi.mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jiri Slaby <jirislaby@gmail.com>,
+	Nick Kossifidis <mickflemm@gmail.com>,
+	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Oleksij Rempel <linux@rempel-privat.de>,
+	Richard Weinberger <richard@nod.at>,
+	Jonathan Bither <jonbither@gmail.com>,
+	Hauke Mehrtens <hauke@hauke-m.de>,
+	ath5k-devel@venema.h4ckr.net, open@hauke-m.de,
+	"list@hauke-m.de:NETWORKING DRIVERS" <list@hauke-m.de>,
+	"antonynpavlov@gmail.com" <antonynpavlov@gmail.com>,
+	OpenWrt Development List <openwrt-devel@lists.openwrt.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"list@hauke-m.de:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
+	open list <linux-kernel@vger.kernel.org>
+To: Sergey Ryazanov <ryazanov.s.a@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAHNKnsSfaT7xC5_wv=TrGLEQ2pjC91Q1XG891_n64OuR0fA9Jg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Strange, exactly today a updated ID was released, titled:
-"DHCPv6/SLAAC Address Configuration Interaction Problem Statement"
-[1]. To quote the conclusion: "The host behavior of SLAAC/DHCPv6
-interaction is ambiguous in standard". ;-)
+Hi Sergey,
 
-Cheers, Hagen
+On Wed, 2014-06-18 at 15:10 +0400, Sergey Ryazanov wrote:
+> 2014-06-18 14:25 GMT+04:00 Paul Bolle <pebolle@tiscali.nl>:
+> > ATHEROS_AR231X and the things depending on it, like AHB bus support,
+> > have been discussed for three years now. When will you (re)consider a
+> > patch to remove all currently dead code?
+> >
+> > And to state the obvious: AHB bus support, and the other code depending
+> > on ATHEROS_AR231X, can always be re-added once ATHEROS_AR231X gets added
+> > to the tree.
+> 
+> Work in progress, I don't stop it. Just work is progressing slower
+> than I had planned. I am already cleanup the code (mostly checkpatch
+> errors and warnings) and send patches to OpenWRT tree. Further I plan
+> to simplify initialization and I will be ready to send patches
+> upstream.
 
-[1] http://tools.ietf.org/html/draft-ietf-v6ops-dhcpv6-slaac-problem-01
+That's good to hear.
+
+> I need a couple of weeks for this. Is its reasonable time to not make
+> a mess of remove/add commits?
+
+Removing the code just to re-add it shortly after would indeed be
+awkward.
+
+Having this conversation every rc1 is getting a bit silly. Could Jiri
+e.a. perhaps set some specific deadline for ATHEROS_AR231X to be
+submitted?
+
+Thanks,
+
+
+Paul Bolle
