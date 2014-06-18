@@ -1,78 +1,43 @@
-From: Varka Bhadram <varkabhadram-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next v3 3/3] devicetree: add device
-	tree bindings for cc2520 driver
-Date: Wed, 18 Jun 2014 17:50:32 +0530
-Message-ID: <1403094032-6121-4-git-send-email-varkab@cdac.in>
-References: <1403094032-6121-1-git-send-email-varkab@cdac.in>
+From: <ganesanr@broadcom.com>
+Subject: [PATCH 0/3] XLR/XLS network driver update and fixes
+Date: Wed, 18 Jun 2014 18:43:55 +0530
+Message-ID: <cover.1403096668.git.ganesanr@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Varka Bhadram <varkab-If5XQcfNmg0@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1403094032-6121-1-git-send-email-varkab-If5XQcfNmg0@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Ganesan Ramalingam <ganesanr@broadcom.com>,
+	<jchandra@broadcom.com>, <linux-mips@linux-mips.org>,
+	<ralf@linux-mips.org>, <netdev@vger.kernel.org>
+To: <kristina.martsenko@gmail.com>, <gregkh@linuxfoundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gw2-out.broadcom.com ([216.31.210.63]:36942 "EHLO
+	mail-gw2-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966138AbaFRMfd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 08:35:33 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-DT bindings for cc2520 radio driver
+From: Ganesan Ramalingam <ganesanr@broadcom.com>
 
-Signed-off-by: Varka Bhadram <varkab-If5XQcfNmg0@public.gmane.org>
----
- .../devicetree/bindings/net/ieee802154/cc2520.txt  |   29 ++++++++++++++++++++
- 1 file changed, 29 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/ieee802154/cc2520.txt
+Patches has following changes:
 
-diff --git a/Documentation/devicetree/bindings/net/ieee802154/cc2520.txt b/Documentation/devicetree/bindings/net/ieee802154/cc2520.txt
-new file mode 100644
-index 0000000..6b41f78
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/ieee802154/cc2520.txt
-@@ -0,0 +1,29 @@
-+*CC2520 IEEE 802.15.4 Compatible Radio*
-+
-+Required properties:
-+	- compatible: 		should be "ti,cc2520"
-+	- spi-max-frequency:	maximal bus speed (8000000), should be set to 4000000 depends
-+			     	sync or async operation mode
-+	- reg:			the chipselect index
-+	- pinctrl-0: 		pin control group to be used for this controller.
-+	- pinctrl-names: 	must contain a "default" entry.
-+	- fifo-gpio:		GPIO spec for the FIFO pin
-+	- fifop-gpio:		GPIO spec for the FIFOP pin
-+	- sfd-gpio:		GPIO spec for the SFD pin
-+	- cca-gpio:		GPIO spec for the CCA pin
-+	- vreg-gpio:		GPIO spec for the VREG pin
-+	- reset-gpio:		GPIO spec for the RESET pin
-+Example:
-+	cc2520@0 {
-+		compatible = "ti,cc2520";
-+		reg = <0>;
-+		spi-max-frequency = <4000000>;
-+		pinctrl-names = "default";
-+		pinctrl-0 = <&cc2520_cape_pins>;
-+		fifo-gpio = <&gpio1 18 0>;
-+		fifop-gpio = <&gpio1 19 0>;
-+		sfd-gpio = <&gpio1 13 0>;
-+		cca-gpio = <&gpio1 16 0>;
-+		vreg-gpio = <&gpio0 31 0>;
-+		reset-gpio = <&gpio1 12 0>;
-+	};
+ * Fixed compilation failure caused by change in COP2 API
+ * SGMII PHY address calculation was wrong, fixed
+ * Updated the driver to have single parent device for a XLR/XLS
+   network block with multiple network devices under it
+ * Fixed comment format
+
+Ganesan Ramalingam (3):
+  Staging: Fix compilation error
+  Staging: PHY address calculation fix
+  Staging: Move all the netdev under single parent device per
+    controller
+
+ drivers/staging/netlogic/TODO           |    1 -
+ drivers/staging/netlogic/platform_net.c |  213 ++++++++++++----------
+ drivers/staging/netlogic/platform_net.h |    7 +-
+ drivers/staging/netlogic/xlr_net.c      |  301 +++++++++++++++++--------------
+ drivers/staging/netlogic/xlr_net.h      |    8 +-
+ 5 files changed, 292 insertions(+), 238 deletions(-)
+
 -- 
 1.7.9.5
-
-
-------------------------------------------------------------------------------
-HPCC Systems Open Source Big Data Platform from LexisNexis Risk Solutions
-Find What Matters Most in Your Big Data with HPCC Systems
-Open Source. Fast. Scalable. Simple. Ideal for Dirty Data.
-Leverages Graph Analysis for Fast Processing & Easy Data Exploration
-http://p.sf.net/sfu/hpccsystems
