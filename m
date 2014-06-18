@@ -1,121 +1,107 @@
-From: Simon Horman <horms-/R6kz+dDXgpPR4JQBCEnsQ@public.gmane.org>
-Subject: Re: [PATCH v2.60] datapath: Add basic MPLS support to
-	kernel
-Date: Wed, 18 Jun 2014 17:18:56 +0900
-Message-ID: <20140618081855.GC14968@verge.net.au>
-References: <1402050531-12599-1-git-send-email-horms@verge.net.au>
- <20140617132045.GA11070@verge.net.au>
- <CAEP_g=_hpDnmrbi-n5TGK7nKTEsjhO06zQm8sNQWv0p-dEACjA@mail.gmail.com>
+From: Markos Chandras <Markos.Chandras@imgtec.com>
+Subject: Re: mips:allmodconfig build failure in 3.16-rc1 due to bpf_jit code
+Date: Wed, 18 Jun 2014 09:28:26 +0100
+Message-ID: <53A14DAA.3070207@imgtec.com>
+References: <CAMEtUuz=us+=ejHaOf+Mq19hZoNJ=-faB9y4f4NC90=9E6Ck7g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Ravi K <rkerur-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <CAEP_g=_hpDnmrbi-n5TGK7nKTEsjhO06zQm8sNQWv0p-dEACjA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Guenter Roeck <linux@roeck-us.net>,
+        "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+        Linux MIPS Mailing List <linux-mips@linux-mips.org>,
+        Ralf Baechle <ralf@linux-mips.org>,
+        "Network Development" <netdev@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>
+To: Alexei Starovoitov <ast@plumgrid.com>,
+        Daniel Borkmann <dborkman@redhat.com>
+Return-path: <linux-mips-bounce@linux-mips.org>
+In-Reply-To: <CAMEtUuz=us+=ejHaOf+Mq19hZoNJ=-faB9y4f4NC90=9E6Ck7g@mail.gmail.com>
+Sender: linux-mips-bounce@linux-mips.org
+Errors-to: linux-mips-bounce@linux-mips.org
+List-help: <mailto:ecartis@linux-mips.org?Subject=help>
+List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
+List-software: Ecartis version 1.0.0
+List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
+List-owner: <mailto:ralf@linux-mips.org>
+List-post: <mailto:linux-mips@linux-mips.org>
+List-archive: <http://www.linux-mips.org/archives/linux-mips/>
 List-Id: netdev.vger.kernel.org
 
-T24gVHVlLCBKdW4gMTcsIDIwMTQgYXQgMTE6MDI6MjFQTSAtMDcwMCwgSmVzc2UgR3Jvc3Mgd3Jv
-dGU6Cj4gSSdtIGN1cnJlbnRseSBzZWVpbmcgdGhpcyBjb21waWxlciBlcnJvcjoKPiAKPiAgIEND
-IFtNXSAgL2hvbWUvamVzc2Uvb3BlbnZzd2l0Y2gvZGF0YXBhdGgvbGludXgvZ3NvLm8KPiAvaG9t
-ZS9qZXNzZS9vcGVudnN3aXRjaC9kYXRhcGF0aC9saW51eC9nc28uYzogSW4gZnVuY3Rpb24g4oCY
-dG5sX3NrYl9nc29fc2VnbWVudOKAmToKPiAvaG9tZS9qZXNzZS9vcGVudnN3aXRjaC9kYXRhcGF0
-aC9saW51eC9nc28uYzoxOTk6MjogZXJyb3I6IGltcGxpY2l0Cj4gZGVjbGFyYXRpb24gb2YgZnVu
-Y3Rpb24g4oCYc2tiX2lubmVyX21hY19vZmZzZXTigJkKPiBbLVdlcnJvcj1pbXBsaWNpdC1mdW5j
-dGlvbi1kZWNsYXJhdGlvbl0KPiAgIGludCBtYWNfb2Zmc2V0ID0gc2tiX2lubmVyX21hY19vZmZz
-ZXQoc2tiKTsKPiAgIF4KPiAvaG9tZS9qZXNzZS9vcGVudnN3aXRjaC9kYXRhcGF0aC9saW51eC9n
-c28uYzoyMzM6MzogZXJyb3I6IGltcGxpY2l0Cj4gZGVjbGFyYXRpb24gb2YgZnVuY3Rpb24g4oCY
-T1ZTX0dTT19DQuKAmQo+IFstV2Vycm9yPWltcGxpY2l0LWZ1bmN0aW9uLWRlY2xhcmF0aW9uXQo+
-ICAgIGlmIChPVlNfR1NPX0NCKHNrYiktPmZpeF9zZWdtZW50KQo+ICAgIF4KPiAvaG9tZS9qZXNz
-ZS9vcGVudnN3aXRjaC9kYXRhcGF0aC9saW51eC9nc28uYzoyMzM6MjI6IGVycm9yOiBpbnZhbGlk
-Cj4gdHlwZSBhcmd1bWVudCBvZiDigJgtPuKAmSAoaGF2ZSDigJhpbnTigJkpCj4gICAgaWYgKE9W
-U19HU09fQ0Ioc2tiKS0+Zml4X3NlZ21lbnQpCj4gICAgICAgICAgICAgICAgICAgICAgIF4KPiAv
-aG9tZS9qZXNzZS9vcGVudnN3aXRjaC9kYXRhcGF0aC9saW51eC9nc28uYzoyMzQ6MTk6IGVycm9y
-OiBpbnZhbGlkCj4gdHlwZSBhcmd1bWVudCBvZiDigJgtPuKAmSAoaGF2ZSDigJhpbnTigJkpCj4g
-ICAgIE9WU19HU09fQ0Ioc2tiKS0+Zml4X3NlZ21lbnQoc2tiKTsKPiAKPiBUaGlzIGlzIG9uIDMu
-MTMuIEkgd2FzIG9yaWdpbmFsbHkgcGxhbm5pbmcgb24gdHJ5aW5nIHRvIGZpeCB0aGlzCj4gbXlz
-ZWxmIGJ1dCBJJ20gb2J2aW91c2x5IGp1c3Qgc2xvd2luZyB0aGluZ3MgZG93biBhdCB0aGlzIHBv
-aW50IDopCj4gCj4gVGhpcyBpcyBhIGNvbnNlcXVlbmNlIG9mIHRoZSByZWNlbnQgZXh0ZW5zaW9u
-IG9mIHRoZSB2ZXJzaW9ucyB0aGF0IHRoZQo+IGNvbXBhdCBjb2RlIGlzIGNvdmVyaW5nLgoKSSBj
-YW1lIHVwIHdpdGggdHdvIHdheXMgdG8gcmVzb2x2ZSB0aGlzIHByb2JsZW0uCgoxLiBUd2VhayB0
-aGUgS0VSTkVMX1ZFUlNJT04oMywxMiwwKSBsaW5lIHRvIEtFUk5FTF9WRVJTSU9OKDMsMTYsMCkK
-ICAgbmVhciB0aGUgdG9wIG9mIGRhdGFwYXRoL2xpbnV4L2NvbXBhdC9nc28uaCBhbmQgdXBkYXRl
-IHRoZSBjb21tZW50CiAgIGEgYml0IGZ1cnRoZXIgZG93biBhY2NvcmRpbmdseS4KCiAgIEkgdGhp
-bmsgdGhpcyBzaG91bGQgYmUgY29ycmVjdCBidXQgaXQgc2VlbXMgYSBidXQgZGlydHkKICAgdG8g
-aGF2ZSBzdHJ1Y3Qgb3ZzX2dzb19jYiB3aGVuIGl0IGlzbid0IHJlYWxseSBuZWVkZWQgYW55IG1v
-cmUuCgoyLiBUaGUgZm9sbG93aW5nIGNoYW5nZSB3aGljaCBhdm9pZHMgdXNpbmcgc3RydWN0IG92
-c19nc29fY2IgYWZ0ZXIKICAgdjMuMTIgYW5kIGFsbG93cyB1c2luZyBza2JfaW5uZXJfbWFjX29m
-ZnNldCB1cCB0byB2My4xNi4KCiAgIFRoaXMgaXMgbXkgcHJlZmVycmVkIGFwcHJvYWNoLgoKZGlm
-ZiAtLWdpdCBhL2RhdGFwYXRoL2xpbnV4L2NvbXBhdC9nc28uYyBiL2RhdGFwYXRoL2xpbnV4L2Nv
-bXBhdC9nc28uYwppbmRleCBkYzFlNTM3Li44MzQ0MjkzIDEwMDY0NAotLS0gYS9kYXRhcGF0aC9s
-aW51eC9jb21wYXQvZ3NvLmMKKysrIGIvZGF0YXBhdGgvbGludXgvY29tcGF0L2dzby5jCkBAIC0x
-OTAsNiArMTkwLDE2IEBAIHN0YXRpYyBfX2JlMTYgX19za2JfbmV0d29ya19wcm90b2NvbChzdHJ1
-Y3Qgc2tfYnVmZiAqc2tiKQogCXJldHVybiB0eXBlOwogfQogCisjaWYgTElOVVhfVkVSU0lPTl9D
-T0RFIDwgS0VSTkVMX1ZFUlNJT04oMywxMiwwKQorc3RhdGljIHZvaWQgdG5sX2ZpeF9zZWdtZW50
-KHN0cnVjdCBza19idWZmICpza2IpCit7CisJaWYgKE9WU19HU09fQ0Ioc2tiKS0+Zml4X3NlZ21l
-bnQpCisJCU9WU19HU09fQ0Ioc2tiKS0+Zml4X3NlZ21lbnQoc2tiKTsKK30KKyNlbHNlCitzdGF0
-aWMgdm9pZCB0bmxfZml4X3NlZ21lbnQoc3RydWN0IHNrX2J1ZmYgKnNrYikgeyB9CisjZW5kaWYK
-Kwogc3RhdGljIHN0cnVjdCBza19idWZmICp0bmxfc2tiX2dzb19zZWdtZW50KHN0cnVjdCBza19i
-dWZmICpza2IsCiAJCQkJCSAgIG5ldGRldl9mZWF0dXJlc190IGZlYXR1cmVzLAogCQkJCQkgICBi
-b29sIHR4X3BhdGgpCkBAIC0yMzAsOCArMjQwLDcgQEAgc3RhdGljIHN0cnVjdCBza19idWZmICp0
-bmxfc2tiX2dzb19zZWdtZW50KHN0cnVjdCBza19idWZmICpza2IsCiAKIAkJbWVtY3B5KGlwX2hk
-cihza2IpLCBpcGgsIHBrdF9obGVuKTsKIAkJbWVtY3B5KHNrYi0+Y2IsIGNiLCBzaXplb2YoY2Ip
-KTsKLQkJaWYgKE9WU19HU09fQ0Ioc2tiKS0+Zml4X3NlZ21lbnQpCi0JCQlPVlNfR1NPX0NCKHNr
-YiktPmZpeF9zZWdtZW50KHNrYik7CisJCXRubF9maXhfc2VnbWVudChza2IpOwogCiAJCXNrYi0+
-cHJvdG9jb2wgPSBwcm90bzsKIAkJc2tiID0gc2tiLT5uZXh0OwpkaWZmIC0tZ2l0IGEvZGF0YXBh
-dGgvbGludXgvY29tcGF0L2dzby5oIGIvZGF0YXBhdGgvbGludXgvY29tcGF0L2dzby5oCmluZGV4
-IDEzOTMxNzMuLmIwOGFkNDEgMTAwNjQ0Ci0tLSBhL2RhdGFwYXRoL2xpbnV4L2NvbXBhdC9nc28u
-aAorKysgYi9kYXRhcGF0aC9saW51eC9jb21wYXQvZ3NvLmgKQEAgLTU0LDEyICs1NCw2IEBAIHN0
-YXRpYyBpbmxpbmUgaW50IHNrYl9pbm5lcl9uZXR3b3JrX29mZnNldChjb25zdCBzdHJ1Y3Qgc2tf
-YnVmZiAqc2tiKQogCXJldHVybiBza2JfaW5uZXJfbmV0d29ya19oZWFkZXIoc2tiKSAtIHNrYi0+
-ZGF0YTsKIH0KIAotI2RlZmluZSBza2JfaW5uZXJfbWFjX29mZnNldCBycGxfc2tiX2lubmVyX21h
-Y19vZmZzZXQKLXN0YXRpYyBpbmxpbmUgaW50IHNrYl9pbm5lcl9tYWNfb2Zmc2V0KGNvbnN0IHN0
-cnVjdCBza19idWZmICpza2IpCi17Ci0JcmV0dXJuIHNrYl9pbm5lcl9tYWNfaGVhZGVyKHNrYikg
-LSBza2ItPmRhdGE7Ci19Ci0KICNkZWZpbmUgc2tiX3Jlc2V0X2lubmVyX2hlYWRlcnMgcnBsX3Nr
-Yl9yZXNldF9pbm5lcl9oZWFkZXJzCiBzdGF0aWMgaW5saW5lIHZvaWQgc2tiX3Jlc2V0X2lubmVy
-X2hlYWRlcnMoc3RydWN0IHNrX2J1ZmYgKnNrYikKIHsKQEAgLTc2LDYgKzcwLDE0IEBAIGludCBp
-cF9sb2NhbF9vdXQoc3RydWN0IHNrX2J1ZmYgKnNrYik7CiAKICNlbmRpZiAvKiAzLjEyICovCiAK
-KyNpZiBMSU5VWF9WRVJTSU9OX0NPREUgPCBLRVJORUxfVkVSU0lPTigzLDE2LDApCisjZGVmaW5l
-IHNrYl9pbm5lcl9tYWNfb2Zmc2V0IHJwbF9za2JfaW5uZXJfbWFjX29mZnNldAorc3RhdGljIGlu
-bGluZSBpbnQgc2tiX2lubmVyX21hY19vZmZzZXQoY29uc3Qgc3RydWN0IHNrX2J1ZmYgKnNrYikK
-K3sKKwlyZXR1cm4gc2tiX2lubmVyX21hY19oZWFkZXIoc2tiKSAtIHNrYi0+ZGF0YTsKK30KKyNl
-bmRpZgorCiAjaWYgTElOVVhfVkVSU0lPTl9DT0RFIDwgS0VSTkVMX1ZFUlNJT04oMywxMSwwKQog
-c3RhdGljIGlubGluZSB2b2lkIG92c19za2JfaW5pdF9pbm5lcl9wcm90b2NvbChzdHJ1Y3Qgc2tf
-YnVmZiAqc2tiKSB7CiAJT1ZTX0dTT19DQihza2IpLT5pbm5lcl9wcm90b2NvbCA9IGh0b25zKDAp
-OwoKCgpJIGFsc28gcmFuIGludG8gYSBuZXcgY29tcGlsZSBwcm9ibGVtIHdoZW4gcmViYXNpbmcu
-IE15IHByb3Bvc2VkIHNvbHV0aW9uCmlzIGFzIGZvbGxvd3M6CgpkaWZmIC0tZ2l0IGEvZGF0YXBh
-dGgvZGF0YXBhdGguYyBiL2RhdGFwYXRoL2RhdGFwYXRoLmMKaW5kZXggNjQwNDFmZi4uNzNjMjE1
-YiAxMDA2NDQKLS0tIGEvZGF0YXBhdGgvZGF0YXBhdGguYworKysgYi9kYXRhcGF0aC9kYXRhcGF0
-aC5jCkBAIC0zODIsNyArMzgyLDcgQEAgc3RhdGljIHNpemVfdCBrZXlfYXR0cl9zaXplKHZvaWQp
-CiB7CiAJLyogV2hlbmV2ZXIgYWRkaW5nIG5ldyBPVlNfS0VZXyBGSUVMRFMsIHdlIHNob3VsZCBj
-b25zaWRlcgogCSAqIHVwZGF0aW5nIHRoaXMgZnVuY3Rpb24uICAqLwotCUJVSUxEX0JVR19PTihP
-VlNfS0VZX0FUVFJfSVBWNF9UVU5ORUwgIT0gMjEpOworCUJVSUxEX0JVR19PTihPVlNfS0VZX0FU
-VFJfSVBWNF9UVU5ORUwgIT0gMjIpOwogCiAJcmV0dXJuICAgIG5sYV90b3RhbF9zaXplKDQpICAg
-LyogT1ZTX0tFWV9BVFRSX1BSSU9SSVRZICovCiAJCSsgbmxhX3RvdGFsX3NpemUoMCkgICAvKiBP
-VlNfS0VZX0FUVFJfVFVOTkVMICovCkBAIC0zOTcsNiArMzk3LDcgQEAgc3RhdGljIHNpemVfdCBr
-ZXlfYXR0cl9zaXplKHZvaWQpCiAJCSsgbmxhX3RvdGFsX3NpemUoNCkgICAvKiBPVlNfS0VZX0FU
-VFJfU0tCX01BUksgKi8KIAkJKyBubGFfdG90YWxfc2l6ZSg0KSAgIC8qIE9WU19LRVlfQVRUUl9E
-UF9IQVNIICovCiAJCSsgbmxhX3RvdGFsX3NpemUoNCkgICAvKiBPVlNfS0VZX0FUVFJfUkVDSVJD
-X0lEICovCisJCSsgbmxhX3RvdGFsX3NpemUoNCkgICAvKiBPVlNfS0VZX0FUVFJfTVBMUyAqLwog
-CQkrIG5sYV90b3RhbF9zaXplKDEyKSAgLyogT1ZTX0tFWV9BVFRSX0VUSEVSTkVUICovCiAJCSsg
-bmxhX3RvdGFsX3NpemUoMikgICAvKiBPVlNfS0VZX0FUVFJfRVRIRVJUWVBFICovCiAJCSsgbmxh
-X3RvdGFsX3NpemUoNCkgICAvKiBPVlNfS0VZX0FUVFJfODAyMVEgKi8KCj4gT25lIHRoaW5nIHRo
-YXQgY29tZXMgdG8gbWluZCBpcyBob3cgZG8gaGF2ZQo+IGNvcnJlY3QgYmVoYXZpb3IgYnV0IGF2
-b2lkIGZvcmNpbmcgdW5uZWNlc3Nhcnkgc29mdHdhcmUgc2VnbWVudGF0aW9uCj4gZm9yIHR1bm5l
-bHMgb24gbGF0ZXIga2VybmVscy4KCkFuIGludGVyZXN0aW5nIHByb2JsZW0gdGhhdCBJIGhhZCBu
-b3QgY29uc2lkZXJlZC4KCklzIHRoZSBwcm9ibGVtIHJlbGF0ZWQgdG8gdGhlIHByZXNlbmNlIG9m
-IE1QTFMgb3IgdGhlIGZhY3QKdGhhdCB0aGUgY29tcGF0aWJpbGl0eSBjb2RlIGlzIG5vdyB1c2Vk
-IGluIG5ld2VyIGtlcm5lbHM/CgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29w
-ZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+On 06/17/2014 08:38 PM, Alexei Starovoitov wrote:
+> On Tue, Jun 17, 2014 at 4:21 AM, Daniel Borkmann <dborkman@redhat.com=
+> wrote:
+>> On 06/17/2014 01:09 PM, Markos Chandras wrote:
+>> ...
+>>>
+>>> Thanks for these instructions. I will try them myself once I find s=
+ome
+>>>
+>>> time since I don't think bpf_jit for MIPS has ever been tested with=
+ all
+>>> the opcodes.
+>>
+>>
+>> Sounds great! If you find some tests are missing, please feel free t=
+o
+>> submit them as well via netdev.
+>>
+>> Best,
+>>
+>> Daniel
+>=20
+> Daniel,
+>=20
+> thank you for taking care of it so quickly :)
+> from the BPF perspective the fix looks good:
+> Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+>=20
+> Markos,
+>=20
+> please do run the testsuite.
+> Doing quick code review of mips jit, it looks like:
+>=20
+> - your version of pkt_type_offset() will work for little endian only.
+>   (we've recently fixed it in net/core/filter.c)
+>=20
+> - vlan tag handling is incorrect, since it's missing shifts.
+>   classic BPF standard for vlan_tag_present has to return 1 or 0
+>   and not just emit_and(r_A, r_s0, VLAN_TAG_PRESENT, ctx);
+>=20
+> - pr_warn("%s: Unhandled opcode: 0x%02x\n", __FILE__,
+>   is way too heavy, since when jit is on, unprivileged user can spam =
+log.
+>=20
+> - /* sa is 5-bits long */
+>   BUG_ON(sa >=3D BIT(5));
+> is wrong too. Malicious user can cause kernel crash=E2=80=A6
+> Also shift A>>=3D33 was always allowed by classic BPF checker, so
+> JITs have to silently do C-equivalent version of such shift.
+>=20
+> - /* Determine if immediate is within the 16-bit signed range */
+> static inline bool is_range16(s32 imm)
+> {
+>         if (imm >=3D SBIT(15) || imm < -SBIT(15))
+>                 return true;
+> the function name and comment are doing the opposite of
+> actual code, which makes harder to follow.
+>=20
+> - the rest looks pretty good!
+>=20
+> Also you'll get a lot more mileage out of mips jit if you use eBPF
+> instruction set as a base for JITing. You wouldn't need to worry
+> about vlan, pkt_type and other classic extensions. You'll get all
+> extensions for free, plus seccomp, tracing, etc.
+>=20
+> Thanks
+> Alexei
+>=20
+Hi Alexei,
+
+Thanks a lot for the feedback. I have already identified a few problems
+which I have already fixed. I would like to move to eBPF but I can't
+promise I can do it soon, so i think it's best to make sure that classi=
+c
+BPF works fine for 3.16 and then I will make my plans for eBPF.
+
+--=20
+markos
