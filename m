@@ -1,54 +1,50 @@
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Subject: [PATCH net-next] net: em_canid: remove useless statements from em_canid_change
-Date: Wed, 18 Jun 2014 16:48:39 +0800
-Message-ID: <53A15267.7050304@cn.fujitsu.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: MIPS: Add MSI support for XLP9XX
+Date: Wed, 18 Jun 2014 09:00:08 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1725E5A8@AcuExch.aculab.com>
+References: <20140610013104.DF5A8660F61@gitolite.kernel.org>
+ <20140618001837.GA24753@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Rostislav Lisovy <lisovy@gmail.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([59.151.112.132]:50851 "EHLO
-	heian.cn.fujitsu.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S934202AbaFRIvv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 04:51:51 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"ganesanr@broadcom.com" <ganesanr@broadcom.com>
+To: 'Dave Jones' <davej@redhat.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140618001837.GA24753@redhat.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Dave Jones
+> On Tue, Jun 10, 2014 at 01:31:04AM +0000, Linux Kernel wrote:
+>  > Gitweb:     http://git.kernel.org/linus/;a=commit;h=d66f3f0e10b49df8d0cc0d8eb5bf2ef9863a33cf
+>  > Commit:     d66f3f0e10b49df8d0cc0d8eb5bf2ef9863a33cf
+>  > Parent:     1c98398662c9b4e2f03f64344f83dd6cb14e0420
+>  > Refname:    refs/heads/master
+>  > Author:     Ganesan Ramalingam <ganesanr@broadcom.com>
+>  > AuthorDate: Fri May 9 16:35:49 2014 +0530
+>  > Committer:  Ralf Baechle <ralf@linux-mips.org>
+>  > CommitDate: Fri May 30 16:51:02 2014 +0200
+>  >
+>  >     MIPS: Add MSI support for XLP9XX
+> 
+> ...
+> 
+>  > +		if (cpu_is_xlp9xx()) {
+>  > +			val = ((node * nlm_threads_per_node()) << 7 |
+>  > +				PIC_PCIE_MSIX_IRQ(link) << 1 | 0 << 0);
+> 
+> Should this be..
+> 
+> 			val = ((node * nlm_threads_per_node()) << 7 |
+> 				PIC_PCIE_MSIX_IRQ(link) << 1);
+> 			val &= ~(1 << 0);
+> 
+> perhaps ? because shifting a zero is a nop, as is ORing it.
 
-tcf_ematch is allocated by kzalloc in function tcf_em_tree_validate(),
-so cm_old is always NULL.
+Unlikely, it looks to me as though it is just being explicit that the
+low bit of the compound word (whatever it is) is zero.
 
-Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
----
- net/sched/em_canid.c | 7 -------
- 1 file changed, 7 deletions(-)
-
-diff --git a/net/sched/em_canid.c b/net/sched/em_canid.c
-index bfd34e4..7c292d4 100644
---- a/net/sched/em_canid.c
-+++ b/net/sched/em_canid.c
-@@ -125,7 +125,6 @@ static int em_canid_change(struct tcf_proto *tp, void *data, int len,
- {
- 	struct can_filter *conf = data; /* Array with rules */
- 	struct canid_match *cm;
--	struct canid_match *cm_old = (struct canid_match *)m->data;
- 	int i;
- 
- 	if (!len)
-@@ -181,12 +180,6 @@ static int em_canid_change(struct tcf_proto *tp, void *data, int len,
- 
- 	m->datalen = sizeof(struct canid_match) + len;
- 	m->data = (unsigned long)cm;
--
--	if (cm_old != NULL) {
--		pr_err("canid: Configuring an existing ematch!\n");
--		kfree(cm_old);
--	}
--
- 	return 0;
- }
- 
--- 
-1.8.3.1
+	David
