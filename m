@@ -1,10 +1,10 @@
 From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [Xen-devel] [PATCH 1/2] xen-netfront: fix oops when disconnected
- from backend
-Date: Wed, 18 Jun 2014 15:23:01 +0100
-Message-ID: <20140618142300.GD20819@zion.uk.xensource.com>
+Subject: Re: [Xen-devel] [PATCH 2/2] xen-netfront: recreate queues correctly
+ when reconnecting
+Date: Wed, 18 Jun 2014 15:25:09 +0100
+Message-ID: <20140618142509.GE20819@zion.uk.xensource.com>
 References: <1403084848-12872-1-git-send-email-david.vrabel@citrix.com>
- <1403084848-12872-2-git-send-email-david.vrabel@citrix.com>
+ <1403084848-12872-3-git-send-email-david.vrabel@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>,
@@ -12,40 +12,37 @@ Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>,
 	<wei.liu2@citrix.com>
 To: David Vrabel <david.vrabel@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:45250 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752191AbaFROXK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 10:23:10 -0400
+Received: from smtp.citrix.com ([66.165.176.89]:23386 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756911AbaFROZK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Jun 2014 10:25:10 -0400
 Content-Disposition: inline
-In-Reply-To: <1403084848-12872-2-git-send-email-david.vrabel@citrix.com>
+In-Reply-To: <1403084848-12872-3-git-send-email-david.vrabel@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 18, 2014 at 10:47:27AM +0100, David Vrabel wrote:
-> xennet_disconnect_backend() was not correctly iterating over all the
-> queues.
+On Wed, Jun 18, 2014 at 10:47:28AM +0100, David Vrabel wrote:
+> When reconnecting to the backend (after a resume/migration, for example),
+> a different number of queues may be required (since the guest may have
+> moved to a different host with different capabilities).  During the
+> reconnection the old queues are torn down and new ones created.
+> 
+> Introduce xennet_create_queues() and xennet_destroy_queues() that fixes
+> three bugs during the reconnection.
+> 
+> - The old info->queues was leaked.
+> - The old queue's napi instances were not deleted.
+> - The new queue's napi instances were left disabled (which meant no
+>   packets could be received).
+> 
+> The xennet_destroy_queues() calls is deferred until the reconnection
+> instead of the disconnection (in xennet_disconnect_backend()) because
+> napi_disable() might sleep.
 > 
 > Signed-off-by: David Vrabel <david.vrabel@citrix.com>
 
 Reviewed-by: Wei Liu <wei.liu2@citrix.com>
 
 > ---
->  drivers/net/xen-netfront.c |    5 +++--
->  1 file changed, 3 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-> index 5a7872a..daaf1e5 100644
-> --- a/drivers/net/xen-netfront.c
-> +++ b/drivers/net/xen-netfront.c
-> @@ -1287,7 +1287,7 @@ static irqreturn_t xennet_rx_interrupt(int irq, void *dev_id)
->  
->  	if (likely(netif_carrier_ok(dev) &&
->  		   RING_HAS_UNCONSUMED_RESPONSES(&queue->rx)))
-> -			napi_schedule(&queue->napi);
-> +		napi_schedule(&queue->napi);
->  
-
-This indentation fix is not actually related to this bug. IMHO it should
-either be removed or noted in commit message.
-
-Wei.
+>  drivers/net/xen-netfront.c |  104 ++++++++++++++++++++++++++++++--------------
+>  1 file changed, 72 insertions(+), 32 deletions(-)
