@@ -1,48 +1,40 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [Xen-devel] [PATCH net] xen-netback: bookkeep number of queues
- in our own module
-Date: Wed, 18 Jun 2014 15:49:15 +0100
-Message-ID: <20140618144914.GH20819@zion.uk.xensource.com>
-References: <1403100558-12866-1-git-send-email-wei.liu2@citrix.com>
- <53A19FCA.1090205@oracle.com>
- <20140618142152.GC20819@zion.uk.xensource.com>
- <107856333.20140618163447@eikelenboom.it>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: How is IPv6 dhcp supposed to work?
+Date: Wed, 18 Jun 2014 07:49:38 -0700
+Message-ID: <53A1A702.1020300@candelatech.com>
+References: <53A0B617.6070600@candelatech.com>  <1403044471.16272.20.camel@dcbw.local> <53A0CC31.6090707@candelatech.com>  <87ha3isdu6.fsf@nemi.mork.no> <1403098990.2266.13.camel@dcbw.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>,
-	<netdev@vger.kernel.org>, David Vrabel <david.vrabel@citrix.com>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	<xen-devel@lists.xen.org>
-To: Sander Eikelenboom <linux@eikelenboom.it>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: =?UTF-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>,
+	netdev <netdev@vger.kernel.org>
+To: Dan Williams <dcbw@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:35062 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750899AbaFROtQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Jun 2014 10:49:16 -0400
-Content-Disposition: inline
-In-Reply-To: <107856333.20140618163447@eikelenboom.it>
+Received: from mail2.candelatech.com ([208.74.158.173]:53286 "EHLO
+	mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750936AbaFROtj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 10:49:39 -0400
+In-Reply-To: <1403098990.2266.13.camel@dcbw.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 18, 2014 at 04:34:47PM +0200, Sander Eikelenboom wrote:
-[...]
-> >> David sent a couple of patches earlier today that I have been testing and
-> >> they appear to fix both netfront and netback. (I am waiting for 32-bit to
-> >> finish)
-> >> 
-> >> http://lists.xenproject.org/archives/html/xen-devel/2014-06/msg02308.html
-> >> 
-> 
-> > I saw that, but they don't fix this backend bug. Try crashing the guest
-> > before it connects to backend. As I said in commit message:
-> 
-> Hmm i guess that was the bug_on i hit some time ago with testing the multiqueue 
-> patches, from what i remember i indeed had guest that crashed earlier on.
-> 
+After more printk debugging, it seems it is failing to accept the RA due to
+ipv6_chk_addr failing in the ndisc_router_discovery method.
 
-Probably. The oops message in your report looked very much alike. Just
-that I didn't have convenient mean to reproduce so I couldn't fix it
-earlier. :-)
+This is probably because one interface on my system is running radvd
+(on one side of a veth pair), and the peer veth is supposed to be
+accepting the ra.
 
-Wei.
+The chk_addr is checking if the source addr for the RA is not found locally, as far
+as I can tell, but in my case, it is local, and it still should be accepted.
+
+My case is a bit special (I'm doing virtual network type things), but
+maybe there is a more useful reason to allow this restriction to be
+relaxed with yet another sysctl?
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
