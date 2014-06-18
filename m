@@ -1,233 +1,107 @@
 From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: [PATCH net-next v2 3/8] enic: devcmd for adding IP 5 tuple hardware filters
-Date: Wed, 18 Jun 2014 13:08:03 +0530
-Message-ID: <1403077088-4818-4-git-send-email-_govind@gmx.com>
+Subject: [PATCH net-next v2 4/8] enic: alloc/free rx_cpu_rmap
+Date: Wed, 18 Jun 2014 13:08:04 +0530
+Message-ID: <1403077088-4818-5-git-send-email-_govind@gmx.com>
 References: <1403077088-4818-1-git-send-email-_govind@gmx.com>
 Cc: ssujith@cisco.com, benve@cisco.com,
 	Govindarajulu Varadarajan <_govind@gmx.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.com ([74.208.4.200]:61271 "EHLO mout.gmx.com"
+Received: from mout.gmx.com ([74.208.4.200]:57807 "EHLO mout.gmx.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964781AbaFRHjg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 18 Jun 2014 03:39:36 -0400
+	id S964781AbaFRHjt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 18 Jun 2014 03:39:49 -0400
 In-Reply-To: <1403077088-4818-1-git-send-email-_govind@gmx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds interface to add and delete IP 5 tuple filter. This interface
-is used by Accelerated RFS code to steer a flow to corresponding receive
-queue.
+rx_cpu_rmap provides the reverse irq cpu affinity. This patch allocates and
+sets drivers netdev->rx_cpu_rmap accordingly.
 
-As of now adaptor supports only ipv4 + tcp/udp packet steering.
+rx_cpu_rmap is set in enic_request_intr() which is called by enic_open and
+rx_cpu_rmap is freed in enic_free_intr() which is called by enic_stop.
+
+This is used by Accelerated RFS.
 
 Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
 ---
- drivers/net/ethernet/cisco/enic/Makefile      |  2 +-
- drivers/net/ethernet/cisco/enic/enic_clsf.c   | 66 +++++++++++++++++++++++++++
- drivers/net/ethernet/cisco/enic/enic_clsf.h   | 10 ++++
- drivers/net/ethernet/cisco/enic/vnic_dev.c    | 61 +++++++++++++++++++++++++
- drivers/net/ethernet/cisco/enic/vnic_dev.h    |  2 +
- drivers/net/ethernet/cisco/enic/vnic_devcmd.h |  5 ++
- 6 files changed, 145 insertions(+), 1 deletion(-)
- create mode 100644 drivers/net/ethernet/cisco/enic/enic_clsf.c
- create mode 100644 drivers/net/ethernet/cisco/enic/enic_clsf.h
+ drivers/net/ethernet/cisco/enic/enic_main.c | 43 +++++++++++++++++++++++++++++
+ 1 file changed, 43 insertions(+)
 
-diff --git a/drivers/net/ethernet/cisco/enic/Makefile b/drivers/net/ethernet/cisco/enic/Makefile
-index 239e1e4..aadcaf7 100644
---- a/drivers/net/ethernet/cisco/enic/Makefile
-+++ b/drivers/net/ethernet/cisco/enic/Makefile
-@@ -2,5 +2,5 @@ obj-$(CONFIG_ENIC) := enic.o
+diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
+index f32f828..151b375 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_main.c
++++ b/drivers/net/ethernet/cisco/enic/enic_main.c
+@@ -39,6 +39,9 @@
+ #include <linux/prefetch.h>
+ #include <net/ip6_checksum.h>
+ #include <linux/ktime.h>
++#ifdef CONFIG_RFS_ACCEL
++#include <linux/cpu_rmap.h>
++#endif
  
- enic-y := enic_main.o vnic_cq.o vnic_intr.o vnic_wq.o \
- 	enic_res.o enic_dev.o enic_pp.o vnic_dev.o vnic_rq.o vnic_vic.o \
--	enic_ethtool.o enic_api.o
-+	enic_ethtool.o enic_api.o enic_clsf.o
- 
-diff --git a/drivers/net/ethernet/cisco/enic/enic_clsf.c b/drivers/net/ethernet/cisco/enic/enic_clsf.c
-new file mode 100644
-index 0000000..f6703c4
---- /dev/null
-+++ b/drivers/net/ethernet/cisco/enic/enic_clsf.c
-@@ -0,0 +1,66 @@
-+#include <linux/if.h>
-+#include <linux/if_ether.h>
-+#include <linux/if_link.h>
-+#include <linux/netdevice.h>
-+#include <linux/in.h>
-+#include <linux/types.h>
-+#include <linux/skbuff.h>
-+#include <net/flow_keys.h>
-+#include "enic_res.h"
-+#include "enic_clsf.h"
-+
-+/* enic_addfltr_5t - Add ipv4 5tuple filter
-+ *	@enic: enic struct of vnic
-+ *	@keys: flow_keys of ipv4 5tuple
-+ *	@rq: rq number to steer to
-+ *
-+ * This function returns filter_id(hardware_id) of the filter
-+ * added. In case of error it returns an negative number.
-+ */
-+int enic_addfltr_5t(struct enic *enic, struct flow_keys *keys, u16 rq)
-+{
-+	int res;
-+	struct filter data;
-+
-+	switch (keys->ip_proto) {
-+	case IPPROTO_TCP:
-+		data.u.ipv4.protocol = PROTO_TCP;
-+		break;
-+	case IPPROTO_UDP:
-+		data.u.ipv4.protocol = PROTO_UDP;
-+		break;
-+	default:
-+		return -EPROTONOSUPPORT;
-+	};
-+	data.type = FILTER_IPV4_5TUPLE;
-+	data.u.ipv4.src_addr = ntohl(keys->src);
-+	data.u.ipv4.dst_addr = ntohl(keys->dst);
-+	data.u.ipv4.src_port = ntohs(keys->port16[0]);
-+	data.u.ipv4.dst_port = ntohs(keys->port16[1]);
-+	data.u.ipv4.flags = FILTER_FIELDS_IPV4_5TUPLE;
-+
-+	spin_lock_bh(&enic->devcmd_lock);
-+	res = vnic_dev_classifier(enic->vdev, CLSF_ADD, &rq, &data);
-+	spin_unlock_bh(&enic->devcmd_lock);
-+	res = (res == 0) ? rq : res;
-+
-+	return res;
-+}
-+
-+/* enic_delfltr - Delete clsf filter
-+ *	@enic: enic struct of vnic
-+ *	@filter_id: filter_is(hardware_id) of filter to be deleted
-+ *
-+ * This function returns zero in case of success, negative number incase of
-+ * error.
-+ */
-+int enic_delfltr(struct enic *enic, u16 filter_id)
-+{
-+	int ret;
-+
-+	spin_lock_bh(&enic->devcmd_lock);
-+	ret = vnic_dev_classifier(enic->vdev, CLSF_DEL, &filter_id, NULL);
-+	spin_unlock_bh(&enic->devcmd_lock);
-+
-+	return ret;
-+}
-diff --git a/drivers/net/ethernet/cisco/enic/enic_clsf.h b/drivers/net/ethernet/cisco/enic/enic_clsf.h
-new file mode 100644
-index 0000000..b6925b3
---- /dev/null
-+++ b/drivers/net/ethernet/cisco/enic/enic_clsf.h
-@@ -0,0 +1,10 @@
-+#ifndef _ENIC_CLSF_H_
-+#define _ENIC_CLSF_H_
-+
-+#include "vnic_dev.h"
-+#include "enic.h"
-+
-+int enic_addfltr_5t(struct enic *enic, struct flow_keys *keys, u16 rq);
-+int enic_delfltr(struct enic *enic, u16 filter_id);
-+
-+#endif /* _ENIC_CLSF_H_ */
-diff --git a/drivers/net/ethernet/cisco/enic/vnic_dev.c b/drivers/net/ethernet/cisco/enic/vnic_dev.c
-index 263081b..5abc496 100644
---- a/drivers/net/ethernet/cisco/enic/vnic_dev.c
-+++ b/drivers/net/ethernet/cisco/enic/vnic_dev.c
-@@ -1048,3 +1048,64 @@ int vnic_dev_set_mac_addr(struct vnic_dev *vdev, u8 *mac_addr)
- 
- 	return vnic_dev_cmd(vdev, CMD_SET_MAC_ADDR, &a0, &a1, wait);
+ #include "cq_enet_desc.h"
+ #include "vnic_dev.h"
+@@ -1192,6 +1195,44 @@ static void enic_calc_int_moderation(struct enic *enic, struct vnic_rq *rq)
+ 	pkt_size_counter->small_pkt_bytes_cnt = 0;
  }
-+
-+/* vnic_dev_classifier: Add/Delete classifier entries
-+ * @vdev: vdev of the device
-+ * @cmd: CLSF_ADD for Add filter
-+ *	 CLSF_DEL for Delete filter
-+ * @entry: In case of ADD filter, the caller passes the RQ number in this
-+ *	   variable.
-+ *
-+ *	   This function stores the filter_id returned by the firmware in the
-+ *	   same variable before return;
-+ *
-+ *	   In case of DEL filter, the caller passes the RQ number. Return
-+ *	   value is irrelevant.
-+ * @data: filter data
-+ */
-+int vnic_dev_classifier(struct vnic_dev *vdev, u8 cmd, u16 *entry,
-+			struct filter *data)
+ 
++#ifdef CONFIG_RFS_ACCEL
++static void enic_free_rx_cpu_rmap(struct enic *enic)
 +{
-+	u64 a0, a1;
-+	int wait = 1000;
-+	dma_addr_t tlv_pa;
-+	int ret = -EINVAL;
-+	struct filter_tlv *tlv, *tlv_va;
-+	struct filter_action *action;
-+	u64 tlv_size;
-+
-+	if (cmd == CLSF_ADD) {
-+		tlv_size = sizeof(struct filter) +
-+			   sizeof(struct filter_action) +
-+			   2 * sizeof(struct filter_tlv);
-+		tlv_va = pci_alloc_consistent(vdev->pdev, tlv_size, &tlv_pa);
-+		if (!tlv_va)
-+			return -ENOMEM;
-+		tlv = tlv_va;
-+		a0 = tlv_pa;
-+		a1 = tlv_size;
-+		memset(tlv, 0, tlv_size);
-+		tlv->type = CLSF_TLV_FILTER;
-+		tlv->length = sizeof(struct filter);
-+		*(struct filter *)&tlv->val = *data;
-+
-+		tlv = (struct filter_tlv *)((char *)tlv +
-+					    sizeof(struct filter_tlv) +
-+					    sizeof(struct filter));
-+
-+		tlv->type = CLSF_TLV_ACTION;
-+		tlv->length = sizeof(struct filter_action);
-+		action = (struct filter_action *)&tlv->val;
-+		action->type = FILTER_ACTION_RQ_STEERING;
-+		action->u.rq_idx = *entry;
-+
-+		ret = vnic_dev_cmd(vdev, CMD_ADD_FILTER, &a0, &a1, wait);
-+		*entry = (u16)a0;
-+		pci_free_consistent(vdev->pdev, tlv_size, tlv_va, tlv_pa);
-+	} else if (cmd == CLSF_DEL) {
-+		a0 = *entry;
-+		ret = vnic_dev_cmd(vdev, CMD_DEL_FILTER, &a0, &a1, wait);
-+	}
-+
-+	return ret;
++	free_irq_cpu_rmap(enic->netdev->rx_cpu_rmap);
++	enic->netdev->rx_cpu_rmap = NULL;
 +}
-diff --git a/drivers/net/ethernet/cisco/enic/vnic_dev.h b/drivers/net/ethernet/cisco/enic/vnic_dev.h
-index 1f3b301..1fb214e 100644
---- a/drivers/net/ethernet/cisco/enic/vnic_dev.h
-+++ b/drivers/net/ethernet/cisco/enic/vnic_dev.h
-@@ -133,5 +133,7 @@ int vnic_dev_enable2(struct vnic_dev *vdev, int active);
- int vnic_dev_enable2_done(struct vnic_dev *vdev, int *status);
- int vnic_dev_deinit_done(struct vnic_dev *vdev, int *status);
- int vnic_dev_set_mac_addr(struct vnic_dev *vdev, u8 *mac_addr);
-+int vnic_dev_classifier(struct vnic_dev *vdev, u8 cmd, u16 *entry,
-+			struct filter *data);
- 
- #endif /* _VNIC_DEV_H_ */
-diff --git a/drivers/net/ethernet/cisco/enic/vnic_devcmd.h b/drivers/net/ethernet/cisco/enic/vnic_devcmd.h
-index b9a0d78..435d0cd 100644
---- a/drivers/net/ethernet/cisco/enic/vnic_devcmd.h
-+++ b/drivers/net/ethernet/cisco/enic/vnic_devcmd.h
-@@ -603,6 +603,11 @@ struct filter_tlv {
- 	u_int32_t val[0];
- };
- 
-+enum {
-+	CLSF_ADD = 0,
-+	CLSF_DEL = 1,
-+};
 +
- /*
-  * Writing cmd register causes STAT_BUSY to get set in status register.
-  * When cmd completes, STAT_BUSY will be cleared.
++static void enic_set_rx_cpu_rmap(struct enic *enic)
++{
++	int i, res;
++
++	if (vnic_dev_get_intr_mode(enic->vdev) == VNIC_DEV_INTR_MODE_MSIX) {
++		enic->netdev->rx_cpu_rmap = alloc_irq_cpu_rmap(enic->rq_count);
++		if (unlikely(!enic->netdev->rx_cpu_rmap))
++			return;
++		for (i = 0; i < enic->rq_count; i++) {
++			res = irq_cpu_rmap_add(enic->netdev->rx_cpu_rmap,
++					       enic->msix_entry[i].vector);
++			if (unlikely(res)) {
++				enic_free_rx_cpu_rmap(enic);
++				return;
++			}
++		}
++	}
++}
++
++#else
++
++static void enic_free_rx_cpu_rmap(struct enic *enic)
++{
++}
++
++static void enic_set_rx_cpu_rmap(struct enic *enic)
++{
++}
++
++#endif /* CONFIG_RFS_ACCEL */
++
+ static int enic_poll_msix(struct napi_struct *napi, int budget)
+ {
+ 	struct net_device *netdev = napi->dev;
+@@ -1267,6 +1308,7 @@ static void enic_free_intr(struct enic *enic)
+ 	struct net_device *netdev = enic->netdev;
+ 	unsigned int i;
+ 
++	enic_free_rx_cpu_rmap(enic);
+ 	switch (vnic_dev_get_intr_mode(enic->vdev)) {
+ 	case VNIC_DEV_INTR_MODE_INTX:
+ 		free_irq(enic->pdev->irq, netdev);
+@@ -1291,6 +1333,7 @@ static int enic_request_intr(struct enic *enic)
+ 	unsigned int i, intr;
+ 	int err = 0;
+ 
++	enic_set_rx_cpu_rmap(enic);
+ 	switch (vnic_dev_get_intr_mode(enic->vdev)) {
+ 
+ 	case VNIC_DEV_INTR_MODE_INTX:
 -- 
 2.0.0
