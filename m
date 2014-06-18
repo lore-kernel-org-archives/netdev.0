@@ -1,101 +1,72 @@
-From: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH net,stable] net: huawei_cdc_ncm: increase command buffer
- size
-Date: Wed, 18 Jun 2014 15:45:03 +0200 (CEST)
-Message-ID: <alpine.LNX.2.03.1406181541460.1519@gmail.com>
-References: <1403094084-13588-1-git-send-email-bjorn@mork.no>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH net-next 0/6] A step closer to RFC 6458 compliancy
+Date: Wed, 18 Jun 2014 09:25:13 -0400
+Message-ID: <53A19339.80908@gmail.com>
+References: <1403017296-28469-1-git-send-email-geirola@gmail.com> <063D6719AE5E284EB5DD2968C1650D6D1725DEC9@AcuExch.aculab.com> <53A08C10.70103@gmail.com> <063D6719AE5E284EB5DD2968C1650D6D1725E555@AcuExch.aculab.com> <84A786A6-D242-4DC6-8FC4-573A91A88311@lurchi.franken.de> <063D6719AE5E284EB5DD2968C1650D6D1725E8B7@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-1925975995-1403099104=:1519"
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: =?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1403094084-13588-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Geir Ola Vaagland <geirola@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>,
+	'Michael Tuexen' <Michael.Tuexen@lurchi.franken.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f45.google.com ([209.85.192.45]:47734 "EHLO
+	mail-qg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752271AbaFRNrh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 09:47:37 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1725E8B7@AcuExch.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+On 06/18/2014 09:16 AM, David Laight wrote:
+> From: Michael Tuexen [ 
+>> On 18 Jun 2014, at 10:42, David Laight <David.Laight@ACULAB.COM> wrote:
+>>
+>>> From: Vlad Yasevich
+>>>> On 06/17/2014 11:36 AM, David Laight wrote:
+>>>>> From: Of Geir Ola Vaagland
+>>>>>> These patches are part of my master thesis project. I have been searching for discrepancies
+>> between
+>>>>>> the socket API specificiation in RFC 6458 and the current Linux SCTP implementation. The
+>> following
+>>>>>> patches are my humble attempts at getting somewhat closer to compliancy.
+>>>>>
+>>>>> I've just been reading RFC 6458 - HTF did it get past the editors and
+>>>>> then published in its current form?
+>>>>> Lots of the structures have implied padding.
+>>> ...
+>>>> I've argued the padding issue, but the editor stance is that it's implementation
+>>>> dependent.
+>>>
+>>> It wouldn't be as bad if the RFC said that the structure contained the
+>>> fields that followed (as is typical of the posix definitions),
+>>> but instead it gives a definition of the structure.
+> 
+>> That would have been a possibility, but it was never suggested.
+>> As far as I know, C does not guarantee the memory layout for structs,
+>> except for the sequence of the components. So a compiler might add
+>> some padding at any place. When implementing this, you need to take
+>> care of this (and your job might be simpler, since you might only
+>> work with a specific set of compilers).
+>> In FreeBSD we also added some padding to some structures since they
+>> "evolved" during the lifetime of of the internet draft and we wanted
+>> to preserve some compatibility.
+>> I agree, that one must take care of the implied padding and I will double
+>> check how this is handled in FreeBSD. Not sure...
+> 
+> You need to add explicit named pad fields in order to zero them.
+> (since you don't really want a memset())
+> That is against my reading of the RFC.
+> 
+> What does FreeBSD do about the 'sockaddr_storage'?
+> I'd have thought it had the same rules as NetBSD - where (IIRC) it should never
+> be instantiated, but only exists as a pointer type for function parameters.
+> 
 
---8323328-1925975995-1403099104=:1519
-Content-Type: TEXT/PLAIN; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
+I don't remember any such rules when sockaddr_storage was defined.  Can you
+point to any document stating such rules?
+It is definitely useful as a container object at times.
 
-Oh - I forgot to say: I can provide a tested-by in some hours. I have my E3131 
-at something like 2.1  KM going by feets, from here at University. 
-
-On Wed, 18 Jun 2014, Bjørn Mork wrote:
-
-==Date: Wed, 18 Jun 2014 14:21:24
-==From: Bjørn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-==To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-==Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Bjørn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>,
-==    Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-==Subject: [PATCH net,stable] net: huawei_cdc_ncm: increase command buffer size
-==
-==Messages from the modem exceeding 256 bytes cause communication
-==failure.
-==
-==The WDM protocol is strictly "read on demand", meaning that we only
-==poll for unread data after receiving a notification from the modem.
-==Since we have no way to know how much data the modem has to send,
-==we must make sure that the buffer we provide is "big enough".
-==Message truncation does not work. Truncated messages are left unread
-==until the modem has another message to send.  Which often won't
-==happen until the userspace application has given up waiting for the
-==final part of the last message, and therefore sends another command.
-==
-==With a proper CDC WDM function there is a descriptor telling us
-==which buffer size the modem uses. But with this vendor specific
-==implementation there is no known way to calculate the exact "big
-==enough" number.  It is an unknown property of the modem firmware.
-==Experience has shown that 256 is too small.  The discussion of
-==this failure ended up concluding that 512 might be too small as
-==well. So 1024 seems like a reasonable value for now.
-==
-==Fixes: 41c47d8cfd68 ("net: huawei_cdc_ncm: Introduce the huawei_cdc_ncm driver")
-==Cc: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-==Reported-by: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-==Signed-off-by: Bjørn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
-==---
-==
-==The problem is a showstopper for anyone hitting it, so I believe this
-==fix should go into all maintained stable kernels with this driver.
-==That is anything based on v3.13 or newer.
-==
-==Thanks,
-==Bjørn
-==
-==
-== drivers/net/usb/huawei_cdc_ncm.c | 7 ++++---
-== 1 file changed, 4 insertions(+), 3 deletions(-)
-==
-==diff --git a/drivers/net/usb/huawei_cdc_ncm.c b/drivers/net/usb/huawei_cdc_ncm.c
-==index f9822bc75425..5d95a13dbe2a 100644
-==--- a/drivers/net/usb/huawei_cdc_ncm.c
-==+++ b/drivers/net/usb/huawei_cdc_ncm.c
-==@@ -84,12 +84,13 @@ static int huawei_cdc_ncm_bind(struct usbnet *usbnet_dev,
-== 	ctx = drvstate->ctx;
-== 
-== 	if (usbnet_dev->status)
-==-		/* CDC-WMC r1.1 requires wMaxCommand to be "at least 256
-==-		 * decimal (0x100)"
-==+		/* The wMaxCommand buffer must be big enough to hold
-==+		 * any message from the modem. Experience has shown
-==+		 * that some replies are more than 256 bytes long
-== 		 */
-== 		subdriver = usb_cdc_wdm_register(ctx->control,
-== 						 &usbnet_dev->status->desc,
-==-						 256, /* wMaxCommand */
-==+						 1024, /* wMaxCommand */
-== 						 huawei_cdc_ncm_wdm_manage_power);
-== 	if (IS_ERR(subdriver)) {
-== 		ret = PTR_ERR(subdriver);
-==-- 
-==2.0.0
-==
-==
---8323328-1925975995-1403099104=:1519--
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-vlad
