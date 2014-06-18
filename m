@@ -1,36 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] Added FS A8NE-FM to the list of 32bit DMA
- boards
-Date: Wed, 18 Jun 2014 16:47:32 -0700 (PDT)
-Message-ID: <20140618.164732.265431469345479600.davem@davemloft.net>
-References: <53A01E33.7000905@marvell.com>
+Subject: Re: [PATCH net] bonding: Advertize vxlan offload features when
+ supported
+Date: Wed, 18 Jun 2014 16:50:56 -0700 (PDT)
+Message-ID: <20140618.165056.1727314662187072206.davem@davemloft.net>
+References: <1403010669-19731-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mlindner@marvell.com
+Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, vfalico@gmail.com,
+	amirv@mellanox.com
+To: ogerlitz@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36231 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36238 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756218AbaFRXrd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 19:47:33 -0400
-In-Reply-To: <53A01E33.7000905@marvell.com>
+	with ESMTP id S1756568AbaFRXu6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 19:50:58 -0400
+In-Reply-To: <1403010669-19731-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mirko Lindner <mlindner@marvell.com>
-Date: Tue, 17 Jun 2014 12:53:39 +0200
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Date: Tue, 17 Jun 2014 16:11:09 +0300
 
-> Added FUJITSU SIEMENS A8NE-FM to the list of 32bit DMA boards
+> When the underlying device supports TCP offloads for VXLAN/UDP
+> encapulated traffic, we need to reflect that through the hw_enc_features
+> field of the bonding net-device. This will cause the xmit path
+> in the core networking stack to provide bonding with encapsulated
+> GSO frames to offload into the HW etc.
 > 
-> From Tomi O.:
-> After I added an entry to this MB into the skge.c
-> driver in order to enable the mentioned 64bit dma disable quirk,
-> the network data corruptions ended and everything is fine again.
-> 
-> Signed-off-by: Mirko Lindner <mlindner@marvell.com>
+> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 
-Applied, but please use an appropriate subsystem prefix in
-your subject lines, this should have been something like:
-
-[PATCH net-next] skge: Added FS A8NE-FM ...
+Applied, thank you.
