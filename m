@@ -1,51 +1,63 @@
-From: Richard Retanubun <rretanubun.work@gmail.com>
-Subject: [PATCH] of: mdio: fixup of_phy_register_fixed_link parsing of new bindings
-Date: Thu, 19 Jun 2014 13:35:34 -0400
-Message-ID: <1403199334-13212-1-git-send-email-rretanubun.work@gmail.com>
-Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-	robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	thomas.petazzoni@free-electrons.com,
-	Richard Retanubun <rretanubun.work@gmail.com>
-To: davem@davemloft.net
+From: "mrsmarriamhassanabdullah19@gmail.com"
+	<mrsmarriamhassanabdullah19@gmail.com>
+Subject: My Beloved!
+Date: Thu, 19 Jun 2014 17:27:41 +0000
+Message-ID: <CADvHAiKf2THp=gNgXXiOapFbfkk99japLeKsNLjzwqEYitQMig@mail.gmail.com>
+Reply-To: mrsmarriamhassanabdullah19@gmail.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f174.google.com ([209.85.213.174]:33241 "EHLO
-	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933539AbaFSRfu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2014 13:35:50 -0400
+Received: from mail-yh0-f65.google.com ([209.85.213.65]:39941 "EHLO
+	mail-yh0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933473AbaFSRlA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2014 13:41:00 -0400
+Received: by mail-yh0-f65.google.com with SMTP id b6so564167yha.8
+        for <netdev@vger.kernel.org>; Thu, 19 Jun 2014 10:40:59 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fixes commit 3be2a49e5c08 ("of: provide a binding for fixed link PHYs")
+My Beloved!
 
-Fix the parsing of the new fixed link dts bindings for duplex,
-pause, and asym_pause by using the correct device node pointer.
+Peace be Upon You
 
-Signed-off-by: Richard Retanubun <rretanubun.work@gmail.com>
----
- drivers/of/of_mdio.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+I am glad to know you, but God knows you better and he knows why he
+has directed me to you at this point in time so do not be afraid.
 
-diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-index 7700ddc..c389e7b 100644
---- a/drivers/of/of_mdio.c
-+++ b/drivers/of/of_mdio.c
-@@ -290,11 +290,13 @@ int of_phy_register_fixed_link(struct device_node *np)
- 	fixed_link_node = of_get_child_by_name(np, "fixed-link");
- 	if (fixed_link_node) {
- 		status.link = 1;
--		status.duplex = of_property_read_bool(np, "full-duplex");
-+		status.duplex = of_property_read_bool(fixed_link_node,
-+					"full-duplex");
- 		if (of_property_read_u32(fixed_link_node, "speed", &status.speed))
- 			return -EINVAL;
--		status.pause = of_property_read_bool(np, "pause");
--		status.asym_pause = of_property_read_bool(np, "asym-pause");
-+		status.pause = of_property_read_bool(fixed_link_node, "pause");
-+		status.asym_pause = of_property_read_bool(fixed_link_node,
-+						"asym-pause");
- 		of_node_put(fixed_link_node);
- 		return fixed_phy_register(PHY_POLL, &status, np);
- 	}
--- 
-1.8.5.1
+I am Mrs Marriam.Hassan, and i have been suffering from ovarian cancer
+disease and the doctor says that i have just short time to leave. I am
+from (Paris) France but based in Africa Burkina Faso since eight years
+ago as a business woman dealing with gold exportation.
+
+
+Now that i am about to end the race like this, without any family
+members and no child. I have $4.3 Million US DOLLARS in Africa
+Development Bank (ADB) Burkina Faso which i instructed the bank to
+give (St Andrews Missionary Home) in Burkina Faso. But my mind is not
+at rest because i am writing this letter now through the help of my
+computer beside my sick bed.
+
+I also have ($4.5 Million) at United Global Security Company (UGSC)
+here in Burkina Faso and i instructed the Company to release the box
+to the first foreigner that will apply to the Company after i have
+gone that they should release the boxes to him/her, but you will
+assure me that you will take 50% of the money and give 50% to the
+orphanages home in your country for my heart to rest with GOD.
+
+
+As soon as I receive your reply I shall give you the contact of the
+Company in Burkina Faso if you can do this return back  to me
+immediately before death cross my way so that i will send to you a
+copy of my international passport which you will show to the Company
+to make the Company know that i instructed you to contact them for
+therelease of my fund to you, so that  you can fulfil my dream of
+building an orphanage home in your country. After you have contacted
+the Company,
+
+
+
+contact me through this email (mrsmarriamhassanabdullah19@gmail.com)
+
+
+Yours Daying Sisther
+mrs marriam.hassan
