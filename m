@@ -1,83 +1,76 @@
-From: chenweilong <chenweilong@huawei.com>
-Subject: [PATCH 3.4-stable] ipv6: reallocate addrconf router for ipv6 address
- when lo, device up
-Date: Thu, 19 Jun 2014 08:50:33 +0800
-Message-ID: <53A233D9.8070202@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: [PATCH net] tcp: fix tcp_match_skb_to_sack() for unaligned SACK at end of an skb
+Date: Wed, 18 Jun 2014 21:15:03 -0400
+Message-ID: <1403140503-9689-1-git-send-email-ncardwell@google.com>
+Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Ilpo Jarvinen <ilpo.jarvinen@helsinki.fi>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:18578 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751014AbaFSAus (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 20:50:48 -0400
+Received: from mail-vc0-f202.google.com ([209.85.220.202]:46941 "EHLO
+	mail-vc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754662AbaFSBPI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 21:15:08 -0400
+Received: by mail-vc0-f202.google.com with SMTP id id10so228322vcb.5
+        for <netdev@vger.kernel.org>; Wed, 18 Jun 2014 18:15:07 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+If there is an MSS change (or misbehaving receiver) that causes a SACK
+to arrive that covers the end of an skb but is less than one MSS, then
+tcp_match_skb_to_sack() was rounding up pkt_len to the full length of
+the skb ("Round if necessary..."), then chopping all bytes off the skb
+and creating a zero-byte skb in the write queue.
 
-Please queue this for 3.4 stable kernel.
+This was visible now because the recently simplified TLP logic in
+bef1909ee3ed1c ("tcp: fixing TLP's FIN recovery") could find that 0-byte
+skb at the end of the write queue, and now that we do not check that
+skb's length we could send it as a TLP probe.
 
-It fix the bug 67951 on bugzilla
-https://bugzilla.kernel.org/show_bug.cgi?id=67951
+Consider the following example scenario:
 
-The patch can't be applied directly, as it' used the function introduced
-by "commit 94e187c0" ip6_rt_put(), that patch can't be applied directly
-either. So I had to write this one.
+ mss: 1000
+ skb: seq: 0 end_seq: 4000  len: 4000
+ SACK: start_seq: 3999 end_seq: 4000
 
-====================
+The tcp_match_skb_to_sack() code will compute:
 
-From: Gao feng <gaofeng@cn.fujitsu.com>
+ in_sack = false
+ pkt_len = start_seq - TCP_SKB_CB(skb)->seq = 3999 - 0 = 3999
+ new_len = (pkt_len / mss) * mss = (3999/1000)*1000 = 3000
+ new_len += mss = 4000
 
-commit 33d99113b1102c2d2f8603b9ba72d89d915c13f5 upstream.
+Previously we would find the new_len > skb->len check failing, so we
+would fall through and set pkt_len = new_len = 4000 and chop off
+pkt_len of 4000 from the 4000-byte skb, leaving a 0-byte segment
+afterward in the write queue.
 
-This commit don't have a stable tag, but it fix the bug
-no reply after loopback down-up.It's very worthy to be
-applied to stable 3.4 kernels.
+With this new commit, we notice that the new new_len >= skb->len check
+succeeds, so that we return without trying to fragment.
 
-The bug is 67951 on bugzilla
-https://bugzilla.kernel.org/show_bug.cgi?id=67951
-
-
-CC: Sabrina Dubroca <sd@queasysnail.net>
-CC: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Reported-by: Weilong Chen <chenweilong@huawei.com>
-Signed-off-by: Weilong Chen <chenweilong@huawei.com>
-Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-[weilong: s/ip6_rt_put/dst_release]
-Signed-off-by: Chen Weilong <chenweilong@huawei.com>
-Signed-off-by: Li Zefan <lizefan@huawei.com>
+Fixes: adb92db857ee ("tcp: Make SACK code to split only at mss boundaries")
+Reported-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: Yuchung Cheng <ycheng@google.com>
+Cc: Ilpo Jarvinen <ilpo.jarvinen@helsinki.fi>
 ---
- net/ipv6/addrconf.c | 14 ++++++++++++--
- 1 file changed, 12 insertions(+), 2 deletions(-)
+ net/ipv4/tcp_input.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index abfa007..25399bf 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -2435,8 +2435,18 @@ static void init_loopback(struct net_device *dev)
- 			if (sp_ifa->flags & (IFA_F_DADFAILED | IFA_F_TENTATIVE))
- 				continue;
-
--			if (sp_ifa->rt)
--				continue;
-+			if (sp_ifa->rt) {
-+				/* This dst has been added to garbage list when
-+				 * lo device down, release this obsolete dst and
-+				 * reallocate a new router for ifa.
-+				 */
-+				if (sp_ifa->rt->dst.obsolete > 0) {
-+					dst_release(sp_ifa->rt);
-+					sp_ifa->rt = NULL;
-+				} else {
-+					continue;
-+				}
-+			}
-
- 			sp_rt = addrconf_dst_alloc(idev, &sp_ifa->addr, 0);
-
--- 1.7.12
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 40661fc..b5c2375 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -1162,7 +1162,7 @@ static int tcp_match_skb_to_sack(struct sock *sk, struct sk_buff *skb,
+ 			unsigned int new_len = (pkt_len / mss) * mss;
+ 			if (!in_sack && new_len < pkt_len) {
+ 				new_len += mss;
+-				if (new_len > skb->len)
++				if (new_len >= skb->len)
+ 					return 0;
+ 			}
+ 			pkt_len = new_len;
+-- 
+2.0.0.526.g5318336
