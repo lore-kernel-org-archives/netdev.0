@@ -1,228 +1,65 @@
-From: Randy Dunlap <rdunlap@infradead.org>
-Subject: Re: [PATCH] iovec: move memcpy_from/toiovecend to lib/iovec.c
-Date: Thu, 19 Jun 2014 12:12:15 -0700
-Message-ID: <53A3360F.8010908@infradead.org>
-References: <1403201568-22828-1-git-send-email-mst@redhat.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] of: mdio: fixup of_phy_register_fixed_link parsing of
+ new bindings
+Date: Thu, 19 Jun 2014 23:32:32 +0400
+Message-ID: <53A33AD0.2060200@cogentembedded.com>
+References: <1403199334-13212-1-git-send-email-rretanubun.work@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	"Hans J. Koch" <hjk@hansjkoch.de>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	stephen hemminger <stephen@networkplumber.org>,
-	Sean Hefty <sean.hefty@intel.com>,
-	FX Le Bail <fx.lebail@yahoo.com>,
-	Jason Wang <jasowang@redhat.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Zhi Yong Wu <wuzhy@linux.vnet.ibm.com>,
-	Nicholas Bellinger <nab@linux-iscsi.org>,
-	netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1403201568-22828-1-git-send-email-mst@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+	robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	thomas.petazzoni@free-electrons.com
+To: Richard Retanubun <rretanubun.work@gmail.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f46.google.com ([209.85.215.46]:33951 "EHLO
+	mail-la0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757784AbaFSTcZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2014 15:32:25 -0400
+Received: by mail-la0-f46.google.com with SMTP id el20so1694409lab.5
+        for <netdev@vger.kernel.org>; Thu, 19 Jun 2014 12:32:23 -0700 (PDT)
+In-Reply-To: <1403199334-13212-1-git-send-email-rretanubun.work@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/19/14 11:22, Michael S. Tsirkin wrote:
-> ERROR: "memcpy_fromiovecend" [drivers/vhost/vhost_scsi.ko] undefined!
-> 
-> commit 9f977ef7b671f6169eca78bf40f230fe84b7c7e5
->     vhost-scsi: Include prot_bytes into expected data transfer length
-> in target-pending makes drivers/vhost/scsi.c call memcpy_fromiovecend().
-> This function is not available when CONFIG_NET is not enabled.
-> 
-> socket.h already includes uio.h, so no callers need updating.
-> 
-> Reported-by: Randy Dunlap <rdunlap@infradead.org>
-> Cc: Stephen Rothwell <sfr@canb.auug.org.au>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Hello.
 
-Acked-by: Randy Dunlap <rdunlap@infradead.org> [build-tested]
+On 06/19/2014 09:35 PM, Richard Retanubun wrote:
 
-Thanks.
+> Fixes commit 3be2a49e5c08 ("of: provide a binding for fixed link PHYs")
 
+> Fix the parsing of the new fixed link dts bindings for duplex,
+> pause, and asym_pause by using the correct device node pointer.
+
+> Signed-off-by: Richard Retanubun <rretanubun.work@gmail.com>
 > ---
-> 
-> David, could you please ack merging this through
-> target-pending to avoid dependency issues?
-> 
-> Thanks!
-> 
->  include/linux/socket.h |  4 ----
->  include/linux/uio.h    |  4 ++++
->  lib/iovec.c            | 55 ++++++++++++++++++++++++++++++++++++++++++++++++++
->  net/core/iovec.c       | 55 --------------------------------------------------
->  4 files changed, 59 insertions(+), 59 deletions(-)
-> 
-> diff --git a/include/linux/socket.h b/include/linux/socket.h
-> index 8e98297..ec538fc 100644
-> --- a/include/linux/socket.h
-> +++ b/include/linux/socket.h
-> @@ -305,8 +305,6 @@ struct ucred {
->  /* IPX options */
->  #define IPX_TYPE	1
->  
-> -extern int memcpy_fromiovecend(unsigned char *kdata, const struct iovec *iov,
-> -			       int offset, int len);
->  extern int csum_partial_copy_fromiovecend(unsigned char *kdata, 
->  					  struct iovec *iov, 
->  					  int offset, 
-> @@ -315,8 +313,6 @@ extern unsigned long iov_pages(const struct iovec *iov, int offset,
->  			       unsigned long nr_segs);
->  
->  extern int verify_iovec(struct msghdr *m, struct iovec *iov, struct sockaddr_storage *address, int mode);
-> -extern int memcpy_toiovecend(const struct iovec *v, unsigned char *kdata,
-> -			     int offset, int len);
->  extern int move_addr_to_kernel(void __user *uaddr, int ulen, struct sockaddr_storage *kaddr);
->  extern int put_cmsg(struct msghdr*, int level, int type, int len, void *data);
->  
-> diff --git a/include/linux/uio.h b/include/linux/uio.h
-> index 199bcc3..8a4709a 100644
-> --- a/include/linux/uio.h
-> +++ b/include/linux/uio.h
-> @@ -89,5 +89,9 @@ static inline size_t iov_iter_count(struct iov_iter *i)
->  
->  int memcpy_fromiovec(unsigned char *kdata, struct iovec *iov, int len);
->  int memcpy_toiovec(struct iovec *iov, unsigned char *kdata, int len);
-> +int memcpy_fromiovecend(unsigned char *kdata, const struct iovec *iov,
-> +			int offset, int len);
-> +int memcpy_toiovecend(const struct iovec *v, unsigned char *kdata,
-> +		      int offset, int len);
->  
->  #endif
-> diff --git a/lib/iovec.c b/lib/iovec.c
-> index 454baa8..7a7c2da 100644
-> --- a/lib/iovec.c
-> +++ b/lib/iovec.c
-> @@ -51,3 +51,58 @@ int memcpy_toiovec(struct iovec *iov, unsigned char *kdata, int len)
->  	return 0;
->  }
->  EXPORT_SYMBOL(memcpy_toiovec);
-> +
-> +/*
-> + *	Copy kernel to iovec. Returns -EFAULT on error.
-> + */
-> +
-> +int memcpy_toiovecend(const struct iovec *iov, unsigned char *kdata,
-> +		      int offset, int len)
-> +{
-> +	int copy;
-> +	for (; len > 0; ++iov) {
-> +		/* Skip over the finished iovecs */
-> +		if (unlikely(offset >= iov->iov_len)) {
-> +			offset -= iov->iov_len;
-> +			continue;
-> +		}
-> +		copy = min_t(unsigned int, iov->iov_len - offset, len);
-> +		if (copy_to_user(iov->iov_base + offset, kdata, copy))
-> +			return -EFAULT;
-> +		offset = 0;
-> +		kdata += copy;
-> +		len -= copy;
-> +	}
-> +
-> +	return 0;
-> +}
-> +EXPORT_SYMBOL(memcpy_toiovecend);
-> +
-> +/*
-> + *	Copy iovec to kernel. Returns -EFAULT on error.
-> + */
-> +
-> +int memcpy_fromiovecend(unsigned char *kdata, const struct iovec *iov,
-> +			int offset, int len)
-> +{
-> +	/* Skip over the finished iovecs */
-> +	while (offset >= iov->iov_len) {
-> +		offset -= iov->iov_len;
-> +		iov++;
-> +	}
-> +
-> +	while (len > 0) {
-> +		u8 __user *base = iov->iov_base + offset;
-> +		int copy = min_t(unsigned int, len, iov->iov_len - offset);
-> +
-> +		offset = 0;
-> +		if (copy_from_user(kdata, base, copy))
-> +			return -EFAULT;
-> +		len -= copy;
-> +		kdata += copy;
-> +		iov++;
-> +	}
-> +
-> +	return 0;
-> +}
-> +EXPORT_SYMBOL(memcpy_fromiovecend);
-> diff --git a/net/core/iovec.c b/net/core/iovec.c
-> index b618694..827dd6b 100644
-> --- a/net/core/iovec.c
-> +++ b/net/core/iovec.c
-> @@ -75,61 +75,6 @@ int verify_iovec(struct msghdr *m, struct iovec *iov, struct sockaddr_storage *a
->  }
->  
->  /*
-> - *	Copy kernel to iovec. Returns -EFAULT on error.
-> - */
-> -
-> -int memcpy_toiovecend(const struct iovec *iov, unsigned char *kdata,
-> -		      int offset, int len)
-> -{
-> -	int copy;
-> -	for (; len > 0; ++iov) {
-> -		/* Skip over the finished iovecs */
-> -		if (unlikely(offset >= iov->iov_len)) {
-> -			offset -= iov->iov_len;
-> -			continue;
-> -		}
-> -		copy = min_t(unsigned int, iov->iov_len - offset, len);
-> -		if (copy_to_user(iov->iov_base + offset, kdata, copy))
-> -			return -EFAULT;
-> -		offset = 0;
-> -		kdata += copy;
-> -		len -= copy;
-> -	}
-> -
-> -	return 0;
-> -}
-> -EXPORT_SYMBOL(memcpy_toiovecend);
-> -
-> -/*
-> - *	Copy iovec to kernel. Returns -EFAULT on error.
-> - */
-> -
-> -int memcpy_fromiovecend(unsigned char *kdata, const struct iovec *iov,
-> -			int offset, int len)
-> -{
-> -	/* Skip over the finished iovecs */
-> -	while (offset >= iov->iov_len) {
-> -		offset -= iov->iov_len;
-> -		iov++;
-> -	}
-> -
-> -	while (len > 0) {
-> -		u8 __user *base = iov->iov_base + offset;
-> -		int copy = min_t(unsigned int, len, iov->iov_len - offset);
-> -
-> -		offset = 0;
-> -		if (copy_from_user(kdata, base, copy))
-> -			return -EFAULT;
-> -		len -= copy;
-> -		kdata += copy;
-> -		iov++;
-> -	}
-> -
-> -	return 0;
-> -}
-> -EXPORT_SYMBOL(memcpy_fromiovecend);
-> -
-> -/*
->   *	And now for the all-in-one: copy and checksum from a user iovec
->   *	directly to a datagram
->   *	Calls to csum_partial but the last must be in 32 bit chunks
-> 
+>   drivers/of/of_mdio.c | 8 +++++---
+>   1 file changed, 5 insertions(+), 3 deletions(-)
 
+> diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+> index 7700ddc..c389e7b 100644
+> --- a/drivers/of/of_mdio.c
+> +++ b/drivers/of/of_mdio.c
+> @@ -290,11 +290,13 @@ int of_phy_register_fixed_link(struct device_node *np)
+>   	fixed_link_node = of_get_child_by_name(np, "fixed-link");
+>   	if (fixed_link_node) {
+>   		status.link = 1;
+> -		status.duplex = of_property_read_bool(np, "full-duplex");
+> +		status.duplex = of_property_read_bool(fixed_link_node,
+> +					"full-duplex");
 
--- 
-~Randy
+    The continuation line should start under 'fixed_link_node', according to 
+the networking coding style.
+
+>   		if (of_property_read_u32(fixed_link_node, "speed", &status.speed))
+>   			return -EINVAL;
+> -		status.pause = of_property_read_bool(np, "pause");
+> -		status.asym_pause = of_property_read_bool(np, "asym-pause");
+> +		status.pause = of_property_read_bool(fixed_link_node, "pause");
+> +		status.asym_pause = of_property_read_bool(fixed_link_node,
+> +						"asym-pause");
+
+    Same here...
+
+WBR, Sergei
