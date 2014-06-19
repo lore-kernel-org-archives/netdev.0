@@ -1,52 +1,54 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: re: net: return actual error on register_queue_kobjects
-Date: Fri, 20 Jun 2014 00:28:40 +0300
-Message-ID: <20140619212840.GA15522@mwanda>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: jeff.liu@oracle.com
+From: Richard Retanubun <rretanubun.work@gmail.com>
+Subject: [PATCH v2] of: mdio: fixup of_phy_register_fixed_link parsing of new bindings
+Date: Thu, 19 Jun 2014 17:28:57 -0400
+Message-ID: <1403213337-14303-1-git-send-email-rretanubun.work@gmail.com>
+References: <53A33AD0.2060200@cogentembedded.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org, robh+dt@kernel.org, pawel.moll@arm.com,
+	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
+	galak@codeaurora.org, thomas.petazzoni@free-electrons.com
+To: sergei.shtylyov@cogentembedded.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:29062 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964833AbaFSV26 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2014 17:28:58 -0400
-Received: from ucsinet21.oracle.com (ucsinet21.oracle.com [156.151.31.93])
-	by userp1040.oracle.com (Sentrion-MTA-4.3.2/Sentrion-MTA-4.3.2) with ESMTP id s5JLSvVL028467
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Thu, 19 Jun 2014 21:28:58 GMT
-Received: from userz7022.oracle.com (userz7022.oracle.com [156.151.31.86])
-	by ucsinet21.oracle.com (8.14.4+Sun/8.14.4) with ESMTP id s5JLSvYb020872
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Thu, 19 Jun 2014 21:28:57 GMT
-Received: from abhmp0010.oracle.com (abhmp0010.oracle.com [141.146.116.16])
-	by userz7022.oracle.com (8.14.5+Sun/8.14.4) with ESMTP id s5JLSt3T011503
-	for <netdev@vger.kernel.org>; Thu, 19 Jun 2014 21:28:56 GMT
-Content-Disposition: inline
+Received: from mail-ie0-f176.google.com ([209.85.223.176]:33948 "EHLO
+	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964833AbaFSV3H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2014 17:29:07 -0400
+In-Reply-To: <53A33AD0.2060200@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Jie Liu,
+Fixes commit 3be2a49e5c08 ("of: provide a binding for fixed link PHYs")
 
-The patch d36a4f4b4723: "net: return actual error on
-register_queue_kobjects" from Jun 17, 2014, leads to the following
-static checker warning:
+Fix the parsing of the new fixed link dts bindings for duplex,
+pause, and asym_pause by using the correct device node pointer.
 
-	net/core/net-sysfs.c:1203 register_queue_kobjects()
-	warn: 'net->queues_kset' isn't an ERR_PTR
+Signed-off-by: Richard Retanubun <rretanubun.work@gmail.com>
+---
+v2: Clean up code indentation. Thanks Sergei!
 
-net/core/net-sysfs.c
-  1200  #ifdef CONFIG_SYSFS
-  1201          net->queues_kset = kset_create_and_add("queues",
-                                   ^^^^^^^^^^^^^^^^^^^
-This function returns a NULL on error doesn't it?  In linux-next it
-does.  The patch description is not clear.
+ drivers/of/of_mdio.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
-  1202              NULL, &net->dev.kobj);
-  1203          if (IS_ERR(net->queues_kset))
-  1204                  return PTR_ERR(net->queues_kset);
-  1205          real_rx = net->real_num_rx_queues;
-  1206  #endif
-
-regards,
-dan carpenter
+diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+index 7700ddc..b5f7817 100644
+--- a/drivers/of/of_mdio.c
++++ b/drivers/of/of_mdio.c
+@@ -290,11 +290,13 @@ int of_phy_register_fixed_link(struct device_node *np)
+ 	fixed_link_node = of_get_child_by_name(np, "fixed-link");
+ 	if (fixed_link_node) {
+ 		status.link = 1;
+-		status.duplex = of_property_read_bool(np, "full-duplex");
++		status.duplex = of_property_read_bool(fixed_link_node,
++							"full-duplex");
+ 		if (of_property_read_u32(fixed_link_node, "speed", &status.speed))
+ 			return -EINVAL;
+-		status.pause = of_property_read_bool(np, "pause");
+-		status.asym_pause = of_property_read_bool(np, "asym-pause");
++		status.pause = of_property_read_bool(fixed_link_node, "pause");
++		status.asym_pause = of_property_read_bool(fixed_link_node,
++								"asym-pause");
+ 		of_node_put(fixed_link_node);
+ 		return fixed_phy_register(PHY_POLL, &status, np);
+ 	}
+-- 
+1.8.5.1
