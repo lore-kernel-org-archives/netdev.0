@@ -1,132 +1,58 @@
 From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: SCTP data chunk bundling when SCTP_NODELAY is set
-Date: Thu, 19 Jun 2014 09:27:22 -0400
-Message-ID: <53A2E53A.3030302@gmail.com>
-References: <063D6719AE5E284EB5DD2968C1650D6D1725DD38@AcuExch.aculab.com> <53A062A9.70806@gmail.com> <063D6719AE5E284EB5DD2968C1650D6D1725DF55@AcuExch.aculab.com> <53A071A2.20909@gmail.com> <063D6719AE5E284EB5DD2968C1650D6D1725E88C@AcuExch.aculab.com> <063D6719AE5E284EB5DD2968C1650D6D1725EB40@AcuExch.aculab.com>
+Subject: Re: [PATCH net] net: sctp: check proc_dointvec result in proc_sctp_do_auth
+Date: Thu, 19 Jun 2014 09:28:16 -0400
+Message-ID: <53A2E570.7000404@gmail.com>
+References: <1403127991-18114-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-To: David Laight <David.Laight@ACULAB.COM>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f47.google.com ([209.85.192.47]:53919 "EHLO
-	mail-qg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755525AbaFSN10 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2014 09:27:26 -0400
-Received: by mail-qg0-f47.google.com with SMTP id q108so2060574qgd.20
-        for <netdev@vger.kernel.org>; Thu, 19 Jun 2014 06:27:25 -0700 (PDT)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1725EB40@AcuExch.aculab.com>
+Received: from mail-qa0-f46.google.com ([209.85.216.46]:36512 "EHLO
+	mail-qa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751570AbaFSN2T (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2014 09:28:19 -0400
+In-Reply-To: <1403127991-18114-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/18/2014 12:38 PM, David Laight wrote:
-> From: David Laight
->> From: Vlad Yasevich
->> ...
->>>>> I suppose we could implement SCTP_CORK to do the right thing.
->>>>>
->>>>> I thought is possibly utilizing something like sendmmsg() and passing
->>>>> an extra flag to let it be know that this is a multi-message send
->>>>> that should be queued up by sctp..
->>>>
->>>> It would be as easy to expose the extra flag to the 'application'
->>>> allowing it to use sendmsg() or sendmmsg().
->>>> While sendmmsg() saves a system call, it is fairly horrid to use.
->>>> (and I'm sending from a kernel driver so don't care about the
->>>> system call cost!)
->>>>
->>>> Possibly MSG_MORE with Nagle disabled could invoke the Nagle send
->>>> delay - but you'd need to know whether any chunks in the queue
->>>> had MSG_MORE clear.
->>>
->>> That's why doing this with cork would be simpler.  The ULP can just
->>> queue up a bunch of small data and if we pass nagle checks, it will be
->>> flushed.  If not, uncork will flush it.
->>
->> I think you need only care about the 'MSG_MORE' flag of the last data chunk.
->> Any earlier data (with MSG_MORE clear) will usually have been sent (unless
->> prevented by Nagle or flow control), so you probably wouldn't be able to
->> send it regardless of the state of MSG_MORE on a chunk being queued.
->> There is also the expectation that another send without MSG_MORE will
->> happen almost immediately.
->>
->> So MSG_MORE could have the same effect as corking the socket.
->> Although you'd need separate bits - but uncork could clear both.
->>
->> What I would like to implement (from M3UA) is to hold data for a maximum
->> of (say) 5ms awaiting M3UA data chunks. To do this properly requires
->> knowledge of the actual ethernet packet boundaries.
->>
->> The problem is there are (at least) three cases:
->> 1) This data should be sent as soon as possible.
->> 2) Send this data some time soonish.
->> 3) I've got another data block I'm going to give you after this one.
->>
->>> I could work up a patch for you if you want.
->>
->> I was thinking I might try to write one.
+On 06/18/2014 05:46 PM, Daniel Borkmann wrote:
+> When writing to the sysctl field net.sctp.auth_enable, it can well
+> be that the user buffer we handed over to proc_dointvec() via
+> proc_sctp_do_auth() handler contains something other than integers.
 > 
-> Actually this might work for what I'm trying to do.
-> (untested).
+> In that case, we would set an uninitialized 4-byte value from the
+> stack to net->sctp.auth_enable that can be leaked back when reading
+> the sysctl variable, and it can unintentionally turn auth_enable
+> on/off based on the stack content since auth_enable is interpreted
+> as a boolean.
 > 
-> diff --git a/net/sctp/output.c b/net/sctp/output.c
-> index 0f4d15f..51030bc 100644
-> --- a/net/sctp/output.c
-> +++ b/net/sctp/output.c
-> @@ -691,7 +691,7 @@ static sctp_xmit_t sctp_packet_can_append_data(struct sctp_packet *packet,
->  	 * if any previously transmitted data on the connection remains
->  	 * unacknowledged.
->  	 */
-> -	if (!sctp_sk(asoc->base.sk)->nodelay && sctp_packet_empty(packet) &&
-> +	if (sctp_sk(asoc->base.sk)->nodelay != 1 && sctp_packet_empty(packet) &&
->  	    inflight && sctp_state(asoc, ESTABLISHED)) {
->  		unsigned int max = transport->pathmtu - packet->overhead;
->  		unsigned int len = chunk->skb->len + q->out_qlen;
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index fee06b9..084b957 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -1928,7 +1928,10 @@ static int sctp_sendmsg(struct kiocb *iocb, struct sock *sk,
->  	}
+> Fix it up by making sure proc_dointvec() returned sucessfully.
+> 
+> Fixes: b14878ccb7fa ("net: sctp: cache auth_enable per endpoint")
+> Reported-by: Florian Westphal <fwestpha@redhat.com>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> ---
+>  net/sctp/sysctl.c | 3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
+> 
+> diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
+> index dcb1959..8a5b5c2 100644
+> --- a/net/sctp/sysctl.c
+> +++ b/net/sctp/sysctl.c
+> @@ -444,8 +444,7 @@ static int proc_sctp_do_auth(struct ctl_table *ctl, int write,
+>  		tbl.data = &net->sctp.auth_enable;
 >  
->  	/* Break the message into multiple chunks of maximum size. */
-> +	if (msg->msg_flags & MSG_MORE)
-> +		sp->nodelay |= 2;
->  	datamsg = sctp_datamsg_from_user(asoc, sinfo, msg, msg_len);
-> +	sp->nodelay &= 1;
-
-I think you reset it too early.  You have to reset after the call to
-sctp_primitive_SEND().  This way, you queue up the data and go through
-the state machine with nodelay != 1, thus triggering the updated code
-on output.
-
->  	if (IS_ERR(datamsg)) {
->  		err = PTR_ERR(datamsg);
->  		goto out_free;
+>  	ret = proc_dointvec(&tbl, write, buffer, lenp, ppos);
+> -
+> -	if (write) {
+> +	if (write && ret == 0) {
+>  		struct sock *sk = net->sctp.ctl_sock;
+>  
+>  		net->sctp.auth_enable = new_value;
 > 
-> Ideally MSG_MORE should delay sending even if 'inflight' is false.
-> But that would require 'flush on timeout'.
 
-You can use a lack of MSG_MORE to be an indication of a flush.  Thus
-MSG_MORE would always queue up data until MSG_MORE is 0, at which point
-flush should happen.
-
-> I'd prefer that, and with a configurable timeout.
-> But I can implement the timeout in the 'application'.
-> 
-> Given the way Nagle is implemented in sctp, I could keep flipping
-> it on and off - but that probably has undocumented behaviour
-> (ie it might suddenly change).
-
-With the above MSG_MORE, I think you can just turn off nagle once and
-use MSG_MORE and when you drain your application queue, clear MSG_MORE
-on the last write.
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
 
 -vlad
-
-
-> 
-> 	David
-> 
-> 
-> 
