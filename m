@@ -1,117 +1,112 @@
-From: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
-Subject: [PATCH v7 0/4] net: Add APM X-Gene SoC Ethernet driver support
-Date: Wed, 18 Jun 2014 18:17:10 -0700
-Message-ID: <1403140634-27104-1-git-send-email-isubramanian@apm.com>
-Cc: gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	patches-qTEPVZfXA3Y@public.gmane.org, Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>,
-	Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>, Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: [PATCH v7 2/4] Documentation: dts: Add bindings for APM X-Gene SoC ethernet driver
+Date: Wed, 18 Jun 2014 18:17:12 -0700
+Message-ID: <1403140634-27104-3-git-send-email-isubramanian@apm.com>
+References: <1403140634-27104-1-git-send-email-isubramanian@apm.com>
+Cc: gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, jcm@redhat.com,
+	patches@apm.com, Iyappan Subramanian <isubramanian@apm.com>,
+	Ravi Patel <rapatel@apm.com>, Keyur Chudgar <kchudgar@apm.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exprod5og117.obsmtp.com ([64.18.0.149]:37655 "HELO
+	exprod5og117.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1756891AbaFSBRQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 21:17:16 -0400
+Received: by mail-pd0-f181.google.com with SMTP id v10so1250063pde.12
+        for <netdev@vger.kernel.org>; Wed, 18 Jun 2014 18:17:15 -0700 (PDT)
+In-Reply-To: <1403140634-27104-1-git-send-email-isubramanian@apm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Adding APM X-Gene SoC Ethernet driver.
+This patch adds documentation for APM X-Gene SoC ethernet DTS binding.
 
-v7: Address comments from v6 review
-* fixed skb memory leak when dma_map_single fails in xmit.
-
-v6: Address comments from v5 review
-* added basic ethtool support
-* added ndo_get_stats64 call back
-* deleted priting Rx error messages
-* renamed set_bits to xgene_set_bits to fix kbuild error (make ARCH=powerpc)
-
-v5: Address comments from v4 review
-* Documentation: Added phy-handle, reg-names and changed mdio part
-* dtb: Added reg-names supplemental property
-* changed platform_get_resource to platform_get_resource_byname
-* added separate tx/rx set_desc/get_desc functions to do raw_write/raw_read
-* removed set_desc/get_desc table lookup logic
-* added error handling logic based on per packet descriptor bits
-* added software managed Rx packet and error counters
-* added busy wait for register read/writes
-* changed mdio_bus->id to avoid conflict
-* fixed mdio_bus leak in case of mdio_config error
-* changed phy reg hard coded value to MII_BMSR
-* changed phy addr hard coded value to phy_device->addr
-* added paranthesis around macro arguments
-* converted helper macros to inline functions
-* changed use of goto's only to common work such as cleanup
-
-v4: Address comments from v3 review
-* MAINTAINERS: changed status to supported
-* Kconfig: made default to no
-* changed to bool data type wherever applicable
-* cleaned up single bit set and masking code
-* removed statistics counters masking
-* removed unnecessary OOM message printing
-* fixed dma_map_single and dma_unmap_single size parameter
-* changed set bits macro body using new set_bits function
-
-v3: Address comments from v2 review
-* cleaned up set_desc and get_desc functions
-* added dtb mdio node and phy-handle subnode
-* renamed dtb phy-mode to phy-connection-type
-* added of_phy_connect call to connec to PHY
-* added empty line after last local variable declaration
-* removed type casting when not required
-* removed inline keyword from source files
-* removed CONFIG_CPU_BIG_ENDIAN ifdef
-
-v2
-* Completely redesigned ethernet driver
-* Added support to work with big endian kernel
-* Renamed dtb phyid entry to phy_addr
-* Changed dtb local-mac-address entry to byte string format
-* Renamed dtb eth8clk entry to menetclk
-
-v1
-* Initial version
-
-Signed-off-by: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
-Signed-off-by: Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>
-Signed-off-by: Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>
+Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+Signed-off-by: Ravi Patel <rapatel@apm.com>
+Signed-off-by: Keyur Chudgar <kchudgar@apm.com>
 ---
-
-Iyappan Subramanian (4):
-  MAINTAINERS: Add entry for APM X-Gene SoC ethernet driver
-  Documentation: dts: Add bindings for APM X-Gene SoC ethernet driver
-  dts: Add bindings for APM X-Gene SoC ethernet driver
-  drivers: net: Add APM X-Gene SoC ethernet driver support.
-
- .../devicetree/bindings/net/apm-xgene-enet.txt     |  72 ++
- MAINTAINERS                                        |   8 +
- arch/arm64/boot/dts/apm-mustang.dts                |   4 +
- arch/arm64/boot/dts/apm-storm.dtsi                 |  30 +-
- drivers/net/ethernet/Kconfig                       |   1 +
- drivers/net/ethernet/Makefile                      |   1 +
- drivers/net/ethernet/apm/Kconfig                   |   1 +
- drivers/net/ethernet/apm/Makefile                  |   5 +
- drivers/net/ethernet/apm/xgene/Kconfig             |   9 +
- drivers/net/ethernet/apm/xgene/Makefile            |   6 +
- .../net/ethernet/apm/xgene/xgene_enet_ethtool.c    | 125 +++
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.c     | 848 +++++++++++++++++++
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.h     | 394 +++++++++
- drivers/net/ethernet/apm/xgene/xgene_enet_main.c   | 939 +++++++++++++++++++++
- drivers/net/ethernet/apm/xgene/xgene_enet_main.h   | 109 +++
- 15 files changed, 2549 insertions(+), 3 deletions(-)
+ .../devicetree/bindings/net/apm-xgene-enet.txt     | 72 ++++++++++++++++++++++
+ 1 file changed, 72 insertions(+)
  create mode 100644 Documentation/devicetree/bindings/net/apm-xgene-enet.txt
- create mode 100644 drivers/net/ethernet/apm/Kconfig
- create mode 100644 drivers/net/ethernet/apm/Makefile
- create mode 100644 drivers/net/ethernet/apm/xgene/Kconfig
- create mode 100644 drivers/net/ethernet/apm/xgene/Makefile
- create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_ethtool.c
- create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
- create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
- create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_main.c
- create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_main.h
 
+diff --git a/Documentation/devicetree/bindings/net/apm-xgene-enet.txt b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
+new file mode 100644
+index 0000000..3e2a295
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
+@@ -0,0 +1,72 @@
++APM X-Gene SoC Ethernet nodes
++
++Ethernet nodes are defined to describe on-chip ethernet interfaces in
++APM X-Gene SoC.
++
++Required properties:
++- compatible:		Should be "apm,xgene-enet"
++- reg: Address and length of the register set for the device. It contains the
++       information of registers in the same order as described by reg-names
++- reg-names: Should contain the register set names
++  "enet_csr":		Ethernet control and status register address space
++  "ring_csr":		Descriptor ring control and status register address space
++  "ring_cmd":		Descriptor ring command register address space
++- interrupts:		Ethernet main interrupt
++- clocks:		Reference to the clock entry.
++- local-mac-address:	MAC address assigned to this device
++- phy-connection-type:	Interface type between ethernet device and PHY device
++- phy-handle:		Reference to a PHY node connected to this device
++
++- mdio: 		Device tree subnode with the following required
++			properties:
++
++	- compatible: Must be "apm,xgene-mdio".
++	- #address-cells: Must be <1>.
++	- #size-cells: Must be <0>.
++
++	For the phy on the mdio bus, there must be a node with the following
++	fields:
++
++	- compatible: PHY identifier.  Please refer ./phy.txt for the format.
++	- reg: The ID number for the phy.
++
++Optional properties:
++- status		: Should be "ok" or "disabled" for enabled/disabled.
++			  Default is "ok".
++
++
++Example:
++	menetclk: menetclk {
++		compatible = "apm,xgene-device-clock";
++		clock-output-names = "menetclk";
++		status = "ok";
++	};
++
++	menet: ethernet@17020000 {
++		compatible = "apm,xgene-enet";
++		status = "disabled";
++		reg = <0x0 0x17020000 0x0 0xd100>,
++		      <0x0 0X17030000 0x0 0X400>,
++		      <0x0 0X10000000 0x0 0X200>;
++		reg-names = "enet_csr", "ring_csr", "ring_cmd";
++		interrupts = <0x0 0x3c 0x4>;
++		clocks = <&menetclk 0>;
++		local-mac-address = [00 01 73 00 00 01];
++		phy-connection-type = "rgmii";
++		phy-handle = <&menetphy>;
++		mdio {
++			compatible = "apm,xgene-mdio";
++			#address-cells = <1>;
++			#size-cells = <0>;
++			menetphy: menetphy@3 {
++				compatible = "ethernet-phy-id001c.c915";
++				reg = <0x3>;
++			};
++
++		};
++	};
++
++/* Board-specific peripheral configurations */
++&menet {
++        status = "ok";
++};
 -- 
 1.9.1
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
