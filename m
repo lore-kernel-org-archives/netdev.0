@@ -1,106 +1,179 @@
-From: Christopher White <chris@logicalelegance.com>
-Subject: Re: [PATCH V3 net-next] LISP: Locator/Identifier Separation Protocol
-Date: Thu, 19 Jun 2014 09:31:27 -0700
-Message-ID: <6A1822EF-41D2-49AC-AA94-227458773FF8@logicalelegance.com>
-References: <86BFD474-6614-418E-B4B3-C725848FE196@logicalelegance.com> <CA+mtBx-aNF9-H+N_VmHqFGdVgGAdR5xer8F19wAvSKmUZpGy4Q@mail.gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.2\))
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	"Vina Ermagan (vermagan)" <vermagan@cisco.com>,
-	"Lorand Jakab -X (lojakab - M SQUARED CONSULTING INC. at Cisco)"
-	<lojakab@cisco.com>
-To: Tom Herbert <therbert@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail6.webfaction.com ([74.55.86.74]:43314 "EHLO
-	smtp.webfaction.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932456AbaFSQbi convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2014 12:31:38 -0400
-In-Reply-To: <CA+mtBx-aNF9-H+N_VmHqFGdVgGAdR5xer8F19wAvSKmUZpGy4Q@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arend van Spriel <arend@broadcom.com>
+Subject: Re: [PATCH] brcmfmac: prevent watchdog from interfering with scanning
+ and connecting
+Date: Thu, 19 Jun 2014 18:37:56 +0200
+Message-ID: <53A311E4.301@broadcom.com>
+References: <539E8559.3010601@linux.intel.com> <539EA79C.7010206@broadcom.com> <53A30F96.3010206@linux.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <linux-wireless@vger.kernel.org>,
+	<brcm80211-dev-list@broadcom.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <linux-mmc@vger.kernel.org>,
+	Russell King <linux@arm.linux.org.uk>
+To: "Fu, Zhonghui" <zhonghui.fu@linux.intel.com>,
+	<brudley@broadcom.com>, Franky Lin <frankyl@broadcom.com>,
+	<meuleman@broadcom.com>, <linville@tuxdriver.com>,
+	<pieterpg@broadcom.com>, <dekim@broadcom.com>,
+	<mcgrof@do-not-panic.com>, <antonio@open-mesh.com>,
+	<johannes.berg@intel.com>
+Return-path: <linux-mmc-owner@vger.kernel.org>
+In-Reply-To: <53A30F96.3010206@linux.intel.com>
+Sender: linux-mmc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Tom,=20
+On 19-06-14 18:28, Fu, Zhonghui wrote:
+>
+> On 2014/6/16 16:15, Arend van Spriel wrote:
+>> On 16-06-14 07:49, Fu, Zhonghui wrote:
+>>>   From 14485894add32aedacb3e486ebb2cc2b73861abf Mon Sep 17 00:00:00 2001
+>>> From: Fu zhonghui <zhonghui.fu@linux.intel.com>
+>>> Date: Wed, 11 Jun 2014 11:06:55 +0800
+>>> Subject: [PATCH] brcmfmac: prevent watchdog from interfering with scanning and connecting
+>>>
+>>> Watchdog in brcmfmac driver may make WiFi chip enter sleep mode
+>>> before completion of scanning or connecting.
+>>>
+>>> This will lead to scanning or connecting failure.
+>>>
+>>> Increasing temporarily idle-time threshold during scanning or
+>>> connecting can ensure scanning or connecting success without
+>>> watchdog interference.
+>>
+>> Are you sure you are not having runtime PM enabled. That could be your problem as the host controller code disables sdio irqs. Please see this thread [1]. For our device runtime pm should not be enabled, but I am not sure if that is taken into account in mmc_attach_sdio() (see code below).
+> I have tried brcmfmac driver with "CONFIG_PM_RUNTIME is not set", and scanning and connecting  always succeeded. This means that CONFIG_PM_RUNTIME should not be set if we use SDIO WiFi device driven by brcmfmac driver, right?
 
-Thanks again for the quick turnaround. Some responses and questions bel=
-ow=85
+Depends which kernel you are using. In 3.16-rc1 the sdio interrupt issue 
+has been fixed so you should be fine to use CONFIG_PM_RUNTIME. Here is 
+the commit
 
-On Jun 18, 2014, at 5:08 PM, Tom Herbert <therbert@google.com> wrote:
->>=20
->> +       hash =3D skb_get_hash(skb);
->> +       if (!hash)
->> +               hash =3D jhash(skb->data, 2 * ETH_ALEN,
->> +                            (__force u32) skb->protocol);
->> +
->=20
-> This is probably okay for now, but we should really be smarter here.
-> Looks like another consumer of a TX hash in skbuf (Eric was looking t=
-o
-> add that I believe).
+commit be138554a7923658ded799b0e8794d9c1d08a6e5
+Author: Russell King <rmk+kernel@arm.linux.org.uk>
+Date:   Fri Apr 25 12:55:56 2014 +0100
 
-Ok.
+     mmc: sdhci: allow sdio interrupts while sdhci runtime suspended
 
-> >check =3D CSUM_MANGLED_0;
->> +               }
->> +
->> +               skb->protocol =3D protocol;
->> +       } while ((skb =3D skb->next));
->> +out:
->> +       return segs;
->> +}
->> +
-> Please split out generic changes into their own patches.
->=20
+Regards,
+Arend
 
-Will do.
+> Thanks,
+> Zhonghui
+>>
+>> Gr. AvS
+>>
+>> [1] http://www.spinics.net/lists/linux-mmc/msg25978.html
+>>
+>> --8<----------------------------------------------------------------
+>>
+>>      /*
+>>       * Enable runtime PM only if supported by host+card+board
+>>       */
+>>      if (host->caps & MMC_CAP_POWER_OFF_CARD) {
+>>          /*
+>>           * Let runtime PM core know our card is active
+>>           */
+>>          err = pm_runtime_set_active(&card->dev);
+>>          if (err)
+>>              goto remove;
+>>
+>>          /*
+>>           * Enable runtime PM for this card
+>>           */
+>>          pm_runtime_enable(&card->dev);
+>>      }
+>>
+>>> Signed-off-by: Fu zhonghui <zhonghui.fu@linux.intel.com>
+>>> ---
+>>>    drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c |   18 ++++++++++++++++--
+>>>    .../net/wireless/brcm80211/brcmfmac/wl_cfg80211.c  |    3 ++-
+>>>    2 files changed, 18 insertions(+), 3 deletions(-)
+>>>
+>>> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c b/drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c
+>>> index 13c89a0..729deab 100644
+>>> --- a/drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c
+>>> +++ b/drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c
+>>> @@ -34,6 +34,7 @@
+>>>    #include <linux/vmalloc.h>
+>>>    #include <linux/platform_data/brcmfmac-sdio.h>
+>>>    #include <linux/moduleparam.h>
+>>> +#include <net/cfg80211.h>
+>>>    #include <asm/unaligned.h>
+>>>    #include <defs.h>
+>>>    #include <brcmu_wifi.h>
+>>> @@ -43,6 +44,10 @@
+>>>    #include "sdio_host.h"
+>>>    #include "chip.h"
+>>>    #include "nvram.h"
+>>> +#include "dhd.h"
+>>> +#include "fwil_types.h"
+>>> +#include "p2p.h"
+>>> +#include "wl_cfg80211.h"
+>>>
+>>>    #define DCMD_RESP_TIMEOUT  2000    /* In milli second */
+>>>
+>>> @@ -307,6 +312,7 @@ struct rte_console {
+>>>                         * when idle
+>>>                         */
+>>>    #define BRCMF_IDLE_INTERVAL    1
+>>> +#define BRCMF_IDLE_INTERVAL_SCANNING_CONNECTING    100
+>>>
+>>>    #define KSO_WAIT_US 50
+>>>    #define MAX_KSO_ATTEMPTS (PMU_MAX_TRANSITION_DLY/KSO_WAIT_US)
+>>> @@ -3613,9 +3619,9 @@ void brcmf_sdio_isr(struct brcmf_sdio *bus)
+>>>
+>>>    static bool brcmf_sdio_bus_watchdog(struct brcmf_sdio *bus)
+>>>    {
+>>> -#ifdef DEBUG
+>>>        struct brcmf_bus *bus_if = dev_get_drvdata(bus->sdiodev->dev);
+>>> -#endif    /* DEBUG */
+>>> +    struct brcmf_cfg80211_info *cfg = bus_if->drvr->config;
+>>> +    struct brcmf_if *ifp = cfg->pub->iflist[0];
+>>>
+>>>        brcmf_dbg(TIMER, "Enter\n");
+>>>
+>>> @@ -3678,6 +3684,14 @@ static bool brcmf_sdio_bus_watchdog(struct brcmf_sdio *bus)
+>>>
+>>>        /* On idle timeout clear activity flag and/or turn off clock */
+>>>        if ((bus->idletime > 0) && (bus->clkstate == CLK_AVAIL)) {
+>>> +
+>>> +        if (test_bit(BRCMF_SCAN_STATUS_BUSY, &cfg->scan_status) ||
+>>> +            test_bit(BRCMF_VIF_STATUS_CONNECTING, &ifp->vif->sme_state)) {
+>>> +            bus->idletime = BRCMF_IDLE_INTERVAL_SCANNING_CONNECTING;
+>>> +        } else {
+>>> +            bus->idletime = BRCMF_IDLE_INTERVAL;
+>>> +        }
+>>> +
+>>>            if (++bus->idlecount >= bus->idletime) {
+>>>                bus->idlecount = 0;
+>>>                if (bus->activity) {
+>>> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/wl_cfg80211.c b/drivers/net/wireless/brcm80211/brcmfmac/wl_cfg80211.c
+>>> index be19852..e76517e 100644
+>>> --- a/drivers/net/wireless/brcm80211/brcmfmac/wl_cfg80211.c
+>>> +++ b/drivers/net/wireless/brcm80211/brcmfmac/wl_cfg80211.c
+>>> @@ -913,6 +913,8 @@ brcmf_cfg80211_escan(struct wiphy *wiphy, struct brcmf_cfg80211_vif *vif,
+>>>            return -EAGAIN;
+>>>        }
+>>>
+>>> +    set_bit(BRCMF_SCAN_STATUS_BUSY, &cfg->scan_status);
+>>> +
+>>>        /* If scan req comes for p2p0, send it over primary I/F */
+>>>        if (vif == cfg->p2p.bss_idx[P2PAPI_BSSCFG_DEVICE].vif)
+>>>            vif = cfg->p2p.bss_idx[P2PAPI_BSSCFG_PRIMARY].vif;
+>>> @@ -933,7 +935,6 @@ brcmf_cfg80211_escan(struct wiphy *wiphy, struct brcmf_cfg80211_vif *vif,
+>>>        }
+>>>
+>>>        cfg->scan_request = request;
+>>> -    set_bit(BRCMF_SCAN_STATUS_BUSY, &cfg->scan_status);
+>>>        if (escan_req) {
+>>>            cfg->escan_info.run = brcmf_run_escan;
+>>>            err = brcmf_p2p_scan_prep(wiphy, request, vif);
+>>> -- 1.7.1
+>>>
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>> Please read the FAQ at  http://www.tux.org/lkml/
+>
 
->> +int udpv4_create_encap_sock(struct net *net, __be16 port, struct so=
-cket **psock,
->> +                           bool csum)
->> +{
->> +       struct sock *sk;
->> +       struct socket *sock;
->> +       struct sockaddr_in lisp_addr =3D {
->> +               .sin_family             =3D AF_INET,
->> +               .sin_addr.s_addr        =3D htonl(INADDR_ANY),
->> +               .sin_port               =3D port,
->> +       };
->> +       int rc;
->> +
-> Still some lisp artifacts.
-
-Sorry, that got past me, will fix.
-
->>=20
->> +       }
->> +
->> +       *psock =3D sock;
->> +       /* Disable multicast loopback */
->> +       inet_sk(sk)->mc_loop =3D 0;
->> +
->> +       if (!csum)
->> +               sock->sk->sk_no_check_tx =3D 1;
->> +       return 0;
->> +}
->> +EXPORT_SYMBOL(udpv4_create_encap_sock)
->=20
-> I was actually thinking this function could be even more general. The
-> L2TP_ENCAPTYPE_UDP case in l2tp_tunnel_sock_create looks like
-> something we might be able to abstract out into a separate function--
-> it would include IPv6 support and the possibility of binding to other
-> than INADDR_ANY and connected sockets. l2tp_tunnel_cfg could be the
-> basis of udp_port_cfg which contains addresses, ports, and sockopts
-> like sk_no_check_tx=85
->=20
-
-So I=92m happy to do this, but I would like to do it in a separate subm=
-ission.=20
-=46or one thing, I am not super familiar with that code and I=92m a bit=
- nervous=20
-about making substantive changes, thus it may take me some time.=20
-As it is orthogonal to the LISP submission, would it be possible to do =
-this=20
-separately and have LISP move forward?
-
-Thanks!
--Chris
