@@ -1,7 +1,7 @@
 From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH v7 3/4] dts: Add bindings for APM X-Gene SoC ethernet driver
-Date: Wed, 18 Jun 2014 18:17:13 -0700
-Message-ID: <1403140634-27104-4-git-send-email-isubramanian@apm.com>
+Subject: [PATCH v7 1/4] MAINTAINERS: Add entry for APM X-Gene SoC ethernet driver
+Date: Wed, 18 Jun 2014 18:17:11 -0700
+Message-ID: <1403140634-27104-2-git-send-email-isubramanian@apm.com>
 References: <1403140634-27104-1-git-send-email-isubramanian@apm.com>
 Cc: gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
 	linux-arm-kernel@lists.infradead.org, jcm@redhat.com,
@@ -9,84 +9,45 @@ Cc: gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
 	Ravi Patel <rapatel@apm.com>, Keyur Chudgar <kchudgar@apm.com>
 To: davem@davemloft.net, netdev@vger.kernel.org,
 	devicetree@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from exprod5og121.obsmtp.com ([64.18.0.139]:39475 "HELO
+	exprod5og121.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1756870AbaFSBRO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 21:17:14 -0400
+Received: by mail-pd0-f174.google.com with SMTP id y10so1243547pdj.5
+        for <netdev@vger.kernel.org>; Wed, 18 Jun 2014 18:17:13 -0700 (PDT)
 In-Reply-To: <1403140634-27104-1-git-send-email-isubramanian@apm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds bindings for APM X-Gene SoC ethernet driver.
+This patch adds a MAINTAINERS entry for APM X-Gene SoC
+ethernet driver.
 
 Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
 Signed-off-by: Ravi Patel <rapatel@apm.com>
 Signed-off-by: Keyur Chudgar <kchudgar@apm.com>
 ---
- arch/arm64/boot/dts/apm-mustang.dts |  4 ++++
- arch/arm64/boot/dts/apm-storm.dtsi  | 30 +++++++++++++++++++++++++++---
- 2 files changed, 31 insertions(+), 3 deletions(-)
+ MAINTAINERS | 8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-diff --git a/arch/arm64/boot/dts/apm-mustang.dts b/arch/arm64/boot/dts/apm-mustang.dts
-index 1247ca1..e2fb1ef 100644
---- a/arch/arm64/boot/dts/apm-mustang.dts
-+++ b/arch/arm64/boot/dts/apm-mustang.dts
-@@ -24,3 +24,7 @@
- 		reg = < 0x1 0x00000000 0x0 0x80000000 >; /* Updated by bootloader */
- 	};
- };
-+
-+&menet {
-+	status = "ok";
-+};
-diff --git a/arch/arm64/boot/dts/apm-storm.dtsi b/arch/arm64/boot/dts/apm-storm.dtsi
-index c5f0a47..bd7a614 100644
---- a/arch/arm64/boot/dts/apm-storm.dtsi
-+++ b/arch/arm64/boot/dts/apm-storm.dtsi
-@@ -167,14 +167,13 @@
- 				clock-output-names = "ethclk";
- 			};
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 134483f..d65a3be 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -700,6 +700,14 @@ S:	Maintained
+ F:	drivers/net/appletalk/
+ F:	net/appletalk/
  
--			eth8clk: eth8clk {
-+			menetclk: menetclk {
- 				compatible = "apm,xgene-device-clock";
- 				#clock-cells = <1>;
- 				clocks = <&ethclk 0>;
--				clock-names = "eth8clk";
- 				reg = <0x0 0x1702C000 0x0 0x1000>;
- 				reg-names = "csr-reg";
--				clock-output-names = "eth8clk";
-+				clock-output-names = "menetclk";
- 			};
- 
- 			sataphy1clk: sataphy1clk@1f21c000 {
-@@ -363,5 +362,30 @@
- 			#clock-cells = <1>;
- 			clocks = <&rtcclk 0>;
- 		};
++APPLIED MICRO (APM) X-GENE SOC ETHERNET DRIVER
++M:	Iyappan Subramanian <isubramanian@apm.com>
++M:	Keyur Chudgar <kchudgar@apm.com>
++M:	Ravi Patel <rapatel@apm.com>
++S:	Supported
++F:	drivers/net/ethernet/apm/xgene/
++F:	Documentation/devicetree/bindings/net/apm-xgene-enet.txt
 +
-+		menet: ethernet@17020000 {
-+			compatible = "apm,xgene-enet";
-+			status = "disabled";
-+			reg = <0x0 0x17020000 0x0 0xd100>,
-+			      <0x0 0X17030000 0x0 0X400>,
-+			      <0x0 0X10000000 0x0 0X200>;
-+			reg-names = "enet_csr", "ring_csr", "ring_cmd";
-+			interrupts = <0x0 0x3c 0x4>;
-+			dma-coherent;
-+			clocks = <&menetclk 0>;
-+			local-mac-address = [00 01 73 00 00 01];
-+			phy-connection-type = "rgmii";
-+			phy-handle = <&menetphy>;
-+			mdio {
-+				compatible = "apm,xgene-mdio";
-+				#address-cells = <1>;
-+				#size-cells = <0>;
-+				menetphy: menetphy@3 {
-+					compatible = "ethernet-phy-id001c.c915";
-+					reg = <0x3>;
-+				};
-+
-+			};
-+		};
- 	};
- };
+ APTINA CAMERA SENSOR PLL
+ M:	Laurent Pinchart <Laurent.pinchart@ideasonboard.com>
+ L:	linux-media@vger.kernel.org
 -- 
 1.9.1
