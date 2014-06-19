@@ -1,51 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] tcp: avoid multiple ssthresh reductions in on
- retransmit window
-Date: Wed, 18 Jun 2014 19:28:57 -0700
-Message-ID: <1403144937.1225.1.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAK6E8=dwh1btNzX80YNre9u7rS+SgochXxHxDhQYQZCvY8yVMQ@mail.gmail.com>
-	 <20140616211954.6E12BA3A89@unicorn.suse.cz>
-	 <CAK6E8=dxszKmHssR7ib7Fxfm6hQRdbwBG1ygRvOXoSAXddBSPA@mail.gmail.com>
-	 <CADVnQy=sd2V2A5Rzd+OtcH1a+un3-fATSn_acKdMKUcdbpGadg@mail.gmail.com>
-	 <CAK6E8=fb0x5Z0dnA6PDbxJKYn3z1y42Pr555t7apLbT97R8O-Q@mail.gmail.com>
-	 <CADVnQykk0pmryWdRjq21OXYK3Pvi5xWCkaB7Jf2acF5qtnzANg@mail.gmail.com>
-	 <20140617122038.GA7275@unicorn.suse.cz>
-	 <CAK6E8=e=EoxMfGMFnO90MVfBWGmoua8=4ptG978-jfD2S-J8Fw@mail.gmail.com>
-	 <20140617224241.GA17969@unicorn.suse.cz>
-	 <2421.1403051930@localhost.localdomain>
-	 <CADVnQy=qdaB7GEK8Ggenr92ckjwM3jOdsS18KEQver=9haWmCA@mail.gmail.com>
-	 <11392.1403142743@localhost.localdomain>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: netlink permission checks for -stable
+Date: Wed, 18 Jun 2014 20:25:00 -0700
+Message-ID: <87zjh9mvhv.fsf@x220.int.ebiederm.org>
+References: <20140617.222309.545580698366469088.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Neal Cardwell <ncardwell@google.com>,
-	Michal Kubecek <mkubecek@suse.cz>,
-	Yuchung Cheng <ycheng@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Jay Vosburgh <jay.vosburgh@canonical.com>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, luto@amacapital.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:48079 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756898AbaFSC3D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 22:29:03 -0400
-Received: by mail-wi0-f181.google.com with SMTP id n3so2076222wiv.8
-        for <netdev@vger.kernel.org>; Wed, 18 Jun 2014 19:29:01 -0700 (PDT)
-In-Reply-To: <11392.1403142743@localhost.localdomain>
+Received: from out01.mta.xmission.com ([166.70.13.231]:36982 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751674AbaFSD0O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 23:26:14 -0400
+In-Reply-To: <20140617.222309.545580698366469088.davem@davemloft.net> (David
+	Miller's message of "Tue, 17 Jun 2014 22:23:09 -0700 (PDT)")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-06-18 at 18:52 -0700, Jay Vosburgh wrote:
-> 	The test involves adding 40 ms of delay in and out from machine
-> A with netem, then running iperf from A to B.  Once the iperf reaches a
-> steady cwnd, on B, I add an iptables rule to drop 1 packet out of every
-> 1000 coming from A, then remove the rule after 10 seconds.  The behavior
-> resulting from this closely matches what I see on the real systems.
+David Miller <davem@davemloft.net> writes:
 
-Please share the netem setup. Are you sure you do not drop frames on
-netem ? (considering you disable GSO/TSO netem has to be able to store a
-lot of packets)
+> I was able to do the backporting for everything back to v3.10
+> but for v3.2 and v3.4 it was beyond my means.
+>
+> Could you guys help me out and do backport of mainline commits:
+>
+> 5187cd055b6e81fc6526109456f8b20623148d5f
+> a53b72c83a4216f2eb883ed45a0cbce014b8e62d
+> a3b299da869d6e78cf42ae0b1b41797bcb8c5e4b
+> aa4cf9452f469f16cea8c96283b641b4576d4a7b
+> 90f62cf30a78721641e08737bda787552428061e
+> 2d7a85f4b06e9c27ff629f07a524c48074f07f81
+>
+> for v3.2 and v3.4 -stable?  Thanks!
+
+I can certainly help review.  However I am not in a place where I can
+promise any timely work on this.
+
+Eric
