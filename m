@@ -1,76 +1,117 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: [PATCH net] tcp: fix tcp_match_skb_to_sack() for unaligned SACK at end of an skb
-Date: Wed, 18 Jun 2014 21:15:03 -0400
-Message-ID: <1403140503-9689-1-git-send-email-ncardwell@google.com>
-Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Ilpo Jarvinen <ilpo.jarvinen@helsinki.fi>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f202.google.com ([209.85.220.202]:46941 "EHLO
-	mail-vc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754662AbaFSBPI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 21:15:08 -0400
-Received: by mail-vc0-f202.google.com with SMTP id id10so228322vcb.5
-        for <netdev@vger.kernel.org>; Wed, 18 Jun 2014 18:15:07 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
+Subject: [PATCH v7 0/4] net: Add APM X-Gene SoC Ethernet driver support
+Date: Wed, 18 Jun 2014 18:17:10 -0700
+Message-ID: <1403140634-27104-1-git-send-email-isubramanian@apm.com>
+Cc: gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	patches-qTEPVZfXA3Y@public.gmane.org, Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>,
+	Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>, Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-If there is an MSS change (or misbehaving receiver) that causes a SACK
-to arrive that covers the end of an skb but is less than one MSS, then
-tcp_match_skb_to_sack() was rounding up pkt_len to the full length of
-the skb ("Round if necessary..."), then chopping all bytes off the skb
-and creating a zero-byte skb in the write queue.
+Adding APM X-Gene SoC Ethernet driver.
 
-This was visible now because the recently simplified TLP logic in
-bef1909ee3ed1c ("tcp: fixing TLP's FIN recovery") could find that 0-byte
-skb at the end of the write queue, and now that we do not check that
-skb's length we could send it as a TLP probe.
+v7: Address comments from v6 review
+* fixed skb memory leak when dma_map_single fails in xmit.
 
-Consider the following example scenario:
+v6: Address comments from v5 review
+* added basic ethtool support
+* added ndo_get_stats64 call back
+* deleted priting Rx error messages
+* renamed set_bits to xgene_set_bits to fix kbuild error (make ARCH=powerpc)
 
- mss: 1000
- skb: seq: 0 end_seq: 4000  len: 4000
- SACK: start_seq: 3999 end_seq: 4000
+v5: Address comments from v4 review
+* Documentation: Added phy-handle, reg-names and changed mdio part
+* dtb: Added reg-names supplemental property
+* changed platform_get_resource to platform_get_resource_byname
+* added separate tx/rx set_desc/get_desc functions to do raw_write/raw_read
+* removed set_desc/get_desc table lookup logic
+* added error handling logic based on per packet descriptor bits
+* added software managed Rx packet and error counters
+* added busy wait for register read/writes
+* changed mdio_bus->id to avoid conflict
+* fixed mdio_bus leak in case of mdio_config error
+* changed phy reg hard coded value to MII_BMSR
+* changed phy addr hard coded value to phy_device->addr
+* added paranthesis around macro arguments
+* converted helper macros to inline functions
+* changed use of goto's only to common work such as cleanup
 
-The tcp_match_skb_to_sack() code will compute:
+v4: Address comments from v3 review
+* MAINTAINERS: changed status to supported
+* Kconfig: made default to no
+* changed to bool data type wherever applicable
+* cleaned up single bit set and masking code
+* removed statistics counters masking
+* removed unnecessary OOM message printing
+* fixed dma_map_single and dma_unmap_single size parameter
+* changed set bits macro body using new set_bits function
 
- in_sack = false
- pkt_len = start_seq - TCP_SKB_CB(skb)->seq = 3999 - 0 = 3999
- new_len = (pkt_len / mss) * mss = (3999/1000)*1000 = 3000
- new_len += mss = 4000
+v3: Address comments from v2 review
+* cleaned up set_desc and get_desc functions
+* added dtb mdio node and phy-handle subnode
+* renamed dtb phy-mode to phy-connection-type
+* added of_phy_connect call to connec to PHY
+* added empty line after last local variable declaration
+* removed type casting when not required
+* removed inline keyword from source files
+* removed CONFIG_CPU_BIG_ENDIAN ifdef
 
-Previously we would find the new_len > skb->len check failing, so we
-would fall through and set pkt_len = new_len = 4000 and chop off
-pkt_len of 4000 from the 4000-byte skb, leaving a 0-byte segment
-afterward in the write queue.
+v2
+* Completely redesigned ethernet driver
+* Added support to work with big endian kernel
+* Renamed dtb phyid entry to phy_addr
+* Changed dtb local-mac-address entry to byte string format
+* Renamed dtb eth8clk entry to menetclk
 
-With this new commit, we notice that the new new_len >= skb->len check
-succeeds, so that we return without trying to fragment.
+v1
+* Initial version
 
-Fixes: adb92db857ee ("tcp: Make SACK code to split only at mss boundaries")
-Reported-by: Eric Dumazet <edumazet@google.com>
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Yuchung Cheng <ycheng@google.com>
-Cc: Ilpo Jarvinen <ilpo.jarvinen@helsinki.fi>
+Signed-off-by: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
+Signed-off-by: Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>
+Signed-off-by: Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>
 ---
- net/ipv4/tcp_input.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 40661fc..b5c2375 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -1162,7 +1162,7 @@ static int tcp_match_skb_to_sack(struct sock *sk, struct sk_buff *skb,
- 			unsigned int new_len = (pkt_len / mss) * mss;
- 			if (!in_sack && new_len < pkt_len) {
- 				new_len += mss;
--				if (new_len > skb->len)
-+				if (new_len >= skb->len)
- 					return 0;
- 			}
- 			pkt_len = new_len;
+Iyappan Subramanian (4):
+  MAINTAINERS: Add entry for APM X-Gene SoC ethernet driver
+  Documentation: dts: Add bindings for APM X-Gene SoC ethernet driver
+  dts: Add bindings for APM X-Gene SoC ethernet driver
+  drivers: net: Add APM X-Gene SoC ethernet driver support.
+
+ .../devicetree/bindings/net/apm-xgene-enet.txt     |  72 ++
+ MAINTAINERS                                        |   8 +
+ arch/arm64/boot/dts/apm-mustang.dts                |   4 +
+ arch/arm64/boot/dts/apm-storm.dtsi                 |  30 +-
+ drivers/net/ethernet/Kconfig                       |   1 +
+ drivers/net/ethernet/Makefile                      |   1 +
+ drivers/net/ethernet/apm/Kconfig                   |   1 +
+ drivers/net/ethernet/apm/Makefile                  |   5 +
+ drivers/net/ethernet/apm/xgene/Kconfig             |   9 +
+ drivers/net/ethernet/apm/xgene/Makefile            |   6 +
+ .../net/ethernet/apm/xgene/xgene_enet_ethtool.c    | 125 +++
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.c     | 848 +++++++++++++++++++
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.h     | 394 +++++++++
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c   | 939 +++++++++++++++++++++
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.h   | 109 +++
+ 15 files changed, 2549 insertions(+), 3 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/apm-xgene-enet.txt
+ create mode 100644 drivers/net/ethernet/apm/Kconfig
+ create mode 100644 drivers/net/ethernet/apm/Makefile
+ create mode 100644 drivers/net/ethernet/apm/xgene/Kconfig
+ create mode 100644 drivers/net/ethernet/apm/xgene/Makefile
+ create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_ethtool.c
+ create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
+ create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
+ create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+ create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_main.h
+
 -- 
-2.0.0.526.g5318336
+1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
