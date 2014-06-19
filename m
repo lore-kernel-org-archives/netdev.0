@@ -1,48 +1,186 @@
-From: 'Tejun Heo' <tj@kernel.org>
-Subject: Re: [PATCH net-next 5/5] net: sctp: fix incorrect type in gfp
- initializer
-Date: Thu, 19 Jun 2014 09:46:56 -0400
-Message-ID: <20140619134656.GJ11042@htj.dyndns.org>
-References: <1402497297-27100-1-git-send-email-dborkman@redhat.com>
- <1402497297-27100-6-git-send-email-dborkman@redhat.com>
- <063D6719AE5E284EB5DD2968C1650D6D1725AF78@AcuExch.aculab.com>
- <5398712C.3000801@redhat.com>
- <CAADnVQLyNCUU0+onEHbygVE-M3WK59uB=NoKWi1V4Rh+6AZkVA@mail.gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6D1725B905@AcuExch.aculab.com>
- <20140618183058.GC11042@htj.dyndns.org>
- <063D6719AE5E284EB5DD2968C1650D6D1725EF63@AcuExch.aculab.com>
+From: Li RongQing <roy.qing.li@gmail.com>
+Subject: Re: [PATCH] cxgb4: disable BH when hold the adap_rcu_lock lock
+Date: Thu, 19 Jun 2014 21:48:41 +0800
+Message-ID: <CAJFZqHxLiUmrkJRZS4t5Uk6kyUPyzOYTn=rG03y6tWwRtVo+LQ@mail.gmail.com>
+References: <53A0DDF5.80103@candelatech.com>
+	<1403168810-9001-1-git-send-email-roy.qing.li@gmail.com>
+	<1403185201.1225.10.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: 'Alexei Starovoitov' <alexei.starovoitov@gmail.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev <netdev@vger.kernel.org>,
+	Ben Greear <greearb@candelatech.com>, leedom@chelsio.com,
+	hariprasad@chelsio.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f171.google.com ([209.85.216.171]:57059 "EHLO
-	mail-qc0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754545AbaFSNrA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2014 09:47:00 -0400
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1725EF63@AcuExch.aculab.com>
+Received: from mail-qa0-f47.google.com ([209.85.216.47]:59054 "EHLO
+	mail-qa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756754AbaFSNsm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2014 09:48:42 -0400
+Received: by mail-qa0-f47.google.com with SMTP id hw13so1943541qab.6
+        for <netdev@vger.kernel.org>; Thu, 19 Jun 2014 06:48:41 -0700 (PDT)
+In-Reply-To: <1403185201.1225.10.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 19, 2014 at 08:13:48AM +0000, David Laight wrote:
-> Apart from the fact that it is badly optimised.
-> 
-> If z() were an empty #define rather than an empty inline function
-> then you'd end up with the:
-> 	if (preload)
-> 		z();
-> being completely optimised away.
+On Thu, Jun 19, 2014 at 9:40 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> Sorry, I do not understand the problem.
+>
+> This lock should be taken from process context only.
+>
+> You did not provide full lockdep report, did you ?
 
-This isn't that hot a path and I don't wanna change it to work around
-compiler behavior at this level.  If you care about it, please report
-it to the compiler people.
 
-Thanks.
+The full lockdep report is:
 
--- 
-tejun
+=================================
+[ INFO: inconsistent lock state ]
+3.14.7+ #24 Tainted: G         C O
+---------------------------------
+inconsistent {SOFTIRQ-ON-W} -> {IN-SOFTIRQ-W} usage.
+radvd/3794 [HC0[0]:SC1[1]:HE1:SE0] takes:
+ (adap_rcu_lock){+.?...}, at: [<ffffffffa09989ea>] clip_add+0x2c/0x116 [cxgb4]
+{SOFTIRQ-ON-W} state was registered at:
+  [<ffffffff810fca81>] __lock_acquire+0x34a/0xe48
+  [<ffffffff810fd98b>] lock_acquire+0x82/0x9d
+  [<ffffffff815d6ff8>] _raw_spin_lock+0x34/0x43
+  [<ffffffffa09989ea>] clip_add+0x2c/0x116 [cxgb4]
+  [<ffffffffa0998beb>] cxgb4_inet6addr_handler+0x117/0x12c [cxgb4]
+  [<ffffffff815da98b>] notifier_call_chain+0x32/0x5c
+  [<ffffffff815da9f9>] __atomic_notifier_call_chain+0x44/0x6e
+  [<ffffffff815daa32>] atomic_notifier_call_chain+0xf/0x11
+  [<ffffffff815b1356>] inet6addr_notifier_call_chain+0x16/0x18
+  [<ffffffffa01f72e5>] ipv6_add_addr+0x404/0x46e [ipv6]
+  [<ffffffffa01f8df0>] addrconf_add_linklocal+0x5f/0x95 [ipv6]
+  [<ffffffffa01fc3e9>] addrconf_notify+0x632/0x841 [ipv6]
+  [<ffffffff815da98b>] notifier_call_chain+0x32/0x5c
+  [<ffffffff810e09a1>] __raw_notifier_call_chain+0x9/0xb
+  [<ffffffff810e09b2>] raw_notifier_call_chain+0xf/0x11
+  [<ffffffff8151b3b7>] call_netdevice_notifiers_info+0x4e/0x56
+  [<ffffffff8151b3d0>] call_netdevice_notifiers+0x11/0x13
+  [<ffffffff8151c0a6>] netdev_state_change+0x1f/0x38
+  [<ffffffff8152f004>] linkwatch_do_dev+0x3b/0x49
+  [<ffffffff8152f184>] __linkwatch_run_queue+0x10b/0x144
+  [<ffffffff8152f1dd>] linkwatch_event+0x20/0x27
+  [<ffffffff810d7bc0>] process_one_work+0x1cb/0x2ee
+  [<ffffffff810d7e3b>] worker_thread+0x12e/0x1fc
+  [<ffffffff810dd391>] kthread+0xc4/0xcc
+  [<ffffffff815dc48c>] ret_from_fork+0x7c/0xb0
+irq event stamp: 3388
+hardirqs last  enabled at (3388): [<ffffffff810c6c85>]
+__local_bh_enable_ip+0xaa/0xd9
+hardirqs last disabled at (3387): [<ffffffff810c6c2d>]
+__local_bh_enable_ip+0x52/0xd9
+softirqs last  enabled at (3288): [<ffffffffa01f1d5b>]
+rcu_read_unlock_bh+0x0/0x2f [ipv6]
+softirqs last disabled at (3289): [<ffffffff815ddafc>]
+do_softirq_own_stack+0x1c/0x30
+
+other info that might help us debug this:
+ Possible unsafe locking scenario:
+
+       CPU0
+       ----
+  lock(adap_rcu_lock);
+  <Interrupt>
+    lock(adap_rcu_lock);
+
+ *** DEADLOCK ***
+
+5 locks held by radvd/3794:
+ #0:  (sk_lock-AF_INET6){+.+.+.}, at: [<ffffffffa020b85a>]
+rawv6_sendmsg+0x74b/0xa4d [ipv6]
+ #1:  (rcu_read_lock){.+.+..}, at: [<ffffffff8151ac6b>]
+rcu_lock_acquire+0x0/0x29
+ #2:  (rcu_read_lock){.+.+..}, at: [<ffffffffa01f4cca>]
+rcu_lock_acquire.constprop.16+0x0/0x30 [ipv6]
+ #3:  (rcu_read_lock){.+.+..}, at: [<ffffffff810e09b4>]
+rcu_lock_acquire+0x0/0x29
+ #4:  (rcu_read_lock){.+.+..}, at: [<ffffffffa0998782>]
+rcu_lock_acquire.constprop.40+0x0/0x30 [cxgb4]
+
+stack backtrace:
+CPU: 7 PID: 3794 Comm: radvd Tainted: G         C O 3.14.7+ #24
+Hardware name: Supermicro X7DBU/X7DBU, BIOS 6.00 12/03/2007
+ ffffffff81f15990 ffff88012fdc36a8 ffffffff815d0016 0000000000000006
+ ffff8800c80dc2a0 ffff88012fdc3708 ffffffff815cc727 0000000000000001
+ 0000000000000001 ffff880100000000 ffffffff81015b02 ffff8800c80dcb58
+Call Trace:
+ <IRQ>  [<ffffffff815d0016>] dump_stack+0x4e/0x71
+ [<ffffffff815cc727>] print_usage_bug+0x1ec/0x1fd
+ [<ffffffff81015b02>] ? save_stack_trace+0x27/0x44
+ [<ffffffff810fbfaa>] ? check_usage_backwards+0xa0/0xa0
+ [<ffffffff810fc640>] mark_lock+0x11b/0x212
+ [<ffffffff810fca0b>] __lock_acquire+0x2d4/0xe48
+ [<ffffffff810fbfaa>] ? check_usage_backwards+0xa0/0xa0
+ [<ffffffff810fbff6>] ? check_usage_forwards+0x4c/0xa6
+ [<ffffffff810c6c8a>] ? __local_bh_enable_ip+0xaf/0xd9
+ [<ffffffff810fd98b>] lock_acquire+0x82/0x9d
+ [<ffffffffa09989ea>] ? clip_add+0x2c/0x116 [cxgb4]
+ [<ffffffffa0998782>] ? rcu_read_unlock+0x23/0x23 [cxgb4]
+ [<ffffffff815d6ff8>] _raw_spin_lock+0x34/0x43
+ [<ffffffffa09989ea>] ? clip_add+0x2c/0x116 [cxgb4]
+ [<ffffffffa09987b0>] ? rcu_lock_acquire.constprop.40+0x2e/0x30 [cxgb4]
+ [<ffffffffa0998782>] ? rcu_read_unlock+0x23/0x23 [cxgb4]
+ [<ffffffffa09989ea>] clip_add+0x2c/0x116 [cxgb4]
+ [<ffffffffa0998beb>] cxgb4_inet6addr_handler+0x117/0x12c [cxgb4]
+ [<ffffffff810fd99d>] ? lock_acquire+0x94/0x9d
+ [<ffffffff810e09b4>] ? raw_notifier_call_chain+0x11/0x11
+ [<ffffffff815da98b>] notifier_call_chain+0x32/0x5c
+ [<ffffffff815da9f9>] __atomic_notifier_call_chain+0x44/0x6e
+ [<ffffffff815daa32>] atomic_notifier_call_chain+0xf/0x11
+ [<ffffffff815b1356>] inet6addr_notifier_call_chain+0x16/0x18
+ [<ffffffffa01f72e5>] ipv6_add_addr+0x404/0x46e [ipv6]
+ [<ffffffff810fde6a>] ? trace_hardirqs_on+0xd/0xf
+ [<ffffffffa01fb634>] addrconf_prefix_rcv+0x385/0x6ea [ipv6]
+ [<ffffffffa0207950>] ndisc_rcv+0x9d3/0xd76 [ipv6]
+ [<ffffffffa020d536>] icmpv6_rcv+0x592/0x67b [ipv6]
+ [<ffffffff810c6c85>] ? __local_bh_enable_ip+0xaa/0xd9
+ [<ffffffff810c6c85>] ? __local_bh_enable_ip+0xaa/0xd9
+ [<ffffffff810fd8dc>] ? lock_release+0x14e/0x17b
+ [<ffffffffa020df97>] ? rcu_read_unlock+0x21/0x23 [ipv6]
+ [<ffffffff8150df52>] ? rcu_read_unlock+0x23/0x23
+ [<ffffffffa01f4ede>] ip6_input_finish+0x1e4/0x2fc [ipv6]
+ [<ffffffffa01f540b>] ip6_input+0x33/0x38 [ipv6]
+ [<ffffffffa01f5557>] ip6_mc_input+0x147/0x160 [ipv6]
+ [<ffffffffa01f4ba3>] ip6_rcv_finish+0x7c/0x81 [ipv6]
+ [<ffffffffa01f5397>] ipv6_rcv+0x3a1/0x3e2 [ipv6]
+ [<ffffffff8151ef96>] __netif_receive_skb_core+0x4ab/0x511
+ [<ffffffff810fdc94>] ? mark_held_locks+0x71/0x99
+ [<ffffffff8151f0c0>] ? process_backlog+0x69/0x15e
+ [<ffffffff8151f045>] __netif_receive_skb+0x49/0x5b
+ [<ffffffff8151f0cf>] process_backlog+0x78/0x15e
+ [<ffffffff8151f571>] ? net_rx_action+0x1a2/0x1cc
+ [<ffffffff8151f47b>] net_rx_action+0xac/0x1cc
+ [<ffffffff810c69b7>] ? __do_softirq+0xad/0x218
+ [<ffffffff810c69ff>] __do_softirq+0xf5/0x218
+ [<ffffffff815ddafc>] do_softirq_own_stack+0x1c/0x30
+ <EOI>  [<ffffffff810c6bb6>] do_softirq+0x38/0x5d
+ [<ffffffffa01f1d5b>] ? ip6_copy_metadata+0x156/0x156 [ipv6]
+ [<ffffffff810c6c78>] __local_bh_enable_ip+0x9d/0xd9
+ [<ffffffffa01f1d88>] rcu_read_unlock_bh+0x2d/0x2f [ipv6]
+ [<ffffffffa01f28b4>] ip6_finish_output2+0x381/0x3d8 [ipv6]
+ [<ffffffffa01f49ef>] ip6_finish_output+0x6e/0x73 [ipv6]
+ [<ffffffffa01f4a70>] ip6_output+0x7c/0xa8 [ipv6]
+ [<ffffffff815b1bfa>] dst_output+0x18/0x1c
+ [<ffffffff815b1c9e>] ip6_local_out+0x1c/0x21
+ [<ffffffffa01f2489>] ip6_push_pending_frames+0x37d/0x427 [ipv6]
+ [<ffffffff81558af8>] ? skb_orphan+0x39/0x39
+ [<ffffffffa020b85a>] ? rawv6_sendmsg+0x74b/0xa4d [ipv6]
+ [<ffffffffa020ba51>] rawv6_sendmsg+0x942/0xa4d [ipv6]
+ [<ffffffff81584cd2>] inet_sendmsg+0x3d/0x66
+ [<ffffffff81508930>] __sock_sendmsg_nosec+0x25/0x27
+ [<ffffffff8150b0d7>] sock_sendmsg+0x5a/0x7b
+ [<ffffffff810fd8dc>] ? lock_release+0x14e/0x17b
+ [<ffffffff8116d756>] ? might_fault+0x9e/0xa5
+ [<ffffffff8116d70d>] ? might_fault+0x55/0xa5
+ [<ffffffff81508cb1>] ? copy_from_user+0x2a/0x2c
+ [<ffffffff8150b70c>] ___sys_sendmsg+0x226/0x2d9
+ [<ffffffff810fcd25>] ? __lock_acquire+0x5ee/0xe48
+ [<ffffffff810fde01>] ? trace_hardirqs_on_caller+0x145/0x1a1
+ [<ffffffff8118efcb>] ? slab_free_hook.isra.71+0x50/0x59
+ [<ffffffff8115c81f>] ? release_pages+0xbc/0x181
+ [<ffffffff810fd99d>] ? lock_acquire+0x94/0x9d
+ [<ffffffff81115e97>] ? read_seqcount_begin.constprop.25+0x73/0x90
+ [<ffffffff8150c408>] __sys_sendmsg+0x3d/0x5b
+ [<ffffffff8150c433>] SyS_sendmsg+0xd/0x19
+ [<ffffffff815dc53d>] system_call_fastpath+0x1a/0x1f
