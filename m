@@ -1,7 +1,7 @@
 From: Anish Bhatt <anish@chelsio.com>
-Subject: [PATCH net-next 3/5] cxgb4 : Integrate DCBx support into cxgb4 module. Register dbcnl_ops to give access to DCBx functions
-Date: Thu, 19 Jun 2014 15:22:09 -0700
-Message-ID: <1403216531-7874-4-git-send-email-anish@chelsio.com>
+Subject: [PATCH net-next 2/5] cxgb4 : Add DCBx support codebase and dcbnl_ops
+Date: Thu, 19 Jun 2014 15:22:08 -0700
+Message-ID: <1403216531-7874-3-git-send-email-anish@chelsio.com>
 References: <1403216531-7874-1-git-send-email-anish@chelsio.com>
 Cc: davem@davemloft.net, leedom@chelsio.com, hariprasad@chelsio.com,
 	Anish Bhatt <anish@chelsio.com>
@@ -9,449 +9,1167 @@ To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:35735
 	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S965816AbaFSXYj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2014 19:24:39 -0400
+	by vger.kernel.org with ESMTP id S965467AbaFSXYl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2014 19:24:41 -0400
 In-Reply-To: <1403216531-7874-1-git-send-email-anish@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Anish Bhatt <anish@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |   8 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 199 +++++++++++++++++++++++-
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      |  76 ++++++++-
- 3 files changed, 269 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h     |   3 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c | 980 +++++++++++++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.h | 141 ++++
+ 3 files changed, 1124 insertions(+)
+ create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
+ create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.h
 
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index e8b944f..9d69c3e 100644
+index f503dce..e8b944f 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -373,6 +373,8 @@ enum {
- struct adapter;
- struct sge_rspq;
- 
-+#include "cxgb4_dcb.h"
-+
- struct port_info {
- 	struct adapter *adapter;
- 	u16    viid;
-@@ -1010,6 +1012,10 @@ int t4_query_params(struct adapter *adap, unsigned int mbox, unsigned int pf,
- int t4_set_params(struct adapter *adap, unsigned int mbox, unsigned int pf,
- 		  unsigned int vf, unsigned int nparams, const u32 *params,
- 		  const u32 *val);
-+int t4_set_params_nosleep(struct adapter *adap, unsigned int mbox,
-+			  unsigned int pf, unsigned int vf,
-+			  unsigned int nparams, const u32 *params,
-+			  const u32 *val);
- int t4_cfg_pfvf(struct adapter *adap, unsigned int mbox, unsigned int pf,
- 		unsigned int vf, unsigned int txq, unsigned int txq_eth_ctrl,
- 		unsigned int rxqi, unsigned int rxq, unsigned int tc,
-@@ -1028,6 +1034,8 @@ int t4_change_mac(struct adapter *adap, unsigned int mbox, unsigned int viid,
- 		  int idx, const u8 *addr, bool persist, bool add_smt);
- int t4_set_addr_hash(struct adapter *adap, unsigned int mbox, unsigned int viid,
- 		     bool ucast, u64 vec, bool sleep_ok);
-+int t4_enable_vi_params(struct adapter *adap, unsigned int mbox,
-+			unsigned int viid, bool rx_en, bool tx_en, bool dcb_en);
- int t4_enable_vi(struct adapter *adap, unsigned int mbox, unsigned int viid,
- 		 bool rx_en, bool tx_en);
- int t4_identify_port(struct adapter *adap, unsigned int mbox, unsigned int viid,
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 2f8d6b9..74b0ce5 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -67,6 +67,7 @@
- #include "t4_regs.h"
- #include "t4_msg.h"
- #include "t4fw_api.h"
-+#include "cxgb4_dcb.h"
- #include "l2t.h"
- 
- #include <../drivers/net/bonding/bonding.h>
-@@ -391,6 +392,17 @@ module_param_array(num_vf, uint, NULL, 0644);
- MODULE_PARM_DESC(num_vf, "number of VFs for each of PFs 0-3");
- #endif
- 
-+/* TX Queue select used to determine what algorithm to use for selecting TX
-+ * queue. Select between the kernel provided function (select_queue=0) or user
-+ * cxgb_select_queue function (select_queue=1)
-+ *
-+ * Default: select_queue=0
-+ */
-+static int select_queue;
-+module_param(select_queue, int, 0644);
-+MODULE_PARM_DESC(select_queue,
-+		 "Select between kernel provided method of selecting or driver method of selecting TX queue. Default is kernel method.");
-+
- /*
-  * The filter TCAM has a fixed portion and a variable portion.  The fixed
-  * portion can match on source/destination IP IPv4/IPv6 addresses and TCP/UDP
-@@ -458,6 +470,42 @@ static void link_report(struct net_device *dev)
- 	}
- }
- 
+@@ -389,6 +389,9 @@ struct port_info {
+ 	u8     rss_mode;
+ 	struct link_config link_cfg;
+ 	u16   *rss;
 +#ifdef CONFIG_CHELSIO_T4_DCB
-+/* Set up/tear down Data Center Bridging Priority mapping for a net device. */
-+static void dcb_tx_queue_prio_enable(struct net_device *dev, int enable)
-+{
-+	struct port_info *pi = netdev_priv(dev);
-+	struct adapter *adap = pi->adapter;
-+	struct sge_eth_txq *txq = &adap->sge.ethtxq[pi->first_qset];
-+	int i;
++	struct port_dcb_info dcb;     /* Data Center Bridging support */
++#endif
+ };
+ 
+ struct dentry;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
+new file mode 100644
+index 0000000..39b4a85
+--- /dev/null
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
+@@ -0,0 +1,980 @@
++/*
++ *  Copyright (C) 2013-2014 Chelsio Communications.  All rights reserved.
++ *
++ *  Written by Anish Bhatt (anish@chelsio.com)
++ *	       Casey Leedom (leedom@chelsio.com)
++ *
++ *  This program is free software; you can redistribute it and/or modify it
++ *  under the terms and conditions of the GNU General Public License,
++ *  version 2, as published by the Free Software Foundation.
++ *
++ *  This program is distributed in the hope it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ *  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ *  more details.
++ *
++ *  The full GNU General Public License is included in this distribution in
++ *  the file called "COPYING".
++ *
++ */
 +
-+	/* We use a simple mapping of Port TX Queue Index to DCB
-+	 * Priority when we're enabling DCB.
++#include "cxgb4.h"
++
++/* Initialize a port's Data Center Bridging state.  Typically used after a
++ * Link Down event.
++ */
++void cxgb4_dcb_state_init(struct net_device *dev)
++{
++	struct port_info *pi = netdev2pinfo(dev);
++	struct port_dcb_info *dcb = &pi->dcb;
++
++	memset(dcb, 0, sizeof(struct port_dcb_info));
++	dcb->state = CXGB4_DCB_STATE_START;
++}
++
++/* Finite State machine for Data Center Bridging.
++ */
++void cxgb4_dcb_state_fsm(struct net_device *dev,
++			 enum cxgb4_dcb_state_input input)
++{
++	struct port_info *pi = netdev2pinfo(dev);
++	struct port_dcb_info *dcb = &pi->dcb;
++	struct adapter *adap = pi->adapter;
++
++	switch (input) {
++	case CXGB4_DCB_INPUT_FW_DISABLED: {
++		/* Firmware tells us it's not doing DCB */
++		switch (dcb->state) {
++		case CXGB4_DCB_STATE_START: {
++			/* we're going to use Host DCB */
++			dcb->state = CXGB4_DCB_STATE_HOST;
++			dcb->supported = CXGB4_DCBX_HOST_SUPPORT;
++			dcb->enabled = 1;
++			break;
++		}
++
++		case CXGB4_DCB_STATE_HOST: {
++			/* we're alreaady in Host DCB mode */
++			break;
++		}
++
++		default:
++			goto bad_state_transition;
++		}
++		break;
++	}
++
++	case CXGB4_DCB_INPUT_FW_ENABLED: {
++		/* Firmware tells us that it is doing DCB */
++		switch (dcb->state) {
++		case CXGB4_DCB_STATE_START: {
++			/* we're going to use Firmware DCB */
++			dcb->state = CXGB4_DCB_STATE_FW_INCOMPLETE;
++			dcb->supported = CXGB4_DCBX_FW_SUPPORT;
++			break;
++		}
++
++		case CXGB4_DCB_STATE_FW_INCOMPLETE:
++		case CXGB4_DCB_STATE_FW_ALLSYNCED: {
++			/* we're alreaady in firmware DCB mode */
++			break;
++		}
++
++		default:
++			goto bad_state_transition;
++		}
++		break;
++	}
++
++	case CXGB4_DCB_INPUT_FW_INCOMPLETE: {
++		/* Firmware tells us that its DCB state is incomplete */
++		switch (dcb->state) {
++		case CXGB4_DCB_STATE_FW_INCOMPLETE: {
++			/* we're already incomplete */
++			break;
++		}
++
++		case CXGB4_DCB_STATE_FW_ALLSYNCED: {
++			/* We were successfully running with firmware DCB but
++			 * now it's telling us that it's in an "incomplete
++			 * state.  We need to reset back to a ground state
++			 * of incomplete.
++			 */
++			cxgb4_dcb_state_init(dev);
++			dcb->state = CXGB4_DCB_STATE_FW_INCOMPLETE;
++			dcb->supported = CXGB4_DCBX_FW_SUPPORT;
++			linkwatch_fire_event(dev);
++			break;
++		}
++
++		default:
++			goto bad_state_transition;
++		}
++		break;
++	}
++
++	case CXGB4_DCB_INPUT_FW_ALLSYNCED: {
++		/* Firmware tells us that its DCB state is complete */
++		switch (dcb->state) {
++		case CXGB4_DCB_STATE_FW_INCOMPLETE: {
++			dcb->state = CXGB4_DCB_STATE_FW_ALLSYNCED;
++			dcb->enabled = 1;
++			linkwatch_fire_event(dev);
++			break;
++		}
++
++		case CXGB4_DCB_STATE_FW_ALLSYNCED: {
++			/* we're already all sync'ed */
++			break;
++		}
++
++		default:
++			goto bad_state_transition;
++		}
++		break;
++	}
++
++	default:
++		goto  bad_state_input;
++	}
++	return;
++
++bad_state_input:
++	dev_err(adap->pdev_dev, "cxgb4_dcb_state_fsm: illegal input symbol %d\n",
++		input);
++	return;
++
++bad_state_transition:
++	dev_err(adap->pdev_dev, "cxgb4_dcb_state_fsm: bad state transition, state = %d, input = %d\n",
++		dcb->state, input);
++}
++
++/* Handle a DCB/DCBX update message from the firmware.
++ */
++void cxgb4_dcb_handle_fw_update(struct adapter *adap,
++				const struct fw_port_cmd *pcmd)
++{
++	const union fw_port_dcb *fwdcb = &pcmd->u.dcb;
++	int port = FW_PORT_CMD_PORTID_GET(be32_to_cpu(pcmd->op_to_portid));
++	struct net_device *dev = adap->port[port];
++	struct port_info *pi = netdev_priv(dev);
++	struct port_dcb_info *dcb = &pi->dcb;
++	int dcb_type = pcmd->u.dcb.pgid.type;
++
++	/* Handle Firmware DCB Control messages separately since they drive
++	 * our state machine.
 +	 */
-+	for (i = 0; i < pi->nqsets; i++, txq++) {
-+		u32 name, value;
++	if (dcb_type == FW_PORT_DCB_TYPE_CONTROL) {
++		enum cxgb4_dcb_state_input input =
++			((pcmd->u.dcb.control.all_syncd_pkd &
++			  FW_PORT_CMD_ALL_SYNCD)
++			 ? CXGB4_DCB_STATE_FW_ALLSYNCED
++			 : CXGB4_DCB_STATE_FW_INCOMPLETE);
++
++		cxgb4_dcb_state_fsm(dev, input);
++		return;
++	}
++
++	/* It's weird, and almost certainly an error, to get Firmware DCB
++	 * messages when we either haven't been told whether we're going to be
++	 * doing Host or Firmware DCB; and even worse when we've been told
++	 * that we're doing Host DCB!
++	 */
++	if (dcb->state == CXGB4_DCB_STATE_START ||
++	    dcb->state == CXGB4_DCB_STATE_HOST) {
++		dev_err(adap->pdev_dev, "Receiving Firmware DCB messages in State %d\n",
++			dcb->state);
++		return;
++	}
++
++	/* Now handle the general Firmware DCB update messages ...
++	 */
++	switch (dcb_type) {
++	case FW_PORT_DCB_TYPE_PGID:
++		dcb->pgid = be32_to_cpu(fwdcb->pgid.pgid);
++		dcb->msgs |= CXGB4_DCB_FW_PGID;
++		break;
++
++	case FW_PORT_DCB_TYPE_PGRATE:
++		dcb->pg_num_tcs_supported = fwdcb->pgrate.num_tcs_supported;
++		memcpy(dcb->pgrate, &fwdcb->pgrate.pgrate,
++		       sizeof(dcb->pgrate));
++		dcb->msgs |= CXGB4_DCB_FW_PGRATE;
++		break;
++
++	case FW_PORT_DCB_TYPE_PRIORATE:
++		memcpy(dcb->priorate, &fwdcb->priorate.strict_priorate,
++		       sizeof(dcb->priorate));
++		dcb->msgs |= CXGB4_DCB_FW_PRIORATE;
++		break;
++
++	case FW_PORT_DCB_TYPE_PFC:
++		dcb->pfcen = fwdcb->pfc.pfcen;
++		dcb->pfc_num_tcs_supported = fwdcb->pfc.max_pfc_tcs;
++		dcb->msgs |= CXGB4_DCB_FW_PFC;
++		break;
++
++	case FW_PORT_DCB_TYPE_APP_ID: {
++		const struct fw_port_app_priority *fwap = &fwdcb->app_priority;
++		int idx = fwap->idx;
++		struct app_priority *ap = &dcb->app_priority[idx];
++
++		struct dcb_app app = {
++			.selector = fwap->sel_field,
++			.protocol = be16_to_cpu(fwap->protocolid),
++			.priority = fwap->user_prio_map,
++		};
 +		int err;
 +
-+		name = (FW_PARAMS_MNEM(FW_PARAMS_MNEM_DMAQ) |
-+			FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_DMAQ_EQ_DCBPRIO_ETH) |
-+			FW_PARAMS_PARAM_YZ(txq->q.cntxt_id));
-+		value = enable ? i : 0xffffffff;
-+
-+		/* Since we can be called while atomic (from "interrupt
-+		 * level") we need to issue the Set Parameters Commannd
-+		 * without sleeping (timeout < 0).
-+		 */
-+		err = t4_set_params_nosleep(adap, adap->mbox, adap->fn, 0, 1,
-+					    &name, &value);
-+
++		err = dcb_setapp(dev, &app);
 +		if (err)
 +			dev_err(adap->pdev_dev,
-+				"Can't %s DCB Priority on port %d, TX Queue %d: err=%d\n",
-+				enable ? "set" : "unset", pi->port_id, i, -err);
++				"Failed DCB Set Application Priority: sel=%d, prot=%d, prio=%d, err=%d\n",
++				app.selector, app.protocol, app.priority, -err);
++
++		ap->user_prio_map = fwap->user_prio_map;
++		ap->sel_field = fwap->sel_field;
++		ap->protocolid = be16_to_cpu(fwap->protocolid);
++		dcb->msgs |= CXGB4_DCB_FW_APP_ID;
++		break;
++	}
++
++	default:
++		dev_err(adap->pdev_dev, "Unknown DCB update type received %x\n",
++			dcb_type);
++		break;
 +	}
 +}
-+#endif /* CONFIG_CHELSIO_T4_DCB */
 +
- void t4_os_link_changed(struct adapter *adapter, int port_id, int link_stat)
- {
- 	struct net_device *dev = adapter->port[port_id];
-@@ -466,8 +514,13 @@ void t4_os_link_changed(struct adapter *adapter, int port_id, int link_stat)
- 	if (netif_running(dev) && link_stat != netif_carrier_ok(dev)) {
- 		if (link_stat)
- 			netif_carrier_on(dev);
--		else
-+		else {
-+#ifdef CONFIG_CHELSIO_T4_DCB
-+			cxgb4_dcb_state_init(dev);
-+			dcb_tx_queue_prio_enable(dev, false);
-+#endif /* CONFIG_CHELSIO_T4_DCB */
- 			netif_carrier_off(dev);
-+		}
- 
- 		link_report(dev);
- 	}
-@@ -601,10 +654,45 @@ static int link_start(struct net_device *dev)
- 		ret = t4_link_start(pi->adapter, mb, pi->tx_chan,
- 				    &pi->link_cfg);
- 	if (ret == 0)
--		ret = t4_enable_vi(pi->adapter, mb, pi->viid, true, true);
-+		ret = t4_enable_vi_params(pi->adapter, mb, pi->viid, true,
-+					  true, CXGB4_DCB_ENABLED);
++/* Data Center Bridging netlink operations.
++ */
 +
- 	return ret;
- }
- 
-+int cxgb4_dcb_enabled(const struct net_device *dev)
++
++/* Get current DCB enabled/disabled state.
++ */
++static u8 cxgb4_getstate(struct net_device *dev)
 +{
-+#ifdef CONFIG_CHELSIO_T4_DCB
-+	struct port_info *pi = netdev_priv(dev);
++	struct port_info *pi = netdev2pinfo(dev);
 +
-+	return pi->dcb.state == CXGB4_DCB_STATE_FW_ALLSYNCED;
-+#else
++	return pi->dcb.enabled;
++}
++
++/* Set DCB enabled/disabled.
++ */
++static u8 cxgb4_setstate(struct net_device *dev, u8 enabled)
++{
++	struct port_info *pi = netdev2pinfo(dev);
++
++	/* Firmware doesn't provide any mechanism to control the DCB state.
++	 */
++	if (enabled != (pi->dcb.state == CXGB4_DCB_STATE_FW_ALLSYNCED))
++		return 1;
++
 +	return 0;
-+#endif
 +}
-+EXPORT_SYMBOL(cxgb4_dcb_enabled);
 +
-+#ifdef CONFIG_CHELSIO_T4_DCB
-+/* Handle a Data Center Bridging update message from the firmware. */
-+static void dcb_rpl(struct adapter *adap, const struct fw_port_cmd *pcmd)
++static void cxgb4_getpgtccfg(struct net_device *dev, int tc,
++			     u8 *prio_type, u8 *pgid, u8 *bw_per,
++			     u8 *up_tc_map, int local)
 +{
-+	int port = FW_PORT_CMD_PORTID_GET(ntohl(pcmd->op_to_portid));
-+	struct net_device *dev = adap->port[port];
-+	int old_dcb_enabled = cxgb4_dcb_enabled(dev);
-+	int new_dcb_enabled;
++	struct fw_port_cmd pcmd;
++	struct port_info *pi = netdev2pinfo(dev);
++	struct adapter *adap = pi->adapter;
++	int err;
 +
-+	cxgb4_dcb_handle_fw_update(adap, pcmd);
-+	new_dcb_enabled = cxgb4_dcb_enabled(dev);
++	*prio_type = *pgid = *bw_per = *up_tc_map = 0;
 +
-+	/* If the DCB has become enabled or disabled on the port then we're
-+	 * going to need to set up/tear down DCB Priority parameters for the
-+	 * TX Queues associated with the port.
-+	 */
-+	if (new_dcb_enabled != old_dcb_enabled)
-+		dcb_tx_queue_prio_enable(dev, new_dcb_enabled);
++	if (local)
++		INIT_PORT_DCB_READ_LOCAL_CMD(pcmd, pi->port_id);
++	else
++		INIT_PORT_DCB_READ_PEER_CMD(pcmd, pi->port_id);
++
++	pcmd.u.dcb.pgid.type = FW_PORT_DCB_TYPE_PGID;
++	err = t4_wr_mbox(adap, adap->mbox, &pcmd, sizeof(pcmd), &pcmd);
++	if (err != FW_PORT_DCB_CFG_SUCCESS) {
++		dev_err(adap->pdev_dev, "DCB read PGID failed with %d\n", -err);
++		return;
++	}
++	*pgid = (be32_to_cpu(pcmd.u.dcb.pgid.pgid) >> (tc * 4)) & 0xf;
++
++	INIT_PORT_DCB_READ_PEER_CMD(pcmd, pi->port_id);
++	pcmd.u.dcb.pgrate.type = FW_PORT_DCB_TYPE_PGRATE;
++	err = t4_wr_mbox(adap, adap->mbox, &pcmd, sizeof(pcmd), &pcmd);
++	if (err != FW_PORT_DCB_CFG_SUCCESS) {
++		dev_err(adap->pdev_dev, "DCB read PGRATE failed with %d\n",
++			-err);
++		return;
++	}
++
++	*bw_per = pcmd.u.dcb.pgrate.pgrate[*pgid];
++	*up_tc_map = (1 << tc);
++
++	/* prio_type is link strict */
++	*prio_type = 0x2;
 +}
-+#endif /* CONFIG_CHELSIO_T4_DCB */
 +
- /* Clear a filter and release any of its resources that we own.  This also
-  * clears the filter's "pending" status.
-  */
-@@ -709,8 +797,32 @@ static int fwevtq_handler(struct sge_rspq *q, const __be64 *rsp,
- 	} else if (opcode == CPL_FW6_MSG || opcode == CPL_FW4_MSG) {
- 		const struct cpl_fw6_msg *p = (void *)rsp;
- 
--		if (p->type == 0)
--			t4_handle_fw_rpl(q->adap, p->data);
-+#ifdef CONFIG_CHELSIO_T4_DCB
-+		const struct fw_port_cmd *pcmd = (const void *)p->data;
-+		unsigned int cmd = FW_CMD_OP_GET(ntohl(pcmd->op_to_portid));
-+		unsigned int action =
-+			FW_PORT_CMD_ACTION_GET(ntohl(pcmd->action_to_len16));
++static void cxgb4_getpgtccfg_tx(struct net_device *dev, int tc,
++				u8 *prio_type, u8 *pgid, u8 *bw_per,
++				u8 *up_tc_map)
++{
++	return cxgb4_getpgtccfg(dev, tc, prio_type, pgid, bw_per, up_tc_map, 1);
++}
 +
-+		if (cmd == FW_PORT_CMD &&
-+		    action == FW_PORT_ACTION_GET_PORT_INFO) {
-+			int port = FW_PORT_CMD_PORTID_GET(
-+					be32_to_cpu(pcmd->op_to_portid));
-+			struct net_device *dev = q->adap->port[port];
-+			int state_input = ((pcmd->u.info.dcbxdis_pkd &
-+					    FW_PORT_CMD_DCBXDIS)
-+					   ? CXGB4_DCB_INPUT_FW_DISABLED
-+					   : CXGB4_DCB_INPUT_FW_ENABLED);
 +
-+			cxgb4_dcb_state_fsm(dev, state_input);
-+		}
++static void cxgb4_getpgtccfg_rx(struct net_device *dev, int tc,
++				u8 *prio_type, u8 *pgid, u8 *bw_per,
++				u8 *up_tc_map)
++{
++	return cxgb4_getpgtccfg(dev, tc, prio_type, pgid, bw_per, up_tc_map, 0);
++}
 +
-+		if (cmd == FW_PORT_CMD &&
-+		    action == FW_PORT_ACTION_L2_DCB_CFG)
-+			dcb_rpl(q->adap, pcmd);
++static void cxgb4_setpgtccfg_tx(struct net_device *dev, int tc,
++				u8 prio_type, u8 pgid, u8 bw_per,
++				u8 up_tc_map)
++{
++	struct fw_port_cmd pcmd;
++	struct port_info *pi = netdev2pinfo(dev);
++	struct adapter *adap = pi->adapter;
++	u32 _pgid;
++	int err;
++
++	if (pgid == DCB_ATTR_VALUE_UNDEFINED)
++		return;
++	if (bw_per == DCB_ATTR_VALUE_UNDEFINED)
++		return;
++
++	INIT_PORT_DCB_READ_LOCAL_CMD(pcmd, pi->port_id);
++	pcmd.u.dcb.pgid.type = FW_PORT_DCB_TYPE_PGID;
++
++	err = t4_wr_mbox(adap, adap->mbox, &pcmd, sizeof(pcmd), &pcmd);
++	if (err != FW_PORT_DCB_CFG_SUCCESS) {
++		dev_err(adap->pdev_dev, "DCB read PGID failed with %d\n", -err);
++		return;
++	}
++
++	_pgid = be32_to_cpu(pcmd.u.dcb.pgid.pgid);
++	_pgid &= ~(0xF << (tc * 4));
++	_pgid |= pgid << (tc * 4);
++	pcmd.u.dcb.pgid.pgid = cpu_to_be32(_pgid);
++
++	INIT_PORT_DCB_WRITE_CMD(pcmd, pi->port_id);
++
++	err = t4_wr_mbox(adap, adap->mbox, &pcmd, sizeof(pcmd), &pcmd);
++	if (err != FW_PORT_DCB_CFG_SUCCESS) {
++		dev_err(adap->pdev_dev, "DCB write PGID failed with %d\n",
++			-err);
++		return;
++	}
++
++	memset(&pcmd, 0, sizeof(struct fw_port_cmd));
++
++	INIT_PORT_DCB_READ_LOCAL_CMD(pcmd, pi->port_id);
++	pcmd.u.dcb.pgrate.type = FW_PORT_DCB_TYPE_PGRATE;
++
++	err = t4_wr_mbox(adap, adap->mbox, &pcmd, sizeof(pcmd), &pcmd);
++	if (err != FW_PORT_DCB_CFG_SUCCESS) {
++		dev_err(adap->pdev_dev, "DCB read PGRATE failed with %d\n",
++			-err);
++		return;
++	}
++
++	pcmd.u.dcb.pgrate.pgrate[pgid] = bw_per;
++
++	INIT_PORT_DCB_WRITE_CMD(pcmd, pi->port_id);
++	if (pi->dcb.state == CXGB4_DCB_STATE_HOST)
++		pcmd.op_to_portid |= cpu_to_be32(FW_PORT_CMD_APPLY);
++
++	err = t4_wr_mbox(adap, adap->mbox, &pcmd, sizeof(pcmd), &pcmd);
++	if (err != FW_PORT_DCB_CFG_SUCCESS)
++		dev_err(adap->pdev_dev, "DCB write PGRATE failed with %d\n",
++			-err);
++}
++
++static void cxgb4_getpgbwgcfg(struct net_device *dev, int pgid, u8 *bw_per,
++			      int local)
++{
++	struct fw_port_cmd pcmd;
++	struct port_info *pi = netdev2pinfo(dev);
++	struct adapter *adap = pi->adapter;
++	int err;
++
++	if (local)
++		INIT_PORT_DCB_READ_LOCAL_CMD(pcmd, pi->port_id);
++	else
++		INIT_PORT_DCB_READ_PEER_CMD(pcmd, pi->port_id);
++
++	pcmd.u.dcb.pgrate.type = FW_PORT_DCB_TYPE_PGRATE;
++	err = t4_wr_mbox(adap, adap->mbox, &pcmd, sizeof(pcmd), &pcmd);
++	if (err != FW_PORT_DCB_CFG_SUCCESS) {
++		dev_err(adap->pdev_dev, "DCB read PGRATE failed with %d\n",
++			-err);
++	} else {
++		*bw_per = pcmd.u.dcb.pgrate.pgrate[pgid];
++	}
++}
++
++static void cxgb4_getpgbwgcfg_tx(struct net_device *dev, int pgid, u8 *bw_per)
++{
++	return cxgb4_getpgbwgcfg(dev, pgid, bw_per, 1);
++}
++
++static void cxgb4_getpgbwgcfg_rx(struct net_device *dev, int pgid, u8 *bw_per)
++{
++	return cxgb4_getpgbwgcfg(dev, pgid, bw_per, 0);
++}
++
++static void cxgb4_setpgbwgcfg_tx(struct net_device *dev, int pgid,
++				 u8 bw_per)
++{
++	struct fw_port_cmd pcmd;
++	struct port_info *pi = netdev2pinfo(dev);
++	struct adapter *adap = pi->adapter;
++	int err;
++
++	INIT_PORT_DCB_READ_LOCAL_CMD(pcmd, pi->port_id);
++	pcmd.u.dcb.pgrate.type = FW_PORT_DCB_TYPE_PGRATE;
++
++	err = t4_wr_mbox(adap, adap->mbox, &pcmd, sizeof(pcmd), &pcmd);
++	if (err != FW_PORT_DCB_CFG_SUCCESS) {
++		dev_err(adap->pdev_dev, "DCB read PGRATE failed with %d\n",
++			-err);
++		return;
++	}
++
++	pcmd.u.dcb.pgrate.pgrate[pgid] = bw_per;
++
++	INIT_PORT_DCB_WRITE_CMD(pcmd, pi->port_id);
++	if (pi->dcb.state == CXGB4_DCB_STATE_HOST)
++		pcmd.op_to_portid |= cpu_to_be32(FW_PORT_CMD_APPLY);
++
++	err = t4_wr_mbox(adap, adap->mbox, &pcmd, sizeof(pcmd), &pcmd);
++
++	if (err != FW_PORT_DCB_CFG_SUCCESS)
++		dev_err(adap->pdev_dev, "DCB write PGRATE failed with %d\n",
++			-err);
++}
++
++/* Return whether the specified Traffic Class Priority has Priority Pause
++ * Frames enabled.
++ */
++static void cxgb4_getpfccfg(struct net_device *dev, int priority, u8 *pfccfg)
++{
++	struct port_info *pi = netdev2pinfo(dev);
++	struct port_dcb_info *dcb = &pi->dcb;
++
++	if (dcb->state != CXGB4_DCB_STATE_FW_ALLSYNCED ||
++	    priority >= CXGB4_MAX_PRIORITY)
++		*pfccfg = 0;
++	else
++		*pfccfg = (pi->dcb.pfcen >> priority) & 1;
++}
++
++/* Enable/disable Priority Pause Frames for the specified Traffic Class
++ * Priority.
++ */
++static void cxgb4_setpfccfg(struct net_device *dev, int priority, u8 pfccfg)
++{
++	struct fw_port_cmd pcmd;
++	struct port_info *pi = netdev2pinfo(dev);
++	struct adapter *adap = pi->adapter;
++	int err;
++
++	if (pi->dcb.state != CXGB4_DCB_STATE_FW_ALLSYNCED ||
++	    priority >= CXGB4_MAX_PRIORITY)
++		return;
++
++	INIT_PORT_DCB_WRITE_CMD(pcmd, pi->port_id);
++	if (pi->dcb.state == CXGB4_DCB_STATE_HOST)
++		pcmd.op_to_portid |= cpu_to_be32(FW_PORT_CMD_APPLY);
++
++	pcmd.u.dcb.pfc.type = FW_PORT_DCB_TYPE_PFC;
++	pcmd.u.dcb.pfc.pfcen = cpu_to_be16(pi->dcb.pfcen);
++
++	if (pfccfg)
++		pcmd.u.dcb.pfc.pfcen |= cpu_to_be16(1 << priority);
++	else
++		pcmd.u.dcb.pfc.pfcen &= cpu_to_be16(~(1 << priority));
++
++	err = t4_wr_mbox(adap, adap->mbox, &pcmd, sizeof(pcmd), &pcmd);
++	if (err != FW_PORT_DCB_CFG_SUCCESS) {
++		dev_err(adap->pdev_dev, "DCB PFC write failed with %d\n", -err);
++		return;
++	}
++
++	pi->dcb.pfcen = be16_to_cpu(pcmd.u.dcb.pfc.pfcen);
++}
++
++static u8 cxgb4_setall(struct net_device *dev)
++{
++	return 0;
++}
++
++/* Return DCB capabilities.
++ */
++static u8 cxgb4_getcap(struct net_device *dev, int cap_id, u8 *caps)
++{
++	struct port_info *pi = netdev2pinfo(dev);
++
++	switch (cap_id) {
++	case DCB_CAP_ATTR_PG:
++	case DCB_CAP_ATTR_PFC:
++		*caps = true;
++		break;
++
++	case DCB_CAP_ATTR_PG_TCS:
++		/* 8 priorities for PG represented by bitmap */
++		*caps = 0x80;
++		break;
++
++	case DCB_CAP_ATTR_PFC_TCS:
++		/* 8 priorities for PFC represented by bitmap */
++		*caps = 0x80;
++		break;
++
++	case DCB_CAP_ATTR_GSP:
++		*caps = true;
++		break;
++
++	case DCB_CAP_ATTR_UP2TC:
++	case DCB_CAP_ATTR_BCN:
++		*caps = false;
++		break;
++
++	case DCB_CAP_ATTR_DCBX:
++		*caps = pi->dcb.supported;
++		break;
++
++	default:
++		*caps = false;
++	}
++
++	return 0;
++}
++
++/* Return the number of Traffic Classes for the indicated Traffic Class ID.
++ */
++static int cxgb4_getnumtcs(struct net_device *dev, int tcs_id, u8 *num)
++{
++	struct port_info *pi = netdev2pinfo(dev);
++
++	switch (tcs_id) {
++	case DCB_NUMTCS_ATTR_PG:
++		if (pi->dcb.msgs & CXGB4_DCB_FW_PGRATE)
++			*num = pi->dcb.pg_num_tcs_supported;
 +		else
-+#endif
-+			if (p->type == 0)
-+				t4_handle_fw_rpl(q->adap, p->data);
- 	} else if (opcode == CPL_L2T_WRITE_RPL) {
- 		const struct cpl_l2t_write_rpl *p = (void *)rsp;
- 
-@@ -1290,6 +1402,48 @@ static int del_filter_wr(struct adapter *adapter, int fidx)
- 	return 0;
- }
- 
-+static u16 cxgb_select_queue(struct net_device *dev, struct sk_buff *skb,
-+			     void *accel_priv, select_queue_fallback_t fallback)
-+{
-+	int txq;
++			*num = 0x8;
++		break;
 +
-+#ifdef CONFIG_CHELSIO_T4_DCB
-+	/* If a Data Center Bridging has been successfully negotiated on this
-+	 * link then we'll use the skb's priority to map it to a TX Queue.
-+	 * The skb's priority is determined via the VLAN Tag Priority Code
-+	 * Point field.
++	case DCB_NUMTCS_ATTR_PFC:
++		*num = 0x8;
++		break;
++
++	default:
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
++/* Set the number of Traffic Classes supported for the indicated Traffic Class
++ * ID.
++ */
++static int cxgb4_setnumtcs(struct net_device *dev, int tcs_id, u8 num)
++{
++	/* Setting the number of Traffic Classes isn't supported.
 +	 */
-+	if (cxgb4_dcb_enabled(dev)) {
-+		u16 vlan_tci;
++	return -ENOSYS;
++}
++
++/* Return whether Priority Flow Control is enabled.  */
++static u8 cxgb4_getpfcstate(struct net_device *dev)
++{
++	struct port_info *pi = netdev2pinfo(dev);
++
++	if (pi->dcb.state != CXGB4_DCB_STATE_FW_ALLSYNCED)
++		return false;
++
++	return pi->dcb.pfcen != 0;
++}
++
++/* Enable/disable Priority Flow Control. */
++static void cxgb4_setpfcstate(struct net_device *dev, u8 state)
++{
++	/* We can't enable/disable Priority Flow Control but we also can't
++	 * return an error ...
++	 */
++}
++
++/* Return the Application User Priority Map associated with the specified
++ * Application ID.
++ */
++static int __cxgb4_getapp(struct net_device *dev, u8 app_idtype, u16 app_id,
++			  int peer)
++{
++	struct port_info *pi = netdev2pinfo(dev);
++	struct adapter *adap = pi->adapter;
++	int i;
++
++	if (pi->dcb.state != CXGB4_DCB_STATE_FW_ALLSYNCED)
++		return 0;
++
++	for (i = 0; i < CXGB4_MAX_DCBX_APP_SUPPORTED; i++) {
++		struct fw_port_cmd pcmd;
 +		int err;
 +
-+		err = vlan_get_tag(skb, &vlan_tci);
-+		if (unlikely(err)) {
-+			if (net_ratelimit())
-+				netdev_warn(dev,
-+					    "TX Packet without VLAN Tag on DCB Link\n");
-+			txq = 0;
-+		} else {
-+			txq = (vlan_tci & VLAN_PRIO_MASK) >> VLAN_PRIO_SHIFT;
++		if (peer)
++			INIT_PORT_DCB_READ_PEER_CMD(pcmd, pi->port_id);
++		else
++			INIT_PORT_DCB_READ_LOCAL_CMD(pcmd, pi->port_id);
++
++		pcmd.u.dcb.app_priority.type = FW_PORT_DCB_TYPE_APP_ID;
++		pcmd.u.dcb.app_priority.idx = i;
++
++		err = t4_wr_mbox(adap, adap->mbox, &pcmd, sizeof(pcmd), &pcmd);
++		if (err != FW_PORT_DCB_CFG_SUCCESS) {
++			dev_err(adap->pdev_dev, "DCB APP read failed with %d\n",
++				-err);
++			return err;
 +		}
-+		return txq;
-+	}
-+#endif /* CONFIG_CHELSIO_T4_DCB */
++		if (be16_to_cpu(pcmd.u.dcb.app_priority.protocolid) == app_id)
++			return pcmd.u.dcb.app_priority.user_prio_map;
 +
-+	if (select_queue) {
-+		txq = (skb_rx_queue_recorded(skb)
-+			? skb_get_rx_queue(skb)
-+			: smp_processor_id());
-+
-+		while (unlikely(txq >= dev->real_num_tx_queues))
-+			txq -= dev->real_num_tx_queues;
-+
-+		return txq;
++		/* exhausted app list */
++		if (!pcmd.u.dcb.app_priority.protocolid)
++			break;
 +	}
 +
-+	return fallback(dev, skb) % dev->real_num_tx_queues;
++	return -EEXIST;
 +}
 +
- static inline int is_offload(const struct adapter *adap)
- {
- 	return adap->params.offload;
-@@ -4601,6 +4755,7 @@ static const struct net_device_ops cxgb4_netdev_ops = {
- 	.ndo_open             = cxgb_open,
- 	.ndo_stop             = cxgb_close,
- 	.ndo_start_xmit       = t4_eth_xmit,
-+	.ndo_select_queue     =	cxgb_select_queue,
- 	.ndo_get_stats64      = cxgb_get_stats,
- 	.ndo_set_rx_mode      = cxgb_set_rxmode,
- 	.ndo_set_mac_address  = cxgb_set_mac_addr,
-@@ -5841,12 +5996,33 @@ static inline void init_rspq(struct adapter *adap, struct sge_rspq *q,
- static void cfg_queues(struct adapter *adap)
- {
- 	struct sge *s = &adap->sge;
--	int i, q10g = 0, n10g = 0, qidx = 0;
-+	int i, n10g = 0, qidx = 0;
-+#ifndef CONFIG_CHELSIO_T4_DCB
-+	int q10g = 0;
-+#endif
- 	int ciq_size;
- 
- 	for_each_port(adap, i)
- 		n10g += is_x_10g_port(&adap2pinfo(adap, i)->link_cfg);
-+#ifdef CONFIG_CHELSIO_T4_DCB
-+	/* For Data Center Bridging support we need to be able to support up
-+	 * to 8 Traffic Priorities; each of which will be assigned to its
-+	 * own TX Queue in order to prevent Head-Of-Line Blocking.
-+	 */
-+	if (adap->params.nports * 8 > MAX_ETH_QSETS) {
-+		dev_err(adap->pdev_dev, "MAX_ETH_QSETS=%d < %d!\n",
-+			MAX_ETH_QSETS, adap->params.nports * 8);
-+		BUG_ON(1);
-+	}
- 
-+	for_each_port(adap, i) {
-+		struct port_info *pi = adap2pinfo(adap, i);
-+
-+		pi->first_qset = qidx;
-+		pi->nqsets = 8;
-+		qidx += pi->nqsets;
-+	}
-+#else /* !CONFIG_CHELSIO_T4_DCB */
- 	/*
- 	 * We default to 1 queue per non-10G port and up to # of cores queues
- 	 * per 10G port.
-@@ -5863,6 +6039,7 @@ static void cfg_queues(struct adapter *adap)
- 		pi->nqsets = is_x_10g_port(&pi->link_cfg) ? q10g : 1;
- 		qidx += pi->nqsets;
- 	}
-+#endif /* !CONFIG_CHELSIO_T4_DCB */
- 
- 	s->ethqsets = qidx;
- 	s->max_ethqsets = qidx;   /* MSI-X may lower it later */
-@@ -5981,8 +6158,14 @@ static int enable_msix(struct adapter *adap)
- 		/* need nchan for each possible ULD */
- 		ofld_need = 3 * nchan;
- 	}
-+#ifdef CONFIG_CHELSIO_T4_DCB
-+	/* For Data Center Bridging we need 8 Ethernet TX Priority Queues for
-+	 * each port.
-+	 */
-+	need = 8 * adap->params.nports + EXTRA_VECS + ofld_need;
-+#else
- 	need = adap->params.nports + EXTRA_VECS + ofld_need;
--
-+#endif
- 	want = pci_enable_msix_range(adap->pdev, entries, need, want);
- 	if (want < 0)
- 		return want;
-@@ -6245,6 +6428,10 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		netdev->priv_flags |= IFF_UNICAST_FLT;
- 
- 		netdev->netdev_ops = &cxgb4_netdev_ops;
-+#ifdef CONFIG_CHELSIO_T4_DCB
-+		netdev->dcbnl_ops = &cxgb4_dcb_ops;
-+		cxgb4_dcb_state_init(netdev);
-+#endif
- 		netdev->ethtool_ops = &cxgb_ethtool_ops;
- 	}
- 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index bba6768..2a9da07 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -3175,6 +3175,46 @@ int t4_query_params(struct adapter *adap, unsigned int mbox, unsigned int pf,
- }
- 
- /**
-+ *      t4_set_params_nosleep - sets FW or device parameters
-+ *      @adap: the adapter
-+ *      @mbox: mailbox to use for the FW command
-+ *      @pf: the PF
-+ *      @vf: the VF
-+ *      @nparams: the number of parameters
-+ *      @params: the parameter names
-+ *      @val: the parameter values
-+ *
-+ *	 Does not ever sleep
-+ *      Sets the value of FW or device parameters.  Up to 7 parameters can be
-+ *      specified at once.
++/* Return the Application User Priority Map associated with the specified
++ * Application ID.  Since this routine is prototyped to return "u8" we can't
++ * return errors ...
 + */
-+int t4_set_params_nosleep(struct adapter *adap, unsigned int mbox,
-+			  unsigned int pf, unsigned int vf,
-+			  unsigned int nparams, const u32 *params,
-+			  const u32 *val)
++static u8 cxgb4_getapp(struct net_device *dev, u8 app_idtype, u16 app_id)
 +{
-+	struct fw_params_cmd c;
-+	__be32 *p = &c.param[0].mnem;
++	int result = __cxgb4_getapp(dev, app_idtype, app_id, 0);
 +
-+	if (nparams > 7)
++	if (result < 0)
++		result = 0;
++
++	return result;
++}
++
++/* Write a new Application User Priority Map for the specified Application ID.
++ * This routine is prototyped to return "u8" but other instantiations of the
++ * DCB NetLink Operations "setapp" routines return negative errnos for errors.
++ * We follow their lead.
++ */
++static u8 cxgb4_setapp(struct net_device *dev, u8 app_idtype, u16 app_id,
++		       u8 app_prio)
++{
++	struct fw_port_cmd pcmd;
++	struct port_info *pi = netdev2pinfo(dev);
++	struct adapter *adap = pi->adapter;
++	int i, err;
++
++
++	if (pi->dcb.state != CXGB4_DCB_STATE_FW_ALLSYNCED)
 +		return -EINVAL;
 +
-+	memset(&c, 0, sizeof(c));
-+	c.op_to_vfn = cpu_to_be32(FW_CMD_OP(FW_PARAMS_CMD) |
-+				FW_CMD_REQUEST | FW_CMD_WRITE |
-+				FW_PARAMS_CMD_PFN(pf) |
-+				FW_PARAMS_CMD_VFN(vf));
-+	c.retval_len16 = cpu_to_be32(FW_LEN16(c));
++	/* DCB info gets thrown away on link up */
++	if (!netif_carrier_ok(dev))
++		return -ENOLINK;
 +
-+	while (nparams--) {
-+		*p++ = cpu_to_be32(*params++);
-+		*p++ = cpu_to_be32(*val++);
++	if (app_idtype != DCB_APP_IDTYPE_ETHTYPE &&
++	    app_idtype != DCB_APP_IDTYPE_PORTNUM)
++		return -EINVAL;
++
++	for (i = 0; i < CXGB4_MAX_DCBX_APP_SUPPORTED; i++) {
++		INIT_PORT_DCB_READ_LOCAL_CMD(pcmd, pi->port_id);
++		pcmd.u.dcb.app_priority.type = FW_PORT_DCB_TYPE_APP_ID;
++		pcmd.u.dcb.app_priority.idx = i;
++		err = t4_wr_mbox(adap, adap->mbox, &pcmd, sizeof(pcmd), &pcmd);
++
++		if (err != FW_PORT_DCB_CFG_SUCCESS) {
++			dev_err(adap->pdev_dev, "DCB app table read failed with %d\n",
++				-err);
++			return err;
++		}
++		if (be16_to_cpu(pcmd.u.dcb.app_priority.protocolid) == app_id) {
++			/* overwrite existing app table */
++			pcmd.u.dcb.app_priority.protocolid = 0;
++			break;
++		}
++		/* find first empty slot */
++		if (!pcmd.u.dcb.app_priority.protocolid)
++			break;
 +	}
 +
-+	return t4_wr_mbox_ns(adap, mbox, &c, sizeof(c), NULL);
++	if (i == CXGB4_MAX_DCBX_APP_SUPPORTED) {
++		/* no empty slots available */
++		dev_err(adap->pdev_dev, "DCB app table full\n");
++		return -EBUSY;
++	}
++
++	/* write out new app table entry */
++	INIT_PORT_DCB_WRITE_CMD(pcmd, pi->port_id);
++	if (pi->dcb.state == CXGB4_DCB_STATE_HOST)
++		pcmd.op_to_portid |= cpu_to_be32(FW_PORT_CMD_APPLY);
++
++	pcmd.u.dcb.app_priority.type = FW_PORT_DCB_TYPE_APP_ID;
++	pcmd.u.dcb.app_priority.protocolid = cpu_to_be16(app_id);
++	pcmd.u.dcb.app_priority.sel_field = app_idtype;
++	pcmd.u.dcb.app_priority.user_prio_map = app_prio;
++	pcmd.u.dcb.app_priority.idx = i;
++
++	err = t4_wr_mbox(adap, adap->mbox, &pcmd, sizeof(pcmd), &pcmd);
++	if (err != FW_PORT_DCB_CFG_SUCCESS) {
++		dev_err(adap->pdev_dev, "DCB app table write failed with %d\n",
++			-err);
++		return err;
++	}
++
++	return 0;
 +}
 +
-+/**
-  *	t4_set_params - sets FW or device parameters
-  *	@adap: the adapter
-  *	@mbox: mailbox to use for the FW command
-@@ -3499,6 +3539,33 @@ int t4_set_addr_hash(struct adapter *adap, unsigned int mbox, unsigned int viid,
- }
- 
- /**
-+ *      t4_enable_vi_params - enable/disable a virtual interface
-+ *      @adap: the adapter
-+ *      @mbox: mailbox to use for the FW command
-+ *      @viid: the VI id
-+ *      @rx_en: 1=enable Rx, 0=disable Rx
-+ *      @tx_en: 1=enable Tx, 0=disable Tx
-+ *      @dcb_en: 1=enable delivery of Data Center Bridging messages.
-+ *
-+ *      Enables/disables a virtual interface.  Note that setting DCB Enable
-+ *      only makes sense when enabling a Virtual Interface ...
++/* Return whether IEEE Data Center Bridging has been negotiated.
 + */
-+int t4_enable_vi_params(struct adapter *adap, unsigned int mbox,
-+			unsigned int viid, bool rx_en, bool tx_en, bool dcb_en)
++static inline int cxgb4_ieee_negotiation_complete(struct net_device *dev)
 +{
-+	struct fw_vi_enable_cmd c;
++	struct port_info *pi = netdev2pinfo(dev);
++	struct port_dcb_info *dcb = &pi->dcb;
 +
-+	memset(&c, 0, sizeof(c));
-+	c.op_to_viid = htonl(FW_CMD_OP(FW_VI_ENABLE_CMD) | FW_CMD_REQUEST |
-+			     FW_CMD_EXEC | FW_VI_ENABLE_CMD_VIID(viid));
-+
-+	c.ien_to_len16 = htonl(FW_VI_ENABLE_CMD_IEN(rx_en) |
-+			       FW_VI_ENABLE_CMD_EEN(tx_en) | FW_LEN16(c) |
-+			       FW_VI_ENABLE_CMD_DCB_INFO(dcb_en));
-+	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
++	return (dcb->state == CXGB4_DCB_STATE_FW_ALLSYNCED &&
++		(dcb->supported & DCB_CAP_DCBX_VER_IEEE));
 +}
 +
-+/**
-  *	t4_enable_vi - enable/disable a virtual interface
-  *	@adap: the adapter
-  *	@mbox: mailbox to use for the FW command
-@@ -3511,14 +3578,7 @@ int t4_set_addr_hash(struct adapter *adap, unsigned int mbox, unsigned int viid,
- int t4_enable_vi(struct adapter *adap, unsigned int mbox, unsigned int viid,
- 		 bool rx_en, bool tx_en)
- {
--	struct fw_vi_enable_cmd c;
--
--	memset(&c, 0, sizeof(c));
--	c.op_to_viid = htonl(FW_CMD_OP(FW_VI_ENABLE_CMD) | FW_CMD_REQUEST |
--			     FW_CMD_EXEC | FW_VI_ENABLE_CMD_VIID(viid));
--	c.ien_to_len16 = htonl(FW_VI_ENABLE_CMD_IEN(rx_en) |
--			       FW_VI_ENABLE_CMD_EEN(tx_en) | FW_LEN16(c));
--	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
-+	return t4_enable_vi_params(adap, mbox, viid, rx_en, tx_en, 0);
- }
- 
- /**
++/* Fill in the Application User Priority Map associated with the
++ * specified Application.
++ */
++static int cxgb4_ieee_getapp(struct net_device *dev, struct dcb_app *app)
++{
++	int prio;
++
++	if (!cxgb4_ieee_negotiation_complete(dev))
++		return -EINVAL;
++	if (!(app->selector && app->protocol))
++		return -EINVAL;
++
++	prio = dcb_getapp(dev, app);
++	if (prio == 0) {
++		/* If app doesn't exist in dcb_app table, try firmware
++		 * directly.
++		 */
++		prio = __cxgb4_getapp(dev, app->selector, app->protocol, 0);
++	}
++
++	app->priority = prio;
++	return 0;
++}
++
++/* Write a new Application User Priority Map for the specified App id. */
++static int cxgb4_ieee_setapp(struct net_device *dev, struct dcb_app *app)
++{
++	if (!cxgb4_ieee_negotiation_complete(dev))
++		return -EINVAL;
++	if (!(app->selector && app->protocol && app->priority))
++		return -EINVAL;
++
++	cxgb4_setapp(dev, app->selector, app->protocol, app->priority);
++	return dcb_setapp(dev, app);
++}
++
++/* Return our DCBX parameters.
++ */
++static u8 cxgb4_getdcbx(struct net_device *dev)
++{
++	struct port_info *pi = netdev2pinfo(dev);
++
++	/* This is already set by cxgb4_set_dcb_caps, so just return it */
++	return pi->dcb.supported;
++}
++
++/* Set our DCBX parameters.
++ */
++static u8 cxgb4_setdcbx(struct net_device *dev, u8 dcb_request)
++{
++	struct port_info *pi = netdev2pinfo(dev);
++
++	/* Filter out requests which exceed our capabilities.
++	 */
++	if ((dcb_request & (CXGB4_DCBX_FW_SUPPORT | CXGB4_DCBX_HOST_SUPPORT))
++	    != dcb_request)
++		return 1;
++
++	/* Can't set DCBX capabilities if DCBX isn't enabled. */
++	if (!pi->dcb.state)
++		return 1;
++
++	/* There's currently no mechanism to allow for the firmware DCBX
++	 * negotiation to be changed from the Host Driver.  If the caller
++	 * requests exactly the same parameters that we already have then
++	 * we'll allow them to be successfully "set" ...
++	 */
++	if (dcb_request != pi->dcb.supported)
++		return 1;
++
++	pi->dcb.supported = dcb_request;
++	return 0;
++}
++
++static int cxgb4_getpeer_app(struct net_device *dev,
++			     struct dcb_peer_app_info *info, u16 *app_count)
++{
++	struct fw_port_cmd pcmd;
++	struct port_info *pi = netdev2pinfo(dev);
++	struct adapter *adap = pi->adapter;
++	int i, err = 0;
++
++	if (pi->dcb.state != CXGB4_DCB_STATE_FW_ALLSYNCED)
++		return 1;
++
++	info->willing = 0;
++	info->error = 0;
++
++	*app_count = 0;
++	for (i = 0; i < CXGB4_MAX_DCBX_APP_SUPPORTED; i++) {
++		INIT_PORT_DCB_READ_PEER_CMD(pcmd, pi->port_id);
++		pcmd.u.dcb.app_priority.type = FW_PORT_DCB_TYPE_APP_ID;
++		pcmd.u.dcb.app_priority.idx = *app_count;
++		err = t4_wr_mbox(adap, adap->mbox, &pcmd, sizeof(pcmd), &pcmd);
++
++		if (err != FW_PORT_DCB_CFG_SUCCESS) {
++			dev_err(adap->pdev_dev, "DCB app table read failed with %d\n",
++				-err);
++			return err;
++		}
++
++		/* find first empty slot */
++		if (!pcmd.u.dcb.app_priority.protocolid)
++			break;
++	}
++	*app_count = i;
++	return err;
++}
++
++static int cxgb4_getpeerapp_tbl(struct net_device *dev, struct dcb_app *table)
++{
++	struct fw_port_cmd pcmd;
++	struct port_info *pi = netdev2pinfo(dev);
++	struct adapter *adap = pi->adapter;
++	int i, err = 0;
++
++	if (pi->dcb.state != CXGB4_DCB_STATE_FW_ALLSYNCED)
++		return 1;
++
++	for (i = 0; i < CXGB4_MAX_DCBX_APP_SUPPORTED; i++) {
++		INIT_PORT_DCB_READ_PEER_CMD(pcmd, pi->port_id);
++		pcmd.u.dcb.app_priority.type = FW_PORT_DCB_TYPE_APP_ID;
++		pcmd.u.dcb.app_priority.idx = i;
++		err = t4_wr_mbox(adap, adap->mbox, &pcmd, sizeof(pcmd), &pcmd);
++
++		if (err != FW_PORT_DCB_CFG_SUCCESS) {
++			dev_err(adap->pdev_dev, "DCB app table read failed with %d\n",
++				-err);
++			return err;
++		}
++
++		/* find first empty slot */
++		if (!pcmd.u.dcb.app_priority.protocolid)
++			break;
++
++		table[i].selector = pcmd.u.dcb.app_priority.sel_field;
++		table[i].protocol =
++			be16_to_cpu(pcmd.u.dcb.app_priority.protocolid);
++		table[i].priority = pcmd.u.dcb.app_priority.user_prio_map;
++	}
++	return err;
++}
++
++/* Return Priority Group information.
++ */
++static int cxgb4_cee_peer_getpg(struct net_device *dev, struct cee_pg *pg)
++{
++	struct fw_port_cmd pcmd;
++	struct port_info *pi = netdev2pinfo(dev);
++	struct adapter *adap = pi->adapter;
++	u32 pgid;
++	int i, err;
++
++	/* We're always "willing" -- the Switch Fabric always dictates the
++	 * DCBX parameters to us.
++	 */
++	pg->willing = true;
++
++	INIT_PORT_DCB_READ_PEER_CMD(pcmd, pi->port_id);
++	pcmd.u.dcb.pgid.type = FW_PORT_DCB_TYPE_PGID;
++	err = t4_wr_mbox(adap, adap->mbox, &pcmd, sizeof(pcmd), &pcmd);
++	if (err != FW_PORT_DCB_CFG_SUCCESS) {
++		dev_err(adap->pdev_dev, "DCB read PGID failed with %d\n", -err);
++		return err;
++	}
++	pgid = be32_to_cpu(pcmd.u.dcb.pgid.pgid);
++
++	for (i = 0; i < CXGB4_MAX_PRIORITY; i++)
++		pg->prio_pg[i] = (pgid >> (i * 4)) & 0xF;
++
++	INIT_PORT_DCB_READ_PEER_CMD(pcmd, pi->port_id);
++	pcmd.u.dcb.pgrate.type = FW_PORT_DCB_TYPE_PGRATE;
++	err = t4_wr_mbox(adap, adap->mbox, &pcmd, sizeof(pcmd), &pcmd);
++	if (err != FW_PORT_DCB_CFG_SUCCESS) {
++		dev_err(adap->pdev_dev, "DCB read PGRATE failed with %d\n",
++			-err);
++		return err;
++	}
++
++	for (i = 0; i < CXGB4_MAX_PRIORITY; i++)
++		pg->pg_bw[i] = pcmd.u.dcb.pgrate.pgrate[i];
++
++	return 0;
++}
++
++/* Return Priority Flow Control information.
++ */
++static int cxgb4_cee_peer_getpfc(struct net_device *dev, struct cee_pfc *pfc)
++{
++	struct port_info *pi = netdev2pinfo(dev);
++
++	cxgb4_getnumtcs(dev, DCB_NUMTCS_ATTR_PFC, &(pfc->tcs_supported));
++	pfc->pfc_en = pi->dcb.pfcen;
++
++	return 0;
++}
++
++const struct dcbnl_rtnl_ops cxgb4_dcb_ops = {
++	.ieee_getapp		= cxgb4_ieee_getapp,
++	.ieee_setapp		= cxgb4_ieee_setapp,
++
++	/* CEE std */
++	.getstate		= cxgb4_getstate,
++	.setstate		= cxgb4_setstate,
++	.getpgtccfgtx		= cxgb4_getpgtccfg_tx,
++	.getpgbwgcfgtx		= cxgb4_getpgbwgcfg_tx,
++	.getpgtccfgrx		= cxgb4_getpgtccfg_rx,
++	.getpgbwgcfgrx		= cxgb4_getpgbwgcfg_rx,
++	.setpgtccfgtx		= cxgb4_setpgtccfg_tx,
++	.setpgbwgcfgtx		= cxgb4_setpgbwgcfg_tx,
++	.setpfccfg		= cxgb4_setpfccfg,
++	.getpfccfg		= cxgb4_getpfccfg,
++	.setall			= cxgb4_setall,
++	.getcap			= cxgb4_getcap,
++	.getnumtcs		= cxgb4_getnumtcs,
++	.setnumtcs		= cxgb4_setnumtcs,
++	.getpfcstate		= cxgb4_getpfcstate,
++	.setpfcstate		= cxgb4_setpfcstate,
++	.getapp			= cxgb4_getapp,
++	.setapp			= cxgb4_setapp,
++
++	/* DCBX configuration */
++	.getdcbx		= cxgb4_getdcbx,
++	.setdcbx		= cxgb4_setdcbx,
++
++	/* peer apps */
++	.peer_getappinfo	= cxgb4_getpeer_app,
++	.peer_getapptable	= cxgb4_getpeerapp_tbl,
++
++	/* CEE peer */
++	.cee_peer_getpg		= cxgb4_cee_peer_getpg,
++	.cee_peer_getpfc	= cxgb4_cee_peer_getpfc,
++};
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.h
+new file mode 100644
+index 0000000..1ec1d83
+--- /dev/null
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.h
+@@ -0,0 +1,141 @@
++/*
++ *  Copyright (C) 2013-2014 Chelsio Communications.  All rights reserved.
++ *
++ *  Written by Anish Bhatt (anish@chelsio.com)
++ *
++ *  This program is free software; you can redistribute it and/or modify it
++ *  under the terms and conditions of the GNU General Public License,
++ *  version 2, as published by the Free Software Foundation.
++ *
++ *  This program is distributed in the hope it will be useful, but WITHOUT
++ *  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ *  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
++ *  more details.
++ *
++ *  The full GNU General Public License is included in this distribution in
++ *  the file called "COPYING".
++ *
++ */
++
++#ifndef __CXGB4_DCB_H
++#define __CXGB4_DCB_H
++
++#include <linux/netdevice.h>
++#include <linux/dcbnl.h>
++#include <net/dcbnl.h>
++
++#ifdef CONFIG_CHELSIO_T4_DCB
++
++#define CXGB4_DCBX_FW_SUPPORT \
++	(DCB_CAP_DCBX_VER_CEE | \
++	 DCB_CAP_DCBX_VER_IEEE | \
++	 DCB_CAP_DCBX_LLD_MANAGED)
++#define CXGB4_DCBX_HOST_SUPPORT \
++	(DCB_CAP_DCBX_VER_CEE | \
++	 DCB_CAP_DCBX_VER_IEEE | \
++	 DCB_CAP_DCBX_HOST)
++
++#define CXGB4_MAX_PRIORITY      CXGB4_MAX_DCBX_APP_SUPPORTED
++#define CXGB4_MAX_TCS           CXGB4_MAX_DCBX_APP_SUPPORTED
++
++#define INIT_PORT_DCB_CMD(__pcmd, __port, __op, __action) \
++	do { \
++		memset(&(__pcmd), 0, sizeof(__pcmd)); \
++		(__pcmd).op_to_portid = \
++			cpu_to_be32(FW_CMD_OP(FW_PORT_CMD) | \
++				    FW_CMD_REQUEST | \
++				    FW_CMD_##__op | \
++				    FW_PORT_CMD_PORTID(__port)); \
++		(__pcmd).action_to_len16 = \
++			cpu_to_be32(FW_PORT_CMD_ACTION(__action) | \
++				    FW_LEN16(pcmd)); \
++	} while (0)
++
++#define INIT_PORT_DCB_READ_PEER_CMD(__pcmd, __port) \
++	INIT_PORT_DCB_CMD(__pcmd, __port, READ, FW_PORT_ACTION_DCB_READ_RECV)
++
++#define INIT_PORT_DCB_READ_LOCAL_CMD(__pcmd, __port) \
++	INIT_PORT_DCB_CMD(__pcmd, __port, READ, FW_PORT_ACTION_DCB_READ_TRANS)
++
++#define INIT_PORT_DCB_READ_SYNC_CMD(__pcmd, __port) \
++	INIT_PORT_DCB_CMD(__pcmd, __port, READ, FW_PORT_ACTION_DCB_READ_DET)
++
++#define INIT_PORT_DCB_WRITE_CMD(__pcmd, __port) \
++	INIT_PORT_DCB_CMD(__pcmd, __port, EXEC, FW_PORT_ACTION_L2_DCB_CFG)
++
++/* States we can be in for a port's Data Center Bridging.
++ */
++enum cxgb4_dcb_state {
++	CXGB4_DCB_STATE_START,		/* initial unknown state */
++	CXGB4_DCB_STATE_HOST,		/* we're using Host DCB (if at all) */
++	CXGB4_DCB_STATE_FW_INCOMPLETE,	/* using firmware DCB, incomplete */
++	CXGB4_DCB_STATE_FW_ALLSYNCED,	/* using firmware DCB, all sync'ed */
++};
++
++/* Data Center Bridging state input for the Finite State Machine.
++ */
++enum cxgb4_dcb_state_input {
++	/* Input from the firmware.
++	 */
++	CXGB4_DCB_INPUT_FW_DISABLED,	/* firmware DCB disabled */
++	CXGB4_DCB_INPUT_FW_ENABLED,	/* firmware DCB enabled */
++	CXGB4_DCB_INPUT_FW_INCOMPLETE,	/* firmware reports incomplete DCB */
++	CXGB4_DCB_INPUT_FW_ALLSYNCED,	/* firmware reports all sync'ed */
++
++};
++
++/* Firmware DCB messages that we've received so far ...
++ */
++enum cxgb4_dcb_fw_msgs {
++	CXGB4_DCB_FW_PGID	= 0x01,
++	CXGB4_DCB_FW_PGRATE	= 0x02,
++	CXGB4_DCB_FW_PRIORATE	= 0x04,
++	CXGB4_DCB_FW_PFC	= 0x08,
++	CXGB4_DCB_FW_APP_ID	= 0x10,
++};
++
++#define CXGB4_MAX_DCBX_APP_SUPPORTED 8
++
++/* Data Center Bridging support;
++ */
++struct port_dcb_info {
++	enum cxgb4_dcb_state state;	/* DCB State Machine */
++	enum cxgb4_dcb_fw_msgs msgs;	/* DCB Firmware messages received */
++	unsigned int supported;		/* OS DCB capabilities supported */
++	bool enabled;			/* OS Enabled state */
++
++	/* Cached copies of DCB information sent by the firmware (in Host
++	 * Native Endian format).
++	 */
++	u32	pgid;			/* Priority Group[0..7] */
++	u8	pfcen;			/* Priority Flow Control[0..7] */
++	u8	pg_num_tcs_supported;	/* max PG Traffic Classes */
++	u8	pfc_num_tcs_supported;	/* max PFC Traffic Classes */
++	u8	pgrate[8];		/* Priority Group Rate[0..7] */
++	u8	priorate[8];		/* Priority Rate[0..7] */
++	struct app_priority { /* Application Information */
++		u8	user_prio_map;	/* Priority Map bitfield */
++		u8	sel_field;	/* Protocol ID interpretation */
++		u16	protocolid;	/* Protocol ID */
++	} app_priority[CXGB4_MAX_DCBX_APP_SUPPORTED];
++};
++
++void cxgb4_dcb_state_init(struct net_device *);
++void cxgb4_dcb_state_fsm(struct net_device *, enum cxgb4_dcb_state_input);
++void cxgb4_dcb_handle_fw_update(struct adapter *, const struct fw_port_cmd *);
++void cxgb4_dcb_set_caps(struct adapter *, const struct fw_port_cmd *);
++extern const struct dcbnl_rtnl_ops cxgb4_dcb_ops;
++
++#define CXGB4_DCB_ENABLED true
++
++#else /* !CONFIG_CHELSIO_T4_DCB */
++
++static inline void cxgb4_dcb_state_init(struct net_device *dev)
++{
++}
++
++#define CXGB4_DCB_ENABLED false
++
++#endif /* !CONFIG_CHELSIO_T4_DCB */
++
++#endif /* __CXGB4_DCB_H */
 -- 
 2.0.0
