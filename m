@@ -1,7 +1,7 @@
 From: Anish Bhatt <anish@chelsio.com>
-Subject: [PATCH net-next 4/5] cxgb4 : Makefile & Kconfig changes for DCBx support
-Date: Thu, 19 Jun 2014 15:22:10 -0700
-Message-ID: <1403216531-7874-5-git-send-email-anish@chelsio.com>
+Subject: [PATCH net-next 1/5] cxgb4 : Update fw interface file for DCBx support. Adds all the required fields to fw interface to communicate DCBx info
+Date: Thu, 19 Jun 2014 15:22:07 -0700
+Message-ID: <1403216531-7874-2-git-send-email-anish@chelsio.com>
 References: <1403216531-7874-1-git-send-email-anish@chelsio.com>
 Cc: davem@davemloft.net, leedom@chelsio.com, hariprasad@chelsio.com,
 	Anish Bhatt <anish@chelsio.com>
@@ -9,48 +9,176 @@ To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:35735
 	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S965467AbaFSXYg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2014 19:24:36 -0400
+	by vger.kernel.org with ESMTP id S965467AbaFSXYh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2014 19:24:37 -0400
 In-Reply-To: <1403216531-7874-1-git-send-email-anish@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Anish Bhatt <anish@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/Kconfig        | 11 +++++++++++
- drivers/net/ethernet/chelsio/cxgb4/Makefile |  1 +
- 2 files changed, 12 insertions(+)
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h | 95 +++++++++++++++++++++------
+ 1 file changed, 76 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/Kconfig b/drivers/net/ethernet/chelsio/Kconfig
-index 570222c..c3ce9df 100644
---- a/drivers/net/ethernet/chelsio/Kconfig
-+++ b/drivers/net/ethernet/chelsio/Kconfig
-@@ -86,6 +86,17 @@ config CHELSIO_T4
- 	  To compile this driver as a module choose M here; the module
- 	  will be called cxgb4.
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+index 9cc973f..e83c94b 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+@@ -46,9 +46,11 @@ enum fw_retval {
+ 	FW_EFAULT		= 14,	/* bad address; fw bad */
+ 	FW_EBUSY		= 16,	/* resource busy */
+ 	FW_EEXIST		= 17,	/* file exists */
++	FW_ENODEV		= 19,	/* no such device */
+ 	FW_EINVAL		= 22,	/* invalid argument */
+ 	FW_ENOSPC		= 28,	/* no space left on device */
+ 	FW_ENOSYS		= 38,	/* functionality not implemented */
++	FW_ENODATA		= 61,	/* no data available */
+ 	FW_EPROTO		= 71,	/* protocol error */
+ 	FW_EADDRINUSE		= 98,	/* address already in use */
+ 	FW_EADDRNOTAVAIL	= 99,	/* cannot assigned requested address */
+@@ -989,6 +991,7 @@ enum fw_params_param_dmaq {
+ 	FW_PARAMS_PARAM_DMAQ_EQ_CMPLIQID_MNGT = 0x10,
+ 	FW_PARAMS_PARAM_DMAQ_EQ_CMPLIQID_CTRL = 0x11,
+ 	FW_PARAMS_PARAM_DMAQ_EQ_SCHEDCLASS_ETH = 0x12,
++	FW_PARAMS_PARAM_DMAQ_EQ_DCBPRIO_ETH = 0x13,
+ };
  
-+config CHELSIO_T4_DCB
-+	bool "Data Center Bridging (DCB) Support for Chelsio T4/T5 cards"
-+	default n
-+	depends on CHELSIO_T4 && DCB
-+	---help---
-+	  Enable DCB support through rtNetlink interface.
-+	  Say Y here if you want to enable Data Center Bridging (DCB) support
-+	  in the driver.
-+
-+	  If unsure, say N.
-+
- config CHELSIO_T4VF
- 	tristate "Chelsio Communications T4/T5 Virtual Function Ethernet support"
- 	depends on PCI
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/Makefile b/drivers/net/ethernet/chelsio/cxgb4/Makefile
-index 4986674..1df65c9 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/Makefile
-+++ b/drivers/net/ethernet/chelsio/cxgb4/Makefile
-@@ -5,3 +5,4 @@
- obj-$(CONFIG_CHELSIO_T4) += cxgb4.o
+ #define FW_PARAMS_MNEM(x)      ((x) << 24)
+@@ -1422,6 +1425,7 @@ struct fw_vi_enable_cmd {
+ #define FW_VI_ENABLE_CMD_VIID(x) ((x) << 0)
+ #define FW_VI_ENABLE_CMD_IEN(x) ((x) << 31)
+ #define FW_VI_ENABLE_CMD_EEN(x) ((x) << 30)
++#define FW_VI_ENABLE_CMD_DCB_INFO(x) ((x) << 28)
+ #define FW_VI_ENABLE_CMD_LED (1U << 29)
  
- cxgb4-objs := cxgb4_main.o l2t.o t4_hw.o sge.o
-+cxgb4-$(CONFIG_CHELSIO_T4_DCB) +=  cxgb4_dcb.o
+ /* VI VF stats offset definitions */
+@@ -1594,6 +1598,9 @@ enum fw_port_action {
+ 	FW_PORT_ACTION_GET_PORT_INFO	= 0x0003,
+ 	FW_PORT_ACTION_L2_PPP_CFG	= 0x0004,
+ 	FW_PORT_ACTION_L2_DCB_CFG	= 0x0005,
++	FW_PORT_ACTION_DCB_READ_TRANS	= 0x0006,
++	FW_PORT_ACTION_DCB_READ_RECV	= 0x0007,
++	FW_PORT_ACTION_DCB_READ_DET	= 0x0008,
+ 	FW_PORT_ACTION_LOW_PWR_TO_NORMAL = 0x0010,
+ 	FW_PORT_ACTION_L1_LOW_PWR_EN	= 0x0011,
+ 	FW_PORT_ACTION_L2_WOL_MODE_EN	= 0x0012,
+@@ -1637,6 +1644,14 @@ enum fw_port_dcb_type {
+ 	FW_PORT_DCB_TYPE_PRIORATE	= 0x02,
+ 	FW_PORT_DCB_TYPE_PFC		= 0x03,
+ 	FW_PORT_DCB_TYPE_APP_ID		= 0x04,
++	FW_PORT_DCB_TYPE_CONTROL	= 0x05,
++};
++
++enum fw_port_dcb_feature_state {
++	FW_PORT_DCB_FEATURE_STATE_PENDING = 0x0,
++	FW_PORT_DCB_FEATURE_STATE_SUCCESS = 0x1,
++	FW_PORT_DCB_FEATURE_STATE_ERROR	= 0x2,
++	FW_PORT_DCB_FEATURE_STATE_TIMEOUT = 0x3,
+ };
+ 
+ struct fw_port_cmd {
+@@ -1648,9 +1663,11 @@ struct fw_port_cmd {
+ 			__be32 r;
+ 		} l1cfg;
+ 		struct fw_port_l2cfg {
+-			__be16 ctlbf_to_ivlan0;
++			__u8   ctlbf;
++			__u8   ovlan3_to_ivlan0;
+ 			__be16 ivlantype;
+-			__be32 txipg_pkd;
++			__be16 txipg_force_pinfo;
++			__be16 mtu;
+ 			__be16 ovlan0mask;
+ 			__be16 ovlan0type;
+ 			__be16 ovlan1mask;
+@@ -1666,24 +1683,60 @@ struct fw_port_cmd {
+ 			__be16 acap;
+ 			__be16 mtu;
+ 			__u8   cbllen;
+-			__u8   r9;
+-			__be32 r10;
+-			__be64 r11;
++			__u8   auxlinfo;
++			__u8   dcbxdis_pkd;
++			__u8   r8_lo[3];
++			__be64 r9;
+ 		} info;
+-		struct fw_port_ppp {
+-			__be32 pppen_to_ncsich;
+-			__be32 r11;
+-		} ppp;
+-		struct fw_port_dcb {
+-			__be16 cfg;
+-			u8 up_map;
+-			u8 sf_cfgrc;
+-			__be16 prot_ix;
+-			u8 pe7_to_pe0;
+-			u8 numTCPFCs;
+-			__be32 pgid0_to_pgid7;
+-			__be32 numTCs_oui;
+-			u8 pgpc[8];
++		struct fw_port_diags {
++			__u8   diagop;
++			__u8   r[3];
++			__be32 diagval;
++		} diags;
++		union fw_port_dcb {
++			struct fw_port_dcb_pgid {
++				__u8   type;
++				__u8   apply_pkd;
++				__u8   r10_lo[2];
++				__be32 pgid;
++				__be64 r11;
++			} pgid;
++			struct fw_port_dcb_pgrate {
++				__u8   type;
++				__u8   apply_pkd;
++				__u8   r10_lo[5];
++				__u8   num_tcs_supported;
++				__u8   pgrate[8];
++			} pgrate;
++			struct fw_port_dcb_priorate {
++				__u8   type;
++				__u8   apply_pkd;
++				__u8   r10_lo[6];
++				__u8   strict_priorate[8];
++			} priorate;
++			struct fw_port_dcb_pfc {
++				__u8   type;
++				__u8   pfcen;
++				__u8   r10[5];
++				__u8   max_pfc_tcs;
++				__be64 r11;
++			} pfc;
++			struct fw_port_app_priority {
++				__u8   type;
++				__u8   r10[2];
++				__u8   idx;
++				__u8   user_prio_map;
++				__u8   sel_field;
++				__be16 protocolid;
++				__be64 r12;
++			} app_priority;
++			struct fw_port_dcb_control {
++				__u8   type;
++				__u8   all_syncd_pkd;
++				__be16 pfc_state_to_app_state;
++				__be32 r11;
++				__be64 r12;
++			} control;
+ 		} dcb;
+ 	} u;
+ };
+@@ -1720,6 +1773,10 @@ struct fw_port_cmd {
+ #define FW_PORT_CMD_MODTYPE_MASK 0x1f
+ #define FW_PORT_CMD_MODTYPE_GET(x) (((x) >> 0) & FW_PORT_CMD_MODTYPE_MASK)
+ 
++#define FW_PORT_CMD_DCBXDIS (1U << 7)
++#define FW_PORT_CMD_APPLY (1U <<  7)
++#define FW_PORT_CMD_ALL_SYNCD (1U << 7)
++
+ #define FW_PORT_CMD_PPPEN(x) ((x) << 31)
+ #define FW_PORT_CMD_TPSRC(x) ((x) << 28)
+ #define FW_PORT_CMD_NCSISRC(x) ((x) << 24)
 -- 
 2.0.0
