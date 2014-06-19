@@ -1,155 +1,115 @@
-From: Jay Vosburgh <jay.vosburgh@canonical.com>
-Subject: Re: [PATCH net] tcp: avoid multiple ssthresh reductions in on retransmit window
-Date: Wed, 18 Jun 2014 23:05:07 -0700
-Message-ID: <12254.1403157907@localhost.localdomain>
-References: <CAK6E8=dwh1btNzX80YNre9u7rS+SgochXxHxDhQYQZCvY8yVMQ@mail.gmail.com> <20140616211954.6E12BA3A89@unicorn.suse.cz> <CAK6E8=dxszKmHssR7ib7Fxfm6hQRdbwBG1ygRvOXoSAXddBSPA@mail.gmail.com> <CADVnQy=sd2V2A5Rzd+OtcH1a+un3-fATSn_acKdMKUcdbpGadg@mail.gmail.com> <CAK6E8=fb0x5Z0dnA6PDbxJKYn3z1y42Pr555t7apLbT97R8O-Q@mail.gmail.com> <CADVnQykk0pmryWdRjq21OXYK3Pvi5xWCkaB7Jf2acF5qtnzANg@mail.gmail.com> <20140617122038.GA7275@unicorn.suse.cz> <CAK6E8=e=EoxMfGMFnO90MVfBWGmoua8=4ptG978-jfD2S-J8Fw@mail.gmail.com> <20140617224241.GA17969@unicorn.suse.cz> <2421.1403051930@localhost.localdomain> <CADVnQy=qdaB7GEK8Ggenr92ckjwM3jOdsS18KEQver=9haWmCA@mail.gmail.com> <11392.1403142743@localhost.localdomain> <1403144937.1225.1.camel@edumazet-glaptop2.roam.corp.google.com>
-Cc: Neal Cardwell <ncardwell@google.com>,
-	Michal Kubecek <mkubecek@suse.cz>,
-	Yuchung Cheng <ycheng@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:36692 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751779AbaFSGFX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2014 02:05:23 -0400
-In-reply-to: <1403144937.1225.1.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net,stable] net: huawei_cdc_ncm: increase command buffer
+ size
+Date: Thu, 19 Jun 2014 09:48:05 +0200 (CEST)
+Message-ID: <alpine.LNX.2.03.1406190947001.498@gmail.com>
+References: <1403094084-13588-1-git-send-email-bjorn@mork.no> <1403100197.2266.14.camel@dcbw.local>
+Mime-Version: 1.0
+Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-1055563219-1403164086=:498"
+Cc: =?ISO-8859-15?Q?Bj=F8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1403100197.2266.14.camel-ZWpNTBV2bRGs1BDpvl8NfQ@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
->On Wed, 2014-06-18 at 18:52 -0700, Jay Vosburgh wrote:
->> 	The test involves adding 40 ms of delay in and out from machine
->> A with netem, then running iperf from A to B.  Once the iperf reaches a
->> steady cwnd, on B, I add an iptables rule to drop 1 packet out of every
->> 1000 coming from A, then remove the rule after 10 seconds.  The behavior
->> resulting from this closely matches what I see on the real systems.
->
->Please share the netem setup. Are you sure you do not drop frames on
->netem ? (considering you disable GSO/TSO netem has to be able to store a
->lot of packets)
+--8323328-1055563219-1403164086=:498
+Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
 
-	Reasonably sure; the tc -s qdisc doesn't show any drops by netem
-for these test runs.  The data I linked to earlier is one run with
-TSO/GSO/GRO enabled, and one with TSO/GSO/GRO disabled, and the results
-are similar in terms of cwnd recovery time.  Looking at the packet
-capture for the TSO/GSO/GRO disabled case, the time span from the first
-duplicate ACK to the last is about 9 seconds, which is close to the 10
-seconds the iptables drop rule is in effect; the same time analysis
-applies to retransmissions from the sender.
+that's sure. thank you Dan.
+And - what do you think guys if I try to implement something like a sysfs file 
+to change dynamically the buffer size? Yes, it seems not so simple, but I might 
+try, following th Bjorn example in the cdc_ncm driver.
+I might try at some point.
+Enrico.
 
-	I've also tested with using netem to induce drops, but in this
-particular case I used iptables.
+On Wed, 18 Jun 2014, Dan Williams wrote:
 
-	The script I use to set up netem is:
-
-#!/bin/bash
-
-IF=eth1
-TC=/usr/local/bin/tc
-DELAY=40ms
-
-rmmod ifb
-modprobe ifb
-ip link set dev ifb0 up
-
-if ${TC} qdisc show dev ${IF} | grep -q ingress; then
-	${TC} qdisc del dev ${IF} ingress
-fi
-${TC} qdisc add dev ${IF} ingress
-
-${TC} qdisc del dev ${IF} root
-
-${TC} filter add dev ${IF} parent ffff: protocol ip \
-	u32 match u32 0 0 flowid 1:1 action mirred egress redirect dev ifb0
-${TC} qdisc add dev ifb0 root netem delay ${DELAY} limit 5000
-${TC} qdisc add dev ${IF} root netem delay ${DELAY} limit 5000
-
-	In the past I've watched the tc backlog, and the highest I've
-seen is about 900 packets, so the limit 5000 is probably overkill.
-
-	I'm also not absolutely sure the delay 40ms each direction is
-materially different from 80ms in one direction, but the real
-configuration I'm recreating is 40ms each way.
-
-	The tc qdisc stats after the two runs I did earlier to capture
-data look like this:
-
-qdisc pfifo_fast 0: dev eth0 root refcnt 2 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
- Sent 1905005 bytes 22277 pkt (dropped 0, overlimits 0 requeues 0) 
- backlog 0b 0p requeues 0 
-qdisc netem 8002: dev eth1 root refcnt 2 limit 5000 delay 40.0ms
- Sent 773383636 bytes 510901 pkt (dropped 0, overlimits 0 requeues 0) 
- backlog 0b 0p requeues 0 
-qdisc ingress ffff: dev eth1 parent ffff:fff1 ---------------- 
- Sent 14852588 bytes 281846 pkt (dropped 0, overlimits 0 requeues 0) 
- backlog 0b 0p requeues 0 
-qdisc netem 8001: dev ifb0 root refcnt 2 limit 5000 delay 40.0ms
- Sent 18763686 bytes 281291 pkt (dropped 0, overlimits 0 requeues 0) 
- backlog 0b 0p requeues 0 
-
-	Lastly, I ran the same test on the actual systems, and the iperf
-results are similar to my test lab:
-
-[ ID] Interval       Transfer     Bandwidth
-[  3]  0.0- 1.0 sec   896 KBytes  7.34 Mbits/sec
-[  3]  1.0- 2.0 sec  1.50 MBytes  12.6 Mbits/sec
-[  3]  2.0- 3.0 sec  5.12 MBytes  43.0 Mbits/sec
-[  3]  3.0- 4.0 sec  13.9 MBytes   116 Mbits/sec
-[  3]  4.0- 5.0 sec  27.8 MBytes   233 Mbits/sec
-[  3]  5.0- 6.0 sec  39.0 MBytes   327 Mbits/sec
-[  3]  6.0- 7.0 sec  36.8 MBytes   308 Mbits/sec
-[  3]  7.0- 8.0 sec  36.8 MBytes   308 Mbits/sec
-[  3]  8.0- 9.0 sec  37.0 MBytes   310 Mbits/sec
-[  3]  9.0-10.0 sec  36.6 MBytes   307 Mbits/sec
-[  3] 10.0-11.0 sec  33.9 MBytes   284 Mbits/sec
-[  3] 11.0-12.0 sec  0.00 Bytes  0.00 bits/sec
-[  3] 12.0-13.0 sec  0.00 Bytes  0.00 bits/sec
-[  3] 13.0-14.0 sec  4.38 MBytes  36.7 Mbits/sec
-[  3] 14.0-15.0 sec  6.38 MBytes  53.5 Mbits/sec
-[  3] 15.0-16.0 sec  7.00 MBytes  58.7 Mbits/sec
-[  3] 16.0-17.0 sec  8.62 MBytes  72.4 Mbits/sec
-[  3] 17.0-18.0 sec  4.25 MBytes  35.7 Mbits/sec
-[  3] 18.0-19.0 sec  8.50 MBytes  71.3 Mbits/sec
-[  3] 19.0-20.0 sec  4.25 MBytes  35.7 Mbits/sec
-[  3] 20.0-21.0 sec  6.50 MBytes  54.5 Mbits/sec
-[  3] 21.0-22.0 sec  6.38 MBytes  53.5 Mbits/sec
-[  3] 22.0-23.0 sec  6.50 MBytes  54.5 Mbits/sec
-[  3] 23.0-24.0 sec  8.50 MBytes  71.3 Mbits/sec
-[  3] 24.0-25.0 sec  8.50 MBytes  71.3 Mbits/sec
-[  3] 25.0-26.0 sec  8.38 MBytes  70.3 Mbits/sec
-[  3] 26.0-27.0 sec  8.62 MBytes  72.4 Mbits/sec
-[  3] 27.0-28.0 sec  8.50 MBytes  71.3 Mbits/sec
-[  3] 28.0-29.0 sec  8.50 MBytes  71.3 Mbits/sec
-[  3] 29.0-30.0 sec  8.38 MBytes  70.3 Mbits/sec
-[  3] 30.0-31.0 sec  8.50 MBytes  71.3 Mbits/sec
-[  3] 31.0-32.0 sec  8.62 MBytes  72.4 Mbits/sec
-[  3] 32.0-33.0 sec  8.38 MBytes  70.3 Mbits/sec
-[  3] 33.0-34.0 sec  10.6 MBytes  89.1 Mbits/sec
-[  3] 34.0-35.0 sec  10.6 MBytes  89.1 Mbits/sec
-[  3] 35.0-36.0 sec  10.6 MBytes  89.1 Mbits/sec
-[  3] 36.0-37.0 sec  12.8 MBytes   107 Mbits/sec
-[  3] 37.0-38.0 sec  15.0 MBytes   126 Mbits/sec
-[  3] 38.0-39.0 sec  17.0 MBytes   143 Mbits/sec
-[  3] 39.0-40.0 sec  19.4 MBytes   163 Mbits/sec
-[  3] 40.0-41.0 sec  23.5 MBytes   197 Mbits/sec
-[  3] 41.0-42.0 sec  25.6 MBytes   215 Mbits/sec
-[  3] 42.0-43.0 sec  30.2 MBytes   254 Mbits/sec
-[  3] 43.0-44.0 sec  34.2 MBytes   287 Mbits/sec
-[  3] 44.0-45.0 sec  36.6 MBytes   307 Mbits/sec
-[  3] 45.0-46.0 sec  38.8 MBytes   325 Mbits/sec
-[  3] 46.0-47.0 sec  36.5 MBytes   306 Mbits/sec
-
-	This result is consistently repeatable.  These systems have more
-hops between them than my lab systems, but the ping RTT is 80ms.
-
-	-J
-
----
-	-Jay Vosburgh, jay.vosburgh@canonical.com
+==Date: Wed, 18 Jun 2014 16:03:17
+==From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+==To: Bjørn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+==Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+==    Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+==Subject: Re: [PATCH net,
+==    stable] net: huawei_cdc_ncm: increase command buffer size
+==
+==On Wed, 2014-06-18 at 14:21 +0200, Bjørn Mork wrote:
+==> Messages from the modem exceeding 256 bytes cause communication
+==> failure.
+==> 
+==> The WDM protocol is strictly "read on demand", meaning that we only
+==> poll for unread data after receiving a notification from the modem.
+==> Since we have no way to know how much data the modem has to send,
+==> we must make sure that the buffer we provide is "big enough".
+==> Message truncation does not work. Truncated messages are left unread
+==> until the modem has another message to send.  Which often won't
+==> happen until the userspace application has given up waiting for the
+==> final part of the last message, and therefore sends another command.
+==> 
+==> With a proper CDC WDM function there is a descriptor telling us
+==> which buffer size the modem uses. But with this vendor specific
+==> implementation there is no known way to calculate the exact "big
+==> enough" number.  It is an unknown property of the modem firmware.
+==> Experience has shown that 256 is too small.  The discussion of
+==> this failure ended up concluding that 512 might be too small as
+==> well. So 1024 seems like a reasonable value for now.
+==> 
+==> Fixes: 41c47d8cfd68 ("net: huawei_cdc_ncm: Introduce the huawei_cdc_ncm driver")
+==> Cc: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+==> Reported-by: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+==> Signed-off-by: Bjørn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+==
+==Tested-by: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+==
+=='<CR><LF>^SYSCFGEX:
+==("00","01","02","03","99"),((400380,"GSM900/GSM1800/WCDMA2100"),(6a80000,"GSM850/GSM1900/WCDMA850/AWS/WCDMA1900"),(3fffffff,"All bands")),(0-2),(0-4),((1081b,"LTE_B1/LTE_B2/LTE_B4/LTE_B5/LTE_B12/LTE_B17"),(7fffffffffffffff,"All bands"))<CR><LF><CR><LF>OK<CR><LF>'
+==
+==I get the last "<LF>" now :)
+==
+==> ---
+==> 
+==> The problem is a showstopper for anyone hitting it, so I believe this
+==> fix should go into all maintained stable kernels with this driver.
+==> That is anything based on v3.13 or newer.
+==> 
+==> Thanks,
+==> Bjørn
+==> 
+==> 
+==>  drivers/net/usb/huawei_cdc_ncm.c | 7 ++++---
+==>  1 file changed, 4 insertions(+), 3 deletions(-)
+==> 
+==> diff --git a/drivers/net/usb/huawei_cdc_ncm.c b/drivers/net/usb/huawei_cdc_ncm.c
+==> index f9822bc75425..5d95a13dbe2a 100644
+==> --- a/drivers/net/usb/huawei_cdc_ncm.c
+==> +++ b/drivers/net/usb/huawei_cdc_ncm.c
+==> @@ -84,12 +84,13 @@ static int huawei_cdc_ncm_bind(struct usbnet *usbnet_dev,
+==>  	ctx = drvstate->ctx;
+==>  
+==>  	if (usbnet_dev->status)
+==> -		/* CDC-WMC r1.1 requires wMaxCommand to be "at least 256
+==> -		 * decimal (0x100)"
+==> +		/* The wMaxCommand buffer must be big enough to hold
+==> +		 * any message from the modem. Experience has shown
+==> +		 * that some replies are more than 256 bytes long
+==>  		 */
+==>  		subdriver = usb_cdc_wdm_register(ctx->control,
+==>  						 &usbnet_dev->status->desc,
+==> -						 256, /* wMaxCommand */
+==> +						 1024, /* wMaxCommand */
+==>  						 huawei_cdc_ncm_wdm_manage_power);
+==>  	if (IS_ERR(subdriver)) {
+==>  		ret = PTR_ERR(subdriver);
+==
+==
+==
+--8323328-1055563219-1403164086=:498--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
