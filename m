@@ -1,44 +1,121 @@
-From: Yi Li <lovelylich@gmail.com>
-Subject: Re: Is net-next open?
-Date: Thu, 19 Jun 2014 21:51:02 +0800
-Message-ID: <53A2EAC6.7010204@gmail.com>
-References: <063D6719AE5E284EB5DD2968C1650D6D1725EFC7@AcuExch.aculab.com> <53A2A48D.5010805@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] cxgb4: disable BH when hold the adap_rcu_lock lock
+Date: Thu, 19 Jun 2014 06:54:49 -0700
+Message-ID: <1403186089.1225.12.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <53A0DDF5.80103@candelatech.com>
+	 <1403168810-9001-1-git-send-email-roy.qing.li@gmail.com>
+	 <1403185201.1225.10.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Daniel Borkmann <dborkman@redhat.com>,
-	David Laight <David.Laight@ACULAB.COM>
+Cc: netdev@vger.kernel.org, greearb@candelatech.com,
+	leedom@chelsio.com, hariprasad@chelsio.com
+To: roy.qing.li@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f52.google.com ([209.85.160.52]:38374 "EHLO
-	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754809AbaFSNv1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2014 09:51:27 -0400
-Received: by mail-pb0-f52.google.com with SMTP id rq2so1946875pbb.39
-        for <netdev@vger.kernel.org>; Thu, 19 Jun 2014 06:51:27 -0700 (PDT)
-In-Reply-To: <53A2A48D.5010805@redhat.com>
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:62900 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754545AbaFSNyx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2014 09:54:53 -0400
+Received: by mail-wi0-f176.google.com with SMTP id n3so9400529wiv.9
+        for <netdev@vger.kernel.org>; Thu, 19 Jun 2014 06:54:52 -0700 (PDT)
+In-Reply-To: <1403185201.1225.10.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, 2014-06-19 at 06:40 -0700, Eric Dumazet wrote:
+> On Thu, 2014-06-19 at 17:06 +0800, roy.qing.li@gmail.com wrote:
+> > From: Li RongQing <roy.qing.li@gmail.com>
+> > 
+> > This lock is used in BH enabled condition and softirq context, so need to
+> > disable BH to avoid the dead lock:
+> > 	=================================
+> > 	[ INFO: inconsistent lock state ]
+> > 	3.14.7+ #24 Tainted: G         C O
+> > 	---------------------------------
+> > 	inconsistent {SOFTIRQ-ON-W} -> {IN-SOFTIRQ-W} usage.
+> > 	radvd/3794 [HC0[0]:SC1[1]:HE1:SE0] takes:
+> > 	 (adap_rcu_lock){+.?...}, at: [<ffffffffa09989ea>] clip_add+0x2c/0x116 [cxgb4]
+> > 	{SOFTIRQ-ON-W} state was registered at:
+> > 	  [<ffffffff810fca81>] __lock_acquire+0x34a/0xe48
+> > 	  [<ffffffff810fd98b>] lock_acquire+0x82/0x9d
+> > 	  [<ffffffff815d6ff8>] _raw_spin_lock+0x34/0x43
+> > 	  [<ffffffffa09989ea>] clip_add+0x2c/0x116 [cxgb4]
+> > 	  [<ffffffffa0998beb>] cxgb4_inet6addr_handler+0x117/0x12c [cxgb4]
+> > 	  [<ffffffff815da98b>] notifier_call_chain+0x32/0x5c
+> > 	  [<ffffffff815da9f9>] __atomic_notifier_call_chain+0x44/0x6e
+> > 	  [<ffffffff815daa32>] atomic_notifier_call_chain+0xf/0x11
+> > 	  [<ffffffff815b1356>] inet6addr_notifier_call_chain+0x16/0x18
+> > 	  [<ffffffffa01f72e5>] ipv6_add_addr+0x404/0x46e [ipv6]
+> > 	  [<ffffffffa01f8df0>] addrconf_add_linklocal+0x5f/0x95 [ipv6]
+> > 	  [<ffffffffa01fc3e9>] addrconf_notify+0x632/0x841 [ipv6]
+> > 	  [<ffffffff815da98b>] notifier_call_chain+0x32/0x5c
+> > 	  [<ffffffff810e09a1>] __raw_notifier_call_chain+0x9/0xb
+> > 	  [<ffffffff810e09b2>] raw_notifier_call_chain+0xf/0x11
+> > 	  [<ffffffff8151b3b7>] call_netdevice_notifiers_info+0x4e/0x56
+> > 	  [<ffffffff8151b3d0>] call_netdevice_notifiers+0x11/0x13
+> > 	  [<ffffffff8151c0a6>] netdev_state_change+0x1f/0x38
+> > 	  [<ffffffff8152f004>] linkwatch_do_dev+0x3b/0x49
+> > 	  [<ffffffff8152f184>] __linkwatch_run_queue+0x10b/0x144
+> > 	  [<ffffffff8152f1dd>] linkwatch_event+0x20/0x27
+> > 	  [<ffffffff810d7bc0>] process_one_work+0x1cb/0x2ee
+> > 	  [<ffffffff810d7e3b>] worker_thread+0x12e/0x1fc
+> > 	  [<ffffffff810dd391>] kthread+0xc4/0xcc
+> > 	  [<ffffffff815dc48c>] ret_from_fork+0x7c/0xb0
+> > 	irq event stamp: 3388
+> > 	hardirqs last  enabled at (3388): [<ffffffff810c6c85>] __local_bh_enable_ip+0xaa/0xd9
+> > 	hardirqs last disabled at (3387): [<ffffffff810c6c2d>] __local_bh_enable_ip+0x52/0xd9
+> > 	softirqs last  enabled at (3288): [<ffffffffa01f1d5b>] rcu_read_unlock_bh+0x0/0x2f [ipv6]
+> > 	softirqs last disabled at (3289): [<ffffffff815ddafc>] do_softirq_own_stack+0x1c/0x30
+> > 
+> > 	other info that might help us debug this:
+> > 	 Possible unsafe locking scenario:
+> > 
+> > 	       CPU0
+> > 	       ----
+> > 	  lock(adap_rcu_lock);
+> > 	  <Interrupt>
+> > 	    lock(adap_rcu_lock);
+> > 
+> > 	 *** DEADLOCK ***
+> 
+> Sorry, I do not understand the problem.
+> 
+> This lock should be taken from process context only.
+> 
+> You did not provide full lockdep report, did you ?
 
+Right, appropriate fix is really :
 
-On 06/19/2014 04:51 PM, Daniel Borkmann wrote:
-> On 06/19/2014 10:46 AM, David Laight wrote:
->> Has David M sent out the mail saying that net-next is open?
->> I haven't seen it, but a few patches have been posted and he hasn't
->> bounced them because it is closed.
->
-> It's closed currently.
-Why is it closed currently?
-I have seen 3.16-rc1 have released, and from 
-https://www.kernel.org/doc/Documentation/networking/netdev-FAQ.txt, I 
-have got this message:
-"Shortly after the two weeks have passed (and vX.Y-rc1 is released), the
-    tree for net-next reopens to collect content for the next (vX.Y+1) 
-release."
-  Sorry, I am a newbie, but shouldn't net-next be open for now?
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 2f8d6b910383..93d5287544ab 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -4057,22 +4057,19 @@ int cxgb4_unregister_uld(enum cxgb4_uld type)
+ EXPORT_SYMBOL(cxgb4_unregister_uld);
+ 
+ /* Check if netdev on which event is occured belongs to us or not. Return
+- * suceess (1) if it belongs otherwise failure (0).
++ * success (true) if it belongs otherwise failure (false).
++ * Called with rcu_read_lock() held.
+  */
+-static int cxgb4_netdev(struct net_device *netdev)
++static bool cxgb4_netdev(const struct net_device *netdev)
+ {
+ 	struct adapter *adap;
+ 	int i;
+ 
+-	spin_lock(&adap_rcu_lock);
+ 	list_for_each_entry_rcu(adap, &adap_rcu_list, rcu_node)
+ 		for (i = 0; i < MAX_NPORTS; i++)
+-			if (adap->port[i] == netdev) {
+-				spin_unlock(&adap_rcu_lock);
+-				return 1;
+-			}
+-	spin_unlock(&adap_rcu_lock);
+-	return 0;
++			if (adap->port[i] == netdev)
++				return true;
++	return false;
+ }
+ 
+ static int clip_add(struct net_device *event_dev, struct inet6_ifaddr *ifa,
