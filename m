@@ -1,61 +1,105 @@
-From: Prashant Sreedharan <prashant@broadcom.com>
-Subject: [PATCH net]tg3: Change nvram command timeout value to 50ms
-Date: Wed, 18 Jun 2014 18:38:42 -0700
-Message-ID: <1403141922-21768-1-git-send-email-prashant@broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>,
-	Prashant Sreedharan <prashant@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>
-To: <davem@davemloft.net>
+From: Jay Vosburgh <jay.vosburgh@canonical.com>
+Subject: Re: [PATCH net] tcp: avoid multiple ssthresh reductions in on retransmit window
+Date: Wed, 18 Jun 2014 18:52:23 -0700
+Message-ID: <11392.1403142743@localhost.localdomain>
+References: <CAK6E8=dwh1btNzX80YNre9u7rS+SgochXxHxDhQYQZCvY8yVMQ@mail.gmail.com> <20140616211954.6E12BA3A89@unicorn.suse.cz> <CAK6E8=dxszKmHssR7ib7Fxfm6hQRdbwBG1ygRvOXoSAXddBSPA@mail.gmail.com> <CADVnQy=sd2V2A5Rzd+OtcH1a+un3-fATSn_acKdMKUcdbpGadg@mail.gmail.com> <CAK6E8=fb0x5Z0dnA6PDbxJKYn3z1y42Pr555t7apLbT97R8O-Q@mail.gmail.com> <CADVnQykk0pmryWdRjq21OXYK3Pvi5xWCkaB7Jf2acF5qtnzANg@mail.gmail.com> <20140617122038.GA7275@unicorn.suse.cz> <CAK6E8=e=EoxMfGMFnO90MVfBWGmoua8=4ptG978-jfD2S-J8Fw@mail.gmail.com> <20140617224241.GA17969@unicorn.suse.cz> <2421.1403051930@localhost.localdomain> <CADVnQy=qdaB7GEK8Ggenr92ckjwM3jOdsS18KEQver=9haWmCA@mail.gmail.com>
+Cc: Michal Kubecek <mkubecek@suse.cz>,
+	Yuchung Cheng <ycheng@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Neal Cardwell <ncardwell@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:16760 "EHLO
-	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757077AbaFSBmk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 21:42:40 -0400
+Received: from youngberry.canonical.com ([91.189.89.112]:35631 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756836AbaFSBwi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 18 Jun 2014 21:52:38 -0400
+In-reply-to: <CADVnQy=qdaB7GEK8Ggenr92ckjwM3jOdsS18KEQver=9haWmCA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 506724c463fcd63477a5e404728a980b71f80bb7 "tg3: Override clock,
-link aware and link idle mode during NVRAM dump" changed the timeout
-value for nvram command execution from 100ms to 1ms. But the 1ms
-timeout value was only sufficient for nvram read operations but not
-write operations for most of the devices supported by tg3 driver.
-This patch sets the MAX to 50ms. Also to avoid busy waiting for a long
-time, the driver will udelay for 1ms and msleep for the remaining time.
+Neal Cardwell <ncardwell@google.com> wrote:
 
-Signed-off-by: Prashant Sreedharan <prashant@broadcom.com>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
+>On Tue, Jun 17, 2014 at 8:38 PM, Jay Vosburgh
+><jay.vosburgh@canonical.com> wrote:
+[...]
+>>         The recovery from the low cwnd situation is very slow; cwnd
+>> climbs a bit and then remains essentially flat for around 5 seconds.  It
+>> then begins to climb until a few packets are lost again, and the cycle
+>> repeats.  If no futher losses occur (if the competing traffic has
+>> ceased, for example), recovery from a low cwnd (300 - 750 ish) to the
+>> full value (~2200) requires on the order of 20 seconds.  The connection
+>> exits recovery state fairly quickly, and most of the 20 seconds is spent
+>> in open state.
+>
+>Interesting. I'm a little surprised it takes CUBIC so long to re-grow
+>cwnd to the full value. Would you be able to provide your kernel
+>version number and post a tcpdump binary packet trace somewhere
+>public?
+
+	Ok, I ran a test today that demonstrates the slow cwnd growth.
+The sending machine is 3.15-rc8 (net-next as of about two weeks ago),
+the receiver is Ubuntu 3.13.0-24.
+
+	The test involves adding 40 ms of delay in and out from machine
+A with netem, then running iperf from A to B.  Once the iperf reaches a
+steady cwnd, on B, I add an iptables rule to drop 1 packet out of every
+1000 coming from A, then remove the rule after 10 seconds.  The behavior
+resulting from this closely matches what I see on the real systems.
+
+	I captured packets from both ends, running it twice, the second
+time with GSO, GRO and TSO disabled.
+
+	The iperf output is as follows:
+
+[  3]  5.0- 6.0 sec  33.6 MBytes   282 Mbits/sec
+[  3]  6.0- 7.0 sec  33.8 MBytes   283 Mbits/sec
+[  3]  7.0- 8.0 sec  27.0 MBytes   226 Mbits/sec
+[  3]  8.0- 9.0 sec  23.2 MBytes   195 Mbits/sec
+[  3]  9.0-10.0 sec  17.4 MBytes   146 Mbits/sec
+[  3] 10.0-11.0 sec  13.9 MBytes   116 Mbits/sec
+[  3] 11.0-12.0 sec  10.4 MBytes  87.0 Mbits/sec
+[  3] 12.0-13.0 sec  6.38 MBytes  53.5 Mbits/sec
+[  3] 13.0-14.0 sec  5.75 MBytes  48.2 Mbits/sec
+[  3] 14.0-15.0 sec  4.75 MBytes  39.8 Mbits/sec
+[  3] 15.0-16.0 sec  3.12 MBytes  26.2 Mbits/sec
+[  3] 16.0-17.0 sec  4.38 MBytes  36.7 Mbits/sec
+[  3] 17.0-18.0 sec  3.12 MBytes  26.2 Mbits/sec
+[  3] 18.0-19.0 sec  3.12 MBytes  26.2 Mbits/sec
+[  3] 19.0-20.0 sec  4.25 MBytes  35.7 Mbits/sec
+[  3] 20.0-21.0 sec  3.12 MBytes  26.2 Mbits/sec
+[  3] 21.0-22.0 sec  3.25 MBytes  27.3 Mbits/sec
+[  3] 22.0-23.0 sec  4.25 MBytes  35.7 Mbits/sec
+[  3] 23.0-24.0 sec  3.12 MBytes  26.2 Mbits/sec
+[  3] 24.0-25.0 sec  4.12 MBytes  34.6 Mbits/sec
+[  3] 25.0-26.0 sec  4.50 MBytes  37.7 Mbits/sec
+[  3] 26.0-27.0 sec  4.50 MBytes  37.7 Mbits/sec
+[  3] 27.0-28.0 sec  5.88 MBytes  49.3 Mbits/sec
+[  3] 28.0-29.0 sec  7.12 MBytes  59.8 Mbits/sec
+[  3] 29.0-30.0 sec  7.38 MBytes  61.9 Mbits/sec
+[  3] 30.0-31.0 sec  10.0 MBytes  83.9 Mbits/sec
+[  3] 31.0-32.0 sec  11.6 MBytes  97.5 Mbits/sec
+[  3] 32.0-33.0 sec  15.5 MBytes   130 Mbits/sec
+[  3] 33.0-34.0 sec  17.2 MBytes   145 Mbits/sec
+[  3] 34.0-35.0 sec  20.0 MBytes   168 Mbits/sec
+[  3] 35.0-36.0 sec  25.5 MBytes   214 Mbits/sec
+[  3] 36.0-37.0 sec  29.8 MBytes   250 Mbits/sec
+[  3] 37.0-38.0 sec  32.2 MBytes   271 Mbits/sec
+[  3] 38.0-39.0 sec  32.4 MBytes   272 Mbits/sec
+
+	For the above run, the iptables drop rule went in at about time
+7, and was removed 10 seconds later, so recovery began at about time 17.
+The second run is similar, although the exact start times differ.
+
+	The full data (two runs, each with packet capture from both ends
+and the iperf output) can be found at:
+
+http://people.canonical.com/~jvosburgh/tcp-slow-recovery.tar.bz2
+
+	-J
+
 ---
- drivers/net/ethernet/broadcom/tg3.c |    9 +++++++--
- 1 files changed, 7 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index df2792d..cd92c49 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -3224,7 +3224,7 @@ static int tg3_nvram_read_using_eeprom(struct tg3 *tp,
- 	return 0;
- }
- 
--#define NVRAM_CMD_TIMEOUT 100
-+#define NVRAM_CMD_TIMEOUT 5000
- 
- static int tg3_nvram_exec_cmd(struct tg3 *tp, u32 nvram_cmd)
- {
-@@ -3232,7 +3232,12 @@ static int tg3_nvram_exec_cmd(struct tg3 *tp, u32 nvram_cmd)
- 
- 	tw32(NVRAM_CMD, nvram_cmd);
- 	for (i = 0; i < NVRAM_CMD_TIMEOUT; i++) {
--		udelay(10);
-+		if (i < 100) {
-+			udelay(10);
-+		} else {
-+			msleep(1);
-+			i += 99;
-+		}
- 		if (tr32(NVRAM_CMD) & NVRAM_CMD_DONE) {
- 			udelay(10);
- 			break;
--- 
-1.7.1
+	-Jay Vosburgh, jay.vosburgh@canonical.com
