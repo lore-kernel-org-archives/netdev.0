@@ -1,130 +1,55 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 11/13] i40e/i40evf: Update RSS configuration
-Date: Fri, 20 Jun 2014 00:49:46 -0700
-Message-ID: <1403250588-14356-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 10/13] i40evf: fix off-by-one
+Date: Fri, 20 Jun 2014 00:49:45 -0700
+Message-ID: <1403250588-14356-11-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1403250588-14356-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:62066 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:62075 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934737AbaFTHt7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754220AbaFTHt7 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 20 Jun 2014 03:49:59 -0400
 In-Reply-To: <1403250588-14356-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-This patch changes the RSS configuration to set table size
-and write to hardware to confirm RSS table size being used.
+The loop in i40evf_get_rxfh_indir was only reading fifteen registers,
+not all sixteen. Change the matching loop in i40evf_set_rxfh_indir at
+the same time to make the code more consistent.
 
-Change-ID: I455a4c09c9dd479f5791ee1f09fdc83ff9908df5
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Change-ID: I6c182287698e742d1f6ca1a4bcc43cc08df6e1de
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h        |  1 +
- drivers/net/ethernet/intel/i40e/i40e_common.c |  7 +------
- drivers/net/ethernet/intel/i40e/i40e_main.c   | 14 +++++++++++++-
- drivers/net/ethernet/intel/i40e/i40e_type.h   |  3 +++
- drivers/net/ethernet/intel/i40evf/i40e_type.h |  3 +++
- 5 files changed, 21 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 60f9a73..817e179 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -350,6 +350,7 @@ struct i40e_pf {
- 	u32 rx_hwtstamp_cleared;
- 	bool ptp_tx;
- 	bool ptp_rx;
-+	u16 rss_table_size;
- };
- 
- struct i40e_mac_filter {
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index 6e65f19..a51bba6 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -1839,7 +1839,6 @@ static void i40e_parse_discover_capabilities(struct i40e_hw *hw, void *buff,
- 	struct i40e_aqc_list_capabilities_element_resp *cap;
- 	u32 number, logical_id, phys_id;
- 	struct i40e_hw_capabilities *p;
--	u32 reg_val;
- 	u32 i = 0;
- 	u16 id;
- 
-@@ -1910,11 +1909,7 @@ static void i40e_parse_discover_capabilities(struct i40e_hw *hw, void *buff,
- 			break;
- 		case I40E_DEV_FUNC_CAP_RSS:
- 			p->rss = true;
--			reg_val = rd32(hw, I40E_PFQF_CTL_0);
--			if (reg_val & I40E_PFQF_CTL_0_HASHLUTSIZE_MASK)
--				p->rss_table_size = number;
--			else
--				p->rss_table_size = 128;
-+			p->rss_table_size = number;
- 			p->rss_table_entry_width = logical_id;
- 			break;
- 		case I40E_DEV_FUNC_CAP_RX_QUEUES:
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index ebbf37b..34310bd 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -6599,6 +6599,7 @@ static int i40e_config_rss(struct i40e_pf *pf)
- 	u32 lut = 0;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
+index 60407a9..e70e4cd 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c
+@@ -632,7 +632,7 @@ static int i40evf_get_rxfh(struct net_device *netdev, u32 *indir, u8 *key)
+ 	u32 hlut_val;
  	int i, j;
- 	u64 hena;
-+	u32 reg_val;
  
- 	/* Fill out hash function seed */
- 	for (i = 0; i <= I40E_PFQF_HKEY_MAX_INDEX; i++)
-@@ -6611,8 +6612,19 @@ static int i40e_config_rss(struct i40e_pf *pf)
- 	wr32(hw, I40E_PFQF_HENA(0), (u32)hena);
- 	wr32(hw, I40E_PFQF_HENA(1), (u32)(hena >> 32));
+-	for (i = 0, j = 0; i < I40E_VFQF_HLUT_MAX_INDEX; i++) {
++	for (i = 0, j = 0; i <= I40E_VFQF_HLUT_MAX_INDEX; i++) {
+ 		hlut_val = rd32(hw, I40E_VFQF_HLUT(i));
+ 		indir[j++] = hlut_val & 0xff;
+ 		indir[j++] = (hlut_val >> 8) & 0xff;
+@@ -659,7 +659,7 @@ static int i40evf_set_rxfh(struct net_device *netdev, const u32 *indir,
+ 	u32 hlut_val;
+ 	int i, j;
  
-+	/* Check capability and Set table size and register per hw expectation*/
-+	reg_val = rd32(hw, I40E_PFQF_CTL_0);
-+	if (hw->func_caps.rss_table_size == 512) {
-+		reg_val |= I40E_PFQF_CTL_0_HASHLUTSIZE_512;
-+		pf->rss_table_size = 512;
-+	} else {
-+		pf->rss_table_size = 128;
-+		reg_val &= ~I40E_PFQF_CTL_0_HASHLUTSIZE_512;
-+	}
-+	wr32(hw, I40E_PFQF_CTL_0, reg_val);
-+
- 	/* Populate the LUT with max no. of queues in round robin fashion */
--	for (i = 0, j = 0; i < pf->hw.func_caps.rss_table_size; i++, j++) {
-+	for (i = 0, j = 0; i < pf->rss_table_size; i++, j++) {
- 
- 		/* The assumption is that lan qp count will be the highest
- 		 * qp count for any PF VSI that needs RSS.
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
-index a688ab8..1c0d5a7 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
-@@ -1165,4 +1165,7 @@ enum i40e_reset_type {
- 	I40E_RESET_GLOBR	= 2,
- 	I40E_RESET_EMPR		= 3,
- };
-+
-+/* RSS Hash Table Size */
-+#define I40E_PFQF_CTL_0_HASHLUTSIZE_512	0x00010000
- #endif /* _I40E_TYPE_H_ */
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-index 4a2e48a..9c83578 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-@@ -1165,4 +1165,7 @@ enum i40e_reset_type {
- 	I40E_RESET_GLOBR	= 2,
- 	I40E_RESET_EMPR		= 3,
- };
-+
-+/* RSS Hash Table Size */
-+#define I40E_PFQF_CTL_0_HASHLUTSIZE_512	0x00010000
- #endif /* _I40E_TYPE_H_ */
+-	for (i = 0, j = 0; i < I40E_VFQF_HLUT_MAX_INDEX + 1; i++) {
++	for (i = 0, j = 0; i <= I40E_VFQF_HLUT_MAX_INDEX; i++) {
+ 		hlut_val = indir[j++];
+ 		hlut_val |= indir[j++] << 8;
+ 		hlut_val |= indir[j++] << 16;
 -- 
 1.9.3
