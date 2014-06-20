@@ -1,143 +1,192 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/13] i40e/i40evf: modify debug prints to avoid seg faults
-Date: Fri, 20 Jun 2014 00:49:47 -0700
-Message-ID: <1403250588-14356-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/13] i40e: Helper routine for Rx/Tx queue enable/disable wait
+Date: Fri, 20 Jun 2014 00:49:40 -0700
+Message-ID: <1403250588-14356-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1403250588-14356-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Kamil Krawczyk <kamil.krawczyk@intel.com>, netdev@vger.kernel.org,
+Cc: Neerav Parikh <neerav.parikh@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:62079 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:62062 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934740AbaFTHuA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Jun 2014 03:50:00 -0400
+	id S1754180AbaFTHt4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Jun 2014 03:49:56 -0400
 In-Reply-To: <1403250588-14356-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kamil Krawczyk <kamil.krawczyk@intel.com>
+From: Neerav Parikh <neerav.parikh@intel.com>
 
-Some AQ debug prints needs be moved around or do additional checks so they
-will not cause our tool applications to cause segmentation faults.
-The tools run in user space and we need to correctly reference kernel
-space memory.
+Introduce helper routines that would wait for the Rx/Tx queue
+to reach the enable or disable state as requested.
 
-Change-ID: Ia2ac4076f576b805f350453fd50ad69c2a91ab9a
-Signed-off-by: Kamil Krawczyk <kamil.krawczyk@intel.com>
+Change-ID: I518d9d0e2afef3f45107af3b46e9af402ff587c3
+Signed-off-by: Neerav Parikh <neerav.parikh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_adminq.c   | 15 +++++++++++----
- drivers/net/ethernet/intel/i40evf/i40e_adminq.c | 15 +++++++++++----
- 2 files changed, 22 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h      |   1 +
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 100 ++++++++++++++++++++--------
+ 2 files changed, 75 insertions(+), 26 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.c b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-index 40381ab..95aab70 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-@@ -850,6 +850,7 @@ i40e_status i40e_asq_send_command(struct i40e_hw *hw,
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 6598584..fce7e4d 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -84,6 +84,7 @@
+ #define I40E_AQ_WORK_LIMIT            16
+ #define I40E_MAX_USER_PRIORITY        8
+ #define I40E_DEFAULT_MSG_ENABLE       4
++#define I40E_QUEUE_WAIT_RETRY_LIMIT   10
+ 
+ #define I40E_NVM_VERSION_LO_SHIFT  0
+ #define I40E_NVM_VERSION_LO_MASK   (0xff << I40E_NVM_VERSION_LO_SHIFT)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 7d2aeeb..296b3d2 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -3232,6 +3232,35 @@ static void i40e_netpoll(struct net_device *netdev)
+ #endif
+ 
+ /**
++ * i40e_pf_txq_wait - Wait for a PF's Tx queue to be enabled or disabled
++ * @pf: the PF being configured
++ * @pf_q: the PF queue
++ * @enable: enable or disable state of the queue
++ *
++ * This routine will wait for the given Tx queue of the PF to reach the
++ * enabled or disabled state.
++ * Returns -ETIMEDOUT in case of failing to reach the requested state after
++ * multiple retries; else will return 0 in case of success.
++ **/
++static int i40e_pf_txq_wait(struct i40e_pf *pf, int pf_q, bool enable)
++{
++	int i;
++	u32 tx_reg;
++
++	for (i = 0; i < I40E_QUEUE_WAIT_RETRY_LIMIT; i++) {
++		tx_reg = rd32(&pf->hw, I40E_QTX_ENA(pf_q));
++		if (enable == !!(tx_reg & I40E_QTX_ENA_QENA_STAT_MASK))
++			break;
++
++		udelay(10);
++	}
++	if (i >= I40E_QUEUE_WAIT_RETRY_LIMIT)
++		return -ETIMEDOUT;
++
++	return 0;
++}
++
++/**
+  * i40e_vsi_control_tx - Start or stop a VSI's rings
+  * @vsi: the VSI being configured
+  * @enable: start or stop the rings
+@@ -3240,7 +3269,7 @@ static int i40e_vsi_control_tx(struct i40e_vsi *vsi, bool enable)
+ {
+ 	struct i40e_pf *pf = vsi->back;
+ 	struct i40e_hw *hw = &pf->hw;
+-	int i, j, pf_q;
++	int i, j, pf_q, ret = 0;
+ 	u32 tx_reg;
+ 
+ 	pf_q = vsi->base_queue;
+@@ -3273,22 +3302,46 @@ static int i40e_vsi_control_tx(struct i40e_vsi *vsi, bool enable)
+ 		wr32(hw, I40E_QTX_ENA(pf_q), tx_reg);
+ 
+ 		/* wait for the change to finish */
+-		for (j = 0; j < 10; j++) {
+-			tx_reg = rd32(hw, I40E_QTX_ENA(pf_q));
+-			if (enable == !!(tx_reg & I40E_QTX_ENA_QENA_STAT_MASK))
+-				break;
+-
+-			udelay(10);
+-		}
+-		if (j >= 10) {
+-			dev_info(&pf->pdev->dev, "Tx ring %d %sable timeout\n",
+-				 pf_q, (enable ? "en" : "dis"));
+-			return -ETIMEDOUT;
++		ret = i40e_pf_txq_wait(pf, pf_q, enable);
++		if (ret) {
++			dev_info(&pf->pdev->dev,
++				 "%s: VSI seid %d Tx ring %d %sable timeout\n",
++				 __func__, vsi->seid, pf_q,
++				 (enable ? "en" : "dis"));
++			break;
+ 		}
  	}
  
- 	/* bump the tail */
-+	i40e_debug(hw, I40E_DEBUG_AQ_MESSAGE, "AQTX: desc and buffer:\n");
- 	i40e_debug_aq(hw, I40E_DEBUG_AQ_COMMAND, (void *)desc_on_ring, buff);
- 	(hw->aq.asq.next_to_use)++;
- 	if (hw->aq.asq.next_to_use == hw->aq.asq.count)
-@@ -887,6 +888,7 @@ i40e_status i40e_asq_send_command(struct i40e_hw *hw,
- 				   I40E_DEBUG_AQ_MESSAGE,
- 				   "AQTX: Command completed with error 0x%X.\n",
- 				   retval);
+ 	if (hw->revision_id == 0)
+ 		mdelay(50);
++	return ret;
++}
 +
- 			/* strip off FW internal code */
- 			retval &= 0xff;
- 		}
-@@ -901,6 +903,12 @@ i40e_status i40e_asq_send_command(struct i40e_hw *hw,
- 	if (i40e_is_nvm_update_op(desc))
- 		hw->aq.nvm_busy = true;
- 
-+	if (le16_to_cpu(desc->datalen) == buff_size) {
-+		i40e_debug(hw, I40E_DEBUG_AQ_MESSAGE,
-+			   "AQTX: desc and buffer writeback:\n");
-+		i40e_debug_aq(hw, I40E_DEBUG_AQ_COMMAND, (void *)desc, buff);
++/**
++ * i40e_pf_rxq_wait - Wait for a PF's Rx queue to be enabled or disabled
++ * @pf: the PF being configured
++ * @pf_q: the PF queue
++ * @enable: enable or disable state of the queue
++ *
++ * This routine will wait for the given Rx queue of the PF to reach the
++ * enabled or disabled state.
++ * Returns -ETIMEDOUT in case of failing to reach the requested state after
++ * multiple retries; else will return 0 in case of success.
++ **/
++static int i40e_pf_rxq_wait(struct i40e_pf *pf, int pf_q, bool enable)
++{
++	int i;
++	u32 rx_reg;
++
++	for (i = 0; i < I40E_QUEUE_WAIT_RETRY_LIMIT; i++) {
++		rx_reg = rd32(&pf->hw, I40E_QRX_ENA(pf_q));
++		if (enable == !!(rx_reg & I40E_QRX_ENA_QENA_STAT_MASK))
++			break;
++
++		udelay(10);
 +	}
-+
- 	/* update the error if time out occurred */
- 	if ((!cmd_completed) &&
- 	    (!details->async && !details->postpone)) {
-@@ -972,10 +980,6 @@ i40e_status i40e_clean_arq_element(struct i40e_hw *hw,
- 	/* now clean the next descriptor */
- 	desc = I40E_ADMINQ_DESC(hw->aq.arq, ntc);
- 	desc_idx = ntc;
--	i40e_debug_aq(hw,
--		      I40E_DEBUG_AQ_COMMAND,
--		      (void *)desc,
--		      hw->aq.arq.r.arq_bi[desc_idx].va);
++	if (i >= I40E_QUEUE_WAIT_RETRY_LIMIT)
++		return -ETIMEDOUT;
  
- 	flags = le16_to_cpu(desc->flags);
- 	if (flags & I40E_AQ_FLAG_ERR) {
-@@ -998,6 +1002,9 @@ i40e_status i40e_clean_arq_element(struct i40e_hw *hw,
- 	if (i40e_is_nvm_update_op(&e->desc))
- 		hw->aq.nvm_busy = false;
+ 	return 0;
+ }
+@@ -3302,7 +3355,7 @@ static int i40e_vsi_control_rx(struct i40e_vsi *vsi, bool enable)
+ {
+ 	struct i40e_pf *pf = vsi->back;
+ 	struct i40e_hw *hw = &pf->hw;
+-	int i, j, pf_q;
++	int i, j, pf_q, ret = 0;
+ 	u32 rx_reg;
  
-+	i40e_debug(hw, I40E_DEBUG_AQ_MESSAGE, "AQRX: desc and buffer:\n");
-+	i40e_debug_aq(hw, I40E_DEBUG_AQ_COMMAND, (void *)desc, e->msg_buf);
-+
- 	/* Restore the original datalen and buffer address in the desc,
- 	 * FW updates datalen to indicate the event message
- 	 * size
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq.c b/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
-index 4a90a85..15853fd 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
-@@ -804,6 +804,7 @@ i40e_status i40evf_asq_send_command(struct i40e_hw *hw,
+ 	pf_q = vsi->base_queue;
+@@ -3327,22 +3380,17 @@ static int i40e_vsi_control_rx(struct i40e_vsi *vsi, bool enable)
+ 		wr32(hw, I40E_QRX_ENA(pf_q), rx_reg);
+ 
+ 		/* wait for the change to finish */
+-		for (j = 0; j < 10; j++) {
+-			rx_reg = rd32(hw, I40E_QRX_ENA(pf_q));
+-
+-			if (enable == !!(rx_reg & I40E_QRX_ENA_QENA_STAT_MASK))
+-				break;
+-
+-			udelay(10);
+-		}
+-		if (j >= 10) {
+-			dev_info(&pf->pdev->dev, "Rx ring %d %sable timeout\n",
+-				 pf_q, (enable ? "en" : "dis"));
+-			return -ETIMEDOUT;
++		ret = i40e_pf_rxq_wait(pf, pf_q, enable);
++		if (ret) {
++			dev_info(&pf->pdev->dev,
++				 "%s: VSI seid %d Rx ring %d %sable timeout\n",
++				 __func__, vsi->seid, pf_q,
++				 (enable ? "en" : "dis"));
++			break;
+ 		}
  	}
  
- 	/* bump the tail */
-+	i40e_debug(hw, I40E_DEBUG_AQ_MESSAGE, "AQTX: desc and buffer:\n");
- 	i40evf_debug_aq(hw, I40E_DEBUG_AQ_COMMAND, (void *)desc_on_ring, buff);
- 	(hw->aq.asq.next_to_use)++;
- 	if (hw->aq.asq.next_to_use == hw->aq.asq.count)
-@@ -841,6 +842,7 @@ i40e_status i40evf_asq_send_command(struct i40e_hw *hw,
- 				   I40E_DEBUG_AQ_MESSAGE,
- 				   "AQTX: Command completed with error 0x%X.\n",
- 				   retval);
-+
- 			/* strip off FW internal code */
- 			retval &= 0xff;
- 		}
-@@ -855,6 +857,12 @@ i40e_status i40evf_asq_send_command(struct i40e_hw *hw,
- 	if (i40e_is_nvm_update_op(desc))
- 		hw->aq.nvm_busy = true;
+-	return 0;
++	return ret;
+ }
  
-+	if (le16_to_cpu(desc->datalen) == buff_size) {
-+		i40e_debug(hw, I40E_DEBUG_AQ_MESSAGE,
-+			   "AQTX: desc and buffer writeback:\n");
-+		i40evf_debug_aq(hw, I40E_DEBUG_AQ_COMMAND, (void *)desc, buff);
-+	}
-+
- 	/* update the error if time out occurred */
- 	if ((!cmd_completed) &&
- 	    (!details->async && !details->postpone)) {
-@@ -926,10 +934,6 @@ i40e_status i40evf_clean_arq_element(struct i40e_hw *hw,
- 	/* now clean the next descriptor */
- 	desc = I40E_ADMINQ_DESC(hw->aq.arq, ntc);
- 	desc_idx = ntc;
--	i40evf_debug_aq(hw,
--		      I40E_DEBUG_AQ_COMMAND,
--		      (void *)desc,
--		      hw->aq.arq.r.arq_bi[desc_idx].va);
- 
- 	flags = le16_to_cpu(desc->flags);
- 	if (flags & I40E_AQ_FLAG_ERR) {
-@@ -952,6 +956,9 @@ i40e_status i40evf_clean_arq_element(struct i40e_hw *hw,
- 	if (i40e_is_nvm_update_op(&e->desc))
- 		hw->aq.nvm_busy = false;
- 
-+	i40e_debug(hw, I40E_DEBUG_AQ_MESSAGE, "AQRX: desc and buffer:\n");
-+	i40evf_debug_aq(hw, I40E_DEBUG_AQ_COMMAND, (void *)desc, e->msg_buf);
-+
- 	/* Restore the original datalen and buffer address in the desc,
- 	 * FW updates datalen to indicate the event message
- 	 * size
+ /**
 -- 
 1.9.3
