@@ -1,96 +1,92 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH net-next] hyperv: Add handler for
- RNDIS_STATUS_NETWORK_CHANGE event
-Date: Fri, 20 Jun 2014 15:48:56 +0000
-Message-ID: <5174e5cab2b84decaa903dcf3215bce9@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-References: <1403228076-7596-1-git-send-email-haiyangz@microsoft.com>
- <20140620084158.GR5500@mwanda>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH RFC 04/30] net: fec: fix interrupt handling races
+Date: Fri, 20 Jun 2014 16:00:45 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1725FB35@AcuExch.aculab.com>
+References: <20140620121118.GR32514@n2100.arm.linux.org.uk>
+ <E1Wxxfn-0005X5-KD@rmk-PC.arm.linux.org.uk>
+ <063D6719AE5E284EB5DD2968C1650D6D1725F962@AcuExch.aculab.com>
+ <20140620153614.GU32514@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="Windows-1252"
 Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"olaf@aepfle.de" <olaf@aepfle.de>,
-	"jasowang@redhat.com" <jasowang@redhat.com>,
-	"driverdev-devel@linuxdriverproject.org"
-	<driverdev-devel@linuxdriverproject.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140620084158.GR5500@mwanda>
+Cc: "linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	Fugang Duan <B38611@freescale.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Russell King - ARM Linux' <linux@arm.linux.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:33834 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751985AbaFTQCJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2014 12:02:09 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 32218-06 for <netdev@vger.kernel.org>;
+ Fri, 20 Jun 2014 17:02:00 +0100 (BST)
+In-Reply-To: <20140620153614.GU32514@n2100.arm.linux.org.uk>
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-> -----Original Message-----
-> From: Dan Carpenter [mailto:dan.carpenter@oracle.com]
-> Sent: Friday, June 20, 2014 4:42 AM
-> To: Haiyang Zhang
-> Cc: davem@davemloft.net; netdev@vger.kernel.org; olaf@aepfle.de;
-> jasowang@redhat.com; driverdev-devel@linuxdriverproject.org; linux-
-> kernel@vger.kernel.org
-> Subject: Re: [PATCH net-next] hyperv: Add handler for
-> RNDIS_STATUS_NETWORK_CHANGE event
-> 
-> On Thu, Jun 19, 2014 at 06:34:36PM -0700, Haiyang Zhang wrote:
-> > @@ -589,7 +590,19 @@ void netvsc_linkstatus_callback(struct hv_device
-> *device_obj,
-> >  	net_device = hv_get_drvdata(device_obj);
-> >  	rdev = net_device->extension;
+From: Russell King - ARM Linux
+> On Fri, Jun 20, 2014 at 12:39:57PM +0000, David Laight wrote:
+> > It is usually possible to reduce the interrupt count even further by:
+> > 1) processing the rings.
+> > 2) clear the IRQ.
+> > 3) check the rings for new entries, if any start again.
+> > This means that you don't take the interrupt for anything that completes
+> > while processing the earlier ring entries.
 > >
-> > -	rdev->link_state = status != 1;
-> > +	switch (indicate->status) {
-> > +	case RNDIS_STATUS_MEDIA_CONNECT:
-> > +		rdev->link_state = false;
-> 
-> link_state false means that we want to connect?
-Yes
-
-> 
-> > +		break;
-> > +	case RNDIS_STATUS_MEDIA_DISCONNECT:
-> > +		rdev->link_state = true;
-> 
-> link_state true means that we are disconnecting.
-Yes.
-
-> > @@ -782,10 +797,17 @@ static void netvsc_link_change(struct
-> work_struct *w)
-> >  	} else {
-> >  		netif_carrier_on(net);
-> >  		notify = true;
-> > +		if (rdev->link_change) {
-> > +			rdev->link_change = false;
-> > +			refresh = true;
-> > +		}
-> 
-> How do we know that we received a RNDIS_STATUS_MEDIA_CONNECT before we
-> received the RNDIS_STATUS_NETWORK_CHANGE?  In other words, why does
-> RNDIS_STATUS_NETWORK_CHANGE imply that the link_state is false?
-
-After host sleep, both RNDIS_STATUS_MEDIA_CONNECT and 
-RNDIS_STATUS_NETWORK_CHANGE events are received, but not necessarily in
-this order. If RNDIS_STATUS_MEDIA_CONNECT arrives later, the flag saved
-in rdev->link_change previously will trigger the refresh, not in the
-RNDIS_STATUS_NETWORK_CHANGE event, but in the latter RNDIS_STATUS_MEDIA_CONNECT
-event.
-
-> 
-> >  	}
+> > The slight downside is that it is easy to exit the ISR before the IRQ
+> > line actually drops - resulting in a spurious interrupt.
 > >
-> >  	rtnl_unlock();
-> >
-> > +	if (refresh)
-> > +		call_usermodehelper(argv[0], argv, envp, UMH_WAIT_EXEC);
+> > (patch 24 seems to be similar).
 > 
-> You may as well use UMH_NO_WAIT since there is no error handling if
-> /etc/init.d/network is not found.
+> ITYM patch 26, as patch 24 is an update to the errata workaround.
 
-I previously tried UMH_NO_WAIT, but not working. We need to wait for the 
-exec (not process completion) in this case. Since it's in the work queue,
-a bit of waiting is OK.
+Misread my jottings.
+> 
+> Patch 4 is what I regard to be the bare minimum fix, patch 26 is an
+> improvement over it.
+> 
+> Remember though that the real interrupt processing happens in the NAPI
+> handler, not the main interrupt handler - upon seeing a transmit and/or
+> receive complete interrupt, the main interrupt handler masks both of
+> these interrupts at the chip and triggers the NAPI handler to run.
+> 
+> Nevertheless, your suggestion is equally valid for a NAPI handler:
+> - process the rings
+> - clear the interrupt(s)
+> - if more work is allowed (according to the NAPI weight), repeat
 
-Thanks,
-- Haiyang
+Not quite, you only want to clear the hardware IRQ and unmask the ISR
+when there are no ring entries to process.
+(There is no point doing the slow bus cycles until then.)
+
+If you clear the hardware IRQ at the start of processing the ring you'll
+get another interrupt when you finally enable the interrupt for a rx
+packet that arrives while processing the earlier packets.
+However you must check the ring AFTER clearing the IRQ - otherwise
+you miss the interrupt for a packet the arrives at that time.
+
+So the sequence is:
+1) Find that there are no ring entries to process.
+(a packet can arrive here)
+2) Clear the IRQ request.
+3) Check there are still no ring entries to process.
+4) Unmask the interrupt.
+
+> This is simple enough for the RX ring, where each packet received is
+> equal one one NAPI unit of work.  The TX side is less obvious as
+> the NAPI documentation suggests that cleaning the ring partially
+> equates to no NAPI units of work but a clean of the entire ring
+> equates to the full allowance.  Maybe I've mis-understood something
+> there (which would mean there's another bug which needs fixing in the
+> tx reaping code...)
+
+I've never tried to understand NAPI work limits.
+I suspect that once the NAPI callbacks for other devices (etc) have
+had a chance to run, you get called again.
+So you'd leave the hardware interrupt masked until then.
+
+	David
