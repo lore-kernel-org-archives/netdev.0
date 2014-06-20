@@ -1,61 +1,63 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [PATCH RFC 04/30] net: fec: fix interrupt handling races
-Date: Fri, 20 Jun 2014 16:36:14 +0100
-Message-ID: <20140620153614.GU32514@n2100.arm.linux.org.uk>
-References: <20140620121118.GR32514@n2100.arm.linux.org.uk> <E1Wxxfn-0005X5-KD@rmk-PC.arm.linux.org.uk> <063D6719AE5E284EB5DD2968C1650D6D1725F962@AcuExch.aculab.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH 2/2] ipv6:  Allow accepting RA from local IP addresses.
+Date: Fri, 20 Jun 2014 17:40:36 +0200
+Message-ID: <1403278836.22173.21.camel@localhost>
+References: <1403113806-13004-1-git-send-email-greearb@candelatech.com>
+	 <1403113806-13004-2-git-send-email-greearb@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	Fugang Duan <B38611@freescale.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: greearb@candelatech.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:36619 "EHLO
-	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753833AbaFTPgX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2014 11:36:23 -0400
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1725F962@AcuExch.aculab.com>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:51033 "EHLO
+	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932228AbaFTPlu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2014 11:41:50 -0400
+Received: from compute5.internal (compute5.nyi.mail.srv.osa [10.202.2.45])
+	by gateway1.nyi.mail.srv.osa (Postfix) with ESMTP id 630E720E56
+	for <netdev@vger.kernel.org>; Fri, 20 Jun 2014 11:41:45 -0400 (EDT)
+In-Reply-To: <1403113806-13004-2-git-send-email-greearb@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 20, 2014 at 12:39:57PM +0000, David Laight wrote:
-> It is usually possible to reduce the interrupt count even further by:
-> 1) processing the rings.
-> 2) clear the IRQ.
-> 3) check the rings for new entries, if any start again.
-> This means that you don't take the interrupt for anything that completes
-> while processing the earlier ring entries.
+On Mi, 2014-06-18 at 10:50 -0700, greearb@candelatech.com wrote:
+> From: Ben Greear <greearb@candelatech.com>
 > 
-> The slight downside is that it is easy to exit the ISR before the IRQ
-> line actually drops - resulting in a spurious interrupt.
-> 
-> (patch 24 seems to be similar).
+> This can be used in virtual networking applications, and
+> may have other uses as well.  The option is disabled by
+> default, so no change to current operating behaviour
+> without the user explicitly changing the behaviour.
 
-ITYM patch 26, as patch 24 is an update to the errata workaround.
+Can you give a specific example for its use case? I currently don't see
+the need for such an option.
 
-Patch 4 is what I regard to be the bare minimum fix, patch 26 is an
-improvement over it.
+ 
+> -	if (ipv6_chk_addr(dev_net(in6_dev->dev), &ipv6_hdr(skb)->saddr,
+> +	if (!(in6_dev->cnf.accept_ra_from_local ||
+> +	      dev_net(in6_dev->dev)->ipv6.devconf_all->accept_ra_from_local) &&
+> +	    ipv6_chk_addr(dev_net(in6_dev->dev), &ipv6_hdr(skb)->saddr,
+>  			  NULL, 0)) {
+>  		ND_PRINTK(2, info,
+>  			  "RA: %s, chk_addr failed for dev: %s\n",
+> @@ -1293,7 +1295,9 @@ skip_linkparms:
+>  	}
+>  
+>  #ifdef CONFIG_IPV6_ROUTE_INFO
+> -	if (ipv6_chk_addr(dev_net(in6_dev->dev), &ipv6_hdr(skb)->saddr,
+> +	if (!(in6_dev->cnf.accept_ra_from_local ||
+> +	      dev_net(in6_dev->dev)->ipv6.devconf_all->accept_ra_from_local) &&
+> +	    ipv6_chk_addr(dev_net(in6_dev->dev), &ipv6_hdr(skb)->saddr,
+>  			  NULL, 0)) {
+>  		ND_PRINTK(2, info,
+>  			  "RA: %s, chk-addr (route info) is false for dev: %s\n",
 
-Remember though that the real interrupt processing happens in the NAPI
-handler, not the main interrupt handler - upon seeing a transmit and/or
-receive complete interrupt, the main interrupt handler masks both of
-these interrupts at the chip and triggers the NAPI handler to run.
+Maybe ipv6_accept_ra_local() like ipv6_accept_ra() static local to the
+file?
 
-Nevertheless, your suggestion is equally valid for a NAPI handler:
-- process the rings
-- clear the interrupt(s)
-- if more work is allowed (according to the NAPI weight), repeat
+Also I am not sure if we want to provide an devconf_all for this setting
+at all, like we don't evaluate it for accept_ra, too. At least I
+wouldn't do so with the current state of ipv6/conf/{all,default}.
 
-This is simple enough for the RX ring, where each packet received is
-equal one one NAPI unit of work.  The TX side is less obvious as
-the NAPI documentation suggests that cleaning the ring partially
-equates to no NAPI units of work but a clean of the entire ring
-equates to the full allowance.  Maybe I've mis-understood something
-there (which would mean there's another bug which needs fixing in the
-tx reaping code...)
-
--- 
-FTTC broadband for 0.8mile line: now at 9.7Mbps down 460kbps up... slowly
-improving, and getting towards what was expected from it.
+Bye,
+Hannes
