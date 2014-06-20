@@ -1,94 +1,74 @@
-From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH RFC 30/30] net: fec: consolidate hwtstamp implementation
-Date: Fri, 20 Jun 2014 13:14:16 +0100
-Message-ID: <E1Wxxhw-0005Yn-Ey@rmk-PC.arm.linux.org.uk>
-References: <20140620121118.GR32514@n2100.arm.linux.org.uk>
-Cc: Fugang Duan <B38611@freescale.com>, netdev@vger.kernel.org
-To: linux-arm-kernel@lists.infradead.org
+From: varkabhadram@gmail.com
+Subject: [PATCH net-next v7 0/3] Driver for TI CC2520 Radio
+Date: Fri, 20 Jun 2014 17:47:14 +0530
+Message-ID: <53a42758.6ac3440a.5afd.56c3@mx.google.com>
+References: <y>
+Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
+	linux-zigbee-devel@lists.sourceforge.net, davem@davemloft.net,
+	sowjanyap@cdac.in, venkatas@cdac.in, santoshk@cdac.in,
+	Varka Bhadram <varkab@cdac.in>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:36409 "EHLO
-	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S967236AbaFTMOS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2014 08:14:18 -0400
-In-Reply-To: <20140620121118.GR32514@n2100.arm.linux.org.uk>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:51342 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966074AbaFTMVp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2014 08:21:45 -0400
+Received: by mail-pa0-f41.google.com with SMTP id fb1so3063454pad.28
+        for <netdev@vger.kernel.org>; Fri, 20 Jun 2014 05:21:45 -0700 (PDT)
+In-Reply-To: <y>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Both transmit and receive use the same infrastructure for calculating
-the packet timestamp.  Rather than duplicating the code, provide a
-function to do this common work.  Model this function in the Intel
-e1000e version which avoids calling ns_to_ktime() within the spinlock;
-the spinlock is critical for timecounter_cyc2time() but not
-ns_to_ktime().
+From: Varka Bhadram <varkab@cdac.in>
 
-Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
----
- drivers/net/ethernet/freescale/fec_main.c | 37 ++++++++++++++++---------------
- 1 file changed, 19 insertions(+), 18 deletions(-)
+changes since v6:
+	- proper releasing of resources
+	- changed pr_debug() to dev_dbg()
+	- removed unwanted header file
+	- changed is_tx type to bool
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 3dbba3354aef..551a2015b253 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1065,6 +1065,21 @@ static void fec_enet_timeout_work(struct work_struct *work)
- }
- 
- static void
-+fec_enet_hwtstamp(struct fec_enet_private *fep, unsigned ts,
-+	struct skb_shared_hwtstamps *hwtstamps)
-+{
-+	unsigned long flags;
-+	u64 ns;
-+
-+	spin_lock_irqsave(&fep->tmreg_lock, flags);
-+	ns = timecounter_cyc2time(&fep->tc, ts);
-+	spin_unlock_irqrestore(&fep->tmreg_lock, flags);
-+
-+	memset(hwtstamps, 0, sizeof(*hwtstamps));
-+	hwtstamps->hwtstamp = ns_to_ktime(ns);
-+}
-+
-+static void
- fec_enet_tx(struct net_device *ndev)
- {
- 	struct	fec_enet_private *fep;
-@@ -1122,14 +1137,9 @@ fec_enet_tx(struct net_device *ndev)
- 		if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_IN_PROGRESS) &&
- 			fep->bufdesc_ex) {
- 			struct skb_shared_hwtstamps shhwtstamps;
--			unsigned long flags;
- 			struct bufdesc_ex *ebdp = (struct bufdesc_ex *)bdp;
- 
--			memset(&shhwtstamps, 0, sizeof(shhwtstamps));
--			spin_lock_irqsave(&fep->tmreg_lock, flags);
--			shhwtstamps.hwtstamp = ns_to_ktime(
--				timecounter_cyc2time(&fep->tc, ebdp->ts));
--			spin_unlock_irqrestore(&fep->tmreg_lock, flags);
-+			fec_enet_hwtstamp(fep, ebdp->ts, &shhwtstamps);
- 			skb_tstamp_tx(skb, &shhwtstamps);
- 		}
- 
-@@ -1289,18 +1299,9 @@ fec_enet_rx(struct net_device *ndev, int budget)
- 			skb->protocol = eth_type_trans(skb, ndev);
- 
- 			/* Get receive timestamp from the skb */
--			if (fep->hwts_rx_en && fep->bufdesc_ex) {
--				struct skb_shared_hwtstamps *shhwtstamps =
--							    skb_hwtstamps(skb);
--				unsigned long flags;
--
--				memset(shhwtstamps, 0, sizeof(*shhwtstamps));
--
--				spin_lock_irqsave(&fep->tmreg_lock, flags);
--				shhwtstamps->hwtstamp = ns_to_ktime(
--				    timecounter_cyc2time(&fep->tc, ebdp->ts));
--				spin_unlock_irqrestore(&fep->tmreg_lock, flags);
--			}
-+			if (fep->hwts_rx_en && fep->bufdesc_ex)
-+				fec_enet_hwtstamp(fep, ebdp->ts,
-+						  skb_hwtstamps(skb));
- 
- 			if (fep->bufdesc_ex &&
- 			    (fep->csum_flags & FLAG_RX_CSUM_ENABLED)) {
+changes since v5:
+	- added saddr and panc_changed functionality
+	- rework on lqi field
+	- improvements in checkings for reception
+	- modification in debug messages
+
+changes since v4:
+	- feature to write into cc2520 RAM
+	- added h/w address filtering
+
+changes since v3:
+	- drop the unused varible
+
+changes since v2:
+	- drop spi mode dt binding
+
+changes since v1:
+	- improvement in gpio setup
+	- changed len pointer to len variable
+
+changes for v1:
+	- improvements in the locking mechanism in Tx and SFD ISR
+	- proper checkings for GPIO pins
+	- avoids the memory leak for priv
+	- used devm_* API's
+	- moved the code from header file to .c file
+	- removed cc2520_unregister()
+
+Varka Bhadram (3):
+  ieee802154: cc2520: adds driver for TI CC2520 radio
+  ieee802154: cc2520: add driver to kernel build system
+  devicetree: add device tree bindings for cc2520 driver
+
+ .../devicetree/bindings/net/ieee802154/cc2520.txt  |   29 +
+ drivers/net/ieee802154/Kconfig                     |   11 +
+ drivers/net/ieee802154/Makefile                    |    1 +
+ drivers/net/ieee802154/cc2520.c                    | 1039 ++++++++++++++++++++
+ include/linux/spi/cc2520.h                         |   26 +
+ 5 files changed, 1106 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/ieee802154/cc2520.txt
+ create mode 100644 drivers/net/ieee802154/cc2520.c
+ create mode 100644 include/linux/spi/cc2520.h
+
 -- 
-1.8.3.1
+1.7.9.5
