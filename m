@@ -1,50 +1,58 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/13] i40e: keep service tasks out of reset process
-Date: Fri, 20 Jun 2014 00:49:44 -0700
-Message-ID: <1403250588-14356-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/13] i40e: workaround NVM GLQF_HKEY
+Date: Fri, 20 Jun 2014 00:49:37 -0700
+Message-ID: <1403250588-14356-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1403250588-14356-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:62073 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:62062 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934734AbaFTHt6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Jun 2014 03:49:58 -0400
+	id S1751217AbaFTHty (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Jun 2014 03:49:54 -0400
 In-Reply-To: <1403250588-14356-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-Make sure the service tasks don't try to meddle with the
-device while a reset is in progress.  Odd things can happen
-such as funky stats values.
+The NVM wasn't filling in the GLQF_HKEY register on
+some old NVM versions.  If this is the case, fill
+in some values so receive with flow rules works right.
 
-Change-ID: I6929cb9d6d96839c9279362ca7c0e3fe6c8fcc66
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Change-ID: Ic737888ee68f96efb4cf8a1a49d2301615e09ed2
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 394253e..ebbf37b 100644
+index 374f36b..95c331a 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -5961,6 +5961,12 @@ static void i40e_service_task(struct work_struct *work)
- 					  service_task);
- 	unsigned long start_time = jiffies;
+@@ -5463,6 +5463,20 @@ static void i40e_fdir_sb_setup(struct i40e_pf *pf)
+ 	struct i40e_vsi *vsi;
+ 	int i;
  
-+	/* don't bother with service tasks if a reset is in progress */
-+	if (test_bit(__I40E_RESET_RECOVERY_PENDING, &pf->state)) {
-+		i40e_service_event_complete(pf);
-+		return;
++	/* quick workaround for an NVM issue that leaves a critical register
++	 * uninitialized
++	 */
++	if (!rd32(&pf->hw, I40E_GLQF_HKEY(0))) {
++		static const u32 hkey[] = {
++			0xe640d33f, 0xcdfe98ab, 0x73fa7161, 0x0d7a7d36,
++			0xeacb7d61, 0xaa4f05b6, 0x9c5c89ed, 0xfc425ddb,
++			0xa4654832, 0xfc7461d4, 0x8f827619, 0xf5c63c21,
++			0x95b3a76d};
++
++		for (i = 0; i <= I40E_GLQF_HKEY_MAX_INDEX; i++)
++			wr32(&pf->hw, I40E_GLQF_HKEY(i), hkey[i]);
 +	}
 +
- 	i40e_reset_subtask(pf);
- 	i40e_handle_mdd_event(pf);
- 	i40e_vc_process_vflr_event(pf);
+ 	if (!(pf->flags & I40E_FLAG_FD_SB_ENABLED))
+ 		return;
+ 
 -- 
 1.9.3
