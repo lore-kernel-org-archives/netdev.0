@@ -1,114 +1,70 @@
-From: "Lad, Prabhakar" <prabhakar.csengg@gmail.com>
-Subject: [PATCH] can: c_can: convert to use devm * api
-Date: Fri, 20 Jun 2014 12:59:34 +0100
-Message-ID: <1403265574-12923-1-git-send-email-prabhakar.csengg@gmail.com>
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	"Lad, Prabhakar" <prabhakar.csengg@gmail.com>
-To: linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: [PATCH RFC 00/30] Initial round of Freescale FEC ethernet patches
+Date: Fri, 20 Jun 2014 13:11:18 +0100
+Message-ID: <20140620121118.GR32514@n2100.arm.linux.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Fugang Duan <B38611@freescale.com>, netdev@vger.kernel.org
+To: linux-arm-kernel@lists.infradead.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:36314 "EHLO
+	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S966820AbaFTMLY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2014 08:11:24 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Lad, Prabhakar" <prabhakar.csengg@gmail.com>
+This is my initial round of patches (roughly half of my total patch
+set) for the Freescale FEC driver.
 
-this patch uses devm_* APIs as they are device managed
-and make code simpler.
+I'm sending this set out initially for comments and testing.  One of
+my motivations for only sending half is to get this half into a state
+where DaveM is happy to merge it before I sort out the remainder.
+There's quite a lot here, so bear with me on this.
 
-Signed-off-by: Lad, Prabhakar <prabhakar.csengg@gmail.com>
----
- Note: This patch is compile tested only.
- 
- drivers/net/can/c_can/c_can_platform.c | 41 ++++++++--------------------------
- 1 file changed, 9 insertions(+), 32 deletions(-)
+I've tried to sort the fixes before the cleanups as best I can, but
+reordering the series is a full-time job due to it's size - it's taken
+from Monday until now to get this far with it, so I'm hoping that there
+won't be any "you should rearrange the patches as X" comments.
 
-diff --git a/drivers/net/can/c_can/c_can_platform.c b/drivers/net/can/c_can/c_can_platform.c
-index 1df0b32..e0dcbcf 100644
---- a/drivers/net/can/c_can/c_can_platform.c
-+++ b/drivers/net/can/c_can/c_can_platform.c
-@@ -157,40 +157,31 @@ static int c_can_plat_probe(struct platform_device *pdev)
- 	}
- 
- 	/* get the appropriate clk */
--	clk = clk_get(&pdev->dev, NULL);
-+	clk = devm_clk_get(&pdev->dev, NULL);
- 	if (IS_ERR(clk)) {
--		dev_err(&pdev->dev, "no clock defined\n");
--		ret = -ENODEV;
-+		ret = PTR_ERR(clk);
- 		goto exit;
- 	}
- 
- 	/* get the platform data */
- 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	irq = platform_get_irq(pdev, 0);
--	if (!mem || irq <= 0) {
--		ret = -ENODEV;
--		goto exit_free_clk;
--	}
--
--	if (!request_mem_region(mem->start, resource_size(mem),
--				KBUILD_MODNAME)) {
--		dev_err(&pdev->dev, "resource unavailable\n");
-+	if (irq <= 0) {
- 		ret = -ENODEV;
--		goto exit_free_clk;
-+		goto exit;
- 	}
- 
--	addr = ioremap(mem->start, resource_size(mem));
--	if (!addr) {
--		dev_err(&pdev->dev, "failed to map can port\n");
--		ret = -ENOMEM;
--		goto exit_release_mem;
-+	addr = devm_ioremap_resource(&pdev->dev, mem);
-+	if (IS_ERR(addr)) {
-+		ret =  PTR_ERR(addr);
-+		goto exit;
- 	}
- 
- 	/* allocate the c_can device */
- 	dev = alloc_c_can_dev();
- 	if (!dev) {
- 		ret = -ENOMEM;
--		goto exit_iounmap;
-+		goto exit;
- 	}
- 
- 	priv = netdev_priv(dev);
-@@ -255,12 +246,6 @@ static int c_can_plat_probe(struct platform_device *pdev)
- 
- exit_free_device:
- 	free_c_can_dev(dev);
--exit_iounmap:
--	iounmap(addr);
--exit_release_mem:
--	release_mem_region(mem->start, resource_size(mem));
--exit_free_clk:
--	clk_put(clk);
- exit:
- 	dev_err(&pdev->dev, "probe failed\n");
- 
-@@ -270,18 +255,10 @@ exit:
- static int c_can_plat_remove(struct platform_device *pdev)
- {
- 	struct net_device *dev = platform_get_drvdata(pdev);
--	struct c_can_priv *priv = netdev_priv(dev);
--	struct resource *mem;
- 
- 	unregister_c_can_dev(dev);
- 
- 	free_c_can_dev(dev);
--	iounmap(priv->base);
--
--	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
--	release_mem_region(mem->start, resource_size(mem));
--
--	clk_put(priv->priv);
- 
- 	return 0;
- }
+While the original series was well tested during it's original
+development, including with performance tests on each patch, that
+testing and validation has been lost due to the changes during the
+last merge window, and subsequent rebasing and updating of the patches.
+
+The series is based on v3.16-rc1, and as such, I have added Andy's
+checksum fix to the start of the series.  This patch is not strictly
+part of the RFC, but is included because my complete patch series needs
+to account for that change.
+
+Some of these patches are to fix theoretical problems in the driver
+(ones which have been found via a review of the code) others address
+real observable problems (such as poor half-duplex performance.)
+
+Towards the end of this series, I have included a patch which was
+initially at the beginning of the series for dumping out the state of
+the transmit ring, which is very useful to debug transmit problems.
+This was acceptable when the transmit ring was between 16 and 128
+descriptors, but during the recent merge window, this was increased to
+512 descriptors, so it will now print around 512 lines to the kernel
+message log on transmit timeout.  I'm not entirely convinced this is a
+good idea - maybe it should become optional, or maybe the timed-out ring
+status should be available via debugfs, but that's a problem to retrieve
+if you're running NFS rootfs and the timeout doesn't recover properly.
+
+This series of patches is also available from the following *unstable*
+git branch - unstable as it's provided for convenience so you don't
+have to apply all these patches individually, unstable as the patches
+need to have attributations added, unstable because DaveM will probably
+want to apply them as patches to his tree:
+
+  git://ftp.arm.linux.org.uk/~rmk/linux-arm.git fec-testing
+
+ drivers/net/ethernet/freescale/fec.h      |  10 +-
+ drivers/net/ethernet/freescale/fec_main.c | 383 +++++++++++++++++-------------
+ 2 files changed, 225 insertions(+), 168 deletions(-)
+
 -- 
-1.9.1
-
+FTTC broadband for 0.8mile line: now at 9.7Mbps down 460kbps up... slowly
+improving, and getting towards what was expected from it.
