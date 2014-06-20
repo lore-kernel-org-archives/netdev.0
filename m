@@ -1,34 +1,29 @@
-From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
-Subject: [PATCH] trivial: net/irda/irlmp.c: Fix closing brace followed by if
-Date: Fri, 20 Jun 2014 21:48:00 +0200
-Message-ID: <1403293680-17568-1-git-send-email-linux@rasmusvillemoes.dk>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Rasmus Villemoes <linux@rasmusvillemoes.dk>
-To: Samuel Ortiz <samuel@sortiz.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jiri Kosina <trivial@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net 0/2] net: systemport: misc fixes
+Date: Fri, 20 Jun 2014 13:01:38 -0700
+Message-ID: <1403294500-31905-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f182.google.com ([209.85.213.182]:56739 "EHLO
+	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752240AbaFTUBq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2014 16:01:46 -0400
+Received: by mail-ig0-f182.google.com with SMTP id l13so912325iga.3
+        for <netdev@vger.kernel.org>; Fri, 20 Jun 2014 13:01:45 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
----
- net/irda/irlmp.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+Hi David,
 
-diff --git a/net/irda/irlmp.c b/net/irda/irlmp.c
-index 98ad6ec..a5f28d4 100644
---- a/net/irda/irlmp.c
-+++ b/net/irda/irlmp.c
-@@ -1426,7 +1426,8 @@ __u8 *irlmp_hint_to_service(__u8 *hint)
- 		if (hint[1] & HINT_TELEPHONY) {
- 			IRDA_DEBUG(1, "Telephony ");
- 			service[i++] = S_TELEPHONY;
--		} if (hint[1] & HINT_FILE_SERVER)
-+		}
-+		if (hint[1] & HINT_FILE_SERVER)
- 			IRDA_DEBUG(1, "File Server ");
- 
- 		if (hint[1] & HINT_COMM) {
+Here are two small fixes for SYSTEMPORT targeted at the 'net' tree, thanks!
+
+Florian Fainelli (2):
+  net: systemport: do not clear IFF_MULTICAST flag
+  net: systemport: fix UniMAC reset logic
+
+ drivers/net/ethernet/broadcom/bcmsysport.c | 39 +++++++-----------------------
+ 1 file changed, 9 insertions(+), 30 deletions(-)
+
 -- 
-1.9.2
+1.9.1
