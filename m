@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/13] i40e: Helper routine for Rx/Tx queue enable/disable wait
-Date: Fri, 20 Jun 2014 00:49:40 -0700
-Message-ID: <1403250588-14356-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/13] i40e: debugfs fix to dump remote LLDPDU
+Date: Fri, 20 Jun 2014 00:49:41 -0700
+Message-ID: <1403250588-14356-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1403250588-14356-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Neerav Parikh <neerav.parikh@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:62062 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:62071 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754180AbaFTHt4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751217AbaFTHt4 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 20 Jun 2014 03:49:56 -0400
 In-Reply-To: <1403250588-14356-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,175 +18,28 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Neerav Parikh <neerav.parikh@intel.com>
 
-Introduce helper routines that would wait for the Rx/Tx queue
-to reach the enable or disable state as requested.
+Fix the debugfs command "lldp get remote" that dumped the local
+LLDPDU instead of peer's LLDPDU.
 
-Change-ID: I518d9d0e2afef3f45107af3b46e9af402ff587c3
+Change-ID: I0702eacdafd54478c18f20cab3a7fa5dc1b3182d
 Signed-off-by: Neerav Parikh <neerav.parikh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h      |   1 +
- drivers/net/ethernet/intel/i40e/i40e_main.c | 100 ++++++++++++++++++++--------
- 2 files changed, 75 insertions(+), 26 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 6598584..fce7e4d 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -84,6 +84,7 @@
- #define I40E_AQ_WORK_LIMIT            16
- #define I40E_MAX_USER_PRIORITY        8
- #define I40E_DEFAULT_MSG_ENABLE       4
-+#define I40E_QUEUE_WAIT_RETRY_LIMIT   10
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+index cffdfc2..910b01b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_debugfs.c
+@@ -1830,7 +1830,7 @@ static ssize_t i40e_dbg_command_write(struct file *filp,
  
- #define I40E_NVM_VERSION_LO_SHIFT  0
- #define I40E_NVM_VERSION_LO_MASK   (0xff << I40E_NVM_VERSION_LO_SHIFT)
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 7d2aeeb..296b3d2 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -3232,6 +3232,35 @@ static void i40e_netpoll(struct net_device *netdev)
- #endif
- 
- /**
-+ * i40e_pf_txq_wait - Wait for a PF's Tx queue to be enabled or disabled
-+ * @pf: the PF being configured
-+ * @pf_q: the PF queue
-+ * @enable: enable or disable state of the queue
-+ *
-+ * This routine will wait for the given Tx queue of the PF to reach the
-+ * enabled or disabled state.
-+ * Returns -ETIMEDOUT in case of failing to reach the requested state after
-+ * multiple retries; else will return 0 in case of success.
-+ **/
-+static int i40e_pf_txq_wait(struct i40e_pf *pf, int pf_q, bool enable)
-+{
-+	int i;
-+	u32 tx_reg;
-+
-+	for (i = 0; i < I40E_QUEUE_WAIT_RETRY_LIMIT; i++) {
-+		tx_reg = rd32(&pf->hw, I40E_QTX_ENA(pf_q));
-+		if (enable == !!(tx_reg & I40E_QTX_ENA_QENA_STAT_MASK))
-+			break;
-+
-+		udelay(10);
-+	}
-+	if (i >= I40E_QUEUE_WAIT_RETRY_LIMIT)
-+		return -ETIMEDOUT;
-+
-+	return 0;
-+}
-+
-+/**
-  * i40e_vsi_control_tx - Start or stop a VSI's rings
-  * @vsi: the VSI being configured
-  * @enable: start or stop the rings
-@@ -3240,7 +3269,7 @@ static int i40e_vsi_control_tx(struct i40e_vsi *vsi, bool enable)
- {
- 	struct i40e_pf *pf = vsi->back;
- 	struct i40e_hw *hw = &pf->hw;
--	int i, j, pf_q;
-+	int i, j, pf_q, ret = 0;
- 	u32 tx_reg;
- 
- 	pf_q = vsi->base_queue;
-@@ -3273,22 +3302,46 @@ static int i40e_vsi_control_tx(struct i40e_vsi *vsi, bool enable)
- 		wr32(hw, I40E_QTX_ENA(pf_q), tx_reg);
- 
- 		/* wait for the change to finish */
--		for (j = 0; j < 10; j++) {
--			tx_reg = rd32(hw, I40E_QTX_ENA(pf_q));
--			if (enable == !!(tx_reg & I40E_QTX_ENA_QENA_STAT_MASK))
--				break;
--
--			udelay(10);
--		}
--		if (j >= 10) {
--			dev_info(&pf->pdev->dev, "Tx ring %d %sable timeout\n",
--				 pf_q, (enable ? "en" : "dis"));
--			return -ETIMEDOUT;
-+		ret = i40e_pf_txq_wait(pf, pf_q, enable);
-+		if (ret) {
-+			dev_info(&pf->pdev->dev,
-+				 "%s: VSI seid %d Tx ring %d %sable timeout\n",
-+				 __func__, vsi->seid, pf_q,
-+				 (enable ? "en" : "dis"));
-+			break;
- 		}
- 	}
- 
- 	if (hw->revision_id == 0)
- 		mdelay(50);
-+	return ret;
-+}
-+
-+/**
-+ * i40e_pf_rxq_wait - Wait for a PF's Rx queue to be enabled or disabled
-+ * @pf: the PF being configured
-+ * @pf_q: the PF queue
-+ * @enable: enable or disable state of the queue
-+ *
-+ * This routine will wait for the given Rx queue of the PF to reach the
-+ * enabled or disabled state.
-+ * Returns -ETIMEDOUT in case of failing to reach the requested state after
-+ * multiple retries; else will return 0 in case of success.
-+ **/
-+static int i40e_pf_rxq_wait(struct i40e_pf *pf, int pf_q, bool enable)
-+{
-+	int i;
-+	u32 rx_reg;
-+
-+	for (i = 0; i < I40E_QUEUE_WAIT_RETRY_LIMIT; i++) {
-+		rx_reg = rd32(&pf->hw, I40E_QRX_ENA(pf_q));
-+		if (enable == !!(rx_reg & I40E_QRX_ENA_QENA_STAT_MASK))
-+			break;
-+
-+		udelay(10);
-+	}
-+	if (i >= I40E_QUEUE_WAIT_RETRY_LIMIT)
-+		return -ETIMEDOUT;
- 
- 	return 0;
- }
-@@ -3302,7 +3355,7 @@ static int i40e_vsi_control_rx(struct i40e_vsi *vsi, bool enable)
- {
- 	struct i40e_pf *pf = vsi->back;
- 	struct i40e_hw *hw = &pf->hw;
--	int i, j, pf_q;
-+	int i, j, pf_q, ret = 0;
- 	u32 rx_reg;
- 
- 	pf_q = vsi->base_queue;
-@@ -3327,22 +3380,17 @@ static int i40e_vsi_control_rx(struct i40e_vsi *vsi, bool enable)
- 		wr32(hw, I40E_QRX_ENA(pf_q), rx_reg);
- 
- 		/* wait for the change to finish */
--		for (j = 0; j < 10; j++) {
--			rx_reg = rd32(hw, I40E_QRX_ENA(pf_q));
--
--			if (enable == !!(rx_reg & I40E_QRX_ENA_QENA_STAT_MASK))
--				break;
--
--			udelay(10);
--		}
--		if (j >= 10) {
--			dev_info(&pf->pdev->dev, "Rx ring %d %sable timeout\n",
--				 pf_q, (enable ? "en" : "dis"));
--			return -ETIMEDOUT;
-+		ret = i40e_pf_rxq_wait(pf, pf_q, enable);
-+		if (ret) {
-+			dev_info(&pf->pdev->dev,
-+				 "%s: VSI seid %d Rx ring %d %sable timeout\n",
-+				 __func__, vsi->seid, pf_q,
-+				 (enable ? "en" : "dis"));
-+			break;
- 		}
- 	}
- 
--	return 0;
-+	return ret;
- }
- 
- /**
+ 			ret = i40e_aq_get_lldp_mib(&pf->hw,
+ 					I40E_AQ_LLDP_BRIDGE_TYPE_NEAREST_BRIDGE,
+-					I40E_AQ_LLDP_MIB_LOCAL,
++					I40E_AQ_LLDP_MIB_REMOTE,
+ 					buff, I40E_LLDPDU_SIZE,
+ 					&llen, &rlen, NULL);
+ 			if (ret) {
 -- 
 1.9.3
