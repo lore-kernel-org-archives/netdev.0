@@ -1,92 +1,85 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH RFC 04/30] net: fec: fix interrupt handling races
-Date: Fri, 20 Jun 2014 16:00:45 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1725FB35@AcuExch.aculab.com>
-References: <20140620121118.GR32514@n2100.arm.linux.org.uk>
- <E1Wxxfn-0005X5-KD@rmk-PC.arm.linux.org.uk>
- <063D6719AE5E284EB5DD2968C1650D6D1725F962@AcuExch.aculab.com>
- <20140620153614.GU32514@n2100.arm.linux.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	Fugang Duan <B38611@freescale.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Russell King - ARM Linux' <linux@arm.linux.org.uk>
+From: roopa@cumulusnetworks.com
+Subject: [PATCH net-next] ipv6: fix multipath route cleanup path for duplicate nexthops error case
+Date: Fri, 20 Jun 2014 09:05:46 -0700
+Message-ID: <1403280346-21204-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: roque@di.fc.ul.pt, yoshfuji@usagi.com
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	roopa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:33834 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751985AbaFTQCJ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2014 12:02:09 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 32218-06 for <netdev@vger.kernel.org>;
- Fri, 20 Jun 2014 17:02:00 +0100 (BST)
-In-Reply-To: <20140620153614.GU32514@n2100.arm.linux.org.uk>
-Content-Language: en-US
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:46677 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753631AbaFTQFZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2014 12:05:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Russell King - ARM Linux
-> On Fri, Jun 20, 2014 at 12:39:57PM +0000, David Laight wrote:
-> > It is usually possible to reduce the interrupt count even further by:
-> > 1) processing the rings.
-> > 2) clear the IRQ.
-> > 3) check the rings for new entries, if any start again.
-> > This means that you don't take the interrupt for anything that completes
-> > while processing the earlier ring entries.
-> >
-> > The slight downside is that it is easy to exit the ISR before the IRQ
-> > line actually drops - resulting in a spurious interrupt.
-> >
-> > (patch 24 seems to be similar).
-> 
-> ITYM patch 26, as patch 24 is an update to the errata workaround.
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-Misread my jottings.
-> 
-> Patch 4 is what I regard to be the bare minimum fix, patch 26 is an
-> improvement over it.
-> 
-> Remember though that the real interrupt processing happens in the NAPI
-> handler, not the main interrupt handler - upon seeing a transmit and/or
-> receive complete interrupt, the main interrupt handler masks both of
-> these interrupts at the chip and triggers the NAPI handler to run.
-> 
-> Nevertheless, your suggestion is equally valid for a NAPI handler:
-> - process the rings
-> - clear the interrupt(s)
-> - if more work is allowed (according to the NAPI weight), repeat
+Problem:
+(route output trimmed to show example):
+# ip -6 route add 2001:10:1:3::/64 nexthop via 2001:10:1:2::99
 
-Not quite, you only want to clear the hardware IRQ and unmask the ISR
-when there are no ring entries to process.
-(There is no point doing the slow bus cycles until then.)
+# ip -6 route show
+2001:10:1:3::/64 via 2001:10:1:2::99 dev swp26  metric 1024
 
-If you clear the hardware IRQ at the start of processing the ring you'll
-get another interrupt when you finally enable the interrupt for a rx
-packet that arrives while processing the earlier packets.
-However you must check the ring AFTER clearing the IRQ - otherwise
-you miss the interrupt for a packet the arrives at that time.
+# ip -6 route add 2001:10:1:3::/64 nexthop via 2001:10:1:2::99
+RTNETLINK answers: File exists
 
-So the sequence is:
-1) Find that there are no ring entries to process.
-(a packet can arrive here)
-2) Clear the IRQ request.
-3) Check there are still no ring entries to process.
-4) Unmask the interrupt.
+# ip route show
+#
+/* Previously added route vanished */
 
-> This is simple enough for the RX ring, where each packet received is
-> equal one one NAPI unit of work.  The TX side is less obvious as
-> the NAPI documentation suggests that cleaning the ring partially
-> equates to no NAPI units of work but a clean of the entire ring
-> equates to the full allowance.  Maybe I've mis-understood something
-> there (which would mean there's another bug which needs fixing in the
-> tx reaping code...)
+When the route nexthop add fails with -EXISTS, cleanup path tries
+to delete all nexthops added so far. The cleanup logic has a bug.
+It tries to delete all the nexthops given by user. In the above case though
+the route was added by the user in his previous attempts, just because it
+matches with the nexthop in the new request, the previously added route is
+deleted. This patch fixes the cleanup path to only delete nexthops that
+were successfully added during this request.
 
-I've never tried to understand NAPI work limits.
-I suspect that once the NAPI callbacks for other devices (etc) have
-had a chance to run, you get called again.
-So you'd leave the hardware interrupt masked until then.
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+---
+ net/ipv6/route.c |   10 ++++++++++
+ 1 file changed, 10 insertions(+)
 
-	David
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index f23fbd2..51e9b25 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2438,10 +2438,13 @@ static int ip6_route_multipath(struct fib6_config *cfg, int add)
+ 	int remaining;
+ 	int attrlen;
+ 	int err = 0, last_err = 0;
++	int nh_processed_cnt, nh_processed_cnt_last = 0;
++	int rollback = 0;
+ 
+ beginning:
+ 	rtnh = (struct rtnexthop *)cfg->fc_mp;
+ 	remaining = cfg->fc_mp_len;
++	nh_processed_cnt = 0;
+ 
+ 	/* Parse a Multipath Entry */
+ 	while (rtnh_ok(rtnh, remaining)) {
+@@ -2471,6 +2474,10 @@ beginning:
+ 				 * next hops that have been already added.
+ 				 */
+ 				add = 0;
++				rollback = 1;
++				if (!nh_processed_cnt)
++					break;
++				nh_processed_cnt_last = nh_processed_cnt;
+ 				goto beginning;
+ 			}
+ 		}
+@@ -2480,6 +2487,9 @@ beginning:
+ 		 * fib6_add_rt2node() has reject it).
+ 		 */
+ 		cfg->fc_nlinfo.nlh->nlmsg_flags &= ~NLM_F_EXCL;
++		if (rollback && nh_processed_cnt == nh_processed_cnt_last)
++			break;
++		nh_processed_cnt++;
+ 		rtnh = rtnh_next(rtnh, &remaining);
+ 	}
+ 
+-- 
+1.7.10.4
