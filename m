@@ -1,56 +1,177 @@
 From: Anish Bhatt <anish@chelsio.com>
-Subject: [PATCH v2 net-next 4/5] cxgb4 : Makefile & Kconfig changes for DCBx support
-Date: Thu, 19 Jun 2014 21:37:14 -0700
-Message-ID: <1403239035-10771-5-git-send-email-anish@chelsio.com>
+Subject: [PATCH v2 net-next 5/5] cxgb4 : Update copyright year on all cxgb4 files
+Date: Thu, 19 Jun 2014 21:37:15 -0700
+Message-ID: <1403239035-10771-6-git-send-email-anish@chelsio.com>
 References: <1403239035-10771-1-git-send-email-anish@chelsio.com>
 Cc: davem@davemloft.net, leedom@chelsio.com, hariprasad@chelsio.com,
 	Anish Bhatt <anish@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:36102
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:36105
 	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S934306AbaFTEh3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2014 00:37:29 -0400
+	by vger.kernel.org with ESMTP id S1751442AbaFTEhe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2014 00:37:34 -0400
 In-Reply-To: <1403239035-10771-1-git-send-email-anish@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Anish Bhatt <anish@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/Kconfig        | 11 +++++++++++
- drivers/net/ethernet/chelsio/cxgb4/Makefile |  1 +
- 2 files changed, 12 insertions(+)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      | 2 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 2 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  | 2 +-
+ drivers/net/ethernet/chelsio/cxgb4/l2t.c        | 2 +-
+ drivers/net/ethernet/chelsio/cxgb4/l2t.h        | 2 +-
+ drivers/net/ethernet/chelsio/cxgb4/sge.c        | 2 +-
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      | 2 +-
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.h      | 2 +-
+ drivers/net/ethernet/chelsio/cxgb4/t4_msg.h     | 2 +-
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    | 2 +-
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   | 2 +-
+ 11 files changed, 11 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/Kconfig b/drivers/net/ethernet/chelsio/Kconfig
-index 570222c..c3ce9df 100644
---- a/drivers/net/ethernet/chelsio/Kconfig
-+++ b/drivers/net/ethernet/chelsio/Kconfig
-@@ -86,6 +86,17 @@ config CHELSIO_T4
- 	  To compile this driver as a module choose M here; the module
- 	  will be called cxgb4.
- 
-+config CHELSIO_T4_DCB
-+	bool "Data Center Bridging (DCB) Support for Chelsio T4/T5 cards"
-+	default n
-+	depends on CHELSIO_T4 && DCB
-+	---help---
-+	  Enable DCB support through rtNetlink interface.
-+	  Say Y here if you want to enable Data Center Bridging (DCB) support
-+	  in the driver.
-+
-+	  If unsure, say N.
-+
- config CHELSIO_T4VF
- 	tristate "Chelsio Communications T4/T5 Virtual Function Ethernet support"
- 	depends on PCI
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/Makefile b/drivers/net/ethernet/chelsio/cxgb4/Makefile
-index 4986674..1df65c9 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/Makefile
-+++ b/drivers/net/ethernet/chelsio/cxgb4/Makefile
-@@ -5,3 +5,4 @@
- obj-$(CONFIG_CHELSIO_T4) += cxgb4.o
- 
- cxgb4-objs := cxgb4_main.o l2t.o t4_hw.o sge.o
-+cxgb4-$(CONFIG_CHELSIO_T4_DCB) +=  cxgb4_dcb.o
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index 9d69c3e..7b5425c 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -1,7 +1,7 @@
+ /*
+  * This file is part of the Chelsio T4 Ethernet driver for Linux.
+  *
+- * Copyright (c) 2003-2010 Chelsio Communications, Inc. All rights reserved.
++ * Copyright (c) 2003-2014 Chelsio Communications, Inc. All rights reserved.
+  *
+  * This software is available to you under a choice of one of two
+  * licenses.  You may choose to be licensed under the terms of the GNU
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 74b0ce5..02a0ebf 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -1,7 +1,7 @@
+ /*
+  * This file is part of the Chelsio T4 Ethernet driver for Linux.
+  *
+- * Copyright (c) 2003-2010 Chelsio Communications, Inc. All rights reserved.
++ * Copyright (c) 2003-2014 Chelsio Communications, Inc. All rights reserved.
+  *
+  * This software is available to you under a choice of one of two
+  * licenses.  You may choose to be licensed under the terms of the GNU
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
+index 55e9daf..d719dec 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
+@@ -1,7 +1,7 @@
+ /*
+  * This file is part of the Chelsio T4 Ethernet driver for Linux.
+  *
+- * Copyright (c) 2003-2010 Chelsio Communications, Inc. All rights reserved.
++ * Copyright (c) 2003-2014 Chelsio Communications, Inc. All rights reserved.
+  *
+  * This software is available to you under a choice of one of two
+  * licenses.  You may choose to be licensed under the terms of the GNU
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/l2t.c b/drivers/net/ethernet/chelsio/cxgb4/l2t.c
+index 8a96572..9604139 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/l2t.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/l2t.c
+@@ -1,7 +1,7 @@
+ /*
+  * This file is part of the Chelsio T4 Ethernet driver for Linux.
+  *
+- * Copyright (c) 2003-2010 Chelsio Communications, Inc. All rights reserved.
++ * Copyright (c) 2003-2014 Chelsio Communications, Inc. All rights reserved.
+  *
+  * This software is available to you under a choice of one of two
+  * licenses.  You may choose to be licensed under the terms of the GNU
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/l2t.h b/drivers/net/ethernet/chelsio/cxgb4/l2t.h
+index 85eb5c7..a30126c 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/l2t.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/l2t.h
+@@ -1,7 +1,7 @@
+ /*
+  * This file is part of the Chelsio T4 Ethernet driver for Linux.
+  *
+- * Copyright (c) 2003-2010 Chelsio Communications, Inc. All rights reserved.
++ * Copyright (c) 2003-2014 Chelsio Communications, Inc. All rights reserved.
+  *
+  * This software is available to you under a choice of one of two
+  * licenses.  You may choose to be licensed under the terms of the GNU
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+index dd4355d..8bae1aa 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+@@ -1,7 +1,7 @@
+ /*
+  * This file is part of the Chelsio T4 Ethernet driver for Linux.
+  *
+- * Copyright (c) 2003-2010 Chelsio Communications, Inc. All rights reserved.
++ * Copyright (c) 2003-2014 Chelsio Communications, Inc. All rights reserved.
+  *
+  * This software is available to you under a choice of one of two
+  * licenses.  You may choose to be licensed under the terms of the GNU
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index 2a9da07..6665cd4 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -1,7 +1,7 @@
+ /*
+  * This file is part of the Chelsio T4 Ethernet driver for Linux.
+  *
+- * Copyright (c) 2003-2010 Chelsio Communications, Inc. All rights reserved.
++ * Copyright (c) 2003-2014 Chelsio Communications, Inc. All rights reserved.
+  *
+  * This software is available to you under a choice of one of two
+  * licenses.  You may choose to be licensed under the terms of the GNU
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.h b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.h
+index 71b799b..35e3d8e 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.h
+@@ -1,7 +1,7 @@
+ /*
+  * This file is part of the Chelsio T4 Ethernet driver for Linux.
+  *
+- * Copyright (c) 2003-2010 Chelsio Communications, Inc. All rights reserved.
++ * Copyright (c) 2003-2014 Chelsio Communications, Inc. All rights reserved.
+  *
+  * This software is available to you under a choice of one of two
+  * licenses.  You may choose to be licensed under the terms of the GNU
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
+index 973eb11..abb4580 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
+@@ -1,7 +1,7 @@
+ /*
+  * This file is part of the Chelsio T4 Ethernet driver for Linux.
+  *
+- * Copyright (c) 2003-2010 Chelsio Communications, Inc. All rights reserved.
++ * Copyright (c) 2003-2014 Chelsio Communications, Inc. All rights reserved.
+  *
+  * This software is available to you under a choice of one of two
+  * licenses.  You may choose to be licensed under the terms of the GNU
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+index 225ad8a..3360025 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+@@ -1,7 +1,7 @@
+ /*
+  * This file is part of the Chelsio T4 Ethernet driver for Linux.
+  *
+- * Copyright (c) 2010 Chelsio Communications, Inc. All rights reserved.
++ * Copyright (c) 2003-2014 Chelsio Communications, Inc. All rights reserved.
+  *
+  * This software is available to you under a choice of one of two
+  * licenses.  You may choose to be licensed under the terms of the GNU
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+index e83c94b..4a6ae4d 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+@@ -1,7 +1,7 @@
+ /*
+  * This file is part of the Chelsio T4 Ethernet driver for Linux.
+  *
+- * Copyright (c) 2009-2010 Chelsio Communications, Inc. All rights reserved.
++ * Copyright (c) 2009-2014 Chelsio Communications, Inc. All rights reserved.
+  *
+  * This software is available to you under a choice of one of two
+  * licenses.  You may choose to be licensed under the terms of the GNU
 -- 
 2.0.0
