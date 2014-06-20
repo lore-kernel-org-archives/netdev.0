@@ -1,184 +1,58 @@
 From: Anish Bhatt <anish@chelsio.com>
-Subject: [PATCH v2 net-next 1/5] cxgb4 : Update fw interface file for DCBx support. Adds all the required fields to fw interface to communicate DCBx info
-Date: Thu, 19 Jun 2014 21:37:11 -0700
-Message-ID: <1403239035-10771-2-git-send-email-anish@chelsio.com>
-References: <1403239035-10771-1-git-send-email-anish@chelsio.com>
+Subject: [PATCH v2 net-next 0/5] cxgb4 : Add DCBx support to Chelsio cxgb4 driver
+Date: Thu, 19 Jun 2014 21:37:10 -0700
+Message-ID: <1403239035-10771-1-git-send-email-anish@chelsio.com>
 Cc: davem@davemloft.net, leedom@chelsio.com, hariprasad@chelsio.com,
 	Anish Bhatt <anish@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:36093
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:36092
 	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S933914AbaFTEh0 (ORCPT
+	by vger.kernel.org with ESMTP id S933085AbaFTEh0 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2014 00:37:26 -0400
-In-Reply-To: <1403239035-10771-1-git-send-email-anish@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Anish Bhatt <anish@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h | 95 +++++++++++++++++++++------
- 1 file changed, 76 insertions(+), 19 deletions(-)
+v2 : move inclusion of struct port_dcb_info to the same patch as where it is defined.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-index 9cc973f..e83c94b 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-@@ -46,9 +46,11 @@ enum fw_retval {
- 	FW_EFAULT		= 14,	/* bad address; fw bad */
- 	FW_EBUSY		= 16,	/* resource busy */
- 	FW_EEXIST		= 17,	/* file exists */
-+	FW_ENODEV		= 19,	/* no such device */
- 	FW_EINVAL		= 22,	/* invalid argument */
- 	FW_ENOSPC		= 28,	/* no space left on device */
- 	FW_ENOSYS		= 38,	/* functionality not implemented */
-+	FW_ENODATA		= 61,	/* no data available */
- 	FW_EPROTO		= 71,	/* protocol error */
- 	FW_EADDRINUSE		= 98,	/* address already in use */
- 	FW_EADDRNOTAVAIL	= 99,	/* cannot assigned requested address */
-@@ -989,6 +991,7 @@ enum fw_params_param_dmaq {
- 	FW_PARAMS_PARAM_DMAQ_EQ_CMPLIQID_MNGT = 0x10,
- 	FW_PARAMS_PARAM_DMAQ_EQ_CMPLIQID_CTRL = 0x11,
- 	FW_PARAMS_PARAM_DMAQ_EQ_SCHEDCLASS_ETH = 0x12,
-+	FW_PARAMS_PARAM_DMAQ_EQ_DCBPRIO_ETH = 0x13,
- };
- 
- #define FW_PARAMS_MNEM(x)      ((x) << 24)
-@@ -1422,6 +1425,7 @@ struct fw_vi_enable_cmd {
- #define FW_VI_ENABLE_CMD_VIID(x) ((x) << 0)
- #define FW_VI_ENABLE_CMD_IEN(x) ((x) << 31)
- #define FW_VI_ENABLE_CMD_EEN(x) ((x) << 30)
-+#define FW_VI_ENABLE_CMD_DCB_INFO(x) ((x) << 28)
- #define FW_VI_ENABLE_CMD_LED (1U << 29)
- 
- /* VI VF stats offset definitions */
-@@ -1594,6 +1598,9 @@ enum fw_port_action {
- 	FW_PORT_ACTION_GET_PORT_INFO	= 0x0003,
- 	FW_PORT_ACTION_L2_PPP_CFG	= 0x0004,
- 	FW_PORT_ACTION_L2_DCB_CFG	= 0x0005,
-+	FW_PORT_ACTION_DCB_READ_TRANS	= 0x0006,
-+	FW_PORT_ACTION_DCB_READ_RECV	= 0x0007,
-+	FW_PORT_ACTION_DCB_READ_DET	= 0x0008,
- 	FW_PORT_ACTION_LOW_PWR_TO_NORMAL = 0x0010,
- 	FW_PORT_ACTION_L1_LOW_PWR_EN	= 0x0011,
- 	FW_PORT_ACTION_L2_WOL_MODE_EN	= 0x0012,
-@@ -1637,6 +1644,14 @@ enum fw_port_dcb_type {
- 	FW_PORT_DCB_TYPE_PRIORATE	= 0x02,
- 	FW_PORT_DCB_TYPE_PFC		= 0x03,
- 	FW_PORT_DCB_TYPE_APP_ID		= 0x04,
-+	FW_PORT_DCB_TYPE_CONTROL	= 0x05,
-+};
-+
-+enum fw_port_dcb_feature_state {
-+	FW_PORT_DCB_FEATURE_STATE_PENDING = 0x0,
-+	FW_PORT_DCB_FEATURE_STATE_SUCCESS = 0x1,
-+	FW_PORT_DCB_FEATURE_STATE_ERROR	= 0x2,
-+	FW_PORT_DCB_FEATURE_STATE_TIMEOUT = 0x3,
- };
- 
- struct fw_port_cmd {
-@@ -1648,9 +1663,11 @@ struct fw_port_cmd {
- 			__be32 r;
- 		} l1cfg;
- 		struct fw_port_l2cfg {
--			__be16 ctlbf_to_ivlan0;
-+			__u8   ctlbf;
-+			__u8   ovlan3_to_ivlan0;
- 			__be16 ivlantype;
--			__be32 txipg_pkd;
-+			__be16 txipg_force_pinfo;
-+			__be16 mtu;
- 			__be16 ovlan0mask;
- 			__be16 ovlan0type;
- 			__be16 ovlan1mask;
-@@ -1666,24 +1683,60 @@ struct fw_port_cmd {
- 			__be16 acap;
- 			__be16 mtu;
- 			__u8   cbllen;
--			__u8   r9;
--			__be32 r10;
--			__be64 r11;
-+			__u8   auxlinfo;
-+			__u8   dcbxdis_pkd;
-+			__u8   r8_lo[3];
-+			__be64 r9;
- 		} info;
--		struct fw_port_ppp {
--			__be32 pppen_to_ncsich;
--			__be32 r11;
--		} ppp;
--		struct fw_port_dcb {
--			__be16 cfg;
--			u8 up_map;
--			u8 sf_cfgrc;
--			__be16 prot_ix;
--			u8 pe7_to_pe0;
--			u8 numTCPFCs;
--			__be32 pgid0_to_pgid7;
--			__be32 numTCs_oui;
--			u8 pgpc[8];
-+		struct fw_port_diags {
-+			__u8   diagop;
-+			__u8   r[3];
-+			__be32 diagval;
-+		} diags;
-+		union fw_port_dcb {
-+			struct fw_port_dcb_pgid {
-+				__u8   type;
-+				__u8   apply_pkd;
-+				__u8   r10_lo[2];
-+				__be32 pgid;
-+				__be64 r11;
-+			} pgid;
-+			struct fw_port_dcb_pgrate {
-+				__u8   type;
-+				__u8   apply_pkd;
-+				__u8   r10_lo[5];
-+				__u8   num_tcs_supported;
-+				__u8   pgrate[8];
-+			} pgrate;
-+			struct fw_port_dcb_priorate {
-+				__u8   type;
-+				__u8   apply_pkd;
-+				__u8   r10_lo[6];
-+				__u8   strict_priorate[8];
-+			} priorate;
-+			struct fw_port_dcb_pfc {
-+				__u8   type;
-+				__u8   pfcen;
-+				__u8   r10[5];
-+				__u8   max_pfc_tcs;
-+				__be64 r11;
-+			} pfc;
-+			struct fw_port_app_priority {
-+				__u8   type;
-+				__u8   r10[2];
-+				__u8   idx;
-+				__u8   user_prio_map;
-+				__u8   sel_field;
-+				__be16 protocolid;
-+				__be64 r12;
-+			} app_priority;
-+			struct fw_port_dcb_control {
-+				__u8   type;
-+				__u8   all_syncd_pkd;
-+				__be16 pfc_state_to_app_state;
-+				__be32 r11;
-+				__be64 r12;
-+			} control;
- 		} dcb;
- 	} u;
- };
-@@ -1720,6 +1773,10 @@ struct fw_port_cmd {
- #define FW_PORT_CMD_MODTYPE_MASK 0x1f
- #define FW_PORT_CMD_MODTYPE_GET(x) (((x) >> 0) & FW_PORT_CMD_MODTYPE_MASK)
- 
-+#define FW_PORT_CMD_DCBXDIS (1U << 7)
-+#define FW_PORT_CMD_APPLY (1U <<  7)
-+#define FW_PORT_CMD_ALL_SYNCD (1U << 7)
-+
- #define FW_PORT_CMD_PPPEN(x) ((x) << 31)
- #define FW_PORT_CMD_TPSRC(x) ((x) << 28)
- #define FW_PORT_CMD_NCSISRC(x) ((x) << 24)
+Hi,
+    This patchset adds support for DCBx via dcbnl_ops to the cxgb4 driver. This should enable cxgb4 to work with open-lldp and the like. The last patch only updates copyright year.
+
+Applies on top of commit id e0f802fbcaa3bffe4728e37a8fa1279b5d554173 of the net-next tree.
+
+checkpatch.pl --strict currently generates two false positives for 0002-cxgb4-Add-DCBx-support-codebase-and-dcbnl_ops.patch, fix for this is already in the -mm tree.
+Thanks,
+Anish
+
+Signed-off-by: Anish Bhatt <anish@chelsio.com>
+--
+Anish Bhatt (5):
+  cxgb4 : Update fw interface file for DCBx support. Adds all the
+    required fields to fw interface to communicate DCBx info
+  cxgb4 : Add DCBx support codebase and dcbnl_ops
+  cxgb4 : Integrate DCBx support into cxgb4 module. Register dbcnl_ops
+    to give access to DCBx functions
+  cxgb4 : Makefile & Kconfig changes for DCBx support
+  cxgb4 : Update copyright year on all cxgb4 files
+
+ drivers/net/ethernet/chelsio/Kconfig            |  11 +
+ drivers/net/ethernet/chelsio/cxgb4/Makefile     |   1 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |  13 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c  | 980 ++++++++++++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.h  | 141 ++++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 201 ++++-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |   2 +-
+ drivers/net/ethernet/chelsio/cxgb4/l2t.c        |   2 +-
+ drivers/net/ethernet/chelsio/cxgb4/l2t.h        |   2 +-
+ drivers/net/ethernet/chelsio/cxgb4/sge.c        |   2 +-
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      |  78 +-
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.h      |   2 +-
+ drivers/net/ethernet/chelsio/cxgb4/t4_msg.h     |   2 +-
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |   2 +-
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   |  97 ++-
+ 15 files changed, 1492 insertions(+), 44 deletions(-)
+ create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
+ create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.h
+
 -- 
 2.0.0
