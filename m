@@ -1,112 +1,56 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: [PATCH] net: filter: fix upper BPF instruction limit
-Date: Fri, 20 Jun 2014 09:48:59 -0700
-Message-ID: <CAGXu5jLk_LDZ1-ou0iPNvAb2QHJdX-xhGRtyov-YZsmUOVo0GA@mail.gmail.com>
-References: <20140618223457.GA31568@www.outflux.net>
-	<CAMEtUuzbPExM5dT+xDqbHtV5LZ3+E2Q0eq4xdmKWzLOZbTmuUQ@mail.gmail.com>
-	<CAGXu5jLYZ0jrFhd54aUhooLBWBUT28TQTLb41G107s=4U7ZxqA@mail.gmail.com>
-	<CAMEtUuwPug7Bbgi2ccOx4jxd2Q80AnVoiHeeBW2av=_sQMiSfg@mail.gmail.com>
-	<CAGXu5j+ZW9f8gW71_r5gRsEZoO_2fC3F4YXh_J1CwxRY6Vfx1Q@mail.gmail.com>
-	<53A40948.5020201@redhat.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 4/5] cxgb4 : Makefile & Kconfig changes for DCBx
+ support
+Date: Fri, 20 Jun 2014 20:51:54 +0400
+Message-ID: <53A466AA.9080305@cogentembedded.com>
+References: <1403216531-7874-1-git-send-email-anish@chelsio.com> <1403216531-7874-5-git-send-email-anish@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Alexei Starovoitov <ast@plumgrid.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Chema Gonzalez <chema@google.com>,
-	Network Development <netdev@vger.kernel.org>
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <53A40948.5020201@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, leedom@chelsio.com, hariprasad@chelsio.com
+To: Anish Bhatt <anish@chelsio.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f177.google.com ([209.85.217.177]:43207 "EHLO
+	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753633AbaFTQvq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2014 12:51:46 -0400
+Received: by mail-lb0-f177.google.com with SMTP id u10so2532483lbd.36
+        for <netdev@vger.kernel.org>; Fri, 20 Jun 2014 09:51:44 -0700 (PDT)
+In-Reply-To: <1403216531-7874-5-git-send-email-anish@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 20, 2014 at 3:13 AM, Daniel Borkmann <dborkman@redhat.com> =
-wrote:
-> Hi Kees,
->
->
-> On 06/19/2014 01:28 AM, Kees Cook wrote:
->>
->> On Wed, Jun 18, 2014 at 4:19 PM, Alexei Starovoitov <ast@plumgrid.co=
-m>
->> wrote:
->>>
->>> On Wed, Jun 18, 2014 at 3:55 PM, Kees Cook <keescook@chromium.org> =
-wrote:
->>>>
->>>> On Wed, Jun 18, 2014 at 3:48 PM, Alexei Starovoitov <ast@plumgrid.=
-com>
->>>> wrote:
->>>>>
->>>>> On Wed, Jun 18, 2014 at 3:34 PM, Kees Cook <keescook@chromium.org=
->
->>>>> wrote:
->
-> ...
->
->>>>> I wonder how did you catch this? :)
->>>>> Just code inspection or seccomp actually generating such programs=
-?
->>>>
->>>>
->>>> In the process of merging my seccomp thread-sync series back with
->>>> mainline, I got uncomfortable that I was moving filter size valida=
-tion
->>>> around without actually testing it. When I added it, I was happy t=
-hat
->>>> my series was correctly checking size limits, but then discovered =
-my
->>>> newly added check actually failed on an earlier kernel (3.2). Trac=
-king
->>>> it down found the corner case under 3.15.
->>>>
->>>> Here's the test I added to the seccomp regression tests, if you're
->>>> interested:
->>>>
->>>> https://github.com/kees/seccomp/commit/794d54a340cde70a3bdf7fe0ade=
-1f95d160b2883
->>>
->>>
->>> Nice. I'm assuming https://github.com/redpig/seccomp is still the m=
-ain
->>> tree
->>> for seccomp testsuite=E2=80=A6
->>
->>
->> Yes. Will hasn't pulled this most recent set of changes.
->
->
-> We were actually thinking about extending lib/test_bpf module with se=
-ccomp
-> tests, which is possible to a limited extend, but seccomp is also a b=
-it
-> more than just running a BPF program and making sure results fit.
->
-> Are there any plans to put and extend test cases from [1] via user sp=
-ace
-> side into the kernel self-test directory, i.e. into something like
-> tools/testing/selftests/seccomp/ so that in future new tests can be a=
-dded
-> or run from there? Might be worth to consider.
+Hello.
 
-Yeah, I have this on my TODO list, but we need to juggle relicensing
-the test suite (it is currently BSD, not GPLv2). I'll keep chasing
-this.
+On 06/20/2014 02:22 AM, Anish Bhatt wrote:
 
--Kees
+> Signed-off-by: Anish Bhatt <anish@chelsio.com>
+> ---
+>   drivers/net/ethernet/chelsio/Kconfig        | 11 +++++++++++
+>   drivers/net/ethernet/chelsio/cxgb4/Makefile |  1 +
+>   2 files changed, 12 insertions(+)
 
+> diff --git a/drivers/net/ethernet/chelsio/Kconfig b/drivers/net/ethernet/chelsio/Kconfig
+> index 570222c..c3ce9df 100644
+> --- a/drivers/net/ethernet/chelsio/Kconfig
+> +++ b/drivers/net/ethernet/chelsio/Kconfig
+> @@ -86,6 +86,17 @@ config CHELSIO_T4
+>   	  To compile this driver as a module choose M here; the module
+>   	  will be called cxgb4.
 >
-> Thanks,
->
-> Daniel
->
->  [1] https://github.com/redpig/seccomp
+> +config CHELSIO_T4_DCB
+> +	bool "Data Center Bridging (DCB) Support for Chelsio T4/T5 cards"
+> +	default n
 
+    'n' is the default default. :-)
 
+> +	depends on CHELSIO_T4 && DCB
+> +	---help---
+> +	  Enable DCB support through rtNetlink interface.
+> +	  Say Y here if you want to enable Data Center Bridging (DCB) support
+> +	  in the driver.
+> +
+> +	  If unsure, say N.
+> +
 
---=20
-Kees Cook
-Chrome OS Security
+WBR, Sergei
