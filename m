@@ -1,78 +1,75 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next 01/13] i40e/i40evf: i40e_register.h update
-Date: Fri, 20 Jun 2014 02:57:48 -0700
-Message-ID: <1403258268.2295.66.camel@jtkirshe-mobl>
-References: <1403250588-14356-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1403250588-14356-2-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <87a998q78p.fsf@nemi.mork.no>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH] net: filter: fix upper BPF instruction limit
+Date: Fri, 20 Jun 2014 12:13:28 +0200
+Message-ID: <53A40948.5020201@redhat.com>
+References: <20140618223457.GA31568@www.outflux.net> <CAMEtUuzbPExM5dT+xDqbHtV5LZ3+E2Q0eq4xdmKWzLOZbTmuUQ@mail.gmail.com> <CAGXu5jLYZ0jrFhd54aUhooLBWBUT28TQTLb41G107s=4U7ZxqA@mail.gmail.com> <CAMEtUuwPug7Bbgi2ccOx4jxd2Q80AnVoiHeeBW2av=_sQMiSfg@mail.gmail.com> <CAGXu5j+ZW9f8gW71_r5gRsEZoO_2fC3F4YXh_J1CwxRY6Vfx1Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-tYZjD0iEUxODX0o/W/Ji"
-Cc: davem@davemloft.net,
-	Anjali Singhai Jain <anjali.singhai@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:4957 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S966220AbaFTJ5v (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 20 Jun 2014 05:57:51 -0400
-In-Reply-To: <87a998q78p.fsf@nemi.mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Alexei Starovoitov <ast@plumgrid.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Chema Gonzalez <chema@google.com>,
+	Network Development <netdev@vger.kernel.org>
+To: Kees Cook <keescook@chromium.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAGXu5j+ZW9f8gW71_r5gRsEZoO_2fC3F4YXh_J1CwxRY6Vfx1Q@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hi Kees,
 
---=-tYZjD0iEUxODX0o/W/Ji
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+On 06/19/2014 01:28 AM, Kees Cook wrote:
+> On Wed, Jun 18, 2014 at 4:19 PM, Alexei Starovoitov <ast@plumgrid.com=
+> wrote:
+>> On Wed, Jun 18, 2014 at 3:55 PM, Kees Cook <keescook@chromium.org> w=
+rote:
+>>> On Wed, Jun 18, 2014 at 3:48 PM, Alexei Starovoitov <ast@plumgrid.c=
+om> wrote:
+>>>> On Wed, Jun 18, 2014 at 3:34 PM, Kees Cook <keescook@chromium.org>=
+ wrote:
+=2E..
+>>>> I wonder how did you catch this? :)
+>>>> Just code inspection or seccomp actually generating such programs?
+>>>
+>>> In the process of merging my seccomp thread-sync series back with
+>>> mainline, I got uncomfortable that I was moving filter size validat=
+ion
+>>> around without actually testing it. When I added it, I was happy th=
+at
+>>> my series was correctly checking size limits, but then discovered m=
+y
+>>> newly added check actually failed on an earlier kernel (3.2). Track=
+ing
+>>> it down found the corner case under 3.15.
+>>>
+>>> Here's the test I added to the seccomp regression tests, if you're =
+interested:
+>>> https://github.com/kees/seccomp/commit/794d54a340cde70a3bdf7fe0ade1=
+f95d160b2883
+>>
+>> Nice. I'm assuming https://github.com/redpig/seccomp is still the ma=
+in tree
+>> for seccomp testsuite=E2=80=A6
+>
+> Yes. Will hasn't pulled this most recent set of changes.
 
-On Fri, 2014-06-20 at 11:07 +0200, Bj=C3=B8rn Mork wrote:
-> Jeff Kirsher <jeffrey.t.kirsher@intel.com> writes:
->=20
-> >  drivers/net/ethernet/intel/i40e/i40e_main.c       |   30 +-
-> >  drivers/net/ethernet/intel/i40e/i40e_register.h   | 5011
-> ++++++++-------------
-> >  drivers/net/ethernet/intel/i40e/i40e_type.h       |    3 +
-> >  drivers/net/ethernet/intel/i40evf/i40e_register.h | 5011
-> ++++++++-------------
-> >  drivers/net/ethernet/intel/i40evf/i40e_type.h     |    3 +
-> >  5 files changed, 3728 insertions(+), 6330 deletions(-)
->=20
-> Not really a comment on this patch, but the diffstat above made me
-> suspect that you have lots of duplicates here...  Does it *really*
-> make
-> sense to maintain syncronized copies of these rather large header
-> files,
-> just because a total of 3 lines are different (not counting the
-> unneccessary header diff and the assumed unwanted whitespace diff)?
+We were actually thinking about extending lib/test_bpf module with secc=
+omp
+tests, which is possible to a limited extend, but seccomp is also a bit
+more than just running a BPF program and making sure results fit.
 
-We have been discussing this internally to come up with a solution and
-one of the big reasons why we have not made the common code into a
-shared resource for both drivers has been due to regression issues.  But
-we are currently actively looking into what can be done to minimize this
-type of duplication.
+Are there any plans to put and extend test cases from [1] via user spac=
+e
+side into the kernel self-test directory, i.e. into something like
+tools/testing/selftests/seccomp/ so that in future new tests can be add=
+ed
+or run from there? Might be worth to consider.
 
---=-tYZjD0iEUxODX0o/W/Ji
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+Thanks,
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
+Daniel
 
-iQIcBAABCgAGBQJTpAWcAAoJEOVv75VaS+3OGU0P/j+B9UNlZwbvG3wWZj88cR85
-beaybp9adLW+i8saInMC8RFFvP+guZqDX19xoyMrPAuBj3w4eWoyxG+Zy62aCH7C
-JLkZ6PAkPXpBloKUyFx6VgbypjI7qftfm3r06FtfSPnuRg9vsZTqWOErJDcd5Rok
-iIbcAqhEfMYXd+UTTq8IG11U9pNIQcWmRFtzSuTo2mYOojtSL/bX+SB6g+SlIFLh
-9Sxo7k03b1J6QI3WTL2byg/ovey9ENsAwF8J2Dysj9rP1eKu209yD7H+cDbp0JWj
-BUYCXV6vHVQYKOVK7kJAif93nL/y91a7jBBSkZa+67UdPtLxuZNeeeAVDOx5NSly
-w976F12g+BaxZa3FLv4SxWyVmDl7HgozpNt+EDL6BPqBe8dqLK9Z/eDAjTzea4+Y
-huKvQ4zGDoZ4U+muOBY+FKKGKBguFu6CwBNgbGaaTE38kF6mYsy6Rmc8VCHuzBu1
-/LtyT3LBos67ytpY2AXck4LCmqyEPFbqblVQQp0VMUu3ftr4TSHMNw77Ce/qmeci
-BUF8fBWsmiCZYsTk+dEkfZbSrOP62nLqRgtiER6LLVRL+ksrLNSeyPUwY/ozh6dk
-8+uKKsUk0PZ1qETD60viZbq9g3KXc4D68CmdNg1iql46gM9KH54H2N6QHoo8L9as
-wAYxuZhebGcT/m1yDZJf
-=MLgm
------END PGP SIGNATURE-----
-
---=-tYZjD0iEUxODX0o/W/Ji--
+  [1] https://github.com/redpig/seccomp
