@@ -1,99 +1,33 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH 2/2] ipv6:  Allow accepting RA from local IP addresses.
-Date: Fri, 20 Jun 2014 09:31:00 -0700
-Message-ID: <53A461C4.6000503@candelatech.com>
-References: <1403113806-13004-1-git-send-email-greearb@candelatech.com>  <1403113806-13004-2-git-send-email-greearb@candelatech.com> <1403278836.22173.21.camel@localhost>
+From: "Kondratiev, Vladimir" <vkondrat@qti.qualcomm.com>
+Subject: RE: randconfig build error with next-20140604, in
+ drivers/net/wireless/ath/wil6210/debugfs.c
+Date: Fri, 20 Jun 2014 16:43:38 +0000
+Message-ID: <A5CA08B46412E243958C77F3825F4395270AB72A@NASANEXD02E.na.qualcomm.com>
+References: <CA+r1ZhiT6hHwA2urc-DXUxucvJYaYdq-dZZSAFrgd3du_DDrww@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.candelatech.com ([208.74.158.173]:45372 "EHLO
-	mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934714AbaFTQbB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2014 12:31:01 -0400
-In-Reply-To: <1403278836.22173.21.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: Jim Davis <jim.epost@gmail.com>,
+	Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next <linux-next@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	qca_vkondrat <qca_vkondrat@qca.qualcomm.com>,
+	"linville@tuxdriver.com" <linville@tuxdriver.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	wil6210 <wil6210@qca.qualcomm.com>,
+	netdev <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <CA+r1ZhiT6hHwA2urc-DXUxucvJYaYdq-dZZSAFrgd3du_DDrww@mail.gmail.com>
+Content-Language: en-US
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/20/2014 08:40 AM, Hannes Frederic Sowa wrote:
-> On Mi, 2014-06-18 at 10:50 -0700, greearb@candelatech.com wrote:
->> From: Ben Greear <greearb@candelatech.com>
->>
->> This can be used in virtual networking applications, and
->> may have other uses as well.  The option is disabled by
->> default, so no change to current operating behaviour
->> without the user explicitly changing the behaviour.
-> 
-> Can you give a specific example for its use case? I currently don't see
-> the need for such an option.
+Building with the attached random configuration file,
 
-I put radvd on one veth endpoint, and use other veth endpoint to act
-as normal-ish endpoint with IPv6.
+drivers/built-in.o: In function `wil_vring_debugfs_show':
+debugfs.c:(.text+0x3a331c): undefined reference to `__udivdi3'
+make: *** [vmlinux] Error 1
 
-The one with radvd enables routing, using specific rules so that it
-can only route to a few other interfaces.
+Patch already sent.
 
-Basically, I can emulate multi-hop routed and bridged networks, including with
-OSPF and such on a single machine without the use of network
-namespaces or virtual machines.
-
-We use this to make network testing products, but I figure someone somewhere
-will find a different reason to want this.  As far as I know, this used to
-work w/out any kernel hacks, though I have not specifically verified
-this.  It did show up as a regression in our testing, but possibly we
-failed to test it properly years ago...
-
-
->> -	if (ipv6_chk_addr(dev_net(in6_dev->dev), &ipv6_hdr(skb)->saddr,
->> +	if (!(in6_dev->cnf.accept_ra_from_local ||
->> +	      dev_net(in6_dev->dev)->ipv6.devconf_all->accept_ra_from_local) &&
->> +	    ipv6_chk_addr(dev_net(in6_dev->dev), &ipv6_hdr(skb)->saddr,
->>  			  NULL, 0)) {
->>  		ND_PRINTK(2, info,
->>  			  "RA: %s, chk_addr failed for dev: %s\n",
->> @@ -1293,7 +1295,9 @@ skip_linkparms:
->>  	}
->>  
->>  #ifdef CONFIG_IPV6_ROUTE_INFO
->> -	if (ipv6_chk_addr(dev_net(in6_dev->dev), &ipv6_hdr(skb)->saddr,
->> +	if (!(in6_dev->cnf.accept_ra_from_local ||
->> +	      dev_net(in6_dev->dev)->ipv6.devconf_all->accept_ra_from_local) &&
->> +	    ipv6_chk_addr(dev_net(in6_dev->dev), &ipv6_hdr(skb)->saddr,
->>  			  NULL, 0)) {
->>  		ND_PRINTK(2, info,
->>  			  "RA: %s, chk-addr (route info) is false for dev: %s\n",
-> 
-> Maybe ipv6_accept_ra_local() like ipv6_accept_ra() static local to the
-> file?
-
-I don't have a preference either way, but will make the change if it helps
-upstream acceptance.
-
-> Also I am not sure if we want to provide an devconf_all for this setting
-> at all, like we don't evaluate it for accept_ra, too. At least I
-> wouldn't do so with the current state of ipv6/conf/{all,default}.
-
-We often have thousands of interfaces on a system, it saves effort to
-set this globally.  Note that it will not over-ride any other restraints,
-so a routed interface will still not accept RA unless additional
-existing procfs config changes are made, etc.
-
-Both global and per-interface default to disabling this new feature,
-so I think it is safe as I have written it.
-
-
-Thanks,
-Ben
-
-> 
-> Bye,
-> Hannes
-> 
-> 
-
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Thanks, Vladimir
