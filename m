@@ -1,88 +1,186 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Please backport dev_kfree_skb_any fixes for stable
-Date: Thu, 19 Jun 2014 16:48:32 -0700
-Message-ID: <CAHA+R7N80Q6sh6ZjMM9B0rOUUx1YuDfE3OQGD+Av6+t7gz+MSQ@mail.gmail.com>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: [PATCH net-next] hyperv: Add handler for RNDIS_STATUS_NETWORK_CHANGE
+ event
+Date: Thu, 19 Jun 2014 18:34:36 -0700
+Message-ID: <1403228076-7596-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f54.google.com ([209.85.192.54]:57885 "EHLO
-	mail-qg0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965771AbaFSXsd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2014 19:48:33 -0400
-Received: by mail-qg0-f54.google.com with SMTP id q107so2793504qgd.13
-        for <netdev@vger.kernel.org>; Thu, 19 Jun 2014 16:48:32 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: olaf@aepfle.de, jasowang@redhat.com, driverdev-devel@linuxdriverproject.org,
+ linux-kernel@vger.kernel.org, haiyangz@microsoft.com
+To: davem@davemloft.net,
+	netdev@vger.kernel.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-Hi, David
+The RNDIS_STATUS_NETWORK_CHANGE event is received after the Hyper-V host
+sleep or hibernation. We refresh network at this time.
+MS-TFS: 135162
 
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
 
-Please consider to backport the following dev_kfree_skb_any
-commits for stable. They fix some annoying warnings for us.
+---
+ drivers/net/hyperv/hyperv_net.h   |    3 ++-
+ drivers/net/hyperv/netvsc_drv.c   |   30 ++++++++++++++++++++++++++----
+ drivers/net/hyperv/rndis_filter.c |   21 +--------------------
+ include/linux/rndis.h             |    1 +
+ 4 files changed, 30 insertions(+), 25 deletions(-)
 
-commit c9974ad4aeb36003860100221a594f3c0ccc3f78
-Author: Eric W. Biederman <ebiederm@xmission.com>
-Date:   Tue Mar 11 14:20:26 2014 -0700
-
-    gianfar: Carefully free skbs in functions called by netpoll.
-
-commit d8ec2c02caa3515f35d6c33eedf529394c419298
-Author: Eric W. Biederman <ebiederm@xmission.com>
-Date:   Tue Mar 11 14:19:50 2014 -0700
-
-    benet: Call dev_kfree_skby_any instead of kfree_skb.
-
-commit e81f44b66b456a7dcfbdeffeb355458cd6a58973
-Author: Eric W. Biederman <ebiederm@xmission.com>
-Date:   Tue Mar 11 14:19:14 2014 -0700
-
-    mlx4: Call dev_kfree_skby_any instead of dev_kfree_skb.
-
-commit f7e79913a1d6a6139211ead3b03579b317d25a1f
-Author: Eric W. Biederman <ebiederm@xmission.com>
-Date:   Tue Mar 11 14:18:42 2014 -0700
-
-    ixgb: Call dev_kfree_skby_any instead of dev_kfree_skb.
-
-commit 497a27b9e1bcf6dbaea7a466cfcd866927e1b431
-Author: Eric W. Biederman <ebiederm@xmission.com>
-Date:   Tue Mar 11 14:18:14 2014 -0700
-
-    tg3: Call dev_kfree_skby_any instead of dev_kfree_skb.
-
-commit f458b2ee93ee3606c83f76213fbe49e026bac754
-Author: Eric W. Biederman <ebiederm@xmission.com>
-Date:   Tue Mar 11 14:17:41 2014 -0700
-
-    bnx2: Call dev_kfree_skby_any instead of dev_kfree_skb.
-
-commit 2bb77ab42a6a40162a367b80394b96bb756ad5f1
-Author: Eric W. Biederman <ebiederm@xmission.com>
-Date:   Tue Mar 11 14:16:58 2014 -0700
-
-    bonding: Call dev_kfree_skby_any instead of kfree_skb.
-
-commit 989c9ba104d9ce53c1ca918262f3fdfb33aca12a
-Author: Eric W. Biederman <ebiederm@xmission.com>
-Date:   Tue Mar 11 14:16:14 2014 -0700
-
-    r8169: Call dev_kfree_skby_any instead of dev_kfree_skb.
-
-commit a2ccd2e4bd70122523a7bf21cec4dd6e34427089
-Author: Eric W. Biederman <ebiederm@xmission.com>
-Date:   Tue Mar 11 14:15:36 2014 -0700
-
-    8139too: Call dev_kfree_skby_any instead of dev_kfree_skb.
-
-commit 508f81d517ed1f3f0197df63ea7ab5cd91b6f3b3
-Author: Eric W. Biederman <ebiederm@xmission.com>
-Date:   Tue Mar 11 14:14:58 2014 -0700
-
-    8139cp: Call dev_kfree_skby_any instead of kfree_skb.
-
-
-
-Thanks!
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 6cc37c1..24441ae 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -170,6 +170,7 @@ struct rndis_device {
+ 
+ 	enum rndis_device_state state;
+ 	bool link_state;
++	bool link_change;
+ 	atomic_t new_req_id;
+ 
+ 	spinlock_t request_lock;
+@@ -185,7 +186,7 @@ int netvsc_device_remove(struct hv_device *device);
+ int netvsc_send(struct hv_device *device,
+ 		struct hv_netvsc_packet *packet);
+ void netvsc_linkstatus_callback(struct hv_device *device_obj,
+-				unsigned int status);
++				struct rndis_message *resp);
+ int netvsc_recv_callback(struct hv_device *device_obj,
+ 			struct hv_netvsc_packet *packet,
+ 			struct ndis_tcp_ip_checksum_info *csum_info);
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 4fd71b7..9b27ca8 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -579,8 +579,9 @@ drop:
+  * netvsc_linkstatus_callback - Link up/down notification
+  */
+ void netvsc_linkstatus_callback(struct hv_device *device_obj,
+-				       unsigned int status)
++				struct rndis_message *resp)
+ {
++	struct rndis_indicate_status *indicate = &resp->msg.indicate_status;
+ 	struct net_device *net;
+ 	struct net_device_context *ndev_ctx;
+ 	struct netvsc_device *net_device;
+@@ -589,7 +590,19 @@ void netvsc_linkstatus_callback(struct hv_device *device_obj,
+ 	net_device = hv_get_drvdata(device_obj);
+ 	rdev = net_device->extension;
+ 
+-	rdev->link_state = status != 1;
++	switch (indicate->status) {
++	case RNDIS_STATUS_MEDIA_CONNECT:
++		rdev->link_state = false;
++		break;
++	case RNDIS_STATUS_MEDIA_DISCONNECT:
++		rdev->link_state = true;
++		break;
++	case RNDIS_STATUS_NETWORK_CHANGE:
++		rdev->link_change = true;
++		break;
++	default:
++		return;
++	}
+ 
+ 	net = net_device->ndev;
+ 
+@@ -597,7 +610,7 @@ void netvsc_linkstatus_callback(struct hv_device *device_obj,
+ 		return;
+ 
+ 	ndev_ctx = netdev_priv(net);
+-	if (status == 1) {
++	if (!rdev->link_state) {
+ 		schedule_delayed_work(&ndev_ctx->dwork, 0);
+ 		schedule_delayed_work(&ndev_ctx->dwork, msecs_to_jiffies(20));
+ 	} else {
+@@ -767,7 +780,9 @@ static void netvsc_link_change(struct work_struct *w)
+ 	struct net_device *net;
+ 	struct netvsc_device *net_device;
+ 	struct rndis_device *rdev;
+-	bool notify;
++	bool notify, refresh = false;
++	char *argv[] = { "/etc/init.d/network", "restart", NULL };
++	char *envp[] = { "HOME=/", "PATH=/sbin:/usr/sbin:/bin:/usr/bin", NULL };
+ 
+ 	rtnl_lock();
+ 
+@@ -782,10 +797,17 @@ static void netvsc_link_change(struct work_struct *w)
+ 	} else {
+ 		netif_carrier_on(net);
+ 		notify = true;
++		if (rdev->link_change) {
++			rdev->link_change = false;
++			refresh = true;
++		}
+ 	}
+ 
+ 	rtnl_unlock();
+ 
++	if (refresh)
++		call_usermodehelper(argv[0], argv, envp, UMH_WAIT_EXEC);
++
+ 	if (notify)
+ 		netdev_notify_peers(net);
+ }
+diff --git a/drivers/net/hyperv/rndis_filter.c b/drivers/net/hyperv/rndis_filter.c
+index 99c527a..2b86f0b 100644
+--- a/drivers/net/hyperv/rndis_filter.c
++++ b/drivers/net/hyperv/rndis_filter.c
+@@ -320,25 +320,6 @@ static void rndis_filter_receive_response(struct rndis_device *dev,
+ 	}
+ }
+ 
+-static void rndis_filter_receive_indicate_status(struct rndis_device *dev,
+-					     struct rndis_message *resp)
+-{
+-	struct rndis_indicate_status *indicate =
+-			&resp->msg.indicate_status;
+-
+-	if (indicate->status == RNDIS_STATUS_MEDIA_CONNECT) {
+-		netvsc_linkstatus_callback(
+-			dev->net_dev->dev, 1);
+-	} else if (indicate->status == RNDIS_STATUS_MEDIA_DISCONNECT) {
+-		netvsc_linkstatus_callback(
+-			dev->net_dev->dev, 0);
+-	} else {
+-		/*
+-		 * TODO:
+-		 */
+-	}
+-}
+-
+ /*
+  * Get the Per-Packet-Info with the specified type
+  * return NULL if not found.
+@@ -464,7 +445,7 @@ int rndis_filter_receive(struct hv_device *dev,
+ 
+ 	case RNDIS_MSG_INDICATE:
+ 		/* notification msgs */
+-		rndis_filter_receive_indicate_status(rndis_dev, rndis_msg);
++		netvsc_linkstatus_callback(dev, rndis_msg);
+ 		break;
+ 	default:
+ 		netdev_err(ndev,
+diff --git a/include/linux/rndis.h b/include/linux/rndis.h
+index 0c8dc71..93c0a64 100644
+--- a/include/linux/rndis.h
++++ b/include/linux/rndis.h
+@@ -65,6 +65,7 @@
+ #define	RNDIS_STATUS_MEDIA_SPECIFIC_INDICATION	0x40010012
+ #define RNDIS_STATUS_WW_INDICATION		RDIA_SPECIFIC_INDICATION
+ #define RNDIS_STATUS_LINK_SPEED_CHANGE		0x40010013L
++#define RNDIS_STATUS_NETWORK_CHANGE		0x40010018
+ 
+ #define RNDIS_STATUS_NOT_RESETTABLE		0x80010001
+ #define RNDIS_STATUS_SOFT_ERRORS		0x80010003
+-- 
+1.7.4.1
