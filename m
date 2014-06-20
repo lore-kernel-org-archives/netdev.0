@@ -1,56 +1,53 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 4/5] cxgb4 : Makefile & Kconfig changes for DCBx
- support
-Date: Fri, 20 Jun 2014 20:51:54 +0400
-Message-ID: <53A466AA.9080305@cogentembedded.com>
-References: <1403216531-7874-1-git-send-email-anish@chelsio.com> <1403216531-7874-5-git-send-email-anish@chelsio.com>
+From: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
+Subject: Re: [PATCH] iovec: move memcpy_from/toiovecend to lib/iovec.c
+Date: Fri, 20 Jun 2014 11:11:38 -0700
+Message-ID: <1403287898.30764.17.camel@haakon3.risingtidesystems.com>
+References: <1403201568-22828-1-git-send-email-mst@redhat.com>
+	 <20140619.210637.1702701955085552032.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, leedom@chelsio.com, hariprasad@chelsio.com
-To: Anish Bhatt <anish@chelsio.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f177.google.com ([209.85.217.177]:43207 "EHLO
-	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753633AbaFTQvq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2014 12:51:46 -0400
-Received: by mail-lb0-f177.google.com with SMTP id u10so2532483lbd.36
-        for <netdev@vger.kernel.org>; Fri, 20 Jun 2014 09:51:44 -0700 (PDT)
-In-Reply-To: <1403216531-7874-5-git-send-email-anish@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mst@redhat.com, linux-kernel@vger.kernel.org,
+	rdunlap@infradead.org, sfr@canb.auug.org.au, hjk@hansjkoch.de,
+	gregkh@linuxfoundation.org, stephen@networkplumber.org,
+	sean.hefty@intel.com, fx.lebail@yahoo.com, jasowang@redhat.com,
+	hannes@stressinduktion.org, wuzhy@linux.vnet.ibm.com,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140619.210637.1702701955085552032.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+On Thu, 2014-06-19 at 21:06 -0700, David Miller wrote:
+> From: "Michael S. Tsirkin" <mst@redhat.com>
+> Date: Thu, 19 Jun 2014 21:22:56 +0300
+> 
+> > ERROR: "memcpy_fromiovecend" [drivers/vhost/vhost_scsi.ko] undefined!
+> > 
+> > commit 9f977ef7b671f6169eca78bf40f230fe84b7c7e5
+> >     vhost-scsi: Include prot_bytes into expected data transfer length
+> > in target-pending makes drivers/vhost/scsi.c call memcpy_fromiovecend().
+> > This function is not available when CONFIG_NET is not enabled.
+> > 
+> > socket.h already includes uio.h, so no callers need updating.
+> > 
+> > Reported-by: Randy Dunlap <rdunlap@infradead.org>
+> > Cc: Stephen Rothwell <sfr@canb.auug.org.au>
+> > Cc: "David S. Miller" <davem@davemloft.net>
+> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> > ---
+> > 
+> > David, could you please ack merging this through
+> > target-pending to avoid dependency issues?
+> 
+> Yep, this looks fine:
+> 
+> Signed-off-by: David S. Miller <davem@davemloft.net>
 
-On 06/20/2014 02:22 AM, Anish Bhatt wrote:
+Applied to target-pending/queue, and will include in the next PULL
+request.
 
-> Signed-off-by: Anish Bhatt <anish@chelsio.com>
-> ---
->   drivers/net/ethernet/chelsio/Kconfig        | 11 +++++++++++
->   drivers/net/ethernet/chelsio/cxgb4/Makefile |  1 +
->   2 files changed, 12 insertions(+)
+Thanks folks.
 
-> diff --git a/drivers/net/ethernet/chelsio/Kconfig b/drivers/net/ethernet/chelsio/Kconfig
-> index 570222c..c3ce9df 100644
-> --- a/drivers/net/ethernet/chelsio/Kconfig
-> +++ b/drivers/net/ethernet/chelsio/Kconfig
-> @@ -86,6 +86,17 @@ config CHELSIO_T4
->   	  To compile this driver as a module choose M here; the module
->   	  will be called cxgb4.
->
-> +config CHELSIO_T4_DCB
-> +	bool "Data Center Bridging (DCB) Support for Chelsio T4/T5 cards"
-> +	default n
-
-    'n' is the default default. :-)
-
-> +	depends on CHELSIO_T4 && DCB
-> +	---help---
-> +	  Enable DCB support through rtNetlink interface.
-> +	  Say Y here if you want to enable Data Center Bridging (DCB) support
-> +	  in the driver.
-> +
-> +	  If unsure, say N.
-> +
-
-WBR, Sergei
+--nab
