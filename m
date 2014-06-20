@@ -1,36 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] hyperv: Add handler for
- RNDIS_STATUS_NETWORK_CHANGE event
-Date: Thu, 19 Jun 2014 21:21:55 -0700 (PDT)
-Message-ID: <20140619.212155.1427312394524206357.davem@davemloft.net>
-References: <1403228076-7596-1-git-send-email-haiyangz@microsoft.com>
+Subject: Re: [PATCH net-next 1/2] procfs: split proc_pid_status function
+Date: Thu, 19 Jun 2014 21:22:54 -0700 (PDT)
+Message-ID: <20140619.212254.967469891126477499.davem@davemloft.net>
+References: <1403011478-20206-1-git-send-email-p.wilczek@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
- driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
-To: haiyangz@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1403228076-7596-1-git-send-email-haiyangz@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, kyungmin.park@samsung.com,
+	juho80.son@samsung.com, b.zolnierkie@samsung.com
+To: p.wilczek@samsung.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46426 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751441AbaFTEW4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2014 00:22:56 -0400
+In-Reply-To: <1403011478-20206-1-git-send-email-p.wilczek@samsung.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Date: Thu, 19 Jun 2014 18:34:36 -0700
+From: Piotr Wilczek <p.wilczek@samsung.com>
+Date: Tue, 17 Jun 2014 15:24:37 +0200
 
-> The RNDIS_STATUS_NETWORK_CHANGE event is received after the Hyper-V host
-> sleep or hibernation. We refresh network at this time.
-> MS-TFS: 135162
-> 
-> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+> +int proc_pid_status_mm(struct seq_file *m, struct pid_namespace *ns,
+> +		       struct pid *pid, struct task_struct *task,
+> +		       struct mm_struct *mm)
+>  {
+> -	struct mm_struct *mm = get_task_mm(task);
+> -
+>  	task_name(m, task);
+>  	task_state(m, ns, pid, task);
+>  
+> -	if (mm) {
+> +	if (mm)
+>  		task_mem(m, mm);
+> -		mmput(mm);
 
-Applied, thanks.
+Neither proc_pid_status() nor the invocations in your second patch ever
+invoke this function with a NULL mm, therefore you should never try to
+explicitly handle the case.
