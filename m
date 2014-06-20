@@ -1,70 +1,77 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: [PATCH RFC 00/30] Initial round of Freescale FEC ethernet patches
-Date: Fri, 20 Jun 2014 13:11:18 +0100
-Message-ID: <20140620121118.GR32514@n2100.arm.linux.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+From: Russell King <rmk+kernel@arm.linux.org.uk>
+Subject: [PATCH RFC 01/30] net: fec: Don't clear IPV6 header checksum field
+ when IP accelerator enable
+Date: Fri, 20 Jun 2014 13:11:48 +0100
+Message-ID: <E1WxxfY-0005Wt-9N@rmk-PC.arm.linux.org.uk>
+References: <20140620121118.GR32514@n2100.arm.linux.org.uk>
 Cc: Fugang Duan <B38611@freescale.com>, netdev@vger.kernel.org
 To: linux-arm-kernel@lists.infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:36314 "EHLO
+Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:36317 "EHLO
 	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S966820AbaFTMLY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2014 08:11:24 -0400
-Content-Disposition: inline
+	by vger.kernel.org with ESMTP id S966820AbaFTMLu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2014 08:11:50 -0400
+In-Reply-To: <20140620121118.GR32514@n2100.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is my initial round of patches (roughly half of my total patch
-set) for the Freescale FEC driver.
+From: Fugang Duan <b38611@freescale.com>
+To: linux-arm-kernel@lists.infradead.org
 
-I'm sending this set out initially for comments and testing.  One of
-my motivations for only sending half is to get this half into a state
-where DaveM is happy to merge it before I sort out the remainder.
-There's quite a lot here, so bear with me on this.
+The commit 96c50caa5148 (net: fec: Enable IP header hardware checksum)
+enable HW IP header checksum for IPV4 and IPV6, which causes IPV6 TCP/UDP
+cannot work. (The issue is reported by Russell King)
 
-I've tried to sort the fixes before the cleanups as best I can, but
-reordering the series is a full-time job due to it's size - it's taken
-from Monday until now to get this far with it, so I'm hoping that there
-won't be any "you should rearrange the patches as X" comments.
+For FEC IP header checksum function: Insert IP header checksum. This "IINS"
+bit is written by the user. If set, IP accelerator calculates the IP header
+checksum and overwrites the IINS corresponding header field with the calculated
+value. The checksum field must be cleared by user, otherwise the checksum
+always is 0xFFFF.
 
-While the original series was well tested during it's original
-development, including with performance tests on each patch, that
-testing and validation has been lost due to the changes during the
-last merge window, and subsequent rebasing and updating of the patches.
+So the previous patch clear IP header checksum field regardless of IP frame
+type.
 
-The series is based on v3.16-rc1, and as such, I have added Andy's
-checksum fix to the start of the series.  This patch is not strictly
-part of the RFC, but is included because my complete patch series needs
-to account for that change.
+In fact, IP HW detect the packet as IPV6 type, even if the "IINS" bit is set,
+the IP accelerator is not triggered to calculates IPV6 header checksum because
+IPV6 frame format don't have checksum.
 
-Some of these patches are to fix theoretical problems in the driver
-(ones which have been found via a review of the code) others address
-real observable problems (such as poor half-duplex performance.)
+So this results in the IPV6 frame being corrupted.
 
-Towards the end of this series, I have included a patch which was
-initially at the beginning of the series for dumping out the state of
-the transmit ring, which is very useful to debug transmit problems.
-This was acceptable when the transmit ring was between 16 and 128
-descriptors, but during the recent merge window, this was increased to
-512 descriptors, so it will now print around 512 lines to the kernel
-message log on transmit timeout.  I'm not entirely convinced this is a
-good idea - maybe it should become optional, or maybe the timed-out ring
-status should be available via debugfs, but that's a problem to retrieve
-if you're running NFS rootfs and the timeout doesn't recover properly.
+The patch just add software detect the current packet type, if it is IPV6
+frame, it don't clear IP header checksum field.
 
-This series of patches is also available from the following *unstable*
-git branch - unstable as it's provided for convenience so you don't
-have to apply all these patches individually, unstable as the patches
-need to have attributations added, unstable because DaveM will probably
-want to apply them as patches to his tree:
+Reported-and-tested-by: Russell King <rmk+kernel@arm.linux.org.uk>
+Signed-off-by: Fugang Duan <B38611@freescale.com>
+Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+---
+ drivers/net/ethernet/freescale/fec_main.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
 
-  git://ftp.arm.linux.org.uk/~rmk/linux-arm.git fec-testing
-
- drivers/net/ethernet/freescale/fec.h      |  10 +-
- drivers/net/ethernet/freescale/fec_main.c | 383 +++++++++++++++++-------------
- 2 files changed, 225 insertions(+), 168 deletions(-)
-
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 38d9d276ab8b..77037fd377b8 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -320,6 +320,11 @@ static void *swap_buffer(void *bufaddr, int len)
+ 	return bufaddr;
+ }
+ 
++static inline bool is_ipv4_pkt(struct sk_buff *skb)
++{
++	return skb->protocol == htons(ETH_P_IP) && ip_hdr(skb)->version == 4;
++}
++
+ static int
+ fec_enet_clear_csum(struct sk_buff *skb, struct net_device *ndev)
+ {
+@@ -330,7 +335,8 @@ fec_enet_clear_csum(struct sk_buff *skb, struct net_device *ndev)
+ 	if (unlikely(skb_cow_head(skb, 0)))
+ 		return -1;
+ 
+-	ip_hdr(skb)->check = 0;
++	if (is_ipv4_pkt(skb))
++		ip_hdr(skb)->check = 0;
+ 	*(__sum16 *)(skb->head + skb->csum_start + skb->csum_offset) = 0;
+ 
+ 	return 0;
 -- 
-FTTC broadband for 0.8mile line: now at 9.7Mbps down 460kbps up... slowly
-improving, and getting towards what was expected from it.
+1.8.3.1
