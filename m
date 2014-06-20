@@ -1,1160 +1,1120 @@
-From: Anish Bhatt <anish@chelsio.com>
-Subject: [PATCH v2 net-next 2/5] cxgb4 : Add DCBx support codebase and dcbnl_ops
-Date: Thu, 19 Jun 2014 21:37:12 -0700
-Message-ID: <1403239035-10771-3-git-send-email-anish@chelsio.com>
-References: <1403239035-10771-1-git-send-email-anish@chelsio.com>
-Cc: davem@davemloft.net, leedom@chelsio.com, hariprasad@chelsio.com,
-	Anish Bhatt <anish@chelsio.com>
-To: netdev@vger.kernel.org
+From: Christopher White <chris@logicalelegance.com>
+Subject: [PATCH V5 net-next] LISP: Locator/Identifier Separation Protocol
+Date: Thu, 19 Jun 2014 21:47:46 -0700
+Message-ID: <BC8091AB-E852-422D-8759-E0AE1EB4BD46@logicalelegance.com>
+Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.2\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "Vina Ermagan (vermagan)" <vermagan@cisco.com>,
+	"Lorand Jakab -X (lojakab - M SQUARED CONSULTING INC. at Cisco)"
+	<lojakab@cisco.com>
+To: Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:36096
-	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S934067AbaFTEh1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2014 00:37:27 -0400
-In-Reply-To: <1403239035-10771-1-git-send-email-anish@chelsio.com>
+Received: from mail6.webfaction.com ([74.55.86.74]:48463 "EHLO
+	smtp.webfaction.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932514AbaFTErt convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2014 00:47:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Anish Bhatt <anish@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c | 980 +++++++++++++++++++++++++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.h | 141 ++++
- 2 files changed, 1121 insertions(+)
- create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
- create mode 100644 drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.h
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
+This is a static tunnel implementation of LISP as described in RFC 6830:
+  http://tools.ietf.org/html/rfc6830
+
+This driver provides point-to-point LISP dataplane
+encapsulation/decapsulation for statically configured endpoints. It provides
+support for IPv4 in IPv4 and IPv6 in IPv4. IPv6 outer headers are not
+supported yet. Instance ID is supported on a per device basis.
+
+This implementation has been tested against LISPMob.
+
+Changes from V2: Move some functions to common headers. Remove unecessary skb
+ownership change. Minor cleanup.
+Changes from V3: Revert some generic function consolidation for later patches.
+Changes from V4: Indentation (Note V4 was erroneously marked V3)
+Signed-off-by: Chris White <chris@logicalelegance.com>
+---
+ drivers/net/Kconfig          |   12 +
+ drivers/net/Makefile         |    1 +
+ drivers/net/lisp.c           |  899 ++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/vxlan.c          |   22 +-
+ include/net/route.h          |   21 +
+ include/net/udp.h            |   21 +
+ include/uapi/linux/if_link.h |   17 +
+ 7 files changed, 973 insertions(+), 20 deletions(-)
+ create mode 100644 drivers/net/lisp.c
+
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 89402c3..5d49b1e 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -158,6 +158,18 @@ config VXLAN
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called vxlan.
+ 
++config LISP
++       tristate "Locator Identifier Separation Protocol (LISP)"
++       depends on INET
++       select NET_IP_TUNNEL
++       ---help---
++       Create a LISP virtual interface that provides static LISP tunnel
++       encapsulation. For more information see:
++         http://tools.ietf.org/html/rfc6830
++
++       To compile this driver as a module, choose M here: the module will be
++       called lisp.
++
+ config NETCONSOLE
+ 	tristate "Network console logging support"
+ 	---help---
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index 3fef8a8..943590d 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -23,6 +23,7 @@ obj-$(CONFIG_VETH) += veth.o
+ obj-$(CONFIG_VIRTIO_NET) += virtio_net.o
+ obj-$(CONFIG_VXLAN) += vxlan.o
+ obj-$(CONFIG_NLMON) += nlmon.o
++obj-$(CONFIG_LISP) += lisp.o
+ 
+ #
+ # Networking Drivers
+diff --git a/drivers/net/lisp.c b/drivers/net/lisp.c
 new file mode 100644
-index 0000000..39b4a85
+index 0000000..c50bc93
 --- /dev/null
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
-@@ -0,0 +1,980 @@
++++ b/drivers/net/lisp.c
+@@ -0,0 +1,899 @@
 +/*
-+ *  Copyright (C) 2013-2014 Chelsio Communications.  All rights reserved.
++ * lisp.c
++ * This file is part of LISP Implementation.
++ * It provides a netdevice for static tunneling between LISP
++ * devices. IPv4 encapsulation is currently supported.
 + *
-+ *  Written by Anish Bhatt (anish@chelsio.com)
-+ *	       Casey Leedom (leedom@chelsio.com)
++ * Copyright (C) 2014 Cisco Systems, Inc, 2014. All rights reserved.
 + *
-+ *  This program is free software; you can redistribute it and/or modify it
-+ *  under the terms and conditions of the GNU General Public License,
-+ *  version 2, as published by the Free Software Foundation.
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version 2
++ * of the License, or (at your option) any later version.
 + *
-+ *  This program is distributed in the hope it will be useful, but WITHOUT
-+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ *  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ *  more details.
-+ *
-+ *  The full GNU General Public License is included in this distribution in
-+ *  the file called "COPYING".
++ * Written or modified by:
++ * Chris White <chris@logicalelegance.com>
 + *
 + */
++#include <linux/kernel.h>
++#include <linux/types.h>
++#include <linux/module.h>
++#include <linux/errno.h>
++#include <linux/slab.h>
++#include <linux/skbuff.h>
++#include <linux/rculist.h>
++#include <linux/netdevice.h>
++#include <linux/in.h>
++#include <linux/ip.h>
++#include <linux/udp.h>
++#include <linux/igmp.h>
++#include <linux/etherdevice.h>
++#include <linux/if_ether.h>
++#include <linux/if_vlan.h>
++#include <linux/hash.h>
++#include <linux/ethtool.h>
++#include <net/arp.h>
++#include <net/ndisc.h>
++#include <net/ip.h>
++#include <net/ip_tunnels.h>
++#include <net/icmp.h>
++#include <net/udp.h>
++#include <net/rtnetlink.h>
++#include <net/route.h>
++#include <net/dsfield.h>
++#include <net/inet_ecn.h>
++#include <net/net_namespace.h>
++#include <net/netns/generic.h>
++#if IS_ENABLED(CONFIG_IPV6)
++#include <net/ipv6.h>
++#include <net/addrconf.h>
++#include <net/ip6_tunnel.h>
++#include <net/ip6_checksum.h>
++#endif
++#include <net/route.h>
++#include <net/xfrm.h>
++#include <linux/in_route.h>
++#include <linux/version.h>
 +
-+#include "cxgb4.h"
++#define LISP_VERSION "0.1"
 +
-+/* Initialize a port's Data Center Bridging state.  Typically used after a
-+ * Link Down event.
++static inline void vlan_set_tci(struct sk_buff *skb, u16 vlan_tci)
++{
++	skb->vlan_tci = vlan_tci;
++}
++
++#define PORT_HASH_BITS  8
++#define PORT_HASH_SIZE  (1 << PORT_HASH_BITS)
++
++/**
++ * struct lisphdr - LISP header
++ * @nonce_present: Flag indicating the presence of a 24 bit nonce value.
++ * @locator_status_bits_present: Flag indicating the presence of Locator Status
++ *                               Bits (LSB).
++ * @solicit_echo_nonce: Flag indicating the use of the echo noncing mechanism.
++ * @map_version_present: Flag indicating the use of mapping versioning.
++ * @instance_id_present: Flag indicating the presence of a 24 bit Instance ID.
++ * @reserved_flags: 3 bits reserved for future flags.
++ * @nonce: 24 bit nonce value.
++ * @map_version: 24 bit mapping version.
++ * @locator_status_bits: Locator Status Bits: 32 bits when instance_id_present
++ *                       is not set, 8 bits when it is.
++ * @instance_id: 24 bit Instance ID
 + */
-+void cxgb4_dcb_state_init(struct net_device *dev)
-+{
-+	struct port_info *pi = netdev2pinfo(dev);
-+	struct port_dcb_info *dcb = &pi->dcb;
++struct lisphdr {
++#ifdef __LITTLE_ENDIAN_BITFIELD
++	__u8	reserved_flags : 3;
++	__u8	instance_id_present : 1;
++	__u8	map_version_present : 1;
++	__u8	solicit_echo_nonce : 1;
++	__u8	locator_status_bits_present : 1;
++	__u8	nonce_present : 1;
++#else
++	__u8	nonce_present : 1;
++	__u8	locator_status_bits_present : 1;
++	__u8	solicit_echo_nonce : 1;
++	__u8	map_version_present : 1;
++	__u8	instance_id_present : 1;
++	__u8	reserved_flags : 3;
++#endif
++	union {
++		__u8	nonce[3];
++		__u8	map_version[3];
++	} u1;
++	union {
++		__be32 locator_status_bits;
++		struct {
++			__u8	instance_id[3];
++			__u8	locator_status_bits;
++		} word2;
++	} u2;
++};
 +
-+	memset(dcb, 0, sizeof(struct port_dcb_info));
-+	dcb->state = CXGB4_DCB_STATE_START;
-+}
++#define LISP_HLEN (sizeof(struct udphdr) + sizeof(struct lisphdr))
 +
-+/* Finite State machine for Data Center Bridging.
++/* UDP port for LISP traffic.
++ * The IANA assigned port is 4341.
 + */
-+void cxgb4_dcb_state_fsm(struct net_device *dev,
-+			 enum cxgb4_dcb_state_input input)
++static unsigned short lisp_port __read_mostly = 4341;
++module_param_named(udp_port, lisp_port, ushort, 0444);
++MODULE_PARM_DESC(udp_port, "Destination UDP port");
++static int lisp_net_id;
++
++/* per-network namespace private data for this module */
++struct lisp_net {
++	struct list_head	lisp_list;
++	struct hlist_head	sock_list[PORT_HASH_SIZE];
++	spinlock_t		sock_lock;
++};
++
++union lisp_addr {
++struct sockaddr_in	sin;
++	struct sockaddr_in6	sin6;
++	struct sockaddr		sa;
++};
++
++#define IID_HASH_BITS   10
++#define IID_HASH_SIZE   (1 << IID_HASH_BITS)
++
++struct lisp_sock;
++typedef void (lisp_rcv_t)(struct lisp_sock *ls, struct sk_buff *skb);
++
++/* per UDP socket information */
++struct lisp_sock {
++	struct hlist_node	hlist;
++	lisp_rcv_t         *rcv;
++	void               *data;
++	struct      work_struct del_work;
++	struct      socket *sock;
++	struct rcu_head		rcu;
++	struct hlist_head	iid_list[IID_HASH_SIZE];
++	atomic_t		refcnt;
++};
++
++/* LISP psuedo network device */
++struct lisp_dev {
++	struct hlist_node	hlist;
++	struct list_head	next;
++	struct net_device	*dev;
++	u32			iid;            /* Instance ID */
++	struct lisp_sock	*ls_socket; /* Input socket */
++	__be16			rcv_port;   /* Listen port to receive packets */
++	__be16			encap_port; /* Dest port for encaped packets */
++	__u8			tos;
++	__u8			ttl;
++	u32			flags;
++	union lisp_addr		remote; /* Tunnel dst (RLOC) */
++	union lisp_addr		local;  /* Tunnel src (our RLOC) */
++	struct work_struct	sock_work;
++};
++
++#define LISP_F_UDP_CSUM 0x1
++
++static struct workqueue_struct *lisp_wq;
++
++/* Instance ID hash table head */
++static inline struct hlist_head *iid_head(struct lisp_sock *s, u32 iid)
 +{
-+	struct port_info *pi = netdev2pinfo(dev);
-+	struct port_dcb_info *dcb = &pi->dcb;
-+	struct adapter *adap = pi->adapter;
++	return &s->iid_list[hash_32(iid, IID_HASH_BITS)];
++}
 +
-+	switch (input) {
-+	case CXGB4_DCB_INPUT_FW_DISABLED: {
-+		/* Firmware tells us it's not doing DCB */
-+		switch (dcb->state) {
-+		case CXGB4_DCB_STATE_START: {
-+			/* we're going to use Host DCB */
-+			dcb->state = CXGB4_DCB_STATE_HOST;
-+			dcb->supported = CXGB4_DCBX_HOST_SUPPORT;
-+			dcb->enabled = 1;
-+			break;
-+		}
++/* Socket hash table head */
++static inline struct hlist_head *s_head(struct net *net, __be16 port)
++{
++	struct lisp_net *ln = net_generic(net, lisp_net_id);
 +
-+		case CXGB4_DCB_STATE_HOST: {
-+			/* we're alreaady in Host DCB mode */
-+			break;
-+		}
++	return &ln->sock_list[hash_32(ntohs(port), PORT_HASH_BITS)];
++}
 +
-+		default:
-+			goto bad_state_transition;
-+		}
-+		break;
++/* Find LISP socket based on network namespace and UDP port */
++static struct lisp_sock *lisp_find_sock(struct net *net, __be16 port)
++{
++	struct lisp_sock *s;
++
++	hlist_for_each_entry_rcu(s, s_head(net, port), hlist) {
++		if (inet_sk(s->sock->sk)->inet_sport == port)
++			return s;
 +	}
++	return NULL;
++}
 +
-+	case CXGB4_DCB_INPUT_FW_ENABLED: {
-+		/* Firmware tells us that it is doing DCB */
-+		switch (dcb->state) {
-+		case CXGB4_DCB_STATE_START: {
-+			/* we're going to use Firmware DCB */
-+			dcb->state = CXGB4_DCB_STATE_FW_INCOMPLETE;
-+			dcb->supported = CXGB4_DCBX_FW_SUPPORT;
-+			break;
-+		}
++/* Find device based on IID */
++static struct lisp_dev *lisp_find_iid(struct lisp_sock *s, u32 iid)
++{
++	struct lisp_dev *lispdev;
 +
-+		case CXGB4_DCB_STATE_FW_INCOMPLETE:
-+		case CXGB4_DCB_STATE_FW_ALLSYNCED: {
-+			/* we're alreaady in firmware DCB mode */
-+			break;
-+		}
-+
-+		default:
-+			goto bad_state_transition;
-+		}
-+		break;
++	hlist_for_each_entry_rcu(lispdev, iid_head(s, iid), hlist) {
++		if (lispdev->iid == iid)
++			return lispdev;
 +	}
-+
-+	case CXGB4_DCB_INPUT_FW_INCOMPLETE: {
-+		/* Firmware tells us that its DCB state is incomplete */
-+		switch (dcb->state) {
-+		case CXGB4_DCB_STATE_FW_INCOMPLETE: {
-+			/* we're already incomplete */
-+			break;
-+		}
-+
-+		case CXGB4_DCB_STATE_FW_ALLSYNCED: {
-+			/* We were successfully running with firmware DCB but
-+			 * now it's telling us that it's in an "incomplete
-+			 * state.  We need to reset back to a ground state
-+			 * of incomplete.
-+			 */
-+			cxgb4_dcb_state_init(dev);
-+			dcb->state = CXGB4_DCB_STATE_FW_INCOMPLETE;
-+			dcb->supported = CXGB4_DCBX_FW_SUPPORT;
-+			linkwatch_fire_event(dev);
-+			break;
-+		}
-+
-+		default:
-+			goto bad_state_transition;
-+		}
-+		break;
-+	}
-+
-+	case CXGB4_DCB_INPUT_FW_ALLSYNCED: {
-+		/* Firmware tells us that its DCB state is complete */
-+		switch (dcb->state) {
-+		case CXGB4_DCB_STATE_FW_INCOMPLETE: {
-+			dcb->state = CXGB4_DCB_STATE_FW_ALLSYNCED;
-+			dcb->enabled = 1;
-+			linkwatch_fire_event(dev);
-+			break;
-+		}
-+
-+		case CXGB4_DCB_STATE_FW_ALLSYNCED: {
-+			/* we're already all sync'ed */
-+			break;
-+		}
-+
-+		default:
-+			goto bad_state_transition;
-+		}
-+		break;
-+	}
-+
-+	default:
-+		goto  bad_state_input;
-+	}
-+	return;
-+
-+bad_state_input:
-+	dev_err(adap->pdev_dev, "cxgb4_dcb_state_fsm: illegal input symbol %d\n",
-+		input);
-+	return;
-+
-+bad_state_transition:
-+	dev_err(adap->pdev_dev, "cxgb4_dcb_state_fsm: bad state transition, state = %d, input = %d\n",
-+		dcb->state, input);
++	return NULL;
 +}
 +
-+/* Handle a DCB/DCBX update message from the firmware.
-+ */
-+void cxgb4_dcb_handle_fw_update(struct adapter *adap,
-+				const struct fw_port_cmd *pcmd)
++static void lisp_sock_add_dev(struct lisp_sock *s, struct lisp_dev *dev)
 +{
-+	const union fw_port_dcb *fwdcb = &pcmd->u.dcb;
-+	int port = FW_PORT_CMD_PORTID_GET(be32_to_cpu(pcmd->op_to_portid));
-+	struct net_device *dev = adap->port[port];
-+	struct port_info *pi = netdev_priv(dev);
-+	struct port_dcb_info *dcb = &pi->dcb;
-+	int dcb_type = pcmd->u.dcb.pgid.type;
++	__u32 iid = dev->iid;
 +
-+	/* Handle Firmware DCB Control messages separately since they drive
-+	 * our state machine.
-+	 */
-+	if (dcb_type == FW_PORT_DCB_TYPE_CONTROL) {
-+		enum cxgb4_dcb_state_input input =
-+			((pcmd->u.dcb.control.all_syncd_pkd &
-+			  FW_PORT_CMD_ALL_SYNCD)
-+			 ? CXGB4_DCB_STATE_FW_ALLSYNCED
-+			 : CXGB4_DCB_STATE_FW_INCOMPLETE);
-+
-+		cxgb4_dcb_state_fsm(dev, input);
-+		return;
-+	}
-+
-+	/* It's weird, and almost certainly an error, to get Firmware DCB
-+	 * messages when we either haven't been told whether we're going to be
-+	 * doing Host or Firmware DCB; and even worse when we've been told
-+	 * that we're doing Host DCB!
-+	 */
-+	if (dcb->state == CXGB4_DCB_STATE_START ||
-+	    dcb->state == CXGB4_DCB_STATE_HOST) {
-+		dev_err(adap->pdev_dev, "Receiving Firmware DCB messages in State %d\n",
-+			dcb->state);
-+		return;
-+	}
-+
-+	/* Now handle the general Firmware DCB update messages ...
-+	 */
-+	switch (dcb_type) {
-+	case FW_PORT_DCB_TYPE_PGID:
-+		dcb->pgid = be32_to_cpu(fwdcb->pgid.pgid);
-+		dcb->msgs |= CXGB4_DCB_FW_PGID;
-+		break;
-+
-+	case FW_PORT_DCB_TYPE_PGRATE:
-+		dcb->pg_num_tcs_supported = fwdcb->pgrate.num_tcs_supported;
-+		memcpy(dcb->pgrate, &fwdcb->pgrate.pgrate,
-+		       sizeof(dcb->pgrate));
-+		dcb->msgs |= CXGB4_DCB_FW_PGRATE;
-+		break;
-+
-+	case FW_PORT_DCB_TYPE_PRIORATE:
-+		memcpy(dcb->priorate, &fwdcb->priorate.strict_priorate,
-+		       sizeof(dcb->priorate));
-+		dcb->msgs |= CXGB4_DCB_FW_PRIORATE;
-+		break;
-+
-+	case FW_PORT_DCB_TYPE_PFC:
-+		dcb->pfcen = fwdcb->pfc.pfcen;
-+		dcb->pfc_num_tcs_supported = fwdcb->pfc.max_pfc_tcs;
-+		dcb->msgs |= CXGB4_DCB_FW_PFC;
-+		break;
-+
-+	case FW_PORT_DCB_TYPE_APP_ID: {
-+		const struct fw_port_app_priority *fwap = &fwdcb->app_priority;
-+		int idx = fwap->idx;
-+		struct app_priority *ap = &dcb->app_priority[idx];
-+
-+		struct dcb_app app = {
-+			.selector = fwap->sel_field,
-+			.protocol = be16_to_cpu(fwap->protocolid),
-+			.priority = fwap->user_prio_map,
-+		};
-+		int err;
-+
-+		err = dcb_setapp(dev, &app);
-+		if (err)
-+			dev_err(adap->pdev_dev,
-+				"Failed DCB Set Application Priority: sel=%d, prot=%d, prio=%d, err=%d\n",
-+				app.selector, app.protocol, app.priority, -err);
-+
-+		ap->user_prio_map = fwap->user_prio_map;
-+		ap->sel_field = fwap->sel_field;
-+		ap->protocolid = be16_to_cpu(fwap->protocolid);
-+		dcb->msgs |= CXGB4_DCB_FW_APP_ID;
-+		break;
-+	}
-+
-+	default:
-+		dev_err(adap->pdev_dev, "Unknown DCB update type received %x\n",
-+			dcb_type);
-+		break;
-+	}
++	dev->ls_socket = s;
++	hlist_add_head_rcu(&dev->hlist, iid_head(s, iid));
 +}
 +
-+/* Data Center Bridging netlink operations.
-+ */
-+
-+
-+/* Get current DCB enabled/disabled state.
-+ */
-+static u8 cxgb4_getstate(struct net_device *dev)
++static int lisp_init(struct net_device *dev)
 +{
-+	struct port_info *pi = netdev2pinfo(dev);
-+
-+	return pi->dcb.enabled;
-+}
-+
-+/* Set DCB enabled/disabled.
-+ */
-+static u8 cxgb4_setstate(struct net_device *dev, u8 enabled)
-+{
-+	struct port_info *pi = netdev2pinfo(dev);
-+
-+	/* Firmware doesn't provide any mechanism to control the DCB state.
-+	 */
-+	if (enabled != (pi->dcb.state == CXGB4_DCB_STATE_FW_ALLSYNCED))
-+		return 1;
-+
-+	return 0;
-+}
-+
-+static void cxgb4_getpgtccfg(struct net_device *dev, int tc,
-+			     u8 *prio_type, u8 *pgid, u8 *bw_per,
-+			     u8 *up_tc_map, int local)
-+{
-+	struct fw_port_cmd pcmd;
-+	struct port_info *pi = netdev2pinfo(dev);
-+	struct adapter *adap = pi->adapter;
-+	int err;
-+
-+	*prio_type = *pgid = *bw_per = *up_tc_map = 0;
-+
-+	if (local)
-+		INIT_PORT_DCB_READ_LOCAL_CMD(pcmd, pi->port_id);
-+	else
-+		INIT_PORT_DCB_READ_PEER_CMD(pcmd, pi->port_id);
-+
-+	pcmd.u.dcb.pgid.type = FW_PORT_DCB_TYPE_PGID;
-+	err = t4_wr_mbox(adap, adap->mbox, &pcmd, sizeof(pcmd), &pcmd);
-+	if (err != FW_PORT_DCB_CFG_SUCCESS) {
-+		dev_err(adap->pdev_dev, "DCB read PGID failed with %d\n", -err);
-+		return;
-+	}
-+	*pgid = (be32_to_cpu(pcmd.u.dcb.pgid.pgid) >> (tc * 4)) & 0xf;
-+
-+	INIT_PORT_DCB_READ_PEER_CMD(pcmd, pi->port_id);
-+	pcmd.u.dcb.pgrate.type = FW_PORT_DCB_TYPE_PGRATE;
-+	err = t4_wr_mbox(adap, adap->mbox, &pcmd, sizeof(pcmd), &pcmd);
-+	if (err != FW_PORT_DCB_CFG_SUCCESS) {
-+		dev_err(adap->pdev_dev, "DCB read PGRATE failed with %d\n",
-+			-err);
-+		return;
-+	}
-+
-+	*bw_per = pcmd.u.dcb.pgrate.pgrate[*pgid];
-+	*up_tc_map = (1 << tc);
-+
-+	/* prio_type is link strict */
-+	*prio_type = 0x2;
-+}
-+
-+static void cxgb4_getpgtccfg_tx(struct net_device *dev, int tc,
-+				u8 *prio_type, u8 *pgid, u8 *bw_per,
-+				u8 *up_tc_map)
-+{
-+	return cxgb4_getpgtccfg(dev, tc, prio_type, pgid, bw_per, up_tc_map, 1);
-+}
-+
-+
-+static void cxgb4_getpgtccfg_rx(struct net_device *dev, int tc,
-+				u8 *prio_type, u8 *pgid, u8 *bw_per,
-+				u8 *up_tc_map)
-+{
-+	return cxgb4_getpgtccfg(dev, tc, prio_type, pgid, bw_per, up_tc_map, 0);
-+}
-+
-+static void cxgb4_setpgtccfg_tx(struct net_device *dev, int tc,
-+				u8 prio_type, u8 pgid, u8 bw_per,
-+				u8 up_tc_map)
-+{
-+	struct fw_port_cmd pcmd;
-+	struct port_info *pi = netdev2pinfo(dev);
-+	struct adapter *adap = pi->adapter;
-+	u32 _pgid;
-+	int err;
-+
-+	if (pgid == DCB_ATTR_VALUE_UNDEFINED)
-+		return;
-+	if (bw_per == DCB_ATTR_VALUE_UNDEFINED)
-+		return;
-+
-+	INIT_PORT_DCB_READ_LOCAL_CMD(pcmd, pi->port_id);
-+	pcmd.u.dcb.pgid.type = FW_PORT_DCB_TYPE_PGID;
-+
-+	err = t4_wr_mbox(adap, adap->mbox, &pcmd, sizeof(pcmd), &pcmd);
-+	if (err != FW_PORT_DCB_CFG_SUCCESS) {
-+		dev_err(adap->pdev_dev, "DCB read PGID failed with %d\n", -err);
-+		return;
-+	}
-+
-+	_pgid = be32_to_cpu(pcmd.u.dcb.pgid.pgid);
-+	_pgid &= ~(0xF << (tc * 4));
-+	_pgid |= pgid << (tc * 4);
-+	pcmd.u.dcb.pgid.pgid = cpu_to_be32(_pgid);
-+
-+	INIT_PORT_DCB_WRITE_CMD(pcmd, pi->port_id);
-+
-+	err = t4_wr_mbox(adap, adap->mbox, &pcmd, sizeof(pcmd), &pcmd);
-+	if (err != FW_PORT_DCB_CFG_SUCCESS) {
-+		dev_err(adap->pdev_dev, "DCB write PGID failed with %d\n",
-+			-err);
-+		return;
-+	}
-+
-+	memset(&pcmd, 0, sizeof(struct fw_port_cmd));
-+
-+	INIT_PORT_DCB_READ_LOCAL_CMD(pcmd, pi->port_id);
-+	pcmd.u.dcb.pgrate.type = FW_PORT_DCB_TYPE_PGRATE;
-+
-+	err = t4_wr_mbox(adap, adap->mbox, &pcmd, sizeof(pcmd), &pcmd);
-+	if (err != FW_PORT_DCB_CFG_SUCCESS) {
-+		dev_err(adap->pdev_dev, "DCB read PGRATE failed with %d\n",
-+			-err);
-+		return;
-+	}
-+
-+	pcmd.u.dcb.pgrate.pgrate[pgid] = bw_per;
-+
-+	INIT_PORT_DCB_WRITE_CMD(pcmd, pi->port_id);
-+	if (pi->dcb.state == CXGB4_DCB_STATE_HOST)
-+		pcmd.op_to_portid |= cpu_to_be32(FW_PORT_CMD_APPLY);
-+
-+	err = t4_wr_mbox(adap, adap->mbox, &pcmd, sizeof(pcmd), &pcmd);
-+	if (err != FW_PORT_DCB_CFG_SUCCESS)
-+		dev_err(adap->pdev_dev, "DCB write PGRATE failed with %d\n",
-+			-err);
-+}
-+
-+static void cxgb4_getpgbwgcfg(struct net_device *dev, int pgid, u8 *bw_per,
-+			      int local)
-+{
-+	struct fw_port_cmd pcmd;
-+	struct port_info *pi = netdev2pinfo(dev);
-+	struct adapter *adap = pi->adapter;
-+	int err;
-+
-+	if (local)
-+		INIT_PORT_DCB_READ_LOCAL_CMD(pcmd, pi->port_id);
-+	else
-+		INIT_PORT_DCB_READ_PEER_CMD(pcmd, pi->port_id);
-+
-+	pcmd.u.dcb.pgrate.type = FW_PORT_DCB_TYPE_PGRATE;
-+	err = t4_wr_mbox(adap, adap->mbox, &pcmd, sizeof(pcmd), &pcmd);
-+	if (err != FW_PORT_DCB_CFG_SUCCESS) {
-+		dev_err(adap->pdev_dev, "DCB read PGRATE failed with %d\n",
-+			-err);
-+	} else {
-+		*bw_per = pcmd.u.dcb.pgrate.pgrate[pgid];
-+	}
-+}
-+
-+static void cxgb4_getpgbwgcfg_tx(struct net_device *dev, int pgid, u8 *bw_per)
-+{
-+	return cxgb4_getpgbwgcfg(dev, pgid, bw_per, 1);
-+}
-+
-+static void cxgb4_getpgbwgcfg_rx(struct net_device *dev, int pgid, u8 *bw_per)
-+{
-+	return cxgb4_getpgbwgcfg(dev, pgid, bw_per, 0);
-+}
-+
-+static void cxgb4_setpgbwgcfg_tx(struct net_device *dev, int pgid,
-+				 u8 bw_per)
-+{
-+	struct fw_port_cmd pcmd;
-+	struct port_info *pi = netdev2pinfo(dev);
-+	struct adapter *adap = pi->adapter;
-+	int err;
-+
-+	INIT_PORT_DCB_READ_LOCAL_CMD(pcmd, pi->port_id);
-+	pcmd.u.dcb.pgrate.type = FW_PORT_DCB_TYPE_PGRATE;
-+
-+	err = t4_wr_mbox(adap, adap->mbox, &pcmd, sizeof(pcmd), &pcmd);
-+	if (err != FW_PORT_DCB_CFG_SUCCESS) {
-+		dev_err(adap->pdev_dev, "DCB read PGRATE failed with %d\n",
-+			-err);
-+		return;
-+	}
-+
-+	pcmd.u.dcb.pgrate.pgrate[pgid] = bw_per;
-+
-+	INIT_PORT_DCB_WRITE_CMD(pcmd, pi->port_id);
-+	if (pi->dcb.state == CXGB4_DCB_STATE_HOST)
-+		pcmd.op_to_portid |= cpu_to_be32(FW_PORT_CMD_APPLY);
-+
-+	err = t4_wr_mbox(adap, adap->mbox, &pcmd, sizeof(pcmd), &pcmd);
-+
-+	if (err != FW_PORT_DCB_CFG_SUCCESS)
-+		dev_err(adap->pdev_dev, "DCB write PGRATE failed with %d\n",
-+			-err);
-+}
-+
-+/* Return whether the specified Traffic Class Priority has Priority Pause
-+ * Frames enabled.
-+ */
-+static void cxgb4_getpfccfg(struct net_device *dev, int priority, u8 *pfccfg)
-+{
-+	struct port_info *pi = netdev2pinfo(dev);
-+	struct port_dcb_info *dcb = &pi->dcb;
-+
-+	if (dcb->state != CXGB4_DCB_STATE_FW_ALLSYNCED ||
-+	    priority >= CXGB4_MAX_PRIORITY)
-+		*pfccfg = 0;
-+	else
-+		*pfccfg = (pi->dcb.pfcen >> priority) & 1;
-+}
-+
-+/* Enable/disable Priority Pause Frames for the specified Traffic Class
-+ * Priority.
-+ */
-+static void cxgb4_setpfccfg(struct net_device *dev, int priority, u8 pfccfg)
-+{
-+	struct fw_port_cmd pcmd;
-+	struct port_info *pi = netdev2pinfo(dev);
-+	struct adapter *adap = pi->adapter;
-+	int err;
-+
-+	if (pi->dcb.state != CXGB4_DCB_STATE_FW_ALLSYNCED ||
-+	    priority >= CXGB4_MAX_PRIORITY)
-+		return;
-+
-+	INIT_PORT_DCB_WRITE_CMD(pcmd, pi->port_id);
-+	if (pi->dcb.state == CXGB4_DCB_STATE_HOST)
-+		pcmd.op_to_portid |= cpu_to_be32(FW_PORT_CMD_APPLY);
-+
-+	pcmd.u.dcb.pfc.type = FW_PORT_DCB_TYPE_PFC;
-+	pcmd.u.dcb.pfc.pfcen = cpu_to_be16(pi->dcb.pfcen);
-+
-+	if (pfccfg)
-+		pcmd.u.dcb.pfc.pfcen |= cpu_to_be16(1 << priority);
-+	else
-+		pcmd.u.dcb.pfc.pfcen &= cpu_to_be16(~(1 << priority));
-+
-+	err = t4_wr_mbox(adap, adap->mbox, &pcmd, sizeof(pcmd), &pcmd);
-+	if (err != FW_PORT_DCB_CFG_SUCCESS) {
-+		dev_err(adap->pdev_dev, "DCB PFC write failed with %d\n", -err);
-+		return;
-+	}
-+
-+	pi->dcb.pfcen = be16_to_cpu(pcmd.u.dcb.pfc.pfcen);
-+}
-+
-+static u8 cxgb4_setall(struct net_device *dev)
-+{
-+	return 0;
-+}
-+
-+/* Return DCB capabilities.
-+ */
-+static u8 cxgb4_getcap(struct net_device *dev, int cap_id, u8 *caps)
-+{
-+	struct port_info *pi = netdev2pinfo(dev);
-+
-+	switch (cap_id) {
-+	case DCB_CAP_ATTR_PG:
-+	case DCB_CAP_ATTR_PFC:
-+		*caps = true;
-+		break;
-+
-+	case DCB_CAP_ATTR_PG_TCS:
-+		/* 8 priorities for PG represented by bitmap */
-+		*caps = 0x80;
-+		break;
-+
-+	case DCB_CAP_ATTR_PFC_TCS:
-+		/* 8 priorities for PFC represented by bitmap */
-+		*caps = 0x80;
-+		break;
-+
-+	case DCB_CAP_ATTR_GSP:
-+		*caps = true;
-+		break;
-+
-+	case DCB_CAP_ATTR_UP2TC:
-+	case DCB_CAP_ATTR_BCN:
-+		*caps = false;
-+		break;
-+
-+	case DCB_CAP_ATTR_DCBX:
-+		*caps = pi->dcb.supported;
-+		break;
-+
-+	default:
-+		*caps = false;
-+	}
-+
-+	return 0;
-+}
-+
-+/* Return the number of Traffic Classes for the indicated Traffic Class ID.
-+ */
-+static int cxgb4_getnumtcs(struct net_device *dev, int tcs_id, u8 *num)
-+{
-+	struct port_info *pi = netdev2pinfo(dev);
-+
-+	switch (tcs_id) {
-+	case DCB_NUMTCS_ATTR_PG:
-+		if (pi->dcb.msgs & CXGB4_DCB_FW_PGRATE)
-+			*num = pi->dcb.pg_num_tcs_supported;
-+		else
-+			*num = 0x8;
-+		break;
-+
-+	case DCB_NUMTCS_ATTR_PFC:
-+		*num = 0x8;
-+		break;
-+
-+	default:
-+		return -EINVAL;
-+	}
-+
-+	return 0;
-+}
-+
-+/* Set the number of Traffic Classes supported for the indicated Traffic Class
-+ * ID.
-+ */
-+static int cxgb4_setnumtcs(struct net_device *dev, int tcs_id, u8 num)
-+{
-+	/* Setting the number of Traffic Classes isn't supported.
-+	 */
-+	return -ENOSYS;
-+}
-+
-+/* Return whether Priority Flow Control is enabled.  */
-+static u8 cxgb4_getpfcstate(struct net_device *dev)
-+{
-+	struct port_info *pi = netdev2pinfo(dev);
-+
-+	if (pi->dcb.state != CXGB4_DCB_STATE_FW_ALLSYNCED)
-+		return false;
-+
-+	return pi->dcb.pfcen != 0;
-+}
-+
-+/* Enable/disable Priority Flow Control. */
-+static void cxgb4_setpfcstate(struct net_device *dev, u8 state)
-+{
-+	/* We can't enable/disable Priority Flow Control but we also can't
-+	 * return an error ...
-+	 */
-+}
-+
-+/* Return the Application User Priority Map associated with the specified
-+ * Application ID.
-+ */
-+static int __cxgb4_getapp(struct net_device *dev, u8 app_idtype, u16 app_id,
-+			  int peer)
-+{
-+	struct port_info *pi = netdev2pinfo(dev);
-+	struct adapter *adap = pi->adapter;
++	struct lisp_dev *lispdev = netdev_priv(dev);
++	struct lisp_net *ln = net_generic(dev_net(dev), lisp_net_id);
++	struct lisp_sock *s;
 +	int i;
 +
-+	if (pi->dcb.state != CXGB4_DCB_STATE_FW_ALLSYNCED)
++	/* Allocate stats space */
++	dev->tstats = netdev_alloc_pcpu_stats(struct pcpu_sw_netstats);
++	if (!dev->tstats)
++		return -ENOMEM;
++
++	for_each_possible_cpu(i) {
++		struct pcpu_sw_netstats *lisp_stats;
++
++		lisp_stats = per_cpu_ptr(dev->tstats, i);
++		u64_stats_init(&lisp_stats->syncp);
++	}
++
++	/* Create port, if necessary */
++	spin_lock(&ln->sock_lock);
++	s = lisp_find_sock(dev_net(dev), lispdev->rcv_port);
++	if (s) {
++		/* Reuse the socket if it's the same port */
++		atomic_inc(&s->refcnt);
++		lisp_sock_add_dev(s, lispdev);
++	} else {
++		/* Make a new socket */
++		dev_hold(dev);
++		queue_work(lisp_wq, &lispdev->sock_work);
++	}
++	spin_unlock(&ln->sock_lock);
++	return 0;
++}
++
++void lisp_sock_release(struct lisp_sock *s)
++{
++	struct sock *sk = s->sock->sk;
++	struct net *net = sock_net(sk);
++	struct lisp_net *ln = net_generic(net, lisp_net_id);
++
++	if (!atomic_dec_and_test(&s->refcnt))
++		return;
++	spin_lock(&ln->sock_lock);
++	hlist_del_rcu(&s->hlist);
++	rcu_assign_sk_user_data(s->sock->sk, NULL);
++	spin_unlock(&ln->sock_lock);
++	queue_work(lisp_wq, &s->del_work);
++}
++EXPORT_SYMBOL_GPL(lisp_sock_release);
++
++static void lisp_uninit(struct net_device *dev)
++{
++	struct lisp_dev *lispdev = netdev_priv(dev);
++	struct lisp_sock *s = lispdev->ls_socket;
++
++	if (s)
++		lisp_sock_release(s);
++	free_percpu(dev->tstats);
++}
++
++static int lisp_change_mtu(struct net_device *dev, int new_mtu)
++{
++	return eth_change_mtu(dev, new_mtu);
++}
++
++static inline struct sk_buff *lisp_handle_offloads(struct sk_buff *skb,
++						   bool udp_csum)
++{
++	int type = udp_csum ? SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
++
++	return iptunnel_handle_offloads(skb, udp_csum, type);
++}
++
++static void lisp_build_header(const struct lisp_dev *dev,
++			      struct sk_buff *skb, u32 saddr, u32 daddr)
++{
++	struct udphdr *udph = udp_hdr(skb);
++	struct lisphdr *lisph = (struct lisphdr *)(udph + 1);
++	struct net *net = dev_net(dev->dev);
++	__u32 iid;
++	int high, low;
++
++	udph->dest = dev->encap_port;
++
++	inet_get_local_port_range(net, &low, &high);
++	udph->source = udp_tunnel_get_src_port(low, high, skb);
++	udph->len = htons(skb->len - skb_transport_offset(skb));
++
++	/* We don't support echo nonce algorithm */
++	lisph->nonce_present = 0;
++	lisph->locator_status_bits_present = 1; /* Set LSB */
++	lisph->solicit_echo_nonce = 0;          /* No echo noncing */
++
++	/* No mapping versioning, nonce instead */
++	lisph->map_version_present = 0;
++
++	/* Store the tun_id as Instance ID  */
++	lisph->instance_id_present = 1;
++
++	/* Reserved flags, set to 0  */
++	lisph->reserved_flags = 0;
++	lisph->u1.nonce[0] = 0;
++	lisph->u1.nonce[1] = 0;
++	lisph->u1.nonce[2] = 0;
++
++	/* Include the instance ID for this device */
++	iid = htonl(dev->iid << 8);
++	memcpy(&lisph->u2.word2.instance_id, &iid, 3);
++	lisph->u2.word2.locator_status_bits = 1;
++
++	udp_set_csum(dev->ls_socket->sock->sk, skb, saddr, daddr,
++		     skb->len);
++}
++
++/* Transmit local sourced packets with LISP encapsulation
++ */
++static netdev_tx_t lisp_xmit(struct sk_buff *skb, struct net_device *dev)
++{
++	struct lisp_dev *lispdev = netdev_priv(dev);
++	struct net *net = dev_net(lispdev->dev);
++	struct lisp_sock *s = lispdev->ls_socket;
++	struct rtable *rt;
++	int min_headroom;
++	__be32 saddr;
++	__be32 daddr;
++	__be16 df;
++	int sent_len;
++	int err;
++
++	if (skb->protocol != htons(ETH_P_IP) &&
++	    skb->protocol != htons(ETH_P_IPV6)) {
++		kfree_skb(skb);
 +		return 0;
++	}
 +
-+	for (i = 0; i < CXGB4_MAX_DCBX_APP_SUPPORTED; i++) {
-+		struct fw_port_cmd pcmd;
-+		int err;
++	/* Route lookup */
++	saddr = lispdev->local.sin.sin_addr.s_addr;
++	daddr = lispdev->remote.sin.sin_addr.s_addr;
++	rt = ip_route_output_mark(net,
++				  &saddr,
++				  daddr,
++				  IPPROTO_UDP,
++				  lispdev->tos,
++				  skb->mark);
++	if (IS_ERR(rt)) {
++		err = PTR_ERR(rt);
++		goto error;
++	}
++	skb = lisp_handle_offloads(skb,
++				   s->sock->sk->sk_no_check_tx);
 +
-+		if (peer)
-+			INIT_PORT_DCB_READ_PEER_CMD(pcmd, pi->port_id);
++	if (IS_ERR(skb))
++		goto rx_tx_err;
++
++	min_headroom = LL_RESERVED_SPACE(rt->dst.dev) + rt->dst.header_len
++		+ sizeof(struct iphdr) + LISP_HLEN;
++
++	if (skb_headroom(skb) < min_headroom || skb_header_cloned(skb)) {
++		int head_delta = SKB_DATA_ALIGN(min_headroom -
++						skb_headroom(skb) +
++						16);
++
++		err = pskb_expand_head(skb, max_t(int, head_delta, 0),
++				       0, GFP_ATOMIC);
++		if (unlikely(err))
++			goto err_free_rt;
++	}
++
++	skb_reset_inner_headers(skb);
++
++	__skb_push(skb, LISP_HLEN);
++	skb_reset_transport_header(skb);
++
++	lisp_build_header(lispdev, skb, saddr, daddr);
++
++	/* Offloading */
++	skb->ignore_df = 1;
++
++	df = 0;
++	sent_len = iptunnel_xmit(lispdev->ls_socket->sock->sk, rt, skb,
++				 saddr, daddr,
++				 IPPROTO_UDP, lispdev->tos,
++				 lispdev->ttl, df, false);
++
++	iptunnel_xmit_stats(sent_len, &dev->stats, dev->tstats);
++	return NETDEV_TX_OK;
++
++rx_tx_err:
++	dev->stats.tx_errors++;
++err_free_rt:
++	ip_rt_put(rt);
++error:
++	iptunnel_xmit_stats(err, &dev->stats, dev->tstats);
++	return NETDEV_TX_OK;
++}
++
++static void lisp_rcv(struct lisp_sock *s,
++		     struct sk_buff *skb)
++{
++	struct lisp_dev *lispdev;
++	struct iphdr *iph, *inner_iph;
++	struct lisphdr *lisph;
++	struct pcpu_sw_netstats *stats;
++	__be16 protocol;
++	__u32 iid = 0;
++
++	iph = ip_hdr(skb);
++	lisph = (struct lisphdr *)(udp_hdr(skb) + 1);
++	inner_iph = (struct iphdr *)(lisph + 1);
++	switch (inner_iph->version) {
++	case 4:
++		protocol = htons(ETH_P_IP);
++		break;
++	case 6:
++		protocol = htons(ETH_P_IPV6);
++		break;
++	default:
++		kfree_skb(skb);
++		return;
++	}
++
++	if (lisph->instance_id_present)
++		iid = ntohl(*((__be32 *)(&lisph->u2.word2.instance_id))) >> 8;
++
++	/* Find the IID in our configuration */
++	lispdev = lisp_find_iid(s, iid);
++	if (!lispdev) {
++		netdev_info(lispdev->dev, "Instance ID 0x%x not found\n", iid);
++		goto drop;
++	}
++
++	skb->protocol = protocol;
++	skb->dev = lispdev->dev;
++	skb_reset_network_header(skb);
++
++	stats = this_cpu_ptr(lispdev->dev->tstats);
++	u64_stats_update_begin(&stats->syncp);
++	stats->rx_packets++;
++	stats->rx_bytes += skb->len;
++	u64_stats_update_end(&stats->syncp);
++
++	netif_rx(skb);
++	return;
++drop:
++	kfree_skb(skb);
++}
++
++
++/* Callback from net/ipv4/udp.c to receive packets */
++static int lisp_udp_encap_rcv(struct sock *sk, struct sk_buff *skb)
++{
++	struct lisp_sock *s;
++	__be16 port;
++
++	if (!pskb_may_pull(skb, LISP_HLEN))
++		goto error;
++
++	if (iptunnel_pull_header(skb, LISP_HLEN, 0))
++		goto drop;
++
++	port = inet_sk(sk)->inet_sport;
++	s = rcu_dereference_sk_user_data(sk);
++	if (!s)
++		goto drop;
++
++	/* If the NIC driver gave us an encapsulated packet
++	 * with the encapsulation mark, the device checksummed it
++	 * for us. Otherwise force the upper layers to verify it.
++	 */
++	if ((skb->ip_summed != CHECKSUM_UNNECESSARY &&
++	     skb->ip_summed != CHECKSUM_PARTIAL) ||
++	    !skb->encapsulation)
++		skb->ip_summed = CHECKSUM_NONE;
++
++	skb->encapsulation = 0;
++	lisp_rcv(s, skb);
++	return 0;
++drop:
++	kfree_skb(skb);
++	return 0;
++error:
++	return 1;
++}
++
++static const struct net_device_ops lisp_netdev_ops = {
++	.ndo_init		= lisp_init,
++	.ndo_uninit		= lisp_uninit,
++	.ndo_start_xmit		= lisp_xmit,
++	.ndo_get_stats64	= ip_tunnel_get_stats64,
++	.ndo_change_mtu		= lisp_change_mtu
++};
++
++/* Info for udev */
++static struct device_type lisp_type = {
++	.name	= "lisp",
++};
++
++static void lisp_del_work(struct work_struct *work)
++{
++	struct lisp_sock *ls = container_of(work, struct lisp_sock, del_work);
++
++	sk_release_kernel(ls->sock->sk);
++	kfree_rcu(ls, rcu);
++}
++
++static int create_v4_encap_sock(struct net *net, __be16 port,
++				struct socket **psock,
++				bool csum)
++{
++	struct sock *sk;
++	struct socket *sock;
++	struct sockaddr_in lisp_addr = {
++		.sin_family		= AF_INET,
++		.sin_addr.s_addr	= htonl(INADDR_ANY),
++		.sin_port		= port,
++	};
++	int rc;
++
++	/* Create UDP socket for encapsulation receive. */
++	rc = sock_create_kern(AF_INET, SOCK_DGRAM, IPPROTO_UDP, &sock);
++	if (rc < 0) {
++		pr_debug("UDP socket create failed\n");
++		return rc;
++	}
++
++	/* Put in proper namespace */
++	sk = sock->sk;
++	sk_change_net(sk, net);
++
++	rc = kernel_bind(sock, (struct sockaddr *)&lisp_addr,
++			 sizeof(lisp_addr));
++	if (rc < 0) {
++		pr_debug("bind for UDP socket %pI4:%u (%d)\n",
++			 &lisp_addr.sin_addr, ntohs(lisp_addr.sin_port), rc);
++		sk_release_kernel(sk);
++		return rc;
++	}
++
++	*psock = sock;
++	/* Disable multicast loopback */
++	inet_sk(sk)->mc_loop = 0;
++
++	if (!csum)
++		sock->sk->sk_no_check_tx = 1;
++	return 0;
++}
++
++/* Create new listen socket */
++static struct lisp_sock *lisp_socket_create(struct net *net, __be16 port,
++					    lisp_rcv_t *rcv, void *data,
++					    u32 flags)
++{
++	struct lisp_net *ln = net_generic(net, lisp_net_id);
++	struct lisp_sock *s;
++	struct socket *sock;
++	struct sock *sk;
++	int rc = 0;
++	unsigned int h;
++
++	s = kmalloc(sizeof(*s), GFP_KERNEL);
++	if (!s)
++		return ERR_PTR(-ENOMEM);
++
++	for (h = 0; h < IID_HASH_SIZE; ++h)
++		INIT_HLIST_HEAD(&s->iid_list[h]);
++
++	INIT_WORK(&s->del_work, lisp_del_work);
++
++	rc = create_v4_encap_sock(net, port, &sock,
++				  (flags & LISP_F_UDP_CSUM));
++	if (rc < 0) {
++		kfree(s);
++		return ERR_PTR(rc);
++	}
++
++	s->sock = sock;
++	atomic_set(&s->refcnt, 1);
++	sk = sock->sk;
++	s->rcv = rcv;
++	s->data = data;
++	rcu_assign_sk_user_data(s->sock->sk, s);
++
++	spin_lock(&ln->sock_lock);
++	hlist_add_head_rcu(&s->hlist, s_head(net, port));
++	spin_unlock(&ln->sock_lock);
++	udp_sk(sk)->encap_type = 1;
++	udp_sk(sk)->encap_rcv = lisp_udp_encap_rcv;
++	udp_encap_enable();
++
++	return s;
++}
++
++struct lisp_sock *lisp_sock_add(struct net *net, __be16 port, lisp_rcv_t *rcv,
++				void *data, u32 flags)
++{
++	struct lisp_net *ln = net_generic(net, lisp_net_id);
++	struct lisp_sock *s;
++
++	s = lisp_socket_create(net, port, rcv, data, flags);
++	if (!IS_ERR(s))
++		return s;
++
++	spin_lock(&ln->sock_lock);
++	s = lisp_find_sock(net, port);
++	if (s) {
++		if (s->rcv == rcv)
++			atomic_inc(&s->refcnt);
 +		else
-+			INIT_PORT_DCB_READ_LOCAL_CMD(pcmd, pi->port_id);
-+
-+		pcmd.u.dcb.app_priority.type = FW_PORT_DCB_TYPE_APP_ID;
-+		pcmd.u.dcb.app_priority.idx = i;
-+
-+		err = t4_wr_mbox(adap, adap->mbox, &pcmd, sizeof(pcmd), &pcmd);
-+		if (err != FW_PORT_DCB_CFG_SUCCESS) {
-+			dev_err(adap->pdev_dev, "DCB APP read failed with %d\n",
-+				-err);
-+			return err;
-+		}
-+		if (be16_to_cpu(pcmd.u.dcb.app_priority.protocolid) == app_id)
-+			return pcmd.u.dcb.app_priority.user_prio_map;
-+
-+		/* exhausted app list */
-+		if (!pcmd.u.dcb.app_priority.protocolid)
-+			break;
++			s = ERR_PTR(-EBUSY);
 +	}
++	spin_unlock(&ln->sock_lock);
 +
-+	return -EEXIST;
++	if (!s)
++		s = ERR_PTR(-EINVAL);
++	return s;
 +}
 +
-+/* Return the Application User Priority Map associated with the specified
-+ * Application ID.  Since this routine is prototyped to return "u8" we can't
-+ * return errors ...
-+ */
-+static u8 cxgb4_getapp(struct net_device *dev, u8 app_idtype, u16 app_id)
++/* Scheduled at device creation to bind to a socket */
++static void lisp_sock_work(struct work_struct *work)
 +{
-+	int result = __cxgb4_getapp(dev, app_idtype, app_id, 0);
++	struct lisp_dev *lispdev = container_of(work, struct lisp_dev,
++						sock_work);
++	struct net *net = dev_net(lispdev->dev);
++	struct lisp_net *ln = net_generic(net, lisp_net_id);
++	__be16 port = lispdev->rcv_port;
++	struct lisp_sock *s;
 +
-+	if (result < 0)
-+		result = 0;
++	s = lisp_sock_add(net, port, lisp_rcv, NULL, lispdev->flags);
++	spin_lock(&ln->sock_lock);
++	if (!IS_ERR(s))
++		lisp_sock_add_dev(s, lispdev);
++	spin_unlock(&ln->sock_lock);
 +
-+	return result;
++	dev_put(lispdev->dev);
 +}
 +
-+/* Write a new Application User Priority Map for the specified Application ID.
-+ * This routine is prototyped to return "u8" but other instantiations of the
-+ * DCB NetLink Operations "setapp" routines return negative errnos for errors.
-+ * We follow their lead.
-+ */
-+static u8 cxgb4_setapp(struct net_device *dev, u8 app_idtype, u16 app_id,
-+		       u8 app_prio)
++/* Init the device structure. */
++static void lisp_setup(struct net_device *dev)
 +{
-+	struct fw_port_cmd pcmd;
-+	struct port_info *pi = netdev2pinfo(dev);
-+	struct adapter *adap = pi->adapter;
-+	int i, err;
++	struct lisp_dev *lispdev = netdev_priv(dev);
 +
++	dev->type = ARPHRD_NONE;
++	dev->flags = IFF_NOARP;
++	dev->addr_len = 4;
++	dev->needed_headroom = LL_MAX_HEADER + sizeof(struct lisphdr) + 4;
++	dev->mtu = ETH_DATA_LEN - sizeof(struct lisphdr) - 4;
 +
-+	if (pi->dcb.state != CXGB4_DCB_STATE_FW_ALLSYNCED)
-+		return -EINVAL;
++	dev->netdev_ops = &lisp_netdev_ops;
++	dev->destructor = free_netdev;
++	SET_NETDEV_DEVTYPE(dev, &lisp_type);
 +
-+	/* DCB info gets thrown away on link up */
-+	if (!netif_carrier_ok(dev))
-+		return -ENOLINK;
++	dev->tx_queue_len = 0;
++	dev->features |= (NETIF_F_SG | NETIF_F_HW_CSUM | NETIF_F_NETNS_LOCAL |
++			  NETIF_F_RXCSUM | NETIF_F_GSO_SOFTWARE);
++	dev->hw_features |= (NETIF_F_SG | NETIF_F_HW_CSUM | NETIF_F_RXCSUM |
++			     NETIF_F_GSO_SOFTWARE);
++	dev->priv_flags &= ~IFF_XMIT_DST_RELEASE;
 +
-+	if (app_idtype != DCB_APP_IDTYPE_ETHTYPE &&
-+	    app_idtype != DCB_APP_IDTYPE_PORTNUM)
-+		return -EINVAL;
++	INIT_LIST_HEAD(&lispdev->next);
++	INIT_WORK(&lispdev->sock_work, lisp_sock_work);
 +
-+	for (i = 0; i < CXGB4_MAX_DCBX_APP_SUPPORTED; i++) {
-+		INIT_PORT_DCB_READ_LOCAL_CMD(pcmd, pi->port_id);
-+		pcmd.u.dcb.app_priority.type = FW_PORT_DCB_TYPE_APP_ID;
-+		pcmd.u.dcb.app_priority.idx = i;
-+		err = t4_wr_mbox(adap, adap->mbox, &pcmd, sizeof(pcmd), &pcmd);
++	lispdev->rcv_port = htons(lisp_port);
++	lispdev->dev = dev;
++}
 +
-+		if (err != FW_PORT_DCB_CFG_SUCCESS) {
-+			dev_err(adap->pdev_dev, "DCB app table read failed with %d\n",
-+				-err);
-+			return err;
-+		}
-+		if (be16_to_cpu(pcmd.u.dcb.app_priority.protocolid) == app_id) {
-+			/* overwrite existing app table */
-+			pcmd.u.dcb.app_priority.protocolid = 0;
-+			break;
-+		}
-+		/* find first empty slot */
-+		if (!pcmd.u.dcb.app_priority.protocolid)
-+			break;
++static const struct nla_policy lisp_policy[IFLA_LISP_MAX + 1] = {
++	[IFLA_LISP_IID] =	  { .type = NLA_U32		    },
++	[IFLA_LISP_LOCAL] =	  { .len  = FIELD_SIZEOF(struct iphdr, daddr)},
++	[IFLA_LISP_LOCAL6] =	  { .len  = sizeof(struct in6_addr) },
++	[IFLA_LISP_REMOTE] =	  { .len  = FIELD_SIZEOF(struct iphdr, daddr)},
++	[IFLA_LISP_REMOTE6] =	  { .len  = sizeof(struct in6_addr) },
++	[IFLA_LISP_ENCAP_PORT] =  { .type = NLA_U16		    },
++	[IFLA_LISP_LISTEN_PORT] = { .type = NLA_U16		    },
++	[IFLA_LISP_TOS] =	  { .type = NLA_U8		    },
++	[IFLA_LISP_TTL] =	  { .type = NLA_U8		    }
++};
++
++static int lisp_newlink(struct net *net, struct net_device *dev,
++			struct nlattr *tb[], struct nlattr *data[])
++{
++	struct lisp_net *ln = net_generic(net, lisp_net_id);
++	struct lisp_dev *lispdev = netdev_priv(dev);
++	int err = 0;
++
++	if (data[IFLA_LISP_IID])
++		lispdev->iid = nla_get_be32(data[IFLA_LISP_IID]);
++
++	if (data[IFLA_LISP_LOCAL]) {
++		lispdev->local.sin.sin_addr.s_addr =
++			nla_get_be32(data[IFLA_LISP_LOCAL]);
++		lispdev->local.sa.sa_family = AF_INET;
 +	}
 +
-+	if (i == CXGB4_MAX_DCBX_APP_SUPPORTED) {
-+		/* no empty slots available */
-+		dev_err(adap->pdev_dev, "DCB app table full\n");
-+		return -EBUSY;
++	if (data[IFLA_LISP_ENCAP_PORT])
++		lispdev->encap_port =
++			ntohs(nla_get_be16(data[IFLA_LISP_ENCAP_PORT]));
++
++	if (data[IFLA_LISP_LISTEN_PORT])
++		lispdev->rcv_port =
++			ntohs(nla_get_be16(data[IFLA_LISP_LISTEN_PORT]));
++
++	if (data[IFLA_LISP_REMOTE]) {
++		lispdev->remote.sin.sin_addr.s_addr =
++			nla_get_be32(data[IFLA_LISP_REMOTE]);
++		lispdev->remote.sa.sa_family = AF_INET;
 +	}
 +
-+	/* write out new app table entry */
-+	INIT_PORT_DCB_WRITE_CMD(pcmd, pi->port_id);
-+	if (pi->dcb.state == CXGB4_DCB_STATE_HOST)
-+		pcmd.op_to_portid |= cpu_to_be32(FW_PORT_CMD_APPLY);
++	if (data[IFLA_LISP_TOS])
++		lispdev->tos = nla_get_u8(data[IFLA_LISP_TOS]);
 +
-+	pcmd.u.dcb.app_priority.type = FW_PORT_DCB_TYPE_APP_ID;
-+	pcmd.u.dcb.app_priority.protocolid = cpu_to_be16(app_id);
-+	pcmd.u.dcb.app_priority.sel_field = app_idtype;
-+	pcmd.u.dcb.app_priority.user_prio_map = app_prio;
-+	pcmd.u.dcb.app_priority.idx = i;
++	if (data[IFLA_LISP_TTL])
++		lispdev->ttl = nla_get_u8(data[IFLA_LISP_TTL]);
 +
-+	err = t4_wr_mbox(adap, adap->mbox, &pcmd, sizeof(pcmd), &pcmd);
-+	if (err != FW_PORT_DCB_CFG_SUCCESS) {
-+		dev_err(adap->pdev_dev, "DCB app table write failed with %d\n",
-+			-err);
++	if (data[IFLA_LISP_UDP_CSUM] && nla_get_u8(data[IFLA_LISP_UDP_CSUM]))
++		lispdev->flags |= LISP_F_UDP_CSUM;
++	err = register_netdevice(dev);
++	if (err)
 +		return err;
-+	}
++
++	list_add(&lispdev->next, &ln->lisp_list);
++	return 0;
++}
++
++static void lisp_dellink(struct net_device *dev, struct list_head *head)
++{
++	struct lisp_net *ln = net_generic(dev_net(dev), lisp_net_id);
++	struct lisp_dev *lispdev = netdev_priv(dev);
++
++	spin_lock(&ln->sock_lock);
++	if (!hlist_unhashed(&lispdev->hlist))
++		hlist_del_rcu(&lispdev->hlist);
++	spin_unlock(&ln->sock_lock);
++
++	list_del(&lispdev->next);
++	unregister_netdevice_queue(dev, head);
++}
++
++static size_t lisp_get_size(const struct net_device *dev)
++{
++	return
++		/* IFLA_LISP_IID */
++		nla_total_size(4) +
++		/* IFLA_LISP_LOCAL */
++		nla_total_size(4) +
++		/* IFLA_LISP_LOCAL6 */
++		nla_total_size(sizeof(struct in6_addr)) +
++		/* IFLA_LISP_REMOTE */
++		nla_total_size(4) +
++		/* IFLA_LISP_REMOTE6 */
++		nla_total_size(sizeof(struct in6_addr)) +
++		/* IFLA_LISP_ENCAP_PORT */
++		nla_total_size(2) +
++		/* IFLA_LISP_LISTEN_PORT */
++		nla_total_size(2) +
++		/* IFLA_LISP_TOS */
++		nla_total_size(1) +
++		/* IFLA_LISP_TTL */
++		nla_total_size(1) +
++		/* IFLA_LISP_UDP_CSUM */
++		nla_total_size(1) +
++		0;
++}
++
++/* Fill attributes into skb
++ */
++static int lisp_fill_info(struct sk_buff *skb, const struct net_device *dev)
++{
++	const struct lisp_dev *lispdev = netdev_priv(dev);
++
++	/* V6 options needed for future
++	 */
++	if (nla_put_u32(skb, IFLA_LISP_IID, lispdev->iid) ||
++	    nla_put_u32(skb, IFLA_LISP_LOCAL,
++			lispdev->local.sin.sin_addr.s_addr) ||
++	    nla_put_u32(skb, IFLA_LISP_REMOTE,
++			lispdev->remote.sin.sin_addr.s_addr) ||
++	    nla_put_be16(skb, IFLA_LISP_ENCAP_PORT, lispdev->encap_port) ||
++	    nla_put_be16(skb, IFLA_LISP_LISTEN_PORT, lispdev->rcv_port) ||
++	    nla_put_u8(skb, IFLA_LISP_TOS, lispdev->tos) ||
++	    nla_put_u8(skb, IFLA_LISP_TTL, lispdev->ttl) ||
++	    nla_put_u8(skb, IFLA_LISP_UDP_CSUM,
++		       !!(lispdev->flags & LISP_F_UDP_CSUM)))
++		return -EMSGSIZE;
++	return 0;
++}
++
++static int lisp_validate(struct nlattr *tb[], struct nlattr *data[])
++{
++	return 0;
++}
++
++static struct rtnl_link_ops lisp_link_ops __read_mostly = {
++	.kind		= "lisp",
++	.maxtype	= IFLA_LISP_MAX,
++	.policy		= lisp_policy,
++	.priv_size	= sizeof(struct lisp_dev),
++	.setup		= lisp_setup,
++	.validate	= lisp_validate,
++	.newlink	= lisp_newlink,
++	.dellink	= lisp_dellink,
++	.get_size	= lisp_get_size,
++	.fill_info	= lisp_fill_info,
++};
++
++static __net_exit void lisp_exit_net(struct net *net)
++{
++	struct lisp_net *ln = net_generic(net, lisp_net_id);
++	struct lisp_dev *lispdev;
++
++	LIST_HEAD(list);
++
++	rtnl_lock();
++	list_for_each_entry(lispdev, &ln->lisp_list, next)
++		unregister_netdevice_queue(lispdev->dev, &list);
++	unregister_netdevice_many(&list);
++	rtnl_unlock();
++}
++
++static __net_init int lisp_init_net(struct net *net)
++{
++	struct lisp_net *ln = net_generic(net, lisp_net_id);
++	unsigned int h;
++
++	INIT_LIST_HEAD(&ln->lisp_list);
++	spin_lock_init(&ln->sock_lock);
++
++	for (h = 0; h < PORT_HASH_SIZE; ++h)
++		INIT_HLIST_HEAD(&ln->sock_list[h]);
 +
 +	return 0;
 +}
 +
-+/* Return whether IEEE Data Center Bridging has been negotiated.
-+ */
-+static inline int cxgb4_ieee_negotiation_complete(struct net_device *dev)
++static struct pernet_operations lisp_net_ops = {
++	.init	= lisp_init_net,
++	.exit	= lisp_exit_net,
++	.id	= &lisp_net_id,
++	.size	= sizeof(struct lisp_net),
++};
++
++static int __init lisp_netdev_init(void)
 +{
-+	struct port_info *pi = netdev2pinfo(dev);
-+	struct port_dcb_info *dcb = &pi->dcb;
++	int rc;
 +
-+	return (dcb->state == CXGB4_DCB_STATE_FW_ALLSYNCED &&
-+		(dcb->supported & DCB_CAP_DCBX_VER_IEEE));
-+}
++	lisp_wq = alloc_workqueue("lisp", 0, 0);
++	if (!lisp_wq)
++		return -ENOMEM;
 +
-+/* Fill in the Application User Priority Map associated with the
-+ * specified Application.
-+ */
-+static int cxgb4_ieee_getapp(struct net_device *dev, struct dcb_app *app)
-+{
-+	int prio;
++	rc = register_pernet_device(&lisp_net_ops);
++	if (rc)
++		goto out1;
 +
-+	if (!cxgb4_ieee_negotiation_complete(dev))
-+		return -EINVAL;
-+	if (!(app->selector && app->protocol))
-+		return -EINVAL;
-+
-+	prio = dcb_getapp(dev, app);
-+	if (prio == 0) {
-+		/* If app doesn't exist in dcb_app table, try firmware
-+		 * directly.
-+		 */
-+		prio = __cxgb4_getapp(dev, app->selector, app->protocol, 0);
-+	}
-+
-+	app->priority = prio;
-+	return 0;
-+}
-+
-+/* Write a new Application User Priority Map for the specified App id. */
-+static int cxgb4_ieee_setapp(struct net_device *dev, struct dcb_app *app)
-+{
-+	if (!cxgb4_ieee_negotiation_complete(dev))
-+		return -EINVAL;
-+	if (!(app->selector && app->protocol && app->priority))
-+		return -EINVAL;
-+
-+	cxgb4_setapp(dev, app->selector, app->protocol, app->priority);
-+	return dcb_setapp(dev, app);
-+}
-+
-+/* Return our DCBX parameters.
-+ */
-+static u8 cxgb4_getdcbx(struct net_device *dev)
-+{
-+	struct port_info *pi = netdev2pinfo(dev);
-+
-+	/* This is already set by cxgb4_set_dcb_caps, so just return it */
-+	return pi->dcb.supported;
-+}
-+
-+/* Set our DCBX parameters.
-+ */
-+static u8 cxgb4_setdcbx(struct net_device *dev, u8 dcb_request)
-+{
-+	struct port_info *pi = netdev2pinfo(dev);
-+
-+	/* Filter out requests which exceed our capabilities.
-+	 */
-+	if ((dcb_request & (CXGB4_DCBX_FW_SUPPORT | CXGB4_DCBX_HOST_SUPPORT))
-+	    != dcb_request)
-+		return 1;
-+
-+	/* Can't set DCBX capabilities if DCBX isn't enabled. */
-+	if (!pi->dcb.state)
-+		return 1;
-+
-+	/* There's currently no mechanism to allow for the firmware DCBX
-+	 * negotiation to be changed from the Host Driver.  If the caller
-+	 * requests exactly the same parameters that we already have then
-+	 * we'll allow them to be successfully "set" ...
-+	 */
-+	if (dcb_request != pi->dcb.supported)
-+		return 1;
-+
-+	pi->dcb.supported = dcb_request;
-+	return 0;
-+}
-+
-+static int cxgb4_getpeer_app(struct net_device *dev,
-+			     struct dcb_peer_app_info *info, u16 *app_count)
-+{
-+	struct fw_port_cmd pcmd;
-+	struct port_info *pi = netdev2pinfo(dev);
-+	struct adapter *adap = pi->adapter;
-+	int i, err = 0;
-+
-+	if (pi->dcb.state != CXGB4_DCB_STATE_FW_ALLSYNCED)
-+		return 1;
-+
-+	info->willing = 0;
-+	info->error = 0;
-+
-+	*app_count = 0;
-+	for (i = 0; i < CXGB4_MAX_DCBX_APP_SUPPORTED; i++) {
-+		INIT_PORT_DCB_READ_PEER_CMD(pcmd, pi->port_id);
-+		pcmd.u.dcb.app_priority.type = FW_PORT_DCB_TYPE_APP_ID;
-+		pcmd.u.dcb.app_priority.idx = *app_count;
-+		err = t4_wr_mbox(adap, adap->mbox, &pcmd, sizeof(pcmd), &pcmd);
-+
-+		if (err != FW_PORT_DCB_CFG_SUCCESS) {
-+			dev_err(adap->pdev_dev, "DCB app table read failed with %d\n",
-+				-err);
-+			return err;
-+		}
-+
-+		/* find first empty slot */
-+		if (!pcmd.u.dcb.app_priority.protocolid)
-+			break;
-+	}
-+	*app_count = i;
-+	return err;
-+}
-+
-+static int cxgb4_getpeerapp_tbl(struct net_device *dev, struct dcb_app *table)
-+{
-+	struct fw_port_cmd pcmd;
-+	struct port_info *pi = netdev2pinfo(dev);
-+	struct adapter *adap = pi->adapter;
-+	int i, err = 0;
-+
-+	if (pi->dcb.state != CXGB4_DCB_STATE_FW_ALLSYNCED)
-+		return 1;
-+
-+	for (i = 0; i < CXGB4_MAX_DCBX_APP_SUPPORTED; i++) {
-+		INIT_PORT_DCB_READ_PEER_CMD(pcmd, pi->port_id);
-+		pcmd.u.dcb.app_priority.type = FW_PORT_DCB_TYPE_APP_ID;
-+		pcmd.u.dcb.app_priority.idx = i;
-+		err = t4_wr_mbox(adap, adap->mbox, &pcmd, sizeof(pcmd), &pcmd);
-+
-+		if (err != FW_PORT_DCB_CFG_SUCCESS) {
-+			dev_err(adap->pdev_dev, "DCB app table read failed with %d\n",
-+				-err);
-+			return err;
-+		}
-+
-+		/* find first empty slot */
-+		if (!pcmd.u.dcb.app_priority.protocolid)
-+			break;
-+
-+		table[i].selector = pcmd.u.dcb.app_priority.sel_field;
-+		table[i].protocol =
-+			be16_to_cpu(pcmd.u.dcb.app_priority.protocolid);
-+		table[i].priority = pcmd.u.dcb.app_priority.user_prio_map;
-+	}
-+	return err;
-+}
-+
-+/* Return Priority Group information.
-+ */
-+static int cxgb4_cee_peer_getpg(struct net_device *dev, struct cee_pg *pg)
-+{
-+	struct fw_port_cmd pcmd;
-+	struct port_info *pi = netdev2pinfo(dev);
-+	struct adapter *adap = pi->adapter;
-+	u32 pgid;
-+	int i, err;
-+
-+	/* We're always "willing" -- the Switch Fabric always dictates the
-+	 * DCBX parameters to us.
-+	 */
-+	pg->willing = true;
-+
-+	INIT_PORT_DCB_READ_PEER_CMD(pcmd, pi->port_id);
-+	pcmd.u.dcb.pgid.type = FW_PORT_DCB_TYPE_PGID;
-+	err = t4_wr_mbox(adap, adap->mbox, &pcmd, sizeof(pcmd), &pcmd);
-+	if (err != FW_PORT_DCB_CFG_SUCCESS) {
-+		dev_err(adap->pdev_dev, "DCB read PGID failed with %d\n", -err);
-+		return err;
-+	}
-+	pgid = be32_to_cpu(pcmd.u.dcb.pgid.pgid);
-+
-+	for (i = 0; i < CXGB4_MAX_PRIORITY; i++)
-+		pg->prio_pg[i] = (pgid >> (i * 4)) & 0xF;
-+
-+	INIT_PORT_DCB_READ_PEER_CMD(pcmd, pi->port_id);
-+	pcmd.u.dcb.pgrate.type = FW_PORT_DCB_TYPE_PGRATE;
-+	err = t4_wr_mbox(adap, adap->mbox, &pcmd, sizeof(pcmd), &pcmd);
-+	if (err != FW_PORT_DCB_CFG_SUCCESS) {
-+		dev_err(adap->pdev_dev, "DCB read PGRATE failed with %d\n",
-+			-err);
-+		return err;
-+	}
-+
-+	for (i = 0; i < CXGB4_MAX_PRIORITY; i++)
-+		pg->pg_bw[i] = pcmd.u.dcb.pgrate.pgrate[i];
++	rc = rtnl_link_register(&lisp_link_ops);
++	if (rc)
++		goto out2;
 +
 +	return 0;
++
++out2:
++	unregister_pernet_device(&lisp_net_ops);
++out1:
++	destroy_workqueue(lisp_wq);
++	return rc;
 +}
 +
-+/* Return Priority Flow Control information.
-+ */
-+static int cxgb4_cee_peer_getpfc(struct net_device *dev, struct cee_pfc *pfc)
++static void __exit lisp_netdev_cleanup(void)
 +{
-+	struct port_info *pi = netdev2pinfo(dev);
-+
-+	cxgb4_getnumtcs(dev, DCB_NUMTCS_ATTR_PFC, &(pfc->tcs_supported));
-+	pfc->pfc_en = pi->dcb.pfcen;
-+
-+	return 0;
++	rtnl_link_unregister(&lisp_link_ops);
++	destroy_workqueue(lisp_wq);
++	unregister_pernet_device(&lisp_net_ops);
++	rcu_barrier();
 +}
 +
-+const struct dcbnl_rtnl_ops cxgb4_dcb_ops = {
-+	.ieee_getapp		= cxgb4_ieee_getapp,
-+	.ieee_setapp		= cxgb4_ieee_setapp,
++late_initcall(lisp_netdev_init);
++module_exit(lisp_netdev_cleanup);
 +
-+	/* CEE std */
-+	.getstate		= cxgb4_getstate,
-+	.setstate		= cxgb4_setstate,
-+	.getpgtccfgtx		= cxgb4_getpgtccfg_tx,
-+	.getpgbwgcfgtx		= cxgb4_getpgbwgcfg_tx,
-+	.getpgtccfgrx		= cxgb4_getpgtccfg_rx,
-+	.getpgbwgcfgrx		= cxgb4_getpgbwgcfg_rx,
-+	.setpgtccfgtx		= cxgb4_setpgtccfg_tx,
-+	.setpgbwgcfgtx		= cxgb4_setpgbwgcfg_tx,
-+	.setpfccfg		= cxgb4_setpfccfg,
-+	.getpfccfg		= cxgb4_getpfccfg,
-+	.setall			= cxgb4_setall,
-+	.getcap			= cxgb4_getcap,
-+	.getnumtcs		= cxgb4_getnumtcs,
-+	.setnumtcs		= cxgb4_setnumtcs,
-+	.getpfcstate		= cxgb4_getpfcstate,
-+	.setpfcstate		= cxgb4_setpfcstate,
-+	.getapp			= cxgb4_getapp,
-+	.setapp			= cxgb4_setapp,
-+
-+	/* DCBX configuration */
-+	.getdcbx		= cxgb4_getdcbx,
-+	.setdcbx		= cxgb4_setdcbx,
-+
-+	/* peer apps */
-+	.peer_getappinfo	= cxgb4_getpeer_app,
-+	.peer_getapptable	= cxgb4_getpeerapp_tbl,
-+
-+	/* CEE peer */
-+	.cee_peer_getpg		= cxgb4_cee_peer_getpg,
-+	.cee_peer_getpfc	= cxgb4_cee_peer_getpfc,
-+};
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.h
-new file mode 100644
-index 0000000..1ec1d83
---- /dev/null
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.h
-@@ -0,0 +1,141 @@
-+/*
-+ *  Copyright (C) 2013-2014 Chelsio Communications.  All rights reserved.
-+ *
-+ *  Written by Anish Bhatt (anish@chelsio.com)
-+ *
-+ *  This program is free software; you can redistribute it and/or modify it
-+ *  under the terms and conditions of the GNU General Public License,
-+ *  version 2, as published by the Free Software Foundation.
-+ *
-+ *  This program is distributed in the hope it will be useful, but WITHOUT
-+ *  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-+ *  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
-+ *  more details.
-+ *
-+ *  The full GNU General Public License is included in this distribution in
-+ *  the file called "COPYING".
-+ *
-+ */
-+
-+#ifndef __CXGB4_DCB_H
-+#define __CXGB4_DCB_H
-+
-+#include <linux/netdevice.h>
-+#include <linux/dcbnl.h>
-+#include <net/dcbnl.h>
-+
-+#ifdef CONFIG_CHELSIO_T4_DCB
-+
-+#define CXGB4_DCBX_FW_SUPPORT \
-+	(DCB_CAP_DCBX_VER_CEE | \
-+	 DCB_CAP_DCBX_VER_IEEE | \
-+	 DCB_CAP_DCBX_LLD_MANAGED)
-+#define CXGB4_DCBX_HOST_SUPPORT \
-+	(DCB_CAP_DCBX_VER_CEE | \
-+	 DCB_CAP_DCBX_VER_IEEE | \
-+	 DCB_CAP_DCBX_HOST)
-+
-+#define CXGB4_MAX_PRIORITY      CXGB4_MAX_DCBX_APP_SUPPORTED
-+#define CXGB4_MAX_TCS           CXGB4_MAX_DCBX_APP_SUPPORTED
-+
-+#define INIT_PORT_DCB_CMD(__pcmd, __port, __op, __action) \
-+	do { \
-+		memset(&(__pcmd), 0, sizeof(__pcmd)); \
-+		(__pcmd).op_to_portid = \
-+			cpu_to_be32(FW_CMD_OP(FW_PORT_CMD) | \
-+				    FW_CMD_REQUEST | \
-+				    FW_CMD_##__op | \
-+				    FW_PORT_CMD_PORTID(__port)); \
-+		(__pcmd).action_to_len16 = \
-+			cpu_to_be32(FW_PORT_CMD_ACTION(__action) | \
-+				    FW_LEN16(pcmd)); \
-+	} while (0)
-+
-+#define INIT_PORT_DCB_READ_PEER_CMD(__pcmd, __port) \
-+	INIT_PORT_DCB_CMD(__pcmd, __port, READ, FW_PORT_ACTION_DCB_READ_RECV)
-+
-+#define INIT_PORT_DCB_READ_LOCAL_CMD(__pcmd, __port) \
-+	INIT_PORT_DCB_CMD(__pcmd, __port, READ, FW_PORT_ACTION_DCB_READ_TRANS)
-+
-+#define INIT_PORT_DCB_READ_SYNC_CMD(__pcmd, __port) \
-+	INIT_PORT_DCB_CMD(__pcmd, __port, READ, FW_PORT_ACTION_DCB_READ_DET)
-+
-+#define INIT_PORT_DCB_WRITE_CMD(__pcmd, __port) \
-+	INIT_PORT_DCB_CMD(__pcmd, __port, EXEC, FW_PORT_ACTION_L2_DCB_CFG)
-+
-+/* States we can be in for a port's Data Center Bridging.
-+ */
-+enum cxgb4_dcb_state {
-+	CXGB4_DCB_STATE_START,		/* initial unknown state */
-+	CXGB4_DCB_STATE_HOST,		/* we're using Host DCB (if at all) */
-+	CXGB4_DCB_STATE_FW_INCOMPLETE,	/* using firmware DCB, incomplete */
-+	CXGB4_DCB_STATE_FW_ALLSYNCED,	/* using firmware DCB, all sync'ed */
-+};
-+
-+/* Data Center Bridging state input for the Finite State Machine.
-+ */
-+enum cxgb4_dcb_state_input {
-+	/* Input from the firmware.
-+	 */
-+	CXGB4_DCB_INPUT_FW_DISABLED,	/* firmware DCB disabled */
-+	CXGB4_DCB_INPUT_FW_ENABLED,	/* firmware DCB enabled */
-+	CXGB4_DCB_INPUT_FW_INCOMPLETE,	/* firmware reports incomplete DCB */
-+	CXGB4_DCB_INPUT_FW_ALLSYNCED,	/* firmware reports all sync'ed */
-+
-+};
-+
-+/* Firmware DCB messages that we've received so far ...
-+ */
-+enum cxgb4_dcb_fw_msgs {
-+	CXGB4_DCB_FW_PGID	= 0x01,
-+	CXGB4_DCB_FW_PGRATE	= 0x02,
-+	CXGB4_DCB_FW_PRIORATE	= 0x04,
-+	CXGB4_DCB_FW_PFC	= 0x08,
-+	CXGB4_DCB_FW_APP_ID	= 0x10,
-+};
-+
-+#define CXGB4_MAX_DCBX_APP_SUPPORTED 8
-+
-+/* Data Center Bridging support;
-+ */
-+struct port_dcb_info {
-+	enum cxgb4_dcb_state state;	/* DCB State Machine */
-+	enum cxgb4_dcb_fw_msgs msgs;	/* DCB Firmware messages received */
-+	unsigned int supported;		/* OS DCB capabilities supported */
-+	bool enabled;			/* OS Enabled state */
-+
-+	/* Cached copies of DCB information sent by the firmware (in Host
-+	 * Native Endian format).
-+	 */
-+	u32	pgid;			/* Priority Group[0..7] */
-+	u8	pfcen;			/* Priority Flow Control[0..7] */
-+	u8	pg_num_tcs_supported;	/* max PG Traffic Classes */
-+	u8	pfc_num_tcs_supported;	/* max PFC Traffic Classes */
-+	u8	pgrate[8];		/* Priority Group Rate[0..7] */
-+	u8	priorate[8];		/* Priority Rate[0..7] */
-+	struct app_priority { /* Application Information */
-+		u8	user_prio_map;	/* Priority Map bitfield */
-+		u8	sel_field;	/* Protocol ID interpretation */
-+		u16	protocolid;	/* Protocol ID */
-+	} app_priority[CXGB4_MAX_DCBX_APP_SUPPORTED];
-+};
-+
-+void cxgb4_dcb_state_init(struct net_device *);
-+void cxgb4_dcb_state_fsm(struct net_device *, enum cxgb4_dcb_state_input);
-+void cxgb4_dcb_handle_fw_update(struct adapter *, const struct fw_port_cmd *);
-+void cxgb4_dcb_set_caps(struct adapter *, const struct fw_port_cmd *);
-+extern const struct dcbnl_rtnl_ops cxgb4_dcb_ops;
-+
-+#define CXGB4_DCB_ENABLED true
-+
-+#else /* !CONFIG_CHELSIO_T4_DCB */
-+
-+static inline void cxgb4_dcb_state_init(struct net_device *dev)
++MODULE_LICENSE("GPL");
++MODULE_VERSION(LISP_VERSION);
++MODULE_AUTHOR("Chris White <chris@logicalelegance.com>");
++MODULE_ALIAS_RTNL_LINK("lisp");
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index ade33ef..c04cce8 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -1570,25 +1570,6 @@ static bool route_shortcircuit(struct net_device *dev, struct sk_buff *skb)
+ 	return false;
+ }
+ 
+-/* Compute source port for outgoing packet
+- *   first choice to use L4 flow hash since it will spread
+- *     better and maybe available from hardware
+- *   secondary choice is to use jhash on the Ethernet header
+- */
+-__be16 vxlan_src_port(__u16 port_min, __u16 port_max, struct sk_buff *skb)
+-{
+-	unsigned int range = (port_max - port_min) + 1;
+-	u32 hash;
+-
+-	hash = skb_get_hash(skb);
+-	if (!hash)
+-		hash = jhash(skb->data, 2 * ETH_ALEN,
+-			     (__force u32) skb->protocol);
+-
+-	return htons((((u64) hash * range) >> 32) + port_min);
+-}
+-EXPORT_SYMBOL_GPL(vxlan_src_port);
+-
+ static inline struct sk_buff *vxlan_handle_offloads(struct sk_buff *skb,
+ 						    bool udp_csum)
+ {
+@@ -1807,7 +1788,8 @@ static void vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+ 	if (tos == 1)
+ 		tos = ip_tunnel_get_dsfield(old_iph, skb);
+ 
+-	src_port = vxlan_src_port(vxlan->port_min, vxlan->port_max, skb);
++	src_port = udp_tunnel_get_src_port(vxlan->port_min, vxlan->port_max,
++					   skb);
+ 
+ 	if (dst->sa.sa_family == AF_INET) {
+ 		memset(&fl4, 0, sizeof(fl4));
+diff --git a/include/net/route.h b/include/net/route.h
+index b17cf28..35e6c4e 100644
+--- a/include/net/route.h
++++ b/include/net/route.h
+@@ -131,6 +131,27 @@ static inline struct rtable *ip_route_output(struct net *net, __be32 daddr,
+ 	return ip_route_output_key(net, &fl4);
+ }
+ 
++static inline struct rtable *ip_route_output_mark(struct net *net,
++						  __be32 *saddr, __be32 daddr,
++						  u8 ipproto, u8 tos,
++						  u32 skb_mark)
 +{
++	struct rtable *rt;
++
++	/* Tunnel configuration keeps DSCP part of TOS bits, But Linux
++	 * router expect RT_TOS bits only.
++	 */
++	struct flowi4 fl = { .daddr		= daddr,
++			     .saddr		= *saddr,
++			     .flowi4_tos	= RT_TOS(tos),
++			     .flowi4_mark	= skb_mark,
++			     .flowi4_proto	= ipproto };
++
++	rt = ip_route_output_key(net, &fl);
++	*saddr = fl.saddr;
++	return rt;
 +}
 +
-+#define CXGB4_DCB_ENABLED false
+ static inline struct rtable *ip_route_output_ports(struct net *net, struct flowi4 *fl4,
+ 						   struct sock *sk,
+ 						   __be32 daddr, __be32 saddr,
+diff --git a/include/net/udp.h b/include/net/udp.h
+index 68a1fef..99861bd 100644
+--- a/include/net/udp.h
++++ b/include/net/udp.h
+@@ -167,6 +167,27 @@ static inline void udp_lib_hash(struct sock *sk)
+ void udp_lib_unhash(struct sock *sk);
+ void udp_lib_rehash(struct sock *sk, u16 new_hash);
+ 
++/* Compute source port for outgoing packet
++ *   first choice to use L4 flow hash since it will spread
++ *     better and maybe available from hardware
++ *   secondary choice is to use jhash on the Ethernet header
++ */
++static inline  __be16 udp_tunnel_get_src_port(__u16 port_min, __u16 port_max,
++					      struct sk_buff *skb)
++{
++	unsigned int range = (port_max - port_min) + 1;
++	u32 hash;
 +
-+#endif /* !CONFIG_CHELSIO_T4_DCB */
++	hash = skb_get_hash(skb);
++	if (!hash)
++		hash = jhash(skb->data, 2 * ETH_ALEN,
++			     (__force u32) skb->protocol);
 +
-+#endif /* __CXGB4_DCB_H */
++	return htons((((u64) hash * range) >> 32) + port_min);
++}
++
++/* Compute source UDP port for outgoing packets on UDP tunnels
++ */
+ static inline void udp_lib_close(struct sock *sk, long timeout)
+ {
+ 	sk_common_release(sk);
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index b385348..0077832 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -331,6 +331,23 @@ struct ifla_vxlan_port_range {
+ 	__be16	high;
+ };
+ 
++/* LISP section */
++enum {
++	IFLA_LISP_UNSPEC,
++	IFLA_LISP_IID,
++	IFLA_LISP_LOCAL,
++	IFLA_LISP_REMOTE,
++	IFLA_LISP_LOCAL6,
++	IFLA_LISP_REMOTE6,
++	IFLA_LISP_ENCAP_PORT,
++	IFLA_LISP_LISTEN_PORT,
++	IFLA_LISP_TOS,
++	IFLA_LISP_TTL,
++	IFLA_LISP_UDP_CSUM,
++	__IFLA_LISP_MAX
++};
++#define IFLA_LISP_MAX (__IFLA_LISP_MAX - 1)
++
+ /* Bonding section */
+ 
+ enum {
 -- 
-2.0.0
+1.7.10.4
