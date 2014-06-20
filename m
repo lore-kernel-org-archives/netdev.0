@@ -1,86 +1,66 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net 2/2] net: systemport: fix UniMAC reset logic
-Date: Sat, 21 Jun 2014 00:14:26 +0400
-Message-ID: <53A49622.80908@cogentembedded.com>
-References: <1403294500-31905-1-git-send-email-f.fainelli@gmail.com> <1403294500-31905-3-git-send-email-f.fainelli@gmail.com>
+Subject: Re: [Patch net-next] veth: add netpoll support
+Date: Sat, 21 Jun 2014 00:15:46 +0400
+Message-ID: <53A49672.1060601@cogentembedded.com>
+References: <1403291878-4199-1-git-send-email-xiyou.wangcong@gmail.com> <53A48C12.8020104@cogentembedded.com> <20140620200758.GB18996@hmsreliant.think-freely.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Cc: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
+	s.priebe@profihost.ag, "David S. Miller" <davem@davemloft.net>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f171.google.com ([209.85.217.171]:50739 "EHLO
-	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757718AbaFTUOS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2014 16:14:18 -0400
-Received: by mail-lb0-f171.google.com with SMTP id s7so2684018lbd.16
-        for <netdev@vger.kernel.org>; Fri, 20 Jun 2014 13:14:16 -0700 (PDT)
-In-Reply-To: <1403294500-31905-3-git-send-email-f.fainelli@gmail.com>
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:46313 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755045AbaFTUPh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2014 16:15:37 -0400
+Received: by mail-lb0-f174.google.com with SMTP id u10so2630952lbd.5
+        for <netdev@vger.kernel.org>; Fri, 20 Jun 2014 13:15:36 -0700 (PDT)
+In-Reply-To: <20140620200758.GB18996@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Hello.
 
-On 06/21/2014 12:01 AM, Florian Fainelli wrote:
+On 06/21/2014 12:07 AM, Neil Horman wrote:
 
-> The UniMAC CMD_SW_RESET bit is not a self-clearing bit, so we need to
-> assert it, wait a bit and clear it manually. As a result, umac_reset()
-> is updated not to return any value.
+>>> It is trivial to add netpoll support to veth, since
+>>> it is not stacked device, we don't need to setup and cleanup
+>>> netpoll.
 
-> By setting CMD_SW_RESET and only that bit, we were also clearing the
+>>> Reported-by: Stefan Priebe <s.priebe@profihost.ag>
+>>> Cc: "David S. Miller" <davem@davemloft.net>
+>>> Cc: Neil Horman <nhorman@tuxdriver.com>
+>>> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-    I wonder where you were setting this bit before -- the only umac_writel() 
-there was wrote 0 to UMAC_CMD...
+>>> ---
+>>> diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+>>> index b4a10bc..03e781b 100644
+>>> --- a/drivers/net/veth.c
+>>> +++ b/drivers/net/veth.c
+>>> @@ -248,6 +248,13 @@ static void veth_dev_free(struct net_device *dev)
+>>>   	free_netdev(dev);
+>>>   }
+>>>
+>>> +#ifdef CONFIG_NET_POLL_CONTROLLER
+>>> +static void veth_poll_controller(struct net_device *dev)
+>>> +{
+>>> +	return;
+>>
+>>     Not needed.
 
-> other 31 bits, overriding the hardware reset defaults which are
-> correctly set on purpose.
+> It is, a valid function poniter is how the stack determines if a given driver
+> supports netpoll. See the tun_poll_controller for another example
+> Neil
 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> ---
->   drivers/net/ethernet/broadcom/bcmsysport.c | 33 ++++++++----------------------
->   1 file changed, 9 insertions(+), 24 deletions(-)
+    I just said that *return* was not needed. :-)
 
-> diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
-> index f6bccd847ee6..d31f7d239064 100644
-> --- a/drivers/net/ethernet/broadcom/bcmsysport.c
-> +++ b/drivers/net/ethernet/broadcom/bcmsysport.c
-> @@ -1254,28 +1254,17 @@ static inline void umac_enable_set(struct bcm_sysport_priv *priv,
->   		usleep_range(1000, 2000);
->   }
->
-> -static inline int umac_reset(struct bcm_sysport_priv *priv)
-> +static inline void umac_reset(struct bcm_sysport_priv *priv)
->   {
-> -	unsigned int timeout = 0;
->   	u32 reg;
-> -	int ret = 0;
-> -
-> -	umac_writel(priv, 0, UMAC_CMD);
-> -	while (timeout++ < 1000) {
-> -		reg = umac_readl(priv, UMAC_CMD);
-> -		if (!(reg & CMD_SW_RESET))
-> -			break;
-> -
-> -		udelay(1);
-> -	}
-> -
-> -	if (timeout == 1000) {
-> -		dev_err(&priv->pdev->dev,
-> -			"timeout waiting for MAC to come out of reset\n");
-> -		ret = -ETIMEDOUT;
-> -	}
->
-> -	return ret;
-> +	reg = umac_readl(priv, UMAC_CMD);
-> +	reg |= CMD_SW_RESET;
-> +	umac_writel(priv, reg, UMAC_CMD);
-> +	udelay(10);
-> +	reg = umac_readl(priv, UMAC_CMD);
-> +	reg &= ~CMD_SW_RESET;
-> +	umac_writel(priv, reg, UMAC_CMD);
->   }
->
->   static void umac_set_hw_addr(struct bcm_sysport_priv *priv,
-[...]
+>>
+>>> +}
+>>> +#endif	/* CONFIG_NET_POLL_CONTROLLER */
+>>> +
+>>>   static const struct net_device_ops veth_netdev_ops = {
+>>>   	.ndo_init            = veth_dev_init,
+>>>   	.ndo_open            = veth_open,
 
 WBR, Sergei
