@@ -1,84 +1,152 @@
 From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH RFC 10/30] net: fec: make rx skb handling more robust
-Date: Fri, 20 Jun 2014 13:12:34 +0100
-Message-ID: <E1WxxgI-0005XT-9C@rmk-PC.arm.linux.org.uk>
+Subject: [PATCH RFC 11/30] net: fec: clean up transmit descriptor setup
+Date: Fri, 20 Jun 2014 13:12:39 +0100
+Message-ID: <E1WxxgN-0005XX-D3@rmk-PC.arm.linux.org.uk>
 References: <20140620121118.GR32514@n2100.arm.linux.org.uk>
 Cc: Fugang Duan <B38611@freescale.com>, netdev@vger.kernel.org
 To: linux-arm-kernel@lists.infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:36344 "EHLO
+Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:36347 "EHLO
 	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S967320AbaFTMMg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2014 08:12:36 -0400
+	by vger.kernel.org with ESMTP id S967259AbaFTMMl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2014 08:12:41 -0400
 In-Reply-To: <20140620121118.GR32514@n2100.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allocate, and then map the receive skb before writing any data to the
-ring descriptor or storing the skb.  When freeing the receive ring
-entries, unmap and free the skb, and then clear the stored skb pointer.
-
-This means we have ring data and skb pointer in one of two states:
-either both fully setup, or nothing setup.
-
-This simplifies the cleanup, as we can use just the skb pointer to
-indicate whether the descriptor is setup, and thus avoids potentially
-calling dma_unmap_single() on a DMA error value.
+Avoid writing any state until we're certain we can proceed with the
+transmission: this avoids writing mapping error address values to the
+descriptors, or setting the skbuff pointer until we have successfully
+mapped the skb.
 
 Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- drivers/net/ethernet/freescale/fec_main.c | 17 +++++++++++------
- 1 file changed, 11 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/freescale/fec_main.c | 33 +++++++++++++++++--------------
+ 1 file changed, 18 insertions(+), 15 deletions(-)
 
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 309aa2ff8cc9..70853a59627a 100644
+index 70853a59627a..9c5570a3e32e 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -2066,12 +2066,12 @@ static void fec_enet_free_buffers(struct net_device *ndev)
- 	bdp = fep->rx_bd_base;
- 	for (i = 0; i < fep->rx_ring_size; i++) {
- 		skb = fep->rx_skbuff[i];
--
--		if (bdp->cbd_bufaddr)
-+		fep->rx_skbuff[i] = NULL;
-+		if (skb) {
- 			dma_unmap_single(&fep->pdev->dev, bdp->cbd_bufaddr,
- 					FEC_ENET_RX_FRSIZE, DMA_FROM_DEVICE);
--		if (skb)
- 			dev_kfree_skb(skb);
-+		}
- 		bdp = fec_enet_get_nextdesc(bdp, fep);
+@@ -373,6 +373,7 @@ fec_enet_txq_submit_frag_skb(struct sk_buff *skb, struct net_device *ndev)
+ 	skb_frag_t *this_frag;
+ 	unsigned int index;
+ 	void *bufaddr;
++	dma_addr_t addr;
+ 	int i;
+ 
+ 	for (frag = 0; frag < nr_frags; frag++) {
+@@ -415,15 +416,16 @@ fec_enet_txq_submit_frag_skb(struct sk_buff *skb, struct net_device *ndev)
+ 				swap_buffer(bufaddr, frag_len);
+ 		}
+ 
+-		bdp->cbd_bufaddr = dma_map_single(&fep->pdev->dev, bufaddr,
+-						frag_len, DMA_TO_DEVICE);
+-		if (dma_mapping_error(&fep->pdev->dev, bdp->cbd_bufaddr)) {
++		addr = dma_map_single(&fep->pdev->dev, bufaddr, frag_len,
++				      DMA_TO_DEVICE);
++		if (dma_mapping_error(&fep->pdev->dev, addr)) {
+ 			dev_kfree_skb_any(skb);
+ 			if (net_ratelimit())
+ 				netdev_err(ndev, "Tx DMA memory map failed\n");
+ 			goto dma_mapping_error;
+ 		}
+ 
++		bdp->cbd_bufaddr = addr;
+ 		bdp->cbd_datlen = frag_len;
+ 		bdp->cbd_sc = status;
+ 	}
+@@ -450,6 +452,7 @@ static int fec_enet_txq_submit_skb(struct sk_buff *skb, struct net_device *ndev)
+ 	int nr_frags = skb_shinfo(skb)->nr_frags;
+ 	struct bufdesc *bdp, *last_bdp;
+ 	void *bufaddr;
++	dma_addr_t addr;
+ 	unsigned short status;
+ 	unsigned short buflen;
+ 	unsigned int estatus = 0;
+@@ -490,12 +493,9 @@ static int fec_enet_txq_submit_skb(struct sk_buff *skb, struct net_device *ndev)
+ 			swap_buffer(bufaddr, buflen);
  	}
  
-@@ -2089,21 +2089,26 @@ static int fec_enet_alloc_buffers(struct net_device *ndev)
+-	/* Push the data cache so the CPM does not get stale memory
+-	 * data.
+-	 */
+-	bdp->cbd_bufaddr = dma_map_single(&fep->pdev->dev, bufaddr,
+-					buflen, DMA_TO_DEVICE);
+-	if (dma_mapping_error(&fep->pdev->dev, bdp->cbd_bufaddr)) {
++	/* Push the data cache so the CPM does not get stale memory data. */
++	addr = dma_map_single(&fep->pdev->dev, bufaddr, buflen, DMA_TO_DEVICE);
++	if (dma_mapping_error(&fep->pdev->dev, addr)) {
+ 		dev_kfree_skb_any(skb);
+ 		if (net_ratelimit())
+ 			netdev_err(ndev, "Tx DMA memory map failed\n");
+@@ -537,6 +537,7 @@ static int fec_enet_txq_submit_skb(struct sk_buff *skb, struct net_device *ndev)
+ 	fep->tx_skbuff[index] = skb;
  
- 	bdp = fep->rx_bd_base;
- 	for (i = 0; i < fep->rx_ring_size; i++) {
-+		dma_addr_t addr;
+ 	bdp->cbd_datlen = buflen;
++	bdp->cbd_bufaddr = addr;
+ 
+ 	/* Send it on its way.  Tell FEC it's ready, interrupt when done,
+ 	 * it's the last BD of the frame, and to put the CRC on the end.
+@@ -570,12 +571,12 @@ fec_enet_txq_put_data_tso(struct sk_buff *skb, struct net_device *ndev,
+ 	struct bufdesc_ex *ebdp = (struct bufdesc_ex *)bdp;
+ 	unsigned short status;
+ 	unsigned int estatus = 0;
++	dma_addr_t addr;
+ 
+ 	status = bdp->cbd_sc;
+ 	status &= ~BD_ENET_TX_STATS;
+ 
+ 	status |= (BD_ENET_TX_TC | BD_ENET_TX_READY);
+-	bdp->cbd_datlen = size;
+ 
+ 	if (((unsigned long) data) & FEC_ALIGNMENT ||
+ 		id_entry->driver_data & FEC_QUIRK_SWAP_FRAME) {
+@@ -586,15 +587,17 @@ fec_enet_txq_put_data_tso(struct sk_buff *skb, struct net_device *ndev,
+ 			swap_buffer(data, size);
+ 	}
+ 
+-	bdp->cbd_bufaddr = dma_map_single(&fep->pdev->dev, data,
+-					size, DMA_TO_DEVICE);
+-	if (dma_mapping_error(&fep->pdev->dev, bdp->cbd_bufaddr)) {
++	addr = dma_map_single(&fep->pdev->dev, data, size, DMA_TO_DEVICE);
++	if (dma_mapping_error(&fep->pdev->dev, addr)) {
+ 		dev_kfree_skb_any(skb);
+ 		if (net_ratelimit())
+ 			netdev_err(ndev, "Tx DMA memory map failed\n");
+ 		return NETDEV_TX_BUSY;
+ 	}
+ 
++	bdp->cbd_datlen = size;
++	bdp->cbd_bufaddr = addr;
 +
- 		skb = netdev_alloc_skb(ndev, FEC_ENET_RX_FRSIZE);
- 		if (!skb) {
- 			fec_enet_free_buffers(ndev);
- 			return -ENOMEM;
- 		}
--		fep->rx_skbuff[i] = skb;
+ 	if (fep->bufdesc_ex) {
+ 		if (skb->ip_summed == CHECKSUM_PARTIAL)
+ 			estatus |= BD_ENET_TX_PINS | BD_ENET_TX_IINS;
+@@ -801,7 +804,7 @@ static void fec_enet_bd_init(struct net_device *dev)
  
--		bdp->cbd_bufaddr = dma_map_single(&fep->pdev->dev, skb->data,
-+		addr = dma_map_single(&fep->pdev->dev, skb->data,
- 				FEC_ENET_RX_FRSIZE, DMA_FROM_DEVICE);
--		if (dma_mapping_error(&fep->pdev->dev, bdp->cbd_bufaddr)) {
-+		if (dma_mapping_error(&fep->pdev->dev, addr)) {
-+			dev_kfree_skb(skb);
- 			fec_enet_free_buffers(ndev);
- 			if (net_ratelimit())
- 				netdev_err(ndev, "Rx DMA memory map failed\n");
- 			return -ENOMEM;
+ 		/* Initialize the BD for every fragment in the page. */
+ 		bdp->cbd_sc = 0;
+-		if (bdp->cbd_bufaddr && fep->tx_skbuff[i]) {
++		if (fep->tx_skbuff[i]) {
+ 			dev_kfree_skb_any(fep->tx_skbuff[i]);
+ 			fep->tx_skbuff[i] = NULL;
  		}
-+
-+		fep->rx_skbuff[i] = skb;
-+		bdp->cbd_bufaddr = addr;
- 		bdp->cbd_sc = BD_ENET_RX_EMPTY;
+@@ -1100,6 +1103,7 @@ fec_enet_tx(struct net_device *ndev)
+ 		index = fec_enet_get_bd_index(fep->tx_bd_base, bdp, fep);
  
- 		if (fep->bufdesc_ex) {
+ 		skb = fep->tx_skbuff[index];
++		fep->tx_skbuff[index] = NULL;
+ 		if (!IS_TSO_HEADER(fep, bdp->cbd_bufaddr))
+ 			dma_unmap_single(&fep->pdev->dev, bdp->cbd_bufaddr,
+ 					bdp->cbd_datlen, DMA_TO_DEVICE);
+@@ -1154,7 +1158,6 @@ fec_enet_tx(struct net_device *ndev)
+ 
+ 		/* Free the sk buffer associated with this last transmit */
+ 		dev_kfree_skb_any(skb);
+-		fep->tx_skbuff[index] = NULL;
+ 
+ 		fep->dirty_tx = bdp;
+ 
 -- 
 1.8.3.1
