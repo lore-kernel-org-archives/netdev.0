@@ -1,69 +1,76 @@
-From: varkabhadram@gmail.com
-Subject: [PATCH net-next v7 3/3] devicetree: add device tree bindings for cc2520 driver
-Date: Fri, 20 Jun 2014 17:47:17 +0530
-Message-ID: <53a42763.6ac3440a.5afd.56c7@mx.google.com>
-References: <y>
- <1403266637-6150-1-git-send-email-y>
-Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
-	linux-zigbee-devel@lists.sourceforge.net, davem@davemloft.net,
-	sowjanyap@cdac.in, venkatas@cdac.in, santoshk@cdac.in,
-	Varka Bhadram <varkab@cdac.in>
-To: netdev@vger.kernel.org
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH RFC 04/30] net: fec: fix interrupt handling races
+Date: Fri, 20 Jun 2014 12:39:57 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1725F962@AcuExch.aculab.com>
+References: <20140620121118.GR32514@n2100.arm.linux.org.uk>
+ <E1Wxxfn-0005X5-KD@rmk-PC.arm.linux.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Fugang Duan <B38611@freescale.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Russell King' <rmk+kernel@arm.linux.org.uk>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:50468 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966074AbaFTMV4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2014 08:21:56 -0400
-Received: by mail-pd0-f172.google.com with SMTP id w10so2946936pde.3
-        for <netdev@vger.kernel.org>; Fri, 20 Jun 2014 05:21:56 -0700 (PDT)
-In-Reply-To: <1403266637-6150-1-git-send-email-y>
+Received: from mx0.aculab.com ([213.249.233.131]:54141 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S966831AbaFTMlV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2014 08:41:21 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 03564-04 for <netdev@vger.kernel.org>;
+ Fri, 20 Jun 2014 13:41:13 +0100 (BST)
+In-Reply-To: <E1Wxxfn-0005X5-KD@rmk-PC.arm.linux.org.uk>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Varka Bhadram <varkab@cdac.in>
+From: Russell King
+> While running: while :; do iperf -c <HOST> -P 4; done, transmit timeouts
+> are regularly reported.  With the tx ring dumping in place, we can see
+> that all entries are in use, and the hardware has finished transmitting
+> these packets.  However, the driver has not reclaimed these ring
+> entries.
+> 
+> This can occur if the interrupt handler is invoked at the wrong moment -
+> eg:
+> 
+> 	CPU0				CPU1
+> 	fec_enet_tx()
+> 					interrupt, IEVENT = FEC_ENET_TXF
+> 					FEC_ENET_TXF cleared
+> 					napi_schedule_prep()
+> 	napi_complete()
+> 
+> The result is that we clear the transmit interrupt, but we don't trigger
+> any cleaning of the transmit ring.  Instead, use a different strategy:
+> 
+> - When receiving a transmit or receive interrupt, disable both tx and rx
+>   interrupts, but do not acknowledge them.  Schedule a napi poll.  Don't
+>   loop.
+> 
+> - When we are polled, read IEVENT, acknowledging the pending transmit
+>   and receive interrupts, before then going on to process the
+>   appropriate rings.
+> 
+> This allows us to avoid the race, and has a number of other advantages:
+> - we cut down on the number of transmit interrupts we have to process.
+> - we only look at the rings which have pending events.
+> - we gain additional throughput: the iperf total bandwidth increases
+>   from about 180Mbps to 240Mbps:
+...
 
-DT bindings for cc2520 radio driver
+It is usually possible to reduce the interrupt count even further by:
+1) processing the rings.
+2) clear the IRQ.
+3) check the rings for new entries, if any start again.
+This means that you don't take the interrupt for anything that completes
+while processing the earlier ring entries.
 
-Signed-off-by: Varka Bhadram <varkab@cdac.in>
----
- .../devicetree/bindings/net/ieee802154/cc2520.txt  |   29 ++++++++++++++++++++
- 1 file changed, 29 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/ieee802154/cc2520.txt
+The slight downside is that it is easy to exit the ISR before the IRQ
+line actually drops - resulting in a spurious interrupt.
 
-diff --git a/Documentation/devicetree/bindings/net/ieee802154/cc2520.txt b/Documentation/devicetree/bindings/net/ieee802154/cc2520.txt
-new file mode 100644
-index 0000000..6b41f78
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/ieee802154/cc2520.txt
-@@ -0,0 +1,29 @@
-+*CC2520 IEEE 802.15.4 Compatible Radio*
-+
-+Required properties:
-+	- compatible: 		should be "ti,cc2520"
-+	- spi-max-frequency:	maximal bus speed (8000000), should be set to 4000000 depends
-+			     	sync or async operation mode
-+	- reg:			the chipselect index
-+	- pinctrl-0: 		pin control group to be used for this controller.
-+	- pinctrl-names: 	must contain a "default" entry.
-+	- fifo-gpio:		GPIO spec for the FIFO pin
-+	- fifop-gpio:		GPIO spec for the FIFOP pin
-+	- sfd-gpio:		GPIO spec for the SFD pin
-+	- cca-gpio:		GPIO spec for the CCA pin
-+	- vreg-gpio:		GPIO spec for the VREG pin
-+	- reset-gpio:		GPIO spec for the RESET pin
-+Example:
-+	cc2520@0 {
-+		compatible = "ti,cc2520";
-+		reg = <0>;
-+		spi-max-frequency = <4000000>;
-+		pinctrl-names = "default";
-+		pinctrl-0 = <&cc2520_cape_pins>;
-+		fifo-gpio = <&gpio1 18 0>;
-+		fifop-gpio = <&gpio1 19 0>;
-+		sfd-gpio = <&gpio1 13 0>;
-+		cca-gpio = <&gpio1 16 0>;
-+		vreg-gpio = <&gpio0 31 0>;
-+		reset-gpio = <&gpio1 12 0>;
-+	};
--- 
-1.7.9.5
+(patch 24 seems to be similar).
+
+	David
