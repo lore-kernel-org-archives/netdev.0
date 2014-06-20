@@ -1,107 +1,96 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Fw: [Bug 78481] New: missing  NULL check of the parameter in
- function nla_parse_nested() which is called in dcbnl_ieee_set()
-Date: Fri, 20 Jun 2014 08:45:10 -0700
-Message-ID: <20140620084510.1555a0e7@nehalam.linuxnetplumber.net>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH net-next] hyperv: Add handler for
+ RNDIS_STATUS_NETWORK_CHANGE event
+Date: Fri, 20 Jun 2014 15:48:56 +0000
+Message-ID: <5174e5cab2b84decaa903dcf3215bce9@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+References: <1403228076-7596-1-git-send-email-haiyangz@microsoft.com>
+ <20140620084158.GR5500@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f41.google.com ([209.85.160.41]:53731 "EHLO
-	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754510AbaFTPpN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 20 Jun 2014 11:45:13 -0400
-Received: by mail-pb0-f41.google.com with SMTP id ma3so3260050pbc.28
-        for <netdev@vger.kernel.org>; Fri, 20 Jun 2014 08:45:12 -0700 (PDT)
-Received: from nehalam.linuxnetplumber.net (static-50-53-83-51.bvtn.or.frontiernet.net. [50.53.83.51])
-        by mx.google.com with ESMTPSA id ek2sm14101728pbd.30.2014.06.20.08.45.12
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
-        Fri, 20 Jun 2014 08:45:12 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"olaf@aepfle.de" <olaf@aepfle.de>,
+	"jasowang@redhat.com" <jasowang@redhat.com>,
+	"driverdev-devel@linuxdriverproject.org"
+	<driverdev-devel@linuxdriverproject.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140620084158.GR5500@mwanda>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
 
-Begin forwarded message:
+> -----Original Message-----
+> From: Dan Carpenter [mailto:dan.carpenter@oracle.com]
+> Sent: Friday, June 20, 2014 4:42 AM
+> To: Haiyang Zhang
+> Cc: davem@davemloft.net; netdev@vger.kernel.org; olaf@aepfle.de;
+> jasowang@redhat.com; driverdev-devel@linuxdriverproject.org; linux-
+> kernel@vger.kernel.org
+> Subject: Re: [PATCH net-next] hyperv: Add handler for
+> RNDIS_STATUS_NETWORK_CHANGE event
+> 
+> On Thu, Jun 19, 2014 at 06:34:36PM -0700, Haiyang Zhang wrote:
+> > @@ -589,7 +590,19 @@ void netvsc_linkstatus_callback(struct hv_device
+> *device_obj,
+> >  	net_device = hv_get_drvdata(device_obj);
+> >  	rdev = net_device->extension;
+> >
+> > -	rdev->link_state = status != 1;
+> > +	switch (indicate->status) {
+> > +	case RNDIS_STATUS_MEDIA_CONNECT:
+> > +		rdev->link_state = false;
+> 
+> link_state false means that we want to connect?
+Yes
 
-Date: Fri, 20 Jun 2014 05:02:30 -0700
-From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-To: "stephen@networkplumber.org" <stephen@networkplumber.org>
-Subject: [Bug 78481] New: missing  NULL check of the parameter in function nla_parse_nested() which is called in dcbnl_ieee_set()
+> 
+> > +		break;
+> > +	case RNDIS_STATUS_MEDIA_DISCONNECT:
+> > +		rdev->link_state = true;
+> 
+> link_state true means that we are disconnecting.
+Yes.
 
+> > @@ -782,10 +797,17 @@ static void netvsc_link_change(struct
+> work_struct *w)
+> >  	} else {
+> >  		netif_carrier_on(net);
+> >  		notify = true;
+> > +		if (rdev->link_change) {
+> > +			rdev->link_change = false;
+> > +			refresh = true;
+> > +		}
+> 
+> How do we know that we received a RNDIS_STATUS_MEDIA_CONNECT before we
+> received the RNDIS_STATUS_NETWORK_CHANGE?  In other words, why does
+> RNDIS_STATUS_NETWORK_CHANGE imply that the link_state is false?
 
-https://bugzilla.kernel.org/show_bug.cgi?id=78481
+After host sleep, both RNDIS_STATUS_MEDIA_CONNECT and 
+RNDIS_STATUS_NETWORK_CHANGE events are received, but not necessarily in
+this order. If RNDIS_STATUS_MEDIA_CONNECT arrives later, the flag saved
+in rdev->link_change previously will trigger the refresh, not in the
+RNDIS_STATUS_NETWORK_CHANGE event, but in the latter RNDIS_STATUS_MEDIA_CONNECT
+event.
 
-            Bug ID: 78481
-           Summary: missing  NULL check of the parameter in function
-                    nla_parse_nested() which is called in dcbnl_ieee_set()
-           Product: Networking
-           Version: 2.5
-    Kernel Version: 2.6.39
-          Hardware: All
-                OS: Linux
-              Tree: Mainline
-            Status: NEW
-          Severity: normal
-          Priority: P1
-         Component: Other
-          Assignee: shemminger@linux-foundation.org
-          Reporter: rucsoftsec@gmail.com
-        Regression: No
+> 
+> >  	}
+> >
+> >  	rtnl_unlock();
+> >
+> > +	if (refresh)
+> > +		call_usermodehelper(argv[0], argv, envp, UMH_WAIT_EXEC);
+> 
+> You may as well use UMH_NO_WAIT since there is no error handling if
+> /etc/init.d/network is not found.
 
-In function dcbnl_ieee_set() at net/dcb/dcbnl.c:1174, the parameter in
-nla_parse_nested() at line 1184 should be checked before the call to
-nla_parse_nested(). but in function dcbnl_ieee_set(), the check is missed.
-The related code snippets in function dcbnl_ieee_set() are as followings.
-dcbnl_ieee_set @ net/dcb/dcbnl.c:1174
-1174 static int dcbnl_ieee_set(struct net_device *netdev, struct nlattr **tb,
-1175                           u32 pid, u32 seq, u16 flags)
-1176 {
-1177         const struct dcbnl_rtnl_ops *ops = netdev->dcbnl_ops;
-1178         struct nlattr *ieee[DCB_ATTR_IEEE_MAX + 1];
-1179         int err = -EOPNOTSUPP;
-1180 
-1181         if (!ops)
-1182                 goto err;
-1183 
-1184         err = nla_parse_nested(ieee, DCB_ATTR_IEEE_MAX,
-1185                                tb[DCB_ATTR_IEEE], dcbnl_ieee_policy);
-1186         if (err)
-1187                 goto err;
-     ...
-1221 err:
-1222         dcbnl_reply(err, RTM_SETDCB, DCB_CMD_IEEE_SET, DCB_ATTR_IEEE,
-1223                     pid, seq, flags);
-1224         return err;
-1225 }
+I previously tried UMH_NO_WAIT, but not working. We need to wait for the 
+exec (not process completion) in this case. Since it's in the work queue,
+a bit of waiting is OK.
 
-Generally, the parameter of nla_parse_nested() shall be checked against NULL ,
-like the following code snippets in function nl80211_set_cqm().
-nl80211_set_cqm @ drivers/thermal/thermal_sys.c:1227
-4700 static int nl80211_set_cqm(struct sk_buff *skb, struct genl_info *info)
-4701 {
-     ...
-4706         cqm = info->attrs[NL80211_ATTR_CQM];
-4707         if (!cqm) {
-4708                 err = -EINVAL;
-4709                 goto out;
-4710         }
-4711 
-4712         err = nla_parse_nested(attrs, NL80211_ATTR_CQM_MAX, cqm,
-4713                                nl80211_attr_cqm_policy);
-4714         if (err)
-4715                 goto out;
-     ...
-4727 out:
-4728         return err;
-4729 }
-
-Thak you!
-
-RUC_Soft_Sec, supported by China.X.Orion
-
--- 
-You are receiving this mail because:
-You are the assignee for the bug.
+Thanks,
+- Haiyang
