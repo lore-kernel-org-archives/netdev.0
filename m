@@ -1,36 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net]tg3: Change nvram command timeout value to 50ms
-Date: Thu, 19 Jun 2014 20:59:14 -0700 (PDT)
-Message-ID: <20140619.205914.315182669039252761.davem@davemloft.net>
-References: <1403141922-21768-1-git-send-email-prashant@broadcom.com>
+Subject: Re: [PATCH] iovec: move memcpy_from/toiovecend to lib/iovec.c
+Date: Thu, 19 Jun 2014 21:06:37 -0700 (PDT)
+Message-ID: <20140619.210637.1702701955085552032.davem@davemloft.net>
+References: <1403201568-22828-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mchan@broadcom.com
-To: prashant@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46309 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932480AbaFTD7R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 19 Jun 2014 23:59:17 -0400
-In-Reply-To: <1403141922-21768-1-git-send-email-prashant@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, rdunlap@infradead.org,
+	sfr@canb.auug.org.au, hjk@hansjkoch.de, gregkh@linuxfoundation.org,
+	stephen@networkplumber.org, sean.hefty@intel.com,
+	fx.lebail@yahoo.com, jasowang@redhat.com,
+	hannes@stressinduktion.org, wuzhy@linux.vnet.ibm.com,
+	nab@linux-iscsi.org, netdev@vger.kernel.org
+To: mst@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1403201568-22828-1-git-send-email-mst@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Prashant Sreedharan <prashant@broadcom.com>
-Date: Wed, 18 Jun 2014 18:38:42 -0700
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Thu, 19 Jun 2014 21:22:56 +0300
 
-> Commit 506724c463fcd63477a5e404728a980b71f80bb7 "tg3: Override clock,
-> link aware and link idle mode during NVRAM dump" changed the timeout
-> value for nvram command execution from 100ms to 1ms. But the 1ms
-> timeout value was only sufficient for nvram read operations but not
-> write operations for most of the devices supported by tg3 driver.
-> This patch sets the MAX to 50ms. Also to avoid busy waiting for a long
-> time, the driver will udelay for 1ms and msleep for the remaining time.
+> ERROR: "memcpy_fromiovecend" [drivers/vhost/vhost_scsi.ko] undefined!
 > 
-> Signed-off-by: Prashant Sreedharan <prashant@broadcom.com>
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> commit 9f977ef7b671f6169eca78bf40f230fe84b7c7e5
+>     vhost-scsi: Include prot_bytes into expected data transfer length
+> in target-pending makes drivers/vhost/scsi.c call memcpy_fromiovecend().
+> This function is not available when CONFIG_NET is not enabled.
+> 
+> socket.h already includes uio.h, so no callers need updating.
+> 
+> Reported-by: Randy Dunlap <rdunlap@infradead.org>
+> Cc: Stephen Rothwell <sfr@canb.auug.org.au>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> ---
+> 
+> David, could you please ack merging this through
+> target-pending to avoid dependency issues?
 
-Please don't have this conditional type of busy waiting.
+Yep, this looks fine:
 
-Perhaps use something like usleep_range() for every loop iteation.
+Signed-off-by: David S. Miller <davem@davemloft.net>
