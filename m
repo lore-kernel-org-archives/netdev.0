@@ -1,208 +1,103 @@
-From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Subject: [RFT 2/3] cxgb4: make configuration load use request_firmware_nowait()
-Date: Fri, 20 Jun 2014 17:39:40 -0700
-Message-ID: <1403311181-9328-3-git-send-email-mcgrof@do-not-panic.com>
-References: <1403311181-9328-1-git-send-email-mcgrof@do-not-panic.com>
-Cc: poswald@suse.com, santosh@chelsio.com, jcheung@suse.com,
-	dchang@suse.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mcgrof@suse.com
-To: hariprasad@chelsio.com, leedom@chelsio.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1403311181-9328-1-git-send-email-mcgrof@do-not-panic.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Scott Wood <scottwood@freescale.com>
+Subject: [PATCH 2/2] powerpc/8xx: Remove empty asm/mpc8xx.h
+Date: Fri, 20 Jun 2014 20:02:07 -0500
+Message-ID: <1403312527-4453-2-git-send-email-scottwood@freescale.com>
+References: <1403312527-4453-1-git-send-email-scottwood@freescale.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Scott Wood <scottwood@freescale.com>, netdev@vger.kernel.org
+To: <linuxppc-dev@lists.ozlabs.org>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <1403312527-4453-1-git-send-email-scottwood@freescale.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-From: "Luis R. Rodriguez" <mcgrof@suse.com>
-
-cxgb4 loading can take a while, this is part of the crusade to
-change it to be asynchronous. One more to go.
-
-Cc: Philip Oswald <poswald@suse.com>
-Cc: Santosh Rastapur <santosh@chelsio.com>
-Cc: Jeffrey Cheung <jcheung@suse.com>
-Cc: David Chang <dchang@suse.com>
-Cc: Casey Leedom <leedom@chelsio.com>
-Cc: Hariprasad Shenai <hariprasad@chelsio.com>
-Signed-off-by: Luis R. Rodriguez <mcgrof@suse.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |   4 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 113 +++++++++++++++---------
- 2 files changed, 73 insertions(+), 44 deletions(-)
-
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index bcf9acf..1507dc2 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -650,6 +650,10 @@ struct adapter {
- 
- 	struct completion flash_comp;
- 	int flash_comp_status;
-+
-+	char fw_config_file[32];
-+	struct completion config_comp;
-+	int config_comp_status;
- };
- 
- /* Defined bit width of user definable filter tuples
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 9cf6f3e..65e4124 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -4827,51 +4827,18 @@ static int adap_init0_tweaks(struct adapter *adapter)
- 	return 0;
- }
- 
--/*
-- * Attempt to initialize the adapter via a Firmware Configuration File.
-- */
--static int adap_init0_config(struct adapter *adapter, int reset)
-+static void cxgb4_config_complete(const struct firmware *cf, void *context)
- {
--	struct fw_caps_config_cmd caps_cmd;
--	const struct firmware *cf;
-+	struct adapter *adapter = context;
- 	unsigned long mtype = 0, maddr = 0;
- 	u32 finiver, finicsum, cfcsum;
--	int ret;
--	int config_issued = 0;
--	char *fw_config_file, fw_config_file_path[256];
- 	char *config_name = NULL;
-+	struct fw_caps_config_cmd caps_cmd;
-+	int config_issued = 0;
-+	int ret = 0;
-+	char fw_config_file_path[256];
- 
--	/*
--	 * Reset device if necessary.
--	 */
--	if (reset) {
--		ret = t4_fw_reset(adapter, adapter->mbox,
--				  PIORSTMODE | PIORST);
--		if (ret < 0)
--			goto bye;
--	}
--
--	/*
--	 * If we have a T4 configuration file under /lib/firmware/cxgb4/,
--	 * then use that.  Otherwise, use the configuration file stored
--	 * in the adapter flash ...
--	 */
--	switch (CHELSIO_CHIP_VERSION(adapter->params.chip)) {
--	case CHELSIO_T4:
--		fw_config_file = FW4_CFNAME;
--		break;
--	case CHELSIO_T5:
--		fw_config_file = FW5_CFNAME;
--		break;
--	default:
--		dev_err(adapter->pdev_dev, "Device %d is not supported\n",
--		       adapter->pdev->device);
--		ret = -EINVAL;
--		goto bye;
--	}
--
--	ret = request_firmware(&cf, fw_config_file, adapter->pdev_dev);
--	if (ret < 0) {
-+	if (!cf) {
- 		config_name = "On FLASH";
- 		mtype = FW_MEMTYPE_CF_FLASH;
- 		maddr = t4_flash_cfg_addr(adapter);
-@@ -4879,7 +4846,7 @@ static int adap_init0_config(struct adapter *adapter, int reset)
- 		u32 params[7], val[7];
- 
- 		sprintf(fw_config_file_path,
--			"/lib/firmware/%s", fw_config_file);
-+			"/lib/firmware/%s", adapter->fw_config_file);
- 		config_name = fw_config_file_path;
- 
- 		if (cf->size >= FLASH_CFG_MAX_SIZE)
-@@ -4898,7 +4865,7 @@ static int adap_init0_config(struct adapter *adapter, int reset)
- 				 * to write that out separately since we can't
- 				 * guarantee that the bytes following the
- 				 * residual byte in the buffer returned by
--				 * request_firmware() are zeroed out ...
-+				 * request_firmware_nowait() are zeroed out ...
- 				 */
- 				size_t resid = cf->size & 0x3;
- 				size_t size = cf->size & ~0x3;
-@@ -5018,7 +4985,8 @@ static int adap_init0_config(struct adapter *adapter, int reset)
- 	dev_info(adapter->pdev_dev, "Successfully configured using Firmware "\
- 		 "Configuration File \"%s\", version %#x, computed checksum %#x\n",
- 		 config_name, finiver, cfcsum);
--	return 0;
-+	complete(&adapter->config_comp);
-+	return;
- 
- 	/*
- 	 * Something bad happened.  Return the error ...  (If the "error"
-@@ -5026,10 +4994,67 @@ static int adap_init0_config(struct adapter *adapter, int reset)
- 	 * want to issue a warning since this is fairly common.)
- 	 */
- bye:
-+	adapter->flash_comp_status = ret;
- 	if (config_issued && ret != -ENOENT)
- 		dev_warn(adapter->pdev_dev, "\"%s\" configuration file error %d\n",
- 			 config_name, -ret);
--	return ret;
-+	complete(&adapter->config_comp);
-+}
-+
-+/*
-+ * Attempt to initialize the adapter via a Firmware Configuration File.
-+ */
-+static int adap_init0_config(struct adapter *adapter, int reset)
-+{
-+	int ret;
-+
-+	/*
-+	 * Reset device if necessary.
-+	 */
-+	if (reset) {
-+		ret = t4_fw_reset(adapter, adapter->mbox,
-+				  PIORSTMODE | PIORST);
-+		if (ret < 0)
-+			return ret;
-+	}
-+
-+	/*
-+	 * If we have a T4 configuration file under /lib/firmware/cxgb4/,
-+	 * then use that.  Otherwise, use the configuration file stored
-+	 * in the adapter flash ...
-+	 */
-+	switch (CHELSIO_CHIP_VERSION(adapter->params.chip)) {
-+	case CHELSIO_T4:
-+		snprintf(adapter->fw_config_file,
-+			 sizeof(adapter->fw_config_file),
-+			 "%s", FW4_CFNAME);
-+		break;
-+	case CHELSIO_T5:
-+		snprintf(adapter->fw_config_file,
-+			 sizeof(adapter->fw_config_file),
-+			 "%s", FW5_CFNAME);
-+		break;
-+	default:
-+		dev_err(adapter->pdev_dev, "Device %d is not supported\n",
-+		       adapter->pdev->device);
-+		ret = -EINVAL;
-+		return ret;
-+	}
-+
-+	init_completion(&adapter->config_comp);
-+	adapter->config_comp_status = 0;
-+
-+	ret = request_firmware_nowait(THIS_MODULE, 1, adapter->fw_config_file,
-+				      adapter->pdev_dev, GFP_KERNEL,
-+				      adapter, cxgb4_config_complete);
-+	if (ret < 0)
-+		return ret;
-+
-+	wait_for_completion(&adapter->flash_comp);
-+	if (adapter->config_comp_status != 0)
-+		return adapter->config_comp_status;
-+
-+	return 0;
- }
- 
- /*
--- 
-2.0.0
+bTh4eF9wY21jaWFfb3BzIHdhcyB0aGUgb25seSB0aGluZyBpbiB0aGlzIGZpbGUgKG90aGVyIHRo
+YW4gYSBjb21tZW50CnRoYXQgZGVzY3JpYmVzIGEgdXNhZ2UgdGhhdCBkb2Vzbid0IG1hdGNoIHRo
+ZSBmaWxlJ3MgY29udGVudHMpOyBub3cKdGhhdCBtOHh4X3BjbWNpYV9vcHMgaXMgZ29uZSwgcmVt
+b3ZlIHRoZSBlbXB0eSBmaWxlLgoKU2lnbmVkLW9mZi1ieTogU2NvdHQgV29vZCA8c2NvdHR3b29k
+QGZyZWVzY2FsZS5jb20+CkNjOiBQYW50ZWxpcyBBbnRvbmlvdSA8cGFudGVsaXMuYW50b25pb3VA
+Z21haWwuY29tPgpDYzogVml0YWx5IEJvcmR1ZyA8dml0YkBrZXJuZWwuY3Jhc2hpbmcub3JnPgpD
+YzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZwotLS0KIGFyY2gvcG93ZXJwYy9pbmNsdWRlL2FzbS9m
+c19wZC5oICAgICAgICAgICAgICAgICB8ICAxIC0KIGFyY2gvcG93ZXJwYy9pbmNsdWRlL2FzbS9t
+cGM4eHguaCAgICAgICAgICAgICAgICB8IDEwIC0tLS0tLS0tLS0KIGFyY2gvcG93ZXJwYy9wbGF0
+Zm9ybXMvOHh4L204eHhfc2V0dXAuYyAgICAgICAgICB8ICAxIC0KIGFyY2gvcG93ZXJwYy9wbGF0
+Zm9ybXMvOHh4L21wYzg4NWFkc19zZXR1cC5jICAgICB8ICAxIC0KIGFyY2gvcG93ZXJwYy9wbGF0
+Zm9ybXMvOHh4L3RxbTh4eF9zZXR1cC5jICAgICAgICB8ICAxIC0KIGFyY2gvcG93ZXJwYy9zeXNk
+ZXYvbWljcm9wYXRjaC5jICAgICAgICAgICAgICAgICB8ICAxIC0KIGRyaXZlcnMvbmV0L2V0aGVy
+bmV0L2ZyZWVzY2FsZS9mc19lbmV0L21hYy1mZWMuYyB8ICAxIC0KIGRyaXZlcnMvbmV0L2V0aGVy
+bmV0L2ZyZWVzY2FsZS9mc19lbmV0L21hYy1zY2MuYyB8ICAxIC0KIDggZmlsZXMgY2hhbmdlZCwg
+MTcgZGVsZXRpb25zKC0pCiBkZWxldGUgbW9kZSAxMDA2NDQgYXJjaC9wb3dlcnBjL2luY2x1ZGUv
+YXNtL21wYzh4eC5oCgpkaWZmIC0tZ2l0IGEvYXJjaC9wb3dlcnBjL2luY2x1ZGUvYXNtL2ZzX3Bk
+LmggYi9hcmNoL3Bvd2VycGMvaW5jbHVkZS9hc20vZnNfcGQuaAppbmRleCA5MzYxY2Q1Li5mNzlk
+NmM3IDEwMDY0NAotLS0gYS9hcmNoL3Bvd2VycGMvaW5jbHVkZS9hc20vZnNfcGQuaAorKysgYi9h
+cmNoL3Bvd2VycGMvaW5jbHVkZS9hc20vZnNfcGQuaApAQCAtMjgsNyArMjgsNiBAQAogCiAjaWZk
+ZWYgQ09ORklHXzh4eAogI2luY2x1ZGUgPGFzbS84eHhfaW1tYXAuaD4KLSNpbmNsdWRlIDxhc20v
+bXBjOHh4Lmg+CiAKIGV4dGVybiBpbW1hcF90IF9faW9tZW0gKm1wYzh4eF9pbW1yOwogCmRpZmYg
+LS1naXQgYS9hcmNoL3Bvd2VycGMvaW5jbHVkZS9hc20vbXBjOHh4LmggYi9hcmNoL3Bvd2VycGMv
+aW5jbHVkZS9hc20vbXBjOHh4LmgKZGVsZXRlZCBmaWxlIG1vZGUgMTAwNjQ0CmluZGV4IDhhYjIy
+ZTguLjAwMDAwMDAKLS0tIGEvYXJjaC9wb3dlcnBjL2luY2x1ZGUvYXNtL21wYzh4eC5oCisrKyAv
+ZGV2L251bGwKQEAgLTEsMTAgKzAsMCBAQAotLyogVGhpcyBpcyB0aGUgc2luZ2xlIGZpbGUgaW5j
+bHVkZWQgYnkgYWxsIE1QQzh4eCBidWlsZCBvcHRpb25zLgotICogU2luY2UgdGhlcmUgYXJlIG1h
+bnkgZGlmZmVyZW50IGJvYXJkcyBhbmQgbm8gc3RhbmRhcmQgY29uZmlndXJhdGlvbiwKLSAqIHdl
+IGhhdmUgYSB1bmlxdWUgaW5jbHVkZSBmaWxlIGZvciBlYWNoLiAgUmF0aGVyIHRoYW4gY2hhbmdl
+IGV2ZXJ5Ci0gKiBmaWxlIHRoYXQgaGFzIHRvIGluY2x1ZGUgTVBDOHh4IGNvbmZpZ3VyYXRpb24s
+IHRoZXkgYWxsIGluY2x1ZGUKLSAqIHRoaXMgb25lIGFuZCB0aGUgY29uZmlndXJhdGlvbiBzd2l0
+Y2hpbmcgaXMgZG9uZSBoZXJlLgotICovCi0jaWZuZGVmIF9fQ09ORklHXzh4eF9ERUZTCi0jZGVm
+aW5lIF9fQ09ORklHXzh4eF9ERUZTCi0KLSNlbmRpZiAvKiBfX0NPTkZJR184eHhfREVGUyAqLwpk
+aWZmIC0tZ2l0IGEvYXJjaC9wb3dlcnBjL3BsYXRmb3Jtcy84eHgvbTh4eF9zZXR1cC5jIGIvYXJj
+aC9wb3dlcnBjL3BsYXRmb3Jtcy84eHgvbTh4eF9zZXR1cC5jCmluZGV4IDYyM2JiNDMuLmQzMDM3
+NzQgMTAwNjQ0Ci0tLSBhL2FyY2gvcG93ZXJwYy9wbGF0Zm9ybXMvOHh4L204eHhfc2V0dXAuYwor
+KysgYi9hcmNoL3Bvd2VycGMvcGxhdGZvcm1zLzh4eC9tOHh4X3NldHVwLmMKQEAgLTE4LDcgKzE4
+LDYgQEAKICNpbmNsdWRlIDxsaW51eC9mc2xfZGV2aWNlcy5oPgogCiAjaW5jbHVkZSA8YXNtL2lv
+Lmg+Ci0jaW5jbHVkZSA8YXNtL21wYzh4eC5oPgogI2luY2x1ZGUgPGFzbS84eHhfaW1tYXAuaD4K
+ICNpbmNsdWRlIDxhc20vcHJvbS5oPgogI2luY2x1ZGUgPGFzbS9mc19wZC5oPgpkaWZmIC0tZ2l0
+IGEvYXJjaC9wb3dlcnBjL3BsYXRmb3Jtcy84eHgvbXBjODg1YWRzX3NldHVwLmMgYi9hcmNoL3Bv
+d2VycGMvcGxhdGZvcm1zLzh4eC9tcGM4ODVhZHNfc2V0dXAuYwppbmRleCAzZDVlNGUxLi41OTIx
+ZGNiIDEwMDY0NAotLS0gYS9hcmNoL3Bvd2VycGMvcGxhdGZvcm1zLzh4eC9tcGM4ODVhZHNfc2V0
+dXAuYworKysgYi9hcmNoL3Bvd2VycGMvcGxhdGZvcm1zLzh4eC9tcGM4ODVhZHNfc2V0dXAuYwpA
+QCAtMzUsNyArMzUsNiBAQAogI2luY2x1ZGUgPGFzbS9wYWdlLmg+CiAjaW5jbHVkZSA8YXNtL3By
+b2Nlc3Nvci5oPgogI2luY2x1ZGUgPGFzbS90aW1lLmg+Ci0jaW5jbHVkZSA8YXNtL21wYzh4eC5o
+PgogI2luY2x1ZGUgPGFzbS84eHhfaW1tYXAuaD4KICNpbmNsdWRlIDxhc20vY3BtMS5oPgogI2lu
+Y2x1ZGUgPGFzbS9mc19wZC5oPgpkaWZmIC0tZ2l0IGEvYXJjaC9wb3dlcnBjL3BsYXRmb3Jtcy84
+eHgvdHFtOHh4X3NldHVwLmMgYi9hcmNoL3Bvd2VycGMvcGxhdGZvcm1zLzh4eC90cW04eHhfc2V0
+dXAuYwppbmRleCAyNTFhYmE4Li5kZGE2MDc4IDEwMDY0NAotLS0gYS9hcmNoL3Bvd2VycGMvcGxh
+dGZvcm1zLzh4eC90cW04eHhfc2V0dXAuYworKysgYi9hcmNoL3Bvd2VycGMvcGxhdGZvcm1zLzh4
+eC90cW04eHhfc2V0dXAuYwpAQCAtMzcsNyArMzcsNiBAQAogI2luY2x1ZGUgPGFzbS9wYWdlLmg+
+CiAjaW5jbHVkZSA8YXNtL3Byb2Nlc3Nvci5oPgogI2luY2x1ZGUgPGFzbS90aW1lLmg+Ci0jaW5j
+bHVkZSA8YXNtL21wYzh4eC5oPgogI2luY2x1ZGUgPGFzbS84eHhfaW1tYXAuaD4KICNpbmNsdWRl
+IDxhc20vY3BtMS5oPgogI2luY2x1ZGUgPGFzbS9mc19wZC5oPgpkaWZmIC0tZ2l0IGEvYXJjaC9w
+b3dlcnBjL3N5c2Rldi9taWNyb3BhdGNoLmMgYi9hcmNoL3Bvd2VycGMvc3lzZGV2L21pY3JvcGF0
+Y2guYwppbmRleCBjMGJiNzZlLi42NzI3ZGM1IDEwMDY0NAotLS0gYS9hcmNoL3Bvd2VycGMvc3lz
+ZGV2L21pY3JvcGF0Y2guYworKysgYi9hcmNoL3Bvd2VycGMvc3lzZGV2L21pY3JvcGF0Y2guYwpA
+QCAtMTMsNyArMTMsNiBAQAogI2luY2x1ZGUgPGxpbnV4L21tLmg+CiAjaW5jbHVkZSA8bGludXgv
+aW50ZXJydXB0Lmg+CiAjaW5jbHVkZSA8YXNtL2lycS5oPgotI2luY2x1ZGUgPGFzbS9tcGM4eHgu
+aD4KICNpbmNsdWRlIDxhc20vcGFnZS5oPgogI2luY2x1ZGUgPGFzbS9wZ3RhYmxlLmg+CiAjaW5j
+bHVkZSA8YXNtLzh4eF9pbW1hcC5oPgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQv
+ZnJlZXNjYWxlL2ZzX2VuZXQvbWFjLWZlYy5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNj
+YWxlL2ZzX2VuZXQvbWFjLWZlYy5jCmluZGV4IGZjNTQxMzQuLjFlZWRmYmEgMTAwNjQ0Ci0tLSBh
+L2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mc19lbmV0L21hYy1mZWMuYworKysgYi9k
+cml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZnNfZW5ldC9tYWMtZmVjLmMKQEAgLTQxLDcg
+KzQxLDYgQEAKICNpZmRlZiBDT05GSUdfOHh4CiAjaW5jbHVkZSA8YXNtLzh4eF9pbW1hcC5oPgog
+I2luY2x1ZGUgPGFzbS9wZ3RhYmxlLmg+Ci0jaW5jbHVkZSA8YXNtL21wYzh4eC5oPgogI2luY2x1
+ZGUgPGFzbS9jcG0xLmg+CiAjZW5kaWYKIApkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJu
+ZXQvZnJlZXNjYWxlL2ZzX2VuZXQvbWFjLXNjYy5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJl
+ZXNjYWxlL2ZzX2VuZXQvbWFjLXNjYy5jCmluZGV4IGI0YmYwMmYuLjkwYjNiMTkgMTAwNjQ0Ci0t
+LSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mc19lbmV0L21hYy1zY2MuYworKysg
+Yi9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZnNfZW5ldC9tYWMtc2NjLmMKQEAgLTQw
+LDcgKzQwLDYgQEAKICNpZmRlZiBDT05GSUdfOHh4CiAjaW5jbHVkZSA8YXNtLzh4eF9pbW1hcC5o
+PgogI2luY2x1ZGUgPGFzbS9wZ3RhYmxlLmg+Ci0jaW5jbHVkZSA8YXNtL21wYzh4eC5oPgogI2lu
+Y2x1ZGUgPGFzbS9jcG0xLmg+CiAjZW5kaWYKIAotLSAKMS45LjEKCl9fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCkxpbnV4cHBjLWRldiBtYWlsaW5nIGxpc3QK
+TGludXhwcGMtZGV2QGxpc3RzLm96bGFicy5vcmcKaHR0cHM6Ly9saXN0cy5vemxhYnMub3JnL2xp
+c3RpbmZvL2xpbnV4cHBjLWRldg==
