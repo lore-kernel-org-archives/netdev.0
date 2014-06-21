@@ -1,33 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] udp: Add MIB counters for rcvbuferrors
-Date: Sat, 21 Jun 2014 15:07:07 -0700 (PDT)
-Message-ID: <20140621.150707.1970046713503112179.davem@davemloft.net>
-References: <1403035982-6548-1-git-send-email-james.leddy@redhat.com>
+Subject: Re: [PATCH] 8021q: fix a potential memory leak
+Date: Sat, 21 Jun 2014 15:12:58 -0700 (PDT)
+Message-ID: <20140621.151258.715350958253521786.davem@davemloft.net>
+References: <1403070362-29664-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: james.leddy@redhat.com
+To: roy.qing.li@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39806 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39871 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750775AbaFUWHI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jun 2014 18:07:08 -0400
-In-Reply-To: <1403035982-6548-1-git-send-email-james.leddy@redhat.com>
+	with ESMTP id S1753825AbaFUWM7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jun 2014 18:12:59 -0400
+In-Reply-To: <1403070362-29664-1-git-send-email-roy.qing.li@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogSmFtZXMgTSBMZWRkeSA8amFtZXMubGVkZHlAcmVkaGF0LmNvbT4NCkRhdGU6IFR1ZSwg
-MTcgSnVuIDIwMTQgMTY6MTM6MDIgLTA0MDANCg0KPiBBZGQgTUlCIGNvdW50ZXJzIGZvciByY3Zi
-dWZlcnJvcnMgaW4gVURQIHRvIGhlbHAgZGlhZ25vc2UgcHJvYmxlbXMuDQo+IA0KPiBTaWduZWQt
-b2ZmLWJ5OiBKYW1lcyBNIExlZGR5IDxqYW1lcy5sZWRkeUByZWRoYXQuY29tPg0KDQpQbGVhc2Ug
-Y29tcGlsZSB0ZXN0IHlvdXIgcGF0Y2hlczoNCg0KbmV0L2lwdjQvdWRwLmM6IEluIGZ1bmN0aW9u
-IKF1ZHBfcXVldWVfcmN2X3NrYqI6DQpuZXQvaXB2NC91ZHAuYzoxNTM4OjU6IGVycm9yOiBsYWJl
-bCChY3N1bV9lcnJvcqIgdXNlZCBidXQgbm90IGRlZmluZWQNCm1ha2VbMV06ICoqKiBbbmV0L2lw
-djQvdWRwLm9dIEVycm9yIDENCm1ha2U6ICoqKiBbbmV0L2lwdjQvdWRwLm9dIEVycm9yIDINCg0K
-VGhlIGVuY2Fwc3VsYXRpb24gaGFuZGxpbmcgYWJvdmUgeW91ciBjaGFuZ2VzIHN0aWxsIHVzZSB0
-aGF0IGxhYmVsLg0KDQpCZXNpZGVzLCBJIHNlZSBubyByZWFzb24gdG8gcmVwbGFjZSB0aGUgZ290
-byBjc3VtX2Vycm9yOyB3aXRoDQpkb2luZyB0aGUgY291bnRlciBidW1wIGJ5IGhhbmQgYW5kIGp1
-bXBpbmcgdG8gImRyb3AiLiAgRXNwZWNpYWxseQ0Kc2luY2UsIGFzIHBlciBhYm92ZSwgdGhlcmUg
-aXMgYW5vdGhlciBjb2RlIHBhdGggd2hpY2ggY2FuIG1ha2UNCnVzZSBvZiBhbmQgdGh1cyBzaGFy
-ZSB0aGF0IGNzdW1fZXJyb3IgbGFiZWwgY29kZS4NCg==
+From: roy.qing.li@gmail.com
+Date: Wed, 18 Jun 2014 13:46:02 +0800
+
+> From: Li RongQing <roy.qing.li@gmail.com>
+> 
+> skb_cow called in vlan_reorder_header does not free the skb when it failed,
+> and vlan_reorder_header returns NULL to reset original skb when it is called
+> in vlan_untag, lead to a memory leak.
+> 
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+
+Applied and queued up for -stable, thanks.
+
+And I agree with Eric that we could define this to return error codes
+since 'skb' never changes so returning skb vs. NULL is rather awkward.
