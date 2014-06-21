@@ -1,44 +1,33 @@
-From: SF Markus Elfring <elfring@users.sourceforge.net>
-Subject: Re: [Cocci] SmPL for automatic request_firmware_nowait() conversion
-Date: Sat, 21 Jun 2014 08:50:54 +0200
-Message-ID: <53A52B4E.20807@users.sourceforge.net>
-References: <20140621015714.GX4841@wotan.suse.de>
+From: =?ISO-8859-1?Q?Bj=F8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH 1/1] net/dsa/dsa.c: remove null test before kfree
+Date: Sat, 21 Jun 2014 10:37:24 +0200
+Message-ID: <b991e868-c253-4b1a-8c95-56106c36d512@email.android.com>
+References: <1403296607-6065-1-git-send-email-fabf@skynet.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Coccinelle <cocci@systeme.lip6.fr>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Luis R. Rodriguez" <mcgrof@suse.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Grant Likely <grant.likely@linaro.org>, netdev@vger.kernel.org
+To: Fabian Frederick <fabf@skynet.be>, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140621015714.GX4841@wotan.suse.de>
+In-Reply-To: <1403296607-6065-1-git-send-email-fabf@skynet.be>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> Obviously I considered writing SmPL for this, but one thing which seemed
-> hard was that for after the request_firmware_nowait() we tend to tuck
-> away into another new call the rest of the code that was in place in the
-> original function after the old request_firmware() call. Is there a way
-> to dump all that code into the new routine?
-
-Does the refactoring "Extraction of an interface" fit also to your use case?
-http://refactoring.com/catalog/extractInterface.html
-http://c2.com/cgi/wiki?ExtractInterface
 
 
-> I think the hardest thing would be to also move the right set of variables over.
+On 20 June 2014 22:36:47 CEST, Fabian Frederick <fabf@skynet.be> wrote:
+>Fix checkpatch warning:
+>WARNING: kfree(NULL) is safe this check is probably not required
 
-The current syntax for semantic patches has got some limitations for its
-expression power. I guess that it is still a software development challenge to
-support also variations in involved statements.
+"probably not" implies that there are cases where the check *is* requir=
+ed.  That means that your commit message should explain why this partic=
+ular check is redundant.
+
+I haven't analyzed your changes here, so they could be fine for all I k=
+now. My point is that such analysis is your job when submitting cleanup=
+s like this one.
 
 
-> Its hard for me to think of how I can hint to Coccinelle enough information
-> about what stuff it needs to move around. I think one hint would be:
-> 
->   "Hey all that code that is static and is used *before* and *after* request_firmware()
->    stuff it into the private data structure"
 
-Do you need dynamic source code introspection here?
-
-Regards,
-Markus
+Bj=C3=B8rn
