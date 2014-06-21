@@ -1,64 +1,50 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 05/11] tlan: Restart autonegotiation on link loss
-Date: Sat, 21 Jun 2014 21:06:22 +0400
-Message-ID: <53A5BB8E.10206@cogentembedded.com>
-References: <1403362076-7777-1-git-send-email-linux@rainbow-software.org> <1403362076-7777-6-git-send-email-linux@rainbow-software.org>
+From: Rose Robert <mrsroserobert112200@gmail.com>
+Subject: Urgent Please Help Out
+Date: Sat, 21 Jun 2014 21:37:05 +0200
+Message-ID: <CAOcztrv64Yas2MefJkCYYMDEA9eWjsBpob=_5u+EQcxUb8TP8w@mail.gmail.com>
+Reply-To: lady.mrs.rose.robert000222@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Ondrej Zary <linux@rainbow-software.org>,
-	Samuel Chessman <chessman@tux.org>
+Content-Type: text/plain; charset=ISO-8859-1
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f52.google.com ([209.85.215.52]:64930 "EHLO
-	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751574AbaFURGM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jun 2014 13:06:12 -0400
-Received: by mail-la0-f52.google.com with SMTP id ty20so3077191lab.25
-        for <netdev@vger.kernel.org>; Sat, 21 Jun 2014 10:06:11 -0700 (PDT)
-In-Reply-To: <1403362076-7777-6-git-send-email-linux@rainbow-software.org>
+Received: from mail-la0-f68.google.com ([209.85.215.68]:47481 "EHLO
+	mail-la0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753670AbaFUThH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jun 2014 15:37:07 -0400
+Received: by mail-la0-f68.google.com with SMTP id gf5so1075636lab.3
+        for <netdev@vger.kernel.org>; Sat, 21 Jun 2014 12:37:05 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+-- 
+Urgent Please
 
-On 06/21/2014 06:47 PM, Ondrej Zary wrote:
+My name is Mrs Rose Robert, I have been surffering from Ovarian cancer
+disease and the doctor says that i have just few days to leave.I am
+from Belgium, but based in Burkina Faso,Africa since ten years ago as
+a business woman dealing with cocoa exportation,now that i am about to
+end the race like this,without any family members and no child.I have
+$1 Million US DOLLARS in EcoBank here in Burkina Faso
 
-> When link is lost on a card which uses internal PHY for 10 Mbit speeds,
-> restart autonegotiation to allow switching between 10 and 100 Mbps speeds.
->
-> Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
-> ---
->   drivers/net/ethernet/ti/tlan.c |   15 +++++++++++++++
->   1 file changed, 15 insertions(+)
+which i instructed the bank to give African union leaders to help sick
+people around Africa.But my mind is not at rest because of that i am
+writing thisletter now through the help of my Doctor beside me here in
+my hospital room. I also have $3.1 Million US Dollars in Bank Of
+Africa Burkina Faso,
 
-> diff --git a/drivers/net/ethernet/ti/tlan.c b/drivers/net/ethernet/ti/tlan.c
-> index 31d4a96..47eb30e 100644
-> --- a/drivers/net/ethernet/ti/tlan.c
-> +++ b/drivers/net/ethernet/ti/tlan.c
-[...]
-> @@ -2788,6 +2789,20 @@ static void tlan_phy_monitor(unsigned long data)
->   			       dev->name);
->   			tlan_dio_write8(dev->base_addr, TLAN_LED_REG, 0);
->   			netif_carrier_off(dev);
-> +			if (priv->adapter->flags & TLAN_ADAPTER_USE_INTERN_10) {
-> +				/* power down internal PHY */
-> +				u16 data = MII_GC_PDOWN | MII_GC_LOOPBK |
-> +					   MII_GC_ISOLATE;
+which i want you to claim from the bank and use it to help less
+previledge people in your country,but you must assure me that you will
+take only 40% of the total money and give the rest 60% to the
+orphanage home in your country,
 
-    Please insert empty line here, after declaration.
+for my heart to rest.Upon the receipt of your email that you are
+willing and capable to execute my plan, i will instruct the bank
+management to make an immediate transfer into your account. forther
+more as soon as you receive the massge if you want to reply me i will
+want you to reply me  with your personal information and you will also
+send me a copy id to forward to them that you are the person I am
+willing my wealth;
 
-> +				tlan_mii_sync(dev->base_addr);
-> +				tlan_mii_write_reg(dev, priv->phy[0],
-> +						   MII_GEN_CTL, data);
-> +				/* set to external PHY */
-> +				priv->phy_num = 1;
-> +				/* restart autonegotiation */
-> +				tlan_set_timer(dev, 4 * HZ / 10,
-> +					       TLAN_TIMER_PHY_PDOWN);
-> +				return;
-> +			}
->   		}
->   	}
+Sincerely,
 
-WBR, Sergei
+Mrs Rose Robert
