@@ -1,28 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/13][pull request] Intel Wired LAN Driver Updates
- 2014-06-20
-Date: Sat, 21 Jun 2014 15:00:37 -0700 (PDT)
-Message-ID: <20140621.150037.1023255425172782940.davem@davemloft.net>
-References: <1403250588-14356-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] udp: Add MIB counters for rcvbuferrors
+Date: Sat, 21 Jun 2014 15:07:07 -0700 (PDT)
+Message-ID: <20140621.150707.1970046713503112179.davem@davemloft.net>
+References: <1403035982-6548-1-git-send-email-james.leddy@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org
+To: james.leddy@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39755 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39806 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751427AbaFUWAk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jun 2014 18:00:40 -0400
-In-Reply-To: <1403250588-14356-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	with ESMTP id S1750775AbaFUWHI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jun 2014 18:07:08 -0400
+In-Reply-To: <1403035982-6548-1-git-send-email-james.leddy@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Fri, 20 Jun 2014 00:49:35 -0700
-
-> This series contains updates to i40e and i40evf.
-
-Pulled, thanks Jeff.
-
-I look forward to the header file consolidation :-)
+RnJvbTogSmFtZXMgTSBMZWRkeSA8amFtZXMubGVkZHlAcmVkaGF0LmNvbT4NCkRhdGU6IFR1ZSwg
+MTcgSnVuIDIwMTQgMTY6MTM6MDIgLTA0MDANCg0KPiBBZGQgTUlCIGNvdW50ZXJzIGZvciByY3Zi
+dWZlcnJvcnMgaW4gVURQIHRvIGhlbHAgZGlhZ25vc2UgcHJvYmxlbXMuDQo+IA0KPiBTaWduZWQt
+b2ZmLWJ5OiBKYW1lcyBNIExlZGR5IDxqYW1lcy5sZWRkeUByZWRoYXQuY29tPg0KDQpQbGVhc2Ug
+Y29tcGlsZSB0ZXN0IHlvdXIgcGF0Y2hlczoNCg0KbmV0L2lwdjQvdWRwLmM6IEluIGZ1bmN0aW9u
+IKF1ZHBfcXVldWVfcmN2X3NrYqI6DQpuZXQvaXB2NC91ZHAuYzoxNTM4OjU6IGVycm9yOiBsYWJl
+bCChY3N1bV9lcnJvcqIgdXNlZCBidXQgbm90IGRlZmluZWQNCm1ha2VbMV06ICoqKiBbbmV0L2lw
+djQvdWRwLm9dIEVycm9yIDENCm1ha2U6ICoqKiBbbmV0L2lwdjQvdWRwLm9dIEVycm9yIDINCg0K
+VGhlIGVuY2Fwc3VsYXRpb24gaGFuZGxpbmcgYWJvdmUgeW91ciBjaGFuZ2VzIHN0aWxsIHVzZSB0
+aGF0IGxhYmVsLg0KDQpCZXNpZGVzLCBJIHNlZSBubyByZWFzb24gdG8gcmVwbGFjZSB0aGUgZ290
+byBjc3VtX2Vycm9yOyB3aXRoDQpkb2luZyB0aGUgY291bnRlciBidW1wIGJ5IGhhbmQgYW5kIGp1
+bXBpbmcgdG8gImRyb3AiLiAgRXNwZWNpYWxseQ0Kc2luY2UsIGFzIHBlciBhYm92ZSwgdGhlcmUg
+aXMgYW5vdGhlciBjb2RlIHBhdGggd2hpY2ggY2FuIG1ha2UNCnVzZSBvZiBhbmQgdGh1cyBzaGFy
+ZSB0aGF0IGNzdW1fZXJyb3IgbGFiZWwgY29kZS4NCg==
