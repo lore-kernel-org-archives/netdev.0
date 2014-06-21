@@ -1,103 +1,49 @@
-From: Scott Wood <scottwood@freescale.com>
-Subject: [PATCH 2/2] powerpc/8xx: Remove empty asm/mpc8xx.h
-Date: Fri, 20 Jun 2014 20:02:07 -0500
-Message-ID: <1403312527-4453-2-git-send-email-scottwood@freescale.com>
-References: <1403312527-4453-1-git-send-email-scottwood@freescale.com>
+From: "Luis R. Rodriguez" <mcgrof@suse.com>
+Subject: SmPL for automatic request_firmware_nowait() conversion
+Date: Sat, 21 Jun 2014 03:57:14 +0200
+Message-ID: <20140621015714.GX4841@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Scott Wood <scottwood@freescale.com>, netdev@vger.kernel.org
-To: <linuxppc-dev@lists.ozlabs.org>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <1403312527-4453-1-git-send-email-scottwood@freescale.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: cocci@systeme.lip6.fr
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:38572 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752953AbaFUB5Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 20 Jun 2014 21:57:16 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-bTh4eF9wY21jaWFfb3BzIHdhcyB0aGUgb25seSB0aGluZyBpbiB0aGlzIGZpbGUgKG90aGVyIHRo
-YW4gYSBjb21tZW50CnRoYXQgZGVzY3JpYmVzIGEgdXNhZ2UgdGhhdCBkb2Vzbid0IG1hdGNoIHRo
-ZSBmaWxlJ3MgY29udGVudHMpOyBub3cKdGhhdCBtOHh4X3BjbWNpYV9vcHMgaXMgZ29uZSwgcmVt
-b3ZlIHRoZSBlbXB0eSBmaWxlLgoKU2lnbmVkLW9mZi1ieTogU2NvdHQgV29vZCA8c2NvdHR3b29k
-QGZyZWVzY2FsZS5jb20+CkNjOiBQYW50ZWxpcyBBbnRvbmlvdSA8cGFudGVsaXMuYW50b25pb3VA
-Z21haWwuY29tPgpDYzogVml0YWx5IEJvcmR1ZyA8dml0YkBrZXJuZWwuY3Jhc2hpbmcub3JnPgpD
-YzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZwotLS0KIGFyY2gvcG93ZXJwYy9pbmNsdWRlL2FzbS9m
-c19wZC5oICAgICAgICAgICAgICAgICB8ICAxIC0KIGFyY2gvcG93ZXJwYy9pbmNsdWRlL2FzbS9t
-cGM4eHguaCAgICAgICAgICAgICAgICB8IDEwIC0tLS0tLS0tLS0KIGFyY2gvcG93ZXJwYy9wbGF0
-Zm9ybXMvOHh4L204eHhfc2V0dXAuYyAgICAgICAgICB8ICAxIC0KIGFyY2gvcG93ZXJwYy9wbGF0
-Zm9ybXMvOHh4L21wYzg4NWFkc19zZXR1cC5jICAgICB8ICAxIC0KIGFyY2gvcG93ZXJwYy9wbGF0
-Zm9ybXMvOHh4L3RxbTh4eF9zZXR1cC5jICAgICAgICB8ICAxIC0KIGFyY2gvcG93ZXJwYy9zeXNk
-ZXYvbWljcm9wYXRjaC5jICAgICAgICAgICAgICAgICB8ICAxIC0KIGRyaXZlcnMvbmV0L2V0aGVy
-bmV0L2ZyZWVzY2FsZS9mc19lbmV0L21hYy1mZWMuYyB8ICAxIC0KIGRyaXZlcnMvbmV0L2V0aGVy
-bmV0L2ZyZWVzY2FsZS9mc19lbmV0L21hYy1zY2MuYyB8ICAxIC0KIDggZmlsZXMgY2hhbmdlZCwg
-MTcgZGVsZXRpb25zKC0pCiBkZWxldGUgbW9kZSAxMDA2NDQgYXJjaC9wb3dlcnBjL2luY2x1ZGUv
-YXNtL21wYzh4eC5oCgpkaWZmIC0tZ2l0IGEvYXJjaC9wb3dlcnBjL2luY2x1ZGUvYXNtL2ZzX3Bk
-LmggYi9hcmNoL3Bvd2VycGMvaW5jbHVkZS9hc20vZnNfcGQuaAppbmRleCA5MzYxY2Q1Li5mNzlk
-NmM3IDEwMDY0NAotLS0gYS9hcmNoL3Bvd2VycGMvaW5jbHVkZS9hc20vZnNfcGQuaAorKysgYi9h
-cmNoL3Bvd2VycGMvaW5jbHVkZS9hc20vZnNfcGQuaApAQCAtMjgsNyArMjgsNiBAQAogCiAjaWZk
-ZWYgQ09ORklHXzh4eAogI2luY2x1ZGUgPGFzbS84eHhfaW1tYXAuaD4KLSNpbmNsdWRlIDxhc20v
-bXBjOHh4Lmg+CiAKIGV4dGVybiBpbW1hcF90IF9faW9tZW0gKm1wYzh4eF9pbW1yOwogCmRpZmYg
-LS1naXQgYS9hcmNoL3Bvd2VycGMvaW5jbHVkZS9hc20vbXBjOHh4LmggYi9hcmNoL3Bvd2VycGMv
-aW5jbHVkZS9hc20vbXBjOHh4LmgKZGVsZXRlZCBmaWxlIG1vZGUgMTAwNjQ0CmluZGV4IDhhYjIy
-ZTguLjAwMDAwMDAKLS0tIGEvYXJjaC9wb3dlcnBjL2luY2x1ZGUvYXNtL21wYzh4eC5oCisrKyAv
-ZGV2L251bGwKQEAgLTEsMTAgKzAsMCBAQAotLyogVGhpcyBpcyB0aGUgc2luZ2xlIGZpbGUgaW5j
-bHVkZWQgYnkgYWxsIE1QQzh4eCBidWlsZCBvcHRpb25zLgotICogU2luY2UgdGhlcmUgYXJlIG1h
-bnkgZGlmZmVyZW50IGJvYXJkcyBhbmQgbm8gc3RhbmRhcmQgY29uZmlndXJhdGlvbiwKLSAqIHdl
-IGhhdmUgYSB1bmlxdWUgaW5jbHVkZSBmaWxlIGZvciBlYWNoLiAgUmF0aGVyIHRoYW4gY2hhbmdl
-IGV2ZXJ5Ci0gKiBmaWxlIHRoYXQgaGFzIHRvIGluY2x1ZGUgTVBDOHh4IGNvbmZpZ3VyYXRpb24s
-IHRoZXkgYWxsIGluY2x1ZGUKLSAqIHRoaXMgb25lIGFuZCB0aGUgY29uZmlndXJhdGlvbiBzd2l0
-Y2hpbmcgaXMgZG9uZSBoZXJlLgotICovCi0jaWZuZGVmIF9fQ09ORklHXzh4eF9ERUZTCi0jZGVm
-aW5lIF9fQ09ORklHXzh4eF9ERUZTCi0KLSNlbmRpZiAvKiBfX0NPTkZJR184eHhfREVGUyAqLwpk
-aWZmIC0tZ2l0IGEvYXJjaC9wb3dlcnBjL3BsYXRmb3Jtcy84eHgvbTh4eF9zZXR1cC5jIGIvYXJj
-aC9wb3dlcnBjL3BsYXRmb3Jtcy84eHgvbTh4eF9zZXR1cC5jCmluZGV4IDYyM2JiNDMuLmQzMDM3
-NzQgMTAwNjQ0Ci0tLSBhL2FyY2gvcG93ZXJwYy9wbGF0Zm9ybXMvOHh4L204eHhfc2V0dXAuYwor
-KysgYi9hcmNoL3Bvd2VycGMvcGxhdGZvcm1zLzh4eC9tOHh4X3NldHVwLmMKQEAgLTE4LDcgKzE4
-LDYgQEAKICNpbmNsdWRlIDxsaW51eC9mc2xfZGV2aWNlcy5oPgogCiAjaW5jbHVkZSA8YXNtL2lv
-Lmg+Ci0jaW5jbHVkZSA8YXNtL21wYzh4eC5oPgogI2luY2x1ZGUgPGFzbS84eHhfaW1tYXAuaD4K
-ICNpbmNsdWRlIDxhc20vcHJvbS5oPgogI2luY2x1ZGUgPGFzbS9mc19wZC5oPgpkaWZmIC0tZ2l0
-IGEvYXJjaC9wb3dlcnBjL3BsYXRmb3Jtcy84eHgvbXBjODg1YWRzX3NldHVwLmMgYi9hcmNoL3Bv
-d2VycGMvcGxhdGZvcm1zLzh4eC9tcGM4ODVhZHNfc2V0dXAuYwppbmRleCAzZDVlNGUxLi41OTIx
-ZGNiIDEwMDY0NAotLS0gYS9hcmNoL3Bvd2VycGMvcGxhdGZvcm1zLzh4eC9tcGM4ODVhZHNfc2V0
-dXAuYworKysgYi9hcmNoL3Bvd2VycGMvcGxhdGZvcm1zLzh4eC9tcGM4ODVhZHNfc2V0dXAuYwpA
-QCAtMzUsNyArMzUsNiBAQAogI2luY2x1ZGUgPGFzbS9wYWdlLmg+CiAjaW5jbHVkZSA8YXNtL3By
-b2Nlc3Nvci5oPgogI2luY2x1ZGUgPGFzbS90aW1lLmg+Ci0jaW5jbHVkZSA8YXNtL21wYzh4eC5o
-PgogI2luY2x1ZGUgPGFzbS84eHhfaW1tYXAuaD4KICNpbmNsdWRlIDxhc20vY3BtMS5oPgogI2lu
-Y2x1ZGUgPGFzbS9mc19wZC5oPgpkaWZmIC0tZ2l0IGEvYXJjaC9wb3dlcnBjL3BsYXRmb3Jtcy84
-eHgvdHFtOHh4X3NldHVwLmMgYi9hcmNoL3Bvd2VycGMvcGxhdGZvcm1zLzh4eC90cW04eHhfc2V0
-dXAuYwppbmRleCAyNTFhYmE4Li5kZGE2MDc4IDEwMDY0NAotLS0gYS9hcmNoL3Bvd2VycGMvcGxh
-dGZvcm1zLzh4eC90cW04eHhfc2V0dXAuYworKysgYi9hcmNoL3Bvd2VycGMvcGxhdGZvcm1zLzh4
-eC90cW04eHhfc2V0dXAuYwpAQCAtMzcsNyArMzcsNiBAQAogI2luY2x1ZGUgPGFzbS9wYWdlLmg+
-CiAjaW5jbHVkZSA8YXNtL3Byb2Nlc3Nvci5oPgogI2luY2x1ZGUgPGFzbS90aW1lLmg+Ci0jaW5j
-bHVkZSA8YXNtL21wYzh4eC5oPgogI2luY2x1ZGUgPGFzbS84eHhfaW1tYXAuaD4KICNpbmNsdWRl
-IDxhc20vY3BtMS5oPgogI2luY2x1ZGUgPGFzbS9mc19wZC5oPgpkaWZmIC0tZ2l0IGEvYXJjaC9w
-b3dlcnBjL3N5c2Rldi9taWNyb3BhdGNoLmMgYi9hcmNoL3Bvd2VycGMvc3lzZGV2L21pY3JvcGF0
-Y2guYwppbmRleCBjMGJiNzZlLi42NzI3ZGM1IDEwMDY0NAotLS0gYS9hcmNoL3Bvd2VycGMvc3lz
-ZGV2L21pY3JvcGF0Y2guYworKysgYi9hcmNoL3Bvd2VycGMvc3lzZGV2L21pY3JvcGF0Y2guYwpA
-QCAtMTMsNyArMTMsNiBAQAogI2luY2x1ZGUgPGxpbnV4L21tLmg+CiAjaW5jbHVkZSA8bGludXgv
-aW50ZXJydXB0Lmg+CiAjaW5jbHVkZSA8YXNtL2lycS5oPgotI2luY2x1ZGUgPGFzbS9tcGM4eHgu
-aD4KICNpbmNsdWRlIDxhc20vcGFnZS5oPgogI2luY2x1ZGUgPGFzbS9wZ3RhYmxlLmg+CiAjaW5j
-bHVkZSA8YXNtLzh4eF9pbW1hcC5oPgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQv
-ZnJlZXNjYWxlL2ZzX2VuZXQvbWFjLWZlYy5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJlZXNj
-YWxlL2ZzX2VuZXQvbWFjLWZlYy5jCmluZGV4IGZjNTQxMzQuLjFlZWRmYmEgMTAwNjQ0Ci0tLSBh
-L2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mc19lbmV0L21hYy1mZWMuYworKysgYi9k
-cml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZnNfZW5ldC9tYWMtZmVjLmMKQEAgLTQxLDcg
-KzQxLDYgQEAKICNpZmRlZiBDT05GSUdfOHh4CiAjaW5jbHVkZSA8YXNtLzh4eF9pbW1hcC5oPgog
-I2luY2x1ZGUgPGFzbS9wZ3RhYmxlLmg+Ci0jaW5jbHVkZSA8YXNtL21wYzh4eC5oPgogI2luY2x1
-ZGUgPGFzbS9jcG0xLmg+CiAjZW5kaWYKIApkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJu
-ZXQvZnJlZXNjYWxlL2ZzX2VuZXQvbWFjLXNjYy5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJl
-ZXNjYWxlL2ZzX2VuZXQvbWFjLXNjYy5jCmluZGV4IGI0YmYwMmYuLjkwYjNiMTkgMTAwNjQ0Ci0t
-LSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS9mc19lbmV0L21hYy1zY2MuYworKysg
-Yi9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvZnNfZW5ldC9tYWMtc2NjLmMKQEAgLTQw
-LDcgKzQwLDYgQEAKICNpZmRlZiBDT05GSUdfOHh4CiAjaW5jbHVkZSA8YXNtLzh4eF9pbW1hcC5o
-PgogI2luY2x1ZGUgPGFzbS9wZ3RhYmxlLmg+Ci0jaW5jbHVkZSA8YXNtL21wYzh4eC5oPgogI2lu
-Y2x1ZGUgPGFzbS9jcG0xLmg+CiAjZW5kaWYKIAotLSAKMS45LjEKCl9fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCkxpbnV4cHBjLWRldiBtYWlsaW5nIGxpc3QK
-TGludXhwcGMtZGV2QGxpc3RzLm96bGFicy5vcmcKaHR0cHM6Ly9saXN0cy5vemxhYnMub3JnL2xp
-c3RpbmZvL2xpbnV4cHBjLWRldg==
+I was just porting over an ethernet driver [0] to use request_firmware_nowait()
+since firmware loading seems can take over a minute on one device, while
+at it I noticed no other ethernet drivers yet use this API so figure
+this may be a trend coming if devices are getting as complex as cxgb4.
+The cxgb4 driver happens to even use the firmware API 3 times!
+
+Obviously I considered writing SmPL for this, but one thing which seemed
+hard was that for after the request_firmware_nowait() we tend to tuck
+away into another new call the rest of the code that was in place in the
+original function after the old request_firmware() call. Is there a way
+to dump all that code into the new routine? I think the hardest thing
+would be to also move the right set of variables over. In the third
+patch in this series for example [1] there was a state variable that
+I moved from beign static over to the ethernet private data structure.
+Its hard for me to think of how I can hint to Coccinelle enough information
+about what stuff it needs to move around. I think one hint would be:
+
+  "Hey all that code that is static and is used *before* and *after* request_firmware()
+   stuff it into the private data structure"
+
+We'd have to infer the private data structure but that's easy and I already know
+that's possible. Is this possible? The only other challenge I thought
+might be tough would be to come up with are rasonable call for the
+completion call, but I guess we can use the original routine name
+where request_firmware() was being used and postfix _completion or something.
+
+netdev: how worthy is this effort?
+
+[0] https://lkml.org/lkml/2014/6/20/688
+[1] https://lkml.org/lkml/2014/6/20/691
+ 
+  Luis
