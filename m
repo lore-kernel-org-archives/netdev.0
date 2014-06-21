@@ -1,34 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] 8021q: fix a potential memory leak
-Date: Sat, 21 Jun 2014 15:12:58 -0700 (PDT)
-Message-ID: <20140621.151258.715350958253521786.davem@davemloft.net>
-References: <1403070362-29664-1-git-send-email-roy.qing.li@gmail.com>
+Subject: Re: [PATCH net-next v2 8/8] enic: do tx cleanup in napi poll
+Date: Sat, 21 Jun 2014 15:24:40 -0700 (PDT)
+Message-ID: <20140621.152440.2152576710542860161.davem@davemloft.net>
+References: <1403077088-4818-1-git-send-email-_govind@gmx.com>
+	<1403077088-4818-9-git-send-email-_govind@gmx.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: roy.qing.li@gmail.com
+Cc: netdev@vger.kernel.org, ssujith@cisco.com, benve@cisco.com
+To: _govind@gmx.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39871 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39942 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753825AbaFUWM7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jun 2014 18:12:59 -0400
-In-Reply-To: <1403070362-29664-1-git-send-email-roy.qing.li@gmail.com>
+	with ESMTP id S1753405AbaFUWYm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jun 2014 18:24:42 -0400
+In-Reply-To: <1403077088-4818-9-git-send-email-_govind@gmx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: roy.qing.li@gmail.com
-Date: Wed, 18 Jun 2014 13:46:02 +0800
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Date: Wed, 18 Jun 2014 13:08:08 +0530
 
-> From: Li RongQing <roy.qing.li@gmail.com>
+> Till now enic had been doing tx clean in isr.
 > 
-> skb_cow called in vlan_reorder_header does not free the skb when it failed,
-> and vlan_reorder_header returns NULL to reset original skb when it is called
-> in vlan_untag, lead to a memory leak.
+> Using napi infrastructure to move the tx clean up out of isr to softirq.
+> Now, wq isr schedules napi poll. In enic_poll_msix_wq we clean up the tx queus.
 > 
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+> This is applicable only on MSIX. In INTx and MSI we use single napi to clean
+> both rx & tx queues.
+> 
+> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
 
-Applied and queued up for -stable, thanks.
+It is recommended that TX work not count against the quota.
 
-And I agree with Eric that we could define this to return error codes
-since 'skb' never changes so returning skb vs. NULL is rather awkward.
+The cost of TX packet liberation is a minute percentage of what it
+costs to process an RX frame.  Furthermore, that SKB freeing makes
+memory available for other paths in the stack.
+
+So please, just unconditionally purge the entire set of pending TX
+queue completion entries without regards to the passed in NAPI quota
+value at all.
+
+Thanks.
