@@ -1,7 +1,7 @@
 From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Subject: [RFT 3/3] cxgb4: make device firmware load use request_firmware_nowait()
-Date: Fri, 20 Jun 2014 17:39:41 -0700
-Message-ID: <1403311181-9328-4-git-send-email-mcgrof@do-not-panic.com>
+Subject: [RFT 2/3] cxgb4: make configuration load use request_firmware_nowait()
+Date: Fri, 20 Jun 2014 17:39:40 -0700
+Message-ID: <1403311181-9328-3-git-send-email-mcgrof@do-not-panic.com>
 References: <1403311181-9328-1-git-send-email-mcgrof@do-not-panic.com>
 Cc: poswald@suse.com, santosh@chelsio.com, jcheung@suse.com,
 	dchang@suse.com, netdev@vger.kernel.org,
@@ -14,235 +14,195 @@ List-Id: netdev.vger.kernel.org
 
 From: "Luis R. Rodriguez" <mcgrof@suse.com>
 
-cxgb4 loading can take a while, this ends the crusade to
-change it to be asynchronous.
+cxgb4 loading can take a while, this is part of the crusade to
+change it to be asynchronous. One more to go.
 
-Cc: Casey Leedom <leedom@chelsio.com>
-Cc: Hariprasad Shenai <hariprasad@chelsio.com>
 Cc: Philip Oswald <poswald@suse.com>
 Cc: Santosh Rastapur <santosh@chelsio.com>
 Cc: Jeffrey Cheung <jcheung@suse.com>
 Cc: David Chang <dchang@suse.com>
+Cc: Casey Leedom <leedom@chelsio.com>
+Cc: Hariprasad Shenai <hariprasad@chelsio.com>
 Signed-off-by: Luis R. Rodriguez <mcgrof@suse.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |   6 ++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 105 ++++++++++++++----------
- 2 files changed, 67 insertions(+), 44 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |   4 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 113 +++++++++++++++---------
+ 2 files changed, 73 insertions(+), 44 deletions(-)
 
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index 1507dc2..89296f1 100644
+index bcf9acf..1507dc2 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -654,6 +654,12 @@ struct adapter {
- 	char fw_config_file[32];
- 	struct completion config_comp;
- 	int config_comp_status;
+@@ -650,6 +650,10 @@ struct adapter {
+ 
+ 	struct completion flash_comp;
+ 	int flash_comp_status;
 +
-+	struct fw_info *fw_info;
-+	struct completion fw_comp;
-+	int fw_comp_status;
-+	enum dev_state state;
-+	int reset;
++	char fw_config_file[32];
++	struct completion config_comp;
++	int config_comp_status;
  };
  
  /* Defined bit width of user definable filter tuples
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 65e4124..105b83a 100644
+index 9cf6f3e..65e4124 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -5341,6 +5341,39 @@ static struct fw_info *find_fw_info(int chip)
- 	return NULL;
+@@ -4827,51 +4827,18 @@ static int adap_init0_tweaks(struct adapter *adapter)
+ 	return 0;
  }
  
-+static void cxgb4_fw_complete(const struct firmware *fw, void *context)
-+{
-+	struct adapter *adap = context;
-+	struct fw_hdr *card_fw;
-+	const u8 *fw_data = NULL;
-+	unsigned int fw_size = 0;
-+
-+	/* allocate memory to read the header of the firmware on the
-+	 * card
-+	 */
-+	card_fw = t4_alloc_mem(sizeof(*card_fw));
-+
-+	if (!fw) {
-+		dev_err(adap->pdev_dev,
-+			"unable to load firmware image %s\n",
-+			adap->fw_info->fw_mod_name);
-+	} else {
-+		fw_data = fw->data;
-+		fw_size = fw->size;
-+	}
-+
-+	/* upgrade FW logic */
-+	adap->fw_comp_status = t4_prep_fw(adap, adap->fw_info, fw_data,
-+					  fw_size, card_fw, adap->state,
-+					  &adap->reset);
-+
-+	/* Cleaning up */
-+	if (fw != NULL)
-+		release_firmware(fw);
-+	t4_free_mem(card_fw);
-+	complete(&adap->fw_comp);
+-/*
+- * Attempt to initialize the adapter via a Firmware Configuration File.
+- */
+-static int adap_init0_config(struct adapter *adapter, int reset)
++static void cxgb4_config_complete(const struct firmware *cf, void *context)
+ {
+-	struct fw_caps_config_cmd caps_cmd;
+-	const struct firmware *cf;
++	struct adapter *adapter = context;
+ 	unsigned long mtype = 0, maddr = 0;
+ 	u32 finiver, finicsum, cfcsum;
+-	int ret;
+-	int config_issued = 0;
+-	char *fw_config_file, fw_config_file_path[256];
+ 	char *config_name = NULL;
++	struct fw_caps_config_cmd caps_cmd;
++	int config_issued = 0;
++	int ret = 0;
++	char fw_config_file_path[256];
+ 
+-	/*
+-	 * Reset device if necessary.
+-	 */
+-	if (reset) {
+-		ret = t4_fw_reset(adapter, adapter->mbox,
+-				  PIORSTMODE | PIORST);
+-		if (ret < 0)
+-			goto bye;
+-	}
+-
+-	/*
+-	 * If we have a T4 configuration file under /lib/firmware/cxgb4/,
+-	 * then use that.  Otherwise, use the configuration file stored
+-	 * in the adapter flash ...
+-	 */
+-	switch (CHELSIO_CHIP_VERSION(adapter->params.chip)) {
+-	case CHELSIO_T4:
+-		fw_config_file = FW4_CFNAME;
+-		break;
+-	case CHELSIO_T5:
+-		fw_config_file = FW5_CFNAME;
+-		break;
+-	default:
+-		dev_err(adapter->pdev_dev, "Device %d is not supported\n",
+-		       adapter->pdev->device);
+-		ret = -EINVAL;
+-		goto bye;
+-	}
+-
+-	ret = request_firmware(&cf, fw_config_file, adapter->pdev_dev);
+-	if (ret < 0) {
++	if (!cf) {
+ 		config_name = "On FLASH";
+ 		mtype = FW_MEMTYPE_CF_FLASH;
+ 		maddr = t4_flash_cfg_addr(adapter);
+@@ -4879,7 +4846,7 @@ static int adap_init0_config(struct adapter *adapter, int reset)
+ 		u32 params[7], val[7];
+ 
+ 		sprintf(fw_config_file_path,
+-			"/lib/firmware/%s", fw_config_file);
++			"/lib/firmware/%s", adapter->fw_config_file);
+ 		config_name = fw_config_file_path;
+ 
+ 		if (cf->size >= FLASH_CFG_MAX_SIZE)
+@@ -4898,7 +4865,7 @@ static int adap_init0_config(struct adapter *adapter, int reset)
+ 				 * to write that out separately since we can't
+ 				 * guarantee that the bytes following the
+ 				 * residual byte in the buffer returned by
+-				 * request_firmware() are zeroed out ...
++				 * request_firmware_nowait() are zeroed out ...
+ 				 */
+ 				size_t resid = cf->size & 0x3;
+ 				size_t size = cf->size & ~0x3;
+@@ -5018,7 +4985,8 @@ static int adap_init0_config(struct adapter *adapter, int reset)
+ 	dev_info(adapter->pdev_dev, "Successfully configured using Firmware "\
+ 		 "Configuration File \"%s\", version %#x, computed checksum %#x\n",
+ 		 config_name, finiver, cfcsum);
+-	return 0;
++	complete(&adapter->config_comp);
++	return;
+ 
+ 	/*
+ 	 * Something bad happened.  Return the error ...  (If the "error"
+@@ -5026,10 +4994,67 @@ static int adap_init0_config(struct adapter *adapter, int reset)
+ 	 * want to issue a warning since this is fairly common.)
+ 	 */
+ bye:
++	adapter->flash_comp_status = ret;
+ 	if (config_issued && ret != -ENOENT)
+ 		dev_warn(adapter->pdev_dev, "\"%s\" configuration file error %d\n",
+ 			 config_name, -ret);
+-	return ret;
++	complete(&adapter->config_comp);
 +}
 +
++/*
++ * Attempt to initialize the adapter via a Firmware Configuration File.
++ */
++static int adap_init0_config(struct adapter *adapter, int reset)
++{
++	int ret;
++
++	/*
++	 * Reset device if necessary.
++	 */
++	if (reset) {
++		ret = t4_fw_reset(adapter, adapter->mbox,
++				  PIORSTMODE | PIORST);
++		if (ret < 0)
++			return ret;
++	}
++
++	/*
++	 * If we have a T4 configuration file under /lib/firmware/cxgb4/,
++	 * then use that.  Otherwise, use the configuration file stored
++	 * in the adapter flash ...
++	 */
++	switch (CHELSIO_CHIP_VERSION(adapter->params.chip)) {
++	case CHELSIO_T4:
++		snprintf(adapter->fw_config_file,
++			 sizeof(adapter->fw_config_file),
++			 "%s", FW4_CFNAME);
++		break;
++	case CHELSIO_T5:
++		snprintf(adapter->fw_config_file,
++			 sizeof(adapter->fw_config_file),
++			 "%s", FW5_CFNAME);
++		break;
++	default:
++		dev_err(adapter->pdev_dev, "Device %d is not supported\n",
++		       adapter->pdev->device);
++		ret = -EINVAL;
++		return ret;
++	}
++
++	init_completion(&adapter->config_comp);
++	adapter->config_comp_status = 0;
++
++	ret = request_firmware_nowait(THIS_MODULE, 1, adapter->fw_config_file,
++				      adapter->pdev_dev, GFP_KERNEL,
++				      adapter, cxgb4_config_complete);
++	if (ret < 0)
++		return ret;
++
++	wait_for_completion(&adapter->flash_comp);
++	if (adapter->config_comp_status != 0)
++		return adapter->config_comp_status;
++
++	return 0;
+ }
+ 
  /*
-  * Phase 0 of initialization: contact FW, obtain config, perform basic init.
-  */
-@@ -5348,10 +5381,10 @@ static int adap_init0(struct adapter *adap)
- {
- 	int ret;
- 	u32 v, port_vec;
--	enum dev_state state;
- 	u32 params[7], val[7];
- 	struct fw_caps_config_cmd caps_cmd;
--	int reset = 1;
-+
-+	adap->reset = 1;
- 
- 	/*
- 	 * Contact FW, advertising Master capability (and potentially forcing
-@@ -5360,7 +5393,7 @@ static int adap_init0(struct adapter *adap)
- 	 */
- 	ret = t4_fw_hello(adap, adap->mbox, adap->fn,
- 			  force_init ? MASTER_MUST : MASTER_MAY,
--			  &state);
-+			  &adap->state);
- 	if (ret < 0) {
- 		dev_err(adap->pdev_dev, "could not connect to FW, error %d\n",
- 			ret);
-@@ -5368,8 +5401,8 @@ static int adap_init0(struct adapter *adap)
- 	}
- 	if (ret == adap->mbox)
- 		adap->flags |= MASTER_PF;
--	if (force_init && state == DEV_STATE_INIT)
--		state = DEV_STATE_UNINIT;
-+	if (force_init && adap->state == DEV_STATE_INIT)
-+		adap->state = DEV_STATE_UNINIT;
- 
- 	/*
- 	 * If we're the Master PF Driver and the device is uninitialized,
-@@ -5380,51 +5413,34 @@ static int adap_init0(struct adapter *adap)
- 	 */
- 	t4_get_fw_version(adap, &adap->params.fw_vers);
- 	t4_get_tp_version(adap, &adap->params.tp_vers);
--	if ((adap->flags & MASTER_PF) && state != DEV_STATE_INIT) {
--		struct fw_info *fw_info;
--		struct fw_hdr *card_fw;
--		const struct firmware *fw;
--		const u8 *fw_data = NULL;
--		unsigned int fw_size = 0;
-+	if ((adap->flags & MASTER_PF) && adap->state != DEV_STATE_INIT) {
-+		init_completion(&adap->fw_comp);
-+		adap->fw_comp_status = 0;
- 
- 		/* This is the firmware whose headers the driver was compiled
- 		 * against
- 		 */
--		fw_info = find_fw_info(CHELSIO_CHIP_VERSION(adap->params.chip));
--		if (fw_info == NULL) {
-+		adap->fw_info =
-+			find_fw_info(CHELSIO_CHIP_VERSION(adap->params.chip));
-+		if (adap->fw_info == NULL) {
- 			dev_err(adap->pdev_dev,
- 				"unable to get firmware info for chip %d.\n",
- 				CHELSIO_CHIP_VERSION(adap->params.chip));
- 			return -EINVAL;
- 		}
- 
--		/* allocate memory to read the header of the firmware on the
--		 * card
--		 */
--		card_fw = t4_alloc_mem(sizeof(*card_fw));
--
- 		/* Get FW from from /lib/firmware/ */
--		ret = request_firmware(&fw, fw_info->fw_mod_name,
--				       adap->pdev_dev);
--		if (ret < 0) {
--			dev_err(adap->pdev_dev,
--				"unable to load firmware image %s, error %d\n",
--				fw_info->fw_mod_name, ret);
--		} else {
--			fw_data = fw->data;
--			fw_size = fw->size;
--		}
--
--		/* upgrade FW logic */
--		ret = t4_prep_fw(adap, fw_info, fw_data, fw_size, card_fw,
--				 state, &reset);
--
--		/* Cleaning up */
--		if (fw != NULL)
--			release_firmware(fw);
--		t4_free_mem(card_fw);
--
-+		ret = request_firmware_nowait(THIS_MODULE, 1,
-+					      adap->fw_info->fw_mod_name,
-+					      adap->pdev_dev,
-+					      GFP_KERNEL,
-+					      adap,
-+					      cxgb4_fw_complete);
- 		if (ret < 0)
-+			return -EINVAL;
-+
-+		wait_for_completion(&adap->fw_comp);
-+		if (adap->fw_comp_status < 0)
- 			goto bye;
- 	}
- 
-@@ -5460,7 +5476,7 @@ static int adap_init0(struct adapter *adap)
- 	 * adapter parameters.  Otherwise, it's time to try initializing the
- 	 * adapter ...
- 	 */
--	if (state == DEV_STATE_INIT) {
-+	if (adap->state == DEV_STATE_INIT) {
- 		dev_info(adap->pdev_dev, "Coming up as %s: "\
- 			 "Adapter already initialized\n",
- 			 adap->flags & MASTER_PF ? "MASTER" : "SLAVE");
-@@ -5477,7 +5493,7 @@ static int adap_init0(struct adapter *adap)
- 			dev_warn(adap->pdev_dev, "Firmware doesn't support "
- 				 "configuration file.\n");
- 		if (force_old_init)
--			ret = adap_init0_no_config(adap, reset);
-+			ret = adap_init0_no_config(adap, adap->reset);
- 		else {
- 			/*
- 			 * Find out whether we're dealing with a version of
-@@ -5497,7 +5513,7 @@ static int adap_init0(struct adapter *adap)
- 			 * Configuration File found.
- 			 */
- 			if (ret < 0)
--				ret = adap_init0_no_config(adap, reset);
-+				ret = adap_init0_no_config(adap, adap->reset);
- 			else {
- 				/*
- 				 * The firmware provides us with a memory
-@@ -5506,13 +5522,14 @@ static int adap_init0(struct adapter *adap)
- 				 * the Configuration File in flash.
- 				 */
- 
--				ret = adap_init0_config(adap, reset);
-+				ret = adap_init0_config(adap, adap->reset);
- 				if (ret == -ENOENT) {
- 					dev_info(adap->pdev_dev,
- 					    "No Configuration File present "
- 					    "on adapter. Using hard-wired "
- 					    "configuration parameters.\n");
--					ret = adap_init0_no_config(adap, reset);
-+					ret = adap_init0_no_config(adap,
-+								   adap->reset);
- 				}
- 			}
- 		}
-@@ -5711,7 +5728,7 @@ static int adap_init0(struct adapter *adap)
- 	 * parameters.
- 	 */
- 	t4_read_mtu_tbl(adap, adap->params.mtus, NULL);
--	if (state != DEV_STATE_INIT) {
-+	if (adap->state != DEV_STATE_INIT) {
- 		int i;
- 
- 		/* The default MTU Table contains values 1492 and 1500.
 -- 
 2.0.0
