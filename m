@@ -1,37 +1,33 @@
-From: Ondrej Zary <linux@rainbow-software.org>
-Subject: [PATCH] tulip: Poll link status more frequently for Comet chips
-Date: Sat, 21 Jun 2014 22:29:01 +0200
-Message-ID: <1403382541-7129-1-git-send-email-linux@rainbow-software.org>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Grant Grundler <grundler@parisc-linux.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.gsystem.sk ([62.176.172.50]:56092 "EHLO ns.gsystem.sk"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754703AbaFUU3Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 21 Jun 2014 16:29:16 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+Subject: [PATCH v2] net: wireless: rtlwifi: rtl8192cu: hw.c:  Cleaning up if statement that always evaluates to false
+Date: Sat, 21 Jun 2014 23:00:36 +0200
+Message-ID: <1403384437-9615-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+Cc: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Peter Wu <lekensteyn@gmail.com>,
+	Mark Cave-Ayland <mark.cave-ayland@ilande.co.uk>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Larry Finger <Larry.Finger@lwfinger.net>,
+	Chaoming Li <chaoming_li@realsil.com.cn>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Poll link status every 2 seconds instead of 60 for ADMtek Comet chips.
-Tested with AN983B.
+I found a logical error in an if statement that always evaluates to false.
 
-Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
----
- drivers/net/ethernet/dec/tulip/timer.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+This has after same discussion resulted in that we add a macro to handle this.
 
-diff --git a/drivers/net/ethernet/dec/tulip/timer.c b/drivers/net/ethernet/dec/tulip/timer.c
-index 768379b..523d9dd 100644
---- a/drivers/net/ethernet/dec/tulip/timer.c
-+++ b/drivers/net/ethernet/dec/tulip/timer.c
-@@ -158,7 +158,7 @@ void comet_timer(unsigned long data)
- {
- 	struct net_device *dev = (struct net_device *)data;
- 	struct tulip_private *tp = netdev_priv(dev);
--	int next_tick = 60*HZ;
-+	int next_tick = 2*HZ;
- 
- 	if (tulip_debug > 1)
- 		netdev_dbg(dev, "Comet link status %04x partner capability %04x\n",
+This was partly found using a static code analysis program called cppcheck.
+
+Rickard Strandqvist (1):
+  net: wireless: rtlwifi: rtl8192cu: hw.c:  Cleaning up if statement that always evaluates to false
+
+ drivers/net/wireless/rtlwifi/rtl8192ce/hw.c  |    2 +-
+ drivers/net/wireless/rtlwifi/rtl8192ce/reg.h |    1 +
+ drivers/net/wireless/rtlwifi/rtl8192cu/hw.c  |    2 +-
+ 3 files changed, 3 insertions(+), 2 deletions(-)
+
 -- 
-Ondrej Zary
+1.7.10.4
