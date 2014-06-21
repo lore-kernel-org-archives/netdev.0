@@ -1,55 +1,34 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 0/5] net: Checksum offload changes - Part V
-Date: Fri, 20 Jun 2014 22:13:17 -0700
-Message-ID: <1403327597.16682.14.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <alpine.DEB.2.02.1406201629550.12225@tomh.mtv.corp.google.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH RFC 30/30] net: fec: consolidate hwtstamp implementation
+Date: Sat, 21 Jun 2014 08:11:12 +0200
+Message-ID: <20140621061112.GA3965@localhost.localdomain>
+References: <20140620121118.GR32514@n2100.arm.linux.org.uk>
+ <E1Wxxhw-0005Yn-Ey@rmk-PC.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-arm-kernel@lists.infradead.org,
+	Fugang Duan <B38611@freescale.com>, netdev@vger.kernel.org
+To: Russell King <rmk+kernel@arm.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f49.google.com ([74.125.82.49]:36293 "EHLO
-	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751955AbaFUFNV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jun 2014 01:13:21 -0400
-Received: by mail-wg0-f49.google.com with SMTP id y10so4606812wgg.32
-        for <netdev@vger.kernel.org>; Fri, 20 Jun 2014 22:13:20 -0700 (PDT)
-In-Reply-To: <alpine.DEB.2.02.1406201629550.12225@tomh.mtv.corp.google.com>
+Received: from mail-we0-f178.google.com ([74.125.82.178]:38889 "EHLO
+	mail-we0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753197AbaFUGLi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jun 2014 02:11:38 -0400
+Received: by mail-we0-f178.google.com with SMTP id x48so4704866wes.9
+        for <netdev@vger.kernel.org>; Fri, 20 Jun 2014 23:11:37 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <E1Wxxhw-0005Yn-Ey@rmk-PC.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-06-20 at 16:37 -0700, Tom Herbert wrote:
-> I am working on overhauling RX checksum offload. Goals of this effort
-> are:
-> 
-> - Specify what exactly it means when driver returns CHECKSUM_UNNECESSARY
-> - Preserve CHECKSUM_COMPLETE through encapsulation layers
-> - Don't do skb_checksum more than once per packet
-> - Unify GRO and non-GRO csum verification as much as possible
-> - Unify the checksum functions (checksum_init)
-> - Simplify code
-> 
-> What is in this fifth patch set:
-> 
-> - Added GRO checksum validation functions
-> - Call the GRO validations functions from TCP and GRE gro_receive
-> - Perform checksum verification in the UDP gro_receive path using
->   GRO functions and add support for gro_receive in UDP6
+On Fri, Jun 20, 2014 at 01:14:16PM +0100, Russell King wrote:
+> Both transmit and receive use the same infrastructure for calculating
+> the packet timestamp.  Rather than duplicating the code, provide a
+> function to do this common work.  Model this function in the Intel
+> e1000e version which avoids calling ns_to_ktime() within the spinlock;
+> the spinlock is critical for timecounter_cyc2time() but not
+> ns_to_ktime().
 
-What kind of speed regression / code bloat comes from all these
-changes ?
+Thanks for cleaning this up.
 
-I see a lot of added complexity / code in GRO layer, but no performance
-numbers...
-
-__skb_gro_checksum_complete() for example calls skb_checksum() twice,
-and we know this is expensive, particularly for IPv4 case where we know
-the header checksum has to be 0.
-
-GRO performance is already not very good, lot of people just disable GRO
-because of it being very slow. I'd like to not give them more
-incentives...
-
-Without proper RFS support from the NIC, all encapsulated traffic tend
-to land on a single RX queue, so performance of GRO layer is critical.
+Acked-by: Richard Cochran <richardcochran@gmail.com>
