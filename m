@@ -1,50 +1,37 @@
-From: Rose Robert <mrsroserobert112200@gmail.com>
-Subject: Urgent Please Help Out
-Date: Sat, 21 Jun 2014 21:37:05 +0200
-Message-ID: <CAOcztrv64Yas2MefJkCYYMDEA9eWjsBpob=_5u+EQcxUb8TP8w@mail.gmail.com>
-Reply-To: lady.mrs.rose.robert000222@gmail.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: undisclosed-recipients:;
+From: Ondrej Zary <linux@rainbow-software.org>
+Subject: [PATCH] tulip: Poll link status more frequently for Comet chips
+Date: Sat, 21 Jun 2014 22:29:01 +0200
+Message-ID: <1403382541-7129-1-git-send-email-linux@rainbow-software.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Grant Grundler <grundler@parisc-linux.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f68.google.com ([209.85.215.68]:47481 "EHLO
-	mail-la0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753670AbaFUThH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jun 2014 15:37:07 -0400
-Received: by mail-la0-f68.google.com with SMTP id gf5so1075636lab.3
-        for <netdev@vger.kernel.org>; Sat, 21 Jun 2014 12:37:05 -0700 (PDT)
+Received: from ns.gsystem.sk ([62.176.172.50]:56092 "EHLO ns.gsystem.sk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754703AbaFUU3Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 21 Jun 2014 16:29:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Poll link status every 2 seconds instead of 60 for ADMtek Comet chips.
+Tested with AN983B.
+
+Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
+---
+ drivers/net/ethernet/dec/tulip/timer.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/dec/tulip/timer.c b/drivers/net/ethernet/dec/tulip/timer.c
+index 768379b..523d9dd 100644
+--- a/drivers/net/ethernet/dec/tulip/timer.c
++++ b/drivers/net/ethernet/dec/tulip/timer.c
+@@ -158,7 +158,7 @@ void comet_timer(unsigned long data)
+ {
+ 	struct net_device *dev = (struct net_device *)data;
+ 	struct tulip_private *tp = netdev_priv(dev);
+-	int next_tick = 60*HZ;
++	int next_tick = 2*HZ;
+ 
+ 	if (tulip_debug > 1)
+ 		netdev_dbg(dev, "Comet link status %04x partner capability %04x\n",
 -- 
-Urgent Please
-
-My name is Mrs Rose Robert, I have been surffering from Ovarian cancer
-disease and the doctor says that i have just few days to leave.I am
-from Belgium, but based in Burkina Faso,Africa since ten years ago as
-a business woman dealing with cocoa exportation,now that i am about to
-end the race like this,without any family members and no child.I have
-$1 Million US DOLLARS in EcoBank here in Burkina Faso
-
-which i instructed the bank to give African union leaders to help sick
-people around Africa.But my mind is not at rest because of that i am
-writing thisletter now through the help of my Doctor beside me here in
-my hospital room. I also have $3.1 Million US Dollars in Bank Of
-Africa Burkina Faso,
-
-which i want you to claim from the bank and use it to help less
-previledge people in your country,but you must assure me that you will
-take only 40% of the total money and give the rest 60% to the
-orphanage home in your country,
-
-for my heart to rest.Upon the receipt of your email that you are
-willing and capable to execute my plan, i will instruct the bank
-management to make an immediate transfer into your account. forther
-more as soon as you receive the massge if you want to reply me i will
-want you to reply me  with your personal information and you will also
-send me a copy id to forward to them that you are the person I am
-willing my wealth;
-
-Sincerely,
-
-Mrs Rose Robert
+Ondrej Zary
