@@ -1,29 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: em_canid: remove useless statements from
- em_canid_change
-Date: Sat, 21 Jun 2014 15:40:36 -0700 (PDT)
-Message-ID: <20140621.154036.2087202508923213287.davem@davemloft.net>
-References: <53A15267.7050304@cn.fujitsu.com>
+Subject: Re: [PATCH v2 0/3] Handle stuck TX queue bug in AT8030 PHY
+Date: Sat, 21 Jun 2014 15:51:13 -0700 (PDT)
+Message-ID: <20140621.155113.677176502129866161.davem@davemloft.net>
+References: <1403082103-23709-1-git-send-email-zonque@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: lisovy@gmail.com, netdev@vger.kernel.org
-To: duanj.fnst@cn.fujitsu.com
+Cc: netdev@vger.kernel.org, f.fainelli@gmail.com,
+	marek.belisko@gmail.com, ujhelyi.m@gmail.com
+To: zonque@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40059 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40131 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751981AbaFUWkh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jun 2014 18:40:37 -0400
-In-Reply-To: <53A15267.7050304@cn.fujitsu.com>
+	with ESMTP id S1752121AbaFUWvO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jun 2014 18:51:14 -0400
+In-Reply-To: <1403082103-23709-1-git-send-email-zonque@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Date: Wed, 18 Jun 2014 16:48:39 +0800
+From: Daniel Mack <zonque@gmail.com>
+Date: Wed, 18 Jun 2014 11:01:40 +0200
 
-> tcf_ematch is allocated by kzalloc in function tcf_em_tree_validate(),
-> so cm_old is always NULL.
-> 
-> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+> These three small patches circument a hardware bug in AT8030 PHYs that
+> leads to stuck TX FIFO queues when the link goes away while there are
+> pending patches in der outbound queue. This bug has been confirmed by
+> the vendor, and their only proposed fix is to apply a hardware reset
+> every time the link goes down.
+...
+> v1 -> v2:
+> 	* Rename phy device callback from adjust_state to link_change_notify
 
-Applied, thanks.
+Series applied, thanks Daniel.
