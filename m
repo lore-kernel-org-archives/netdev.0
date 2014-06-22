@@ -1,155 +1,64 @@
-From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
-Subject: RE: [PATCH RFC 18/30] net: fec: remove inappropriate calls around
- fec_restart()
-Date: Sun, 22 Jun 2014 06:54:28 +0000
-Message-ID: <869ac1ad635844ee84adbecd2eb0d0dc@BLUPR03MB373.namprd03.prod.outlook.com>
-References: <20140620121118.GR32514@n2100.arm.linux.org.uk>
- <E1Wxxgx-0005Y0-50@rmk-PC.arm.linux.org.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] xen-netback: bookkeep number of queues in our own
+ module
+Date: Sun, 22 Jun 2014 00:13:55 -0700 (PDT)
+Message-ID: <20140622.001355.624567316306796984.davem@davemloft.net>
+References: <1403100558-12866-1-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Russell King <rmk+kernel@arm.linux.org.uk>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
+	boris.ostrovsky@oracle.com, ian.campbell@citrix.com
+To: wei.liu2@citrix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2lp0212.outbound.protection.outlook.com ([207.46.163.212]:31279
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751102AbaFVGyu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jun 2014 02:54:50 -0400
-In-Reply-To: <E1Wxxgx-0005Y0-50@rmk-PC.arm.linux.org.uk>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:42158 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750857AbaFVHN6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jun 2014 03:13:58 -0400
+In-Reply-To: <1403100558-12866-1-git-send-email-wei.liu2@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Russell King <rmk@arm.linux.org.uk> Data: Friday, June 20, 2014 8:13 PM
->To: linux-arm-kernel@lists.infradead.org
->Cc: Duan Fugang-B38611; netdev@vger.kernel.org
->Subject: [PATCH RFC 18/30] net: fec: remove inappropriate calls around
->fec_restart()
->
->This is the second stage to "move calls to quiesce/resume packet
->processing out of fec_restart()", where we remove calls which are not
->appropriate to the call site.
->
->In the majority of cases, there is no need to detach and reattach the
->interface as we are holding the queue xmit lock across the reset.  The
->exception to that is in fec_resume(), where we are already detached by the
->suspend function.  Here, we can remove the call to detach the interface.
->
->We also do not need to stop the transmit queue.  Holding the xmit lock is
->enough to ensure that the transmit packet processing is not running while
->we perform our task.  However, since fec_restart() always cleans the rings,
->we call netif_wake_queue() (or netif_device_attach() in the case of resume)
->just before dropping the xmit lock.  This prevents the watchdog firing.
->
->Lastly, always call napi_enable() after the device has been reattached in
->the resume path so that we know that the transmit packet processing is
->already in an enabled state, so we don't call netif_wake_queue() while
->detached.
->
->Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
->---
-> drivers/net/ethernet/freescale/fec_main.c | 26 ++++++--------------------
-> 1 file changed, 6 insertions(+), 20 deletions(-)
->
->diff --git a/drivers/net/ethernet/freescale/fec_main.c
->b/drivers/net/ethernet/freescale/fec_main.c
->index 4a295b4bfb94..49c154af6da2 100644
->--- a/drivers/net/ethernet/freescale/fec_main.c
->+++ b/drivers/net/ethernet/freescale/fec_main.c
->@@ -1058,15 +1058,12 @@ static void fec_enet_work(struct work_struct *work)
-> 		fep->delay_work.timeout = false;
-> 		rtnl_lock();
-> 		if (netif_device_present(ndev) || netif_running(ndev)) {
->-			netif_device_detach(ndev);
-> 			napi_disable(&fep->napi);
->-			netif_tx_disable(ndev);
-> 			netif_tx_lock_bh(ndev);
-> 			fec_restart(ndev, fep->full_duplex);
->-			netif_tx_unlock_bh(ndev);
-> 			netif_wake_queue(ndev);
->+			netif_tx_unlock_bh(ndev);
-> 			napi_enable(&fep->napi);
->-			netif_device_attach(ndev);
-> 		}
-> 		rtnl_unlock();
-> 	}
->@@ -1524,15 +1521,12 @@ static void fec_enet_adjust_link(struct net_device
->*ndev)
->
-> 		/* if any of the above changed restart the FEC */
-> 		if (status_change) {
->-			netif_device_detach(ndev);
-> 			napi_disable(&fep->napi);
->-			netif_tx_disable(ndev);
-> 			netif_tx_lock_bh(ndev);
-> 			fec_restart(ndev, phy_dev->duplex);
->-			netif_tx_unlock_bh(ndev);
-> 			netif_wake_queue(ndev);
->+			netif_tx_unlock_bh(ndev);
-> 			napi_enable(&fep->napi);
->-			netif_device_attach(ndev);
-> 		}
-> 	} else {
-> 		if (fep->link) {
->@@ -1919,15 +1913,12 @@ static int fec_enet_set_pauseparam(struct
->net_device *ndev,
-> 		phy_start_aneg(fep->phy_dev);
-> 	}
-> 	if (netif_running(ndev)) {
->-		netif_device_detach(ndev);
-> 		napi_disable(&fep->napi);
->-		netif_tx_disable(ndev);
-> 		netif_tx_lock_bh(ndev);
-> 		fec_restart(ndev, fep->full_duplex);
->-		netif_tx_unlock_bh(ndev);
-> 		netif_wake_queue(ndev);
->+		netif_tx_unlock_bh(ndev);
-> 		napi_enable(&fep->napi);
->-		netif_device_attach(ndev);
-> 	}
->
-> 	return 0;
->@@ -2372,15 +2363,12 @@ static int fec_set_features(struct net_device
->*netdev,
->
-> 		if (netif_running(netdev)) {
-> 			fec_stop(netdev);
->-			netif_device_detach(netdev);
-> 			napi_disable(&fep->napi);
->-			netif_tx_disable(netdev);
-> 			netif_tx_lock_bh(netdev);
-> 			fec_restart(netdev, fep->phy_dev->duplex);
->-			netif_tx_unlock_bh(netdev);
-> 			netif_wake_queue(netdev);
->+			netif_tx_unlock_bh(netdev);
-> 			napi_enable(&fep->napi);
->-			netif_device_attach(netdev);
-> 		}
-> 	}
->
->@@ -2748,15 +2736,13 @@ fec_resume(struct device *dev)
->
-> 	rtnl_lock();
-> 	if (netif_running(ndev)) {
->-		netif_device_detach(ndev);
-> 		napi_disable(&fep->napi);
->-		netif_tx_disable(ndev);
-> 		netif_tx_lock_bh(ndev);
-> 		fec_restart(ndev, fep->full_duplex);
->+		netif_device_attach(ndev);
-> 		netif_tx_unlock_bh(ndev);
->-		netif_wake_queue(ndev);
->-		napi_enable(&fep->napi);
-> 		netif_device_attach(ndev);
->+		napi_enable(&fep->napi);
-> 		phy_start(fep->phy_dev);
-> 	}
-> 	rtnl_unlock();
->--
-Patch #17 anc #18 can merge to one patch.
+From: Wei Liu <wei.liu2@citrix.com>
+Date: Wed, 18 Jun 2014 15:09:18 +0100
 
-Thanks,
-Andy
+> The original code uses netdev->real_num_tx_queues to bookkeep number of
+> queues and invokes netif_set_real_num_tx_queues to set the number of
+> queues. However, netif_set_real_num_tx_queues doesn't allow
+> real_num_tx_queues to be smaller than 1, which means setting the number
+> to 0 will not work and real_num_tx_queues is untouched.
+> 
+> This is bogus when xenvif_free is invoked before any number of queues is
+> allocated. That function needs to iterate through all queues to free
+> resources. Using the wrong number of queues results in NULL pointer
+> dereference.
+> 
+> So we bookkeep the number of queues in xen-netback to solve this
+> problem. The usage of real_num_tx_queues in core driver is to cap queue
+> index to a valid value. In start_xmit we've already guarded against out
+> of range queue index so we should be fine.
+> 
+> This fixes a regression introduced by multiqueue patchset in 3.16-rc1.
+> 
+> Reported-by: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+
+I say you should have a select queue method at all.
+
+You're essentially providing a half-assed version of __netdev_pick_tx()
+except that:
+
+1) You're _completely_ ignoring the socket hash, if any.
+
+2) You're not allowing XPS to work, _at all_.
+
+I think you need to serious reevaluate providing any select queue
+method at all, just let netdev_pick_tx() do all the work.
+
+If you have some issue maintaining the release of queue resources,
+maintain that privately and keep those details in the queue resource
+allocation and freeing code _only_.  Don't make it an issue that
+interferes at all with the normal mechanisms for SKB tx queue
+selection.
+
+Thanks.
