@@ -1,52 +1,86 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net] net/mlx4_core: Fix the error flow when probing with invalid VF configuration
-Date: Sun, 22 Jun 2014 13:21:34 +0300
-Message-ID: <1403432494-20043-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, amirv@mellanox.com, matanb@mellanox.com,
-	jackm@dev.mellanox.co.il, Or Gerlitz <ogerlitz@mellanox.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:38867 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751390AbaFVKVp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 Jun 2014 06:21:45 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?UTF-8?q?Manuel=20Sch=C3=B6lling?= <manuel.schoelling@gmx.de>
+Subject: [PATCH] xilinx: Fix compiler warning
+Date: Sun, 22 Jun 2014 12:21:01 +0200
+Message-ID: <1403432461-18296-1-git-send-email-manuel.schoelling@gmx.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: anirudh@xilinx.com, John.Linn@xilinx.com, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org,
+	=?UTF-8?q?Manuel=20Sch=C3=B6lling?= <manuel.schoelling@gmx.de>
+To: michal.simek@xilinx.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Single ported VF are currently not supported on configurations where
-one or both ports are IB. When we hit this case, the relevant flow in
-the driver didn't return error and jumped to the wrong label. Fix that.
+The time comparsion functions require arguments of type unsigned long
+instead of (signed) long.
 
-Fixes: dd41cc3 ('net/mlx4: Adapt num_vfs/probed_vf params for single port VF')
-Reported-by: Shirley Ma <shirley.ma@oracle.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Manuel Sch=C3=B6lling <manuel.schoelling@gmx.de>
 ---
+ drivers/net/ethernet/xilinx/ll_temac_main.c       |    2 +-
+ drivers/net/ethernet/xilinx/xilinx_axienet_mdio.c |    2 +-
+ drivers/net/ethernet/xilinx/xilinx_emaclite.c     |    2 +-
+ init/do_mounts.c                                  |    1 -
+ 4 files changed, 3 insertions(+), 4 deletions(-)
 
-Dave, 
-
-The bug was introduced in 3.15-rc1, can you please push the 
-fix to -stable of 3.15.y?
-
-Thanks,
-
-Or.
-
- drivers/net/ethernet/mellanox/mlx4/main.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index 5f42f6d..82ab427 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -2439,7 +2439,8 @@ slave_start:
- 			    (num_vfs_argc > 1 || probe_vfs_argc > 1)) {
- 				mlx4_err(dev,
- 					 "Invalid syntax of num_vfs/probe_vfs with IB port - single port VFs syntax is only supported when all ports are configured as ethernet\n");
--				goto err_close;
-+				err = -EINVAL;
-+				goto err_master_mfunc;
- 			}
- 			for (i = 0; i < sizeof(nvfs)/sizeof(nvfs[0]); i++) {
- 				unsigned j;
--- 
-1.7.1
+diff --git a/drivers/net/ethernet/xilinx/ll_temac_main.c b/drivers/net/=
+ethernet/xilinx/ll_temac_main.c
+index 4ef818a..8a6e5c2 100644
+--- a/drivers/net/ethernet/xilinx/ll_temac_main.c
++++ b/drivers/net/ethernet/xilinx/ll_temac_main.c
+@@ -72,7 +72,7 @@ void temac_iow(struct temac_local *lp, int offset, u3=
+2 value)
+=20
+ int temac_indirect_busywait(struct temac_local *lp)
+ {
+-	long end =3D jiffies + 2;
++	unsigned long end =3D jiffies + 2;
+=20
+ 	while (!(temac_ior(lp, XTE_RDY0_OFFSET) & XTE_RDY0_HARD_ACS_RDY_MASK)=
+) {
+ 		if (time_before_eq(end, jiffies)) {
+diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_mdio.c b/driver=
+s/net/ethernet/xilinx/xilinx_axienet_mdio.c
+index d4abf47..3b67d60 100644
+--- a/drivers/net/ethernet/xilinx/xilinx_axienet_mdio.c
++++ b/drivers/net/ethernet/xilinx/xilinx_axienet_mdio.c
+@@ -19,7 +19,7 @@
+ /* Wait till MDIO interface is ready to accept a new transaction.*/
+ int axienet_mdio_wait_until_ready(struct axienet_local *lp)
+ {
+-	long end =3D jiffies + 2;
++	unsigned long end =3D jiffies + 2;
+ 	while (!(axienet_ior(lp, XAE_MDIO_MCR_OFFSET) &
+ 		 XAE_MDIO_MCR_READY_MASK)) {
+ 		if (time_before_eq(end, jiffies)) {
+diff --git a/drivers/net/ethernet/xilinx/xilinx_emaclite.c b/drivers/ne=
+t/ethernet/xilinx/xilinx_emaclite.c
+index 8c4aed3..782bb93 100644
+--- a/drivers/net/ethernet/xilinx/xilinx_emaclite.c
++++ b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
+@@ -695,7 +695,7 @@ static irqreturn_t xemaclite_interrupt(int irq, voi=
+d *dev_id)
+=20
+ static int xemaclite_mdio_wait(struct net_local *lp)
+ {
+-	long end =3D jiffies + 2;
++	unsigned long end =3D jiffies + 2;
+=20
+ 	/* wait for the MDIO interface to not be busy or timeout
+ 	   after some time.
+diff --git a/init/do_mounts.c b/init/do_mounts.c
+index 60c4196..2d069a3 100644
+--- a/init/do_mounts.c
++++ b/init/do_mounts.c
+@@ -351,7 +351,6 @@ static void __init get_fs_names(char *page)
+ 				continue;
+ 			line++;
+=20
+-			/* append fsname */
+ 			memmove(fsnames, line, strlen(line)+1);
+ 			fsnames +=3D strlen(fsnames)+1;
+ 		} while (page !=3D NULL);
+--=20
+1.7.10.4
