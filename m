@@ -1,9 +1,10 @@
 From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
-Subject: RE: [PATCH RFC 04/30] net: fec: fix interrupt handling races
-Date: Sun, 22 Jun 2014 06:38:59 +0000
-Message-ID: <7c6bf164473641f0944dc77cd84375d8@BLUPR03MB373.namprd03.prod.outlook.com>
+Subject: RE: [PATCH RFC 18/30] net: fec: remove inappropriate calls around
+ fec_restart()
+Date: Sun, 22 Jun 2014 06:54:28 +0000
+Message-ID: <869ac1ad635844ee84adbecd2eb0d0dc@BLUPR03MB373.namprd03.prod.outlook.com>
 References: <20140620121118.GR32514@n2100.arm.linux.org.uk>
- <E1Wxxfn-0005X5-KD@rmk-PC.arm.linux.org.uk>
+ <E1Wxxgx-0005Y0-50@rmk-PC.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
@@ -12,134 +13,143 @@ To: Russell King <rmk+kernel@arm.linux.org.uk>,
 	"linux-arm-kernel@lists.infradead.org"
 	<linux-arm-kernel@lists.infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2lp0209.outbound.protection.outlook.com ([207.46.163.209]:51397
+Received: from mail-bl2lp0212.outbound.protection.outlook.com ([207.46.163.212]:31279
 	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751102AbaFVGjO convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jun 2014 02:39:14 -0400
-In-Reply-To: <E1Wxxfn-0005X5-KD@rmk-PC.arm.linux.org.uk>
+	id S1751102AbaFVGyu convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jun 2014 02:54:50 -0400
+In-Reply-To: <E1Wxxgx-0005Y0-50@rmk-PC.arm.linux.org.uk>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Russell King <rmk@arm.linux.org.uk> Data: Friday, June 20, 2014 8:12 PM
+From: Russell King <rmk@arm.linux.org.uk> Data: Friday, June 20, 2014 8:13 PM
 >To: linux-arm-kernel@lists.infradead.org
 >Cc: Duan Fugang-B38611; netdev@vger.kernel.org
->Subject: [PATCH RFC 04/30] net: fec: fix interrupt handling races
+>Subject: [PATCH RFC 18/30] net: fec: remove inappropriate calls around
+>fec_restart()
 >
->While running: while :; do iperf -c <HOST> -P 4; done, transmit timeouts
->are regularly reported.  With the tx ring dumping in place, we can see
->that all entries are in use, and the hardware has finished transmitting
->these packets.  However, the driver has not reclaimed these ring entries.
+>This is the second stage to "move calls to quiesce/resume packet
+>processing out of fec_restart()", where we remove calls which are not
+>appropriate to the call site.
 >
->This can occur if the interrupt handler is invoked at the wrong moment -
->eg:
+>In the majority of cases, there is no need to detach and reattach the
+>interface as we are holding the queue xmit lock across the reset.  The
+>exception to that is in fec_resume(), where we are already detached by the
+>suspend function.  Here, we can remove the call to detach the interface.
 >
->	CPU0				CPU1
->	fec_enet_tx()
->					interrupt, IEVENT = FEC_ENET_TXF
->					FEC_ENET_TXF cleared
->					napi_schedule_prep()
->	napi_complete()
+>We also do not need to stop the transmit queue.  Holding the xmit lock is
+>enough to ensure that the transmit packet processing is not running while
+>we perform our task.  However, since fec_restart() always cleans the rings,
+>we call netif_wake_queue() (or netif_device_attach() in the case of resume)
+>just before dropping the xmit lock.  This prevents the watchdog firing.
 >
->The result is that we clear the transmit interrupt, but we don't trigger
->any cleaning of the transmit ring.  Instead, use a different strategy:
->
->- When receiving a transmit or receive interrupt, disable both tx and rx
->  interrupts, but do not acknowledge them.  Schedule a napi poll.  Don't
->  loop.
->
->- When we are polled, read IEVENT, acknowledging the pending transmit
->  and receive interrupts, before then going on to process the
->  appropriate rings.
->
->This allows us to avoid the race, and has a number of other advantages:
->- we cut down on the number of transmit interrupts we have to process.
->- we only look at the rings which have pending events.
->- we gain additional throughput: the iperf total bandwidth increases
->  from about 180Mbps to 240Mbps:
->
->[  3]  0.0-10.0 sec  68.1 MBytes  57.0 Mbits/sec [  5]  0.0-10.0 sec  72.4
->MBytes  60.5 Mbits/sec [  4]  0.0-10.1 sec  76.1 MBytes  63.5 Mbits/sec
->[  6]  0.0-10.1 sec  71.9 MBytes  59.9 Mbits/sec
->[SUM]  0.0-10.1 sec   288 MBytes   241 Mbits/sec
+>Lastly, always call napi_enable() after the device has been reattached in
+>the resume path so that we know that the transmit packet processing is
+>already in an enabled state, so we don't call netif_wake_queue() while
+>detached.
 >
 >Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 >---
-> drivers/net/ethernet/freescale/fec_main.c | 40 +++++++++++++++++---------
->-----
-> 1 file changed, 22 insertions(+), 18 deletions(-)
+> drivers/net/ethernet/freescale/fec_main.c | 26 ++++++--------------------
+> 1 file changed, 6 insertions(+), 20 deletions(-)
 >
 >diff --git a/drivers/net/ethernet/freescale/fec_main.c
 >b/drivers/net/ethernet/freescale/fec_main.c
->index 045ea71f2b59..4e695b742030 100644
+>index 4a295b4bfb94..49c154af6da2 100644
 >--- a/drivers/net/ethernet/freescale/fec_main.c
 >+++ b/drivers/net/ethernet/freescale/fec_main.c
->@@ -1369,29 +1369,25 @@ fec_enet_interrupt(int irq, void *dev_id)  {
-> 	struct net_device *ndev = dev_id;
-> 	struct fec_enet_private *fep = netdev_priv(ndev);
->+	const unsigned napi_mask = FEC_ENET_RXF | FEC_ENET_TXF;
-> 	uint int_events;
-> 	irqreturn_t ret = IRQ_NONE;
+>@@ -1058,15 +1058,12 @@ static void fec_enet_work(struct work_struct *work)
+> 		fep->delay_work.timeout = false;
+> 		rtnl_lock();
+> 		if (netif_device_present(ndev) || netif_running(ndev)) {
+>-			netif_device_detach(ndev);
+> 			napi_disable(&fep->napi);
+>-			netif_tx_disable(ndev);
+> 			netif_tx_lock_bh(ndev);
+> 			fec_restart(ndev, fep->full_duplex);
+>-			netif_tx_unlock_bh(ndev);
+> 			netif_wake_queue(ndev);
+>+			netif_tx_unlock_bh(ndev);
+> 			napi_enable(&fep->napi);
+>-			netif_device_attach(ndev);
+> 		}
+> 		rtnl_unlock();
+> 	}
+>@@ -1524,15 +1521,12 @@ static void fec_enet_adjust_link(struct net_device
+>*ndev)
 >
->-	do {
->-		int_events = readl(fep->hwp + FEC_IEVENT);
->-		writel(int_events, fep->hwp + FEC_IEVENT);
->+	int_events = readl(fep->hwp + FEC_IEVENT);
->+	writel(int_events & ~napi_mask, fep->hwp + FEC_IEVENT);
+> 		/* if any of the above changed restart the FEC */
+> 		if (status_change) {
+>-			netif_device_detach(ndev);
+> 			napi_disable(&fep->napi);
+>-			netif_tx_disable(ndev);
+> 			netif_tx_lock_bh(ndev);
+> 			fec_restart(ndev, phy_dev->duplex);
+>-			netif_tx_unlock_bh(ndev);
+> 			netif_wake_queue(ndev);
+>+			netif_tx_unlock_bh(ndev);
+> 			napi_enable(&fep->napi);
+>-			netif_device_attach(ndev);
+> 		}
+> 	} else {
+> 		if (fep->link) {
+>@@ -1919,15 +1913,12 @@ static int fec_enet_set_pauseparam(struct
+>net_device *ndev,
+> 		phy_start_aneg(fep->phy_dev);
+> 	}
+> 	if (netif_running(ndev)) {
+>-		netif_device_detach(ndev);
+> 		napi_disable(&fep->napi);
+>-		netif_tx_disable(ndev);
+> 		netif_tx_lock_bh(ndev);
+> 		fec_restart(ndev, fep->full_duplex);
+>-		netif_tx_unlock_bh(ndev);
+> 		netif_wake_queue(ndev);
+>+		netif_tx_unlock_bh(ndev);
+> 		napi_enable(&fep->napi);
+>-		netif_device_attach(ndev);
+> 	}
 >
->-		if (int_events & (FEC_ENET_RXF | FEC_ENET_TXF)) {
->-			ret = IRQ_HANDLED;
->+	if (int_events & napi_mask) {
->+		ret = IRQ_HANDLED;
+> 	return 0;
+>@@ -2372,15 +2363,12 @@ static int fec_set_features(struct net_device
+>*netdev,
 >
->-			/* Disable the RX interrupt */
->-			if (napi_schedule_prep(&fep->napi)) {
->-				writel(FEC_RX_DISABLED_IMASK,
->-					fep->hwp + FEC_IMASK);
->-				__napi_schedule(&fep->napi);
->-			}
->-		}
->+		/* Disable the NAPI interrupts */
->+		writel(FEC_ENET_MII, fep->hwp + FEC_IMASK);
->+		napi_schedule(&fep->napi);
->+	}
+> 		if (netif_running(netdev)) {
+> 			fec_stop(netdev);
+>-			netif_device_detach(netdev);
+> 			napi_disable(&fep->napi);
+>-			netif_tx_disable(netdev);
+> 			netif_tx_lock_bh(netdev);
+> 			fec_restart(netdev, fep->phy_dev->duplex);
+>-			netif_tx_unlock_bh(netdev);
+> 			netif_wake_queue(netdev);
+>+			netif_tx_unlock_bh(netdev);
+> 			napi_enable(&fep->napi);
+>-			netif_device_attach(netdev);
+> 		}
+> 	}
 >
->-		if (int_events & FEC_ENET_MII) {
->-			ret = IRQ_HANDLED;
->-			complete(&fep->mdio_done);
->-		}
->-	} while (int_events);
->+	if (int_events & FEC_ENET_MII) {
->+		ret = IRQ_HANDLED;
->+		complete(&fep->mdio_done);
->+	}
+>@@ -2748,15 +2736,13 @@ fec_resume(struct device *dev)
 >
-> 	return ret;
-> }
->@@ -1399,8 +1395,16 @@ fec_enet_interrupt(int irq, void *dev_id)  static
->int fec_enet_rx_napi(struct napi_struct *napi, int budget)  {
-> 	struct net_device *ndev = napi->dev;
->-	int pkts = fec_enet_rx(ndev, budget);
-> 	struct fec_enet_private *fep = netdev_priv(ndev);
->+	int pkts;
->+
->+	/*
->+	 * Clear any pending transmit or receive interrupts before
->+	 * processing the rings to avoid racing with the hardware.
->+	 */
->+	writel(FEC_ENET_RXF | FEC_ENET_TXF, fep->hwp + FEC_IEVENT);
->+
->+	pkts = fec_enet_rx(ndev, budget);
->
-> 	fec_enet_tx(ndev);
->
-Can you add the interrupt check like below. If there have no tx interrupt, it is most likely no tx rings reclaim. 
-	Events = readl(fep->hwp + FEC_IEVENT);
-	If (events & FEC_ENET_RXF)
-		pkts = fec_enet_rx(ndev, budget);
-	if (events & FEC_ENET_TXF)
-		fec_enet_tx(ndev);
+> 	rtnl_lock();
+> 	if (netif_running(ndev)) {
+>-		netif_device_detach(ndev);
+> 		napi_disable(&fep->napi);
+>-		netif_tx_disable(ndev);
+> 		netif_tx_lock_bh(ndev);
+> 		fec_restart(ndev, fep->full_duplex);
+>+		netif_device_attach(ndev);
+> 		netif_tx_unlock_bh(ndev);
+>-		netif_wake_queue(ndev);
+>-		napi_enable(&fep->napi);
+> 		netif_device_attach(ndev);
+>+		napi_enable(&fep->napi);
+> 		phy_start(fep->phy_dev);
+> 	}
+> 	rtnl_unlock();
+>--
+Patch #17 anc #18 can merge to one patch.
 
 Thanks,
 Andy
