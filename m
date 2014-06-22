@@ -1,64 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] xen-netback: bookkeep number of queues in our own
- module
-Date: Sun, 22 Jun 2014 00:13:55 -0700 (PDT)
-Message-ID: <20140622.001355.624567316306796984.davem@davemloft.net>
-References: <1403100558-12866-1-git-send-email-wei.liu2@citrix.com>
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Subject: Re: [PATCH net-next v2 8/8] enic: do tx cleanup in napi poll
+Date: Sun, 22 Jun 2014 12:55:30 +0530 (IST)
+Message-ID: <alpine.LNX.2.03.1406221250230.1311@ws.cisco>
+References: <1403077088-4818-1-git-send-email-_govind@gmx.com> <1403077088-4818-9-git-send-email-_govind@gmx.com> <20140621.152440.2152576710542860161.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
-	boris.ostrovsky@oracle.com, ian.campbell@citrix.com
-To: wei.liu2@citrix.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: _govind@gmx.com, netdev@vger.kernel.org, ssujith@cisco.com,
+	benve@cisco.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42158 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750857AbaFVHN6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jun 2014 03:13:58 -0400
-In-Reply-To: <1403100558-12866-1-git-send-email-wei.liu2@citrix.com>
+Received: from mout.gmx.com ([74.208.4.200]:62176 "EHLO mout.gmx.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751027AbaFVH0M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 22 Jun 2014 03:26:12 -0400
+In-Reply-To: <20140621.152440.2152576710542860161.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Liu <wei.liu2@citrix.com>
-Date: Wed, 18 Jun 2014 15:09:18 +0100
 
-> The original code uses netdev->real_num_tx_queues to bookkeep number of
-> queues and invokes netif_set_real_num_tx_queues to set the number of
-> queues. However, netif_set_real_num_tx_queues doesn't allow
-> real_num_tx_queues to be smaller than 1, which means setting the number
-> to 0 will not work and real_num_tx_queues is untouched.
-> 
-> This is bogus when xenvif_free is invoked before any number of queues is
-> allocated. That function needs to iterate through all queues to free
-> resources. Using the wrong number of queues results in NULL pointer
-> dereference.
-> 
-> So we bookkeep the number of queues in xen-netback to solve this
-> problem. The usage of real_num_tx_queues in core driver is to cap queue
-> index to a valid value. In start_xmit we've already guarded against out
-> of range queue index so we should be fine.
-> 
-> This fixes a regression introduced by multiqueue patchset in 3.16-rc1.
-> 
-> Reported-by: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
 
-I say you should have a select queue method at all.
+On Sat, 21 Jun 2014, David Miller wrote:
+> It is recommended that TX work not count against the quota.
+>
+> The cost of TX packet liberation is a minute percentage of what it
+> costs to process an RX frame.  Furthermore, that SKB freeing makes
+> memory available for other paths in the stack.
+>
+> So please, just unconditionally purge the entire set of pending TX
+> queue completion entries without regards to the passed in NAPI quota
+> value at all.
+>
 
-You're essentially providing a half-assed version of __netdev_pick_tx()
-except that:
+So I should ignore the budget value and clean all packets possible. And what
+should the NAPIs return value should be? I can not be > 64 right?
 
-1) You're _completely_ ignoring the socket hash, if any.
+Or should I netif_napi_add() with highest value possible? For enic its 4096.
 
-2) You're not allowing XPS to work, _at all_.
-
-I think you need to serious reevaluate providing any select queue
-method at all, just let netdev_pick_tx() do all the work.
-
-If you have some issue maintaining the release of queue resources,
-maintain that privately and keep those details in the queue resource
-allocation and freeing code _only_.  Don't make it an issue that
-interferes at all with the normal mechanisms for SKB tx queue
-selection.
-
-Thanks.
+Thanks
