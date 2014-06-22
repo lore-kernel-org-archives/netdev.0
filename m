@@ -1,79 +1,54 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH net] xen-netback: bookkeep number of queues in our own
- module
-Date: Sun, 22 Jun 2014 12:16:57 +0100
-Message-ID: <20140622111657.GA7528@zion.uk.xensource.com>
-References: <1403100558-12866-1-git-send-email-wei.liu2@citrix.com>
- <20140622.001355.624567316306796984.davem@davemloft.net>
+From: Manuel Schoelling <manuel.schoelling@gmx.de>
+Subject: Re: [PATCH] xilinx: Fix compiler warning
+Date: Sun, 22 Jun 2014 13:23:34 +0200
+Message-ID: <1403436214.26292.4.camel@schoellingm.dzne.de>
+References: <1403432461-18296-1-git-send-email-manuel.schoelling@gmx.de>
+	 <53A6BAC5.80206@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <wei.liu2@citrix.com>, <xen-devel@lists.xen.org>,
-	<netdev@vger.kernel.org>, <boris.ostrovsky@oracle.com>,
-	<ian.campbell@citrix.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:17187 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751829AbaFVLQ7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 Jun 2014 07:16:59 -0400
-Content-Disposition: inline
-In-Reply-To: <20140622.001355.624567316306796984.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: michal.simek@xilinx.com, anirudh@xilinx.com, John.Linn@xilinx.com,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <53A6BAC5.80206@cogentembedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Jun 22, 2014 at 12:13:55AM -0700, David Miller wrote:
-> From: Wei Liu <wei.liu2@citrix.com>
-> Date: Wed, 18 Jun 2014 15:09:18 +0100
-> 
-> > The original code uses netdev->real_num_tx_queues to bookkeep number of
-> > queues and invokes netif_set_real_num_tx_queues to set the number of
-> > queues. However, netif_set_real_num_tx_queues doesn't allow
-> > real_num_tx_queues to be smaller than 1, which means setting the number
-> > to 0 will not work and real_num_tx_queues is untouched.
-> > 
-> > This is bogus when xenvif_free is invoked before any number of queues is
-> > allocated. That function needs to iterate through all queues to free
-> > resources. Using the wrong number of queues results in NULL pointer
-> > dereference.
-> > 
-> > So we bookkeep the number of queues in xen-netback to solve this
-> > problem. The usage of real_num_tx_queues in core driver is to cap queue
-> > index to a valid value. In start_xmit we've already guarded against out
-> > of range queue index so we should be fine.
-> > 
-> > This fixes a regression introduced by multiqueue patchset in 3.16-rc1.
-> > 
-> > Reported-by: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-> > Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-> 
-> I say you should have a select queue method at all.
-> 
-> You're essentially providing a half-assed version of __netdev_pick_tx()
-> except that:
-> 
-> 1) You're _completely_ ignoring the socket hash, if any.
-> 
-> 2) You're not allowing XPS to work, _at all_.
-> 
-> I think you need to serious reevaluate providing any select queue
-> method at all, just let netdev_pick_tx() do all the work.
-> 
+On So, 2014-06-22 at 15:15 +0400, Sergei Shtylyov wrote:
+> Hello.
+>=20
+> On 06/22/2014 02:21 PM, Manuel Sch=C3=B6lling wrote:
+>=20
+> > The time comparsion functions require arguments of type unsigned lo=
+ng
+> > instead of (signed) long.
+>=20
+> > Signed-off-by: Manuel Sch=C3=B6lling <manuel.schoelling@gmx.de>
+>=20
+> [...]
+>=20
+> > diff --git a/init/do_mounts.c b/init/do_mounts.c
+> > index 60c4196..2d069a3 100644
+> > --- a/init/do_mounts.c
+> > +++ b/init/do_mounts.c
+> > @@ -351,7 +351,6 @@ static void __init get_fs_names(char *page)
+> >   				continue;
+> >   			line++;
+> >
+> > -			/* append fsname */
+> >   			memmove(fsnames, line, strlen(line)+1);
+> >   			fsnames +=3D strlen(fsnames)+1;
+> >   		} while (page !=3D NULL);
+> >
+>=20
+>    Seems like unrelated random change.
+Thanks, you are right: somehow this change made it into my patch.
+Probably I was not careful enough when using 'git commit -a'.
 
-Looking at the core driver code in more details I think you're right. I
-will remove the select queue method.
+Sorry, I will resend a fixed patch in a second.
 
-> If you have some issue maintaining the release of queue resources,
-> maintain that privately and keep those details in the queue resource
-> allocation and freeing code _only_.  Don't make it an issue that
-> interferes at all with the normal mechanisms for SKB tx queue
-> selection.
-> 
-
-Sure. This is exactly the main idea of this patch, just that it
-interfered the queue selection logic. :-(
-
-Will send an updated version soon.
-
-Wei.
-
-> Thanks.
+>=20
+> WBR, Sergei
+>=20
