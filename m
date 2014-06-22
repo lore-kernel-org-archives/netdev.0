@@ -1,68 +1,98 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [PATCH RFC 24/30] net: fec: better implementation of iMX6
-	ERR006358 quirk
-Date: Sun, 22 Jun 2014 09:49:11 +0100
-Message-ID: <20140622084911.GD32514@n2100.arm.linux.org.uk>
-References: <20140620121118.GR32514@n2100.arm.linux.org.uk> <E1WxxhR-0005YP-Q1@rmk-PC.arm.linux.org.uk> <316b383d2512440db51ea7c55992920d@BLUPR03MB373.namprd03.prod.outlook.com> <20140622081234.GB32514@n2100.arm.linux.org.uk> <56f5e44adf0b41a0bbf52c38b755afbd@BLUPR03MB373.namprd03.prod.outlook.com>
+From: Arend van Spriel <arend@broadcom.com>
+Subject: Re: [PATCH v2] net/wireless/brcm80211/brcmfmac: Make return type
+ and name reflect actual semantics
+Date: Sun, 22 Jun 2014 11:27:37 +0200
+Message-ID: <53A6A189.1020401@broadcom.com>
+References: <1403299923-21533-1-git-send-email-linux@rasmusvillemoes.dk> <1403391326-28086-1-git-send-email-linux@rasmusvillemoes.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:38165 "EHLO
-	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750998AbaFVItQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jun 2014 04:49:16 -0400
-Content-Disposition: inline
-In-Reply-To: <56f5e44adf0b41a0bbf52c38b755afbd@BLUPR03MB373.namprd03.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Brett Rudley <brudley@broadcom.com>,
+	<linux-wireless@vger.kernel.org>,
+	<brcm80211-dev-list@broadcom.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1403391326-28086-1-git-send-email-linux@rasmusvillemoes.dk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Jun 22, 2014 at 08:38:49AM +0000, fugang.duan@freescale.com wrote:
-> From: Russell King - ARM Linux <linux@arm.linux.org.uk> Data: Sunday, June 22, 2014 4:13 PM
-> >To: Duan Fugang-B38611
-> >Cc: linux-arm-kernel@lists.infradead.org; netdev@vger.kernel.org
-> >Subject: Re: [PATCH RFC 24/30] net: fec: better implementation of iMX6
-> >ERR006358 quirk
-> >
-> >On Sun, Jun 22, 2014 at 07:49:11AM +0000, fugang.duan@freescale.com wrote:
-> >> From: Russell King <rmk@arm.linux.org.uk> Data: Friday, June 20, 2014
-> >> 8:14 PM
-> >> >To: linux-arm-kernel@lists.infradead.org
-> >> >Cc: Duan Fugang-B38611; netdev@vger.kernel.org
-> >> >Subject: [PATCH RFC 24/30] net: fec: better implementation of iMX6
-> >> >ERR006358 quirk
-> >> >
-> >> >+
-> >> >+	/* ERR006538: Keep the transmitter going */
-> >> >+	if (fep->dirty_tx != fep->cur_tx &&
-> >> >+	    readl(fep->hwp + FEC_X_DES_ACTIVE) == 0)
-> >> >+		writel(0, fep->hwp + FEC_X_DES_ACTIVE);
-> >> > }
-> >> >
-...
-> >While I agree that we can read back to check whether the device indicates
-> >that transmit is active, there's no point to the other tests.  If there
-> >are entries in the transmit ring but the transmitter indicates that it is
-> >not active, then it is obvious that the bug has been hit.  This is exactly
-> >what my implementation above does.
-> >
-> The condition "fep->dirty_tx != fep->cur_tx" is not only limited for the errata. 
-> I mean only add extra trigger TDAR for the issue.
+On 06/22/14 00:55, Rasmus Villemoes wrote:
+> Applying ++ to a bool is equivalent to setting it true, regardless of
+> its initial value (bools are not uint1_t). Hence the function
+> wl_get_vif_state_all can only ever return true/false. The only in-tree
+> caller uses its return value as a boolean. So update its return type,
+> and since the list traversal and bit testing have no side effects,
+> just return true immediately. Its return value tells if any vif is up,
 
-Yes, I agree that test is wrong (that's what comes from shuffling the
-patches... subsequent patches modify the indexing mechanism).  It should
-be:
+Now I may be really nit-picking, but the return value if any vif is *in 
+the specified state*.
 
-        if (bdp != fep->cur_tx &&
-            readl(fep->hwp + FEC_X_DES_ACTIVE) == 0)
-                writel(0, fep->hwp + FEC_X_DES_ACTIVE);
+Regards,
+Arend
 
-Since "bdp" is the post-incremented dirty_tx pointer, which, when it is
-equal to fep->cur_tx means that the ring is empty.
-
--- 
-FTTC broadband for 0.8mile line: now at 9.7Mbps down 460kbps up... slowly
-improving, and getting towards what was expected from it.
+> so also rename it to brcmf_get_vif_state_any.
+>
+> Reviewed-by: Arend van Spriel<arend@broadcom.com>
+> Signed-off-by: Rasmus Villemoes<linux@rasmusvillemoes.dk>
+> ---
+>
+> Notes:
+>      v2: Rename wl_get_vif_state_all =>  brcmf_get_vif_state_any as
+>          requested by Arend.
+>
+>   drivers/net/wireless/brcm80211/brcmfmac/p2p.c         | 2 +-
+>   drivers/net/wireless/brcm80211/brcmfmac/wl_cfg80211.c | 7 +++----
+>   drivers/net/wireless/brcm80211/brcmfmac/wl_cfg80211.h | 2 +-
+>   3 files changed, 5 insertions(+), 6 deletions(-)
+>
+> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/p2p.c b/drivers/net/wireless/brcm80211/brcmfmac/p2p.c
+> index f3445ac..588fdbd 100644
+> --- a/drivers/net/wireless/brcm80211/brcmfmac/p2p.c
+> +++ b/drivers/net/wireless/brcm80211/brcmfmac/p2p.c
+> @@ -708,7 +708,7 @@ static s32 brcmf_p2p_escan(struct brcmf_p2p_info *p2p, u32 num_chans,
+>   		active = P2PAPI_SCAN_SOCIAL_DWELL_TIME_MS;
+>   	else if (num_chans == AF_PEER_SEARCH_CNT)
+>   		active = P2PAPI_SCAN_AF_SEARCH_DWELL_TIME_MS;
+> -	else if (wl_get_vif_state_all(p2p->cfg, BRCMF_VIF_STATUS_CONNECTED))
+> +	else if (brcmf_get_vif_state_any(p2p->cfg, BRCMF_VIF_STATUS_CONNECTED))
+>   		active = -1;
+>   	else
+>   		active = P2PAPI_SCAN_DWELL_TIME_MS;
+> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/wl_cfg80211.c b/drivers/net/wireless/brcm80211/brcmfmac/wl_cfg80211.c
+> index d8fa276..93b1809 100644
+> --- a/drivers/net/wireless/brcm80211/brcmfmac/wl_cfg80211.c
+> +++ b/drivers/net/wireless/brcm80211/brcmfmac/wl_cfg80211.c
+> @@ -5625,16 +5625,15 @@ enum nl80211_iftype brcmf_cfg80211_get_iftype(struct brcmf_if *ifp)
+>   	return wdev->iftype;
+>   }
+>
+> -u32 wl_get_vif_state_all(struct brcmf_cfg80211_info *cfg, unsigned long state)
+> +bool brcmf_get_vif_state_any(struct brcmf_cfg80211_info *cfg, unsigned long state)
+>   {
+>   	struct brcmf_cfg80211_vif *vif;
+> -	bool result = 0;
+>
+>   	list_for_each_entry(vif,&cfg->vif_list, list) {
+>   		if (test_bit(state,&vif->sme_state))
+> -			result++;
+> +			return true;
+>   	}
+> -	return result;
+> +	return false;
+>   }
+>
+>   static inline bool vif_event_equals(struct brcmf_cfg80211_vif_event *event,
+> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/wl_cfg80211.h b/drivers/net/wireless/brcm80211/brcmfmac/wl_cfg80211.h
+> index 283c525..f9fb109 100644
+> --- a/drivers/net/wireless/brcm80211/brcmfmac/wl_cfg80211.h
+> +++ b/drivers/net/wireless/brcm80211/brcmfmac/wl_cfg80211.h
+> @@ -477,7 +477,7 @@ const struct brcmf_tlv *
+>   brcmf_parse_tlvs(const void *buf, int buflen, uint key);
+>   u16 channel_to_chanspec(struct brcmu_d11inf *d11inf,
+>   			struct ieee80211_channel *ch);
+> -u32 wl_get_vif_state_all(struct brcmf_cfg80211_info *cfg, unsigned long state);
+> +bool brcmf_get_vif_state_any(struct brcmf_cfg80211_info *cfg, unsigned long state);
+>   void brcmf_cfg80211_arm_vif_event(struct brcmf_cfg80211_info *cfg,
+>   				  struct brcmf_cfg80211_vif *vif);
+>   bool brcmf_cfg80211_vif_event_armed(struct brcmf_cfg80211_info *cfg);
