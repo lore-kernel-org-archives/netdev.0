@@ -1,51 +1,145 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net,stable] net: huawei_cdc_ncm: increase command
- buffer size
-Date: Sat, 21 Jun 2014 19:34:04 -0700 (PDT)
-Message-ID: <20140621.193404.1524985182957166239.davem@davemloft.net>
-References: <1403094084-13588-1-git-send-email-bjorn@mork.no>
+From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
+Subject: RE: [PATCH RFC 04/30] net: fec: fix interrupt handling races
+Date: Sun, 22 Jun 2014 06:38:59 +0000
+Message-ID: <7c6bf164473641f0944dc77cd84375d8@BLUPR03MB373.namprd03.prod.outlook.com>
+References: <20140620121118.GR32514@n2100.arm.linux.org.uk>
+ <E1Wxxfn-0005X5-KD@rmk-PC.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	mrkiko.rs@gmail.com
-To: bjorn@mork.no
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Russell King <rmk+kernel@arm.linux.org.uk>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41113 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751826AbaFVCeF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 21 Jun 2014 22:34:05 -0400
-In-Reply-To: <1403094084-13588-1-git-send-email-bjorn@mork.no>
+Received: from mail-bl2lp0209.outbound.protection.outlook.com ([207.46.163.209]:51397
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751102AbaFVGjO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jun 2014 02:39:14 -0400
+In-Reply-To: <E1Wxxfn-0005X5-KD@rmk-PC.arm.linux.org.uk>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Bj=F8rn Mork <bjorn@mork.no>
-Date: Wed, 18 Jun 2014 14:21:24 +0200
+From: Russell King <rmk@arm.linux.org.uk> Data: Friday, June 20, 2014 8:12 PM
+>To: linux-arm-kernel@lists.infradead.org
+>Cc: Duan Fugang-B38611; netdev@vger.kernel.org
+>Subject: [PATCH RFC 04/30] net: fec: fix interrupt handling races
+>
+>While running: while :; do iperf -c <HOST> -P 4; done, transmit timeouts
+>are regularly reported.  With the tx ring dumping in place, we can see
+>that all entries are in use, and the hardware has finished transmitting
+>these packets.  However, the driver has not reclaimed these ring entries.
+>
+>This can occur if the interrupt handler is invoked at the wrong moment -
+>eg:
+>
+>	CPU0				CPU1
+>	fec_enet_tx()
+>					interrupt, IEVENT = FEC_ENET_TXF
+>					FEC_ENET_TXF cleared
+>					napi_schedule_prep()
+>	napi_complete()
+>
+>The result is that we clear the transmit interrupt, but we don't trigger
+>any cleaning of the transmit ring.  Instead, use a different strategy:
+>
+>- When receiving a transmit or receive interrupt, disable both tx and rx
+>  interrupts, but do not acknowledge them.  Schedule a napi poll.  Don't
+>  loop.
+>
+>- When we are polled, read IEVENT, acknowledging the pending transmit
+>  and receive interrupts, before then going on to process the
+>  appropriate rings.
+>
+>This allows us to avoid the race, and has a number of other advantages:
+>- we cut down on the number of transmit interrupts we have to process.
+>- we only look at the rings which have pending events.
+>- we gain additional throughput: the iperf total bandwidth increases
+>  from about 180Mbps to 240Mbps:
+>
+>[  3]  0.0-10.0 sec  68.1 MBytes  57.0 Mbits/sec [  5]  0.0-10.0 sec  72.4
+>MBytes  60.5 Mbits/sec [  4]  0.0-10.1 sec  76.1 MBytes  63.5 Mbits/sec
+>[  6]  0.0-10.1 sec  71.9 MBytes  59.9 Mbits/sec
+>[SUM]  0.0-10.1 sec   288 MBytes   241 Mbits/sec
+>
+>Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+>---
+> drivers/net/ethernet/freescale/fec_main.c | 40 +++++++++++++++++---------
+>-----
+> 1 file changed, 22 insertions(+), 18 deletions(-)
+>
+>diff --git a/drivers/net/ethernet/freescale/fec_main.c
+>b/drivers/net/ethernet/freescale/fec_main.c
+>index 045ea71f2b59..4e695b742030 100644
+>--- a/drivers/net/ethernet/freescale/fec_main.c
+>+++ b/drivers/net/ethernet/freescale/fec_main.c
+>@@ -1369,29 +1369,25 @@ fec_enet_interrupt(int irq, void *dev_id)  {
+> 	struct net_device *ndev = dev_id;
+> 	struct fec_enet_private *fep = netdev_priv(ndev);
+>+	const unsigned napi_mask = FEC_ENET_RXF | FEC_ENET_TXF;
+> 	uint int_events;
+> 	irqreturn_t ret = IRQ_NONE;
+>
+>-	do {
+>-		int_events = readl(fep->hwp + FEC_IEVENT);
+>-		writel(int_events, fep->hwp + FEC_IEVENT);
+>+	int_events = readl(fep->hwp + FEC_IEVENT);
+>+	writel(int_events & ~napi_mask, fep->hwp + FEC_IEVENT);
+>
+>-		if (int_events & (FEC_ENET_RXF | FEC_ENET_TXF)) {
+>-			ret = IRQ_HANDLED;
+>+	if (int_events & napi_mask) {
+>+		ret = IRQ_HANDLED;
+>
+>-			/* Disable the RX interrupt */
+>-			if (napi_schedule_prep(&fep->napi)) {
+>-				writel(FEC_RX_DISABLED_IMASK,
+>-					fep->hwp + FEC_IMASK);
+>-				__napi_schedule(&fep->napi);
+>-			}
+>-		}
+>+		/* Disable the NAPI interrupts */
+>+		writel(FEC_ENET_MII, fep->hwp + FEC_IMASK);
+>+		napi_schedule(&fep->napi);
+>+	}
+>
+>-		if (int_events & FEC_ENET_MII) {
+>-			ret = IRQ_HANDLED;
+>-			complete(&fep->mdio_done);
+>-		}
+>-	} while (int_events);
+>+	if (int_events & FEC_ENET_MII) {
+>+		ret = IRQ_HANDLED;
+>+		complete(&fep->mdio_done);
+>+	}
+>
+> 	return ret;
+> }
+>@@ -1399,8 +1395,16 @@ fec_enet_interrupt(int irq, void *dev_id)  static
+>int fec_enet_rx_napi(struct napi_struct *napi, int budget)  {
+> 	struct net_device *ndev = napi->dev;
+>-	int pkts = fec_enet_rx(ndev, budget);
+> 	struct fec_enet_private *fep = netdev_priv(ndev);
+>+	int pkts;
+>+
+>+	/*
+>+	 * Clear any pending transmit or receive interrupts before
+>+	 * processing the rings to avoid racing with the hardware.
+>+	 */
+>+	writel(FEC_ENET_RXF | FEC_ENET_TXF, fep->hwp + FEC_IEVENT);
+>+
+>+	pkts = fec_enet_rx(ndev, budget);
+>
+> 	fec_enet_tx(ndev);
+>
+Can you add the interrupt check like below. If there have no tx interrupt, it is most likely no tx rings reclaim. 
+	Events = readl(fep->hwp + FEC_IEVENT);
+	If (events & FEC_ENET_RXF)
+		pkts = fec_enet_rx(ndev, budget);
+	if (events & FEC_ENET_TXF)
+		fec_enet_tx(ndev);
 
-> Messages from the modem exceeding 256 bytes cause communication
-> failure.
->=20
-> The WDM protocol is strictly "read on demand", meaning that we only
-> poll for unread data after receiving a notification from the modem.
-> Since we have no way to know how much data the modem has to send,
-> we must make sure that the buffer we provide is "big enough".
-> Message truncation does not work. Truncated messages are left unread
-> until the modem has another message to send.  Which often won't
-> happen until the userspace application has given up waiting for the
-> final part of the last message, and therefore sends another command.
->=20
-> With a proper CDC WDM function there is a descriptor telling us
-> which buffer size the modem uses. But with this vendor specific
-> implementation there is no known way to calculate the exact "big
-> enough" number.  It is an unknown property of the modem firmware.
-> Experience has shown that 256 is too small.  The discussion of
-> this failure ended up concluding that 512 might be too small as
-> well. So 1024 seems like a reasonable value for now.
->=20
-> Fixes: 41c47d8cfd68 ("net: huawei_cdc_ncm: Introduce the huawei_cdc_n=
-cm driver")
-> Cc: Enrico Mioso <mrkiko.rs@gmail.com>
-> Reported-by: Dan Williams <dcbw@redhat.com>
-> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
-
-Applied and queued up for -stable, thanks!
+Thanks,
+Andy
