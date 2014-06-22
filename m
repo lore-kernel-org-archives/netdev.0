@@ -1,164 +1,165 @@
-From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
-Subject: RE: [PATCH RFC 24/30] net: fec: better implementation of iMX6
- ERR006358 quirk
-Date: Sun, 22 Jun 2014 07:49:11 +0000
-Message-ID: <316b383d2512440db51ea7c55992920d@BLUPR03MB373.namprd03.prod.outlook.com>
-References: <20140620121118.GR32514@n2100.arm.linux.org.uk>
- <E1WxxhR-0005YP-Q1@rmk-PC.arm.linux.org.uk>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: [PATCH RFC 18/30] net: fec: remove inappropriate calls around
+	fec_restart()
+Date: Sun, 22 Jun 2014 08:55:14 +0100
+Message-ID: <20140622075514.GA32514@n2100.arm.linux.org.uk>
+References: <20140620121118.GR32514@n2100.arm.linux.org.uk> <E1Wxxgx-0005Y0-50@rmk-PC.arm.linux.org.uk> <869ac1ad635844ee84adbecd2eb0d0dc@BLUPR03MB373.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Russell King <rmk+kernel@arm.linux.org.uk>,
- "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <E1WxxhR-0005YP-Q1@rmk-PC.arm.linux.org.uk>
-Content-Language: en-US
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:38125 "EHLO
+	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751078AbaFVHzX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jun 2014 03:55:23 -0400
+Content-Disposition: inline
+In-Reply-To: <869ac1ad635844ee84adbecd2eb0d0dc@BLUPR03MB373.namprd03.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Russell King <rmk@arm.linux.org.uk> Data: Friday, June 20, 2014 8:14 PM
->To: linux-arm-kernel@lists.infradead.org
->Cc: Duan Fugang-B38611; netdev@vger.kernel.org
->Subject: [PATCH RFC 24/30] net: fec: better implementation of iMX6
->ERR006358 quirk
->
->Using a (delayed) workqueue for ERR006358 is not correct - a work queue is
->a single-trigger device.  Once the work queue has been scheduled, it can't
->be re-scheduled until it has been run.  This can cause problems - with an
->appropriate packet timing, we can end up with packets queued, but not sent
->by the hardware, resulting in the transmit timeout firing.
->
->Re-implement this as per the workaround detailed in the ERR006358
->documentation - if there are packets waiting to be sent when we service
->the transmit ring, and we see that the transmitter is not running, kick
->the transmitter to run the pending entries in the ring.
->
->Testing here with a 10Mbit half duplex link sees the resulting iperf TCP
->bandwidth increase from between 1 to 2Mbps to between 8 to 9Mbps.
->
->Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
->---
-> drivers/net/ethernet/freescale/fec.h      |  1 -
-> drivers/net/ethernet/freescale/fec_main.c | 31 +++++---------------------
->-----
-> 2 files changed, 5 insertions(+), 27 deletions(-)
->
->diff --git a/drivers/net/ethernet/freescale/fec.h
->b/drivers/net/ethernet/freescale/fec.h
->index 96d2a18f1b99..17e294970207 100644
->--- a/drivers/net/ethernet/freescale/fec.h
->+++ b/drivers/net/ethernet/freescale/fec.h
->@@ -259,7 +259,6 @@ struct bufdesc_ex {
-> struct fec_enet_delayed_work {
-> 	struct delayed_work delay_work;
-> 	bool timeout;
->-	bool trig_tx;
-> };
->
-> /* The FEC buffer descriptors track the ring buffers.  The rx_bd_base and
->diff --git a/drivers/net/ethernet/freescale/fec_main.c
->b/drivers/net/ethernet/freescale/fec_main.c
->index 62120e47ef5a..957bb98add5a 100644
->--- a/drivers/net/ethernet/freescale/fec_main.c
->+++ b/drivers/net/ethernet/freescale/fec_main.c
->@@ -342,22 +342,6 @@ fec_enet_clear_csum(struct sk_buff *skb, struct
->net_device *ndev)
-> 	return 0;
-> }
->
->-static void
->-fec_enet_submit_work(struct bufdesc *bdp, struct fec_enet_private *fep) -
->{
->-	const struct platform_device_id *id_entry =
->-				platform_get_device_id(fep->pdev);
->-	struct bufdesc *bdp_pre;
->-
->-	bdp_pre = fec_enet_get_prevdesc(bdp, fep);
->-	if ((id_entry->driver_data & FEC_QUIRK_ERR006358) &&
->-	    !(bdp_pre->cbd_sc & BD_ENET_TX_READY)) {
->-		fep->delay_work.trig_tx = true;
->-		schedule_delayed_work(&(fep->delay_work.delay_work),
->-					msecs_to_jiffies(1));
->-	}
->-}
->-
-> static int
-> fec_enet_txq_submit_frag_skb(struct sk_buff *skb, struct net_device *ndev)
->{ @@ -545,8 +529,6 @@ static int fec_enet_txq_submit_skb(struct sk_buff
->*skb, struct net_device *ndev)
-> 	status |= (BD_ENET_TX_READY | BD_ENET_TX_TC);
-> 	bdp->cbd_sc = status;
->
->-	fec_enet_submit_work(bdp, fep);
->-
-> 	/* If this was the last BD in the ring, start at the beginning again.
->*/
-> 	bdp = fec_enet_get_nextdesc(last_bdp, fep);
->
->@@ -735,8 +717,6 @@ static int fec_enet_txq_submit_tso(struct sk_buff *skb,
->struct net_device *ndev)
-> 	/* Save skb pointer */
-> 	fep->tx_skbuff[index] = skb;
->
->-	fec_enet_submit_work(bdp, fep);
->-
-> 	skb_tx_timestamp(skb);
-> 	fep->cur_tx = bdp;
->
->@@ -1065,11 +1045,6 @@ static void fec_enet_work(struct work_struct *work)
-> 		}
-> 		rtnl_unlock();
-> 	}
->-
->-	if (fep->delay_work.trig_tx) {
->-		fep->delay_work.trig_tx = false;
->-		writel(0, fep->hwp + FEC_X_DES_ACTIVE);
->-	}
-> }
->
-> static void
->@@ -1166,7 +1141,11 @@ fec_enet_tx(struct net_device *ndev)
-> 				netif_wake_queue(ndev);
-> 		}
-> 	}
->-	return;
->+
->+	/* ERR006538: Keep the transmitter going */
->+	if (fep->dirty_tx != fep->cur_tx &&
->+	    readl(fep->hwp + FEC_X_DES_ACTIVE) == 0)
->+		writel(0, fep->hwp + FEC_X_DES_ACTIVE);
-> }
->
-If fep->dirty_tx == fep->cur_tx, which means tx bd entry is empty, it doesn't need to trigger TDAR.
-The issue is the last tx frame cannot be trasmited by uDMA since uDMA had cleared the TDAR after user write TDAR.
-User					uDMA
-					Process the previous frame, detect the next BD ready bit,
-					The next BD ready bit is not set
-Set the next BD ready bit
-Set TDAR
-					Since the next BD ready bit detected as not set, start to clear TDAR.
+On Sun, Jun 22, 2014 at 06:54:28AM +0000, fugang.duan@freescale.com wrote:
+> From: Russell King <rmk@arm.linux.org.uk> Data: Friday, June 20, 2014 8:13 PM
+> >To: linux-arm-kernel@lists.infradead.org
+> >Cc: Duan Fugang-B38611; netdev@vger.kernel.org
+> >Subject: [PATCH RFC 18/30] net: fec: remove inappropriate calls around
+> >fec_restart()
+> >
+> >This is the second stage to "move calls to quiesce/resume packet
+> >processing out of fec_restart()", where we remove calls which are not
+> >appropriate to the call site.
+> >
+> >In the majority of cases, there is no need to detach and reattach the
+> >interface as we are holding the queue xmit lock across the reset.  The
+> >exception to that is in fec_resume(), where we are already detached by the
+> >suspend function.  Here, we can remove the call to detach the interface.
+> >
+> >We also do not need to stop the transmit queue.  Holding the xmit lock is
+> >enough to ensure that the transmit packet processing is not running while
+> >we perform our task.  However, since fec_restart() always cleans the rings,
+> >we call netif_wake_queue() (or netif_device_attach() in the case of resume)
+> >just before dropping the xmit lock.  This prevents the watchdog firing.
+> >
+> >Lastly, always call napi_enable() after the device has been reattached in
+> >the resume path so that we know that the transmit packet processing is
+> >already in an enabled state, so we don't call netif_wake_queue() while
+> >detached.
+> >
+> >Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
+> >---
+> > drivers/net/ethernet/freescale/fec_main.c | 26 ++++++--------------------
+> > 1 file changed, 6 insertions(+), 20 deletions(-)
+> >
+> >diff --git a/drivers/net/ethernet/freescale/fec_main.c
+> >b/drivers/net/ethernet/freescale/fec_main.c
+> >index 4a295b4bfb94..49c154af6da2 100644
+> >--- a/drivers/net/ethernet/freescale/fec_main.c
+> >+++ b/drivers/net/ethernet/freescale/fec_main.c
+> >@@ -1058,15 +1058,12 @@ static void fec_enet_work(struct work_struct *work)
+> > 		fep->delay_work.timeout = false;
+> > 		rtnl_lock();
+> > 		if (netif_device_present(ndev) || netif_running(ndev)) {
+> >-			netif_device_detach(ndev);
+> > 			napi_disable(&fep->napi);
+> >-			netif_tx_disable(ndev);
+> > 			netif_tx_lock_bh(ndev);
+> > 			fec_restart(ndev, fep->full_duplex);
+> >-			netif_tx_unlock_bh(ndev);
+> > 			netif_wake_queue(ndev);
+> >+			netif_tx_unlock_bh(ndev);
+> > 			napi_enable(&fep->napi);
+> >-			netif_device_attach(ndev);
+> > 		}
+> > 		rtnl_unlock();
+> > 	}
+> >@@ -1524,15 +1521,12 @@ static void fec_enet_adjust_link(struct net_device
+> >*ndev)
+> >
+> > 		/* if any of the above changed restart the FEC */
+> > 		if (status_change) {
+> >-			netif_device_detach(ndev);
+> > 			napi_disable(&fep->napi);
+> >-			netif_tx_disable(ndev);
+> > 			netif_tx_lock_bh(ndev);
+> > 			fec_restart(ndev, phy_dev->duplex);
+> >-			netif_tx_unlock_bh(ndev);
+> > 			netif_wake_queue(ndev);
+> >+			netif_tx_unlock_bh(ndev);
+> > 			napi_enable(&fep->napi);
+> >-			netif_device_attach(ndev);
+> > 		}
+> > 	} else {
+> > 		if (fep->link) {
+> >@@ -1919,15 +1913,12 @@ static int fec_enet_set_pauseparam(struct
+> >net_device *ndev,
+> > 		phy_start_aneg(fep->phy_dev);
+> > 	}
+> > 	if (netif_running(ndev)) {
+> >-		netif_device_detach(ndev);
+> > 		napi_disable(&fep->napi);
+> >-		netif_tx_disable(ndev);
+> > 		netif_tx_lock_bh(ndev);
+> > 		fec_restart(ndev, fep->full_duplex);
+> >-		netif_tx_unlock_bh(ndev);
+> > 		netif_wake_queue(ndev);
+> >+		netif_tx_unlock_bh(ndev);
+> > 		napi_enable(&fep->napi);
+> >-		netif_device_attach(ndev);
+> > 	}
+> >
+> > 	return 0;
+> >@@ -2372,15 +2363,12 @@ static int fec_set_features(struct net_device
+> >*netdev,
+> >
+> > 		if (netif_running(netdev)) {
+> > 			fec_stop(netdev);
+> >-			netif_device_detach(netdev);
+> > 			napi_disable(&fep->napi);
+> >-			netif_tx_disable(netdev);
+> > 			netif_tx_lock_bh(netdev);
+> > 			fec_restart(netdev, fep->phy_dev->duplex);
+> >-			netif_tx_unlock_bh(netdev);
+> > 			netif_wake_queue(netdev);
+> >+			netif_tx_unlock_bh(netdev);
+> > 			napi_enable(&fep->napi);
+> >-			netif_device_attach(netdev);
+> > 		}
+> > 	}
+> >
+> >@@ -2748,15 +2736,13 @@ fec_resume(struct device *dev)
+> >
+> > 	rtnl_lock();
+> > 	if (netif_running(ndev)) {
+> >-		netif_device_detach(ndev);
+> > 		napi_disable(&fep->napi);
+> >-		netif_tx_disable(ndev);
+> > 		netif_tx_lock_bh(ndev);
+> > 		fec_restart(ndev, fep->full_duplex);
+> >+		netif_device_attach(ndev);
+> > 		netif_tx_unlock_bh(ndev);
+> >-		netif_wake_queue(ndev);
+> >-		napi_enable(&fep->napi);
+> > 		netif_device_attach(ndev);
+> >+		napi_enable(&fep->napi);
+> > 		phy_start(fep->phy_dev);
+> > 	}
+> > 	rtnl_unlock();
+> >--
+> Patch #17 anc #18 can merge to one patch.
 
-=> So, the next frame cannot be tramsmit until the next next frame is filled by user.
+While you can merge various patches together into a single patch, the
+question is whether it's the right thing to do.
 
-The issue has happened customer product, and was fixed by previous workaround.
-The issue only happened at little packets transmission. Special for command communicate protocol to the other end.
+I kept 17 and 18 separate as 17 is merely moving the calls out without
+modification, whereas 18 is changing the functionality.
 
-If you move the extra trigger to tx clean function, you must check:
-bdp_pre = fec_enet_get_prevdesc(fep->cur_tx, fep);
-bdp_next = fec_enet_get_nextdesc(fep->dirty_tx, fep); 
-if (bdp_next == bdp_pre &&
-	bdp_pre->cbd_sc & BD_ENET_TX_READY &&
-	readl(fep->hwp + FEC_X_DES_ACTIVE) == 0) 
-	writel(0, fep->hwp + FEC_X_DES_ACTIVE);
+That makes 17 easy to review - from the reviewer perspective, it's a case
+of ensuring that the calls are all placed at the fec_restart() callsite.
+Once that's done, then each callsite can be considered on its own merit
+for the changes in patch 18.
 
-Thanks,
-Andy
+-- 
+FTTC broadband for 0.8mile line: now at 9.7Mbps down 460kbps up... slowly
+improving, and getting towards what was expected from it.
