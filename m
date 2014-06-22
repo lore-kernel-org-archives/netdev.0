@@ -1,37 +1,30 @@
-From: Vasily Averin <vvs@parallels.com>
-Subject: [PATCH iproute2] ipnetns: fixed typo "seting" -> "setTing"
-Date: Sun, 22 Jun 2014 23:11:28 +0400
-Message-ID: <53A72A60.5080708@parallels.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 8/8] enic: do tx cleanup in napi poll
+Date: Sun, 22 Jun 2014 13:16:28 -0700 (PDT)
+Message-ID: <20140622.131628.2112570456050562317.davem@davemloft.net>
+References: <1403077088-4818-9-git-send-email-_govind@gmx.com>
+	<20140621.152440.2152576710542860161.davem@davemloft.net>
+	<alpine.LNX.2.03.1406221250230.1311@ws.cisco>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: netdev@vger.kernel.org, ssujith@cisco.com, benve@cisco.com
+To: _govind@gmx.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:40597 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752041AbaFVTMH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 22 Jun 2014 15:12:07 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:48620 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751256AbaFVUQb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jun 2014 16:16:31 -0400
+In-Reply-To: <alpine.LNX.2.03.1406221250230.1311@ws.cisco>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Vasily Averin <vvs@openvz.org>
----
- ip/ipnetns.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Date: Sun, 22 Jun 2014 12:55:30 +0530 (IST)
 
-diff --git a/ip/ipnetns.c b/ip/ipnetns.c
-index 2b3b2e1..633b5b9 100644
---- a/ip/ipnetns.c
-+++ b/ip/ipnetns.c
-@@ -158,7 +158,7 @@ static int netns_exec(int argc, char **argv)
- 	}
- 
- 	if (setns(netns, CLONE_NEWNET) < 0) {
--		fprintf(stderr, "seting the network namespace \"%s\" failed: %s\n",
-+		fprintf(stderr, "setting the network namespace \"%s\" failed: %s\n",
- 			name, strerror(errno));
- 		return -1;
- 	}
--- 
-1.7.5.4
+> So I should ignore the budget value and clean all packets
+> possible. And what should the NAPIs return value should be? I can
+> not be > 64 right?
+
+Pretend there was no work to do, as if you didn't need to use any
+of the quota.
