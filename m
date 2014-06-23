@@ -1,54 +1,89 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH net-next] hyperv: Add handler for
- RNDIS_STATUS_NETWORK_CHANGE event
-Date: Mon, 23 Jun 2014 20:17:39 +0000
-Message-ID: <83e9c73eb6914fb59f88de7c8570017d@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-References: <06b508cbb6b949f4b3e13e7797948e56@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-	<20140623131723.GA7026@aepfle.de>
-	<5fb9ddebb68d456ab87979b5cc3830ec@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
- <20140623.131018.1349792926453695313.davem@davemloft.net>
+From: Paul Burton <paul.burton@imgtec.com>
+Subject: Re: [PATCH 16/17] MIPS: bpf: Use 32 or 64-bit load instruction to
+ load an address to register
+Date: Mon, 23 Jun 2014 21:24:37 +0100
+Message-ID: <20140623202437.GD2200@pburton-laptop>
+References: <1403516340-22997-1-git-send-email-markos.chandras@imgtec.com>
+ <1403516340-22997-17-git-send-email-markos.chandras@imgtec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
-	"greg@kroah.com" <greg@kroah.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"jasowang@redhat.com" <jasowang@redhat.com>,
-	"driverdev-devel@linuxdriverproject.org"
-	<driverdev-devel@linuxdriverproject.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140623.131018.1349792926453695313.davem@davemloft.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Cc: <linux-mips@linux-mips.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Alexei Starovoitov <ast@plumgrid.com>, <netdev@vger.kernel.org>
+To: Markos Chandras <markos.chandras@imgtec.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailapp01.imgtec.com ([195.59.15.196]:55629 "EHLO
+	mailapp01.imgtec.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755207AbaFWUYo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2014 16:24:44 -0400
+Content-Disposition: inline
+In-Reply-To: <1403516340-22997-17-git-send-email-markos.chandras@imgtec.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Monday, June 23, 2014 4:10 PM
-> To: Haiyang Zhang
-> Cc: olaf@aepfle.de; greg@kroah.com; netdev@vger.kernel.org;
-> jasowang@redhat.com; driverdev-devel@linuxdriverproject.org; linux-
-> kernel@vger.kernel.org
-> Subject: Re: [PATCH net-next] hyperv: Add handler for
-> RNDIS_STATUS_NETWORK_CHANGE event
+On Mon, Jun 23, 2014 at 10:38:59AM +0100, Markos Chandras wrote:
+> When loading a pointer to a register we need to use the appropriate
+> 32 or 64bit instruction to preserve the pointer's top 32bits.
 > 
-> From: Haiyang Zhang <haiyangz@microsoft.com>
-> Date: Mon, 23 Jun 2014 16:09:59 +0000
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Daniel Borkmann <dborkman@redhat.com>
+> Cc: Alexei Starovoitov <ast@plumgrid.com>
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: Markos Chandras <markos.chandras@imgtec.com>
+> ---
+>  arch/mips/net/bpf_jit.c | 14 +++++++++++++-
+>  1 file changed, 13 insertions(+), 1 deletion(-)
 > 
-> > So, what's the equivalent or similar command to "network restart" on
-> > SLES12? Could you update the command line for the usermodehelper when
-> > porting this patch to SLES 12?
-> 
-> No, you are not going to keep the usermodehelper invocation in your driver
-> please remove it.  It is absolutely inappropriate, and I strictly do not want to
-> keep it in there because other people will copy it and then we'll have a real
-> mess on our hands.
+> diff --git a/arch/mips/net/bpf_jit.c b/arch/mips/net/bpf_jit.c
+> index 4920e0fd05ee..d8dba7b523a5 100644
+> --- a/arch/mips/net/bpf_jit.c
+> +++ b/arch/mips/net/bpf_jit.c
+> @@ -447,6 +447,17 @@ static inline void emit_wsbh(unsigned int dst, unsigned int src,
+>  	emit_instr(ctx, wsbh, dst, src);
+>  }
+>  
+> +/* load address to register */
+> +static inline void emit_load_addr(unsigned int dst, unsigned int src,
+> +				     int imm, struct jit_ctx *ctx)
 
-I'm working on it, and will have a patch to replace the usermodehelper soon.
+(I originally sent this in reply to your internal posting, but assume you
+missed it or it got eaten somewhere along the way.)
+
+The name emit_load_addr & comment "load address to register" makes this
+sound like an equivalent of the "la" pseudo instruction, but it appears
+to really emit a pointer sized load? How about emit_load_ptr or something
+instead, and similarly s/address/pointer/ in the comment?
+
+> +{
+> +	/* src contains the base addr of the 32/64-pointer */
+> +	if (config_enabled(CONFIG_64BIT))
+> +		emit_instr(ctx, ld, dst, imm, src);
+> +	else
+> +		emit_instr(ctx, lw, dst, imm, src);
+
+Is there some way you could make use of the UASM_i_LW macro (note the
+capitalisation) instead of the if statement here?
 
 Thanks,
-- Haiyang
+    Paul
+
+> +}
+> +
+>  /* load a function pointer to register */
+>  static inline void emit_load_func(unsigned int reg, ptr imm,
+>  				  struct jit_ctx *ctx)
+> @@ -1271,7 +1282,8 @@ jmp_cmp:
+>  			/* A = skb->dev->ifindex */
+>  			ctx->flags |= SEEN_SKB | SEEN_A | SEEN_S0;
+>  			off = offsetof(struct sk_buff, dev);
+> -			emit_load(r_s0, r_skb, off, ctx);
+> +			/* Load address of *dev member */
+> +			emit_load_addr(r_s0, r_skb, off, ctx);
+>  			/* error (0) in the delay slot */
+>  			emit_bcond(MIPS_COND_EQ, r_s0, r_zero,
+>  				   b_imm(prog->len, ctx), ctx);
+> -- 
+> 2.0.0
+> 
+> 
