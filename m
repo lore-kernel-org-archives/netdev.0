@@ -1,97 +1,56 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH net-next] hyperv: Add handler for
- RNDIS_STATUS_NETWORK_CHANGE event
-Date: Mon, 23 Jun 2014 18:23:34 +0000
-Message-ID: <7fd6ae806627412da08b51200230b0ec@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-References: <1403228076-7596-1-git-send-email-haiyangz@microsoft.com>
- <20140620045704.GA4850@aepfle.de> <20140620051213.GA9960@kroah.com>
- <ff458d1b896d4a70a32fa7709911274c@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
- <20140623080242.GA16924@aepfle.de>
- <06b508cbb6b949f4b3e13e7797948e56@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
- <20140623131723.GA7026@aepfle.de>
- <5fb9ddebb68d456ab87979b5cc3830ec@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
- <20140623162911.GA20715@kroah.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Olaf Hering <olaf@aepfle.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"jasowang@redhat.com" <jasowang@redhat.com>,
-	"driverdev-devel@linuxdriverproject.org"
-	<driverdev-devel@linuxdriverproject.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>
-To: Greg KH <greg@kroah.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140623162911.GA20715@kroah.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Octavian Purdila <octavian.purdila@intel.com>
+Subject: [RFC net-next 01/12] tcp: cookie_v4_init_sequence: skb should be const
+Date: Mon, 23 Jun 2014 21:42:38 +0300
+Message-ID: <1403548969-12303-2-git-send-email-octavian.purdila@intel.com>
+References: <1403548969-12303-1-git-send-email-octavian.purdila@intel.com>
+Cc: Octavian Purdila <octavian.purdila@intel.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:42040 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753570AbaFWSnx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Jun 2014 14:43:53 -0400
+In-Reply-To: <1403548969-12303-1-git-send-email-octavian.purdila@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Signed-off-by: Octavian Purdila <octavian.purdila@intel.com>
+---
+ include/net/tcp.h     | 5 +++--
+ net/ipv4/syncookies.c | 3 ++-
+ 2 files changed, 5 insertions(+), 3 deletions(-)
 
-
-> -----Original Message-----
-> From: Greg KH [mailto:greg@kroah.com]
-> Sent: Monday, June 23, 2014 12:29 PM
-> To: Haiyang Zhang
-> Cc: Olaf Hering; netdev@vger.kernel.org; jasowang@redhat.com; driverdev-
-> devel@linuxdriverproject.org; linux-kernel@vger.kernel.org;
-> davem@davemloft.net
-> Subject: Re: [PATCH net-next] hyperv: Add handler for
-> RNDIS_STATUS_NETWORK_CHANGE event
-> 
-> On Mon, Jun 23, 2014 at 04:09:59PM +0000, Haiyang Zhang wrote:
-> >
-> >
-> > > -----Original Message-----
-> > > From: Olaf Hering [mailto:olaf@aepfle.de]
-> > > Sent: Monday, June 23, 2014 9:17 AM
-> > > To: Haiyang Zhang
-> > > Cc: Greg KH; netdev@vger.kernel.org; jasowang@redhat.com; driverdev-
-> > > devel@linuxdriverproject.org; linux-kernel@vger.kernel.org;
-> > > davem@davemloft.net
-> > > Subject: Re: [PATCH net-next] hyperv: Add handler for
-> > > RNDIS_STATUS_NETWORK_CHANGE event
-> > >
-> > > On Mon, Jun 23, Haiyang Zhang wrote:
-> > >
-> > > > > I think its reasonable to expect guest config changes on this
-> > > > > new kind of host. Would a link-down/link-up event work? I'm sure
-> > > > > it will, there is enough code floating around in the guests
-> > > > > which handles cable
-> > > unplug.
-> > > >
-> > > > Do you mean netif_carrier_off() / netif_carrier_on()? They are
-> > > > already called in the code before this patch, but DHCP renew is
-> > > > not triggered by them.
-> > >
-> > > I do not know how to simulate a cable unplug. The point is that
-> > > calling /etc/init.d/network will fail, at least in SLES12.
-> > > Maybe some sort of "DHCP refresh required" event is required?
-> > > Maybe the DHCP clients need to renew on cable unplug?
-> > > No idea what the solution to the issue really is.
-> >
-> > Yes, it will be great if there is such a "DHCP refresh required"
-> > event, or DHCP clients are triggered when netif_carrier_off() then
-> netif_carrier_on().
-> >
-> > I have tried some possibilities, like IF_OPER_DORMANT then IF_OPER_UP
-> > with
-> > netdev_state_change() etc. but not able to trigger DHCP review. I will
-> > look at this further...
-> >
-> > So, what's the equivalent or similar command to "network restart" on
-> > SLES12? Could you update the command line for the usermodehelper when
-> > porting this patch to SLES 12?
-> 
-> Given that this change will fail on all future distro releases, and almost all of
-> the community distros today, I don't see how this is acceptable at all.  Nor
-> would it be any better if you switch to a systemd command line script as well.
-> You should just work like any other network device works in this situation when
-> it comes to enabling/disabling the device.  Worse case, just tear down the
-> whole network device at suspend time, and recreate it at resume.
-
-I will look into these options.
-
-Thanks,
-- Haiyang
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 06a3023..39e47c4 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -493,10 +493,11 @@ static inline u32 tcp_cookie_time(void)
+ 
+ u32 __cookie_v4_init_sequence(const struct iphdr *iph, const struct tcphdr *th,
+ 			      u16 *mssp);
+-__u32 cookie_v4_init_sequence(struct sock *sk, struct sk_buff *skb, __u16 *mss);
++__u32 cookie_v4_init_sequence(struct sock *sk, const struct sk_buff *skb,
++			      __u16 *mss);
+ #else
+ static inline __u32 cookie_v4_init_sequence(struct sock *sk,
+-					    struct sk_buff *skb,
++					    const struct sk_buff *skb,
+ 					    __u16 *mss)
+ {
+ 	return 0;
+diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
+index c86624b..c0c7568 100644
+--- a/net/ipv4/syncookies.c
++++ b/net/ipv4/syncookies.c
+@@ -170,7 +170,8 @@ u32 __cookie_v4_init_sequence(const struct iphdr *iph, const struct tcphdr *th,
+ }
+ EXPORT_SYMBOL_GPL(__cookie_v4_init_sequence);
+ 
+-__u32 cookie_v4_init_sequence(struct sock *sk, struct sk_buff *skb, __u16 *mssp)
++__u32 cookie_v4_init_sequence(struct sock *sk, const struct sk_buff *skb,
++			      __u16 *mssp)
+ {
+ 	const struct iphdr *iph = ip_hdr(skb);
+ 	const struct tcphdr *th = tcp_hdr(skb);
+-- 
+1.8.3.2
