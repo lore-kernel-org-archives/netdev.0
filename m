@@ -1,70 +1,69 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch v2 net-next] veth: add netpoll support
-Date: Mon, 23 Jun 2014 15:36:02 -0700
-Message-ID: <1403562962-17502-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Stefan Priebe <s.priebe@profihost.ag>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Neil Horman <nhorman@tuxdriver.com>
-To: netdev@vger.kernel.org
+From: Wei-Chun Chao <weichunc@plumgrid.com>
+Subject: Re: Stable request for 5882a07c72093d
+Date: Mon, 23 Jun 2014 15:37:18 -0700
+Message-ID: <CACviX4FkJ+kCqHAZ9O7pC1N_DpAhYfwySwp-Cw0AgAJcJH_9Dg@mail.gmail.com>
+References: <1403539016-15519-1-git-send-email-chiluk@canonical.com>
+	<1403540316.27425.3.camel@edumazet-glaptop2.roam.corp.google.com>
+	<53A8656F.4070407@canonical.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>, davem <davem@davemloft.net>
+To: chiluk@canonical.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:56545 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750931AbaFWWg3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2014 18:36:29 -0400
-Received: by mail-pd0-f173.google.com with SMTP id r10so6165991pdi.18
-        for <netdev@vger.kernel.org>; Mon, 23 Jun 2014 15:36:29 -0700 (PDT)
+Received: from mail-ve0-f169.google.com ([209.85.128.169]:63261 "EHLO
+	mail-ve0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750936AbaFWWhT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2014 18:37:19 -0400
+Received: by mail-ve0-f169.google.com with SMTP id pa12so6853621veb.28
+        for <netdev@vger.kernel.org>; Mon, 23 Jun 2014 15:37:19 -0700 (PDT)
+In-Reply-To: <53A8656F.4070407@canonical.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It is trivial to add netpoll support to veth, since
-it is not a stacked device, we don't need to setup and
-clean up netpoll.
+On Mon, Jun 23, 2014 at 10:35 AM, Dave Chiluk <chiluk@canonical.com> wrote:
+> On 06/23/2014 11:18 AM, Eric Dumazet wrote:
+>> On Mon, 2014-06-23 at 10:56 -0500, Dave Chiluk wrote:
+>>> Commit 5882a07c72093dc3a18e2d2b129fb200686bb6ee remedies a BUG_ON in
+>>> skb_segment.  This is hit reliably in clouds that are using openvswitch for
+>>> network capabilities (which is the default network used by Openstack) on
+>>> machines that have gso offload capabilities.
+>>>
+>>> This has already been reported multiple times to Canonical in numerous
+>>> openstack clouds.  The fix has been integrated and tested in those clouds, and
+>>> has been show to resolve their issues.
+>>>
+>>> Please include this patch for stable release.
+>>>
+>>> Thank you,
+>>> Dave Chiluk
+>>>
+>>> The patch follows for convenience.
+>>> --
+>>
+>> Both original commit and your request lack the bug origin.
+>>
+>> I wish bug submissions are more explicit in this regard, using
+>>
+>> Fixes: sha1-12digits ("title")
+>>
+>> It would save a lot of time for stable teams, and ease future bug
+>> hunting as well.
+>>
+>>
+> According to the initial thread, Wei-Chun determined it originated with
+> 19acc327258a.  It has existed since 3.10-rc1.
+>
+> Fixes: 19acc327258a ("gso: Handle Trans-Ether-Bridging protocol in
+> skb_network_protocol()")
+>
 
-Reported-by: Stefan Priebe <s.priebe@profihost.ag>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Neil Horman <nhorman@tuxdriver.com>
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- drivers/net/veth.c | 18 ++++++++++++++++++
- 1 file changed, 18 insertions(+)
+Sorry I didn't include the bug origin in the original patch.
 
-diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-index b4a10bc..9b945e6 100644
---- a/drivers/net/veth.c
-+++ b/drivers/net/veth.c
-@@ -248,6 +248,21 @@ static void veth_dev_free(struct net_device *dev)
- 	free_netdev(dev);
- }
- 
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+static void veth_poll_controller(struct net_device *dev)
-+{
-+	/* veth only receives frames when its peer sends one
-+	 * Since it's a synchronous operation, we are guaranteed
-+	 * never to have pending data when we poll for it so
-+	 * there is nothing to do here.
-+	 *
-+	 * We need this though so netpoll recognizes us as an interface that
-+	 * supports polling, which enables bridge devices in virt setups to
-+	 * still use netconsole
-+	 */
-+}
-+#endif	/* CONFIG_NET_POLL_CONTROLLER */
-+
- static const struct net_device_ops veth_netdev_ops = {
- 	.ndo_init            = veth_dev_init,
- 	.ndo_open            = veth_open,
-@@ -257,6 +272,9 @@ static const struct net_device_ops veth_netdev_ops = {
- 	.ndo_get_stats64     = veth_get_stats64,
- 	.ndo_set_rx_mode     = veth_set_multicast_list,
- 	.ndo_set_mac_address = eth_mac_addr,
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	.ndo_poll_controller	= veth_poll_controller,
-+#endif
- };
- 
- #define VETH_FEATURES (NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_ALL_TSO |    \
--- 
-1.8.3.1
+The issue was introduced by the combination of these two commits -
+ec5f06156423 ("net: Kill link between CSUM and SG features.)
+19acc327258a ("gso: Handle Trans-Ether-Bridging protocol in
+skb_network_protocol()")
+
+Thanks,
+Weichun
