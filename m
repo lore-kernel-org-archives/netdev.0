@@ -1,44 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] be2net: fix qnq mode detection on VFs
-Date: Mon, 23 Jun 2014 14:47:07 -0700 (PDT)
-Message-ID: <20140623.144707.29017823029772168.davem@davemloft.net>
-References: <1403521889-8048-1-git-send-email-sathya.perla@emulex.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sathya.perla@emulex.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35363 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752286AbaFWVrI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2014 17:47:08 -0400
-In-Reply-To: <1403521889-8048-1-git-send-email-sathya.perla@emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rickard Strandqvist <rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org>
+Subject: [PATCHv3 0/6] rtlwifi: Fix incorrect MSR mask
+Date: Mon, 23 Jun 2014 23:48:16 +0200
+Message-ID: <1403560098-7520-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+Cc: Rickard Strandqvist <rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
+	Peter Wu <peter-VTkQYDcBqhK7DlmcbJSQ7g@public.gmane.org>,
+	Mark Cave-Ayland <mark.cave-ayland-r2/yp8inhXLQXOPxS62xeg@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+	Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Sathya Perla <sathya.perla@emulex.com>
-Date: Mon, 23 Jun 2014 16:41:29 +0530
+An error was found in many rtlwifi drivers where an invalid mask was used,
+(bt_msr & 0xfc) will never match 0x3. This has been corrected by supplying
+a valid mask as a macro. Drivers which did not have this bug are still
+modified for consistency.
 
-> From: Suresh Reddy <suresh.reddy@emulex.com>
-> 
-> The driver (on PF or VF) needs to detect if the function is in qnq mode for
-> a HW hack in be_rx_compl_get() to work.
-> 
-> The driver queries this information using the GET_PROFILE_CONFIG cmd
-> (since the commit below can caused this regression.) But this cmd is not
-> available on VFs and so the VFs fail to detect qnq mode. This causes
-> vlan traffic to not work.
-> 
-> The fix is to use the the adapter->function_mode value queried via
-> QUERY_FIRMWARE_CONFIG cmd on both PFs and VFs to detect the qnq mode.
-> 
-> Also QNQ_MODE was incorrectly named FLEX10_MODE; correcting that too as the
-> fix reads much better with the name change.
-> 
-> Fixes: f93f160b5 ("refactor multi-channel config code for Skyhawk-R chip")
-> 
-> Signed-off-by: Suresh Reddy <Suresh.Reddy@emulex.com>
-> Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+Rickard Strandqvist (1):
+  rtlwifi: Fix media status register mask AND Replace magic number by macro
 
-Applied, thanks.
+ drivers/net/wireless/rtlwifi/rtl8188ee/hw.c  |    2 +-
+ drivers/net/wireless/rtlwifi/rtl8188ee/reg.h |    1 +
+ drivers/net/wireless/rtlwifi/rtl8192ce/hw.c  |    2 +-
+ drivers/net/wireless/rtlwifi/rtl8192ce/reg.h |    1 +
+ drivers/net/wireless/rtlwifi/rtl8192cu/hw.c  |    2 +-
+ drivers/net/wireless/rtlwifi/rtl8192de/hw.c  |    2 +-
+ drivers/net/wireless/rtlwifi/rtl8192de/reg.h |    1 +
+ drivers/net/wireless/rtlwifi/rtl8723ae/hw.c  |    2 +-
+ drivers/net/wireless/rtlwifi/rtl8723ae/reg.h |    1 +
+ drivers/net/wireless/rtlwifi/rtl8723be/hw.c  |    2 +-
+ drivers/net/wireless/rtlwifi/rtl8723be/reg.h |    1 +
+ drivers/staging/rtl8821ae/rtl8821ae/hw.c     |    2 +-
+ drivers/staging/rtl8821ae/rtl8821ae/reg.h    |    1 +
+ 13 files changed, 13 insertions(+), 7 deletions(-)
+
+-- 
+1.7.10.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
