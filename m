@@ -1,49 +1,33 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH 1/1] net/netfilter/ipvs/ip_vs_sync.c: remove null test
- before kfree
-Date: Mon, 23 Jun 2014 11:20:56 +0900
-Message-ID: <20140623022056.GA12564@verge.net.au>
-References: <1403296542-5992-1-git-send-email-fabf@skynet.be>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 0/5] cxgb4 : Add DCBx support to Chelsio
+ cxgb4 driver
+Date: Sun, 22 Jun 2014 21:14:41 -0700 (PDT)
+Message-ID: <20140622.211441.1814977096261918651.davem@davemloft.net>
+References: <1403239035-10771-1-git-send-email-anish@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, Wensong Zhang <wensong@linux-vs.org>,
-	netdev@vger.kernel.org
-To: Fabian Frederick <fabf@skynet.be>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1403296542-5992-1-git-send-email-fabf@skynet.be>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, leedom@chelsio.com, hariprasad@chelsio.com
+To: anish@chelsio.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50682 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750719AbaFWEOp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2014 00:14:45 -0400
+In-Reply-To: <1403239035-10771-1-git-send-email-anish@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 20, 2014 at 10:35:42PM +0200, Fabian Frederick wrote:
-> Fix checkpatch warning:
-> WARNING: kfree(NULL) is safe this check is probably not required
-> 
-> Cc: Wensong Zhang <wensong@linux-vs.org>
-> Cc: Simon Horman <horms@verge.net.au>
-> Cc: netdev@vger.kernel.org
-> Signed-off-by: Fabian Frederick <fabf@skynet.be>
+From: Anish Bhatt <anish@chelsio.com>
+Date: Thu, 19 Jun 2014 21:37:10 -0700
 
-Thanks, applied.
+> v2 : move inclusion of struct port_dcb_info to the same patch as where it is defined.
 
-> ---
->  net/netfilter/ipvs/ip_vs_sync.c | 3 +--
->  1 file changed, 1 insertion(+), 2 deletions(-)
-> 
-> diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
-> index db80126..eadffb2 100644
-> --- a/net/netfilter/ipvs/ip_vs_sync.c
-> +++ b/net/netfilter/ipvs/ip_vs_sync.c
-> @@ -886,8 +886,7 @@ static void ip_vs_proc_conn(struct net *net, struct ip_vs_conn_param *param,
->  		cp = ip_vs_conn_new(param, daddr, dport, flags, dest, fwmark);
->  		rcu_read_unlock();
->  		if (!cp) {
-> -			if (param->pe_data)
-> -				kfree(param->pe_data);
-> +			kfree(param->pe_data);
->  			IP_VS_DBG(2, "BACKUP, add new conn. failed\n");
->  			return;
->  		}
-> -- 
-> 1.8.4.5
-> 
+Put this changelog information after your description, not before.
+
+>     This patchset adds support for DCBx via dcbnl_ops to the cxgb4 driver. This should enable cxgb4 to work with open-lldp and the like. The last patch only updates copyright year.
+
+Please format your commit message so that lines are no longer than 80
+columns in length.
+
+Series applied, thanks.
