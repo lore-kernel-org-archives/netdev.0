@@ -1,79 +1,60 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH V2 08/22] amd: Use pci_zalloc_consistent
-Date: Mon, 23 Jun 2014 14:05:07 -0700
-Message-ID: <1403557507.20657.3.camel@joe-AO725>
-References: <cover.1403530604.git.joe@perches.com>
-	 <c7cdaa8e080157cdabb92278a4c3beba89b49070.1403530604.git.joe@perches.com>
-	 <1403546524.12008.2.camel@Lunix2.home>
-	 <1403550950.15811.15.camel@joe-AO725>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [RFC PATCH net-next] bridge: Add bridge port learn filter and
+ priority
+Date: Mon, 23 Jun 2014 14:19:15 -0700
+Message-ID: <20140623141915.3310c3b8@nehalam.linuxnetplumber.net>
+References: <1403075767-31908-1-git-send-email-roopa@cumulusnetworks.com>
+	<20140618133405.515b3741@nehalam.linuxnetplumber.net>
+	<53A896A0.2030509@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Don Fry <pcnet32@frontier.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1403550950.15811.15.camel@joe-AO725>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: roopa@cumulusnetworks.com, davem@davemloft.net,
+	netdev@vger.kernel.org, scotte@cumulusnetworks.com,
+	ddutt@cumulusnetworks.com, shm@cumulusnetworks.com,
+	nolan@cumulusnetworks.com, sfeldma@cumulusnetworks.com,
+	jhs@mojatatu.com
+To: Wilson Kok <wkok@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:32969 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754548AbaFWVTT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2014 17:19:19 -0400
+Received: by mail-pd0-f173.google.com with SMTP id r10so6105179pdi.18
+        for <netdev@vger.kernel.org>; Mon, 23 Jun 2014 14:19:18 -0700 (PDT)
+In-Reply-To: <53A896A0.2030509@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Remove the now unnecessary memset too.
+On Mon, 23 Jun 2014 14:05:36 -0700
+Wilson Kok <wkok@cumulusnetworks.com> wrote:
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
-On Mon, 2014-06-23 at 12:15 -0700, Joe Perches wrote:
-> On Mon, 2014-06-23 at 11:02 -0700, Don Fry wrote:
-> > This causes the line length to be greater than 80 characters causing
-> > checkpatch to complain.
+> On 6/18/14, 1:34 PM, Stephen Hemminger wrote:
+> > On Wed, 18 Jun 2014 00:16:07 -0700
+> > roopa@cumulusnetworks.com wrote:
+> >
+> >> One such topology is when there are multiple paths to a dual-homed host.
+> > That is called a loop.
+> > Loops are not allowed on bridge networks.
+> > Sorry, this is just the kind of things spanning tree and TRILL were supposed
+> > to address. Solving in local bridge is not a good idea.
+> 
+> This is not a loop situation.  The topology we're referring to is a 
+> multi-chassis LAG topology (a widely supported feature by networking 
+> vendors, e.g. Arista's MLAG and Cisco's VPC), where some hosts are 
+> dual-homed on a pair of switches, and some hosts are single-homed on one 
+> of the two switches, and there is a inter-chassis link between the 
+> switches.  A dual-homed host can and will source packets from either or 
+> both its uplinks with the same source MAC address. The packets may be 
+> locally forwarded on the first hop switch, and they may also cross the 
+> inter-chassis link from one switch to the other switch, e.g. in a 
+> multicast or flood situation or just unicast to a single-homed host 
+> connected to the other switch.  As such, the host's source MAC can be 
+> learned on the inter-chassis link or the host link, and can move between 
+> the two.  A dual-homed host may receive packets from either or both it's 
+> uplinks, and in some cases it may receive duplicate copies of the same 
+> packet.
+> 
 
-V2: Don Fry is an 80 column neatnik.
-
-Please remember this depends on patch 1/22 being applied
-before this patch can be successfully applied.
-
- drivers/net/ethernet/amd/pcnet32.c | 18 ++++++++----------
- 1 file changed, 8 insertions(+), 10 deletions(-)
-
-diff --git a/drivers/net/ethernet/amd/pcnet32.c b/drivers/net/ethernet/amd/pcnet32.c
-index e7cc917..8099fdc 100644
---- a/drivers/net/ethernet/amd/pcnet32.c
-+++ b/drivers/net/ethernet/amd/pcnet32.c
-@@ -484,15 +484,14 @@ static void pcnet32_realloc_tx_ring(struct net_device *dev,
- 
- 	pcnet32_purge_tx_ring(dev);
- 
--	new_tx_ring = pci_alloc_consistent(lp->pci_dev,
--					   sizeof(struct pcnet32_tx_head) *
--					   (1 << size),
--					   &new_ring_dma_addr);
-+	new_tx_ring = pci_zalloc_consistent(lp->pci_dev,
-+					    sizeof(struct pcnet32_tx_head) *
-+					    (1 << size),
-+					    &new_ring_dma_addr);
- 	if (new_tx_ring == NULL) {
- 		netif_err(lp, drv, dev, "Consistent memory allocation failed\n");
- 		return;
- 	}
--	memset(new_tx_ring, 0, sizeof(struct pcnet32_tx_head) * (1 << size));
- 
- 	new_dma_addr_list = kcalloc(1 << size, sizeof(dma_addr_t),
- 				    GFP_ATOMIC);
-@@ -551,15 +550,14 @@ static void pcnet32_realloc_rx_ring(struct net_device *dev,
- 	int new, overlap;
- 	unsigned int entries = 1 << size;
- 
--	new_rx_ring = pci_alloc_consistent(lp->pci_dev,
--					   sizeof(struct pcnet32_rx_head) *
--					   entries,
--					   &new_ring_dma_addr);
-+	new_rx_ring = pci_zalloc_consistent(lp->pci_dev,
-+					    sizeof(struct pcnet32_rx_head) *
-+					    entries,
-+					    &new_ring_dma_addr);
- 	if (new_rx_ring == NULL) {
- 		netif_err(lp, drv, dev, "Consistent memory allocation failed\n");
- 		return;
- 	}
--	memset(new_rx_ring, 0, sizeof(struct pcnet32_rx_head) * entries);
- 
- 	new_dma_addr_list = kcalloc(entries, sizeof(dma_addr_t), GFP_ATOMIC);
- 	if (!new_dma_addr_list)
+Isn't this bridging over a bond (or team) interface.
+The point is this really shouldn't be part of bridge code.
