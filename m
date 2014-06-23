@@ -1,48 +1,53 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Stable request for 5882a07c72093d
-Date: Mon, 23 Jun 2014 09:18:36 -0700
-Message-ID: <1403540316.27425.3.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1403539016-15519-1-git-send-email-chiluk@canonical.com>
+From: Olaf Hering <olaf@aepfle.de>
+Subject: Re: [PATCH net-next] hyperv: Add handler for
+ RNDIS_STATUS_NETWORK_CHANGE event
+Date: Mon, 23 Jun 2014 18:27:05 +0200
+Message-ID: <20140623162705.GA5957@aepfle.de>
+References: <1403228076-7596-1-git-send-email-haiyangz@microsoft.com>
+ <20140620045704.GA4850@aepfle.de>
+ <20140620051213.GA9960@kroah.com>
+ <ff458d1b896d4a70a32fa7709911274c@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+ <20140623080242.GA16924@aepfle.de>
+ <06b508cbb6b949f4b3e13e7797948e56@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+ <20140623131723.GA7026@aepfle.de>
+ <5fb9ddebb68d456ab87979b5cc3830ec@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Wei-Chun Chao <weichunc@plumgrid.com>
-To: Dave Chiluk <chiluk@canonical.com>
+Content-Type: text/plain; charset=utf-8
+Cc: Greg KH <greg@kroah.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"jasowang@redhat.com" <jasowang@redhat.com>,
+	"driverdev-devel@linuxdriverproject.org"
+	<driverdev-devel@linuxdriverproject.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Haiyang Zhang <haiyangz@microsoft.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:50329 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756167AbaFWQSm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2014 12:18:42 -0400
-Received: by mail-we0-f174.google.com with SMTP id u57so7283703wes.19
-        for <netdev@vger.kernel.org>; Mon, 23 Jun 2014 09:18:41 -0700 (PDT)
-In-Reply-To: <1403539016-15519-1-git-send-email-chiluk@canonical.com>
+Received: from mo4-p00-ob.smtp.rzone.de ([81.169.146.220]:13165 "EHLO
+	mo4-p00-ob.smtp.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755600AbaFWQ1J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2014 12:27:09 -0400
+Content-Disposition: inline
+In-Reply-To: <5fb9ddebb68d456ab87979b5cc3830ec@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-06-23 at 10:56 -0500, Dave Chiluk wrote:
-> Commit 5882a07c72093dc3a18e2d2b129fb200686bb6ee remedies a BUG_ON in
-> skb_segment.  This is hit reliably in clouds that are using openvswitch for
-> network capabilities (which is the default network used by Openstack) on
-> machines that have gso offload capabilities.  
-> 
-> This has already been reported multiple times to Canonical in numerous
-> openstack clouds.  The fix has been integrated and tested in those clouds, and
-> has been show to resolve their issues.
-> 
-> Please include this patch for stable release.
-> 
-> Thank you, 
-> Dave Chiluk
-> 
-> The patch follows for convenience.
-> --
+On Mon, Jun 23, Haiyang Zhang wrote:
 
-Both original commit and your request lack the bug origin.
+> I have tried some possibilities, like IF_OPER_DORMANT then IF_OPER_UP with 
+> netdev_state_change() etc. but not able to trigger DHCP review. I will look at this
+> further...
 
-I wish bug submissions are more explicit in this regard, using
+Is there a link down/up event anyway?
+If the interface is configured to "on hotplug" or "on cable plugged in"
+or whatever the setting name is, the network scripts should do
+something. Even if its not a DHCP renew.
 
-Fixes: sha1-12digits ("title")
+> So, what's the equivalent or similar command to "network restart" on SLES12? Could
+> you update the command line for the usermodehelper when porting this patch to SLES
+> 12?
 
-It would save a lot of time for stable teams, and ease future bug
-hunting as well.
+I see a /sbin/rcnetwork in SLES, which links either to
+'/etc/init.d/network' or 'service'. This could be used as a quick
+workaround.
+
+Olaf
