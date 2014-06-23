@@ -1,12 +1,9 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 10/22] enic: Use pci_zalloc_consistent
-Date: Mon, 23 Jun 2014 06:41:38 -0700
-Message-ID: <cfd907966b8feaaa1c2ecbd537a7a0ef3fc98141.1403530604.git.joe@perches.com>
+Subject: [PATCH 12/22] micrel: Use pci_zalloc_consistent
+Date: Mon, 23 Jun 2014 06:41:40 -0700
+Message-ID: <7f22701a1859d526b160d14b0969dde9ba598ad7.1403530604.git.joe@perches.com>
 References: <cover.1403530604.git.joe@perches.com>
-Cc: Christian Benvenuti <benve@cisco.com>,
-	Sujith Sankar <ssujith@cisco.com>,
-	Govindarajulu Varadarajan <_govind@gmx.com>,
-	Neel Patel <neepatel@cisco.com>, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1403530604.git.joe@perches.com>
@@ -17,30 +14,30 @@ Remove the now unnecessary memset too.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/ethernet/cisco/enic/vnic_dev.c | 8 +++-----
- 1 file changed, 3 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/micrel/ksz884x.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/cisco/enic/vnic_dev.c b/drivers/net/ethernet/cisco/enic/vnic_dev.c
-index e86a45c..8a4799c 100644
---- a/drivers/net/ethernet/cisco/enic/vnic_dev.c
-+++ b/drivers/net/ethernet/cisco/enic/vnic_dev.c
-@@ -432,14 +432,12 @@ int vnic_dev_fw_info(struct vnic_dev *vdev,
- 	int err = 0;
+diff --git a/drivers/net/ethernet/micrel/ksz884x.c b/drivers/net/ethernet/micrel/ksz884x.c
+index 064a48d..cd5f106 100644
+--- a/drivers/net/ethernet/micrel/ksz884x.c
++++ b/drivers/net/ethernet/micrel/ksz884x.c
+@@ -4409,14 +4409,13 @@ static int ksz_alloc_desc(struct dev_info *adapter)
+ 		DESC_ALIGNMENT;
  
- 	if (!vdev->fw_info) {
--		vdev->fw_info = pci_alloc_consistent(vdev->pdev,
--			sizeof(struct vnic_devcmd_fw_info),
--			&vdev->fw_info_pa);
-+		vdev->fw_info = pci_zalloc_consistent(vdev->pdev,
-+						      sizeof(struct vnic_devcmd_fw_info),
-+						      &vdev->fw_info_pa);
- 		if (!vdev->fw_info)
- 			return -ENOMEM;
+ 	adapter->desc_pool.alloc_virt =
+-		pci_alloc_consistent(
+-			adapter->pdev, adapter->desc_pool.alloc_size,
+-			&adapter->desc_pool.dma_addr);
++		pci_zalloc_consistent(adapter->pdev,
++				      adapter->desc_pool.alloc_size,
++				      &adapter->desc_pool.dma_addr);
+ 	if (adapter->desc_pool.alloc_virt == NULL) {
+ 		adapter->desc_pool.alloc_size = 0;
+ 		return 1;
+ 	}
+-	memset(adapter->desc_pool.alloc_virt, 0, adapter->desc_pool.alloc_size);
  
--		memset(vdev->fw_info, 0, sizeof(struct vnic_devcmd_fw_info));
--
- 		a0 = vdev->fw_info_pa;
- 		a1 = sizeof(struct vnic_devcmd_fw_info);
- 
+ 	/* Align to the next cache line boundary. */
+ 	offset = (((ulong) adapter->desc_pool.alloc_virt % DESC_ALIGNMENT) ?
 -- 
 1.8.1.2.459.gbcd45b4.dirty
