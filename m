@@ -1,117 +1,33 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] amd: Neaten and remove unnecessary OOM messages
-Date: Mon, 23 Jun 2014 14:36:35 -0700
-Message-ID: <1403559395.20657.8.camel@joe-AO725>
-References: <cover.1403530604.git.joe@perches.com>
-	 <c7cdaa8e080157cdabb92278a4c3beba89b49070.1403530604.git.joe@perches.com>
-	 <1403546524.12008.2.camel@Lunix2.home>
-	 <1403550950.15811.15.camel@joe-AO725> <1403557507.20657.3.camel@joe-AO725>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v3 0/8] enic updates
+Date: Mon, 23 Jun 2014 14:40:53 -0700 (PDT)
+Message-ID: <20140623.144053.1693421076211239015.davem@davemloft.net>
+References: <1403519885-4908-1-git-send-email-_govind@gmx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Don Fry <pcnet32@frontier.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1403557507.20657.3.camel@joe-AO725>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ssujith@cisco.com, benve@cisco.com
+To: _govind@gmx.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35330 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751210AbaFWVk5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2014 17:40:57 -0400
+In-Reply-To: <1403519885-4908-1-git-send-email-_govind@gmx.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Make the code flow a little better for 80 columns.
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Date: Mon, 23 Jun 2014 16:07:57 +0530
 
-Use a consistent style for the RX and TX rings allocation.
-Use BIT macro.
-Use a temporary unsiged int entries for (1<<size).
-Remove the OOM messages as they duplicate the generic
-OOM and dump_stack() provided by the memory subsystem.
-Reflow allocs to 80 columns.
+> This series fixes minor bugs and adds new features like Accelerated RFS,
+> busy_poll, tx clean-up in napi_poll.
+ ...
+> v3:
+> * While doing tx cleanup in napi, ignore budget and clean up all desc possible.
+> 
+> v2:
+> * Fix #ifdef coding style issue in '[PATCH 4/8] enic: alloc/free rx_cpu_rmap'
+>   And [PATCH 5/8] enic: Add Accelerated RFS support'
 
-Signed-off-by: Joe Perches <joe@perches.com>
----
- drivers/net/ethernet/amd/pcnet32.c | 43 ++++++++++++++++----------------------
- 1 file changed, 18 insertions(+), 25 deletions(-)
-
-diff --git a/drivers/net/ethernet/amd/pcnet32.c b/drivers/net/ethernet/amd/pcnet32.c
-index 8099fdc..4a8fdc4 100644
---- a/drivers/net/ethernet/amd/pcnet32.c
-+++ b/drivers/net/ethernet/amd/pcnet32.c
-@@ -481,36 +481,32 @@ static void pcnet32_realloc_tx_ring(struct net_device *dev,
- 	dma_addr_t *new_dma_addr_list;
- 	struct pcnet32_tx_head *new_tx_ring;
- 	struct sk_buff **new_skb_list;
-+	unsigned int entries = BIT(size);
- 
- 	pcnet32_purge_tx_ring(dev);
- 
--	new_tx_ring = pci_zalloc_consistent(lp->pci_dev,
--					    sizeof(struct pcnet32_tx_head) *
--					    (1 << size),
--					    &new_ring_dma_addr);
--	if (new_tx_ring == NULL) {
--		netif_err(lp, drv, dev, "Consistent memory allocation failed\n");
-+	new_tx_ring =
-+		pci_zalloc_consistent(lp->pci_dev,
-+				      sizeof(struct pcnet32_tx_head) * entries,
-+				      &new_ring_dma_addr);
-+	if (new_tx_ring == NULL)
- 		return;
--	}
- 
--	new_dma_addr_list = kcalloc(1 << size, sizeof(dma_addr_t),
--				    GFP_ATOMIC);
-+	new_dma_addr_list = kcalloc(entries, sizeof(dma_addr_t), GFP_ATOMIC);
- 	if (!new_dma_addr_list)
- 		goto free_new_tx_ring;
- 
--	new_skb_list = kcalloc(1 << size, sizeof(struct sk_buff *),
--			       GFP_ATOMIC);
-+	new_skb_list = kcalloc(entries, sizeof(struct sk_buff *), GFP_ATOMIC);
- 	if (!new_skb_list)
- 		goto free_new_lists;
- 
- 	kfree(lp->tx_skbuff);
- 	kfree(lp->tx_dma_addr);
- 	pci_free_consistent(lp->pci_dev,
--			    sizeof(struct pcnet32_tx_head) *
--			    lp->tx_ring_size, lp->tx_ring,
--			    lp->tx_ring_dma_addr);
-+			    sizeof(struct pcnet32_tx_head) * lp->tx_ring_size,
-+			    lp->tx_ring, lp->tx_ring_dma_addr);
- 
--	lp->tx_ring_size = (1 << size);
-+	lp->tx_ring_size = entries;
- 	lp->tx_mod_mask = lp->tx_ring_size - 1;
- 	lp->tx_len_bits = (size << 12);
- 	lp->tx_ring = new_tx_ring;
-@@ -523,8 +519,7 @@ free_new_lists:
- 	kfree(new_dma_addr_list);
- free_new_tx_ring:
- 	pci_free_consistent(lp->pci_dev,
--			    sizeof(struct pcnet32_tx_head) *
--			    (1 << size),
-+			    sizeof(struct pcnet32_tx_head) * entries,
- 			    new_tx_ring,
- 			    new_ring_dma_addr);
- }
-@@ -548,16 +543,14 @@ static void pcnet32_realloc_rx_ring(struct net_device *dev,
- 	struct pcnet32_rx_head *new_rx_ring;
- 	struct sk_buff **new_skb_list;
- 	int new, overlap;
--	unsigned int entries = 1 << size;
-+	unsigned int entries = BIT(size);
- 
--	new_rx_ring = pci_zalloc_consistent(lp->pci_dev,
--					    sizeof(struct pcnet32_rx_head) *
--					    entries,
--					    &new_ring_dma_addr);
--	if (new_rx_ring == NULL) {
--		netif_err(lp, drv, dev, "Consistent memory allocation failed\n");
-+	new_rx_ring =
-+		pci_zalloc_consistent(lp->pci_dev,
-+				      sizeof(struct pcnet32_rx_head) * entries,
-+				      &new_ring_dma_addr);
-+	if (new_rx_ring == NULL)
- 		return;
--	}
- 
- 	new_dma_addr_list = kcalloc(entries, sizeof(dma_addr_t), GFP_ATOMIC);
- 	if (!new_dma_addr_list)
+Series applied, thanks.
