@@ -1,65 +1,56 @@
-From: Peter Wu <peter-VTkQYDcBqhK7DlmcbJSQ7g@public.gmane.org>
-Subject: Re: [PATCHv3 6/6] drivers/staging/rtl8821ae: replace magic number by macro
-Date: Tue, 24 Jun 2014 00:29:54 +0200
-Message-ID: <1455413.BevQxGKhmu@al>
-References: <1403561511-8117-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+From: Don Fry <pcnet32@frontier.com>
+Subject: Re: [PATCH V2 08/22] amd: Use pci_zalloc_consistent
+Date: Mon, 23 Jun 2014 15:22:32 -0700
+Message-ID: <1403562152.12008.4.camel@Lunix2.home>
+References: <cover.1403530604.git.joe@perches.com>
+	 <c7cdaa8e080157cdabb92278a4c3beba89b49070.1403530604.git.joe@perches.com>
+	 <1403546524.12008.2.camel@Lunix2.home>
+	 <1403550950.15811.15.camel@joe-AO725> <1403557507.20657.3.camel@joe-AO725>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
-	Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
-	Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
-	Mark Cave-Ayland <mark.cave-ayland-r2/yp8inhXLQXOPxS62xeg@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-To: Rickard Strandqvist <rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1403561511-8117-1-git-send-email-rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1403557507.20657.3.camel@joe-AO725>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-(staging drivers are handled by Greg KH, cc'ing him)
-
-On Tuesday 24 June 2014 00:11:51 Rickard Strandqvist wrote:
-> For consistency with other drivers, replace a magic number by a macro.
+On Mon, 2014-06-23 at 14:05 -0700, Joe Perches wrote:
+> Remove the now unnecessary memset too.
 > 
-> Signed-off-by: Rickard Strandqvist <rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org>
-> Reviewed-by: Peter Wu <peter-VTkQYDcBqhK7DlmcbJSQ7g@public.gmane.org>
+> Signed-off-by: Joe Perches <joe@perches.com>
 > ---
->  drivers/staging/rtl8821ae/rtl8821ae/hw.c  |    2 +-
->  drivers/staging/rtl8821ae/rtl8821ae/reg.h |    1 +
->  2 files changed, 2 insertions(+), 1 deletion(-)
+> On Mon, 2014-06-23 at 12:15 -0700, Joe Perches wrote:
+> > On Mon, 2014-06-23 at 11:02 -0700, Don Fry wrote:
+> > > This causes the line length to be greater than 80 characters causing
+> > > checkpatch to complain.
 > 
-> diff --git a/drivers/staging/rtl8821ae/rtl8821ae/hw.c b/drivers/staging/rtl8821ae/rtl8821ae/hw.c
-> index 1b8583b..1aa1661 100644
-> --- a/drivers/staging/rtl8821ae/rtl8821ae/hw.c
-> +++ b/drivers/staging/rtl8821ae/rtl8821ae/hw.c
-> @@ -1623,7 +1623,7 @@ static int _rtl8821ae_set_media_status(struct ieee80211_hw *hw,
->  
->  	rtl_write_byte(rtlpriv, (MSR), bt_msr);
->  	rtlpriv->cfg->ops->led_control(hw, ledaction);
-> -	if ((bt_msr & ~0xfc) == MSR_AP)
-> +	if ((bt_msr & MSR_MASK) == MSR_AP)
->  		rtl_write_byte(rtlpriv, REG_BCNTCFG + 1, 0x00);
->  	else
->  		rtl_write_byte(rtlpriv, REG_BCNTCFG + 1, 0x66);
-> diff --git a/drivers/staging/rtl8821ae/rtl8821ae/reg.h b/drivers/staging/rtl8821ae/rtl8821ae/reg.h
-> index beffb42..4cb3ca9 100644
-> --- a/drivers/staging/rtl8821ae/rtl8821ae/reg.h
-> +++ b/drivers/staging/rtl8821ae/rtl8821ae/reg.h
-> @@ -431,6 +431,7 @@
->  #define	MSR_ADHOC					0x01
->  #define	MSR_INFRA					0x02
->  #define	MSR_AP						0x03
-> +#define	MSR_MASK					0x03
->  
->  #define	RRSR_RSC_OFFSET				21
->  #define	RRSR_SHORT_OFFSET			23
+> V2: Don Fry is an 80 column neatnik.
 > 
+> Please remember this depends on patch 1/22 being applied
+> before this patch can be successfully applied.
+> 
+>  drivers/net/ethernet/amd/pcnet32.c | 18 ++++++++----------
+>  1 file changed, 8 insertions(+), 10 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/amd/pcnet32.c b/drivers/net/ethernet/amd/pcnet32.c
+> index e7cc917..8099fdc 100644
+> --- a/drivers/net/ethernet/amd/pcnet32.c
+> +++ b/drivers/net/ethernet/amd/pcnet32.c
+> @@ -484,15 +484,14 @@ static void pcnet32_realloc_tx_ring(struct net_device *dev,
+>  
+>  	pcnet32_purge_tx_ring(dev);
+>  
+> -	new_tx_ring = pci_alloc_consistent(lp->pci_dev,
+> -					   sizeof(struct pcnet32_tx_head) *
+> -					   (1 << size),
+> -					   &new_ring_dma_addr);
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Acked-By: Don Fry <pcnet32@frontier.com>
+
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
