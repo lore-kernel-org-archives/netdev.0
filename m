@@ -1,41 +1,56 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] xen-netback: bookkeep number of queues in our own
- module
-Date: Mon, 23 Jun 2014 02:08:42 -0700 (PDT)
-Message-ID: <20140623.020842.1000912698437075036.davem@davemloft.net>
-References: <20140622.001355.624567316306796984.davem@davemloft.net>
-	<20140622111657.GA7528@zion.uk.xensource.com>
-	<9AAE0902D5BC7E449B7C8E4E778ABCD03BBD51@AMSPEX01CL01.citrite.net>
+Subject: Re: [PATCH net v2] xen-netback: bookkeep number of active queues
+ in our own module
+Date: Mon, 23 Jun 2014 02:11:10 -0700 (PDT)
+Message-ID: <20140623.021110.1153969828079234680.davem@davemloft.net>
+References: <1403443901-5404-1-git-send-email-wei.liu2@citrix.com>
+	<20140622.172105.1949118384610767695.davem@davemloft.net>
+	<20140623084032.GU20819@zion.uk.xensource.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: wei.liu2@citrix.com, xen-devel@lists.xen.org,
-	netdev@vger.kernel.org, boris.ostrovsky@oracle.com,
-	Ian.Campbell@citrix.com
-To: Paul.Durrant@citrix.com
+Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
+	boris.ostrovsky@oracle.com, ian.campbell@citrix.com
+To: wei.liu2@citrix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53717 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53761 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753740AbaFWJIp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2014 05:08:45 -0400
-In-Reply-To: <9AAE0902D5BC7E449B7C8E4E778ABCD03BBD51@AMSPEX01CL01.citrite.net>
+	with ESMTP id S1751282AbaFWJLL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2014 05:11:11 -0400
+In-Reply-To: <20140623084032.GU20819@zion.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Date: Mon, 23 Jun 2014 07:59:16 +0000
+From: Wei Liu <wei.liu2@citrix.com>
+Date: Mon, 23 Jun 2014 09:40:32 +0100
 
-> Bear in mind that the original intention of the multi-queue patches
-> was to allow the queue selection algorithm to be negotiated with the
-> frontend (see
-> http://lists.xen.org/archives/html/xen-devel/2013-06/msg02654.html). Particularly,
-> if the frontend is Windows then netback will need to use a Toeplitz
-> hash to steer traffic since this is stipulated by Microsoft's RSS
-> (Receive Side Scaling) interfaces. So, IMO netback should always
-> implement a select queue method, otherwise any (theoretical)
-> algorithm change in __netdev_pick_tx() would be immediately imposed
-> on frontends, possibly causing them to misbehave.
+> On Sun, Jun 22, 2014 at 05:21:05PM -0700, David Miller wrote:
+>> From: Wei Liu <wei.liu2@citrix.com>
+>> Date: Sun, 22 Jun 2014 14:31:41 +0100
+>> 
+>> >  
+>> > +	/* Initialisation completed, tell core driver the number of
+>> > +	 * active queues.
+>> > +	 */
+>> > +	rtnl_lock();
+>> > +	netif_set_real_num_tx_queues(be->vif->dev, requested_num_queues);
+>> > +	netif_set_real_num_rx_queues(be->vif->dev, requested_num_queues);
+>> > +	rtnl_unlock();
+>> > +
+>> >  	xenvif_carrier_on(be->vif);
+>> 
+>> This function _NEVER_ set the number of RX queues beforehand,
+>> therefore why are you adding an RX queue adjustment now?
+>> 
+> 
+> As I went through the core driver code I found this to be a missing call
+> in previous code.
+> 
+> "In current Xen multiqueue design, the number of TX queues and RX queues
+> are in fact the same. So we need to set the numbers of TX and RX queues
+> to the same value."
+> 
+> Does the above paragraph answers your question? If so, I will add it to
+> commit message and resend this patch.
 
-I do not think you are obligated to use Toeplitz or whatever scheme
-the other side wants, especially if the user on the xen-netback side
-asked for XPS or similar to be used.
+Yes.
