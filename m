@@ -1,44 +1,49 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net] at86rf230: fix irq setup
-Date: Sun, 22 Jun 2014 18:04:34 -0700 (PDT)
-Message-ID: <20140622.180434.2189519657724112939.davem@davemloft.net>
-References: <1403101729-29448-1-git-send-email-phoebe.buckheister@itwm.fraunhofer.de>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH 1/1] net/netfilter/ipvs/ip_vs_sync.c: remove null test
+ before kfree
+Date: Mon, 23 Jun 2014 11:20:56 +0900
+Message-ID: <20140623022056.GA12564@verge.net.au>
+References: <1403296542-5992-1-git-send-email-fabf@skynet.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1403101729-29448-1-git-send-email-phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, Wensong Zhang <wensong@linux-vs.org>,
+	netdev@vger.kernel.org
+To: Fabian Frederick <fabf@skynet.be>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1403296542-5992-1-git-send-email-fabf@skynet.be>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
-Date: Wed, 18 Jun 2014 16:28:49 +0200
-
-> Commit 8eba0eefae24953962067 ("at86rf230: remove irq_type in
-> request_irq") removed the trigger configuration when requesting an irq,
-> and instead relied on the interrupt trigger to be properly configured
-> already. This does not seem to be an assumption that can be safely made,
-> since boards disable all interrupt triggers on boot.
+On Fri, Jun 20, 2014 at 10:35:42PM +0200, Fabian Frederick wrote:
+> Fix checkpatch warning:
+> WARNING: kfree(NULL) is safe this check is probably not required
 > 
-> On these boards, force the irq to trigger on rising edge, which is also
-> the default for the chip.
+> Cc: Wensong Zhang <wensong@linux-vs.org>
+> Cc: Simon Horman <horms@verge.net.au>
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: Fabian Frederick <fabf@skynet.be>
+
+Thanks, applied.
+
+> ---
+>  net/netfilter/ipvs/ip_vs_sync.c | 3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
 > 
-> Signed-off-by: Phoebe Buckheister <phoebe.buckheister-mPn0NPGs4xGatNDF+KUbs4QuADTiUCJX@public.gmane.org>
-
-Applied, thanks.
-
-------------------------------------------------------------------------------
-HPCC Systems Open Source Big Data Platform from LexisNexis Risk Solutions
-Find What Matters Most in Your Big Data with HPCC Systems
-Open Source. Fast. Scalable. Simple. Ideal for Dirty Data.
-Leverages Graph Analysis for Fast Processing & Easy Data Exploration
-http://p.sf.net/sfu/hpccsystems
+> diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
+> index db80126..eadffb2 100644
+> --- a/net/netfilter/ipvs/ip_vs_sync.c
+> +++ b/net/netfilter/ipvs/ip_vs_sync.c
+> @@ -886,8 +886,7 @@ static void ip_vs_proc_conn(struct net *net, struct ip_vs_conn_param *param,
+>  		cp = ip_vs_conn_new(param, daddr, dport, flags, dest, fwmark);
+>  		rcu_read_unlock();
+>  		if (!cp) {
+> -			if (param->pe_data)
+> -				kfree(param->pe_data);
+> +			kfree(param->pe_data);
+>  			IP_VS_DBG(2, "BACKUP, add new conn. failed\n");
+>  			return;
+>  		}
+> -- 
+> 1.8.4.5
+> 
