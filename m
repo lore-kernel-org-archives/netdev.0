@@ -1,85 +1,57 @@
 From: Octavian Purdila <octavian.purdila@intel.com>
-Subject: [RFC net-next 02/12] tcp: tcp_v[46]_conn_request: fix snt_synack initialization
-Date: Mon, 23 Jun 2014 21:42:39 +0300
-Message-ID: <1403548969-12303-3-git-send-email-octavian.purdila@intel.com>
-References: <1403548969-12303-1-git-send-email-octavian.purdila@intel.com>
-Cc: Octavian Purdila <octavian.purdila@intel.com>,
-	Cardwell <ncardwell@google.com>,
-	Daniel Lee <longinus00@gmail.com>,
-	Yuchung Cheng <ycheng@google.com>
+Subject: [RFC net-next 00/12] remove code duplication in tcp_v[46]_conn_request
+Date: Mon, 23 Jun 2014 21:42:37 +0300
+Message-ID: <1403548969-12303-1-git-send-email-octavian.purdila@intel.com>
+Cc: Octavian Purdila <octavian.purdila@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:42040 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753539AbaFWSnz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Jun 2014 14:43:55 -0400
-In-Reply-To: <1403548969-12303-1-git-send-email-octavian.purdila@intel.com>
+	id S1753495AbaFWSnw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Jun 2014 14:43:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 016818d07 (tcp: TCP Fast Open Server - take SYNACK RTT after
-completing 3WHS) changes the code to only take a snt_synack timestamp
-when a SYNACK transmit or retransmit succeeds. This behaviour is later
-broken by commit 843f4a55e (tcp: use tcp_v4_send_synack on first
-SYN-ACK), as snt_synack is now updated even if tcp_v4_send_synack
-fails.
+This patch series removes code duplication in tcp_v4_conn_request and
+tcp_v6_conn_request by adding a few new methods in
+tcp_request_sock_ops.
 
-Also, commit 3a19ce0ee (tcp: IPv6 support for fastopen server) misses
-the required IPv6 updates for 016818d07.
+Since this can potentially have performance impact I will later come
+back with some benchmarks results for before and after -- I am
+thinking that connections per second tests should cover it.
 
-This patch makes sure that snt_synack is updated only when the SYNACK
-trasnmit/retransmit succeeds, for both IPv4 and IPv6.
+In the meanwhile, any feedback on the approach is kindly appreciated.
 
-Cc: Cardwell <ncardwell@google.com>
-Cc: Daniel Lee <longinus00@gmail.com>
-Cc: Yuchung Cheng <ycheng@google.com>
+The first 3 patches are cleanups and fixes found during the code merge
+process, which shows that having a single tcp_conn_request function is
+useful to avoid future issues.
 
-Signed-off-by: Octavian Purdila <octavian.purdila@intel.com>
----
- net/ipv4/tcp_ipv4.c | 2 --
- net/ipv6/tcp_ipv6.c | 3 ++-
- 2 files changed, 2 insertions(+), 3 deletions(-)
+Octavian Purdila (12):
+  tcp: cookie_v4_init_sequence: skb should be const
+  tcp: tcp_v[46]_conn_request: fix snt_synack initialization
+  net: remove inet6_reqsk_alloc
+  tcp: add init_req method to tcp_request_sock_ops
+  tcp: add init_cookie_seq method to tcp_request_sock_ops
+  tcp: add route_req method to tcp_request_sock_ops
+  tcp: move around a few calls in tcp_v6_conn_request
+  tcp: add init_seq method to tcp_request_sock_ops
+  tcp: add send_synack method to tcp_request_sock_ops
+  tcp: unify tcp_v4_rtx_synack and tcp_v6_rtx_synack
+  tcp: add mss_clamp to tcp_request_sock_ops
+  tcp: add tcp_conn_request
 
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 180336d..145f640 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1370,7 +1370,6 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
- 		goto drop_and_free;
- 
- 	tcp_rsk(req)->snt_isn = isn;
--	tcp_rsk(req)->snt_synack = tcp_time_stamp;
- 	tcp_openreq_init_rwin(req, sk, dst);
- 	fastopen = !want_cookie &&
- 		   tcp_try_fastopen(sk, skb, req, &foc, dst);
-@@ -1380,7 +1379,6 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
- 		if (err || want_cookie)
- 			goto drop_and_free;
- 
--		tcp_rsk(req)->snt_synack = tcp_time_stamp;
- 		tcp_rsk(req)->listener = NULL;
- 		inet_csk_reqsk_queue_hash_add(sk, req, TCP_TIMEOUT_INIT);
- 	}
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 08ae3da..a962455 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -497,6 +497,8 @@ static int tcp_v6_send_synack(struct sock *sk, struct dst_entry *dst,
- 		skb_set_queue_mapping(skb, queue_mapping);
- 		err = ip6_xmit(sk, skb, fl6, np->opt, np->tclass);
- 		err = net_xmit_eval(err);
-+		if (!tcp_rsk(req)->snt_synack && !err)
-+			tcp_rsk(req)->snt_synack = tcp_time_stamp;
- 	}
- 
- done:
-@@ -1100,7 +1102,6 @@ have_isn:
- 		goto drop_and_free;
- 
- 	tcp_rsk(req)->snt_isn = isn;
--	tcp_rsk(req)->snt_synack = tcp_time_stamp;
- 	tcp_openreq_init_rwin(req, sk, dst);
- 	fastopen = !want_cookie &&
- 		   tcp_try_fastopen(sk, skb, req, &foc, dst);
+ include/linux/ipv6.h    |  10 ---
+ include/linux/tcp.h     |   3 -
+ include/net/inet_sock.h |   6 +-
+ include/net/tcp.h       |  52 +++++++++----
+ net/dccp/ipv6.c         |   2 +-
+ net/ipv4/syncookies.c   |   3 +-
+ net/ipv4/tcp_input.c    | 148 +++++++++++++++++++++++++++++++++++
+ net/ipv4/tcp_ipv4.c     | 188 +++++++++++---------------------------------
+ net/ipv4/tcp_output.c   |  15 ++++
+ net/ipv6/syncookies.c   |   2 +-
+ net/ipv6/tcp_ipv6.c     | 202 +++++++++++++-----------------------------------
+ 11 files changed, 303 insertions(+), 328 deletions(-)
+
 -- 
 1.8.3.2
