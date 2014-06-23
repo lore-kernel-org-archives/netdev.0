@@ -1,35 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] of: mdio: fixup of_phy_register_fixed_link parsing
- of new bindings
-Date: Sun, 22 Jun 2014 21:35:43 -0700 (PDT)
-Message-ID: <20140622.213543.227586714635463282.davem@davemloft.net>
-References: <53A35763.4020904@cogentembedded.com>
-	<1403273467-16974-1-git-send-email-rretanubun.work@gmail.com>
+From: Alexander Stein <alexander.stein@systec-electronic.com>
+Subject: Re: [PATCH 1/2] slip: Fix deadlock in write_wakeup
+Date: Mon, 23 Jun 2014 08:31:59 +0200
+Message-ID: <3115845.XamgKCD80B@ws-stein>
+References: <1402885397-21062-1-git-send-email-tylerwhall@gmail.com> <539F2F78.40502@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org, robh+dt@kernel.org, pawel.moll@arm.com,
-	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
-	galak@codeaurora.org, thomas.petazzoni@free-electrons.com
-To: rretanubun.work@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50773 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751066AbaFWEfp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2014 00:35:45 -0400
-In-Reply-To: <1403273467-16974-1-git-send-email-rretanubun.work@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Tyler Hall <tylerwhall@gmail.com>,
+	Andre Naujoks <nautsch2@gmail.com>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org
+To: Oliver Hartkopp <socketcan@hartkopp.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <539F2F78.40502@hartkopp.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Richard Retanubun <rretanubun.work@gmail.com>
-Date: Fri, 20 Jun 2014 10:11:07 -0400
-
-> Fixes commit 3be2a49e5c08 ("of: provide a binding for fixed link PHYs")
+On Monday 16 June 2014 19:55:04, Oliver Hartkopp wrote:
+> Hello Tyler,
 > 
-> Fix the parsing of the new fixed link dts bindings for duplex,
-> pause, and asym_pause by using the correct device node pointer.
+> On 16.06.2014 04:23, Tyler Hall wrote:
+> > Use schedule_work() to avoid potentially taking the spinlock in
+> > interrupt context.
+> > 
+> (..)
 > 
-> Signed-off-by: Richard Retanubun <rretanubun.work@gmail.com>
+> > 
+> > To deal with these issues, don't grab the lock in the wakeup function by
+> > deferring the writeout to a workqueue. Also hold the lock during close
+> > when de-assigning the tty pointer to safely disarm the worker and
+> > timers.
+> > 
+> > This bug is easily reproducible on the first transmit when slip is
+> > used with the standard 8250 serial driver.
+> > 
+> 
+> looks reasonable. Thanks for your patch!
+> Indeed I can't remember ever using the slcan driver with a real serial
+> controller hardware with irq line but only via serial-to-USB adapters :-)
+> Due to the recent fixes from Andre and Alexander these two drivers got in
+> motion again ...
+> 
+> @Andre/Alexander: Can you please check if slcan still works in your setup. I
+> don't have that hardware with me. I only was able to compile it successfully.
 
-Applied, thank you.
+Sorry, I don't have access to the serial hardware currently.
+
+Best regards
+Alexander
