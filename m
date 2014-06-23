@@ -1,38 +1,29 @@
-From: Maxime Bizon <mbizon@freebox.fr>
-Subject: [PATCH] bridge: mark packets sent to any local mac address as PACKET_HOST
-Date: Mon, 23 Jun 2014 16:33:35 +0200
-Message-ID: <1403534015-28496-1-git-send-email-mbizon@freebox.fr>
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, Maxime Bizon <mbizon@freebox.fr>
-To: stephen@networkplumber.org
+From: Dave Chiluk <chiluk@canonical.com>
+Subject: Stable request for 5882a07c72093d
+Date: Mon, 23 Jun 2014 10:56:55 -0500
+Message-ID: <1403539016-15519-1-git-send-email-chiluk@canonical.com>
+To: netdev@vger.kernel.org, davem@davemloft.net,
+	Wei-Chun Chao <weichunc@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.iliad.fr ([212.27.33.1]:33235 "EHLO ns.iliad.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753648AbaFWOng (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Jun 2014 10:43:36 -0400
+Received: from youngberry.canonical.com ([91.189.89.112]:38395 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755851AbaFWP5I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2014 11:57:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The bridge code only set PACKET_HOST on packets sent to the bridge mac
-address, packets sent to other local mac addresses are sent to upper
-layers, but ignored because they are marked as PACKET_OTHERHOST.
+Commit 5882a07c72093dc3a18e2d2b129fb200686bb6ee remedies a BUG_ON in
+skb_segment.  This is hit reliably in clouds that are using openvswitch for
+network capabilities (which is the default network used by Openstack) on
+machines that have gso offload capabilities.  
 
-Signed-off-by: Maxime Bizon <mbizon@freebox.fr>
----
- net/bridge/br_input.c |    1 +
- 1 file changed, 1 insertion(+)
+This has already been reported multiple times to Canonical in numerous
+openstack clouds.  The fix has been integrated and tested in those clouds, and
+has been show to resolve their issues.
 
-diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-index 366c436..b9cc8554 100644
---- a/net/bridge/br_input.c
-+++ b/net/bridge/br_input.c
-@@ -120,6 +120,7 @@ int br_handle_frame_finish(struct sk_buff *skb)
- 			dst->is_local) {
- 		skb2 = skb;
- 		/* Do not forward the packet since it's local. */
-+		skb2->pkt_type = PACKET_HOST;
- 		skb = NULL;
- 	}
- 
--- 
-1.7.9.5
+Please include this patch for stable release.
+
+Thank you, 
+Dave Chiluk
+
+The patch follows for convenience.
