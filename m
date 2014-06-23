@@ -1,152 +1,75 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ipv4: fix a race in ip4_datagram_release_cb()
-Date: Mon, 23 Jun 2014 01:33:32 -0700
-Message-ID: <1403512412.16682.23.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CA+FTKhs45vD66xSQRgijwFjSuy-Mt8EGr3cRv60oCcEnFPKnaQ@mail.gmail.com>
-	   <1402407781.3645.426.camel@edumazet-glaptop2.roam.corp.google.com>
-	   <alpine.DEB.2.02.1406101726390.11647@dtop>
-	   <1402448128.3645.437.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1402449173.3645.440.camel@edumazet-glaptop2.roam.corp.google.com>
-	   <1402450009.3645.444.camel@edumazet-glaptop2.roam.corp.google.com>
-	   <alpine.DEB.2.10.1406102114520.28698@dinf>
-	   <1402466090.3645.456.camel@edumazet-glaptop2.roam.corp.google.com>
-	   <alpine.DEB.2.02.1406110011170.11647@dtop>
-	   <alpine.DEB.2.02.1406110022550.11647@dtop>
-	   <alpine.DEB.2.02.1406110036490.11647@dtop>
-	   <1402490462.3645.463.camel@edumazet-glaptop2.roam.corp.google.com>
-	  <1402492373.3645.466.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <alpine.DEB.2.02.1406111851140.18470@dtop>
-	 <1402544609.3645.473.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <alpine.DEB.2.02.1406221202460.14871@dtop>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH net v2] xen-netback: bookkeep number of
+ active queues in our own module
+Date: Mon, 23 Jun 2014 09:40:32 +0100
+Message-ID: <20140623084032.GU20819@zion.uk.xensource.com>
+References: <1403443901-5404-1-git-send-email-wei.liu2@citrix.com>
+	<20140622.172105.1949118384610767695.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Alexey Preobrazhensky <preobr@google.com>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	David Miller <davem@davemloft.net>, paulmck@linux.vnet.ibm.com,
-	netdev@vger.kernel.org, Kostya Serebryany <kcc@google.com>,
-	Dmitry Vyukov <dvyukov@google.com>,
-	Lars Bull <larsbull@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Bruce Curtis <brutus@google.com>,
-	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>
-To: dormando <dormando@rydia.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:35465 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753047AbaFWIdi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2014 04:33:38 -0400
-Received: by mail-wi0-f178.google.com with SMTP id n15so3658622wiw.11
-        for <netdev@vger.kernel.org>; Mon, 23 Jun 2014 01:33:36 -0700 (PDT)
-In-Reply-To: <alpine.DEB.2.02.1406221202460.14871@dtop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, boris.ostrovsky@oracle.com, wei.liu2@citrix.com,
+	ian.campbell@citrix.com, xen-devel@lists.xen.org
+To: David Miller <davem@davemloft.net>
+Return-path: <xen-devel-bounces@lists.xen.org>
+Content-Disposition: inline
+In-Reply-To: <20140622.172105.1949118384610767695.davem@davemloft.net>
+List-Unsubscribe: <http://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <http://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+	<mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Sender: xen-devel-bounces@lists.xen.org
+Errors-To: xen-devel-bounces@lists.xen.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2014-06-22 at 12:07 -0700, dormando wrote:
-
-> Update on testing:
+On Sun, Jun 22, 2014 at 05:21:05PM -0700, David Miller wrote:
+> From: Wei Liu <wei.liu2@citrix.com>
+> Date: Sun, 22 Jun 2014 14:31:41 +0100
 > 
-> I only have two machines that crash on their own frequently (more like
-> one, even). Unfortunately something happened to the datacenter it's in and
-> it was offline for a week. The machine normally crashes after 1.5-4d,
-> averaging 2d.
+> >  
+> > +	/* Initialisation completed, tell core driver the number of
+> > +	 * active queues.
+> > +	 */
+> > +	rtnl_lock();
+> > +	netif_set_real_num_tx_queues(be->vif->dev, requested_num_queues);
+> > +	netif_set_real_num_rx_queues(be->vif->dev, requested_num_queues);
+> > +	rtnl_unlock();
+> > +
+> >  	xenvif_carrier_on(be->vif);
 > 
-> It's done about three days total time without a new crash. I also have the
-> kernel running in another datacenter for ~10 days.. but it takes 30-150
-> days to crash in that one.
+> This function _NEVER_ set the number of RX queues beforehand,
+> therefore why are you adding an RX queue adjustment now?
 > 
-> So, inconclusive, but still promising. If the machine survives the week it
-> probably means it's fixed, or at least greatly reduced.
+
+As I went through the core driver code I found this to be a missing call
+in previous code.
+
+"In current Xen multiqueue design, the number of TX queues and RX queues
+are in fact the same. So we need to set the numbers of TX and RX queues
+to the same value."
+
+Does the above paragraph answers your question? If so, I will add it to
+commit message and resend this patch.
+
+> Regardless of the reason, you must explain such a change, in
+> detail, in your commit message.
 > 
-> I saw that one of your patches got queued for stable, but all three were
-> necessary to fix udpkill. What's your plan for cleanup/upstreaming?
+> Your previous patch didn't do this, and I really am suspect as to
+> whether you functionally tested and verified this aspect of your
+> change at a ll.
 > 
-> Did you folks end up running udpkill under the tester thing?
 
-I did not test udpkill, as the known problem is the DST_NOCACHE flag.
+I've done some testing.
 
-We end up calling sk_dst_set(sk, dst) with a dst having this flag set.
+> Please don't "quietly" make undescribed changes like this. It's very
+> tiring to think that a patch has been adjusted to my liking and then
+> during review I find a grenade like this :-/
+> 
 
-So maybe DST_NOCACHE should be renamed, if we _can _ cache a dst like
-this. Its meaning is really that dst_release() has to track when
-refcount reaches 0 so that last owner fress dst, but we need to respect
-rcu grace period.
+Sorry, that wasn't my intent.
 
-Fixing sk_dst_set() as I did is not enough, as it is only reducing race
-window.
+Wei.
 
-Something like following :
-
- include/net/sock.h   |    4 ++--
- net/core/dst.c       |   16 +++++++++++-----
- net/ipv4/ip_tunnel.c |    7 +------
- 3 files changed, 14 insertions(+), 13 deletions(-)
-
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 07b7fcd60d80..173cae485de1 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1730,8 +1730,8 @@ sk_dst_get(struct sock *sk)
- 
- 	rcu_read_lock();
- 	dst = rcu_dereference(sk->sk_dst_cache);
--	if (dst)
--		dst_hold(dst);
-+	if (dst && !atomic_inc_not_zero(&dst->__refcnt))
-+		dst = NULL;
- 	rcu_read_unlock();
- 	return dst;
- }
-diff --git a/net/core/dst.c b/net/core/dst.c
-index 80d6286c8b62..a028409ee438 100644
---- a/net/core/dst.c
-+++ b/net/core/dst.c
-@@ -269,6 +269,15 @@ again:
- }
- EXPORT_SYMBOL(dst_destroy);
- 
-+static void dst_destroy_rcu(struct rcu_head *head)
-+{
-+	struct dst_entry *dst = container_of(head, struct dst_entry, rcu_head);
-+
-+	dst = dst_destroy(dst);
-+	if (dst)
-+		__dst_free(dst);
-+}
-+
- void dst_release(struct dst_entry *dst)
- {
- 	if (dst) {
-@@ -276,11 +285,8 @@ void dst_release(struct dst_entry *dst)
- 
- 		newrefcnt = atomic_dec_return(&dst->__refcnt);
- 		WARN_ON(newrefcnt < 0);
--		if (unlikely(dst->flags & DST_NOCACHE) && !newrefcnt) {
--			dst = dst_destroy(dst);
--			if (dst)
--				__dst_free(dst);
--		}
-+		if (unlikely(dst->flags & DST_NOCACHE) && !newrefcnt)
-+			call_rcu(&dst->rcu_head, dst_destroy_rcu);
- 	}
- }
- EXPORT_SYMBOL(dst_release);
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index 097b3e7c1e8f..cc3b7fd34555 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -73,12 +73,7 @@ static void __tunnel_dst_set(struct ip_tunnel_dst *idst,
- {
- 	struct dst_entry *old_dst;
- 
--	if (dst) {
--		if (dst->flags & DST_NOCACHE)
--			dst = NULL;
--		else
--			dst_clone(dst);
--	}
-+	dst_clone(dst);
- 	old_dst = xchg((__force struct dst_entry **)&idst->dst, dst);
- 	dst_release(old_dst);
- }
+> Thanks.
