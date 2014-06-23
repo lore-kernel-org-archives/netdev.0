@@ -1,55 +1,75 @@
-From: Dave Chiluk <chiluk@canonical.com>
-Subject: Re: Stable request for 5882a07c72093d
-Date: Mon, 23 Jun 2014 12:35:43 -0500
-Message-ID: <53A8656F.4070407@canonical.com>
-References: <1403539016-15519-1-git-send-email-chiluk@canonical.com> <1403540316.27425.3.camel@edumazet-glaptop2.roam.corp.google.com>
-Reply-To: chiluk@canonical.com
+From: Don Fry <pcnet32@frontier.com>
+Subject: Re: [PATCH 08/22] amd: Use pci_zalloc_consistent
+Date: Mon, 23 Jun 2014 11:02:04 -0700
+Message-ID: <1403546524.12008.2.camel@Lunix2.home>
+References: <cover.1403530604.git.joe@perches.com>
+	 <c7cdaa8e080157cdabb92278a4c3beba89b49070.1403530604.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Wei-Chun Chao <weichunc@plumgrid.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:38967 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754859AbaFWRfr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2014 13:35:47 -0400
-In-Reply-To: <1403540316.27425.3.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <c7cdaa8e080157cdabb92278a4c3beba89b49070.1403530604.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/23/2014 11:18 AM, Eric Dumazet wrote:
-> On Mon, 2014-06-23 at 10:56 -0500, Dave Chiluk wrote:
->> Commit 5882a07c72093dc3a18e2d2b129fb200686bb6ee remedies a BUG_ON in
->> skb_segment.  This is hit reliably in clouds that are using openvswitch for
->> network capabilities (which is the default network used by Openstack) on
->> machines that have gso offload capabilities.  
->>
->> This has already been reported multiple times to Canonical in numerous
->> openstack clouds.  The fix has been integrated and tested in those clouds, and
->> has been show to resolve their issues.
->>
->> Please include this patch for stable release.
->>
->> Thank you, 
->> Dave Chiluk
->>
->> The patch follows for convenience.
->> --
+On Mon, 2014-06-23 at 06:41 -0700, Joe Perches wrote:
+> Remove the now unnecessary memset too.
 > 
-> Both original commit and your request lack the bug origin.
+> Signed-off-by: Joe Perches <joe@perches.com>
+> ---
+>  drivers/net/ethernet/amd/pcnet32.c | 16 ++++++----------
+>  1 file changed, 6 insertions(+), 10 deletions(-)
 > 
-> I wish bug submissions are more explicit in this regard, using
-> 
-> Fixes: sha1-12digits ("title")
-> 
-> It would save a lot of time for stable teams, and ease future bug
-> hunting as well.
-> 
-> 
-According to the initial thread, Wei-Chun determined it originated with
-19acc327258a.  It has existed since 3.10-rc1.
+> diff --git a/drivers/net/ethernet/amd/pcnet32.c b/drivers/net/ethernet/amd/pcnet32.c
+> index e7cc917..e5e2725 100644
+> --- a/drivers/net/ethernet/amd/pcnet32.c
+> +++ b/drivers/net/ethernet/amd/pcnet32.c
+> @@ -484,15 +484,13 @@ static void pcnet32_realloc_tx_ring(struct net_device *dev,
+>  
+>  	pcnet32_purge_tx_ring(dev);
+>  
+> -	new_tx_ring = pci_alloc_consistent(lp->pci_dev,
+> -					   sizeof(struct pcnet32_tx_head) *
+> -					   (1 << size),
+> -					   &new_ring_dma_addr);
+> +	new_tx_ring = pci_zalloc_consistent(lp->pci_dev,
+> +					    sizeof(struct pcnet32_tx_head) * (1 << size),
 
-Fixes: 19acc327258a ("gso: Handle Trans-Ether-Bridging protocol in
-skb_network_protocol()")
+This causes the line length to be greater than 80 characters causing
+checkpatch to complain.
+
+> +					    &new_ring_dma_addr);
+>  	if (new_tx_ring == NULL) {
+>  		netif_err(lp, drv, dev, "Consistent memory allocation failed\n");
+>  		return;
+>  	}
+> -	memset(new_tx_ring, 0, sizeof(struct pcnet32_tx_head) * (1 << size));
+>  
+>  	new_dma_addr_list = kcalloc(1 << size, sizeof(dma_addr_t),
+>  				    GFP_ATOMIC);
+> @@ -551,15 +549,13 @@ static void pcnet32_realloc_rx_ring(struct net_device *dev,
+>  	int new, overlap;
+>  	unsigned int entries = 1 << size;
+>  
+> -	new_rx_ring = pci_alloc_consistent(lp->pci_dev,
+> -					   sizeof(struct pcnet32_rx_head) *
+> -					   entries,
+> -					   &new_ring_dma_addr);
+> +	new_rx_ring = pci_zalloc_consistent(lp->pci_dev,
+> +					    sizeof(struct pcnet32_rx_head) * entries,
+
+
+This causes the line length to be greater than 80 characters causing
+checkpatch to complain.
+
+> +					    &new_ring_dma_addr);
+>  	if (new_rx_ring == NULL) {
+>  		netif_err(lp, drv, dev, "Consistent memory allocation failed\n");
+>  		return;
+>  	}
+> -	memset(new_rx_ring, 0, sizeof(struct pcnet32_rx_head) * entries);
+>  
+>  	new_dma_addr_list = kcalloc(entries, sizeof(dma_addr_t), GFP_ATOMIC);
+>  	if (!new_dma_addr_list)
