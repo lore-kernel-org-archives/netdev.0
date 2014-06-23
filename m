@@ -1,50 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] xen-netback: bookkeep number of active queues
- in our own module
-Date: Sun, 22 Jun 2014 17:21:05 -0700 (PDT)
-Message-ID: <20140622.172105.1949118384610767695.davem@davemloft.net>
-References: <1403443901-5404-1-git-send-email-wei.liu2@citrix.com>
+Subject: Re: [PATCH] cxgb4: use dev_port to identify ports
+Date: Sun, 22 Jun 2014 17:23:07 -0700 (PDT)
+Message-ID: <20140622.172307.2305001882391366010.davem@davemloft.net>
+References: <1403354888-15600-1-git-send-email-cascardo@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
-	boris.ostrovsky@oracle.com, ian.campbell@citrix.com
-To: wei.liu2@citrix.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49631 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751007AbaFWAVG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jun 2014 20:21:06 -0400
-In-Reply-To: <1403443901-5404-1-git-send-email-wei.liu2@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, hariprasad@chelsio.com,
+	linux-kernel@vger.kernel.org
+To: cascardo@linux.vnet.ibm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1403354888-15600-1-git-send-email-cascardo@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei Liu <wei.liu2@citrix.com>
-Date: Sun, 22 Jun 2014 14:31:41 +0100
+From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+Date: Sat, 21 Jun 2014 09:48:08 -0300
 
->  
-> +	/* Initialisation completed, tell core driver the number of
-> +	 * active queues.
-> +	 */
-> +	rtnl_lock();
-> +	netif_set_real_num_tx_queues(be->vif->dev, requested_num_queues);
-> +	netif_set_real_num_rx_queues(be->vif->dev, requested_num_queues);
-> +	rtnl_unlock();
-> +
->  	xenvif_carrier_on(be->vif);
+> Commit 3f85944fe207d0225ef21a2c0951d4946fc9a95d ("net: Add sysfs file
+> for port number") introduce dev_port to network devices. cxgb4 adapters
+> have multiple ports on the same PCI function, and used dev_id to
+> identify those ports. That use was removed by commit
+> 8c367fcbe6549195d2eb11e62bea233f811aad41 ("cxgb4: Do not set
+> net_device::dev_id to VI index"), since dev_id should be used only when
+> devices share the same MAC address.
+> 
+> Using dev_port for cxgb4 allows different ports on the same PCI function
+> to be identified.
+> 
+> Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
 
-This function _NEVER_ set the number of RX queues beforehand,
-therefore why are you adding an RX queue adjustment now?
+You've made exactly zero effort to explain why the IPV6 issue carefully
+explained in commit 8c367fcbe6549195d2eb11e62bea233f811aad41 no longer
+applies.
 
-Regardless of the reason, you must explain such a change, in
-detail, in your commit message.
+As far as I can tell, it absolutely does, and therefore this change
+here should not be made.
 
-Your previous patch didn't do this, and I really am suspect as to
-whether you functionally tested and verified this aspect of your
-change at a ll.
-
-Please don't "quietly" make undescribed changes like this. It's very
-tiring to think that a patch has been adjusted to my liking and then
-during review I find a grenade like this :-/
-
-Thanks.
+I'm not applying this patch, sorry.
