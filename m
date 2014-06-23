@@ -1,144 +1,84 @@
-From: Marc Duponcheel <marc@offline.be>
-Subject: Re: r8169/r8168 slow internet upload
-Date: Tue, 24 Jun 2014 00:46:14 +0200
-Message-ID: <20140623224614.GA31154@offline.be>
-References: <20140511231946.GA12504@offline.be>
-Reply-To: Marc Duponcheel <marc@offline.be>
+From: "Luis R. Rodriguez" <mcgrof@suse.com>
+Subject: Re: SmPL for automatic request_firmware_nowait() conversion
+Date: Tue, 24 Jun 2014 01:21:07 +0200
+Message-ID: <20140623232107.GB27687@wotan.suse.de>
+References: <20140621015714.GX4841@wotan.suse.de> <20140621105205.GA31611@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Marc Duponcheel <marc@offline.be>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from server.offline.be ([79.132.231.86]:43544 "EHLO mail.offline.be"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752475AbaFWXFH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Jun 2014 19:05:07 -0400
+Cc: cocci@systeme.lip6.fr, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20140511231946.GA12504@offline.be>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20140621105205.GA31611@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
- FYI
+On Sat, Jun 21, 2014 at 12:52:05PM +0200, Francois Romieu wrote:
+> Luis R. Rodriguez <mcgrof@suse.com> :
+> > I was just porting over an ethernet driver [0] to use request_firmware_nowait()
+> > since firmware loading seems can take over a minute on one device, while
+> > at it I noticed no other ethernet drivers yet use this API so figure
+> > this may be a trend coming if devices are getting as complex as cxgb4.
+> > The cxgb4 driver happens to even use the firmware API 3 times!
+> 
+> There should be no problem for the firmware requests issued through
+> ethtool in cxgb4.
 
-it seems upgrade to 3.14.5 -> 3.15.1 fixed issue ...
+OK.
 
-not sure which change implements fix but, in any case:
+> 
+> [...]
+> > netdev: how worthy is this effort?
+> 
+> Biased comment below :o)
+> 
+> I'm wondering the benefit of automatic API changes when it could be argued
+> that the symptoms call for driver dependant code rework.
 
- THANKS
+I should have elaborated a bit more on motivation. Tons of drivers don't use
+request_firmware_nowait() which means boot time is increased given that probe
+won't complete until firmware loading completes. The cxgb4 driver is a good
+example of one that takes quite a bit of time so learning that firmware loading
+can take over a minute seemed to beg a rework to use request_firmware_nowait().
+Note that in the worst case if udev is present in the worst case if the firmware
+is not present loading can take up to timeout * num CPUs [0], but work is
+underway to try to remove udev firmware loading support [1]. Regardless
+then the current approach seemed to beg a rework.
 
-On 2014 May 12, Marc Duponcheel wrote:
->  Hi all
-> 
->  I have an issue with linux box acting as router (in fact forwarder)
-> with 2 Realtek RTL8111/8168/8411 cards.
-> 
->  In short: large file uploads are way too slow and, during such
-> uploads, I see TcpRetransSegs and TcpOutRsts on sending host.
-> 
->  System is bleeding edge gentoo.
-> 
->  I replaced linux r8169 by vendor r8168 driver. That improved some
-> uploads (see below).
-> 
-> 
->  - Details
->   --------
-> 
-> Setup is as follows (VDSL2) with down/up 50Mbps/6Mbps
-> 
-> 
->  intranet - server - router - modem - internet
-> 
-> 
-> modem =
->  b-box3 technicolor box in bridge mode
-> 
-> router =
->  The linux box in question doing pppoe on eth towards internet (where
->  it receives an address for p-t-p to next hop) and having public /30
->  network on eth towards intranet.
-> 
-> server =
->  Also a bleeding edge gentoo gentoo box having one public address from
->  the /30 network (router has the other one) and the doing NAT to
->  devices on intranet.
-> 
->   ** note **
-> 
->   Before having the [router - modem] combo, I used a CISCO886VA-K9 box
->  and I had expected 50/6 throughput. But provider, who migrates to
->  VDSL2 vectoring, does not allow cisco on its network so I use b-box3
->  as bridge (the box they allow) and put a linux router behind.
-> 
-> 
->  - Symptoms
->   ---------
-> 
->  I test ftp between my server and clients few or several hops away.
-> 
-> * r8169:
-> 
->  Incoming speed is OK (50Mbps) but outgoing is only 200Kbps. 30 times
-> too slow.
-> 
->  Now I set eth speeds to 100Mbps (on linux-router, I never touch
-> linux-server who works fine anyway for years with cisco-router):
-> 
->  Outgoing speed to few hops away is 2Mbps and to many hops away still 200Kbps.
-> 
-> * replace r8169 with r8168:
-> 
->  Outgoing to few hops away is 3Mbps and to many hops away is 1.5Mbps.
-> 
->  As said I always notice TcpRetransSegs and TcpOutRsts on server. I
->  use
-> # watch -n 5 'nstat | grep ^Tcp'
->  to inspect.
-> 
-> 
->  I see few (really few) router drops on eth Rx towards intranet. In
-> fact I am not sure if those increase during upload.
-> 
-> 
->  If I increase txqueuelen from 1000 to 10000 on router and flush tcp
-> metrics on router and server, outgoing speed starts 6Mbps but soon
-> drops back to steady 3Mbps and 1.5Mbps. I reverted back to 1000.
-> 
->  FYI: ookla speedtests on all hosts show 50/6 (only with with r8168 on
->    router), and, perhaps, for most work, everything is fine, but large
->    file uploads, in particular from our ftp server to internet many
->    hops away, is still 4 times too slow.
-> 
->  If I do
-> watch 'ethtool --statistics iface | grep -v ' 0''
->  on both router ethernets and server ethernet towards internet, I do not see
-> any error count increase.
-> 
->  Note that realtek driver does not support setting eth flow control so
-> I could not try to turn it off (not that I expect it to help).
-> 
->  Also PPP MTU/MRU are 1492 and TCPMSS clamp to PMTU is on server and router
-> (but that did not matter).
-> 
->  - Conclusions
->   ------------
-> 
->  Setup is both driver and eth-speed sensitive. I also suspect TCP to
-> kick in to compensate for whatever issues.
-> 
-> 
->  - Questions
->   ----------
-> 
->  Am I missing something obvious? Or are the RTL8111/8168/8411
-> cards/drivers not good for this setup? Any other hints? I am happy to
-> do whatever tests and provide whatever outputs that may help drive
-> discussion.
-> 
-> 
->  *** thanks ****
+[0] https://lkml.org/lkml/2013/10/23/264
+[1] http://comments.gmane.org/gmane.comp.sysutils.systemd.devel/19440
 
---
- Marc Duponcheel
- Velodroomstraat 74 - 2600 Berchem - Belgium
- +32 (0)478 68.10.91 - marc@offline.be
+> The 60 seconds delay is kind of a pavlovian signal: one can bet that the
+> driver includes a request_firmware in its probe method. So does cxgb4.
+
+The kernel's timeout is 60 seconds, and this is static, but lets be clear
+that there is a difference between the timeout for reading the firmware
+from the filesystem and actually dumping the firmware onto the device
+by the driver and ensuring that the driver is done poking at it. The
+kernel timeout is for the kernel reading it and tossing it back to the
+driver.
+
+> I still believe in the old school "request firmware from net_device_ops.open".
+> I've been happy with it since f1e02ed109df5f99abf942b8ccc99960cb09dd38.
+
+I was actually in the hopes a suitable transormation can be designed
+to put a wait_for_completion() in say ndo_init(). I was looking to
+see if a tranformation can be generalized of course if the above
+observations on probe() is something desirable to be addressed.
+
+> This kind of rework may not be trivial for cxgb4. Please get code tested on
+> real hardware (modular/monolithic build, with/without firmware, etc.) as I
+> won't argue against your crusade for cxgb4.
+
+OK I'll look for hardware but if some folks already have it and are
+interesed in some parts of this patch set my hope was that it can be
+slightly modified to move the wait_for_completion() to an ndo_init() then
+as well. That would really put better use of the API.
+
+> Asynchronous firmware loading provides a rather nice high level API but
+> it's imho not the essence of network devices firmware loading problems.
+
+Agreed.
+
+  Luis
