@@ -1,57 +1,59 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [PATCH net] xen-netback: bookkeep number of queues in our own
- module
-Date: Mon, 23 Jun 2014 09:30:52 +0000
-Message-ID: <9AAE0902D5BC7E449B7C8E4E778ABCD03BC3A1@AMSPEX01CL01.citrite.net>
-References: <9AAE0902D5BC7E449B7C8E4E778ABCD03BBD51@AMSPEX01CL01.citrite.net>
-	<20140623084831.GV20819@zion.uk.xensource.com>
-	<9AAE0902D5BC7E449B7C8E4E778ABCD03BC2F7@AMSPEX01CL01.citrite.net>
- <20140623.022532.105159906302303437.davem@davemloft.net>
+From: Markos Chandras <markos.chandras@imgtec.com>
+Subject: [PATCH 00/17] Misc MIPS/BPF fixes for 3.16
+Date: Mon, 23 Jun 2014 10:38:43 +0100
+Message-ID: <1403516340-22997-1-git-send-email-markos.chandras@imgtec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"boris.ostrovsky@oracle.com" <boris.ostrovsky@oracle.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: Markos Chandras <markos.chandras@imgtec.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	"Alexei Starovoitov" <ast@plumgrid.com>, <netdev@vger.kernel.org>
+To: <linux-mips@linux-mips.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([185.25.65.24]:32468 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751859AbaFWJax convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2014 05:30:53 -0400
-In-Reply-To: <20140623.022532.105159906302303437.davem@davemloft.net>
-Content-Language: en-US
+Received: from mailapp01.imgtec.com ([195.59.15.196]:3128 "EHLO
+	mailapp01.imgtec.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751310AbaFWJjJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2014 05:39:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: 23 June 2014 10:26
-> To: Paul Durrant
-> Cc: Wei Liu; xen-devel@lists.xen.org; netdev@vger.kernel.org;
-> boris.ostrovsky@oracle.com; Ian Campbell
-> Subject: Re: [PATCH net] xen-netback: bookkeep number of queues in our
-> own module
-> 
-> From: Paul Durrant <Paul.Durrant@citrix.com>
-> Date: Mon, 23 Jun 2014 09:18:23 +0000
-> 
-> > Ok, for the addition of a new algorithm that may be the case but
-> > what about the existent algorithm stability issue? Who's going to
-> > watch the implementation of __netdev_pick_tx() and make sure there
-> > is no semantic change? I'm still of the opinion that the
-> > implementation should be kept within netback so that we can
-> > guarantee stability, even if it means duplication. Either that or we
-> > need some guarantee that the semantic of __netdev_pick_tx() will
-> > never change.
-> 
-> Please stop talking like this.
-> 
-> If the default changes it's probably to fix a bug or make things
-> better, you want no bugs to get fix if it breaks "stability"?
+Hi,
 
-To some extent, yes. My hypothesis is that the frontend and the backend agree a steering algorithm so that they can ensure all rx and tx traffic for a flow hits a particular CPU, so that locking can be avoided. If the backend then changes its algorithm then packets may arrive on the wrong queue, hit the wrong CPU and now you have a frontend that may try to access critical data structures without locking from two different CPUs. That's going to be a pretty subtle crash to have to debug.
+Here are some fixes for MIPS/BPF for 3.16. These fixes make
+the bpf testsuite *almost* happy with only 2 tests (LD_IND_LL,
+LD_IND_NET) failing at the moment. Since fixing the remaining tests
+is not so trivial, it would be nice to have these fixes in 3.16 for now.
 
-  Paul
+The patches are based on the upstream-sfr/mips-for-linux-next tree
+because they depend on https://patchwork.linux-mips.org/patch/7099/
+
+Markos Chandras (17):
+  MIPS: uasm: Add s3s1s2 instruction builder
+  MIPS: uasm: Add slt uasm instruction
+  MIPS: mm: uasm: Fix lh micro-assembler instruction
+  MIPS: bpf: Use the LO register to get division's quotient
+  MIPS: bpf: Return error code if the offset is a negative number
+  MIPS: bpf: Use 'andi' instead of 'and' for the VLAN cases
+  MIPS: bpf: Add SEEN_SKB to flags when looking for the PKT_TYPE
+  MIPS: bpf: Fix branch conditional for BPF_J{GT/GE} cases
+  MIPS: bpf: Use correct mask for VLAN_TAG case
+  MIPS: bpf: Fix return values for VLAN_TAG_PRESENT case
+  MIPS: bpf: Use pr_debug instead of pr_warn for unhandled opcodes
+  MIPS: bpf: Fix is_range() semantics
+  MIPS: bpf: Drop update_on_xread and always initialize the X register
+  MIPS: bpf: Prevent kernel fall over for >=32bit shifts
+  MIPS: bpf: Fix PKT_TYPE case for big-endian cores
+  MIPS: bpf: Use 32 or 64-bit load instruction to load an address to
+    register
+  MIPS: bpf: Fix stack space allocation for BPF memwords on MIPS64
+
+ arch/mips/include/asm/uasm.h      |   4 ++
+ arch/mips/include/uapi/asm/inst.h |   1 +
+ arch/mips/mm/uasm-micromips.c     |   1 +
+ arch/mips/mm/uasm-mips.c          |   3 +-
+ arch/mips/mm/uasm.c               |  10 +++-
+ arch/mips/net/bpf_jit.c           | 115 ++++++++++++++++++++++++--------------
+ 6 files changed, 90 insertions(+), 44 deletions(-)
+
+-- 
+2.0.0
