@@ -1,56 +1,42 @@
-From: Don Fry <pcnet32@frontier.com>
-Subject: Re: [PATCH V2 08/22] amd: Use pci_zalloc_consistent
-Date: Mon, 23 Jun 2014 15:22:32 -0700
-Message-ID: <1403562152.12008.4.camel@Lunix2.home>
-References: <cover.1403530604.git.joe@perches.com>
-	 <c7cdaa8e080157cdabb92278a4c3beba89b49070.1403530604.git.joe@perches.com>
-	 <1403546524.12008.2.camel@Lunix2.home>
-	 <1403550950.15811.15.camel@joe-AO725> <1403557507.20657.3.camel@joe-AO725>
+From: Casey Leedom <leedom@chelsio.com>
+Subject: Re: [PATCH][RFC] cxgb4: Not need to hold the adap_rcu_lock lock when
+ read adap_rcu_list
+Date: Mon, 23 Jun 2014 15:35:25 -0700
+Message-ID: <53A8ABAD.9090904@chelsio.com>
+References: <1403256756-6557-1-git-send-email-rongqing.li@windriver.com> <20140623.145035.915335524137481573.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1403557507.20657.3.camel@joe-AO725>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	hariprasad@chelsio.com, greearb@candelatech.com
+To: David Miller <davem@davemloft.net>, rongqing.li@windriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:41475
+	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750931AbaFWWfc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2014 18:35:32 -0400
+In-Reply-To: <20140623.145035.915335524137481573.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-06-23 at 14:05 -0700, Joe Perches wrote:
-> Remove the now unnecessary memset too.
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
-> ---
-> On Mon, 2014-06-23 at 12:15 -0700, Joe Perches wrote:
-> > On Mon, 2014-06-23 at 11:02 -0700, Don Fry wrote:
-> > > This causes the line length to be greater than 80 characters causing
-> > > checkpatch to complain.
-> 
-> V2: Don Fry is an 80 column neatnik.
-> 
-> Please remember this depends on patch 1/22 being applied
-> before this patch can be successfully applied.
-> 
->  drivers/net/ethernet/amd/pcnet32.c | 18 ++++++++----------
->  1 file changed, 8 insertions(+), 10 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/amd/pcnet32.c b/drivers/net/ethernet/amd/pcnet32.c
-> index e7cc917..8099fdc 100644
-> --- a/drivers/net/ethernet/amd/pcnet32.c
-> +++ b/drivers/net/ethernet/amd/pcnet32.c
-> @@ -484,15 +484,14 @@ static void pcnet32_realloc_tx_ring(struct net_device *dev,
->  
->  	pcnet32_purge_tx_ring(dev);
->  
-> -	new_tx_ring = pci_alloc_consistent(lp->pci_dev,
-> -					   sizeof(struct pcnet32_tx_head) *
-> -					   (1 << size),
-> -					   &new_ring_dma_addr);
 
-Acked-By: Don Fry <pcnet32@frontier.com>
+On 06/23/14 14:50, David Miller wrote:
+> From: <rongqing.li@windriver.com>
+> Date: Fri, 20 Jun 2014 17:32:36 +0800
+>
+>> cxgb4_netdev maybe lead to dead lock, since it uses a spin lock, and be called
+>> in both thread and softirq context, but not disable BH, the lockdep report is
+>> below; In fact, cxgb4_netdev only reads adap_rcu_list with RCU protection, so
+>> not need to hold spin lock again.
+> I think this change is fine, and correct, but I would like to see some
+> reviews from the cxgb4 maintainers.
 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+   Thanks David.  Hari is gone on PTO so I think I'm the next logical 
+person ... :-)
+
+   I've gone back and reviewed the original patch, Eric Dumazet6's reply 
+and revised patch and compared that against this proposed patch.  Li 
+RongQing is submitting the same patch that Eric suggested with the 
+addition of a call to synchronize_rcu() the in driver remove() 
+function.  I'm not super familiar with the RCU system but that addition 
+certainly seems innocuous enough.  Other than that, everything looks fine.
