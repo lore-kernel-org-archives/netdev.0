@@ -1,54 +1,62 @@
-From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-Subject: Re: [PATCH] cxgb4: use dev_port to identify ports
-Date: Mon, 23 Jun 2014 09:16:40 -0300
-Message-ID: <20140623121640.GB25780@oc0268524204.ibm.com>
-References: <1403354888-15600-1-git-send-email-cascardo@linux.vnet.ibm.com>
- <20140622.172307.2305001882391366010.davem@davemloft.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net v3 2/3] libphy: Add stubs to hook IEEE MMD Register
+ reads and writes
+Date: Mon, 23 Jun 2014 16:29:10 +0400
+Message-ID: <53A81D96.3040904@cogentembedded.com>
+References: <1403482910-20821-1-git-send-email-vbridgers2013@gmail.com> <1403482910-20821-3-git-send-email-vbridgers2013@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, hariprasad@chelsio.com,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140622.172307.2305001882391366010.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Vince Bridgers <vbridgers2013@gmail.com>, f.fainelli@gmail.com,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f179.google.com ([209.85.217.179]:34877 "EHLO
+	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751432AbaFWM3M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2014 08:29:12 -0400
+Received: by mail-lb0-f179.google.com with SMTP id z11so4429020lbi.10
+        for <netdev@vger.kernel.org>; Mon, 23 Jun 2014 05:29:11 -0700 (PDT)
+In-Reply-To: <1403482910-20821-3-git-send-email-vbridgers2013@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jun 22, 2014 at 05:23:07PM -0700, David Miller wrote:
-> From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-> Date: Sat, 21 Jun 2014 09:48:08 -0300
-> 
-> > Commit 3f85944fe207d0225ef21a2c0951d4946fc9a95d ("net: Add sysfs file
-> > for port number") introduce dev_port to network devices. cxgb4 adapters
-> > have multiple ports on the same PCI function, and used dev_id to
-> > identify those ports. That use was removed by commit
-> > 8c367fcbe6549195d2eb11e62bea233f811aad41 ("cxgb4: Do not set
-> > net_device::dev_id to VI index"), since dev_id should be used only when
-> > devices share the same MAC address.
-> > 
-> > Using dev_port for cxgb4 allows different ports on the same PCI function
-> > to be identified.
-> > 
-> > Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-> 
-> You've made exactly zero effort to explain why the IPV6 issue carefully
-> explained in commit 8c367fcbe6549195d2eb11e62bea233f811aad41 no longer
-> applies.
-> 
-> As far as I can tell, it absolutely does, and therefore this change
-> here should not be made.
-> 
-> I'm not applying this patch, sorry.
-> 
+Hello.
 
-I have set dev_port, not dev_id. This is not a revert of commit
-8c367fcbe6549195d2eb11e62bea233f811aad41.
+On 06/23/2014 04:21 AM, Vince Bridgers wrote:
 
-$ git grep dev_port net/ipv6/
-$
+> The Micrel ksz9021 PHY does not support standard IEEE standard MMD
+> extended register access, therefore requires stubs to fail the read
+> register method and do nothing for the write register method when
+> libphy attempts to read and/or configure Energy Efficient Ethernet
+> features in PHYS that do support those features. This problem
+> was observed on an Altera Cyclone V SOC development kit that
+> uses the Synopsys EMAC and the Micrel ksz9021 PHY. This patch
+> was tested on the same board, and Energy Efficient Ethernet is
+> now disabled as expected since the Micrel PHY does not support that
+> feature.
 
-I believe dev_port was introduced exactly to solve the problem dev_id
-was incorrectly being used for.
+> Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
+> ---
+> V3: Remove unnecessary returns from void functions.
+> V2: Split libphy and Micrel specific changes into 2 patches
+>      based on review comments
+> ---
+>   drivers/net/phy/micrel.c |   23 ++++++++++++++++++++++-
+>   1 file changed, 22 insertions(+), 1 deletion(-)
 
-Cascardo.
+> diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+> index bc7c7d2..daf8bab 100644
+> --- a/drivers/net/phy/micrel.c
+> +++ b/drivers/net/phy/micrel.c
+> @@ -417,7 +417,26 @@ static int ksz8873mll_read_status(struct phy_device *phydev)
+>
+>   static int ksz8873mll_config_aneg(struct phy_device *phydev)
+>   {
+> -	return 0;
+
+    Eh? The function returns *int* and you're removing the only *return* 
+statement?
+
+> +}
+
+WBR, Sergei
