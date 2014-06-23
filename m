@@ -1,53 +1,78 @@
-From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-Subject: [PATCHv3 5/6] rtlwifi/rtl8723be: Replace magic number by macro
-Date: Tue, 24 Jun 2014 00:07:13 +0200
-Message-ID: <1403561233-7997-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-Cc: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	Peter Wu <peter@lekensteyn.nl>,
-	Mark Cave-Ayland <mark.cave-ayland@ilande.co.uk>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>,
-	Chaoming Li <chaoming_li@realsil.com.cn>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH 05/17] MIPS: bpf: Return error code if the offset is a
+ negative number
+Date: Mon, 23 Jun 2014 15:09:01 -0700
+Message-ID: <CAMEtUuyL8EV3UxS7yaD_ufiAywr7hkgPSC-3etMEYfbAZ_rRew@mail.gmail.com>
+References: <1403516340-22997-1-git-send-email-markos.chandras@imgtec.com>
+	<1403516340-22997-6-git-send-email-markos.chandras@imgtec.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux MIPS Mailing List <linux-mips@linux-mips.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Network Development <netdev@vger.kernel.org>
+To: Markos Chandras <markos.chandras@imgtec.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f52.google.com ([74.125.82.52]:49231 "EHLO
+	mail-wg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750775AbaFWWJD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2014 18:09:03 -0400
+Received: by mail-wg0-f52.google.com with SMTP id b13so7087513wgh.35
+        for <netdev@vger.kernel.org>; Mon, 23 Jun 2014 15:09:01 -0700 (PDT)
+In-Reply-To: <1403516340-22997-6-git-send-email-markos.chandras@imgtec.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-For consistency with other drivers, replace a magic number by a macro.
+On Mon, Jun 23, 2014 at 2:38 AM, Markos Chandras
+<markos.chandras@imgtec.com> wrote:
+> Previously, the negative offset was not checked leading to failures
+> due to trying to load data beyond the skb struct boundaries. Until we
+> have proper asm helpers in place, it's best if we return ENOSUPP if K
+> is negative when trying to JIT the filter or 0 during runtime if we
+> do an indirect load where the value of X is unknown during build time.
+>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Daniel Borkmann <dborkman@redhat.com>
+> Cc: Alexei Starovoitov <ast@plumgrid.com>
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: Markos Chandras <markos.chandras@imgtec.com>
 
-Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-Reviewed-by: Peter Wu <peter@lekensteyn.nl>
----
- drivers/net/wireless/rtlwifi/rtl8723be/hw.c  |    2 +-
- drivers/net/wireless/rtlwifi/rtl8723be/reg.h |    1 +
- 2 files changed, 2 insertions(+), 1 deletion(-)
+Hi Markos,
 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8723be/hw.c b/drivers/net/wireless/rtlwifi/rtl8723be/hw.c
-index 0fdf090..bf883cb 100644
---- a/drivers/net/wireless/rtlwifi/rtl8723be/hw.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8723be/hw.c
-@@ -1197,7 +1197,7 @@ static int _rtl8723be_set_media_status(struct ieee80211_hw *hw,
- 	}
- 	rtl_write_byte(rtlpriv, (MSR), bt_msr);
- 	rtlpriv->cfg->ops->led_control(hw, ledaction);
--	if ((bt_msr & 0x03) == MSR_AP)
-+	if ((bt_msr & MSR_MASK) == MSR_AP)
- 		rtl_write_byte(rtlpriv, REG_BCNTCFG + 1, 0x00);
- 	else
- 		rtl_write_byte(rtlpriv, REG_BCNTCFG + 1, 0x66);
-diff --git a/drivers/net/wireless/rtlwifi/rtl8723be/reg.h b/drivers/net/wireless/rtlwifi/rtl8723be/reg.h
-index 4c653fa..3006849 100644
---- a/drivers/net/wireless/rtlwifi/rtl8723be/reg.h
-+++ b/drivers/net/wireless/rtlwifi/rtl8723be/reg.h
-@@ -412,6 +412,7 @@
- #define	MSR_ADHOC				0x01
- #define	MSR_INFRA				0x02
- #define	MSR_AP					0x03
-+#define	MSR_MASK				0x03
- 
- #define	RRSR_RSC_OFFSET				21
- #define	RRSR_SHORT_OFFSET			23
--- 
-1.7.10.4
+thank you for addressing all of my earlier comments.
+Looks like test_bpf was quite useful in finding all of these bugs :)
+For the patches that reached netdev:
+
+Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+
+One minor nit below:
+
+> ---
+>  arch/mips/net/bpf_jit.c | 23 +++++++++++++++++++++++
+>  1 file changed, 23 insertions(+)
+>
+> diff --git a/arch/mips/net/bpf_jit.c b/arch/mips/net/bpf_jit.c
+> index 5cc92c4590cb..95728ea6cb74 100644
+> --- a/arch/mips/net/bpf_jit.c
+> +++ b/arch/mips/net/bpf_jit.c
+> @@ -331,6 +331,12 @@ static inline void emit_srl(unsigned int dst, unsigned int src,
+>         emit_instr(ctx, srl, dst, src, sa);
+>  }
+>
+> +static inline void emit_slt(unsigned int dst, unsigned int src1,
+> +                           unsigned int src2, struct jit_ctx *ctx)
+> +{
+> +       emit_instr(ctx, slt, dst, src1, src2);
+> +}
+> +
+>  static inline void emit_sltu(unsigned int dst, unsigned int src1,
+>                              unsigned int src2, struct jit_ctx *ctx)
+>  {
+> @@ -816,8 +822,21 @@ static int build_body(struct jit_ctx *ctx)
+>                         /* A <- P[k:1] */
+>                         load_order = 0;
+>  load:
+> +                       /* the interpreter will deal with the negative K */
+> +                       if ((int)k < 0)
+
+should be a space after cast.
