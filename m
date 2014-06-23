@@ -1,87 +1,80 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH net-next] hyperv: Add handler for
- RNDIS_STATUS_NETWORK_CHANGE event
-Date: Mon, 23 Jun 2014 12:29:11 -0400
-Message-ID: <20140623162911.GA20715@kroah.com>
-References: <1403228076-7596-1-git-send-email-haiyangz@microsoft.com>
- <20140620045704.GA4850@aepfle.de> <20140620051213.GA9960@kroah.com>
- <ff458d1b896d4a70a32fa7709911274c@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
- <20140623080242.GA16924@aepfle.de>
- <06b508cbb6b949f4b3e13e7797948e56@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
- <20140623131723.GA7026@aepfle.de>
- <5fb9ddebb68d456ab87979b5cc3830ec@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH 0/5] net: Checksum offload changes - Part V
+Date: Mon, 23 Jun 2014 09:29:35 -0700
+Message-ID: <CA+mtBx-BPnw15gjgaGx-9zqZRTeBd4E88ZBQxC4dLYJxMwVzkw@mail.gmail.com>
+References: <alpine.DEB.2.02.1406201629550.12225@tomh.mtv.corp.google.com>
+	<1403327597.16682.14.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CA+mtBx-qvpO8SokC-8k-LOgJfN56Dbx_prEpN_n9G9aTHk-MSg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Olaf Hering <olaf@aepfle.de>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "jasowang@redhat.com" <jasowang@redhat.com>,
- "driverdev-devel@linuxdriverproject.org"
- <driverdev-devel@linuxdriverproject.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "davem@davemloft.net" <davem@davemloft.net>
-To: Haiyang Zhang <haiyangz@microsoft.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <5fb9ddebb68d456ab87979b5cc3830ec@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f176.google.com ([209.85.223.176]:44690 "EHLO
+	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756341AbaFWQ3g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2014 12:29:36 -0400
+Received: by mail-ie0-f176.google.com with SMTP id rd18so5725399iec.7
+        for <netdev@vger.kernel.org>; Mon, 23 Jun 2014 09:29:35 -0700 (PDT)
+In-Reply-To: <CA+mtBx-qvpO8SokC-8k-LOgJfN56Dbx_prEpN_n9G9aTHk-MSg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 23, 2014 at 04:09:59PM +0000, Haiyang Zhang wrote:
-> 
-> 
-> > -----Original Message-----
-> > From: Olaf Hering [mailto:olaf@aepfle.de]
-> > Sent: Monday, June 23, 2014 9:17 AM
-> > To: Haiyang Zhang
-> > Cc: Greg KH; netdev@vger.kernel.org; jasowang@redhat.com; driverdev-
-> > devel@linuxdriverproject.org; linux-kernel@vger.kernel.org;
-> > davem@davemloft.net
-> > Subject: Re: [PATCH net-next] hyperv: Add handler for
-> > RNDIS_STATUS_NETWORK_CHANGE event
-> > 
-> > On Mon, Jun 23, Haiyang Zhang wrote:
-> > 
-> > > > I think its reasonable to expect guest config changes on this new
-> > > > kind of host. Would a link-down/link-up event work? I'm sure it
-> > > > will, there is enough code floating around in the guests which handles cable
-> > unplug.
-> > >
-> > > Do you mean netif_carrier_off() / netif_carrier_on()? They are already
-> > > called in the code before this patch, but DHCP renew is not triggered
-> > > by them.
-> > 
-> > I do not know how to simulate a cable unplug. The point is that calling
-> > /etc/init.d/network will fail, at least in SLES12.
-> > Maybe some sort of "DHCP refresh required" event is required?
-> > Maybe the DHCP clients need to renew on cable unplug?
-> > No idea what the solution to the issue really is.
-> 
-> Yes, it will be great if there is such a "DHCP refresh required" event, or DHCP clients
-> are triggered when netif_carrier_off() then netif_carrier_on().
-> 
-> I have tried some possibilities, like IF_OPER_DORMANT then IF_OPER_UP with 
-> netdev_state_change() etc. but not able to trigger DHCP review. I will look at this
-> further...
-> 
-> So, what's the equivalent or similar command to "network restart" on SLES12? Could
-> you update the command line for the usermodehelper when porting this patch to SLES
-> 12?
-
-Given that this change will fail on all future distro releases, and
-almost all of the community distros today, I don't see how this is
-acceptable at all.  Nor would it be any better if you switch to a
-systemd command line script as well.  You should just work like any
-other network device works in this situation when it comes to
-enabling/disabling the device.  Worse case, just tear down the whole
-network device at suspend time, and recreate it at resume.
-
-greg k-h
+On Mon, Jun 23, 2014 at 9:28 AM, Tom Herbert <therbert@google.com> wrote:
+>>
+>> > - Added GRO checksum validation functions
+>> > - Call the GRO validations functions from TCP and GRE gro_receive
+>> > - Perform checksum verification in the UDP gro_receive path using
+>> >   GRO functions and add support for gro_receive in UDP6
+>>  > What is in
+>> What kind of speed regression / code bloat comes from all these
+>> changes ?
+>>
+> Some cases should improve performance (like GRE w/csum), some cases will
+> regress (like now that we're actually verifying UDP checksums instead of
+> ignoring them). As for "code bloat", I think you can determine the extent of
+> that by reading the code, but unifying all these separate ad hoc instances
+> of checksum handling into one common set of functions still seems like a
+> good thing to me :-).
+>
+>>
+>> I see a lot of added complexity / code in GRO layer, but no performance
+>> numbers...
+>>
+> These patches won't affect the simple case of GRO (plain TCP), but may have
+> impact in presence of encapsulations. I'm happy to provide some performance
+> numbers, but there are many possible combinations of encapsulation,
+> configuration, hardware offload support-- are there any specific scenarios
+> you'd like to see?
+>
+>>
+>> __skb_gro_checksum_complete() for example calls skb_checksum() twice,
+>> and we know this is expensive, particularly for IPv4 case where we know
+>> the header checksum has to be 0.
+>>
+> GRE already does this and this ensures that we never compute the full packet
+> checksum twice (one of the primary goals of my checksum patches). I believe
+> this would worse than the incremental cost of making checksum complete.
+>
+> The alternative we could consider, is to never do the full checksum in GRO.
+> It looks like there's some weak attempt in this direction (e.g. GRO can only
+> be enabled with csum offload enabled, UDP encap enforcing complete or
+> unnecessary). I suspect there will still be cases where the benefits of
+> aggregation outweigh the costs of doing the the csum in GRO.
+>
+>> GRO performance is already not very good, lot of people just disable GRO
+>> because of it being very slow. I'd like to not give them more
+>> incentives...
+>>
+>> Without proper RFS support from the NIC, all encapsulated traffic tend
+>> to land on a single RX queue, so performance of GRO layer is critical.
+>
+>
+> Why would encapsulated traffic be any different than other traffic in this
+> regard? RSS is still applicable and the point of all the work to define foo
+> over UDP is leverage things like RSS and ECMP.
+>
+> Tom
+>
+>
