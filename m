@@ -1,51 +1,279 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 14/17] MIPS: bpf: Prevent kernel fall over for >=32bit
- shifts
-Date: Mon, 23 Jun 2014 09:44:31 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1726096C@AcuExch.aculab.com>
-References: <1403516340-22997-1-git-send-email-markos.chandras@imgtec.com>
- <1403516340-22997-15-git-send-email-markos.chandras@imgtec.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: [PATCH net v3] xen-netback: bookkeep number of active queues in our own module
+Date: Mon, 23 Jun 2014 10:50:17 +0100
+Message-ID: <1403517017-7016-1-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Markos Chandras' <markos.chandras@imgtec.com>,
-	"linux-mips@linux-mips.org" <linux-mips@linux-mips.org>
+Content-Type: text/plain
+Cc: <boris.ostrovsky@oracle.com>, Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Paul Durrant <paul.durrant@citrix.com>
+To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:33140 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751739AbaFWJpF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2014 05:45:05 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 29150-09 for <netdev@vger.kernel.org>;
- Mon, 23 Jun 2014 10:44:55 +0100 (BST)
-In-Reply-To: <1403516340-22997-15-git-send-email-markos.chandras@imgtec.com>
-Content-Language: en-US
+Received: from smtp02.citrix.com ([66.165.176.63]:51756 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751310AbaFWJuT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2014 05:50:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Markos Chandras
-> Remove BUG_ON() if the shift immediate is >=32 to avoid
-> kernel crashes due to malicious user input. Since the micro-assembler
-> will not allow an immediate greater or equal to 32, we will use the
-> maximum value which is 31. This will do the correct thing on either 32-
-> or 64-bit cores since no 64-bit instructions are being used in JIT.
+The original code uses netdev->real_num_tx_queues to bookkeep number of
+queues and invokes netif_set_real_num_tx_queues to set the number of
+queues. However, netif_set_real_num_tx_queues doesn't allow
+real_num_tx_queues to be smaller than 1, which means setting the number
+to 0 will not work and real_num_tx_queues is untouched.
 
-I'm not sure that bounding the shift to 31 bits 'is the correct thing'.
-I'd have thought that emulating the large shift or masking the shift
-to 5 bits are equally 'correct'.
+This is bogus when xenvif_free is invoked before any number of queues is
+allocated. That function needs to iterate through all queues to free
+resources. Using the wrong number of queues results in NULL pointer
+dereference.
 
-...
->  {
->  	/* sa is 5-bits long */
-> -	BUG_ON(sa >= BIT(5));
-> +	if (sa >= BIT(5))
-> +		sa = BIT(5) - 1;
->  	emit_instr(ctx, sll, dst, src, sa);
-...
+So we bookkeep the number of queues in xen-netback to solve this
+problem. This fixes a regression introduced by multiqueue patchset in
+3.16-rc1.
 
-	David
+There's another bug in original code that the real number of RX queues
+is never set. In current Xen multiqueue design, the number of TX queues
+and RX queues are in fact the same. We need to set the numbers of TX and
+RX queues to the same value.
+
+Also remove xenvif_select_queue and leave queue selection to core
+driver, as suggested by David Miller.
+
+Reported-by: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+CC: Ian Campbell <ian.campbell@citrix.com>
+CC: Paul Durrant <paul.durrant@citrix.com>
+---
+Change since v2:
+* improve commit message
+---
+ drivers/net/xen-netback/common.h    |    1 +
+ drivers/net/xen-netback/interface.c |   49 ++++++++---------------------------
+ drivers/net/xen-netback/xenbus.c    |   28 ++++++++++----------
+ 3 files changed, 26 insertions(+), 52 deletions(-)
+
+diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
+index 4dd7c4a..2532ce8 100644
+--- a/drivers/net/xen-netback/common.h
++++ b/drivers/net/xen-netback/common.h
+@@ -222,6 +222,7 @@ struct xenvif {
+ 
+ 	/* Queues */
+ 	struct xenvif_queue *queues;
++	unsigned int num_queues; /* active queues, resource allocated */
+ 
+ 	/* Miscellaneous private stuff. */
+ 	struct net_device *dev;
+diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+index 852da34..9e97c7c 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -137,32 +137,11 @@ static void xenvif_wake_queue_callback(unsigned long data)
+ 	}
+ }
+ 
+-static u16 xenvif_select_queue(struct net_device *dev, struct sk_buff *skb,
+-			       void *accel_priv, select_queue_fallback_t fallback)
+-{
+-	unsigned int num_queues = dev->real_num_tx_queues;
+-	u32 hash;
+-	u16 queue_index;
+-
+-	/* First, check if there is only one queue to optimise the
+-	 * single-queue or old frontend scenario.
+-	 */
+-	if (num_queues == 1) {
+-		queue_index = 0;
+-	} else {
+-		/* Use skb_get_hash to obtain an L4 hash if available */
+-		hash = skb_get_hash(skb);
+-		queue_index = hash % num_queues;
+-	}
+-
+-	return queue_index;
+-}
+-
+ static int xenvif_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct xenvif *vif = netdev_priv(dev);
+ 	struct xenvif_queue *queue = NULL;
+-	unsigned int num_queues = dev->real_num_tx_queues;
++	unsigned int num_queues = vif->num_queues;
+ 	u16 index;
+ 	int min_slots_needed;
+ 
+@@ -225,7 +204,7 @@ static struct net_device_stats *xenvif_get_stats(struct net_device *dev)
+ {
+ 	struct xenvif *vif = netdev_priv(dev);
+ 	struct xenvif_queue *queue = NULL;
+-	unsigned int num_queues = dev->real_num_tx_queues;
++	unsigned int num_queues = vif->num_queues;
+ 	unsigned long rx_bytes = 0;
+ 	unsigned long rx_packets = 0;
+ 	unsigned long tx_bytes = 0;
+@@ -256,7 +235,7 @@ out:
+ static void xenvif_up(struct xenvif *vif)
+ {
+ 	struct xenvif_queue *queue = NULL;
+-	unsigned int num_queues = vif->dev->real_num_tx_queues;
++	unsigned int num_queues = vif->num_queues;
+ 	unsigned int queue_index;
+ 
+ 	for (queue_index = 0; queue_index < num_queues; ++queue_index) {
+@@ -272,7 +251,7 @@ static void xenvif_up(struct xenvif *vif)
+ static void xenvif_down(struct xenvif *vif)
+ {
+ 	struct xenvif_queue *queue = NULL;
+-	unsigned int num_queues = vif->dev->real_num_tx_queues;
++	unsigned int num_queues = vif->num_queues;
+ 	unsigned int queue_index;
+ 
+ 	for (queue_index = 0; queue_index < num_queues; ++queue_index) {
+@@ -379,7 +358,7 @@ static void xenvif_get_ethtool_stats(struct net_device *dev,
+ 				     struct ethtool_stats *stats, u64 * data)
+ {
+ 	struct xenvif *vif = netdev_priv(dev);
+-	unsigned int num_queues = dev->real_num_tx_queues;
++	unsigned int num_queues = vif->num_queues;
+ 	int i;
+ 	unsigned int queue_index;
+ 	struct xenvif_stats *vif_stats;
+@@ -424,7 +403,6 @@ static const struct net_device_ops xenvif_netdev_ops = {
+ 	.ndo_fix_features = xenvif_fix_features,
+ 	.ndo_set_mac_address = eth_mac_addr,
+ 	.ndo_validate_addr   = eth_validate_addr,
+-	.ndo_select_queue = xenvif_select_queue,
+ };
+ 
+ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
+@@ -438,7 +416,7 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
+ 	snprintf(name, IFNAMSIZ - 1, "vif%u.%u", domid, handle);
+ 	/* Allocate a netdev with the max. supported number of queues.
+ 	 * When the guest selects the desired number, it will be updated
+-	 * via netif_set_real_num_tx_queues().
++	 * via netif_set_real_num_*_queues().
+ 	 */
+ 	dev = alloc_netdev_mq(sizeof(struct xenvif), name, ether_setup,
+ 			      xenvif_max_queues);
+@@ -458,11 +436,9 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
+ 	vif->dev = dev;
+ 	vif->disabled = false;
+ 
+-	/* Start out with no queues. The call below does not require
+-	 * rtnl_lock() as it happens before register_netdev().
+-	 */
++	/* Start out with no queues. */
+ 	vif->queues = NULL;
+-	netif_set_real_num_tx_queues(dev, 0);
++	vif->num_queues = 0;
+ 
+ 	dev->netdev_ops	= &xenvif_netdev_ops;
+ 	dev->hw_features = NETIF_F_SG |
+@@ -677,7 +653,7 @@ static void xenvif_wait_unmap_timeout(struct xenvif_queue *queue,
+ void xenvif_disconnect(struct xenvif *vif)
+ {
+ 	struct xenvif_queue *queue = NULL;
+-	unsigned int num_queues = vif->dev->real_num_tx_queues;
++	unsigned int num_queues = vif->num_queues;
+ 	unsigned int queue_index;
+ 
+ 	if (netif_carrier_ok(vif->dev))
+@@ -724,7 +700,7 @@ void xenvif_deinit_queue(struct xenvif_queue *queue)
+ void xenvif_free(struct xenvif *vif)
+ {
+ 	struct xenvif_queue *queue = NULL;
+-	unsigned int num_queues = vif->dev->real_num_tx_queues;
++	unsigned int num_queues = vif->num_queues;
+ 	unsigned int queue_index;
+ 	/* Here we want to avoid timeout messages if an skb can be legitimately
+ 	 * stuck somewhere else. Realistically this could be an another vif's
+@@ -748,12 +724,9 @@ void xenvif_free(struct xenvif *vif)
+ 		xenvif_deinit_queue(queue);
+ 	}
+ 
+-	/* Free the array of queues. The call below does not require
+-	 * rtnl_lock() because it happens after unregister_netdev().
+-	 */
+-	netif_set_real_num_tx_queues(vif->dev, 0);
+ 	vfree(vif->queues);
+ 	vif->queues = NULL;
++	vif->num_queues = 0;
+ 
+ 	free_netdev(vif->dev);
+ 
+diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
+index 96c63dc2..3d85acd 100644
+--- a/drivers/net/xen-netback/xenbus.c
++++ b/drivers/net/xen-netback/xenbus.c
+@@ -527,9 +527,7 @@ static void connect(struct backend_info *be)
+ 	/* Use the number of queues requested by the frontend */
+ 	be->vif->queues = vzalloc(requested_num_queues *
+ 				  sizeof(struct xenvif_queue));
+-	rtnl_lock();
+-	netif_set_real_num_tx_queues(be->vif->dev, requested_num_queues);
+-	rtnl_unlock();
++	be->vif->num_queues = requested_num_queues;
+ 
+ 	for (queue_index = 0; queue_index < requested_num_queues; ++queue_index) {
+ 		queue = &be->vif->queues[queue_index];
+@@ -546,9 +544,7 @@ static void connect(struct backend_info *be)
+ 			 * earlier queues can be destroyed using the regular
+ 			 * disconnect logic.
+ 			 */
+-			rtnl_lock();
+-			netif_set_real_num_tx_queues(be->vif->dev, queue_index);
+-			rtnl_unlock();
++			be->vif->num_queues = queue_index;
+ 			goto err;
+ 		}
+ 
+@@ -561,13 +557,19 @@ static void connect(struct backend_info *be)
+ 			 * and also clean up any previously initialised queues.
+ 			 */
+ 			xenvif_deinit_queue(queue);
+-			rtnl_lock();
+-			netif_set_real_num_tx_queues(be->vif->dev, queue_index);
+-			rtnl_unlock();
++			be->vif->num_queues = queue_index;
+ 			goto err;
+ 		}
+ 	}
+ 
++	/* Initialisation completed, tell core driver the number of
++	 * active queues.
++	 */
++	rtnl_lock();
++	netif_set_real_num_tx_queues(be->vif->dev, requested_num_queues);
++	netif_set_real_num_rx_queues(be->vif->dev, requested_num_queues);
++	rtnl_unlock();
++
+ 	xenvif_carrier_on(be->vif);
+ 
+ 	unregister_hotplug_status_watch(be);
+@@ -582,13 +584,11 @@ static void connect(struct backend_info *be)
+ 	return;
+ 
+ err:
+-	if (be->vif->dev->real_num_tx_queues > 0)
++	if (be->vif->num_queues > 0)
+ 		xenvif_disconnect(be->vif); /* Clean up existing queues */
+ 	vfree(be->vif->queues);
+ 	be->vif->queues = NULL;
+-	rtnl_lock();
+-	netif_set_real_num_tx_queues(be->vif->dev, 0);
+-	rtnl_unlock();
++	be->vif->num_queues = 0;
+ 	return;
+ }
+ 
+@@ -596,7 +596,7 @@ err:
+ static int connect_rings(struct backend_info *be, struct xenvif_queue *queue)
+ {
+ 	struct xenbus_device *dev = be->dev;
+-	unsigned int num_queues = queue->vif->dev->real_num_tx_queues;
++	unsigned int num_queues = queue->vif->num_queues;
+ 	unsigned long tx_ring_ref, rx_ring_ref;
+ 	unsigned int tx_evtchn, rx_evtchn;
+ 	int err;
+-- 
+1.7.10.4
