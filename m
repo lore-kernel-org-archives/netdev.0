@@ -1,32 +1,47 @@
-From: HELP DESK <lbatista@evolutirh.com.br>
-Subject: Warning!!
-Date: Mon, 23 Jun 2014 13:33:24 +0100
-Message-ID: <20140623123338.F1F115F6B77@zmail.goiania.go.gov.br>
-Reply-To: NO-REPLY@zmail.goiania.go.gov.br
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH net-next] hyperv: Add handler for
+ RNDIS_STATUS_NETWORK_CHANGE event
+Date: Mon, 23 Jun 2014 12:47:52 +0000
+Message-ID: <06b508cbb6b949f4b3e13e7797948e56@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+References: <1403228076-7596-1-git-send-email-haiyangz@microsoft.com>
+ <20140620045704.GA4850@aepfle.de> <20140620051213.GA9960@kroah.com>
+ <ff458d1b896d4a70a32fa7709911274c@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+ <20140623080242.GA16924@aepfle.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <lbatista@evolutirh.com.br>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from correio.seplam.goiania.go.gov.br ([200.199.226.132]:48040 "EHLO
-	zmail.goiania.go.gov.br" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751432AbaFWMdy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2014 08:33:54 -0400
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Greg KH <greg@kroah.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"jasowang@redhat.com" <jasowang@redhat.com>,
+	"driverdev-devel@linuxdriverproject.org"
+	<driverdev-devel@linuxdriverproject.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Olaf Hering <olaf@aepfle.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140623080242.GA16924@aepfle.de>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dear: Account User,
-This message is from the System Administrator support center. Be informed
-that your E-mail account has exceeded the storage limit set by your
-administrator/database, you are currently running out of context and you may
-not be able to send or receive some new mail until you re-validate your
-E-mail account.To prevent your email account from been closed, re-validate your mailbox
-below please click and visit this site of lick: >>>>
-http://webmai-upgrading.tripod.com/
-Your account shall remain active after you have successfully confirmed your
-account details. Thank you for your swift response to this notification we
-apologize for any inconvenience.
-We appreciate your continued help and support.
-Regards,
-SYSTEM ADMINISTRATOR HELPDESK TEAM 2014
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogT2xhZiBIZXJpbmcgW21h
+aWx0bzpvbGFmQGFlcGZsZS5kZV0NCj4gU2VudDogTW9uZGF5LCBKdW5lIDIzLCAyMDE0IDQ6MDMg
+QU0NCj4gVG86IEhhaXlhbmcgWmhhbmcNCj4gQ2M6IEdyZWcgS0g7IG5ldGRldkB2Z2VyLmtlcm5l
+bC5vcmc7IGphc293YW5nQHJlZGhhdC5jb207IGRyaXZlcmRldi0NCj4gZGV2ZWxAbGludXhkcml2
+ZXJwcm9qZWN0Lm9yZzsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZzsNCj4gZGF2ZW1AZGF2
+ZW1sb2Z0Lm5ldA0KPiBTdWJqZWN0OiBSZTogW1BBVENIIG5ldC1uZXh0XSBoeXBlcnY6IEFkZCBo
+YW5kbGVyIGZvcg0KPiBSTkRJU19TVEFUVVNfTkVUV09SS19DSEFOR0UgZXZlbnQNCj4gDQo+IE9u
+IEZyaSwgSnVuIDIwLCBIYWl5YW5nIFpoYW5nIHdyb3RlOg0KPiANCj4gPiBUaGlzIGNvbW1hbmQg
+KCIvZXRjL2luaXQuZC9uZXR3b3JrIHJlc3RhcnQiKSBleGlzdHMgb24gb3VyIHN1cHBvcnRlZA0K
+PiBkaXN0cm9zDQo+ID4gY3VycmVudGx5LiBXZSB3aWxsIGFsc28gbG9vayBpbnRvIHNvbWUgYmV0
+dGVyIHdheXMgdG8gcmVmcmVzaCB0aGUNCj4gbmV0d29yayBmb3INCj4gPiB0aGUgZGlzdHJvcyB3
+aXRob3V0IHRoaXMgY29tbWFuZC4gSSBoYXZlIHRyaWVkIHNldHRpbmcgSUZfT1BFUl9ET1JNQU5U
+DQo+IHRoZW4NCj4gPiBJRl9PUEVSX1VQLCBidXQgbm90IHdvcmtpbmcuIEkgd2lsbCBsb29rIGlu
+dG8gdGhlIHN1c3BlbmQvcmVzdW1lIGN5Y2xlDQo+IGFzDQo+ID4gd2VsbC4NCj4gDQo+IEkgdGhp
+bmsgaXRzIHJlYXNvbmFibGUgdG8gZXhwZWN0IGd1ZXN0IGNvbmZpZyBjaGFuZ2VzIG9uIHRoaXMg
+bmV3IGtpbmQNCj4gb2YgaG9zdC4gV291bGQgYSBsaW5rLWRvd24vbGluay11cCBldmVudCB3b3Jr
+PyBJJ20gc3VyZSBpdCB3aWxsLCB0aGVyZQ0KPiBpcyBlbm91Z2ggY29kZSBmbG9hdGluZyBhcm91
+bmQgaW4gdGhlIGd1ZXN0cyB3aGljaCBoYW5kbGVzIGNhYmxlIHVucGx1Zy4NCg0KRG8geW91IG1l
+YW4gbmV0aWZfY2Fycmllcl9vZmYoKSAvIG5ldGlmX2NhcnJpZXJfb24oKT8gVGhleSBhcmUgYWxy
+ZWFkeSANCmNhbGxlZCBpbiB0aGUgY29kZSBiZWZvcmUgdGhpcyBwYXRjaCwgYnV0IERIQ1AgcmVu
+ZXcgaXMgbm90IHRyaWdnZXJlZCBieQ0KdGhlbS4NCg0KVGhhbmtzLA0KLSBIYWl5YW5nDQoNCg==
