@@ -1,38 +1,79 @@
-From: Maxime Ripard <maxime.ripard@free-electrons.com>
-Subject: [PATCH] net: allwinner: emac: Add missing free_irq
-Date: Mon, 23 Jun 2014 22:49:40 +0200
-Message-ID: <1403556580-21818-1-git-send-email-maxime.ripard@free-electrons.com>
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org,
-	Maxime Ripard <maxime.ripard@free-electrons.com>,
-	<stable@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH V2 08/22] amd: Use pci_zalloc_consistent
+Date: Mon, 23 Jun 2014 14:05:07 -0700
+Message-ID: <1403557507.20657.3.camel@joe-AO725>
+References: <cover.1403530604.git.joe@perches.com>
+	 <c7cdaa8e080157cdabb92278a4c3beba89b49070.1403530604.git.joe@perches.com>
+	 <1403546524.12008.2.camel@Lunix2.home>
+	 <1403550950.15811.15.camel@joe-AO725>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Don Fry <pcnet32@frontier.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1403550950.15811.15.camel@joe-AO725>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If the mdio probe function fails in emac_open, the interrupt we just requested
-isn't freed. If emac_open is called again, for example because we try to set up
-the interface again, the kernel will oops because the interrupt wasn't properly
-released.
+Remove the now unnecessary memset too.
 
-Signed-off-by: Maxime Ripard <maxime.ripard@free-electrons.com>
-Cc: <stable@vger.kernel.org> # 3.11+
+Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/ethernet/allwinner/sun4i-emac.c | 1 +
- 1 file changed, 1 insertion(+)
+On Mon, 2014-06-23 at 12:15 -0700, Joe Perches wrote:
+> On Mon, 2014-06-23 at 11:02 -0700, Don Fry wrote:
+> > This causes the line length to be greater than 80 characters causing
+> > checkpatch to complain.
 
-diff --git a/drivers/net/ethernet/allwinner/sun4i-emac.c b/drivers/net/ethernet/allwinner/sun4i-emac.c
-index 28460676b8ca..d81e7167a8b5 100644
---- a/drivers/net/ethernet/allwinner/sun4i-emac.c
-+++ b/drivers/net/ethernet/allwinner/sun4i-emac.c
-@@ -736,6 +736,7 @@ static int emac_open(struct net_device *dev)
+V2: Don Fry is an 80 column neatnik.
+
+Please remember this depends on patch 1/22 being applied
+before this patch can be successfully applied.
+
+ drivers/net/ethernet/amd/pcnet32.c | 18 ++++++++----------
+ 1 file changed, 8 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/ethernet/amd/pcnet32.c b/drivers/net/ethernet/amd/pcnet32.c
+index e7cc917..8099fdc 100644
+--- a/drivers/net/ethernet/amd/pcnet32.c
++++ b/drivers/net/ethernet/amd/pcnet32.c
+@@ -484,15 +484,14 @@ static void pcnet32_realloc_tx_ring(struct net_device *dev,
  
- 	ret = emac_mdio_probe(dev);
- 	if (ret < 0) {
-+		free_irq(dev->irq, dev);
- 		netdev_err(dev, "cannot probe MDIO bus\n");
- 		return ret;
+ 	pcnet32_purge_tx_ring(dev);
+ 
+-	new_tx_ring = pci_alloc_consistent(lp->pci_dev,
+-					   sizeof(struct pcnet32_tx_head) *
+-					   (1 << size),
+-					   &new_ring_dma_addr);
++	new_tx_ring = pci_zalloc_consistent(lp->pci_dev,
++					    sizeof(struct pcnet32_tx_head) *
++					    (1 << size),
++					    &new_ring_dma_addr);
+ 	if (new_tx_ring == NULL) {
+ 		netif_err(lp, drv, dev, "Consistent memory allocation failed\n");
+ 		return;
  	}
--- 
-2.0.0
+-	memset(new_tx_ring, 0, sizeof(struct pcnet32_tx_head) * (1 << size));
+ 
+ 	new_dma_addr_list = kcalloc(1 << size, sizeof(dma_addr_t),
+ 				    GFP_ATOMIC);
+@@ -551,15 +550,14 @@ static void pcnet32_realloc_rx_ring(struct net_device *dev,
+ 	int new, overlap;
+ 	unsigned int entries = 1 << size;
+ 
+-	new_rx_ring = pci_alloc_consistent(lp->pci_dev,
+-					   sizeof(struct pcnet32_rx_head) *
+-					   entries,
+-					   &new_ring_dma_addr);
++	new_rx_ring = pci_zalloc_consistent(lp->pci_dev,
++					    sizeof(struct pcnet32_rx_head) *
++					    entries,
++					    &new_ring_dma_addr);
+ 	if (new_rx_ring == NULL) {
+ 		netif_err(lp, drv, dev, "Consistent memory allocation failed\n");
+ 		return;
+ 	}
+-	memset(new_rx_ring, 0, sizeof(struct pcnet32_rx_head) * entries);
+ 
+ 	new_dma_addr_list = kcalloc(entries, sizeof(dma_addr_t), GFP_ATOMIC);
+ 	if (!new_dma_addr_list)
