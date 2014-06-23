@@ -1,42 +1,70 @@
-From: Casey Leedom <leedom@chelsio.com>
-Subject: Re: [PATCH][RFC] cxgb4: Not need to hold the adap_rcu_lock lock when
- read adap_rcu_list
-Date: Mon, 23 Jun 2014 15:35:25 -0700
-Message-ID: <53A8ABAD.9090904@chelsio.com>
-References: <1403256756-6557-1-git-send-email-rongqing.li@windriver.com> <20140623.145035.915335524137481573.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	hariprasad@chelsio.com, greearb@candelatech.com
-To: David Miller <davem@davemloft.net>, rongqing.li@windriver.com
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch v2 net-next] veth: add netpoll support
+Date: Mon, 23 Jun 2014 15:36:02 -0700
+Message-ID: <1403562962-17502-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Stefan Priebe <s.priebe@profihost.ag>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Neil Horman <nhorman@tuxdriver.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:41475
-	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750931AbaFWWfc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2014 18:35:32 -0400
-In-Reply-To: <20140623.145035.915335524137481573.davem@davemloft.net>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:56545 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750931AbaFWWg3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2014 18:36:29 -0400
+Received: by mail-pd0-f173.google.com with SMTP id r10so6165991pdi.18
+        for <netdev@vger.kernel.org>; Mon, 23 Jun 2014 15:36:29 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+It is trivial to add netpoll support to veth, since
+it is not a stacked device, we don't need to setup and
+clean up netpoll.
 
-On 06/23/14 14:50, David Miller wrote:
-> From: <rongqing.li@windriver.com>
-> Date: Fri, 20 Jun 2014 17:32:36 +0800
->
->> cxgb4_netdev maybe lead to dead lock, since it uses a spin lock, and be called
->> in both thread and softirq context, but not disable BH, the lockdep report is
->> below; In fact, cxgb4_netdev only reads adap_rcu_list with RCU protection, so
->> not need to hold spin lock again.
-> I think this change is fine, and correct, but I would like to see some
-> reviews from the cxgb4 maintainers.
+Reported-by: Stefan Priebe <s.priebe@profihost.ag>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Neil Horman <nhorman@tuxdriver.com>
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ drivers/net/veth.c | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
 
-   Thanks David.  Hari is gone on PTO so I think I'm the next logical 
-person ... :-)
-
-   I've gone back and reviewed the original patch, Eric Dumazet6's reply 
-and revised patch and compared that against this proposed patch.  Li 
-RongQing is submitting the same patch that Eric suggested with the 
-addition of a call to synchronize_rcu() the in driver remove() 
-function.  I'm not super familiar with the RCU system but that addition 
-certainly seems innocuous enough.  Other than that, everything looks fine.
+diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+index b4a10bc..9b945e6 100644
+--- a/drivers/net/veth.c
++++ b/drivers/net/veth.c
+@@ -248,6 +248,21 @@ static void veth_dev_free(struct net_device *dev)
+ 	free_netdev(dev);
+ }
+ 
++#ifdef CONFIG_NET_POLL_CONTROLLER
++static void veth_poll_controller(struct net_device *dev)
++{
++	/* veth only receives frames when its peer sends one
++	 * Since it's a synchronous operation, we are guaranteed
++	 * never to have pending data when we poll for it so
++	 * there is nothing to do here.
++	 *
++	 * We need this though so netpoll recognizes us as an interface that
++	 * supports polling, which enables bridge devices in virt setups to
++	 * still use netconsole
++	 */
++}
++#endif	/* CONFIG_NET_POLL_CONTROLLER */
++
+ static const struct net_device_ops veth_netdev_ops = {
+ 	.ndo_init            = veth_dev_init,
+ 	.ndo_open            = veth_open,
+@@ -257,6 +272,9 @@ static const struct net_device_ops veth_netdev_ops = {
+ 	.ndo_get_stats64     = veth_get_stats64,
+ 	.ndo_set_rx_mode     = veth_set_multicast_list,
+ 	.ndo_set_mac_address = eth_mac_addr,
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	.ndo_poll_controller	= veth_poll_controller,
++#endif
+ };
+ 
+ #define VETH_FEATURES (NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_ALL_TSO |    \
+-- 
+1.8.3.1
