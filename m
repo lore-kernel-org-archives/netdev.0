@@ -1,108 +1,151 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH net] xen-netback: bookkeep number of queues in our own
- module
-Date: Mon, 23 Jun 2014 09:48:31 +0100
-Message-ID: <20140623084831.GV20819@zion.uk.xensource.com>
-References: <1403100558-12866-1-git-send-email-wei.liu2@citrix.com>
- <20140622.001355.624567316306796984.davem@davemloft.net>
- <20140622111657.GA7528@zion.uk.xensource.com>
- <9AAE0902D5BC7E449B7C8E4E778ABCD03BBD51@AMSPEX01CL01.citrite.net>
+From: dormando <dormando@rydia.net>
+Subject: Re: [PATCH] ipv4: fix a race in ip4_datagram_release_cb()
+Date: Mon, 23 Jun 2014 01:55:06 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1406230151480.19472@dtop>
+References: <CA+FTKhs45vD66xSQRgijwFjSuy-Mt8EGr3cRv60oCcEnFPKnaQ@mail.gmail.com>    <1402407781.3645.426.camel@edumazet-glaptop2.roam.corp.google.com>    <alpine.DEB.2.02.1406101726390.11647@dtop>    <1402448128.3645.437.camel@edumazet-glaptop2.roam.corp.google.com>
+  <1402449173.3645.440.camel@edumazet-glaptop2.roam.corp.google.com>    <1402450009.3645.444.camel@edumazet-glaptop2.roam.corp.google.com>    <alpine.DEB.2.10.1406102114520.28698@dinf>    <1402466090.3645.456.camel@edumazet-glaptop2.roam.corp.google.com>  
+  <alpine.DEB.2.02.1406110011170.11647@dtop>    <alpine.DEB.2.02.1406110022550.11647@dtop>    <alpine.DEB.2.02.1406110036490.11647@dtop>    <1402490462.3645.463.camel@edumazet-glaptop2.roam.corp.google.com>   <1402492373.3645.466.camel@edumazet-glaptop2.roam.corp.google.com>
+  <alpine.DEB.2.02.1406111851140.18470@dtop>  <1402544609.3645.473.camel@edumazet-glaptop2.roam.corp.google.com>  <alpine.DEB.2.02.1406221202460.14871@dtop> <1403512412.16682.23.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Wei Liu <wei.liu2@citrix.com>, David Miller <davem@davemloft.net>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"boris.ostrovsky@oracle.com" <boris.ostrovsky@oracle.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>
-To: Paul Durrant <Paul.Durrant@citrix.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Alexey Preobrazhensky <preobr@google.com>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	David Miller <davem@davemloft.net>, paulmck@linux.vnet.ibm.com,
+	netdev@vger.kernel.org, Kostya Serebryany <kcc@google.com>,
+	Dmitry Vyukov <dvyukov@google.com>,
+	Lars Bull <larsbull@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Bruce Curtis <brutus@google.com>,
+	=?ISO-8859-2?Q?Maciej_=AFenczykowski?= <maze@google.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:54222 "EHLO SMTP.CITRIX.COM"
+Received: from rydia.net ([69.46.88.68]:53977 "EHLO mail.rydia.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753370AbaFWI6R (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Jun 2014 04:58:17 -0400
-Content-Disposition: inline
-In-Reply-To: <9AAE0902D5BC7E449B7C8E4E778ABCD03BBD51@AMSPEX01CL01.citrite.net>
+	id S1752191AbaFWIzI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Jun 2014 04:55:08 -0400
+In-Reply-To: <1403512412.16682.23.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 23, 2014 at 08:59:16AM +0100, Paul Durrant wrote:
-[...]
-> > > > So we bookkeep the number of queues in xen-netback to solve this
-> > > > problem. The usage of real_num_tx_queues in core driver is to cap
-> > queue
-> > > > index to a valid value. In start_xmit we've already guarded against out
-> > > > of range queue index so we should be fine.
-> > > >
-> > > > This fixes a regression introduced by multiqueue patchset in 3.16-rc1.
-> > > >
-> > > > Reported-by: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-> > > > Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-> > >
-> > > I say you should have a select queue method at all.
-> > >
-> > > You're essentially providing a half-assed version of __netdev_pick_tx()
-> > > except that:
-> > >
-> > > 1) You're _completely_ ignoring the socket hash, if any.
-> > >
-> > > 2) You're not allowing XPS to work, _at all_.
-> > >
-> > > I think you need to serious reevaluate providing any select queue
-> > > method at all, just let netdev_pick_tx() do all the work.
-> > >
-> > 
-> > Looking at the core driver code in more details I think you're right. I
-> > will remove the select queue method.
+On Mon, 23 Jun 2014, Eric Dumazet wrote:
+
+> On Sun, 2014-06-22 at 12:07 -0700, dormando wrote:
+>
+> > Update on testing:
 > >
-> 
-> Bear in mind that the original intention of the multi-queue patches
-> was to allow the queue selection algorithm to be negotiated with the
-> frontend (see
-> http://lists.xen.org/archives/html/xen-devel/2013-06/msg02654.html).
-> Particularly, if the frontend is Windows then netback will need to use
-> a Toeplitz hash to steer traffic since this is stipulated by
-> Microsoft's RSS (Receive Side Scaling) interfaces. So, IMO netback
-> should always implement a select queue method, otherwise any
-> (theoretical) algorithm change in __netdev_pick_tx() would be
-> immediately imposed on frontends, possibly causing them to misbehave.
-> 
+> > I only have two machines that crash on their own frequently (more like
+> > one, even). Unfortunately something happened to the datacenter it's in and
+> > it was offline for a week. The machine normally crashes after 1.5-4d,
+> > averaging 2d.
+> >
+> > It's done about three days total time without a new crash. I also have the
+> > kernel running in another datacenter for ~10 days.. but it takes 30-150
+> > days to crash in that one.
+> >
+> > So, inconclusive, but still promising. If the machine survives the week it
+> > probably means it's fixed, or at least greatly reduced.
+> >
+> > I saw that one of your patches got queued for stable, but all three were
+> > necessary to fix udpkill. What's your plan for cleanup/upstreaming?
+> >
+> > Did you folks end up running udpkill under the tester thing?
+>
+> I did not test udpkill, as the known problem is the DST_NOCACHE flag.
+>
+> We end up calling sk_dst_set(sk, dst) with a dst having this flag set.
+>
+> So maybe DST_NOCACHE should be renamed, if we _can _ cache a dst like
+> this. Its meaning is really that dst_release() has to track when
+> refcount reaches 0 so that last owner fress dst, but we need to respect
+> rcu grace period.
+>
+> Fixing sk_dst_set() as I did is not enough, as it is only reducing race
+> window.
 
-In that case we can easily add back this select queue routine when the
-implementation comes, right?
+Hrm. I'll have to spend more time trying to understand how to test this
+(beyond just putting a kernel into production and seeing if it crashes).
+Outside of udpkill it's been slightly hard to reproduce, and udpkill ran
+for over five hours with your previous patches.
 
-On the other hand, we can exploit the fact that current select queue
-method takes a "fallback" parameter and it points to __netdev_pick_tx,
-we can have something like:
+Do you or other folks have any methods for testing this?
 
-static u16 xenvif_select_queue(struct net_device *dev, struct sk_buff *skb,
-                               void *accel_priv, select_queue_fallback_t fallback)
-{
-        return fallback(dev, skb);
-}
+thanks!
 
-But that doesn't make much difference and is a bit redundant IMHO.
-
-
-Wei.
-
->   Paul
->  
-> > > If you have some issue maintaining the release of queue resources,
-> > > maintain that privately and keep those details in the queue resource
-> > > allocation and freeing code _only_.  Don't make it an issue that
-> > > interferes at all with the normal mechanisms for SKB tx queue
-> > > selection.
-> > >
-> > 
-> > Sure. This is exactly the main idea of this patch, just that it
-> > interfered the queue selection logic. :-(
-> > 
-> > Will send an updated version soon.
-> > 
-> > Wei.
-> > 
-> > > Thanks.
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Something like following :
+>
+>  include/net/sock.h   |    4 ++--
+>  net/core/dst.c       |   16 +++++++++++-----
+>  net/ipv4/ip_tunnel.c |    7 +------
+>  3 files changed, 14 insertions(+), 13 deletions(-)
+>
+> diff --git a/include/net/sock.h b/include/net/sock.h
+> index 07b7fcd60d80..173cae485de1 100644
+> --- a/include/net/sock.h
+> +++ b/include/net/sock.h
+> @@ -1730,8 +1730,8 @@ sk_dst_get(struct sock *sk)
+>
+>  	rcu_read_lock();
+>  	dst = rcu_dereference(sk->sk_dst_cache);
+> -	if (dst)
+> -		dst_hold(dst);
+> +	if (dst && !atomic_inc_not_zero(&dst->__refcnt))
+> +		dst = NULL;
+>  	rcu_read_unlock();
+>  	return dst;
+>  }
+> diff --git a/net/core/dst.c b/net/core/dst.c
+> index 80d6286c8b62..a028409ee438 100644
+> --- a/net/core/dst.c
+> +++ b/net/core/dst.c
+> @@ -269,6 +269,15 @@ again:
+>  }
+>  EXPORT_SYMBOL(dst_destroy);
+>
+> +static void dst_destroy_rcu(struct rcu_head *head)
+> +{
+> +	struct dst_entry *dst = container_of(head, struct dst_entry, rcu_head);
+> +
+> +	dst = dst_destroy(dst);
+> +	if (dst)
+> +		__dst_free(dst);
+> +}
+> +
+>  void dst_release(struct dst_entry *dst)
+>  {
+>  	if (dst) {
+> @@ -276,11 +285,8 @@ void dst_release(struct dst_entry *dst)
+>
+>  		newrefcnt = atomic_dec_return(&dst->__refcnt);
+>  		WARN_ON(newrefcnt < 0);
+> -		if (unlikely(dst->flags & DST_NOCACHE) && !newrefcnt) {
+> -			dst = dst_destroy(dst);
+> -			if (dst)
+> -				__dst_free(dst);
+> -		}
+> +		if (unlikely(dst->flags & DST_NOCACHE) && !newrefcnt)
+> +			call_rcu(&dst->rcu_head, dst_destroy_rcu);
+>  	}
+>  }
+>  EXPORT_SYMBOL(dst_release);
+> diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+> index 097b3e7c1e8f..cc3b7fd34555 100644
+> --- a/net/ipv4/ip_tunnel.c
+> +++ b/net/ipv4/ip_tunnel.c
+> @@ -73,12 +73,7 @@ static void __tunnel_dst_set(struct ip_tunnel_dst *idst,
+>  {
+>  	struct dst_entry *old_dst;
+>
+> -	if (dst) {
+> -		if (dst->flags & DST_NOCACHE)
+> -			dst = NULL;
+> -		else
+> -			dst_clone(dst);
+> -	}
+> +	dst_clone(dst);
+>  	old_dst = xchg((__force struct dst_entry **)&idst->dst, dst);
+>  	dst_release(old_dst);
+>  }
+>
+>
+>
