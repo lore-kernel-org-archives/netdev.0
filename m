@@ -1,19 +1,19 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH net-next] hyperv: Add handler for
  RNDIS_STATUS_NETWORK_CHANGE event
-Date: Mon, 23 Jun 2014 13:06:08 -0700 (PDT)
-Message-ID: <20140623.130608.499310171187852386.davem@davemloft.net>
-References: <20140623080242.GA16924@aepfle.de>
- <06b508cbb6b949f4b3e13e7797948e56@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+Date: Mon, 23 Jun 2014 13:10:18 -0700 (PDT)
+Message-ID: <20140623.131018.1349792926453695313.davem@davemloft.net>
+References: <06b508cbb6b949f4b3e13e7797948e56@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
  <20140623131723.GA7026@aepfle.de>
+ <5fb9ddebb68d456ab87979b5cc3830ec@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: haiyangz@microsoft.com, driverdev-devel@linuxdriverproject.org,
- linux-kernel@vger.kernel.org, netdev@vger.kernel.org, jasowang@redhat.com
-To: olaf@aepfle.de
+Cc: olaf@aepfle.de, jasowang@redhat.com, driverdev-devel@linuxdriverproject.org,
+ linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: haiyangz@microsoft.com
 Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20140623131723.GA7026@aepfle.de>
+In-Reply-To: <5fb9ddebb68d456ab87979b5cc3830ec@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
 List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
  <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
 List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
@@ -25,24 +25,14 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-From: Olaf Hering <olaf@aepfle.de>
-Date: Mon, 23 Jun 2014 15:17:23 +0200
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Date: Mon, 23 Jun 2014 16:09:59 +0000
 
-> On Mon, Jun 23, Haiyang Zhang wrote:
-> 
->> > I think its reasonable to expect guest config changes on this new kind
->> > of host. Would a link-down/link-up event work? I'm sure it will, there
->> > is enough code floating around in the guests which handles cable unplug.
->> 
->> Do you mean netif_carrier_off() / netif_carrier_on()? They are already 
->> called in the code before this patch, but DHCP renew is not triggered by
->> them.
-> 
-> I do not know how to simulate a cable unplug. The point is that calling
-> /etc/init.d/network will fail, at least in SLES12.
-> Maybe some sort of "DHCP refresh required" event is required?
-> Maybe the DHCP clients need to renew on cable unplug?
-> No idea what the solution to the issue really is.
+> So, what's the equivalent or similar command to "network restart" on SLES12? Could
+> you update the command line for the usermodehelper when porting this patch to SLES
+> 12?
 
-What's in the driver right now is definitely not it, and I want this
-network restart code removed immediately.
+No, you are not going to keep the usermodehelper invocation in your driver
+please remove it.  It is absolutely inappropriate, and I strictly do not want
+to keep it in there because other people will copy it and then we'll have a
+real mess on our hands.
