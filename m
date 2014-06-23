@@ -1,41 +1,62 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [Xen-devel] [PATCH net v3] xen-netback: bookkeep number of active
- queues in our own module
-Date: Mon, 23 Jun 2014 11:18:32 +0100
-Message-ID: <53A7FEF8.9090802@citrix.com>
-References: <1403517017-7016-1-git-send-email-wei.liu2@citrix.com> <9AAE0902D5BC7E449B7C8E4E778ABCD03BC55F@AMSPEX01CL01.citrite.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "boris.ostrovsky@oracle.com" <boris.ostrovsky@oracle.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>
-To: Paul Durrant <Paul.Durrant@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Subject: [PATCH net-next v3 0/8] enic updates
+Date: Mon, 23 Jun 2014 16:07:57 +0530
+Message-ID: <1403519885-4908-1-git-send-email-_govind@gmx.com>
+Cc: ssujith@cisco.com, benve@cisco.com,
+	Govindarajulu Varadarajan <_govind@gmx.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:9792 "EHLO SMTP02.CITRIX.COM"
+Received: from mout.gmx.com ([74.208.4.201]:49253 "EHLO mout.gmx.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753080AbaFWKSe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Jun 2014 06:18:34 -0400
-In-Reply-To: <9AAE0902D5BC7E449B7C8E4E778ABCD03BC55F@AMSPEX01CL01.citrite.net>
+	id S1752322AbaFWKiv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Jun 2014 06:38:51 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 23/06/14 11:05, Paul Durrant wrote:
-> 
-> I do think the fact that the frontend doesn't care what algorithm
-> the backend is using needs to be made explicit though. I'll see what I can
-> do this week.
+This series fixes minor bugs and adds new features like Accelerated RFS,
+busy_poll, tx clean-up in napi_poll.
 
-The specification is pretty clear. From netif.h:
+Please apply it to net-next.
 
- * Mapping of packets to queues is considered to be a function of the
- * transmitting system (backend or frontend) and is not negotiated
- * between the two. Guests are free to transmit packets on any queue
- * they choose, provided it has been set up correctly. Guests must be
- * prepared to receive packets on any queue they have requested be set up.
+v3:
+* While doing tx cleanup in napi, ignore budget and clean up all desc possible.
 
-David
+v2:
+* Fix #ifdef coding style issue in '[PATCH 4/8] enic: alloc/free rx_cpu_rmap'
+  And [PATCH 5/8] enic: Add Accelerated RFS support'
 
-ps. Can you fix your email client to properly wrap your replies.
+Govindarajulu Varadarajan (7):
+  flow_keys: Record IP layer protocol in skb_flow_dissect()
+  enic: fix return value in _vnic_dev_cmd
+  enic: devcmd for adding IP 5 tuple hardware filters
+  enic: alloc/free rx_cpu_rmap
+  enic: Add Accelerated RFS support
+  enic: add low latency socket busy_poll support
+  enic: do tx cleanup in napi poll
+
+Tony Camuso (1):
+  enic: fix lockdep around devcmd_lock
+
+ drivers/net/ethernet/cisco/enic/Makefile      |   2 +-
+ drivers/net/ethernet/cisco/enic/enic.h        |  43 +++-
+ drivers/net/ethernet/cisco/enic/enic_api.c    |   4 +-
+ drivers/net/ethernet/cisco/enic/enic_clsf.c   | 279 ++++++++++++++++++++++++++
+ drivers/net/ethernet/cisco/enic/enic_clsf.h   |  19 ++
+ drivers/net/ethernet/cisco/enic/enic_dev.c    |  80 ++++----
+ drivers/net/ethernet/cisco/enic/enic_dev.h    |   4 +-
+ drivers/net/ethernet/cisco/enic/enic_main.c   | 245 +++++++++++++++++-----
+ drivers/net/ethernet/cisco/enic/enic_res.c    |   1 +
+ drivers/net/ethernet/cisco/enic/vnic_dev.c    |  65 +++++-
+ drivers/net/ethernet/cisco/enic/vnic_dev.h    |   2 +
+ drivers/net/ethernet/cisco/enic/vnic_devcmd.h |   5 +
+ drivers/net/ethernet/cisco/enic/vnic_enet.h   |   2 +
+ drivers/net/ethernet/cisco/enic/vnic_rq.h     | 122 +++++++++++
+ include/net/flow_keys.h                       |  14 ++
+ include/net/sch_generic.h                     |   2 +-
+ net/core/flow_dissector.c                     |   1 +
+ 17 files changed, 786 insertions(+), 104 deletions(-)
+ create mode 100644 drivers/net/ethernet/cisco/enic/enic_clsf.c
+ create mode 100644 drivers/net/ethernet/cisco/enic/enic_clsf.h
+
+-- 
+2.0.0
