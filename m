@@ -1,83 +1,58 @@
-From: Dave Chiluk <chiluk@canonical.com>
-Subject: [PATCH] net: fix UDP tunnel GSO of frag_list GRO packets
-Date: Mon, 23 Jun 2014 10:56:56 -0500
-Message-ID: <1403539016-15519-2-git-send-email-chiluk@canonical.com>
-References: <1403539016-15519-1-git-send-email-chiluk@canonical.com>
-To: netdev@vger.kernel.org, davem@davemloft.net,
-	Wei-Chun Chao <weichunc@plumgrid.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:38397 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755854AbaFWP5I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2014 11:57:08 -0400
-In-Reply-To: <1403539016-15519-1-git-send-email-chiluk@canonical.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH net-next] hyperv: Add handler for
+ RNDIS_STATUS_NETWORK_CHANGE event
+Date: Mon, 23 Jun 2014 16:09:59 +0000
+Message-ID: <5fb9ddebb68d456ab87979b5cc3830ec@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+References: <1403228076-7596-1-git-send-email-haiyangz@microsoft.com>
+ <20140620045704.GA4850@aepfle.de> <20140620051213.GA9960@kroah.com>
+ <ff458d1b896d4a70a32fa7709911274c@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+ <20140623080242.GA16924@aepfle.de>
+ <06b508cbb6b949f4b3e13e7797948e56@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+ <20140623131723.GA7026@aepfle.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Greg KH <greg@kroah.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"jasowang@redhat.com" <jasowang@redhat.com>,
+	"driverdev-devel@linuxdriverproject.org"
+	<driverdev-devel@linuxdriverproject.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: Olaf Hering <olaf@aepfle.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140623131723.GA7026@aepfle.de>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei-Chun Chao <weichunc@plumgrid.com>
-
-This patch fixes a kernel BUG_ON in skb_segment. It is hit when
-testing two VMs on openvswitch with one VM acting as VXLAN gateway.
-
-During VXLAN packet GSO, skb_segment is called with skb->data
-pointing to inner TCP payload. skb_segment calls skb_network_protocol
-to retrieve the inner protocol. skb_network_protocol actually expects
-skb->data to point to MAC and it calls pskb_may_pull with ETH_HLEN.
-This ends up pulling in ETH_HLEN data from header tail. As a result,
-pskb_trim logic is skipped and BUG_ON is hit later.
-
-Move skb_push in front of skb_network_protocol so that skb->data
-lines up properly.
-
-kernel BUG at net/core/skbuff.c:2999!
-Call Trace:
-[<ffffffff816ac412>] tcp_gso_segment+0x122/0x410
-[<ffffffff816bc74c>] inet_gso_segment+0x13c/0x390
-[<ffffffff8164b39b>] skb_mac_gso_segment+0x9b/0x170
-[<ffffffff816b3658>] skb_udp_tunnel_segment+0xd8/0x390
-[<ffffffff816b3c00>] udp4_ufo_fragment+0x120/0x140
-[<ffffffff816bc74c>] inet_gso_segment+0x13c/0x390
-[<ffffffff8109d742>] ? default_wake_function+0x12/0x20
-[<ffffffff8164b39b>] skb_mac_gso_segment+0x9b/0x170
-[<ffffffff8164b4d0>] __skb_gso_segment+0x60/0xc0
-[<ffffffff8164b6b3>] dev_hard_start_xmit+0x183/0x550
-[<ffffffff8166c91e>] sch_direct_xmit+0xfe/0x1d0
-[<ffffffff8164bc94>] __dev_queue_xmit+0x214/0x4f0
-[<ffffffff8164bf90>] dev_queue_xmit+0x10/0x20
-[<ffffffff81687edb>] ip_finish_output+0x66b/0x890
-[<ffffffff81688a58>] ip_output+0x58/0x90
-[<ffffffff816c628f>] ? fib_table_lookup+0x29f/0x350
-[<ffffffff816881c9>] ip_local_out_sk+0x39/0x50
-[<ffffffff816cbfad>] iptunnel_xmit+0x10d/0x130
-[<ffffffffa0212200>] vxlan_xmit_skb+0x1d0/0x330 [vxlan]
-[<ffffffffa02a3919>] vxlan_tnl_send+0x129/0x1a0 [openvswitch]
-[<ffffffffa02a2cd6>] ovs_vport_send+0x26/0xa0 [openvswitch]
-[<ffffffffa029931e>] do_output+0x2e/0x50 [openvswitch]
-
-Signed-off-by: Wei-Chun Chao <weichunc@plumgrid.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
----
- net/core/skbuff.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 8383b2b..9433047 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -2881,12 +2881,13 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
- 	int pos;
- 	int dummy;
- 
-+	__skb_push(head_skb, doffset);
- 	proto = skb_network_protocol(head_skb, &dummy);
- 	if (unlikely(!proto))
- 		return ERR_PTR(-EINVAL);
- 
- 	csum = !!can_checksum_protocol(features, proto);
--	__skb_push(head_skb, doffset);
-+
- 	headroom = skb_headroom(head_skb);
- 	pos = skb_headlen(head_skb);
- 
--- 
-1.9.1
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogT2xhZiBIZXJpbmcgW21h
+aWx0bzpvbGFmQGFlcGZsZS5kZV0NCj4gU2VudDogTW9uZGF5LCBKdW5lIDIzLCAyMDE0IDk6MTcg
+QU0NCj4gVG86IEhhaXlhbmcgWmhhbmcNCj4gQ2M6IEdyZWcgS0g7IG5ldGRldkB2Z2VyLmtlcm5l
+bC5vcmc7IGphc293YW5nQHJlZGhhdC5jb207IGRyaXZlcmRldi0NCj4gZGV2ZWxAbGludXhkcml2
+ZXJwcm9qZWN0Lm9yZzsgbGludXgta2VybmVsQHZnZXIua2VybmVsLm9yZzsNCj4gZGF2ZW1AZGF2
+ZW1sb2Z0Lm5ldA0KPiBTdWJqZWN0OiBSZTogW1BBVENIIG5ldC1uZXh0XSBoeXBlcnY6IEFkZCBo
+YW5kbGVyIGZvcg0KPiBSTkRJU19TVEFUVVNfTkVUV09SS19DSEFOR0UgZXZlbnQNCj4gDQo+IE9u
+IE1vbiwgSnVuIDIzLCBIYWl5YW5nIFpoYW5nIHdyb3RlOg0KPiANCj4gPiA+IEkgdGhpbmsgaXRz
+IHJlYXNvbmFibGUgdG8gZXhwZWN0IGd1ZXN0IGNvbmZpZyBjaGFuZ2VzIG9uIHRoaXMgbmV3DQo+
+ID4gPiBraW5kIG9mIGhvc3QuIFdvdWxkIGEgbGluay1kb3duL2xpbmstdXAgZXZlbnQgd29yaz8g
+SSdtIHN1cmUgaXQNCj4gPiA+IHdpbGwsIHRoZXJlIGlzIGVub3VnaCBjb2RlIGZsb2F0aW5nIGFy
+b3VuZCBpbiB0aGUgZ3Vlc3RzIHdoaWNoIGhhbmRsZXMgY2FibGUNCj4gdW5wbHVnLg0KPiA+DQo+
+ID4gRG8geW91IG1lYW4gbmV0aWZfY2Fycmllcl9vZmYoKSAvIG5ldGlmX2NhcnJpZXJfb24oKT8g
+VGhleSBhcmUgYWxyZWFkeQ0KPiA+IGNhbGxlZCBpbiB0aGUgY29kZSBiZWZvcmUgdGhpcyBwYXRj
+aCwgYnV0IERIQ1AgcmVuZXcgaXMgbm90IHRyaWdnZXJlZA0KPiA+IGJ5IHRoZW0uDQo+IA0KPiBJ
+IGRvIG5vdCBrbm93IGhvdyB0byBzaW11bGF0ZSBhIGNhYmxlIHVucGx1Zy4gVGhlIHBvaW50IGlz
+IHRoYXQgY2FsbGluZw0KPiAvZXRjL2luaXQuZC9uZXR3b3JrIHdpbGwgZmFpbCwgYXQgbGVhc3Qg
+aW4gU0xFUzEyLg0KPiBNYXliZSBzb21lIHNvcnQgb2YgIkRIQ1AgcmVmcmVzaCByZXF1aXJlZCIg
+ZXZlbnQgaXMgcmVxdWlyZWQ/DQo+IE1heWJlIHRoZSBESENQIGNsaWVudHMgbmVlZCB0byByZW5l
+dyBvbiBjYWJsZSB1bnBsdWc/DQo+IE5vIGlkZWEgd2hhdCB0aGUgc29sdXRpb24gdG8gdGhlIGlz
+c3VlIHJlYWxseSBpcy4NCg0KWWVzLCBpdCB3aWxsIGJlIGdyZWF0IGlmIHRoZXJlIGlzIHN1Y2gg
+YSAiREhDUCByZWZyZXNoIHJlcXVpcmVkIiBldmVudCwgb3IgREhDUCBjbGllbnRzDQphcmUgdHJp
+Z2dlcmVkIHdoZW4gbmV0aWZfY2Fycmllcl9vZmYoKSB0aGVuIG5ldGlmX2NhcnJpZXJfb24oKS4N
+Cg0KSSBoYXZlIHRyaWVkIHNvbWUgcG9zc2liaWxpdGllcywgbGlrZSBJRl9PUEVSX0RPUk1BTlQg
+dGhlbiBJRl9PUEVSX1VQIHdpdGggDQpuZXRkZXZfc3RhdGVfY2hhbmdlKCkgZXRjLiBidXQgbm90
+IGFibGUgdG8gdHJpZ2dlciBESENQIHJldmlldy4gSSB3aWxsIGxvb2sgYXQgdGhpcw0KZnVydGhl
+ci4uLg0KDQpTbywgd2hhdCdzIHRoZSBlcXVpdmFsZW50IG9yIHNpbWlsYXIgY29tbWFuZCB0byAi
+bmV0d29yayByZXN0YXJ0IiBvbiBTTEVTMTI/IENvdWxkDQp5b3UgdXBkYXRlIHRoZSBjb21tYW5k
+IGxpbmUgZm9yIHRoZSB1c2VybW9kZWhlbHBlciB3aGVuIHBvcnRpbmcgdGhpcyBwYXRjaCB0byBT
+TEVTDQoxMj8NCg0KVGhhbmtzLA0KLSBIYWl5YW5nDQoNCg==
