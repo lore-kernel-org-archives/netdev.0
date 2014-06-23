@@ -1,15 +1,11 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH 13/22] qlogic: Use pci_zalloc_consistent
-Date: Mon, 23 Jun 2014 06:41:41 -0700
-Message-ID: <5aceec27b2390a68fb96d31fc5753d9b58d82627.1403530604.git.joe@perches.com>
+Subject: [PATCH 16/22] mwl8k: Use pci_zalloc_consistent
+Date: Mon, 23 Jun 2014 06:41:44 -0700
+Message-ID: <5a221c96b8c3ab59cf343fda8e86397259ca224e.1403530604.git.joe@perches.com>
 References: <cover.1403530604.git.joe@perches.com>
-Cc: Manish Chopra <manish.chopra@qlogic.com>,
-	Sony Chacko <sony.chacko@qlogic.com>,
-	Rajesh Borundia <rajesh.borundia@qlogic.com>,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>,
-	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
-	Ron Mercer <ron.mercer@qlogic.com>, linux-driver@qlogic.com,
-	netdev@vger.kernel.org
+Cc: Lennert Buytenhek <buytenh@wantstofly.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1403530604.git.joe@perches.com>
@@ -20,62 +16,40 @@ Remove the now unnecessary memset too.
 
 Signed-off-by: Joe Perches <joe@perches.com>
 ---
- drivers/net/ethernet/qlogic/netxen/netxen_nic_ctx.c |  4 +---
- drivers/net/ethernet/qlogic/qlge/qlge_main.c        | 11 +++++------
- 2 files changed, 6 insertions(+), 9 deletions(-)
+ drivers/net/wireless/mwl8k.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_ctx.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ctx.c
-index 6f6be57..b8d5270 100644
---- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_ctx.c
-+++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ctx.c
-@@ -129,14 +129,12 @@ netxen_get_minidump_template(struct netxen_adapter *adapter)
- 		return NX_RCODE_INVALID_ARGS;
- 	}
+diff --git a/drivers/net/wireless/mwl8k.c b/drivers/net/wireless/mwl8k.c
+index 3c0a0a8..7e6b981 100644
+--- a/drivers/net/wireless/mwl8k.c
++++ b/drivers/net/wireless/mwl8k.c
+@@ -1159,12 +1159,11 @@ static int mwl8k_rxq_init(struct ieee80211_hw *hw, int index)
  
--	addr = pci_alloc_consistent(adapter->pdev, size, &md_template_addr);
--
-+	addr = pci_zalloc_consistent(adapter->pdev, size, &md_template_addr);
- 	if (!addr) {
- 		dev_err(&adapter->pdev->dev, "Unable to allocate dmable memory for template.\n");
+ 	size = MWL8K_RX_DESCS * priv->rxd_ops->rxd_size;
+ 
+-	rxq->rxd = pci_alloc_consistent(priv->pdev, size, &rxq->rxd_dma);
++	rxq->rxd = pci_zalloc_consistent(priv->pdev, size, &rxq->rxd_dma);
+ 	if (rxq->rxd == NULL) {
+ 		wiphy_err(hw->wiphy, "failed to alloc RX descriptors\n");
  		return -ENOMEM;
  	}
+-	memset(rxq->rxd, 0, size);
  
--	memset(addr, 0, size);
- 	memset(&cmd, 0, sizeof(cmd));
- 	memset(&cmd.rsp, 1, sizeof(struct _cdrp_cmd));
- 	cmd.req.cmd = NX_CDRP_CMD_GET_TEMP_HDR;
-diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_main.c b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-index b40050e..d836ace 100644
---- a/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-+++ b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-@@ -2727,23 +2727,22 @@ static void ql_free_shadow_space(struct ql_adapter *qdev)
- static int ql_alloc_shadow_space(struct ql_adapter *qdev)
- {
- 	qdev->rx_ring_shadow_reg_area =
--	    pci_alloc_consistent(qdev->pdev,
--				 PAGE_SIZE, &qdev->rx_ring_shadow_reg_dma);
-+		pci_zalloc_consistent(qdev->pdev, PAGE_SIZE,
-+				      &qdev->rx_ring_shadow_reg_dma);
- 	if (qdev->rx_ring_shadow_reg_area == NULL) {
- 		netif_err(qdev, ifup, qdev->ndev,
- 			  "Allocation of RX shadow space failed.\n");
+ 	rxq->buf = kcalloc(MWL8K_RX_DESCS, sizeof(*rxq->buf), GFP_KERNEL);
+ 	if (rxq->buf == NULL) {
+@@ -1451,12 +1450,11 @@ static int mwl8k_txq_init(struct ieee80211_hw *hw, int index)
+ 
+ 	size = MWL8K_TX_DESCS * sizeof(struct mwl8k_tx_desc);
+ 
+-	txq->txd = pci_alloc_consistent(priv->pdev, size, &txq->txd_dma);
++	txq->txd = pci_zalloc_consistent(priv->pdev, size, &txq->txd_dma);
+ 	if (txq->txd == NULL) {
+ 		wiphy_err(hw->wiphy, "failed to alloc TX descriptors\n");
  		return -ENOMEM;
  	}
--	memset(qdev->rx_ring_shadow_reg_area, 0, PAGE_SIZE);
-+
- 	qdev->tx_ring_shadow_reg_area =
--	    pci_alloc_consistent(qdev->pdev, PAGE_SIZE,
--				 &qdev->tx_ring_shadow_reg_dma);
-+		pci_zalloc_consistent(qdev->pdev, PAGE_SIZE,
-+				      &qdev->tx_ring_shadow_reg_dma);
- 	if (qdev->tx_ring_shadow_reg_area == NULL) {
- 		netif_err(qdev, ifup, qdev->ndev,
- 			  "Allocation of TX shadow space failed.\n");
- 		goto err_wqp_sh_area;
- 	}
--	memset(qdev->tx_ring_shadow_reg_area, 0, PAGE_SIZE);
- 	return 0;
+-	memset(txq->txd, 0, size);
  
- err_wqp_sh_area:
+ 	txq->skb = kcalloc(MWL8K_TX_DESCS, sizeof(*txq->skb), GFP_KERNEL);
+ 	if (txq->skb == NULL) {
 -- 
 1.8.1.2.459.gbcd45b4.dirty
