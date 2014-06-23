@@ -1,136 +1,173 @@
 From: Octavian Purdila <octavian.purdila@intel.com>
-Subject: [RFC net-next 05/12] tcp: add init_cookie_seq method to tcp_request_sock_ops
-Date: Mon, 23 Jun 2014 21:42:42 +0300
-Message-ID: <1403548969-12303-6-git-send-email-octavian.purdila@intel.com>
+Subject: [RFC net-next 06/12] tcp: add route_req method to tcp_request_sock_ops
+Date: Mon, 23 Jun 2014 21:42:43 +0300
+Message-ID: <1403548969-12303-7-git-send-email-octavian.purdila@intel.com>
 References: <1403548969-12303-1-git-send-email-octavian.purdila@intel.com>
 Cc: Octavian Purdila <octavian.purdila@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:42127 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:42129 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754424AbaFWSo2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755187AbaFWSo2 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 23 Jun 2014 14:44:28 -0400
 In-Reply-To: <1403548969-12303-1-git-send-email-octavian.purdila@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the specific IPv4/IPv6 cookie sequence initialization to a new
-method in tcp_request_sock_ops in preparation for unifying
-tcp_v4_conn_request and tcp_v6_conn_request.
+Create wrappers with same signature for the IPv4/IPv6 request routing
+calls and use these wrappers (via route_req method from
+tcp_request_sock_ops) in tcp_v4_conn_request and tcp_v6_conn_request
+with the purpose of unifying the two functions in a later patch.
+
+We can later drop the wrapper functions and modify inet_csk_route_req
+and inet6_cks_route_req to use the same signature.
 
 Signed-off-by: Octavian Purdila <octavian.purdila@intel.com>
 ---
- include/net/tcp.h   | 34 ++++++++++++++++++++--------------
- net/ipv4/tcp_ipv4.c |  5 ++++-
- net/ipv6/tcp_ipv6.c |  5 ++++-
- 3 files changed, 28 insertions(+), 16 deletions(-)
+ include/net/tcp.h   |  3 +++
+ net/ipv4/tcp_ipv4.c | 36 +++++++++++++++++++++++++++++-------
+ net/ipv6/tcp_ipv6.c | 26 ++++++++++++++++++++------
+ 3 files changed, 52 insertions(+), 13 deletions(-)
 
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 7ad8ce2..086d00e 100644
+index 086d00e..59fcc59 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
-@@ -495,13 +495,6 @@ u32 __cookie_v4_init_sequence(const struct iphdr *iph, const struct tcphdr *th,
- 			      u16 *mssp);
- __u32 cookie_v4_init_sequence(struct sock *sk, const struct sk_buff *skb,
- 			      __u16 *mss);
--#else
--static inline __u32 cookie_v4_init_sequence(struct sock *sk,
--					    const struct sk_buff *skb,
--					    __u16 *mss)
--{
--	return 0;
--}
+@@ -1605,6 +1605,9 @@ struct tcp_request_sock_ops {
+ 	__u32 (*cookie_init_seq)(struct sock *sk, const struct sk_buff *skb,
+ 				 __u16 *mss);
  #endif
- 
- __u32 cookie_init_timestamp(struct request_sock *req);
-@@ -517,13 +510,6 @@ u32 __cookie_v6_init_sequence(const struct ipv6hdr *iph,
- 			      const struct tcphdr *th, u16 *mssp);
- __u32 cookie_v6_init_sequence(struct sock *sk, const struct sk_buff *skb,
- 			      __u16 *mss);
--#else
--static inline __u32 cookie_v6_init_sequence(struct sock *sk,
--					    struct sk_buff *skb,
--					    __u16 *mss)
--{
--	return 0;
--}
- #endif
- /* tcp_output.c */
- 
-@@ -1615,8 +1601,28 @@ struct tcp_request_sock_ops {
- #endif
- 	void (*init_req)(struct request_sock *req, struct sock *sk,
- 			 struct sk_buff *skb);
-+#ifdef CONFIG_SYN_COOKIES
-+	__u32 (*cookie_init_seq)(struct sock *sk, const struct sk_buff *skb,
-+				 __u16 *mss);
-+#endif
++	struct dst_entry *(*route_req)(struct sock *sk, struct flowi *fl,
++				       const struct request_sock *req,
++				       bool *strict);
  };
  
-+#ifdef CONFIG_SYN_COOKIES
-+static inline __u32 cookie_init_sequence(const struct tcp_request_sock_ops *ops,
-+					 struct sock *sk, struct sk_buff *skb,
-+					 __u16 *mss)
-+{
-+	return ops->cookie_init_seq(sk, skb, mss);
-+}
-+#else
-+static inline __u32 cookie_init_sequence(const struct tcp_request_sock_ops *ops,
-+					 struct sock *sk, struct sk_buff *skb,
-+					 __u16 *mss)
-+{
-+	return 0;
-+}
-+#endif
-+
- int tcpv4_offload_init(void);
- 
- void tcp_v4_init(void);
+ #ifdef CONFIG_SYN_COOKIES
 diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index f86a86b..8c69e44 100644
+index 8c69e44..54fbbd8 100644
 --- a/net/ipv4/tcp_ipv4.c
 +++ b/net/ipv4/tcp_ipv4.c
-@@ -1264,6 +1264,9 @@ static const struct tcp_request_sock_ops tcp_request_sock_ipv4_ops = {
- 	.calc_md5_hash	=	tcp_v4_md5_hash_skb,
+@@ -1248,6 +1248,22 @@ static void tcp_v4_init_req(struct request_sock *req, struct sock *sk,
+ 	ireq->opt = tcp_v4_save_options(skb);
+ }
+ 
++static struct dst_entry *tcp_v4_route_req(struct sock *sk, struct flowi *fl,
++					  const struct request_sock *req,
++					  bool *strict)
++{
++	struct dst_entry *dst = inet_csk_route_req(sk, &fl->u.ip4, req);
++
++	if (strict) {
++		if (fl->u.ip4.daddr == inet_rsk(req)->ir_rmt_addr)
++			*strict = true;
++		else
++			*strict = false;
++	}
++
++	return dst;
++}
++
+ struct request_sock_ops tcp_request_sock_ops __read_mostly = {
+ 	.family		=	PF_INET,
+ 	.obj_size	=	sizeof(struct tcp_request_sock),
+@@ -1267,6 +1283,7 @@ static const struct tcp_request_sock_ops tcp_request_sock_ipv4_ops = {
+ #ifdef CONFIG_SYN_COOKIES
+ 	.cookie_init_seq =	cookie_v4_init_sequence,
  #endif
- 	.init_req	=	tcp_v4_init_req,
-+#ifdef CONFIG_SYN_COOKIES
-+	.cookie_init_seq =	cookie_v4_init_sequence,
-+#endif
++	.route_req	=	tcp_v4_route_req,
  };
  
  int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
-@@ -1331,7 +1334,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
- 		TCP_ECN_create_request(req, skb, sock_net(sk));
+@@ -1346,11 +1363,13 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+ 		 * timewait bucket, so that all the necessary checks
+ 		 * are made in the function processing timewait state.
+ 		 */
+-		if (tmp_opt.saw_tstamp &&
+-		    tcp_death_row.sysctl_tw_recycle &&
+-		    (dst = inet_csk_route_req(sk, &fl4, req)) != NULL &&
+-		    fl4.daddr == saddr) {
+-			if (!tcp_peer_is_proven(req, dst, true)) {
++		if (tmp_opt.saw_tstamp && tcp_death_row.sysctl_tw_recycle) {
++			bool strict;
++
++			dst = af_ops->route_req(sk, (struct flowi *)&fl4, req,
++						&strict);
++			if (dst && strict &&
++			    !tcp_peer_is_proven(req, dst, true)) {
+ 				NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_PAWSPASSIVEREJECTED);
+ 				goto drop_and_release;
+ 			}
+@@ -1374,8 +1393,11 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
  
- 	if (want_cookie) {
--		isn = cookie_v4_init_sequence(sk, skb, &req->mss);
-+		isn = cookie_init_sequence(af_ops, sk, skb, &req->mss);
- 		req->cookie_ts = tmp_opt.tstamp_ok;
- 	} else if (!isn) {
- 		/* VJ's idea. We save last timestamp seen
+ 		isn = tcp_v4_init_sequence(skb);
+ 	}
+-	if (!dst && (dst = inet_csk_route_req(sk, &fl4, req)) == NULL)
+-		goto drop_and_free;
++	if (!dst) {
++		dst = af_ops->route_req(sk, (struct flowi *)&fl4, req, NULL);
++		if (!dst)
++			goto drop_and_free;
++	}
+ 
+ 	tcp_rsk(req)->snt_isn = isn;
+ 	tcp_openreq_init_rwin(req, sk, dst);
 diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 87a360c..17710cf 100644
+index 17710cf..d780d88 100644
 --- a/net/ipv6/tcp_ipv6.c
 +++ b/net/ipv6/tcp_ipv6.c
-@@ -761,6 +761,9 @@ static const struct tcp_request_sock_ops tcp_request_sock_ipv6_ops = {
- 	.calc_md5_hash	=	tcp_v6_md5_hash_skb,
+@@ -745,6 +745,16 @@ static void tcp_v6_init_req(struct request_sock *req, struct sock *sk,
+ 	}
+ }
+ 
++static struct dst_entry *tcp_v6_route_req(struct sock *sk, struct flowi *fl,
++					  const struct request_sock *req,
++					  bool *strict)
++{
++	if (strict)
++		*strict = true;
++	return inet6_csk_route_req(sk, &fl->u.ip6, req);
++}
++
++
+ struct request_sock_ops tcp6_request_sock_ops __read_mostly = {
+ 	.family		=	AF_INET6,
+ 	.obj_size	=	sizeof(struct tcp6_request_sock),
+@@ -764,6 +774,7 @@ static const struct tcp_request_sock_ops tcp_request_sock_ipv6_ops = {
+ #ifdef CONFIG_SYN_COOKIES
+ 	.cookie_init_seq =	cookie_v6_init_sequence,
  #endif
- 	.init_req	=	tcp_v6_init_req,
-+#ifdef CONFIG_SYN_COOKIES
-+	.cookie_init_seq =	cookie_v6_init_sequence,
-+#endif
++	.route_req	=	tcp_v6_route_req,
  };
  
  static void tcp_v6_send_response(struct sk_buff *skb, u32 seq, u32 ack, u32 win,
-@@ -1061,7 +1064,7 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
+@@ -1078,10 +1089,10 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
+ 		 * timewait bucket, so that all the necessary checks
+ 		 * are made in the function processing timewait state.
+ 		 */
+-		if (tmp_opt.saw_tstamp &&
+-		    tcp_death_row.sysctl_tw_recycle &&
+-		    (dst = inet6_csk_route_req(sk, &fl6, req)) != NULL) {
+-			if (!tcp_peer_is_proven(req, dst, true)) {
++		if (tmp_opt.saw_tstamp && tcp_death_row.sysctl_tw_recycle) {
++			dst = af_ops->route_req(sk, (struct flowi *)&fl6, req,
++						NULL);
++			if (dst && !tcp_peer_is_proven(req, dst, true)) {
+ 				NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_PAWSPASSIVEREJECTED);
+ 				goto drop_and_release;
+ 			}
+@@ -1110,8 +1121,11 @@ have_isn:
+ 	if (security_inet_conn_request(sk, skb, req))
+ 		goto drop_and_release;
  
- 	if (!isn) {
- 		if (want_cookie) {
--			isn = cookie_v6_init_sequence(sk, skb, &req->mss);
-+			isn = cookie_init_sequence(af_ops, sk, skb, &req->mss);
- 			req->cookie_ts = tmp_opt.tstamp_ok;
- 			goto have_isn;
- 		}
+-	if (!dst && (dst = inet6_csk_route_req(sk, &fl6, req)) == NULL)
+-		goto drop_and_free;
++	if (!dst) {
++		dst = af_ops->route_req(sk, (struct flowi *)&fl6, req, NULL);
++		if (!dst)
++			goto drop_and_free;
++	}
+ 
+ 	tcp_rsk(req)->snt_isn = isn;
+ 	tcp_openreq_init_rwin(req, sk, dst);
 -- 
 1.8.3.2
