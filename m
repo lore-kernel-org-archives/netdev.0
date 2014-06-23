@@ -1,84 +1,97 @@
-From: "Luis R. Rodriguez" <mcgrof@suse.com>
-Subject: Re: SmPL for automatic request_firmware_nowait() conversion
-Date: Tue, 24 Jun 2014 01:21:07 +0200
-Message-ID: <20140623232107.GB27687@wotan.suse.de>
-References: <20140621015714.GX4841@wotan.suse.de> <20140621105205.GA31611@electric-eye.fr.zoreil.com>
+From: Julian Calaby <julian.calaby@gmail.com>
+Subject: Re: [PATCH 00/22] Add and use pci_zalloc_consistent
+Date: Tue, 24 Jun 2014 09:27:25 +1000
+Message-ID: <CAGRGNgVD2f0S-v8YZ-qABEhDJAwk5pp71FU9uLR8aSZ+DhABjg@mail.gmail.com>
+References: <cover.1403530604.git.joe@perches.com> <20140623172512.GA1390@garbanzo.do-not-panic.com>
+ <1403550809.15811.13.camel@joe-AO725>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: cocci@systeme.lip6.fr, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140621105205.GA31611@electric-eye.fr.zoreil.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devel@driverdev.osuosl.org" <devel@driverdev.osuosl.org>,
+	linux-arch@vger.kernel.org,
+	linux-scsi <linux-scsi@vger.kernel.org>, iss_storagedev@hp.com,
+	linux-rdma@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	linux-atm-general@lists.sourceforge.net,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	dri-devel@lists.freedesktop.org, linux-crypto@vger.kernel.org,
+	linux-eata@i-connect.net, linux-media@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <1403550809.15811.13.camel@joe-AO725>
+Sender: linux-arch-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jun 21, 2014 at 12:52:05PM +0200, Francois Romieu wrote:
-> Luis R. Rodriguez <mcgrof@suse.com> :
-> > I was just porting over an ethernet driver [0] to use request_firmware_nowait()
-> > since firmware loading seems can take over a minute on one device, while
-> > at it I noticed no other ethernet drivers yet use this API so figure
-> > this may be a trend coming if devices are getting as complex as cxgb4.
-> > The cxgb4 driver happens to even use the firmware API 3 times!
-> 
-> There should be no problem for the firmware requests issued through
-> ethtool in cxgb4.
+Hi Joe,
 
-OK.
+On Tue, Jun 24, 2014 at 5:13 AM, Joe Perches <joe@perches.com> wrote:
+> On Mon, 2014-06-23 at 10:25 -0700, Luis R. Rodriguez wrote:
+>> On Mon, Jun 23, 2014 at 06:41:28AM -0700, Joe Perches wrote:
+>> > Adding the helper reduces object code size as well as overall
+>> > source size line count.
+>> >
+>> > It's also consistent with all the various zalloc mechanisms
+>> > in the kernel.
+>> >
+>> > Done with a simple cocci script and some typing.
+>>
+>> Awesome, any chance you can paste in the SmPL? Also any chance
+>> we can get this added to a make coccicheck so that maintainers
+>> moving forward can use that to ensure that no new code is
+>> added that uses the old school API?
+>
+> Not many of these are recent.
+>
+> Arnd Bergmann reasonably suggested that the pci_alloc_consistent
+> api be converted the the more widely used dma_alloc_coherent.
+>
+> https://lkml.org/lkml/2014/6/23/513
+>
+>> Shouldn't these drivers just use the normal dma-mapping API now?
+>
+> and I replied:
+>
+> https://lkml.org/lkml/2014/6/23/525
+>
+>> Maybe.  I wouldn't mind.
+>> They do seem to have a trivial bit of unnecessary overhead for
+>> hwdev == NULL ? NULL : &hwdev->dev
+>
+> Anyway, here's the little script.
+> I'm not sure it's worthwhile to add it though.
+>
+> $ cat ./scripts/coccinelle/api/alloc/pci_zalloc_consistent.cocci
+> ///
+> /// Use pci_zalloc_consistent rather than
+> ///     pci_alloc_consistent followed by memset with 0
+> ///
+> /// This considers some simple cases that are common and easy to validate
+> /// Note in particular that there are no ...s in the rule, so all of the
+> /// matched code has to be contiguous
+> ///
+> /// Blatantly cribbed from: scripts/coccinelle/api/alloc/kzalloc-simple.cocci
+>
+> @@
+> type T, T2;
+> expression x;
+> expression E1,E2,E3;
+> statement S;
+> @@
+>
+> - x = (T)pci_alloc_consistent(E1,E2,E3);
+> + x = pci_zalloc_consistent(E1,E2,E3);
+>   if ((x==NULL) || ...) S
+> - memset((T2)x,0,E2);
 
-> 
-> [...]
-> > netdev: how worthy is this effort?
-> 
-> Biased comment below :o)
-> 
-> I'm wondering the benefit of automatic API changes when it could be argued
-> that the symptoms call for driver dependant code rework.
+I don't know much about SmPL, but wouldn't having that if statement
+there reduce your matches?
 
-I should have elaborated a bit more on motivation. Tons of drivers don't use
-request_firmware_nowait() which means boot time is increased given that probe
-won't complete until firmware loading completes. The cxgb4 driver is a good
-example of one that takes quite a bit of time so learning that firmware loading
-can take over a minute seemed to beg a rework to use request_firmware_nowait().
-Note that in the worst case if udev is present in the worst case if the firmware
-is not present loading can take up to timeout * num CPUs [0], but work is
-underway to try to remove udev firmware loading support [1]. Regardless
-then the current approach seemed to beg a rework.
+Thanks,
 
-[0] https://lkml.org/lkml/2013/10/23/264
-[1] http://comments.gmane.org/gmane.comp.sysutils.systemd.devel/19440
+-- 
+Julian Calaby
 
-> The 60 seconds delay is kind of a pavlovian signal: one can bet that the
-> driver includes a request_firmware in its probe method. So does cxgb4.
-
-The kernel's timeout is 60 seconds, and this is static, but lets be clear
-that there is a difference between the timeout for reading the firmware
-from the filesystem and actually dumping the firmware onto the device
-by the driver and ensuring that the driver is done poking at it. The
-kernel timeout is for the kernel reading it and tossing it back to the
-driver.
-
-> I still believe in the old school "request firmware from net_device_ops.open".
-> I've been happy with it since f1e02ed109df5f99abf942b8ccc99960cb09dd38.
-
-I was actually in the hopes a suitable transormation can be designed
-to put a wait_for_completion() in say ndo_init(). I was looking to
-see if a tranformation can be generalized of course if the above
-observations on probe() is something desirable to be addressed.
-
-> This kind of rework may not be trivial for cxgb4. Please get code tested on
-> real hardware (modular/monolithic build, with/without firmware, etc.) as I
-> won't argue against your crusade for cxgb4.
-
-OK I'll look for hardware but if some folks already have it and are
-interesed in some parts of this patch set my hope was that it can be
-slightly modified to move the wait_for_completion() to an ndo_init() then
-as well. That would really put better use of the API.
-
-> Asynchronous firmware loading provides a rather nice high level API but
-> it's imho not the essence of network devices firmware loading problems.
-
-Agreed.
-
-  Luis
+Email: julian.calaby@gmail.com
+Profile: http://www.google.com/profiles/julian.calaby/
+.Plan: http://sites.google.com/site/juliancalaby/
