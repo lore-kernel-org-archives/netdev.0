@@ -1,33 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/8] enic updates
-Date: Mon, 23 Jun 2014 14:40:53 -0700 (PDT)
-Message-ID: <20140623.144053.1693421076211239015.davem@davemloft.net>
-References: <1403519885-4908-1-git-send-email-_govind@gmx.com>
+Subject: Re: [PATCH net] be2net: fix qnq mode detection on VFs
+Date: Mon, 23 Jun 2014 14:47:07 -0700 (PDT)
+Message-ID: <20140623.144707.29017823029772168.davem@davemloft.net>
+References: <1403521889-8048-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ssujith@cisco.com, benve@cisco.com
-To: _govind@gmx.com
+Cc: netdev@vger.kernel.org
+To: sathya.perla@emulex.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35330 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:35363 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751210AbaFWVk5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2014 17:40:57 -0400
-In-Reply-To: <1403519885-4908-1-git-send-email-_govind@gmx.com>
+	with ESMTP id S1752286AbaFWVrI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2014 17:47:08 -0400
+In-Reply-To: <1403521889-8048-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Date: Mon, 23 Jun 2014 16:07:57 +0530
+From: Sathya Perla <sathya.perla@emulex.com>
+Date: Mon, 23 Jun 2014 16:41:29 +0530
 
-> This series fixes minor bugs and adds new features like Accelerated RFS,
-> busy_poll, tx clean-up in napi_poll.
- ...
-> v3:
-> * While doing tx cleanup in napi, ignore budget and clean up all desc possible.
+> From: Suresh Reddy <suresh.reddy@emulex.com>
 > 
-> v2:
-> * Fix #ifdef coding style issue in '[PATCH 4/8] enic: alloc/free rx_cpu_rmap'
->   And [PATCH 5/8] enic: Add Accelerated RFS support'
+> The driver (on PF or VF) needs to detect if the function is in qnq mode for
+> a HW hack in be_rx_compl_get() to work.
+> 
+> The driver queries this information using the GET_PROFILE_CONFIG cmd
+> (since the commit below can caused this regression.) But this cmd is not
+> available on VFs and so the VFs fail to detect qnq mode. This causes
+> vlan traffic to not work.
+> 
+> The fix is to use the the adapter->function_mode value queried via
+> QUERY_FIRMWARE_CONFIG cmd on both PFs and VFs to detect the qnq mode.
+> 
+> Also QNQ_MODE was incorrectly named FLEX10_MODE; correcting that too as the
+> fix reads much better with the name change.
+> 
+> Fixes: f93f160b5 ("refactor multi-channel config code for Skyhawk-R chip")
+> 
+> Signed-off-by: Suresh Reddy <Suresh.Reddy@emulex.com>
+> Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 
-Series applied, thanks.
+Applied, thanks.
