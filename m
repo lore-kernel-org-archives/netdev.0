@@ -1,107 +1,427 @@
 From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: [PATCH net-next v3 4/8] enic: alloc/free rx_cpu_rmap
-Date: Mon, 23 Jun 2014 16:08:01 +0530
-Message-ID: <1403519885-4908-5-git-send-email-_govind@gmx.com>
+Subject: [PATCH net-next v3 5/8] enic: Add Accelerated RFS support
+Date: Mon, 23 Jun 2014 16:08:02 +0530
+Message-ID: <1403519885-4908-6-git-send-email-_govind@gmx.com>
 References: <1403519885-4908-1-git-send-email-_govind@gmx.com>
 Cc: ssujith@cisco.com, benve@cisco.com,
 	Govindarajulu Varadarajan <_govind@gmx.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.com ([74.208.4.201]:56414 "EHLO mout.gmx.com"
+Received: from mout.gmx.com ([74.208.4.200]:59713 "EHLO mout.gmx.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752957AbaFWKkH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Jun 2014 06:40:07 -0400
+	id S1753103AbaFWKkW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Jun 2014 06:40:22 -0400
 In-Reply-To: <1403519885-4908-1-git-send-email-_govind@gmx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-rx_cpu_rmap provides the reverse irq cpu affinity. This patch allocates and
-sets drivers netdev->rx_cpu_rmap accordingly.
+This patch adds supports for Accelerated Receive Flow Steering.
 
-rx_cpu_rmap is set in enic_request_intr() which is called by enic_open and
-rx_cpu_rmap is freed in enic_free_intr() which is called by enic_stop.
+When the desired rx is different from current rq, for a flow, kernel calls the
+driver function enic_rx_flow_steer(). enic_rx_flow_steer adds a IP-TCP/UDP
+hardware filter.
 
-This is used by Accelerated RFS.
+Driver registers a timer function enic_flow_may_expire. This function is called
+every HZ/4 seconds. In this function we check if the added filter has expired
+by calling rps_may_expire_flow(). If the flow has expired, it removes the hw
+filter.
+
+As of now adaptor supports only IPv4 - TCP/UDP filters.
 
 Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
 ---
- drivers/net/ethernet/cisco/enic/enic_main.c | 43 +++++++++++++++++++++++++++++
- 1 file changed, 43 insertions(+)
+ drivers/net/ethernet/cisco/enic/enic.h      |  41 ++++++
+ drivers/net/ethernet/cisco/enic/enic_clsf.c | 213 ++++++++++++++++++++++++++++
+ drivers/net/ethernet/cisco/enic/enic_clsf.h |   9 ++
+ drivers/net/ethernet/cisco/enic/enic_main.c |  13 ++
+ drivers/net/ethernet/cisco/enic/enic_res.c  |   1 +
+ drivers/net/ethernet/cisco/enic/vnic_enet.h |   2 +
+ 6 files changed, 279 insertions(+)
 
-diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
-index f32f828..151b375 100644
---- a/drivers/net/ethernet/cisco/enic/enic_main.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-@@ -39,6 +39,9 @@
- #include <linux/prefetch.h>
- #include <net/ip6_checksum.h>
- #include <linux/ktime.h>
+diff --git a/drivers/net/ethernet/cisco/enic/enic.h b/drivers/net/ethernet/cisco/enic/enic.h
+index 14f465f..b9b9178 100644
+--- a/drivers/net/ethernet/cisco/enic/enic.h
++++ b/drivers/net/ethernet/cisco/enic/enic.h
+@@ -99,6 +99,44 @@ struct enic_port_profile {
+ 	u8 mac_addr[ETH_ALEN];
+ };
+ 
 +#ifdef CONFIG_RFS_ACCEL
-+#include <linux/cpu_rmap.h>
++/* enic_rfs_fltr_node - rfs filter node in hash table
++ *	@@keys: IPv4 5 tuple
++ *	@flow_id: flow_id of clsf filter provided by kernel
++ *	@fltr_id: filter id of clsf filter returned by adaptor
++ *	@rq_id: desired rq index
++ *	@node: hlist_node
++ */
++struct enic_rfs_fltr_node {
++	struct flow_keys keys;
++	u32 flow_id;
++	u16 fltr_id;
++	u16 rq_id;
++	struct hlist_node node;
++};
++
++/* enic_rfs_flw_tbl - rfs flow table
++ *	@max: Maximum number of filters vNIC supports
++ *	@free: Number of free filters available
++ *	@toclean: hash table index to clean next
++ *	@ht_head: hash table list head
++ *	@lock: spin lock
++ *	@rfs_may_expire: timer function for enic_rps_may_expire_flow
++ */
++struct enic_rfs_flw_tbl {
++	u16 max;
++	int free;
++
++#define ENIC_RFS_FLW_BITSHIFT	(10)
++#define ENIC_RFS_FLW_MASK	((1 << ENIC_RFS_FLW_BITSHIFT) - 1)
++	u16 toclean:ENIC_RFS_FLW_BITSHIFT;
++	struct hlist_head ht_head[1 << ENIC_RFS_FLW_BITSHIFT];
++	spinlock_t lock;
++	struct timer_list rfs_may_expire;
++};
++
++#endif /* CONFIG_RFS_ACCEL */
++
+ /* Per-instance private data structure */
+ struct enic {
+ 	struct net_device *netdev;
+@@ -150,6 +188,9 @@ struct enic {
+ 	/* completion queue cache line section */
+ 	____cacheline_aligned struct vnic_cq cq[ENIC_CQ_MAX];
+ 	unsigned int cq_count;
++#ifdef CONFIG_RFS_ACCEL
++	struct enic_rfs_flw_tbl rfs_h;
 +#endif
+ };
  
- #include "cq_enet_desc.h"
- #include "vnic_dev.h"
-@@ -1192,6 +1195,44 @@ static void enic_calc_int_moderation(struct enic *enic, struct vnic_rq *rq)
- 	pkt_size_counter->small_pkt_bytes_cnt = 0;
+ static inline struct device *enic_get_dev(struct enic *enic)
+diff --git a/drivers/net/ethernet/cisco/enic/enic_clsf.c b/drivers/net/ethernet/cisco/enic/enic_clsf.c
+index f6703c4..7f27a4c 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_clsf.c
++++ b/drivers/net/ethernet/cisco/enic/enic_clsf.c
+@@ -64,3 +64,216 @@ int enic_delfltr(struct enic *enic, u16 filter_id)
+ 
+ 	return ret;
  }
- 
++
 +#ifdef CONFIG_RFS_ACCEL
-+static void enic_free_rx_cpu_rmap(struct enic *enic)
++void enic_flow_may_expire(unsigned long data)
 +{
-+	free_irq_cpu_rmap(enic->netdev->rx_cpu_rmap);
-+	enic->netdev->rx_cpu_rmap = NULL;
-+}
++	struct enic *enic = (struct enic *)data;
++	bool res;
++	int j;
 +
-+static void enic_set_rx_cpu_rmap(struct enic *enic)
-+{
-+	int i, res;
++	spin_lock(&enic->rfs_h.lock);
++	for (j = 0; j < ENIC_CLSF_EXPIRE_COUNT; j++) {
++		struct hlist_head *hhead;
++		struct hlist_node *tmp;
++		struct enic_rfs_fltr_node *n;
 +
-+	if (vnic_dev_get_intr_mode(enic->vdev) == VNIC_DEV_INTR_MODE_MSIX) {
-+		enic->netdev->rx_cpu_rmap = alloc_irq_cpu_rmap(enic->rq_count);
-+		if (unlikely(!enic->netdev->rx_cpu_rmap))
-+			return;
-+		for (i = 0; i < enic->rq_count; i++) {
-+			res = irq_cpu_rmap_add(enic->netdev->rx_cpu_rmap,
-+					       enic->msix_entry[i].vector);
-+			if (unlikely(res)) {
-+				enic_free_rx_cpu_rmap(enic);
-+				return;
++		hhead = &enic->rfs_h.ht_head[enic->rfs_h.toclean++];
++		hlist_for_each_entry_safe(n, tmp, hhead, node) {
++			res = rps_may_expire_flow(enic->netdev, n->rq_id,
++						  n->flow_id, n->fltr_id);
++			if (res) {
++				res = enic_delfltr(enic, n->fltr_id);
++				if (unlikely(res))
++					continue;
++				hlist_del(&n->node);
++				kfree(n);
++				enic->rfs_h.free++;
 +			}
 +		}
 +	}
++	spin_unlock(&enic->rfs_h.lock);
++	mod_timer(&enic->rfs_h.rfs_may_expire, jiffies + HZ/4);
++}
++
++/* enic_rfs_flw_tbl_init - initialize enic->rfs_h members
++ *	@enic: enic data
++ */
++void enic_rfs_flw_tbl_init(struct enic *enic)
++{
++	int i;
++
++	spin_lock_init(&enic->rfs_h.lock);
++	for (i = 0; i <= ENIC_RFS_FLW_MASK; i++)
++		INIT_HLIST_HEAD(&enic->rfs_h.ht_head[i]);
++	enic->rfs_h.max = enic->config.num_arfs;
++	enic->rfs_h.free = enic->rfs_h.max;
++	enic->rfs_h.toclean = 0;
++	init_timer(&enic->rfs_h.rfs_may_expire);
++	enic->rfs_h.rfs_may_expire.function = enic_flow_may_expire;
++	enic->rfs_h.rfs_may_expire.data = (unsigned long)enic;
++	mod_timer(&enic->rfs_h.rfs_may_expire, jiffies + HZ/4);
++}
++
++void enic_rfs_flw_tbl_free(struct enic *enic)
++{
++	int i, res;
++
++	del_timer_sync(&enic->rfs_h.rfs_may_expire);
++	spin_lock(&enic->rfs_h.lock);
++	enic->rfs_h.free = 0;
++	for (i = 0; i < (1 << ENIC_RFS_FLW_BITSHIFT); i++) {
++		struct hlist_head *hhead;
++		struct hlist_node *tmp;
++		struct enic_rfs_fltr_node *n;
++
++		hhead = &enic->rfs_h.ht_head[i];
++		hlist_for_each_entry_safe(n, tmp, hhead, node) {
++			enic_delfltr(enic, n->fltr_id);
++			hlist_del(&n->node);
++			kfree(n);
++		}
++	}
++	spin_unlock(&enic->rfs_h.lock);
++}
++
++static struct enic_rfs_fltr_node *htbl_key_search(struct hlist_head *h,
++						  struct flow_keys *k)
++{
++	struct enic_rfs_fltr_node *tpos;
++
++	hlist_for_each_entry(tpos, h, node)
++		if (tpos->keys.src == k->src &&
++		    tpos->keys.dst == k->dst &&
++		    tpos->keys.ports == k->ports &&
++		    tpos->keys.ip_proto == k->ip_proto &&
++		    tpos->keys.n_proto == k->n_proto)
++			return tpos;
++	return NULL;
++}
++
++int enic_rx_flow_steer(struct net_device *dev, const struct sk_buff *skb,
++		       u16 rxq_index, u32 flow_id)
++{
++	struct flow_keys keys;
++	struct enic_rfs_fltr_node *n;
++	struct enic *enic;
++	u16 tbl_idx;
++	int res, i;
++
++	enic = netdev_priv(dev);
++	res = skb_flow_dissect(skb, &keys);
++	if (!res || keys.n_proto != htons(ETH_P_IP) ||
++	    (keys.ip_proto != IPPROTO_TCP && keys.ip_proto != IPPROTO_UDP))
++		return -EPROTONOSUPPORT;
++
++	tbl_idx = skb_get_hash_raw(skb) & ENIC_RFS_FLW_MASK;
++	spin_lock(&enic->rfs_h.lock);
++	n = htbl_key_search(&enic->rfs_h.ht_head[tbl_idx], &keys);
++
++	if (n) { /* entry already present  */
++		if (rxq_index == n->rq_id) {
++			res = -EEXIST;
++			goto ret_unlock;
++		}
++
++		/* desired rq changed for the flow, we need to delete
++		 * old fltr and add new one
++		 *
++		 * The moment we delete the fltr, the upcoming pkts
++		 * are put it default rq based on rss. When we add
++		 * new filter, upcoming pkts are put in desired queue.
++		 * This could cause ooo pkts.
++		 *
++		 * Lets 1st try adding new fltr and then del old one.
++		 */
++		i = --enic->rfs_h.free;
++		/* clsf tbl is full, we have to del old fltr first*/
++		if (unlikely(i < 0)) {
++			enic->rfs_h.free++;
++			res = enic_delfltr(enic, n->fltr_id);
++			if (unlikely(res < 0))
++				goto ret_unlock;
++			res = enic_addfltr_5t(enic, &keys, rxq_index);
++			if (res < 0) {
++				hlist_del(&n->node);
++				enic->rfs_h.free++;
++				goto ret_unlock;
++			}
++		/* add new fltr 1st then del old fltr */
++		} else {
++			int ret;
++
++			res = enic_addfltr_5t(enic, &keys, rxq_index);
++			if (res < 0) {
++				enic->rfs_h.free++;
++				goto ret_unlock;
++			}
++			ret = enic_delfltr(enic, n->fltr_id);
++			/* deleting old fltr failed. Add old fltr to list.
++			 * enic_flow_may_expire() will try to delete it later.
++			 */
++			if (unlikely(ret < 0)) {
++				struct enic_rfs_fltr_node *d;
++				struct hlist_head *head;
++
++				head = &enic->rfs_h.ht_head[tbl_idx];
++				d = kmalloc(sizeof(*d), GFP_ATOMIC);
++				if (d) {
++					d->fltr_id = n->fltr_id;
++					INIT_HLIST_NODE(&d->node);
++					hlist_add_head(&d->node, head);
++				}
++			} else {
++				enic->rfs_h.free++;
++			}
++		}
++		n->rq_id = rxq_index;
++		n->fltr_id = res;
++		n->flow_id = flow_id;
++	/* entry not present */
++	} else {
++		i = --enic->rfs_h.free;
++		if (i <= 0) {
++			enic->rfs_h.free++;
++			res = -EBUSY;
++			goto ret_unlock;
++		}
++
++		n = kmalloc(sizeof(*n), GFP_ATOMIC);
++		if (!n) {
++			res = -ENOMEM;
++			enic->rfs_h.free++;
++			goto ret_unlock;
++		}
++
++		res = enic_addfltr_5t(enic, &keys, rxq_index);
++		if (res < 0) {
++			kfree(n);
++			enic->rfs_h.free++;
++			goto ret_unlock;
++		}
++		n->rq_id = rxq_index;
++		n->fltr_id = res;
++		n->flow_id = flow_id;
++		n->keys = keys;
++		INIT_HLIST_NODE(&n->node);
++		hlist_add_head(&n->node, &enic->rfs_h.ht_head[tbl_idx]);
++	}
++
++ret_unlock:
++	spin_unlock(&enic->rfs_h.lock);
++	return res;
 +}
 +
 +#else
 +
-+static void enic_free_rx_cpu_rmap(struct enic *enic)
++void enic_rfs_flw_tbl_init(struct enic *enic)
 +{
 +}
 +
-+static void enic_set_rx_cpu_rmap(struct enic *enic)
++void enic_rfs_flw_tbl_free(struct enic *enic)
 +{
 +}
 +
 +#endif /* CONFIG_RFS_ACCEL */
+diff --git a/drivers/net/ethernet/cisco/enic/enic_clsf.h b/drivers/net/ethernet/cisco/enic/enic_clsf.h
+index b6925b3..76a85bb 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_clsf.h
++++ b/drivers/net/ethernet/cisco/enic/enic_clsf.h
+@@ -4,7 +4,16 @@
+ #include "vnic_dev.h"
+ #include "enic.h"
+ 
++#define ENIC_CLSF_EXPIRE_COUNT 128
 +
- static int enic_poll_msix(struct napi_struct *napi, int budget)
- {
- 	struct net_device *netdev = napi->dev;
-@@ -1267,6 +1308,7 @@ static void enic_free_intr(struct enic *enic)
- 	struct net_device *netdev = enic->netdev;
- 	unsigned int i;
+ int enic_addfltr_5t(struct enic *enic, struct flow_keys *keys, u16 rq);
+ int enic_delfltr(struct enic *enic, u16 filter_id);
  
-+	enic_free_rx_cpu_rmap(enic);
- 	switch (vnic_dev_get_intr_mode(enic->vdev)) {
- 	case VNIC_DEV_INTR_MODE_INTX:
- 		free_irq(enic->pdev->irq, netdev);
-@@ -1291,6 +1333,7 @@ static int enic_request_intr(struct enic *enic)
- 	unsigned int i, intr;
- 	int err = 0;
++#ifdef CONFIG_RFS_ACCEL
++void enic_rfs_flw_tbl_init(struct enic *enic);
++void enic_rfs_flw_tbl_free(struct enic *enic);
++int enic_rx_flow_steer(struct net_device *dev, const struct sk_buff *skb,
++		       u16 rxq_index, u32 flow_id);
++#endif /* CONFIG_RFS_ACCEL */
++
+ #endif /* _ENIC_CLSF_H_ */
+diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
+index 151b375..a302f1b 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_main.c
++++ b/drivers/net/ethernet/cisco/enic/enic_main.c
+@@ -52,6 +52,7 @@
+ #include "enic.h"
+ #include "enic_dev.h"
+ #include "enic_pp.h"
++#include "enic_clsf.h"
  
-+	enic_set_rx_cpu_rmap(enic);
- 	switch (vnic_dev_get_intr_mode(enic->vdev)) {
+ #define ENIC_NOTIFY_TIMER_PERIOD	(2 * HZ)
+ #define WQ_ENET_MAX_DESC_LEN		(1 << WQ_ENET_LEN_BITS)
+@@ -1546,6 +1547,7 @@ static int enic_open(struct net_device *netdev)
+ 		vnic_intr_unmask(&enic->intr[i]);
  
- 	case VNIC_DEV_INTR_MODE_INTX:
+ 	enic_notify_timer_start(enic);
++	enic_rfs_flw_tbl_init(enic);
+ 
+ 	return 0;
+ 
+@@ -1572,6 +1574,7 @@ static int enic_stop(struct net_device *netdev)
+ 	enic_synchronize_irqs(enic);
+ 
+ 	del_timer_sync(&enic->notify_timer);
++	enic_rfs_flw_tbl_free(enic);
+ 
+ 	enic_dev_disable(enic);
+ 
+@@ -2064,6 +2067,9 @@ static const struct net_device_ops enic_netdev_dynamic_ops = {
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	= enic_poll_controller,
+ #endif
++#ifdef CONFIG_RFS_ACCEL
++	.ndo_rx_flow_steer	= enic_rx_flow_steer,
++#endif
+ };
+ 
+ static const struct net_device_ops enic_netdev_ops = {
+@@ -2084,6 +2090,9 @@ static const struct net_device_ops enic_netdev_ops = {
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	= enic_poll_controller,
+ #endif
++#ifdef CONFIG_RFS_ACCEL
++	.ndo_rx_flow_steer	= enic_rx_flow_steer,
++#endif
+ };
+ 
+ static void enic_dev_deinit(struct enic *enic)
+@@ -2429,6 +2438,10 @@ static int enic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	netdev->features |= netdev->hw_features;
+ 
++#ifdef CONFIG_RFS_ACCEL
++	netdev->hw_features |= NETIF_F_NTUPLE;
++#endif
++
+ 	if (using_dac)
+ 		netdev->features |= NETIF_F_HIGHDMA;
+ 
+diff --git a/drivers/net/ethernet/cisco/enic/enic_res.c b/drivers/net/ethernet/cisco/enic/enic_res.c
+index 31d6588..9c96911 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_res.c
++++ b/drivers/net/ethernet/cisco/enic/enic_res.c
+@@ -71,6 +71,7 @@ int enic_get_vnic_config(struct enic *enic)
+ 	GET_CONFIG(intr_mode);
+ 	GET_CONFIG(intr_timer_usec);
+ 	GET_CONFIG(loop_tag);
++	GET_CONFIG(num_arfs);
+ 
+ 	c->wq_desc_count =
+ 		min_t(u32, ENIC_MAX_WQ_DESCS,
+diff --git a/drivers/net/ethernet/cisco/enic/vnic_enet.h b/drivers/net/ethernet/cisco/enic/vnic_enet.h
+index 6095428..75aced2 100644
+--- a/drivers/net/ethernet/cisco/enic/vnic_enet.h
++++ b/drivers/net/ethernet/cisco/enic/vnic_enet.h
+@@ -32,6 +32,8 @@ struct vnic_enet_config {
+ 	char devname[16];
+ 	u32 intr_timer_usec;
+ 	u16 loop_tag;
++	u16 vf_rq_count;
++	u16 num_arfs;
+ };
+ 
+ #define VENETF_TSO		0x1	/* TSO enabled */
 -- 
 2.0.0
