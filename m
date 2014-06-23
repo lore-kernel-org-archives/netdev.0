@@ -1,403 +1,371 @@
 From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: [PATCH net-next v3 6/8] enic: fix lockdep around devcmd_lock
-Date: Mon, 23 Jun 2014 16:08:03 +0530
-Message-ID: <1403519885-4908-7-git-send-email-_govind@gmx.com>
+Subject: [PATCH net-next v3 7/8] enic: add low latency socket busy_poll support
+Date: Mon, 23 Jun 2014 16:08:04 +0530
+Message-ID: <1403519885-4908-8-git-send-email-_govind@gmx.com>
 References: <1403519885-4908-1-git-send-email-_govind@gmx.com>
 Cc: ssujith@cisco.com, benve@cisco.com,
-	Tony Camuso <tcamuso@redhat.com>,
 	Govindarajulu Varadarajan <_govind@gmx.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.com ([74.208.4.200]:54330 "EHLO mout.gmx.com"
+Received: from mout.gmx.com ([74.208.4.200]:53014 "EHLO mout.gmx.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752693AbaFWKkq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Jun 2014 06:40:46 -0400
+	id S1752666AbaFWKlR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Jun 2014 06:41:17 -0400
 In-Reply-To: <1403519885-4908-1-git-send-email-_govind@gmx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tony Camuso <tcamuso@redhat.com>
+This patch adds support for low latency busy_poll.
 
-We were experiencing occasional "BUG: scheduling while atomic" splats
-in our testing. Enabling DEBUG_SPINLOCK and DEBUG_LOCKDEP in the kernel
-exposed a lockdep in the enic driver.
+* Introduce drivers ndo_busy_poll function enic_busy_poll, which is called by
+socket waiting for data.
 
-enic 0000:0b:00.0 eth2: Link UP
-======================================================
-[ INFO: SOFTIRQ-safe -> SOFTIRQ-unsafe lock order detected ]
-3.12.0-rc1.x86_64-dbg+ #2 Tainted: GF       W
-------------------------------------------------------
-NetworkManager/4209 [HC0[0]:SC0[2]:HE1:SE0] is trying to acquire:
-(&(&enic->devcmd_lock)->rlock){+.+...}, at: [<ffffffffa026b7e4>] enic_dev_packet_filter+0x44/0x90 [enic]
+* Introduce locking between napi_poll nad busy_poll
 
-The fix was to replace spin_lock with spin_lock_bh for the enic
-devcmd_lock, so that soft irqs would be disabled while the lock
-is held.
+* enic_busy_poll cleans up all the rx pkts possible. While in busy_poll, rq
+holds the state ENIC_POLL_STATE_POLL. While in napi_poll, rq holds the state
+ENIC_POLL_STATE_NAPI.
 
-Signed-off-by: Sujith Sankar <ssujith@cisco.com>
-Signed-off-by: Tony Camuso <tcamuso@redhat.com>
+* in napi_poll we return if we are in busy_poll. Incase of INTx & msix, we just
+service wq and return if busy_poll is going on.
+
 Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
 ---
- drivers/net/ethernet/cisco/enic/enic_api.c  |  4 +-
- drivers/net/ethernet/cisco/enic/enic_dev.c  | 80 ++++++++++++++---------------
- drivers/net/ethernet/cisco/enic/enic_dev.h  |  4 +-
- drivers/net/ethernet/cisco/enic/enic_main.c | 16 +++---
- 4 files changed, 52 insertions(+), 52 deletions(-)
+ drivers/net/ethernet/cisco/enic/enic_main.c |  85 ++++++++++++++++---
+ drivers/net/ethernet/cisco/enic/vnic_rq.h   | 122 ++++++++++++++++++++++++++++
+ 2 files changed, 195 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/cisco/enic/enic_api.c b/drivers/net/ethernet/cisco/enic/enic_api.c
-index e13efbd..b161f24 100644
---- a/drivers/net/ethernet/cisco/enic/enic_api.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_api.c
-@@ -34,13 +34,13 @@ int enic_api_devcmd_proxy_by_index(struct net_device *netdev, int vf,
- 	struct vnic_dev *vdev = enic->vdev;
- 
- 	spin_lock(&enic->enic_api_lock);
--	spin_lock(&enic->devcmd_lock);
-+	spin_lock_bh(&enic->devcmd_lock);
- 
- 	vnic_dev_cmd_proxy_by_index_start(vdev, vf);
- 	err = vnic_dev_cmd(vdev, cmd, a0, a1, wait);
- 	vnic_dev_cmd_proxy_end(vdev);
- 
--	spin_unlock(&enic->devcmd_lock);
-+	spin_unlock_bh(&enic->devcmd_lock);
- 	spin_unlock(&enic->enic_api_lock);
- 
- 	return err;
-diff --git a/drivers/net/ethernet/cisco/enic/enic_dev.c b/drivers/net/ethernet/cisco/enic/enic_dev.c
-index 3e27df5..87ddc44 100644
---- a/drivers/net/ethernet/cisco/enic/enic_dev.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_dev.c
-@@ -29,9 +29,9 @@ int enic_dev_fw_info(struct enic *enic, struct vnic_devcmd_fw_info **fw_info)
- {
- 	int err;
- 
--	spin_lock(&enic->devcmd_lock);
-+	spin_lock_bh(&enic->devcmd_lock);
- 	err = vnic_dev_fw_info(enic->vdev, fw_info);
--	spin_unlock(&enic->devcmd_lock);
-+	spin_unlock_bh(&enic->devcmd_lock);
- 
- 	return err;
- }
-@@ -40,9 +40,9 @@ int enic_dev_stats_dump(struct enic *enic, struct vnic_stats **vstats)
- {
- 	int err;
- 
--	spin_lock(&enic->devcmd_lock);
-+	spin_lock_bh(&enic->devcmd_lock);
- 	err = vnic_dev_stats_dump(enic->vdev, vstats);
--	spin_unlock(&enic->devcmd_lock);
-+	spin_unlock_bh(&enic->devcmd_lock);
- 
- 	return err;
- }
-@@ -54,9 +54,9 @@ int enic_dev_add_station_addr(struct enic *enic)
- 	if (!is_valid_ether_addr(enic->netdev->dev_addr))
- 		return -EADDRNOTAVAIL;
- 
--	spin_lock(&enic->devcmd_lock);
-+	spin_lock_bh(&enic->devcmd_lock);
- 	err = vnic_dev_add_addr(enic->vdev, enic->netdev->dev_addr);
--	spin_unlock(&enic->devcmd_lock);
-+	spin_unlock_bh(&enic->devcmd_lock);
- 
- 	return err;
- }
-@@ -68,9 +68,9 @@ int enic_dev_del_station_addr(struct enic *enic)
- 	if (!is_valid_ether_addr(enic->netdev->dev_addr))
- 		return -EADDRNOTAVAIL;
- 
--	spin_lock(&enic->devcmd_lock);
-+	spin_lock_bh(&enic->devcmd_lock);
- 	err = vnic_dev_del_addr(enic->vdev, enic->netdev->dev_addr);
--	spin_unlock(&enic->devcmd_lock);
-+	spin_unlock_bh(&enic->devcmd_lock);
- 
- 	return err;
- }
-@@ -80,10 +80,10 @@ int enic_dev_packet_filter(struct enic *enic, int directed, int multicast,
- {
- 	int err;
- 
--	spin_lock(&enic->devcmd_lock);
-+	spin_lock_bh(&enic->devcmd_lock);
- 	err = vnic_dev_packet_filter(enic->vdev, directed,
- 		multicast, broadcast, promisc, allmulti);
--	spin_unlock(&enic->devcmd_lock);
-+	spin_unlock_bh(&enic->devcmd_lock);
- 
- 	return err;
- }
-@@ -92,9 +92,9 @@ int enic_dev_add_addr(struct enic *enic, const u8 *addr)
- {
- 	int err;
- 
--	spin_lock(&enic->devcmd_lock);
-+	spin_lock_bh(&enic->devcmd_lock);
- 	err = vnic_dev_add_addr(enic->vdev, addr);
--	spin_unlock(&enic->devcmd_lock);
-+	spin_unlock_bh(&enic->devcmd_lock);
- 
- 	return err;
- }
-@@ -103,9 +103,9 @@ int enic_dev_del_addr(struct enic *enic, const u8 *addr)
- {
- 	int err;
- 
--	spin_lock(&enic->devcmd_lock);
-+	spin_lock_bh(&enic->devcmd_lock);
- 	err = vnic_dev_del_addr(enic->vdev, addr);
--	spin_unlock(&enic->devcmd_lock);
-+	spin_unlock_bh(&enic->devcmd_lock);
- 
- 	return err;
- }
-@@ -114,9 +114,9 @@ int enic_dev_notify_unset(struct enic *enic)
- {
- 	int err;
- 
--	spin_lock(&enic->devcmd_lock);
-+	spin_lock_bh(&enic->devcmd_lock);
- 	err = vnic_dev_notify_unset(enic->vdev);
--	spin_unlock(&enic->devcmd_lock);
-+	spin_unlock_bh(&enic->devcmd_lock);
- 
- 	return err;
- }
-@@ -125,9 +125,9 @@ int enic_dev_hang_notify(struct enic *enic)
- {
- 	int err;
- 
--	spin_lock(&enic->devcmd_lock);
-+	spin_lock_bh(&enic->devcmd_lock);
- 	err = vnic_dev_hang_notify(enic->vdev);
--	spin_unlock(&enic->devcmd_lock);
-+	spin_unlock_bh(&enic->devcmd_lock);
- 
- 	return err;
- }
-@@ -136,10 +136,10 @@ int enic_dev_set_ig_vlan_rewrite_mode(struct enic *enic)
- {
- 	int err;
- 
--	spin_lock(&enic->devcmd_lock);
-+	spin_lock_bh(&enic->devcmd_lock);
- 	err = vnic_dev_set_ig_vlan_rewrite_mode(enic->vdev,
- 		IG_VLAN_REWRITE_MODE_PRIORITY_TAG_DEFAULT_VLAN);
--	spin_unlock(&enic->devcmd_lock);
-+	spin_unlock_bh(&enic->devcmd_lock);
- 
- 	return err;
- }
-@@ -148,9 +148,9 @@ int enic_dev_enable(struct enic *enic)
- {
- 	int err;
- 
--	spin_lock(&enic->devcmd_lock);
-+	spin_lock_bh(&enic->devcmd_lock);
- 	err = vnic_dev_enable_wait(enic->vdev);
--	spin_unlock(&enic->devcmd_lock);
-+	spin_unlock_bh(&enic->devcmd_lock);
- 
- 	return err;
- }
-@@ -159,9 +159,9 @@ int enic_dev_disable(struct enic *enic)
- {
- 	int err;
- 
--	spin_lock(&enic->devcmd_lock);
-+	spin_lock_bh(&enic->devcmd_lock);
- 	err = vnic_dev_disable(enic->vdev);
--	spin_unlock(&enic->devcmd_lock);
-+	spin_unlock_bh(&enic->devcmd_lock);
- 
- 	return err;
- }
-@@ -170,9 +170,9 @@ int enic_dev_intr_coal_timer_info(struct enic *enic)
- {
- 	int err;
- 
--	spin_lock(&enic->devcmd_lock);
-+	spin_lock_bh(&enic->devcmd_lock);
- 	err = vnic_dev_intr_coal_timer_info(enic->vdev);
--	spin_unlock(&enic->devcmd_lock);
-+	spin_unlock_bh(&enic->devcmd_lock);
- 
- 	return err;
- }
-@@ -181,9 +181,9 @@ int enic_vnic_dev_deinit(struct enic *enic)
- {
- 	int err;
- 
--	spin_lock(&enic->devcmd_lock);
-+	spin_lock_bh(&enic->devcmd_lock);
- 	err = vnic_dev_deinit(enic->vdev);
--	spin_unlock(&enic->devcmd_lock);
-+	spin_unlock_bh(&enic->devcmd_lock);
- 
- 	return err;
- }
-@@ -192,10 +192,10 @@ int enic_dev_init_prov2(struct enic *enic, struct vic_provinfo *vp)
- {
- 	int err;
- 
--	spin_lock(&enic->devcmd_lock);
-+	spin_lock_bh(&enic->devcmd_lock);
- 	err = vnic_dev_init_prov2(enic->vdev,
- 		(u8 *)vp, vic_provinfo_size(vp));
--	spin_unlock(&enic->devcmd_lock);
-+	spin_unlock_bh(&enic->devcmd_lock);
- 
- 	return err;
- }
-@@ -204,9 +204,9 @@ int enic_dev_deinit_done(struct enic *enic, int *status)
- {
- 	int err;
- 
--	spin_lock(&enic->devcmd_lock);
-+	spin_lock_bh(&enic->devcmd_lock);
- 	err = vnic_dev_deinit_done(enic->vdev, status);
--	spin_unlock(&enic->devcmd_lock);
-+	spin_unlock_bh(&enic->devcmd_lock);
- 
- 	return err;
- }
-@@ -217,9 +217,9 @@ int enic_vlan_rx_add_vid(struct net_device *netdev, __be16 proto, u16 vid)
- 	struct enic *enic = netdev_priv(netdev);
- 	int err;
- 
--	spin_lock(&enic->devcmd_lock);
-+	spin_lock_bh(&enic->devcmd_lock);
- 	err = enic_add_vlan(enic, vid);
--	spin_unlock(&enic->devcmd_lock);
-+	spin_unlock_bh(&enic->devcmd_lock);
- 
- 	return err;
- }
-@@ -230,9 +230,9 @@ int enic_vlan_rx_kill_vid(struct net_device *netdev, __be16 proto, u16 vid)
- 	struct enic *enic = netdev_priv(netdev);
- 	int err;
- 
--	spin_lock(&enic->devcmd_lock);
-+	spin_lock_bh(&enic->devcmd_lock);
- 	err = enic_del_vlan(enic, vid);
--	spin_unlock(&enic->devcmd_lock);
-+	spin_unlock_bh(&enic->devcmd_lock);
- 
- 	return err;
- }
-@@ -241,9 +241,9 @@ int enic_dev_enable2(struct enic *enic, int active)
- {
- 	int err;
- 
--	spin_lock(&enic->devcmd_lock);
-+	spin_lock_bh(&enic->devcmd_lock);
- 	err = vnic_dev_enable2(enic->vdev, active);
--	spin_unlock(&enic->devcmd_lock);
-+	spin_unlock_bh(&enic->devcmd_lock);
- 
- 	return err;
- }
-@@ -252,9 +252,9 @@ int enic_dev_enable2_done(struct enic *enic, int *status)
- {
- 	int err;
- 
--	spin_lock(&enic->devcmd_lock);
-+	spin_lock_bh(&enic->devcmd_lock);
- 	err = vnic_dev_enable2_done(enic->vdev, status);
--	spin_unlock(&enic->devcmd_lock);
-+	spin_unlock_bh(&enic->devcmd_lock);
- 
- 	return err;
- }
-diff --git a/drivers/net/ethernet/cisco/enic/enic_dev.h b/drivers/net/ethernet/cisco/enic/enic_dev.h
-index 36ea1ab..10bb970 100644
---- a/drivers/net/ethernet/cisco/enic/enic_dev.h
-+++ b/drivers/net/ethernet/cisco/enic/enic_dev.h
-@@ -28,7 +28,7 @@
-  */
- #define ENIC_DEVCMD_PROXY_BY_INDEX(vf, err, enic, vnicdevcmdfn, ...) \
- 	do { \
--		spin_lock(&enic->devcmd_lock); \
-+		spin_lock_bh(&enic->devcmd_lock); \
- 		if (enic_is_valid_vf(enic, vf)) { \
- 			vnic_dev_cmd_proxy_by_index_start(enic->vdev, vf); \
- 			err = vnicdevcmdfn(enic->vdev, ##__VA_ARGS__); \
-@@ -36,7 +36,7 @@
- 		} else { \
- 			err = vnicdevcmdfn(enic->vdev, ##__VA_ARGS__); \
- 		} \
--		spin_unlock(&enic->devcmd_lock); \
-+		spin_unlock_bh(&enic->devcmd_lock); \
- 	} while (0)
- 
- int enic_dev_fw_info(struct enic *enic, struct vnic_devcmd_fw_info **fw_info);
 diff --git a/drivers/net/ethernet/cisco/enic/enic_main.c b/drivers/net/ethernet/cisco/enic/enic_main.c
-index a302f1b..5448df2 100644
+index 5448df2..d4918ee 100644
 --- a/drivers/net/ethernet/cisco/enic/enic_main.c
 +++ b/drivers/net/ethernet/cisco/enic/enic_main.c
-@@ -1465,7 +1465,7 @@ static int enic_dev_notify_set(struct enic *enic)
- {
+@@ -42,6 +42,9 @@
+ #ifdef CONFIG_RFS_ACCEL
+ #include <linux/cpu_rmap.h>
+ #endif
++#ifdef CONFIG_NET_RX_BUSY_POLL
++#include <net/busy_poll.h>
++#endif
+ 
+ #include "cq_enet_desc.h"
+ #include "vnic_dev.h"
+@@ -1053,10 +1056,12 @@ static void enic_rq_indicate_buf(struct vnic_rq *rq,
+ 		if (vlan_stripped)
+ 			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), vlan_tci);
+ 
+-		if (netdev->features & NETIF_F_GRO)
+-			napi_gro_receive(&enic->napi[q_number], skb);
+-		else
++		skb_mark_napi_id(skb, &enic->napi[rq->index]);
++		if (enic_poll_busy_polling(rq) ||
++		    !(netdev->features & NETIF_F_GRO))
+ 			netif_receive_skb(skb);
++		else
++			napi_gro_receive(&enic->napi[q_number], skb);
+ 		if (enic->rx_coalesce_setting.use_adaptive_rx_coalesce)
+ 			enic_intr_update_pkt_size(&cq->pkt_size_counter,
+ 						  bytes_written);
+@@ -1093,16 +1098,22 @@ static int enic_poll(struct napi_struct *napi, int budget)
+ 	unsigned int  work_done, rq_work_done = 0, wq_work_done;
  	int err;
  
--	spin_lock(&enic->devcmd_lock);
-+	spin_lock_bh(&enic->devcmd_lock);
+-	/* Service RQ (first) and WQ
+-	 */
++	wq_work_done = vnic_cq_service(&enic->cq[cq_wq], wq_work_to_do,
++				       enic_wq_service, NULL);
++
++	if (!enic_poll_lock_napi(&enic->rq[cq_rq])) {
++		if (wq_work_done > 0)
++			vnic_intr_return_credits(&enic->intr[intr],
++						 wq_work_done,
++						 0 /* dont unmask intr */,
++						 0 /* dont reset intr timer */);
++		return rq_work_done;
++	}
+ 
+ 	if (budget > 0)
+ 		rq_work_done = vnic_cq_service(&enic->cq[cq_rq],
+ 			rq_work_to_do, enic_rq_service, NULL);
+ 
+-	wq_work_done = vnic_cq_service(&enic->cq[cq_wq],
+-		wq_work_to_do, enic_wq_service, NULL);
+-
+ 	/* Accumulate intr event credits for this polling
+ 	 * cycle.  An intr event is the completion of a
+ 	 * a WQ or RQ packet.
+@@ -1134,6 +1145,7 @@ static int enic_poll(struct napi_struct *napi, int budget)
+ 		napi_complete(napi);
+ 		vnic_intr_unmask(&enic->intr[intr]);
+ 	}
++	enic_poll_unlock_napi(&enic->rq[cq_rq]);
+ 
+ 	return rq_work_done;
+ }
+@@ -1234,6 +1246,34 @@ static void enic_set_rx_cpu_rmap(struct enic *enic)
+ 
+ #endif /* CONFIG_RFS_ACCEL */
+ 
++#ifdef CONFIG_NET_RX_BUSY_POLL
++int enic_busy_poll(struct napi_struct *napi)
++{
++	struct net_device *netdev = napi->dev;
++	struct enic *enic = netdev_priv(netdev);
++	unsigned int rq = (napi - &enic->napi[0]);
++	unsigned int cq = enic_cq_rq(enic, rq);
++	unsigned int intr = enic_msix_rq_intr(enic, rq);
++	unsigned int work_to_do = -1; /* clean all pkts possible */
++	unsigned int work_done;
++
++	if (!enic_poll_lock_poll(&enic->rq[rq]))
++		return LL_FLUSH_BUSY;
++	work_done = vnic_cq_service(&enic->cq[cq], work_to_do,
++				    enic_rq_service, NULL);
++
++	if (work_done > 0)
++		vnic_intr_return_credits(&enic->intr[intr],
++					 work_done, 0, 0);
++	vnic_rq_fill(&enic->rq[rq], enic_rq_alloc_buf);
++	if (enic->rx_coalesce_setting.use_adaptive_rx_coalesce)
++		enic_calc_int_moderation(enic, &enic->rq[rq]);
++	enic_poll_unlock_poll(&enic->rq[rq]);
++
++	return work_done;
++}
++#endif /* CONFIG_NET_RX_BUSY_POLL */
++
+ static int enic_poll_msix(struct napi_struct *napi, int budget)
+ {
+ 	struct net_device *netdev = napi->dev;
+@@ -1245,6 +1285,8 @@ static int enic_poll_msix(struct napi_struct *napi, int budget)
+ 	unsigned int work_done = 0;
+ 	int err;
+ 
++	if (!enic_poll_lock_napi(&enic->rq[rq]))
++		return work_done;
+ 	/* Service RQ
+ 	 */
+ 
+@@ -1290,6 +1332,7 @@ static int enic_poll_msix(struct napi_struct *napi, int budget)
+ 			enic_set_int_moderation(enic, &enic->rq[rq]);
+ 		vnic_intr_unmask(&enic->intr[intr]);
+ 	}
++	enic_poll_unlock_napi(&enic->rq[rq]);
+ 
+ 	return work_done;
+ }
+@@ -1538,8 +1581,10 @@ static int enic_open(struct net_device *netdev)
+ 
+ 	netif_tx_wake_all_queues(netdev);
+ 
+-	for (i = 0; i < enic->rq_count; i++)
++	for (i = 0; i < enic->rq_count; i++) {
++		enic_busy_poll_init_lock(&enic->rq[i]);
+ 		napi_enable(&enic->napi[i]);
++	}
+ 
+ 	enic_dev_enable(enic);
+ 
+@@ -1578,8 +1623,13 @@ static int enic_stop(struct net_device *netdev)
+ 
+ 	enic_dev_disable(enic);
+ 
+-	for (i = 0; i < enic->rq_count; i++)
++	local_bh_disable();
++	for (i = 0; i < enic->rq_count; i++) {
+ 		napi_disable(&enic->napi[i]);
++		while (!enic_poll_lock_napi(&enic->rq[i]))
++			mdelay(1);
++	}
++	local_bh_enable();
+ 
+ 	netif_carrier_off(netdev);
+ 	netif_tx_disable(netdev);
+@@ -2070,6 +2120,9 @@ static const struct net_device_ops enic_netdev_dynamic_ops = {
+ #ifdef CONFIG_RFS_ACCEL
+ 	.ndo_rx_flow_steer	= enic_rx_flow_steer,
+ #endif
++#ifdef CONFIG_NET_RX_BUSY_POLL
++	.ndo_busy_poll		= enic_busy_poll,
++#endif
+ };
+ 
+ static const struct net_device_ops enic_netdev_ops = {
+@@ -2093,14 +2146,19 @@ static const struct net_device_ops enic_netdev_ops = {
+ #ifdef CONFIG_RFS_ACCEL
+ 	.ndo_rx_flow_steer	= enic_rx_flow_steer,
+ #endif
++#ifdef CONFIG_NET_RX_BUSY_POLL
++	.ndo_busy_poll		= enic_busy_poll,
++#endif
+ };
+ 
+ static void enic_dev_deinit(struct enic *enic)
+ {
+ 	unsigned int i;
+ 
+-	for (i = 0; i < enic->rq_count; i++)
++	for (i = 0; i < enic->rq_count; i++) {
++		napi_hash_del(&enic->napi[i]);
+ 		netif_napi_del(&enic->napi[i]);
++	}
+ 
+ 	enic_free_vnic_resources(enic);
+ 	enic_clear_intr_mode(enic);
+@@ -2166,11 +2224,14 @@ static int enic_dev_init(struct enic *enic)
  	switch (vnic_dev_get_intr_mode(enic->vdev)) {
- 	case VNIC_DEV_INTR_MODE_INTX:
- 		err = vnic_dev_notify_set(enic->vdev,
-@@ -1479,7 +1479,7 @@ static int enic_dev_notify_set(struct enic *enic)
- 		err = vnic_dev_notify_set(enic->vdev, -1 /* no intr */);
+ 	default:
+ 		netif_napi_add(netdev, &enic->napi[0], enic_poll, 64);
++		napi_hash_add(&enic->napi[0]);
+ 		break;
+ 	case VNIC_DEV_INTR_MODE_MSIX:
+-		for (i = 0; i < enic->rq_count; i++)
++		for (i = 0; i < enic->rq_count; i++) {
+ 			netif_napi_add(netdev, &enic->napi[i],
+ 				enic_poll_msix, 64);
++			napi_hash_add(&enic->napi[i]);
++		}
  		break;
  	}
--	spin_unlock(&enic->devcmd_lock);
-+	spin_unlock_bh(&enic->devcmd_lock);
  
- 	return err;
+diff --git a/drivers/net/ethernet/cisco/enic/vnic_rq.h b/drivers/net/ethernet/cisco/enic/vnic_rq.h
+index ee7bc95..8111d52 100644
+--- a/drivers/net/ethernet/cisco/enic/vnic_rq.h
++++ b/drivers/net/ethernet/cisco/enic/vnic_rq.h
+@@ -85,6 +85,21 @@ struct vnic_rq {
+ 	struct vnic_rq_buf *to_clean;
+ 	void *os_buf_head;
+ 	unsigned int pkts_outstanding;
++#ifdef CONFIG_NET_RX_BUSY_POLL
++#define ENIC_POLL_STATE_IDLE		0
++#define ENIC_POLL_STATE_NAPI		(1 << 0) /* NAPI owns this poll */
++#define ENIC_POLL_STATE_POLL		(1 << 1) /* poll owns this poll */
++#define ENIC_POLL_STATE_NAPI_YIELD	(1 << 2) /* NAPI yielded this poll */
++#define ENIC_POLL_STATE_POLL_YIELD	(1 << 3) /* poll yielded this poll */
++#define ENIC_POLL_YIELD			(ENIC_POLL_STATE_NAPI_YIELD |	\
++					 ENIC_POLL_STATE_POLL_YIELD)
++#define ENIC_POLL_LOCKED		(ENIC_POLL_STATE_NAPI |		\
++					 ENIC_POLL_STATE_POLL)
++#define ENIC_POLL_USER_PEND		(ENIC_POLL_STATE_POLL |		\
++					 ENIC_POLL_STATE_POLL_YIELD)
++	unsigned int bpoll_state;
++	spinlock_t bpoll_lock;
++#endif /* CONFIG_NET_RX_BUSY_POLL */
+ };
+ 
+ static inline unsigned int vnic_rq_desc_avail(struct vnic_rq *rq)
+@@ -197,6 +212,113 @@ static inline int vnic_rq_fill(struct vnic_rq *rq,
+ 	return 0;
  }
-@@ -1804,11 +1804,11 @@ static int enic_set_rsskey(struct enic *enic)
  
- 	memcpy(rss_key_buf_va, &rss_key, sizeof(union vnic_rss_key));
- 
--	spin_lock(&enic->devcmd_lock);
-+	spin_lock_bh(&enic->devcmd_lock);
- 	err = enic_set_rss_key(enic,
- 		rss_key_buf_pa,
- 		sizeof(union vnic_rss_key));
--	spin_unlock(&enic->devcmd_lock);
-+	spin_unlock_bh(&enic->devcmd_lock);
- 
- 	pci_free_consistent(enic->pdev, sizeof(union vnic_rss_key),
- 		rss_key_buf_va, rss_key_buf_pa);
-@@ -1831,11 +1831,11 @@ static int enic_set_rsscpu(struct enic *enic, u8 rss_hash_bits)
- 	for (i = 0; i < (1 << rss_hash_bits); i++)
- 		(*rss_cpu_buf_va).cpu[i/4].b[i%4] = i % enic->rq_count;
- 
--	spin_lock(&enic->devcmd_lock);
-+	spin_lock_bh(&enic->devcmd_lock);
- 	err = enic_set_rss_cpu(enic,
- 		rss_cpu_buf_pa,
- 		sizeof(union vnic_rss_cpu));
--	spin_unlock(&enic->devcmd_lock);
-+	spin_unlock_bh(&enic->devcmd_lock);
- 
- 	pci_free_consistent(enic->pdev, sizeof(union vnic_rss_cpu),
- 		rss_cpu_buf_va, rss_cpu_buf_pa);
-@@ -1853,13 +1853,13 @@ static int enic_set_niccfg(struct enic *enic, u8 rss_default_cpu,
- 	/* Enable VLAN tag stripping.
- 	*/
- 
--	spin_lock(&enic->devcmd_lock);
-+	spin_lock_bh(&enic->devcmd_lock);
- 	err = enic_set_nic_cfg(enic,
- 		rss_default_cpu, rss_hash_type,
- 		rss_hash_bits, rss_base_cpu,
- 		rss_enable, tso_ipid_split_en,
- 		ig_vlan_strip_en);
--	spin_unlock(&enic->devcmd_lock);
-+	spin_unlock_bh(&enic->devcmd_lock);
- 
- 	return err;
- }
++#ifdef CONFIG_NET_RX_BUSY_POLL
++static inline void enic_busy_poll_init_lock(struct vnic_rq *rq)
++{
++	spin_lock_init(&rq->bpoll_lock);
++	rq->bpoll_state = ENIC_POLL_STATE_IDLE;
++}
++
++static inline bool enic_poll_lock_napi(struct vnic_rq *rq)
++{
++	bool rc = true;
++
++	spin_lock(&rq->bpoll_lock);
++	if (rq->bpoll_state & ENIC_POLL_LOCKED) {
++		WARN_ON(rq->bpoll_state & ENIC_POLL_STATE_NAPI);
++		rq->bpoll_state |= ENIC_POLL_STATE_NAPI_YIELD;
++		rc = false;
++	} else {
++		rq->bpoll_state = ENIC_POLL_STATE_NAPI;
++	}
++	spin_unlock(&rq->bpoll_lock);
++
++	return rc;
++}
++
++static inline bool enic_poll_unlock_napi(struct vnic_rq *rq)
++{
++	bool rc = false;
++
++	spin_lock(&rq->bpoll_lock);
++	WARN_ON(rq->bpoll_state &
++		(ENIC_POLL_STATE_POLL | ENIC_POLL_STATE_NAPI_YIELD));
++	if (rq->bpoll_state & ENIC_POLL_STATE_POLL_YIELD)
++		rc = true;
++	rq->bpoll_state = ENIC_POLL_STATE_IDLE;
++	spin_unlock(&rq->bpoll_lock);
++
++	return rc;
++}
++
++static inline bool enic_poll_lock_poll(struct vnic_rq *rq)
++{
++	bool rc = true;
++
++	spin_lock_bh(&rq->bpoll_lock);
++	if (rq->bpoll_state & ENIC_POLL_LOCKED) {
++		rq->bpoll_state |= ENIC_POLL_STATE_POLL_YIELD;
++		rc = false;
++	} else {
++		rq->bpoll_state |= ENIC_POLL_STATE_POLL;
++	}
++	spin_unlock_bh(&rq->bpoll_lock);
++
++	return rc;
++}
++
++static inline bool enic_poll_unlock_poll(struct vnic_rq *rq)
++{
++	bool rc = false;
++
++	spin_lock_bh(&rq->bpoll_lock);
++	WARN_ON(rq->bpoll_state & ENIC_POLL_STATE_NAPI);
++	if (rq->bpoll_state & ENIC_POLL_STATE_POLL_YIELD)
++		rc = true;
++	rq->bpoll_state = ENIC_POLL_STATE_IDLE;
++	spin_unlock_bh(&rq->bpoll_lock);
++
++	return rc;
++}
++
++static inline bool enic_poll_busy_polling(struct vnic_rq *rq)
++{
++	WARN_ON(!(rq->bpoll_state & ENIC_POLL_LOCKED));
++	return rq->bpoll_state & ENIC_POLL_USER_PEND;
++}
++
++#else
++
++static inline void enic_busy_poll_init_lock(struct vnic_rq *rq)
++{
++}
++
++static inline bool enic_poll_lock_napi(struct vnic_rq *rq)
++{
++	return true;
++}
++
++static inline bool enic_poll_unlock_napi(struct vnic_rq *rq)
++{
++	return false;
++}
++
++static inline bool enic_poll_lock_poll(struct vnic_rq *rq)
++{
++	return false;
++}
++
++static inline bool enic_poll_unlock_poll(struct vnic_rq *rq)
++{
++	return false;
++}
++
++static inline bool enic_poll_ll_polling(struct vnic_rq *rq)
++{
++	return false;
++}
++#endif /* CONFIG_NET_RX_BUSY_POLL */
++
+ void vnic_rq_free(struct vnic_rq *rq);
+ int vnic_rq_alloc(struct vnic_dev *vdev, struct vnic_rq *rq, unsigned int index,
+ 	unsigned int desc_count, unsigned int desc_size);
 -- 
 2.0.0
