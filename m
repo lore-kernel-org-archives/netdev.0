@@ -1,127 +1,92 @@
 From: Octavian Purdila <octavian.purdila@intel.com>
-Subject: [RFC net-next 10/12] tcp: unify tcp_v4_rtx_synack and tcp_v6_rtx_synack
-Date: Mon, 23 Jun 2014 21:42:47 +0300
-Message-ID: <1403548969-12303-11-git-send-email-octavian.purdila@intel.com>
+Subject: [RFC net-next 08/12] tcp: add init_seq method to tcp_request_sock_ops
+Date: Mon, 23 Jun 2014 21:42:45 +0300
+Message-ID: <1403548969-12303-9-git-send-email-octavian.purdila@intel.com>
 References: <1403548969-12303-1-git-send-email-octavian.purdila@intel.com>
 Cc: Octavian Purdila <octavian.purdila@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:42134 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755242AbaFWSoc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Jun 2014 14:44:32 -0400
+	id S1754837AbaFWSoa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Jun 2014 14:44:30 -0400
 In-Reply-To: <1403548969-12303-1-git-send-email-octavian.purdila@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+More work in preparation of unifying tcp_v4_conn_request and
+tcp_v6_conn_request: indirect the init sequence calls via the
+tcp_request_sock_ops.
+
 Signed-off-by: Octavian Purdila <octavian.purdila@intel.com>
 ---
- include/net/tcp.h     |  2 ++
- net/ipv4/tcp_ipv4.c   | 14 +-------------
- net/ipv4/tcp_output.c | 15 +++++++++++++++
- net/ipv6/tcp_ipv6.c   | 15 +--------------
- 4 files changed, 19 insertions(+), 27 deletions(-)
+ include/net/tcp.h   | 1 +
+ net/ipv4/tcp_ipv4.c | 5 +++--
+ net/ipv6/tcp_ipv6.c | 3 ++-
+ 3 files changed, 6 insertions(+), 3 deletions(-)
 
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 8c05c25..8e9c28d 100644
+index 59fcc59..8cacf0d 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
-@@ -1573,6 +1573,8 @@ int tcp4_proc_init(void);
- void tcp4_proc_exit(void);
- #endif
+@@ -1608,6 +1608,7 @@ struct tcp_request_sock_ops {
+ 	struct dst_entry *(*route_req)(struct sock *sk, struct flowi *fl,
+ 				       const struct request_sock *req,
+ 				       bool *strict);
++	__u32 (*init_seq)(const struct sk_buff *skb);
+ };
  
-+int tcp_rtx_synack(struct sock *sk, struct request_sock *req);
-+
- /* TCP af-specific functions */
- struct tcp_sock_af_ops {
- #ifdef CONFIG_TCP_MD5SIG
+ #ifdef CONFIG_SYN_COOKIES
 diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index b5945ac..597dd9d75 100644
+index 54fbbd8..4347826 100644
 --- a/net/ipv4/tcp_ipv4.c
 +++ b/net/ipv4/tcp_ipv4.c
-@@ -845,18 +845,6 @@ static int tcp_v4_send_synack(struct sock *sk, struct dst_entry *dst,
- 	return err;
- }
+@@ -99,7 +99,7 @@ static int tcp_v4_md5_hash_hdr(char *md5_hash, const struct tcp_md5sig_key *key,
+ struct inet_hashinfo tcp_hashinfo;
+ EXPORT_SYMBOL(tcp_hashinfo);
  
--static int tcp_v4_rtx_synack(struct sock *sk, struct request_sock *req)
--{
--	const struct  tcp_request_sock_ops *af_ops = tcp_rsk(req)->af_specific;
--	int res = af_ops->send_synack(sk, NULL, NULL, req, 0, NULL);
--
--	if (!res) {
--		TCP_INC_STATS_BH(sock_net(sk), TCP_MIB_RETRANSSEGS);
--		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPSYNRETRANS);
--	}
--	return res;
--}
--
- /*
-  *	IPv4 request_sock destructor.
-  */
-@@ -1269,7 +1257,7 @@ static struct dst_entry *tcp_v4_route_req(struct sock *sk, struct flowi *fl,
- struct request_sock_ops tcp_request_sock_ops __read_mostly = {
- 	.family		=	PF_INET,
- 	.obj_size	=	sizeof(struct tcp_request_sock),
--	.rtx_syn_ack	=	tcp_v4_rtx_synack,
-+	.rtx_syn_ack	=	tcp_rtx_synack,
- 	.send_ack	=	tcp_v4_reqsk_send_ack,
- 	.destructor	=	tcp_v4_reqsk_destructor,
- 	.send_reset	=	tcp_v4_send_reset,
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index d92bce0..f8f2a94 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -3299,3 +3299,18 @@ void tcp_send_probe0(struct sock *sk)
- 					  TCP_RTO_MAX);
+-static inline __u32 tcp_v4_init_sequence(const struct sk_buff *skb)
++static  __u32 tcp_v4_init_sequence(const struct sk_buff *skb)
+ {
+ 	return secure_tcp_sequence_number(ip_hdr(skb)->daddr,
+ 					  ip_hdr(skb)->saddr,
+@@ -1284,6 +1284,7 @@ static const struct tcp_request_sock_ops tcp_request_sock_ipv4_ops = {
+ 	.cookie_init_seq =	cookie_v4_init_sequence,
+ #endif
+ 	.route_req	=	tcp_v4_route_req,
++	.init_seq	=	tcp_v4_init_sequence,
+ };
+ 
+ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+@@ -1391,7 +1392,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
+ 			goto drop_and_release;
+ 		}
+ 
+-		isn = tcp_v4_init_sequence(skb);
++		isn = af_ops->init_seq(skb);
  	}
- }
-+
-+int tcp_rtx_synack(struct sock *sk, struct request_sock *req)
-+{
-+	const struct tcp_request_sock_ops *af_ops = tcp_rsk(req)->af_specific;
-+	struct flowi fl;
-+	int res;
-+
-+	res = af_ops->send_synack(sk, NULL, &fl, req, 0, NULL);
-+	if (!res) {
-+		TCP_INC_STATS_BH(sock_net(sk), TCP_MIB_RETRANSSEGS);
-+		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPSYNRETRANS);
-+	}
-+	return res;
-+}
-+EXPORT_SYMBOL(tcp_rtx_synack);
+ 	if (!dst) {
+ 		dst = af_ops->route_req(sk, (struct flowi *)&fl4, req, NULL);
 diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 210b610..41389bb 100644
+index 91b8a2e..2fd886f 100644
 --- a/net/ipv6/tcp_ipv6.c
 +++ b/net/ipv6/tcp_ipv6.c
-@@ -506,19 +506,6 @@ done:
- 	return err;
- }
+@@ -775,6 +775,7 @@ static const struct tcp_request_sock_ops tcp_request_sock_ipv6_ops = {
+ 	.cookie_init_seq =	cookie_v6_init_sequence,
+ #endif
+ 	.route_req	=	tcp_v6_route_req,
++	.init_seq	=	tcp_v6_init_sequence,
+ };
  
--static int tcp_v6_rtx_synack(struct sock *sk, struct request_sock *req)
--{
--	const struct tcp_request_sock_ops *af_ops = tcp_rsk(req)->af_specific;
--	struct flowi fl;
--	int res;
--
--	res = af_ops->send_synack(sk, NULL, &fl, req, 0, NULL);
--	if (!res) {
--		TCP_INC_STATS_BH(sock_net(sk), TCP_MIB_RETRANSSEGS);
--		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPSYNRETRANS);
--	}
--	return res;
--}
+ static void tcp_v6_send_response(struct sk_buff *skb, u32 seq, u32 ack, u32 win,
+@@ -1114,7 +1115,7 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
+ 			goto drop_and_release;
+ 		}
  
- static void tcp_v6_reqsk_destructor(struct request_sock *req)
- {
-@@ -759,7 +746,7 @@ static struct dst_entry *tcp_v6_route_req(struct sock *sk, struct flowi *fl,
- struct request_sock_ops tcp6_request_sock_ops __read_mostly = {
- 	.family		=	AF_INET6,
- 	.obj_size	=	sizeof(struct tcp6_request_sock),
--	.rtx_syn_ack	=	tcp_v6_rtx_synack,
-+	.rtx_syn_ack	=	tcp_rtx_synack,
- 	.send_ack	=	tcp_v6_reqsk_send_ack,
- 	.destructor	=	tcp_v6_reqsk_destructor,
- 	.send_reset	=	tcp_v6_send_reset,
+-		isn = tcp_v6_init_sequence(skb);
++		isn = af_ops->init_seq(skb);
+ 	}
+ 
+ 	if (!dst) {
 -- 
 1.8.3.2
