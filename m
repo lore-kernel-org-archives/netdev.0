@@ -1,66 +1,51 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [Xen-devel] [PATCH net] xen-netback: bookkeep number of queues
- in our own module
-Date: Mon, 23 Jun 2014 11:14:16 +0100
-Message-ID: <53A7FDF8.4070207@citrix.com>
-References: <20140622.001355.624567316306796984.davem@davemloft.net>	<20140622111657.GA7528@zion.uk.xensource.com>	<9AAE0902D5BC7E449B7C8E4E778ABCD03BBD51@AMSPEX01CL01.citrite.net>	<20140623.020842.1000912698437075036.davem@davemloft.net> <9AAE0902D5BC7E449B7C8E4E778ABCD03BC30C@AMSPEX01CL01.citrite.net>
+From: zhuyj <zyjzyj2000@gmail.com>
+Subject: Re: [PATCH 08/24] net, diet: Make TCP metrics optional
+Date: Mon, 23 Jun 2014 18:17:55 +0800
+Message-ID: <53A7FED3.4@gmail.com>
+References: <20140506155703.GA20391@cloud>	<20140506.115941.428706504757835279.davem@davemloft.net>	<20140506164108.GA20536@cloud>	<20140506.131643.994244006906866938.davem@davemloft.net>	<20140506175547.GE20776@cloud> <CAM_iQpUgj7BqpzRL070DEGQ32SWwN68BRgM5DtFqvBLjGGOLQA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"boris.ostrovsky@oracle.com" <boris.ostrovsky@oracle.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>
-To: Paul Durrant <Paul.Durrant@citrix.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:48808 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751139AbaFWKOU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Jun 2014 06:14:20 -0400
-In-Reply-To: <9AAE0902D5BC7E449B7C8E4E778ABCD03BC30C@AMSPEX01CL01.citrite.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>,
+	Andi Kleen <andi@firstfloor.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, tom.zanussi@linux.intel.com,
+	Andi Kleen <ak@linux.intel.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>,
+	Josh Triplett <josh@joshtriplett.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAM_iQpUgj7BqpzRL070DEGQ32SWwN68BRgM5DtFqvBLjGGOLQA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 23/06/14 10:20, Paul Durrant wrote:
->> -----Original Message-----
->> From: David Miller [mailto:davem@davemloft.net]
->> Sent: 23 June 2014 10:09
->> To: Paul Durrant
->> Cc: Wei Liu; xen-devel@lists.xen.org; netdev@vger.kernel.org;
->> boris.ostrovsky@oracle.com; Ian Campbell
->> Subject: Re: [PATCH net] xen-netback: bookkeep number of queues in our
->> own module
+On 05/07/2014 02:33 AM, Cong Wang wrote:
+> On Tue, May 6, 2014 at 10:55 AM,  <josh@joshtriplett.org> wrote:
+>> On Tue, May 06, 2014 at 01:16:43PM -0400, David Miller wrote:
+>>> From: josh@joshtriplett.org
+>>> Date: Tue, 6 May 2014 09:41:08 -0700
+>>>
+>>>> Every KB of RAM costs real money and SoC die area (for eDRAM/eSRAM).
+>>> Another poster commented that 16MB of DRAM would be cheaper than
+>>> the 2MB of ram you have on these boards, probably one that fits
+>>> your size profile is available as well.
+>>>
+>>> 2MB is just a rediculous restriction.
+>> Embedded systems experts disagree with you there; there *are* systems
+>> where the most cost-efficient approach is a few MB (or a few hundred KB)
+>> of non-discrete memory.  We're not talking about socketed memory or even
+>> soldered-down memory; we're talking about entire systems that fit on a
+>> small SoC die.  The space not used by that extra RAM may well be better
+>> spent on CPU optimizations, or some other integrated component.
 >>
->> From: Paul Durrant <Paul.Durrant@citrix.com>
->> Date: Mon, 23 Jun 2014 07:59:16 +0000
->>
->>> Bear in mind that the original intention of the multi-queue patches
->>> was to allow the queue selection algorithm to be negotiated with the
->>> frontend (see
->>> http://lists.xen.org/archives/html/xen-devel/2013-06/msg02654.html).
->> Particularly,
->>> if the frontend is Windows then netback will need to use a Toeplitz
->>> hash to steer traffic since this is stipulated by Microsoft's RSS
->>> (Receive Side Scaling) interfaces. So, IMO netback should always
->>> implement a select queue method, otherwise any (theoretical)
->>> algorithm change in __netdev_pick_tx() would be immediately imposed
->>> on frontends, possibly causing them to misbehave.
->>
->> I do not think you are obligated to use Toeplitz or whatever scheme
->> the other side wants, especially if the user on the xen-netback side
->> asked for XPS or similar to be used.
-> 
-> If the frontend can only cope with one steering algorithm then how's
-> that going to work? Flows would come in on the 'wrong' queue as far as
-> the frontend is concerned and then who knows what would happen? If the
-> frontend says it can only handle 'algorithm X' then the backend should
-> either guarantee it's going to use 'algorthm X' or it should use a
-> single queue.
-
-We specify that frontends have to handle packets from any flow arriving
-on any queue and and given the absence of any hashing negotiation we
-should just use the default queue selection.
-
-David
+>> Such boards will be built, and many of them will run Linux, despite your
+>> incredulity.  When you're building millions of a board, it's well worth
+>> optimizing software to eliminate components from the bill of materials.
+> So why bothers 3.15+ Linux kernel? Why not use an old kernel e.g. 2.4.x?
+> 2.4.x kernel doesn't have so many new features you want to get rid of here.
+Maybe 2.4.x kernel doesn't have so many new features that we want to use 
+here.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
