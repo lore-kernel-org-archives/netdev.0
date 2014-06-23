@@ -1,43 +1,55 @@
-From: Fabian Frederick <fabf@skynet.be>
-Subject: [PATCH V2] net/dsa/dsa.c: remove unnecessary null test before kfree
-Date: Mon, 23 Jun 2014 19:32:47 +0200
-Message-ID: <1403544767-12438-1-git-send-email-fabf@skynet.be>
-Cc: Fabian Frederick <fabf@skynet.be>,
-	"David S. Miller" <davem@davemloft.net>,
-	Grant Likely <grant.likely@linaro.org>, netdev@vger.kernel.org,
-	Joe Perches <joe@perches.com>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Dave Chiluk <chiluk@canonical.com>
+Subject: Re: Stable request for 5882a07c72093d
+Date: Mon, 23 Jun 2014 12:35:43 -0500
+Message-ID: <53A8656F.4070407@canonical.com>
+References: <1403539016-15519-1-git-send-email-chiluk@canonical.com> <1403540316.27425.3.camel@edumazet-glaptop2.roam.corp.google.com>
+Reply-To: chiluk@canonical.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Wei-Chun Chao <weichunc@plumgrid.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from youngberry.canonical.com ([91.189.89.112]:38967 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754859AbaFWRfr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2014 13:35:47 -0400
+In-Reply-To: <1403540316.27425.3.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fix checkpatch warning:
-WARNING: kfree(NULL) is safe this check is probably not required
+On 06/23/2014 11:18 AM, Eric Dumazet wrote:
+> On Mon, 2014-06-23 at 10:56 -0500, Dave Chiluk wrote:
+>> Commit 5882a07c72093dc3a18e2d2b129fb200686bb6ee remedies a BUG_ON in
+>> skb_segment.  This is hit reliably in clouds that are using openvswitch for
+>> network capabilities (which is the default network used by Openstack) on
+>> machines that have gso offload capabilities.  
+>>
+>> This has already been reported multiple times to Canonical in numerous
+>> openstack clouds.  The fix has been integrated and tested in those clouds, and
+>> has been show to resolve their issues.
+>>
+>> Please include this patch for stable release.
+>>
+>> Thank you, 
+>> Dave Chiluk
+>>
+>> The patch follows for convenience.
+>> --
+> 
+> Both original commit and your request lack the bug origin.
+> 
+> I wish bug submissions are more explicit in this regard, using
+> 
+> Fixes: sha1-12digits ("title")
+> 
+> It would save a lot of time for stable teams, and ease future bug
+> hunting as well.
+> 
+> 
+According to the initial thread, Wei-Chun determined it originated with
+19acc327258a.  It has existed since 3.10-rc1.
 
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Grant Likely <grant.likely@linaro.org>
-Cc: netdev@vger.kernel.org
-Cc: Joe Perches <joe@perches.com>
-Signed-off-by: Fabian Frederick <fabf@skynet.be>
----
-V2: Use more appropriate subject (suggested by Joe Perches).
-
- net/dsa/dsa.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
-
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 5db37ce..0a49632 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -351,8 +351,7 @@ static void dsa_of_free_platform_data(struct dsa_platform_data *pd)
- 	for (i = 0; i < pd->nr_chips; i++) {
- 		port_index = 0;
- 		while (port_index < DSA_MAX_PORTS) {
--			if (pd->chip[i].port_names[port_index])
--				kfree(pd->chip[i].port_names[port_index]);
-+			kfree(pd->chip[i].port_names[port_index]);
- 			port_index++;
- 		}
- 		kfree(pd->chip[i].rtable);
--- 
-1.8.4.5
+Fixes: 19acc327258a ("gso: Handle Trans-Ether-Bridging protocol in
+skb_network_protocol()")
