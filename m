@@ -1,40 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] cxgb4: use dev_port to identify ports
-Date: Sun, 22 Jun 2014 17:23:07 -0700 (PDT)
-Message-ID: <20140622.172307.2305001882391366010.davem@davemloft.net>
-References: <1403354888-15600-1-git-send-email-cascardo@linux.vnet.ibm.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hariprasad@chelsio.com,
-	linux-kernel@vger.kernel.org
-To: cascardo@linux.vnet.ibm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1403354888-15600-1-git-send-email-cascardo@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vince Bridgers <vbridgers2013@gmail.com>
+Subject: [PATCH net v3 0/3] libphy: Add phy specific function to access mmd
+Date: Sun, 22 Jun 2014 19:21:47 -0500
+Message-ID: <1403482910-20821-1-git-send-email-vbridgers2013@gmail.com>
+Cc: vbridgers2013@gmail.com
+To: f.fainelli@gmail.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f180.google.com ([209.85.213.180]:55316 "EHLO
+	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750941AbaFWAZs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 22 Jun 2014 20:25:48 -0400
+Received: by mail-ig0-f180.google.com with SMTP id h18so2361898igc.7
+        for <netdev@vger.kernel.org>; Sun, 22 Jun 2014 17:25:47 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-Date: Sat, 21 Jun 2014 09:48:08 -0300
+This set of patches addresses a problem found with the Micrel ksz9021 phy and
+libphy, where the ksz9021 phy does not support mmd extended register access
+per the IEEE specification as assumed by libphy. The first patch adds a
+framework for phy specific support to specify their own function to access
+extended phy registers, return a failure code if not supported, or to default
+to libphy's IEEE defined method for accessing the mmd extended phy registers.
 
-> Commit 3f85944fe207d0225ef21a2c0951d4946fc9a95d ("net: Add sysfs file
-> for port number") introduce dev_port to network devices. cxgb4 adapters
-> have multiple ports on the same PCI function, and used dev_id to
-> identify those ports. That use was removed by commit
-> 8c367fcbe6549195d2eb11e62bea233f811aad41 ("cxgb4: Do not set
-> net_device::dev_id to VI index"), since dev_id should be used only when
-> devices share the same MAC address.
-> 
-> Using dev_port for cxgb4 allows different ports on the same PCI function
-> to be identified.
-> 
-> Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+This issue was found by using the Synopsys EMAC and a Micrel ksz9021 phy on the
+Altera Cyclone 5 SOC development kit. This patch was tested on the same system
+in both positive and negative test cases.
 
-You've made exactly zero effort to explain why the IPV6 issue carefully
-explained in commit 8c367fcbe6549195d2eb11e62bea233f811aad41 no longer
-applies.
+---
+V3: Correct formatting of function arguments, remove return statement from
+    NULL functions, and add patch for PHY driver documentation per review
+    comments.
+V2: Split the original patch submission into seperate patches for the libphy
+    framework required for the modification and for the Micrel Phy.
 
-As far as I can tell, it absolutely does, and therefore this change
-here should not be made.
+Vince Bridgers (3):
+  libphy: Add phy specific function to access mmd phy registers
+  libphy: Add stubs to hook IEEE MMD Register reads and writes
+  Documentation: networking: phy.txt: Update text for indirect MMD
+    access
 
-I'm not applying this patch, sorry.
+ Documentation/networking/phy.txt |   18 ++++++++++-
+ drivers/net/phy/micrel.c         |   23 +++++++++++++-
+ drivers/net/phy/phy.c            |   64 ++++++++++++++++++++------------------
+ drivers/net/phy/phy_device.c     |    6 ++++
+ include/linux/phy.h              |   10 ++++++
+ 5 files changed, 89 insertions(+), 32 deletions(-)
+
+-- 
+1.7.9.5
