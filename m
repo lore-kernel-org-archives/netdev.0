@@ -1,31 +1,54 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net-next] veth: add netpoll support
-Date: Mon, 23 Jun 2014 15:16:07 -0700
-Message-ID: <CAM_iQpUG8iBtBt9Wo=D303cfR74nPGBo21Q-63wjJ=i40KfwMg@mail.gmail.com>
-References: <1403291878-4199-1-git-send-email-xiyou.wangcong@gmail.com>
-	<53A48C12.8020104@cogentembedded.com>
-	<20140620200758.GB18996@hmsreliant.think-freely.org>
-	<53A49672.1060601@cogentembedded.com>
-	<20140622121315.GA7901@localhost.localdomain>
+From: Peter Wu <peter@lekensteyn.nl>
+Subject: Re: [PATCHv3 0/6] rtlwifi: Fix incorrect MSR mask
+Date: Tue, 24 Jun 2014 00:26:56 +0200
+Message-ID: <2124336.rxQ7Vr5PF1@al>
+References: <1403560098-7520-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	s.priebe@profihost.ag, "David S. Miller" <davem@davemloft.net>
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f171.google.com ([209.85.214.171]:54829 "EHLO
-	mail-ob0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750775AbaFWWQH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 23 Jun 2014 18:16:07 -0400
-Received: by mail-ob0-f171.google.com with SMTP id nu7so4713323obb.2
-        for <netdev@vger.kernel.org>; Mon, 23 Jun 2014 15:16:07 -0700 (PDT)
-In-Reply-To: <20140622121315.GA7901@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Larry Finger <Larry.Finger@lwfinger.net>,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Mark Cave-Ayland <mark.cave-ayland@ilande.co.uk>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1403560098-7520-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Monday 23 June 2014 23:48:16 Rickard Strandqvist wrote:
+> An error was found in many rtlwifi drivers where an invalid mask was used,
+> (bt_msr & 0xfc) will never match 0x3. This has been corrected by supplying
+> a valid mask as a macro. Drivers which did not have this bug are still
+> modified for consistency.
 
-I will update this patch based on your comments and send out v2.
+LGTM for all 6 patches. Reviewed-by was added with permission in a
+private conversation.
 
-Thanks!
+> Rickard Strandqvist (1):
+>   rtlwifi: Fix media status register mask AND Replace magic number by macro
+
+This looks a bit unfortunate, next time just wipe old patches and
+generate new ones with git-format-patch, then use the command
+git-send-email patches/*. In that way, the threading stays intact.
+
+Kind regards,
+Peter
+
+>  drivers/net/wireless/rtlwifi/rtl8188ee/hw.c  |    2 +-
+>  drivers/net/wireless/rtlwifi/rtl8188ee/reg.h |    1 +
+>  drivers/net/wireless/rtlwifi/rtl8192ce/hw.c  |    2 +-
+>  drivers/net/wireless/rtlwifi/rtl8192ce/reg.h |    1 +
+>  drivers/net/wireless/rtlwifi/rtl8192cu/hw.c  |    2 +-
+>  drivers/net/wireless/rtlwifi/rtl8192de/hw.c  |    2 +-
+>  drivers/net/wireless/rtlwifi/rtl8192de/reg.h |    1 +
+>  drivers/net/wireless/rtlwifi/rtl8723ae/hw.c  |    2 +-
+>  drivers/net/wireless/rtlwifi/rtl8723ae/reg.h |    1 +
+>  drivers/net/wireless/rtlwifi/rtl8723be/hw.c  |    2 +-
+>  drivers/net/wireless/rtlwifi/rtl8723be/reg.h |    1 +
+>  drivers/staging/rtl8821ae/rtl8821ae/hw.c     |    2 +-
+>  drivers/staging/rtl8821ae/rtl8821ae/reg.h    |    1 +
+>  13 files changed, 13 insertions(+), 7 deletions(-)
