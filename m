@@ -1,35 +1,27 @@
 From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Subject: [PATCH 0/3] drivers: expand usage of request_firmware_direct()
-Date: Tue, 24 Jun 2014 15:39:40 -0700
-Message-ID: <1403649583-12707-1-git-send-email-mcgrof@do-not-panic.com>
+Subject: [PATCH 1/3] mmc: vub300: use request_firmware_direct() for pseudo code
+Date: Tue, 24 Jun 2014 15:39:41 -0700
+Message-ID: <1403649583-12707-2-git-send-email-mcgrof@do-not-panic.com>
+References: <1403649583-12707-1-git-send-email-mcgrof@do-not-panic.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	gregkh@linuxfoundation.org, "Luis R. Rodriguez" <mcgrof@suse.com>
+	gregkh@linuxfoundation.org, "Luis R. Rodriguez" <mcgrof@suse.com>,
+	Tony Olech <tony.olech@elandigitalsystems.com>,
+	linux-mmc@vger.kernel.org, linux-usb@vger.kernel.org
 To: tiwai@suse.de, chunkeey@googlemail.com, leedom@chelsio.com,
 	cocci@systeme.lip6.fr
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1403649583-12707-1-git-send-email-mcgrof@do-not-panic.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: "Luis R. Rodriguez" <mcgrof@suse.com>
 
-Takashi added request_firmware_direct() via bba3a87e9 through v3.14-rc1
-which avoids the unnecessary delay introduced by using the udev firmware
-loader in case the first try failed when loading we know loading "firmware"
-is optional. The first use case was for microcode update but if drivers are
-using it for optional configuration updates, custom EEPROMs, and other
-junk other than firmware that should apply as well as good use cases,
-specially if the driver already had a first phase in which it loaded
-the first required firmware. While reviewing one driver I figured it'd
-be best to try to give formalizing a check with SmPL. This isn't perfect
-it had 1 false possitive drivers/fmc/fmc-fakedev.c on the entire kernel
-run but my hope is this can be extended a bit more to build more
-confidence, and then perhaps stuff it as a coccicheck.
+vub300 uses the request_firmware() API for downloading
+pseudo code twice and if this fails its not considered fatal.
+Avoid letting the request linger 60 seconds because of udev if
+one of the requests fails by explicitly skipping the udev helper.
 
-I suppose this will not be required once and if we remove
-CONFIG_FW_LOADER_USER_HELPER. Is that ever going away for good? I know
-there was a recent attempt to remove the udev loader support but
-it was unclear if the special alternative helper support would be
-removed upstream from the kernel.
+This was found with the following SmPL patch.
 
 @ firmware_not_critical @
 expression cf;
@@ -52,16 +44,34 @@ statement S;
 		...
 	}
 
+Cc: Tony Olech <tony.olech@elandigitalsystems.com>
+Cc: linux-mmc@vger.kernel.org
+Cc: linux-usb@vger.kernel.org
+Cc: Takashi Iwai <tiwai@suse.de>
+Cc: cocci@systeme.lip6.fr
+Signed-off-by: Luis R. Rodriguez <mcgrof@suse.com>
+---
+ drivers/mmc/host/vub300.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-Luis R. Rodriguez (3):
-  mmc: vub300: use request_firmware_direct() for pseudo code
-  cxgb4: make configuration load use request_firmware_direct()
-  p54: use request_firmware_direct() for optional EEPROM override
-
- drivers/mmc/host/vub300.c                       | 5 +++--
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 2 +-
- drivers/net/wireless/p54/p54spi.c               | 2 +-
- 3 files changed, 5 insertions(+), 4 deletions(-)
-
+diff --git a/drivers/mmc/host/vub300.c b/drivers/mmc/host/vub300.c
+index 4262296..15eeaff 100644
+--- a/drivers/mmc/host/vub300.c
++++ b/drivers/mmc/host/vub300.c
+@@ -1378,11 +1378,12 @@ static void download_offload_pseudocode(struct vub300_mmc_host *vub300)
+ 	snprintf(vub300->vub_name + l, sizeof(vub300->vub_name) - l, ".bin");
+ 	dev_info(&vub300->udev->dev, "requesting offload firmware %s\n",
+ 		 vub300->vub_name);
+-	retval = request_firmware(&fw, vub300->vub_name, &card->dev);
++	retval = request_firmware_direct(&fw, vub300->vub_name, &card->dev);
+ 	if (retval < 0) {
+ 		strncpy(vub300->vub_name, "vub_default.bin",
+ 			sizeof(vub300->vub_name));
+-		retval = request_firmware(&fw, vub300->vub_name, &card->dev);
++		retval = request_firmware_direct(&fw, vub300->vub_name,
++						 &card->dev);
+ 		if (retval < 0) {
+ 			strncpy(vub300->vub_name,
+ 				"no SDIO offload firmware found",
 -- 
 2.0.0
