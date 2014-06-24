@@ -1,15 +1,11 @@
 From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Subject: [PATCH 2/3] cxgb4: make configuration load use request_firmware_direct()
-Date: Tue, 24 Jun 2014 15:39:42 -0700
-Message-ID: <1403649583-12707-3-git-send-email-mcgrof@do-not-panic.com>
+Subject: [PATCH 3/3] p54: use request_firmware_direct() for optional EEPROM override
+Date: Tue, 24 Jun 2014 15:39:43 -0700
+Message-ID: <1403649583-12707-4-git-send-email-mcgrof@do-not-panic.com>
 References: <1403649583-12707-1-git-send-email-mcgrof@do-not-panic.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	gregkh@linuxfoundation.org, "Luis R. Rodriguez" <mcgrof@suse.com>,
-	Philip Oswald <poswald@suse.com>,
-	Santosh Rastapur <santosh@chelsio.com>,
-	Jeffrey Cheung <jcheung@suse.com>,
-	David Chang <dchang@suse.com>,
-	Hariprasad Shenai <hariprasad@chelsio.com>
+	linux-wireless@vger.kernel.org
 To: tiwai@suse.de, chunkeey@googlemail.com, leedom@chelsio.com,
 	cocci@systeme.lip6.fr
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -19,12 +15,12 @@ List-Id: netdev.vger.kernel.org
 
 From: "Luis R. Rodriguez" <mcgrof@suse.com>
 
-cxgb4 uses request_firmware() 3 times, one for firmware, one for
-optional configuration files and another for ethtools flash. Since the
-configuration update is optional on devices that don't have a
-configuration file update it means we'd wait unnecessarily for the
-extra udev timeout, which by default is 60 seconds. Avoid this
-extra delay.
+The p54 driver uses request_firmware() twice, once for actual
+firmware and then another time for an optional user overide on
+EEPROM, 3826.eeprom. The custom EEPROM  is optional but if not
+present we'll introduce an extra lag of 60 seconds with udev
+present. Annotate we don't want udev nonsense here to avoid
+the lag in case its not present.
 
 This was found with the following SmPL patch.
 
@@ -49,31 +45,27 @@ statement S;
 		...
 	}
 
-Cc: Philip Oswald <poswald@suse.com>
-Cc: Santosh Rastapur <santosh@chelsio.com>
-Cc: Jeffrey Cheung <jcheung@suse.com>
-Cc: David Chang <dchang@suse.com>
-Cc: Casey Leedom <leedom@chelsio.com>
-Cc: Hariprasad Shenai <hariprasad@chelsio.com>
 Cc: Takashi Iwai <tiwai@suse.de>
+Cc: Christian Lamparter <chunkeey@googlemail.com>
+Cc: linux-wireless@vger.kernel.org
 Cc: cocci@systeme.lip6.fr
 Signed-off-by: Luis R. Rodriguez <mcgrof@suse.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 2 +-
+ drivers/net/wireless/p54/p54spi.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 02a0ebf..bd57177 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -4999,7 +4999,7 @@ static int adap_init0_config(struct adapter *adapter, int reset)
- 		goto bye;
- 	}
+diff --git a/drivers/net/wireless/p54/p54spi.c b/drivers/net/wireless/p54/p54spi.c
+index de15171..63de5ee 100644
+--- a/drivers/net/wireless/p54/p54spi.c
++++ b/drivers/net/wireless/p54/p54spi.c
+@@ -193,7 +193,7 @@ static int p54spi_request_eeprom(struct ieee80211_hw *dev)
+ 	/* allow users to customize their eeprom.
+ 	 */
  
--	ret = request_firmware(&cf, fw_config_file, adapter->pdev_dev);
-+	ret = request_firmware_direct(&cf, fw_config_file, adapter->pdev_dev);
+-	ret = request_firmware(&eeprom, "3826.eeprom", &priv->spi->dev);
++	ret = request_firmware_direct(&eeprom, "3826.eeprom", &priv->spi->dev);
  	if (ret < 0) {
- 		config_name = "On FLASH";
- 		mtype = FW_MEMTYPE_CF_FLASH;
+ #ifdef CONFIG_P54_SPI_DEFAULT_EEPROM
+ 		dev_info(&priv->spi->dev, "loading default eeprom...\n");
 -- 
 2.0.0
