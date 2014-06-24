@@ -1,197 +1,104 @@
 From: Willem de Bruijn <willemb@google.com>
-Subject: [PATCH net-next 4/7] net-timestamp: TCP timestamping
-Date: Tue, 24 Jun 2014 11:43:49 -0400
-Message-ID: <1403624632-17327-5-git-send-email-willemb@google.com>
+Subject: [PATCH net-next 6/7] net-timestamp: ENQ timestamp on enqueue to traffic shaping layer
+Date: Tue, 24 Jun 2014 11:43:51 -0400
+Message-ID: <1403624632-17327-7-git-send-email-willemb@google.com>
 References: <1403624632-17327-1-git-send-email-willemb@google.com>
 Cc: eric.dumazet@gmail.com, richardcochran@gmail.com,
 	davem@davemloft.net, Willem de Bruijn <willemb@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f201.google.com ([209.85.192.201]:37368 "EHLO
-	mail-pd0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754366AbaFXPoA (ORCPT
+Received: from mail-oa0-f74.google.com ([209.85.219.74]:38935 "EHLO
+	mail-oa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754488AbaFXPoA (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2014 11:44:00 -0400
-Received: by mail-pd0-f201.google.com with SMTP id v10so62699pde.4
-        for <netdev@vger.kernel.org>; Tue, 24 Jun 2014 08:43:59 -0700 (PDT)
+Received: by mail-oa0-f74.google.com with SMTP id i7so102031oag.1
+        for <netdev@vger.kernel.org>; Tue, 24 Jun 2014 08:44:00 -0700 (PDT)
 In-Reply-To: <1403624632-17327-1-git-send-email-willemb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-TCP timestamping extends datagram MSG_TSTAMP support to bytestreams.
-
-Bytestreams do not have a 1:1 relationship between send() buffers and
-network packets. The feature interprets a send call with MSG_TSTAMP on
-a bytestream as a request for a timestamp for the last byte in the
-buffer.
-
-The choice corresponds to a request for a timestamp when all bytes in
-the buffer have been sent. That assumption depends on in-order kernel
-transmission. This is the common case. That said, it is possible to
-construct a traffic shaping tree that would result in reordering.
-The guarantee is strong, then, but not ironclad.
-
-This implementation supports send and sendpages (splice). GSO replaces
-one large packet with multiple smaller packets. This patch also copies
-the option into the correct smaller packet.
-
-This patch does not yet support timestamping on data in an initial TCP
-Fast Open SYN, because that takes a very different data path.
-
-The implementation supports a single timestamp per packet. To avoid
-having multiple timestamp requests per sk_buff, the skb is locked
-against extension once the flag is set.
+Kernel transmit latency is often incurred in the traffic shaping
+layer. This patch adds a new timestamp on transmission just before
+entering traffic shaping. When data travels through multiple devices
+(bonding, tunneling, ...) each device will export an individual
+timestamp.
 
 Signed-off-by: Willem de Bruijn <willemb@google.com>
 ---
- net/core/skbuff.c      | 12 ++++++++++++
- net/ipv4/tcp.c         | 21 +++++++++++++++++----
- net/ipv4/tcp_offload.c |  4 ++++
- net/socket.c           |  2 ++
- 4 files changed, 35 insertions(+), 4 deletions(-)
+ include/linux/skbuff.h | 8 +++++++-
+ include/linux/socket.h | 3 ++-
+ net/core/dev.c         | 3 +++
+ net/socket.c           | 3 +++
+ 4 files changed, 15 insertions(+), 2 deletions(-)
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index bc653c4..07ba98d 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -69,6 +69,7 @@
- #include <net/checksum.h>
- #include <net/ip6_checksum.h>
- #include <net/xfrm.h>
-+#include <net/tcp.h>
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index ee86654..b6c2926 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -260,9 +260,13 @@ enum {
+ 	SKBTX_SHARED_FRAG = 1 << 5,
  
- #include <asm/uaccess.h>
- #include <trace/events/skb.h>
-@@ -3496,6 +3497,7 @@ void skb_tstamp_tx(struct sk_buff *orig_skb,
- 	struct sock *sk = orig_skb->sk;
- 	struct sock_exterr_skb *serr;
- 	struct sk_buff *skb;
-+	__u32 key = 0;
- 	int err;
+ 	SKBTX_ACK_TSTAMP = 1 << 6,
++
++	SKBTX_ENQ_TSTAMP = 1 << 7,
+ };
  
- 	if (!sk)
-@@ -3525,10 +3527,20 @@ void skb_tstamp_tx(struct sk_buff *orig_skb,
- 		*skb_hwtstamps(skb) = *skb_hwtstamps(orig_skb);
+-#define SKBTX_ANY_SW_TSTAMP (SKBTX_SW_TSTAMP | SKBTX_ACK_TSTAMP)
++#define SKBTX_ANY_SW_TSTAMP (SKBTX_SW_TSTAMP | \
++			     SKBTX_ACK_TSTAMP | \
++			     SKBTX_ENQ_TSTAMP)
+ 
+ /*
+  * The callback notifies userspace to release buffers when skb DMA is done in
+@@ -2757,6 +2761,8 @@ static inline u8 skbflags_tx_tstamp(int flags)
+ 			tx_flags |= SKBTX_SW_TSTAMP;
+ 		if (flags & MSG_TSTAMP_ACK)
+ 			tx_flags |= SKBTX_ACK_TSTAMP;
++		if (flags & MSG_TSTAMP_ENQ)
++			tx_flags |= SKBTX_ENQ_TSTAMP;
  	}
  
-+	if (orig_skb->sk && orig_skb->sk->sk_protocol == IPPROTO_TCP) {
-+		if (orig_skb->fclone == SKB_FCLONE_CLONE)
-+			key = TCP_SKB_CB(orig_skb - 1)->end_seq;
-+		else /* after GSO segmentation, clone no longer works */
-+			key = ntohl(tcp_hdr(skb)->seq) +
-+			      ntohs(ip_hdr(skb)->tot_len) -
-+			      ip_hdrlen(skb) - tcp_hdrlen(skb);
-+	}
+ 	return tx_flags;
+diff --git a/include/linux/socket.h b/include/linux/socket.h
+index 68d5f48..6d21582 100644
+--- a/include/linux/socket.h
++++ b/include/linux/socket.h
+@@ -255,7 +255,8 @@ struct ucred {
+ #define MSG_SENDPAGE_NOTLAST 0x20000 /* sendpage() internal : not the last page */
+ #define MSG_TSTAMP	0x100000
+ #define MSG_TSTAMP_ACK	0x200000
+-#define MSG_TSTAMP_MASK	(MSG_TSTAMP | MSG_TSTAMP_ACK)
++#define MSG_TSTAMP_ENQ	0x400000
++#define MSG_TSTAMP_MASK	(MSG_TSTAMP | MSG_TSTAMP_ACK | MSG_TSTAMP_ENQ)
+ #define MSG_EOF         MSG_FIN
+ 
+ #define MSG_FASTOPEN	0x20000000	/* Send data in TCP SYN */
+diff --git a/net/core/dev.c b/net/core/dev.c
+index a04b12f..8df522b 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2859,6 +2859,9 @@ static int __dev_queue_xmit(struct sk_buff *skb, void *accel_priv)
+ 
+ 	skb_reset_mac_header(skb);
+ 
++	if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_ENQ_TSTAMP))
++		__skb_tstamp_tx(skb, NULL, skb->sk, SKBTX_ENQ_TSTAMP);
 +
- 	serr = SKB_EXT_ERR(skb);
- 	memset(serr, 0, sizeof(*serr));
- 	serr->ee.ee_errno = ENOMSG;
- 	serr->ee.ee_origin = SO_EE_ORIGIN_TIMESTAMPING;
-+	serr->ee.ee_data = key;
- 
- 	err = sock_queue_err_skb(sk, skb);
- 
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index eb1dde3..4ceecd9 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -878,6 +878,11 @@ static int tcp_send_mss(struct sock *sk, int *size_goal, int flags)
- 	return mss_now;
- }
- 
-+static bool tcp_skb_can_extend(struct sk_buff *skb)
-+{
-+	return !(skb_shinfo(skb)->tx_flags & SKBTX_SW_TSTAMP);
-+}
-+
- static ssize_t do_tcp_sendpages(struct sock *sk, struct page *page, int offset,
- 				size_t size, int flags)
- {
-@@ -911,7 +916,8 @@ static ssize_t do_tcp_sendpages(struct sock *sk, struct page *page, int offset,
- 		int copy, i;
- 		bool can_coalesce;
- 
--		if (!tcp_send_head(sk) || (copy = size_goal - skb->len) <= 0) {
-+		if (!tcp_send_head(sk) || (copy = size_goal - skb->len) <= 0 ||
-+		    !tcp_skb_can_extend(skb)) {
- new_segment:
- 			if (!sk_stream_memory_free(sk))
- 				goto wait_for_sndbuf;
-@@ -959,8 +965,10 @@ new_segment:
- 
- 		copied += copy;
- 		offset += copy;
--		if (!(size -= copy))
-+		if (!(size -= copy)) {
-+			skb_shinfo(skb)->tx_flags |= skbflags_tx_tstamp(flags);
- 			goto out;
-+		}
- 
- 		if (skb->len < size_goal || (flags & MSG_OOB))
- 			continue;
-@@ -1160,7 +1168,7 @@ int tcp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 				copy = max - skb->len;
- 			}
- 
--			if (copy <= 0) {
-+			if (copy <= 0 || !tcp_skb_can_extend(skb)) {
- new_segment:
- 				/* Allocate new segment. If the interface is SG,
- 				 * allocate skb fitting to single page.
-@@ -1252,8 +1260,10 @@ new_segment:
- 
- 			from += copy;
- 			copied += copy;
--			if ((seglen -= copy) == 0 && iovlen == 0)
-+			if ((seglen -= copy) == 0 && iovlen == 0) {
-+				skb_shinfo(skb)->tx_flags |= skbflags_tx_tstamp(flags);
- 				goto out;
-+			}
- 
- 			if (skb->len < max || (flags & MSG_OOB) || unlikely(tp->repair))
- 				continue;
-@@ -1616,6 +1626,9 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 	struct sk_buff *skb;
- 	u32 urg_hole = 0;
- 
-+	if (unlikely(flags & MSG_ERRQUEUE))
-+		return ip_recv_error(sk, msg, len, addr_len);
-+
- 	if (sk_can_busy_loop(sk) && skb_queue_empty(&sk->sk_receive_queue) &&
- 	    (sk->sk_state == TCP_ESTABLISHED))
- 		sk_busy_loop(sk, nonblock);
-diff --git a/net/ipv4/tcp_offload.c b/net/ipv4/tcp_offload.c
-index 4e86c59..730c2f6 100644
---- a/net/ipv4/tcp_offload.c
-+++ b/net/ipv4/tcp_offload.c
-@@ -134,6 +134,10 @@ struct sk_buff *tcp_gso_segment(struct sk_buff *skb,
- 				(__force u32)delta));
- 	if (skb->ip_summed != CHECKSUM_PARTIAL)
- 		th->check = gso_make_checksum(skb, ~th->check);
-+
-+	if (unlikely(skb_shinfo(gso_skb)->tx_flags & SKBTX_SW_TSTAMP))
-+		skb_shinfo(skb)->tx_flags |= SKBTX_SW_TSTAMP;
-+
- out:
- 	return segs;
- }
+ 	/* Disable soft irqs for various locks below. Also
+ 	 * stops preemption for RCU.
+ 	 */
 diff --git a/net/socket.c b/net/socket.c
-index 18ab44a..d01e323 100644
+index b71001b..9b8deaf 100644
 --- a/net/socket.c
 +++ b/net/socket.c
-@@ -697,6 +697,7 @@ EXPORT_SYMBOL(kernel_sendmsg);
- void __sock_recv_timestamp(struct msghdr *msg, struct sock *sk,
- 	struct sk_buff *skb)
- {
-+	struct sock_exterr_skb *serr = SKB_EXT_ERR(skb);
- 	int need_software_tstamp = sock_flag(sk, SOCK_RCVTSTAMP);
- 	struct sock_errqueue_timestamping tss;
- 	int empty = 1;
-@@ -727,6 +728,7 @@ void __sock_recv_timestamp(struct msghdr *msg, struct sock *sk,
- 	     skb_shinfo(skb)->tx_flags & SKBTX_SW_TSTAMP) &&
- 	    ktime_to_timespec_cond(skb->tstamp, &tss.ts_sw)) {
- 		empty = 0;
-+		tss.ts_key = serr->ee.ee_data;
- 		tss.ts_type = SCM_TSTAMP_SND;
+@@ -736,6 +736,9 @@ void __sock_recv_timestamp(struct msghdr *msg, struct sock *sk,
+ 		case SKBTX_ACK_TSTAMP:
+ 			tss.ts_type = SCM_TSTAMP_ACK;
+ 			break;
++		case SKBTX_ENQ_TSTAMP:
++			tss.ts_type = SCM_TSTAMP_ENQ;
++			break;
+ 		}
  	}
  	if (shhwtstamps) {
 -- 
