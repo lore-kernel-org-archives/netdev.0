@@ -1,103 +1,45 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/14][pull request] Intel Wired LAN Driver Updates 2014-06-23
-Date: Mon, 23 Jun 2014 17:47:24 -0700
-Message-ID: <1403570858-13548-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 05/14] i40e: fix a stray print message
+Date: Mon, 23 Jun 2014 17:47:29 -0700
+Message-ID: <1403570858-13548-6-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1403570858-13548-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:58389 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:58402 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753370AbaFXArl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Jun 2014 20:47:41 -0400
+	id S1754085AbaFXArp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Jun 2014 20:47:45 -0400
+In-Reply-To: <1403570858-13548-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e and i40evf.
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-Greg provides a patch to stop the VF device after setting its MAC address.
-This is due to if the host VMM administrator has changed the VF device's MAC
-address then the i40e driver needs to halt the VF device so that the
-administrator will be forced to reload the VF driver so that the VF driver
-will start using the newly assigned MAC address.
+This log print message will probably never be seen, but it needs to match
+the "attempting to rebuild switch\n" log message a few lines above.
 
-Shannon provides several patches for i40e, first makes prep_for_test() a
-void function since the return value was being ignored for the most part
-by all its callers.  Adds a log warning when the firmware's API minor/major
-number is not what we expect to assist the user by informing them they
-may need to update their NVM or SW.  Cleans up a stray print message
-so that it is similar to other print messages.  Ensures to set the
-WoL flag when setting LAA and allow the user to set LAA again.  So do
-not short-circuit the LAA assignment when the driver thinks it has
-already been done as it is possible that the user might want to force
-the address setting again.  Provides a couple more LAA fixes to ensure
-the LAA gets restored after resets.
+Change-ID: Ic3f5b4f67568d721cb02e826cf2cb33847f51c11
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Neerav provides a patch for i40e to add a PF reset when a malicious driver
-event for the PF occurs.  As per the specification when the PF driver
-receives a malicious driver event the queue that caused the event is
-already stopped and it is expected that the function that owns the queue
-will reset the queue, but in some cases it may not be possible to determine
-the queue, so it is suggested to reset the whole function.
-
-Carolyn fixes ethtool coalesce settings to allow 0 as a disable value and
-adds message to user about invalid values.
-
-Jesse removes a reserved type which was not removed from the code.
-
-Catherine provides a patch to add the ability to enable/disable link from
-set_link)restart_an() which will make it easy to toggle link without
-calling set_phy_config() when no other link settings need to change.
-
-Anjali provides a patch to ensure we do a PF reset on Tx hang and that
-way we avoid any Malicious Driver Detect (MDD) events because of a Tx
-queue disable failure.
-
-The following are changes since commit 79631c89ed70643fd0579a65834b227795b251ee:
-  trivial: net/irda/irlmp.c: Fix closing brace followed by if
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Anjali Singhai Jain (1):
-  i40e: Bypass timeout recovery level 0 so as to not cause MDD
-
-Carolyn Wyborny (1):
-  i40e: Fix ethtool coalesce settings
-
-Catherine Sullivan (2):
-  i40e: Add ablitity to enable/disable link from set_link_restart_an
-  i40e/i40evf: Bump i40e to 0.4.17 and i40evf to 0.9.36
-
-Greg Rose (1):
-  i40e: Stop the VF device after setting its MAC address
-
-Jesse Brandeburg (1):
-  i40e/i40evf: remove reserved type
-
-Neerav Parikh (1):
-  i40e: Add PF reset when Malicious driver event for PF
-
-Shannon Nelson (7):
-  i40e: make prep_for_reset void
-  i40e: warn on newer/older firmware API rev
-  i40e: fix a stray print message
-  i40e: use WoL flag when setting LAA
-  i40e: allow user to set LAA again
-  i40e: reapply LAA after reset
-  i40e: no pf reset at pci remove
-
- drivers/net/ethernet/intel/i40e/i40e.h             |   2 +
- drivers/net/ethernet/intel/i40e/i40e_common.c      |   8 +-
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |  31 ++++-
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 126 +++++++++++++++------
- drivers/net/ethernet/intel/i40e/i40e_prototype.h   |   3 +-
- drivers/net/ethernet/intel/i40e/i40e_txrx.h        |   1 -
- drivers/net/ethernet/intel/i40e/i40e_type.h        |   1 -
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |   2 +
- drivers/net/ethernet/intel/i40evf/i40e_txrx.h      |   1 -
- drivers/net/ethernet/intel/i40evf/i40e_type.h      |   1 -
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    |   2 +-
- 11 files changed, 129 insertions(+), 49 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 3484588..db3826f 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -5776,7 +5776,7 @@ static void i40e_reset_and_rebuild(struct i40e_pf *pf, bool reinit)
+ 	}
+ 
+ 	if (pf->vsi[pf->lan_vsi]->uplink_seid == pf->mac_seid) {
+-		dev_info(&pf->pdev->dev, "attempting to rebuild PF VSI\n");
++		dev_dbg(&pf->pdev->dev, "attempting to rebuild PF VSI\n");
+ 		/* no VEB, so rebuild only the Main VSI */
+ 		ret = i40e_add_vsi(pf->vsi[pf->lan_vsi]);
+ 		if (ret) {
 -- 
 1.9.3
