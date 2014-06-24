@@ -1,127 +1,83 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/14] i40e: Fix ethtool coalesce settings
-Date: Mon, 23 Jun 2014 17:47:30 -0700
-Message-ID: <1403570858-13548-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 07/14] i40e/i40evf: remove reserved type
+Date: Mon, 23 Jun 2014 17:47:31 -0700
+Message-ID: <1403570858-13548-8-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1403570858-13548-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:58402 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:58404 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754115AbaFXArq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754153AbaFXArq (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 23 Jun 2014 20:47:46 -0400
 In-Reply-To: <1403570858-13548-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-This patch fixes the i40e_set_coalesce function to allow 0 as a disable
-value.  Also, added message to user about invalid value and provides valid
-range.
+One of the PCTYPES that was moved to a reserved value
+wasn't removed from the code.
 
-Change-ID: I6c9ff11a9861f2045bd543745a3d132999ffbbd8
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Change-ID: I31fafe6d79c5f5128179979af5eaafa8c0cd62fe
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h         |  1 +
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 28 +++++++++++++++++++++-----
- drivers/net/ethernet/intel/i40e/i40e_main.c    | 16 +++++++++++++++
- 3 files changed, 40 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h   | 1 -
+ drivers/net/ethernet/intel/i40e/i40e_type.h   | 1 -
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.h | 1 -
+ drivers/net/ethernet/intel/i40evf/i40e_type.h | 1 -
+ 4 files changed, 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index 817e179..07811dd 100644
---- a/drivers/net/ethernet/intel/i40e/i40e.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -617,6 +617,7 @@ static inline void i40e_dbg_init(void) {}
- static inline void i40e_dbg_exit(void) {}
- #endif /* CONFIG_DEBUG_FS*/
- void i40e_irq_dynamic_enable(struct i40e_vsi *vsi, int vector);
-+void i40e_irq_dynamic_disable(struct i40e_vsi *vsi, int vector);
- void i40e_irq_dynamic_disable_icr0(struct i40e_pf *pf);
- void i40e_irq_dynamic_enable_icr0(struct i40e_pf *pf);
- int i40e_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-index 4a488ff..7da3758 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
-@@ -1105,17 +1105,36 @@ static int i40e_set_coalesce(struct net_device *netdev,
- 	if (ec->tx_max_coalesced_frames_irq || ec->rx_max_coalesced_frames_irq)
- 		vsi->work_limit = ec->tx_max_coalesced_frames_irq;
- 
-+	vector = vsi->base_vector;
- 	if ((ec->rx_coalesce_usecs >= (I40E_MIN_ITR << 1)) &&
--	    (ec->rx_coalesce_usecs <= (I40E_MAX_ITR << 1)))
-+	    (ec->rx_coalesce_usecs <= (I40E_MAX_ITR << 1))) {
- 		vsi->rx_itr_setting = ec->rx_coalesce_usecs;
--	else
-+	} else if (ec->rx_coalesce_usecs == 0) {
-+		vsi->rx_itr_setting = ec->rx_coalesce_usecs;
-+		i40e_irq_dynamic_disable(vsi, vector);
-+		if (ec->use_adaptive_rx_coalesce)
-+			netif_info(pf, drv, netdev,
-+				   "Rx-secs=0, need to disable adaptive-Rx for a complete disable\n");
-+	} else {
-+		netif_info(pf, drv, netdev,
-+			   "Invalid value, Rx-usecs range is 0, 8-8160\n");
- 		return -EINVAL;
-+	}
- 
- 	if ((ec->tx_coalesce_usecs >= (I40E_MIN_ITR << 1)) &&
--	    (ec->tx_coalesce_usecs <= (I40E_MAX_ITR << 1)))
-+	    (ec->tx_coalesce_usecs <= (I40E_MAX_ITR << 1))) {
- 		vsi->tx_itr_setting = ec->tx_coalesce_usecs;
--	else
-+	} else if (ec->tx_coalesce_usecs == 0) {
-+		vsi->tx_itr_setting = ec->tx_coalesce_usecs;
-+		i40e_irq_dynamic_disable(vsi, vector);
-+		if (ec->use_adaptive_tx_coalesce)
-+			netif_info(pf, drv, netdev,
-+				   "Tx-secs=0, need to disable adaptive-Tx for a complete disable\n");
-+	} else {
-+		netif_info(pf, drv, netdev,
-+			   "Invalid value, Tx-usecs range is 0, 8-8160\n");
- 		return -EINVAL;
-+	}
- 
- 	if (ec->use_adaptive_rx_coalesce)
- 		vsi->rx_itr_setting |= I40E_ITR_DYNAMIC;
-@@ -1127,7 +1146,6 @@ static int i40e_set_coalesce(struct net_device *netdev,
- 	else
- 		vsi->tx_itr_setting &= ~I40E_ITR_DYNAMIC;
- 
--	vector = vsi->base_vector;
- 	for (i = 0; i < vsi->num_q_vectors; i++, vector++) {
- 		q_vector = vsi->q_vectors[i];
- 		q_vector->rx.itr = ITR_TO_REG(vsi->rx_itr_setting);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index db3826f..24ecd9f 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -2768,6 +2768,22 @@ void i40e_irq_dynamic_enable(struct i40e_vsi *vsi, int vector)
- }
- 
- /**
-+ * i40e_irq_dynamic_disable - Disable default interrupt generation settings
-+ * @vsi: pointer to a vsi
-+ * @vector: enable a particular Hw Interrupt vector
-+ **/
-+void i40e_irq_dynamic_disable(struct i40e_vsi *vsi, int vector)
-+{
-+	struct i40e_pf *pf = vsi->back;
-+	struct i40e_hw *hw = &pf->hw;
-+	u32 val;
-+
-+	val = I40E_ITR_NONE << I40E_PFINT_DYN_CTLN_ITR_INDX_SHIFT;
-+	wr32(hw, I40E_PFINT_DYN_CTLN(vector - 1), val);
-+	i40e_flush(hw);
-+}
-+
-+/**
-  * i40e_msix_clean_rings - MSIX mode Interrupt Handler
-  * @irq: interrupt number
-  * @data: pointer to a q_vector
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+index 0277894..f09fb3e 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+@@ -75,7 +75,6 @@ enum i40e_dyn_idx_t {
+ 	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_OTHER) | \
+ 	((u64)1 << I40E_FILTER_PCTYPE_FRAG_IPV4) | \
+ 	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_UDP) | \
+-	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_TCP_SYN) | \
+ 	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_TCP) | \
+ 	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_SCTP) | \
+ 	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_OTHER) | \
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
+index 1c0d5a7..11dd2dc 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
+@@ -878,7 +878,6 @@ enum i40e_filter_pctype {
+ 	I40E_FILTER_PCTYPE_FRAG_IPV4			= 36,
+ 	/* Note: Values 37-40 are reserved for future use */
+ 	I40E_FILTER_PCTYPE_NONF_IPV6_UDP		= 41,
+-	I40E_FILTER_PCTYPE_NONF_IPV6_TCP_SYN		= 42,
+ 	I40E_FILTER_PCTYPE_NONF_IPV6_TCP		= 43,
+ 	I40E_FILTER_PCTYPE_NONF_IPV6_SCTP		= 44,
+ 	I40E_FILTER_PCTYPE_NONF_IPV6_OTHER		= 45,
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
+index 30d248b..acd3c12 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
+@@ -75,7 +75,6 @@ enum i40e_dyn_idx_t {
+ 	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV4_OTHER) | \
+ 	((u64)1 << I40E_FILTER_PCTYPE_FRAG_IPV4) | \
+ 	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_UDP) | \
+-	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_TCP_SYN) | \
+ 	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_TCP) | \
+ 	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_SCTP) | \
+ 	((u64)1 << I40E_FILTER_PCTYPE_NONF_IPV6_OTHER) | \
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+index 9c83578..23cd18b 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
+@@ -878,7 +878,6 @@ enum i40e_filter_pctype {
+ 	I40E_FILTER_PCTYPE_FRAG_IPV4			= 36,
+ 	/* Note: Values 37-40 are reserved for future use */
+ 	I40E_FILTER_PCTYPE_NONF_IPV6_UDP		= 41,
+-	I40E_FILTER_PCTYPE_NONF_IPV6_TCP_SYN		= 42,
+ 	I40E_FILTER_PCTYPE_NONF_IPV6_TCP		= 43,
+ 	I40E_FILTER_PCTYPE_NONF_IPV6_SCTP		= 44,
+ 	I40E_FILTER_PCTYPE_NONF_IPV6_OTHER		= 45,
 -- 
 1.9.3
