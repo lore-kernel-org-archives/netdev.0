@@ -1,59 +1,61 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 13/14] i40e: Bypass timeout recovery level 0 so as to not cause MDD
-Date: Mon, 23 Jun 2014 17:47:37 -0700
-Message-ID: <1403570858-13548-14-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/14] i40e: warn on newer/older firmware API rev
+Date: Mon, 23 Jun 2014 17:47:28 -0700
+Message-ID: <1403570858-13548-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1403570858-13548-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Catherine Sullivan <catherine.sullivan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:58417 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:58402 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754545AbaFXArw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Jun 2014 20:47:52 -0400
+	id S1754173AbaFXAro (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Jun 2014 20:47:44 -0400
 In-Reply-To: <1403570858-13548-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-When a Tx hang happens, usually the Tx queue disable fails. At
-this point if we try to recover by a VSI reinit the HW gets
-unhappy and we get a Malicious Driver Detect (MDD) event.
-HW expects a PF reset if a queue disable fails, if we don't do a PF
-reset and restart the queue we get an MDD.  This patch makes sure we
-do a PF reset on Tx hang and that way we avoid any MDD because of Tx
-queue disable failure.
+If the firmware's API minor number is larger than the one expected, log
+a warning and recommend driver SW update.
+If the firmware's API major or minor number is smaller then the one expected
+(n for major, n or n-1 for minor), log a warning and recommend NVM update.
 
-Change-ID: I665ab6223577c788da857ee2132e733dc9a451e4
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Change-ID: If0b887e055478f8e435ba7fa28113b63a6f1bb35
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 6522a51..168030b 100644
+index b751258..3484588 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -278,7 +278,7 @@ static void i40e_tx_timeout(struct net_device *netdev)
- 	pf->tx_timeout_count++;
+@@ -8634,6 +8634,20 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		goto err_pf_reset;
+ 	}
  
- 	if (time_after(jiffies, (pf->tx_timeout_last_recovery + HZ*20)))
--		pf->tx_timeout_recovery_level = 0;
-+		pf->tx_timeout_recovery_level = 1;
- 	pf->tx_timeout_last_recovery = jiffies;
- 	netdev_info(netdev, "tx_timeout recovery level %d\n",
- 		    pf->tx_timeout_recovery_level);
-@@ -6827,6 +6827,8 @@ static int i40e_sw_init(struct i40e_pf *pf)
- 	pf->irq_pile->num_entries = pf->hw.func_caps.num_msix_vectors;
- 	pf->irq_pile->search_hint = 0;
- 
-+	pf->tx_timeout_recovery_level = 1;
++	if (hw->aq.api_min_ver > I40E_FW_API_VERSION_MINOR)
++		dev_info(&pdev->dev,
++			 "Note: FW API version %02x.%02x newer than expected %02x.%02x, recommend driver update.\n",
++			 hw->aq.api_maj_ver, hw->aq.api_min_ver,
++			 I40E_FW_API_VERSION_MAJOR, I40E_FW_API_VERSION_MINOR);
 +
- 	mutex_init(&pf->switch_mutex);
++	if (hw->aq.api_maj_ver < I40E_FW_API_VERSION_MAJOR ||
++	    hw->aq.api_min_ver < (I40E_FW_API_VERSION_MINOR-1))
++		dev_info(&pdev->dev,
++			 "Note: FW API version %02x.%02x older than expected %02x.%02x, recommend nvm update.\n",
++			 hw->aq.api_maj_ver, hw->aq.api_min_ver,
++			 I40E_FW_API_VERSION_MAJOR, I40E_FW_API_VERSION_MINOR);
++
++
+ 	i40e_verify_eeprom(pf);
  
- sw_init_done:
+ 	/* Rev 0 hardware was never productized */
 -- 
 1.9.3
