@@ -1,48 +1,75 @@
-From: Denis Kirjanov <kda@linux-powerpc.org>
-Subject: [PATCH 2/2] powerpc: bpf: Fix the broken LD_VLAN_TAG_PRESENT test
-Date: Tue, 24 Jun 2014 13:59:29 +0400
-Message-ID: <1403603969-24436-2-git-send-email-kda@linux-powerpc.org>
-References: <1403603969-24436-1-git-send-email-kda@linux-powerpc.org>
-Cc: linuxppc-dev@lists.ozlabs.org,
-	Denis Kirjanov <kda@linux-powerpc.org>
-To: netdev@vger.kernel.org
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: [PATCH RFC 24/30] net: fec: better implementation of iMX6
+	ERR006358 quirk
+Date: Tue, 24 Jun 2014 11:29:12 +0100
+Message-ID: <20140624102912.GM32514@n2100.arm.linux.org.uk>
+References: <20140620121118.GR32514@n2100.arm.linux.org.uk> <E1WxxhR-0005YP-Q1@rmk-PC.arm.linux.org.uk> <316b383d2512440db51ea7c55992920d@BLUPR03MB373.namprd03.prod.outlook.com> <20140622081234.GB32514@n2100.arm.linux.org.uk> <56f5e44adf0b41a0bbf52c38b755afbd@BLUPR03MB373.namprd03.prod.outlook.com> <20140622084911.GD32514@n2100.arm.linux.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>
+To: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f173.google.com ([209.85.217.173]:55816 "EHLO
-	mail-lb0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751966AbaFXKYX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2014 06:24:23 -0400
-Received: by mail-lb0-f173.google.com with SMTP id s7so116405lbd.4
-        for <netdev@vger.kernel.org>; Tue, 24 Jun 2014 03:24:21 -0700 (PDT)
-In-Reply-To: <1403603969-24436-1-git-send-email-kda@linux-powerpc.org>
+Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:40083 "EHLO
+	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751206AbaFXK3Q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2014 06:29:16 -0400
+Content-Disposition: inline
+In-Reply-To: <20140622084911.GD32514@n2100.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We have to return the boolean here if the tag presents
-or not, not jusr ORing the TCI with the mask which results to:
+On Sun, Jun 22, 2014 at 09:49:11AM +0100, Russell King - ARM Linux wrote:
+> On Sun, Jun 22, 2014 at 08:38:49AM +0000, fugang.duan@freescale.com wrote:
+> > From: Russell King - ARM Linux <linux@arm.linux.org.uk> Data: Sunday, June 22, 2014 4:13 PM
+> > >To: Duan Fugang-B38611
+> > >Cc: linux-arm-kernel@lists.infradead.org; netdev@vger.kernel.org
+> > >Subject: Re: [PATCH RFC 24/30] net: fec: better implementation of iMX6
+> > >ERR006358 quirk
+> > >
+> > >On Sun, Jun 22, 2014 at 07:49:11AM +0000, fugang.duan@freescale.com wrote:
+> > >> From: Russell King <rmk@arm.linux.org.uk> Data: Friday, June 20, 2014
+> > >> 8:14 PM
+> > >> >To: linux-arm-kernel@lists.infradead.org
+> > >> >Cc: Duan Fugang-B38611; netdev@vger.kernel.org
+> > >> >Subject: [PATCH RFC 24/30] net: fec: better implementation of iMX6
+> > >> >ERR006358 quirk
+> > >> >
+> > >> >+
+> > >> >+	/* ERR006538: Keep the transmitter going */
+> > >> >+	if (fep->dirty_tx != fep->cur_tx &&
+> > >> >+	    readl(fep->hwp + FEC_X_DES_ACTIVE) == 0)
+> > >> >+		writel(0, fep->hwp + FEC_X_DES_ACTIVE);
+> > >> > }
+> > >> >
+> ...
+> > >While I agree that we can read back to check whether the device indicates
+> > >that transmit is active, there's no point to the other tests.  If there
+> > >are entries in the transmit ring but the transmitter indicates that it is
+> > >not active, then it is obvious that the bug has been hit.  This is exactly
+> > >what my implementation above does.
+> > >
+> > The condition "fep->dirty_tx != fep->cur_tx" is not only limited for the errata. 
+> > I mean only add extra trigger TDAR for the issue.
+> 
+> Yes, I agree that test is wrong (that's what comes from shuffling the
+> patches... subsequent patches modify the indexing mechanism).  It should
+> be:
+> 
+>         if (bdp != fep->cur_tx &&
+>             readl(fep->hwp + FEC_X_DES_ACTIVE) == 0)
+>                 writel(0, fep->hwp + FEC_X_DES_ACTIVE);
+> 
+> Since "bdp" is the post-incremented dirty_tx pointer, which, when it is
+> equal to fep->cur_tx means that the ring is empty.
 
-[  709.412097] test_bpf: #18 LD_VLAN_TAG_PRESENT
-[  709.412245] ret 4096 != 1
-[  709.412332] ret 4096 != 1
-[  709.412333] FAIL (2 times)
----
- arch/powerpc/net/bpf_jit_comp.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+Any further comments, or do I take the silence to mean that you agree
+with the above statement?  I would like to get this settled to I can
+spin v2 of this set.
 
-diff --git a/arch/powerpc/net/bpf_jit_comp.c b/arch/powerpc/net/bpf_jit_comp.c
-index af0ed4d..a3d8f58 100644
---- a/arch/powerpc/net/bpf_jit_comp.c
-+++ b/arch/powerpc/net/bpf_jit_comp.c
-@@ -394,8 +394,10 @@ static int bpf_jit_build_body(struct sk_filter *fp, u32 *image,
- 							  vlan_tci));
- 			if (code == (BPF_ANC | SKF_AD_VLAN_TAG))
- 				PPC_ANDI(r_A, r_A, ~VLAN_TAG_PRESENT);
--			else
-+			else {
- 				PPC_ANDI(r_A, r_A, VLAN_TAG_PRESENT);
-+				PPC_SRWI(r_A, r_A, 12);
-+			}
- 			break;
- 		case BPF_ANC | SKF_AD_QUEUE:
- 			BUILD_BUG_ON(FIELD_SIZEOF(struct sk_buff,
+Thanks.
+
 -- 
-2.0.0
+FTTC broadband for 0.8mile line: now at 9.7Mbps down 460kbps up... slowly
+improving, and getting towards what was expected from it.
