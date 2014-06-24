@@ -1,58 +1,46 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next 6/6] amd-xgbe: Resolve checkpatch warning about
- sscanf usage
-Date: Tue, 24 Jun 2014 15:53:30 -0700
-Message-ID: <1403650410.11163.2.camel@joe-AO725>
-References: <20140624211900.20681.46554.stgit@tlendack-t1.amdoffice.net>
-	 <20140624211935.20681.85586.stgit@tlendack-t1.amdoffice.net>
-	 <1403647225.29061.64.camel@joe-AO725> <53A9FF42.2090502@amd.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH][RFC] cxgb4: Not need to hold the adap_rcu_lock lock
+ when read adap_rcu_list
+Date: Tue, 24 Jun 2014 15:54:10 -0700 (PDT)
+Message-ID: <20140624.155410.802407476153586247.davem@davemloft.net>
+References: <1403256756-6557-1-git-send-email-rongqing.li@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Tom Lendacky <thomas.lendacky@amd.com>
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	hariprasad@chelsio.com, leedom@chelsio.com, greearb@candelatech.com
+To: rongqing.li@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0146.hostedemail.com ([216.40.44.146]:41452 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752281AbaFXWxe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2014 18:53:34 -0400
-In-Reply-To: <53A9FF42.2090502@amd.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54780 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752857AbaFXWyO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2014 18:54:14 -0400
+In-Reply-To: <1403256756-6557-1-git-send-email-rongqing.li@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-06-24 at 17:44 -0500, Tom Lendacky wrote:
-> On 06/24/2014 05:00 PM, Joe Perches wrote:
-> > On Tue, 2014-06-24 at 16:19 -0500, Tom Lendacky wrote:
-> >> Checkpatch issued a warning preferring to use kstrto<type> when
-> >> using a single variable sscanf.  Change the sscanf invocation to
-> >> a kstrtouint call.
-> > []
-> >> diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-debugfs.c b/drivers/net/ethernet/amd/xgbe/xgbe-debugfs.c
-> > []
-> >> @@ -165,10 +165,9 @@ static ssize_t xgbe_common_write(const char __user *buffer, size_t count,
-> >>   		return len;
-> >>
-> >>   	workarea[len] = '\0';
-> >> -	if (sscanf(workarea, "%x", &scan_value) == 1)
-> >> -		*value = scan_value;
-> >> -	else
-> >> -		return -EIO;
-> >> +	ret = kstrtouint(workarea, 0, value);
-> >
-> > Don't you need to use 16 for the base here?
+From: <rongqing.li@windriver.com>
+Date: Fri, 20 Jun 2014 17:32:36 +0800
 
-> Using 0 allows for greater flexibility in the input format.
+> From: Li RongQing <roy.qing.li@gmail.com> 
+> 
+> cxgb4_netdev maybe lead to dead lock, since it uses a spin lock, and be called
+> in both thread and softirq context, but not disable BH, the lockdep report is
+> below; In fact, cxgb4_netdev only reads adap_rcu_list with RCU protection, so
+> not need to hold spin lock again.
+ ...
+> Reported-by: Ben Greear <greearb@candelatech.com>
+> Cc: Casey Leedom <leedom@chelsio.com>
+> Cc: Hariprasad Shenai <hariprasad@chelsio.com>
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
 
-True, but there could be a change in behavior like reading a
-previously hex value like 10 is now a decimal 10 not decimal 16.
+Applied, thanks.
 
-> > Are there any issues with any of the various callers
-> > getting a different error return?
-> >
-> > -EINVAL/-ERANGE vs -EIO ?
-> There shouldn't be, but I can always return -EIO to be
-> consistent with how it was previously.
+Casey please _do not_ put indentation in front of your Acked-by:,
+automated tools like patchwork will not pick it up if you do that.
 
-Up to you Tom.  I just wanted you to think about it.
-
-cheers, Joe
+I'm actually very surprised how much spurious indentation and weird
+spacing shows up in some people's postings.  You folks definitely are
+using graphical tools to type this stuff in, rather than real pure
+text editors.
