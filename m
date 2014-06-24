@@ -1,120 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] inet: reduce TLB pressure for listeners
-Date: Tue, 24 Jun 2014 05:32:48 -0700
-Message-ID: <1403613168.3796.8.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: [PATCH] trivial: net: filter: Fix typo in comment
+Date: Tue, 24 Jun 2014 15:33:20 +0200
+Message-ID: <1403616802-25743-1-git-send-email-tklauser@distanz.ch>
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f170.google.com ([74.125.82.170]:53494 "EHLO
-	mail-we0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751731AbaFXMc4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2014 08:32:56 -0400
-Received: by mail-we0-f170.google.com with SMTP id w61so272612wes.1
-        for <netdev@vger.kernel.org>; Tue, 24 Jun 2014 05:32:51 -0700 (PDT)
+Received: from mail.zhinst.com ([212.126.164.98]:57136 "EHLO mail.zhinst.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751984AbaFXNdj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Jun 2014 09:33:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
-
-It seems overkill to use vmalloc() for typical listeners with less than
-2048 hash buckets. Try kmalloc() and fallback to vmalloc() to reduce TLB
-pressure.
-
-Use kvfree() helper as it is now available.
-Use ilog2() instead of a loop.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
 ---
- net/core/request_sock.c |   43 ++++++++++----------------------------
- 1 file changed, 12 insertions(+), 31 deletions(-)
+ net/core/filter.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/core/request_sock.c b/net/core/request_sock.c
-index 467f326126e0..04db318e6218 100644
---- a/net/core/request_sock.c
-+++ b/net/core/request_sock.c
-@@ -41,27 +41,27 @@ int reqsk_queue_alloc(struct request_sock_queue *queue,
- 		      unsigned int nr_table_entries)
- {
- 	size_t lopt_size = sizeof(struct listen_sock);
--	struct listen_sock *lopt;
-+	struct listen_sock *lopt = NULL;
- 
- 	nr_table_entries = min_t(u32, nr_table_entries, sysctl_max_syn_backlog);
- 	nr_table_entries = max_t(u32, nr_table_entries, 8);
- 	nr_table_entries = roundup_pow_of_two(nr_table_entries + 1);
- 	lopt_size += nr_table_entries * sizeof(struct request_sock *);
--	if (lopt_size > PAGE_SIZE)
-+
-+	if (lopt_size <= (PAGE_SIZE << PAGE_ALLOC_COSTLY_ORDER))
-+		lopt = kzalloc(lopt_size, GFP_KERNEL |
-+					  __GFP_NOWARN |
-+					  __GFP_NORETRY);
-+	if (!lopt)
- 		lopt = vzalloc(lopt_size);
--	else
--		lopt = kzalloc(lopt_size, GFP_KERNEL);
--	if (lopt == NULL)
-+	if (!lopt)
- 		return -ENOMEM;
- 
--	for (lopt->max_qlen_log = 3;
--	     (1 << lopt->max_qlen_log) < nr_table_entries;
--	     lopt->max_qlen_log++);
--
- 	get_random_bytes(&lopt->hash_rnd, sizeof(lopt->hash_rnd));
- 	rwlock_init(&queue->syn_wait_lock);
- 	queue->rskq_accept_head = NULL;
- 	lopt->nr_table_entries = nr_table_entries;
-+	lopt->max_qlen_log = ilog2(nr_table_entries);
- 
- 	write_lock_bh(&queue->syn_wait_lock);
- 	queue->listen_opt = lopt;
-@@ -72,22 +72,8 @@ int reqsk_queue_alloc(struct request_sock_queue *queue,
- 
- void __reqsk_queue_destroy(struct request_sock_queue *queue)
- {
--	struct listen_sock *lopt;
--	size_t lopt_size;
--
--	/*
--	 * this is an error recovery path only
--	 * no locking needed and the lopt is not NULL
--	 */
--
--	lopt = queue->listen_opt;
--	lopt_size = sizeof(struct listen_sock) +
--		lopt->nr_table_entries * sizeof(struct request_sock *);
--
--	if (lopt_size > PAGE_SIZE)
--		vfree(lopt);
--	else
--		kfree(lopt);
-+	/* This is an error recovery path only, no locking needed */
-+	kvfree(queue->listen_opt);
- }
- 
- static inline struct listen_sock *reqsk_queue_yank_listen_sk(
-@@ -107,8 +93,6 @@ void reqsk_queue_destroy(struct request_sock_queue *queue)
- {
- 	/* make all the listen_opt local to us */
- 	struct listen_sock *lopt = reqsk_queue_yank_listen_sk(queue);
--	size_t lopt_size = sizeof(struct listen_sock) +
--		lopt->nr_table_entries * sizeof(struct request_sock *);
- 
- 	if (lopt->qlen != 0) {
- 		unsigned int i;
-@@ -125,10 +109,7 @@ void reqsk_queue_destroy(struct request_sock_queue *queue)
- 	}
- 
- 	WARN_ON(lopt->qlen != 0);
--	if (lopt_size > PAGE_SIZE)
--		vfree(lopt);
--	else
--		kfree(lopt);
-+	kvfree(lopt);
- }
- 
- /*
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 735fad8..243fb5d 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -1382,7 +1382,7 @@ static struct sk_filter *__sk_migrate_realloc(struct sk_filter *fp,
+ 	fp_new = sock_kmalloc(sk, len, GFP_KERNEL);
+ 	if (fp_new) {
+ 		*fp_new = *fp;
+-		/* As we're kepping orig_prog in fp_new along,
++		/* As we're keeping orig_prog in fp_new along,
+ 		 * we need to make sure we're not evicting it
+ 		 * from the old fp.
+ 		 */
+-- 
+1.7.9.5
