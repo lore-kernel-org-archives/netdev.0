@@ -1,58 +1,109 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [net-next PATCH v2 2/2] bridge: netlink dump interface at par
- with brctl
-Date: Tue, 24 Jun 2014 09:10:18 -0700
-Message-ID: <20140624091018.4bde9504@nehalam.linuxnetplumber.net>
-References: <1403619319-16131-1-git-send-email-jhs@emojatatu.com>
-	<1403619319-16131-3-git-send-email-jhs@emojatatu.com>
+From: Casey Leedom <leedom@chelsio.com>
+Subject: Re: [RFT 0/3] cxgb4: use request_firmware_nowait()
+Date: Tue, 24 Jun 2014 08:55:29 -0700
+Message-ID: <53A99F71.2060308@chelsio.com>
+References: <1403311181-9328-1-git-send-email-mcgrof@do-not-panic.com> <53A87AC8.7010305@chelsio.com> <20140624002941.GD27687@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, vyasevic@redhat.com,
-	sfeldma@cumulusnetworks.com, john.r.fastabend@intel.com,
-	roopa@cumulusnetworks.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f43.google.com ([209.85.160.43]:34005 "EHLO
-	mail-pb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965084AbaFXQKW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2014 12:10:22 -0400
-Received: by mail-pb0-f43.google.com with SMTP id um1so434733pbc.2
-        for <netdev@vger.kernel.org>; Tue, 24 Jun 2014 09:10:21 -0700 (PDT)
-In-Reply-To: <1403619319-16131-3-git-send-email-jhs@emojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+	hariprasad@chelsio.com, poswald@suse.com, santosh@chelsio.com,
+	jcheung@suse.com, dchang@suse.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Luis R. Rodriguez" <mcgrof@suse.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140624002941.GD27687@wotan.suse.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 24 Jun 2014 10:15:19 -0400
-Jamal Hadi Salim <jhs@mojatatu.com> wrote:
 
-> +			if (filter_dev && (!f->dst || f->dst->dev != filter_dev)) {
-> +				if (filter_dev != dev)
-> +					goto skip;
-> +				else {
-> +					/* 
-> +					 * !f->dst is a speacial case for bridge
-> +					 * It means the MAC belongs to the bridge
-> +					 * Therefore need a little more filtering
-> +					 * we only want to dump the !f->dst case
-> +					 */
-> +					if (f->dst)
-> +						goto skip;
-> +				}
+On 06/23/14 17:29, Luis R. Rodriguez wrote:
+> On Mon, Jun 23, 2014 at 12:06:48PM -0700, Casey Leedom wrote:
+>>    I've looked through the patch and I might be wrong, but it appears that
+>> all the uses of the asynchronous request_firmware_nowait() are followed
+>> immediately by wait_for_completion() calls which essentially would be the
+>> same as the previous code with an added layer of mechanism.  Am I missing
+>> something?
+> No you're right and I frailed to mention my original goal really is to
+> see if we can instead move that to ndo_init().
 
-After goto, the else is not needed, and it removes one level of already
-deep indentation.
+   Okay, thanks for confirming that.  I thought I was being very stupid.
 
-		
+   The problem I think with ndo_init() is that comes off a Network 
+Device (struct net_device) and you can't have Network Devices till you 
+talk to the adpater, discover how many ports you have, what their MAC 
+Addresses are, etc.  And of course you'd then have to be prepared for an 
+ndo_init() call on every instantiated Network Device on an adapter and 
+only do the device initialization for the first (while holding off any 
+and all activity on the others), etc.  All doable but a bit more 
+complicated than doing this at Device Probe time.
 
-			if (filter_dev && (!f->dst || f->dst->dev != filter_dev)) {
-				if (filter_dev != dev)
-					goto skip;
-				/* 
-				 * !f->dst is a speacial case for bridge
-				 * It means the MAC belongs to the bridge
-				 * Therefore need a little more filtering
-				 * we only want to dump the !f->dst case
-				 */
-				if (f->dst)
-					goto skip;
+>>    We do have a problem with initialization of multiple adapters with
+>> external PHYs since, for each adapter we can check to see if the main
+>> adapter firmware needs updating, and then load the PHY firmware.  If the
+>> main firmware needs updating on more than one adapter, the combined time to
+>> update each adapter's main firmware plus load the PHY firmware can exceed
+>> some Distribution's default limits for a driver module's load time (since
+>> the kernel seems to be processing the PCI Probe of each device
+>> sequentially).
+> I noticed that for configuration updates it is optional for these configuration
+> updates to exist, in which case then if udev is enabled the driver will wait
+> quite a long time unncessarily. To fix that it seems request_firmware_direct()
+> would be better.
+
+   Hhmmm, I'm unfamiliar with all of this.  I hadn't looked that far 
+under the covers of request_firmware() to know that any of these 
+variants existed, what their semantics were and when one over the other 
+was the preferred API.
+
+>>    It seems to me that it's unfortunate that the limit isn't on a per device
+>> basis since a system could have an arbitrary number of devices managed by a
+>> driver module.
+> The timeout is for the amount of time it takes the kernel to get the firemware,
+> not for device initialization, so its unclear to me that the 60 timeout thing
+> is actually causing an issue here.
+
+   Are you sure about that?  I just loaded firmware on two of my 
+T4-based adapters and each took about 15 seconds to complete.  The 
+firmware is ~0.5MB and needs to be written to the on-adapter FLASH. The 
+PHY firmware takes a bit less but not a lot.  Add that to the time to do 
+general adapter initialization and you're cruising close to 1 minute for 
+two adapters ...  Thus, my comment that whatever timeout is present 
+should really be per-adapter based ... and it would be nice if the 
+driver could inform the kernel as to the expected maximum device probe 
+initialization time so we didn't have to have a huge inappropriate 
+timeout for all devices ...
+
+>> Also, it might be useful if there was a way for the driver
+>> module to "tell" the timeout mechanism that forward progress _is_ being
+>> made so it doesn't blow away the driver module load.
+> Indeed if this is actually needed, but believe the issue here for the
+> huge delays might be instead the lack of not using request_firmware_direct()
+> and actual device initialization time, which I do not believe we penalize,
+> we should be penalizing only the amount of time it takes either the
+> kernel or udev to read the firmware from the filesystem.
+
+   If you want I can time the actual phases of loading new firmware: 
+request_firmware(), writing it to FLASH, release_firmware() ...
+
+>>   And maybe, if I'm
+>> right regarding the sequential nature of the introduction of devices to
+>> driver modules, it might make sense for a driver module to be able to
+>> "tell" the kernel that it has no per-device dependencies and multiple
+>> devices may be probed simultaneously ...
+> What if just configuration updates use request_firmware_direct() and
+> for the actual firmware which is required a request_firmware_nowait()
+> with a proper wait_for_completion() on the ndo_init() ?
+
+   I'm not quite sure I understand what you're asking here.  The cxgb4 
+driver attaches to the firmware in the probe() stage and, if the 
+firmware is older then the supported version, upgrades the firmware and 
+RESETs the device.  Then, for adapters with external PHYs (10Gb/s BT 
+predominantly), the same process can happen for the PHY firmware (or on 
+some adapters which have no PHY-attached FLASH, this happens for every 
+driver load).  It's conceivable that we could defer the PHY firmware 
+load till the first ndo_open() but we'd still be stuck with the 
+seemingly broken idea that a simple timeout for a driver module load is 
+good enough when what we seem to need is a timeout per device ...
+
+Casey
