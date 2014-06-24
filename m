@@ -1,71 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH v2 2/2] bridge: netlink dump interface at par
- with brctl
-Date: Tue, 24 Jun 2014 08:29:01 -0700
-Message-ID: <1403623741.3796.17.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1403619319-16131-1-git-send-email-jhs@emojatatu.com>
-	 <1403619319-16131-3-git-send-email-jhs@emojatatu.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH 1/2] powerpc: bpf: Use correct mask while accessing the
+ VLAN tag
+Date: Tue, 24 Jun 2014 08:29:46 -0700
+Message-ID: <CAADnVQJPoy_z-WoqEXnSvTZ-ussCRawn9L5eBfo6S_gxY2MMwQ@mail.gmail.com>
+References: <1403603969-24436-1-git-send-email-kda@linux-powerpc.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, stephen@networkplumber.org,
-	netdev@vger.kernel.org, vyasevic@redhat.com,
-	sfeldma@cumulusnetworks.com, john.r.fastabend@intel.com,
-	roopa@cumulusnetworks.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linuxppc-dev@lists.ozlabs.org
+To: Denis Kirjanov <kda@linux-powerpc.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f51.google.com ([74.125.82.51]:39970 "EHLO
-	mail-wg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752564AbaFXP3I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2014 11:29:08 -0400
-Received: by mail-wg0-f51.google.com with SMTP id x12so532132wgg.34
-        for <netdev@vger.kernel.org>; Tue, 24 Jun 2014 08:29:05 -0700 (PDT)
-In-Reply-To: <1403619319-16131-3-git-send-email-jhs@emojatatu.com>
+Received: from mail-qg0-f46.google.com ([209.85.192.46]:46877 "EHLO
+	mail-qg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754187AbaFXP35 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2014 11:29:57 -0400
+Received: by mail-qg0-f46.google.com with SMTP id q107so413224qgd.33
+        for <netdev@vger.kernel.org>; Tue, 24 Jun 2014 08:29:56 -0700 (PDT)
+In-Reply-To: <1403603969-24436-1-git-send-email-kda@linux-powerpc.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-06-24 at 10:15 -0400, Jamal Hadi Salim wrote:
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
-> 
+On Tue, Jun 24, 2014 at 2:59 AM, Denis Kirjanov <kda@linux-powerpc.org> wrote:
+> Use the proper mask which is 0xefff
 
-...
+sob is missing.
 
->  
->  static int rtnl_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
->  {
-> -	int idx = 0;
-> -	struct net *net = sock_net(skb->sk);
->  	struct net_device *dev;
-> +	struct nlattr *tb[IFLA_MAX+1];
-> +	struct net_device *bdev = NULL;
-> +	struct net_device *br_dev = NULL;
-> +	const struct net_device_ops *ops = NULL;
-> +	const struct net_device_ops *cops = NULL;
-> +	struct ifinfomsg *ifm = nlmsg_data(cb->nlh);
-> +	struct net *net = sock_net(skb->sk);
-> +	int brport_idx = 0;
-> +	int br_idx = 0;
-> +	int idx = 0;
-> +
-> +	if (nlmsg_parse(cb->nlh, sizeof(struct ifinfomsg), tb, IFLA_MAX,
-> +			ifla_policy) == 0) {
-> +		if (tb[IFLA_MASTER])
-> +			br_idx = nla_get_u32(tb[IFLA_MASTER]);
-> +	}
-> +	
-> +	brport_idx = ifm->ifi_index;
-> +
-> +	if (br_idx) {
-> +		br_dev = __dev_get_by_index(net, br_idx);
-> +		if (!br_dev) {
-> +			return -ENODEV;
-> +		}
-> +		ops = br_dev->netdev_ops;
-> +		bdev = br_dev;
-> +	}
->  
-> -	rcu_read_lock();
->  	for_each_netdev_rcu(net, dev) {
+also please expand the commit message a bit, otherwise it's too cryptic for
+folks who don't know bpf details.
 
-
-for_each_netdev() 
+> ---
+>  arch/powerpc/net/bpf_jit_comp.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/arch/powerpc/net/bpf_jit_comp.c b/arch/powerpc/net/bpf_jit_comp.c
+> index 6dcdade..af0ed4d 100644
+> --- a/arch/powerpc/net/bpf_jit_comp.c
+> +++ b/arch/powerpc/net/bpf_jit_comp.c
+> @@ -393,7 +393,7 @@ static int bpf_jit_build_body(struct sk_filter *fp, u32 *image,
+>                         PPC_LHZ_OFFS(r_A, r_skb, offsetof(struct sk_buff,
+>                                                           vlan_tci));
+>                         if (code == (BPF_ANC | SKF_AD_VLAN_TAG))
+> -                               PPC_ANDI(r_A, r_A, VLAN_VID_MASK);
+> +                               PPC_ANDI(r_A, r_A, ~VLAN_TAG_PRESENT);
+>                         else
+>                                 PPC_ANDI(r_A, r_A, VLAN_TAG_PRESENT);
+>                         break;
+> --
+> 2.0.0
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
