@@ -1,7 +1,9 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next 0/6] amd-xgbe: AMD 10Gb Ethernet driver updates
-Date: Tue, 24 Jun 2014 16:19:00 -0500
-Message-ID: <20140624211900.20681.46554.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next 6/6] amd-xgbe: Resolve checkpatch warning about
+ sscanf usage
+Date: Tue, 24 Jun 2014 16:19:35 -0500
+Message-ID: <20140624211935.20681.85586.stgit@tlendack-t1.amdoffice.net>
+References: <20140624211900.20681.46554.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -11,48 +13,45 @@ Return-path: <netdev-owner@vger.kernel.org>
 Received: from [207.46.163.141] ([207.46.163.141]:39024 "EHLO
 	na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752593AbaFXVT5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752809AbaFXVT5 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 24 Jun 2014 17:19:57 -0400
+In-Reply-To: <20140624211900.20681.46554.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following series fixes some bugs and provides new/changed support
-in the driver.
+Checkpatch issued a warning preferring to use kstrto<type> when
+using a single variable sscanf.  Change the sscanf invocation to
+a kstrtouint call.
 
-- Make all the defines in the xgbe.h file unique by prefixing them with
-  XGBE_ if they are not currently using the prefix.
-- VLAN CTAGs are supplied in context descriptors. Tell the hardware to
-  look in the Tx context descriptor, and not a register, for the VLAN CTAG
-  to be inserted in the packet.
-- The hardware will indicate a VLAN packet has been received even if VLAN
-  CTAG stripping is currently disabled.  Only indicate that a VLAN CTAG
-  has been stripped for the current packet if stripping is enabled.
-- Add support for VLAN filtering
-- Modify destination address filtering to use the hardware hash tables
-- Eliminate a checkpatch warning by replacing sscanf with kstrtouint
-
-This patch series is based on net-next.
-
+Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
+ drivers/net/ethernet/amd/xgbe/xgbe-debugfs.c |    9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
 
-Tom Lendacky (6):
-      amd-xgbe: Make defines in xgbe.h unique
-      amd-xgbe: VLAN Tx tag insertion fix
-      amd-xgbe: VLAN Rx tag stripping fix
-      amd-xgbe: Add support for VLAN filtering
-      amd-xgbe: Change destination address filtering support
-      amd-xgbe: Resolve checkpatch warning about sscanf usage
-
-
- drivers/net/ethernet/amd/Kconfig             |    2 
- drivers/net/ethernet/amd/xgbe/xgbe-common.h  |   26 +-
- drivers/net/ethernet/amd/xgbe/xgbe-debugfs.c |    9 -
- drivers/net/ethernet/amd/xgbe/xgbe-desc.c    |   23 +-
- drivers/net/ethernet/amd/xgbe/xgbe-dev.c     |  344 ++++++++++++++++++--------
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c     |  115 ++++++---
- drivers/net/ethernet/amd/xgbe/xgbe-main.c    |   13 +
- drivers/net/ethernet/amd/xgbe/xgbe.h         |   55 ++--
- 8 files changed, 398 insertions(+), 189 deletions(-)
-
--- 
-Tom Lendacky
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-debugfs.c b/drivers/net/ethernet/amd/xgbe/xgbe-debugfs.c
+index 6bb76d5..8119858 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-debugfs.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-debugfs.c
+@@ -151,7 +151,7 @@ static ssize_t xgbe_common_write(const char __user *buffer, size_t count,
+ {
+ 	char workarea[32];
+ 	ssize_t len;
+-	unsigned int scan_value;
++	int ret;
+ 
+ 	if (*ppos != 0)
+ 		return 0;
+@@ -165,10 +165,9 @@ static ssize_t xgbe_common_write(const char __user *buffer, size_t count,
+ 		return len;
+ 
+ 	workarea[len] = '\0';
+-	if (sscanf(workarea, "%x", &scan_value) == 1)
+-		*value = scan_value;
+-	else
+-		return -EIO;
++	ret = kstrtouint(workarea, 0, value);
++	if (ret)
++		return ret;
+ 
+ 	return len;
+ }
