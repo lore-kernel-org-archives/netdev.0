@@ -1,61 +1,127 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/14] i40e: warn on newer/older firmware API rev
-Date: Mon, 23 Jun 2014 17:47:28 -0700
-Message-ID: <1403570858-13548-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/14] i40e: Fix ethtool coalesce settings
+Date: Mon, 23 Jun 2014 17:47:30 -0700
+Message-ID: <1403570858-13548-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1403570858-13548-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Catherine Sullivan <catherine.sullivan@intel.com>,
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:58402 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754173AbaFXAro (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Jun 2014 20:47:44 -0400
+	id S1754115AbaFXArq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Jun 2014 20:47:46 -0400
 In-Reply-To: <1403570858-13548-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-If the firmware's API minor number is larger than the one expected, log
-a warning and recommend driver SW update.
-If the firmware's API major or minor number is smaller then the one expected
-(n for major, n or n-1 for minor), log a warning and recommend NVM update.
+This patch fixes the i40e_set_coalesce function to allow 0 as a disable
+value.  Also, added message to user about invalid value and provides valid
+range.
 
-Change-ID: If0b887e055478f8e435ba7fa28113b63a6f1bb35
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+Change-ID: I6c9ff11a9861f2045bd543745a3d132999ffbbd8
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 14 ++++++++++++++
- 1 file changed, 14 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e.h         |  1 +
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 28 +++++++++++++++++++++-----
+ drivers/net/ethernet/intel/i40e/i40e_main.c    | 16 +++++++++++++++
+ 3 files changed, 40 insertions(+), 5 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 817e179..07811dd 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -617,6 +617,7 @@ static inline void i40e_dbg_init(void) {}
+ static inline void i40e_dbg_exit(void) {}
+ #endif /* CONFIG_DEBUG_FS*/
+ void i40e_irq_dynamic_enable(struct i40e_vsi *vsi, int vector);
++void i40e_irq_dynamic_disable(struct i40e_vsi *vsi, int vector);
+ void i40e_irq_dynamic_disable_icr0(struct i40e_pf *pf);
+ void i40e_irq_dynamic_enable_icr0(struct i40e_pf *pf);
+ int i40e_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 4a488ff..7da3758 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -1105,17 +1105,36 @@ static int i40e_set_coalesce(struct net_device *netdev,
+ 	if (ec->tx_max_coalesced_frames_irq || ec->rx_max_coalesced_frames_irq)
+ 		vsi->work_limit = ec->tx_max_coalesced_frames_irq;
+ 
++	vector = vsi->base_vector;
+ 	if ((ec->rx_coalesce_usecs >= (I40E_MIN_ITR << 1)) &&
+-	    (ec->rx_coalesce_usecs <= (I40E_MAX_ITR << 1)))
++	    (ec->rx_coalesce_usecs <= (I40E_MAX_ITR << 1))) {
+ 		vsi->rx_itr_setting = ec->rx_coalesce_usecs;
+-	else
++	} else if (ec->rx_coalesce_usecs == 0) {
++		vsi->rx_itr_setting = ec->rx_coalesce_usecs;
++		i40e_irq_dynamic_disable(vsi, vector);
++		if (ec->use_adaptive_rx_coalesce)
++			netif_info(pf, drv, netdev,
++				   "Rx-secs=0, need to disable adaptive-Rx for a complete disable\n");
++	} else {
++		netif_info(pf, drv, netdev,
++			   "Invalid value, Rx-usecs range is 0, 8-8160\n");
+ 		return -EINVAL;
++	}
+ 
+ 	if ((ec->tx_coalesce_usecs >= (I40E_MIN_ITR << 1)) &&
+-	    (ec->tx_coalesce_usecs <= (I40E_MAX_ITR << 1)))
++	    (ec->tx_coalesce_usecs <= (I40E_MAX_ITR << 1))) {
+ 		vsi->tx_itr_setting = ec->tx_coalesce_usecs;
+-	else
++	} else if (ec->tx_coalesce_usecs == 0) {
++		vsi->tx_itr_setting = ec->tx_coalesce_usecs;
++		i40e_irq_dynamic_disable(vsi, vector);
++		if (ec->use_adaptive_tx_coalesce)
++			netif_info(pf, drv, netdev,
++				   "Tx-secs=0, need to disable adaptive-Tx for a complete disable\n");
++	} else {
++		netif_info(pf, drv, netdev,
++			   "Invalid value, Tx-usecs range is 0, 8-8160\n");
+ 		return -EINVAL;
++	}
+ 
+ 	if (ec->use_adaptive_rx_coalesce)
+ 		vsi->rx_itr_setting |= I40E_ITR_DYNAMIC;
+@@ -1127,7 +1146,6 @@ static int i40e_set_coalesce(struct net_device *netdev,
+ 	else
+ 		vsi->tx_itr_setting &= ~I40E_ITR_DYNAMIC;
+ 
+-	vector = vsi->base_vector;
+ 	for (i = 0; i < vsi->num_q_vectors; i++, vector++) {
+ 		q_vector = vsi->q_vectors[i];
+ 		q_vector->rx.itr = ITR_TO_REG(vsi->rx_itr_setting);
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index b751258..3484588 100644
+index db3826f..24ecd9f 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -8634,6 +8634,20 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		goto err_pf_reset;
- 	}
+@@ -2768,6 +2768,22 @@ void i40e_irq_dynamic_enable(struct i40e_vsi *vsi, int vector)
+ }
  
-+	if (hw->aq.api_min_ver > I40E_FW_API_VERSION_MINOR)
-+		dev_info(&pdev->dev,
-+			 "Note: FW API version %02x.%02x newer than expected %02x.%02x, recommend driver update.\n",
-+			 hw->aq.api_maj_ver, hw->aq.api_min_ver,
-+			 I40E_FW_API_VERSION_MAJOR, I40E_FW_API_VERSION_MINOR);
+ /**
++ * i40e_irq_dynamic_disable - Disable default interrupt generation settings
++ * @vsi: pointer to a vsi
++ * @vector: enable a particular Hw Interrupt vector
++ **/
++void i40e_irq_dynamic_disable(struct i40e_vsi *vsi, int vector)
++{
++	struct i40e_pf *pf = vsi->back;
++	struct i40e_hw *hw = &pf->hw;
++	u32 val;
 +
-+	if (hw->aq.api_maj_ver < I40E_FW_API_VERSION_MAJOR ||
-+	    hw->aq.api_min_ver < (I40E_FW_API_VERSION_MINOR-1))
-+		dev_info(&pdev->dev,
-+			 "Note: FW API version %02x.%02x older than expected %02x.%02x, recommend nvm update.\n",
-+			 hw->aq.api_maj_ver, hw->aq.api_min_ver,
-+			 I40E_FW_API_VERSION_MAJOR, I40E_FW_API_VERSION_MINOR);
++	val = I40E_ITR_NONE << I40E_PFINT_DYN_CTLN_ITR_INDX_SHIFT;
++	wr32(hw, I40E_PFINT_DYN_CTLN(vector - 1), val);
++	i40e_flush(hw);
++}
 +
-+
- 	i40e_verify_eeprom(pf);
- 
- 	/* Rev 0 hardware was never productized */
++/**
+  * i40e_msix_clean_rings - MSIX mode Interrupt Handler
+  * @irq: interrupt number
+  * @data: pointer to a q_vector
 -- 
 1.9.3
