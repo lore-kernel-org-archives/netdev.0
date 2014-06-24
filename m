@@ -1,12 +1,15 @@
 From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Subject: [PATCH 1/3] mmc: vub300: use request_firmware_direct() for pseudo code
-Date: Tue, 24 Jun 2014 15:39:41 -0700
-Message-ID: <1403649583-12707-2-git-send-email-mcgrof@do-not-panic.com>
+Subject: [PATCH 2/3] cxgb4: make configuration load use request_firmware_direct()
+Date: Tue, 24 Jun 2014 15:39:42 -0700
+Message-ID: <1403649583-12707-3-git-send-email-mcgrof@do-not-panic.com>
 References: <1403649583-12707-1-git-send-email-mcgrof@do-not-panic.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	gregkh@linuxfoundation.org, "Luis R. Rodriguez" <mcgrof@suse.com>,
-	Tony Olech <tony.olech@elandigitalsystems.com>,
-	linux-mmc@vger.kernel.org, linux-usb@vger.kernel.org
+	Philip Oswald <poswald@suse.com>,
+	Santosh Rastapur <santosh@chelsio.com>,
+	Jeffrey Cheung <jcheung@suse.com>,
+	David Chang <dchang@suse.com>,
+	Hariprasad Shenai <hariprasad@chelsio.com>
 To: tiwai@suse.de, chunkeey@googlemail.com, leedom@chelsio.com,
 	cocci@systeme.lip6.fr
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -16,10 +19,12 @@ List-Id: netdev.vger.kernel.org
 
 From: "Luis R. Rodriguez" <mcgrof@suse.com>
 
-vub300 uses the request_firmware() API for downloading
-pseudo code twice and if this fails its not considered fatal.
-Avoid letting the request linger 60 seconds because of udev if
-one of the requests fails by explicitly skipping the udev helper.
+cxgb4 uses request_firmware() 3 times, one for firmware, one for
+optional configuration files and another for ethtools flash. Since the
+configuration update is optional on devices that don't have a
+configuration file update it means we'd wait unnecessarily for the
+extra udev timeout, which by default is 60 seconds. Avoid this
+extra delay.
 
 This was found with the following SmPL patch.
 
@@ -44,34 +49,31 @@ statement S;
 		...
 	}
 
-Cc: Tony Olech <tony.olech@elandigitalsystems.com>
-Cc: linux-mmc@vger.kernel.org
-Cc: linux-usb@vger.kernel.org
+Cc: Philip Oswald <poswald@suse.com>
+Cc: Santosh Rastapur <santosh@chelsio.com>
+Cc: Jeffrey Cheung <jcheung@suse.com>
+Cc: David Chang <dchang@suse.com>
+Cc: Casey Leedom <leedom@chelsio.com>
+Cc: Hariprasad Shenai <hariprasad@chelsio.com>
 Cc: Takashi Iwai <tiwai@suse.de>
 Cc: cocci@systeme.lip6.fr
 Signed-off-by: Luis R. Rodriguez <mcgrof@suse.com>
 ---
- drivers/mmc/host/vub300.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/mmc/host/vub300.c b/drivers/mmc/host/vub300.c
-index 4262296..15eeaff 100644
---- a/drivers/mmc/host/vub300.c
-+++ b/drivers/mmc/host/vub300.c
-@@ -1378,11 +1378,12 @@ static void download_offload_pseudocode(struct vub300_mmc_host *vub300)
- 	snprintf(vub300->vub_name + l, sizeof(vub300->vub_name) - l, ".bin");
- 	dev_info(&vub300->udev->dev, "requesting offload firmware %s\n",
- 		 vub300->vub_name);
--	retval = request_firmware(&fw, vub300->vub_name, &card->dev);
-+	retval = request_firmware_direct(&fw, vub300->vub_name, &card->dev);
- 	if (retval < 0) {
- 		strncpy(vub300->vub_name, "vub_default.bin",
- 			sizeof(vub300->vub_name));
--		retval = request_firmware(&fw, vub300->vub_name, &card->dev);
-+		retval = request_firmware_direct(&fw, vub300->vub_name,
-+						 &card->dev);
- 		if (retval < 0) {
- 			strncpy(vub300->vub_name,
- 				"no SDIO offload firmware found",
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 02a0ebf..bd57177 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -4999,7 +4999,7 @@ static int adap_init0_config(struct adapter *adapter, int reset)
+ 		goto bye;
+ 	}
+ 
+-	ret = request_firmware(&cf, fw_config_file, adapter->pdev_dev);
++	ret = request_firmware_direct(&cf, fw_config_file, adapter->pdev_dev);
+ 	if (ret < 0) {
+ 		config_name = "On FLASH";
+ 		mtype = FW_MEMTYPE_CF_FLASH;
 -- 
 2.0.0
