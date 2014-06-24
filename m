@@ -1,29 +1,19 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH] net: filter: Use kcalloc/kmalloc_array to allocate arrays
-Date: Tue, 24 Jun 2014 15:47:24 +0200
-Message-ID: <53A9816C.30903@redhat.com>
-References: <1403616802-25743-1-git-send-email-tklauser@distanz.ch> <1403616802-25743-3-git-send-email-tklauser@distanz.ch>
+From: Dr Vitor Gespar <willypriori@alice.it>
+Subject: Contact me for more details.
+Date: Tue, 24 Jun 2014 15:49:54 +0200 (CEST)
+Message-ID: <146ce23da09.willypriori@alice.it>
+Reply-To: dr.vitorgespar@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexei Starovoitov <ast@plumgrid.com>, netdev@vger.kernel.org
-To: Tobias Klauser <tklauser@distanz.ch>
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45401 "EHLO mx1.redhat.com"
+Received: from smtp301.alice.it ([82.57.200.117]:3101 "EHLO smtp301.alice.it"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751818AbaFXNrg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Jun 2014 09:47:36 -0400
-In-Reply-To: <1403616802-25743-3-git-send-email-tklauser@distanz.ch>
+	id S1751401AbaFXNug (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Jun 2014 09:50:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/24/2014 03:33 PM, Tobias Klauser wrote:
-> Use kcalloc/kmalloc_array to make it clear we're allocating arrays. No
-> integer overflow can actually happen here, since len/flen is guaranteed
-> to be less than BPF_MAXINSNS (4096). However, this changed makes sure
-> we're not going to get one if BPF_MAXINSNS were ever increased.
->
-> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
-
-Acked-by: Daniel Borkmann <dborkman@redhat.com>
+Hi friend. I want to transfer USD5.5Million into your account Contact me for 
+more details.
