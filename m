@@ -1,52 +1,51 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net 2/2] net: systemport: fix UniMAC reset logic
-Date: Tue, 24 Jun 2014 16:16:16 -0700
-Message-ID: <CAGVrzcaquiXbkt0HtEuyOqq+9os+5P8Hh=UezFdmNZo=w=LZYQ@mail.gmail.com>
-References: <1403294500-31905-1-git-send-email-f.fainelli@gmail.com>
- <1403294500-31905-3-git-send-email-f.fainelli@gmail.com> <20140624.161241.1533958645479291631.davem@davemloft.net>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH v2.62] datapath: Add basic MPLS support to kernel
+Date: Tue, 24 Jun 2014 16:24:37 -0700
+Message-ID: <CAEP_g=9yYqKy-=aiTi3=3cZNOombBgkjHdzLdRzYVVKyJCHqcQ@mail.gmail.com>
+References: <1403611017-10965-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>, Ravi K <rkerur@gmail.com>,
+	Joe Stringer <joe@wand.net.nz>, Thomas Graf <tgraf@suug.ch>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f177.google.com ([209.85.214.177]:35899 "EHLO
-	mail-ob0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751805AbaFXXQ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2014 19:16:57 -0400
-Received: by mail-ob0-f177.google.com with SMTP id uy5so1123386obc.8
-        for <netdev@vger.kernel.org>; Tue, 24 Jun 2014 16:16:56 -0700 (PDT)
-In-Reply-To: <20140624.161241.1533958645479291631.davem@davemloft.net>
+Received: from na3sys009aog130.obsmtp.com ([74.125.149.143]:50062 "HELO
+	na3sys009aog130.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753490AbaFXXY6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2014 19:24:58 -0400
+Received: by mail-qc0-f172.google.com with SMTP id o8so1021586qcw.31
+        for <netdev@vger.kernel.org>; Tue, 24 Jun 2014 16:24:57 -0700 (PDT)
+In-Reply-To: <1403611017-10965-1-git-send-email-horms@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014-06-24 16:12 GMT-07:00 David Miller <davem@davemloft.net>:
-> From: Florian Fainelli <f.fainelli@gmail.com>
-> Date: Fri, 20 Jun 2014 13:01:40 -0700
+On Tue, Jun 24, 2014 at 4:56 AM, Simon Horman <horms@verge.net.au> wrote:
+> Allow datapath to recognize and extract MPLS labels into flow keys
+> and execute actions which push, pop, and set labels on packets.
 >
->> The UniMAC CMD_SW_RESET bit is not a self-clearing bit, so we need to
->> assert it, wait a bit and clear it manually. As a result, umac_reset()
->> is updated not to return any value.
->>
->> By setting CMD_SW_RESET and only that bit, we were also clearing the
->> other 31 bits, overriding the hardware reset defaults which are
->> correctly set on purpose.
->>
->> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> Based heavily on work by Leo Alterman, Ravi K, Isaku Yamahata and Joe Stringer.
 >
-> I agree with Sergei, this is really suspicious that the existing code
-> never wrote the sw reset bit into the register at all, it just writes
-> a zero.
->
-> And you don't mention this at all in this commit message.
->
-> If I were to guess, I would fathom that the sequence was partially
-> copied from the other broadcom driver, the genet one.  There it
-> issues CMD_SW_RESET by first clearing the entire regiser to zero,
-> then writing CMD_SW_RESET, and then polling for that bit to clear.
->
-> I'm assuming that is being done for a good reason, and I'd like
-> you to make sure that same reason does not apply here.
+> Cc: Ravi K <rkerur@gmail.com>
+> Cc: Leo Alterman <lalterman@nicira.com>
+> Cc: Isaku Yamahata <yamahata@valinux.co.jp>
+> Cc: Joe Stringer <joe@wand.net.nz>
+> Signed-off-by: Simon Horman <horms@verge.net.au>
 
-I'll resubmit with a proper explanation, thanks.
--- 
-Florian
+Applied, thanks for all your work. Time to break out the champagne :)
+
+That being said, I do have a couple of comments for follow up discussion:
+ * I removed the addition of MPLS to key_attr_size. This is trying to
+calculate the maximum key size and since MPLS will never show up in
+conjunction with IPv6 (the current longest key) and isn't longer than
+it, MPLS shouldn't increase the maximum size.
+ * I think there is a potential for MPLS packets to be incorrectly
+offloaded on kernels 3.12-3.15 when encapsulated inside a tunnel. This
+is because it won't hit either the OVS GSO code or your enhanced MPLS
+feature check. I don't want to lose GSO for tunnels on those kernels
+but maybe there is a way to avoid this potential problem without too
+much work.
+ * Maybe you can refresh my memory - in the case of a push_mpls after
+pop_vlan, why can't we do this check correctly for at least one level
+of vlan? It seems like we could use the inner EtherType to tell
+whether an additional vlan tag is present.
