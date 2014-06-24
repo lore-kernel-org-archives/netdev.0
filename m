@@ -1,62 +1,47 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: SmPL for automatic request_firmware_nowait() conversion
-Date: Tue, 24 Jun 2014 23:58:28 +0200
-Message-ID: <20140624215828.GA14124@electric-eye.fr.zoreil.com>
-References: <20140621015714.GX4841@wotan.suse.de>
- <20140621105205.GA31611@electric-eye.fr.zoreil.com>
- <20140623232107.GB27687@wotan.suse.de>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next 6/6] amd-xgbe: Resolve checkpatch warning about
+ sscanf usage
+Date: Tue, 24 Jun 2014 15:00:25 -0700
+Message-ID: <1403647225.29061.64.camel@joe-AO725>
+References: <20140624211900.20681.46554.stgit@tlendack-t1.amdoffice.net>
+	 <20140624211935.20681.85586.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: cocci@systeme.lip6.fr, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: "Luis R. Rodriguez" <mcgrof@suse.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140623232107.GB27687@wotan.suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Tom Lendacky <thomas.lendacky@amd.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0070.hostedemail.com ([216.40.44.70]:60599 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752299AbaFXWAc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2014 18:00:32 -0400
+In-Reply-To: <20140624211935.20681.85586.stgit@tlendack-t1.amdoffice.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Luis R. Rodriguez <mcgrof@suse.com> :
-> On Sat, Jun 21, 2014 at 12:52:05PM +0200, Francois Romieu wrote:
-> > Luis R. Rodriguez <mcgrof@suse.com> :
-[...]
-> Note that in the worst case if udev is present in the worst case if the
-> firmware is not present loading can take up to timeout * num CPUs [0],
-> but work is underway to try to remove udev firmware loading support [1].
-> Regardless then the current approach seemed to beg a rework.
-> 
-> [0] https://lkml.org/lkml/2013/10/23/264
-> [1] http://comments.gmane.org/gmane.comp.sysutils.systemd.devel/19440
+On Tue, 2014-06-24 at 16:19 -0500, Tom Lendacky wrote:
+> Checkpatch issued a warning preferring to use kstrto<type> when
+> using a single variable sscanf.  Change the sscanf invocation to
+> a kstrtouint call.
+[]
+> diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-debugfs.c b/drivers/net/ethernet/amd/xgbe/xgbe-debugfs.c
+[]
+> @@ -165,10 +165,9 @@ static ssize_t xgbe_common_write(const char __user *buffer, size_t count,
+>  		return len;
+>  
+>  	workarea[len] = '\0';
+> -	if (sscanf(workarea, "%x", &scan_value) == 1)
+> -		*value = scan_value;
+> -	else
+> -		return -EIO;
+> +	ret = kstrtouint(workarea, 0, value);
 
-Thanks for the pointers.
+Don't you need to use 16 for the base here?
 
-I can't help thinking that there's a bit of sensationalism in the
-timeout * num CPUs argument though. :o)
+> +	if (ret)
+> +		return ret;
 
-[...]
-> The kernel's timeout is 60 seconds, and this is static, but lets be clear
-> that there is a difference between the timeout for reading the firmware
-> from the filesystem and actually dumping the firmware onto the device
-> by the driver and ensuring that the driver is done poking at it. The
-> kernel timeout is for the kernel reading it and tossing it back to the
-> driver.
+Are there any issues with any of the various callers
+getting a different error return?
 
-You are right.
-
-[...]
-> I was actually in the hopes a suitable transormation can be designed
-> to put a wait_for_completion() in say ndo_init(). I was looking to
-> see if a tranformation can be generalized of course if the above
-> observations on probe() is something desirable to be addressed.
-
-register_netdev is commonly called at the end of the probe method. probe()
-would thus schedule an async firmware loading, fly, then wait_for_completion()
-through register_netdev->ndo_init(). If so there won't be much gain.
-
-There could be more gain with a wait_for_completion() in ndo_open()
-but probe() + ndo_open() would still hit any fw read/poke/complete wall.
-
-It can be done but it will imvho require a lot of driver dependant work.
-
--- 
-Ueimor
+-EINVAL/-ERANGE vs -EIO ?
