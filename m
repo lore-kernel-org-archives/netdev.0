@@ -1,87 +1,59 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/14] i40e: allow user to set LAA again
-Date: Mon, 23 Jun 2014 17:47:34 -0700
-Message-ID: <1403570858-13548-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 13/14] i40e: Bypass timeout recovery level 0 so as to not cause MDD
+Date: Mon, 23 Jun 2014 17:47:37 -0700
+Message-ID: <1403570858-13548-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1403570858-13548-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:58409 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:58417 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754329AbaFXAru (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 23 Jun 2014 20:47:50 -0400
+	id S1754545AbaFXArw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Jun 2014 20:47:52 -0400
 In-Reply-To: <1403570858-13548-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-Don't short-circuit the LAA assignment when the driver thinks it has
-already been done - it is possible that the user might want to force
-the address setting again.  At the same time, this requires a little
-re-ordering of the filter management.
+When a Tx hang happens, usually the Tx queue disable fails. At
+this point if we try to recover by a VSI reinit the HW gets
+unhappy and we get a Malicious Driver Detect (MDD) event.
+HW expects a PF reset if a queue disable fails, if we don't do a PF
+reset and restart the queue we get an MDD.  This patch makes sure we
+do a PF reset on Tx hang and that way we avoid any MDD because of Tx
+queue disable failure.
 
-Change-ID: Ia0d71e3bc04edd7b68cf67edecc00abe7b9f6639
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Change-ID: I665ab6223577c788da857ee2132e733dc9a451e4
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 31 +++++++++++++++--------------
- 1 file changed, 16 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index aac5cdd..b83aac6 100644
+index 6522a51..168030b 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -1327,9 +1327,6 @@ static int i40e_set_mac(struct net_device *netdev, void *p)
+@@ -278,7 +278,7 @@ static void i40e_tx_timeout(struct net_device *netdev)
+ 	pf->tx_timeout_count++;
  
- 	netdev_info(netdev, "set mac address=%pM\n", addr->sa_data);
+ 	if (time_after(jiffies, (pf->tx_timeout_last_recovery + HZ*20)))
+-		pf->tx_timeout_recovery_level = 0;
++		pf->tx_timeout_recovery_level = 1;
+ 	pf->tx_timeout_last_recovery = jiffies;
+ 	netdev_info(netdev, "tx_timeout recovery level %d\n",
+ 		    pf->tx_timeout_recovery_level);
+@@ -6827,6 +6827,8 @@ static int i40e_sw_init(struct i40e_pf *pf)
+ 	pf->irq_pile->num_entries = pf->hw.func_caps.num_msix_vectors;
+ 	pf->irq_pile->search_hint = 0;
  
--	if (ether_addr_equal(netdev->dev_addr, addr->sa_data))
--		return 0;
--
- 	if (test_bit(__I40E_DOWN, &vsi->back->state) ||
- 	    test_bit(__I40E_RESET_RECOVERY_PENDING, &vsi->back->state))
- 		return -EADDRNOTAVAIL;
-@@ -1345,22 +1342,26 @@ static int i40e_set_mac(struct net_device *netdev, void *p)
- 				    ret);
- 			return -EADDRNOTAVAIL;
- 		}
--
--		ether_addr_copy(vsi->back->hw.mac.addr, addr->sa_data);
- 	}
- 
--	/* In order to be sure to not drop any packets, add the new address
--	 * then delete the old one.
--	 */
--	f = i40e_add_filter(vsi, addr->sa_data, I40E_VLAN_ANY, false, false);
--	if (!f)
--		return -ENOMEM;
-+	if (!i40e_find_mac(vsi, addr->sa_data, false, true)) {
- 
--	i40e_sync_vsi_filters(vsi);
--	i40e_del_filter(vsi, netdev->dev_addr, I40E_VLAN_ANY, false, false);
--	i40e_sync_vsi_filters(vsi);
-+		/* In order to be sure to not drop any packets, add the
-+		 * new address first then delete the old one.
-+		 */
-+		f = i40e_add_filter(vsi, addr->sa_data, I40E_VLAN_ANY,
-+				    false, false);
-+		if (!f)
-+			return -ENOMEM;
++	pf->tx_timeout_recovery_level = 1;
 +
-+		i40e_sync_vsi_filters(vsi);
-+		i40e_del_filter(vsi, netdev->dev_addr, I40E_VLAN_ANY,
-+				false, false);
-+		i40e_sync_vsi_filters(vsi);
-+	}
+ 	mutex_init(&pf->switch_mutex);
  
--	ether_addr_copy(netdev->dev_addr, addr->sa_data);
-+	if (!ether_addr_equal(netdev->dev_addr, addr->sa_data))
-+		ether_addr_copy(netdev->dev_addr, addr->sa_data);
- 
- 	return 0;
- }
+ sw_init_done:
 -- 
 1.9.3
