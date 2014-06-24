@@ -1,28 +1,103 @@
-From: "Luis R. Rodriguez" <mcgrof@suse.com>
-Subject: Re: [Cocci] SmPL for automatic request_firmware_nowait() conversion
-Date: Tue, 24 Jun 2014 02:32:29 +0200
-Message-ID: <20140624003229.GE27687@wotan.suse.de>
-References: <20140621015714.GX4841@wotan.suse.de> <20140621105205.GA31611@electric-eye.fr.zoreil.com> <20140623232107.GB27687@wotan.suse.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, cocci@systeme.lip6.fr,
-	linux-kernel@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140623232107.GB27687@wotan.suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/14][pull request] Intel Wired LAN Driver Updates 2014-06-23
+Date: Mon, 23 Jun 2014 17:47:24 -0700
+Message-ID: <1403570858-13548-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:58389 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753370AbaFXArl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 23 Jun 2014 20:47:41 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 24, 2014 at 01:21:07AM +0200, Luis R. Rodriguez wrote:
-> On Sat, Jun 21, 2014 at 12:52:05PM +0200, Francois Romieu wrote:
-> > Luis R. Rodriguez <mcgrof@suse.com> :
-> I was actually in the hopes a suitable transormation can be designed
-> to put a wait_for_completion() in say ndo_init(). I was looking to
-> see if a tranformation can be generalized of course if the above
-> observations on probe() is something desirable to be addressed.
+This series contains updates to i40e and i40evf.
 
-And a really cool check would be to transform all those non fatal
-request_firmware() calls to request_firmware_direct().
+Greg provides a patch to stop the VF device after setting its MAC address.
+This is due to if the host VMM administrator has changed the VF device's MAC
+address then the i40e driver needs to halt the VF device so that the
+administrator will be forced to reload the VF driver so that the VF driver
+will start using the newly assigned MAC address.
 
-  Luis
+Shannon provides several patches for i40e, first makes prep_for_test() a
+void function since the return value was being ignored for the most part
+by all its callers.  Adds a log warning when the firmware's API minor/major
+number is not what we expect to assist the user by informing them they
+may need to update their NVM or SW.  Cleans up a stray print message
+so that it is similar to other print messages.  Ensures to set the
+WoL flag when setting LAA and allow the user to set LAA again.  So do
+not short-circuit the LAA assignment when the driver thinks it has
+already been done as it is possible that the user might want to force
+the address setting again.  Provides a couple more LAA fixes to ensure
+the LAA gets restored after resets.
+
+Neerav provides a patch for i40e to add a PF reset when a malicious driver
+event for the PF occurs.  As per the specification when the PF driver
+receives a malicious driver event the queue that caused the event is
+already stopped and it is expected that the function that owns the queue
+will reset the queue, but in some cases it may not be possible to determine
+the queue, so it is suggested to reset the whole function.
+
+Carolyn fixes ethtool coalesce settings to allow 0 as a disable value and
+adds message to user about invalid values.
+
+Jesse removes a reserved type which was not removed from the code.
+
+Catherine provides a patch to add the ability to enable/disable link from
+set_link)restart_an() which will make it easy to toggle link without
+calling set_phy_config() when no other link settings need to change.
+
+Anjali provides a patch to ensure we do a PF reset on Tx hang and that
+way we avoid any Malicious Driver Detect (MDD) events because of a Tx
+queue disable failure.
+
+The following are changes since commit 79631c89ed70643fd0579a65834b227795b251ee:
+  trivial: net/irda/irlmp.c: Fix closing brace followed by if
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Anjali Singhai Jain (1):
+  i40e: Bypass timeout recovery level 0 so as to not cause MDD
+
+Carolyn Wyborny (1):
+  i40e: Fix ethtool coalesce settings
+
+Catherine Sullivan (2):
+  i40e: Add ablitity to enable/disable link from set_link_restart_an
+  i40e/i40evf: Bump i40e to 0.4.17 and i40evf to 0.9.36
+
+Greg Rose (1):
+  i40e: Stop the VF device after setting its MAC address
+
+Jesse Brandeburg (1):
+  i40e/i40evf: remove reserved type
+
+Neerav Parikh (1):
+  i40e: Add PF reset when Malicious driver event for PF
+
+Shannon Nelson (7):
+  i40e: make prep_for_reset void
+  i40e: warn on newer/older firmware API rev
+  i40e: fix a stray print message
+  i40e: use WoL flag when setting LAA
+  i40e: allow user to set LAA again
+  i40e: reapply LAA after reset
+  i40e: no pf reset at pci remove
+
+ drivers/net/ethernet/intel/i40e/i40e.h             |   2 +
+ drivers/net/ethernet/intel/i40e/i40e_common.c      |   8 +-
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |  31 ++++-
+ drivers/net/ethernet/intel/i40e/i40e_main.c        | 126 +++++++++++++++------
+ drivers/net/ethernet/intel/i40e/i40e_prototype.h   |   3 +-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h        |   1 -
+ drivers/net/ethernet/intel/i40e/i40e_type.h        |   1 -
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |   2 +
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.h      |   1 -
+ drivers/net/ethernet/intel/i40evf/i40e_type.h      |   1 -
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    |   2 +-
+ 11 files changed, 129 insertions(+), 49 deletions(-)
+
+-- 
+1.9.3
