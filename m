@@ -1,49 +1,37 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH v2 net-next 0/2] split BPF out of core networking
-Date: Tue, 24 Jun 2014 10:33:15 +0200
-Message-ID: <53A937CB.7040309@redhat.com>
-References: <1401692506-7796-1-git-send-email-ast@plumgrid.com> <538C3C94.3080206@redhat.com> <CAMEtUuzkjZCsReWH9cZs8AU0mJjZH9YOdCBTWusxe6-NZ9mQ=g@mail.gmail.com> <538CAEA6.4060307@redhat.com> <CAMEtUuwxJOgYgFjg9deQZOffeg6-JUGZXZ1Rj344eQmriQ0F0Q@mail.gmail.com> <538D8DAA.7090105@redhat.com> <CAMEtUuw8uyCGeLeUB0PXm5cCpqcsjPLZt6y9FcKjapbVPjWTuw@mail.gmail.com> <538E319B.3000606@redhat.com> <CAMEtUuzsHJioXZtuGje6UmwZmcmDZEn8PdkkYanA9j1sp242+Q@mail.gmail.com> <CA+ZOOTOfq705CbUjx9ppw4gLxJ8JFCaFsphwhAS+NskHVjd86Q@mail.gmail.com> <CAMEtUuxU_FKL4TJ2wJtOngean2RjjJxBbYpxNjJQKjA7HtU2Bg@mail.gmail.com> <CA+ZOOTOjRmj-C0tncH=j4ZJj8aMMVF1RLK-gQiSB6RG=G5Xo7w@mail.gmail.com> <CAMEtUuwV3y4G5+kLQNXojn4vrLmub4JVf1RyZoRoNNnX8U_yJA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Chema Gonzalez <chema@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Jiri Olsa <jolsa@redhat.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kees Cook <keescook@chromium.org>,
-	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMEtUuwV3y4G5+kLQNXojn4vrLmub4JVf1RyZoRoNNnX8U_yJA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Denis Kirjanov <kda@linux-powerpc.org>
+Subject: [PATCH 1/2] powerpc: bpf: Use correct mask while accessing the VLAN tag
+Date: Tue, 24 Jun 2014 13:59:28 +0400
+Message-ID: <1403603969-24436-1-git-send-email-kda@linux-powerpc.org>
+Cc: linuxppc-dev@lists.ozlabs.org,
+	Denis Kirjanov <kda@linux-powerpc.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f173.google.com ([209.85.217.173]:54631 "EHLO
+	mail-lb0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753324AbaFXKYV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2014 06:24:21 -0400
+Received: by mail-lb0-f173.google.com with SMTP id s7so113154lbd.18
+        for <netdev@vger.kernel.org>; Tue, 24 Jun 2014 03:24:20 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/23/2014 11:57 PM, Alexei Starovoitov wrote:
-> On Fri, Jun 20, 2014 at 9:44 AM, Chema Gonzalez <chema@google.com> wrote:
-...
->>>>    - nop: I'd like to have a nop. Do I know why? Nope.
->>> nope. Let's not add unnecessary instructions.
->> A valid nop is a useful instruction: padding, filling up arrays of
->> sock_filter_int correctly (as in lib/test_bpf.c, where we're currently
->> using a "ld #0", which loads zero to register A), and other use cases
->> (see http://en.wikipedia.org/wiki/NOP ).
->
-> especially I don't like to add 'nop' instruction.
-> code==0 to mean 'ld #0' is one of classic BPF ugliness.
+Use the proper mask which is 0xefff
+---
+ arch/powerpc/net/bpf_jit_comp.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-I think it was probably unintended to be able to have unreachable
-code e.g. filled with 'nops' where both jt, jf just jump over it,
-but that quirk we cannot change anymore in the classic checker
-and have to carry onwards.
-
-> We're not filling up arrays with nops in lib/test_bpf.c
-> Zero is invalid opcode in eBPF and should stay so, since it's
-> an easy check for humans like me who are looking at eBPF in hex.
+diff --git a/arch/powerpc/net/bpf_jit_comp.c b/arch/powerpc/net/bpf_jit_comp.c
+index 6dcdade..af0ed4d 100644
+--- a/arch/powerpc/net/bpf_jit_comp.c
++++ b/arch/powerpc/net/bpf_jit_comp.c
+@@ -393,7 +393,7 @@ static int bpf_jit_build_body(struct sk_filter *fp, u32 *image,
+ 			PPC_LHZ_OFFS(r_A, r_skb, offsetof(struct sk_buff,
+ 							  vlan_tci));
+ 			if (code == (BPF_ANC | SKF_AD_VLAN_TAG))
+-				PPC_ANDI(r_A, r_A, VLAN_VID_MASK);
++				PPC_ANDI(r_A, r_A, ~VLAN_TAG_PRESENT);
+ 			else
+ 				PPC_ANDI(r_A, r_A, VLAN_TAG_PRESENT);
+ 			break;
+-- 
+2.0.0
