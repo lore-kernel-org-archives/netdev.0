@@ -1,47 +1,27 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next 6/6] amd-xgbe: Resolve checkpatch warning about
- sscanf usage
-Date: Tue, 24 Jun 2014 15:00:25 -0700
-Message-ID: <1403647225.29061.64.camel@joe-AO725>
-References: <20140624211900.20681.46554.stgit@tlendack-t1.amdoffice.net>
-	 <20140624211935.20681.85586.stgit@tlendack-t1.amdoffice.net>
+From: "Luis R. Rodriguez" <mcgrof@suse.com>
+Subject: Re: SmPL for automatic request_firmware_nowait() conversion
+Date: Tue, 24 Jun 2014 15:06:47 -0700
+Message-ID: <CAB=NE6Xz6V20fQfMq8HtmdA2ATUpFnOyLHK5W+OvLCj9Ce9+Vg@mail.gmail.com>
+References: <20140621015714.GX4841@wotan.suse.de> <20140621105205.GA31611@electric-eye.fr.zoreil.com>
+ <20140623232107.GB27687@wotan.suse.de> <20140624215828.GA14124@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Tom Lendacky <thomas.lendacky@amd.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0070.hostedemail.com ([216.40.44.70]:60599 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752299AbaFXWAc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2014 18:00:32 -0400
-In-Reply-To: <20140624211935.20681.85586.stgit@tlendack-t1.amdoffice.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: cocci@systeme.lip6.fr,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140624215828.GA14124@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-06-24 at 16:19 -0500, Tom Lendacky wrote:
-> Checkpatch issued a warning preferring to use kstrto<type> when
-> using a single variable sscanf.  Change the sscanf invocation to
-> a kstrtouint call.
-[]
-> diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-debugfs.c b/drivers/net/ethernet/amd/xgbe/xgbe-debugfs.c
-[]
-> @@ -165,10 +165,9 @@ static ssize_t xgbe_common_write(const char __user *buffer, size_t count,
->  		return len;
->  
->  	workarea[len] = '\0';
-> -	if (sscanf(workarea, "%x", &scan_value) == 1)
-> -		*value = scan_value;
-> -	else
-> -		return -EIO;
-> +	ret = kstrtouint(workarea, 0, value);
+On Tue, Jun 24, 2014 at 2:58 PM, Francois Romieu <romieu@fr.zoreil.com> wrote:
+> Thanks for the pointers.
+>
+> I can't help thinking that there's a bit of sensationalism in the
+> timeout * num CPUs argument though. :o)
 
-Don't you need to use 16 for the base here?
+Indeed, this actually only applies to microcode which will end up
+using the API for each CPU it seems.
 
-> +	if (ret)
-> +		return ret;
-
-Are there any issues with any of the various callers
-getting a different error return?
-
--EINVAL/-ERANGE vs -EIO ?
+  Luis
