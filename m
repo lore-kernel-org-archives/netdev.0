@@ -1,52 +1,73 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v8 4/4] drivers: net: Add APM X-Gene SoC ethernet
- driver support.
-Date: Tue, 24 Jun 2014 22:34:42 -0700 (PDT)
-Message-ID: <20140624.223442.1599243407487139839.davem@davemloft.net>
-References: <1403306296-26198-1-git-send-email-isubramanian@apm.com>
-	<1403306296-26198-5-git-send-email-isubramanian@apm.com>
+From: Henrik Austad <henrik@austad.us>
+Subject: Re: [PATCH] ether: add AVB frame type ETH_P_AVB
+Date: Wed, 25 Jun 2014 07:59:18 +0200
+Message-ID: <20140625055918.GA19864@austad.us>
+References: <1402047773-2320-1-git-send-email-haustad@cisco.com>
+ <5391942E.8020507@cisco.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	patches-qTEPVZfXA3Y@public.gmane.org, rapatel-qTEPVZfXA3Y@public.gmane.org, kchudgar-qTEPVZfXA3Y@public.gmane.org
-To: isubramanian-qTEPVZfXA3Y@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1403306296-26198-5-git-send-email-isubramanian-qTEPVZfXA3Y@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Henrik Austad <haustad@cisco.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f178.google.com ([209.85.217.178]:44093 "EHLO
+	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752483AbaFYGEX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2014 02:04:23 -0400
+Received: by mail-lb0-f178.google.com with SMTP id 10so1469731lbg.37
+        for <netdev@vger.kernel.org>; Tue, 24 Jun 2014 23:04:21 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <5391942E.8020507@cisco.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
-Date: Fri, 20 Jun 2014 16:18:16 -0700
+On Fri, Jun 06, 2014 at 12:13:02PM +0200, Henrik Austad wrote:
+> David,
 
-> This patch adds network driver for APM X-Gene SoC ethernet.
+Hi, ACK/NACK on this?
+
+Thanks,
+
+Henrik
+
+> I messed up the keys on my keyboard and shipped the patch without CC
+> to you. Sorry!
 > 
-> Signed-off-by: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
-> Signed-off-by: Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>
-> Signed-off-by: Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>
+> - Henrik
+> 
+> On 06/06/2014 11:42 AM, Henrik Austad wrote:
+> >Audio/Video Bridging over layer-2 transport protocol uses 0x22F0 as
+> >packet type. This type is used for both AVB control data as well as AVB
+> >media streams.
+> >
+> 
+> CC: "David S. Miller" <davem@davemloft.net>
+> 
+> >Signed-off-by: Henrik Austad <haustad@cisco.com>
+> >---
+> >  include/uapi/linux/if_ether.h | 1 +
+> >  1 file changed, 1 insertion(+)
+> >
+> >diff --git a/include/uapi/linux/if_ether.h b/include/uapi/linux/if_ether.h
+> >index 0f8210b..c8147de 100644
+> >--- a/include/uapi/linux/if_ether.h
+> >+++ b/include/uapi/linux/if_ether.h
+> >@@ -48,6 +48,7 @@
+> >  #define	ETH_P_BPQ	0x08FF		/* G8BPQ AX.25 Ethernet Packet	[ NOT AN OFFICIALLY REGISTERED ID ] */
+> >  #define ETH_P_IEEEPUP	0x0a00		/* Xerox IEEE802.3 PUP packet */
+> >  #define ETH_P_IEEEPUPAT	0x0a01		/* Xerox IEEE802.3 PUP Addr Trans packet */
+> >+#define ETH_P_AVB	0x22F0		/* IEEE 1722 AVB frame          [ NOT AN OFFICIALLY REGISTERED ID ] */
+> >  #define ETH_P_BATMAN	0x4305		/* B.A.T.M.A.N.-Advanced packet [ NOT AN OFFICIALLY REGISTERED ID ] */
+> >  #define ETH_P_DEC       0x6000          /* DEC Assigned proto           */
+> >  #define ETH_P_DNA_DL    0x6001          /* DEC DNA Dump/Load            */
+> >
+> 
+> -- 
+> Henrik Austad
+> Software Engineer
+> TIPBU Eng, Performance
+> 
+> Sent from my computer
 
-I really don't like how you handle the hardware descriptors in this
-driver.
-
-You copy back and forth between a software format and the hardware
-format.  That's extremely wasteful and will hurt performance.
-
-Just use the raw format throughout, you can extract the fields when
-you need them.
-
-You also make two passes when building a hardware descriptor:
-
-1) write the values
-2) endian swap
-
-This means you make three memory accesses on every 64-bit word
-in every descriptor you setup, this is really inefficient.
-
-You should just byte swap them in-situ as you build the raw
-descriptors.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+Henrik Austad
