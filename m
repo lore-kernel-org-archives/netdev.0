@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 10/14] i40e: allow user to set LAA again
-Date: Tue, 24 Jun 2014 18:26:21 -0700
-Message-ID: <1403659585-32055-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 11/14] i40e: reapply LAA after reset
+Date: Tue, 24 Jun 2014 18:26:22 -0700
+Message-ID: <1403659585-32055-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1403659585-32055-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
@@ -10,78 +10,72 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:35161 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754389AbaFYB0p (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Jun 2014 21:26:45 -0400
+	id S1754426AbaFYB0r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Jun 2014 21:26:47 -0400
 In-Reply-To: <1403659585-32055-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Shannon Nelson <shannon.nelson@intel.com>
 
-Don't short-circuit the LAA assignment when the driver thinks it has
-already been done - it is possible that the user might want to force
-the address setting again.  At the same time, this requires a little
-re-ordering of the filter management.
+The LAA is lost on a reset, so be sure to replay it when rebuilding
+the switch after any reset.
 
-Change-ID: Ia0d71e3bc04edd7b68cf67edecc00abe7b9f6639
+Change-ID: I6e643f9a59dfd899b6cbdf84d93b4bc9c37bb949
 Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 31 +++++++++++++++--------------
- 1 file changed, 16 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e.h      |  1 +
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 11 +++++++++--
+ 2 files changed, 10 insertions(+), 2 deletions(-)
 
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 07811dd..2ec6e8a 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -362,6 +362,7 @@ struct i40e_mac_filter {
+ 	bool is_vf;		/* filter belongs to a VF */
+ 	bool is_netdev;		/* filter belongs to a netdev */
+ 	bool changed;		/* filter needs to be sync'd to the HW */
++	bool is_laa;		/* filter is a Locally Administered Address */
+ };
+ 
+ struct i40e_veb {
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 44789c2..81cbea7 100644
+index 81cbea7..9276ca3 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -1327,9 +1327,6 @@ static int i40e_set_mac(struct net_device *netdev, void *p)
- 
- 	netdev_info(netdev, "set mac address=%pM\n", addr->sa_data);
- 
--	if (ether_addr_equal(netdev->dev_addr, addr->sa_data))
--		return 0;
--
- 	if (test_bit(__I40E_DOWN, &vsi->back->state) ||
- 	    test_bit(__I40E_RESET_RECOVERY_PENDING, &vsi->back->state))
- 		return -EADDRNOTAVAIL;
-@@ -1345,22 +1342,26 @@ static int i40e_set_mac(struct net_device *netdev, void *p)
- 				    ret);
- 			return -EADDRNOTAVAIL;
+@@ -1344,8 +1344,8 @@ static int i40e_set_mac(struct net_device *netdev, void *p)
  		}
--
--		ether_addr_copy(vsi->back->hw.mac.addr, addr->sa_data);
  	}
  
--	/* In order to be sure to not drop any packets, add the new address
--	 * then delete the old one.
--	 */
--	f = i40e_add_filter(vsi, addr->sa_data, I40E_VLAN_ANY, false, false);
--	if (!f)
--		return -ENOMEM;
-+	if (!i40e_find_mac(vsi, addr->sa_data, false, true)) {
+-	if (!i40e_find_mac(vsi, addr->sa_data, false, true)) {
+-
++	f = i40e_find_mac(vsi, addr->sa_data, false, true);
++	if (!f) {
+ 		/* In order to be sure to not drop any packets, add the
+ 		 * new address first then delete the old one.
+ 		 */
+@@ -1360,6 +1360,7 @@ static int i40e_set_mac(struct net_device *netdev, void *p)
+ 		i40e_sync_vsi_filters(vsi);
+ 	}
  
--	i40e_sync_vsi_filters(vsi);
--	i40e_del_filter(vsi, netdev->dev_addr, I40E_VLAN_ANY, false, false);
--	i40e_sync_vsi_filters(vsi);
-+		/* In order to be sure to not drop any packets, add the
-+		 * new address first then delete the old one.
-+		 */
-+		f = i40e_add_filter(vsi, addr->sa_data, I40E_VLAN_ANY,
-+				    false, false);
-+		if (!f)
-+			return -ENOMEM;
++	f->is_laa = true;
+ 	if (!ether_addr_equal(netdev->dev_addr, addr->sa_data))
+ 		ether_addr_copy(netdev->dev_addr, addr->sa_data);
+ 
+@@ -7378,6 +7379,12 @@ static int i40e_add_vsi(struct i40e_vsi *vsi)
+ 	list_for_each_entry_safe(f, ftmp, &vsi->mac_filter_list, list) {
+ 		f->changed = true;
+ 		f_count++;
 +
-+		i40e_sync_vsi_filters(vsi);
-+		i40e_del_filter(vsi, netdev->dev_addr, I40E_VLAN_ANY,
-+				false, false);
-+		i40e_sync_vsi_filters(vsi);
-+	}
- 
--	ether_addr_copy(netdev->dev_addr, addr->sa_data);
-+	if (!ether_addr_equal(netdev->dev_addr, addr->sa_data))
-+		ether_addr_copy(netdev->dev_addr, addr->sa_data);
- 
- 	return 0;
- }
++		if (f->is_laa && vsi->type == I40E_VSI_MAIN) {
++			i40e_aq_mac_address_write(&vsi->back->hw,
++						  I40E_AQC_WRITE_TYPE_LAA_WOL,
++						  f->macaddr, NULL);
++		}
+ 	}
+ 	if (f_count) {
+ 		vsi->flags |= I40E_VSI_FLAG_FILTER_CHANGED;
 -- 
 1.9.3
