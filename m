@@ -1,120 +1,47 @@
-From: "bhupesh.sharma@freescale.com" <bhupesh.sharma@freescale.com>
-Subject: RE: [PATCH] net: can: Remodel FlexCAN register read/write APIs for BE
- instances
-Date: Wed, 25 Jun 2014 09:41:49 +0000
-Message-ID: <ae6e49865206432ea871b08b159bae55@BN1PR03MB220.namprd03.prod.outlook.com>
-References: <1403625285-27824-1-git-send-email-bhupesh.sharma@freescale.com>
- <53AA8805.3050309@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "wg@grandegger.com" <wg@grandegger.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Marc Kleine-Budde <mkl@pengutronix.de>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [net-next PATCH v3 0/2] bridge: more efficient fdb dumping
+Date: Wed, 25 Jun 2014 06:21:21 -0400
+Message-ID: <1403691683-14290-1-git-send-email-jhs@emojatatu.com>
+Cc: netdev@vger.kernel.org, vyasevic@redhat.com,
+	sfeldma@cumulusnetworks.com, john.r.fastabend@intel.com,
+	roopa@cumulusnetworks.com, eric.dumazet@gmail.com,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: davem@davemloft.net, stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1lp0142.outbound.protection.outlook.com ([207.46.163.142]:18281
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752609AbaFYJz7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Jun 2014 05:55:59 -0400
-In-Reply-To: <53AA8805.3050309@pengutronix.de>
-Content-Language: en-US
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:48581 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752569AbaFYKVj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2014 06:21:39 -0400
+Received: by mail-pa0-f50.google.com with SMTP id bj1so1535651pad.23
+        for <netdev@vger.kernel.org>; Wed, 25 Jun 2014 03:21:38 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGkgTWFyYywNCg0KPiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBNYXJjIEts
-ZWluZS1CdWRkZSBbbWFpbHRvOm1rbEBwZW5ndXRyb25peC5kZV0NCj4gU2VudDogV2VkbmVzZGF5
-LCBKdW5lIDI1LCAyMDE0IDE6NTggUE0NCj4gVG86IFNoYXJtYSBCaHVwZXNoLUI0NTM3MDsgbGlu
-dXgtY2FuQHZnZXIua2VybmVsLm9yZw0KPiBDYzogd2dAZ3JhbmRlZ2dlci5jb207IG5ldGRldkB2
-Z2VyLmtlcm5lbC5vcmcNCj4gU3ViamVjdDogUmU6IFtQQVRDSF0gbmV0OiBjYW46IFJlbW9kZWwg
-RmxleENBTiByZWdpc3RlciByZWFkL3dyaXRlIEFQSXMNCj4gZm9yIEJFIGluc3RhbmNlcw0KPiAN
-Cj4gT24gMDYvMjQvMjAxNCAwNTo1NCBQTSwgQmh1cGVzaCBTaGFybWEgd3JvdGU6DQo+ID4gVGhl
-IEZsZXhDQU4gSVAgb24gY2VydGFpbiBTb0NzIGxpa2UgKEZyZWVzY2FsZSdzIExTMTAyMUEpIGlz
-IG1vZGVsbGVkDQo+ID4gaW4gYSBiaWctZW5kaWFuIGZhc2hpb24sIGkuZS4gdGhlIHJlZ2lzdGVy
-cyBhbmQgdGhlIG1lc3NhZ2UgYnVmZmVycw0KPiA+IGFyZSBvcmdhbml6ZWQgaW4gYSBCRSB3YXku
-DQo+IA0KPiBEbyB5b3UgaGF2ZSBhbnkgaWRlYSwgd2h5IGZzbCBkaWQgdGhpcz8gVGhlIG1lc3Nl
-ZCB1cCB0aGUgbmV0d29yaw0KPiBjb250cm9sbGVyIG9uIHRoZSBteDI4LCB0b28uIDovDQoNCk5v
-dCByZWFsbHkuIEkgZ3Vlc3Mgcy93IGRyaXZlcnMgYXJlIG1lYW50IHRvIGhpZGUgaC93IG9ic2N1
-cml0aWVzIDopDQoNCj4gDQo+ID4gTW9yZSBkZXRhaWxzIGFib3V0IHRoZSBMUzEwMjFBIFNvQyBj
-YW4gYmUgc2VlbiBoZXJlOg0KPiA+IGh0dHA6Ly93d3cuZnJlZXNjYWxlLmNvbS93ZWJhcHAvc3Bz
-L3NpdGUvcHJvZF9zdW1tYXJ5LmpzcD9jb2RlPUxTMTAyMUENCj4gPiAmbm9kZUlkPTAxOHJIMzI1
-RTQwMTdCIw0KPiANCj4gSXMgdGhlcmUgYW55ICJyZWFsIiBkb2N1bWVudGF0aW9uIGZvciB0aGlz
-IFNvQyBhdmFpbGFibGU/DQoNCkF0IHRoZSBtb21lbnQgb25seSB0aGUgcHJvZHVjdCBicmllZiBp
-cyBhdmFpbGFibGUgZm9yIHB1YmxpYyBkaXN0cmlidXRpb24sDQp3aGljaCBJIGhhdmUgcG9pbnRl
-ZC10byBpbiB0aGUgVVJMIGFib3ZlLg0KDQo+IA0KPiA+IFRoaXMgcGF0Y2ggZW5zdXJlcyB0aGF0
-IHRoZSByZWdpc3RlciByZWFkL3dyaXRlIEFQSXMgYXJlIHJlbW9kZWxsZWQgdG8NCj4gPiBhZGRy
-ZXNzIHN1Y2ggY2FzZXMsIHdoaWxlIGVuc3VyaW5nIHRoYXQgZXhpc3RpbmcgcGxhdGZvcm1zICh3
-aGVyZSB0aGUNCj4gPiBGbGV4Q0FOIElQIHdhcyBtb2RlbGxlZCBpbiBMRSB3YXkpIGRvIG5vdCBi
-cmVhay4NCj4gDQo+IEknbSBub3Qgc3VyZSBpZiBpdCdzIGJldHRlciB0byBoYW5kbGUgdGhpcyB2
-aWEgdGhlIERUIGF0dHJpYnV0ZXMgYmlnLQ0KPiBlbmRpYW4sIGxpdHRsZS1lbmRpYW4sIG5vIGF0
-dHJpYnV0ZSB3b3VsZCBtZWFuIG5hdGl2ZSBlbmRpYW5lc3MgZm9yDQo+IGJhY2t3YXJkcyBjb21w
-YXRpYmlsaXR5Lg0KDQpNeSAxc3QgYXBwcm9hY2ggcGF0aCB3YXMgZG8gaXQgdmlhIERUIGl0c2Vs
-ZiwgYnV0IHRoYXQgd291bGQgbWVhbg0KY2hhbmdpbmcgZXhpc3RpbmcgRFRTL0RUU0kgZm9yIFNv
-Q3Mgd2hpY2ggdXNlIEZsZXhDQU4sIHVubGVzcyB3ZQ0Kc2F5IG5vIGVuZGlhbmVzcyBhdHRyaWJ1
-dGUgbWVhbnMgdGhhdCB0aGUgbW9kdWxlIGlzIHN0aWxsIExFLCBhbmQgdGh1cw0KZWZmZWN0aXZl
-bHkgYWRkICdiaWctZW5kaWFuJyBvbmx5IGEgbm9kZSB0byB0aGUgTFMxMDIxQSBGbGV4Q0FOIERU
-IG5vZGUuDQoNCj4gV2l0aCB0aGlzIHNvbHV0aW9uLCB5b3UncmUgYnJlYWtpbmcgYWxsIEFSTSBu
-b24gRFQgYm9hcmRzLCBhcyB0aGUgc3RydWN0DQo+IHBsYXRmb3JtX2RldmljZV9pZCBzdGlsbCB1
-c2VzIGZzbF9wMTAxMF9kZXZ0eXBlX2RhdGEuIFlvdSdyZSBicmVha2luZyBEVA0KPiBiYXNlZCBt
-eDM1LCBhcyBzdHJ1Y3Qgb2ZfZGV2aWNlX2lkIGhhcyBubyBlbnRyeSBmb3IgbXgzNS4NCj4gDQo+
-IFdpdGggdGhpcyBwYXRjaCBmc2wscDEwMTAtZmxleGNhbiBpc24ndCBjb21wYXRpYmxlIHdpdGgg
-dGhlIGlteC9teHMgYW55DQo+IG1vcmUsIHBsZWFzZSBjaGFuZ2UgdGhlIGRldmljZSB0cmVlcyBp
-biB0aGUga2VybmVsLg0KPiANCj4gUGxlYXNlIHVwZGF0ZSB0aGUgIkZMRVhDQU4gaGFyZHdhcmUg
-ZmVhdHVyZSBmbGFncyIgdGFibGUgaW4gdGhlIGRyaXZlcg0KPiBhbmQgY2hlY2sgaWYgYW55IG9m
-IHRoZSBtZW50aW9uZWQgcXVpcmtzIGFyZSBuZWVkZWQgZm9yIHRoZSBMUzEwMjFBLg0KDQpJIGhh
-dmUgY29uZmlybWVkIHRoZSBzYW1lLiBObyBxdWlya3MgYXJlIHJlcXVpcmVkIGZvciBMUzEwMjFB
-Lg0KQlRXLCBjYW4ndCB3ZSBoYXZlIHRoZSBxdWlya3MgZmllbGQgaW4gdGhlIERUIG5vZGUgaXRz
-ZWxmPw0KDQo+IA0KPiBTZWUgY29tbWVudCBpbmxpbmUuLi4uLg0KPiANCj4gPiBTaWduZWQtb2Zm
-LWJ5OiBCaHVwZXNoIFNoYXJtYSA8Ymh1cGVzaC5zaGFybWFAZnJlZXNjYWxlLmNvbT4NCj4gPiAt
-LS0NCj4gPiBSZWJhc2VkIGFnYWludCB2My4xNi1yYzENCj4gPg0KPiA+ICBkcml2ZXJzL25ldC9j
-YW4vZmxleGNhbi5jIHwgIDIxMw0KPiA+ICsrKysrKysrKysrKysrKysrKysrKysrKysrKy0tLS0t
-LS0tLS0tLS0tLS0tLQ0KPiA+ICAxIGZpbGUgY2hhbmdlZCwgMTI2IGluc2VydGlvbnMoKyksIDg3
-IGRlbGV0aW9ucygtKQ0KPiA+DQo+ID4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2Nhbi9mbGV4
-Y2FuLmMgYi9kcml2ZXJzL25ldC9jYW4vZmxleGNhbi5jDQo+ID4gaW5kZXggZjQyNWVjMi4uMDBj
-NDc0MCAxMDA2NDQNCj4gPiAtLS0gYS9kcml2ZXJzL25ldC9jYW4vZmxleGNhbi5jDQo+ID4gKysr
-IGIvZHJpdmVycy9uZXQvY2FuL2ZsZXhjYW4uYw0KPiANCj4gWy4uLl0NCj4gDQo+ID4gIHN0YXRp
-YyBjb25zdCBzdHJ1Y3QgY2FuX2JpdHRpbWluZ19jb25zdCBmbGV4Y2FuX2JpdHRpbWluZ19jb25z
-dCA9IHsNCj4gPiBAQCAtMjM3LDMyICsyNTYsMzYgQEAgc3RhdGljIGNvbnN0IHN0cnVjdCBjYW5f
-Yml0dGltaW5nX2NvbnN0DQo+ID4gZmxleGNhbl9iaXR0aW1pbmdfY29uc3QgPSB7ICB9Ow0KPiA+
-DQo+ID4gIC8qDQo+ID4gLSAqIEFic3RyYWN0IG9mZiB0aGUgcmVhZC93cml0ZSBmb3IgYXJtIHZl
-cnN1cyBwcGMuIFRoaXMNCj4gPiAtICogYXNzdW1lcyB0aGF0IFBQQyB1c2VzIGJpZy1lbmRpYW4g
-cmVnaXN0ZXJzIGFuZCBldmVyeXRoaW5nDQo+ID4gLSAqIGVsc2UgdXNlcyBsaXR0bGUtZW5kaWFu
-IHJlZ2lzdGVycywgaW5kZXBlbmRlbnQgb2YgQ1BVDQo+ID4gLSAqIGVuZGlhbmVzcy4NCj4gPiAr
-ICogRmxleENBTiBtb2R1bGUgaXMgZXNzZW50aWFsbHkgbW9kZWxsZWQgYXMgYSBsaXR0bGUtZW5k
-aWFuIElQIGluDQo+ID4gKyBtb3N0DQo+ID4gKyAqIFNvQ3MsIGkuZSB0aGUgcmVnaXN0ZXJzIGFz
-IHdlbGwgYXMgdGhlIG1lc3NhZ2UgYnVmZmVyIGFyZWFzIGFyZQ0KPiA+ICsgKiBpbXBsZW1lbnRl
-ZCBpbiBhIGxpdHRsZS1lbmRpYW4gZmFzaGlvbi4NCj4gPiArICoNCj4gPiArICogSG93ZXZlciB0
-aGVyZSBhcmUgc29tZSBTb0NzIChlLmcuIExTMTAyMUEpIHdoaWNoIGltcGxlbWVudCB0aGUNCj4g
-PiArIEZsZXhDQU4NCj4gPiArICogbW9kdWxlIGluIGEgYmlnLWVuZGlhbiBmYXNoaW9uIChpLmUg
-dGhlIHJlZ2lzdGVycyBhcyB3ZWxsIGFzIHRoZQ0KPiA+ICsgKiBtZXNzYWdlIGJ1ZmZlciBhcmVh
-cyBhcmUgaW1wbGVtZW50ZWQgaW4gYSBiaWctZW5kaWFuIHdheSkuDQo+ID4gKyAqDQo+ID4gKyAq
-IEluIGFkZGl0aW9uLCB0aGUgRmxleENBTiBtb2R1bGUgY2FuIGJlIGZvdW5kIG9uIFNvQ3MgaGF2
-aW5nIEFSTSBvcg0KPiA+ICsgKiBQUEMgY29yZXMuIFNvLCB3ZSBuZWVkIHRvIGFic3RyYWN0IG9m
-ZiB0aGUgcmVnaXN0ZXIgcmVhZC93cml0ZQ0KPiA+ICsgKiBmdW5jdGlvbnMsIGVuc3VyaW5nIHRo
-YXQgdGhlc2UgY2F0ZXIgdG8gYWxsIHRoZSBjb21iaW5hdGlvbnMgb2YNCj4gPiArIG1vZHVsZQ0K
-PiA+ICsgKiBlbmRpYW5lc3MgYW5kIHVuZGVybHlpbmcgQ1BVIGVuZGlhbmVzcy4NCj4gPiAgICov
-DQo+ID4gLSNpZiBkZWZpbmVkKENPTkZJR19QUEMpDQo+ID4gLXN0YXRpYyBpbmxpbmUgdTMyIGZs
-ZXhjYW5fcmVhZCh2b2lkIF9faW9tZW0gKmFkZHIpDQo+ID4gK3N0YXRpYyBpbmxpbmUgdTMyIGZs
-ZXhjYW5fcmVhZChjb25zdCBzdHJ1Y3QgZmxleGNhbl9wcml2ICpwcml2LA0KPiA+ICsJCQkgICAg
-ICAgdm9pZCBfX2lvbWVtICphZGRyKQ0KPiA+ICB7DQo+ID4gLQlyZXR1cm4gaW5fYmUzMihhZGRy
-KTsNCj4gPiAtfQ0KPiA+IC0NCj4gPiAtc3RhdGljIGlubGluZSB2b2lkIGZsZXhjYW5fd3JpdGUo
-dTMyIHZhbCwgdm9pZCBfX2lvbWVtICphZGRyKSAtew0KPiA+IC0Jb3V0X2JlMzIoYWRkciwgdmFs
-KTsNCj4gPiAtfQ0KPiA+IC0jZWxzZQ0KPiA+IC1zdGF0aWMgaW5saW5lIHUzMiBmbGV4Y2FuX3Jl
-YWQodm9pZCBfX2lvbWVtICphZGRyKSAtew0KPiA+IC0JcmV0dXJuIHJlYWRsKGFkZHIpOw0KPiA+
-ICsJaWYgKHByaXYtPmRldnR5cGVfZGF0YS0+bW9kdWxlX2lzX2JpZ19lbmRpYW4pDQo+ID4gKwkJ
-cmV0dXJuIGlvcmVhZDMyYmUoYWRkcik7DQo+ID4gKwllbHNlDQo+ID4gKwkJcmV0dXJuIGlvcmVh
-ZDMyKGFkZHIpOw0KPiA+ICB9DQo+ID4NCj4gPiAtc3RhdGljIGlubGluZSB2b2lkIGZsZXhjYW5f
-d3JpdGUodTMyIHZhbCwgdm9pZCBfX2lvbWVtICphZGRyKQ0KPiA+ICtzdGF0aWMgaW5saW5lIHZv
-aWQgZmxleGNhbl93cml0ZShjb25zdCBzdHJ1Y3QgZmxleGNhbl9wcml2ICpwcml2LA0KPiA+ICsJ
-CQkJIHUzMiB2YWwsIHZvaWQgX19pb21lbSAqYWRkcikNCj4gPiAgew0KPiA+IC0Jd3JpdGVsKHZh
-bCwgYWRkcik7DQo+ID4gKwlpZiAocHJpdi0+ZGV2dHlwZV9kYXRhLT5tb2R1bGVfaXNfYmlnX2Vu
-ZGlhbikNCj4gDQo+IFBsZWFzZSBtb3ZlIHRoZSBkZXZ0eXBlX2RhdGEgaW50byB0aGUgc3RydWN0
-IGZsZXhjYW5fcHJpdiwgc28gdGhhdCB5b3UNCj4gZG9uJ3QgbmVlZCBhIGRvdWJsZSBwb2ludGVy
-IGRlcmVmZXJlbmNlIGluIHRoZSBob3QgcGF0aC4NCg0KT2suIE9yIHNob3VsZCBJIGNyZWF0ZSB0
-d28gZnVuY3Rpb25zIGZvciByZWFkIGFuZCB3cml0ZSAtIG9uZSBkb2VzIGl0IGluIExFIHdheSBh
-bmQgdGhlIG90aGVyDQppbiBCRSB3YXkgYW5kIHBhcnNlIHRoZSBEVCB0byB1bmRlcnN0YW5kIHdo
-aWNoIGVuZGlhbm5lc3MgdGhlIG1vZHVsZSBzdXBwb3J0cy4NCg0KPiANCj4gPiArCQlpb3dyaXRl
-MzJiZSh2YWwsIGFkZHIpOw0KPiA+ICsJZWxzZQ0KPiA+ICsJCWlvd3JpdGUzMih2YWwsIGFkZHIp
-Ow0KPiA+ICB9DQo+ID4gLSNlbmRpZg0KPiANCg0KUGxlYXNlIHNoYXJlIHlvdXIgdmlld3MuDQoN
-ClJlZ2FyZHMsDQpCaHVwZXNoDQo=
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+
+Changes:
+V3:
+ Suggestion from Eric D. to use for_each_netdev
+ Suggestion from Stephen H. to reduce level of indentation
+
+V2:
+Suggestions from Vlad
+ Get rid of rcu read lock since rtnl_lock is being held
+ simplify for readability
+
+
+Jamal Hadi Salim (2):
+  bridge: fdb dumping takes a filter device
+  bridge: netlink dump interface at par with brctl
+
+ drivers/net/ethernet/intel/i40e/i40e_main.c      |    3 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    5 +-
+ include/linux/netdevice.h                        |    1 +
+ include/linux/rtnetlink.h                        |    1 +
+ net/bridge/br_fdb.c                              |   14 ++++
+ net/bridge/br_private.h                          |    2 +-
+ net/core/rtnetlink.c                             |   77 +++++++++++++++++-----
+ 7 files changed, 84 insertions(+), 19 deletions(-)
+
+-- 
+1.7.9.5
