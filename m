@@ -1,99 +1,89 @@
-From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
-Subject: RE: [PATCH RFC 24/30] net: fec: better implementation of iMX6
-	ERR006358 quirk
-Date: Wed, 25 Jun 2014 01:41:21 +0000
-Message-ID: <692507cfcb2542e59703ff8f929d9a87@BLUPR03MB373.namprd03.prod.outlook.com>
-References: <20140620121118.GR32514@n2100.arm.linux.org.uk>
- <E1WxxhR-0005YP-Q1@rmk-PC.arm.linux.org.uk>
- <316b383d2512440db51ea7c55992920d@BLUPR03MB373.namprd03.prod.outlook.com>
- <20140622081234.GB32514@n2100.arm.linux.org.uk>
- <56f5e44adf0b41a0bbf52c38b755afbd@BLUPR03MB373.namprd03.prod.outlook.com>
- <20140622084911.GD32514@n2100.arm.linux.org.uk>
- <20140624102912.GM32514@n2100.arm.linux.org.uk>
+From: "Luis R. Rodriguez" <mcgrof@suse.com>
+Subject: Re: [PATCH 2/3] cxgb4: make configuration load use
+	request_firmware_direct()
+Date: Wed, 25 Jun 2014 03:50:48 +0200
+Message-ID: <20140625015048.GI27687@wotan.suse.de>
+References: <1403649583-12707-1-git-send-email-mcgrof@do-not-panic.com> <1403649583-12707-3-git-send-email-mcgrof@do-not-panic.com> <D46B557B-AF4A-4E60-8D83-6181D406C64F@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2lp0236.outbound.protection.outlook.com ([207.46.163.236]:38954
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754347AbaFYBlY convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2014 21:41:24 -0400
-In-Reply-To: <20140624102912.GM32514@n2100.arm.linux.org.uk>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>, tiwai@suse.de,
+	chunkeey@googlemail.com, cocci@systeme.lip6.fr,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	gregkh@linuxfoundation.org, Philip Oswald <poswald@suse.com>,
+	Santosh Rastapur <santosh@chelsio.com>,
+	Jeffrey Cheung <jcheung@suse.com>,
+	David Chang <dchang@suse.com>,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: Casey Leedom <leedom@chelsio.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <D46B557B-AF4A-4E60-8D83-6181D406C64F@chelsio.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Russell King - ARM Linux <linux@arm.linux.org.uk> Data: Tuesday, June 24, 2014 6:29 PM
->To: Duan Fugang-B38611
->Cc: netdev@vger.kernel.org; linux-arm-kernel@lists.infradead.org
->Subject: Re: [PATCH RFC 24/30] net: fec: better implementation of iMX6
->ERR006358 quirk
->
->On Sun, Jun 22, 2014 at 09:49:11AM +0100, Russell King - ARM Linux wrote:
->> On Sun, Jun 22, 2014 at 08:38:49AM +0000, fugang.duan@freescale.com
->wrote:
->> > From: Russell King - ARM Linux <linux@arm.linux.org.uk> Data:
->> > Sunday, June 22, 2014 4:13 PM
->> > >To: Duan Fugang-B38611
->> > >Cc: linux-arm-kernel@lists.infradead.org; netdev@vger.kernel.org
->> > >Subject: Re: [PATCH RFC 24/30] net: fec: better implementation of
->> > >iMX6
->> > >ERR006358 quirk
->> > >
->> > >On Sun, Jun 22, 2014 at 07:49:11AM +0000, fugang.duan@freescale.com
->wrote:
->> > >> From: Russell King <rmk@arm.linux.org.uk> Data: Friday, June 20,
->> > >> 2014
->> > >> 8:14 PM
->> > >> >To: linux-arm-kernel@lists.infradead.org
->> > >> >Cc: Duan Fugang-B38611; netdev@vger.kernel.org
->> > >> >Subject: [PATCH RFC 24/30] net: fec: better implementation of
->> > >> >iMX6
->> > >> >ERR006358 quirk
->> > >> >
->> > >> >+
->> > >> >+	/* ERR006538: Keep the transmitter going */
->> > >> >+	if (fep->dirty_tx != fep->cur_tx &&
->> > >> >+	    readl(fep->hwp + FEC_X_DES_ACTIVE) == 0)
->> > >> >+		writel(0, fep->hwp + FEC_X_DES_ACTIVE);
->> > >> > }
->> > >> >
->> ...
->> > >While I agree that we can read back to check whether the device
->> > >indicates that transmit is active, there's no point to the other
->> > >tests.  If there are entries in the transmit ring but the
->> > >transmitter indicates that it is not active, then it is obvious
->> > >that the bug has been hit.  This is exactly what my implementation
->above does.
->> > >
->> > The condition "fep->dirty_tx != fep->cur_tx" is not only limited for
->the errata.
->> > I mean only add extra trigger TDAR for the issue.
->>
->> Yes, I agree that test is wrong (that's what comes from shuffling the
->> patches... subsequent patches modify the indexing mechanism).  It
->> should
->> be:
->>
->>         if (bdp != fep->cur_tx &&
->>             readl(fep->hwp + FEC_X_DES_ACTIVE) == 0)
->>                 writel(0, fep->hwp + FEC_X_DES_ACTIVE);
->>
->> Since "bdp" is the post-incremented dirty_tx pointer, which, when it
->> is equal to fep->cur_tx means that the ring is empty.
->
->Any further comments, or do I take the silence to mean that you agree with
->the above statement?  I would like to get this settled to I can spin v2 of
->this set.
->
->Thanks.
->
-I agree your statement.
+On Tue, Jun 24, 2014 at 03:54:44PM -0700, Casey Leedom wrote:
+> [[ Hopefully this makes it through to the kernel.org lists -- I=E2=80=
+=99m using the
+>   Mac OS/X Mailer and it=E2=80=99s not clear how to force it not to u=
+se HTML format.
+>   -- Casey ]]
+>=20
+>   So does request_firmware_direct() only fail if the requested file i=
+s not
+>   present on the file system or does it fail in other cases as well?
 
-Thanks,
-Andy
+Same as before they are the same exact call with the only difference
+being udev is not used as an extra helper, so it saves the extra
+delay caused by udev. That's all.
+
+>   If it=E2=80=99s the former, then the change to cxgb4 is fine.
+>=20
+>   But if it=E2=80=99s the latter, then it=E2=80=99s definitely not ok=
+ay.  While the driver
+>   _can_ continue running without the local on-disk Firmware Configura=
+tion
+>   File, that file can be used to significantly change the behavior an=
+d
+>   capabilities of the adapter and is user-customizable.  If a user ma=
+kes
+>   changes to the local on-disk Firmware Configuration File and these =
+are
+>   randomly silently ignored this will lead to highly annoying support=
+ issues.
+
+This just avoids udev, the request goes directly to the filesystem. The
+failure will happen when the file is not present just as before, the
+only difference here is skipping udev, it doesn't suffer from the extra=
+=20
+60 second timeout. There's another possible failure, when
+usermodehelper_read_trylock() fails but that is just as the code was be=
+fore
+so this change doesn't introduce that as a new false check. When that
+triggers yout get a nasty WARN_ON() just as before.
+
+One thing to note though is that the kernel firmware loader does not
+log any failure to the kernel ring buffer if the firmware is not on the
+filesystem, while the udev loader is a bit more chatty:
+
+[ 2463.666120] platform fake-dev.0: Direct firmware load failed with er=
+ror -2
+[ 2463.666129] platform fake-dev.0: Falling back to user helper
+
+Stuffing a print into the non-udev approach upstream seems a bit excess=
+ive
+though (unless folks disagree), so if you want the driver to be a bit m=
+ore
+informative I think its best to place this feedback on the driver for n=
+ow.
+
+I see the driver does provide this information already though so is any
+additional prints really desirable ?
+
+        dev_info(adapter->pdev_dev, "Successfully configured using Firm=
+ware "\ =20
+                 "Configuration File \"%s\", version %#x, computed chec=
+ksum %#x\n",
+                 config_name, finiver, cfcsum);  =20
+
+  Luis
