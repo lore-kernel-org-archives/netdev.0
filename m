@@ -1,41 +1,52 @@
 From: Markos Chandras <Markos.Chandras@imgtec.com>
-Subject: Re: [PATCH 00/17] Misc MIPS/BPF fixes for 3.16
-Date: Wed, 25 Jun 2014 09:12:10 +0100
-Message-ID: <53AA845A.1070505@imgtec.com>
-References: <1403516340-22997-1-git-send-email-markos.chandras@imgtec.com> <20140623.124919.2215480222213445820.davem@davemloft.net>
+Subject: Re: [PATCH 05/17] MIPS: bpf: Return error code if the offset is a
+ negative number
+Date: Wed, 25 Jun 2014 09:12:53 +0100
+Message-ID: <53AA8485.4040805@imgtec.com>
+References: <1403516340-22997-1-git-send-email-markos.chandras@imgtec.com>	<1403516340-22997-6-git-send-email-markos.chandras@imgtec.com> <CAMEtUuyL8EV3UxS7yaD_ufiAywr7hkgPSC-3etMEYfbAZ_rRew@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <linux-mips@linux-mips.org>, <dborkman@redhat.com>,
-	<ast@plumgrid.com>, <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Cc: Linux MIPS Mailing List <linux-mips@linux-mips.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	"Network Development" <netdev@vger.kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailapp01.imgtec.com ([195.59.15.196]:42354 "EHLO
+Received: from mailapp01.imgtec.com ([195.59.15.196]:28859 "EHLO
 	mailapp01.imgtec.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755033AbaFYIMO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2014 04:12:14 -0400
-In-Reply-To: <20140623.124919.2215480222213445820.davem@davemloft.net>
+	with ESMTP id S1755052AbaFYIM4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2014 04:12:56 -0400
+In-Reply-To: <CAMEtUuyL8EV3UxS7yaD_ufiAywr7hkgPSC-3etMEYfbAZ_rRew@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/23/2014 08:49 PM, David Miller wrote:
-> From: Markos Chandras <markos.chandras@imgtec.com>
-> Date: Mon, 23 Jun 2014 10:38:43 +0100
-> 
->> Here are some fixes for MIPS/BPF for 3.16. These fixes make
->> the bpf testsuite *almost* happy with only 2 tests (LD_IND_LL,
->> LD_IND_NET) failing at the moment. Since fixing the remaining tests
->> is not so trivial, it would be nice to have these fixes in 3.16 for now.
+On 06/23/2014 11:09 PM, Alexei Starovoitov wrote:
+> On Mon, Jun 23, 2014 at 2:38 AM, Markos Chandras
+> <markos.chandras@imgtec.com> wrote:
+>> Previously, the negative offset was not checked leading to failures
+>> due to trying to load data beyond the skb struct boundaries. Until we
+>> have proper asm helpers in place, it's best if we return ENOSUPP if K
+>> is negative when trying to JIT the filter or 0 during runtime if we
+>> do an indirect load where the value of X is unknown during build time.
 >>
->> The patches are based on the upstream-sfr/mips-for-linux-next tree
->> because they depend on https://patchwork.linux-mips.org/patch/7099/
+>> Cc: "David S. Miller" <davem@davemloft.net>
+>> Cc: Daniel Borkmann <dborkman@redhat.com>
+>> Cc: Alexei Starovoitov <ast@plumgrid.com>
+>> Cc: netdev@vger.kernel.org
+>> Signed-off-by: Markos Chandras <markos.chandras@imgtec.com>
 > 
-> You did not CC: netdev on patches 1, 2, and 3.  Please do not do this,
-> people on this list will want to review the series as a whole.
+> Hi Markos,
 > 
-Apologies David. Patches 1,2,3 have nothing to do with bpf-jit and they
-only fix/add MIPS micro-assembler instructions so I didn't though
-netdev@ actually cared about that. I will be more careful in the future.
+> thank you for addressing all of my earlier comments.
+> Looks like test_bpf was quite useful in finding all of these bugs :)
+> For the patches that reached netdev:
+> 
+> Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+> 
+
+Thank you for the review and your constructive comments in your previous
+emails.
 
 -- 
 markos
