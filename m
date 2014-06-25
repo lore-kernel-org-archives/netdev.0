@@ -1,45 +1,79 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] net: can: Remodel FlexCAN register read/write APIs for
- BE instances
-Date: Wed, 25 Jun 2014 10:29:22 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D17264BA8@AcuExch.aculab.com>
-References: <1403625285-27824-1-git-send-email-bhupesh.sharma@freescale.com>
- <53AA8805.3050309@pengutronix.de>
- <ae6e49865206432ea871b08b159bae55@BN1PR03MB220.namprd03.prod.outlook.com>
+From: Daniele Forsi <dforsi@gmail.com>
+Subject: Re: [PATCH v2] Add support for GPIOs for SMSC LAN95xx chips.
+Date: Wed, 25 Jun 2014 12:34:23 +0200
+Message-ID: <CAN_we7MbMywYzysn_Q_iRAOZZuE+KU_jDJxMW-Qz0KK0RHwSRQ@mail.gmail.com>
+References: <20140513.180121.1755290421111591028.davem@davemloft.net>
+	<1403671574-16857-1-git-send-email-boger@contactless.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "wg@grandegger.com" <wg@grandegger.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "'bhupesh.sharma@freescale.com'" <bhupesh.sharma@freescale.com>,
-	"Marc Kleine-Budde" <mkl@pengutronix.de>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <ae6e49865206432ea871b08b159bae55@BN1PR03MB220.namprd03.prod.outlook.com>
-Content-Language: en-US
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Steve Glendinning <steve.glendinning@shawell.net>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	USB list <linux-usb@vger.kernel.org>
+To: Evgeny Boger <boger@contactless.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f50.google.com ([209.85.215.50]:50403 "EHLO
+	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753613AbaFYKeZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2014 06:34:25 -0400
+In-Reply-To: <1403671574-16857-1-git-send-email-boger@contactless.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogYmh1cGVzaC5zaGFybWFAZnJlZXNjYWxlLmNvbQ0KPiA+IEZyb206IE1hcmMgS2xlaW5l
-LUJ1ZGRlIFttYWlsdG86bWtsQHBlbmd1dHJvbml4LmRlXQ0KPiA+IE9uIDA2LzI0LzIwMTQgMDU6
-NTQgUE0sIEJodXBlc2ggU2hhcm1hIHdyb3RlOg0KPiA+ID4gVGhlIEZsZXhDQU4gSVAgb24gY2Vy
-dGFpbiBTb0NzIGxpa2UgKEZyZWVzY2FsZSdzIExTMTAyMUEpIGlzIG1vZGVsbGVkDQo+ID4gPiBp
-biBhIGJpZy1lbmRpYW4gZmFzaGlvbiwgaS5lLiB0aGUgcmVnaXN0ZXJzIGFuZCB0aGUgbWVzc2Fn
-ZSBidWZmZXJzDQo+ID4gPiBhcmUgb3JnYW5pemVkIGluIGEgQkUgd2F5Lg0KPiA+DQo+ID4gRG8g
-eW91IGhhdmUgYW55IGlkZWEsIHdoeSBmc2wgZGlkIHRoaXM/IFRoZSBtZXNzZWQgdXAgdGhlIG5l
-dHdvcmsNCj4gPiBjb250cm9sbGVyIG9uIHRoZSBteDI4LCB0b28uIDovDQo+IA0KPiBOb3QgcmVh
-bGx5LiBJIGd1ZXNzIHMvdyBkcml2ZXJzIGFyZSBtZWFudCB0byBoaWRlIGgvdyBvYnNjdXJpdGll
-cyA6KQ0KDQpJIHNvbWV0aW1lcyB0aGluayB0aGV5IGp1c3QgbGlrZSBtYWtpbmcgbGlmZSBoYXJk
-IGZvciBzb2Z0d2FyZSBlbmdpbmVlcnMuDQpJdCBpc24ndCBhcyB0aG91Z2ggJ2dhdGUgY291bnQn
-IGlzIGxpa2VseSB0byBiZSBjcml0aWNhbCB0aGVzZSBkYXlzLg0KDQouLi4NCj4gT2suIE9yIHNo
-b3VsZCBJIGNyZWF0ZSB0d28gZnVuY3Rpb25zIGZvciByZWFkIGFuZCB3cml0ZSAtIG9uZSBkb2Vz
-IGl0IGluIExFIHdheSBhbmQgdGhlIG90aGVyDQo+IGluIEJFIHdheSBhbmQgcGFyc2UgdGhlIERU
-IHRvIHVuZGVyc3RhbmQgd2hpY2ggZW5kaWFubmVzcyB0aGUgbW9kdWxlIHN1cHBvcnRzLg0KDQpB
-biBpbmRpcmVjdCBjYWxsIGlzIGxpa2VseSB0byBiZSBzbG93ZXIgdGhhbiBhIGNvbmRpdGlvbmFs
-Lg0KVGhlIGNvbmRpdGlvbmFsIGluc2lkZSBhIG5vbi1pbmxpbmVkIGZ1bmN0aW9uIGlzIGxpa2Vs
-eSB0byBnZXQNCnByZWRpY3RlZCBjb3JyZWN0bHkgb24gYW55IGNvZGUgcGF0aHMgdGhhdCBtYXR0
-ZXIuDQpVbmZvcnR1bmF0ZWx5IHVzaW5nIGEgcmVhbCBmdW5jdGlvbiBpbmNyZWFzZXMgcmVnaXN0
-ZXIgcHJlc3N1cmUuDQoNCk1heWJlIGEgY29tcGlsZS10aW1lIG9wdGlvbiBmb3IgQkUsIExFIG9y
-IGJvdGguDQpTbyBhICdnZW5lcmljJyBrZXJuZWwgY2FuIHdvcmssIGJ1dCBhIFNvQyBzcGVjaWZp
-YyBvbmUgd2lsbCBiZSBmYXN0ZXIuDQpUaGVuIGhhdmUgdGhlIGRyaXZlciBsb2FkL2F0dGFjaC9p
-bml0IGZhaWwgaWYgaXQgaXMgdGhlIHdyb25nIGVuZGlhbm5lc3MuDQoNCglEYXZpZA0KDQo=
+2014-06-25 6:46 GMT+02:00 Evgeny Boger:
+
+> There might be 11 GPIOs in total.
+
+do you mean "12 GPIOs"? You say later they are 0-based and the last one is "11"
+
+> Last three GPIOs  (offsets 8-11, 0-based) are shared with FDX, LNKA, SPD
+> LEDs respectively.
+
+so you mean the last "four"?
+and you may want to remove the extra space before the open parenthesis
+
+also there are still several unneeded newlines
+
+> diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+
+> @@ -68,6 +70,15 @@ struct smsc95xx_priv {
+>         spinlock_t mac_cr_lock;
+>         u8 features;
+>         u8 suspend_flags;
+> +
+> +       struct usbnet *dev;
+
+> +static int smsc95xx_gpio_request(struct gpio_chip *gpio, unsigned offset)
+
+> +       mutex_unlock(&pdata->gpio_lock);
+> +
+> +
+> +       return (ret < 0) ? ret : 0;
+> +}
+> +
+> +static void smsc95xx_gpio_free(struct gpio_chip *gpio, unsigned offset)
+
+> +       if (ret < 0)
+> +               netif_err(pdata->dev, ifdown, pdata->dev->net,
+> +                       "error freeing gpio %d\n", offset);
+> +
+> +}
+
+and in other places
+
+> +static void smsc95xx_gpio_set(struct gpio_chip *gpio, unsigned offset,
+> +                               int value)
+> +{
+
+> +       if (ret < 0) {
+> +               netif_err(pdata->dev, ifdown, pdata->dev->net,
+> +                       "error writing gpio %d=%d\n", offset, value);
+> +               return;
+> +       }
+> +}
+
+no need to put a "return" there at he end of the function (if it's
+defensive programming then you didn't put return in similar code in a
+previous function)
+
+-- 
+Daniele Forsi
