@@ -1,42 +1,76 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH 00/22] Add and use pci_zalloc_consistent
-Date: Wed, 25 Jun 2014 15:41:12 -0400
-Message-ID: <20140625194112.GJ3445@tuxdriver.com>
-References: <cover.1403530604.git.joe@perches.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] net: fix setting csum_start in skb_segment()
+Date: Wed, 25 Jun 2014 12:51:01 -0700
+Message-ID: <1403725861.3796.47.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <alpine.DEB.2.02.1406242056330.29780@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-	iss_storagedev@hp.com, linux-crypto@vger.kernel.org,
-	dri-devel@lists.freedesktop.org, linux-rdma@vger.kernel.org,
-	linux-media@vger.kernel.org, linux-wireless@vger.kernel.org,
-	linux-scsi@vger.kernel.org, linux-eata@i-connect.net,
-	devel@driverdev.osuosl.org, linux-arch@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-arch-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <cover.1403530604.git.joe@perches.com>
-Sender: linux-arch-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, torvalds@linux-foundation.org,
+	davej@redhat.com, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.02.1406242056330.29780@tomh.mtv.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 23, 2014 at 06:41:28AM -0700, Joe Perches wrote:
-> Adding the helper reduces object code size as well as overall
-> source size line count.
-> 
-> It's also consistent with all the various zalloc mechanisms
-> in the kernel.
-> 
-> Done with a simple cocci script and some typing.
-> 
-> Joe Perches (22):
+From: Tom Herbert <therbert@google.com>
 
->   ipw2100: Use pci_zalloc_consistent
->   mwl8k: Use pci_zalloc_consistent
->   rtl818x: Use pci_zalloc_consistent
->   rtlwifi: Use pci_zalloc_consistent
+Dave Jones reported that a crash is occurring in
 
-Sure, fine by me.
+csum_partial
+tcp_gso_segment
+inet_gso_segment
+? update_dl_migration
+skb_mac_gso_segment
+__skb_gso_segment
+dev_hard_start_xmit
+sch_direct_xmit
+__dev_queue_xmit
+? dev_hard_start_xmit
+dev_queue_xmit
+ip_finish_output
+? ip_output
+ip_output
+ip_forward_finish
+ip_forward
+ip_rcv_finish
+ip_rcv
+__netif_receive_skb_core
+? __netif_receive_skb_core
+? trace_hardirqs_on
+__netif_receive_skb
+netif_receive_skb_internal
+napi_gro_complete
+? napi_gro_complete
+dev_gro_receive
+? dev_gro_receive
+napi_gro_receive
 
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+It looks like a likely culprit is that SKB_GSO_CB()->csum_start is
+not set correctly when doing non-scatter gather. We are using
+offset as opposed to doffset.
+
+Reported-by: Dave Jones <davej@redhat.com>
+Tested-by: Dave Jones <davej@redhat.com>
+Signed-off-by: Tom Herbert <therbert@google.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Fixes: 7e2b10c1e52ca ("net: Support for multiple checksums with gso")
+---
+ net/core/skbuff.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 9cd5344fad73..c1a33033cbe2 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2993,7 +2993,7 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
+ 							    skb_put(nskb, len),
+ 							    len, 0);
+ 			SKB_GSO_CB(nskb)->csum_start =
+-			    skb_headroom(nskb) + offset;
++			    skb_headroom(nskb) + doffset;
+ 			continue;
+ 		}
+ 
