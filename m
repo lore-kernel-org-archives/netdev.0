@@ -1,88 +1,49 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 02/14] i40e: make prep_for_reset void
-Date: Tue, 24 Jun 2014 18:26:13 -0700
-Message-ID: <1403659585-32055-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 01/14] i40e: Stop the VF device after setting its MAC address
+Date: Tue, 24 Jun 2014 18:26:12 -0700
+Message-ID: <1403659585-32055-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1403659585-32055-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:16460 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754229AbaFYB0d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Jun 2014 21:26:33 -0400
+	id S1752205AbaFYB0c (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Jun 2014 21:26:32 -0400
 In-Reply-To: <1403659585-32055-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Greg Rose <gregory.v.rose@intel.com>
 
-The return from i40e_prep_for_reset() was being ignored by almost all
-its callers.  The one place it wasn't ignored could have caused a silent
-and confusing failure of the driver to finish a reset.  Since we really
-are doing a rebuild anyway, ignore this last case as well and simply
-make the function a void type.
+If the host VMM administrator has changed the VF device's MAC address then
+the i40e driver needs to halt the VF device so that the administrator will
+be forced to reload the VF driver.  This will cause the VF driver to start
+using the newly assigned MAC address.  This brings the i40e driver into
+conformance with operational characteristics of other Intel SR-IOV
+featured drivers.
 
-Change-ID: Ia4fed7f903d39a6c47c5722625a53e59c3f7ed53
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Change-ID: Ic7242cceb8287dd2cb72fb1f3166a032a28bf88a
+Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
-v2: removed un-needed return in a void function
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
- drivers/net/ethernet/intel/i40e/i40e_main.c | 16 +++++-----------
- 1 file changed, 5 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index b167fc2..3f60976 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -5611,7 +5611,7 @@ static void i40e_fdir_teardown(struct i40e_pf *pf)
-  *
-  * Close up the VFs and other things in prep for pf Reset.
-   **/
--static int i40e_prep_for_reset(struct i40e_pf *pf)
-+static void i40e_prep_for_reset(struct i40e_pf *pf)
- {
- 	struct i40e_hw *hw = &pf->hw;
- 	i40e_status ret = 0;
-@@ -5619,7 +5619,7 @@ static int i40e_prep_for_reset(struct i40e_pf *pf)
- 
- 	clear_bit(__I40E_RESET_INTR_RECEIVED, &pf->state);
- 	if (test_and_set_bit(__I40E_RESET_RECOVERY_PENDING, &pf->state))
--		return 0;
-+		return;
- 
- 	dev_dbg(&pf->pdev->dev, "Tearing down internal switch for reset\n");
- 
-@@ -5636,13 +5636,10 @@ static int i40e_prep_for_reset(struct i40e_pf *pf)
- 	/* call shutdown HMC */
- 	if (hw->hmc.hmc_obj) {
- 		ret = i40e_shutdown_lan_hmc(hw);
--		if (ret) {
-+		if (ret)
- 			dev_warn(&pf->pdev->dev,
- 				 "shutdown_lan_hmc failed: %d\n", ret);
--			clear_bit(__I40E_RESET_RECOVERY_PENDING, &pf->state);
--		}
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index f5b9d20..d2dabae 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -2077,6 +2077,8 @@ int i40e_ndo_set_vf_mac(struct net_device *netdev, int vf_id, u8 *mac)
  	}
--	return ret;
- }
+ 	ether_addr_copy(vf->default_lan_addr.addr, mac);
+ 	vf->pf_set_mac = true;
++	/* Force the VF driver stop so it has to reload with new MAC address */
++	i40e_vc_disable_vf(pf, vf);
+ 	dev_info(&pf->pdev->dev, "Reload the VF driver to make this change effective.\n");
+ 	ret = 0;
  
- /**
-@@ -5816,11 +5813,8 @@ end_core_reset:
-  **/
- static void i40e_handle_reset_warning(struct i40e_pf *pf)
- {
--	i40e_status ret;
--
--	ret = i40e_prep_for_reset(pf);
--	if (!ret)
--		i40e_reset_and_rebuild(pf, false);
-+	i40e_prep_for_reset(pf);
-+	i40e_reset_and_rebuild(pf, false);
- }
- 
- /**
 -- 
 1.9.3
