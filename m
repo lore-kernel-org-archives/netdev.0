@@ -1,69 +1,83 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: [PATCH -next] enic: Make dummy rfs functions inline to fix !CONFIG_RFS_ACCEL build
-Date: Wed, 25 Jun 2014 10:31:09 +0200
-Message-ID: <1403685069-20198-1-git-send-email-geert@linux-m68k.org>
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Geert Uytterhoeven <geert@linux-m68k.org>
-To: Govindarajulu Varadarajan <_govind@gmx.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Markos Chandras <markos.chandras@imgtec.com>
+Subject: [PATCH v2 14/17] MIPS: bpf: Prevent kernel fall over for >=32bit shifts
+Date: Wed, 25 Jun 2014 09:37:21 +0100
+Message-ID: <1403685441-4858-1-git-send-email-markos.chandras@imgtec.com>
+References: <53A811FA.5060502@imgtec.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Markos Chandras <markos.chandras@imgtec.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	"Alexei Starovoitov" <ast@plumgrid.com>, <netdev@vger.kernel.org>
+To: <linux-mips@linux-mips.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailapp01.imgtec.com ([195.59.15.196]:42173 "EHLO
+	mailapp01.imgtec.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753978AbaFYIhe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2014 04:37:34 -0400
+In-Reply-To: <53A811FA.5060502@imgtec.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-If CONFIG_RFS_ACCEL=n:
+Remove BUG_ON() if the shift immediate is >=32 to avoid kernel crashes
+due to malicious user input. If the shift immediate is >= 32,
+we simply load the destination register with 0 since only
+32-bit instructions are used by JIT so this will do the
+correct thing even on MIPS64.
 
-drivers/net/ethernet/cisco/enic/enic_main.c: In function 'enic_open':
-drivers/net/ethernet/cisco/enic/enic_main.c:1603:2: error: implicit declaration of function 'enic_rfs_flw_tbl_init' [-Werror=implicit-function-declaration]
-drivers/net/ethernet/cisco/enic/enic_main.c: In function 'enic_stop':
-drivers/net/ethernet/cisco/enic/enic_main.c:1630:2: error: implicit declaration of function 'enic_rfs_flw_tbl_free' [-Werror=implicit-function-declaration]
-
-Introduced in commit a145df23ef32c7b933875f334ba28791ee75766e ("enic: Add
-Accelerated RFS support").
-
-Dummy functions are provided, but their prototypes are missing, causing the
-build failure.  Provide dummy static inline functions instead to fix this.
-
-Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Daniel Borkmann <dborkman@redhat.com>
+Cc: Alexei Starovoitov <ast@plumgrid.com>
+Cc: netdev@vger.kernel.org
+Signed-off-by: Markos Chandras <markos.chandras@imgtec.com>
 ---
-kisskb.ellerman.id.au/kisskb/buildresult/11381101/
+Changes since v1:
+- For sa >=32, load destination register with zero instead of treating
+the immediate as 31
 ---
- drivers/net/ethernet/cisco/enic/enic_clsf.c | 10 ----------
- drivers/net/ethernet/cisco/enic/enic_clsf.h |  3 +++
- 2 files changed, 3 insertions(+), 10 deletions(-)
+ arch/mips/net/bpf_jit.c | 16 ++++++++++++----
+ 1 file changed, 12 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/cisco/enic/enic_clsf.c b/drivers/net/ethernet/cisco/enic/enic_clsf.c
-index c2322adfccdc..bc451baac4cd 100644
---- a/drivers/net/ethernet/cisco/enic/enic_clsf.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_clsf.c
-@@ -266,14 +266,4 @@ ret_unlock:
- 	return res;
+diff --git a/arch/mips/net/bpf_jit.c b/arch/mips/net/bpf_jit.c
+index 1bcd599d9971..9476e7f061a1 100644
+--- a/arch/mips/net/bpf_jit.c
++++ b/arch/mips/net/bpf_jit.c
+@@ -151,6 +151,8 @@ static inline int optimize_div(u32 *k)
+ 	return 0;
  }
  
--#else
--
--void enic_rfs_flw_tbl_init(struct enic *enic)
--{
--}
--
--void enic_rfs_flw_tbl_free(struct enic *enic)
--{
--}
--
- #endif /* CONFIG_RFS_ACCEL */
-diff --git a/drivers/net/ethernet/cisco/enic/enic_clsf.h b/drivers/net/ethernet/cisco/enic/enic_clsf.h
-index 76a85bb0bb73..d572704cd117 100644
---- a/drivers/net/ethernet/cisco/enic/enic_clsf.h
-+++ b/drivers/net/ethernet/cisco/enic/enic_clsf.h
-@@ -14,6 +14,9 @@ void enic_rfs_flw_tbl_init(struct enic *enic);
- void enic_rfs_flw_tbl_free(struct enic *enic);
- int enic_rx_flow_steer(struct net_device *dev, const struct sk_buff *skb,
- 		       u16 rxq_index, u32 flow_id);
-+#else
-+static inline void enic_rfs_flw_tbl_init(struct enic *enic) {}
-+static inline void enic_rfs_flw_tbl_free(struct enic *enic) {}
- #endif /* CONFIG_RFS_ACCEL */
++static inline void emit_jit_reg_move(ptr dst, ptr src, struct jit_ctx *ctx);
++
+ /* Simply emit the instruction if the JIT memory space has been allocated */
+ #define emit_instr(ctx, func, ...)			\
+ do {							\
+@@ -309,8 +311,11 @@ static inline void emit_sll(unsigned int dst, unsigned int src,
+ 			    unsigned int sa, struct jit_ctx *ctx)
+ {
+ 	/* sa is 5-bits long */
+-	BUG_ON(sa >= BIT(5));
+-	emit_instr(ctx, sll, dst, src, sa);
++	if (sa >= BIT(5))
++		/* Shifting >= 32 results in zero */
++		emit_jit_reg_move(dst, r_zero, ctx);
++	else
++		emit_instr(ctx, sll, dst, src, sa);
+ }
  
- #endif /* _ENIC_CLSF_H_ */
+ static inline void emit_srlv(unsigned int dst, unsigned int src,
+@@ -323,8 +328,11 @@ static inline void emit_srl(unsigned int dst, unsigned int src,
+ 			    unsigned int sa, struct jit_ctx *ctx)
+ {
+ 	/* sa is 5-bits long */
+-	BUG_ON(sa >= BIT(5));
+-	emit_instr(ctx, srl, dst, src, sa);
++	if (sa >= BIT(5))
++		/* Shifting >= 32 results in zero */
++		emit_jit_reg_move(dst, r_zero, ctx);
++	else
++		emit_instr(ctx, srl, dst, src, sa);
+ }
+ 
+ static inline void emit_slt(unsigned int dst, unsigned int src1,
 -- 
-1.9.1
+2.0.0
