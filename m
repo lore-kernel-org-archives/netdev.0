@@ -1,28 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: allwinner: emac: Add missing free_irq
-Date: Wed, 25 Jun 2014 16:32:00 -0700 (PDT)
-Message-ID: <20140625.163200.509097762043557956.davem@davemloft.net>
-References: <1403556580-21818-1-git-send-email-maxime.ripard@free-electrons.com>
+Subject: Re: [PATCH] amd: Neaten and remove unnecessary OOM messages
+Date: Wed, 25 Jun 2014 16:32:30 -0700 (PDT)
+Message-ID: <20140625.163230.90574954824917070.davem@davemloft.net>
+References: <1403550950.15811.15.camel@joe-AO725>
+	<1403557507.20657.3.camel@joe-AO725>
+	<1403559395.20657.8.camel@joe-AO725>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org, stable@vger.kernel.org
-To: maxime.ripard@free-electrons.com
+Cc: pcnet32@frontier.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: joe@perches.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1403556580-21818-1-git-send-email-maxime.ripard@free-electrons.com>
+In-Reply-To: <1403559395.20657.8.camel@joe-AO725>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Maxime Ripard <maxime.ripard@free-electrons.com>
-Date: Mon, 23 Jun 2014 22:49:40 +0200
+From: Joe Perches <joe@perches.com>
+Date: Mon, 23 Jun 2014 14:36:35 -0700
 
-> If the mdio probe function fails in emac_open, the interrupt we just requested
-> isn't freed. If emac_open is called again, for example because we try to set up
-> the interface again, the kernel will oops because the interrupt wasn't properly
-> released.
+> Make the code flow a little better for 80 columns.
 > 
-> Signed-off-by: Maxime Ripard <maxime.ripard@free-electrons.com>
-> Cc: <stable@vger.kernel.org> # 3.11+
+> Use a consistent style for the RX and TX rings allocation.
+> Use BIT macro.
+> Use a temporary unsiged int entries for (1<<size).
+> Remove the OOM messages as they duplicate the generic
+> OOM and dump_stack() provided by the memory subsystem.
+> Reflow allocs to 80 columns.
+> 
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-Applied, thank you.
+Please repost with adjusted subject prefix (amd --> pcnet32), thanks.
