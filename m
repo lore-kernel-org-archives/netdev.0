@@ -1,70 +1,68 @@
-From: James M Leddy <james.leddy@redhat.com>
-Subject: [PATCH v2] udp: Add MIB counters for rcvbuferrors
-Date: Wed, 25 Jun 2014 17:38:13 -0400
-Message-ID: <1403732293-32304-1-git-send-email-james.leddy@redhat.com>
-Cc: James M Leddy <james.leddy@redhat.com>
-To: netdev@vger.kernel.org
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: question on ipv6 support for duplicate nexthops
+Date: Wed, 25 Jun 2014 14:40:03 -0700
+Message-ID: <53AB41B3.1020201@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Walton <dwalton@cumulusnetworks.com>
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54676 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753542AbaFYVid (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Jun 2014 17:38:33 -0400
-Received: from int-mx09.intmail.prod.int.phx2.redhat.com (int-mx09.intmail.prod.int.phx2.redhat.com [10.5.11.22])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s5PLcWwP025307
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Wed, 25 Jun 2014 17:38:32 -0400
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:36230 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753174AbaFYVkG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2014 17:40:06 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by ext3.cumulusnetworks.com (Postfix) with ESMTP id 44023160042A
+	for <netdev@vger.kernel.org>; Wed, 25 Jun 2014 14:40:05 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add MIB counters for rcvbuferrors in UDP to help diagnose problems.
+ipv4 allows duplicate nexthops. Multiple instances of same
+  nexthops maybe used to give higher weights to some nexthops
+(though the "weight" attribute can be used for the same purpose).
 
-Signed-off-by: James M Leddy <james.leddy@redhat.com>
----
- net/ipv4/udp.c |    5 ++++-
- net/ipv6/udp.c |    6 +++++-
- 2 files changed, 9 insertions(+), 2 deletions(-)
+ipv6 does not seem to support duplicate nexthops.
 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index d92f94b..7d5a866 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1588,8 +1588,11 @@ int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
- 		goto csum_error;
- 
- 
--	if (sk_rcvqueues_full(sk, skb, sk->sk_rcvbuf))
-+	if (sk_rcvqueues_full(sk, skb, sk->sk_rcvbuf)) {
-+		UDP_INC_STATS_BH(sock_net(sk), UDP_MIB_RCVBUFERRORS,
-+				 is_udplite);
- 		goto drop;
-+	}
- 
- 	rc = 0;
- 
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 95c8347..7092ff7 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -674,8 +674,11 @@ int udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
- 			goto csum_error;
- 	}
- 
--	if (sk_rcvqueues_full(sk, skb, sk->sk_rcvbuf))
-+	if (sk_rcvqueues_full(sk, skb, sk->sk_rcvbuf)) {
-+		UDP6_INC_STATS_BH(sock_net(sk),
-+				  UDP_MIB_RCVBUFERRORS, is_udplite);
- 		goto drop;
-+	}
- 
- 	skb_dst_drop(skb);
- 
-@@ -690,6 +693,7 @@ int udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
- 	bh_unlock_sock(sk);
- 
- 	return rc;
-+
- csum_error:
- 	UDP6_INC_STATS_BH(sock_net(sk), UDP_MIB_CSUMERRORS, is_udplite);
- drop:
--- 
-1.7.1
+Example: The below ipv6 route is rejected by the kernel
+#ip -6 route add 2001:10:1:3::/64 nexthop via 2001:10:1:2::99 nexthop 
+via 2001:10:1:2::99
+
+The below patch points to the code that is preventing the addition of 
+duplicate nexthops.
+
+I am not sure yet if there are other side effects to the patch below.
+If there is interest in making ipv6 consistent with ipv4 for duplicate 
+nexthop handling, i can submit a patch.
+
+
+diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+index cb4459b..afecc87 100644
+--- a/net/ipv6/ip6_fib.c
++++ b/net/ipv6/ip6_fib.c
+@@ -698,20 +698,6 @@ static int fib6_add_rt2node(struct fib6_node *fn, 
+struct rt6_info *rt,
+                                 break;
+                         }
+
+-                       if (iter->dst.dev == rt->dst.dev &&
+-                           iter->rt6i_idev == rt->rt6i_idev &&
+- ipv6_addr_equal(&iter->rt6i_gateway,
+- &rt->rt6i_gateway)) {
+-                               if (rt->rt6i_nsiblings)
+-                                       rt->rt6i_nsiblings = 0;
+-                               if (!(iter->rt6i_flags & RTF_EXPIRES))
+-                                       return -EEXIST;
+-                               if (!(rt->rt6i_flags & RTF_EXPIRES))
+-                                       rt6_clean_expires(iter);
+-                               else
+-                                       rt6_set_expires(iter, 
+rt->dst.expires);
+-                               return -EEXIST;
+-                       }
+                         /* If we have the same destination and the same 
+metric,
+                          * but not the same gateway, then the route we 
+try to
+                          * add is sibling to this route, increment our 
+counter
