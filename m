@@ -1,116 +1,55 @@
-From: "bhupesh.sharma@freescale.com" <bhupesh.sharma@freescale.com>
-Subject: RE: [PATCH] net: can: Remodel FlexCAN register read/write APIs for BE
- instances
-Date: Wed, 25 Jun 2014 11:01:12 +0000
-Message-ID: <536c077e2e8b4dfabb4c07f696753a3c@BN1PR03MB220.namprd03.prod.outlook.com>
-References: <1403625285-27824-1-git-send-email-bhupesh.sharma@freescale.com>
- <53AA8805.3050309@pengutronix.de>
- <ae6e49865206432ea871b08b159bae55@BN1PR03MB220.namprd03.prod.outlook.com>
- <53AAA3E9.6030409@pengutronix.de>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PULL] vhost: cleanups and fixes
+Date: Wed, 25 Jun 2014 14:05:39 +0300
+Message-ID: <20140625110539.GA7386@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "wg@grandegger.com" <wg@grandegger.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Marc Kleine-Budde <mkl@pengutronix.de>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <53AAA3E9.6030409@pengutronix.de>
-Content-Language: en-US
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
+	romain@orebokech.com, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBNYXJjIEtsZWluZS1CdWRkZSBb
-bWFpbHRvOm1rbEBwZW5ndXRyb25peC5kZV0NCj4gU2VudDogV2VkbmVzZGF5LCBKdW5lIDI1LCAy
-MDE0IDM6NTcgUE0NCj4gVG86IFNoYXJtYSBCaHVwZXNoLUI0NTM3MDsgbGludXgtY2FuQHZnZXIu
-a2VybmVsLm9yZw0KPiBDYzogd2dAZ3JhbmRlZ2dlci5jb207IG5ldGRldkB2Z2VyLmtlcm5lbC5v
-cmcNCj4gU3ViamVjdDogUmU6IFtQQVRDSF0gbmV0OiBjYW46IFJlbW9kZWwgRmxleENBTiByZWdp
-c3RlciByZWFkL3dyaXRlIEFQSXMNCj4gZm9yIEJFIGluc3RhbmNlcw0KPiANCj4gT24gMDYvMjUv
-MjAxNCAxMTo0MSBBTSwgYmh1cGVzaC5zaGFybWFAZnJlZXNjYWxlLmNvbSB3cm90ZToNCj4gPj4+
-IFRoaXMgcGF0Y2ggZW5zdXJlcyB0aGF0IHRoZSByZWdpc3RlciByZWFkL3dyaXRlIEFQSXMgYXJl
-IHJlbW9kZWxsZWQNCj4gPj4+IHRvIGFkZHJlc3Mgc3VjaCBjYXNlcywgd2hpbGUgZW5zdXJpbmcg
-dGhhdCBleGlzdGluZyBwbGF0Zm9ybXMgKHdoZXJlDQo+ID4+PiB0aGUgRmxleENBTiBJUCB3YXMg
-bW9kZWxsZWQgaW4gTEUgd2F5KSBkbyBub3QgYnJlYWsuDQo+ID4+DQo+ID4+IEknbSBub3Qgc3Vy
-ZSBpZiBpdCdzIGJldHRlciB0byBoYW5kbGUgdGhpcyB2aWEgdGhlIERUIGF0dHJpYnV0ZXMgYmln
-LQ0KPiA+PiBlbmRpYW4sIGxpdHRsZS1lbmRpYW4sIG5vIGF0dHJpYnV0ZSB3b3VsZCBtZWFuIG5h
-dGl2ZSBlbmRpYW5lc3MgZm9yDQo+ID4+IGJhY2t3YXJkcyBjb21wYXRpYmlsaXR5Lg0KPiA+DQo+
-ID4gTXkgMXN0IGFwcHJvYWNoIHBhdGggd2FzIGRvIGl0IHZpYSBEVCBpdHNlbGYsIGJ1dCB0aGF0
-IHdvdWxkIG1lYW4NCj4gPiBjaGFuZ2luZyBleGlzdGluZyBEVFMvRFRTSSBmb3IgU29DcyB3aGlj
-aCB1c2UgRmxleENBTiwgdW5sZXNzIHdlIHNheQ0KPiA+IG5vIGVuZGlhbmVzcyBhdHRyaWJ1dGUg
-bWVhbnMgdGhhdCB0aGUgbW9kdWxlIGlzIHN0aWxsIExFLCBhbmQgdGh1cw0KPiA+IGVmZmVjdGl2
-ZWx5IGFkZCAnYmlnLWVuZGlhbicgb25seSBhIG5vZGUgdG8gdGhlIExTMTAyMUEgRmxleENBTiBE
-VA0KPiBub2RlLg0KPiANCj4gSWYgbm8gYXR0cmlidXRlcyBtZWFucyBuYXRpdmUgZW5kaWFuZXNz
-IHRoZSBkdHMgd2lsbCBzdGF5IGNvbXBhdGlibGUuDQo+IA0KPiA+PiBXaXRoIHRoaXMgc29sdXRp
-b24sIHlvdSdyZSBicmVha2luZyBhbGwgQVJNIG5vbiBEVCBib2FyZHMsIGFzIHRoZQ0KPiA+PiBz
-dHJ1Y3QgcGxhdGZvcm1fZGV2aWNlX2lkIHN0aWxsIHVzZXMgZnNsX3AxMDEwX2RldnR5cGVfZGF0
-YS4gWW91J3JlDQo+ID4+IGJyZWFraW5nIERUIGJhc2VkIG14MzUsIGFzIHN0cnVjdCBvZl9kZXZp
-Y2VfaWQgaGFzIG5vIGVudHJ5IGZvciBteDM1Lg0KPiA+Pg0KPiA+PiBXaXRoIHRoaXMgcGF0Y2gg
-ZnNsLHAxMDEwLWZsZXhjYW4gaXNuJ3QgY29tcGF0aWJsZSB3aXRoIHRoZSBpbXgvbXhzDQo+ID4+
-IGFueSBtb3JlLCBwbGVhc2UgY2hhbmdlIHRoZSBkZXZpY2UgdHJlZXMgaW4gdGhlIGtlcm5lbC4N
-Cj4gPj4NCj4gPj4gUGxlYXNlIHVwZGF0ZSB0aGUgIkZMRVhDQU4gaGFyZHdhcmUgZmVhdHVyZSBm
-bGFncyIgdGFibGUgaW4gdGhlDQo+ID4+IGRyaXZlciBhbmQgY2hlY2sgaWYgYW55IG9mIHRoZSBt
-ZW50aW9uZWQgcXVpcmtzIGFyZSBuZWVkZWQgZm9yIHRoZQ0KPiBMUzEwMjFBLg0KPiA+DQo+ID4g
-SSBoYXZlIGNvbmZpcm1lZCB0aGUgc2FtZS4gTm8gcXVpcmtzIGFyZSByZXF1aXJlZCBmb3IgTFMx
-MDIxQS4NCj4gPiBCVFcsIGNhbid0IHdlIGhhdmUgdGhlIHF1aXJrcyBmaWVsZCBpbiB0aGUgRFQg
-bm9kZSBpdHNlbGY/DQo+IA0KPiBJIGRvbid0IGtub3csIHByb2JhYmx5IGZvciBoaXN0b3JpYyBy
-ZWFzb25zLCBmZWVsIGZyZWUgdG8gcG9zdCBhIHBhdGNoLg0KDQpPay4NCg0KPiANCj4gPj4gU2Vl
-IGNvbW1lbnQgaW5saW5lLi4uLi4NCj4gPj4NCj4gPj4+IFNpZ25lZC1vZmYtYnk6IEJodXBlc2gg
-U2hhcm1hIDxiaHVwZXNoLnNoYXJtYUBmcmVlc2NhbGUuY29tPg0KPiA+Pj4gLS0tDQo+ID4+PiBS
-ZWJhc2VkIGFnYWludCB2My4xNi1yYzENCj4gPj4+DQo+ID4+PiAgZHJpdmVycy9uZXQvY2FuL2Zs
-ZXhjYW4uYyB8ICAyMTMNCj4gPj4+ICsrKysrKysrKysrKysrKysrKysrKysrKysrKy0tLS0tLS0t
-LS0tLS0tLS0tLQ0KPiA+Pj4gIDEgZmlsZSBjaGFuZ2VkLCAxMjYgaW5zZXJ0aW9ucygrKSwgODcg
-ZGVsZXRpb25zKC0pDQo+ID4+Pg0KPiA+Pj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2Nhbi9m
-bGV4Y2FuLmMgYi9kcml2ZXJzL25ldC9jYW4vZmxleGNhbi5jDQo+ID4+PiBpbmRleCBmNDI1ZWMy
-Li4wMGM0NzQwIDEwMDY0NA0KPiA+Pj4gLS0tIGEvZHJpdmVycy9uZXQvY2FuL2ZsZXhjYW4uYw0K
-PiA+Pj4gKysrIGIvZHJpdmVycy9uZXQvY2FuL2ZsZXhjYW4uYw0KPiA+Pg0KPiA+PiBbLi4uXQ0K
-PiA+Pg0KPiA+Pj4gIHN0YXRpYyBjb25zdCBzdHJ1Y3QgY2FuX2JpdHRpbWluZ19jb25zdCBmbGV4
-Y2FuX2JpdHRpbWluZ19jb25zdCA9IHsNCj4gPj4+IEBAIC0yMzcsMzIgKzI1NiwzNiBAQCBzdGF0
-aWMgY29uc3Qgc3RydWN0IGNhbl9iaXR0aW1pbmdfY29uc3QNCj4gPj4+IGZsZXhjYW5fYml0dGlt
-aW5nX2NvbnN0ID0geyAgfTsNCj4gPj4+DQo+ID4+PiAgLyoNCj4gPj4+IC0gKiBBYnN0cmFjdCBv
-ZmYgdGhlIHJlYWQvd3JpdGUgZm9yIGFybSB2ZXJzdXMgcHBjLiBUaGlzDQo+ID4+PiAtICogYXNz
-dW1lcyB0aGF0IFBQQyB1c2VzIGJpZy1lbmRpYW4gcmVnaXN0ZXJzIGFuZCBldmVyeXRoaW5nDQo+
-ID4+PiAtICogZWxzZSB1c2VzIGxpdHRsZS1lbmRpYW4gcmVnaXN0ZXJzLCBpbmRlcGVuZGVudCBv
-ZiBDUFUNCj4gPj4+IC0gKiBlbmRpYW5lc3MuDQo+ID4+PiArICogRmxleENBTiBtb2R1bGUgaXMg
-ZXNzZW50aWFsbHkgbW9kZWxsZWQgYXMgYSBsaXR0bGUtZW5kaWFuIElQIGluDQo+ID4+PiArIG1v
-c3QNCj4gPj4+ICsgKiBTb0NzLCBpLmUgdGhlIHJlZ2lzdGVycyBhcyB3ZWxsIGFzIHRoZSBtZXNz
-YWdlIGJ1ZmZlciBhcmVhcyBhcmUNCj4gPj4+ICsgKiBpbXBsZW1lbnRlZCBpbiBhIGxpdHRsZS1l
-bmRpYW4gZmFzaGlvbi4NCj4gPj4+ICsgKg0KPiA+Pj4gKyAqIEhvd2V2ZXIgdGhlcmUgYXJlIHNv
-bWUgU29DcyAoZS5nLiBMUzEwMjFBKSB3aGljaCBpbXBsZW1lbnQgdGhlDQo+ID4+PiArIEZsZXhD
-QU4NCj4gPj4+ICsgKiBtb2R1bGUgaW4gYSBiaWctZW5kaWFuIGZhc2hpb24gKGkuZSB0aGUgcmVn
-aXN0ZXJzIGFzIHdlbGwgYXMgdGhlDQo+ID4+PiArICogbWVzc2FnZSBidWZmZXIgYXJlYXMgYXJl
-IGltcGxlbWVudGVkIGluIGEgYmlnLWVuZGlhbiB3YXkpLg0KPiA+Pj4gKyAqDQo+ID4+PiArICog
-SW4gYWRkaXRpb24sIHRoZSBGbGV4Q0FOIG1vZHVsZSBjYW4gYmUgZm91bmQgb24gU29DcyBoYXZp
-bmcgQVJNDQo+ID4+PiArIG9yDQo+ID4+PiArICogUFBDIGNvcmVzLiBTbywgd2UgbmVlZCB0byBh
-YnN0cmFjdCBvZmYgdGhlIHJlZ2lzdGVyIHJlYWQvd3JpdGUNCj4gPj4+ICsgKiBmdW5jdGlvbnMs
-IGVuc3VyaW5nIHRoYXQgdGhlc2UgY2F0ZXIgdG8gYWxsIHRoZSBjb21iaW5hdGlvbnMgb2YNCj4g
-Pj4+ICsgbW9kdWxlDQo+ID4+PiArICogZW5kaWFuZXNzIGFuZCB1bmRlcmx5aW5nIENQVSBlbmRp
-YW5lc3MuDQo+ID4+PiAgICovDQo+ID4+PiAtI2lmIGRlZmluZWQoQ09ORklHX1BQQykNCj4gPj4+
-IC1zdGF0aWMgaW5saW5lIHUzMiBmbGV4Y2FuX3JlYWQodm9pZCBfX2lvbWVtICphZGRyKQ0KPiA+
-Pj4gK3N0YXRpYyBpbmxpbmUgdTMyIGZsZXhjYW5fcmVhZChjb25zdCBzdHJ1Y3QgZmxleGNhbl9w
-cml2ICpwcml2LA0KPiA+Pj4gKwkJCSAgICAgICB2b2lkIF9faW9tZW0gKmFkZHIpDQo+ID4+PiAg
-ew0KPiA+Pj4gLQlyZXR1cm4gaW5fYmUzMihhZGRyKTsNCj4gPj4+IC19DQo+ID4+PiAtDQo+ID4+
-PiAtc3RhdGljIGlubGluZSB2b2lkIGZsZXhjYW5fd3JpdGUodTMyIHZhbCwgdm9pZCBfX2lvbWVt
-ICphZGRyKSAtew0KPiA+Pj4gLQlvdXRfYmUzMihhZGRyLCB2YWwpOw0KPiA+Pj4gLX0NCj4gPj4+
-IC0jZWxzZQ0KPiA+Pj4gLXN0YXRpYyBpbmxpbmUgdTMyIGZsZXhjYW5fcmVhZCh2b2lkIF9faW9t
-ZW0gKmFkZHIpIC17DQo+ID4+PiAtCXJldHVybiByZWFkbChhZGRyKTsNCj4gPj4+ICsJaWYgKHBy
-aXYtPmRldnR5cGVfZGF0YS0+bW9kdWxlX2lzX2JpZ19lbmRpYW4pDQo+ID4+PiArCQlyZXR1cm4g
-aW9yZWFkMzJiZShhZGRyKTsNCj4gPj4+ICsJZWxzZQ0KPiA+Pj4gKwkJcmV0dXJuIGlvcmVhZDMy
-KGFkZHIpOw0KPiA+Pj4gIH0NCj4gPj4+DQo+ID4+PiAtc3RhdGljIGlubGluZSB2b2lkIGZsZXhj
-YW5fd3JpdGUodTMyIHZhbCwgdm9pZCBfX2lvbWVtICphZGRyKQ0KPiA+Pj4gK3N0YXRpYyBpbmxp
-bmUgdm9pZCBmbGV4Y2FuX3dyaXRlKGNvbnN0IHN0cnVjdCBmbGV4Y2FuX3ByaXYgKnByaXYsDQo+
-ID4+PiArCQkJCSB1MzIgdmFsLCB2b2lkIF9faW9tZW0gKmFkZHIpDQo+ID4+PiAgew0KPiA+Pj4g
-LQl3cml0ZWwodmFsLCBhZGRyKTsNCj4gPj4+ICsJaWYgKHByaXYtPmRldnR5cGVfZGF0YS0+bW9k
-dWxlX2lzX2JpZ19lbmRpYW4pDQo+ID4+DQo+ID4+IFBsZWFzZSBtb3ZlIHRoZSBkZXZ0eXBlX2Rh
-dGEgaW50byB0aGUgc3RydWN0IGZsZXhjYW5fcHJpdiwgc28gdGhhdA0KPiA+PiB5b3UgZG9uJ3Qg
-bmVlZCBhIGRvdWJsZSBwb2ludGVyIGRlcmVmZXJlbmNlIGluIHRoZSBob3QgcGF0aC4NCj4gPg0K
-PiA+IE9rLiBPciBzaG91bGQgSSBjcmVhdGUgdHdvIGZ1bmN0aW9ucyBmb3IgcmVhZCBhbmQgd3Jp
-dGUgLSBvbmUgZG9lcyBpdA0KPiA+IGluIExFIHdheSBhbmQgdGhlIG90aGVyIGluIEJFIHdheSBh
-bmQgcGFyc2UgdGhlIERUIHRvIHVuZGVyc3RhbmQgd2hpY2gNCj4gZW5kaWFubmVzcyB0aGUgbW9k
-dWxlIHN1cHBvcnRzLg0KPiANCj4gV2hhdCBhYm91dCBmdW5jdGlvbiBwb2ludGVycyBpbiB0aGUg
-cHJpdj8gU28gdGhhdCBmbGV4Y2FuX3JlYWQoKSBiZWNvbWVzDQo+IHByaXYtPnJlYWQoKS4NCj4g
-DQoNClRoYXQncyB3aGF0IEkgcHJvcG9zZSAoc2ltaWxhciB0byB3aGF0IEkgZGlkIGZvciBDX0NB
-TiBkcml2ZXIgZm9yIDE2LWJpdCBhbmQgMzItYml0DQpyZWcgaW50ZXJmYWNlcyB1c2luZyBwbGF0
-Zm9ybSBkYXRhKToNCg0KYm9vbCBtb2R1bGVfaXNfYmUgPSBmYWxzZTsNCg0KbW9kdWxlX2lzX2Jl
-ID0gZ2V0LWVuZGlhbmVzcy1mcm9tLURULW5vZGU7DQoNCnByaXYtPnJlYWQoKSA9IG1vZHVsZV9p
-c19iZSA/IGZsZXhjYW5fcmVhZF9iZSA6IGZsZXhjYW5fcmVhZF9sZTsNCg0KUmVnYXJkcywNCkJo
-dXBlc2gNCg==
+The following changes since commit a497c3ba1d97fc69c1e78e7b96435ba8c2cb42ee:
+
+  Linux 3.16-rc2 (2014-06-21 19:02:54 -1000)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
+
+for you to fetch changes up to 68404441557d8db5ac853379a4fb9c1adedea4fd:
+
+  vhost-scsi: don't open-code kvfree (2014-06-23 09:22:48 +0300)
+
+----------------------------------------------------------------
+vhost: infrastructure fixes for 3.16
+
+Two cleanup patches removing code duplication that got introduced by changes in
+rc1.  Not fixing crashes, but I'd rather not carry the duplicate code until the
+next merge window.
+
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+
+----------------------------------------------------------------
+Michael S. Tsirkin (1):
+      vhost-scsi: don't open-code kvfree
+
+Romain Francoise (1):
+      vhost-net: don't open-code kvfree
+
+ drivers/vhost/net.c  | 12 ++----------
+ drivers/vhost/scsi.c | 12 ++----------
+ 2 files changed, 4 insertions(+), 20 deletions(-)
