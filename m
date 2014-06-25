@@ -1,63 +1,72 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH net-next 3/7] net-timestamp: tx timestamp without payload
-Date: Wed, 25 Jun 2014 17:22:09 -0400
-Message-ID: <CA+FuTSfDwwdLdbegUup_gQzzBeu=os9fQKnJH8+CHfEPFcDkhA@mail.gmail.com>
-References: <1403624632-17327-1-git-send-email-willemb@google.com>
- <1403624632-17327-4-git-send-email-willemb@google.com> <20140625051648.GE3845@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>
-To: Richard Cochran <richardcochran@gmail.com>
+From: James M Leddy <james.leddy@redhat.com>
+Subject: [PATCH v2] udp: Add MIB counters for rcvbuferrors
+Date: Wed, 25 Jun 2014 17:30:54 -0400
+Message-ID: <1403731854-32028-1-git-send-email-james.leddy@redhat.com>
+References: <20140621.150707.1970046713503112179.davem@davemloft.net>
+Cc: James M Leddy <james.leddy@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f182.google.com ([209.85.216.182]:56773 "EHLO
-	mail-qc0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755846AbaFYVWk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2014 17:22:40 -0400
-Received: by mail-qc0-f182.google.com with SMTP id m20so2338235qcx.13
-        for <netdev@vger.kernel.org>; Wed, 25 Jun 2014 14:22:39 -0700 (PDT)
-In-Reply-To: <20140625051648.GE3845@localhost.localdomain>
+Received: from mx1.redhat.com ([209.132.183.28]:42291 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754550AbaFYVbL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Jun 2014 17:31:11 -0400
+Received: from int-mx14.intmail.prod.int.phx2.redhat.com (int-mx14.intmail.prod.int.phx2.redhat.com [10.5.11.27])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s5PLVAah002796
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Wed, 25 Jun 2014 17:31:10 -0400
+In-Reply-To: <20140621.150707.1970046713503112179.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 25, 2014 at 1:16 AM, Richard Cochran
-<richardcochran@gmail.com> wrote:
-> On Tue, Jun 24, 2014 at 11:43:48AM -0400, Willem de Bruijn wrote:
->> Applications receive tx timestamps from the kernel by reading the
->> original packet from the socket error queue with sendmsg() and
->> processing an ancillary data item that holds the timestamps.
->>
->> If the application is only interested in the timestamp, then looping
->> the whole packet back up to userspace wastes socket buffer space
->> (SO_RCVBUF). This is especially important when the same packet is
->> enqueued repeatedly with multiple timestamps.
->>
->> This patch adds a socket option to loop the timestamp on top of an
->> empty packet instead of a clone of the original.
->
-> This makes sense. In practice the looped buffer is totally useless,
-> due to the fact that many NICs can only handle one outstanding
-> transmit time stamp. Applications must make sure they only send one
-> packet at a time if they want every packet time stamped.
->
->> diff --git a/include/net/sock.h b/include/net/sock.h
->> index 32cd1be..df7bde0 100644
->> --- a/include/net/sock.h
->> +++ b/include/net/sock.h
->> @@ -690,6 +690,7 @@ enum sock_flags {
->>       SOCK_TIMESTAMPING_SOFTWARE,     /* %SOF_TIMESTAMPING_SOFTWARE */
->>       SOCK_TIMESTAMPING_RAW_HARDWARE, /* %SOF_TIMESTAMPING_RAW_HARDWARE */
->>       SOCK_TIMESTAMPING_SYS_HARDWARE, /* %SOF_TIMESTAMPING_SYS_HARDWARE */
->> +     SOCK_TIMESTAMPING_OPT_TX_NO_PAYLOAD, /* %SOF_TIMESTAMPING_OPT_TX_NO_PAYLOAD */
->
-> That is a bit of a mouthful. How about something like:
->
->  SOCK_TIMESTAMPING_PLAIN_TS
->  SOCK_TIMESTAMPING_BARE_TS
->  SOCK_TIMESTAMPING_TSONLY
+Add MIB counters for rcvbuferrors in UDP to help diagnose problems.
 
-Ack. I'll pick a shorter name. This also exceeded 80 chars.
->
->
-> Thanks,
-> Richard
+Signed-off-by: James M Leddy <james.leddy@redhat.com>
+---
+ net/ipv4/udp.c |    5 ++++-
+ net/ipv6/udp.c |    6 +++++-
+ 2 files changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index d92f94b..7d5a866 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1588,8 +1588,11 @@ int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 		goto csum_error;
+ 
+ 
+-	if (sk_rcvqueues_full(sk, skb, sk->sk_rcvbuf))
++	if (sk_rcvqueues_full(sk, skb, sk->sk_rcvbuf)) {
++		UDP_INC_STATS_BH(sock_net(sk), UDP_MIB_RCVBUFERRORS,
++				 is_udplite);
+ 		goto drop;
++	}
+ 
+ 	rc = 0;
+ 
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 95c8347..7092ff7 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -674,8 +674,11 @@ int udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 			goto csum_error;
+ 	}
+ 
+-	if (sk_rcvqueues_full(sk, skb, sk->sk_rcvbuf))
++	if (sk_rcvqueues_full(sk, skb, sk->sk_rcvbuf)) {
++		UDP6_INC_STATS_BH(sock_net(sk),
++				  UDP_MIB_RCVBUFERRORS, is_udplite);
+ 		goto drop;
++	}
+ 
+ 	skb_dst_drop(skb);
+ 
+@@ -690,6 +693,7 @@ int udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 	bh_unlock_sock(sk);
+ 
+ 	return rc;
++
+ csum_error:
+ 	UDP6_INC_STATS_BH(sock_net(sk), UDP_MIB_CSUMERRORS, is_udplite);
+ drop:
+-- 
+1.7.1
