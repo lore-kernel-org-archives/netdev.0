@@ -1,60 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] cxgb4: use dev_port to identify ports
-Date: Wed, 25 Jun 2014 16:02:04 -0700 (PDT)
-Message-ID: <20140625.160204.678633317509151554.davem@davemloft.net>
-References: <1403354888-15600-1-git-send-email-cascardo@linux.vnet.ibm.com>
-	<20140622.172307.2305001882391366010.davem@davemloft.net>
-	<20140623121640.GB25780@oc0268524204.ibm.com>
+Subject: Re: [PATCH net-next 0/3] crc32 combine improvements
+Date: Wed, 25 Jun 2014 16:04:33 -0700 (PDT)
+Message-ID: <20140625.160433.1012876682294424845.davem@davemloft.net>
+References: <1403529116-18385-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hariprasad@chelsio.com,
+Cc: netdev@vger.kernel.org, linux@horizon.com,
 	linux-kernel@vger.kernel.org
-To: cascardo@linux.vnet.ibm.com
+To: dborkman@redhat.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140623121640.GB25780@oc0268524204.ibm.com>
+In-Reply-To: <1403529116-18385-1-git-send-email-dborkman@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-Date: Mon, 23 Jun 2014 09:16:40 -0300
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Mon, 23 Jun 2014 15:11:53 +0200
 
-> On Sun, Jun 22, 2014 at 05:23:07PM -0700, David Miller wrote:
->> From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
->> Date: Sat, 21 Jun 2014 09:48:08 -0300
->> 
->> > Commit 3f85944fe207d0225ef21a2c0951d4946fc9a95d ("net: Add sysfs file
->> > for port number") introduce dev_port to network devices. cxgb4 adapters
->> > have multiple ports on the same PCI function, and used dev_id to
->> > identify those ports. That use was removed by commit
->> > 8c367fcbe6549195d2eb11e62bea233f811aad41 ("cxgb4: Do not set
->> > net_device::dev_id to VI index"), since dev_id should be used only when
->> > devices share the same MAC address.
->> > 
->> > Using dev_port for cxgb4 allows different ports on the same PCI function
->> > to be identified.
->> > 
->> > Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
->> 
->> You've made exactly zero effort to explain why the IPV6 issue carefully
->> explained in commit 8c367fcbe6549195d2eb11e62bea233f811aad41 no longer
->> applies.
->> 
->> As far as I can tell, it absolutely does, and therefore this change
->> here should not be made.
->> 
->> I'm not applying this patch, sorry.
->> 
-> 
-> I have set dev_port, not dev_id. This is not a revert of commit
-> 8c367fcbe6549195d2eb11e62bea233f811aad41.
-> 
-> $ git grep dev_port net/ipv6/
-> $
-> 
-> I believe dev_port was introduced exactly to solve the problem dev_id
-> was incorrectly being used for.
+> So almost a month passed, and I don't want this to get lost
+> somewhere. I have applied the feedback given at that time to
+> this set, rebased plus tested it against latest net-next. I
+> decided to route this via netdev as it improves performance
+> upon library code that provides library bits for SCTP, i.e.
+> for non-linear skb csum handling in IPVS. Thus, resending
+> this for George before it gets lost.
 
-Aha, that makes much more sense.  Thanks for explaining.
-
-Applied, thanks.
+Series applied, thanks Daniel.
