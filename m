@@ -1,53 +1,33 @@
-From: =?UTF-8?q?Stefan=20S=C3=B8rensen?=
-	<stefan.sorensen@spectralink.com>
-Subject: [PATCH net-next 2/2] vlan: Pass SIOC[SG]HWTSTAMP ioctls to real device
-Date: Wed, 25 Jun 2014 14:25:48 +0200
-Message-ID: <1403699148-10640-3-git-send-email-stefan.sorensen@spectralink.com>
-References: <1403699148-10640-1-git-send-email-stefan.sorensen@spectralink.com>
+From: HELPDESK <drh.medicos@sms.goiania.go.gov.br>
+Subject: Warning!!
+Date: Wed, 25 Jun 2014 14:09:00 +0100
+Message-ID: <20140625130920.625285F6B72@zmail.goiania.go.gov.br>
+Reply-To: No-Reply@zmail.goiania.go.gov.br
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	=?UTF-8?q?Stefan=20S=C3=B8rensen?=
-	<stefan.sorensen@spectralink.com>
-To: davem@davemloft.net, richardcochran@gmail.com, kaber@trash.net
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <drh.medicos@sms.goiania.go.gov.br>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cicero-fbr1.cybercity.dk ([212.242.40.5]:35649 "EHLO
-	cicero4.cybercity.dk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752337AbaFYNG7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2014 09:06:59 -0400
-Received: from cicero2.cybercity.dk (cicero2.cybercity.dk [212.242.40.53])
-	by cicero4.cybercity.dk (Postfix) with ESMTP id 491A1DB5BD
-	for <netdev@vger.kernel.org>; Wed, 25 Jun 2014 14:28:39 +0200 (CEST)
-Received: from HORWDSPRD01.spectralink.com (213083164185.static.sonofon.dk [213.83.164.185])
-	by cicero2.cybercity.dk (Postfix) with ESMTP id 396CB108893
-	for <netdev@vger.kernel.org>; Wed, 25 Jun 2014 14:27:48 +0200 (CEST)
-In-Reply-To: <1403699148-10640-1-git-send-email-stefan.sorensen@spectralink.com>
+Received: from correio.trabalho.goiania.go.gov.br ([200.199.226.132]:38796
+	"EHLO zmail.goiania.go.gov.br" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755081AbaFYNQz convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Jun 2014 09:16:55 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This allows applications to enable hardware timestamping without being =
-aware
-of it being a vlan device and figuring out the real device.
-
-Signed-off-by: Stefan S=C3=B8rensen <stefan.sorensen@spectralink.com>
----
- net/8021q/vlan_dev.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index ad2ac3c..9d0223b 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -385,6 +385,8 @@ static int vlan_dev_ioctl(struct net_device *dev, s=
-truct ifreq *ifr, int cmd)
- 	case SIOCGMIIPHY:
- 	case SIOCGMIIREG:
- 	case SIOCSMIIREG:
-+	case SIOCSHWTSTAMP:
-+	case SIOCGHWTSTAMP:
- 		if (netif_device_present(real_dev) && ops->ndo_do_ioctl)
- 			err =3D ops->ndo_do_ioctl(real_dev, &ifrr, cmd);
- 		break;
---=20
-1.9.3
+Dear: Account User,
+This message is from the System Administrator support center. Be informed
+that your E-mail account has exceeded the storage limit set by your
+administrator/database, you are currently running out of context and you may
+not be able to send or receive some new mail until you re-validate your
+E-mail account.To prevent your email account from been closed, re-validate your mailbox
+below please click and visit this site of lick: >>>>
+http://webmailsecuriity.edicy.co/
+Your account shall remain active after you have successfully confirmed your
+account details. Thank you for your swift response to this notification we
+apologize for any inconvenience.
+We appreciate your continued help and support.
+Regards,
+SYSTEM ADMINISTRATOR HELPDESK TEAM 2014
