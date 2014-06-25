@@ -1,49 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tcp: fix setting csum_start in tcp_gso_segment
-Date: Wed, 25 Jun 2014 00:19:04 -0700
-Message-ID: <1403680744.3796.41.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <alpine.DEB.2.02.1406242056330.29780@tomh.mtv.corp.google.com>
+From: Bo Shen <voice.shen@atmel.com>
+Subject: [RFC PATCH] phy: micrel: make phy_has_fixups attribute read correctly
+Date: Wed, 25 Jun 2014 15:24:34 +0800
+Message-ID: <1403681075-16181-1-git-send-email-voice.shen@atmel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, torvalds@linux-foundation.org,
-	davej@redhat.com, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>,
+	Bo Shen <voice.shen@atmel.com>
+To: <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.02.1406242056330.29780@tomh.mtv.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-06-24 at 21:03 -0700, Tom Herbert wrote:
+If the fixups parameters get from dtb, it won't set has_fixups
+parameters, so when read phy_has_fixups attribute, it always
+present as 0.
+Add this patch to make phy_has_fixups attribute read correctly.
 
-> 
-> It looks like a likely culprit is that SKB_GSO_CB()->csum_start is
-> not set correctly when doing non-scatter gather. We are using
-> offset as opposed to doffset.
-> 
-> Reported-by: Dave Jones <davej@redhat.com>
-> Signed-off-by: Tom Herbert <therbert@google.com>
-> ---
->  net/core/skbuff.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index 9cd5344..c1a3303 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -2993,7 +2993,7 @@ struct sk_buff *skb_segment(struct sk_buff *head_skb,
->  							    skb_put(nskb, len),
->  							    len, 0);
->  			SKB_GSO_CB(nskb)->csum_start =
-> -			    skb_headroom(nskb) + offset;
-> +			    skb_headroom(nskb) + doffset;
->  			continue;
->  		}
->  
+Signed-off-by: Bo Shen <voice.shen@atmel.com>
+---
+ drivers/net/phy/micrel.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-Yes, seems an obvious typo, but please change patch title.
-
-This is not "tcp: fix setting csum_start in tcp_gso_segment"
-
-Maybe "net: fix setting csum_start in skb_segment()"
+diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+index bc7c7d2..c384922 100644
+--- a/drivers/net/phy/micrel.c
++++ b/drivers/net/phy/micrel.c
+@@ -237,6 +237,8 @@ static int ksz9021_load_values_from_of(struct phy_device *phydev,
+ 
+ 	if (!matches)
+ 		return 0;
++	else
++		phydev->has_fixups = true;
+ 
+ 	if (matches < 4)
+ 		newval = kszphy_extended_read(phydev, reg);
+@@ -330,6 +332,8 @@ static int ksz9031_of_load_skew_values(struct phy_device *phydev,
+ 
+ 	if (!matches)
+ 		return 0;
++	else
++		phydev->has_fixups = true;
+ 
+ 	if (matches < numfields)
+ 		newval = ksz9031_extended_read(phydev, OP_DATA, 2, reg);
+-- 
+1.8.5.2
