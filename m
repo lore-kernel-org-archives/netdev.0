@@ -1,40 +1,42 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [patch net-next v2 1/2] rtnetlink: allow to register ops
- without ops->setup set
-Date: Wed, 25 Jun 2014 11:45:00 -0700
-Message-ID: <20140625114500.7c09874e@haswell>
-References: <1403715503-9059-1-git-send-email-jiri@resnulli.us>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: fix setting csum_start in tcp_gso_segment
+Date: Wed, 25 Jun 2014 11:52:58 -0700 (PDT)
+Message-ID: <20140625.115258.1446490446271879078.davem@davemloft.net>
+References: <alpine.DEB.2.02.1406242056330.29780@tomh.mtv.corp.google.com>
+	<CA+55aFxyZP_jXT-bLyFjJMp4WfVZp5vFtpu+-6_qCi46xkceQg@mail.gmail.com>
+	<20140625141052.GA1096@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, pshelar@nicira.com,
-	cwang@twopensource.com, nicolas.dichtel@6wind.com,
-	ebiederm@xmission.com, david@gibson.dropbear.id.au,
-	sfeldma@cumulusnetworks.com, sucheta.chakraborty@qlogic.com
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f47.google.com ([209.85.160.47]:62715 "EHLO
-	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752912AbaFYSpF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2014 14:45:05 -0400
-Received: by mail-pb0-f47.google.com with SMTP id up15so2045951pbc.34
-        for <netdev@vger.kernel.org>; Wed, 25 Jun 2014 11:45:04 -0700 (PDT)
-In-Reply-To: <1403715503-9059-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: torvalds@linux-foundation.org, therbert@google.com,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: davej@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140625141052.GA1096@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 25 Jun 2014 18:58:22 +0200
-Jiri Pirko <jiri@resnulli.us> wrote:
+From: Dave Jones <davej@redhat.com>
+Date: Wed, 25 Jun 2014 10:10:52 -0400
 
-> So far, it is assumed that ops->setup is filled up. But there might be
-> case that ops might make sense even without ->setup. In that case,
-> forbid to newlink and dellink.
+> On Tue, Jun 24, 2014 at 09:17:25PM -0700, Linus Torvalds wrote:
+>  > On Tue, Jun 24, 2014 at 9:03 PM, Tom Herbert <therbert@google.com> wrote:
+>  > >
+>  > > It looks like a likely culprit is that SKB_GSO_CB()->csum_start is
+>  > > not set correctly when doing non-scatter gather. We are using
+>  > > offset as opposed to doffset.
+>  > >
+>  > > Reported-by: Dave Jones <davej@redhat.com>
+>  > 
+>  > DaveJ, I think you triggered this in five minutes on your box, and I
+>  > don't recall seeing anybody else reporting the oops (and google
+>  > doesn't find anything in the last month). So it's presumably somewhat
+>  > hw-specific. Does this fix the problem?
 > 
-> This allows to register simple rtnl link ops containing only ->kind.
-> That allows consistent way of passing device kind (either device-kind or
-> slave-kind) to userspace.
-> 
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> It's survived routing ~1GB of packets overnight, so I'd call this good.
 
-Can't we fix these kind of devices to all create/delete. At least
-allow delete.
+Tom, please adjust the Subject line as suggested by Eric Dumazet and add
+a Tested-by: for Dave.
+
+Thanks!
