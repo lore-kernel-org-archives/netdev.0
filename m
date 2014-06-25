@@ -1,152 +1,160 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next] openvswitch: introduce rtnl ops stub
-Date: Wed, 25 Jun 2014 10:27:41 +0200
-Message-ID: <1403684861-9185-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, pshelar@nicira.com, cwang@twopensource.com,
-	nicolas.dichtel@6wind.com, ebiederm@xmission.com,
-	david@gibson.dropbear.id.au, sfeldma@cumulusnetworks.com,
-	sucheta.chakraborty@qlogic.com, stephen@networkplumber.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f174.google.com ([74.125.82.174]:58279 "EHLO
-	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755126AbaFYI1q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2014 04:27:46 -0400
-Received: by mail-we0-f174.google.com with SMTP id u57so1657483wes.33
-        for <netdev@vger.kernel.org>; Wed, 25 Jun 2014 01:27:44 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH] net: can: Remodel FlexCAN register read/write APIs for
+ BE instances
+Date: Wed, 25 Jun 2014 10:27:49 +0200
+Message-ID: <53AA8805.3050309@pengutronix.de>
+References: <1403625285-27824-1-git-send-email-bhupesh.sharma@freescale.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="jSSE1lf9APbGap9fRPKhgaER7aigdwjhs"
+Cc: wg@grandegger.com, netdev@vger.kernel.org
+To: Bhupesh Sharma <bhupesh.sharma@freescale.com>,
+	linux-can@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1403625285-27824-1-git-send-email-bhupesh.sharma@freescale.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This stub now allows userspace to see IFLA_INFO_KIND for ovs master and
-IFLA_INFO_SLAVE_KIND for slave.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--jSSE1lf9APbGap9fRPKhgaER7aigdwjhs
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-Note that I added ops->setup check into newlink and dellink in order to
-prevent creating and deleting openvswitch instances using rtnl for now.
+On 06/24/2014 05:54 PM, Bhupesh Sharma wrote:
+> The FlexCAN IP on certain SoCs like (Freescale's LS1021A) is
+> modelled in a big-endian fashion, i.e. the registers and the
+> message buffers are organized in a BE way.
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- net/core/rtnetlink.c                 |  5 ++++-
- net/openvswitch/datapath.c           |  9 ++++++++-
- net/openvswitch/vport-internal_dev.c | 16 ++++++++++++++++
- net/openvswitch/vport-internal_dev.h |  2 ++
- 4 files changed, 30 insertions(+), 2 deletions(-)
+Do you have any idea, why fsl did this? The messed up the network
+controller on the mx28, too. :/
 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 1063996..84affd7 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -1777,7 +1777,7 @@ static int rtnl_dellink(struct sk_buff *skb, struct nlmsghdr *nlh)
- 		return -ENODEV;
- 
- 	ops = dev->rtnl_link_ops;
--	if (!ops)
-+	if (!ops || !ops->setup)
- 		return -EOPNOTSUPP;
- 
- 	ops->dellink(dev, &list_kill);
-@@ -2038,6 +2038,9 @@ replay:
- 			return -EOPNOTSUPP;
- 		}
- 
-+		if (!ops->setup)
-+			return -EOPNOTSUPP;
-+
- 		if (!ifname[0])
- 			snprintf(ifname, IFNAMSIZ, "%s%%d", ops->kind);
- 
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 0d407bc..fe95b6c 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -2054,10 +2054,14 @@ static int __init dp_init(void)
- 
- 	pr_info("Open vSwitch switching datapath\n");
- 
--	err = ovs_flow_init();
-+	err = ovs_internal_dev_rtnl_link_register();
- 	if (err)
- 		goto error;
- 
-+	err = ovs_flow_init();
-+	if (err)
-+		goto error_unreg_rtnl_link;
-+
- 	err = ovs_vport_init();
- 	if (err)
- 		goto error_flow_exit;
-@@ -2084,6 +2088,8 @@ error_vport_exit:
- 	ovs_vport_exit();
- error_flow_exit:
- 	ovs_flow_exit();
-+error_unreg_rtnl_link:
-+	ovs_internal_dev_rtnl_link_unregister();
- error:
- 	return err;
- }
-@@ -2096,6 +2102,7 @@ static void dp_cleanup(void)
- 	rcu_barrier();
- 	ovs_vport_exit();
- 	ovs_flow_exit();
-+	ovs_internal_dev_rtnl_link_unregister();
- }
- 
- module_init(dp_init);
-diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
-index 789af92..295471a 100644
---- a/net/openvswitch/vport-internal_dev.c
-+++ b/net/openvswitch/vport-internal_dev.c
-@@ -26,6 +26,7 @@
- 
- #include <net/dst.h>
- #include <net/xfrm.h>
-+#include <net/rtnetlink.h>
- 
- #include "datapath.h"
- #include "vport-internal_dev.h"
-@@ -121,6 +122,10 @@ static const struct net_device_ops internal_dev_netdev_ops = {
- 	.ndo_get_stats64 = internal_dev_get_stats,
- };
- 
-+static struct rtnl_link_ops internal_dev_link_ops __read_mostly = {
-+	.kind = "openvswitch",
-+};
-+
- static void do_setup(struct net_device *netdev)
- {
- 	ether_setup(netdev);
-@@ -131,6 +136,7 @@ static void do_setup(struct net_device *netdev)
- 	netdev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
- 	netdev->destructor = internal_dev_destructor;
- 	netdev->ethtool_ops = &internal_dev_ethtool_ops;
-+	netdev->rtnl_link_ops = &internal_dev_link_ops;
- 	netdev->tx_queue_len = 0;
- 
- 	netdev->features = NETIF_F_LLTX | NETIF_F_SG | NETIF_F_FRAGLIST |
-@@ -248,3 +254,13 @@ struct vport *ovs_internal_dev_get_vport(struct net_device *netdev)
- 
- 	return internal_dev_priv(netdev)->vport;
- }
-+
-+int ovs_internal_dev_rtnl_link_register(void)
-+{
-+	return rtnl_link_register(&internal_dev_link_ops);
-+}
-+
-+void ovs_internal_dev_rtnl_link_unregister(void)
-+{
-+	rtnl_link_unregister(&internal_dev_link_ops);
-+}
-diff --git a/net/openvswitch/vport-internal_dev.h b/net/openvswitch/vport-internal_dev.h
-index 9a7d30e..1b179a1 100644
---- a/net/openvswitch/vport-internal_dev.h
-+++ b/net/openvswitch/vport-internal_dev.h
-@@ -24,5 +24,7 @@
- 
- int ovs_is_internal_dev(const struct net_device *);
- struct vport *ovs_internal_dev_get_vport(struct net_device *);
-+int ovs_internal_dev_rtnl_link_register(void);
-+void ovs_internal_dev_rtnl_link_unregister(void);
- 
- #endif /* vport-internal_dev.h */
--- 
-1.9.0
+> More details about the LS1021A SoC can be seen here:
+> http://www.freescale.com/webapp/sps/site/prod_summary.jsp?code=3DLS1021=
+A&nodeId=3D018rH325E4017B#
+
+Is there any "real" documentation for this SoC available?
+
+> This patch ensures that the register read/write APIs are remodelled
+> to address such cases, while ensuring that existing platforms (where
+> the FlexCAN IP was modelled in LE way) do not break.
+
+I'm not sure if it's better to handle this via the DT attributes
+big-endian, little-endian, no attribute would mean native endianess for
+backwards compatibility.
+
+With this solution, you're breaking all ARM non DT boards, as the struct
+platform_device_id still uses fsl_p1010_devtype_data. You're breaking DT
+based mx35, as struct of_device_id has no entry for mx35.
+
+With this patch fsl,p1010-flexcan isn't compatible with the imx/mxs any
+more, please change the device trees in the kernel.
+
+Please update the "FLEXCAN hardware feature flags" table in the driver
+and check if any of the mentioned quirks are needed for the LS1021A.
+
+See comment inline.....
+
+> Signed-off-by: Bhupesh Sharma <bhupesh.sharma@freescale.com>
+> ---
+> Rebased againt v3.16-rc1
+>=20
+>  drivers/net/can/flexcan.c |  213 +++++++++++++++++++++++++++----------=
+--------
+>  1 file changed, 126 insertions(+), 87 deletions(-)
+>=20
+> diff --git a/drivers/net/can/flexcan.c b/drivers/net/can/flexcan.c
+> index f425ec2..00c4740 100644
+> --- a/drivers/net/can/flexcan.c
+> +++ b/drivers/net/can/flexcan.c
+
+[...]
+
+>  static const struct can_bittiming_const flexcan_bittiming_const =3D {
+> @@ -237,32 +256,36 @@ static const struct can_bittiming_const flexcan_b=
+ittiming_const =3D {
+>  };
+> =20
+>  /*
+> - * Abstract off the read/write for arm versus ppc. This
+> - * assumes that PPC uses big-endian registers and everything
+> - * else uses little-endian registers, independent of CPU
+> - * endianess.
+> + * FlexCAN module is essentially modelled as a little-endian IP in mos=
+t
+> + * SoCs, i.e the registers as well as the message buffer areas are
+> + * implemented in a little-endian fashion.
+> + *
+> + * However there are some SoCs (e.g. LS1021A) which implement the Flex=
+CAN
+> + * module in a big-endian fashion (i.e the registers as well as the
+> + * message buffer areas are implemented in a big-endian way).
+> + *
+> + * In addition, the FlexCAN module can be found on SoCs having ARM or
+> + * PPC cores. So, we need to abstract off the register read/write
+> + * functions, ensuring that these cater to all the combinations of mod=
+ule
+> + * endianess and underlying CPU endianess.
+>   */
+> -#if defined(CONFIG_PPC)
+> -static inline u32 flexcan_read(void __iomem *addr)
+> +static inline u32 flexcan_read(const struct flexcan_priv *priv,
+> +			       void __iomem *addr)
+>  {
+> -	return in_be32(addr);
+> -}
+> -
+> -static inline void flexcan_write(u32 val, void __iomem *addr)
+> -{
+> -	out_be32(addr, val);
+> -}
+> -#else
+> -static inline u32 flexcan_read(void __iomem *addr)
+> -{
+> -	return readl(addr);
+> +	if (priv->devtype_data->module_is_big_endian)
+> +		return ioread32be(addr);
+> +	else
+> +		return ioread32(addr);
+>  }
+> =20
+> -static inline void flexcan_write(u32 val, void __iomem *addr)
+> +static inline void flexcan_write(const struct flexcan_priv *priv,
+> +				 u32 val, void __iomem *addr)
+>  {
+> -	writel(val, addr);
+> +	if (priv->devtype_data->module_is_big_endian)
+
+Please move the devtype_data into the struct flexcan_priv, so that you
+don't need a double pointer dereference in the hot path.
+
+> +		iowrite32be(val, addr);
+> +	else
+> +		iowrite32(val, addr);
+>  }
+> -#endif
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--jSSE1lf9APbGap9fRPKhgaER7aigdwjhs
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+
+iEYEARECAAYFAlOqiAUACgkQjTAFq1RaXHMNsACff8PBzo29bO4DGN6RccikgXd1
+THsAnAxAiJii4Nb/oF385zJsuorEbNZk
+=Out5
+-----END PGP SIGNATURE-----
+
+--jSSE1lf9APbGap9fRPKhgaER7aigdwjhs--
