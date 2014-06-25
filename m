@@ -1,37 +1,30 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] bridge: mark packets sent to any local mac
- address as PACKET_HOST
-Date: Wed, 25 Jun 2014 16:13:35 -0700
-Message-ID: <20140625161335.11598f09@haswell>
-References: <1403534015-28496-1-git-send-email-mbizon@freebox.fr>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V2] net/dsa/dsa.c: remove unnecessary null test before
+ kfree
+Date: Wed, 25 Jun 2014 16:15:34 -0700 (PDT)
+Message-ID: <20140625.161534.2268236653961314658.davem@davemloft.net>
+References: <1403544767-12438-1-git-send-email-fabf@skynet.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	davem@davemloft.net
-To: Maxime Bizon <mbizon@freebox.fr>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1403534015-28496-1-git-send-email-mbizon@freebox.fr>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Cc: linux-kernel@vger.kernel.org, grant.likely@linaro.org,
+	netdev@vger.kernel.org, joe@perches.com
+To: fabf@skynet.be
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1403544767-12438-1-git-send-email-fabf@skynet.be>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 23 Jun 2014 16:33:35 +0200
-Maxime Bizon <mbizon@freebox.fr> wrote:
+From: Fabian Frederick <fabf@skynet.be>
+Date: Mon, 23 Jun 2014 19:32:47 +0200
 
-> The bridge code only set PACKET_HOST on packets sent to the bridge mac
-> address, packets sent to other local mac addresses are sent to upper
-> layers, but ignored because they are marked as PACKET_OTHERHOST.
+> Fix checkpatch warning:
+> WARNING: kfree(NULL) is safe this check is probably not required
 > 
-> Signed-off-by: Maxime Bizon <mbizon@freebox.fr>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Grant Likely <grant.likely@linaro.org>
+> Cc: netdev@vger.kernel.org
+> Cc: Joe Perches <joe@perches.com>
+> Signed-off-by: Fabian Frederick <fabf@skynet.be>
 
-What are you trying to do? Bridge device itself only has one MAC address.
-Are you trying to run macvlan on top of bridge?
-We only respond to ARP with bridge's MAC address.
+Applied, thanks.
