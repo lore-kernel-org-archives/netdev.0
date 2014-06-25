@@ -1,89 +1,39 @@
-From: Paul Moore <paul@paul-moore.com>
-Subject: Re: [net-next v2 07/13] tcp: move around a few calls in tcp_v6_conn_request
-Date: Wed, 25 Jun 2014 10:29:43 -0400
-Message-ID: <1639708.nSlqFFmvO1@sifl>
-References: <1403705402-14388-1-git-send-email-octavian.purdila@intel.com> <1403705402-14388-8-git-send-email-octavian.purdila@intel.com>
+From: Paul Bolle <pebolle@tiscali.nl>
+Subject: Documentation: is there a reason to keep
+ networking/policy-routing.txt
+Date: Wed, 25 Jun 2014 16:47:58 +0200
+Message-ID: <1403707678.1960.60.camel@x220>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-security-module@vger.kernel.org
-To: Octavian Purdila <octavian.purdila@intel.com>,
-	netdev@vger.kernel.org
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <1403705402-14388-8-git-send-email-octavian.purdila@intel.com>
-Sender: linux-security-module-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-doc@vger.kernel.org, netdev@vger.kernel.org
+To: Randy Dunlap <rdunlap@infradead.org>
+Return-path: <linux-doc-owner@vger.kernel.org>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday, June 25, 2014 05:09:56 PM Octavian Purdila wrote:
-> Make the tcp_v6_conn_request calls flow similar with that of
-> tcp_v4_conn_request.
-> 
-> Note that want_cookie can be true only if isn is zero and that is why
-> we can move the if (want_cookie) block out of the if (!isn) block.
-> 
-> Moving security_inet_conn_request() has a couple of side effects:
-> missing inet_rsk(req)->ecn_ok update and the req->cookie_ts
-> update. However, neither SELinux nor Smack security hooks seems to
-> check them. This change should also avoid future different behaviour
-> for IPv4 and IPv6 in the security hooks.
-> 
-> Signed-off-by: Octavian Purdila <octavian.purdila@intel.com>
-> ---
->  net/ipv6/tcp_ipv6.c | 18 +++++++-----------
->  1 file changed, 7 insertions(+), 11 deletions(-)
+0) Documentation/networking/policy-routing.txt was added in v2.1.16.
+Since then it has only received spelling fixes. That shows. I'll list
+the issues I noticed below. Perhaps this file could be updated, and that
+might even be trivial to do. But is that file still relevant? And
+besides, why bother to keep documentation that appears to be
+unmaintained for 18 years now?
 
-Please send changes to the LSM hooks to the LSM mailing list (CC'd) for 
-review/comment.
+1) RT_CLASS_LOCAL, RT_CLASS_MAIN, and RT_CLASS_DEFAULT: should probably
+be RT_TABLE_LOCAL, etc.
 
-Mailing list issues aside, this looks fine to me; the loss of the ecn_ok and 
-cookie_ts field updates should not matter to the current LSMs, or any 
-reasonable future LSM, as the LSMs are more concerned about updating the LSM 
-context assigned to the request_sock in this particular hook.
+2) RTP_ROUTE, RTP_NAT, RTP_MASQUERADE, RTP_DROP, RTP_REJECT, and
+RTP_PROHIBIT: cannot be found in the tree.
 
-Acked-by: Paul Moore <paul@paul-moore.com>
+3) RTRF_LOG, and RTRF_VALVE: ditto.
 
-> diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-> index d780d88..91b8a2e 100644
-> --- a/net/ipv6/tcp_ipv6.c
-> +++ b/net/ipv6/tcp_ipv6.c
-> @@ -1070,16 +1070,16 @@ static int tcp_v6_conn_request(struct sock *sk,
-> struct sk_buff *skb) ireq = inet_rsk(req);
->  	af_ops->init_req(req, sk, skb);
-> 
-> +	if (security_inet_conn_request(sk, skb, req))
-> +		goto drop_and_release;
-> +
->  	if (!want_cookie || tmp_opt.tstamp_ok)
->  		TCP_ECN_create_request(req, skb, sock_net(sk));
-> 
-> -	if (!isn) {
-> -		if (want_cookie) {
-> -			isn = cookie_init_sequence(af_ops, sk, skb, &req->mss);
-> -			req->cookie_ts = tmp_opt.tstamp_ok;
-> -			goto have_isn;
-> -		}
-> -
-> +	if (want_cookie) {
-> +		isn = cookie_init_sequence(af_ops, sk, skb, &req->mss);
-> +		req->cookie_ts = tmp_opt.tstamp_ok;
-> +	} else if (!isn) {
->  		/* VJ's idea. We save last timestamp seen
->  		 * from the destination in peer table, when entering
->  		 * state TIME-WAIT, and check against it before
-> @@ -1116,10 +1116,6 @@ static int tcp_v6_conn_request(struct sock *sk,
-> struct sk_buff *skb)
-> 
->  		isn = tcp_v6_init_sequence(skb);
->  	}
-> -have_isn:
-> -
-> -	if (security_inet_conn_request(sk, skb, req))
-> -		goto drop_and_release;
-> 
->  	if (!dst) {
->  		dst = af_ops->route_req(sk, (struct flowi *)&fl6, req, NULL);
+4) It mentions an iproute command. I'm familiar with route and "ip
+route". Fedora doesn't ship an iproute command. Web searches for it are
+hard, but it appears to have shipped in (old releases of) Debian.
 
--- 
-paul moore
-www.paul-moore.com
+5) The "IMPORTANT NOTE" about CONFIG_IP_LOCAL_RT_POLICY is obsolete
+since v2.1.68.
+
+
+Paul Bolle
 
