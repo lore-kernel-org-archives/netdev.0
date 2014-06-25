@@ -1,35 +1,40 @@
-From: Octavian Purdila <octavian.purdila@intel.com>
-Subject: Re: [net-next v2 03/13] net: remove inet6_reqsk_alloc
-Date: Wed, 25 Jun 2014 21:04:07 +0300
-Message-ID: <CAE1zotKQDf5tks+_tnnP_40wOhu2faXL5b7dgX8p3suP4V8d_Q@mail.gmail.com>
-References: <1403705402-14388-1-git-send-email-octavian.purdila@intel.com>
-	<1403705402-14388-4-git-send-email-octavian.purdila@intel.com>
-	<CAHA+R7MzWDbZNMbFkBigeWAYM+=Yo=VyHqRD9dgiE1Q3r0XAWA@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [patch net-next v2 1/2] rtnetlink: allow to register ops
+ without ops->setup set
+Date: Wed, 25 Jun 2014 11:45:00 -0700
+Message-ID: <20140625114500.7c09874e@haswell>
+References: <1403715503-9059-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Cong Wang <cwang@twopensource.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, pshelar@nicira.com,
+	cwang@twopensource.com, nicolas.dichtel@6wind.com,
+	ebiederm@xmission.com, david@gibson.dropbear.id.au,
+	sfeldma@cumulusnetworks.com, sucheta.chakraborty@qlogic.com
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:47677 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757651AbaFYSEJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2014 14:04:09 -0400
-Received: by mail-wi0-f170.google.com with SMTP id cc10so8140334wib.5
-        for <netdev@vger.kernel.org>; Wed, 25 Jun 2014 11:04:08 -0700 (PDT)
-In-Reply-To: <CAHA+R7MzWDbZNMbFkBigeWAYM+=Yo=VyHqRD9dgiE1Q3r0XAWA@mail.gmail.com>
+Received: from mail-pb0-f47.google.com ([209.85.160.47]:62715 "EHLO
+	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752912AbaFYSpF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2014 14:45:05 -0400
+Received: by mail-pb0-f47.google.com with SMTP id up15so2045951pbc.34
+        for <netdev@vger.kernel.org>; Wed, 25 Jun 2014 11:45:04 -0700 (PDT)
+In-Reply-To: <1403715503-9059-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 25, 2014 at 8:59 PM, Cong Wang <cwang@twopensource.com> wrote:
-> On Wed, Jun 25, 2014 at 7:09 AM, Octavian Purdila
-> <octavian.purdila@intel.com> wrote:
->> Since pktops is only used for IPv6 only and opts is used for IPv4
->> only, we can move these fields into a union and this allows us to drop
->> the inet6_reqsk_alloc function as after this change it becomes
->> equivalent with inet_reqsk_alloc.
->>
->
-> Or use kmem_cache_zalloc() so that inet_reqsk_alloc() doesn't have
-> to init ->opt to NULL explicitly.
+On Wed, 25 Jun 2014 18:58:22 +0200
+Jiri Pirko <jiri@resnulli.us> wrote:
 
-Wouldn't that be costly?
+> So far, it is assumed that ops->setup is filled up. But there might be
+> case that ops might make sense even without ->setup. In that case,
+> forbid to newlink and dellink.
+> 
+> This allows to register simple rtnl link ops containing only ->kind.
+> That allows consistent way of passing device kind (either device-kind or
+> slave-kind) to userspace.
+> 
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+
+Can't we fix these kind of devices to all create/delete. At least
+allow delete.
