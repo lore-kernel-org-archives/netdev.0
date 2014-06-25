@@ -1,46 +1,53 @@
 From: Denis Kirjanov <kda@linux-powerpc.org>
-Subject: [PATCH v2 1/2] powerpc: bpf: Use correct mask while accessing the VLAN tag
-Date: Wed, 25 Jun 2014 21:34:56 +0400
-Message-ID: <1403717697-3911-1-git-send-email-kda@linux-powerpc.org>
+Subject: [PATCH v2 2/2] powerpc: bpf: Fix the broken LD_VLAN_TAG_PRESENT test
+Date: Wed, 25 Jun 2014 21:34:57 +0400
+Message-ID: <1403717697-3911-2-git-send-email-kda@linux-powerpc.org>
+References: <1403717697-3911-1-git-send-email-kda@linux-powerpc.org>
 Cc: linuxppc-dev@lists.ozlabs.org,
 	Denis Kirjanov <kda@linux-powerpc.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f171.google.com ([209.85.217.171]:45109 "EHLO
-	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757672AbaFYR7t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2014 13:59:49 -0400
-Received: by mail-lb0-f171.google.com with SMTP id s7so2134747lbd.30
-        for <netdev@vger.kernel.org>; Wed, 25 Jun 2014 10:59:48 -0700 (PDT)
+Received: from mail-la0-f48.google.com ([209.85.215.48]:62455 "EHLO
+	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757672AbaFYR7v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2014 13:59:51 -0400
+Received: by mail-la0-f48.google.com with SMTP id el20so1039759lab.35
+        for <netdev@vger.kernel.org>; Wed, 25 Jun 2014 10:59:50 -0700 (PDT)
+In-Reply-To: <1403717697-3911-1-git-send-email-kda@linux-powerpc.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-To get a full tag (and not just a VID) we should access the TCI
-except the VLAN_TAG_PRESENT field (which means that 802.1q header
-is present). Also ensure that the VLAN_TAG_PRESENT stay on its place
+We have to return the boolean here if the tag presents
+or not, not just ANDing the TCI with the mask which results to:
+
+[  709.412097] test_bpf: #18 LD_VLAN_TAG_PRESENT
+[  709.412245] ret 4096 != 1
+[  709.412332] ret 4096 != 1
+[  709.412333] FAIL (2 times)
 
 Signed-off-by: Denis Kirjanov <kda@linux-powerpc.org>
 ---
- arch/powerpc/net/bpf_jit_comp.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ arch/powerpc/net/bpf_jit_comp.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
 diff --git a/arch/powerpc/net/bpf_jit_comp.c b/arch/powerpc/net/bpf_jit_comp.c
-index 6dcdade..892167b 100644
+index 892167b..82e82ca 100644
 --- a/arch/powerpc/net/bpf_jit_comp.c
 +++ b/arch/powerpc/net/bpf_jit_comp.c
-@@ -390,10 +390,12 @@ static int bpf_jit_build_body(struct sk_filter *fp, u32 *image,
- 		case BPF_ANC | SKF_AD_VLAN_TAG:
- 		case BPF_ANC | SKF_AD_VLAN_TAG_PRESENT:
- 			BUILD_BUG_ON(FIELD_SIZEOF(struct sk_buff, vlan_tci) != 2);
-+			BUILD_BUG_ON(VLAN_TAG_PRESENT != 0x1000);
-+
+@@ -394,10 +394,12 @@ static int bpf_jit_build_body(struct sk_filter *fp, u32 *image,
+ 
  			PPC_LHZ_OFFS(r_A, r_skb, offsetof(struct sk_buff,
  							  vlan_tci));
- 			if (code == (BPF_ANC | SKF_AD_VLAN_TAG))
--				PPC_ANDI(r_A, r_A, VLAN_VID_MASK);
-+				PPC_ANDI(r_A, r_A, ~VLAN_TAG_PRESENT);
- 			else
+-			if (code == (BPF_ANC | SKF_AD_VLAN_TAG))
++			if (code == (BPF_ANC | SKF_AD_VLAN_TAG)) {
+ 				PPC_ANDI(r_A, r_A, ~VLAN_TAG_PRESENT);
+-			else
++			} else {
  				PPC_ANDI(r_A, r_A, VLAN_TAG_PRESENT);
++				PPC_SRWI(r_A, r_A, 12);
++			}
  			break;
+ 		case BPF_ANC | SKF_AD_QUEUE:
+ 			BUILD_BUG_ON(FIELD_SIZEOF(struct sk_buff,
 -- 
 2.0.0
