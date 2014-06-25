@@ -1,7 +1,7 @@
 From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: [PATCH net-next] pktgen: Allow setting frag sizes individually
-Date: Wed, 25 Jun 2014 21:42:51 +0100
-Message-ID: <1403728972-29548-3-git-send-email-zoltan.kiss@citrix.com>
+Subject: [PATCH net-next 3/3 RFC] pktgen: Allow sending TCP packets
+Date: Wed, 25 Jun 2014 21:42:52 +0100
+Message-ID: <1403728972-29548-4-git-send-email-zoltan.kiss@citrix.com>
 References: <1403728972-29548-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,21 +13,19 @@ Cc: Zoltan Kiss <zoltan.kiss@citrix.com>,
 To: Steffen Klassert <steffen.klassert@secunet.com>,
 	Mathias Krause <minipli@googlemail.com>,
 	Daniel Borkmann <dborkman@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:56811 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755949AbaFYUnY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Jun 2014 16:43:24 -0400
 In-Reply-To: <1403728972-29548-1-git-send-email-zoltan.kiss@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-By defining the number of frags via "nfrags", their sizes get calculated by
-pktgen. This patch allows their offsets and sizes to be specified via
-"frag_off-len", in a comma separated list (e.g.
-"frag_off-len 0-1,500-200,5000-10,9-100). The first is the offset
-(0 <= offset < 2^16), second is size (0 < length <= 65536). This also determines
-the number of frags, so it overwrites "frags" (and vice versa, "frags"
-invalidate this setting)
-xen-netback is prone to have problem with compound pages, as the memory granting
-interface can only handle 4k pages. This extension of pktgen is proven to be
-useful to test that.
+This is a prototype patch to enable sending TCP packets with pktgen. The
+original motivation is to test TCP GSO with xen-netback/netfront, but I'm not
+sure about how the checksum should be set up, and also someone should verify the
+GSO settings I'm using.
 
 Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
 Cc: "David S. Miller" <davem@davemloft.net>
@@ -37,227 +35,118 @@ Cc: netdev@vger.kernel.org
 Cc: linux-kernel@vger.kernel.org
 Cc: xen-devel@lists.xenproject.org
 ---
- net/core/pktgen.c |  134 ++++++++++++++++++++++++++++++++++++++++++++++++++---
- 1 file changed, 127 insertions(+), 7 deletions(-)
+ net/core/pktgen.c |   52 ++++++++++++++++++++++++++++++++++++++++++----------
+ 1 file changed, 42 insertions(+), 10 deletions(-)
 
 diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 23b3a58..b8090a0 100644
+index b8090a0..bc9c0a4 100644
 --- a/net/core/pktgen.c
 +++ b/net/core/pktgen.c
-@@ -235,6 +235,11 @@ struct flow_state {
- /* flow flag bits */
- #define F_INIT   (1<<0)		/* flow has been initialized */
+@@ -202,6 +202,7 @@
+ #define F_NODE          (1<<15)	/* Node memory alloc*/
+ #define F_UDPCSUM       (1<<16)	/* Include UDP checksum */
+ #define F_PATTERN       (1<<17)	/* Fill the payload with a pattern */
++#define F_TCP           (1<<18)	/* Send TCP packet instead of UDP */
  
-+struct frag_param {
-+	int offset;
-+	int length;
-+};
+ /* Thread control flag bits */
+ #define T_STOP        (1<<0)	/* Stop run */
+@@ -1341,6 +1342,12 @@ static ssize_t pktgen_if_write(struct file *file,
+ 		else if (strcmp(f, "!PATTERN") == 0)
+ 			pkt_dev->flags &= ~F_PATTERN;
+ 
++		else if (strcmp(f, "TCP") == 0)
++			pkt_dev->flags |= F_TCP;
 +
- struct pktgen_dev {
- 	/*
- 	 * Try to keep frequent/infrequent used vars. separated.
-@@ -256,6 +261,11 @@ struct pktgen_dev {
- 	int max_pkt_size;
- 	int pkt_overhead;	/* overhead for MPLS, VLANs, IPSEC etc */
- 	int nfrags;
-+	/* offset-length pairs for the frags, only the first nfrags are valid,
-+	 * and only if frags[0].length != 0, as zero frag size is not valid
-+	 * (and neither negative)
-+	 */
-+	struct frag_param frags[MAX_SKB_FRAGS];
- 	struct page *pages[MAX_SKB_FRAGS];
- 	u64 delay;		/* nano-seconds */
- 
-@@ -539,6 +549,18 @@ static int pktgen_if_show(struct seq_file *seq, void *v)
- 		   pkt_dev->nfrags, (unsigned long long) pkt_dev->delay,
- 		   pkt_dev->clone_skb, pkt_dev->odevname);
- 
-+	if (pkt_dev->frags[0].length) {
-+		int n;
++		else if (strcmp(f, "!TCP") == 0)
++			pkt_dev->flags &= ~F_TCP;
 +
-+		for (n = 0; n < pkt_dev->nfrags; n++)
-+			seq_printf(seq, "     %d. offset: %d length: %d%s\n", n,
-+				   pkt_dev->frags[n].offset,
-+				   pkt_dev->frags[n].length,
-+				   n == pkt_dev->nfrags-1 ? "" : ",");
+ 		else {
+ 			sprintf(pg_result,
+ 				"Flag -:%s:- unknown\nAvailable flags, (prepend ! to un-set flag):\n%s",
+@@ -2951,6 +2958,7 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
+ 	struct sk_buff *skb = NULL;
+ 	__u8 *eth;
+ 	struct udphdr *udph;
++	struct tcphdr *tcph;
+ 	int datalen, iplen;
+ 	struct iphdr *iph;
+ 	__be16 protocol = htons(ETH_P_IP);
+@@ -3012,29 +3020,39 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
+ 	iph = (struct iphdr *) skb_put(skb, sizeof(struct iphdr));
+ 
+ 	skb_set_transport_header(skb, skb->len);
+-	udph = (struct udphdr *) skb_put(skb, sizeof(struct udphdr));
++
++	if (pkt_dev->flags & F_TCP) {
++		datalen = pkt_dev->cur_pkt_size - ETH_HLEN - 20 -
++			  sizeof(struct tcphdr) - pkt_dev->pkt_overhead;
++		tcph = (struct tcphdr *) skb_put(skb, sizeof(struct tcphdr));
++		tcph->source = htons(pkt_dev->cur_udp_src);
++		tcph->dest = htons(pkt_dev->cur_udp_dst);
++		tcph->check = 0;
 +	} else {
-+			seq_printf(seq, "     No frag parameters defined\n");
++		datalen = pkt_dev->cur_pkt_size - ETH_HLEN - 20 -
++			  sizeof(struct udphdr) - pkt_dev->pkt_overhead;
++		udph = (struct udphdr *) skb_put(skb, sizeof(struct udphdr));
++		udph->source = htons(pkt_dev->cur_udp_src);
++		udph->dest = htons(pkt_dev->cur_udp_dst);
++		udph->len = htons(datalen + sizeof(struct udphdr));	/* DATA + udphdr */
++		udph->check = 0;
++
++	}
+ 	skb_set_queue_mapping(skb, queue_map);
+ 	skb->priority = pkt_dev->skb_priority;
+ 
+ 	memcpy(eth, pkt_dev->hh, 12);
+ 	*(__be16 *) & eth[12] = protocol;
+ 
+-	/* Eth + IPh + UDPh + mpls */
+-	datalen = pkt_dev->cur_pkt_size - 14 - 20 - 8 -
+-		  pkt_dev->pkt_overhead;
+ 	if (datalen < 0 || datalen < sizeof(struct pktgen_hdr))
+ 		datalen = sizeof(struct pktgen_hdr);
+ 
+-	udph->source = htons(pkt_dev->cur_udp_src);
+-	udph->dest = htons(pkt_dev->cur_udp_dst);
+-	udph->len = htons(datalen + 8);	/* DATA + udphdr */
+-	udph->check = 0;
+ 
+ 	iph->ihl = 5;
+ 	iph->version = 4;
+ 	iph->ttl = 32;
+ 	iph->tos = pkt_dev->tos;
+-	iph->protocol = IPPROTO_UDP;	/* UDP */
++	iph->protocol = pkt_dev->flags & F_TCP ? IPPROTO_TCP : IPPROTO_UDP;
+ 	iph->saddr = pkt_dev->cur_saddr;
+ 	iph->daddr = pkt_dev->cur_daddr;
+ 	iph->id = htons(pkt_dev->ip_id);
+@@ -3049,7 +3067,9 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
+ 
+ 	if (!(pkt_dev->flags & F_UDPCSUM)) {
+ 		skb->ip_summed = CHECKSUM_NONE;
+-	} else if (odev->features & NETIF_F_V4_CSUM) {
++	} else if (pkt_dev->flags & F_TCP)
++		skb_checksum_setup(skb, true);
++	else if (odev->features & NETIF_F_V4_CSUM) {
+ 		skb->ip_summed = CHECKSUM_PARTIAL;
+ 		skb->csum = 0;
+ 		udp4_hwcsum(skb, udph->source, udph->dest);
+@@ -3066,6 +3086,18 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
+ 
+ 	pktgen_finalize_skb(pkt_dev, skb, datalen);
+ 
++	if (odev->mtu < skb->len) {
++		skb_shinfo(skb)->gso_size = odev->mtu - ETH_HLEN - 20 -
++					    pkt_dev->pkt_overhead;
++		if (pkt_dev->flags & F_TCP) {
++			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
++			skb_shinfo(skb)->gso_size -= sizeof(struct tcphdr);
++		} else {
++			skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
++			skb_shinfo(skb)->gso_size -= sizeof(struct udphdr);
++		}
 +	}
 +
- 	seq_printf(seq, "     flows: %u flowlen: %u\n", pkt_dev->cflows,
- 		   pkt_dev->lflow);
- 
-@@ -844,6 +866,50 @@ static ssize_t get_labels(const char __user *buffer, struct pktgen_dev *pkt_dev)
- 	return i;
- }
- 
-+static ssize_t get_sizes(const char __user *buffer, struct pktgen_dev *pkt_dev)
-+{
-+	unsigned int n = 0;
-+	char c;
-+	ssize_t i = 0;
-+	int len;
-+
-+	pkt_dev->nfrags = 0;
-+	do {
-+		unsigned long tmp;
-+
-+		len = num_arg(&buffer[i], 5, &tmp);
-+		if (len <= 0)
-+			return len;
-+		/* Maximum skb size minus 1 */
-+		if (tmp >= 65536)
-+			return -EINVAL;
-+		pkt_dev->frags[n].offset = tmp;
-+		i += len;
-+		if (get_user(c, &buffer[i]))
-+			return -EFAULT;
-+		if (c != '-')
-+			return -EINVAL;
-+		i++;
-+
-+		len = num_arg(&buffer[i], 5, &tmp);
-+		if (len <= 0)
-+			return len;
-+		if (tmp < 1 || tmp > 65536)
-+			return -EINVAL;
-+		pkt_dev->frags[n].length = tmp;
-+		i += len;
-+		if (get_user(c, &buffer[i]))
-+			return -EFAULT;
-+		i++;
-+		n++;
-+		if (n > MAX_SKB_FRAGS)
-+			return -E2BIG;
-+	} while (c == ',');
-+
-+	pkt_dev->nfrags = n;
-+	return i;
-+}
-+
- static ssize_t pktgen_if_write(struct file *file,
- 			       const char __user * user_buffer, size_t count,
- 			       loff_t * offset)
-@@ -971,9 +1037,30 @@ static ssize_t pktgen_if_write(struct file *file,
- 
- 		i += len;
- 		pkt_dev->nfrags = value;
-+		/* Invalidate whatever was specified before */
-+		pkt_dev->frags[0].length = 0;
- 		sprintf(pg_result, "OK: frags=%u", pkt_dev->nfrags);
- 		return count;
- 	}
-+
-+	if (!strcmp(name, "frag_off-len")) {
-+		unsigned int n, cnt;
-+
-+		len = get_sizes(&user_buffer[i], pkt_dev);
-+		if (len < 0)
-+			return len;
-+		i += len;
-+		cnt = sprintf(pg_result, "OK: frags=%u frag offsets-sizes=",
-+			      pkt_dev->nfrags);
-+		for (n = 0; n < pkt_dev->nfrags; n++)
-+			cnt += sprintf(pg_result + cnt, "%d-%d%s",
-+				       pkt_dev->frags[n].offset,
-+				       pkt_dev->frags[n].length,
-+				       n == pkt_dev->nfrags-1 ? "" : ",");
-+
-+		return count;
-+	}
-+
- 	if (!strcmp(name, "delay")) {
- 		len = num_arg(&user_buffer[i], 10, &value);
- 		if (len < 0)
-@@ -2730,12 +2817,24 @@ static void pktgen_finalize_skb(struct pktgen_dev *pkt_dev, struct sk_buff *skb,
- 	} else {
- 		int frags = pkt_dev->nfrags;
- 		int i, len;
--		int frag_len;
-+		int frag_len = 0;
- 
- 
- 		if (frags > MAX_SKB_FRAGS)
- 			frags = MAX_SKB_FRAGS;
--		len = datalen - frags * PAGE_SIZE;
-+
-+		if (pkt_dev->frags[0].length) {
-+			for (i = 0; i < frags; ++i)
-+				frag_len += pkt_dev->frags[i].length;
-+			if (frag_len > datalen) {
-+				pr_err("Payload length (%d) smaller than frags (%d)\n",
-+				       datalen, frag_len);
-+				return;
-+			}
-+		} else
-+			frag_len = frags * PAGE_SIZE;
-+
-+		len = datalen - frag_len;
- 		if (len > 0) {
- 			if (pkt_dev->flags & F_PATTERN)
- 				offset = pattern_to_packet(skb_put(skb, len),
-@@ -2743,29 +2842,44 @@ static void pktgen_finalize_skb(struct pktgen_dev *pkt_dev, struct sk_buff *skb,
- 							   &incomplete);
- 			else
- 				memset(skb_put(skb, len), 0, len);
--			datalen = frags * PAGE_SIZE;
-+			datalen = frag_len;
- 		}
- 
- 		i = 0;
- 		frag_len = (datalen/frags) < PAGE_SIZE ?
- 			   (datalen/frags) : PAGE_SIZE;
- 		while (datalen > 0) {
--			int fragpage;
-+			int fragpage, order = 0;
- 			gfp_t flags = GFP_KERNEL;
- 
--			if (pkt_dev->flags & F_PATTERN) {
-+			if (pkt_dev->flags & F_PATTERN ||
-+			    pkt_dev->frags[0].length) {
- 				fragpage = i;
- 			} else {
- 				fragpage = 0;
- 				flags |= __GFP_ZERO;
- 			}
- 
-+			/* Free this page if we gonna need a compound one */
-+			if (pkt_dev->frags[0].length) {
-+				int max_off = pkt_dev->frags[i].offset +
-+					      pkt_dev->frags[i].length;
-+				order = get_order(max_off);
-+				if (order) {
-+					flags |= __GFP_COMP;
-+					if (pkt_dev->pages[fragpage]) {
-+						put_page(pkt_dev->pages[i]);
-+						pkt_dev->pages[i] = NULL;
-+					}
-+				}
-+			}
-+
- 			if (unlikely(!pkt_dev->pages[fragpage])) {
- 				int node = numa_node_id();
- 
- 				if (pkt_dev->node >= 0 && (pkt_dev->flags & F_NODE))
- 					node = pkt_dev->node;
--				pkt_dev->pages[fragpage] = alloc_pages_node(node, flags, 0);
-+				pkt_dev->pages[fragpage] = alloc_pages_node(node, flags, order);
- 				if (!pkt_dev->pages[fragpage])
- 					break;
- 			}
-@@ -2773,8 +2887,14 @@ static void pktgen_finalize_skb(struct pktgen_dev *pkt_dev, struct sk_buff *skb,
- 			skb_frag_set_page(skb, i, pkt_dev->pages[fragpage]);
- 
- 			skb_shinfo(skb)->frags[i].page_offset = 0;
-+			if (pkt_dev->frags[0].length) {
-+				skb_shinfo(skb)->frags[i].page_offset =
-+					pkt_dev->frags[i].offset;
-+				skb_frag_size_set(&skb_shinfo(skb)->frags[i],
-+				                  pkt_dev->frags[i].length);
-+			}
- 			/*last fragment, fill rest of data*/
--			if (i == (frags - 1))
-+			else if (i == (frags - 1))
- 				skb_frag_size_set(&skb_shinfo(skb)->frags[i],
- 				    (datalen < PAGE_SIZE ? datalen : PAGE_SIZE));
- 			else
+ #ifdef CONFIG_XFRM
+ 	if (!process_ipsec(pkt_dev, skb, protocol))
+ 		return NULL;
