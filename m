@@ -1,67 +1,152 @@
-From: Markos Chandras <Markos.Chandras@imgtec.com>
-Subject: Re: [PATCH 16/17] MIPS: bpf: Use 32 or 64-bit load instruction to
- load an address to register
-Date: Wed, 25 Jun 2014 09:18:48 +0100
-Message-ID: <53AA85E8.5090403@imgtec.com>
-References: <1403516340-22997-1-git-send-email-markos.chandras@imgtec.com> <1403516340-22997-17-git-send-email-markos.chandras@imgtec.com> <20140623202437.GD2200@pburton-laptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-mips@linux-mips.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Alexei Starovoitov <ast@plumgrid.com>, <netdev@vger.kernel.org>
-To: Paul Burton <paul.burton@imgtec.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next] openvswitch: introduce rtnl ops stub
+Date: Wed, 25 Jun 2014 10:27:41 +0200
+Message-ID: <1403684861-9185-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, pshelar@nicira.com, cwang@twopensource.com,
+	nicolas.dichtel@6wind.com, ebiederm@xmission.com,
+	david@gibson.dropbear.id.au, sfeldma@cumulusnetworks.com,
+	sucheta.chakraborty@qlogic.com, stephen@networkplumber.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailapp01.imgtec.com ([195.59.15.196]:42917 "EHLO
-	mailapp01.imgtec.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754777AbaFYISv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2014 04:18:51 -0400
-In-Reply-To: <20140623202437.GD2200@pburton-laptop>
+Received: from mail-we0-f174.google.com ([74.125.82.174]:58279 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755126AbaFYI1q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2014 04:27:46 -0400
+Received: by mail-we0-f174.google.com with SMTP id u57so1657483wes.33
+        for <netdev@vger.kernel.org>; Wed, 25 Jun 2014 01:27:44 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/23/2014 09:24 PM, Paul Burton wrote:
-> On Mon, Jun 23, 2014 at 10:38:59AM +0100, Markos Chandras wrote:
->> diff --git a/arch/mips/net/bpf_jit.c b/arch/mips/net/bpf_jit.c
->> index 4920e0fd05ee..d8dba7b523a5 100644
->> --- a/arch/mips/net/bpf_jit.c
->> +++ b/arch/mips/net/bpf_jit.c
->> @@ -447,6 +447,17 @@ static inline void emit_wsbh(unsigned int dst, unsigned int src,
->>  	emit_instr(ctx, wsbh, dst, src);
->>  }
->>  
->> +/* load address to register */
->> +static inline void emit_load_addr(unsigned int dst, unsigned int src,
->> +				     int imm, struct jit_ctx *ctx)
-> 
-> (I originally sent this in reply to your internal posting, but assume you
-> missed it or it got eaten somewhere along the way.)
-> 
-> The name emit_load_addr & comment "load address to register" makes this
-> sound like an equivalent of the "la" pseudo instruction, but it appears
-> to really emit a pointer sized load? How about emit_load_ptr or something
-> instead, and similarly s/address/pointer/ in the comment?
-> 
-Hi Paul,
+This stub now allows userspace to see IFLA_INFO_KIND for ovs master and
+IFLA_INFO_SLAVE_KIND for slave.
 
-I suppose I could do that. I will send a v2
+Note that I added ops->setup check into newlink and dellink in order to
+prevent creating and deleting openvswitch instances using rtnl for now.
 
->> +{
->> +	/* src contains the base addr of the 32/64-pointer */
->> +	if (config_enabled(CONFIG_64BIT))
->> +		emit_instr(ctx, ld, dst, imm, src);
->> +	else
->> +		emit_instr(ctx, lw, dst, imm, src);
-> 
-> Is there some way you could make use of the UASM_i_LW macro (note the
-> capitalisation) instead of the if statement here?
-> 
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+ net/core/rtnetlink.c                 |  5 ++++-
+ net/openvswitch/datapath.c           |  9 ++++++++-
+ net/openvswitch/vport-internal_dev.c | 16 ++++++++++++++++
+ net/openvswitch/vport-internal_dev.h |  2 ++
+ 4 files changed, 30 insertions(+), 2 deletions(-)
 
-Not right now. I use config_enabled(CONFIG_64BIT) everywhere in that
-file to emit 32-bit or 64-bit instructions. So I will look into
-switching to the USAM_i_* macros when i submit the remaining fixes
-probably for 3.17.
-
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 1063996..84affd7 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1777,7 +1777,7 @@ static int rtnl_dellink(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 		return -ENODEV;
+ 
+ 	ops = dev->rtnl_link_ops;
+-	if (!ops)
++	if (!ops || !ops->setup)
+ 		return -EOPNOTSUPP;
+ 
+ 	ops->dellink(dev, &list_kill);
+@@ -2038,6 +2038,9 @@ replay:
+ 			return -EOPNOTSUPP;
+ 		}
+ 
++		if (!ops->setup)
++			return -EOPNOTSUPP;
++
+ 		if (!ifname[0])
+ 			snprintf(ifname, IFNAMSIZ, "%s%%d", ops->kind);
+ 
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index 0d407bc..fe95b6c 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -2054,10 +2054,14 @@ static int __init dp_init(void)
+ 
+ 	pr_info("Open vSwitch switching datapath\n");
+ 
+-	err = ovs_flow_init();
++	err = ovs_internal_dev_rtnl_link_register();
+ 	if (err)
+ 		goto error;
+ 
++	err = ovs_flow_init();
++	if (err)
++		goto error_unreg_rtnl_link;
++
+ 	err = ovs_vport_init();
+ 	if (err)
+ 		goto error_flow_exit;
+@@ -2084,6 +2088,8 @@ error_vport_exit:
+ 	ovs_vport_exit();
+ error_flow_exit:
+ 	ovs_flow_exit();
++error_unreg_rtnl_link:
++	ovs_internal_dev_rtnl_link_unregister();
+ error:
+ 	return err;
+ }
+@@ -2096,6 +2102,7 @@ static void dp_cleanup(void)
+ 	rcu_barrier();
+ 	ovs_vport_exit();
+ 	ovs_flow_exit();
++	ovs_internal_dev_rtnl_link_unregister();
+ }
+ 
+ module_init(dp_init);
+diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
+index 789af92..295471a 100644
+--- a/net/openvswitch/vport-internal_dev.c
++++ b/net/openvswitch/vport-internal_dev.c
+@@ -26,6 +26,7 @@
+ 
+ #include <net/dst.h>
+ #include <net/xfrm.h>
++#include <net/rtnetlink.h>
+ 
+ #include "datapath.h"
+ #include "vport-internal_dev.h"
+@@ -121,6 +122,10 @@ static const struct net_device_ops internal_dev_netdev_ops = {
+ 	.ndo_get_stats64 = internal_dev_get_stats,
+ };
+ 
++static struct rtnl_link_ops internal_dev_link_ops __read_mostly = {
++	.kind = "openvswitch",
++};
++
+ static void do_setup(struct net_device *netdev)
+ {
+ 	ether_setup(netdev);
+@@ -131,6 +136,7 @@ static void do_setup(struct net_device *netdev)
+ 	netdev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
+ 	netdev->destructor = internal_dev_destructor;
+ 	netdev->ethtool_ops = &internal_dev_ethtool_ops;
++	netdev->rtnl_link_ops = &internal_dev_link_ops;
+ 	netdev->tx_queue_len = 0;
+ 
+ 	netdev->features = NETIF_F_LLTX | NETIF_F_SG | NETIF_F_FRAGLIST |
+@@ -248,3 +254,13 @@ struct vport *ovs_internal_dev_get_vport(struct net_device *netdev)
+ 
+ 	return internal_dev_priv(netdev)->vport;
+ }
++
++int ovs_internal_dev_rtnl_link_register(void)
++{
++	return rtnl_link_register(&internal_dev_link_ops);
++}
++
++void ovs_internal_dev_rtnl_link_unregister(void)
++{
++	rtnl_link_unregister(&internal_dev_link_ops);
++}
+diff --git a/net/openvswitch/vport-internal_dev.h b/net/openvswitch/vport-internal_dev.h
+index 9a7d30e..1b179a1 100644
+--- a/net/openvswitch/vport-internal_dev.h
++++ b/net/openvswitch/vport-internal_dev.h
+@@ -24,5 +24,7 @@
+ 
+ int ovs_is_internal_dev(const struct net_device *);
+ struct vport *ovs_internal_dev_get_vport(struct net_device *);
++int ovs_internal_dev_rtnl_link_register(void);
++void ovs_internal_dev_rtnl_link_unregister(void);
+ 
+ #endif /* vport-internal_dev.h */
 -- 
-markos
+1.9.0
