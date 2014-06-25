@@ -1,43 +1,48 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: [PATCH] tcp: fix setting csum_start in tcp_gso_segment
-Date: Wed, 25 Jun 2014 10:10:52 -0400
-Message-ID: <20140625141052.GA1096@redhat.com>
-References: <alpine.DEB.2.02.1406242056330.29780@tomh.mtv.corp.google.com>
- <CA+55aFxyZP_jXT-bLyFjJMp4WfVZp5vFtpu+-6_qCi46xkceQg@mail.gmail.com>
+From: "bhupesh.sharma@freescale.com" <bhupesh.sharma@freescale.com>
+Subject: RE: [PATCH] net: can: Remodel FlexCAN register read/write APIs for BE
+ instances
+Date: Wed, 25 Jun 2014 14:16:33 +0000
+Message-ID: <28c405ed255b42d09307274fccbec41e@BN1PR03MB220.namprd03.prod.outlook.com>
+References: <1403625285-27824-1-git-send-email-bhupesh.sharma@freescale.com>
+ <53AA8805.3050309@pengutronix.de>
+ <ae6e49865206432ea871b08b159bae55@BN1PR03MB220.namprd03.prod.outlook.com>
+ <53AAA3E9.6030409@pengutronix.de>
+ <536c077e2e8b4dfabb4c07f696753a3c@BN1PR03MB220.namprd03.prod.outlook.com>
+ <53AAAD84.1010400@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tom Herbert <therbert@google.com>,
-	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:11307 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756873AbaFYOLw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Jun 2014 10:11:52 -0400
-Content-Disposition: inline
-In-Reply-To: <CA+55aFxyZP_jXT-bLyFjJMp4WfVZp5vFtpu+-6_qCi46xkceQg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "wg@grandegger.com" <wg@grandegger.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Marc Kleine-Budde <mkl@pengutronix.de>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <53AAAD84.1010400@pengutronix.de>
+Content-Language: en-US
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 24, 2014 at 09:17:25PM -0700, Linus Torvalds wrote:
- > On Tue, Jun 24, 2014 at 9:03 PM, Tom Herbert <therbert@google.com> wrote:
- > >
- > > It looks like a likely culprit is that SKB_GSO_CB()->csum_start is
- > > not set correctly when doing non-scatter gather. We are using
- > > offset as opposed to doffset.
- > >
- > > Reported-by: Dave Jones <davej@redhat.com>
- > 
- > DaveJ, I think you triggered this in five minutes on your box, and I
- > don't recall seeing anybody else reporting the oops (and google
- > doesn't find anything in the last month). So it's presumably somewhat
- > hw-specific. Does this fix the problem?
-
-It's survived routing ~1GB of packets overnight, so I'd call this good.
-
-thanks Tom.
-
-	Dave
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBNYXJjIEtsZWluZS1CdWRkZSBb
+bWFpbHRvOm1rbEBwZW5ndXRyb25peC5kZV0NCj4gU2VudDogV2VkbmVzZGF5LCBKdW5lIDI1LCAy
+MDE0IDQ6MzggUE0NCj4gVG86IFNoYXJtYSBCaHVwZXNoLUI0NTM3MDsgbGludXgtY2FuQHZnZXIu
+a2VybmVsLm9yZw0KPiBDYzogd2dAZ3JhbmRlZ2dlci5jb207IG5ldGRldkB2Z2VyLmtlcm5lbC5v
+cmcNCj4gU3ViamVjdDogUmU6IFtQQVRDSF0gbmV0OiBjYW46IFJlbW9kZWwgRmxleENBTiByZWdp
+c3RlciByZWFkL3dyaXRlIEFQSXMNCj4gZm9yIEJFIGluc3RhbmNlcw0KPiANCj4gT24gMDYvMjUv
+MjAxNCAwMTowMSBQTSwgYmh1cGVzaC5zaGFybWFAZnJlZXNjYWxlLmNvbSB3cm90ZToNCj4gPj4g
+V2hhdCBhYm91dCBmdW5jdGlvbiBwb2ludGVycyBpbiB0aGUgcHJpdj8gU28gdGhhdCBmbGV4Y2Fu
+X3JlYWQoKQ0KPiA+PiBiZWNvbWVzDQo+ID4+IHByaXYtPnJlYWQoKS4NCj4gDQo+ID4gVGhhdCdz
+IHdoYXQgSSBwcm9wb3NlIChzaW1pbGFyIHRvIHdoYXQgSSBkaWQgZm9yIENfQ0FOIGRyaXZlciBm
+b3INCj4gPiAxNi1iaXQgYW5kIDMyLWJpdCByZWcgaW50ZXJmYWNlcyB1c2luZyBwbGF0Zm9ybSBk
+YXRhKToNCj4gDQo+IFllcy4uLmJ1dC4uLg0KPiANCj4gPiBib29sIG1vZHVsZV9pc19iZSA9IGZh
+bHNlOw0KPiANCj4gLi4ubW9kdWxlX2lzX2JlIGlzIG5vdCB0aGF0IHNpbXBsZSwgb24gUFBDIHRy
+dWUgbXVzdCBiZSB0aGUgZGVmYXVsdCB0byBiZQ0KPiBjb21wYXRpYmxlIHdpdGggZXhpc3Rpbmcg
+ZHRzLg0KDQpIb3cgZG9lcyB0aGlzIGxvb2sgKGEgYml0IG1lc3NlZCB1cCwgc28gSSBhbSBvcGVu
+IGZvciBjb21tZW50cyk6DQoNCiNpZiBkZWZpbmVkKENPTkZJR19BUk0pDQpzdGF0aWMgaW5saW5l
+IHUzMiBmbGV4Y2FuX3JlYWRfaXBfaXNfYmUodm9pZCBfX2lvbWVtICphZGRyKQ0Kew0KCXJldHVy
+biBpb3JlYWQzMmJlKGFkZHIpOw0KfQ0KDQpzdGF0aWMgaW5saW5lIHUzMiBmbGV4Y2FuX3JlYWRf
+aXBfaXNfbGUodm9pZCBfX2lvbWVtICphZGRyKQ0Kew0KCXJldHVybiBpb3JlYWQzMihhZGRyKTsN
+Cn0NCiNlbmRpZg0KDQojaWYgZGVmaW5lZChDT05GSUdfUFBDKQ0Kc3RhdGljIGlubGluZSB1MzIg
+ZmxleGNhbl9yZWFkX2lwX2lzX2JlKHZvaWQgX19pb21lbSAqYWRkcikNCnsNCglyZXR1cm4gaW9y
+ZWFkMzIoYWRkcik7DQp9DQoNCnN0YXRpYyBpbmxpbmUgdTMyIGZsZXhjYW5fcmVhZF9pcF9pc19s
+ZSh2b2lkIF9faW9tZW0gKmFkZHIpDQp7DQoJcmV0dXJuIGlvcmVhZDMyYmUoYWRkcik7DQp9DQoj
+ZW5kaWYNCg0KWy4uIHNuaXBdDQoNClJlZ2FyZHMsDQpCaHVwZXNoDQo=
