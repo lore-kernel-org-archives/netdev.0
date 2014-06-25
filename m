@@ -1,66 +1,120 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 2/3] dp83640: Program pulsewidth2 values of perout
- triggers 0 and 1
-Date: Wed, 25 Jun 2014 21:50:49 +0400
-Message-ID: <53AB0BF9.3060101@cogentembedded.com>
-References: <1403699851-11178-1-git-send-email-stefan.sorensen@spectralink.com> <1403699851-11178-3-git-send-email-stefan.sorensen@spectralink.com>
+From: Evgeny Boger <boger-hVk9LwgH4SrGCOCKMErq+g@public.gmane.org>
+Subject: Re: [PATCH v2] Add support for GPIOs for SMSC LAN95xx chips.
+Date: Wed, 25 Jun 2014 21:54:00 +0400
+Message-ID: <53AB0CB8.2090007@contactless.ru>
+References: <20140513.180121.1755290421111591028.davem@davemloft.net>	<1403671574-16857-1-git-send-email-boger@contactless.ru> <CAN_we7MbMywYzysn_Q_iRAOZZuE+KU_jDJxMW-Qz0KK0RHwSRQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8;
 	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?UTF-8?B?U3RlZmFuIFPDuHJlbnNlbg==?=
-	<stefan.sorensen@spectralink.com>, davem@davemloft.net,
-	richardcochran@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f175.google.com ([209.85.217.175]:61183 "EHLO
-	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757724AbaFYRur (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2014 13:50:47 -0400
-Received: by mail-lb0-f175.google.com with SMTP id n15so2126391lbi.34
-        for <netdev@vger.kernel.org>; Wed, 25 Jun 2014 10:50:45 -0700 (PDT)
-In-Reply-To: <1403699851-11178-3-git-send-email-stefan.sorensen@spectralink.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Steve Glendinning <steve.glendinning-nksJyM/082jR7s880joybQ@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	USB list <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Daniele Forsi <dforsi-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAN_we7MbMywYzysn_Q_iRAOZZuE+KU_jDJxMW-Qz0KK0RHwSRQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+06/25/2014 02:34 PM, Daniele Forsi =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> 2014-06-25 6:46 GMT+02:00 Evgeny Boger:
+>
+>> There might be 11 GPIOs in total.
+> do you mean "12 GPIOs"? You say later they are 0-based and the last o=
+ne is "11"
 
-On 06/25/2014 04:37 PM, Stefan S=C3=B8rensen wrote:
 
-> Periodic output triggers 0 and 1 of the dp83640 has a programmable
-> duty-cycle which is controlled by the Pulsewidth2 field of the trigge=
-r
-> data register.  This field is not documented in the datasheet, but it
-> is described in the "PHYTER Software Development Guide" section
-> 3.1.4.1. Failing to set the field can result in unstable/no trigger
-> output.
+>
+>> Last three GPIOs  (offsets 8-11, 0-based) are shared with FDX, LNKA,=
+ SPD
+>> LEDs respectively.
+> so you mean the last "four"?
+> and you may want to remove the extra space before the open parenthesi=
+s
 
-> Add programming of the Pulsewidth2 field, setting it to the same valu=
-e
-> as the Pulsewidth field for a 50% duty cycle.
+My mistake. 11 GPIOs in total, eight of them (0-7) are normal GPIOs,=20
+while three other are multiplexed with link activity LEDs.
+So it should read like "offset 8-10, 0-based".
 
-> Signed-off-by: Stefan S=C3=B8rensen <stefan.sorensen@spectralink.com>
-> ---
->   drivers/net/phy/dp83640.c | 5 +++++
->   1 file changed, 5 insertions(+)
+Actually, the numbering scheme according to datasheets differs a bit=20
+between LAN9500 and LAN951x:
 
-> diff --git a/drivers/net/phy/dp83640.c b/drivers/net/phy/dp83640.c
-> index 73fada9..0343b6c 100644
-> --- a/drivers/net/phy/dp83640.c
-> +++ b/drivers/net/phy/dp83640.c
-> @@ -353,6 +353,11 @@ static int periodic_output(struct dp83640_clock =
-*clock,
->   	ext_write(0, phydev, PAGE4, PTP_TDR, sec >> 16);       /* sec[31:1=
-6] */
->   	ext_write(0, phydev, PAGE4, PTP_TDR, pwidth & 0xffff); /* ns[15:0]=
- */
->   	ext_write(0, phydev, PAGE4, PTP_TDR, pwidth >> 16);    /* ns[31:16=
-] */
-> +	/* Triggers 0 and 1 has programmable pulsewidth2 */
-> +	if(trigger < 2) {
+=46or LAN951x:
+GPIOs with offsets 0-7 are named "GPIO3" - "GPIO7", offsets 8-10 are fo=
+r=20
+"GPIO0" - "GPIO2" (these three are multiplexed with nFDX_LED, nLNKA_LED=
+,=20
+nSPD_LED).
 
-    Please run your patches thru scripts/checkpatch.pl -- space is need=
-ed=20
-after *if*.
+=46or LAN9500:
+The datasheet name is the same as the corresponding offset, i.e. offset=
+s=20
+0-10 are for "GPIO0"-"GPIO10".
 
-WBR, Sergei
+What do you think, shoud I write some note about this numbering scheme?=
+=20
+If so, where it would be better to place such a note?
+
+
+
+
+
+
+>
+> also there are still several unneeded newlines
+>
+>> diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+>> @@ -68,6 +70,15 @@ struct smsc95xx_priv {
+>>          spinlock_t mac_cr_lock;
+>>          u8 features;
+>>          u8 suspend_flags;
+>> +
+>> +       struct usbnet *dev;
+>> +static int smsc95xx_gpio_request(struct gpio_chip *gpio, unsigned o=
+ffset)
+>> +       mutex_unlock(&pdata->gpio_lock);
+>> +
+>> +
+>> +       return (ret < 0) ? ret : 0;
+>> +}
+>> +
+>> +static void smsc95xx_gpio_free(struct gpio_chip *gpio, unsigned off=
+set)
+>> +       if (ret < 0)
+>> +               netif_err(pdata->dev, ifdown, pdata->dev->net,
+>> +                       "error freeing gpio %d\n", offset);
+>> +
+>> +}
+> and in other places
+>
+>> +static void smsc95xx_gpio_set(struct gpio_chip *gpio, unsigned offs=
+et,
+>> +                               int value)
+>> +{
+>> +       if (ret < 0) {
+>> +               netif_err(pdata->dev, ifdown, pdata->dev->net,
+>> +                       "error writing gpio %d=3D%d\n", offset, valu=
+e);
+>> +               return;
+>> +       }
+>> +}
+> no need to put a "return" there at he end of the function (if it's
+> defensive programming then you didn't put return in similar code in a
+> previous function)
+>
+
+
+--=20
+=D0=A1 =D1=83=D0=B2=D0=B0=D0=B6=D0=B5=D0=BD=D0=B8=D0=B5=D0=BC,
+     =D0=95=D0=B2=D0=B3=D0=B5=D0=BD=D0=B8=D0=B9 =D0=91=D0=BE=D0=B3=D0=B5=
+=D1=80
+     =D0=9E=D0=9E=D0=9E =D0=91=D0=B5=D1=81=D0=BA=D0=BE=D0=BD=D1=82=D0=B0=
+=D0=BA=D1=82=D0=BD=D1=8B=D0=B5 =D1=83=D1=81=D1=82=D1=80=D0=BE=D0=B9=D1=81=
+=D1=82=D0=B2=D0=B0
+     http://contactless.ru
+     +7 (919) 965 88 36
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
