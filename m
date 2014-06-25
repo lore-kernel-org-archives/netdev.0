@@ -1,88 +1,42 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [net-next v2 03/14] i40e: Add PF reset when Malicious driver
- event for PF
-Date: Tue, 24 Jun 2014 19:35:15 -0700
-Message-ID: <1403663715.2311.8.camel@jtkirshe-mobl>
-References: <1403659585-32055-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1403659585-32055-4-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1403662597.12657.4.camel@joe-AO725>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [GIT] Networking
+Date: Tue, 24 Jun 2014 20:05:30 -0700
+Message-ID: <CA+mtBx8F3XPU5bLfKc046Oz8thp50FZadLfAAfe-Hw2HU9sjsA@mail.gmail.com>
+References: <20140616234254.GA15332@redhat.com>
+	<20140623234759.GA19138@redhat.com>
+	<CA+55aFx--+YxUWX5SGet0QxfDo2PcJj3x5tcwqiCTA9yiyi_bQ@mail.gmail.com>
+	<20140624.172616.757600677169858458.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-uSLlZqHJdV1eNoeHKOif"
-Cc: davem@davemloft.net, Neerav Parikh <neerav.parikh@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: torvalds@linux-foundation.org, davej@redhat.com,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:9644 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752322AbaFYCfn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Jun 2014 22:35:43 -0400
-In-Reply-To: <1403662597.12657.4.camel@joe-AO725>
+Received: from mail-ie0-f179.google.com ([209.85.223.179]:51535 "EHLO
+	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753542AbaFYDFc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2014 23:05:32 -0400
+Received: by mail-ie0-f179.google.com with SMTP id tr6so1083184ieb.24
+        for <netdev@vger.kernel.org>; Tue, 24 Jun 2014 20:05:30 -0700 (PDT)
+In-Reply-To: <20140624.172616.757600677169858458.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+> tcp_gso_segment() makes sure that the headers are reachable in the linear
+> area with the pskb_may_pull(skb, sizeof(*th)) call, and gso_make_checksum()
+> is only working with the area up to SKB_GSO_CB()->csum_start which should
+> be within this area for sure.
+>
+Seems likely that csum_start is not properly initialized in this path.
+I am thinking that this may have happened in GRO path on a checksum
+error where CHECKSUM_PARTIAL (and hence csum) is not set. That would
+explain the infrequency of the occurrence,  and also previously not
+setting csum would have just resulted in sending a corrupted packet
+not a crash.
 
---=-uSLlZqHJdV1eNoeHKOif
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+> Well, that's the precondition we seem to be relying upon, I suppose an
+> assert is in order.
 
-On Tue, 2014-06-24 at 19:16 -0700, Joe Perches wrote:
-> On Tue, 2014-06-24 at 18:26 -0700, Jeff Kirsher wrote:
-> > From: Neerav Parikh <neerav.parikh@intel.com>
-> >=20
-> > As per the spec when the PF driver receives a Malicious driver event
-> > the queue that caused the event is already stopped and it is expected
-> > that the function that owns the queue will reset the queue.
-> > In some cases it may not be possible to determine the queue and it is
-> > suggested to reset the whole function.
-> >=20
-> > This patch takes the later approach when the event is owned by the PF
-> > that owns it.
-> >=20
-> > Change-ID: I40f9764a6a5e068c0ef8438db00c5aa9c2c6c1c8
-> > Signed-off-by: Neerav Parikh <neerav.parikh@intel.com>
-> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> > ---
-> > v2: added punctuation to print statements and code comment
->=20
-> Comments are good, but I'd suggest removing trailing
-> periods from messages as close to 95% of the messages
-> in this driver do not use them.
->=20
-> $ grep -rP --include=3D*.[ch] -oh '.\\n"' drivers/net/ethernet/intel/i40e=
-/| \
->   sed 's/[^\.]\\n/X\\n/' | sort | uniq -c | sort -rn
->     621 X\n"
->      41 .\n"
->=20
->=20
-
-Just to note, the punctuation that was added was a comma and not a
-trailing period.  I know that we have tried to clean up the trailing
-periods, I will see about going through the driver and put together a
-cleanup patch.  Thanks Joe.
-
---=-uSLlZqHJdV1eNoeHKOif
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.22 (GNU/Linux)
-
-iQIcBAABCgAGBQJTqjVjAAoJEOVv75VaS+3OGzoP/ArUjS96bHg3pYr6Sf4zDF48
-WJOqdZbno3hOn3ILWI36AC9Nq+fJUHbfHkfZzrg3jkYD+qfvKGmSlBDdwPpp8ULA
-uXI+KmKReOShLPxzE99d/BgRKAADVxQjs2iSPWAnhJXgIMLu8VqnvVSwFBZBYdrL
-+/M/YDSLXmaJI9WgJ7JIl3runID3pL40UEgXsB0hO0cygQ8n9Hqe92Zie9hrIHts
-38LPyXbR2XcFCbSPzRGYInQ8/mWByMhs3UIojL1ins+O//WeuZfqTCwU6JTGLNfN
-d6tMYlHDPNVFKoVvfrC8r7b1QFdMz1bUniR1TNFc+EngjbTKL1ijery38HTu1El4
-SpXr68UTsKlAQuLGSO1+3WYcxVsv+xVLtO3daZiMuxWpdY/WRFjnkgRd2iPG2+8E
-xWzcaAa/Iaee5b303LI6zCf90RVZajc051mQW8SKhKWAajJK+A3eAeQqk3Rfk3d0
-wJUHj81FrXqIoivFaoqAy7WsqHSwLGsIbSsdJL9tO69j9PnDFANwiWqULZ5wb/ix
-DsQhcj/6OnKG+A4w4yESwtK18LPdMe2MbK8VHyt0Tu0Ig4u5OVKSN8xeUL/+2xfM
-/FW1DGs1iq4YcQljHpSt5et76WiWQ0S9kTW9PP+syzKhho2nlfLdofrRCfgYBR/Z
-fiYNfNPCfhHqHvjBZwVq
-=7XGf
------END PGP SIGNATURE-----
-
---=-uSLlZqHJdV1eNoeHKOif--
+Assert on SKB_GSO_CB()->csum_start == 0 would confirm my suspicion.
