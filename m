@@ -1,83 +1,127 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 03/14] i40e: Add PF reset when Malicious driver event for PF
-Date: Tue, 24 Jun 2014 18:26:14 -0700
-Message-ID: <1403659585-32055-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 06/14] i40e: Fix ethtool coalesce settings
+Date: Tue, 24 Jun 2014 18:26:17 -0700
+Message-ID: <1403659585-32055-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1403659585-32055-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Neerav Parikh <neerav.parikh@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:16460 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:35161 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752205AbaFYB0h (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Jun 2014 21:26:37 -0400
+	id S1754253AbaFYB0j (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Jun 2014 21:26:39 -0400
 In-Reply-To: <1403659585-32055-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neerav Parikh <neerav.parikh@intel.com>
+From: Carolyn Wyborny <carolyn.wyborny@intel.com>
 
-As per the spec when the PF driver receives a Malicious driver event
-the queue that caused the event is already stopped and it is expected
-that the function that owns the queue will reset the queue.
-In some cases it may not be possible to determine the queue and it is
-suggested to reset the whole function.
+This patch fixes the i40e_set_coalesce function to allow 0 as a disable
+value.  Also, added message to user about invalid value and provides valid
+range.
 
-This patch takes the later approach when the event is owned by the PF
-that owns it.
-
-Change-ID: I40f9764a6a5e068c0ef8438db00c5aa9c2c6c1c8
-Signed-off-by: Neerav Parikh <neerav.parikh@intel.com>
+Change-ID: I6c9ff11a9861f2045bd543745a3d132999ffbbd8
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
-v2: added punctuation to print statements and code comment
+ drivers/net/ethernet/intel/i40e/i40e.h         |  1 +
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 28 +++++++++++++++++++++-----
+ drivers/net/ethernet/intel/i40e/i40e_main.c    | 16 +++++++++++++++
+ 3 files changed, 40 insertions(+), 5 deletions(-)
 
- drivers/net/ethernet/intel/i40e/i40e_main.c | 25 +++++++++++++++++++++++++
- 1 file changed, 25 insertions(+)
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
+index 817e179..07811dd 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e.h
++++ b/drivers/net/ethernet/intel/i40e/i40e.h
+@@ -617,6 +617,7 @@ static inline void i40e_dbg_init(void) {}
+ static inline void i40e_dbg_exit(void) {}
+ #endif /* CONFIG_DEBUG_FS*/
+ void i40e_irq_dynamic_enable(struct i40e_vsi *vsi, int vector);
++void i40e_irq_dynamic_disable(struct i40e_vsi *vsi, int vector);
+ void i40e_irq_dynamic_disable_icr0(struct i40e_pf *pf);
+ void i40e_irq_dynamic_enable_icr0(struct i40e_pf *pf);
+ int i40e_ioctl(struct net_device *netdev, struct ifreq *ifr, int cmd);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 4a488ff..7da3758 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -1105,17 +1105,36 @@ static int i40e_set_coalesce(struct net_device *netdev,
+ 	if (ec->tx_max_coalesced_frames_irq || ec->rx_max_coalesced_frames_irq)
+ 		vsi->work_limit = ec->tx_max_coalesced_frames_irq;
+ 
++	vector = vsi->base_vector;
+ 	if ((ec->rx_coalesce_usecs >= (I40E_MIN_ITR << 1)) &&
+-	    (ec->rx_coalesce_usecs <= (I40E_MAX_ITR << 1)))
++	    (ec->rx_coalesce_usecs <= (I40E_MAX_ITR << 1))) {
+ 		vsi->rx_itr_setting = ec->rx_coalesce_usecs;
+-	else
++	} else if (ec->rx_coalesce_usecs == 0) {
++		vsi->rx_itr_setting = ec->rx_coalesce_usecs;
++		i40e_irq_dynamic_disable(vsi, vector);
++		if (ec->use_adaptive_rx_coalesce)
++			netif_info(pf, drv, netdev,
++				   "Rx-secs=0, need to disable adaptive-Rx for a complete disable\n");
++	} else {
++		netif_info(pf, drv, netdev,
++			   "Invalid value, Rx-usecs range is 0, 8-8160\n");
+ 		return -EINVAL;
++	}
+ 
+ 	if ((ec->tx_coalesce_usecs >= (I40E_MIN_ITR << 1)) &&
+-	    (ec->tx_coalesce_usecs <= (I40E_MAX_ITR << 1)))
++	    (ec->tx_coalesce_usecs <= (I40E_MAX_ITR << 1))) {
+ 		vsi->tx_itr_setting = ec->tx_coalesce_usecs;
+-	else
++	} else if (ec->tx_coalesce_usecs == 0) {
++		vsi->tx_itr_setting = ec->tx_coalesce_usecs;
++		i40e_irq_dynamic_disable(vsi, vector);
++		if (ec->use_adaptive_tx_coalesce)
++			netif_info(pf, drv, netdev,
++				   "Tx-secs=0, need to disable adaptive-Tx for a complete disable\n");
++	} else {
++		netif_info(pf, drv, netdev,
++			   "Invalid value, Tx-usecs range is 0, 8-8160\n");
+ 		return -EINVAL;
++	}
+ 
+ 	if (ec->use_adaptive_rx_coalesce)
+ 		vsi->rx_itr_setting |= I40E_ITR_DYNAMIC;
+@@ -1127,7 +1146,6 @@ static int i40e_set_coalesce(struct net_device *netdev,
+ 	else
+ 		vsi->tx_itr_setting &= ~I40E_ITR_DYNAMIC;
+ 
+-	vector = vsi->base_vector;
+ 	for (i = 0; i < vsi->num_q_vectors; i++, vector++) {
+ 		q_vector = vsi->q_vectors[i];
+ 		q_vector->rx.itr = ITR_TO_REG(vsi->rx_itr_setting);
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 3f60976..80c5d55 100644
+index b4278a2..71efc68 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -5827,6 +5827,7 @@ static void i40e_handle_mdd_event(struct i40e_pf *pf)
- {
- 	struct i40e_hw *hw = &pf->hw;
- 	bool mdd_detected = false;
-+	bool pf_mdd_detected = false;
- 	struct i40e_vf *vf;
- 	u32 reg;
- 	int i;
-@@ -5866,6 +5867,30 @@ static void i40e_handle_mdd_event(struct i40e_pf *pf)
- 		mdd_detected = true;
- 	}
+@@ -2768,6 +2768,22 @@ void i40e_irq_dynamic_enable(struct i40e_vsi *vsi, int vector)
+ }
  
-+	if (mdd_detected) {
-+		reg = rd32(hw, I40E_PF_MDET_TX);
-+		if (reg & I40E_PF_MDET_TX_VALID_MASK) {
-+			wr32(hw, I40E_PF_MDET_TX, 0xFFFF);
-+			dev_info(&pf->pdev->dev,
-+				 "MDD TX event is for this function 0x%08x, requesting PF reset.\n",
-+				 reg);
-+			pf_mdd_detected = true;
-+		}
-+		reg = rd32(hw, I40E_PF_MDET_RX);
-+		if (reg & I40E_PF_MDET_RX_VALID_MASK) {
-+			wr32(hw, I40E_PF_MDET_RX, 0xFFFF);
-+			dev_info(&pf->pdev->dev,
-+				 "MDD RX event is for this function 0x%08x, requesting PF reset.\n",
-+				 reg);
-+			pf_mdd_detected = true;
-+		}
-+		/* Queue belongs to the PF, initiate a reset */
-+		if (pf_mdd_detected) {
-+			set_bit(__I40E_PF_RESET_REQUESTED, &pf->state);
-+			i40e_service_event_schedule(pf);
-+		}
-+	}
+ /**
++ * i40e_irq_dynamic_disable - Disable default interrupt generation settings
++ * @vsi: pointer to a vsi
++ * @vector: enable a particular Hw Interrupt vector
++ **/
++void i40e_irq_dynamic_disable(struct i40e_vsi *vsi, int vector)
++{
++	struct i40e_pf *pf = vsi->back;
++	struct i40e_hw *hw = &pf->hw;
++	u32 val;
 +
- 	/* see if one of the VFs needs its hand slapped */
- 	for (i = 0; i < pf->num_alloc_vfs && mdd_detected; i++) {
- 		vf = &(pf->vf[i]);
++	val = I40E_ITR_NONE << I40E_PFINT_DYN_CTLN_ITR_INDX_SHIFT;
++	wr32(hw, I40E_PFINT_DYN_CTLN(vector - 1), val);
++	i40e_flush(hw);
++}
++
++/**
+  * i40e_msix_clean_rings - MSIX mode Interrupt Handler
+  * @irq: interrupt number
+  * @data: pointer to a q_vector
 -- 
 1.9.3
