@@ -1,83 +1,49 @@
-From: Arend van Spriel <arend@broadcom.com>
-Subject: Re: [PATCH 3/3] p54: use request_firmware_direct() for optional EEPROM
- override
-Date: Wed, 25 Jun 2014 09:26:23 +0200
-Message-ID: <53AA799F.7030807@broadcom.com>
-References: <1403649583-12707-1-git-send-email-mcgrof@do-not-panic.com> <1403649583-12707-4-git-send-email-mcgrof@do-not-panic.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: net-timestamp: MSG_TSTAMP flags and bytestream support
+Date: Wed, 25 Jun 2014 09:32:15 +0200
+Message-ID: <20140625073215.GB5566@localhost.localdomain>
+References: <1403624632-17327-1-git-send-email-willemb@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<gregkh@linuxfoundation.org>,
-	"Luis R. Rodriguez" <mcgrof@suse.com>,
-	<linux-wireless@vger.kernel.org>
-To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>, <tiwai@suse.de>,
-	<chunkeey@googlemail.com>, <leedom@chelsio.com>,
-	<cocci@systeme.lip6.fr>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1403649583-12707-4-git-send-email-mcgrof@do-not-panic.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, davem@davemloft.net
+To: Willem de Bruijn <willemb@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f179.google.com ([74.125.82.179]:62689 "EHLO
+	mail-we0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751755AbaFYHco (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2014 03:32:44 -0400
+Received: by mail-we0-f179.google.com with SMTP id w62so1472463wes.24
+        for <netdev@vger.kernel.org>; Wed, 25 Jun 2014 00:32:40 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1403624632-17327-1-git-send-email-willemb@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 25-06-14 00:39, Luis R. Rodriguez wrote:
-> From: "Luis R. Rodriguez" <mcgrof@suse.com>
->
-> The p54 driver uses request_firmware() twice, once for actual
-> firmware and then another time for an optional user overide on
-> EEPROM, 3826.eeprom. The custom EEPROM  is optional but if not
-> present we'll introduce an extra lag of 60 seconds with udev
-> present. Annotate we don't want udev nonsense here to avoid
-> the lag in case its not present.
+On Tue, Jun 24, 2014 at 11:43:45AM -0400, Willem de Bruijn wrote:
+> This patchset extends socket timestamping in a number of related ways.
+> Most notably:
+> 
+> 2 MSG_TSTAMP: request a single tx timestamp by passing a flag on send
+> 6 MSG_TSTAMP_ENQ: request a tx timestamp before traffic shaping.
+> 5 MSG_TSTAMP_ACK: request a tx timestamp after acknowledgements (TCP)
+> 4 TCP support for all three flags
 
-I guess the fact that EEPROM is optional does not matter much. If doing 
-a second request you could always use request_firmware_direct(), right?
+Can you tell us a bit about the use case?  It sounds like that this is
+for performance monitoring.
 
-Regards,
-Arend
+> Each individual patch commit message gives more detail about the
+> specific feature.
+> 
+> The other patches support the main feature:
+> 1 explicitly define the timestamp response API
+> 3 optionally avoid looping large packets onto the socket error queue.
+> 7 documentation and an example test.
 
-> This was found with the following SmPL patch.
->
-> @ firmware_not_critical @
-> expression cf;
-> expression config_file;
-> expression dev;
-> int ret;
-> identifier l;
-> statement S;
-> @@
->
-> -	ret = request_firmware(&cf, config_file, dev);
-> +	ret = request_firmware_direct(&cf, config_file, dev);
-> 	if (ret < 0) {
-> 		... when != goto l;
-> 		    when != return ret;
-> 		    when any
-> 	} else {
-> 		...
-> 		release_firmware(cf);
-> 		...
-> 	}
->
-> Cc: Takashi Iwai <tiwai@suse.de>
-> Cc: Christian Lamparter <chunkeey@googlemail.com>
-> Cc: linux-wireless@vger.kernel.org
-> Cc: cocci@systeme.lip6.fr
-> Signed-off-by: Luis R. Rodriguez <mcgrof@suse.com>
-> ---
->   drivers/net/wireless/p54/p54spi.c | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/wireless/p54/p54spi.c b/drivers/net/wireless/p54/p54spi.c
-> index de15171..63de5ee 100644
-> --- a/drivers/net/wireless/p54/p54spi.c
-> +++ b/drivers/net/wireless/p54/p54spi.c
-> @@ -193,7 +193,7 @@ static int p54spi_request_eeprom(struct ieee80211_hw *dev)
->   	/* allow users to customize their eeprom.
->   	 */
->
-> -	ret = request_firmware(&eeprom, "3826.eeprom", &priv->spi->dev);
-> +	ret = request_firmware_direct(&eeprom, "3826.eeprom", &priv->spi->dev);
->   	if (ret < 0) {
->   #ifdef CONFIG_P54_SPI_DEFAULT_EEPROM
->   		dev_info(&priv->spi->dev, "loading default eeprom...\n");
->
+I think #2 and #3 could be improvements to the so_timestamping api.
+
+The others probably need their own, separate api. I can't imagine
+wanting to mix so_timestamping with these new tcp time stamps, but
+maybe you want to explain the expected scenario?
+
+Thanks,
+Richard
