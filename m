@@ -1,105 +1,41 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH v2 2/2] ipv6:  Allow accepting RA from local IP addresses.
-Date: Tue, 24 Jun 2014 20:19:14 -0700
-Message-ID: <53AA3FB2.3080204@candelatech.com>
-References: <1403644488-21709-1-git-send-email-greearb@candelatech.com> <1403644488-21709-2-git-send-email-greearb@candelatech.com> <53A9FA0A.70902@yoshifuji.org>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [GIT] Networking
+Date: Tue, 24 Jun 2014 20:51:39 -0700
+Message-ID: <CA+mtBx9o3QZJHyzJ8iXR=th5gJBeFkWLR5T-8a_g9CExKKb3nQ@mail.gmail.com>
+References: <20140616234254.GA15332@redhat.com>
+	<20140623234759.GA19138@redhat.com>
+	<CA+55aFx--+YxUWX5SGet0QxfDo2PcJj3x5tcwqiCTA9yiyi_bQ@mail.gmail.com>
+	<20140624.172616.757600677169858458.davem@davemloft.net>
+	<CA+mtBx8F3XPU5bLfKc046Oz8thp50FZadLfAAfe-Hw2HU9sjsA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Content-Transfer-Encoding: 7bit
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	hideaki.yoshifuji@miraclelinux.com
-To: YOSHIFUJI Hideaki <hideaki@yoshifuji.org>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.candelatech.com ([208.74.158.173]:53667 "EHLO
-	mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752787AbaFYDTQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 24 Jun 2014 23:19:16 -0400
-In-Reply-To: <53A9FA0A.70902@yoshifuji.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: torvalds@linux-foundation.org, davej@redhat.com,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+mtBx8F3XPU5bLfKc046Oz8thp50FZadLfAAfe-Hw2HU9sjsA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+I believe in the no scatter-gather case of  skb_segment is not set
+correctly. Will post a patch momentarily.
 
-
-On 06/24/2014 03:22 PM, YOSHIFUJI Hideaki wrote:
-> Hello.
-> 
-> (2014/06/25 6:14), greearb@candelatech.com wrote:
->> From: Ben Greear <greearb@candelatech.com>
+On Tue, Jun 24, 2014 at 8:05 PM, Tom Herbert <therbert@google.com> wrote:
+>> tcp_gso_segment() makes sure that the headers are reachable in the linear
+>> area with the pskb_may_pull(skb, sizeof(*th)) call, and gso_make_checksum()
+>> is only working with the area up to SKB_GSO_CB()->csum_start which should
+>> be within this area for sure.
 >>
->> This can be used in virtual networking applications, and
->> may have other uses as well.  The option is disabled by
->> default, so no change to current operating behaviour
-> 
->                                    standard compliant behavior?
-
-I've no idea.  Can you point me to the proper standard (and
-pertinent section)?
-
->> without the user explicitly changing the behaviour.
->>
-> 
-> Would you include your specific example?
-
-I gave one in a response to comments on v1 of this patch.
-
-Basically, I make a single OS instance look like a bunch of
-routers, bridges, and hosts.  Without use of network namespaces,
-virtual machines, or other such virtualization.  Just clever use
-of ip rules and routes.  So, I need interfaces to be able to accept
-RA from other interfaces on the same system.
-
-http://www.spinics.net/lists/netdev/msg286764.html
-
-
->> +static bool ipv6_accept_ra_local(struct inet6_dev *in6_dev, struct sk_buf *skb)
->> +{
->> +	/* Do not accept RA with source-addr found on local machine unless
->> +	 * accept_ra_from_local is set to true.
->> +	 */
->> +	if (!in6_dev->cnf.accept_ra_from_local &&
->> +	    ipv6_chk_addr(dev_net(in6_dev->dev), &ipv6_hdr(skb)->saddr,
->> +			  NULL, 0))
->> +		return false;
->> +	return true;
->> +}
->> +
->> +
->>    static void ndisc_router_discovery(struct sk_buff *skb)
->>    {
->>    	struct ra_msg *ra_msg = (struct ra_msg *)skb_transport_header(skb);
->> @@ -1151,10 +1164,9 @@ static void ndisc_router_discovery(struct sk_buff *skb)
->>    		goto skip_defrtr;
->>    	}
->>    
->> -	if (ipv6_chk_addr(dev_net(in6_dev->dev), &ipv6_hdr(skb)->saddr,
->> -			  NULL, 0)) {
->> +	if (!ipv6_accept_ra_local(in6_dev, skb)) {
->>    		ND_PRINTK(2, info,
->> -			  "RA: %s, chk_addr failed for dev: %s\n",
->> +			  "RA: %s, accept_ra_local failed for dev: %s\n",
->>    			  __func__, skb->dev->name);
->>    		goto skip_defrtr;
->>    	}
-> 
-> Hmm, without global knob, I see little benefit by
-> having new helper.
-
-A previous reviewer requested it.  I don't care either
-way, seems fine to open-code it to me.
-
-> At least, it should be called ipv6_chk_addr_ra(),
-> ipv6_check_ra_saddr(), ipv6_is_nonlocal_ra() or
-> something else.
-> 
-> I think we do not need to change debugging output,
-> or we could say "RA from local address detected;
-> default router ignored." or something like.
-
-That does seem like a more useful error message.
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+> Seems likely that csum_start is not properly initialized in this path.
+> I am thinking that this may have happened in GRO path on a checksum
+> error where CHECKSUM_PARTIAL (and hence csum) is not set. That would
+> explain the infrequency of the occurrence,  and also previously not
+> setting csum would have just resulted in sending a corrupted packet
+> not a crash.
+>
+>> Well, that's the precondition we seem to be relying upon, I suppose an
+>> assert is in order.
+>
+> Assert on SKB_GSO_CB()->csum_start == 0 would confirm my suspicion.
