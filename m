@@ -1,28 +1,85 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] crc32 combine improvements
-Date: Wed, 25 Jun 2014 16:04:33 -0700 (PDT)
-Message-ID: <20140625.160433.1012876682294424845.davem@davemloft.net>
-References: <1403529116-18385-1-git-send-email-dborkman@redhat.com>
+From: Russell King - ARM Linux <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
+Subject: Re: [PATCH v8 4/4] drivers: net: Add APM X-Gene SoC ethernet
+	driver support.
+Date: Thu, 26 Jun 2014 00:04:50 +0100
+Message-ID: <20140625230450.GO32514@n2100.arm.linux.org.uk>
+References: <1403306296-26198-1-git-send-email-isubramanian@apm.com> <1403306296-26198-5-git-send-email-isubramanian@apm.com> <CALdTtnvHt5mYMC3619E4F3KK0jPOw7mCpKE6bTn0Um6fdZ4rbw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux@horizon.com,
-	linux-kernel@vger.kernel.org
-To: dborkman@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1403529116-18385-1-git-send-email-dborkman@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, patches-qTEPVZfXA3Y@public.gmane.org,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>
+To: Dann Frazier <dann.frazier-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CALdTtnvHt5mYMC3619E4F3KK0jPOw7mCpKE6bTn0Um6fdZ4rbw-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Mon, 23 Jun 2014 15:11:53 +0200
+On Tue, Jun 24, 2014 at 10:29:48PM -0600, Dann Frazier wrote:
+> On Fri, Jun 20, 2014 at 5:18 PM, Iyappan Subramanian
+> <isubramanian-qTEPVZfXA3Y@public.gmane.org> wrote:
+> > +       ring->desc_addr = dma_zalloc_coherent(dev, size, &ring->dma,
+> > +                                             GFP_KERNEL);
+> 
+> Iyappan,
+> When testing this driver on a 3.16-rc2 base, I'm finding that
+> desc_addr gets assigned to NULL here, which results in an oops later
+> on (see below).
 
-> So almost a month passed, and I don't want this to get lost
-> somewhere. I have applied the feedback given at that time to
-> this set, rebased plus tested it against latest net-next. I
-> decided to route this via netdev as it improves performance
-> upon library code that provides library bits for SCTP, i.e.
-> for non-linear skb csum handling in IPVS. Thus, resending
-> this for George before it gets lost.
+Note that on failure here...
 
-Series applied, thanks Daniel.
+> > +       if (!ring->desc_addr)
+> > +               goto err;
+
+we jump to 'err'.
+
+> > +err:
+> > +       dma_free_coherent(dev, size, ring->desc_addr, ring->dma);
+
+which then tries to call dma_free_coherent on a NULL pointer, and
+possibly undefined ring->dma value.  That's not a nice thing to do,
+and will probably lead to problems.  I know that none of the ARM
+flavours of this function will handle this gracefully, and neither
+does x86's version either.  So this is very probably illegal.
+
+> > +static int xgene_enet_create_desc_rings(struct net_device *ndev)
+> > +{
+> > +       struct xgene_enet_pdata *pdata = netdev_priv(ndev);
+> > +       struct device *dev = &pdata->pdev->dev;
+> > +       struct xgene_enet_desc_ring *rx_ring, *tx_ring, *cp_ring;
+> > +       struct xgene_enet_desc_ring *buf_pool = NULL;
+> > +       u8 cpu_bufnum = 0, eth_bufnum = 0;
+> > +       u8 bp_bufnum = 0x20;
+> > +       u16 ring_id, ring_num = 0;
+> > +       int ret;
+> > +
+> > +       /* allocate rx descriptor ring */
+> > +       ring_id = xgene_enet_get_ring_id(RING_OWNER_CPU, cpu_bufnum++);
+> > +       rx_ring = xgene_enet_create_desc_ring(ndev, ring_num++,
+> > +                                             RING_CFGSIZE_16KB, ring_id);
+> > +       if (IS_ERR_OR_NULL(rx_ring)) {
+> > +               ret = PTR_ERR(rx_ring);
+> > +               goto err;
+> > +       }
+> 
+> Here we test for IS_ERR_OR_NULL. In the oops I'm hitting, rx_ring is
+> NULL here - but PTR_ERR() apparently returns 0 in that case. So this
+> function ends up returning no error.
+
+Yes, IS_ERR_OR_NULL is evil for this very reason and should be avoided
+where possible.  There were discussions a while back about removing it,
+or at least deprecating it because it causes more bugs (exactly of this
+type) than it solves.
+
+-- 
+FTTC broadband for 0.8mile line: now at 9.7Mbps down 460kbps up... slowly
+improving, and getting towards what was expected from it.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
