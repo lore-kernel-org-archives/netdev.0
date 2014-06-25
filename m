@@ -1,87 +1,112 @@
 From: Octavian Purdila <octavian.purdila@intel.com>
-Subject: [net-next v2 00/13] remove code duplication in tcp_v[46]_conn_request
-Date: Wed, 25 Jun 2014 17:09:49 +0300
-Message-ID: <1403705402-14388-1-git-send-email-octavian.purdila@intel.com>
+Subject: [net-next v2 03/13] net: remove inet6_reqsk_alloc
+Date: Wed, 25 Jun 2014 17:09:52 +0300
+Message-ID: <1403705402-14388-4-git-send-email-octavian.purdila@intel.com>
+References: <1403705402-14388-1-git-send-email-octavian.purdila@intel.com>
 Cc: Octavian Purdila <octavian.purdila@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:45741 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:45745 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754206AbaFYOK2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Jun 2014 10:10:28 -0400
+	id S1757219AbaFYOK3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Jun 2014 10:10:29 -0400
+In-Reply-To: <1403705402-14388-1-git-send-email-octavian.purdila@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series unifies the TCPv4 and TCPv6 connection request flow
-in a single new function (tcp_conn_request).
+Since pktops is only used for IPv6 only and opts is used for IPv4
+only, we can move these fields into a union and this allows us to drop
+the inet6_reqsk_alloc function as after this change it becomes
+equivalent with inet_reqsk_alloc.
 
-The first 3 patches are small cleanups and fixes found during the code
-merge process.
+This patch also fixes a kmemcheck issue in the IPv6 stack: the flags
+field was not annotated after a request_sock was allocated.
 
-The next patches add new methods in tcp_request_sock_ops to abstract
-the IPv4/IPv6 operations and keep the TCP connection request flow
-common.
+Signed-off-by: Octavian Purdila <octavian.purdila@intel.com>
+---
+ include/linux/ipv6.h    | 10 ----------
+ include/net/inet_sock.h |  6 ++++--
+ net/dccp/ipv6.c         |  2 +-
+ net/ipv6/syncookies.c   |  2 +-
+ net/ipv6/tcp_ipv6.c     |  2 +-
+ 5 files changed, 7 insertions(+), 15 deletions(-)
 
-To identify potential performance issues this patch has been tested
-by measuring the connection per second rate with nginx and a httperf
-like client (to allow for concurrent connection requests - 256 CC were
-used during testing) using the loopback interface. A dual-core i5 Ivy
-Bridge processor was used and each process was bounded to a different
-core to make results consistent.
-
-Results for IPv4, unit is connections per second, higher is better, 20
-measurements have been collected:
-
-		before		after
-min		27917		27962
-max		28262		28366
-avg		28094.1		28212.75
-stdev		87.35		97.26
-
-Results for IPv6, unit is connections per second, higher is better, 20
-measurements have been collected:
-
-		before		after
-min		24813		24877
-max		25029		25119
-avg		24935.5		25017
-stdev		64.13		62.93
-
-
-Changes since v1:
-
- * add benchmarking datapoints
-
- * fix a few issues in the last patch (IPv6 related)
-
-
-Octavian Purdila (13):
-  tcp: cookie_v4_init_sequence: skb should be const
-  tcp: tcp_v[46]_conn_request: fix snt_synack initialization
-  net: remove inet6_reqsk_alloc
-  tcp: add init_req method to tcp_request_sock_ops
-  tcp: add init_cookie_seq method to tcp_request_sock_ops
-  tcp: add route_req method to tcp_request_sock_ops
-  tcp: move around a few calls in tcp_v6_conn_request
-  tcp: add init_seq method to tcp_request_sock_ops
-  tcp: add send_synack method to tcp_request_sock_ops
-  tcp: unify tcp_v4_rtx_synack and tcp_v6_rtx_synack
-  tcp: add mss_clamp to tcp_request_sock_ops
-  tcp: add queue_add_hash to tcp_request_sock_ops
-  tcp: add tcp_conn_request
-
- include/linux/ipv6.h    |  10 ---
- include/linux/tcp.h     |   3 -
- include/net/inet_sock.h |   6 +-
- include/net/tcp.h       |  54 +++++++++----
- net/dccp/ipv6.c         |   2 +-
- net/ipv4/syncookies.c   |   3 +-
- net/ipv4/tcp_input.c    | 148 ++++++++++++++++++++++++++++++++++
- net/ipv4/tcp_ipv4.c     | 188 ++++++++++---------------------------------
- net/ipv4/tcp_output.c   |  15 ++++
- net/ipv6/syncookies.c   |   2 +-
- net/ipv6/tcp_ipv6.c     | 206 +++++++++++++-----------------------------------
- 11 files changed, 306 insertions(+), 331 deletions(-)
-
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index 2faef33..c811300 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -256,16 +256,6 @@ static inline struct ipv6_pinfo * inet6_sk(const struct sock *__sk)
+ 	return inet_sk(__sk)->pinet6;
+ }
+ 
+-static inline struct request_sock *inet6_reqsk_alloc(struct request_sock_ops *ops)
+-{
+-	struct request_sock *req = reqsk_alloc(ops);
+-
+-	if (req)
+-		inet_rsk(req)->pktopts = NULL;
+-
+-	return req;
+-}
+-
+ static inline struct raw6_sock *raw6_sk(const struct sock *sk)
+ {
+ 	return (struct raw6_sock *)sk;
+diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
+index b1edf17..a829b77 100644
+--- a/include/net/inet_sock.h
++++ b/include/net/inet_sock.h
+@@ -88,8 +88,10 @@ struct inet_request_sock {
+ 				acked	   : 1,
+ 				no_srccheck: 1;
+ 	kmemcheck_bitfield_end(flags);
+-	struct ip_options_rcu	*opt;
+-	struct sk_buff		*pktopts;
++	union {
++		struct ip_options_rcu	*opt;
++		struct sk_buff		*pktopts;
++	};
+ 	u32                     ir_mark;
+ };
+ 
+diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
+index 4db3c2a..04cb17d 100644
+--- a/net/dccp/ipv6.c
++++ b/net/dccp/ipv6.c
+@@ -386,7 +386,7 @@ static int dccp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
+ 	if (sk_acceptq_is_full(sk) && inet_csk_reqsk_queue_young(sk) > 1)
+ 		goto drop;
+ 
+-	req = inet6_reqsk_alloc(&dccp6_request_sock_ops);
++	req = inet_reqsk_alloc(&dccp6_request_sock_ops);
+ 	if (req == NULL)
+ 		goto drop;
+ 
+diff --git a/net/ipv6/syncookies.c b/net/ipv6/syncookies.c
+index a822b88..83cea1d 100644
+--- a/net/ipv6/syncookies.c
++++ b/net/ipv6/syncookies.c
+@@ -187,7 +187,7 @@ struct sock *cookie_v6_check(struct sock *sk, struct sk_buff *skb)
+ 		goto out;
+ 
+ 	ret = NULL;
+-	req = inet6_reqsk_alloc(&tcp6_request_sock_ops);
++	req = inet_reqsk_alloc(&tcp6_request_sock_ops);
+ 	if (!req)
+ 		goto out;
+ 
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index a962455..5e2d7e6 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1010,7 +1010,7 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
+ 		goto drop;
+ 	}
+ 
+-	req = inet6_reqsk_alloc(&tcp6_request_sock_ops);
++	req = inet_reqsk_alloc(&tcp6_request_sock_ops);
+ 	if (req == NULL)
+ 		goto drop;
+ 
 -- 
 1.8.3.2
