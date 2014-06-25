@@ -1,30 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2] net/dsa/dsa.c: remove unnecessary null test before
- kfree
-Date: Wed, 25 Jun 2014 16:15:34 -0700 (PDT)
-Message-ID: <20140625.161534.2268236653961314658.davem@davemloft.net>
-References: <1403544767-12438-1-git-send-email-fabf@skynet.be>
+Subject: Re: [RFC net-next 03/12] net: remove inet6_reqsk_alloc
+Date: Wed, 25 Jun 2014 16:17:33 -0700 (PDT)
+Message-ID: <20140625.161733.1604668220222889933.davem@davemloft.net>
+References: <1403548969-12303-1-git-send-email-octavian.purdila@intel.com>
+	<1403548969-12303-4-git-send-email-octavian.purdila@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, grant.likely@linaro.org,
-	netdev@vger.kernel.org, joe@perches.com
-To: fabf@skynet.be
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1403544767-12438-1-git-send-email-fabf@skynet.be>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: octavian.purdila@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39101 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752565AbaFYXRe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2014 19:17:34 -0400
+In-Reply-To: <1403548969-12303-4-git-send-email-octavian.purdila@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Fabian Frederick <fabf@skynet.be>
-Date: Mon, 23 Jun 2014 19:32:47 +0200
+From: Octavian Purdila <octavian.purdila@intel.com>
+Date: Mon, 23 Jun 2014 21:42:40 +0300
 
-> Fix checkpatch warning:
-> WARNING: kfree(NULL) is safe this check is probably not required
+> Since pktops is only used for IPv6 only and opts is used for IPv4
+> only, we can move these fields into a union and this allows us to drop
+> the inet6_reqsk_alloc function as after this change it becomes
+> equivalent with inet_reqsk_alloc.
 > 
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Grant Likely <grant.likely@linaro.org>
-> Cc: netdev@vger.kernel.org
-> Cc: Joe Perches <joe@perches.com>
-> Signed-off-by: Fabian Frederick <fabf@skynet.be>
+> This patch also fixes an kmemcheck issue in the IPv6 stack: the flags
+> field was not annotated after a request_sock was allocated.
+> 
+> Signed-off-by: Octavian Purdila <octavian.purdila@intel.com>
 
-Applied, thanks.
+What about ipv4 mapped ipv6 connections?  I don't think it's safe to
+share the space for these two fields.
