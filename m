@@ -1,74 +1,56 @@
 From: Octavian Purdila <octavian.purdila@intel.com>
-Subject: [net-next v2 07/13] tcp: move around a few calls in tcp_v6_conn_request
-Date: Wed, 25 Jun 2014 17:09:56 +0300
-Message-ID: <1403705402-14388-8-git-send-email-octavian.purdila@intel.com>
+Subject: [net-next v2 01/13] tcp: cookie_v4_init_sequence: skb should be const
+Date: Wed, 25 Jun 2014 17:09:50 +0300
+Message-ID: <1403705402-14388-2-git-send-email-octavian.purdila@intel.com>
 References: <1403705402-14388-1-git-send-email-octavian.purdila@intel.com>
 Cc: Octavian Purdila <octavian.purdila@intel.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:45776 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:45741 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757360AbaFYOKe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Jun 2014 10:10:34 -0400
+	id S1756769AbaFYOK2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Jun 2014 10:10:28 -0400
 In-Reply-To: <1403705402-14388-1-git-send-email-octavian.purdila@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Make the tcp_v6_conn_request calls flow similar with that of
-tcp_v4_conn_request.
-
-Note that want_cookie can be true only if isn is zero and that is why
-we can move the if (want_cookie) block out of the if (!isn) block.
-
-Moving security_inet_conn_request() has a couple of side effects:
-missing inet_rsk(req)->ecn_ok update and the req->cookie_ts
-update. However, neither SELinux nor Smack security hooks seems to
-check them. This change should also avoid future different behaviour
-for IPv4 and IPv6 in the security hooks.
-
 Signed-off-by: Octavian Purdila <octavian.purdila@intel.com>
 ---
- net/ipv6/tcp_ipv6.c | 18 +++++++-----------
- 1 file changed, 7 insertions(+), 11 deletions(-)
+ include/net/tcp.h     | 5 +++--
+ net/ipv4/syncookies.c | 3 ++-
+ 2 files changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index d780d88..91b8a2e 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1070,16 +1070,16 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
- 	ireq = inet_rsk(req);
- 	af_ops->init_req(req, sk, skb);
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 06a3023..39e47c4 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -493,10 +493,11 @@ static inline u32 tcp_cookie_time(void)
  
-+	if (security_inet_conn_request(sk, skb, req))
-+		goto drop_and_release;
-+
- 	if (!want_cookie || tmp_opt.tstamp_ok)
- 		TCP_ECN_create_request(req, skb, sock_net(sk));
+ u32 __cookie_v4_init_sequence(const struct iphdr *iph, const struct tcphdr *th,
+ 			      u16 *mssp);
+-__u32 cookie_v4_init_sequence(struct sock *sk, struct sk_buff *skb, __u16 *mss);
++__u32 cookie_v4_init_sequence(struct sock *sk, const struct sk_buff *skb,
++			      __u16 *mss);
+ #else
+ static inline __u32 cookie_v4_init_sequence(struct sock *sk,
+-					    struct sk_buff *skb,
++					    const struct sk_buff *skb,
+ 					    __u16 *mss)
+ {
+ 	return 0;
+diff --git a/net/ipv4/syncookies.c b/net/ipv4/syncookies.c
+index c86624b..c0c7568 100644
+--- a/net/ipv4/syncookies.c
++++ b/net/ipv4/syncookies.c
+@@ -170,7 +170,8 @@ u32 __cookie_v4_init_sequence(const struct iphdr *iph, const struct tcphdr *th,
+ }
+ EXPORT_SYMBOL_GPL(__cookie_v4_init_sequence);
  
--	if (!isn) {
--		if (want_cookie) {
--			isn = cookie_init_sequence(af_ops, sk, skb, &req->mss);
--			req->cookie_ts = tmp_opt.tstamp_ok;
--			goto have_isn;
--		}
--
-+	if (want_cookie) {
-+		isn = cookie_init_sequence(af_ops, sk, skb, &req->mss);
-+		req->cookie_ts = tmp_opt.tstamp_ok;
-+	} else if (!isn) {
- 		/* VJ's idea. We save last timestamp seen
- 		 * from the destination in peer table, when entering
- 		 * state TIME-WAIT, and check against it before
-@@ -1116,10 +1116,6 @@ static int tcp_v6_conn_request(struct sock *sk, struct sk_buff *skb)
- 
- 		isn = tcp_v6_init_sequence(skb);
- 	}
--have_isn:
--
--	if (security_inet_conn_request(sk, skb, req))
--		goto drop_and_release;
- 
- 	if (!dst) {
- 		dst = af_ops->route_req(sk, (struct flowi *)&fl6, req, NULL);
+-__u32 cookie_v4_init_sequence(struct sock *sk, struct sk_buff *skb, __u16 *mssp)
++__u32 cookie_v4_init_sequence(struct sock *sk, const struct sk_buff *skb,
++			      __u16 *mssp)
+ {
+ 	const struct iphdr *iph = ip_hdr(skb);
+ 	const struct tcphdr *th = tcp_hdr(skb);
 -- 
 1.8.3.2
