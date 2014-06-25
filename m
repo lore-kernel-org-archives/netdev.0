@@ -1,73 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT] Networking
-Date: Tue, 24 Jun 2014 17:26:16 -0700 (PDT)
-Message-ID: <20140624.172616.757600677169858458.davem@davemloft.net>
-References: <20140616234254.GA15332@redhat.com>
-	<20140623234759.GA19138@redhat.com>
-	<CA+55aFx--+YxUWX5SGet0QxfDo2PcJj3x5tcwqiCTA9yiyi_bQ@mail.gmail.com>
+From: David Rientjes <rientjes@google.com>
+Subject: Re: [PATCHv3 6/6] drivers/staging/rtl8821ae: replace magic number
+ by macro
+Date: Tue, 24 Jun 2014 17:52:44 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1406241748040.22030@chino.kir.corp.google.com>
+References: <1403561511-8117-1-git-send-email-rickard_strandqvist@spectrumdigital.se> <1455413.BevQxGKhmu@al>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davej@redhat.com, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	therbert@google.com
-To: torvalds@linux-foundation.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	Ben Hutchings <ben@decadent.org.uk>,
+	Mark Cave-Ayland <mark.cave-ayland@ilande.co.uk>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Peter Wu <peter@lekensteyn.nl>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFx--+YxUWX5SGet0QxfDo2PcJj3x5tcwqiCTA9yiyi_bQ@mail.gmail.com>
+In-Reply-To: <1455413.BevQxGKhmu@al>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Tue, 24 Jun 2014 17:04:41 -0700
+On Tue, 24 Jun 2014, Peter Wu wrote:
 
-> Ping?
-
-Tom please help look at this.
-
-> This is all related to the new checksumming code by Tom Herbert.
+> (staging drivers are handled by Greg KH, cc'ing him)
 > 
-> The oops seems to be "gso_make_checksum()" taking a checksum of
-> something that isn't mapped. Either the math for 'plen' is simply
-> wrong (maybe "csum_start" is not properly initialized), or maybe there
-> is a missing skb_pull() or similar, or the skb is fragmented and/or
-> needs kmapping.
-> 
-> It's not a NULL pointer dereference, the faulting address is
-> ffff8800aa1a8000, so it's some kind of invalid pointer arithmetic
-> found by DEBUG_PAGEALLOC.
-> 
-> The register information all looks reasonably sane (ie we have 11
-> 64-byte blocks to go - so it looks like the length of the csum is
-> reasonable), and the starting address was clearly ok too, so this is
-> the copying just traversing into a page that isn't allocated. That
-> really smells like a skb with multiple fragments to me. Can that
-> happen for the GSO code?
+> On Tuesday 24 June 2014 00:11:51 Rickard Strandqvist wrote:
+> > For consistency with other drivers, replace a magic number by a macro.
+> > 
+> > Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+> > Reviewed-by: Peter Wu <peter@lekensteyn.nl>
+> > ---
+> >  drivers/staging/rtl8821ae/rtl8821ae/hw.c  |    2 +-
+> >  drivers/staging/rtl8821ae/rtl8821ae/reg.h |    1 +
+> >  2 files changed, 2 insertions(+), 1 deletion(-)
+> > 
+> > diff --git a/drivers/staging/rtl8821ae/rtl8821ae/hw.c b/drivers/staging/rtl8821ae/rtl8821ae/hw.c
+> > index 1b8583b..1aa1661 100644
+> > --- a/drivers/staging/rtl8821ae/rtl8821ae/hw.c
+> > +++ b/drivers/staging/rtl8821ae/rtl8821ae/hw.c
+> > @@ -1623,7 +1623,7 @@ static int _rtl8821ae_set_media_status(struct ieee80211_hw *hw,
+> >  
+> >  	rtl_write_byte(rtlpriv, (MSR), bt_msr);
+> >  	rtlpriv->cfg->ops->led_control(hw, ledaction);
+> > -	if ((bt_msr & ~0xfc) == MSR_AP)
+> > +	if ((bt_msr & MSR_MASK) == MSR_AP)
+> >  		rtl_write_byte(rtlpriv, REG_BCNTCFG + 1, 0x00);
+> >  	else
+> >  		rtl_write_byte(rtlpriv, REG_BCNTCFG + 1, 0x66);
+> > diff --git a/drivers/staging/rtl8821ae/rtl8821ae/reg.h b/drivers/staging/rtl8821ae/rtl8821ae/reg.h
+> > index beffb42..4cb3ca9 100644
+> > --- a/drivers/staging/rtl8821ae/rtl8821ae/reg.h
+> > +++ b/drivers/staging/rtl8821ae/rtl8821ae/reg.h
+> > @@ -431,6 +431,7 @@
+> >  #define	MSR_ADHOC					0x01
+> >  #define	MSR_INFRA					0x02
+> >  #define	MSR_AP						0x03
+> > +#define	MSR_MASK					0x03
+> >  
+> >  #define	RRSR_RSC_OFFSET				21
+> >  #define	RRSR_SHORT_OFFSET			23
 
-This is the forwarding path and what's happening is:
+Doing this certainly is better than the old code, but if you're going to 
+add an MSR_MASK I think it would be better to define it and move all of 
+these MSR_* bits to a generalized bit/wireless/rtlwifi header since they 
+all need it and there's no changes between them.
 
-1) r8169 is allocating linear packets for rx and passing those into
-   the stack
+Notice how much of this handling is already wrong where rtlwifi drivers 
+are checking for bt_msr & 0xfc == MSR_AP which is obviously an impossible 
+condition, and those aren't even staging drivers.
 
-2) those rx packets are being accumulated by the GRO layer into a GRO
-   packet, likely the GRO skb has segments composed of the data areas
-   of the second and subsequent accumulated rx frames
-
-3) The gro packet passes through IP forwarding then back out for
-   TX
-
-4) The destination device doesn't support TSO, so the GSO layer
-   starts segmenting it back into MTU sized frames
-
-And this is where the csum crash is happening.
-
-tcp_gso_segment() seems to call skb_segment before doing checksumming stuff
-such as gso_make_checksum, so SKB_GSO_CB()->csum_start should be initialized
-properly.
-
-tcp_gso_segment() makes sure that the headers are reachable in the linear
-area with the pskb_may_pull(skb, sizeof(*th)) call, and gso_make_checksum()
-is only working with the area up to SKB_GSO_CB()->csum_start which should
-be within this area for sure.
-
-Well, that's the precondition we seem to be relying upon, I suppose an
-assert is in order.
+A cleanup in this area would be most helpful.
