@@ -1,49 +1,83 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next v2 01/14] i40e: Stop the VF device after setting its MAC address
-Date: Tue, 24 Jun 2014 18:26:12 -0700
-Message-ID: <1403659585-32055-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next v2 03/14] i40e: Add PF reset when Malicious driver event for PF
+Date: Tue, 24 Jun 2014 18:26:14 -0700
+Message-ID: <1403659585-32055-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1403659585-32055-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+Cc: Neerav Parikh <neerav.parikh@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:16460 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752205AbaFYB0c (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 24 Jun 2014 21:26:32 -0400
+	id S1752205AbaFYB0h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 24 Jun 2014 21:26:37 -0400
 In-Reply-To: <1403659585-32055-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Rose <gregory.v.rose@intel.com>
+From: Neerav Parikh <neerav.parikh@intel.com>
 
-If the host VMM administrator has changed the VF device's MAC address then
-the i40e driver needs to halt the VF device so that the administrator will
-be forced to reload the VF driver.  This will cause the VF driver to start
-using the newly assigned MAC address.  This brings the i40e driver into
-conformance with operational characteristics of other Intel SR-IOV
-featured drivers.
+As per the spec when the PF driver receives a Malicious driver event
+the queue that caused the event is already stopped and it is expected
+that the function that owns the queue will reset the queue.
+In some cases it may not be possible to determine the queue and it is
+suggested to reset the whole function.
 
-Change-ID: Ic7242cceb8287dd2cb72fb1f3166a032a28bf88a
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+This patch takes the later approach when the event is owned by the PF
+that owns it.
+
+Change-ID: I40f9764a6a5e068c0ef8438db00c5aa9c2c6c1c8
+Signed-off-by: Neerav Parikh <neerav.parikh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 2 ++
- 1 file changed, 2 insertions(+)
+v2: added punctuation to print statements and code comment
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index f5b9d20..d2dabae 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -2077,6 +2077,8 @@ int i40e_ndo_set_vf_mac(struct net_device *netdev, int vf_id, u8 *mac)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 25 +++++++++++++++++++++++++
+ 1 file changed, 25 insertions(+)
+
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 3f60976..80c5d55 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -5827,6 +5827,7 @@ static void i40e_handle_mdd_event(struct i40e_pf *pf)
+ {
+ 	struct i40e_hw *hw = &pf->hw;
+ 	bool mdd_detected = false;
++	bool pf_mdd_detected = false;
+ 	struct i40e_vf *vf;
+ 	u32 reg;
+ 	int i;
+@@ -5866,6 +5867,30 @@ static void i40e_handle_mdd_event(struct i40e_pf *pf)
+ 		mdd_detected = true;
  	}
- 	ether_addr_copy(vf->default_lan_addr.addr, mac);
- 	vf->pf_set_mac = true;
-+	/* Force the VF driver stop so it has to reload with new MAC address */
-+	i40e_vc_disable_vf(pf, vf);
- 	dev_info(&pf->pdev->dev, "Reload the VF driver to make this change effective.\n");
- 	ret = 0;
  
++	if (mdd_detected) {
++		reg = rd32(hw, I40E_PF_MDET_TX);
++		if (reg & I40E_PF_MDET_TX_VALID_MASK) {
++			wr32(hw, I40E_PF_MDET_TX, 0xFFFF);
++			dev_info(&pf->pdev->dev,
++				 "MDD TX event is for this function 0x%08x, requesting PF reset.\n",
++				 reg);
++			pf_mdd_detected = true;
++		}
++		reg = rd32(hw, I40E_PF_MDET_RX);
++		if (reg & I40E_PF_MDET_RX_VALID_MASK) {
++			wr32(hw, I40E_PF_MDET_RX, 0xFFFF);
++			dev_info(&pf->pdev->dev,
++				 "MDD RX event is for this function 0x%08x, requesting PF reset.\n",
++				 reg);
++			pf_mdd_detected = true;
++		}
++		/* Queue belongs to the PF, initiate a reset */
++		if (pf_mdd_detected) {
++			set_bit(__I40E_PF_RESET_REQUESTED, &pf->state);
++			i40e_service_event_schedule(pf);
++		}
++	}
++
+ 	/* see if one of the VFs needs its hand slapped */
+ 	for (i = 0; i < pf->num_alloc_vfs && mdd_detected; i++) {
+ 		vf = &(pf->vf[i]);
 -- 
 1.9.3
