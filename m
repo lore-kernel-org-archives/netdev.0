@@ -1,70 +1,87 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: Re: [PATCH net-next 6/6] amd-xgbe: Resolve checkpatch warning about
- sscanf usage
-Date: Wed, 25 Jun 2014 08:27:38 -0500
-Message-ID: <53AACE4A.6090601@amd.com>
-References: <20140624211900.20681.46554.stgit@tlendack-t1.amdoffice.net>
-	 <20140624211935.20681.85586.stgit@tlendack-t1.amdoffice.net>
-	 <1403647225.29061.64.camel@joe-AO725> <53A9FF42.2090502@amd.com>
- <1403650410.11163.2.camel@joe-AO725>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>
-To: Joe Perches <joe@perches.com>
+From: Octavian Purdila <octavian.purdila@intel.com>
+Subject: [net-next v2 00/13] remove code duplication in tcp_v[46]_conn_request
+Date: Wed, 25 Jun 2014 17:09:49 +0300
+Message-ID: <1403705402-14388-1-git-send-email-octavian.purdila@intel.com>
+Cc: Octavian Purdila <octavian.purdila@intel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2lp0204.outbound.protection.outlook.com ([207.46.163.204]:40753
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753576AbaFYN2B (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Jun 2014 09:28:01 -0400
-In-Reply-To: <1403650410.11163.2.camel@joe-AO725>
+Received: from mga11.intel.com ([192.55.52.93]:45741 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754206AbaFYOK2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Jun 2014 10:10:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/24/2014 05:53 PM, Joe Perches wrote:
-> On Tue, 2014-06-24 at 17:44 -0500, Tom Lendacky wrote:
->> On 06/24/2014 05:00 PM, Joe Perches wrote:
->>> On Tue, 2014-06-24 at 16:19 -0500, Tom Lendacky wrote:
->>>> Checkpatch issued a warning preferring to use kstrto<type> when
->>>> using a single variable sscanf.  Change the sscanf invocation to
->>>> a kstrtouint call.
->>> []
->>>> diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-debugfs.c b/drivers/net/ethernet/amd/xgbe/xgbe-debugfs.c
->>> []
->>>> @@ -165,10 +165,9 @@ static ssize_t xgbe_common_write(const char __user *buffer, size_t count,
->>>>    		return len;
->>>>
->>>>    	workarea[len] = '\0';
->>>> -	if (sscanf(workarea, "%x", &scan_value) == 1)
->>>> -		*value = scan_value;
->>>> -	else
->>>> -		return -EIO;
->>>> +	ret = kstrtouint(workarea, 0, value);
->>>
->>> Don't you need to use 16 for the base here?
->
->> Using 0 allows for greater flexibility in the input format.
->
-> True, but there could be a change in behavior like reading a
-> previously hex value like 10 is now a decimal 10 not decimal 16.
->
->>> Are there any issues with any of the various callers
->>> getting a different error return?
->>>
->>> -EINVAL/-ERANGE vs -EIO ?
->> There shouldn't be, but I can always return -EIO to be
->> consistent with how it was previously.
->
-> Up to you Tom.  I just wanted you to think about it.
->
+This patch series unifies the TCPv4 and TCPv6 connection request flow
+in a single new function (tcp_conn_request).
 
-Understood.  This is a brand new driver that is still being developed
-so I have some latitude initially on what and how I make changes. I
-understand that later I'll have to maintain behaviors, interfaces, etc.
+The first 3 patches are small cleanups and fixes found during the code
+merge process.
 
-Thanks,
-Tom
+The next patches add new methods in tcp_request_sock_ops to abstract
+the IPv4/IPv6 operations and keep the TCP connection request flow
+common.
 
-> cheers, Joe
->
+To identify potential performance issues this patch has been tested
+by measuring the connection per second rate with nginx and a httperf
+like client (to allow for concurrent connection requests - 256 CC were
+used during testing) using the loopback interface. A dual-core i5 Ivy
+Bridge processor was used and each process was bounded to a different
+core to make results consistent.
+
+Results for IPv4, unit is connections per second, higher is better, 20
+measurements have been collected:
+
+		before		after
+min		27917		27962
+max		28262		28366
+avg		28094.1		28212.75
+stdev		87.35		97.26
+
+Results for IPv6, unit is connections per second, higher is better, 20
+measurements have been collected:
+
+		before		after
+min		24813		24877
+max		25029		25119
+avg		24935.5		25017
+stdev		64.13		62.93
+
+
+Changes since v1:
+
+ * add benchmarking datapoints
+
+ * fix a few issues in the last patch (IPv6 related)
+
+
+Octavian Purdila (13):
+  tcp: cookie_v4_init_sequence: skb should be const
+  tcp: tcp_v[46]_conn_request: fix snt_synack initialization
+  net: remove inet6_reqsk_alloc
+  tcp: add init_req method to tcp_request_sock_ops
+  tcp: add init_cookie_seq method to tcp_request_sock_ops
+  tcp: add route_req method to tcp_request_sock_ops
+  tcp: move around a few calls in tcp_v6_conn_request
+  tcp: add init_seq method to tcp_request_sock_ops
+  tcp: add send_synack method to tcp_request_sock_ops
+  tcp: unify tcp_v4_rtx_synack and tcp_v6_rtx_synack
+  tcp: add mss_clamp to tcp_request_sock_ops
+  tcp: add queue_add_hash to tcp_request_sock_ops
+  tcp: add tcp_conn_request
+
+ include/linux/ipv6.h    |  10 ---
+ include/linux/tcp.h     |   3 -
+ include/net/inet_sock.h |   6 +-
+ include/net/tcp.h       |  54 +++++++++----
+ net/dccp/ipv6.c         |   2 +-
+ net/ipv4/syncookies.c   |   3 +-
+ net/ipv4/tcp_input.c    | 148 ++++++++++++++++++++++++++++++++++
+ net/ipv4/tcp_ipv4.c     | 188 ++++++++++---------------------------------
+ net/ipv4/tcp_output.c   |  15 ++++
+ net/ipv6/syncookies.c   |   2 +-
+ net/ipv6/tcp_ipv6.c     | 206 +++++++++++++-----------------------------------
+ 11 files changed, 306 insertions(+), 331 deletions(-)
+
+-- 
+1.8.3.2
