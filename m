@@ -1,71 +1,58 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH] net: can: Remodel FlexCAN register read/write APIs for
- BE instances
-Date: Wed, 25 Jun 2014 13:07:48 +0200
-Message-ID: <53AAAD84.1010400@pengutronix.de>
-References: <1403625285-27824-1-git-send-email-bhupesh.sharma@freescale.com> <53AA8805.3050309@pengutronix.de> <ae6e49865206432ea871b08b159bae55@BN1PR03MB220.namprd03.prod.outlook.com> <53AAA3E9.6030409@pengutronix.de> <536c077e2e8b4dfabb4c07f696753a3c@BN1PR03MB220.namprd03.prod.outlook.com>
+From: "wang yongli" <wangyongli727@yahoo.com.hk>
+Subject: gensidig venture
+Date: Wed, 25 Jun 2014 10:28:34 -0000
+Message-ID: <22d47bbc2697508ce2491999dd31f2d0.squirrel@67.207.158.6>
+Reply-To: wangyongli65@yahoo.com.hk
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="Oog6rVFJUWKeGodUIIFlfx4wbojGPNpaL"
-Cc: "wg@grandegger.com" <wg@grandegger.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "bhupesh.sharma@freescale.com" <bhupesh.sharma@freescale.com>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:60375 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756638AbaFYLIC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2014 07:08:02 -0400
-In-Reply-To: <536c077e2e8b4dfabb4c07f696753a3c@BN1PR03MB220.namprd03.prod.outlook.com>
+Received: from [67.207.158.6] ([67.207.158.6]:50366 "EHLO mail.vps.com"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753096AbaFYLxt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Jun 2014 07:53:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---Oog6rVFJUWKeGodUIIFlfx4wbojGPNpaL
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-
-On 06/25/2014 01:01 PM, bhupesh.sharma@freescale.com wrote:
->> What about function pointers in the priv? So that flexcan_read() becom=
-es
->> priv->read().
-
-> That's what I propose (similar to what I did for C_CAN driver for 16-bi=
-t and 32-bit
-> reg interfaces using platform data):
-
-Yes...but...
-
-> bool module_is_be =3D false;
-
-=2E..module_is_be is not that simple, on PPC true must be the default to
-be compatible with existing dts.
-
-> module_is_be =3D get-endianess-from-DT-node;
->=20
-> priv->read() =3D module_is_be ? flexcan_read_be : flexcan_read_le;
-
-Marc
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
 
---Oog6rVFJUWKeGodUIIFlfx4wbojGPNpaL
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+gensidig venture
 
-iEYEARECAAYFAlOqrYQACgkQjTAFq1RaXHP31QCghMsOlQI6Pk41LB2pO4zGK/Yv
-HAcAnjyDCBq8hzXozOdX5fAW5eAYQZB0
-=VTZc
------END PGP SIGNATURE-----
+Jeg er administrerende direkt=F8r, industriel og
+Commercial Bank of China (ICBC). Jeg har en gensidig forretning
+forslag, der vedr=F8rer overdragelse af en stor m=E6ngde
+penge til en offshore konto med din hj=E6lp som en udl=E6nding
+partner, som modtager af midlerne. alt om
+denne transaktion vil ske lovligt uden problemer
+enhver finansiel myndighed. Venligst bestr=E6be sig p=E5 at overholde a=
+lle mulige
+diskretion i alle sp=F8rgsm=E5l vedr=F8rende dette emne. Hvis du er
+interesseret, kan du svare tilbage via min private e-mail
+skrevet nedenfor, og jeg vil give flere oplysninger om
+Og det projekt, som jeg modtager din positive respons.
 
---Oog6rVFJUWKeGodUIIFlfx4wbojGPNpaL--
+Privat E-mail: wangyongli65@yahoo.com.hk
+
+venlig hilsen
+Wang Yongli
+
+
+
+
+I am Executive Director, Industrial and
+Commercial Bank of China (ICBC). I have a mutual business
+proposal which relates to the transfer of a large amount of
+money to an offshore account with your assistance as a foreigner
+partner, as the recipient of funds. all about
+this transaction will be done legally without problems
+any financial authority. Please endeavor to observe all possible
+discretion in all matters relating to this topic. If you are
+interested, please reply back through my private email
+written below, and I'll give more information about
+And the project that I receive your positive response.
+
+Private Email: wangyongli65@yahoo.com.hk
+
+friendly greeting
