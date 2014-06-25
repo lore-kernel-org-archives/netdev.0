@@ -1,29 +1,31 @@
-From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Subject: Re: [PATCH] cxgb4: use dev_port to identify ports
-Date: Wed, 25 Jun 2014 16:08:21 -0700
-Message-ID: <CAB=NE6VWa4O0nycSo55ip075MEXXB_0k4wVnorSziRQmKRUmLg@mail.gmail.com>
-References: <1403354888-15600-1-git-send-email-cascardo@linux.vnet.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] bridge: mark packets sent to any local mac address as
+ PACKET_HOST
+Date: Wed, 25 Jun 2014 16:09:25 -0700 (PDT)
+Message-ID: <20140625.160925.2125216104261498290.davem@davemloft.net>
+References: <1403534015-28496-1-git-send-email-mbizon@freebox.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Hariprasad Shenai <hariprasad@chelsio.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1403354888-15600-1-git-send-email-cascardo@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org
+To: mbizon@freebox.fr
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39025 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757197AbaFYXJ0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2014 19:09:26 -0400
+In-Reply-To: <1403534015-28496-1-git-send-email-mbizon@freebox.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jun 21, 2014 at 5:48 AM, Thadeu Lima de Souza Cascardo
-<cascardo@linux.vnet.ibm.com> wrote:
-> That use was removed by commit
-> 8c367fcbe6549195d2eb11e62bea233f811aad41 ("cxgb4: Do not set
-> net_device::dev_id to VI index"), since dev_id should be used only when
-> devices share the same MAC address.
->
-> Using dev_port for cxgb4 allows different ports on the same PCI function
-> to be identified.
+From: Maxime Bizon <mbizon@freebox.fr>
+Date: Mon, 23 Jun 2014 16:33:35 +0200
 
-Can you describe what issues were introduced because of this then?
+> The bridge code only set PACKET_HOST on packets sent to the bridge mac
+> address, packets sent to other local mac addresses are sent to upper
+> layers, but ignored because they are marked as PACKET_OTHERHOST.
+> 
+> Signed-off-by: Maxime Bizon <mbizon@freebox.fr>
 
-  Luis
+This looks fine to me, Stephen and other bridge hackers please review.
