@@ -1,354 +1,422 @@
-From: Dann Frazier <dann.frazier-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-Subject: Re: [PATCH v8 4/4] drivers: net: Add APM X-Gene SoC ethernet driver support.
-Date: Tue, 24 Jun 2014 22:29:48 -0600
-Message-ID: <CALdTtnvHt5mYMC3619E4F3KK0jPOw7mCpKE6bTn0Um6fdZ4rbw@mail.gmail.com>
-References: <1403306296-26198-1-git-send-email-isubramanian@apm.com>
-	<1403306296-26198-5-git-send-email-isubramanian@apm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	patches-qTEPVZfXA3Y@public.gmane.org, Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>,
-	Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>
-To: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1403306296-26198-5-git-send-email-isubramanian-qTEPVZfXA3Y@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Evgeny Boger <boger@contactless.ru>
+Subject: [PATCH v2] Add support for GPIOs for SMSC LAN95xx chips.
+Date: Wed, 25 Jun 2014 08:46:14 +0400
+Message-ID: <1403671574-16857-1-git-send-email-boger@contactless.ru>
+References: <20140513.180121.1755290421111591028.davem@davemloft.net>
+Cc: Evgeny Boger <boger@contactless.ru>
+To: Steve Glendinning <steve.glendinning@shawell.net>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f43.google.com ([209.85.215.43]:47104 "EHLO
+	mail-la0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750826AbaFYEqj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2014 00:46:39 -0400
+Received: by mail-la0-f43.google.com with SMTP id e16so337584lan.2
+        for <netdev@vger.kernel.org>; Tue, 24 Jun 2014 21:46:37 -0700 (PDT)
+In-Reply-To: <20140513.180121.1755290421111591028.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 20, 2014 at 5:18 PM, Iyappan Subramanian
-<isubramanian-qTEPVZfXA3Y@public.gmane.org> wrote:
-> This patch adds network driver for APM X-Gene SoC ethernet.
->
-> Signed-off-by: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
-> Signed-off-by: Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>
-> Signed-off-by: Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>
-> ---
->  drivers/net/ethernet/Kconfig                       |   1 +
->  drivers/net/ethernet/Makefile                      |   1 +
->  drivers/net/ethernet/apm/Kconfig                   |   1 +
->  drivers/net/ethernet/apm/Makefile                  |   5 +
->  drivers/net/ethernet/apm/xgene/Kconfig             |   9 +
->  drivers/net/ethernet/apm/xgene/Makefile            |   6 +
->  .../net/ethernet/apm/xgene/xgene_enet_ethtool.c    | 125 +++
->  drivers/net/ethernet/apm/xgene/xgene_enet_hw.c     | 848 +++++++++++++++++++
->  drivers/net/ethernet/apm/xgene/xgene_enet_hw.h     | 394 +++++++++
->  drivers/net/ethernet/apm/xgene/xgene_enet_main.c   | 939 +++++++++++++++++++++
->  drivers/net/ethernet/apm/xgene/xgene_enet_main.h   | 109 +++
->  11 files changed, 2438 insertions(+)
->  create mode 100644 drivers/net/ethernet/apm/Kconfig
->  create mode 100644 drivers/net/ethernet/apm/Makefile
->  create mode 100644 drivers/net/ethernet/apm/xgene/Kconfig
->  create mode 100644 drivers/net/ethernet/apm/xgene/Makefile
->  create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_ethtool.c
->  create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
->  create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
->  create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_main.c
->  create mode 100644 drivers/net/ethernet/apm/xgene/xgene_enet_main.h
-[...]
-> +static struct xgene_enet_desc_ring *xgene_enet_create_desc_ring(
-> +                       struct net_device *ndev, u32 ring_num,
-> +                       enum xgene_enet_ring_cfgsize cfgsize, u32 ring_id)
-> +{
-> +       struct xgene_enet_desc_ring *ring;
-> +       struct xgene_enet_pdata *pdata = netdev_priv(ndev);
-> +       struct device *dev = &pdata->pdev->dev;
-> +       u32 size;
-> +
-> +       ring = devm_kzalloc(dev, sizeof(struct xgene_enet_desc_ring),
-> +                           GFP_KERNEL);
-> +       if (!ring)
-> +               return NULL;
-> +
-> +       ring->ndev = ndev;
-> +       ring->num = ring_num;
-> +       ring->cfgsize = cfgsize;
-> +       ring->id = ring_id;
-> +
-> +       size = xgene_enet_get_ring_size(dev, cfgsize);
-> +       ring->desc_addr = dma_zalloc_coherent(dev, size, &ring->dma,
-> +                                             GFP_KERNEL);
+There might be 11 GPIOs in total.
+Last three GPIOs  (offsets 8-11, 0-based) are shared with FDX, LNKA, SPD
+LEDs respectively. The LEDs are driven by chip by default at startup time.
+Once the corresponding GPIO is requested, the chip LED drive logic is disabled.
 
-Iyappan,
-When testing this driver on a 3.16-rc2 base, I'm finding that
-desc_addr gets assigned to NULL here, which results in an oops later
-on (see below).
+Signed-off-by: Evgeny Boger <boger@contactless.ru>
+---
+Changes:
+    v2:  Remove unnecessary newlines.
+	 Store cached gpio register values in order to
+            1) speed-up gpio_set by avoiding reading gpio
+                register prior to writing
+            2) restore gpio register settings after chip reset 
+                which is triggered for instance on link up
 
-I wasn't seeing this before (3.15 base), so I'm guessing something
-changed upstream, or in my config, to change this behavior. But it
-does illuminate a place where we could maybe use some better error
-handling (also see below).
 
-> +       if (!ring->desc_addr)
-> +               goto err;
-> +       ring->size = size;
-> +
-> +       ring->cmd_base = pdata->ring_cmd_addr + (ring->num << 6);
-> +       ring->cmd = ring->cmd_base + INC_DEC_CMD_ADDR;
-> +       pdata->rm = RM3;
-> +       ring = xgene_enet_setup_ring(ring);
-> +       netdev_dbg(ndev, "ring info: num=%d  size=%d  id=%d  slots=%d\n",
-> +                  ring->num, ring->size, ring->id, ring->slots);
-> +
-> +       return ring;
-> +err:
-> +       dma_free_coherent(dev, size, ring->desc_addr, ring->dma);
-> +       devm_kfree(dev, ring);
-> +
-> +       return NULL;
-> +}
-> +
-> +static u16 xgene_enet_get_ring_id(enum xgene_ring_owner owner, u8 bufnum)
-> +{
-> +       return (owner << 6) | (bufnum & GENMASK(5, 0));
-> +}
-> +
-> +static int xgene_enet_create_desc_rings(struct net_device *ndev)
-> +{
-> +       struct xgene_enet_pdata *pdata = netdev_priv(ndev);
-> +       struct device *dev = &pdata->pdev->dev;
-> +       struct xgene_enet_desc_ring *rx_ring, *tx_ring, *cp_ring;
-> +       struct xgene_enet_desc_ring *buf_pool = NULL;
-> +       u8 cpu_bufnum = 0, eth_bufnum = 0;
-> +       u8 bp_bufnum = 0x20;
-> +       u16 ring_id, ring_num = 0;
-> +       int ret;
-> +
-> +       /* allocate rx descriptor ring */
-> +       ring_id = xgene_enet_get_ring_id(RING_OWNER_CPU, cpu_bufnum++);
-> +       rx_ring = xgene_enet_create_desc_ring(ndev, ring_num++,
-> +                                             RING_CFGSIZE_16KB, ring_id);
-> +       if (IS_ERR_OR_NULL(rx_ring)) {
-> +               ret = PTR_ERR(rx_ring);
-> +               goto err;
-> +       }
+ drivers/net/usb/smsc95xx.c | 290 +++++++++++++++++++++++++++++++++++++++++++--
+ drivers/net/usb/smsc95xx.h |   1 +
+ 2 files changed, 282 insertions(+), 9 deletions(-)
 
-Here we test for IS_ERR_OR_NULL. In the oops I'm hitting, rx_ring is
-NULL here - but PTR_ERR() apparently returns 0 in that case. So this
-function ends up returning no error.
-
-> +       /* allocate buffer pool for receiving packets */
-> +       ring_id = xgene_enet_get_ring_id(RING_OWNER_ETH0, bp_bufnum++);
-> +       buf_pool = xgene_enet_create_desc_ring(ndev, ring_num++,
-> +                                              RING_CFGSIZE_2KB, ring_id);
-> +       if (IS_ERR_OR_NULL(buf_pool)) {
-> +               ret = PTR_ERR(buf_pool);
-> +               goto err;
-> +       }
-> +
-> +       rx_ring->nbufpool = NUM_BUFPOOL;
-> +       rx_ring->buf_pool = buf_pool;
-> +       rx_ring->irq = pdata->rx_irq;
-> +       buf_pool->rx_skb = devm_kcalloc(dev, buf_pool->slots,
-> +                                    sizeof(struct sk_buff *), GFP_KERNEL);
-> +       if (!buf_pool->rx_skb) {
-> +               ret = -ENOMEM;
-> +               goto err;
-> +       }
-> +
-> +       buf_pool->dst_ring_num = xgene_enet_dst_ring_num(buf_pool);
-> +       rx_ring->buf_pool = buf_pool;
-> +       pdata->rx_ring = rx_ring;
-> +
-> +       /* allocate tx descriptor ring */
-> +       ring_id = xgene_enet_get_ring_id(RING_OWNER_ETH0, eth_bufnum++);
-> +       tx_ring = xgene_enet_create_desc_ring(ndev, ring_num++,
-> +                                             RING_CFGSIZE_16KB, ring_id);
-> +       if (IS_ERR_OR_NULL(tx_ring)) {
-> +               ret = PTR_ERR(tx_ring);
-> +               goto err;
-> +       }
-> +       pdata->tx_ring = tx_ring;
-> +
-> +       cp_ring = pdata->rx_ring;
-> +       cp_ring->cp_skb = devm_kcalloc(dev, tx_ring->slots,
-> +                                    sizeof(struct sk_buff *), GFP_KERNEL);
-> +       if (!cp_ring->cp_skb) {
-> +               ret = -ENOMEM;
-> +               goto err;
-> +       }
-> +       pdata->tx_ring->cp_ring = cp_ring;
-> +       pdata->tx_ring->dst_ring_num = xgene_enet_dst_ring_num(cp_ring);
-> +
-> +       pdata->tx_qcnt_hi = pdata->tx_ring->slots / 2;
-> +       pdata->cp_qcnt_hi = pdata->rx_ring->slots / 2;
-> +       pdata->cp_qcnt_low = pdata->cp_qcnt_hi / 2;
-> +
-> +       return 0;
-> +
-> +err:
-> +       xgene_enet_delete_desc_rings(pdata);
-> +       return ret;
-> +}
-> +
-> +static struct rtnl_link_stats64 *xgene_enet_get_stats64(
-> +                       struct net_device *ndev,
-> +                       struct rtnl_link_stats64 *storage)
-> +{
-> +       struct xgene_enet_pdata *pdata = netdev_priv(ndev);
-> +       struct rtnl_link_stats64 *stats = &pdata->stats;
-> +
-> +       spin_lock(&pdata->stats_lock);
-> +       stats->rx_errors += stats->rx_length_errors +
-> +                           stats->rx_crc_errors +
-> +                           stats->rx_frame_errors +
-> +                           stats->rx_fifo_errors;
-> +       memcpy(storage, &pdata->stats, sizeof(struct rtnl_link_stats64));
-> +       spin_unlock(&pdata->stats_lock);
-> +
-> +       return storage;
-> +}
-> +
-> +static int xgene_enet_set_mac_address(struct net_device *ndev, void *addr)
-> +{
-> +       struct xgene_enet_pdata *pdata = netdev_priv(ndev);
-> +       int ret;
-> +
-> +       ret = eth_mac_addr(ndev, addr);
-> +       if (ret)
-> +               return ret;
-> +       xgene_gmac_set_mac_addr(pdata);
-> +
-> +       return ret;
-> +}
-> +
-> +static const struct net_device_ops xgene_ndev_ops = {
-> +       .ndo_open = xgene_enet_open,
-> +       .ndo_stop = xgene_enet_close,
-> +       .ndo_start_xmit = xgene_enet_start_xmit,
-> +       .ndo_tx_timeout = xgene_enet_timeout,
-> +       .ndo_get_stats64 = xgene_enet_get_stats64,
-> +       .ndo_change_mtu = eth_change_mtu,
-> +       .ndo_set_mac_address = xgene_enet_set_mac_address,
-> +};
-> +
-> +static int xgene_enet_get_resources(struct xgene_enet_pdata *pdata)
-> +{
-> +       struct platform_device *pdev;
-> +       struct net_device *ndev;
-> +       struct device *dev;
-> +       struct resource *res;
-> +       void *base_addr;
-> +       const char *mac;
-> +       int ret;
-> +
-> +       pdev = pdata->pdev;
-> +       dev = &pdev->dev;
-> +       ndev = pdata->ndev;
-> +
-> +       res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "enet_csr");
-> +       if (!res) {
-> +               dev_err(dev, "Resource enet_csr not defined\n");
-> +               return -ENODEV;
-> +       }
-> +       pdata->base_addr = devm_ioremap_resource(dev, res);
-> +       if (IS_ERR(pdata->base_addr)) {
-> +               dev_err(dev, "Unable to retrieve ENET Port CSR region\n");
-> +               return PTR_ERR(pdata->base_addr);
-> +       }
-> +
-> +       res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "ring_csr");
-> +       if (!res) {
-> +               dev_err(dev, "Resource ring_csr not defined\n");
-> +               return -ENODEV;
-> +       }
-> +       pdata->ring_csr_addr = devm_ioremap_resource(dev, res);
-> +       if (IS_ERR(pdata->ring_csr_addr)) {
-> +               dev_err(dev, "Unable to retrieve ENET Ring CSR region\n");
-> +               return PTR_ERR(pdata->ring_csr_addr);
-> +       }
-> +
-> +       res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "ring_cmd");
-> +       if (!res) {
-> +               dev_err(dev, "Resource ring_cmd not defined\n");
-> +               return -ENODEV;
-> +       }
-> +       pdata->ring_cmd_addr = devm_ioremap_resource(dev, res);
-> +       if (IS_ERR(pdata->ring_cmd_addr)) {
-> +               dev_err(dev, "Unable to retrieve ENET Ring command region\n");
-> +               return PTR_ERR(pdata->ring_cmd_addr);
-> +       }
-> +
-> +       ret = platform_get_irq(pdev, 0);
-> +       if (ret <= 0) {
-> +               dev_err(dev, "Unable to get ENET Rx IRQ\n");
-> +               ret = ret ? : -ENXIO;
-> +               return ret;
-> +       }
-> +       pdata->rx_irq = ret;
-> +
-> +       mac = of_get_mac_address(dev->of_node);
-> +       if (mac)
-> +               memcpy(ndev->dev_addr, mac, ndev->addr_len);
-> +       else
-> +               eth_hw_addr_random(ndev);
-> +       memcpy(ndev->perm_addr, ndev->dev_addr, ndev->addr_len);
-> +
-> +       pdata->phy_mode = of_get_phy_mode(pdev->dev.of_node);
-> +       if (pdata->phy_mode < 0) {
-> +               dev_err(dev, "Incorrect phy-connection-type in DTS\n");
-> +               return -EINVAL;
-> +       }
-> +
-> +       pdata->clk = devm_clk_get(&pdev->dev, NULL);
-> +       ret = IS_ERR(pdata->clk);
-> +       if (IS_ERR(pdata->clk)) {
-> +               dev_err(&pdev->dev, "can't get clock\n");
-> +               ret = PTR_ERR(pdata->clk);
-> +               return ret;
-> +       }
-> +
-> +       base_addr = pdata->base_addr;
-> +       pdata->eth_csr_addr = base_addr + BLOCK_ETH_CSR_OFFSET;
-> +       pdata->eth_ring_if_addr = base_addr + BLOCK_ETH_RING_IF_OFFSET;
-> +       pdata->eth_diag_csr_addr = base_addr + BLOCK_ETH_DIAG_CSR_OFFSET;
-> +       pdata->mcx_mac_addr = base_addr + BLOCK_ETH_MAC_OFFSET;
-> +       pdata->mcx_stats_addr = base_addr + BLOCK_ETH_STATS_OFFSET;
-> +       pdata->mcx_mac_csr_addr = base_addr + BLOCK_ETH_MAC_CSR_OFFSET;
-> +       pdata->rx_buff_cnt = NUM_PKT_BUF;
-> +
-> +       return ret;
-> +}
-> +
-> +static int xgene_enet_init_hw(struct xgene_enet_pdata *pdata)
-> +{
-> +       struct net_device *ndev = pdata->ndev;
-> +       struct xgene_enet_desc_ring *buf_pool;
-> +       u16 dst_ring_num;
-> +       int ret;
-> +
-> +       xgene_gmac_tx_disable(pdata);
-> +       xgene_gmac_rx_disable(pdata);
-> +
-> +       ret = xgene_enet_create_desc_rings(ndev);
-> +       if (ret) {
-> +               netdev_err(ndev, "Error in ring configuration\n");
-> +               return ret;
-> +       }
-> +
-> +       /* setup buffer pool */
-> +       buf_pool = pdata->rx_ring->buf_pool;
-
-^ Here's where the oops ultimately surfaces, when we dereference the
-NULL rx_ring.
-
- -dann
-
-> +       xgene_enet_init_bufpool(buf_pool);
-> +       ret = xgene_enet_refill_bufpool(buf_pool, pdata->rx_buff_cnt);
-> +       if (ret)
-> +               return ret;
-> +
-> +       dst_ring_num = xgene_enet_dst_ring_num(pdata->rx_ring);
-> +       xgene_enet_cle_bypass(pdata, dst_ring_num, buf_pool->id);
-> +
-> +       return ret;
-> +}
-[...]
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+index 424db65e..8f236de 100644
+--- a/drivers/net/usb/smsc95xx.c
++++ b/drivers/net/usb/smsc95xx.c
+@@ -29,6 +29,8 @@
+ #include <linux/crc32.h>
+ #include <linux/usb/usbnet.h>
+ #include <linux/slab.h>
++#include <linux/gpio.h>
++
+ #include "smsc95xx.h"
+ 
+ #define SMSC_CHIPNAME			"smsc95xx"
+@@ -68,6 +70,15 @@ struct smsc95xx_priv {
+ 	spinlock_t mac_cr_lock;
+ 	u8 features;
+ 	u8 suspend_flags;
++
++	struct usbnet *dev;
++#ifdef CONFIG_GPIOLIB
++	struct gpio_chip gpio;
++	struct mutex gpio_lock;	/* lock for GPIO functions */
++#endif
++
++	u32 reg_gpio_cfg;
++	u32 reg_led_gpio_cfg;
+ };
+ 
+ static bool turbo_mode = true;
+@@ -875,7 +886,7 @@ static int smsc95xx_phy_initialize(struct usbnet *dev)
+ static int smsc95xx_reset(struct usbnet *dev)
+ {
+ 	struct smsc95xx_priv *pdata = (struct smsc95xx_priv *)(dev->data[0]);
+-	u32 read_buf, write_buf, burst_cap;
++	u32 read_buf, burst_cap;
+ 	int ret = 0, timeout;
+ 
+ 	netif_dbg(dev, ifup, dev->net, "entering smsc95xx_reset\n");
+@@ -884,6 +895,24 @@ static int smsc95xx_reset(struct usbnet *dev)
+ 	if (ret < 0)
+ 		return ret;
+ 
++	/* restore and re-read GPIO registers immediately after requesting Lite Reset */
++
++	ret = smsc95xx_write_reg(dev, GPIO_CFG, pdata->reg_gpio_cfg);
++	if (ret < 0)
++		return ret;
++
++	ret = smsc95xx_write_reg(dev, LED_GPIO_CFG, pdata->reg_led_gpio_cfg);
++	if (ret < 0)
++		return ret;
++
++	ret = smsc95xx_read_reg(dev, GPIO_CFG, &pdata->reg_gpio_cfg);
++	if (ret < 0)
++		return ret;
++
++	ret = smsc95xx_read_reg(dev, LED_GPIO_CFG, &pdata->reg_led_gpio_cfg);
++	if (ret < 0)
++		return ret;
++
+ 	timeout = 0;
+ 	do {
+ 		msleep(10);
+@@ -1017,13 +1046,6 @@ static int smsc95xx_reset(struct usbnet *dev)
+ 		return ret;
+ 	netif_dbg(dev, ifup, dev->net, "ID_REV = 0x%08x\n", read_buf);
+ 
+-	/* Configure GPIO pins as LED outputs */
+-	write_buf = LED_GPIO_CFG_SPD_LED | LED_GPIO_CFG_LNK_LED |
+-		LED_GPIO_CFG_FDX_LED;
+-	ret = smsc95xx_write_reg(dev, LED_GPIO_CFG, write_buf);
+-	if (ret < 0)
+-		return ret;
+-
+ 	/* Init Tx */
+ 	ret = smsc95xx_write_reg(dev, FLOW, 0);
+ 	if (ret < 0)
+@@ -1099,6 +1121,228 @@ static const struct net_device_ops smsc95xx_netdev_ops = {
+ 	.ndo_set_features	= smsc95xx_set_features,
+ };
+ 
++/* ******************************** GPIO ********************************* */
++
++#ifdef CONFIG_GPIOLIB
++
++static inline u32 smsc95xx_gpio_get_register(unsigned gpio)
++{
++	if (gpio < 8)
++		return GPIO_CFG;
++	else
++		return LED_GPIO_CFG;
++}
++
++static inline u8 smsc95xx_gpio_get_enable_offset(unsigned gpio)
++{
++	return (gpio < 8) ? (24 + gpio) : (gpio * 4 - 16);
++}
++
++static inline u8 smsc95xx_gpio_get_type_offset(unsigned gpio)
++{
++	return (gpio < 8) ? (16 + gpio) : gpio;
++}
++
++static inline u8 smsc95xx_gpio_get_dir_offset(unsigned gpio)
++{
++	return (gpio < 8) ? (8 + gpio) : (gpio - 4);
++}
++
++static inline u8 smsc95xx_gpio_get_val_offset(unsigned gpio)
++{
++	return (gpio < 8) ? (gpio) : (gpio - 8);
++}
++
++static inline u32* smsc95xx_gpio_get_reg_cache_ptr(struct smsc95xx_priv *pdata, unsigned gpio)
++{
++	return (gpio < 8) ? (&pdata->reg_gpio_cfg) : (&pdata->reg_led_gpio_cfg);
++}
++
++static int smsc95xx_gpio_request(struct gpio_chip *gpio, unsigned offset)
++{
++	int ret = -1;
++	u32 reg;
++	int type_shift;
++	struct smsc95xx_priv *pdata =
++			container_of(gpio, struct smsc95xx_priv, gpio);
++	u32 *reg_cache_ptr = smsc95xx_gpio_get_reg_cache_ptr(pdata, offset);
++
++	reg = smsc95xx_gpio_get_register(offset);
++	type_shift = smsc95xx_gpio_get_type_offset(offset);
++
++	mutex_lock(&pdata->gpio_lock);
++
++	*reg_cache_ptr &= ~BIT(smsc95xx_gpio_get_enable_offset(offset));
++	*reg_cache_ptr |= BIT(type_shift);
++	*reg_cache_ptr &= ~BIT(smsc95xx_gpio_get_dir_offset(offset));
++
++	ret = smsc95xx_write_reg(pdata->dev, reg, *reg_cache_ptr);
++
++	mutex_unlock(&pdata->gpio_lock);
++
++
++	return (ret < 0) ? ret : 0;
++}
++
++static void smsc95xx_gpio_free(struct gpio_chip *gpio, unsigned offset)
++{
++	int ret = -1;
++	u32 reg;
++	int type_shift;
++	struct smsc95xx_priv *pdata =
++			container_of(gpio, struct smsc95xx_priv, gpio);
++	u32 *reg_cache_ptr = smsc95xx_gpio_get_reg_cache_ptr(pdata, offset);
++
++	reg = smsc95xx_gpio_get_register(offset);
++	type_shift = smsc95xx_gpio_get_type_offset(offset);
++
++	mutex_lock(&pdata->gpio_lock);
++
++	*reg_cache_ptr |= BIT(smsc95xx_gpio_get_enable_offset(offset));
++
++	if (offset >= 8) {
++		/* Let the chip control LED GPIOs */
++		*reg_cache_ptr &= ~BIT(type_shift);
++		*reg_cache_ptr |= BIT(smsc95xx_gpio_get_dir_offset(offset));
++	}
++
++	ret = smsc95xx_write_reg(pdata->dev, reg, *reg_cache_ptr);
++
++	mutex_unlock(&pdata->gpio_lock);
++
++	if (ret < 0)
++		netif_err(pdata->dev, ifdown, pdata->dev->net,
++			"error freeing gpio %d\n", offset);
++
++}
++
++static int smsc95xx_gpio_direction_input(struct gpio_chip *gpio,
++			unsigned offset)
++{
++	int ret = -1;
++	u32 reg;
++	struct smsc95xx_priv *pdata =
++			container_of(gpio, struct smsc95xx_priv, gpio);
++	u32 *reg_cache_ptr = smsc95xx_gpio_get_reg_cache_ptr(pdata, offset);
++
++	reg = smsc95xx_gpio_get_register(offset);
++
++	mutex_lock(&pdata->gpio_lock);
++
++	*reg_cache_ptr &= ~BIT(smsc95xx_gpio_get_dir_offset(offset));
++	ret = smsc95xx_write_reg(pdata->dev, reg, *reg_cache_ptr);
++
++	mutex_unlock(&pdata->gpio_lock);
++
++	return (ret < 0) ? ret : 0;
++}
++
++static int smsc95xx_gpio_direction_output(struct gpio_chip *gpio,
++			unsigned offset, int value)
++{
++	int ret = -1;
++	u32 reg;
++	struct smsc95xx_priv *pdata =
++			container_of(gpio, struct smsc95xx_priv, gpio);
++	u32 *reg_cache_ptr = smsc95xx_gpio_get_reg_cache_ptr(pdata, offset);
++
++	reg = smsc95xx_gpio_get_register(offset);
++
++	mutex_lock(&pdata->gpio_lock);
++
++	*reg_cache_ptr |= BIT(smsc95xx_gpio_get_dir_offset(offset));
++
++	if (value)
++		*reg_cache_ptr |= BIT(smsc95xx_gpio_get_val_offset(offset));
++	else
++		*reg_cache_ptr &= ~BIT(smsc95xx_gpio_get_val_offset(offset));
++
++	ret = smsc95xx_write_reg(pdata->dev, reg, *reg_cache_ptr);
++
++	mutex_unlock(&pdata->gpio_lock);
++
++	return (ret < 0) ? ret : 0;
++}
++
++static int smsc95xx_gpio_get(struct gpio_chip *gpio, unsigned offset)
++{
++	int ret = -1;
++	u32 reg;
++	struct smsc95xx_priv *pdata =
++			container_of(gpio, struct smsc95xx_priv, gpio);
++	u32 *reg_cache_ptr = smsc95xx_gpio_get_reg_cache_ptr(pdata, offset);
++
++	reg = smsc95xx_gpio_get_register(offset);
++
++	ret = smsc95xx_read_reg(pdata->dev, reg, reg_cache_ptr);
++
++	if (ret < 0) {
++		netif_err(pdata->dev, ifdown, pdata->dev->net,
++			"error reading gpio %d\n", offset);
++		return -EINVAL;
++	}
++
++	return (*reg_cache_ptr >> smsc95xx_gpio_get_val_offset(offset)) & 0x01;
++}
++
++static void smsc95xx_gpio_set(struct gpio_chip *gpio, unsigned offset,
++				int value)
++{
++	int ret = -1;
++	u32 reg;
++	struct smsc95xx_priv *pdata =
++			container_of(gpio, struct smsc95xx_priv, gpio);
++	u32 *reg_cache_ptr = smsc95xx_gpio_get_reg_cache_ptr(pdata, offset);
++
++	reg = smsc95xx_gpio_get_register(offset);
++
++	mutex_lock(&pdata->gpio_lock);
++
++	if (value)
++		*reg_cache_ptr |= BIT(smsc95xx_gpio_get_val_offset(offset));
++	else
++		*reg_cache_ptr &= ~BIT(smsc95xx_gpio_get_val_offset(offset));
++
++	ret = smsc95xx_write_reg(pdata->dev, reg, *reg_cache_ptr);
++
++	mutex_unlock(&pdata->gpio_lock);
++
++	if (ret < 0) {
++		netif_err(pdata->dev, ifdown, pdata->dev->net,
++			"error writing gpio %d=%d\n", offset, value);
++		return;
++	}
++}
++
++#endif /* CONFIG_GPIOLIB */
++
++static int smsc95xx_register_gpio(struct usbnet *dev)
++{
++#ifdef CONFIG_GPIOLIB
++	struct smsc95xx_priv *pdata = (struct smsc95xx_priv *)(dev->data[0]);
++
++	pdata->gpio.label = SMSC_CHIPNAME;
++	pdata->gpio.request	= smsc95xx_gpio_request;
++	pdata->gpio.free		= smsc95xx_gpio_free;
++	pdata->gpio.get		= smsc95xx_gpio_get;
++	pdata->gpio.set		= smsc95xx_gpio_set;
++	pdata->gpio.direction_input = smsc95xx_gpio_direction_input;
++	pdata->gpio.direction_output = smsc95xx_gpio_direction_output;
++
++	pdata->gpio.base = -1;
++	pdata->gpio.ngpio = 11;
++	pdata->gpio.can_sleep = 1;
++	pdata->gpio.dev = &dev->udev->dev;
++	pdata->gpio.owner = THIS_MODULE;
++
++	mutex_init(&pdata->gpio_lock);
++
++	return gpiochip_add(&pdata->gpio);
++#else
++	return 0;
++#endif
++}
++
+ static int smsc95xx_bind(struct usbnet *dev, struct usb_interface *intf)
+ {
+ 	struct smsc95xx_priv *pdata = NULL;
+@@ -1120,6 +1364,8 @@ static int smsc95xx_bind(struct usbnet *dev, struct usb_interface *intf)
+ 	if (!pdata)
+ 		return -ENOMEM;
+ 
++	pdata->dev = dev;
++
+ 	spin_lock_init(&pdata->mac_cr_lock);
+ 
+ 	if (DEFAULT_TX_CSUM_ENABLE)
+@@ -1137,7 +1383,7 @@ static int smsc95xx_bind(struct usbnet *dev, struct usb_interface *intf)
+ 	/* detect device revision as different features may be available */
+ 	ret = smsc95xx_read_reg(dev, ID_REV, &val);
+ 	if (ret < 0)
+-		return ret;
++		goto free;
+ 	val >>= 16;
+ 
+ 	if ((val == ID_REV_CHIP_ID_9500A_) || (val == ID_REV_CHIP_ID_9530_) ||
+@@ -1153,17 +1399,43 @@ static int smsc95xx_bind(struct usbnet *dev, struct usb_interface *intf)
+ 	dev->net->flags |= IFF_MULTICAST;
+ 	dev->net->hard_header_len += SMSC95XX_TX_OVERHEAD_CSUM;
+ 	dev->hard_mtu = dev->net->mtu + dev->net->hard_header_len;
++
++	/* initialize GPIO register cache */
++	pdata->reg_gpio_cfg = GPIO_CFG_DEFAULT;
++	pdata->reg_led_gpio_cfg = LED_GPIO_CFG_SPD_LED | LED_GPIO_CFG_LNK_LED |
++								 LED_GPIO_CFG_FDX_LED;
++
++
++
++	ret = smsc95xx_register_gpio(dev);
++	if (ret < 0)
++		goto free;
++
+ 	return 0;
++
++free:
++	kfree(pdata);
++	return ret;
+ }
+ 
+ static void smsc95xx_unbind(struct usbnet *dev, struct usb_interface *intf)
+ {
++	int ret;
+ 	struct smsc95xx_priv *pdata = (struct smsc95xx_priv *)(dev->data[0]);
+ 	if (pdata) {
++		#ifdef CONFIG_GPIOLIB
++		ret = gpiochip_remove(&pdata->gpio);
++		if (ret) {
++			netif_err(dev, ifdown, dev->net,
++				"error removing gpiochip\n");
++		}
++		#endif
++
+ 		netif_dbg(dev, ifdown, dev->net, "free pdata\n");
+ 		kfree(pdata);
+ 		pdata = NULL;
+ 		dev->data[0] = 0;
++
+ 	}
+ }
+ 
+diff --git a/drivers/net/usb/smsc95xx.h b/drivers/net/usb/smsc95xx.h
+index 526faa0..f6d4fd6 100644
+--- a/drivers/net/usb/smsc95xx.h
++++ b/drivers/net/usb/smsc95xx.h
+@@ -113,6 +113,7 @@
+ #define LED_GPIO_CFG_FDX_LED		(0x00010000)
+ 
+ #define GPIO_CFG			(0x28)
++#define GPIO_CFG_DEFAULT    (0x1f000000) /* gpios disabled */
+ 
+ #define AFC_CFG				(0x2C)
+ 
+-- 
+1.9.1
