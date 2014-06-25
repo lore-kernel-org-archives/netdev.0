@@ -1,35 +1,39 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [PATCH] tcp: fix setting csum_start in tcp_gso_segment
-Date: Tue, 24 Jun 2014 21:17:25 -0700
-Message-ID: <CA+55aFxyZP_jXT-bLyFjJMp4WfVZp5vFtpu+-6_qCi46xkceQg@mail.gmail.com>
-References: <alpine.DEB.2.02.1406242056330.29780@tomh.mtv.corp.google.com>
+From: Yijing Wang <wangyijing@huawei.com>
+Subject: [PATCH] bnx2x: Fix the MSI flags
+Date: Wed, 25 Jun 2014 12:22:56 +0800
+Message-ID: <1403670176-12072-1-git-send-email-wangyijing@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, Dave Jones <davej@redhat.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, Ariel Elior <ariel.elior@qlogic.com>,
+	"Yijing Wang" <wangyijing@huawei.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f181.google.com ([209.85.220.181]:33886 "EHLO
-	mail-vc0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750699AbaFYER0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2014 00:17:26 -0400
-In-Reply-To: <alpine.DEB.2.02.1406242056330.29780@tomh.mtv.corp.google.com>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:28002 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750737AbaFYEXc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2014 00:23:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 24, 2014 at 9:03 PM, Tom Herbert <therbert@google.com> wrote:
->
-> It looks like a likely culprit is that SKB_GSO_CB()->csum_start is
-> not set correctly when doing non-scatter gather. We are using
-> offset as opposed to doffset.
->
-> Reported-by: Dave Jones <davej@redhat.com>
+MSI-X should use PCI_MSIX_FLAGS not PCI_MSI_FLAGS.
 
-DaveJ, I think you triggered this in five minutes on your box, and I
-don't recall seeing anybody else reporting the oops (and google
-doesn't find anything in the last month). So it's presumably somewhat
-hw-specific. Does this fix the problem?
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-               Linus
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 2887034..6a8b145 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -12937,7 +12937,7 @@ static int bnx2x_get_num_non_def_sbs(struct pci_dev *pdev, int cnic_cnt)
+ 	 * without the default SB.
+ 	 * For VFs there is no default SB, then we return (index+1).
+ 	 */
+-	pci_read_config_word(pdev, pdev->msix_cap + PCI_MSI_FLAGS, &control);
++	pci_read_config_word(pdev, pdev->msix_cap + PCI_MSIX_FLAGS, &control);
+ 
+ 	index = control & PCI_MSIX_FLAGS_QSIZE;
+ 
+-- 
+1.7.1
