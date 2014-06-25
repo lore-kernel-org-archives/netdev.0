@@ -1,141 +1,146 @@
-From: greearb@candelatech.com
-Subject: [PATCH v3 1/2] ipv6:  Add more debugging around accept-ra logic.
-Date: Wed, 25 Jun 2014 14:44:52 -0700
-Message-ID: <1403732693-18282-1-git-send-email-greearb@candelatech.com>
-Cc: Ben Greear <greearb@candelatech.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.candelatech.com ([208.74.158.173]:34057 "EHLO
-	mail2.candelatech.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756529AbaFYVpG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2014 17:45:06 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Luis R. Rodriguez" <mcgrof@suse.com>
+Subject: Re: [RFT 0/3] cxgb4: use request_firmware_nowait()
+Date: Wed, 25 Jun 2014 23:51:13 +0200
+Message-ID: <20140625215113.GA27687@wotan.suse.de>
+References: <1403311181-9328-1-git-send-email-mcgrof@do-not-panic.com> <53A87AC8.7010305@chelsio.com> <20140624002941.GD27687@wotan.suse.de> <53A99F71.2060308@chelsio.com> <53A9A88B.2000006@chelsio.com> <20140624233951.GH27687@wotan.suse.de> <20140625020019.GJ27687@wotan.suse.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+	hariprasad@chelsio.com, poswald@suse.com, santosh@chelsio.com,
+	jcheung@suse.com, dchang@suse.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, gregkh@linuxfoundation.org
+To: Casey Leedom <leedom@chelsio.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140625020019.GJ27687@wotan.suse.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Greear <greearb@candelatech.com>
+On Wed, Jun 25, 2014 at 04:00:19AM +0200, Luis R. Rodriguez wrote:
+> On Wed, Jun 25, 2014 at 01:39:51AM +0200, Luis R. Rodriguez wrote:
+> > On Tue, Jun 24, 2014 at 09:34:19AM -0700, Casey Leedom wrote:
+> > > On 06/24/14 08:55, Casey Leedom wrote:
+> > >> On 06/23/14 17:29, Luis R. Rodriguez wrote:
+> > >   So I just did this for a normal modprobe (after the system is up):
+> > >
+> > > Jiffies    Process
+> > > -----------------------------------------------------------------------
+> > >       0    begin firmware load process
+> > >       3    request_firmware() returns
+> > >       7    start looking at the adapter
+> > >      10    finish reading the first sector of existing adapter firmware
+> > >      26    we've decided that we're going to upgrade the firmware
+> > >      28    actual firmware upgrade process starts
+> > >     448    we've finished halting the adapter processor
+> > >     451    we enter the firmware write routine
+> > >   8,470    we've finished erasing the firmware FLASH sectors
+> > >  14,336    write of new firmware is complete
+> > >  14,340    the new firmware load is complete
+> > >  14,949    the adapter processor has been restarted; new firmware running
+> > >  14,952    firmware upgrade process complete
+> > >
+> > > Maybe request_firmware() takes more time during the boot phase but as we 
+> > > can see from the above timings, it's the actual firmware upgrade process 
+> > > which takes the most time ...
+> > 
+> > OK so yeah the kernel work on request_firmware() isn't what takes over a
+> > minute, its the actual hardware poking with the firmware it gets, and then
+> > doing all the things you mentioned (a port for each netdevice, etc).  This is a
+> > particularly interesting driver, apart from this I see some code about bus
+> > master and loading firmware only once. Can you elaborate a bit on how that is
+> > designed to work? Is it that only one PCI bus master device is allowed, and
+> > that will do the request_firmware() for all PCI devices? I'm a bit confused
+> > about this part, are we sure the bus master device will probe first? We can
+> > surely keep all this code on the driver but it seems that if all these
+> > complexitities might become the norm we should consider an API for sharing a
+> > clean framework for it.
 
-This is disabled by default, just like similar debug info
-already in this module.  But, makes it easier to find out
-why RA is not being accepted when debugging strange behaviour.
+Casey here was the first series of questions.
 
-Signed-off-by: Ben Greear <greearb@candelatech.com>
----
+> > As you noted the complexities on firmware loading, the number of different
+> > netdevices one device might actually have would make it impractical to try
+> > to do any completion on firmware on the ndo_init() with request_firmware_nowait().
+> > Apart from a netdev specific API to handle all this cleanly, I wonder if
+> > drivers like these merit getting placed by default onto the deferred_probe_active_list.
+> > Typically this is triggered when drivers don't have a resource a subsystem
+> > hasn't yet brought up, the driver returns -EPROBE_DEFER and the core driver
+> > infrastructure later probes these devices on a secondary list. Greg?
+> 
+> Actually another option to clean this up is to use platform_device_register_simple()
+> after the initial firmware load and start poking at stuff there. Check out
+> drivers/net/ethernet/8390/ne.c for an example with probe and all. I think
+> that can help split up the code paths quite nicely and let you do your
+> pre port thing there. Thoughts?
 
-No changes since -v1, patch is against 3.14.8+
+And here was the other one, what your thoughts are on splitting things up
+a bit more for probe as ports part of a platform driver?
 
- net/ipv6/ndisc.c | 51 +++++++++++++++++++++++++++++++++++++++++++--------
- 1 file changed, 43 insertions(+), 8 deletions(-)
+In the meantime I'll go and hunt down to see if there are any timeouts other
+than the one embedded within request_firmware() (or udev if used). As we have
+clarified now the 60s timeout is a timeout embedded as part of the filesystem
+lookup of the firmware, not the actual loading of the firmware onto the device.
 
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 09a22f4..2fef3d5 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -1073,6 +1073,9 @@ static void ndisc_router_discovery(struct sk_buff *skb)
- 	optlen = (skb_tail_pointer(skb) - skb_transport_header(skb)) -
- 		sizeof(struct ra_msg);
- 
-+	ND_PRINTK(2, info,
-+		  "RA: %s, dev: %s\n",
-+		  __func__, skb->dev->name);
- 	if (!(ipv6_addr_type(&ipv6_hdr(skb)->saddr) & IPV6_ADDR_LINKLOCAL)) {
- 		ND_PRINTK(2, warn, "RA: source address is not link-local\n");
- 		return;
-@@ -1105,13 +1108,21 @@ static void ndisc_router_discovery(struct sk_buff *skb)
- 		return;
- 	}
- 
--	if (!ipv6_accept_ra(in6_dev))
-+	if (!ipv6_accept_ra(in6_dev)) {
-+		ND_PRINTK(2, info,
-+			  "RA: %s, did not accept ra for dev: %s\n",
-+			  __func__, skb->dev->name);
- 		goto skip_linkparms;
-+	}
- 
- #ifdef CONFIG_IPV6_NDISC_NODETYPE
- 	/* skip link-specific parameters from interior routers */
--	if (skb->ndisc_nodetype == NDISC_NODETYPE_NODEFAULT)
-+	if (skb->ndisc_nodetype == NDISC_NODETYPE_NODEFAULT) {
-+		ND_PRINTK(2, info,
-+			  "RA: %s, nodetype is NODEFAULT, dev: %s\n",
-+			  __func__, skb->dev->name);
- 		goto skip_linkparms;
-+	}
- #endif
- 
- 	if (in6_dev->if_flags & IF_RS_SENT) {
-@@ -1133,11 +1144,20 @@ static void ndisc_router_discovery(struct sk_buff *skb)
- 				(ra_msg->icmph.icmp6_addrconf_other ?
- 					IF_RA_OTHERCONF : 0);
- 
--	if (!in6_dev->cnf.accept_ra_defrtr)
-+	if (!in6_dev->cnf.accept_ra_defrtr) {
-+		ND_PRINTK(2, info,
-+			  "RA: %s, defrtr is false for dev: %s\n",
-+			  __func__, skb->dev->name);
- 		goto skip_defrtr;
-+	}
- 
--	if (ipv6_chk_addr(dev_net(in6_dev->dev), &ipv6_hdr(skb)->saddr, NULL, 0))
-+	if (ipv6_chk_addr(dev_net(in6_dev->dev), &ipv6_hdr(skb)->saddr,
-+			  NULL, 0)) {
-+		ND_PRINTK(2, info,
-+			  "RA: %s, chk_addr failed for dev: %s\n",
-+			  __func__, skb->dev->name);
- 		goto skip_defrtr;
-+	}
- 
- 	lifetime = ntohs(ra_msg->icmph.icmp6_rt_lifetime);
- 
-@@ -1166,8 +1186,10 @@ static void ndisc_router_discovery(struct sk_buff *skb)
- 		rt = NULL;
- 	}
- 
-+	ND_PRINTK(3, info, "RA: rt: %p  lifetime: %d, for dev: %s\n",
-+		  rt, lifetime, skb->dev->name);
- 	if (rt == NULL && lifetime) {
--		ND_PRINTK(3, dbg, "RA: adding default router\n");
-+		ND_PRINTK(3, info, "RA: adding default router\n");
- 
- 		rt = rt6_add_dflt_router(&ipv6_hdr(skb)->saddr, skb->dev, pref);
- 		if (rt == NULL) {
-@@ -1263,12 +1285,21 @@ skip_linkparms:
- 			     NEIGH_UPDATE_F_ISROUTER);
- 	}
- 
--	if (!ipv6_accept_ra(in6_dev))
-+	if (!ipv6_accept_ra(in6_dev)) {
-+		ND_PRINTK(2, info,
-+			  "RA: %s, accept_ra is false for dev: %s\n",
-+			  __func__, skb->dev->name);
- 		goto out;
-+	}
- 
- #ifdef CONFIG_IPV6_ROUTE_INFO
--	if (ipv6_chk_addr(dev_net(in6_dev->dev), &ipv6_hdr(skb)->saddr, NULL, 0))
-+	if (ipv6_chk_addr(dev_net(in6_dev->dev), &ipv6_hdr(skb)->saddr,
-+			  NULL, 0)) {
-+		ND_PRINTK(2, info,
-+			  "RA: %s, chk-addr (route info) is false for dev: %s\n",
-+			  __func__, skb->dev->name);
- 		goto skip_routeinfo;
-+	}
- 
- 	if (in6_dev->cnf.accept_ra_rtr_pref && ndopts.nd_opts_ri) {
- 		struct nd_opt_hdr *p;
-@@ -1296,8 +1327,12 @@ skip_routeinfo:
- 
- #ifdef CONFIG_IPV6_NDISC_NODETYPE
- 	/* skip link-specific ndopts from interior routers */
--	if (skb->ndisc_nodetype == NDISC_NODETYPE_NODEFAULT)
-+	if (skb->ndisc_nodetype == NDISC_NODETYPE_NODEFAULT) {
-+		ND_PRINTK(2, info,
-+			  "RA: %s, nodetype is NODEFAULT (interior routes), dev: %s\n",
-+			  __func__, skb->dev->name);
- 		goto out;
-+	}
- #endif
- 
- 	if (in6_dev->cnf.accept_ra_pinfo && ndopts.nd_opts_pi) {
--- 
-1.7.11.7
+I for instance can introduce a huge delay on purpose right after
+request_firmware() say 3 minutes on a test driver and it loads just fine, but
+on my OpenSUSE 13.1 system. I'll go ahead and test this on the other
+distribution you mentioned you had issues, curious what could trigger a timeout
+failure there that would be distribution specific.
+
+ergon:~ # ls > /lib/firmware/fake.bin
+
+mcgrof@ergon ~/devel/fake-firmware-delay $ cat Makefile
+all: modules
+
+.PHONY: modules
+modules:
+	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
+
+.PHONY: clean
+clean:
+	make -C /lib/modules/$(shell uname -r)/build clean M=$(PWD)
+
+obj-m += test.o
+
+mcgrof@ergon ~/devel/fake-firmware-delay $ cat test.c
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/firmware.h>
+#include <linux/platform_device.h>
+#include <linux/delay.h>
+
+static struct platform_device *pdev;
+
+static int __init test_init(void)
+{
+	int ret;
+	const struct firmware *config;
+
+	pdev = platform_device_register_simple("fake-dev", 0, NULL, 0);
+	if (IS_ERR(pdev))
+		return PTR_ERR(pdev);
+
+	ret = request_firmware(&config, "fake.bin", &pdev->dev);
+	if (ret < 0) {
+		dev_set_uevent_suppress(&pdev->dev, true);
+		platform_device_unregister(pdev);
+		return ret;
+	}
+
+	ssleep(180);
+
+	release_firmware(config);
+
+	return 0;
+}
+
+static void __exit test_exit(void)
+{
+	dev_set_uevent_suppress(&pdev->dev, true);
+	platform_device_unregister(pdev);
+}
+
+module_init(test_init)
+module_exit(test_exit)
+MODULE_LICENSE("GPL");
+
+  Luis
