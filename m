@@ -1,55 +1,71 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PULL] vhost: cleanups and fixes
-Date: Wed, 25 Jun 2014 14:05:39 +0300
-Message-ID: <20140625110539.GA7386@redhat.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH] net: can: Remodel FlexCAN register read/write APIs for
+ BE instances
+Date: Wed, 25 Jun 2014 13:07:48 +0200
+Message-ID: <53AAAD84.1010400@pengutronix.de>
+References: <1403625285-27824-1-git-send-email-bhupesh.sharma@freescale.com> <53AA8805.3050309@pengutronix.de> <ae6e49865206432ea871b08b159bae55@BN1PR03MB220.namprd03.prod.outlook.com> <53AAA3E9.6030409@pengutronix.de> <536c077e2e8b4dfabb4c07f696753a3c@BN1PR03MB220.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
-	romain@orebokech.com, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="Oog6rVFJUWKeGodUIIFlfx4wbojGPNpaL"
+Cc: "wg@grandegger.com" <wg@grandegger.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "bhupesh.sharma@freescale.com" <bhupesh.sharma@freescale.com>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:60375 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756638AbaFYLIC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2014 07:08:02 -0400
+In-Reply-To: <536c077e2e8b4dfabb4c07f696753a3c@BN1PR03MB220.namprd03.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The following changes since commit a497c3ba1d97fc69c1e78e7b96435ba8c2cb42ee:
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--Oog6rVFJUWKeGodUIIFlfx4wbojGPNpaL
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-  Linux 3.16-rc2 (2014-06-21 19:02:54 -1000)
+On 06/25/2014 01:01 PM, bhupesh.sharma@freescale.com wrote:
+>> What about function pointers in the priv? So that flexcan_read() becom=
+es
+>> priv->read().
 
-are available in the git repository at:
+> That's what I propose (similar to what I did for C_CAN driver for 16-bi=
+t and 32-bit
+> reg interfaces using platform data):
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
+Yes...but...
 
-for you to fetch changes up to 68404441557d8db5ac853379a4fb9c1adedea4fd:
+> bool module_is_be =3D false;
 
-  vhost-scsi: don't open-code kvfree (2014-06-23 09:22:48 +0300)
+=2E..module_is_be is not that simple, on PPC true must be the default to
+be compatible with existing dts.
 
-----------------------------------------------------------------
-vhost: infrastructure fixes for 3.16
+> module_is_be =3D get-endianess-from-DT-node;
+>=20
+> priv->read() =3D module_is_be ? flexcan_read_be : flexcan_read_le;
 
-Two cleanup patches removing code duplication that got introduced by changes in
-rc1.  Not fixing crashes, but I'd rather not carry the duplicate code until the
-next merge window.
+Marc
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 
-----------------------------------------------------------------
-Michael S. Tsirkin (1):
-      vhost-scsi: don't open-code kvfree
+--Oog6rVFJUWKeGodUIIFlfx4wbojGPNpaL
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-Romain Francoise (1):
-      vhost-net: don't open-code kvfree
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
 
- drivers/vhost/net.c  | 12 ++----------
- drivers/vhost/scsi.c | 12 ++----------
- 2 files changed, 4 insertions(+), 20 deletions(-)
+iEYEARECAAYFAlOqrYQACgkQjTAFq1RaXHP31QCghMsOlQI6Pk41LB2pO4zGK/Yv
+HAcAnjyDCBq8hzXozOdX5fAW5eAYQZB0
+=VTZc
+-----END PGP SIGNATURE-----
+
+--Oog6rVFJUWKeGodUIIFlfx4wbojGPNpaL--
