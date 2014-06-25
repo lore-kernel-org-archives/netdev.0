@@ -1,79 +1,67 @@
-From: Daniele Forsi <dforsi@gmail.com>
-Subject: Re: [PATCH v2] Add support for GPIOs for SMSC LAN95xx chips.
-Date: Wed, 25 Jun 2014 12:34:23 +0200
-Message-ID: <CAN_we7MbMywYzysn_Q_iRAOZZuE+KU_jDJxMW-Qz0KK0RHwSRQ@mail.gmail.com>
-References: <20140513.180121.1755290421111591028.davem@davemloft.net>
-	<1403671574-16857-1-git-send-email-boger@contactless.ru>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH] net: can: Remodel FlexCAN register read/write APIs for
+ BE instances
+Date: Wed, 25 Jun 2014 12:34:20 +0200
+Message-ID: <53AAA5AC.5070707@pengutronix.de>
+References: <1403625285-27824-1-git-send-email-bhupesh.sharma@freescale.com> <53AA8805.3050309@pengutronix.de> <ae6e49865206432ea871b08b159bae55@BN1PR03MB220.namprd03.prod.outlook.com> <063D6719AE5E284EB5DD2968C1650D6D17264BA8@AcuExch.aculab.com>
 Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="OGTPKaQx5lmaie8UiDI7VtFXP7w8GrWhW"
+Cc: "wg@grandegger.com" <wg@grandegger.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>,
+	"'bhupesh.sharma@freescale.com'" <bhupesh.sharma@freescale.com>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D17264BA8@AcuExch.aculab.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--OGTPKaQx5lmaie8UiDI7VtFXP7w8GrWhW
 Content-Type: text/plain; charset=UTF-8
-Cc: Steve Glendinning <steve.glendinning@shawell.net>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	USB list <linux-usb@vger.kernel.org>
-To: Evgeny Boger <boger@contactless.ru>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f50.google.com ([209.85.215.50]:50403 "EHLO
-	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753613AbaFYKeZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2014 06:34:25 -0400
-In-Reply-To: <1403671574-16857-1-git-send-email-boger@contactless.ru>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
 
-2014-06-25 6:46 GMT+02:00 Evgeny Boger:
+On 06/25/2014 12:29 PM, David Laight wrote:
+>> Ok. Or should I create two functions for read and write - one does it =
+in LE way and the other
+>> in BE way and parse the DT to understand which endianness the module s=
+upports.
+>=20
+> An indirect call is likely to be slower than a conditional.
+> The conditional inside a non-inlined function is likely to get
+> predicted correctly on any code paths that matter.
+> Unfortunately using a real function increases register pressure.
+>=20
+> Maybe a compile-time option for BE, LE or both.
+> So a 'generic' kernel can work, but a SoC specific one will be faster.
+> Then have the driver load/attach/init fail if it is the wrong endiannes=
+s.
 
-> There might be 11 GPIOs in total.
+Don't overengineer, CAN is max 1 MiB/s.
 
-do you mean "12 GPIOs"? You say later they are 0-based and the last one is "11"
+Marc
 
-> Last three GPIOs  (offsets 8-11, 0-based) are shared with FDX, LNKA, SPD
-> LEDs respectively.
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
-so you mean the last "four"?
-and you may want to remove the extra space before the open parenthesis
 
-also there are still several unneeded newlines
+--OGTPKaQx5lmaie8UiDI7VtFXP7w8GrWhW
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-> diff --git a/drivers/net/usb/smsc95xx.c b/drivers/net/usb/smsc95xx.c
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
 
-> @@ -68,6 +70,15 @@ struct smsc95xx_priv {
->         spinlock_t mac_cr_lock;
->         u8 features;
->         u8 suspend_flags;
-> +
-> +       struct usbnet *dev;
+iEYEARECAAYFAlOqpawACgkQjTAFq1RaXHOdmwCfbFjxp5NMshjUlHjNMl7M/DkP
+DRkAn32Nj/aU2b3V4BucV0yRSHCGtaDy
+=NUXJ
+-----END PGP SIGNATURE-----
 
-> +static int smsc95xx_gpio_request(struct gpio_chip *gpio, unsigned offset)
-
-> +       mutex_unlock(&pdata->gpio_lock);
-> +
-> +
-> +       return (ret < 0) ? ret : 0;
-> +}
-> +
-> +static void smsc95xx_gpio_free(struct gpio_chip *gpio, unsigned offset)
-
-> +       if (ret < 0)
-> +               netif_err(pdata->dev, ifdown, pdata->dev->net,
-> +                       "error freeing gpio %d\n", offset);
-> +
-> +}
-
-and in other places
-
-> +static void smsc95xx_gpio_set(struct gpio_chip *gpio, unsigned offset,
-> +                               int value)
-> +{
-
-> +       if (ret < 0) {
-> +               netif_err(pdata->dev, ifdown, pdata->dev->net,
-> +                       "error writing gpio %d=%d\n", offset, value);
-> +               return;
-> +       }
-> +}
-
-no need to put a "return" there at he end of the function (if it's
-defensive programming then you didn't put return in similar code in a
-previous function)
-
--- 
-Daniele Forsi
+--OGTPKaQx5lmaie8UiDI7VtFXP7w8GrWhW--
