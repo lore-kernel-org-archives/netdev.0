@@ -1,52 +1,100 @@
-From: Jeff Mahoney <jeffm@suse.com>
-Subject: [BUG] Circular dependency introduced in commit 86f6cf4127
-Date: Wed, 25 Jun 2014 11:44:34 -0400
-Message-ID: <53AAEE62.7010602@suse.com>
+From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Subject: Re: [PATCH 3/3] ath10k: add firmware files
+Date: Wed, 25 Jun 2014 08:47:31 -0700
+Message-ID: <20140625154731.GJ1390@garbanzo.do-not-panic.com>
+References: <20140314084501.23100.13103.stgit@x230>
+ <20140314084514.23100.72654.stgit@x230>
+ <CAB=NE6WW8yX4kdy02j2fT4g0JvYj4a_XkiqYtXKZSMB7FHuwNg@mail.gmail.com>
+ <1394996230.15764.113.camel@deadeye.wl.decadent.org.uk>
+ <CAB=NE6UP7dAwBHWUvtqAWksbrrdJ=vBRmT2PfcJPdeNhHfb7Kw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: Daniel Mack <zonque@gmail.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:43621 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932281AbaFYPok (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 25 Jun 2014 11:44:40 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Kalle Valo <kvalo@qca.qualcomm.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	David Woodhouse <dwmw2@infradead.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	ath10k@lists.infradead.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAB=NE6UP7dAwBHWUvtqAWksbrrdJ=vBRmT2PfcJPdeNhHfb7Kw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+On Sun, Mar 16, 2014 at 01:17:52PM -0700, Luis R. Rodriguez wrote:
+> On Sun, Mar 16, 2014 at 11:57 AM, Ben Hutchings <ben@decadent.org.uk> wrote:
+> > On Fri, 2014-03-14 at 05:36 -0700, Luis R. Rodriguez wrote:
+> >> On Fri, Mar 14, 2014 at 1:45 AM, Kalle Valo <kvalo@qca.qualcomm.com> wrote:
+> > [...]
+> >> > + NO LICENSES OR OTHER RIGHTS,
+> >> > +WHETHER EXPRESS, IMPLIED, BASED ON ESTOPPEL OR OTHERWISE, ARE GRANTED
+> >> > +TO ANY PARTY'S PATENTS, PATENT APPLICATIONS, OR PATENTABLE INVENTIONS
+> >> > +BY VIRTUE OF THIS LICENSE OR THE DELIVERY OR PROVISION BY QUALCOMM
+> >> > +ATHEROS, INC. OF THE SOFTWARE.
+> >>
+> >> This -- however is new to linux-firmware -- and I hereby raise a big
+> >> red fucking flag. All other licenses on linux-firmware provide at the
+> >> very least a limited patent grant. What makes Qualcomm special ?
+> > [...]
+> >
+> > There are several licence texts that don't mention patents at all.  I'm
+> > assuming that the companies submitting firmware for inclusion in Linux
+> > or linux-firmware do intend to grant whatever licences are required to
+> > distribute it to end users.
+> 
+> Agreed, this would be the only fair thing.
+> 
+> > Several licence texts explicitly exclude patent licences relating to any
+> > *other* products of the same company, but that's quite redundant.
+> 
+> Sure.
+> 
+> > However this language seems to explicitly exclude *any* patent licence.
+> 
+> Yeap, they are making it crystal clear.
+> 
+> > You're right to raise a red flag because, assuming Qualcomm does have
+> > patents that cover the firmware alone, this seems to disallow
+> > redistribution in whatever jurisdictions those patents apply.
+> 
+> I'm also fearful of this setting a precedent for other vendors.
 
-Hi guys -
+<-- snip -->
 
-Commit 86f6cf4127 (net: of_mdio: add of_mdiobus_link_phydev())
-introduced a circular dependency between libphy and of_mdio.
+> To avoid patches as this one should we define some basic guidelines
+> for linux-firmware acceptable licenses?
 
-depmod: ERROR: <modroot>/kernel/drivers/net/phy/libphy.ko in
-dependency cycle!
-depmod: ERROR: <modroot>/kernel/drivers/of/of_mdio.ko in dependency cycle!
+How about this small change to clarify ?
 
-- -Jeff
+>From b0b9bd8328f797836ce0db6157232d017220594b Mon Sep 17 00:00:00 2001
+From: "Luis R. Rodriguez" <mcgrof@suse.com>
+Date: Wed, 25 Jun 2014 08:41:25 -0700
+Subject: [PATCH] README: clarify redistribution requirements covering patents
 
-- -- 
-Jeff Mahoney
-SUSE Labs
------BEGIN PGP SIGNATURE-----
-Version: GnuPG/MacGPG2 v2.0.19 (Darwin)
+Firmware licenses should include an implicit or explicit
+patent grant to end users for full device operation.
 
-iQIcBAEBAgAGBQJTqu5iAAoJEB57S2MheeWyPMwP/3tpviCx3A70xZMxdS1QA4uK
-oyoTgTK+y0i6gTh4Mtkehzt6+lZAHyRso1OkUfo0oHflFDHQFbfHmN4ec1NIghpz
-L3XdLaYx0U485ziFtmnbaWm24lhgOwyK33QTMZANJ0OiOSOqNY5+NG8uxH1XOrJj
-eklbNo5Cya6Veqy1P4LovfrlNK1RflGcxdPOq2a7GVpJP7dP4wupoPIhIKCZD7O0
-EL3Fo9bJ3+PNZT9pAaavBx6fjqqjLGOdj3QeBSkXxYvE5rueH0UNESZM+hytgQmo
-dIItCY0b95aJsxf26OcjJoWJgVX81GTlrT+HBzTLD5uKqHvi0Zt/A6RduWeS3am3
-2WxlXGaFshiqeRpm+0gz5OzZnWKaLLpxMmMKqrdFFSKoaPHdqcBcKbqp2yKqGXdk
-sUN/qCA5S3JPpxwbKoZOAR03NIvq6b5wyK2/LKsU3HY9eMjmGh5m1vcFnWSZ21BM
-lz70tqdoWchZ9FqffE2tKsDdtaL/HOFrcq5kcRnoy5L/F5HJ4TPh/t33bTN4D8Zw
-lpTPe4LgtcN1dLlgDFVLDwAHDYWQ+BBOPUYjCVtXhFCzknl+uhB4OYZ8lsb/Wx8u
-apBeq3M/+wGMQw5khVOW6wM7r6EklqJbs0Zbova8aUaxknbTK4weJXAnW6BCWzHZ
-6AX74FFiHH+pt/xFK8fQ
-=C7lH
------END PGP SIGNATURE-----
+Signed-off-by: Luis R. Rodriguez <mcgrof@suse.com>
+---
+ README | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/README b/README
+index f2ed92e..d2a56ec 100644
+--- a/README
++++ b/README
+@@ -18,7 +18,10 @@ and also cc: to related mailing lists.
+ 
+ Your commit should include an update to the WHENCE file clearly
+ identifying the licence under which the firmware is available, and
+-that it is redistributable. If the licence is long and involved, it's
++that it is redistributable. Being redistributable includes ensuring
++the firmware license provided includes an implicit or explicit
++patent grant to end users to ensure full functionality of device
++operation with the firmware. If the licence is long and involved, it's
+ permitted to include it in a separate file and refer to it from the
+ WHENCE file.
+ And if it were possible, a changelog of the firmware itself.
+-- 
+2.0.0
