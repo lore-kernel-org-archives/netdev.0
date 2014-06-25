@@ -1,48 +1,83 @@
-From: Bo Shen <voice.shen@atmel.com>
-Subject: [RFC PATCH] phy: micrel: make phy_has_fixups attribute read correctly
-Date: Wed, 25 Jun 2014 15:24:34 +0800
-Message-ID: <1403681075-16181-1-git-send-email-voice.shen@atmel.com>
+From: Arend van Spriel <arend@broadcom.com>
+Subject: Re: [PATCH 3/3] p54: use request_firmware_direct() for optional EEPROM
+ override
+Date: Wed, 25 Jun 2014 09:26:23 +0200
+Message-ID: <53AA799F.7030807@broadcom.com>
+References: <1403649583-12707-1-git-send-email-mcgrof@do-not-panic.com> <1403649583-12707-4-git-send-email-mcgrof@do-not-panic.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	Bo Shen <voice.shen@atmel.com>
-To: <f.fainelli@gmail.com>
+	<gregkh@linuxfoundation.org>,
+	"Luis R. Rodriguez" <mcgrof@suse.com>,
+	<linux-wireless@vger.kernel.org>
+To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>, <tiwai@suse.de>,
+	<chunkeey@googlemail.com>, <leedom@chelsio.com>,
+	<cocci@systeme.lip6.fr>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1403649583-12707-4-git-send-email-mcgrof@do-not-panic.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-If the fixups parameters get from dtb, it won't set has_fixups
-parameters, so when read phy_has_fixups attribute, it always
-present as 0.
-Add this patch to make phy_has_fixups attribute read correctly.
+On 25-06-14 00:39, Luis R. Rodriguez wrote:
+> From: "Luis R. Rodriguez" <mcgrof@suse.com>
+>
+> The p54 driver uses request_firmware() twice, once for actual
+> firmware and then another time for an optional user overide on
+> EEPROM, 3826.eeprom. The custom EEPROM  is optional but if not
+> present we'll introduce an extra lag of 60 seconds with udev
+> present. Annotate we don't want udev nonsense here to avoid
+> the lag in case its not present.
 
-Signed-off-by: Bo Shen <voice.shen@atmel.com>
----
- drivers/net/phy/micrel.c | 4 ++++
- 1 file changed, 4 insertions(+)
+I guess the fact that EEPROM is optional does not matter much. If doing 
+a second request you could always use request_firmware_direct(), right?
 
-diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-index bc7c7d2..c384922 100644
---- a/drivers/net/phy/micrel.c
-+++ b/drivers/net/phy/micrel.c
-@@ -237,6 +237,8 @@ static int ksz9021_load_values_from_of(struct phy_device *phydev,
- 
- 	if (!matches)
- 		return 0;
-+	else
-+		phydev->has_fixups = true;
- 
- 	if (matches < 4)
- 		newval = kszphy_extended_read(phydev, reg);
-@@ -330,6 +332,8 @@ static int ksz9031_of_load_skew_values(struct phy_device *phydev,
- 
- 	if (!matches)
- 		return 0;
-+	else
-+		phydev->has_fixups = true;
- 
- 	if (matches < numfields)
- 		newval = ksz9031_extended_read(phydev, OP_DATA, 2, reg);
--- 
-1.8.5.2
+Regards,
+Arend
+
+> This was found with the following SmPL patch.
+>
+> @ firmware_not_critical @
+> expression cf;
+> expression config_file;
+> expression dev;
+> int ret;
+> identifier l;
+> statement S;
+> @@
+>
+> -	ret = request_firmware(&cf, config_file, dev);
+> +	ret = request_firmware_direct(&cf, config_file, dev);
+> 	if (ret < 0) {
+> 		... when != goto l;
+> 		    when != return ret;
+> 		    when any
+> 	} else {
+> 		...
+> 		release_firmware(cf);
+> 		...
+> 	}
+>
+> Cc: Takashi Iwai <tiwai@suse.de>
+> Cc: Christian Lamparter <chunkeey@googlemail.com>
+> Cc: linux-wireless@vger.kernel.org
+> Cc: cocci@systeme.lip6.fr
+> Signed-off-by: Luis R. Rodriguez <mcgrof@suse.com>
+> ---
+>   drivers/net/wireless/p54/p54spi.c | 2 +-
+>   1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/wireless/p54/p54spi.c b/drivers/net/wireless/p54/p54spi.c
+> index de15171..63de5ee 100644
+> --- a/drivers/net/wireless/p54/p54spi.c
+> +++ b/drivers/net/wireless/p54/p54spi.c
+> @@ -193,7 +193,7 @@ static int p54spi_request_eeprom(struct ieee80211_hw *dev)
+>   	/* allow users to customize their eeprom.
+>   	 */
+>
+> -	ret = request_firmware(&eeprom, "3826.eeprom", &priv->spi->dev);
+> +	ret = request_firmware_direct(&eeprom, "3826.eeprom", &priv->spi->dev);
+>   	if (ret < 0) {
+>   #ifdef CONFIG_P54_SPI_DEFAULT_EEPROM
+>   		dev_info(&priv->spi->dev, "loading default eeprom...\n");
+>
