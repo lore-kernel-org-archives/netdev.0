@@ -1,155 +1,104 @@
-From: Casey Leedom <leedom@chelsio.com>
-Subject: Re: [PATCH 2/3] cxgb4: make configuration load use request_firmware_direct()
-Date: Wed, 25 Jun 2014 11:58:52 -0700
-Message-ID: <53AB1BEC.4080107@chelsio.com>
-References: <1403649583-12707-1-git-send-email-mcgrof@do-not-panic.com> <1403649583-12707-3-git-send-email-mcgrof@do-not-panic.com> <D46B557B-AF4A-4E60-8D83-6181D406C64F@chelsio.com> <20140625015048.GI27687@wotan.suse.de> <53AB02F4.1090701@chelsio.com> <20140625173156.GW27687@wotan.suse.de>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH] net: can: Remodel FlexCAN register read/write APIs for
+ BE instances
+Date: Wed, 25 Jun 2014 21:00:12 +0200
+Message-ID: <53AB1C3C.8@pengutronix.de>
+References: <1403625285-27824-1-git-send-email-bhupesh.sharma@freescale.com> <53AA8805.3050309@pengutronix.de> <ae6e49865206432ea871b08b159bae55@BN1PR03MB220.namprd03.prod.outlook.com> <53AAA3E9.6030409@pengutronix.de> <536c077e2e8b4dfabb4c07f696753a3c@BN1PR03MB220.namprd03.prod.outlook.com> <53AAAD84.1010400@pengutronix.de> <28c405ed255b42d09307274fccbec41e@BN1PR03MB220.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>, tiwai@suse.de,
-	chunkeey@googlemail.com, cocci@systeme.lip6.fr,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	gregkh@linuxfoundation.org, Philip Oswald <poswald@suse.com>,
-	Santosh Rastapur <santosh@chelsio.com>,
-	Jeffrey Cheung <jcheung@suse.com>,
-	David Chang <dchang@suse.com>,
-	Hariprasad Shenai <hariprasad@chelsio.com>
-To: "Luis R. Rodriguez" <mcgrof@suse.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140625173156.GW27687@wotan.suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="9JDoRAv5VFOt5sMuGbt7M1vtXMPoIO2Jd"
+Cc: "wg@grandegger.com" <wg@grandegger.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "bhupesh.sharma@freescale.com" <bhupesh.sharma@freescale.com>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <28c405ed255b42d09307274fccbec41e@BN1PR03MB220.namprd03.prod.outlook.com>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-   Okay, I'll leave the whole request_firmware{,_direct,_nowait}() thin=
-g=20
-alone.  The request_firmware_direct() will "solve" a non-problem (since=
-=20
-all of our "firmware" files are _supposed to be_ always present.  (And=20
-the 60 second timeout for udev to confirm that a file doesn't exist=20
-seems like udev is just basically broken.)
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--9JDoRAv5VFOt5sMuGbt7M1vtXMPoIO2Jd
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-   That aside, we still need to solve the real problem that we're=20
-experiencing in that the boot-time load of cxgb4 is timing out on SLE12=
-=20
-because a maximum load timeout has been instituted in that distribution=
-=20
-for driver modules and if there are two 10Gb/s-BT adapters present in a=
-=20
-system which need both base firmware and BT PHY firmware, we exceed tha=
-t=20
-timeout.  The timeout really should be per device (since there ~could~=20
-be an arbitrary number of devices in a system) and there probably shoul=
-d=20
-be a way for the driver to notify the kernel timeout mechanism that=20
-forward progress is being made ...
+On 06/25/2014 04:16 PM, bhupesh.sharma@freescale.com wrote:
+>> -----Original Message-----
+>> From: Marc Kleine-Budde [mailto:mkl@pengutronix.de]
+>> Sent: Wednesday, June 25, 2014 4:38 PM
+>> To: Sharma Bhupesh-B45370; linux-can@vger.kernel.org
+>> Cc: wg@grandegger.com; netdev@vger.kernel.org
+>> Subject: Re: [PATCH] net: can: Remodel FlexCAN register read/write API=
+s
+>> for BE instances
+>>
+>> On 06/25/2014 01:01 PM, bhupesh.sharma@freescale.com wrote:
+>>>> What about function pointers in the priv? So that flexcan_read()
+>>>> becomes
+>>>> priv->read().
+>>
+>>> That's what I propose (similar to what I did for C_CAN driver for
+>>> 16-bit and 32-bit reg interfaces using platform data):
+>>
+>> Yes...but...
+>>
+>>> bool module_is_be =3D false;
+>>
+>> ...module_is_be is not that simple, on PPC true must be the default to=
+ be
+>> compatible with existing dts.
+>=20
+> How does this look (a bit messed up, so I am open for comments):
 
-Casey
+What about:
 
-On 06/25/14 10:31, Luis R. Rodriguez wrote:
-> On Wed, Jun 25, 2014 at 10:12:20AM -0700, Casey Leedom wrote:
->> On 06/24/14 18:50, Luis R. Rodriguez wrote:
->>> On Tue, Jun 24, 2014 at 03:54:44PM -0700, Casey Leedom wrote:
->>>> [[ Hopefully this makes it through to the kernel.org lists -- I=E2=
-=80=99m using the
->>>>     Mac OS/X Mailer and it=E2=80=99s not clear how to force it not=
- to use HTML format.
->>>>     -- Casey ]]
->>>>
->>>>     So does request_firmware_direct() only fail if the requested f=
-ile is not
->>>>     present on the file system or does it fail in other cases as w=
-ell?
->>> Same as before they are the same exact call with the only differenc=
-e
->>> being udev is not used as an extra helper, so it saves the extra
->>> delay caused by udev. That's all.
->>>
->>>>     If it=E2=80=99s the former, then the change to cxgb4 is fine.
->>>>
->>>>     But if it=E2=80=99s the latter, then it=E2=80=99s definitely n=
-ot okay.  While the driver
->>>>     _can_ continue running without the local on-disk Firmware Conf=
-iguration
->>>>     File, that file can be used to significantly change the behavi=
-or and
->>>>     capabilities of the adapter and is user-customizable.  If a us=
-er makes
->>>>     changes to the local on-disk Firmware Configuration File and t=
-hese are
->>>>     randomly silently ignored this will lead to highly annoying su=
-pport issues.
->>> This just avoids udev, the request goes directly to the filesystem.=
- The
->>> failure will happen when the file is not present just as before, th=
-e
->>> only difference here is skipping udev, it doesn't suffer from the e=
-xtra
->>> 60 second timeout. There's another possible failure, when
->>> usermodehelper_read_trylock() fails but that is just as the code wa=
-s before
->>> so this change doesn't introduce that as a new false check. When th=
-at
->>> triggers yout get a nasty WARN_ON() just as before.
->>    Huh, okay.  I guess I'm confused about the value of request_firmw=
-are()
->> and the User Device helper.  If request_firmware_direct() just goes =
-to the
->> file system to grab the file and returns with ENOENT if it's not the=
-re,
->> then you could replace every usage of request_firmware() in the cxgb=
-4
->> driver as far as I can see ...  Either the files are there and we'll=
- use
->> them or they won't be and we'll have to cope with that.  Am I missin=
-g
->> something?
-> You're actually right specially given that udev firmware uploading wi=
-ll
-> hopefully eventually be removed eventually (it seems it was just one =
-driver
-> that caused to consider waiting on the removal, some driver that requ=
-ired
-> looking for firmware on some custom path I think or used a custom loa=
-der), for
-> now however its best to keep things consistent otherwise we'd replace
-> everything already. The _direct() call then is best used for optional=
- firmware
-> for now. Perhaps in the end will be that the non _direct() call will =
-have an
-> explicit print to the ring buffer if the file was not found.
->
->>    And again, this definitely isn't going to solve the problem that =
-started
->> this whole line of research:
-> I consider this research part of understanding and optimizing firmwar=
-e
-> loading on cxgb4, in this case this would save 60 seconds for each
-> optional configuration file not present when loading, its not clear t=
-o
-> me how often devices don't have optional configs so its unclear to me=
- the
-> exact savings in general, but if there's at least one user that shoul=
-d
-> speed things up.
->
->> we're still going to time out the load of
->> cxgb4 if there are multiple 10Gb/s BT adapters in a system and we ne=
-ed to
->> load each one with both base firmware and PHY firmware.
-> Again, the timeout is *within* firmware_request(), firmware_release()=
- does
-> not tell the firmware loader the timeout is over. The timeout is for =
-the
-> kernel doing the hunt for the file.
->
-> As I see it the next steps on the evaluation on firmware loading on c=
-xgb4
-> would be to evaluate a clean strategy to split things up, and also wo=
-uld
-> appreciate feedback on the bus master thing. Perhaps best we continue=
- that
-> discussoin on that thread?
->
->    Luis
->
+static u32 flexcan_read_le(void __iomem *addr)
+{
+	return ioread32(addr);
+}
+
+static u32 flexcan_read_be(void __iomem *addr)
+{
+	return ioread32be(addr);
+}
+
+flexcan_probe ()
+{
+	bool core_is_little =3D true;
+
+	/* or #ifdef __BIG_ENDIAN ... #endif instead of IS_ENABLED() */
+	if (IS_ENABLED(CONFIG_CPU_BIG_ENDIAN) ||
+	    of_property_read_bool(dev->dev.of_node, "big-endian"))
+		core_is_little =3D false;
+
+	if (core_is_little)
+		priv->read =3D flexcan_read_le;
+	else
+		priv->read =3D flexcan_read_be;
+
+}
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--9JDoRAv5VFOt5sMuGbt7M1vtXMPoIO2Jd
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+
+iEYEARECAAYFAlOrHEEACgkQjTAFq1RaXHO7BgCdEMM1Bl5uQ6OUOkHAOS0yX6bT
+h2MAoJnNZtIzYgCurBiI9WtikH6Y5ha5
+=Zjn8
+-----END PGP SIGNATURE-----
+
+--9JDoRAv5VFOt5sMuGbt7M1vtXMPoIO2Jd--
