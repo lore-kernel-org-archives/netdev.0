@@ -1,48 +1,46 @@
-From: "bhupesh.sharma@freescale.com" <bhupesh.sharma@freescale.com>
-Subject: RE: [PATCH] net: can: Remodel FlexCAN register read/write APIs for BE
- instances
-Date: Wed, 25 Jun 2014 14:16:33 +0000
-Message-ID: <28c405ed255b42d09307274fccbec41e@BN1PR03MB220.namprd03.prod.outlook.com>
-References: <1403625285-27824-1-git-send-email-bhupesh.sharma@freescale.com>
- <53AA8805.3050309@pengutronix.de>
- <ae6e49865206432ea871b08b159bae55@BN1PR03MB220.namprd03.prod.outlook.com>
- <53AAA3E9.6030409@pengutronix.de>
- <536c077e2e8b4dfabb4c07f696753a3c@BN1PR03MB220.namprd03.prod.outlook.com>
- <53AAAD84.1010400@pengutronix.de>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v2 16/17] MIPS: bpf: Use 32 or 64-bit load instruction to
+ load an address to register
+Date: Wed, 25 Jun 2014 07:28:39 -0700
+Message-ID: <CAMEtUuwzsWX=JR8PJo=MnX_KG8ActhDPju26wOO-9GUZPg_pwA@mail.gmail.com>
+References: <53AA85E8.5090403@imgtec.com>
+	<1403685578-25170-1-git-send-email-markos.chandras@imgtec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "wg@grandegger.com" <wg@grandegger.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Marc Kleine-Budde <mkl@pengutronix.de>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <53AAAD84.1010400@pengutronix.de>
-Content-Language: en-US
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux MIPS Mailing List <linux-mips@linux-mips.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Network Development <netdev@vger.kernel.org>
+To: Markos Chandras <markos.chandras@imgtec.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f47.google.com ([74.125.82.47]:56861 "EHLO
+	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757066AbaFYO2n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2014 10:28:43 -0400
+Received: by mail-wg0-f47.google.com with SMTP id k14so2168507wgh.30
+        for <netdev@vger.kernel.org>; Wed, 25 Jun 2014 07:28:40 -0700 (PDT)
+In-Reply-To: <1403685578-25170-1-git-send-email-markos.chandras@imgtec.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBNYXJjIEtsZWluZS1CdWRkZSBb
-bWFpbHRvOm1rbEBwZW5ndXRyb25peC5kZV0NCj4gU2VudDogV2VkbmVzZGF5LCBKdW5lIDI1LCAy
-MDE0IDQ6MzggUE0NCj4gVG86IFNoYXJtYSBCaHVwZXNoLUI0NTM3MDsgbGludXgtY2FuQHZnZXIu
-a2VybmVsLm9yZw0KPiBDYzogd2dAZ3JhbmRlZ2dlci5jb207IG5ldGRldkB2Z2VyLmtlcm5lbC5v
-cmcNCj4gU3ViamVjdDogUmU6IFtQQVRDSF0gbmV0OiBjYW46IFJlbW9kZWwgRmxleENBTiByZWdp
-c3RlciByZWFkL3dyaXRlIEFQSXMNCj4gZm9yIEJFIGluc3RhbmNlcw0KPiANCj4gT24gMDYvMjUv
-MjAxNCAwMTowMSBQTSwgYmh1cGVzaC5zaGFybWFAZnJlZXNjYWxlLmNvbSB3cm90ZToNCj4gPj4g
-V2hhdCBhYm91dCBmdW5jdGlvbiBwb2ludGVycyBpbiB0aGUgcHJpdj8gU28gdGhhdCBmbGV4Y2Fu
-X3JlYWQoKQ0KPiA+PiBiZWNvbWVzDQo+ID4+IHByaXYtPnJlYWQoKS4NCj4gDQo+ID4gVGhhdCdz
-IHdoYXQgSSBwcm9wb3NlIChzaW1pbGFyIHRvIHdoYXQgSSBkaWQgZm9yIENfQ0FOIGRyaXZlciBm
-b3INCj4gPiAxNi1iaXQgYW5kIDMyLWJpdCByZWcgaW50ZXJmYWNlcyB1c2luZyBwbGF0Zm9ybSBk
-YXRhKToNCj4gDQo+IFllcy4uLmJ1dC4uLg0KPiANCj4gPiBib29sIG1vZHVsZV9pc19iZSA9IGZh
-bHNlOw0KPiANCj4gLi4ubW9kdWxlX2lzX2JlIGlzIG5vdCB0aGF0IHNpbXBsZSwgb24gUFBDIHRy
-dWUgbXVzdCBiZSB0aGUgZGVmYXVsdCB0byBiZQ0KPiBjb21wYXRpYmxlIHdpdGggZXhpc3Rpbmcg
-ZHRzLg0KDQpIb3cgZG9lcyB0aGlzIGxvb2sgKGEgYml0IG1lc3NlZCB1cCwgc28gSSBhbSBvcGVu
-IGZvciBjb21tZW50cyk6DQoNCiNpZiBkZWZpbmVkKENPTkZJR19BUk0pDQpzdGF0aWMgaW5saW5l
-IHUzMiBmbGV4Y2FuX3JlYWRfaXBfaXNfYmUodm9pZCBfX2lvbWVtICphZGRyKQ0Kew0KCXJldHVy
-biBpb3JlYWQzMmJlKGFkZHIpOw0KfQ0KDQpzdGF0aWMgaW5saW5lIHUzMiBmbGV4Y2FuX3JlYWRf
-aXBfaXNfbGUodm9pZCBfX2lvbWVtICphZGRyKQ0Kew0KCXJldHVybiBpb3JlYWQzMihhZGRyKTsN
-Cn0NCiNlbmRpZg0KDQojaWYgZGVmaW5lZChDT05GSUdfUFBDKQ0Kc3RhdGljIGlubGluZSB1MzIg
-ZmxleGNhbl9yZWFkX2lwX2lzX2JlKHZvaWQgX19pb21lbSAqYWRkcikNCnsNCglyZXR1cm4gaW9y
-ZWFkMzIoYWRkcik7DQp9DQoNCnN0YXRpYyBpbmxpbmUgdTMyIGZsZXhjYW5fcmVhZF9pcF9pc19s
-ZSh2b2lkIF9faW9tZW0gKmFkZHIpDQp7DQoJcmV0dXJuIGlvcmVhZDMyYmUoYWRkcik7DQp9DQoj
-ZW5kaWYNCg0KWy4uIHNuaXBdDQoNClJlZ2FyZHMsDQpCaHVwZXNoDQo=
+On Wed, Jun 25, 2014 at 1:39 AM, Markos Chandras
+<markos.chandras@imgtec.com> wrote:
+> When loading a pointer to register we need to use the appropriate
+> 32 or 64bit instruction to preserve the pointers' top 32bits.
+>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Daniel Borkmann <dborkman@redhat.com>
+> Cc: Alexei Starovoitov <ast@plumgrid.com>
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: Markos Chandras <markos.chandras@imgtec.com>
+> ---
+> Changes since v1:
+> - Change function name to make it clear that we are loading a
+> pointer to a register, not an address
+
+Markos,
+
+when you post v2, please refresh the whole series, add v2 to subject and repost
+all patches from scratch.
+
+Thanks
