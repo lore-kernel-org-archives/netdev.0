@@ -1,241 +1,57 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [net-next PATCH v3 2/2] bridge: netlink dump interface at par with brctl
-Date: Wed, 25 Jun 2014 06:21:23 -0400
-Message-ID: <1403691683-14290-3-git-send-email-jhs@emojatatu.com>
+Subject: Re: [net-next PATCH v3 0/2] bridge: more efficient fdb dumping
+Date: Wed, 25 Jun 2014 06:25:17 -0400
+Message-ID: <53AAA38D.8090808@mojatatu.com>
 References: <1403691683-14290-1-git-send-email-jhs@emojatatu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, vyasevic@redhat.com,
 	sfeldma@cumulusnetworks.com, john.r.fastabend@intel.com,
-	roopa@cumulusnetworks.com, eric.dumazet@gmail.com,
-	Jamal Hadi Salim <jhs@mojatatu.com>
+	roopa@cumulusnetworks.com, eric.dumazet@gmail.com
 To: davem@davemloft.net, stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f45.google.com ([209.85.160.45]:63419 "EHLO
-	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756126AbaFYKVy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2014 06:21:54 -0400
-Received: by mail-pb0-f45.google.com with SMTP id rr13so1525685pbb.32
-        for <netdev@vger.kernel.org>; Wed, 25 Jun 2014 03:21:54 -0700 (PDT)
+Received: from mail-ie0-f181.google.com ([209.85.223.181]:45304 "EHLO
+	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753302AbaFYKZ0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2014 06:25:26 -0400
+Received: by mail-ie0-f181.google.com with SMTP id y20so1441397ier.40
+        for <netdev@vger.kernel.org>; Wed, 25 Jun 2014 03:25:25 -0700 (PDT)
 In-Reply-To: <1403691683-14290-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Actually better than brctl showmacs because we can filter by bridge
-port in the kernel.
-The current bridge netlink interface doesnt scale when you have many
-bridges each with large fdbs or even bridges with many bridge ports
+I should say I have tested this version against net-next
+(the commit message describes the validation tests)
 
-And now for the science non-fiction novel you have all been
-waiting for..
+cheers,
+jamal
 
-//lets see what bridge ports we have
-root@moja-1:/configs/may30-iprt/bridge# ./bridge link show
-8: eth1 state DOWN : <BROADCAST,MULTICAST> mtu 1500 master br0 state
-disabled priority 32 cost 19
-17: sw1-p1 state DOWN : <BROADCAST,NOARP> mtu 1500 master br0 state
-disabled priority 32 cost 100
-
-// show all..
-root@moja-1:/configs/may30-iprt/bridge# ./bridge fdb show
-33:33:00:00:00:01 dev bond0 self permanent
-33:33:00:00:00:01 dev dummy0 self permanent
-33:33:00:00:00:01 dev ifb0 self permanent
-33:33:00:00:00:01 dev ifb1 self permanent
-33:33:00:00:00:01 dev eth0 self permanent
-01:00:5e:00:00:01 dev eth0 self permanent
-33:33:ff:22:01:01 dev eth0 self permanent
-02:00:00:12:01:02 dev eth1 vlan 0 master br0 permanent
-00:17:42:8a:b4:05 dev eth1 vlan 0 master br0 permanent
-00:17:42:8a:b4:07 dev eth1 self permanent
-33:33:00:00:00:01 dev eth1 self permanent
-33:33:00:00:00:01 dev gretap0 self permanent
-da:ac:46:27:d9:53 dev sw1-p1 vlan 0 master br0 permanent
-33:33:00:00:00:01 dev sw1-p1 self permanent
-
-//filter by bridge
-root@moja-1:/configs/may30-iprt/bridge# ./bridge fdb show br br0
-02:00:00:12:01:02 dev eth1 vlan 0 master br0 permanent
-00:17:42:8a:b4:05 dev eth1 vlan 0 master br0 permanent
-00:17:42:8a:b4:07 dev eth1 self permanent
-33:33:00:00:00:01 dev eth1 self permanent
-da:ac:46:27:d9:53 dev sw1-p1 vlan 0 master br0 permanent
-33:33:00:00:00:01 dev sw1-p1 self permanent
-
-// bridge sw1 has no ports attached..
-root@moja-1:/configs/may30-iprt/bridge# ./bridge fdb show br sw1
-
-//filter by port
-root@moja-1:/configs/may30-iprt/bridge# ./bridge fdb show brport eth1
-02:00:00:12:01:02 vlan 0 master br0 permanent
-00:17:42:8a:b4:05 vlan 0 master br0 permanent
-00:17:42:8a:b4:07 self permanent
-33:33:00:00:00:01 self permanent
-
-// filter by port + bridge
-root@moja-1:/configs/may30-iprt/bridge# ./bridge fdb show br br0 brport
-sw1-p1
-da:ac:46:27:d9:53 vlan 0 master br0 permanent
-33:33:00:00:00:01 self permanent
-
-// for shits and giggles, lets change the mac that br0 uses
-// Note: a magical fdb entry with no brport is added ...
-root@moja-1:/configs/may30-iprt/bridge# ip link set dev br0 address
-02:00:00:12:01:04
-
-// lets see if we can see the unicorn ..
-root@moja-1:/configs/may30-iprt/bridge# ./bridge fdb show
-33:33:00:00:00:01 dev bond0 self permanent
-33:33:00:00:00:01 dev dummy0 self permanent
-33:33:00:00:00:01 dev ifb0 self permanent
-33:33:00:00:00:01 dev ifb1 self permanent
-33:33:00:00:00:01 dev eth0 self permanent
-01:00:5e:00:00:01 dev eth0 self permanent
-33:33:ff:22:01:01 dev eth0 self permanent
-02:00:00:12:01:02 dev eth1 vlan 0 master br0 permanent
-00:17:42:8a:b4:05 dev eth1 vlan 0 master br0 permanent
-00:17:42:8a:b4:07 dev eth1 self permanent
-33:33:00:00:00:01 dev eth1 self permanent
-33:33:00:00:00:01 dev gretap0 self permanent
-02:00:00:12:01:04 dev br0 vlan 0 master br0 permanent <=== there it is
-da:ac:46:27:d9:53 dev sw1-p1 vlan 0 master br0 permanent
-33:33:00:00:00:01 dev sw1-p1 self permanent
-
-//can we see it if we filter by bridge?
-root@moja-1:/configs/may30-iprt/bridge# ./bridge fdb show br br0
-02:00:00:12:01:02 dev eth1 vlan 0 master br0 permanent
-00:17:42:8a:b4:05 dev eth1 vlan 0 master br0 permanent
-00:17:42:8a:b4:07 dev eth1 self permanent
-33:33:00:00:00:01 dev eth1 self permanent
-02:00:00:12:01:04 dev br0 vlan 0 master br0 permanent <=== there it is
-da:ac:46:27:d9:53 dev sw1-p1 vlan 0 master br0 permanent
-33:33:00:00:00:01 dev sw1-p1 self permanent
-
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
----
- net/bridge/br_fdb.c  |   15 ++++++++--
- net/core/rtnetlink.c |   76 ++++++++++++++++++++++++++++++++++++++++----------
- 2 files changed, 73 insertions(+), 18 deletions(-)
-
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index 6edecd1..115fe1c 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -692,9 +692,18 @@ int br_fdb_dump(struct sk_buff *skb,
- 			if (idx < cb->args[0])
- 				goto skip;
- 
--			if (filter_dev && (!f->dst || !f->dst->dev ||
--					   f->dst->dev != filter_dev))
--				goto skip;
-+			if (filter_dev && (!f->dst || f->dst->dev != filter_dev)) {
-+				if (filter_dev != dev)
-+					goto skip;
-+				/* 
-+				 * !f->dst is a speacial case for bridge
-+				 * It means the MAC belongs to the bridge
-+				 * Therefore need a little more filtering
-+				 * we only want to dump the !f->dst case
-+				 */
-+				if (f->dst)
-+					goto skip;
-+			}
- 
- 			if (fdb_fill_info(skb, br, f,
- 					  NETLINK_CB(cb->skb).portid,
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 7471060..464007e 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -2527,28 +2527,74 @@ EXPORT_SYMBOL(ndo_dflt_fdb_dump);
- 
- static int rtnl_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
- {
--	int idx = 0;
--	struct net *net = sock_net(skb->sk);
- 	struct net_device *dev;
-+	struct nlattr *tb[IFLA_MAX+1];
-+	struct net_device *bdev = NULL;
-+	struct net_device *br_dev = NULL;
-+	const struct net_device_ops *ops = NULL;
-+	const struct net_device_ops *cops = NULL;
-+	struct ifinfomsg *ifm = nlmsg_data(cb->nlh);
-+	struct net *net = sock_net(skb->sk);
-+	int brport_idx = 0;
-+	int br_idx = 0;
-+	int idx = 0;
-+
-+	if (nlmsg_parse(cb->nlh, sizeof(struct ifinfomsg), tb, IFLA_MAX,
-+			ifla_policy) == 0) {
-+		if (tb[IFLA_MASTER])
-+			br_idx = nla_get_u32(tb[IFLA_MASTER]);
-+	}
-+	
-+	brport_idx = ifm->ifi_index;
-+
-+	if (br_idx) {
-+		br_dev = __dev_get_by_index(net, br_idx);
-+		if (!br_dev) {
-+			return -ENODEV;
-+		}
-+		ops = br_dev->netdev_ops;
-+		bdev = br_dev;
-+	}
-+
-+	for_each_netdev(net, dev) {
-+
-+		if (brport_idx && (dev->ifindex != brport_idx))
-+			continue;
-+
-+		if (!br_idx) { /* user did not specify a specific bridge */
-+			if (dev->priv_flags & IFF_BRIDGE_PORT) {
-+				br_dev = netdev_master_upper_dev_get(dev);
-+				cops = br_dev->netdev_ops;
-+			}
-+
-+			bdev = dev;
-+		} else {
-+			if (dev != br_dev &&
-+			    !(dev->priv_flags & IFF_BRIDGE_PORT))
-+				continue;
-+
-+			if (br_dev != netdev_master_upper_dev_get(dev) &&
-+			    !(dev->priv_flags & IFF_EBRIDGE))
-+				continue;
-+
-+			bdev = br_dev;
-+			cops = ops;
-+		}
- 
--	rcu_read_lock();
--	for_each_netdev_rcu(net, dev) {
- 		if (dev->priv_flags & IFF_BRIDGE_PORT) {
--			struct net_device *br_dev;
--			const struct net_device_ops *ops;
-+			if (cops && cops->ndo_fdb_dump) {
-+				idx = cops->ndo_fdb_dump(skb, cb, br_dev, dev, idx);
-+			}
-+		}
- 
--			br_dev = netdev_master_upper_dev_get(dev);
--			ops = br_dev->netdev_ops;
--			if (ops->ndo_fdb_dump)
--				idx = ops->ndo_fdb_dump(skb, cb, dev, NULL, idx);
-+		idx = ndo_dflt_fdb_dump(skb, cb, dev, NULL, idx);
-+		if (dev->netdev_ops->ndo_fdb_dump) {
-+			idx = dev->netdev_ops->ndo_fdb_dump(skb, cb, bdev, dev,
-+							    idx);
- 		}
- 
--		if (dev->netdev_ops->ndo_fdb_dump)
--			idx = dev->netdev_ops->ndo_fdb_dump(skb, cb, dev, NULL, idx);
--		else
--			idx = ndo_dflt_fdb_dump(skb, cb, dev, NULL, idx);
-+		cops = NULL;
- 	}
--	rcu_read_unlock();
- 
- 	cb->args[0] = idx;
- 	return skb->len;
--- 
-1.7.9.5
+On 06/25/14 06:21, Jamal Hadi Salim wrote:
+> From: Jamal Hadi Salim <jhs@mojatatu.com>
+>
+> Changes:
+> V3:
+>   Suggestion from Eric D. to use for_each_netdev
+>   Suggestion from Stephen H. to reduce level of indentation
+>
+> V2:
+> Suggestions from Vlad
+>   Get rid of rcu read lock since rtnl_lock is being held
+>   simplify for readability
+>
+>
+> Jamal Hadi Salim (2):
+>    bridge: fdb dumping takes a filter device
+>    bridge: netlink dump interface at par with brctl
+>
+>   drivers/net/ethernet/intel/i40e/i40e_main.c      |    3 +-
+>   drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    5 +-
+>   include/linux/netdevice.h                        |    1 +
+>   include/linux/rtnetlink.h                        |    1 +
+>   net/bridge/br_fdb.c                              |   14 ++++
+>   net/bridge/br_private.h                          |    2 +-
+>   net/core/rtnetlink.c                             |   77 +++++++++++++++++-----
+>   7 files changed, 84 insertions(+), 19 deletions(-)
+>
