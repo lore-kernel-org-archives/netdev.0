@@ -1,61 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next] net: make neigh tables per netns
-Date: Thu, 26 Jun 2014 13:43:35 -0700 (PDT)
-Message-ID: <20140626.134335.2147671135749217539.davem@davemloft.net>
-References: <87d2dwsfh6.fsf@x220.int.ebiederm.org>
-	<CAM_iQpVeVpcQLPz7GDuni_v5+bJikQkc2cSzrKee72eGuOecDQ@mail.gmail.com>
-	<87lhskpizv.fsf@x220.int.ebiederm.org>
+From: Maxime Bizon <mbizon@freebox.fr>
+Subject: Re: [PATCH] bridge: mark packets sent to any local mac address as
+ PACKET_HOST
+Date: Thu, 26 Jun 2014 23:19:48 +0200
+Message-ID: <20140626211948.GA7077@sakura.staff.proxad.net>
+References: <1403534015-28496-1-git-send-email-mbizon@freebox.fr>
+ <20140625161335.11598f09@haswell>
+ <1403781352.52578.103.camel@sakura.staff.proxad.net>
+ <20140626.133550.975175623908419742.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, netdev@vger.kernel.org, kaber@trash.net,
-	stephen@networkplumber.org, cwang@twopensource.com
-To: ebiederm@xmission.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51161 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751904AbaFZUnh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2014 16:43:37 -0400
-In-Reply-To: <87lhskpizv.fsf@x220.int.ebiederm.org>
+Received: from ns.iliad.fr ([212.27.33.1]:54400 "EHLO ns.iliad.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750703AbaFZVTx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Jun 2014 17:19:53 -0400
+Content-Disposition: inline
+In-Reply-To: <20140626.133550.975175623908419742.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: ebiederm@xmission.com (Eric W. Biederman)
-Date: Wed, 25 Jun 2014 18:17:08 -0700
 
-> I disagree that removing a global DOS prevention check is a benefit.
-> Certainly large semantics changes like that should not happen without
-> being discussed in the patch description.
+On Thursday 26 Jun 2014 =E0 13:35:50 (-0700), David Miller wrote:
 
-Agreed, this is the most important core issue.
+> > for some reasons, hostapd kept adding and removing the interface fr=
+om
+> > the bridge, triggering a mac address of the bridge change each time=
+ (I
+> > did not notice that).
+>=20
+> I think this is what you need to investigate rather than making
+> changes to the bridge layer.
 
-If we just make these things per netns, then as a result if you create
-N namespaces we will allow N times more neighbour entries to be
-sitting in the system at once.
+Of course I fixed the problem with hostapd, I was just explaining how
+I noticed that behaviour in the bridge code.
 
-Actually, I'm really surprised the limits get hit and this actually
-causes problems.
+If that behaviour is intended then just forget that patch.
 
-This is simply because we don't cache neighbour table entries in route
-entries any more.  They are only passively referenced during packet
-output, and with no reference taken.
-
-See net/ipv4/ip_output.c:ip_finish_output2() where it goes:
-
-	rcu_read_lock_bh();
-	nexthop = (__force u32) rt_nexthop(rt, ip_hdr(skb)->daddr);
-	neigh = __ipv4_neigh_lookup_noref(dev, nexthop);
-	if (unlikely(!neigh))
-		neigh = __neigh_create(&arp_tbl, &nexthop, dev, false);
-	if (!IS_ERR(neigh)) {
-		int res = dst_neigh_output(dst, neigh, skb);
-
-		rcu_read_unlock_bh();
-		return res;
-	}
-	rcu_read_unlock_bh();
-
-Nearly identical code lives in net/ipv6/ip6_output.c:ip6_finish_output2()
-
-So nothing is even holding onto neigh entries any more, they are trivially
-recycled when demand increases and the thresholds are hit.
+--=20
+Maxime
