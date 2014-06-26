@@ -1,29 +1,37 @@
-From: Varka Bhadram <varkabhadram-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next 1/2] 6lowpan: fix coding style
-	issues
-Date: Thu, 26 Jun 2014 19:06:54 +0530
-Message-ID: <1403789815-10418-2-git-send-email-varkab@cdac.in>
-References: <1403789815-10418-1-git-send-email-varkab@cdac.in>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Varka Bhadram <varkab-If5XQcfNmg0@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1403789815-10418-1-git-send-email-varkab-If5XQcfNmg0@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Varka Bhadram <varkabhadram@gmail.com>
+Subject: [PATCH net-next] 6lowpan: ieee802154: fix coding style issues
+Date: Thu, 26 Jun 2014 19:23:42 +0530
+Message-ID: <1403790822-9487-1-git-send-email-varkab@cdac.in>
+Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
+	linux-zigbee-devel@lists.sourceforge.net, davem@davemloft.net,
+	Varka Bhadram <varkab@cdac.in>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f54.google.com ([209.85.160.54]:43180 "EHLO
+	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751557AbaFZNys (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2014 09:54:48 -0400
+Received: by mail-pb0-f54.google.com with SMTP id un15so3180120pbc.41
+        for <netdev@vger.kernel.org>; Thu, 26 Jun 2014 06:54:47 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Sorry. Please drop the previous patch series which is having
+the subject: cleanup for 6lowpan and mac802514
 
-Signed-off-by: Varka Bhadram <varkab-If5XQcfNmg0@public.gmane.org>
+These patches fixed the coding style issues reported by checkpatch.pl.
+
+following issues fixed:
+	CHECK: Alignment should match open parenthesis
+	WARNING: Prefer kcalloc over kzalloc with multiply
+	WARNING: line over 80 characters
+	CHECK: Blank lines aren't necessary before a close brace '}'
+	WARNING: networking block comments don't use an empty /* line, use /* Comment...
+	WARNING: Missing a blank line after declarations
+	WARNING: networking block comments start with * on subsequent lines
+	CHECK: braces {} should be used on all arms of this statement
+
+Signed-off-by: Varka Bhadram <varkab@cdac.in>
 ---
  net/ieee802154/6lowpan_iphc.c  |  113 ++++++++++++++++++----------------------
  net/ieee802154/6lowpan_rtnl.c  |   16 +++---
@@ -32,24 +40,28 @@ Signed-off-by: Varka Bhadram <varkab-If5XQcfNmg0@public.gmane.org>
  net/ieee802154/ieee802154.h    |    2 +-
  net/ieee802154/netlink.c       |    4 +-
  net/ieee802154/nl-mac.c        |   48 +++++++++--------
- net/ieee802154/nl-phy.c        |   25 +++++----
+ net/ieee802154/nl-phy.c        |   23 ++++----
  net/ieee802154/raw.c           |   14 +++--
  net/ieee802154/reassembly.c    |    1 +
  net/ieee802154/wpan-class.c    |   10 ++--
- 11 files changed, 145 insertions(+), 142 deletions(-)
+ net/mac802154/ieee802154_dev.c |    4 +-
+ net/mac802154/llsec.c          |    1 +
+ net/mac802154/mib.c            |    7 +--
+ net/mac802154/tx.c             |    1 +
+ 15 files changed, 153 insertions(+), 145 deletions(-)
 
 diff --git a/net/ieee802154/6lowpan_iphc.c b/net/ieee802154/6lowpan_iphc.c
 index 211b568..511ddee 100644
 --- a/net/ieee802154/6lowpan_iphc.c
 +++ b/net/ieee802154/6lowpan_iphc.c
 @@ -3,8 +3,7 @@
-  * written by Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+  * written by Alexander Smirnov <alex.bluesman.smirnov@gmail.com>
   */
  
 -/*
-- * Based on patches from Jon Smirl <jonsmirl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-+/* Based on patches from Jon Smirl <jonsmirl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-  * Copyright (c) 2011 Jon Smirl <jonsmirl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+- * Based on patches from Jon Smirl <jonsmirl@gmail.com>
++/* Based on patches from Jon Smirl <jonsmirl@gmail.com>
+  * Copyright (c) 2011 Jon Smirl <jonsmirl@gmail.com>
   *
   * This program is free software; you can redistribute it and/or modify
 @@ -58,16 +57,15 @@
@@ -865,10 +877,10 @@ index a3281b8..c6bfe22 100644
  	struct net *net = sock_net(skb->sk);
  	struct net_device *dev;
 diff --git a/net/ieee802154/nl-phy.c b/net/ieee802154/nl-phy.c
-index 89b265a..948492d 100644
+index 89b265a..972baf8 100644
 --- a/net/ieee802154/nl-phy.c
 +++ b/net/ieee802154/nl-phy.c
-@@ -36,11 +36,11 @@
+@@ -36,7 +36,7 @@
  #include "ieee802154.h"
  
  static int ieee802154_nl_fill_phy(struct sk_buff *msg, u32 portid,
@@ -877,11 +889,6 @@ index 89b265a..948492d 100644
  {
  	void *hdr;
  	int i, pages = 0;
--	uint32_t *buf = kzalloc(32 * sizeof(uint32_t), GFP_KERNEL);
-+	uint32_t *buf = kcalloc(32 * sizeof(uint32_t), GFP_KERNEL);
- 
- 	pr_debug("%s\n", __func__);
- 
 @@ -48,7 +48,7 @@ static int ieee802154_nl_fill_phy(struct sk_buff *msg, u32 portid,
  		return -EMSGSIZE;
  
@@ -1073,13 +1080,78 @@ index 8d6f670..4955e0f 100644
  	rc = class_register(&wpan_phy_class);
  	if (rc)
  		goto err;
+diff --git a/net/mac802154/ieee802154_dev.c b/net/mac802154/ieee802154_dev.c
+index 2cf66d8..c4d4568 100644
+--- a/net/mac802154/ieee802154_dev.c
++++ b/net/mac802154/ieee802154_dev.c
+@@ -143,6 +143,7 @@ static void
+ mac802154_del_iface(struct wpan_phy *phy, struct net_device *dev)
+ {
+ 	struct mac802154_sub_if_data *sdata;
++
+ 	ASSERT_RTNL();
+ 
+ 	sdata = netdev_priv(dev);
+@@ -276,7 +277,8 @@ ieee802154_alloc_device(size_t priv_data_len, struct ieee802154_ops *ops)
+ 	}
+ 
+ 	priv = wpan_phy_priv(phy);
+-	priv->hw.phy = priv->phy = phy;
++	priv->phy = phy;
++	priv->hw.phy = priv->phy;
+ 	priv->hw.priv = (char *)priv + ALIGN(sizeof(*priv), NETDEV_ALIGN);
+ 	priv->ops = ops;
+ 
+diff --git a/net/mac802154/llsec.c b/net/mac802154/llsec.c
+index 1456f73..4570581 100644
+--- a/net/mac802154/llsec.c
++++ b/net/mac802154/llsec.c
+@@ -538,6 +538,7 @@ static int llsec_recover_addr(struct mac802154_llsec *sec,
+ 			      struct ieee802154_addr *addr)
+ {
+ 	__le16 caddr = sec->params.coord_shortaddr;
++
+ 	addr->pan_id = sec->params.pan_id;
+ 
+ 	if (caddr == cpu_to_le16(IEEE802154_ADDR_BROADCAST)) {
+diff --git a/net/mac802154/mib.c b/net/mac802154/mib.c
+index 15aa2f2..868a040 100644
+--- a/net/mac802154/mib.c
++++ b/net/mac802154/mib.c
+@@ -175,9 +175,9 @@ static void phy_chan_notify(struct work_struct *work)
+ 
+ 	mutex_lock(&priv->hw->phy->pib_lock);
+ 	res = hw->ops->set_channel(&hw->hw, priv->page, priv->chan);
+-	if (res)
++	if (res) {
+ 		pr_debug("set_channel failed\n");
+-	else {
++	} else {
+ 		priv->hw->phy->current_channel = priv->chan;
+ 		priv->hw->phy->current_page = priv->page;
+ 	}
+@@ -210,8 +210,9 @@ void mac802154_dev_set_page_channel(struct net_device *dev, u8 page, u8 chan)
+ 		INIT_WORK(&work->work, phy_chan_notify);
+ 		work->dev = dev;
+ 		queue_work(priv->hw->dev_workqueue, &work->work);
+-	} else
++	} else {
+ 		mutex_unlock(&priv->hw->phy->pib_lock);
++	}
+ }
+ 
+ 
+diff --git a/net/mac802154/tx.c b/net/mac802154/tx.c
+index 6d16473..8124353 100644
+--- a/net/mac802154/tx.c
++++ b/net/mac802154/tx.c
+@@ -98,6 +98,7 @@ netdev_tx_t mac802154_tx(struct mac802154_priv *priv, struct sk_buff *skb,
+ 	if (!(priv->hw.flags & IEEE802154_HW_OMIT_CKSUM)) {
+ 		u16 crc = crc_ccitt(0, skb->data, skb->len);
+ 		u8 *data = skb_put(skb, 2);
++
+ 		data[0] = crc & 0xff;
+ 		data[1] = crc >> 8;
+ 	}
 -- 
 1.7.9.5
-
-
-------------------------------------------------------------------------------
-Open source business process management suite built on Java and Eclipse
-Turn processes into business applications with Bonita BPM Community Edition
-Quickly connect people, data, and systems into organized workflows
-Winner of BOSSIE, CODIE, OW2 and Gartner awards
-http://p.sf.net/sfu/Bonitasoft
