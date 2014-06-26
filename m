@@ -1,38 +1,77 @@
-From: kishan simha <ksimha123@gmail.com>
-Subject: Information about SCTP patch
-Date: Thu, 26 Jun 2014 12:58:54 +0530
-Message-ID: <CAJ5TDg_0GjTWVin1Xr4sZwNhzMiT+bJPZwzfKB0xBdPMuK7T+g@mail.gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 2/2] openvswitch: introduce rtnl ops stub
+Date: Thu, 26 Jun 2014 09:39:36 +0200
+Message-ID: <20140626073936.GA3049@minipsycho.orion>
+References: <1403699280-12837-1-git-send-email-jiri@resnulli.us>
+ <1403699280-12837-2-git-send-email-jiri@resnulli.us>
+ <87fvitvuxp.fsf@x220.int.ebiederm.org>
+ <20140625163509.GC2972@minipsycho.orion>
+ <877g44x68q.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org
-To: linux-sctp@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, pshelar@nicira.com,
+	cwang@twopensource.com, nicolas.dichtel@6wind.com,
+	david@gibson.dropbear.id.au, sfeldma@cumulusnetworks.com,
+	sucheta.chakraborty@qlogic.com, stephen@networkplumber.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f181.google.com ([209.85.214.181]:63841 "EHLO
-	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755406AbaFZH2z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2014 03:28:55 -0400
+Received: from mail-we0-f177.google.com ([74.125.82.177]:49881 "EHLO
+	mail-we0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754865AbaFZHjj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2014 03:39:39 -0400
+Received: by mail-we0-f177.google.com with SMTP id u56so3155078wes.22
+        for <netdev@vger.kernel.org>; Thu, 26 Jun 2014 00:39:38 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <877g44x68q.fsf@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Wed, Jun 25, 2014 at 07:13:09PM CEST, ebiederm@xmission.com wrote:
+>Jiri Pirko <jiri@resnulli.us> writes:
+>
+>> Wed, Jun 25, 2014 at 06:02:42PM CEST, ebiederm@xmission.com wrote:
+>>>Jiri Pirko <jiri@resnulli.us> writes:
+>>>
+>>>> This stub now allows userspace to see IFLA_INFO_KIND for ovs master and
+>>>> IFLA_INFO_SLAVE_KIND for slave.
+>>>
+>>>I am puzzled why you don't implement full rtnl_link_operations support.
+>>
+>> openvswitch does not need that at the moment (most probably it never
+>> will). Creation and deletion is handled over separate genl channel.
+>>
+>>>
+>>>If all you want is to report which kind of driver you have I suspect
+>>>implementing ethtool_ops.get_drvinfo is a much better fit.
+>>
+>> That is maybe partly true but that would not be consistent with bond, team,
+>> bridge masters and slaves which benefit ops->kind to expose the type
+>> into userspace.
+>
+>So instead of using the mechanism that is supported by most of the
+>network drivers in the tree you are instead relying on a mechanism
+>that only works for a handful of software defined network devices.
 
-I wanted some information on the SCTP patch   "sctp: Add support to
-per-association statistics via a new SCTP_GET_ASSOC_STA "
+As I said, I just want openvswitch to be similar in this with
+bridge/bond/team. ops->kind is there, its exposed to userspace, I don't
+see any harm adding one another code which benefits that.
 
+Note that this also allows to see slave kind.
 
-The commit information is
+>
+>I really think exposing a kind at this point is lying to user space
+>as having a kind implies that the netlink messages behind "ip link add"
+>and "ip link del" work.
 
-commit 196d67593439b03088913227093e374235596e33
+Proper -EOPNOTSUPP is returned. And is is the same as if !ops. The
+behavior is not changed.
 
-Author: Michele Baldessari <michele@acksyn.org>
+>
+>Further I have seen nothing in what you are proposing that addresses
+>that absolute horrible maintenance consequences of your patch.
 
-Date:   Sat Dec 1 04:49:42 2012 +0000
+I don't understand what maintenance consequences you have on mind. Would
+you please exmplain? Thanks.
 
-
-Is it possible to know into which kernel version did this patch go into?
-I tried to find it online and I was not able to. Hence mailing to this list.
-
-It will be helpful if you anyone answer this.
-
-Thanks and Regards
-Kishan
+>
+>Eric
