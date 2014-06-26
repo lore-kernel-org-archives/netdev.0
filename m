@@ -1,93 +1,65 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net v2 2/3] net: systemport: fix UniMAC reset logic
-Date: Thu, 26 Jun 2014 10:06:45 -0700
-Message-ID: <1403802406-10992-3-git-send-email-f.fainelli@gmail.com>
-References: <1403802406-10992-1-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net 1/3] net: bcmgenet: disable clock before register_netdev
+Date: Thu, 26 Jun 2014 10:26:20 -0700
+Message-ID: <1403803582-13472-2-git-send-email-f.fainelli@gmail.com>
+References: <1403803582-13472-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f42.google.com ([209.85.160.42]:43916 "EHLO
-	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756633AbaFZRH1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2014 13:07:27 -0400
-Received: by mail-pb0-f42.google.com with SMTP id ma3so3398661pbc.15
-        for <netdev@vger.kernel.org>; Thu, 26 Jun 2014 10:07:27 -0700 (PDT)
-In-Reply-To: <1403802406-10992-1-git-send-email-f.fainelli@gmail.com>
+Received: from mail-qg0-f44.google.com ([209.85.192.44]:35628 "EHLO
+	mail-qg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757295AbaFZR0f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2014 13:26:35 -0400
+Received: by mail-qg0-f44.google.com with SMTP id j107so3337772qga.17
+        for <netdev@vger.kernel.org>; Thu, 26 Jun 2014 10:26:35 -0700 (PDT)
+In-Reply-To: <1403803582-13472-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The UniMAC CMD_SW_RESET bit is not a self-clearing bit, so we need to
-assert it, wait a bit and clear it manually. As a result, umac_reset()
-is updated not to return any value. The previous version of the code
-simply wrote 0 to the CMD register, which would make the busy-waiting
-loop exit immediately, having zero effect.
+As soon as register_netdev() is called, the network device notifiers are
+running which means that other parts of the kernel, or user-space
+programs can call the network device ndo_open() callback and use the
+interface.
 
-By writing 0 to the CMD register, we were clearing all bits in the CMD
-register, and not using the hardware reset default values which are
-set on purpose.
+Disable the Ethernet device clock before we register the network device
+such that we do not create the following situation:
+
+CPU0				CPU1
+register_netdev()
+				bcmgenet_open()
+				clk_prepare_enable()
+clk_disable_unprepare()
+
+and leave the hardware block gated off, while we think it should be
+gated on.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
-Changes in v2:
-- clarify the commit message and make it accurate with what the code
-  did before
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
- drivers/net/ethernet/broadcom/bcmsysport.c | 33 ++++++++----------------------
- 1 file changed, 9 insertions(+), 24 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
-index f6bccd847ee6..d31f7d239064 100644
---- a/drivers/net/ethernet/broadcom/bcmsysport.c
-+++ b/drivers/net/ethernet/broadcom/bcmsysport.c
-@@ -1254,28 +1254,17 @@ static inline void umac_enable_set(struct bcm_sysport_priv *priv,
- 		usleep_range(1000, 2000);
- }
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index 5ba1cfbd60da..d17953cc5f49 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -2535,14 +2535,14 @@ static int bcmgenet_probe(struct platform_device *pdev)
+ 	netif_set_real_num_tx_queues(priv->dev, priv->hw_params->tx_queues + 1);
+ 	netif_set_real_num_rx_queues(priv->dev, priv->hw_params->rx_queues + 1);
  
--static inline int umac_reset(struct bcm_sysport_priv *priv)
-+static inline void umac_reset(struct bcm_sysport_priv *priv)
- {
--	unsigned int timeout = 0;
- 	u32 reg;
--	int ret = 0;
+-	err = register_netdev(dev);
+-	if (err)
+-		goto err_clk_disable;
 -
--	umac_writel(priv, 0, UMAC_CMD);
--	while (timeout++ < 1000) {
--		reg = umac_readl(priv, UMAC_CMD);
--		if (!(reg & CMD_SW_RESET))
--			break;
--
--		udelay(1);
--	}
--
--	if (timeout == 1000) {
--		dev_err(&priv->pdev->dev,
--			"timeout waiting for MAC to come out of reset\n");
--		ret = -ETIMEDOUT;
--	}
+ 	/* Turn off the main clock, WOL clock is handled separately */
+ 	if (!IS_ERR(priv->clk))
+ 		clk_disable_unprepare(priv->clk);
  
--	return ret;
-+	reg = umac_readl(priv, UMAC_CMD);
-+	reg |= CMD_SW_RESET;
-+	umac_writel(priv, reg, UMAC_CMD);
-+	udelay(10);
-+	reg = umac_readl(priv, UMAC_CMD);
-+	reg &= ~CMD_SW_RESET;
-+	umac_writel(priv, reg, UMAC_CMD);
- }
++	err = register_netdev(dev);
++	if (err)
++		goto err;
++
+ 	return err;
  
- static void umac_set_hw_addr(struct bcm_sysport_priv *priv,
-@@ -1303,11 +1292,7 @@ static int bcm_sysport_open(struct net_device *dev)
- 	int ret;
- 
- 	/* Reset UniMAC */
--	ret = umac_reset(priv);
--	if (ret) {
--		netdev_err(dev, "UniMAC reset failed\n");
--		return ret;
--	}
-+	umac_reset(priv);
- 
- 	/* Flush TX and RX FIFOs at TOPCTRL level */
- 	topctrl_flush(priv);
+ err_clk_disable:
 -- 
 1.9.1
