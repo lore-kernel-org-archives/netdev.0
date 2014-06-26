@@ -1,29 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: dependency cycle between libphy and of_mdio
-Date: Thu, 26 Jun 2014 01:50:10 -0700 (PDT)
-Message-ID: <20140626.015010.1049964034604158112.davem@davemloft.net>
-References: <alpine.SOC.1.00.1406261135010.12870@math.ut.ee>
+From: Vernon Ross <vhross@wakehealth.edu>
+Subject: RE:
+Date: Thu, 26 Jun 2014 08:36:10 +0000
+Message-ID: <2D5ACE8BD40CD541B552C523B551F244287FB315@EXCHDB8.medctr.ad.wfubmc.edu>
+References: <2D5ACE8BD40CD541B552C523B551F244287FAA9C@EXCHDB8.medctr.ad.wfubmc.edu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mroos@linux.ee
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Vernon Ross <vhross@wakehealth.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42199 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750770AbaFZIuL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2014 04:50:11 -0400
-In-Reply-To: <alpine.SOC.1.00.1406261135010.12870@math.ut.ee>
+Received: from vpm3.wfubmc.edu ([152.11.118.203]:40440 "EHLO vpm3.wfubmc.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752104AbaFZI5J convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2014 04:57:09 -0400
+Received: from 127.0.0.1 (ZixVPM [127.0.0.1])
+	by Outbound.wfubmc.edu (Proprietary) with SMTP id BA2D81BF0C74
+	for <netdev@vger.kernel.org>; Thu, 26 Jun 2014 04:37:48 -0400 (EDT)
+In-Reply-To: <2D5ACE8BD40CD541B552C523B551F244287FAA9C@EXCHDB8.medctr.ad.wfubmc.edu>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Meelis Roos <mroos@linux.ee>
-Date: Thu, 26 Jun 2014 11:36:23 +0300 (EEST)
 
->   DEPMOD  3.16.0-rc2-00211-gd7933ab
-> depmod: ERROR: Found 2 modules in dependency cycles!
-> depmod: ERROR: Cycle detected: libphy -> of_mdio -> libphy
 
-We know, a fix was posted an hour or two ago.
+________________________________
+From: Vernon Ross
+Sent: Thursday, June 26, 2014 4:31 AM
+To: Vernon Ross
+Subject:
 
-Thanks.
+Donation to you, contact Mrs Ira Cury on    mrsivycury@163.com   for more info
