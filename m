@@ -1,46 +1,62 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [Patch net-next] net: make neigh tables per netns
-Date: Thu, 26 Jun 2014 08:14:39 +0200
-Message-ID: <20140626061438.GA2889@unicorn.suse.cz>
-References: <1403561370-2876-1-git-send-email-xiyou.wangcong@gmail.com>
- <87d2dwsfh6.fsf@x220.int.ebiederm.org>
- <CAM_iQpVeVpcQLPz7GDuni_v5+bJikQkc2cSzrKee72eGuOecDQ@mail.gmail.com>
- <87lhskpizv.fsf@x220.int.ebiederm.org>
+From: Christian Riesch <christian.riesch@omicron.at>
+Subject: Re: [PATCH net-next 1/3] ptp: Allow reassigning calibration pin function
+Date: Thu, 26 Jun 2014 08:14:58 +0200
+Message-ID: <CABkLOboZDJr8tr5JpaUijuNcJ7j7L8nMU33TC0WMn4iir-qVAw@mail.gmail.com>
+References: <1403699851-11178-1-git-send-email-stefan.sorensen@spectralink.com>
+	<1403699851-11178-2-git-send-email-stefan.sorensen@spectralink.com>
+	<20140626052144.GB4537@netboy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	stephen hemminger <stephen@networkplumber.org>,
-	Cong Wang <cwang@twopensource.com>
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?Q?Stefan_S=C3=B8rensen?= <stefan.sorensen@spectralink.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:53443 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753060AbaFZGOo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Jun 2014 02:14:44 -0400
-Content-Disposition: inline
-In-Reply-To: <87lhskpizv.fsf@x220.int.ebiederm.org>
+Received: from mail-qc0-f174.google.com ([209.85.216.174]:32771 "EHLO
+	mail-qc0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753315AbaFZGO7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2014 02:14:59 -0400
+Received: by mail-qc0-f174.google.com with SMTP id x13so2700208qcv.33
+        for <netdev@vger.kernel.org>; Wed, 25 Jun 2014 23:14:58 -0700 (PDT)
+In-Reply-To: <20140626052144.GB4537@netboy>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 25, 2014 at 06:17:08PM -0700, Eric W. Biederman wrote:
-> Cong Wang <xiyou.wangcong@gmail.com> writes:
-> 
-> > On Wed, Jun 25, 2014 at 5:04 PM, Eric W. Biederman
-> > <ebiederm@xmission.com> wrote:
-> 
-> >> The only thing I see that you can gain by this work is getting around
-> >> global limits on neighbor table size.  Something that I think is most
-> >> unwise.
-> >
-> > Yes, this is one the benefits.
-> 
-> I disagree that removing a global DOS prevention check is a benefit.
+Hi Richard,
 
-Network namespaces are often used for e.g. LXC containers. In such case,
-it would IMHO make sense if reaching the limits in one container didn't
-affect other containers or the host system.
+On Thu, Jun 26, 2014 at 7:21 AM, Richard Cochran
+<richardcochran@gmail.com> wrote:
+> On Wed, Jun 25, 2014 at 02:37:29PM +0200, Stefan S=C3=B8rensen wrote:
+>> The ptp pin function programming does not allow calibration pin to c=
+hange
+>> function. This is problematic on hardware that uses the default cali=
+bration
+>> pin for other purposes.
+>>
+>> Removing this limitation does not impact calibration if userspace do=
+es not
+>> reprogram the calibration pin.
+>
+> Reassigning the calibration function never makes sense, because it is
+> only used in the driver probe method.
 
-                                                         Michal Kubecek
+Yes, indeed, but isn't that a bug? I think the calibration should be
+done again whenever the clock is loaded with a new value, i.e. in
+ptp_dp83640_settime. See section 3.1 in [1]: "All subsequent settings
+should use a step
+adjustment or temporary rate adjustment, which should occur at each
+PHY without introducing any error." This means, whenever we do
+something else (directly write to the clock register), we must
+recalibrate.
+
+> Clobbering the calibration pin with another function only makes sense
+> if the hardware design has exactly one PHY.
+
+Or if the hardware has two PHYs that are not used at the same time. I
+have a board that has two DP83640 on the same MII bus, one is used for
+optical Ethernet, one for copper. Only one of the PHYs is powered up
+at a time, the other one is in power down and MII isolate mode. In
+such a case the calibration pin could be used for something else.
+
+Christian
