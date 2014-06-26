@@ -1,77 +1,72 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [Patch net-next] net: make neigh tables per netns
-Date: Thu, 26 Jun 2014 05:10:13 -0700
-Message-ID: <87k383lvmi.fsf@x220.int.ebiederm.org>
-References: <1403561370-2876-1-git-send-email-xiyou.wangcong@gmail.com>
-	<87d2dwsfh6.fsf@x220.int.ebiederm.org>
-	<CAM_iQpVeVpcQLPz7GDuni_v5+bJikQkc2cSzrKee72eGuOecDQ@mail.gmail.com>
-	<87lhskpizv.fsf@x220.int.ebiederm.org>
-	<20140626061438.GA2889@unicorn.suse.cz>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	stephen hemminger <stephen@networkplumber.org>,
-	Cong Wang <cwang@twopensource.com>
-To: Michal Kubecek <mkubecek@suse.cz>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/14] i40evf: return more useful error information
+Date: Thu, 26 Jun 2014 05:13:43 -0700
+Message-ID: <1403784834-23301-5-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1403784834-23301-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:47481 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754485AbaFZMNb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2014 08:13:31 -0400
-In-Reply-To: <20140626061438.GA2889@unicorn.suse.cz> (Michal Kubecek's message
-	of "Thu, 26 Jun 2014 08:14:39 +0200")
+Received: from mga03.intel.com ([143.182.124.21]:10390 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756280AbaFZMO0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Jun 2014 08:14:26 -0400
+In-Reply-To: <1403784834-23301-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Michal Kubecek <mkubecek@suse.cz> writes:
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-> On Wed, Jun 25, 2014 at 06:17:08PM -0700, Eric W. Biederman wrote:
->> Cong Wang <xiyou.wangcong@gmail.com> writes:
->> 
->> > On Wed, Jun 25, 2014 at 5:04 PM, Eric W. Biederman
->> > <ebiederm@xmission.com> wrote:
->> 
->> >> The only thing I see that you can gain by this work is getting around
->> >> global limits on neighbor table size.  Something that I think is most
->> >> unwise.
->> >
->> > Yes, this is one the benefits.
->> 
->> I disagree that removing a global DOS prevention check is a benefit.
->
-> Network namespaces are often used for e.g. LXC containers. In such case,
-> it would IMHO make sense if reaching the limits in one container didn't
-> affect other containers or the host system.
+When verifying the API version (which is the first time the driver
+communicates with the firmware and thus the PF driver), there are many
+ways in which a failure can occur. There may be an error from the
+firmware, there may be unresponsive firmware, there may be an error from
+the PF driver, etc, etc.
 
-I agree it would be good if one network namespace could not DOS
-another.   It has even happened once or twice.  Probably the most
-siginificant ways is when people create lots of network namespaces
-(think 100s) and with just one or two neighbour tables per network
-namespace exhaust the global neighbour limit.
+Make this function return more useful information, instead of just -EIO.
+Propagate FW errors back to the caller, and log a message if the PF
+sends an invalid reply.
 
-However even in that case we don't want to remove the global limit and
-allow ways to DOS the host that are not possible today.
+Change-ID: I3e9135a2b80f7acdb855f62f12b2b2668c9a8951
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
 
-I think there is some real potential in improving the neighbour cache.
-We can DOS a system that is plugged into two networks by having an arp
-flood of say 10,000 hosts on one interface that makes the other
-interface useless.
-
-Anyone who cares about ipv6 probably also wants to take a good hard look
-at the neighbour table.  One documented attack on an ipv6 router is to
-try to talk to each host in a /64 in turn.  To avoid that class of
-problem ipv4 subnets are typically kept small, and that isn't a
-realistic option in ipv6 for anyting except point to point links.
-
-Which means there is a lot of room too improve how the neighbour table
-behaves in a meaningful way.  I would be very happy to review patches
-that make the neighbour cache better for everyone.  Figuring out how
-to cleanly remove a lock sounds like one way.  Figuring out how to shape
-the data structures and the limits so that a system stays performant and
-is resistant to DOS attacks when a machine is connected to lots of
-networks is another way.
-
-Eric
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
+index 2dc0bac..0ed2ad7 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_virtchnl.c
+@@ -80,8 +80,9 @@ int i40evf_send_api_ver(struct i40evf_adapter *adapter)
+  * @adapter: adapter structure
+  *
+  * Compare API versions with the PF. Must be called after admin queue is
+- * initialized. Returns 0 if API versions match, -EIO if
+- * they do not, or I40E_ERR_ADMIN_QUEUE_NO_WORK if the admin queue is empty.
++ * initialized. Returns 0 if API versions match, -EIO if they do not,
++ * I40E_ERR_ADMIN_QUEUE_NO_WORK if the admin queue is empty, and any errors
++ * from the firmware are propagated.
+  **/
+ int i40evf_verify_api_ver(struct i40evf_adapter *adapter)
+ {
+@@ -102,13 +103,13 @@ int i40evf_verify_api_ver(struct i40evf_adapter *adapter)
+ 		goto out_alloc;
+ 
+ 	err = (i40e_status)le32_to_cpu(event.desc.cookie_low);
+-	if (err) {
+-		err = -EIO;
++	if (err)
+ 		goto out_alloc;
+-	}
+ 
+ 	if ((enum i40e_virtchnl_ops)le32_to_cpu(event.desc.cookie_high) !=
+ 	    I40E_VIRTCHNL_OP_VERSION) {
++		dev_info(&adapter->pdev->dev, "Invalid reply type %d from PF\n",
++			 le32_to_cpu(event.desc.cookie_high));
+ 		err = -EIO;
+ 		goto out_alloc;
+ 	}
+-- 
+1.9.3
