@@ -1,48 +1,67 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Information about SCTP patch
-Date: Thu, 26 Jun 2014 00:47:53 -0700
-Message-ID: <1403768873.374.6.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAJ5TDg_0GjTWVin1Xr4sZwNhzMiT+bJPZwzfKB0xBdPMuK7T+g@mail.gmail.com>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: [PATCH net-next] net: fix some typos in comment
+Date: Thu, 26 Jun 2014 15:56:31 +0800
+Message-ID: <1403769391-15222-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org
-To: kishan simha <ksimha123@gmail.com>
+Content-Type: text/plain
+Cc: <eric.dumazet@gmail.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f180.google.com ([74.125.82.180]:58250 "EHLO
-	mail-we0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754709AbaFZHr5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2014 03:47:57 -0400
-In-Reply-To: <CAJ5TDg_0GjTWVin1Xr4sZwNhzMiT+bJPZwzfKB0xBdPMuK7T+g@mail.gmail.com>
+Received: from mail.windriver.com ([147.11.1.11]:47352 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754046AbaFZH4i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2014 03:56:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-06-26 at 12:58 +0530, kishan simha wrote:
-> Hello,
-> 
-> I wanted some information on the SCTP patch   "sctp: Add support to
-> per-association statistics via a new SCTP_GET_ASSOC_STA "
-> 
-> 
-> The commit information is
-> 
-> commit 196d67593439b03088913227093e374235596e33
-> 
-> Author: Michele Baldessari <michele@acksyn.org>
-> 
-> Date:   Sat Dec 1 04:49:42 2012 +0000
-> 
-> 
-> Is it possible to know into which kernel version did this patch go into?
-> I tried to find it online and I was not able to. Hence mailing to this list.
-> 
-> It will be helpful if you anyone answer this.
+In commit 371121057607e3127e19b3fa094330181b5b031e("net:
+QDISC_STATE_RUNNING dont need atomic bit ops") the
+__QDISC_STATE_RUNNING is renamed to __QDISC___STATE_RUNNING,
+but the old names existing in comment are not replaced with
+the new name completely.
 
-Sure :
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+---
+ net/core/dev.c          |    4 ++--
+ net/sched/sch_generic.c |    4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-$ git describe --contains 196d67593439b03088913227093e374235596e33
-
-v3.8-rc1~139^2~117
-
-
-So all linux versions starting from linux-3.8 have it.
+diff --git a/net/core/dev.c b/net/core/dev.c
+index a04b12f..de97741 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2738,8 +2738,8 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
+ 	/*
+ 	 * Heuristic to force contended enqueues to serialize on a
+ 	 * separate lock before trying to get qdisc main lock.
+-	 * This permits __QDISC_STATE_RUNNING owner to get the lock more often
+-	 * and dequeue packets faster.
++	 * This permits __QDISC___STATE_RUNNING owner to get the lock more
++	 * often and dequeue packets faster.
+ 	 */
+ 	contended = qdisc_is_running(q);
+ 	if (unlikely(contended))
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index e1543b0..fc04fe9 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -108,7 +108,7 @@ static inline int handle_dev_cpu_collision(struct sk_buff *skb,
+ 
+ /*
+  * Transmit one skb, and handle the return status as required. Holding the
+- * __QDISC_STATE_RUNNING bit guarantees that only one CPU can execute this
++ * __QDISC___STATE_RUNNING bit guarantees that only one CPU can execute this
+  * function.
+  *
+  * Returns to the caller:
+@@ -156,7 +156,7 @@ int sch_direct_xmit(struct sk_buff *skb, struct Qdisc *q,
+ /*
+  * NOTE: Called under qdisc_lock(q) with locally disabled BH.
+  *
+- * __QDISC_STATE_RUNNING guarantees only one CPU can process
++ * __QDISC___STATE_RUNNING guarantees only one CPU can process
+  * this qdisc at a time. qdisc_lock(q) serializes queue accesses for
+  * this queue.
+  *
+-- 
+1.7.9.5
