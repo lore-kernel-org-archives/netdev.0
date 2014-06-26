@@ -1,45 +1,68 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [PATCH net-next 3/3 RFC] pktgen: Allow sending TCP packets
-Date: Thu, 26 Jun 2014 10:39:41 +0100
-Message-ID: <53ABEA5D.1040104@citrix.com>
-References: <1403728972-29548-1-git-send-email-zoltan.kiss@citrix.com>	<1403728972-29548-4-git-send-email-zoltan.kiss@citrix.com>	<CAHA+R7NR4PmLbwmKXL8iwdwm3STNmpT4iZCp3VgB2zAqWZm7XQ@mail.gmail.com> <20140625.174452.216399345748954052.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <steffen.klassert@secunet.com>, <minipli@googlemail.com>,
-	<dborkman@redhat.com>, <tgraf@suug.ch>, <joe@perches.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<xen-devel@lists.xenproject.org>
-To: David Miller <davem@davemloft.net>, <cwang@twopensource.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140625.174452.216399345748954052.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Boris BREZILLON <boris.brezillon@free-electrons.com>
+Subject: [PATCH v2 1/2] ARM: at91/dt: describe rgmii ethernet phy connected to sama5d3xek boards
+Date: Thu, 26 Jun 2014 12:13:34 +0200
+Message-ID: <1403777615-25685-2-git-send-email-boris.brezillon@free-electrons.com>
+References: <1403777615-25685-1-git-send-email-boris.brezillon@free-electrons.com>
+Cc: linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Boris BREZILLON <boris.brezillon@free-electrons.com>
+To: Nicolas Ferre <nicolas.ferre@atmel.com>,
+	Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
+	Alexandre Belloni <alexandre.belloni@free-electrons.com>,
+	Andrew Victor <linux@maxim.org.za>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from top.free-electrons.com ([176.31.233.9]:42708 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752833AbaFZKNk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2014 06:13:40 -0400
+In-Reply-To: <1403777615-25685-1-git-send-email-boris.brezillon@free-electrons.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 26/06/14 01:44, David Miller wrote:
-> From: Cong Wang <cwang@twopensource.com>
-> Date: Wed, 25 Jun 2014 17:41:47 -0700
->
->> On Wed, Jun 25, 2014 at 1:42 PM, Zoltan Kiss <zoltan.kiss@citrix.com> wrote:
->>> This is a prototype patch to enable sending TCP packets with pktgen. The
->>> original motivation is to test TCP GSO with xen-netback/netfront, but I'm not
->>> sure about how the checksum should be set up, and also someone should verify the
->>> GSO settings I'm using.
->>>
->>
->> What's the point of sending TCP packets since you don't establish a TCP
->> connection?
->
-> I guess they want to test checksumming and aggregation, things like that.
->
-> The other side is of course going to spew reset packets back at the
-> pktgen machine.
->
+Add ethernet-phy node and specify phy interrupt (connected to pin PB25).
 
-Yes, I just want to stress the driver, not the TCP stack on the other 
-end? Netback/front doesn't handle UDP GSO, so to test TCP GSO we need to 
-fed it with TCP packets.
-It would be good if someone can advise me how to setup checksum and GSO 
-bits.
+The PHY address is not specified here because atmel have 2 different
+designs
+for its CPU modules: one is connecting PHYAD[0-2] pins to pull up resistors
+(Embest design) and the other one is connection PHYAD0 to a pull up
+resistor and PHYAD[1-2] to pull down resistors (Ronetix design).
+As a result, Ronetix design will have its PHY available at address 0x1 and
+Embest design at 0x7.
+Let the net PHY core automatically detect the PHY address by scanning the
+MDIO bus.
 
-Zoli
+Define board specific delays to apply to RGMII signals.
+
+Signed-off-by: Boris BREZILLON <boris.brezillon@free-electrons.com>
+---
+ arch/arm/boot/dts/sama5d3xcm.dtsi | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/arch/arm/boot/dts/sama5d3xcm.dtsi b/arch/arm/boot/dts/sama5d3xcm.dtsi
+index b0b1331..fc68bae 100644
+--- a/arch/arm/boot/dts/sama5d3xcm.dtsi
++++ b/arch/arm/boot/dts/sama5d3xcm.dtsi
+@@ -34,6 +34,21 @@
+ 
+ 			macb0: ethernet@f0028000 {
+ 				phy-mode = "rgmii";
++				#address-cells = <1>;
++				#size-cells = <0>;
++
++				ethernet-phy {
++					interrupt-parent = <&pioB>;
++					interrupts = <25 IRQ_TYPE_EDGE_FALLING>;
++					txen-skew-ps = <800>;
++					txc-skew-ps = <3000>;
++					rxdv-skew-ps = <400>;
++					rxc-skew-ps = <3000>;
++					rxd0-skew-ps = <400>;
++					rxd1-skew-ps = <400>;
++					rxd2-skew-ps = <400>;
++					rxd3-skew-ps = <400>;
++				};
+ 			};
+ 
+ 			pmc: pmc@fffffc00 {
+-- 
+1.8.3.2
