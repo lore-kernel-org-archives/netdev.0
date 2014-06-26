@@ -1,78 +1,55 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net-next 01/13] tipc: eliminate case of writing to freed
- memory
-Date: Thu, 26 Jun 2014 06:56:57 -0400
-Message-ID: <20140626105656.GA16025@hmsreliant.think-freely.org>
-References: <1403746902-20408-1-git-send-email-jon.maloy@ericsson.com>
- <1403746902-20408-2-git-send-email-jon.maloy@ericsson.com>
+From: Maxime Bizon <mbizon@freebox.fr>
+Subject: Re: [PATCH] bridge: mark packets sent to any local mac address as
+ PACKET_HOST
+Date: Thu, 26 Jun 2014 13:15:52 +0200
+Message-ID: <1403781352.52578.103.camel@sakura.staff.proxad.net>
+References: <1403534015-28496-1-git-send-email-mbizon@freebox.fr>
+	 <20140625161335.11598f09@haswell>
+Reply-To: mbizon@freebox.fr
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="ANSI_X3.4-1968"
+Content-Transfer-Encoding: 7bit
 Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net
-To: Jon Maloy <jon.maloy@ericsson.com>
+	bridge@lists.linux-foundation.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:36048 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754661AbaFZK5K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2014 06:57:10 -0400
-Content-Disposition: inline
-In-Reply-To: <1403746902-20408-2-git-send-email-jon.maloy@ericsson.com>
+Received: from ns.iliad.fr ([212.27.33.1]:36542 "EHLO ns.iliad.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755679AbaFZLPy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Jun 2014 07:15:54 -0400
+In-Reply-To: <20140625161335.11598f09@haswell>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 25, 2014 at 08:41:30PM -0500, Jon Maloy wrote:
-> In the function tipc_nodesub_notify() we call a function pointer
-> aggregated into the object to be notified, whereafter we set
-> the function pointer to NULL. However, in some cases the function
-> pointed to will free the struct containing the function pointer,
-> resulting in a write to already freed memory.
-> 
-> This bug seems to always have been there, without causing any
-> notable harm.
-> 
-> In this commit we fix the problem by inverting the order of the
-> zeroing and the function call.
-> 
-> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
-> ---
->  net/tipc/node_subscr.c |    6 ++++--
->  1 file changed, 4 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/tipc/node_subscr.c b/net/tipc/node_subscr.c
-> index 7c59ab1..2d13eea 100644
-> --- a/net/tipc/node_subscr.c
-> +++ b/net/tipc/node_subscr.c
-> @@ -84,11 +84,13 @@ void tipc_nodesub_unsubscribe(struct tipc_node_subscr *node_sub)
->  void tipc_nodesub_notify(struct list_head *nsub_list)
->  {
->  	struct tipc_node_subscr *ns, *safe;
-> +	net_ev_handler handle_node_down;
->  
->  	list_for_each_entry_safe(ns, safe, nsub_list, nodesub_list) {
-> -		if (ns->handle_node_down) {
-> -			ns->handle_node_down(ns->usr_handle);
-> +		handle_node_down = ns->handle_node_down;
-> +		if (handle_node_down) {
->  			ns->handle_node_down = NULL;
-> +			handle_node_down(ns->usr_handle);
->  		}
->  	}
->  }
 
-If its true that some functions pointed to by handle_node_down free the struct
-pointing to the function pointer, than this change isn't sufficient.  The only
-caller to tipc_nodesub_notify is node_lost_contact, which dereferences the same
-structure right after the call to tipc_nodesub_notify.
+On Wed, 2014-06-25 at 16:13 -0700, Stephen Hemminger wrote:
 
-Neil
+> > The bridge code only set PACKET_HOST on packets sent to the bridge mac
+> > address, packets sent to other local mac addresses are sent to upper
+> > layers, but ignored because they are marked as PACKET_OTHERHOST.
+> > 
+> > Signed-off-by: Maxime Bizon <mbizon@freebox.fr>
+> 
+> What are you trying to do? Bridge device itself only has one MAC address.
+> Are you trying to run macvlan on top of bridge?
+> We only respond to ARP with bridge's MAC address.
 
-> -- 
-> 1.7.9.5
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+host1 uses a bridge with two interfaces: ethernet and wireless (AP mode
+using hostapd)
+
+for some reasons, hostapd kept adding and removing the interface from
+the bridge, triggering a mac address of the bridge change each time (I
+did not notice that).
+
+Another host had a static arp entry for host1, using the ethernet mac
+address, so its packets to host1 were randomly trashed depending on the
+current mac of the bridge.
+
+I have since fixed this by setting a static mac address on the bridge to
+prevent dynamic change, but I thought this patch would prevent other
+people from having the same bug in the future.
+
+What do you think ?
+
+-- 
+Maxime
