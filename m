@@ -1,137 +1,51 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 10/14] i40e: only create PTP device node once
-Date: Thu, 26 Jun 2014 05:13:49 -0700
-Message-ID: <1403784834-23301-11-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/14] i40evf: resend FW request if no response
+Date: Thu, 26 Jun 2014 05:13:45 -0700
+Message-ID: <1403784834-23301-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1403784834-23301-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Mitch Williams <mitch.a.williams@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:10417 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:10421 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757654AbaFZMOc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1757392AbaFZMOc (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 26 Jun 2014 08:14:32 -0400
 In-Reply-To: <1403784834-23301-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Mitch Williams <mitch.a.williams@intel.com>
 
-Currently every time we run through the i40e_ptp_init routine, we create
-a new device node. This function is called by i40e_reset_and_rebuild
-which is used to handle reset of the device. Even though the 1588
-registers only get cleared on a GLOBAL reset, this function is still
-called to handle a CORE reset.
+Sometimes the firmware will not indicate an error but fail to pass a
+message between the VF and the PF driver. If this happens, just resend
+the request.
 
-This causes a leak of PTP device nodes at every reset. To fix this,
-break PTP device clock node creation out of i40e_ptp_init, and only call
-this if we don't already have a device created. Further invocation of
-i40e_ptp_init will not generate new PTP devices. Instead, only the
-necessary work required to reconfigure 1588 will be done.
+This fixes an initialization failure if many VFs are instantiated at the
+same time and the VF module is autoloaded.
 
-This change also fixes an issue where a reset can cause the
-device to forget it's timestamp configuration, and revert to the default
-mode.
-
-Change-ID: I741d01c61d9fe1d24887859d1316e1a8a892909e
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Change-ID: Idd1ad8da2fd5137859244685c355941427d317d7
+Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ptp.c | 58 +++++++++++++++++++++++-------
- 1 file changed, 46 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ptp.c b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
-index f7dded9..0c935e8 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ptp.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
-@@ -567,18 +567,22 @@ int i40e_ptp_set_ts_config(struct i40e_pf *pf, struct ifreq *ifr)
- }
- 
- /**
-- * i40e_ptp_init - Initialize the 1588 support and register the PHC
-+ * i40e_ptp_create_clock - Create PTP clock device for userspace
-  * @pf: Board private structure
-  *
-- * This function registers the device clock as a PHC. If it is successful, it
-- * starts the clock in the hardware.
-+ * This function creates a new PTP clock device. It only creates one if we
-+ * don't already have one, so it is safe to call. Will return error if it
-+ * can't create one, but success if we already have a device. Should be used
-+ * by i40e_ptp_init to create clock initially, and prevent global resets from
-+ * creating new clock devices.
-  **/
--void i40e_ptp_init(struct i40e_pf *pf)
-+static long i40e_ptp_create_clock(struct i40e_pf *pf)
- {
--	struct i40e_hw *hw = &pf->hw;
--	struct net_device *netdev = pf->vsi[pf->lan_vsi]->netdev;
-+	/* no need to create a clock device if we already have one */
-+	if (!IS_ERR_OR_NULL(pf->ptp_clock))
-+		return 0;
- 
--	strncpy(pf->ptp_caps.name, "i40e", sizeof(pf->ptp_caps.name));
-+	strncpy(pf->ptp_caps.name, i40e_driver_name, sizeof(pf->ptp_caps.name));
- 	pf->ptp_caps.owner = THIS_MODULE;
- 	pf->ptp_caps.max_adj = 999999999;
- 	pf->ptp_caps.n_ext_ts = 0;
-@@ -592,6 +596,41 @@ void i40e_ptp_init(struct i40e_pf *pf)
- 	/* Attempt to register the clock before enabling the hardware. */
- 	pf->ptp_clock = ptp_clock_register(&pf->ptp_caps, &pf->pdev->dev);
- 	if (IS_ERR(pf->ptp_clock)) {
-+		return PTR_ERR(pf->ptp_clock);
-+	}
-+
-+	/* clear the hwtstamp settings here during clock create, instead of
-+	 * during regular init, so that we can maintain settings across a
-+	 * reset or suspend.
-+	 */
-+	pf->tstamp_config.rx_filter = HWTSTAMP_FILTER_NONE;
-+	pf->tstamp_config.tx_type = HWTSTAMP_TX_OFF;
-+
-+	return 0;
-+}
-+
-+/**
-+ * i40e_ptp_init - Initialize the 1588 support after device probe or reset
-+ * @pf: Board private structure
-+ *
-+ * This function sets device up for 1588 support. The first time it is run, it
-+ * will create a PHC clock device. It does not create a clock device if one
-+ * already exists. It also reconfigures the device after a reset.
-+ **/
-+void i40e_ptp_init(struct i40e_pf *pf)
-+{
-+	struct net_device *netdev = pf->vsi[pf->lan_vsi]->netdev;
-+	struct i40e_hw *hw = &pf->hw;
-+	long err;
-+
-+	/* we have to initialize the lock first, since we can't control
-+	 * when the user will enter the PHC device entry points
-+	 */
-+	spin_lock_init(&pf->tmreg_lock);
-+
-+	/* ensure we have a clock device */
-+	err = i40e_ptp_create_clock(pf);
-+	if (err) {
- 		pf->ptp_clock = NULL;
- 		dev_err(&pf->pdev->dev, "%s: ptp_clock_register failed\n",
- 			__func__);
-@@ -599,15 +638,10 @@ void i40e_ptp_init(struct i40e_pf *pf)
- 		struct timespec ts;
- 		u32 regval;
- 
--		spin_lock_init(&pf->tmreg_lock);
--
- 		dev_info(&pf->pdev->dev, "%s: added PHC on %s\n", __func__,
- 			 netdev->name);
- 		pf->flags |= I40E_FLAG_PTP;
- 
--		pf->tstamp_config.rx_filter = HWTSTAMP_FILTER_NONE;
--		pf->tstamp_config.tx_type = HWTSTAMP_TX_OFF;
--
- 		/* Ensure the clocks are running. */
- 		regval = rd32(hw, I40E_PRTTSYN_CTL0);
- 		regval |= I40E_PRTTSYN_CTL0_TSYNENA_MASK;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 7138ab4..8082a9f 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -2018,6 +2018,10 @@ static void i40evf_init_task(struct work_struct *work)
+ 		if (err) {
+ 			dev_info(&pdev->dev, "Unable to verify API version (%d), retrying\n",
+ 				err);
++			if (err == I40E_ERR_ADMIN_QUEUE_NO_WORK) {
++				dev_info(&pdev->dev, "Resending request\n");
++				err = i40evf_send_api_ver(adapter);
++			}
+ 			goto err;
+ 		}
+ 		err = i40evf_send_vf_config_msg(adapter);
 -- 
 1.9.3
