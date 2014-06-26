@@ -1,48 +1,29 @@
-From: Olaf Hering <olaf@aepfle.de>
-Subject: Re: [PATCH net-next] hyperv: Add handler for
- RNDIS_STATUS_NETWORK_CHANGE event
-Date: Thu, 26 Jun 2014 10:45:39 +0200
-Message-ID: <20140626084539.GA32471@aepfle.de>
-References: <1403228076-7596-1-git-send-email-haiyangz@microsoft.com>
- <20140620045704.GA4850@aepfle.de> <20140620051213.GA9960@kroah.com>
- <ff458d1b896d4a70a32fa7709911274c@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
- <20140623080242.GA16924@aepfle.de>
- <06b508cbb6b949f4b3e13e7797948e56@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
- <20140623131723.GA7026@aepfle.de>
- <5fb9ddebb68d456ab87979b5cc3830ec@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
- <20140623162705.GA5957@aepfle.de>
- <4ee8be5360a44b5abfa6df871ec45527@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: dependency cycle between libphy and of_mdio
+Date: Thu, 26 Jun 2014 01:50:10 -0700 (PDT)
+Message-ID: <20140626.015010.1049964034604158112.davem@davemloft.net>
+References: <alpine.SOC.1.00.1406261135010.12870@math.ut.ee>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "jasowang@redhat.com" <jasowang@redhat.com>,
- "driverdev-devel@linuxdriverproject.org"
- <driverdev-devel@linuxdriverproject.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "davem@davemloft.net" <davem@davemloft.net>
-To: Haiyang Zhang <haiyangz@microsoft.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <4ee8be5360a44b5abfa6df871ec45527@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: mroos@linux.ee
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42199 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750770AbaFZIuL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2014 04:50:11 -0400
+In-Reply-To: <alpine.SOC.1.00.1406261135010.12870@math.ut.ee>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 23, Haiyang Zhang wrote:
+From: Meelis Roos <mroos@linux.ee>
+Date: Thu, 26 Jun 2014 11:36:23 +0300 (EEST)
 
-> Yes, there is a link down/up event from the host, we currently call netif_carrier_off() 
-> / netif_carrier_on() with these events. Will hotplug scripts be triggered by 
-> netif_carrier_off/on? Where are the scripts located at (SLES)?
+>   DEPMOD  3.16.0-rc2-00211-gd7933ab
+> depmod: ERROR: Found 2 modules in dependency cycles!
+> depmod: ERROR: Cycle detected: libphy -> of_mdio -> libphy
 
-In /etc/sysconfig/network/ifcfg-eth0 STARTMODE= should be set to
-"ifplugd", this will most likely fix this sort of setup.
+We know, a fix was posted an hour or two ago.
 
-Olaf
+Thanks.
