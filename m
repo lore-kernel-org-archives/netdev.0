@@ -1,50 +1,52 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next 1/3] ptp: Allow reassigning calibration pin
- function
-Date: Thu, 26 Jun 2014 16:57:20 +0200
-Message-ID: <20140626145720.GB10999@netboy>
-References: <1403699851-11178-1-git-send-email-stefan.sorensen@spectralink.com>
- <1403699851-11178-2-git-send-email-stefan.sorensen@spectralink.com>
- <20140626052144.GB4537@netboy>
- <CABkLOboZDJr8tr5JpaUijuNcJ7j7L8nMU33TC0WMn4iir-qVAw@mail.gmail.com>
+From: Octavian Purdila <octavian.purdila@intel.com>
+Subject: Re: [RFC net-next 03/12] net: remove inet6_reqsk_alloc
+Date: Thu, 26 Jun 2014 18:13:39 +0300
+Message-ID: <CAE1zotKPoiu9mEw5-EggOPzPjdat=VyBHfHRXA+-Y9Z6ZF=aHA@mail.gmail.com>
+References: <1403548969-12303-1-git-send-email-octavian.purdila@intel.com>
+	<1403548969-12303-4-git-send-email-octavian.purdila@intel.com>
+	<20140625.161733.1604668220222889933.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stefan =?iso-8859-1?Q?S=F8rensen?=
-	<stefan.sorensen@spectralink.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Christian Riesch <christian.riesch@omicron.at>
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f177.google.com ([74.125.82.177]:32870 "EHLO
-	mail-we0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755626AbaFZO5d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2014 10:57:33 -0400
-Received: by mail-we0-f177.google.com with SMTP id u56so3733735wes.8
-        for <netdev@vger.kernel.org>; Thu, 26 Jun 2014 07:57:28 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CABkLOboZDJr8tr5JpaUijuNcJ7j7L8nMU33TC0WMn4iir-qVAw@mail.gmail.com>
+Received: from mail-wg0-f41.google.com ([74.125.82.41]:50794 "EHLO
+	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753893AbaFZPNo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2014 11:13:44 -0400
+Received: by mail-wg0-f41.google.com with SMTP id a1so3638515wgh.0
+        for <netdev@vger.kernel.org>; Thu, 26 Jun 2014 08:13:39 -0700 (PDT)
+In-Reply-To: <20140625.161733.1604668220222889933.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 26, 2014 at 08:14:58AM +0200, Christian Riesch wrote:
-> On Thu, Jun 26, 2014 at 7:21 AM, Richard Cochran <richardcochran@gmail.com> wrote:
-> > Reassigning the calibration function never makes sense, because it is
-> > only used in the driver probe method.
-> 
-> Yes, indeed, but isn't that a bug? I think the calibration should be
-> done again whenever the clock is loaded with a new value, i.e. in
-> ptp_dp83640_settime. See section 3.1 in [1]: "All subsequent settings
-> should use a step
-> adjustment or temporary rate adjustment, which should occur at each
-> PHY without introducing any error." This means, whenever we do
-> something else (directly write to the clock register), we must
-> recalibrate.
+On Thu, Jun 26, 2014 at 2:17 AM, David Miller <davem@davemloft.net> wrote:
+> From: Octavian Purdila <octavian.purdila@intel.com>
+> Date: Mon, 23 Jun 2014 21:42:40 +0300
+>
+>> Since pktops is only used for IPv6 only and opts is used for IPv4
+>> only, we can move these fields into a union and this allows us to drop
+>> the inet6_reqsk_alloc function as after this change it becomes
+>> equivalent with inet_reqsk_alloc.
+>>
+>> This patch also fixes an kmemcheck issue in the IPv6 stack: the flags
+>> field was not annotated after a request_sock was allocated.
+>>
+>> Signed-off-by: Octavian Purdila <octavian.purdila@intel.com>
+>
+> What about ipv4 mapped ipv6 connections?  I don't think it's safe to
+> share the space for these two fields.
 
-When we write the time, we use the broadcast address, and so the PHYs
-receive the data at exactly the same time on the MDIO bus. But maybe
-they would still need a new, fine calibration. Can you test this?
+I've spent some time researching this and I don't think that it
+matters for request_sock if we do have an ipv4 mapped ipv6 connection.
+In this case all of the request_sock calls will be processed with
+tcp_v4_ (or dccp_v4_) functions and there is no overlap with tcp_v6_
+functions. And all tcp_v4_ functions use opts while the tcp_v6_
+functions use pktopts.
 
-(I don't have a board with two phys.)
+Later when we switch to the full socket (in tcp_v6_syn_recv_sock), for
+the ipv4 mapped case ireq->pktopts is not touched and
+newsk->pktoptions is set to NULL.
 
-Thanks,
-Richard
+I have used the same connections per second test to check ipv4 mapped
+sockets and it did not trigger any issues so far.
