@@ -1,65 +1,58 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 14/14] i40e: fix fdir programming
-Date: Thu, 26 Jun 2014 05:13:53 -0700
-Message-ID: <1403784834-23301-15-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 11/14] i40e: Avoid adding the TCP-IPv4 filter twice
+Date: Thu, 26 Jun 2014 05:13:50 -0700
+Message-ID: <1403784834-23301-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1403784834-23301-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:10427 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:10417 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757719AbaFZMOc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Jun 2014 08:14:32 -0400
+	id S1757668AbaFZMOb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Jun 2014 08:14:31 -0400
 In-Reply-To: <1403784834-23301-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-There were a couple of fields in the fdir descriptor setup that
-were not being reprogrammed, which left the opportunity for stale
-data to be pushed as part of the descriptor next time it was used.
+There wasn't a need to play the logic twice, it seems
+like a left over from when we had to add two PTYPEs for
+one filter. There should be no change in the number of
+filters that actually got added to the hardware.
 
-Change-ID: Ieee5c96a7d4713d469693f086c4854de949a7633
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Change-ID: I5071d02eafd020b60e30eb96219f110f334eec85
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c | 13 -------------
+ 1 file changed, 13 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index c5749d6..5cc27fb 100644
+index e49f31d..4d96b74 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -100,8 +100,6 @@ int i40e_program_fdir_filter(struct i40e_fdir_filter *fdir_data, u8 *raw_packet,
- 			I40E_TXD_FLTR_QW0_DEST_VSI_SHIFT) &
- 		       I40E_TXD_FLTR_QW0_DEST_VSI_MASK;
- 
--	fdir_desc->qindex_flex_ptype_vsi = cpu_to_le32(fpt);
--
- 	dcc = I40E_TX_DESC_DTYPE_FILTER_PROG;
- 
- 	if (add)
-@@ -124,6 +122,8 @@ int i40e_program_fdir_filter(struct i40e_fdir_filter *fdir_data, u8 *raw_packet,
- 			I40E_TXD_FLTR_QW1_CNTINDEX_MASK;
+@@ -271,19 +271,6 @@ static int i40e_add_del_fdir_tcpv4(struct i40e_vsi *vsi,
+ 			 fd_data->pctype, ret);
  	}
  
-+	fdir_desc->qindex_flex_ptype_vsi = cpu_to_le32(fpt);
-+	fdir_desc->rsvd = cpu_to_le32(0);
- 	fdir_desc->dtype_cmd_cntindex = cpu_to_le32(dcc);
- 	fdir_desc->fd_id = cpu_to_le32(fdir_data->fd_id);
- 
-@@ -1688,7 +1688,9 @@ static void i40e_atr(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 		I40E_TXD_FLTR_QW1_CNTINDEX_MASK;
- 
- 	fdir_desc->qindex_flex_ptype_vsi = cpu_to_le32(flex_ptype);
-+	fdir_desc->rsvd = cpu_to_le32(0);
- 	fdir_desc->dtype_cmd_cntindex = cpu_to_le32(dtype_cmd);
-+	fdir_desc->fd_id = cpu_to_le32(0);
+-	fd_data->pctype = I40E_FILTER_PCTYPE_NONF_IPV4_TCP;
+-
+-	ret = i40e_program_fdir_filter(fd_data, raw_packet, pf, add);
+-	if (ret) {
+-		dev_info(&pf->pdev->dev,
+-			 "Filter command send failed for PCTYPE %d (ret = %d)\n",
+-			 fd_data->pctype, ret);
+-		err = true;
+-	} else {
+-		dev_info(&pf->pdev->dev, "Filter OK for PCTYPE %d (ret = %d)\n",
+-			  fd_data->pctype, ret);
+-	}
+-
+ 	return err ? -EOPNOTSUPP : 0;
  }
  
- /**
 -- 
 1.9.3
