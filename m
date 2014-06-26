@@ -1,94 +1,45 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v2 1/2] ARM: at91/dt: describe rgmii ethernet phy
- connected to sama5d3xek boards
-Date: Thu, 26 Jun 2014 11:15:13 -0700
-Message-ID: <CAGVrzcbYAEMsU1SFSH761H0isQ4z1M++KK_GLf0OAbGS48YUmw@mail.gmail.com>
-References: <1403777615-25685-1-git-send-email-boris.brezillon@free-electrons.com>
- <1403777615-25685-2-git-send-email-boris.brezillon@free-electrons.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 2/3] bnx2x: enlarge minimal alignemnt of data
+ offset
+Date: Thu, 26 Jun 2014 11:47:49 -0700
+Message-ID: <1403808469.28643.3.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1403782266-25362-1-git-send-email-Yuval.Mintz@qlogic.com>
+	 <1403782266-25362-3-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
-	Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
-	Alexandre Belloni <alexandre.belloni@free-electrons.com>,
-	Andrew Victor <linux@maxim.org.za>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Boris BREZILLON <boris.brezillon@free-electrons.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1403777615-25685-2-git-send-email-boris.brezillon@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Ariel.Elior@qlogic.com, Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:43859 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750844AbaFZSry (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2014 14:47:54 -0400
+Received: by mail-wi0-f177.google.com with SMTP id r20so1608822wiv.10
+        for <netdev@vger.kernel.org>; Thu, 26 Jun 2014 11:47:52 -0700 (PDT)
+In-Reply-To: <1403782266-25362-3-git-send-email-Yuval.Mintz@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Boris,
+On Thu, 2014-06-26 at 14:31 +0300, Yuval Mintz wrote:
+> From: Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>
+> 
+> This improves the performance of driver on machine with L1_CACHE_SHIFT of at
+> most 32 bytes [HW was planned for 64-byte aligned fastpath data].
+> 
 
-2014-06-26 3:13 GMT-07:00 Boris BREZILLON <boris.brezillon@free-electrons.com>:
-> Add ethernet-phy node and specify phy interrupt (connected to pin PB25).
->
-> The PHY address is not specified here because atmel have 2 different
-> designs
-> for its CPU modules: one is connecting PHYAD[0-2] pins to pull up resistors
-> (Embest design) and the other one is connection PHYAD0 to a pull up
-> resistor and PHYAD[1-2] to pull down resistors (Ronetix design).
-> As a result, Ronetix design will have its PHY available at address 0x1 and
-> Embest design at 0x7.
-> Let the net PHY core automatically detect the PHY address by scanning the
-> MDIO bus.
+>  
+> -	/* Max supported alignment is 256 (8 shift) */
+> -#define BNX2X_RX_ALIGN_SHIFT		min(8, L1_CACHE_SHIFT)
+> +	/* Max supported alignment is 256 (8 shift)
+> +	 * minimal alignment shift 6 is optimal for 57xxx HW performance
+> +	 */
+> +#define BNX2X_RX_ALIGN_SHIFT		max(6, min(8, L1_CACHE_SHIFT))
+>  
+>  	/* FW uses 2 Cache lines Alignment for start packet and size
+>  	 *
 
-I though the compatible string was listed as a required property, but
-it is not. The 'reg' property however is listed as required, although
-the of_miodbus_register() works just fine without it, although that is
-a Linux-specific implementation detail.
+I would personally use clamp(L1_CACHE_SHIFT, 6, 8)
 
->
-> Define board specific delays to apply to RGMII signals.
->
-> Signed-off-by: Boris BREZILLON <boris.brezillon@free-electrons.com>
-
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-
-> ---
->  arch/arm/boot/dts/sama5d3xcm.dtsi | 15 +++++++++++++++
->  1 file changed, 15 insertions(+)
->
-> diff --git a/arch/arm/boot/dts/sama5d3xcm.dtsi b/arch/arm/boot/dts/sama5d3xcm.dtsi
-> index b0b1331..fc68bae 100644
-> --- a/arch/arm/boot/dts/sama5d3xcm.dtsi
-> +++ b/arch/arm/boot/dts/sama5d3xcm.dtsi
-> @@ -34,6 +34,21 @@
->
->                         macb0: ethernet@f0028000 {
->                                 phy-mode = "rgmii";
-> +                               #address-cells = <1>;
-> +                               #size-cells = <0>;
-> +
-> +                               ethernet-phy {
-> +                                       interrupt-parent = <&pioB>;
-> +                                       interrupts = <25 IRQ_TYPE_EDGE_FALLING>;
-> +                                       txen-skew-ps = <800>;
-> +                                       txc-skew-ps = <3000>;
-> +                                       rxdv-skew-ps = <400>;
-> +                                       rxc-skew-ps = <3000>;
-> +                                       rxd0-skew-ps = <400>;
-> +                                       rxd1-skew-ps = <400>;
-> +                                       rxd2-skew-ps = <400>;
-> +                                       rxd3-skew-ps = <400>;
-> +                               };
->                         };
->
->                         pmc: pmc@fffffc00 {
-> --
-> 1.8.3.2
->
->
-> _______________________________________________
-> linux-arm-kernel mailing list
-> linux-arm-kernel@lists.infradead.org
-> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
-
-
-
--- 
-Florian
+But thats probably a matter of taste...
