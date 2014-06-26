@@ -1,10 +1,8 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 00/13] tipc: new unicast transmission code
-Date: Wed, 25 Jun 2014 20:41:29 -0500
-Message-ID: <1403746902-20408-1-git-send-email-jon.maloy@ericsson.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Subject: [PATCH net-next 01/13] tipc: eliminate case of writing to freed memory
+Date: Wed, 25 Jun 2014 20:41:30 -0500
+Message-ID: <1403746902-20408-2-git-send-email-jon.maloy@ericsson.com>
+References: <1403746902-20408-1-git-send-email-jon.maloy@ericsson.com>
 Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
 	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
@@ -12,61 +10,50 @@ Cc: netdev@vger.kernel.org,
 	Jon Maloy <jon.maloy@ericsson.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp105.biz.mail.ne1.yahoo.com ([98.138.207.12]:24102 "HELO
+Received: from smtp105.biz.mail.ne1.yahoo.com ([98.138.207.12]:24114 "HELO
 	smtp105.biz.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755308AbaFZBsm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2014 21:48:42 -0400
+	by vger.kernel.org with SMTP id S1755308AbaFZBso (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2014 21:48:44 -0400
+In-Reply-To: <1403746902-20408-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As a step towards making the data transmission code more maintainable
-and performant, we introduce a number of new functions, both for
-building, sending and rejecting messages. The new functions will
-eventually be used for alla data transmission, user data unicast,
-service internal messaging, and multicast/broadcast.
+In the function tipc_nodesub_notify() we call a function pointer
+aggregated into the object to be notified, whereafter we set
+the function pointer to NULL. However, in some cases the function
+pointed to will free the struct containing the function pointer,
+resulting in a write to already freed memory.
 
-We start with this series, where we introduce the functions, and
-let user data unicast and the internal connection protocol use them.
-The remaining users will come in a later series.
+This bug seems to always have been there, without causing any
+notable harm.
 
-There are only minor changes to data structures, and no protocol
-changes, so the older functions can still be used in parallel for
-some time. Until the old functions are removed, we use temporary
-names for the new functions, such as tipc_build_msg2, tipc_link_xmit2.
+In this commit we fix the problem by inverting the order of the
+zeroing and the function call.
 
-It should be noted that the first two commits are unrelated to the
-rest of the series.
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+---
+ net/tipc/node_subscr.c |    6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-Jon Maloy (13):
-  tipc: eliminate case of writing to freed memory
-  tipc: use negative error return values in functions
-  tipc: introduce send functions for chained buffers in link
-  tipc: make link mtu easily accessible from socket
-  tipc: introduce direct iovec to buffer chain fragmentation function
-  tipc: separate building and sending of rejected messages
-  tipc: introduce message evaluation function
-  tipc: RDM/DGRAM transport uses new fragmenting and sending functions
-  tipc: connection oriented transport uses new send functions
-  tipc: let port protocol senders use new link send function
-  tipc: same receive code path for connection protocol and data
-    messages
-  tipc: clean up connection protocol reception function
-  tipc: simplify connection congestion handling
-
- net/tipc/link.c        |  417 ++++++++++++++++-------------------------
- net/tipc/link.h        |    2 +
- net/tipc/msg.c         |  282 ++++++++++++++++++++++++++--
- net/tipc/msg.h         |   32 +++-
- net/tipc/net.c         |   63 +------
- net/tipc/net.h         |    2 -
- net/tipc/node.c        |   25 ++-
- net/tipc/node.h        |   17 ++
- net/tipc/node_subscr.c |    6 +-
- net/tipc/port.c        |  328 +++-----------------------------
- net/tipc/port.h        |   40 ----
- net/tipc/socket.c      |  487 ++++++++++++++++++++++++++++--------------------
- net/tipc/socket.h      |   14 ++
- 13 files changed, 827 insertions(+), 888 deletions(-)
-
+diff --git a/net/tipc/node_subscr.c b/net/tipc/node_subscr.c
+index 7c59ab1..2d13eea 100644
+--- a/net/tipc/node_subscr.c
++++ b/net/tipc/node_subscr.c
+@@ -84,11 +84,13 @@ void tipc_nodesub_unsubscribe(struct tipc_node_subscr *node_sub)
+ void tipc_nodesub_notify(struct list_head *nsub_list)
+ {
+ 	struct tipc_node_subscr *ns, *safe;
++	net_ev_handler handle_node_down;
+ 
+ 	list_for_each_entry_safe(ns, safe, nsub_list, nodesub_list) {
+-		if (ns->handle_node_down) {
+-			ns->handle_node_down(ns->usr_handle);
++		handle_node_down = ns->handle_node_down;
++		if (handle_node_down) {
+ 			ns->handle_node_down = NULL;
++			handle_node_down(ns->usr_handle);
+ 		}
+ 	}
+ }
 -- 
 1.7.9.5
