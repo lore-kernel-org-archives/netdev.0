@@ -1,92 +1,127 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v3 1/2] rtnetlink: allow to register ops without ops->setup set
-Date: Thu, 26 Jun 2014 09:58:25 +0200
-Message-ID: <1403769506-9212-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v3 2/2] openvswitch: introduce rtnl ops stub
+Date: Thu, 26 Jun 2014 09:58:26 +0200
+Message-ID: <1403769506-9212-2-git-send-email-jiri@resnulli.us>
+References: <1403769506-9212-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, pshelar@nicira.com, cwang@twopensource.com,
 	nicolas.dichtel@6wind.com, ebiederm@xmission.com,
 	david@gibson.dropbear.id.au, sfeldma@cumulusnetworks.com,
 	sucheta.chakraborty@qlogic.com, stephen@networkplumber.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f48.google.com ([74.125.82.48]:56733 "EHLO
-	mail-wg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753929AbaFZH6d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2014 03:58:33 -0400
-Received: by mail-wg0-f48.google.com with SMTP id n12so3121341wgh.7
-        for <netdev@vger.kernel.org>; Thu, 26 Jun 2014 00:58:32 -0700 (PDT)
+Received: from mail-we0-f175.google.com ([74.125.82.175]:57511 "EHLO
+	mail-we0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753929AbaFZH6m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2014 03:58:42 -0400
+Received: by mail-we0-f175.google.com with SMTP id k48so3240156wev.6
+        for <netdev@vger.kernel.org>; Thu, 26 Jun 2014 00:58:41 -0700 (PDT)
+In-Reply-To: <1403769506-9212-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-So far, it is assumed that ops->setup is filled up. But there might be
-case that ops might make sense even without ->setup. In that case,
-forbid to newlink and dellink.
-
-This allows to register simple rtnl link ops containing only ->kind.
-That allows consistent way of passing device kind (either device-kind or
-slave-kind) to userspace.
+This stub now allows userspace to see IFLA_INFO_KIND for ovs master and
+IFLA_INFO_SLAVE_KIND for slave.
 
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
+ net/openvswitch/datapath.c           |  9 ++++++++-
+ net/openvswitch/vport-internal_dev.c | 16 ++++++++++++++++
+ net/openvswitch/vport-internal_dev.h |  2 ++
+ 3 files changed, 26 insertions(+), 1 deletion(-)
 
-v2->v3: added check into default_device_exit_batch as pointed out by Eric
-
-v1->v2: included comments from Eric fixing default_device_exit_batch,
-	not checking setup in dellink and added hopefully clearer description
-	and comment.
-
- net/core/dev.c       |  2 +-
- net/core/rtnetlink.c | 12 ++++++++++--
- 2 files changed, 11 insertions(+), 3 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index a04b12f..d8f31a2 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -7091,7 +7091,7 @@ static void __net_exit default_device_exit_batch(struct list_head *net_list)
- 	rtnl_lock_unregistering(net_list);
- 	list_for_each_entry(net, net_list, exit_list) {
- 		for_each_netdev_reverse(net, dev) {
--			if (dev->rtnl_link_ops)
-+			if (dev->rtnl_link_ops && dev->rtnl_link_ops->dellink)
- 				dev->rtnl_link_ops->dellink(dev, &dev_kill_list);
- 			else
- 				unregister_netdevice_queue(dev, &dev_kill_list);
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 1063996..27acaf7 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -299,7 +299,12 @@ int __rtnl_link_register(struct rtnl_link_ops *ops)
- 	if (rtnl_link_ops_get(ops->kind))
- 		return -EEXIST;
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index 0d407bc..fe95b6c 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -2054,10 +2054,14 @@ static int __init dp_init(void)
  
--	if (!ops->dellink)
-+	/* The check for setup is here because if ops
-+	 * does not have that filled up, it is not possible
-+	 * to use the ops for creating device. So do not
-+	 * fill up dellink as well. That disables rtnl_dellink.
-+	 */
-+	if (ops->setup && !ops->dellink)
- 		ops->dellink = unregister_netdevice_queue;
+ 	pr_info("Open vSwitch switching datapath\n");
  
- 	list_add_tail(&ops->list, &link_ops);
-@@ -1777,7 +1782,7 @@ static int rtnl_dellink(struct sk_buff *skb, struct nlmsghdr *nlh)
- 		return -ENODEV;
+-	err = ovs_flow_init();
++	err = ovs_internal_dev_rtnl_link_register();
+ 	if (err)
+ 		goto error;
  
- 	ops = dev->rtnl_link_ops;
--	if (!ops)
-+	if (!ops || !ops->dellink)
- 		return -EOPNOTSUPP;
- 
- 	ops->dellink(dev, &list_kill);
-@@ -2038,6 +2043,9 @@ replay:
- 			return -EOPNOTSUPP;
- 		}
- 
-+		if (!ops->setup)
-+			return -EOPNOTSUPP;
++	err = ovs_flow_init();
++	if (err)
++		goto error_unreg_rtnl_link;
 +
- 		if (!ifname[0])
- 			snprintf(ifname, IFNAMSIZ, "%s%%d", ops->kind);
+ 	err = ovs_vport_init();
+ 	if (err)
+ 		goto error_flow_exit;
+@@ -2084,6 +2088,8 @@ error_vport_exit:
+ 	ovs_vport_exit();
+ error_flow_exit:
+ 	ovs_flow_exit();
++error_unreg_rtnl_link:
++	ovs_internal_dev_rtnl_link_unregister();
+ error:
+ 	return err;
+ }
+@@ -2096,6 +2102,7 @@ static void dp_cleanup(void)
+ 	rcu_barrier();
+ 	ovs_vport_exit();
+ 	ovs_flow_exit();
++	ovs_internal_dev_rtnl_link_unregister();
+ }
  
+ module_init(dp_init);
+diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
+index 789af92..295471a 100644
+--- a/net/openvswitch/vport-internal_dev.c
++++ b/net/openvswitch/vport-internal_dev.c
+@@ -26,6 +26,7 @@
+ 
+ #include <net/dst.h>
+ #include <net/xfrm.h>
++#include <net/rtnetlink.h>
+ 
+ #include "datapath.h"
+ #include "vport-internal_dev.h"
+@@ -121,6 +122,10 @@ static const struct net_device_ops internal_dev_netdev_ops = {
+ 	.ndo_get_stats64 = internal_dev_get_stats,
+ };
+ 
++static struct rtnl_link_ops internal_dev_link_ops __read_mostly = {
++	.kind = "openvswitch",
++};
++
+ static void do_setup(struct net_device *netdev)
+ {
+ 	ether_setup(netdev);
+@@ -131,6 +136,7 @@ static void do_setup(struct net_device *netdev)
+ 	netdev->priv_flags |= IFF_LIVE_ADDR_CHANGE;
+ 	netdev->destructor = internal_dev_destructor;
+ 	netdev->ethtool_ops = &internal_dev_ethtool_ops;
++	netdev->rtnl_link_ops = &internal_dev_link_ops;
+ 	netdev->tx_queue_len = 0;
+ 
+ 	netdev->features = NETIF_F_LLTX | NETIF_F_SG | NETIF_F_FRAGLIST |
+@@ -248,3 +254,13 @@ struct vport *ovs_internal_dev_get_vport(struct net_device *netdev)
+ 
+ 	return internal_dev_priv(netdev)->vport;
+ }
++
++int ovs_internal_dev_rtnl_link_register(void)
++{
++	return rtnl_link_register(&internal_dev_link_ops);
++}
++
++void ovs_internal_dev_rtnl_link_unregister(void)
++{
++	rtnl_link_unregister(&internal_dev_link_ops);
++}
+diff --git a/net/openvswitch/vport-internal_dev.h b/net/openvswitch/vport-internal_dev.h
+index 9a7d30e..1b179a1 100644
+--- a/net/openvswitch/vport-internal_dev.h
++++ b/net/openvswitch/vport-internal_dev.h
+@@ -24,5 +24,7 @@
+ 
+ int ovs_is_internal_dev(const struct net_device *);
+ struct vport *ovs_internal_dev_get_vport(struct net_device *);
++int ovs_internal_dev_rtnl_link_register(void);
++void ovs_internal_dev_rtnl_link_unregister(void);
+ 
+ #endif /* vport-internal_dev.h */
 -- 
 1.9.0
