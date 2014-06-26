@@ -1,45 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 2/3] bnx2x: enlarge minimal alignemnt of data
- offset
-Date: Thu, 26 Jun 2014 11:47:49 -0700
-Message-ID: <1403808469.28643.3.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1403782266-25362-1-git-send-email-Yuval.Mintz@qlogic.com>
-	 <1403782266-25362-3-git-send-email-Yuval.Mintz@qlogic.com>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH 0/3] drivers: expand usage of request_firmware_direct()
+Date: Thu, 26 Jun 2014 15:21:07 -0400
+Message-ID: <20140626192107.GB24337@kroah.com>
+References: <1403649583-12707-1-git-send-email-mcgrof@do-not-panic.com>
+ <s5hmwczve4i.wl%tiwai@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Ariel.Elior@qlogic.com, Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:43859 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750844AbaFZSry (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2014 14:47:54 -0400
-Received: by mail-wi0-f177.google.com with SMTP id r20so1608822wiv.10
-        for <netdev@vger.kernel.org>; Thu, 26 Jun 2014 11:47:52 -0700 (PDT)
-In-Reply-To: <1403782266-25362-3-git-send-email-Yuval.Mintz@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+	chunkeey@googlemail.com, leedom@chelsio.com, cocci@systeme.lip6.fr,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	"Luis R. Rodriguez" <mcgrof@suse.com>
+To: Takashi Iwai <tiwai@suse.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <s5hmwczve4i.wl%tiwai@suse.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-06-26 at 14:31 +0300, Yuval Mintz wrote:
-> From: Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>
+On Thu, Jun 26, 2014 at 06:18:05PM +0200, Takashi Iwai wrote:
+> At Tue, 24 Jun 2014 15:39:40 -0700,
+> Luis R. Rodriguez wrote:
+> > 
+> > From: "Luis R. Rodriguez" <mcgrof@suse.com>
+> > 
+> > Takashi added request_firmware_direct() via bba3a87e9 through v3.14-rc1
+> > which avoids the unnecessary delay introduced by using the udev firmware
+> > loader in case the first try failed when loading we know loading "firmware"
+> > is optional. The first use case was for microcode update but if drivers are
+> > using it for optional configuration updates, custom EEPROMs, and other
+> > junk other than firmware that should apply as well as good use cases,
+> > specially if the driver already had a first phase in which it loaded
+> > the first required firmware. While reviewing one driver I figured it'd
+> > be best to try to give formalizing a check with SmPL. This isn't perfect
+> > it had 1 false possitive drivers/fmc/fmc-fakedev.c on the entire kernel
+> > run but my hope is this can be extended a bit more to build more
+> > confidence, and then perhaps stuff it as a coccicheck.
+> > 
+> > I suppose this will not be required once and if we remove
+> > CONFIG_FW_LOADER_USER_HELPER. Is that ever going away for good? I know
+> > there was a recent attempt to remove the udev loader support but
+> > it was unclear if the special alternative helper support would be
+> > removed upstream from the kernel.
 > 
-> This improves the performance of driver on machine with L1_CACHE_SHIFT of at
-> most 32 bytes [HW was planned for 64-byte aligned fastpath data].
-> 
+> Actually a few weeks ago I sent a patch to make request_firmware()
+> with usermode helper explicitly to be used by some drivers (like
+> dell-rbu).  I hope Greg took it for 3.17.  Once when this patch is in,
+> distros can turn off the usermode helper fallback gracefully, so no
+> ugly timeout issue shouldn't happen.
 
->  
-> -	/* Max supported alignment is 256 (8 shift) */
-> -#define BNX2X_RX_ALIGN_SHIFT		min(8, L1_CACHE_SHIFT)
-> +	/* Max supported alignment is 256 (8 shift)
-> +	 * minimal alignment shift 6 is optimal for 57xxx HW performance
-> +	 */
-> +#define BNX2X_RX_ALIGN_SHIFT		max(6, min(8, L1_CACHE_SHIFT))
->  
->  	/* FW uses 2 Cache lines Alignment for start packet and size
->  	 *
+I'll take that in a few days, been traveling at the moment...
 
-I would personally use clamp(L1_CACHE_SHIFT, 6, 8)
+thanks,
 
-But thats probably a matter of taste...
+greg k-h
