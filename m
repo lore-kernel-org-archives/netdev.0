@@ -1,98 +1,139 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/14][pull request] Intel Wired LAN Driver Updates 2014-06-26
-Date: Thu, 26 Jun 2014 05:13:39 -0700
-Message-ID: <1403784834-23301-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 08/14] i40e: break PTP hardware control from ioctl command for timestamp mode
+Date: Thu, 26 Jun 2014 05:13:47 -0700
+Message-ID: <1403784834-23301-9-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1403784834-23301-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:10390 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:10417 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757392AbaFZMO1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Jun 2014 08:14:27 -0400
+	id S1757654AbaFZMOa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Jun 2014 08:14:30 -0400
+In-Reply-To: <1403784834-23301-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e and i40evf.
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-Kamil provides a cleanup patch to i40e where we do not need to acquire the
-NVM for shadow RAM checksum calculation, since we only read the shadow RAM
-through SRCTL register.
+This patch facilitates future work by breaking the PTP hardware control
+bits out of the i40e_set_ts_config function. By doing this, we can
+maintain state about the 1588 timestamping mode and properly re-enable
+to the last known mode during a re-initialize of 1588 bits.
 
-Paul provides a fix for handling HMC for big endian architectures for i40e
-and i40evf.
+This patch also modifies i40e_ptp_init to call the
+i40e_ptp_set_timestamp_mode during the reconfiguration process. A
+future patch will ensure that the hwtstamp_config structure is not reset
+during this process, so that timestamp mode will be maintained across a
+reset.
 
-Mitch provides four cleanup and fixes for i40evf.  Fix an issue where if
-the VF driver fails to complete early init, then rmmod can cause a softlock
-when the driver tries to stop a watchdog timer that never got initialized.
-So add a check to see if the timer is actually initialized before stopping
-it.  Make the function i40evf_send_api_ver() return more useful information,
-instead of just returning -EIO by propagating firmware errors back to the
-caller and log a message if the PF sends an invalid reply.  Fix up a log
-message that was missing a word, which makes the log message more readable.
-Fix an initialization failure if many VFs are instantiated at the same time
-and the VF module is autoloaded by simply resending firmware request if
-there is no response the first time.
+Change-ID: Ic20832c96c5c512ac203b6c7534e10d891c560f0
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_ptp.c | 59 ++++++++++++++++++++++--------
+ 1 file changed, 43 insertions(+), 16 deletions(-)
 
-Jacob does a rename of the function i40e_ptp_enable() to
-i40e_ptp_feature_enable(), like he did for ixgbe, to reduce possible
-confusion and ambugity in the purpose of the function.  Does follow on
-PTP work on i40e, like he did for ixgbe, by breaking the PTP hardware
-control from the ioctl command for timestamping mode.  By doing this,
-we can maintain state about the 1588 timestamping mode and properly
-re-enable to the last known mode during a re-initialization of 1588 bits.
-
-Anjali cleans up the i40e driver where TCP-IPv4 filters were being added
-twice, which seems to be left over from when we had to add two PTYPEs for
-one filter.  Fixes the flow director sideband logic to detect when there
-is a full flow director table.  Also fixes the programming of FDIR where
-a couple of fields in the descriptor setup that were not being
-programmed, which left the opportunity for stale data to be pushed as
-part of the descriptor next time it was used.
-
-The following are changes since commit 9b8d90b963dcc6d3f3f6a616b3547ea1c8b03525:
-  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Anjali Singhai Jain (3):
-  i40e: Avoid adding the TCP-IPv4 filter twice
-  i40e: Fix the FD sideband logic to detect a FD table full condition
-  i40e: Add debugfs hooks to print current total FD filter count
-
-Jacob Keller (4):
-  i40e: rename i40e_ptp_enable to i40e_ptp_feature_enable
-  i40e: break PTP hardware control from ioctl command for timestamp mode
-  i40e: don't store user requested mode until we've validated it
-  i40e: only create PTP device node once
-
-Jesse Brandeburg (1):
-  i40e: fix fdir programming
-
-Kamil Krawczyk (1):
-  i40e: do not take NVM ownership for SR read
-
-Mitch Williams (4):
-  i40evf: don't stop watchdog if it hasn't started
-  i40evf: return more useful error information
-  i40evf: fix typo
-  i40evf: resend FW request if no response
-
-Paul M Stillwell Jr (1):
-  i40e/i40evf: Big endian fixes for handling HMC
-
- drivers/net/ethernet/intel/i40e/i40e.h             |   3 +-
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c     |   4 +
- drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c     | 247 ++++++++++++++++-----
- drivers/net/ethernet/intel/i40e/i40e_lan_hmc.h     |  28 ++-
- drivers/net/ethernet/intel/i40e/i40e_main.c        |  20 +-
- drivers/net/ethernet/intel/i40e/i40e_nvm.c         |   9 +-
- drivers/net/ethernet/intel/i40e/i40e_ptp.c         | 124 ++++++++---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        |  23 +-
- drivers/net/ethernet/intel/i40evf/i40e_lan_hmc.h   |  28 ++-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    |  10 +-
- .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    |  11 +-
- 11 files changed, 373 insertions(+), 134 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ptp.c b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
+index 6f7d73b..e5f558c 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ptp.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
+@@ -423,28 +423,23 @@ int i40e_ptp_get_ts_config(struct i40e_pf *pf, struct ifreq *ifr)
+ }
+ 
+ /**
+- * i40e_ptp_set_ts_config - ioctl interface to control the HW timestamping
++ * i40e_ptp_set_timestamp_mode - setup hardware for requested timestamp mode
+  * @pf: Board private structure
+- * @ifreq: ioctl data
++ * @config: hwtstamp settings requested or saved
+  *
+- * Respond to the user filter requests and make the appropriate hardware
+- * changes here. The XL710 cannot support splitting of the Tx/Rx timestamping
+- * logic, so keep track in software of whether to indicate these timestamps
+- * or not.
++ * Control hardware registers to enter the specific mode requested by the
++ * user. Also used during reset path to ensure that timestamp settings are
++ * maintained.
+  *
+- * It is permissible to "upgrade" the user request to a broader filter, as long
+- * as the user receives the timestamps they care about and the user is notified
+- * the filter has been broadened.
++ * Note: modifies config in place, and may update the requested mode to be
++ * more broad if the specific filter is not directly supported.
+  **/
+-int i40e_ptp_set_ts_config(struct i40e_pf *pf, struct ifreq *ifr)
++static int i40e_ptp_set_timestamp_mode(struct i40e_pf *pf,
++				       struct hwtstamp_config *config)
+ {
+ 	struct i40e_hw *hw = &pf->hw;
+-	struct hwtstamp_config *config = &pf->tstamp_config;
+ 	u32 pf_id, tsyntype, regval;
+ 
+-	if (copy_from_user(config, ifr->ifr_data, sizeof(*config)))
+-		return -EFAULT;
+-
+ 	/* Reserved for future extensions. */
+ 	if (config->flags)
+ 		return -EINVAL;
+@@ -535,6 +530,35 @@ int i40e_ptp_set_ts_config(struct i40e_pf *pf, struct ifreq *ifr)
+ 		wr32(hw, I40E_PRTTSYN_CTL1, regval);
+ 	}
+ 
++	return 0;
++}
++
++/**
++ * i40e_ptp_set_ts_config - ioctl interface to control the HW timestamping
++ * @pf: Board private structure
++ * @ifreq: ioctl data
++ *
++ * Respond to the user filter requests and make the appropriate hardware
++ * changes here. The XL710 cannot support splitting of the Tx/Rx timestamping
++ * logic, so keep track in software of whether to indicate these timestamps
++ * or not.
++ *
++ * It is permissible to "upgrade" the user request to a broader filter, as long
++ * as the user receives the timestamps they care about and the user is notified
++ * the filter has been broadened.
++ **/
++int i40e_ptp_set_ts_config(struct i40e_pf *pf, struct ifreq *ifr)
++{
++	struct hwtstamp_config *config = &pf->tstamp_config;
++	int err;
++
++	if (copy_from_user(config, ifr->ifr_data, sizeof(*config)))
++		return -EFAULT;
++
++	err = i40e_ptp_set_timestamp_mode(pf, config);
++	if (err)
++		return err;
++
+ 	return copy_to_user(ifr->ifr_data, config, sizeof(*config)) ?
+ 		-EFAULT : 0;
+ }
+@@ -578,6 +602,9 @@ void i40e_ptp_init(struct i40e_pf *pf)
+ 			 netdev->name);
+ 		pf->flags |= I40E_FLAG_PTP;
+ 
++		pf->tstamp_config.rx_filter = HWTSTAMP_FILTER_NONE;
++		pf->tstamp_config.tx_type = HWTSTAMP_TX_OFF;
++
+ 		/* Ensure the clocks are running. */
+ 		regval = rd32(hw, I40E_PRTTSYN_CTL0);
+ 		regval |= I40E_PRTTSYN_CTL0_TSYNENA_MASK;
+@@ -589,8 +616,8 @@ void i40e_ptp_init(struct i40e_pf *pf)
+ 		/* Set the increment value per clock tick. */
+ 		i40e_ptp_set_increment(pf);
+ 
+-		/* reset the tstamp_config */
+-		memset(&pf->tstamp_config, 0, sizeof(pf->tstamp_config));
++		/* reset timestamping mode */
++		i40e_ptp_set_timestamp_mode(pf, &pf->tstamp_config);
+ 
+ 		/* Set the clock value. */
+ 		ts = ktime_to_timespec(ktime_get_real());
 -- 
 1.9.3
