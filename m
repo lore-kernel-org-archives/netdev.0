@@ -1,57 +1,53 @@
-From: Tobias Brunner <tobias@strongswan.org>
-Subject: [PATCH ipsec] xfrm: Fix installation of AH IPsec SAs
-Date: Thu, 26 Jun 2014 15:12:45 +0200
-Message-ID: <53AC1C4D.3080305@strongswan.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Fan Du <fan.du@windriver.com>,
-	Andreas Steffen <andreas.steffen@strongswan.org>
-To: Steffen Klassert <steffen.klassert@secunet.com>,
-	"David S. Miller" <davem@davemloft.net>
+From: Varka Bhadram <varkabhadram@gmail.com>
+Subject: [PATCH net-next 0/2] cleanup for 6lowpan and mac802514
+Date: Thu, 26 Jun 2014 19:06:53 +0530
+Message-ID: <1403789815-10418-1-git-send-email-varkab@cdac.in>
+Cc: alex.bluesman.smirnov@gmail.com, dbaryshkov@gmail.com,
+	linux-zigbee-devel@lists.sourceforge.net, davem@davemloft.net,
+	Varka Bhadram <varkab@cdac.in>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sifsv-80046.hsr.ch ([152.96.80.46]:40913 "EHLO
-	mail.strongswan.org" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
-	with ESMTP id S1750851AbaFZNUJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2014 09:20:09 -0400
+Received: from mail-pb0-f49.google.com ([209.85.160.49]:54157 "EHLO
+	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755000AbaFZNiX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2014 09:38:23 -0400
+Received: by mail-pb0-f49.google.com with SMTP id rr13so3140511pbb.8
+        for <netdev@vger.kernel.org>; Thu, 26 Jun 2014 06:38:23 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The SPI check introduced in ea9884b3acf3311c8a11db67bfab21773f6f82ba
-was intended for IPComp SAs but actually prevented AH SAs from getting
-installed (depending on the SPI).
+These patches fixed the coding style issues reported by checkpatch.pl.
 
-Fixes: ea9884b3acf3 ("xfrm: check user specified spi for IPComp")
-Cc: Fan Du <fan.du@windriver.com>
-Signed-off-by: Tobias Brunner <tobias@strongswan.org>
----
- net/xfrm/xfrm_user.c | 7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
+following issues fixed:
+	CHECK: Alignment should match open parenthesis
+	WARNING: Prefer kcalloc over kzalloc with multiply
+	WARNING: line over 80 characters
+	CHECK: Blank lines aren't necessary before a close brace '}'
+	WARNING: networking block comments don't use an empty /* line, use /* Comment...
+	WARNING: Missing a blank line after declarations
+	WARNING: networking block comments start with * on subsequent lines
+	CHECK: braces {} should be used on all arms of this statement
 
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 412d9dc..d4db6eb 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -177,9 +177,7 @@ static int verify_newsa_info(struct xfrm_usersa_info *p,
- 		    attrs[XFRMA_ALG_AEAD]	||
- 		    attrs[XFRMA_ALG_CRYPT]	||
- 		    attrs[XFRMA_ALG_COMP]	||
--		    attrs[XFRMA_TFCPAD]		||
--		    (ntohl(p->id.spi) >= 0x10000))
--
-+		    attrs[XFRMA_TFCPAD])
- 			goto out;
- 		break;
- 
-@@ -207,7 +205,8 @@ static int verify_newsa_info(struct xfrm_usersa_info *p,
- 		    attrs[XFRMA_ALG_AUTH]	||
- 		    attrs[XFRMA_ALG_AUTH_TRUNC]	||
- 		    attrs[XFRMA_ALG_CRYPT]	||
--		    attrs[XFRMA_TFCPAD])
-+		    attrs[XFRMA_TFCPAD]		||
-+		    (ntohl(p->id.spi) >= 0x10000))
- 			goto out;
- 		break;
- 
+Varka Bhadram (2):
+  6lowpan: fix coding style issues
+  mac802154: fix coding style issues
+
+ net/ieee802154/6lowpan_iphc.c  |  113 ++++++++++++++++++----------------------
+ net/ieee802154/6lowpan_rtnl.c  |   16 +++---
+ net/ieee802154/af_ieee802154.c |   26 +++++----
+ net/ieee802154/dgram.c         |   28 +++++-----
+ net/ieee802154/ieee802154.h    |    2 +-
+ net/ieee802154/netlink.c       |    4 +-
+ net/ieee802154/nl-mac.c        |   48 +++++++++--------
+ net/ieee802154/nl-phy.c        |   25 +++++----
+ net/ieee802154/raw.c           |   14 +++--
+ net/ieee802154/reassembly.c    |    1 +
+ net/ieee802154/wpan-class.c    |   10 ++--
+ net/mac802154/ieee802154_dev.c |    4 +-
+ net/mac802154/llsec.c          |    1 +
+ net/mac802154/mib.c            |    7 +--
+ net/mac802154/tx.c             |    1 +
+ 15 files changed, 154 insertions(+), 146 deletions(-)
+
 -- 
-1.9.1
+1.7.9.5
