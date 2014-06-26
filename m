@@ -1,99 +1,72 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [Patch net-next] net: make neigh tables per netns
-Date: Wed, 25 Jun 2014 18:17:08 -0700
-Message-ID: <87lhskpizv.fsf@x220.int.ebiederm.org>
-References: <1403561370-2876-1-git-send-email-xiyou.wangcong@gmail.com>
-	<87d2dwsfh6.fsf@x220.int.ebiederm.org>
-	<CAM_iQpVeVpcQLPz7GDuni_v5+bJikQkc2cSzrKee72eGuOecDQ@mail.gmail.com>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net-next 00/13] tipc: new unicast transmission code
+Date: Wed, 25 Jun 2014 20:41:29 -0500
+Message-ID: <1403746902-20408-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	stephen hemminger <stephen@networkplumber.org>,
-	Cong Wang <cwang@twopensource.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net,
+	Jon Maloy <jon.maloy@ericsson.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:51649 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756874AbaFZBU0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2014 21:20:26 -0400
-In-Reply-To: <CAM_iQpVeVpcQLPz7GDuni_v5+bJikQkc2cSzrKee72eGuOecDQ@mail.gmail.com>
-	(Cong Wang's message of "Wed, 25 Jun 2014 17:22:32 -0700")
+Received: from smtp105.biz.mail.ne1.yahoo.com ([98.138.207.12]:24102 "HELO
+	smtp105.biz.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1755308AbaFZBsm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2014 21:48:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cong Wang <xiyou.wangcong@gmail.com> writes:
+As a step towards making the data transmission code more maintainable
+and performant, we introduce a number of new functions, both for
+building, sending and rejecting messages. The new functions will
+eventually be used for alla data transmission, user data unicast,
+service internal messaging, and multicast/broadcast.
 
-> On Wed, Jun 25, 2014 at 5:04 PM, Eric W. Biederman
-> <ebiederm@xmission.com> wrote:
->> Cong Wang <xiyou.wangcong@gmail.com> writes:
->>
->>> From: Cong Wang <cwang@twopensource.com>
->>>
->>> Different net namespaces have different devices, routes, neighbours,
->>> so their neigh table should be separated as well.
->>
->> This justification doesn't work.  Neighbour entries are per network
->> device which are already per network device.
->
-> I knew, this is why I never say I am fixing a bug. I just don't see the
-> point of holding all such entries in one big table. Routing tables
-> are already separated.
+We start with this series, where we introduce the functions, and
+let user data unicast and the internal connection protocol use them.
+The remaining users will come in a later series.
 
-And routing tables are a different data structure.  Hash tables tend to
-benefit from larger tables.
+There are only minor changes to data structures, and no protocol
+changes, so the older functions can still be used in parallel for
+some time. Until the old functions are removed, we use temporary
+names for the new functions, such as tipc_build_msg2, tipc_link_xmit2.
 
-I can see a point being made for a per network device table, but a per
-network namespace table doesn't make much sense.  You are picking a
-weird halfway point for the data structure.  Neither optimal in the
-minimal amount of sharing nor optimal in the minimal amount of memory
-used.
+It should be noted that the first two commits are unrelated to the
+rest of the series.
 
->> The only thing I see that you can gain by this work is getting around
->> global limits on neighbor table size.  Something that I think is most
->> unwise.
->
-> Yes, this is one the benefits.
+Jon Maloy (13):
+  tipc: eliminate case of writing to freed memory
+  tipc: use negative error return values in functions
+  tipc: introduce send functions for chained buffers in link
+  tipc: make link mtu easily accessible from socket
+  tipc: introduce direct iovec to buffer chain fragmentation function
+  tipc: separate building and sending of rejected messages
+  tipc: introduce message evaluation function
+  tipc: RDM/DGRAM transport uses new fragmenting and sending functions
+  tipc: connection oriented transport uses new send functions
+  tipc: let port protocol senders use new link send function
+  tipc: same receive code path for connection protocol and data
+    messages
+  tipc: clean up connection protocol reception function
+  tipc: simplify connection congestion handling
 
-I disagree that removing a global DOS prevention check is a benefit.
-Certainly large semantics changes like that should not happen without
-being discussed in the patch description.
+ net/tipc/link.c        |  417 ++++++++++++++++-------------------------
+ net/tipc/link.h        |    2 +
+ net/tipc/msg.c         |  282 ++++++++++++++++++++++++++--
+ net/tipc/msg.h         |   32 +++-
+ net/tipc/net.c         |   63 +------
+ net/tipc/net.h         |    2 -
+ net/tipc/node.c        |   25 ++-
+ net/tipc/node.h        |   17 ++
+ net/tipc/node_subscr.c |    6 +-
+ net/tipc/port.c        |  328 +++-----------------------------
+ net/tipc/port.h        |   40 ----
+ net/tipc/socket.c      |  487 ++++++++++++++++++++++++++++--------------------
+ net/tipc/socket.h      |   14 ++
+ 13 files changed, 827 insertions(+), 888 deletions(-)
 
->> At the very least neigh_tbl_lock today protects against rmmod decnet
->> and rmmod ipv6, which while unlikely can oops they kernel if they aren't
->> handled carefully.  So it definitely feels inappropriate to mush these
->> all together.
->
-> At module exit, we should call unregister_pernet_subsys(), where
-> each ->exit() will called.
-
-That does seme to provide equivalent protection but it is not clear that
-is the protection being relied upon from your patch description.
-
->> If your goal is to deal with the issue of the limited set of neighbour
->> limits say so and let's look at that problem.
->>
->> If your goal is just to kill neigh_tbl_lock please take that to a
->> separate patch where the pros and cons can be weighed, and people can
->> focus on the issue.
->>
->
-> Neither.
->
->> As it stands this patch does too much, and seems to do nothing except
->> bypass controls on global kernel memory consumption.
->>
->
-> I agree it's too big, I can split it into two if you want. One for removing
-> neigh_tbl_lock, one for making it per netns.
-
-If you can send patches that provide a clear benefit, and describe that
-benefit and don't do a lot of other things in the same patch certainly.
-
-Big semantic changes like you have proposed in the patch under
-discussion that say let's delete the historic controls and replace them
-with something that does not provide the same benefit I find scary.
-Especially when those changes come without any discussion.
-
-Eric
+-- 
+1.7.9.5
