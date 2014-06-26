@@ -1,55 +1,64 @@
-From: Maxime Bizon <mbizon@freebox.fr>
-Subject: Re: [PATCH] bridge: mark packets sent to any local mac address as
- PACKET_HOST
-Date: Thu, 26 Jun 2014 13:15:52 +0200
-Message-ID: <1403781352.52578.103.camel@sakura.staff.proxad.net>
-References: <1403534015-28496-1-git-send-email-mbizon@freebox.fr>
-	 <20140625161335.11598f09@haswell>
-Reply-To: mbizon@freebox.fr
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [net-next PATCH V2 0/3] Optimizing pktgen for single CPU performance
+Date: Thu, 26 Jun 2014 13:16:17 +0200
+Message-ID: <20140626111549.23576.90201.stgit@dragon>
+References: <20140514141545.20309.28343.stgit@dragon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ANSI_X3.4-1968"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: Daniel Borkmann <dborkman@redhat.com>,
+	Florian Westphal <fw@strlen.de>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Thomas Graf <tgraf@suug.ch>,
+	Eric Dumazet <eric.dumazet@gmail.com>, zoltan.kiss@citrix.com,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ns.iliad.fr ([212.27.33.1]:36542 "EHLO ns.iliad.fr"
+Received: from mx1.redhat.com ([209.132.183.28]:30039 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755679AbaFZLPy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Jun 2014 07:15:54 -0400
-In-Reply-To: <20140625161335.11598f09@haswell>
+	id S1755679AbaFZLQ5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Jun 2014 07:16:57 -0400
+In-Reply-To: <20140514141545.20309.28343.stgit@dragon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This series focus on optimizing "pktgen" for single CPU performance.
 
-On Wed, 2014-06-25 at 16:13 -0700, Stephen Hemminger wrote:
+V2-series:
+ - Removed some patches
+ - Doc real reason for TX ring buffer filling up
 
-> > The bridge code only set PACKET_HOST on packets sent to the bridge mac
-> > address, packets sent to other local mac addresses are sent to upper
-> > layers, but ignored because they are marked as PACKET_OTHERHOST.
-> > 
-> > Signed-off-by: Maxime Bizon <mbizon@freebox.fr>
-> 
-> What are you trying to do? Bridge device itself only has one MAC address.
-> Are you trying to run macvlan on top of bridge?
-> We only respond to ARP with bridge's MAC address.
+NIC tuning for pktgen:
+ http://netoptimizer.blogspot.dk/2014/06/pktgen-for-network-overload-testing.html
 
-host1 uses a bridge with two interfaces: ethernet and wireless (AP mode
-using hostapd)
+General overload setup according to:
+ http://netoptimizer.blogspot.dk/2014/04/basic-tuning-for-network-overload.html
 
-for some reasons, hostapd kept adding and removing the interface from
-the bridge, triggering a mac address of the bridge change each time (I
-did not notice that).
+Hardware:
+ System: CPU E5-2630
+ NIC: Intel ixgbe/82599 chip
 
-Another host had a static arp entry for host1, using the ethernet mac
-address, so its packets to host1 were randomly trashed depending on the
-current mac of the bridge.
+Testing done with net-next git tree on top of
+ commit 6623b41944 ("Merge branch 'master' of...jkirsher/net-next")
 
-I have since fixed this by setting a static mac address on the bridge to
-prevent dynamic change, but I thought this patch would prevent other
-people from having the same bug in the future.
+Pktgen script exercising race condition:
+ https://github.com/netoptimizer/network-testing/blob/master/pktgen/unit_test01_race_add_rem_device_loop.sh
 
-What do you think ?
+Tool for measuring LOCK overhead:
+ https://github.com/netoptimizer/network-testing/blob/master/src/overhead_cmpxchg.c
+
+---
+
+Jesper Dangaard Brouer (3):
+      pktgen: RCU-ify "if_list" to remove lock in next_to_run()
+      pktgen: avoid expensive set_current_state() call in loop
+      pktgen: document tuning for max NIC performance
+
+
+ Documentation/networking/pktgen.txt |   28 +++++++++
+ net/core/pktgen.c                   |  110 ++++++++++++++++++-----------------
+ 2 files changed, 83 insertions(+), 55 deletions(-)
 
 -- 
-Maxime
