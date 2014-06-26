@@ -1,36 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next] enic: Make dummy rfs functions inline to fix
- !CONFIG_RFS_ACCEL build
-Date: Wed, 25 Jun 2014 18:04:55 -0700 (PDT)
-Message-ID: <20140625.180455.1940740529236282662.davem@davemloft.net>
-References: <1403685069-20198-1-git-send-email-geert@linux-m68k.org>
+From: James M Leddy <james.leddy@redhat.com>
+Subject: Re: [PATCH v2] udp: Add MIB counters for rcvbuferrors
+Date: Wed, 25 Jun 2014 21:11:00 -0400
+Message-ID: <53AB7324.4080603@redhat.com>
+References: <1403732293-32304-1-git-send-email-james.leddy@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: _govind@gmx.com, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
-To: geert@linux-m68k.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1403685069-20198-1-git-send-email-geert@linux-m68k.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:60171 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757154AbaFZBLC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 25 Jun 2014 21:11:02 -0400
+Received: from int-mx09.intmail.prod.int.phx2.redhat.com (int-mx09.intmail.prod.int.phx2.redhat.com [10.5.11.22])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s5Q1B1ou010404
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Wed, 25 Jun 2014 21:11:01 -0400
+Received: from jleddy.csb (vpn-57-181.rdu2.redhat.com [10.10.57.181])
+	by int-mx09.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id s5Q1B0Ko003776
+	for <netdev@vger.kernel.org>; Wed, 25 Jun 2014 21:11:01 -0400
+In-Reply-To: <1403732293-32304-1-git-send-email-james.leddy@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Date: Wed, 25 Jun 2014 10:31:09 +0200
+whoops, sorry for the noise
 
-> If CONFIG_RFS_ACCEL=n:
-> 
-> drivers/net/ethernet/cisco/enic/enic_main.c: In function 'enic_open':
-> drivers/net/ethernet/cisco/enic/enic_main.c:1603:2: error: implicit declaration of function 'enic_rfs_flw_tbl_init' [-Werror=implicit-function-declaration]
-> drivers/net/ethernet/cisco/enic/enic_main.c: In function 'enic_stop':
-> drivers/net/ethernet/cisco/enic/enic_main.c:1630:2: error: implicit declaration of function 'enic_rfs_flw_tbl_free' [-Werror=implicit-function-declaration]
-> 
-> Introduced in commit a145df23ef32c7b933875f334ba28791ee75766e ("enic: Add
-> Accelerated RFS support").
-> 
-> Dummy functions are provided, but their prototypes are missing, causing the
-> build failure.  Provide dummy static inline functions instead to fix this.
-> 
-> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
-
-Applied, thanks Geert.
+-- 
+James M Leddy
