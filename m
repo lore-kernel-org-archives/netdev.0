@@ -1,82 +1,49 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH] net: can: Remodel FlexCAN register read/write APIs for
- BE instances
-Date: Thu, 26 Jun 2014 11:28:36 +0200
-Message-ID: <53ABE7C4.8070105@pengutronix.de>
-References: <1403625285-27824-1-git-send-email-bhupesh.sharma@freescale.com> <53AA8805.3050309@pengutronix.de> <ae6e49865206432ea871b08b159bae55@BN1PR03MB220.namprd03.prod.outlook.com> <53AAA3E9.6030409@pengutronix.de> <536c077e2e8b4dfabb4c07f696753a3c@BN1PR03MB220.namprd03.prod.outlook.com> <53AAAD84.1010400@pengutronix.de> <28c405ed255b42d09307274fccbec41e@BN1PR03MB220.namprd03.prod.outlook.com> <53AB1C3C.8@pengutronix.de>
+From: "bhupesh.sharma@freescale.com" <bhupesh.sharma@freescale.com>
+Subject: RE: [PATCH] net: can: Remodel FlexCAN register read/write APIs for BE
+ instances
+Date: Thu, 26 Jun 2014 09:30:02 +0000
+Message-ID: <c02d4c6ac71d432bb99a547e3e17d027@BN1PR03MB220.namprd03.prod.outlook.com>
+References: <1403625285-27824-1-git-send-email-bhupesh.sharma@freescale.com>
+ <53AA8805.3050309@pengutronix.de>
+ <ae6e49865206432ea871b08b159bae55@BN1PR03MB220.namprd03.prod.outlook.com>
+ <53AAA3E9.6030409@pengutronix.de>
+ <536c077e2e8b4dfabb4c07f696753a3c@BN1PR03MB220.namprd03.prod.outlook.com>
+ <53AAAD84.1010400@pengutronix.de>
+ <28c405ed255b42d09307274fccbec41e@BN1PR03MB220.namprd03.prod.outlook.com>
+ <53AB1C3C.8@pengutronix.de> <53ABE7C4.8070105@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="MOKc7f7Ph5c6HaMAmS7cpmOmAo7lERmrK"
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: "wg@grandegger.com" <wg@grandegger.com>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "bhupesh.sharma@freescale.com" <bhupesh.sharma@freescale.com>,
+To: Marc Kleine-Budde <mkl@pengutronix.de>,
 	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
 Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <53AB1C3C.8@pengutronix.de>
+In-Reply-To: <53ABE7C4.8070105@pengutronix.de>
+Content-Language: en-US
 Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---MOKc7f7Ph5c6HaMAmS7cpmOmAo7lERmrK
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-
-On 06/25/2014 09:00 PM, Marc Kleine-Budde wrote:
->> How does this look (a bit messed up, so I am open for comments):
->=20
-> What about:
->=20
-> static u32 flexcan_read_le(void __iomem *addr)
-> {
-> 	return ioread32(addr);
-> }
->=20
-> static u32 flexcan_read_be(void __iomem *addr)
-> {
-> 	return ioread32be(addr);
-> }
->=20
-> flexcan_probe ()
-> {
-> 	bool core_is_little =3D true;
->=20
-> 	/* or #ifdef __BIG_ENDIAN ... #endif instead of IS_ENABLED() */
-> 	if (IS_ENABLED(CONFIG_CPU_BIG_ENDIAN) ||
-> 	    of_property_read_bool(dev->dev.of_node, "big-endian"))
-> 		core_is_little =3D false;
-
- 	if (of_property_read_bool(dev->dev.of_node, "little-endian"))
-		core_is_little =3D true;
-
-> 	if (core_is_little)
-> 		priv->read =3D flexcan_read_le;
-> 	else
-> 		priv->read =3D flexcan_read_be;
->=20
-> }
-
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---MOKc7f7Ph5c6HaMAmS7cpmOmAo7lERmrK
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
-
-iEYEARECAAYFAlOr58QACgkQjTAFq1RaXHPiYQCglXqPedW8zSZi6l702C2S1JbV
-0kgAn1aOprklXh301fT3n3xJ8YSIoTPF
-=ZQjO
------END PGP SIGNATURE-----
-
---MOKc7f7Ph5c6HaMAmS7cpmOmAo7lERmrK--
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogTWFyYyBLbGVpbmUtQnVk
+ZGUgW21haWx0bzpta2xAcGVuZ3V0cm9uaXguZGVdDQo+IFNlbnQ6IFRodXJzZGF5LCBKdW5lIDI2
+LCAyMDE0IDI6NTkgUE0NCj4gVG86IFNoYXJtYSBCaHVwZXNoLUI0NTM3MDsgbGludXgtY2FuQHZn
+ZXIua2VybmVsLm9yZw0KPiBDYzogd2dAZ3JhbmRlZ2dlci5jb207IG5ldGRldkB2Z2VyLmtlcm5l
+bC5vcmcNCj4gU3ViamVjdDogUmU6IFtQQVRDSF0gbmV0OiBjYW46IFJlbW9kZWwgRmxleENBTiBy
+ZWdpc3RlciByZWFkL3dyaXRlIEFQSXMNCj4gZm9yIEJFIGluc3RhbmNlcw0KPiANCj4gT24gMDYv
+MjUvMjAxNCAwOTowMCBQTSwgTWFyYyBLbGVpbmUtQnVkZGUgd3JvdGU6DQo+ID4+IEhvdyBkb2Vz
+IHRoaXMgbG9vayAoYSBiaXQgbWVzc2VkIHVwLCBzbyBJIGFtIG9wZW4gZm9yIGNvbW1lbnRzKToN
+Cj4gPg0KPiA+IFdoYXQgYWJvdXQ6DQo+ID4NCj4gPiBzdGF0aWMgdTMyIGZsZXhjYW5fcmVhZF9s
+ZSh2b2lkIF9faW9tZW0gKmFkZHIpIHsNCj4gPiAJcmV0dXJuIGlvcmVhZDMyKGFkZHIpOw0KPiA+
+IH0NCj4gPg0KPiA+IHN0YXRpYyB1MzIgZmxleGNhbl9yZWFkX2JlKHZvaWQgX19pb21lbSAqYWRk
+cikgew0KPiA+IAlyZXR1cm4gaW9yZWFkMzJiZShhZGRyKTsNCj4gPiB9DQo+ID4NCj4gPiBmbGV4
+Y2FuX3Byb2JlICgpDQo+ID4gew0KPiA+IAlib29sIGNvcmVfaXNfbGl0dGxlID0gdHJ1ZTsNCj4g
+Pg0KPiA+IAkvKiBvciAjaWZkZWYgX19CSUdfRU5ESUFOIC4uLiAjZW5kaWYgaW5zdGVhZCBvZiBJ
+U19FTkFCTEVEKCkgKi8NCj4gPiAJaWYgKElTX0VOQUJMRUQoQ09ORklHX0NQVV9CSUdfRU5ESUFO
+KSB8fA0KPiA+IAkgICAgb2ZfcHJvcGVydHlfcmVhZF9ib29sKGRldi0+ZGV2Lm9mX25vZGUsICJi
+aWctZW5kaWFuIikpDQo+ID4gCQljb3JlX2lzX2xpdHRsZSA9IGZhbHNlOw0KPiANCj4gIAlpZiAo
+b2ZfcHJvcGVydHlfcmVhZF9ib29sKGRldi0+ZGV2Lm9mX25vZGUsICJsaXR0bGUtZW5kaWFuIikp
+DQo+IAkJY29yZV9pc19saXR0bGUgPSB0cnVlOw0KDQpTZWVtcyBiZXR0ZXIgOikNCg0KTGV0IG1l
+IHRyeSB0byBzcGluIGEgcGF0Y2ggYW5kIHRlc3QgaXQgYXQgbXkgZW5kLg0KDQo+IA0KPiA+IAlp
+ZiAoY29yZV9pc19saXR0bGUpDQo+ID4gCQlwcml2LT5yZWFkID0gZmxleGNhbl9yZWFkX2xlOw0K
+PiA+IAllbHNlDQo+ID4gCQlwcml2LT5yZWFkID0gZmxleGNhbl9yZWFkX2JlOw0KPiA+DQo+ID4g
+fQ0KDQoNClJlZ2FyZHMsDQpCaHVwZXNoDQo=
