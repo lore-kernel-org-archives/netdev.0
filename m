@@ -1,25 +1,40 @@
-From: "Simon Schneider" <simon-schneider@gmx.net>
-Subject: Kernel 2.6.32.31 sends ICMPv6 with destination=unspecified
-Date: Thu, 26 Jun 2014 14:33:03 +0200
-Message-ID: <trinity-608a2711-12f9-4e5c-83f9-c2d02cb85fd2-1403785982090@3capp-gmx-bs70>
+From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+Subject: Re: [PATCH] cxgb4: use dev_port to identify ports
+Date: Thu, 26 Jun 2014 09:37:09 -0300
+Message-ID: <20140626123709.GA9256@oc0268524204.ibm.com>
+References: <1403354888-15600-1-git-send-email-cascardo@linux.vnet.ibm.com>
+ <CAB=NE6VWa4O0nycSo55ip075MEXXB_0k4wVnorSziRQmKRUmLg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.15.19]:63527 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754775AbaFZMdF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Jun 2014 08:33:05 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Hariprasad Shenai <hariprasad@chelsio.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAB=NE6VWa4O0nycSo55ip075MEXXB_0k4wVnorSziRQmKRUmLg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
-we noticed under kernel 2.6.32.31 that if you send ICMPv6 echo request with source address unspecified (::), the kernel replies with ICMPv6 echo reply with destination address unspecified.
+On Wed, Jun 25, 2014 at 04:08:21PM -0700, Luis R. Rodriguez wrote:
+> On Sat, Jun 21, 2014 at 5:48 AM, Thadeu Lima de Souza Cascardo
+> <cascardo@linux.vnet.ibm.com> wrote:
+> > That use was removed by commit
+> > 8c367fcbe6549195d2eb11e62bea233f811aad41 ("cxgb4: Do not set
+> > net_device::dev_id to VI index"), since dev_id should be used only when
+> > devices share the same MAC address.
+> >
+> > Using dev_port for cxgb4 allows different ports on the same PCI function
+> > to be identified.
+> 
+> Can you describe what issues were introduced because of this then?
+> 
+>   Luis
+> 
 
-If there's a default route configured, this packet goes out to the network.
+udevd builtin net-id cannot rename the interfaces, since it relies on
+the dev_id for interfaces on the same PCI function. I am going to send a
+patch to use dev_port instead, and fallback to dev_id, and copy netdev.
 
-This violates RFC4291, 2.5.2, as unspecified must never be used as destination address.
-
-Was this already fixed in a later kernel version?
-
-best regards, Simon
+Regards.
+Cascardo.
