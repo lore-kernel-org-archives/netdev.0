@@ -1,8 +1,7 @@
 From: Piotr Wilczek <p.wilczek@samsung.com>
-Subject: [PATCH net-next V2 1/2] lib:proc_info:add library to get process
- information
-Date: Thu, 26 Jun 2014 14:55:53 +0200
-Message-ID: <1403787354-15177-2-git-send-email-p.wilczek@samsung.com>
+Subject: [PATCH net-next V2 2/2] Send process status in SCM_PROCINFO
+Date: Thu, 26 Jun 2014 14:55:54 +0200
+Message-ID: <1403787354-15177-3-git-send-email-p.wilczek@samsung.com>
 References: <1403787354-15177-1-git-send-email-p.wilczek@samsung.com>
 Cc: netdev@vger.kernel.org, Kyungmin Park <kyungmin.park@samsung.com>,
 	Juho Son <juho80.son@samsung.com>,
@@ -11,1537 +10,749 @@ Cc: netdev@vger.kernel.org, Kyungmin Park <kyungmin.park@samsung.com>,
 	Piotr Wilczek <p.wilczek@samsung.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout1.samsung.com ([203.254.224.24]:12446 "EHLO
+Received: from mailout1.samsung.com ([203.254.224.24]:12454 "EHLO
 	mailout1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752295AbaFZM4v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2014 08:56:51 -0400
-Received: from epcpsbgm2.samsung.com (epcpsbgm2 [203.254.230.27])
+	with ESMTP id S1754664AbaFZM4x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2014 08:56:53 -0400
+Received: from epcpsbgm1.samsung.com (epcpsbgm1 [203.254.230.26])
  by mailout1.samsung.com
  (Oracle Communications Messaging Server 7u4-24.01(7.0.4.24.0) 64bit (built Nov
- 17 2011)) with ESMTP id <0N7S00DUO1AOZZ70@mailout1.samsung.com> for
- netdev@vger.kernel.org; Thu, 26 Jun 2014 21:56:48 +0900 (KST)
+ 17 2011)) with ESMTP id <0N7S00DUR1ASZZ70@mailout1.samsung.com> for
+ netdev@vger.kernel.org; Thu, 26 Jun 2014 21:56:52 +0900 (KST)
 In-reply-to: <1403787354-15177-1-git-send-email-p.wilczek@samsung.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds library to get process information without dependency
-on CONFIG_PROC_FS. The new library code is moved from
-fs/proc/array.c and fs/proc/task_(no)mmu.c. The functions are modified that
-all process information can be retrived with a single process lock improving
-performance.
+This introduces a new SCM type called SCM_PROCINFO to allow the direct
+attaching of process status to SCM, which is significantly more
+efficient and will reliably avoid the race with the round-trip over
+procfs. This is optional and can be turned on by setting SO_PASSPROC.
 
+To achieve that, new struct called unix_skb_parms_scm had to be created,
+because otherwise unix_skb_parms would be too big.
+
+This patch is reworked version of:
+https://lkml.org/lkml/2014/1/13/40
+
+Signed-off-by: Jan Kaluza <jkaluza@redhat.com>
 Signed-off-by: Piotr Wilczek <p.wilczek@samsung.com>
 ---
 Changes for v2:
- - new patch with new proc info library
+ - removed extern declaration
+ - removed duplication code for parsing process information
 
- fs/proc/Kconfig           |   1 +
- fs/proc/array.c           | 476 +-------------------------------
- fs/proc/task_mmu.c        |  66 -----
- fs/proc/task_nommu.c      | 114 --------
- include/linux/proc_info.h |  35 +++
- lib/Kconfig               |   5 +
- lib/Makefile              |   2 +
- lib/proc_info.c           | 686 ++++++++++++++++++++++++++++++++++++++++++++++
- 8 files changed, 738 insertions(+), 647 deletions(-)
- create mode 100644 include/linux/proc_info.h
- create mode 100644 lib/proc_info.c
+ arch/alpha/include/uapi/asm/socket.h   |   2 +
+ arch/avr32/include/uapi/asm/socket.h   |   2 +
+ arch/cris/include/uapi/asm/socket.h    |   2 +
+ arch/frv/include/uapi/asm/socket.h     |   2 +
+ arch/ia64/include/uapi/asm/socket.h    |   2 +
+ arch/m32r/include/uapi/asm/socket.h    |   2 +
+ arch/mips/include/uapi/asm/socket.h    |   2 +
+ arch/mn10300/include/uapi/asm/socket.h |   2 +
+ arch/parisc/include/uapi/asm/socket.h  |   2 +
+ arch/powerpc/include/uapi/asm/socket.h |   2 +
+ arch/s390/include/uapi/asm/socket.h    |   2 +
+ arch/sparc/include/uapi/asm/socket.h   |   2 +
+ include/linux/net.h                    |   1 +
+ include/linux/socket.h                 |   2 +
+ include/net/af_unix.h                  |   9 ++
+ include/net/scm.h                      |  33 +++++++
+ include/uapi/asm-generic/socket.h      |   2 +
+ net/Kconfig                            |   1 +
+ net/core/scm.c                         | 166 +++++++++++++++++++++++++++++++++
+ net/core/sock.c                        |  11 +++
+ net/unix/af_unix.c                     |  70 ++++++++++++++
+ 21 files changed, 319 insertions(+)
 
-diff --git a/fs/proc/Kconfig b/fs/proc/Kconfig
-index 2183fcf..2e27c48 100644
---- a/fs/proc/Kconfig
-+++ b/fs/proc/Kconfig
-@@ -1,5 +1,6 @@
- config PROC_FS
- 	bool "/proc file system support" if EXPERT
-+	select PROC_INFO
- 	default y
- 	help
- 	  This is a virtual file system providing information about the status
-diff --git a/fs/proc/array.c b/fs/proc/array.c
-index 64db2bc..8be396d 100644
---- a/fs/proc/array.c
-+++ b/fs/proc/array.c
-@@ -72,481 +72,39 @@
- #include <linux/signal.h>
- #include <linux/highmem.h>
- #include <linux/file.h>
--#include <linux/fdtable.h>
- #include <linux/times.h>
- #include <linux/cpuset.h>
- #include <linux/rcupdate.h>
- #include <linux/delayacct.h>
--#include <linux/seq_file.h>
--#include <linux/pid_namespace.h>
- #include <linux/ptrace.h>
- #include <linux/tracehook.h>
--#include <linux/user_namespace.h>
-+#include <linux/proc_info.h>
+diff --git a/arch/alpha/include/uapi/asm/socket.h b/arch/alpha/include/uapi/asm/socket.h
+index 3de1394..29608f2 100644
+--- a/arch/alpha/include/uapi/asm/socket.h
++++ b/arch/alpha/include/uapi/asm/socket.h
+@@ -87,4 +87,6 @@
  
- #include <asm/pgtable.h>
- #include <asm/processor.h>
- #include "internal.h"
+ #define SO_BPF_EXTENSIONS	48
  
--static inline void task_name(struct seq_file *m, struct task_struct *p)
--{
--	int i;
--	char *buf, *end;
--	char *name;
--	char tcomm[sizeof(p->comm)];
--
--	get_task_comm(tcomm, p);
--
--	seq_puts(m, "Name:\t");
--	end = m->buf + m->size;
--	buf = m->buf + m->count;
--	name = tcomm;
--	i = sizeof(tcomm);
--	while (i && (buf < end)) {
--		unsigned char c = *name;
--		name++;
--		i--;
--		*buf = c;
--		if (!c)
--			break;
--		if (c == '\\') {
--			buf++;
--			if (buf < end)
--				*buf++ = c;
--			continue;
--		}
--		if (c == '\n') {
--			*buf++ = '\\';
--			if (buf < end)
--				*buf++ = 'n';
--			continue;
--		}
--		buf++;
--	}
--	m->count = buf - m->buf;
--	seq_putc(m, '\n');
--}
--
--/*
-- * The task state array is a strange "bitmap" of
-- * reasons to sleep. Thus "running" is zero, and
-- * you can test for combinations of others with
-- * simple bit tests.
-- */
--static const char * const task_state_array[] = {
--	"R (running)",		/*   0 */
--	"S (sleeping)",		/*   1 */
--	"D (disk sleep)",	/*   2 */
--	"T (stopped)",		/*   4 */
--	"t (tracing stop)",	/*   8 */
--	"X (dead)",		/*  16 */
--	"Z (zombie)",		/*  32 */
--};
--
--static inline const char *get_task_state(struct task_struct *tsk)
--{
--	unsigned int state = (tsk->state | tsk->exit_state) & TASK_REPORT;
--
--	BUILD_BUG_ON(1 + ilog2(TASK_REPORT) != ARRAY_SIZE(task_state_array)-1);
--
--	return task_state_array[fls(state)];
--}
--
--static inline void task_state(struct seq_file *m, struct pid_namespace *ns,
--				struct pid *pid, struct task_struct *p)
--{
--	struct user_namespace *user_ns = seq_user_ns(m);
--	struct group_info *group_info;
--	int g;
--	struct fdtable *fdt = NULL;
--	const struct cred *cred;
--	pid_t ppid, tpid;
--
--	rcu_read_lock();
--	ppid = pid_alive(p) ?
--		task_tgid_nr_ns(rcu_dereference(p->real_parent), ns) : 0;
--	tpid = 0;
--	if (pid_alive(p)) {
--		struct task_struct *tracer = ptrace_parent(p);
--		if (tracer)
--			tpid = task_pid_nr_ns(tracer, ns);
--	}
--	cred = get_task_cred(p);
--	seq_printf(m,
--		"State:\t%s\n"
--		"Tgid:\t%d\n"
--		"Ngid:\t%d\n"
--		"Pid:\t%d\n"
--		"PPid:\t%d\n"
--		"TracerPid:\t%d\n"
--		"Uid:\t%d\t%d\t%d\t%d\n"
--		"Gid:\t%d\t%d\t%d\t%d\n",
--		get_task_state(p),
--		task_tgid_nr_ns(p, ns),
--		task_numa_group_id(p),
--		pid_nr_ns(pid, ns),
--		ppid, tpid,
--		from_kuid_munged(user_ns, cred->uid),
--		from_kuid_munged(user_ns, cred->euid),
--		from_kuid_munged(user_ns, cred->suid),
--		from_kuid_munged(user_ns, cred->fsuid),
--		from_kgid_munged(user_ns, cred->gid),
--		from_kgid_munged(user_ns, cred->egid),
--		from_kgid_munged(user_ns, cred->sgid),
--		from_kgid_munged(user_ns, cred->fsgid));
--
--	task_lock(p);
--	if (p->files)
--		fdt = files_fdtable(p->files);
--	seq_printf(m,
--		"FDSize:\t%d\n"
--		"Groups:\t",
--		fdt ? fdt->max_fds : 0);
--	rcu_read_unlock();
--
--	group_info = cred->group_info;
--	task_unlock(p);
--
--	for (g = 0; g < group_info->ngroups; g++)
--		seq_printf(m, "%d ",
--			   from_kgid_munged(user_ns, GROUP_AT(group_info, g)));
--	put_cred(cred);
--
--	seq_putc(m, '\n');
--}
--
--void render_sigset_t(struct seq_file *m, const char *header,
--				sigset_t *set)
--{
--	int i;
--
--	seq_puts(m, header);
--
--	i = _NSIG;
--	do {
--		int x = 0;
--
--		i -= 4;
--		if (sigismember(set, i+1)) x |= 1;
--		if (sigismember(set, i+2)) x |= 2;
--		if (sigismember(set, i+3)) x |= 4;
--		if (sigismember(set, i+4)) x |= 8;
--		seq_printf(m, "%x", x);
--	} while (i >= 4);
--
--	seq_putc(m, '\n');
--}
--
--static void collect_sigign_sigcatch(struct task_struct *p, sigset_t *ign,
--				    sigset_t *catch)
--{
--	struct k_sigaction *k;
--	int i;
--
--	k = p->sighand->action;
--	for (i = 1; i <= _NSIG; ++i, ++k) {
--		if (k->sa.sa_handler == SIG_IGN)
--			sigaddset(ign, i);
--		else if (k->sa.sa_handler != SIG_DFL)
--			sigaddset(catch, i);
--	}
--}
--
--static inline void task_sig(struct seq_file *m, struct task_struct *p)
--{
--	unsigned long flags;
--	sigset_t pending, shpending, blocked, ignored, caught;
--	int num_threads = 0;
--	unsigned long qsize = 0;
--	unsigned long qlim = 0;
--
--	sigemptyset(&pending);
--	sigemptyset(&shpending);
--	sigemptyset(&blocked);
--	sigemptyset(&ignored);
--	sigemptyset(&caught);
--
--	if (lock_task_sighand(p, &flags)) {
--		pending = p->pending.signal;
--		shpending = p->signal->shared_pending.signal;
--		blocked = p->blocked;
--		collect_sigign_sigcatch(p, &ignored, &caught);
--		num_threads = get_nr_threads(p);
--		rcu_read_lock();  /* FIXME: is this correct? */
--		qsize = atomic_read(&__task_cred(p)->user->sigpending);
--		rcu_read_unlock();
--		qlim = task_rlimit(p, RLIMIT_SIGPENDING);
--		unlock_task_sighand(p, &flags);
--	}
--
--	seq_printf(m, "Threads:\t%d\n", num_threads);
--	seq_printf(m, "SigQ:\t%lu/%lu\n", qsize, qlim);
--
--	/* render them all */
--	render_sigset_t(m, "SigPnd:\t", &pending);
--	render_sigset_t(m, "ShdPnd:\t", &shpending);
--	render_sigset_t(m, "SigBlk:\t", &blocked);
--	render_sigset_t(m, "SigIgn:\t", &ignored);
--	render_sigset_t(m, "SigCgt:\t", &caught);
--}
--
--static void render_cap_t(struct seq_file *m, const char *header,
--			kernel_cap_t *a)
--{
--	unsigned __capi;
--
--	seq_puts(m, header);
--	CAP_FOR_EACH_U32(__capi) {
--		seq_printf(m, "%08x",
--			   a->cap[(_KERNEL_CAPABILITY_U32S-1) - __capi]);
--	}
--	seq_putc(m, '\n');
--}
--
--/* Remove non-existent capabilities */
--#define NORM_CAPS(v) (v.cap[CAP_TO_INDEX(CAP_LAST_CAP)] &= \
--				CAP_TO_MASK(CAP_LAST_CAP + 1) - 1)
--
--static inline void task_cap(struct seq_file *m, struct task_struct *p)
--{
--	const struct cred *cred;
--	kernel_cap_t cap_inheritable, cap_permitted, cap_effective, cap_bset;
--
--	rcu_read_lock();
--	cred = __task_cred(p);
--	cap_inheritable	= cred->cap_inheritable;
--	cap_permitted	= cred->cap_permitted;
--	cap_effective	= cred->cap_effective;
--	cap_bset	= cred->cap_bset;
--	rcu_read_unlock();
--
--	NORM_CAPS(cap_inheritable);
--	NORM_CAPS(cap_permitted);
--	NORM_CAPS(cap_effective);
--	NORM_CAPS(cap_bset);
--
--	render_cap_t(m, "CapInh:\t", &cap_inheritable);
--	render_cap_t(m, "CapPrm:\t", &cap_permitted);
--	render_cap_t(m, "CapEff:\t", &cap_effective);
--	render_cap_t(m, "CapBnd:\t", &cap_bset);
--}
--
--static inline void task_seccomp(struct seq_file *m, struct task_struct *p)
--{
--#ifdef CONFIG_SECCOMP
--	seq_printf(m, "Seccomp:\t%d\n", p->seccomp.mode);
--#endif
--}
--
--static inline void task_context_switch_counts(struct seq_file *m,
--						struct task_struct *p)
--{
--	seq_printf(m,	"voluntary_ctxt_switches:\t%lu\n"
--			"nonvoluntary_ctxt_switches:\t%lu\n",
--			p->nvcsw,
--			p->nivcsw);
--}
--
--static void task_cpus_allowed(struct seq_file *m, struct task_struct *task)
--{
--	seq_puts(m, "Cpus_allowed:\t");
--	seq_cpumask(m, &task->cpus_allowed);
--	seq_putc(m, '\n');
--	seq_puts(m, "Cpus_allowed_list:\t");
--	seq_cpumask_list(m, &task->cpus_allowed);
--	seq_putc(m, '\n');
--}
--
- int proc_pid_status(struct seq_file *m, struct pid_namespace *ns,
- 			struct pid *pid, struct task_struct *task)
- {
- 	struct mm_struct *mm = get_task_mm(task);
++#define SO_PASSPROC		49
++
+ #endif /* _UAPI_ASM_SOCKET_H */
+diff --git a/arch/avr32/include/uapi/asm/socket.h b/arch/avr32/include/uapi/asm/socket.h
+index 6e6cd15..a9bbc63 100644
+--- a/arch/avr32/include/uapi/asm/socket.h
++++ b/arch/avr32/include/uapi/asm/socket.h
+@@ -80,4 +80,6 @@
  
--	task_name(m, task);
--	task_state(m, ns, pid, task);
--
--	if (mm) {
--		task_mem(m, mm);
-+	proc_pid_status_mm(m, ns, pid, task, mm);
-+	if (mm)
- 		mmput(mm);
--	}
--	task_sig(m, task);
--	task_cap(m, task);
--	task_seccomp(m, task);
--	task_cpus_allowed(m, task);
--	cpuset_task_status_allowed(m, task);
--	task_context_switch_counts(m, task);
-+
- 	return 0;
- }
+ #define SO_BPF_EXTENSIONS	48
  
- static int do_task_stat(struct seq_file *m, struct pid_namespace *ns,
- 			struct pid *pid, struct task_struct *task, int whole)
- {
--	unsigned long vsize, eip, esp, wchan = ~0UL;
--	int priority, nice;
--	int tty_pgrp = -1, tty_nr = 0;
--	sigset_t sigign, sigcatch;
--	char state;
--	pid_t ppid = 0, pgid = -1, sid = -1;
--	int num_threads = 0;
--	int permitted;
--	struct mm_struct *mm;
--	unsigned long long start_time;
--	unsigned long cmin_flt = 0, cmaj_flt = 0;
--	unsigned long  min_flt = 0,  maj_flt = 0;
--	cputime_t cutime, cstime, utime, stime;
--	cputime_t cgtime, gtime;
--	unsigned long rsslim = 0;
--	char tcomm[sizeof(task->comm)];
--	unsigned long flags;
--
--	state = *get_task_state(task);
--	vsize = eip = esp = 0;
--	permitted = ptrace_may_access(task, PTRACE_MODE_READ | PTRACE_MODE_NOAUDIT);
--	mm = get_task_mm(task);
--	if (mm) {
--		vsize = task_vsize(mm);
--		if (permitted) {
--			eip = KSTK_EIP(task);
--			esp = KSTK_ESP(task);
--		}
--	}
--
--	get_task_comm(tcomm, task);
--
--	sigemptyset(&sigign);
--	sigemptyset(&sigcatch);
--	cutime = cstime = utime = stime = 0;
--	cgtime = gtime = 0;
--
--	if (lock_task_sighand(task, &flags)) {
--		struct signal_struct *sig = task->signal;
--
--		if (sig->tty) {
--			struct pid *pgrp = tty_get_pgrp(sig->tty);
--			tty_pgrp = pid_nr_ns(pgrp, ns);
--			put_pid(pgrp);
--			tty_nr = new_encode_dev(tty_devnum(sig->tty));
--		}
--
--		num_threads = get_nr_threads(task);
--		collect_sigign_sigcatch(task, &sigign, &sigcatch);
--
--		cmin_flt = sig->cmin_flt;
--		cmaj_flt = sig->cmaj_flt;
--		cutime = sig->cutime;
--		cstime = sig->cstime;
--		cgtime = sig->cgtime;
--		rsslim = ACCESS_ONCE(sig->rlim[RLIMIT_RSS].rlim_cur);
--
--		/* add up live thread stats at the group level */
--		if (whole) {
--			struct task_struct *t = task;
--			do {
--				min_flt += t->min_flt;
--				maj_flt += t->maj_flt;
--				gtime += task_gtime(t);
--			} while_each_thread(task, t);
--
--			min_flt += sig->min_flt;
--			maj_flt += sig->maj_flt;
--			thread_group_cputime_adjusted(task, &utime, &stime);
--			gtime += sig->gtime;
--		}
--
--		sid = task_session_nr_ns(task, ns);
--		ppid = task_tgid_nr_ns(task->real_parent, ns);
--		pgid = task_pgrp_nr_ns(task, ns);
--
--		unlock_task_sighand(task, &flags);
--	}
--
--	if (permitted && (!whole || num_threads < 2))
--		wchan = get_wchan(task);
--	if (!whole) {
--		min_flt = task->min_flt;
--		maj_flt = task->maj_flt;
--		task_cputime_adjusted(task, &utime, &stime);
--		gtime = task_gtime(task);
--	}
-+	struct mm_struct *mm = get_task_mm(task);
++#define SO_PASSPROC		49
++
+ #endif /* _UAPI__ASM_AVR32_SOCKET_H */
+diff --git a/arch/cris/include/uapi/asm/socket.h b/arch/cris/include/uapi/asm/socket.h
+index ed94e5e..df0c641 100644
+--- a/arch/cris/include/uapi/asm/socket.h
++++ b/arch/cris/include/uapi/asm/socket.h
+@@ -82,6 +82,8 @@
  
--	/* scale priority and nice values from timeslices to -20..20 */
--	/* to make it look like a "normal" Unix priority/nice value  */
--	priority = task_prio(task);
--	nice = task_nice(task);
--
--	/* Temporary variable needed for gcc-2.96 */
--	/* convert timespec -> nsec*/
--	start_time =
--		(unsigned long long)task->real_start_time.tv_sec * NSEC_PER_SEC
--				+ task->real_start_time.tv_nsec;
--	/* convert nsec -> ticks */
--	start_time = nsec_to_clock_t(start_time);
--
--	seq_printf(m, "%d (%s) %c", pid_nr_ns(pid, ns), tcomm, state);
--	seq_put_decimal_ll(m, ' ', ppid);
--	seq_put_decimal_ll(m, ' ', pgid);
--	seq_put_decimal_ll(m, ' ', sid);
--	seq_put_decimal_ll(m, ' ', tty_nr);
--	seq_put_decimal_ll(m, ' ', tty_pgrp);
--	seq_put_decimal_ull(m, ' ', task->flags);
--	seq_put_decimal_ull(m, ' ', min_flt);
--	seq_put_decimal_ull(m, ' ', cmin_flt);
--	seq_put_decimal_ull(m, ' ', maj_flt);
--	seq_put_decimal_ull(m, ' ', cmaj_flt);
--	seq_put_decimal_ull(m, ' ', cputime_to_clock_t(utime));
--	seq_put_decimal_ull(m, ' ', cputime_to_clock_t(stime));
--	seq_put_decimal_ll(m, ' ', cputime_to_clock_t(cutime));
--	seq_put_decimal_ll(m, ' ', cputime_to_clock_t(cstime));
--	seq_put_decimal_ll(m, ' ', priority);
--	seq_put_decimal_ll(m, ' ', nice);
--	seq_put_decimal_ll(m, ' ', num_threads);
--	seq_put_decimal_ull(m, ' ', 0);
--	seq_put_decimal_ull(m, ' ', start_time);
--	seq_put_decimal_ull(m, ' ', vsize);
--	seq_put_decimal_ull(m, ' ', mm ? get_mm_rss(mm) : 0);
--	seq_put_decimal_ull(m, ' ', rsslim);
--	seq_put_decimal_ull(m, ' ', mm ? (permitted ? mm->start_code : 1) : 0);
--	seq_put_decimal_ull(m, ' ', mm ? (permitted ? mm->end_code : 1) : 0);
--	seq_put_decimal_ull(m, ' ', (permitted && mm) ? mm->start_stack : 0);
--	seq_put_decimal_ull(m, ' ', esp);
--	seq_put_decimal_ull(m, ' ', eip);
--	/* The signal information here is obsolete.
--	 * It must be decimal for Linux 2.0 compatibility.
--	 * Use /proc/#/status for real-time signals.
--	 */
--	seq_put_decimal_ull(m, ' ', task->pending.signal.sig[0] & 0x7fffffffUL);
--	seq_put_decimal_ull(m, ' ', task->blocked.sig[0] & 0x7fffffffUL);
--	seq_put_decimal_ull(m, ' ', sigign.sig[0] & 0x7fffffffUL);
--	seq_put_decimal_ull(m, ' ', sigcatch.sig[0] & 0x7fffffffUL);
--	seq_put_decimal_ull(m, ' ', wchan);
--	seq_put_decimal_ull(m, ' ', 0);
--	seq_put_decimal_ull(m, ' ', 0);
--	seq_put_decimal_ll(m, ' ', task->exit_signal);
--	seq_put_decimal_ll(m, ' ', task_cpu(task));
--	seq_put_decimal_ull(m, ' ', task->rt_priority);
--	seq_put_decimal_ull(m, ' ', task->policy);
--	seq_put_decimal_ull(m, ' ', delayacct_blkio_ticks(task));
--	seq_put_decimal_ull(m, ' ', cputime_to_clock_t(gtime));
--	seq_put_decimal_ll(m, ' ', cputime_to_clock_t(cgtime));
--
--	if (mm && permitted) {
--		seq_put_decimal_ull(m, ' ', mm->start_data);
--		seq_put_decimal_ull(m, ' ', mm->end_data);
--		seq_put_decimal_ull(m, ' ', mm->start_brk);
--		seq_put_decimal_ull(m, ' ', mm->arg_start);
--		seq_put_decimal_ull(m, ' ', mm->arg_end);
--		seq_put_decimal_ull(m, ' ', mm->env_start);
--		seq_put_decimal_ull(m, ' ', mm->env_end);
--	} else
--		seq_printf(m, " 0 0 0 0 0 0 0");
--
--	if (permitted)
--		seq_put_decimal_ll(m, ' ', task->exit_code);
--	else
--		seq_put_decimal_ll(m, ' ', 0);
--
--	seq_putc(m, '\n');
-+	task_stat_mm(m, ns, pid, task, whole, mm);
- 	if (mm)
- 		mmput(mm);
-+
- 	return 0;
- }
+ #define SO_BPF_EXTENSIONS	48
  
-@@ -565,27 +123,11 @@ int proc_tgid_stat(struct seq_file *m, struct pid_namespace *ns,
- int proc_pid_statm(struct seq_file *m, struct pid_namespace *ns,
- 			struct pid *pid, struct task_struct *task)
- {
--	unsigned long size = 0, resident = 0, shared = 0, text = 0, data = 0;
- 	struct mm_struct *mm = get_task_mm(task);
++#define SO_PASSPROC		49
++
+ #endif /* _ASM_SOCKET_H */
  
--	if (mm) {
--		size = task_statm(mm, &shared, &text, &data, &resident);
-+	proc_pid_statm_mm(m, ns, pid, task, mm);
-+	if (mm)
- 		mmput(mm);
--	}
--	/*
--	 * For quick read, open code by putting numbers directly
--	 * expected format is
--	 * seq_printf(m, "%lu %lu %lu %lu 0 %lu 0\n",
--	 *               size, resident, shared, text, data);
--	 */
--	seq_put_decimal_ull(m, 0, size);
--	seq_put_decimal_ull(m, ' ', resident);
--	seq_put_decimal_ull(m, ' ', shared);
--	seq_put_decimal_ull(m, ' ', text);
--	seq_put_decimal_ull(m, ' ', 0);
--	seq_put_decimal_ull(m, ' ', data);
--	seq_put_decimal_ull(m, ' ', 0);
--	seq_putc(m, '\n');
  
- 	return 0;
- }
-diff --git a/fs/proc/task_mmu.c b/fs/proc/task_mmu.c
-index cfa63ee..8e88002 100644
---- a/fs/proc/task_mmu.c
-+++ b/fs/proc/task_mmu.c
-@@ -19,72 +19,6 @@
- #include <asm/tlbflush.h>
- #include "internal.h"
+diff --git a/arch/frv/include/uapi/asm/socket.h b/arch/frv/include/uapi/asm/socket.h
+index ca2c6e6..3cd9cb1 100644
+--- a/arch/frv/include/uapi/asm/socket.h
++++ b/arch/frv/include/uapi/asm/socket.h
+@@ -80,5 +80,7 @@
  
--void task_mem(struct seq_file *m, struct mm_struct *mm)
--{
--	unsigned long data, text, lib, swap;
--	unsigned long hiwater_vm, total_vm, hiwater_rss, total_rss;
--
--	/*
--	 * Note: to minimize their overhead, mm maintains hiwater_vm and
--	 * hiwater_rss only when about to *lower* total_vm or rss.  Any
--	 * collector of these hiwater stats must therefore get total_vm
--	 * and rss too, which will usually be the higher.  Barriers? not
--	 * worth the effort, such snapshots can always be inconsistent.
--	 */
--	hiwater_vm = total_vm = mm->total_vm;
--	if (hiwater_vm < mm->hiwater_vm)
--		hiwater_vm = mm->hiwater_vm;
--	hiwater_rss = total_rss = get_mm_rss(mm);
--	if (hiwater_rss < mm->hiwater_rss)
--		hiwater_rss = mm->hiwater_rss;
--
--	data = mm->total_vm - mm->shared_vm - mm->stack_vm;
--	text = (PAGE_ALIGN(mm->end_code) - (mm->start_code & PAGE_MASK)) >> 10;
--	lib = (mm->exec_vm << (PAGE_SHIFT-10)) - text;
--	swap = get_mm_counter(mm, MM_SWAPENTS);
--	seq_printf(m,
--		"VmPeak:\t%8lu kB\n"
--		"VmSize:\t%8lu kB\n"
--		"VmLck:\t%8lu kB\n"
--		"VmPin:\t%8lu kB\n"
--		"VmHWM:\t%8lu kB\n"
--		"VmRSS:\t%8lu kB\n"
--		"VmData:\t%8lu kB\n"
--		"VmStk:\t%8lu kB\n"
--		"VmExe:\t%8lu kB\n"
--		"VmLib:\t%8lu kB\n"
--		"VmPTE:\t%8lu kB\n"
--		"VmSwap:\t%8lu kB\n",
--		hiwater_vm << (PAGE_SHIFT-10),
--		total_vm << (PAGE_SHIFT-10),
--		mm->locked_vm << (PAGE_SHIFT-10),
--		mm->pinned_vm << (PAGE_SHIFT-10),
--		hiwater_rss << (PAGE_SHIFT-10),
--		total_rss << (PAGE_SHIFT-10),
--		data << (PAGE_SHIFT-10),
--		mm->stack_vm << (PAGE_SHIFT-10), text, lib,
--		(PTRS_PER_PTE * sizeof(pte_t) *
--		 atomic_long_read(&mm->nr_ptes)) >> 10,
--		swap << (PAGE_SHIFT-10));
--}
--
--unsigned long task_vsize(struct mm_struct *mm)
--{
--	return PAGE_SIZE * mm->total_vm;
--}
--
--unsigned long task_statm(struct mm_struct *mm,
--			 unsigned long *shared, unsigned long *text,
--			 unsigned long *data, unsigned long *resident)
--{
--	*shared = get_mm_counter(mm, MM_FILEPAGES);
--	*text = (PAGE_ALIGN(mm->end_code) - (mm->start_code & PAGE_MASK))
--								>> PAGE_SHIFT;
--	*data = mm->total_vm - mm->shared_vm;
--	*resident = *shared + get_mm_counter(mm, MM_ANONPAGES);
--	return mm->total_vm;
--}
--
- #ifdef CONFIG_NUMA
- /*
-  * These functions are for numa_maps but called in generic **maps seq_file
-diff --git a/fs/proc/task_nommu.c b/fs/proc/task_nommu.c
-index 678455d..ab50d9f 100644
---- a/fs/proc/task_nommu.c
-+++ b/fs/proc/task_nommu.c
-@@ -10,120 +10,6 @@
- #include "internal.h"
+ #define SO_BPF_EXTENSIONS	48
  
- /*
-- * Logic: we've got two memory sums for each process, "shared", and
-- * "non-shared". Shared memory may get counted more than once, for
-- * each process that owns it. Non-shared memory is counted
-- * accurately.
-- */
--void task_mem(struct seq_file *m, struct mm_struct *mm)
--{
--	struct vm_area_struct *vma;
--	struct vm_region *region;
--	struct rb_node *p;
--	unsigned long bytes = 0, sbytes = 0, slack = 0, size;
--        
--	down_read(&mm->mmap_sem);
--	for (p = rb_first(&mm->mm_rb); p; p = rb_next(p)) {
--		vma = rb_entry(p, struct vm_area_struct, vm_rb);
--
--		bytes += kobjsize(vma);
--
--		region = vma->vm_region;
--		if (region) {
--			size = kobjsize(region);
--			size += region->vm_end - region->vm_start;
--		} else {
--			size = vma->vm_end - vma->vm_start;
--		}
--
--		if (atomic_read(&mm->mm_count) > 1 ||
--		    vma->vm_flags & VM_MAYSHARE) {
--			sbytes += size;
--		} else {
--			bytes += size;
--			if (region)
--				slack = region->vm_end - vma->vm_end;
--		}
--	}
--
--	if (atomic_read(&mm->mm_count) > 1)
--		sbytes += kobjsize(mm);
--	else
--		bytes += kobjsize(mm);
--	
--	if (current->fs && current->fs->users > 1)
--		sbytes += kobjsize(current->fs);
--	else
--		bytes += kobjsize(current->fs);
--
--	if (current->files && atomic_read(&current->files->count) > 1)
--		sbytes += kobjsize(current->files);
--	else
--		bytes += kobjsize(current->files);
--
--	if (current->sighand && atomic_read(&current->sighand->count) > 1)
--		sbytes += kobjsize(current->sighand);
--	else
--		bytes += kobjsize(current->sighand);
--
--	bytes += kobjsize(current); /* includes kernel stack */
--
--	seq_printf(m,
--		"Mem:\t%8lu bytes\n"
--		"Slack:\t%8lu bytes\n"
--		"Shared:\t%8lu bytes\n",
--		bytes, slack, sbytes);
--
--	up_read(&mm->mmap_sem);
--}
--
--unsigned long task_vsize(struct mm_struct *mm)
--{
--	struct vm_area_struct *vma;
--	struct rb_node *p;
--	unsigned long vsize = 0;
--
--	down_read(&mm->mmap_sem);
--	for (p = rb_first(&mm->mm_rb); p; p = rb_next(p)) {
--		vma = rb_entry(p, struct vm_area_struct, vm_rb);
--		vsize += vma->vm_end - vma->vm_start;
--	}
--	up_read(&mm->mmap_sem);
--	return vsize;
--}
--
--unsigned long task_statm(struct mm_struct *mm,
--			 unsigned long *shared, unsigned long *text,
--			 unsigned long *data, unsigned long *resident)
--{
--	struct vm_area_struct *vma;
--	struct vm_region *region;
--	struct rb_node *p;
--	unsigned long size = kobjsize(mm);
--
--	down_read(&mm->mmap_sem);
--	for (p = rb_first(&mm->mm_rb); p; p = rb_next(p)) {
--		vma = rb_entry(p, struct vm_area_struct, vm_rb);
--		size += kobjsize(vma);
--		region = vma->vm_region;
--		if (region) {
--			size += kobjsize(region);
--			size += region->vm_end - region->vm_start;
--		}
--	}
--
--	*text = (PAGE_ALIGN(mm->end_code) - (mm->start_code & PAGE_MASK))
--		>> PAGE_SHIFT;
--	*data = (PAGE_ALIGN(mm->start_stack) - (mm->start_data & PAGE_MASK))
--		>> PAGE_SHIFT;
--	up_read(&mm->mmap_sem);
--	size >>= PAGE_SHIFT;
--	size += *text + *data;
--	*resident = size;
--	return size;
--}
--
--/*
-  * display a single VMA to a sequenced file
-  */
- static int nommu_vma_show(struct seq_file *m, struct vm_area_struct *vma,
-diff --git a/include/linux/proc_info.h b/include/linux/proc_info.h
-new file mode 100644
-index 0000000..b083499
---- /dev/null
-+++ b/include/linux/proc_info.h
-@@ -0,0 +1,35 @@
-+#ifndef _LINUX_PROC_INFO_H
-+#define _LINUX_PROC_INFO_H
++#define SO_PASSPROC		49
 +
-+#include <linux/types.h>
-+#include <linux/fdtable.h>
-+#include <linux/seq_file.h>
-+#include <linux/user_namespace.h>
-+#include <linux/ptrace.h>
-+
-+void task_mem(struct seq_file *m, struct mm_struct *mm);
-+unsigned long task_vsize(struct mm_struct *mm);
-+unsigned long task_statm(struct mm_struct *mm,
-+			 unsigned long *shared, unsigned long *text,
-+			 unsigned long *data, unsigned long *resident);
-+void task_name(struct seq_file *m, struct task_struct *p);
-+const char *get_task_state(struct task_struct *tsk);
-+void task_state(struct seq_file *m, struct pid_namespace *ns,
-+		struct pid *pid, struct task_struct *p);
-+void task_sig(struct seq_file *m, struct task_struct *p);
-+void task_cap(struct seq_file *m, struct task_struct *p);
-+void task_seccomp(struct seq_file *m, struct task_struct *p);
-+void task_context_switch_counts(struct seq_file *m, struct task_struct *p);
-+void task_cpus_allowed(struct seq_file *m, struct task_struct *task);
-+void render_sigset_t(struct seq_file *m, const char *header, sigset_t *set);
-+int proc_pid_status_mm(struct seq_file *m, struct pid_namespace *ns,
-+		       struct pid *pid, struct task_struct *task,
-+		       struct mm_struct *mm);
-+int task_stat_mm(struct seq_file *m, struct pid_namespace *ns,
-+		 struct pid *pid, struct task_struct *task, int whole,
-+		 struct mm_struct *mm);
-+int proc_pid_statm_mm(struct seq_file *m, struct pid_namespace *ns,
-+		      struct pid *pid, struct task_struct *task,
-+		      struct mm_struct *mm);
-+
-+#endif /* _LINUX_PROC_INFO_H */
-diff --git a/lib/Kconfig b/lib/Kconfig
-index 334f772..037acda 100644
---- a/lib/Kconfig
-+++ b/lib/Kconfig
-@@ -474,4 +474,9 @@ config UCS2_STRING
+ #endif /* _ASM_SOCKET_H */
  
- source "lib/fonts/Kconfig"
+diff --git a/arch/ia64/include/uapi/asm/socket.h b/arch/ia64/include/uapi/asm/socket.h
+index a1b49ba..656ba43 100644
+--- a/arch/ia64/include/uapi/asm/socket.h
++++ b/arch/ia64/include/uapi/asm/socket.h
+@@ -89,4 +89,6 @@
  
-+config PROC_INFO
-+	bool
-+	help
-+	  This option provides process information
-+
- endmenu
-diff --git a/lib/Makefile b/lib/Makefile
-index ba967a1..f2a492c 100644
---- a/lib/Makefile
-+++ b/lib/Makefile
-@@ -40,6 +40,8 @@ CFLAGS_kobject.o += -DDEBUG
- CFLAGS_kobject_uevent.o += -DDEBUG
- endif
+ #define SO_BPF_EXTENSIONS	48
  
-+obj-$(CONFIG_PROC_INFO) += proc_info.o
++#define SO_PASSPROC		49
 +
- obj-$(CONFIG_GENERIC_IOMAP) += iomap.o
- obj-$(CONFIG_GENERIC_PCI_IOMAP) += pci_iomap.o
- obj-$(CONFIG_HAS_IOMEM) += iomap_copy.o devres.o
-diff --git a/lib/proc_info.c b/lib/proc_info.c
-new file mode 100644
-index 0000000..f5f86a0
---- /dev/null
-+++ b/lib/proc_info.c
-@@ -0,0 +1,686 @@
-+/*
-+ * lib/proc_info.c
-+ *
-+ * The code is copied from fs/proc/array.c
-+ *
-+ * Helper functions used for process information.
-+ *
-+ */
+ #endif /* _ASM_IA64_SOCKET_H */
+diff --git a/arch/m32r/include/uapi/asm/socket.h b/arch/m32r/include/uapi/asm/socket.h
+index 6c9a24b..758ce55 100644
+--- a/arch/m32r/include/uapi/asm/socket.h
++++ b/arch/m32r/include/uapi/asm/socket.h
+@@ -80,4 +80,6 @@
+ 
+ #define SO_BPF_EXTENSIONS	48
+ 
++#define SO_PASSPROC		49
 +
-+#include <linux/kernel.h>
-+#include <linux/export.h>
-+#include <linux/cpuset.h>
-+#include <linux/tty.h>
-+#include <linux/taskstats.h>
-+#include <linux/delayacct.h>
-+#include <linux/proc_info.h>
+ #endif /* _ASM_M32R_SOCKET_H */
+diff --git a/arch/mips/include/uapi/asm/socket.h b/arch/mips/include/uapi/asm/socket.h
+index a14baa2..cc7b8f5 100644
+--- a/arch/mips/include/uapi/asm/socket.h
++++ b/arch/mips/include/uapi/asm/socket.h
+@@ -98,4 +98,6 @@
+ 
+ #define SO_BPF_EXTENSIONS	48
+ 
++#define SO_PASSPROC		49
 +
-+#ifdef CONFIG_MMU
-+void task_mem(struct seq_file *m, struct mm_struct *mm)
-+{
-+	unsigned long data, text, lib, swap;
-+	unsigned long hiwater_vm, total_vm, hiwater_rss, total_rss;
+ #endif /* _UAPI_ASM_SOCKET_H */
+diff --git a/arch/mn10300/include/uapi/asm/socket.h b/arch/mn10300/include/uapi/asm/socket.h
+index 6aa3ce1..b49368f2 100644
+--- a/arch/mn10300/include/uapi/asm/socket.h
++++ b/arch/mn10300/include/uapi/asm/socket.h
+@@ -80,4 +80,6 @@
+ 
+ #define SO_BPF_EXTENSIONS	48
+ 
++#define SO_PASSPROC		49
 +
-+	/*
-+	 * Note: to minimize their overhead, mm maintains hiwater_vm and
-+	 * hiwater_rss only when about to *lower* total_vm or rss.  Any
-+	 * collector of these hiwater stats must therefore get total_vm
-+	 * and rss too, which will usually be the higher.  Barriers? not
-+	 * worth the effort, such snapshots can always be inconsistent.
-+	 */
-+	hiwater_vm = total_vm = mm->total_vm;
-+	if (hiwater_vm < mm->hiwater_vm)
-+		hiwater_vm = mm->hiwater_vm;
-+	hiwater_rss = total_rss = get_mm_rss(mm);
-+	if (hiwater_rss < mm->hiwater_rss)
-+		hiwater_rss = mm->hiwater_rss;
+ #endif /* _ASM_SOCKET_H */
+diff --git a/arch/parisc/include/uapi/asm/socket.h b/arch/parisc/include/uapi/asm/socket.h
+index fe35cea..b3facfa 100644
+--- a/arch/parisc/include/uapi/asm/socket.h
++++ b/arch/parisc/include/uapi/asm/socket.h
+@@ -79,4 +79,6 @@
+ 
+ #define SO_BPF_EXTENSIONS	0x4029
+ 
++#define SO_PASSPROC		0x402a
 +
-+	data = mm->total_vm - mm->shared_vm - mm->stack_vm;
-+	text = (PAGE_ALIGN(mm->end_code) - (mm->start_code & PAGE_MASK)) >> 10;
-+	lib = (mm->exec_vm << (PAGE_SHIFT-10)) - text;
-+	swap = get_mm_counter(mm, MM_SWAPENTS);
-+	seq_printf(m,
-+		"VmPeak:\t%8lu kB\n"
-+		"VmSize:\t%8lu kB\n"
-+		"VmLck:\t%8lu kB\n"
-+		"VmPin:\t%8lu kB\n"
-+		"VmHWM:\t%8lu kB\n"
-+		"VmRSS:\t%8lu kB\n"
-+		"VmData:\t%8lu kB\n"
-+		"VmStk:\t%8lu kB\n"
-+		"VmExe:\t%8lu kB\n"
-+		"VmLib:\t%8lu kB\n"
-+		"VmPTE:\t%8lu kB\n"
-+		"VmSwap:\t%8lu kB\n",
-+		hiwater_vm << (PAGE_SHIFT-10),
-+		total_vm << (PAGE_SHIFT-10),
-+		mm->locked_vm << (PAGE_SHIFT-10),
-+		mm->pinned_vm << (PAGE_SHIFT-10),
-+		hiwater_rss << (PAGE_SHIFT-10),
-+		total_rss << (PAGE_SHIFT-10),
-+		data << (PAGE_SHIFT-10),
-+		mm->stack_vm << (PAGE_SHIFT-10), text, lib,
-+		(PTRS_PER_PTE * sizeof(pte_t) *
-+		 atomic_long_read(&mm->nr_ptes)) >> 10,
-+		swap << (PAGE_SHIFT-10));
-+}
+ #endif /* _UAPI_ASM_SOCKET_H */
+diff --git a/arch/powerpc/include/uapi/asm/socket.h b/arch/powerpc/include/uapi/asm/socket.h
+index a9c3e2e..b582047 100644
+--- a/arch/powerpc/include/uapi/asm/socket.h
++++ b/arch/powerpc/include/uapi/asm/socket.h
+@@ -87,4 +87,6 @@
+ 
+ #define SO_BPF_EXTENSIONS	48
+ 
++#define SO_PASSPROC		49
 +
-+unsigned long task_vsize(struct mm_struct *mm)
-+{
-+	return PAGE_SIZE * mm->total_vm;
-+}
+ #endif	/* _ASM_POWERPC_SOCKET_H */
+diff --git a/arch/s390/include/uapi/asm/socket.h b/arch/s390/include/uapi/asm/socket.h
+index e031332..ffd6fa5 100644
+--- a/arch/s390/include/uapi/asm/socket.h
++++ b/arch/s390/include/uapi/asm/socket.h
+@@ -86,4 +86,6 @@
+ 
+ #define SO_BPF_EXTENSIONS	48
+ 
++#define SO_PASSPROC		49
 +
-+unsigned long task_statm(struct mm_struct *mm,
-+			 unsigned long *shared, unsigned long *text,
-+			 unsigned long *data, unsigned long *resident)
-+{
-+	*shared = get_mm_counter(mm, MM_FILEPAGES);
-+	*text = (PAGE_ALIGN(mm->end_code) - (mm->start_code & PAGE_MASK))
-+								>> PAGE_SHIFT;
-+	*data = mm->total_vm - mm->shared_vm;
-+	*resident = *shared + get_mm_counter(mm, MM_ANONPAGES);
-+	return mm->total_vm;
-+}
-+#else
-+/*
-+ * Logic: we've got two memory sums for each process, "shared", and
-+ * "non-shared". Shared memory may get counted more than once, for
-+ * each process that owns it. Non-shared memory is counted
-+ * accurately.
-+ */
-+void task_mem(struct seq_file *m, struct mm_struct *mm)
-+{
-+	struct vm_area_struct *vma;
-+	struct vm_region *region;
-+	struct rb_node *p;
-+	unsigned long bytes = 0, sbytes = 0, slack = 0, size;
+ #endif /* _ASM_SOCKET_H */
+diff --git a/arch/sparc/include/uapi/asm/socket.h b/arch/sparc/include/uapi/asm/socket.h
+index 54d9608..875353f 100644
+--- a/arch/sparc/include/uapi/asm/socket.h
++++ b/arch/sparc/include/uapi/asm/socket.h
+@@ -76,6 +76,8 @@
+ 
+ #define SO_BPF_EXTENSIONS	0x0032
+ 
++#define SO_PASSPROC		0x0033
 +
-+	down_read(&mm->mmap_sem);
-+	for (p = rb_first(&mm->mm_rb); p; p = rb_next(p)) {
-+		vma = rb_entry(p, struct vm_area_struct, vm_rb);
-+
-+		bytes += kobjsize(vma);
-+
-+		region = vma->vm_region;
-+		if (region) {
-+			size = kobjsize(region);
-+			size += region->vm_end - region->vm_start;
-+		} else {
-+			size = vma->vm_end - vma->vm_start;
-+		}
-+
-+		if (atomic_read(&mm->mm_count) > 1 ||
-+		    vma->vm_flags & VM_MAYSHARE) {
-+			sbytes += size;
-+		} else {
-+			bytes += size;
-+			if (region)
-+				slack = region->vm_end - vma->vm_end;
-+		}
-+	}
-+
-+	if (atomic_read(&mm->mm_count) > 1)
-+		sbytes += kobjsize(mm);
-+	else
-+		bytes += kobjsize(mm);
-+
-+	if (current->fs && current->fs->users > 1)
-+		sbytes += kobjsize(current->fs);
-+	else
-+		bytes += kobjsize(current->fs);
-+
-+	if (current->files && atomic_read(&current->files->count) > 1)
-+		sbytes += kobjsize(current->files);
-+	else
-+		bytes += kobjsize(current->files);
-+
-+	if (current->sighand && atomic_read(&current->sighand->count) > 1)
-+		sbytes += kobjsize(current->sighand);
-+	else
-+		bytes += kobjsize(current->sighand);
-+
-+	bytes += kobjsize(current); /* includes kernel stack */
-+
-+	seq_printf(m,
-+		"Mem:\t%8lu bytes\n"
-+		"Slack:\t%8lu bytes\n"
-+		"Shared:\t%8lu bytes\n",
-+		bytes, slack, sbytes);
-+
-+	up_read(&mm->mmap_sem);
-+}
-+
-+unsigned long task_vsize(struct mm_struct *mm)
-+{
-+	struct vm_area_struct *vma;
-+	struct rb_node *p;
-+	unsigned long vsize = 0;
-+
-+	down_read(&mm->mmap_sem);
-+	for (p = rb_first(&mm->mm_rb); p; p = rb_next(p)) {
-+		vma = rb_entry(p, struct vm_area_struct, vm_rb);
-+		vsize += vma->vm_end - vma->vm_start;
-+	}
-+	up_read(&mm->mmap_sem);
-+	return vsize;
-+}
-+
-+unsigned long task_statm(struct mm_struct *mm,
-+			 unsigned long *shared, unsigned long *text,
-+			 unsigned long *data, unsigned long *resident)
-+{
-+	struct vm_area_struct *vma;
-+	struct vm_region *region;
-+	struct rb_node *p;
-+	unsigned long size = kobjsize(mm);
-+
-+	down_read(&mm->mmap_sem);
-+	for (p = rb_first(&mm->mm_rb); p; p = rb_next(p)) {
-+		vma = rb_entry(p, struct vm_area_struct, vm_rb);
-+		size += kobjsize(vma);
-+		region = vma->vm_region;
-+		if (region) {
-+			size += kobjsize(region);
-+			size += region->vm_end - region->vm_start;
-+		}
-+	}
-+
-+	*text = (PAGE_ALIGN(mm->end_code) - (mm->start_code & PAGE_MASK))
-+		>> PAGE_SHIFT;
-+	*data = (PAGE_ALIGN(mm->start_stack) - (mm->start_data & PAGE_MASK))
-+		>> PAGE_SHIFT;
-+	up_read(&mm->mmap_sem);
-+	size >>= PAGE_SHIFT;
-+	size += *text + *data;
-+	*resident = size;
-+	return size;
-+}
-+#endif
-+
-+void task_name(struct seq_file *m, struct task_struct *p)
-+{
-+	int i;
-+	char *buf, *end;
-+	char *name;
-+	char tcomm[sizeof(p->comm)];
-+
-+	get_task_comm(tcomm, p);
-+
-+	seq_puts(m, "Name:\t");
-+	end = m->buf + m->size;
-+	buf = m->buf + m->count;
-+	name = tcomm;
-+	i = sizeof(tcomm);
-+	while (i && (buf < end)) {
-+		unsigned char c = *name;
-+
-+		name++;
-+		i--;
-+		*buf = c;
-+		if (!c)
-+			break;
-+		if (c == '\\') {
-+			buf++;
-+			if (buf < end)
-+				*buf++ = c;
-+			continue;
-+		}
-+		if (c == '\n') {
-+			*buf++ = '\\';
-+			if (buf < end)
-+				*buf++ = 'n';
-+			continue;
-+		}
-+		buf++;
-+	}
-+	m->count = buf - m->buf;
-+	seq_putc(m, '\n');
-+}
-+
-+/*
-+ * The task state array is a strange "bitmap" of
-+ * reasons to sleep. Thus "running" is zero, and
-+ * you can test for combinations of others with
-+ * simple bit tests.
-+ */
-+static const char * const task_state_array[] = {
-+	"R (running)",		/*   0 */
-+	"S (sleeping)",		/*   1 */
-+	"D (disk sleep)",	/*   2 */
-+	"T (stopped)",		/*   4 */
-+	"t (tracing stop)",	/*   8 */
-+	"X (dead)",		/*  16 */
-+	"Z (zombie)",		/*  32 */
+ /* Security levels - as per NRL IPv6 - don't actually do anything */
+ #define SO_SECURITY_AUTHENTICATION		0x5001
+ #define SO_SECURITY_ENCRYPTION_TRANSPORT	0x5002
+diff --git a/include/linux/net.h b/include/linux/net.h
+index 17d8339..38ad416 100644
+--- a/include/linux/net.h
++++ b/include/linux/net.h
+@@ -39,6 +39,7 @@ struct net;
+ #define SOCK_PASSCRED		3
+ #define SOCK_PASSSEC		4
+ #define SOCK_EXTERNALLY_ALLOCATED 5
++#define SOCK_PASSPROC		6
+ 
+ #ifndef ARCH_HAS_SOCKET_TYPES
+ /**
+diff --git a/include/linux/socket.h b/include/linux/socket.h
+index 8e98297..a5ebf79 100644
+--- a/include/linux/socket.h
++++ b/include/linux/socket.h
+@@ -130,6 +130,8 @@ static inline struct cmsghdr * cmsg_nxthdr (struct msghdr *__msg, struct cmsghdr
+ #define	SCM_RIGHTS	0x01		/* rw: access rights (array of int) */
+ #define SCM_CREDENTIALS 0x02		/* rw: struct ucred		*/
+ #define SCM_SECURITY	0x03		/* rw: security label		*/
++#define SCM_PROCINFO   0x05		/* rw: comm + cmdline (NULL terminated
++						array of char *) */
+ 
+ struct ucred {
+ 	__u32	pid;
+diff --git a/include/net/af_unix.h b/include/net/af_unix.h
+index a175ba4..05c7678 100644
+--- a/include/net/af_unix.h
++++ b/include/net/af_unix.h
+@@ -27,6 +27,13 @@ struct unix_address {
+ 	struct sockaddr_un name[0];
+ };
+ 
++struct unix_skb_parms_scm {
++	kuid_t loginuid;
++	unsigned int sessionid;
++	char *procinfo;
++	int procinfo_len;
 +};
 +
-+const char *get_task_state(struct task_struct *tsk)
+ struct unix_skb_parms {
+ 	struct pid		*pid;		/* Skb credentials	*/
+ 	kuid_t			uid;
+@@ -36,10 +43,12 @@ struct unix_skb_parms {
+ 	u32			secid;		/* Security ID		*/
+ #endif
+ 	u32			consumed;
++	struct unix_skb_parms_scm *scm;
+ };
+ 
+ #define UNIXCB(skb) 	(*(struct unix_skb_parms *)&((skb)->cb))
+ #define UNIXSID(skb)	(&UNIXCB((skb)).secid)
++#define UNIXSCM(skb)	(*(UNIXCB((skb)).scm))
+ 
+ #define unix_state_lock(s)	spin_lock(&unix_sk(s)->lock)
+ #define unix_state_unlock(s)	spin_unlock(&unix_sk(s)->lock)
+diff --git a/include/net/scm.h b/include/net/scm.h
+index 262532d..981aa1f 100644
+--- a/include/net/scm.h
++++ b/include/net/scm.h
+@@ -24,6 +24,11 @@ struct scm_fp_list {
+ 	struct file		*fp[SCM_MAX_FD];
+ };
+ 
++struct scm_procinfo {
++	char *procinfo;
++	int len;
++};
++
+ struct scm_cookie {
+ 	struct pid		*pid;		/* Skb credentials */
+ 	struct scm_fp_list	*fp;		/* Passed files		*/
+@@ -31,6 +36,7 @@ struct scm_cookie {
+ #ifdef CONFIG_SECURITY_NETWORK
+ 	u32			secid;		/* Passed security ID 	*/
+ #endif
++	struct scm_procinfo	procinfo;	/* Skb procinfo */
+ };
+ 
+ void scm_detach_fds(struct msghdr *msg, struct scm_cookie *scm);
+@@ -38,6 +44,7 @@ void scm_detach_fds_compat(struct msghdr *msg, struct scm_cookie *scm);
+ int __scm_send(struct socket *sock, struct msghdr *msg, struct scm_cookie *scm);
+ void __scm_destroy(struct scm_cookie *scm);
+ struct scm_fp_list *scm_fp_dup(struct scm_fp_list *fpl);
++int scm_get_current_procinfo(char **procinfo);
+ 
+ #ifdef CONFIG_SECURITY_NETWORK
+ static __inline__ void unix_get_peersec_dgram(struct socket *sock, struct scm_cookie *scm)
+@@ -49,6 +56,13 @@ static __inline__ void unix_get_peersec_dgram(struct socket *sock, struct scm_co
+ { }
+ #endif /* CONFIG_SECURITY_NETWORK */
+ 
++static inline void scm_set_procinfo(struct scm_cookie *scm,
++				    char *procinfo, int len)
 +{
-+	unsigned int state = (tsk->state | tsk->exit_state) & TASK_REPORT;
-+
-+	BUILD_BUG_ON(1 + ilog2(TASK_REPORT) != ARRAY_SIZE(task_state_array)-1);
-+
-+	return task_state_array[fls(state)];
++	scm->procinfo.procinfo = procinfo;
++	scm->procinfo.len = len;
 +}
 +
-+void task_state(struct seq_file *m, struct pid_namespace *ns,
-+		struct pid *pid, struct task_struct *p)
+ static __inline__ void scm_set_cred(struct scm_cookie *scm,
+ 				    struct pid *pid, kuid_t uid, kgid_t gid)
+ {
+@@ -64,9 +78,17 @@ static __inline__ void scm_destroy_cred(struct scm_cookie *scm)
+ 	scm->pid  = NULL;
+ }
+ 
++static __inline__ void scm_destroy_procinfo(struct scm_cookie *scm)
 +{
-+	struct user_namespace *user_ns = seq_user_ns(m);
-+	struct group_info *group_info;
-+	int g;
-+	struct fdtable *fdt = NULL;
-+	const struct cred *cred;
-+	pid_t ppid, tpid;
++	kfree(scm->procinfo.procinfo);
++	scm->procinfo.procinfo = NULL;
++	scm->procinfo.len = 0;
++}
 +
-+	rcu_read_lock();
-+	ppid = pid_alive(p) ?
-+		task_tgid_nr_ns(rcu_dereference(p->real_parent), ns) : 0;
-+	tpid = 0;
-+	if (pid_alive(p)) {
-+		struct task_struct *tracer = ptrace_parent(p);
-+
-+		if (tracer)
-+			tpid = task_pid_nr_ns(tracer, ns);
+ static __inline__ void scm_destroy(struct scm_cookie *scm)
+ {
+ 	scm_destroy_cred(scm);
++	scm_destroy_procinfo(scm);
+ 	if (scm->fp)
+ 		__scm_destroy(scm);
+ }
+@@ -74,11 +96,18 @@ static __inline__ void scm_destroy(struct scm_cookie *scm)
+ static __inline__ int scm_send(struct socket *sock, struct msghdr *msg,
+ 			       struct scm_cookie *scm, bool forcecreds)
+ {
++	char *procinfo;
++	int len;
+ 	memset(scm, 0, sizeof(*scm));
+ 	scm->creds.uid = INVALID_UID;
+ 	scm->creds.gid = INVALID_GID;
+ 	if (forcecreds)
+ 		scm_set_cred(scm, task_tgid(current), current_uid(), current_gid());
++	if (test_bit(SOCK_PASSPROC, &sock->flags)) {
++		len = scm_get_current_procinfo(&procinfo);
++		if (len > 0)
++			scm_set_procinfo(scm, procinfo, len);
 +	}
-+	cred = get_task_cred(p);
-+	seq_printf(m,
-+		"State:\t%s\n"
-+		"Tgid:\t%d\n"
-+		"Ngid:\t%d\n"
-+		"Pid:\t%d\n"
-+		"PPid:\t%d\n"
-+		"TracerPid:\t%d\n"
-+		"Uid:\t%d\t%d\t%d\t%d\n"
-+		"Gid:\t%d\t%d\t%d\t%d\n",
-+		get_task_state(p),
-+		task_tgid_nr_ns(p, ns),
-+		task_numa_group_id(p),
-+		pid_nr_ns(pid, ns),
-+		ppid, tpid,
-+		from_kuid_munged(user_ns, cred->uid),
-+		from_kuid_munged(user_ns, cred->euid),
-+		from_kuid_munged(user_ns, cred->suid),
-+		from_kuid_munged(user_ns, cred->fsuid),
-+		from_kgid_munged(user_ns, cred->gid),
-+		from_kgid_munged(user_ns, cred->egid),
-+		from_kgid_munged(user_ns, cred->sgid),
-+		from_kgid_munged(user_ns, cred->fsgid));
+ 	unix_get_peersec_dgram(sock, scm);
+ 	if (msg->msg_controllen <= 0)
+ 		return 0;
+@@ -125,8 +154,12 @@ static __inline__ void scm_recv(struct socket *sock, struct msghdr *msg,
+ 		};
+ 		put_cmsg(msg, SOL_SOCKET, SCM_CREDENTIALS, sizeof(ucreds), &ucreds);
+ 	}
++	if (test_bit(SOCK_PASSPROC, &sock->flags))
++		put_cmsg(msg, SOL_SOCKET, SCM_PROCINFO, scm->procinfo.len,
++			 scm->procinfo.procinfo);
+ 
+ 	scm_destroy_cred(scm);
++	scm_destroy_procinfo(scm);
+ 
+ 	scm_passec(sock, msg, scm);
+ 
+diff --git a/include/uapi/asm-generic/socket.h b/include/uapi/asm-generic/socket.h
+index ea0796b..8ce4e94 100644
+--- a/include/uapi/asm-generic/socket.h
++++ b/include/uapi/asm-generic/socket.h
+@@ -82,4 +82,6 @@
+ 
+ #define SO_BPF_EXTENSIONS	48
+ 
++#define SO_PASSPROC		49
 +
-+	task_lock(p);
-+	if (p->files)
-+		fdt = files_fdtable(p->files);
-+	seq_printf(m,
-+		"FDSize:\t%d\n"
-+		"Groups:\t",
-+		fdt ? fdt->max_fds : 0);
-+	rcu_read_unlock();
-+
-+	group_info = cred->group_info;
-+	task_unlock(p);
-+
-+	for (g = 0; g < group_info->ngroups; g++)
-+		seq_printf(m, "%d ",
-+			   from_kgid_munged(user_ns, GROUP_AT(group_info, g)));
-+	put_cred(cred);
-+
-+	seq_putc(m, '\n');
-+}
-+
-+void render_sigset_t(struct seq_file *m, const char *header, sigset_t *set)
-+{
-+	int i;
-+
-+	seq_puts(m, header);
-+
-+	i = _NSIG;
-+	do {
-+		int x = 0;
-+
-+		i -= 4;
-+		if (sigismember(set, i+1)) x |= 1;
-+		if (sigismember(set, i+2)) x |= 2;
-+		if (sigismember(set, i+3)) x |= 4;
-+		if (sigismember(set, i+4)) x |= 8;
-+		seq_printf(m, "%x", x);
-+	} while (i >= 4);
-+
-+	seq_putc(m, '\n');
-+}
-+
-+static void collect_sigign_sigcatch(struct task_struct *p, sigset_t *ign,
-+				    sigset_t *catch)
-+{
-+	struct k_sigaction *k;
-+	int i;
-+
-+	k = p->sighand->action;
-+	for (i = 1; i <= _NSIG; ++i, ++k) {
-+		if (k->sa.sa_handler == SIG_IGN)
-+			sigaddset(ign, i);
-+		else if (k->sa.sa_handler != SIG_DFL)
-+			sigaddset(catch, i);
-+	}
-+}
-+
-+void task_sig(struct seq_file *m, struct task_struct *p)
-+{
-+	unsigned long flags;
-+	sigset_t pending, shpending, blocked, ignored, caught;
-+	int num_threads = 0;
-+	unsigned long qsize = 0;
-+	unsigned long qlim = 0;
-+
-+	sigemptyset(&pending);
-+	sigemptyset(&shpending);
-+	sigemptyset(&blocked);
-+	sigemptyset(&ignored);
-+	sigemptyset(&caught);
-+
-+	if (lock_task_sighand(p, &flags)) {
-+		pending = p->pending.signal;
-+		shpending = p->signal->shared_pending.signal;
-+		blocked = p->blocked;
-+		collect_sigign_sigcatch(p, &ignored, &caught);
-+		num_threads = get_nr_threads(p);
-+		rcu_read_lock();  /* FIXME: is this correct? */
-+		qsize = atomic_read(&__task_cred(p)->user->sigpending);
-+		rcu_read_unlock();
-+		qlim = task_rlimit(p, RLIMIT_SIGPENDING);
-+		unlock_task_sighand(p, &flags);
-+	}
-+
-+	seq_printf(m, "Threads:\t%d\n", num_threads);
-+	seq_printf(m, "SigQ:\t%lu/%lu\n", qsize, qlim);
-+
-+	/* render them all */
-+	render_sigset_t(m, "SigPnd:\t", &pending);
-+	render_sigset_t(m, "ShdPnd:\t", &shpending);
-+	render_sigset_t(m, "SigBlk:\t", &blocked);
-+	render_sigset_t(m, "SigIgn:\t", &ignored);
-+	render_sigset_t(m, "SigCgt:\t", &caught);
-+}
-+
-+static void render_cap_t(struct seq_file *m, const char *header,
-+			 kernel_cap_t *a)
-+{
-+	unsigned __capi;
-+
-+	seq_puts(m, header);
-+	CAP_FOR_EACH_U32(__capi) {
-+		seq_printf(m, "%08x",
-+			   a->cap[(_KERNEL_CAPABILITY_U32S-1) - __capi]);
-+	}
-+	seq_putc(m, '\n');
-+}
-+
-+/* Remove non-existent capabilities */
-+#define NORM_CAPS(v) (v.cap[CAP_TO_INDEX(CAP_LAST_CAP)] &= \
-+				CAP_TO_MASK(CAP_LAST_CAP + 1) - 1)
-+
-+void task_cap(struct seq_file *m, struct task_struct *p)
-+{
-+	const struct cred *cred;
-+	kernel_cap_t cap_inheritable, cap_permitted, cap_effective, cap_bset;
-+
-+	rcu_read_lock();
-+	cred = __task_cred(p);
-+	cap_inheritable	= cred->cap_inheritable;
-+	cap_permitted	= cred->cap_permitted;
-+	cap_effective	= cred->cap_effective;
-+	cap_bset	= cred->cap_bset;
-+	rcu_read_unlock();
-+
-+	NORM_CAPS(cap_inheritable);
-+	NORM_CAPS(cap_permitted);
-+	NORM_CAPS(cap_effective);
-+	NORM_CAPS(cap_bset);
-+
-+	render_cap_t(m, "CapInh:\t", &cap_inheritable);
-+	render_cap_t(m, "CapPrm:\t", &cap_permitted);
-+	render_cap_t(m, "CapEff:\t", &cap_effective);
-+	render_cap_t(m, "CapBnd:\t", &cap_bset);
-+}
-+
-+void task_seccomp(struct seq_file *m, struct task_struct *p)
-+{
-+#ifdef CONFIG_SECCOMP
-+	seq_printf(m, "Seccomp:\t%d\n", p->seccomp.mode);
+ #endif /* __ASM_GENERIC_SOCKET_H */
+diff --git a/net/Kconfig b/net/Kconfig
+index d92afe4..f438269 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -6,6 +6,7 @@ menuconfig NET
+ 	bool "Networking support"
+ 	select NLATTR
+ 	select GENERIC_NET_UTILS
++	select PROC_INFO
+ 	---help---
+ 	  Unless you really know what you are doing, you should say Y here.
+ 	  The reason is that some programs need kernel networking support even
+diff --git a/net/core/scm.c b/net/core/scm.c
+index b442e7e..ce427b4 100644
+--- a/net/core/scm.c
++++ b/net/core/scm.c
+@@ -28,6 +28,10 @@
+ #include <linux/pid.h>
+ #include <linux/nsproxy.h>
+ #include <linux/slab.h>
++#include <linux/ptrace.h>
++#include <linux/fdtable.h>
++#include <linux/cpuset.h>
++#include <linux/proc_info.h>
+ 
+ #include <asm/uaccess.h>
+ 
+@@ -38,6 +42,9 @@
+ #include <net/scm.h>
+ #include <net/cls_cgroup.h>
+ 
++#ifdef CONFIG_USER_NS
++extern struct user_namespace init_user_ns;
 +#endif
-+}
+ 
+ /*
+  *	Only allow a user to send credentials, that they could set with
+@@ -339,3 +346,162 @@ struct scm_fp_list *scm_fp_dup(struct scm_fp_list *fpl)
+ 	return new_fpl;
+ }
+ EXPORT_SYMBOL(scm_fp_dup);
 +
-+void task_context_switch_counts(struct seq_file *m, struct task_struct *p)
++static int get_proc_cmdline(struct mm_struct *mm, char *buffer)
 +{
-+	seq_printf(m,	"voluntary_ctxt_switches:\t%lu\n"
-+			"nonvoluntary_ctxt_switches:\t%lu\n",
-+			p->nvcsw,
-+			p->nivcsw);
-+}
++	int res, i;
++	unsigned int len;
 +
-+void task_cpus_allowed(struct seq_file *m, struct task_struct *task)
-+{
-+	seq_puts(m, "Cpus_allowed:\t");
-+	seq_cpumask(m, &task->cpus_allowed);
-+	seq_putc(m, '\n');
-+	seq_puts(m, "Cpus_allowed_list:\t");
-+	seq_cpumask_list(m, &task->cpus_allowed);
-+	seq_putc(m, '\n');
-+}
++	len = mm->arg_end - mm->arg_start;
 +
-+int proc_pid_status_mm(struct seq_file *m, struct pid_namespace *ns,
-+		       struct pid *pid, struct task_struct *task,
-+		       struct mm_struct *mm)
-+{
-+	task_name(m, task);
-+	task_state(m, ns, pid, task);
++	if (len > PAGE_SIZE)
++		len = PAGE_SIZE;
 +
-+	if (mm)
-+		task_mem(m, mm);
++	res = access_process_vm(current, mm->arg_start, buffer, len, 0);
 +
-+	task_sig(m, task);
-+	task_cap(m, task);
-+	task_seccomp(m, task);
-+	task_cpus_allowed(m, task);
-+	cpuset_task_status_allowed(m, task);
-+	task_context_switch_counts(m, task);
-+	return 0;
-+}
-+
-+int task_stat_mm(struct seq_file *m, struct pid_namespace *ns,
-+		 struct pid *pid, struct task_struct *task, int whole,
-+		 struct mm_struct *mm)
-+{
-+	unsigned long vsize, eip, esp, wchan = ~0UL;
-+	int priority, nice;
-+	int tty_pgrp = -1, tty_nr = 0;
-+	sigset_t sigign, sigcatch;
-+	char state;
-+	pid_t ppid = 0, pgid = -1, sid = -1;
-+	int num_threads = 0;
-+	int permitted;
-+	unsigned long long start_time;
-+	unsigned long cmin_flt = 0, cmaj_flt = 0;
-+	unsigned long  min_flt = 0,  maj_flt = 0;
-+	cputime_t cutime, cstime, utime, stime;
-+	cputime_t cgtime, gtime;
-+	unsigned long rsslim = 0;
-+	char tcomm[sizeof(task->comm)];
-+	unsigned long flags;
-+
-+	state = *get_task_state(task);
-+	vsize = eip = esp = 0;
-+	permitted = ptrace_may_access(task, PTRACE_MODE_READ | PTRACE_MODE_NOAUDIT);
-+	if (mm) {
-+		vsize = task_vsize(mm);
-+		if (permitted) {
-+			eip = KSTK_EIP(task);
-+			esp = KSTK_ESP(task);
-+		}
-+	}
-+
-+	get_task_comm(tcomm, task);
-+
-+	sigemptyset(&sigign);
-+	sigemptyset(&sigcatch);
-+	cutime = cstime = utime = stime = 0;
-+	cgtime = gtime = 0;
-+
-+	if (lock_task_sighand(task, &flags)) {
-+		struct signal_struct *sig = task->signal;
-+
-+		if (sig->tty) {
-+			struct pid *pgrp = tty_get_pgrp(sig->tty);
-+
-+			tty_pgrp = pid_nr_ns(pgrp, ns);
-+			put_pid(pgrp);
-+			tty_nr = new_encode_dev(tty_devnum(sig->tty));
-+		}
-+
-+		num_threads = get_nr_threads(task);
-+		collect_sigign_sigcatch(task, &sigign, &sigcatch);
-+
-+		cmin_flt = sig->cmin_flt;
-+		cmaj_flt = sig->cmaj_flt;
-+		cutime = sig->cutime;
-+		cstime = sig->cstime;
-+		cgtime = sig->cgtime;
-+		rsslim = ACCESS_ONCE(sig->rlim[RLIMIT_RSS].rlim_cur);
-+
-+		/* add up live thread stats at the group level */
-+		if (whole) {
-+			struct task_struct *t = task;
-+
-+			do {
-+				min_flt += t->min_flt;
-+				maj_flt += t->maj_flt;
-+				gtime += task_gtime(t);
-+			} while_each_thread(task, t);
-+
-+			min_flt += sig->min_flt;
-+			maj_flt += sig->maj_flt;
-+			thread_group_cputime_adjusted(task, &utime, &stime);
-+			gtime += sig->gtime;
-+		}
-+
-+		sid = task_session_nr_ns(task, ns);
-+		ppid = task_tgid_nr_ns(task->real_parent, ns);
-+		pgid = task_pgrp_nr_ns(task, ns);
-+
-+		unlock_task_sighand(task, &flags);
-+	}
-+
-+	if (permitted && (!whole || num_threads < 2))
-+		wchan = get_wchan(task);
-+	if (!whole) {
-+		min_flt = task->min_flt;
-+		maj_flt = task->maj_flt;
-+		task_cputime_adjusted(task, &utime, &stime);
-+		gtime = task_gtime(task);
-+	}
-+
-+	/* scale priority and nice values from timeslices to -20..20 */
-+	/* to make it look like a "normal" Unix priority/nice value  */
-+	priority = task_prio(task);
-+	nice = task_nice(task);
-+
-+	/* Temporary variable needed for gcc-2.96 */
-+	/* convert timespec -> nsec*/
-+	start_time =
-+		(unsigned long long)task->real_start_time.tv_sec * NSEC_PER_SEC
-+				+ task->real_start_time.tv_nsec;
-+	/* convert nsec -> ticks */
-+	start_time = nsec_to_clock_t(start_time);
-+
-+	seq_printf(m, "%d (%s) %c", pid_nr_ns(pid, ns), tcomm, state);
-+	seq_put_decimal_ll(m, ' ', ppid);
-+	seq_put_decimal_ll(m, ' ', pgid);
-+	seq_put_decimal_ll(m, ' ', sid);
-+	seq_put_decimal_ll(m, ' ', tty_nr);
-+	seq_put_decimal_ll(m, ' ', tty_pgrp);
-+	seq_put_decimal_ull(m, ' ', task->flags);
-+	seq_put_decimal_ull(m, ' ', min_flt);
-+	seq_put_decimal_ull(m, ' ', cmin_flt);
-+	seq_put_decimal_ull(m, ' ', maj_flt);
-+	seq_put_decimal_ull(m, ' ', cmaj_flt);
-+	seq_put_decimal_ull(m, ' ', cputime_to_clock_t(utime));
-+	seq_put_decimal_ull(m, ' ', cputime_to_clock_t(stime));
-+	seq_put_decimal_ll(m, ' ', cputime_to_clock_t(cutime));
-+	seq_put_decimal_ll(m, ' ', cputime_to_clock_t(cstime));
-+	seq_put_decimal_ll(m, ' ', priority);
-+	seq_put_decimal_ll(m, ' ', nice);
-+	seq_put_decimal_ll(m, ' ', num_threads);
-+	seq_put_decimal_ull(m, ' ', 0);
-+	seq_put_decimal_ull(m, ' ', start_time);
-+	seq_put_decimal_ull(m, ' ', vsize);
-+	seq_put_decimal_ull(m, ' ', mm ? get_mm_rss(mm) : 0);
-+	seq_put_decimal_ull(m, ' ', rsslim);
-+	seq_put_decimal_ull(m, ' ', mm ? (permitted ? mm->start_code : 1) : 0);
-+	seq_put_decimal_ull(m, ' ', mm ? (permitted ? mm->end_code : 1) : 0);
-+	seq_put_decimal_ull(m, ' ', (permitted && mm) ? mm->start_stack : 0);
-+	seq_put_decimal_ull(m, ' ', esp);
-+	seq_put_decimal_ull(m, ' ', eip);
-+	/* The signal information here is obsolete.
-+	 * It must be decimal for Linux 2.0 compatibility.
-+	 * Use /proc/#/status for real-time signals.
++	/* If the nul at the end of args has been overwritten, then
++	 * assume application is using setproctitle(3).
 +	 */
-+	seq_put_decimal_ull(m, ' ', task->pending.signal.sig[0] & 0x7fffffffUL);
-+	seq_put_decimal_ull(m, ' ', task->blocked.sig[0] & 0x7fffffffUL);
-+	seq_put_decimal_ull(m, ' ', sigign.sig[0] & 0x7fffffffUL);
-+	seq_put_decimal_ull(m, ' ', sigcatch.sig[0] & 0x7fffffffUL);
-+	seq_put_decimal_ull(m, ' ', wchan);
-+	seq_put_decimal_ull(m, ' ', 0);
-+	seq_put_decimal_ull(m, ' ', 0);
-+	seq_put_decimal_ll(m, ' ', task->exit_signal);
-+	seq_put_decimal_ll(m, ' ', task_cpu(task));
-+	seq_put_decimal_ull(m, ' ', task->rt_priority);
-+	seq_put_decimal_ull(m, ' ', task->policy);
-+	seq_put_decimal_ull(m, ' ', delayacct_blkio_ticks(task));
-+	seq_put_decimal_ull(m, ' ', cputime_to_clock_t(gtime));
-+	seq_put_decimal_ll(m, ' ', cputime_to_clock_t(cgtime));
-+
-+	if (mm && permitted) {
-+		seq_put_decimal_ull(m, ' ', mm->start_data);
-+		seq_put_decimal_ull(m, ' ', mm->end_data);
-+		seq_put_decimal_ull(m, ' ', mm->start_brk);
-+		seq_put_decimal_ull(m, ' ', mm->arg_start);
-+		seq_put_decimal_ull(m, ' ', mm->arg_end);
-+		seq_put_decimal_ull(m, ' ', mm->env_start);
-+		seq_put_decimal_ull(m, ' ', mm->env_end);
-+	} else {
-+		seq_printf(m, " 0 0 0 0 0 0 0");
++	if (res > 0 && buffer[res-1] != '\0' && len < PAGE_SIZE) {
++		len = strnlen(buffer, res);
++		if (len < res) {
++			res = len;
++		} else {
++			len = mm->env_end - mm->env_start;
++			if (len > PAGE_SIZE - res)
++				len = PAGE_SIZE - res;
++			res += access_process_vm(current, mm->env_start,
++						 buffer+res, len, 0);
++			res = strnlen(buffer, res);
++		}
 +	}
 +
-+	if (permitted)
-+		seq_put_decimal_ll(m, ' ', task->exit_code);
-+	else
-+		seq_put_decimal_ll(m, ' ', 0);
++	for (i = 0; i < res - 1; i++)
++		if (buffer[i] == '\0')
++			buffer[i] = ' ';
 +
-+	seq_putc(m, '\n');
-+	return 0;
++	return res;
 +}
 +
-+int proc_pid_statm_mm(struct seq_file *m, struct pid_namespace *ns,
-+		      struct pid *pid, struct task_struct *task,
-+		      struct mm_struct *mm)
++static char *get_proc_exe(struct mm_struct *mm)
 +{
-+	unsigned long size = 0, resident = 0, shared = 0, text = 0, data = 0;
++	struct file *exe_file;
++	struct path exe_path;
++	char tmp[80], *exepathname;
 +
-+	if (mm)
-+		size = task_statm(mm, &shared, &text, &data, &resident);
++	exe_file = get_mm_exe_file(mm);
++	if (!exe_file)
++		return NULL;
 +
-+	/*
-+	 * For quick read, open code by putting numbers directly
-+	 * expected format is
-+	 * seq_printf(m, "%lu %lu %lu %lu 0 %lu 0\n",
-+	 *               size, resident, shared, text, data);
-+	 */
-+	seq_put_decimal_ull(m, 0, size);
-+	seq_put_decimal_ull(m, ' ', resident);
-+	seq_put_decimal_ull(m, ' ', shared);
-+	seq_put_decimal_ull(m, ' ', text);
-+	seq_put_decimal_ull(m, ' ', 0);
-+	seq_put_decimal_ull(m, ' ', data);
-+	seq_put_decimal_ull(m, ' ', 0);
-+	seq_putc(m, '\n');
++	exe_path = exe_file->f_path;
++	path_get(&exe_file->f_path);
++	fput(exe_file);
 +
-+	return 0;
++	exepathname = d_path(&exe_path, tmp, sizeof(tmp));
++	path_put(&exe_path);
++
++	return exepathname;
 +}
++
++static void get_task_status(struct mm_struct *mm, struct task_struct *task,
++			    char *buf, int size)
++{
++	struct seq_file m;
++	struct pid_namespace *ns = task_active_pid_ns(task);
++	struct pid *pid = get_pid(task_tgid(task));
++
++	m.buf = buf;
++	m.size = size;
++#ifdef CONFIG_USER_NS
++	m.user_ns = &init_user_ns;
++#endif
++
++	proc_pid_status_mm(&m, ns, pid, task, mm);
++}
++
++int scm_get_current_procinfo(char **procinfo)
++{
++	int res = 0;
++	unsigned int len;
++	char *pos;
++	char *buf_cmdline = NULL;
++	char *buf_status = NULL;
++	struct mm_struct *mm;
++	int comm_len = strlen(current->comm);
++	static char *str_comm = "COMM=";
++	static char *str_cmdline = "CMDLINE=";
++	static char *str_exe = "EXE=";
++	static char *str_status = "STATUS=";
++	char *exepathname;
++
++	*procinfo = NULL;
++
++	buf_cmdline = kmalloc(PAGE_SIZE, GFP_KERNEL);
++	if (!buf_cmdline)
++		return -ENOMEM;
++
++	buf_status = kmalloc(PAGE_SIZE, GFP_KERNEL);
++	if (!buf_status) {
++		res = -ENOMEM;
++		goto out;
++	}
++	memset(buf_status, 0, PAGE_SIZE);
++
++	mm = get_task_mm(current);
++	if (!mm)
++		goto out;
++	if (!mm->arg_end)
++		goto out_mm;    /* Shh! No looking before we're done */
++
++	res = get_proc_cmdline(mm, buf_cmdline);
++
++	exepathname = get_proc_exe(mm);
++	if (exepathname == NULL)
++		goto out_mm;
++
++	get_task_status(mm, current, buf_status, PAGE_SIZE);
++
++	/* strlen(comm) + \0 + len of cmdline */
++	len = strlen(str_comm) + comm_len + 1;
++	if (res)
++		len += strlen(str_cmdline) + res + 1;
++	if (!IS_ERR(exepathname))
++		len += strlen(str_exe) + strlen(exepathname) + 1;
++	if (strlen(buf_status) > 0)
++		len += strlen(str_status) + strlen(buf_status);
++
++	*procinfo = kmalloc(len, GFP_KERNEL);
++	if (!*procinfo) {
++		res = -ENOMEM;
++		goto out_mm;
++	}
++
++	pos = *procinfo;
++	pos = strcpy(*procinfo, str_comm) + strlen(str_comm);
++	pos = memcpy(pos, current->comm, comm_len + 1) + comm_len + 1;
++
++	if (res > 0) {
++		pos = strcpy(pos, str_cmdline) + strlen(str_cmdline);
++		pos = memcpy(pos, buf_cmdline, res) + res;
++	}
++
++	if (!IS_ERR(exepathname)) {
++		pos = strcpy(pos, str_exe) + strlen(str_exe);
++		pos = strcpy(pos, exepathname) + strlen(exepathname);
++		pos = strcpy(pos + 1, "") /*+ 1*/;
++	}
++
++	if (strlen(buf_status) > 0) {
++		pos = strcpy(pos, str_status) + strlen(str_status);
++		pos = strcpy(pos, buf_status) + strlen(buf_status);
++	}
++
++	res = len;
++
++out_mm:
++	mmput(mm);
++out:
++	kfree(buf_cmdline);
++	kfree(buf_status);
++	return res;
++}
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 026e01f..1099e19 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -828,6 +828,13 @@ set_rcvbuf:
+ 			clear_bit(SOCK_PASSCRED, &sock->flags);
+ 		break;
+ 
++	case SO_PASSPROC:
++		if (valbool)
++			set_bit(SOCK_PASSPROC, &sock->flags);
++		else
++			clear_bit(SOCK_PASSPROC, &sock->flags);
++		break;
++
+ 	case SO_TIMESTAMP:
+ 	case SO_TIMESTAMPNS:
+ 		if (valbool)  {
+@@ -1142,6 +1149,10 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
+ 		v.val = !!test_bit(SOCK_PASSCRED, &sock->flags);
+ 		break;
+ 
++	case SO_PASSPROC:
++		v.val = !!test_bit(SOCK_PASSPROC, &sock->flags);
++		break;
++
+ 	case SO_PEERCRED:
+ 	{
+ 		struct ucred peercred;
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index e968843..bc6c367 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -1360,9 +1360,15 @@ static void unix_destruct_scm(struct sk_buff *skb)
+ 	struct scm_cookie scm;
+ 	memset(&scm, 0, sizeof(scm));
+ 	scm.pid  = UNIXCB(skb).pid;
++	if (UNIXCB(skb).scm) {
++		scm.procinfo.procinfo = UNIXSCM(skb).procinfo;
++		scm.procinfo.len = UNIXSCM(skb).procinfo_len;
++	}
+ 	if (UNIXCB(skb).fp)
+ 		unix_detach_fds(&scm, skb);
+ 
++	kfree(UNIXCB(skb).scm);
++
+ 	/* Alas, it calls VFS */
+ 	/* So fscking what? fput() had been SMP-safe since the last Summer */
+ 	scm_destroy(&scm);
+@@ -1409,6 +1415,13 @@ static int unix_scm_to_skb(struct scm_cookie *scm, struct sk_buff *skb, bool sen
+ {
+ 	int err = 0;
+ 
++	if (!UNIXCB(skb).scm) {
++		UNIXCB(skb).scm = kmalloc(sizeof(struct unix_skb_parms_scm),
++					  GFP_KERNEL);
++		if (!UNIXCB(skb).scm)
++			return -ENOMEM;
++	}
++
+ 	UNIXCB(skb).pid  = get_pid(scm->pid);
+ 	UNIXCB(skb).uid = scm->creds.uid;
+ 	UNIXCB(skb).gid = scm->creds.gid;
+@@ -1416,6 +1429,15 @@ static int unix_scm_to_skb(struct scm_cookie *scm, struct sk_buff *skb, bool sen
+ 	if (scm->fp && send_fds)
+ 		err = unix_attach_fds(scm, skb);
+ 
++	UNIXSCM(skb).procinfo = NULL;
++	if (scm->procinfo.procinfo) {
++		UNIXSCM(skb).procinfo_len = scm->procinfo.len;
++		UNIXSCM(skb).procinfo = kmemdup(scm->procinfo.procinfo,
++						scm->procinfo.len, GFP_KERNEL);
++		if (!UNIXSCM(skb).procinfo)
++			return -ENOMEM;
++	}
++
+ 	skb->destructor = unix_destruct_scm;
+ 	return err;
+ }
+@@ -1438,6 +1460,22 @@ static void maybe_add_creds(struct sk_buff *skb, const struct socket *sock,
+ 	}
+ }
+ 
++
++/* Include procinfo if source or destination socket
++ * asserted SOCK_PASSPROC.
++ */
++static void maybe_add_procinfo(struct sk_buff *skb, const struct socket *sock,
++			       const struct sock *other, int len,
++			       char *procinfo)
++{
++	if (test_bit(SOCK_PASSPROC, &sock->flags) ||
++	    !other->sk_socket ||
++	    test_bit(SOCK_PASSPROC, &other->sk_socket->flags)) {
++		UNIXSCM(skb).procinfo_len = len;
++		UNIXSCM(skb).procinfo = procinfo;
++	}
++}
++
+ /*
+  *	Send AF_UNIX data.
+  */
+@@ -1459,6 +1497,8 @@ static int unix_dgram_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 	struct scm_cookie tmp_scm;
+ 	int max_level;
+ 	int data_len = 0;
++	char *procinfo = NULL;
++	int procinfo_len = 0;
+ 
+ 	if (NULL == siocb->scm)
+ 		siocb->scm = &tmp_scm;
+@@ -1540,6 +1580,12 @@ restart:
+ 		goto out_free;
+ 	}
+ 
++	if (test_bit(SOCK_PASSPROC, &sock->flags) ||
++	    !other->sk_socket ||
++	    test_bit(SOCK_PASSPROC, &other->sk_socket->flags)) {
++		procinfo_len = scm_get_current_procinfo(&procinfo);
++	}
++
+ 	unix_state_lock(other);
+ 	err = -EPERM;
+ 	if (!unix_may_send(sk, other))
+@@ -1600,6 +1646,7 @@ restart:
+ 	if (sock_flag(other, SOCK_RCVTSTAMP))
+ 		__net_timestamp(skb);
+ 	maybe_add_creds(skb, sock, other);
++	maybe_add_procinfo(skb, sock, other, procinfo_len, procinfo);
+ 	skb_queue_tail(&other->sk_receive_queue, skb);
+ 	if (max_level > unix_sk(other)->recursion_level)
+ 		unix_sk(other)->recursion_level = max_level;
+@@ -1638,6 +1685,8 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 	bool fds_sent = false;
+ 	int max_level;
+ 	int data_len;
++	char *procinfo = NULL;
++	int procinfo_len = 0;
+ 
+ 	if (NULL == siocb->scm)
+ 		siocb->scm = &tmp_scm;
+@@ -1701,6 +1750,12 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 			goto out_err;
+ 		}
+ 
++		if (test_bit(SOCK_PASSPROC, &sock->flags) ||
++		    !other->sk_socket ||
++		    test_bit(SOCK_PASSPROC, &other->sk_socket->flags)) {
++			procinfo_len = scm_get_current_procinfo(&procinfo);
++		}
++
+ 		unix_state_lock(other);
+ 
+ 		if (sock_flag(other, SOCK_DEAD) ||
+@@ -1708,6 +1763,7 @@ static int unix_stream_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 			goto pipe_err_free;
+ 
+ 		maybe_add_creds(skb, sock, other);
++		maybe_add_procinfo(skb, sock, other, procinfo_len, procinfo);
+ 		skb_queue_tail(&other->sk_receive_queue, skb);
+ 		if (max_level > unix_sk(other)->recursion_level)
+ 			unix_sk(other)->recursion_level = max_level;
+@@ -1837,6 +1893,12 @@ static int unix_dgram_recvmsg(struct kiocb *iocb, struct socket *sock,
+ 		memset(&tmp_scm, 0, sizeof(tmp_scm));
+ 	}
+ 	scm_set_cred(siocb->scm, UNIXCB(skb).pid, UNIXCB(skb).uid, UNIXCB(skb).gid);
++	if (UNIXCB(skb).scm && UNIXSCM(skb).procinfo)
++		scm_set_procinfo(siocb->scm,
++				 kmemdup(UNIXSCM(skb).procinfo,
++					 UNIXSCM(skb).procinfo_len,
++					 GFP_KERNEL),
++				 UNIXSCM(skb).procinfo_len);
+ 	unix_set_secdata(siocb->scm, skb);
+ 
+ 	if (!(flags & MSG_PEEK)) {
+@@ -2023,6 +2085,14 @@ again:
+ 			check_creds = 1;
+ 		}
+ 
++		if (UNIXCB(skb).scm && UNIXSCM(skb).procinfo) {
++			scm_set_procinfo(siocb->scm,
++					 kmemdup(UNIXSCM(skb).procinfo,
++						 UNIXSCM(skb).procinfo_len,
++						 GFP_KERNEL),
++					 UNIXSCM(skb).procinfo_len);
++		}
++
+ 		/* Copy address just once */
+ 		if (sunaddr) {
+ 			unix_copy_addr(msg, skb->sk);
 -- 
 1.9.1
