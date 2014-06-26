@@ -1,62 +1,65 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/14] i40e: don't store user requested mode until we've validated it
-Date: Thu, 26 Jun 2014 05:13:48 -0700
-Message-ID: <1403784834-23301-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 14/14] i40e: fix fdir programming
+Date: Thu, 26 Jun 2014 05:13:53 -0700
+Message-ID: <1403784834-23301-15-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1403784834-23301-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:10421 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:10427 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757670AbaFZMOb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Jun 2014 08:14:31 -0400
+	id S1757719AbaFZMOc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Jun 2014 08:14:32 -0400
 In-Reply-To: <1403784834-23301-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-This patch prevents the SIOCGHWTSTAMP ioctl from possibly returning bad
-data, by not permanently storing the setting into the private
-structure until after we've finished validating that we can support it.
+There were a couple of fields in the fdir descriptor setup that
+were not being reprogrammed, which left the opportunity for stale
+data to be pushed as part of the descriptor next time it was used.
 
-Change-ID: Ib59f9b4f73f451d5a2e76fb8efa5d4271b218433
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Change-ID: Ieee5c96a7d4713d469693f086c4854de949a7633
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ptp.c | 11 +++++++----
- 1 file changed, 7 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ptp.c b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
-index e5f558c..f7dded9 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ptp.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
-@@ -549,17 +549,20 @@ static int i40e_ptp_set_timestamp_mode(struct i40e_pf *pf,
-  **/
- int i40e_ptp_set_ts_config(struct i40e_pf *pf, struct ifreq *ifr)
- {
--	struct hwtstamp_config *config = &pf->tstamp_config;
-+	struct hwtstamp_config config;
- 	int err;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index c5749d6..5cc27fb 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -100,8 +100,6 @@ int i40e_program_fdir_filter(struct i40e_fdir_filter *fdir_data, u8 *raw_packet,
+ 			I40E_TXD_FLTR_QW0_DEST_VSI_SHIFT) &
+ 		       I40E_TXD_FLTR_QW0_DEST_VSI_MASK;
  
--	if (copy_from_user(config, ifr->ifr_data, sizeof(*config)))
-+	if (copy_from_user(&config, ifr->ifr_data, sizeof(config)))
- 		return -EFAULT;
+-	fdir_desc->qindex_flex_ptype_vsi = cpu_to_le32(fpt);
+-
+ 	dcc = I40E_TX_DESC_DTYPE_FILTER_PROG;
  
--	err = i40e_ptp_set_timestamp_mode(pf, config);
-+	err = i40e_ptp_set_timestamp_mode(pf, &config);
- 	if (err)
- 		return err;
+ 	if (add)
+@@ -124,6 +122,8 @@ int i40e_program_fdir_filter(struct i40e_fdir_filter *fdir_data, u8 *raw_packet,
+ 			I40E_TXD_FLTR_QW1_CNTINDEX_MASK;
+ 	}
  
--	return copy_to_user(ifr->ifr_data, config, sizeof(*config)) ?
-+	/* save these settings for future reference */
-+	pf->tstamp_config = config;
-+
-+	return copy_to_user(ifr->ifr_data, &config, sizeof(config)) ?
- 		-EFAULT : 0;
++	fdir_desc->qindex_flex_ptype_vsi = cpu_to_le32(fpt);
++	fdir_desc->rsvd = cpu_to_le32(0);
+ 	fdir_desc->dtype_cmd_cntindex = cpu_to_le32(dcc);
+ 	fdir_desc->fd_id = cpu_to_le32(fdir_data->fd_id);
+ 
+@@ -1688,7 +1688,9 @@ static void i40e_atr(struct i40e_ring *tx_ring, struct sk_buff *skb,
+ 		I40E_TXD_FLTR_QW1_CNTINDEX_MASK;
+ 
+ 	fdir_desc->qindex_flex_ptype_vsi = cpu_to_le32(flex_ptype);
++	fdir_desc->rsvd = cpu_to_le32(0);
+ 	fdir_desc->dtype_cmd_cntindex = cpu_to_le32(dtype_cmd);
++	fdir_desc->fd_id = cpu_to_le32(0);
  }
  
+ /**
 -- 
 1.9.3
