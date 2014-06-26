@@ -1,7 +1,7 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 08/14] i40e: break PTP hardware control from ioctl command for timestamp mode
-Date: Thu, 26 Jun 2014 05:13:47 -0700
-Message-ID: <1403784834-23301-9-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 10/14] i40e: only create PTP device node once
+Date: Thu, 26 Jun 2014 05:13:49 -0700
+Message-ID: <1403784834-23301-11-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1403784834-23301-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
@@ -10,130 +10,128 @@ To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([143.182.124.21]:10417 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757654AbaFZMOa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Jun 2014 08:14:30 -0400
+	id S1757654AbaFZMOc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Jun 2014 08:14:32 -0400
 In-Reply-To: <1403784834-23301-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jacob Keller <jacob.e.keller@intel.com>
 
-This patch facilitates future work by breaking the PTP hardware control
-bits out of the i40e_set_ts_config function. By doing this, we can
-maintain state about the 1588 timestamping mode and properly re-enable
-to the last known mode during a re-initialize of 1588 bits.
+Currently every time we run through the i40e_ptp_init routine, we create
+a new device node. This function is called by i40e_reset_and_rebuild
+which is used to handle reset of the device. Even though the 1588
+registers only get cleared on a GLOBAL reset, this function is still
+called to handle a CORE reset.
 
-This patch also modifies i40e_ptp_init to call the
-i40e_ptp_set_timestamp_mode during the reconfiguration process. A
-future patch will ensure that the hwtstamp_config structure is not reset
-during this process, so that timestamp mode will be maintained across a
-reset.
+This causes a leak of PTP device nodes at every reset. To fix this,
+break PTP device clock node creation out of i40e_ptp_init, and only call
+this if we don't already have a device created. Further invocation of
+i40e_ptp_init will not generate new PTP devices. Instead, only the
+necessary work required to reconfigure 1588 will be done.
 
-Change-ID: Ic20832c96c5c512ac203b6c7534e10d891c560f0
+This change also fixes an issue where a reset can cause the
+device to forget it's timestamp configuration, and revert to the default
+mode.
+
+Change-ID: I741d01c61d9fe1d24887859d1316e1a8a892909e
 Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_ptp.c | 59 ++++++++++++++++++++++--------
- 1 file changed, 43 insertions(+), 16 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_ptp.c | 58 +++++++++++++++++++++++-------
+ 1 file changed, 46 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e_ptp.c b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
-index 6f7d73b..e5f558c 100644
+index f7dded9..0c935e8 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e_ptp.c
 +++ b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
-@@ -423,28 +423,23 @@ int i40e_ptp_get_ts_config(struct i40e_pf *pf, struct ifreq *ifr)
+@@ -567,18 +567,22 @@ int i40e_ptp_set_ts_config(struct i40e_pf *pf, struct ifreq *ifr)
  }
  
  /**
-- * i40e_ptp_set_ts_config - ioctl interface to control the HW timestamping
-+ * i40e_ptp_set_timestamp_mode - setup hardware for requested timestamp mode
+- * i40e_ptp_init - Initialize the 1588 support and register the PHC
++ * i40e_ptp_create_clock - Create PTP clock device for userspace
   * @pf: Board private structure
-- * @ifreq: ioctl data
-+ * @config: hwtstamp settings requested or saved
   *
-- * Respond to the user filter requests and make the appropriate hardware
-- * changes here. The XL710 cannot support splitting of the Tx/Rx timestamping
-- * logic, so keep track in software of whether to indicate these timestamps
-- * or not.
-+ * Control hardware registers to enter the specific mode requested by the
-+ * user. Also used during reset path to ensure that timestamp settings are
-+ * maintained.
-  *
-- * It is permissible to "upgrade" the user request to a broader filter, as long
-- * as the user receives the timestamps they care about and the user is notified
-- * the filter has been broadened.
-+ * Note: modifies config in place, and may update the requested mode to be
-+ * more broad if the specific filter is not directly supported.
+- * This function registers the device clock as a PHC. If it is successful, it
+- * starts the clock in the hardware.
++ * This function creates a new PTP clock device. It only creates one if we
++ * don't already have one, so it is safe to call. Will return error if it
++ * can't create one, but success if we already have a device. Should be used
++ * by i40e_ptp_init to create clock initially, and prevent global resets from
++ * creating new clock devices.
   **/
--int i40e_ptp_set_ts_config(struct i40e_pf *pf, struct ifreq *ifr)
-+static int i40e_ptp_set_timestamp_mode(struct i40e_pf *pf,
-+				       struct hwtstamp_config *config)
+-void i40e_ptp_init(struct i40e_pf *pf)
++static long i40e_ptp_create_clock(struct i40e_pf *pf)
  {
- 	struct i40e_hw *hw = &pf->hw;
--	struct hwtstamp_config *config = &pf->tstamp_config;
- 	u32 pf_id, tsyntype, regval;
+-	struct i40e_hw *hw = &pf->hw;
+-	struct net_device *netdev = pf->vsi[pf->lan_vsi]->netdev;
++	/* no need to create a clock device if we already have one */
++	if (!IS_ERR_OR_NULL(pf->ptp_clock))
++		return 0;
  
--	if (copy_from_user(config, ifr->ifr_data, sizeof(*config)))
--		return -EFAULT;
--
- 	/* Reserved for future extensions. */
- 	if (config->flags)
- 		return -EINVAL;
-@@ -535,6 +530,35 @@ int i40e_ptp_set_ts_config(struct i40e_pf *pf, struct ifreq *ifr)
- 		wr32(hw, I40E_PRTTSYN_CTL1, regval);
- 	}
- 
+-	strncpy(pf->ptp_caps.name, "i40e", sizeof(pf->ptp_caps.name));
++	strncpy(pf->ptp_caps.name, i40e_driver_name, sizeof(pf->ptp_caps.name));
+ 	pf->ptp_caps.owner = THIS_MODULE;
+ 	pf->ptp_caps.max_adj = 999999999;
+ 	pf->ptp_caps.n_ext_ts = 0;
+@@ -592,6 +596,41 @@ void i40e_ptp_init(struct i40e_pf *pf)
+ 	/* Attempt to register the clock before enabling the hardware. */
+ 	pf->ptp_clock = ptp_clock_register(&pf->ptp_caps, &pf->pdev->dev);
+ 	if (IS_ERR(pf->ptp_clock)) {
++		return PTR_ERR(pf->ptp_clock);
++	}
++
++	/* clear the hwtstamp settings here during clock create, instead of
++	 * during regular init, so that we can maintain settings across a
++	 * reset or suspend.
++	 */
++	pf->tstamp_config.rx_filter = HWTSTAMP_FILTER_NONE;
++	pf->tstamp_config.tx_type = HWTSTAMP_TX_OFF;
++
 +	return 0;
 +}
 +
 +/**
-+ * i40e_ptp_set_ts_config - ioctl interface to control the HW timestamping
++ * i40e_ptp_init - Initialize the 1588 support after device probe or reset
 + * @pf: Board private structure
-+ * @ifreq: ioctl data
 + *
-+ * Respond to the user filter requests and make the appropriate hardware
-+ * changes here. The XL710 cannot support splitting of the Tx/Rx timestamping
-+ * logic, so keep track in software of whether to indicate these timestamps
-+ * or not.
-+ *
-+ * It is permissible to "upgrade" the user request to a broader filter, as long
-+ * as the user receives the timestamps they care about and the user is notified
-+ * the filter has been broadened.
++ * This function sets device up for 1588 support. The first time it is run, it
++ * will create a PHC clock device. It does not create a clock device if one
++ * already exists. It also reconfigures the device after a reset.
 + **/
-+int i40e_ptp_set_ts_config(struct i40e_pf *pf, struct ifreq *ifr)
++void i40e_ptp_init(struct i40e_pf *pf)
 +{
-+	struct hwtstamp_config *config = &pf->tstamp_config;
-+	int err;
++	struct net_device *netdev = pf->vsi[pf->lan_vsi]->netdev;
++	struct i40e_hw *hw = &pf->hw;
++	long err;
 +
-+	if (copy_from_user(config, ifr->ifr_data, sizeof(*config)))
-+		return -EFAULT;
++	/* we have to initialize the lock first, since we can't control
++	 * when the user will enter the PHC device entry points
++	 */
++	spin_lock_init(&pf->tmreg_lock);
 +
-+	err = i40e_ptp_set_timestamp_mode(pf, config);
-+	if (err)
-+		return err;
-+
- 	return copy_to_user(ifr->ifr_data, config, sizeof(*config)) ?
- 		-EFAULT : 0;
- }
-@@ -578,6 +602,9 @@ void i40e_ptp_init(struct i40e_pf *pf)
++	/* ensure we have a clock device */
++	err = i40e_ptp_create_clock(pf);
++	if (err) {
+ 		pf->ptp_clock = NULL;
+ 		dev_err(&pf->pdev->dev, "%s: ptp_clock_register failed\n",
+ 			__func__);
+@@ -599,15 +638,10 @@ void i40e_ptp_init(struct i40e_pf *pf)
+ 		struct timespec ts;
+ 		u32 regval;
+ 
+-		spin_lock_init(&pf->tmreg_lock);
+-
+ 		dev_info(&pf->pdev->dev, "%s: added PHC on %s\n", __func__,
  			 netdev->name);
  		pf->flags |= I40E_FLAG_PTP;
  
-+		pf->tstamp_config.rx_filter = HWTSTAMP_FILTER_NONE;
-+		pf->tstamp_config.tx_type = HWTSTAMP_TX_OFF;
-+
+-		pf->tstamp_config.rx_filter = HWTSTAMP_FILTER_NONE;
+-		pf->tstamp_config.tx_type = HWTSTAMP_TX_OFF;
+-
  		/* Ensure the clocks are running. */
  		regval = rd32(hw, I40E_PRTTSYN_CTL0);
  		regval |= I40E_PRTTSYN_CTL0_TSYNENA_MASK;
-@@ -589,8 +616,8 @@ void i40e_ptp_init(struct i40e_pf *pf)
- 		/* Set the increment value per clock tick. */
- 		i40e_ptp_set_increment(pf);
- 
--		/* reset the tstamp_config */
--		memset(&pf->tstamp_config, 0, sizeof(pf->tstamp_config));
-+		/* reset timestamping mode */
-+		i40e_ptp_set_timestamp_mode(pf, &pf->tstamp_config);
- 
- 		/* Set the clock value. */
- 		ts = ktime_to_timespec(ktime_get_real());
 -- 
 1.9.3
