@@ -1,50 +1,48 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v2 1/2] rtnetlink: allow to register ops without
- ops->setup set
-Date: Thu, 26 Jun 2014 09:46:31 +0200
-Message-ID: <20140626074631.GB3049@minipsycho.orion>
-References: <1403715503-9059-1-git-send-email-jiri@resnulli.us>
- <20140625114500.7c09874e@haswell>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Information about SCTP patch
+Date: Thu, 26 Jun 2014 00:47:53 -0700
+Message-ID: <1403768873.374.6.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAJ5TDg_0GjTWVin1Xr4sZwNhzMiT+bJPZwzfKB0xBdPMuK7T+g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, pshelar@nicira.com,
-	cwang@twopensource.com, nicolas.dichtel@6wind.com,
-	ebiederm@xmission.com, david@gibson.dropbear.id.au,
-	sfeldma@cumulusnetworks.com, sucheta.chakraborty@qlogic.com
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org
+To: kishan simha <ksimha123@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f176.google.com ([209.85.212.176]:47832 "EHLO
-	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754646AbaFZHqf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2014 03:46:35 -0400
-Received: by mail-wi0-f176.google.com with SMTP id n3so487209wiv.3
-        for <netdev@vger.kernel.org>; Thu, 26 Jun 2014 00:46:34 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20140625114500.7c09874e@haswell>
+Received: from mail-we0-f180.google.com ([74.125.82.180]:58250 "EHLO
+	mail-we0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754709AbaFZHr5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2014 03:47:57 -0400
+In-Reply-To: <CAJ5TDg_0GjTWVin1Xr4sZwNhzMiT+bJPZwzfKB0xBdPMuK7T+g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Jun 25, 2014 at 08:45:00PM CEST, stephen@networkplumber.org wrote:
->On Wed, 25 Jun 2014 18:58:22 +0200
->Jiri Pirko <jiri@resnulli.us> wrote:
->
->> So far, it is assumed that ops->setup is filled up. But there might be
->> case that ops might make sense even without ->setup. In that case,
->> forbid to newlink and dellink.
->> 
->> This allows to register simple rtnl link ops containing only ->kind.
->> That allows consistent way of passing device kind (either device-kind or
->> slave-kind) to userspace.
->> 
->> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->
->Can't we fix these kind of devices to all create/delete. At least
->allow delete.
->
+On Thu, 2014-06-26 at 12:58 +0530, kishan simha wrote:
+> Hello,
+> 
+> I wanted some information on the SCTP patch   "sctp: Add support to
+> per-association statistics via a new SCTP_GET_ASSOC_STA "
+> 
+> 
+> The commit information is
+> 
+> commit 196d67593439b03088913227093e374235596e33
+> 
+> Author: Michele Baldessari <michele@acksyn.org>
+> 
+> Date:   Sat Dec 1 04:49:42 2012 +0000
+> 
+> 
+> Is it possible to know into which kernel version did this patch go into?
+> I tried to find it online and I was not able to. Hence mailing to this list.
+> 
+> It will be helpful if you anyone answer this.
 
-Well it is not that easy to create openvswitch device. To do that you
-have to have info specified in vport_params (see ovs_vport_alloc).
+Sure :
 
-Delete could be implemented. But looking at the code, it could be a bit
-tricky. But would that make sense to implement del and don't implement
-add? I think it's better to leave both out.
+$ git describe --contains 196d67593439b03088913227093e374235596e33
+
+v3.8-rc1~139^2~117
+
+
+So all linux versions starting from linux-3.8 have it.
