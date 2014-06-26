@@ -1,31 +1,50 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH net-next 3/3 RFC] pktgen: Allow sending TCP packets
-Date: Wed, 25 Jun 2014 17:41:47 -0700
-Message-ID: <CAHA+R7NR4PmLbwmKXL8iwdwm3STNmpT4iZCp3VgB2zAqWZm7XQ@mail.gmail.com>
-References: <1403728972-29548-1-git-send-email-zoltan.kiss@citrix.com>
-	<1403728972-29548-4-git-send-email-zoltan.kiss@citrix.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] ipv4: fix dst race in sk_dst_get()
+Date: Wed, 25 Jun 2014 17:42:14 -0700 (PDT)
+Message-ID: <20140625.174214.1193347044692011852.davem@davemloft.net>
+References: <alpine.DEB.2.02.1406221202460.14871@dtop>
+	<1403512412.16682.23.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1403629511.3796.35.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
-	Mathias Krause <minipli@googlemail.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Thomas Graf <tgraf@suug.ch>, Joe Perches <joe@perches.com>,
-	netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	xen-devel@lists.xenproject.org
-To: Zoltan Kiss <zoltan.kiss@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1403728972-29548-4-git-send-email-zoltan.kiss@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dormando@rydia.net, preobr@google.com,
+	steffen.klassert@secunet.com, paulmck@linux.vnet.ibm.com,
+	netdev@vger.kernel.org, kcc@google.com, dvyukov@google.com,
+	larsbull@google.com, edumazet@google.com, brutus@google.com,
+	maze@google.com, alexei.starovoitov@gmail.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39626 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756873AbaFZAmR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 25 Jun 2014 20:42:17 -0400
+In-Reply-To: <1403629511.3796.35.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 25, 2014 at 1:42 PM, Zoltan Kiss <zoltan.kiss@citrix.com> wrote:
-> This is a prototype patch to enable sending TCP packets with pktgen. The
-> original motivation is to test TCP GSO with xen-netback/netfront, but I'm not
-> sure about how the checksum should be set up, and also someone should verify the
-> GSO settings I'm using.
->
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 24 Jun 2014 10:05:11 -0700
 
-What's the point of sending TCP packets since you don't establish a TCP
-connection?
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> When IP route cache had been removed in linux-3.6, we broke assumption
+> that dst entries were all freed after rcu grace period. DST_NOCACHE
+> dst were supposed to be freed from dst_release(). But it appears
+> we want to keep such dst around, either in UDP sockets or tunnels.
+> 
+> In sk_dst_get() we need to make sure dst refcount is not 0
+> before incrementing it, or else we might end up freeing a dst
+> twice.
+> 
+> DST_NOCACHE set on a dst does not mean this dst can not be attached
+> to a socket or a tunnel.
+> 
+> Then, before actual freeing, we need to observe a rcu grace period
+> to make sure all other cpus can catch the fact the dst is no longer
+> usable.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Dormando <dormando@rydia.net>
+
+Applied and queued up for -stable, thanks Eric.
