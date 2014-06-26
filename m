@@ -1,44 +1,444 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/14] i40evf: fix typo
-Date: Thu, 26 Jun 2014 05:13:44 -0700
-Message-ID: <1403784834-23301-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/14] i40e/i40evf: Big endian fixes for handling HMC
+Date: Thu, 26 Jun 2014 05:13:41 -0700
+Message-ID: <1403784834-23301-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1403784834-23301-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
+Cc: Paul M Stillwell Jr <paul.m.stillwell.jr@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:10401 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:10390 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757580AbaFZMO3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Jun 2014 08:14:29 -0400
+	id S1757571AbaFZMO2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Jun 2014 08:14:28 -0400
 In-Reply-To: <1403784834-23301-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: Paul M Stillwell Jr <paul.m.stillwell.jr@intel.com>
 
-Correct a missing word in a log message.
+Fix HMC handling for big endian architectures.
 
-Change-ID: Id94da7d9f842382d073b3947e0b616503e2f8e91
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Change-ID: Id8c46fc341815d47bfe0af8b819f0ab9a1e9e515
+Signed-off-by: Paul M Stillwell Jr <paul.m.stillwell.jr@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c   | 247 ++++++++++++++++++-----
+ drivers/net/ethernet/intel/i40e/i40e_lan_hmc.h   |  28 ++-
+ drivers/net/ethernet/intel/i40evf/i40e_lan_hmc.h |  28 ++-
+ 3 files changed, 236 insertions(+), 67 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 36b1ad7..7138ab4 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -2022,7 +2022,7 @@ static void i40evf_init_task(struct work_struct *work)
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c b/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c
+index 870ab1e..5a603a5 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c
+@@ -747,6 +747,194 @@ static struct i40e_context_ele i40e_hmc_rxq_ce_info[] = {
+ };
+ 
+ /**
++ * i40e_write_byte - replace HMC context byte
++ * @hmc_bits: pointer to the HMC memory
++ * @ce_info: a description of the struct to be read from
++ * @src: the struct to be read from
++ **/
++static void i40e_write_byte(u8 *hmc_bits,
++			    struct i40e_context_ele *ce_info,
++			    u8 *src)
++{
++	u8 src_byte, dest_byte, mask;
++	u8 *from, *dest;
++	u16 shift_width;
++
++	/* copy from the next struct field */
++	from = src + ce_info->offset;
++
++	/* prepare the bits and mask */
++	shift_width = ce_info->lsb % 8;
++	mask = ((u8)1 << ce_info->width) - 1;
++
++	src_byte = *from;
++	src_byte &= mask;
++
++	/* shift to correct alignment */
++	mask <<= shift_width;
++	src_byte <<= shift_width;
++
++	/* get the current bits from the target bit string */
++	dest = hmc_bits + (ce_info->lsb / 8);
++
++	memcpy(&dest_byte, dest, sizeof(dest_byte));
++
++	dest_byte &= ~mask;	/* get the bits not changing */
++	dest_byte |= src_byte;	/* add in the new bits */
++
++	/* put it all back */
++	memcpy(dest, &dest_byte, sizeof(dest_byte));
++}
++
++/**
++ * i40e_write_word - replace HMC context word
++ * @hmc_bits: pointer to the HMC memory
++ * @ce_info: a description of the struct to be read from
++ * @src: the struct to be read from
++ **/
++static void i40e_write_word(u8 *hmc_bits,
++			    struct i40e_context_ele *ce_info,
++			    u8 *src)
++{
++	u16 src_word, mask;
++	u8 *from, *dest;
++	u16 shift_width;
++	__le16 dest_word;
++
++	/* copy from the next struct field */
++	from = src + ce_info->offset;
++
++	/* prepare the bits and mask */
++	shift_width = ce_info->lsb % 8;
++	mask = ((u16)1 << ce_info->width) - 1;
++
++	/* don't swizzle the bits until after the mask because the mask bits
++	 * will be in a different bit position on big endian machines
++	 */
++	src_word = *(u16 *)from;
++	src_word &= mask;
++
++	/* shift to correct alignment */
++	mask <<= shift_width;
++	src_word <<= shift_width;
++
++	/* get the current bits from the target bit string */
++	dest = hmc_bits + (ce_info->lsb / 8);
++
++	memcpy(&dest_word, dest, sizeof(dest_word));
++
++	dest_word &= ~(cpu_to_le16(mask));	/* get the bits not changing */
++	dest_word |= cpu_to_le16(src_word);	/* add in the new bits */
++
++	/* put it all back */
++	memcpy(dest, &dest_word, sizeof(dest_word));
++}
++
++/**
++ * i40e_write_dword - replace HMC context dword
++ * @hmc_bits: pointer to the HMC memory
++ * @ce_info: a description of the struct to be read from
++ * @src: the struct to be read from
++ **/
++static void i40e_write_dword(u8 *hmc_bits,
++			     struct i40e_context_ele *ce_info,
++			     u8 *src)
++{
++	u32 src_dword, mask;
++	u8 *from, *dest;
++	u16 shift_width;
++	__le32 dest_dword;
++
++	/* copy from the next struct field */
++	from = src + ce_info->offset;
++
++	/* prepare the bits and mask */
++	shift_width = ce_info->lsb % 8;
++
++	/* if the field width is exactly 32 on an x86 machine, then the shift
++	 * operation will not work because the SHL instructions count is masked
++	 * to 5 bits so the shift will do nothing
++	 */
++	if (ce_info->width < 32)
++		mask = ((u32)1 << ce_info->width) - 1;
++	else
++		mask = -1;
++
++	/* don't swizzle the bits until after the mask because the mask bits
++	 * will be in a different bit position on big endian machines
++	 */
++	src_dword = *(u32 *)from;
++	src_dword &= mask;
++
++	/* shift to correct alignment */
++	mask <<= shift_width;
++	src_dword <<= shift_width;
++
++	/* get the current bits from the target bit string */
++	dest = hmc_bits + (ce_info->lsb / 8);
++
++	memcpy(&dest_dword, dest, sizeof(dest_dword));
++
++	dest_dword &= ~(cpu_to_le32(mask));	/* get the bits not changing */
++	dest_dword |= cpu_to_le32(src_dword);	/* add in the new bits */
++
++	/* put it all back */
++	memcpy(dest, &dest_dword, sizeof(dest_dword));
++}
++
++/**
++ * i40e_write_qword - replace HMC context qword
++ * @hmc_bits: pointer to the HMC memory
++ * @ce_info: a description of the struct to be read from
++ * @src: the struct to be read from
++ **/
++static void i40e_write_qword(u8 *hmc_bits,
++			     struct i40e_context_ele *ce_info,
++			     u8 *src)
++{
++	u64 src_qword, mask;
++	u8 *from, *dest;
++	u16 shift_width;
++	__le64 dest_qword;
++
++	/* copy from the next struct field */
++	from = src + ce_info->offset;
++
++	/* prepare the bits and mask */
++	shift_width = ce_info->lsb % 8;
++
++	/* if the field width is exactly 64 on an x86 machine, then the shift
++	 * operation will not work because the SHL instructions count is masked
++	 * to 6 bits so the shift will do nothing
++	 */
++	if (ce_info->width < 64)
++		mask = ((u64)1 << ce_info->width) - 1;
++	else
++		mask = -1;
++
++	/* don't swizzle the bits until after the mask because the mask bits
++	 * will be in a different bit position on big endian machines
++	 */
++	src_qword = *(u64 *)from;
++	src_qword &= mask;
++
++	/* shift to correct alignment */
++	mask <<= shift_width;
++	src_qword <<= shift_width;
++
++	/* get the current bits from the target bit string */
++	dest = hmc_bits + (ce_info->lsb / 8);
++
++	memcpy(&dest_qword, dest, sizeof(dest_qword));
++
++	dest_qword &= ~(cpu_to_le64(mask));	/* get the bits not changing */
++	dest_qword |= cpu_to_le64(src_qword);	/* add in the new bits */
++
++	/* put it all back */
++	memcpy(dest, &dest_qword, sizeof(dest_qword));
++}
++
++/**
+  * i40e_clear_hmc_context - zero out the HMC context bits
+  * @hw:       the hardware struct
+  * @context_bytes: pointer to the context bit array (DMA memory)
+@@ -772,71 +960,28 @@ static i40e_status i40e_set_hmc_context(u8 *context_bytes,
+ 					struct i40e_context_ele *ce_info,
+ 					u8 *dest)
+ {
+-	u16 shift_width;
+-	u64 bitfield;
+-	u8 hi_byte;
+-	u8 hi_mask;
+-	u64 t_bits;
+-	u64 mask;
+-	u8 *p;
+ 	int f;
+ 
+ 	for (f = 0; ce_info[f].width != 0; f++) {
+-		/* clear out the field */
+-		bitfield = 0;
+ 
+-		/* copy from the next struct field */
+-		p = dest + ce_info[f].offset;
++		/* we have to deal with each element of the HMC using the
++		 * correct size so that we are correct regardless of the
++		 * endianness of the machine
++		 */
+ 		switch (ce_info[f].size_of) {
+ 		case 1:
+-			bitfield = *p;
++			i40e_write_byte(context_bytes, &ce_info[f], dest);
+ 			break;
+ 		case 2:
+-			bitfield = cpu_to_le16(*(u16 *)p);
++			i40e_write_word(context_bytes, &ce_info[f], dest);
+ 			break;
+ 		case 4:
+-			bitfield = cpu_to_le32(*(u32 *)p);
++			i40e_write_dword(context_bytes, &ce_info[f], dest);
+ 			break;
+ 		case 8:
+-			bitfield = cpu_to_le64(*(u64 *)p);
++			i40e_write_qword(context_bytes, &ce_info[f], dest);
+ 			break;
  		}
- 		err = i40evf_send_vf_config_msg(adapter);
- 		if (err) {
--			dev_err(&pdev->dev, "Unable send config request (%d)\n",
-+			dev_err(&pdev->dev, "Unable to send config request (%d)\n",
- 				err);
- 			goto err;
- 		}
+-
+-		/* prepare the bits and mask */
+-		shift_width = ce_info[f].lsb % 8;
+-		mask = ((u64)1 << ce_info[f].width) - 1;
+-
+-		/* save upper bytes for special case */
+-		hi_mask = (u8)((mask >> 56) & 0xff);
+-		hi_byte = (u8)((bitfield >> 56) & 0xff);
+-
+-		/* shift to correct alignment */
+-		mask <<= shift_width;
+-		bitfield <<= shift_width;
+-
+-		/* get the current bits from the target bit string */
+-		p = context_bytes + (ce_info[f].lsb / 8);
+-		memcpy(&t_bits, p, sizeof(u64));
+-
+-		t_bits &= ~mask;          /* get the bits not changing */
+-		t_bits |= bitfield;       /* add in the new bits */
+-
+-		/* put it all back */
+-		memcpy(p, &t_bits, sizeof(u64));
+-
+-		/* deal with the special case if needed
+-		 * example: 62 bit field that starts in bit 5 of first byte
+-		 *          will overlap 3 bits into byte 9
+-		 */
+-		if ((shift_width + ce_info[f].width) > 64) {
+-			u8 byte;
+-
+-			hi_mask >>= (8 - shift_width);
+-			hi_byte >>= (8 - shift_width);
+-			byte = p[8] & ~hi_mask;  /* get the bits not changing */
+-			byte |= hi_byte;         /* add in the new bits */
+-			p[8] = byte;             /* put it back */
+-		}
+ 	}
+ 
+ 	return 0;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.h b/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.h
+index eb65fe2..e74128d 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.h
+@@ -32,16 +32,22 @@ struct i40e_hw;
+ 
+ /* HMC element context information */
+ 
+-/* Rx queue context data */
++/* Rx queue context data
++ *
++ * The sizes of the variables may be larger than needed due to crossing byte
++ * boundaries. If we do not have the width of the variable set to the correct
++ * size then we could end up shifting bits off the top of the variable when the
++ * variable is at the top of a byte and crosses over into the next byte.
++ */
+ struct i40e_hmc_obj_rxq {
+ 	u16 head;
+-	u8  cpuid;
++	u16 cpuid; /* bigger than needed, see above for reason */
+ 	u64 base;
+ 	u16 qlen;
+ #define I40E_RXQ_CTX_DBUFF_SHIFT 7
+-	u8  dbuff;
++	u16 dbuff; /* bigger than needed, see above for reason */
+ #define I40E_RXQ_CTX_HBUFF_SHIFT 6
+-	u8  hbuff;
++	u16 hbuff; /* bigger than needed, see above for reason */
+ 	u8  dtype;
+ 	u8  dsize;
+ 	u8  crcstrip;
+@@ -50,16 +56,22 @@ struct i40e_hmc_obj_rxq {
+ 	u8  hsplit_0;
+ 	u8  hsplit_1;
+ 	u8  showiv;
+-	u16 rxmax;
++	u32 rxmax; /* bigger than needed, see above for reason */
+ 	u8  tphrdesc_ena;
+ 	u8  tphwdesc_ena;
+ 	u8  tphdata_ena;
+ 	u8  tphhead_ena;
+-	u8  lrxqthresh;
++	u16 lrxqthresh; /* bigger than needed, see above for reason */
+ 	u8  prefena;	/* NOTE: normally must be set to 1 at init */
+ };
+ 
+-/* Tx queue context data */
++/* Tx queue context data
++*
++* The sizes of the variables may be larger than needed due to crossing byte
++* boundaries. If we do not have the width of the variable set to the correct
++* size then we could end up shifting bits off the top of the variable when the
++* variable is at the top of a byte and crosses over into the next byte.
++*/
+ struct i40e_hmc_obj_txq {
+ 	u16 head;
+ 	u8  new_context;
+@@ -69,7 +81,7 @@ struct i40e_hmc_obj_txq {
+ 	u8  fd_ena;
+ 	u8  alt_vlan_ena;
+ 	u16 thead_wb;
+-	u16 cpuid;
++	u8  cpuid;
+ 	u8  head_wb_ena;
+ 	u16 qlen;
+ 	u8  tphrdesc_ena;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_lan_hmc.h b/drivers/net/ethernet/intel/i40evf/i40e_lan_hmc.h
+index d6f7622..a5d7987 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_lan_hmc.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_lan_hmc.h
+@@ -32,16 +32,22 @@ struct i40e_hw;
+ 
+ /* HMC element context information */
+ 
+-/* Rx queue context data */
++/* Rx queue context data
++ *
++ * The sizes of the variables may be larger than needed due to crossing byte
++ * boundaries. If we do not have the width of the variable set to the correct
++ * size then we could end up shifting bits off the top of the variable when the
++ * variable is at the top of a byte and crosses over into the next byte.
++ */
+ struct i40e_hmc_obj_rxq {
+ 	u16 head;
+-	u8  cpuid;
++	u16 cpuid; /* bigger than needed, see above for reason */
+ 	u64 base;
+ 	u16 qlen;
+ #define I40E_RXQ_CTX_DBUFF_SHIFT 7
+-	u8  dbuff;
++	u16 dbuff; /* bigger than needed, see above for reason */
+ #define I40E_RXQ_CTX_HBUFF_SHIFT 6
+-	u8  hbuff;
++	u16 hbuff; /* bigger than needed, see above for reason */
+ 	u8  dtype;
+ 	u8  dsize;
+ 	u8  crcstrip;
+@@ -50,16 +56,22 @@ struct i40e_hmc_obj_rxq {
+ 	u8  hsplit_0;
+ 	u8  hsplit_1;
+ 	u8  showiv;
+-	u16 rxmax;
++	u32 rxmax; /* bigger than needed, see above for reason */
+ 	u8  tphrdesc_ena;
+ 	u8  tphwdesc_ena;
+ 	u8  tphdata_ena;
+ 	u8  tphhead_ena;
+-	u8  lrxqthresh;
++	u16 lrxqthresh; /* bigger than needed, see above for reason */
+ 	u8  prefena;	/* NOTE: normally must be set to 1 at init */
+ };
+ 
+-/* Tx queue context data */
++/* Tx queue context data
++*
++* The sizes of the variables may be larger than needed due to crossing byte
++* boundaries. If we do not have the width of the variable set to the correct
++* size then we could end up shifting bits off the top of the variable when the
++* variable is at the top of a byte and crosses over into the next byte.
++*/
+ struct i40e_hmc_obj_txq {
+ 	u16 head;
+ 	u8  new_context;
+@@ -69,7 +81,7 @@ struct i40e_hmc_obj_txq {
+ 	u8  fd_ena;
+ 	u8  alt_vlan_ena;
+ 	u16 thead_wb;
+-	u16 cpuid;
++	u8  cpuid;
+ 	u8  head_wb_ena;
+ 	u16 qlen;
+ 	u8  tphrdesc_ena;
 -- 
 1.9.3
