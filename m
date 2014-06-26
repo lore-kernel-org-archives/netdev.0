@@ -1,44 +1,61 @@
-From: Chris J Arges <chris.j.arges@canonical.com>
-Subject: [3.10.y-3.15.y][stable request] netfilter: nf_nat: fix oops on netns
- removal
-Date: Thu, 26 Jun 2014 15:38:09 -0500
-Message-ID: <53AC84B1.8080405@canonical.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch net-next] net: make neigh tables per netns
+Date: Thu, 26 Jun 2014 13:43:35 -0700 (PDT)
+Message-ID: <20140626.134335.2147671135749217539.davem@davemloft.net>
+References: <87d2dwsfh6.fsf@x220.int.ebiederm.org>
+	<CAM_iQpVeVpcQLPz7GDuni_v5+bJikQkc2cSzrKee72eGuOecDQ@mail.gmail.com>
+	<87lhskpizv.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fw@strlen.de, pablo@netfilter.org
-To: davem@davemloft.net, kamal@canonical.com,
-	samu.kallio@aberdeencloud.com,
-	Luis Henriques <luis.henriques@canonical.com>
+Cc: xiyou.wangcong@gmail.com, netdev@vger.kernel.org, kaber@trash.net,
+	stephen@networkplumber.org, cwang@twopensource.com
+To: ebiederm@xmission.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:35139 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752534AbaFZUiQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2014 16:38:16 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:51161 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751904AbaFZUnh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2014 16:43:37 -0400
+In-Reply-To: <87lhskpizv.fsf@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Wed, 25 Jun 2014 18:17:08 -0700
 
-Please include commit 945b2b2d259d1a4364a2799e80e8ff32f8c6ee6f in the
-netdev stable queue and any other appropriate stable trees. This fixes a
-race condition that can be triggered when cleaning up LXC containers
-that use NAT/netns. The patch has already received positive testing when
-backported to 3.13.y.
+> I disagree that removing a global DOS prevention check is a benefit.
+> Certainly large semantics changes like that should not happen without
+> being discussed in the patch description.
 
-The patch cleanly cherry-picks from 3.10.y to 3.15.y.
+Agreed, this is the most important core issue.
 
-Upstream bug:
-https://bugzilla.kernel.org/show_bug.cgi?id=65191
-Ubuntu bug:
-https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1314274
+If we just make these things per netns, then as a result if you create
+N namespaces we will allow N times more neighbour entries to be
+sitting in the system at once.
 
-Fixes: c2d421e1718 ('netfilter: nf_nat: fix race when unloading protocol
-modules')
+Actually, I'm really surprised the limits get hit and this actually
+causes problems.
 
-This also potentially affects v3.9.y and other stable trees such as
-v3.8.y that have backported the above patch; however it is not a clean
-cherry-pick for those versions. I'll work on a patch in this case and
-send a separate email.
+This is simply because we don't cache neighbour table entries in route
+entries any more.  They are only passively referenced during packet
+output, and with no reference taken.
 
---chris j arges
+See net/ipv4/ip_output.c:ip_finish_output2() where it goes:
+
+	rcu_read_lock_bh();
+	nexthop = (__force u32) rt_nexthop(rt, ip_hdr(skb)->daddr);
+	neigh = __ipv4_neigh_lookup_noref(dev, nexthop);
+	if (unlikely(!neigh))
+		neigh = __neigh_create(&arp_tbl, &nexthop, dev, false);
+	if (!IS_ERR(neigh)) {
+		int res = dst_neigh_output(dst, neigh, skb);
+
+		rcu_read_unlock_bh();
+		return res;
+	}
+	rcu_read_unlock_bh();
+
+Nearly identical code lives in net/ipv6/ip6_output.c:ip6_finish_output2()
+
+So nothing is even holding onto neigh entries any more, they are trivially
+recycled when demand increases and the thresholds are hit.
