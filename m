@@ -1,162 +1,40 @@
-From: Daniel Mack <zonque@gmail.com>
-Subject: [PATCH] net: fix circular dependency in of_mdio code
-Date: Thu, 26 Jun 2014 09:10:31 +0200
-Message-ID: <1403766631-11499-1-git-send-email-zonque@gmail.com>
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
-	Daniel Mack <zonque@gmail.com>
-To: jeffm@suse.com, davem@davemloft.net
+From: Daniel Mack <daniel@zonque.org>
+Subject: Re: [BUG] Circular dependency introduced in commit 86f6cf4127
+Date: Thu, 26 Jun 2014 09:11:52 +0200
+Message-ID: <53ABC7B8.6060808@zonque.org>
+References: <53AAEE62.7010602@suse.com> <20140625.154057.1098838428988383751.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, jeffm@suse.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f45.google.com ([74.125.82.45]:51361 "EHLO
-	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753358AbaFZHKi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2014 03:10:38 -0400
-Received: by mail-wg0-f45.google.com with SMTP id l18so3067313wgh.28
-        for <netdev@vger.kernel.org>; Thu, 26 Jun 2014 00:10:37 -0700 (PDT)
+Received: from svenfoo.org ([82.94.215.22]:40798 "EHLO mail.zonque.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753358AbaFZHLz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 26 Jun 2014 03:11:55 -0400
+In-Reply-To: <20140625.154057.1098838428988383751.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 86f6cf4127 (net: of_mdio: add of_mdiobus_link_phydev()) introduced a
-circular dependency between libphy and of_mdio.
+On 06/26/2014 12:40 AM, David Miller wrote:
+> From: Jeff Mahoney <jeffm@suse.com>
+> Date: Wed, 25 Jun 2014 11:44:34 -0400
+> 
+>> Commit 86f6cf4127 (net: of_mdio: add of_mdiobus_link_phydev())
+>> introduced a circular dependency between libphy and of_mdio.
+>>
+>> depmod: ERROR: <modroot>/kernel/drivers/net/phy/libphy.ko in
+>> dependency cycle!
+>> depmod: ERROR: <modroot>/kernel/drivers/of/of_mdio.ko in dependency cycle!
+> 
+> Yeah, of_mdio.c references &mdio_bus_type and libphy now references
+> of_mdiobus_link_phydev.
+> 
+> Daniel, please work on fixing this, thanks.
+> 
 
-depmod: ERROR: <modroot>/kernel/drivers/net/phy/libphy.ko in
-dependency cycle!
-depmod: ERROR: <modroot>/kernel/drivers/of/of_mdio.ko in dependency cycle!
+Patch sent. Apologies for the breakage!
 
-The problem is that of_mdio.c references &mdio_bus_type and libphy now
-references of_mdiobus_link_phydev.
 
-Fix this by not exporting of_mdiobus_link_phydev() from of_mdio.ko.
-Make it a static function in mdio_bus.c instead.
-
-Signed-off-by: Daniel Mack <zonque@gmail.com>
-Reported-by: Jeff Mahoney <jeffm@suse.com>
-Fixes: 86f6cf4127 (net: of_mdio: add of_mdiobus_link_phydev())
----
- drivers/net/phy/mdio_bus.c | 39 +++++++++++++++++++++++++++++++++++++++
- drivers/of/of_mdio.c       | 34 ----------------------------------
- include/linux/of_mdio.h    |  8 --------
- 3 files changed, 39 insertions(+), 42 deletions(-)
-
-diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index 2e58aa5..afc0227 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -187,6 +187,45 @@ struct mii_bus *of_mdio_find_bus(struct device_node *mdio_bus_np)
- 	return d ? to_mii_bus(d) : NULL;
- }
- EXPORT_SYMBOL(of_mdio_find_bus);
-+
-+/* Walk the list of subnodes of a mdio bus and look for a node that matches the
-+ * phy's address with its 'reg' property. If found, set the of_node pointer for
-+ * the phy. This allows auto-probed pyh devices to be supplied with information
-+ * passed in via DT.
-+ */
-+static void of_mdiobus_link_phydev(struct mii_bus *mdio,
-+				   struct phy_device *phydev)
-+{
-+	struct device *dev = &phydev->dev;
-+	struct device_node *child;
-+
-+	if (dev->of_node || !mdio->dev.of_node)
-+		return;
-+
-+	for_each_available_child_of_node(mdio->dev.of_node, child) {
-+		int addr;
-+		int ret;
-+
-+		ret = of_property_read_u32(child, "reg", &addr);
-+		if (ret < 0) {
-+			dev_err(dev, "%s has invalid PHY address\n",
-+				child->full_name);
-+			continue;
-+		}
-+
-+		/* A PHY must have a reg property in the range [0-31] */
-+		if (addr >= PHY_MAX_ADDR) {
-+			dev_err(dev, "%s PHY address %i is too large\n",
-+				child->full_name, addr);
-+			continue;
-+		}
-+
-+		if (addr == phydev->addr) {
-+			dev->of_node = child;
-+			return;
-+		}
-+	}
-+}
- #endif
- 
- /**
-diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-index fb4a598..38fa57c 100644
---- a/drivers/of/of_mdio.c
-+++ b/drivers/of/of_mdio.c
-@@ -182,40 +182,6 @@ int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
- }
- EXPORT_SYMBOL(of_mdiobus_register);
- 
--/**
-- * of_mdiobus_link_phydev - Find a device node for a phy
-- * @mdio: pointer to mii_bus structure
-- * @phydev: phydev for which the of_node pointer should be set
-- *
-- * Walk the list of subnodes of a mdio bus and look for a node that matches the
-- * phy's address with its 'reg' property. If found, set the of_node pointer for
-- * the phy. This allows auto-probed pyh devices to be supplied with information
-- * passed in via DT.
-- */
--void of_mdiobus_link_phydev(struct mii_bus *mdio,
--			    struct phy_device *phydev)
--{
--	struct device *dev = &phydev->dev;
--	struct device_node *child;
--
--	if (dev->of_node || !mdio->dev.of_node)
--		return;
--
--	for_each_available_child_of_node(mdio->dev.of_node, child) {
--		int addr;
--
--		addr = of_mdio_parse_addr(&mdio->dev, child);
--		if (addr < 0)
--			continue;
--
--		if (addr == phydev->addr) {
--			dev->of_node = child;
--			return;
--		}
--	}
--}
--EXPORT_SYMBOL(of_mdiobus_link_phydev);
--
- /* Helper function for of_phy_find_device */
- static int of_phy_match(struct device *dev, void *phy_np)
- {
-diff --git a/include/linux/of_mdio.h b/include/linux/of_mdio.h
-index a70c949..d449018 100644
---- a/include/linux/of_mdio.h
-+++ b/include/linux/of_mdio.h
-@@ -25,9 +25,6 @@ struct phy_device *of_phy_attach(struct net_device *dev,
- 
- extern struct mii_bus *of_mdio_find_bus(struct device_node *mdio_np);
- 
--extern void of_mdiobus_link_phydev(struct mii_bus *mdio,
--				   struct phy_device *phydev);
--
- #else /* CONFIG_OF */
- static inline int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
- {
-@@ -63,11 +60,6 @@ static inline struct mii_bus *of_mdio_find_bus(struct device_node *mdio_np)
- {
- 	return NULL;
- }
--
--static inline void of_mdiobus_link_phydev(struct mii_bus *mdio,
--					  struct phy_device *phydev)
--{
--}
- #endif /* CONFIG_OF */
- 
- #if defined(CONFIG_OF) && defined(CONFIG_FIXED_PHY)
--- 
-1.9.3
+Daniel
