@@ -1,77 +1,53 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 2/2] openvswitch: introduce rtnl ops stub
-Date: Thu, 26 Jun 2014 09:39:36 +0200
-Message-ID: <20140626073936.GA3049@minipsycho.orion>
-References: <1403699280-12837-1-git-send-email-jiri@resnulli.us>
- <1403699280-12837-2-git-send-email-jiri@resnulli.us>
- <87fvitvuxp.fsf@x220.int.ebiederm.org>
- <20140625163509.GC2972@minipsycho.orion>
- <877g44x68q.fsf@x220.int.ebiederm.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] bnx2x: fix possible panic under memory stress
+Date: Thu, 26 Jun 2014 00:44:02 -0700
+Message-ID: <1403768642.374.5.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, pshelar@nicira.com,
-	cwang@twopensource.com, nicolas.dichtel@6wind.com,
-	david@gibson.dropbear.id.au, sfeldma@cumulusnetworks.com,
-	sucheta.chakraborty@qlogic.com, stephen@networkplumber.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Michel Lespinasse <walken@google.com>,
+	Ariel Elior <ariel.elior@qlogic.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f177.google.com ([74.125.82.177]:49881 "EHLO
-	mail-we0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754865AbaFZHjj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2014 03:39:39 -0400
-Received: by mail-we0-f177.google.com with SMTP id u56so3155078wes.22
-        for <netdev@vger.kernel.org>; Thu, 26 Jun 2014 00:39:38 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <877g44x68q.fsf@x220.int.ebiederm.org>
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:50933 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754564AbaFZHoI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2014 03:44:08 -0400
+Received: by mail-wi0-f177.google.com with SMTP id r20so471381wiv.16
+        for <netdev@vger.kernel.org>; Thu, 26 Jun 2014 00:44:06 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Jun 25, 2014 at 07:13:09PM CEST, ebiederm@xmission.com wrote:
->Jiri Pirko <jiri@resnulli.us> writes:
->
->> Wed, Jun 25, 2014 at 06:02:42PM CEST, ebiederm@xmission.com wrote:
->>>Jiri Pirko <jiri@resnulli.us> writes:
->>>
->>>> This stub now allows userspace to see IFLA_INFO_KIND for ovs master and
->>>> IFLA_INFO_SLAVE_KIND for slave.
->>>
->>>I am puzzled why you don't implement full rtnl_link_operations support.
->>
->> openvswitch does not need that at the moment (most probably it never
->> will). Creation and deletion is handled over separate genl channel.
->>
->>>
->>>If all you want is to report which kind of driver you have I suspect
->>>implementing ethtool_ops.get_drvinfo is a much better fit.
->>
->> That is maybe partly true but that would not be consistent with bond, team,
->> bridge masters and slaves which benefit ops->kind to expose the type
->> into userspace.
->
->So instead of using the mechanism that is supported by most of the
->network drivers in the tree you are instead relying on a mechanism
->that only works for a handful of software defined network devices.
+From: Eric Dumazet <edumazet@google.com>
 
-As I said, I just want openvswitch to be similar in this with
-bridge/bond/team. ops->kind is there, its exposed to userspace, I don't
-see any harm adding one another code which benefits that.
+While it is legal to kfree(NULL), it is not wise to use :
+put_page(virt_to_head_page(NULL))
 
-Note that this also allows to see slave kind.
+ BUG: unable to handle kernel paging request at ffffeba400000000
+ IP: [<ffffffffc01f5928>] virt_to_head_page+0x36/0x44 [bnx2x]
 
->
->I really think exposing a kind at this point is lying to user space
->as having a kind implies that the netlink messages behind "ip link add"
->and "ip link del" work.
+Reported-by: Michel Lespinasse <walken@google.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Ariel Elior <ariel.elior@qlogic.com>
+Fixes: d46d132cc021 ("bnx2x: use netdev_alloc_frag()")
+---
+This is a stable candidate, bug added in linux-3.8
 
-Proper -EOPNOTSUPP is returned. And is is the same as if !ops. The
-behavior is not changed.
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
->
->Further I have seen nothing in what you are proposing that addresses
->that absolute horrible maintenance consequences of your patch.
-
-I don't understand what maintenance consequences you have on mind. Would
-you please exmplain? Thanks.
-
->
->Eric
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index 47c5814114e1..4b875da1c7ed 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -797,7 +797,8 @@ static void bnx2x_tpa_stop(struct bnx2x *bp, struct bnx2x_fastpath *fp,
+ 
+ 		return;
+ 	}
+-	bnx2x_frag_free(fp, new_data);
++	if (new_data)
++		bnx2x_frag_free(fp, new_data);
+ drop:
+ 	/* drop the packet and keep the buffer in the bin */
+ 	DP(NETIF_MSG_RX_STATUS,
