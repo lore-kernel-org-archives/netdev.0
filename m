@@ -1,51 +1,62 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/14] i40evf: don't stop watchdog if it hasn't started
-Date: Thu, 26 Jun 2014 05:13:42 -0700
-Message-ID: <1403784834-23301-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 01/14] i40e: do not take NVM ownership for SR read
+Date: Thu, 26 Jun 2014 05:13:40 -0700
+Message-ID: <1403784834-23301-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1403784834-23301-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+Cc: Kamil Krawczyk <kamil.krawczyk@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:10390 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:10401 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756280AbaFZMO2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1757547AbaFZMO2 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 26 Jun 2014 08:14:28 -0400
 In-Reply-To: <1403784834-23301-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+From: Kamil Krawczyk <kamil.krawczyk@intel.com>
 
-If the VF driver fails to complete early init, then rmmod can cause a
-softlock when the driver tries to stop a watchdog timer that never even
-got initialized.
+We do not need to acquire NVM for Shadow RAM XSUM calculation, as we only
+read from SR through SRCTL register for which having the ownership is not
+required.
 
-Add a check to see if the timer is actually initialized before stopping
-it.
-
-Change-ID: Id9d550aa8838e07f4b02afe7bc017ef983779efc
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+Change-ID: Ie238a8f09917d1d25f24cc7cec271951ac7b98f2
+Signed-off-by: Kamil Krawczyk <kamil.krawczyk@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_nvm.c | 9 +--------
+ 1 file changed, 1 insertion(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index b473172..36b1ad7 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -2408,7 +2408,9 @@ static void i40evf_remove(struct pci_dev *pdev)
- 		i40evf_reset_interrupt_capability(adapter);
- 	}
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_nvm.c b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
+index 8129918..66bcb15 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_nvm.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_nvm.c
+@@ -324,13 +324,9 @@ i40e_status i40e_validate_nvm_checksum(struct i40e_hw *hw,
+ 	u16 checksum_sr = 0;
+ 	u16 checksum_local = 0;
  
--	del_timer_sync(&adapter->watchdog_timer);
-+	if (adapter->watchdog_timer.function)
-+		del_timer_sync(&adapter->watchdog_timer);
-+
- 	flush_scheduled_work();
+-	ret_code = i40e_acquire_nvm(hw, I40E_RESOURCE_READ);
+-	if (ret_code)
+-		goto i40e_validate_nvm_checksum_exit;
+-
+ 	ret_code = i40e_calc_nvm_checksum(hw, &checksum_local);
+ 	if (ret_code)
+-		goto i40e_validate_nvm_checksum_free;
++		goto i40e_validate_nvm_checksum_exit;
  
- 	if (hw->aq.asq.count)
+ 	/* Do not use i40e_read_nvm_word() because we do not want to take
+ 	 * the synchronization semaphores twice here.
+@@ -347,9 +343,6 @@ i40e_status i40e_validate_nvm_checksum(struct i40e_hw *hw,
+ 	if (checksum)
+ 		*checksum = checksum_local;
+ 
+-i40e_validate_nvm_checksum_free:
+-	i40e_release_nvm(hw);
+-
+ i40e_validate_nvm_checksum_exit:
+ 	return ret_code;
+ }
 -- 
 1.9.3
