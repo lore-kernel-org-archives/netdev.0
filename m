@@ -1,47 +1,41 @@
 From: =?UTF-8?q?Stefan=20S=C3=B8rensen?=
 	<stefan.sorensen@spectralink.com>
-Subject: [PATCH net-next 3/3] vlan: Pass SIOC[SG]HWTSTAMP ioctls to real device
-Date: Fri, 27 Jun 2014 11:59:11 +0200
-Message-ID: <1403863151-13337-4-git-send-email-stefan.sorensen@spectralink.com>
-References: <1403863151-13337-1-git-send-email-stefan.sorensen@spectralink.com>
+Subject: [PATCH net-next v2 0/5] dp83640: Increase support perout pins
+Date: Fri, 27 Jun 2014 12:05:28 +0200
+Message-ID: <1403863533-27675-1-git-send-email-stefan.sorensen@spectralink.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org,
 	=?UTF-8?q?Stefan=20S=C3=B8rensen?=
 	<stefan.sorensen@spectralink.com>
-To: davem@davemloft.net, richardcochran@gmail.com, kaber@trash.net
+To: davem@davemloft.net, richardcochran@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 213083164162.static.sonofon.dk ([213.83.164.162]:54160 "EHLO
+Received: from 213083164162.static.sonofon.dk ([213.83.164.162]:33178 "EHLO
 	HORWDSPRD01.spectralink.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752826AbaF0KE6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 06:04:58 -0400
-In-Reply-To: <1403863151-13337-1-git-send-email-stefan.sorensen@spectralink.com>
+	by vger.kernel.org with ESMTP id S1753158AbaF0KGA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 06:06:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This allows applications to enable hardware timestamping without being =
-aware
-of it being a vlan device and figuring out the real device.
+This patch series increases the number of periodic output pins supporte=
+d
+on the dp83640 to 7, and allows for reprogramming the calibration pin.
 
-Signed-off-by: Stefan S=C3=B8rensen <stefan.sorensen@spectralink.com>
----
- net/8021q/vlan_dev.c | 2 ++
- 1 file changed, 2 insertions(+)
+Changes since v1:
+  Add dp83640 calibration pin constraints
+  Fix codingstyle
 
-diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index ad2ac3c..9d0223b 100644
---- a/net/8021q/vlan_dev.c
-+++ b/net/8021q/vlan_dev.c
-@@ -385,6 +385,8 @@ static int vlan_dev_ioctl(struct net_device *dev, s=
-truct ifreq *ifr, int cmd)
- 	case SIOCGMIIPHY:
- 	case SIOCGMIIREG:
- 	case SIOCSMIIREG:
-+	case SIOCSHWTSTAMP:
-+	case SIOCGHWTSTAMP:
- 		if (netif_device_present(real_dev) && ops->ndo_do_ioctl)
- 			err =3D ops->ndo_do_ioctl(real_dev, &ifrr, cmd);
- 		break;
+Stefan S=C3=B8rensen (5):
+  dp83640: Program pulsewidth2 values of perout triggers 0 and 1
+  dp83640: Increase supported perout pins to 7
+  dp83640: Verify calibration pin assignment
+  dp83640: Get calibration pin with ptp_find_pin
+  ptp: Allow reassigning calibration pin function
+
+ drivers/net/phy/dp83640.c | 39 +++++++++++++++++++++++++++++----------
+ drivers/ptp/ptp_chardev.c |  9 ++-------
+ 2 files changed, 31 insertions(+), 17 deletions(-)
+
 --=20
 1.9.3
