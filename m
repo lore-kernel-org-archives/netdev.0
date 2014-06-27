@@ -1,45 +1,88 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] enic: fix a building failure
-Date: Thu, 26 Jun 2014 19:21:09 -0700 (PDT)
-Message-ID: <20140626.192109.1180307002401037827.davem@davemloft.net>
-References: <CA+r1ZhjoME0Okxi9kfFgOsMmieWwuhCX83DCKosKEM2NLAtAVA@mail.gmail.com>
-	<1403834979-598-1-git-send-email-roy.qing.li@gmail.com>
+From: Bo Shen <voice.shen@atmel.com>
+Subject: Re: [RFC PATCH] phy: micrel: make phy_has_fixups attribute read correctly
+Date: Fri, 27 Jun 2014 11:33:11 +0800
+Message-ID: <53ACE5F7.3060102@atmel.com>
+References: <1403681075-16181-1-git-send-email-voice.shen@atmel.com> <CAGVrzcaN9KKW6vN5Xy775RTBD3ODpK95-o0V+pKDcCCxetPycA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, jim.epost@gmail.com, _govind@gmx.com
-To: roy.qing.li@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53083 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751894AbaF0CVL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2014 22:21:11 -0400
-In-Reply-To: <1403834979-598-1-git-send-email-roy.qing.li@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAGVrzcaN9KKW6vN5Xy775RTBD3ODpK95-o0V+pKDcCCxetPycA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogcm95LnFpbmcubGlAZ21haWwuY29tDQpEYXRlOiBGcmksIDI3IEp1biAyMDE0IDEwOjA5
-OjM5ICswODAwDQoNCj4gRnJvbTogTGkgUm9uZ1FpbmcgPHJveS5xaW5nLmxpQGdtYWlsLmNvbT4N
-Cj4gDQo+IFdoZW4gUkZTX0FDQ0VMIGlzIGRpc2FibGVkLCB0aGUgYnVpbGRpbmcgZmFpbGVkOg0K
-PiAgICAgZHJpdmVycy9uZXQvZXRoZXJuZXQvY2lzY28vZW5pYy9lbmljX21haW4uYzogSW4gZnVu
-Y3Rpb24goWVuaWNfb3BlbqI6DQo+ICAgICBkcml2ZXJzL25ldC9ldGhlcm5ldC9jaXNjby9lbmlj
-L2VuaWNfbWFpbi5jOjE2MDM6MjogZXJyb3I6IGltcGxpY2l0IGRlY2xhcmF0aW9uDQo+ICAgICBv
-ZiBmdW5jdGlvbiChZW5pY19yZnNfZmx3X3RibF9pbml0oiBbLVdlcnJvcj1pbXBsaWNpdC1mdW5j
-dGlvbi1kZWNsYXJhdGlvbl0NCj4gICAgICAgZW5pY19yZnNfZmx3X3RibF9pbml0KGVuaWMpOw0K
-PiAgICAgICBeDQo+ICAgICBkcml2ZXJzL25ldC9ldGhlcm5ldC9jaXNjby9lbmljL2VuaWNfbWFp
-bi5jOiBJbiBmdW5jdGlvbiChZW5pY19zdG9wojoNCj4gICAgIGRyaXZlcnMvbmV0L2V0aGVybmV0
-L2Npc2NvL2VuaWMvZW5pY19tYWluLmM6MTYzMDoyOiBlcnJvcjogaW1wbGljaXQgZGVjbGFyYXRp
-b24NCj4gICAgIG9mIGZ1bmN0aW9uIKFlbmljX3Jmc19mbHdfdGJsX2ZyZWWiIFstV2Vycm9yPWlt
-cGxpY2l0LWZ1bmN0aW9uLWRlY2xhcmF0aW9uXQ0KPiAgICAgICBlbmljX3Jmc19mbHdfdGJsX2Zy
-ZWUoZW5pYyk7DQo+IA0KPiBJbiBmYWN0LCB0aGVzZSB0d28gZnVuY3Rpb25zIGhhdmUgYmVlbiBk
-ZWZpbmVkIHNlcGFyYXRlbHkgZm9yIGVuYWJsaW5nIFJGU19BQ0NFTA0KPiBhbmQgZGlzYWJsaW5n
-IFJGU19BQ0NFTC4NCj4gDQo+IFJlcG9ydGVkLWJ5OiBKaW0gRGF2aXMgPGppbS5lcG9zdEBnbWFp
-bC5jb20+DQo+IENjOiBHb3ZpbmRhcmFqdWx1IFZhcmFkYXJhamFuIDxfZ292aW5kQGdteC5jb20+
-DQo+IFNpZ25lZC1vZmYtYnk6IExpIFJvbmdRaW5nIDxyb3kucWluZy5saUBnbWFpbC5jb20+DQoN
-ClBsZWFzZSBwYXkgYXR0ZW50aW9uLCB0aGVyZSBpcyBhbHJlYWR5IGEgYmV0dGVyIGZpeCBjaGVj
-a2VkIGludG8gdGhlDQpuZXQtbmV4dCB0cmVlLg0KDQpUaGUgdHJlZSB3b3VsZCBzdGlsbCBmYWls
-IHdpdGggeW91ciB2ZXJzaW9uIG9mIHRoZSBmaXgsIGRpZCB5b3UgdGVzdA0Kd2l0aCBSRlNfQUND
-RUwgZGlzYWJsZWQ/ICBZb3UgaGF2ZSB0byBwcm92aWRlIGFuIGFjdHVhbCBpbXBsZW1lbnRhdGlv
-bg0Kd2hlbiBSRkNfQUNDRUwgaXMgb2ZmLCB2aWEgYW4gZW1wdHkgaW5saW5lIGZ1bmN0aW9uIGlu
-IGVuaWNfY2xzZi5oIHdoaWNoIGlzDQp3aGF0IHdhcyBkb25lIGluIG5ldC1uZXh0IGFscmVhZHku
-DQo=
+Hi Florian,
+
+On 06/27/2014 02:00 AM, Florian Fainelli wrote:
+> Hello,
+>
+> 2014-06-25 0:24 GMT-07:00 Bo Shen <voice.shen@atmel.com>:
+>> If the fixups parameters get from dtb, it won't set has_fixups
+>> parameters, so when read phy_has_fixups attribute, it always
+>> present as 0.
+>> Add this patch to make phy_has_fixups attribute read correctly.
+>
+> I am not entirely sure whether loading values from Device Tree should
+> be considered a PHY fixup per-se. They do override the hardware reset
+> default values, but I am not sure if we should consider that as a
+> fixup.
+
+In old method, we will call phy_register_fixup_for_uid to update this 
+configuration, which will set the phy_has_fixups as true, then it 
+regards as fix up. So, can we also consider loading values from DTS also 
+as fix up?
+
+> Assuming that you need to troubleshoot a given system, one of the
+> first things you will surely ask for is the DTS used by that platform,
+> and in that case you can quickly check whether the PHY default
+> settings are changed, right?
+
+I am not sure I am fully understand here.
+
+The value retrieve from DTS is used to overwrite the default value, so I 
+think it is no need to check.
+
+>>
+>> Signed-off-by: Bo Shen <voice.shen@atmel.com>
+>> ---
+>>   drivers/net/phy/micrel.c | 4 ++++
+>>   1 file changed, 4 insertions(+)
+>>
+>> diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+>> index bc7c7d2..c384922 100644
+>> --- a/drivers/net/phy/micrel.c
+>> +++ b/drivers/net/phy/micrel.c
+>> @@ -237,6 +237,8 @@ static int ksz9021_load_values_from_of(struct phy_device *phydev,
+>>
+>>          if (!matches)
+>>                  return 0;
+>> +       else
+>> +               phydev->has_fixups = true;
+>
+> There is no need for the else here
+>
+>>
+>>          if (matches < 4)
+>>                  newval = kszphy_extended_read(phydev, reg);
+>> @@ -330,6 +332,8 @@ static int ksz9031_of_load_skew_values(struct phy_device *phydev,
+>>
+>>          if (!matches)
+>>                  return 0;
+>> +       else
+>> +               phydev->has_fixups = true;
+>
+> Same here
+>
+>>
+>>          if (matches < numfields)
+>>                  newval = ksz9031_extended_read(phydev, OP_DATA, 2, reg);
+>> --
+>> 1.8.5.2
+
+Best Regards,
+Bo Shen
