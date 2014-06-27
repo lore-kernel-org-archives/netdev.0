@@ -1,50 +1,101 @@
 From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH CFT 15/30] net: fec: ensure fec_enet_close() copes with resume
- failure
-Date: Fri, 27 Jun 2014 16:20:09 +0100
-Message-ID: <E1X0Xwf-0001Nn-UW@rmk-PC.arm.linux.org.uk>
+Subject: [PATCH CFT 16/30] net: fec: only restart or stop the device if it is
+ present and running
+Date: Fri, 27 Jun 2014 16:20:15 +0100
+Message-ID: <E1X0Xwl-0001Ns-1t@rmk-PC.arm.linux.org.uk>
 References: <20140627151542.GL32514@n2100.arm.linux.org.uk>
 Cc: Fugang Duan <B38611@freescale.com>
 To: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:45219 "EHLO
+Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:45223 "EHLO
 	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754150AbaF0PUM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 11:20:12 -0400
+	by vger.kernel.org with ESMTP id S1754150AbaF0PUR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 11:20:17 -0400
 In-Reply-To: <20140627151542.GL32514@n2100.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the FEC is suspended, the device is detached.  Upon resume failure,
-the device is left in detached mode, possibly with some of the required
-clocks not running.  We don't want to be poking the device in that state
-because as it may cause bus errors.
+Avoid calling fec_restart() or fec_stop() while the device is down
+or not present (iow suspended.)
 
-If the device is marked detached, avoid calling fec_stop().
+Although the ndo_timeout method will only be called if the device is
+present and running, we defer this to a work queue.  The work queue
+can run independently, and so needs to repeat these checks to ensure
+that a restart doesn't occur after the device has been taken down or
+detached for suspend.  In this case, we call fec_restart() in the
+resume path, so nothing is lost.
 
-This depends upon: "net:fec: improve safety of suspend/resume paths"
+For fec_set_features, we add a call to fec_restart() in fec_enet_open()
+to ensure that the hardware is appropriate programmed when the interface
+is opened.  fec_set_features() call should not occur while we're
+suspended, so we don't have to worry about that case.
+
+The adjust_link needs similar treatment - this also is called from a
+work queue, which may be run independently after we have taken the
+device down and detached it.  In this case, we just mark the link
+down and take no further action.  We will reset things appropriately
+once the device is up and running again, at which point we will receive
+another adjust_link callback.
 
 Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- drivers/net/ethernet/freescale/fec_main.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/freescale/fec_main.c | 19 ++++++++++++++-----
+ 1 file changed, 14 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index caf0854b7e4f..79951af81db5 100644
+index 79951af81db5..fc155ba85146 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -2198,10 +2198,10 @@ fec_enet_close(struct net_device *ndev)
+@@ -1065,12 +1065,15 @@ static void fec_enet_work(struct work_struct *work)
+ 		container_of(work,
+ 			     struct fec_enet_private,
+ 			     delay_work.delay_work.work);
++	struct net_device *ndev = fep->netdev;
  
- 	phy_stop(fep->phy_dev);
+ 	if (fep->delay_work.timeout) {
+ 		fep->delay_work.timeout = false;
+ 		rtnl_lock();
+-		fec_restart(fep->netdev, fep->full_duplex);
+-		netif_wake_queue(fep->netdev);
++		if (netif_device_present(ndev) || netif_running(ndev)) {
++			fec_restart(ndev, fep->full_duplex);
++			netif_wake_queue(ndev);
++		}
+ 		rtnl_unlock();
+ 	}
  
--	/* Don't know what to do yet. */
- 	napi_disable(&fep->napi);
- 	netif_tx_disable(ndev);
--	fec_stop(ndev);
-+	if (netif_device_present(ndev))
-+		fec_stop(ndev);
+@@ -1504,7 +1507,14 @@ static void fec_enet_adjust_link(struct net_device *ndev)
+ 		return;
+ 	}
  
- 	phy_disconnect(fep->phy_dev);
- 	fep->phy_dev = NULL;
+-	if (phy_dev->link) {
++	/*
++	 * If the netdev is down, or is going down, we're not interested
++	 * in link state events, so just mark our idea of the link as down
++	 * and ignore the event.
++	 */
++	if (!netif_running(ndev) || !netif_device_present(ndev)) {
++		fep->link = 0;
++	} else if (phy_dev->link) {
+ 		if (!fep->link) {
+ 			fep->link = phy_dev->link;
+ 			status_change = 1;
+@@ -2185,6 +2195,7 @@ fec_enet_open(struct net_device *ndev)
+ 		return ret;
+ 	}
+ 
++	fec_restart(ndev, fep->full_duplex);
+ 	napi_enable(&fep->napi);
+ 	phy_start(fep->phy_dev);
+ 	netif_start_queue(ndev);
+@@ -2351,8 +2362,6 @@ static int fec_set_features(struct net_device *netdev,
+ 			fec_stop(netdev);
+ 			fec_restart(netdev, fep->phy_dev->duplex);
+ 			netif_wake_queue(netdev);
+-		} else {
+-			fec_restart(netdev, fep->phy_dev->duplex);
+ 		}
+ 	}
+ 
 -- 
 1.8.3.1
