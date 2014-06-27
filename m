@@ -1,51 +1,72 @@
-From: Hangbin Liu <liuhangbin@gmail.com>
-Subject: [PATCH v3 net] ipv6: Fix MLD Query message check
-Date: Fri, 27 Jun 2014 09:57:53 +0800
-Message-ID: <1403834273-5147-1-git-send-email-liuhangbin@gmail.com>
-Cc: network dev <netdev@vger.kernel.org>,
-	Hangbin Liu <liuhangbin@gmail.com>
-To: David Miller <davem@davemloft.net>
+From: roy.qing.li@gmail.com
+Subject: [PATCH] enic: fix a building failure
+Date: Fri, 27 Jun 2014 10:09:39 +0800
+Message-ID: <1403834979-598-1-git-send-email-roy.qing.li@gmail.com>
+References: <CA+r1ZhjoME0Okxi9kfFgOsMmieWwuhCX83DCKosKEM2NLAtAVA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: jim.epost@gmail.com, _govind@gmx.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:47482 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751725AbaF0B6M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2014 21:58:12 -0400
-Received: by mail-pd0-f171.google.com with SMTP id fp1so3763955pdb.2
-        for <netdev@vger.kernel.org>; Thu, 26 Jun 2014 18:58:11 -0700 (PDT)
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:60678 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752242AbaF0CJk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2014 22:09:40 -0400
+Received: by mail-pa0-f46.google.com with SMTP id eu11so3949112pac.33
+        for <netdev@vger.kernel.org>; Thu, 26 Jun 2014 19:09:40 -0700 (PDT)
+In-Reply-To: <CA+r1ZhjoME0Okxi9kfFgOsMmieWwuhCX83DCKosKEM2NLAtAVA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Based on RFC3810 6.2, we also need to check the hop limit and router alert
-option besides source address.
+=46rom: Li RongQing <roy.qing.li@gmail.com>
 
-Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+When RFS_ACCEL is disabled, the building failed:
+    drivers/net/ethernet/cisco/enic/enic_main.c: In function =E2=80=98e=
+nic_open=E2=80=99:
+    drivers/net/ethernet/cisco/enic/enic_main.c:1603:2: error: implicit=
+ declaration
+    of function =E2=80=98enic_rfs_flw_tbl_init=E2=80=99 [-Werror=3Dimpl=
+icit-function-declaration]
+      enic_rfs_flw_tbl_init(enic);
+      ^
+    drivers/net/ethernet/cisco/enic/enic_main.c: In function =E2=80=98e=
+nic_stop=E2=80=99:
+    drivers/net/ethernet/cisco/enic/enic_main.c:1630:2: error: implicit=
+ declaration
+    of function =E2=80=98enic_rfs_flw_tbl_free=E2=80=99 [-Werror=3Dimpl=
+icit-function-declaration]
+      enic_rfs_flw_tbl_free(enic);
+
+In fact, these two functions have been defined separately for enabling =
+RFS_ACCEL
+and disabling RFS_ACCEL.
+
+Reported-by: Jim Davis <jim.epost@gmail.com>
+Cc: Govindarajulu Varadarajan <_govind@gmx.com>
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 ---
- net/ipv6/mcast.c | 13 +++++++++++--
- 1 file changed, 11 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/cisco/enic/enic_clsf.h |    3 ---
+ 1 file changed, 3 deletions(-)
 
-diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
-index 08b367c..617f095 100644
---- a/net/ipv6/mcast.c
-+++ b/net/ipv6/mcast.c
-@@ -1301,8 +1301,17 @@ int igmp6_event_query(struct sk_buff *skb)
- 	len = ntohs(ipv6_hdr(skb)->payload_len) + sizeof(struct ipv6hdr);
- 	len -= skb_network_header_len(skb);
- 
--	/* Drop queries with not link local source */
--	if (!(ipv6_addr_type(&ipv6_hdr(skb)->saddr) & IPV6_ADDR_LINKLOCAL))
-+	/* RFC3810 6.2
-+	 * Upon reception of an MLD message that contains a Query, the node
-+	 * checks if the source address of the message is a valid link-local
-+	 * address, if the Hop Limit is set to 1, and if the Router Alert
-+	 * option is present in the Hop-By-Hop Options header of the IPv6
-+	 * packet.  If any of these checks fails, the packet is dropped.
-+	 */
-+	if (!(ipv6_addr_type(&ipv6_hdr(skb)->saddr) & IPV6_ADDR_LINKLOCAL) ||
-+	    ipv6_hdr(skb)->hop_limit != 1 ||
-+	    !(IP6CB(skb)->flags & IP6SKB_ROUTERALERT) ||
-+	    IP6CB(skb)->ra != htons(IPV6_OPT_ROUTERALERT_MLD))
- 		return -EINVAL;
- 
- 	idev = __in6_dev_get(skb->dev);
--- 
-1.8.1.4
+diff --git a/drivers/net/ethernet/cisco/enic/enic_clsf.h b/drivers/net/=
+ethernet/cisco/enic/enic_clsf.h
+index 76a85bb..b38cc7e 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_clsf.h
++++ b/drivers/net/ethernet/cisco/enic/enic_clsf.h
+@@ -9,11 +9,8 @@
+ int enic_addfltr_5t(struct enic *enic, struct flow_keys *keys, u16 rq)=
+;
+ int enic_delfltr(struct enic *enic, u16 filter_id);
+=20
+-#ifdef CONFIG_RFS_ACCEL
+ void enic_rfs_flw_tbl_init(struct enic *enic);
+ void enic_rfs_flw_tbl_free(struct enic *enic);
+ int enic_rx_flow_steer(struct net_device *dev, const struct sk_buff *s=
+kb,
+ 		       u16 rxq_index, u32 flow_id);
+-#endif /* CONFIG_RFS_ACCEL */
+-
+ #endif /* _ENIC_CLSF_H_ */
+--=20
+1.7.10.4
