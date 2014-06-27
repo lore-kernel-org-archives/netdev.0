@@ -1,51 +1,74 @@
 From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH CFT 07/30] net: fec: ensure that a disconnected phy isn't
- configured
-Date: Fri, 27 Jun 2014 16:19:29 +0100
-Message-ID: <E1X0Xw1-0001NF-3k@rmk-PC.arm.linux.org.uk>
+Subject: [PATCH CFT 09/30] net: fec: remove useless fep->opened
+Date: Fri, 27 Jun 2014 16:19:39 +0100
+Message-ID: <E1X0XwB-0001NN-Ak@rmk-PC.arm.linux.org.uk>
 References: <20140627151542.GL32514@n2100.arm.linux.org.uk>
 Cc: Fugang Duan <B38611@freescale.com>
 To: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:45195 "EHLO
+Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:45202 "EHLO
 	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753439AbaF0PTc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 11:19:32 -0400
+	by vger.kernel.org with ESMTP id S1754030AbaF0PTm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 11:19:42 -0400
 In-Reply-To: <20140627151542.GL32514@n2100.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When we disconnect from a phy, we should forget our pointer to it so we
-don't accidentally try to configure it.  We handle a NULL phy pointer
-correctly in most places, except fec_enet_set_pauseparam().  Fix this
-too.
+napi_disable() waits until the NAPI processing has completed, and then
+prevents any further polls.  At this point, the driver then clears
+fep->opened.  The NAPI poll function uses this to stop processing in
+the receive path.  Hence, it will never see this variable cleared,
+because the NAPI poll has to complete before it will be cleared.
+
+Therefore, this variable serves no purpose, so let's remove it.
 
 Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- drivers/net/ethernet/freescale/fec_main.c | 4 ++++
- 1 file changed, 4 insertions(+)
+ drivers/net/ethernet/freescale/fec.h      | 1 -
+ drivers/net/ethernet/freescale/fec_main.c | 5 -----
+ 2 files changed, 6 deletions(-)
 
+diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
+index 671d080105a7..96d2a18f1b99 100644
+--- a/drivers/net/ethernet/freescale/fec.h
++++ b/drivers/net/ethernet/freescale/fec.h
+@@ -308,7 +308,6 @@ struct fec_enet_private {
+ 
+ 	struct	platform_device *pdev;
+ 
+-	int	opened;
+ 	int	dev_id;
+ 
+ 	/* Phylib and MDIO interface */
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 6a03d7eced4d..cf805468eecc 100644
+index e0a1ac1826b7..309aa2ff8cc9 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1875,6 +1875,9 @@ static int fec_enet_set_pauseparam(struct net_device *ndev,
- {
- 	struct fec_enet_private *fep = netdev_priv(ndev);
+@@ -1215,9 +1215,6 @@ fec_enet_rx(struct net_device *ndev, int budget)
+ 		if ((status & BD_ENET_RX_LAST) == 0)
+ 			netdev_err(ndev, "rcv is not +last\n");
  
-+	if (!fep->phy_dev)
-+		return -ENODEV;
-+
- 	if (pause->tx_pause != pause->rx_pause) {
- 		netdev_info(ndev,
- 			"hardware only support enable/disable both tx and rx");
-@@ -2186,6 +2189,7 @@ fec_enet_close(struct net_device *ndev)
+-		if (!fep->opened)
+-			goto rx_processing_done;
+-
+ 		/* Check for errors. */
+ 		if (status & (BD_ENET_RX_LG | BD_ENET_RX_SH | BD_ENET_RX_NO |
+ 			   BD_ENET_RX_CR | BD_ENET_RX_OV)) {
+@@ -2172,7 +2169,6 @@ fec_enet_open(struct net_device *ndev)
+ 	napi_enable(&fep->napi);
+ 	phy_start(fep->phy_dev);
+ 	netif_start_queue(ndev);
+-	fep->opened = 1;
+ 	return 0;
+ }
  
- 	phy_stop(fep->phy_dev);
- 	phy_disconnect(fep->phy_dev);
-+	fep->phy_dev = NULL;
+@@ -2185,7 +2181,6 @@ fec_enet_close(struct net_device *ndev)
  
- 	fec_enet_clk_enable(ndev, false);
- 	pinctrl_pm_select_sleep_state(&fep->pdev->dev);
+ 	/* Don't know what to do yet. */
+ 	napi_disable(&fep->napi);
+-	fep->opened = 0;
+ 	netif_tx_disable(ndev);
+ 	fec_stop(ndev);
+ 
 -- 
 1.8.3.1
