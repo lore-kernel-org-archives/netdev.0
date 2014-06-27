@@ -1,40 +1,65 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V6 net-next] LISP: Locator/Identifier Separation
- Protocol
-Date: Fri, 27 Jun 2014 12:28:43 -0700 (PDT)
-Message-ID: <20140627.122843.774074134481698671.davem@davemloft.net>
-References: <53AD0D06.6070109@cisco.com>
-	<20140627.001353.840895998677889032.davem@davemloft.net>
-	<53AD1DED.3090908@cisco.com>
+Subject: Re: [PATCH net-next] pktgen: Fill the payload optionally with a
+ pattern
+Date: Fri, 27 Jun 2014 12:30:28 -0700 (PDT)
+Message-ID: <20140627.123028.1903125579029261105.davem@davemloft.net>
+References: <1403642415-9560-1-git-send-email-zoltan.kiss@citrix.com>
+	<20140625.175417.231387590142784357.davem@davemloft.net>
+	<53AD32E3.7030405@schaman.hu>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: chris@logicalelegance.com, netdev@vger.kernel.org,
-	vermagan@cisco.com
-To: lojakab@cisco.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60251 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751597AbaF0T2r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 15:28:47 -0400
-In-Reply-To: <53AD1DED.3090908@cisco.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: steffen.klassert@secunet.com, minipli@googlemail.com,
+	dborkman@redhat.com, tgraf@suug.ch, joe@perches.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	xen-devel@lists.xenproject.org
+To: zoltan.kiss@schaman.hu
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <53AD32E3.7030405@schaman.hu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Lori Jakab <lojakab@cisco.com>
-Date: Fri, 27 Jun 2014 10:31:57 +0300
+From: Zoltan Kiss <zoltan.kiss@schaman.hu>
+Date: Fri, 27 Jun 2014 10:01:23 +0100
 
-> The OVS datapath's flow table is also influenced by traffic patterns
-> sent by external hosts.  But while the IPv4 routing table is not
-> optional for a networked host, OVS and LISP are, and people deploying
-> them can still find value using them, in controlled environments at
-> least.
+> On 26/06/14 01:54, David Miller wrote:
+>> From: Zoltan Kiss <zoltan.kiss@citrix.com>
+>> Date: Tue, 24 Jun 2014 21:40:15 +0100
+>>
+>>> Introduces a new flag called PATTERN, which puts a non-periodic,
+>>> predicatble
+>>> pattern into the payload. This was useful to reproduce an otherwise
+>>> intermittent
+>>> bug in xen-netback [1], where checksum checking doesn't help.
+>>> The pattern is a repetition of " %lu", a series of increasing numbers
+>>> divided by
+>>> space. The value of the number is the size of the preceding payload
+>>> area. E.g.
+>>> " 1 3 5"..." 1000 1005 1010"
+>>> If the pattern is used, every frag will have its own page, unlike
+>>> before, so it
+>>> needs more memory.
+>>>
+>>> [1] 5837574: xen-netback: Fix grant ref resolution in RX path
+>>>
+>>> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+>> You are changing the page allocation strategy regardless of the
+>> pattern
+>> setting, this is undesirable.
+>>
+>> It may be significantly faster to use the same page for all the frags,
+>> and this is absolutely critical for pktgen usage where every
+>> nanosecond
+>> of performance counts.
+> If the PATTERN flag is not used, it always using the pages[0] page, so
+> it falls back to the original way.
 
-You haven't shown how this is not exploitable if remote entities can
-control the contents of your tables and how frequently they must be
-updated.
+That's now what I see.
 
-I also worry about OVS, for the same reasons.
+If the size exceeds a page, the current code will use the same page over
+and over again.
 
-It isn't an answer to say that these technologies work fine if you
-lock up the machine into a controlled environemt.
+Your new code always increments 'i' and allocates a new page, regardless
+of whether the PATTERN flag is set.
+
+Or do I misread your changes?
