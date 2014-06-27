@@ -1,7 +1,7 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH 2/5] cxgb4: Use FW interface to get BAR0 value
-Date: Fri, 27 Jun 2014 19:23:48 +0530
-Message-ID: <1403877231-8661-3-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH 4/5] cxgb4: Adds device ID for few more Chelsio T4 Adapters
+Date: Fri, 27 Jun 2014 19:23:50 +0530
+Message-ID: <1403877231-8661-5-git-send-email-hariprasad@chelsio.com>
 References: <1403877231-8661-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, roland@purestorage.com,
 	swise@opengridcomputing.com, leedom@chelsio.com,
@@ -9,231 +9,56 @@ Cc: davem@davemloft.net, roland@purestorage.com,
 	Hariprasad Shenai <hariprasad@chelsio.com>
 To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:49364
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:49373
 	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753137AbaF0Ns0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 09:48:26 -0400
+	by vger.kernel.org with ESMTP id S1753855AbaF0Nsd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 09:48:33 -0400
 In-Reply-To: <1403877231-8661-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use the firmware interface to get the BAR0 value since we really don't want
-to use the PCI-E Configuration Space Backdoor access which is owned by the
-firmware.
-
-Set up PCI-E Memory Window registers using the true values programmed into
-BAR registers.  When the PF4 "Master Function" is exported to a Virtual
-Machine, the values returned by pci_resource_start() will be for the
-synthetic PCI-E Configuration Space and not the real addresses. But we need
-to program the PCI-E Memory Window address decoders with the real addresses
-that we're going to be using in order to have accesses through the Memory
-Windows work.
-
-Based on origninal work by Casey Leedom <leedom@chelsio.com>
-
-Signed-off-by: Casey Leedom <leedom@chelsio.com>
 Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |    5 +-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   72 ++++++++++++++++++++--
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      |   24 ++++++++
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |    5 ++
- 4 files changed, 98 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   20 ++++++++++++++++++++
+ 1 files changed, 20 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index 7b5425c..4fd2151 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -85,7 +85,8 @@ enum {
- 	MEMWIN1_BASE_T5  = 0x52000,
- 	MEMWIN2_APERTURE = 65536,
- 	MEMWIN2_BASE     = 0x30000,
--	MEMWIN2_BASE_T5  = 0x54000,
-+	MEMWIN2_APERTURE_T5 = 131072,
-+	MEMWIN2_BASE_T5  = 0x60000,
- };
- 
- enum dev_master {
-@@ -608,6 +609,7 @@ struct l2t_data;
- struct adapter {
- 	void __iomem *regs;
- 	void __iomem *bar2;
-+	u32 t4_bar0;
- 	struct pci_dev *pdev;
- 	struct device *pdev_dev;
- 	unsigned int mbox;
-@@ -946,6 +948,7 @@ void t4_write_indirect(struct adapter *adap, unsigned int addr_reg,
- void t4_read_indirect(struct adapter *adap, unsigned int addr_reg,
- 		      unsigned int data_reg, u32 *vals, unsigned int nregs,
- 		      unsigned int start_idx);
-+void t4_hw_pci_read_cfg4(struct adapter *adapter, int reg, u32 *val);
- 
- struct fw_filter_wr;
- 
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index e8e77b8..524a8b2 100644
+index 74ef0e6..921f805 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -4773,20 +4773,75 @@ void t4_fatal_err(struct adapter *adap)
- 	dev_alert(adap->pdev_dev, "encountered fatal error, adapter stopped\n");
- }
- 
-+/* Return the specified PCI-E Configuration Space register from our Physical
-+ * Function.  We try first via a Firmware LDST Command since we prefer to let
-+ * the firmware own all of these registers, but if that fails we go for it
-+ * directly ourselves.
-+ */
-+static u32 t4_read_pcie_cfg4(struct adapter *adap, int reg)
-+{
-+	struct fw_ldst_cmd ldst_cmd;
-+	u32 val;
-+	int ret;
-+
-+	/* Construct and send the Firmware LDST Command to retrieve the
-+	 * specified PCI-E Configuration Space register.
-+	 */
-+	memset(&ldst_cmd, 0, sizeof(ldst_cmd));
-+	ldst_cmd.op_to_addrspace =
-+		htonl(FW_CMD_OP(FW_LDST_CMD) |
-+		      FW_CMD_REQUEST |
-+		      FW_CMD_READ |
-+		      FW_LDST_CMD_ADDRSPACE(FW_LDST_ADDRSPC_FUNC_PCIE));
-+	ldst_cmd.cycles_to_len16 = htonl(FW_LEN16(ldst_cmd));
-+	ldst_cmd.u.pcie.select_naccess = FW_LDST_CMD_NACCESS(1);
-+	ldst_cmd.u.pcie.ctrl_to_fn =
-+		(FW_LDST_CMD_LC | FW_LDST_CMD_FN(adap->fn));
-+	ldst_cmd.u.pcie.r = reg;
-+	ret = t4_wr_mbox(adap, adap->mbox, &ldst_cmd, sizeof(ldst_cmd),
-+			 &ldst_cmd);
-+
-+	/* If the LDST Command suucceeded, exctract the returned register
-+	 * value.  Otherwise read it directly ourself.
-+	 */
-+	if (ret == 0)
-+		val = ntohl(ldst_cmd.u.pcie.data[0]);
-+	else
-+		t4_hw_pci_read_cfg4(adap, reg, &val);
-+
-+	return val;
-+}
-+
- static void setup_memwin(struct adapter *adap)
- {
--	u32 bar0, mem_win0_base, mem_win1_base, mem_win2_base;
-+	u32 mem_win0_base, mem_win1_base, mem_win2_base, mem_win2_aperture;
- 
--	bar0 = pci_resource_start(adap->pdev, 0);  /* truncation intentional */
- 	if (is_t4(adap->params.chip)) {
-+		u32 bar0;
-+
-+		/* Truncation intentional: we only read the bottom 32-bits of
-+		 * the 64-bit BAR0/BAR1 ...  We use the hardware backdoor
-+		 * mechanism to read BAR0 instead of using
-+		 * pci_resource_start() because we could be operating from
-+		 * within a Virtual Machine which is trapping our accesses to
-+		 * our Configuration Space and we need to set up the PCI-E
-+		 * Memory Window decoders with the actual addresses which will
-+		 * be coming across the PCI-E link.
-+		 */
-+		bar0 = t4_read_pcie_cfg4(adap, PCI_BASE_ADDRESS_0);
-+		bar0 &= PCI_BASE_ADDRESS_MEM_MASK;
-+		adap->t4_bar0 = bar0;
-+
- 		mem_win0_base = bar0 + MEMWIN0_BASE;
- 		mem_win1_base = bar0 + MEMWIN1_BASE;
- 		mem_win2_base = bar0 + MEMWIN2_BASE;
-+		mem_win2_aperture = MEMWIN2_APERTURE;
- 	} else {
- 		/* For T5, only relative offset inside the PCIe BAR is passed */
- 		mem_win0_base = MEMWIN0_BASE;
--		mem_win1_base = MEMWIN1_BASE_T5;
-+		mem_win1_base = MEMWIN1_BASE;
- 		mem_win2_base = MEMWIN2_BASE_T5;
-+		mem_win2_aperture = MEMWIN2_APERTURE_T5;
- 	}
- 	t4_write_reg(adap, PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_BASE_WIN, 0),
- 		     mem_win0_base | BIR(0) |
-@@ -4796,16 +4851,19 @@ static void setup_memwin(struct adapter *adap)
- 		     WINDOW(ilog2(MEMWIN1_APERTURE) - 10));
- 	t4_write_reg(adap, PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_BASE_WIN, 2),
- 		     mem_win2_base | BIR(0) |
--		     WINDOW(ilog2(MEMWIN2_APERTURE) - 10));
-+		     WINDOW(ilog2(mem_win2_aperture) - 10));
-+	t4_read_reg(adap, PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_BASE_WIN, 2));
- }
- 
- static void setup_memwin_rdma(struct adapter *adap)
- {
- 	if (adap->vres.ocq.size) {
--		unsigned int start, sz_kb;
-+		u32 start;
-+		unsigned int sz_kb;
- 
--		start = pci_resource_start(adap->pdev, 2) +
--			OCQ_WIN_OFFSET(adap->pdev, &adap->vres);
-+		start = t4_read_pcie_cfg4(adap, PCI_BASE_ADDRESS_2);
-+		start &= PCI_BASE_ADDRESS_MEM_MASK;
-+		start += OCQ_WIN_OFFSET(adap->pdev, &adap->vres);
- 		sz_kb = roundup_pow_of_two(adap->vres.ocq.size) >> 10;
- 		t4_write_reg(adap,
- 			     PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_BASE_WIN, 3),
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index 4536ea9..2c3d00d 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -144,6 +144,30 @@ void t4_write_indirect(struct adapter *adap, unsigned int addr_reg,
- }
- 
- /*
-+ * Read a 32-bit PCI Configuration Space register via the PCI-E backdoor
-+ * mechanism.  This guarantees that we get the real value even if we're
-+ * operating within a Virtual Machine and the Hypervisor is trapping our
-+ * Configuration Space accesses.
-+ */
-+void t4_hw_pci_read_cfg4(struct adapter *adap, int reg, u32 *val)
-+{
-+	u32 req = ENABLE | FUNCTION(adap->fn) | reg;
-+
-+	if (is_t4(adap->params.chip))
-+		req |= F_LOCALCFG;
-+
-+	t4_write_reg(adap, PCIE_CFG_SPACE_REQ, req);
-+	*val = t4_read_reg(adap, PCIE_CFG_SPACE_DATA);
-+
-+	/* Reset ENABLE to 0 so reads of PCIE_CFG_SPACE_DATA won't cause a
-+	 * Configuration Space read.  (None of the other fields matter when
-+	 * ENABLE is 0 so a simple register write is easier than a
-+	 * read-modify-write via t4_set_reg_field().)
-+	 */
-+	t4_write_reg(adap, PCIE_CFG_SPACE_REQ, 0);
-+}
-+
-+/*
-  * Get the reply to a mailbox command and store it in @rpl in big-endian order.
-  */
- static void get_mbox_rpl(struct adapter *adap, __be64 *rpl, int nflit,
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-index 3360025..f6b2ee1 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-@@ -387,6 +387,8 @@
- #define  MSTGRPPERR      0x00000001U
- 
- #define PCIE_NONFAT_ERR 0x3010
-+#define PCIE_CFG_SPACE_REQ 0x3060
-+#define PCIE_CFG_SPACE_DATA 0x3064
- #define PCIE_MEM_ACCESS_BASE_WIN 0x3068
- #define S_PCIEOFST       10
- #define M_PCIEOFST       0x3fffffU
-@@ -399,6 +401,9 @@
- #define  WINDOW_SHIFT    0
- #define  WINDOW(x)       ((x) << WINDOW_SHIFT)
- #define PCIE_MEM_ACCESS_OFFSET 0x306c
-+#define ENABLE	(1U << 30)
-+#define FUNCTION(x) ((x) << 12)
-+#define F_LOCALCFG    (1U << 28)
- 
- #define S_PFNUM    0
- #define V_PFNUM(x) ((x) << S_PFNUM)
+@@ -224,6 +224,17 @@ static DEFINE_PCI_DEVICE_TABLE(cxgb4_pci_tbl) = {
+ 	CH_DEVICE(0x4008, -1),
+ 	CH_DEVICE(0x4009, -1),
+ 	CH_DEVICE(0x400a, -1),
++	CH_DEVICE(0x400d, -1),
++	CH_DEVICE(0x400e, -1),
++	CH_DEVICE(0x4080, -1),
++	CH_DEVICE(0x4081, -1),
++	CH_DEVICE(0x4082, -1),
++	CH_DEVICE(0x4083, -1),
++	CH_DEVICE(0x4084, -1),
++	CH_DEVICE(0x4085, -1),
++	CH_DEVICE(0x4086, -1),
++	CH_DEVICE(0x4087, -1),
++	CH_DEVICE(0x4088, -1),
+ 	CH_DEVICE(0x4401, 4),
+ 	CH_DEVICE(0x4402, 4),
+ 	CH_DEVICE(0x4403, 4),
+@@ -236,6 +247,15 @@ static DEFINE_PCI_DEVICE_TABLE(cxgb4_pci_tbl) = {
+ 	CH_DEVICE(0x440a, 4),
+ 	CH_DEVICE(0x440d, 4),
+ 	CH_DEVICE(0x440e, 4),
++	CH_DEVICE(0x4480, 4),
++	CH_DEVICE(0x4481, 4),
++	CH_DEVICE(0x4482, 4),
++	CH_DEVICE(0x4483, 4),
++	CH_DEVICE(0x4484, 4),
++	CH_DEVICE(0x4485, 4),
++	CH_DEVICE(0x4486, 4),
++	CH_DEVICE(0x4487, 4),
++	CH_DEVICE(0x4488, 4),
+ 	CH_DEVICE(0x5001, 4),
+ 	CH_DEVICE(0x5002, 4),
+ 	CH_DEVICE(0x5003, 4),
 -- 
 1.7.1
