@@ -1,71 +1,87 @@
-From: Lori Jakab <lojakab@cisco.com>
-Subject: Re: [PATCH V6 net-next] LISP: Locator/Identifier Separation Protocol
-Date: Fri, 27 Jun 2014 10:31:57 +0300
-Message-ID: <53AD1DED.3090908@cisco.com>
-References: <9D51E1BB-BAB2-4859-A3E1-2C4F56BAD641@logicalelegance.com>	<20140623.150206.1941399398042390524.davem@davemloft.net>	<53AD0D06.6070109@cisco.com> <20140627.001353.840895998677889032.davem@davemloft.net>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [PATCH v2 1/2] ARM: at91/dt: describe rgmii ethernet phy connected
+ to sama5d3xek boards
+Date: Fri, 27 Jun 2014 09:52:56 +0200
+Message-ID: <53AD22D8.2090301@atmel.com>
+References: <1403777615-25685-1-git-send-email-boris.brezillon@free-electrons.com> <1403777615-25685-2-git-send-email-boris.brezillon@free-electrons.com> <CAGVrzcbYAEMsU1SFSH761H0isQ4z1M++KK_GLf0OAbGS48YUmw@mail.gmail.com> <53AC7BFD.2070806@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: chris@logicalelegance.com, netdev@vger.kernel.org,
-	vermagan@cisco.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aer-iport-3.cisco.com ([173.38.203.53]:35815 "EHLO
-	aer-iport-3.cisco.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752019AbaF0Hb7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 03:31:59 -0400
-In-Reply-To: <20140627.001353.840895998677889032.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
+	"Alexandre Belloni" <alexandre.belloni@free-electrons.com>,
+	Andrew Victor <linux@maxim.org.za>,
+	netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Shen, Voice" <Voice.Shen@atmel.com>
+To: Boris BREZILLON <boris.brezillon@free-electrons.com>,
+	Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <53AC7BFD.2070806@free-electrons.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 6/27/14, 10:13 AM, David Miller wrote:
-> From: Lori Jakab <lojakab@cisco.com>
-> Date: Fri, 27 Jun 2014 09:19:50 +0300
->
->> Map-Requests can and should be rate limited. Also, if there is no
->> mapping for a packet in the map-cache (while we're waiting for a
->> reply), it is sent to a Proxy-ETR, a dedicated LISP infrastructure box
->> part of the LISP architecture, and gets delivered to the destination.
-> Sorry, I don't buy this.
->
-> Still sounds DOS'able to me, you cannot process an infinite amount of
-> packets backlogged on pending Map Requests, your only choice is to
-> start dropping packets.
+On 26/06/2014 22:01, Boris BREZILLON :
+> Hi Florian,
+> 
+> On 26/06/2014 20:15, Florian Fainelli wrote:
+>> Hi Boris,
+>>
+>> 2014-06-26 3:13 GMT-07:00 Boris BREZILLON <boris.brezillon@free-electrons.com>:
+>>> Add ethernet-phy node and specify phy interrupt (connected to pin PB25).
+>>>
+>>> The PHY address is not specified here because atmel have 2 different
+>>> designs
+>>> for its CPU modules: one is connecting PHYAD[0-2] pins to pull up resistors
+>>> (Embest design) and the other one is connection PHYAD0 to a pull up
+>>> resistor and PHYAD[1-2] to pull down resistors (Ronetix design).
+>>> As a result, Ronetix design will have its PHY available at address 0x1 and
+>>> Embest design at 0x7.
+>>> Let the net PHY core automatically detect the PHY address by scanning the
+>>> MDIO bus.
+>> I though the compatible string was listed as a required property, but
+>> it is not. The 'reg' property however is listed as required, although
+>> the of_miodbus_register() works just fine without it, although that is
+>> a Linux-specific implementation detail.
+> 
+> Indeed, it's listed in the required property list of the DT binding doc,
+> but the code implement auto detection if reg is missing.
+> However this line [1] clearly shows that specifying the reg property is
+> the preferred way of doing things.
+> 
+> I could define 2 different sama5d3xcm.dtsi (sama5d3xcm-ronetix.dtsi and
+> sama5d3xcm-embest.dtsi) to avoid this dirty hack,
+> but then we would have 2 more dtb and the user would have to determine
+> which CPU module he owns to choose the appropriate dtb.
+> If at91, arm-soc and DT maintainers agree with this approach I can
+> definitely propose something.
 
-I think I did not explain the concept of the P-ETR very well.  It is 
-like a default route, and you don't backlog packets while you wait on 
-pending Map-Requests.  The impact is that packets sent to the P-ETR take 
-a detour, but they still get delivered.  After the Map-Reply comes in, 
-packets will take the optimal route.  So even with a fixed size cache, 
-you still don't need to drop packets.
+Yes Boris, I definitively prefer not to add another .dtsi file for this
+series if we can avoid it.
 
->
->> If I understand correctly, the route cache was a hash table with
->> multiple keys. We intend to have a trie based look-up table for
->> LISP. Additionally, IPv4 routing was and still is a required component
->> for every networked host, while LISP will be an optional feature.
-> I think you misunderstand the problem space.
->
-> If you have to lookup on EIDs you have to consider the full 32-bit
-> value, even if you use a trie.  Therefore you will have to limit
-> the size of your cache, and trim it when it hits certain thresholds.
->
-> Therefore it has the same problems that the routing cache had.
->
-> The reason the DoS'ability disappeared with the routing cache removed
-> is that the remaining datastructures operate on a fixed sized database
-> which is not influenced by traffic patterns sent by external hosts.
->
-> Read that critical component again: "not influenced by traffic
-> patterns sent by external hosts"
->
-> LISP fails that test regardless of the data structures you use, any
-> external host can influence your cache and how often you have to
-> create new entries.
->
-> That's a bad design and fundamentally exploitable.
+So, I would push for this "reg-less" solution. If it is chosen, you can
+add my:
+Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
 
-The OVS datapath's flow table is also influenced by traffic patterns 
-sent by external hosts.  But while the IPv4 routing table is not 
-optional for a networked host, OVS and LISP are, and people deploying 
-them can still find value using them, in controlled environments at least.
+Thanks, bye.
+
+
+>>> Define board specific delays to apply to RGMII signals.
+>>>
+>>> Signed-off-by: Boris BREZILLON <boris.brezillon@free-electrons.com>
+>> Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+> 
+> Thanks for your review.
+> 
+> Best Regards,
+> 
+> Boris
+> 
+> [1] http://lxr.free-electrons.com/source/drivers/of/of_mdio.c#L187
+> 
+
+
+-- 
+Nicolas Ferre
