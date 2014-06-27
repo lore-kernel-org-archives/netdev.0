@@ -1,62 +1,87 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V6 net-next] LISP: Locator/Identifier Separation
- Protocol
-Date: Fri, 27 Jun 2014 00:13:53 -0700 (PDT)
-Message-ID: <20140627.001353.840895998677889032.davem@davemloft.net>
-References: <9D51E1BB-BAB2-4859-A3E1-2C4F56BAD641@logicalelegance.com>
-	<20140623.150206.1941399398042390524.davem@davemloft.net>
-	<53AD0D06.6070109@cisco.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: question on ipv6 support for duplicate nexthops
+Date: Fri, 27 Jun 2014 09:15:27 +0200
+Message-ID: <1403853327.7028.7.camel@localhost>
+References: <53AB41B3.1020201@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: chris@logicalelegance.com, netdev@vger.kernel.org,
-	vermagan@cisco.com
-To: lojakab@cisco.com
+Cc: netdev <netdev@vger.kernel.org>,
+	Daniel Walton <dwalton@cumulusnetworks.com>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54654 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751598AbaF0HN4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 03:13:56 -0400
-In-Reply-To: <53AD0D06.6070109@cisco.com>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:40555 "EHLO
+	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751598AbaF0HPb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 03:15:31 -0400
+Received: from compute5.internal (compute5.nyi.mail.srv.osa [10.202.2.45])
+	by gateway1.nyi.mail.srv.osa (Postfix) with ESMTP id 15EE321DFA
+	for <netdev@vger.kernel.org>; Fri, 27 Jun 2014 03:15:29 -0400 (EDT)
+In-Reply-To: <53AB41B3.1020201@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lori Jakab <lojakab@cisco.com>
-Date: Fri, 27 Jun 2014 09:19:50 +0300
+On Mi, 2014-06-25 at 14:40 -0700, Roopa Prabhu wrote:
+> ipv4 allows duplicate nexthops. Multiple instances of same
+>   nexthops maybe used to give higher weights to some nexthops
+> (though the "weight" attribute can be used for the same purpose).
+> 
+> ipv6 does not seem to support duplicate nexthops.
+> 
+> Example: The below ipv6 route is rejected by the kernel
+> #ip -6 route add 2001:10:1:3::/64 nexthop via 2001:10:1:2::99 nexthop 
+> via 2001:10:1:2::99
+> 
+> The below patch points to the code that is preventing the addition of 
+> duplicate nexthops.
+> 
+> I am not sure yet if there are other side effects to the patch below.
+> If there is interest in making ipv6 consistent with ipv4 for duplicate 
+> nexthop handling, i can submit a patch.
 
-> Map-Requests can and should be rate limited. Also, if there is no
-> mapping for a packet in the map-cache (while we're waiting for a
-> reply), it is sent to a Proxy-ETR, a dedicated LISP infrastructure box
-> part of the LISP architecture, and gets delivered to the destination.
+ECMP routes are normal routing entries in the fib, just hold together
+via an internal list and thus behave differently than IPv4 ECMP routes.
 
-Sorry, I don't buy this.
+I don't see that just removing the check for duplicate entries will make
+that work correctly.
 
-Still sounds DOS'able to me, you cannot process an infinite amount of
-packets backlogged on pending Map Requests, your only choice is to
-start dropping packets.
+Also you remove some pretty important expire update code.
 
-> If I understand correctly, the route cache was a hash table with
-> multiple keys. We intend to have a trie based look-up table for
-> LISP. Additionally, IPv4 routing was and still is a required component
-> for every networked host, while LISP will be an optional feature.
+Bye,
+Hannes
 
-I think you misunderstand the problem space.
-
-If you have to lookup on EIDs you have to consider the full 32-bit
-value, even if you use a trie.  Therefore you will have to limit
-the size of your cache, and trim it when it hits certain thresholds.
-
-Therefore it has the same problems that the routing cache had.
-
-The reason the DoS'ability disappeared with the routing cache removed
-is that the remaining datastructures operate on a fixed sized database
-which is not influenced by traffic patterns sent by external hosts.
-
-Read that critical component again: "not influenced by traffic
-patterns sent by external hosts"
-
-LISP fails that test regardless of the data structures you use, any
-external host can influence your cache and how often you have to
-create new entries.
-
-That's a bad design and fundamentally exploitable.
+> diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+> index cb4459b..afecc87 100644
+> --- a/net/ipv6/ip6_fib.c
+> +++ b/net/ipv6/ip6_fib.c
+> @@ -698,20 +698,6 @@ static int fib6_add_rt2node(struct fib6_node *fn, 
+> struct rt6_info *rt,
+>                                  break;
+>                          }
+> 
+> -                       if (iter->dst.dev == rt->dst.dev &&
+> -                           iter->rt6i_idev == rt->rt6i_idev &&
+> - ipv6_addr_equal(&iter->rt6i_gateway,
+> - &rt->rt6i_gateway)) {
+> -                               if (rt->rt6i_nsiblings)
+> -                                       rt->rt6i_nsiblings = 0;
+> -                               if (!(iter->rt6i_flags & RTF_EXPIRES))
+> -                                       return -EEXIST;
+> -                               if (!(rt->rt6i_flags & RTF_EXPIRES))
+> -                                       rt6_clean_expires(iter);
+> -                               else
+> -                                       rt6_set_expires(iter, 
+> rt->dst.expires);
+> -                               return -EEXIST;
+> -                       }
+>                          /* If we have the same destination and the same 
+> metric,
+>                           * but not the same gateway, then the route we 
+> try to
+>                           * add is sibling to this route, increment our 
+> counter
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
