@@ -1,26 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/14][pull request] Intel Wired LAN Driver Updates
- 2014-06-26
-Date: Fri, 27 Jun 2014 12:59:51 -0700 (PDT)
-Message-ID: <20140627.125951.451507818757294606.davem@davemloft.net>
-References: <1403784834-23301-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: Re: [Linux-zigbee-devel] [PATCH net-next v2] 6lowpan: mac802154: fix
+ coding style issues
+Date: Fri, 27 Jun 2014 22:00:27 +0200
+Message-ID: <20140627200024.GA14466@omega>
+References: <1403842045-8354-1-git-send-email-varkab@cdac.in>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, Varka Bhadram <varkab@cdac.in>,
+	linux-kernel@vger.kernel.org,
+	linux-zigbee-devel@lists.sourceforge.net, davem@davemloft.net
+To: Varka Bhadram <varkabhadram@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60553 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750831AbaF0T7x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 15:59:53 -0400
-In-Reply-To: <1403784834-23301-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-we0-f170.google.com ([74.125.82.170]:38540 "EHLO
+	mail-we0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752146AbaF0UAh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 16:00:37 -0400
+Content-Disposition: inline
+In-Reply-To: <1403842045-8354-1-git-send-email-varkab@cdac.in>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Thu, 26 Jun 2014 05:13:39 -0700
+On Fri, Jun 27, 2014 at 09:37:25AM +0530, Varka Bhadram wrote:
+> This patch fixed the coding style issues reported by checkpatch.pl
+> 
+> following issues fixed:
+> 	CHECK: Alignment should match open parenthesis
+> 	WARNING: line over 80 characters
+> 	CHECK: Blank lines aren't necessary before a close brace '}'
+> 	WARNING: networking block comments don't use an empty /* line, use /* Comment...
+> 	WARNING: Missing a blank line after declarations
+> 	WARNING: networking block comments start with * on subsequent lines
+> 	CHECK: braces {} should be used on all arms of this statement
+> 
+> Signed-off-by: Varka Bhadram <varkab@cdac.in>
 
-> This series contains updates to i40e and i40evf.
-
-Pulled, thanks Jeff.
+Tested-by: Alexander Aring <alex.aring@gmail.com>
