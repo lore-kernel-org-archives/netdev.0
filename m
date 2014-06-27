@@ -1,47 +1,494 @@
-From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH 5/5] cxgb4vf: Adds device ID for few more Chelsio T4 Adapters
-Date: Fri, 27 Jun 2014 19:23:51 +0530
-Message-ID: <1403877231-8661-6-git-send-email-hariprasad@chelsio.com>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH 3/5] cxgb4: Replaced the backdoor mechanism to access the HW memory with PCIe Window method
+Date: Fri, 27 Jun 2014 19:23:49 +0530
+Message-ID: <1403877231-8661-4-git-send-email-hariprasad@chelsio.com>
 References: <1403877231-8661-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org,
-	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, anish-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1403877231-8661-1-git-send-email-hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, roland@purestorage.com,
+	swise@opengridcomputing.com, leedom@chelsio.com,
+	nirranjan@chelsio.com, kumaras@chelsio.com, anish@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:49368
+	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753137AbaF0Nsa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 09:48:30 -0400
+In-Reply-To: <1403877231-8661-1-git-send-email-hariprasad@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Rip out a bunch of redundant PCI-E Memory Window Read/Write routines,
+collapse the more general purpose routines into a single routine
+thereby eliminating the need for a large stack frame (and extra data
+copying) in the outer routine, change everything to use the improved
+routine t4_memory_rw.
+
+Based on origninal work by Casey Leedom <leedom@chelsio.com> and
+Steve Wise <swise@opengridcomputing.com>
+
+Signed-off-by: Casey Leedom <leedom@chelsio.com>
+Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    |    9 +++++++++
- 1 files changed, 9 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |   15 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   58 +++---
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      |  246 ++++++++++-------------
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |    1 +
+ 4 files changed, 148 insertions(+), 172 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-index ff1cdd1..f002af1 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-@@ -2924,6 +2924,15 @@ static DEFINE_PCI_DEVICE_TABLE(cxgb4vf_pci_tbl) = {
- 	CH_DEVICE(0x480a, 0),   /* T404-bt */
- 	CH_DEVICE(0x480d, 0),   /* T480-cr */
- 	CH_DEVICE(0x480e, 0),   /* T440-lp-cr */
-+	CH_DEVICE(0x4880, 0),
-+	CH_DEVICE(0x4880, 1),
-+	CH_DEVICE(0x4880, 2),
-+	CH_DEVICE(0x4880, 3),
-+	CH_DEVICE(0x4880, 4),
-+	CH_DEVICE(0x4880, 5),
-+	CH_DEVICE(0x4880, 6),
-+	CH_DEVICE(0x4880, 7),
-+	CH_DEVICE(0x4880, 8),
- 	CH_DEVICE(0x5800, 0),	/* T580-dbg */
- 	CH_DEVICE(0x5801, 0),	/* T520-cr */
- 	CH_DEVICE(0x5802, 0),	/* T522-cr */
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index 4fd2151..f338a7f 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -654,6 +654,7 @@ struct adapter {
+ 	struct dentry *debugfs_root;
+ 
+ 	spinlock_t stats_lock;
++	spinlock_t win0_lock ____cacheline_aligned_in_smp;
+ };
+ 
+ /* Defined bit width of user definable filter tuples
+@@ -960,8 +961,17 @@ int t4_wait_dev_ready(struct adapter *adap);
+ int t4_link_start(struct adapter *adap, unsigned int mbox, unsigned int port,
+ 		  struct link_config *lc);
+ int t4_restart_aneg(struct adapter *adap, unsigned int mbox, unsigned int port);
+-int t4_memory_write(struct adapter *adap, int mtype, u32 addr, u32 len,
+-		    __be32 *buf);
++
++#define T4_MEMORY_WRITE	0
++#define T4_MEMORY_READ	1
++int t4_memory_rw(struct adapter *adap, int win, int mtype, u32 addr, u32 len,
++		 __be32 *buf, int dir);
++static inline int t4_memory_write(struct adapter *adap, int mtype, u32 addr,
++				  u32 len, __be32 *buf)
++{
++	return t4_memory_rw(adap, 0, mtype, addr, len, buf, 0);
++}
++
+ int t4_seeprom_wp(struct adapter *adapter, bool enable);
+ int get_vpd_params(struct adapter *adapter, struct vpd_params *p);
+ int t4_load_fw(struct adapter *adapter, const u8 *fw_data, unsigned int size);
+@@ -1059,7 +1069,6 @@ int t4_ofld_eq_free(struct adapter *adap, unsigned int mbox, unsigned int pf,
+ int t4_handle_fw_rpl(struct adapter *adap, const __be64 *rpl);
+ void t4_db_full(struct adapter *adapter);
+ void t4_db_dropped(struct adapter *adapter);
+-int t4_mem_win_read_len(struct adapter *adap, u32 addr, __be32 *data, int len);
+ int t4_fwaddrspace_write(struct adapter *adap, unsigned int mbox,
+ 			 u32 addr, u32 val);
+ void t4_sge_decode_idma_state(struct adapter *adapter, int state);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 524a8b2..74ef0e6 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -3066,6 +3066,8 @@ static ssize_t mem_read(struct file *file, char __user *buf, size_t count,
+ 	loff_t avail = file_inode(file)->i_size;
+ 	unsigned int mem = (uintptr_t)file->private_data & 3;
+ 	struct adapter *adap = file->private_data - mem;
++	__be32 *data;
++	int ret;
+ 
+ 	if (pos < 0)
+ 		return -EINVAL;
+@@ -3074,29 +3076,24 @@ static ssize_t mem_read(struct file *file, char __user *buf, size_t count,
+ 	if (count > avail - pos)
+ 		count = avail - pos;
+ 
+-	while (count) {
+-		size_t len;
+-		int ret, ofst;
+-		__be32 data[16];
++	data = t4_alloc_mem(count);
++	if (!data)
++		return -ENOMEM;
+ 
+-		if ((mem == MEM_MC) || (mem == MEM_MC1))
+-			ret = t4_mc_read(adap, mem % MEM_MC, pos, data, NULL);
+-		else
+-			ret = t4_edc_read(adap, mem, pos, data, NULL);
+-		if (ret)
+-			return ret;
++	spin_lock(&adap->win0_lock);
++	ret = t4_memory_rw(adap, 0, mem, pos, count, data, T4_MEMORY_READ);
++	spin_unlock(&adap->win0_lock);
++	if (ret) {
++		t4_free_mem(data);
++		return ret;
++	}
++	ret = copy_to_user(buf, data, count);
+ 
+-		ofst = pos % sizeof(data);
+-		len = min(count, sizeof(data) - ofst);
+-		if (copy_to_user(buf, (u8 *)data + ofst, len))
+-			return -EFAULT;
++	t4_free_mem(data);
++	if (ret)
++		return -EFAULT;
+ 
+-		buf += len;
+-		pos += len;
+-		count -= len;
+-	}
+-	count = pos - *ppos;
+-	*ppos = pos;
++	*ppos = pos + count;
+ 	return count;
+ }
+ 
+@@ -3757,7 +3754,11 @@ static int read_eq_indices(struct adapter *adap, u16 qid, u16 *pidx, u16 *cidx)
+ 	__be64 indices;
+ 	int ret;
+ 
+-	ret = t4_mem_win_read_len(adap, addr, (__be32 *)&indices, 8);
++	spin_lock(&adap->win0_lock);
++	ret = t4_memory_rw(adap, 0, MEM_EDC0, addr,
++			   sizeof(indices), (__be32 *)&indices,
++			   T4_MEMORY_READ);
++	spin_unlock(&adap->win0_lock);
+ 	if (!ret) {
+ 		*cidx = (be64_to_cpu(indices) >> 25) & 0xffff;
+ 		*pidx = (be64_to_cpu(indices) >> 9) & 0xffff;
+@@ -5076,7 +5077,7 @@ static int adap_init0_config(struct adapter *adapter, int reset)
+ 					      adapter->fn, 0, 1, params, val);
+ 			if (ret == 0) {
+ 				/*
+-				 * For t4_memory_write() below addresses and
++				 * For t4_memory_rw() below addresses and
+ 				 * sizes have to be in terms of multiples of 4
+ 				 * bytes.  So, if the Configuration File isn't
+ 				 * a multiple of 4 bytes in length we'll have
+@@ -5092,8 +5093,9 @@ static int adap_init0_config(struct adapter *adapter, int reset)
+ 				mtype = FW_PARAMS_PARAM_Y_GET(val[0]);
+ 				maddr = FW_PARAMS_PARAM_Z_GET(val[0]) << 16;
+ 
+-				ret = t4_memory_write(adapter, mtype, maddr,
+-						      size, data);
++				spin_lock(&adapter->win0_lock);
++				ret = t4_memory_rw(adapter, 0, mtype, maddr,
++						   size, data, T4_MEMORY_WRITE);
+ 				if (ret == 0 && resid != 0) {
+ 					union {
+ 						__be32 word;
+@@ -5104,10 +5106,12 @@ static int adap_init0_config(struct adapter *adapter, int reset)
+ 					last.word = data[size >> 2];
+ 					for (i = resid; i < 4; i++)
+ 						last.buf[i] = 0;
+-					ret = t4_memory_write(adapter, mtype,
+-							      maddr + size,
+-							      4, &last.word);
++					ret = t4_memory_rw(adapter, 0, mtype,
++							   maddr + size,
++							   4, &last.word,
++							   T4_MEMORY_WRITE);
+ 				}
++				spin_unlock(&adapter->win0_lock);
+ 			}
+ 		}
+ 
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index 2c3d00d..eb5a278 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -413,78 +413,41 @@ int t4_edc_read(struct adapter *adap, int idx, u32 addr, __be32 *data, u64 *ecc)
+ 	return 0;
+ }
+ 
+-/*
+- *	t4_mem_win_rw - read/write memory through PCIE memory window
+- *	@adap: the adapter
+- *	@addr: address of first byte requested
+- *	@data: MEMWIN0_APERTURE bytes of data containing the requested address
+- *	@dir: direction of transfer 1 => read, 0 => write
+- *
+- *	Read/write MEMWIN0_APERTURE bytes of data from MC starting at a
+- *	MEMWIN0_APERTURE-byte-aligned address that covers the requested
+- *	address @addr.
+- */
+-static int t4_mem_win_rw(struct adapter *adap, u32 addr, __be32 *data, int dir)
+-{
+-	int i;
+-	u32 win_pf = is_t4(adap->params.chip) ? 0 : V_PFNUM(adap->fn);
+-
+-	/*
+-	 * Setup offset into PCIE memory window.  Address must be a
+-	 * MEMWIN0_APERTURE-byte-aligned address.  (Read back MA register to
+-	 * ensure that changes propagate before we attempt to use the new
+-	 * values.)
+-	 */
+-	t4_write_reg(adap, PCIE_MEM_ACCESS_OFFSET,
+-		     (addr & ~(MEMWIN0_APERTURE - 1)) | win_pf);
+-	t4_read_reg(adap, PCIE_MEM_ACCESS_OFFSET);
+-
+-	/* Collecting data 4 bytes at a time upto MEMWIN0_APERTURE */
+-	for (i = 0; i < MEMWIN0_APERTURE; i = i+0x4) {
+-		if (dir)
+-			*data++ = (__force __be32) t4_read_reg(adap,
+-							(MEMWIN0_BASE + i));
+-		else
+-			t4_write_reg(adap, (MEMWIN0_BASE + i),
+-				     (__force u32) *data++);
+-	}
+-
+-	return 0;
+-}
+-
+ /**
+  *	t4_memory_rw - read/write EDC 0, EDC 1 or MC via PCIE memory window
+  *	@adap: the adapter
++ *	@win: PCI-E Memory Window to use
+  *	@mtype: memory type: MEM_EDC0, MEM_EDC1 or MEM_MC
+  *	@addr: address within indicated memory type
+  *	@len: amount of memory to transfer
+  *	@buf: host memory buffer
+- *	@dir: direction of transfer 1 => read, 0 => write
++ *	@dir: direction of transfer T4_MEMORY_READ (1) or T4_MEMORY_WRITE (0)
+  *
+  *	Reads/writes an [almost] arbitrary memory region in the firmware: the
+- *	firmware memory address, length and host buffer must be aligned on
+- *	32-bit boudaries.  The memory is transferred as a raw byte sequence
+- *	from/to the firmware's memory.  If this memory contains data
+- *	structures which contain multi-byte integers, it's the callers
+- *	responsibility to perform appropriate byte order conversions.
++ *	firmware memory address and host buffer must be aligned on 32-bit
++ *	boudaries; the length may be arbitrary.  The memory is transferred as
++ *	a raw byte sequence from/to the firmware's memory.  If this memory
++ *	contains data structures which contain multi-byte integers, it's the
++ *	caller's responsibility to perform appropriate byte order conversions.
+  */
+-static int t4_memory_rw(struct adapter *adap, int mtype, u32 addr, u32 len,
+-			__be32 *buf, int dir)
++int t4_memory_rw(struct adapter *adap, int win, int mtype, u32 addr,
++		 u32 len, __be32 *buf, int dir)
+ {
+-	u32 pos, start, end, offset, memoffset;
+-	u32 edc_size, mc_size;
+-	int ret = 0;
+-	__be32 *data;
++	u32 pos, offset, resid, memoffset;
++	u32 edc_size, mc_size, win_pf, mem_reg, mem_aperture, mem_base;
+ 
+-	/*
+-	 * Argument sanity checks ...
++	/* Argument sanity checks ...
+ 	 */
+-	if ((addr & 0x3) || (len & 0x3))
++	if (addr & 0x3)
+ 		return -EINVAL;
+ 
+-	data = vmalloc(MEMWIN0_APERTURE);
+-	if (!data)
+-		return -ENOMEM;
++	/* It's convenient to be able to handle lengths which aren't a
++	 * multiple of 32-bits because we often end up transferring files to
++	 * the firmware.  So we'll handle that by normalizing the length here
++	 * and then handling any residual transfer at the end.
++	 */
++	resid = len & 0x3;
++	len -= resid;
+ 
+ 	/* Offset into the region of memory which is being accessed
+ 	 * MEM_EDC0 = 0
+@@ -505,66 +468,98 @@ static int t4_memory_rw(struct adapter *adap, int mtype, u32 addr, u32 len,
+ 	/* Determine the PCIE_MEM_ACCESS_OFFSET */
+ 	addr = addr + memoffset;
+ 
+-	/*
+-	 * The underlaying EDC/MC read routines read MEMWIN0_APERTURE bytes
+-	 * at a time so we need to round down the start and round up the end.
+-	 * We'll start copying out of the first line at (addr - start) a word
+-	 * at a time.
++	/* Each PCI-E Memory Window is programmed with a window size -- or
++	 * "aperture" -- which controls the granularity of its mapping onto
++	 * adapter memory.  We need to grab that aperture in order to know
++	 * how to use the specified window.  The window is also programmed
++	 * with the base address of the Memory Window in BAR0's address
++	 * space.  For T4 this is an absolute PCI-E Bus Address.  For T5
++	 * the address is relative to BAR0.
+ 	 */
+-	start = addr & ~(MEMWIN0_APERTURE-1);
+-	end = (addr + len + MEMWIN0_APERTURE-1) & ~(MEMWIN0_APERTURE-1);
+-	offset = (addr - start)/sizeof(__be32);
++	mem_reg = t4_read_reg(adap,
++			      PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_BASE_WIN,
++						  win));
++	mem_aperture = 1 << (GET_WINDOW(mem_reg) + 10);
++	mem_base = GET_PCIEOFST(mem_reg) << 10;
++	if (is_t4(adap->params.chip))
++		mem_base -= adap->t4_bar0;
++	win_pf = is_t4(adap->params.chip) ? 0 : V_PFNUM(adap->fn);
+ 
+-	for (pos = start; pos < end; pos += MEMWIN0_APERTURE, offset = 0) {
++	/* Calculate our initial PCI-E Memory Window Position and Offset into
++	 * that Window.
++	 */
++	pos = addr & ~(mem_aperture-1);
++	offset = addr - pos;
+ 
+-		/*
+-		 * If we're writing, copy the data from the caller's memory
+-		 * buffer
++	/* Set up initial PCI-E Memory Window to cover the start of our
++	 * transfer.  (Read it back to ensure that changes propagate before we
++	 * attempt to use the new value.)
++	 */
++	t4_write_reg(adap,
++		     PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_OFFSET, win),
++		     pos | win_pf);
++	t4_read_reg(adap,
++		    PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_OFFSET, win));
++
++	/* Transfer data to/from the adapter as long as there's an integral
++	 * number of 32-bit transfers to complete.
++	 */
++	while (len > 0) {
++		if (dir == T4_MEMORY_READ)
++			*buf++ = (__force __be32) t4_read_reg(adap,
++							mem_base + offset);
++		else
++			t4_write_reg(adap, mem_base + offset,
++				     (__force u32) *buf++);
++		offset += sizeof(__be32);
++		len -= sizeof(__be32);
++
++		/* If we've reached the end of our current window aperture,
++		 * move the PCI-E Memory Window on to the next.  Note that
++		 * doing this here after "len" may be 0 allows us to set up
++		 * the PCI-E Memory Window for a possible final residual
++		 * transfer below ...
+ 		 */
+-		if (!dir) {
+-			/*
+-			 * If we're doing a partial write, then we need to do
+-			 * a read-modify-write ...
+-			 */
+-			if (offset || len < MEMWIN0_APERTURE) {
+-				ret = t4_mem_win_rw(adap, pos, data, 1);
+-				if (ret)
+-					break;
+-			}
+-			while (offset < (MEMWIN0_APERTURE/sizeof(__be32)) &&
+-			       len > 0) {
+-				data[offset++] = *buf++;
+-				len -= sizeof(__be32);
+-			}
++		if (offset == mem_aperture) {
++			pos += mem_aperture;
++			offset = 0;
++			t4_write_reg(adap,
++				     PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_OFFSET,
++							 win), pos | win_pf);
++			t4_read_reg(adap,
++				    PCIE_MEM_ACCESS_REG(PCIE_MEM_ACCESS_OFFSET,
++							win));
+ 		}
+-
+-		/*
+-		 * Transfer a block of memory and bail if there's an error.
+-		 */
+-		ret = t4_mem_win_rw(adap, pos, data, dir);
+-		if (ret)
+-			break;
+-
+-		/*
+-		 * If we're reading, copy the data into the caller's memory
+-		 * buffer.
+-		 */
+-		if (dir)
+-			while (offset < (MEMWIN0_APERTURE/sizeof(__be32)) &&
+-			       len > 0) {
+-				*buf++ = data[offset++];
+-				len -= sizeof(__be32);
+-			}
+ 	}
+ 
+-	vfree(data);
+-	return ret;
+-}
++	/* If the original transfer had a length which wasn't a multiple of
++	 * 32-bits, now's where we need to finish off the transfer of the
++	 * residual amount.  The PCI-E Memory Window has already been moved
++	 * above (if necessary) to cover this final transfer.
++	 */
++	if (resid) {
++		union {
++			__be32 word;
++			char byte[4];
++		} last;
++		unsigned char *bp;
++		int i;
++
++		if (dir == T4_MEMORY_WRITE) {
++			last.word = (__force __be32) t4_read_reg(adap,
++							mem_base + offset);
++			for (bp = (unsigned char *)buf, i = resid; i < 4; i++)
++				bp[i] = last.byte[i];
++		} else {
++			last.word = *buf;
++			for (i = resid; i < 4; i++)
++				last.byte[i] = 0;
++			t4_write_reg(adap, mem_base + offset,
++				     (__force u32) last.word);
++		}
++	}
+ 
+-int t4_memory_write(struct adapter *adap, int mtype, u32 addr, u32 len,
+-		    __be32 *buf)
+-{
+-	return t4_memory_rw(adap, mtype, addr, len, buf, 0);
++	return 0;
+ }
+ 
+ #define EEPROM_STAT_ADDR   0x7bfc
+@@ -2529,39 +2524,6 @@ int t4_fwaddrspace_write(struct adapter *adap, unsigned int mbox,
+ }
+ 
+ /**
+- *     t4_mem_win_read_len - read memory through PCIE memory window
+- *     @adap: the adapter
+- *     @addr: address of first byte requested aligned on 32b.
+- *     @data: len bytes to hold the data read
+- *     @len: amount of data to read from window.  Must be <=
+- *            MEMWIN0_APERATURE after adjusting for 16B for T4 and
+- *            128B for T5 alignment requirements of the the memory window.
+- *
+- *     Read len bytes of data from MC starting at @addr.
+- */
+-int t4_mem_win_read_len(struct adapter *adap, u32 addr, __be32 *data, int len)
+-{
+-	int i, off;
+-	u32 win_pf = is_t4(adap->params.chip) ? 0 : V_PFNUM(adap->fn);
+-
+-	/* Align on a 2KB boundary.
+-	 */
+-	off = addr & MEMWIN0_APERTURE;
+-	if ((addr & 3) || (len + off) > MEMWIN0_APERTURE)
+-		return -EINVAL;
+-
+-	t4_write_reg(adap, PCIE_MEM_ACCESS_OFFSET,
+-		     (addr & ~MEMWIN0_APERTURE) | win_pf);
+-	t4_read_reg(adap, PCIE_MEM_ACCESS_OFFSET);
+-
+-	for (i = 0; i < len; i += 4)
+-		*data++ = (__force __be32) t4_read_reg(adap,
+-						(MEMWIN0_BASE + off + i));
+-
+-	return 0;
+-}
+-
+-/**
+  *	t4_mdio_rd - read a PHY register through MDIO
+  *	@adap: the adapter
+  *	@mbox: mailbox to use for the FW command
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+index f6b2ee1..ae77764 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
+@@ -400,6 +400,7 @@
+ #define  WINDOW_MASK     0x000000ffU
+ #define  WINDOW_SHIFT    0
+ #define  WINDOW(x)       ((x) << WINDOW_SHIFT)
++#define  GET_WINDOW(x)	 (((x) >> WINDOW_SHIFT) & WINDOW_MASK)
+ #define PCIE_MEM_ACCESS_OFFSET 0x306c
+ #define ENABLE	(1U << 30)
+ #define FUNCTION(x) ((x) << 12)
 -- 
 1.7.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
