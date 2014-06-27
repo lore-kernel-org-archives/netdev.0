@@ -1,48 +1,131 @@
 From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH CFT 22/30] net: fec: quiesce packet processing when taking
- link down in fec_enet_adjust_link()
-Date: Fri, 27 Jun 2014 16:20:45 +0100
-Message-ID: <E1X0XxF-0001Oc-N8@rmk-PC.arm.linux.org.uk>
+Subject: [PATCH CFT 25/30] net: fec: replace delayed work with standard work
+Date: Fri, 27 Jun 2014 16:21:01 +0100
+Message-ID: <E1X0XxV-0001Op-1n@rmk-PC.arm.linux.org.uk>
 References: <20140627151542.GL32514@n2100.arm.linux.org.uk>
 Cc: Fugang Duan <B38611@freescale.com>
 To: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:45244 "EHLO
+Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:45255 "EHLO
 	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754294AbaF0PUr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 11:20:47 -0400
+	by vger.kernel.org with ESMTP id S1754350AbaF0PVD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 11:21:03 -0400
 In-Reply-To: <20140627151542.GL32514@n2100.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the link goes down, the adjust_link method will be called, but
-there is no synchronisation to ensure that we won't be processing some
-last remaining packets via the NAPI handlers while performing a reset of
-the device.
+As of "better implementation of iMX6 ERR006358 quirk", we no longer have
+a requirement for a delayed work.  Moreover, the work is now only used
+for timeout purposes, so the timeout flag is also pointless - we set it
+each time we queue the work, and the work clears it.
 
-Add the necessary synchronisation to ensure that packet processing
-is complete before we stop and reset the FEC.
+Replace the fec_enet_delayed_work struct with a standard work_struct,
+resulting in simplified timeout handling code.
 
 Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- drivers/net/ethernet/freescale/fec_main.c | 4 ++++
- 1 file changed, 4 insertions(+)
+ drivers/net/ethernet/freescale/fec.h      |  8 ++------
+ drivers/net/ethernet/freescale/fec_main.c | 34 +++++++++++++------------------
+ 2 files changed, 16 insertions(+), 26 deletions(-)
 
+diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
+index 17e294970207..bd53caf1c1eb 100644
+--- a/drivers/net/ethernet/freescale/fec.h
++++ b/drivers/net/ethernet/freescale/fec.h
+@@ -256,11 +256,6 @@ struct bufdesc_ex {
+ #define FLAG_RX_CSUM_ENABLED	(BD_ENET_RX_ICE | BD_ENET_RX_PCR)
+ #define FLAG_RX_CSUM_ERROR	(BD_ENET_RX_ICE | BD_ENET_RX_PCR)
+ 
+-struct fec_enet_delayed_work {
+-	struct delayed_work delay_work;
+-	bool timeout;
+-};
+-
+ /* The FEC buffer descriptors track the ring buffers.  The rx_bd_base and
+  * tx_bd_base always point to the base of the buffer descriptors.  The
+  * cur_rx and cur_tx point to the currently available buffer.
+@@ -326,6 +321,8 @@ struct fec_enet_private {
+ 	struct	napi_struct napi;
+ 	int	csum_flags;
+ 
++	struct work_struct tx_timeout_work;
++
+ 	struct ptp_clock *ptp_clock;
+ 	struct ptp_clock_info ptp_caps;
+ 	unsigned long last_overflow_check;
+@@ -338,7 +335,6 @@ struct fec_enet_private {
+ 	int hwts_rx_en;
+ 	int hwts_tx_en;
+ 	struct timer_list time_keep;
+-	struct fec_enet_delayed_work delay_work;
+ 	struct regulator *reg_phy;
+ };
+ 
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 466268fffadd..b2b8aff3f73c 100644
+index d9c1ba58d6ea..05982fb42000 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1530,7 +1530,11 @@ static void fec_enet_adjust_link(struct net_device *ndev)
- 		}
- 	} else {
- 		if (fep->link) {
-+			napi_disable(&fep->napi);
-+			netif_tx_lock_bh(ndev);
- 			fec_stop(ndev);
-+			netif_tx_unlock_bh(ndev);
-+			napi_enable(&fep->napi);
- 			fep->link = phy_dev->link;
- 			status_change = 1;
- 		}
+@@ -1020,31 +1020,25 @@ fec_timeout(struct net_device *ndev)
+ 
+ 	ndev->stats.tx_errors++;
+ 
+-	fep->delay_work.timeout = true;
+-	schedule_delayed_work(&(fep->delay_work.delay_work), 0);
++	schedule_work(&fep->tx_timeout_work);
+ }
+ 
+-static void fec_enet_work(struct work_struct *work)
++static void fec_enet_timeout_work(struct work_struct *work)
+ {
+ 	struct fec_enet_private *fep =
+-		container_of(work,
+-			     struct fec_enet_private,
+-			     delay_work.delay_work.work);
++		container_of(work, struct fec_enet_private, tx_timeout_work);
+ 	struct net_device *ndev = fep->netdev;
+ 
+-	if (fep->delay_work.timeout) {
+-		fep->delay_work.timeout = false;
+-		rtnl_lock();
+-		if (netif_device_present(ndev) || netif_running(ndev)) {
+-			napi_disable(&fep->napi);
+-			netif_tx_lock_bh(ndev);
+-			fec_restart(ndev);
+-			netif_wake_queue(ndev);
+-			netif_tx_unlock_bh(ndev);
+-			napi_enable(&fep->napi);
+-		}
+-		rtnl_unlock();
++	rtnl_lock();
++	if (netif_device_present(ndev) || netif_running(ndev)) {
++		napi_disable(&fep->napi);
++		netif_tx_lock_bh(ndev);
++		fec_restart(ndev);
++		netif_wake_queue(ndev);
++		netif_tx_unlock_bh(ndev);
++		napi_enable(&fep->napi);
+ 	}
++	rtnl_unlock();
+ }
+ 
+ static void
+@@ -2643,7 +2637,7 @@ fec_probe(struct platform_device *pdev)
+ 	if (fep->bufdesc_ex && fep->ptp_clock)
+ 		netdev_info(ndev, "registered PHC device %d\n", fep->dev_id);
+ 
+-	INIT_DELAYED_WORK(&(fep->delay_work.delay_work), fec_enet_work);
++	INIT_WORK(&fep->tx_timeout_work, fec_enet_timeout_work);
+ 	return 0;
+ 
+ failed_register:
+@@ -2668,7 +2662,7 @@ fec_drv_remove(struct platform_device *pdev)
+ 	struct net_device *ndev = platform_get_drvdata(pdev);
+ 	struct fec_enet_private *fep = netdev_priv(ndev);
+ 
+-	cancel_delayed_work_sync(&(fep->delay_work.delay_work));
++	cancel_work_sync(&fep->tx_timeout_work);
+ 	unregister_netdev(ndev);
+ 	fec_enet_mii_remove(fep);
+ 	del_timer_sync(&fep->time_keep);
 -- 
 1.8.3.1
