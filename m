@@ -1,67 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 6/6] amd-xgbe: Resolve checkpatch warning
- about sscanf usage
-Date: Thu, 26 Jun 2014 17:12:55 -0700 (PDT)
-Message-ID: <20140626.171255.274497260661771827.davem@davemloft.net>
-References: <1403647225.29061.64.camel@joe-AO725>
-	<53A9FF42.2090502@amd.com>
-	<1403650410.11163.2.camel@joe-AO725>
+Subject: Re: [PATCH net-next 0/6] amd-xgbe: AMD 10Gb Ethernet driver updates
+Date: Thu, 26 Jun 2014 17:15:13 -0700 (PDT)
+Message-ID: <20140626.171513.1599540810911294287.davem@davemloft.net>
+References: <20140624211900.20681.46554.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: thomas.lendacky@amd.com, netdev@vger.kernel.org
-To: joe@perches.com
+Cc: netdev@vger.kernel.org
+To: thomas.lendacky@amd.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52428 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52443 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751102AbaF0AM4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2014 20:12:56 -0400
-In-Reply-To: <1403650410.11163.2.camel@joe-AO725>
+	with ESMTP id S1751102AbaF0APO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2014 20:15:14 -0400
+In-Reply-To: <20140624211900.20681.46554.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Tue, 24 Jun 2014 15:53:30 -0700
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Date: Tue, 24 Jun 2014 16:19:00 -0500
 
-> On Tue, 2014-06-24 at 17:44 -0500, Tom Lendacky wrote:
->> On 06/24/2014 05:00 PM, Joe Perches wrote:
->> > On Tue, 2014-06-24 at 16:19 -0500, Tom Lendacky wrote:
->> >> Checkpatch issued a warning preferring to use kstrto<type> when
->> >> using a single variable sscanf.  Change the sscanf invocation to
->> >> a kstrtouint call.
->> > []
->> >> diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-debugfs.c b/drivers/net/ethernet/amd/xgbe/xgbe-debugfs.c
->> > []
->> >> @@ -165,10 +165,9 @@ static ssize_t xgbe_common_write(const char __user *buffer, size_t count,
->> >>   		return len;
->> >>
->> >>   	workarea[len] = '\0';
->> >> -	if (sscanf(workarea, "%x", &scan_value) == 1)
->> >> -		*value = scan_value;
->> >> -	else
->> >> -		return -EIO;
->> >> +	ret = kstrtouint(workarea, 0, value);
->> >
->> > Don't you need to use 16 for the base here?
+> The following series fixes some bugs and provides new/changed support
+> in the driver.
 > 
->> Using 0 allows for greater flexibility in the input format.
+> - Make all the defines in the xgbe.h file unique by prefixing them with
+>   XGBE_ if they are not currently using the prefix.
+> - VLAN CTAGs are supplied in context descriptors. Tell the hardware to
+>   look in the Tx context descriptor, and not a register, for the VLAN CTAG
+>   to be inserted in the packet.
+> - The hardware will indicate a VLAN packet has been received even if VLAN
+>   CTAG stripping is currently disabled.  Only indicate that a VLAN CTAG
+>   has been stripped for the current packet if stripping is enabled.
+> - Add support for VLAN filtering
+> - Modify destination address filtering to use the hardware hash tables
+> - Eliminate a checkpatch warning by replacing sscanf with kstrtouint
 > 
-> True, but there could be a change in behavior like reading a
-> previously hex value like 10 is now a decimal 10 not decimal 16.
+> This patch series is based on net-next.
 
-Tom, under other circumstance you can't change the format.
-v3.16 is going to be released with the existing %x formatting
-expecting hexadecimal numbers.
-
-And you're targetting this change to decimal format in net-next.
-
-The only thing that really allows you to do this is that this is
-debugfs, and it's a reason I really hate debugfs, people do
-arbitrary stuff so that if the debugfs elements turn out to be
-useful for someone the driver author can arbitarily break things
-on them however they want.
-
-It's a cop-out for things people don't want to be bound to avoid ABI
-changes, and to me that's garbage.  If you expose it to the user
-design it well to the point where you're willing to live with it's
-interface forever, or don't expose it to the user at all.
+Series applied, but as already mentioned I'm not happy with the debugfs
+stuff, and also you didn't need to ifdef protect the definition of the
+crc32 little endian polynomial define.  If someone ever puts that in
+a generic place (and we should, it shows up in 3 places already) they
+will take out your local define surely.
