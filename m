@@ -1,39 +1,39 @@
-From: Prashant Sreedharan <prashant@broadcom.com>
-Subject: [PATCH net-next]MAINTAINERS: Update tg3 maintainer
-Date: Fri, 27 Jun 2014 16:21:50 -0700
-Message-ID: <1403911310-22892-1-git-send-email-prashant@broadcom.com>
+From: Harish Patil <harish.patil@qlogic.com>
+Subject: [PATCH net-next 0/2] qlcnic: Enhance Tx timeout debug data collection.
+Date: Fri, 27 Jun 2014 19:01:37 -0400
+Message-ID: <1403910099-2835-1-git-send-email-harish.patil@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>,
-	Prashant Sreedharan <prashant@broadcom.com>,
-	Michael Chan <mchan@broadcom.com>
+Cc: <netdev@vger.kernel.org>, <Dept-HSGLinuxNICDev@qlogic.com>,
+	Harish Patil <harish.patil@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw3-out.broadcom.com ([216.31.210.64]:22635 "EHLO
-	mail-gw3-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754210AbaF0X0n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 19:26:43 -0400
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:46129 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751739AbaF0XcX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 19:32:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Prashant Sreedharan <prashant@broadcom.com>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
----
- MAINTAINERS |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+From: Harish Patil <harish.patil@qlogic.com>
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 48f4ef4..f492681 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -1940,7 +1940,7 @@ F:	arch/arm/boot/dts/bcm5301x.dtsi
- F:	arch/arm/boot/dts/bcm470*
- 
- BROADCOM TG3 GIGABIT ETHERNET DRIVER
--M:	Nithin Nayak Sujir <nsujir@broadcom.com>
-+M:	Prashant Sreedharan <prashant@broadcom.com>
- M:	Michael Chan <mchan@broadcom.com>
- L:	netdev@vger.kernel.org
- S:	Supported
--- 
-1.7.1
+The following set of patches are for enhancing Tx timeout debug collection
+
+- Collect a firmware dump on first Tx timeout if netif_msg_tx_err() is set
+- Log Receive and Status ring info on Tx timeout, in addition to Tx ring info
+- Log additional Tx ring info if netif_msg_tx_err() is set
+- Update driver version to 5.3.61
+
+Please apply this series to net-next.
+
+Thanks,
+Harish
+
+Harish Patil (2):
+   qlcnic: Enhance Tx timeout debug data collection.
+   qlcnic: Update version to 5.3.61
+
+drivers/net/ethernet/qlogic/qlcnic/qlcnic.h      |  4 ++--
+drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c | 41
++++++++++++++++++++++++++++++++++++------
+2 files changed, 37 insertions(+), 8 deletions(-)
