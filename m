@@ -1,31 +1,62 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v3 net] ipv6: Fix MLD Query message check
-Date: Fri, 27 Jun 2014 09:05:27 +0200
-Message-ID: <1403852727.7028.0.camel@localhost>
-References: <1403834273-5147-1-git-send-email-liuhangbin@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V6 net-next] LISP: Locator/Identifier Separation
+ Protocol
+Date: Fri, 27 Jun 2014 00:13:53 -0700 (PDT)
+Message-ID: <20140627.001353.840895998677889032.davem@davemloft.net>
+References: <9D51E1BB-BAB2-4859-A3E1-2C4F56BAD641@logicalelegance.com>
+	<20140623.150206.1941399398042390524.davem@davemloft.net>
+	<53AD0D06.6070109@cisco.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	network dev <netdev@vger.kernel.org>
-To: Hangbin Liu <liuhangbin@gmail.com>
+Cc: chris@logicalelegance.com, netdev@vger.kernel.org,
+	vermagan@cisco.com
+To: lojakab@cisco.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:57833 "EHLO
-	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750928AbaF0HFb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 03:05:31 -0400
-In-Reply-To: <1403834273-5147-1-git-send-email-liuhangbin@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54654 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751598AbaF0HN4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 03:13:56 -0400
+In-Reply-To: <53AD0D06.6070109@cisco.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fr, 2014-06-27 at 09:57 +0800, Hangbin Liu wrote:
-> Based on RFC3810 6.2, we also need to check the hop limit and router alert
-> option besides source address.
-> 
-> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+From: Lori Jakab <lojakab@cisco.com>
+Date: Fri, 27 Jun 2014 09:19:50 +0300
 
-Yep, looks good
+> Map-Requests can and should be rate limited. Also, if there is no
+> mapping for a packet in the map-cache (while we're waiting for a
+> reply), it is sent to a Proxy-ETR, a dedicated LISP infrastructure box
+> part of the LISP architecture, and gets delivered to the destination.
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Sorry, I don't buy this.
 
-Thanks!
+Still sounds DOS'able to me, you cannot process an infinite amount of
+packets backlogged on pending Map Requests, your only choice is to
+start dropping packets.
+
+> If I understand correctly, the route cache was a hash table with
+> multiple keys. We intend to have a trie based look-up table for
+> LISP. Additionally, IPv4 routing was and still is a required component
+> for every networked host, while LISP will be an optional feature.
+
+I think you misunderstand the problem space.
+
+If you have to lookup on EIDs you have to consider the full 32-bit
+value, even if you use a trie.  Therefore you will have to limit
+the size of your cache, and trim it when it hits certain thresholds.
+
+Therefore it has the same problems that the routing cache had.
+
+The reason the DoS'ability disappeared with the routing cache removed
+is that the remaining datastructures operate on a fixed sized database
+which is not influenced by traffic patterns sent by external hosts.
+
+Read that critical component again: "not influenced by traffic
+patterns sent by external hosts"
+
+LISP fails that test regardless of the data structures you use, any
+external host can influence your cache and how often you have to
+create new entries.
+
+That's a bad design and fundamentally exploitable.
