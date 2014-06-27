@@ -1,120 +1,48 @@
 From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH CFT 24/30] net: fec: better implementation of iMX6 ERR006358
- quirk
-Date: Fri, 27 Jun 2014 16:20:55 +0100
-Message-ID: <E1X0XxP-0001Ol-UU@rmk-PC.arm.linux.org.uk>
+Subject: [PATCH CFT 20/30] net: fec: quiesce packet processing before stopping
+ device in fec_set_features()
+Date: Fri, 27 Jun 2014 16:20:35 +0100
+Message-ID: <E1X0Xx5-0001OJ-G0@rmk-PC.arm.linux.org.uk>
 References: <20140627151542.GL32514@n2100.arm.linux.org.uk>
 Cc: Fugang Duan <B38611@freescale.com>
 To: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:45253 "EHLO
+Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:45238 "EHLO
 	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754309AbaF0PU6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 11:20:58 -0400
+	by vger.kernel.org with ESMTP id S1754253AbaF0PUi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 11:20:38 -0400
 In-Reply-To: <20140627151542.GL32514@n2100.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Using a (delayed) workqueue for ERR006358 is not correct - a work queue
-is a single-trigger device.  Once the work queue has been scheduled, it
-can't be re-scheduled until it has been run.  This can cause problems -
-with an appropriate packet timing, we can end up with packets queued,
-but not sent by the hardware, resulting in the transmit timeout firing.
+fec_set_features() calls fec_stop() to stop the transmit ring while the
+transmit queue is still active.  This can lead to the transmit ring
+being restarted by an intervening packet queued for transmission, or
+by the tx quirk timer expiring.
 
-Re-implement this as per the workaround detailed in the ERR006358
-documentation - if there are packets waiting to be sent when we service
-the transmit ring, and we see that the transmitter is not running,
-kick the transmitter to run the pending entries in the ring.
-
-Testing here with a 10Mbit half duplex link sees the resulting iperf
-TCP bandwidth increase from between 1 to 2Mbps to between 8 to 9Mbps.
+Fix this by disabling NAPI (which ensures that the NAPI handlers are
+not running), and then take the transmit lock while we stop and
+restart the adapter (which prevents new packets being queued).
 
 Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- drivers/net/ethernet/freescale/fec.h      |  1 -
- drivers/net/ethernet/freescale/fec_main.c | 30 ++++--------------------------
- 2 files changed, 4 insertions(+), 27 deletions(-)
+ drivers/net/ethernet/freescale/fec_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
-index 96d2a18f1b99..17e294970207 100644
---- a/drivers/net/ethernet/freescale/fec.h
-+++ b/drivers/net/ethernet/freescale/fec.h
-@@ -259,7 +259,6 @@ struct bufdesc_ex {
- struct fec_enet_delayed_work {
- 	struct delayed_work delay_work;
- 	bool timeout;
--	bool trig_tx;
- };
- 
- /* The FEC buffer descriptors track the ring buffers.  The rx_bd_base and
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 62120e47ef5a..d9c1ba58d6ea 100644
+index 7a3cfb19ae90..cc2fab7333fe 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -342,22 +342,6 @@ fec_enet_clear_csum(struct sk_buff *skb, struct net_device *ndev)
- 	return 0;
- }
+@@ -2363,9 +2363,9 @@ static int fec_set_features(struct net_device *netdev,
+ 			fep->csum_flags &= ~FLAG_RX_CSUM_ENABLED;
  
--static void
--fec_enet_submit_work(struct bufdesc *bdp, struct fec_enet_private *fep)
--{
--	const struct platform_device_id *id_entry =
--				platform_get_device_id(fep->pdev);
--	struct bufdesc *bdp_pre;
--
--	bdp_pre = fec_enet_get_prevdesc(bdp, fep);
--	if ((id_entry->driver_data & FEC_QUIRK_ERR006358) &&
--	    !(bdp_pre->cbd_sc & BD_ENET_TX_READY)) {
--		fep->delay_work.trig_tx = true;
--		schedule_delayed_work(&(fep->delay_work.delay_work),
--					msecs_to_jiffies(1));
--	}
--}
--
- static int
- fec_enet_txq_submit_frag_skb(struct sk_buff *skb, struct net_device *ndev)
- {
-@@ -545,8 +529,6 @@ static int fec_enet_txq_submit_skb(struct sk_buff *skb, struct net_device *ndev)
- 	status |= (BD_ENET_TX_READY | BD_ENET_TX_TC);
- 	bdp->cbd_sc = status;
- 
--	fec_enet_submit_work(bdp, fep);
--
- 	/* If this was the last BD in the ring, start at the beginning again. */
- 	bdp = fec_enet_get_nextdesc(last_bdp, fep);
- 
-@@ -735,8 +717,6 @@ static int fec_enet_txq_submit_tso(struct sk_buff *skb, struct net_device *ndev)
- 	/* Save skb pointer */
- 	fep->tx_skbuff[index] = skb;
- 
--	fec_enet_submit_work(bdp, fep);
--
- 	skb_tx_timestamp(skb);
- 	fep->cur_tx = bdp;
- 
-@@ -1065,11 +1045,6 @@ static void fec_enet_work(struct work_struct *work)
- 		}
- 		rtnl_unlock();
- 	}
--
--	if (fep->delay_work.trig_tx) {
--		fep->delay_work.trig_tx = false;
--		writel(0, fep->hwp + FEC_X_DES_ACTIVE);
--	}
- }
- 
- static void
-@@ -1166,7 +1141,10 @@ fec_enet_tx(struct net_device *ndev)
- 				netif_wake_queue(ndev);
- 		}
- 	}
--	return;
-+
-+	/* ERR006538: Keep the transmitter going */
-+	if (bdp != fep->cur_tx && readl(fep->hwp + FEC_X_DES_ACTIVE) == 0)
-+		writel(0, fep->hwp + FEC_X_DES_ACTIVE);
- }
- 
- /* During a receive, the cur_rx points to the current incoming buffer.
+ 		if (netif_running(netdev)) {
+-			fec_stop(netdev);
+ 			napi_disable(&fep->napi);
+ 			netif_tx_lock_bh(netdev);
++			fec_stop(netdev);
+ 			fec_restart(netdev, fep->phy_dev->duplex);
+ 			netif_wake_queue(netdev);
+ 			netif_tx_unlock_bh(netdev);
 -- 
 1.8.3.1
