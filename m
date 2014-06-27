@@ -1,32 +1,31 @@
-From: HELPDESK <lbatista@evolutirh.com.br>
-Subject: Warning!!
-Date: Fri, 27 Jun 2014 07:40:10 +0100
-Message-ID: <20140627064031.B71145F6B82@zmail.goiania.go.gov.br>
-Reply-To: nO=REPLY@zmail.goiania.go.gov.br
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v3 net] ipv6: Fix MLD Query message check
+Date: Fri, 27 Jun 2014 09:05:27 +0200
+Message-ID: <1403852727.7028.0.camel@localhost>
+References: <1403834273-5147-1-git-send-email-liuhangbin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <lbatista@evolutirh.com.br>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	network dev <netdev@vger.kernel.org>
+To: Hangbin Liu <liuhangbin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from correio.seplam.goiania.go.gov.br ([200.199.226.132]:37418 "EHLO
-	zmail.goiania.go.gov.br" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751733AbaF0Gko convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 02:40:44 -0400
-Content-Description: Mail message body
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:57833 "EHLO
+	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750928AbaF0HFb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 03:05:31 -0400
+In-Reply-To: <1403834273-5147-1-git-send-email-liuhangbin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear: Account User,
-This message is from the System Administrator support center. Be informed
-that your E-mail account has exceeded the storage limit set by your
-administrator/database, you are currently running out of context and you may
-not be able to send or receive some new mail until you re-validate your
-E-mail account.To prevent your email account from been closed, re-validate your mailbox
-below please click and visit this site of lick: >>>>
-http://webmai-upgrading.tripod.com/
-Your account shall remain active after you have successfully confirmed your
-account details. Thank you for your swift response to this notification we
-apologize for any inconvenience.
-We appreciate your continued help and support.
-Regards,
-SYSTEM ADMINISTRATOR HELPDESK TEAM 2014
+On Fr, 2014-06-27 at 09:57 +0800, Hangbin Liu wrote:
+> Based on RFC3810 6.2, we also need to check the hop limit and router alert
+> option besides source address.
+> 
+> Signed-off-by: Hangbin Liu <liuhangbin@gmail.com>
+
+Yep, looks good
+
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+
+Thanks!
