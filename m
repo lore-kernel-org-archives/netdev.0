@@ -1,8 +1,8 @@
 From: =?UTF-8?q?Stefan=20S=C3=B8rensen?=
 	<stefan.sorensen@spectralink.com>
-Subject: [PATCH net-next v2 3/5] dp83640: Verify calibration pin assignment
-Date: Fri, 27 Jun 2014 12:05:31 +0200
-Message-ID: <1403863533-27675-4-git-send-email-stefan.sorensen@spectralink.com>
+Subject: [PATCH net-next v2 4/5] dp83640: Get calibration pin with ptp_find_pin
+Date: Fri, 27 Jun 2014 12:05:32 +0200
+Message-ID: <1403863533-27675-5-git-send-email-stefan.sorensen@spectralink.com>
 References: <1403863533-27675-1-git-send-email-stefan.sorensen@spectralink.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -12,47 +12,40 @@ Cc: netdev@vger.kernel.org,
 	<stefan.sorensen@spectralink.com>
 To: davem@davemloft.net, richardcochran@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 213083164162.static.sonofon.dk ([213.83.164.162]:52645 "EHLO
+Received: from 213083164162.static.sonofon.dk ([213.83.164.162]:52654 "EHLO
 	HORWDSPRD01.spectralink.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753209AbaF0KGF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 06:06:05 -0400
+	by vger.kernel.org with ESMTP id S1753209AbaF0KGH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 06:06:07 -0400
 In-Reply-To: <1403863533-27675-1-git-send-email-stefan.sorensen@spectralink.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This constraints the pin assignment to not allow the calibration functi=
-on to
-be reassigned and only allow reassigning the calibratin pin if only one=
- phy is
-connected.
+=46or consistency, use the ptp_find_pin function to get the calibration=
+ pin,
+not gpio_tab.
 
 Signed-off-by: Stefan S=C3=B8rensen <stefan.sorensen@spectralink.com>
 ---
- drivers/net/phy/dp83640.c | 10 ++++++++++
- 1 file changed, 10 insertions(+)
+ drivers/net/phy/dp83640.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/phy/dp83640.c b/drivers/net/phy/dp83640.c
-index eabecff..ab48112 100644
+index ab48112..293ad06 100644
 --- a/drivers/net/phy/dp83640.c
 +++ b/drivers/net/phy/dp83640.c
-@@ -510,6 +510,16 @@ static int ptp_dp83640_enable(struct ptp_clock_inf=
-o *ptp,
- static int ptp_dp83640_verify(struct ptp_clock_info *ptp, unsigned int=
- pin,
- 			      enum ptp_pin_function func, unsigned int chan)
- {
-+	struct dp83640_clock *clock =3D
-+		container_of(ptp, struct dp83640_clock, caps);
-+
-+	if (clock->caps.pin_config[pin].func =3D=3D PTP_PF_PHYSYNC &&
-+	    !list_empty(&clock->phylist))
-+		return 1;
-+
-+	if (func =3D=3D PTP_PF_PHYSYNC)
-+		return 1;
-+
- 	return 0;
- }
+@@ -609,7 +609,11 @@ static void recalibrate(struct dp83640_clock *cloc=
+k)
+ 	u16 cal_gpio, cfg0, evnt, ptp_trig, trigger, val;
+=20
+ 	trigger =3D CAL_TRIGGER;
+-	cal_gpio =3D gpio_tab[CALIBRATE_GPIO];
++	cal_gpio =3D 1 + ptp_find_pin(clock->ptp_clock, PTP_PF_PHYSYNC, 0);
++	if (cal_gpio < 1) {
++		pr_err("PHY calibration pin not avaible - PHY is not calibrated.");
++		return;
++	}
+=20
+ 	mutex_lock(&clock->extreg_lock);
 =20
 --=20
 1.9.3
