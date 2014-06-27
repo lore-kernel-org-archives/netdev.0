@@ -1,54 +1,65 @@
-From: Michael Ellerman <mpe@ellerman.id.au>
-Subject: Re: [PATCH v2 2/2] powerpc: bpf: Fix the broken LD_VLAN_TAG_PRESENT
- test
-Date: Fri, 27 Jun 2014 15:08:17 +1000
-Message-ID: <1403845697.21873.1.camel@concordia>
-References: <1403717697-3911-1-git-send-email-kda@linux-powerpc.org>
-	  <1403717697-3911-2-git-send-email-kda@linux-powerpc.org>
-	 <1403771455.18572.8.camel@concordia> <53ABDB72.9020902@redhat.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v2 2/2] ipv6:  Allow accepting RA from local IP
+ addresses.
+Date: Fri, 27 Jun 2014 08:24:13 +0200
+Message-ID: <1403850253.3928.4.camel@localhost>
+References: <1403644488-21709-1-git-send-email-greearb@candelatech.com>
+	 <1403644488-21709-2-git-send-email-greearb@candelatech.com>
+	 <53A9FA0A.70902@yoshifuji.org> <53AA3FB2.3080204@candelatech.com>
+	 <53AB6E32.6010907@miraclelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Denis Kirjanov <kda@linux-powerpc.org>, netdev@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Greear <greearb@candelatech.com>,
+	YOSHIFUJI Hideaki <hideaki@yoshifuji.org>,
+	netdev@vger.kernel.org, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+To: YOSHIFUJI =?UTF-8?Q?Hideaki/=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
+	<hideaki.yoshifuji@miraclelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([103.22.144.67]:53143 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750729AbaF0FI1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Jun 2014 01:08:27 -0400
-In-Reply-To: <53ABDB72.9020902@redhat.com>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:38644 "EHLO
+	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752476AbaF0GYR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 02:24:17 -0400
+Received: from compute5.internal (compute5.nyi.mail.srv.osa [10.202.2.45])
+	by gateway1.nyi.mail.srv.osa (Postfix) with ESMTP id 4534A21D28
+	for <netdev@vger.kernel.org>; Fri, 27 Jun 2014 02:24:17 -0400 (EDT)
+In-Reply-To: <53AB6E32.6010907@miraclelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-06-26 at 10:36 +0200, Daniel Borkmann wrote:
-> On 06/26/2014 10:30 AM, Michael Ellerman wrote:
-> > On Wed, 2014-06-25 at 21:34 +0400, Denis Kirjanov wrote:
-> >> We have to return the boolean here if the tag presents
-> >> or not, not just ANDing the TCI with the mask which results to:
+Hello!
+
+On Do, 2014-06-26 at 09:49 +0900, YOSHIFUJI Hideaki/=E5=90=89=E8=97=A4=E8=
+=8B=B1=E6=98=8E wrote:
+> >> (2014/06/25 6:14), greearb@candelatech.com wrote:
+> >>> From: Ben Greear <greearb@candelatech.com>
+> >>>
+> >>> This can be used in virtual networking applications, and
+> >>> may have other uses as well.  The option is disabled by
+> >>> default, so no change to current operating behaviour
 > >>
-> >> [  709.412097] test_bpf: #18 LD_VLAN_TAG_PRESENT
-> >> [  709.412245] ret 4096 != 1
-> >> [  709.412332] ret 4096 != 1
-> >> [  709.412333] FAIL (2 times)
+> >>                                     standard compliant behavior?
 > >
-> > Hi Denis,
-> >
-> > Is this the same version of test_bpf that is in Linus' tree?
-> >
-> > I don't see any fails with that version, am I missing something?
-> >
-> >    [  187.690640] test_bpf: #18 LD_VLAN_TAG_PRESENT 46 50 PASS
-> 
-> Did you try to modprobe test_bpf after enabling JIT, i.e. :
-> 
->    echo 1 > /proc/sys/net/core/bpf_jit_enable
-> 
-> Last time I tested with ppc64, I saw the interpreter passing
-> while JIT failed, which the fix above should address.
+> > I've no idea.  Can you point me to the proper standard (and
+> > pertinent section)?
+>=20
+> I was wrong.
+>=20
+> I found this code was added by commit 9f56220 ("ipv6: Do not
+> use routes from locally generated RAs") to fix behavior when
+> accept_ra =3D=3D 2.
+>=20
+> But I do not understand why it is not enough to restrict local
+> address on receiving interface.
+>=20
+> Andi, would you explain?
 
-Right, I thought CONFIG_BPF_JIT=y was sufficient.
+Wouldn't we alter existing behaviour in case someone connects several
+NICs in a router to the same network while only running radvd on one
+interface. Additional addresses would show up where prior none would
+have.
 
-But that just makes it available, I need to *also* enable it at runtime.
+I am in favor of checking all addresses in the current namespace.
 
-cheers
+Greetings,
+Hannes
