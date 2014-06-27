@@ -1,101 +1,94 @@
 From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH CFT 16/30] net: fec: only restart or stop the device if it is
- present and running
-Date: Fri, 27 Jun 2014 16:20:15 +0100
-Message-ID: <E1X0Xwl-0001Ns-1t@rmk-PC.arm.linux.org.uk>
+Subject: [PATCH CFT 21/30] net: fec: quiesce packet processing before changing
+ features
+Date: Fri, 27 Jun 2014 16:20:40 +0100
+Message-ID: <E1X0XxA-0001OY-JU@rmk-PC.arm.linux.org.uk>
 References: <20140627151542.GL32514@n2100.arm.linux.org.uk>
 Cc: Fugang Duan <B38611@freescale.com>
 To: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:45223 "EHLO
+Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:45241 "EHLO
 	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754150AbaF0PUR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 11:20:17 -0400
+	by vger.kernel.org with ESMTP id S1754282AbaF0PUm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 11:20:42 -0400
 In-Reply-To: <20140627151542.GL32514@n2100.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Avoid calling fec_restart() or fec_stop() while the device is down
-or not present (iow suspended.)
+Changing the features (receive checksumming) requires the hardware to be
+reprogrammed, and also changes the checks in the receive packet
+processing.
 
-Although the ndo_timeout method will only be called if the device is
-present and running, we defer this to a work queue.  The work queue
-can run independently, and so needs to repeat these checks to ensure
-that a restart doesn't occur after the device has been taken down or
-detached for suspend.  In this case, we call fec_restart() in the
-resume path, so nothing is lost.
+The current implementation has a race - fec_set_features() changes the
+flags which alter the receive packet processing while the adapter is
+active, and potentially receiving frames.  Only after we've modified
+the software flag do we shutdown and reconfigure the hardware.
 
-For fec_set_features, we add a call to fec_restart() in fec_enet_open()
-to ensure that the hardware is appropriate programmed when the interface
-is opened.  fec_set_features() call should not occur while we're
-suspended, so we don't have to worry about that case.
+This can lead to packets being received and marked with a valid checksum
+(via CHECKSUM_UNNECESSARY) when the hardware checksum validation has not
+yet been enabled.
 
-The adjust_link needs similar treatment - this also is called from a
-work queue, which may be run independently after we have taken the
-device down and detached it.  In this case, we just mark the link
-down and take no further action.  We will reset things appropriately
-once the device is up and running again, at which point we will receive
-another adjust_link callback.
+We must quiesce the device, then change the software configuration for
+this feature, and then resume the device if it was previously running.
+
+The resulting code structure also allows us to add other configuration
+features in this path without having to quiesce and resume the network
+interface and device.
 
 Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- drivers/net/ethernet/freescale/fec_main.c | 19 ++++++++++++++-----
- 1 file changed, 14 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/freescale/fec_main.c | 25 ++++++++++++++++---------
+ 1 file changed, 16 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 79951af81db5..fc155ba85146 100644
+index cc2fab7333fe..466268fffadd 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1065,12 +1065,15 @@ static void fec_enet_work(struct work_struct *work)
- 		container_of(work,
- 			     struct fec_enet_private,
- 			     delay_work.delay_work.work);
-+	struct net_device *ndev = fep->netdev;
+@@ -2347,12 +2347,21 @@ static void fec_poll_controller(struct net_device *dev)
+ }
+ #endif
  
- 	if (fep->delay_work.timeout) {
- 		fep->delay_work.timeout = false;
- 		rtnl_lock();
--		fec_restart(fep->netdev, fep->full_duplex);
--		netif_wake_queue(fep->netdev);
-+		if (netif_device_present(ndev) || netif_running(ndev)) {
-+			fec_restart(ndev, fep->full_duplex);
-+			netif_wake_queue(ndev);
-+		}
- 		rtnl_unlock();
- 	}
++#define FEATURES_NEED_QUIESCE NETIF_F_RXCSUM
++
+ static int fec_set_features(struct net_device *netdev,
+ 	netdev_features_t features)
+ {
+ 	struct fec_enet_private *fep = netdev_priv(netdev);
+ 	netdev_features_t changed = features ^ netdev->features;
  
-@@ -1504,7 +1507,14 @@ static void fec_enet_adjust_link(struct net_device *ndev)
- 		return;
- 	}
++	/* Quiesce the device if necessary */
++	if (netif_running(netdev) && changed & FEATURES_NEED_QUIESCE) {
++		napi_disable(&fep->napi);
++		netif_tx_lock_bh(netdev);
++		fec_stop(netdev);
++	}
++
+ 	netdev->features = features;
  
--	if (phy_dev->link) {
-+	/*
-+	 * If the netdev is down, or is going down, we're not interested
-+	 * in link state events, so just mark our idea of the link as down
-+	 * and ignore the event.
-+	 */
-+	if (!netif_running(ndev) || !netif_device_present(ndev)) {
-+		fep->link = 0;
-+	} else if (phy_dev->link) {
- 		if (!fep->link) {
- 			fep->link = phy_dev->link;
- 			status_change = 1;
-@@ -2185,6 +2195,7 @@ fec_enet_open(struct net_device *ndev)
- 		return ret;
- 	}
+ 	/* Receive checksum has been changed */
+@@ -2361,16 +2370,14 @@ static int fec_set_features(struct net_device *netdev,
+ 			fep->csum_flags |= FLAG_RX_CSUM_ENABLED;
+ 		else
+ 			fep->csum_flags &= ~FLAG_RX_CSUM_ENABLED;
++	}
  
-+	fec_restart(ndev, fep->full_duplex);
- 	napi_enable(&fep->napi);
- 	phy_start(fep->phy_dev);
- 	netif_start_queue(ndev);
-@@ -2351,8 +2362,6 @@ static int fec_set_features(struct net_device *netdev,
- 			fec_stop(netdev);
- 			fec_restart(netdev, fep->phy_dev->duplex);
- 			netif_wake_queue(netdev);
--		} else {
+-		if (netif_running(netdev)) {
+-			napi_disable(&fep->napi);
+-			netif_tx_lock_bh(netdev);
+-			fec_stop(netdev);
 -			fec_restart(netdev, fep->phy_dev->duplex);
- 		}
+-			netif_wake_queue(netdev);
+-			netif_tx_unlock_bh(netdev);
+-			napi_enable(&fep->napi);
+-		}
++	/* Resume the device after updates */
++	if (netif_running(netdev) && changed & FEATURES_NEED_QUIESCE) {
++		fec_restart(netdev, fep->phy_dev->duplex);
++		netif_wake_queue(netdev);
++		netif_tx_unlock_bh(netdev);
++		napi_enable(&fep->napi);
  	}
  
+ 	return 0;
 -- 
 1.8.3.1
