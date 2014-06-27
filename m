@@ -1,369 +1,172 @@
-From: Dong Aisheng <b29396@freescale.com>
-Subject: [PATCH 2/3] can: m_can: add bus error handling
-Date: Fri, 27 Jun 2014 18:00:45 +0800
-Message-ID: <1403863246-18822-3-git-send-email-b29396@freescale.com>
-References: <1403863246-18822-1-git-send-email-b29396@freescale.com>
+From: "Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH/RFC] Re: recvmmsg() timeout behavior strangeness [RESEND]
+Date: Fri, 27 Jun 2014 13:37:02 +0200
+Message-ID: <53AD575E.7040902@gmail.com>
+References: <536101C9.9090601@gmail.com> <CAKgNAkgA_xTfRZhpyVwuACpCY7xMK89e0bK4PuVMG9reNV6Skw@mail.gmail.com> <20140512143451.GB13801@kernel.org> <20140521210535.GA5414@kernel.org> <537E0961.8040005@gmail.com> <20140526134647.GB8176@kernel.org> <20140526211706.GA25474@kernel.org> <5384BEC5.2080607@gmail.com> <20140527192115.GD25474@kernel.org> <CAKgNAkht1vubHueYPpkRu_W5B8OYW3rPUkHeLEq5WMVbCvO47w@mail.gmail.com> <20140527203010.GA2764@kernel.org> <5385D47A.3070401@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <wg@grandegger.com>,
-	<mkl@pengutronix.de>, <devicetree@vger.kernel.org>
-To: <linux-can@vger.kernel.org>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1403863246-18822-1-git-send-email-b29396@freescale.com>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, lkml <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	=?UTF-8?B?T25kxZllaiBCw61sa2E=?= <neleai-9Vj9tDbzfuSlVyrhU4qvOw@public.gmane.org>,
+	Caitlin Bestler <caitlin.bestler-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Elie De Brauwer <eliedebrauwer-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Steven Whitehouse <steve-TMeXKDtMCpxBDgjK7y7TUQ@public.gmane.org>,
+	David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>,
+	Paul Moore <paul-r2n+y4ga6xFZroRs9YW3xA@public.gmane.org>,
+	Chris Friesen <chris.friesen-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>
+To: Arnaldo Carvalho de Melo <acme-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5385D47A.3070401-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Add bus error, state change, lost message handling mechanism.
+Hi Arnaldo,
 
-Signed-off-by: Dong Aisheng <b29396@freescale.com>
----
- drivers/net/can/m_can.c |  271 +++++++++++++++++++++++++++++++++++++++++------
- 1 files changed, 240 insertions(+), 31 deletions(-)
+On 05/28/2014 02:20 PM, Michael Kerrisk (man-pages) wrote:
+> On 05/27/2014 10:30 PM, Arnaldo Carvalho de Melo wrote:
+>> Em Tue, May 27, 2014 at 09:28:37PM +0200, Michael Kerrisk (man-pages) escreveu:
+>>> On Tue, May 27, 2014 at 9:21 PM, Arnaldo Carvalho de Melo
+>>> <acme-f8uhVLnGfZaxAyOMLChx1axOck334EZe@public.gmane.org> wrote:
+>>>> Em Tue, May 27, 2014 at 06:35:17PM +0200, Michael Kerrisk (man-pages) escreveu:
+>>>>> On 05/26/2014 11:17 PM, Arnaldo Carvalho de Melo wrote:
+>>>>>> Can you try the attached patch on top of the first one?
+>>>>
+>>>>> Patches on patches is a way to make your testers work unnecessarily
+>>>>> harder. Also, it means that anyone else who was interested in this
+>>>>
+>>>> It was meant to highlight the changes with regard to the previous patch,
+>>>> i.e. to make things easier for reviewing.
+>>>
+>>> (I don't think that works...)
+>>
+>> Lets try both then, 
+> 
+> That's better!
+> 
+>> attached goes the updated patch, and this is the
+>> diff to the last combined one:
+>>
+>> diff --git a/net/socket.c b/net/socket.c
+>> index 310a50971769..379be43879db 100644
+>> --- a/net/socket.c
+>> +++ b/net/socket.c
+>> @@ -2478,8 +2478,7 @@ SYSCALL_DEFINE5(recvmmsg, int, fd, struct mmsghdr __user *, mmsg,
+>>  
+>>  	datagrams = __sys_recvmmsg(fd, mmsg, vlen, flags, &timeout_sys);
+>>  
+>> -	if (datagrams > 0 &&
+>> -	    copy_to_user(timeout, &timeout_sys, sizeof(timeout_sys)))
+>> +	if (copy_to_user(timeout, &timeout_sys, sizeof(timeout_sys)))
+>>  		datagrams = -EFAULT;
+>>  
+>>  	return datagrams;
+>>  
+>> ------------------------------------------
+>>
+>> This is a quick thing just to show where the problem lies, need to think
+>> how to report an -EFAULT at this point properly, i.e. look at
+>> __sys_recvmmsg for something related (returning the number of
+>> successfully copied datagrams to userspace while storing the error for
+>> subsequent reporting):
+>>
+>>         if (err == 0)
+>>                 return datagrams;
+>>
+>>         if (datagrams != 0) {
+>>                 /*
+>>                  * We may return less entries than requested (vlen) if
+>>                  * the
+>>                  * sock is non block and there aren't enough
+>>                  * datagrams...
+>>                  */
+>>                 if (err != -EAGAIN) {
+>>                         /*
+>>                          * ... or  if recvmsg returns an error after we
+>>                          * received some datagrams, where we record the
+>>                          * error to return on the next call or if the
+>>                          * app asks about it using getsockopt(SO_ERROR).
+>>                          */
+>>                         sock->sk->sk_err = -err;
+>>                 }
+>>
+>>                 return datagrams;
+>>         }
+>>
+>> I.e. userspace would have to use getsockopt(SO_ERROR)... need to think
+>> more about it, sidetracked now, will be back to this.
+>>
+>> Anyway, attached goes the current combined patch.
+> 
+> So, I applied against net-next as you suggested offlist.
+> Builds and generally tests fine. Some observations:
+> 
+> * In the case that the call is interrupted by a signal handler and no
+>   datagrams have been received, the call fails with EINTR, as expected.
+> 
+> * The call always updates 'timeout', both in the success case and in the
+>   EINTR case. (That seems fine.)
 
-diff --git a/drivers/net/can/m_can.c b/drivers/net/can/m_can.c
-index 61e9a8e..e4aed71 100644
---- a/drivers/net/can/m_can.c
-+++ b/drivers/net/can/m_can.c
-@@ -83,6 +83,18 @@ enum m_can_reg {
- 	M_CAN_TXEFA	= 0xf8,
- };
- 
-+/* m_can lec values */
-+enum m_can_lec_type {
-+	LEC_NO_ERROR = 0,
-+	LEC_STUFF_ERROR,
-+	LEC_FORM_ERROR,
-+	LEC_ACK_ERROR,
-+	LEC_BIT1_ERROR,
-+	LEC_BIT0_ERROR,
-+	LEC_CRC_ERROR,
-+	LEC_UNUSED,
-+};
-+
- /* CC Control Register(CCCR) */
- #define CCCR_CCE	BIT(1)
- #define CCCR_INIT	BIT(0)
-@@ -97,6 +109,19 @@ enum m_can_reg {
- #define BTR_SJW_SHIFT		0
- #define BTR_SJW_MASK		0xf
- 
-+/* Error Counter Register(ECR) */
-+#define ECR_RP			BIT(15)
-+#define ECR_REC_SHIFT		8
-+#define ECR_REC_MASK		(0x7f << ECR_REC_SHIFT)
-+#define ECR_TEC_SHIFT		0
-+#define ECR_TEC_MASK		0xff
-+
-+/* Protocol Status Register(PSR) */
-+#define PSR_BO		BIT(7)
-+#define PSR_EW		BIT(6)
-+#define PSR_EP		BIT(5)
-+#define PSR_LEC_MASK	0x7
-+
- /* Interrupt Register(IR) */
- #define IR_ALL_INT	0xffffffff
- #define IR_STE		BIT(31)
-@@ -131,10 +156,11 @@ enum m_can_reg {
- #define IR_RF0F		BIT(2)
- #define IR_RF0W		BIT(1)
- #define IR_RF0N		BIT(0)
--#define IR_ERR_ALL	(IR_STE	| IR_FOE | IR_ACKE | IR_BE | IR_CRCE | \
--		IR_WDI | IR_BO | IR_EW | IR_EP | IR_ELO | IR_BEU | \
--		IR_BEC | IR_TOO | IR_MRAF | IR_TSW | IR_TEFL | IR_RF1L | \
--		IR_RF0L)
-+#define IR_ERR_STATE	(IR_BO | IR_EW | IR_EP)
-+#define IR_ERR_BUS	(IR_STE	| IR_FOE | IR_ACKE | IR_BE | IR_CRCE | \
-+		IR_WDI | IR_ELO | IR_BEU | IR_BEC | IR_TOO | IR_MRAF | \
-+		IR_TSW | IR_TEFL | IR_RF1L | IR_RF0L)
-+#define IR_ERR_ALL	(IR_ERR_STATE | IR_ERR_BUS)
- 
- /* Rx FIFO 0/1 Configuration (RXF0C/RXF1C) */
- #define RXFC_FWM_OFF	24
-@@ -320,12 +346,175 @@ static int m_can_do_rx_poll(struct net_device *dev, int quota)
- 	return num_rx_pkts;
- }
- 
-+static int m_can_handle_lost_msg(struct net_device *dev)
-+{
-+	struct net_device_stats *stats = &dev->stats;
-+	struct sk_buff *skb;
-+	struct can_frame *frame;
-+
-+	netdev_err(dev, "msg lost in rxf0\n");
-+
-+	skb = alloc_can_err_skb(dev, &frame);
-+	if (unlikely(!skb))
-+		return 0;
-+
-+	frame->can_id |= CAN_ERR_CRTL;
-+	frame->data[1] = CAN_ERR_CRTL_RX_OVERFLOW;
-+	stats->rx_errors++;
-+	stats->rx_over_errors++;
-+
-+	netif_receive_skb(skb);
-+
-+	return 1;
-+}
-+
-+static int m_can_handle_bus_err(struct net_device *dev,
-+				enum m_can_lec_type lec_type)
-+{
-+	struct m_can_priv *priv = netdev_priv(dev);
-+	struct net_device_stats *stats = &dev->stats;
-+	struct can_frame *cf;
-+	struct sk_buff *skb;
-+
-+	/* early exit if no lec update */
-+	if (lec_type == LEC_UNUSED)
-+		return 0;
-+
-+	/* propagate the error condition to the CAN stack */
-+	skb = alloc_can_err_skb(dev, &cf);
-+	if (unlikely(!skb))
-+		return 0;
-+
-+	/*
-+	 * check for 'last error code' which tells us the
-+	 * type of the last error to occur on the CAN bus
-+	 */
-+	priv->can.can_stats.bus_error++;
-+	stats->rx_errors++;
-+	cf->can_id |= CAN_ERR_PROT | CAN_ERR_BUSERROR;
-+	cf->data[2] |= CAN_ERR_PROT_UNSPEC;
-+
-+	switch (lec_type) {
-+	case LEC_STUFF_ERROR:
-+		netdev_dbg(dev, "stuff error\n");
-+		cf->data[2] |= CAN_ERR_PROT_STUFF;
-+		break;
-+	case LEC_FORM_ERROR:
-+		netdev_dbg(dev, "form error\n");
-+		cf->data[2] |= CAN_ERR_PROT_FORM;
-+		break;
-+	case LEC_ACK_ERROR:
-+		netdev_dbg(dev, "ack error\n");
-+		cf->data[3] |= (CAN_ERR_PROT_LOC_ACK |
-+				CAN_ERR_PROT_LOC_ACK_DEL);
-+		break;
-+	case LEC_BIT1_ERROR:
-+		netdev_dbg(dev, "bit1 error\n");
-+		cf->data[2] |= CAN_ERR_PROT_BIT1;
-+		break;
-+	case LEC_BIT0_ERROR:
-+		netdev_dbg(dev, "bit0 error\n");
-+		cf->data[2] |= CAN_ERR_PROT_BIT0;
-+		break;
-+	case LEC_CRC_ERROR:
-+		netdev_dbg(dev, "CRC error\n");
-+		cf->data[3] |= (CAN_ERR_PROT_LOC_CRC_SEQ |
-+				CAN_ERR_PROT_LOC_CRC_DEL);
-+		break;
-+	default:
-+		break;
-+	}
-+
-+	netif_receive_skb(skb);
-+	stats->rx_packets++;
-+	stats->rx_bytes += cf->can_dlc;
-+
-+	return 1;
-+}
-+
-+static int m_can_get_berr_counter(const struct net_device *dev,
-+				  struct can_berr_counter *bec)
-+{
-+	struct m_can_priv *priv = netdev_priv(dev);
-+	unsigned int ecr;
-+
-+	ecr = m_can_read(priv, M_CAN_ECR);
-+	bec->rxerr = (ecr & ECR_REC_MASK) >> ECR_REC_SHIFT;
-+	bec->txerr = ecr & ECR_TEC_MASK;
-+
-+	return 0;
-+}
-+
-+static int m_can_handle_state_change(struct net_device *dev,
-+				enum can_state new_state)
-+{
-+	struct m_can_priv *priv = netdev_priv(dev);
-+	struct net_device_stats *stats = &dev->stats;
-+	struct can_frame *cf;
-+	struct sk_buff *skb;
-+	struct can_berr_counter bec;
-+	unsigned int ecr;
-+
-+	/* propagate the error condition to the CAN stack */
-+	skb = alloc_can_err_skb(dev, &cf);
-+	if (unlikely(!skb))
-+		return 0;
-+
-+	m_can_get_berr_counter(dev, &bec);
-+
-+	switch (new_state) {
-+	case CAN_STATE_ERROR_ACTIVE:
-+		/* error warning state */
-+		priv->can.can_stats.error_warning++;
-+		priv->can.state = CAN_STATE_ERROR_WARNING;
-+		cf->can_id |= CAN_ERR_CRTL;
-+		cf->data[1] = (bec.txerr > bec.rxerr) ?
-+			CAN_ERR_CRTL_TX_WARNING :
-+			CAN_ERR_CRTL_RX_WARNING;
-+		cf->data[6] = bec.txerr;
-+		cf->data[7] = bec.rxerr;
-+		break;
-+	case CAN_STATE_ERROR_PASSIVE:
-+		/* error passive state */
-+		priv->can.can_stats.error_passive++;
-+		priv->can.state = CAN_STATE_ERROR_PASSIVE;
-+		cf->can_id |= CAN_ERR_CRTL;
-+		ecr = m_can_read(priv, M_CAN_ECR);
-+		if (ecr & ECR_RP)
-+			cf->data[1] |= CAN_ERR_CRTL_RX_PASSIVE;
-+		if (bec.txerr > 127)
-+			cf->data[1] |= CAN_ERR_CRTL_TX_PASSIVE;
-+		cf->data[6] = bec.txerr;
-+		cf->data[7] = bec.rxerr;
-+		break;
-+	case CAN_STATE_BUS_OFF:
-+		/* bus-off state */
-+		priv->can.state = CAN_STATE_BUS_OFF;
-+		cf->can_id |= CAN_ERR_BUSOFF;
-+		/*
-+		 * disable all interrupts in bus-off mode to ensure that
-+		 * the CPU is not hogged down
-+		 */
-+		m_can_enable_all_interrupts(priv, false);
-+		can_bus_off(dev);
-+		break;
-+	default:
-+		break;
-+	}
-+
-+	netif_receive_skb(skb);
-+	stats->rx_packets++;
-+	stats->rx_bytes += cf->can_dlc;
-+
-+	return 1;
-+}
-+
- static int m_can_poll(struct napi_struct *napi, int quota)
- {
- 	struct net_device *dev = napi->dev;
- 	struct m_can_priv *priv = netdev_priv(dev);
- 	u32 work_done = 0;
--	u32 irqstatus;
-+	u32 irqstatus, psr;
- 
- 	irqstatus = m_can_read(priv, M_CAN_IR);
- 	if (irqstatus)
-@@ -337,6 +526,48 @@ static int m_can_poll(struct napi_struct *napi, int quota)
- 	if (!irqstatus)
- 		goto end;
- 
-+	psr = m_can_read(priv, M_CAN_PSR);
-+	if (irqstatus & IR_ERR_STATE) {
-+		if ((psr & PSR_EW) &&
-+			(priv->can.state != CAN_STATE_ERROR_WARNING)) {
-+			netdev_dbg(dev, "entered error warning state\n");
-+			work_done += m_can_handle_state_change(dev,
-+					CAN_STATE_ERROR_WARNING);
-+		}
-+
-+		if ((psr & PSR_EP) &&
-+			(priv->can.state != CAN_STATE_ERROR_PASSIVE)) {
-+			netdev_dbg(dev, "entered error warning state\n");
-+			work_done += m_can_handle_state_change(dev,
-+					CAN_STATE_ERROR_PASSIVE);
-+		}
-+
-+		if ((psr & PSR_BO) &&
-+			(priv->can.state != CAN_STATE_BUS_OFF)) {
-+			netdev_dbg(dev, "entered error warning state\n");
-+			work_done += m_can_handle_state_change(dev,
-+					CAN_STATE_BUS_OFF);
-+		}
-+	}
-+
-+	if (irqstatus & IR_ERR_BUS) {
-+		if (irqstatus & IR_RF0L)
-+			work_done += m_can_handle_lost_msg(dev);
-+
-+		/* handle lec errors on the bus */
-+		if (psr & LEC_UNUSED)
-+			work_done += m_can_handle_bus_err(dev,
-+					psr & LEC_UNUSED);
-+
-+		/* other unproccessed error interrupts */
-+		if (irqstatus & IR_WDI)
-+			netdev_err(dev, "Message RAM Watchdog event due to missing READY\n");
-+		if (irqstatus & IR_TOO)
-+			netdev_err(dev, "Timeout reached\n");
-+		if (irqstatus & IR_MRAF)
-+			netdev_err(dev, "Message RAM access failure occurred\n");
-+	}
-+
- 	if (irqstatus & IR_RF0N)
- 		/* handle events corresponding to receive message objects */
- 		work_done += m_can_do_rx_poll(dev, (quota - work_done));
-@@ -369,31 +600,18 @@ static irqreturn_t m_can_isr(int irq, void *dev_id)
- 	if (ir & IR_ALL_INT)
- 		m_can_write(priv, M_CAN_IR, ir);
- 
--	if (ir & IR_ERR_ALL) {
--		netdev_dbg(dev, "bus error\n");
--		/* TODO: handle bus error */
--	}
--
--	/* save irqstatus for later using */
--	priv->irqstatus = ir;
--
- 	/*
- 	 * schedule NAPI in case of
- 	 * - rx IRQ
--	 * - state change IRQ(TODO)
--	 * - bus error IRQ and bus error reporting (TODO)
-+	 * - state change IRQ
-+	 * - bus error IRQ and bus error reporting
- 	 */
--	if (ir & IR_RF0N) {
-+	if ((ir & IR_RF0N) || (ir & IR_ERR_ALL)) {
-+		priv->irqstatus = ir;
- 		m_can_enable_all_interrupts(priv, false);
- 		napi_schedule(&priv->napi);
- 	}
- 
--	/* FIFO overflow */
--	if (ir & IR_RF0L) {
--		dev->stats.rx_over_errors++;
--		dev->stats.rx_errors++;
--	}
--
- 	/* transmission complete interrupt */
- 	if (ir & IR_TC) {
- 		netdev_dbg(dev, "tx complete\n");
-@@ -446,7 +664,6 @@ static int m_can_set_bittiming(struct net_device *dev)
-  * - setup bittiming
-  * - TODO:
-  *   1) other working modes support like monitor, loopback...
-- *   2) lec error status report enable
-  */
- static void m_can_chip_config(struct net_device *dev)
- {
-@@ -515,14 +732,6 @@ static int m_can_set_mode(struct net_device *dev, enum can_mode mode)
- 	return 0;
- }
- 
--static int m_can_get_berr_counter(const struct net_device *dev,
--				  struct can_berr_counter *bec)
--{
--	/* TODO */
--
--	return 0;
--}
--
- static void free_m_can_dev(struct net_device *dev)
- {
- 	free_candev(dev);
+So, returning to your recvmmsg-timeout-v3.patch. I think the behavior as
+implemented, and described above is okay.
+
+> But, another question...
+> 
+> In the case that the call is interrupted by a signal handler and some
+> datagrams have already been received, then the call succeeds, and
+> returns the number of datagrams received, and 'timeout' is updated with
+> the remaining time. Maybe that's the right behavior, but I just want to
+> check. There is at least one other possibility:
+>
+> * Fetch no datagrams (i.e., the datagrams are left to receive in a
+>   future call), and the call fails with EINTR, and 'timeout' is updated.
+> 
+> Maybe that possibility is hard to implement (not sure). But my main point
+> is to make the current behavior clear, note the alternative, and ask:
+> is the current behavior the best choice. (I'm not saying it's not, but I
+> do want the choice to be a conscious one.)
+
+So, I think (can't find the mail right now) that you explained elsewhere
+that the above would be hard to implement. And in any case, I'm not sure
+it's desirable; I only wanted to check that the choice was a deliberate one.
+
+However, there is still a weirdness, which relates to the discussion you
+and David Laight had. 
+
+Suppose the following scenario.
+
+1. We do a recvmmsg() with 10 second timeout, asking for 5 messages.
+2. 3 messages arrive
+3. 6 seconds after the call, a signal handler interrupts the call.
+4. recvmmsg() returns success, telling us it got 3 messages.
+
+So far, so good. But
+
+5. We make a further recvmmsg() call.
+6. That call returns immediately, with an EINTR error.
+
+That really should not be happening. As noted elsewhere in this
+thread, EINTR is a property of a specific system call, not of the
+thread or the socket. By the time of step 5, the kernel should
+already have forgotten about the signal that occurred at step 3.
+I don't think I saw any other patch that fixes that behavior.
+
+I recall now that this was why I was waiting for you to follow up 
+in this thread with a new patch.
+
+Cheers,
+
+Michael
+
+
 -- 
-1.7.8
-
+Michael Kerrisk
+Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
+Linux/UNIX System Programming Training: http://man7.org/training/
+--
+To unsubscribe from this list: send the line "unsubscribe linux-man" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
