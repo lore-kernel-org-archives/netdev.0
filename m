@@ -1,99 +1,56 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH - RESEND] Bluetooth: Keep master role when SCO or eSCO is active
-Date: Fri, 27 Jun 2014 11:41:15 +0200
-Message-ID: <1C876A95-8077-4BA9-9A16-8AEB9C6AF117@holtmann.org>
-References: <1403860813-360-1-git-send-email-kiran.kumar@linaro.org>
-Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.2\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	"hyungseoung.yoo" <hyungseoung.yoo@samsung.com>,
-	"Gustavo F. Padovan" <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
-	Android Kernel Team <kernel-team@android.com>,
-	John Stultz <john.stultz@linaro.org>,
-	Jaikumar Ganesh <jaikumarg@android.com>
-To: Kiran Kumar Raparthy <kiran.kumar@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1403860813-360-1-git-send-email-kiran.kumar@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH v2 2/2] powerpc: bpf: Fix the broken LD_VLAN_TAG_PRESENT
+ test
+Date: Fri, 27 Jun 2014 11:46:32 +0200
+Message-ID: <53AD3D78.4000005@redhat.com>
+References: <1403717697-3911-1-git-send-email-kda@linux-powerpc.org>   <1403717697-3911-2-git-send-email-kda@linux-powerpc.org>  <1403771455.18572.8.camel@concordia> <53ABDB72.9020902@redhat.com> <1403845697.21873.1.camel@concordia>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Denis Kirjanov <kda@linux-powerpc.org>, netdev@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org
+To: Michael Ellerman <mpe@ellerman.id.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:23071 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752603AbaF0Jqm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 27 Jun 2014 05:46:42 -0400
+In-Reply-To: <1403845697.21873.1.camel@concordia>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Kiran,
+On 06/27/2014 07:08 AM, Michael Ellerman wrote:
+> On Thu, 2014-06-26 at 10:36 +0200, Daniel Borkmann wrote:
+>> On 06/26/2014 10:30 AM, Michael Ellerman wrote:
+>>> On Wed, 2014-06-25 at 21:34 +0400, Denis Kirjanov wrote:
+>>>> We have to return the boolean here if the tag presents
+>>>> or not, not just ANDing the TCI with the mask which results to:
+>>>>
+>>>> [  709.412097] test_bpf: #18 LD_VLAN_TAG_PRESENT
+>>>> [  709.412245] ret 4096 != 1
+>>>> [  709.412332] ret 4096 != 1
+>>>> [  709.412333] FAIL (2 times)
+>>>
+>>> Hi Denis,
+>>>
+>>> Is this the same version of test_bpf that is in Linus' tree?
+>>>
+>>> I don't see any fails with that version, am I missing something?
+>>>
+>>>     [  187.690640] test_bpf: #18 LD_VLAN_TAG_PRESENT 46 50 PASS
+>>
+>> Did you try to modprobe test_bpf after enabling JIT, i.e. :
+>>
+>>     echo 1 > /proc/sys/net/core/bpf_jit_enable
+>>
+>> Last time I tested with ppc64, I saw the interpreter passing
+>> while JIT failed, which the fix above should address.
+>
+> Right, I thought CONFIG_BPF_JIT=y was sufficient.
+>
+> But that just makes it available, I need to *also* enable it at runtime.
 
-> Preserve the master role when SCO or eSCO is active
-> as this improves compatability with lots of
-> headset and chipset combinations.
-
-this comment is pretty much non-sense. If you have an incoming BR/EDR connection, then by default you will be slave. The acceptor is the slave, there is no way of preserving the master role. You never had it in the first place.
-
-So lets assume you have an existing connection with a different device, then yes it could be beneficial to not enter a scatternet situation. Assume you are already master in the existing connection, then sure, staying master here is beneficial since you don't want to maintain a second connection and you want to drive the piconet. However what happens when you are slave in the existing connection. Are you forcing now master role on the new connection or better stay slave. Or check if you might be able to become master for both devices and thus move them into a single piconet.
-
-> This is one of the number of patches from the Android AOSP
-> common.git tree, which is used on almost all Android devices.
-> It looks like it would improve support for compatibility with
-> lot of headset,so I wanted to submit it for review to see
-> if it should go upstream.
-> 
-> v3: Fixed formatting issues pointed by Sergei
-> 
-> Cc: Marcel Holtmann <marcel@holtmann.org>
-> Cc: Gustavo Padovan <gustavo@padovan.org>
-> Cc: Johan Hedberg <johan.hedberg@gmail.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: linux-bluetooth@vger.kernel.org
-> Cc: netdev@vger.kernel.org
-> Cc: linux-kernel@vger.kernel.org
-> Cc: Android Kernel Team <kernel-team@android.com>
-> Cc: John Stultz <john.stultz@linaro.org>
-> Signed-off-by: hyungseoung.yoo <hyungseoung.yoo@samsung.com>
-> Signed-off-by: Jaikumar Ganesh <jaikumarg@android.com>
-> [kiran: Added context to commit message]
-> Signed-off-by: Kiran Raparthy <kiran.kumar@linaro.org>
-
-I am pretty sick of just blasting patches to everybody on the planet. Patches concerning Bluetooth subsystem should be send to linux-bluetooth@vger.kernel.org only. There is no point in spamming everybody else.
-
-> ---
-> net/bluetooth/hci_event.c | 12 +++++++++++-
-> 1 file changed, 11 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/bluetooth/hci_event.c b/net/bluetooth/hci_event.c
-> index 15010a2..cfb1355 100644
-> --- a/net/bluetooth/hci_event.c
-> +++ b/net/bluetooth/hci_event.c
-> @@ -1915,6 +1915,14 @@ unlock:
-> 	hci_conn_check_pending(hdev);
-> }
-> 
-> +static inline bool is_sco_active(struct hci_dev *hdev)
-> +{
-> +	if (hci_conn_hash_lookup_state(hdev, SCO_LINK, BT_CONNECTED) ||
-> +	    hci_conn_hash_lookup_state(hdev, ESCO_LINK, BT_CONNECTED))
-> +		return true;
-> +	return false;
-> +}
-> +
-> static void hci_conn_request_evt(struct hci_dev *hdev, struct sk_buff *skb)
-> {
-> 	struct hci_ev_conn_request *ev = (void *) skb->data;
-> @@ -1961,7 +1969,9 @@ static void hci_conn_request_evt(struct hci_dev *hdev, struct sk_buff *skb)
-> 
-> 			bacpy(&cp.bdaddr, &ev->bdaddr);
-> 
-> -			if (lmp_rswitch_capable(hdev) && (mask & HCI_LM_MASTER))
-> +			if (lmp_rswitch_capable(hdev) &&
-> +			    ((mask & HCI_LM_MASTER) ||
-> +			    is_sco_active(hdev)))
-> 				cp.role = 0x00; /* Become master */
-> 			else
-> 				cp.role = 0x01; /* Remain slave */
-
-So this is a policy that takes global affect and might not be the what all devices want to do. The problem now is that acceptors force slave role on the initiator. It might be the case that the initiator can not facilitate the slave role here. And that results in connection failures with certain devices. Not a good idea.
-
-Where I am standing this should be a policy that the SCO sockets that are active can enforce. So on a SCO socket you might set that you want to stay master. And that policy, if set, then gets enforced here. That allows other profiles to pick whatever policy they want.
-
-Regards
-
-Marcel
+Yes, it's an extra runtime knob which still needs to be enabled by
+the admin for security reasons. This knob also allows you to enable
+the debugging interface `echo 2 >/proc/sys/net/core/bpf_jit_enable`
+where the disassembly can be read out via: tools/net/bpf_jit_disasm.c
