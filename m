@@ -1,43 +1,41 @@
 From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH CFT 03/30] net: fec: fix ethtool set_pauseparam duplex bug
-Date: Fri, 27 Jun 2014 16:19:08 +0100
-Message-ID: <E1X0Xvg-0001My-Mk@rmk-PC.arm.linux.org.uk>
+Subject: [PATCH CFT 02/30] net: fec: iMX6 FEC does not support half-duplex
+ gigabit
+Date: Fri, 27 Jun 2014 16:19:03 +0100
+Message-ID: <E1X0Xvb-0001Mu-JB@rmk-PC.arm.linux.org.uk>
 References: <20140627151542.GL32514@n2100.arm.linux.org.uk>
 Cc: Fugang Duan <B38611@freescale.com>
 To: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:45181 "EHLO
+Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:45179 "EHLO
 	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752794AbaF0PTO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 11:19:14 -0400
+	by vger.kernel.org with ESMTP id S1753579AbaF0PTL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 11:19:11 -0400
 In-Reply-To: <20140627151542.GL32514@n2100.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Setting the pause parameters causes a running network interface to be
-restarted.  However, the restart forces the FEC into half-duplex mode,
-whether or not the remote end is in half-duplex mode.  Misconfigured
-duplex mode is a known source of problems on a link.
-
-Fix this by always preserving the duplex mode on configuration changes.
+The iMX6 gigabit FEC does not support half-duplex gigabit operation.
+Phys attacked to the FEC may support this, and we currently do nothing
+to disable this feature.  This may result in an invalid configuration.
+Mask out phy support for gigabit half-duplex operation.
 
 Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- drivers/net/ethernet/freescale/fec_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/freescale/fec_main.c | 1 +
+ 1 file changed, 1 insertion(+)
 
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index a91fe68030e6..045ea71f2b59 100644
+index 77037fd377b8..a91fe68030e6 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1897,7 +1897,7 @@ static int fec_enet_set_pauseparam(struct net_device *ndev,
- 		phy_start_aneg(fep->phy_dev);
- 	}
- 	if (netif_running(ndev))
--		fec_restart(ndev, 0);
-+		fec_restart(ndev, fep->full_duplex);
- 
- 	return 0;
- }
+@@ -1667,6 +1667,7 @@ static int fec_enet_mii_probe(struct net_device *ndev)
+ 	/* mask with MAC supported features */
+ 	if (id_entry->driver_data & FEC_QUIRK_HAS_GBIT) {
+ 		phy_dev->supported &= PHY_GBIT_FEATURES;
++		phy_dev->supported &= ~SUPPORTED_1000baseT_Half;
+ #if !defined(CONFIG_M5272)
+ 		phy_dev->supported |= SUPPORTED_Pause;
+ #endif
 -- 
 1.8.3.1
