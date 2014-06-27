@@ -1,41 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fix circular dependency in of_mdio code
-Date: Fri, 27 Jun 2014 12:45:10 -0700 (PDT)
-Message-ID: <20140627.124510.393574473550421757.davem@davemloft.net>
-References: <1403766631-11499-1-git-send-email-zonque@gmail.com>
-	<20140627.002626.309916119429166859.davem@davemloft.net>
+Subject: Re: [PATCH net-next 00/13] tipc: new unicast transmission code
+Date: Fri, 27 Jun 2014 12:56:52 -0700 (PDT)
+Message-ID: <20140627.125652.1511733972619182099.davem@davemloft.net>
+References: <1403746902-20408-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: jeffm@suse.com, f.fainelli@gmail.com, netdev@vger.kernel.org
-To: zonque@gmail.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net
+To: jon.maloy@ericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60399 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60486 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751087AbaF0TpL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 15:45:11 -0400
-In-Reply-To: <20140627.002626.309916119429166859.davem@davemloft.net>
+	with ESMTP id S1751314AbaF0T4x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 15:56:53 -0400
+In-Reply-To: <1403746902-20408-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogRnJpLCAyNyBK
-dW4gMjAxNCAwMDoyNjoyNiAtMDcwMCAoUERUKQ0KDQo+IEZyb206IERhbmllbCBNYWNrIDx6b25x
-dWVAZ21haWwuY29tPg0KPiBEYXRlOiBUaHUsIDI2IEp1biAyMDE0IDA5OjEwOjMxICswMjAwDQo+
-IA0KPj4gQ29tbWl0IDg2ZjZjZjQxMjcgKG5ldDogb2ZfbWRpbzogYWRkIG9mX21kaW9idXNfbGlu
-a19waHlkZXYoKSkgaW50cm9kdWNlZCBhDQo+PiBjaXJjdWxhciBkZXBlbmRlbmN5IGJldHdlZW4g
-bGlicGh5IGFuZCBvZl9tZGlvLg0KPj4gDQo+PiBkZXBtb2Q6IEVSUk9SOiA8bW9kcm9vdD4va2Vy
-bmVsL2RyaXZlcnMvbmV0L3BoeS9saWJwaHkua28gaW4NCj4+IGRlcGVuZGVuY3kgY3ljbGUhDQo+
-PiBkZXBtb2Q6IEVSUk9SOiA8bW9kcm9vdD4va2VybmVsL2RyaXZlcnMvb2Yvb2ZfbWRpby5rbyBp
-biBkZXBlbmRlbmN5IGN5Y2xlIQ0KPj4gDQo+PiBUaGUgcHJvYmxlbSBpcyB0aGF0IG9mX21kaW8u
-YyByZWZlcmVuY2VzICZtZGlvX2J1c190eXBlIGFuZCBsaWJwaHkgbm93DQo+PiByZWZlcmVuY2Vz
-IG9mX21kaW9idXNfbGlua19waHlkZXYuDQo+PiANCj4+IEZpeCB0aGlzIGJ5IG5vdCBleHBvcnRp
-bmcgb2ZfbWRpb2J1c19saW5rX3BoeWRldigpIGZyb20gb2ZfbWRpby5rby4NCj4+IE1ha2UgaXQg
-YSBzdGF0aWMgZnVuY3Rpb24gaW4gbWRpb19idXMuYyBpbnN0ZWFkLg0KPj4gDQo+PiBTaWduZWQt
-b2ZmLWJ5OiBEYW5pZWwgTWFjayA8em9ucXVlQGdtYWlsLmNvbT4NCj4+IFJlcG9ydGVkLWJ5OiBK
-ZWZmIE1haG9uZXkgPGplZmZtQHN1c2UuY29tPg0KPj4gRml4ZXM6IDg2ZjZjZjQxMjcgKG5ldDog
-b2ZfbWRpbzogYWRkIG9mX21kaW9idXNfbGlua19waHlkZXYoKSkNCj4gDQo+IEFwcGxpZWQsIHRo
-YW5rIHlvdS4NCg0KVGhpcyBkb2Vzbid0IHdvcmssIGl0IGJyZWFrcyB0aGUgYnVpbGQ6DQoNCmRy
-aXZlcnMvbmV0L3BoeS9tZGlvX2J1cy5jOiBJbiBmdW5jdGlvbiChbWRpb2J1c19zY2FuojoNCmRy
-aXZlcnMvbmV0L3BoeS9tZGlvX2J1cy5jOjM0NjoyOiBlcnJvcjogaW1wbGljaXQgZGVjbGFyYXRp
-b24gb2YgZnVuY3Rpb24goW9mX21kaW9idXNfbGlua19waHlkZXaiIFstV2Vycm9yPWltcGxpY2l0
-LWZ1bmN0aW9uLWRlY2xhcmF0aW9uXQ0K
+From: Jon Maloy <jon.maloy@ericsson.com>
+Date: Wed, 25 Jun 2014 20:41:29 -0500
+
+> As a step towards making the data transmission code more maintainable
+> and performant, we introduce a number of new functions, both for
+> building, sending and rejecting messages. The new functions will
+> eventually be used for alla data transmission, user data unicast,
+> service internal messaging, and multicast/broadcast.
+> 
+> We start with this series, where we introduce the functions, and
+> let user data unicast and the internal connection protocol use them.
+> The remaining users will come in a later series.
+> 
+> There are only minor changes to data structures, and no protocol
+> changes, so the older functions can still be used in parallel for
+> some time. Until the old functions are removed, we use temporary
+> names for the new functions, such as tipc_build_msg2, tipc_link_xmit2.
+> 
+> It should be noted that the first two commits are unrelated to the
+> rest of the series.
+
+Series applied, thanks Jon.
