@@ -1,39 +1,29 @@
-From: Fabian Frederick <fabf@skynet.be>
-Subject: [PATCH 1/1] net/caif/caif_socket.c: remove unnecessary null test before debugfs_remove_recursive
-Date: Fri, 27 Jun 2014 23:07:43 +0200
-Message-ID: <1403903263-13355-1-git-send-email-fabf@skynet.be>
-Cc: Fabian Frederick <fabf@skynet.be>,
-	Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-based on checkpatch:
-"debugfs_remove_recursive(NULL) is safe this check is probably not required"
-
-Cc: Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>
-Cc: "David S. Miller" <davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next v2 00/13] remove code duplication in
+ tcp_v[46]_conn_request
+Date: Fri, 27 Jun 2014 15:54:24 -0700 (PDT)
+Message-ID: <20140627.155424.1148874515273039754.davem@davemloft.net>
+References: <1403705402-14388-1-git-send-email-octavian.purdila@intel.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-Signed-off-by: Fabian Frederick <fabf@skynet.be>
----
- net/caif/caif_socket.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+To: octavian.purdila@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33491 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751823AbaF0Wy1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 18:54:27 -0400
+In-Reply-To: <1403705402-14388-1-git-send-email-octavian.purdila@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-diff --git a/net/caif/caif_socket.c b/net/caif/caif_socket.c
-index e843709..43f750e 100644
---- a/net/caif/caif_socket.c
-+++ b/net/caif/caif_socket.c
-@@ -908,8 +908,7 @@ static int caif_release(struct socket *sock)
- 	sock->sk = NULL;
- 
- 	WARN_ON(IS_ERR(cf_sk->debugfs_socket_dir));
--	if (cf_sk->debugfs_socket_dir != NULL)
--		debugfs_remove_recursive(cf_sk->debugfs_socket_dir);
-+	debugfs_remove_recursive(cf_sk->debugfs_socket_dir);
- 
- 	lock_sock(&(cf_sk->sk));
- 	sk->sk_state = CAIF_DISCONNECTED;
--- 
-1.8.4.5
+From: Octavian Purdila <octavian.purdila@intel.com>
+Date: Wed, 25 Jun 2014 17:09:49 +0300
+
+> This patch series unifies the TCPv4 and TCPv6 connection request flow
+> in a single new function (tcp_conn_request).
+
+Looks good, thanks for auditing the issue wrt. ipv4 mapped sockets.
+
+Applied to net-next, thanks again.
