@@ -1,83 +1,53 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: Re: [PATCH net-next 6/6] amd-xgbe: Resolve checkpatch warning about
- sscanf usage
-Date: Fri, 27 Jun 2014 08:35:49 -0500
-Message-ID: <53AD7335.7060800@amd.com>
-References: <1403647225.29061.64.camel@joe-AO725>	<53A9FF42.2090502@amd.com>
-	<1403650410.11163.2.camel@joe-AO725>
- <20140626.171255.274497260661771827.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>, <joe@perches.com>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH 0/5] cxgb4: Fix for PCI passthrough and some Misc. fixes
+Date: Fri, 27 Jun 2014 19:23:46 +0530
+Message-ID: <1403877231-8661-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, roland@purestorage.com,
+	swise@opengridcomputing.com, leedom@chelsio.com,
+	nirranjan@chelsio.com, kumaras@chelsio.com, anish@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2lp0204.outbound.protection.outlook.com ([207.46.163.204]:3161
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752822AbaF0NgM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 27 Jun 2014 09:36:12 -0400
-In-Reply-To: <20140626.171255.274497260661771827.davem@davemloft.net>
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:49356
+	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753731AbaF0NsV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 09:48:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/26/2014 07:12 PM, David Miller wrote:
-> From: Joe Perches <joe@perches.com>
-> Date: Tue, 24 Jun 2014 15:53:30 -0700
->
->> On Tue, 2014-06-24 at 17:44 -0500, Tom Lendacky wrote:
->>> On 06/24/2014 05:00 PM, Joe Perches wrote:
->>>> On Tue, 2014-06-24 at 16:19 -0500, Tom Lendacky wrote:
->>>>> Checkpatch issued a warning preferring to use kstrto<type> when
->>>>> using a single variable sscanf.  Change the sscanf invocation to
->>>>> a kstrtouint call.
->>>> []
->>>>> diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-debugfs.c b/drivers/net/ethernet/amd/xgbe/xgbe-debugfs.c
->>>> []
->>>>> @@ -165,10 +165,9 @@ static ssize_t xgbe_common_write(const char __user *buffer, size_t count,
->>>>>    		return len;
->>>>>
->>>>>    	workarea[len] = '\0';
->>>>> -	if (sscanf(workarea, "%x", &scan_value) == 1)
->>>>> -		*value = scan_value;
->>>>> -	else
->>>>> -		return -EIO;
->>>>> +	ret = kstrtouint(workarea, 0, value);
->>>>
->>>> Don't you need to use 16 for the base here?
->>
->>> Using 0 allows for greater flexibility in the input format.
->>
->> True, but there could be a change in behavior like reading a
->> previously hex value like 10 is now a decimal 10 not decimal 16.
->
-> Tom, under other circumstance you can't change the format.
-> v3.16 is going to be released with the existing %x formatting
-> expecting hexadecimal numbers.
->
-> And you're targetting this change to decimal format in net-next.
->
-> The only thing that really allows you to do this is that this is
-> debugfs, and it's a reason I really hate debugfs, people do
-> arbitrary stuff so that if the debugfs elements turn out to be
-> useful for someone the driver author can arbitarily break things
-> on them however they want.
->
-> It's a cop-out for things people don't want to be bound to avoid ABI
-> changes, and to me that's garbage.  If you expose it to the user
-> design it well to the point where you're willing to live with it's
-> interface forever, or don't expose it to the user at all.
->
+Hi,
 
-After Joe's comments I started looking around to see what is expected
-of debugfs.  I had always been under the impression that you shouldn't
-expect things to remain compatible under debugfs.  But after reading a
-number of things it appears that tools get created based on your
-interface and then break when it's changed.
+This patch series fixes probe failure in VM when PF is exposed through PCI
+Passthrough. Adds support to use firmware interface to get BAR0 value.
+Replace the backdoor mechanism to access the HW memory with PCIe Window method
+which fixes memory I/O. Also adds device ID of few more adapters for cxgb4 and
+cxgb4vf driver.
 
-I'll submit a follow-on patch that addresses Joe's and your concerns and
-put the interface back to just hexadecimal input with -EIO return on
-error to maintain compatibility with what is in 3.16
+The patches series is created against 'net-next' tree.
+And includes patches on cxgb4, cxgb4vf and iw_cxgb4 driver.
 
-Thanks,
-Tom
+Since this patch-series contains mainly cxgb4 related changes, we would like to
+request this patch series to get merged via David Miller's 'net-next' tree.
+
+We have included all the maintainers of respective drivers. Kindly review the
+change and let us know in case of any review comments.
+
+Thanks
+
+Hariprasad Shenai (5):
+  rdma/cxgb4: Fixes cxgb4 probe failure in VM when PF is exposed
+    through PCI Passthrough
+  cxgb4: Use FW interface to get BAR0 value
+  cxgb4: Replaced the backdoor mechanism to access the HW memory with
+    PCIe Window method
+  cxgb4: Adds device ID for few more Chelsio T4 Adapters
+  cxgb4vf: Adds device ID for few more Chelsio T4 Adapters
+
+ drivers/infiniband/hw/cxgb4/cm.c                   |    3 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h         |   20 ++-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c    |  168 +++++++++---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h     |    1 +
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c         |  270 +++++++++----------
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h       |    6 +
+ .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    |    9 +
+ 7 files changed, 288 insertions(+), 189 deletions(-)
