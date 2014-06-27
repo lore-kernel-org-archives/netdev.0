@@ -1,72 +1,41 @@
-From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Subject: [PATCH] README: clarify redistribution requirements covering patents
-Date: Fri, 27 Jun 2014 12:39:27 -0700
-Message-ID: <1403897967-5894-1-git-send-email-mcgrof@do-not-panic.com>
-Cc: "Luis R. Rodriguez" <mcgrof@suse.com>, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org
-To: linux-firmware@kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: fix circular dependency in of_mdio code
+Date: Fri, 27 Jun 2014 12:45:10 -0700 (PDT)
+Message-ID: <20140627.124510.393574473550421757.davem@davemloft.net>
+References: <1403766631-11499-1-git-send-email-zonque@gmail.com>
+	<20140627.002626.309916119429166859.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: jeffm@suse.com, f.fainelli@gmail.com, netdev@vger.kernel.org
+To: zonque@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:45488 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751087AbaF0Tji (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 15:39:38 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:60399 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751087AbaF0TpL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 15:45:11 -0400
+In-Reply-To: <20140627.002626.309916119429166859.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Luis R. Rodriguez" <mcgrof@suse.com>
-
-Firmware licenses on linux-firmware should include an implicit
-or explicit patent grant to end users for full device operation
-otherwise it would start making linux-firmware useless for many
-Linux distributions which have positions against patent encumbered
-software [0] [1] [2] and it would mean cherry picking firmware files
-out. It can also mean making it problematic to redistribute linux-firmware
-in some jurisdictions which could have different positions on
-patents, or have already outlawed software patents.
-
-Licenses with implicit patent grants are allowed given that otherwise
-we couldn't carry permissively licensed firmwares which would be silly,
-but using permissively licensed firmware files which remove patent
-grants explicitly are not allowed.
-
-A clarifications is needed as one attempt was already made to include
-firmware encumbered by patents without a grant [3] and it was decided
-we would not allow these. We clarify this to make this requirement
-explicit and prevent these type of further attempts.
-
-[0] https://www.debian.org/legal/patent
-[1] http://fedoraproject.org/wiki/Software_Patents#Red_Hat.27s_position_on_Software_Patents
-[2] http://www.openinventionnetwork.com/about-us/
-[3] https://lkml.org/lkml/2014/3/14/182
-
-Cc: netdev@vger.kernel.org
-Cc: linux-wireless@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Signed-off-by: Luis R. Rodriguez <mcgrof@suse.com>
----
-
-This wasn't clear and at one point one entity already tried to get
-included a firmware that explicitly removes any patent grants for
-users.
-
- README | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
-
-diff --git a/README b/README
-index f2ed92e..d2a56ec 100644
---- a/README
-+++ b/README
-@@ -18,7 +18,10 @@ and also cc: to related mailing lists.
- 
- Your commit should include an update to the WHENCE file clearly
- identifying the licence under which the firmware is available, and
--that it is redistributable. If the licence is long and involved, it's
-+that it is redistributable. Being redistributable includes ensuring
-+the firmware license provided includes an implicit or explicit
-+patent grant to end users to ensure full functionality of device
-+operation with the firmware. If the licence is long and involved, it's
- permitted to include it in a separate file and refer to it from the
- WHENCE file.
- And if it were possible, a changelog of the firmware itself.
--- 
-2.0.0
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogRnJpLCAyNyBK
+dW4gMjAxNCAwMDoyNjoyNiAtMDcwMCAoUERUKQ0KDQo+IEZyb206IERhbmllbCBNYWNrIDx6b25x
+dWVAZ21haWwuY29tPg0KPiBEYXRlOiBUaHUsIDI2IEp1biAyMDE0IDA5OjEwOjMxICswMjAwDQo+
+IA0KPj4gQ29tbWl0IDg2ZjZjZjQxMjcgKG5ldDogb2ZfbWRpbzogYWRkIG9mX21kaW9idXNfbGlu
+a19waHlkZXYoKSkgaW50cm9kdWNlZCBhDQo+PiBjaXJjdWxhciBkZXBlbmRlbmN5IGJldHdlZW4g
+bGlicGh5IGFuZCBvZl9tZGlvLg0KPj4gDQo+PiBkZXBtb2Q6IEVSUk9SOiA8bW9kcm9vdD4va2Vy
+bmVsL2RyaXZlcnMvbmV0L3BoeS9saWJwaHkua28gaW4NCj4+IGRlcGVuZGVuY3kgY3ljbGUhDQo+
+PiBkZXBtb2Q6IEVSUk9SOiA8bW9kcm9vdD4va2VybmVsL2RyaXZlcnMvb2Yvb2ZfbWRpby5rbyBp
+biBkZXBlbmRlbmN5IGN5Y2xlIQ0KPj4gDQo+PiBUaGUgcHJvYmxlbSBpcyB0aGF0IG9mX21kaW8u
+YyByZWZlcmVuY2VzICZtZGlvX2J1c190eXBlIGFuZCBsaWJwaHkgbm93DQo+PiByZWZlcmVuY2Vz
+IG9mX21kaW9idXNfbGlua19waHlkZXYuDQo+PiANCj4+IEZpeCB0aGlzIGJ5IG5vdCBleHBvcnRp
+bmcgb2ZfbWRpb2J1c19saW5rX3BoeWRldigpIGZyb20gb2ZfbWRpby5rby4NCj4+IE1ha2UgaXQg
+YSBzdGF0aWMgZnVuY3Rpb24gaW4gbWRpb19idXMuYyBpbnN0ZWFkLg0KPj4gDQo+PiBTaWduZWQt
+b2ZmLWJ5OiBEYW5pZWwgTWFjayA8em9ucXVlQGdtYWlsLmNvbT4NCj4+IFJlcG9ydGVkLWJ5OiBK
+ZWZmIE1haG9uZXkgPGplZmZtQHN1c2UuY29tPg0KPj4gRml4ZXM6IDg2ZjZjZjQxMjcgKG5ldDog
+b2ZfbWRpbzogYWRkIG9mX21kaW9idXNfbGlua19waHlkZXYoKSkNCj4gDQo+IEFwcGxpZWQsIHRo
+YW5rIHlvdS4NCg0KVGhpcyBkb2Vzbid0IHdvcmssIGl0IGJyZWFrcyB0aGUgYnVpbGQ6DQoNCmRy
+aXZlcnMvbmV0L3BoeS9tZGlvX2J1cy5jOiBJbiBmdW5jdGlvbiChbWRpb2J1c19zY2FuojoNCmRy
+aXZlcnMvbmV0L3BoeS9tZGlvX2J1cy5jOjM0NjoyOiBlcnJvcjogaW1wbGljaXQgZGVjbGFyYXRp
+b24gb2YgZnVuY3Rpb24goW9mX21kaW9idXNfbGlua19waHlkZXaiIFstV2Vycm9yPWltcGxpY2l0
+LWZ1bmN0aW9uLWRlY2xhcmF0aW9uXQ0K
