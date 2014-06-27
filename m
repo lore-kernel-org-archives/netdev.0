@@ -1,48 +1,93 @@
 From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH CFT 20/30] net: fec: quiesce packet processing before stopping
- device in fec_set_features()
-Date: Fri, 27 Jun 2014 16:20:35 +0100
-Message-ID: <E1X0Xx5-0001OJ-G0@rmk-PC.arm.linux.org.uk>
+Subject: [PATCH CFT 19/30] net: fec: quiesce packet processing before stopping
+ device in fec_suspend()
+Date: Fri, 27 Jun 2014 16:20:30 +0100
+Message-ID: <E1X0Xx0-0001OC-CB@rmk-PC.arm.linux.org.uk>
 References: <20140627151542.GL32514@n2100.arm.linux.org.uk>
 Cc: Fugang Duan <B38611@freescale.com>
 To: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:45238 "EHLO
+Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:45234 "EHLO
 	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754253AbaF0PUi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 11:20:38 -0400
+	by vger.kernel.org with ESMTP id S1754241AbaF0PUd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 11:20:33 -0400
 In-Reply-To: <20140627151542.GL32514@n2100.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-fec_set_features() calls fec_stop() to stop the transmit ring while the
-transmit queue is still active.  This can lead to the transmit ring
-being restarted by an intervening packet queued for transmission, or
-by the tx quirk timer expiring.
+fec_suspend() calls fec_stop() to stop the transmit ring while the
+transmit packet processing is still active.  This can lead to the
+transmit queue being restarted by an intervening packet queued for
+transmission, or by the tx quirk timer expiring.
 
-Fix this by disabling NAPI (which ensures that the NAPI handlers are
-not running), and then take the transmit lock while we stop and
-restart the adapter (which prevents new packets being queued).
+Fix this by disabling NAPI first, which will ensure that the NAPI
+handlers are not running.  Then, take the transmit lock before
+detaching the netif device.  This ensures that there are no races
+with the transmit path - and also ensures that the watchdog won't
+fire.
+
+We can then safely stop the ethernet device itself, knowing that the
+rest of the driver is safely shut down.
+
+On resume, we bring the device back up in reverse order - we restart
+the device, reattach the device (under the tx lock), and then enable
+the NAPI handlers.
+
+We also need to adjust the close function to cope with this new
+sequence, so that it's possible to cleanly close down the driver
+after the hardware fails to resume (eg, due to the regulator_enable()
+or pinctrl calls in the resume path returning an error.)
 
 Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- drivers/net/ethernet/freescale/fec_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/freescale/fec_main.c | 16 +++++++++-------
+ 1 file changed, 9 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 7a3cfb19ae90..cc2fab7333fe 100644
+index 49c154af6da2..7a3cfb19ae90 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -2363,9 +2363,9 @@ static int fec_set_features(struct net_device *netdev,
- 			fep->csum_flags &= ~FLAG_RX_CSUM_ENABLED;
+@@ -2212,10 +2212,11 @@ fec_enet_close(struct net_device *ndev)
  
- 		if (netif_running(netdev)) {
--			fec_stop(netdev);
- 			napi_disable(&fep->napi);
- 			netif_tx_lock_bh(netdev);
-+			fec_stop(netdev);
- 			fec_restart(netdev, fep->phy_dev->duplex);
- 			netif_wake_queue(netdev);
- 			netif_tx_unlock_bh(netdev);
+ 	phy_stop(fep->phy_dev);
+ 
+-	napi_disable(&fep->napi);
+-	netif_tx_disable(ndev);
+-	if (netif_device_present(ndev))
++	if (netif_device_present(ndev)) {
++		napi_disable(&fep->napi);
++		netif_tx_disable(ndev);
+ 		fec_stop(ndev);
++	}
+ 
+ 	phy_disconnect(fep->phy_dev);
+ 	fep->phy_dev = NULL;
+@@ -2702,8 +2703,11 @@ fec_suspend(struct device *dev)
+ 	rtnl_lock();
+ 	if (netif_running(ndev)) {
+ 		phy_stop(fep->phy_dev);
+-		fec_stop(ndev);
++		napi_disable(&fep->napi);
++		netif_tx_lock_bh(ndev);
+ 		netif_device_detach(ndev);
++		netif_tx_unlock_bh(ndev);
++		fec_stop(ndev);
+ 	}
+ 	rtnl_unlock();
+ 
+@@ -2736,12 +2740,10 @@ fec_resume(struct device *dev)
+ 
+ 	rtnl_lock();
+ 	if (netif_running(ndev)) {
+-		napi_disable(&fep->napi);
+-		netif_tx_lock_bh(ndev);
+ 		fec_restart(ndev, fep->full_duplex);
++		netif_tx_lock_bh(ndev);
+ 		netif_device_attach(ndev);
+ 		netif_tx_unlock_bh(ndev);
+-		netif_device_attach(ndev);
+ 		napi_enable(&fep->napi);
+ 		phy_start(fep->phy_dev);
+ 	}
 -- 
 1.8.3.1
