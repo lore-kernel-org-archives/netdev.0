@@ -1,88 +1,103 @@
-From: Bo Shen <voice.shen@atmel.com>
-Subject: Re: [RFC PATCH] phy: micrel: make phy_has_fixups attribute read correctly
-Date: Fri, 27 Jun 2014 11:33:11 +0800
-Message-ID: <53ACE5F7.3060102@atmel.com>
-References: <1403681075-16181-1-git-send-email-voice.shen@atmel.com> <CAGVrzcaN9KKW6vN5Xy775RTBD3ODpK95-o0V+pKDcCCxetPycA@mail.gmail.com>
+From: Jon Maloy <maloy@donjonn.com>
+Subject: Re: [PATCH net-next 01/13] tipc: eliminate case
+ of writing to freed memory
+Date: Thu, 26 Jun 2014 22:33:04 -0500
+Message-ID: <53ACE5F0.3050608@donjonn.com>
+References: <1403746902-20408-1-git-send-email-jon.maloy@ericsson.com>
+	<1403746902-20408-2-git-send-email-jon.maloy@ericsson.com>
+	<20140626105656.GA16025@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAGVrzcaN9KKW6vN5Xy775RTBD3ODpK95-o0V+pKDcCCxetPycA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, Paul Gortmaker <paul.gortmaker@windriver.com>,
+	tipc-discussion@lists.sourceforge.net, davem@davemloft.net
+To: Neil Horman <nhorman@tuxdriver.com>,
+ Jon Maloy <jon.maloy@ericsson.com>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <20140626105656.GA16025@hmsreliant.think-freely.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Hi Florian,
-
-On 06/27/2014 02:00 AM, Florian Fainelli wrote:
-> Hello,
->
-> 2014-06-25 0:24 GMT-07:00 Bo Shen <voice.shen@atmel.com>:
->> If the fixups parameters get from dtb, it won't set has_fixups
->> parameters, so when read phy_has_fixups attribute, it always
->> present as 0.
->> Add this patch to make phy_has_fixups attribute read correctly.
->
-> I am not entirely sure whether loading values from Device Tree should
-> be considered a PHY fixup per-se. They do override the hardware reset
-> default values, but I am not sure if we should consider that as a
-> fixup.
-
-In old method, we will call phy_register_fixup_for_uid to update this 
-configuration, which will set the phy_has_fixups as true, then it 
-regards as fix up. So, can we also consider loading values from DTS also 
-as fix up?
-
-> Assuming that you need to troubleshoot a given system, one of the
-> first things you will surely ask for is the DTS used by that platform,
-> and in that case you can quickly check whether the PHY default
-> settings are changed, right?
-
-I am not sure I am fully understand here.
-
-The value retrieve from DTS is used to overwrite the default value, so I 
-think it is no need to check.
-
+On 06/26/2014 05:56 AM, Neil Horman wrote:
+> On Wed, Jun 25, 2014 at 08:41:30PM -0500, Jon Maloy wrote:
+>> In the function tipc_nodesub_notify() we call a function pointer
+>> aggregated into the object to be notified, whereafter we set
+>> the function pointer to NULL. However, in some cases the function
+>> pointed to will free the struct containing the function pointer,
+>> resulting in a write to already freed memory.
 >>
->> Signed-off-by: Bo Shen <voice.shen@atmel.com>
+>> This bug seems to always have been there, without causing any
+>> notable harm.
+>>
+>> In this commit we fix the problem by inverting the order of the
+>> zeroing and the function call.
+>>
+>> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 >> ---
->>   drivers/net/phy/micrel.c | 4 ++++
->>   1 file changed, 4 insertions(+)
+>>  net/tipc/node_subscr.c |    6 ++++--
+>>  1 file changed, 4 insertions(+), 2 deletions(-)
 >>
->> diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
->> index bc7c7d2..c384922 100644
->> --- a/drivers/net/phy/micrel.c
->> +++ b/drivers/net/phy/micrel.c
->> @@ -237,6 +237,8 @@ static int ksz9021_load_values_from_of(struct phy_device *phydev,
->>
->>          if (!matches)
->>                  return 0;
->> +       else
->> +               phydev->has_fixups = true;
->
-> There is no need for the else here
->
->>
->>          if (matches < 4)
->>                  newval = kszphy_extended_read(phydev, reg);
->> @@ -330,6 +332,8 @@ static int ksz9031_of_load_skew_values(struct phy_device *phydev,
->>
->>          if (!matches)
->>                  return 0;
->> +       else
->> +               phydev->has_fixups = true;
->
-> Same here
->
->>
->>          if (matches < numfields)
->>                  newval = ksz9031_extended_read(phydev, OP_DATA, 2, reg);
->> --
->> 1.8.5.2
+>> diff --git a/net/tipc/node_subscr.c b/net/tipc/node_subscr.c
+>> index 7c59ab1..2d13eea 100644
+>> --- a/net/tipc/node_subscr.c
+>> +++ b/net/tipc/node_subscr.c
+>> @@ -84,11 +84,13 @@ void tipc_nodesub_unsubscribe(struct tipc_node_subscr *node_sub)
+>>  void tipc_nodesub_notify(struct list_head *nsub_list)
+>>  {
+>>  	struct tipc_node_subscr *ns, *safe;
+>> +	net_ev_handler handle_node_down;
+>>  
+>>  	list_for_each_entry_safe(ns, safe, nsub_list, nodesub_list) {
+>> -		if (ns->handle_node_down) {
+>> -			ns->handle_node_down(ns->usr_handle);
+>> +		handle_node_down = ns->handle_node_down;
+>> +		if (handle_node_down) {
+>>  			ns->handle_node_down = NULL;
+>> +			handle_node_down(ns->usr_handle);
+>>  		}
+>>  	}
+>>  }
+> If its true that some functions pointed to by handle_node_down free the struct
+> pointing to the function pointer, than this change isn't sufficient.  The only
+> caller to tipc_nodesub_notify is node_lost_contact, which dereferences the same
+> structure right after the call to tipc_nodesub_notify.
 
-Best Regards,
-Bo Shen
+In think you misunderstand. The pointer (n_ptr*) passed as parameter in
+node_sub_notify() points to a struct of type tipc_node. This one is *not*
+freed during the call. But it aggregates a linked list of structs of type
+nsub. Those are the ones containing the mentioned function pointer, and
+the ones potentially being being released during the traversal of the list.
+
+I cannot see that any of these struct are references after the call to
+node_sub_notify().
+
+///jon
+ 
+
+
+>
+> Neil
+>
+>> -- 
+>> 1.7.9.5
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>
+
+
+------------------------------------------------------------------------------
+Open source business process management suite built on Java and Eclipse
+Turn processes into business applications with Bonita BPM Community Edition
+Quickly connect people, data, and systems into organized workflows
+Winner of BOSSIE, CODIE, OW2 and Gartner awards
+http://p.sf.net/sfu/Bonitasoft
