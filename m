@@ -1,128 +1,67 @@
-From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@web.de>
-Subject: Re: [PATCHv2 net-next 2/4] bridge: adhere to querier election
- mechanism specified by RFCs
-Date: Fri, 27 Jun 2014 02:12:23 +0200
-Message-ID: <20140627001223.GA28373@Linus-Debian>
-References: <1400994205-31165-1-git-send-email-linus.luessing@web.de>
- <1400994205-31165-3-git-send-email-linus.luessing@web.de>
- <CADAe=+KViC7uej0KM4TrQXxrk-amU7CX73buviMU17jpQm61bw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 6/6] amd-xgbe: Resolve checkpatch warning
+ about sscanf usage
+Date: Thu, 26 Jun 2014 17:12:55 -0700 (PDT)
+Message-ID: <20140626.171255.274497260661771827.davem@davemloft.net>
+References: <1403647225.29061.64.camel@joe-AO725>
+	<53A9FF42.2090502@amd.com>
+	<1403650410.11163.2.camel@joe-AO725>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	b.a.t.m.a.n@lists.open-mesh.org
-To: Ajith Adapa <adapa.ajith@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: thomas.lendacky@amd.com, netdev@vger.kernel.org
+To: joe@perches.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.web.de ([212.227.17.11]:64694 "EHLO mout.web.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750699AbaF0AM2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 26 Jun 2014 20:12:28 -0400
-Content-Disposition: inline
-In-Reply-To: <CADAe=+KViC7uej0KM4TrQXxrk-amU7CX73buviMU17jpQm61bw@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52428 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751102AbaF0AM4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 26 Jun 2014 20:12:56 -0400
+In-Reply-To: <1403650410.11163.2.camel@joe-AO725>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Ajith,
+From: Joe Perches <joe@perches.com>
+Date: Tue, 24 Jun 2014 15:53:30 -0700
 
-
-On Mon, Jun 23, 2014 at 07:58:21AM +0530, Ajith Adapa wrote:
-> Hi Luessing,
+> On Tue, 2014-06-24 at 17:44 -0500, Tom Lendacky wrote:
+>> On 06/24/2014 05:00 PM, Joe Perches wrote:
+>> > On Tue, 2014-06-24 at 16:19 -0500, Tom Lendacky wrote:
+>> >> Checkpatch issued a warning preferring to use kstrto<type> when
+>> >> using a single variable sscanf.  Change the sscanf invocation to
+>> >> a kstrtouint call.
+>> > []
+>> >> diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-debugfs.c b/drivers/net/ethernet/amd/xgbe/xgbe-debugfs.c
+>> > []
+>> >> @@ -165,10 +165,9 @@ static ssize_t xgbe_common_write(const char __user *buffer, size_t count,
+>> >>   		return len;
+>> >>
+>> >>   	workarea[len] = '\0';
+>> >> -	if (sscanf(workarea, "%x", &scan_value) == 1)
+>> >> -		*value = scan_value;
+>> >> -	else
+>> >> -		return -EIO;
+>> >> +	ret = kstrtouint(workarea, 0, value);
+>> >
+>> > Don't you need to use 16 for the base here?
 > 
-> As per RFC 4541, snooping switches send query with source address as
-> 0.0.0.0 since port in a L2 switch doesn't have ip-address configured.
-
-Hm, I'm not quite sure whether this is true. Do you have a
-section/paragraph in RFC4541 which says that?
-
-To me, it seems that 0.0.0.0/:: should only be used when the
-topology changes, on links becoming active (the RFC uses the example
-of STP). As a performance optimization but not as the source
-address for General Queries.
-
-In section 2.1.1 1) b) says:
-
-     "The 0.0.0.0 address represents a special case where the switch
-      is proxying IGMP Queries for faster network convergence,
-      but is not itself the Querier."
-
-In section 2.1.1 4) it says:
-
-     "If the switch is not the Querier, it should use the 'all-zeros' IP
-      Source Address in these proxy queries (even though some hosts may
-      elect to not process queries with a 0.0.0.0 IP Source Address)."
-
-(which seems to imply that if a switch is the selected Querier, that
-it should use something other than the 'all-zeros' IP Source
-Address?)
-
-Also, section 2.1.1 4) says:
-
-"[...] even though some hosts may elect to not process queries with a
- 0.0.0.0 IP Source Address"
-
-Which seems to indicate that 0.0.0.0 might be a bad choice to get
-reliable IGMP Reports and might only make sense for performance
-optimizations (at least for IPv4 - for IPv6 it doesn't make sense
-to me to send General Queries with '::' source address at all
-since '::' is ignored by hosts per RFC).
-
-(*)
-
+>> Using 0 allows for greater flexibility in the input format.
 > 
-> With current changes linux bridge will always select a querier who sends a
-> query message with 0.0.0.0. Right ?
-> 
-> +       if (ntohl(saddr) <= ntohl(br->ip4_querier.addr.u.ip4))
-> +               goto update;
+> True, but there could be a change in behavior like reading a
+> previously hex value like 10 is now a decimal 10 not decimal 16.
 
-Yes. Which is what the querier election mechanism in the RFCs for
-IGMPv2/IGMPv3 (RFC2236/RFC3376) specifies, I think. (**)
+Tom, under other circumstance you can't change the format.
+v3.16 is going to be released with the existing %x formatting
+expecting hexadecimal numbers.
 
-> 
-> Currently linux bridge sends a query message with source address as
-> 0.0.0.0. Right ?
+And you're targetting this change to decimal format in net-next.
 
-For IPv4, this is currently the default, yes. (there's a sysfs switch
-to change that, if desired) (***)
+The only thing that really allows you to do this is that this is
+debugfs, and it's a reason I really hate debugfs, people do
+arbitrary stuff so that if the debugfs elements turn out to be
+useful for someone the driver author can arbitarily break things
+on them however they want.
 
-> 
-> What should be the expected behaviour ?
-
-Hm, good question.
-
-Regarding (***): After rereading RFC4541 a few more times, I think
-(*) would be the right choice: The bridge code should probably be
-changed to always use an available, non-zero IPv4 source address
-for General Queries. If none is available it, doesn't make sense
-to me to become the selected Querier at all (should be changed for
-IPv6, too: Currently it refrains from sending Query messages
-then, but thinks a valid querier were in the network, enabling
-the multicast snooping of the bridge).
-
-
-Regarding (**): Now that you're mentioning that, you're right, my
-change isn't quite straightforward in that regard, a few lines
-earlier there is:
-
-> +       if (!br->ip4_querier.addr.u.ip4)
-> +               goto update;
-
-So it would select the all-zeros Querier if it receives such
-messages. But would happily switch to a non-all-zeros Querier as
-well if receiving such messages...
-
-And now, this baffles me, section 2.1.1 4) again:
-
-     "When such proxy queries are received, they must not be included in
-      the Querier election process."
-
-If we were following that, a snooping switch and a true multicast
-router could potentially have an argument about which becomes the
-selected IGMP querier? (for IPv6/MLD this dilemma should not
-exist, I think)
-
-I'm currently unsure, whether we should follow
-RFC2236(IGMPv2)+RFC3376(IGMPv3) or the informational (!) RFC4541.
-
-Or am I overlooking something? What do others think?
-
-Cheers, Linus
+It's a cop-out for things people don't want to be bound to avoid ABI
+changes, and to me that's garbage.  If you expose it to the user
+design it well to the point where you're willing to live with it's
+interface forever, or don't expose it to the user at all.
