@@ -1,52 +1,56 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH v6 net-next 1/4] net: flow_dissector: avoid multiple calls
- in eBPF
-Date: Fri, 27 Jun 2014 12:19:00 +0200
-Message-ID: <53AD4514.9040708@redhat.com>
-References: <1398882591-30422-1-git-send-email-chema@google.com> <1401389758-13252-1-git-send-email-chema@google.com> <5387C8AD.6000909@redhat.com> <CA+ZOOTNobzzJPgQnVVZ+b6rRD=0_pdjUB8q5FQVkbO+dob0BSg@mail.gmail.com> <538C6FD8.9040305@redhat.com> <CAMEtUuyduk1sHBeVm=d5GYEgB4ma7sVFYeBLdapbeEpQY9nA1Q@mail.gmail.com> <538D884E.5030007@redhat.com> <CAMEtUuxK5hV_eORRLaSHSiwF5X82Ae91vL6W0-6au48v8H6bAA@mail.gmail.com> <CA+ZOOTPdDDeGxZVGXVRZmjkxqkGefgDLrawo_9YXbjwTQ_FLzA@mail.gmail.com> <538EDE1A.8060305@redhat.com> <CA+ZOOTONwNt2xpwUc=tqhP=m31KZTzij-rrAHVh6g3hVYgKaEw@mail.gmail.com> <53A9337F.50707@redhat.com> <CA+ZOOTNSW-SFaX8zbBqoz8nGtkqBshcagTHt6HMLokczV6xZ6g@mail.gmail.com>
+From: "Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH/RFC] Re: recvmmsg() timeout behavior strangeness [RESEND]
+Date: Fri, 27 Jun 2014 13:29:27 +0200
+Message-ID: <53AD5597.50205@gmail.com>
+References: <20140527203010.GA2764@kernel.org> <5385D47A.3070401@gmail.com> <20140528150720.GB2764@kernel.org> <063D6719AE5E284EB5DD2968C1650D6D1724F2A0@AcuExch.aculab.com> <20140528195004.GD2764@kernel.org> <063D6719AE5E284EB5DD2968C1650D6D1724FB67@AcuExch.aculab.com> <20140529135547.GG2764@kernel.org> <063D6719AE5E284EB5DD2968C1650D6D1724FC78@AcuExch.aculab.com> <20140529141705.GI2764@kernel.org> <CAKgNAkj-MVfeqEeffWKMNok0yO-Rm1kyY+zhXEy-U9NkB+aLow@mail.gmail.com> <20140624202541.GD3456@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast@plumgrid.com>,
-	Ingo Molnar <mingo@kernel.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Jiri Olsa <jolsa@redhat.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kees Cook <keescook@chromium.org>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Chema Gonzalez <chema@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+ZOOTNSW-SFaX8zbBqoz8nGtkqBshcagTHt6HMLokczV6xZ6g@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, David Laight <David.Laight-JxhZ9S5GRejQT0dZR+AlfA@public.gmane.org>,
+	lkml <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	=?ISO-8859-1?Q?Ondrej_B=EDlka?= <neleai-9Vj9tDbzfuSlVyrhU4qvOw@public.gmane.org>,
+	Caitlin Bestler <caitlin.bestler-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Neil Horman <nhorman-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Elie De Brauwer <eliedebrauwer-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Steven Whitehouse <steve-TMeXKDtMCpxBDgjK7y7TUQ@public.gmane.org>,
+	=?ISO-8859-1?Q?R=E9mi_Denis-Courmont?=
+	<remi.denis-courmont-xNZwKgViW5gAvxtiuMwx3w@public.gmane.org>, Paul Moore <paul-r2n+y4ga6xFZroRs9YW3xA@public.gmane.org>,
+	Chris Friesen <chris.friesen-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>
+To: Arnaldo Carvalho de Melo <acme-f8uhVLnGfZaxAyOMLChx1axOck334EZe@public.gmane.org>
+Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140624202541.GD3456-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 06/26/2014 12:00 AM, Chema Gonzalez wrote:
-...
-> There's still the problem of whether we want to obsolete classic BPF
-> in the kernel before the tools (libpcap mainly) accept eBPF. This can
-> take a lot.
->
-> Finally, what's the user's CLI interface you have in mind? Right now,
-> tcpdump expressions are very handy: I know I can pass "ip[2:2] ==
-> 1500" or "(tcp[13] & 0x03)" to any libpcap-based application. This is
-> very handy to log into a machine, and quickly run tcpdump to get the
-> packets I'm interested on. What would be the model for using C-- eBPF
-> filters in the same manner?
+On 06/24/2014 10:25 PM, Arnaldo Carvalho de Melo wrote:
+> Em Mon, Jun 16, 2014 at 11:58:51AM +0200, Michael Kerrisk (man-pages) escreveu:
+>> Hi Arnaldo,
+>>
+>> Things have gone quiet ;-). What's the current state of this patch?
+> 
+> Yeah, I kept meaning to prod the other people on this thread about what
+> they thought about my last messages, patches, etc. :-)
+> 
+> Can I have acked-by or even tested-by on those? Is it ok?
 
-Yes, imho, it's a valid question to ask. I think there are a couple
-of possibilities for libpcap/tcpdump from a user point of view (note,
-I don't strictly think it's the _only_ main user though): 1) iff a
-llvm and/or gcc backend gets merged from the compiler side, one could
-add a cli interface to run the generated opcodes from a file for
-advanced filters while perhaps classic BPF continues to be supported
-via its high-level filter expressions; 2) there could be a Linux-only
-compiler in libpcap that translates and makes use of full eBPF (though
-significantly more effort to implement); 3) libpcap continues to use
-classic BPF as it's currently doing.
+I just need to go back and test one point that sounds like it might still be 
+broken.
+
+Cheers,
+
+Michael
+
+
+
+
+-- 
+Michael Kerrisk
+Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
+Linux/UNIX System Programming Training: http://man7.org/training/
+--
+To unsubscribe from this list: send the line "unsubscribe linux-man" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
