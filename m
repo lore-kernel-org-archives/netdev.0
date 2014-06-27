@@ -1,72 +1,79 @@
-From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH CFT 08/30] net: fec: stop the phy before shutting down the MAC
-Date: Fri, 27 Jun 2014 16:19:34 +0100
-Message-ID: <E1X0Xw6-0001NJ-7B@rmk-PC.arm.linux.org.uk>
-References: <20140627151542.GL32514@n2100.arm.linux.org.uk>
-Cc: Fugang Duan <B38611@freescale.com>
-To: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
+From: Tom Gundersen <teg@jklm.no>
+Subject: Re: [patch net-next] bonding: allow to add vlans on top of empty bond
+Date: Fri, 27 Jun 2014 17:27:53 +0200
+Message-ID: <CAG-2HqUKGoG5ZX26aYwv3quUU5RPtn5J1g6i4YzkXUc10u4c0w@mail.gmail.com>
+References: <1403878392-10004-1-git-send-email-jiri@resnulli.us>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, j.vosburgh@gmail.com,
+	vfalico@gmail.com, andy@greyhouse.net
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:45198 "EHLO
-	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753439AbaF0PTg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 11:19:36 -0400
-In-Reply-To: <20140627151542.GL32514@n2100.arm.linux.org.uk>
+Received: from mail-yh0-f45.google.com ([209.85.213.45]:49269 "EHLO
+	mail-yh0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753130AbaF0P2O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 11:28:14 -0400
+Received: by mail-yh0-f45.google.com with SMTP id t59so3134864yho.32
+        for <netdev@vger.kernel.org>; Fri, 27 Jun 2014 08:28:13 -0700 (PDT)
+In-Reply-To: <1403878392-10004-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the network interface goes down, stop the phy to prevent further
-link up status changes before taking the MAC or netif sections down.
-This prevents further reception of link up events which could
-potentially call fec_restart().
+Hi Jiri,
 
-Since phy_stop() takes the mutex which adjust_link() runs under, we
-also ensure that adjust_link() will not already be processing a link
-up event.
+On Fri, Jun 27, 2014 at 4:13 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+> This limitation maybe had some reason in the past, but now there is not
+> one -> removing this.
 
-We also need to do this when suspending as well - we don't want a
-mis-timed phy state change to restart the MAC after we have stopped
-it for suspend, and thus need to restart the phy when resuming.
+If this restriction is really no longer needed, it would be very
+helpful if we could drop it. See for instnace
+<https://bugs.freedesktop.org/show_bug.cgi?id=76077#c5>.
 
-Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
----
- drivers/net/ethernet/freescale/fec_main.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+Cheers,
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index cf805468eecc..e0a1ac1826b7 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -2181,13 +2181,14 @@ fec_enet_close(struct net_device *ndev)
- {
- 	struct fec_enet_private *fep = netdev_priv(ndev);
- 
-+	phy_stop(fep->phy_dev);
-+
- 	/* Don't know what to do yet. */
- 	napi_disable(&fep->napi);
- 	fep->opened = 0;
- 	netif_tx_disable(ndev);
- 	fec_stop(ndev);
- 
--	phy_stop(fep->phy_dev);
- 	phy_disconnect(fep->phy_dev);
- 	fep->phy_dev = NULL;
- 
-@@ -2669,6 +2670,7 @@ fec_suspend(struct device *dev)
- 	struct fec_enet_private *fep = netdev_priv(ndev);
- 
- 	if (netif_running(ndev)) {
-+		phy_stop(fep->phy_dev);
- 		fec_stop(ndev);
- 		netif_device_detach(ndev);
- 	}
-@@ -2702,6 +2704,7 @@ fec_resume(struct device *dev)
- 	if (netif_running(ndev)) {
- 		fec_restart(ndev, fep->full_duplex);
- 		netif_device_attach(ndev);
-+		phy_start(fep->phy_dev);
- 	}
- 
- 	return 0;
--- 
-1.8.3.1
+Tom
+
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> ---
+>  drivers/net/bonding/bond_main.c | 13 -------------
+>  1 file changed, 13 deletions(-)
+>
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 3a451b6..ffefb70 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -1001,12 +1001,6 @@ static netdev_features_t bond_fix_features(struct net_device *dev,
+>         netdev_features_t mask;
+>         struct slave *slave;
+>
+> -       if (!bond_has_slaves(bond)) {
+> -               /* Disable adding VLANs to empty bond. But why? --mq */
+> -               features |= NETIF_F_VLAN_CHALLENGED;
+> -               return features;
+> -       }
+> -
+>         mask = features;
+>         features &= ~NETIF_F_ONE_FOR_ALL;
+>         features |= NETIF_F_ALL_FOR_ALL;
+> @@ -3956,13 +3950,6 @@ void bond_setup(struct net_device *bond_dev)
+>         bond_dev->priv_flags |= IFF_BONDING | IFF_UNICAST_FLT;
+>         bond_dev->priv_flags &= ~(IFF_XMIT_DST_RELEASE | IFF_TX_SKB_SHARING);
+>
+> -       /* At first, we block adding VLANs. That's the only way to
+> -        * prevent problems that occur when adding VLANs over an
+> -        * empty bond. The block will be removed once non-challenged
+> -        * slaves are enslaved.
+> -        */
+> -       bond_dev->features |= NETIF_F_VLAN_CHALLENGED;
+> -
+>         /* don't acquire bond device's netif_tx_lock when
+>          * transmitting */
+>         bond_dev->features |= NETIF_F_LLTX;
+> --
+> 1.9.0
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
