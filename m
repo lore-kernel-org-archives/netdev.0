@@ -1,74 +1,84 @@
 From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH CFT 09/30] net: fec: remove useless fep->opened
-Date: Fri, 27 Jun 2014 16:19:39 +0100
-Message-ID: <E1X0XwB-0001NN-Ak@rmk-PC.arm.linux.org.uk>
+Subject: [PATCH CFT 10/30] net: fec: make rx skb handling more robust
+Date: Fri, 27 Jun 2014 16:19:44 +0100
+Message-ID: <E1X0XwG-0001NR-EP@rmk-PC.arm.linux.org.uk>
 References: <20140627151542.GL32514@n2100.arm.linux.org.uk>
 Cc: Fugang Duan <B38611@freescale.com>
 To: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:45202 "EHLO
+Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:45204 "EHLO
 	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754030AbaF0PTm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 11:19:42 -0400
+	by vger.kernel.org with ESMTP id S1754030AbaF0PTq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 11:19:46 -0400
 In-Reply-To: <20140627151542.GL32514@n2100.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-napi_disable() waits until the NAPI processing has completed, and then
-prevents any further polls.  At this point, the driver then clears
-fep->opened.  The NAPI poll function uses this to stop processing in
-the receive path.  Hence, it will never see this variable cleared,
-because the NAPI poll has to complete before it will be cleared.
+Allocate, and then map the receive skb before writing any data to the
+ring descriptor or storing the skb.  When freeing the receive ring
+entries, unmap and free the skb, and then clear the stored skb pointer.
 
-Therefore, this variable serves no purpose, so let's remove it.
+This means we have ring data and skb pointer in one of two states:
+either both fully setup, or nothing setup.
+
+This simplifies the cleanup, as we can use just the skb pointer to
+indicate whether the descriptor is setup, and thus avoids potentially
+calling dma_unmap_single() on a DMA error value.
 
 Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- drivers/net/ethernet/freescale/fec.h      | 1 -
- drivers/net/ethernet/freescale/fec_main.c | 5 -----
- 2 files changed, 6 deletions(-)
+ drivers/net/ethernet/freescale/fec_main.c | 17 +++++++++++------
+ 1 file changed, 11 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
-index 671d080105a7..96d2a18f1b99 100644
---- a/drivers/net/ethernet/freescale/fec.h
-+++ b/drivers/net/ethernet/freescale/fec.h
-@@ -308,7 +308,6 @@ struct fec_enet_private {
- 
- 	struct	platform_device *pdev;
- 
--	int	opened;
- 	int	dev_id;
- 
- 	/* Phylib and MDIO interface */
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index e0a1ac1826b7..309aa2ff8cc9 100644
+index 309aa2ff8cc9..70853a59627a 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1215,9 +1215,6 @@ fec_enet_rx(struct net_device *ndev, int budget)
- 		if ((status & BD_ENET_RX_LAST) == 0)
- 			netdev_err(ndev, "rcv is not +last\n");
- 
--		if (!fep->opened)
--			goto rx_processing_done;
+@@ -2066,12 +2066,12 @@ static void fec_enet_free_buffers(struct net_device *ndev)
+ 	bdp = fep->rx_bd_base;
+ 	for (i = 0; i < fep->rx_ring_size; i++) {
+ 		skb = fep->rx_skbuff[i];
 -
- 		/* Check for errors. */
- 		if (status & (BD_ENET_RX_LG | BD_ENET_RX_SH | BD_ENET_RX_NO |
- 			   BD_ENET_RX_CR | BD_ENET_RX_OV)) {
-@@ -2172,7 +2169,6 @@ fec_enet_open(struct net_device *ndev)
- 	napi_enable(&fep->napi);
- 	phy_start(fep->phy_dev);
- 	netif_start_queue(ndev);
--	fep->opened = 1;
- 	return 0;
- }
+-		if (bdp->cbd_bufaddr)
++		fep->rx_skbuff[i] = NULL;
++		if (skb) {
+ 			dma_unmap_single(&fep->pdev->dev, bdp->cbd_bufaddr,
+ 					FEC_ENET_RX_FRSIZE, DMA_FROM_DEVICE);
+-		if (skb)
+ 			dev_kfree_skb(skb);
++		}
+ 		bdp = fec_enet_get_nextdesc(bdp, fep);
+ 	}
  
-@@ -2185,7 +2181,6 @@ fec_enet_close(struct net_device *ndev)
+@@ -2089,21 +2089,26 @@ static int fec_enet_alloc_buffers(struct net_device *ndev)
  
- 	/* Don't know what to do yet. */
- 	napi_disable(&fep->napi);
--	fep->opened = 0;
- 	netif_tx_disable(ndev);
- 	fec_stop(ndev);
+ 	bdp = fep->rx_bd_base;
+ 	for (i = 0; i < fep->rx_ring_size; i++) {
++		dma_addr_t addr;
++
+ 		skb = netdev_alloc_skb(ndev, FEC_ENET_RX_FRSIZE);
+ 		if (!skb) {
+ 			fec_enet_free_buffers(ndev);
+ 			return -ENOMEM;
+ 		}
+-		fep->rx_skbuff[i] = skb;
  
+-		bdp->cbd_bufaddr = dma_map_single(&fep->pdev->dev, skb->data,
++		addr = dma_map_single(&fep->pdev->dev, skb->data,
+ 				FEC_ENET_RX_FRSIZE, DMA_FROM_DEVICE);
+-		if (dma_mapping_error(&fep->pdev->dev, bdp->cbd_bufaddr)) {
++		if (dma_mapping_error(&fep->pdev->dev, addr)) {
++			dev_kfree_skb(skb);
+ 			fec_enet_free_buffers(ndev);
+ 			if (net_ratelimit())
+ 				netdev_err(ndev, "Rx DMA memory map failed\n");
+ 			return -ENOMEM;
+ 		}
++
++		fep->rx_skbuff[i] = skb;
++		bdp->cbd_bufaddr = addr;
+ 		bdp->cbd_sc = BD_ENET_RX_EMPTY;
+ 
+ 		if (fep->bufdesc_ex) {
 -- 
 1.8.3.1
