@@ -1,8 +1,8 @@
 From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH net-next 13/13] at86rf230: add new
-	author
-Date: Sat, 28 Jun 2014 20:33:51 +0200
-Message-ID: <1403980431-6201-14-git-send-email-alex.aring@gmail.com>
+Subject: [PATCH net-next 07/13] at86rf230: move
+	RX_SAFE_MODE setting to hw_init
+Date: Sat, 28 Jun 2014 20:33:45 +0200
+Message-ID: <1403980431-6201-8-git-send-email-alex.aring@gmail.com>
 References: <1403980431-6201-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -21,23 +21,43 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+There is no need to set this bit in start callback which could be
+called more than once.
+
 Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- drivers/net/ieee802154/at86rf230.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ieee802154/at86rf230.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
-index a46ef43..ec62467 100644
+index c0ea7b1..35088a8 100644
 --- a/drivers/net/ieee802154/at86rf230.c
 +++ b/drivers/net/ieee802154/at86rf230.c
-@@ -19,6 +19,7 @@
-  * Written by:
-  * Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-  * Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-+ * Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-  */
- #include <linux/kernel.h>
- #include <linux/module.h>
+@@ -1012,13 +1012,8 @@ err:
+ static int
+ at86rf230_start(struct ieee802154_dev *dev)
+ {
+-	struct at86rf230_local *lp = dev->priv;
+ 	u8 rc;
+ 
+-	rc = at86rf230_write_subreg(lp, SR_RX_SAFE_MODE, 1);
+-	if (rc)
+-		return rc;
+-
+ 	rc = at86rf230_state(dev, STATE_TX_ON);
+ 	if (rc)
+ 		return rc;
+@@ -1302,6 +1297,10 @@ static int at86rf230_hw_init(struct at86rf230_local *lp)
+ 	if (rc)
+ 		return rc;
+ 
++	rc = at86rf230_write_subreg(lp, SR_RX_SAFE_MODE, 1);
++	if (rc)
++		return rc;
++
+ 	rc = at86rf230_write_subreg(lp, SR_IRQ_MASK, IRQ_TRX_END);
+ 	if (rc)
+ 		return rc;
 -- 
 2.0.1
 
