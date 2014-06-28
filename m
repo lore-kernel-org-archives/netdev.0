@@ -1,52 +1,71 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH 3.2-3.12] skbuff: skb_segment: orphan frags before copying
-Date: Fri, 27 Jun 2014 17:57:43 -0700
-Message-ID: <20140628005743.GA29809@kroah.com>
-References: <1402070968.23860.9.camel@deadeye.wl.decadent.org.uk>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH v2.62] datapath: Add basic MPLS support to kernel
+Date: Sat, 28 Jun 2014 09:55:31 +0900
+Message-ID: <20140628005531.GA4122@verge.net.au>
+References: <1403611017-10965-1-git-send-email-horms@verge.net.au>
+ <CAEP_g=9yYqKy-=aiTi3=3cZNOombBgkjHdzLdRzYVVKyJCHqcQ@mail.gmail.com>
+ <20140625015149.GB14193@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	stable <stable@vger.kernel.org>, netdev <netdev@vger.kernel.org>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <stable-owner@vger.kernel.org>
+Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>, Ravi K <rkerur@gmail.com>,
+	Joe Stringer <joe@wand.net.nz>, Thomas Graf <tgraf@suug.ch>
+To: Jesse Gross <jesse@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:45056 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751496AbaF1Azo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 20:55:44 -0400
 Content-Disposition: inline
-In-Reply-To: <1402070968.23860.9.camel@deadeye.wl.decadent.org.uk>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20140625015149.GB14193@verge.net.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 06, 2014 at 05:09:28PM +0100, Ben Hutchings wrote:
-> From: "Michael S. Tsirkin" <mst@redhat.com>
+On Wed, Jun 25, 2014 at 10:51:52AM +0900, Simon Horman wrote:
+> On Tue, Jun 24, 2014 at 04:24:37PM -0700, Jesse Gross wrote:
+> > On Tue, Jun 24, 2014 at 4:56 AM, Simon Horman <horms@verge.net.au> wrote:
+> > > Allow datapath to recognize and extract MPLS labels into flow keys
+> > > and execute actions which push, pop, and set labels on packets.
+> > >
+> > > Based heavily on work by Leo Alterman, Ravi K, Isaku Yamahata and Joe Stringer.
+> > >
+> > > Cc: Ravi K <rkerur@gmail.com>
+> > > Cc: Leo Alterman <lalterman@nicira.com>
+> > > Cc: Isaku Yamahata <yamahata@valinux.co.jp>
+> > > Cc: Joe Stringer <joe@wand.net.nz>
+> > > Signed-off-by: Simon Horman <horms@verge.net.au>
+> > 
+> > Applied, thanks for all your work. Time to break out the champagne :)
 > 
-> commit 1fd819ecb90cc9b822cd84d3056ddba315d3340f upstream.
+> Thanks, a moment for many to savour.
 > 
-> skb_segment copies frags around, so we need
-> to copy them carefully to avoid accessing
-> user memory after reporting completion to userspace
-> through a callback.
+> > That being said, I do have a couple of comments for follow up discussion:
+> >  * I removed the addition of MPLS to key_attr_size. This is trying to
+> > calculate the maximum key size and since MPLS will never show up in
+> > conjunction with IPv6 (the current longest key) and isn't longer than
+> > it, MPLS shouldn't increase the maximum size.
 > 
-> skb_segment doesn't normally happen on datapath:
-> TSO needs to be disabled - so disabling zero copy
-> in this case does not look like a big deal.
+> Thanks, sorry for messing that up.
 > 
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> [bwh: Backported to 3.2.  As skb_segment() only supports page-frags *or* a
->  frag list, there is no need for the additional frag_skb pointer or the
->  preparatory renaming.]
-> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
-> ---
-> This is what I used in Debian for 3.2, and I believe it applies to all
-> stable branches up to 3.12 inclusive.
+> >  * I think there is a potential for MPLS packets to be incorrectly
+> > offloaded on kernels 3.12-3.15 when encapsulated inside a tunnel. This
+> > is because it won't hit either the OVS GSO code or your enhanced MPLS
+> > feature check. I don't want to lose GSO for tunnels on those kernels
+> > but maybe there is a way to avoid this potential problem without too
+> > much work.
 > 
-> For branches older than 3.6, this requires cherry-picking commit
-> a353e0ce0fd4 ('skbuff: add an api to orphan frags').  To avoid breaking
-> OOT builds of openvswitch, which will use skb_orphan_frags() if
-> available, it is also necessary to cherry-pick commit dcc0fb782b3a
-> ('skbuff: export skb_copy_ubufs').
+> I'll take a look into this unless someone else wants to jump in.
+> 
+> >  * Maybe you can refresh my memory - in the case of a push_mpls after
+> > pop_vlan, why can't we do this check correctly for at least one level
+> > of vlan? It seems like we could use the inner EtherType to tell
+> > whether an additional vlan tag is present.
+> 
+> That seems likely. I'll do some analysis and get back to you.
 
-Thanks, I've done this for 3.4 now.
+I may be missing something but it seems to me that in
+ovs_nla_copy_actions__() we have access to the outer EtherType and
+VLAN TCI but not the inner EtherType.
 
-greg k-h
+It seems to me that the inner EtherType would need to be present
+in the key for it to be available in ovs_nla_copy_actions__().
