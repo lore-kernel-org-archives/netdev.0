@@ -1,49 +1,46 @@
-From: Stefan Wahren <info@lategoodbye.de>
-Subject: Packet loss when txqueuelen is zero
-Date: Sat, 28 Jun 2014 12:59:27 +0200
-Message-ID: <53AEA00F.6060500@lategoodbye.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: arnd@arndb.de
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Subject: [PATCH net-next] xfrm4: Remove duplicate semicolon
+Date: Sat, 28 Jun 2014 14:12:44 +0200
+Message-ID: <1403957564-6069-1-git-send-email-christoph.paasch@uclouvain.be>
+Cc: David Miller <davem@davemloft.net>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.augenpunkt.de ([213.239.207.9]:44429 "EHLO
-	www.augenpunkt.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751460AbaF1LLW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Jun 2014 07:11:22 -0400
+Received: from mail-we0-f178.google.com ([74.125.82.178]:49298 "EHLO
+	mail-we0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752647AbaF1MMx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Jun 2014 08:12:53 -0400
+Received: by mail-we0-f178.google.com with SMTP id x48so6175413wes.9
+        for <netdev@vger.kernel.org>; Sat, 28 Jun 2014 05:12:52 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+3328715e6c1fc (xfrm4: Add IPsec protocol multiplexer) adds a
+duplicate semicolon after the return-statement.
 
-i'm new to Linux network driver development and currently i want to port 
-the QCA7000 network driver to mainline [1]. I concentrate my tests on tx 
-buffering since my last QCA7000 patch RFC [2]. Now i've found a test 
-scenario which leads to packet loss:
+Although it has no negative impact, the second semicolon should be
+removed.
 
-host A          Powerline       host B
-(QCA7000)       Ethernet        Ethernet
-192.168.1.3     adaptor         192.168.1.5
-|------------------|---------------|
-      Homeplug         Ethernet
-      10 Mbit          100 Mbit
+Cc: Steffen Klassert <steffen.klassert@secunet.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
+Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
+---
+ net/ipv4/xfrm4_protocol.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-1. Reduce the txqueuelen from 100 (default value) to 0
-2. Run ping in flood mode on host A to host B
-
-ping -c 200 -s 10000 -f 192.168.1.5
-
-3. ping reports a high packet loss
-
-Additional information:
-- QCA7000 network driver has a tx ring size of 10 packets
-- the packet loss doesn't appear when txqueuelen is 100
-
-Here are my questions:
-
-Is the packet loss a expected result for this scenario?
-If not what could be the cause of the packet loss?
-
-[1] - https://github.com/I2SE/qca7000/tree/linux-mainline
-[2] - http://www.spinics.net/lists/netdev/msg280751.html
+diff --git a/net/ipv4/xfrm4_protocol.c b/net/ipv4/xfrm4_protocol.c
+index a2ce0101eaac..dccefa9d84cf 100644
+--- a/net/ipv4/xfrm4_protocol.c
++++ b/net/ipv4/xfrm4_protocol.c
+@@ -124,7 +124,7 @@ static int xfrm4_ah_rcv(struct sk_buff *skb)
+ 
+ 	for_each_protocol_rcu(ah4_handlers, handler)
+ 		if ((ret = handler->handler(skb)) != -EINVAL)
+-			return ret;;
++			return ret;
+ 
+ 	icmp_send(skb, ICMP_DEST_UNREACH, ICMP_PORT_UNREACH, 0);
+ 
+-- 
+1.9.3
