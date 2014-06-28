@@ -1,13 +1,12 @@
 From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH RFC net-next 03/14] bpf: introduce syscall(BPF, ...) and
- BPF maps
-Date: Fri, 27 Jun 2014 23:43:03 -0700
-Message-ID: <CAMEtUuwRf--qyPu3rKB7-57KAu2NdsQdEpVRckqabmf61g+h-g@mail.gmail.com>
+Subject: Re: [PATCH RFC net-next 07/14] bpf: expand BPF syscall with program load/unload
+Date: Sat, 28 Jun 2014 00:26:14 -0700
+Message-ID: <CAMEtUuwmxgrGMigmh1vZ7qCh9qB9ph9uFbPmVmmbqZvC5N9WyA@mail.gmail.com>
 References: <1403913966-4927-1-git-send-email-ast@plumgrid.com>
-	<1403913966-4927-4-git-send-email-ast@plumgrid.com>
-	<CALCETrV3WLBmHewCZgfhCkjODWfq_byRg6sF7HpqZ6n9BVMBVQ@mail.gmail.com>
-	<CAMEtUuzWs+MbSOGGD-Rc01DHKASa4GxbHdtCrSCLit4cUM35mA@mail.gmail.com>
-	<CALCETrWy6=dzTycy-ckiMR92+nQeqAWp_Hw=hi__VSzVWZ43Ag@mail.gmail.com>
+	<1403913966-4927-8-git-send-email-ast@plumgrid.com>
+	<CALCETrXDR1LVmbigTicBiddgvcucM1dGk1R7rxdJyBCvGEBQMw@mail.gmail.com>
+	<CAMEtUuywNHVcZ__296NzXK7RPXUBOf7gNQY9JFx0a9PV0Se+wA@mail.gmail.com>
+	<CALCETrXQ60J+UqafHRKPbgQ37zhstW+E8xAponWs7AQ-DCgaWA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
@@ -29,45 +28,70 @@ Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
 	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 To: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
 Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CALCETrWy6=dzTycy-ckiMR92+nQeqAWp_Hw=hi__VSzVWZ43Ag-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+In-Reply-To: <CALCETrXQ60J+UqafHRKPbgQ37zhstW+E8xAponWs7AQ-DCgaWA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
 Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 27, 2014 at 11:25 PM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org> wrote:
-> On Fri, Jun 27, 2014 at 10:55 PM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
->> On Fri, Jun 27, 2014 at 5:16 PM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org> wrote:
+On Fri, Jun 27, 2014 at 11:28 PM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org> wrote:
+> On Fri, Jun 27, 2014 at 11:12 PM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
+>> On Fri, Jun 27, 2014 at 5:19 PM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org> wrote:
 >>> On Fri, Jun 27, 2014 at 5:05 PM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
->>>> BPF syscall is a demux for different BPF releated commands.
+>>>> eBPF programs are safe run-to-completion functions with load/unload
+>>>> methods from userspace similar to kernel modules.
 >>>>
->>>> 'maps' is a generic storage of different types for sharing data between kernel
->>>> and userspace.
+>>>> User space API:
 >>>>
->>>> The maps can be created/deleted from user space via BPF syscall:
->>>> - create a map with given id, type and attributes
->>>>   map_id = bpf_map_create(int map_id, map_type, struct nlattr *attr, int len)
->>>>   returns positive map id or negative error
+>>>> - load eBPF program
+>>>>   prog_id = bpf_prog_load(int prog_id, bpf_prog_type, struct nlattr *prog, int len)
 >>>>
->>>> - delete map with given map id
->>>>   err = bpf_map_delete(int map_id)
->>>>   returns zero or negative error
+>>>>   where 'prog' is a sequence of sections (currently TEXT and LICENSE)
+>>>>   TEXT - array of eBPF instructions
+>>>>   LICENSE - GPL compatible
+>>>> +
+>>>> +       err = -EINVAL;
+>>>> +       /* look for mandatory license string */
+>>>> +       if (!tb[BPF_PROG_LICENSE])
+>>>> +               goto free_attr;
+>>>> +
+>>>> +       /* eBPF programs must be GPL compatible */
+>>>> +       if (!license_is_gpl_compatible(nla_data(tb[BPF_PROG_LICENSE])))
+>>>> +               goto free_attr;
 >>>
->>> What's the scope of "id"?  How is it secured?
+>>> Seriously?  My mind boggles.
 >>
->> the map and program id space is global and it's cap_sys_admin only.
->> There is no pressing need to do it with per-user limits.
->> So the whole thing is root only for now.
+>> Yes. Quite a bit of logic can fit into one eBPF program. I don't think it's wise
+>> to leave this door open for abuse. This check makes it clear that if you
+>> write a program in C, the source code must be available.
+>> If program is written in assembler than this check is nop anyway.
 >>
 >
-> Hmm.  This may be unpleasant if you ever want to support non-root or
-> namespaced operation.
+> I can see this seriously annoying lots of users.  For example,
+> Chromium might object.
 
-I think it will be easy to extend it per namespace when we lift
-root-only restriction. It will be seamless without user api changes.
+chrome/seccomp generated programs are an exception. They
+really don't have a source code. Quite large classic BPF programs
+are generated out of decision tree driven by seccomp library. Here we
+obviously cannot say that such bpf generating library must be GPLed.
+Just like LLVM that emits eBPF code is not under GPL.
+So chrome should be fine generating eBPF as well.
 
-> How hard would it be to give these things fds?
+> If you want to add GPL-only functions in the future, that would be one
+> thing.  But if someone writes a nice eBPF compiler, and someone else
+> writes a little program that filters on network packets, I see no
+> reason to claim that the little program is a derivative work of the
+> kernel and therefore must be GPL.
 
-you mean programs/maps auto-terminate when creator process
-exits? I thought about it and it's appealing at first glance, but
-doesn't fit the model of existing tracepoint events which are global.
-The programs attached to events need to live without 'daemon'
-hanging around. Therefore I picked 'kernel module'- like method.
+I think we have to draw a line somewhere. Say, tomorrow I want
+to modify libpcap to emit eBPF based on existing tcpdump syntax.
+Would it mean that tcpdump filter strings are GPLed? Definitely not,
+since they existed before and can function without new libpcap.
+But if I write a new packet filtering program in C, compile it
+using LLVM->eBPF and call into in-kernel helper functions
+(like bpf_map_lookup_elem()),  I think it's exactly the derivative work.
+It's analogous to kernel modules. If module wants to call
+export_symbol_gpl() functions, it needs to be GPLed. Here all helper
+functions are GPL. So we just have a blank check for eBPF program.
+Having said that I can relax it a little by adding 'export_symbol(_gpl)?'
+equivalent markings to all helper function. Then eBPF program that
+doesn't call any functions at all, can run under non-free license.
+But before I do that, I'd like hear others.
