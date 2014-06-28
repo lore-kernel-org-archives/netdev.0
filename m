@@ -1,64 +1,35 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [PATCH RFC net-next 07/14] bpf: expand BPF syscall with program load/unload
-Date: Sat, 28 Jun 2014 08:35:51 -0700
-Message-ID: <CALCETrUs8mmVK70rwkQz=Dzu2ZjPYU_TMuydnXsJM8jAxTv0WQ@mail.gmail.com>
-References: <1403913966-4927-1-git-send-email-ast@plumgrid.com>
- <1403913966-4927-8-git-send-email-ast@plumgrid.com> <CALCETrXDR1LVmbigTicBiddgvcucM1dGk1R7rxdJyBCvGEBQMw@mail.gmail.com>
- <CAMEtUuywNHVcZ__296NzXK7RPXUBOf7gNQY9JFx0a9PV0Se+wA@mail.gmail.com>
- <CALCETrXQ60J+UqafHRKPbgQ37zhstW+E8xAponWs7AQ-DCgaWA@mail.gmail.com>
- <CAMEtUuwmxgrGMigmh1vZ7qCh9qB9ph9uFbPmVmmbqZvC5N9WyA@mail.gmail.com> <20140628152104.GB29548@kroah.com>
+From: Vince Bridgers <vbridgers2013@gmail.com>
+Subject: Re: [PATCH net 1/2] net: stmmac: add platform init/exit for Altera's
+ ARM socfpga
+Date: Sat, 28 Jun 2014 10:40:42 -0500
+Message-ID: <CAOwfj2NBpJN71UTEnQcZspA4CRVneJaBVW0Fu0VhkLNz+duUMA@mail.gmail.com>
+References: <1403483701-21199-1-git-send-email-vbridgers2013@gmail.com>
+	<1403483701-21199-2-git-send-email-vbridgers2013@gmail.com>
+	<20140625.155918.1075841150895163513.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Alexei Starovoitov <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Chema Gonzalez <chema@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Jiri Olsa <jolsa@redhat.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kees Cook <keescook@chromium.org>,
-	Linux API <linux-api@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Greg KH <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140628152104.GB29548@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f177.google.com ([74.125.82.177]:46131 "EHLO
+	mail-we0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751346AbaF1Pkn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Jun 2014 11:40:43 -0400
+Received: by mail-we0-f177.google.com with SMTP id u56so6279838wes.8
+        for <netdev@vger.kernel.org>; Sat, 28 Jun 2014 08:40:42 -0700 (PDT)
+In-Reply-To: <20140625.155918.1075841150895163513.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jun 28, 2014 at 8:21 AM, Greg KH <gregkh@linuxfoundation.org> wrote:
-> On Sat, Jun 28, 2014 at 12:26:14AM -0700, Alexei Starovoitov wrote:
->> On Fri, Jun 27, 2014 at 11:28 PM, Andy Lutomirski <luto@amacapital.net> wrote:
->> > On Fri, Jun 27, 2014 at 11:12 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
->> > If you want to add GPL-only functions in the future, that would be one
->> > thing.  But if someone writes a nice eBPF compiler, and someone else
->> > writes a little program that filters on network packets, I see no
->> > reason to claim that the little program is a derivative work of the
->> > kernel and therefore must be GPL.
->>
->> I think we have to draw a line somewhere. Say, tomorrow I want
->> to modify libpcap to emit eBPF based on existing tcpdump syntax.
->> Would it mean that tcpdump filter strings are GPLed? Definitely not,
->> since they existed before and can function without new libpcap.
->> But if I write a new packet filtering program in C, compile it
->> using LLVM->eBPF and call into in-kernel helper functions
->> (like bpf_map_lookup_elem()),  I think it's exactly the derivative work.
->> It's analogous to kernel modules. If module wants to call
->> export_symbol_gpl() functions, it needs to be GPLed. Here all helper
->> functions are GPL. So we just have a blank check for eBPF program.
+On Wed, Jun 25, 2014 at 5:59 PM, David Miller <davem@davemloft.net> wrote:
+> From: Vince Bridgers <vbridgers2013@gmail.com>
+> Date: Sun, 22 Jun 2014 19:35:00 -0500
 >
-> I agree, these eBFP programs should be GPL-compatible licensed as well.
+>> +     return ret;
+>> +}
+>>  const struct stmmac_of_data socfpga_gmac_data = {
+>
+> Please always place one empty line between top-level declarations.
 
-I think I'd be happy with an export_symbol_gpl analogue.  I might
-argue that bpf_map_lookup_elem shouldn't be gpl-only, though.
-Something like "look up the uid that opened a port," on the other
-hand, maybe should be.
-
---Andy
+Thanks, I'll address and respin the patch
