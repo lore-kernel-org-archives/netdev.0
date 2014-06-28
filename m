@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH RFC net-next 03/14] bpf: introduce syscall(BPF, ...) and BPF maps
-Date: Fri, 27 Jun 2014 17:05:55 -0700
-Message-ID: <1403913966-4927-4-git-send-email-ast@plumgrid.com>
+Subject: [PATCH RFC net-next 02/14] net: filter: split filter.h and expose eBPF to user space
+Date: Fri, 27 Jun 2014 17:05:54 -0700
+Message-ID: <1403913966-4927-3-git-send-email-ast@plumgrid.com>
 References: <1403913966-4927-1-git-send-email-ast@plumgrid.com>
 Cc: Ingo Molnar <mingo@kernel.org>,
 	Linus Torvalds <torvalds@linux-foundation.org>,
@@ -23,532 +23,657 @@ In-Reply-To: <1403913966-4927-1-git-send-email-ast@plumgrid.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-BPF syscall is a demux for different BPF releated commands.
+eBPF can be used from user space.
 
-'maps' is a generic storage of different types for sharing data between kernel
-and userspace.
+uapi/linux/bpf.h: eBPF instruction set definition
 
-The maps can be created/deleted from user space via BPF syscall:
-- create a map with given id, type and attributes
-  map_id = bpf_map_create(int map_id, map_type, struct nlattr *attr, int len)
-  returns positive map id or negative error
+linux/filter.h: the rest
 
-- delete map with given map id
-  err = bpf_map_delete(int map_id)
-  returns zero or negative error
+This patch only moves macro definitions, but practically it freezes existing
+eBPF instruction set, though new instructions can still be added in the future.
 
-Next patch allows userspace programs to populate/read maps that eBPF programs
-are concurrently updating.
-
-maps can have different types: hash, bloom filter, radix-tree, etc.
-
-The map is defined by:
-  . id
-  . type
-  . max number of elements
-  . key size in bytes
-  . value size in bytes
-
-Next patches allow eBPF programs to access maps via API:
-  void * bpf_map_lookup_elem(u32 map_id, void *key);
-  int bpf_map_update_elem(u32 map_id, void *key, void *value);
-  int bpf_map_delete_elem(u32 map_id, void *key);
-
-This patch establishes core infrastructure for BPF maps.
-Next patches implement lookup/update and hashtable type.
-More map types can be added in the future.
-
-syscall is using type-length-value style of passing arguments to be backwards
-compatible with future extensions to map attributes. Different map types may
-use different attributes as well.
-The concept of type-lenght-value is borrowed from netlink, but netlink itself
-is not applicable here, since BPF programs and maps can be used in NET-less
-configurations.
+These eBPF definitions cannot go into uapi/linux/filter.h, since the names
+may conflict with existing applications.
 
 Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
- Documentation/networking/filter.txt |   69 ++++++++++
- arch/x86/syscalls/syscall_64.tbl    |    1 +
- include/linux/bpf.h                 |   44 +++++++
- include/linux/syscalls.h            |    2 +
- include/uapi/asm-generic/unistd.h   |    4 +-
- include/uapi/linux/bpf.h            |   29 +++++
- kernel/bpf/Makefile                 |    2 +-
- kernel/bpf/syscall.c                |  238 +++++++++++++++++++++++++++++++++++
- kernel/sys_ni.c                     |    3 +
- 9 files changed, 390 insertions(+), 2 deletions(-)
- create mode 100644 include/linux/bpf.h
- create mode 100644 kernel/bpf/syscall.c
+ include/linux/filter.h    |  294 +------------------------------------------
+ include/uapi/linux/Kbuild |    1 +
+ include/uapi/linux/bpf.h  |  305 +++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 307 insertions(+), 293 deletions(-)
+ create mode 100644 include/uapi/linux/bpf.h
 
-diff --git a/Documentation/networking/filter.txt b/Documentation/networking/filter.txt
-index ee78eba78a9d..e14e486f69cd 100644
---- a/Documentation/networking/filter.txt
-+++ b/Documentation/networking/filter.txt
-@@ -995,6 +995,75 @@ BPF_XADD | BPF_DW | BPF_STX: lock xadd *(u64 *)(dst_reg + off16) += src_reg
- Where size is one of: BPF_B or BPF_H or BPF_W or BPF_DW. Note that 1 and
- 2 byte atomic increments are not supported.
- 
-+eBPF maps
-+---------
-+'maps' is a generic storage of different types for sharing data between kernel
-+and userspace.
-+
-+The maps are accessed from user space via BPF syscall, which has commands:
-+- create a map with given id, type and attributes
-+  map_id = bpf_map_create(int map_id, map_type, struct nlattr *attr, int len)
-+  returns positive map id or negative error
-+
-+- delete map with given map id
-+  err = bpf_map_delete(int map_id)
-+  returns zero or negative error
-+
-+- lookup key in a given map referenced by map_id
-+  err = bpf_map_lookup_elem(int map_id, void *key, void *value)
-+  returns zero and stores found elem into value or negative error
-+
-+- create or update key/value pair in a given map
-+  err = bpf_map_update_elem(int map_id, void *key, void *value)
-+  returns zero or negative error
-+
-+- find and delete element by key in a given map
-+  err = bpf_map_delete_elem(int map_id, void *key)
-+
-+userspace programs uses this API to create/populate/read maps that eBPF programs
-+are concurrently updating.
-+
-+maps can have different types: hash, bloom filter, radix-tree, etc.
-+
-+The map is defined by:
-+  . id
-+  . type
-+  . max number of elements
-+  . key size in bytes
-+  . value size in bytes
-+
-+The maps are accesible from eBPF program with API:
-+  void * bpf_map_lookup_elem(u32 map_id, void *key);
-+  int bpf_map_update_elem(u32 map_id, void *key, void *value);
-+  int bpf_map_delete_elem(u32 map_id, void *key);
-+
-+If eBPF verifier is configured to recognize extra calls in the program
-+bpf_map_lookup_elem() and bpf_map_update_elem() then access to maps looks like:
-+  ...
-+  ptr_to_value = map_lookup_elem(const_int_map_id, key)
-+  access memory [ptr_to_value, ptr_to_value + value_size_in_bytes]
-+  ...
-+  prepare key2 and value2 on stack of key_size and value_size
-+  err = map_update_elem(const_int_map_id2, key2, value2)
-+  ...
-+
-+eBPF program cannot create or delete maps
-+(such calls will be unknown to verifier)
-+
-+During program loading the refcnt of used maps is incremented, so they don't get
-+deleted while program is running
-+
-+bpf_map_update_elem() can fail if maximum number of elements reached.
-+if key2 already exists, bpf_map_update_elem() replaces it with value2 atomically
-+
-+bpf_map_lookup_elem() can return null or ptr_to_value
-+ptr_to_value is read/write from the program point of view.
-+
-+The verifier will check that the program accesses map elements within specified
-+size. It will not let programs pass junk values as 'key' and 'value' to
-+bpf_map_*_elem() functions, so these functions (implemented in C inside kernel)
-+can safely access the pointers in all cases.
-+
- Testing
- -------
- 
-diff --git a/arch/x86/syscalls/syscall_64.tbl b/arch/x86/syscalls/syscall_64.tbl
-index ec255a1646d2..edbb8460e1b5 100644
---- a/arch/x86/syscalls/syscall_64.tbl
-+++ b/arch/x86/syscalls/syscall_64.tbl
-@@ -323,6 +323,7 @@
- 314	common	sched_setattr		sys_sched_setattr
- 315	common	sched_getattr		sys_sched_getattr
- 316	common	renameat2		sys_renameat2
-+317	common	bpf			sys_bpf
- 
- #
- # x32-specific system call numbers start at 512 to avoid cache impact
-diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-new file mode 100644
-index 000000000000..6448b9beea89
---- /dev/null
-+++ b/include/linux/bpf.h
-@@ -0,0 +1,44 @@
-+/* Copyright (c) 2011-2014 PLUMgrid, http://plumgrid.com
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ */
-+#ifndef _LINUX_BPF_H
-+#define _LINUX_BPF_H 1
-+
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index a7e3c48d73a7..6766577635ff 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -8,303 +8,11 @@
+ #include <linux/compat.h>
+ #include <linux/workqueue.h>
+ #include <uapi/linux/filter.h>
+-
+-/* Internally used and optimized filter representation with extended
+- * instruction set based on top of classic BPF.
+- */
+-
+-/* instruction classes */
+-#define BPF_ALU64	0x07	/* alu mode in double word width */
+-
+-/* ld/ldx fields */
+-#define BPF_DW		0x18	/* double word */
+-#define BPF_XADD	0xc0	/* exclusive add */
+-
+-/* alu/jmp fields */
+-#define BPF_MOV		0xb0	/* mov reg to reg */
+-#define BPF_ARSH	0xc0	/* sign extending arithmetic shift right */
+-
+-/* change endianness of a register */
+-#define BPF_END		0xd0	/* flags for endianness conversion: */
+-#define BPF_TO_LE	0x00	/* convert to little-endian */
+-#define BPF_TO_BE	0x08	/* convert to big-endian */
+-#define BPF_FROM_LE	BPF_TO_LE
+-#define BPF_FROM_BE	BPF_TO_BE
+-
+-#define BPF_JNE		0x50	/* jump != */
+-#define BPF_JSGT	0x60	/* SGT is signed '>', GT in x86 */
+-#define BPF_JSGE	0x70	/* SGE is signed '>=', GE in x86 */
+-#define BPF_CALL	0x80	/* function call */
+-#define BPF_EXIT	0x90	/* function return */
+-
+-/* Register numbers */
+-enum {
+-	BPF_REG_0 = 0,
+-	BPF_REG_1,
+-	BPF_REG_2,
+-	BPF_REG_3,
+-	BPF_REG_4,
+-	BPF_REG_5,
+-	BPF_REG_6,
+-	BPF_REG_7,
+-	BPF_REG_8,
+-	BPF_REG_9,
+-	BPF_REG_10,
+-	__MAX_BPF_REG,
+-};
+-
+-/* BPF has 10 general purpose 64-bit registers and stack frame. */
+-#define MAX_BPF_REG	__MAX_BPF_REG
+-
+-/* ArgX, context and stack frame pointer register positions. Note,
+- * Arg1, Arg2, Arg3, etc are used as argument mappings of function
+- * calls in BPF_CALL instruction.
+- */
+-#define BPF_REG_ARG1	BPF_REG_1
+-#define BPF_REG_ARG2	BPF_REG_2
+-#define BPF_REG_ARG3	BPF_REG_3
+-#define BPF_REG_ARG4	BPF_REG_4
+-#define BPF_REG_ARG5	BPF_REG_5
+-#define BPF_REG_CTX	BPF_REG_6
+-#define BPF_REG_FP	BPF_REG_10
+-
+-/* Additional register mappings for converted user programs. */
+-#define BPF_REG_A	BPF_REG_0
+-#define BPF_REG_X	BPF_REG_7
+-#define BPF_REG_TMP	BPF_REG_8
+-
+-/* BPF program can access up to 512 bytes of stack space. */
+-#define MAX_BPF_STACK	512
+-
+-/* Helper macros for filter block array initializers. */
+-
+-/* ALU ops on registers, bpf_add|sub|...: dst_reg += src_reg */
+-
+-#define BPF_ALU64_REG(OP, DST, SRC)				\
+-	((struct sock_filter_int) {				\
+-		.code  = BPF_ALU64 | BPF_OP(OP) | BPF_X,	\
+-		.dst_reg = DST,					\
+-		.src_reg = SRC,					\
+-		.off   = 0,					\
+-		.imm   = 0 })
+-
+-#define BPF_ALU32_REG(OP, DST, SRC)				\
+-	((struct sock_filter_int) {				\
+-		.code  = BPF_ALU | BPF_OP(OP) | BPF_X,		\
+-		.dst_reg = DST,					\
+-		.src_reg = SRC,					\
+-		.off   = 0,					\
+-		.imm   = 0 })
+-
+-/* ALU ops on immediates, bpf_add|sub|...: dst_reg += imm32 */
+-
+-#define BPF_ALU64_IMM(OP, DST, IMM)				\
+-	((struct sock_filter_int) {				\
+-		.code  = BPF_ALU64 | BPF_OP(OP) | BPF_K,	\
+-		.dst_reg = DST,					\
+-		.src_reg = 0,					\
+-		.off   = 0,					\
+-		.imm   = IMM })
+-
+-#define BPF_ALU32_IMM(OP, DST, IMM)				\
+-	((struct sock_filter_int) {				\
+-		.code  = BPF_ALU | BPF_OP(OP) | BPF_K,		\
+-		.dst_reg = DST,					\
+-		.src_reg = 0,					\
+-		.off   = 0,					\
+-		.imm   = IMM })
+-
+-/* Endianess conversion, cpu_to_{l,b}e(), {l,b}e_to_cpu() */
+-
+-#define BPF_ENDIAN(TYPE, DST, LEN)				\
+-	((struct sock_filter_int) {				\
+-		.code  = BPF_ALU | BPF_END | BPF_SRC(TYPE),	\
+-		.dst_reg = DST,					\
+-		.src_reg = 0,					\
+-		.off   = 0,					\
+-		.imm   = LEN })
+-
+-/* Short form of mov, dst_reg = src_reg */
+-
+-#define BPF_MOV64_REG(DST, SRC)					\
+-	((struct sock_filter_int) {				\
+-		.code  = BPF_ALU64 | BPF_MOV | BPF_X,		\
+-		.dst_reg = DST,					\
+-		.src_reg = SRC,					\
+-		.off   = 0,					\
+-		.imm   = 0 })
+-
+-#define BPF_MOV32_REG(DST, SRC)					\
+-	((struct sock_filter_int) {				\
+-		.code  = BPF_ALU | BPF_MOV | BPF_X,		\
+-		.dst_reg = DST,					\
+-		.src_reg = SRC,					\
+-		.off   = 0,					\
+-		.imm   = 0 })
+-
+-/* Short form of mov, dst_reg = imm32 */
+-
+-#define BPF_MOV64_IMM(DST, IMM)					\
+-	((struct sock_filter_int) {				\
+-		.code  = BPF_ALU64 | BPF_MOV | BPF_K,		\
+-		.dst_reg = DST,					\
+-		.src_reg = 0,					\
+-		.off   = 0,					\
+-		.imm   = IMM })
+-
+-#define BPF_MOV32_IMM(DST, IMM)					\
+-	((struct sock_filter_int) {				\
+-		.code  = BPF_ALU | BPF_MOV | BPF_K,		\
+-		.dst_reg = DST,					\
+-		.src_reg = 0,					\
+-		.off   = 0,					\
+-		.imm   = IMM })
+-
+-/* Short form of mov based on type, BPF_X: dst_reg = src_reg, BPF_K: dst_reg = imm32 */
+-
+-#define BPF_MOV64_RAW(TYPE, DST, SRC, IMM)			\
+-	((struct sock_filter_int) {				\
+-		.code  = BPF_ALU64 | BPF_MOV | BPF_SRC(TYPE),	\
+-		.dst_reg = DST,					\
+-		.src_reg = SRC,					\
+-		.off   = 0,					\
+-		.imm   = IMM })
+-
+-#define BPF_MOV32_RAW(TYPE, DST, SRC, IMM)			\
+-	((struct sock_filter_int) {				\
+-		.code  = BPF_ALU | BPF_MOV | BPF_SRC(TYPE),	\
+-		.dst_reg = DST,					\
+-		.src_reg = SRC,					\
+-		.off   = 0,					\
+-		.imm   = IMM })
+-
+-/* Direct packet access, R0 = *(uint *) (skb->data + imm32) */
+-
+-#define BPF_LD_ABS(SIZE, IMM)					\
+-	((struct sock_filter_int) {				\
+-		.code  = BPF_LD | BPF_SIZE(SIZE) | BPF_ABS,	\
+-		.dst_reg = 0,					\
+-		.src_reg = 0,					\
+-		.off   = 0,					\
+-		.imm   = IMM })
+-
+-/* Indirect packet access, R0 = *(uint *) (skb->data + src_reg + imm32) */
+-
+-#define BPF_LD_IND(SIZE, SRC, IMM)				\
+-	((struct sock_filter_int) {				\
+-		.code  = BPF_LD | BPF_SIZE(SIZE) | BPF_IND,	\
+-		.dst_reg = 0,					\
+-		.src_reg = SRC,					\
+-		.off   = 0,					\
+-		.imm   = IMM })
+-
+-/* Memory load, dst_reg = *(uint *) (src_reg + off16) */
+-
+-#define BPF_LDX_MEM(SIZE, DST, SRC, OFF)			\
+-	((struct sock_filter_int) {				\
+-		.code  = BPF_LDX | BPF_SIZE(SIZE) | BPF_MEM,	\
+-		.dst_reg = DST,					\
+-		.src_reg = SRC,					\
+-		.off   = OFF,					\
+-		.imm   = 0 })
+-
+-/* Memory store, *(uint *) (dst_reg + off16) = src_reg */
+-
+-#define BPF_STX_MEM(SIZE, DST, SRC, OFF)			\
+-	((struct sock_filter_int) {				\
+-		.code  = BPF_STX | BPF_SIZE(SIZE) | BPF_MEM,	\
+-		.dst_reg = DST,					\
+-		.src_reg = SRC,					\
+-		.off   = OFF,					\
+-		.imm   = 0 })
+-
+-/* Memory store, *(uint *) (dst_reg + off16) = imm32 */
+-
+-#define BPF_ST_MEM(SIZE, DST, OFF, IMM)				\
+-	((struct sock_filter_int) {				\
+-		.code  = BPF_ST | BPF_SIZE(SIZE) | BPF_MEM,	\
+-		.dst_reg = DST,					\
+-		.src_reg = 0,					\
+-		.off   = OFF,					\
+-		.imm   = IMM })
+-
+-/* Conditional jumps against registers, if (dst_reg 'op' src_reg) goto pc + off16 */
+-
+-#define BPF_JMP_REG(OP, DST, SRC, OFF)				\
+-	((struct sock_filter_int) {				\
+-		.code  = BPF_JMP | BPF_OP(OP) | BPF_X,		\
+-		.dst_reg = DST,					\
+-		.src_reg = SRC,					\
+-		.off   = OFF,					\
+-		.imm   = 0 })
+-
+-/* Conditional jumps against immediates, if (dst_reg 'op' imm32) goto pc + off16 */
+-
+-#define BPF_JMP_IMM(OP, DST, IMM, OFF)				\
+-	((struct sock_filter_int) {				\
+-		.code  = BPF_JMP | BPF_OP(OP) | BPF_K,		\
+-		.dst_reg = DST,					\
+-		.src_reg = 0,					\
+-		.off   = OFF,					\
+-		.imm   = IMM })
+-
+-/* Function call */
+-
+-#define BPF_EMIT_CALL(FUNC)					\
+-	((struct sock_filter_int) {				\
+-		.code  = BPF_JMP | BPF_CALL,			\
+-		.dst_reg = 0,					\
+-		.src_reg = 0,					\
+-		.off   = 0,					\
+-		.imm   = ((FUNC) - __bpf_call_base) })
+-
+-/* Raw code statement block */
+-
+-#define BPF_RAW_INSN(CODE, DST, SRC, OFF, IMM)			\
+-	((struct sock_filter_int) {				\
+-		.code  = CODE,					\
+-		.dst_reg = DST,					\
+-		.src_reg = SRC,					\
+-		.off   = OFF,					\
+-		.imm   = IMM })
+-
+-/* Program exit */
+-
+-#define BPF_EXIT_INSN()						\
+-	((struct sock_filter_int) {				\
+-		.code  = BPF_JMP | BPF_EXIT,			\
+-		.dst_reg = 0,					\
+-		.src_reg = 0,					\
+-		.off   = 0,					\
+-		.imm   = 0 })
+-
+-#define bytes_to_bpf_size(bytes)				\
+-({								\
+-	int bpf_size = -EINVAL;					\
+-								\
+-	if (bytes == sizeof(u8))				\
+-		bpf_size = BPF_B;				\
+-	else if (bytes == sizeof(u16))				\
+-		bpf_size = BPF_H;				\
+-	else if (bytes == sizeof(u32))				\
+-		bpf_size = BPF_W;				\
+-	else if (bytes == sizeof(u64))				\
+-		bpf_size = BPF_DW;				\
+-								\
+-	bpf_size;						\
+-})
 +#include <uapi/linux/bpf.h>
-+#include <linux/workqueue.h>
-+
-+struct bpf_map;
-+struct nlattr;
-+
-+/* map is generic key/value storage optionally accesible by eBPF programs */
-+struct bpf_map_ops {
-+	/* funcs callable from userspace (via syscall) */
-+	struct bpf_map *(*map_alloc)(struct nlattr *attrs[BPF_MAP_ATTR_MAX + 1]);
-+	void (*map_free)(struct bpf_map *);
-+};
-+
-+struct bpf_map {
-+	atomic_t refcnt;
-+	bool deleted;
-+	int map_id;
-+	enum bpf_map_type map_type;
-+	u32 key_size;
-+	u32 value_size;
-+	u32 max_entries;
-+	struct bpf_map_ops *ops;
-+	struct work_struct work;
-+};
-+
-+struct bpf_map_type_list {
-+	struct list_head list_node;
-+	struct bpf_map_ops *ops;
-+	enum bpf_map_type type;
-+};
-+
-+void bpf_register_map_type(struct bpf_map_type_list *tl);
-+struct bpf_map *bpf_map_get(u32 map_id);
-+
-+#endif /* _LINUX_BPF_H */
-diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
-index b0881a0ed322..2b524aeba262 100644
---- a/include/linux/syscalls.h
-+++ b/include/linux/syscalls.h
-@@ -866,4 +866,6 @@ asmlinkage long sys_process_vm_writev(pid_t pid,
- asmlinkage long sys_kcmp(pid_t pid1, pid_t pid2, int type,
- 			 unsigned long idx1, unsigned long idx2);
- asmlinkage long sys_finit_module(int fd, const char __user *uargs, int flags);
-+asmlinkage long sys_bpf(int cmd, unsigned long arg2, unsigned long arg3,
-+			unsigned long arg4, unsigned long arg5);
- #endif
-diff --git a/include/uapi/asm-generic/unistd.h b/include/uapi/asm-generic/unistd.h
-index 333640608087..41e20f8fb87e 100644
---- a/include/uapi/asm-generic/unistd.h
-+++ b/include/uapi/asm-generic/unistd.h
-@@ -699,9 +699,11 @@ __SYSCALL(__NR_sched_setattr, sys_sched_setattr)
- __SYSCALL(__NR_sched_getattr, sys_sched_getattr)
- #define __NR_renameat2 276
- __SYSCALL(__NR_renameat2, sys_renameat2)
-+#define __NR_bpf 277
-+__SYSCALL(__NR_bpf, sys_bpf)
  
- #undef __NR_syscalls
--#define __NR_syscalls 277
-+#define __NR_syscalls 278
+ /* Macro to invoke filter function. */
+ #define SK_RUN_FILTER(filter, ctx)  (*filter->bpf_func)(ctx, filter->insnsi)
  
- /*
-  * All syscalls below here should go away really,
+-struct sock_filter_int {
+-	__u8	code;		/* opcode */
+-	__u8	dst_reg:4;	/* dest register */
+-	__u8	src_reg:4;	/* source register */
+-	__s16	off;		/* signed offset */
+-	__s32	imm;		/* signed immediate constant */
+-};
+-
+ #ifdef CONFIG_COMPAT
+ /* A struct sock_filter is architecture independent. */
+ struct compat_sock_fprog {
+diff --git a/include/uapi/linux/Kbuild b/include/uapi/linux/Kbuild
+index 24e9033f8b3f..fb3f7b675229 100644
+--- a/include/uapi/linux/Kbuild
++++ b/include/uapi/linux/Kbuild
+@@ -67,6 +67,7 @@ header-y += bfs_fs.h
+ header-y += binfmts.h
+ header-y += blkpg.h
+ header-y += blktrace_api.h
++header-y += bpf.h
+ header-y += bpqether.h
+ header-y += bsg.h
+ header-y += btrfs.h
 diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 439d64a07eff..04374e57c290 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -302,4 +302,33 @@ struct sock_filter_int {
- 	__s32	imm;		/* signed immediate constant */
- };
- 
-+/* BPF syscall commands */
-+enum bpf_cmd {
-+	/* create a map with given id, type and attributes
-+	 * map_id = bpf_map_create(int map_id, bpf_map_type, struct nlattr *attr, int len)
-+	 * returns positive map id or negative error
-+	 */
-+	BPF_MAP_CREATE,
-+
-+	/* delete map with given map id
-+	 * err = bpf_map_delete(int map_id)
-+	 * returns zero or negative error
-+	 */
-+	BPF_MAP_DELETE,
-+};
-+
-+enum bpf_map_attributes {
-+	BPF_MAP_UNSPEC,
-+	BPF_MAP_KEY_SIZE,	/* size of key in bytes */
-+	BPF_MAP_VALUE_SIZE,	/* size of value in bytes */
-+	BPF_MAP_MAX_ENTRIES,	/* maximum number of entries in a map */
-+	__BPF_MAP_ATTR_MAX,
-+};
-+#define BPF_MAP_ATTR_MAX (__BPF_MAP_ATTR_MAX - 1)
-+#define BPF_MAP_MAX_ATTR_SIZE 65535
-+
-+enum bpf_map_type {
-+	BPF_MAP_TYPE_UNSPEC,
-+};
-+
- #endif /* _UAPI__LINUX_BPF_H__ */
-diff --git a/kernel/bpf/Makefile b/kernel/bpf/Makefile
-index 6a71145e2769..e9f7334ed07a 100644
---- a/kernel/bpf/Makefile
-+++ b/kernel/bpf/Makefile
-@@ -1 +1 @@
--obj-y := core.o
-+obj-y := core.o syscall.o
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
 new file mode 100644
-index 000000000000..b9509923b16f
+index 000000000000..439d64a07eff
 --- /dev/null
-+++ b/kernel/bpf/syscall.c
-@@ -0,0 +1,238 @@
++++ b/include/uapi/linux/bpf.h
+@@ -0,0 +1,305 @@
 +/* Copyright (c) 2011-2014 PLUMgrid, http://plumgrid.com
 + *
 + * This program is free software; you can redistribute it and/or
 + * modify it under the terms of version 2 of the GNU General Public
 + * License as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-+ * General Public License for more details.
 + */
-+#include <linux/bpf.h>
-+#include <linux/syscalls.h>
-+#include <net/netlink.h>
++#ifndef _UAPI__LINUX_BPF_H__
++#define _UAPI__LINUX_BPF_H__
 +
-+/* mutex to protect insertion/deletion of map_id in IDR */
-+static DEFINE_MUTEX(bpf_map_lock);
-+static DEFINE_IDR(bpf_map_id_idr);
++#include <linux/types.h>
 +
-+/* maximum number of outstanding maps */
-+#define MAX_BPF_MAP_CNT 1024
-+static u32 bpf_map_cnt;
++/* Internally used and optimized filter representation with extended
++ * instruction set based on top of classic BPF.
++ */
 +
-+static LIST_HEAD(bpf_map_types);
++/* instruction classes */
++#define BPF_ALU64	0x07	/* alu mode in double word width */
 +
-+static struct bpf_map *find_and_alloc_map(enum bpf_map_type type,
-+					  struct nlattr *tb[BPF_MAP_ATTR_MAX + 1])
-+{
-+	struct bpf_map_type_list *tl;
-+	struct bpf_map *map;
++/* ld/ldx fields */
++#define BPF_DW		0x18	/* double word */
++#define BPF_XADD	0xc0	/* exclusive add */
 +
-+	list_for_each_entry(tl, &bpf_map_types, list_node) {
-+		if (tl->type == type) {
-+			map = tl->ops->map_alloc(tb);
-+			if (IS_ERR(map))
-+				return map;
-+			map->ops = tl->ops;
-+			map->map_type = type;
-+			return map;
-+		}
-+	}
-+	return ERR_PTR(-EINVAL);
-+}
++/* alu/jmp fields */
++#define BPF_MOV		0xb0	/* mov reg to reg */
++#define BPF_ARSH	0xc0	/* sign extending arithmetic shift right */
 +
-+/* boot time registration of different map implementations */
-+void bpf_register_map_type(struct bpf_map_type_list *tl)
-+{
-+	list_add(&tl->list_node, &bpf_map_types);
-+}
++/* change endianness of a register */
++#define BPF_END		0xd0	/* flags for endianness conversion: */
++#define BPF_TO_LE	0x00	/* convert to little-endian */
++#define BPF_TO_BE	0x08	/* convert to big-endian */
++#define BPF_FROM_LE	BPF_TO_LE
++#define BPF_FROM_BE	BPF_TO_BE
 +
-+static const struct nla_policy map_policy[BPF_MAP_ATTR_MAX + 1] = {
-+	[BPF_MAP_KEY_SIZE]    = { .type = NLA_U32 },
-+	[BPF_MAP_VALUE_SIZE]  = { .type = NLA_U32 },
-+	[BPF_MAP_MAX_ENTRIES] = { .type = NLA_U32 },
++#define BPF_JNE		0x50	/* jump != */
++#define BPF_JSGT	0x60	/* SGT is signed '>', GT in x86 */
++#define BPF_JSGE	0x70	/* SGE is signed '>=', GE in x86 */
++#define BPF_CALL	0x80	/* function call */
++#define BPF_EXIT	0x90	/* function return */
++
++/* Register numbers */
++enum {
++	BPF_REG_0 = 0,
++	BPF_REG_1,
++	BPF_REG_2,
++	BPF_REG_3,
++	BPF_REG_4,
++	BPF_REG_5,
++	BPF_REG_6,
++	BPF_REG_7,
++	BPF_REG_8,
++	BPF_REG_9,
++	BPF_REG_10,
++	__MAX_BPF_REG,
 +};
 +
-+/* called via syscall */
-+static int map_create(int map_id, enum bpf_map_type type,
-+		      struct nlattr __user *uattr, int len)
-+{
-+	struct nlattr *tb[BPF_MAP_ATTR_MAX + 1];
-+	struct bpf_map *map;
-+	struct nlattr *attr;
-+	int err;
++/* BPF has 10 general purpose 64-bit registers and stack frame. */
++#define MAX_BPF_REG	__MAX_BPF_REG
 +
-+	if (len <= 0 || len > BPF_MAP_MAX_ATTR_SIZE)
-+		return -EINVAL;
-+
-+	if (map_id < 0)
-+		return -EINVAL;
-+
-+	attr = kmalloc(len, GFP_USER);
-+	if (!attr)
-+		return -ENOMEM;
-+
-+	/* copy map attributes from user space */
-+	err = -EFAULT;
-+	if (copy_from_user(attr, uattr, len) != 0)
-+		goto free_attr;
-+
-+	/* perform basic validation */
-+	err = nla_parse(tb, BPF_MAP_ATTR_MAX, attr, len, map_policy);
-+	if (err < 0)
-+		goto free_attr;
-+
-+	/* find map type and init map: hashtable vs rbtree vs bloom vs ... */
-+	map = find_and_alloc_map(type, tb);
-+	if (IS_ERR(map)) {
-+		err = PTR_ERR(map);
-+		goto free_attr;
-+	}
-+
-+	atomic_set(&map->refcnt, 1);
-+	map->deleted = false;
-+
-+	mutex_lock(&bpf_map_lock);
-+
-+	if (bpf_map_cnt >= MAX_BPF_MAP_CNT) {
-+		mutex_unlock(&bpf_map_lock);
-+		err = -ENOSPC;
-+		goto free_map;
-+	}
-+	bpf_map_cnt++;
-+
-+	/* allocate map id */
-+	err = idr_alloc(&bpf_map_id_idr, map, map_id, 0, GFP_USER);
-+
-+	map->map_id = err;
-+
-+	mutex_unlock(&bpf_map_lock);
-+
-+	if (err < 0)
-+		/* failed to allocate map id */
-+		goto free_map;
-+
-+	/* user supplied array of map attributes is no longer needed */
-+	kfree(attr);
-+
-+	return err;
-+
-+free_map:
-+	map->ops->map_free(map);
-+free_attr:
-+	kfree(attr);
-+	return err;
-+}
-+
-+/* called from workqueue */
-+static void bpf_map_free_deferred(struct work_struct *work)
-+{
-+	struct bpf_map *map = container_of(work, struct bpf_map, work);
-+
-+	/* grab the mutex and free the map */
-+	mutex_lock(&bpf_map_lock);
-+
-+	bpf_map_cnt--;
-+	idr_remove(&bpf_map_id_idr, map->map_id);
-+
-+	mutex_unlock(&bpf_map_lock);
-+
-+	/* implementation dependent freeing */
-+	map->ops->map_free(map);
-+}
-+
-+/* decrement map refcnt and schedule it for freeing via workqueue
-+ * (unrelying map implementation ops->map_free() might sleep)
++/* ArgX, context and stack frame pointer register positions. Note,
++ * Arg1, Arg2, Arg3, etc are used as argument mappings of function
++ * calls in BPF_CALL instruction.
 + */
-+static void __bpf_map_put(struct bpf_map *map)
-+{
-+	if (atomic_dec_and_test(&map->refcnt)) {
-+		INIT_WORK(&map->work, bpf_map_free_deferred);
-+		schedule_work(&map->work);
-+	}
-+}
++#define BPF_REG_ARG1	BPF_REG_1
++#define BPF_REG_ARG2	BPF_REG_2
++#define BPF_REG_ARG3	BPF_REG_3
++#define BPF_REG_ARG4	BPF_REG_4
++#define BPF_REG_ARG5	BPF_REG_5
++#define BPF_REG_CTX	BPF_REG_6
++#define BPF_REG_FP	BPF_REG_10
 +
-+/* find map by id and decrement its refcnt
-+ *
-+ * can be called without any locks held
-+ *
-+ * returns true if map was found
-+ */
-+static bool bpf_map_put(u32 map_id)
-+{
-+	struct bpf_map *map;
++/* Additional register mappings for converted user programs. */
++#define BPF_REG_A	BPF_REG_0
++#define BPF_REG_X	BPF_REG_7
++#define BPF_REG_TMP	BPF_REG_8
 +
-+	rcu_read_lock();
-+	map = idr_find(&bpf_map_id_idr, map_id);
++/* BPF program can access up to 512 bytes of stack space. */
++#define MAX_BPF_STACK	512
 +
-+	if (!map) {
-+		rcu_read_unlock();
-+		return false;
-+	}
++/* Helper macros for filter block array initializers. */
 +
-+	__bpf_map_put(map);
-+	rcu_read_unlock();
++/* ALU ops on registers, bpf_add|sub|...: dst_reg += src_reg */
 +
-+	return true;
-+}
++#define BPF_ALU64_REG(OP, DST, SRC)				\
++	((struct sock_filter_int) {				\
++		.code  = BPF_ALU64 | BPF_OP(OP) | BPF_X,	\
++		.dst_reg = DST,					\
++		.src_reg = SRC,					\
++		.off   = 0,					\
++		.imm   = 0 })
 +
-+/* called with bpf_map_lock held */
-+struct bpf_map *bpf_map_get(u32 map_id)
-+{
-+	BUG_ON(!mutex_is_locked(&bpf_map_lock));
++#define BPF_ALU32_REG(OP, DST, SRC)				\
++	((struct sock_filter_int) {				\
++		.code  = BPF_ALU | BPF_OP(OP) | BPF_X,		\
++		.dst_reg = DST,					\
++		.src_reg = SRC,					\
++		.off   = 0,					\
++		.imm   = 0 })
 +
-+	return idr_find(&bpf_map_id_idr, map_id);
-+}
++/* ALU ops on immediates, bpf_add|sub|...: dst_reg += imm32 */
 +
-+/* called via syscall */
-+static int map_delete(int map_id)
-+{
-+	struct bpf_map *map;
++#define BPF_ALU64_IMM(OP, DST, IMM)				\
++	((struct sock_filter_int) {				\
++		.code  = BPF_ALU64 | BPF_OP(OP) | BPF_K,	\
++		.dst_reg = DST,					\
++		.src_reg = 0,					\
++		.off   = 0,					\
++		.imm   = IMM })
 +
-+	if (map_id < 0)
-+		return -EINVAL;
++#define BPF_ALU32_IMM(OP, DST, IMM)				\
++	((struct sock_filter_int) {				\
++		.code  = BPF_ALU | BPF_OP(OP) | BPF_K,		\
++		.dst_reg = DST,					\
++		.src_reg = 0,					\
++		.off   = 0,					\
++		.imm   = IMM })
 +
-+	mutex_lock(&bpf_map_lock);
-+	map = bpf_map_get(map_id);
++/* Endianess conversion, cpu_to_{l,b}e(), {l,b}e_to_cpu() */
 +
-+	if (!map) {
-+		/* user is trying to delete map_id that doesn't exist */
-+		mutex_unlock(&bpf_map_lock);
-+		return -ENODEV;
-+	}
++#define BPF_ENDIAN(TYPE, DST, LEN)				\
++	((struct sock_filter_int) {				\
++		.code  = BPF_ALU | BPF_END | BPF_SRC(TYPE),	\
++		.dst_reg = DST,					\
++		.src_reg = 0,					\
++		.off   = 0,					\
++		.imm   = LEN })
 +
-+	if (map->deleted) {
-+		/* this map was already deleted */
-+		mutex_unlock(&bpf_map_lock);
-+		return 0;
-+	}
++/* Short form of mov, dst_reg = src_reg */
 +
-+	/* first time deleting the map
-+	 * we cannot just remove this map_id from IDR, since program might
-+	 * still be using this map_id, so just mark it deleted,
-+	 * when refcnt goes to zero, it will be deleted from IDR
-+	 */
-+	map->deleted = true;
-+	__bpf_map_put(map);
-+	mutex_unlock(&bpf_map_lock);
-+	return 0;
-+}
++#define BPF_MOV64_REG(DST, SRC)					\
++	((struct sock_filter_int) {				\
++		.code  = BPF_ALU64 | BPF_MOV | BPF_X,		\
++		.dst_reg = DST,					\
++		.src_reg = SRC,					\
++		.off   = 0,					\
++		.imm   = 0 })
 +
-+SYSCALL_DEFINE5(bpf, int, cmd, unsigned long, arg2, unsigned long, arg3,
-+		unsigned long, arg4, unsigned long, arg5)
-+{
-+	if (!capable(CAP_SYS_ADMIN))
-+		return -EPERM;
++#define BPF_MOV32_REG(DST, SRC)					\
++	((struct sock_filter_int) {				\
++		.code  = BPF_ALU | BPF_MOV | BPF_X,		\
++		.dst_reg = DST,					\
++		.src_reg = SRC,					\
++		.off   = 0,					\
++		.imm   = 0 })
 +
-+	switch (cmd) {
-+	case BPF_MAP_CREATE:
-+		return map_create((int) arg2, (enum bpf_map_type) arg3,
-+				  (struct nlattr __user *) arg4, (int) arg5);
-+	case BPF_MAP_DELETE:
-+		return map_delete((int) arg2);
++/* Short form of mov, dst_reg = imm32 */
 +
-+	default:
-+		return -EINVAL;
-+	}
-+}
-diff --git a/kernel/sys_ni.c b/kernel/sys_ni.c
-index 36441b51b5df..877c9aafbfb4 100644
---- a/kernel/sys_ni.c
-+++ b/kernel/sys_ni.c
-@@ -213,3 +213,6 @@ cond_syscall(compat_sys_open_by_handle_at);
- 
- /* compare kernel pointers */
- cond_syscall(sys_kcmp);
++#define BPF_MOV64_IMM(DST, IMM)					\
++	((struct sock_filter_int) {				\
++		.code  = BPF_ALU64 | BPF_MOV | BPF_K,		\
++		.dst_reg = DST,					\
++		.src_reg = 0,					\
++		.off   = 0,					\
++		.imm   = IMM })
 +
-+/* access BPF programs and maps */
-+cond_syscall(sys_bpf);
++#define BPF_MOV32_IMM(DST, IMM)					\
++	((struct sock_filter_int) {				\
++		.code  = BPF_ALU | BPF_MOV | BPF_K,		\
++		.dst_reg = DST,					\
++		.src_reg = 0,					\
++		.off   = 0,					\
++		.imm   = IMM })
++
++/* Short form of mov based on type, BPF_X: dst_reg = src_reg, BPF_K: dst_reg = imm32 */
++
++#define BPF_MOV64_RAW(TYPE, DST, SRC, IMM)			\
++	((struct sock_filter_int) {				\
++		.code  = BPF_ALU64 | BPF_MOV | BPF_SRC(TYPE),	\
++		.dst_reg = DST,					\
++		.src_reg = SRC,					\
++		.off   = 0,					\
++		.imm   = IMM })
++
++#define BPF_MOV32_RAW(TYPE, DST, SRC, IMM)			\
++	((struct sock_filter_int) {				\
++		.code  = BPF_ALU | BPF_MOV | BPF_SRC(TYPE),	\
++		.dst_reg = DST,					\
++		.src_reg = SRC,					\
++		.off   = 0,					\
++		.imm   = IMM })
++
++/* Direct packet access, R0 = *(uint *) (skb->data + imm32) */
++
++#define BPF_LD_ABS(SIZE, IMM)					\
++	((struct sock_filter_int) {				\
++		.code  = BPF_LD | BPF_SIZE(SIZE) | BPF_ABS,	\
++		.dst_reg = 0,					\
++		.src_reg = 0,					\
++		.off   = 0,					\
++		.imm   = IMM })
++
++/* Indirect packet access, R0 = *(uint *) (skb->data + src_reg + imm32) */
++
++#define BPF_LD_IND(SIZE, SRC, IMM)				\
++	((struct sock_filter_int) {				\
++		.code  = BPF_LD | BPF_SIZE(SIZE) | BPF_IND,	\
++		.dst_reg = 0,					\
++		.src_reg = SRC,					\
++		.off   = 0,					\
++		.imm   = IMM })
++
++/* Memory load, dst_reg = *(uint *) (src_reg + off16) */
++
++#define BPF_LDX_MEM(SIZE, DST, SRC, OFF)			\
++	((struct sock_filter_int) {				\
++		.code  = BPF_LDX | BPF_SIZE(SIZE) | BPF_MEM,	\
++		.dst_reg = DST,					\
++		.src_reg = SRC,					\
++		.off   = OFF,					\
++		.imm   = 0 })
++
++/* Memory store, *(uint *) (dst_reg + off16) = src_reg */
++
++#define BPF_STX_MEM(SIZE, DST, SRC, OFF)			\
++	((struct sock_filter_int) {				\
++		.code  = BPF_STX | BPF_SIZE(SIZE) | BPF_MEM,	\
++		.dst_reg = DST,					\
++		.src_reg = SRC,					\
++		.off   = OFF,					\
++		.imm   = 0 })
++
++/* Memory store, *(uint *) (dst_reg + off16) = imm32 */
++
++#define BPF_ST_MEM(SIZE, DST, OFF, IMM)				\
++	((struct sock_filter_int) {				\
++		.code  = BPF_ST | BPF_SIZE(SIZE) | BPF_MEM,	\
++		.dst_reg = DST,					\
++		.src_reg = 0,					\
++		.off   = OFF,					\
++		.imm   = IMM })
++
++/* Conditional jumps against registers, if (dst_reg 'op' src_reg) goto pc + off16 */
++
++#define BPF_JMP_REG(OP, DST, SRC, OFF)				\
++	((struct sock_filter_int) {				\
++		.code  = BPF_JMP | BPF_OP(OP) | BPF_X,		\
++		.dst_reg = DST,					\
++		.src_reg = SRC,					\
++		.off   = OFF,					\
++		.imm   = 0 })
++
++/* Conditional jumps against immediates, if (dst_reg 'op' imm32) goto pc + off16 */
++
++#define BPF_JMP_IMM(OP, DST, IMM, OFF)				\
++	((struct sock_filter_int) {				\
++		.code  = BPF_JMP | BPF_OP(OP) | BPF_K,		\
++		.dst_reg = DST,					\
++		.src_reg = 0,					\
++		.off   = OFF,					\
++		.imm   = IMM })
++
++/* Function call */
++
++#define BPF_EMIT_CALL(FUNC)					\
++	((struct sock_filter_int) {				\
++		.code  = BPF_JMP | BPF_CALL,			\
++		.dst_reg = 0,					\
++		.src_reg = 0,					\
++		.off   = 0,					\
++		.imm   = ((FUNC) - __bpf_call_base) })
++
++/* Raw code statement block */
++
++#define BPF_RAW_INSN(CODE, DST, SRC, OFF, IMM)			\
++	((struct sock_filter_int) {				\
++		.code  = CODE,					\
++		.dst_reg = DST,					\
++		.src_reg = SRC,					\
++		.off   = OFF,					\
++		.imm   = IMM })
++
++/* Program exit */
++
++#define BPF_EXIT_INSN()						\
++	((struct sock_filter_int) {				\
++		.code  = BPF_JMP | BPF_EXIT,			\
++		.dst_reg = 0,					\
++		.src_reg = 0,					\
++		.off   = 0,					\
++		.imm   = 0 })
++
++#define bytes_to_bpf_size(bytes)				\
++({								\
++	int bpf_size = -EINVAL;					\
++								\
++	if (bytes == sizeof(u8))				\
++		bpf_size = BPF_B;				\
++	else if (bytes == sizeof(u16))				\
++		bpf_size = BPF_H;				\
++	else if (bytes == sizeof(u32))				\
++		bpf_size = BPF_W;				\
++	else if (bytes == sizeof(u64))				\
++		bpf_size = BPF_DW;				\
++								\
++	bpf_size;						\
++})
++
++struct sock_filter_int {
++	__u8	code;		/* opcode */
++	__u8	dst_reg:4;	/* dest register */
++	__u8	src_reg:4;	/* source register */
++	__s16	off;		/* signed offset */
++	__s32	imm;		/* signed immediate constant */
++};
++
++#endif /* _UAPI__LINUX_BPF_H__ */
 -- 
 1.7.9.5
