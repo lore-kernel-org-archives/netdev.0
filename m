@@ -1,11 +1,12 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [PATCH RFC net-next 03/14] bpf: introduce syscall(BPF, ...) and
- BPF maps
-Date: Fri, 27 Jun 2014 17:16:41 -0700
-Message-ID: <CALCETrV3WLBmHewCZgfhCkjODWfq_byRg6sF7HpqZ6n9BVMBVQ@mail.gmail.com>
-References: <1403913966-4927-1-git-send-email-ast@plumgrid.com> <1403913966-4927-4-git-send-email-ast@plumgrid.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH RFC net-next 04/14] bpf: update MAINTAINERS entry
+Date: Fri, 27 Jun 2014 17:18:08 -0700
+Message-ID: <1403914688.9064.20.camel@joe-AO725>
+References: <1403913966-4927-1-git-send-email-ast@plumgrid.com>
+	 <1403913966-4927-5-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Ingo Molnar <mingo@kernel.org>,
 	Linus Torvalds <torvalds@linux-foundation.org>,
@@ -19,35 +20,33 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Thomas Gleixner <tglx@linutronix.de>,
 	"H. Peter Anvin" <hpa@zytor.com>,
 	Andrew Morton <akpm@linux-foundation.org>,
-	Kees Cook <keescook@chromium.org>,
-	Linux API <linux-api@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+	Kees Cook <keescook@chromium.org>, linux-api@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1403913966-4927-4-git-send-email-ast@plumgrid.com>
+In-Reply-To: <1403913966-4927-5-git-send-email-ast@plumgrid.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 27, 2014 at 5:05 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
-> BPF syscall is a demux for different BPF releated commands.
->
-> 'maps' is a generic storage of different types for sharing data between kernel
-> and userspace.
->
-> The maps can be created/deleted from user space via BPF syscall:
-> - create a map with given id, type and attributes
->   map_id = bpf_map_create(int map_id, map_type, struct nlattr *attr, int len)
->   returns positive map id or negative error
->
-> - delete map with given map id
->   err = bpf_map_delete(int map_id)
->   returns zero or negative error
+Add MAINTAINERS entry.
 
-What's the scope of "id"?  How is it secured?
+On Fri, 2014-06-27 at 17:05 -0700, Alexei Starovoitov wrote:
+> diff --git a/MAINTAINERS b/MAINTAINERS
+[]
+> @@ -1881,6 +1881,15 @@ S:	Supported
+>  F:	drivers/net/bonding/
+>  F:	include/uapi/linux/if_bonding.h
+>  
+> +BPF
 
-This question is brought to you by keyctl, which is terminally fucked.
-At some point I'll generate some proof of concept exploits for severe
-bugs caused by misdesign of a namespace.
+While a lot of people know what BPF is, I think it'd
+be better to have something like
 
---Andy
+BPF - SOCKET FILTER (Berkeley Packet Filter like)
+> +M:	Alexei Starovoitov <ast@plumgrid.com>
+> +L:	netdev@vger.kernel.org
+> +L:	linux-kernel@vger.kernel.org
+> +S:	Supported
+> +F:	kernel/bpf/
+> +F:	include/uapi/linux/bpf.h
+> +F:	include/linux/bpf.h
