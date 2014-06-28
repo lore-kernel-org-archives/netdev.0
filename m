@@ -1,76 +1,67 @@
-From: Markus Pargmann <mpa-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: [PATCH RESEND] mwifiex: Remove custom world regulatory domain
-Date: Sat, 28 Jun 2014 15:49:13 +0200
-Message-ID: <1403963353-27317-1-git-send-email-mpa@pengutronix.de>
-Cc: Bing Zhao <bzhao-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org,
-	Markus Pargmann <mpa-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Packet loss when txqueuelen is zero
+Date: Sat, 28 Jun 2014 07:40:18 -0700
+Message-ID: <1403966418.15139.27.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <53AEA00F.6060500@lategoodbye.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, arnd@arndb.de
+To: Stefan Wahren <info@lategoodbye.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f179.google.com ([74.125.82.179]:54217 "EHLO
+	mail-we0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751240AbaF1OkW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Jun 2014 10:40:22 -0400
+Received: by mail-we0-f179.google.com with SMTP id w62so6392967wes.10
+        for <netdev@vger.kernel.org>; Sat, 28 Jun 2014 07:40:21 -0700 (PDT)
+In-Reply-To: <53AEA00F.6060500@lategoodbye.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-A custom regulatory domain was introduced in this commit:
-cc0ba0d522c4 (mwifiex: support custom world regulatory domain)
+On Sat, 2014-06-28 at 12:59 +0200, Stefan Wahren wrote:
+> Hi,
+> 
+> i'm new to Linux network driver development and currently i want to port 
+> the QCA7000 network driver to mainline [1]. I concentrate my tests on tx 
+> buffering since my last QCA7000 patch RFC [2]. Now i've found a test 
+> scenario which leads to packet loss:
+> 
+> host A          Powerline       host B
+> (QCA7000)       Ethernet        Ethernet
+> 192.168.1.3     adaptor         192.168.1.5
+> |------------------|---------------|
+>       Homeplug         Ethernet
+>       10 Mbit          100 Mbit
+> 
+> 1. Reduce the txqueuelen from 100 (default value) to 0
+> 2. Run ping in flood mode on host A to host B
+> 
+> ping -c 200 -s 10000 -f 192.168.1.5
+> 
+> 3. ping reports a high packet loss
+> 
+> Additional information:
+> - QCA7000 network driver has a tx ring size of 10 packets
+> - the packet loss doesn't appear when txqueuelen is 100
+> 
+> Here are my questions:
+> 
+> Is the packet loss a expected result for this scenario?
 
-The commit description says that it was introduced because the world
-regulatory domain does not include channels 52-64 and 100-140. These
-channels are described in the world regulatory domain now, so we can
-drop this custom regulatory domain.
+Sure it is totally expected.
 
-Signed-off-by: Markus Pargmann <mpa-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Acked-by: Bing Zhao <bzhao-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
----
- drivers/net/wireless/mwifiex/cfg80211.c | 36 ---------------------------------
- 1 file changed, 36 deletions(-)
+-f is a flood ping, and you remove ability to store packets in the Qdisc
+(pifo_fast limit is device txqueuelen).
 
-diff --git a/drivers/net/wireless/mwifiex/cfg80211.c b/drivers/net/wireless/mwifiex/cfg80211.c
-index e95dec91a561..201edbf76c81 100644
---- a/drivers/net/wireless/mwifiex/cfg80211.c
-+++ b/drivers/net/wireless/mwifiex/cfg80211.c
-@@ -42,36 +42,6 @@ static const struct ieee80211_iface_combination mwifiex_iface_comb_ap_sta = {
- 	.beacon_int_infra_match = true,
- };
- 
--static const struct ieee80211_regdomain mwifiex_world_regdom_custom = {
--	.n_reg_rules = 7,
--	.alpha2 =  "99",
--	.reg_rules = {
--		/* Channel 1 - 11 */
--		REG_RULE(2412-10, 2462+10, 40, 3, 20, 0),
--		/* Channel 12 - 13 */
--		REG_RULE(2467-10, 2472+10, 20, 3, 20,
--			 NL80211_RRF_NO_IR),
--		/* Channel 14 */
--		REG_RULE(2484-10, 2484+10, 20, 3, 20,
--			 NL80211_RRF_NO_IR |
--			 NL80211_RRF_NO_OFDM),
--		/* Channel 36 - 48 */
--		REG_RULE(5180-10, 5240+10, 40, 3, 20,
--			 NL80211_RRF_NO_IR),
--		/* Channel 149 - 165 */
--		REG_RULE(5745-10, 5825+10, 40, 3, 20,
--			 NL80211_RRF_NO_IR),
--		/* Channel 52 - 64 */
--		REG_RULE(5260-10, 5320+10, 40, 3, 30,
--			 NL80211_RRF_NO_IR |
--			 NL80211_RRF_DFS),
--		/* Channel 100 - 140 */
--		REG_RULE(5500-10, 5700+10, 40, 3, 30,
--			 NL80211_RRF_NO_IR |
--			 NL80211_RRF_DFS),
--	}
--};
--
- /*
-  * This function maps the nl802.11 channel type into driver channel type.
-  *
-@@ -2916,12 +2886,6 @@ int mwifiex_register_cfg80211(struct mwifiex_adapter *adapter)
- 		wiphy->flags |= WIPHY_FLAG_SUPPORTS_TDLS |
- 				WIPHY_FLAG_TDLS_EXTERNAL_SETUP;
- 
--	wiphy->regulatory_flags |=
--			REGULATORY_CUSTOM_REG |
--			REGULATORY_STRICT_REG;
--
--	wiphy_apply_custom_regulatory(wiphy, &mwifiex_world_regdom_custom);
+If you have txqueuelen = 100, then the socket used by ping will more
+likely hit its SO_SNDBUF limit and ping will handle this properly (it
+detects that a sendmsg() returns -1, errno = ENOBUF
+
+If QCA7000 network driver has a tx ring size of 10 packets, you really
+want a qdisc being able to store bursts.
+
+If bufferbloat is your concern, you can switch pfifo_fast to fq_codel or
+fq
+
+tc qdisc replace dev eth0 root fq_codel  (or fq to get TCP pacing)
