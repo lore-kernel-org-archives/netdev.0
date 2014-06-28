@@ -1,7 +1,8 @@
 From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH RFC net-next 00/14] BPF syscall, maps, verifier, samples
-Date: Fri, 27 Jun 2014 17:05:52 -0700
-Message-ID: <1403913966-4927-1-git-send-email-ast@plumgrid.com>
+Subject: [PATCH RFC net-next 01/14] net: filter: split filter.c into two files
+Date: Fri, 27 Jun 2014 17:05:53 -0700
+Message-ID: <1403913966-4927-2-git-send-email-ast@plumgrid.com>
+References: <1403913966-4927-1-git-send-email-ast@plumgrid.com>
 Cc: Ingo Molnar <mingo@kernel.org>,
 	Linus Torvalds <torvalds@linux-foundation.org>,
 	Steven Rostedt <rostedt@goodmis.org>,
@@ -18,172 +19,1143 @@ Cc: Ingo Molnar <mingo@kernel.org>,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1403913966-4927-1-git-send-email-ast@plumgrid.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi All,
+BPF is used in several kernel components. This split creates logical boundary
+between generic eBPF core and the rest
 
-this patch set demonstrates the potential of eBPF.
+kernel/bpf/core.c: eBPF interpreter
 
-First patch "net: filter: split filter.c into two files" splits eBPF interpreter
-out of networking into kernel/bpf/. The goal for BPF subsystem is to be usable
-in NET-less configuration. Though the whole set is marked is RFC, the 1st patch
-is good to go. Similar version of the patch that was posted few weeks ago, but
-was deferred. I'm assuming due to lack of forward visibility. I hope that this
-patch set shows what eBPF is capable of and where it's heading.
+net/core/filter.c: classic->eBPF converter, classic verifiers, socket filters
 
-Other patches expose eBPF instruction set to user space and introduce concepts
-of maps and programs accessible via syscall.
+This patch only moves functions.
 
-'maps' is a generic storage of different types for sharing data between kernel
-and userspace. Maps are referrenced by global id. Root can create multiple
-maps of different types where key/value are opaque bytes of data. It's up to
-user space and eBPF program to decide what they store in the maps.
-
-eBPF programs are similar to kernel modules. They live in global space and
-have unique prog_id. Each program is a safe run-to-completion set of
-instructions. eBPF verifier statically determines that the program terminates
-and safe to execute. During verification the program takes a hold of maps
-that it intends to use, so selected maps cannot be removed until program is
-unloaded. The program can be attached to different events. These events can
-be packets, tracepoint events and other types in the future. New event triggers
-execution of the program which may store information about the event in the maps.
-Beyond storing data the programs may call into in-kernel helper functions
-which may, for example, dump stack, do trace_printk or other forms of live
-kernel debugging. Same program can be attached to multiple events. Different
-programs can access the same map:
-
-  tracepoint  tracepoint  tracepoint    sk_buff    sk_buff
-   event A     event B     event C      on eth0    on eth1
-    |             |          |            |          |
-    |             |          |            |          |
-    --> tracing <--      tracing       socket      socket
-         prog_1           prog_2       prog_3      prog_4
-         |  |               |            |
-      |---  -----|  |-------|           map_3
-    map_1       map_2
-
-User space (via syscall) and eBPF programs access maps concurrently.
-
-Last two patches are sample code. 1st demonstrates stateful packet inspection.
-It counts tcp and udp packets on eth0. Should be easy to see how this eBPF
-framework can be used for network analytics.
-2nd sample does simple 'drop monitor'. It attaches to kfree_skb tracepoint
-event and counts number of packet drops at particular $pc location.
-User space periodically summarizes what eBPF programs recorded.
-In these two samples the eBPF programs are tiny and written in 'assembler'
-with macroses. More complex programs can be written C (llvm backend is not
-part of this diff to reduce 'huge' perception).
-Since eBPF is fully JITed on x64, the cost of running eBPF program is very
-small even for high frequency events. Here are the numbers comparing
-flow_dissector in C vs eBPF:
-  x86_64 skb_flow_dissect() same skb (all cached)         -  42 nsec per call
-  x86_64 skb_flow_dissect() different skbs (cache misses) - 141 nsec per call
-eBPF+jit skb_flow_dissect() same skb (all cached)         -  51 nsec per call
-eBPF+jit skb_flow_dissect() different skbs (cache misses) - 135 nsec per call
-
-Detailed explanation on eBPF verifier and safety is in patch 08/14
-
-Thanks
-Alexei
-
-minor todo: rename 'struct sock_filter_int' into 'struct bpf_insn'. It's not
-part of this diff to reduce size.
-  
-------
-
-The following changes since commit c1c27fb9b3040a2559d4d3e1183afa8c106bc94a:
-
-  Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next (2014-06-27 12:59:38 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/ast/bpf master
-
-for you to fetch changes up to 4c8da0f21220087e38894c69339cddc64c1220f9:
-
-  samples: bpf: example of tracing filters with eBPF (2014-06-27 15:22:07 -0700)
-
-----------------------------------------------------------------
-Alexei Starovoitov (14):
-      net: filter: split filter.c into two files
-      net: filter: split filter.h and expose eBPF to user space
-      bpf: introduce syscall(BPF, ...) and BPF maps
-      bpf: update MAINTAINERS entry
-      bpf: add lookup/update/delete/iterate methods to BPF maps
-      bpf: add hashtable type of BPF maps
-      bpf: expand BPF syscall with program load/unload
-      bpf: add eBPF verifier
-      bpf: allow eBPF programs to use maps
-      net: sock: allow eBPF programs to be attached to sockets
-      tracing: allow eBPF programs to be attached to events
-      samples: bpf: add mini eBPF library to manipulate maps and programs
-      samples: bpf: example of stateful socket filtering
-      samples: bpf: example of tracing filters with eBPF
-
- Documentation/networking/filter.txt    |  302 +++++++
- MAINTAINERS                            |    9 +
- arch/alpha/include/uapi/asm/socket.h   |    2 +
- arch/avr32/include/uapi/asm/socket.h   |    2 +
- arch/cris/include/uapi/asm/socket.h    |    2 +
- arch/frv/include/uapi/asm/socket.h     |    2 +
- arch/ia64/include/uapi/asm/socket.h    |    2 +
- arch/m32r/include/uapi/asm/socket.h    |    2 +
- arch/mips/include/uapi/asm/socket.h    |    2 +
- arch/mn10300/include/uapi/asm/socket.h |    2 +
- arch/parisc/include/uapi/asm/socket.h  |    2 +
- arch/powerpc/include/uapi/asm/socket.h |    2 +
- arch/s390/include/uapi/asm/socket.h    |    2 +
- arch/sparc/include/uapi/asm/socket.h   |    2 +
- arch/x86/syscalls/syscall_64.tbl       |    1 +
- arch/xtensa/include/uapi/asm/socket.h  |    2 +
- include/linux/bpf.h                    |  135 +++
- include/linux/filter.h                 |  304 +------
- include/linux/ftrace_event.h           |    5 +
- include/linux/syscalls.h               |    2 +
- include/trace/bpf_trace.h              |   29 +
- include/trace/ftrace.h                 |   10 +
- include/uapi/asm-generic/socket.h      |    2 +
- include/uapi/asm-generic/unistd.h      |    4 +-
- include/uapi/linux/Kbuild              |    1 +
- include/uapi/linux/bpf.h               |  403 +++++++++
- kernel/Makefile                        |    1 +
- kernel/bpf/Makefile                    |    1 +
- kernel/bpf/core.c                      |  548 ++++++++++++
- kernel/bpf/hashtab.c                   |  371 +++++++++
- kernel/bpf/syscall.c                   |  778 +++++++++++++++++
- kernel/bpf/verifier.c                  | 1431 ++++++++++++++++++++++++++++++++
- kernel/sys_ni.c                        |    3 +
- kernel/trace/Kconfig                   |    1 +
- kernel/trace/Makefile                  |    1 +
- kernel/trace/bpf_trace.c               |  217 +++++
- kernel/trace/trace.h                   |    3 +
- kernel/trace/trace_events.c            |    7 +
- kernel/trace/trace_events_filter.c     |   72 +-
- net/core/filter.c                      |  646 +++-----------
- net/core/sock.c                        |   13 +
- samples/bpf/.gitignore                 |    1 +
- samples/bpf/Makefile                   |   15 +
- samples/bpf/dropmon.c                  |  127 +++
- samples/bpf/libbpf.c                   |  114 +++
- samples/bpf/libbpf.h                   |   18 +
- samples/bpf/sock_example.c             |  160 ++++
- 47 files changed, 4941 insertions(+), 820 deletions(-)
- create mode 100644 include/linux/bpf.h
- create mode 100644 include/trace/bpf_trace.h
- create mode 100644 include/uapi/linux/bpf.h
+Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+---
+ kernel/Makefile     |    1 +
+ kernel/bpf/Makefile |    1 +
+ kernel/bpf/core.c   |  545 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ net/core/filter.c   |  520 ------------------------------------------------
+ 4 files changed, 547 insertions(+), 520 deletions(-)
  create mode 100644 kernel/bpf/Makefile
  create mode 100644 kernel/bpf/core.c
- create mode 100644 kernel/bpf/hashtab.c
- create mode 100644 kernel/bpf/syscall.c
- create mode 100644 kernel/bpf/verifier.c
- create mode 100644 kernel/trace/bpf_trace.c
- create mode 100644 samples/bpf/.gitignore
- create mode 100644 samples/bpf/Makefile
- create mode 100644 samples/bpf/dropmon.c
- create mode 100644 samples/bpf/libbpf.c
- create mode 100644 samples/bpf/libbpf.h
- create mode 100644 samples/bpf/sock_example.c
 
+diff --git a/kernel/Makefile b/kernel/Makefile
+index f2a8b6246ce9..e7360b7c2c0e 100644
+--- a/kernel/Makefile
++++ b/kernel/Makefile
+@@ -87,6 +87,7 @@ obj-$(CONFIG_RING_BUFFER) += trace/
+ obj-$(CONFIG_TRACEPOINTS) += trace/
+ obj-$(CONFIG_IRQ_WORK) += irq_work.o
+ obj-$(CONFIG_CPU_PM) += cpu_pm.o
++obj-$(CONFIG_NET) += bpf/
+ 
+ obj-$(CONFIG_PERF_EVENTS) += events/
+ 
+diff --git a/kernel/bpf/Makefile b/kernel/bpf/Makefile
+new file mode 100644
+index 000000000000..6a71145e2769
+--- /dev/null
++++ b/kernel/bpf/Makefile
+@@ -0,0 +1 @@
++obj-y := core.o
+diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
+new file mode 100644
+index 000000000000..dd9c29ff720e
+--- /dev/null
++++ b/kernel/bpf/core.c
+@@ -0,0 +1,545 @@
++/*
++ * Linux Socket Filter - Kernel level socket filtering
++ *
++ * Based on the design of the Berkeley Packet Filter. The new
++ * internal format has been designed by PLUMgrid:
++ *
++ *	Copyright (c) 2011 - 2014 PLUMgrid, http://plumgrid.com
++ *
++ * Authors:
++ *
++ *	Jay Schulist <jschlst@samba.org>
++ *	Alexei Starovoitov <ast@plumgrid.com>
++ *	Daniel Borkmann <dborkman@redhat.com>
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version
++ * 2 of the License, or (at your option) any later version.
++ *
++ * Andi Kleen - Fix a few bad bugs and races.
++ * Kris Katterjohn - Added many additional checks in sk_chk_filter()
++ */
++#include <linux/filter.h>
++#include <linux/skbuff.h>
++#include <asm/unaligned.h>
++
++/* Registers */
++#define BPF_R0	regs[BPF_REG_0]
++#define BPF_R1	regs[BPF_REG_1]
++#define BPF_R2	regs[BPF_REG_2]
++#define BPF_R3	regs[BPF_REG_3]
++#define BPF_R4	regs[BPF_REG_4]
++#define BPF_R5	regs[BPF_REG_5]
++#define BPF_R6	regs[BPF_REG_6]
++#define BPF_R7	regs[BPF_REG_7]
++#define BPF_R8	regs[BPF_REG_8]
++#define BPF_R9	regs[BPF_REG_9]
++#define BPF_R10	regs[BPF_REG_10]
++
++/* Named registers */
++#define DST	regs[insn->dst_reg]
++#define SRC	regs[insn->src_reg]
++#define FP	regs[BPF_REG_FP]
++#define ARG1	regs[BPF_REG_ARG1]
++#define CTX	regs[BPF_REG_CTX]
++#define IMM	insn->imm
++
++/* No hurry in this branch
++ *
++ * Exported for the bpf jit load helper.
++ */
++void *bpf_internal_load_pointer_neg_helper(const struct sk_buff *skb, int k, unsigned int size)
++{
++	u8 *ptr = NULL;
++
++	if (k >= SKF_NET_OFF)
++		ptr = skb_network_header(skb) + k - SKF_NET_OFF;
++	else if (k >= SKF_LL_OFF)
++		ptr = skb_mac_header(skb) + k - SKF_LL_OFF;
++	if (ptr >= skb->head && ptr + size <= skb_tail_pointer(skb))
++		return ptr;
++
++	return NULL;
++}
++
++static inline void *load_pointer(const struct sk_buff *skb, int k,
++				 unsigned int size, void *buffer)
++{
++	if (k >= 0)
++		return skb_header_pointer(skb, k, size, buffer);
++
++	return bpf_internal_load_pointer_neg_helper(skb, k, size);
++}
++
++/* Base function for offset calculation. Needs to go into .text section,
++ * therefore keeping it non-static as well; will also be used by JITs
++ * anyway later on, so do not let the compiler omit it.
++ */
++noinline u64 __bpf_call_base(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
++{
++	return 0;
++}
++
++/**
++ *	__sk_run_filter - run a filter on a given context
++ *	@ctx: buffer to run the filter on
++ *	@insn: filter to apply
++ *
++ * Decode and apply filter instructions to the skb->data. Return length to
++ * keep, 0 for none. @ctx is the data we are operating on, @insn is the
++ * array of filter instructions.
++ */
++static unsigned int __sk_run_filter(void *ctx, const struct sock_filter_int *insn)
++{
++	u64 stack[MAX_BPF_STACK / sizeof(u64)];
++	u64 regs[MAX_BPF_REG], tmp;
++	static const void *jumptable[256] = {
++		[0 ... 255] = &&default_label,
++		/* Now overwrite non-defaults ... */
++		/* 32 bit ALU operations */
++		[BPF_ALU | BPF_ADD | BPF_X] = &&ALU_ADD_X,
++		[BPF_ALU | BPF_ADD | BPF_K] = &&ALU_ADD_K,
++		[BPF_ALU | BPF_SUB | BPF_X] = &&ALU_SUB_X,
++		[BPF_ALU | BPF_SUB | BPF_K] = &&ALU_SUB_K,
++		[BPF_ALU | BPF_AND | BPF_X] = &&ALU_AND_X,
++		[BPF_ALU | BPF_AND | BPF_K] = &&ALU_AND_K,
++		[BPF_ALU | BPF_OR | BPF_X]  = &&ALU_OR_X,
++		[BPF_ALU | BPF_OR | BPF_K]  = &&ALU_OR_K,
++		[BPF_ALU | BPF_LSH | BPF_X] = &&ALU_LSH_X,
++		[BPF_ALU | BPF_LSH | BPF_K] = &&ALU_LSH_K,
++		[BPF_ALU | BPF_RSH | BPF_X] = &&ALU_RSH_X,
++		[BPF_ALU | BPF_RSH | BPF_K] = &&ALU_RSH_K,
++		[BPF_ALU | BPF_XOR | BPF_X] = &&ALU_XOR_X,
++		[BPF_ALU | BPF_XOR | BPF_K] = &&ALU_XOR_K,
++		[BPF_ALU | BPF_MUL | BPF_X] = &&ALU_MUL_X,
++		[BPF_ALU | BPF_MUL | BPF_K] = &&ALU_MUL_K,
++		[BPF_ALU | BPF_MOV | BPF_X] = &&ALU_MOV_X,
++		[BPF_ALU | BPF_MOV | BPF_K] = &&ALU_MOV_K,
++		[BPF_ALU | BPF_DIV | BPF_X] = &&ALU_DIV_X,
++		[BPF_ALU | BPF_DIV | BPF_K] = &&ALU_DIV_K,
++		[BPF_ALU | BPF_MOD | BPF_X] = &&ALU_MOD_X,
++		[BPF_ALU | BPF_MOD | BPF_K] = &&ALU_MOD_K,
++		[BPF_ALU | BPF_NEG] = &&ALU_NEG,
++		[BPF_ALU | BPF_END | BPF_TO_BE] = &&ALU_END_TO_BE,
++		[BPF_ALU | BPF_END | BPF_TO_LE] = &&ALU_END_TO_LE,
++		/* 64 bit ALU operations */
++		[BPF_ALU64 | BPF_ADD | BPF_X] = &&ALU64_ADD_X,
++		[BPF_ALU64 | BPF_ADD | BPF_K] = &&ALU64_ADD_K,
++		[BPF_ALU64 | BPF_SUB | BPF_X] = &&ALU64_SUB_X,
++		[BPF_ALU64 | BPF_SUB | BPF_K] = &&ALU64_SUB_K,
++		[BPF_ALU64 | BPF_AND | BPF_X] = &&ALU64_AND_X,
++		[BPF_ALU64 | BPF_AND | BPF_K] = &&ALU64_AND_K,
++		[BPF_ALU64 | BPF_OR | BPF_X] = &&ALU64_OR_X,
++		[BPF_ALU64 | BPF_OR | BPF_K] = &&ALU64_OR_K,
++		[BPF_ALU64 | BPF_LSH | BPF_X] = &&ALU64_LSH_X,
++		[BPF_ALU64 | BPF_LSH | BPF_K] = &&ALU64_LSH_K,
++		[BPF_ALU64 | BPF_RSH | BPF_X] = &&ALU64_RSH_X,
++		[BPF_ALU64 | BPF_RSH | BPF_K] = &&ALU64_RSH_K,
++		[BPF_ALU64 | BPF_XOR | BPF_X] = &&ALU64_XOR_X,
++		[BPF_ALU64 | BPF_XOR | BPF_K] = &&ALU64_XOR_K,
++		[BPF_ALU64 | BPF_MUL | BPF_X] = &&ALU64_MUL_X,
++		[BPF_ALU64 | BPF_MUL | BPF_K] = &&ALU64_MUL_K,
++		[BPF_ALU64 | BPF_MOV | BPF_X] = &&ALU64_MOV_X,
++		[BPF_ALU64 | BPF_MOV | BPF_K] = &&ALU64_MOV_K,
++		[BPF_ALU64 | BPF_ARSH | BPF_X] = &&ALU64_ARSH_X,
++		[BPF_ALU64 | BPF_ARSH | BPF_K] = &&ALU64_ARSH_K,
++		[BPF_ALU64 | BPF_DIV | BPF_X] = &&ALU64_DIV_X,
++		[BPF_ALU64 | BPF_DIV | BPF_K] = &&ALU64_DIV_K,
++		[BPF_ALU64 | BPF_MOD | BPF_X] = &&ALU64_MOD_X,
++		[BPF_ALU64 | BPF_MOD | BPF_K] = &&ALU64_MOD_K,
++		[BPF_ALU64 | BPF_NEG] = &&ALU64_NEG,
++		/* Call instruction */
++		[BPF_JMP | BPF_CALL] = &&JMP_CALL,
++		/* Jumps */
++		[BPF_JMP | BPF_JA] = &&JMP_JA,
++		[BPF_JMP | BPF_JEQ | BPF_X] = &&JMP_JEQ_X,
++		[BPF_JMP | BPF_JEQ | BPF_K] = &&JMP_JEQ_K,
++		[BPF_JMP | BPF_JNE | BPF_X] = &&JMP_JNE_X,
++		[BPF_JMP | BPF_JNE | BPF_K] = &&JMP_JNE_K,
++		[BPF_JMP | BPF_JGT | BPF_X] = &&JMP_JGT_X,
++		[BPF_JMP | BPF_JGT | BPF_K] = &&JMP_JGT_K,
++		[BPF_JMP | BPF_JGE | BPF_X] = &&JMP_JGE_X,
++		[BPF_JMP | BPF_JGE | BPF_K] = &&JMP_JGE_K,
++		[BPF_JMP | BPF_JSGT | BPF_X] = &&JMP_JSGT_X,
++		[BPF_JMP | BPF_JSGT | BPF_K] = &&JMP_JSGT_K,
++		[BPF_JMP | BPF_JSGE | BPF_X] = &&JMP_JSGE_X,
++		[BPF_JMP | BPF_JSGE | BPF_K] = &&JMP_JSGE_K,
++		[BPF_JMP | BPF_JSET | BPF_X] = &&JMP_JSET_X,
++		[BPF_JMP | BPF_JSET | BPF_K] = &&JMP_JSET_K,
++		/* Program return */
++		[BPF_JMP | BPF_EXIT] = &&JMP_EXIT,
++		/* Store instructions */
++		[BPF_STX | BPF_MEM | BPF_B] = &&STX_MEM_B,
++		[BPF_STX | BPF_MEM | BPF_H] = &&STX_MEM_H,
++		[BPF_STX | BPF_MEM | BPF_W] = &&STX_MEM_W,
++		[BPF_STX | BPF_MEM | BPF_DW] = &&STX_MEM_DW,
++		[BPF_STX | BPF_XADD | BPF_W] = &&STX_XADD_W,
++		[BPF_STX | BPF_XADD | BPF_DW] = &&STX_XADD_DW,
++		[BPF_ST | BPF_MEM | BPF_B] = &&ST_MEM_B,
++		[BPF_ST | BPF_MEM | BPF_H] = &&ST_MEM_H,
++		[BPF_ST | BPF_MEM | BPF_W] = &&ST_MEM_W,
++		[BPF_ST | BPF_MEM | BPF_DW] = &&ST_MEM_DW,
++		/* Load instructions */
++		[BPF_LDX | BPF_MEM | BPF_B] = &&LDX_MEM_B,
++		[BPF_LDX | BPF_MEM | BPF_H] = &&LDX_MEM_H,
++		[BPF_LDX | BPF_MEM | BPF_W] = &&LDX_MEM_W,
++		[BPF_LDX | BPF_MEM | BPF_DW] = &&LDX_MEM_DW,
++		[BPF_LD | BPF_ABS | BPF_W] = &&LD_ABS_W,
++		[BPF_LD | BPF_ABS | BPF_H] = &&LD_ABS_H,
++		[BPF_LD | BPF_ABS | BPF_B] = &&LD_ABS_B,
++		[BPF_LD | BPF_IND | BPF_W] = &&LD_IND_W,
++		[BPF_LD | BPF_IND | BPF_H] = &&LD_IND_H,
++		[BPF_LD | BPF_IND | BPF_B] = &&LD_IND_B,
++	};
++	void *ptr;
++	int off;
++
++#define CONT	 ({ insn++; goto select_insn; })
++#define CONT_JMP ({ insn++; goto select_insn; })
++
++	FP = (u64) (unsigned long) &stack[ARRAY_SIZE(stack)];
++	ARG1 = (u64) (unsigned long) ctx;
++
++	/* Registers used in classic BPF programs need to be reset first. */
++	regs[BPF_REG_A] = 0;
++	regs[BPF_REG_X] = 0;
++
++select_insn:
++	goto *jumptable[insn->code];
++
++	/* ALU */
++#define ALU(OPCODE, OP)			\
++	ALU64_##OPCODE##_X:		\
++		DST = DST OP SRC;	\
++		CONT;			\
++	ALU_##OPCODE##_X:		\
++		DST = (u32) DST OP (u32) SRC;	\
++		CONT;			\
++	ALU64_##OPCODE##_K:		\
++		DST = DST OP IMM;		\
++		CONT;			\
++	ALU_##OPCODE##_K:		\
++		DST = (u32) DST OP (u32) IMM;	\
++		CONT;
++
++	ALU(ADD,  +)
++	ALU(SUB,  -)
++	ALU(AND,  &)
++	ALU(OR,   |)
++	ALU(LSH, <<)
++	ALU(RSH, >>)
++	ALU(XOR,  ^)
++	ALU(MUL,  *)
++#undef ALU
++	ALU_NEG:
++		DST = (u32) -DST;
++		CONT;
++	ALU64_NEG:
++		DST = -DST;
++		CONT;
++	ALU_MOV_X:
++		DST = (u32) SRC;
++		CONT;
++	ALU_MOV_K:
++		DST = (u32) IMM;
++		CONT;
++	ALU64_MOV_X:
++		DST = SRC;
++		CONT;
++	ALU64_MOV_K:
++		DST = IMM;
++		CONT;
++	ALU64_ARSH_X:
++		(*(s64 *) &DST) >>= SRC;
++		CONT;
++	ALU64_ARSH_K:
++		(*(s64 *) &DST) >>= IMM;
++		CONT;
++	ALU64_MOD_X:
++		if (unlikely(SRC == 0))
++			return 0;
++		tmp = DST;
++		DST = do_div(tmp, SRC);
++		CONT;
++	ALU_MOD_X:
++		if (unlikely(SRC == 0))
++			return 0;
++		tmp = (u32) DST;
++		DST = do_div(tmp, (u32) SRC);
++		CONT;
++	ALU64_MOD_K:
++		tmp = DST;
++		DST = do_div(tmp, IMM);
++		CONT;
++	ALU_MOD_K:
++		tmp = (u32) DST;
++		DST = do_div(tmp, (u32) IMM);
++		CONT;
++	ALU64_DIV_X:
++		if (unlikely(SRC == 0))
++			return 0;
++		do_div(DST, SRC);
++		CONT;
++	ALU_DIV_X:
++		if (unlikely(SRC == 0))
++			return 0;
++		tmp = (u32) DST;
++		do_div(tmp, (u32) SRC);
++		DST = (u32) tmp;
++		CONT;
++	ALU64_DIV_K:
++		do_div(DST, IMM);
++		CONT;
++	ALU_DIV_K:
++		tmp = (u32) DST;
++		do_div(tmp, (u32) IMM);
++		DST = (u32) tmp;
++		CONT;
++	ALU_END_TO_BE:
++		switch (IMM) {
++		case 16:
++			DST = (__force u16) cpu_to_be16(DST);
++			break;
++		case 32:
++			DST = (__force u32) cpu_to_be32(DST);
++			break;
++		case 64:
++			DST = (__force u64) cpu_to_be64(DST);
++			break;
++		}
++		CONT;
++	ALU_END_TO_LE:
++		switch (IMM) {
++		case 16:
++			DST = (__force u16) cpu_to_le16(DST);
++			break;
++		case 32:
++			DST = (__force u32) cpu_to_le32(DST);
++			break;
++		case 64:
++			DST = (__force u64) cpu_to_le64(DST);
++			break;
++		}
++		CONT;
++
++	/* CALL */
++	JMP_CALL:
++		/* Function call scratches BPF_R1-BPF_R5 registers,
++		 * preserves BPF_R6-BPF_R9, and stores return value
++		 * into BPF_R0.
++		 */
++		BPF_R0 = (__bpf_call_base + insn->imm)(BPF_R1, BPF_R2, BPF_R3,
++						       BPF_R4, BPF_R5);
++		CONT;
++
++	/* JMP */
++	JMP_JA:
++		insn += insn->off;
++		CONT;
++	JMP_JEQ_X:
++		if (DST == SRC) {
++			insn += insn->off;
++			CONT_JMP;
++		}
++		CONT;
++	JMP_JEQ_K:
++		if (DST == IMM) {
++			insn += insn->off;
++			CONT_JMP;
++		}
++		CONT;
++	JMP_JNE_X:
++		if (DST != SRC) {
++			insn += insn->off;
++			CONT_JMP;
++		}
++		CONT;
++	JMP_JNE_K:
++		if (DST != IMM) {
++			insn += insn->off;
++			CONT_JMP;
++		}
++		CONT;
++	JMP_JGT_X:
++		if (DST > SRC) {
++			insn += insn->off;
++			CONT_JMP;
++		}
++		CONT;
++	JMP_JGT_K:
++		if (DST > IMM) {
++			insn += insn->off;
++			CONT_JMP;
++		}
++		CONT;
++	JMP_JGE_X:
++		if (DST >= SRC) {
++			insn += insn->off;
++			CONT_JMP;
++		}
++		CONT;
++	JMP_JGE_K:
++		if (DST >= IMM) {
++			insn += insn->off;
++			CONT_JMP;
++		}
++		CONT;
++	JMP_JSGT_X:
++		if (((s64) DST) > ((s64) SRC)) {
++			insn += insn->off;
++			CONT_JMP;
++		}
++		CONT;
++	JMP_JSGT_K:
++		if (((s64) DST) > ((s64) IMM)) {
++			insn += insn->off;
++			CONT_JMP;
++		}
++		CONT;
++	JMP_JSGE_X:
++		if (((s64) DST) >= ((s64) SRC)) {
++			insn += insn->off;
++			CONT_JMP;
++		}
++		CONT;
++	JMP_JSGE_K:
++		if (((s64) DST) >= ((s64) IMM)) {
++			insn += insn->off;
++			CONT_JMP;
++		}
++		CONT;
++	JMP_JSET_X:
++		if (DST & SRC) {
++			insn += insn->off;
++			CONT_JMP;
++		}
++		CONT;
++	JMP_JSET_K:
++		if (DST & IMM) {
++			insn += insn->off;
++			CONT_JMP;
++		}
++		CONT;
++	JMP_EXIT:
++		return BPF_R0;
++
++	/* STX and ST and LDX*/
++#define LDST(SIZEOP, SIZE)						\
++	STX_MEM_##SIZEOP:						\
++		*(SIZE *)(unsigned long) (DST + insn->off) = SRC;	\
++		CONT;							\
++	ST_MEM_##SIZEOP:						\
++		*(SIZE *)(unsigned long) (DST + insn->off) = IMM;	\
++		CONT;							\
++	LDX_MEM_##SIZEOP:						\
++		DST = *(SIZE *)(unsigned long) (SRC + insn->off);	\
++		CONT;
++
++	LDST(B,   u8)
++	LDST(H,  u16)
++	LDST(W,  u32)
++	LDST(DW, u64)
++#undef LDST
++	STX_XADD_W: /* lock xadd *(u32 *)(dst_reg + off16) += src_reg */
++		atomic_add((u32) SRC, (atomic_t *)(unsigned long)
++			   (DST + insn->off));
++		CONT;
++	STX_XADD_DW: /* lock xadd *(u64 *)(dst_reg + off16) += src_reg */
++		atomic64_add((u64) SRC, (atomic64_t *)(unsigned long)
++			     (DST + insn->off));
++		CONT;
++	LD_ABS_W: /* BPF_R0 = ntohl(*(u32 *) (skb->data + imm32)) */
++		off = IMM;
++load_word:
++		/* BPF_LD + BPD_ABS and BPF_LD + BPF_IND insns are
++		 * only appearing in the programs where ctx ==
++		 * skb. All programs keep 'ctx' in regs[BPF_REG_CTX]
++		 * == BPF_R6, sk_convert_filter() saves it in BPF_R6,
++		 * internal BPF verifier will check that BPF_R6 ==
++		 * ctx.
++		 *
++		 * BPF_ABS and BPF_IND are wrappers of function calls,
++		 * so they scratch BPF_R1-BPF_R5 registers, preserve
++		 * BPF_R6-BPF_R9, and store return value into BPF_R0.
++		 *
++		 * Implicit input:
++		 *   ctx == skb == BPF_R6 == CTX
++		 *
++		 * Explicit input:
++		 *   SRC == any register
++		 *   IMM == 32-bit immediate
++		 *
++		 * Output:
++		 *   BPF_R0 - 8/16/32-bit skb data converted to cpu endianness
++		 */
++
++		ptr = load_pointer((struct sk_buff *) (unsigned long) CTX, off, 4, &tmp);
++		if (likely(ptr != NULL)) {
++			BPF_R0 = get_unaligned_be32(ptr);
++			CONT;
++		}
++
++		return 0;
++	LD_ABS_H: /* BPF_R0 = ntohs(*(u16 *) (skb->data + imm32)) */
++		off = IMM;
++load_half:
++		ptr = load_pointer((struct sk_buff *) (unsigned long) CTX, off, 2, &tmp);
++		if (likely(ptr != NULL)) {
++			BPF_R0 = get_unaligned_be16(ptr);
++			CONT;
++		}
++
++		return 0;
++	LD_ABS_B: /* BPF_R0 = *(u8 *) (skb->data + imm32) */
++		off = IMM;
++load_byte:
++		ptr = load_pointer((struct sk_buff *) (unsigned long) CTX, off, 1, &tmp);
++		if (likely(ptr != NULL)) {
++			BPF_R0 = *(u8 *)ptr;
++			CONT;
++		}
++
++		return 0;
++	LD_IND_W: /* BPF_R0 = ntohl(*(u32 *) (skb->data + src_reg + imm32)) */
++		off = IMM + SRC;
++		goto load_word;
++	LD_IND_H: /* BPF_R0 = ntohs(*(u16 *) (skb->data + src_reg + imm32)) */
++		off = IMM + SRC;
++		goto load_half;
++	LD_IND_B: /* BPF_R0 = *(u8 *) (skb->data + src_reg + imm32) */
++		off = IMM + SRC;
++		goto load_byte;
++
++	default_label:
++		/* If we ever reach this, we have a bug somewhere. */
++		WARN_RATELIMIT(1, "unknown opcode %02x\n", insn->code);
++		return 0;
++}
++
++void __weak bpf_int_jit_compile(struct sk_filter *prog)
++{
++}
++
++/**
++ *	sk_filter_select_runtime - select execution runtime for BPF program
++ *	@fp: sk_filter populated with internal BPF program
++ *
++ * try to JIT internal BPF program, if JIT is not available select interpreter
++ * BPF program will be executed via SK_RUN_FILTER() macro
++ */
++void sk_filter_select_runtime(struct sk_filter *fp)
++{
++	fp->bpf_func = (void *) __sk_run_filter;
++
++	/* Probe if internal BPF can be JITed */
++	bpf_int_jit_compile(fp);
++}
++EXPORT_SYMBOL_GPL(sk_filter_select_runtime);
++
++/* free internal BPF program */
++void sk_filter_free(struct sk_filter *fp)
++{
++	bpf_jit_free(fp);
++}
++EXPORT_SYMBOL_GPL(sk_filter_free);
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 1dbf6462f766..79d8a1b1ad75 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -45,54 +45,6 @@
+ #include <linux/seccomp.h>
+ #include <linux/if_vlan.h>
+ 
+-/* Registers */
+-#define BPF_R0	regs[BPF_REG_0]
+-#define BPF_R1	regs[BPF_REG_1]
+-#define BPF_R2	regs[BPF_REG_2]
+-#define BPF_R3	regs[BPF_REG_3]
+-#define BPF_R4	regs[BPF_REG_4]
+-#define BPF_R5	regs[BPF_REG_5]
+-#define BPF_R6	regs[BPF_REG_6]
+-#define BPF_R7	regs[BPF_REG_7]
+-#define BPF_R8	regs[BPF_REG_8]
+-#define BPF_R9	regs[BPF_REG_9]
+-#define BPF_R10	regs[BPF_REG_10]
+-
+-/* Named registers */
+-#define DST	regs[insn->dst_reg]
+-#define SRC	regs[insn->src_reg]
+-#define FP	regs[BPF_REG_FP]
+-#define ARG1	regs[BPF_REG_ARG1]
+-#define CTX	regs[BPF_REG_CTX]
+-#define IMM	insn->imm
+-
+-/* No hurry in this branch
+- *
+- * Exported for the bpf jit load helper.
+- */
+-void *bpf_internal_load_pointer_neg_helper(const struct sk_buff *skb, int k, unsigned int size)
+-{
+-	u8 *ptr = NULL;
+-
+-	if (k >= SKF_NET_OFF)
+-		ptr = skb_network_header(skb) + k - SKF_NET_OFF;
+-	else if (k >= SKF_LL_OFF)
+-		ptr = skb_mac_header(skb) + k - SKF_LL_OFF;
+-	if (ptr >= skb->head && ptr + size <= skb_tail_pointer(skb))
+-		return ptr;
+-
+-	return NULL;
+-}
+-
+-static inline void *load_pointer(const struct sk_buff *skb, int k,
+-				 unsigned int size, void *buffer)
+-{
+-	if (k >= 0)
+-		return skb_header_pointer(skb, k, size, buffer);
+-
+-	return bpf_internal_load_pointer_neg_helper(skb, k, size);
+-}
+-
+ /**
+  *	sk_filter - run a packet through a socket filter
+  *	@sk: sock associated with &sk_buff
+@@ -135,451 +87,6 @@ int sk_filter(struct sock *sk, struct sk_buff *skb)
+ }
+ EXPORT_SYMBOL(sk_filter);
+ 
+-/* Base function for offset calculation. Needs to go into .text section,
+- * therefore keeping it non-static as well; will also be used by JITs
+- * anyway later on, so do not let the compiler omit it.
+- */
+-noinline u64 __bpf_call_base(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
+-{
+-	return 0;
+-}
+-
+-/**
+- *	__sk_run_filter - run a filter on a given context
+- *	@ctx: buffer to run the filter on
+- *	@insn: filter to apply
+- *
+- * Decode and apply filter instructions to the skb->data. Return length to
+- * keep, 0 for none. @ctx is the data we are operating on, @insn is the
+- * array of filter instructions.
+- */
+-static unsigned int __sk_run_filter(void *ctx, const struct sock_filter_int *insn)
+-{
+-	u64 stack[MAX_BPF_STACK / sizeof(u64)];
+-	u64 regs[MAX_BPF_REG], tmp;
+-	static const void *jumptable[256] = {
+-		[0 ... 255] = &&default_label,
+-		/* Now overwrite non-defaults ... */
+-		/* 32 bit ALU operations */
+-		[BPF_ALU | BPF_ADD | BPF_X] = &&ALU_ADD_X,
+-		[BPF_ALU | BPF_ADD | BPF_K] = &&ALU_ADD_K,
+-		[BPF_ALU | BPF_SUB | BPF_X] = &&ALU_SUB_X,
+-		[BPF_ALU | BPF_SUB | BPF_K] = &&ALU_SUB_K,
+-		[BPF_ALU | BPF_AND | BPF_X] = &&ALU_AND_X,
+-		[BPF_ALU | BPF_AND | BPF_K] = &&ALU_AND_K,
+-		[BPF_ALU | BPF_OR | BPF_X]  = &&ALU_OR_X,
+-		[BPF_ALU | BPF_OR | BPF_K]  = &&ALU_OR_K,
+-		[BPF_ALU | BPF_LSH | BPF_X] = &&ALU_LSH_X,
+-		[BPF_ALU | BPF_LSH | BPF_K] = &&ALU_LSH_K,
+-		[BPF_ALU | BPF_RSH | BPF_X] = &&ALU_RSH_X,
+-		[BPF_ALU | BPF_RSH | BPF_K] = &&ALU_RSH_K,
+-		[BPF_ALU | BPF_XOR | BPF_X] = &&ALU_XOR_X,
+-		[BPF_ALU | BPF_XOR | BPF_K] = &&ALU_XOR_K,
+-		[BPF_ALU | BPF_MUL | BPF_X] = &&ALU_MUL_X,
+-		[BPF_ALU | BPF_MUL | BPF_K] = &&ALU_MUL_K,
+-		[BPF_ALU | BPF_MOV | BPF_X] = &&ALU_MOV_X,
+-		[BPF_ALU | BPF_MOV | BPF_K] = &&ALU_MOV_K,
+-		[BPF_ALU | BPF_DIV | BPF_X] = &&ALU_DIV_X,
+-		[BPF_ALU | BPF_DIV | BPF_K] = &&ALU_DIV_K,
+-		[BPF_ALU | BPF_MOD | BPF_X] = &&ALU_MOD_X,
+-		[BPF_ALU | BPF_MOD | BPF_K] = &&ALU_MOD_K,
+-		[BPF_ALU | BPF_NEG] = &&ALU_NEG,
+-		[BPF_ALU | BPF_END | BPF_TO_BE] = &&ALU_END_TO_BE,
+-		[BPF_ALU | BPF_END | BPF_TO_LE] = &&ALU_END_TO_LE,
+-		/* 64 bit ALU operations */
+-		[BPF_ALU64 | BPF_ADD | BPF_X] = &&ALU64_ADD_X,
+-		[BPF_ALU64 | BPF_ADD | BPF_K] = &&ALU64_ADD_K,
+-		[BPF_ALU64 | BPF_SUB | BPF_X] = &&ALU64_SUB_X,
+-		[BPF_ALU64 | BPF_SUB | BPF_K] = &&ALU64_SUB_K,
+-		[BPF_ALU64 | BPF_AND | BPF_X] = &&ALU64_AND_X,
+-		[BPF_ALU64 | BPF_AND | BPF_K] = &&ALU64_AND_K,
+-		[BPF_ALU64 | BPF_OR | BPF_X] = &&ALU64_OR_X,
+-		[BPF_ALU64 | BPF_OR | BPF_K] = &&ALU64_OR_K,
+-		[BPF_ALU64 | BPF_LSH | BPF_X] = &&ALU64_LSH_X,
+-		[BPF_ALU64 | BPF_LSH | BPF_K] = &&ALU64_LSH_K,
+-		[BPF_ALU64 | BPF_RSH | BPF_X] = &&ALU64_RSH_X,
+-		[BPF_ALU64 | BPF_RSH | BPF_K] = &&ALU64_RSH_K,
+-		[BPF_ALU64 | BPF_XOR | BPF_X] = &&ALU64_XOR_X,
+-		[BPF_ALU64 | BPF_XOR | BPF_K] = &&ALU64_XOR_K,
+-		[BPF_ALU64 | BPF_MUL | BPF_X] = &&ALU64_MUL_X,
+-		[BPF_ALU64 | BPF_MUL | BPF_K] = &&ALU64_MUL_K,
+-		[BPF_ALU64 | BPF_MOV | BPF_X] = &&ALU64_MOV_X,
+-		[BPF_ALU64 | BPF_MOV | BPF_K] = &&ALU64_MOV_K,
+-		[BPF_ALU64 | BPF_ARSH | BPF_X] = &&ALU64_ARSH_X,
+-		[BPF_ALU64 | BPF_ARSH | BPF_K] = &&ALU64_ARSH_K,
+-		[BPF_ALU64 | BPF_DIV | BPF_X] = &&ALU64_DIV_X,
+-		[BPF_ALU64 | BPF_DIV | BPF_K] = &&ALU64_DIV_K,
+-		[BPF_ALU64 | BPF_MOD | BPF_X] = &&ALU64_MOD_X,
+-		[BPF_ALU64 | BPF_MOD | BPF_K] = &&ALU64_MOD_K,
+-		[BPF_ALU64 | BPF_NEG] = &&ALU64_NEG,
+-		/* Call instruction */
+-		[BPF_JMP | BPF_CALL] = &&JMP_CALL,
+-		/* Jumps */
+-		[BPF_JMP | BPF_JA] = &&JMP_JA,
+-		[BPF_JMP | BPF_JEQ | BPF_X] = &&JMP_JEQ_X,
+-		[BPF_JMP | BPF_JEQ | BPF_K] = &&JMP_JEQ_K,
+-		[BPF_JMP | BPF_JNE | BPF_X] = &&JMP_JNE_X,
+-		[BPF_JMP | BPF_JNE | BPF_K] = &&JMP_JNE_K,
+-		[BPF_JMP | BPF_JGT | BPF_X] = &&JMP_JGT_X,
+-		[BPF_JMP | BPF_JGT | BPF_K] = &&JMP_JGT_K,
+-		[BPF_JMP | BPF_JGE | BPF_X] = &&JMP_JGE_X,
+-		[BPF_JMP | BPF_JGE | BPF_K] = &&JMP_JGE_K,
+-		[BPF_JMP | BPF_JSGT | BPF_X] = &&JMP_JSGT_X,
+-		[BPF_JMP | BPF_JSGT | BPF_K] = &&JMP_JSGT_K,
+-		[BPF_JMP | BPF_JSGE | BPF_X] = &&JMP_JSGE_X,
+-		[BPF_JMP | BPF_JSGE | BPF_K] = &&JMP_JSGE_K,
+-		[BPF_JMP | BPF_JSET | BPF_X] = &&JMP_JSET_X,
+-		[BPF_JMP | BPF_JSET | BPF_K] = &&JMP_JSET_K,
+-		/* Program return */
+-		[BPF_JMP | BPF_EXIT] = &&JMP_EXIT,
+-		/* Store instructions */
+-		[BPF_STX | BPF_MEM | BPF_B] = &&STX_MEM_B,
+-		[BPF_STX | BPF_MEM | BPF_H] = &&STX_MEM_H,
+-		[BPF_STX | BPF_MEM | BPF_W] = &&STX_MEM_W,
+-		[BPF_STX | BPF_MEM | BPF_DW] = &&STX_MEM_DW,
+-		[BPF_STX | BPF_XADD | BPF_W] = &&STX_XADD_W,
+-		[BPF_STX | BPF_XADD | BPF_DW] = &&STX_XADD_DW,
+-		[BPF_ST | BPF_MEM | BPF_B] = &&ST_MEM_B,
+-		[BPF_ST | BPF_MEM | BPF_H] = &&ST_MEM_H,
+-		[BPF_ST | BPF_MEM | BPF_W] = &&ST_MEM_W,
+-		[BPF_ST | BPF_MEM | BPF_DW] = &&ST_MEM_DW,
+-		/* Load instructions */
+-		[BPF_LDX | BPF_MEM | BPF_B] = &&LDX_MEM_B,
+-		[BPF_LDX | BPF_MEM | BPF_H] = &&LDX_MEM_H,
+-		[BPF_LDX | BPF_MEM | BPF_W] = &&LDX_MEM_W,
+-		[BPF_LDX | BPF_MEM | BPF_DW] = &&LDX_MEM_DW,
+-		[BPF_LD | BPF_ABS | BPF_W] = &&LD_ABS_W,
+-		[BPF_LD | BPF_ABS | BPF_H] = &&LD_ABS_H,
+-		[BPF_LD | BPF_ABS | BPF_B] = &&LD_ABS_B,
+-		[BPF_LD | BPF_IND | BPF_W] = &&LD_IND_W,
+-		[BPF_LD | BPF_IND | BPF_H] = &&LD_IND_H,
+-		[BPF_LD | BPF_IND | BPF_B] = &&LD_IND_B,
+-	};
+-	void *ptr;
+-	int off;
+-
+-#define CONT	 ({ insn++; goto select_insn; })
+-#define CONT_JMP ({ insn++; goto select_insn; })
+-
+-	FP = (u64) (unsigned long) &stack[ARRAY_SIZE(stack)];
+-	ARG1 = (u64) (unsigned long) ctx;
+-
+-	/* Registers used in classic BPF programs need to be reset first. */
+-	regs[BPF_REG_A] = 0;
+-	regs[BPF_REG_X] = 0;
+-
+-select_insn:
+-	goto *jumptable[insn->code];
+-
+-	/* ALU */
+-#define ALU(OPCODE, OP)			\
+-	ALU64_##OPCODE##_X:		\
+-		DST = DST OP SRC;	\
+-		CONT;			\
+-	ALU_##OPCODE##_X:		\
+-		DST = (u32) DST OP (u32) SRC;	\
+-		CONT;			\
+-	ALU64_##OPCODE##_K:		\
+-		DST = DST OP IMM;		\
+-		CONT;			\
+-	ALU_##OPCODE##_K:		\
+-		DST = (u32) DST OP (u32) IMM;	\
+-		CONT;
+-
+-	ALU(ADD,  +)
+-	ALU(SUB,  -)
+-	ALU(AND,  &)
+-	ALU(OR,   |)
+-	ALU(LSH, <<)
+-	ALU(RSH, >>)
+-	ALU(XOR,  ^)
+-	ALU(MUL,  *)
+-#undef ALU
+-	ALU_NEG:
+-		DST = (u32) -DST;
+-		CONT;
+-	ALU64_NEG:
+-		DST = -DST;
+-		CONT;
+-	ALU_MOV_X:
+-		DST = (u32) SRC;
+-		CONT;
+-	ALU_MOV_K:
+-		DST = (u32) IMM;
+-		CONT;
+-	ALU64_MOV_X:
+-		DST = SRC;
+-		CONT;
+-	ALU64_MOV_K:
+-		DST = IMM;
+-		CONT;
+-	ALU64_ARSH_X:
+-		(*(s64 *) &DST) >>= SRC;
+-		CONT;
+-	ALU64_ARSH_K:
+-		(*(s64 *) &DST) >>= IMM;
+-		CONT;
+-	ALU64_MOD_X:
+-		if (unlikely(SRC == 0))
+-			return 0;
+-		tmp = DST;
+-		DST = do_div(tmp, SRC);
+-		CONT;
+-	ALU_MOD_X:
+-		if (unlikely(SRC == 0))
+-			return 0;
+-		tmp = (u32) DST;
+-		DST = do_div(tmp, (u32) SRC);
+-		CONT;
+-	ALU64_MOD_K:
+-		tmp = DST;
+-		DST = do_div(tmp, IMM);
+-		CONT;
+-	ALU_MOD_K:
+-		tmp = (u32) DST;
+-		DST = do_div(tmp, (u32) IMM);
+-		CONT;
+-	ALU64_DIV_X:
+-		if (unlikely(SRC == 0))
+-			return 0;
+-		do_div(DST, SRC);
+-		CONT;
+-	ALU_DIV_X:
+-		if (unlikely(SRC == 0))
+-			return 0;
+-		tmp = (u32) DST;
+-		do_div(tmp, (u32) SRC);
+-		DST = (u32) tmp;
+-		CONT;
+-	ALU64_DIV_K:
+-		do_div(DST, IMM);
+-		CONT;
+-	ALU_DIV_K:
+-		tmp = (u32) DST;
+-		do_div(tmp, (u32) IMM);
+-		DST = (u32) tmp;
+-		CONT;
+-	ALU_END_TO_BE:
+-		switch (IMM) {
+-		case 16:
+-			DST = (__force u16) cpu_to_be16(DST);
+-			break;
+-		case 32:
+-			DST = (__force u32) cpu_to_be32(DST);
+-			break;
+-		case 64:
+-			DST = (__force u64) cpu_to_be64(DST);
+-			break;
+-		}
+-		CONT;
+-	ALU_END_TO_LE:
+-		switch (IMM) {
+-		case 16:
+-			DST = (__force u16) cpu_to_le16(DST);
+-			break;
+-		case 32:
+-			DST = (__force u32) cpu_to_le32(DST);
+-			break;
+-		case 64:
+-			DST = (__force u64) cpu_to_le64(DST);
+-			break;
+-		}
+-		CONT;
+-
+-	/* CALL */
+-	JMP_CALL:
+-		/* Function call scratches BPF_R1-BPF_R5 registers,
+-		 * preserves BPF_R6-BPF_R9, and stores return value
+-		 * into BPF_R0.
+-		 */
+-		BPF_R0 = (__bpf_call_base + insn->imm)(BPF_R1, BPF_R2, BPF_R3,
+-						       BPF_R4, BPF_R5);
+-		CONT;
+-
+-	/* JMP */
+-	JMP_JA:
+-		insn += insn->off;
+-		CONT;
+-	JMP_JEQ_X:
+-		if (DST == SRC) {
+-			insn += insn->off;
+-			CONT_JMP;
+-		}
+-		CONT;
+-	JMP_JEQ_K:
+-		if (DST == IMM) {
+-			insn += insn->off;
+-			CONT_JMP;
+-		}
+-		CONT;
+-	JMP_JNE_X:
+-		if (DST != SRC) {
+-			insn += insn->off;
+-			CONT_JMP;
+-		}
+-		CONT;
+-	JMP_JNE_K:
+-		if (DST != IMM) {
+-			insn += insn->off;
+-			CONT_JMP;
+-		}
+-		CONT;
+-	JMP_JGT_X:
+-		if (DST > SRC) {
+-			insn += insn->off;
+-			CONT_JMP;
+-		}
+-		CONT;
+-	JMP_JGT_K:
+-		if (DST > IMM) {
+-			insn += insn->off;
+-			CONT_JMP;
+-		}
+-		CONT;
+-	JMP_JGE_X:
+-		if (DST >= SRC) {
+-			insn += insn->off;
+-			CONT_JMP;
+-		}
+-		CONT;
+-	JMP_JGE_K:
+-		if (DST >= IMM) {
+-			insn += insn->off;
+-			CONT_JMP;
+-		}
+-		CONT;
+-	JMP_JSGT_X:
+-		if (((s64) DST) > ((s64) SRC)) {
+-			insn += insn->off;
+-			CONT_JMP;
+-		}
+-		CONT;
+-	JMP_JSGT_K:
+-		if (((s64) DST) > ((s64) IMM)) {
+-			insn += insn->off;
+-			CONT_JMP;
+-		}
+-		CONT;
+-	JMP_JSGE_X:
+-		if (((s64) DST) >= ((s64) SRC)) {
+-			insn += insn->off;
+-			CONT_JMP;
+-		}
+-		CONT;
+-	JMP_JSGE_K:
+-		if (((s64) DST) >= ((s64) IMM)) {
+-			insn += insn->off;
+-			CONT_JMP;
+-		}
+-		CONT;
+-	JMP_JSET_X:
+-		if (DST & SRC) {
+-			insn += insn->off;
+-			CONT_JMP;
+-		}
+-		CONT;
+-	JMP_JSET_K:
+-		if (DST & IMM) {
+-			insn += insn->off;
+-			CONT_JMP;
+-		}
+-		CONT;
+-	JMP_EXIT:
+-		return BPF_R0;
+-
+-	/* STX and ST and LDX*/
+-#define LDST(SIZEOP, SIZE)						\
+-	STX_MEM_##SIZEOP:						\
+-		*(SIZE *)(unsigned long) (DST + insn->off) = SRC;	\
+-		CONT;							\
+-	ST_MEM_##SIZEOP:						\
+-		*(SIZE *)(unsigned long) (DST + insn->off) = IMM;	\
+-		CONT;							\
+-	LDX_MEM_##SIZEOP:						\
+-		DST = *(SIZE *)(unsigned long) (SRC + insn->off);	\
+-		CONT;
+-
+-	LDST(B,   u8)
+-	LDST(H,  u16)
+-	LDST(W,  u32)
+-	LDST(DW, u64)
+-#undef LDST
+-	STX_XADD_W: /* lock xadd *(u32 *)(dst_reg + off16) += src_reg */
+-		atomic_add((u32) SRC, (atomic_t *)(unsigned long)
+-			   (DST + insn->off));
+-		CONT;
+-	STX_XADD_DW: /* lock xadd *(u64 *)(dst_reg + off16) += src_reg */
+-		atomic64_add((u64) SRC, (atomic64_t *)(unsigned long)
+-			     (DST + insn->off));
+-		CONT;
+-	LD_ABS_W: /* BPF_R0 = ntohl(*(u32 *) (skb->data + imm32)) */
+-		off = IMM;
+-load_word:
+-		/* BPF_LD + BPD_ABS and BPF_LD + BPF_IND insns are
+-		 * only appearing in the programs where ctx ==
+-		 * skb. All programs keep 'ctx' in regs[BPF_REG_CTX]
+-		 * == BPF_R6, sk_convert_filter() saves it in BPF_R6,
+-		 * internal BPF verifier will check that BPF_R6 ==
+-		 * ctx.
+-		 *
+-		 * BPF_ABS and BPF_IND are wrappers of function calls,
+-		 * so they scratch BPF_R1-BPF_R5 registers, preserve
+-		 * BPF_R6-BPF_R9, and store return value into BPF_R0.
+-		 *
+-		 * Implicit input:
+-		 *   ctx == skb == BPF_R6 == CTX
+-		 *
+-		 * Explicit input:
+-		 *   SRC == any register
+-		 *   IMM == 32-bit immediate
+-		 *
+-		 * Output:
+-		 *   BPF_R0 - 8/16/32-bit skb data converted to cpu endianness
+-		 */
+-
+-		ptr = load_pointer((struct sk_buff *) (unsigned long) CTX, off, 4, &tmp);
+-		if (likely(ptr != NULL)) {
+-			BPF_R0 = get_unaligned_be32(ptr);
+-			CONT;
+-		}
+-
+-		return 0;
+-	LD_ABS_H: /* BPF_R0 = ntohs(*(u16 *) (skb->data + imm32)) */
+-		off = IMM;
+-load_half:
+-		ptr = load_pointer((struct sk_buff *) (unsigned long) CTX, off, 2, &tmp);
+-		if (likely(ptr != NULL)) {
+-			BPF_R0 = get_unaligned_be16(ptr);
+-			CONT;
+-		}
+-
+-		return 0;
+-	LD_ABS_B: /* BPF_R0 = *(u8 *) (skb->data + imm32) */
+-		off = IMM;
+-load_byte:
+-		ptr = load_pointer((struct sk_buff *) (unsigned long) CTX, off, 1, &tmp);
+-		if (likely(ptr != NULL)) {
+-			BPF_R0 = *(u8 *)ptr;
+-			CONT;
+-		}
+-
+-		return 0;
+-	LD_IND_W: /* BPF_R0 = ntohl(*(u32 *) (skb->data + src_reg + imm32)) */
+-		off = IMM + SRC;
+-		goto load_word;
+-	LD_IND_H: /* BPF_R0 = ntohs(*(u16 *) (skb->data + src_reg + imm32)) */
+-		off = IMM + SRC;
+-		goto load_half;
+-	LD_IND_B: /* BPF_R0 = *(u8 *) (skb->data + src_reg + imm32) */
+-		off = IMM + SRC;
+-		goto load_byte;
+-
+-	default_label:
+-		/* If we ever reach this, we have a bug somewhere. */
+-		WARN_RATELIMIT(1, "unknown opcode %02x\n", insn->code);
+-		return 0;
+-}
+-
+ /* Helper to find the offset of pkt_type in sk_buff structure. We want
+  * to make sure its still a 3bit field starting at a byte boundary;
+  * taken from arch/x86/net/bpf_jit_comp.c.
+@@ -1464,33 +971,6 @@ out_err:
+ 	return ERR_PTR(err);
+ }
+ 
+-void __weak bpf_int_jit_compile(struct sk_filter *prog)
+-{
+-}
+-
+-/**
+- *	sk_filter_select_runtime - select execution runtime for BPF program
+- *	@fp: sk_filter populated with internal BPF program
+- *
+- * try to JIT internal BPF program, if JIT is not available select interpreter
+- * BPF program will be executed via SK_RUN_FILTER() macro
+- */
+-void sk_filter_select_runtime(struct sk_filter *fp)
+-{
+-	fp->bpf_func = (void *) __sk_run_filter;
+-
+-	/* Probe if internal BPF can be JITed */
+-	bpf_int_jit_compile(fp);
+-}
+-EXPORT_SYMBOL_GPL(sk_filter_select_runtime);
+-
+-/* free internal BPF program */
+-void sk_filter_free(struct sk_filter *fp)
+-{
+-	bpf_jit_free(fp);
+-}
+-EXPORT_SYMBOL_GPL(sk_filter_free);
+-
+ static struct sk_filter *__sk_prepare_filter(struct sk_filter *fp,
+ 					     struct sock *sk)
+ {
 -- 
 1.7.9.5
