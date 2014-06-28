@@ -1,75 +1,76 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] batman-adv: Use kasprintf
-Date: Sat, 28 Jun 2014 12:13:01 -0700
-Message-ID: <1403982781.9064.33.camel@joe-AO725>
-References: <20140628183628.GA9946@himangi-Dell>
+From: Vince Bridgers <vbridgers2013@gmail.com>
+Subject: Re: [PATCH net v3 2/3] libphy: Add stubs to hook IEEE MMD Register
+ reads and writes
+Date: Sat, 28 Jun 2014 14:47:04 -0500
+Message-ID: <CAOwfj2NJGqp2GF0v8421TVCYnnDLYYRa9oafDULi9pY1wh=wkw@mail.gmail.com>
+References: <1403482910-20821-1-git-send-email-vbridgers2013@gmail.com>
+	<1403482910-20821-3-git-send-email-vbridgers2013@gmail.com>
+	<53A81D96.3040904@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Marek Lindner <mareklindner@neomailbox.ch>,
-	Simon Wunderlich <sw@simonwunderlich.de>,
-	Antonio Quartulli <antonio@meshcoding.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	b.a.t.m.a.n@lists.open-mesh.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, julia.lawall@lip6.fr
-To: Himangi Saraogi <himangi774@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140628183628.GA9946@himangi-Dell>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f182.google.com ([209.85.212.182]:59660 "EHLO
+	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751193AbaF1TrG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Jun 2014 15:47:06 -0400
+Received: by mail-wi0-f182.google.com with SMTP id bs8so4271998wib.3
+        for <netdev@vger.kernel.org>; Sat, 28 Jun 2014 12:47:04 -0700 (PDT)
+In-Reply-To: <53A81D96.3040904@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2014-06-29 at 00:06 +0530, Himangi Saraogi wrote:
-> kasprintf combines kmalloc and sprintf, and takes care of the size
-> calculation itself.
+On Mon, Jun 23, 2014 at 7:29 AM, Sergei Shtylyov
+<sergei.shtylyov@cogentembedded.com> wrote:
+> Hello.
+>
+>
+> On 06/23/2014 04:21 AM, Vince Bridgers wrote:
+>
+>> The Micrel ksz9021 PHY does not support standard IEEE standard MMD
+>> extended register access, therefore requires stubs to fail the read
+>> register method and do nothing for the write register method when
+>> libphy attempts to read and/or configure Energy Efficient Ethernet
+>> features in PHYS that do support those features. This problem
+>> was observed on an Altera Cyclone V SOC development kit that
+>> uses the Synopsys EMAC and the Micrel ksz9021 PHY. This patch
+>> was tested on the same board, and Energy Efficient Ethernet is
+>> now disabled as expected since the Micrel PHY does not support that
+>> feature.
+>
+>
+>> Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
+>> ---
+>> V3: Remove unnecessary returns from void functions.
+>> V2: Split libphy and Micrel specific changes into 2 patches
+>>      based on review comments
+>> ---
+>>   drivers/net/phy/micrel.c |   23 ++++++++++++++++++++++-
+>>   1 file changed, 22 insertions(+), 1 deletion(-)
+>
+>
+>> diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
+>> index bc7c7d2..daf8bab 100644
+>> --- a/drivers/net/phy/micrel.c
+>> +++ b/drivers/net/phy/micrel.c
+>> @@ -417,7 +417,26 @@ static int ksz8873mll_read_status(struct phy_device
+>> *phydev)
+>>
+>>   static int ksz8873mll_config_aneg(struct phy_device *phydev)
+>>   {
+>> -       return 0;
+>
+>
+>    Eh? The function returns *int* and you're removing the only *return*
+> statement?
 
-Nice.  A small conversion to remove
-unnecessary initializations, avoid calling
-kfree with known NULL pointers, and save a
-few bytes of code space woud be:
----
- net/batman-adv/sysfs.c | 15 ++++++++-------
- 1 file changed, 8 insertions(+), 7 deletions(-)
+Oops, thanks for catching this. I'll address and respin.
 
-diff --git a/net/batman-adv/sysfs.c b/net/batman-adv/sysfs.c
-index f40cb04..d6fba94 100644
---- a/net/batman-adv/sysfs.c
-+++ b/net/batman-adv/sysfs.c
-@@ -896,7 +896,7 @@ int batadv_throw_uevent(struct batadv_priv *bat_priv, enum batadv_uev_type type,
- {
- 	int ret = -ENOMEM;
- 	struct kobject *bat_kobj;
--	char *uevent_env[4] = { NULL, NULL, NULL, NULL };
-+	char *uevent_env[3];
- 
- 	bat_kobj = &bat_priv->soft_iface->dev.kobj;
- 
-@@ -910,22 +910,23 @@ int batadv_throw_uevent(struct batadv_priv *bat_priv, enum batadv_uev_type type,
- 				  "%s%s", BATADV_UEV_ACTION_VAR,
- 				  batadv_uev_action_str[action]);
- 	if (!uevent_env[1])
--		goto out;
-+		goto out0;
- 
- 	/* If the event is DEL, ignore the data field */
- 	if (action != BATADV_UEV_DEL) {
- 		uevent_env[2] = kasprintf(GFP_ATOMIC,
- 					  "%s%s", BATADV_UEV_DATA_VAR, data);
- 		if (!uevent_env[2])
--			goto out;
-+			goto out1;
- 	}
- 
- 	ret = kobject_uevent_env(bat_kobj, KOBJ_CHANGE, uevent_env);
--out:
--	kfree(uevent_env[0]);
--	kfree(uevent_env[1]);
- 	kfree(uevent_env[2]);
--
-+out1:
-+	kfree(uevent_env[1]);
-+out0:
-+	kfree(uevent_env[0]);
-+out:
- 	if (ret)
- 		batadv_dbg(BATADV_DBG_BATMAN, bat_priv,
- 			   "Impossible to send uevent for (%s,%s,%s) event (err: %d)\n",
+>
+>> +}
+>
+>
+> WBR, Sergei
+>
