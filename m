@@ -1,95 +1,51 @@
-From: "Bernhard M. Wiedemann" <vger201406bmw@lsmod.de>
-Subject: vhost+vlan CHECKSUM_PARTIAL bug
-Date: Sat, 28 Jun 2014 12:14:09 +0200
-Message-ID: <53AE9571.5040203@lsmod.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [net-next PATCH v4 0/2] bridge: fdb dumping takes a filter device
+Date: Sat, 28 Jun 2014 06:47:34 -0400
+Message-ID: <1403952456-16020-1-git-send-email-jhs@emojatatu.com>
+Cc: netdev@vger.kernel.org, vyasevic@redhat.com,
+	sfeldma@cumulusnetworks.com, john.r.fastabend@intel.com,
+	roopa@cumulusnetworks.com, eric.dumazet@gmail.com,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: davem@davemloft.net, stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from golf.zq1.de ([144.76.96.7]:40229 "EHLO golf.zq1.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750923AbaF1KUq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 28 Jun 2014 06:20:46 -0400
+Received: from mail-ig0-f176.google.com ([209.85.213.176]:47655 "EHLO
+	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750846AbaF1Krq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Jun 2014 06:47:46 -0400
+Received: by mail-ig0-f176.google.com with SMTP id c1so2830296igq.9
+        for <netdev@vger.kernel.org>; Sat, 28 Jun 2014 03:47:46 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Hi,
+Changes:
+v4:
+ Request from DaveM to use proper comment tagging and remove if-stmnt braces
 
-I tracked down and built a reproducer for a rather hidden but ugly
-bug, that we hit by accident.
-It occurs, when using vhost/tap and VLAN for sending TCP into a KVM VM
-which then decides to forward it (using DNAT+SNAT in my reproducer) on
-an interface that can not carry on the CHECKSUM_PARTIAL optimization
-bit, so it has to calculate the TCP checksum,
-but happens to write it 4 bytes early into the outgoing packet.
-And 4 bytes is the offset added by the VLAN header.
+V3:
+ Suggestion from Eric D. to use for_each_netdev
+ Suggestion from Stephen H. to reduce level of indentation
 
-I built me a vanilla 3.16.0-rc2+ for testing with an added patch
-that you can find in
-http://www.zq1.de/~bernhard/temp/bnc884706/
-along with pcaps before and after being screwed
-by the CHECKSUM_PARTIAL logic
+V2:
+Suggestions from Vlad
+ Get rid of rcu read lock since rtnl_lock is being held
+ simplify for readability
 
 
-here is the reproducer:
 
+Jamal Hadi Salim (2):
+  bridge: fdb dumping takes a filter device
+  bridge: netlink dump interface at par with brctl
 
-# be in a directory with 500MB free disk space
-wget -nc http://www.zq1.de/~bernhard/temp/sp3-mini.qcow2
-# VM login is root:linux
-# iptables rules are in /usr/local/sbin/
-echo '#!/bin/sh
-t=$1;
-vconfig add $t 300
-ifconfig $t up
-ifconfig $t.300 192.168.77.1/24
-' >myifup77
-chmod a+x myifup77
-echo '#!/bin/sh
-t=$1;
-ifconfig $t 192.168.76.1/24
-' >myifup76
-chmod a+x myifup76
+ drivers/net/ethernet/intel/i40e/i40e_main.c      |    3 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    5 +-
+ include/linux/netdevice.h                        |    1 +
+ include/linux/rtnetlink.h                        |    1 +
+ net/bridge/br_fdb.c                              |   13 ++++
+ net/bridge/br_private.h                          |    2 +-
+ net/core/rtnetlink.c                             |   74 +++++++++++++++++-----
+ 7 files changed, 80 insertions(+), 19 deletions(-)
 
-# as root:
-qemu-kvm -drive file=sp3-mini.qcow2,if=virtio -net
-nic,model=rtl8139,macaddr=52:54:00:12:34:33 -net
-tap,script=myifup76,ifname=tap76 -daemonize -m 1000 -vnc :99 -netdev
-type=tap,id=guest0,script=myifup77,vhost=on,ifname=tap77 -device
-virtio-net-pci,netdev=guest0,mac=52:54:00:12:34:32
-sleep 50 # wait for VM boot
-/etc/init.d/apache2 start # or any other webserver
-ethtool -K tap77 tx off
-curl 192.168.77.2 # this should work
-ethtool -K tap77 tx on
-curl 192.168.77.2 # this fails here reproducibly
-
-
-The debug output showed
-on host: tun csum_start=34 csum_offset=16 headroom=230
-on VM:   skb_checksum_help csum_start=30 csum_offset=16 headroom=68
-partial=1
-
-suggesting that either skb->csum_start or skb_headroom is off by 4
-within the VM
-
-I am not knowledgeable enough in linux net code to further debug or
-fix this, thus asking you experts here.
-Please help.
-
-Ciao
-Bernhard M.
-- --
-cloud software developer at SUSE
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.19 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-
-iEYEARECAAYFAlOulXEACgkQSTYLOx37oWQx7QCg074/0i+mkJnLRzG42T8zBifh
-tTsAnRFzNonYeBCCpag1ZqR4DcfPV/46
-=BBOd
------END PGP SIGNATURE-----
+-- 
+1.7.9.5
