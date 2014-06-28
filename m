@@ -1,44 +1,123 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH v2.62] datapath: Add basic MPLS support to kernel
-Date: Sat, 28 Jun 2014 08:59:01 -0700
-Message-ID: <CAEP_g=8vbFvHRrKwCKBGxJZBhxnZDoE8f+eDOq3Z1JNo_U_H9w@mail.gmail.com>
-References: <1403611017-10965-1-git-send-email-horms@verge.net.au>
- <CAEP_g=9yYqKy-=aiTi3=3cZNOombBgkjHdzLdRzYVVKyJCHqcQ@mail.gmail.com>
- <20140625015149.GB14193@verge.net.au> <20140628005531.GA4122@verge.net.au>
+From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+Subject: Re: [PATCH RFC net-next 08/14] bpf: add eBPF verifier
+Date: Sat, 28 Jun 2014 09:01:06 -0700
+Message-ID: <CALCETrV+uTamX2BShHsHnwTr4R7+MSQXX8bXe=2Xo1hbiSAipQ@mail.gmail.com>
+References: <1403913966-4927-1-git-send-email-ast@plumgrid.com> <1403913966-4927-9-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>, Ravi K <rkerur@gmail.com>,
-	Joe Stringer <joe@wand.net.nz>, Thomas Graf <tgraf@suug.ch>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog111.obsmtp.com ([74.125.149.205]:41682 "HELO
-	na3sys009aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751129AbaF1P7X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Jun 2014 11:59:23 -0400
-Received: by mail-qg0-f45.google.com with SMTP id a108so520688qge.18
-        for <netdev@vger.kernel.org>; Sat, 28 Jun 2014 08:59:22 -0700 (PDT)
-In-Reply-To: <20140628005531.GA4122@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1403913966-4927-9-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 27, 2014 at 5:55 PM, Simon Horman <horms@verge.net.au> wrote:
-> On Wed, Jun 25, 2014 at 10:51:52AM +0900, Simon Horman wrote:
->> On Tue, Jun 24, 2014 at 04:24:37PM -0700, Jesse Gross wrote:
->> >  * Maybe you can refresh my memory - in the case of a push_mpls after
->> > pop_vlan, why can't we do this check correctly for at least one level
->> > of vlan? It seems like we could use the inner EtherType to tell
->> > whether an additional vlan tag is present.
->>
->> That seems likely. I'll do some analysis and get back to you.
->
-> I may be missing something but it seems to me that in
-> ovs_nla_copy_actions__() we have access to the outer EtherType and
-> VLAN TCI but not the inner EtherType.
->
-> It seems to me that the inner EtherType would need to be present
-> in the key for it to be available in ovs_nla_copy_actions__().
+On Fri, Jun 27, 2014 at 5:06 PM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
+> Safety of eBPF programs is statically determined by the verifier, which detects:
 
-The inner EtherType (first level) is actually what is stored in
-eth.type in the flow. When eth.tci is set it is assumed that the outer
-EtherType is 0x8100 and that isn't stored.
+This is a very high-level review.  I haven't tried to read all the
+code yet, and this is mostly questions rather than real comments.
+
+> - loops
+> - out of range jumps
+> - unreachable instructions
+> - invalid instructions
+> - uninitialized register access
+> - uninitialized stack access
+> - misaligned stack access
+> - out of range stack access
+> - invalid calling convention
+>
+> It checks that
+> - R1-R5 registers statisfy function prototype
+> - program terminates
+> - BPF_LD_ABS|IND instructions are only used in socket filters
+
+Why are these used in socket filters?  Can't ctx along with some
+accessor do the trick.
+
+
+It seems to be that this is more or less a type system.  On entry to
+each instruction, each register has a type, and the instruction might
+change the types of the registers.
+
+So: what are the rules?  If I understand correctly, these are the types:
+
+> +       INVALID_PTR,                    /* reg doesn't contain a valid pointer */
+> +       PTR_TO_CTX,                     /* reg points to bpf_context */
+> +       PTR_TO_MAP,                     /* reg points to map element value */
+> +       PTR_TO_MAP_CONDITIONAL,         /* points to map element value or NULL */
+> +       PTR_TO_STACK,                   /* reg == frame_pointer */
+> +       PTR_TO_STACK_IMM,               /* reg == frame_pointer + imm */
+> +       PTR_TO_STACK_IMM_MAP_KEY,       /* pointer to stack used as map key */
+> +       PTR_TO_STACK_IMM_MAP_VALUE,     /* pointer to stack used as map elem */
+> +       RET_INTEGER,                    /* function returns integer */
+> +       RET_VOID,                       /* function returns void */
+> +       CONST_ARG,                      /* function expects integer constant argument */
+> +       CONST_ARG_MAP_ID,               /* int const argument that is used as map_id */
+> +       /* int const argument indicating number of bytes accessed from stack
+> +        * previous function argument must be ptr_to_stack_imm
+> +        */
+> +       CONST_ARG_STACK_IMM_SIZE,
+> +};
+
+One confusing thing here is that some of these are types and some are
+constraints.  I'm not sure this is necessary.  For example, RET_VOID
+is an odd name for VOID, and RET_INTEGER is an odd name for INTEGER.
+
+I think I'd have a much easier time understanding all of this if there
+were an explicit table for the transition rules.  There are a couple
+kinds of transitions.  The main one is kind of like a phi node: when
+two different control paths reach the same instruction, the types of
+each register presumably need to merge.  I would imagine rules like:
+
+VOID, anything -> VOID
+PTR_TO_MAP, PTR_TO_MAP_CONDITIONAL -> PTR_TO_MAP_CONDITIONAL
+
+Then there are arithmetic rules: if you try to add two values, it
+might be legal or illegal, and the result type needs to be known.
+
+There are also things that happen on function entry and exit.  For
+example, unused argument slots presumably all turn into VOID.  All
+calls into the same function will apply the merge rule to the used
+argument types.  Passing stack pointers into a function might be okay,
+but passing stack pointers back out should presumably turn them into
+VOID.
+
+Am I understanding this right so far?
+
+The next question is: what are the funny types for?
+
+PTR_TO_MAP seems odd.  Shouldn't that just be PTR_TO_MEM?  And for these:
+
+> +       PTR_TO_STACK_IMM_MAP_KEY,       /* pointer to stack used as map key */
+> +       PTR_TO_STACK_IMM_MAP_VALUE,     /* pointer to stack used as map elem */
+
+I don't understand at all.
+
+
+Next question: how does bounds checking work?  Are you separately
+tracking the offset and associated bounds of each pointer?  How does
+bounds checking on PTR_TO_MAP work?  How about PTR_TO_STACK?  For that
+matter, why would pointer arithmetic on the stack be needed at all?
+ISTM it would be easier to have instructions to load and store a given
+local stack slot.  I guess that stack slots from callers are useful,
+too, but that seems *much* more complicated to track.
+
+--Andy
