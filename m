@@ -1,71 +1,80 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH v2.62] datapath: Add basic MPLS support to kernel
-Date: Sat, 28 Jun 2014 09:55:31 +0900
-Message-ID: <20140628005531.GA4122@verge.net.au>
-References: <1403611017-10965-1-git-send-email-horms@verge.net.au>
- <CAEP_g=9yYqKy-=aiTi3=3cZNOombBgkjHdzLdRzYVVKyJCHqcQ@mail.gmail.com>
- <20140625015149.GB14193@verge.net.au>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [net-next v2 02/13] tcp: tcp_v[46]_conn_request: fix snt_synack initialization
+Date: Fri, 27 Jun 2014 22:16:35 -0400
+Message-ID: <CADVnQykKYPVt-g8WtE29Xu_0Si-Lx_pMxnix4i2BqFhAV9BD8Q@mail.gmail.com>
+References: <1403705402-14388-1-git-send-email-octavian.purdila@intel.com>
+	<1403705402-14388-3-git-send-email-octavian.purdila@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>, Ravi K <rkerur@gmail.com>,
-	Joe Stringer <joe@wand.net.nz>, Thomas Graf <tgraf@suug.ch>
-To: Jesse Gross <jesse@nicira.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>, Daniel Lee <longinus00@gmail.com>,
+	Yuchung Cheng <ycheng@google.com>, Jerry Chu <hkchu@google.com>
+To: Octavian Purdila <octavian.purdila@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:45056 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751496AbaF1Azo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 20:55:44 -0400
-Content-Disposition: inline
-In-Reply-To: <20140625015149.GB14193@verge.net.au>
+Received: from mail-we0-f175.google.com ([74.125.82.175]:34861 "EHLO
+	mail-we0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752196AbaF1CQh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 27 Jun 2014 22:16:37 -0400
+Received: by mail-we0-f175.google.com with SMTP id k48so6020836wev.20
+        for <netdev@vger.kernel.org>; Fri, 27 Jun 2014 19:16:35 -0700 (PDT)
+In-Reply-To: <1403705402-14388-3-git-send-email-octavian.purdila@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 25, 2014 at 10:51:52AM +0900, Simon Horman wrote:
-> On Tue, Jun 24, 2014 at 04:24:37PM -0700, Jesse Gross wrote:
-> > On Tue, Jun 24, 2014 at 4:56 AM, Simon Horman <horms@verge.net.au> wrote:
-> > > Allow datapath to recognize and extract MPLS labels into flow keys
-> > > and execute actions which push, pop, and set labels on packets.
-> > >
-> > > Based heavily on work by Leo Alterman, Ravi K, Isaku Yamahata and Joe Stringer.
-> > >
-> > > Cc: Ravi K <rkerur@gmail.com>
-> > > Cc: Leo Alterman <lalterman@nicira.com>
-> > > Cc: Isaku Yamahata <yamahata@valinux.co.jp>
-> > > Cc: Joe Stringer <joe@wand.net.nz>
-> > > Signed-off-by: Simon Horman <horms@verge.net.au>
-> > 
-> > Applied, thanks for all your work. Time to break out the champagne :)
-> 
-> Thanks, a moment for many to savour.
-> 
-> > That being said, I do have a couple of comments for follow up discussion:
-> >  * I removed the addition of MPLS to key_attr_size. This is trying to
-> > calculate the maximum key size and since MPLS will never show up in
-> > conjunction with IPv6 (the current longest key) and isn't longer than
-> > it, MPLS shouldn't increase the maximum size.
-> 
-> Thanks, sorry for messing that up.
-> 
-> >  * I think there is a potential for MPLS packets to be incorrectly
-> > offloaded on kernels 3.12-3.15 when encapsulated inside a tunnel. This
-> > is because it won't hit either the OVS GSO code or your enhanced MPLS
-> > feature check. I don't want to lose GSO for tunnels on those kernels
-> > but maybe there is a way to avoid this potential problem without too
-> > much work.
-> 
-> I'll take a look into this unless someone else wants to jump in.
-> 
-> >  * Maybe you can refresh my memory - in the case of a push_mpls after
-> > pop_vlan, why can't we do this check correctly for at least one level
-> > of vlan? It seems like we could use the inner EtherType to tell
-> > whether an additional vlan tag is present.
-> 
-> That seems likely. I'll do some analysis and get back to you.
+On Wed, Jun 25, 2014 at 10:09 AM, Octavian Purdila
+<octavian.purdila@intel.com> wrote:
+> Commit 016818d07 (tcp: TCP Fast Open Server - take SYNACK RTT after
+> completing 3WHS) changes the code to only take a snt_synack timestamp
+> when a SYNACK transmit or retransmit succeeds. This behaviour is later
+> broken by commit 843f4a55e (tcp: use tcp_v4_send_synack on first
+> SYN-ACK), as snt_synack is now updated even if tcp_v4_send_synack
+> fails.
+>
+> Also, commit 3a19ce0ee (tcp: IPv6 support for fastopen server) misses
+> the required IPv6 updates for 016818d07.
+>
+> This patch makes sure that snt_synack is updated only when the SYNACK
+> trasnmit/retransmit succeeds, for both IPv4 and IPv6.
+>
+> Cc: Cardwell <ncardwell@google.com>
+> Cc: Daniel Lee <longinus00@gmail.com>
+> Cc: Yuchung Cheng <ycheng@google.com>
+>
+> Signed-off-by: Octavian Purdila <octavian.purdila@intel.com>
 
-I may be missing something but it seems to me that in
-ovs_nla_copy_actions__() we have access to the outer EtherType and
-VLAN TCI but not the inner EtherType.
+> diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+> index 08ae3da..a962455 100644
+> --- a/net/ipv6/tcp_ipv6.c
+> +++ b/net/ipv6/tcp_ipv6.c
+> @@ -497,6 +497,8 @@ static int tcp_v6_send_synack(struct sock *sk, struct dst_entry *dst,
+>                 skb_set_queue_mapping(skb, queue_mapping);
+>                 err = ip6_xmit(sk, skb, fl6, np->opt, np->tclass);
+>                 err = net_xmit_eval(err);
+> +               if (!tcp_rsk(req)->snt_synack && !err)
+> +                       tcp_rsk(req)->snt_synack = tcp_time_stamp;
+>         }
 
-It seems to me that the inner EtherType would need to be present
-in the key for it to be available in ovs_nla_copy_actions__().
+Octavian, thanks for finding this issue!
+
+I think we should resolve the inconsistency you have discovered by
+converging on the approach in Yuchung's 843f4a55e (tcp: use
+tcp_v4_send_synack on first SYN-ACK), which restores the original
+behavior of snt_synack from the commit where it was added by Jerry:
+9ad7c049f0f79 ("tcp: RFC2988bis + taking RTT sample from 3WHS for the
+passive open side") in v3.1. In that commit tcp_v4_conn_request() and
+tcp_v6_conn_request() unconditionally store the time at which the
+server received the first client SYN in snt_synack:
+
+  tcp_rsk(req)->snt_synack = tcp_time_stamp;
+
+At Google we have found that behavior very useful because it allows
+extracting useful performance metrics summarizing how long it took to
+establish a passive TCP connection.
+
+So I would suggest that we fix this inconsistency you have noted by
+removing the two lines in tcp_v4_send_synack() that touch snt_synack.
+That is the approach we have been using at Google recently, and I
+think it was an oversight that we didn't remove those two lines.
+
+Thanks!
+
+neal
