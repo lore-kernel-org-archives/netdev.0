@@ -1,89 +1,57 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [Patch net-next] net: make neigh tables per netns
-Date: Fri, 27 Jun 2014 22:12:52 -0700
-Message-ID: <87vbrl8vmz.fsf@x220.int.ebiederm.org>
-References: <87lhskpizv.fsf@x220.int.ebiederm.org>
-	<20140626.134335.2147671135749217539.davem@davemloft.net>
-	<87egybibh5.fsf@x220.int.ebiederm.org>
-	<20140626.154428.1099304313432511688.davem@davemloft.net>
-	<CAM_iQpX7iPR=32kog=QJm4G1tgRfg80Hr8Y=BOgUiGnym5EmKw@mail.gmail.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH RFC net-next 03/14] bpf: introduce syscall(BPF, ...) and
+ BPF maps
+Date: Fri, 27 Jun 2014 22:55:15 -0700
+Message-ID: <CAMEtUuzWs+MbSOGGD-Rc01DHKASa4GxbHdtCrSCLit4cUM35mA@mail.gmail.com>
+References: <1403913966-4927-1-git-send-email-ast@plumgrid.com>
+	<1403913966-4927-4-git-send-email-ast@plumgrid.com>
+	<CALCETrV3WLBmHewCZgfhCkjODWfq_byRg6sF7HpqZ6n9BVMBVQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Miller <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Cong Wang <cwang@twopensource.com>,
-	Stefan Bader <stefan.bader@canonical.com>,
-	stephane.graber@canonical.com, chris.j.arges@canonical.com,
-	Serge Hallyn <serge.hallyn@canonical.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:43083 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750727AbaF1FQN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Jun 2014 01:16:13 -0400
-In-Reply-To: <CAM_iQpX7iPR=32kog=QJm4G1tgRfg80Hr8Y=BOgUiGnym5EmKw@mail.gmail.com>
-	(Cong Wang's message of "Fri, 27 Jun 2014 17:09:15 -0700")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Chema Gonzalez <chema@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Jiri Olsa <jolsa@redhat.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kees Cook <keescook@chromium.org>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Andy Lutomirski <luto@amacapital.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CALCETrV3WLBmHewCZgfhCkjODWfq_byRg6sF7HpqZ6n9BVMBVQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Cong Wang <xiyou.wangcong@gmail.com> writes:
-
-> On Thu, Jun 26, 2014 at 3:44 PM, David Miller <davem@davemloft.net> wrote:
+On Fri, Jun 27, 2014 at 5:16 PM, Andy Lutomirski <luto@amacapital.net> wrote:
+> On Fri, Jun 27, 2014 at 5:05 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
+>> BPF syscall is a demux for different BPF releated commands.
 >>
->> First of all it is clear that once you start creating containers on the
->> order of half the global neigh limit, yes you will run into problems as
->> it's easy to have 2 or more outputs in flight.
+>> 'maps' is a generic storage of different types for sharing data between kernel
+>> and userspace.
 >>
->> So it would perhaps be wise to scale the limits (in some way) based
->> upon the number of namespaces, but still keep it a global limit.
+>> The maps can be created/deleted from user space via BPF syscall:
+>> - create a map with given id, type and attributes
+>>   map_id = bpf_map_create(int map_id, map_type, struct nlattr *attr, int len)
+>>   returns positive map id or negative error
 >>
->> These entries consume a global resource (memory) and benefit from
->> global sharing, so I am still convinced that making the tables
->> themselves per-ns does not make any sense.
->>
->> Secondly, if there are things holding onto neighbour entries for real
->> we should find this out.  Once could audit neigh_lookup*() invocations
->> to see where that might be happening.  Also neigh_create() calls with
->> 'want_ref' set to true.
->>
+>> - delete map with given map id
+>>   err = bpf_map_delete(int map_id)
+>>   returns zero or negative error
 >
-> Hmm, I did overlook the potential DOS problem. But hold on, isn't
-> IP fragments have the same problem? The fragment queues are per
-> netns, and the thresh is per netns as well, we will eventually have
-> memory pressure as well.
+> What's the scope of "id"?  How is it secured?
 
-Interesting.  It does look like ip fragments are susceptible that way.
+the map and program id space is global and it's cap_sys_admin only.
+There is no pressing need to do it with per-user limits.
+So the whole thing is root only for now.
 
-Sorting out limits is something that that is still quite rough, in the
-code today.
-
-Limits serve two basic purposes.
-- Basic sanity limits so that a buggy application can be
-  killed/stopped hopefully before they take down the entire machine.
-
-  Think of the file descriptor limit.
-
-- Machine hogging limits to prevent one application from interferring
-  with other applications.  This is what the kernel memory limit of
-  the memory cgroup tries to implememt.
-
-These purposes aren't entirely distinct.  So it is a bit of a challenge
-to separate them.
-
-Basic sanity limits are the easiest to comprehend as the reasoning is
-all local.  You just have to say any application that uses more than X
-amount of a resource is clearly buggy.  With a sysctl/rlimit knob to
-handle those rare applications that legitimately need more than X.
-
-Machine hogging limits are very different as that actually requires
-looking at how global state is used.  I would like to say that the
-memory cgroup tackles successfully that problem but it last I looked it
-has some nasty deadlock potentials when dealing with kernel memory.
-
-I wish I had a clear recipe I could point people at to get all of these
-issues sorted correctly, unfortunately all I have is a little bit of
-clarity as to what the problems actually are.
-
-Eric
+Since I got your attention please review the most interesting
+verifier bits (patch 08/14) ;)
