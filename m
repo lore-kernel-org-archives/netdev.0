@@ -1,81 +1,73 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [PATCH RFC net-next 07/14] bpf: expand BPF syscall with program load/unload
-Date: Fri, 27 Jun 2014 23:28:01 -0700
-Message-ID: <CALCETrXQ60J+UqafHRKPbgQ37zhstW+E8xAponWs7AQ-DCgaWA@mail.gmail.com>
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH RFC net-next 03/14] bpf: introduce syscall(BPF, ...) and
+ BPF maps
+Date: Fri, 27 Jun 2014 23:43:03 -0700
+Message-ID: <CAMEtUuwRf--qyPu3rKB7-57KAu2NdsQdEpVRckqabmf61g+h-g@mail.gmail.com>
 References: <1403913966-4927-1-git-send-email-ast@plumgrid.com>
- <1403913966-4927-8-git-send-email-ast@plumgrid.com> <CALCETrXDR1LVmbigTicBiddgvcucM1dGk1R7rxdJyBCvGEBQMw@mail.gmail.com>
- <CAMEtUuywNHVcZ__296NzXK7RPXUBOf7gNQY9JFx0a9PV0Se+wA@mail.gmail.com>
+	<1403913966-4927-4-git-send-email-ast@plumgrid.com>
+	<CALCETrV3WLBmHewCZgfhCkjODWfq_byRg6sF7HpqZ6n9BVMBVQ@mail.gmail.com>
+	<CAMEtUuzWs+MbSOGGD-Rc01DHKASa4GxbHdtCrSCLit4cUM35mA@mail.gmail.com>
+	<CALCETrWy6=dzTycy-ckiMR92+nQeqAWp_Hw=hi__VSzVWZ43Ag@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Chema Gonzalez <chema@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Jiri Olsa <jolsa@redhat.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kees Cook <keescook@chromium.org>,
-	Linux API <linux-api@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMEtUuywNHVcZ__296NzXK7RPXUBOf7gNQY9JFx0a9PV0Se+wA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CALCETrWy6=dzTycy-ckiMR92+nQeqAWp_Hw=hi__VSzVWZ43Ag-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 27, 2014 at 11:12 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
-> On Fri, Jun 27, 2014 at 5:19 PM, Andy Lutomirski <luto@amacapital.net> wrote:
->> On Fri, Jun 27, 2014 at 5:05 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
->>> eBPF programs are safe run-to-completion functions with load/unload
->>> methods from userspace similar to kernel modules.
+On Fri, Jun 27, 2014 at 11:25 PM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org> wrote:
+> On Fri, Jun 27, 2014 at 10:55 PM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
+>> On Fri, Jun 27, 2014 at 5:16 PM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org> wrote:
+>>> On Fri, Jun 27, 2014 at 5:05 PM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
+>>>> BPF syscall is a demux for different BPF releated commands.
+>>>>
+>>>> 'maps' is a generic storage of different types for sharing data between kernel
+>>>> and userspace.
+>>>>
+>>>> The maps can be created/deleted from user space via BPF syscall:
+>>>> - create a map with given id, type and attributes
+>>>>   map_id = bpf_map_create(int map_id, map_type, struct nlattr *attr, int len)
+>>>>   returns positive map id or negative error
+>>>>
+>>>> - delete map with given map id
+>>>>   err = bpf_map_delete(int map_id)
+>>>>   returns zero or negative error
 >>>
->>> User space API:
->>>
->>> - load eBPF program
->>>   prog_id = bpf_prog_load(int prog_id, bpf_prog_type, struct nlattr *prog, int len)
->>>
->>>   where 'prog' is a sequence of sections (currently TEXT and LICENSE)
->>>   TEXT - array of eBPF instructions
->>>   LICENSE - GPL compatible
->>> +
->>> +       err = -EINVAL;
->>> +       /* look for mandatory license string */
->>> +       if (!tb[BPF_PROG_LICENSE])
->>> +               goto free_attr;
->>> +
->>> +       /* eBPF programs must be GPL compatible */
->>> +       if (!license_is_gpl_compatible(nla_data(tb[BPF_PROG_LICENSE])))
->>> +               goto free_attr;
+>>> What's the scope of "id"?  How is it secured?
 >>
->> Seriously?  My mind boggles.
+>> the map and program id space is global and it's cap_sys_admin only.
+>> There is no pressing need to do it with per-user limits.
+>> So the whole thing is root only for now.
+>>
 >
-> Yes. Quite a bit of logic can fit into one eBPF program. I don't think it's wise
-> to leave this door open for abuse. This check makes it clear that if you
-> write a program in C, the source code must be available.
-> If program is written in assembler than this check is nop anyway.
->
+> Hmm.  This may be unpleasant if you ever want to support non-root or
+> namespaced operation.
 
-I can see this seriously annoying lots of users.  For example,
-Chromium might object.
+I think it will be easy to extend it per namespace when we lift
+root-only restriction. It will be seamless without user api changes.
 
-If you want to add GPL-only functions in the future, that would be one
-thing.  But if someone writes a nice eBPF compiler, and someone else
-writes a little program that filters on network packets, I see no
-reason to claim that the little program is a derivative work of the
-kernel and therefore must be GPL.
+> How hard would it be to give these things fds?
 
-> btw this patch doesn't include debugfs access to all loaded eBPF programs.
-> Similarly to kernel modules I'm planning to have a way to list all loaded
-> programs with optional assembler dump of instructions.
-
-Users can also dump running programs with ptrace.  That doesn't mean
-that all loaded programs need to be GPL.
-
---Andy
+you mean programs/maps auto-terminate when creator process
+exits? I thought about it and it's appealing at first glance, but
+doesn't fit the model of existing tracepoint events which are global.
+The programs attached to events need to live without 'daemon'
+hanging around. Therefore I picked 'kernel module'- like method.
