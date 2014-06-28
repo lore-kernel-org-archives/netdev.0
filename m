@@ -1,46 +1,76 @@
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Subject: [PATCH net-next] xfrm4: Remove duplicate semicolon
-Date: Sat, 28 Jun 2014 14:12:44 +0200
-Message-ID: <1403957564-6069-1-git-send-email-christoph.paasch@uclouvain.be>
-Cc: David Miller <davem@davemloft.net>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f178.google.com ([74.125.82.178]:49298 "EHLO
-	mail-we0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752647AbaF1MMx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Jun 2014 08:12:53 -0400
-Received: by mail-we0-f178.google.com with SMTP id x48so6175413wes.9
-        for <netdev@vger.kernel.org>; Sat, 28 Jun 2014 05:12:52 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Markus Pargmann <mpa-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: [PATCH RESEND] mwifiex: Remove custom world regulatory domain
+Date: Sat, 28 Jun 2014 15:49:13 +0200
+Message-ID: <1403963353-27317-1-git-send-email-mpa@pengutronix.de>
+Cc: Bing Zhao <bzhao-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org,
+	Markus Pargmann <mpa-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-3328715e6c1fc (xfrm4: Add IPsec protocol multiplexer) adds a
-duplicate semicolon after the return-statement.
+A custom regulatory domain was introduced in this commit:
+cc0ba0d522c4 (mwifiex: support custom world regulatory domain)
 
-Although it has no negative impact, the second semicolon should be
-removed.
+The commit description says that it was introduced because the world
+regulatory domain does not include channels 52-64 and 100-140. These
+channels are described in the world regulatory domain now, so we can
+drop this custom regulatory domain.
 
-Cc: Steffen Klassert <steffen.klassert@secunet.com>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
-Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
+Signed-off-by: Markus Pargmann <mpa-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Acked-by: Bing Zhao <bzhao-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
 ---
- net/ipv4/xfrm4_protocol.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/wireless/mwifiex/cfg80211.c | 36 ---------------------------------
+ 1 file changed, 36 deletions(-)
 
-diff --git a/net/ipv4/xfrm4_protocol.c b/net/ipv4/xfrm4_protocol.c
-index a2ce0101eaac..dccefa9d84cf 100644
---- a/net/ipv4/xfrm4_protocol.c
-+++ b/net/ipv4/xfrm4_protocol.c
-@@ -124,7 +124,7 @@ static int xfrm4_ah_rcv(struct sk_buff *skb)
+diff --git a/drivers/net/wireless/mwifiex/cfg80211.c b/drivers/net/wireless/mwifiex/cfg80211.c
+index e95dec91a561..201edbf76c81 100644
+--- a/drivers/net/wireless/mwifiex/cfg80211.c
++++ b/drivers/net/wireless/mwifiex/cfg80211.c
+@@ -42,36 +42,6 @@ static const struct ieee80211_iface_combination mwifiex_iface_comb_ap_sta = {
+ 	.beacon_int_infra_match = true,
+ };
  
- 	for_each_protocol_rcu(ah4_handlers, handler)
- 		if ((ret = handler->handler(skb)) != -EINVAL)
--			return ret;;
-+			return ret;
+-static const struct ieee80211_regdomain mwifiex_world_regdom_custom = {
+-	.n_reg_rules = 7,
+-	.alpha2 =  "99",
+-	.reg_rules = {
+-		/* Channel 1 - 11 */
+-		REG_RULE(2412-10, 2462+10, 40, 3, 20, 0),
+-		/* Channel 12 - 13 */
+-		REG_RULE(2467-10, 2472+10, 20, 3, 20,
+-			 NL80211_RRF_NO_IR),
+-		/* Channel 14 */
+-		REG_RULE(2484-10, 2484+10, 20, 3, 20,
+-			 NL80211_RRF_NO_IR |
+-			 NL80211_RRF_NO_OFDM),
+-		/* Channel 36 - 48 */
+-		REG_RULE(5180-10, 5240+10, 40, 3, 20,
+-			 NL80211_RRF_NO_IR),
+-		/* Channel 149 - 165 */
+-		REG_RULE(5745-10, 5825+10, 40, 3, 20,
+-			 NL80211_RRF_NO_IR),
+-		/* Channel 52 - 64 */
+-		REG_RULE(5260-10, 5320+10, 40, 3, 30,
+-			 NL80211_RRF_NO_IR |
+-			 NL80211_RRF_DFS),
+-		/* Channel 100 - 140 */
+-		REG_RULE(5500-10, 5700+10, 40, 3, 30,
+-			 NL80211_RRF_NO_IR |
+-			 NL80211_RRF_DFS),
+-	}
+-};
+-
+ /*
+  * This function maps the nl802.11 channel type into driver channel type.
+  *
+@@ -2916,12 +2886,6 @@ int mwifiex_register_cfg80211(struct mwifiex_adapter *adapter)
+ 		wiphy->flags |= WIPHY_FLAG_SUPPORTS_TDLS |
+ 				WIPHY_FLAG_TDLS_EXTERNAL_SETUP;
  
- 	icmp_send(skb, ICMP_DEST_UNREACH, ICMP_PORT_UNREACH, 0);
- 
--- 
-1.9.3
+-	wiphy->regulatory_flags |=
+-			REGULATORY_CUSTOM_REG |
+-			REGULATORY_STRICT_REG;
+-
+-	wiphy_apply_custom_regulatory(wiphy, &mwifiex_world_regdom_custom);
