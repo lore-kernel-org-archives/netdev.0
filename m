@@ -1,95 +1,43 @@
 From: "Maciej W. Rozycki" <macro@linux-mips.org>
-Subject: [PATCH] defxx: Fix !DYNAMIC_BUFFERS compilation warnings
-Date: Sun, 29 Jun 2014 02:09:19 +0100 (BST)
-Message-ID: <alpine.LFD.2.11.1406290146390.15455@eddie.linux-mips.org>
+Subject: Re: [PATCH] declance: Fix 64-bit compilation warnings
+Date: Sun, 29 Jun 2014 02:30:56 +0100 (BST)
+Message-ID: <alpine.LFD.2.11.1406290226380.15455@eddie.linux-mips.org>
+References: <alpine.LFD.2.11.1406282329040.15455@eddie.linux-mips.org> <1403996818.9064.48.camel@joe-AO725>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eddie.linux-mips.org ([78.24.191.182]:34124 "EHLO
+Received: from eddie.linux-mips.org ([78.24.191.182]:34175 "EHLO
 	cvs.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751102AbaF2BJV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Jun 2014 21:09:21 -0400
-Received: from localhost.localdomain ([127.0.0.1]:50815 "EHLO
+	with ESMTP id S1751579AbaF2Ba6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Jun 2014 21:30:58 -0400
+Received: from localhost.localdomain ([127.0.0.1]:50866 "EHLO
         localhost.localdomain" rhost-flags-OK-OK-OK-OK)
-        by eddie.linux-mips.org with ESMTP id S6822067AbaF2BJTNk-00 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 29 Jun 2014 03:09:19 +0200
+        by eddie.linux-mips.org with ESMTP id S6822067AbaF2Ba4IFUI6 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 29 Jun 2014 03:30:56 +0200
+In-Reply-To: <1403996818.9064.48.camel@joe-AO725>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This fixes compilation warnings:
+On Sat, 28 Jun 2014, Joe Perches wrote:
 
-drivers/net/fddi/defxx.c:294: warning: 'dfx_rcv_flush' declared inline after being called
-drivers/net/fddi/defxx.c:294: warning: previous declaration of 'dfx_rcv_flush' was here
-drivers/net/fddi/defxx.c:2854: warning: 'my_skb_align' defined but not used
+> > @@ -499,8 +499,9 @@ static void lance_init_ring(struct net_d
+> >  						/* The ones required by tmd2 */
+> >  		*lib_ptr(ib, btx_ring[i].misc, lp->type) = 0;
+> >  		if (i < 3 && ZERO)
+> > -			printk("%d: 0x%8.8x(0x%8.8x)\n",
+> > -			       i, leptr, (uint)lp->tx_buf_ptr_cpu[i]);
+> > +			printk("%d: 0x%8.8x(%#0*lx)\n",
+> > +			       i, leptr, (int)sizeof(long),
+> > +			       (long)lp->tx_buf_ptr_cpu[i]);
+> 
+> You need to adjust the "*" and sizeof(long) with +2 for the
+> 0x prefix in the output length here.
 
-triggered when the driver is built with DYNAMIC_BUFFERS undefined.  Code 
-tested to work just fine with these changes and a few DEFPA and DEFTA 
-boards.
-
-Signed-off-by: Maciej W. Rozycki <macro@linux-mips.org>
----
- Eventually I plan to discard !DYNAMIC_BUFFERS code, however the current 
-implementation of dynamic allocation suffers from a problem that causes it 
-to fail sometimes on a loaded system when the card is rebooted at run 
-time, a legitimate though infrequent event in the course of a ring fault 
-recovery process triggered by a PC Trace signal received.  The driver does 
-it all in the hardirq handler, that I think is awful.  This can be worked 
-around by undefining DYNAMIC_BUFFERS, in which case the same static 
-buffers will be reused after a card reboot.
-
- I plan to rewrite this code by copying the approach I took with the defza 
-driver I posted recently, that handles the same scenario in a way that 
-does not suffer from this problem.  I think it's only then that the static 
-allocation code can go.
-
- So for the time being, please apply.
+ Good catch, thanks!  MIPS kernel addresses always have their MSB set so 
+this is hard to notice in testing.  But also the width has to be doubled 
+first, to take two digits per byte into account too.  Sending an updated 
+change right away, as soon as it builds and boots.
 
   Maciej
-
-linux-defxx-static-buffers-fixes.patch
-Index: linux-20140623-4maxp64/drivers/net/fddi/defxx.c
-===================================================================
---- linux-20140623-4maxp64.orig/drivers/net/fddi/defxx.c
-+++ linux-20140623-4maxp64/drivers/net/fddi/defxx.c
-@@ -291,7 +291,11 @@ static int		dfx_hw_dma_uninit(DFX_board_
- 
- static int		dfx_rcv_init(DFX_board_t *bp, int get_buffers);
- static void		dfx_rcv_queue_process(DFX_board_t *bp);
-+#ifdef DYNAMIC_BUFFERS
- static void		dfx_rcv_flush(DFX_board_t *bp);
-+#else
-+static inline void	dfx_rcv_flush(DFX_board_t *bp) {}
-+#endif
- 
- static netdev_tx_t dfx_xmt_queue_pkt(struct sk_buff *skb,
- 				     struct net_device *dev);
-@@ -2849,7 +2853,7 @@ static int dfx_hw_dma_uninit(DFX_board_t
-  *	Align an sk_buff to a boundary power of 2
-  *
-  */
--
-+#ifdef DYNAMIC_BUFFERS
- static void my_skb_align(struct sk_buff *skb, int n)
- {
- 	unsigned long x = (unsigned long)skb->data;
-@@ -2859,7 +2863,7 @@ static void my_skb_align(struct sk_buff 
- 
- 	skb_reserve(skb, v - x);
- }
--
-+#endif
- 
- /*
-  * ================
-@@ -3450,10 +3454,6 @@ static void dfx_rcv_flush( DFX_board_t *
- 		}
- 
- 	}
--#else
--static inline void dfx_rcv_flush( DFX_board_t *bp )
--{
--}
- #endif /* DYNAMIC_BUFFERS */
- 
- /*
