@@ -1,59 +1,50 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net V1 0/3] Mellanox EN driver fixes 2014-06-23
-Date: Sun, 29 Jun 2014 11:54:54 +0300
-Message-ID: <1404032097-5132-1-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net V1 3/3] net/mlx4_en: IRQ affinity hint is not cleared on port down
+Date: Sun, 29 Jun 2014 11:54:57 +0300
+Message-ID: <1404032097-5132-4-git-send-email-amirv@mellanox.com>
+References: <1404032097-5132-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
 	Yevgeny Petrilin <yevgenyp@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:43605 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:42980 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751385AbaF2IzN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 29 Jun 2014 04:55:13 -0400
+	id S1752426AbaF2IzP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 29 Jun 2014 04:55:15 -0400
+In-Reply-To: <1404032097-5132-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Need to remove affinity hint at mlx4_en_deactivate_cq() and not at
+mlx4_en_destroy_cq() - since affinity_mask might be free'd while still
+being used by procfs.
 
-Below are some fixes to patches submitted to 3.16.
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_cq.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-First patch is according to discussions with Ben [1] and Thomas [2] - to do not
-use affinity notifier, since it breaks RFS. Instead detect changes in IRQ
-affinity map, by checking if current CPU is set in affinity map on NAPI poll.
-The two other patches fix some bugs introduced in commit [3].
-
-Patches were applied and tested over commit dba6311: ('powerpc: bpf: Fix the
-broken LD_VLAN_TAG_PRESENT test')
-
-Thanks,
-Amir
-
-[1] - http://www.spinics.net/lists/netdev/msg283096.html
-[2] - https://lkml.org/lkml/2014/5/25/31
-[3] - 554e101: ('lib/cpumask: cpumask_set_cpu_local_first to use all cores when
-      numa node is not defined')
-
-Changes from V0:
-- Patch 1/3: net/mlx4_en: Don't use irq_affinity_notifier to track changes...
-  - Added missing include to fix build issue on s390x arch
-
-Amir Vadai (3):
-  net/mlx4_en: Don't use irq_affinity_notifier to track changes in IRQ
-    affinity map
-  lib/cpumask: cpumask_set_cpu_local_first to use all cores when numa
-    node is not defined
-  net/mlx4_en: IRQ affinity hint is not cleared on port down
-
- drivers/net/ethernet/mellanox/mlx4/cq.c      |  2 -
- drivers/net/ethernet/mellanox/mlx4/en_cq.c   |  7 ++-
- drivers/net/ethernet/mellanox/mlx4/en_rx.c   | 16 +++++--
- drivers/net/ethernet/mellanox/mlx4/en_tx.c   |  6 ---
- drivers/net/ethernet/mellanox/mlx4/eq.c      | 69 ++++------------------------
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h |  1 +
- include/linux/mlx4/device.h                  |  4 +-
- lib/cpumask.c                                |  2 +-
- 8 files changed, 30 insertions(+), 77 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_cq.c b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
+index 1213cc7..14c0004 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_cq.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
+@@ -191,8 +191,6 @@ void mlx4_en_destroy_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq **pcq)
+ 	mlx4_en_unmap_buffer(&cq->wqres.buf);
+ 	mlx4_free_hwq_res(mdev->dev, &cq->wqres, cq->buf_size);
+ 	if (priv->mdev->dev->caps.comp_pool && cq->vector) {
+-		if (!cq->is_tx)
+-			irq_set_affinity_hint(cq->mcq.irq, NULL);
+ 		mlx4_release_eq(priv->mdev->dev, cq->vector);
+ 	}
+ 	cq->vector = 0;
+@@ -208,6 +206,7 @@ void mlx4_en_deactivate_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq)
+ 	if (!cq->is_tx) {
+ 		napi_hash_del(&cq->napi);
+ 		synchronize_rcu();
++		irq_set_affinity_hint(cq->mcq.irq, NULL);
+ 	}
+ 	netif_napi_del(&cq->napi);
+ 
 -- 
 1.8.3.4
