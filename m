@@ -1,90 +1,67 @@
-From: "Maciej W. Rozycki" <macro@linux-mips.org>
-Subject: [PATCH v2] declance: Fix 64-bit compilation warnings
-Date: Sun, 29 Jun 2014 03:10:47 +0100 (BST)
-Message-ID: <alpine.LFD.2.11.1406290246120.15455@eddie.linux-mips.org>
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH RFC net-next 08/14] bpf: add eBPF verifier
+Date: Sat, 28 Jun 2014 23:20:00 -0700
+Message-ID: <CAMEtUuy_NZYsi3OB3TRfutHKaryzGSy6W4cdjzU-iJKkv75DKQ@mail.gmail.com>
+References: <1403913966-4927-1-git-send-email-ast@plumgrid.com>
+	<1403913966-4927-9-git-send-email-ast@plumgrid.com>
+	<CALCETrV+uTamX2BShHsHnwTr4R7+MSQXX8bXe=2Xo1hbiSAipQ@mail.gmail.com>
+	<CAMEtUuzq4ib6MFAsp_ZpBisRa=XFUgKkX7OwwrEoOfw7O1YXCQ@mail.gmail.com>
+	<CALCETrV-uUL=NJ5_XP90cMmxvVJ0PHxCb7f4L=TqGX9tB5Vi2Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Joe Perches <joe@perches.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eddie.linux-mips.org ([78.24.191.182]:34260 "EHLO
-	cvs.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751309AbaF2CKt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Jun 2014 22:10:49 -0400
-Received: from localhost.localdomain ([127.0.0.1]:50951 "EHLO
-        localhost.localdomain" rhost-flags-OK-OK-OK-OK)
-        by eddie.linux-mips.org with ESMTP id S6815784AbaF2CKrRa2mT (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sun, 29 Jun 2014 04:10:47 +0200
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CALCETrV-uUL=NJ5_XP90cMmxvVJ0PHxCb7f4L=TqGX9tB5Vi2Q-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This fixes compiler warnings:
+On Sat, Jun 28, 2014 at 6:58 PM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org> wrote:
+>> These were great questions! I hope I answered them. If not, please
+>> continue asking.
+>
+> I have plenty more questions, but here's one right now: does anything
+> prevent programs from using pointers in comparisons, returning
+> pointers, or otherwise figuring out the value of a pointer?  If so, I
+> think it would be worthwhile to prevent that so that eBPF programs
+> can't learn kernel addresses.
 
-drivers/net/ethernet/amd/declance.c: In function 'lance_init_ring':
-drivers/net/ethernet/amd/declance.c:478: warning: format '%8.8x' expects type 'unsigned int', but argument 3 has type 'long unsigned int'
-drivers/net/ethernet/amd/declance.c:487: warning: format '%8.8x' expects type 'unsigned int', but argument 3 has type 'long unsigned int'
-drivers/net/ethernet/amd/declance.c:503: warning: cast from pointer to integer of different size
-drivers/net/ethernet/amd/declance.c:520: warning: cast from pointer to integer of different size
-
-in 64-bit compilation.  Where the value printed is an offset (whose range 
-will always fit) the cast uses a 32-bit type, otherwise, where it is a 
-host memory address, the `long' type is used and the width of the number 
-printed adjusted according to the size of this type.
-
-Tested with both 32-bit and 64-bit compilation, as well as at the run time 
-(with the debug messages affected enabled).
-
-Signed-off-by: Maciej W. Rozycki <macro@linux-mips.org>
----
- Update from v1 fixes issues with the field width requested observed by 
-Joe (thanks!) and myself.  Please apply.
-
-  Maciej
-
-linux-declance-desc-printk.patch
-Index: linux-20140623-4maxp64/drivers/net/ethernet/amd/declance.c
-===================================================================
---- linux-20140623-4maxp64.orig/drivers/net/ethernet/amd/declance.c
-+++ linux-20140623-4maxp64/drivers/net/ethernet/amd/declance.c
-@@ -475,7 +475,7 @@ static void lance_init_ring(struct net_d
- 	*lib_ptr(ib, rx_ptr, lp->type) = leptr;
- 	if (ZERO)
- 		printk("RX ptr: %8.8x(%8.8x)\n",
--		       leptr, lib_off(brx_ring, lp->type));
-+		       leptr, (uint)lib_off(brx_ring, lp->type));
- 
- 	/* Setup tx descriptor pointer */
- 	leptr = offsetof(struct lance_init_block, btx_ring);
-@@ -484,7 +484,7 @@ static void lance_init_ring(struct net_d
- 	*lib_ptr(ib, tx_ptr, lp->type) = leptr;
- 	if (ZERO)
- 		printk("TX ptr: %8.8x(%8.8x)\n",
--		       leptr, lib_off(btx_ring, lp->type));
-+		       leptr, (uint)lib_off(btx_ring, lp->type));
- 
- 	if (ZERO)
- 		printk("TX rings:\n");
-@@ -499,8 +499,9 @@ static void lance_init_ring(struct net_d
- 						/* The ones required by tmd2 */
- 		*lib_ptr(ib, btx_ring[i].misc, lp->type) = 0;
- 		if (i < 3 && ZERO)
--			printk("%d: 0x%8.8x(0x%8.8x)\n",
--			       i, leptr, (uint)lp->tx_buf_ptr_cpu[i]);
-+			printk("%d: 0x%8.8x(%#0*lx)\n",
-+			       i, leptr, 2 * (int)sizeof(long) + 2,
-+			       (long)lp->tx_buf_ptr_cpu[i]);
- 	}
- 
- 	/* Setup the Rx ring entries */
-@@ -516,8 +517,9 @@ static void lance_init_ring(struct net_d
- 							     0xf000;
- 		*lib_ptr(ib, brx_ring[i].mblength, lp->type) = 0;
- 		if (i < 3 && ZERO)
--			printk("%d: 0x%8.8x(0x%8.8x)\n",
--			       i, leptr, (uint)lp->rx_buf_ptr_cpu[i]);
-+			printk("%d: 0x%8.8x(%#0*lx)\n",
-+			       i, leptr, 2 * (int)sizeof(long) + 2,
-+			       (long)lp->rx_buf_ptr_cpu[i]);
- 	}
- 	iob();
- }
+when we decide to let non-root users load such programs, yes.
+Right now the goal is the opposite. Take a look at 'drop monitor' example.
+It stores kernel addresses where packets were dropped into a map,
+so that user space can read it. The goal of eBPF for tracing is to be able
+to see all corners of the kernel without being able to crash it.
+eBPF is a kernel module that cannot crash kernel or adversely affect
+the execution. Though in the future I'd like to expand applicability and
+let unprivileged users use them. In such cases exposing kernel
+addresses will be prevented. It's easy to tweak verifier to prevent
+comparison of pointers, storing pointers to a map or passing them into
+a function. The verifier is already tracking all pointers. There ways to
+leak them: store into map, pass to helper function, return from program,
+compare to constant, obfuscate via arithmetic. Prevention by verifier
+is trivial. Though not right now. User level security is a different topic.
+If I try to solve both 'root user safety' and 'non-root security' it will
+take ages to go anywhere. So this patch is root only. I'm deliberately
+not addressing non-root security for now.
+First step: root only, get kernel pieces in place, llvm upstream, perf
+plus all other user level tools. Just this step will take months.
+Then let's talk about non-root. I believe it will need minimal changes
+to verifier and no syscall uapi changes, but even if I'm wrong and
+new syscall would be needed, it's not a big deal. Adding things
+gradually is way better than trying to solve everything at once.
