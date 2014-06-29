@@ -1,50 +1,48 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] declance: Fix 64-bit compilation warnings
-Date: Sat, 28 Jun 2014 16:06:58 -0700
-Message-ID: <1403996818.9064.48.camel@joe-AO725>
-References: <alpine.LFD.2.11.1406282329040.15455@eddie.linux-mips.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH v2.62] datapath: Add basic MPLS support to kernel
+Date: Sun, 29 Jun 2014 09:02:15 +0900
+Message-ID: <20140629000215.GC9487@verge.net.au>
+References: <1403611017-10965-1-git-send-email-horms@verge.net.au>
+ <CAEP_g=9yYqKy-=aiTi3=3cZNOombBgkjHdzLdRzYVVKyJCHqcQ@mail.gmail.com>
+ <20140625015149.GB14193@verge.net.au>
+ <20140628005531.GA4122@verge.net.au>
+ <CAEP_g=8vbFvHRrKwCKBGxJZBhxnZDoE8f+eDOq3Z1JNo_U_H9w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "Maciej W. Rozycki" <macro@linux-mips.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>, Ravi K <rkerur@gmail.com>,
+	Joe Stringer <joe@wand.net.nz>, Thomas Graf <tgraf@suug.ch>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0038.hostedemail.com ([216.40.44.38]:36710 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750957AbaF1XHC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Jun 2014 19:07:02 -0400
-In-Reply-To: <alpine.LFD.2.11.1406282329040.15455@eddie.linux-mips.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:36474 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751968AbaF2ACT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Jun 2014 20:02:19 -0400
+Content-Disposition: inline
+In-Reply-To: <CAEP_g=8vbFvHRrKwCKBGxJZBhxnZDoE8f+eDOq3Z1JNo_U_H9w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2014-06-28 at 23:57 +0100, Maciej W. Rozycki wrote:
-> This fixes compiler warnings:
+On Sat, Jun 28, 2014 at 08:59:01AM -0700, Jesse Gross wrote:
+> On Fri, Jun 27, 2014 at 5:55 PM, Simon Horman <horms@verge.net.au> wrote:
+> > On Wed, Jun 25, 2014 at 10:51:52AM +0900, Simon Horman wrote:
+> >> On Tue, Jun 24, 2014 at 04:24:37PM -0700, Jesse Gross wrote:
+> >> >  * Maybe you can refresh my memory - in the case of a push_mpls after
+> >> > pop_vlan, why can't we do this check correctly for at least one level
+> >> > of vlan? It seems like we could use the inner EtherType to tell
+> >> > whether an additional vlan tag is present.
+> >>
+> >> That seems likely. I'll do some analysis and get back to you.
+> >
+> > I may be missing something but it seems to me that in
+> > ovs_nla_copy_actions__() we have access to the outer EtherType and
+> > VLAN TCI but not the inner EtherType.
+> >
+> > It seems to me that the inner EtherType would need to be present
+> > in the key for it to be available in ovs_nla_copy_actions__().
 > 
-> drivers/net/ethernet/amd/declance.c: In function 'lance_init_ring':
-> drivers/net/ethernet/amd/declance.c:478: warning: format '%8.8x' expects type 'unsigned int', but argument 3 has type 'long unsigned int'
-> drivers/net/ethernet/amd/declance.c:487: warning: format '%8.8x' expects type 'unsigned int', but argument 3 has type 'long unsigned int'
-> drivers/net/ethernet/amd/declance.c:503: warning: cast from pointer to integer of different size
-> drivers/net/ethernet/amd/declance.c:520: warning: cast from pointer to integer of different size
-> 
-> in 64-bit compilation.  Where the value printed is an offset (whose range 
-> will always fit) the cast uses a 32-bit type, otherwise, where it is a 
-> host memory address, the `long' type is used and the width of the number 
-> printed adjusted according to the size of this type.
-> 
-> Tested with both 32-bit and 64-bit compilation, as well as at the run time 
-> (with the debug messages affected enabled).
-[]
-> Index: net-next-20140424-4maxp64/drivers/net/ethernet/amd/declance.c
-[]
-> @@ -499,8 +499,9 @@ static void lance_init_ring(struct net_d
->  						/* The ones required by tmd2 */
->  		*lib_ptr(ib, btx_ring[i].misc, lp->type) = 0;
->  		if (i < 3 && ZERO)
-> -			printk("%d: 0x%8.8x(0x%8.8x)\n",
-> -			       i, leptr, (uint)lp->tx_buf_ptr_cpu[i]);
-> +			printk("%d: 0x%8.8x(%#0*lx)\n",
-> +			       i, leptr, (int)sizeof(long),
-> +			       (long)lp->tx_buf_ptr_cpu[i]);
+> The inner EtherType (first level) is actually what is stored in
+> eth.type in the flow. When eth.tci is set it is assumed that the outer
+> EtherType is 0x8100 and that isn't stored.
 
-You need to adjust the "*" and sizeof(long) with +2 for the
-0x prefix in the output length here.
+Yes, of course. Sorry for missing that.
