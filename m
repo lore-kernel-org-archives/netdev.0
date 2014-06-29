@@ -1,30 +1,22 @@
-From: "Josko Ozbolt" <hollisgreyalwfirm@hotmail.com>
-Subject: Re:
-Date: Sun, 29 Jun 2014 20:53:33 +0200
-Message-ID: <web-184325653@uni-stuttgart.de>
-References: <web-184297243@uni-stuttgart.de>
+From: Peter Christensen <kernel+netdev@ordbogen.com>
+Subject: (unknown)
+Date: Sun, 29 Jun 2014 22:59:25 +0200
+Message-ID: <20140629225925.5125f951@tyr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
-	format=flowed
-Content-Transfer-Encoding: 7BIT
-To: "Josko Ozbolt" <ozbolt@iwb.uni-stuttgart.de>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from medousa.rus.uni-stuttgart.de ([129.69.192.4]:59257 "EHLO
-	medousa.rus.uni-stuttgart.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753441AbaF2TBu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jun 2014 15:01:50 -0400
-In-Reply-To: <web-184297243@uni-stuttgart.de>
+Received: from mail.ordbogen.com ([86.58.170.13]:32951 "EHLO mail.ordbogen.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752940AbaF2VFv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 29 Jun 2014 17:05:51 -0400
+Received: from tyr (x1-6-50-3d-e5-df-ec-14.cpe.webspeed.dk [195.41.44.29])
+	(using TLSv1 with cipher DHE-RSA-AES128-SHA (128/128 bits))
+	(No client certificate requested)
+	by mail.ordbogen.com (Postfix) with ESMTPSA id CF923B2FE9
+	for <netdev@vger.kernel.org>; Sun, 29 Jun 2014 22:59:25 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 29 Jun 2014 01:45:05 +0200
-  "Josko Ozbolt" <ozbolt@iwb.uni-stuttgart.de> wrote:
-> I wish to notify you that late Gianni Agnelli made a 
->WILL in your name before his death, he left US$60, 
->500,000 to you.  contact Hollis Grey Chambers via our 
->personal email address: hollisgreyalwfirm@hotmail.com
-
-I wish to notify you that late Gianni Agnelli made a WILL 
-in your name before his death, he left US$60, 500,000 to 
-you.  contact Hollis Grey Chambers via our personal email 
-address: hollisgreyalwfirm@hotmail.com
+subscribe netdev
