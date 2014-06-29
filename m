@@ -1,50 +1,41 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net V1 3/3] net/mlx4_en: IRQ affinity hint is not cleared on port down
-Date: Sun, 29 Jun 2014 11:54:57 +0300
-Message-ID: <1404032097-5132-4-git-send-email-amirv@mellanox.com>
-References: <1404032097-5132-1-git-send-email-amirv@mellanox.com>
-Cc: netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: [PATCH net] ieee802154: reassembly: fix possible buffer overflow
+Date: Sun, 29 Jun 2014 13:10:18 +0200
+Message-ID: <1404040218-31122-1-git-send-email-alex.aring@gmail.com>
+Cc: dbaryshkov@gmail.com, linux-zigbee-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, Alexander Aring <alex.aring@gmail.com>
+To: alex.bluesman.smirnov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:42980 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752426AbaF2IzP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 29 Jun 2014 04:55:15 -0400
-In-Reply-To: <1404032097-5132-1-git-send-email-amirv@mellanox.com>
+Received: from mail-we0-f179.google.com ([74.125.82.179]:53475 "EHLO
+	mail-we0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752813AbaF2LKc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jun 2014 07:10:32 -0400
+Received: by mail-we0-f179.google.com with SMTP id w62so7021041wes.38
+        for <netdev@vger.kernel.org>; Sun, 29 Jun 2014 04:10:31 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Need to remove affinity hint at mlx4_en_deactivate_cq() and not at
-mlx4_en_destroy_cq() - since affinity_mask might be free'd while still
-being used by procfs.
+The max_dsize attribute in ctl_table for lowpan_frags_ns_ctl_table is
+configured with integer accessing methods. This patch change the
+max_dsize attribute to int to avoid a possible buffer overflow.
 
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
+Signed-off-by: Alexander Aring <alex.aring@gmail.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_cq.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ include/net/netns/ieee802154_6lowpan.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_cq.c b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-index 1213cc7..14c0004 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-@@ -191,8 +191,6 @@ void mlx4_en_destroy_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq **pcq)
- 	mlx4_en_unmap_buffer(&cq->wqres.buf);
- 	mlx4_free_hwq_res(mdev->dev, &cq->wqres, cq->buf_size);
- 	if (priv->mdev->dev->caps.comp_pool && cq->vector) {
--		if (!cq->is_tx)
--			irq_set_affinity_hint(cq->mcq.irq, NULL);
- 		mlx4_release_eq(priv->mdev->dev, cq->vector);
- 	}
- 	cq->vector = 0;
-@@ -208,6 +206,7 @@ void mlx4_en_deactivate_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq)
- 	if (!cq->is_tx) {
- 		napi_hash_del(&cq->napi);
- 		synchronize_rcu();
-+		irq_set_affinity_hint(cq->mcq.irq, NULL);
- 	}
- 	netif_napi_del(&cq->napi);
+diff --git a/include/net/netns/ieee802154_6lowpan.h b/include/net/netns/ieee802154_6lowpan.h
+index 079030c..e207096 100644
+--- a/include/net/netns/ieee802154_6lowpan.h
++++ b/include/net/netns/ieee802154_6lowpan.h
+@@ -16,7 +16,7 @@ struct netns_sysctl_lowpan {
+ struct netns_ieee802154_lowpan {
+ 	struct netns_sysctl_lowpan sysctl;
+ 	struct netns_frags	frags;
+-	u16			max_dsize;
++	int			max_dsize;
+ };
  
+ #endif
 -- 
-1.8.3.4
+2.0.1
