@@ -1,57 +1,90 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [PATCH RFC net-next 08/14] bpf: add eBPF verifier
-Date: Sat, 28 Jun 2014 18:58:50 -0700
-Message-ID: <CALCETrV-uUL=NJ5_XP90cMmxvVJ0PHxCb7f4L=TqGX9tB5Vi2Q@mail.gmail.com>
-References: <1403913966-4927-1-git-send-email-ast@plumgrid.com>
- <1403913966-4927-9-git-send-email-ast@plumgrid.com> <CALCETrV+uTamX2BShHsHnwTr4R7+MSQXX8bXe=2Xo1hbiSAipQ@mail.gmail.com>
- <CAMEtUuzq4ib6MFAsp_ZpBisRa=XFUgKkX7OwwrEoOfw7O1YXCQ@mail.gmail.com>
+From: "Maciej W. Rozycki" <macro@linux-mips.org>
+Subject: [PATCH v2] declance: Fix 64-bit compilation warnings
+Date: Sun, 29 Jun 2014 03:10:47 +0100 (BST)
+Message-ID: <alpine.LFD.2.11.1406290246120.15455@eddie.linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Chema Gonzalez <chema@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Jiri Olsa <jolsa@redhat.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kees Cook <keescook@chromium.org>,
-	Linux API <linux-api@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Joe Perches <joe@perches.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f172.google.com ([209.85.217.172]:51858 "EHLO
-	mail-lb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751777AbaF2B7L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 28 Jun 2014 21:59:11 -0400
-Received: by mail-lb0-f172.google.com with SMTP id c11so5026956lbj.31
-        for <netdev@vger.kernel.org>; Sat, 28 Jun 2014 18:59:10 -0700 (PDT)
-In-Reply-To: <CAMEtUuzq4ib6MFAsp_ZpBisRa=XFUgKkX7OwwrEoOfw7O1YXCQ@mail.gmail.com>
+Received: from eddie.linux-mips.org ([78.24.191.182]:34260 "EHLO
+	cvs.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751309AbaF2CKt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 28 Jun 2014 22:10:49 -0400
+Received: from localhost.localdomain ([127.0.0.1]:50951 "EHLO
+        localhost.localdomain" rhost-flags-OK-OK-OK-OK)
+        by eddie.linux-mips.org with ESMTP id S6815784AbaF2CKrRa2mT (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Sun, 29 Jun 2014 04:10:47 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jun 28, 2014 at 1:25 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
-> On Sat, Jun 28, 2014 at 9:01 AM, Andy Lutomirski <luto@amacapital.net> wrote:
->> On Fri, Jun 27, 2014 at 5:06 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
->>> Safety of eBPF programs is statically determined by the verifier, which detects:
->>
->> This is a very high-level review.  I haven't tried to read all the
->> code yet, and this is mostly questions rather than real comments.
->
+This fixes compiler warnings:
 
-> These were great questions! I hope I answered them. If not, please
-> continue asking.
+drivers/net/ethernet/amd/declance.c: In function 'lance_init_ring':
+drivers/net/ethernet/amd/declance.c:478: warning: format '%8.8x' expects type 'unsigned int', but argument 3 has type 'long unsigned int'
+drivers/net/ethernet/amd/declance.c:487: warning: format '%8.8x' expects type 'unsigned int', but argument 3 has type 'long unsigned int'
+drivers/net/ethernet/amd/declance.c:503: warning: cast from pointer to integer of different size
+drivers/net/ethernet/amd/declance.c:520: warning: cast from pointer to integer of different size
 
-I have plenty more questions, but here's one right now: does anything
-prevent programs from using pointers in comparisons, returning
-pointers, or otherwise figuring out the value of a pointer?  If so, I
-think it would be worthwhile to prevent that so that eBPF programs
-can't learn kernel addresses.
+in 64-bit compilation.  Where the value printed is an offset (whose range 
+will always fit) the cast uses a 32-bit type, otherwise, where it is a 
+host memory address, the `long' type is used and the width of the number 
+printed adjusted according to the size of this type.
 
---Andy
+Tested with both 32-bit and 64-bit compilation, as well as at the run time 
+(with the debug messages affected enabled).
+
+Signed-off-by: Maciej W. Rozycki <macro@linux-mips.org>
+---
+ Update from v1 fixes issues with the field width requested observed by 
+Joe (thanks!) and myself.  Please apply.
+
+  Maciej
+
+linux-declance-desc-printk.patch
+Index: linux-20140623-4maxp64/drivers/net/ethernet/amd/declance.c
+===================================================================
+--- linux-20140623-4maxp64.orig/drivers/net/ethernet/amd/declance.c
++++ linux-20140623-4maxp64/drivers/net/ethernet/amd/declance.c
+@@ -475,7 +475,7 @@ static void lance_init_ring(struct net_d
+ 	*lib_ptr(ib, rx_ptr, lp->type) = leptr;
+ 	if (ZERO)
+ 		printk("RX ptr: %8.8x(%8.8x)\n",
+-		       leptr, lib_off(brx_ring, lp->type));
++		       leptr, (uint)lib_off(brx_ring, lp->type));
+ 
+ 	/* Setup tx descriptor pointer */
+ 	leptr = offsetof(struct lance_init_block, btx_ring);
+@@ -484,7 +484,7 @@ static void lance_init_ring(struct net_d
+ 	*lib_ptr(ib, tx_ptr, lp->type) = leptr;
+ 	if (ZERO)
+ 		printk("TX ptr: %8.8x(%8.8x)\n",
+-		       leptr, lib_off(btx_ring, lp->type));
++		       leptr, (uint)lib_off(btx_ring, lp->type));
+ 
+ 	if (ZERO)
+ 		printk("TX rings:\n");
+@@ -499,8 +499,9 @@ static void lance_init_ring(struct net_d
+ 						/* The ones required by tmd2 */
+ 		*lib_ptr(ib, btx_ring[i].misc, lp->type) = 0;
+ 		if (i < 3 && ZERO)
+-			printk("%d: 0x%8.8x(0x%8.8x)\n",
+-			       i, leptr, (uint)lp->tx_buf_ptr_cpu[i]);
++			printk("%d: 0x%8.8x(%#0*lx)\n",
++			       i, leptr, 2 * (int)sizeof(long) + 2,
++			       (long)lp->tx_buf_ptr_cpu[i]);
+ 	}
+ 
+ 	/* Setup the Rx ring entries */
+@@ -516,8 +517,9 @@ static void lance_init_ring(struct net_d
+ 							     0xf000;
+ 		*lib_ptr(ib, brx_ring[i].mblength, lp->type) = 0;
+ 		if (i < 3 && ZERO)
+-			printk("%d: 0x%8.8x(0x%8.8x)\n",
+-			       i, leptr, (uint)lp->rx_buf_ptr_cpu[i]);
++			printk("%d: 0x%8.8x(%#0*lx)\n",
++			       i, leptr, 2 * (int)sizeof(long) + 2,
++			       (long)lp->rx_buf_ptr_cpu[i]);
+ 	}
+ 	iob();
+ }
