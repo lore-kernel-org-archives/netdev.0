@@ -1,14 +1,20 @@
 From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH RFC net-next 08/14] bpf: add eBPF verifier
-Date: Sat, 28 Jun 2014 23:20:00 -0700
-Message-ID: <CAMEtUuy_NZYsi3OB3TRfutHKaryzGSy6W4cdjzU-iJKkv75DKQ@mail.gmail.com>
+Subject: Re: [PATCH RFC net-next 03/14] bpf: introduce syscall(BPF, ...) and
+ BPF maps
+Date: Sat, 28 Jun 2014 23:36:52 -0700
+Message-ID: <CAMEtUuyKY=haqP11VgXHdfHBkqfB-KxuswygUd7hDPLkOFz9HQ@mail.gmail.com>
 References: <1403913966-4927-1-git-send-email-ast@plumgrid.com>
-	<1403913966-4927-9-git-send-email-ast@plumgrid.com>
-	<CALCETrV+uTamX2BShHsHnwTr4R7+MSQXX8bXe=2Xo1hbiSAipQ@mail.gmail.com>
-	<CAMEtUuzq4ib6MFAsp_ZpBisRa=XFUgKkX7OwwrEoOfw7O1YXCQ@mail.gmail.com>
-	<CALCETrV-uUL=NJ5_XP90cMmxvVJ0PHxCb7f4L=TqGX9tB5Vi2Q@mail.gmail.com>
+	<1403913966-4927-4-git-send-email-ast@plumgrid.com>
+	<CALCETrV3WLBmHewCZgfhCkjODWfq_byRg6sF7HpqZ6n9BVMBVQ@mail.gmail.com>
+	<CAMEtUuzWs+MbSOGGD-Rc01DHKASa4GxbHdtCrSCLit4cUM35mA@mail.gmail.com>
+	<CALCETrWy6=dzTycy-ckiMR92+nQeqAWp_Hw=hi__VSzVWZ43Ag@mail.gmail.com>
+	<CAMEtUuwRf--qyPu3rKB7-57KAu2NdsQdEpVRckqabmf61g+h-g@mail.gmail.com>
+	<CALCETrUoOTtQ1R1A8Ak35fxHxaFTPHWP6oZWnXDVLKa_ESziWw@mail.gmail.com>
+	<CAMEtUuzS=9Y_ZjigofvQ5d3=89RS=+d8-WGPk9VVSMc3qawWsw@mail.gmail.com>
+	<CALCETrWq+=Q3G2Smjd2RYES42UagpmD0EKxFM+jNufi6_qitWg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
 	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
 	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
@@ -28,40 +34,51 @@ Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
 	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 To: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
 Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CALCETrV-uUL=NJ5_XP90cMmxvVJ0PHxCb7f4L=TqGX9tB5Vi2Q-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+In-Reply-To: <CALCETrWq+=Q3G2Smjd2RYES42UagpmD0EKxFM+jNufi6_qitWg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
 Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jun 28, 2014 at 6:58 PM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org> wrote:
->> These were great questions! I hope I answered them. If not, please
->> continue asking.
+On Sat, Jun 28, 2014 at 6:52 PM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org> =
+wrote:
+> On Sat, Jun 28, 2014 at 1:49 PM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org=
+> wrote:
+>>
+>> Sorry I don't like 'fd' direction at all.
+>> 1. it will make the whole thing very socket specific and 'net' depen=
+dent.
+>> but the goal here is to be able to use eBPF for tracing in embedded
+>> setups. So it's gotta be net independent.
+>> 2. sockets are already overloaded with all sorts of stuff. Adding mo=
+re
+>> types of sockets will complicate it a lot.
+>> 3. and most important. read/write operations on sockets are not
+>> done every nanosecond, whereas lookup operations on bpf maps
+>> are done every dozen instructions, so we cannot have any overhead
+>> when accessing maps.
+>> In other words the verifier is done as static analyzer. I moved all
+>> the complexity to verify time, so at run-time the programs are as
+>> fast as possible. I'm strongly against run-time checks in critical p=
+ath,
+>> since they kill performance and make the whole approach a lot less u=
+sable.
 >
-> I have plenty more questions, but here's one right now: does anything
-> prevent programs from using pointers in comparisons, returning
-> pointers, or otherwise figuring out the value of a pointer?  If so, I
-> think it would be worthwhile to prevent that so that eBPF programs
-> can't learn kernel addresses.
+> I may have described my suggestion poorly.  I'm suggesting that all o=
+f
+> these global ids be replaced *for userspace's benefit* with fds.  Tha=
+t
+> is, a map would have an associated struct inode, and, when you load a=
+n
+> eBPF program, you'd pass fds into the kernel instead of global ids.
+> The kernel would still compile the eBPF program to use the global ids=
+,
+> though.
 
-when we decide to let non-root users load such programs, yes.
-Right now the goal is the opposite. Take a look at 'drop monitor' example.
-It stores kernel addresses where packets were dropped into a map,
-so that user space can read it. The goal of eBPF for tracing is to be able
-to see all corners of the kernel without being able to crash it.
-eBPF is a kernel module that cannot crash kernel or adversely affect
-the execution. Though in the future I'd like to expand applicability and
-let unprivileged users use them. In such cases exposing kernel
-addresses will be prevented. It's easy to tweak verifier to prevent
-comparison of pointers, storing pointers to a map or passing them into
-a function. The verifier is already tracking all pointers. There ways to
-leak them: store into map, pass to helper function, return from program,
-compare to constant, obfuscate via arithmetic. Prevention by verifier
-is trivial. Though not right now. User level security is a different topic.
-If I try to solve both 'root user safety' and 'non-root security' it will
-take ages to go anywhere. So this patch is root only. I'm deliberately
-not addressing non-root security for now.
-First step: root only, get kernel pieces in place, llvm upstream, perf
-plus all other user level tools. Just this step will take months.
-Then let's talk about non-root. I believe it will need minimal changes
-to verifier and no syscall uapi changes, but even if I'm wrong and
-new syscall would be needed, it's not a big deal. Adding things
-gradually is way better than trying to solve everything at once.
+Hmm. If I understood you correctly, you're suggesting to do it similar
+to ipc/mqueue, shmem, sockets do. By registering and mounting
+a file system and providing all superblock and inode hooks=E2=80=A6 and
+probably have its own namespace type=E2=80=A6 hmm=E2=80=A6 may be. That=
+'s
+quite a bit of work to put lightly. As I said in the other email the fi=
+rst
+step is root only and all these complexity just not worth doing
+at this stage.
