@@ -1,80 +1,31 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net] igmp: fix the problem when mc leave group
-Date: Mon, 30 Jun 2014 10:50:21 +0800
-Message-ID: <53B0D06D.30908@huawei.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Packet loss when txqueuelen is zero
+Date: Sun, 29 Jun 2014 22:49:23 -0700
+Message-ID: <1404107363.15139.29.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <53AEA00F.6060500@lategoodbye.de>
+	 <1403966418.15139.27.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <53B019E5.4060905@lategoodbye.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Netdev <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org, arnd@arndb.de
+To: Stefan Wahren <info@lategoodbye.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:55849 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753989AbaF3Cus (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jun 2014 22:50:48 -0400
+Received: from mail-we0-f174.google.com ([74.125.82.174]:54075 "EHLO
+	mail-we0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751431AbaF3Ft3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 01:49:29 -0400
+Received: by mail-we0-f174.google.com with SMTP id u57so7676874wes.19
+        for <netdev@vger.kernel.org>; Sun, 29 Jun 2014 22:49:28 -0700 (PDT)
+In-Reply-To: <53B019E5.4060905@lategoodbye.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The problem was triggered by these steps:
+On Sun, 2014-06-29 at 15:51 +0200, Stefan Wahren wrote:
 
-1) create socket, bind and then setsockopt for add mc group.
-   mreq.imr_multiaddr.s_addr = inet_addr("255.0.0.37");
-   mreq.imr_interface.s_addr = inet_addr("192.168.1.2");
-   setsockopt(sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
+> But fq_codel requires BQL in the QCA7000 network driver. Right?
 
-2) drop the mc group for this socket.
-   mreq.imr_multiaddr.s_addr = inet_addr("255.0.0.37");
-   mreq.imr_interface.s_addr = inet_addr("0.0.0.0");
-   setsockopt(sockfd, IPPROTO_IP, IP_DROP_MEMBERSHIP, &mreq, sizeof(mreq));
+Not at all. 10 skb in TX ring is very small, BQL wont really help in
+this case.
 
-3) and then drop the socket, I found the mc group was still used by the dev:
-
-   netstat -g
-
-   Interface       RefCnt Group
-   --------------- ------ ---------------------
-   eth2		   1	  255.0.0.37
-
-Normally even though the IP_DROP_MEMBERSHIP return error, the mc group still need
-to be released for the netdev when drop the socket, but this process was broken when
-route default is NULL, the reason is that:
-
-The ip_mc_leave_group() will choose the in_dev by the imr_interface.s_addr, if input addr
-is NULL, the default route dev will be chosen, then the ifindex is got from the dev,
-then polling the inet->mc_list and return -ENODEV, but if the default route dev is NULL,
-the in_dev and ifIndex is both NULL, when polling the inet->mc_list, the mc group will be
-released from the mc_list, but the dev didn't dec the refcnt for this mc group, so
-when dropping the socket, the mc_list is NULL and the dev still keep this group.
-
-Fix this by checking the ifindex when polling the mc_list in ip_mc_leave_group(), don't
-release the mc group from the inet->mc_list if the index is 0, leave this work to
-ip_mc_drop_socket().
-
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
----
- net/ipv4/igmp.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
-
-diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-index 6748d42..03e0629 100644
---- a/net/ipv4/igmp.c
-+++ b/net/ipv4/igmp.c
-@@ -1950,10 +1950,9 @@ int ip_mc_leave_group(struct sock *sk, struct ip_mreqn *imr)
- 	     imlp = &iml->next_rcu) {
- 		if (iml->multi.imr_multiaddr.s_addr != group)
- 			continue;
--		if (ifindex) {
--			if (iml->multi.imr_ifindex != ifindex)
-+		if (ifindex || iml->multi.imr_ifindex != ifindex)
- 				continue;
--		} else if (imr->imr_address.s_addr && imr->imr_address.s_addr !=
-+		else if (imr->imr_address.s_addr && imr->imr_address.s_addr !=
- 				iml->multi.imr_address.s_addr)
- 			continue;
- 
--- 
-1.8.0
+BQL is good for NIC with TSO support, mostly.
