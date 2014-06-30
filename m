@@ -1,62 +1,55 @@
-From: Edward Allcutt <edward.allcutt@openmarket.com>
-Subject: [PATCH] ipv4: icmp: Fix pMTU handling for rare case
-Date: Mon, 30 Jun 2014 16:16:02 +0100
-Message-ID: <1404141362-21015-1-git-send-email-edward.allcutt@openmarket.com>
-Cc: linux-kernel@vger.kernel.org,
-	Edward Allcutt <edward.allcutt@openmarket.com>
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ondrej Zary <linux@rainbow-software.org>
+Subject: [PATCH 04/11] tlan: Fix MAC address byte order on OC-2325/OC-2326
+Date: Mon, 30 Jun 2014 18:38:30 +0200
+Message-ID: <1404146317-3094-5-git-send-email-linux@rainbow-software.org>
+References: <1404146317-3094-1-git-send-email-linux@rainbow-software.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Samuel Chessman <chessman@tux.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns.gsystem.sk ([62.176.172.50]:44062 "EHLO ns.gsystem.sk"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753953AbaF3Qiz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Jun 2014 12:38:55 -0400
+In-Reply-To: <1404146317-3094-1-git-send-email-linux@rainbow-software.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Some older router implementations still send Fragmentation Needed
-errors with the Next-Hop MTU field set to zero. This is explicitly
-described as an eventuality that hosts must deal with by the
-standard (RFC 1191) since older standards specified that those
-bits must be zero.
+Olicom OC-2325 and OC-2326 cards have the MAC address byte-swapped in EEPROM.
+Byte-swap the MAC address if it's located at offset 0xF8.
 
-Linux had a generic (for all of IPv4) implementation of the algorithm
-described in the RFC for searching a list of MTU plateaus for a good
-value. Commit 46517008e116 ("ipv4: Kill ip_rt_frag_needed().")
-removed this as part of the changes to remove the routing cache.
-Subsequently any Fragmentation Needed packet with a zero Next-Hop
-MTU has been discarded without being passed to the per-protocol
-handlers or notifying userspace for raw sockets.
+Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
+---
+ drivers/net/ethernet/ti/tlan.c |   11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
 
-When there is a router which does not implement RFC 1191 on an
-MTU limited path then this results in stalled connections since
-large packets are discarded and the local protocols are not
-notified so they never attempt to lower the pMTU.
-
-One example I have seen is an OpenBSD router terminating IPSec
-tunnels. It's worth pointing out that this case is distinct from
-the BSD 4.2 bug which incorrectly calculated the Next-Hop MTU
-since the commit in question dismissed that as a valid concern.
-
-All of the per-protocols handlers implement the simple approach from
-RFC 1191 of immediately falling back to the minimum value. Although
-this is sub-optimal it is vastly preferable to connections hanging
-indefinitely.
-
-Remove the Next-Hop MTU != 0 check and allow such packets
-to follow the normal path.
-
-Fixes: 46517008e116 ("ipv4: Kill ip_rt_frag_needed().")
-Signed-off-by: Edward Allcutt <edward.allcutt@openmarket.com>
-
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index 79c3d94..42b7bcf 100644
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -739,8 +739,6 @@ static void icmp_unreach(struct sk_buff *skb)
- 				/* fall through */
- 			case 0:
- 				info = ntohs(icmph->un.frag.mtu);
--				if (!info)
--					goto out;
- 			}
- 			break;
- 		case ICMP_SR_FAILED:
+diff --git a/drivers/net/ethernet/ti/tlan.c b/drivers/net/ethernet/ti/tlan.c
+index ae9fece..31d4a96 100644
+--- a/drivers/net/ethernet/ti/tlan.c
++++ b/drivers/net/ethernet/ti/tlan.c
+@@ -864,7 +864,7 @@ static int tlan_init(struct net_device *dev)
+ 		priv->rx_list_dma + sizeof(struct tlan_list)*TLAN_NUM_RX_LISTS;
+ 
+ 	err = 0;
+-	for (i = 0;  i < 6 ; i++)
++	for (i = 0; i < ETH_ALEN; i++)
+ 		err |= tlan_ee_read_byte(dev,
+ 					 (u8) priv->adapter->addr_ofs + i,
+ 					 (u8 *) &dev->dev_addr[i]);
+@@ -872,7 +872,14 @@ static int tlan_init(struct net_device *dev)
+ 		pr_err("%s: Error reading MAC from eeprom: %d\n",
+ 		       dev->name, err);
+ 	}
+-	dev->addr_len = 6;
++	/* Olicom OC-2325/OC-2326 have the address byte-swapped */
++	if (priv->adapter->addr_ofs == 0xf8) {
++		for (i = 0; i < ETH_ALEN; i += 2) {
++			char tmp = dev->dev_addr[i];
++			dev->dev_addr[i] = dev->dev_addr[i + 1];
++			dev->dev_addr[i + 1] = tmp;
++		}
++	}
+ 
+ 	netif_carrier_off(dev);
+ 
 -- 
-2.0.0
+Ondrej Zary
