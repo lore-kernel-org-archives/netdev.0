@@ -1,116 +1,104 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 1/2] net: sctp: improve timer slack calculation for transport HBs
-Date: Mon, 30 Jun 2014 13:52:08 +0200
-Message-ID: <1404129129-23270-2-git-send-email-dborkman@redhat.com>
-References: <1404129129-23270-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: davem@davemloft.net
+From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
+Subject: Re: [PATCH net] igmp: fix the problem when mc leave group
+Date: Mon, 30 Jun 2014 20:52:06 +0900
+Message-ID: <53B14F66.4030306@miraclelinux.com>
+References: <53B0D06D.30908@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: hideaki.yoshifuji@miraclelinux.com
+To: Ding Tianhong <dingtianhong@huawei.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59766 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752592AbaF3LwN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Jun 2014 07:52:13 -0400
-In-Reply-To: <1404129129-23270-1-git-send-email-dborkman@redhat.com>
+Received: from exprod7og120.obsmtp.com ([64.18.2.18]:48983 "HELO
+	exprod7og120.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1751246AbaF3LwJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 07:52:09 -0400
+Received: by mail-pa0-f48.google.com with SMTP id et14so8502178pad.21
+        for <netdev@vger.kernel.org>; Mon, 30 Jun 2014 04:52:09 -0700 (PDT)
+In-Reply-To: <53B0D06D.30908@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RFC4960, section 8.3 says:
+Hi,
 
-  On an idle destination address that is allowed to heartbeat,
-  it is recommended that a HEARTBEAT chunk is sent once per RTO
-  of that destination address plus the protocol parameter
-  'HB.interval', with jittering of +/- 50% of the RTO value,
-  and exponential backoff of the RTO if the previous HEARTBEAT
-  is unanswered.
+Ding Tianhong wrote:
+> The problem was triggered by these steps:
+>
+> 1) create socket, bind and then setsockopt for add mc group.
+>     mreq.imr_multiaddr.s_addr = inet_addr("255.0.0.37");
+>     mreq.imr_interface.s_addr = inet_addr("192.168.1.2");
+>     setsockopt(sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
+>
+> 2) drop the mc group for this socket.
+>     mreq.imr_multiaddr.s_addr = inet_addr("255.0.0.37");
+>     mreq.imr_interface.s_addr = inet_addr("0.0.0.0");
+>     setsockopt(sockfd, IPPROTO_IP, IP_DROP_MEMBERSHIP, &mreq, sizeof(mreq));
+>
+> 3) and then drop the socket, I found the mc group was still used by the dev:
+>
+>     netstat -g
+>
+>     Interface       RefCnt Group
+>     --------------- ------ ---------------------
+>     eth2		   1	  255.0.0.37
+>
+> Normally even though the IP_DROP_MEMBERSHIP return error, the mc group still need
+> to be released for the netdev when drop the socket, but this process was broken when
+> route default is NULL, the reason is that:
+>
+> The ip_mc_leave_group() will choose the in_dev by the imr_interface.s_addr, if input addr
+> is NULL, the default route dev will be chosen, then the ifindex is got from the dev,
+> then polling the inet->mc_list and return -ENODEV, but if the default route dev is NULL,
+> the in_dev and ifIndex is both NULL, when polling the inet->mc_list, the mc group will be
+> released from the mc_list, but the dev didn't dec the refcnt for this mc group, so
+> when dropping the socket, the mc_list is NULL and the dev still keep this group.
+>
+> Fix this by checking the ifindex when polling the mc_list in ip_mc_leave_group(), don't
+> release the mc group from the inet->mc_list if the index is 0, leave this work to
+> ip_mc_drop_socket().
+>
 
-Currently, we calculate jitter via sctp_jitter() function first,
-and then add its result to the current RTO for the new timeout:
+No, we should make it aligned with IPv6 (RFC3493) and BSDs,
+so...
 
-  TMO = RTO + (RAND() % RTO) - (RTO / 2)
-              `------------------------^-=> sctp_jitter()
+> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+> ---
+>   net/ipv4/igmp.c | 5 ++---
+>   1 file changed, 2 insertions(+), 3 deletions(-)
+>
+> diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+> index 6748d42..03e0629 100644
+> --- a/net/ipv4/igmp.c
+> +++ b/net/ipv4/igmp.c
+> @@ -1950,10 +1950,9 @@ int ip_mc_leave_group(struct sock *sk, struct ip_mreqn *imr)
+>   	     imlp = &iml->next_rcu) {
+>   		if (iml->multi.imr_multiaddr.s_addr != group)
+>   			continue;
+> -		if (ifindex) {
+> -			if (iml->multi.imr_ifindex != ifindex)
+> +		if (ifindex || iml->multi.imr_ifindex != ifindex)
 
-Instead, we can just simplify all this by directly calculating:
+ifindex && iml->multi.imr_ifindex != ifindex
 
-  TMO = (RTO / 2) + (RAND() % RTO)
+>   				continue;
 
-With the help of prandom_u32_max(), we don't need to open code
-our own global PRNG, but can instead just make use of the per
-CPU implementation of prandom with better quality numbers. Also,
-we can now spare us the conditional for divide by zero check
-since no div or mod operation needs to be used. Note that
-prandom_u32_max() won't emit the same result as a mod operation,
-but we really don't care here as we only want to have a random
-number scaled into RTO interval.
+Fix indentation.
 
-Note, exponential RTO backoff is handeled elsewhere, namely in
-sctp_do_8_2_transport_strike().
+> -		} else if (imr->imr_address.s_addr && imr->imr_address.s_addr !=
+> +		else if (imr->imr_address.s_addr && imr->imr_address.s_addr !=
+>   				iml->multi.imr_address.s_addr)
+>   			continue;
+>
+>
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- include/net/sctp/sctp.h | 21 ---------------------
- net/sctp/transport.c    | 17 +++++++++--------
- 2 files changed, 9 insertions(+), 29 deletions(-)
+Regarads,
 
-diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
-index 8e4de46..c2035c9 100644
---- a/include/net/sctp/sctp.h
-+++ b/include/net/sctp/sctp.h
-@@ -388,27 +388,6 @@ static inline int sctp_list_single_entry(struct list_head *head)
- 	return (head->next != head) && (head->next == head->prev);
- }
- 
--/* Generate a random jitter in the range of -50% ~ +50% of input RTO. */
--static inline __s32 sctp_jitter(__u32 rto)
--{
--	static __u32 sctp_rand;
--	__s32 ret;
--
--	/* Avoid divide by zero. */
--	if (!rto)
--		rto = 1;
--
--	sctp_rand += jiffies;
--	sctp_rand ^= (sctp_rand << 12);
--	sctp_rand ^= (sctp_rand >> 20);
--
--	/* Choose random number from 0 to rto, then move to -50% ~ +50%
--	 * of rto.
--	 */
--	ret = sctp_rand % rto - (rto >> 1);
--	return ret;
--}
--
- /* Break down data chunks at this point.  */
- static inline int sctp_frag_point(const struct sctp_association *asoc, int pmtu)
- {
-diff --git a/net/sctp/transport.c b/net/sctp/transport.c
-index 7dd672f..b10e047 100644
---- a/net/sctp/transport.c
-+++ b/net/sctp/transport.c
-@@ -594,15 +594,16 @@ void sctp_transport_burst_reset(struct sctp_transport *t)
- }
- 
- /* What is the next timeout value for this transport? */
--unsigned long sctp_transport_timeout(struct sctp_transport *t)
-+unsigned long sctp_transport_timeout(struct sctp_transport *trans)
- {
--	unsigned long timeout;
--	timeout = t->rto + sctp_jitter(t->rto);
--	if ((t->state != SCTP_UNCONFIRMED) &&
--	    (t->state != SCTP_PF))
--		timeout += t->hbinterval;
--	timeout += jiffies;
--	return timeout;
-+	/* RTO + timer slack +/- 50% of RTO */
-+	unsigned long timeout = (trans->rto >> 1) + prandom_u32_max(trans->rto);
-+
-+	if (trans->state != SCTP_UNCONFIRMED &&
-+	    trans->state != SCTP_PF)
-+		timeout += trans->hbinterval;
-+
-+	return timeout + jiffies;
- }
- 
- /* Reset transport variables to their initial values */
 -- 
-1.7.11.7
+Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
+Technical Division, MIRACLE LINUX CORPORATION
