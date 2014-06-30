@@ -1,131 +1,61 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: Performance fix for process_backlog
-Date: Sun, 29 Jun 2014 23:11:03 -0700
-Message-ID: <1404108663.15139.40.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <alpine.DEB.2.02.1406291915560.4914@tomh.mtv.corp.google.com>
+Subject: Re: [PATCH] ipv4: fix a race in ip4_datagram_release_cb()
+Date: Sun, 29 Jun 2014 23:38:12 -0700
+Message-ID: <1404110292.15139.42.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CA+FTKhs45vD66xSQRgijwFjSuy-Mt8EGr3cRv60oCcEnFPKnaQ@mail.gmail.com>
+	  <1402407781.3645.426.camel@edumazet-glaptop2.roam.corp.google.com>
+	  <alpine.DEB.2.02.1406101726390.11647@dtop>
+	  <1402448128.3645.437.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1402449173.3645.440.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <1402450009.3645.444.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <alpine.DEB.2.02.1406281724370.18954@dtop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
+Cc: Alexey Preobrazhensky <preobr@google.com>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	David Miller <davem@davemloft.net>, paulmck@linux.vnet.ibm.com,
+	netdev@vger.kernel.org, Kostya Serebryany <kcc@google.com>,
+	Dmitry Vyukov <dvyukov@google.com>,
+	Lars Bull <larsbull@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Bruce Curtis <brutus@google.com>,
+	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: dormando <dormando@rydia.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f50.google.com ([74.125.82.50]:64002 "EHLO
-	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752510AbaF3GLI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 02:11:08 -0400
-Received: by mail-wg0-f50.google.com with SMTP id m15so7641552wgh.9
-        for <netdev@vger.kernel.org>; Sun, 29 Jun 2014 23:11:07 -0700 (PDT)
-In-Reply-To: <alpine.DEB.2.02.1406291915560.4914@tomh.mtv.corp.google.com>
+Received: from mail-wi0-f182.google.com ([209.85.212.182]:61845 "EHLO
+	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751964AbaF3GiS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 02:38:18 -0400
+Received: by mail-wi0-f182.google.com with SMTP id bs8so5326584wib.9
+        for <netdev@vger.kernel.org>; Sun, 29 Jun 2014 23:38:17 -0700 (PDT)
+In-Reply-To: <alpine.DEB.2.02.1406281724370.18954@dtop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2014-06-29 at 19:21 -0700, Tom Herbert wrote:
-> In process_backlog the input_pkt_queue is only checked once for new
-> packets and quota is artificially reduced to reflect precisely the
-> number of packets on the input_pkt_queue so that the loop exits
-> appropriately.
+On Sat, 2014-06-28 at 17:25 -0700, dormando wrote:
+> On Tue, 10 Jun 2014, Eric Dumazet wrote:
 > 
-> This patch changes the behavior to be more straightforward and
-> less convoluted. Packets are processed until either the quota
-> is met or there are no more packets to process.
-
-This is the same condition than before. You only changed how its done.
-
+> > On Tue, 2014-06-10 at 18:12 -0700, Eric Dumazet wrote:
+> >
+> > >
+> > > For the curious, another problem is in ipv4_sk_update_pmtu()
+> > >
+> > > This can be called on UDP sockets, but from softirq context.
+> > >
+> > > We cannot use sk_dst_lock because this lock is not softirq safe.
+> > >
+> > > I guess we should use xchg() for sk_dst_set() and sk_dst_reset()
+> >
+> > This would be something like this untested patch :
+> >
 > 
-> This patch seems to provide a small, but noticeable performance
-> improvement.
+> I see this didn't get queued for stable, should it be dropped due to the
+> later patch? (which did get queued for stable).
 
-I would prefer you explain why this gets an improvement, because few
-people really understands this.
+I have this patch in my queue.
 
-The reason you might get an improvement here is because one test is
-removed, and this test was fooling cpu branch predictor.
+I have to submit it officially before it can be merged...
 
-perf stat ./super_netperf ... would tell us this better.
-
-> 
-> Performance data using super_netperf TCP_RR with 200 flows:
-> 
-> Before fix:
-> 
-> 88.06% CPU utilization
-> 125/190/309 90/95/99% latencies
-> 1.46808e+06 tps
-> 
-> With fix:
-> 
-> 87.73% CPU utilization
-> 122/183/296 90/95/99% latencies
-> 1.4921e+06 tps
-> 
-> Signed-off-by: Tom Herbert <therbert@google.com>
-> ---
->  net/core/dev.c | 23 +++++++++++------------
->  1 file changed, 11 insertions(+), 12 deletions(-)
-> 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index a04b12f..136ce3e 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -4227,9 +4227,8 @@ static int process_backlog(struct napi_struct *napi, int quota)
->  #endif
->  	napi->weight = weight_p;
->  	local_irq_disable();
-> -	while (work < quota) {
-> +	while (1) {
->  		struct sk_buff *skb;
-> -		unsigned int qlen;
->  
->  		while ((skb = __skb_dequeue(&sd->process_queue))) {
->  			local_irq_enable();
-> @@ -4243,24 +4242,24 @@ static int process_backlog(struct napi_struct *napi, int quota)
->  		}
->  
->  		rps_lock(sd);
-> -		qlen = skb_queue_len(&sd->input_pkt_queue);
-> -		if (qlen)
-> -			skb_queue_splice_tail_init(&sd->input_pkt_queue,
-> -						   &sd->process_queue);
-> -
-> -		if (qlen < quota - work) {
-> +		if (skb_queue_empty(&sd->input_pkt_queue)) {
->  			/*
->  			 * Inline a custom version of __napi_complete().
->  			 * only current cpu owns and manipulates this napi,
-> -			 * and NAPI_STATE_SCHED is the only possible flag set on backlog.
-> -			 * we can use a plain write instead of clear_bit(),
-> +			 * and NAPI_STATE_SCHED is the only possible flag set
-> +			 * on backlog.
-> +			 * We can use a plain write instead of clear_bit(),
->  			 * and we dont need an smp_mb() memory barrier.
->  			 */
->  			list_del(&napi->poll_list);
->  			napi->state = 0;
-> +			rps_unlock(sd);
-> +
-> +			break;
-> +		}
-
-Since your first block ends with a break; you do not need an 'else'
-
->  else
-
-Then you can remove one tab on this,
-
-> +			skb_queue_splice_tail_init(&sd->input_pkt_queue,
-> +						   &sd->process_queue);
-
-Alternatively you should have :
- if (A) {
- 	...
- } else {
-        ...
- }
-
-
->  
-> -			quota = work + qlen;
-> -		}
->  		rps_unlock(sd);
->  	}
->  	local_irq_enable();
+David seems quite busy these days anyway.
