@@ -1,36 +1,56 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: Re: [PATCH net] tcp: Fix divide by zero when pushing during tcp-repair
-Date: Mon, 30 Jun 2014 17:12:25 +0400
-Message-ID: <53B16239.80402@parallels.com>
-References: <1403972797-15285-1-git-send-email-christoph.paasch@uclouvain.be>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Sporadic ESP payload corruption when using IPSec in NAT-T
+ Transport Mode
+Date: Mon, 30 Jun 2014 21:21:19 +0800
+Message-ID: <20140630132119.GA19500@gondor.apana.org.au>
+References: <CALEwOppxvZ5F1-HeEnEEfe+GXs4=q+Eq+yL6W4xshemW8Wu9Ww@mail.gmail.com>
+ <20140630113324.GR32371@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, Andrew Vagin <avagin@openvz.org>
-To: Christoph Paasch <christoph.paasch@uclouvain.be>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Evan Gilman <evan@pagerduty.com>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay.parallels.com ([195.214.232.42]:35592 "EHLO
-	relay.parallels.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754073AbaF3NMb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 09:12:31 -0400
-In-Reply-To: <1403972797-15285-1-git-send-email-christoph.paasch@uclouvain.be>
+Received: from helcar.apana.org.au ([209.40.204.226]:49228 "EHLO
+	helcar.apana.org.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752033AbaF3NVa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 09:21:30 -0400
+Content-Disposition: inline
+In-Reply-To: <20140630113324.GR32371@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/28/2014 08:26 PM, Christoph Paasch wrote:
-> When in repair-mode and TCP_RECV_QUEUE is set, we end up calling
-> tcp_push with mss_now being 0. If data is in the send-queue and
-> tcp_set_skb_tso_segs gets called, we crash because it will divide by
-> mss_now:
+On Mon, Jun 30, 2014 at 01:33:24PM +0200, Steffen Klassert wrote:
+> Ccing netdev.
 > 
-snip
-> Cc: Andrew Vagin <avagin@openvz.org>
-> Cc: Pavel Emelyanov <xemul@parallels.com>
-> Fixes: ec3423257508 (tcp: fix retransmission in repair mode)
-> Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
+> On Thu, Jun 26, 2014 at 02:12:30PM -0700, Evan Gilman wrote:
+> >    Hi all
+> >    We have a couple Ubuntu 10.04 hosts with kernel version 3.14.5 which are
+> >    experiencing TCP payload corruption when using IPSec in NAT-T transport
+> >    mode. All are running under Xen at third party providers. When
+> >    communicating with other hosts using IPSec, we see that these corrupt TCP
+> >    PDUs are still being received by the remote listener, even though the TCP
+> >    checksum is invalid.
+> >    All other checksums (IPSec authentication header and IP checksum) are
+> >    good. So, we are thinking that corruption is happening during the ESP
+> >    encapsulation and decapsulation phase (IPSec required for reproduction).
+> >    The corruption occurs sporadically, and we have not found any one
+> >    payload/packet combination that will reliably trigger it, though we can
+> >    typically reproduce it in less than 30 minutes. We can do it very simply
+> >    by reading from /dev/zero with dd and piping through netcat. It occurs
+> >    whenever a 3.14.5 kernel is involved at either end of the conversation. I
+> >    can send captures to those who are interested. Does any of this sound
+> >    familiar?
+> 
+> I can't remember anyone reporting such problems, but maybe someone
+> else does.
 
-Acked-by: Pavel Emelyanov <xemul@parallels.com>
+I have seen one report where a Xen guest experienced IPsec corruption
+when using aesni-intel.  However, in that case the corruption was at
+the authentication level.  Are you using aesni-intel by any chance?
 
-Thanks,
-Pavel
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
