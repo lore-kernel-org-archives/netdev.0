@@ -1,105 +1,90 @@
-From: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH RFC net-next 00/14] BPF syscall, maps, verifier, samples
-Date: Mon, 30 Jun 2014 16:09:06 -0700
-Message-ID: <CAGXu5jK9Bwocjz8y26=GEk0qg5ru1Mu7j9FVuu20KfTDUrSkuQ@mail.gmail.com>
-References: <1403913966-4927-1-git-send-email-ast@plumgrid.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH 2/2] openvswitch: Enable tunnel GSO for OVS bridge.
+Date: Mon, 30 Jun 2014 16:37:13 -0700
+Message-ID: <CALnjE+qTN6PN38MJWc9iFEMFQs73ejoSQtW=NQ0GXaMn6nrTtQ@mail.gmail.com>
+References: <1401017985-1574-1-git-send-email-pshelar@nicira.com>
+	<CAJZOPZLDhqkosAVty2TpOx5JrkTwVdn2JhMNY8Jti2pu6jU9xQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
-	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1403913966-4927-1-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Tom Herbert <therbert@google.com>
+To: Or Gerlitz <or.gerlitz@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog116.obsmtp.com ([74.125.149.240]:39148 "HELO
+	na3sys009aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751881AbaF3XhO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 19:37:14 -0400
+Received: by mail-vc0-f170.google.com with SMTP id hy10so8221201vcb.15
+        for <netdev@vger.kernel.org>; Mon, 30 Jun 2014 16:37:14 -0700 (PDT)
+In-Reply-To: <CAJZOPZLDhqkosAVty2TpOx5JrkTwVdn2JhMNY8Jti2pu6jU9xQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 27, 2014 at 5:05 PM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
-> Hi All,
+On Mon, Jun 30, 2014 at 2:53 PM, Or Gerlitz <or.gerlitz@gmail.com> wrote:
+> On Sun, May 25, 2014 at 2:39 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
+>>
+>> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 >
-> this patch set demonstrates the potential of eBPF.
 >
-> First patch "net: filter: split filter.c into two files" splits eBPF interpreter
-> out of networking into kernel/bpf/. The goal for BPF subsystem is to be usable
-> in NET-less configuration. Though the whole set is marked is RFC, the 1st patch
-> is good to go. Similar version of the patch that was posted few weeks ago, but
-> was deferred. I'm assuming due to lack of forward visibility. I hope that this
-> patch set shows what eBPF is capable of and where it's heading.
 >
-> Other patches expose eBPF instruction set to user space and introduce concepts
-> of maps and programs accessible via syscall.
+> Hi Pravin, ping... this addresses a real life use case where offloads
+> didn't come into play, right? can you respin the patch with non-empty
+> change-log so people can review/ack it? --> and we'll have upstream
+> support for that case.
 >
-> 'maps' is a generic storage of different types for sharing data between kernel
-> and userspace. Maps are referrenced by global id. Root can create multiple
-> maps of different types where key/value are opaque bytes of data. It's up to
-> user space and eBPF program to decide what they store in the maps.
->
-> eBPF programs are similar to kernel modules. They live in global space and
-> have unique prog_id. Each program is a safe run-to-completion set of
-> instructions. eBPF verifier statically determines that the program terminates
-> and safe to execute. During verification the program takes a hold of maps
-> that it intends to use, so selected maps cannot be removed until program is
-> unloaded. The program can be attached to different events. These events can
-> be packets, tracepoint events and other types in the future. New event triggers
-> execution of the program which may store information about the event in the maps.
-> Beyond storing data the programs may call into in-kernel helper functions
-> which may, for example, dump stack, do trace_printk or other forms of live
-> kernel debugging. Same program can be attached to multiple events. Different
-> programs can access the same map:
->
->   tracepoint  tracepoint  tracepoint    sk_buff    sk_buff
->    event A     event B     event C      on eth0    on eth1
->     |             |          |            |          |
->     |             |          |            |          |
->     --> tracing <--      tracing       socket      socket
->          prog_1           prog_2       prog_3      prog_4
->          |  |               |            |
->       |---  -----|  |-------|           map_3
->     map_1       map_2
->
-> User space (via syscall) and eBPF programs access maps concurrently.
->
-> Last two patches are sample code. 1st demonstrates stateful packet inspection.
-> It counts tcp and udp packets on eth0. Should be easy to see how this eBPF
-> framework can be used for network analytics.
-> 2nd sample does simple 'drop monitor'. It attaches to kfree_skb tracepoint
-> event and counts number of packet drops at particular $pc location.
-> User space periodically summarizes what eBPF programs recorded.
-> In these two samples the eBPF programs are tiny and written in 'assembler'
-> with macroses. More complex programs can be written C (llvm backend is not
-> part of this diff to reduce 'huge' perception).
-> Since eBPF is fully JITed on x64, the cost of running eBPF program is very
-> small even for high frequency events. Here are the numbers comparing
-> flow_dissector in C vs eBPF:
->   x86_64 skb_flow_dissect() same skb (all cached)         -  42 nsec per call
->   x86_64 skb_flow_dissect() different skbs (cache misses) - 141 nsec per call
-> eBPF+jit skb_flow_dissect() same skb (all cached)         -  51 nsec per call
-> eBPF+jit skb_flow_dissect() different skbs (cache misses) - 135 nsec per call
->
-> Detailed explanation on eBPF verifier and safety is in patch 08/14
+This patch is blocked by double encap issue. You can read mail thread
+on first patch http://marc.info/?l=linux-netdev&m=140236173911474&w=2
 
-This is very exciting! Thanks for working on it. :)
+Tom is going to fix GSO for packets with multiple encapsulations.
+After that it would be safe to enable tunnel offloading features for
+OVS.
 
-Between the new eBPF syscall and the new seccomp syscall, I'm really
-looking forward to using lookup tables for seccomp filters. Under
-certain types of filters, we'll likely see some non-trivial
-performance improvements.
+Thanks,
+Pravin.
 
--Kees
-
--- 
-Kees Cook
-Chrome OS Security
+> Or.
+>
+>
+>
+>>
+>> ---
+>>  include/linux/netdev_features.h      | 4 ++++
+>>  net/openvswitch/vport-internal_dev.c | 3 ++-
+>>  2 files changed, 6 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
+>> index e5a5894..12118a5 100644
+>> --- a/include/linux/netdev_features.h
+>> +++ b/include/linux/netdev_features.h
+>> @@ -152,6 +152,10 @@ enum {
+>>  #define NETIF_F_ALL_FCOE       (NETIF_F_FCOE_CRC | NETIF_F_FCOE_MTU | \
+>>                                  NETIF_F_FSO)
+>>
+>> +#define NETIF_F_ALL_ENCAP_GSO   (NETIF_F_GSO_GRE | NETIF_F_GSO_GRE_CSUM | \
+>> +                                NETIF_F_GSO_IPIP | NETIF_F_GSO_SIT |     \
+>> +                                NETIF_F_GSO_UDP_TUNNEL | NETIF_F_GSO_MPLS)
+>> +
+>>  /*
+>>   * If one device supports one of these features, then enable them
+>>   * for all in netdev_increment_features.
+>> diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
+>> index 789af92..b971610 100644
+>> --- a/net/openvswitch/vport-internal_dev.c
+>> +++ b/net/openvswitch/vport-internal_dev.c
+>> @@ -134,7 +134,8 @@ static void do_setup(struct net_device *netdev)
+>>         netdev->tx_queue_len = 0;
+>>
+>>         netdev->features = NETIF_F_LLTX | NETIF_F_SG | NETIF_F_FRAGLIST |
+>> -                          NETIF_F_HIGHDMA | NETIF_F_HW_CSUM | NETIF_F_GSO_SOFTWARE;
+>> +                          NETIF_F_HIGHDMA | NETIF_F_HW_CSUM | NETIF_F_GSO_SOFTWARE |
+>> +                          NETIF_F_ALL_ENCAP_GSO;
+>>
+>>         netdev->vlan_features = netdev->features;
+>>         netdev->features |= NETIF_F_HW_VLAN_CTAG_TX;
+>> --
+>> 1.9.1
+>>
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
