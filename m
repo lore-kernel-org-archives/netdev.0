@@ -1,100 +1,70 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH] net: Performance fix for process_backlog
-Date: Sun, 29 Jun 2014 19:21:37 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1406291915560.4914@tomh.mtv.corp.google.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the net-next tree
+Date: Mon, 30 Jun 2014 12:47:50 +1000
+Message-ID: <20140630124750.0aad0c82@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f201.google.com ([209.85.214.201]:45803 "EHLO
-	mail-ob0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753794AbaF3CVj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jun 2014 22:21:39 -0400
-Received: by mail-ob0-f201.google.com with SMTP id nu7so1729967obb.0
-        for <netdev@vger.kernel.org>; Sun, 29 Jun 2014 19:21:38 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/VJceZM/kZSHofSPljmo4_NY"; protocol="application/pgp-signature"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Octavian Purdila <octavian.purdila@intel.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In process_backlog the input_pkt_queue is only checked once for new
-packets and quota is artificially reduced to reflect precisely the
-number of packets on the input_pkt_queue so that the loop exits
-appropriately.
+--Sig_/VJceZM/kZSHofSPljmo4_NY
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-This patch changes the behavior to be more straightforward and
-less convoluted. Packets are processed until either the quota
-is met or there are no more packets to process.
+Hi all,
 
-This patch seems to provide a small, but noticeable performance
-improvement.
+After merging the net-next tree, today's linux-next build (powerpc
+ppc64_defconfig) failed like this:
 
-Performance data using super_netperf TCP_RR with 200 flows:
+In file included from include/net/inet_connection_sock.h:23:0,
+                 from include/linux/tcp.h:24,
+                 from include/net/tcp.h:24,
+                 from net/ipv4/tcp_input.c:72:
+net/ipv4/tcp_input.c: In function 'pr_drop_req':
+include/net/inet_sock.h:77:41: error: 'struct sock_common' has no member na=
+med 'skc_v6_daddr'
+ #define ir_v6_rmt_addr  req.__req_common.skc_v6_daddr
+                                         ^
+include/net/sock.h:2273:57: note: in expansion of macro 'ir_v6_rmt_addr'
+  do { if (net_msg_warn && net_ratelimit()) printk(fmt,##args); } while(0)
+                                                         ^
+net/ipv4/tcp_input.c:5889:3: note: in expansion of macro 'LIMIT_NETDEBUG'
+   LIMIT_NETDEBUG(KERN_DEBUG pr_fmt("drop open request from %pI6/%u\n"),
+   ^
 
-Before fix:
+Caused by commit 1fb6f159fd21 ("tcp: add tcp_conn_request").  This
+build has CONFIG_IPV6 unset.
 
-88.06% CPU utilization
-125/190/309 90/95/99% latencies
-1.46808e+06 tps
+I have used the net-next tree from next-20140627 for today.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-With fix:
+--Sig_/VJceZM/kZSHofSPljmo4_NY
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
 
-87.73% CPU utilization
-122/183/296 90/95/99% latencies
-1.4921e+06 tps
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- net/core/dev.c | 23 +++++++++++------------
- 1 file changed, 11 insertions(+), 12 deletions(-)
+iQIcBAEBCAAGBQJTsM/fAAoJEMDTa8Ir7ZwVl1oP/jXgyvUq17AfiQBGrn9C+s0x
+UXxFoGgtzjad461wUsvdg6NR6Kgq9FYMDVi1Eu6lkRMvTCNxaR5rOAU9U1TC759X
+5L2F2qhly7bPMlbNlJgssbYtkWYktdBf9uCHYoZUuV4oO2y5t2JisnA65EuMNea8
+OIJjX/JdrklBPUImmih8XfNeJIbf1eFcB6p19GhiXDYyIQJH+Y+ajgXOhAYe/DGz
+Za9r+qdxGnTZCi/Y3zT1swBWLPm4juUPGPJU5ZkJrlLylFcjfClJ8jjnMSH6cqX4
+Lcm0KB+iK/s4+eX0mLwi09k6DQ6fotJmJ8X70y/5jheVLxnJV0bYdx/aT3nJVz2q
+vZim8bWDlgaFJEUG66/F9heNIJhA7AS6/iwP4FTxbT2PWF/j2YDttM+zz4pbi0bu
+yxnCIhyBahWx6v46yeQp/civLXnhfq4yDEovPkV8kBPShCPyCa1JNeJ2PM+qIdRT
+MdnSndKHM+Xr8dU9ZtktRt9py5HHq+mgqic6WKFArYElkv/lbIGcjn8cQwYx+IU8
+84/C+opaaVXetbroLl203A+sg2z9/CW07u7LmauDfpRRcY67vXOs5P/XImmI9bTz
+xiTA3w5J+7739KTVUINMGN7fVLTie7gRKDnGgwSwm7Smuyj+eAGdK2zw0760MfEp
+8D9gcpbPl+duWRtghaVP
+=XcTH
+-----END PGP SIGNATURE-----
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index a04b12f..136ce3e 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4227,9 +4227,8 @@ static int process_backlog(struct napi_struct *napi, int quota)
- #endif
- 	napi->weight = weight_p;
- 	local_irq_disable();
--	while (work < quota) {
-+	while (1) {
- 		struct sk_buff *skb;
--		unsigned int qlen;
- 
- 		while ((skb = __skb_dequeue(&sd->process_queue))) {
- 			local_irq_enable();
-@@ -4243,24 +4242,24 @@ static int process_backlog(struct napi_struct *napi, int quota)
- 		}
- 
- 		rps_lock(sd);
--		qlen = skb_queue_len(&sd->input_pkt_queue);
--		if (qlen)
--			skb_queue_splice_tail_init(&sd->input_pkt_queue,
--						   &sd->process_queue);
--
--		if (qlen < quota - work) {
-+		if (skb_queue_empty(&sd->input_pkt_queue)) {
- 			/*
- 			 * Inline a custom version of __napi_complete().
- 			 * only current cpu owns and manipulates this napi,
--			 * and NAPI_STATE_SCHED is the only possible flag set on backlog.
--			 * we can use a plain write instead of clear_bit(),
-+			 * and NAPI_STATE_SCHED is the only possible flag set
-+			 * on backlog.
-+			 * We can use a plain write instead of clear_bit(),
- 			 * and we dont need an smp_mb() memory barrier.
- 			 */
- 			list_del(&napi->poll_list);
- 			napi->state = 0;
-+			rps_unlock(sd);
-+
-+			break;
-+		} else
-+			skb_queue_splice_tail_init(&sd->input_pkt_queue,
-+						   &sd->process_queue);
- 
--			quota = work + qlen;
--		}
- 		rps_unlock(sd);
- 	}
- 	local_irq_enable();
--- 
-2.0.0.526.g5318336
+--Sig_/VJceZM/kZSHofSPljmo4_NY--
