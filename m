@@ -1,56 +1,102 @@
-From: Ondrej Zary <linux@rainbow-software.org>
-Subject: [PATCH 05/11] tlan: Restart autonegotiation on link loss
-Date: Mon, 30 Jun 2014 18:38:31 +0200
-Message-ID: <1404146317-3094-6-git-send-email-linux@rainbow-software.org>
-References: <1404146317-3094-1-git-send-email-linux@rainbow-software.org>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Samuel Chessman <chessman@tux.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1404146317-3094-1-git-send-email-linux@rainbow-software.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH v2] net: Performance fix for process_backlog
+Date: Mon, 30 Jun 2014 09:48:17 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1406300943300.5624@tomh.mtv.corp.google.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f201.google.com ([209.85.192.201]:46755 "EHLO
+	mail-pd0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752568AbaF3QsS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 12:48:18 -0400
+Received: by mail-pd0-f201.google.com with SMTP id v10so1357661pde.2
+        for <netdev@vger.kernel.org>; Mon, 30 Jun 2014 09:48:18 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When link is lost on a card which uses internal PHY for 10 Mbit speeds,
-restart autonegotiation to allow switching between 10 and 100 Mbps speeds.
+In process_backlog the input_pkt_queue is only checked once for new
+packets and quota is artificially reduced to reflect precisely the
+number of packets on the input_pkt_queue so that the loop exits
+appropriately.
 
-Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
+This patches changes the behavior to be more straightforward and
+less convoluted. Packets are processed until either the quota
+is met or there are no more packets to process.
+
+This patch seems to provide a small, but noticeable performance
+improvement. The performance improvement is a result of staying
+in the process_backlog loop longer which can reduce number of IPI's.
+
+Performance data using super_netperf TCP_RR with 200 flows:
+
+Before fix:
+
+88.06% CPU utilization
+125/190/309 90/95/99% latencies
+1.46808e+06 tps
+1145382 intrs.sec.
+
+With fix:
+
+87.73% CPU utilization
+122/183/296 90/95/99% latencies
+1.4921e+06 tps
+1021674.30 intrs./sec.
+
+Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- drivers/net/ethernet/ti/tlan.c |   16 ++++++++++++++++
- 1 file changed, 16 insertions(+)
+ net/core/dev.c | 21 ++++++++++-----------
+ 1 file changed, 10 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/ti/tlan.c b/drivers/net/ethernet/ti/tlan.c
-index 31d4a96..1b64ddc 100644
---- a/drivers/net/ethernet/ti/tlan.c
-+++ b/drivers/net/ethernet/ti/tlan.c
-@@ -2721,6 +2721,7 @@ static void tlan_phy_finish_auto_neg(struct net_device *dev)
- 	else if (!(mode & 0x0080) && (mode & 0x0040))
- 		priv->tlan_full_duplex = true;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index a04b12f..bb88964 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4227,9 +4227,8 @@ static int process_backlog(struct napi_struct *napi, int quota)
+ #endif
+ 	napi->weight = weight_p;
+ 	local_irq_disable();
+-	while (work < quota) {
++	while (1) {
+ 		struct sk_buff *skb;
+-		unsigned int qlen;
  
-+	/* switch to internal PHY for 10 Mbps */
- 	if ((!(mode & 0x0180)) &&
- 	    (priv->adapter->flags & TLAN_ADAPTER_USE_INTERN_10) &&
- 	    (priv->phy_num != 0)) {
-@@ -2788,6 +2789,21 @@ static void tlan_phy_monitor(unsigned long data)
- 			       dev->name);
- 			tlan_dio_write8(dev->base_addr, TLAN_LED_REG, 0);
- 			netif_carrier_off(dev);
-+			if (priv->adapter->flags & TLAN_ADAPTER_USE_INTERN_10) {
-+				/* power down internal PHY */
-+				u16 data = MII_GC_PDOWN | MII_GC_LOOPBK |
-+					   MII_GC_ISOLATE;
-+
-+				tlan_mii_sync(dev->base_addr);
-+				tlan_mii_write_reg(dev, priv->phy[0],
-+						   MII_GEN_CTL, data);
-+				/* set to external PHY */
-+				priv->phy_num = 1;
-+				/* restart autonegotiation */
-+				tlan_set_timer(dev, 4 * HZ / 10,
-+					       TLAN_TIMER_PHY_PDOWN);
-+				return;
-+			}
+ 		while ((skb = __skb_dequeue(&sd->process_queue))) {
+ 			local_irq_enable();
+@@ -4243,24 +4242,24 @@ static int process_backlog(struct napi_struct *napi, int quota)
  		}
- 	}
  
+ 		rps_lock(sd);
+-		qlen = skb_queue_len(&sd->input_pkt_queue);
+-		if (qlen)
+-			skb_queue_splice_tail_init(&sd->input_pkt_queue,
+-						   &sd->process_queue);
+-
+-		if (qlen < quota - work) {
++		if (skb_queue_empty(&sd->input_pkt_queue)) {
+ 			/*
+ 			 * Inline a custom version of __napi_complete().
+ 			 * only current cpu owns and manipulates this napi,
+-			 * and NAPI_STATE_SCHED is the only possible flag set on backlog.
+-			 * we can use a plain write instead of clear_bit(),
++			 * and NAPI_STATE_SCHED is the only possible flag set
++			 * on backlog.
++			 * We can use a plain write instead of clear_bit(),
+ 			 * and we dont need an smp_mb() memory barrier.
+ 			 */
+ 			list_del(&napi->poll_list);
+ 			napi->state = 0;
++			rps_unlock(sd);
+ 
+-			quota = work + qlen;
++			break;
+ 		}
++
++		skb_queue_splice_tail_init(&sd->input_pkt_queue,
++					   &sd->process_queue);
+ 		rps_unlock(sd);
+ 	}
+ 	local_irq_enable();
 -- 
-Ondrej Zary
+2.0.0.526.g5318336
