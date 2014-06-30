@@ -1,56 +1,42 @@
 From: Vince Bridgers <vbridgers2013@gmail.com>
-Subject: [PATCH net v2 2/3] ARM: socfpga: Add socfpga Ethernet filter attributes entries
-Date: Sun, 29 Jun 2014 20:35:09 -0500
-Message-ID: <1404092110-18667-3-git-send-email-vbridgers2013@gmail.com>
-References: <1404092110-18667-1-git-send-email-vbridgers2013@gmail.com>
-Cc: dinguyen@altera.com, davem@davemloft.net, vbridgers2013@gmail.com,
-	vbridger@altera.com
-To: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-	peppe.cavallaro@st.com, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	linux@arm.linux.org.uk, linux-arm-kernel@lists.infradead.org,
-	robh+dt@kernel.org
+Subject: Re: [PATCH ethtool V3] Ethtool: Add Altera Triple Speed Ethernet Support
+Date: Sun, 29 Jun 2014 20:52:48 -0500
+Message-ID: <CAOwfj2OKvV+nArF_9rEvFxZuC-XdfL4jf3ST51GO4sgLe8JNHw@mail.gmail.com>
+References: <1401382868-4390-1-git-send-email-vbridgers2013@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Vince Bridgers <vbridgers2013@gmail.com>
+To: Ben Hutchings <ben@decadent.org.uk>, bwh@kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f49.google.com ([209.85.219.49]:35558 "EHLO
-	mail-oa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753862AbaF3BjG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jun 2014 21:39:06 -0400
-In-Reply-To: <1404092110-18667-1-git-send-email-vbridgers2013@gmail.com>
+Received: from mail-wg0-f52.google.com ([74.125.82.52]:57804 "EHLO
+	mail-wg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753407AbaF3Bwt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jun 2014 21:52:49 -0400
+Received: by mail-wg0-f52.google.com with SMTP id b13so7377397wgh.11
+        for <netdev@vger.kernel.org>; Sun, 29 Jun 2014 18:52:48 -0700 (PDT)
+In-Reply-To: <1401382868-4390-1-git-send-email-vbridgers2013@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds socfpga Ethernet filter attributes for multicast
-and unicast filters per Synopsys Ethernet IP configuration chosen
-by Altera for the Cyclone 5 and Arria SOC FPGAs.
+Hi all,
 
-Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
----
-V2: None
----
- arch/arm/boot/dts/socfpga.dtsi |    4 ++++
- 1 file changed, 4 insertions(+)
+On Thu, May 29, 2014 at 12:01 PM, Vince Bridgers
+<vbridgers2013@gmail.com> wrote:
+> This patch adds Altera Triple Speed Ethernet support for dumping
+> formatted register output from Ethtool.
+>
+> Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
+> ---
+> V2: Add version check per review comments
+> V3: Fix space before tab
+> ---
+>
 
-diff --git a/arch/arm/boot/dts/socfpga.dtsi b/arch/arm/boot/dts/socfpga.dtsi
-index 4676f25..70fdd20 100644
---- a/arch/arm/boot/dts/socfpga.dtsi
-+++ b/arch/arm/boot/dts/socfpga.dtsi
-@@ -486,6 +486,8 @@
- 			clock-names = "stmmaceth";
- 			resets = <&rst EMAC0_RESET>;
- 			reset-names = "stmmaceth";
-+			snps,multicast-filter-bins = <256>;
-+			snps,perfect-filter-entries = <128>;
- 			status = "disabled";
- 		};
- 
-@@ -500,6 +502,8 @@
- 			clock-names = "stmmaceth";
- 			resets = <&rst EMAC1_RESET>;
- 			reset-names = "stmmaceth";
-+			snps,multicast-filter-bins = <256>;
-+			snps,perfect-filter-entries = <128>;
- 			status = "disabled";
- 		};
- 
--- 
-1.7.9.5
+<snip>
+
+Any chance to review this patch for inclusion into ethtool?
+
+All the best,
+
+Vince
