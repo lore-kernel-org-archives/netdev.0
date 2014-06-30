@@ -1,61 +1,66 @@
-From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next v2 4/4] be2net: re-enable vlan filtering mode asap
-Date: Mon, 30 Jun 2014 13:01:33 +0530
-Message-ID: <1404113493-14851-5-git-send-email-sathya.perla@emulex.com>
-References: <1404113493-14851-1-git-send-email-sathya.perla@emulex.com>
+From: dormando <dormando@rydia.net>
+Subject: Re: [PATCH] ipv4: fix a race in ip4_datagram_release_cb()
+Date: Mon, 30 Jun 2014 01:15:19 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1406300112340.31629@dtop>
+References: <CA+FTKhs45vD66xSQRgijwFjSuy-Mt8EGr3cRv60oCcEnFPKnaQ@mail.gmail.com>   <1402407781.3645.426.camel@edumazet-glaptop2.roam.corp.google.com>   <alpine.DEB.2.02.1406101726390.11647@dtop>   <1402448128.3645.437.camel@edumazet-glaptop2.roam.corp.google.com>
+  <1402449173.3645.440.camel@edumazet-glaptop2.roam.corp.google.com>  <1402450009.3645.444.camel@edumazet-glaptop2.roam.corp.google.com>  <alpine.DEB.2.02.1406281724370.18954@dtop> <1404110292.15139.42.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Alexey Preobrazhensky <preobr@google.com>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	David Miller <davem@davemloft.net>, paulmck@linux.vnet.ibm.com,
+	netdev@vger.kernel.org, Kostya Serebryany <kcc@google.com>,
+	Dmitry Vyukov <dvyukov@google.com>,
+	Lars Bull <larsbull@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Bruce Curtis <brutus@google.com>,
+	=?ISO-8859-2?Q?Maciej_=AFenczykowski?= <maze@google.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:13555 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754324AbaF3H3I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 03:29:08 -0400
-In-Reply-To: <1404113493-14851-1-git-send-email-sathya.perla@emulex.com>
+Received: from li263-96.members.linode.com ([173.255.253.96]:55459 "EHLO
+	mail.rydia.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752209AbaF3IXq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Jun 2014 04:23:46 -0400
+In-Reply-To: <1404110292.15139.42.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kalesh AP <kalesh.purayil@emulex.com>
+On Sun, 29 Jun 2014, Eric Dumazet wrote:
 
-While adding vlans, when the HW limit of vlan filters is reached, the
-driver enables vlan promiscuous mode.
-Similarily, while removing vlans, the driver must re-enable HW filtering
-as soon as the number of vlan filters is within the HW limit.
+> On Sat, 2014-06-28 at 17:25 -0700, dormando wrote:
+> > On Tue, 10 Jun 2014, Eric Dumazet wrote:
+> >
+> > > On Tue, 2014-06-10 at 18:12 -0700, Eric Dumazet wrote:
+> > >
+> > > >
+> > > > For the curious, another problem is in ipv4_sk_update_pmtu()
+> > > >
+> > > > This can be called on UDP sockets, but from softirq context.
+> > > >
+> > > > We cannot use sk_dst_lock because this lock is not softirq safe.
+> > > >
+> > > > I guess we should use xchg() for sk_dst_set() and sk_dst_reset()
+> > >
+> > > This would be something like this untested patch :
+> > >
+> >
+> > I see this didn't get queued for stable, should it be dropped due to the
+> > later patch? (which did get queued for stable).
+>
+> I have this patch in my queue.
+>
+> I have to submit it officially before it can be merged...
+>
+> David seems quite busy these days anyway.
+>
 
-Signed-off-by: Kalesh AP <kalesh.purayil@emulex.com>
-Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be_main.c |   13 ++++---------
- 1 files changed, 4 insertions(+), 9 deletions(-)
+Heh. You folks have quite insane amounts of output.
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 5ac9d13..64a0b6c 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -1172,20 +1172,15 @@ static int be_vlan_add_vid(struct net_device *netdev, __be16 proto, u16 vid)
- static int be_vlan_rem_vid(struct net_device *netdev, __be16 proto, u16 vid)
- {
- 	struct be_adapter *adapter = netdev_priv(netdev);
--	int status = 0;
- 
- 	/* Packets with VID 0 are always received by Lancer by default */
- 	if (lancer_chip(adapter) && vid == 0)
--		goto ret;
-+		return 0;
- 
- 	clear_bit(vid, adapter->vids);
--	status = be_vid_config(adapter);
--	if (!status)
--		adapter->vlans_added--;
--	else
--		set_bit(vid, adapter->vids);
--ret:
--	return status;
-+	adapter->vlans_added--;
-+
-+	return be_vid_config(adapter);
- }
- 
- static void be_clear_promisc(struct be_adapter *adapter)
--- 
-1.7.1
+I'm now testing a kernel which has the one upstreamed patch + the two not
+yet in -stable, under 3.10.45. A kernel with ~60% of those patches has
+been running for 17.5 days so far. Much longer than it normally runs.
+
+So, looking pretty decent, still. Thanks for your patience for all of my
+dumb questions. I'll probably only pipe up again on this issue if I see
+another crash.
