@@ -1,42 +1,49 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: Is: automated testing before David M picks them up? Was: Re:
- [Xen-devel] [PATCH net v2] xen-netback: bookkeep number of active queues in
- our own module
-Date: Mon, 30 Jun 2014 09:39:13 +0100
-Message-ID: <1404117553.3827.9.camel@kazak.uk.xensource.com>
-References: <20140622.172105.1949118384610767695.davem@davemloft.net>
-	 <20140623084032.GU20819@zion.uk.xensource.com>
-	 <20140623153151.GA3261@laptop.dumpdata.com>
-	 <20140627.123438.2145034024736949555.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net V1 1/3] net/mlx4_en: Don't use irq_affinity_notifier
+ to track changes in IRQ affinity map
+Date: Mon, 30 Jun 2014 02:11:52 -0700
+Message-ID: <1404119512.15139.70.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1404032097-5132-1-git-send-email-amirv@mellanox.com>
+		 <1404032097-5132-2-git-send-email-amirv@mellanox.com>
+	 <1404110511.15139.44.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <53B1210E.6040409@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <konrad.wilk@oracle.com>, <netdev@vger.kernel.org>,
-	<boris.ostrovsky@oracle.com>, <xen-devel@lists.xen.org>,
-	<wei.liu2@citrix.com>
-To: David Miller <davem@davemloft.net>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ben Hutchings <ben@decadent.org.uk>, amira@mellanox.com,
+	Yuval Atias <yuvala@mellanox.com>
+To: amirv@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:38641 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751231AbaF3IjP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Jun 2014 04:39:15 -0400
-In-Reply-To: <20140627.123438.2145034024736949555.davem@davemloft.net>
+Received: from mail-we0-f175.google.com ([74.125.82.175]:54373 "EHLO
+	mail-we0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751514AbaF3JL5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 05:11:57 -0400
+Received: by mail-we0-f175.google.com with SMTP id k48so7905770wev.20
+        for <netdev@vger.kernel.org>; Mon, 30 Jun 2014 02:11:56 -0700 (PDT)
+In-Reply-To: <53B1210E.6040409@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-06-27 at 12:34 -0700, David Miller wrote:
-> From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-> Date: Mon, 23 Jun 2014 11:31:51 -0400
-> 
-> > Having said that - how do you handle such situation with sub-maintainers
-> > wanting to do some testing before they are cleared to go your way?
-> 
-> Who cares, the bug gets found eventually right?
-> 
-> There is no value in my letting changes sit for more than a day or two that
-> aren't being actively discussed and look fine to me.
+On Mon, 2014-06-30 at 11:34 +0300, Amir Vadai wrote:
 
-So perhaps Konrad ought to be feeding net{,-next}.git to his testing
-framework?
+> TX completions are very quick compared to the skb preparation and
+> sending. Which is not the case for RX completions. Because of that, it
+> is very easy to reproduce the problem in RX flows, but we never had any
+> report of that problem in the TX flow.
 
-Ian.
+This is because reporters probably use same number of RX and TX queues.
+
+With TCP Small queues, TX completions are not always quick, if thousands
+of flows are active.
+
+Some people hit the locked cpu when say one cpu has to drain 8 TX
+queues, because 7 other cpus can continuously feed more packets 
+
+> I prefer not to spend time on the TX, since we plan to send a patch soon
+> to use the same NAPI for both TX and RX.
+
+Thanks, this sounds great.
