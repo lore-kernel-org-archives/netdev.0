@@ -1,102 +1,48 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH v2] net: Performance fix for process_backlog
-Date: Mon, 30 Jun 2014 09:50:40 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1406300949290.5624@tomh.mtv.corp.google.com>
+From: Stefan Wahren <info@lategoodbye.de>
+Subject: Re: Packet loss when txqueuelen is zero
+Date: Mon, 30 Jun 2014 19:08:16 +0200
+Message-ID: <53B19980.7050606@lategoodbye.de>
+References: <53AEA00F.6060500@lategoodbye.de>	 <1403966418.15139.27.camel@edumazet-glaptop2.roam.corp.google.com>	 <53B019E5.4060905@lategoodbye.de> <1404107363.15139.29.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, arnd@arndb.de
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f201.google.com ([209.85.214.201]:43264 "EHLO
-	mail-ob0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752175AbaF3Qul (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 12:50:41 -0400
-Received: by mail-ob0-f201.google.com with SMTP id nu7so1925907obb.0
-        for <netdev@vger.kernel.org>; Mon, 30 Jun 2014 09:50:40 -0700 (PDT)
+Received: from www.augenpunkt.de ([213.239.207.9]:49230 "EHLO
+	www.augenpunkt.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752488AbaF3Qvx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 12:51:53 -0400
+In-Reply-To: <1404107363.15139.29.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In process_backlog the input_pkt_queue is only checked once for new
-packets and quota is artificially reduced to reflect precisely the
-number of packets on the input_pkt_queue so that the loop exits
-appropriately.
+Hi Eric,
 
-This patches changes the behavior to be more straightforward and
-less convoluted. Packets are processed until either the quota
-is met or there are no more packets to process.
+Am 30.06.2014 07:49, schrieb Eric Dumazet:
+> On Sun, 2014-06-29 at 15:51 +0200, Stefan Wahren wrote:
+>
+>> But fq_codel requires BQL in the QCA7000 network driver. Right?
+>
+> Not at all. 10 skb in TX ring is very small, BQL wont really help in
+> this case.
+>
+> BQL is good for NIC with TSO support, mostly.
+>
 
-This patch seems to provide a small, but noticeable performance
-improvement. The performance improvement is a result of staying
-in the process_backlog loop longer which can reduce number of IPI's.
+Dave T=C3=A4ht made the suggestion to reduce the skbs to 2. But i'm not=
+ sure=20
+if it's a good solution, because the SPI overhead becomes bigger.
 
-Performance data using super_netperf TCP_RR with 200 flows:
+I have another idea. The QCA has an internal tx buffer something above=20
+3000 bytes. So it would be helpful if the tx ring stores the estimated=20
+byte size of all skbs. In the case this sum is so big that skb with a=20
+MTU (1500 byte) won't fit into the QCA buffer, the tx queue can be stop=
+ped.
 
-Before fix:
+I commited my implementation [1] in the morning.
 
-88.06% CPU utilization
-125/190/309 90/95/99% latencies
-1.46808e+06 tps
-1145382 intrs.sec.
-
-With fix:
-
-87.73% CPU utilization
-122/183/296 90/95/99% latencies
-1.4921e+06 tps
-1021674.30 intrs./sec.
-
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- net/core/dev.c | 21 ++++++++++-----------
- 1 file changed, 10 insertions(+), 11 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index a04b12f..bb88964 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4227,9 +4227,8 @@ static int process_backlog(struct napi_struct *napi, int quota)
- #endif
- 	napi->weight = weight_p;
- 	local_irq_disable();
--	while (work < quota) {
-+	while (1) {
- 		struct sk_buff *skb;
--		unsigned int qlen;
- 
- 		while ((skb = __skb_dequeue(&sd->process_queue))) {
- 			local_irq_enable();
-@@ -4243,24 +4242,24 @@ static int process_backlog(struct napi_struct *napi, int quota)
- 		}
- 
- 		rps_lock(sd);
--		qlen = skb_queue_len(&sd->input_pkt_queue);
--		if (qlen)
--			skb_queue_splice_tail_init(&sd->input_pkt_queue,
--						   &sd->process_queue);
--
--		if (qlen < quota - work) {
-+		if (skb_queue_empty(&sd->input_pkt_queue)) {
- 			/*
- 			 * Inline a custom version of __napi_complete().
- 			 * only current cpu owns and manipulates this napi,
--			 * and NAPI_STATE_SCHED is the only possible flag set on backlog.
--			 * we can use a plain write instead of clear_bit(),
-+			 * and NAPI_STATE_SCHED is the only possible flag set
-+			 * on backlog.
-+			 * We can use a plain write instead of clear_bit(),
- 			 * and we dont need an smp_mb() memory barrier.
- 			 */
- 			list_del(&napi->poll_list);
- 			napi->state = 0;
-+			rps_unlock(sd);
- 
--			quota = work + qlen;
-+			break;
- 		}
-+
-+		skb_queue_splice_tail_init(&sd->input_pkt_queue,
-+					   &sd->process_queue);
- 		rps_unlock(sd);
- 	}
- 	local_irq_enable();
--- 
-2.0.0.526.g5318336
+[1] -=20
+https://github.com/I2SE/qca7000/commit/4539475a4ce1d0f5ab6ed111df9d2a9a=
+b5f9bcc3
