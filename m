@@ -1,96 +1,92 @@
-From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-Subject: Re: [PATCH RFC net-next 03/14] bpf: introduce syscall(BPF, ...) and
- BPF maps
-Date: Mon, 30 Jun 2014 15:09:17 -0700
-Message-ID: <CALCETrW3=idHOKF56d94suiA0NoiUGwr7pENm13q6=1XMbBPdw@mail.gmail.com>
-References: <1403913966-4927-1-git-send-email-ast@plumgrid.com>
- <1403913966-4927-4-git-send-email-ast@plumgrid.com> <CALCETrV3WLBmHewCZgfhCkjODWfq_byRg6sF7HpqZ6n9BVMBVQ@mail.gmail.com>
- <CAMEtUuzWs+MbSOGGD-Rc01DHKASa4GxbHdtCrSCLit4cUM35mA@mail.gmail.com>
- <CALCETrWy6=dzTycy-ckiMR92+nQeqAWp_Hw=hi__VSzVWZ43Ag@mail.gmail.com>
- <CAMEtUuwRf--qyPu3rKB7-57KAu2NdsQdEpVRckqabmf61g+h-g@mail.gmail.com>
- <CALCETrUoOTtQ1R1A8Ak35fxHxaFTPHWP6oZWnXDVLKa_ESziWw@mail.gmail.com>
- <CAMEtUuzS=9Y_ZjigofvQ5d3=89RS=+d8-WGPk9VVSMc3qawWsw@mail.gmail.com>
- <CALCETrWq+=Q3G2Smjd2RYES42UagpmD0EKxFM+jNufi6_qitWg@mail.gmail.com> <CAMEtUuyKY=haqP11VgXHdfHBkqfB-KxuswygUd7hDPLkOFz9HQ@mail.gmail.com>
+From: Vince Bridgers <vbridgers2013@gmail.com>
+Subject: Re: [PATCH net v4 1/3] net: libphy: Add phy specific function to
+ access mmd phy registers
+Date: Mon, 30 Jun 2014 17:12:12 -0500
+Message-ID: <CAOwfj2MM8sLTmzvU+3JXRBUKJpv1_Gd8PRO3FQiGH_agLP93pA@mail.gmail.com>
+References: <1404092124-18704-1-git-send-email-vbridgers2013@gmail.com>
+	<1404092124-18704-2-git-send-email-vbridgers2013@gmail.com>
+	<CAGVrzcZtFfGb+vELbUzVC-=ThqFxrCLKy9RoFoSCJvQXakc0Rg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
-	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAMEtUuyKY=haqP11VgXHdfHBkqfB-KxuswygUd7hDPLkOFz9HQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Randy Dunlap <rdunlap@infradead.org>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Vince Bridgers <vbridger@altera.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f41.google.com ([74.125.82.41]:53589 "EHLO
+	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752091AbaF3WMN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 18:12:13 -0400
+Received: by mail-wg0-f41.google.com with SMTP id a1so8789499wgh.12
+        for <netdev@vger.kernel.org>; Mon, 30 Jun 2014 15:12:12 -0700 (PDT)
+In-Reply-To: <CAGVrzcZtFfGb+vELbUzVC-=ThqFxrCLKy9RoFoSCJvQXakc0Rg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jun 28, 2014 at 11:36 PM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>=
- wrote:
-> On Sat, Jun 28, 2014 at 6:52 PM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org=
-> wrote:
->> On Sat, Jun 28, 2014 at 1:49 PM, Alexei Starovoitov <ast-uqk4Ao+rVK7QFizaE/u3fw@public.gmane.org=
-m> wrote:
->>>
->>> Sorry I don't like 'fd' direction at all.
->>> 1. it will make the whole thing very socket specific and 'net' depe=
-ndent.
->>> but the goal here is to be able to use eBPF for tracing in embedded
->>> setups. So it's gotta be net independent.
->>> 2. sockets are already overloaded with all sorts of stuff. Adding m=
-ore
->>> types of sockets will complicate it a lot.
->>> 3. and most important. read/write operations on sockets are not
->>> done every nanosecond, whereas lookup operations on bpf maps
->>> are done every dozen instructions, so we cannot have any overhead
->>> when accessing maps.
->>> In other words the verifier is done as static analyzer. I moved all
->>> the complexity to verify time, so at run-time the programs are as
->>> fast as possible. I'm strongly against run-time checks in critical =
-path,
->>> since they kill performance and make the whole approach a lot less =
-usable.
->>
->> I may have described my suggestion poorly.  I'm suggesting that all =
-of
->> these global ids be replaced *for userspace's benefit* with fds.  Th=
-at
->> is, a map would have an associated struct inode, and, when you load =
-an
->> eBPF program, you'd pass fds into the kernel instead of global ids.
->> The kernel would still compile the eBPF program to use the global id=
-s,
->> though.
+Hi Florian,
+
+On Mon, Jun 30, 2014 at 4:27 PM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+> Hi Vince,
 >
-> Hmm. If I understood you correctly, you're suggesting to do it simila=
-r
-> to ipc/mqueue, shmem, sockets do. By registering and mounting
-> a file system and providing all superblock and inode hooks=E2=80=A6 a=
-nd
-> probably have its own namespace type=E2=80=A6 hmm=E2=80=A6 may be. Th=
-at's
-> quite a bit of work to put lightly. As I said in the other email the =
-first
-> step is root only and all these complexity just not worth doing
-> at this stage.
+> 2014-06-29 18:35 GMT-07:00 Vince Bridgers <vbridgers2013@gmail.com>:
+>> libphy was originally written assuming all phy devices support clause 45
+>> access extensions to the mmd registers through the indirection registers
+>> located within the first 16 phy registers. This assumption is not true
+>> in all cases, and one specific example is the Micrel ksz9021 10/100/1000
+>> Mbps phy. Using the stmmac driver, accessing the mmd registers to query
+>> and configure energy efficient Ethernet (EEE) features yielded unexpected
+>> behavior.
+>>
+>> This patch adds mmd access functions to the phy driver that can be
+>> overriden by the phy specific driver if the phy does not support this
+>> mechanism or uses it's own non-standard access mechanism. By default,
+>> the IEEE Compatible clause 45 access mechanism described in clause 22
+>> is used. With this patch, EEE query/configure functions as expected
+>> using the stmmac and the Micrel ksz9021 phy.
+>>
+>> Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
+>
+> Just one minor nit before this series can go in
+>
+> [snip]
+>
+>> - * phy_read_mmd_indirect - reads data from the MMD registers
+>> - * @bus: the target MII bus
+>> + * gen_rd_mmd_indirect - reads data from the MMD registers
+>> + * @phydev: The PHY device bus
+>>   * @prtad: MMD Address
+>>   * @devad: MMD DEVAD
+>>   * @addr: PHY address on the MII bus
+>> @@ -935,18 +935,18 @@ static inline void mmd_phy_indirect(struct mii_bus *bus, int prtad, int devad,
+>>   * 3) Write reg 13 // MMD Data Command for MMD DEVAD
+>>   * 3) Read  reg 14 // Read MMD data
+>>   */
+>> -static int phy_read_mmd_indirect(struct mii_bus *bus, int prtad, int devad,
+>> -                                int addr)
+>> +int gen_rd_mmd_indirect(struct phy_device *phydev, int prtad, int devad,
+>> +                       int addr)
+>>  {
+>> -       mmd_phy_indirect(bus, prtad, devad, addr);
+>> +       mmd_phy_indirect(phydev->bus, prtad, devad, addr);
+>>
+>>         /* Read the content of the MMD's selected register */
+>> -       return bus->read(bus, addr, MII_MMD_DATA);
+>> +       return phydev->bus->read(phydev->bus, addr, MII_MMD_DATA);
+>
+> Throughout the PHY library, phy_* prefix means that this function will
+> perform the required level of abstraction, that is either using the
+> driver defined function, or falling back to the generic one.
+>
+> I would like to reduce the number of changes involved here and keep
+> phy_read_mmd_indirect, but have it check the driver specific
+> implementation and fallback to the generic one.
+> --
+> Florian
 
-The downside of not doing it right away is that it's harder to
-retrofit in without breaking early users.
+No problem, thank you for the feedback. I'll take care of this and
+respin the patch.
 
-You might be able to get away with using anon_inodes.  That will
-prevent repoening via /proc/self/fd from working (I think), but that's
-a good thing until someone fixes the /proc reopen hole.  Sigh.
+All the best,
 
---Andy
+Vince
