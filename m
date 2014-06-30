@@ -1,91 +1,79 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net v4 2/3] net: libphy: Add stubs to hook IEEE MMD
- Register reads and writes
-Date: Mon, 30 Jun 2014 15:53:44 -0700
-Message-ID: <CAGVrzcZ6U9PzhwEtm-BPdr7Qv7-v-UDmVkmegUz-Mcr7YTDDSg@mail.gmail.com>
-References: <1404092124-18704-1-git-send-email-vbridgers2013@gmail.com> <1404092124-18704-3-git-send-email-vbridgers2013@gmail.com>
+Subject: Re: [PATCH net v4 3/3] Documentation: networking: phy.txt: Update
+ text for indirect MMD access
+Date: Mon, 30 Jun 2014 15:54:27 -0700
+Message-ID: <CAGVrzcYGYfmsdcQc84zAayVFKQcyW+-wNG-52OH+KOoZT1Qyww@mail.gmail.com>
+References: <1404092124-18704-1-git-send-email-vbridgers2013@gmail.com> <1404092124-18704-4-git-send-email-vbridgers2013@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Randy Dunlap <rdunlap@infradead.org>,
 	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, vbridger <vbridger@altera.com>
+	netdev <netdev@vger.kernel.org>, vbridger@altera.com
 To: Vince Bridgers <vbridgers2013@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f172.google.com ([209.85.214.172]:56840 "EHLO
-	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751637AbaF3WyY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 18:54:24 -0400
-Received: by mail-ob0-f172.google.com with SMTP id uy5so9617630obc.17
-        for <netdev@vger.kernel.org>; Mon, 30 Jun 2014 15:54:24 -0700 (PDT)
-In-Reply-To: <1404092124-18704-3-git-send-email-vbridgers2013@gmail.com>
+Received: from mail-ob0-f176.google.com ([209.85.214.176]:56963 "EHLO
+	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751768AbaF3WzI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 18:55:08 -0400
+Received: by mail-ob0-f176.google.com with SMTP id wm4so9625255obc.35
+        for <netdev@vger.kernel.org>; Mon, 30 Jun 2014 15:55:08 -0700 (PDT)
+In-Reply-To: <1404092124-18704-4-git-send-email-vbridgers2013@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 2014-06-29 18:35 GMT-07:00 Vince Bridgers <vbridgers2013@gmail.com>:
-> The Micrel ksz9021 PHY does not support standard IEEE standard MMD
-> extended register access, therefore requires stubs to fail the read
-> register method and do nothing for the write register method when
-> libphy attempts to read and/or configure Energy Efficient Ethernet
-> features in PHYS that do support those features. This problem
-> was observed on an Altera Cyclone V SOC development kit that
-> uses the Synopsys EMAC and the Micrel ksz9021 PHY. This patch
-> was tested on the same board, and Energy Efficient Ethernet is
-> now disabled as expected since the Micrel PHY does not support that
-> feature.
+> Update the PHY library documentation to describe how a specific PHY
+> driver can use the PAL MMD register access routines or override those
+> routines with it's own in the event the PHY does not support the IEEE
+> standard for reading and writing MMD phy registers.
 >
 > Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
 
 Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 
 > ---
-> V4: Correct error when editing for V3
-> V3: Remove unnecessary returns from void functions.
-> V2: Split libphy and Micrel specific changes into 2 patches
->     based on review comments
+> V4: None
+> V3: Add modified Documentation/networking/phy.txt per review comments.
 > ---
->  drivers/net/phy/micrel.c |   22 ++++++++++++++++++++++
->  1 file changed, 22 insertions(+)
+>  Documentation/networking/phy.txt |   18 +++++++++++++++++-
+>  1 file changed, 17 insertions(+), 1 deletion(-)
 >
-> diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-> index bc7c7d2..40ff138 100644
-> --- a/drivers/net/phy/micrel.c
-> +++ b/drivers/net/phy/micrel.c
-> @@ -420,6 +420,26 @@ static int ksz8873mll_config_aneg(struct phy_device *phydev)
->         return 0;
->  }
+> diff --git a/Documentation/networking/phy.txt b/Documentation/networking/phy.txt
+> index 3544c98..326836a 100644
+> --- a/Documentation/networking/phy.txt
+> +++ b/Documentation/networking/phy.txt
+> @@ -272,6 +272,8 @@ Writing a PHY driver
+>     txtsamp: Requests a transmit timestamp at the PHY level for a 'skb'
+>     set_wol: Enable Wake-on-LAN at the PHY level
+>     get_wol: Get the Wake-on-LAN status at the PHY level
+> +   rd_mmd_indirect: Read PHY MMD indirect register
+> +   wr_mmd_indirect: Write PHY MMD indirect register
 >
-> +/* This routine returns -1 as an indication to the caller that the
-> + * Micrel ksz9021 10/100/1000 PHY does not support standard IEEE
-> + * MMD extended PHY registers.
-> + */
-> +static int
-> +ksz9021_rd_mmd_phyreg(struct phy_device *phydev, int ptrad, int devnum,
-> +                     int regnum)
-> +{
-> +       return -1;
-> +}
+>   Of these, only config_aneg and read_status are required to be
+>   assigned by the driver code.  The rest are optional.  Also, it is
+> @@ -284,7 +286,21 @@ Writing a PHY driver
+>
+>   Feel free to look at the Marvell, Cicada, and Davicom drivers in
+>   drivers/net/phy/ for examples (the lxt and qsemi drivers have
+> - not been tested as of this writing)
+> + not been tested as of this writing).
 > +
-> +/* This routine does nothing since the Micrel ksz9021 does not support
-> + * standard IEEE MMD extended PHY registers.
-> + */
-> +static void
-> +ksz9021_wr_mmd_phyreg(struct phy_device *phydev, int ptrad, int devnum,
-> +                     int regnum, u32 val)
-> +{
-> +}
-> +
->  static struct phy_driver ksphy_driver[] = {
->  {
->         .phy_id         = PHY_ID_KS8737,
-> @@ -565,6 +585,8 @@ static struct phy_driver ksphy_driver[] = {
->         .config_intr    = ksz9021_config_intr,
->         .suspend        = genphy_suspend,
->         .resume         = genphy_resume,
-> +       .rd_mmd_indirect = ksz9021_rd_mmd_phyreg,
-> +       .wr_mmd_indirect = ksz9021_wr_mmd_phyreg,
->         .driver         = { .owner = THIS_MODULE, },
->  }, {
->         .phy_id         = PHY_ID_KSZ9031,
+> + The PHY's MMD register accesses are handled by the PAL framework
+> + by default, but can be overridden by a specific PHY driver if
+> + required. This could be the case if a PHY was released for
+> + manufacturing before the MMD PHY register definitions were
+> + standardized by the IEEE. Most modern PHYs will be able to use
+> + the generic PAL framework for accessing the PHY's MMD registers.
+> + An example of such usage is for Energy Efficient Ethernet support,
+> + implemented in the PAL. This support uses the PAL to access MMD
+> + registers for EEE query and configuration if the PHY supports
+> + the IEEE standard access mechanisms, or can use the PHY's specific
+> + access interfaces if overridden by the specific PHY driver. See
+> + the Micrel driver in drivers/net/phy/ for an example of how this
+> + can be implemented.
+>
+>  Board Fixups
+>
 > --
 > 1.7.9.5
 >
