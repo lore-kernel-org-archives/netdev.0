@@ -1,22 +1,41 @@
-From: Chi Wang Chan <pmab@mp.pa.gov.br>
-Subject: I just hope this e-mail acct. is still in use?
-Date: Mon, 30 Jun 2014 16:10:36 -0300 (BRT)
-Message-ID: <690411026.8681171.1404155436248.JavaMail.root__31363.750602077$1404156035$gmane$org@mp.pa.gov.br>
-Reply-To: Chi Wang Chan <ki773-chanproposal101@yahoo.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] net: Performance fix for process_backlog
+Date: Mon, 30 Jun 2014 12:28:34 -0700
+Message-ID: <1404156514.15139.71.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <alpine.DEB.2.02.1406300949290.5624@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbraproxy.mp.pa.gov.br ([177.74.57.67]:42854 "EHLO
-	zimbraproxy.mp.pa.gov.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754425AbaF3TUU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 15:20:20 -0400
+Received: from mail-we0-f172.google.com ([74.125.82.172]:60705 "EHLO
+	mail-we0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757014AbaF3T2i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 15:28:38 -0400
+Received: by mail-we0-f172.google.com with SMTP id u57so8588626wes.3
+        for <netdev@vger.kernel.org>; Mon, 30 Jun 2014 12:28:37 -0700 (PDT)
+In-Reply-To: <alpine.DEB.2.02.1406300949290.5624@tomh.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, 2014-06-30 at 09:50 -0700, Tom Herbert wrote:
+> In process_backlog the input_pkt_queue is only checked once for new
+> packets and quota is artificially reduced to reflect precisely the
+> number of packets on the input_pkt_queue so that the loop exits
+> appropriately.
+> 
+> This patches changes the behavior to be more straightforward and
+> less convoluted. Packets are processed until either the quota
+> is met or there are no more packets to process.
+> 
+> This patch seems to provide a small, but noticeable performance
+> improvement. The performance improvement is a result of staying
+> in the process_backlog loop longer which can reduce number of IPI's.
 
+Yes, this is likely the fact that napi->state is cleared at the very end
+of the run.
 
-I am seeking your permission to discuss with you a confidential/lucrative deal [worth USD48.8M] that require foreign assistance.
+Acked-by: Eric Dumazet <edumazet@google.com>
 
-Chi
+Thanks Tom !
