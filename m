@@ -1,43 +1,34 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 2/2] net: sctp: only warn in proc_sctp_do_alpha_beta if write
-Date: Mon, 30 Jun 2014 13:52:09 +0200
-Message-ID: <1404129129-23270-3-git-send-email-dborkman@redhat.com>
-References: <1404129129-23270-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: davem@davemloft.net
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: ip: netconf is not printed in usage output
+Date: Mon, 30 Jun 2014 14:23:41 +0200
+Message-ID: <53B156CD.2060304@6wind.com>
+References: <CAMw6YJJYL4ZRrQhB3S8Zkx_6TWQHvi0Vr9XvxuhkYAR8vsOPJw@mail.gmail.com>
+Reply-To: nicolas.dichtel@6wind.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Vadim Kochan <vadim4j@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:25185 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752676AbaF3LwQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Jun 2014 07:52:16 -0400
-In-Reply-To: <1404129129-23270-1-git-send-email-dborkman@redhat.com>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:42763 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754207AbaF3MXo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 08:23:44 -0400
+Received: by mail-wi0-f178.google.com with SMTP id n15so5865688wiw.17
+        for <netdev@vger.kernel.org>; Mon, 30 Jun 2014 05:23:43 -0700 (PDT)
+In-Reply-To: <CAMw6YJJYL4ZRrQhB3S8Zkx_6TWQHvi0Vr9XvxuhkYAR8vsOPJw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Only warn if the value is written to alpha or beta. We don't care
-emitting a one-time warning when only reading it.
+Le 30/06/2014 03:00, Vadim Kochan a =C3=A9crit :
+> Hi,
+>
+>
+> The usage of ip does not print netconf in OBJECT :=3D {} list.
+> Is it OK?
+=46eel free to send a patch. If you don't want to do it, I can send one=
+=2E
 
-Reported-by: Jiri Pirko <jpirko@redhat.com>
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- net/sctp/sysctl.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/net/sctp/sysctl.c b/net/sctp/sysctl.c
-index 12c7e01..2e9ada1 100644
---- a/net/sctp/sysctl.c
-+++ b/net/sctp/sysctl.c
-@@ -424,8 +424,9 @@ static int proc_sctp_do_alpha_beta(struct ctl_table *ctl, int write,
- 				   void __user *buffer, size_t *lenp,
- 				   loff_t *ppos)
- {
--	pr_warn_once("Changing rto_alpha or rto_beta may lead to "
--		     "suboptimal rtt/srtt estimations!\n");
-+	if (write)
-+		pr_warn_once("Changing rto_alpha or rto_beta may lead to "
-+			     "suboptimal rtt/srtt estimations!\n");
- 
- 	return proc_dointvec_minmax(ctl, write, buffer, lenp, ppos);
- }
--- 
-1.7.11.7
+Regards,
+Nicolas
