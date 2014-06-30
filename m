@@ -1,70 +1,80 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the net-next tree
-Date: Mon, 30 Jun 2014 12:47:50 +1000
-Message-ID: <20140630124750.0aad0c82@canb.auug.org.au>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH net] igmp: fix the problem when mc leave group
+Date: Mon, 30 Jun 2014 10:50:21 +0800
+Message-ID: <53B0D06D.30908@huawei.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/VJceZM/kZSHofSPljmo4_NY"; protocol="application/pgp-signature"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Octavian Purdila <octavian.purdila@intel.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:55849 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753989AbaF3Cus (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jun 2014 22:50:48 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Sig_/VJceZM/kZSHofSPljmo4_NY
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+The problem was triggered by these steps:
 
-Hi all,
+1) create socket, bind and then setsockopt for add mc group.
+   mreq.imr_multiaddr.s_addr = inet_addr("255.0.0.37");
+   mreq.imr_interface.s_addr = inet_addr("192.168.1.2");
+   setsockopt(sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
 
-After merging the net-next tree, today's linux-next build (powerpc
-ppc64_defconfig) failed like this:
+2) drop the mc group for this socket.
+   mreq.imr_multiaddr.s_addr = inet_addr("255.0.0.37");
+   mreq.imr_interface.s_addr = inet_addr("0.0.0.0");
+   setsockopt(sockfd, IPPROTO_IP, IP_DROP_MEMBERSHIP, &mreq, sizeof(mreq));
 
-In file included from include/net/inet_connection_sock.h:23:0,
-                 from include/linux/tcp.h:24,
-                 from include/net/tcp.h:24,
-                 from net/ipv4/tcp_input.c:72:
-net/ipv4/tcp_input.c: In function 'pr_drop_req':
-include/net/inet_sock.h:77:41: error: 'struct sock_common' has no member na=
-med 'skc_v6_daddr'
- #define ir_v6_rmt_addr  req.__req_common.skc_v6_daddr
-                                         ^
-include/net/sock.h:2273:57: note: in expansion of macro 'ir_v6_rmt_addr'
-  do { if (net_msg_warn && net_ratelimit()) printk(fmt,##args); } while(0)
-                                                         ^
-net/ipv4/tcp_input.c:5889:3: note: in expansion of macro 'LIMIT_NETDEBUG'
-   LIMIT_NETDEBUG(KERN_DEBUG pr_fmt("drop open request from %pI6/%u\n"),
-   ^
+3) and then drop the socket, I found the mc group was still used by the dev:
 
-Caused by commit 1fb6f159fd21 ("tcp: add tcp_conn_request").  This
-build has CONFIG_IPV6 unset.
+   netstat -g
 
-I have used the net-next tree from next-20140627 for today.
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+   Interface       RefCnt Group
+   --------------- ------ ---------------------
+   eth2		   1	  255.0.0.37
 
---Sig_/VJceZM/kZSHofSPljmo4_NY
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
+Normally even though the IP_DROP_MEMBERSHIP return error, the mc group still need
+to be released for the netdev when drop the socket, but this process was broken when
+route default is NULL, the reason is that:
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+The ip_mc_leave_group() will choose the in_dev by the imr_interface.s_addr, if input addr
+is NULL, the default route dev will be chosen, then the ifindex is got from the dev,
+then polling the inet->mc_list and return -ENODEV, but if the default route dev is NULL,
+the in_dev and ifIndex is both NULL, when polling the inet->mc_list, the mc group will be
+released from the mc_list, but the dev didn't dec the refcnt for this mc group, so
+when dropping the socket, the mc_list is NULL and the dev still keep this group.
 
-iQIcBAEBCAAGBQJTsM/fAAoJEMDTa8Ir7ZwVl1oP/jXgyvUq17AfiQBGrn9C+s0x
-UXxFoGgtzjad461wUsvdg6NR6Kgq9FYMDVi1Eu6lkRMvTCNxaR5rOAU9U1TC759X
-5L2F2qhly7bPMlbNlJgssbYtkWYktdBf9uCHYoZUuV4oO2y5t2JisnA65EuMNea8
-OIJjX/JdrklBPUImmih8XfNeJIbf1eFcB6p19GhiXDYyIQJH+Y+ajgXOhAYe/DGz
-Za9r+qdxGnTZCi/Y3zT1swBWLPm4juUPGPJU5ZkJrlLylFcjfClJ8jjnMSH6cqX4
-Lcm0KB+iK/s4+eX0mLwi09k6DQ6fotJmJ8X70y/5jheVLxnJV0bYdx/aT3nJVz2q
-vZim8bWDlgaFJEUG66/F9heNIJhA7AS6/iwP4FTxbT2PWF/j2YDttM+zz4pbi0bu
-yxnCIhyBahWx6v46yeQp/civLXnhfq4yDEovPkV8kBPShCPyCa1JNeJ2PM+qIdRT
-MdnSndKHM+Xr8dU9ZtktRt9py5HHq+mgqic6WKFArYElkv/lbIGcjn8cQwYx+IU8
-84/C+opaaVXetbroLl203A+sg2z9/CW07u7LmauDfpRRcY67vXOs5P/XImmI9bTz
-xiTA3w5J+7739KTVUINMGN7fVLTie7gRKDnGgwSwm7Smuyj+eAGdK2zw0760MfEp
-8D9gcpbPl+duWRtghaVP
-=XcTH
------END PGP SIGNATURE-----
+Fix this by checking the ifindex when polling the mc_list in ip_mc_leave_group(), don't
+release the mc group from the inet->mc_list if the index is 0, leave this work to
+ip_mc_drop_socket().
 
---Sig_/VJceZM/kZSHofSPljmo4_NY--
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+---
+ net/ipv4/igmp.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+index 6748d42..03e0629 100644
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -1950,10 +1950,9 @@ int ip_mc_leave_group(struct sock *sk, struct ip_mreqn *imr)
+ 	     imlp = &iml->next_rcu) {
+ 		if (iml->multi.imr_multiaddr.s_addr != group)
+ 			continue;
+-		if (ifindex) {
+-			if (iml->multi.imr_ifindex != ifindex)
++		if (ifindex || iml->multi.imr_ifindex != ifindex)
+ 				continue;
+-		} else if (imr->imr_address.s_addr && imr->imr_address.s_addr !=
++		else if (imr->imr_address.s_addr && imr->imr_address.s_addr !=
+ 				iml->multi.imr_address.s_addr)
+ 			continue;
+ 
+-- 
+1.8.0
