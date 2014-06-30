@@ -1,79 +1,77 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net v4 1/3] net: libphy: Add phy specific function to
- access mmd phy registers
-Date: Mon, 30 Jun 2014 14:27:42 -0700
-Message-ID: <CAGVrzcZtFfGb+vELbUzVC-=ThqFxrCLKy9RoFoSCJvQXakc0Rg@mail.gmail.com>
-References: <1404092124-18704-1-git-send-email-vbridgers2013@gmail.com> <1404092124-18704-2-git-send-email-vbridgers2013@gmail.com>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH 2/2] openvswitch: Enable tunnel GSO for OVS bridge.
+Date: Tue, 1 Jul 2014 00:53:25 +0300
+Message-ID: <CAJZOPZLDhqkosAVty2TpOx5JrkTwVdn2JhMNY8Jti2pu6jU9xQ@mail.gmail.com>
+References: <1401017985-1574-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Randy Dunlap <rdunlap@infradead.org>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, vbridger@altera.com
-To: Vince Bridgers <vbridgers2013@gmail.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Pravin B Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f177.google.com ([209.85.214.177]:44222 "EHLO
-	mail-ob0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755967AbaF3V2X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 17:28:23 -0400
-Received: by mail-ob0-f177.google.com with SMTP id uy5so9217862obc.22
-        for <netdev@vger.kernel.org>; Mon, 30 Jun 2014 14:28:23 -0700 (PDT)
-In-Reply-To: <1404092124-18704-2-git-send-email-vbridgers2013@gmail.com>
+Received: from mail-qa0-f52.google.com ([209.85.216.52]:33096 "EHLO
+	mail-qa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751571AbaF3Vx0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 17:53:26 -0400
+Received: by mail-qa0-f52.google.com with SMTP id w8so6829853qac.25
+        for <netdev@vger.kernel.org>; Mon, 30 Jun 2014 14:53:25 -0700 (PDT)
+In-Reply-To: <1401017985-1574-1-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Vince,
-
-2014-06-29 18:35 GMT-07:00 Vince Bridgers <vbridgers2013@gmail.com>:
-> libphy was originally written assuming all phy devices support clause 45
-> access extensions to the mmd registers through the indirection registers
-> located within the first 16 phy registers. This assumption is not true
-> in all cases, and one specific example is the Micrel ksz9021 10/100/1000
-> Mbps phy. Using the stmmac driver, accessing the mmd registers to query
-> and configure energy efficient Ethernet (EEE) features yielded unexpected
-> behavior.
+On Sun, May 25, 2014 at 2:39 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
 >
-> This patch adds mmd access functions to the phy driver that can be
-> overriden by the phy specific driver if the phy does not support this
-> mechanism or uses it's own non-standard access mechanism. By default,
-> the IEEE Compatible clause 45 access mechanism described in clause 22
-> is used. With this patch, EEE query/configure functions as expected
-> using the stmmac and the Micrel ksz9021 phy.
+> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+
+
+
+Hi Pravin, ping... this addresses a real life use case where offloads
+didn't come into play, right? can you respin the patch with non-empty
+change-log so people can review/ack it? --> and we'll have upstream
+support for that case.
+
+Or.
+
+
+
 >
-> Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
-
-Just one minor nit before this series can go in
-
-[snip]
-
-> - * phy_read_mmd_indirect - reads data from the MMD registers
-> - * @bus: the target MII bus
-> + * gen_rd_mmd_indirect - reads data from the MMD registers
-> + * @phydev: The PHY device bus
->   * @prtad: MMD Address
->   * @devad: MMD DEVAD
->   * @addr: PHY address on the MII bus
-> @@ -935,18 +935,18 @@ static inline void mmd_phy_indirect(struct mii_bus *bus, int prtad, int devad,
->   * 3) Write reg 13 // MMD Data Command for MMD DEVAD
->   * 3) Read  reg 14 // Read MMD data
->   */
-> -static int phy_read_mmd_indirect(struct mii_bus *bus, int prtad, int devad,
-> -                                int addr)
-> +int gen_rd_mmd_indirect(struct phy_device *phydev, int prtad, int devad,
-> +                       int addr)
->  {
-> -       mmd_phy_indirect(bus, prtad, devad, addr);
-> +       mmd_phy_indirect(phydev->bus, prtad, devad, addr);
+> ---
+>  include/linux/netdev_features.h      | 4 ++++
+>  net/openvswitch/vport-internal_dev.c | 3 ++-
+>  2 files changed, 6 insertions(+), 1 deletion(-)
 >
->         /* Read the content of the MMD's selected register */
-> -       return bus->read(bus, addr, MII_MMD_DATA);
-> +       return phydev->bus->read(phydev->bus, addr, MII_MMD_DATA);
-
-Throughout the PHY library, phy_* prefix means that this function will
-perform the required level of abstraction, that is either using the
-driver defined function, or falling back to the generic one.
-
-I would like to reduce the number of changes involved here and keep
-phy_read_mmd_indirect, but have it check the driver specific
-implementation and fallback to the generic one.
---
-Florian
+> diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
+> index e5a5894..12118a5 100644
+> --- a/include/linux/netdev_features.h
+> +++ b/include/linux/netdev_features.h
+> @@ -152,6 +152,10 @@ enum {
+>  #define NETIF_F_ALL_FCOE       (NETIF_F_FCOE_CRC | NETIF_F_FCOE_MTU | \
+>                                  NETIF_F_FSO)
+>
+> +#define NETIF_F_ALL_ENCAP_GSO   (NETIF_F_GSO_GRE | NETIF_F_GSO_GRE_CSUM | \
+> +                                NETIF_F_GSO_IPIP | NETIF_F_GSO_SIT |     \
+> +                                NETIF_F_GSO_UDP_TUNNEL | NETIF_F_GSO_MPLS)
+> +
+>  /*
+>   * If one device supports one of these features, then enable them
+>   * for all in netdev_increment_features.
+> diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
+> index 789af92..b971610 100644
+> --- a/net/openvswitch/vport-internal_dev.c
+> +++ b/net/openvswitch/vport-internal_dev.c
+> @@ -134,7 +134,8 @@ static void do_setup(struct net_device *netdev)
+>         netdev->tx_queue_len = 0;
+>
+>         netdev->features = NETIF_F_LLTX | NETIF_F_SG | NETIF_F_FRAGLIST |
+> -                          NETIF_F_HIGHDMA | NETIF_F_HW_CSUM | NETIF_F_GSO_SOFTWARE;
+> +                          NETIF_F_HIGHDMA | NETIF_F_HW_CSUM | NETIF_F_GSO_SOFTWARE |
+> +                          NETIF_F_ALL_ENCAP_GSO;
+>
+>         netdev->vlan_features = netdev->features;
+>         netdev->features |= NETIF_F_HW_VLAN_CTAG_TX;
+> --
+> 1.9.1
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
