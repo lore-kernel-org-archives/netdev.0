@@ -1,81 +1,116 @@
-From: Octavian Purdila <octavian.purdila@intel.com>
-Subject: Re: [net-next v2 02/13] tcp: tcp_v[46]_conn_request: fix snt_synack initialization
-Date: Mon, 30 Jun 2014 14:50:22 +0300
-Message-ID: <CAE1zotKXSqy0O+OQq1f+ab7k3hL4ntMwk3CX4pOYUXoVeGjb7A@mail.gmail.com>
-References: <1403705402-14388-1-git-send-email-octavian.purdila@intel.com>
-	<1403705402-14388-3-git-send-email-octavian.purdila@intel.com>
-	<CADVnQykKYPVt-g8WtE29Xu_0Si-Lx_pMxnix4i2BqFhAV9BD8Q@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>, Daniel Lee <longinus00@gmail.com>,
-	Yuchung Cheng <ycheng@google.com>, Jerry Chu <hkchu@google.com>
-To: Neal Cardwell <ncardwell@google.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next 1/2] net: sctp: improve timer slack calculation for transport HBs
+Date: Mon, 30 Jun 2014 13:52:08 +0200
+Message-ID: <1404129129-23270-2-git-send-email-dborkman@redhat.com>
+References: <1404129129-23270-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:43694 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751214AbaF3LuX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 07:50:23 -0400
-Received: by mail-wi0-f174.google.com with SMTP id bs8so5892177wib.13
-        for <netdev@vger.kernel.org>; Mon, 30 Jun 2014 04:50:22 -0700 (PDT)
-In-Reply-To: <CADVnQykKYPVt-g8WtE29Xu_0Si-Lx_pMxnix4i2BqFhAV9BD8Q@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:59766 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752592AbaF3LwN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Jun 2014 07:52:13 -0400
+In-Reply-To: <1404129129-23270-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jun 28, 2014 at 5:16 AM, Neal Cardwell <ncardwell@google.com> wrote:
-> On Wed, Jun 25, 2014 at 10:09 AM, Octavian Purdila
-> <octavian.purdila@intel.com> wrote:
->> Commit 016818d07 (tcp: TCP Fast Open Server - take SYNACK RTT after
->> completing 3WHS) changes the code to only take a snt_synack timestamp
->> when a SYNACK transmit or retransmit succeeds. This behaviour is later
->> broken by commit 843f4a55e (tcp: use tcp_v4_send_synack on first
->> SYN-ACK), as snt_synack is now updated even if tcp_v4_send_synack
->> fails.
->>
->> Also, commit 3a19ce0ee (tcp: IPv6 support for fastopen server) misses
->> the required IPv6 updates for 016818d07.
->>
->> This patch makes sure that snt_synack is updated only when the SYNACK
->> trasnmit/retransmit succeeds, for both IPv4 and IPv6.
->>
->> Cc: Cardwell <ncardwell@google.com>
->> Cc: Daniel Lee <longinus00@gmail.com>
->> Cc: Yuchung Cheng <ycheng@google.com>
->>
->> Signed-off-by: Octavian Purdila <octavian.purdila@intel.com>
->
->> diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
->> index 08ae3da..a962455 100644
->> --- a/net/ipv6/tcp_ipv6.c
->> +++ b/net/ipv6/tcp_ipv6.c
->> @@ -497,6 +497,8 @@ static int tcp_v6_send_synack(struct sock *sk, struct dst_entry *dst,
->>                 skb_set_queue_mapping(skb, queue_mapping);
->>                 err = ip6_xmit(sk, skb, fl6, np->opt, np->tclass);
->>                 err = net_xmit_eval(err);
->> +               if (!tcp_rsk(req)->snt_synack && !err)
->> +                       tcp_rsk(req)->snt_synack = tcp_time_stamp;
->>         }
->
-> Octavian, thanks for finding this issue!
->
+RFC4960, section 8.3 says:
 
-Hi Neal,
+  On an idle destination address that is allowed to heartbeat,
+  it is recommended that a HEARTBEAT chunk is sent once per RTO
+  of that destination address plus the protocol parameter
+  'HB.interval', with jittering of +/- 50% of the RTO value,
+  and exponential backoff of the RTO if the previous HEARTBEAT
+  is unanswered.
 
-> I think we should resolve the inconsistency you have discovered by
-> converging on the approach in Yuchung's 843f4a55e (tcp: use
-> tcp_v4_send_synack on first SYN-ACK), which restores the original
-> behavior of snt_synack from the commit where it was added by Jerry:
-> 9ad7c049f0f79 ("tcp: RFC2988bis + taking RTT sample from 3WHS for the
-> passive open side") in v3.1. In that commit tcp_v4_conn_request() and
-> tcp_v6_conn_request() unconditionally store the time at which the
-> server received the first client SYN in snt_synack:
->
->   tcp_rsk(req)->snt_synack = tcp_time_stamp;
->
-> At Google we have found that behavior very useful because it allows
-> extracting useful performance metrics summarizing how long it took to
-> establish a passive TCP connection.
+Currently, we calculate jitter via sctp_jitter() function first,
+and then add its result to the current RTO for the new timeout:
 
-In that case perhaps it is better to add a new field (or rename the
-existing one if it is not needed anymore) to store the syn arrival
-time? I think it is confusing to store the syn arrival time in the
-"synack sent time" field.
+  TMO = RTO + (RAND() % RTO) - (RTO / 2)
+              `------------------------^-=> sctp_jitter()
+
+Instead, we can just simplify all this by directly calculating:
+
+  TMO = (RTO / 2) + (RAND() % RTO)
+
+With the help of prandom_u32_max(), we don't need to open code
+our own global PRNG, but can instead just make use of the per
+CPU implementation of prandom with better quality numbers. Also,
+we can now spare us the conditional for divide by zero check
+since no div or mod operation needs to be used. Note that
+prandom_u32_max() won't emit the same result as a mod operation,
+but we really don't care here as we only want to have a random
+number scaled into RTO interval.
+
+Note, exponential RTO backoff is handeled elsewhere, namely in
+sctp_do_8_2_transport_strike().
+
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ include/net/sctp/sctp.h | 21 ---------------------
+ net/sctp/transport.c    | 17 +++++++++--------
+ 2 files changed, 9 insertions(+), 29 deletions(-)
+
+diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+index 8e4de46..c2035c9 100644
+--- a/include/net/sctp/sctp.h
++++ b/include/net/sctp/sctp.h
+@@ -388,27 +388,6 @@ static inline int sctp_list_single_entry(struct list_head *head)
+ 	return (head->next != head) && (head->next == head->prev);
+ }
+ 
+-/* Generate a random jitter in the range of -50% ~ +50% of input RTO. */
+-static inline __s32 sctp_jitter(__u32 rto)
+-{
+-	static __u32 sctp_rand;
+-	__s32 ret;
+-
+-	/* Avoid divide by zero. */
+-	if (!rto)
+-		rto = 1;
+-
+-	sctp_rand += jiffies;
+-	sctp_rand ^= (sctp_rand << 12);
+-	sctp_rand ^= (sctp_rand >> 20);
+-
+-	/* Choose random number from 0 to rto, then move to -50% ~ +50%
+-	 * of rto.
+-	 */
+-	ret = sctp_rand % rto - (rto >> 1);
+-	return ret;
+-}
+-
+ /* Break down data chunks at this point.  */
+ static inline int sctp_frag_point(const struct sctp_association *asoc, int pmtu)
+ {
+diff --git a/net/sctp/transport.c b/net/sctp/transport.c
+index 7dd672f..b10e047 100644
+--- a/net/sctp/transport.c
++++ b/net/sctp/transport.c
+@@ -594,15 +594,16 @@ void sctp_transport_burst_reset(struct sctp_transport *t)
+ }
+ 
+ /* What is the next timeout value for this transport? */
+-unsigned long sctp_transport_timeout(struct sctp_transport *t)
++unsigned long sctp_transport_timeout(struct sctp_transport *trans)
+ {
+-	unsigned long timeout;
+-	timeout = t->rto + sctp_jitter(t->rto);
+-	if ((t->state != SCTP_UNCONFIRMED) &&
+-	    (t->state != SCTP_PF))
+-		timeout += t->hbinterval;
+-	timeout += jiffies;
+-	return timeout;
++	/* RTO + timer slack +/- 50% of RTO */
++	unsigned long timeout = (trans->rto >> 1) + prandom_u32_max(trans->rto);
++
++	if (trans->state != SCTP_UNCONFIRMED &&
++	    trans->state != SCTP_PF)
++		timeout += trans->hbinterval;
++
++	return timeout + jiffies;
+ }
+ 
+ /* Reset transport variables to their initial values */
+-- 
+1.7.11.7
