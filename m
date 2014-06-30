@@ -1,51 +1,73 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ipv4: fix a race in ip4_datagram_release_cb()
-Date: Mon, 30 Jun 2014 01:30:49 -0700
-Message-ID: <1404117049.15139.63.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CA+FTKhs45vD66xSQRgijwFjSuy-Mt8EGr3cRv60oCcEnFPKnaQ@mail.gmail.com>
-	   <1402407781.3645.426.camel@edumazet-glaptop2.roam.corp.google.com>
-	   <alpine.DEB.2.02.1406101726390.11647@dtop>
-	   <1402448128.3645.437.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1402449173.3645.440.camel@edumazet-glaptop2.roam.corp.google.com>
-	  <1402450009.3645.444.camel@edumazet-glaptop2.roam.corp.google.com>
-	  <alpine.DEB.2.02.1406281724370.18954@dtop>
-	 <1404110292.15139.42.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <alpine.DEB.2.02.1406300112340.31629@dtop>
+From: Amir Vadai <amirv.mellanox@gmail.com>
+Subject: Re: [PATCH net V1 1/3] net/mlx4_en: Don't use irq_affinity_notifier
+ to track changes in IRQ affinity map
+Date: Mon, 30 Jun 2014 11:34:22 +0300
+Message-ID: <53B1210E.6040409@gmail.com>
+References: <1404032097-5132-1-git-send-email-amirv@mellanox.com>	 <1404032097-5132-2-git-send-email-amirv@mellanox.com> <1404110511.15139.44.camel@edumazet-glaptop2.roam.corp.google.com>
+Reply-To: amirv@mellanox.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Alexey Preobrazhensky <preobr@google.com>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	David Miller <davem@davemloft.net>, paulmck@linux.vnet.ibm.com,
-	netdev@vger.kernel.org, Kostya Serebryany <kcc@google.com>,
-	Dmitry Vyukov <dvyukov@google.com>,
-	Lars Bull <larsbull@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Bruce Curtis <brutus@google.com>,
-	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>
-To: dormando <dormando@rydia.net>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ben Hutchings <ben@decadent.org.uk>, amira@mellanox.com,
+	Yuval Atias <yuvala@mellanox.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f173.google.com ([209.85.212.173]:50487 "EHLO
-	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751231AbaF3Iaz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 04:30:55 -0400
-Received: by mail-wi0-f173.google.com with SMTP id cc10so5564572wib.12
-        for <netdev@vger.kernel.org>; Mon, 30 Jun 2014 01:30:53 -0700 (PDT)
-In-Reply-To: <alpine.DEB.2.02.1406300112340.31629@dtop>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:56209 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751231AbaF3Ie0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 04:34:26 -0400
+Received: by mail-wi0-f179.google.com with SMTP id cc10so5539707wib.6
+        for <netdev@vger.kernel.org>; Mon, 30 Jun 2014 01:34:25 -0700 (PDT)
+In-Reply-To: <1404110511.15139.44.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-06-30 at 01:15 -0700, dormando wrote:
-
-> Heh. You folks have quite insane amounts of output.
+On 6/30/2014 9:41 AM, Eric Dumazet wrote:
+> On Sun, 2014-06-29 at 11:54 +0300, Amir Vadai wrote:
+>> IRQ affinity notifier can only have a single notifier - cpu_rmap
+>> notifier. Can't use it to track changes in IRQ affinity map.
+>> Detect IRQ affinity changes by comparing CPU to current IRQ affinity map
+>> during NAPI poll thread.
 > 
-> I'm now testing a kernel which has the one upstreamed patch + the two not
-> yet in -stable, under 3.10.45. A kernel with ~60% of those patches has
-> been running for 17.5 days so far. Much longer than it normally runs.
+> ...
 > 
-> So, looking pretty decent, still. Thanks for your patience for all of my
-> dumb questions. I'll probably only pipe up again on this issue if I see
-> another crash.
+>> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+>> index 8be7483..ac3dead 100644
+>> --- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+>> +++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+>> @@ -474,15 +474,9 @@ int mlx4_en_poll_tx_cq(struct napi_struct *napi, int budget)
+>>  	/* If we used up all the quota - we're probably not done yet... */
+>>  	if (done < budget) {
+>>  		/* Done for now */
+>> -		cq->mcq.irq_affinity_change = false;
+>>  		napi_complete(napi);
+>>  		mlx4_en_arm_cq(priv, cq);
+>>  		return done;
+>> -	} else if (unlikely(cq->mcq.irq_affinity_change)) {
+>> -		cq->mcq.irq_affinity_change = false;
+>> -		napi_complete(napi);
+>> -		mlx4_en_arm_cq(priv, cq);
+>> -		return 0;
+>>  	}
+>>  	return budget;
+>>  }
+> 
+> It seems nothing is done then for the TX side after this patch ?
+> 
+> You might want to drain whole queue instead of limiting to a 'budget',
+> otherwise, a cpu might be stuck servicing (soft)irq for the TX
+> completion, even if irq affinities say otherwise.
+> 
 
-Thanks _you_ for your patience, reports, and tests !
+TX completions are very quick compared to the skb preparation and
+sending. Which is not the case for RX completions. Because of that, it
+is very easy to reproduce the problem in RX flows, but we never had any
+report of that problem in the TX flow.
+I prefer not to spend time on the TX, since we plan to send a patch soon
+to use the same NAPI for both TX and RX.
+
+Amir
