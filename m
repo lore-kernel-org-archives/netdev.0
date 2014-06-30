@@ -1,42 +1,100 @@
-From: Vince Bridgers <vbridgers2013@gmail.com>
-Subject: Re: [PATCH ethtool V3] Ethtool: Add Altera Triple Speed Ethernet Support
-Date: Sun, 29 Jun 2014 20:52:48 -0500
-Message-ID: <CAOwfj2OKvV+nArF_9rEvFxZuC-XdfL4jf3ST51GO4sgLe8JNHw@mail.gmail.com>
-References: <1401382868-4390-1-git-send-email-vbridgers2013@gmail.com>
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH] net: Performance fix for process_backlog
+Date: Sun, 29 Jun 2014 19:21:37 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1406291915560.4914@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Vince Bridgers <vbridgers2013@gmail.com>
-To: Ben Hutchings <ben@decadent.org.uk>, bwh@kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f52.google.com ([74.125.82.52]:57804 "EHLO
-	mail-wg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753407AbaF3Bwt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jun 2014 21:52:49 -0400
-Received: by mail-wg0-f52.google.com with SMTP id b13so7377397wgh.11
-        for <netdev@vger.kernel.org>; Sun, 29 Jun 2014 18:52:48 -0700 (PDT)
-In-Reply-To: <1401382868-4390-1-git-send-email-vbridgers2013@gmail.com>
+Received: from mail-ob0-f201.google.com ([209.85.214.201]:45803 "EHLO
+	mail-ob0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753794AbaF3CVj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jun 2014 22:21:39 -0400
+Received: by mail-ob0-f201.google.com with SMTP id nu7so1729967obb.0
+        for <netdev@vger.kernel.org>; Sun, 29 Jun 2014 19:21:38 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+In process_backlog the input_pkt_queue is only checked once for new
+packets and quota is artificially reduced to reflect precisely the
+number of packets on the input_pkt_queue so that the loop exits
+appropriately.
 
-On Thu, May 29, 2014 at 12:01 PM, Vince Bridgers
-<vbridgers2013@gmail.com> wrote:
-> This patch adds Altera Triple Speed Ethernet support for dumping
-> formatted register output from Ethtool.
->
-> Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
-> ---
-> V2: Add version check per review comments
-> V3: Fix space before tab
-> ---
->
+This patch changes the behavior to be more straightforward and
+less convoluted. Packets are processed until either the quota
+is met or there are no more packets to process.
 
-<snip>
+This patch seems to provide a small, but noticeable performance
+improvement.
 
-Any chance to review this patch for inclusion into ethtool?
+Performance data using super_netperf TCP_RR with 200 flows:
 
-All the best,
+Before fix:
 
-Vince
+88.06% CPU utilization
+125/190/309 90/95/99% latencies
+1.46808e+06 tps
+
+With fix:
+
+87.73% CPU utilization
+122/183/296 90/95/99% latencies
+1.4921e+06 tps
+
+Signed-off-by: Tom Herbert <therbert@google.com>
+---
+ net/core/dev.c | 23 +++++++++++------------
+ 1 file changed, 11 insertions(+), 12 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index a04b12f..136ce3e 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4227,9 +4227,8 @@ static int process_backlog(struct napi_struct *napi, int quota)
+ #endif
+ 	napi->weight = weight_p;
+ 	local_irq_disable();
+-	while (work < quota) {
++	while (1) {
+ 		struct sk_buff *skb;
+-		unsigned int qlen;
+ 
+ 		while ((skb = __skb_dequeue(&sd->process_queue))) {
+ 			local_irq_enable();
+@@ -4243,24 +4242,24 @@ static int process_backlog(struct napi_struct *napi, int quota)
+ 		}
+ 
+ 		rps_lock(sd);
+-		qlen = skb_queue_len(&sd->input_pkt_queue);
+-		if (qlen)
+-			skb_queue_splice_tail_init(&sd->input_pkt_queue,
+-						   &sd->process_queue);
+-
+-		if (qlen < quota - work) {
++		if (skb_queue_empty(&sd->input_pkt_queue)) {
+ 			/*
+ 			 * Inline a custom version of __napi_complete().
+ 			 * only current cpu owns and manipulates this napi,
+-			 * and NAPI_STATE_SCHED is the only possible flag set on backlog.
+-			 * we can use a plain write instead of clear_bit(),
++			 * and NAPI_STATE_SCHED is the only possible flag set
++			 * on backlog.
++			 * We can use a plain write instead of clear_bit(),
+ 			 * and we dont need an smp_mb() memory barrier.
+ 			 */
+ 			list_del(&napi->poll_list);
+ 			napi->state = 0;
++			rps_unlock(sd);
++
++			break;
++		} else
++			skb_queue_splice_tail_init(&sd->input_pkt_queue,
++						   &sd->process_queue);
+ 
+-			quota = work + qlen;
+-		}
+ 		rps_unlock(sd);
+ 	}
+ 	local_irq_enable();
+-- 
+2.0.0.526.g5318336
