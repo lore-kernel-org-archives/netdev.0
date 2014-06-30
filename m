@@ -1,35 +1,62 @@
-From: vadimk <vadim4j@gmail.com>
-Subject: [PATCH] ip: Added missing usage for netconf object
-Date: Mon, 30 Jun 2014 17:37:50 +0300
-Message-ID: <1404139070-14177-1-git-send-email-vadim4j@gmail.com>
-Cc: vadimk <vadim4j@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f51.google.com ([209.85.215.51]:49510 "EHLO
-	mail-la0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751223AbaF3OoY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 10:44:24 -0400
-Received: by mail-la0-f51.google.com with SMTP id mc6so4908140lab.38
-        for <netdev@vger.kernel.org>; Mon, 30 Jun 2014 07:44:23 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Edward Allcutt <edward.allcutt@openmarket.com>
+Subject: [PATCH] ipv4: icmp: Fix pMTU handling for rare case
+Date: Mon, 30 Jun 2014 16:16:02 +0100
+Message-ID: <1404141362-21015-1-git-send-email-edward.allcutt@openmarket.com>
+Cc: linux-kernel@vger.kernel.org,
+	Edward Allcutt <edward.allcutt@openmarket.com>
+To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
----
- ip/ip.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Some older router implementations still send Fragmentation Needed
+errors with the Next-Hop MTU field set to zero. This is explicitly
+described as an eventuality that hosts must deal with by the
+standard (RFC 1191) since older standards specified that those
+bits must be zero.
 
-diff --git a/ip/ip.c b/ip/ip.c
-index 813fabd..739b88d 100644
---- a/ip/ip.c
-+++ b/ip/ip.c
-@@ -45,7 +45,7 @@ static void usage(void)
- "       ip [ -force ] -batch filename\n"
- "where  OBJECT := { link | addr | addrlabel | route | rule | neigh | ntable |\n"
- "                   tunnel | tuntap | maddr | mroute | mrule | monitor | xfrm |\n"
--"                   netns | l2tp | tcp_metrics | token }\n"
-+"                   netns | l2tp | tcp_metrics | token | netconf }\n"
- "       OPTIONS := { -V[ersion] | -s[tatistics] | -d[etails] | -r[esolve] |\n"
- "                    -f[amily] { inet | inet6 | ipx | dnet | bridge | link } |\n"
- "                    -4 | -6 | -I | -D | -B | -0 |\n"
+Linux had a generic (for all of IPv4) implementation of the algorithm
+described in the RFC for searching a list of MTU plateaus for a good
+value. Commit 46517008e116 ("ipv4: Kill ip_rt_frag_needed().")
+removed this as part of the changes to remove the routing cache.
+Subsequently any Fragmentation Needed packet with a zero Next-Hop
+MTU has been discarded without being passed to the per-protocol
+handlers or notifying userspace for raw sockets.
+
+When there is a router which does not implement RFC 1191 on an
+MTU limited path then this results in stalled connections since
+large packets are discarded and the local protocols are not
+notified so they never attempt to lower the pMTU.
+
+One example I have seen is an OpenBSD router terminating IPSec
+tunnels. It's worth pointing out that this case is distinct from
+the BSD 4.2 bug which incorrectly calculated the Next-Hop MTU
+since the commit in question dismissed that as a valid concern.
+
+All of the per-protocols handlers implement the simple approach from
+RFC 1191 of immediately falling back to the minimum value. Although
+this is sub-optimal it is vastly preferable to connections hanging
+indefinitely.
+
+Remove the Next-Hop MTU != 0 check and allow such packets
+to follow the normal path.
+
+Fixes: 46517008e116 ("ipv4: Kill ip_rt_frag_needed().")
+Signed-off-by: Edward Allcutt <edward.allcutt@openmarket.com>
+
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index 79c3d94..42b7bcf 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -739,8 +739,6 @@ static void icmp_unreach(struct sk_buff *skb)
+ 				/* fall through */
+ 			case 0:
+ 				info = ntohs(icmph->un.frag.mtu);
+-				if (!info)
+-					goto out;
+ 			}
+ 			break;
+ 		case ICMP_SR_FAILED:
 -- 
-2.0.1
+2.0.0
