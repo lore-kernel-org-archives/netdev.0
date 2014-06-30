@@ -1,32 +1,34 @@
 From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH net-next] xfrm4: Remove duplicate semicolon
-Date: Mon, 30 Jun 2014 11:20:20 +0200
-Message-ID: <20140630092020.GP32371@secunet.com>
-References: <1403957564-6069-1-git-send-email-christoph.paasch@uclouvain.be>
+Subject: Re: [PATCH ipsec] xfrm: Fix installation of AH IPsec SAs
+Date: Mon, 30 Jun 2014 11:27:46 +0200
+Message-ID: <20140630092745.GQ32371@secunet.com>
+References: <53AC1C4D.3080305@strongswan.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Christoph Paasch <christoph.paasch@uclouvain.be>
+Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Fan Du <fan.du@windriver.com>,
+	Andreas Steffen <andreas.steffen@strongswan.org>
+To: Tobias Brunner <tobias@strongswan.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:58524 "EHLO a.mx.secunet.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:58740 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751514AbaF3JU0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 30 Jun 2014 05:20:26 -0400
+	id S1751726AbaF3J14 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Jun 2014 05:27:56 -0400
 Content-Disposition: inline
-In-Reply-To: <1403957564-6069-1-git-send-email-christoph.paasch@uclouvain.be>
+In-Reply-To: <53AC1C4D.3080305@strongswan.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jun 28, 2014 at 02:12:44PM +0200, Christoph Paasch wrote:
-> 3328715e6c1fc (xfrm4: Add IPsec protocol multiplexer) adds a
-> duplicate semicolon after the return-statement.
-> 
-> Although it has no negative impact, the second semicolon should be
-> removed.
-> 
-> Cc: Steffen Klassert <steffen.klassert@secunet.com>
-> Cc: Herbert Xu <herbert@gondor.apana.org.au>
-> Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
+On Thu, Jun 26, 2014 at 03:12:45PM +0200, Tobias Brunner wrote:
+> The SPI check introduced in ea9884b3acf3311c8a11db67bfab21773f6f82ba
+> was intended for IPComp SAs but actually prevented AH SAs from getting
+> installed (depending on the SPI).
 
-Applied to ipsec-next, thanks!
+Yes, this patch was apparently wrong.
+
+> 
+> Fixes: ea9884b3acf3 ("xfrm: check user specified spi for IPComp")
+> Cc: Fan Du <fan.du@windriver.com>
+> Signed-off-by: Tobias Brunner <tobias@strongswan.org>
+
+Applied to the ipsec tree, thanks a lot Tobias!
