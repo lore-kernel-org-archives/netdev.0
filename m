@@ -1,76 +1,39 @@
-From: Christophe Gouault <christophe.gouault@6wind.com>
-Subject: IPsec policy database customization proposal
-Date: Mon, 30 Jun 2014 14:50:18 +0200
-Message-ID: <CADdy8Hq=Pi2PwuA4JLhd2smV7FKSwFLGCDvbCpviSqxhFaKTfg@mail.gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: [PATCH net-next 0/3] net: sctp: Optimisations to sctp command queue
+ code
+Date: Mon, 30 Jun 2014 13:00:57 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1726977C@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Steffen Klassert <steffen.klassert@secunet.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "David S. Miller" <davem@davemloft.net>
+To: Network Development <netdev@vger.kernel.org>,
+	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f169.google.com ([209.85.223.169]:53401 "EHLO
-	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752811AbaF3MuT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 08:50:19 -0400
-Received: by mail-ie0-f169.google.com with SMTP id at1so6950502iec.28
-        for <netdev@vger.kernel.org>; Mon, 30 Jun 2014 05:50:18 -0700 (PDT)
+Received: from mx0.aculab.com ([213.249.233.131]:56221 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752609AbaF3NB4 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 09:01:56 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 12098-05 for <netdev@vger.kernel.org>;
+ Mon, 30 Jun 2014 14:01:47 +0100 (BST)
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi IPsec and network maintainers,
+These 3 patches optimise the code that processes sctp's command queue.
+(A list of 'tasks' to be performed after the rest of the chunk processing.)
 
-After proposing a patchset to netdev (xfrm: scalability enhancements
-for policy database) and discussing with Steffen Klassert, we agree on
-the fact that the SPD lookup algorithm needs performance and
-scalability improvements: SPs with non-prefixed selectors are
-optimized through a hash table, but other SPs (the majority) are
-stored in a sorted chained list, which does not scale. Additionally a
-flowcache is used, and is known not to scale.
+1) Inline all the functions from command.c
+2) Remove the memset() calls used to zero a word-sized union.
+3) Use pointers instead of array indexes.
 
-The bottleneck is the SPD lookup by selector (configuration and lookup itself).
+The combined changes reduce the code size (amd64) by a few kb.
 
-Unfortunately, there is no all-in-one multi-field classifier that
-would behave well in all situations. However, various classifiers
-exist that are fitted to this or that use case. Therefore, I suggest
-the following approach: adding hooks in the IPsec SPD, so that one can
-dynamically register a custom SPD implementation ("SPD driver") fitted
-to its use case, typically by loading a kernel module.
+I'm not 100% convinced that the zeroing done in patch 2 is needed at all.
+On BE systems it is likely to generate more code than on LE ones.
+In fact it might be best to change the union to only contain 'long' sized
+items.
 
-This obviously needs discussion before starting any development, so
-here is a more detailed proposal:
-
-- Define the minimum handlers to manipulate the SPD lookup by selector (alloc,
-  insert, delete, flush, lookup_bysel, lookup_byflow, destroy...).
-- export a register/unregister function, so that an SPD implementation may
-  register/unregister its handlers.
-- Separate the SPD common code from the SPD lookup by selector code. Keep the
-  policy_all and policy_byidx tables in the common code, extract the current
-  policy_inexact + policy_bydst implementation as an SPD driver. It is the
-  default implementation when no SPD driver is registered.
-- *struct xfrm_policy* must offer a private area for SPD driver data (void * or
-  opaque place holder of fixed size or opaque place holder of size specific to
-  driver implementation).
-- since we keep the current implementation as the default, the policy_inexact +
-  policy_bydst database heads (currently stored in netns->xfrm and xfrm_policy
-  link fields (bydst and flo) may remain at their current location.
-- SPD drivers needing some configuration may export their specific
-  configuration API (/proc, netlink...)
-- as a first step, we only support one registered handler at a time.
-- as a first step, an SPD driver can only be loaded or unloaded if the SPD is
-  empty (return EBUSY otherwise).
-
-Remarks:
-
-- this architecture is open to later evolutions such as supporting the
-  registration of several handlers, dynamically listing/selecting/switching
-  drivers via netlink messages (to support dynamic change of SPD implementation
-  according to SPD content).
-- loading/unloading or changing SPD drivers with a non empty SPD implies to
-  rebuild the SPD from the SP list. This may lock the SPD for a rather long
-  time.
-
-I would like your opinion/questions/advices.
-
-Best Regards,
-Christophe
+	David
