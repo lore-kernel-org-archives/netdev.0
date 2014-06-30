@@ -1,22 +1,24 @@
-From: Peter Christensen <kernel+netdev@ordbogen.com>
-Subject: (unknown)
-Date: Sun, 29 Jun 2014 22:59:25 +0200
-Message-ID: <20140629225925.5125f951@tyr>
+From: Vadim Kochan <vadim4j@gmail.com>
+Subject: ip: netconf is not printed in usage output
+Date: Mon, 30 Jun 2014 04:00:26 +0300
+Message-ID: <CAMw6YJJYL4ZRrQhB3S8Zkx_6TWQHvi0Vr9XvxuhkYAR8vsOPJw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=UTF-8
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.ordbogen.com ([86.58.170.13]:32951 "EHLO mail.ordbogen.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752940AbaF2VFv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 29 Jun 2014 17:05:51 -0400
-Received: from tyr (x1-6-50-3d-e5-df-ec-14.cpe.webspeed.dk [195.41.44.29])
-	(using TLSv1 with cipher DHE-RSA-AES128-SHA (128/128 bits))
-	(No client certificate requested)
-	by mail.ordbogen.com (Postfix) with ESMTPSA id CF923B2FE9
-	for <netdev@vger.kernel.org>; Sun, 29 Jun 2014 22:59:25 +0200 (CEST)
+Received: from mail-qa0-f41.google.com ([209.85.216.41]:45612 "EHLO
+	mail-qa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753316AbaF3BA1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jun 2014 21:00:27 -0400
+Received: by mail-qa0-f41.google.com with SMTP id cm18so5902550qab.14
+        for <netdev@vger.kernel.org>; Sun, 29 Jun 2014 18:00:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-subscribe netdev
+Hi,
+
+
+The usage of ip does not print netconf in OBJECT := {} list.
+Is it OK?
+
+Regards,
