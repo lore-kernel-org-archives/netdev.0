@@ -1,460 +1,155 @@
 From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next v2 3/4] be2net: create optimal number of queues on SR-IOV config
-Date: Mon, 30 Jun 2014 13:01:32 +0530
-Message-ID: <1404113493-14851-4-git-send-email-sathya.perla@emulex.com>
+Subject: [PATCH net-next v2 2/4] be2net: read VF's capabilities from GET_PROFILE_CONFIG cmd
+Date: Mon, 30 Jun 2014 13:01:31 +0530
+Message-ID: <1404113493-14851-3-git-send-email-sathya.perla@emulex.com>
 References: <1404113493-14851-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:25108 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752808AbaF3H3G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 03:29:06 -0400
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:13553 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752707AbaF3H3E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 03:29:04 -0400
 In-Reply-To: <1404113493-14851-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Vasundhara Volam <vasundhara.volam@emulex.com>
 
-If SR-IOV is enabled in the adapter, the FW distributes queue resources
-evenly across the PF and it's VFs. If the user is not interested in enabling
-VFs, the queues set aside for VFs are wasted.
-This patch adds support for the PF driver to re-configure the resource
-distribution in FW based on the number of VFs enabled by the user.
-This also allows for supporting RSS queues on VFs, when less number of VFs
-are enabled per PF. When maximum number of VFs are enabled, each VF typically
-gets only one RXQ.
+The PF driver must query the FW for VF's interface capabilities
+to know if the VF is RSS capable or not.
+This patch is in preparation for enabling RSS on VFs on Skyhawk-R.
 
 Signed-off-by: Vasundhara Volam <vasundhara.volam@emulex.com>
 Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be.h      |    8 +-
- drivers/net/ethernet/emulex/benet/be_cmds.c |  108 ++++++++++++++++++----
- drivers/net/ethernet/emulex/benet/be_cmds.h |    8 +-
- drivers/net/ethernet/emulex/benet/be_main.c |  129 +++++++++++++++++----------
- 4 files changed, 178 insertions(+), 75 deletions(-)
+ drivers/net/ethernet/emulex/benet/be.h      |    1 +
+ drivers/net/ethernet/emulex/benet/be_cmds.c |   37 +++++++++++++++++++++++---
+ drivers/net/ethernet/emulex/benet/be_cmds.h |    1 +
+ drivers/net/ethernet/emulex/benet/be_main.c |    1 +
+ 4 files changed, 35 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index 155ec2c..f3823df 100644
+index 2e7c555..155ec2c 100644
 --- a/drivers/net/ethernet/emulex/benet/be.h
 +++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -501,6 +501,7 @@ struct be_adapter {
- 	u32 flash_status;
- 	struct completion et_cmd_compl;
+@@ -411,6 +411,7 @@ struct be_resources {
+ 	u16 max_vlans;		/* Number of vlans supported */
+ 	u16 max_evt_qs;
+ 	u32 if_cap_flags;
++	u32 vf_if_cap_flags;	/* VF if capability flags */
+ };
  
-+	struct be_resources pool_res;	/* resources available for the port */
- 	struct be_resources res;	/* resources available for the func */
- 	u16 num_vfs;			/* Number of VFs provisioned by PF */
- 	u8 virtfn;
-@@ -524,9 +525,8 @@ struct be_adapter {
- 
- #define be_physfn(adapter)		(!adapter->virtfn)
- #define be_virtfn(adapter)		(adapter->virtfn)
--#define	sriov_enabled(adapter)		(adapter->num_vfs > 0)
--#define sriov_want(adapter)             (be_physfn(adapter) &&	\
--					 (num_vfs || pci_num_vf(adapter->pdev)))
-+#define sriov_enabled(adapter)		(adapter->num_vfs > 0)
-+
- #define for_all_vfs(adapter, vf_cfg, i)					\
- 	for (i = 0, vf_cfg = &adapter->vf_cfg[i]; i < adapter->num_vfs;	\
- 		i++, vf_cfg++)
-@@ -537,7 +537,7 @@ struct be_adapter {
- #define be_max_vlans(adapter)		(adapter->res.max_vlans)
- #define be_max_uc(adapter)		(adapter->res.max_uc_mac)
- #define be_max_mc(adapter)		(adapter->res.max_mcast_mac)
--#define be_max_vfs(adapter)		(adapter->res.max_vfs)
-+#define be_max_vfs(adapter)		(adapter->pool_res.max_vfs)
- #define be_max_rss(adapter)		(adapter->res.max_rss_qs)
- #define be_max_txqs(adapter)		(adapter->res.max_tx_qs)
- #define be_max_prio_txqs(adapter)	(adapter->res.max_prio_tx_qs)
+ struct rss_info {
 diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index 68d2006..9904bbf 100644
+index 0e2f6e1..68d2006 100644
 --- a/drivers/net/ethernet/emulex/benet/be_cmds.c
 +++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -3523,38 +3523,39 @@ err:
+@@ -3313,15 +3313,28 @@ err:
  	return status;
  }
  
--int be_cmd_set_profile_config(struct be_adapter *adapter, void *desc,
--			      int size, u8 version, u8 domain)
-+/* Will use MBOX only if MCCQ has not been created */
-+static int be_cmd_set_profile_config(struct be_adapter *adapter, void *desc,
-+				     int size, int count, u8 version, u8 domain)
- {
- 	struct be_cmd_req_set_profile_config *req;
--	struct be_mcc_wrb *wrb;
-+	struct be_mcc_wrb wrb = {0};
-+	struct be_dma_mem cmd;
- 	int status;
- 
--	spin_lock_bh(&adapter->mcc_lock);
--
--	wrb = wrb_from_mccq(adapter);
--	if (!wrb) {
--		status = -EBUSY;
--		goto err;
--	}
-+	memset(&cmd, 0, sizeof(struct be_dma_mem));
-+	cmd.size = sizeof(struct be_cmd_req_set_profile_config);
-+	cmd.va = pci_alloc_consistent(adapter->pdev, cmd.size, &cmd.dma);
-+	if (!cmd.va)
-+		return -ENOMEM;
- 
--	req = embedded_payload(wrb);
-+	req = cmd.va;
- 	be_wrb_cmd_hdr_prepare(&req->hdr, CMD_SUBSYSTEM_COMMON,
--			       OPCODE_COMMON_SET_PROFILE_CONFIG, sizeof(*req),
--			       wrb, NULL);
-+			       OPCODE_COMMON_SET_PROFILE_CONFIG, cmd.size,
-+			       &wrb, &cmd);
- 	req->hdr.version = version;
- 	req->hdr.domain = domain;
--	req->desc_count = cpu_to_le32(1);
-+	req->desc_count = cpu_to_le32(count);
- 	memcpy(req->desc, desc, size);
- 
--	status = be_mcc_notify_wait(adapter);
--err:
--	spin_unlock_bh(&adapter->mcc_lock);
-+	status = be_cmd_notify_wait(adapter, &wrb);
+-static struct be_nic_res_desc *be_get_nic_desc(u8 *buf, u32 desc_count)
++/* Descriptor type */
++enum {
++	FUNC_DESC = 1,
++	VFT_DESC = 2
++};
 +
-+	if (cmd.va)
-+		pci_free_consistent(adapter->pdev, cmd.size, cmd.va, cmd.dma);
- 	return status;
- }
- 
- /* Mark all fields invalid */
--void be_reset_nic_desc(struct be_nic_res_desc *nic)
-+static void be_reset_nic_desc(struct be_nic_res_desc *nic)
++static struct be_nic_res_desc *be_get_nic_desc(u8 *buf, u32 desc_count,
++					       int desc_type)
  {
- 	memset(nic, 0, sizeof(*nic));
- 	nic->unicast_mac_count = 0xFFFF;
-@@ -3575,9 +3576,20 @@ void be_reset_nic_desc(struct be_nic_res_desc *nic)
- 	nic->wol_param = 0x0F;
- 	nic->tunnel_iface_count = 0xFFFF;
- 	nic->direct_tenant_iface_count = 0xFFFF;
-+	nic->bw_min = 0xFFFFFFFF;
- 	nic->bw_max = 0xFFFFFFFF;
+ 	struct be_res_desc_hdr *hdr = (struct be_res_desc_hdr *)buf;
++	struct be_nic_res_desc *nic;
+ 	int i;
+ 
+ 	for (i = 0; i < desc_count; i++) {
+ 		if (hdr->desc_type == NIC_RESOURCE_DESC_TYPE_V0 ||
+-		    hdr->desc_type == NIC_RESOURCE_DESC_TYPE_V1)
+-			return (struct be_nic_res_desc *)hdr;
++		    hdr->desc_type == NIC_RESOURCE_DESC_TYPE_V1) {
++			nic = (struct be_nic_res_desc *)hdr;
++			if (desc_type == FUNC_DESC ||
++			    (desc_type == VFT_DESC &&
++			     nic->flags & (1 << VFT_SHIFT)))
++				return nic;
++		}
+ 
+ 		hdr->desc_len = hdr->desc_len ? : RESOURCE_DESC_SIZE_V0;
+ 		hdr = (void *)hdr + hdr->desc_len;
+@@ -3329,6 +3342,16 @@ static struct be_nic_res_desc *be_get_nic_desc(u8 *buf, u32 desc_count)
+ 	return NULL;
  }
  
-+/* Mark all fields invalid */
-+static void be_reset_pcie_desc(struct be_pcie_res_desc *pcie)
++static struct be_nic_res_desc *be_get_vft_desc(u8 *buf, u32 desc_count)
 +{
-+	memset(pcie, 0, sizeof(*pcie));
-+	pcie->sriov_state = 0xFF;
-+	pcie->pf_state = 0xFF;
-+	pcie->pf_type = 0xFF;
-+	pcie->num_vfs = 0xFFFF;
++	return be_get_nic_desc(buf, desc_count, VFT_DESC);
 +}
 +
- int be_cmd_config_qos(struct be_adapter *adapter, u32 max_rate, u16 link_speed,
- 		      u8 domain)
- {
-@@ -3608,7 +3620,63 @@ int be_cmd_config_qos(struct be_adapter *adapter, u32 max_rate, u16 link_speed,
- 
- 	return be_cmd_set_profile_config(adapter, &nic_desc,
- 					 nic_desc.hdr.desc_len,
--					 version, domain);
-+					 1, version, domain);
++static struct be_nic_res_desc *be_get_func_nic_desc(u8 *buf, u32 desc_count)
++{
++	return be_get_nic_desc(buf, desc_count, FUNC_DESC);
 +}
 +
-+int be_cmd_set_sriov_config(struct be_adapter *adapter,
-+			    struct be_resources res, u16 num_vfs)
-+{
-+	struct {
-+		struct be_pcie_res_desc pcie;
-+		struct be_nic_res_desc nic_vft;
-+	} __packed desc;
-+	u16 vf_q_count;
-+
-+	if (BEx_chip(adapter) || lancer_chip(adapter))
-+		return 0;
-+
-+	/* PF PCIE descriptor */
-+	be_reset_pcie_desc(&desc.pcie);
-+	desc.pcie.hdr.desc_type = PCIE_RESOURCE_DESC_TYPE_V1;
-+	desc.pcie.hdr.desc_len = RESOURCE_DESC_SIZE_V1;
-+	desc.pcie.flags = (1 << IMM_SHIFT) | (1 << NOSV_SHIFT);
-+	desc.pcie.pf_num = adapter->pdev->devfn;
-+	desc.pcie.sriov_state = num_vfs ? 1 : 0;
-+	desc.pcie.num_vfs = cpu_to_le16(num_vfs);
-+
-+	/* VF NIC Template descriptor */
-+	be_reset_nic_desc(&desc.nic_vft);
-+	desc.nic_vft.hdr.desc_type = NIC_RESOURCE_DESC_TYPE_V1;
-+	desc.nic_vft.hdr.desc_len = RESOURCE_DESC_SIZE_V1;
-+	desc.nic_vft.flags = (1 << VFT_SHIFT) | (1 << IMM_SHIFT) |
-+				(1 << NOSV_SHIFT);
-+	desc.nic_vft.pf_num = adapter->pdev->devfn;
-+	desc.nic_vft.vf_num = 0;
-+
-+	if (num_vfs && res.vf_if_cap_flags & BE_IF_FLAGS_RSS) {
-+		/* If number of VFs requested is 8 less than max supported,
-+		 * assign 8 queue pairs to the PF and divide the remaining
-+		 * resources evenly among the VFs
-+		 */
-+		if (num_vfs < (be_max_vfs(adapter) - 8))
-+			vf_q_count = (res.max_rss_qs - 8) / num_vfs;
-+		else
-+			vf_q_count = res.max_rss_qs / num_vfs;
-+
-+		desc.nic_vft.rq_count = cpu_to_le16(vf_q_count);
-+		desc.nic_vft.txq_count = cpu_to_le16(vf_q_count);
-+		desc.nic_vft.rssq_count = cpu_to_le16(vf_q_count - 1);
-+		desc.nic_vft.cq_count = cpu_to_le16(3 * vf_q_count);
-+	} else {
-+		desc.nic_vft.txq_count = cpu_to_le16(1);
-+		desc.nic_vft.rq_count = cpu_to_le16(1);
-+		desc.nic_vft.rssq_count = cpu_to_le16(0);
-+		/* One CQ for each TX, RX and MCCQ */
-+		desc.nic_vft.cq_count = cpu_to_le16(3);
-+	}
-+
-+	return be_cmd_set_profile_config(adapter, &desc,
-+					 2 * RESOURCE_DESC_SIZE_V1, 2, 1, 0);
- }
+ static struct be_pcie_res_desc *be_get_pcie_desc(u8 devfn, u8 *buf,
+ 						 u32 desc_count)
+ {
+@@ -3424,7 +3447,7 @@ int be_cmd_get_func_config(struct be_adapter *adapter, struct be_resources *res)
+ 		u32 desc_count = le32_to_cpu(resp->desc_count);
+ 		struct be_nic_res_desc *desc;
  
- int be_cmd_manage_iface(struct be_adapter *adapter, u32 iface, u8 op)
-@@ -3660,7 +3728,7 @@ int be_cmd_set_vxlan_port(struct be_adapter *adapter, __be16 port)
- 	}
+-		desc = be_get_nic_desc(resp->func_param, desc_count);
++		desc = be_get_func_nic_desc(resp->func_param, desc_count);
+ 		if (!desc) {
+ 			status = -EINVAL;
+ 			goto err;
+@@ -3446,6 +3469,7 @@ int be_cmd_get_profile_config(struct be_adapter *adapter,
+ {
+ 	struct be_cmd_resp_get_profile_config *resp;
+ 	struct be_cmd_req_get_profile_config *req;
++	struct be_nic_res_desc *vf_res;
+ 	struct be_pcie_res_desc *pcie;
+ 	struct be_port_res_desc *port;
+ 	struct be_nic_res_desc *nic;
+@@ -3486,10 +3510,13 @@ int be_cmd_get_profile_config(struct be_adapter *adapter,
+ 	if (port)
+ 		adapter->mc_type = port->mc_type;
  
- 	return be_cmd_set_profile_config(adapter, &port_desc,
--					 RESOURCE_DESC_SIZE_V1, 1, 0);
-+					 RESOURCE_DESC_SIZE_V1, 1, 1, 0);
- }
+-	nic = be_get_nic_desc(resp->func_param, desc_count);
++	nic = be_get_func_nic_desc(resp->func_param, desc_count);
+ 	if (nic)
+ 		be_copy_nic_desc(res, nic);
  
- int be_cmd_get_if_id(struct be_adapter *adapter, struct be_vf_cfg *vf_cfg,
++	vf_res = be_get_vft_desc(resp->func_param, desc_count);
++	if (vf_res)
++		res->vf_if_cap_flags = vf_res->cap_flags;
+ err:
+ 	if (cmd.va)
+ 		pci_free_consistent(adapter->pdev, cmd.size, cmd.va, cmd.dma);
 diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index 7e589d6..4bad195 100644
+index 3e0a6b2..7e589d6 100644
 --- a/drivers/net/ethernet/emulex/benet/be_cmds.h
 +++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -1963,8 +1963,8 @@ struct be_cmd_req_set_profile_config {
- 	struct be_cmd_req_hdr hdr;
- 	u32 rsvd;
- 	u32 desc_count;
--	u8 desc[RESOURCE_DESC_SIZE_V1];
--};
-+	u8 desc[2 * RESOURCE_DESC_SIZE_V1];
-+} __packed;
+@@ -1835,6 +1835,7 @@ struct be_cmd_req_set_ext_fat_caps {
+ #define PORT_RESOURCE_DESC_TYPE_V1		0x55
+ #define MAX_RESOURCE_DESC			264
  
- struct be_cmd_resp_set_profile_config {
- 	struct be_cmd_resp_hdr hdr;
-@@ -2158,8 +2158,6 @@ int be_cmd_get_func_config(struct be_adapter *adapter,
- 			   struct be_resources *res);
- int be_cmd_get_profile_config(struct be_adapter *adapter,
- 			      struct be_resources *res, u8 domain);
--int be_cmd_set_profile_config(struct be_adapter *adapter, void *desc,
--			      int size, u8 version, u8 domain);
- int be_cmd_get_active_profile(struct be_adapter *adapter, u16 *profile);
- int be_cmd_get_if_id(struct be_adapter *adapter, struct be_vf_cfg *vf_cfg,
- 		     int vf_num);
-@@ -2169,3 +2167,5 @@ int be_cmd_set_logical_link_config(struct be_adapter *adapter,
- 					  int link_state, u8 domain);
- int be_cmd_set_vxlan_port(struct be_adapter *adapter, __be16 port);
- int be_cmd_manage_iface(struct be_adapter *adapter, u32 iface, u8 op);
-+int be_cmd_set_sriov_config(struct be_adapter *adapter,
-+			    struct be_resources res, u16 num_vfs);
++#define VFT_SHIFT				3	/* VF template */
+ #define IMM_SHIFT				6	/* Immediate */
+ #define NOSV_SHIFT				7	/* No save */
+ 
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 474291e..5ac9d13 100644
+index 6822b3d..474291e 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -3098,6 +3098,13 @@ static int be_clear(struct be_adapter *adapter)
- 	if (sriov_enabled(adapter))
- 		be_vf_clear(adapter);
- 
-+	/* Re-configure FW to distribute resources evenly across max-supported
-+	 * number of VFs, only when VFs are not already enabled.
-+	 */
-+	if (be_physfn(adapter) && !pci_vfs_assigned(adapter->pdev))
-+		be_cmd_set_sriov_config(adapter, adapter->pool_res,
-+					pci_sriov_get_totalvfs(adapter->pdev));
-+
- #ifdef CONFIG_BE2NET_VXLAN
- 	be_disable_vxlan_offloads(adapter);
- #endif
-@@ -3170,19 +3177,6 @@ static int be_vf_setup(struct be_adapter *adapter)
- 	u32 privileges;
- 
- 	old_vfs = pci_num_vf(adapter->pdev);
--	if (old_vfs) {
--		dev_info(dev, "%d VFs are already enabled\n", old_vfs);
--		if (old_vfs != num_vfs)
--			dev_warn(dev, "Ignoring num_vfs=%d setting\n", num_vfs);
--		adapter->num_vfs = old_vfs;
--	} else {
--		if (num_vfs > be_max_vfs(adapter))
--			dev_info(dev, "Device supports %d VFs and not %d\n",
--				 be_max_vfs(adapter), num_vfs);
--		adapter->num_vfs = min_t(u16, num_vfs, be_max_vfs(adapter));
--		if (!adapter->num_vfs)
--			return 0;
--	}
- 
- 	status = be_vf_setup_init(adapter);
- 	if (status)
-@@ -3194,17 +3188,15 @@ static int be_vf_setup(struct be_adapter *adapter)
+@@ -3379,6 +3379,7 @@ static int be_get_resources(struct be_adapter *adapter)
  			if (status)
- 				goto err;
+ 				return status;
+ 			adapter->res.max_vfs = res.max_vfs;
++			adapter->res.vf_if_cap_flags = res.vf_if_cap_flags;
  		}
--	} else {
--		status = be_vfs_if_create(adapter);
--		if (status)
--			goto err;
--	}
  
--	if (old_vfs) {
- 		status = be_vfs_mac_query(adapter);
- 		if (status)
- 			goto err;
- 	} else {
-+		status = be_vfs_if_create(adapter);
-+		if (status)
-+			goto err;
-+
- 		status = be_vf_eth_addr_config(adapter);
- 		if (status)
- 			goto err;
-@@ -3270,19 +3262,7 @@ static u8 be_convert_mc_type(u32 function_mode)
- static void BEx_get_resources(struct be_adapter *adapter,
- 			      struct be_resources *res)
- {
--	struct pci_dev *pdev = adapter->pdev;
--	bool use_sriov = false;
--	int max_vfs = 0;
--
--	if (be_physfn(adapter) && BE3_chip(adapter)) {
--		be_cmd_get_profile_config(adapter, res, 0);
--		/* Some old versions of BE3 FW don't report max_vfs value */
--		if (res->max_vfs == 0) {
--			max_vfs = pci_sriov_get_totalvfs(pdev);
--			res->max_vfs = max_vfs > 0 ? min(MAX_VFS, max_vfs) : 0;
--		}
--		use_sriov = res->max_vfs && sriov_want(adapter);
--	}
-+	bool use_sriov = adapter->num_vfs ? 1 : 0;
- 
- 	if (be_physfn(adapter))
- 		res->max_uc_mac = BE_UC_PMAC_COUNT;
-@@ -3349,6 +3329,54 @@ static void be_setup_init(struct be_adapter *adapter)
- 		adapter->cmd_privileges = MIN_PRIVILEGES;
- }
- 
-+static int be_get_sriov_config(struct be_adapter *adapter)
-+{
-+	struct device *dev = &adapter->pdev->dev;
-+	struct be_resources res = {0};
-+	int status, max_vfs, old_vfs;
-+
-+	status = be_cmd_get_profile_config(adapter, &res, 0);
-+	if (status)
-+		return status;
-+
-+	adapter->pool_res = res;
-+
-+	/* Some old versions of BE3 FW don't report max_vfs value */
-+	if (BE3_chip(adapter) && !res.max_vfs) {
-+		max_vfs = pci_sriov_get_totalvfs(adapter->pdev);
-+		res.max_vfs = max_vfs > 0 ? min(MAX_VFS, max_vfs) : 0;
-+	}
-+
-+	adapter->pool_res.max_vfs = res.max_vfs;
-+	pci_sriov_set_totalvfs(adapter->pdev, be_max_vfs(adapter));
-+
-+	if (!be_max_vfs(adapter)) {
-+		if (num_vfs)
-+			dev_warn(dev, "device doesn't support SRIOV\n");
-+		adapter->num_vfs = 0;
-+		return 0;
-+	}
-+
-+	/* validate num_vfs module param */
-+	old_vfs = pci_num_vf(adapter->pdev);
-+	if (old_vfs) {
-+		dev_info(dev, "%d VFs are already enabled\n", old_vfs);
-+		if (old_vfs != num_vfs)
-+			dev_warn(dev, "Ignoring num_vfs=%d setting\n", num_vfs);
-+		adapter->num_vfs = old_vfs;
-+	} else {
-+		if (num_vfs > be_max_vfs(adapter)) {
-+			dev_info(dev, "Resources unavailable to init %d VFs\n",
-+				 num_vfs);
-+			dev_info(dev, "Limiting to %d VFs\n",
-+				 be_max_vfs(adapter));
-+		}
-+		adapter->num_vfs = min_t(u16, num_vfs, be_max_vfs(adapter));
-+	}
-+
-+	return 0;
-+}
-+
- static int be_get_resources(struct be_adapter *adapter)
- {
- 	struct device *dev = &adapter->pdev->dev;
-@@ -3374,14 +3402,6 @@ static int be_get_resources(struct be_adapter *adapter)
- 			res.max_evt_qs /= 2;
- 		adapter->res = res;
- 
--		if (be_physfn(adapter)) {
--			status = be_cmd_get_profile_config(adapter, &res, 0);
--			if (status)
--				return status;
--			adapter->res.max_vfs = res.max_vfs;
--			adapter->res.vf_if_cap_flags = res.vf_if_cap_flags;
--		}
--
  		dev_info(dev, "Max: txqs %d, rxqs %d, rss %d, eqs %d, vfs %d\n",
- 			 be_max_txqs(adapter), be_max_rxqs(adapter),
- 			 be_max_rss(adapter), be_max_eqs(adapter),
-@@ -3394,7 +3414,6 @@ static int be_get_resources(struct be_adapter *adapter)
- 	return 0;
- }
- 
--/* Routine to query per function resource limits */
- static int be_get_config(struct be_adapter *adapter)
- {
- 	u16 profile_id;
-@@ -3412,6 +3431,26 @@ static int be_get_config(struct be_adapter *adapter)
- 		if (!status)
- 			dev_info(&adapter->pdev->dev,
- 				 "Using profile 0x%x\n", profile_id);
-+
-+		status = be_get_sriov_config(adapter);
-+		if (status)
-+			return status;
-+
-+		/* When the HW is in SRIOV capable configuration, the PF-pool
-+		 * resources are equally distributed across the max-number of
-+		 * VFs. The user may request only a subset of the max-vfs to be
-+		 * enabled. Based on num_vfs, redistribute the resources across
-+		 * num_vfs so that each VF will have access to more number of
-+		 * resources. This facility is not available in BE3 FW.
-+		 * Also, this is done by FW in Lancer chip.
-+		 */
-+		if (!pci_num_vf(adapter->pdev)) {
-+			status = be_cmd_set_sriov_config(adapter,
-+							 adapter->pool_res,
-+							 adapter->num_vfs);
-+			if (status)
-+				return status;
-+		}
- 	}
- 
- 	status = be_get_resources(adapter);
-@@ -3597,12 +3636,8 @@ static int be_setup(struct be_adapter *adapter)
- 		be_cmd_set_logical_link_config(adapter,
- 					       IFLA_VF_LINK_STATE_AUTO, 0);
- 
--	if (sriov_want(adapter)) {
--		if (be_max_vfs(adapter))
--			be_vf_setup(adapter);
--		else
--			dev_warn(dev, "device doesn't support SRIOV\n");
--	}
-+	if (adapter->num_vfs)
-+		be_vf_setup(adapter);
- 
- 	status = be_cmd_get_phy_info(adapter);
- 	if (!status && be_pause_supported(adapter))
 -- 
 1.7.1
