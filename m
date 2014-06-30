@@ -1,34 +1,40 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: ip: netconf is not printed in usage output
-Date: Mon, 30 Jun 2014 14:23:41 +0200
-Message-ID: <53B156CD.2060304@6wind.com>
-References: <CAMw6YJJYL4ZRrQhB3S8Zkx_6TWQHvi0Vr9XvxuhkYAR8vsOPJw@mail.gmail.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net-next 0/2] Misc SCTP updates
+Date: Mon, 30 Jun 2014 08:37:04 -0400
+Message-ID: <20140630123704.GB15777@hmsreliant.think-freely.org>
+References: <1404129129-23270-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Vadim Kochan <vadim4j@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:42763 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754207AbaF3MXo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 08:23:44 -0400
-Received: by mail-wi0-f178.google.com with SMTP id n15so5865688wiw.17
-        for <netdev@vger.kernel.org>; Mon, 30 Jun 2014 05:23:43 -0700 (PDT)
-In-Reply-To: <CAMw6YJJYL4ZRrQhB3S8Zkx_6TWQHvi0Vr9XvxuhkYAR8vsOPJw@mail.gmail.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:48565 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752801AbaF3MhN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 08:37:13 -0400
+Content-Disposition: inline
+In-Reply-To: <1404129129-23270-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 30/06/2014 03:00, Vadim Kochan a =C3=A9crit :
-> Hi,
->
->
-> The usage of ip does not print netconf in OBJECT :=3D {} list.
-> Is it OK?
-=46eel free to send a patch. If you don't want to do it, I can send one=
-=2E
+On Mon, Jun 30, 2014 at 01:52:07PM +0200, Daniel Borkmann wrote:
+> Daniel Borkmann (2):
+>   net: sctp: improve timer slack calculation for transport HBs
+>   net: sctp: only warn in proc_sctp_do_alpha_beta if write
+> 
+>  include/net/sctp/sctp.h | 21 ---------------------
+>  net/sctp/sysctl.c       |  5 +++--
+>  net/sctp/transport.c    | 17 +++++++++--------
+>  3 files changed, 12 insertions(+), 31 deletions(-)
+> 
+> -- 
+> 1.7.11.7
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
-
-Regards,
-Nicolas
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
