@@ -1,45 +1,68 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: [RESEND][PATCH] rtlwifi: btcoexist: avoid format string in printk
-Date: Mon, 30 Jun 2014 13:38:49 -0700
-Message-ID: <20140630203849.GA4787@www.outflux.net>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH RFC net-next 07/14] bpf: expand BPF syscall with program load/unload
+Date: Mon, 30 Jun 2014 13:39:31 -0700
+Message-ID: <CAMEtUuxSdw+9WiB2ps0aYE5hdH9NTnq48VdELLEg17tz1B96WQ@mail.gmail.com>
+References: <1403913966-4927-1-git-send-email-ast@plumgrid.com>
+	<1403913966-4927-8-git-send-email-ast@plumgrid.com>
+	<CALCETrXDR1LVmbigTicBiddgvcucM1dGk1R7rxdJyBCvGEBQMw@mail.gmail.com>
+	<CAMEtUuywNHVcZ__296NzXK7RPXUBOf7gNQY9JFx0a9PV0Se+wA@mail.gmail.com>
+	<CALCETrXQ60J+UqafHRKPbgQ37zhstW+E8xAponWs7AQ-DCgaWA@mail.gmail.com>
+	<CAMEtUuwmxgrGMigmh1vZ7qCh9qB9ph9uFbPmVmmbqZvC5N9WyA@mail.gmail.com>
+	<20140628152104.GB29548@kroah.com>
+	<CALCETrUs8mmVK70rwkQz=Dzu2ZjPYU_TMuydnXsJM8jAxTv0WQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Larry Finger <Larry.Finger@lwfinger.net>,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Greg KH <gregkh@linuxfoundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Chema Gonzalez <chema@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Jiri Olsa <jolsa@redhat.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kees Cook <keescook@chromium.org>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Andy Lutomirski <luto@amacapital.net>,
+	David Laight <David.Laight@aculab.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
+In-Reply-To: <CALCETrUs8mmVK70rwkQz=Dzu2ZjPYU_TMuydnXsJM8jAxTv0WQ@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Since CL_PRINTF only ever takes a single argument, make sure a format
-string cannot leak into printk.
+On Sat, Jun 28, 2014 at 8:35 AM, Andy Lutomirski <luto@amacapital.net> wrote:
+> On Sat, Jun 28, 2014 at 8:21 AM, Greg KH <gregkh@linuxfoundation.org> wrote:
+>> On Sat, Jun 28, 2014 at 12:26:14AM -0700, Alexei Starovoitov wrote:
+>>> On Fri, Jun 27, 2014 at 11:28 PM, Andy Lutomirski <luto@amacapital.net> wrote:
+>>> > On Fri, Jun 27, 2014 at 11:12 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
+>>> > If you want to add GPL-only functions in the future, that would be one
+>>> > thing.  But if someone writes a nice eBPF compiler, and someone else
+>>> > writes a little program that filters on network packets, I see no
+>>> > reason to claim that the little program is a derivative work of the
+>>> > kernel and therefore must be GPL.
+>>>
+>>> I think we have to draw a line somewhere. Say, tomorrow I want
+>>> to modify libpcap to emit eBPF based on existing tcpdump syntax.
+>>> Would it mean that tcpdump filter strings are GPLed? Definitely not,
+>>> since they existed before and can function without new libpcap.
+>>> But if I write a new packet filtering program in C, compile it
+>>> using LLVM->eBPF and call into in-kernel helper functions
+>>> (like bpf_map_lookup_elem()),  I think it's exactly the derivative work.
+>>> It's analogous to kernel modules. If module wants to call
+>>> export_symbol_gpl() functions, it needs to be GPLed. Here all helper
+>>> functions are GPL. So we just have a blank check for eBPF program.
+>>
+>> I agree, these eBFP programs should be GPL-compatible licensed as well.
+>
+> I think I'd be happy with an export_symbol_gpl analogue.  I might
+> argue that bpf_map_lookup_elem shouldn't be gpl-only, though.
 
-Signed-off-by: Kees Cook <keescook@chromium.org>
----
- .../net/wireless/rtlwifi/btcoexist/halbtcoutsrc.h  |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.h b/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.h
-index 871fc3c6d559..049f4c8d98a8 100644
---- a/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.h
-+++ b/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.h
-@@ -114,7 +114,7 @@ extern u32 btc_dbg_type[];
- 
- 
- #define	CL_SPRINTF	snprintf
--#define	CL_PRINTF	printk
-+#define	CL_PRINTF(buf)	printk("%s", buf)
- 
- #define	BTC_PRINT(dbgtype, dbgflag, printstr, ...)		\
- 	do {							\
--- 
-1.7.9.5
-
-
--- 
-Kees Cook
-Chrome OS Security
+ok. sounds like module-like approach will be more acceptable to potential
+user base. Will change it. Last thing I want to do is to scary users away.
