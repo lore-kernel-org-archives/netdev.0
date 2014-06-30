@@ -1,71 +1,49 @@
-From: Sathya Perla <Sathya.Perla@Emulex.Com>
-Subject: RE: [PATCH net-next 4/4] be2net: re-enable vlan filtering mode asap
-Date: Mon, 30 Jun 2014 07:13:34 +0000
-Message-ID: <CF9D1877D81D214CB0CA0669EFAE020C56C8E3EE@CMEXMB1.ad.emulex.com>
-References: <1403869401-6545-1-git-send-email-sathya.perla@emulex.com>
- <1403869401-6545-5-git-send-email-sathya.perla@emulex.com>
- <53AD6E40.2050407@cogentembedded.com>
+From: Sathya Perla <sathya.perla@emulex.com>
+Subject: [PATCH net-next v2 0/4] be2net: patch set
+Date: Mon, 30 Jun 2014 13:01:29 +0530
+Message-ID: <1404113493-14851-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:13501 "EHLO
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:13552 "EHLO
 	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751307AbaF3HNg convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 03:13:36 -0400
-In-Reply-To: <53AD6E40.2050407@cogentembedded.com>
-Content-Language: en-US
+	with ESMTP id S1752251AbaF3H3A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 03:29:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Sergei Shtylyov [mailto:sergei.shtylyov@cogentembedded.com]
-> 
-> Hello.
-> 
-> On 06/27/2014 03:43 PM, Sathya Perla wrote:
-> 
-> > From: Kalesh AP <kalesh.purayil@emulex.com>
-> 
-> > While adding vlans, when the HW limit of vlan filters is reached, the
-> > driver enables vlan promiscuous mode.
-> > Similarily, while removing vlans, the driver must re-enable HW filtering
-> > as soon as the number of vlan filters is within the HW limit.
-> 
-> > Signed-off-by: Kalesh AP <kalesh.purayil@emulex.com>
-> > Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
-> > ---
-> >   drivers/net/ethernet/emulex/benet/be_main.c |    9 +++------
-> >   1 files changed, 3 insertions(+), 6 deletions(-)
-> 
-> > diff --git a/drivers/net/ethernet/emulex/benet/be_main.c
-> b/drivers/net/ethernet/emulex/benet/be_main.c
-> > index 5ac9d13..3cf490b 100644
-> > --- a/drivers/net/ethernet/emulex/benet/be_main.c
-> > +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-> > @@ -1176,15 +1176,12 @@ static int be_vlan_rem_vid(struct net_device
-> *netdev, __be16 proto, u16 vid)
-> >
-> >   	/* Packets with VID 0 are always received by Lancer by default */
-> >   	if (lancer_chip(adapter) && vid == 0)
-> > -		goto ret;
-> > +		return status;
-> >
-> >   	clear_bit(vid, adapter->vids);
-> > +	adapter->vlans_added--;
-> > +
-> >   	status = be_vid_config(adapter);
-> > -	if (!status)
-> > -		adapter->vlans_added--;
-> > -	else
-> > -		set_bit(vid, adapter->vids);
-> > -ret:
-> >   	return status;
-> 
->     You now can merge the above lines into:
-> 
-> 	return be_vid_config(adapter);
+v2 change: merged 2 lines into one in patch 4
 
-Sure, will do.
+Patch 1 refactors be_cmd_get_profile_config() routine to reduce
+code duplication by using the be_cmd_notify_wait() routine, instead
+of using a separate variant of the code for MBOX and MCCQ.
+
+Patch 2 introduces the required FW-cmd code in the PF to query
+RSS support on a VF. This is in preparation for patch 3.
+
+Patch 3 adds support for the PF driver to re-configure the resource
+distribution in FW based on the number of VFs enabled by the user. When
+the user is not interested in enabling VFs, all resources of a port are
+set-aside for the PF. If less than maximum number of VFs are enabled, then
+each VF gets a better share of the resources and can now enable RSS (if
+the interface supports it.)
+
+Patch 4 is a minor fix to re-enable HW vlan filtering as soon as the number
+of vlans programmed is within the HW limit.
+
+Please consider applying to net-next tree. Thanks!
+
+Kalesh AP (1):
+  be2net: re-enable vlan filtering mode asap
+
+Vasundhara Volam (3):
+  be2net: remove be_cmd_get_profile_config_mbox/mccq() variants
+  be2net: read VF's capabilities from GET_PROFILE_CONFIG cmd
+  be2net: create optimal number of queues on SR-IOV config
+
+ drivers/net/ethernet/emulex/benet/be.h      |    9 +-
+ drivers/net/ethernet/emulex/benet/be_cmds.c |  226 ++++++++++++++++-----------
+ drivers/net/ethernet/emulex/benet/be_cmds.h |    9 +-
+ drivers/net/ethernet/emulex/benet/be_main.c |  141 ++++++++++-------
+ 4 files changed, 230 insertions(+), 155 deletions(-)
