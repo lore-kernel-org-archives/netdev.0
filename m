@@ -1,149 +1,36 @@
-From: Andrey Wagin <avagin@gmail.com>
+From: Pavel Emelyanov <xemul@parallels.com>
 Subject: Re: [PATCH net] tcp: Fix divide by zero when pushing during tcp-repair
-Date: Mon, 30 Jun 2014 17:05:15 +0400
-Message-ID: <CANaxB-z++H0ZG+_o7cpKEnPDPdkG69ufDeratXachCztyMdapw@mail.gmail.com>
+Date: Mon, 30 Jun 2014 17:12:25 +0400
+Message-ID: <53B16239.80402@parallels.com>
 References: <1403972797-15285-1-git-send-email-christoph.paasch@uclouvain.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Pavel Emelyanov <xemul@parallels.com>
-To: Christoph Paasch <christoph.paasch@uclouvain.be>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, Andrew Vagin <avagin@openvz.org>
+To: Christoph Paasch <christoph.paasch@uclouvain.be>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f176.google.com ([209.85.128.176]:45275 "EHLO
-	mail-ve0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752209AbaF3NFQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 09:05:16 -0400
-Received: by mail-ve0-f176.google.com with SMTP id db12so7951068veb.7
-        for <netdev@vger.kernel.org>; Mon, 30 Jun 2014 06:05:15 -0700 (PDT)
+Received: from relay.parallels.com ([195.214.232.42]:35592 "EHLO
+	relay.parallels.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754073AbaF3NMb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 09:12:31 -0400
 In-Reply-To: <1403972797-15285-1-git-send-email-christoph.paasch@uclouvain.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014-06-28 20:26 GMT+04:00 Christoph Paasch <christoph.paasch@uclouvain.be>:
+On 06/28/2014 08:26 PM, Christoph Paasch wrote:
 > When in repair-mode and TCP_RECV_QUEUE is set, we end up calling
 > tcp_push with mss_now being 0. If data is in the send-queue and
 > tcp_set_skb_tso_segs gets called, we crash because it will divide by
 > mss_now:
->
-> [  347.151939] divide error: 0000 [#1] SMP
-> [  347.152907] Modules linked in:
-> [  347.152907] CPU: 1 PID: 1123 Comm: packetdrill Not tainted 3.16.0-rc2 #4
-> [  347.152907] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2007
-> [  347.152907] task: f5b88540 ti: f3c82000 task.ti: f3c82000
-> [  347.152907] EIP: 0060:[<c1601359>] EFLAGS: 00210246 CPU: 1
-> [  347.152907] EIP is at tcp_set_skb_tso_segs+0x49/0xa0
-> [  347.152907] EAX: 00000b67 EBX: f5acd080 ECX: 00000000 EDX: 00000000
-> [  347.152907] ESI: f5a28f40 EDI: f3c88f00 EBP: f3c83d10 ESP: f3c83d00
-> [  347.152907]  DS: 007b ES: 007b FS: 00d8 GS: 0033 SS: 0068
-> [  347.152907] CR0: 80050033 CR2: 083158b0 CR3: 35146000 CR4: 000006b0
-> [  347.152907] Stack:
-> [  347.152907]  c167f9d9 f5acd080 000005b4 00000002 f3c83d20 c16013e6 f3c88f00 f5acd080
-> [  347.152907]  f3c83da0 c1603b5a f3c83d38 c10a0188 00000000 00000000 f3c83d84 c10acc85
-> [  347.152907]  c1ad5ec0 00000000 00000000 c1ad679c 010003e0 00000000 00000000 f3c88fc8
-> [  347.152907] Call Trace:
-> [  347.152907]  [<c167f9d9>] ? apic_timer_interrupt+0x2d/0x34
-> [  347.152907]  [<c16013e6>] tcp_init_tso_segs+0x36/0x50
-> [  347.152907]  [<c1603b5a>] tcp_write_xmit+0x7a/0xbf0
-> [  347.152907]  [<c10a0188>] ? up+0x28/0x40
-> [  347.152907]  [<c10acc85>] ? console_unlock+0x295/0x480
-> [  347.152907]  [<c10ad24f>] ? vprintk_emit+0x1ef/0x4b0
-> [  347.152907]  [<c1605716>] __tcp_push_pending_frames+0x36/0xd0
-> [  347.152907]  [<c15f4860>] tcp_push+0xf0/0x120
-> [  347.152907]  [<c15f7641>] tcp_sendmsg+0xf1/0xbf0
-> [  347.152907]  [<c116d920>] ? kmem_cache_free+0xf0/0x120
-> [  347.152907]  [<c106a682>] ? __sigqueue_free+0x32/0x40
-> [  347.152907]  [<c106a682>] ? __sigqueue_free+0x32/0x40
-> [  347.152907]  [<c114f0f0>] ? do_wp_page+0x3e0/0x850
-> [  347.152907]  [<c161c36a>] inet_sendmsg+0x4a/0xb0
-> [  347.152907]  [<c1150269>] ? handle_mm_fault+0x709/0xfb0
-> [  347.152907]  [<c15a006b>] sock_aio_write+0xbb/0xd0
-> [  347.152907]  [<c1180b79>] do_sync_write+0x69/0xa0
-> [  347.152907]  [<c1181023>] vfs_write+0x123/0x160
-> [  347.152907]  [<c1181d55>] SyS_write+0x55/0xb0
-> [  347.152907]  [<c167f0d8>] sysenter_do_call+0x12/0x28
->
-> This can easily be reproduced with the following packetdrill-script (the
-> "magic" with netem, sk_pacing and limit_output_bytes is done to prevent
-> the kernel from pushing all segments, because hitting the limit without
-> doing this is not so easy with packetdrill):
->
-> 0   socket(..., SOCK_STREAM, IPPROTO_TCP) = 3
-> +0  setsockopt(3, SOL_SOCKET, SO_REUSEADDR, [1], 4) = 0
->
-> +0  bind(3, ..., ...) = 0
-> +0  listen(3, 1) = 0
->
-> +0  < S 0:0(0) win 32792 <mss 1460>
-> +0  > S. 0:0(0) ack 1 <mss 1460>
-> +0.1  < . 1:1(0) ack 1 win 65000
->
-> +0  accept(3, ..., ...) = 4
->
-> // This forces that not all segments of the snd-queue will be pushed
-> +0 `tc qdisc add dev tun0 root netem delay 10ms`
-> +0 `sysctl -w net.ipv4.tcp_limit_output_bytes=2`
-> +0 setsockopt(4, SOL_SOCKET, 47, [2], 4) = 0
->
-> +0 write(4,...,10000) = 10000
-> +0 write(4,...,10000) = 10000
->
-> // Set tcp-repair stuff, particularly TCP_RECV_QUEUE
-> +0 setsockopt(4, SOL_TCP, 19, [1], 4) = 0
-> +0 setsockopt(4, SOL_TCP, 20, [1], 4) = 0
->
-> // This now will make the write push the remaining segments
-> +0 setsockopt(4, SOL_SOCKET, 47, [20000], 4) = 0
-> +0 `sysctl -w net.ipv4.tcp_limit_output_bytes=130000`
->
-> // Now we will crash
-> +0 write(4,...,1000) = 1000
->
-> This happens since ec3423257508 (tcp: fix retransmission in repair
-> mode). Prior to that, the call to tcp_push was prevented by a check for
-> tp->repair.
->
-> The patch fixes it, by adding the new goto-label out_nopush. When exiting
-> tcp_sendmsg and a push is not required, which is the case for tp->repair,
-> we go to this label.
->
-> When repairing and calling send() with TCP_RECV_QUEUE, the data is
-> actually put in the receive-queue. So, no push is required because no
-> data has been added to the send-queue.
-
-Acked-by: Andrew Vagin <avagin@openvz.org>
-
-Thanks.
-
->
+> 
+snip
 > Cc: Andrew Vagin <avagin@openvz.org>
 > Cc: Pavel Emelyanov <xemul@parallels.com>
 > Fixes: ec3423257508 (tcp: fix retransmission in repair mode)
 > Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
-> ---
->  net/ipv4/tcp.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
->
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index eb1dde37e678..9d2118e5fbc7 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -1108,7 +1108,7 @@ int tcp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
->         if (unlikely(tp->repair)) {
->                 if (tp->repair_queue == TCP_RECV_QUEUE) {
->                         copied = tcp_send_rcvq(sk, msg, size);
-> -                       goto out;
-> +                       goto out_nopush;
->                 }
->
->                 err = -EINVAL;
-> @@ -1282,6 +1282,7 @@ wait_for_memory:
->  out:
->         if (copied)
->                 tcp_push(sk, flags, mss_now, tp->nonagle, size_goal);
-> +out_nopush:
->         release_sock(sk);
->         return copied + copied_syn;
->
-> --
-> 1.9.3
->
+
+Acked-by: Pavel Emelyanov <xemul@parallels.com>
+
+Thanks,
+Pavel
