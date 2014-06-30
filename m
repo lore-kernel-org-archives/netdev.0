@@ -1,7 +1,7 @@
 From: Ondrej Zary <linux@rainbow-software.org>
-Subject: [PATCH 09/11] tlan: Don't disable internal PHY on cards that use it in 10 Mbps mode
-Date: Mon, 30 Jun 2014 18:38:35 +0200
-Message-ID: <1404146317-3094-10-git-send-email-linux@rainbow-software.org>
+Subject: [PATCH 06/11] tlan: Don't scream if no link
+Date: Mon, 30 Jun 2014 18:38:32 +0200
+Message-ID: <1404146317-3094-7-git-send-email-linux@rainbow-software.org>
 References: <1404146317-3094-1-git-send-email-linux@rainbow-software.org>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: Samuel Chessman <chessman@tux.org>
@@ -10,48 +10,52 @@ In-Reply-To: <1404146317-3094-1-git-send-email-linux@rainbow-software.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In tlan_reset_adapter, we disable internal PHY when an external one is used.
-On cards which use internal PHY in 10 Mbps mode, we enable it later when
-setting 10 Mbps mode but it does not really work (PHY fails to reset).
-Leave it enabled instead.
+Remove excess printks when the link is down.
 
 Signed-off-by: Ondrej Zary <linux@rainbow-software.org>
 ---
- drivers/net/ethernet/ti/tlan.c |    8 +++-----
- 1 file changed, 3 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/ti/tlan.c |    9 ---------
+ drivers/net/ethernet/ti/tlan.h |    1 -
+ 2 files changed, 10 deletions(-)
 
 diff --git a/drivers/net/ethernet/ti/tlan.c b/drivers/net/ethernet/ti/tlan.c
-index 1f878b9..bb805c2 100644
+index 1b64ddc..2d70a89 100644
 --- a/drivers/net/ethernet/ti/tlan.c
 +++ b/drivers/net/ethernet/ti/tlan.c
-@@ -2238,7 +2238,9 @@ tlan_reset_adapter(struct net_device *dev)
- 		}
- 	}
+@@ -1199,9 +1199,6 @@ static irqreturn_t tlan_handle_interrupt(int irq, void *dev_id)
  
--	if (priv->phy_num == 0)
-+	/* don't power down internal PHY if we're going to use it */
-+	if (priv->phy_num == 0 ||
-+	   (priv->adapter->flags & TLAN_ADAPTER_USE_INTERN_10))
- 		data |= TLAN_NET_CFG_PHY_EN;
- 	tlan_dio_write16(dev->base_addr, TLAN_NET_CONFIG, (u16) data);
+ static int tlan_close(struct net_device *dev)
+ {
+-	struct tlan_priv *priv = netdev_priv(dev);
+-
+-	priv->neg_be_verbose = 0;
+ 	tlan_stop(dev);
  
-@@ -2689,7 +2691,6 @@ static void tlan_phy_finish_auto_neg(struct net_device *dev)
- 	struct tlan_priv	*priv = netdev_priv(dev);
- 	u16		an_adv;
- 	u16		an_lpa;
--	u16		data;
- 	u16		mode;
- 	u16		phy;
- 	u16		status;
-@@ -2722,9 +2723,6 @@ static void tlan_phy_finish_auto_neg(struct net_device *dev)
- 	    (priv->adapter->flags & TLAN_ADAPTER_USE_INTERN_10) &&
- 	    (priv->phy_num != 0)) {
- 		priv->phy_num = 0;
--		data = TLAN_NET_CFG_1FRAG | TLAN_NET_CFG_1CHAN
--			| TLAN_NET_CFG_PHY_EN;
--		tlan_dio_write16(dev->base_addr, TLAN_NET_CONFIG, data);
- 		tlan_set_timer(dev, (400*HZ/1000), TLAN_TIMER_PHY_PDOWN);
+ 	free_irq(dev->irq, dev);
+@@ -2702,12 +2699,6 @@ static void tlan_phy_finish_auto_neg(struct net_device *dev)
+ 		/* Wait for 8 sec to give the process
+ 		 * more time.  Perhaps we should fail after a while.
+ 		 */
+-		if (!priv->neg_be_verbose++) {
+-			pr_info("Giving autonegotiation more time.\n");
+-			pr_info("Please check that your adapter has\n");
+-			pr_info("been properly connected to a HUB or Switch.\n");
+-			pr_info("Trying to establish link in the background...\n");
+-		}
+ 		tlan_set_timer(dev, (8*HZ), TLAN_TIMER_PHY_FINISH_AN);
  		return;
  	}
+diff --git a/drivers/net/ethernet/ti/tlan.h b/drivers/net/ethernet/ti/tlan.h
+index b6ceeba..e992841 100644
+--- a/drivers/net/ethernet/ti/tlan.h
++++ b/drivers/net/ethernet/ti/tlan.h
+@@ -208,7 +208,6 @@ struct tlan_priv {
+ 	u8			tlan_full_duplex;
+ 	spinlock_t		lock;
+ 	struct work_struct			tlan_tqueue;
+-	u8			neg_be_verbose;
+ };
+ 
+ 
 -- 
 Ondrej Zary
