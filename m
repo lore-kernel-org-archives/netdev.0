@@ -1,52 +1,153 @@
 From: Vince Bridgers <vbridgers2013@gmail.com>
-Subject: [PATCH net v2 3/3] net: stmmac: Remove unneeded I/O read caught by cppcheck
-Date: Sun, 29 Jun 2014 20:34:53 -0500
-Message-ID: <1404092093-18630-4-git-send-email-vbridgers2013@gmail.com>
+Subject: [PATCH net v2 1/3] net: stmmac: add platform init/exit for Altera's ARM socfpga
+Date: Sun, 29 Jun 2014 20:34:51 -0500
+Message-ID: <1404092093-18630-2-git-send-email-vbridgers2013@gmail.com>
 References: <1404092093-18630-1-git-send-email-vbridgers2013@gmail.com>
 Cc: vbridgers2013@gmail.com, vbridger@altera.com
 To: netdev@vger.kernel.org, davem@davemloft.net, peppe.cavallaro@st.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f45.google.com ([209.85.219.45]:35829 "EHLO
-	mail-oa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753407AbaF3Biw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jun 2014 21:38:52 -0400
-Received: by mail-oa0-f45.google.com with SMTP id o6so8162414oag.32
-        for <netdev@vger.kernel.org>; Sun, 29 Jun 2014 18:38:51 -0700 (PDT)
+Received: from mail-ob0-f181.google.com ([209.85.214.181]:45461 "EHLO
+	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753407AbaF3Bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 29 Jun 2014 21:38:49 -0400
+Received: by mail-ob0-f181.google.com with SMTP id wp4so8046627obc.40
+        for <netdev@vger.kernel.org>; Sun, 29 Jun 2014 18:38:48 -0700 (PDT)
 In-Reply-To: <1404092093-18630-1-git-send-email-vbridgers2013@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cppcheck found a case where a local variable was being assigned a value,
-but not used. There seems to be no reason to read this register before
-assigning a new value, so addressing thie issue.
-
-cppcheck --force --enable=all --inline-suppr . shows ...
-
-Variable 'value' is reassigned a value before the old one has been used.
+This patch adds platform init/exit functions and modifications to support
+suspend/resume for the Altera Cyclone 5 SOC Ethernet controller. The platform
+exit function puts the controller into reset using the socfpga reset
+controller driver. The platform init function sets up the Synopsys mac by
+first making sure the Ethernet controller is held in reset, programming the
+phy mode through external support logic, then deasserts reset through
+the socfpga reset manager driver.
 
 Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
 ---
-V2: No change, new trivial patch in this series
+V2: Address review comments - add line break before structure decl
 ---
- .../net/ethernet/stmicro/stmmac/dwmac1000_core.c   |    5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
+ .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    |   69 ++++++++++++++++++++
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |    4 ++
+ 2 files changed, 73 insertions(+)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-index b3e148e..9d37483 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-@@ -320,11 +320,8 @@ static void dwmac1000_set_eee_timer(void __iomem *ioaddr, int ls, int tw)
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+index fd8a217..ec632e6 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+@@ -20,7 +20,9 @@
+ #include <linux/of_net.h>
+ #include <linux/phy.h>
+ #include <linux/regmap.h>
++#include <linux/reset.h>
+ #include <linux/stmmac.h>
++#include "stmmac.h"
  
- static void dwmac1000_ctrl_ane(void __iomem *ioaddr, bool restart)
- {
--	u32 value;
--
--	value = readl(ioaddr + GMAC_AN_CTRL);
- 	/* auto negotiation enable and External Loopback enable */
--	value = GMAC_AN_CTRL_ANE | GMAC_AN_CTRL_ELE;
-+	u32 value = GMAC_AN_CTRL_ANE | GMAC_AN_CTRL_ELE;
+ #define SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_GMII_MII 0x0
+ #define SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_RGMII 0x1
+@@ -34,6 +36,7 @@ struct socfpga_dwmac {
+ 	u32	reg_shift;
+ 	struct	device *dev;
+ 	struct regmap *sys_mgr_base_addr;
++	struct reset_control *stmmac_rst;
+ };
  
- 	if (restart)
- 		value |= GMAC_AN_CTRL_RAN;
+ static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *dev)
+@@ -43,6 +46,13 @@ static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *
+ 	u32 reg_offset, reg_shift;
+ 	int ret;
+ 
++	dwmac->stmmac_rst = devm_reset_control_get(dev,
++						  STMMAC_RESOURCE_NAME);
++	if (IS_ERR(dwmac->stmmac_rst)) {
++		dev_info(dev, "Could not get reset control!\n");
++		return -EINVAL;
++	}
++
+ 	dwmac->interface = of_get_phy_mode(np);
+ 
+ 	sys_mgr_base_addr = syscon_regmap_lookup_by_phandle(np, "altr,sysmgr-syscon");
+@@ -125,6 +135,65 @@ static void *socfpga_dwmac_probe(struct platform_device *pdev)
+ 	return dwmac;
+ }
+ 
++static void socfpga_dwmac_exit(struct platform_device *pdev, void *priv)
++{
++	struct socfpga_dwmac	*dwmac = priv;
++
++	/* On socfpga platform exit, assert and hold reset to the
++	 * enet controller - the default state after a hard reset.
++	 */
++	if (dwmac->stmmac_rst)
++		reset_control_assert(dwmac->stmmac_rst);
++}
++
++static int socfpga_dwmac_init(struct platform_device *pdev, void *priv)
++{
++	struct socfpga_dwmac	*dwmac = priv;
++	struct net_device *ndev = platform_get_drvdata(pdev);
++	struct stmmac_priv *stpriv = NULL;
++	int ret = 0;
++
++	if (ndev)
++		stpriv = netdev_priv(ndev);
++
++	/* Assert reset to the enet controller before changing the phy mode */
++	if (dwmac->stmmac_rst)
++		reset_control_assert(dwmac->stmmac_rst);
++
++	/* Setup the phy mode in the system manager registers according to
++	 * devicetree configuration
++	 */
++	ret = socfpga_dwmac_setup(dwmac);
++
++	/* Deassert reset for the phy configuration to be sampled by
++	 * the enet controller, and operation to start in requested mode
++	 */
++	if (dwmac->stmmac_rst)
++		reset_control_deassert(dwmac->stmmac_rst);
++
++	/* Before the enet controller is suspended, the phy is suspended.
++	 * This causes the phy clock to be gated. The enet controller is
++	 * resumed before the phy, so the clock is still gated "off" when
++	 * the enet controller is resumed. This code makes sure the phy
++	 * is "resumed" before reinitializing the enet controller since
++	 * the enet controller depends on an active phy clock to complete
++	 * a DMA reset. A DMA reset will "time out" if executed
++	 * with no phy clock input on the Synopsys enet controller.
++	 * Verified through Synopsys Case #8000711656.
++	 *
++	 * Note that the phy clock is also gated when the phy is isolated.
++	 * Phy "suspend" and "isolate" controls are located in phy basic
++	 * control register 0, and can be modified by the phy driver
++	 * framework.
++	 */
++	if (stpriv && stpriv->phydev)
++		phy_resume(stpriv->phydev);
++
++	return ret;
++}
++
+ const struct stmmac_of_data socfpga_gmac_data = {
+ 	.setup = socfpga_dwmac_probe,
++	.init = socfpga_dwmac_init,
++	.exit = socfpga_dwmac_exit,
+ };
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 057a120..18315f3 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -2878,6 +2878,10 @@ int stmmac_suspend(struct net_device *ndev)
+ 		clk_disable_unprepare(priv->stmmac_clk);
+ 	}
+ 	spin_unlock_irqrestore(&priv->lock, flags);
++
++	priv->oldlink = 0;
++	priv->speed = 0;
++	priv->oldduplex = -1;
+ 	return 0;
+ }
+ 
 -- 
 1.7.9.5
