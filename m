@@ -1,45 +1,33 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH net v2 3/3] net: stmmac: Improve mcast/ucast filter for all Synopsys EMAC Configurations
-Date: Mon, 30 Jun 2014 08:46:24 +0200
-Message-ID: <4380814.yCFVZiTZxJ@wuerfel>
-References: <1404092110-18667-1-git-send-email-vbridgers2013@gmail.com> <1404092110-18667-4-git-send-email-vbridgers2013@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] tcp: tcp_conn_request: fix build error when
+ IPv6 is disabled
+Date: Sun, 29 Jun 2014 23:47:19 -0700 (PDT)
+Message-ID: <20140629.234719.906236334351806800.davem@davemloft.net>
+References: <1403979654-7738-1-git-send-email-octavian.purdila@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-	peppe.cavallaro@st.com, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	linux@arm.linux.org.uk, linux-arm-kernel@lists.infradead.org,
-	robh+dt@kernel.org, dinguyen@altera.com, davem@davemloft.net,
-	vbridger@altera.com
-To: Vince Bridgers <vbridgers2013@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: octavian.purdila@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.131]:59618 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754249AbaF3Gqe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 02:46:34 -0400
-In-Reply-To: <1404092110-18667-4-git-send-email-vbridgers2013@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50178 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754432AbaF3GrT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 02:47:19 -0400
+In-Reply-To: <1403979654-7738-1-git-send-email-octavian.purdila@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sunday 29 June 2014 20:35:10 Vince Bridgers wrote:
-> The synopsys EMAC can be configured for different numbers of multicast hash
-> bins and perfect filter entries at device creation time and there's no way
-> to query this configuration information at runtime. As a result, a devicetree
-> parameter is required in order for the driver to program these filters
-> correctly for a particular device instance. This patch extends the current
-> driver by providing a different multicast filter programming function if
-> different than the currently supported 64 multicast hash bins and 32
-> perfect unicast addresses. This patch is required to correct multicast
-> filtering for the Altera Cyclone V SOC.
-> 
-> Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
-> 
+From: Octavian Purdila <octavian.purdila@intel.com>
+Date: Sat, 28 Jun 2014 21:20:54 +0300
 
-No objections to the content of the patch, but it would be better to split
-it out into two separate patches: one that does the mechanical prototype
-and formatting changes, and a smaller one that actually introduces the
-functional change. That would make it much easier to review, and to bisect
-potential problems when something goes wrong.
+> Fixes build error introduced by commit 1fb6f159fd21c64 (tcp: add
+> tcp_conn_request):
+> 
+> net/ipv4/tcp_input.c: In function 'pr_drop_req':
+> net/ipv4/tcp_input.c:5889:130: error: 'struct sock_common' has no member named 'skc_v6_daddr'
+> 
+> Reported-by: kbuild test robot <fengguang.wu@intel.com>
+> Signed-off-by: Octavian Purdila <octavian.purdila@intel.com>
 
-	Arnd
+Applied, thanks.
