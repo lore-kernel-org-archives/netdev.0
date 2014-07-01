@@ -1,28 +1,36 @@
-From: Bernd Wachter <bernd.wachter@jolla.com>
-Subject: [PATCH] net: qmi_wwan: Add ID for Telewell TW-LTE 4G v2
-Date: Tue, 01 Jul 2014 22:01:09 +0300
-Message-ID: <87vbrgewei.fsf@bwachter.lart.info>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] pktgen: Allow setting frag sizes individually
+Date: Tue, 01 Jul 2014 12:14:53 -0700 (PDT)
+Message-ID: <20140701.121453.646524500364143878.davem@davemloft.net>
+References: <1403728972-29548-1-git-send-email-zoltan.kiss@citrix.com>
+	<1403728972-29548-3-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: steffen.klassert@secunet.com, minipli@googlemail.com,
+	dborkman@redhat.com, tgraf@suug.ch, joe@perches.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	xen-devel@lists.xenproject.org
+To: zoltan.kiss@citrix.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1403728972-29548-3-git-send-email-zoltan.kiss@citrix.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Date: Wed, 25 Jun 2014 21:42:51 +0100
 
-There's a new version of the Telewell 4G modem working with, but not
-recognized by this driver. 
+> By defining the number of frags via "nfrags", their sizes get calculated by
+> pktgen. This patch allows their offsets and sizes to be specified via
+> "frag_off-len", in a comma separated list (e.g.
+> "frag_off-len 0-1,500-200,5000-10,9-100). The first is the offset
+> (0 <= offset < 2^16), second is size (0 < length <= 65536). This also determines
+> the number of frags, so it overwrites "frags" (and vice versa, "frags"
+> invalidate this setting)
+> xen-netback is prone to have problem with compound pages, as the memory granting
+> interface can only handle 4k pages. This extension of pktgen is proven to be
+> useful to test that.
+> 
+> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
 
-Signed-off-by: Bernd Wachter <bernd.wachter@jolla.com>
----
---- linux-3.15.3/drivers/net/usb/qmi_wwan.c.orig	2014-07-01 21:31:07.000000000 +0300
-+++ linux-3.15.3/drivers/net/usb/qmi_wwan.c	2014-07-01 20:39:30.000000000 +0300
-@@ -741,6 +741,7 @@ static const struct usb_device_id produc
- 	{QMI_FIXED_INTF(0x19d2, 0x1424, 2)},
- 	{QMI_FIXED_INTF(0x19d2, 0x1425, 2)},
- 	{QMI_FIXED_INTF(0x19d2, 0x1426, 2)},	/* ZTE MF91 */
-+	{QMI_FIXED_INTF(0x19d2, 0x1428, 2)},	/* Telewell TW-LTE 4G v2 */
- 	{QMI_FIXED_INTF(0x19d2, 0x2002, 4)},	/* ZTE (Vodafone) K3765-Z */
- 	{QMI_FIXED_INTF(0x0f3d, 0x68a2, 8)},    /* Sierra Wireless MC7700 */
- 	{QMI_FIXED_INTF(0x114f, 0x68a2, 8)},    /* Sierra Wireless MC7750 */
+Can you respin these against current net-next and repost, thanks Zoltan.
