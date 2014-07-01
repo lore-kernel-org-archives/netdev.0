@@ -1,163 +1,53 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 03/14] i40e: clear all queues and interrupts
-Date: Tue,  1 Jul 2014 04:35:00 -0700
-Message-ID: <1404214511-26868-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 04/14] i40e: Correct mask assignment value
+Date: Tue,  1 Jul 2014 04:35:01 -0700
+Message-ID: <1404214511-26868-5-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1404214511-26868-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+Cc: Kevin Scott <kevin.c.scott@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:7349 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:7330 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757143AbaGALfP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Jul 2014 07:35:15 -0400
+	id S1757759AbaGALfQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Jul 2014 07:35:16 -0400
 In-Reply-To: <1404214511-26868-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Kevin Scott <kevin.c.scott@intel.com>
 
-Per a recent HW designer comment, this code is for ripping through the
-queues and interrupts to fully disable them on driver init, specifically
-to help clean up after a PXE or other early boot activity.
+Make mask value of all 1s.  Value of -1 can't be used for u32 type.
 
-Change-ID: I32ed452021a1c2b06dace1969976f882a37b9741
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Change-ID: I49d58b77639939fe7447a229dbf1f4a1bf7419ce
+Signed-off-by: Kevin Scott <kevin.c.scott@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_common.c    | 93 ++++++++++++++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_main.c      |  1 +
- drivers/net/ethernet/intel/i40e/i40e_prototype.h |  1 +
- 3 files changed, 95 insertions(+)
+ drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index bbace40..8305c8a 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -811,6 +811,99 @@ i40e_status i40e_pf_reset(struct i40e_hw *hw)
- }
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c b/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c
+index 5a603a5..0d74b46 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c
+@@ -858,7 +858,7 @@ static void i40e_write_dword(u8 *hmc_bits,
+ 	if (ce_info->width < 32)
+ 		mask = ((u32)1 << ce_info->width) - 1;
+ 	else
+-		mask = -1;
++		mask = 0xFFFFFFFF;
  
- /**
-+ * i40e_clear_hw - clear out any left over hw state
-+ * @hw: pointer to the hw struct
-+ *
-+ * Clear queues and interrupts, typically called at init time,
-+ * but after the capabilities have been found so we know how many
-+ * queues and msix vectors have been allocated.
-+ **/
-+void i40e_clear_hw(struct i40e_hw *hw)
-+{
-+	u32 num_queues, base_queue;
-+	u32 num_pf_int;
-+	u32 num_vf_int;
-+	u32 num_vfs;
-+	u32 i, j;
-+	u32 val;
-+	u32 eol = 0x7ff;
-+
-+	/* get number of interrupts, queues, and vfs */
-+	val = rd32(hw, I40E_GLPCI_CNF2);
-+	num_pf_int = (val & I40E_GLPCI_CNF2_MSI_X_PF_N_MASK) >>
-+		     I40E_GLPCI_CNF2_MSI_X_PF_N_SHIFT;
-+	num_vf_int = (val & I40E_GLPCI_CNF2_MSI_X_VF_N_MASK) >>
-+		     I40E_GLPCI_CNF2_MSI_X_VF_N_SHIFT;
-+
-+	val = rd32(hw, I40E_PFLAN_QALLOC);
-+	base_queue = (val & I40E_PFLAN_QALLOC_FIRSTQ_MASK) >>
-+		     I40E_PFLAN_QALLOC_FIRSTQ_SHIFT;
-+	j = (val & I40E_PFLAN_QALLOC_LASTQ_MASK) >>
-+	    I40E_PFLAN_QALLOC_LASTQ_SHIFT;
-+	if (val & I40E_PFLAN_QALLOC_VALID_MASK)
-+		num_queues = (j - base_queue) + 1;
-+	else
-+		num_queues = 0;
-+
-+	val = rd32(hw, I40E_PF_VT_PFALLOC);
-+	i = (val & I40E_PF_VT_PFALLOC_FIRSTVF_MASK) >>
-+	    I40E_PF_VT_PFALLOC_FIRSTVF_SHIFT;
-+	j = (val & I40E_PF_VT_PFALLOC_LASTVF_MASK) >>
-+	    I40E_PF_VT_PFALLOC_LASTVF_SHIFT;
-+	if (val & I40E_PF_VT_PFALLOC_VALID_MASK)
-+		num_vfs = (j - i) + 1;
-+	else
-+		num_vfs = 0;
-+
-+	/* stop all the interrupts */
-+	wr32(hw, I40E_PFINT_ICR0_ENA, 0);
-+	val = 0x3 << I40E_PFINT_DYN_CTLN_ITR_INDX_SHIFT;
-+	for (i = 0; i < num_pf_int - 2; i++)
-+		wr32(hw, I40E_PFINT_DYN_CTLN(i), val);
-+
-+	/* Set the FIRSTQ_INDX field to 0x7FF in PFINT_LNKLSTx */
-+	val = eol << I40E_PFINT_LNKLST0_FIRSTQ_INDX_SHIFT;
-+	wr32(hw, I40E_PFINT_LNKLST0, val);
-+	for (i = 0; i < num_pf_int - 2; i++)
-+		wr32(hw, I40E_PFINT_LNKLSTN(i), val);
-+	val = eol << I40E_VPINT_LNKLST0_FIRSTQ_INDX_SHIFT;
-+	for (i = 0; i < num_vfs; i++)
-+		wr32(hw, I40E_VPINT_LNKLST0(i), val);
-+	for (i = 0; i < num_vf_int - 2; i++)
-+		wr32(hw, I40E_VPINT_LNKLSTN(i), val);
-+
-+	/* warn the HW of the coming Tx disables */
-+	for (i = 0; i < num_queues; i++) {
-+		u32 abs_queue_idx = base_queue + i;
-+		u32 reg_block = 0;
-+
-+		if (abs_queue_idx >= 128) {
-+			reg_block = abs_queue_idx / 128;
-+			abs_queue_idx %= 128;
-+		}
-+
-+		val = rd32(hw, I40E_GLLAN_TXPRE_QDIS(reg_block));
-+		val &= ~I40E_GLLAN_TXPRE_QDIS_QINDX_MASK;
-+		val |= (abs_queue_idx << I40E_GLLAN_TXPRE_QDIS_QINDX_SHIFT);
-+		val |= I40E_GLLAN_TXPRE_QDIS_SET_QDIS_MASK;
-+
-+		wr32(hw, I40E_GLLAN_TXPRE_QDIS(reg_block), val);
-+	}
-+	udelay(400);
-+
-+	/* stop all the queues */
-+	for (i = 0; i < num_queues; i++) {
-+		wr32(hw, I40E_QINT_TQCTL(i), 0);
-+		wr32(hw, I40E_QTX_ENA(i), 0);
-+		wr32(hw, I40E_QINT_RQCTL(i), 0);
-+		wr32(hw, I40E_QRX_ENA(i), 0);
-+	}
-+
-+	/* short wait for all queue disables to settle */
-+	udelay(50);
-+}
-+
-+/**
-  * i40e_clear_pxe_mode - clear pxe operations mode
-  * @hw: pointer to the hw struct
-  *
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 17b1295..2c28538 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -8636,6 +8636,7 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	}
+ 	/* don't swizzle the bits until after the mask because the mask bits
+ 	 * will be in a different bit position on big endian machines
+@@ -910,7 +910,7 @@ static void i40e_write_qword(u8 *hmc_bits,
+ 	if (ce_info->width < 64)
+ 		mask = ((u64)1 << ce_info->width) - 1;
+ 	else
+-		mask = -1;
++		mask = 0xFFFFFFFFFFFFFFFF;
  
- 	/* Reset here to make sure all is clean and to define PF 'n' */
-+	i40e_clear_hw(hw);
- 	err = i40e_pf_reset(hw);
- 	if (err) {
- 		dev_info(&pdev->dev, "Initial pf_reset failed: %d\n", err);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_prototype.h b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-index 3300b99..77c515d 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-@@ -217,6 +217,7 @@ i40e_status i40e_aq_query_switch_comp_bw_config(struct i40e_hw *hw,
- /* i40e_common */
- i40e_status i40e_init_shared_code(struct i40e_hw *hw);
- i40e_status i40e_pf_reset(struct i40e_hw *hw);
-+void i40e_clear_hw(struct i40e_hw *hw);
- void i40e_clear_pxe_mode(struct i40e_hw *hw);
- bool i40e_get_link_status(struct i40e_hw *hw);
- i40e_status i40e_get_mac_addr(struct i40e_hw *hw,
+ 	/* don't swizzle the bits until after the mask because the mask bits
+ 	 * will be in a different bit position on big endian machines
 -- 
 1.9.3
