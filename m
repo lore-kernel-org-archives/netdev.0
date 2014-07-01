@@ -1,94 +1,112 @@
-From: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
-Subject: segfault after VLAN change
-Date: Tue, 1 Jul 2014 16:55:13 +0000
-Message-ID: <42408b4f154d434d9838b83ae2dc15db@BL2PR03MB545.namprd03.prod.outlook.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH RFC V2 1/2] Documentation: add Device tree bindings for
+ QCA7000
+Date: Tue, 01 Jul 2014 21:33:05 +0400
+Message-ID: <53B2F0D1.6070602@cogentembedded.com>
+References: <1404232609-4314-1-git-send-email-stefan.wahren@i2se.com> <1404232609-4314-2-git-send-email-stefan.wahren@i2se.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Li RongQing <roy.qing.li@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org
+To: Stefan Wahren <stefan.wahren@i2se.com>, davem@davemloft.net,
+	robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	f.fainelli@gmail.com, eric.dumazet@gmail.com, dave.taht@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1blp0190.outbound.protection.outlook.com ([207.46.163.190]:19484
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755365AbaGAQzR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2014 12:55:17 -0400
-Content-Language: en-US
+Received: from mail-la0-f41.google.com ([209.85.215.41]:64406 "EHLO
+	mail-la0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756458AbaGARdH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2014 13:33:07 -0400
+Received: by mail-la0-f41.google.com with SMTP id hz20so6194406lab.14
+        for <netdev@vger.kernel.org>; Tue, 01 Jul 2014 10:33:05 -0700 (PDT)
+In-Reply-To: <1404232609-4314-2-git-send-email-stefan.wahren@i2se.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Hello.
 
-I've discovered that the commit:
+On 07/01/2014 08:36 PM, Stefan Wahren wrote:
 
-    commit 5a4ae5f6e7d4b2b5a9b8981d513345053e40b6ac
-    Author: Li RongQing <roy.qing.li@gmail.com>
-    Date:   Mon Apr 21 19:49:08 2014 +0800
+> This patch adds the Device tree bindings for the
+> Ethernet over SPI protocol driver of the Qualcomm
+> QCA7000 HomePlug GreenPHY.
 
-    vlan: unnecessary to check if vlan_pcpu_stats is NULL
+> Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
+> ---
+>   .../devicetree/bindings/net/qca-qca7000-spi.txt    |   47 ++++++++++++++++++++
+>   1 file changed, 47 insertions(+)
+>   create mode 100644 Documentation/devicetree/bindings/net/qca-qca7000-spi.txt
 
-    if allocating memory for vlan_pcpu_stats failed, the device can not be operated
+> diff --git a/Documentation/devicetree/bindings/net/qca-qca7000-spi.txt b/Documentation/devicetree/bindings/net/qca-qca7000-spi.txt
+> new file mode 100644
+> index 0000000..66ff588
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/qca-qca7000-spi.txt
+> @@ -0,0 +1,47 @@
+> +* Qualcomm QCA7000 (Ethernet over SPI protocol)
+> +
+> +Note: The QCA7000 is useable as a SPI device. In this case it must be defined
+> +as a child of a SPI master in the device tree.
+> +
+> +Required properties:
+> +- compatible : Should be "qca,qca7000"
+> +- reg : Should specify the SPI chip select
+> +- interrupt-parent : Should specify the pHandle of the source interrupt
 
-    Signed-off-by: 
-    Cc: Eric Dumazet <edumazet@google.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+    This property is not really required, it could be inherited from an 
+upper-level node.
 
-is causing a segfault when removing vlan on a e1000 device (reproduces with other devices as well).
-Re-adding the check or reverting the patch removes the issue (log below).
+> +- interrupts : The first cell should specify the index of the source interrupt
+> +  and the second cell should specify the trigger type as rising edge
+> +- spi-cpha : Must be set
+> +- spi-cpol: Must be set
+> +
+> +Optional properties:
+> +- spi-max-frequency : Maximum frequency of the SPI bus the chip can operate at.
+> +  Numbers smaller than 1000000 or greater than 16000000 are invalid. Missing
+> +  the property will set the SPI frequency to 8000000 Hertz.
+> +- local-mac-address: 6 bytes, mac address
 
------------------------------------------------------------------------
-root@p5040ds:~# vconfig add eth8 1
-root@p5040ds:~# vconfig rem eth8.1
-Unable to handle kernel paging request for data at address 0x2bc88028
-Faulting instruction address: 0xc058e950
-Oops: Kernel access of bad area, sig: 11 [#1]
-SMP NR_CPUS=8 CoreNet Generic
-Modules linked in:
-CPU: 3 PID: 2167 Comm: vconfig Tainted: G        W     3.16.0-rc3-00346-g65e85bf #2
-task: e7264d90 ti: e2c2c000 task.ti: e2c2c000
-NIP: c058e950 LR: c058ea30 CTR: c058e900
-REGS: e2c2db20 TRAP: 0300   Tainted: G        W      (3.16.0-rc3-00346-g65e85bf)
-MSR: 00029002 <CE,EE,ME>  CR: 48000428  XER: 20000000
-DEAR: 2bc88028 ESR: 00000000
-GPR00: c047299c e2c2dbd0 e7264d90 00000000 2bc88000 00000000 ffffffff 00000000
-GPR08: 0000000f 00000000 000000ff 00000000 28000422 10121928 10100000 10100000
-GPR16: 10100000 00000000 c07c5968 00000000 00000000 00000000 e2c2dc48 e7838000
-GPR24: c07c5bac c07c58a8 e77290cc c07b0000 00000000 c05de6c0 e7838000 e2c2dc48
-NIP [c058e950] vlan_dev_get_stats64+0x50/0x170
-LR [c058ea30] vlan_dev_get_stats64+0x130/0x170
-Call Trace:
-[e2c2dbd0] [ffffffea] 0xffffffea (unreliable)
-[e2c2dc20] [c047299c] dev_get_stats+0x4c/0x140
-[e2c2dc40] [c0488ca8] rtnl_fill_ifinfo+0x3d8/0x960
-[e2c2dd70] [c0489f4c] rtmsg_ifinfo+0x6c/0x110
-[e2c2dd90] [c04731d4] rollback_registered_many+0x344/0x3b0
-[e2c2ddd0] [c047332c] rollback_registered+0x2c/0x50
-[e2c2ddf0] [c0476058] unregister_netdevice_queue+0x78/0xf0
-[e2c2de00] [c058d800] unregister_vlan_dev+0xc0/0x160
-[e2c2de20] [c058e360] vlan_ioctl_handler+0x1c0/0x550
-[e2c2de90] [c045d11c] sock_ioctl+0x28c/0x2f0
-[e2c2deb0] [c010d070] do_vfs_ioctl+0x90/0x7b0
-[e2c2df20] [c010d7d0] SyS_ioctl+0x40/0x80
-[e2c2df40] [c000f924] ret_from_syscall+0x0/0x3c
---- Exception: c01 at 0xff164ac
-    LR = 0xffb2064
-Instruction dump:
-7c771b78 83298e20 7c962378 3a600000 3a200000 3a525968 3b185bac 480000e4
-54a9103a 7c98482e 81370500 7c892214 <81240028> 712a0001 40c20114 7c2004ac
----[ end trace 7ec90716948b1f12 ]---
+    s/mac/MAC/.
 
-Segmentation fault
------------------------------------------------------------------------
+> +- qca,legacy-mode : Set the SPI data transfer of the QCA7000 to legacy mode.
+> +  In this mode the SPI master must toggle the chip select between each data
+> +  word. In burst mode these gaps aren't necessary, which is faster.
+> +  This setting depends on how the QCA7000 is setup via GPIO pin strapping.
+> +  If the property is missing the driver defaults to burst mode.
+> +
+> +Example:
+> +
+> +/* Freescale i.MX28 SPI master*/
+> +ssp2: ssp@80014000 {
+> +	#address-cells = <1>;
+> +	#size-cells = <0>;
+> +	compatible = "fsl,imx28-spi";
+> +	pinctrl-names = "default";
+> +	pinctrl-0 = <&spi2_pins_a>;
+> +	status = "okay";
+> +
+> +	qca7000@0 {
 
-after removing the patch:
+    According to the ePAPR standard [1]:
 
------------------------------------------------------------------------
-root@p5040ds:~# vconfig add eth8 1
-root@p5040ds:~# vconfig rem eth8.1
-root@p5040ds:~#
------------------------------------------------------------------------
+The name of a node should be somewhat generic, reflecting the function of the 
+device and not its precise programming model. If appropriate, the name should 
+be one of the following choices:
+[...]
+  - ethernet;
 
-Best regards,
-Madalin
+> +		compatible = "qca,qca7000";
+> +		interrupt-parent = <&gpio3>;      /* GPIO Bank 3 */
+> +		interrupts = <25 0x1>;            /* Index: 25, rising edge */
+> +		reg = <0x0>;
+> +		spi-cpha;                         /* SPI mode: CPHA=1 */
+> +		spi-cpol;                         /* SPI mode: CPOL=1 */
+> +		spi-max-frequency = <8000000>;    /* freq: 8 MHz */
+> +		local-mac-address = [ A0 B0 C0 D0 E0 F0 ];
+> +	};
+> +};
+
+[1] http://www.power.org/resources/downloads/Power_ePAPR_APPROVED_v1.0.pdf
+
+WBR, Sergei
