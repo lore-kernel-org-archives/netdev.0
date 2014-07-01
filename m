@@ -1,47 +1,57 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/14] i40e: limit GLLAN_TXPRE_QDIS to QINDX 0-127
-Date: Tue,  1 Jul 2014 04:35:06 -0700
-Message-ID: <1404214511-26868-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/14] i40e/i40evf: initialize context descriptor
+Date: Tue,  1 Jul 2014 04:35:05 -0700
+Message-ID: <1404214511-26868-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1404214511-26868-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Christopher Pau <christopher.pau@intel.com>,
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:7330 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:7355 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757811AbaGALfS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1757807AbaGALfS (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 1 Jul 2014 07:35:18 -0400
 In-Reply-To: <1404214511-26868-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Christopher Pau <christopher.pau@intel.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-Prevent writing to reserved bits, queue index is 0-127
+Driver needs to initialize all members of context descriptor. Stale
+data is possible otherwise.
 
-Change-ID: Ic923e1c92012a265983414acd8f547c4bdac2e34
-Signed-off-by: Christopher Pau <christopher.pau@intel.com>
+Change-ID: Idc6b53af45583509da42d5ec0824cbaf78aee64f
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_common.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 1 +
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c | 1 +
+ 2 files changed, 2 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index 8305c8a..9d09ab3 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -669,8 +669,10 @@ void i40e_pre_tx_queue_cfg(struct i40e_hw *hw, u32 queue, bool enable)
- 	u32 reg_block = 0;
- 	u32 reg_val;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index babb7e6..051e213 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -1991,6 +1991,7 @@ static void i40e_create_tx_ctx(struct i40e_ring *tx_ring,
+ 	/* cpu_to_le32 and assign to struct fields */
+ 	context_desc->tunneling_params = cpu_to_le32(cd_tunneling);
+ 	context_desc->l2tag2 = cpu_to_le16(cd_l2tag2);
++	context_desc->rsvd = cpu_to_le16(0);
+ 	context_desc->type_cmd_tso_mss = cpu_to_le64(cd_type_cmd_tso_mss);
+ }
  
--	if (abs_queue_idx >= 128)
-+	if (abs_queue_idx >= 128) {
- 		reg_block = abs_queue_idx / 128;
-+		abs_queue_idx %= 128;
-+	}
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index 48ebb6c..f2762f5 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -1336,6 +1336,7 @@ static void i40e_create_tx_ctx(struct i40e_ring *tx_ring,
+ 	/* cpu_to_le32 and assign to struct fields */
+ 	context_desc->tunneling_params = cpu_to_le32(cd_tunneling);
+ 	context_desc->l2tag2 = cpu_to_le16(cd_l2tag2);
++	context_desc->rsvd = cpu_to_le16(0);
+ 	context_desc->type_cmd_tso_mss = cpu_to_le64(cd_type_cmd_tso_mss);
+ }
  
- 	reg_val = rd32(hw, I40E_GLLAN_TXPRE_QDIS(reg_block));
- 	reg_val &= ~I40E_GLLAN_TXPRE_QDIS_QINDX_MASK;
 -- 
 1.9.3
