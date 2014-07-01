@@ -1,62 +1,77 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next] igb: do a reset on SR-IOV re-init if device is
- down
-Date: Tue, 01 Jul 2014 04:54:39 -0700
-Message-ID: <1404215679.2311.92.camel@jtkirshe-mobl>
-References: <1404215149-20634-1-git-send-email-sassmann@kpanic.de>
+From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+Subject: Re: [PATCH] Use dev_port for the ID of a network device.
+Date: Tue, 1 Jul 2014 09:25:47 -0300
+Message-ID: <20140701122547.GA1204@oc0268524204.ibm.com>
+References: <1404160596-25859-1-git-send-email-cascardo@linux.vnet.ibm.com>
+ <87egy54lwb.fsf@nemi.mork.no>
+ <87a98t4jcm.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-Z5uKa9hlLtIBrENNlF/Z"
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	e1000-devel@lists.sourceforge.net, carolyn.wyborny@intel.com
-To: Stefan Assmann <sassmann@kpanic.de>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: =?iso-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:9462 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751323AbaGALzD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Jul 2014 07:55:03 -0400
-In-Reply-To: <1404215149-20634-1-git-send-email-sassmann@kpanic.de>
+Received: from e24smtp02.br.ibm.com ([32.104.18.86]:39424 "EHLO
+	e24smtp02.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752920AbaGAMZ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2014 08:25:57 -0400
+Received: from /spool/local
+	by e24smtp02.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <cascardo@linux.vnet.ibm.com>;
+	Tue, 1 Jul 2014 09:25:55 -0300
+Received: from d24relay01.br.ibm.com (d24relay01.br.ibm.com [9.8.31.16])
+	by d24dlp01.br.ibm.com (Postfix) with ESMTP id E8900352006A
+	for <netdev@vger.kernel.org>; Tue,  1 Jul 2014 08:25:47 -0400 (EDT)
+Received: from d24av05.br.ibm.com (d24av05.br.ibm.com [9.18.232.44])
+	by d24relay01.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s61CQ7m34284542
+	for <netdev@vger.kernel.org>; Tue, 1 Jul 2014 09:26:08 -0300
+Received: from d24av05.br.ibm.com (localhost [127.0.0.1])
+	by d24av05.br.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s61CPqgr027521
+	for <netdev@vger.kernel.org>; Tue, 1 Jul 2014 08:25:52 -0400
+Content-Disposition: inline
+In-Reply-To: <87a98t4jcm.fsf@nemi.mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
---=-Z5uKa9hlLtIBrENNlF/Z
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Tue, 2014-07-01 at 13:45 +0200, Stefan Assmann wrote:
-> To properly re-initialize SR-IOV it is necessary to reset the device
-> even if it is already down. Not doing this may result in tx unit
-> hangs.
+On Tue, Jul 01, 2014 at 09:40:57AM +0200, Bj=F8rn Mork wrote:
+> FYI: I just got this back from systemd-devel-owner@lists.freedesktop.=
+org :
 >=20
-> Signed-off-by: Stefan Assmann <sassmann@kpanic.de>
-> ---
->  drivers/net/ethernet/intel/igb/igb_main.c | 2 ++
->  1 file changed, 2 insertions(+)
+>  Please subscribe to this mailing list, all non-subscriber emails are
+>  automatically rejected by the server.
+> =20
+>  If you actually don't want to receive the mails, stay subscribed but
+>  just disable the delivery in the mailman web interface. You will sti=
+ll
+>  be able to send messages that way.
+> =20
+>  We were unable to cope with the amount of SPAM, and the moderation
+>  queue was not actually moderated by anybody, so rejection seemed mor=
+e
+>  appropriate than no answer and no delivery to the list.
+> =20
+>  Thanks for understanding.
+>=20
+>=20
+> Please do not crosspost between netdev and closed mailing lists.  It
+> splits the followup threads between those who are inside the closed
+> community and those who are not.
+>=20
+> I've removed systemd-devel from the CC list of this email.
+>=20
+> Thanks for understanding.
+>=20
+>=20
+> Bj=F8rn
+>=20
 
-Thanks Stefan, I have added your patch to my queue.
+Not sure how, but my patch got through, and I don't recall being
+subscribed, so I thought it was a an open list. Anyway, it's something
+that I considered important to be considered by the two communities.
 
---=-Z5uKa9hlLtIBrENNlF/Z
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
+Kay raises up the matter of still using dev_id. Since we had drivers
+that used that in the past, should we use it as a fallback for older
+kernels where dev_port is not there?
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJTsqF/AAoJEOVv75VaS+3OOM4P/RenYyjcbdBSUEHmqwxbbPdi
-JMjfdw5+t4vK2fbZJXnnxUNQYXGn7M1ZCFlsO239HQGZvH8x7B92byZyRouHg7kr
-bQZZ5CRtWSupVp2EbsVMu4pXLIwopcKBImv5zS+LydtGs4BwiBU31wMSawv3zSKd
-w91vepdYMUEoRv+p2/nJTKWXaRL1BOBL1dTuUXjLUMD7hpEiJbX+D6yo8S+/jZys
-z9YIPafk7kAvvag3ncfyriHcfIJD4gsPevAq8DucPDYWc/+JldHID5uwARyl5Tnt
-7iFMve6fPJfsyDvaJ2KPP6mveeWp1wGomdbPaUJIShxQKPbwfrxsqB+KdzucN0Zu
-hqnpNEaD85fjtWUsUMCHoMCHIkVl0jLPlckW4verXOozx2LS4WSzKqdSnTXTvdwX
-a6xZyuBKPVNdd9wSTQXaRBa0DoOdmTgEbbrqds+akUPoPoFi+RduDfBxwIYq0/3j
-eR0HElQxE6XwTcvKZI+qgtmJTA8Z5jZTS1lngfFZpX5iPU2W5RmhBITcqJr3ZzWS
-wf2hJ1YDX+O2wNPR+33HDLTmRKs9HWwv8N4Nc+68qJPbSkzIz/aSUFOcjRr8kZDY
-+iyH57cIgeWPuA+b/KIt2fpoILYe/qYOLT/q8h/sZ1T6QC+H19rhYZJJD+sTlgsJ
-mfI0Bxljwr51z5ScIGkL
-=Pbrl
------END PGP SIGNATURE-----
-
---=-Z5uKa9hlLtIBrENNlF/Z--
+Regards.
+Cascardo.
