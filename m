@@ -1,96 +1,37 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH 2/2] openvswitch: Enable tunnel GSO for OVS bridge.
-Date: Mon, 30 Jun 2014 17:32:51 -0700
-Message-ID: <CA+mtBx9dH_VeSaOqCY8YdvGACqg9AOwnBAnyUSMA1onHL1bHbA@mail.gmail.com>
-References: <1401017985-1574-1-git-send-email-pshelar@nicira.com>
-	<CAJZOPZLDhqkosAVty2TpOx5JrkTwVdn2JhMNY8Jti2pu6jU9xQ@mail.gmail.com>
-	<CALnjE+qTN6PN38MJWc9iFEMFQs73ejoSQtW=NQ0GXaMn6nrTtQ@mail.gmail.com>
+From: Kay Sievers <kay@vrfy.org>
+Subject: Re: [PATCH] Use dev_port for the ID of a network
+	device.
+Date: Tue, 1 Jul 2014 02:33:19 +0200
+Message-ID: <CAPXgP13o=qZc0q+Af0sd6bLKUawKYw0L_SLqh3VgLZBJ1CfYSA@mail.gmail.com>
+References: <1404160596-25859-1-git-send-email-cascardo@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Or Gerlitz <or.gerlitz@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Pravin Shelar <pshelar@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f182.google.com ([209.85.223.182]:41725 "EHLO
-	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755536AbaGAAcw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 20:32:52 -0400
-Received: by mail-ie0-f182.google.com with SMTP id rp18so7517608iec.41
-        for <netdev@vger.kernel.org>; Mon, 30 Jun 2014 17:32:51 -0700 (PDT)
-In-Reply-To: <CALnjE+qTN6PN38MJWc9iFEMFQs73ejoSQtW=NQ0GXaMn6nrTtQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, systemd-devel@lists.freedesktop.org
+To: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+Return-path: <systemd-devel-bounces@lists.freedesktop.org>
+In-Reply-To: <1404160596-25859-1-git-send-email-cascardo@linux.vnet.ibm.com>
+List-Unsubscribe: <http://lists.freedesktop.org/mailman/options/systemd-devel>,
+ <mailto:systemd-devel-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <http://lists.freedesktop.org/archives/systemd-devel>
+List-Post: <mailto:systemd-devel@lists.freedesktop.org>
+List-Help: <mailto:systemd-devel-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <http://lists.freedesktop.org/mailman/listinfo/systemd-devel>,
+ <mailto:systemd-devel-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: systemd-devel-bounces@lists.freedesktop.org
+Sender: "systemd-devel" <systemd-devel-bounces@lists.freedesktop.org>
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 30, 2014 at 4:37 PM, Pravin Shelar <pshelar@nicira.com> wrote:
-> On Mon, Jun 30, 2014 at 2:53 PM, Or Gerlitz <or.gerlitz@gmail.com> wrote:
->> On Sun, May 25, 2014 at 2:39 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
->>>
->>> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
->>
->>
->>
->> Hi Pravin, ping... this addresses a real life use case where offloads
->> didn't come into play, right? can you respin the patch with non-empty
->> change-log so people can review/ack it? --> and we'll have upstream
->> support for that case.
->>
-> This patch is blocked by double encap issue. You can read mail thread
-> on first patch http://marc.info/?l=linux-netdev&m=140236173911474&w=2
+On Mon, Jun 30, 2014 at 10:36 PM, Thadeu Lima de Souza Cascardo
+<cascardo@linux.vnet.ibm.com> wrote:
+> For network devices on the same PCI function, dev_id should not be used,
+> since its purpose is for IPv6 support on interfaces with the same MAC
+> address.
 >
-> Tom is going to fix GSO for packets with multiple encapsulations.
-> After that it would be safe to enable tunnel offloading features for
-> OVS.
->
-I have some working patches for that but would like to get checksum
-changes finished first. The first patch is reasonable to keep things
-moving and should be okay to undo.
+> The new dev_port sysfs attribute should be used when it is found. When
+> it is not, using dev_id might work.
 
-> Thanks,
-> Pravin.
->
->> Or.
->>
->>
->>
->>>
->>> ---
->>>  include/linux/netdev_features.h      | 4 ++++
->>>  net/openvswitch/vport-internal_dev.c | 3 ++-
->>>  2 files changed, 6 insertions(+), 1 deletion(-)
->>>
->>> diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
->>> index e5a5894..12118a5 100644
->>> --- a/include/linux/netdev_features.h
->>> +++ b/include/linux/netdev_features.h
->>> @@ -152,6 +152,10 @@ enum {
->>>  #define NETIF_F_ALL_FCOE       (NETIF_F_FCOE_CRC | NETIF_F_FCOE_MTU | \
->>>                                  NETIF_F_FSO)
->>>
->>> +#define NETIF_F_ALL_ENCAP_GSO   (NETIF_F_GSO_GRE | NETIF_F_GSO_GRE_CSUM | \
->>> +                                NETIF_F_GSO_IPIP | NETIF_F_GSO_SIT |     \
->>> +                                NETIF_F_GSO_UDP_TUNNEL | NETIF_F_GSO_MPLS)
->>> +
->>>  /*
->>>   * If one device supports one of these features, then enable them
->>>   * for all in netdev_increment_features.
->>> diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
->>> index 789af92..b971610 100644
->>> --- a/net/openvswitch/vport-internal_dev.c
->>> +++ b/net/openvswitch/vport-internal_dev.c
->>> @@ -134,7 +134,8 @@ static void do_setup(struct net_device *netdev)
->>>         netdev->tx_queue_len = 0;
->>>
->>>         netdev->features = NETIF_F_LLTX | NETIF_F_SG | NETIF_F_FRAGLIST |
->>> -                          NETIF_F_HIGHDMA | NETIF_F_HW_CSUM | NETIF_F_GSO_SOFTWARE;
->>> +                          NETIF_F_HIGHDMA | NETIF_F_HW_CSUM | NETIF_F_GSO_SOFTWARE |
->>> +                          NETIF_F_ALL_ENCAP_GSO;
->>>
->>>         netdev->vlan_features = netdev->features;
->>>         netdev->features |= NETIF_F_HW_VLAN_CTAG_TX;
->>> --
->>> 1.9.1
->>>
->>> --
->>> To unsubscribe from this list: send the line "unsubscribe netdev" in
->>> the body of a message to majordomo@vger.kernel.org
->>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I don't see a problem switching this over, but why would we keep using
+dev_id if it is not the right thing to use?
+
+Kay
