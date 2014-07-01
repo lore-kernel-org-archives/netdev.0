@@ -1,146 +1,95 @@
-From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-Subject: Re: [PATCH RFC net-next 03/14] bpf: introduce syscall(BPF, ...) and
- BPF maps
-Date: Tue, 1 Jul 2014 08:11:03 -0700
-Message-ID: <CALCETrWpA5M74pKJLFJ0t-2hi2TXMi_BV6DbJMmdDOJyOoHOyg@mail.gmail.com>
-References: <1403913966-4927-1-git-send-email-ast@plumgrid.com>
- <1403913966-4927-4-git-send-email-ast@plumgrid.com> <CALCETrV3WLBmHewCZgfhCkjODWfq_byRg6sF7HpqZ6n9BVMBVQ@mail.gmail.com>
- <CAMEtUuzWs+MbSOGGD-Rc01DHKASa4GxbHdtCrSCLit4cUM35mA@mail.gmail.com>
- <CALCETrWy6=dzTycy-ckiMR92+nQeqAWp_Hw=hi__VSzVWZ43Ag@mail.gmail.com>
- <CAMEtUuwRf--qyPu3rKB7-57KAu2NdsQdEpVRckqabmf61g+h-g@mail.gmail.com>
- <CALCETrUoOTtQ1R1A8Ak35fxHxaFTPHWP6oZWnXDVLKa_ESziWw@mail.gmail.com>
- <CAMEtUuzS=9Y_ZjigofvQ5d3=89RS=+d8-WGPk9VVSMc3qawWsw@mail.gmail.com>
- <CALCETrWq+=Q3G2Smjd2RYES42UagpmD0EKxFM+jNufi6_qitWg@mail.gmail.com>
- <CAMEtUuyKY=haqP11VgXHdfHBkqfB-KxuswygUd7hDPLkOFz9HQ@mail.gmail.com>
- <CALCETrW3=idHOKF56d94suiA0NoiUGwr7pENm13q6=1XMbBPdw@mail.gmail.com> <CAMEtUuyX-tybpMEW=f-00qgq9h3AcHovLNW0_bak3oT4Oj3FuA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
-	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAMEtUuyX-tybpMEW=f-00qgq9h3AcHovLNW0_bak3oT4Oj3FuA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Stefan Wahren <stefan.wahren@i2se.com>
+Subject: [PATCH RFC V2 0/2] add Qualcomm QCA7000 ethernet driver
+Date: Tue,  1 Jul 2014 18:36:47 +0200
+Message-ID: <1404232609-4314-1-git-send-email-stefan.wahren@i2se.com>
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org
+To: davem@davemloft.net, robh+dt@kernel.org, pawel.moll@arm.com,
+	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
+	galak@codeaurora.org, f.fainelli@gmail.com, eric.dumazet@gmail.com,
+	dave.taht@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([212.227.126.131]:65102 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755400AbaGAQhS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2014 12:37:18 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 30, 2014 at 10:47 PM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>=
- wrote:
-> On Mon, Jun 30, 2014 at 3:09 PM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org=
-> wrote:
->> On Sat, Jun 28, 2014 at 11:36 PM, Alexei Starovoitov <ast@plumgrid.c=
-om> wrote:
->>> On Sat, Jun 28, 2014 at 6:52 PM, Andy Lutomirski <luto@amacapital.n=
-et> wrote:
->>>> On Sat, Jun 28, 2014 at 1:49 PM, Alexei Starovoitov <ast@plumgrid.=
-com> wrote:
->>>>>
->>>>> Sorry I don't like 'fd' direction at all.
->>>>> 1. it will make the whole thing very socket specific and 'net' de=
-pendent.
->>>>> but the goal here is to be able to use eBPF for tracing in embedd=
-ed
->>>>> setups. So it's gotta be net independent.
->>>>> 2. sockets are already overloaded with all sorts of stuff. Adding=
- more
->>>>> types of sockets will complicate it a lot.
->>>>> 3. and most important. read/write operations on sockets are not
->>>>> done every nanosecond, whereas lookup operations on bpf maps
->>>>> are done every dozen instructions, so we cannot have any overhead
->>>>> when accessing maps.
->>>>> In other words the verifier is done as static analyzer. I moved a=
-ll
->>>>> the complexity to verify time, so at run-time the programs are as
->>>>> fast as possible. I'm strongly against run-time checks in critica=
-l path,
->>>>> since they kill performance and make the whole approach a lot les=
-s usable.
->>>>
->>>> I may have described my suggestion poorly.  I'm suggesting that al=
-l of
->>>> these global ids be replaced *for userspace's benefit* with fds.  =
-That
->>>> is, a map would have an associated struct inode, and, when you loa=
-d an
->>>> eBPF program, you'd pass fds into the kernel instead of global ids=
-=2E
->>>> The kernel would still compile the eBPF program to use the global =
-ids,
->>>> though.
->>>
->>> Hmm. If I understood you correctly, you're suggesting to do it simi=
-lar
->>> to ipc/mqueue, shmem, sockets do. By registering and mounting
->>> a file system and providing all superblock and inode hooks=E2=80=A6=
- and
->>> probably have its own namespace type=E2=80=A6 hmm=E2=80=A6 may be. =
-That's
->>> quite a bit of work to put lightly. As I said in the other email th=
-e first
->>> step is root only and all these complexity just not worth doing
->>> at this stage.
->>
->> The downside of not doing it right away is that it's harder to
->> retrofit in without breaking early users.
->>
->> You might be able to get away with using anon_inodes.  That will
->
-> Spent quite a bit of time playing with anon_inode_getfd(). The model
-> works ok for seccomp, but doesn't seem to work for tracing,
-> since tracepoints are global. Say, syscall(bpf, load_prog) returns
-> a process-local fd. This 'fd' as a string can be written to
-> debugfs/tracing/events/.../filter which will increment a refcnt of a =
-global
-> ebpf_program structure and will keep using it. When process exits it =
-will
-> close all fds which in case of ebpf_prog_fd should be a nop, since
-> the program is still attached to a global event. Now we have a
-> program and maps that still alive and dangling, since tracepoint even=
-ts
-> keep coming, but no new process can access it. Here we just lost all
-> benefits of making it 'fd' based. Theoretically we can extend tracing=
- to
-> be fd-based too and tracepoints will auto-detach upon process exit,
-> but that's not going to work for all other global events. Like networ=
-king
-> components (bridge, ovs, =E2=80=A6) are global and they won't be addi=
-ng
-> fd-based interfaces.
-> I'm still thinking about it, but it looks like that any process-local
-> ebpf_prog_id scheme is not going to work for global events. Thoughts?
+This patch series adds support for the Qualcomm QCA7000 Homeplug GreenPHY.
+The QCA7000 is serial-to-powerline bridge with two interfaces: UART and SPI.
+These patches handles only the last one, with an Ethernet over SPI protocol
+driver.
 
-Hmm.  Maybe these things do need global ids for tracing, or at least
-there need to be some way to stash them somewhere and find them again.
-I suppose that debugfs could have symlinks to them, but I don't know
-how hard that would be to implement or how awkward it would be to use.
+This driver based on the Qualcomm code [1], but contains a lot of changes
+since last year:
 
-I imagine there's some awkwardness regardless.  For tracing, if I
-create map 75 and eBPF program 492 that uses map 75, then I still need
-to remember that map 75 is the map I want (or I need to parse the eBPF
-program later on).
+* devictree support
+* DebugFS support
+* ethtool support
+* better error handling
+* performance improvements
+* code cleanup
+* some bugfixes
 
-How do you imagine the userspace code working?  Maybe it would make
-sense to add some nlattrs for eBPF programs to map between referenced
-objects and nicknames for them.  Then user code could look at
-/sys/kernel/debug/whatever/nickname_of_map to resolve the map id or
-even just open it directly.
+For more details look at our git repository [2].
 
-I admit that I'm much more familiar with seccomp and even socket
-filters than I am with tracing.
+The code has been tested only on Freescale i.MX28 boards, but should work
+on other platforms.
 
---Andy
+Any comments about the code are welcome.
+
+[1] - https://github.com/IoE/qca7000
+[2] - https://github.com/I2SE/qca7000/tree/linux-mainline
+
+Changes in V2:
+- replace in DT the SPI intr GPIO with pure interrupt
+- make legacy mode a boolean DT property and remove it as module parameter
+- make burst length a module parameter instead of DT property
+- make pluggable a module parameter instead of DT property
+- improve DT documentation
+- replace debugFS register dump with ethtool function
+- replace debugFS stats with ethtool function
+- implement function to get ring parameter via ethtool
+- implement function to set TX ring count via ethtool
+- fix TX ring state in debugFS
+- optimize tx ring flush
+- add byte limit for TX ring to avoid bufferbloat
+- fix TX queue full and write buffer miss counter
+- fix SPI clk speed module parameter
+- fix possible packet loss
+- fix possible race during transmit
+
+Stefan Wahren (2):
+  This patch adds the Device tree bindings for the Ethernet over SPI   
+     protocol driver of the Qualcomm QCA7000 HomePlug GreenPHY.
+  This patch adds the Ethernet over SPI driver for the Qualcomm QCA7000
+        HomePlug GreenPHY.
+
+ .../devicetree/bindings/net/qca-qca7000-spi.txt    |   47 +
+ drivers/net/ethernet/Kconfig                       |    1 +
+ drivers/net/ethernet/Makefile                      |    1 +
+ drivers/net/ethernet/qualcomm/Kconfig              |   30 +
+ drivers/net/ethernet/qualcomm/Makefile             |    6 +
+ drivers/net/ethernet/qualcomm/qca_7k.c             |  149 +++
+ drivers/net/ethernet/qualcomm/qca_7k.h             |   72 ++
+ drivers/net/ethernet/qualcomm/qca_debug.c          |  311 ++++++
+ drivers/net/ethernet/qualcomm/qca_debug.h          |   34 +
+ drivers/net/ethernet/qualcomm/qca_framing.c        |  155 +++
+ drivers/net/ethernet/qualcomm/qca_framing.h        |  134 +++
+ drivers/net/ethernet/qualcomm/qca_spi.c            | 1001 ++++++++++++++++++++
+ drivers/net/ethernet/qualcomm/qca_spi.h            |  114 +++
+ 13 files changed, 2055 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/qca-qca7000-spi.txt
+ create mode 100644 drivers/net/ethernet/qualcomm/Kconfig
+ create mode 100644 drivers/net/ethernet/qualcomm/Makefile
+ create mode 100644 drivers/net/ethernet/qualcomm/qca_7k.c
+ create mode 100644 drivers/net/ethernet/qualcomm/qca_7k.h
+ create mode 100644 drivers/net/ethernet/qualcomm/qca_debug.c
+ create mode 100644 drivers/net/ethernet/qualcomm/qca_debug.h
+ create mode 100644 drivers/net/ethernet/qualcomm/qca_framing.c
+ create mode 100644 drivers/net/ethernet/qualcomm/qca_framing.h
+ create mode 100644 drivers/net/ethernet/qualcomm/qca_spi.c
+ create mode 100644 drivers/net/ethernet/qualcomm/qca_spi.h
+
+-- 
+1.7.10.4
