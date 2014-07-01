@@ -1,82 +1,86 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: [RESEND][PATCH] rtlwifi: btcoexist: avoid format string in printk
-Date: Tue, 1 Jul 2014 11:31:28 -0700
-Message-ID: <CAGXu5jKKav6Nq3AL=oup9SWrgHTvLM9L8f2-AYo6vQr3hFyXtA@mail.gmail.com>
-References: <20140630203849.GA4787@www.outflux.net>
-	<20140701182908.GD6358@tuxdriver.com>
+From: Jan Tore Morken <jantore@morken.priv.no>
+Subject: [backport request] netfilter: ipt_ULOG: fix info leaks
+Date: Tue, 1 Jul 2014 20:20:13 +0200
+Message-ID: <20140701182013.GM26742@32k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	linux-wireless@vger.kernel.org,
-	Network Development <netdev@vger.kernel.org>
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140701182908.GD6358@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.coreless.net ([91.189.176.206]:56562 "EHLO
+	sidney.coreless.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1758700AbaGASjs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2014 14:39:48 -0400
+Received: from jantore by sidney.coreless.net with local (Exim 4.80)
+	(envelope-from <jantore@morken.priv.no>)
+	id 1X22f7-0005D7-Rl
+	for netdev@vger.kernel.org; Tue, 01 Jul 2014 20:20:13 +0200
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 1, 2014 at 11:29 AM, John W. Linville
-<linville@tuxdriver.com> wrote:
-> Please look in the git trees before reposting patches...
->
-> commit 6437f51ec36af8ef1e3e2659439b35c37e5498e2
-> Author: Kees Cook <keescook@chromium.org>
-> Date:   Tue Jun 10 10:37:24 2014 -0700
->
->     rtlwifi: btcoexist: avoid format string in printk
->
->     Since CL_PRINTF only ever takes a single argument, make sure a format
->     string cannot leak into printk.
->
->     Signed-off-by: Kees Cook <keescook@chromium.org>
->     Signed-off-by: John W. Linville <linville@tuxdriver.com>
+Hi,
 
-Ah! Thanks very much. I hadn't gotten any email about it getting
-applied, so I incorrectly assumed it hadn't been. :)
+I mistakenly sent this request to the stable list before being made
+aware that it belonged here. Sorry to anyone reading this for the
+second time.
 
--Kees
+I'd like to request that the commit below is backported to stable. The
+commit fixes an old memory disclosure issue, and has already spent
+some time in mainline.
 
->
-> On Mon, Jun 30, 2014 at 01:38:49PM -0700, Kees Cook wrote:
->> Since CL_PRINTF only ever takes a single argument, make sure a format
->> string cannot leak into printk.
->>
->> Signed-off-by: Kees Cook <keescook@chromium.org>
->> ---
->>  .../net/wireless/rtlwifi/btcoexist/halbtcoutsrc.h  |    2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.h b/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.h
->> index 871fc3c6d559..049f4c8d98a8 100644
->> --- a/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.h
->> +++ b/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.h
->> @@ -114,7 +114,7 @@ extern u32 btc_dbg_type[];
->>
->>
->>  #define      CL_SPRINTF      snprintf
->> -#define      CL_PRINTF       printk
->> +#define      CL_PRINTF(buf)  printk("%s", buf)
->>
->>  #define      BTC_PRINT(dbgtype, dbgflag, printstr, ...)              \
->>       do {                                                    \
->> --
->> 1.7.9.5
->>
->>
->> --
->> Kees Cook
->> Chrome OS Security
->>
->
-> --
-> John W. Linville                Someday the world will need a hero, and you
-> linville@tuxdriver.com                  might be all we have.  Be ready.
+Thanks!
 
+===
 
+>From 278f2b3e2af5f32ea1afe34fa12a2518153e6e49 Mon Sep 17 00:00:00 2001
+From: Mathias Krause <minipli@googlemail.com>
+Date: Mon, 30 Sep 2013 22:05:08 +0200
+Subject: [PATCH] netfilter: ipt_ULOG: fix info leaks
 
+The ulog messages leak heap bytes by the means of padding bytes and
+incompletely filled string arrays. Fix those by memset(0)'ing the
+whole struct before filling it.
+
+Signed-off-by: Mathias Krause <minipli@googlemail.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/ipv4/netfilter/ipt_ULOG.c | 7 +------
+ 1 file changed, 1 insertion(+), 6 deletions(-)
+
+diff --git a/net/ipv4/netfilter/ipt_ULOG.c b/net/ipv4/netfilter/ipt_ULOG.c
+index cbc2215..9cb993c 100644
+--- a/net/ipv4/netfilter/ipt_ULOG.c
++++ b/net/ipv4/netfilter/ipt_ULOG.c
+@@ -220,6 +220,7 @@ static void ipt_ulog_packet(struct net *net,
+ 	ub->qlen++;
+ 
+ 	pm = nlmsg_data(nlh);
++	memset(pm, 0, sizeof(*pm));
+ 
+ 	/* We might not have a timestamp, get one */
+ 	if (skb->tstamp.tv64 == 0)
+@@ -238,8 +239,6 @@ static void ipt_ulog_packet(struct net *net,
+ 	}
+ 	else if (loginfo->prefix[0] != '\0')
+ 		strncpy(pm->prefix, loginfo->prefix, sizeof(pm->prefix));
+-	else
+-		*(pm->prefix) = '\0';
+ 
+ 	if (in && in->hard_header_len > 0 &&
+ 	    skb->mac_header != skb->network_header &&
+@@ -251,13 +250,9 @@ static void ipt_ulog_packet(struct net *net,
+ 
+ 	if (in)
+ 		strncpy(pm->indev_name, in->name, sizeof(pm->indev_name));
+-	else
+-		pm->indev_name[0] = '\0';
+ 
+ 	if (out)
+ 		strncpy(pm->outdev_name, out->name, sizeof(pm->outdev_name));
+-	else
+-		pm->outdev_name[0] = '\0';
+ 
+ 	/* copy_len <= skb->len, so can't fail. */
+ 	if (skb_copy_bits(skb, 0, pm->payload, copy_len) < 0)
 -- 
-Kees Cook
-Chrome OS Security
+2.0.0
