@@ -1,188 +1,62 @@
-From: <erik.hugne@ericsson.com>
-Subject: [PATCH net-next 1/2] tipc: refactor message delivery out of tipc_rcv
-Date: Tue, 1 Jul 2014 10:22:40 +0200
-Message-ID: <1404202961-30262-2-git-send-email-erik.hugne@ericsson.com>
-References: <1404202961-30262-1-git-send-email-erik.hugne@ericsson.com>
+From: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH RFC net-next 11/14] tracing: allow eBPF programs to be
+ attached to events
+Date: Tue, 01 Jul 2014 10:30:56 +0200
+Message-ID: <53B271C0.5090008@redhat.com>
+References: <1403913966-4927-1-git-send-email-ast@plumgrid.com> <1403913966-4927-12-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <tipc-discussion@lists.sourceforge.net>,
-	<carl.sigurjonsson@ericsson.com>,
-	Erik Hugne <erik.hugne@ericsson.com>
-To: <netdev@vger.kernel.org>, <jon.maloy@ericsson.com>,
-	<ying.xue@windriver.com>, <richard.alpe@ericsson.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sesbmg22.ericsson.net ([193.180.251.48]:57388 "EHLO
-	sesbmg22.ericsson.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757524AbaGAITp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2014 04:19:45 -0400
-In-Reply-To: <1404202961-30262-1-git-send-email-erik.hugne@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1403913966-4927-12-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Erik Hugne <erik.hugne@ericsson.com>
+On 06/28/2014 02:06 AM, Alexei Starovoitov wrote:
+> User interface:
+> cat bpf_123 > /sys/kernel/debug/tracing/__event__/filter
+>
+> where 123 is an id of the eBPF program priorly loaded.
+> __event__ is static tracepoint event.
+> (kprobe events will be supported in the future patches)
+>
+> eBPF programs can call in-kernel helper functions to:
+> - lookup/update/delete elements in maps
+> - memcmp
+> - trace_printk
+> - load_pointer
+> - dump_stack
 
-This is a cosmetic change, separating message delivery from the
-link state processing.
+Are there plans to let eBPF replace the generic event
+filtering framework in tracing?
 
-Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
-Reviewed-by: Ying Xue <ying.xue@windriver.com>
-Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/link.c | 124 ++++++++++++++++++++++++++++++++++++--------------------
- 1 file changed, 80 insertions(+), 44 deletions(-)
-
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index a081e7d..18b1524 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -88,6 +88,8 @@ static void link_print(struct tipc_link *l_ptr, const char *str);
- static int tipc_link_frag_xmit(struct tipc_link *l_ptr, struct sk_buff *buf);
- static void tipc_link_sync_xmit(struct tipc_link *l);
- static void tipc_link_sync_rcv(struct tipc_node *n, struct sk_buff *buf);
-+static int tipc_link_input(struct tipc_link *l, struct sk_buff *buf);
-+static int tipc_link_prepare_input(struct tipc_link *l, struct sk_buff **buf);
- 
- /*
-  *  Simple link routines
-@@ -1458,54 +1460,14 @@ void tipc_rcv(struct sk_buff *head, struct tipc_bearer *b_ptr)
- 		if (unlikely(l_ptr->oldest_deferred_in))
- 			head = link_insert_deferred_queue(l_ptr, head);
- 
--		/* Deliver packet/message to correct user: */
--		if (unlikely(msg_user(msg) ==  CHANGEOVER_PROTOCOL)) {
--			if (!tipc_link_tunnel_rcv(n_ptr, &buf)) {
--				tipc_node_unlock(n_ptr);
--				continue;
--			}
--			msg = buf_msg(buf);
--		} else if (msg_user(msg) == MSG_FRAGMENTER) {
--			l_ptr->stats.recv_fragments++;
--			if (tipc_buf_append(&l_ptr->reasm_buf, &buf)) {
--				l_ptr->stats.recv_fragmented++;
--				msg = buf_msg(buf);
--			} else {
--				if (!l_ptr->reasm_buf)
--					tipc_link_reset(l_ptr);
--				tipc_node_unlock(n_ptr);
--				continue;
--			}
--		}
--
--		switch (msg_user(msg)) {
--		case TIPC_LOW_IMPORTANCE:
--		case TIPC_MEDIUM_IMPORTANCE:
--		case TIPC_HIGH_IMPORTANCE:
--		case TIPC_CRITICAL_IMPORTANCE:
--		case CONN_MANAGER:
--			tipc_node_unlock(n_ptr);
--			tipc_sk_rcv(buf);
--			continue;
--		case MSG_BUNDLER:
--			l_ptr->stats.recv_bundles++;
--			l_ptr->stats.recv_bundled += msg_msgcnt(msg);
-+		if (tipc_link_prepare_input(l_ptr, &buf)) {
- 			tipc_node_unlock(n_ptr);
--			tipc_link_bundle_rcv(buf);
- 			continue;
--		case NAME_DISTRIBUTOR:
--			n_ptr->bclink.recv_permitted = true;
--			tipc_node_unlock(n_ptr);
--			tipc_named_rcv(buf);
--			continue;
--		case BCAST_PROTOCOL:
--			tipc_link_sync_rcv(n_ptr, buf);
--			break;
--		default:
--			kfree_skb(buf);
--			break;
- 		}
- 		tipc_node_unlock(n_ptr);
-+		msg = buf_msg(buf);
-+		if (tipc_link_input(l_ptr, buf) != 0)
-+			goto discard;
- 		continue;
- unlock_discard:
- 		tipc_node_unlock(n_ptr);
-@@ -1515,6 +1477,80 @@ discard:
- }
- 
- /**
-+ * tipc_link_prepare_input - process TIPC link messages
-+ *
-+ * returns nonzero if the message was consumed
-+ *
-+ * Node lock must be held
-+ */
-+static int tipc_link_prepare_input(struct tipc_link *l, struct sk_buff **buf)
-+{
-+	struct tipc_node *n;
-+	struct tipc_msg *msg;
-+	int res = -EINVAL;
-+
-+	n = l->owner;
-+	msg = buf_msg(*buf);
-+	switch (msg_user(msg)) {
-+	case CHANGEOVER_PROTOCOL:
-+		if (tipc_link_tunnel_rcv(n, buf))
-+			res = 0;
-+		break;
-+	case MSG_FRAGMENTER:
-+		l->stats.recv_fragments++;
-+		if (tipc_buf_append(&l->reasm_buf, buf)) {
-+			l->stats.recv_fragmented++;
-+			res = 0;
-+		} else if (!l->reasm_buf) {
-+			tipc_link_reset(l);
-+		}
-+		break;
-+	case MSG_BUNDLER:
-+		l->stats.recv_bundles++;
-+		l->stats.recv_bundled += msg_msgcnt(msg);
-+		res = 0;
-+		break;
-+	case NAME_DISTRIBUTOR:
-+		n->bclink.recv_permitted = true;
-+		res = 0;
-+		break;
-+	case BCAST_PROTOCOL:
-+		tipc_link_sync_rcv(n, *buf);
-+		break;
-+	default:
-+		res = 0;
-+	}
-+	return res;
-+}
-+/**
-+ * tipc_link_input - Deliver message too higher layers
-+ */
-+static int tipc_link_input(struct tipc_link *l, struct sk_buff *buf)
-+{
-+	struct tipc_msg *msg = buf_msg(buf);
-+	int res = 0;
-+
-+	switch (msg_user(msg)) {
-+	case TIPC_LOW_IMPORTANCE:
-+	case TIPC_MEDIUM_IMPORTANCE:
-+	case TIPC_HIGH_IMPORTANCE:
-+	case TIPC_CRITICAL_IMPORTANCE:
-+	case CONN_MANAGER:
-+		tipc_sk_rcv(buf);
-+		break;
-+	case NAME_DISTRIBUTOR:
-+		tipc_named_rcv(buf);
-+		break;
-+	case MSG_BUNDLER:
-+		tipc_link_bundle_rcv(buf);
-+		break;
-+	default:
-+		res = -EINVAL;
-+	}
-+	return res;
-+}
-+
-+/**
-  * tipc_link_defer_pkt - Add out-of-sequence message to deferred reception queue
-  *
-  * Returns increase in queue length (i.e. 0 or 1)
--- 
-1.8.3.2
+> Signed-off-by: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+> ---
+>   include/linux/ftrace_event.h       |    5 +
+>   include/trace/bpf_trace.h          |   29 +++++
+>   include/trace/ftrace.h             |   10 ++
+>   include/uapi/linux/bpf.h           |    5 +
+>   kernel/trace/Kconfig               |    1 +
+>   kernel/trace/Makefile              |    1 +
+>   kernel/trace/bpf_trace.c           |  217 ++++++++++++++++++++++++++++++++++++
+>   kernel/trace/trace.h               |    3 +
+>   kernel/trace/trace_events.c        |    7 ++
+>   kernel/trace/trace_events_filter.c |   72 +++++++++++-
+>   10 files changed, 349 insertions(+), 1 deletion(-)
+>   create mode 100644 include/trace/bpf_trace.h
+>   create mode 100644 kernel/trace/bpf_trace.c
