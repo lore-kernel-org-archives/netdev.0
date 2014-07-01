@@ -1,57 +1,138 @@
-From: Kay Sievers <kay@vrfy.org>
-Subject: Re: [systemd-devel] [PATCH] Use dev_port for the ID of a network device.
-Date: Tue, 1 Jul 2014 14:59:09 +0200
-Message-ID: <CAPXgP126bhV8RLK=457oA+Ci08tEEyjZtnPd9_PxLb3WEVVx8Q@mail.gmail.com>
-References: <1404160596-25859-1-git-send-email-cascardo@linux.vnet.ibm.com>
- <CAPXgP13o=qZc0q+Af0sd6bLKUawKYw0L_SLqh3VgLZBJ1CfYSA@mail.gmail.com>
- <20140701123208.GC1204@oc0268524204.ibm.com> <CAG-2HqUM6OSM4-4eVO4KuY38KpKiKTM_H6mdb775VXP+YVuUHg@mail.gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 2/3] net: sctp: Optimise the way 'sctp_arg_t'
+ values are initialised
+Date: Tue, 1 Jul 2014 13:04:34 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1726AA12@AcuExch.aculab.com>
+References: <063D6719AE5E284EB5DD2968C1650D6D17269789@AcuExch.aculab.com>
+ <20140701113207.GC7322@hmsreliant.think-freely.org>
+ <063D6719AE5E284EB5DD2968C1650D6D1726A9D7@AcuExch.aculab.com>
+ <20140701124702.GH7322@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
-	netdev <netdev@vger.kernel.org>
-To: Tom Gundersen <teg@jklm.no>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Network Development <netdev@vger.kernel.org>,
+	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: 'Neil Horman' <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f169.google.com ([74.125.82.169]:50827 "EHLO
-	mail-we0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751956AbaGAM7b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2014 08:59:31 -0400
-Received: by mail-we0-f169.google.com with SMTP id t60so9700189wes.14
-        for <netdev@vger.kernel.org>; Tue, 01 Jul 2014 05:59:30 -0700 (PDT)
-In-Reply-To: <CAG-2HqUM6OSM4-4eVO4KuY38KpKiKTM_H6mdb775VXP+YVuUHg@mail.gmail.com>
+Received: from mx0.aculab.com ([213.249.233.131]:50987 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1754264AbaGANFh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2014 09:05:37 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 02666-05 for <netdev@vger.kernel.org>;
+ Tue,  1 Jul 2014 14:05:28 +0100 (BST)
+In-Reply-To: <20140701124702.GH7322@hmsreliant.think-freely.org>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 1, 2014 at 2:45 PM, Tom Gundersen <teg@jklm.no> wrote:
-> On Tue, Jul 1, 2014 at 2:32 PM, Thadeu Lima de Souza Cascardo
-> <cascardo@linux.vnet.ibm.com> wrote:
->> On Tue, Jul 01, 2014 at 02:33:19AM +0200, Kay Sievers wrote:
->>> On Mon, Jun 30, 2014 at 10:36 PM, Thadeu Lima de Souza Cascardo
->>> <cascardo@linux.vnet.ibm.com> wrote:
->>> > For network devices on the same PCI function, dev_id should not be used,
->>> > since its purpose is for IPv6 support on interfaces with the same MAC
->>> > address.
->>> >
->>> > The new dev_port sysfs attribute should be used when it is found. When
->>> > it is not, using dev_id might work.
->>>
->>> I don't see a problem switching this over, but why would we keep using
->>> dev_id if it is not the right thing to use?
->>>
->>> Kay
->>>
->>
->> Because dev_port has only been introduced into Linux 3.15, and some
->> drivers used dev_id before Linux 3.10. It's not an ideal situation, so I
->> think it's important to keep some compatibility for the time being. Or
->> we could simply drop dev_id, and force everyone to do the right thing
->> and backport dev_port support and fix their drivers.
->
-> If this fixes a real issue, I guess it would be nice to push the
-> dev_port stuff to -stable. If it is accepted it would solve the
-> backwards compatibility problem, and we could just drop dev_id from
-> udev.
+From: Neil Horman [mailto:nhorman@tuxdriver.com]
+> On Tue, Jul 01, 2014 at 12:34:26PM +0000, David Laight wrote:
+> > From: Neil Horman [mailto:nhorman@tuxdriver.com]
+> > > On Mon, Jun 30, 2014 at 01:01:07PM +0000, David Laight wrote:
+> > > > Even if memset() is inlined (as on x86) using it to zero the union
+> > > > generates a memory word write of zero, followed by a write of the
+> > > > smaller field, and then a read of the word.
+> > > > As well as being a lot of instructions the sequence is unlikely to
+> > > > be optimised by the store-load forward hardware so will be slow.
+> > > >
+> > > > Instead allocate a field of the union that is the same size as the
+> > > > entire union and write a zero value to it. The compiler will then
+> > > > generate the required value in a register.
+> > > >
+> > > > Signed-off-by: David Laight <david.laight@aculab.com>
+> > > > ---
+> > > >  include/net/sctp/command.h | 6 +++---
+> > > >  1 file changed, 3 insertions(+), 3 deletions(-)
+> > > >
+> > > > diff --git a/include/net/sctp/command.h b/include/net/sctp/command.h
+> > > > index 020eb95..5fcd1a7 100644
+> > > > --- a/include/net/sctp/command.h
+> > > > +++ b/include/net/sctp/command.h
+> > > > @@ -118,6 +118,7 @@ typedef enum {
+> > > >  #define SCTP_MAX_NUM_COMMANDS 18
+> > > >
+> > > >  typedef union {
+> > > > +	void *zero_all;	/* Set to NULL to clear the entire union */
+> > > >  	__s32 i32;
+> > > >  	__u32 u32;
+> > > >  	__be32 be32;
+> > > > @@ -154,7 +155,7 @@ typedef union {
+> > > >  static inline sctp_arg_t	\
+> > > >  SCTP_## name (type arg)		\
+> > > >  { sctp_arg_t retval;\
+> > > > -  memset(&retval, 0, sizeof(sctp_arg_t));\
+> > > > +  retval.zero_all = NULL;\
+> > > >    retval.elt = arg;\
+> > > >    return retval;\
+> > > >  }
+> > > > @@ -191,7 +192,7 @@ static inline sctp_arg_t SCTP_NOFORCE(void)
+> > > >  static inline sctp_arg_t SCTP_NULL(void)
+> > > >  {
+> > > >  	sctp_arg_t retval;
+> > > > -	memset(&retval, 0, sizeof(sctp_arg_t));
+> > > > +	retval.zero_all = NULL;
+> > > >  	return retval;
+> > > >  }
+> > > >
+> > > > @@ -212,7 +213,6 @@ typedef struct {
+> > > >   */
+> > > >  static inline int sctp_init_cmd_seq(sctp_cmd_seq_t *seq)
+> > > >  {
+> > > > -	memset(seq, 0, sizeof(sctp_cmd_seq_t));
+> > > >  	return 1;		/* We always succeed.  */
+> > > >  }
+> > > >
+> > > > --
+> > > > 1.8.1.2
+> > > >
+> > > I get the advantage here, but this seems a bit rickety to me, in that it relies
+> > > on the size of the union never being more than sizeof(void *) bytes long.  I
+> > > understand thats not likely to happen, but its not the sort of thing we're
+> > > likely to notice if it does.
+> > >
+> > > That said, I'd almost make the argument that we don't need to do this zeroing at
+> > > all.  A while back I fixed a few outlier cases where we accidentally read a
+> > > union member which we didn't set, so now we shouldn't have any type punning
+> > > going on here.  It should be sufficient to just set the field you want, and
+> > > leave it at that.
+> >
+> > On a 'big endian' system reading a wrong-sized member won't give the correct
+> > value anyway.
+> >
+> > One benefit of zeroing the union is that diagnostic traces (added for debug)
+> > will give sane values regardless of the member printed.
+> > OTOH no such traces actually exist.
+> >
+> > With the patch, the generated code on amd64 is probably almost exactly
+> > the same as that without the zeroing. The same is probable true for most LE
+> > systems.
+> > I haven't looked at how gcc handles the union on BE systems - but it is
+> > likely to be a lot better if it isn't zeroed at all (or if all the fields
+> > are the size of the union).
+> >
+> > 	David
+> >
+> Is it worth considering making a slab cache out of this?  We could amortize the
+> cost of the zeroing then by doing it per slab, and then we wouldn't have to
+> worry about making sure we always zero the largest element.
 
-Let's drop it now and mention it in NEWS. That way, distros which
-really care can add the compat hack to the code.
+Probably not, it us currently an on-stack data area.
+The cost of zeroing the entire structure is probably measureable
+however it is done.
+Remember, most of the time only a few entries are used - but the code
+paths are used for every rx chunk and every tx request (and probably
+elsewhere).
 
-Kay
+I actually thought about changing the 'array of struct' into a 'struct
+of array' in order to reduce the on-stack memory footprint.
+(The struct has two fields, one is 8 bits, the other a union whose
+largest field is a pointer.)
+The real optimisation is to realise that it is pointless to defer (most of)
+the actions - it is only likely to lead to actions being performed on stale
+pointers. However simple inlining changes the order - which might have
+its own bugs.
+
+	David
