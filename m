@@ -1,31 +1,28 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: icmp: Fix pMTU handling for rare case
-Date: Tue, 01 Jul 2014 12:07:30 -0700 (PDT)
-Message-ID: <20140701.120730.2210532934459689553.davem@davemloft.net>
-References: <alpine.DEB.2.10.1407010937120.5997@tabini.allcutt.me.uk>
-	<20140701.110510.2218293817137911715.davem@davemloft.net>
-	<alpine.DEB.2.10.1407011912440.5997@tabini.allcutt.me.uk>
+From: Bernd Wachter <bernd.wachter@jolla.com>
+Subject: [PATCH] net: qmi_wwan: Add ID for Telewell TW-LTE 4G v2
+Date: Tue, 01 Jul 2014 22:01:09 +0300
+Message-ID: <87vbrgewei.fsf@bwachter.lart.info>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: edward.allcutt@openmarket.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34646 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751371AbaGATHd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2014 15:07:33 -0400
-In-Reply-To: <alpine.DEB.2.10.1407011912440.5997@tabini.allcutt.me.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Edward Allcutt <edward.allcutt@openmarket.com>
-Date: Tue, 1 Jul 2014 19:50:15 +0100 (BST)
 
-> Is there another reason you dislike this approach?
+There's a new version of the Telewell 4G modem working with, but not
+recognized by this driver. 
 
-I didn't say I won't apply the patch, actually the email you are
-replying to is strictly about figuring out what's happening on
-the OpenBSD systems for their sake.
+Signed-off-by: Bernd Wachter <bernd.wachter@jolla.com>
+---
+--- linux-3.15.3/drivers/net/usb/qmi_wwan.c.orig	2014-07-01 21:31:07.000000000 +0300
++++ linux-3.15.3/drivers/net/usb/qmi_wwan.c	2014-07-01 20:39:30.000000000 +0300
+@@ -741,6 +741,7 @@ static const struct usb_device_id produc
+ 	{QMI_FIXED_INTF(0x19d2, 0x1424, 2)},
+ 	{QMI_FIXED_INTF(0x19d2, 0x1425, 2)},
+ 	{QMI_FIXED_INTF(0x19d2, 0x1426, 2)},	/* ZTE MF91 */
++	{QMI_FIXED_INTF(0x19d2, 0x1428, 2)},	/* Telewell TW-LTE 4G v2 */
+ 	{QMI_FIXED_INTF(0x19d2, 0x2002, 4)},	/* ZTE (Vodafone) K3765-Z */
+ 	{QMI_FIXED_INTF(0x0f3d, 0x68a2, 8)},    /* Sierra Wireless MC7700 */
+ 	{QMI_FIXED_INTF(0x114f, 0x68a2, 8)},    /* Sierra Wireless MC7750 */
