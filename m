@@ -1,138 +1,116 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 2/3] net: sctp: Optimise the way 'sctp_arg_t'
- values are initialised
-Date: Tue, 1 Jul 2014 13:04:34 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1726AA12@AcuExch.aculab.com>
-References: <063D6719AE5E284EB5DD2968C1650D6D17269789@AcuExch.aculab.com>
- <20140701113207.GC7322@hmsreliant.think-freely.org>
- <063D6719AE5E284EB5DD2968C1650D6D1726A9D7@AcuExch.aculab.com>
- <20140701124702.GH7322@hmsreliant.think-freely.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Network Development <netdev@vger.kernel.org>,
-	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: 'Neil Horman' <nhorman@tuxdriver.com>
+From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+Subject: [PATCH v2] Use dev_port for the ID of a network device.
+Date: Tue,  1 Jul 2014 10:12:24 -0300
+Message-ID: <1404220344-12461-1-git-send-email-cascardo@linux.vnet.ibm.com>
+Cc: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:50987 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1754264AbaGANFh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2014 09:05:37 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 02666-05 for <netdev@vger.kernel.org>;
- Tue,  1 Jul 2014 14:05:28 +0100 (BST)
-In-Reply-To: <20140701124702.GH7322@hmsreliant.think-freely.org>
-Content-Language: en-US
+Received: from e24smtp02.br.ibm.com ([32.104.18.86]:50255 "EHLO
+	e24smtp02.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753191AbaGANMb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2014 09:12:31 -0400
+Received: from /spool/local
+	by e24smtp02.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <cascardo@linux.vnet.ibm.com>;
+	Tue, 1 Jul 2014 10:12:30 -0300
+Received: from d24relay01.br.ibm.com (d24relay01.br.ibm.com [9.8.31.16])
+	by d24dlp02.br.ibm.com (Postfix) with ESMTP id C3DF31DC005E
+	for <netdev@vger.kernel.org>; Tue,  1 Jul 2014 09:12:26 -0400 (EDT)
+Received: from d24av05.br.ibm.com (d24av05.br.ibm.com [9.18.232.44])
+	by d24relay01.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s61DCfKG4919438
+	for <netdev@vger.kernel.org>; Tue, 1 Jul 2014 10:12:41 -0300
+Received: from d24av05.br.ibm.com (localhost [127.0.0.1])
+	by d24av05.br.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s61DCQh3029023
+	for <netdev@vger.kernel.org>; Tue, 1 Jul 2014 09:12:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman [mailto:nhorman@tuxdriver.com]
-> On Tue, Jul 01, 2014 at 12:34:26PM +0000, David Laight wrote:
-> > From: Neil Horman [mailto:nhorman@tuxdriver.com]
-> > > On Mon, Jun 30, 2014 at 01:01:07PM +0000, David Laight wrote:
-> > > > Even if memset() is inlined (as on x86) using it to zero the union
-> > > > generates a memory word write of zero, followed by a write of the
-> > > > smaller field, and then a read of the word.
-> > > > As well as being a lot of instructions the sequence is unlikely to
-> > > > be optimised by the store-load forward hardware so will be slow.
-> > > >
-> > > > Instead allocate a field of the union that is the same size as the
-> > > > entire union and write a zero value to it. The compiler will then
-> > > > generate the required value in a register.
-> > > >
-> > > > Signed-off-by: David Laight <david.laight@aculab.com>
-> > > > ---
-> > > >  include/net/sctp/command.h | 6 +++---
-> > > >  1 file changed, 3 insertions(+), 3 deletions(-)
-> > > >
-> > > > diff --git a/include/net/sctp/command.h b/include/net/sctp/command.h
-> > > > index 020eb95..5fcd1a7 100644
-> > > > --- a/include/net/sctp/command.h
-> > > > +++ b/include/net/sctp/command.h
-> > > > @@ -118,6 +118,7 @@ typedef enum {
-> > > >  #define SCTP_MAX_NUM_COMMANDS 18
-> > > >
-> > > >  typedef union {
-> > > > +	void *zero_all;	/* Set to NULL to clear the entire union */
-> > > >  	__s32 i32;
-> > > >  	__u32 u32;
-> > > >  	__be32 be32;
-> > > > @@ -154,7 +155,7 @@ typedef union {
-> > > >  static inline sctp_arg_t	\
-> > > >  SCTP_## name (type arg)		\
-> > > >  { sctp_arg_t retval;\
-> > > > -  memset(&retval, 0, sizeof(sctp_arg_t));\
-> > > > +  retval.zero_all = NULL;\
-> > > >    retval.elt = arg;\
-> > > >    return retval;\
-> > > >  }
-> > > > @@ -191,7 +192,7 @@ static inline sctp_arg_t SCTP_NOFORCE(void)
-> > > >  static inline sctp_arg_t SCTP_NULL(void)
-> > > >  {
-> > > >  	sctp_arg_t retval;
-> > > > -	memset(&retval, 0, sizeof(sctp_arg_t));
-> > > > +	retval.zero_all = NULL;
-> > > >  	return retval;
-> > > >  }
-> > > >
-> > > > @@ -212,7 +213,6 @@ typedef struct {
-> > > >   */
-> > > >  static inline int sctp_init_cmd_seq(sctp_cmd_seq_t *seq)
-> > > >  {
-> > > > -	memset(seq, 0, sizeof(sctp_cmd_seq_t));
-> > > >  	return 1;		/* We always succeed.  */
-> > > >  }
-> > > >
-> > > > --
-> > > > 1.8.1.2
-> > > >
-> > > I get the advantage here, but this seems a bit rickety to me, in that it relies
-> > > on the size of the union never being more than sizeof(void *) bytes long.  I
-> > > understand thats not likely to happen, but its not the sort of thing we're
-> > > likely to notice if it does.
-> > >
-> > > That said, I'd almost make the argument that we don't need to do this zeroing at
-> > > all.  A while back I fixed a few outlier cases where we accidentally read a
-> > > union member which we didn't set, so now we shouldn't have any type punning
-> > > going on here.  It should be sufficient to just set the field you want, and
-> > > leave it at that.
-> >
-> > On a 'big endian' system reading a wrong-sized member won't give the correct
-> > value anyway.
-> >
-> > One benefit of zeroing the union is that diagnostic traces (added for debug)
-> > will give sane values regardless of the member printed.
-> > OTOH no such traces actually exist.
-> >
-> > With the patch, the generated code on amd64 is probably almost exactly
-> > the same as that without the zeroing. The same is probable true for most LE
-> > systems.
-> > I haven't looked at how gcc handles the union on BE systems - but it is
-> > likely to be a lot better if it isn't zeroed at all (or if all the fields
-> > are the size of the union).
-> >
-> > 	David
-> >
-> Is it worth considering making a slab cache out of this?  We could amortize the
-> cost of the zeroing then by doing it per slab, and then we wouldn't have to
-> worry about making sure we always zero the largest element.
+For network devices on the same PCI function, dev_id should not be used,
+since its purpose is for IPv6 support on interfaces with the same MAC
+address.
 
-Probably not, it us currently an on-stack data area.
-The cost of zeroing the entire structure is probably measureable
-however it is done.
-Remember, most of the time only a few entries are used - but the code
-paths are used for every rx chunk and every tx request (and probably
-elsewhere).
+The new dev_port sysfs attribute should be used instead of dev_id.
 
-I actually thought about changing the 'array of struct' into a 'struct
-of array' in order to reduce the on-stack memory footprint.
-(The struct has two fields, one is 8 bits, the other a union whose
-largest field is a pointer.)
-The real optimisation is to realise that it is pointless to defer (most of)
-the actions - it is only likely to lead to actions being performed on stale
-pointers. However simple inlining changes the order - which might have
-its own bugs.
+Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+---
+ NEWS                           |    5 +++++
+ src/udev/udev-builtin-net_id.c |   18 +++++++++---------
+ 2 files changed, 14 insertions(+), 9 deletions(-)
 
-	David
+diff --git a/NEWS b/NEWS
+index 00727d1..f0c29d1 100644
+--- a/NEWS
++++ b/NEWS
+@@ -6,6 +6,11 @@ CHANGES WITH 215:
+           system-level software to get access to input devices. It
+           complements what is already done for "audio" and "video".
+ 
++        * udev built-in net_id uses dev_port sysfs attribute, introduced
++          in linux 3.15 instead of dev_id to distinguish between ports
++          of the same PCI function. dev_id should only be used for ports
++          using the same HW address, hence the need for dev_port.
++
+ CHANGES WITH 214:
+ 
+         * As an experimental feature, udev now tries to lock the
+diff --git a/src/udev/udev-builtin-net_id.c b/src/udev/udev-builtin-net_id.c
+index c80c30a..96ac21c 100644
+--- a/src/udev/udev-builtin-net_id.c
++++ b/src/udev/udev-builtin-net_id.c
+@@ -36,9 +36,9 @@
+  *   b<number>                             -- BCMA bus core number
+  *   ccw<name>                             -- CCW bus group name
+  *   o<index>                              -- on-board device index number
+- *   s<slot>[f<function>][d<dev_id>]       -- hotplug slot index number
++ *   s<slot>[f<function>][d<dev_port>]     -- hotplug slot index number
+  *   x<MAC>                                -- MAC address
+- *   [P<domain>]p<bus>s<slot>[f<function>][d<dev_id>]
++ *   [P<domain>]p<bus>s<slot>[f<function>][d<dev_port>]
+  *                                         -- PCI geographical location
+  *   [P<domain>]p<bus>s<slot>[f<function>][u<port>][..][c<config>][i<interface>]
+  *                                         -- USB port number chain
+@@ -172,7 +172,7 @@ out:
+ 
+ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
+         struct udev *udev = udev_device_get_udev(names->pcidev);
+-        unsigned domain, bus, slot, func, dev_id = 0;
++        unsigned domain, bus, slot, func, dev_port = 0;
+         size_t l;
+         char *s;
+         const char *attr;
+@@ -186,9 +186,9 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
+                 return -ENOENT;
+ 
+         /* kernel provided multi-device index */
+-        attr = udev_device_get_sysattr_value(dev, "dev_id");
++        attr = udev_device_get_sysattr_value(dev, "dev_port");
+         if (attr)
+-                dev_id = strtol(attr, NULL, 16);
++                dev_port = strtol(attr, NULL, 10);
+ 
+         /* compose a name based on the raw kernel's PCI bus, slot numbers */
+         s = names->pci_path;
+@@ -198,8 +198,8 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
+         l = strpcpyf(&s, l, "p%ds%d", bus, slot);
+         if (func > 0 || is_pci_multifunction(names->pcidev))
+                 l = strpcpyf(&s, l, "f%d", func);
+-        if (dev_id > 0)
+-                l = strpcpyf(&s, l, "d%d", dev_id);
++        if (dev_port > 0)
++                l = strpcpyf(&s, l, "d%d", dev_port);
+         if (l == 0)
+                 names->pci_path[0] = '\0';
+ 
+@@ -248,8 +248,8 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
+                 l = strpcpyf(&s, l, "s%d", hotplug_slot);
+                 if (func > 0 || is_pci_multifunction(names->pcidev))
+                         l = strpcpyf(&s, l, "f%d", func);
+-                if (dev_id > 0)
+-                        l = strpcpyf(&s, l, "d%d", dev_id);
++                if (dev_port > 0)
++                        l = strpcpyf(&s, l, "d%d", dev_port);
+                 if (l == 0)
+                         names->pci_path[0] = '\0';
+         }
+-- 
+1.7.1
