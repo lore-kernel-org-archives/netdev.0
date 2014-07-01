@@ -1,86 +1,59 @@
-From: Jan Tore Morken <jantore@morken.priv.no>
-Subject: [backport request] netfilter: ipt_ULOG: fix info leaks
-Date: Tue, 1 Jul 2014 20:20:13 +0200
-Message-ID: <20140701182013.GM26742@32k.org>
+From: Edward Allcutt <edward.allcutt@openmarket.com>
+Subject: Re: [PATCH] ipv4: icmp: Fix pMTU handling for rare case
+Date: Tue, 1 Jul 2014 19:50:15 +0100 (BST)
+Message-ID: <alpine.DEB.2.10.1407011912440.5997@tabini.allcutt.me.uk>
+References: <1404141362-21015-1-git-send-email-edward.allcutt@openmarket.com> <20140630.234843.985671994258957329.davem@davemloft.net> <alpine.DEB.2.10.1407010937120.5997@tabini.allcutt.me.uk> <20140701.110510.2218293817137911715.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.coreless.net ([91.189.176.206]:56562 "EHLO
-	sidney.coreless.net" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1758700AbaGASjs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2014 14:39:48 -0400
-Received: from jantore by sidney.coreless.net with local (Exim 4.80)
-	(envelope-from <jantore@morken.priv.no>)
-	id 1X22f7-0005D7-Rl
-	for netdev@vger.kernel.org; Tue, 01 Jul 2014 20:20:13 +0200
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140701.110510.2218293817137911715.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Tue, 1 Jul 2014, David Miller wrote:
+>> If it helps any, I've been running several production machines with
+>> this patch for just about a year now (mostly running 3.10 stable
+>> series).
+>
+> I guess if OpenBSD can wait more than 2 decades to implement proper
+> path mtu handling, you can wait a year to post this bug fix :-)
 
-I mistakenly sent this request to the stable list before being made
-aware that it belonged here. Sorry to anyone reading this for the
-second time.
+Sorry about that. :-/ Some of the systems on the other end of tunnels are 
+now starting to run distro kernels with this bug. I can't always convince 
+them to rebuild with a patch.. I should have gotten around to this sooner.
 
-I'd like to request that the commit below is backported to stable. The
-commit fixes an old memory disclosure issue, and has already spent
-some time in mainline.
+> I still think the OpenBSD thing can't be intentional, and it's some
+> bug they probably want to fix and it should therefore be investigated.
+> It means performance of connections going through such machines is
+> going to be crap even if I install your patch.
 
-Thanks!
+Making newer versions behave better won't help all the existing 
+deployments. Linux should be able to cope even if it's not optimal.
 
-===
+The performance impact of using minimum packet size vs. optimal sizing is 
+that you end up sending a bit under three times the number of packets. At 
+worst. It's not ideal but it's far less bad than stalling indefinitely.
 
->From 278f2b3e2af5f32ea1afe34fa12a2518153e6e49 Mon Sep 17 00:00:00 2001
-From: Mathias Krause <minipli@googlemail.com>
-Date: Mon, 30 Sep 2013 22:05:08 +0200
-Subject: [PATCH] netfilter: ipt_ULOG: fix info leaks
+The patch won't affect performance of the normal case where more useful 
+ICMP errors are received.
 
-The ulog messages leak heap bytes by the means of padding bytes and
-incompletely filled string arrays. Fix those by memset(0)'ing the
-whole struct before filling it.
+I did look at trying to reintroduce the original function which guessed 
+the next smallest value. However since the routing cache has gone away I 
+don't think there's anywhere to find out the size of previously sent 
+packets without interrogating the upper protocol.. so handing the upper 
+protocol the 0 value and letting it handle it seems the best approach.
 
-Signed-off-by: Mathias Krause <minipli@googlemail.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/ipv4/netfilter/ipt_ULOG.c | 7 +------
- 1 file changed, 1 insertion(+), 6 deletions(-)
+Now perhaps the plateau-finding function should be reintroduced for tcp 
+and other stream-oriented protocols. Is "it could be done better" enough 
+reason to reject a patch that mitigates a real regression?
 
-diff --git a/net/ipv4/netfilter/ipt_ULOG.c b/net/ipv4/netfilter/ipt_ULOG.c
-index cbc2215..9cb993c 100644
---- a/net/ipv4/netfilter/ipt_ULOG.c
-+++ b/net/ipv4/netfilter/ipt_ULOG.c
-@@ -220,6 +220,7 @@ static void ipt_ulog_packet(struct net *net,
- 	ub->qlen++;
- 
- 	pm = nlmsg_data(nlh);
-+	memset(pm, 0, sizeof(*pm));
- 
- 	/* We might not have a timestamp, get one */
- 	if (skb->tstamp.tv64 == 0)
-@@ -238,8 +239,6 @@ static void ipt_ulog_packet(struct net *net,
- 	}
- 	else if (loginfo->prefix[0] != '\0')
- 		strncpy(pm->prefix, loginfo->prefix, sizeof(pm->prefix));
--	else
--		*(pm->prefix) = '\0';
- 
- 	if (in && in->hard_header_len > 0 &&
- 	    skb->mac_header != skb->network_header &&
-@@ -251,13 +250,9 @@ static void ipt_ulog_packet(struct net *net,
- 
- 	if (in)
- 		strncpy(pm->indev_name, in->name, sizeof(pm->indev_name));
--	else
--		pm->indev_name[0] = '\0';
- 
- 	if (out)
- 		strncpy(pm->outdev_name, out->name, sizeof(pm->outdev_name));
--	else
--		pm->outdev_name[0] = '\0';
- 
- 	/* copy_len <= skb->len, so can't fail. */
- 	if (skb_copy_bits(skb, 0, pm->payload, copy_len) < 0)
+Is there another reason you dislike this approach?
+
 -- 
-2.0.0
+Edward Allcutt
+Senior Systems Engineer
+OpenMarket | http://www.openmarket.com/
