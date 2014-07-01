@@ -1,53 +1,95 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [net-next v2 02/13] tcp: tcp_v[46]_conn_request: fix snt_synack initialization
-Date: Mon, 30 Jun 2014 22:24:57 -0400
-Message-ID: <CADVnQymh+Vf97Cbt=rYs=9bi+=+L6vCPW4ypx377HBQUV7pyqQ@mail.gmail.com>
-References: <1403705402-14388-1-git-send-email-octavian.purdila@intel.com>
-	<1403705402-14388-3-git-send-email-octavian.purdila@intel.com>
-	<CADVnQykKYPVt-g8WtE29Xu_0Si-Lx_pMxnix4i2BqFhAV9BD8Q@mail.gmail.com>
-	<CAE1zotKXSqy0O+OQq1f+ab7k3hL4ntMwk3CX4pOYUXoVeGjb7A@mail.gmail.com>
-	<CADVnQy=Fu-fJDczTLjQPreGq2-++S9sp2akj84Orv5p_b3Qc=g@mail.gmail.com>
-	<CAE1zot+Oqqw+8m9Pr4R-W5wSqmYU5f6xqykCSaZP+fnTpLVO-Q@mail.gmail.com>
+From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
+Subject: RE: [PATCH CFT 00/30] Initial round of Freescale FEC ethernet patches
+Date: Tue, 1 Jul 2014 03:23:27 +0000
+Message-ID: <f570bad3b6954703b930e6b9a516f372@BLUPR03MB373.namprd03.prod.outlook.com>
+References: <20140627151542.GL32514@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>, Daniel Lee <longinus00@gmail.com>,
-	Yuchung Cheng <ycheng@google.com>, Jerry Chu <hkchu@google.com>
-To: Octavian Purdila <octavian.purdila@intel.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Russell King - ARM Linux <linux@arm.linux.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:60171 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752011AbaGACY6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 22:24:58 -0400
-Received: by mail-wg0-f44.google.com with SMTP id x13so8919550wgg.15
-        for <netdev@vger.kernel.org>; Mon, 30 Jun 2014 19:24:57 -0700 (PDT)
-In-Reply-To: <CAE1zot+Oqqw+8m9Pr4R-W5wSqmYU5f6xqykCSaZP+fnTpLVO-Q@mail.gmail.com>
+Received: from mail-by2lp0242.outbound.protection.outlook.com ([207.46.163.242]:42249
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752635AbaGADXa convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 23:23:30 -0400
+In-Reply-To: <20140627151542.GL32514@n2100.arm.linux.org.uk>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 30, 2014 at 5:00 PM, Octavian Purdila
-<octavian.purdila@intel.com> wrote:
-> On Mon, Jun 30, 2014 at 10:11 PM, Neal Cardwell <ncardwell@google.com> wrote:
->> On Mon, Jun 30, 2014 at 7:50 AM, Octavian Purdila
->> <octavian.purdila@intel.com> wrote:
->>> In that case perhaps it is better to add a new field (or rename the
->>> existing one if it is not needed anymore) to store the syn arrival
->>> time? I think it is confusing to store the syn arrival time in the
->>> "synack sent time" field.
->>
->> That would be reasonable, but I think the longstanding "snt_synack"
->> name is also good, since the primary purpose of that field is to
->> measure the RTT of the SYNACK packet.
->>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk> Data: Friday, June 27, 2014 11:16 PM
+>To: linux-arm-kernel@lists.infradead.org; netdev@vger.kernel.org
+>Cc: Duan Fugang-B38611
+>Subject: [PATCH CFT 00/30] Initial round of Freescale FEC ethernet patches
 >
-> So, if we use it to measure the RTT, with this approach, wouldn't the
-> RTT estimate be artificially high if sending the syn-ack fails? And
-> wouldn't that negatively affect congestion control ?
+>This is v2 of my initial round of patches (roughly half of my total patch
+>set) for the Freescale FEC driver.
 >
-> On second thought, if we need to retransmit the syn-ack then it does
-> not matter much. Is this the reason we don't care?
+>I'm sending this set out for comments and testing.  So far, I have had
+>only one ack for one patch in this series, this is pretty poor, so I'm now
+>sending it with a CFT tag instead.
+>
+>I haven't changed too much - I've fixed the bug which Andy spotted in the
+>transmit handling, but otherwise the patches are much the same.
+>
+>The remainder of the text is as per my previous message, but with updated
+>diffstat:
+>
+>One of my motivations for only sending half is to get this half into a
+>state where DaveM is happy to merge it before I sort out the remainder.
+>There's quite a lot here, so bear with me on this.
+>
+>I've tried to sort the fixes before the cleanups as best I can, but
+>reordering the series is a full-time job due to it's size - it's taken
+>from Monday until now to get this far with it, so I'm hoping that there
+>won't be any "you should rearrange the patches as X" comments.
+>
+>While the original series was well tested during it's original development,
+>including with performance tests on each patch, that testing and
+>validation has been lost due to the changes during the last merge window,
+>and subsequent rebasing and updating of the patches.
+>
+>The series is based on v3.16-rc1, and as such, I have added Andy's
+>checksum fix to the start of the series.  This patch is not strictly part
+>of the RFC, but is included because my complete patch series needs to
+>account for that change.
+>
+>Some of these patches are to fix theoretical problems in the driver (ones
+>which have been found via a review of the code) others address real
+>observable problems (such as poor half-duplex performance.)
+>
+>Towards the end of this series, I have included a patch which was
+>initially at the beginning of the series for dumping out the state of the
+>transmit ring, which is very useful to debug transmit problems.
+>This was acceptable when the transmit ring was between 16 and 128
+>descriptors, but during the recent merge window, this was increased to
+>512 descriptors, so it will now print around 512 lines to the kernel
+>message log on transmit timeout.  I'm not entirely convinced this is a
+>good idea - maybe it should become optional, or maybe the timed-out ring
+>status should be available via debugfs, but that's a problem to retrieve
+>if you're running NFS rootfs and the timeout doesn't recover properly.
+>
+>This series of patches is also available from the following *unstable* git
+>branch - unstable as it's provided for convenience so you don't have to
+>apply all these patches individually, unstable as the patches need to have
+>attributations added, unstable because DaveM will probably want to apply
+>them as patches to his tree:
+>
+>  git://ftp.arm.linux.org.uk/~rmk/linux-arm.git fec-testing
+>
+> drivers/net/ethernet/freescale/fec.h      |  10 +-
+> drivers/net/ethernet/freescale/fec_main.c | 382 +++++++++++++++++--------
+>-----
+> 2 files changed, 224 insertions(+), 168 deletions(-)
+>
 
-tcp_synack_rtt_meas() already explicitly checks to see if the SYNACK
-was retransmitted before using the time to calculate the SYNACK RTT.
-So this kind of scenario should be OK.
+Hi, Russell,
 
-neal
+The V2 patch set are fine for me. Thanks for your clean for the driver.
+
+Acked-by: Fugang Duan <B38611@freescale.com>
+
+Thanks,
+Andy
