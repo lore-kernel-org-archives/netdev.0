@@ -1,99 +1,144 @@
-From: Sasha Levin <sasha.levin@oracle.com>
-Subject: net: llc: skb_panic in llc_sap_action_send_xid_cmd
-Date: Tue, 01 Jul 2014 18:17:37 -0400
-Message-ID: <53B33381.3010702@oracle.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH] rcar_can: add device tree support
+Date: Wed, 2 Jul 2014 02:27:03 +0400
+Message-ID: <201407020227.04235.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Dave Jones <davej@redhat.com>
-To: acme@ghostprotocols.net, "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linux-sh@vger.kernel.org, vksavl@gmail.com, rdunlap@infradead.org,
+	linux-doc@vger.kernel.org
+To: netdev@vger.kernel.org, wg@grandegger.com, mkl@pengutronix.de,
+	linux-can@vger.kernel.org, robh+dt@kernel.org, pawel.moll@arm.com,
+	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
+	galak@codeaurora.org, grant.likely@linaro.org,
+	devicetree@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+Add support of the device tree probing for the Renesas R-Car CAN controllers
+documenting the device tree bindings as necessary.
 
-While fuzzing with trinity inside a KVM tools guest running the latest -next
-kernel I've stumbled on the following spew:
+Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-[ 1307.646561] kernel BUG at net/core/skbuff.c:99!
-[ 1307.647152] invalid opcode: 0000 [#1] PREEMPT SMP DEBUG_PAGEALLOC
-[ 1307.648080] Dumping ftrace buffer:
-[ 1307.648632]    (ftrace buffer empty)
-[ 1307.649287] Modules linked in:
-[ 1307.649832] CPU: 8 PID: 16428 Comm: trinity-c172 Not tainted 3.16.0-rc3-next-20140630-sasha-00023-g44434d4-dirty #758
-[ 1307.651669] task: ffff880361ef8000 ti: ffff880350c78000 task.ti: ffff880350c78000
-[ 1307.653824] RIP: skb_panic (net/core/skbuff.c:99)
-[ 1307.654677] RSP: 0018:ffff880350c7bbe8  EFLAGS: 00010296
-[ 1307.654677] RAX: 0000000000000083 RBX: ffff8802212661c0 RCX: 00000000e776e776
-[ 1307.654677] RDX: 0000000000000001 RSI: ffffffff9552561a RDI: ffffffff921e0537
-[ 1307.654677] RBP: ffff880350c7bc08 R08: 0000000000000000 R09: 0000000000000000
-[ 1307.662705] R10: 0000000000000001 R11: 65743a7665642030 R12: 00000000000000c8
-[ 1307.662705] R13: 0000000000000001 R14: 0000000000000001 R15: 0000000000000000
-[ 1307.662705] FS:  00007f5622bc7700(0000) GS:ffff880224e00000(0000) knlGS:0000000000000000
-[ 1307.662705] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-[ 1307.662705] CR2: 00007f56213a6000 CR3: 0000000361ea6000 CR4: 00000000000006a0
-[ 1307.662705] Stack:
-[ 1307.662705]  ffff880210802498 00000000000000c2 00000000000000c0 ffff880224768000
-[ 1307.662705]  ffff880350c7bc18 ffffffff94f963d7 ffff880350c7bc48 ffffffff94fdc0d5
-[ 1307.662705]  ffff88021080249b ffffffff98141880 ffff8802212661c0 ffff88039fe537b0
-[ 1307.662705] Call Trace:
-[ 1307.662705] skb_put (net/core/skbuff.c:104 net/core/skbuff.c:1278)
-[ 1307.662705] llc_sap_action_send_xid_c (net/llc/llc_s_ac.c:83)
-[ 1307.662705] llc_sap_state_process (net/llc/llc_sap.c:153 net/llc/llc_sap.c:181 net/llc/llc_sap.c:212)
-[ 1307.662705] llc_build_and_send_xid_pkt (net/llc/llc_sap.c:277)
-[ 1307.662705] llc_ui_sendmsg (net/llc/af_llc.c:939)
-[ 1307.662705] ? lock_release_holdtime (kernel/locking/lockdep.c:273)
-[ 1307.662705] ? might_fault (mm/memory.c:3740)
-[ 1307.662705] ? lock_release_non_nested (kernel/locking/lockdep.c:3397)
-[ 1307.662705] sock_sendmsg (net/socket.c:654)
-[ 1307.662705] ? might_fault (mm/memory.c:3741)
-[ 1307.662705] ? might_fault (mm/memory.c:3740)
-[ 1307.662705] ? move_addr_to_kernel (./arch/x86/include/asm/uaccess.h:713 net/socket.c:197)
-[ 1307.662705] SYSC_sendto (net/socket.c:1812)
-[ 1307.662705] ? vtime_account_user (kernel/sched/cputime.c:687)
-[ 1307.662705] ? trace_hardirqs_on (kernel/locking/lockdep.c:2607)
-[ 1307.662705] ? syscall_trace_enter (include/linux/context_tracking.h:27 arch/x86/kernel/ptrace.c:1461)
-[ 1307.662705] SyS_sendto (net/socket.c:1779)
-[ 1307.662705] tracesys (arch/x86/kernel/entry_64.S:542)
-[ 1307.662705] Code: 00 00 48 89 44 24 10 8b 87 c8 00 00 00 48 89 44 24 08 48 8b 87 d8 00 00 00 48 c7 c7 e8 4d cd 96 48 89 04 24 31 c0 e8 e2 4a fb ff <0f> 0b 66 66 66 66 90 55 48 89 e5 41 57 41 56 41 55 41 54 41 89
-All code
-========
-   0:	00 00                	add    %al,(%rax)
-   2:	48 89 44 24 10       	mov    %rax,0x10(%rsp)
-   7:	8b 87 c8 00 00 00    	mov    0xc8(%rdi),%eax
-   d:	48 89 44 24 08       	mov    %rax,0x8(%rsp)
-  12:	48 8b 87 d8 00 00 00 	mov    0xd8(%rdi),%rax
-  19:	48 c7 c7 e8 4d cd 96 	mov    $0xffffffff96cd4de8,%rdi
-  20:	48 89 04 24          	mov    %rax,(%rsp)
-  24:	31 c0                	xor    %eax,%eax
-  26:	e8 e2 4a fb ff       	callq  0xfffffffffffb4b0d
-  2b:*	0f 0b                	ud2    		<-- trapping instruction
-  2d:	66 66 66 66 90       	data32 data32 data32 xchg %ax,%ax
-  32:	55                   	push   %rbp
-  33:	48 89 e5             	mov    %rsp,%rbp
-  36:	41 57                	push   %r15
-  38:	41 56                	push   %r14
-  3a:	41 55                	push   %r13
-  3c:	41 54                	push   %r12
-  3e:	41 89 00             	mov    %eax,(%r8)
+---
+The patch is against the Dave Miller's 'net-next.git' repo ('linux-can-next.git'
+repo still doesn't have the R-Car CAN driver for some reason).
 
-Code starting with the faulting instruction
-===========================================
-   0:	0f 0b                	ud2
-   2:	66 66 66 66 90       	data32 data32 data32 xchg %ax,%ax
-   7:	55                   	push   %rbp
-   8:	48 89 e5             	mov    %rsp,%rbp
-   b:	41 57                	push   %r15
-   d:	41 56                	push   %r14
-   f:	41 55                	push   %r13
-  11:	41 54                	push   %r12
-  13:	41 89 00             	mov    %eax,(%r8)
-[ 1307.662705] RIP skb_panic (net/core/skbuff.c:99)
-[ 1307.662705]  RSP <ffff880350c7bbe8>
+ Documentation/devicetree/bindings/net/can/rcar_can.txt |   40 +++++++++++++++++
+ drivers/net/can/rcar_can.c                             |   28 +++++++++--
+ 2 files changed, 63 insertions(+), 5 deletions(-)
 
-
-Thanks,
-sasha
+Index: net-next/Documentation/devicetree/bindings/net/can/rcar_can.txt
+===================================================================
+--- /dev/null
++++ net-next/Documentation/devicetree/bindings/net/can/rcar_can.txt
+@@ -0,0 +1,40 @@
++Renesas R-Car CAN controller Device Tree Bindings
++-------------------------------------------------
++
++Required properties:
++- compatible: "renesas,can-r8a7778" if CAN controller is a part of R8A7778 SoC.
++	      "renesas,can-r8a7779" if CAN controller is a part of R8A7779 SoC.
++	      "renesas,can-r8a7790" if CAN controller is a part of R8A7790 SoC.
++	      "renesas,can-r8a7791" if CAN controller is a part of R8A7791 SoC.
++- reg: physical base address and size of the R-Car CAN register map.
++- interrupts: interrupt specifier for the sole interrupt.
++- clocks: phandle and clock specifier for the R-Car CAN clock input.
++- pinctrl-0: pin control group to be used for this controller.
++- pinctrl-names: must be "default".
++
++Optional properties:
++- clock-select: R-Car CAN Clock Source Select. Valid values are:
++		<0x0> (default) : Peripheral clock (clkp1)
++		<0x1> : Peripheral clock (clkp2)
++		<0x3> : Externally input clock
++
++Example
++-------
++
++SoC common .dtsi file:
++
++	can0: can@e6e80000 {
++		compatible = "renesas,can-r8a7791";
++		reg = <0 0xe6e80000 0 0x1000>;
++		interrupts = <0 186 IRQ_TYPE_LEVEL_HIGH>;
++		clocks = <&mstp9_clks R8A7791_CLK_RCAN0>;
++		status = "disabled";
++	};
++
++Board specific .dts file:
++
++&can0 {
++	pinctrl-0 = <&can0_pins>;
++	pinctrl-names = "default";
++	status = "okay";
++};
+Index: net-next/drivers/net/can/rcar_can.c
+===================================================================
+--- net-next.orig/drivers/net/can/rcar_can.c
++++ net-next/drivers/net/can/rcar_can.c
+@@ -20,6 +20,7 @@
+ #include <linux/can/dev.h>
+ #include <linux/clk.h>
+ #include <linux/can/platform/rcar_can.h>
++#include <linux/of.h>
+ 
+ #define RCAR_CAN_DRV_NAME	"rcar_can"
+ 
+@@ -722,13 +723,20 @@ static int rcar_can_probe(struct platfor
+ 	struct net_device *ndev;
+ 	struct resource *mem;
+ 	void __iomem *addr;
++	u32 clock_select = 0;
+ 	int err = -ENODEV;
+ 	int irq;
+ 
+-	pdata = dev_get_platdata(&pdev->dev);
+-	if (!pdata) {
+-		dev_err(&pdev->dev, "No platform data provided!\n");
+-		goto fail;
++	if (!pdev->dev.of_node) {
++		pdata = dev_get_platdata(&pdev->dev);
++		if (!pdata) {
++			dev_err(&pdev->dev, "No platform data provided!\n");
++			goto fail;
++		}
++		clock_select = pdata->clock_select;
++	} else {
++		of_property_read_u32(pdev->dev.of_node, "clock-select",
++				     &clock_select);
+ 	}
+ 
+ 	irq = platform_get_irq(pdev, 0);
+@@ -765,7 +773,7 @@ static int rcar_can_probe(struct platfor
+ 	ndev->flags |= IFF_ECHO;
+ 	priv->ndev = ndev;
+ 	priv->regs = addr;
+-	priv->clock_select = pdata->clock_select;
++	priv->clock_select = clock_select;
+ 	priv->can.clock.freq = clk_get_rate(priv->clk);
+ 	priv->can.bittiming_const = &rcar_can_bittiming_const;
+ 	priv->can.do_set_mode = rcar_can_do_set_mode;
+@@ -858,10 +866,20 @@ static int __maybe_unused rcar_can_resum
+ 
+ static SIMPLE_DEV_PM_OPS(rcar_can_pm_ops, rcar_can_suspend, rcar_can_resume);
+ 
++static const struct of_device_id rcar_can_of_table[] __maybe_unused = {
++	{ .compatible = "renesas,can-r8a7778" },
++	{ .compatible = "renesas,can-r8a7779" },
++	{ .compatible = "renesas,can-r8a7790" },
++	{ .compatible = "renesas,can-r8a7791" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, rcar_can_of_table);
++
+ static struct platform_driver rcar_can_driver = {
+ 	.driver = {
+ 		.name = RCAR_CAN_DRV_NAME,
+ 		.owner = THIS_MODULE,
++		.of_match_table = of_match_ptr(rcar_can_of_table),
+ 		.pm = &rcar_can_pm_ops,
+ 	},
+ 	.probe = rcar_can_probe,
