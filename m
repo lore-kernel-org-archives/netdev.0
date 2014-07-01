@@ -1,71 +1,67 @@
-From: Rami Rosen <ramirose@gmail.com>
-Subject: [PATCH net-next] netlink: Fix do_one_broadcast() prototype.
-Date: Tue,  1 Jul 2014 21:17:35 +0300
-Message-ID: <1404238655-9762-1-git-send-email-ramirose@gmail.com>
-Cc: netdev@vger.kernel.org, Rami Rosen <ramirose@gmail.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f47.google.com ([74.125.82.47]:36816 "EHLO
-	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754962AbaGASRw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2014 14:17:52 -0400
-Received: by mail-wg0-f47.google.com with SMTP id k14so10190495wgh.30
-        for <netdev@vger.kernel.org>; Tue, 01 Jul 2014 11:17:50 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [RESEND][PATCH] rtlwifi: btcoexist: avoid format string in printk
+Date: Tue, 1 Jul 2014 14:29:08 -0400
+Message-ID: <20140701182908.GD6358@tuxdriver.com>
+References: <20140630203849.GA4787@www.outflux.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Kees Cook <keescook@chromium.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140630203849.GA4787@www.outflux.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch changes the prototype of the do_one_broadcast() method so that it will return void.
+Please look in the git trees before reposting patches...
 
-Signed-off-by: Rami Rosen <ramirose@gmail.com>
----
- net/netlink/af_netlink.c | 15 ++++++---------
- 1 file changed, 6 insertions(+), 9 deletions(-)
+commit 6437f51ec36af8ef1e3e2659439b35c37e5498e2
+Author: Kees Cook <keescook@chromium.org>
+Date:   Tue Jun 10 10:37:24 2014 -0700
 
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 15c731f..e8c9f97 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1961,25 +1961,25 @@ struct netlink_broadcast_data {
- 	void *tx_data;
- };
- 
--static int do_one_broadcast(struct sock *sk,
--				   struct netlink_broadcast_data *p)
-+static void do_one_broadcast(struct sock *sk,
-+				    struct netlink_broadcast_data *p)
- {
- 	struct netlink_sock *nlk = nlk_sk(sk);
- 	int val;
- 
- 	if (p->exclude_sk == sk)
--		goto out;
-+		return;
- 
- 	if (nlk->portid == p->portid || p->group - 1 >= nlk->ngroups ||
- 	    !test_bit(p->group - 1, nlk->groups))
--		goto out;
-+		return;
- 
- 	if (!net_eq(sock_net(sk), p->net))
--		goto out;
-+		return;
- 
- 	if (p->failure) {
- 		netlink_overrun(sk);
--		goto out;
-+		return;
- 	}
- 
- 	sock_hold(sk);
-@@ -2017,9 +2017,6 @@ static int do_one_broadcast(struct sock *sk,
- 		p->skb2 = NULL;
- 	}
- 	sock_put(sk);
--
--out:
--	return 0;
- }
- 
- int netlink_broadcast_filtered(struct sock *ssk, struct sk_buff *skb, u32 portid,
+    rtlwifi: btcoexist: avoid format string in printk
+    
+    Since CL_PRINTF only ever takes a single argument, make sure a format
+    string cannot leak into printk.
+    
+    Signed-off-by: Kees Cook <keescook@chromium.org>
+    Signed-off-by: John W. Linville <linville@tuxdriver.com>
+
+On Mon, Jun 30, 2014 at 01:38:49PM -0700, Kees Cook wrote:
+> Since CL_PRINTF only ever takes a single argument, make sure a format
+> string cannot leak into printk.
+> 
+> Signed-off-by: Kees Cook <keescook@chromium.org>
+> ---
+>  .../net/wireless/rtlwifi/btcoexist/halbtcoutsrc.h  |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.h b/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.h
+> index 871fc3c6d559..049f4c8d98a8 100644
+> --- a/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.h
+> +++ b/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.h
+> @@ -114,7 +114,7 @@ extern u32 btc_dbg_type[];
+>  
+>  
+>  #define	CL_SPRINTF	snprintf
+> -#define	CL_PRINTF	printk
+> +#define	CL_PRINTF(buf)	printk("%s", buf)
+>  
+>  #define	BTC_PRINT(dbgtype, dbgflag, printstr, ...)		\
+>  	do {							\
+> -- 
+> 1.7.9.5
+> 
+> 
+> -- 
+> Kees Cook
+> Chrome OS Security
+> 
+
 -- 
-1.9.0
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
