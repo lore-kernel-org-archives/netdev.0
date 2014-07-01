@@ -1,115 +1,163 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/14][pull request] Intel Wired LAN Driver Updates 2014-07-01
-Date: Tue,  1 Jul 2014 04:34:57 -0700
-Message-ID: <1404214511-26868-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 03/14] i40e: clear all queues and interrupts
+Date: Tue,  1 Jul 2014 04:35:00 -0700
+Message-ID: <1404214511-26868-4-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1404214511-26868-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:7330 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:7349 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752302AbaGALfO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Jul 2014 07:35:14 -0400
+	id S1757143AbaGALfP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 1 Jul 2014 07:35:15 -0400
+In-Reply-To: <1404214511-26868-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e, i40evf, igb and ixgbe.
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-Shannon adds the Base Address High and Low to the admin queue structure
-to simplify the logic in the configuration routines.  Also adds code to
-clear all queues and interrupts to help clean up after a PXE or other
-early boot activity.
+Per a recent HW designer comment, this code is for ripping through the
+queues and interrupts to fully disable them on driver init, specifically
+to help clean up after a PXE or other early boot activity.
 
-Kevin fixes mask assignment value since -1 cannot be used for unsigned
-integer types.
+Change-ID: I32ed452021a1c2b06dace1969976f882a37b9741
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_common.c    | 93 ++++++++++++++++++++++++
+ drivers/net/ethernet/intel/i40e/i40e_main.c      |  1 +
+ drivers/net/ethernet/intel/i40e/i40e_prototype.h |  1 +
+ 3 files changed, 95 insertions(+)
 
-Mitch fixes an issue where in some circumstances the reply from the PF
-would come back before we were able to properly modify the admin queue
-pending and required flags.  This would mess up the flags and put the
-driver in an indeterminate state, so fix this by simply setting the flags
-before sending the request to the admin queue.  Also changes the branding
-string for i40evf to reduce confusion and to match up with our other
-marketing materials.
-
-Kamil adds a new variable defining admin send queue (ASQ) command write
-back timeout to allow for dynamic modification of this timeout.
-
-Anjali fix a bug in the flow director filter replay logic, so that we
-call a replay after a sideband reset correctly.
-
-Jesse adds code to initialize all members of the context descriptor to
-prevent possible stale data.
-
-Christopher fixes i40e to prevent writing to reserved bits, since the
-queue index is only 0-127.
-
-Jacob removes the unneeded header export.h from the i40e PTP code.
-Fixes ixgbe PTP code where the PPS signal was not correct, as it
-generates a one half HZ clock signal, it only generates one level
-change per second.  To generate a full clock, we need two level changes
-per second.
-
-Todd provides a fix for igb to bring up link when the PHY has powered
-up, which was reported by Jeff Westfahl.
-
-The following are changes since commit 4135ab8208048a1586385fae1298726d7dacfc26:
-  tcp: tcp_conn_request: fix build error when IPv6 is disabled
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Anjali Singhai Jain (1):
-  i40e: FD filter replay logic bug fix
-
-Catherine Sullivan (1):
-  i40e/i40evf: Bump i40e to 0.4.19 and i40evf to 0.9.38
-
-Christopher Pau (1):
-  i40e: limit GLLAN_TXPRE_QDIS to QINDX 0-127
-
-Jacob Keller (2):
-  i40e: remove linux/export.h header from i40e_ptp.c
-  ixgbe: change PTP NSECS_PER_SEC to IXGBE_PTP_PPS_HALF_SECOND
-
-Jesse Brandeburg (1):
-  i40e/i40evf: initialize context descriptor
-
-Kamil Krawczyk (1):
-  i40e/i40evf: add ASQ write back timeout variable to AQ structure
-
-Kevin Scott (1):
-  i40e: Correct mask assignment value
-
-Mitch Williams (2):
-  i40evf: set flags before sending message
-  i40evf: change branding string
-
-Shannon Nelson (3):
-  i40e/i40evf: Add base address registers to aq struct
-  i40e/i40evf: clear aq bah-bal on shutdown
-  i40e: clear all queues and interrupts
-
-Todd Fujinaka (1):
-  igb: bring link up when PHY is powered up
-
- drivers/net/ethernet/intel/i40e/i40e_adminq.c      | 67 +++++++--------
- drivers/net/ethernet/intel/i40e/i40e_adminq.h      |  3 +
- drivers/net/ethernet/intel/i40e/i40e_common.c      | 97 +++++++++++++++++++++-
- drivers/net/ethernet/intel/i40e/i40e_lan_hmc.c     |  4 +-
- drivers/net/ethernet/intel/i40e/i40e_main.c        |  3 +-
- drivers/net/ethernet/intel/i40e/i40e_prototype.h   |  1 +
- drivers/net/ethernet/intel/i40e/i40e_ptp.c         |  1 -
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        | 11 ++-
- drivers/net/ethernet/intel/i40evf/i40e_adminq.c    | 67 +++++++--------
- drivers/net/ethernet/intel/i40evf/i40e_adminq.h    |  3 +
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c      |  1 +
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    |  4 +-
- .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    | 33 ++++----
- drivers/net/ethernet/intel/igb/igb_main.c          |  2 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_ptp.c       | 16 ++--
- 15 files changed, 200 insertions(+), 113 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+index bbace40..8305c8a 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+@@ -811,6 +811,99 @@ i40e_status i40e_pf_reset(struct i40e_hw *hw)
+ }
+ 
+ /**
++ * i40e_clear_hw - clear out any left over hw state
++ * @hw: pointer to the hw struct
++ *
++ * Clear queues and interrupts, typically called at init time,
++ * but after the capabilities have been found so we know how many
++ * queues and msix vectors have been allocated.
++ **/
++void i40e_clear_hw(struct i40e_hw *hw)
++{
++	u32 num_queues, base_queue;
++	u32 num_pf_int;
++	u32 num_vf_int;
++	u32 num_vfs;
++	u32 i, j;
++	u32 val;
++	u32 eol = 0x7ff;
++
++	/* get number of interrupts, queues, and vfs */
++	val = rd32(hw, I40E_GLPCI_CNF2);
++	num_pf_int = (val & I40E_GLPCI_CNF2_MSI_X_PF_N_MASK) >>
++		     I40E_GLPCI_CNF2_MSI_X_PF_N_SHIFT;
++	num_vf_int = (val & I40E_GLPCI_CNF2_MSI_X_VF_N_MASK) >>
++		     I40E_GLPCI_CNF2_MSI_X_VF_N_SHIFT;
++
++	val = rd32(hw, I40E_PFLAN_QALLOC);
++	base_queue = (val & I40E_PFLAN_QALLOC_FIRSTQ_MASK) >>
++		     I40E_PFLAN_QALLOC_FIRSTQ_SHIFT;
++	j = (val & I40E_PFLAN_QALLOC_LASTQ_MASK) >>
++	    I40E_PFLAN_QALLOC_LASTQ_SHIFT;
++	if (val & I40E_PFLAN_QALLOC_VALID_MASK)
++		num_queues = (j - base_queue) + 1;
++	else
++		num_queues = 0;
++
++	val = rd32(hw, I40E_PF_VT_PFALLOC);
++	i = (val & I40E_PF_VT_PFALLOC_FIRSTVF_MASK) >>
++	    I40E_PF_VT_PFALLOC_FIRSTVF_SHIFT;
++	j = (val & I40E_PF_VT_PFALLOC_LASTVF_MASK) >>
++	    I40E_PF_VT_PFALLOC_LASTVF_SHIFT;
++	if (val & I40E_PF_VT_PFALLOC_VALID_MASK)
++		num_vfs = (j - i) + 1;
++	else
++		num_vfs = 0;
++
++	/* stop all the interrupts */
++	wr32(hw, I40E_PFINT_ICR0_ENA, 0);
++	val = 0x3 << I40E_PFINT_DYN_CTLN_ITR_INDX_SHIFT;
++	for (i = 0; i < num_pf_int - 2; i++)
++		wr32(hw, I40E_PFINT_DYN_CTLN(i), val);
++
++	/* Set the FIRSTQ_INDX field to 0x7FF in PFINT_LNKLSTx */
++	val = eol << I40E_PFINT_LNKLST0_FIRSTQ_INDX_SHIFT;
++	wr32(hw, I40E_PFINT_LNKLST0, val);
++	for (i = 0; i < num_pf_int - 2; i++)
++		wr32(hw, I40E_PFINT_LNKLSTN(i), val);
++	val = eol << I40E_VPINT_LNKLST0_FIRSTQ_INDX_SHIFT;
++	for (i = 0; i < num_vfs; i++)
++		wr32(hw, I40E_VPINT_LNKLST0(i), val);
++	for (i = 0; i < num_vf_int - 2; i++)
++		wr32(hw, I40E_VPINT_LNKLSTN(i), val);
++
++	/* warn the HW of the coming Tx disables */
++	for (i = 0; i < num_queues; i++) {
++		u32 abs_queue_idx = base_queue + i;
++		u32 reg_block = 0;
++
++		if (abs_queue_idx >= 128) {
++			reg_block = abs_queue_idx / 128;
++			abs_queue_idx %= 128;
++		}
++
++		val = rd32(hw, I40E_GLLAN_TXPRE_QDIS(reg_block));
++		val &= ~I40E_GLLAN_TXPRE_QDIS_QINDX_MASK;
++		val |= (abs_queue_idx << I40E_GLLAN_TXPRE_QDIS_QINDX_SHIFT);
++		val |= I40E_GLLAN_TXPRE_QDIS_SET_QDIS_MASK;
++
++		wr32(hw, I40E_GLLAN_TXPRE_QDIS(reg_block), val);
++	}
++	udelay(400);
++
++	/* stop all the queues */
++	for (i = 0; i < num_queues; i++) {
++		wr32(hw, I40E_QINT_TQCTL(i), 0);
++		wr32(hw, I40E_QTX_ENA(i), 0);
++		wr32(hw, I40E_QINT_RQCTL(i), 0);
++		wr32(hw, I40E_QRX_ENA(i), 0);
++	}
++
++	/* short wait for all queue disables to settle */
++	udelay(50);
++}
++
++/**
+  * i40e_clear_pxe_mode - clear pxe operations mode
+  * @hw: pointer to the hw struct
+  *
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 17b1295..2c28538 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -8636,6 +8636,7 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	}
+ 
+ 	/* Reset here to make sure all is clean and to define PF 'n' */
++	i40e_clear_hw(hw);
+ 	err = i40e_pf_reset(hw);
+ 	if (err) {
+ 		dev_info(&pdev->dev, "Initial pf_reset failed: %d\n", err);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_prototype.h b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
+index 3300b99..77c515d 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_prototype.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
+@@ -217,6 +217,7 @@ i40e_status i40e_aq_query_switch_comp_bw_config(struct i40e_hw *hw,
+ /* i40e_common */
+ i40e_status i40e_init_shared_code(struct i40e_hw *hw);
+ i40e_status i40e_pf_reset(struct i40e_hw *hw);
++void i40e_clear_hw(struct i40e_hw *hw);
+ void i40e_clear_pxe_mode(struct i40e_hw *hw);
+ bool i40e_get_link_status(struct i40e_hw *hw);
+ i40e_status i40e_get_mac_addr(struct i40e_hw *hw,
 -- 
 1.9.3
