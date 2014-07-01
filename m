@@ -1,37 +1,74 @@
-From: Kay Sievers <kay@vrfy.org>
-Subject: Re: [PATCH] Use dev_port for the ID of a network
-	device.
-Date: Tue, 1 Jul 2014 02:33:19 +0200
-Message-ID: <CAPXgP13o=qZc0q+Af0sd6bLKUawKYw0L_SLqh3VgLZBJ1CfYSA@mail.gmail.com>
-References: <1404160596-25859-1-git-send-email-cascardo@linux.vnet.ibm.com>
+From: Zhao Qiang <B45475@freescale.com>
+Subject: [PATCH] powerpc/ucc_geth: deal with a compile warning
+Date: Tue, 1 Jul 2014 09:21:34 +0800
+Message-ID: <1404177694-5547-1-git-send-email-B45475@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, systemd-devel@lists.freedesktop.org
-To: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-Return-path: <systemd-devel-bounces@lists.freedesktop.org>
-In-Reply-To: <1404160596-25859-1-git-send-email-cascardo@linux.vnet.ibm.com>
-List-Unsubscribe: <http://lists.freedesktop.org/mailman/options/systemd-devel>,
- <mailto:systemd-devel-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <http://lists.freedesktop.org/archives/systemd-devel>
-List-Post: <mailto:systemd-devel@lists.freedesktop.org>
-List-Help: <mailto:systemd-devel-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <http://lists.freedesktop.org/mailman/listinfo/systemd-devel>,
- <mailto:systemd-devel-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: systemd-devel-bounces@lists.freedesktop.org
-Sender: "systemd-devel" <systemd-devel-bounces@lists.freedesktop.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Zhao Qiang <B45475@freescale.com>
+To: <linuxppc-dev@lists.ozlabs.org>, <leoli@freescale.com>,
+	<netdev@vger.kernel.org>, <B07421@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1lp0142.outbound.protection.outlook.com ([207.46.163.142]:25308
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752374AbaGABZI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 30 Jun 2014 21:25:08 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 30, 2014 at 10:36 PM, Thadeu Lima de Souza Cascardo
-<cascardo@linux.vnet.ibm.com> wrote:
-> For network devices on the same PCI function, dev_id should not be used,
-> since its purpose is for IPv6 support on interfaces with the same MAC
-> address.
->
-> The new dev_port sysfs attribute should be used when it is found. When
-> it is not, using dev_id might work.
+deal with a compile warning: comparison between
+'enum qe_fltr_largest_external_tbl_lookup_key_size'
+and 'enum qe_fltr_tbl_lookup_key_size'
 
-I don't see a problem switching this over, but why would we keep using
-dev_id if it is not the right thing to use?
+the code:
+	"if (ug_info->largestexternallookupkeysize ==
+	     QE_FLTR_TABLE_LOOKUP_KEY_SIZE_8_BYTES)"
+is warned because different enum, so modify it.
 
-Kay
+	"enum qe_fltr_largest_external_tbl_lookup_key_size
+	             largestexternallookupkeysize;
+
+	enum qe_fltr_tbl_lookup_key_size {
+		 QE_FLTR_TABLE_LOOKUP_KEY_SIZE_8_BYTES
+			 = 0x3f,         /* LookupKey parsed by the Generate LookupKey
+					    CMD is truncated to 8 bytes */
+		 QE_FLTR_TABLE_LOOKUP_KEY_SIZE_16_BYTES
+			 = 0x5f,         /* LookupKey parsed by the Generate LookupKey
+					    CMD is truncated to 16 bytes */
+	 };
+
+	 /* QE FLTR extended filtering Largest External Table Lookup Key Size */
+	 enum qe_fltr_largest_external_tbl_lookup_key_size {
+		 QE_FLTR_LARGEST_EXTERNAL_TABLE_LOOKUP_KEY_SIZE_NONE
+			 = 0x0,/* not used */
+		 QE_FLTR_LARGEST_EXTERNAL_TABLE_LOOKUP_KEY_SIZE_8_BYTES
+			 = QE_FLTR_TABLE_LOOKUP_KEY_SIZE_8_BYTES,        /* 8 bytes */
+		 QE_FLTR_LARGEST_EXTERNAL_TABLE_LOOKUP_KEY_SIZE_16_BYTES
+			 = QE_FLTR_TABLE_LOOKUP_KEY_SIZE_16_BYTES,       /* 16 bytes */
+	 };"
+
+Signed-off-by: Zhao Qiang <B45475@freescale.com>
+---
+ drivers/net/ethernet/freescale/ucc_geth.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/ucc_geth.c b/drivers/net/ethernet/freescale/ucc_geth.c
+index c8299c3..0bf5ba1 100644
+--- a/drivers/net/ethernet/freescale/ucc_geth.c
++++ b/drivers/net/ethernet/freescale/ucc_geth.c
+@@ -2993,11 +2993,11 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 	if (ug_info->rxExtendedFiltering) {
+ 		size += THREAD_RX_PRAM_ADDITIONAL_FOR_EXTENDED_FILTERING;
+ 		if (ug_info->largestexternallookupkeysize ==
+-		    QE_FLTR_TABLE_LOOKUP_KEY_SIZE_8_BYTES)
++		    QE_FLTR_LARGEST_EXTERNAL_TABLE_LOOKUP_KEY_SIZE_8_BYTES)
+ 			size +=
+ 			    THREAD_RX_PRAM_ADDITIONAL_FOR_EXTENDED_FILTERING_8;
+ 		if (ug_info->largestexternallookupkeysize ==
+-		    QE_FLTR_TABLE_LOOKUP_KEY_SIZE_16_BYTES)
++		    QE_FLTR_LARGEST_EXTERNAL_TABLE_LOOKUP_KEY_SIZE_16_BYTES)
+ 			size +=
+ 			    THREAD_RX_PRAM_ADDITIONAL_FOR_EXTENDED_FILTERING_16;
+ 	}
+-- 
+1.8.5
