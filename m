@@ -1,261 +1,182 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/14] i40e/i40evf: Add base address registers to aq struct
-Date: Tue,  1 Jul 2014 04:34:58 -0700
-Message-ID: <1404214511-26868-2-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1404214511-26868-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net-next 1/3] net: sctp: Inline the functions from
+ command.c
+Date: Tue, 1 Jul 2014 07:38:08 -0400
+Message-ID: <20140701113808.GD7322@hmsreliant.think-freely.org>
+References: <063D6719AE5E284EB5DD2968C1650D6D1726978C@AcuExch.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Network Development <netdev@vger.kernel.org>,
+	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:7330 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756815AbaGALfP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 1 Jul 2014 07:35:15 -0400
-In-Reply-To: <1404214511-26868-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:34730 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751141AbaGALiQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2014 07:38:16 -0400
+Content-Disposition: inline
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1726978C@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
-
-Add the Base Address High and Low to the admin queue struct to simplify
-another bit of "which context" logic in the config routines.
-
-Change-ID: Iae195a7da3baffc1a9d522119e1e2b427068ad07
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_adminq.c   | 58 +++++++++----------------
- drivers/net/ethernet/intel/i40e/i40e_adminq.h   |  2 +
- drivers/net/ethernet/intel/i40evf/i40e_adminq.c | 58 +++++++++----------------
- drivers/net/ethernet/intel/i40evf/i40e_adminq.h |  2 +
- 4 files changed, 44 insertions(+), 76 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.c b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-index 95aab70..87f1d8b 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
-@@ -55,16 +55,24 @@ static void i40e_adminq_init_regs(struct i40e_hw *hw)
- 		hw->aq.asq.tail = I40E_VF_ATQT1;
- 		hw->aq.asq.head = I40E_VF_ATQH1;
- 		hw->aq.asq.len  = I40E_VF_ATQLEN1;
-+		hw->aq.asq.bal  = I40E_VF_ATQBAL1;
-+		hw->aq.asq.bah  = I40E_VF_ATQBAH1;
- 		hw->aq.arq.tail = I40E_VF_ARQT1;
- 		hw->aq.arq.head = I40E_VF_ARQH1;
- 		hw->aq.arq.len  = I40E_VF_ARQLEN1;
-+		hw->aq.arq.bal  = I40E_VF_ARQBAL1;
-+		hw->aq.arq.bah  = I40E_VF_ARQBAH1;
- 	} else {
- 		hw->aq.asq.tail = I40E_PF_ATQT;
- 		hw->aq.asq.head = I40E_PF_ATQH;
- 		hw->aq.asq.len  = I40E_PF_ATQLEN;
-+		hw->aq.asq.bal  = I40E_PF_ATQBAL;
-+		hw->aq.asq.bah  = I40E_PF_ATQBAH;
- 		hw->aq.arq.tail = I40E_PF_ARQT;
- 		hw->aq.arq.head = I40E_PF_ARQH;
- 		hw->aq.arq.len  = I40E_PF_ARQLEN;
-+		hw->aq.arq.bal  = I40E_PF_ARQBAL;
-+		hw->aq.arq.bah  = I40E_PF_ARQBAH;
- 	}
- }
- 
-@@ -300,27 +308,14 @@ static i40e_status i40e_config_asq_regs(struct i40e_hw *hw)
- 	wr32(hw, hw->aq.asq.head, 0);
- 	wr32(hw, hw->aq.asq.tail, 0);
- 
--	if (hw->mac.type == I40E_MAC_VF) {
--		/* configure the transmit queue */
--		wr32(hw, I40E_VF_ATQBAH1,
--		    upper_32_bits(hw->aq.asq.desc_buf.pa));
--		wr32(hw, I40E_VF_ATQBAL1,
--		    lower_32_bits(hw->aq.asq.desc_buf.pa));
--		wr32(hw, I40E_VF_ATQLEN1, (hw->aq.num_asq_entries |
--					  I40E_VF_ATQLEN1_ATQENABLE_MASK));
--		reg = rd32(hw, I40E_VF_ATQBAL1);
--	} else {
--		/* configure the transmit queue */
--		wr32(hw, I40E_PF_ATQBAH,
--		    upper_32_bits(hw->aq.asq.desc_buf.pa));
--		wr32(hw, I40E_PF_ATQBAL,
--		    lower_32_bits(hw->aq.asq.desc_buf.pa));
--		wr32(hw, I40E_PF_ATQLEN, (hw->aq.num_asq_entries |
--					  I40E_PF_ATQLEN_ATQENABLE_MASK));
--		reg = rd32(hw, I40E_PF_ATQBAL);
--	}
-+	/* set starting point */
-+	wr32(hw, hw->aq.asq.len, (hw->aq.num_asq_entries |
-+				  I40E_PF_ATQLEN_ATQENABLE_MASK));
-+	wr32(hw, hw->aq.asq.bal, lower_32_bits(hw->aq.asq.desc_buf.pa));
-+	wr32(hw, hw->aq.asq.bah, upper_32_bits(hw->aq.asq.desc_buf.pa));
- 
- 	/* Check one register to verify that config was applied */
-+	reg = rd32(hw, hw->aq.asq.bal);
- 	if (reg != lower_32_bits(hw->aq.asq.desc_buf.pa))
- 		ret_code = I40E_ERR_ADMIN_QUEUE_ERROR;
- 
-@@ -342,30 +337,17 @@ static i40e_status i40e_config_arq_regs(struct i40e_hw *hw)
- 	wr32(hw, hw->aq.arq.head, 0);
- 	wr32(hw, hw->aq.arq.tail, 0);
- 
--	if (hw->mac.type == I40E_MAC_VF) {
--		/* configure the receive queue */
--		wr32(hw, I40E_VF_ARQBAH1,
--		    upper_32_bits(hw->aq.arq.desc_buf.pa));
--		wr32(hw, I40E_VF_ARQBAL1,
--		    lower_32_bits(hw->aq.arq.desc_buf.pa));
--		wr32(hw, I40E_VF_ARQLEN1, (hw->aq.num_arq_entries |
--					  I40E_VF_ARQLEN1_ARQENABLE_MASK));
--		reg = rd32(hw, I40E_VF_ARQBAL1);
--	} else {
--		/* configure the receive queue */
--		wr32(hw, I40E_PF_ARQBAH,
--		    upper_32_bits(hw->aq.arq.desc_buf.pa));
--		wr32(hw, I40E_PF_ARQBAL,
--		    lower_32_bits(hw->aq.arq.desc_buf.pa));
--		wr32(hw, I40E_PF_ARQLEN, (hw->aq.num_arq_entries |
--					  I40E_PF_ARQLEN_ARQENABLE_MASK));
--		reg = rd32(hw, I40E_PF_ARQBAL);
--	}
-+	/* set starting point */
-+	wr32(hw, hw->aq.arq.len, (hw->aq.num_arq_entries |
-+				  I40E_PF_ARQLEN_ARQENABLE_MASK));
-+	wr32(hw, hw->aq.arq.bal, lower_32_bits(hw->aq.arq.desc_buf.pa));
-+	wr32(hw, hw->aq.arq.bah, upper_32_bits(hw->aq.arq.desc_buf.pa));
- 
- 	/* Update tail in the HW to post pre-allocated buffers */
- 	wr32(hw, hw->aq.arq.tail, hw->aq.num_arq_entries - 1);
- 
- 	/* Check one register to verify that config was applied */
-+	reg = rd32(hw, hw->aq.arq.bal);
- 	if (reg != lower_32_bits(hw->aq.arq.desc_buf.pa))
- 		ret_code = I40E_ERR_ADMIN_QUEUE_ERROR;
- 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.h b/drivers/net/ethernet/intel/i40e/i40e_adminq.h
-index b1552fb..c6142ba 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_adminq.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_adminq.h
-@@ -56,6 +56,8 @@ struct i40e_adminq_ring {
- 	u32 head;
- 	u32 tail;
- 	u32 len;
-+	u32 bah;
-+	u32 bal;
- };
- 
- /* ASQ transaction details */
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq.c b/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
-index 15853fd..79a30dd 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq.c
-@@ -53,16 +53,24 @@ static void i40e_adminq_init_regs(struct i40e_hw *hw)
- 		hw->aq.asq.tail = I40E_VF_ATQT1;
- 		hw->aq.asq.head = I40E_VF_ATQH1;
- 		hw->aq.asq.len  = I40E_VF_ATQLEN1;
-+		hw->aq.asq.bal  = I40E_VF_ATQBAL1;
-+		hw->aq.asq.bah  = I40E_VF_ATQBAH1;
- 		hw->aq.arq.tail = I40E_VF_ARQT1;
- 		hw->aq.arq.head = I40E_VF_ARQH1;
- 		hw->aq.arq.len  = I40E_VF_ARQLEN1;
-+		hw->aq.arq.bal  = I40E_VF_ARQBAL1;
-+		hw->aq.arq.bah  = I40E_VF_ARQBAH1;
- 	} else {
- 		hw->aq.asq.tail = I40E_PF_ATQT;
- 		hw->aq.asq.head = I40E_PF_ATQH;
- 		hw->aq.asq.len  = I40E_PF_ATQLEN;
-+		hw->aq.asq.bal  = I40E_PF_ATQBAL;
-+		hw->aq.asq.bah  = I40E_PF_ATQBAH;
- 		hw->aq.arq.tail = I40E_PF_ARQT;
- 		hw->aq.arq.head = I40E_PF_ARQH;
- 		hw->aq.arq.len  = I40E_PF_ARQLEN;
-+		hw->aq.arq.bal  = I40E_PF_ARQBAL;
-+		hw->aq.arq.bah  = I40E_PF_ARQBAH;
- 	}
- }
- 
-@@ -298,27 +306,14 @@ static i40e_status i40e_config_asq_regs(struct i40e_hw *hw)
- 	wr32(hw, hw->aq.asq.head, 0);
- 	wr32(hw, hw->aq.asq.tail, 0);
- 
--	if (hw->mac.type == I40E_MAC_VF) {
--		/* configure the transmit queue */
--		wr32(hw, I40E_VF_ATQBAH1,
--		    upper_32_bits(hw->aq.asq.desc_buf.pa));
--		wr32(hw, I40E_VF_ATQBAL1,
--		    lower_32_bits(hw->aq.asq.desc_buf.pa));
--		wr32(hw, I40E_VF_ATQLEN1, (hw->aq.num_asq_entries |
--					  I40E_VF_ATQLEN1_ATQENABLE_MASK));
--		reg = rd32(hw, I40E_VF_ATQBAL1);
--	} else {
--		/* configure the transmit queue */
--		wr32(hw, I40E_PF_ATQBAH,
--		    upper_32_bits(hw->aq.asq.desc_buf.pa));
--		wr32(hw, I40E_PF_ATQBAL,
--		    lower_32_bits(hw->aq.asq.desc_buf.pa));
--		wr32(hw, I40E_PF_ATQLEN, (hw->aq.num_asq_entries |
--					  I40E_PF_ATQLEN_ATQENABLE_MASK));
--		reg = rd32(hw, I40E_PF_ATQBAL);
--	}
-+	/* set starting point */
-+	wr32(hw, hw->aq.asq.len, (hw->aq.num_asq_entries |
-+				  I40E_PF_ATQLEN_ATQENABLE_MASK));
-+	wr32(hw, hw->aq.asq.bal, lower_32_bits(hw->aq.asq.desc_buf.pa));
-+	wr32(hw, hw->aq.asq.bah, upper_32_bits(hw->aq.asq.desc_buf.pa));
- 
- 	/* Check one register to verify that config was applied */
-+	reg = rd32(hw, hw->aq.asq.bal);
- 	if (reg != lower_32_bits(hw->aq.asq.desc_buf.pa))
- 		ret_code = I40E_ERR_ADMIN_QUEUE_ERROR;
- 
-@@ -340,30 +335,17 @@ static i40e_status i40e_config_arq_regs(struct i40e_hw *hw)
- 	wr32(hw, hw->aq.arq.head, 0);
- 	wr32(hw, hw->aq.arq.tail, 0);
- 
--	if (hw->mac.type == I40E_MAC_VF) {
--		/* configure the receive queue */
--		wr32(hw, I40E_VF_ARQBAH1,
--		    upper_32_bits(hw->aq.arq.desc_buf.pa));
--		wr32(hw, I40E_VF_ARQBAL1,
--		    lower_32_bits(hw->aq.arq.desc_buf.pa));
--		wr32(hw, I40E_VF_ARQLEN1, (hw->aq.num_arq_entries |
--					  I40E_VF_ARQLEN1_ARQENABLE_MASK));
--		reg = rd32(hw, I40E_VF_ARQBAL1);
--	} else {
--		/* configure the receive queue */
--		wr32(hw, I40E_PF_ARQBAH,
--		    upper_32_bits(hw->aq.arq.desc_buf.pa));
--		wr32(hw, I40E_PF_ARQBAL,
--		    lower_32_bits(hw->aq.arq.desc_buf.pa));
--		wr32(hw, I40E_PF_ARQLEN, (hw->aq.num_arq_entries |
--					  I40E_PF_ARQLEN_ARQENABLE_MASK));
--		reg = rd32(hw, I40E_PF_ARQBAL);
--	}
-+	/* set starting point */
-+	wr32(hw, hw->aq.arq.len, (hw->aq.num_arq_entries |
-+				  I40E_PF_ARQLEN_ARQENABLE_MASK));
-+	wr32(hw, hw->aq.arq.bal, lower_32_bits(hw->aq.arq.desc_buf.pa));
-+	wr32(hw, hw->aq.arq.bah, upper_32_bits(hw->aq.arq.desc_buf.pa));
- 
- 	/* Update tail in the HW to post pre-allocated buffers */
- 	wr32(hw, hw->aq.arq.tail, hw->aq.num_arq_entries - 1);
- 
- 	/* Check one register to verify that config was applied */
-+	reg = rd32(hw, hw->aq.arq.bal);
- 	if (reg != lower_32_bits(hw->aq.arq.desc_buf.pa))
- 		ret_code = I40E_ERR_ADMIN_QUEUE_ERROR;
- 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_adminq.h b/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
-index e3472c6..9335375 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_adminq.h
-@@ -56,6 +56,8 @@ struct i40e_adminq_ring {
- 	u32 head;
- 	u32 tail;
- 	u32 len;
-+	u32 bah;
-+	u32 bal;
- };
- 
- /* ASQ transaction details */
--- 
-1.9.3
+On Mon, Jun 30, 2014 at 01:01:04PM +0000, David Laight wrote:
+> sctp_init_cmd_seq() and sctp_next_cmd() are only called from one place.
+> The call sequence for sctp_add_cmd_sf() is likely to be longer than
+> the inlined code.
+> With sctp_add_cmd_sf() inlined the compiler can optimise repeated calls.
+> 
+> 
+> Signed-off-by: David Laight <david.laight@aculab.com>
+> ---
+>  include/net/sctp/command.h | 27 +++++++++++++++---
+>  net/sctp/Makefile          |  2 +-
+>  net/sctp/command.c         | 68 ----------------------------------------------
+>  3 files changed, 24 insertions(+), 73 deletions(-)
+>  delete mode 100644 net/sctp/command.c
+> 
+> diff --git a/include/net/sctp/command.h b/include/net/sctp/command.h
+> index 6547ab7..020eb95 100644
+> --- a/include/net/sctp/command.h
+> +++ b/include/net/sctp/command.h
+> @@ -210,19 +210,38 @@ typedef struct {
+>  /* Initialize a block of memory as a command sequence.
+>   * Return 0 if the initialization fails.
+>   */
+> -int sctp_init_cmd_seq(sctp_cmd_seq_t *seq);
+> +static inline int sctp_init_cmd_seq(sctp_cmd_seq_t *seq)
+> +{
+> +	memset(seq, 0, sizeof(sctp_cmd_seq_t));
+> +	return 1;		/* We always succeed.  */
+> +}
+> +
+>  
+>  /* Add a command to an sctp_cmd_seq_t.
+>   *
+>   * Use the SCTP_* constructors defined by SCTP_ARG_CONSTRUCTOR() above
+>   * to wrap data which goes in the obj argument.
+>   */
+> -void sctp_add_cmd_sf(sctp_cmd_seq_t *seq, sctp_verb_t verb, sctp_arg_t obj);
+> +static inline void sctp_add_cmd_sf(sctp_cmd_seq_t *seq, sctp_verb_t verb,
+> +				   sctp_arg_t obj)
+> +{
+> +	BUG_ON(seq->next_free_slot >= SCTP_MAX_NUM_COMMANDS);
+> +
+> +	seq->cmds[seq->next_free_slot].verb = verb;
+> +	seq->cmds[seq->next_free_slot++].obj = obj;
+> +}
+>  
+>  /* Return the next command structure in an sctp_cmd_seq.
+>   * Return NULL at the end of the sequence.
+>   */
+> -sctp_cmd_t *sctp_next_cmd(sctp_cmd_seq_t *seq);
+> +static inline sctp_cmd_t *sctp_next_cmd(sctp_cmd_seq_t *seq)
+> +{
+> +	sctp_cmd_t *retval = NULL;
+>  
+> -#endif /* __net_sctp_command_h__ */
+> +	if (seq->next_cmd < seq->next_free_slot)
+> +		retval = &seq->cmds[seq->next_cmd++];
+> +
+> +	return retval;
+> +}
+>  
+> +#endif /* __net_sctp_command_h__ */
+> diff --git a/net/sctp/Makefile b/net/sctp/Makefile
+> index 5c30b7a..3b4ffb0 100644
+> --- a/net/sctp/Makefile
+> +++ b/net/sctp/Makefile
+> @@ -8,7 +8,7 @@ obj-$(CONFIG_NET_SCTPPROBE) += sctp_probe.o
+>  sctp-y := sm_statetable.o sm_statefuns.o sm_sideeffect.o \
+>  	  protocol.o endpointola.o associola.o \
+>  	  transport.o chunk.o sm_make_chunk.o ulpevent.o \
+> -	  inqueue.o outqueue.o ulpqueue.o command.o \
+> +	  inqueue.o outqueue.o ulpqueue.o \
+>  	  tsnmap.o bind_addr.o socket.o primitive.o \
+>  	  output.o input.o debug.o ssnmap.o auth.o
+>  
+> diff --git a/net/sctp/command.c b/net/sctp/command.c
+> deleted file mode 100644
+> index dd73758..0000000
+> --- a/net/sctp/command.c
+> +++ /dev/null
+> @@ -1,68 +0,0 @@
+> -/* SCTP kernel implementation Copyright (C) 1999-2001
+> - * Cisco, Motorola, and IBM
+> - * Copyright 2001 La Monte H.P. Yarroll
+> - *
+> - * This file is part of the SCTP kernel implementation
+> - *
+> - * These functions manipulate sctp command sequences.
+> - *
+> - * This SCTP implementation is free software;
+> - * you can redistribute it and/or modify it under the terms of
+> - * the GNU General Public License as published by
+> - * the Free Software Foundation; either version 2, or (at your option)
+> - * any later version.
+> - *
+> - * This SCTP implementation is distributed in the hope that it
+> - * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+> - *                 ************************
+> - * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+> - * See the GNU General Public License for more details.
+> - *
+> - * You should have received a copy of the GNU General Public License
+> - * along with GNU CC; see the file COPYING.  If not, see
+> - * <http://www.gnu.org/licenses/>.
+> - *
+> - * Please send any bug reports or fixes you make to the
+> - * email address(es):
+> - *    lksctp developers <linux-sctp@vger.kernel.org>
+> - *
+> - * Written or modified by:
+> - *    La Monte H.P. Yarroll <piggy@acm.org>
+> - *    Karl Knutson <karl@athena.chicago.il.us>
+> - */
+> -
+> -#include <linux/types.h>
+> -#include <net/sctp/sctp.h>
+> -#include <net/sctp/sm.h>
+> -
+> -/* Initialize a block of memory as a command sequence. */
+> -int sctp_init_cmd_seq(sctp_cmd_seq_t *seq)
+> -{
+> -	memset(seq, 0, sizeof(sctp_cmd_seq_t));
+> -	return 1;		/* We always succeed.  */
+> -}
+> -
+> -/* Add a command to a sctp_cmd_seq_t.
+> - * Return 0 if the command sequence is full.
+> - */
+> -void sctp_add_cmd_sf(sctp_cmd_seq_t *seq, sctp_verb_t verb, sctp_arg_t obj)
+> -{
+> -	BUG_ON(seq->next_free_slot >= SCTP_MAX_NUM_COMMANDS);
+> -
+> -	seq->cmds[seq->next_free_slot].verb = verb;
+> -	seq->cmds[seq->next_free_slot++].obj = obj;
+> -}
+> -
+> -/* Return the next command structure in a sctp_cmd_seq.
+> - * Returns NULL at the end of the sequence.
+> - */
+> -sctp_cmd_t *sctp_next_cmd(sctp_cmd_seq_t *seq)
+> -{
+> -	sctp_cmd_t *retval = NULL;
+> -
+> -	if (seq->next_cmd < seq->next_free_slot)
+> -		retval = &seq->cmds[seq->next_cmd++];
+> -
+> -	return retval;
+> -}
+> -
+> -- 
+> 1.8.1.2
+> 
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
