@@ -1,36 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] pktgen: Allow setting frag sizes individually
-Date: Tue, 01 Jul 2014 12:14:53 -0700 (PDT)
-Message-ID: <20140701.121453.646524500364143878.davem@davemloft.net>
-References: <1403728972-29548-1-git-send-email-zoltan.kiss@citrix.com>
-	<1403728972-29548-3-git-send-email-zoltan.kiss@citrix.com>
+Subject: Re: [PATCH v3 1/2] ipv6: Add more debugging around accept-ra logic.
+Date: Tue, 01 Jul 2014 12:16:36 -0700 (PDT)
+Message-ID: <20140701.121636.2037098056755566357.davem@davemloft.net>
+References: <1403732693-18282-1-git-send-email-greearb@candelatech.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: steffen.klassert@secunet.com, minipli@googlemail.com,
-	dborkman@redhat.com, tgraf@suug.ch, joe@perches.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	xen-devel@lists.xenproject.org
-To: zoltan.kiss@citrix.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1403728972-29548-3-git-send-email-zoltan.kiss@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: greearb@candelatech.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34706 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752065AbaGATQh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2014 15:16:37 -0400
+In-Reply-To: <1403732693-18282-1-git-send-email-greearb@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Date: Wed, 25 Jun 2014 21:42:51 +0100
+From: greearb@candelatech.com
+Date: Wed, 25 Jun 2014 14:44:52 -0700
 
-> By defining the number of frags via "nfrags", their sizes get calculated by
-> pktgen. This patch allows their offsets and sizes to be specified via
-> "frag_off-len", in a comma separated list (e.g.
-> "frag_off-len 0-1,500-200,5000-10,9-100). The first is the offset
-> (0 <= offset < 2^16), second is size (0 < length <= 65536). This also determines
-> the number of frags, so it overwrites "frags" (and vice versa, "frags"
-> invalidate this setting)
-> xen-netback is prone to have problem with compound pages, as the memory granting
-> interface can only handle 4k pages. This extension of pktgen is proven to be
-> useful to test that.
+> From: Ben Greear <greearb@candelatech.com>
 > 
-> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+> This is disabled by default, just like similar debug info
+> already in this module.  But, makes it easier to find out
+> why RA is not being accepted when debugging strange behaviour.
+> 
+> Signed-off-by: Ben Greear <greearb@candelatech.com>
 
-Can you respin these against current net-next and repost, thanks Zoltan.
+Applied.
