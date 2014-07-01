@@ -1,62 +1,76 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 2/3] net: sctp: Optimise the way 'sctp_arg_t'
- values are initialised
-Date: Tue, 1 Jul 2014 13:14:32 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1726AA43@AcuExch.aculab.com>
-References: <063D6719AE5E284EB5DD2968C1650D6D17269789@AcuExch.aculab.com>
+From: Amir Vadai <amirv.mellanox@gmail.com>
+Subject: Re: [systemd-devel] [PATCH] Use dev_port for the ID of a network
+ device.
+Date: Tue, 01 Jul 2014 16:18:09 +0300
+Message-ID: <53B2B511.8050107@gmail.com>
+References: <1404160596-25859-1-git-send-email-cascardo@linux.vnet.ibm.com> <CAPXgP13o=qZc0q+Af0sd6bLKUawKYw0L_SLqh3VgLZBJ1CfYSA@mail.gmail.com> <20140701123208.GC1204@oc0268524204.ibm.com> <CAG-2HqUM6OSM4-4eVO4KuY38KpKiKTM_H6mdb775VXP+YVuUHg@mail.gmail.com> <CAPXgP126bhV8RLK=457oA+Ci08tEEyjZtnPd9_PxLb3WEVVx8Q@mail.gmail.com>
+Reply-To: amirv@mellanox.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "David S. Miller" <davem@davemloft.net>
-To: David Laight <David.Laight@ACULAB.COM>,
-	Network Development <netdev@vger.kernel.org>,
-	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
+	netdev <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>
+To: Kay Sievers <kay@vrfy.org>, Tom Gundersen <teg@jklm.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:51259 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751513AbaGANPf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2014 09:15:35 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 02893-09 for <netdev@vger.kernel.org>;
- Tue,  1 Jul 2014 14:15:26 +0100 (BST)
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D17269789@AcuExch.aculab.com>
-Content-Language: en-US
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:36403 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751854AbaGANSP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2014 09:18:15 -0400
+Received: by mail-wi0-f170.google.com with SMTP id cc10so7411859wib.3
+        for <netdev@vger.kernel.org>; Tue, 01 Jul 2014 06:18:14 -0700 (PDT)
+In-Reply-To: <CAPXgP126bhV8RLK=457oA+Ci08tEEyjZtnPd9_PxLb3WEVVx8Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Laight
-> Even if memset() is inlined (as on x86) using it to zero the union
-> generates a memory word write of zero, followed by a write of the
-> smaller field, and then a read of the word.
-> As well as being a lot of instructions the sequence is unlikely to
-> be optimised by the store-load forward hardware so will be slow.
+On 7/1/2014 3:59 PM, Kay Sievers wrote:
+> On Tue, Jul 1, 2014 at 2:45 PM, Tom Gundersen <teg@jklm.no> wrote:
+>> On Tue, Jul 1, 2014 at 2:32 PM, Thadeu Lima de Souza Cascardo
+>> <cascardo@linux.vnet.ibm.com> wrote:
+>>> On Tue, Jul 01, 2014 at 02:33:19AM +0200, Kay Sievers wrote:
+>>>> On Mon, Jun 30, 2014 at 10:36 PM, Thadeu Lima de Souza Cascardo
+>>>> <cascardo@linux.vnet.ibm.com> wrote:
+>>>>> For network devices on the same PCI function, dev_id should not be used,
+>>>>> since its purpose is for IPv6 support on interfaces with the same MAC
+>>>>> address.
+>>>>>
+>>>>> The new dev_port sysfs attribute should be used when it is found. When
+>>>>> it is not, using dev_id might work.
+>>>>
+>>>> I don't see a problem switching this over, but why would we keep using
+>>>> dev_id if it is not the right thing to use?
+>>>>
+>>>> Kay
+>>>>
+>>>
+>>> Because dev_port has only been introduced into Linux 3.15, and some
+>>> drivers used dev_id before Linux 3.10. It's not an ideal situation, so I
+>>> think it's important to keep some compatibility for the time being. Or
+>>> we could simply drop dev_id, and force everyone to do the right thing
+>>> and backport dev_port support and fix their drivers.
+>>
+>> If this fixes a real issue, I guess it would be nice to push the
+>> dev_port stuff to -stable. If it is accepted it would solve the
+>> backwards compatibility problem, and we could just drop dev_id from
+>> udev.
 > 
-> Instead allocate a field of the union that is the same size as the
-> entire union and write a zero value to it. The compiler will then
-> generate the required value in a register.
+> Let's drop it now and mention it in NEWS. That way, distros which
+> really care can add the compat hack to the code.
 > 
-> Signed-off-by: David Laight <david.laight@aculab.com>
-> ---
->  include/net/sctp/command.h | 6 +++---
->  1 file changed, 3 insertions(+), 3 deletions(-)
+> Kay
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 > 
-> diff --git a/include/net/sctp/command.h b/include/net/sctp/command.h
-> index 020eb95..5fcd1a7 100644
-> --- a/include/net/sctp/command.h
-> +++ b/include/net/sctp/command.h
-...
-> @@ -212,7 +213,6 @@ typedef struct {
->   */
->  static inline int sctp_init_cmd_seq(sctp_cmd_seq_t *seq)
->  {
-> -	memset(seq, 0, sizeof(sctp_cmd_seq_t));
->  	return 1;		/* We always succeed.  */
->  }
 
-I've realised that this version of this chunk leaves seq->next_free_slot
-and seq->next_cmd uninitialized (they need to be zero).
-The next patch in the series contains different initialisers - which are correct.
-I guess this needs fixing for 'git bisect' ?
+Acked-by: Amir Vadai <amirv@mellanox.com>
 
-	David
+mlx4_en is one of those drivers that wrongly used dev_id and changed to
+dev_port.
+I guess that having a bug in driver that used dev_id the right way is
+worse than bad interface name for drivers that wrongly used it.
+Never the less - we should pull dev_port to stable, to minimize the damage.
+
+Amir
