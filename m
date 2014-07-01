@@ -1,95 +1,44 @@
-From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
-Subject: RE: [PATCH CFT 00/30] Initial round of Freescale FEC ethernet patches
-Date: Tue, 1 Jul 2014 03:23:27 +0000
-Message-ID: <f570bad3b6954703b930e6b9a516f372@BLUPR03MB373.namprd03.prod.outlook.com>
-References: <20140627151542.GL32514@n2100.arm.linux.org.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net V1 1/3] net/mlx4_en: Don't use
+ irq_affinity_notifier to track changes in IRQ affinity map
+Date: Mon, 30 Jun 2014 20:33:08 -0700 (PDT)
+Message-ID: <20140630.203308.1311350484055713992.davem@davemloft.net>
+References: <1404032097-5132-2-git-send-email-amirv@mellanox.com>
+	<1404110511.15139.44.camel@edumazet-glaptop2.roam.corp.google.com>
+	<53B1210E.6040409@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	ogerlitz@mellanox.com, yevgenyp@mellanox.com, tglx@linutronix.de,
+	ben@decadent.org.uk, amira@mellanox.com, yuvala@mellanox.com
+To: amirv@mellanox.com, amirv.mellanox@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2lp0242.outbound.protection.outlook.com ([207.46.163.242]:42249
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752635AbaGADXa convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 23:23:30 -0400
-In-Reply-To: <20140627151542.GL32514@n2100.arm.linux.org.uk>
-Content-Language: en-US
+Received: from shards.monkeyblade.net ([149.20.54.216]:58350 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751525AbaGADdL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 30 Jun 2014 23:33:11 -0400
+In-Reply-To: <53B1210E.6040409@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Russell King - ARM Linux <linux@arm.linux.org.uk> Data: Friday, June 27, 2014 11:16 PM
->To: linux-arm-kernel@lists.infradead.org; netdev@vger.kernel.org
->Cc: Duan Fugang-B38611
->Subject: [PATCH CFT 00/30] Initial round of Freescale FEC ethernet patches
->
->This is v2 of my initial round of patches (roughly half of my total patch
->set) for the Freescale FEC driver.
->
->I'm sending this set out for comments and testing.  So far, I have had
->only one ack for one patch in this series, this is pretty poor, so I'm now
->sending it with a CFT tag instead.
->
->I haven't changed too much - I've fixed the bug which Andy spotted in the
->transmit handling, but otherwise the patches are much the same.
->
->The remainder of the text is as per my previous message, but with updated
->diffstat:
->
->One of my motivations for only sending half is to get this half into a
->state where DaveM is happy to merge it before I sort out the remainder.
->There's quite a lot here, so bear with me on this.
->
->I've tried to sort the fixes before the cleanups as best I can, but
->reordering the series is a full-time job due to it's size - it's taken
->from Monday until now to get this far with it, so I'm hoping that there
->won't be any "you should rearrange the patches as X" comments.
->
->While the original series was well tested during it's original development,
->including with performance tests on each patch, that testing and
->validation has been lost due to the changes during the last merge window,
->and subsequent rebasing and updating of the patches.
->
->The series is based on v3.16-rc1, and as such, I have added Andy's
->checksum fix to the start of the series.  This patch is not strictly part
->of the RFC, but is included because my complete patch series needs to
->account for that change.
->
->Some of these patches are to fix theoretical problems in the driver (ones
->which have been found via a review of the code) others address real
->observable problems (such as poor half-duplex performance.)
->
->Towards the end of this series, I have included a patch which was
->initially at the beginning of the series for dumping out the state of the
->transmit ring, which is very useful to debug transmit problems.
->This was acceptable when the transmit ring was between 16 and 128
->descriptors, but during the recent merge window, this was increased to
->512 descriptors, so it will now print around 512 lines to the kernel
->message log on transmit timeout.  I'm not entirely convinced this is a
->good idea - maybe it should become optional, or maybe the timed-out ring
->status should be available via debugfs, but that's a problem to retrieve
->if you're running NFS rootfs and the timeout doesn't recover properly.
->
->This series of patches is also available from the following *unstable* git
->branch - unstable as it's provided for convenience so you don't have to
->apply all these patches individually, unstable as the patches need to have
->attributations added, unstable because DaveM will probably want to apply
->them as patches to his tree:
->
->  git://ftp.arm.linux.org.uk/~rmk/linux-arm.git fec-testing
->
-> drivers/net/ethernet/freescale/fec.h      |  10 +-
-> drivers/net/ethernet/freescale/fec_main.c | 382 +++++++++++++++++--------
->-----
-> 2 files changed, 224 insertions(+), 168 deletions(-)
->
+From: Amir Vadai <amirv.mellanox@gmail.com>
+Date: Mon, 30 Jun 2014 11:34:22 +0300
 
-Hi, Russell,
+> On 6/30/2014 9:41 AM, Eric Dumazet wrote:
+>> You might want to drain whole queue instead of limiting to a 'budget',
+>> otherwise, a cpu might be stuck servicing (soft)irq for the TX
+>> completion, even if irq affinities say otherwise.
+>> 
+> 
+> TX completions are very quick compared to the skb preparation and
+> sending. Which is not the case for RX completions. Because of that, it
+> is very easy to reproduce the problem in RX flows, but we never had any
+> report of that problem in the TX flow.
+> I prefer not to spend time on the TX, since we plan to send a patch soon
+> to use the same NAPI for both TX and RX.
 
-The V2 patch set are fine for me. Thanks for your clean for the driver.
+It is always advised to completely ignore the budget for TX work, this is
+what we tell every driver author when discussion NAPI implementations.
 
-Acked-by: Fugang Duan <B38611@freescale.com>
-
-Thanks,
-Andy
+Please make your driver conform to this, thanks.
