@@ -1,74 +1,99 @@
 From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net 2/4] openvswitch: supply a dummy err_handler of gre_cisco_protocol to prevent kernel crash
-Date: Mon, 30 Jun 2014 23:34:33 -0700
-Message-ID: <1404196473-5158-1-git-send-email-pshelar@nicira.com>
-Cc: netdev@vger.kernel.org, Wei Zhang <asuka.com@163.com>,
-	Jesse Gross <jesse@nicira.com>,
+Subject: [PATCH net 3/4] openvswitch: Fix tracking of flags seen in TCP flows.
+Date: Mon, 30 Jun 2014 23:34:39 -0700
+Message-ID: <1404196479-5187-1-git-send-email-pshelar@nicira.com>
+Cc: netdev@vger.kernel.org, Ben Pfaff <blp@nicira.com>,
 	Pravin B Shelar <pshelar@nicira.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog136.obsmtp.com ([74.125.149.85]:39929 "HELO
-	na3sys009aog136.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752003AbaGAGeg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2014 02:34:36 -0400
-Received: by mail-pa0-f47.google.com with SMTP id kq14so10018560pab.34
-        for <netdev@vger.kernel.org>; Mon, 30 Jun 2014 23:34:35 -0700 (PDT)
+Received: from na3sys009aog101.obsmtp.com ([74.125.149.67]:33602 "HELO
+	na3sys009aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752003AbaGAGem (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2014 02:34:42 -0400
+Received: by mail-pd0-f173.google.com with SMTP id r10so9534617pdi.18
+        for <netdev@vger.kernel.org>; Mon, 30 Jun 2014 23:34:41 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Zhang <asuka.com@163.com>
+From: Ben Pfaff <blp@nicira.com>
 
-When use gre vport, openvswitch register a gre_cisco_protocol but
-does not supply a err_handler with it. The gre_cisco_err() in
-net/ipv4/gre_demux.c expect err_handler be provided with the
-gre_cisco_protocol implementation, and call ->err_handler() without
-existence check, cause the kernel crash.
+Flow statistics need to take into account the TCP flags from the packet
+currently being processed (in 'key'), not the TCP flags matched by the
+flow found in the kernel flow table (in 'flow').
 
-This patch provide a err_handler to fix this bug.
-This bug introduced by commit aa310701e787087d (openvswitch: Add gre
-tunnel support.)
+This bug made the Open vSwitch userspace fin_timeout action have no effect
+in many cases.
+This bug is introduced by commit 88d73f6c411ac2f0578 (openvswitch: Use
+TCP flags in the flow key for stats.)
 
-Signed-off-by: Wei Zhang <asuka.com@163.com>
-Signed-off-by: Jesse Gross <jesse@nicira.com>
+Reported-by: Len Gao <leng@vmware.com>
+Signed-off-by: Ben Pfaff <blp@nicira.com>
+Acked-by: Jarno Rajahalme <jrajahalme@nicira.com>
+Acked-by: Jesse Gross <jesse@nicira.com>
 Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 ---
- net/openvswitch/vport-gre.c | 17 +++++++++++++++++
- 1 file changed, 17 insertions(+)
+ net/openvswitch/datapath.c | 4 ++--
+ net/openvswitch/flow.c     | 4 ++--
+ net/openvswitch/flow.h     | 5 +++--
+ 3 files changed, 7 insertions(+), 6 deletions(-)
 
-diff --git a/net/openvswitch/vport-gre.c b/net/openvswitch/vport-gre.c
-index 35ec4fe..f49148a 100644
---- a/net/openvswitch/vport-gre.c
-+++ b/net/openvswitch/vport-gre.c
-@@ -110,6 +110,22 @@ static int gre_rcv(struct sk_buff *skb,
- 	return PACKET_RCVD;
- }
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index 0d407bc..a863678 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2007-2013 Nicira, Inc.
++ * Copyright (c) 2007-2014 Nicira, Inc.
+  *
+  * This program is free software; you can redistribute it and/or
+  * modify it under the terms of version 2 of the GNU General Public
+@@ -276,7 +276,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
+ 	OVS_CB(skb)->flow = flow;
+ 	OVS_CB(skb)->pkt_key = &key;
  
-+/* Called with rcu_read_lock and BH disabled. */
-+static int gre_err(struct sk_buff *skb, u32 info,
-+		   const struct tnl_ptk_info *tpi)
-+{
-+	struct ovs_net *ovs_net;
-+	struct vport *vport;
-+
-+	ovs_net = net_generic(dev_net(skb->dev), ovs_net_id);
-+	vport = rcu_dereference(ovs_net->vport_net.gre_vport);
-+
-+	if (unlikely(!vport))
-+		return PACKET_REJECT;
-+	else
-+		return PACKET_RCVD;
-+}
-+
- static int gre_tnl_send(struct vport *vport, struct sk_buff *skb)
+-	ovs_flow_stats_update(OVS_CB(skb)->flow, skb);
++	ovs_flow_stats_update(OVS_CB(skb)->flow, key.tp.flags, skb);
+ 	ovs_execute_actions(dp, skb);
+ 	stats_counter = &stats->n_hit;
+ 
+diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
+index 334751c..d07ab53 100644
+--- a/net/openvswitch/flow.c
++++ b/net/openvswitch/flow.c
+@@ -61,10 +61,10 @@ u64 ovs_flow_used_time(unsigned long flow_jiffies)
+ 
+ #define TCP_FLAGS_BE16(tp) (*(__be16 *)&tcp_flag_word(tp) & htons(0x0FFF))
+ 
+-void ovs_flow_stats_update(struct sw_flow *flow, struct sk_buff *skb)
++void ovs_flow_stats_update(struct sw_flow *flow, __be16 tcp_flags,
++			   struct sk_buff *skb)
  {
- 	struct net *net = ovs_dp_get_net(vport->dp);
-@@ -186,6 +202,7 @@ error:
+ 	struct flow_stats *stats;
+-	__be16 tcp_flags = flow->key.tp.flags;
+ 	int node = numa_node_id();
  
- static struct gre_cisco_protocol gre_protocol = {
- 	.handler        = gre_rcv,
-+	.err_handler    = gre_err,
- 	.priority       = 1,
- };
+ 	stats = rcu_dereference(flow->stats[node]);
+diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
+index ac395d2..5e5aaed 100644
+--- a/net/openvswitch/flow.h
++++ b/net/openvswitch/flow.h
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2007-2013 Nicira, Inc.
++ * Copyright (c) 2007-2014 Nicira, Inc.
+  *
+  * This program is free software; you can redistribute it and/or
+  * modify it under the terms of version 2 of the GNU General Public
+@@ -180,7 +180,8 @@ struct arp_eth_header {
+ 	unsigned char       ar_tip[4];		/* target IP address        */
+ } __packed;
  
+-void ovs_flow_stats_update(struct sw_flow *, struct sk_buff *);
++void ovs_flow_stats_update(struct sw_flow *, __be16 tcp_flags,
++			   struct sk_buff *);
+ void ovs_flow_stats_get(const struct sw_flow *, struct ovs_flow_stats *,
+ 			unsigned long *used, __be16 *tcp_flags);
+ void ovs_flow_stats_clear(struct sw_flow *);
 -- 
 1.9.3
