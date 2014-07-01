@@ -1,29 +1,30 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH V2] pcnet32: Neaten and remove unnecessary OOM messages
-Date: Tue, 01 Jul 2014 12:26:53 -0700
-Message-ID: <1404242813.14624.15.camel@joe-AO725>
-References: <1403550950.15811.15.camel@joe-AO725>
-	 <1403557507.20657.3.camel@joe-AO725> <1403740525.28663.6.camel@joe-AO725>
-	 <20140701.121935.729962585105477131.davem@davemloft.net>
+From: Edward Allcutt <edward.allcutt@openmarket.com>
+Subject: Re: [PATCH] ipv4: icmp: Fix pMTU handling for rare case
+Date: Tue, 1 Jul 2014 20:38:07 +0100 (BST)
+Message-ID: <alpine.DEB.2.10.1407012020011.5997@tabini.allcutt.me.uk>
+References: <alpine.DEB.2.10.1407010937120.5997@tabini.allcutt.me.uk> <20140701.110510.2218293817137911715.davem@davemloft.net> <alpine.DEB.2.10.1407011912440.5997@tabini.allcutt.me.uk> <20140701.120730.2210532934459689553.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: pcnet32@frontier.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, akpm@linux-foundation.org
+Content-Type: TEXT/PLAIN; format=flowed; charset=US-ASCII
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Edward Allcutt <edward.allcutt@openmarket.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140701.121935.729962585105477131.davem@davemloft.net>
+In-Reply-To: <20140701.120730.2210532934459689553.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-07-01 at 12:19 -0700, David Miller wrote:
-> From: Joe Perches <joe@perches.com> Date: Wed, 25 Jun 2014 16:55:25 -0700
-> > Make the code flow a little better for 80 columns.
-[]
-> > Still depends on patch 1/22: pci-dma-compat: Add pci_zalloc_consistent helper
-> 
-> If this has a dependency on a patch I'm not added to my tree, I'm not
-> applying this one either.
+On Tue, 1 Jul 2014, David Miller wrote:
+> I didn't say I won't apply the patch, actually the email you are
+> replying to is strictly about figuring out what's happening on
+> the OpenBSD systems for their sake.
 
-No worries, Andrew picked them up and they are
-queued in -next (with the less good subject prefix)
+Ah, sorry for the misunderstanding.
+
+I'll see if I can find the place in the BSD code. Although I think in 
+principle this could come up in other "technically correct" router 
+implementations.
+
+-- 
+Edward Allcutt
