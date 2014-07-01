@@ -1,116 +1,62 @@
-From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-Subject: [PATCH v2] Use dev_port for the ID of a network device.
-Date: Tue,  1 Jul 2014 10:12:24 -0300
-Message-ID: <1404220344-12461-1-git-send-email-cascardo@linux.vnet.ibm.com>
-Cc: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-To: netdev@vger.kernel.org
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 2/3] net: sctp: Optimise the way 'sctp_arg_t'
+ values are initialised
+Date: Tue, 1 Jul 2014 13:14:32 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1726AA43@AcuExch.aculab.com>
+References: <063D6719AE5E284EB5DD2968C1650D6D17269789@AcuExch.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "David S. Miller" <davem@davemloft.net>
+To: David Laight <David.Laight@ACULAB.COM>,
+	Network Development <netdev@vger.kernel.org>,
+	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e24smtp02.br.ibm.com ([32.104.18.86]:50255 "EHLO
-	e24smtp02.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753191AbaGANMb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2014 09:12:31 -0400
-Received: from /spool/local
-	by e24smtp02.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <cascardo@linux.vnet.ibm.com>;
-	Tue, 1 Jul 2014 10:12:30 -0300
-Received: from d24relay01.br.ibm.com (d24relay01.br.ibm.com [9.8.31.16])
-	by d24dlp02.br.ibm.com (Postfix) with ESMTP id C3DF31DC005E
-	for <netdev@vger.kernel.org>; Tue,  1 Jul 2014 09:12:26 -0400 (EDT)
-Received: from d24av05.br.ibm.com (d24av05.br.ibm.com [9.18.232.44])
-	by d24relay01.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s61DCfKG4919438
-	for <netdev@vger.kernel.org>; Tue, 1 Jul 2014 10:12:41 -0300
-Received: from d24av05.br.ibm.com (localhost [127.0.0.1])
-	by d24av05.br.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id s61DCQh3029023
-	for <netdev@vger.kernel.org>; Tue, 1 Jul 2014 09:12:26 -0400
+Received: from mx0.aculab.com ([213.249.233.131]:51259 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751513AbaGANPf convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2014 09:15:35 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 02893-09 for <netdev@vger.kernel.org>;
+ Tue,  1 Jul 2014 14:15:26 +0100 (BST)
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D17269789@AcuExch.aculab.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For network devices on the same PCI function, dev_id should not be used,
-since its purpose is for IPv6 support on interfaces with the same MAC
-address.
+From: David Laight
+> Even if memset() is inlined (as on x86) using it to zero the union
+> generates a memory word write of zero, followed by a write of the
+> smaller field, and then a read of the word.
+> As well as being a lot of instructions the sequence is unlikely to
+> be optimised by the store-load forward hardware so will be slow.
+> 
+> Instead allocate a field of the union that is the same size as the
+> entire union and write a zero value to it. The compiler will then
+> generate the required value in a register.
+> 
+> Signed-off-by: David Laight <david.laight@aculab.com>
+> ---
+>  include/net/sctp/command.h | 6 +++---
+>  1 file changed, 3 insertions(+), 3 deletions(-)
+> 
+> diff --git a/include/net/sctp/command.h b/include/net/sctp/command.h
+> index 020eb95..5fcd1a7 100644
+> --- a/include/net/sctp/command.h
+> +++ b/include/net/sctp/command.h
+...
+> @@ -212,7 +213,6 @@ typedef struct {
+>   */
+>  static inline int sctp_init_cmd_seq(sctp_cmd_seq_t *seq)
+>  {
+> -	memset(seq, 0, sizeof(sctp_cmd_seq_t));
+>  	return 1;		/* We always succeed.  */
+>  }
 
-The new dev_port sysfs attribute should be used instead of dev_id.
+I've realised that this version of this chunk leaves seq->next_free_slot
+and seq->next_cmd uninitialized (they need to be zero).
+The next patch in the series contains different initialisers - which are correct.
+I guess this needs fixing for 'git bisect' ?
 
-Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
----
- NEWS                           |    5 +++++
- src/udev/udev-builtin-net_id.c |   18 +++++++++---------
- 2 files changed, 14 insertions(+), 9 deletions(-)
-
-diff --git a/NEWS b/NEWS
-index 00727d1..f0c29d1 100644
---- a/NEWS
-+++ b/NEWS
-@@ -6,6 +6,11 @@ CHANGES WITH 215:
-           system-level software to get access to input devices. It
-           complements what is already done for "audio" and "video".
- 
-+        * udev built-in net_id uses dev_port sysfs attribute, introduced
-+          in linux 3.15 instead of dev_id to distinguish between ports
-+          of the same PCI function. dev_id should only be used for ports
-+          using the same HW address, hence the need for dev_port.
-+
- CHANGES WITH 214:
- 
-         * As an experimental feature, udev now tries to lock the
-diff --git a/src/udev/udev-builtin-net_id.c b/src/udev/udev-builtin-net_id.c
-index c80c30a..96ac21c 100644
---- a/src/udev/udev-builtin-net_id.c
-+++ b/src/udev/udev-builtin-net_id.c
-@@ -36,9 +36,9 @@
-  *   b<number>                             -- BCMA bus core number
-  *   ccw<name>                             -- CCW bus group name
-  *   o<index>                              -- on-board device index number
-- *   s<slot>[f<function>][d<dev_id>]       -- hotplug slot index number
-+ *   s<slot>[f<function>][d<dev_port>]     -- hotplug slot index number
-  *   x<MAC>                                -- MAC address
-- *   [P<domain>]p<bus>s<slot>[f<function>][d<dev_id>]
-+ *   [P<domain>]p<bus>s<slot>[f<function>][d<dev_port>]
-  *                                         -- PCI geographical location
-  *   [P<domain>]p<bus>s<slot>[f<function>][u<port>][..][c<config>][i<interface>]
-  *                                         -- USB port number chain
-@@ -172,7 +172,7 @@ out:
- 
- static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
-         struct udev *udev = udev_device_get_udev(names->pcidev);
--        unsigned domain, bus, slot, func, dev_id = 0;
-+        unsigned domain, bus, slot, func, dev_port = 0;
-         size_t l;
-         char *s;
-         const char *attr;
-@@ -186,9 +186,9 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
-                 return -ENOENT;
- 
-         /* kernel provided multi-device index */
--        attr = udev_device_get_sysattr_value(dev, "dev_id");
-+        attr = udev_device_get_sysattr_value(dev, "dev_port");
-         if (attr)
--                dev_id = strtol(attr, NULL, 16);
-+                dev_port = strtol(attr, NULL, 10);
- 
-         /* compose a name based on the raw kernel's PCI bus, slot numbers */
-         s = names->pci_path;
-@@ -198,8 +198,8 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
-         l = strpcpyf(&s, l, "p%ds%d", bus, slot);
-         if (func > 0 || is_pci_multifunction(names->pcidev))
-                 l = strpcpyf(&s, l, "f%d", func);
--        if (dev_id > 0)
--                l = strpcpyf(&s, l, "d%d", dev_id);
-+        if (dev_port > 0)
-+                l = strpcpyf(&s, l, "d%d", dev_port);
-         if (l == 0)
-                 names->pci_path[0] = '\0';
- 
-@@ -248,8 +248,8 @@ static int dev_pci_slot(struct udev_device *dev, struct netnames *names) {
-                 l = strpcpyf(&s, l, "s%d", hotplug_slot);
-                 if (func > 0 || is_pci_multifunction(names->pcidev))
-                         l = strpcpyf(&s, l, "f%d", func);
--                if (dev_id > 0)
--                        l = strpcpyf(&s, l, "d%d", dev_id);
-+                if (dev_port > 0)
-+                        l = strpcpyf(&s, l, "d%d", dev_port);
-                 if (l == 0)
-                         names->pci_path[0] = '\0';
-         }
--- 
-1.7.1
+	David
