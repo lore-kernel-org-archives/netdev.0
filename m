@@ -1,99 +1,141 @@
 From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net 3/4] openvswitch: Fix tracking of flags seen in TCP flows.
-Date: Mon, 30 Jun 2014 23:34:39 -0700
-Message-ID: <1404196479-5187-1-git-send-email-pshelar@nicira.com>
-Cc: netdev@vger.kernel.org, Ben Pfaff <blp@nicira.com>,
+Subject: [PATCH net 4/4] openvswitch: Use exact lookup for flow_get and flow_del.
+Date: Mon, 30 Jun 2014 23:34:48 -0700
+Message-ID: <1404196488-5217-1-git-send-email-pshelar@nicira.com>
+Cc: netdev@vger.kernel.org, Alex Wang <alexw@nicira.com>,
 	Pravin B Shelar <pshelar@nicira.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog101.obsmtp.com ([74.125.149.67]:33602 "HELO
-	na3sys009aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752003AbaGAGem (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2014 02:34:42 -0400
-Received: by mail-pd0-f173.google.com with SMTP id r10so9534617pdi.18
-        for <netdev@vger.kernel.org>; Mon, 30 Jun 2014 23:34:41 -0700 (PDT)
+Received: from na3sys009aog125.obsmtp.com ([74.125.149.153]:50723 "HELO
+	na3sys009aog125.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752003AbaGAGe4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2014 02:34:56 -0400
+Received: by mail-pd0-f177.google.com with SMTP id y10so9456309pdj.8
+        for <netdev@vger.kernel.org>; Mon, 30 Jun 2014 23:34:55 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Pfaff <blp@nicira.com>
+From: Alex Wang <alexw@nicira.com>
 
-Flow statistics need to take into account the TCP flags from the packet
-currently being processed (in 'key'), not the TCP flags matched by the
-flow found in the kernel flow table (in 'flow').
+Due to the race condition in userspace, there is chance that two
+overlapping megaflows could be installed in datapath.  And this
+causes userspace unable to delete the less inclusive megaflow flow
+even after it timeout, since the flow_del logic will stop at the
+first match of masked flow.
 
-This bug made the Open vSwitch userspace fin_timeout action have no effect
-in many cases.
-This bug is introduced by commit 88d73f6c411ac2f0578 (openvswitch: Use
-TCP flags in the flow key for stats.)
+This commit fixes the bug by making the kernel flow_del and flow_get
+logic check all masks in that case.
 
-Reported-by: Len Gao <leng@vmware.com>
-Signed-off-by: Ben Pfaff <blp@nicira.com>
-Acked-by: Jarno Rajahalme <jrajahalme@nicira.com>
-Acked-by: Jesse Gross <jesse@nicira.com>
+Introduced by 03f0d916a (openvswitch: Mega flow implementation).
+
+Signed-off-by: Alex Wang <alexw@nicira.com>
+Acked-by: Andy Zhou <azhou@nicira.com>
 Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 ---
- net/openvswitch/datapath.c | 4 ++--
- net/openvswitch/flow.c     | 4 ++--
- net/openvswitch/flow.h     | 5 +++--
- 3 files changed, 7 insertions(+), 6 deletions(-)
+ net/openvswitch/datapath.c   | 23 +++++++++++------------
+ net/openvswitch/flow_table.c | 16 ++++++++++++++++
+ net/openvswitch/flow_table.h |  3 ++-
+ 3 files changed, 29 insertions(+), 13 deletions(-)
 
 diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 0d407bc..a863678 100644
+index a863678..9db4bf6 100644
 --- a/net/openvswitch/datapath.c
 +++ b/net/openvswitch/datapath.c
-@@ -1,5 +1,5 @@
- /*
-- * Copyright (c) 2007-2013 Nicira, Inc.
-+ * Copyright (c) 2007-2014 Nicira, Inc.
-  *
-  * This program is free software; you can redistribute it and/or
-  * modify it under the terms of version 2 of the GNU General Public
-@@ -276,7 +276,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
- 	OVS_CB(skb)->flow = flow;
- 	OVS_CB(skb)->pkt_key = &key;
+@@ -889,8 +889,11 @@ static int ovs_flow_cmd_new(struct sk_buff *skb, struct genl_info *info)
+ 		}
+ 		/* The unmasked key has to be the same for flow updates. */
+ 		if (unlikely(!ovs_flow_cmp_unmasked_key(flow, &match))) {
+-			error = -EEXIST;
+-			goto err_unlock_ovs;
++			flow = ovs_flow_tbl_lookup_exact(&dp->table, &match);
++			if (!flow) {
++				error = -ENOENT;
++				goto err_unlock_ovs;
++			}
+ 		}
+ 		/* Update actions. */
+ 		old_acts = ovsl_dereference(flow->sf_acts);
+@@ -981,16 +984,12 @@ static int ovs_flow_cmd_set(struct sk_buff *skb, struct genl_info *info)
+ 		goto err_unlock_ovs;
+ 	}
+ 	/* Check that the flow exists. */
+-	flow = ovs_flow_tbl_lookup(&dp->table, &key);
++	flow = ovs_flow_tbl_lookup_exact(&dp->table, &match);
+ 	if (unlikely(!flow)) {
+ 		error = -ENOENT;
+ 		goto err_unlock_ovs;
+ 	}
+-	/* The unmasked key has to be the same for flow updates. */
+-	if (unlikely(!ovs_flow_cmp_unmasked_key(flow, &match))) {
+-		error = -EEXIST;
+-		goto err_unlock_ovs;
+-	}
++
+ 	/* Update actions, if present. */
+ 	if (likely(acts)) {
+ 		old_acts = ovsl_dereference(flow->sf_acts);
+@@ -1063,8 +1062,8 @@ static int ovs_flow_cmd_get(struct sk_buff *skb, struct genl_info *info)
+ 		goto unlock;
+ 	}
  
--	ovs_flow_stats_update(OVS_CB(skb)->flow, skb);
-+	ovs_flow_stats_update(OVS_CB(skb)->flow, key.tp.flags, skb);
- 	ovs_execute_actions(dp, skb);
- 	stats_counter = &stats->n_hit;
+-	flow = ovs_flow_tbl_lookup(&dp->table, &key);
+-	if (!flow || !ovs_flow_cmp_unmasked_key(flow, &match)) {
++	flow = ovs_flow_tbl_lookup_exact(&dp->table, &match);
++	if (!flow) {
+ 		err = -ENOENT;
+ 		goto unlock;
+ 	}
+@@ -1113,8 +1112,8 @@ static int ovs_flow_cmd_del(struct sk_buff *skb, struct genl_info *info)
+ 		goto unlock;
+ 	}
  
-diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-index 334751c..d07ab53 100644
---- a/net/openvswitch/flow.c
-+++ b/net/openvswitch/flow.c
-@@ -61,10 +61,10 @@ u64 ovs_flow_used_time(unsigned long flow_jiffies)
+-	flow = ovs_flow_tbl_lookup(&dp->table, &key);
+-	if (unlikely(!flow || !ovs_flow_cmp_unmasked_key(flow, &match))) {
++	flow = ovs_flow_tbl_lookup_exact(&dp->table, &match);
++	if (unlikely(!flow)) {
+ 		err = -ENOENT;
+ 		goto unlock;
+ 	}
+diff --git a/net/openvswitch/flow_table.c b/net/openvswitch/flow_table.c
+index 574c3ab..cf2d853 100644
+--- a/net/openvswitch/flow_table.c
++++ b/net/openvswitch/flow_table.c
+@@ -456,6 +456,22 @@ struct sw_flow *ovs_flow_tbl_lookup(struct flow_table *tbl,
+ 	return ovs_flow_tbl_lookup_stats(tbl, key, &n_mask_hit);
+ }
  
- #define TCP_FLAGS_BE16(tp) (*(__be16 *)&tcp_flag_word(tp) & htons(0x0FFF))
- 
--void ovs_flow_stats_update(struct sw_flow *flow, struct sk_buff *skb)
-+void ovs_flow_stats_update(struct sw_flow *flow, __be16 tcp_flags,
-+			   struct sk_buff *skb)
++struct sw_flow *ovs_flow_tbl_lookup_exact(struct flow_table *tbl,
++					  struct sw_flow_match *match)
++{
++	struct table_instance *ti = rcu_dereference_ovsl(tbl->ti);
++	struct sw_flow_mask *mask;
++	struct sw_flow *flow;
++
++	/* Always called under ovs-mutex. */
++	list_for_each_entry(mask, &tbl->mask_list, list) {
++		flow = masked_flow_lookup(ti, match->key, mask);
++		if (flow && ovs_flow_cmp_unmasked_key(flow, match))  /* Found */
++			return flow;
++	}
++	return NULL;
++}
++
+ int ovs_flow_tbl_num_masks(const struct flow_table *table)
  {
- 	struct flow_stats *stats;
--	__be16 tcp_flags = flow->key.tp.flags;
- 	int node = numa_node_id();
+ 	struct sw_flow_mask *mask;
+diff --git a/net/openvswitch/flow_table.h b/net/openvswitch/flow_table.h
+index ca8a582..5918bff 100644
+--- a/net/openvswitch/flow_table.h
++++ b/net/openvswitch/flow_table.h
+@@ -76,7 +76,8 @@ struct sw_flow *ovs_flow_tbl_lookup_stats(struct flow_table *,
+ 				    u32 *n_mask_hit);
+ struct sw_flow *ovs_flow_tbl_lookup(struct flow_table *,
+ 				    const struct sw_flow_key *);
+-
++struct sw_flow *ovs_flow_tbl_lookup_exact(struct flow_table *tbl,
++					  struct sw_flow_match *match);
+ bool ovs_flow_cmp_unmasked_key(const struct sw_flow *flow,
+ 			       struct sw_flow_match *match);
  
- 	stats = rcu_dereference(flow->stats[node]);
-diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
-index ac395d2..5e5aaed 100644
---- a/net/openvswitch/flow.h
-+++ b/net/openvswitch/flow.h
-@@ -1,5 +1,5 @@
- /*
-- * Copyright (c) 2007-2013 Nicira, Inc.
-+ * Copyright (c) 2007-2014 Nicira, Inc.
-  *
-  * This program is free software; you can redistribute it and/or
-  * modify it under the terms of version 2 of the GNU General Public
-@@ -180,7 +180,8 @@ struct arp_eth_header {
- 	unsigned char       ar_tip[4];		/* target IP address        */
- } __packed;
- 
--void ovs_flow_stats_update(struct sw_flow *, struct sk_buff *);
-+void ovs_flow_stats_update(struct sw_flow *, __be16 tcp_flags,
-+			   struct sk_buff *);
- void ovs_flow_stats_get(const struct sw_flow *, struct ovs_flow_stats *,
- 			unsigned long *used, __be16 *tcp_flags);
- void ovs_flow_stats_clear(struct sw_flow *);
 -- 
 1.9.3
