@@ -1,47 +1,45 @@
-From: Dan Aloni <dan@kernelim.com>
-Subject: Re: [PATCH] net: Fix NETDEV_CHANGE notifier usage causing spurious
- arp flush
-Date: Wed, 2 Jul 2014 10:03:49 +0300
-Message-ID: <20140702070349.GA11943@gmail.com>
-References: <1404275983-7908-1-git-send-email-loicp@google.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH] net: qmi_wwan: Add ID for Telewell TW-LTE 4G v2
+Date: Wed, 02 Jul 2014 09:04:10 +0200
+Message-ID: <87wqbw1bth.fsf@nemi.mork.no>
+References: <87vbrgewei.fsf@bwachter.lart.info>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Timo =?iso-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>,
-	Jiri Pirko <jiri@resnulli.us>
-To: Loic Prylli <loicp@google.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Bernd Wachter <bernd.wachter@jolla.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1404275983-7908-1-git-send-email-loicp@google.com>
+In-Reply-To: <87vbrgewei.fsf@bwachter.lart.info> (Bernd Wachter's message of
+	"Tue, 01 Jul 2014 22:01:09 +0300")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 01, 2014 at 09:39:43PM -0700, Loic Prylli wrote:
-> A bug was introduced in NETDEV_CHANGE notifier sequence causing the
-> arp table to be sometimes spuriously cleared (including manual arp
-> entries marked permanent), upon network link carrier changes.
-> 
-> The changed argument for the notifier was applied only to a single
-> caller of NETDEV_CHANGE, missing among others netdev_state_change().
-> So upon net_carrier events induced by the network, which are
-> triggering a call to netdev_state_change(), arp_netdev_event() would
-> decide whether to clear or not arp cache based on random/junk stack
-> values (a kind of read buffer overflow).
-[..]
->  {
->  	if (dev->flags & IFF_UP) {
-> -		call_netdevice_notifiers(NETDEV_CHANGE, dev);
-> +		struct netdev_notifier_change_info change_info;
-> +
-> +		change_info.flags_changed = 0;
+Bernd Wachter <bernd.wachter@jolla.com> writes:
 
-I think it would be safer to do:
+> There's a new version of the Telewell 4G modem working with, but not
+> recognized by this driver.=20
+>
+> Signed-off-by: Bernd Wachter <bernd.wachter@jolla.com>
+> ---
+> --- linux-3.15.3/drivers/net/usb/qmi_wwan.c.orig	2014-07-01 21:31:07.=
+000000000 +0300
+> +++ linux-3.15.3/drivers/net/usb/qmi_wwan.c	2014-07-01 20:39:30.00000=
+0000 +0300
+> @@ -741,6 +741,7 @@ static const struct usb_device_id produc
+>  	{QMI_FIXED_INTF(0x19d2, 0x1424, 2)},
+>  	{QMI_FIXED_INTF(0x19d2, 0x1425, 2)},
+>  	{QMI_FIXED_INTF(0x19d2, 0x1426, 2)},	/* ZTE MF91 */
+> +	{QMI_FIXED_INTF(0x19d2, 0x1428, 2)},	/* Telewell TW-LTE 4G v2 */
+>  	{QMI_FIXED_INTF(0x19d2, 0x2002, 4)},	/* ZTE (Vodafone) K3765-Z */
+>  	{QMI_FIXED_INTF(0x0f3d, 0x68a2, 8)},    /* Sierra Wireless MC7700 *=
+/
+>  	{QMI_FIXED_INTF(0x114f, 0x68a2, 8)},    /* Sierra Wireless MC7750 *=
+/
 
-   struct netdev_notifier_change_info change_info = {};
+Acked-by: Bj=C3=B8rn Mork <bjorn@mork.no>
 
-So that when future fields are added to the struct and this call-site
-happens to be forgotten, they will get 0 by default rather than
-random stack values.
+Please queue this for stable as well.  Thanks.
 
--- 
-Dan Aloni
+
+Bj=C3=B8rn
