@@ -1,61 +1,114 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next] bonding: allow to add vlans on top of empty bond
-Date: Wed, 2 Jul 2014 11:13:16 +0200
-Message-ID: <20140702091316.GB3015@minipsycho.orion>
-References: <1403878392-10004-1-git-send-email-jiri@resnulli.us>
- <CAG-2HqUKGoG5ZX26aYwv3quUU5RPtn5J1g6i4YzkXUc10u4c0w@mail.gmail.com>
- <26863.1403885330@localhost.localdomain>
- <20140702084652.GA3015@minipsycho.orion>
- <20140702090517.GA5440@unicorn.suse.cz>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] vlan: free percpu stats in device destructor
+Date: Wed, 02 Jul 2014 02:25:15 -0700
+Message-ID: <1404293115.23797.15.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <42408b4f154d434d9838b83ae2dc15db@BL2PR03MB545.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jay Vosburgh <jay.vosburgh@canonical.com>,
-	Tom Gundersen <teg@jklm.no>, netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, vfalico@gmail.com,
-	andy@greyhouse.net
-To: Michal Kubecek <mkubecek@suse.cz>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Li RongQing <roy.qing.li@gmail.com>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:33861 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751205AbaGBJNZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2014 05:13:25 -0400
-Received: by mail-wi0-f178.google.com with SMTP id n15so73440wiw.11
-        for <netdev@vger.kernel.org>; Wed, 02 Jul 2014 02:13:19 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20140702090517.GA5440@unicorn.suse.cz>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:42126 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750742AbaGBJZT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2014 05:25:19 -0400
+Received: by mail-wi0-f179.google.com with SMTP id cc10so103094wib.6
+        for <netdev@vger.kernel.org>; Wed, 02 Jul 2014 02:25:18 -0700 (PDT)
+In-Reply-To: <42408b4f154d434d9838b83ae2dc15db@BL2PR03MB545.namprd03.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Jul 02, 2014 at 11:05:17AM CEST, mkubecek@suse.cz wrote:
->On Wed, Jul 02, 2014 at 10:46:52AM +0200, Jiri Pirko wrote:
->> Fri, Jun 27, 2014 at 06:08:50PM CEST, jay.vosburgh@canonical.com wrote:
->> >
->> >        if (!bond_has_slaves(bond)) {
->> >                bond_set_carrier(bond);
->> >                eth_hw_addr_random(bond_dev);
->> >
->> >                if (vlan_uses_dev(bond_dev)) {
->> >                        pr_warn("%s: Warning: clearing HW address of %s while it still has VLANs\n",
->> >                                bond_dev->name, bond_dev->name);
->> >                        pr_warn("%s: When re-adding slaves, make sure the bond's HW address matches its VLANs\n",
->> >                                bond_dev->name);
->> >                }
->> >        }
->> >
->> >	This warning may not be useful any longer, since the MAC should
->> >update correctly without user action when re-adding the first slave.
->> 
->> I just checked. The vlan dev holds its addr. So when new slave is added,
->> bond addr is changed to it, but vlan addr remains the same. So the
->> second warning still stands.
->
->Is it a problem? Since we have proper uc_list propagation, vlan should
->work even if its address doesn't match the bond.
+From: Eric Dumazet <edumazet@google.com>
 
-You are right, vlan_sync_address() should take care of it.
+Madalin-Cristian reported crashs happening after a recent commit
+(5a4ae5f6e7d4 "vlan: unnecessary to check if vlan_pcpu_stats is NULL")
 
-I'll send a patch removing these 2 warnings. Thanks.
+-----------------------------------------------------------------------
+root@p5040ds:~# vconfig add eth8 1
+root@p5040ds:~# vconfig rem eth8.1
+Unable to handle kernel paging request for data at address 0x2bc88028
+Faulting instruction address: 0xc058e950
+Oops: Kernel access of bad area, sig: 11 [#1]
+SMP NR_CPUS=8 CoreNet Generic
+Modules linked in:
+CPU: 3 PID: 2167 Comm: vconfig Tainted: G        W     3.16.0-rc3-00346-g65e85bf #2
+task: e7264d90 ti: e2c2c000 task.ti: e2c2c000
+NIP: c058e950 LR: c058ea30 CTR: c058e900
+REGS: e2c2db20 TRAP: 0300   Tainted: G        W      (3.16.0-rc3-00346-g65e85bf)
+MSR: 00029002 <CE,EE,ME>  CR: 48000428  XER: 20000000
+DEAR: 2bc88028 ESR: 00000000
+GPR00: c047299c e2c2dbd0 e7264d90 00000000 2bc88000 00000000 ffffffff 00000000
+GPR08: 0000000f 00000000 000000ff 00000000 28000422 10121928 10100000 10100000
+GPR16: 10100000 00000000 c07c5968 00000000 00000000 00000000 e2c2dc48 e7838000
+GPR24: c07c5bac c07c58a8 e77290cc c07b0000 00000000 c05de6c0 e7838000 e2c2dc48
+NIP [c058e950] vlan_dev_get_stats64+0x50/0x170
+LR [c058ea30] vlan_dev_get_stats64+0x130/0x170
+Call Trace:
+[e2c2dbd0] [ffffffea] 0xffffffea (unreliable)
+[e2c2dc20] [c047299c] dev_get_stats+0x4c/0x140
+[e2c2dc40] [c0488ca8] rtnl_fill_ifinfo+0x3d8/0x960
+[e2c2dd70] [c0489f4c] rtmsg_ifinfo+0x6c/0x110
+[e2c2dd90] [c04731d4] rollback_registered_many+0x344/0x3b0
+[e2c2ddd0] [c047332c] rollback_registered+0x2c/0x50
+[e2c2ddf0] [c0476058] unregister_netdevice_queue+0x78/0xf0
+[e2c2de00] [c058d800] unregister_vlan_dev+0xc0/0x160
+[e2c2de20] [c058e360] vlan_ioctl_handler+0x1c0/0x550
+[e2c2de90] [c045d11c] sock_ioctl+0x28c/0x2f0
+[e2c2deb0] [c010d070] do_vfs_ioctl+0x90/0x7b0
+[e2c2df20] [c010d7d0] SyS_ioctl+0x40/0x80
+[e2c2df40] [c000f924] ret_from_syscall+0x0/0x3c
 
->
->                                                        Michal Kubecek
->
+Fix this problem by freeing percpu stats from dev->destructor() instead
+of ndo_uninit()
+
+Reported-by: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Tested-by: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
+Fixes: 5a4ae5f6e7d4 ("vlan: unnecessary to check if vlan_pcpu_stats is NULL")
+Cc: Li RongQing <roy.qing.li@gmail.com>
+---
+ net/8021q/vlan_dev.c |   13 ++++++++++---
+ 1 file changed, 10 insertions(+), 3 deletions(-)
+
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index ad2ac3c00398..dd11f612e03e 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -627,8 +627,6 @@ static void vlan_dev_uninit(struct net_device *dev)
+ 	struct vlan_dev_priv *vlan = vlan_dev_priv(dev);
+ 	int i;
+ 
+-	free_percpu(vlan->vlan_pcpu_stats);
+-	vlan->vlan_pcpu_stats = NULL;
+ 	for (i = 0; i < ARRAY_SIZE(vlan->egress_priority_map); i++) {
+ 		while ((pm = vlan->egress_priority_map[i]) != NULL) {
+ 			vlan->egress_priority_map[i] = pm->next;
+@@ -785,6 +783,15 @@ static const struct net_device_ops vlan_netdev_ops = {
+ 	.ndo_get_lock_subclass  = vlan_dev_get_lock_subclass,
+ };
+ 
++static void vlan_dev_free(struct net_device *dev)
++{
++	struct vlan_dev_priv *vlan = vlan_dev_priv(dev);
++
++	free_percpu(vlan->vlan_pcpu_stats);
++	vlan->vlan_pcpu_stats = NULL;
++	free_netdev(dev);
++}
++
+ void vlan_setup(struct net_device *dev)
+ {
+ 	ether_setup(dev);
+@@ -794,7 +801,7 @@ void vlan_setup(struct net_device *dev)
+ 	dev->tx_queue_len	= 0;
+ 
+ 	dev->netdev_ops		= &vlan_netdev_ops;
+-	dev->destructor		= free_netdev;
++	dev->destructor		= vlan_dev_free;
+ 	dev->ethtool_ops	= &vlan_ethtool_ops;
+ 
+ 	memset(dev->broadcast, 0, ETH_ALEN);
