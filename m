@@ -1,65 +1,69 @@
-From: Loic Prylli <loicp@google.com>
-Subject: [PATCH] net: Fix NETDEV_CHANGE notifier usage causing spurious arp flush
-Date: Tue,  1 Jul 2014 21:39:43 -0700
-Message-ID: <1404275983-7908-1-git-send-email-loicp@google.com>
-Cc: linux-kernel@vger.kernel.org,
-	=?UTF-8?q?Timo=20Ter=C3=A4s?= <timo.teras@iki.fi>,
-	Jiri Pirko <jiri@resnulli.us>, Loic Prylli <loicp@google.com>
-To: netdev@vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [Linux-zigbee-devel] [PATCH net-next v3] 6lowpan: mac802154: fix
+ coding style issues
+Date: Tue, 1 Jul 2014 21:49:10 -0700
+Message-ID: <CAGVrzcb6pYdyvuXOrKssjx2fzJqRV=CsdocVNGSSKkEAuUkeYg@mail.gmail.com>
+References: <1404271869-2316-1-git-send-email-varkab@cdac.in>
+ <CAGVrzcYc9u2TAxhb8vPOevLYiZUsOyEcUAbxZ4aLrns3Vt97yw@mail.gmail.com> <1404276016.14624.57.camel@joe-AO725>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Varka Bhadram <varkabhadram@gmail.com>,
+	netdev <netdev@vger.kernel.org>, Varka Bhadram <varkab@cdac.in>,
+	David Miller <davem@davemloft.net>,
+	linux-zigbee-devel@lists.sourceforge.net
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f73.google.com ([209.85.219.73]:59948 "EHLO
-	mail-oa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751252AbaGBEkb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2014 00:40:31 -0400
-Received: by mail-oa0-f73.google.com with SMTP id eb12so2453125oac.4
-        for <netdev@vger.kernel.org>; Tue, 01 Jul 2014 21:40:30 -0700 (PDT)
+Received: from mail-oa0-f46.google.com ([209.85.219.46]:51180 "EHLO
+	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750946AbaGBEtv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2014 00:49:51 -0400
+Received: by mail-oa0-f46.google.com with SMTP id m1so11733550oag.33
+        for <netdev@vger.kernel.org>; Tue, 01 Jul 2014 21:49:50 -0700 (PDT)
+In-Reply-To: <1404276016.14624.57.camel@joe-AO725>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A bug was introduced in NETDEV_CHANGE notifier sequence causing the
-arp table to be sometimes spuriously cleared (including manual arp
-entries marked permanent), upon network link carrier changes.
+2014-07-01 21:40 GMT-07:00 Joe Perches <joe@perches.com>:
+> On Tue, 2014-07-01 at 21:20 -0700, Florian Fainelli wrote:
+>> Hi,
+>>
+>> 2014-07-01 20:31 GMT-07:00 Varka Bhadram <varkabhadram@gmail.com>:
+>> > This patch fixed the coding style issues reported by checkpatch.pl
+>> >
+>> > following issues fixed:
+>> >         CHECK: Alignment should match open parenthesis
+>>
+>> It seems to me like checkpatch.pl should have a special case for
+>> networking code and that specific condition because fixing things to
+>> make checkpatch.pl happy seems not to agree with the general coding
+>> style recommended and enforced in the networking code.
+>
+> In networking (net/ and drivers/net) alignment of multiline statements
+> _should_ align to the open parenthesis and checkpatch already has a
+> specific check for those directories.
+>
+>> I just saw that new warning added popping up on a bunch of drivers
+>> that were properly fixed to match the networking coding style before
+>> submission.
+>
+> Is there anything you want changed in checkpatch?
+> If so, why?
 
-The changed argument for the notifier was applied only to a single
-caller of NETDEV_CHANGE, missing among others netdev_state_change().
-So upon net_carrier events induced by the network, which are
-triggering a call to netdev_state_change(), arp_netdev_event() would
-decide whether to clear or not arp cache based on random/junk stack
-values (a kind of read buffer overflow).
+It looks to me like it does some improper flagging when the multi-line
+statements are aligned to the closest tab after the opening
+parenthesis, e.g:
 
-Fixes: be9efd365328 ("net: pass changed flags along with NETDEV_CHANGE event")
-Fixes: 6c8b4e3ff81b ("arp: flush arp cache on IFF_NOARP change")
-Signed-off-by: Loic Prylli <loicp@google.com>
----
- net/core/dev.c | 9 ++++++++-
- 1 file changed, 8 insertions(+), 1 deletion(-)
+CHECK: Alignment should match open parenthesis
+#84: FILE: drivers/net/ethernet/broadcom/bcmsysport.c:84:
++       __raw_writel(upper_32_bits(addr) & DESC_ADDR_HI_MASK,
++                       d + DESC_ADDR_HI_STATUS_LEN);
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 30eedf6..63129d4 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -148,6 +148,9 @@ struct list_head ptype_all __read_mostly;	/* Taps */
- static struct list_head offload_base __read_mostly;
- 
- static int netif_rx_internal(struct sk_buff *skb);
-+static int call_netdevice_notifiers_info(unsigned long val,
-+					 struct net_device *dev,
-+					 struct netdev_notifier_info *info);
- 
- /*
-  * The @dev_base_head list is protected by @dev_base_lock and the rtnl
-@@ -1207,7 +1210,11 @@ EXPORT_SYMBOL(netdev_features_change);
- void netdev_state_change(struct net_device *dev)
- {
- 	if (dev->flags & IFF_UP) {
--		call_netdevice_notifiers(NETDEV_CHANGE, dev);
-+		struct netdev_notifier_change_info change_info;
-+
-+		change_info.flags_changed = 0;
-+		call_netdevice_notifiers_info(NETDEV_CHANGE, dev,
-+					      &change_info.info);
- 		rtmsg_ifinfo(RTM_NEWLINK, dev, 0, GFP_KERNEL);
- 	}
- }
+gmail will probably render this incorrectly and does replace tabs with
+spaces, but if you run the script manually on that specific file, it
+will return some (false?) positives matches.
+
+this is with checkpath.pl from net-next/master at
+763e0ecd72fe90fdd73bb1aa1b72caf8381d2fff ("bonding: allow to add vlans
+on top of empty bond")
 -- 
-2.0.0.526.g5318336
+Florian
