@@ -1,37 +1,52 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: segfault after VLAN change
-Date: Wed, 02 Jul 2014 12:22:27 +0200
-Message-ID: <87mwcs12n0.fsf@nemi.mork.no>
-References: <42408b4f154d434d9838b83ae2dc15db@BL2PR03MB545.namprd03.prod.outlook.com>
-	<87simk1bhu.fsf@nemi.mork.no>
-	<1404289423.23797.1.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH net-next] xen-netback: Adding debugfs "io_ring_qX" files
+Date: Wed, 2 Jul 2014 11:56:07 +0100
+Message-ID: <1404298567.5562.13.camel@kazak.uk.xensource.com>
+References: <1404160411-23747-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Madalin-Cristian Bucur <madalin.bucur@freescale.com>,
-	Li RongQing <roy.qing.li@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:37963 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750796AbaGBKWt convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2014 06:22:49 -0400
-In-Reply-To: <1404289423.23797.1.camel@edumazet-glaptop2.roam.corp.google.com>
-	(Eric Dumazet's message of "Wed, 02 Jul 2014 01:23:43 -0700")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Wei Liu <wei.liu2@citrix.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <xen-devel@lists.xenproject.org>
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1404160411-23747-1-git-send-email-zoltan.kiss@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Eric Dumazet <eric.dumazet@gmail.com> writes:
+On Mon, 2014-06-30 at 21:33 +0100, Zoltan Kiss wrote:
+> This patch adds debugfs capabilities to netback. There used to be a similar
+> patch floating around for classic kernel, but it used procfs. It is based on a
+> very similar blkback patch.
+> It creates xen-netback/[vifname]/io_ring_q[queueno] files, reading them output
+> various ring variables etc. Writing "kick" into it imitates an interrupt
+> happened, it can be useful to check whether the ring is just stalled due to a
+> missed interrupt.
 
-> Sure a 'revert' helps, but the real bug should be fixed.
->
-> The freeing of the percpu structure should happen from
-> dev->destructor(), not from ndo_uninit
+Shouldn't there be some CONFIG_XEN_DEBUG_FS ifdefs sprinkled around
+here?
 
-That makes sense.  Thanks for fixing this.
+> 	if (tx_ring->sring) {
+> +		struct xen_netif_tx_sring *sring = tx_ring->sring;
+> +
+> +		err = snprintf(buf + rv, XEN_NETBACK_DBG_IORING_BUF_SIZE - rv,
+> +			       "TX queue %d: nr_ents %u\n", i,
+> +			       tx_ring->nr_ents);
+> +		if (err >= XEN_NETBACK_DBG_IORING_BUF_SIZE - rv)
+> +			return XEN_NETBACK_DBG_IORING_BUF_SIZE;
+> +		else
+> +			rv += err;
 
+Does debugfs not provide helpers which let this be done in some more
+palatable way?
 
-Bj=C3=B8rn
+arch/x86/xen/p2m.c seems to use some useful seq_*/single_* helpers for
+something very similar and it looks much cleaner.
+
+> +	if (vif->xenvif_dbg_root)
+
+No IS_ERR check?
+
+And in backend_disconnect/connect too.
+
+Ian.
