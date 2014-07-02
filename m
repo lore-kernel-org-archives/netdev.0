@@ -1,47 +1,37 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC PATCH net-next 0/5] netns: allow to identify peer netns
-Date: Wed, 02 Jul 2014 13:09:58 -0700
-Message-ID: <87simj7ca1.fsf@x220.int.ebiederm.org>
-References: <537327F1.4060603@6wind.com>
-	<1404302346-4507-1-git-send-email-nicolas.dichtel@6wind.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	stephen@networkplumber.org
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:43219 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752704AbaGBUNX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2014 16:13:23 -0400
-In-Reply-To: <1404302346-4507-1-git-send-email-nicolas.dichtel@6wind.com>
-	(Nicolas Dichtel's message of "Wed, 2 Jul 2014 13:59:01 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Fabian Frederick <fabf@skynet.be>
+Subject: [PATCH 1/1] ipconfig: add static to local variable
+Date: Wed,  2 Jul 2014 22:22:20 +0200
+Message-ID: <1404332540-5249-1-git-send-email-fabf@skynet.be>
+Cc: Fabian Frederick <fabf@skynet.be>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Nicolas Dichtel <nicolas.dichtel@6wind.com> writes:
+ic_dev_xid is only used in ipconfig.c
 
-> The goal of this serie is to be able to multicast netlink messages with an
-> attribute that identify a peer netns.
-> This is needed by the userland to interpret some informations contained in
-> netlink messages (like IFLA_LINK value, but also some other attributes in case
-> of x-netns netdevice (see also
-> http://thread.gmane.org/gmane.linux.network/315933/focus=316064)).
->
-> Each network namespaces allocates its own ids for other netns (including
-> itself). The user can retrieve these ids via a new netlink messages, but only
-> if he has a FD which points to this netns. Dump is not implemented so that a
-> user cannot get the whole netns list.
->
-> The goal of this RFC is mainly to validate the principle, ie patch 1/5 and 2/5.
-> Patch 3/5 and 4/5 shows an example of how to use these ids in rtnetlink
-> messages. And patch 5/5 shows that the netlink messages can be symetric between
-> a GET and a SET.
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: netdev@vger.kernel.org
+Signed-off-by: Fabian Frederick <fabf@skynet.be>
+---
+ net/ipv4/ipconfig.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-This approach fundamentally breaks process migration, and calls for a
-namespace of namespaces.
-
-Which means this is a major mess that really isn't going to work because
-it generates more problems than it solves.
-
-Eric
+diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
+index b3e86ea..f0f3f9f 100644
+--- a/net/ipv4/ipconfig.c
++++ b/net/ipv4/ipconfig.c
+@@ -143,7 +143,7 @@ __be32 ic_servaddr = NONE;	/* Boot server IP address */
+ __be32 root_server_addr = NONE;	/* Address of NFS server */
+ u8 root_server_path[256] = { 0, };	/* Path to mount as root */
+ 
+-__be32 ic_dev_xid;		/* Device under configuration */
++static __be32 ic_dev_xid;		/* Device under configuration */
+ 
+ /* vendor class identifier */
+ static char vendor_class_identifier[253] __initdata;
+-- 
+1.8.4.5
