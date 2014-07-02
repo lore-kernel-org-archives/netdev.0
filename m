@@ -1,56 +1,112 @@
-From: Venkataratnam Naidu <ratnameee@gmail.com>
-Subject: Ping between two end hosts failing with ipsec tunnel mode with
- 3.10.28 linux kernel
-Date: Wed, 2 Jul 2014 15:37:55 +0530
-Message-ID: <CANgMM_CDxhXxDy=zkixPMuRwQ8aMFB_H7VgyBNtKLD5koZuT6g@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: netdev <netdev@vger.kernel.org>
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Subject: [PATCH net-next] enic: fix return values in enic_set_coalesce
+Date: Wed,  2 Jul 2014 15:42:15 +0530
+Message-ID: <1404295935-13597-1-git-send-email-_govind@gmx.com>
+Cc: benve@cisco.com, ssujith@cisco.com, ben@decadent.org.uk,
+	Govindarajulu Varadarajan <_govind@gmx.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f52.google.com ([209.85.215.52]:54333 "EHLO
-	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751622AbaGBKH5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2014 06:07:57 -0400
-Received: by mail-la0-f52.google.com with SMTP id ty20so6689765lab.25
-        for <netdev@vger.kernel.org>; Wed, 02 Jul 2014 03:07:55 -0700 (PDT)
+Received: from mout.gmx.com ([74.208.4.200]:62438 "EHLO mout.gmx.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752097AbaGBKNs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Jul 2014 06:13:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi All,
+enic_set_coalesce() has two problems.
 
-This is my first post to netdev, if this is not the right forum to ask
-questions/report issues. please divert me to the correct mail list.
+* It should return -EINVAL and not -EOPNOTSUPP for invalid coalesce values.
 
-I had configured ipsec tunnel between two routers(R1: 5.0.0.1 & R2:
-5.0.0.2), when ipsec is enabled Tunnel is getting established but not
-able to ping between two end hosts with 3.10.28 linux kernel. I didn't
-see this behaviour with 2.6.28 linux kernel. Please let me know any
-one observing the same behaviour on 3.10.28 kernel.
-Without ipsec  ping is success from H1 1.0.0.50 to H2 2.0.0.50. If i
-enable ipsec(tunnel is established  between two routers) and ping from
-H1 1.0.0.50 to H2: 2.0.0.50 is failing.
-Linux kernel on both routers are same.
-root@OpenWrt:/# uname -a
-Linux OpenWrt 3.10.28 #4 SMP PREEMPT Fri Jun 27 11:17:52 IST 2014 mips GNU/Linux
-root@OpenWrt:/#
-Below are the ip configs for two routers.
-R1: 1.0.0.20 & 5.0.0.1     H1: 1.0.0.50 which is connected to R1
-Routes on R1
-root@OpenWrt:/# route
-Destination     Gateway         Genmask         Flags Metric Ref    Use Iface
-1.0.0.0         *               255.0.0.0       U     0      0        0 eth0
-2.0.0.0         5.0.0.2         255.0.0.0       UG    0      0        0 eth1
-5.0.0.0         *               255.0.0.0       U     0      0        0 eth1
-root@OpenWrt:/#
-R2: 5.0.0.2 & 2.0.0.20      H2: 2.0.0.50 which is connected to R2
-Routes on R2
-root@OpenWrt:/# route
-Kernel IP routing table
-Destination     Gateway         Genmask         Flags Metric Ref    Use Iface
-1.0.0.0         5.0.0.1         255.0.0.0       UG    0      0        0 eth1
-2.0.0.0         *               255.0.0.0       U     0      0        0 eth0
-5.0.0.0         *               255.0.0.0       U     0      0        0 eth1
-root@OpenWrt:/#
+* In case of MSIX, enic_set_coalesce return error after applying requested
+  coalescing setting partially. We should either apply all the setting requeste
+  and return success or apply non and return error.
 
-Regards,
-Ratnam.
+* This patch also simplifies the algo.
+
+This was introduced by
+'7c2ce6e60f703 enic: Add support for adaptive interrupt coalescing'
+
+These changes were suggested by Ben Hutchings here
+http://www.spinics.net/lists/netdev/msg283972.html
+
+Also change enic driver version.
+
+Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
+---
+ drivers/net/ethernet/cisco/enic/enic.h         |  2 +-
+ drivers/net/ethernet/cisco/enic/enic_ethtool.c | 27 +++++++++++---------------
+ 2 files changed, 12 insertions(+), 17 deletions(-)
+
+diff --git a/drivers/net/ethernet/cisco/enic/enic.h b/drivers/net/ethernet/cisco/enic/enic.h
+index c8aa9fb..4ecbbb3 100644
+--- a/drivers/net/ethernet/cisco/enic/enic.h
++++ b/drivers/net/ethernet/cisco/enic/enic.h
+@@ -33,7 +33,7 @@
+ 
+ #define DRV_NAME		"enic"
+ #define DRV_DESCRIPTION		"Cisco VIC Ethernet NIC Driver"
+-#define DRV_VERSION		"2.1.1.50"
++#define DRV_VERSION		"2.1.1.67"
+ #define DRV_COPYRIGHT		"Copyright 2008-2013 Cisco Systems, Inc"
+ 
+ #define ENIC_BARS_MAX		6
+diff --git a/drivers/net/ethernet/cisco/enic/enic_ethtool.c b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
+index 2e50b54..c75f84b 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_ethtool.c
++++ b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
+@@ -231,7 +231,7 @@ static int enic_set_coalesce(struct net_device *netdev,
+ 		if (ecmd->use_adaptive_rx_coalesce	||
+ 		    ecmd->rx_coalesce_usecs_low		||
+ 		    ecmd->rx_coalesce_usecs_high)
+-			return -EOPNOTSUPP;
++			return -EINVAL;
+ 
+ 		intr = enic_legacy_io_intr();
+ 		vnic_intr_coalescing_timer_set(&enic->intr[intr],
+@@ -243,34 +243,29 @@ static int enic_set_coalesce(struct net_device *netdev,
+ 		if (ecmd->use_adaptive_rx_coalesce	||
+ 		    ecmd->rx_coalesce_usecs_low		||
+ 		    ecmd->rx_coalesce_usecs_high)
+-			return -EOPNOTSUPP;
++			return -EINVAL;
+ 
+ 		vnic_intr_coalescing_timer_set(&enic->intr[0],
+ 			tx_coalesce_usecs);
+ 		break;
+ 	case VNIC_DEV_INTR_MODE_MSIX:
++		if (ecmd->rx_coalesce_usecs_high &&
++		    (rx_coalesce_usecs_high <
++		     rx_coalesce_usecs_low + ENIC_AIC_LARGE_PKT_DIFF))
++				return -EINVAL;
++
+ 		for (i = 0; i < enic->wq_count; i++) {
+ 			intr = enic_msix_wq_intr(enic, i);
+ 			vnic_intr_coalescing_timer_set(&enic->intr[intr],
+ 				tx_coalesce_usecs);
+ 		}
+ 
+-		if (rxcoal->use_adaptive_rx_coalesce) {
+-			if (!ecmd->use_adaptive_rx_coalesce) {
+-				rxcoal->use_adaptive_rx_coalesce = 0;
+-				enic_intr_coal_set_rx(enic, rx_coalesce_usecs);
+-			}
+-		} else {
+-			if (ecmd->use_adaptive_rx_coalesce)
+-				rxcoal->use_adaptive_rx_coalesce = 1;
+-			else
+-				enic_intr_coal_set_rx(enic, rx_coalesce_usecs);
+-		}
++		rxcoal->use_adaptive_rx_coalesce =
++					!!ecmd->use_adaptive_rx_coalesce;
++		if (!rxcoal->use_adaptive_rx_coalesce)
++			enic_intr_coal_set_rx(enic, rx_coalesce_usecs);
+ 
+ 		if (ecmd->rx_coalesce_usecs_high) {
+-			if (rx_coalesce_usecs_high <
+-			    (rx_coalesce_usecs_low + ENIC_AIC_LARGE_PKT_DIFF))
+-				return -EINVAL;
+ 			rxcoal->range_end = rx_coalesce_usecs_high;
+ 			rxcoal->small_pkt_range_start = rx_coalesce_usecs_low;
+ 			rxcoal->large_pkt_range_start = rx_coalesce_usecs_low +
+-- 
+2.0.0
