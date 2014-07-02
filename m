@@ -1,75 +1,97 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: Re: [PATCH v2 net-next 08/13] at86rf230: rework irq_pol setting
-Date: Wed, 2 Jul 2014 18:57:56 +0200
-Message-ID: <20140702165754.GA9506@omega>
-References: <1404313810-30232-1-git-send-email-alex.aring@gmail.com>
- <1404313810-30232-9-git-send-email-alex.aring@gmail.com>
+From: Boris Ostrovsky <boris.ostrovsky@oracle.com>
+Subject: Re: [PATCH 1/2] xen-netfront: don't nest queue locks in xennet_connect()
+Date: Wed, 02 Jul 2014 13:36:40 -0400
+Message-ID: <53B44328.6060806@oracle.com>
+References: <1404313755-27349-1-git-send-email-david.vrabel@citrix.com> <1404313755-27349-2-git-send-email-david.vrabel@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: dbaryshkov@gmail.com, linux-zigbee-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, stilwellt@openlabs.co
-To: alex.bluesman.smirnov@gmail.com
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	=?UTF-8?B?VMO8bGluIMSwemVy?= <tulinizer@gmail.com>
+To: David Vrabel <david.vrabel@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f176.google.com ([209.85.212.176]:55135 "EHLO
-	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964769AbaGBQ6E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2014 12:58:04 -0400
-Received: by mail-wi0-f176.google.com with SMTP id n3so10015676wiv.15
-        for <netdev@vger.kernel.org>; Wed, 02 Jul 2014 09:58:02 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1404313810-30232-9-git-send-email-alex.aring@gmail.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:30183 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753918AbaGBReq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2014 13:34:46 -0400
+In-Reply-To: <1404313755-27349-2-git-send-email-david.vrabel@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 07/02/2014 11:09 AM, David Vrabel wrote:
+> The nesting of the per-queue rx_lock and tx_lock in xennet_connect()
+> is confusing to both humans and lockdep.  The locking is safe because
+> this is the only place where the locks are nested in this way but
+> lockdep still warns.
+>
+> Instead of adding the missing lockdep annotations, refactor the
+> locking to avoid the confusing nesting.  This is still safe, because
+> the xenbus connection state changes are all serialized by the xenwatch
+> thread.
 
-On Wed, Jul 02, 2014 at 05:10:05PM +0200, Alexander Aring wrote:
-> This patch rework the irq_pol register setting for rising and falling
-> interrupt settings only. The default behaviour should be rising flag.
-> 
-> Also use IRQ_TYPE_* defines instead of IRQF_* defines. There is no
-> functionality change but irq_get_trigger_type returns IRQ_TYPE_* defines.
-> 
-> Signed-off-by: Alexander Aring <alex.aring@gmail.com>
+Tulin (GSoC student) is working on adding some concurrency to the 
+xenwatch thread (possibly eliminating it and replacing with a 
+workqueue). Which means that we will need to add some sort of 
+synchronization in watch callbacks, whenever they are required.
+
+-boris
+
+>
+> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+> Reported-by: Sander Eikelenboom <linux@eikelenboom.it>
 > ---
->  drivers/net/ieee802154/at86rf230.c | 9 +++------
->  1 file changed, 3 insertions(+), 6 deletions(-)
-> 
-> diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
-> index 492fb7e..2340750 100644
-> --- a/drivers/net/ieee802154/at86rf230.c
-> +++ b/drivers/net/ieee802154/at86rf230.c
-> @@ -1276,7 +1276,7 @@ static struct at86rf2xx_chip_data at86rf212_data = {
->  
->  static int at86rf230_hw_init(struct at86rf230_local *lp)
->  {
-> -	int rc, irq_pol, irq_type;
-> +	int rc, irq_pol, irq_type = IRQ_ACTIVE_HIGH;
-
-this should be:
-
-int rc, irq_type, irq_pol = IRQ_ACTIVE_HIGH;
-
->  	unsigned int dvdd;
->  	u8 csma_seed[2];
->  
-> @@ -1285,11 +1285,8 @@ static int at86rf230_hw_init(struct at86rf230_local *lp)
->  		return rc;
->  
->  	irq_type = irq_get_trigger_type(lp->spi->irq);
-> -	/* configure irq polarity, defaults to high active */
-> -	if (irq_type & (IRQF_TRIGGER_FALLING | IRQF_TRIGGER_LOW))
-> -		irq_pol = IRQ_ACTIVE_LOW;
-> -	else
-> -		irq_pol = IRQ_ACTIVE_HIGH;
-> +	if (irq_type == IRQ_TYPE_EDGE_FALLING)
-> +		irq_type = IRQ_ACTIVE_LOW;
-
-and this:
-
-if (irq_type == IRQ_TYPE_EDGE_FALLING)
-	irq_pol = IRQ_ACTIVE_LOW;
-
-Sorry, I will send a v3.
-
-- Alex
+>   drivers/net/xen-netfront.c |   16 ++++++++++++----
+>   1 file changed, 12 insertions(+), 4 deletions(-)
+>
+> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+> index 2ccb4a0..6a37d62 100644
+> --- a/drivers/net/xen-netfront.c
+> +++ b/drivers/net/xen-netfront.c
+> @@ -2046,13 +2046,15 @@ static int xennet_connect(struct net_device *dev)
+>   	/* By now, the queue structures have been set up */
+>   	for (j = 0; j < num_queues; ++j) {
+>   		queue = &np->queues[j];
+> -		spin_lock_bh(&queue->rx_lock);
+> -		spin_lock_irq(&queue->tx_lock);
+>   
+>   		/* Step 1: Discard all pending TX packet fragments. */
+> +		spin_lock_irq(&queue->tx_lock);
+>   		xennet_release_tx_bufs(queue);
+> +		spin_unlock_irq(&queue->tx_lock);
+>   
+>   		/* Step 2: Rebuild the RX buffer freelist and the RX ring itself. */
+> +		spin_lock_bh(&queue->rx_lock);
+> +
+>   		for (requeue_idx = 0, i = 0; i < NET_RX_RING_SIZE; i++) {
+>   			skb_frag_t *frag;
+>   			const struct page *page;
+> @@ -2076,6 +2078,8 @@ static int xennet_connect(struct net_device *dev)
+>   		}
+>   
+>   		queue->rx.req_prod_pvt = requeue_idx;
+> +
+> +		spin_unlock_bh(&queue->rx_lock);
+>   	}
+>   
+>   	/*
+> @@ -2087,13 +2091,17 @@ static int xennet_connect(struct net_device *dev)
+>   	netif_carrier_on(np->netdev);
+>   	for (j = 0; j < num_queues; ++j) {
+>   		queue = &np->queues[j];
+> +
+>   		notify_remote_via_irq(queue->tx_irq);
+>   		if (queue->tx_irq != queue->rx_irq)
+>   			notify_remote_via_irq(queue->rx_irq);
+> -		xennet_tx_buf_gc(queue);
+> -		xennet_alloc_rx_buffers(queue);
+>   
+> +		spin_lock_irq(&queue->tx_lock);
+> +		xennet_tx_buf_gc(queue);
+>   		spin_unlock_irq(&queue->tx_lock);
+> +
+> +		spin_lock_bh(&queue->rx_lock);
+> +		xennet_alloc_rx_buffers(queue);
+>   		spin_unlock_bh(&queue->rx_lock);
+>   	}
+>   
