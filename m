@@ -1,50 +1,35 @@
-From: Varka Bhadram <varkabhadram@gmail.com>
-Subject: Re: [Linux-zigbee-devel] [PATCH net-next v3] 6lowpan: mac802154:
- fix coding style issues
-Date: Wed, 02 Jul 2014 09:58:30 +0530
-Message-ID: <53B38A6E.2000603@gmail.com>
-References: <1404271869-2316-1-git-send-email-varkab@cdac.in> <CAGVrzcYc9u2TAxhb8vPOevLYiZUsOyEcUAbxZ4aLrns3Vt97yw@mail.gmail.com>
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH 0/8] net: Improvements and applications of packet flow hash
+ in transmit path
+Date: Tue, 1 Jul 2014 21:31:55 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1407012056320.26744@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Varka Bhadram <varkab@cdac.in>,
-	David Miller <davem@davemloft.net>,
-	linux-zigbee-devel@lists.sourceforge.net,
-	Joe Perches <joe@perches.com>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:37080 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751455AbaGBE3n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2014 00:29:43 -0400
-Received: by mail-pd0-f179.google.com with SMTP id w10so11269581pde.38
-        for <netdev@vger.kernel.org>; Tue, 01 Jul 2014 21:29:42 -0700 (PDT)
-In-Reply-To: <CAGVrzcYc9u2TAxhb8vPOevLYiZUsOyEcUAbxZ4aLrns3Vt97yw@mail.gmail.com>
+Received: from mail-pd0-f202.google.com ([209.85.192.202]:47189 "EHLO
+	mail-pd0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752148AbaGBEb4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2014 00:31:56 -0400
+Received: by mail-pd0-f202.google.com with SMTP id r10so1767938pdi.5
+        for <netdev@vger.kernel.org>; Tue, 01 Jul 2014 21:31:55 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi  Florian,
+This patch series includes some patches which improve and make use
+of skb->hash in the transmit path.
 
-On 07/02/2014 09:50 AM, Florian Fainelli wrote:
-> Hi,
->
-> 2014-07-01 20:31 GMT-07:00 Varka Bhadram <varkabhadram@gmail.com>:
->> This patch fixed the coding style issues reported by checkpatch.pl
->>
->> following issues fixed:
->>          CHECK: Alignment should match open parenthesis
-> It seems to me like checkpatch.pl should have a special case for
-> networking code and that specific condition because fixing things to
-> make checkpatch.pl happy seems not to agree with the general coding
-> style recommended and enforced in the networking code.
->
-> I just saw that new warning added popping up on a bunch of drivers
-> that were properly fixed to match the networking coding style before
-> submission.
+What is included:
 
-Sorry, I didn't get what you are saying...
-
-Is there any thing to be fixed in the patch ?
-
---
-Varka Bhadram
+- Infrastructure to save a precomputed hash in the sock structure.
+  For connected TCP and UDP sockets we only need to compute the
+  flow hash once and not once for every packet.
+- Call skb_get_hash in get_xps_queue and __skb_tx_hash. This eliminates
+  the awkward access to skb->sk->sk_hash in the lower transmit path.
+- Move UDP source port generation into a common function in udp.h This
+  implementation is mostly based on vxlan_src_port.
+- Use non-zero IPv6 flow labels in flow_dissector as port information
+  for flow hash calculation.
+- Implement automatic flow label generation on transmit (per RFC 6438).
+- Don't repeatedly try to compute an L4 hash in skb_get_hash if we've
+  already tried to find one in software stack calculation.
