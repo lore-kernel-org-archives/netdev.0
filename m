@@ -1,20 +1,17 @@
 From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
 Subject: Re: [PATCH RFC net-next 08/14] bpf: add eBPF verifier
-Date: Wed, 2 Jul 2014 15:43:26 -0700
-Message-ID: <CAMEtUuwNL2ngOfMA7HMc6agRnSwYMTkvEqxoy_AFwDVnb-o_Ug@mail.gmail.com>
+Date: Wed, 2 Jul 2014 16:04:05 -0700
+Message-ID: <CAMEtUuxfrAUDDQVGNsNV2PeDii-6LAwQCbB2XGEHTJDwkkvyWg@mail.gmail.com>
 References: <1403913966-4927-1-git-send-email-ast@plumgrid.com>
 	<1403913966-4927-9-git-send-email-ast@plumgrid.com>
-	<53B26BB0.90209@redhat.com>
-	<CAMEtUuyc3+jrxG4r4=fk=Gc9OMhO8a2X1oyWPx1LsKzewVf01w@mail.gmail.com>
-	<063D6719AE5E284EB5DD2968C1650D6D1726B207@AcuExch.aculab.com>
+	<CA+ZOOTODDPN=6SECq1uPPD7AGP1zgBJ+bfYaX9o3YhnaCTiHYQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
 	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
 	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
 	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
 	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
 	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
 	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
@@ -26,99 +23,85 @@ Cc: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
 	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
 	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
 	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: David Laight <David.Laight-JxhZ9S5GRejQT0dZR+AlfA@public.gmane.org>
+To: Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
 Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1726B207-VkEWCZq2GCInGFn1LkZF6NBPR1lH4CV8@public.gmane.org>
+In-Reply-To: <CA+ZOOTODDPN=6SECq1uPPD7AGP1zgBJ+bfYaX9o3YhnaCTiHYQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
 Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 2, 2014 at 1:11 AM, David Laight <David.Laight-JxhZ9S5GRejQT0dZR+AlfA@public.gmane.org> wrote:
-> From: Alexei Starovoitov
-> ...
->> >> +#define _(OP) ({ int ret = OP; if (ret < 0) return ret; })
-> ...
->> >> +       _(get_map_info(env, map_id, &map));
->> >
->> > Nit: such macros should be removed, please.
->>
->> It may surely look unconventional, but alternative is to replace
->> every usage of _ macro with:
->> err =
->> if (err)
->>   return err;
->>
->> and since this macro is used 38 times, it will add ~120 unnecessary
->> lines that will only make code much harder to follow.
->> I tried not using macro and results were not pleasing.
+On Wed, Jul 2, 2014 at 3:22 PM, Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org> wrote:
+>> + * - unreachable insns exist (shouldn't be a forest. program = one function)
+> This seems to me an unnecessary style restriction on user code.
+
+unreachable instructions to me is a ticking time bomb of potential exploits.
+Definitely should be rejected.
+
+>> +#define _(OP) ({ int ret = OP; if (ret < 0) return ret; })
+> +1 to removing the _ macro. If you want to avoid the 3 lines (is there
+> anything in the style guide against "if ((err=OP) < 0) ..." ?), at
+
+assignment and function call inside 'if' ? I don't like such style.
+
+> least use some meaningful macro name (DO_AND_CHECK, or something like
+> that).
+
+Try replacing _ with any other name and see how bad it will look.
+I tried with MACRO_NAME and with 'if (err) goto' and with 'if (err) return',
+before I converged on _ macro.
+I think it's a hidden gem of this patch.
+
+> Can you please add:
 >
-> The problem is that they are hidden control flow.
-> As such they make flow analysis harder for the casual reader.
+> + } else if (class == BPF_LD) {
+> +   if (BPF_MODE(insn->code) == BPF_ABS) {
+> +     pr_cont("(%02x) r0 = *(%s *)skb[%d]\n",
+> +       insn->code,
+> +       bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
+> +       insn->imm);
+> +   } else if (BPF_MODE(insn->code) == BPF_IND) {
+> +     pr_cont("(%02x) r0 = *(%s *)skb[r%d + %d]\n",
+> +       insn->code,
+> +       bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
+> +       insn->src_reg, insn->imm);
+> +   } else {
+> +     pr_cont("BUG_ld_%02x\n", insn->code);
+> +     return;
+> +   }
+>
+> Note that I'm hardcoding r0 (instead of using %d for insn->dst_reg)
+> because that's how ebpf writes the instructions.
 
-In the abstract context macros with gotos and returns are bad,
-but in this case extra verbosity is the bigger evil.
+ohh yes. it's a copy paste error, since it was in a different file before.
+Will definitely add. Thanks!
 
-Consider this piece of code:
-#define _(OP) ({ int ret = OP; if (ret < 0) return ret; })
+>> +static void init_reg_state(struct reg_state *regs)
+>> +{
+>> +       struct reg_state *reg;
+>> +       int i;
+>> +
+>> +       for (i = 0; i < MAX_BPF_REG; i++) {
+>> +               regs[i].ptr = INVALID_PTR;
+>> +               regs[i].read_ok = false;
+>> +               regs[i].imm = 0xbadbad;
+>> +       }
+>> +       reg = regs + BPF_REG_FP;
+> Any reason you switching from the array syntax to the pointer one? I
+> find "reg = regs[BPF_REG_FP];" more readable (and the one you chose in
+> the loop).
 
-if (opcode == BPF_END || opcode == BPF_NEG) {
-    if (BPF_SRC(insn->code) != BPF_X)
-        return -EINVAL;
+in this function no particular reason. It felt a bit less verbose, but
+I can make
+the change.
 
-    /* check src operand */
-     _(check_reg_arg(regs, insn->dst_reg, 1));
+>> +       reg = regs + BPF_REG_1; /* 1st arg to a function */
+>> +       reg->ptr = PTR_TO_CTX;
+> Wait, doesn't this depend on doing "BPF_MOV64_REG(BPF_REG_CTX,
+> BPF_REG_ARG1)" (the bpf-to-ebpf prologue), which is only enforced on
+> filters converted from bpf? In fact, shouldn't this set
+> regs[BPF_REG_CTX] instead of regs[BPF_REG_1] ?
 
-    /* check dest operand */
-    _(check_reg_arg(regs, insn->dst_reg, 0));
+nope. it's REG_1.
+as you said r6=r1 is only emitted by converted classic filters.
+Verifier will see this 'r6=r1' assignment and will copy the r1 type into r6.
 
-} else if (opcode == BPF_MOV) {
-
-    if (BPF_SRC(insn->code) == BPF_X)
-        /* check src operand */
-        _(check_reg_arg(regs, insn->src_reg, 1));
-
-    /* check dest operand */
-    _(check_reg_arg(regs, insn->dst_reg, 0));
-
-where casual reader can easily see what the purpose of the code
-and what it's doing.
-
-Now rewrite it without '_' macro:
-if (opcode == BPF_END || opcode == BPF_NEG) {
-    if (BPF_SRC(insn->code) != BPF_X)
-            return -EINVAL;
-
-    /* check src operand */
-    err = check_reg_arg(regs, insn->dst_reg, 1);
-    if (err)
-        return err;
-
-    /* check dest operand */
-    err = check_reg_arg(regs, insn->dst_reg, 0);
-    if (err)
-        return err;
-
-} else if (opcode == BPF_MOV) {
-
-    if (BPF_SRC(insn->code) == BPF_X) {
-        /* check src operand */
-        err = check_reg_arg(regs, insn->src_reg, 1);
-        if (err)
-            return err;
-    }
-
-    /* check dest operand */
-    err = check_reg_arg(regs, insn->dst_reg, 0);
-    if (err)
-        return err;
-
-see how your eyes are now picking up endless control flow of
-if conditions and returns, instead of focusing on the code itself.
-It's much easier to understand the semantics when if (err) is out
-of the way. Note that replacing _ with real name will ruin
-the reading experience, since CAPITAL letters of the macro
-will be screaming: "look at me", instead of letting reviewer
-focus on the code.
-
-I believe that this usage of _ as a macro specifically as defined,
-would be a great addition to kernel coding style in general.
-I don't want to see _ to be redefined differently.
+Thank you for review!
