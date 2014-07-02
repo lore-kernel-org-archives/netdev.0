@@ -1,36 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] cleanup for 6lowpan and mac802514
-Date: Tue, 01 Jul 2014 17:05:04 -0700 (PDT)
-Message-ID: <20140701.170504.2175452273766747828.davem@davemloft.net>
-References: <1403789815-10418-1-git-send-email-varkab@cdac.in>
-	<20140701.170409.2198317113731267100.davem@davemloft.net>
+Subject: Re: [PATCH net v2 0/3] net: systemport: misc fixes
+Date: Tue, 01 Jul 2014 17:16:11 -0700 (PDT)
+Message-ID: <20140701.171611.270527093848730253.davem@davemloft.net>
+References: <1403802406-10992-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alex.bluesman.smirnov@gmail.com,
-	dbaryshkov@gmail.com, linux-zigbee-devel@lists.sourceforge.net,
-	varkab@cdac.in
-To: varkabhadram@gmail.com
+Cc: netdev@vger.kernel.org
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36508 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36555 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752273AbaGBAFF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2014 20:05:05 -0400
-In-Reply-To: <20140701.170409.2198317113731267100.davem@davemloft.net>
+	with ESMTP id S965068AbaGBAQM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2014 20:16:12 -0400
+In-Reply-To: <1403802406-10992-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Tue, 01 Jul 2014 17:04:09 -0700 (PDT)
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Thu, 26 Jun 2014 10:06:43 -0700
 
-> From: Varka Bhadram <varkabhadram@gmail.com>
-> Date: Thu, 26 Jun 2014 19:06:53 +0530
-> 
->> These patches fixed the coding style issues reported by checkpatch.pl.
-> 
-> Applied to net-next, thanks.
+> This patch set contains 3 small fixes for the SYSTEM PORT driver
 
-Actually looking at your later postings I'm confused what I'm supposed
-to apply and what I shouldn't.
-
-Please just resubmit this stuff fresh, thanks.
+Series applied, thanks Florian.
