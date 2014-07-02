@@ -1,8 +1,8 @@
 From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v3 net-next 13/13] at86rf230: add new
-	author
-Date: Thu,  3 Jul 2014 00:20:55 +0200
-Message-ID: <1404339655-8456-14-git-send-email-alex.aring@gmail.com>
+Subject: [PATCH v3 net-next 11/13] at86rf230: add
+	timing for channel switch
+Date: Thu,  3 Jul 2014 00:20:53 +0200
+Message-ID: <1404339655-8456-12-git-send-email-alex.aring@gmail.com>
 References: <1404339655-8456-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,21 +23,56 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- drivers/net/ieee802154/at86rf230.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ieee802154/at86rf230.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
-index 79ec843..c9d2a75 100644
+index a64914a..dbf85b8 100644
 --- a/drivers/net/ieee802154/at86rf230.c
 +++ b/drivers/net/ieee802154/at86rf230.c
-@@ -19,6 +19,7 @@
-  * Written by:
-  * Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-  * Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-+ * Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+@@ -42,6 +42,7 @@ struct at86rf230_local;
+  * All timings are in us.
   */
- #include <linux/kernel.h>
- #include <linux/module.h>
+ struct at86rf2xx_chip_data {
++	u16 t_channel_switch;
+ 	u16 t_reset_to_off;
+ 	u16 t_off_to_aack;
+ 	u16 t_off_to_tx_on;
+@@ -1079,7 +1080,9 @@ at86rf230_channel(struct ieee802154_dev *dev, int page, int channel)
+ 	if (rc < 0)
+ 		return rc;
+ 
+-	msleep(1); /* Wait for PLL */
++	/* Wait for PLL */
++	usleep_range(lp->data->t_channel_switch,
++		     lp->data->t_channel_switch + 10);
+ 	dev->phy->current_channel = channel;
+ 	dev->phy->current_page = page;
+ 
+@@ -1247,6 +1250,7 @@ static struct ieee802154_ops at86rf230_ops = {
+ };
+ 
+ static struct at86rf2xx_chip_data at86rf233_data = {
++	.t_channel_switch = 11,
+ 	.t_reset_to_off = 26,
+ 	.t_off_to_aack = 80,
+ 	.t_off_to_tx_on = 80,
+@@ -1261,6 +1265,7 @@ static struct at86rf2xx_chip_data at86rf233_data = {
+ };
+ 
+ static struct at86rf2xx_chip_data at86rf231_data = {
++	.t_channel_switch = 24,
+ 	.t_reset_to_off = 37,
+ 	.t_off_to_aack = 110,
+ 	.t_off_to_tx_on = 110,
+@@ -1275,6 +1280,7 @@ static struct at86rf2xx_chip_data at86rf231_data = {
+ };
+ 
+ static struct at86rf2xx_chip_data at86rf212_data = {
++	.t_channel_switch = 11,
+ 	.t_reset_to_off = 26,
+ 	.t_off_to_aack = 200,
+ 	.t_off_to_tx_on = 200,
 -- 
 2.0.1
 
