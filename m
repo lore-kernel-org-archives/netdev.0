@@ -1,80 +1,76 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: segfault after VLAN change
-Date: Wed, 02 Jul 2014 09:11:09 +0200
-Message-ID: <87simk1bhu.fsf@nemi.mork.no>
-References: <42408b4f154d434d9838b83ae2dc15db@BL2PR03MB545.namprd03.prod.outlook.com>
+From: Dan Aloni <dan@kernelim.com>
+Subject: Re: net: pretty odd panic in netfilter
+Date: Wed, 2 Jul 2014 10:20:39 +0300
+Message-ID: <20140702072039.GA15488@gmail.com>
+References: <53B37B61.3020901@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Li RongQing <roy.qing.li@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>, kadlec@blackhole.kfki.hu,
 	"David S. Miller" <davem@davemloft.net>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>
-To: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:35183 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750902AbaGBHL3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2014 03:11:29 -0400
-In-Reply-To: <42408b4f154d434d9838b83ae2dc15db@BL2PR03MB545.namprd03.prod.outlook.com>
-	(Madalin-Cristian Bucur's message of "Tue, 1 Jul 2014 16:55:13 +0000")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Dave Jones <davej@redhat.com>, netfilter-devel@vger.kernel.org,
+	coreteam@netfilter.org
+To: Sasha Levin <sasha.levin@oracle.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <53B37B61.3020901@oracle.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Madalin-Cristian Bucur <madalin.bucur@freescale.com> writes:
+On Tue, Jul 01, 2014 at 11:24:17PM -0400, Sasha Levin wrote:
+> Hi all,
+> 
+> While fuzzing with trinity inside a KVM tools guest running the latest -next
+> kernel I've stumbled on a pretty odd corruption(?) in the code - a pretty odd
+> one.
+> 
+> Here's the issue I've hit:
+> 
+> [ 3640.805823] BUG: unable to handle kernel paging request at ffffffffffffff84
+>[..]
+> [ 3640.840752] Code: 4c 89 65 e8 49 89 cc 0f 97 c1 83 fa 01 0f 95 c0 48 89 5d e0 31 db 83 fa 04 4c 89 6d f0 0f 95 c3 4c 89 75 f8 21 55 55 fb 01 48 19 <d2> 48 83 e2 f0 48 83 c2 20 48 89 d0 48 83 f0 30 84 c9 48 0f 45
+> [ 3640.840752] RIP nf_nat_packet (net/netfilter/nf_nat_core.c:482)
+> [ 3640.840752]  RSP <ffff88014608b958>
+> [ 3640.840752] CR2: ffffffffffffff84
+> 
+> Two odd things here:
+> 
+> 1. The code section seems to point mid-instruction:
+> 
+>     19dc:       0f 95 c3                setne  %bl
+>     19df:       4c 89 75 f8             mov    %r14,-0x8(%rbp)
+>     19e3:       21 c3                   and    %eax,%ebx
+>     19e5:       83 fb 01                cmp    $0x1,%ebx
+>     19e8:       48 19 d2                sbb    %rdx,%rdx  <=== The end of this (0xd2)
+>     19eb:       48 83 e2 f0             and    $0xfffffffffffffff0,%rdx
+>     19ef:       48 83 c2 20             add    $0x20,%rdx
+>     19f3:       48 89 d0                mov    %rdx,%rax
+>     19f6:       48 83 f0 30             xor    $0x30,%rax
+> 
+> 2. There isn't anything in that area that dereferences memory:
+> 
+>         enum nf_nat_manip_type mtype = HOOK2MANIP(hooknum);
+> 
+>         if (mtype == NF_NAT_MANIP_SRC)
+>                 statusbit = IPS_SRC_NAT;
+>         else
+>                 statusbit = IPS_DST_NAT;
 
-> Hello,
->
-> I've discovered that the commit:
->
->     commit 5a4ae5f6e7d4b2b5a9b8981d513345053e40b6ac
->     Author: Li RongQing <roy.qing.li@gmail.com>
->     Date:   Mon Apr 21 19:49:08 2014 +0800
->
->     vlan: unnecessary to check if vlan_pcpu_stats is NULL
->
->     if allocating memory for vlan_pcpu_stats failed, the device can n=
-ot be operated
->
->     Signed-off-by:=20
->     Cc: Eric Dumazet <edumazet@google.com>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
->
-> is causing a segfault when removing vlan on a e1000 device (reproduce=
-s with other devices as well).
-> Re-adding the check or reverting the patch removes the issue (log bel=
-ow).
+Hi Sasha,
 
+The fault registers are consistent with the 'rorb %cl,-0x7d(%rax)' starting
+at the place where you have 0xd2. But the problem started earlier:
 
-Yes, that commit should be reverted.
+    "75 f8 21 55 55 fb 01 48 19 <d2> 48 83 e2 f0"
 
-The commit message makes it clear that only allocation failures were
-considered, while a simple grep reveals that there at least one site
-where that field is explicitly NULLed:
+What should have been according to objdump:
 
-bjorn@nemi:/usr/local/src/git/linux$ git grep vlan_pcpu_stats net/8021q=
-/
-net/8021q/vlan_core.c:  struct vlan_pcpu_stats *rx_stats;
-net/8021q/vlan_core.c:  rx_stats =3D this_cpu_ptr(vlan_dev_priv(vlan_de=
-v)->vlan_pcpu_stats);
-net/8021q/vlan_dev.c:           struct vlan_pcpu_stats *stats;
-net/8021q/vlan_dev.c:           stats =3D this_cpu_ptr(vlan->vlan_pcpu_=
-stats);
-net/8021q/vlan_dev.c:           this_cpu_inc(vlan->vlan_pcpu_stats->tx_=
-dropped);
-net/8021q/vlan_dev.c:   vlan_dev_priv(dev)->vlan_pcpu_stats =3D netdev_=
-alloc_pcpu_stats(struct vlan_pcpu_stats);
-net/8021q/vlan_dev.c:   if (!vlan_dev_priv(dev)->vlan_pcpu_stats)
-net/8021q/vlan_dev.c:   free_percpu(vlan->vlan_pcpu_stats);
-net/8021q/vlan_dev.c:   vlan->vlan_pcpu_stats =3D NULL;
-net/8021q/vlan_dev.c:   struct vlan_pcpu_stats *p;
-net/8021q/vlan_dev.c:           p =3D per_cpu_ptr(vlan_dev_priv(dev)->v=
-lan_pcpu_stats, i);
+    "75 f8 21 c3 83 fb 01 48 19 <d2> 48 83 e2 f0"
+              ^^^^^ 
+These instructions should not have been modified, even by relocation. 
+So we only need to figure out what overwrote with '0x5555'.
 
-
-Without looking further it seems likely that this is done during
-teardown, making the original NULL check necessary.
-
-
-
-Bj=C3=B8rn
+-- 
+Dan Aloni
