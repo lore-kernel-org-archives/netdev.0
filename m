@@ -1,57 +1,78 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [PATCH net-next] xen-netfront: try linearizing SKB if it occupies
- too many slots
-Date: Wed, 2 Jul 2014 14:12:14 +0100
-Message-ID: <53B4052E.10008@citrix.com>
-References: <1400238496-2471-1-git-send-email-wei.liu2@citrix.com> <1400245474.7973.154.camel@edumazet-glaptop2.roam.corp.google.com> <20140516131145.GK18551@zion.uk.xensource.com> <1400250068.7973.171.camel@edumazet-glaptop2.roam.corp.google.com> <20140516143653.GL18551@zion.uk.xensource.com> <1400253739.7973.183.camel@edumazet-glaptop2.roam.corp.google.com> <20140516153452.GM18551@zion.uk.xensource.com> <53763CD1.6060500@citrix.com> <53883C18.2050708@canonical.com> <53887472.1000304@citrix.com> <53B3F9BF.603@canonical.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [RFC PATCH net-next 1/5] netns: allocate netns ids
+Date: Wed, 02 Jul 2014 17:33:09 +0400
+Message-ID: <53B40A15.3030603@cogentembedded.com>
+References: <537327F1.4060603@6wind.com> <1404302346-4507-1-git-send-email-nicolas.dichtel@6wind.com> <1404302346-4507-2-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xen.org>,
-	David Vrabel <david.vrabel@citrix.com>,
-	Konrad Wilk <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>
-To: Stefan Bader <stefan.bader@canonical.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
+Cc: davem@davemloft.net, ebiederm@xmission.com,
+	stephen@networkplumber.org
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:36504 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751591AbaGBNMR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2014 09:12:17 -0400
-In-Reply-To: <53B3F9BF.603@canonical.com>
+Received: from mail-lb0-f173.google.com ([209.85.217.173]:56778 "EHLO
+	mail-lb0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752249AbaGBNdI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2014 09:33:08 -0400
+Received: by mail-lb0-f173.google.com with SMTP id s7so8100973lbd.32
+        for <netdev@vger.kernel.org>; Wed, 02 Jul 2014 06:33:06 -0700 (PDT)
+In-Reply-To: <1404302346-4507-2-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Hello.
 
-Yes, it lost traction recently a little bit. The latest idea is to use 
-the skb segmenting code in netfront to slice up the skb until it becomes 
-a set of skbs which can fit through the ring. But to test that out I 
-need to make pktgen work with TCP, that's where this got stopped.
+On 07/02/2014 03:59 PM, Nicolas Dichtel wrote:
 
-Zoli
+> With this patch, netns allocates ids for all netns. Each netns has its own list
+> of ids, it means that the id is valid only in the current netns.
 
+> For homogeneity, an id is also allocated for the netns owner itself.
 
-On 02/07/14 13:23, Stefan Bader wrote:
-> On 30.05.2014 14:07, Zoltan Kiss wrote:
->> On 30/05/14 09:06, Stefan Bader wrote:
->>> On 16.05.2014 18:29, Zoltan Kiss wrote:
->>>> On 16/05/14 16:34, Wei Liu wrote:
->>>>> On Fri, May 16, 2014 at 08:22:19AM -0700, Eric Dumazet wrote:
->>>>>> On Fri, 2014-05-16 at 15:36 +0100, Wei Liu wrote:
->>>>>>> On Fri, May 16, 2014 at 07:21:08AM -0700, Eric Dumazet wrote:
->>>>>>>> On Fri, 2014-05-16 at 14:11 +0100, Wei Liu wrote:
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+[...]
+
+> diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+> index 85b62691f4f2..2976864cef13 100644
+> --- a/net/core/net_namespace.c
+> +++ b/net/core/net_namespace.c
+> @@ -144,6 +144,30 @@ static void ops_free_list(const struct pernet_operations *ops,
+>   	}
+>   }
 >
-> Hi Zoltan,
->
-> I lost a bit track about this. I think I saw some summary about brainstorming
-> something similar but for the backend from you (not sure). I think during last
-> Xen Hackathon. I cannot remember that got to some solution on the netfront side.
-> Do I miss something?
->
-> -Stefan
->>
->> Regads,
->>
->> Zoltan
+> +static int net_eq_idr(int id, void *net, void *peer)
+> +{
+> +	return net_eq(net, peer) ? id : 0;
+> +}
+> +
+> +int net2id(struct net *net, struct net *peer)
+> +{
+> +	ASSERT_RTNL();
+> +	return idr_for_each(&(net)->netns_ids, net_eq_idr, (peer)) ? : -ENOENT;
+
+    I don't think the inner parens are needed, this is not a macro body...
+
+> +}
+> +
+> +struct net *get_net_from_netnsid(struct net *net, int id)
+> +{
+> +	struct net *peer;
+> +
+> +	rcu_read_lock();
+> +	peer = idr_find(&(net)->netns_ids, id);
+
+    Same here.
+
+> +	if (peer)
+> +		get_net(peer);
+> +	rcu_read_unlock();
+> +
+> +	return peer;
+> +}
+> +
+>   /*
+>    * setup_net runs the initializers for the network namespace object.
+>    */
+[...]
+
+WBR, Sergei
