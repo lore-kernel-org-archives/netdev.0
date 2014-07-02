@@ -1,52 +1,56 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 2/2] net: systemport: use kcalloc instead of kzalloc
-Date: Wed,  2 Jul 2014 10:54:59 -0700
-Message-ID: <1404323699-12342-3-git-send-email-f.fainelli@gmail.com>
-References: <1404323699-12342-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: [PATCH net-next 0/5] amd-xgbe: AMD 10Gb Ethernet driver updates
+Date: Wed, 2 Jul 2014 13:04:22 -0500
+Message-ID: <20140702180422.14996.88116.stgit@tlendack-t1.amdoffice.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f171.google.com ([209.85.213.171]:38893 "EHLO
-	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756075AbaGBRzV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2014 13:55:21 -0400
-Received: by mail-ig0-f171.google.com with SMTP id h18so6965635igc.10
-        for <netdev@vger.kernel.org>; Wed, 02 Jul 2014 10:55:20 -0700 (PDT)
-In-Reply-To: <1404323699-12342-1-git-send-email-f.fainelli@gmail.com>
+Received: from mail-bn1lp0145.outbound.protection.outlook.com ([207.46.163.145]:51678
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1757278AbaGBSE3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Jul 2014 14:04:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-checkpatch.pl flagged two uses of kzalloc() for allocating and zeroing
-arrays, use kcalloc() instead as recommended.
+The following series fixes some bugs and provides new/changed support
+in the driver.
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+- Fix a debugfs backward compatibility issue introduced by a previous patch
+- Write to the interrupt enablement register, not the status register when
+  setting MTL interrupts
+- Call netif_napi_del whenever the ndo_stop operation is called (to match
+  the call to netif_napi_add on ndo_open)
+- Peformance enhancements:
+  - Adjusted default coalescing settings
+  - AXI DMA changes (burst length size and cache settings)
+  - ioread/iowrite reduction during interrupt
+  - Napi poll updates
+- AXI DMA settings based on device tree property to account for a change in
+  the ARM64 default cache operations assignment
+
+This patch series is based on net-next.
+
 ---
- drivers/net/ethernet/broadcom/bcmsysport.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
-index 089366b1321a..b292f54a4428 100644
---- a/drivers/net/ethernet/broadcom/bcmsysport.c
-+++ b/drivers/net/ethernet/broadcom/bcmsysport.c
-@@ -1009,7 +1009,7 @@ static int bcm_sysport_init_tx_ring(struct bcm_sysport_priv *priv,
- 		return -ENOMEM;
- 	}
- 
--	ring->cbs = kzalloc(sizeof(struct bcm_sysport_cb) * size, GFP_KERNEL);
-+	ring->cbs = kcalloc(size, sizeof(struct bcm_sysport_cb), GFP_KERNEL);
- 	if (!ring->cbs) {
- 		netif_err(priv, hw, priv->netdev, "CB allocation failed\n");
- 		return -ENOMEM;
-@@ -1152,8 +1152,8 @@ static int bcm_sysport_init_rx_ring(struct bcm_sysport_priv *priv)
- 	priv->rx_bd_assign_index = 0;
- 	priv->rx_c_index = 0;
- 	priv->rx_read_ptr = 0;
--	priv->rx_cbs = kzalloc(priv->num_rx_bds *
--				sizeof(struct bcm_sysport_cb), GFP_KERNEL);
-+	priv->rx_cbs = kcalloc(priv->num_rx_bds, sizeof(struct bcm_sysport_cb),
-+				GFP_KERNEL);
- 	if (!priv->rx_cbs) {
- 		netif_err(priv, hw, priv->netdev, "CB allocation failed\n");
- 		return -ENOMEM;
+Tom Lendacky (5):
+      amd-xgbe: Fix debugfs compatibility change with kstrtouint
+      amd-xgbe: Clear the proper MTL interrupt register
+      amd-xgbe: Call netif_napi_del on ndo_stop operation
+      amd-xgbe: Performance enhancements
+      amd-xgbe: Base AXI DMA cache settings on device tree
+
+
+ drivers/net/ethernet/amd/xgbe/xgbe-common.h  |    2 +
+ drivers/net/ethernet/amd/xgbe/xgbe-debugfs.c |    4 +
+ drivers/net/ethernet/amd/xgbe/xgbe-dev.c     |  103 ++++++++++++--------------
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c     |  100 ++++++++++++++++---------
+ drivers/net/ethernet/amd/xgbe/xgbe-main.c    |   10 +++
+ drivers/net/ethernet/amd/xgbe/xgbe.h         |   27 +++++--
+ 6 files changed, 145 insertions(+), 101 deletions(-)
+
 -- 
-1.9.1
+Tom Lendacky
