@@ -1,97 +1,35 @@
-From: Boris Ostrovsky <boris.ostrovsky@oracle.com>
-Subject: Re: [PATCH 1/2] xen-netfront: don't nest queue locks in xennet_connect()
-Date: Wed, 02 Jul 2014 13:36:40 -0400
-Message-ID: <53B44328.6060806@oracle.com>
-References: <1404313755-27349-1-git-send-email-david.vrabel@citrix.com> <1404313755-27349-2-git-send-email-david.vrabel@citrix.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next repost v2 1/3] net: Simplify ptp class checks
+Date: Wed, 2 Jul 2014 19:48:15 +0200
+Message-ID: <20140702174815.GA8388@localhost.localdomain>
+References: <1404312104-19154-1-git-send-email-stefan.sorensen@spectralink.com>
+ <1404312104-19154-2-git-send-email-stefan.sorensen@spectralink.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xen-devel@lists.xenproject.org,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	=?UTF-8?B?VMO8bGluIMSwemVy?= <tulinizer@gmail.com>
-To: David Vrabel <david.vrabel@citrix.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, kaber@trash.net, netdev@vger.kernel.org
+To: Stefan =?iso-8859-1?Q?S=F8rensen?=
+	<stefan.sorensen@spectralink.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:30183 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753918AbaGBReq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2014 13:34:46 -0400
-In-Reply-To: <1404313755-27349-2-git-send-email-david.vrabel@citrix.com>
+Received: from mail-wg0-f43.google.com ([74.125.82.43]:48745 "EHLO
+	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752481AbaGBRsh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2014 13:48:37 -0400
+Received: by mail-wg0-f43.google.com with SMTP id b13so1154815wgh.14
+        for <netdev@vger.kernel.org>; Wed, 02 Jul 2014 10:48:36 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1404312104-19154-2-git-send-email-stefan.sorensen@spectralink.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/02/2014 11:09 AM, David Vrabel wrote:
-> The nesting of the per-queue rx_lock and tx_lock in xennet_connect()
-> is confusing to both humans and lockdep.  The locking is safe because
-> this is the only place where the locks are nested in this way but
-> lockdep still warns.
->
-> Instead of adding the missing lockdep annotations, refactor the
-> locking to avoid the confusing nesting.  This is still safe, because
-> the xenbus connection state changes are all serialized by the xenwatch
-> thread.
+On Wed, Jul 02, 2014 at 04:41:42PM +0200, Stefan S=F8rensen wrote:
+> Replace two switch statements enumerating all valid ptp classes with =
+an if
+> statement matching for not PTP_CLASS_NONE.
 
-Tulin (GSoC student) is working on adding some concurrency to the 
-xenwatch thread (possibly eliminating it and replacing with a 
-workqueue). Which means that we will need to add some sort of 
-synchronization in watch callbacks, whenever they are required.
+Originally, I had the explicit list to guard against the possibility
+of a filter returning early without some valid PTP_CLASS. I agree with
+this change, but we will have to remember to make sure the filter
+always returns NONE when the packet isn't recognized.
 
--boris
-
->
-> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
-> Reported-by: Sander Eikelenboom <linux@eikelenboom.it>
-> ---
->   drivers/net/xen-netfront.c |   16 ++++++++++++----
->   1 file changed, 12 insertions(+), 4 deletions(-)
->
-> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-> index 2ccb4a0..6a37d62 100644
-> --- a/drivers/net/xen-netfront.c
-> +++ b/drivers/net/xen-netfront.c
-> @@ -2046,13 +2046,15 @@ static int xennet_connect(struct net_device *dev)
->   	/* By now, the queue structures have been set up */
->   	for (j = 0; j < num_queues; ++j) {
->   		queue = &np->queues[j];
-> -		spin_lock_bh(&queue->rx_lock);
-> -		spin_lock_irq(&queue->tx_lock);
->   
->   		/* Step 1: Discard all pending TX packet fragments. */
-> +		spin_lock_irq(&queue->tx_lock);
->   		xennet_release_tx_bufs(queue);
-> +		spin_unlock_irq(&queue->tx_lock);
->   
->   		/* Step 2: Rebuild the RX buffer freelist and the RX ring itself. */
-> +		spin_lock_bh(&queue->rx_lock);
-> +
->   		for (requeue_idx = 0, i = 0; i < NET_RX_RING_SIZE; i++) {
->   			skb_frag_t *frag;
->   			const struct page *page;
-> @@ -2076,6 +2078,8 @@ static int xennet_connect(struct net_device *dev)
->   		}
->   
->   		queue->rx.req_prod_pvt = requeue_idx;
-> +
-> +		spin_unlock_bh(&queue->rx_lock);
->   	}
->   
->   	/*
-> @@ -2087,13 +2091,17 @@ static int xennet_connect(struct net_device *dev)
->   	netif_carrier_on(np->netdev);
->   	for (j = 0; j < num_queues; ++j) {
->   		queue = &np->queues[j];
-> +
->   		notify_remote_via_irq(queue->tx_irq);
->   		if (queue->tx_irq != queue->rx_irq)
->   			notify_remote_via_irq(queue->rx_irq);
-> -		xennet_tx_buf_gc(queue);
-> -		xennet_alloc_rx_buffers(queue);
->   
-> +		spin_lock_irq(&queue->tx_lock);
-> +		xennet_tx_buf_gc(queue);
->   		spin_unlock_irq(&queue->tx_lock);
-> +
-> +		spin_lock_bh(&queue->rx_lock);
-> +		xennet_alloc_rx_buffers(queue);
->   		spin_unlock_bh(&queue->rx_lock);
->   	}
->   
+Acked-by: Richard Cochran <richardcochran@gmail.com>
