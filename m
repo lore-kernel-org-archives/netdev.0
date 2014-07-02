@@ -1,60 +1,70 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: [PATCH v2 net-next 08/13] at86rf230: rework irq_pol setting
-Date: Wed,  2 Jul 2014 17:10:05 +0200
-Message-ID: <1404313810-30232-9-git-send-email-alex.aring@gmail.com>
+From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH v2 net-next 07/13] at86rf230: move
+	RX_SAFE_MODE setting to hw_init
+Date: Wed,  2 Jul 2014 17:10:04 +0200
+Message-ID: <1404313810-30232-8-git-send-email-alex.aring@gmail.com>
 References: <1404313810-30232-1-git-send-email-alex.aring@gmail.com>
-Cc: dbaryshkov@gmail.com, linux-zigbee-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, stilwellt@openlabs.co,
-	Alexander Aring <alex.aring@gmail.com>
-To: alex.bluesman.smirnov@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:57990 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754587AbaGBPK1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2014 11:10:27 -0400
-Received: by mail-wi0-f172.google.com with SMTP id hi2so9789684wib.5
-        for <netdev@vger.kernel.org>; Wed, 02 Jul 2014 08:10:25 -0700 (PDT)
-In-Reply-To: <1404313810-30232-1-git-send-email-alex.aring@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1404313810-30232-1-git-send-email-alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This patch rework the irq_pol register setting for rising and falling
-interrupt settings only. The default behaviour should be rising flag.
+There is no need to set this bit in start callback which could be
+called more than once.
 
-Also use IRQ_TYPE_* defines instead of IRQF_* defines. There is no
-functionality change but irq_get_trigger_type returns IRQ_TYPE_* defines.
-
-Signed-off-by: Alexander Aring <alex.aring@gmail.com>
+Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- drivers/net/ieee802154/at86rf230.c | 9 +++------
- 1 file changed, 3 insertions(+), 6 deletions(-)
+ drivers/net/ieee802154/at86rf230.c | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
-index 492fb7e..2340750 100644
+index 39c3c11..492fb7e 100644
 --- a/drivers/net/ieee802154/at86rf230.c
 +++ b/drivers/net/ieee802154/at86rf230.c
-@@ -1276,7 +1276,7 @@ static struct at86rf2xx_chip_data at86rf212_data = {
- 
- static int at86rf230_hw_init(struct at86rf230_local *lp)
+@@ -1010,13 +1010,8 @@ err:
+ static int
+ at86rf230_start(struct ieee802154_dev *dev)
  {
--	int rc, irq_pol, irq_type;
-+	int rc, irq_pol, irq_type = IRQ_ACTIVE_HIGH;
- 	unsigned int dvdd;
- 	u8 csma_seed[2];
+-	struct at86rf230_local *lp = dev->priv;
+ 	u8 rc;
  
-@@ -1285,11 +1285,8 @@ static int at86rf230_hw_init(struct at86rf230_local *lp)
+-	rc = at86rf230_write_subreg(lp, SR_RX_SAFE_MODE, 1);
+-	if (rc)
+-		return rc;
+-
+ 	rc = at86rf230_state(dev, STATE_TX_ON);
+ 	if (rc)
+ 		return rc;
+@@ -1300,6 +1295,10 @@ static int at86rf230_hw_init(struct at86rf230_local *lp)
+ 	if (rc)
  		return rc;
  
- 	irq_type = irq_get_trigger_type(lp->spi->irq);
--	/* configure irq polarity, defaults to high active */
--	if (irq_type & (IRQF_TRIGGER_FALLING | IRQF_TRIGGER_LOW))
--		irq_pol = IRQ_ACTIVE_LOW;
--	else
--		irq_pol = IRQ_ACTIVE_HIGH;
-+	if (irq_type == IRQ_TYPE_EDGE_FALLING)
-+		irq_type = IRQ_ACTIVE_LOW;
- 
- 	rc = at86rf230_write_subreg(lp, SR_IRQ_POLARITY, irq_pol);
++	rc = at86rf230_write_subreg(lp, SR_RX_SAFE_MODE, 1);
++	if (rc)
++		return rc;
++
+ 	rc = at86rf230_write_subreg(lp, SR_IRQ_MASK, IRQ_TRX_END);
  	if (rc)
+ 		return rc;
 -- 
 2.0.1
+
+
+------------------------------------------------------------------------------
+Open source business process management suite built on Java and Eclipse
+Turn processes into business applications with Bonita BPM Community Edition
+Quickly connect people, data, and systems into organized workflows
+Winner of BOSSIE, CODIE, OW2 and Gartner awards
+http://p.sf.net/sfu/Bonitasoft
