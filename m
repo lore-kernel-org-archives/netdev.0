@@ -1,330 +1,385 @@
 From: Alexander Aring <alex.aring@gmail.com>
-Subject: [PATCH v2 net-next 01/13] mac802154: at86rf230: add hw flags and merge ops
-Date: Wed,  2 Jul 2014 17:09:58 +0200
-Message-ID: <1404313810-30232-2-git-send-email-alex.aring@gmail.com>
+Subject: [PATCH v2 net-next 02/13] at86rf230: add regmap support
+Date: Wed,  2 Jul 2014 17:09:59 +0200
+Message-ID: <1404313810-30232-3-git-send-email-alex.aring@gmail.com>
 References: <1404313810-30232-1-git-send-email-alex.aring@gmail.com>
 Cc: dbaryshkov@gmail.com, linux-zigbee-devel@lists.sourceforge.net,
 	netdev@vger.kernel.org, stilwellt@openlabs.co,
 	Alexander Aring <alex.aring@gmail.com>
 To: alex.bluesman.smirnov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f182.google.com ([209.85.212.182]:34158 "EHLO
-	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753718AbaGBPKU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2014 11:10:20 -0400
-Received: by mail-wi0-f182.google.com with SMTP id bs8so688427wib.9
-        for <netdev@vger.kernel.org>; Wed, 02 Jul 2014 08:10:19 -0700 (PDT)
+Received: from mail-wg0-f46.google.com ([74.125.82.46]:35809 "EHLO
+	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754297AbaGBPKX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2014 11:10:23 -0400
+Received: by mail-wg0-f46.google.com with SMTP id y10so11345891wgg.17
+        for <netdev@vger.kernel.org>; Wed, 02 Jul 2014 08:10:20 -0700 (PDT)
 In-Reply-To: <1404313810-30232-1-git-send-email-alex.aring@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds new mac802154 hw flags for transmit power, csma and
-listen before transmit (lbt). These flags indicates that the transceiver
-supports these features. If the flags are set and the driver doesn't
-implement the necessary functions, then ieee802154_register_device
-returns -ENOSYS "Function not implemented".
-
-This patch merges also all at86rf230 operations into one operations structure
-and set the right hw flags for the at86rf230 transceivers.
+This patch adds regmap support for the at86rf230 driver and drop the
+lowlevel spi access functions and use the regmap access functions.
 
 Signed-off-by: Alexander Aring <alex.aring@gmail.com>
 ---
- drivers/net/ieee802154/at86rf230.c | 81 +++++++++++++++++---------------------
- include/net/mac802154.h            | 19 +++++++++
- net/mac802154/ieee802154_dev.c     | 60 +++++++++++++++++++++-------
- 3 files changed, 102 insertions(+), 58 deletions(-)
+ drivers/net/ieee802154/Kconfig     |   1 +
+ drivers/net/ieee802154/at86rf230.c | 272 +++++++++++++++++++++++--------------
+ 2 files changed, 168 insertions(+), 105 deletions(-)
 
+diff --git a/drivers/net/ieee802154/Kconfig b/drivers/net/ieee802154/Kconfig
+index 8b7ae51..391a916 100644
+--- a/drivers/net/ieee802154/Kconfig
++++ b/drivers/net/ieee802154/Kconfig
+@@ -34,6 +34,7 @@ config IEEE802154_AT86RF230
+ 	depends on IEEE802154_DRIVERS && MAC802154
+ 	tristate "AT86RF230/231/233/212 transceiver driver"
+ 	depends on SPI
++	select REGMAP_SPI
+ 	---help---
+ 	  Say Y here to enable the at86rf230/231/233/212 SPI 802.15.4 wireless
+ 	  controller.
 diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
-index 5089941..dca6bae 100644
+index dca6bae..e369703 100644
 --- a/drivers/net/ieee802154/at86rf230.c
 +++ b/drivers/net/ieee802154/at86rf230.c
-@@ -784,7 +784,7 @@ at86rf230_set_hw_addr_filt(struct ieee802154_dev *dev,
+@@ -31,6 +31,7 @@
+ #include <linux/spinlock.h>
+ #include <linux/spi/spi.h>
+ #include <linux/spi/at86rf230.h>
++#include <linux/regmap.h>
+ #include <linux/skbuff.h>
+ #include <linux/of_gpio.h>
+ 
+@@ -50,6 +51,7 @@ struct at86rf230_local {
+ 	struct completion tx_complete;
+ 
+ 	struct ieee802154_dev *dev;
++	struct regmap *regmap;
+ 
+ 	spinlock_t lock;
+ 	bool irq_busy;
+@@ -256,6 +258,157 @@ static bool is_rf212(struct at86rf230_local *local)
+ #define STATE_BUSY_RX_AACK_NOCLK 0x1E
+ #define STATE_TRANSITION_IN_PROGRESS 0x1F
+ 
++#define AT86RF2XX_NUMREGS 0x3F
++
++static inline int
++__at86rf230_write(struct at86rf230_local *lp,
++		  unsigned int addr, unsigned int data)
++{
++	return regmap_write(lp->regmap, addr, data);
++}
++
++static inline int
++__at86rf230_read(struct at86rf230_local *lp,
++		 unsigned int addr, unsigned int *data)
++{
++	return regmap_read(lp->regmap, addr, data);
++}
++
++static inline int
++at86rf230_read_subreg(struct at86rf230_local *lp,
++		      unsigned int addr, unsigned int mask,
++		      unsigned int shift, unsigned int *data)
++{
++	int rc;
++
++	rc = __at86rf230_read(lp, addr, data);
++	if (rc > 0)
++		*data = (*data & mask) >> shift;
++
++	return rc;
++}
++
++static inline int
++at86rf230_write_subreg(struct at86rf230_local *lp,
++		       unsigned int addr, unsigned int mask,
++		       unsigned int shift, unsigned int data)
++{
++	return regmap_update_bits(lp->regmap, addr, mask, data << shift);
++}
++
++static bool
++at86rf230_reg_writeable(struct device *dev, unsigned int reg)
++{
++	switch (reg) {
++	case RG_TRX_STATE:
++	case RG_TRX_CTRL_0:
++	case RG_TRX_CTRL_1:
++	case RG_PHY_TX_PWR:
++	case RG_PHY_ED_LEVEL:
++	case RG_PHY_CC_CCA:
++	case RG_CCA_THRES:
++	case RG_RX_CTRL:
++	case RG_SFD_VALUE:
++	case RG_TRX_CTRL_2:
++	case RG_ANT_DIV:
++	case RG_IRQ_MASK:
++	case RG_VREG_CTRL:
++	case RG_BATMON:
++	case RG_XOSC_CTRL:
++	case RG_RX_SYN:
++	case RG_XAH_CTRL_1:
++	case RG_FTN_CTRL:
++	case RG_PLL_CF:
++	case RG_PLL_DCU:
++	case RG_SHORT_ADDR_0:
++	case RG_SHORT_ADDR_1:
++	case RG_PAN_ID_0:
++	case RG_PAN_ID_1:
++	case RG_IEEE_ADDR_0:
++	case RG_IEEE_ADDR_1:
++	case RG_IEEE_ADDR_2:
++	case RG_IEEE_ADDR_3:
++	case RG_IEEE_ADDR_4:
++	case RG_IEEE_ADDR_5:
++	case RG_IEEE_ADDR_6:
++	case RG_IEEE_ADDR_7:
++	case RG_XAH_CTRL_0:
++	case RG_CSMA_SEED_0:
++	case RG_CSMA_SEED_1:
++	case RG_CSMA_BE:
++		return true;
++	default:
++		return false;
++	}
++}
++
++static bool
++at86rf230_reg_readable(struct device *dev, unsigned int reg)
++{
++	bool rc;
++
++	/* all writeable are also readable */
++	rc = at86rf230_reg_writeable(dev, reg);
++	if (rc)
++		return rc;
++
++	/* readonly regs */
++	switch (reg) {
++	case RG_TRX_STATUS:
++	case RG_PHY_RSSI:
++	case RG_IRQ_STATUS:
++	case RG_PART_NUM:
++	case RG_VERSION_NUM:
++	case RG_MAN_ID_1:
++	case RG_MAN_ID_0:
++		return true;
++	default:
++		return false;
++	}
++}
++
++static bool
++at86rf230_reg_volatile(struct device *dev, unsigned int reg)
++{
++	/* can be changed during runtime */
++	switch (reg) {
++	case RG_TRX_STATUS:
++	case RG_TRX_STATE:
++	case RG_PHY_RSSI:
++	case RG_PHY_ED_LEVEL:
++	case RG_IRQ_STATUS:
++	case RG_VREG_CTRL:
++		return true;
++	default:
++		return false;
++	}
++}
++
++static bool
++at86rf230_reg_precious(struct device *dev, unsigned int reg)
++{
++	/* don't clear irq line on read */
++	switch (reg) {
++	case RG_IRQ_STATUS:
++		return true;
++	default:
++		return false;
++	}
++}
++
++static struct regmap_config at86rf230_regmap_spi_config = {
++	.reg_bits = 8,
++	.val_bits = 8,
++	.write_flag_mask = CMD_REG | CMD_WRITE,
++	.read_flag_mask = CMD_REG,
++	.cache_type = REGCACHE_RBTREE,
++	.max_register = AT86RF2XX_NUMREGS,
++	.writeable_reg = at86rf230_reg_writeable,
++	.readable_reg = at86rf230_reg_readable,
++	.volatile_reg = at86rf230_reg_volatile,
++	.precious_reg = at86rf230_reg_precious,
++};
++
+ static int
+ __at86rf230_detect_device(struct spi_device *spi, u16 *man_id, u8 *part,
+ 		u8 *version)
+@@ -308,105 +461,6 @@ __at86rf230_detect_device(struct spi_device *spi, u16 *man_id, u8 *part,
  }
  
  static int
--at86rf212_set_txpower(struct ieee802154_dev *dev, int db)
-+at86rf230_set_txpower(struct ieee802154_dev *dev, int db)
- {
- 	struct at86rf230_local *lp = dev->priv;
- 
-@@ -803,7 +803,7 @@ at86rf212_set_txpower(struct ieee802154_dev *dev, int db)
- }
- 
- static int
--at86rf212_set_lbt(struct ieee802154_dev *dev, bool on)
-+at86rf230_set_lbt(struct ieee802154_dev *dev, bool on)
- {
- 	struct at86rf230_local *lp = dev->priv;
- 
-@@ -811,7 +811,7 @@ at86rf212_set_lbt(struct ieee802154_dev *dev, bool on)
- }
- 
- static int
--at86rf212_set_cca_mode(struct ieee802154_dev *dev, u8 mode)
-+at86rf230_set_cca_mode(struct ieee802154_dev *dev, u8 mode)
- {
- 	struct at86rf230_local *lp = dev->priv;
- 
-@@ -819,7 +819,7 @@ at86rf212_set_cca_mode(struct ieee802154_dev *dev, u8 mode)
- }
- 
- static int
--at86rf212_set_cca_ed_level(struct ieee802154_dev *dev, s32 level)
-+at86rf230_set_cca_ed_level(struct ieee802154_dev *dev, s32 level)
- {
- 	struct at86rf230_local *lp = dev->priv;
- 	int desens_steps;
-@@ -833,7 +833,7 @@ at86rf212_set_cca_ed_level(struct ieee802154_dev *dev, s32 level)
- }
- 
- static int
--at86rf212_set_csma_params(struct ieee802154_dev *dev, u8 min_be, u8 max_be,
-+at86rf230_set_csma_params(struct ieee802154_dev *dev, u8 min_be, u8 max_be,
- 			  u8 retries)
- {
- 	struct at86rf230_local *lp = dev->priv;
-@@ -854,7 +854,7 @@ at86rf212_set_csma_params(struct ieee802154_dev *dev, u8 min_be, u8 max_be,
- }
- 
- static int
--at86rf212_set_frame_retries(struct ieee802154_dev *dev, s8 retries)
-+at86rf230_set_frame_retries(struct ieee802154_dev *dev, s8 retries)
- {
- 	struct at86rf230_local *lp = dev->priv;
- 	int rc = 0;
-@@ -878,22 +878,12 @@ static struct ieee802154_ops at86rf230_ops = {
- 	.start = at86rf230_start,
- 	.stop = at86rf230_stop,
- 	.set_hw_addr_filt = at86rf230_set_hw_addr_filt,
--};
+-__at86rf230_write(struct at86rf230_local *lp, u8 addr, u8 data)
+-{
+-	u8 *buf = lp->buf;
+-	int status;
+-	struct spi_message msg;
+-	struct spi_transfer xfer = {
+-		.len	= 2,
+-		.tx_buf	= buf,
+-	};
 -
--static struct ieee802154_ops at86rf212_ops = {
--	.owner = THIS_MODULE,
--	.xmit = at86rf230_xmit,
--	.ed = at86rf230_ed,
--	.set_channel = at86rf230_channel,
--	.start = at86rf230_start,
--	.stop = at86rf230_stop,
--	.set_hw_addr_filt = at86rf230_set_hw_addr_filt,
--	.set_txpower = at86rf212_set_txpower,
--	.set_lbt = at86rf212_set_lbt,
--	.set_cca_mode = at86rf212_set_cca_mode,
--	.set_cca_ed_level = at86rf212_set_cca_ed_level,
--	.set_csma_params = at86rf212_set_csma_params,
--	.set_frame_retries = at86rf212_set_frame_retries,
-+	.set_txpower = at86rf230_set_txpower,
-+	.set_lbt = at86rf230_set_lbt,
-+	.set_cca_mode = at86rf230_set_cca_mode,
-+	.set_cca_ed_level = at86rf230_set_cca_ed_level,
-+	.set_csma_params = at86rf230_set_csma_params,
-+	.set_frame_retries = at86rf230_set_frame_retries,
- };
+-	buf[0] = (addr & CMD_REG_MASK) | CMD_REG | CMD_WRITE;
+-	buf[1] = data;
+-	dev_vdbg(&lp->spi->dev, "buf[0] = %02x\n", buf[0]);
+-	dev_vdbg(&lp->spi->dev, "buf[1] = %02x\n", buf[1]);
+-	spi_message_init(&msg);
+-	spi_message_add_tail(&xfer, &msg);
+-
+-	status = spi_sync(lp->spi, &msg);
+-	dev_vdbg(&lp->spi->dev, "status = %d\n", status);
+-	if (msg.status)
+-		status = msg.status;
+-
+-	dev_vdbg(&lp->spi->dev, "status = %d\n", status);
+-	dev_vdbg(&lp->spi->dev, "buf[0] = %02x\n", buf[0]);
+-	dev_vdbg(&lp->spi->dev, "buf[1] = %02x\n", buf[1]);
+-
+-	return status;
+-}
+-
+-static int
+-__at86rf230_read_subreg(struct at86rf230_local *lp,
+-			u8 addr, u8 mask, int shift, u8 *data)
+-{
+-	u8 *buf = lp->buf;
+-	int status;
+-	struct spi_message msg;
+-	struct spi_transfer xfer = {
+-		.len	= 2,
+-		.tx_buf	= buf,
+-		.rx_buf	= buf,
+-	};
+-
+-	buf[0] = (addr & CMD_REG_MASK) | CMD_REG;
+-	buf[1] = 0xff;
+-	dev_vdbg(&lp->spi->dev, "buf[0] = %02x\n", buf[0]);
+-	spi_message_init(&msg);
+-	spi_message_add_tail(&xfer, &msg);
+-
+-	status = spi_sync(lp->spi, &msg);
+-	dev_vdbg(&lp->spi->dev, "status = %d\n", status);
+-	if (msg.status)
+-		status = msg.status;
+-
+-	dev_vdbg(&lp->spi->dev, "status = %d\n", status);
+-	dev_vdbg(&lp->spi->dev, "buf[0] = %02x\n", buf[0]);
+-	dev_vdbg(&lp->spi->dev, "buf[1] = %02x\n", buf[1]);
+-
+-	if (status == 0)
+-		*data = (buf[1] & mask) >> shift;
+-
+-	return status;
+-}
+-
+-static int
+-at86rf230_read_subreg(struct at86rf230_local *lp,
+-		      u8 addr, u8 mask, int shift, u8 *data)
+-{
+-	int status;
+-
+-	mutex_lock(&lp->bmux);
+-	status = __at86rf230_read_subreg(lp, addr, mask, shift, data);
+-	mutex_unlock(&lp->bmux);
+-
+-	return status;
+-}
+-
+-static int
+-at86rf230_write_subreg(struct at86rf230_local *lp,
+-		       u8 addr, u8 mask, int shift, u8 data)
+-{
+-	int status;
+-	u8 val;
+-
+-	mutex_lock(&lp->bmux);
+-	status = __at86rf230_read_subreg(lp, addr, 0xff, 0, &val);
+-	if (status)
+-		goto out;
+-
+-	val &= ~mask;
+-	val |= (data << shift) & mask;
+-
+-	status = __at86rf230_write(lp, addr, val);
+-out:
+-	mutex_unlock(&lp->bmux);
+-
+-	return status;
+-}
+-
+-static int
+ at86rf230_write_fbuf(struct at86rf230_local *lp, u8 *data, u8 len)
+ {
+ 	u8 *buf = lp->buf;
+@@ -520,7 +574,7 @@ at86rf230_state(struct ieee802154_dev *dev, int state)
+ {
+ 	struct at86rf230_local *lp = dev->priv;
+ 	int rc;
+-	u8 val;
++	unsigned int val;
+ 	u8 desired_status;
  
- static void at86rf230_irqwork(struct work_struct *work)
-@@ -1048,7 +1038,6 @@ static int at86rf230_probe(struct spi_device *spi)
+ 	might_sleep();
+@@ -890,12 +944,11 @@ static void at86rf230_irqwork(struct work_struct *work)
+ {
+ 	struct at86rf230_local *lp =
+ 		container_of(work, struct at86rf230_local, irqwork);
+-	u8 status = 0, val;
++	unsigned int status;
+ 	int rc;
+ 	unsigned long flags;
+ 
+-	rc = at86rf230_read_subreg(lp, RG_IRQ_STATUS, 0xff, 0, &val);
+-	status |= val;
++	rc = at86rf230_read_subreg(lp, RG_IRQ_STATUS, 0xff, 0, &status);
+ 
+ 	status &= ~IRQ_PLL_LOCK; /* ignore */
+ 	status &= ~IRQ_RX_START; /* ignore */
+@@ -954,7 +1007,7 @@ static irqreturn_t at86rf230_isr_level(int irq, void *data)
+ static int at86rf230_hw_init(struct at86rf230_local *lp)
+ {
+ 	int rc, irq_pol, irq_type;
+-	u8 dvdd;
++	unsigned int dvdd;
+ 	u8 csma_seed[2];
+ 
+ 	rc = at86rf230_write_subreg(lp, SR_TRX_CMD, STATE_FORCE_TRX_OFF);
+@@ -1033,7 +1086,8 @@ static int at86rf230_probe(struct spi_device *spi)
+ 	struct ieee802154_dev *dev;
+ 	struct at86rf230_local *lp;
+ 	u16 man_id = 0;
+-	u8 part = 0, version = 0, status;
++	u8 part = 0, version = 0;
++	unsigned int status;
+ 	irq_handler_t irq_handler;
  	work_func_t irq_worker;
  	int rc, irq_type;
- 	const char *chip;
--	struct ieee802154_ops *ops = NULL;
- 
- 	if (!spi->irq) {
- 		dev_err(&spi->dev, "no IRQ specified\n");
-@@ -1084,9 +1073,25 @@ static int at86rf230_probe(struct spi_device *spi)
- 		usleep_range(120, 240);
- 	}
- 
-+	dev = ieee802154_alloc_device(sizeof(*lp), &at86rf230_ops);
-+	if (!dev)
-+		return -ENOMEM;
-+
-+	lp = dev->priv;
-+	lp->dev = dev;
-+	lp->part = part;
-+	lp->vers = version;
-+
-+	lp->spi = spi;
-+
-+	dev->parent = &spi->dev;
-+	dev->extra_tx_headroom = 0;
-+	dev->flags = IEEE802154_HW_OMIT_CKSUM | IEEE802154_HW_AACK |
-+		     IEEE802154_HW_TXPOWER | IEEE802154_HW_CSMA;
-+
- 	rc = __at86rf230_detect_device(spi, &man_id, &part, &version);
+@@ -1128,6 +1182,14 @@ static int at86rf230_probe(struct spi_device *spi)
  	if (rc < 0)
--		return rc;
+ 		goto free_dev;
+ 
++	lp->regmap = devm_regmap_init_spi(spi, &at86rf230_regmap_spi_config);
++	if (IS_ERR(lp->regmap)) {
++		rc = PTR_ERR(lp->regmap);
++		dev_err(&spi->dev, "Failed to allocate register map: %d\n",
++			rc);
 +		goto free_dev;
- 
- 	if (man_id != 0x001f) {
- 		dev_err(&spi->dev, "Non-Atmel dev found (MAN_ID %02x %02x)\n",
-@@ -1097,44 +1102,31 @@ static int at86rf230_probe(struct spi_device *spi)
- 	switch (part) {
- 	case 2:
- 		chip = "at86rf230";
-+		rc = -ENOTSUPP;
- 		/* FIXME: should be easy to support; */
- 		break;
- 	case 3:
- 		chip = "at86rf231";
--		ops = &at86rf230_ops;
- 		break;
- 	case 7:
- 		chip = "at86rf212";
- 		if (version == 1)
--			ops = &at86rf212_ops;
-+			dev->flags |= IEEE802154_HW_LBT;
-+		else
-+			rc = -ENOTSUPP;
- 		break;
- 	case 11:
- 		chip = "at86rf233";
--		ops = &at86rf230_ops;
- 		break;
- 	default:
- 		chip = "UNKNOWN";
-+		rc = -ENOTSUPP;
- 		break;
- 	}
- 
- 	dev_info(&spi->dev, "Detected %s chip version %d\n", chip, version);
--	if (!ops)
--		return -ENOTSUPP;
--
--	dev = ieee802154_alloc_device(sizeof(*lp), ops);
--	if (!dev)
--		return -ENOMEM;
--
--	lp = dev->priv;
--	lp->dev = dev;
--	lp->part = part;
--	lp->vers = version;
--
--	lp->spi = spi;
--
--	dev->parent = &spi->dev;
--	dev->extra_tx_headroom = 0;
--	dev->flags = IEEE802154_HW_OMIT_CKSUM | IEEE802154_HW_AACK;
-+	if (rc < 0)
-+		goto free_dev;
- 
++	}
++
  	irq_type = irq_get_trigger_type(spi->irq);
  	if (!irq_type)
-@@ -1185,6 +1177,7 @@ static int at86rf230_probe(struct spi_device *spi)
- err_hw_init:
- 	flush_work(&lp->irqwork);
- 	mutex_destroy(&lp->bmux);
-+free_dev:
- 	ieee802154_free_device(lp->dev);
- 
- 	return rc;
-diff --git a/include/net/mac802154.h b/include/net/mac802154.h
-index a591053..2e67cdd 100644
---- a/include/net/mac802154.h
-+++ b/include/net/mac802154.h
-@@ -80,6 +80,25 @@ struct ieee802154_dev {
- #define	IEEE802154_HW_OMIT_CKSUM	0x00000001
- /* Indicates that receiver will autorespond with ACK frames. */
- #define	IEEE802154_HW_AACK		0x00000002
-+/* Indicates that transceiver will support transmit power setting. */
-+#define	IEEE802154_HW_TXPOWER		0x00000004
-+/* Indicates that transceiver will support listen before transmit. */
-+#define	IEEE802154_HW_LBT		0x00000008
-+/* Indicates that transceiver will support cca mode setting. */
-+#define	IEEE802154_HW_CCA_MODE		0x00000010
-+/* Indicates that transceiver will support cca ed level setting. */
-+#define	IEEE802154_HW_CCA_ED_LEVEL	0x00000020
-+/* Indicates that transceiver will support csma (max_be, min_be, csma retries)
-+ * settings. */
-+#define	IEEE802154_HW_CSMA_PARAMS	0x00000040
-+/* Indicates that transceiver will support ARET frame retries setting. */
-+#define	IEEE802154_HW_FRAME_RETRIES	0x00000080
-+
-+/* This groups the most common CSMA support fields into one. */
-+#define IEEE802154_HW_CSMA		(IEEE802154_HW_CCA_MODE | \
-+					 IEEE802154_HW_CCA_ED_LEVEL | \
-+					 IEEE802154_HW_CSMA_PARAMS | \
-+					 IEEE802154_HW_FRAME_RETRIES)
- 
- /* struct ieee802154_ops - callbacks from mac802154 to the driver
-  *
-diff --git a/net/mac802154/ieee802154_dev.c b/net/mac802154/ieee802154_dev.c
-index 2cf66d8..0e7befc 100644
---- a/net/mac802154/ieee802154_dev.c
-+++ b/net/mac802154/ieee802154_dev.c
-@@ -302,29 +302,61 @@ EXPORT_SYMBOL(ieee802154_free_device);
- int ieee802154_register_device(struct ieee802154_dev *dev)
- {
- 	struct mac802154_priv *priv = mac802154_to_priv(dev);
--	int rc = -ENOMEM;
-+	int rc = -ENOSYS;
-+
-+	if (dev->flags & IEEE802154_HW_TXPOWER) {
-+		if (!priv->ops->set_txpower)
-+			goto out;
-+
-+		priv->phy->set_txpower = mac802154_set_txpower;
-+	}
-+
-+	if (dev->flags & IEEE802154_HW_LBT) {
-+		if (!priv->ops->set_lbt)
-+			goto out;
-+
-+		priv->phy->set_lbt = mac802154_set_lbt;
-+	}
-+
-+	if (dev->flags & IEEE802154_HW_CCA_MODE) {
-+		if (!priv->ops->set_cca_mode)
-+			goto out;
-+
-+		priv->phy->set_cca_mode = mac802154_set_cca_mode;
-+	}
-+
-+	if (dev->flags & IEEE802154_HW_CCA_ED_LEVEL) {
-+		if (!priv->ops->set_cca_ed_level)
-+			goto out;
-+
-+		priv->phy->set_cca_ed_level = mac802154_set_cca_ed_level;
-+	}
-+
-+	if (dev->flags & IEEE802154_HW_CSMA_PARAMS) {
-+		if (!priv->ops->set_csma_params)
-+			goto out;
-+
-+		priv->phy->set_csma_params = mac802154_set_csma_params;
-+	}
-+
-+	if (dev->flags & IEEE802154_HW_FRAME_RETRIES) {
-+		if (!priv->ops->set_frame_retries)
-+			goto out;
-+
-+		priv->phy->set_frame_retries = mac802154_set_frame_retries;
-+	}
- 
- 	priv->dev_workqueue =
- 		create_singlethread_workqueue(wpan_phy_name(priv->phy));
--	if (!priv->dev_workqueue)
-+	if (!priv->dev_workqueue) {
-+		rc = -ENOMEM;
- 		goto out;
-+	}
- 
- 	wpan_phy_set_dev(priv->phy, priv->hw.parent);
- 
- 	priv->phy->add_iface = mac802154_add_iface;
- 	priv->phy->del_iface = mac802154_del_iface;
--	if (priv->ops->set_txpower)
--		priv->phy->set_txpower = mac802154_set_txpower;
--	if (priv->ops->set_lbt)
--		priv->phy->set_lbt = mac802154_set_lbt;
--	if (priv->ops->set_cca_mode)
--		priv->phy->set_cca_mode = mac802154_set_cca_mode;
--	if (priv->ops->set_cca_ed_level)
--		priv->phy->set_cca_ed_level = mac802154_set_cca_ed_level;
--	if (priv->ops->set_csma_params)
--		priv->phy->set_csma_params = mac802154_set_csma_params;
--	if (priv->ops->set_frame_retries)
--		priv->phy->set_frame_retries = mac802154_set_frame_retries;
- 
- 	rc = wpan_phy_register(priv->phy);
- 	if (rc < 0)
+ 		irq_type = IRQF_TRIGGER_RISING;
 -- 
 2.0.1
