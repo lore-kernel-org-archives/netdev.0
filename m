@@ -1,98 +1,118 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH net v2] igmp: fix the problem when mc leave group
-Date: Wed, 2 Jul 2014 13:50:48 +0800
-Message-ID: <53B39DB8.2060306@huawei.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH RFC net-next 08/14] bpf: add eBPF verifier
+Date: Tue, 1 Jul 2014 22:57:49 -0700
+Message-ID: <CAMEtUuztwZQ_kvKEYKgjUp0yRdkao=yCdp3xXkXQJCMYXos2Qg@mail.gmail.com>
+References: <1403913966-4927-1-git-send-email-ast@plumgrid.com>
+	<1403913966-4927-9-git-send-email-ast@plumgrid.com>
+	<87y4wc4aff.fsf@sejong.aot.lge.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:40474 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751797AbaGBFvF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2014 01:51:05 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Chema Gonzalez <chema@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Jiri Olsa <jolsa@redhat.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kees Cook <keescook@chromium.org>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Namhyung Kim <namhyung@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87y4wc4aff.fsf@sejong.aot.lge.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The problem was triggered by these steps:
+On Tue, Jul 1, 2014 at 10:05 PM, Namhyung Kim <namhyung@gmail.com> wrote:
+> Mostly questions and few nitpicks.. :)
 
-1) create socket, bind and then setsockopt for add mc group.
-   mreq.imr_multiaddr.s_addr = inet_addr("255.0.0.37");
-   mreq.imr_interface.s_addr = inet_addr("192.168.1.2");
-   setsockopt(sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
+great questions. Thank you for review! Answers below:
 
-2) drop the mc group for this socket.
-   mreq.imr_multiaddr.s_addr = inet_addr("255.0.0.37");
-   mreq.imr_interface.s_addr = inet_addr("0.0.0.0");
-   setsockopt(sockfd, IPPROTO_IP, IP_DROP_MEMBERSHIP, &mreq, sizeof(mreq));
+> On Fri, 27 Jun 2014 17:06:00 -0700, Alexei Starovoitov wrote:
+>> +/* types of values:
+>> + * - stored in an eBPF register
+>> + * - passed into helper functions as an argument
+>> + * - returned from helper functions
+>> + */
+>> +enum bpf_reg_type {
+>> +     INVALID_PTR,                    /* reg doesn't contain a valid pointer */
+>
+> I don't think it's a good name.  The INVALID_PTR can be read as it
+> contains a "pointer" which is invalid.  Maybe INTEGER, NUMBER or
+> something different can be used.  And I think the struct reg_state->ptr
+> should be renamed also.
 
-3) and then drop the socket, I found the mc group was still used by the dev:
+ok. I agree that 'invalid' part of the name is too negative.
+May be 'unknown_value' ?
 
-   netstat -g
+>> +     PTR_TO_CTX,                     /* reg points to bpf_context */
+>> +     PTR_TO_MAP,                     /* reg points to map element value */
+>> +     PTR_TO_MAP_CONDITIONAL,         /* points to map element value or NULL */
+>> +     PTR_TO_STACK,                   /* reg == frame_pointer */
+>> +     PTR_TO_STACK_IMM,               /* reg == frame_pointer + imm */
+>> +     PTR_TO_STACK_IMM_MAP_KEY,       /* pointer to stack used as map key */
+>> +     PTR_TO_STACK_IMM_MAP_VALUE,     /* pointer to stack used as map elem */
+>
+> So, these PTR_TO_STACK_IMM[_*] types are only for function argument,
+> right?  I guessed it could be used to access memory in general too, but
+> then I thought it'd make verification complicated..
+>
+> And I also agree that it'd better splitting reg types and function
+> argument constraints.
 
-   Interface       RefCnt Group
-   --------------- ------ ---------------------
-   eth2		   1	  255.0.0.37
+Ok. Will split this enum into three.
 
-Normally even though the IP_DROP_MEMBERSHIP return error, the mc group still need
-to be released for the netdev when drop the socket, but this process was broken when
-route default is NULL, the reason is that:
+>> +
+>> +/* check read/write into map element returned by bpf_table_lookup() */
+>> +static int check_table_access(struct verifier_env *env, int regno, int off,
+>> +                           int size)
+>
+> I guess the "table" is an old name of the "map"?
 
-The ip_mc_leave_group() will choose the in_dev by the imr_interface.s_addr, if input addr
-is NULL, the default route dev will be chosen, then the ifindex is got from the dev,
-then polling the inet->mc_list and return -ENODEV, but if the default route dev is NULL,
-the in_dev and ifIndex is both NULL, when polling the inet->mc_list, the mc group will be
-released from the mc_list, but the dev didn't dec the refcnt for this mc group, so
-when dropping the socket, the mc_list is NULL and the dev still keep this group.
+oops :) Yes. I've been calling them 'bpf tables' initially, but it created too
+strong of a correlation to 'hash table', so I've changed the name to 'map'
+to stress that this is a generic key/value and not just hash table.
 
-v1->v2: According Hideaki's suggestion, we should align with IPv6 (RFC3493) and BSDs,
-	so I add the checking for the in_dev before polling the mc_list, make sure when
-	we remove the mc group, dec the refcnt to the real dev which was using the mc address.
-	The problem would never happened again.
+>> +     } else if (state->regs[regno].ptr == PTR_TO_STACK) {
+>> +             if (off >= 0 || off < -MAX_BPF_STACK) {
+>> +                     verbose("invalid stack off=%d size=%d\n", off, size);
+>> +                     return -EACCES;
+>> +             }
+>
+> So memory (stack) access is only allowed for a stack base regsiter and a
+> constant offset, right?
 
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
----
- net/ipv4/igmp.c | 10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
+Correct.
+In other words it allows instructions:
+BPF_STX_MEM(BPF_W, BPF_REG_10, BPF_REG_xx, -stack_offset);
 
-diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-index 17d34e3..7fb6565 100644
---- a/net/ipv4/igmp.c
-+++ b/net/ipv4/igmp.c
-@@ -1944,6 +1944,10 @@ int ip_mc_leave_group(struct sock *sk, struct ip_mreqn *imr)
- 
- 	rtnl_lock();
- 	in_dev = ip_mc_find_dev(net, imr);
-+	if (!in_dev) {
-+		ret = -ENODEV;
-+		goto out;
-+	}
- 	ifindex = imr->imr_ifindex;
- 	for (imlp = &inet->mc_list;
- 	     (iml = rtnl_dereference(*imlp)) != NULL;
-@@ -1961,16 +1965,14 @@ int ip_mc_leave_group(struct sock *sk, struct ip_mreqn *imr)
- 
- 		*imlp = iml->next_rcu;
- 
--		if (in_dev)
--			ip_mc_dec_group(in_dev, group);
-+		ip_mc_dec_group(in_dev, group);
- 		rtnl_unlock();
- 		/* decrease mem now to avoid the memleak warning */
- 		atomic_sub(sizeof(*iml), &sk->sk_omem_alloc);
- 		kfree_rcu(iml, rcu);
- 		return 0;
- 	}
--	if (!in_dev)
--		ret = -ENODEV;
-+out:
- 	rtnl_unlock();
- 	return ret;
- }
--- 
-1.7.12
+Verifier makes no attempt to track pointer arithmetic and just marks
+the result as 'invalid_ptr'.
+For non-root programs it will reject programs that are trying to do
+arithmetic on pointers (it's not part of this patch yet).
+
+>> +     /* check args */
+>> +     _(check_func_arg(env, BPF_REG_1, fn->arg1_type, &map_id, &map));
+>> +     _(check_func_arg(env, BPF_REG_2, fn->arg2_type, &map_id, &map));
+>> +     _(check_func_arg(env, BPF_REG_3, fn->arg3_type, &map_id, &map));
+>> +     _(check_func_arg(env, BPF_REG_4, fn->arg4_type, &map_id, &map));
+>
+> Missing BPF_REG_5?
+
+yes. good catch.
+I guess this shows that we didn't have a use case for function with 5 args :)
+Will fix this.
+
+>> +#define PEAK_INT() \
+>
+> s/PEAK/PEEK/ ?
+
+aren't these the same? ;))
+Will fix. Thanks!
