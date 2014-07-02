@@ -1,94 +1,73 @@
-From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v2 net-next 00/13] at86rf230: rework
-	driver implementation
-Date: Wed,  2 Jul 2014 17:09:57 +0200
-Message-ID: <1404313810-30232-1-git-send-email-alex.aring@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: [PATCH v2 net-next 12/13] at86rf230: add sleep cycle timing
+Date: Wed,  2 Jul 2014 17:10:09 +0200
+Message-ID: <1404313810-30232-13-git-send-email-alex.aring@gmail.com>
+References: <1404313810-30232-1-git-send-email-alex.aring@gmail.com>
+Cc: dbaryshkov@gmail.com, linux-zigbee-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, stilwellt@openlabs.co,
+	Alexander Aring <alex.aring@gmail.com>
+To: alex.bluesman.smirnov@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f180.google.com ([74.125.82.180]:45665 "EHLO
+	mail-we0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754460AbaGBPKa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2014 11:10:30 -0400
+Received: by mail-we0-f180.google.com with SMTP id x48so11429388wes.11
+        for <netdev@vger.kernel.org>; Wed, 02 Jul 2014 08:10:29 -0700 (PDT)
+In-Reply-To: <1404313810-30232-1-git-send-email-alex.aring@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Signed-off-by: Alexander Aring <alex.aring@gmail.com>
+---
+ drivers/net/ieee802154/at86rf230.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
-This patch series includes a rework of the at86rf230 driver.
-
-There are several changes:
-
- - Add regmap support.
- - Merge at86rf212 operations with generic at86rf2xx operations, all chips
-   supports these operations.
- - Drop of irqworker. This is a workqueue which will scheduled by an irq to
-   handle synchronous spi handling. Instead using asynchronous spi handling,
-   then no scheduler is involved at irq handling.
- - Also detected some bugs by receiving frame like CRC can be correct and a
-   802.15.4 frame length could be above 127 bytes. This would crash the whole
-   kernel (but should be handled by the mac layer). Another bug is the handling
-   with RX_SAFE_MODE which protect the frame buffer after a readout. This is
-   currently not working because we read out the buffer twice and the first one
-   to get the frame size. Solution is to readout always the whole frame buffer.
- - Added some timing relevants things from the datasheet for state changes And
-   IEEE 802.15.4 standard like interframe spacing. Interframe spacing is needed
-   to insert some receiving space time between frame transmitting. This should be
-   also handled by MAC layer, but it's currently a workaround to add this inside
-   the driver layer.
- - Add some callback setting for chip specific handling, instead of runtime decisions
-   if (is_chip_type()). Callbacks are set only once at probe time.
- - We don't using a force state change anymore. A force state change will do a
-   abort of receiving frames while we want to transmit a new frame. This should
-   decrease the drop rate of packets.
- - And many others changes and bug fixes...
-
-
-- Alex
-
-changes since v2:
- - add check if necessary functions are implemented when hw flags are set in patch
-   ("mac802154: at86rf230: add hw flags and merge ops"). I choosed the second variant.
- - remove unnecessary includes for workqueue and mutex in patch
-   ("at86rf230: rework transmit and receive").
- - remove unnecessary cast in patch ("at86rf230: rework transmit and receive").
- - acivate regmap cache with REGCACHE_RBTREE in patch
-   ("at86rf230: add regmap support").
-
-Alexander Aring (13):
-  mac802154: at86rf230: add hw flags and merge ops
-  at86rf230: add regmap support
-  at86rf230: rework detect device handling
-  at86rf230: remove is212 and add driver data
-  at86rf230: add support for at86rf23x desense
-  at86rf230: rework transmit and receive handling
-  at86rf230: move RX_SAFE_MODE setting to hw_init
-  at86rf230: rework irq_pol setting
-  at86rf230: rework state change and start/stop
-  at86rf230: rework reset to trx_off state change
-  at86rf230: add timing for channel switch
-  at86rf230: add sleep cycle timing
-  at86rf230: add new author
-
- drivers/net/ieee802154/Kconfig     |    1 +
- drivers/net/ieee802154/at86rf230.c | 1466 +++++++++++++++++++++++-------------
- include/net/mac802154.h            |   19 +
- net/mac802154/ieee802154_dev.c     |   60 +-
- 4 files changed, 991 insertions(+), 555 deletions(-)
-
+diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
+index 517a30f..336940b 100644
+--- a/drivers/net/ieee802154/at86rf230.c
++++ b/drivers/net/ieee802154/at86rf230.c
+@@ -42,6 +42,7 @@ struct at86rf230_local;
+  * All timings are in us.
+  */
+ struct at86rf2xx_chip_data {
++	u16 t_sleep_cycle;
+ 	u16 t_channel_switch;
+ 	u16 t_reset_to_off;
+ 	u16 t_off_to_aack;
+@@ -1250,6 +1251,7 @@ static struct ieee802154_ops at86rf230_ops = {
+ };
+ 
+ static struct at86rf2xx_chip_data at86rf233_data = {
++	.t_sleep_cycle = 330,
+ 	.t_channel_switch = 11,
+ 	.t_reset_to_off = 26,
+ 	.t_off_to_aack = 80,
+@@ -1265,6 +1267,7 @@ static struct at86rf2xx_chip_data at86rf233_data = {
+ };
+ 
+ static struct at86rf2xx_chip_data at86rf231_data = {
++	.t_sleep_cycle = 330,
+ 	.t_channel_switch = 24,
+ 	.t_reset_to_off = 37,
+ 	.t_off_to_aack = 110,
+@@ -1280,6 +1283,7 @@ static struct at86rf2xx_chip_data at86rf231_data = {
+ };
+ 
+ static struct at86rf2xx_chip_data at86rf212_data = {
++	.t_sleep_cycle = 330,
+ 	.t_channel_switch = 11,
+ 	.t_reset_to_off = 26,
+ 	.t_off_to_aack = 200,
+@@ -1338,7 +1342,8 @@ static int at86rf230_hw_init(struct at86rf230_local *lp)
+ 	if (rc)
+ 		return rc;
+ 	/* Wait the next SLEEP cycle */
+-	msleep(100);
++	usleep_range(lp->data->t_sleep_cycle,
++		     lp->data->t_sleep_cycle + 100);
+ 
+ 	rc = at86rf230_read_subreg(lp, SR_DVDD_OK, &dvdd);
+ 	if (rc)
 -- 
 2.0.1
-
-
-------------------------------------------------------------------------------
-Open source business process management suite built on Java and Eclipse
-Turn processes into business applications with Bonita BPM Community Edition
-Quickly connect people, data, and systems into organized workflows
-Winner of BOSSIE, CODIE, OW2 and Gartner awards
-http://p.sf.net/sfu/Bonitasoft
