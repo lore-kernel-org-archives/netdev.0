@@ -1,102 +1,75 @@
-From: Alban Crequy <alban.crequy@collabora.co.uk>
-Subject: Fw: CVE-2014-3532, -3533: two local DoS vulnerabilities in
- dbus-daemon
-Date: Wed, 2 Jul 2014 17:48:19 +0100
-Message-ID: <20140702174819.6a365ae8@rainbow.cbg.collabora.co.uk>
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: Re: [PATCH v2 net-next 08/13] at86rf230: rework irq_pol setting
+Date: Wed, 2 Jul 2014 18:57:56 +0200
+Message-ID: <20140702165754.GA9506@omega>
+References: <1404313810-30232-1-git-send-email-alex.aring@gmail.com>
+ <1404313810-30232-9-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	Simon McVittie <simon.mcvittie@collabora.co.uk>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Cc: dbaryshkov@gmail.com, linux-zigbee-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, stilwellt@openlabs.co
+To: alex.bluesman.smirnov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bhuna.collabora.co.uk ([93.93.135.160]:36986 "EHLO
-	bhuna.collabora.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751717AbaGBQsZ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2014 12:48:25 -0400
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:55135 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964769AbaGBQ6E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2014 12:58:04 -0400
+Received: by mail-wi0-f176.google.com with SMTP id n3so10015676wiv.15
+        for <netdev@vger.kernel.org>; Wed, 02 Jul 2014 09:58:02 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1404313810-30232-9-git-send-email-alex.aring@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Hi,
 
-A security issue was discovered and fixed in dbus-daemon:
-CVE-2014-3532 https://bugs.freedesktop.org/show_bug.cgi?id=3D80163
+On Wed, Jul 02, 2014 at 05:10:05PM +0200, Alexander Aring wrote:
+> This patch rework the irq_pol register setting for rising and falling
+> interrupt settings only. The default behaviour should be rising flag.
+> 
+> Also use IRQ_TYPE_* defines instead of IRQF_* defines. There is no
+> functionality change but irq_get_trigger_type returns IRQ_TYPE_* defines.
+> 
+> Signed-off-by: Alexander Aring <alex.aring@gmail.com>
+> ---
+>  drivers/net/ieee802154/at86rf230.c | 9 +++------
+>  1 file changed, 3 insertions(+), 6 deletions(-)
+> 
+> diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
+> index 492fb7e..2340750 100644
+> --- a/drivers/net/ieee802154/at86rf230.c
+> +++ b/drivers/net/ieee802154/at86rf230.c
+> @@ -1276,7 +1276,7 @@ static struct at86rf2xx_chip_data at86rf212_data = {
+>  
+>  static int at86rf230_hw_init(struct at86rf230_local *lp)
+>  {
+> -	int rc, irq_pol, irq_type;
+> +	int rc, irq_pol, irq_type = IRQ_ACTIVE_HIGH;
 
-I am notifying you because the issue is related to the Linux commit:
+this should be:
 
-> commit 25888e30319f8896fc656fc68643e6a078263060
-> Author: Eric Dumazet <eric.dumazet@gmail.com>
-> Date:   Thu Nov 25 04:11:39 2010 +0000
->=20
->     af_unix: limit recursion level
+int rc, irq_type, irq_pol = IRQ_ACTIVE_HIGH;
 
-and I wonder if you know any other software forwarding untrusted fds
-from one unix socket to another. If so, they might be affected in a
-similar way. I am not aware of any other software doing that, but if
-they exist, it would be nice to tell them.
+>  	unsigned int dvdd;
+>  	u8 csma_seed[2];
+>  
+> @@ -1285,11 +1285,8 @@ static int at86rf230_hw_init(struct at86rf230_local *lp)
+>  		return rc;
+>  
+>  	irq_type = irq_get_trigger_type(lp->spi->irq);
+> -	/* configure irq polarity, defaults to high active */
+> -	if (irq_type & (IRQF_TRIGGER_FALLING | IRQF_TRIGGER_LOW))
+> -		irq_pol = IRQ_ACTIVE_LOW;
+> -	else
+> -		irq_pol = IRQ_ACTIVE_HIGH;
+> +	if (irq_type == IRQ_TYPE_EDGE_FALLING)
+> +		irq_type = IRQ_ACTIVE_LOW;
 
-Best regards,
-Alban
+and this:
 
-=3D=3D=3D=3D=3D
+if (irq_type == IRQ_TYPE_EDGE_FALLING)
+	irq_pol = IRQ_ACTIVE_LOW;
 
-Begin forwarded message:
+Sorry, I will send a v3.
 
-Date: Wed, 02 Jul 2014 17:04:16 +0100
-=46rom: Simon McVittie <simon.mcvittie@collabora.co.uk>
-To: oss-security@lists.openwall.com,  "dbus@lists.freedesktop.org"
-<dbus@lists.freedesktop.org>
-Cc: Alban Cr=C3=A9quy <alban.crequy@collabora.co.uk>,  Colin Walters
-<walters@verbum.org>, Thiago Macieira <thiago@kde.org>
-Subject: CVE-2014-3532, -3533: two local DoS vulnerabilities in
-dbus-daemon
-
-
-Impact: denial of service (force system services to exit)
-Access required: local
-Versions affected by CVE-2014-3532: dbus >=3D 1.3.0 on Linux >=3D 2.6.3=
-7-rc4
-Versions affected by CVE-2014-3533: dbus >=3D 1.3.0 on all Unix platfor=
-ms
-
-Alban Crequy at Collabora Ltd. discovered a bug in dbus-daemon's suppor=
-t
-for file descriptor passing. A malicious process could force system
-services or user applications to be disconnected from the D-Bus system
-bus by sending them a message containing a file descriptor, then causin=
-g
-that file descriptor to exceed the kernel's maximum recursion depth
-(itself introduced to fix a DoS) before dbus-daemon forwards the messag=
-e
-to the victim process. Most services and applications exit when
-disconnected from the system bus, leading to a denial of service. This
-is tracked as fd.o#80163 and CVE-2014-3532.
-
-Additionally, Alban discovered that bug fd.o#79694, a bug previously
-reported by Alejandro Mart=C3=ADnez Su=C3=A1rez which was not believed =
-to be a
-security flaw, could be used for a similar denial of service, by causin=
-g
-dbus-daemon to attempt to forward invalid file descriptors to a victim
-process when file descriptors become associated with the wrong message.
-Its security implications are tracked as fd.o#80469 and CVE-2014-3533.
-
-=46or the 1.8.x stable branch, these vulnerabilities are fixed in versi=
-on
-1.8.6. For the 1.6.x old-stable branch, these vulnerabilities are fixed
-in version 1.6.22.
-
-All earlier versions of dbus with the file descriptor passing feature
-(1.3.0 and up) are believed to be vulnerable. Distributions that
-backport security fixes should backport git commits
-07f4c12efe3b9bd45d109bc5fbaf6d9dbf69d78e and
-9ca90648fc870c24d852ce6d7ce9387a9fc9a94a, attached.
-
-References:
-
-[fd.o#79694] https://bugs.freedesktop.org/show_bug.cgi?id=3D79694
-[fd.o#80469] https://bugs.freedesktop.org/show_bug.cgi?id=3D80469
-[fd.o#80163] https://bugs.freedesktop.org/show_bug.cgi?id=3D80163
-
-Regards,
-    S
+- Alex
