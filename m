@@ -1,80 +1,53 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [RFC PATCH net-next 1/5] netns: allocate netns ids
-Date: Wed, 02 Jul 2014 15:57:32 +0200
-Message-ID: <53B40FCC.4050603@6wind.com>
-References: <537327F1.4060603@6wind.com> <1404302346-4507-1-git-send-email-nicolas.dichtel@6wind.com> <1404302346-4507-2-git-send-email-nicolas.dichtel@6wind.com> <53B40A15.3030603@cogentembedded.com>
-Reply-To: nicolas.dichtel@6wind.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, ebiederm@xmission.com,
-	stephen@networkplumber.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	netdev@vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net] net/mlx4_en: Don't configure the HW vxlan parser when vxlan offloading isn't set
+Date: Wed,  2 Jul 2014 17:36:23 +0300
+Message-ID: <1404311783-7963-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, amirv@mellanox.com,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f46.google.com ([74.125.82.46]:61698 "EHLO
-	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751770AbaGBN5q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2014 09:57:46 -0400
-Received: by mail-wg0-f46.google.com with SMTP id y10so11239495wgg.17
-        for <netdev@vger.kernel.org>; Wed, 02 Jul 2014 06:57:44 -0700 (PDT)
-In-Reply-To: <53B40A15.3030603@cogentembedded.com>
+Received: from mailp.voltaire.com ([193.47.165.129]:57147 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753499AbaGBOg3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Jul 2014 10:36:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 02/07/2014 15:33, Sergei Shtylyov a =E9crit :
-> Hello.
->
-> On 07/02/2014 03:59 PM, Nicolas Dichtel wrote:
->
->> With this patch, netns allocates ids for all netns. Each netns has i=
-ts own list
->> of ids, it means that the id is valid only in the current netns.
->
->> For homogeneity, an id is also allocated for the netns owner itself.
->
->> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> [...]
->
->> diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
->> index 85b62691f4f2..2976864cef13 100644
->> --- a/net/core/net_namespace.c
->> +++ b/net/core/net_namespace.c
->> @@ -144,6 +144,30 @@ static void ops_free_list(const struct pernet_o=
-perations
->> *ops,
->>       }
->>   }
->>
->> +static int net_eq_idr(int id, void *net, void *peer)
->> +{
->> +    return net_eq(net, peer) ? id : 0;
->> +}
->> +
->> +int net2id(struct net *net, struct net *peer)
->> +{
->> +    ASSERT_RTNL();
->> +    return idr_for_each(&(net)->netns_ids, net_eq_idr, (peer)) ? : =
--ENOENT;
->
->     I don't think the inner parens are needed, this is not a macro bo=
-dy...
-Right!
-In fact, it was a macro at the beginning ;-)
+The add_vxlan_port ndo driver code was wrongly testing whether HW vxlan offloads
+are supported by the device instead of checking if they are currently enabled.
 
->
->> +}
->> +
->> +struct net *get_net_from_netnsid(struct net *net, int id)
->> +{
->> +    struct net *peer;
->> +
->> +    rcu_read_lock();
->> +    peer =3D idr_find(&(net)->netns_ids, id);
->
->     Same here.
-Same.
+This causes the driver to configure the HW parser to conduct matching for vxlan
+packets but since no steering rules were set, vxlan packets are dropped on RX.
 
-Thank you,
-Nicolas
+Fix that by doing the right test, as done in the del_vxlan_port ndo handler.
+
+Fixes: 1b136de ('net/mlx4: Implement vxlan ndo calls')
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+
+Hi Dave,
+
+This fixes a bug from 3.15-rc1, can you please push to 3.15.y too?
+
+thanks,
+
+Or.
+
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 7d4fb7b..e94d96f 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -2336,7 +2336,7 @@ static void mlx4_en_add_vxlan_port(struct  net_device *dev,
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 	__be16 current_port;
+ 
+-	if (!(priv->mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_VXLAN_OFFLOADS))
++	if (priv->mdev->dev->caps.tunnel_offload_mode != MLX4_TUNNEL_OFFLOAD_MODE_VXLAN)
+ 		return;
+ 
+ 	if (sa_family == AF_INET6)
+-- 
+1.7.1
