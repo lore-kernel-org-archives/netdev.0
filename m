@@ -1,53 +1,74 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net] net/mlx4_en: Don't configure the HW vxlan parser when vxlan offloading isn't set
-Date: Wed,  2 Jul 2014 17:36:23 +0300
-Message-ID: <1404311783-7963-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, amirv@mellanox.com,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: davem@davemloft.net
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: [PATCH 2/2] xen-netfront: call netif_carrier_off() only once when disconnecting
+Date: Wed, 2 Jul 2014 16:09:15 +0100
+Message-ID: <1404313755-27349-3-git-send-email-david.vrabel@citrix.com>
+References: <1404313755-27349-1-git-send-email-david.vrabel@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: David Vrabel <david.vrabel@citrix.com>,
+	<xen-devel@lists.xenproject.org>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:57147 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753499AbaGBOg3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Jul 2014 10:36:29 -0400
+Received: from smtp.citrix.com ([66.165.176.89]:15604 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754048AbaGBPJZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Jul 2014 11:09:25 -0400
+In-Reply-To: <1404313755-27349-1-git-send-email-david.vrabel@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The add_vxlan_port ndo driver code was wrongly testing whether HW vxlan offloads
-are supported by the device instead of checking if they are currently enabled.
+In xennet_disconnect_backend(), netif_carrier_off() was called once
+per queue when it needs to only be called once.
 
-This causes the driver to configure the HW parser to conduct matching for vxlan
-packets but since no steering rules were set, vxlan packets are dropped on RX.
+The queue locking around the netif_carrier_off() call looked very
+odd. I think they were supposed to synchronize any NAPI instances with
+the expectation that no further NAPI instances would be scheduled
+because of the carrier being off (see the check in
+xennet_rx_interrupt()).  But I can't easily tell if this works
+correctly.
 
-Fix that by doing the right test, as done in the del_vxlan_port ndo handler.
+Instead, add a napi_synchronize() call after disabling the interrupts.
+This is obviously correct as with no Rx interrupts, no further NAPI
+instances will be scheduled.
 
-Fixes: 1b136de ('net/mlx4: Implement vxlan ndo calls')
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: David Vrabel <david.vrabel@citrix.com>
 ---
+ drivers/net/xen-netfront.c |   11 ++++-------
+ 1 file changed, 4 insertions(+), 7 deletions(-)
 
-Hi Dave,
-
-This fixes a bug from 3.15-rc1, can you please push to 3.15.y too?
-
-thanks,
-
-Or.
-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 7d4fb7b..e94d96f 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -2336,7 +2336,7 @@ static void mlx4_en_add_vxlan_port(struct  net_device *dev,
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
- 	__be16 current_port;
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index 6a37d62..055222b 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -1439,16 +1439,11 @@ static void xennet_disconnect_backend(struct netfront_info *info)
+ 	unsigned int i = 0;
+ 	unsigned int num_queues = info->netdev->real_num_tx_queues;
  
--	if (!(priv->mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_VXLAN_OFFLOADS))
-+	if (priv->mdev->dev->caps.tunnel_offload_mode != MLX4_TUNNEL_OFFLOAD_MODE_VXLAN)
- 		return;
++	netif_carrier_off(info->netdev);
++
+ 	for (i = 0; i < num_queues; ++i) {
+ 		struct netfront_queue *queue = &info->queues[i];
  
- 	if (sa_family == AF_INET6)
+-		/* Stop old i/f to prevent errors whilst we rebuild the state. */
+-		spin_lock_bh(&queue->rx_lock);
+-		spin_lock_irq(&queue->tx_lock);
+-		netif_carrier_off(queue->info->netdev);
+-		spin_unlock_irq(&queue->tx_lock);
+-		spin_unlock_bh(&queue->rx_lock);
+-
+ 		if (queue->tx_irq && (queue->tx_irq == queue->rx_irq))
+ 			unbind_from_irqhandler(queue->tx_irq, queue);
+ 		if (queue->tx_irq && (queue->tx_irq != queue->rx_irq)) {
+@@ -1458,6 +1453,8 @@ static void xennet_disconnect_backend(struct netfront_info *info)
+ 		queue->tx_evtchn = queue->rx_evtchn = 0;
+ 		queue->tx_irq = queue->rx_irq = 0;
+ 
++		napi_synchronize(&queue->napi);
++
+ 		/* End access and free the pages */
+ 		xennet_end_access(queue->tx_ring_ref, queue->tx.sring);
+ 		xennet_end_access(queue->rx_ring_ref, queue->rx.sring);
 -- 
-1.7.1
+1.7.10.4
