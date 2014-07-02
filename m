@@ -1,7 +1,7 @@
 From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: [PATCH net-next 1/3 v4] pktgen: Fill the payload optionally with a pattern
-Date: Wed, 2 Jul 2014 20:54:13 +0100
-Message-ID: <1404330855-24546-2-git-send-email-zoltan.kiss@citrix.com>
+Subject: [PATCH net-next v2 2/3] pktgen: Allow setting frag sizes individually
+Date: Wed, 2 Jul 2014 20:54:14 +0100
+Message-ID: <1404330855-24546-3-git-send-email-zoltan.kiss@citrix.com>
 References: <1404330855-24546-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -18,16 +18,16 @@ In-Reply-To: <1404330855-24546-1-git-send-email-zoltan.kiss@citrix.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Introduces a new flag called PATTERN, which puts a non-periodic, predicatble
-pattern into the payload. This was useful to reproduce an otherwise intermittent
-bug in xen-netback [1], where checksum checking doesn't help.
-The pattern is a repetition of "%lu ", a series of increasing numbers divided by
-space. The value of the number is the size of the preceding payload area. E.g.
-"1 3 5 "..." 1000 1005 1010"
-If the pattern is used, every frag will have its own page, unlike before, so it
-needs more memory.
-
-[1] 5837574: xen-netback: Fix grant ref resolution in RX path
+By defining the number of frags via "nfrags", their sizes get calculated by
+pktgen. This patch allows their offsets and sizes to be specified via
+"frag_off-len", in a comma separated list (e.g.
+"frag_off-len 0-1,500-200,5000-10,9-100). The first is the offset
+(0 <= offset < 2^16), second is size (0 < length <= 65536). This also determines
+the number of frags, so it overwrites "frags" (and vice versa, "frags"
+invalidate this setting)
+xen-netback is prone to have problem with compound pages, as the memory granting
+interface can only handle 4k pages. This extension of pktgen is proven to be
+useful to test that.
 
 Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
 Cc: "David S. Miller" <davem@davemloft.net>
@@ -37,251 +37,218 @@ Cc: netdev@vger.kernel.org
 Cc: linux-kernel@vger.kernel.org
 Cc: xen-devel@lists.xenproject.org
 ---
-v2: some bugfixes for pattern_to_packet, as my upcoming patch revealed some
-
-v3:
-- move the space in the pattern after the number, it just feels more intuitive
-- show this setting when the flags are queried
-
-v4:
-- keep the zero flag always
+v2: allocate new compound page only if order is smaller
 
 diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 5b05e36..4465249 100644
+index 4465249..d7206ea 100644
 --- a/net/core/pktgen.c
 +++ b/net/core/pktgen.c
-@@ -202,6 +202,7 @@
- #define F_QUEUE_MAP_CPU (1<<14)	/* queue map mirrors smp_processor_id() */
- #define F_NODE          (1<<15)	/* Node memory alloc*/
- #define F_UDPCSUM       (1<<16)	/* Include UDP checksum */
-+#define F_PATTERN       (1<<17)	/* Fill the payload with a pattern */
+@@ -236,6 +236,11 @@ struct flow_state {
+ /* flow flag bits */
+ #define F_INIT   (1<<0)		/* flow has been initialized */
  
- /* Thread control flag bits */
- #define T_STOP        (1<<0)	/* Stop run */
-@@ -257,7 +258,7 @@ struct pktgen_dev {
++struct frag_param {
++	int offset;
++	int length;
++};
++
+ struct pktgen_dev {
+ 	/*
+ 	 * Try to keep frequent/infrequent used vars. separated.
+@@ -258,6 +263,11 @@ struct pktgen_dev {
  	int max_pkt_size;
  	int pkt_overhead;	/* overhead for MPLS, VLANs, IPSEC etc */
  	int nfrags;
--	struct page *page;
-+	struct page *pages[MAX_SKB_FRAGS];
++	/* offset-length pairs for the frags, only the first nfrags are valid,
++	 * and only if frags[0].length != 0, as zero frag size is not valid
++	 * (and neither negative)
++	 */
++	struct frag_param frags[MAX_SKB_FRAGS];
+ 	struct page *pages[MAX_SKB_FRAGS];
  	u64 delay;		/* nano-seconds */
  
- 	__u64 count;		/* Default No packets to send */
-@@ -638,6 +639,9 @@ static int pktgen_if_show(struct seq_file *seq, void *v)
- 	if (pkt_dev->flags & F_UDPCSUM)
- 		seq_puts(seq, "UDPCSUM  ");
+@@ -541,6 +551,18 @@ static int pktgen_if_show(struct seq_file *seq, void *v)
+ 		   pkt_dev->nfrags, (unsigned long long) pkt_dev->delay,
+ 		   pkt_dev->clone_skb, pkt_dev->odevname);
  
-+	if (pkt_dev->flags & F_PATTERN)
-+		seq_printf(seq, "PATTERN  ");
++	if (pkt_dev->frags[0].length) {
++		int n;
 +
- 	if (pkt_dev->flags & F_MPLS_RND)
- 		seq_puts(seq,  "MPLS_RND  ");
- 
-@@ -1129,11 +1133,13 @@ static ssize_t pktgen_if_write(struct file *file,
- 		i += len;
- 
- 		if (node_possible(value)) {
-+			int j;
- 			pkt_dev->node = value;
- 			sprintf(pg_result, "OK: node=%d", pkt_dev->node);
--			if (pkt_dev->page) {
--				put_page(pkt_dev->page);
--				pkt_dev->page = NULL;
-+			for (j = 0; j < MAX_SKB_FRAGS; ++j)
-+				if (pkt_dev->pages[j]) {
-+					put_page(pkt_dev->pages[j]);
-+					pkt_dev->pages[j] = NULL;
- 			}
- 		}
- 		else
-@@ -1244,6 +1250,12 @@ static ssize_t pktgen_if_write(struct file *file,
- 		else if (strcmp(f, "!UDPCSUM") == 0)
- 			pkt_dev->flags &= ~F_UDPCSUM;
- 
-+		else if (strcmp(f, "PATTERN") == 0)
-+			pkt_dev->flags |= F_PATTERN;
++		for (n = 0; n < pkt_dev->nfrags; n++)
++			seq_printf(seq, "     %d. offset: %d length: %d%s\n", n,
++				   pkt_dev->frags[n].offset,
++				   pkt_dev->frags[n].length,
++				   n == pkt_dev->nfrags-1 ? "" : ",");
++	} else {
++			seq_puts(seq, "     No frag parameters defined\n");
++	}
 +
-+		else if (strcmp(f, "!PATTERN") == 0)
-+			pkt_dev->flags &= ~F_PATTERN;
-+
- 		else {
- 			sprintf(pg_result,
- 				"Flag -:%s:- unknown\nAvailable flags, (prepend ! to un-set flag):\n%s",
-@@ -2625,17 +2637,98 @@ static inline __be16 build_tci(unsigned int id, unsigned int cfi,
- 	return htons(id | (cfi << 12) | (prio << 13));
+ 	seq_printf(seq, "     flows: %u flowlen: %u\n", pkt_dev->cflows,
+ 		   pkt_dev->lflow);
+ 
+@@ -846,6 +868,50 @@ static ssize_t get_labels(const char __user *buffer, struct pktgen_dev *pkt_dev)
+ 	return i;
  }
  
-+/* Max number of digits. The sizeof equals to log base 2^8 (UINT_MAX), multiply
-+ * with 3 is a cheap, rounded up conversion to log10
-+ */
-+#define UINT_MAX_DIGITS (3*sizeof(unsigned long)+1)
-+
-+/* Fill the buffer up with a pattern
-+ * buf - pointer to buffer
-+ * bufsize - size of the buffer
-+ * start - starting value for the pattern
-+ * incomplete - pointer to the offset inside the pattern, or 0 if none
-+ *
-+ * The pattern is a repetition of " %lu", a series of increasing numbers divided
-+ * by space. The value of the number is "start" plus the size of the preceding
-+ * space. E.g. if start is 1000, it starts like " 1000 1005 1010".
-+ * If the last number doesn't fit, it gets truncated, and the number of leading
-+ * characters is saved into incomplete. It can be passed then to the next call
-+ * with the next buffer, and the pattern looks contiguous over scattered
-+ * buffers.
-+ * It returns "start" plus the offset of the byte after the last full
-+ * pattern write.
-+ */
-+static unsigned long pattern_to_packet(char *buf,
-+				       int bufsize,
-+				       unsigned long start,
-+				       unsigned int *incomplete)
++static ssize_t get_sizes(const char __user *buffer, struct pktgen_dev *pkt_dev)
 +{
++	unsigned int n = 0;
++	char c;
++	ssize_t i = 0;
 +	int len;
-+	/* Only used when the pattern doesn't align to the buffer */
-+	char temp[UINT_MAX_DIGITS];
 +
-+	if (*incomplete) {
-+		int copylen, offset = *incomplete;
++	pkt_dev->nfrags = 0;
++	do {
++		unsigned long tmp;
 +
-+		len = snprintf(temp, sizeof(temp), "%lu ", start);
-+		copylen = len - *incomplete;
-+		if (copylen > bufsize) {
-+			/* The continuation of this number couldn't fit here */
-+			copylen = bufsize;
-+			*incomplete += bufsize;
-+		} else {
-+			*incomplete = 0;
-+			start += len;
-+		}
-+		memcpy(buf, temp + offset, copylen);
-+		bufsize -= copylen;
-+		buf += copylen;
-+	}
++		len = num_arg(&buffer[i], 5, &tmp);
++		if (len <= 0)
++			return len;
++		/* Maximum skb size minus 1 */
++		if (tmp >= 65536)
++			return -EINVAL;
++		pkt_dev->frags[n].offset = tmp;
++		i += len;
++		if (get_user(c, &buffer[i]))
++			return -EFAULT;
++		if (c != '-')
++			return -EINVAL;
++		i++;
 +
-+	while (bufsize > 0) {
-+		len = snprintf(buf, bufsize, " %lu", start);
-+		/* The last number doesn't fit, remember where it was truncated.
-+		 */
-+		if (len >= bufsize) {
-+			/* snprintf always add a trailing zero, but actually we
-+			 * need the last digit there
-+			 */
-+			len = snprintf(temp, sizeof(temp), " %lu", start);
-+			memcpy(buf, temp, bufsize);
-+			/* If the last number just fit without the trailing
-+			 * zero, the next buffer can continue from an increased
-+			 * offset.
-+			 */
-+			if (len == bufsize)
-+				start += len;
-+			*incomplete = bufsize;
-+			return start;
-+		}
-+		bufsize -= len;
-+		start += len;
-+		buf += len;
-+	}
-+	return start;
++		len = num_arg(&buffer[i], 5, &tmp);
++		if (len <= 0)
++			return len;
++		if (tmp < 1 || tmp > 65536)
++			return -EINVAL;
++		pkt_dev->frags[n].length = tmp;
++		i += len;
++		if (get_user(c, &buffer[i]))
++			return -EFAULT;
++		i++;
++		n++;
++		if (n > MAX_SKB_FRAGS)
++			return -E2BIG;
++	} while (c == ',');
++
++	pkt_dev->nfrags = n;
++	return i;
 +}
 +
- static void pktgen_finalize_skb(struct pktgen_dev *pkt_dev, struct sk_buff *skb,
- 				int datalen)
- {
- 	struct timeval timestamp;
- 	struct pktgen_hdr *pgh;
-+	unsigned long offset = 0;
-+	unsigned int incomplete = 0;
+ static ssize_t pktgen_if_write(struct file *file,
+ 			       const char __user * user_buffer, size_t count,
+ 			       loff_t * offset)
+@@ -973,9 +1039,30 @@ static ssize_t pktgen_if_write(struct file *file,
  
- 	pgh = (struct pktgen_hdr *)skb_put(skb, sizeof(*pgh));
- 	datalen -= sizeof(*pgh);
- 
- 	if (pkt_dev->nfrags <= 0) {
--		memset(skb_put(skb, datalen), 0, datalen);
-+		if (pkt_dev->flags & F_PATTERN)
-+			offset = pattern_to_packet(skb_put(skb, datalen),
-+						   datalen, offset,
-+						   &incomplete);
-+		else
-+			memset(skb_put(skb, datalen), 0, datalen);
+ 		i += len;
+ 		pkt_dev->nfrags = value;
++		/* Invalidate whatever was specified before */
++		pkt_dev->frags[0].length = 0;
+ 		sprintf(pg_result, "OK: frags=%u", pkt_dev->nfrags);
+ 		return count;
+ 	}
++
++	if (!strcmp(name, "frag_off-len")) {
++		unsigned int n, cnt;
++
++		len = get_sizes(&user_buffer[i], pkt_dev);
++		if (len < 0)
++			return len;
++		i += len;
++		cnt = sprintf(pg_result, "OK: frags=%u frag offsets-sizes=",
++			      pkt_dev->nfrags);
++		for (n = 0; n < pkt_dev->nfrags; n++)
++			cnt += sprintf(pg_result + cnt, "%d-%d%s",
++				       pkt_dev->frags[n].offset,
++				       pkt_dev->frags[n].length,
++				       n == pkt_dev->nfrags-1 ? "" : ",");
++
++		return count;
++	}
++
+ 	if (!strcmp(name, "delay")) {
+ 		len = num_arg(&user_buffer[i], 10, &value);
+ 		if (len < 0)
+@@ -2732,12 +2819,25 @@ static void pktgen_finalize_skb(struct pktgen_dev *pkt_dev, struct sk_buff *skb,
  	} else {
  		int frags = pkt_dev->nfrags;
  		int i, len;
-@@ -2646,7 +2739,12 @@ static void pktgen_finalize_skb(struct pktgen_dev *pkt_dev, struct sk_buff *skb,
+-		int frag_len;
++		int frag_len = 0;
+ 
+ 
+ 		if (frags > MAX_SKB_FRAGS)
  			frags = MAX_SKB_FRAGS;
- 		len = datalen - frags * PAGE_SIZE;
+-		len = datalen - frags * PAGE_SIZE;
++
++		if (pkt_dev->frags[0].length) {
++			for (i = 0; i < frags; ++i)
++				frag_len += pkt_dev->frags[i].length;
++			if (frag_len > datalen) {
++				pr_err("Payload length (%d) smaller than frags (%d)\n",
++				       datalen, frag_len);
++				return;
++			}
++		} else {
++			frag_len = frags * PAGE_SIZE;
++		}
++
++		len = datalen - frag_len;
  		if (len > 0) {
--			memset(skb_put(skb, len), 0, len);
-+			if (pkt_dev->flags & F_PATTERN)
-+				offset = pattern_to_packet(skb_put(skb, len),
-+							   len, offset,
-+							   &incomplete);
-+			else
-+				memset(skb_put(skb, len), 0, len);
- 			datalen = frags * PAGE_SIZE;
+ 			if (pkt_dev->flags & F_PATTERN)
+ 				offset = pattern_to_packet(skb_put(skb, len),
+@@ -2745,21 +2845,36 @@ static void pktgen_finalize_skb(struct pktgen_dev *pkt_dev, struct sk_buff *skb,
+ 							   &incomplete);
+ 			else
+ 				memset(skb_put(skb, len), 0, len);
+-			datalen = frags * PAGE_SIZE;
++			datalen = frag_len;
  		}
  
-@@ -2654,17 +2752,26 @@ static void pktgen_finalize_skb(struct pktgen_dev *pkt_dev, struct sk_buff *skb,
+ 		i = 0;
  		frag_len = (datalen/frags) < PAGE_SIZE ?
  			   (datalen/frags) : PAGE_SIZE;
  		while (datalen > 0) {
--			if (unlikely(!pkt_dev->page)) {
-+			int fragpage;
-+			gfp_t flags = GFP_KERNEL | __GFP_ZERO;
+-			int fragpage;
++			int fragpage, order = 0;
+ 			gfp_t flags = GFP_KERNEL | __GFP_ZERO;
+ 
+-			if (pkt_dev->flags & F_PATTERN)
++			if (pkt_dev->flags & F_PATTERN ||
++			    pkt_dev->frags[0].length)
+ 				fragpage = i;
+ 			else
+ 				fragpage = 0;
+ 
++			/* Free this page if we gonna need a compound one */
++			if (pkt_dev->frags[0].length) {
++				int max_off = pkt_dev->frags[i].offset +
++					      pkt_dev->frags[i].length;
++				order = get_order(max_off);
++				if (order > compound_order(pkt_dev->pages[fragpage])) {
++					flags |= __GFP_COMP;
++					if (pkt_dev->pages[fragpage]) {
++						put_page(pkt_dev->pages[i]);
++						pkt_dev->pages[i] = NULL;
++					}
++				}
++			}
 +
-+			if (pkt_dev->flags & F_PATTERN)
-+				fragpage = i;
-+			else
-+				fragpage = 0;
-+
-+			if (unlikely(!pkt_dev->pages[fragpage])) {
+ 			if (unlikely(!pkt_dev->pages[fragpage])) {
  				int node = numa_node_id();
  
- 				if (pkt_dev->node >= 0 && (pkt_dev->flags & F_NODE))
- 					node = pkt_dev->node;
--				pkt_dev->page = alloc_pages_node(node, GFP_KERNEL | __GFP_ZERO, 0);
--				if (!pkt_dev->page)
-+				pkt_dev->pages[fragpage] = alloc_pages_node(node, flags, 0);
-+				if (!pkt_dev->pages[fragpage])
- 					break;
- 			}
--			get_page(pkt_dev->page);
--			skb_frag_set_page(skb, i, pkt_dev->page);
-+			get_page(pkt_dev->pages[fragpage]);
-+			skb_frag_set_page(skb, i, pkt_dev->pages[fragpage]);
-+
- 			skb_shinfo(skb)->frags[i].page_offset = 0;
- 			/*last fragment, fill rest of data*/
- 			if (i == (frags - 1))
-@@ -2673,6 +2780,10 @@ static void pktgen_finalize_skb(struct pktgen_dev *pkt_dev, struct sk_buff *skb,
- 			else
- 				skb_frag_size_set(&skb_shinfo(skb)->frags[i], frag_len);
- 			datalen -= skb_frag_size(&skb_shinfo(skb)->frags[i]);
-+			if (pkt_dev->flags & F_PATTERN)
-+				offset = pattern_to_packet(skb_frag_address(&skb_shinfo(skb)->frags[i]),
-+							   skb_frag_size(&skb_shinfo(skb)->frags[i]),
-+							   offset, &incomplete);
- 			skb->len += skb_frag_size(&skb_shinfo(skb)->frags[i]);
- 			skb->data_len += skb_frag_size(&skb_shinfo(skb)->frags[i]);
- 			i++;
-@@ -3682,6 +3793,8 @@ static void _rem_dev_from_if_list(struct pktgen_thread *t,
- static int pktgen_remove_device(struct pktgen_thread *t,
- 				struct pktgen_dev *pkt_dev)
- {
-+	int i;
-+
- 	pr_debug("remove_device pkt_dev=%p\n", pkt_dev);
+@@ -2773,8 +2888,14 @@ static void pktgen_finalize_skb(struct pktgen_dev *pkt_dev, struct sk_buff *skb,
+ 			skb_frag_set_page(skb, i, pkt_dev->pages[fragpage]);
  
- 	if (pkt_dev->running) {
-@@ -3709,8 +3822,9 @@ static int pktgen_remove_device(struct pktgen_thread *t,
- 	free_SAs(pkt_dev);
- #endif
- 	vfree(pkt_dev->flows);
--	if (pkt_dev->page)
--		put_page(pkt_dev->page);
-+	for (i = 0; i < MAX_SKB_FRAGS; ++i)
-+		if (pkt_dev->pages[i])
-+			put_page(pkt_dev->pages[i]);
- 	kfree_rcu(pkt_dev, rcu);
- 	return 0;
- }
+ 			skb_shinfo(skb)->frags[i].page_offset = 0;
++			if (pkt_dev->frags[0].length) {
++				skb_shinfo(skb)->frags[i].page_offset =
++					pkt_dev->frags[i].offset;
++				skb_frag_size_set(&skb_shinfo(skb)->frags[i],
++						  pkt_dev->frags[i].length);
++			}
+ 			/*last fragment, fill rest of data*/
+-			if (i == (frags - 1))
++			else if (i == (frags - 1))
+ 				skb_frag_size_set(&skb_shinfo(skb)->frags[i],
+ 				    (datalen < PAGE_SIZE ? datalen : PAGE_SIZE));
+ 			else
