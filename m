@@ -1,102 +1,51 @@
-From: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
-Subject: RE: segfault after VLAN change
-Date: Wed, 2 Jul 2014 08:55:18 +0000
-Message-ID: <3d435de0194642e29fe089f2839f6bf4@BL2PR03MB545.namprd03.prod.outlook.com>
-References: <42408b4f154d434d9838b83ae2dc15db@BL2PR03MB545.namprd03.prod.outlook.com>
-	 <87simk1bhu.fsf@nemi.mork.no>
-	 <1404289423.23797.1.camel@edumazet-glaptop2.roam.corp.google.com>
- <1404290028.23797.3.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [patch net-next] bonding: allow to add vlans on top of empty bond
+Date: Wed, 2 Jul 2014 11:05:17 +0200
+Message-ID: <20140702090517.GA5440@unicorn.suse.cz>
+References: <1403878392-10004-1-git-send-email-jiri@resnulli.us>
+ <CAG-2HqUKGoG5ZX26aYwv3quUU5RPtn5J1g6i4YzkXUc10u4c0w@mail.gmail.com>
+ <26863.1403885330@localhost.localdomain>
+ <20140702084652.GA3015@minipsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Li RongQing <roy.qing.li@gmail.com>,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	=?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jay Vosburgh <jay.vosburgh@canonical.com>,
+	Tom Gundersen <teg@jklm.no>, netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, vfalico@gmail.com,
+	andy@greyhouse.net
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [207.46.163.243] ([207.46.163.243]:25769 "EHLO
-	na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751834AbaGBIzl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Jul 2014 04:55:41 -0400
-In-Reply-To: <1404290028.23797.3.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
+Received: from cantor2.suse.de ([195.135.220.15]:36274 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751837AbaGBJFT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Jul 2014 05:05:19 -0400
+Content-Disposition: inline
+In-Reply-To: <20140702084652.GA3015@minipsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiBPbiBXZWQsIDIwMTQtMDctMDIgYXQgMDE6MjMgLTA3MDAsIEVyaWMgRHVtYXpldCB3cm90ZToN
-Cj4gPiBPbiBXZWQsIDIwMTQtMDctMDIgYXQgMDk6MTEgKzAyMDAsIEJqw7hybiBNb3JrIHdyb3Rl
-Og0KPiA+ID4gTWFkYWxpbi1DcmlzdGlhbiBCdWN1ciA8bWFkYWxpbi5idWN1ckBmcmVlc2NhbGUu
-Y29tPiB3cml0ZXM6DQo+ID4gPg0KPiA+ID4gPiBIZWxsbywNCj4gPiA+ID4NCj4gPiA+ID4gSSd2
-ZSBkaXNjb3ZlcmVkIHRoYXQgdGhlIGNvbW1pdDoNCj4gPiA+ID4NCj4gPiA+ID4gICAgIGNvbW1p
-dCA1YTRhZTVmNmU3ZDRiMmI1YTliODk4MWQ1MTMzNDUwNTNlNDBiNmFjDQo+ID4gPiA+ICAgICBB
-dXRob3I6IExpIFJvbmdRaW5nIDxyb3kucWluZy5saUBnbWFpbC5jb20+DQo+ID4gPiA+ICAgICBE
-YXRlOiAgIE1vbiBBcHIgMjEgMTk6NDk6MDggMjAxNCArMDgwMA0KPiA+ID4gPg0KPiA+ID4gPiAg
-ICAgdmxhbjogdW5uZWNlc3NhcnkgdG8gY2hlY2sgaWYgdmxhbl9wY3B1X3N0YXRzIGlzIE5VTEwN
-Cj4gPiA+ID4NCj4gPiA+ID4gICAgIGlmIGFsbG9jYXRpbmcgbWVtb3J5IGZvciB2bGFuX3BjcHVf
-c3RhdHMgZmFpbGVkLCB0aGUgZGV2aWNlIGNhbg0KPiBub3QgYmUgb3BlcmF0ZWQNCj4gPiA+ID4N
-Cj4gPiA+ID4gICAgIFNpZ25lZC1vZmYtYnk6DQo+ID4gPiA+ICAgICBDYzogRXJpYyBEdW1hemV0
-IDxlZHVtYXpldEBnb29nbGUuY29tPg0KPiA+ID4gPiAgICAgU2lnbmVkLW9mZi1ieTogRGF2aWQg
-Uy4gTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KPiA+ID4gPg0KPiA+ID4gPiBpcyBjYXVz
-aW5nIGEgc2VnZmF1bHQgd2hlbiByZW1vdmluZyB2bGFuIG9uIGEgZTEwMDAgZGV2aWNlDQo+IChy
-ZXByb2R1Y2VzIHdpdGggb3RoZXIgZGV2aWNlcyBhcyB3ZWxsKS4NCj4gPiA+ID4gUmUtYWRkaW5n
-IHRoZSBjaGVjayBvciByZXZlcnRpbmcgdGhlIHBhdGNoIHJlbW92ZXMgdGhlIGlzc3VlIChsb2cN
-Cj4gYmVsb3cpLg0KPiA+ID4NCj4gPiA+DQo+ID4gPiBZZXMsIHRoYXQgY29tbWl0IHNob3VsZCBi
-ZSByZXZlcnRlZC4NCj4gPg0KPiA+IE1heWJlIG5vdC4NCj4gPg0KPiA+ID4NCj4gPiA+IFRoZSBj
-b21taXQgbWVzc2FnZSBtYWtlcyBpdCBjbGVhciB0aGF0IG9ubHkgYWxsb2NhdGlvbiBmYWlsdXJl
-cyB3ZXJlDQo+ID4gPiBjb25zaWRlcmVkLCB3aGlsZSBhIHNpbXBsZSBncmVwIHJldmVhbHMgdGhh
-dCB0aGVyZSBhdCBsZWFzdCBvbmUgc2l0ZQ0KPiA+ID4gd2hlcmUgdGhhdCBmaWVsZCBpcyBleHBs
-aWNpdGx5IE5VTExlZDoNCj4gPiA+DQo+ID4gPiBiam9ybkBuZW1pOi91c3IvbG9jYWwvc3JjL2dp
-dC9saW51eCQgZ2l0IGdyZXAgdmxhbl9wY3B1X3N0YXRzDQo+IG5ldC84MDIxcS8NCj4gPiA+IG5l
-dC84MDIxcS92bGFuX2NvcmUuYzogIHN0cnVjdCB2bGFuX3BjcHVfc3RhdHMgKnJ4X3N0YXRzOw0K
-PiA+ID4gbmV0LzgwMjFxL3ZsYW5fY29yZS5jOiAgcnhfc3RhdHMgPQ0KPiB0aGlzX2NwdV9wdHIo
-dmxhbl9kZXZfcHJpdih2bGFuX2RldiktPnZsYW5fcGNwdV9zdGF0cyk7DQo+ID4gPiBuZXQvODAy
-MXEvdmxhbl9kZXYuYzogICAgICAgICAgIHN0cnVjdCB2bGFuX3BjcHVfc3RhdHMgKnN0YXRzOw0K
-PiA+ID4gbmV0LzgwMjFxL3ZsYW5fZGV2LmM6ICAgICAgICAgICBzdGF0cyA9IHRoaXNfY3B1X3B0
-cih2bGFuLQ0KPiA+dmxhbl9wY3B1X3N0YXRzKTsNCj4gPiA+IG5ldC84MDIxcS92bGFuX2Rldi5j
-OiAgICAgICAgICAgdGhpc19jcHVfaW5jKHZsYW4tPnZsYW5fcGNwdV9zdGF0cy0NCj4gPnR4X2Ry
-b3BwZWQpOw0KPiA+ID4gbmV0LzgwMjFxL3ZsYW5fZGV2LmM6ICAgdmxhbl9kZXZfcHJpdihkZXYp
-LT52bGFuX3BjcHVfc3RhdHMgPQ0KPiBuZXRkZXZfYWxsb2NfcGNwdV9zdGF0cyhzdHJ1Y3Qgdmxh
-bl9wY3B1X3N0YXRzKTsNCj4gPiA+IG5ldC84MDIxcS92bGFuX2Rldi5jOiAgIGlmICghdmxhbl9k
-ZXZfcHJpdihkZXYpLT52bGFuX3BjcHVfc3RhdHMpDQo+ID4gPiBuZXQvODAyMXEvdmxhbl9kZXYu
-YzogICBmcmVlX3BlcmNwdSh2bGFuLT52bGFuX3BjcHVfc3RhdHMpOw0KPiA+ID4gbmV0LzgwMjFx
-L3ZsYW5fZGV2LmM6ICAgdmxhbi0+dmxhbl9wY3B1X3N0YXRzID0gTlVMTDsNCj4gPiA+IG5ldC84
-MDIxcS92bGFuX2Rldi5jOiAgIHN0cnVjdCB2bGFuX3BjcHVfc3RhdHMgKnA7DQo+ID4gPiBuZXQv
-ODAyMXEvdmxhbl9kZXYuYzogICAgICAgICAgIHAgPSBwZXJfY3B1X3B0cih2bGFuX2Rldl9wcml2
-KGRldiktDQo+ID52bGFuX3BjcHVfc3RhdHMsIGkpOw0KPiA+ID4NCj4gPiA+DQo+ID4gPiBXaXRo
-b3V0IGxvb2tpbmcgZnVydGhlciBpdCBzZWVtcyBsaWtlbHkgdGhhdCB0aGlzIGlzIGRvbmUgZHVy
-aW5nDQo+ID4gPiB0ZWFyZG93biwgbWFraW5nIHRoZSBvcmlnaW5hbCBOVUxMIGNoZWNrIG5lY2Vz
-c2FyeS4NCj4gPg0KPiA+IFRoZW4gdGhlIHRlYXJkb3duIGlzIG5vdCBwcm9wZXJseSBkb25lLg0K
-PiA+DQo+ID4gU3VyZSBhICdyZXZlcnQnIGhlbHBzLCBidXQgdGhlIHJlYWwgYnVnIHNob3VsZCBi
-ZSBmaXhlZC4NCj4gPg0KPiA+IFRoZSBmcmVlaW5nIG9mIHRoZSBwZXJjcHUgc3RydWN0dXJlIHNo
-b3VsZCBoYXBwZW4gZnJvbQ0KPiA+IGRldi0+ZGVzdHJ1Y3RvcigpLCBub3QgZnJvbSBuZG9fdW5p
-bml0DQo+ID4NCj4gDQo+IFBsZWFzZSB0cnkgdGhlIGZvbGxvd2luZyBwYXRjaCA6DQo+IA0KPiAg
-bmV0LzgwMjFxL3ZsYW5fZGV2LmMgfCAgIDEzICsrKysrKysrKystLS0NCj4gIDEgZmlsZSBjaGFu
-Z2VkLCAxMCBpbnNlcnRpb25zKCspLCAzIGRlbGV0aW9ucygtKQ0KPiANCj4gZGlmZiAtLWdpdCBh
-L25ldC84MDIxcS92bGFuX2Rldi5jIGIvbmV0LzgwMjFxL3ZsYW5fZGV2LmMNCj4gaW5kZXggYWQy
-YWMzYzAwMzk4Li5kZDExZjYxMmUwM2UgMTAwNjQ0DQo+IC0tLSBhL25ldC84MDIxcS92bGFuX2Rl
-di5jDQo+ICsrKyBiL25ldC84MDIxcS92bGFuX2Rldi5jDQo+IEBAIC02MjcsOCArNjI3LDYgQEAg
-c3RhdGljIHZvaWQgdmxhbl9kZXZfdW5pbml0KHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpDQo+ICAJ
-c3RydWN0IHZsYW5fZGV2X3ByaXYgKnZsYW4gPSB2bGFuX2Rldl9wcml2KGRldik7DQo+ICAJaW50
-IGk7DQo+IA0KPiAtCWZyZWVfcGVyY3B1KHZsYW4tPnZsYW5fcGNwdV9zdGF0cyk7DQo+IC0Jdmxh
-bi0+dmxhbl9wY3B1X3N0YXRzID0gTlVMTDsNCj4gIAlmb3IgKGkgPSAwOyBpIDwgQVJSQVlfU0la
-RSh2bGFuLT5lZ3Jlc3NfcHJpb3JpdHlfbWFwKTsgaSsrKSB7DQo+ICAJCXdoaWxlICgocG0gPSB2
-bGFuLT5lZ3Jlc3NfcHJpb3JpdHlfbWFwW2ldKSAhPSBOVUxMKSB7DQo+ICAJCQl2bGFuLT5lZ3Jl
-c3NfcHJpb3JpdHlfbWFwW2ldID0gcG0tPm5leHQ7DQo+IEBAIC03ODUsNiArNzgzLDE1IEBAIHN0
-YXRpYyBjb25zdCBzdHJ1Y3QgbmV0X2RldmljZV9vcHMgdmxhbl9uZXRkZXZfb3BzID0NCj4gew0K
-PiAgCS5uZG9fZ2V0X2xvY2tfc3ViY2xhc3MgID0gdmxhbl9kZXZfZ2V0X2xvY2tfc3ViY2xhc3Ms
-DQo+ICB9Ow0KPiANCj4gK3N0YXRpYyB2b2lkIHZsYW5fZGV2X2ZyZWUoc3RydWN0IG5ldF9kZXZp
-Y2UgKmRldikNCj4gK3sNCj4gKwlzdHJ1Y3Qgdmxhbl9kZXZfcHJpdiAqdmxhbiA9IHZsYW5fZGV2
-X3ByaXYoZGV2KTsNCj4gKw0KPiArCWZyZWVfcGVyY3B1KHZsYW4tPnZsYW5fcGNwdV9zdGF0cyk7
-DQo+ICsJdmxhbi0+dmxhbl9wY3B1X3N0YXRzID0gTlVMTDsNCj4gKwlmcmVlX25ldGRldihkZXYp
-Ow0KPiArfQ0KPiArDQo+ICB2b2lkIHZsYW5fc2V0dXAoc3RydWN0IG5ldF9kZXZpY2UgKmRldikN
-Cj4gIHsNCj4gIAlldGhlcl9zZXR1cChkZXYpOw0KPiBAQCAtNzk0LDcgKzgwMSw3IEBAIHZvaWQg
-dmxhbl9zZXR1cChzdHJ1Y3QgbmV0X2RldmljZSAqZGV2KQ0KPiAgCWRldi0+dHhfcXVldWVfbGVu
-CT0gMDsNCj4gDQo+ICAJZGV2LT5uZXRkZXZfb3BzCQk9ICZ2bGFuX25ldGRldl9vcHM7DQo+IC0J
-ZGV2LT5kZXN0cnVjdG9yCQk9IGZyZWVfbmV0ZGV2Ow0KPiArCWRldi0+ZGVzdHJ1Y3RvcgkJPSB2
-bGFuX2Rldl9mcmVlOw0KPiAgCWRldi0+ZXRodG9vbF9vcHMJPSAmdmxhbl9ldGh0b29sX29wczsN
-Cj4gDQo+ICAJbWVtc2V0KGRldi0+YnJvYWRjYXN0LCAwLCBFVEhfQUxFTik7DQo+IA0KDQpZb3Vy
-IHBhdGNoIHdvcmtzIGFzIGV4cGVjdGVkLCBubyBzZWdmYXVsdCB3aGVuIHJlbW92aW5nIHRoZSBW
-TEFOLg0KDQpCZXN0IHJlZ2FyZHMsDQpNYWRhbGluDQo=
+On Wed, Jul 02, 2014 at 10:46:52AM +0200, Jiri Pirko wrote:
+> Fri, Jun 27, 2014 at 06:08:50PM CEST, jay.vosburgh@canonical.com wrote:
+> >
+> >        if (!bond_has_slaves(bond)) {
+> >                bond_set_carrier(bond);
+> >                eth_hw_addr_random(bond_dev);
+> >
+> >                if (vlan_uses_dev(bond_dev)) {
+> >                        pr_warn("%s: Warning: clearing HW address of %s while it still has VLANs\n",
+> >                                bond_dev->name, bond_dev->name);
+> >                        pr_warn("%s: When re-adding slaves, make sure the bond's HW address matches its VLANs\n",
+> >                                bond_dev->name);
+> >                }
+> >        }
+> >
+> >	This warning may not be useful any longer, since the MAC should
+> >update correctly without user action when re-adding the first slave.
+> 
+> I just checked. The vlan dev holds its addr. So when new slave is added,
+> bond addr is changed to it, but vlan addr remains the same. So the
+> second warning still stands.
+
+Is it a problem? Since we have proper uc_list propagation, vlan should
+work even if its address doesn't match the bond.
+
+                                                        Michal Kubecek
