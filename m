@@ -1,79 +1,42 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH RFC net-next 11/14] tracing: allow eBPF programs to be
- attached to events
-Date: Wed, 2 Jul 2014 00:29:44 -0700
-Message-ID: <CAMEtUuyUqUsQbdvCWQvGjD5kuUQ8OzXzf7-7v+UJq+dDsBMv8A@mail.gmail.com>
-References: <1403913966-4927-1-git-send-email-ast@plumgrid.com>
-	<1403913966-4927-12-git-send-email-ast@plumgrid.com>
-	<87tx70496q.fsf@sejong.aot.lge.com>
-	<CAMEtUuzHakFzJYRR0WgwRBnsQL24KGsNax5DTfRNMJrGhvfQMA@mail.gmail.com>
-	<CAM9d7cisUq9nJbSXZMtD+nQ_g+ZCKSsu_ghRDZY9vvkq51oiKQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2] net: fix circular dependency in of_mdio code
+Date: Wed, 02 Jul 2014 00:31:28 -0700 (PDT)
+Message-ID: <20140702.003128.935333350824361837.davem@davemloft.net>
+References: <1403911415-18690-1-git-send-email-zonque@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Chema Gonzalez <chema@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Jiri Olsa <jolsa@redhat.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kees Cook <keescook@chromium.org>,
-	Linux API <linux-api@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Namhyung Kim <namhyung@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAM9d7cisUq9nJbSXZMtD+nQ_g+ZCKSsu_ghRDZY9vvkq51oiKQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jeffm@suse.com, f.fainelli@gmail.com, netdev@vger.kernel.org
+To: zonque@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38013 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750895AbaGBHba (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2014 03:31:30 -0400
+In-Reply-To: <1403911415-18690-1-git-send-email-zonque@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 1, 2014 at 11:39 PM, Namhyung Kim <namhyung@kernel.org> wrote:
-> On Wed, Jul 2, 2014 at 3:14 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
->>
->> Can manipulate what at compile time? Entry records of tracepoints are
->> hard coded based on the event. For verifier it's easier to treat all
->> tracepoint events as they received the same 'struct bpf_context'
->> of N arguments then the same program can be attached to multiple
->> tracepoint events at the same time.
->
-> I was thinking about perf creates a bpf program for filtering some
-> events like recording kfree_skb if protocol == xx.  So perf can
-> calculate the offset and size of the protocol field and make
-> appropriate insns for the filter.
+From: Daniel Mack <zonque@gmail.com>
+Date: Sat, 28 Jun 2014 01:23:35 +0200
 
-When I'm saying 'tracing filter' in patch 11/14, I really mean
-stap/dtrace-like facility for live debugging, where tracing infra plays
-a key role. At the end the programs are written in C with annotations
-and perf orchestrates compilation, insertion, attaching, printing results.
-Your meaning of 'tracing filter' is canonical: a filter that says whether
-event should be recorded or not. And it makes sense.
-When perf sees 'protocol==xx' on command line it can generate
-ebpf program for it. In such case my earlier proposal for replacing
-predicate tree walker with ebpf programs in kernel becomes obsolete?
-If I understood correctly, you're proposing to teach perf to generate
-ebpf programs for existing command line interface and use it instead
-of predicate tree. This way predicate tree can be removed, right?
-In such case programs would need to access event records.
+> Commit 86f6cf4127 (net: of_mdio: add of_mdiobus_link_phydev()) introduced a
+> circular dependency between libphy and of_mdio.
+> 
+> depmod: ERROR: <modroot>/kernel/drivers/net/phy/libphy.ko in
+> dependency cycle!
+> depmod: ERROR: <modroot>/kernel/drivers/of/of_mdio.ko in dependency cycle!
+> 
+> The problem is that of_mdio.c references &mdio_bus_type and libphy now
+> references of_mdiobus_link_phydev.
+> 
+> Fix this by not exporting of_mdiobus_link_phydev() from of_mdio.ko.
+> Make it a static function in mdio_bus.c instead.
+> 
+> Signed-off-by: Daniel Mack <zonque@gmail.com>
+> Reported-by: Jeff Mahoney <jeffm@suse.com>
+> Fixes: 86f6cf4127 (net: of_mdio: add of_mdiobus_link_phydev())
+> ---
+> v2: Provide a stub for of_mdiobus_link_phydev() for !CONFIG_OF_MDIO.
 
-> Maybe it needs to pass the event format to the verifier somehow then.
-
-The integer fields are easy to verify. dynamic_array part is tricky, since
-16-bit offset  + 16-bit length accessors are very tracing specific.
-I need to think it through.
-
-> Your scenario looks like just calling a bpf program when it hits a
-> event.  It could use event triggering for that purpose IMHO.
-
-Sure. Calling ebpf program can be one of even trigger types.
-On the other side ebpf programs themselves can replace the whole
-triggering, filtering, recording code. We can have events that
-do nothing or call ebpf programs. Then programs walk all necessary
-data structures, store stuff into a maps, etc Just look at amount of
-events that perf processes. Some of it can be done in kernel by
-dynamic program.
+Applied, thanks.
