@@ -1,239 +1,94 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: [PATCH v2 net-next 09/13] at86rf230: rework state change and start/stop
-Date: Wed,  2 Jul 2014 17:10:06 +0200
-Message-ID: <1404313810-30232-10-git-send-email-alex.aring@gmail.com>
-References: <1404313810-30232-1-git-send-email-alex.aring@gmail.com>
-Cc: dbaryshkov@gmail.com, linux-zigbee-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, stilwellt@openlabs.co,
-	Alexander Aring <alex.aring@gmail.com>
-To: alex.bluesman.smirnov@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f169.google.com ([74.125.82.169]:62710 "EHLO
-	mail-we0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754621AbaGBPKa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2014 11:10:30 -0400
-Received: by mail-we0-f169.google.com with SMTP id t60so11458842wes.28
-        for <netdev@vger.kernel.org>; Wed, 02 Jul 2014 08:10:26 -0700 (PDT)
-In-Reply-To: <1404313810-30232-1-git-send-email-alex.aring@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH v2 net-next 00/13] at86rf230: rework
+	driver implementation
+Date: Wed,  2 Jul 2014 17:09:57 +0200
+Message-ID: <1404313810-30232-1-git-send-email-alex.aring@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This patch removes the current synchron state change function and add a
-new function for a state assert. Change the start and stop callbacks to
-use this new synchron state change behaviour. It's a wrapper around the
-async state change function.
+Hi,
 
-Signed-off-by: Alexander Aring <alex.aring@gmail.com>
----
- drivers/net/ieee802154/at86rf230.c | 126 ++++++++++++++++++++-----------------
- 1 file changed, 67 insertions(+), 59 deletions(-)
+This patch series includes a rework of the at86rf230 driver.
 
-diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
-index 2340750..696a604 100644
---- a/drivers/net/ieee802154/at86rf230.c
-+++ b/drivers/net/ieee802154/at86rf230.c
-@@ -42,6 +42,8 @@ struct at86rf230_local;
-  * All timings are in us.
-  */
- struct at86rf2xx_chip_data {
-+	u16 t_off_to_aack;
-+	u16 t_off_to_tx_on;
- 	u16 t_frame;
- 	u16 t_p_ack;
- 	/* short interframe spacing time */
-@@ -77,6 +79,9 @@ struct at86rf230_local {
- 	struct at86rf2xx_chip_data *data;
- 	struct regmap *regmap;
- 
-+	struct completion state_complete;
-+	struct at86rf230_state_change state;
-+
- 	struct at86rf230_state_change irq;
- 
- 	bool tx_aret;
-@@ -547,6 +552,19 @@ at86rf230_async_state_delay(void *context)
- 	}
- 
- 	switch (ctx->from_state) {
-+	case STATE_TRX_OFF:
-+		switch (ctx->to_state) {
-+		case STATE_RX_AACK_ON:
-+			usleep_range(c->t_off_to_aack, c->t_off_to_aack + 10);
-+			goto change;
-+		case STATE_TX_ON:
-+			usleep_range(c->t_off_to_tx_on,
-+				     c->t_off_to_tx_on + 10);
-+			goto change;
-+		default:
-+			break;
-+		}
-+		break;
- 	case STATE_BUSY_RX_AACK:
- 		switch (ctx->to_state) {
- 		case STATE_TX_ON:
-@@ -632,6 +650,39 @@ at86rf230_async_state_change(struct at86rf230_local *lp,
- }
- 
- static void
-+at86rf230_sync_state_change_complete(void *context)
-+{
-+	struct at86rf230_state_change *ctx = context;
-+	struct at86rf230_local *lp = ctx->lp;
-+
-+	complete(&lp->state_complete);
-+}
-+
-+/* This function do a sync framework above the async state change.
-+ * Some callbacks of the IEEE 802.15.4 driver interface need to be
-+ * handled synchronously.
-+ */
-+static int
-+at86rf230_sync_state_change(struct at86rf230_local *lp, unsigned int state)
-+{
-+	int rc;
-+
-+	rc = at86rf230_async_state_change(lp, &lp->state, state,
-+					  at86rf230_sync_state_change_complete);
-+	if (rc) {
-+		at86rf230_async_error(lp, &lp->state, rc);
-+		return rc;
-+	}
-+
-+	rc = wait_for_completion_timeout(&lp->state_complete,
-+					 msecs_to_jiffies(100));
-+	if (!rc)
-+		return -ETIMEDOUT;
-+
-+	return 0;
-+}
-+
-+static void
- at86rf230_tx_complete(void *context)
- {
- 	struct at86rf230_state_change *ctx = context;
-@@ -957,72 +1008,15 @@ at86rf230_ed(struct ieee802154_dev *dev, u8 *level)
- }
- 
- static int
--at86rf230_state(struct ieee802154_dev *dev, int state)
--{
--	struct at86rf230_local *lp = dev->priv;
--	int rc;
--	unsigned int val;
--	u8 desired_status;
--
--	might_sleep();
--
--	if (state == STATE_FORCE_TX_ON)
--		desired_status = STATE_TX_ON;
--	else if (state == STATE_FORCE_TRX_OFF)
--		desired_status = STATE_TRX_OFF;
--	else
--		desired_status = state;
--
--	do {
--		rc = at86rf230_read_subreg(lp, SR_TRX_STATUS, &val);
--		if (rc)
--			goto err;
--	} while (val == STATE_TRANSITION_IN_PROGRESS);
--
--	if (val == desired_status)
--		return 0;
--
--	/* state is equal to phy states */
--	rc = at86rf230_write_subreg(lp, SR_TRX_CMD, state);
--	if (rc)
--		goto err;
--
--	do {
--		rc = at86rf230_read_subreg(lp, SR_TRX_STATUS, &val);
--		if (rc)
--			goto err;
--	} while (val == STATE_TRANSITION_IN_PROGRESS);
--
--
--	if (val == desired_status ||
--	    (desired_status == STATE_RX_ON && val == STATE_BUSY_RX) ||
--	    (desired_status == STATE_RX_AACK_ON && val == STATE_BUSY_RX_AACK))
--		return 0;
--
--	pr_err("unexpected state change: %d, asked for %d\n", val, state);
--	return -EBUSY;
--
--err:
--	pr_err("error: %d\n", rc);
--	return rc;
--}
--
--static int
- at86rf230_start(struct ieee802154_dev *dev)
- {
--	u8 rc;
--
--	rc = at86rf230_state(dev, STATE_TX_ON);
--	if (rc)
--		return rc;
--
--	return at86rf230_state(dev, STATE_RX_AACK_ON);
-+	return at86rf230_sync_state_change(dev->priv, STATE_RX_AACK_ON);
- }
- 
- static void
- at86rf230_stop(struct ieee802154_dev *dev)
- {
--	at86rf230_state(dev, STATE_FORCE_TRX_OFF);
-+	at86rf230_sync_state_change(dev->priv, STATE_FORCE_TRX_OFF);
- }
- 
- static int
-@@ -1242,6 +1236,8 @@ static struct ieee802154_ops at86rf230_ops = {
- };
- 
- static struct at86rf2xx_chip_data at86rf233_data = {
-+	.t_off_to_aack = 80,
-+	.t_off_to_tx_on = 80,
- 	.t_frame = 4096,
- 	.t_p_ack = 545,
- 	.t_sifs = 192,
-@@ -1253,6 +1249,8 @@ static struct at86rf2xx_chip_data at86rf233_data = {
- };
- 
- static struct at86rf2xx_chip_data at86rf231_data = {
-+	.t_off_to_aack = 110,
-+	.t_off_to_tx_on = 110,
- 	.t_frame = 4096,
- 	.t_p_ack = 545,
- 	.t_sifs = 192,
-@@ -1264,6 +1262,8 @@ static struct at86rf2xx_chip_data at86rf231_data = {
- };
- 
- static struct at86rf2xx_chip_data at86rf212_data = {
-+	.t_off_to_aack = 200,
-+	.t_off_to_tx_on = 200,
- 	.t_frame = 4096,
- 	.t_p_ack = 545,
- 	.t_sifs = 192,
-@@ -1427,6 +1427,13 @@ at86rf230_detect_device(struct at86rf230_local *lp)
- static void
- at86rf230_setup_spi_messages(struct at86rf230_local *lp)
- {
-+	lp->state.lp = lp;
-+	spi_message_init(&lp->state.msg);
-+	lp->state.msg.context = &lp->state;
-+	lp->state.trx.tx_buf = lp->state.buf;
-+	lp->state.trx.rx_buf = lp->state.buf;
-+	spi_message_add_tail(&lp->state.trx, &lp->state.msg);
-+
- 	lp->irq.lp = lp;
- 	spi_message_init(&lp->irq.msg);
- 	lp->irq.msg.context = &lp->irq;
-@@ -1509,6 +1516,7 @@ static int at86rf230_probe(struct spi_device *spi)
- 
- 	spin_lock_init(&lp->lock);
- 	init_completion(&lp->tx_complete);
-+	init_completion(&lp->state_complete);
- 
- 	spi_set_drvdata(spi, lp);
- 
+There are several changes:
+
+ - Add regmap support.
+ - Merge at86rf212 operations with generic at86rf2xx operations, all chips
+   supports these operations.
+ - Drop of irqworker. This is a workqueue which will scheduled by an irq to
+   handle synchronous spi handling. Instead using asynchronous spi handling,
+   then no scheduler is involved at irq handling.
+ - Also detected some bugs by receiving frame like CRC can be correct and a
+   802.15.4 frame length could be above 127 bytes. This would crash the whole
+   kernel (but should be handled by the mac layer). Another bug is the handling
+   with RX_SAFE_MODE which protect the frame buffer after a readout. This is
+   currently not working because we read out the buffer twice and the first one
+   to get the frame size. Solution is to readout always the whole frame buffer.
+ - Added some timing relevants things from the datasheet for state changes And
+   IEEE 802.15.4 standard like interframe spacing. Interframe spacing is needed
+   to insert some receiving space time between frame transmitting. This should be
+   also handled by MAC layer, but it's currently a workaround to add this inside
+   the driver layer.
+ - Add some callback setting for chip specific handling, instead of runtime decisions
+   if (is_chip_type()). Callbacks are set only once at probe time.
+ - We don't using a force state change anymore. A force state change will do a
+   abort of receiving frames while we want to transmit a new frame. This should
+   decrease the drop rate of packets.
+ - And many others changes and bug fixes...
+
+
+- Alex
+
+changes since v2:
+ - add check if necessary functions are implemented when hw flags are set in patch
+   ("mac802154: at86rf230: add hw flags and merge ops"). I choosed the second variant.
+ - remove unnecessary includes for workqueue and mutex in patch
+   ("at86rf230: rework transmit and receive").
+ - remove unnecessary cast in patch ("at86rf230: rework transmit and receive").
+ - acivate regmap cache with REGCACHE_RBTREE in patch
+   ("at86rf230: add regmap support").
+
+Alexander Aring (13):
+  mac802154: at86rf230: add hw flags and merge ops
+  at86rf230: add regmap support
+  at86rf230: rework detect device handling
+  at86rf230: remove is212 and add driver data
+  at86rf230: add support for at86rf23x desense
+  at86rf230: rework transmit and receive handling
+  at86rf230: move RX_SAFE_MODE setting to hw_init
+  at86rf230: rework irq_pol setting
+  at86rf230: rework state change and start/stop
+  at86rf230: rework reset to trx_off state change
+  at86rf230: add timing for channel switch
+  at86rf230: add sleep cycle timing
+  at86rf230: add new author
+
+ drivers/net/ieee802154/Kconfig     |    1 +
+ drivers/net/ieee802154/at86rf230.c | 1466 +++++++++++++++++++++++-------------
+ include/net/mac802154.h            |   19 +
+ net/mac802154/ieee802154_dev.c     |   60 +-
+ 4 files changed, 991 insertions(+), 555 deletions(-)
+
 -- 
 2.0.1
+
+
+------------------------------------------------------------------------------
+Open source business process management suite built on Java and Eclipse
+Turn processes into business applications with Bonita BPM Community Edition
+Quickly connect people, data, and systems into organized workflows
+Winner of BOSSIE, CODIE, OW2 and Gartner awards
+http://p.sf.net/sfu/Bonitasoft
