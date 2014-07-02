@@ -1,8 +1,8 @@
 From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v3 net-next 11/13] at86rf230: add
-	timing for channel switch
-Date: Thu,  3 Jul 2014 00:20:53 +0200
-Message-ID: <1404339655-8456-12-git-send-email-alex.aring@gmail.com>
+Subject: [PATCH v3 net-next 08/13] at86rf230: rework
+	irq_pol setting
+Date: Thu,  3 Jul 2014 00:20:50 +0200
+Message-ID: <1404339655-8456-9-git-send-email-alex.aring@gmail.com>
 References: <1404339655-8456-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -21,58 +21,43 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+This patch rework the irq_pol register setting for rising and falling
+interrupt settings only. The default behaviour should be rising flag.
+
+Also use IRQ_TYPE_* defines instead of IRQF_* defines. There is no
+functionality change but irq_get_trigger_type returns IRQ_TYPE_* defines.
+
 Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- drivers/net/ieee802154/at86rf230.c | 8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
+ drivers/net/ieee802154/at86rf230.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
-index a64914a..dbf85b8 100644
+index 492fb7e..46db6f8 100644
 --- a/drivers/net/ieee802154/at86rf230.c
 +++ b/drivers/net/ieee802154/at86rf230.c
-@@ -42,6 +42,7 @@ struct at86rf230_local;
-  * All timings are in us.
-  */
- struct at86rf2xx_chip_data {
-+	u16 t_channel_switch;
- 	u16 t_reset_to_off;
- 	u16 t_off_to_aack;
- 	u16 t_off_to_tx_on;
-@@ -1079,7 +1080,9 @@ at86rf230_channel(struct ieee802154_dev *dev, int page, int channel)
- 	if (rc < 0)
+@@ -1276,7 +1276,7 @@ static struct at86rf2xx_chip_data at86rf212_data = {
+ 
+ static int at86rf230_hw_init(struct at86rf230_local *lp)
+ {
+-	int rc, irq_pol, irq_type;
++	int rc, irq_type, irq_pol = IRQ_ACTIVE_HIGH;
+ 	unsigned int dvdd;
+ 	u8 csma_seed[2];
+ 
+@@ -1285,11 +1285,8 @@ static int at86rf230_hw_init(struct at86rf230_local *lp)
  		return rc;
  
--	msleep(1); /* Wait for PLL */
-+	/* Wait for PLL */
-+	usleep_range(lp->data->t_channel_switch,
-+		     lp->data->t_channel_switch + 10);
- 	dev->phy->current_channel = channel;
- 	dev->phy->current_page = page;
+ 	irq_type = irq_get_trigger_type(lp->spi->irq);
+-	/* configure irq polarity, defaults to high active */
+-	if (irq_type & (IRQF_TRIGGER_FALLING | IRQF_TRIGGER_LOW))
++	if (irq_type == IRQ_TYPE_EDGE_FALLING)
+ 		irq_pol = IRQ_ACTIVE_LOW;
+-	else
+-		irq_pol = IRQ_ACTIVE_HIGH;
  
-@@ -1247,6 +1250,7 @@ static struct ieee802154_ops at86rf230_ops = {
- };
- 
- static struct at86rf2xx_chip_data at86rf233_data = {
-+	.t_channel_switch = 11,
- 	.t_reset_to_off = 26,
- 	.t_off_to_aack = 80,
- 	.t_off_to_tx_on = 80,
-@@ -1261,6 +1265,7 @@ static struct at86rf2xx_chip_data at86rf233_data = {
- };
- 
- static struct at86rf2xx_chip_data at86rf231_data = {
-+	.t_channel_switch = 24,
- 	.t_reset_to_off = 37,
- 	.t_off_to_aack = 110,
- 	.t_off_to_tx_on = 110,
-@@ -1275,6 +1280,7 @@ static struct at86rf2xx_chip_data at86rf231_data = {
- };
- 
- static struct at86rf2xx_chip_data at86rf212_data = {
-+	.t_channel_switch = 11,
- 	.t_reset_to_off = 26,
- 	.t_off_to_aack = 200,
- 	.t_off_to_tx_on = 200,
+ 	rc = at86rf230_write_subreg(lp, SR_IRQ_POLARITY, irq_pol);
+ 	if (rc)
 -- 
 2.0.1
 
