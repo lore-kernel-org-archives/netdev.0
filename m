@@ -1,76 +1,79 @@
-From: Dan Aloni <dan@kernelim.com>
-Subject: Re: net: pretty odd panic in netfilter
-Date: Wed, 2 Jul 2014 10:20:39 +0300
-Message-ID: <20140702072039.GA15488@gmail.com>
-References: <53B37B61.3020901@oracle.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH RFC net-next 11/14] tracing: allow eBPF programs to be
+ attached to events
+Date: Wed, 2 Jul 2014 00:29:44 -0700
+Message-ID: <CAMEtUuyUqUsQbdvCWQvGjD5kuUQ8OzXzf7-7v+UJq+dDsBMv8A@mail.gmail.com>
+References: <1403913966-4927-1-git-send-email-ast@plumgrid.com>
+	<1403913966-4927-12-git-send-email-ast@plumgrid.com>
+	<87tx70496q.fsf@sejong.aot.lge.com>
+	<CAMEtUuzHakFzJYRR0WgwRBnsQL24KGsNax5DTfRNMJrGhvfQMA@mail.gmail.com>
+	<CAM9d7cisUq9nJbSXZMtD+nQ_g+ZCKSsu_ghRDZY9vvkq51oiKQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>, kadlec@blackhole.kfki.hu,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Dave Jones <davej@redhat.com>, netfilter-devel@vger.kernel.org,
-	coreteam@netfilter.org
-To: Sasha Levin <sasha.levin@oracle.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <53B37B61.3020901@oracle.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Chema Gonzalez <chema@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Jiri Olsa <jolsa@redhat.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kees Cook <keescook@chromium.org>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Namhyung Kim <namhyung@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAM9d7cisUq9nJbSXZMtD+nQ_g+ZCKSsu_ghRDZY9vvkq51oiKQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 01, 2014 at 11:24:17PM -0400, Sasha Levin wrote:
-> Hi all,
-> 
-> While fuzzing with trinity inside a KVM tools guest running the latest -next
-> kernel I've stumbled on a pretty odd corruption(?) in the code - a pretty odd
-> one.
-> 
-> Here's the issue I've hit:
-> 
-> [ 3640.805823] BUG: unable to handle kernel paging request at ffffffffffffff84
->[..]
-> [ 3640.840752] Code: 4c 89 65 e8 49 89 cc 0f 97 c1 83 fa 01 0f 95 c0 48 89 5d e0 31 db 83 fa 04 4c 89 6d f0 0f 95 c3 4c 89 75 f8 21 55 55 fb 01 48 19 <d2> 48 83 e2 f0 48 83 c2 20 48 89 d0 48 83 f0 30 84 c9 48 0f 45
-> [ 3640.840752] RIP nf_nat_packet (net/netfilter/nf_nat_core.c:482)
-> [ 3640.840752]  RSP <ffff88014608b958>
-> [ 3640.840752] CR2: ffffffffffffff84
-> 
-> Two odd things here:
-> 
-> 1. The code section seems to point mid-instruction:
-> 
->     19dc:       0f 95 c3                setne  %bl
->     19df:       4c 89 75 f8             mov    %r14,-0x8(%rbp)
->     19e3:       21 c3                   and    %eax,%ebx
->     19e5:       83 fb 01                cmp    $0x1,%ebx
->     19e8:       48 19 d2                sbb    %rdx,%rdx  <=== The end of this (0xd2)
->     19eb:       48 83 e2 f0             and    $0xfffffffffffffff0,%rdx
->     19ef:       48 83 c2 20             add    $0x20,%rdx
->     19f3:       48 89 d0                mov    %rdx,%rax
->     19f6:       48 83 f0 30             xor    $0x30,%rax
-> 
-> 2. There isn't anything in that area that dereferences memory:
-> 
->         enum nf_nat_manip_type mtype = HOOK2MANIP(hooknum);
-> 
->         if (mtype == NF_NAT_MANIP_SRC)
->                 statusbit = IPS_SRC_NAT;
->         else
->                 statusbit = IPS_DST_NAT;
+On Tue, Jul 1, 2014 at 11:39 PM, Namhyung Kim <namhyung@kernel.org> wrote:
+> On Wed, Jul 2, 2014 at 3:14 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
+>>
+>> Can manipulate what at compile time? Entry records of tracepoints are
+>> hard coded based on the event. For verifier it's easier to treat all
+>> tracepoint events as they received the same 'struct bpf_context'
+>> of N arguments then the same program can be attached to multiple
+>> tracepoint events at the same time.
+>
+> I was thinking about perf creates a bpf program for filtering some
+> events like recording kfree_skb if protocol == xx.  So perf can
+> calculate the offset and size of the protocol field and make
+> appropriate insns for the filter.
 
-Hi Sasha,
+When I'm saying 'tracing filter' in patch 11/14, I really mean
+stap/dtrace-like facility for live debugging, where tracing infra plays
+a key role. At the end the programs are written in C with annotations
+and perf orchestrates compilation, insertion, attaching, printing results.
+Your meaning of 'tracing filter' is canonical: a filter that says whether
+event should be recorded or not. And it makes sense.
+When perf sees 'protocol==xx' on command line it can generate
+ebpf program for it. In such case my earlier proposal for replacing
+predicate tree walker with ebpf programs in kernel becomes obsolete?
+If I understood correctly, you're proposing to teach perf to generate
+ebpf programs for existing command line interface and use it instead
+of predicate tree. This way predicate tree can be removed, right?
+In such case programs would need to access event records.
 
-The fault registers are consistent with the 'rorb %cl,-0x7d(%rax)' starting
-at the place where you have 0xd2. But the problem started earlier:
+> Maybe it needs to pass the event format to the verifier somehow then.
 
-    "75 f8 21 55 55 fb 01 48 19 <d2> 48 83 e2 f0"
+The integer fields are easy to verify. dynamic_array part is tricky, since
+16-bit offset  + 16-bit length accessors are very tracing specific.
+I need to think it through.
 
-What should have been according to objdump:
+> Your scenario looks like just calling a bpf program when it hits a
+> event.  It could use event triggering for that purpose IMHO.
 
-    "75 f8 21 c3 83 fb 01 48 19 <d2> 48 83 e2 f0"
-              ^^^^^ 
-These instructions should not have been modified, even by relocation. 
-So we only need to figure out what overwrote with '0x5555'.
-
--- 
-Dan Aloni
+Sure. Calling ebpf program can be one of even trigger types.
+On the other side ebpf programs themselves can replace the whole
+triggering, filtering, recording code. We can have events that
+do nothing or call ebpf programs. Then programs walk all necessary
+data structures, store stuff into a maps, etc Just look at amount of
+events that perf processes. Some of it can be done in kernel by
+dynamic program.
