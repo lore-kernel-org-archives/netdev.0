@@ -1,48 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] net: fix sparse warning in sk_dst_set()
-Date: Wed, 02 Jul 2014 02:39:38 -0700
-Message-ID: <1404293978.23797.20.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next] bonding: remove no longer relevant vlan warnings
+Date: Wed,  2 Jul 2014 11:55:38 +0200
+Message-ID: <1404294938-9968-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, j.vosburgh@gmail.com, vfalico@gmail.com,
+	andy@greyhouse.net, teg@jklm.no, jay.vosburgh@canonical.com,
+	mkubecek@suse.cz
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:60473 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751044AbaGBJjl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2014 05:39:41 -0400
-Received: by mail-wi0-f172.google.com with SMTP id hi2so9261171wib.17
-        for <netdev@vger.kernel.org>; Wed, 02 Jul 2014 02:39:40 -0700 (PDT)
+Received: from mail-we0-f176.google.com ([74.125.82.176]:38455 "EHLO
+	mail-we0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750796AbaGBJzp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2014 05:55:45 -0400
+Received: by mail-we0-f176.google.com with SMTP id u56so11021668wes.7
+        for <netdev@vger.kernel.org>; Wed, 02 Jul 2014 02:55:43 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+These warnings are no longer relevant. Even when last slave is
+removed, there is a valid address assigned to bond (random).
+The correct functionality of vlans is ensured by maintaining unicast
+list in vlan_sync_address().
 
-sk_dst_cache has __rcu annotation, so we need a cast to avoid
-following sparse error :
-
-include/net/sock.h:1774:19: warning: incorrect type in initializer (different address spaces)
-include/net/sock.h:1774:19:    expected struct dst_entry [noderef] <asn:4>*__ret
-include/net/sock.h:1774:19:    got struct dst_entry *dst
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Fixes: 7f502361531e ("ipv4: irq safe sk_dst_[re]set() and ipv4_sk_update_pmtu() fix")
+Suggested-by: Jay Vosburgh <jay.vosburgh@canonical.com>
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- include/net/sock.h |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/bonding/bond_main.c | 7 -------
+ 1 file changed, 7 deletions(-)
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index c556fd9b05ac..156350745700 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -1771,7 +1771,7 @@ sk_dst_set(struct sock *sk, struct dst_entry *dst)
- 	struct dst_entry *old_dst;
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index ffefb70..09dc3ef 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1754,13 +1754,6 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 	if (!bond_has_slaves(bond)) {
+ 		bond_set_carrier(bond);
+ 		eth_hw_addr_random(bond_dev);
+-
+-		if (vlan_uses_dev(bond_dev)) {
+-			pr_warn("%s: Warning: clearing HW address of %s while it still has VLANs\n",
+-				bond_dev->name, bond_dev->name);
+-			pr_warn("%s: When re-adding slaves, make sure the bond's HW address matches its VLANs\n",
+-				bond_dev->name);
+-		}
+ 	}
  
- 	sk_tx_queue_clear(sk);
--	old_dst = xchg(&sk->sk_dst_cache, dst);
-+	old_dst = xchg((__force struct dst_entry **)&sk->sk_dst_cache, dst);
- 	dst_release(old_dst);
- }
- 
+ 	unblock_netpoll_tx();
+-- 
+1.9.0
