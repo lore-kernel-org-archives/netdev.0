@@ -1,159 +1,48 @@
-From: Dong Aisheng <b29396@freescale.com>
-Subject: Re: [PATCH 1/3] can: m_can: add Bosch M_CAN controller support
-Date: Wed, 2 Jul 2014 14:33:49 +0800
-Message-ID: <20140702063348.GC10397@shlinux1.ap.freescale.net>
-References: <1403863246-18822-1-git-send-email-b29396@freescale.com>
- <1403863246-18822-2-git-send-email-b29396@freescale.com>
- <53B28D7D.5080005@pengutronix.de>
- <20140702061944.GA8762@shlinux1.ap.freescale.net>
- <53B3BB7E.6040903@pengutronix.de>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH RFC net-next 08/14] bpf: add eBPF verifier
+Date: Wed, 2 Jul 2014 08:11:20 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1726B207@AcuExch.aculab.com>
+References: <1403913966-4927-1-git-send-email-ast@plumgrid.com>
+	<1403913966-4927-9-git-send-email-ast@plumgrid.com>
+	<53B26BB0.90209@redhat.com>
+ <CAMEtUuyc3+jrxG4r4=fk=Gc9OMhO8a2X1oyWPx1LsKzewVf01w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <linux-can@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<wg@grandegger.com>, <devicetree@vger.kernel.org>
-To: Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-can-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <53B3BB7E.6040903@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Chema Gonzalez <chema@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	"Arnaldo Carvalho de Melo" <acme@infradead.org>,
+	Jiri Olsa <jolsa@redhat.com>,
+	"Thomas Gleixner" <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	Kees Cook <keescook@chromium.org>,
+	"Linux API" <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: 'Alexei Starovoitov' <ast@plumgrid.com>,
+	Daniel Borkmann <dborkman@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAMEtUuyc3+jrxG4r4=fk=Gc9OMhO8a2X1oyWPx1LsKzewVf01w@mail.gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 02, 2014 at 09:57:50AM +0200, Marc Kleine-Budde wrote:
-> On 07/02/2014 08:20 AM, Dong Aisheng wrote:
-> [...]
-> 
-> >>> +static int m_can_do_rx_poll(struct net_device *dev, int quota)
-> >>> +{
-> >>> +	struct m_can_priv *priv = netdev_priv(dev);
-> >>> +	struct net_device_stats *stats = &dev->stats;
-> >>> +	struct sk_buff *skb;
-> >>> +	struct can_frame *frame;
-> >>> +	u32 rxfs, flags, fgi;
-> >>> +	u32 num_rx_pkts = 0;
-> >>> +
-> >>> +	rxfs = m_can_read(priv, M_CAN_RXF0S);
-> >>> +	if (!(rxfs & RXFS_FFL_MASK)) {
-> >>> +		netdev_dbg(dev, "no messages in fifo0\n");
-> >>> +		return 0;
-> >>> +	}
-> >>> +
-> >>> +	while ((rxfs & RXFS_FFL_MASK) && (quota > 0)) {
-> >>> +		netdev_dbg(dev, "fifo0 status 0x%x\n", rxfs);
-> >>
-> >> Please remove the netdev_dbg(), once the driver is stable it should be
-> >> of no use.
-> >>
-> > 
-> > Got it.
-> > 
-> >>> +		if (rxfs & RXFS_RFL)
-> >>> +			netdev_warn(dev, "Rx FIFO 0 Message Lost\n");
-> >>
-> >> What does that mean? Can you still rx the message if it's lost?
-> >>
-> > 
-> > It just warns that there's a message lost, but there are still other
-> > message in fifo to receive.
-> > 
-> >>> +
-> >>> +		skb = alloc_can_skb(dev, &frame);
-> >>> +		if (!skb) {
-> >>> +			stats->rx_dropped++;
-> >>> +			return -ENOMEM;
-> >>
-> >> Have a look at the user of m_can_do_rx_poll() and how it makes use of
-> >> the return value.
-> >>
-> > 
-> > Right, thanks for spotting it.
-> > 
-> >>> +		}
-> >>> +
-> >>> +		fgi = (rxfs & RXFS_FGI_MASK) >> RXFS_FGI_OFF;
-> >>
-> >> BTW: Is this a _real_ fifo? Or evolution of the c_can/d_can interface
-> >> where it's not a fifo at all.
-> >>
-> > 
-> > Yes, it is real fifo in the message ram.
-> > 
-> >>> +		flags = readl(priv->mram_base + priv->rxf0_off + fgi * 16);
-> >>> +		if (flags & RX_BUF_XTD)
-> >>> +			frame->can_id = (flags & CAN_EFF_MASK) | CAN_EFF_FLAG;
-> >>> +		else
-> >>> +			frame->can_id = (flags >> 18) & CAN_SFF_MASK;
-> >>> +		netdev_dbg(dev, "R0 0x%x\n", flags);
-> >>
-> >> please remove dbg
-> >>> +
-> >>> +		if (flags & RX_BUF_RTR) {
-> >>> +			frame->can_id |= CAN_RTR_FLAG;
-> >>> +		} else {
-> >>> +			flags = readl(priv->mram_base +
-> >>> +					priv->rxf0_off + fgi * 16 + 0x4);
-> >>> +			frame->can_dlc = get_can_dlc((flags >> 16) & 0x0F);
-> >>> +			netdev_dbg(dev, "R1 0x%x\n", flags);
-> >>
-> >> please remove
-> >>
-> >>> +
-> >>> +			*(u32 *)(frame->data + 0) = readl(priv->mram_base +
-> >>> +					priv->rxf0_off + fgi * 16 + 0x8);
-> >>> +			*(u32 *)(frame->data + 4) = readl(priv->mram_base +
-> >>> +					priv->rxf0_off + fgi * 16 + 0xC);
-> >>
-> >>
-> >> can you create a wrapper function to hide the pointer arithmetics here?
-> >> Somethig like m_can_read_fifo()
-> >>
-> > 
-> > Yes, i could make a wrapper function for it.
-> > 
-> >>> +			netdev_dbg(dev, "R2 0x%x\n", *(u32 *)(frame->data + 0));
-> >>> +			netdev_dbg(dev, "R3 0x%x\n", *(u32 *)(frame->data + 4));
-> >>> +		}
-> >>> +
-> >>> +		/* acknowledge rx fifo 0 */
-> >>> +		m_can_write(priv, M_CAN_RXF0A, fgi);
-> >>> +
-> >>> +		netif_receive_skb(skb);
-> >>> +		netdev_dbg(dev, "new packet received\n");
-> >>> +
-> >>> +		stats->rx_packets++;
-> >>> +		stats->rx_bytes += frame->can_dlc;
-> >>
-> >> Please move the stats handling in front of netif_receive_skb() as the
-> >> skb and thus frame is not a valid pointer anymore.
-> >>
-> > 
-> > Good catch!
-> > Will change it.
-> > 
-> >>> +
-> >>> +		can_led_event(dev, CAN_LED_EVENT_RX);
-> >>
-> >> Please move out of the loop so that it is just called once (if a CAN
-> >> frame is rx'ed) per  m_can_do_rx_poll().
-> 
-> > Why that?
-> > The purpose is calling it for each new packet received.
-> 
-> It will only trigger LED blinking, and tglx pointed out, that we don't
-> need the overhead of calling it for every CAN frame.
-> 
-
-Okay, got it, thanks for this information.
-
-Regards
-Dong Aisheng
-
-> Marc
-> 
-> -- 
-> Pengutronix e.K.                  | Marc Kleine-Budde           |
-> Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-> Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-> Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-> 
-
-
+RnJvbTogQWxleGVpIFN0YXJvdm9pdG92DQouLi4NCj4gPj4gKyNkZWZpbmUgXyhPUCkgKHsgaW50
+IHJldCA9IE9QOyBpZiAocmV0IDwgMCkgcmV0dXJuIHJldDsgfSkNCi4uLg0KPiA+PiArICAgICAg
+IF8oZ2V0X21hcF9pbmZvKGVudiwgbWFwX2lkLCAmbWFwKSk7DQo+ID4NCj4gPiBOaXQ6IHN1Y2gg
+bWFjcm9zIHNob3VsZCBiZSByZW1vdmVkLCBwbGVhc2UuDQo+IA0KPiBJdCBtYXkgc3VyZWx5IGxv
+b2sgdW5jb252ZW50aW9uYWwsIGJ1dCBhbHRlcm5hdGl2ZSBpcyB0byByZXBsYWNlDQo+IGV2ZXJ5
+IHVzYWdlIG9mIF8gbWFjcm8gd2l0aDoNCj4gZXJyID0NCj4gaWYgKGVycikNCj4gICByZXR1cm4g
+ZXJyOw0KPiANCj4gYW5kIHNpbmNlIHRoaXMgbWFjcm8gaXMgdXNlZCAzOCB0aW1lcywgaXQgd2ls
+bCBhZGQgfjEyMCB1bm5lY2Vzc2FyeQ0KPiBsaW5lcyB0aGF0IHdpbGwgb25seSBtYWtlIGNvZGUg
+bXVjaCBoYXJkZXIgdG8gZm9sbG93Lg0KPiBJIHRyaWVkIG5vdCB1c2luZyBtYWNybyBhbmQgcmVz
+dWx0cyB3ZXJlIG5vdCBwbGVhc2luZy4NCg0KVGhlIHByb2JsZW0gaXMgdGhhdCB0aGV5IGFyZSBo
+aWRkZW4gY29udHJvbCBmbG93Lg0KQXMgc3VjaCB0aGV5IG1ha2UgZmxvdyBhbmFseXNpcyBoYXJk
+ZXIgZm9yIHRoZSBjYXN1YWwgcmVhZGVyLg0KDQpUaGUgZXh0cmEgbGluZXMgcmVhbGx5IHNob3Vs
+ZG4ndCBtYXR0ZXIuDQoNCglEYXZpZA0KDQo=
