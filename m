@@ -1,170 +1,433 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH 1/3] can: m_can: add Bosch M_CAN controller support
-Date: Wed, 02 Jul 2014 09:57:50 +0200
-Message-ID: <53B3BB7E.6040903@pengutronix.de>
-References: <1403863246-18822-1-git-send-email-b29396@freescale.com> <1403863246-18822-2-git-send-email-b29396@freescale.com> <53B28D7D.5080005@pengutronix.de> <20140702061944.GA8762@shlinux1.ap.freescale.net>
+From: Dong Aisheng <b29396@freescale.com>
+Subject: Re: [PATCH 2/3] can: m_can: add bus error handling
+Date: Wed, 2 Jul 2014 14:31:51 +0800
+Message-ID: <20140702063148.GA10397@shlinux1.ap.freescale.net>
+References: <1403863246-18822-1-git-send-email-b29396@freescale.com>
+ <1403863246-18822-3-git-send-email-b29396@freescale.com>
+ <53B28F53.7010403@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="RxSGD6ewoAQaKBAmxh95jlGJIRewJgTN6"
-Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	wg@grandegger.com, devicetree@vger.kernel.org
-To: Dong Aisheng <b29396@freescale.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <20140702061944.GA8762@shlinux1.ap.freescale.net>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <linux-can@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<wg@grandegger.com>, <devicetree@vger.kernel.org>
+To: Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-by2lp0241.outbound.protection.outlook.com ([207.46.163.241]:30987
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750895AbaGBIEY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Jul 2014 04:04:24 -0400
+Content-Disposition: inline
+In-Reply-To: <53B28F53.7010403@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---RxSGD6ewoAQaKBAmxh95jlGJIRewJgTN6
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+On Tue, Jul 01, 2014 at 12:37:07PM +0200, Marc Kleine-Budde wrote:
+> On 06/27/2014 12:00 PM, Dong Aisheng wrote:
+> > Add bus error, state change, lost message handling mechanism.
+> > 
+> > Signed-off-by: Dong Aisheng <b29396@freescale.com>
+> > ---
+> >  drivers/net/can/m_can.c |  271 +++++++++++++++++++++++++++++++++++++++++------
+> >  1 files changed, 240 insertions(+), 31 deletions(-)
+> > 
+> > diff --git a/drivers/net/can/m_can.c b/drivers/net/can/m_can.c
+> > index 61e9a8e..e4aed71 100644
+> > --- a/drivers/net/can/m_can.c
+> > +++ b/drivers/net/can/m_can.c
+> > @@ -83,6 +83,18 @@ enum m_can_reg {
+> >  	M_CAN_TXEFA	= 0xf8,
+> >  };
+> >  
+> > +/* m_can lec values */
+> > +enum m_can_lec_type {
+> > +	LEC_NO_ERROR = 0,
+> > +	LEC_STUFF_ERROR,
+> > +	LEC_FORM_ERROR,
+> > +	LEC_ACK_ERROR,
+> > +	LEC_BIT1_ERROR,
+> > +	LEC_BIT0_ERROR,
+> > +	LEC_CRC_ERROR,
+> > +	LEC_UNUSED,
+> > +};
+> > +
+> >  /* CC Control Register(CCCR) */
+> >  #define CCCR_CCE	BIT(1)
+> >  #define CCCR_INIT	BIT(0)
+> > @@ -97,6 +109,19 @@ enum m_can_reg {
+> >  #define BTR_SJW_SHIFT		0
+> >  #define BTR_SJW_MASK		0xf
+> >  
+> > +/* Error Counter Register(ECR) */
+> > +#define ECR_RP			BIT(15)
+> > +#define ECR_REC_SHIFT		8
+> > +#define ECR_REC_MASK		(0x7f << ECR_REC_SHIFT)
+> > +#define ECR_TEC_SHIFT		0
+> > +#define ECR_TEC_MASK		0xff
+> > +
+> > +/* Protocol Status Register(PSR) */
+> > +#define PSR_BO		BIT(7)
+> > +#define PSR_EW		BIT(6)
+> > +#define PSR_EP		BIT(5)
+> > +#define PSR_LEC_MASK	0x7
+> > +
+> >  /* Interrupt Register(IR) */
+> >  #define IR_ALL_INT	0xffffffff
+> >  #define IR_STE		BIT(31)
+> > @@ -131,10 +156,11 @@ enum m_can_reg {
+> >  #define IR_RF0F		BIT(2)
+> >  #define IR_RF0W		BIT(1)
+> >  #define IR_RF0N		BIT(0)
+> > -#define IR_ERR_ALL	(IR_STE	| IR_FOE | IR_ACKE | IR_BE | IR_CRCE | \
+> > -		IR_WDI | IR_BO | IR_EW | IR_EP | IR_ELO | IR_BEU | \
+> > -		IR_BEC | IR_TOO | IR_MRAF | IR_TSW | IR_TEFL | IR_RF1L | \
+> > -		IR_RF0L)
+> > +#define IR_ERR_STATE	(IR_BO | IR_EW | IR_EP)
+> > +#define IR_ERR_BUS	(IR_STE	| IR_FOE | IR_ACKE | IR_BE | IR_CRCE | \
+> > +		IR_WDI | IR_ELO | IR_BEU | IR_BEC | IR_TOO | IR_MRAF | \
+> > +		IR_TSW | IR_TEFL | IR_RF1L | IR_RF0L)
+> > +#define IR_ERR_ALL	(IR_ERR_STATE | IR_ERR_BUS)
+> >  
+> >  /* Rx FIFO 0/1 Configuration (RXF0C/RXF1C) */
+> >  #define RXFC_FWM_OFF	24
+> > @@ -320,12 +346,175 @@ static int m_can_do_rx_poll(struct net_device *dev, int quota)
+> >  	return num_rx_pkts;
+> >  }
+> >  
+> > +static int m_can_handle_lost_msg(struct net_device *dev)
+> > +{
+> > +	struct net_device_stats *stats = &dev->stats;
+> > +	struct sk_buff *skb;
+> > +	struct can_frame *frame;
+> > +
+> > +	netdev_err(dev, "msg lost in rxf0\n");
+> > +
+> > +	skb = alloc_can_err_skb(dev, &frame);
+> > +	if (unlikely(!skb))
+> > +		return 0;
+> 
+> Please rearrange this function differently, so that the stats are
+> updated, even if alloc_can_err_skb() fails.
+> 
 
-On 07/02/2014 08:20 AM, Dong Aisheng wrote:
-[...]
+Good suggestion.
+Will change them all with other places having the same issue.
 
->>> +static int m_can_do_rx_poll(struct net_device *dev, int quota)
->>> +{
->>> +	struct m_can_priv *priv =3D netdev_priv(dev);
->>> +	struct net_device_stats *stats =3D &dev->stats;
->>> +	struct sk_buff *skb;
->>> +	struct can_frame *frame;
->>> +	u32 rxfs, flags, fgi;
->>> +	u32 num_rx_pkts =3D 0;
->>> +
->>> +	rxfs =3D m_can_read(priv, M_CAN_RXF0S);
->>> +	if (!(rxfs & RXFS_FFL_MASK)) {
->>> +		netdev_dbg(dev, "no messages in fifo0\n");
->>> +		return 0;
->>> +	}
->>> +
->>> +	while ((rxfs & RXFS_FFL_MASK) && (quota > 0)) {
->>> +		netdev_dbg(dev, "fifo0 status 0x%x\n", rxfs);
->>
->> Please remove the netdev_dbg(), once the driver is stable it should be=
+> > +
+> > +	frame->can_id |= CAN_ERR_CRTL;
+> > +	frame->data[1] = CAN_ERR_CRTL_RX_OVERFLOW;
+> > +	stats->rx_errors++;
+> > +	stats->rx_over_errors++;
+> > +
+> > +	netif_receive_skb(skb);
+> > +
+> > +	return 1;
+> > +}
+> > +
+> > +static int m_can_handle_bus_err(struct net_device *dev,
+> > +				enum m_can_lec_type lec_type)
+> > +{
+> > +	struct m_can_priv *priv = netdev_priv(dev);
+> > +	struct net_device_stats *stats = &dev->stats;
+> > +	struct can_frame *cf;
+> > +	struct sk_buff *skb;
+> > +
+> > +	/* early exit if no lec update */
+> > +	if (lec_type == LEC_UNUSED)
+> > +		return 0;
+> > +
+> > +	/* propagate the error condition to the CAN stack */
+> > +	skb = alloc_can_err_skb(dev, &cf);
+> > +	if (unlikely(!skb))
+> > +		return 0;
+> 
+> same here
+> 
+> > +
+> > +	/*
+> > +	 * check for 'last error code' which tells us the
+> > +	 * type of the last error to occur on the CAN bus
+> > +	 */
+> > +	priv->can.can_stats.bus_error++;
+> > +	stats->rx_errors++;
+> > +	cf->can_id |= CAN_ERR_PROT | CAN_ERR_BUSERROR;
+> > +	cf->data[2] |= CAN_ERR_PROT_UNSPEC;
+> > +
+> > +	switch (lec_type) {
+> > +	case LEC_STUFF_ERROR:
+> > +		netdev_dbg(dev, "stuff error\n");
+> > +		cf->data[2] |= CAN_ERR_PROT_STUFF;
+> > +		break;
+> > +	case LEC_FORM_ERROR:
+> > +		netdev_dbg(dev, "form error\n");
+> > +		cf->data[2] |= CAN_ERR_PROT_FORM;
+> > +		break;
+> > +	case LEC_ACK_ERROR:
+> > +		netdev_dbg(dev, "ack error\n");
+> > +		cf->data[3] |= (CAN_ERR_PROT_LOC_ACK |
+> > +				CAN_ERR_PROT_LOC_ACK_DEL);
+> > +		break;
+> > +	case LEC_BIT1_ERROR:
+> > +		netdev_dbg(dev, "bit1 error\n");
+> > +		cf->data[2] |= CAN_ERR_PROT_BIT1;
+> > +		break;
+> > +	case LEC_BIT0_ERROR:
+> > +		netdev_dbg(dev, "bit0 error\n");
+> > +		cf->data[2] |= CAN_ERR_PROT_BIT0;
+> > +		break;
+> > +	case LEC_CRC_ERROR:
+> > +		netdev_dbg(dev, "CRC error\n");
+> > +		cf->data[3] |= (CAN_ERR_PROT_LOC_CRC_SEQ |
+> > +				CAN_ERR_PROT_LOC_CRC_DEL);
+> > +		break;
+> > +	default:
+> > +		break;
+> > +	}
+> > +
+> > +	netif_receive_skb(skb);
+> > +	stats->rx_packets++;
+> > +	stats->rx_bytes += cf->can_dlc;
+> > +
+> > +	return 1;
+> > +}
+> > +
+> > +static int m_can_get_berr_counter(const struct net_device *dev,
+> > +				  struct can_berr_counter *bec)
+> > +{
+> > +	struct m_can_priv *priv = netdev_priv(dev);
+> > +	unsigned int ecr;
+> 
+> This function might be called, even if the interface is down. You might
+> have to enable the clock(s) here.
+> 
 
->> of no use.
->>
->=20
-> Got it.
->=20
->>> +		if (rxfs & RXFS_RFL)
->>> +			netdev_warn(dev, "Rx FIFO 0 Message Lost\n");
->>
->> What does that mean? Can you still rx the message if it's lost?
->>
->=20
-> It just warns that there's a message lost, but there are still other
-> message in fifo to receive.
->=20
->>> +
->>> +		skb =3D alloc_can_skb(dev, &frame);
->>> +		if (!skb) {
->>> +			stats->rx_dropped++;
->>> +			return -ENOMEM;
->>
->> Have a look at the user of m_can_do_rx_poll() and how it makes use of
->> the return value.
->>
->=20
-> Right, thanks for spotting it.
->=20
->>> +		}
->>> +
->>> +		fgi =3D (rxfs & RXFS_FGI_MASK) >> RXFS_FGI_OFF;
->>
->> BTW: Is this a _real_ fifo? Or evolution of the c_can/d_can interface
->> where it's not a fifo at all.
->>
->=20
-> Yes, it is real fifo in the message ram.
->=20
->>> +		flags =3D readl(priv->mram_base + priv->rxf0_off + fgi * 16);
->>> +		if (flags & RX_BUF_XTD)
->>> +			frame->can_id =3D (flags & CAN_EFF_MASK) | CAN_EFF_FLAG;
->>> +		else
->>> +			frame->can_id =3D (flags >> 18) & CAN_SFF_MASK;
->>> +		netdev_dbg(dev, "R0 0x%x\n", flags);
->>
->> please remove dbg
->>> +
->>> +		if (flags & RX_BUF_RTR) {
->>> +			frame->can_id |=3D CAN_RTR_FLAG;
->>> +		} else {
->>> +			flags =3D readl(priv->mram_base +
->>> +					priv->rxf0_off + fgi * 16 + 0x4);
->>> +			frame->can_dlc =3D get_can_dlc((flags >> 16) & 0x0F);
->>> +			netdev_dbg(dev, "R1 0x%x\n", flags);
->>
->> please remove
->>
->>> +
->>> +			*(u32 *)(frame->data + 0) =3D readl(priv->mram_base +
->>> +					priv->rxf0_off + fgi * 16 + 0x8);
->>> +			*(u32 *)(frame->data + 4) =3D readl(priv->mram_base +
->>> +					priv->rxf0_off + fgi * 16 + 0xC);
->>
->>
->> can you create a wrapper function to hide the pointer arithmetics here=
-?
->> Somethig like m_can_read_fifo()
->>
->=20
-> Yes, i could make a wrapper function for it.
->=20
->>> +			netdev_dbg(dev, "R2 0x%x\n", *(u32 *)(frame->data + 0));
->>> +			netdev_dbg(dev, "R3 0x%x\n", *(u32 *)(frame->data + 4));
->>> +		}
->>> +
->>> +		/* acknowledge rx fifo 0 */
->>> +		m_can_write(priv, M_CAN_RXF0A, fgi);
->>> +
->>> +		netif_receive_skb(skb);
->>> +		netdev_dbg(dev, "new packet received\n");
->>> +
->>> +		stats->rx_packets++;
->>> +		stats->rx_bytes +=3D frame->can_dlc;
->>
->> Please move the stats handling in front of netif_receive_skb() as the
->> skb and thus frame is not a valid pointer anymore.
->>
->=20
-> Good catch!
-> Will change it.
->=20
->>> +
->>> +		can_led_event(dev, CAN_LED_EVENT_RX);
->>
->> Please move out of the loop so that it is just called once (if a CAN
->> frame is rx'ed) per  m_can_do_rx_poll().
+Ok, got it, thanks for the info.
 
-> Why that?
-> The purpose is calling it for each new packet received.
+> > +	ecr = m_can_read(priv, M_CAN_ECR);
+> > +	bec->rxerr = (ecr & ECR_REC_MASK) >> ECR_REC_SHIFT;
+> > +	bec->txerr = ecr & ECR_TEC_MASK;
+> > +
+> > +	return 0;
+> > +}
+> > +
+> > +static int m_can_handle_state_change(struct net_device *dev,
+> > +				enum can_state new_state)
+> > +{
+> > +	struct m_can_priv *priv = netdev_priv(dev);
+> > +	struct net_device_stats *stats = &dev->stats;
+> > +	struct can_frame *cf;
+> > +	struct sk_buff *skb;
+> > +	struct can_berr_counter bec;
+> > +	unsigned int ecr;
+> > +
+> > +	/* propagate the error condition to the CAN stack */
+> > +	skb = alloc_can_err_skb(dev, &cf);
+> > +	if (unlikely(!skb))
+> > +		return 0;
+> 
+> Please rearrange the function, so that the stats and more important
+> bus-off are handled correctly, even if this fails.
+> 
 
-It will only trigger LED blinking, and tglx pointed out, that we don't
-need the overhead of calling it for every CAN frame.
+Will do it.
 
-Marc
+> > +
+> > +	m_can_get_berr_counter(dev, &bec);
+> > +
+> > +	switch (new_state) {
+> > +	case CAN_STATE_ERROR_ACTIVE:
+> > +		/* error warning state */
+> > +		priv->can.can_stats.error_warning++;
+> > +		priv->can.state = CAN_STATE_ERROR_WARNING;
+> > +		cf->can_id |= CAN_ERR_CRTL;
+> > +		cf->data[1] = (bec.txerr > bec.rxerr) ?
+> > +			CAN_ERR_CRTL_TX_WARNING :
+> > +			CAN_ERR_CRTL_RX_WARNING;
+> > +		cf->data[6] = bec.txerr;
+> > +		cf->data[7] = bec.rxerr;
+> > +		break;
+> > +	case CAN_STATE_ERROR_PASSIVE:
+> > +		/* error passive state */
+> > +		priv->can.can_stats.error_passive++;
+> > +		priv->can.state = CAN_STATE_ERROR_PASSIVE;
+> > +		cf->can_id |= CAN_ERR_CRTL;
+> > +		ecr = m_can_read(priv, M_CAN_ECR);
+> > +		if (ecr & ECR_RP)
+> > +			cf->data[1] |= CAN_ERR_CRTL_RX_PASSIVE;
+> > +		if (bec.txerr > 127)
+> > +			cf->data[1] |= CAN_ERR_CRTL_TX_PASSIVE;
+> > +		cf->data[6] = bec.txerr;
+> > +		cf->data[7] = bec.rxerr;
+> > +		break;
+> > +	case CAN_STATE_BUS_OFF:
+> > +		/* bus-off state */
+> > +		priv->can.state = CAN_STATE_BUS_OFF;
+> > +		cf->can_id |= CAN_ERR_BUSOFF;
+> > +		/*
+> > +		 * disable all interrupts in bus-off mode to ensure that
+> > +		 * the CPU is not hogged down
+> > +		 */
+> > +		m_can_enable_all_interrupts(priv, false);
+> > +		can_bus_off(dev);
+> > +		break;
+> > +	default:
+> > +		break;
+> > +	}
+> > +
+> > +	netif_receive_skb(skb);
+> > +	stats->rx_packets++;
+> > +	stats->rx_bytes += cf->can_dlc;
+> 
+> don't acces "cf" after netif_receive_sb();
+> 
 
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+Got it.
 
+> > +
+> > +	return 1;
+> > +}
+> > +
+> >  static int m_can_poll(struct napi_struct *napi, int quota)
+> >  {
+> >  	struct net_device *dev = napi->dev;
+> >  	struct m_can_priv *priv = netdev_priv(dev);
+> >  	u32 work_done = 0;
+> > -	u32 irqstatus;
+> > +	u32 irqstatus, psr;
+> >  
+> >  	irqstatus = m_can_read(priv, M_CAN_IR);
+> >  	if (irqstatus)
+> > @@ -337,6 +526,48 @@ static int m_can_poll(struct napi_struct *napi, int quota)
+> >  	if (!irqstatus)
+> >  		goto end;
+> >  
+> > +	psr = m_can_read(priv, M_CAN_PSR);
+> > +	if (irqstatus & IR_ERR_STATE) {
+> > +		if ((psr & PSR_EW) &&
+> > +			(priv->can.state != CAN_STATE_ERROR_WARNING)) {
+> > +			netdev_dbg(dev, "entered error warning state\n");
+> > +			work_done += m_can_handle_state_change(dev,
+> > +					CAN_STATE_ERROR_WARNING);
+> > +		}
+> > +
+> > +		if ((psr & PSR_EP) &&
+> > +			(priv->can.state != CAN_STATE_ERROR_PASSIVE)) {
+> > +			netdev_dbg(dev, "entered error warning state\n");
+> > +			work_done += m_can_handle_state_change(dev,
+> > +					CAN_STATE_ERROR_PASSIVE);
+> > +		}
+> > +
+> > +		if ((psr & PSR_BO) &&
+> > +			(priv->can.state != CAN_STATE_BUS_OFF)) {
+> > +			netdev_dbg(dev, "entered error warning state\n");
+> > +			work_done += m_can_handle_state_change(dev,
+> > +					CAN_STATE_BUS_OFF);
+> > +		}
+> 
+> You might want to push this into a seperate function.
+> 
 
---RxSGD6ewoAQaKBAmxh95jlGJIRewJgTN6
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+Yes, could do like that.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+> > +	}
+> > +
+> > +	if (irqstatus & IR_ERR_BUS) {
+> > +		if (irqstatus & IR_RF0L)
+> > +			work_done += m_can_handle_lost_msg(dev);
+> > +
+> > +		/* handle lec errors on the bus */
+> > +		if (psr & LEC_UNUSED)
+> > +			work_done += m_can_handle_bus_err(dev,
+> > +					psr & LEC_UNUSED);
+> > +
+> > +		/* other unproccessed error interrupts */
+> > +		if (irqstatus & IR_WDI)
+> > +			netdev_err(dev, "Message RAM Watchdog event due to missing READY\n");
+> > +		if (irqstatus & IR_TOO)
+> > +			netdev_err(dev, "Timeout reached\n");
+> > +		if (irqstatus & IR_MRAF)
+> > +			netdev_err(dev, "Message RAM access failure occurred\n");
+> 
+> same here
 
-iEYEARECAAYFAlOzu4YACgkQjTAFq1RaXHMUFgCfaZZIGsxFyAK8bgsnfK+e+11w
-XocAn3pbVtA7Q4hbnAtGadUN0P+L6dEv
-=Lwmo
------END PGP SIGNATURE-----
+Got it.
 
---RxSGD6ewoAQaKBAmxh95jlGJIRewJgTN6--
+> > +	}
+> > +
+> >  	if (irqstatus & IR_RF0N)
+> >  		/* handle events corresponding to receive message objects */
+> >  		work_done += m_can_do_rx_poll(dev, (quota - work_done));
+> > @@ -369,31 +600,18 @@ static irqreturn_t m_can_isr(int irq, void *dev_id)
+> >  	if (ir & IR_ALL_INT)
+> >  		m_can_write(priv, M_CAN_IR, ir);
+> >  
+> > -	if (ir & IR_ERR_ALL) {
+> > -		netdev_dbg(dev, "bus error\n");
+> > -		/* TODO: handle bus error */
+> > -	}
+> > -
+> > -	/* save irqstatus for later using */
+> > -	priv->irqstatus = ir;
+> > -
+> >  	/*
+> >  	 * schedule NAPI in case of
+> >  	 * - rx IRQ
+> > -	 * - state change IRQ(TODO)
+> > -	 * - bus error IRQ and bus error reporting (TODO)
+> > +	 * - state change IRQ
+> > +	 * - bus error IRQ and bus error reporting
+> >  	 */
+> > -	if (ir & IR_RF0N) {
+> > +	if ((ir & IR_RF0N) || (ir & IR_ERR_ALL)) {
+> > +		priv->irqstatus = ir;
+> >  		m_can_enable_all_interrupts(priv, false);
+> >  		napi_schedule(&priv->napi);
+> >  	}
+> >  
+> > -	/* FIFO overflow */
+> > -	if (ir & IR_RF0L) {
+> > -		dev->stats.rx_over_errors++;
+> > -		dev->stats.rx_errors++;
+> > -	}
+> > -
+> >  	/* transmission complete interrupt */
+> >  	if (ir & IR_TC) {
+> >  		netdev_dbg(dev, "tx complete\n");
+> > @@ -446,7 +664,6 @@ static int m_can_set_bittiming(struct net_device *dev)
+> >   * - setup bittiming
+> >   * - TODO:
+> >   *   1) other working modes support like monitor, loopback...
+> > - *   2) lec error status report enable
+> >   */
+> >  static void m_can_chip_config(struct net_device *dev)
+> >  {
+> > @@ -515,14 +732,6 @@ static int m_can_set_mode(struct net_device *dev, enum can_mode mode)
+> >  	return 0;
+> >  }
+> >  
+> > -static int m_can_get_berr_counter(const struct net_device *dev,
+> > -				  struct can_berr_counter *bec)
+> > -{
+> > -	/* TODO */
+> > -
+> > -	return 0;
+> > -}
+> > -
+> >  static void free_m_can_dev(struct net_device *dev)
+> >  {
+> >  	free_candev(dev);
+> > 
+> 
+> Marc
+> 
+
+Thanks
+
+Regards
+Dong Aisheng
+
+> -- 
+> Pengutronix e.K.                  | Marc Kleine-Budde           |
+> Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+> Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+> Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+> 
