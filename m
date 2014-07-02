@@ -1,8 +1,8 @@
 From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v3 net-next 03/13] at86rf230: rework
-	detect device handling
-Date: Thu,  3 Jul 2014 00:20:45 +0200
-Message-ID: <1404339655-8456-4-git-send-email-alex.aring@gmail.com>
+Subject: [PATCH v3 net-next 09/13] at86rf230: rework
+	state change and start/stop
+Date: Thu,  3 Jul 2014 00:20:51 +0200
+Message-ID: <1404339655-8456-10-git-send-email-alex.aring@gmail.com>
 References: <1404339655-8456-1-git-send-email-alex.aring@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -21,248 +21,223 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch drops the current lowlevel spi calls for the detect device
-function instead we handle this via regmap. Also put the detection of
-in a seperate function and set all device specific attributes while detection.
+This patch removes the current synchron state change function and add a
+new function for a state assert. Change the start and stop callbacks to
+use this new synchron state change behaviour. It's a wrapper around the
+async state change function.
 
 Signed-off-by: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- drivers/net/ieee802154/at86rf230.c | 183 +++++++++++++++----------------------
- 1 file changed, 76 insertions(+), 107 deletions(-)
+ drivers/net/ieee802154/at86rf230.c | 126 ++++++++++++++++++++-----------------
+ 1 file changed, 67 insertions(+), 59 deletions(-)
 
 diff --git a/drivers/net/ieee802154/at86rf230.c b/drivers/net/ieee802154/at86rf230.c
-index e369703..7d96cd4 100644
+index 46db6f8..265fea8 100644
 --- a/drivers/net/ieee802154/at86rf230.c
 +++ b/drivers/net/ieee802154/at86rf230.c
-@@ -410,57 +410,6 @@ static struct regmap_config at86rf230_regmap_spi_config = {
- };
+@@ -42,6 +42,8 @@ struct at86rf230_local;
+  * All timings are in us.
+  */
+ struct at86rf2xx_chip_data {
++	u16 t_off_to_aack;
++	u16 t_off_to_tx_on;
+ 	u16 t_frame;
+ 	u16 t_p_ack;
+ 	/* short interframe spacing time */
+@@ -77,6 +79,9 @@ struct at86rf230_local {
+ 	struct at86rf2xx_chip_data *data;
+ 	struct regmap *regmap;
+ 
++	struct completion state_complete;
++	struct at86rf230_state_change state;
++
+ 	struct at86rf230_state_change irq;
+ 
+ 	bool tx_aret;
+@@ -547,6 +552,19 @@ at86rf230_async_state_delay(void *context)
+ 	}
+ 
+ 	switch (ctx->from_state) {
++	case STATE_TRX_OFF:
++		switch (ctx->to_state) {
++		case STATE_RX_AACK_ON:
++			usleep_range(c->t_off_to_aack, c->t_off_to_aack + 10);
++			goto change;
++		case STATE_TX_ON:
++			usleep_range(c->t_off_to_tx_on,
++				     c->t_off_to_tx_on + 10);
++			goto change;
++		default:
++			break;
++		}
++		break;
+ 	case STATE_BUSY_RX_AACK:
+ 		switch (ctx->to_state) {
+ 		case STATE_TX_ON:
+@@ -632,6 +650,39 @@ at86rf230_async_state_change(struct at86rf230_local *lp,
+ }
+ 
+ static void
++at86rf230_sync_state_change_complete(void *context)
++{
++	struct at86rf230_state_change *ctx = context;
++	struct at86rf230_local *lp = ctx->lp;
++
++	complete(&lp->state_complete);
++}
++
++/* This function do a sync framework above the async state change.
++ * Some callbacks of the IEEE 802.15.4 driver interface need to be
++ * handled synchronously.
++ */
++static int
++at86rf230_sync_state_change(struct at86rf230_local *lp, unsigned int state)
++{
++	int rc;
++
++	rc = at86rf230_async_state_change(lp, &lp->state, state,
++					  at86rf230_sync_state_change_complete);
++	if (rc) {
++		at86rf230_async_error(lp, &lp->state, rc);
++		return rc;
++	}
++
++	rc = wait_for_completion_timeout(&lp->state_complete,
++					 msecs_to_jiffies(100));
++	if (!rc)
++		return -ETIMEDOUT;
++
++	return 0;
++}
++
++static void
+ at86rf230_tx_complete(void *context)
+ {
+ 	struct at86rf230_state_change *ctx = context;
+@@ -957,72 +1008,15 @@ at86rf230_ed(struct ieee802154_dev *dev, u8 *level)
+ }
  
  static int
--__at86rf230_detect_device(struct spi_device *spi, u16 *man_id, u8 *part,
--		u8 *version)
+-at86rf230_state(struct ieee802154_dev *dev, int state)
 -{
--	u8 data[4];
--	u8 *buf = kmalloc(2, GFP_KERNEL);
--	int status;
--	struct spi_message msg;
--	struct spi_transfer xfer = {
--		.len	= 2,
--		.tx_buf	= buf,
--		.rx_buf	= buf,
--	};
--	u8 reg;
+-	struct at86rf230_local *lp = dev->priv;
+-	int rc;
+-	unsigned int val;
+-	u8 desired_status;
 -
--	if (!buf)
--		return -ENOMEM;
+-	might_sleep();
 -
--	for (reg = RG_PART_NUM; reg <= RG_MAN_ID_1; reg++) {
--		buf[0] = (reg & CMD_REG_MASK) | CMD_REG;
--		buf[1] = 0xff;
--		dev_vdbg(&spi->dev, "buf[0] = %02x\n", buf[0]);
--		spi_message_init(&msg);
--		spi_message_add_tail(&xfer, &msg);
+-	if (state == STATE_FORCE_TX_ON)
+-		desired_status = STATE_TX_ON;
+-	else if (state == STATE_FORCE_TRX_OFF)
+-		desired_status = STATE_TRX_OFF;
+-	else
+-		desired_status = state;
 -
--		status = spi_sync(spi, &msg);
--		dev_vdbg(&spi->dev, "status = %d\n", status);
--		if (msg.status)
--			status = msg.status;
+-	do {
+-		rc = at86rf230_read_subreg(lp, SR_TRX_STATUS, &val);
+-		if (rc)
+-			goto err;
+-	} while (val == STATE_TRANSITION_IN_PROGRESS);
 -
--		dev_vdbg(&spi->dev, "status = %d\n", status);
--		dev_vdbg(&spi->dev, "buf[0] = %02x\n", buf[0]);
--		dev_vdbg(&spi->dev, "buf[1] = %02x\n", buf[1]);
+-	if (val == desired_status)
+-		return 0;
 -
--		if (status == 0)
--			data[reg - RG_PART_NUM] = buf[1];
--		else
--			break;
--	}
+-	/* state is equal to phy states */
+-	rc = at86rf230_write_subreg(lp, SR_TRX_CMD, state);
+-	if (rc)
+-		goto err;
 -
--	if (status == 0) {
--		*part = data[0];
--		*version = data[1];
--		*man_id = (data[3] << 8) | data[2];
--	}
+-	do {
+-		rc = at86rf230_read_subreg(lp, SR_TRX_STATUS, &val);
+-		if (rc)
+-			goto err;
+-	} while (val == STATE_TRANSITION_IN_PROGRESS);
 -
--	kfree(buf);
 -
--	return status;
+-	if (val == desired_status ||
+-	    (desired_status == STATE_RX_ON && val == STATE_BUSY_RX) ||
+-	    (desired_status == STATE_RX_AACK_ON && val == STATE_BUSY_RX_AACK))
+-		return 0;
+-
+-	pr_err("unexpected state change: %d, asked for %d\n", val, state);
+-	return -EBUSY;
+-
+-err:
+-	pr_err("error: %d\n", rc);
+-	return rc;
 -}
 -
 -static int
- at86rf230_write_fbuf(struct at86rf230_local *lp, u8 *data, u8 len)
+ at86rf230_start(struct ieee802154_dev *dev)
  {
- 	u8 *buf = lp->buf;
-@@ -1080,18 +1029,87 @@ done:
- 	return pdata;
+-	u8 rc;
+-
+-	rc = at86rf230_state(dev, STATE_TX_ON);
+-	if (rc)
+-		return rc;
+-
+-	return at86rf230_state(dev, STATE_RX_AACK_ON);
++	return at86rf230_sync_state_change(dev->priv, STATE_RX_AACK_ON);
  }
  
-+static int
-+at86rf230_detect_device(struct at86rf230_local *lp)
-+{
-+	unsigned int part, version, val;
-+	u16 man_id = 0;
-+	const char *chip;
-+	int rc;
-+
-+	rc = __at86rf230_read(lp, RG_MAN_ID_0, &val);
-+	if (rc)
-+		return rc;
-+	man_id |= val;
-+
-+	rc = __at86rf230_read(lp, RG_MAN_ID_1, &val);
-+	if (rc)
-+		return rc;
-+	man_id |= (val << 8);
-+
-+	rc = __at86rf230_read(lp, RG_PART_NUM, &part);
-+	if (rc)
-+		return rc;
-+
-+	rc = __at86rf230_read(lp, RG_PART_NUM, &version);
-+	if (rc)
-+		return rc;
-+
-+	if (man_id != 0x001f) {
-+		dev_err(&lp->spi->dev, "Non-Atmel dev found (MAN_ID %02x %02x)\n",
-+			man_id >> 8, man_id & 0xFF);
-+		return -EINVAL;
-+	}
-+
-+	lp->part = part;
-+	lp->vers = version;
-+	lp->dev->extra_tx_headroom = 0;
-+	lp->dev->flags = IEEE802154_HW_OMIT_CKSUM | IEEE802154_HW_AACK |
-+			 IEEE802154_HW_TXPOWER | IEEE802154_HW_CSMA;
-+
-+	switch (part) {
-+	case 2:
-+		chip = "at86rf230";
-+		rc = -ENOTSUPP;
-+		break;
-+	case 3:
-+		chip = "at86rf231";
-+		lp->dev->phy->channels_supported[0] = 0x7FFF800;
-+		break;
-+	case 7:
-+		chip = "at86rf212";
-+		if (version == 1) {
-+			lp->dev->flags |= IEEE802154_HW_LBT;
-+			lp->dev->phy->channels_supported[0] = 0x00007FF;
-+			lp->dev->phy->channels_supported[2] = 0x00007FF;
-+		} else {
-+			rc = -ENOTSUPP;
-+		}
-+		break;
-+	case 11:
-+		chip = "at86rf233";
-+		lp->dev->phy->channels_supported[0] = 0x7FFF800;
-+		break;
-+	default:
-+		chip = "unkown";
-+		rc = -ENOTSUPP;
-+		break;
-+	}
-+
-+	dev_info(&lp->spi->dev, "Detected %s chip version %d\n", chip, version);
-+
-+	return rc;
-+}
-+
- static int at86rf230_probe(struct spi_device *spi)
+ static void
+ at86rf230_stop(struct ieee802154_dev *dev)
  {
- 	struct at86rf230_platform_data *pdata;
- 	struct ieee802154_dev *dev;
- 	struct at86rf230_local *lp;
--	u16 man_id = 0;
--	u8 part = 0, version = 0;
- 	unsigned int status;
- 	irq_handler_t irq_handler;
- 	work_func_t irq_worker;
- 	int rc, irq_type;
--	const char *chip;
+-	at86rf230_state(dev, STATE_FORCE_TRX_OFF);
++	at86rf230_sync_state_change(dev->priv, STATE_FORCE_TRX_OFF);
+ }
  
- 	if (!spi->irq) {
- 		dev_err(&spi->dev, "no IRQ specified\n");
-@@ -1133,54 +1151,8 @@ static int at86rf230_probe(struct spi_device *spi)
+ static int
+@@ -1242,6 +1236,8 @@ static struct ieee802154_ops at86rf230_ops = {
+ };
  
- 	lp = dev->priv;
- 	lp->dev = dev;
--	lp->part = part;
--	lp->vers = version;
--
- 	lp->spi = spi;
--
- 	dev->parent = &spi->dev;
--	dev->extra_tx_headroom = 0;
--	dev->flags = IEEE802154_HW_OMIT_CKSUM | IEEE802154_HW_AACK |
--		     IEEE802154_HW_TXPOWER | IEEE802154_HW_CSMA;
--
--	rc = __at86rf230_detect_device(spi, &man_id, &part, &version);
--	if (rc < 0)
--		goto free_dev;
--
--	if (man_id != 0x001f) {
--		dev_err(&spi->dev, "Non-Atmel dev found (MAN_ID %02x %02x)\n",
--			man_id >> 8, man_id & 0xFF);
--		return -EINVAL;
--	}
--
--	switch (part) {
--	case 2:
--		chip = "at86rf230";
--		rc = -ENOTSUPP;
--		/* FIXME: should be easy to support; */
--		break;
--	case 3:
--		chip = "at86rf231";
--		break;
--	case 7:
--		chip = "at86rf212";
--		if (version == 1)
--			dev->flags |= IEEE802154_HW_LBT;
--		else
--			rc = -ENOTSUPP;
--		break;
--	case 11:
--		chip = "at86rf233";
--		break;
--	default:
--		chip = "UNKNOWN";
--		rc = -ENOTSUPP;
--		break;
--	}
--
--	dev_info(&spi->dev, "Detected %s chip version %d\n", chip, version);
--	if (rc < 0)
--		goto free_dev;
+ static struct at86rf2xx_chip_data at86rf233_data = {
++	.t_off_to_aack = 80,
++	.t_off_to_tx_on = 80,
+ 	.t_frame = 4096,
+ 	.t_p_ack = 545,
+ 	.t_sifs = 192,
+@@ -1253,6 +1249,8 @@ static struct at86rf2xx_chip_data at86rf233_data = {
+ };
  
- 	lp->regmap = devm_regmap_init_spi(spi, &at86rf230_regmap_spi_config);
- 	if (IS_ERR(lp->regmap)) {
-@@ -1190,6 +1162,10 @@ static int at86rf230_probe(struct spi_device *spi)
- 		goto free_dev;
- 	}
+ static struct at86rf2xx_chip_data at86rf231_data = {
++	.t_off_to_aack = 110,
++	.t_off_to_tx_on = 110,
+ 	.t_frame = 4096,
+ 	.t_p_ack = 545,
+ 	.t_sifs = 192,
+@@ -1264,6 +1262,8 @@ static struct at86rf2xx_chip_data at86rf231_data = {
+ };
  
-+	rc = at86rf230_detect_device(lp);
-+	if (rc < 0)
-+		goto free_dev;
+ static struct at86rf2xx_chip_data at86rf212_data = {
++	.t_off_to_aack = 200,
++	.t_off_to_tx_on = 200,
+ 	.t_frame = 4096,
+ 	.t_p_ack = 545,
+ 	.t_sifs = 192,
+@@ -1427,6 +1427,13 @@ at86rf230_detect_device(struct at86rf230_local *lp)
+ static void
+ at86rf230_setup_spi_messages(struct at86rf230_local *lp)
+ {
++	lp->state.lp = lp;
++	spi_message_init(&lp->state.msg);
++	lp->state.msg.context = &lp->state;
++	lp->state.trx.tx_buf = lp->state.buf;
++	lp->state.trx.rx_buf = lp->state.buf;
++	spi_message_add_tail(&lp->state.trx, &lp->state.msg);
 +
- 	irq_type = irq_get_trigger_type(spi->irq);
- 	if (!irq_type)
- 		irq_type = IRQF_TRIGGER_RISING;
-@@ -1208,13 +1184,6 @@ static int at86rf230_probe(struct spi_device *spi)
+ 	lp->irq.lp = lp;
+ 	spi_message_init(&lp->irq.msg);
+ 	lp->irq.msg.context = &lp->irq;
+@@ -1509,6 +1516,7 @@ static int at86rf230_probe(struct spi_device *spi)
+ 
+ 	spin_lock_init(&lp->lock);
+ 	init_completion(&lp->tx_complete);
++	init_completion(&lp->state_complete);
  
  	spi_set_drvdata(spi, lp);
  
--	if (is_rf212(lp)) {
--		dev->phy->channels_supported[0] = 0x00007FF;
--		dev->phy->channels_supported[2] = 0x00007FF;
--	} else {
--		dev->phy->channels_supported[0] = 0x7FFF800;
--	}
--
- 	rc = at86rf230_hw_init(lp);
- 	if (rc)
- 		goto err_hw_init;
 -- 
 2.0.1
 
