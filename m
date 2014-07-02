@@ -1,112 +1,94 @@
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: [PATCH net-next] enic: fix return values in enic_set_coalesce
-Date: Wed,  2 Jul 2014 15:42:15 +0530
-Message-ID: <1404295935-13597-1-git-send-email-_govind@gmx.com>
-Cc: benve@cisco.com, ssujith@cisco.com, ben@decadent.org.uk,
-	Govindarajulu Varadarajan <_govind@gmx.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Mark Rutland <mark.rutland@arm.com>
+Subject: Re: [PATCH] rcar_can: add device tree support
+Date: Wed, 2 Jul 2014 11:14:37 +0100
+Message-ID: <20140702101437.GC14665@leverpostej>
+References: <201407020227.04235.sergei.shtylyov@cogentembedded.com>
+ <53B33B45.1060205@pengutronix.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"wg@grandegger.com" <wg@grandegger.com>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	"robh+dt@kernel.org" <robh+dt@kernel.org>,
+	Pawel Moll <Pawel.Moll@arm.com>,
+	"ijc+devicetree@hellion.org.uk" <ijc+devicetree@hellion.org.uk>,
+	"galak@codeaurora.org" <galak@codeaurora.org>,
+	"grant.likely@linaro.org" <grant.likely@linaro.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"linux-sh@vger.kernel.org" <linux-sh@vger.kernel.org>,
+	"vksavl@gmail.com" <vksavl@gmail.com>,
+	"rdunlap@infradead.org" <rdunlap@infradead.org>,
+	"linux-doc@vger.kernel.org" <linux-doc@vger.kernel.org>
+To: Marc Kleine-Budde <mkl@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.com ([74.208.4.200]:62438 "EHLO mout.gmx.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752097AbaGBKNs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Jul 2014 06:13:48 -0400
+Received: from cam-admin0.cambridge.arm.com ([217.140.96.50]:33894 "EHLO
+	cam-admin0.cambridge.arm.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753123AbaGBKOo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2014 06:14:44 -0400
+Content-Disposition: inline
+In-Reply-To: <53B33B45.1060205@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-enic_set_coalesce() has two problems.
+On Tue, Jul 01, 2014 at 11:50:45PM +0100, Marc Kleine-Budde wrote:
+> On 07/02/2014 12:27 AM, Sergei Shtylyov wrote:
+> > Add support of the device tree probing for the Renesas R-Car CAN controllers
+> > documenting the device tree bindings as necessary.
+> 
+> Please put the DT documentation into a separate patch, make it the first
+> one. When reposting, please put the device tree mailing list on Cc.
+> 
+> > Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> > 
+> > ---
+> > The patch is against the Dave Miller's 'net-next.git' repo ('linux-can-next.git'
+> > repo still doesn't have the R-Car CAN driver for some reason).
+> 
+> Should be fixed now :)
+> 
+> > 
+> >  Documentation/devicetree/bindings/net/can/rcar_can.txt |   40 +++++++++++++++++
+> >  drivers/net/can/rcar_can.c                             |   28 +++++++++--
+> >  2 files changed, 63 insertions(+), 5 deletions(-)
+> > 
+> > Index: net-next/Documentation/devicetree/bindings/net/can/rcar_can.txt
+> > ===================================================================
+> > --- /dev/null
+> > +++ net-next/Documentation/devicetree/bindings/net/can/rcar_can.txt
+> > @@ -0,0 +1,40 @@
+> > +Renesas R-Car CAN controller Device Tree Bindings
+> > +-------------------------------------------------
+> > +
+> > +Required properties:
+> > +- compatible: "renesas,can-r8a7778" if CAN controller is a part of R8A7778 SoC.
+> > +	      "renesas,can-r8a7779" if CAN controller is a part of R8A7779 SoC.
+> > +	      "renesas,can-r8a7790" if CAN controller is a part of R8A7790 SoC.
+> > +	      "renesas,can-r8a7791" if CAN controller is a part of R8A7791 SoC.
+> 
+> AFAIK we usually specify the first SoC with this core as the only
+> compatible.
 
-* It should return -EINVAL and not -EOPNOTSUPP for invalid coalesce values.
+Not quite. While the driver only needs to have support for that and
+DTS files should have that string in the compatible list, the other
+strings can be present in the binding and earlier in the compatible list
+to allow us to distinguish the variants later (without requiring changes
+to DTBs).
 
-* In case of MSIX, enic_set_coalesce return error after applying requested
-  coalescing setting partially. We should either apply all the setting requeste
-  and return success or apply non and return error.
+> > +- reg: physical base address and size of the R-Car CAN register map.
+> > +- interrupts: interrupt specifier for the sole interrupt.
+> > +- clocks: phandle and clock specifier for the R-Car CAN clock input.
+> > +- pinctrl-0: pin control group to be used for this controller.
+> > +- pinctrl-names: must be "default".
+> > +
+> > +Optional properties:
+> > +- clock-select: R-Car CAN Clock Source Select. Valid values are:
+> > +		<0x0> (default) : Peripheral clock (clkp1)
+> > +		<0x1> : Peripheral clock (clkp2)
+> > +		<0x3> : Externally input clock
 
-* This patch also simplifies the algo.
+What's this for, and how does this interact with the single clock listed
+above?
 
-This was introduced by
-'7c2ce6e60f703 enic: Add support for adaptive interrupt coalescing'
-
-These changes were suggested by Ben Hutchings here
-http://www.spinics.net/lists/netdev/msg283972.html
-
-Also change enic driver version.
-
-Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
----
- drivers/net/ethernet/cisco/enic/enic.h         |  2 +-
- drivers/net/ethernet/cisco/enic/enic_ethtool.c | 27 +++++++++++---------------
- 2 files changed, 12 insertions(+), 17 deletions(-)
-
-diff --git a/drivers/net/ethernet/cisco/enic/enic.h b/drivers/net/ethernet/cisco/enic/enic.h
-index c8aa9fb..4ecbbb3 100644
---- a/drivers/net/ethernet/cisco/enic/enic.h
-+++ b/drivers/net/ethernet/cisco/enic/enic.h
-@@ -33,7 +33,7 @@
- 
- #define DRV_NAME		"enic"
- #define DRV_DESCRIPTION		"Cisco VIC Ethernet NIC Driver"
--#define DRV_VERSION		"2.1.1.50"
-+#define DRV_VERSION		"2.1.1.67"
- #define DRV_COPYRIGHT		"Copyright 2008-2013 Cisco Systems, Inc"
- 
- #define ENIC_BARS_MAX		6
-diff --git a/drivers/net/ethernet/cisco/enic/enic_ethtool.c b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
-index 2e50b54..c75f84b 100644
---- a/drivers/net/ethernet/cisco/enic/enic_ethtool.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
-@@ -231,7 +231,7 @@ static int enic_set_coalesce(struct net_device *netdev,
- 		if (ecmd->use_adaptive_rx_coalesce	||
- 		    ecmd->rx_coalesce_usecs_low		||
- 		    ecmd->rx_coalesce_usecs_high)
--			return -EOPNOTSUPP;
-+			return -EINVAL;
- 
- 		intr = enic_legacy_io_intr();
- 		vnic_intr_coalescing_timer_set(&enic->intr[intr],
-@@ -243,34 +243,29 @@ static int enic_set_coalesce(struct net_device *netdev,
- 		if (ecmd->use_adaptive_rx_coalesce	||
- 		    ecmd->rx_coalesce_usecs_low		||
- 		    ecmd->rx_coalesce_usecs_high)
--			return -EOPNOTSUPP;
-+			return -EINVAL;
- 
- 		vnic_intr_coalescing_timer_set(&enic->intr[0],
- 			tx_coalesce_usecs);
- 		break;
- 	case VNIC_DEV_INTR_MODE_MSIX:
-+		if (ecmd->rx_coalesce_usecs_high &&
-+		    (rx_coalesce_usecs_high <
-+		     rx_coalesce_usecs_low + ENIC_AIC_LARGE_PKT_DIFF))
-+				return -EINVAL;
-+
- 		for (i = 0; i < enic->wq_count; i++) {
- 			intr = enic_msix_wq_intr(enic, i);
- 			vnic_intr_coalescing_timer_set(&enic->intr[intr],
- 				tx_coalesce_usecs);
- 		}
- 
--		if (rxcoal->use_adaptive_rx_coalesce) {
--			if (!ecmd->use_adaptive_rx_coalesce) {
--				rxcoal->use_adaptive_rx_coalesce = 0;
--				enic_intr_coal_set_rx(enic, rx_coalesce_usecs);
--			}
--		} else {
--			if (ecmd->use_adaptive_rx_coalesce)
--				rxcoal->use_adaptive_rx_coalesce = 1;
--			else
--				enic_intr_coal_set_rx(enic, rx_coalesce_usecs);
--		}
-+		rxcoal->use_adaptive_rx_coalesce =
-+					!!ecmd->use_adaptive_rx_coalesce;
-+		if (!rxcoal->use_adaptive_rx_coalesce)
-+			enic_intr_coal_set_rx(enic, rx_coalesce_usecs);
- 
- 		if (ecmd->rx_coalesce_usecs_high) {
--			if (rx_coalesce_usecs_high <
--			    (rx_coalesce_usecs_low + ENIC_AIC_LARGE_PKT_DIFF))
--				return -EINVAL;
- 			rxcoal->range_end = rx_coalesce_usecs_high;
- 			rxcoal->small_pkt_range_start = rx_coalesce_usecs_low;
- 			rxcoal->large_pkt_range_start = rx_coalesce_usecs_low +
--- 
-2.0.0
+THanks,
+Mark.
