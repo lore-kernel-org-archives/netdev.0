@@ -1,34 +1,61 @@
-From: Edward Allcutt <edward.allcutt@openmarket.com>
-Subject: Re: [PATCH] ipv4: icmp: Fix pMTU handling for rare case
-Date: Wed, 2 Jul 2014 10:05:13 +0100 (BST)
-Message-ID: <alpine.DEB.2.10.1407020954250.5997@tabini.allcutt.me.uk>
-References: <1404141362-21015-1-git-send-email-edward.allcutt@openmarket.com> <20140630.234843.985671994258957329.davem@davemloft.net> <alpine.DEB.2.10.1407010937120.5997@tabini.allcutt.me.uk> <20140701.110510.2218293817137911715.davem@davemloft.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next] bonding: allow to add vlans on top of empty bond
+Date: Wed, 2 Jul 2014 11:13:16 +0200
+Message-ID: <20140702091316.GB3015@minipsycho.orion>
+References: <1403878392-10004-1-git-send-email-jiri@resnulli.us>
+ <CAG-2HqUKGoG5ZX26aYwv3quUU5RPtn5J1g6i4YzkXUc10u4c0w@mail.gmail.com>
+ <26863.1403885330@localhost.localdomain>
+ <20140702084652.GA3015@minipsycho.orion>
+ <20140702090517.GA5440@unicorn.suse.cz>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140701.110510.2218293817137911715.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jay Vosburgh <jay.vosburgh@canonical.com>,
+	Tom Gundersen <teg@jklm.no>, netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, vfalico@gmail.com,
+	andy@greyhouse.net
+To: Michal Kubecek <mkubecek@suse.cz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:33861 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751205AbaGBJNZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2014 05:13:25 -0400
+Received: by mail-wi0-f178.google.com with SMTP id n15so73440wiw.11
+        for <netdev@vger.kernel.org>; Wed, 02 Jul 2014 02:13:19 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20140702090517.GA5440@unicorn.suse.cz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 1 Jul 2014, David Miller wrote:
-> I still think the OpenBSD thing can't be intentional, and it's some
-> bug they probably want to fix and it should therefore be investigated.
+Wed, Jul 02, 2014 at 11:05:17AM CEST, mkubecek@suse.cz wrote:
+>On Wed, Jul 02, 2014 at 10:46:52AM +0200, Jiri Pirko wrote:
+>> Fri, Jun 27, 2014 at 06:08:50PM CEST, jay.vosburgh@canonical.com wrote:
+>> >
+>> >        if (!bond_has_slaves(bond)) {
+>> >                bond_set_carrier(bond);
+>> >                eth_hw_addr_random(bond_dev);
+>> >
+>> >                if (vlan_uses_dev(bond_dev)) {
+>> >                        pr_warn("%s: Warning: clearing HW address of %s while it still has VLANs\n",
+>> >                                bond_dev->name, bond_dev->name);
+>> >                        pr_warn("%s: When re-adding slaves, make sure the bond's HW address matches its VLANs\n",
+>> >                                bond_dev->name);
+>> >                }
+>> >        }
+>> >
+>> >	This warning may not be useful any longer, since the MAC should
+>> >update correctly without user action when re-adding the first slave.
+>> 
+>> I just checked. The vlan dev holds its addr. So when new slave is added,
+>> bond addr is changed to it, but vlan addr remains the same. So the
+>> second warning still stands.
+>
+>Is it a problem? Since we have proper uc_list propagation, vlan should
+>work even if its address doesn't match the bond.
 
-Shout at me if this is getting too off-topic..
+You are right, vlan_sync_address() should take care of it.
 
-Looking at the 5.5 kernel, the plumbing to set up icp->icmp_nextmtu is all 
-there in icmp_do_error() when it is passed a non-zero destmtu. 
-ip_forward() seems to be the relevant caller, however this initializes 
-destmtu to 0 and only sets it in the ICMP_UNREACH_NEEDFRAG case if both
-#ifdef IPSEC and some conditional on the current route which I don't 
-understand.
+I'll send a patch removing these 2 warnings. Thanks.
 
-Either way it doesn't look intentional since the code to set it is 
-present.
-
--- 
-Edward Allcutt
+>
+>                                                        Michal Kubecek
+>
