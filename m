@@ -1,32 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/5] dp83640: Increase support perout pins
-Date: Tue, 01 Jul 2014 18:53:18 -0700 (PDT)
-Message-ID: <20140701.185318.180706141264194276.davem@davemloft.net>
-References: <1403863533-27675-1-git-send-email-stefan.sorensen@spectralink.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 0/5] cxgb4: Fix for PCI passthrough and some Misc.
+ fixes
+Date: Tue, 01 Jul 2014 18:56:34 -0700 (PDT)
+Message-ID: <20140701.185634.648448705735327396.davem@davemloft.net>
+References: <1403877231-8661-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: richardcochran@gmail.com, netdev@vger.kernel.org
-To: stefan.sorensen@spectralink.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36828 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751696AbaGBBxV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 1 Jul 2014 21:53:21 -0400
-In-Reply-To: <1403863533-27675-1-git-send-email-stefan.sorensen@spectralink.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org,
+	leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	anish-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+To: hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1403877231-8661-1-git-send-email-hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Stefan S=F8rensen <stefan.sorensen@spectralink.com>
-Date: Fri, 27 Jun 2014 12:05:28 +0200
+From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Date: Fri, 27 Jun 2014 19:23:46 +0530
 
-> This patch series increases the number of periodic output pins suppor=
-ted
-> on the dp83640 to 7, and allows for reprogramming the calibration pin=
-=2E
->=20
-> Changes since v1:
->   Add dp83640 calibration pin constraints
->   Fix codingstyle
+> This patch series fixes probe failure in VM when PF is exposed through PCI
+> Passthrough. Adds support to use firmware interface to get BAR0 value.
+> Replace the backdoor mechanism to access the HW memory with PCIe Window method
+> which fixes memory I/O. Also adds device ID of few more adapters for cxgb4 and
+> cxgb4vf driver.
+> 
+> The patches series is created against 'net-next' tree.
+> And includes patches on cxgb4, cxgb4vf and iw_cxgb4 driver.
+> 
+> Since this patch-series contains mainly cxgb4 related changes, we would like to
+> request this patch series to get merged via David Miller's 'net-next' tree.
+> 
+> We have included all the maintainers of respective drivers. Kindly review the
+> change and let us know in case of any review comments.
 
 Series applied, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
