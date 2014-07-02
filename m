@@ -1,47 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Linux-zigbee-devel] [PATCH net-next v3] 6lowpan: mac802154:
- fix coding style issues
-Date: Tue, 01 Jul 2014 22:14:23 -0700 (PDT)
-Message-ID: <20140701.221423.427836851370173361.davem@davemloft.net>
-References: <1404276016.14624.57.camel@joe-AO725>
-	<CAGVrzcb6pYdyvuXOrKssjx2fzJqRV=CsdocVNGSSKkEAuUkeYg@mail.gmail.com>
-	<1404277090.14624.62.camel@joe-AO725>
+From: Lars Melin <larsm17@gmail.com>
+Subject: Re: [PATCH] net: qmi_wwan: Add ID for Telewell TW-LTE 4G v2
+Date: Wed, 02 Jul 2014 12:19:46 +0700
+Message-ID: <53B39672.7050301@gmail.com>
+References: <87vbrgewei.fsf@bwachter.lart.info>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, varkabhadram@gmail.com,
-	netdev@vger.kernel.org, varkab@cdac.in,
-	linux-zigbee-devel@lists.sourceforge.net
-To: joe@perches.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37524 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751585AbaGBFOZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2014 01:14:25 -0400
-In-Reply-To: <1404277090.14624.62.camel@joe-AO725>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Bernd Wachter <bernd.wachter@jolla.com>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87vbrgewei.fsf@bwachter.lart.info>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Joe Perches <joe@perches.com>
-Date: Tue, 01 Jul 2014 21:58:10 -0700
-
-> The code is currently:
-> 
-> 	__raw_writel(upper_32_bits(addr) & DESC_ADDR_HI_MASK,
-> 			d + DESC_ADDR_HI_STATUS_LEN);
-> 
-> 1st line has 1 leading tab,
-> 2nd line has 3 leading tabs
-> 
-> For networking code style, this should be:
-> 
-> 	__raw_writel(upper_32_bits(addr) & DESC_ADDR_HI_MASK,
-> 		     d + DESC_ADDR_HI_STATUS_LEN);
-> 
-> 1st line has 1 leading tab,
-> 2nd line has 2 leading tabs followed by 5 leading spaces
-> 
-> This aligns the 2nd line arguments to the position immediately
-> after the open parenthesis.
-
-+1
+On 2014-07-02 02:01, Bernd Wachter wrote:
+> There's a new version of the Telewell 4G modem working with, but not
+> recognized by this driver.
+>
+> Signed-off-by: Bernd Wachter <bernd.wachter@jolla.com>
+> ---
+> --- linux-3.15.3/drivers/net/usb/qmi_wwan.c.orig	2014-07-01 21:31:07.000000000 +0300
+> +++ linux-3.15.3/drivers/net/usb/qmi_wwan.c	2014-07-01 20:39:30.000000000 +0300
+> @@ -741,6 +741,7 @@ static const struct usb_device_id produc
+>   	{QMI_FIXED_INTF(0x19d2, 0x1424, 2)},
+>   	{QMI_FIXED_INTF(0x19d2, 0x1425, 2)},
+>   	{QMI_FIXED_INTF(0x19d2, 0x1426, 2)},	/* ZTE MF91 */
+> +	{QMI_FIXED_INTF(0x19d2, 0x1428, 2)},	/* Telewell TW-LTE 4G v2 */
+>   	{QMI_FIXED_INTF(0x19d2, 0x2002, 4)},	/* ZTE (Vodafone) K3765-Z */
+>   	{QMI_FIXED_INTF(0x0f3d, 0x68a2, 8)},    /* Sierra Wireless MC7700 */
+>   	{QMI_FIXED_INTF(0x114f, 0x68a2, 8)},    /* Sierra Wireless MC7750 */
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+For completeness (full device support) please create a patch for the 
+serial interfaces in the option driver, see the entry for ZTE pid 1426 
+in option.c as example.
