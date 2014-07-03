@@ -1,63 +1,82 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Kernel BUG while sending data on 10mbps halfduplex link
-Date: Wed, 02 Jul 2014 23:54:08 -0700
-Message-ID: <1404370448.23797.26.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CAGnW=BZb_DHb7JHc0h_4mWH0q8K9mONnwW554jwnsaxFAW25WA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: punnaiah choudary kalluri <punnaia@xilinx.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f50.google.com ([74.125.82.50]:58725 "EHLO
-	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751135AbaGCGyN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2014 02:54:13 -0400
-Received: by mail-wg0-f50.google.com with SMTP id m15so11999034wgh.33
-        for <netdev@vger.kernel.org>; Wed, 02 Jul 2014 23:54:11 -0700 (PDT)
-In-Reply-To: <CAGnW=BZb_DHb7JHc0h_4mWH0q8K9mONnwW554jwnsaxFAW25WA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Zi Shen Lim <zlim.lnx@gmail.com>
+Subject: [PATCH net-next] net: filter: move load_pointer() into filter.h
+Date: Thu,  3 Jul 2014 00:52:12 -0700
+Message-ID: <1404373932-10929-1-git-send-email-zlim.lnx@gmail.com>
+Cc: Zi Shen Lim <zlim.lnx@gmail.com>,
+	Alexei Starovoitov <ast@plumgrid.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-07-03 at 09:07 +0530, punnaiah choudary kalluri wrote:
-> Hi,
-> 
->   While sending the data traffic on zynq development board using 10 mbps
->  half-duplex link, observed the kernel BUG in skbuff handling.
-> 
-> Zynq setup:
-> ifconfig eth0 192.186.1.2
-> 
-> Host machine setup:
-> ifconfig eth0 192.186.1.3
-> ethtool -s eth0 speed 10 duplex half
-> tcpreplay -i eth0 kernelpaniccapturejune24.pcap
-> 
->  Any pointers/directions for finding the root cause for this issue ?
-> 
-> root@zynq:~# [  128.841470] random: nonblocking pool is initialized
-> [  141.726352] skbuff: skb_over_panic: text:c031b890 len:16383
-> put:16383 head:eea80000 data:eea80040 tail:0xeea8403f end:0xeea80640
-> dev:eth0
-> [  141.726354] ------------[ cut here ]------------
-> [  141.726354] kernel BUG at net/core/skbuff.c:126!
-> [  141.726355] Internal error: Oops - BUG: 0 [#1] PREEMPT SMP ARM
-> [  141.726356] Modules linked in: ipv6
-> [  141.726357] CPU: 0 PID: 0 Comm: swapper/0 Not tainted 3.13.0-xilinx #1
-> [  141.726358] task: c06af670 ti: c06a4000 task.ti: c06a4000
-> [  141.726358] PC is at skb_panic+0x50/0x5c
-> [  141.726359] LR is at skb_panic+0x50/0x5c
-> [  141.726360] pc : [<c0494d68>]    lr : [<c0494d68>]    psr: 60070113
-> [  141.726360] sp : c06a5de8  ip : c07b8da8  fp : 2ea80040
-> [  141.726362] r10: ef10b810  r9 : c06af344  r8 : 00000000
-> [  141.726362] r7 : c05d39c4  r6 : eea80000  r5 : eea80040  r4 : eea8403f
-> [  141.726364] r3 : c06af670  r2 : 00000000  r1 : 60070113  r0 : 0000007d
-> [  141.726365] Flags: nZCv  IRQs on  FIQs on  Mode SVC_32  ISA ARM
-> Segment kernel
-> [  141.726366] Control: 18c5387d  Table: 2e9c404a  DAC: 00000015
-> [  141.726367] Process swapper/0 (pid: 0, stack limit = 0xc06a4240)
-> [  141.726368] Stack: (0xc06a5de8 to 0xc06a6000)
-> 
-> Regards,
+load_pointer() is already a static inline function.
+Let's move it into filter.h so BPF JIT implementations can reuse this
+function.
 
-Kernel stack trace would be useful.
+Signed-off-by: Zi Shen Lim <zlim.lnx@gmail.com>
+---
+This patch is based on discussion with Alexei in the context of
+reusing load_pointer for upcoming arm64 BPF JIT compiler. [1]
+
+Compile tested on x86_64 and arm64.
+
+[1] https://lkml.org/lkml/2014/7/3/14
+
+ include/linux/filter.h | 13 +++++++++++++
+ net/core/filter.c      |  9 ---------
+ 2 files changed, 13 insertions(+), 9 deletions(-)
+
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index a7e3c48..2288e31 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -6,6 +6,7 @@
+ 
+ #include <linux/atomic.h>
+ #include <linux/compat.h>
++#include <linux/skbuff.h>
+ #include <linux/workqueue.h>
+ #include <uapi/linux/filter.h>
+ 
+@@ -406,6 +407,18 @@ static inline u16 bpf_anc_helper(const struct sock_filter *ftest)
+ 	}
+ }
+ 
++void *bpf_internal_load_pointer_neg_helper(const struct sk_buff *skb,
++					   int k, unsigned int size);
++
++static inline void *load_pointer(const struct sk_buff *skb, int k,
++				 unsigned int size, void *buffer)
++{
++	if (k >= 0)
++		return skb_header_pointer(skb, k, size, buffer);
++
++	return bpf_internal_load_pointer_neg_helper(skb, k, size);
++}
++
+ #ifdef CONFIG_BPF_JIT
+ #include <stdarg.h>
+ #include <linux/linkage.h>
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 1dbf646..1c726ea 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -84,15 +84,6 @@ void *bpf_internal_load_pointer_neg_helper(const struct sk_buff *skb, int k, uns
+ 	return NULL;
+ }
+ 
+-static inline void *load_pointer(const struct sk_buff *skb, int k,
+-				 unsigned int size, void *buffer)
+-{
+-	if (k >= 0)
+-		return skb_header_pointer(skb, k, size, buffer);
+-
+-	return bpf_internal_load_pointer_neg_helper(skb, k, size);
+-}
+-
+ /**
+  *	sk_filter - run a packet through a socket filter
+  *	@sk: sock associated with &sk_buff
+-- 
+1.9.1
