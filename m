@@ -1,179 +1,174 @@
-From: Pavel Machek <pavel@denx.de>
-Subject: Re: socfpga/sockit ethernet problems
-Date: Thu, 3 Jul 2014 11:35:48 +0200
-Message-ID: <20140703093548.GA9937@amd.pavel.ucw.cz>
-References: <20140507104518.GB18139@amd.pavel.ucw.cz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: peppe.cavallaro@st.com, netdev@vger.kernel.org,
-	dinguyen@altera.com, linux-arm-kernel@lists.infradead.org,
-	gsi@denx.de, dzu@denx.de
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [net-next-2.6 PATCH v5 1/2] bridge: fdb dumping takes a filter device
+Date: Thu,  3 Jul 2014 05:38:09 -0400
+Message-ID: <1404380290-17040-2-git-send-email-jhs@emojatatu.com>
+References: <1404380290-17040-1-git-send-email-jhs@emojatatu.com>
+Cc: netdev@vger.kernel.org, vyasevic@redhat.com,
+	sfeldma@cumulusnetworks.com, john.r.fastabend@intel.com,
+	roopa@cumulusnetworks.com, eric.dumazet@gmail.com,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: davem@davemloft.net, stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from atrey.karlin.mff.cuni.cz ([195.113.26.193]:51018 "EHLO
-	atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030601AbaGCJfu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2014 05:35:50 -0400
-Content-Disposition: inline
-In-Reply-To: <20140507104518.GB18139@amd.pavel.ucw.cz>
+Received: from mail-ig0-f177.google.com ([209.85.213.177]:53080 "EHLO
+	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758824AbaGCJi0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2014 05:38:26 -0400
+Received: by mail-ig0-f177.google.com with SMTP id c1so1258424igq.16
+        for <netdev@vger.kernel.org>; Thu, 03 Jul 2014 02:38:25 -0700 (PDT)
+In-Reply-To: <1404380290-17040-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi!
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-> 
-> It seems we have some problems with Ethernet on socfpga boards.
-> 
-> Like, "stmmac: Energy-Efficient Ethernet initialized" repeated way too
-> often. Or machine failing to boot because NFS server can not be
-> accessed. (And then working on next try). Or link going up and down
-> and up and down. Or link taking 3 seconds, 10 seconds to estabilish.
-> 
-> It also seems to be picky about hubs it wants to talk to.
-> 
-> This time it mounted root; on last boot it just hung.
-...
-> u-boot talk 12.033741 Configuring PHY skew timing for Micrel ksz9021
-> 
-> is there something similar that needs to be done at Linux layer.
+Dumping a bridge fdb dumps every fdb entry
+held. With this change we are going to filter
+on selected bridge port.
 
-It seems there is. There is patch at
-http://lists.infradead.org/pipermail/linux-arm-kernel/2013-July/184335.html
-, but it does not match the code we have in u-boot (and that seems to
-work).
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_main.c      |    3 ++-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    7 ++++---
+ include/linux/netdevice.h                        |    1 +
+ include/linux/rtnetlink.h                        |    1 +
+ net/bridge/br_fdb.c                              |    5 +++++
+ net/bridge/br_private.h                          |    2 +-
+ net/core/rtnetlink.c                             |    7 ++++---
+ 7 files changed, 18 insertions(+), 8 deletions(-)
 
-I made this, but ethernet problems I currently see are not frequent
-enough to allow easy debugging. If link takes long to  estabilish for
-you, could you test the patch below?
-
-Thanks,
-								Pavel
-
-Signed-off-by: Pavel Machek <pavel@denx.de>
-
-diff --git a/arch/arm/mach-at91/board-dt-sama5.c b/arch/arm/mach-at91/board-dt-sama5.c
-index 075ec05..6a2d5f7 100644
---- a/arch/arm/mach-at91/board-dt-sama5.c
-+++ b/arch/arm/mach-at91/board-dt-sama5.c
-@@ -51,11 +51,11 @@ static int ksz9021rn_phy_fixup(struct phy_device *phy)
- 	int value;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 31709b8..55c7e72 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -7080,13 +7080,14 @@ static int i40e_ndo_fdb_del(struct ndmsg *ndm,
+ static int i40e_ndo_fdb_dump(struct sk_buff *skb,
+ 			     struct netlink_callback *cb,
+ 			     struct net_device *dev,
++			     struct net_device *filter_dev,
+ 			     int idx)
+ {
+ 	struct i40e_netdev_priv *np = netdev_priv(dev);
+ 	struct i40e_pf *pf = np->vsi->back;
  
- 	/* Set delay values */
--	value = MICREL_KSZ9021_RGMII_CLK_CTRL_PAD_SCEW | 0x8000;
-+	value = MICREL_KSZ9021_RGMII_CLK_CTRL_PAD_SKEW | 0x8000;
- 	phy_write(phy, MICREL_KSZ9021_EXTREG_CTRL, value);
- 	value = 0xF2F4;
- 	phy_write(phy, MICREL_KSZ9021_EXTREG_DATA_WRITE, value);
--	value = MICREL_KSZ9021_RGMII_RX_DATA_PAD_SCEW | 0x8000;
-+	value = MICREL_KSZ9021_RGMII_RX_DATA_PAD_SKEW | 0x8000;
- 	phy_write(phy, MICREL_KSZ9021_EXTREG_CTRL, value);
- 	value = 0x2222;
- 	phy_write(phy, MICREL_KSZ9021_EXTREG_DATA_WRITE, value);
-diff --git a/arch/arm/mach-imx/mach-imx6q.c b/arch/arm/mach-imx/mach-imx6q.c
-index e60456d..8a0ba06 100644
---- a/arch/arm/mach-imx/mach-imx6q.c
-+++ b/arch/arm/mach-imx/mach-imx6q.c
-@@ -45,15 +45,15 @@ static int ksz9021rn_phy_fixup(struct phy_device *phydev)
- 	if (IS_BUILTIN(CONFIG_PHYLIB)) {
- 		/* min rx data delay */
- 		phy_write(phydev, MICREL_KSZ9021_EXTREG_CTRL,
--			0x8000 | MICREL_KSZ9021_RGMII_RX_DATA_PAD_SCEW);
-+			0x8000 | MICREL_KSZ9021_RGMII_RX_DATA_PAD_SKEW);
- 		phy_write(phydev, MICREL_KSZ9021_EXTREG_DATA_WRITE, 0x0000);
+ 	if (pf->flags & I40E_FLAG_SRIOV_ENABLED)
+-		idx = ndo_dflt_fdb_dump(skb, cb, dev, idx);
++		idx = ndo_dflt_fdb_dump(skb, cb, dev, filter_dev, idx);
  
- 		/* max rx/tx clock delay, min rx/tx control delay */
- 		phy_write(phydev, MICREL_KSZ9021_EXTREG_CTRL,
--			0x8000 | MICREL_KSZ9021_RGMII_CLK_CTRL_PAD_SCEW);
-+			0x8000 | MICREL_KSZ9021_RGMII_CLK_CTRL_PAD_SKEW);
- 		phy_write(phydev, MICREL_KSZ9021_EXTREG_DATA_WRITE, 0xf0f0);
- 		phy_write(phydev, MICREL_KSZ9021_EXTREG_CTRL,
--			MICREL_KSZ9021_RGMII_CLK_CTRL_PAD_SCEW);
-+			MICREL_KSZ9021_RGMII_CLK_CTRL_PAD_SKEW);
- 	}
- 
- 	return 0;
-diff --git a/arch/arm/mach-socfpga/socfpga.c b/arch/arm/mach-socfpga/socfpga.c
-index adbf383..4a953c0 100644
---- a/arch/arm/mach-socfpga/socfpga.c
-+++ b/arch/arm/mach-socfpga/socfpga.c
-@@ -19,6 +19,8 @@
- #include <linux/of_irq.h>
- #include <linux/of_platform.h>
- #include <linux/reboot.h>
-+#include <linux/phy.h>
-+#include <linux/micrel_phy.h>
- 
- #include <asm/hardware/cache-l2x0.h>
- #include <asm/mach/arch.h>
-@@ -85,6 +87,44 @@ static void __init socfpga_init_irq(void)
- 	socfpga_sysmgr_init();
+ 	return idx;
+ }
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index f8de2ae..342ae27 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -427,16 +427,17 @@ static int qlcnic_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
  }
  
-+static int ksz9021rn_phy_fixup(struct phy_device *phydev)
-+{
-+        if (IS_BUILTIN(CONFIG_PHYLIB)) {
-+		printk("------------- running phy fixup\n");
-+
-+                /* min rx data delay */
-+                phy_write(phydev, MICREL_KSZ9021_EXTREG_CTRL,
-+			  0x8000 | MICREL_KSZ9021_RGMII_RX_DATA_PAD_SKEW);
-+                phy_write(phydev, MICREL_KSZ9021_EXTREG_DATA_WRITE, 0x0000);
-+
-+                phy_write(phydev, MICREL_KSZ9021_EXTREG_CTRL,
-+			  0x8000 | MICREL_KSZ9021_RGMII_TX_DATA_PAD_SKEW);
-+                phy_write(phydev, MICREL_KSZ9021_EXTREG_DATA_WRITE, 0x0000);
-+
-+                /* max rx/tx clock delay, min rx/tx control delay */
-+                phy_write(phydev, MICREL_KSZ9021_EXTREG_CTRL,
-+			  0x8000 | MICREL_KSZ9021_RGMII_CLK_CTRL_PAD_SKEW);
-+                phy_write(phydev, MICREL_KSZ9021_EXTREG_DATA_WRITE, 0xf0f0);
-+                phy_write(phydev, MICREL_KSZ9021_EXTREG_CTRL,
-+			  MICREL_KSZ9021_RGMII_CLK_CTRL_PAD_SKEW);
-+        }
-+
-+        return 0;
-+}
-+
-+static void __init socfpga_init_machine(void)
-+{
-+	early_printk("socfpga_init_machine\n");
-+        if (IS_BUILTIN(CONFIG_PHYLIB)) {
-+		printk("---------- registering phy fixup\n");
-+                phy_register_fixup_for_uid(PHY_ID_KSZ9021, MICREL_PHY_ID_MASK,
-+					   ksz9021rn_phy_fixup);
-+        }
-+	early_printk("socfpga_init_machine done\n");
-+
-+}
-+
-+
- static void socfpga_cyclone5_restart(enum reboot_mode mode, const char *cmd)
+ static int qlcnic_fdb_dump(struct sk_buff *skb, struct netlink_callback *ncb,
+-			struct net_device *netdev, int idx)
++			struct net_device *netdev, struct net_device *filter_dev,
++			int idx)
  {
- 	u32 temp;
-@@ -109,6 +149,7 @@ DT_MACHINE_START(SOCFPGA, "Altera SOCFPGA")
- 	.smp		= smp_ops(socfpga_smp_ops),
- 	.map_io		= socfpga_map_io,
- 	.init_irq	= socfpga_init_irq,
-+	.init_late   = socfpga_init_machine,
- 	.restart	= socfpga_cyclone5_restart,
- 	.dt_compat	= altera_dt_match,
- MACHINE_END
-diff --git a/include/linux/micrel_phy.h b/include/linux/micrel_phy.h
-index 2e5b194..de40c89 100644
---- a/include/linux/micrel_phy.h
-+++ b/include/linux/micrel_phy.h
-@@ -40,7 +40,8 @@
+ 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
  
- #define MICREL_KSZ9021_EXTREG_CTRL	0xB
- #define MICREL_KSZ9021_EXTREG_DATA_WRITE	0xC
--#define MICREL_KSZ9021_RGMII_CLK_CTRL_PAD_SCEW	0x104
--#define MICREL_KSZ9021_RGMII_RX_DATA_PAD_SCEW	0x105
-+#define MICREL_KSZ9021_RGMII_CLK_CTRL_PAD_SKEW	0x104
-+#define MICREL_KSZ9021_RGMII_RX_DATA_PAD_SKEW	0x105
-+#define MICREL_KSZ9021_RGMII_TX_DATA_PAD_SKEW	0x106
+ 	if (!adapter->fdb_mac_learn)
+-		return ndo_dflt_fdb_dump(skb, ncb, netdev, idx);
++		return ndo_dflt_fdb_dump(skb, ncb, netdev, filter_dev, idx);
  
- #endif /* _MICREL_PHY_H */
-
-
+ 	if ((adapter->flags & QLCNIC_ESWITCH_ENABLED) ||
+ 	    qlcnic_sriov_check(adapter))
+-		idx = ndo_dflt_fdb_dump(skb, ncb, netdev, idx);
++		idx = ndo_dflt_fdb_dump(skb, ncb, netdev, filter_dev, idx);
+ 
+ 	return idx;
+ }
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 66f9a04..8d46984 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1114,6 +1114,7 @@ struct net_device_ops {
+ 	int			(*ndo_fdb_dump)(struct sk_buff *skb,
+ 						struct netlink_callback *cb,
+ 						struct net_device *dev,
++						struct net_device *filter_dev,
+ 						int idx);
+ 
+ 	int			(*ndo_bridge_setlink)(struct net_device *dev,
+diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+index 953937e..167bae7 100644
+--- a/include/linux/rtnetlink.h
++++ b/include/linux/rtnetlink.h
+@@ -78,6 +78,7 @@ extern void __rtnl_unlock(void);
+ extern int ndo_dflt_fdb_dump(struct sk_buff *skb,
+ 			     struct netlink_callback *cb,
+ 			     struct net_device *dev,
++			     struct net_device *filter_dev,
+ 			     int idx);
+ extern int ndo_dflt_fdb_add(struct ndmsg *ndm,
+ 			    struct nlattr *tb[],
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index 7be3366..6edecd1 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -676,6 +676,7 @@ errout:
+ int br_fdb_dump(struct sk_buff *skb,
+ 		struct netlink_callback *cb,
+ 		struct net_device *dev,
++		struct net_device *filter_dev,
+ 		int idx)
+ {
+ 	struct net_bridge *br = netdev_priv(dev);
+@@ -691,6 +692,10 @@ int br_fdb_dump(struct sk_buff *skb,
+ 			if (idx < cb->args[0])
+ 				goto skip;
+ 
++			if (filter_dev && (!f->dst || !f->dst->dev ||
++					   f->dst->dev != filter_dev))
++				goto skip;
++
+ 			if (fdb_fill_info(skb, br, f,
+ 					  NETLINK_CB(cb->skb).portid,
+ 					  cb->nlh->nlmsg_seq,
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 23caf5b..62a7fa2 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -399,7 +399,7 @@ int br_fdb_delete(struct ndmsg *ndm, struct nlattr *tb[],
+ int br_fdb_add(struct ndmsg *nlh, struct nlattr *tb[], struct net_device *dev,
+ 	       const unsigned char *addr, u16 nlh_flags);
+ int br_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb,
+-		struct net_device *dev, int idx);
++		struct net_device *dev, struct net_device *fdev, int idx);
+ int br_fdb_sync_static(struct net_bridge *br, struct net_bridge_port *p);
+ void br_fdb_unsync_static(struct net_bridge *br, struct net_bridge_port *p);
+ 
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 27acaf7..e3230f5 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -2517,6 +2517,7 @@ skip:
+ int ndo_dflt_fdb_dump(struct sk_buff *skb,
+ 		      struct netlink_callback *cb,
+ 		      struct net_device *dev,
++		      struct net_device *filter_dev,
+ 		      int idx)
+ {
+ 	int err;
+@@ -2547,13 +2548,13 @@ static int rtnl_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ 			br_dev = netdev_master_upper_dev_get(dev);
+ 			ops = br_dev->netdev_ops;
+ 			if (ops->ndo_fdb_dump)
+-				idx = ops->ndo_fdb_dump(skb, cb, dev, idx);
++				idx = ops->ndo_fdb_dump(skb, cb, dev, NULL, idx);
+ 		}
+ 
+ 		if (dev->netdev_ops->ndo_fdb_dump)
+-			idx = dev->netdev_ops->ndo_fdb_dump(skb, cb, dev, idx);
++			idx = dev->netdev_ops->ndo_fdb_dump(skb, cb, dev, NULL, idx);
+ 		else
+-			idx = ndo_dflt_fdb_dump(skb, cb, dev, idx);
++			idx = ndo_dflt_fdb_dump(skb, cb, dev, NULL, idx);
+ 	}
+ 	rcu_read_unlock();
+ 
 -- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+1.7.9.5
