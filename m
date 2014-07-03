@@ -1,50 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH v4 0/2] bridge: fdb dumping takes a filter
- device
-Date: Wed, 02 Jul 2014 18:19:58 -0700 (PDT)
-Message-ID: <20140702.181958.175884390637356702.davem@davemloft.net>
-References: <1403952456-16020-1-git-send-email-jhs@emojatatu.com>
-	<20140702.174114.1070001183436341599.davem@davemloft.net>
+Subject: Re: [PATCH net] tcp: Fix divide by zero when pushing during
+ tcp-repair
+Date: Wed, 02 Jul 2014 18:21:52 -0700 (PDT)
+Message-ID: <20140702.182152.1004736569979242732.davem@davemloft.net>
+References: <1403972797-15285-1-git-send-email-christoph.paasch@uclouvain.be>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
-	vyasevic@redhat.com, sfeldma@cumulusnetworks.com,
-	john.r.fastabend@intel.com, roopa@cumulusnetworks.com,
-	eric.dumazet@gmail.com
-To: jhs@mojatatu.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, avagin@openvz.org, xemul@parallels.com
+To: christoph.paasch@uclouvain.be
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42517 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42534 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753233AbaGCBUD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2014 21:20:03 -0400
-In-Reply-To: <20140702.174114.1070001183436341599.davem@davemloft.net>
+	with ESMTP id S1750822AbaGCBVx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2014 21:21:53 -0400
+In-Reply-To: <1403972797-15285-1-git-send-email-christoph.paasch@uclouvain.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogV2VkLCAwMiBK
-dWwgMjAxNCAxNzo0MToxNCAtMDcwMCAoUERUKQ0KDQo+IFNlcmllcyBhcHBsaWVkLCB0aGFua3Mg
-SmFtYWwuDQoNCkFjdHVhbGx5LCBJIGhhZCB0byByZXZlcnQsIHRoaXMgYnJlYWtzIHRoZSBxbGNu
-aWMgYnVpbGQ6DQoNCmRyaXZlcnMvbmV0L2V0aGVybmV0L3Fsb2dpYy9xbGNuaWMvcWxjbmljX21h
-aW4uYzogSW4gZnVuY3Rpb24goXFsY25pY19mZGJfZHVtcKI6DQpkcml2ZXJzL25ldC9ldGhlcm5l
-dC9xbG9naWMvcWxjbmljL3FsY25pY19tYWluLmM6NDQwOjM6IHdhcm5pbmc6IHBhc3NpbmcgYXJn
-dW1lbnQgNCBvZiChbmRvX2RmbHRfZmRiX2R1bXCiIG1ha2VzIHBvaW50ZXIgZnJvbSBpbnRlZ2Vy
-IHdpdGhvdXQgYSBjYXN0IFtlbmFibGVkIGJ5IGRlZmF1bHRdDQpJbiBmaWxlIGluY2x1ZGVkIGZy
-b20gaW5jbHVkZS9uZXQvZHN0Lmg6MTM6MCwNCiAgICAgICAgICAgICAgICAgZnJvbSBpbmNsdWRl
-L25ldC9zb2NrLmg6NjgsDQogICAgICAgICAgICAgICAgIGZyb20gaW5jbHVkZS9saW51eC90Y3Au
-aDoyMywNCiAgICAgICAgICAgICAgICAgZnJvbSBkcml2ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMv
-cWxjbmljL3FsY25pYy5oOjIwLA0KICAgICAgICAgICAgICAgICBmcm9tIGRyaXZlcnMvbmV0L2V0
-aGVybmV0L3Fsb2dpYy9xbGNuaWMvcWxjbmljX21haW4uYzoxMToNCmluY2x1ZGUvbGludXgvcnRu
-ZXRsaW5rLmg6Nzg6MTI6IG5vdGU6IGV4cGVjdGVkIKFzdHJ1Y3QgbmV0X2RldmljZSAqoiBidXQg
-YXJndW1lbnQgaXMgb2YgdHlwZSChaW50og0KZHJpdmVycy9uZXQvZXRoZXJuZXQvcWxvZ2ljL3Fs
-Y25pYy9xbGNuaWNfbWFpbi5jOjQ0MDozOiBlcnJvcjogdG9vIGZldyBhcmd1bWVudHMgdG8gZnVu
-Y3Rpb24goW5kb19kZmx0X2ZkYl9kdW1wog0KSW4gZmlsZSBpbmNsdWRlZCBmcm9tIGluY2x1ZGUv
-bmV0L2RzdC5oOjEzOjAsDQogICAgICAgICAgICAgICAgIGZyb20gaW5jbHVkZS9uZXQvc29jay5o
-OjY4LA0KICAgICAgICAgICAgICAgICBmcm9tIGluY2x1ZGUvbGludXgvdGNwLmg6MjMsDQogICAg
-ICAgICAgICAgICAgIGZyb20gZHJpdmVycy9uZXQvZXRoZXJuZXQvcWxvZ2ljL3FsY25pYy9xbGNu
-aWMuaDoyMCwNCiAgICAgICAgICAgICAgICAgZnJvbSBkcml2ZXJzL25ldC9ldGhlcm5ldC9xbG9n
-aWMvcWxjbmljL3FsY25pY19tYWluLmM6MTE6DQppbmNsdWRlL2xpbnV4L3J0bmV0bGluay5oOjc4
-OjEyOiBub3RlOiBkZWNsYXJlZCBoZXJlDQptYWtlWzVdOiAqKiogW2RyaXZlcnMvbmV0L2V0aGVy
-bmV0L3Fsb2dpYy9xbGNuaWMvcWxjbmljX21haW4ub10gRXJyb3IgMQ0KDQpBbHNvIHBhdGNoIHR3
-byBoYWQgdHJhaWxpbmcgd2hpdGVzcGFjZSwgcGxlYXNlIGZpeCB0aGF0IHVwIHdpdGggeW91cg0K
-cmVzdWJtaXNzaW9uIHRvbywgdGhhbmtzLg0K
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Date: Sat, 28 Jun 2014 18:26:37 +0200
+
+> When in repair-mode and TCP_RECV_QUEUE is set, we end up calling
+> tcp_push with mss_now being 0. If data is in the send-queue and
+> tcp_set_skb_tso_segs gets called, we crash because it will divide by
+> mss_now:
+ ...
+> This can easily be reproduced with the following packetdrill-script (the
+> "magic" with netem, sk_pacing and limit_output_bytes is done to prevent
+> the kernel from pushing all segments, because hitting the limit without
+> doing this is not so easy with packetdrill):
+ ...
+> This happens since ec3423257508 (tcp: fix retransmission in repair
+> mode). Prior to that, the call to tcp_push was prevented by a check for
+> tp->repair.
+> 
+> The patch fixes it, by adding the new goto-label out_nopush. When exiting
+> tcp_sendmsg and a push is not required, which is the case for tp->repair,
+> we go to this label.
+> 
+> When repairing and calling send() with TCP_RECV_QUEUE, the data is
+> actually put in the receive-queue. So, no push is required because no
+> data has been added to the send-queue.
+> 
+> Cc: Andrew Vagin <avagin@openvz.org>
+> Cc: Pavel Emelyanov <xemul@parallels.com>
+> Fixes: ec3423257508 (tcp: fix retransmission in repair mode)
+> Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
+
+Applied and queued up for -stable, thanks.
