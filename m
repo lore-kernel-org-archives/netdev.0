@@ -1,59 +1,34 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: RSS is not efficient when forwarding
-Date: Thu, 3 Jul 2014 19:44:08 -0300
-Message-ID: <20140703224408.GA2343@t520.home>
+From: Mrs Myriam Thomas <mrsmyriamthomas@yahoo.fr>
+Subject: With All Due Respect / From Myriam Thomas.
+Date: Thu, 3 Jul 2014 22:53:32 +0000
+Message-ID: <CAHTngn6Ki7y8CLP4juCcnjerfNBoEEc1Ahy1FuULQGBtseK9+g@mail.gmail.com>
+Reply-To: mrs.myriamthomas@yahoo.fr
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55906 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753290AbaGCWoK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Jul 2014 18:44:10 -0400
-Received: from int-mx13.intmail.prod.int.phx2.redhat.com (int-mx13.intmail.prod.int.phx2.redhat.com [10.5.11.26])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s63Mi97w029143
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Thu, 3 Jul 2014 18:44:10 -0400
-Received: from localhost (vpn1-7-95.gru2.redhat.com [10.97.7.95])
-	by int-mx13.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id s63Mi8EE026585
-	for <netdev@vger.kernel.org>; Thu, 3 Jul 2014 18:44:09 -0400
-Content-Disposition: inline
+Received: from mail-ob0-f194.google.com ([209.85.214.194]:34210 "EHLO
+	mail-ob0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753035AbaGCWxd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2014 18:53:33 -0400
+Received: by mail-ob0-f194.google.com with SMTP id uy5so276310obc.5
+        for <netdev@vger.kernel.org>; Thu, 03 Jul 2014 15:53:32 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Greetings,
 
-Hi,
+I am MRS.MYRIAM THOMAS; an aging widow suffering from long time
+illness. I have some funds I inherited from my late husband, the sum
+of $4.5 Million USA dollars and I needed a very honest and sincere
+individual or co-operate organization that will use the fund for work
+of humanity, I found your email address from the human resources data
+base and decided to contact you. Please if you would be able to use
+the funds for the work of humanity as I have stated here to fulfilled
+my late husband wishes please, kindly reply back to me more details.
 
-I have a simple router setup which forwards traffic from
-one ixgbe 82599ES to another ixgbe of the same model.
+I am urgently waiting for your response.
 
-kernel: 3.16.0-rc2-00262-ga921e2a
-
-  p2p1: 192.168.155.1/24 is the gateway of the LAN
-  p2p2: 192.168.156.1/24 is the gateway of the other LAN
-
-While the ARP is resolving, I can see the packets being spread
-among all the 8 queues (8 online CPUs) available and that is fine.
-
-However, as soon as the TCP traffic starts, all streams are
-merged to rx-queue-0 which overwhelms one single CPU, so the
-total throughput is about 4Gbits/sec.
-
-I can see the driver sending different skb->hash for each stream,
-so it can't be the NIC.
-
-Also, if I run a local http on the router, the skb->hash pattern
-doesn't change, but the workload is spread among all CPUs.
-
-debug output while reproducing all the streams on rx-queue-0:
-[...]
-[11685.885093] ixgbe_rx_skb:1713 skb(ffff880222a77200) hash: 0xC2AF4A27
-[11685.891454] ixgbe_rx_skb:1713 skb(ffff880222a77200) hash: 0x8C5B749D
-[11685.897820] ixgbe_rx_skb:1713 skb(ffff880222a77200) hash: 0xA33BA6D5
-[11690.845032] net_ratelimit: 3276406 callbacks suppressed
-[...]
-
-Any idea why all TCP streams are going to a single rx queue?
-
-Thanks,
-fbl
+Thanks
+Yours Sincerely,
+Mrs. Myriam Thomas.
