@@ -1,53 +1,38 @@
-From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH RFC net-next 08/14] bpf: add eBPF verifier
-Date: Wed, 2 Jul 2014 17:01:24 -0700
-Message-ID: <CAMEtUuw0y+r4v8vFBy=-idhe_tDDga34siF7+SCgRD+H-qamtg@mail.gmail.com>
-References: <1403913966-4927-1-git-send-email-ast@plumgrid.com>
-	<1403913966-4927-9-git-send-email-ast@plumgrid.com>
-	<CA+ZOOTODDPN=6SECq1uPPD7AGP1zgBJ+bfYaX9o3YhnaCTiHYQ@mail.gmail.com>
-	<CAMEtUuxfrAUDDQVGNsNV2PeDii-6LAwQCbB2XGEHTJDwkkvyWg@mail.gmail.com>
-	<CA+ZOOTM9KkOYJ5Nf25_x1fT+f76xMsdJRkqjYaABiNK9y3FNXA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] vlan: free percpu stats in device destructor
+Date: Wed, 02 Jul 2014 17:02:35 -0700 (PDT)
+Message-ID: <20140702.170235.955058899063669298.davem@davemloft.net>
+References: <42408b4f154d434d9838b83ae2dc15db@BL2PR03MB545.namprd03.prod.outlook.com>
+	<1404293115.23797.15.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
-	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CA+ZOOTM9KkOYJ5Nf25_x1fT+f76xMsdJRkqjYaABiNK9y3FNXA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: madalin.bucur@freescale.com, roy.qing.li@gmail.com,
+	edumazet@google.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42205 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752051AbaGCACj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2014 20:02:39 -0400
+In-Reply-To: <1404293115.23797.15.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 2, 2014 at 4:35 PM, Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org> wrote:
-> On Wed, Jul 2, 2014 at 4:04 PM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
->>>> +       reg = regs + BPF_REG_1; /* 1st arg to a function */
->>>> +       reg->ptr = PTR_TO_CTX;
->>> Wait, doesn't this depend on doing "BPF_MOV64_REG(BPF_REG_CTX,
->>> BPF_REG_ARG1)" (the bpf-to-ebpf prologue), which is only enforced on
->>> filters converted from bpf? In fact, shouldn't this set
->>> regs[BPF_REG_CTX] instead of regs[BPF_REG_1] ?
->>
->> nope. it's REG_1.
->> as you said r6=r1 is only emitted by converted classic filters.
->> Verifier will see this 'r6=r1' assignment and will copy the r1 type into r6.
-> You're right. I read BPF_MOV64_REG() AT&T-syntax-style.
->
-> BTW, check_stack_write() in kernel/bpf/verifier.c has a couple of
-> assignments of a slot->ptr to 0 (instead of INVALID_PTR). I assume
-> this is unintended.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 02 Jul 2014 02:25:15 -0700
 
-yes. good catch. Will fix it.
-Too bad C compiler silently casts integers to enums
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> Madalin-Cristian reported crashs happening after a recent commit
+> (5a4ae5f6e7d4 "vlan: unnecessary to check if vlan_pcpu_stats is NULL")
+ ...
+> Fix this problem by freeing percpu stats from dev->destructor() instead
+> of ndo_uninit()
+> 
+> Reported-by: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Tested-by: Madalin-Cristian Bucur <madalin.bucur@freescale.com>
+> Fixes: 5a4ae5f6e7d4 ("vlan: unnecessary to check if vlan_pcpu_stats is NULL")
+
+Applied and queued up for -stable, thanks Eric.
