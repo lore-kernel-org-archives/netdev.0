@@ -1,55 +1,240 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 06/14] i40e: Fix a boundary condition and turning off of ntuple
-Date: Wed,  2 Jul 2014 19:40:25 -0700
-Message-ID: <1404355233-30123-7-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/14] i40e: Finish implementation of ethtool get settings
+Date: Wed,  2 Jul 2014 19:40:27 -0700
+Message-ID: <1404355233-30123-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1404355233-30123-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	Catherine Sullivan <catherine.sullivan@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:56274 "EHLO mga09.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:40790 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754560AbaGCClO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Jul 2014 22:41:14 -0400
+	id S1754560AbaGCClT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Jul 2014 22:41:19 -0400
 In-Reply-To: <1404355233-30123-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anjali Singhai Jain <anjali.singhai@intel.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
-When turning off ntuple with a FD table full situation,
-the driver would have auto disabled FD filter additions.
-Clear the auto disable flag for FD_SB so that when the
-feature is turned on again using "ethtool -K ethx ntuple on"
-we can start adding filters once again.
+Finish the i40e implementation of get_settings for ethtool.
 
-Change-ID: I036a32e7331bcae765b657c8abb4fa070940b163
-Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Change-ID: Iec81835aa9380723ae9288bcb79b30a6a1ecd498
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
 Tested-by: Jim Young <jamesx.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 150 +++++++++++++++++++++----
+ 1 file changed, 127 insertions(+), 23 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 88704c0..d9dcb8c 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -6885,9 +6885,11 @@ bool i40e_set_ntuple(struct i40e_pf *pf, netdev_features_t features)
- 			i40e_fdir_filter_exit(pf);
- 		}
- 		pf->flags &= ~I40E_FLAG_FD_SB_ENABLED;
--		/* if ATR was disabled it can be re-enabled. */
--		if (!(pf->flags & I40E_FLAG_FD_ATR_ENABLED))
--			pf->flags |= I40E_FLAG_FD_ATR_ENABLED;
-+		pf->auto_disable_flags &= ~I40E_FLAG_FD_SB_ENABLED;
-+		/* if ATR was auto disabled it can be re-enabled. */
-+		if ((pf->flags & I40E_FLAG_FD_ATR_ENABLED) &&
-+		    (pf->auto_disable_flags & I40E_FLAG_FD_ATR_ENABLED))
-+			pf->auto_disable_flags &= ~I40E_FLAG_FD_ATR_ENABLED;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index df89b6c..b105e6f 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -215,52 +215,135 @@ static int i40e_get_settings(struct net_device *netdev,
+ 	/* hardware is either in 40G mode or 10G mode
+ 	 * NOTE: this section initializes supported and advertising
+ 	 */
++	if (!link_up) {
++		/* link is down and the driver needs to fall back on
++		 * device ID to determine what kinds of info to display,
++		 * it's mostly a guess that may change when link is up
++		 */
++		switch (hw->device_id) {
++		case I40E_DEV_ID_QSFP_A:
++		case I40E_DEV_ID_QSFP_B:
++		case I40E_DEV_ID_QSFP_C:
++			/* pluggable QSFP */
++			ecmd->supported = SUPPORTED_40000baseSR4_Full |
++					  SUPPORTED_40000baseCR4_Full |
++					  SUPPORTED_40000baseLR4_Full;
++			ecmd->advertising = ADVERTISED_40000baseSR4_Full |
++					    ADVERTISED_40000baseCR4_Full |
++					    ADVERTISED_40000baseLR4_Full;
++			break;
++		case I40E_DEV_ID_KX_B:
++			/* backplane 40G */
++			ecmd->supported = SUPPORTED_40000baseKR4_Full;
++			ecmd->advertising = ADVERTISED_40000baseKR4_Full;
++			break;
++		case I40E_DEV_ID_KX_C:
++			/* backplane 10G */
++			ecmd->supported = SUPPORTED_10000baseKR_Full;
++			ecmd->advertising = ADVERTISED_10000baseKR_Full;
++			break;
++		default:
++			/* all the rest are 10G/1G */
++			ecmd->supported = SUPPORTED_10000baseT_Full |
++					  SUPPORTED_1000baseT_Full;
++			ecmd->advertising = ADVERTISED_10000baseT_Full |
++					    ADVERTISED_1000baseT_Full;
++			break;
++		}
++
++		/* skip phy_type use as it is zero when link is down */
++		goto no_valid_phy_type;
++	}
++
+ 	switch (hw_link_info->phy_type) {
+ 	case I40E_PHY_TYPE_40GBASE_CR4:
+ 	case I40E_PHY_TYPE_40GBASE_CR4_CU:
+-		ecmd->supported = SUPPORTED_40000baseCR4_Full;
+-		ecmd->advertising = ADVERTISED_40000baseCR4_Full;
++		ecmd->supported = SUPPORTED_Autoneg |
++				  SUPPORTED_40000baseCR4_Full;
++		ecmd->advertising = ADVERTISED_Autoneg |
++				    ADVERTISED_40000baseCR4_Full;
+ 		break;
+ 	case I40E_PHY_TYPE_40GBASE_KR4:
+-		ecmd->supported = SUPPORTED_40000baseKR4_Full;
+-		ecmd->advertising = ADVERTISED_40000baseKR4_Full;
++		ecmd->supported = SUPPORTED_Autoneg |
++				  SUPPORTED_40000baseKR4_Full;
++		ecmd->advertising = ADVERTISED_Autoneg |
++				    ADVERTISED_40000baseKR4_Full;
+ 		break;
+ 	case I40E_PHY_TYPE_40GBASE_SR4:
++	case I40E_PHY_TYPE_XLPPI:
++	case I40E_PHY_TYPE_XLAUI:
+ 		ecmd->supported = SUPPORTED_40000baseSR4_Full;
+-		ecmd->advertising = ADVERTISED_40000baseSR4_Full;
+ 		break;
+ 	case I40E_PHY_TYPE_40GBASE_LR4:
+ 		ecmd->supported = SUPPORTED_40000baseLR4_Full;
+-		ecmd->advertising = ADVERTISED_40000baseLR4_Full;
+ 		break;
+ 	case I40E_PHY_TYPE_10GBASE_KX4:
+-		ecmd->supported = SUPPORTED_10000baseKX4_Full;
+-		ecmd->advertising = ADVERTISED_10000baseKX4_Full;
++		ecmd->supported = SUPPORTED_Autoneg |
++				  SUPPORTED_10000baseKX4_Full;
++		ecmd->advertising = ADVERTISED_Autoneg |
++				    ADVERTISED_10000baseKX4_Full;
+ 		break;
+ 	case I40E_PHY_TYPE_10GBASE_KR:
+-		ecmd->supported = SUPPORTED_10000baseKR_Full;
+-		ecmd->advertising = ADVERTISED_10000baseKR_Full;
++		ecmd->supported = SUPPORTED_Autoneg |
++				  SUPPORTED_10000baseKR_Full;
++		ecmd->advertising = ADVERTISED_Autoneg |
++				    ADVERTISED_10000baseKR_Full;
+ 		break;
+-	default:
+-		if (i40e_is_40G_device(hw->device_id)) {
+-			ecmd->supported = SUPPORTED_40000baseSR4_Full;
+-			ecmd->advertising = ADVERTISED_40000baseSR4_Full;
+-		} else {
+-			ecmd->supported = SUPPORTED_10000baseT_Full;
+-			ecmd->advertising = ADVERTISED_10000baseT_Full;
+-		}
++	case I40E_PHY_TYPE_10GBASE_SR:
++	case I40E_PHY_TYPE_10GBASE_LR:
++		ecmd->supported = SUPPORTED_10000baseT_Full;
++		break;
++	case I40E_PHY_TYPE_10GBASE_CR1_CU:
++	case I40E_PHY_TYPE_10GBASE_CR1:
++	case I40E_PHY_TYPE_10GBASE_T:
++		ecmd->supported = SUPPORTED_Autoneg |
++				  SUPPORTED_10000baseT_Full;
++		ecmd->advertising = ADVERTISED_Autoneg |
++				    ADVERTISED_10000baseT_Full;
++		break;
++	case I40E_PHY_TYPE_XAUI:
++	case I40E_PHY_TYPE_XFI:
++	case I40E_PHY_TYPE_SFI:
++	case I40E_PHY_TYPE_10GBASE_SFPP_CU:
++		ecmd->supported = SUPPORTED_10000baseT_Full;
+ 		break;
++	case I40E_PHY_TYPE_1000BASE_KX:
++	case I40E_PHY_TYPE_1000BASE_T:
++		ecmd->supported = SUPPORTED_Autoneg |
++				  SUPPORTED_1000baseT_Full;
++		ecmd->advertising = ADVERTISED_Autoneg |
++				    ADVERTISED_1000baseT_Full;
++		break;
++	case I40E_PHY_TYPE_100BASE_TX:
++		ecmd->supported = SUPPORTED_Autoneg |
++				  SUPPORTED_100baseT_Full;
++		ecmd->advertising = ADVERTISED_Autoneg |
++				    ADVERTISED_100baseT_Full;
++		break;
++	case I40E_PHY_TYPE_SGMII:
++		ecmd->supported = SUPPORTED_Autoneg |
++				  SUPPORTED_1000baseT_Full |
++				  SUPPORTED_100baseT_Full;
++		ecmd->advertising = ADVERTISED_Autoneg |
++				    ADVERTISED_1000baseT_Full |
++				    ADVERTISED_100baseT_Full;
++		break;
++	default:
++		/* if we got here and link is up something bad is afoot */
++		WARN_ON(link_up);
  	}
- 	return need_reset;
- }
+ 
+-	ecmd->supported |= SUPPORTED_Autoneg;
+-	ecmd->advertising |= ADVERTISED_Autoneg;
++no_valid_phy_type:
++	/* this is if autoneg is enabled or disabled */
+ 	ecmd->autoneg = ((hw_link_info->an_info & I40E_AQ_AN_COMPLETED) ?
+ 			  AUTONEG_ENABLE : AUTONEG_DISABLE);
+ 
+ 	switch (hw->phy.media_type) {
+ 	case I40E_MEDIA_TYPE_BACKPLANE:
+-		ecmd->supported |= SUPPORTED_Backplane;
+-		ecmd->advertising |= ADVERTISED_Backplane;
++		ecmd->supported |= SUPPORTED_Autoneg |
++				   SUPPORTED_Backplane;
++		ecmd->advertising |= ADVERTISED_Autoneg |
++				     ADVERTISED_Backplane;
+ 		ecmd->port = PORT_NONE;
+ 		break;
+ 	case I40E_MEDIA_TYPE_BASET:
+@@ -276,7 +359,6 @@ static int i40e_get_settings(struct net_device *netdev,
+ 		break;
+ 	case I40E_MEDIA_TYPE_FIBER:
+ 		ecmd->supported |= SUPPORTED_FIBRE;
+-		ecmd->advertising |= ADVERTISED_FIBRE;
+ 		ecmd->port = PORT_FIBRE;
+ 		break;
+ 	case I40E_MEDIA_TYPE_UNKNOWN:
+@@ -287,6 +369,25 @@ static int i40e_get_settings(struct net_device *netdev,
+ 
+ 	ecmd->transceiver = XCVR_EXTERNAL;
+ 
++	ecmd->supported |= SUPPORTED_Pause;
++
++	switch (hw->fc.current_mode) {
++	case I40E_FC_FULL:
++		ecmd->advertising |= ADVERTISED_Pause;
++		break;
++	case I40E_FC_TX_PAUSE:
++		ecmd->advertising |= ADVERTISED_Asym_Pause;
++		break;
++	case I40E_FC_RX_PAUSE:
++		ecmd->advertising |= (ADVERTISED_Pause |
++				      ADVERTISED_Asym_Pause);
++		break;
++	default:
++		ecmd->advertising &= ~(ADVERTISED_Pause |
++				       ADVERTISED_Asym_Pause);
++		break;
++	}
++
+ 	if (link_up) {
+ 		switch (link_speed) {
+ 		case I40E_LINK_SPEED_40GB:
+@@ -296,6 +397,9 @@ static int i40e_get_settings(struct net_device *netdev,
+ 		case I40E_LINK_SPEED_10GB:
+ 			ethtool_cmd_speed_set(ecmd, SPEED_10000);
+ 			break;
++		case I40E_LINK_SPEED_1GB:
++			ethtool_cmd_speed_set(ecmd, SPEED_1000);
++			break;
+ 		default:
+ 			break;
+ 		}
 -- 
 1.9.3
