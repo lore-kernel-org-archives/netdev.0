@@ -1,82 +1,162 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v2] declance: Fix 64-bit compilation warnings
-Date: Wed, 02 Jul 2014 23:25:46 -0700
-Message-ID: <1404368746.14741.36.camel@joe-AO725>
-References: <alpine.LFD.2.11.1406290246120.15455@eddie.linux-mips.org>
-	 <20140702.182807.1245632778216212860.davem@davemloft.net>
-	 <alpine.LFD.2.11.1407030244230.15455@eddie.linux-mips.org>
-	 <alpine.LFD.2.11.1407030331550.15455@eddie.linux-mips.org>
-	 <1404356734.14741.18.camel@joe-AO725>
-	 <alpine.LFD.2.11.1407030423300.15455@eddie.linux-mips.org>
-	 <1404364565.14741.26.camel@joe-AO725>
-	 <alpine.LFD.2.11.1407030637030.15455@eddie.linux-mips.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v2 3/3 RFC] pktgen: Allow sending TCP packets
+Date: Wed, 02 Jul 2014 23:49:02 -0700
+Message-ID: <1404370142.23797.24.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1404330855-24546-1-git-send-email-zoltan.kiss@citrix.com>
+	 <1404330855-24546-4-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Grant Likely <grant.likely@secretlab.ca>
-To: "Maciej W. Rozycki" <macro@linux-mips.org>
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+	Mathias Krause <minipli@googlemail.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Thomas Graf <tgraf@suug.ch>, Joe Perches <joe@perches.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	xen-devel@lists.xenproject.org
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0234.hostedemail.com ([216.40.44.234]:45735 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750707AbaGCGZu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2014 02:25:50 -0400
-In-Reply-To: <alpine.LFD.2.11.1407030637030.15455@eddie.linux-mips.org>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:48818 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750951AbaGCGtL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2014 02:49:11 -0400
+In-Reply-To: <1404330855-24546-4-git-send-email-zoltan.kiss@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-07-03 at 07:01 +0100, Maciej W. Rozycki wrote:
-> On Wed, 2 Jul 2014, Joe Perches wrote:
-> 
-> > > > The kernel vsprintf implementation doesn't prefix
-> > > > pointers with 0x, so you can use 0x%p if you really
-> > > > want that with a leading prefix, but you don't have
-> > > > to use it.
-> > > 
-> > >  It does, when the `#' format modifier is used (go try yourself!).
-> > 
-> > I know it does, but it's incidental.
-> 
->  Is it?  Someone took the effort to handle it:
-> 
-> 	int default_width = 2 * sizeof(void *) + (spec.flags & SPECIAL ? 2 : 0);
-> 
-> while they could do:
-> 
-> 	int default_width = 2 * sizeof(void *);
-> 
-> 	spec.flags &= ~SPECIAL;
-
-Grant Likely did that a couple of years ago.
-
-commit 725fe002d315c2501c110b7245d3eb4f4535f4d6
-Author: Grant Likely <grant.likely@secretlab.ca>
-Date:   Thu May 31 16:26:08 2012 -0700
-
-    vsprintf: correctly handle width when '#' flag used in %#p format
-    
-    The '%p' output of the kernel's vsprintf() uses spec.field_width to
-    determine how many digits to output based on 2 * sizeof(void*) so that all
-    digits of a pointer are shown.  ie.  a pointer will be output as
-    "001A2B3C" instead of "1A2B3C".  However, if the '#' flag is used in the
-    format (%#p), then the code doesn't take into account the width of the
-    '0x' prefix and will end up outputing "0x1A2B3C" instead of "0x001A2B3C".
-    
-    This patch reworks the "pointer()" format hook to include 2 characters for
-    the '0x' prefix if the '#' flag is included.
-
-Not sure it ever mattered myself.
-
->  Hmm, actually I wonder if GCC maintainers could be persuaded to accept a 
-> `linux_printk' format checker, that would accurately match our semantics 
-> and could handle some of our other extensions too.  There are precedents 
-> already, `cmn_err' and `CFString' (for Solaris and Darwin), so it's not 
-> like a no-no outright.  WDYT?
+On Wed, 2014-07-02 at 20:54 +0100, Zoltan Kiss wrote:
+> This is a prototype patch to enable sending TCP packets with pktgen. The
+> original motivation is to test TCP GSO with xen-netback/netfront, but I'm not
+> sure about how the checksum should be set up, and also someone should verify the
+> GSO settings I'm using.
 > 
 
-Maybe via a gcc plugin.
+It seems you only took care of IPv6, but did not mention this in the
+changelog.
 
-https://gcc.gnu.org/wiki/plugins
+> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Thomas Graf <tgraf@suug.ch>
+> Cc: Joe Perches <joe@perches.com>
+> Cc: netdev@vger.kernel.org
+> Cc: linux-kernel@vger.kernel.org
+> Cc: xen-devel@lists.xenproject.org
+> ---
+> diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+> index d7206ea..13aad46 100644
+> --- a/net/core/pktgen.c
+> +++ b/net/core/pktgen.c
+> @@ -203,6 +203,7 @@
+>  #define F_NODE          (1<<15)	/* Node memory alloc*/
+>  #define F_UDPCSUM       (1<<16)	/* Include UDP checksum */
+>  #define F_PATTERN       (1<<17)	/* Fill the payload with a pattern */
+> +#define F_TCP           (1<<18)	/* Send TCP packet instead of UDP */
+>  
+>  /* Thread control flag bits */
+>  #define T_STOP        (1<<0)	/* Stop run */
+> @@ -1343,6 +1344,12 @@ static ssize_t pktgen_if_write(struct file *file,
+>  		else if (strcmp(f, "!PATTERN") == 0)
+>  			pkt_dev->flags &= ~F_PATTERN;
+>  
+> +		else if (strcmp(f, "TCP") == 0)
+> +			pkt_dev->flags |= F_TCP;
+> +
+> +		else if (strcmp(f, "!TCP") == 0)
+> +			pkt_dev->flags &= ~F_TCP;
+> +
+>  		else {
+>  			sprintf(pg_result,
+>  				"Flag -:%s:- unknown\nAvailable flags, (prepend ! to un-set flag):\n%s",
+> @@ -2952,6 +2959,7 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
+>  	struct sk_buff *skb = NULL;
+>  	__u8 *eth;
+>  	struct udphdr *udph;
+> +	struct tcphdr *tcph;
+>  	int datalen, iplen;
+>  	struct iphdr *iph;
+>  	__be16 protocol = htons(ETH_P_IP);
+> @@ -3013,29 +3021,39 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
+>  	iph = (struct iphdr *) skb_put(skb, sizeof(struct iphdr));
+>  
+>  	skb_set_transport_header(skb, skb->len);
+> -	udph = (struct udphdr *) skb_put(skb, sizeof(struct udphdr));
+> +
+> +	if (pkt_dev->flags & F_TCP) {
+> +		datalen = pkt_dev->cur_pkt_size - ETH_HLEN - 20 -
+> +			  sizeof(struct tcphdr) - pkt_dev->pkt_overhead;
+> +		tcph = (struct tcphdr *)skb_put(skb, sizeof(struct tcphdr));
+> +		tcph->source = htons(pkt_dev->cur_udp_src);
+> +		tcph->dest = htons(pkt_dev->cur_udp_dst);
+> +		tcph->check = 0;
 
-If you're going to write one, it'd be nice to validate all
-the %p<foo> extensions too.
+You do not clear other fields, thus leaking kernel memory.
+
+> +	} else {
+> +		datalen = pkt_dev->cur_pkt_size - ETH_HLEN - 20 -
+> +			  sizeof(struct udphdr) - pkt_dev->pkt_overhead;
+> +		udph = (struct udphdr *)skb_put(skb, sizeof(struct udphdr));
+> +		udph->source = htons(pkt_dev->cur_udp_src);
+> +		udph->dest = htons(pkt_dev->cur_udp_dst);
+> +		udph->len = htons(datalen + sizeof(struct udphdr));	/* DATA + udphdr */
+> +		udph->check = 0;
+> +	}
+> +
+>  	skb_set_queue_mapping(skb, queue_map);
+>  	skb->priority = pkt_dev->skb_priority;
+>  
+>  	memcpy(eth, pkt_dev->hh, 12);
+>  	*(__be16 *) & eth[12] = protocol;
+>  
+> -	/* Eth + IPh + UDPh + mpls */
+> -	datalen = pkt_dev->cur_pkt_size - 14 - 20 - 8 -
+> -		  pkt_dev->pkt_overhead;
+>  	if (datalen < 0 || datalen < sizeof(struct pktgen_hdr))
+>  		datalen = sizeof(struct pktgen_hdr);
+>  
+> -	udph->source = htons(pkt_dev->cur_udp_src);
+> -	udph->dest = htons(pkt_dev->cur_udp_dst);
+> -	udph->len = htons(datalen + 8);	/* DATA + udphdr */
+> -	udph->check = 0;
+>  
+>  	iph->ihl = 5;
+>  	iph->version = 4;
+>  	iph->ttl = 32;
+>  	iph->tos = pkt_dev->tos;
+> -	iph->protocol = IPPROTO_UDP;	/* UDP */
+> +	iph->protocol = pkt_dev->flags & F_TCP ? IPPROTO_TCP : IPPROTO_UDP;
+>  	iph->saddr = pkt_dev->cur_saddr;
+>  	iph->daddr = pkt_dev->cur_daddr;
+>  	iph->id = htons(pkt_dev->ip_id);
+> @@ -3050,7 +3068,9 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
+>  
+>  	if (!(pkt_dev->flags & F_UDPCSUM)) {
+>  		skb->ip_summed = CHECKSUM_NONE;
+> -	} else if (odev->features & NETIF_F_V4_CSUM) {
+> +	} else if (pkt_dev->flags & F_TCP)
+> +		skb_checksum_setup(skb, true);
+> +	else if (odev->features & NETIF_F_V4_CSUM) {
+>  		skb->ip_summed = CHECKSUM_PARTIAL;
+>  		skb->csum = 0;
+>  		udp4_hwcsum(skb, udph->source, udph->dest);
+> @@ -3067,6 +3087,18 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
+>  
+>  	pktgen_finalize_skb(pkt_dev, skb, datalen);
+>  
+> +	if (odev->mtu < skb->len) {
+> +		skb_shinfo(skb)->gso_size = odev->mtu - ETH_HLEN - 20 -
+> +					    pkt_dev->pkt_overhead;
+> +		if (pkt_dev->flags & F_TCP) {
+> +			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
+> +			skb_shinfo(skb)->gso_size -= sizeof(struct tcphdr);
+> +		} else {
+> +			skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
+> +			skb_shinfo(skb)->gso_size -= sizeof(struct udphdr);
+> +		}
+> +	}
+
+Some NIC do not handle TSO, and driver could crash if they have sanity
+tests.
+
+pktgen directly calls driver ndo_start_xmit(), so we need to make sure
+we give valid packets to the driver (no software fallbacks at this
+stage)
