@@ -1,92 +1,446 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/14][pull request] Intel Wired LAN Driver Updates 2014-07-02
-Date: Wed,  2 Jul 2014 19:40:19 -0700
-Message-ID: <1404355233-30123-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com
+Subject: [net-next 01/14] i40e/i40evf: Do not free the dummy packet buffer synchronously
+Date: Wed,  2 Jul 2014 19:40:20 -0700
+Message-ID: <1404355233-30123-2-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1404355233-30123-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Anjali Singhai Jain <anjali.singhai@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga02.intel.com ([134.134.136.20]:40752 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750828AbaGCClE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Jul 2014 22:41:04 -0400
+	id S1753278AbaGCClF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Jul 2014 22:41:05 -0400
+In-Reply-To: <1404355233-30123-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e and i40evf.
+From: Anjali Singhai Jain <anjali.singhai@intel.com>
 
-Anjali fixes a possible race where we were trying to free the dummy packet
-buffer in the function that created it, so cleanup the dummy packet buffer
-in i40e_clean_tx_ring() instead.  Also fixes an issue where the filter
-program routine was not checking if there were descriptors available for
-programming a filter.
+The HW still needs to consume it and freeing it in the function
+that created it would mean we will be racing with the HW. The
+i40e_clean_tx_ring() routine will free up the buffer attached once
+the HW has consumed it.  The clean_fdir_tx_irq function had to be fixed
+to handle the freeing correctly.
 
-Mitch fixes unnecessary delays when sending the admin queue commands by
-moving a declaration up one level so we do not dereference it out of scope.
-Fixes an issue with the VF where if the admin queue interrupts get lost for
-some reason, the VF communication will stall as the VFs have no way of
-reaching the PF.  To alleviate this condition, go ahead and check the ARQ
-every time we run the service task.  Updates i40evf to allow the watchdog
-to fire vector 0 via software, which makes the driver tolerant of dropped
-interrupts on that vector.
+Cases where we program more than one filter per flow (Ipv4), the
+code had to be changed to allocate dummy buffer multiple times
+since it will be freed by the clean routine.  This also fixes an issue
+where the filter program routine was not checking if there were
+descriptors available for programming a filter.
 
-Paul fixes a shifted '1' to be unsigned to avoid shifting a signed integer.
+Change-ID: Idf72028fd873221934e319d021ef65a1e51acaf7
+Signed-off-by: Anjali Singhai Jain <anjali.singhai@intel.com>
+Tested-by: Jim Young <jamesx.m.young@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_main.c   |  21 ++++-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c   | 109 +++++++++++++++-----------
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h   |   6 +-
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c |   6 +-
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.h |   6 +-
+ 5 files changed, 96 insertions(+), 52 deletions(-)
 
-Jesse disables TPH by default since it is currently not enabled in the
-current hardware.  Also finishes the i40e implementation of get_settings
-for ethtool.
-
-Catherine adds a new variable (hw.phy.link_info.an_enabled) to track whether
-auto-negotiation is enabled, along with the functionality to update the
-variable.  Adds the functionality to set the requested flow control mode.
-Adds i40e implementation of setpauseparam and set_settings to ethtool.
-
-The following are changes since commit bd4578bc84a8c8a390cf6002539e75447e78e935:
-  drivers/net/hyperv/netvsc.c: remove unnecessary null test before kfree
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
-
-Anjali Singhai Jain (2):
-  i40e/i40evf: Do not free the dummy packet buffer synchronously
-  i40e: Fix a boundary condition and turning off of ntuple
-
-Catherine Sullivan (5):
-  i40e/i40evf: Add new HW link info variable an_enabled and function
-    update_link_info
-  i40e/i40evf: Add set_fc and init of FC settings
-  i40e: Add set_pauseparam to ethtool
-  i40e: Implement set_settings for ethtool
-  i40e/i40evf: Bump i40e to 0.4.21 and i40evf to 0.9.40
-
-Jesse Brandeburg (3):
-  i40e: disable TPH
-  i40e: Finish implementation of ethtool get settings
-  i40e: move nway reset
-
-Mitch Williams (3):
-  i40evf: don't violate scope
-  i40e: tolerate lost interrupts
-  i40evf: invite vector 0 to the interrupt party
-
-Paul M Stillwell Jr (1):
-  i40e/i40evf: Force a shifted '1' to be unsigned
-
- drivers/net/ethernet/intel/i40e/i40e_common.c      | 200 ++++++++++
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     | 422 +++++++++++++++++++--
- drivers/net/ethernet/intel/i40e/i40e_hmc.h         |   4 +-
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 107 ++----
- drivers/net/ethernet/intel/i40e/i40e_prototype.h   |  10 +
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        | 109 +++---
- drivers/net/ethernet/intel/i40e/i40e_txrx.h        |   6 +-
- drivers/net/ethernet/intel/i40e/i40e_type.h        |   9 +
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |   4 -
- drivers/net/ethernet/intel/i40evf/i40e_common.c    |   2 +-
- drivers/net/ethernet/intel/i40evf/i40e_hmc.h       |   4 +-
- drivers/net/ethernet/intel/i40evf/i40e_txrx.c      |   6 +-
- drivers/net/ethernet/intel/i40evf/i40e_txrx.h      |   6 +-
- drivers/net/ethernet/intel/i40evf/i40e_type.h      |   9 +
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    |   9 +-
- 15 files changed, 731 insertions(+), 176 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 31709b8..440b671 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -3087,16 +3087,33 @@ static bool i40e_clean_fdir_tx_irq(struct i40e_ring *tx_ring, int budget)
+ 		/* clear next_to_watch to prevent false hangs */
+ 		tx_buf->next_to_watch = NULL;
+ 
++		tx_desc->buffer_addr = 0;
++		tx_desc->cmd_type_offset_bsz = 0;
++		/* move past filter desc */
++		tx_buf++;
++		tx_desc++;
++		i++;
++		if (unlikely(!i)) {
++			i -= tx_ring->count;
++			tx_buf = tx_ring->tx_bi;
++			tx_desc = I40E_TX_DESC(tx_ring, 0);
++		}
+ 		/* unmap skb header data */
+ 		dma_unmap_single(tx_ring->dev,
+ 				 dma_unmap_addr(tx_buf, dma),
+ 				 dma_unmap_len(tx_buf, len),
+ 				 DMA_TO_DEVICE);
++		if (tx_buf->tx_flags & I40E_TX_FLAGS_FD_SB)
++			kfree(tx_buf->raw_buf);
+ 
++		tx_buf->raw_buf = NULL;
++		tx_buf->tx_flags = 0;
++		tx_buf->next_to_watch = NULL;
+ 		dma_unmap_len_set(tx_buf, len, 0);
++		tx_desc->buffer_addr = 0;
++		tx_desc->cmd_type_offset_bsz = 0;
+ 
+-
+-		/* move to the next desc and buffer to clean */
++		/* move us past the eop_desc for start of next FD desc */
+ 		tx_buf++;
+ 		tx_desc++;
+ 		i++;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index 051e213..2c686e2 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -39,6 +39,7 @@ static inline __le64 build_ctob(u32 td_cmd, u32 td_offset, unsigned int size,
+ }
+ 
+ #define I40E_TXD_CMD (I40E_TX_DESC_CMD_EOP | I40E_TX_DESC_CMD_RS)
++#define I40E_FD_CLEAN_DELAY 10
+ /**
+  * i40e_program_fdir_filter - Program a Flow Director filter
+  * @fdir_data: Packet data that will be filter parameters
+@@ -50,7 +51,7 @@ int i40e_program_fdir_filter(struct i40e_fdir_filter *fdir_data, u8 *raw_packet,
+ 			     struct i40e_pf *pf, bool add)
+ {
+ 	struct i40e_filter_program_desc *fdir_desc;
+-	struct i40e_tx_buffer *tx_buf;
++	struct i40e_tx_buffer *tx_buf, *first;
+ 	struct i40e_tx_desc *tx_desc;
+ 	struct i40e_ring *tx_ring;
+ 	unsigned int fpt, dcc;
+@@ -58,6 +59,7 @@ int i40e_program_fdir_filter(struct i40e_fdir_filter *fdir_data, u8 *raw_packet,
+ 	struct device *dev;
+ 	dma_addr_t dma;
+ 	u32 td_cmd = 0;
++	u16 delay = 0;
+ 	u16 i;
+ 
+ 	/* find existing FDIR VSI */
+@@ -71,6 +73,17 @@ int i40e_program_fdir_filter(struct i40e_fdir_filter *fdir_data, u8 *raw_packet,
+ 	tx_ring = vsi->tx_rings[0];
+ 	dev = tx_ring->dev;
+ 
++	/* we need two descriptors to add/del a filter and we can wait */
++	do {
++		if (I40E_DESC_UNUSED(tx_ring) > 1)
++			break;
++		msleep_interruptible(1);
++		delay++;
++	} while (delay < I40E_FD_CLEAN_DELAY);
++
++	if (!(I40E_DESC_UNUSED(tx_ring) > 1))
++		return -EAGAIN;
++
+ 	dma = dma_map_single(dev, raw_packet,
+ 			     I40E_FDIR_MAX_RAW_PACKET_SIZE, DMA_TO_DEVICE);
+ 	if (dma_mapping_error(dev, dma))
+@@ -79,8 +92,10 @@ int i40e_program_fdir_filter(struct i40e_fdir_filter *fdir_data, u8 *raw_packet,
+ 	/* grab the next descriptor */
+ 	i = tx_ring->next_to_use;
+ 	fdir_desc = I40E_TX_FDIRDESC(tx_ring, i);
++	first = &tx_ring->tx_bi[i];
++	memset(first, 0, sizeof(struct i40e_tx_buffer));
+ 
+-	tx_ring->next_to_use = (i + 1 < tx_ring->count) ? i + 1 : 0;
++	tx_ring->next_to_use = ((i + 1) < tx_ring->count) ? i + 1 : 0;
+ 
+ 	fpt = (fdir_data->q_index << I40E_TXD_FLTR_QW0_QINDEX_SHIFT) &
+ 	      I40E_TXD_FLTR_QW0_QINDEX_MASK;
+@@ -132,7 +147,9 @@ int i40e_program_fdir_filter(struct i40e_fdir_filter *fdir_data, u8 *raw_packet,
+ 	tx_desc = I40E_TX_DESC(tx_ring, i);
+ 	tx_buf = &tx_ring->tx_bi[i];
+ 
+-	tx_ring->next_to_use = (i + 1 < tx_ring->count) ? i + 1 : 0;
++	tx_ring->next_to_use = ((i + 1) < tx_ring->count) ? i + 1 : 0;
++
++	memset(tx_buf, 0, sizeof(struct i40e_tx_buffer));
+ 
+ 	/* record length, and DMA address */
+ 	dma_unmap_len_set(tx_buf, len, I40E_FDIR_MAX_RAW_PACKET_SIZE);
+@@ -141,6 +158,9 @@ int i40e_program_fdir_filter(struct i40e_fdir_filter *fdir_data, u8 *raw_packet,
+ 	tx_desc->buffer_addr = cpu_to_le64(dma);
+ 	td_cmd = I40E_TXD_CMD | I40E_TX_DESC_CMD_DUMMY;
+ 
++	tx_buf->tx_flags = I40E_TX_FLAGS_FD_SB;
++	tx_buf->raw_buf = (void *)raw_packet;
++
+ 	tx_desc->cmd_type_offset_bsz =
+ 		build_ctob(td_cmd, 0, I40E_FDIR_MAX_RAW_PACKET_SIZE, 0);
+ 
+@@ -148,14 +168,12 @@ int i40e_program_fdir_filter(struct i40e_fdir_filter *fdir_data, u8 *raw_packet,
+ 	tx_buf->time_stamp = jiffies;
+ 
+ 	/* Force memory writes to complete before letting h/w
+-	 * know there are new descriptors to fetch.  (Only
+-	 * applicable for weak-ordered memory model archs,
+-	 * such as IA-64).
++	 * know there are new descriptors to fetch.
+ 	 */
+ 	wmb();
+ 
+ 	/* Mark the data descriptor to be watched */
+-	tx_buf->next_to_watch = tx_desc;
++	first->next_to_watch = tx_desc;
+ 
+ 	writel(tx_ring->next_to_use, tx_ring->tail);
+ 	return 0;
+@@ -170,24 +188,27 @@ dma_fail:
+  * i40e_add_del_fdir_udpv4 - Add/Remove UDPv4 filters
+  * @vsi: pointer to the targeted VSI
+  * @fd_data: the flow director data required for the FDir descriptor
+- * @raw_packet: the pre-allocated packet buffer for FDir
+  * @add: true adds a filter, false removes it
+  *
+  * Returns 0 if the filters were successfully added or removed
+  **/
+ static int i40e_add_del_fdir_udpv4(struct i40e_vsi *vsi,
+ 				   struct i40e_fdir_filter *fd_data,
+-				   u8 *raw_packet, bool add)
++				   bool add)
+ {
+ 	struct i40e_pf *pf = vsi->back;
+ 	struct udphdr *udp;
+ 	struct iphdr *ip;
+ 	bool err = false;
++	u8 *raw_packet;
+ 	int ret;
+ 	static char packet[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x08, 0,
+ 		0x45, 0, 0, 0x1c, 0, 0, 0x40, 0, 0x40, 0x11, 0, 0, 0, 0, 0, 0,
+ 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+ 
++	raw_packet = kzalloc(I40E_FDIR_MAX_RAW_PACKET_SIZE, GFP_KERNEL);
++	if (!raw_packet)
++		return -ENOMEM;
+ 	memcpy(raw_packet, packet, I40E_UDPIP_DUMMY_PACKET_LEN);
+ 
+ 	ip = (struct iphdr *)(raw_packet + IP_HEADER_OFFSET);
+@@ -220,19 +241,19 @@ static int i40e_add_del_fdir_udpv4(struct i40e_vsi *vsi,
+  * i40e_add_del_fdir_tcpv4 - Add/Remove TCPv4 filters
+  * @vsi: pointer to the targeted VSI
+  * @fd_data: the flow director data required for the FDir descriptor
+- * @raw_packet: the pre-allocated packet buffer for FDir
+  * @add: true adds a filter, false removes it
+  *
+  * Returns 0 if the filters were successfully added or removed
+  **/
+ static int i40e_add_del_fdir_tcpv4(struct i40e_vsi *vsi,
+ 				   struct i40e_fdir_filter *fd_data,
+-				   u8 *raw_packet, bool add)
++				   bool add)
+ {
+ 	struct i40e_pf *pf = vsi->back;
+ 	struct tcphdr *tcp;
+ 	struct iphdr *ip;
+ 	bool err = false;
++	u8 *raw_packet;
+ 	int ret;
+ 	/* Dummy packet */
+ 	static char packet[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x08, 0,
+@@ -240,6 +261,9 @@ static int i40e_add_del_fdir_tcpv4(struct i40e_vsi *vsi,
+ 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x80, 0x11,
+ 		0x0, 0x72, 0, 0, 0, 0};
+ 
++	raw_packet = kzalloc(I40E_FDIR_MAX_RAW_PACKET_SIZE, GFP_KERNEL);
++	if (!raw_packet)
++		return -ENOMEM;
+ 	memcpy(raw_packet, packet, I40E_TCPIP_DUMMY_PACKET_LEN);
+ 
+ 	ip = (struct iphdr *)(raw_packet + IP_HEADER_OFFSET);
+@@ -286,7 +310,7 @@ static int i40e_add_del_fdir_tcpv4(struct i40e_vsi *vsi,
+  **/
+ static int i40e_add_del_fdir_sctpv4(struct i40e_vsi *vsi,
+ 				    struct i40e_fdir_filter *fd_data,
+-				    u8 *raw_packet, bool add)
++				    bool add)
+ {
+ 	return -EOPNOTSUPP;
+ }
+@@ -297,33 +321,36 @@ static int i40e_add_del_fdir_sctpv4(struct i40e_vsi *vsi,
+  * a specific flow spec
+  * @vsi: pointer to the targeted VSI
+  * @fd_data: the flow director data required for the FDir descriptor
+- * @raw_packet: the pre-allocated packet buffer for FDir
+  * @add: true adds a filter, false removes it
+  *
+  * Returns 0 if the filters were successfully added or removed
+  **/
+ static int i40e_add_del_fdir_ipv4(struct i40e_vsi *vsi,
+ 				  struct i40e_fdir_filter *fd_data,
+-				  u8 *raw_packet, bool add)
++				  bool add)
+ {
+ 	struct i40e_pf *pf = vsi->back;
+ 	struct iphdr *ip;
+ 	bool err = false;
++	u8 *raw_packet;
+ 	int ret;
+ 	int i;
+ 	static char packet[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x08, 0,
+ 		0x45, 0, 0, 0x14, 0, 0, 0x40, 0, 0x40, 0x10, 0, 0, 0, 0, 0, 0,
+ 		0, 0, 0, 0};
+ 
+-	memcpy(raw_packet, packet, I40E_IP_DUMMY_PACKET_LEN);
+-	ip = (struct iphdr *)(raw_packet + IP_HEADER_OFFSET);
+-
+-	ip->saddr = fd_data->src_ip[0];
+-	ip->daddr = fd_data->dst_ip[0];
+-	ip->protocol = 0;
+-
+ 	for (i = I40E_FILTER_PCTYPE_NONF_IPV4_OTHER;
+ 	     i <= I40E_FILTER_PCTYPE_FRAG_IPV4;	i++) {
++		raw_packet = kzalloc(I40E_FDIR_MAX_RAW_PACKET_SIZE, GFP_KERNEL);
++		if (!raw_packet)
++			return -ENOMEM;
++		memcpy(raw_packet, packet, I40E_IP_DUMMY_PACKET_LEN);
++		ip = (struct iphdr *)(raw_packet + IP_HEADER_OFFSET);
++
++		ip->saddr = fd_data->src_ip[0];
++		ip->daddr = fd_data->dst_ip[0];
++		ip->protocol = 0;
++
+ 		fd_data->pctype = i;
+ 		ret = i40e_program_fdir_filter(fd_data, raw_packet, pf, add);
+ 
+@@ -353,50 +380,34 @@ int i40e_add_del_fdir(struct i40e_vsi *vsi,
+ 		      struct i40e_fdir_filter *input, bool add)
+ {
+ 	struct i40e_pf *pf = vsi->back;
+-	u8 *raw_packet;
+ 	int ret;
+ 
+-	/* Populate the Flow Director that we have at the moment
+-	 * and allocate the raw packet buffer for the calling functions
+-	 */
+-	raw_packet = kzalloc(I40E_FDIR_MAX_RAW_PACKET_SIZE, GFP_KERNEL);
+-	if (!raw_packet)
+-		return -ENOMEM;
+-
+ 	switch (input->flow_type & ~FLOW_EXT) {
+ 	case TCP_V4_FLOW:
+-		ret = i40e_add_del_fdir_tcpv4(vsi, input, raw_packet,
+-					      add);
++		ret = i40e_add_del_fdir_tcpv4(vsi, input, add);
+ 		break;
+ 	case UDP_V4_FLOW:
+-		ret = i40e_add_del_fdir_udpv4(vsi, input, raw_packet,
+-					      add);
++		ret = i40e_add_del_fdir_udpv4(vsi, input, add);
+ 		break;
+ 	case SCTP_V4_FLOW:
+-		ret = i40e_add_del_fdir_sctpv4(vsi, input, raw_packet,
+-					       add);
++		ret = i40e_add_del_fdir_sctpv4(vsi, input, add);
+ 		break;
+ 	case IPV4_FLOW:
+-		ret = i40e_add_del_fdir_ipv4(vsi, input, raw_packet,
+-					     add);
++		ret = i40e_add_del_fdir_ipv4(vsi, input, add);
+ 		break;
+ 	case IP_USER_FLOW:
+ 		switch (input->ip4_proto) {
+ 		case IPPROTO_TCP:
+-			ret = i40e_add_del_fdir_tcpv4(vsi, input,
+-						      raw_packet, add);
++			ret = i40e_add_del_fdir_tcpv4(vsi, input, add);
+ 			break;
+ 		case IPPROTO_UDP:
+-			ret = i40e_add_del_fdir_udpv4(vsi, input,
+-						      raw_packet, add);
++			ret = i40e_add_del_fdir_udpv4(vsi, input, add);
+ 			break;
+ 		case IPPROTO_SCTP:
+-			ret = i40e_add_del_fdir_sctpv4(vsi, input,
+-						       raw_packet, add);
++			ret = i40e_add_del_fdir_sctpv4(vsi, input, add);
+ 			break;
+ 		default:
+-			ret = i40e_add_del_fdir_ipv4(vsi, input,
+-						     raw_packet, add);
++			ret = i40e_add_del_fdir_ipv4(vsi, input, add);
+ 			break;
+ 		}
+ 		break;
+@@ -406,7 +417,7 @@ int i40e_add_del_fdir(struct i40e_vsi *vsi,
+ 		ret = -EINVAL;
+ 	}
+ 
+-	kfree(raw_packet);
++	/* The buffer allocated here is freed by the i40e_clean_tx_ring() */
+ 	return ret;
+ }
+ 
+@@ -480,7 +491,11 @@ static void i40e_unmap_and_free_tx_resource(struct i40e_ring *ring,
+ 					    struct i40e_tx_buffer *tx_buffer)
+ {
+ 	if (tx_buffer->skb) {
+-		dev_kfree_skb_any(tx_buffer->skb);
++		if (tx_buffer->tx_flags & I40E_TX_FLAGS_FD_SB)
++			kfree(tx_buffer->raw_buf);
++		else
++			dev_kfree_skb_any(tx_buffer->skb);
++
+ 		if (dma_unmap_len(tx_buffer, len))
+ 			dma_unmap_single(ring->dev,
+ 					 dma_unmap_addr(tx_buffer, dma),
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.h b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+index f09fb3e..c1c3569 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.h
+@@ -131,6 +131,7 @@ enum i40e_dyn_idx_t {
+ #define I40E_TX_FLAGS_FCCRC		(u32)(1 << 6)
+ #define I40E_TX_FLAGS_FSO		(u32)(1 << 7)
+ #define I40E_TX_FLAGS_TSYN		(u32)(1 << 8)
++#define I40E_TX_FLAGS_FD_SB		(u32)(1 << 9)
+ #define I40E_TX_FLAGS_VLAN_MASK		0xffff0000
+ #define I40E_TX_FLAGS_VLAN_PRIO_MASK	0xe0000000
+ #define I40E_TX_FLAGS_VLAN_PRIO_SHIFT	29
+@@ -139,7 +140,10 @@ enum i40e_dyn_idx_t {
+ struct i40e_tx_buffer {
+ 	struct i40e_tx_desc *next_to_watch;
+ 	unsigned long time_stamp;
+-	struct sk_buff *skb;
++	union {
++		struct sk_buff *skb;
++		void *raw_buf;
++	};
+ 	unsigned int bytecount;
+ 	unsigned short gso_segs;
+ 	DEFINE_DMA_UNMAP_ADDR(dma);
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index f2762f5..b342f21 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -50,7 +50,11 @@ static void i40e_unmap_and_free_tx_resource(struct i40e_ring *ring,
+ 					    struct i40e_tx_buffer *tx_buffer)
+ {
+ 	if (tx_buffer->skb) {
+-		dev_kfree_skb_any(tx_buffer->skb);
++		if (tx_buffer->tx_flags & I40E_TX_FLAGS_FD_SB)
++			kfree(tx_buffer->raw_buf);
++		else
++			dev_kfree_skb_any(tx_buffer->skb);
++
+ 		if (dma_unmap_len(tx_buffer, len))
+ 			dma_unmap_single(ring->dev,
+ 					 dma_unmap_addr(tx_buffer, dma),
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
+index acd3c12..8bc6858 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.h
+@@ -130,6 +130,7 @@ enum i40e_dyn_idx_t {
+ #define I40E_TX_FLAGS_IPV6		(u32)(1 << 5)
+ #define I40E_TX_FLAGS_FCCRC		(u32)(1 << 6)
+ #define I40E_TX_FLAGS_FSO		(u32)(1 << 7)
++#define I40E_TX_FLAGS_FD_SB		(u32)(1 << 9)
+ #define I40E_TX_FLAGS_VLAN_MASK		0xffff0000
+ #define I40E_TX_FLAGS_VLAN_PRIO_MASK	0xe0000000
+ #define I40E_TX_FLAGS_VLAN_PRIO_SHIFT	29
+@@ -138,7 +139,10 @@ enum i40e_dyn_idx_t {
+ struct i40e_tx_buffer {
+ 	struct i40e_tx_desc *next_to_watch;
+ 	unsigned long time_stamp;
+-	struct sk_buff *skb;
++	union {
++		struct sk_buff *skb;
++		void *raw_buf;
++	};
+ 	unsigned int bytecount;
+ 	unsigned short gso_segs;
+ 	DEFINE_DMA_UNMAP_ADDR(dma);
 -- 
 1.9.3
