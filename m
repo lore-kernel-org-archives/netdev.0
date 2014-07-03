@@ -1,87 +1,91 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH RFC net-next 08/14] bpf: add eBPF verifier
-Date: Thu, 3 Jul 2014 10:41:10 -0700
-Message-ID: <CAMEtUuzfU6APGmWrCXVR-18P531vSAEOaC=x8wtyr+4yegTq3w@mail.gmail.com>
-References: <1403913966-4927-1-git-send-email-ast@plumgrid.com>
-	<1403913966-4927-9-git-send-email-ast@plumgrid.com>
-	<CA+ZOOTODDPN=6SECq1uPPD7AGP1zgBJ+bfYaX9o3YhnaCTiHYQ@mail.gmail.com>
-	<CAMEtUuxfrAUDDQVGNsNV2PeDii-6LAwQCbB2XGEHTJDwkkvyWg@mail.gmail.com>
-	<063D6719AE5E284EB5DD2968C1650D6D1726BF1A@AcuExch.aculab.com>
+From: "Williams, Mitch A" <mitch.a.williams@intel.com>
+Subject: RE: [net-next 04/14] i40e: tolerate lost interrupts
+Date: Thu, 3 Jul 2014 18:45:26 +0000
+Message-ID: <AAEA33E297BCAC4B9BB20A7C2DF0AB8D656E4ECC@FMSMSX113.amr.corp.intel.com>
+References: <1404355233-30123-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1404355233-30123-5-git-send-email-jeffrey.t.kirsher@intel.com>
+ <53B54957.70408@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Chema Gonzalez <chema@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Jiri Olsa <jolsa@redhat.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kees Cook <keescook@chromium.org>,
-	Linux API <linux-api@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: David Laight <David.Laight@aculab.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1726BF1A@AcuExch.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"nhorman@redhat.com" <nhorman@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:41687 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759231AbaGCSpm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2014 14:45:42 -0400
+In-Reply-To: <53B54957.70408@cogentembedded.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 3, 2014 at 2:13 AM, David Laight <David.Laight@aculab.com> =
-wrote:
-> From: Alexei Starovoitov
->> >> +#define _(OP) ({ int ret =3D OP; if (ret < 0) return ret; })
->> > +1 to removing the _ macro. If you want to avoid the 3 lines (is t=
-here
->> > anything in the style guide against "if ((err=3DOP) < 0) ..." ?), =
-at
->>
->> assignment and function call inside 'if' ? I don't like such style.
->>
->> > least use some meaningful macro name (DO_AND_CHECK, or something l=
-ike
->> > that).
->
-> It would have to be RETURN_IF_NEGATIVE().
-> But even then it is skipped by searches for 'return'.
 
-try s/\<_\>/RETURN_IF_NEGATIVE/ and see how ugly it looks=E2=80=A6
 
->> Try replacing _ with any other name and see how bad it will look.
->> I tried with MACRO_NAME and with 'if (err) goto' and with 'if (err) =
-return',
->> before I converged on _ macro.
->> I think it's a hidden gem of this patch.
->
-> No, it is one of those things that 'seems like a good idea at the tim=
-e',
-> but causes grief much later on.
+> -----Original Message-----
+> From: Sergei Shtylyov [mailto:sergei.shtylyov@cogentembedded.com]
+> Sent: Thursday, July 03, 2014 5:15 AM
+> To: davem@davemloft.net; Williams, Mitch A
+> Cc: Kirsher, Jeffrey T; netdev@vger.kernel.org; nhorman@redhat.com;
+> sassmann@redhat.com
+> Subject: Re: [net-next 04/14] i40e: tolerate lost interrupts
+> 
+> Hello.
+> 
+> On 07/03/2014 06:40 AM, Jeff Kirsher wrote:
+> 
+> > From: Mitch Williams <mitch.a.williams@intel.com>
+> 
+> > If the AQ interrupt gets lost for some reason, VF communications will
+> > stall as the VFs have no way of reaching the PF, which is essentially
+> > deaf. The VFs end up waiting forever for a reply that will never come.
+> 
+> > To alleviate this condition, go ahead and check the ARQ every time we
+> > run the service task. Remove the check for a pending event, and get rid
+> > of a chatty error message that is now meaningless.
+> 
+> > Change-ID: I0fc9d18169cd45c98f60188aef872cd6cee9a027
+> > Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+> > Tested-by: Jim Young <jamesx.m.young@intel.com>
+> > Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> > ---
+> >   drivers/net/ethernet/intel/i40e/i40e_main.c | 8 ++------
+> >   1 file changed, 2 insertions(+), 6 deletions(-)
+> 
+> > diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c
+> b/drivers/net/ethernet/intel/i40e/i40e_main.c
+> > index 440b671..88704c0 100644
+> > --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
+> > +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+> [...]
+> > @@ -5360,10 +5357,9 @@ static void i40e_clean_adminq_subtask(struct
+> i40e_pf *pf)
+> >   	do {
+> >   		event.msg_size = I40E_MAX_AQ_BUF_SIZE; /* reinit each time */
+> >   		ret = i40e_clean_arq_element(hw, &event, &pending);
+> > -		if (ret == I40E_ERR_ADMIN_QUEUE_NO_WORK) {
+> > -			dev_info(&pf->pdev->dev, "No ARQ event found\n");
+> > +		if (ret == I40E_ERR_ADMIN_QUEUE_NO_WORK)
+> >   			break;
+> > -		} else if (ret) {
+> > +		else if (ret) {
+> 
+>     Keep {} around both arms of the *if* statement please, according to the
+> kernel coding style.
 
-Disagree. The _ macro in this code has been around for
-almost 2 years and survived all sorts of changes all over the verifier.
-The macro proved to be very effective in reducing code noise.
+Thanks for the review, Sergei. I have a list of several such minor coding-style issues, and I plan to send out a "scrub the i40evf driver" patch later this month.
 
-> Have you considered saving the error code into 'env' and making most =
-of
-> the functions return if an error is set?
-> Then the calling code need not check the result of every function cal=
-l.
+-Mitch
 
-that won't work, since err =3D check1(); err =3D check2(); if (err) is =
-just wrong,
-then err |=3D check1(); err |=3D check2() is even worse.
-Even if it was possible, continuing verification and printing multiple
-errors is too confusing for users. While writing programs and
-dealing with verifier rejects we found that the first error is more tha=
-n
-enough to go back and analyze what's wrong with C source.
-Notice that verifier prints full verification trace. Without it it was =
-very
-hard to understand why particular register at some point has
-invalid type.
+
+> 
+> >   			dev_info(&pf->pdev->dev, "ARQ event error %d\n", ret);
+> >   			break;
+> >   		}
+> >
+> 
+> WBR, Sergei
