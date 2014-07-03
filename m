@@ -1,74 +1,89 @@
 From: "Maciej W. Rozycki" <macro@linux-mips.org>
-Subject: Re: [PATCH v2] declance: Fix 64-bit compilation warnings
-Date: Thu, 3 Jul 2014 05:51:44 +0100 (BST)
-Message-ID: <alpine.LFD.2.11.1407030423300.15455@eddie.linux-mips.org>
-References: <alpine.LFD.2.11.1406290246120.15455@eddie.linux-mips.org>         <20140702.182807.1245632778216212860.davem@davemloft.net>         <alpine.LFD.2.11.1407030244230.15455@eddie.linux-mips.org>         <alpine.LFD.2.11.1407030331550.15455@eddie.linux-mips.org>
- <1404356734.14741.18.camel@joe-AO725>
+Subject: [PATCH v3] declance: Fix 64-bit compilation warnings
+Date: Thu, 3 Jul 2014 05:56:51 +0100 (BST)
+Message-ID: <alpine.LFD.2.11.1407030552290.15455@eddie.linux-mips.org>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
+Cc: Joe Perches <joe@perches.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from eddie.linux-mips.org ([78.24.191.182]:50830 "EHLO
 	cvs.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750707AbaGCEvr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2014 00:51:47 -0400
-Received: from localhost.localdomain ([127.0.0.1]:39288 "EHLO
+	with ESMTP id S1750749AbaGCE4w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2014 00:56:52 -0400
+Received: from localhost.localdomain ([127.0.0.1]:39311 "EHLO
         localhost.localdomain" rhost-flags-OK-OK-OK-OK)
-        by eddie.linux-mips.org with ESMTP id S6834666AbaGCEvoOjYYx (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2014 06:51:44 +0200
-In-Reply-To: <1404356734.14741.18.camel@joe-AO725>
+        by eddie.linux-mips.org with ESMTP id S6817540AbaGCE4veo-09 (ORCPT
+        <rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2014 06:56:51 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2 Jul 2014, Joe Perches wrote:
+This fixes compiler warnings:
 
-> > >  Hmm, there was something about %p that made me reject it, however I can't 
-> > > recall what it was and I can get the desired output with this format 
-> > > specifier (the NULL special case difference can be ignored, the pointers 
-> > > printed here won't ever be NULL).  Sending an update right away.
-> > 
-> >  Ah, there it is:
-> > 
-> > drivers/net/ethernet/amd/declance.c: In function 'lance_init_ring':
-> > drivers/net/ethernet/amd/declance.c:503: warning: '#' flag used with '%p' printf format
-> > drivers/net/ethernet/amd/declance.c:520: warning: '#' flag used with '%p' printf format
-> > 
-> > That's obviously GCC's incompatibility to our implementation.  I'm not 
-> > sure if that can be worked around, but I'll see what I can do about it.
-> 
-> The kernel vsprintf implementation doesn't prefix
-> pointers with 0x, so you can use 0x%p if you really
-> want that with a leading prefix, but you don't have
-> to use it.
+drivers/net/ethernet/amd/declance.c: In function 'lance_init_ring':
+drivers/net/ethernet/amd/declance.c:478: warning: format '%8.8x' expects type 'unsigned int', but argument 3 has type 'long unsigned int'
+drivers/net/ethernet/amd/declance.c:487: warning: format '%8.8x' expects type 'unsigned int', but argument 3 has type 'long unsigned int'
+drivers/net/ethernet/amd/declance.c:503: warning: cast from pointer to integer of different size
+drivers/net/ethernet/amd/declance.c:520: warning: cast from pointer to integer of different size
 
- It does, when the `#' format modifier is used (go try yourself!).
+in 64-bit compilation.  Where the value printed is an offset (whose range 
+will always fit) the cast uses a 32-bit type, otherwise, where it is a 
+host memory address, the pointer is output directly with %p.  Also the 
+remaining `0x' prefix is dropped for consistency across these messages.
 
- However GCC does not like it and (for the record) the requirement is 
-buried in the maze of structures descending from `format_types_orig' in 
-gcc/c-family/c-format.c, or more specifically the "p" entry of 
-`print_char_table' that only allows "-w" characters as %p format 
-modifiers.  There seems to be no way to override it.  Then the ISO C 
-standard (at least version C90 that I have handy), after listing all the 
-cases for the octal, hex and floating-point specifiers says about the `#' 
-modifier that: "For other conversions, the behavior is undefined."
+Tested with both 32-bit and 64-bit compilation, as well as at the run time 
+(with the debug messages affected enabled).
 
- So both GCC's complaint and our implementation are valid, it's just there 
-appears to be no straightforward way to make them agree with each other. 
-OK, I guess the format string could be indirected at which point I reckon 
-GCC would stop parsing it (at least at the point it would start believing 
-the variable used isn't constant), but I'm too lazy to check it and I 
-think this code isn't worth complicating any further (I shall consider 
-switching to using `dev_dbg' instead).
-
- I've noticed however that the other place this patch addresses does not 
-use the `0x' prefix anyway so I decided to drop it after all.  These are 
-debug messages anyway, so it doesn't matter much.  And I think using 0x%p 
-would be ugly; here it wouldn't really matter, but ordinarily allowing a 
-format to produce `0x (null)' would be rather lame, so I don't want to 
-spread examples someone might foolishly copy.
-
- Thanks for your input, I think I may have a use for the findings in the 
-future.
+Signed-off-by: Maciej W. Rozycki <macro@linux-mips.org>
+---
+ Update from v2 switches to using the %p format specifier where
+appropriate and drops the `0x' prefix for consistency across these debug
+messages.  Please apply.
 
   Maciej
+
+linux-declance-desc-printk.patch
+Index: linux-20140623-4maxp64/drivers/net/ethernet/amd/declance.c
+===================================================================
+--- linux-20140623-4maxp64.orig/drivers/net/ethernet/amd/declance.c
++++ linux-20140623-4maxp64/drivers/net/ethernet/amd/declance.c
+@@ -475,7 +475,7 @@ static void lance_init_ring(struct net_d
+ 	*lib_ptr(ib, rx_ptr, lp->type) = leptr;
+ 	if (ZERO)
+ 		printk("RX ptr: %8.8x(%8.8x)\n",
+-		       leptr, lib_off(brx_ring, lp->type));
++		       leptr, (uint)lib_off(brx_ring, lp->type));
+ 
+ 	/* Setup tx descriptor pointer */
+ 	leptr = offsetof(struct lance_init_block, btx_ring);
+@@ -484,7 +484,7 @@ static void lance_init_ring(struct net_d
+ 	*lib_ptr(ib, tx_ptr, lp->type) = leptr;
+ 	if (ZERO)
+ 		printk("TX ptr: %8.8x(%8.8x)\n",
+-		       leptr, lib_off(btx_ring, lp->type));
++		       leptr, (uint)lib_off(btx_ring, lp->type));
+ 
+ 	if (ZERO)
+ 		printk("TX rings:\n");
+@@ -499,8 +499,8 @@ static void lance_init_ring(struct net_d
+ 						/* The ones required by tmd2 */
+ 		*lib_ptr(ib, btx_ring[i].misc, lp->type) = 0;
+ 		if (i < 3 && ZERO)
+-			printk("%d: 0x%8.8x(0x%8.8x)\n",
+-			       i, leptr, (uint)lp->tx_buf_ptr_cpu[i]);
++			printk("%d: %8.8x(%p)\n",
++			       i, leptr, lp->tx_buf_ptr_cpu[i]);
+ 	}
+ 
+ 	/* Setup the Rx ring entries */
+@@ -516,8 +516,8 @@ static void lance_init_ring(struct net_d
+ 							     0xf000;
+ 		*lib_ptr(ib, brx_ring[i].mblength, lp->type) = 0;
+ 		if (i < 3 && ZERO)
+-			printk("%d: 0x%8.8x(0x%8.8x)\n",
+-			       i, leptr, (uint)lp->rx_buf_ptr_cpu[i]);
++			printk("%d: %8.8x(%p)\n",
++			       i, leptr, lp->rx_buf_ptr_cpu[i]);
+ 	}
+ 	iob();
+ }
