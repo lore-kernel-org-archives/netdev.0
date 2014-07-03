@@ -1,87 +1,69 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: Re: [PATCH RFC V2 2/2] net: qualcomm: new Ethernet over SPI driver
- for QCA7000
-Date: Thu, 3 Jul 2014 11:49:40 +0200
-Message-ID: <20140703094939.GB27655@distanz.ch>
-References: <1404232609-4314-1-git-send-email-stefan.wahren@i2se.com>
- <1404232609-4314-3-git-send-email-stefan.wahren@i2se.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [net-next 04/14] i40e: tolerate lost interrupts
+Date: Thu, 03 Jul 2014 16:15:19 +0400
+Message-ID: <53B54957.70408@cogentembedded.com>
+References: <1404355233-30123-1-git-send-email-jeffrey.t.kirsher@intel.com> <1404355233-30123-5-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, robh+dt@kernel.org, pawel.moll@arm.com,
-	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
-	galak@codeaurora.org, f.fainelli@gmail.com, eric.dumazet@gmail.com,
-	dave.taht@gmail.com, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org
-To: Stefan Wahren <stefan.wahren@i2se.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net, Mitch Williams <mitch.a.williams@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sym2.noone.org ([178.63.92.236]:59297 "EHLO sym2.noone.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030185AbaGCJtn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 3 Jul 2014 05:49:43 -0400
-Content-Disposition: inline
-In-Reply-To: <1404232609-4314-3-git-send-email-stefan.wahren@i2se.com>
+Received: from mail-lb0-f180.google.com ([209.85.217.180]:61219 "EHLO
+	mail-lb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751303AbaGCMPR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2014 08:15:17 -0400
+Received: by mail-lb0-f180.google.com with SMTP id w7so90787lbi.11
+        for <netdev@vger.kernel.org>; Thu, 03 Jul 2014 05:15:14 -0700 (PDT)
+In-Reply-To: <1404355233-30123-5-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014-07-01 at 18:36:49 +0200, Stefan Wahren <stefan.wahren@i2se.com> wrote:
-> This patch adds the Ethernet over SPI driver for the
-> Qualcomm QCA7000 HomePlug GreenPHY.
-> 
-> Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
+Hello.
+
+On 07/03/2014 06:40 AM, Jeff Kirsher wrote:
+
+> From: Mitch Williams <mitch.a.williams@intel.com>
+
+> If the AQ interrupt gets lost for some reason, VF communications will
+> stall as the VFs have no way of reaching the PF, which is essentially
+> deaf. The VFs end up waiting forever for a reply that will never come.
+
+> To alleviate this condition, go ahead and check the ARQ every time we
+> run the service task. Remove the check for a pending event, and get rid
+> of a chatty error message that is now meaningless.
+
+> Change-ID: I0fc9d18169cd45c98f60188aef872cd6cee9a027
+> Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
+> Tested-by: Jim Young <jamesx.m.young@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 > ---
->  drivers/net/ethernet/Kconfig                |    1 +
->  drivers/net/ethernet/Makefile               |    1 +
->  drivers/net/ethernet/qualcomm/Kconfig       |   30 +
->  drivers/net/ethernet/qualcomm/Makefile      |    6 +
->  drivers/net/ethernet/qualcomm/qca_7k.c      |  149 ++++
->  drivers/net/ethernet/qualcomm/qca_7k.h      |   72 ++
->  drivers/net/ethernet/qualcomm/qca_debug.c   |  311 +++++++++
->  drivers/net/ethernet/qualcomm/qca_debug.h   |   34 +
->  drivers/net/ethernet/qualcomm/qca_framing.c |  155 +++++
->  drivers/net/ethernet/qualcomm/qca_framing.h |  134 ++++
->  drivers/net/ethernet/qualcomm/qca_spi.c     | 1001 +++++++++++++++++++++++++++
->  drivers/net/ethernet/qualcomm/qca_spi.h     |  114 +++
->  12 files changed, 2008 insertions(+)
->  create mode 100644 drivers/net/ethernet/qualcomm/Kconfig
->  create mode 100644 drivers/net/ethernet/qualcomm/Makefile
->  create mode 100644 drivers/net/ethernet/qualcomm/qca_7k.c
->  create mode 100644 drivers/net/ethernet/qualcomm/qca_7k.h
->  create mode 100644 drivers/net/ethernet/qualcomm/qca_debug.c
->  create mode 100644 drivers/net/ethernet/qualcomm/qca_debug.h
->  create mode 100644 drivers/net/ethernet/qualcomm/qca_framing.c
->  create mode 100644 drivers/net/ethernet/qualcomm/qca_framing.h
->  create mode 100644 drivers/net/ethernet/qualcomm/qca_spi.c
->  create mode 100644 drivers/net/ethernet/qualcomm/qca_spi.h
+>   drivers/net/ethernet/intel/i40e/i40e_main.c | 8 ++------
+>   1 file changed, 2 insertions(+), 6 deletions(-)
 
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+> index 440b671..88704c0 100644
+> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
+> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
 [...]
+> @@ -5360,10 +5357,9 @@ static void i40e_clean_adminq_subtask(struct i40e_pf *pf)
+>   	do {
+>   		event.msg_size = I40E_MAX_AQ_BUF_SIZE; /* reinit each time */
+>   		ret = i40e_clean_arq_element(hw, &event, &pending);
+> -		if (ret == I40E_ERR_ADMIN_QUEUE_NO_WORK) {
+> -			dev_info(&pf->pdev->dev, "No ARQ event found\n");
+> +		if (ret == I40E_ERR_ADMIN_QUEUE_NO_WORK)
+>   			break;
+> -		} else if (ret) {
+> +		else if (ret) {
 
-> +static int
-> +qcaspi_netdev_set_mac_address(struct net_device *dev, void *addr)
-> +{
-> +	struct sockaddr *sa = addr;
-> +
-> +	if (netif_running(dev))
-> +		return -EBUSY;
-> +
-> +	if (!is_valid_ether_addr(sa->sa_data))
-> +		return -EADDRNOTAVAIL;
-> +
-> +	memcpy(dev->dev_addr, sa->sa_data, dev->addr_len);
-> +	return 0;
-> +}
-> +
-> +static const struct net_device_ops qcaspi_netdev_ops = {
-> +	.ndo_init = qcaspi_netdev_init,
-> +	.ndo_uninit = qcaspi_netdev_uninit,
-> +	.ndo_open = qcaspi_netdev_open,
-> +	.ndo_stop = qcaspi_netdev_close,
-> +	.ndo_start_xmit = qcaspi_netdev_xmit,
-> +	.ndo_change_mtu = qcaspi_netdev_change_mtu,
-> +	.ndo_set_mac_address = qcaspi_netdev_set_mac_address,
+    Keep {} around both arms of the *if* statement please, according to the 
+kernel coding style.
 
-You can use eth_mac_addr here which does the same thing as your
-implementation.
+>   			dev_info(&pf->pdev->dev, "ARQ event error %d\n", ret);
+>   			break;
+>   		}
+>
 
-> +	.ndo_tx_timeout = qcaspi_netdev_tx_timeout,
-> +	.ndo_validate_addr = eth_validate_addr,
-> +};
+WBR, Sergei
