@@ -1,36 +1,46 @@
-From: Z Lim <zlim.lnx@gmail.com>
-Subject: Re: [PATCH RFC] arm64: eBPF JIT compiler
-Date: Wed, 2 Jul 2014 22:21:14 -0700
-Message-ID: <CABg9mcv9_bhx3OwJZHuQhy7Bim2E+VOYwfevHDn+jQ4O1ZN+dA@mail.gmail.com>
-References: <1404278424-31176-1-git-send-email-zlim.lnx@gmail.com>
-	<CAMEtUuy8Dxzcn1svphvxVEGwSL1yvMuDN8uQC_4d-h3Cw33TfQ@mail.gmail.com>
-	<CABg9mcsWia-RW9QfSKeiUeTrDJ_cr-gPY7QTmsFWradyB+1Uxg@mail.gmail.com>
+From: zhuyj <zyjzyj2000@gmail.com>
+Subject: Re: Aw: IP-Packets over wrong Ethernet device
+Date: Thu, 03 Jul 2014 13:39:39 +0800
+Message-ID: <53B4EC9B.70503@gmail.com>
+References: <trinity-115b0f38-53ca-4333-9f3d-0cca5ea770d9-1403251544932@3capp-webde-bs53> <trinity-e658ef1e-b2fd-4ed2-8b80-4056c6fb2901-1403252543405@3capp-webde-bs53>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Catalin Marinas <catalin.marinas@arm.com>,
-	Will Deacon <will.deacon@arm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Chema Gonzalez <chema@google.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	Network Development <netdev@vger.kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CABg9mcsWia-RW9QfSKeiUeTrDJ_cr-gPY7QTmsFWradyB+1Uxg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: =?UTF-8?B?Q29uY2jDunIgTmF2aWQ=?= <conchur@web.de>,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:47818 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752807AbaGCFjl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2014 01:39:41 -0400
+Received: by mail-pd0-f181.google.com with SMTP id v10so13218373pde.40
+        for <netdev@vger.kernel.org>; Wed, 02 Jul 2014 22:39:40 -0700 (PDT)
+In-Reply-To: <trinity-e658ef1e-b2fd-4ed2-8b80-4056c6fb2901-1403252543405@3capp-webde-bs53>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 2, 2014 at 9:57 PM, Z Lim <zlim.lnx@gmail.com> wrote:
-> On Wed, Jul 2, 2014 at 2:28 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
->> On Tue, Jul 1, 2014 at 10:20 PM, Zi Shen Lim <zlim.lnx@gmail.com> wrote:
->> Do you really need 'jump by register' then? Regular 'bl' would be much faster.
+On 06/20/2014 04:22 PM, "Conch=C3=BAr Navid" wrote:
+>> A dump on the management network ethernet interface (192.168.1.x/24)=
+ shows me that there was really an ARP request of the sender for 192.16=
+8.200.x/24 on this interface which was replied by the receiver on that =
+interface. Is there a way to disable this reply on the "wrong" interfac=
+e without using ARP-tables?
+> This is done by setting arp_ignore to 2 in sysctl (for the correct in=
+terfaces):
 >
-> We'll need BLR to cover all cases. BL instruction can only address
-> +/-128MB (28-bits).
->
-> BTW, what is the range of "imm" for JMP|CALL? I'm guessing since it's
-> s32, so +/-512MB?
+> sysctl -a|grep arp_ignore
+> sysctl -w net.ipv4.conf.eth5.arp_ignore=3D2
+This is explained in Linux Network Internal, 28.5.2.2. ARP_IGNORE
 
-Oops... I meant: is it +/-2GB?
+2  Like 1, but the source IP (sender's address) must belong to the same=
+=20
+subnet as the target IP.
+
+Zhu Yanjun
+> Thanks
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
