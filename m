@@ -1,55 +1,38 @@
 From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v2] declance: Fix 64-bit compilation warnings
-Date: Wed, 02 Jul 2014 20:05:34 -0700
-Message-ID: <1404356734.14741.18.camel@joe-AO725>
-References: <alpine.LFD.2.11.1406290246120.15455@eddie.linux-mips.org>
-	 <20140702.182807.1245632778216212860.davem@davemloft.net>
-	 <alpine.LFD.2.11.1407030244230.15455@eddie.linux-mips.org>
-	 <alpine.LFD.2.11.1407030331550.15455@eddie.linux-mips.org>
+Subject: Re: [net-next 03/14] i40e/i40evf: Force a shifted '1' to be unsigned
+Date: Wed, 02 Jul 2014 20:34:10 -0700
+Message-ID: <1404358450.14741.20.camel@joe-AO725>
+References: <1404355233-30123-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1404355233-30123-4-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: "Maciej W. Rozycki" <macro@linux-mips.org>
+Cc: davem@davemloft.net,
+	Paul M Stillwell Jr <paul.m.stillwell.jr@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0087.hostedemail.com ([216.40.44.87]:33636 "EHLO
+Received: from smtprelay0116.hostedemail.com ([216.40.44.116]:41879 "EHLO
 	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751525AbaGCDFi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2014 23:05:38 -0400
-In-Reply-To: <alpine.LFD.2.11.1407030331550.15455@eddie.linux-mips.org>
+	by vger.kernel.org with ESMTP id S1752190AbaGCDeO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2014 23:34:14 -0400
+In-Reply-To: <1404355233-30123-4-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-07-03 at 03:34 +0100, Maciej W. Rozycki wrote:
-> On Thu, 3 Jul 2014, Maciej W. Rozycki wrote:
-> 
-> > > > @@ -499,8 +499,9 @@ static void lance_init_ring(struct net_d
-> > > >  						/* The ones required by tmd2 */
-> > > >  		*lib_ptr(ib, btx_ring[i].misc, lp->type) = 0;
-> > > >  		if (i < 3 && ZERO)
-> > > > -			printk("%d: 0x%8.8x(0x%8.8x)\n",
-> > > > -			       i, leptr, (uint)lp->tx_buf_ptr_cpu[i]);
-> > > > +			printk("%d: 0x%8.8x(%#0*lx)\n",
-> > > > +			       i, leptr, 2 * (int)sizeof(long) + 2,
-> > > > +			       (long)lp->tx_buf_ptr_cpu[i]);
-> > > 
-> > > Please just use "%p", no casts required.
-> > 
-> >  Hmm, there was something about %p that made me reject it, however I can't 
-> > recall what it was and I can get the desired output with this format 
-> > specifier (the NULL special case difference can be ignored, the pointers 
-> > printed here won't ever be NULL).  Sending an update right away.
-> 
->  Ah, there it is:
-> 
-> drivers/net/ethernet/amd/declance.c: In function 'lance_init_ring':
-> drivers/net/ethernet/amd/declance.c:503: warning: '#' flag used with '%p' printf format
-> drivers/net/ethernet/amd/declance.c:520: warning: '#' flag used with '%p' printf format
-> 
-> That's obviously GCC's incompatibility to our implementation.  I'm not 
-> sure if that can be worked around, but I'll see what I can do about it.
+On Wed, 2014-07-02 at 19:40 -0700, Jeff Kirsher wrote:
+> Force a shifted '1' to be unsiged to avoid shifting a signed int
 
-The kernel vsprintf implementation doesn't prefix
-pointers with 0x, so you can use 0x%p if you really
-want that with a leading prefix, but you don't have
-to use it.
+It doesn't make a difference, but it's up to you.
+
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_hmc.h b/drivers/net/ethernet/intel/i40e/i40e_hmc.h
+[]
+> @@ -127,7 +127,7 @@ struct i40e_hmc_info {
+>  		((((type) == I40E_SD_TYPE_PAGED) ? 0 : 1) <<		\
+>  		I40E_PFHMC_SDDATALOW_PMSDTYPE_SHIFT) |			\
+>  		(1 << I40E_PFHMC_SDDATALOW_PMSDVALID_SHIFT);		\
+> -	val3 = (sd_index) | (1 << I40E_PFHMC_SDCMD_PMSDWR_SHIFT);	\
+> +	val3 = (sd_index) | (1u << I40E_PFHMC_SDCMD_PMSDWR_SHIFT);	\
+>  	wr32((hw), I40E_PFHMC_SDDATAHIGH, val1);			\
+>  	wr32((hw), I40E_PFHMC_SDDATALOW, val2);				\
+>  	wr32((hw), I40E_PFHMC_SDCMD, val3);				\
