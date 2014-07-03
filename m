@@ -1,162 +1,63 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v2 3/3 RFC] pktgen: Allow sending TCP packets
-Date: Wed, 02 Jul 2014 23:49:02 -0700
-Message-ID: <1404370142.23797.24.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1404330855-24546-1-git-send-email-zoltan.kiss@citrix.com>
-	 <1404330855-24546-4-git-send-email-zoltan.kiss@citrix.com>
+Subject: Re: Kernel BUG while sending data on 10mbps halfduplex link
+Date: Wed, 02 Jul 2014 23:54:08 -0700
+Message-ID: <1404370448.23797.26.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <CAGnW=BZb_DHb7JHc0h_4mWH0q8K9mONnwW554jwnsaxFAW25WA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Steffen Klassert <steffen.klassert@secunet.com>,
-	Mathias Krause <minipli@googlemail.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Thomas Graf <tgraf@suug.ch>, Joe Perches <joe@perches.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	xen-devel@lists.xenproject.org
-To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: punnaiah choudary kalluri <punnaia@xilinx.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:48818 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750951AbaGCGtL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2014 02:49:11 -0400
-In-Reply-To: <1404330855-24546-4-git-send-email-zoltan.kiss@citrix.com>
+Received: from mail-wg0-f50.google.com ([74.125.82.50]:58725 "EHLO
+	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751135AbaGCGyN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2014 02:54:13 -0400
+Received: by mail-wg0-f50.google.com with SMTP id m15so11999034wgh.33
+        for <netdev@vger.kernel.org>; Wed, 02 Jul 2014 23:54:11 -0700 (PDT)
+In-Reply-To: <CAGnW=BZb_DHb7JHc0h_4mWH0q8K9mONnwW554jwnsaxFAW25WA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-07-02 at 20:54 +0100, Zoltan Kiss wrote:
-> This is a prototype patch to enable sending TCP packets with pktgen. The
-> original motivation is to test TCP GSO with xen-netback/netfront, but I'm not
-> sure about how the checksum should be set up, and also someone should verify the
-> GSO settings I'm using.
+On Thu, 2014-07-03 at 09:07 +0530, punnaiah choudary kalluri wrote:
+> Hi,
 > 
+>   While sending the data traffic on zynq development board using 10 mbps
+>  half-duplex link, observed the kernel BUG in skbuff handling.
+> 
+> Zynq setup:
+> ifconfig eth0 192.186.1.2
+> 
+> Host machine setup:
+> ifconfig eth0 192.186.1.3
+> ethtool -s eth0 speed 10 duplex half
+> tcpreplay -i eth0 kernelpaniccapturejune24.pcap
+> 
+>  Any pointers/directions for finding the root cause for this issue ?
+> 
+> root@zynq:~# [  128.841470] random: nonblocking pool is initialized
+> [  141.726352] skbuff: skb_over_panic: text:c031b890 len:16383
+> put:16383 head:eea80000 data:eea80040 tail:0xeea8403f end:0xeea80640
+> dev:eth0
+> [  141.726354] ------------[ cut here ]------------
+> [  141.726354] kernel BUG at net/core/skbuff.c:126!
+> [  141.726355] Internal error: Oops - BUG: 0 [#1] PREEMPT SMP ARM
+> [  141.726356] Modules linked in: ipv6
+> [  141.726357] CPU: 0 PID: 0 Comm: swapper/0 Not tainted 3.13.0-xilinx #1
+> [  141.726358] task: c06af670 ti: c06a4000 task.ti: c06a4000
+> [  141.726358] PC is at skb_panic+0x50/0x5c
+> [  141.726359] LR is at skb_panic+0x50/0x5c
+> [  141.726360] pc : [<c0494d68>]    lr : [<c0494d68>]    psr: 60070113
+> [  141.726360] sp : c06a5de8  ip : c07b8da8  fp : 2ea80040
+> [  141.726362] r10: ef10b810  r9 : c06af344  r8 : 00000000
+> [  141.726362] r7 : c05d39c4  r6 : eea80000  r5 : eea80040  r4 : eea8403f
+> [  141.726364] r3 : c06af670  r2 : 00000000  r1 : 60070113  r0 : 0000007d
+> [  141.726365] Flags: nZCv  IRQs on  FIQs on  Mode SVC_32  ISA ARM
+> Segment kernel
+> [  141.726366] Control: 18c5387d  Table: 2e9c404a  DAC: 00000015
+> [  141.726367] Process swapper/0 (pid: 0, stack limit = 0xc06a4240)
+> [  141.726368] Stack: (0xc06a5de8 to 0xc06a6000)
+> 
+> Regards,
 
-It seems you only took care of IPv6, but did not mention this in the
-changelog.
-
-> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Thomas Graf <tgraf@suug.ch>
-> Cc: Joe Perches <joe@perches.com>
-> Cc: netdev@vger.kernel.org
-> Cc: linux-kernel@vger.kernel.org
-> Cc: xen-devel@lists.xenproject.org
-> ---
-> diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-> index d7206ea..13aad46 100644
-> --- a/net/core/pktgen.c
-> +++ b/net/core/pktgen.c
-> @@ -203,6 +203,7 @@
->  #define F_NODE          (1<<15)	/* Node memory alloc*/
->  #define F_UDPCSUM       (1<<16)	/* Include UDP checksum */
->  #define F_PATTERN       (1<<17)	/* Fill the payload with a pattern */
-> +#define F_TCP           (1<<18)	/* Send TCP packet instead of UDP */
->  
->  /* Thread control flag bits */
->  #define T_STOP        (1<<0)	/* Stop run */
-> @@ -1343,6 +1344,12 @@ static ssize_t pktgen_if_write(struct file *file,
->  		else if (strcmp(f, "!PATTERN") == 0)
->  			pkt_dev->flags &= ~F_PATTERN;
->  
-> +		else if (strcmp(f, "TCP") == 0)
-> +			pkt_dev->flags |= F_TCP;
-> +
-> +		else if (strcmp(f, "!TCP") == 0)
-> +			pkt_dev->flags &= ~F_TCP;
-> +
->  		else {
->  			sprintf(pg_result,
->  				"Flag -:%s:- unknown\nAvailable flags, (prepend ! to un-set flag):\n%s",
-> @@ -2952,6 +2959,7 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
->  	struct sk_buff *skb = NULL;
->  	__u8 *eth;
->  	struct udphdr *udph;
-> +	struct tcphdr *tcph;
->  	int datalen, iplen;
->  	struct iphdr *iph;
->  	__be16 protocol = htons(ETH_P_IP);
-> @@ -3013,29 +3021,39 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
->  	iph = (struct iphdr *) skb_put(skb, sizeof(struct iphdr));
->  
->  	skb_set_transport_header(skb, skb->len);
-> -	udph = (struct udphdr *) skb_put(skb, sizeof(struct udphdr));
-> +
-> +	if (pkt_dev->flags & F_TCP) {
-> +		datalen = pkt_dev->cur_pkt_size - ETH_HLEN - 20 -
-> +			  sizeof(struct tcphdr) - pkt_dev->pkt_overhead;
-> +		tcph = (struct tcphdr *)skb_put(skb, sizeof(struct tcphdr));
-> +		tcph->source = htons(pkt_dev->cur_udp_src);
-> +		tcph->dest = htons(pkt_dev->cur_udp_dst);
-> +		tcph->check = 0;
-
-You do not clear other fields, thus leaking kernel memory.
-
-> +	} else {
-> +		datalen = pkt_dev->cur_pkt_size - ETH_HLEN - 20 -
-> +			  sizeof(struct udphdr) - pkt_dev->pkt_overhead;
-> +		udph = (struct udphdr *)skb_put(skb, sizeof(struct udphdr));
-> +		udph->source = htons(pkt_dev->cur_udp_src);
-> +		udph->dest = htons(pkt_dev->cur_udp_dst);
-> +		udph->len = htons(datalen + sizeof(struct udphdr));	/* DATA + udphdr */
-> +		udph->check = 0;
-> +	}
-> +
->  	skb_set_queue_mapping(skb, queue_map);
->  	skb->priority = pkt_dev->skb_priority;
->  
->  	memcpy(eth, pkt_dev->hh, 12);
->  	*(__be16 *) & eth[12] = protocol;
->  
-> -	/* Eth + IPh + UDPh + mpls */
-> -	datalen = pkt_dev->cur_pkt_size - 14 - 20 - 8 -
-> -		  pkt_dev->pkt_overhead;
->  	if (datalen < 0 || datalen < sizeof(struct pktgen_hdr))
->  		datalen = sizeof(struct pktgen_hdr);
->  
-> -	udph->source = htons(pkt_dev->cur_udp_src);
-> -	udph->dest = htons(pkt_dev->cur_udp_dst);
-> -	udph->len = htons(datalen + 8);	/* DATA + udphdr */
-> -	udph->check = 0;
->  
->  	iph->ihl = 5;
->  	iph->version = 4;
->  	iph->ttl = 32;
->  	iph->tos = pkt_dev->tos;
-> -	iph->protocol = IPPROTO_UDP;	/* UDP */
-> +	iph->protocol = pkt_dev->flags & F_TCP ? IPPROTO_TCP : IPPROTO_UDP;
->  	iph->saddr = pkt_dev->cur_saddr;
->  	iph->daddr = pkt_dev->cur_daddr;
->  	iph->id = htons(pkt_dev->ip_id);
-> @@ -3050,7 +3068,9 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
->  
->  	if (!(pkt_dev->flags & F_UDPCSUM)) {
->  		skb->ip_summed = CHECKSUM_NONE;
-> -	} else if (odev->features & NETIF_F_V4_CSUM) {
-> +	} else if (pkt_dev->flags & F_TCP)
-> +		skb_checksum_setup(skb, true);
-> +	else if (odev->features & NETIF_F_V4_CSUM) {
->  		skb->ip_summed = CHECKSUM_PARTIAL;
->  		skb->csum = 0;
->  		udp4_hwcsum(skb, udph->source, udph->dest);
-> @@ -3067,6 +3087,18 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
->  
->  	pktgen_finalize_skb(pkt_dev, skb, datalen);
->  
-> +	if (odev->mtu < skb->len) {
-> +		skb_shinfo(skb)->gso_size = odev->mtu - ETH_HLEN - 20 -
-> +					    pkt_dev->pkt_overhead;
-> +		if (pkt_dev->flags & F_TCP) {
-> +			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
-> +			skb_shinfo(skb)->gso_size -= sizeof(struct tcphdr);
-> +		} else {
-> +			skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
-> +			skb_shinfo(skb)->gso_size -= sizeof(struct udphdr);
-> +		}
-> +	}
-
-Some NIC do not handle TSO, and driver could crash if they have sanity
-tests.
-
-pktgen directly calls driver ndo_start_xmit(), so we need to make sure
-we give valid packets to the driver (no software fallbacks at this
-stage)
+Kernel stack trace would be useful.
