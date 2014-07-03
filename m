@@ -1,55 +1,55 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/14] i40evf: don't violate scope
-Date: Wed,  2 Jul 2014 19:40:21 -0700
-Message-ID: <1404355233-30123-3-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1404355233-30123-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v2] declance: Fix 64-bit compilation warnings
+Date: Wed, 02 Jul 2014 20:05:34 -0700
+Message-ID: <1404356734.14741.18.camel@joe-AO725>
+References: <alpine.LFD.2.11.1406290246120.15455@eddie.linux-mips.org>
+	 <20140702.182807.1245632778216212860.davem@davemloft.net>
+	 <alpine.LFD.2.11.1407030244230.15455@eddie.linux-mips.org>
+	 <alpine.LFD.2.11.1407030331550.15455@eddie.linux-mips.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: "Maciej W. Rozycki" <macro@linux-mips.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:40759 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753732AbaGCClF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Jul 2014 22:41:05 -0400
-In-Reply-To: <1404355233-30123-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from smtprelay0087.hostedemail.com ([216.40.44.87]:33636 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751525AbaGCDFi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 2 Jul 2014 23:05:38 -0400
+In-Reply-To: <alpine.LFD.2.11.1407030331550.15455@eddie.linux-mips.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+On Thu, 2014-07-03 at 03:34 +0100, Maciej W. Rozycki wrote:
+> On Thu, 3 Jul 2014, Maciej W. Rozycki wrote:
+> 
+> > > > @@ -499,8 +499,9 @@ static void lance_init_ring(struct net_d
+> > > >  						/* The ones required by tmd2 */
+> > > >  		*lib_ptr(ib, btx_ring[i].misc, lp->type) = 0;
+> > > >  		if (i < 3 && ZERO)
+> > > > -			printk("%d: 0x%8.8x(0x%8.8x)\n",
+> > > > -			       i, leptr, (uint)lp->tx_buf_ptr_cpu[i]);
+> > > > +			printk("%d: 0x%8.8x(%#0*lx)\n",
+> > > > +			       i, leptr, 2 * (int)sizeof(long) + 2,
+> > > > +			       (long)lp->tx_buf_ptr_cpu[i]);
+> > > 
+> > > Please just use "%p", no casts required.
+> > 
+> >  Hmm, there was something about %p that made me reject it, however I can't 
+> > recall what it was and I can get the desired output with this format 
+> > specifier (the NULL special case difference can be ignored, the pointers 
+> > printed here won't ever be NULL).  Sending an update right away.
+> 
+>  Ah, there it is:
+> 
+> drivers/net/ethernet/amd/declance.c: In function 'lance_init_ring':
+> drivers/net/ethernet/amd/declance.c:503: warning: '#' flag used with '%p' printf format
+> drivers/net/ethernet/amd/declance.c:520: warning: '#' flag used with '%p' printf format
+> 
+> That's obviously GCC's incompatibility to our implementation.  I'm not 
+> sure if that can be worked around, but I'll see what I can do about it.
 
-Move a declaration up one level so we don't dereference it out of scope.
-This didn't cause any panics, but the details->async field would
-mysteriously disappear, causing unnecessary delays when sending AQ
-commands. Also, the code is just plain wrong.
-
-Change-ID: I753f64f13c55e5d75ea4351e29b14fb53b2f0104
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-Tested-by: Jim Young <jamesx.m.young@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40evf/i40e_common.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_common.c b/drivers/net/ethernet/intel/i40evf/i40e_common.c
-index a43155a..4ea90bf 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_common.c
-@@ -551,6 +551,7 @@ i40e_status i40e_aq_send_msg_to_pf(struct i40e_hw *hw,
- 				struct i40e_asq_cmd_details *cmd_details)
- {
- 	struct i40e_aq_desc desc;
-+	struct i40e_asq_cmd_details details;
- 	i40e_status status;
- 
- 	i40evf_fill_default_direct_cmd_desc(&desc, i40e_aqc_opc_send_msg_to_pf);
-@@ -565,7 +566,6 @@ i40e_status i40e_aq_send_msg_to_pf(struct i40e_hw *hw,
- 		desc.datalen = cpu_to_le16(msglen);
- 	}
- 	if (!cmd_details) {
--		struct i40e_asq_cmd_details details;
- 		memset(&details, 0, sizeof(details));
- 		details.async = true;
- 		cmd_details = &details;
--- 
-1.9.3
+The kernel vsprintf implementation doesn't prefix
+pointers with 0x, so you can use 0x%p if you really
+want that with a leading prefix, but you don't have
+to use it.
