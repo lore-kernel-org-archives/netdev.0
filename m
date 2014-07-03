@@ -1,56 +1,38 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH RFC] arm64: eBPF JIT compiler
-Date: Thu, 03 Jul 2014 11:23:14 +0200
-Message-ID: <53B52102.7060400@redhat.com>
-References: <1404278424-31176-1-git-send-email-zlim.lnx@gmail.com> <20140703091450.GB12958@arm.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [net-next PATCH v4 0/2] bridge: fdb dumping takes a filter device
+Date: Thu, 03 Jul 2014 05:35:31 -0400
+Message-ID: <53B523E3.8030301@mojatatu.com>
+References: <1403952456-16020-1-git-send-email-jhs@emojatatu.com>	<20140702.174114.1070001183436341599.davem@davemloft.net> <20140702.181958.175884390637356702.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-7; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Zi Shen Lim <zlim.lnx@gmail.com>,
-	Catalin Marinas <Catalin.Marinas@arm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Chema Gonzalez <chema@google.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Will Deacon <will.deacon@arm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140703091450.GB12958@arm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	vyasevic@redhat.com, sfeldma@cumulusnetworks.com,
+	john.r.fastabend@intel.com, roopa@cumulusnetworks.com,
+	eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f170.google.com ([209.85.223.170]:53487 "EHLO
+	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030567AbaGCJfo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2014 05:35:44 -0400
+Received: by mail-ie0-f170.google.com with SMTP id tr6so10676015ieb.1
+        for <netdev@vger.kernel.org>; Thu, 03 Jul 2014 02:35:43 -0700 (PDT)
+In-Reply-To: <20140702.181958.175884390637356702.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/03/2014 11:14 AM, Will Deacon wrote:
-> On Wed, Jul 02, 2014 at 06:20:24AM +0100, Zi Shen Lim wrote:
->> The JIT compiler emits A64 instructions. It supports eBPF only.
->> Legacy BPF is supported thanks to conversion by BPF core.
->>
->> JIT is enabled in the same way as for other architectures:
->>
->>          echo 1 > /proc/sys/net/core/bpf_jit_enable
->>
->> Or for additional compiler output:
->>
->>          echo 2 > /proc/sys/net/core/bpf_jit_enable
->>
->> See Documentation/networking/filter.txt for more information.
->>
->> The implementation passes all 57 tests in lib/test_bpf.c
->> on ARMv8 Foundation Model :)
+On 07/02/14 21:19, David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Wed, 02 Jul 2014 17:41:14 -0700 (PDT)
 >
-> First off, this is really cool. Thanks for putting in the effort to get this
-> supported on arm64! I'm happy to run tests on some real hardware if you tell
-> me how to run them :)
+>> Series applied, thanks Jamal.
+>
+> Actually, I had to revert, this breaks the qlcnic build:
+>
 
-We have lib/test_bpf.c for this, see also Documentation/networking/filter.txt.
+Apologies - I should have compiled that driver.
+I fixed and tested and will be sending shortly.
 
-So, the procedure would be, e.g.:
-
-  1) echo 1 > /proc/sys/net/core/bpf_jit_enable
-  2) modprobe/insmod test_bpf
-  3) See kernel log for passes/fails
-
-For seccomp/BPF, there's a test suite in:
-
-  https://github.com/redpig/seccomp
+cheers,
+jamal
