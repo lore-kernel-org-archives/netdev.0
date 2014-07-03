@@ -1,190 +1,208 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/14] i40e/i40evf: Add new HW link info variable an_enabled and function update_link_info
-Date: Wed,  2 Jul 2014 19:40:28 -0700
-Message-ID: <1404355233-30123-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 13/14] i40e: Implement set_settings for ethtool
+Date: Wed,  2 Jul 2014 19:40:32 -0700
+Message-ID: <1404355233-30123-14-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1404355233-30123-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:40790 "EHLO mga02.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:40797 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754629AbaGCClU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Jul 2014 22:41:20 -0400
+	id S1755041AbaGCClV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Jul 2014 22:41:21 -0400
 In-Reply-To: <1404355233-30123-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Catherine Sullivan <catherine.sullivan@intel.com>
 
-Add a new variable, hw.phy.link_info.an_enabled, to track whether autoneg is
-enabled.  Also add a new function update_link_info that will update that
-variable as well as calling get_link_info to update the rest of the link info.
-Also add get_phy_capabilities to support this.
+Implement set_settings for ethtool in i40e.
 
-Change-ID: I5157ef03492b6dd8ec5e608ba0cf9b0db9c01710
+Change-ID: Ie3c3fe18e8ff86c3f25b842844b3d9aabc9bba57
 Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
 Tested-by: Jim Young <jamesx.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_common.c    | 75 ++++++++++++++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_main.c      |  4 +-
- drivers/net/ethernet/intel/i40e/i40e_prototype.h |  1 +
- drivers/net/ethernet/intel/i40e/i40e_type.h      |  1 +
- drivers/net/ethernet/intel/i40evf/i40e_type.h    |  1 +
- 5 files changed, 80 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 158 +++++++++++++++++++++++++
+ 1 file changed, 158 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index 9d09ab3..debca01 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -1037,6 +1037,52 @@ void i40e_led_set(struct i40e_hw *hw, u32 mode, bool blink)
- /* Admin command wrappers */
- 
- /**
-+ * i40e_aq_get_phy_capabilities
-+ * @hw: pointer to the hw struct
-+ * @abilities: structure for PHY capabilities to be filled
-+ * @qualified_modules: report Qualified Modules
-+ * @report_init: report init capabilities (active are default)
-+ * @cmd_details: pointer to command details structure or NULL
-+ *
-+ * Returns the various PHY abilities supported on the Port.
-+ **/
-+i40e_status i40e_aq_get_phy_capabilities(struct i40e_hw *hw,
-+			bool qualified_modules, bool report_init,
-+			struct i40e_aq_get_phy_abilities_resp *abilities,
-+			struct i40e_asq_cmd_details *cmd_details)
-+{
-+	struct i40e_aq_desc desc;
-+	i40e_status status;
-+	u16 abilities_size = sizeof(struct i40e_aq_get_phy_abilities_resp);
-+
-+	if (!abilities)
-+		return I40E_ERR_PARAM;
-+
-+	i40e_fill_default_direct_cmd_desc(&desc,
-+					  i40e_aqc_opc_get_phy_abilities);
-+
-+	desc.flags |= cpu_to_le16((u16)I40E_AQ_FLAG_BUF);
-+	if (abilities_size > I40E_AQ_LARGE_BUF)
-+		desc.flags |= cpu_to_le16((u16)I40E_AQ_FLAG_LB);
-+
-+	if (qualified_modules)
-+		desc.params.external.param0 |=
-+			cpu_to_le32(I40E_AQ_PHY_REPORT_QUALIFIED_MODULES);
-+
-+	if (report_init)
-+		desc.params.external.param0 |=
-+			cpu_to_le32(I40E_AQ_PHY_REPORT_INITIAL_VALUES);
-+
-+	status = i40e_asq_send_command(hw, &desc, abilities, abilities_size,
-+				       cmd_details);
-+
-+	if (hw->aq.asq_last_status == I40E_AQ_RC_EIO)
-+		status = I40E_ERR_UNKNOWN_PHY;
-+
-+	return status;
-+}
-+
-+/**
-  * i40e_aq_clear_pxe_mode
-  * @hw: pointer to the hw struct
-  * @cmd_details: pointer to command details structure or NULL
-@@ -1163,6 +1209,35 @@ aq_get_link_info_exit:
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index fc86761..3abd3cb 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -412,6 +412,163 @@ no_valid_phy_type:
+ 	return 0;
  }
  
- /**
-+ * i40e_update_link_info
-+ * @hw: pointer to the hw struct
-+ * @enable_lse: enable/disable LinkStatusEvent reporting
++/**
++ * i40e_set_settings - Set Speed and Duplex
++ * @netdev: network interface device structure
++ * @ecmd: ethtool command
 + *
-+ * Returns the link status of the adapter
++ * Set speed/duplex per media_types advertised/forced
 + **/
-+i40e_status i40e_update_link_info(struct i40e_hw *hw, bool enable_lse)
++static int i40e_set_settings(struct net_device *netdev,
++			     struct ethtool_cmd *ecmd)
 +{
++	struct i40e_netdev_priv *np = netdev_priv(netdev);
 +	struct i40e_aq_get_phy_abilities_resp abilities;
-+	i40e_status status;
++	struct i40e_aq_set_phy_config config;
++	struct i40e_pf *pf = np->vsi->back;
++	struct i40e_vsi *vsi = np->vsi;
++	struct i40e_hw *hw = &pf->hw;
++	struct ethtool_cmd safe_ecmd;
++	i40e_status status = 0;
++	bool change = false;
++	int err = 0;
++	u8 autoneg;
++	u32 advertise;
 +
-+	status = i40e_aq_get_link_info(hw, enable_lse, NULL, NULL);
++	if (vsi != pf->vsi[pf->lan_vsi])
++		return -EOPNOTSUPP;
++
++	if (hw->phy.media_type != I40E_MEDIA_TYPE_BASET &&
++	    hw->phy.media_type != I40E_MEDIA_TYPE_FIBER &&
++	    hw->phy.media_type != I40E_MEDIA_TYPE_BACKPLANE)
++		return -EOPNOTSUPP;
++
++	/* get our own copy of the bits to check against */
++	memset(&safe_ecmd, 0, sizeof(struct ethtool_cmd));
++	i40e_get_settings(netdev, &safe_ecmd);
++
++	/* save autoneg and speed out of ecmd */
++	autoneg = ecmd->autoneg;
++	advertise = ecmd->advertising;
++
++	/* set autoneg and speed back to what they currently are */
++	ecmd->autoneg = safe_ecmd.autoneg;
++	ecmd->advertising = safe_ecmd.advertising;
++
++	ecmd->cmd = safe_ecmd.cmd;
++	/* If ecmd and safe_ecmd are not the same now, then they are
++	 * trying to set something that we do not support
++	 */
++	if (memcmp(ecmd, &safe_ecmd, sizeof(struct ethtool_cmd)))
++		return -EOPNOTSUPP;
++
++	while (test_bit(__I40E_CONFIG_BUSY, &vsi->state))
++		usleep_range(1000, 2000);
++
++	/* Get the current phy config */
++	status = i40e_aq_get_phy_capabilities(hw, false, false, &abilities,
++					      NULL);
 +	if (status)
-+		return status;
++		return -EAGAIN;
 +
-+	status = i40e_aq_get_phy_capabilities(hw, false, false,
-+					      &abilities, NULL);
-+	if (status)
-+		return status;
++	/* Copy link_speed and abilities to config in case they are not
++	 * set below
++	 */
++	memset(&config, 0, sizeof(struct i40e_aq_set_phy_config));
++	config.link_speed = abilities.link_speed;
++	config.abilities = abilities.abilities;
 +
-+	if (abilities.abilities & I40E_AQ_PHY_AN_ENABLED)
-+		hw->phy.link_info.an_enabled = true;
-+	else
-+		hw->phy.link_info.an_enabled = false;
++	/* Check autoneg */
++	if (autoneg == AUTONEG_ENABLE) {
++		/* If autoneg is not supported, return error */
++		if (!(safe_ecmd.supported & SUPPORTED_Autoneg)) {
++			netdev_info(netdev, "Autoneg not supported on this phy\n");
++			return -EINVAL;
++		}
++		/* If autoneg was not already enabled */
++		if (!(hw->phy.link_info.an_info & I40E_AQ_AN_COMPLETED)) {
++			config.abilities = abilities.abilities |
++					   I40E_AQ_PHY_ENABLE_AN;
++			change = true;
++		}
++	} else {
++		/* If autoneg is supported 10GBASE_T is the only phy that
++		 * can disable it, so otherwise return error
++		 */
++		if (safe_ecmd.supported & SUPPORTED_Autoneg &&
++		    hw->phy.link_info.phy_type != I40E_PHY_TYPE_10GBASE_T) {
++			netdev_info(netdev, "Autoneg cannot be disabled on this phy\n");
++			return -EINVAL;
++		}
++		/* If autoneg is currently enabled */
++		if (hw->phy.link_info.an_info & I40E_AQ_AN_COMPLETED) {
++			config.abilities = abilities.abilities |
++					   ~I40E_AQ_PHY_ENABLE_AN;
++			change = true;
++		}
++	}
 +
-+	return status;
++	if (advertise & ~safe_ecmd.supported)
++		return -EINVAL;
++
++	if (advertise & ADVERTISED_100baseT_Full)
++		if (!(abilities.link_speed & I40E_LINK_SPEED_100MB)) {
++			config.link_speed |= I40E_LINK_SPEED_100MB;
++			change = true;
++		}
++	if (advertise & ADVERTISED_1000baseT_Full ||
++	    advertise & ADVERTISED_1000baseKX_Full)
++		if (!(abilities.link_speed & I40E_LINK_SPEED_1GB)) {
++			config.link_speed |= I40E_LINK_SPEED_1GB;
++			change = true;
++		}
++	if (advertise & ADVERTISED_10000baseT_Full ||
++	    advertise & ADVERTISED_10000baseKX4_Full ||
++	    advertise & ADVERTISED_10000baseKR_Full)
++		if (!(abilities.link_speed & I40E_LINK_SPEED_10GB)) {
++			config.link_speed |= I40E_LINK_SPEED_10GB;
++			change = true;
++		}
++	if (advertise & ADVERTISED_40000baseKR4_Full ||
++	    advertise & ADVERTISED_40000baseCR4_Full ||
++	    advertise & ADVERTISED_40000baseSR4_Full ||
++	    advertise & ADVERTISED_40000baseLR4_Full)
++		if (!(abilities.link_speed & I40E_LINK_SPEED_40GB)) {
++			config.link_speed |= I40E_LINK_SPEED_40GB;
++			change = true;
++		}
++
++	if (change) {
++		/* copy over the rest of the abilities */
++		config.phy_type = abilities.phy_type;
++		config.eee_capability = abilities.eee_capability;
++		config.eeer = abilities.eeer_val;
++		config.low_power_ctrl = abilities.d3_lpan;
++
++		/* If link is up set link and an so changes take effect */
++		if (hw->phy.link_info.link_info & I40E_AQ_LINK_UP)
++			config.abilities |= I40E_AQ_PHY_ENABLE_ATOMIC_LINK;
++
++		/* make the aq call */
++		status = i40e_aq_set_phy_config(hw, &config, NULL);
++		if (status) {
++			netdev_info(netdev, "Set phy config failed with error %d.\n",
++				    status);
++			return -EAGAIN;
++		}
++
++		status = i40e_update_link_info(hw, true);
++		if (status)
++			netdev_info(netdev, "Updating link info failed with error %d\n",
++				    status);
++
++	} else {
++		netdev_info(netdev, "Nothing changed, exiting without setting anything.\n");
++	}
++
++	return err;
 +}
 +
-+/**
-  * i40e_aq_add_vsi
-  * @hw: pointer to the hw struct
-  * @vsi_ctx: pointer to a vsi context struct
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index ac90d5f..71eff16 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -5292,7 +5292,7 @@ static void i40e_handle_link_event(struct i40e_pf *pf,
- 	 * then see if the status changed while processing the
- 	 * initial event.
- 	 */
--	i40e_aq_get_link_info(&pf->hw, true, NULL, NULL);
-+	i40e_update_link_info(&pf->hw, true);
- 	i40e_link_event(pf);
- }
+ static int i40e_nway_reset(struct net_device *netdev)
+ {
+ 	/* restart autonegotiation */
+@@ -1929,6 +2086,7 @@ static int i40e_set_channels(struct net_device *dev,
  
-@@ -8337,7 +8337,7 @@ static int i40e_setup_pf_switch(struct i40e_pf *pf, bool reinit)
- 		i40e_config_rss(pf);
- 
- 	/* fill in link information and enable LSE reporting */
--	i40e_aq_get_link_info(&pf->hw, true, NULL, NULL);
-+	i40e_update_link_info(&pf->hw, true);
- 	i40e_link_event(pf);
- 
- 	/* Initialize user-specific link properties */
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_prototype.h b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-index 77c515d..6790878 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-@@ -82,6 +82,7 @@ i40e_status i40e_aq_set_link_restart_an(struct i40e_hw *hw,
- i40e_status i40e_aq_get_link_info(struct i40e_hw *hw,
- 				bool enable_lse, struct i40e_link_status *link,
- 				struct i40e_asq_cmd_details *cmd_details);
-+i40e_status i40e_update_link_info(struct i40e_hw *hw, bool enable_lse);
- i40e_status i40e_aq_set_local_advt_reg(struct i40e_hw *hw,
- 				u64 advt_reg,
- 				struct i40e_asq_cmd_details *cmd_details);
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
-index 11dd2dc..f1c58ab 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
-@@ -166,6 +166,7 @@ struct i40e_link_status {
- 	u8 an_info;
- 	u8 ext_info;
- 	u8 loopback;
-+	bool an_enabled;
- 	/* is Link Status Event notification to SW enabled */
- 	bool lse_enable;
- 	u16 max_frame_size;
-diff --git a/drivers/net/ethernet/intel/i40evf/i40e_type.h b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-index 23cd18b..5b6e955 100644
---- a/drivers/net/ethernet/intel/i40evf/i40e_type.h
-+++ b/drivers/net/ethernet/intel/i40evf/i40e_type.h
-@@ -166,6 +166,7 @@ struct i40e_link_status {
- 	u8 an_info;
- 	u8 ext_info;
- 	u8 loopback;
-+	bool an_enabled;
- 	/* is Link Status Event notification to SW enabled */
- 	bool lse_enable;
- 	u16 max_frame_size;
+ static const struct ethtool_ops i40e_ethtool_ops = {
+ 	.get_settings		= i40e_get_settings,
++	.set_settings		= i40e_set_settings,
+ 	.get_drvinfo		= i40e_get_drvinfo,
+ 	.get_regs_len		= i40e_get_regs_len,
+ 	.get_regs		= i40e_get_regs,
 -- 
 1.9.3
