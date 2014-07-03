@@ -1,65 +1,64 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/14] i40e: tolerate lost interrupts
-Date: Wed,  2 Jul 2014 19:40:23 -0700
-Message-ID: <1404355233-30123-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/14] i40evf: invite vector 0 to the interrupt party
+Date: Wed,  2 Jul 2014 19:40:24 -0700
+Message-ID: <1404355233-30123-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1404355233-30123-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Mitch Williams <mitch.a.williams@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:56267 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:56274 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754560AbaGCClK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 2 Jul 2014 22:41:10 -0400
+	id S1754180AbaGCClN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 2 Jul 2014 22:41:13 -0400
 In-Reply-To: <1404355233-30123-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Mitch Williams <mitch.a.williams@intel.com>
 
-If the AQ interrupt gets lost for some reason, VF communications will
-stall as the VFs have no way of reaching the PF, which is essentially
-deaf. The VFs end up waiting forever for a reply that will never come.
+The i40evf_irq_enable and i40evf_fire_sw_interrupt functions were
+unfairly discriminating against MSI-X vector 0, just because it doesn't
+handle traffic. That doesn't mean it's not essential to the operation of
+the driver. This change allows the watchdog to fire vector 0 via
+software, which makes the driver tolerant of dropped interrupts on that
+vector.
 
-To alleviate this condition, go ahead and check the ARQ every time we
-run the service task. Remove the check for a pending event, and get rid
-of a chatty error message that is now meaningless.
+Buck up, vector 0! You can be part of our gang!
 
-Change-ID: I0fc9d18169cd45c98f60188aef872cd6cee9a027
+Change-ID: I37131d955018a6b3e711e1732d21428acd0d767e
 Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
 Tested-by: Jim Young <jamesx.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 8 ++------
- 1 file changed, 2 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 440b671..88704c0 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -5314,9 +5314,6 @@ static void i40e_clean_adminq_subtask(struct i40e_pf *pf)
- 	u32 oldval;
- 	u32 val;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 5f29e58..6186149 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -260,6 +260,12 @@ static void i40evf_fire_sw_int(struct i40evf_adapter *adapter,
+ 	int i;
+ 	uint32_t dyn_ctl;
  
--	if (!test_bit(__I40E_ADMINQ_EVENT_PENDING, &pf->state))
--		return;
--
- 	/* check for error indications */
- 	val = rd32(&pf->hw, pf->hw.aq.arq.len);
- 	oldval = val;
-@@ -5360,10 +5357,9 @@ static void i40e_clean_adminq_subtask(struct i40e_pf *pf)
- 	do {
- 		event.msg_size = I40E_MAX_AQ_BUF_SIZE; /* reinit each time */
- 		ret = i40e_clean_arq_element(hw, &event, &pending);
--		if (ret == I40E_ERR_ADMIN_QUEUE_NO_WORK) {
--			dev_info(&pf->pdev->dev, "No ARQ event found\n");
-+		if (ret == I40E_ERR_ADMIN_QUEUE_NO_WORK)
- 			break;
--		} else if (ret) {
-+		else if (ret) {
- 			dev_info(&pf->pdev->dev, "ARQ event error %d\n", ret);
- 			break;
- 		}
++	if (mask & 1) {
++		dyn_ctl = rd32(hw, I40E_VFINT_DYN_CTL01);
++		dyn_ctl |= I40E_VFINT_DYN_CTLN_SWINT_TRIG_MASK |
++			   I40E_VFINT_DYN_CTLN_CLEARPBA_MASK;
++		wr32(hw, I40E_VFINT_DYN_CTL01, dyn_ctl);
++	}
+ 	for (i = 1; i < adapter->num_msix_vectors; i++) {
+ 		if (mask & (1 << i)) {
+ 			dyn_ctl = rd32(hw, I40E_VFINT_DYN_CTLN1(i - 1));
+@@ -278,6 +284,7 @@ void i40evf_irq_enable(struct i40evf_adapter *adapter, bool flush)
+ {
+ 	struct i40e_hw *hw = &adapter->hw;
+ 
++	i40evf_misc_irq_enable(adapter);
+ 	i40evf_irq_enable_queues(adapter, ~0);
+ 
+ 	if (flush)
 -- 
 1.9.3
