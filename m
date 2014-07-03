@@ -1,202 +1,179 @@
 From: Willem de Bruijn <willemb@google.com>
-Subject: [PATCH net-next v2 3/8] net-timestamp: tx timestamp without payload
-Date: Thu,  3 Jul 2014 15:39:35 -0400
-Message-ID: <1404416380-3545-4-git-send-email-willemb@google.com>
+Subject: [PATCH net-next v2 4/8] net-timestamp: TCP timestamping
+Date: Thu,  3 Jul 2014 15:39:36 -0400
+Message-ID: <1404416380-3545-5-git-send-email-willemb@google.com>
 References: <1404416380-3545-1-git-send-email-willemb@google.com>
 Cc: davem@davemloft.net, eric.dumazet@gmail.com,
 	richardcochran@gomail.com, stephen@networkplumber.org,
 	Willem de Bruijn <willemb@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f73.google.com ([209.85.219.73]:33092 "EHLO
-	mail-oa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753346AbaGCTju (ORCPT
+Received: from mail-oa0-f74.google.com ([209.85.219.74]:54993 "EHLO
+	mail-oa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753314AbaGCTju (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 3 Jul 2014 15:39:50 -0400
-Received: by mail-oa0-f73.google.com with SMTP id eb12so131955oac.2
+Received: by mail-oa0-f74.google.com with SMTP id i7so131430oag.3
         for <netdev@vger.kernel.org>; Thu, 03 Jul 2014 12:39:49 -0700 (PDT)
 In-Reply-To: <1404416380-3545-1-git-send-email-willemb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Applications receive tx timestamps from the kernel by reading the
-original packet from the socket error queue with sendmsg() and
-processing an ancillary data item that holds the timestamps.
+TCP timestamping extends datagram MSG_TSTAMP support to bytestreams.
 
-If the application is only interested in the timestamp, then looping
-the whole packet back up to userspace wastes socket buffer space
-(SO_RCVBUF). This is especially important when the same packet is
-enqueued repeatedly with multiple timestamps.
+Bytestreams do not have a 1:1 relationship between send() buffers and
+network packets. The feature interprets a send call with MSG_TSTAMP on
+a bytestream as a request for a timestamp for the last byte in the
+buffer.
 
-This patch adds a socket option to loop the timestamp on top of an
-empty packet instead of a clone of the original.
+The choice corresponds to a request for a timestamp when all bytes in
+the buffer have been sent. That assumption depends on in-order kernel
+transmission. This is the common case. That said, it is possible to
+construct a traffic shaping tree that would result in reordering.
+The guarantee is strong, then, but not ironclad.
 
-The option is only implemented for tx timestamps. Code that dequeues
-from an sk_error_queue onto which skb_tstamp_tx enqueues has to be
-able to handle zero-length packets.  Common implementations peek into
-the packet headers, for instance to learn the address for msg_namelen.
-When the queued skb has no payload, this data is unavailable and thus
-not returned. skb_dequeue(sk->sk_error_queue) callers have been
-audited to avoid accessing packet contents and fixed where needed
-(IP, IPv6, RxRPC).
+This implementation supports send and sendpages (splice). GSO replaces
+one large packet with multiple smaller packets. This patch also copies
+the option into the correct smaller packet.
+
+This patch does not yet support timestamping on data in an initial TCP
+Fast Open SYN, because that takes a very different data path.
+
+The implementation supports a single timestamp per packet. To avoid
+having multiple timestamp requests per sk_buff, the skb is locked
+against extension once the flag is set.
 
 Signed-off-by: Willem de Bruijn <willemb@google.com>
 ---
- include/net/sock.h              |  1 +
- include/uapi/linux/net_tstamp.h |  7 ++++---
- net/core/skbuff.c               | 16 ++++++++++++----
- net/core/sock.c                 |  4 ++++
- net/ipv4/ip_sockglue.c          |  4 ++--
- net/ipv6/datagram.c             |  4 ++--
- net/rxrpc/ar-error.c            |  5 +++++
- 7 files changed, 30 insertions(+), 11 deletions(-)
+ net/core/skbuff.c      | 12 ++++++++++++
+ net/ipv4/tcp.c         | 21 +++++++++++++++++----
+ net/ipv4/tcp_offload.c |  4 ++++
+ 3 files changed, 33 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 62bcaa9..7a97200 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -692,6 +692,7 @@ enum sock_flags {
- 	SOCK_TIMESTAMPING_SOFTWARE,     /* %SOF_TIMESTAMPING_SOFTWARE */
- 	SOCK_TIMESTAMPING_RAW_HARDWARE, /* %SOF_TIMESTAMPING_RAW_HARDWARE */
- 	SOCK_TIMESTAMPING_SYS_HARDWARE, /* %SOF_TIMESTAMPING_SYS_HARDWARE */
-+	SOCK_TIMESTAMPING_OPT_TSONLY,	/* %SOF_TIMESTAMPING_OPT_TSONLY */
- 	SOCK_FASYNC, /* fasync() active */
- 	SOCK_RXQ_OVFL,
- 	SOCK_ZEROCOPY, /* buffers from userspace */
-diff --git a/include/uapi/linux/net_tstamp.h b/include/uapi/linux/net_tstamp.h
-index f53879c..438068a 100644
---- a/include/uapi/linux/net_tstamp.h
-+++ b/include/uapi/linux/net_tstamp.h
-@@ -20,9 +20,10 @@ enum {
- 	SOF_TIMESTAMPING_SOFTWARE = (1<<4),
- 	SOF_TIMESTAMPING_SYS_HARDWARE = (1<<5),
- 	SOF_TIMESTAMPING_RAW_HARDWARE = (1<<6),
--	SOF_TIMESTAMPING_MASK =
--	(SOF_TIMESTAMPING_RAW_HARDWARE - 1) |
--	SOF_TIMESTAMPING_RAW_HARDWARE
-+	SOF_TIMESTAMPING_OPT_TSONLY = (1<<7),
-+
-+	SOF_TIMESTAMPING_MASK = (SOF_TIMESTAMPING_OPT_TSONLY - 1) |
-+				 SOF_TIMESTAMPING_OPT_TSONLY
- };
- 
- /**
 diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 1bcd05d..1091a74 100644
+index 1091a74..7657658 100644
 --- a/net/core/skbuff.c
 +++ b/net/core/skbuff.c
-@@ -3501,6 +3501,13 @@ void skb_tstamp_tx(struct sk_buff *orig_skb,
- 	if (!sk)
- 		return;
+@@ -69,6 +69,7 @@
+ #include <net/checksum.h>
+ #include <net/ip6_checksum.h>
+ #include <net/xfrm.h>
++#include <net/tcp.h>
  
-+	if (sock_flag(sk, SOCK_TIMESTAMPING_OPT_TSONLY))
-+		skb = alloc_skb(0, GFP_ATOMIC);
-+	else
-+		skb = skb_clone(orig_skb, GFP_ATOMIC);
-+	if (!skb)
-+		return;
-+
- 	if (hwtstamps) {
- 		*skb_hwtstamps(orig_skb) =
- 			*hwtstamps;
-@@ -3510,12 +3517,13 @@ void skb_tstamp_tx(struct sk_buff *orig_skb,
- 		 * so keep the shared tx_flags and only
- 		 * store software time stamp
- 		 */
--		orig_skb->tstamp = ktime_get_real();
-+		skb->tstamp = ktime_get_real();
+ #include <asm/uaccess.h>
+ #include <trace/events/skb.h>
+@@ -3496,6 +3497,7 @@ void skb_tstamp_tx(struct sk_buff *orig_skb,
+ 	struct sock *sk = orig_skb->sk;
+ 	struct sock_exterr_skb *serr;
+ 	struct sk_buff *skb;
++	__u32 key = 0;
+ 	int err;
+ 
+ 	if (!sk)
+@@ -3525,11 +3527,21 @@ void skb_tstamp_tx(struct sk_buff *orig_skb,
+ 		*skb_hwtstamps(skb) = *skb_hwtstamps(orig_skb);
  	}
  
--	skb = skb_clone(orig_skb, GFP_ATOMIC);
--	if (!skb)
--		return;
-+	if (!skb->len) {
-+		skb_shinfo(skb)->tx_flags = skb_shinfo(orig_skb)->tx_flags;
-+		*skb_hwtstamps(skb) = *skb_hwtstamps(orig_skb);
++	if (orig_skb->sk && orig_skb->sk->sk_protocol == IPPROTO_TCP) {
++		if (orig_skb->fclone == SKB_FCLONE_CLONE)
++			key = TCP_SKB_CB(orig_skb - 1)->end_seq;
++		else /* after GSO segmentation, fclone no longer works */
++			key = ntohl(tcp_hdr(skb)->seq) +
++			      ntohs(ip_hdr(skb)->tot_len) -
++			      ip_hdrlen(skb) - tcp_hdrlen(skb);
 +	}
- 
++
  	serr = SKB_EXT_ERR(skb);
  	memset(serr, 0, sizeof(*serr));
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 026e01f..708c89f 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -866,6 +866,8 @@ set_rcvbuf:
- 				  val & SOF_TIMESTAMPING_SYS_HARDWARE);
- 		sock_valbool_flag(sk, SOCK_TIMESTAMPING_RAW_HARDWARE,
- 				  val & SOF_TIMESTAMPING_RAW_HARDWARE);
-+		sock_valbool_flag(sk, SOCK_TIMESTAMPING_OPT_TSONLY,
-+				  val & SOF_TIMESTAMPING_OPT_TSONLY);
- 		break;
+ 	serr->ee.ee_errno = ENOMSG;
+ 	serr->ee.ee_origin = SO_EE_ORIGIN_TIMESTAMPING;
+ 	serr->ee.ee_info = hwtstamps ? 0 : SCM_TSTAMP_SND;
++	serr->ee.ee_data = key;
  
- 	case SO_RCVLOWAT:
-@@ -1106,6 +1108,8 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
- 			v.val |= SOF_TIMESTAMPING_SYS_HARDWARE;
- 		if (sock_flag(sk, SOCK_TIMESTAMPING_RAW_HARDWARE))
- 			v.val |= SOF_TIMESTAMPING_RAW_HARDWARE;
-+		if (sock_flag(sk, SOCK_TIMESTAMPING_OPT_TSONLY))
-+			v.val |= SOF_TIMESTAMPING_OPT_TSONLY;
- 		break;
+ 	err = sock_queue_err_skb(sk, skb);
  
- 	case SO_RCVTIMEO:
-diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
-index 64741b9..f17f34f 100644
---- a/net/ipv4/ip_sockglue.c
-+++ b/net/ipv4/ip_sockglue.c
-@@ -432,7 +432,7 @@ int ip_recv_error(struct sock *sk, struct msghdr *msg, int len, int *addr_len)
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index eb1dde3..4ceecd9 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -878,6 +878,11 @@ static int tcp_send_mss(struct sock *sk, int *size_goal, int flags)
+ 	return mss_now;
+ }
  
- 	serr = SKB_EXT_ERR(skb);
++static bool tcp_skb_can_extend(struct sk_buff *skb)
++{
++	return !(skb_shinfo(skb)->tx_flags & SKBTX_SW_TSTAMP);
++}
++
+ static ssize_t do_tcp_sendpages(struct sock *sk, struct page *page, int offset,
+ 				size_t size, int flags)
+ {
+@@ -911,7 +916,8 @@ static ssize_t do_tcp_sendpages(struct sock *sk, struct page *page, int offset,
+ 		int copy, i;
+ 		bool can_coalesce;
  
--	if (sin) {
-+	if (sin && skb->len) {
- 		sin->sin_family = AF_INET;
- 		sin->sin_addr.s_addr = *(__be32 *)(skb_network_header(skb) +
- 						   serr->addr_offset);
-@@ -444,7 +444,7 @@ int ip_recv_error(struct sock *sk, struct msghdr *msg, int len, int *addr_len)
- 	memcpy(&errhdr.ee, &serr->ee, sizeof(struct sock_extended_err));
- 	sin = &errhdr.offender;
- 	sin->sin_family = AF_UNSPEC;
--	if (serr->ee.ee_origin == SO_EE_ORIGIN_ICMP) {
-+	if (serr->ee.ee_origin == SO_EE_ORIGIN_ICMP && skb->len) {
- 		struct inet_sock *inet = inet_sk(sk);
+-		if (!tcp_send_head(sk) || (copy = size_goal - skb->len) <= 0) {
++		if (!tcp_send_head(sk) || (copy = size_goal - skb->len) <= 0 ||
++		    !tcp_skb_can_extend(skb)) {
+ new_segment:
+ 			if (!sk_stream_memory_free(sk))
+ 				goto wait_for_sndbuf;
+@@ -959,8 +965,10 @@ new_segment:
  
- 		sin->sin_family = AF_INET;
-diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-index c3bf2d2..391e6e0 100644
---- a/net/ipv6/datagram.c
-+++ b/net/ipv6/datagram.c
-@@ -358,7 +358,7 @@ int ipv6_recv_error(struct sock *sk, struct msghdr *msg, int len, int *addr_len)
+ 		copied += copy;
+ 		offset += copy;
+-		if (!(size -= copy))
++		if (!(size -= copy)) {
++			skb_shinfo(skb)->tx_flags |= skbflags_tx_tstamp(flags);
+ 			goto out;
++		}
  
- 	serr = SKB_EXT_ERR(skb);
+ 		if (skb->len < size_goal || (flags & MSG_OOB))
+ 			continue;
+@@ -1160,7 +1168,7 @@ int tcp_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 				copy = max - skb->len;
+ 			}
  
--	if (sin) {
-+	if (sin && skb->len) {
- 		const unsigned char *nh = skb_network_header(skb);
- 		sin->sin6_family = AF_INET6;
- 		sin->sin6_flowinfo = 0;
-@@ -383,7 +383,7 @@ int ipv6_recv_error(struct sock *sk, struct msghdr *msg, int len, int *addr_len)
- 	memcpy(&errhdr.ee, &serr->ee, sizeof(struct sock_extended_err));
- 	sin = &errhdr.offender;
- 	sin->sin6_family = AF_UNSPEC;
--	if (serr->ee.ee_origin != SO_EE_ORIGIN_LOCAL) {
-+	if (serr->ee.ee_origin != SO_EE_ORIGIN_LOCAL && skb->len) {
- 		sin->sin6_family = AF_INET6;
- 		sin->sin6_flowinfo = 0;
- 		sin->sin6_port = 0;
-diff --git a/net/rxrpc/ar-error.c b/net/rxrpc/ar-error.c
-index db57458..f9a65c0 100644
---- a/net/rxrpc/ar-error.c
-+++ b/net/rxrpc/ar-error.c
-@@ -42,6 +42,11 @@ void rxrpc_UDP_error_report(struct sock *sk)
- 		_leave("UDP socket errqueue empty");
- 		return;
- 	}
-+	if (!skb->len) {
-+		_leave("UDP empty message");
-+		kfree_skb(skb);
-+		return;
-+	}
+-			if (copy <= 0) {
++			if (copy <= 0 || !tcp_skb_can_extend(skb)) {
+ new_segment:
+ 				/* Allocate new segment. If the interface is SG,
+ 				 * allocate skb fitting to single page.
+@@ -1252,8 +1260,10 @@ new_segment:
  
- 	rxrpc_new_skb(skb);
+ 			from += copy;
+ 			copied += copy;
+-			if ((seglen -= copy) == 0 && iovlen == 0)
++			if ((seglen -= copy) == 0 && iovlen == 0) {
++				skb_shinfo(skb)->tx_flags |= skbflags_tx_tstamp(flags);
+ 				goto out;
++			}
  
+ 			if (skb->len < max || (flags & MSG_OOB) || unlikely(tp->repair))
+ 				continue;
+@@ -1616,6 +1626,9 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 	struct sk_buff *skb;
+ 	u32 urg_hole = 0;
+ 
++	if (unlikely(flags & MSG_ERRQUEUE))
++		return ip_recv_error(sk, msg, len, addr_len);
++
+ 	if (sk_can_busy_loop(sk) && skb_queue_empty(&sk->sk_receive_queue) &&
+ 	    (sk->sk_state == TCP_ESTABLISHED))
+ 		sk_busy_loop(sk, nonblock);
+diff --git a/net/ipv4/tcp_offload.c b/net/ipv4/tcp_offload.c
+index 4e86c59..730c2f6 100644
+--- a/net/ipv4/tcp_offload.c
++++ b/net/ipv4/tcp_offload.c
+@@ -134,6 +134,10 @@ struct sk_buff *tcp_gso_segment(struct sk_buff *skb,
+ 				(__force u32)delta));
+ 	if (skb->ip_summed != CHECKSUM_PARTIAL)
+ 		th->check = gso_make_checksum(skb, ~th->check);
++
++	if (unlikely(skb_shinfo(gso_skb)->tx_flags & SKBTX_SW_TSTAMP))
++		skb_shinfo(skb)->tx_flags |= SKBTX_SW_TSTAMP;
++
+ out:
+ 	return segs;
+ }
 -- 
 2.0.0.526.g5318336
