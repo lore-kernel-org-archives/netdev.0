@@ -1,241 +1,183 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [net-next-2.6 PATCH v6 2/2] bridge: netlink dump interface at par with brctl
-Date: Fri,  4 Jul 2014 07:58:01 -0400
-Message-ID: <1404475081-8611-3-git-send-email-jhs@emojatatu.com>
-References: <1404475081-8611-1-git-send-email-jhs@emojatatu.com>
-Cc: netdev@vger.kernel.org, vyasevic@redhat.com,
-	sfeldma@cumulusnetworks.com, john.r.fastabend@intel.com,
-	roopa@cumulusnetworks.com, eric.dumazet@gmail.com,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: davem@davemloft.net, stephen@networkplumber.org
+Subject: [iproute2 PATCH 1/1] iproute2 bridge: bring to above par with brctl show macs
+Date: Fri,  4 Jul 2014 08:37:10 -0400
+Message-ID: <1404477430-12261-1-git-send-email-jhs@emojatatu.com>
+Cc: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f177.google.com ([209.85.213.177]:35289 "EHLO
-	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753089AbaGDL6m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jul 2014 07:58:42 -0400
-Received: by mail-ig0-f177.google.com with SMTP id c1so2274690igq.4
-        for <netdev@vger.kernel.org>; Fri, 04 Jul 2014 04:58:41 -0700 (PDT)
-In-Reply-To: <1404475081-8611-1-git-send-email-jhs@emojatatu.com>
+Received: from mail-ig0-f169.google.com ([209.85.213.169]:48215 "EHLO
+	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750714AbaGDMhU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jul 2014 08:37:20 -0400
+Received: by mail-ig0-f169.google.com with SMTP id c1so8414488igq.2
+        for <netdev@vger.kernel.org>; Fri, 04 Jul 2014 05:37:19 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Actually better than brctl showmacs because we can filter by bridge
-port in the kernel.
-The current bridge netlink interface doesnt scale when you have many
-bridges each with large fdbs or even bridges with many bridge ports
+root@moja-mojo:bridge# ./bridge fdb help
+Usage: bridge fdb { add | append | del | replace } ADDR dev DEV {self|master} [ temp ]
+              [router] [ dst IPADDR] [ vlan VID ]
+              [ port PORT] [ vni VNI ] [via DEV]
+       bridge fdb {show} [ br BRDEV ] [ brport DEV ]
 
-And now for the science non-fiction novel you have all been
-waiting for..
+ Lets start with two bridges each with a port...
 
-//lets see what bridge ports we have
-root@moja-1:/configs/may30-iprt/bridge# ./bridge link show
-8: eth1 state DOWN : <BROADCAST,MULTICAST> mtu 1500 master br0 state
-disabled priority 32 cost 19
-17: sw1-p1 state DOWN : <BROADCAST,NOARP> mtu 1500 master br0 state
-disabled priority 32 cost 100
+root@moja-mojo:bridge# ./bridge link
+10: sw1-p1 state DOWN : <BROADCAST,NOARP> mtu 1500 master sw1 state disabled priority 32 cost 100
+11: eth1 state DOWN : <BROADCAST,NOARP> mtu 1500 master br0 state disabled priority 32 cost 100
 
-// show all..
-root@moja-1:/configs/may30-iprt/bridge# ./bridge fdb show
-33:33:00:00:00:01 dev bond0 self permanent
-33:33:00:00:00:01 dev dummy0 self permanent
+show all...
+root@moja-mojo:bridge# ./bridge fdb show
 33:33:00:00:00:01 dev ifb0 self permanent
 33:33:00:00:00:01 dev ifb1 self permanent
 33:33:00:00:00:01 dev eth0 self permanent
 01:00:5e:00:00:01 dev eth0 self permanent
-33:33:ff:22:01:01 dev eth0 self permanent
-02:00:00:12:01:02 dev eth1 vlan 0 master br0 permanent
-00:17:42:8a:b4:05 dev eth1 vlan 0 master br0 permanent
-00:17:42:8a:b4:07 dev eth1 self permanent
-33:33:00:00:00:01 dev eth1 self permanent
-33:33:00:00:00:01 dev gretap0 self permanent
-da:ac:46:27:d9:53 dev sw1-p1 vlan 0 master br0 permanent
-33:33:00:00:00:01 dev sw1-p1 self permanent
-
-//filter by bridge
-root@moja-1:/configs/may30-iprt/bridge# ./bridge fdb show br br0
-02:00:00:12:01:02 dev eth1 vlan 0 master br0 permanent
-00:17:42:8a:b4:05 dev eth1 vlan 0 master br0 permanent
-00:17:42:8a:b4:07 dev eth1 self permanent
-33:33:00:00:00:01 dev eth1 self permanent
-da:ac:46:27:d9:53 dev sw1-p1 vlan 0 master br0 permanent
-33:33:00:00:00:01 dev sw1-p1 self permanent
-
-// bridge sw1 has no ports attached..
-root@moja-1:/configs/may30-iprt/bridge# ./bridge fdb show br sw1
-
-//filter by port
-root@moja-1:/configs/may30-iprt/bridge# ./bridge fdb show brport eth1
-02:00:00:12:01:02 vlan 0 master br0 permanent
-00:17:42:8a:b4:05 vlan 0 master br0 permanent
-00:17:42:8a:b4:07 self permanent
-33:33:00:00:00:01 self permanent
-
-// filter by port + bridge
-root@moja-1:/configs/may30-iprt/bridge# ./bridge fdb show br br0 brport
-sw1-p1
-da:ac:46:27:d9:53 vlan 0 master br0 permanent
-33:33:00:00:00:01 self permanent
-
-// for shits and giggles (as they say in New Brunswick), lets
-// change the mac that br0 uses
-// Note: a magical fdb entry with no brport is added ...
-root@moja-1:/configs/may30-iprt/bridge# ip link set dev br0 address
-02:00:00:12:01:04
-
-// lets see if we can see the unicorn ..
-root@moja-1:/configs/may30-iprt/bridge# ./bridge fdb show
-33:33:00:00:00:01 dev bond0 self permanent
+33:33:ff:92:c0:60 dev eth0 self permanent
+33:33:00:00:00:fb dev eth0 self permanent
+01:00:5e:00:00:fb dev eth0 self permanent
+01:00:5e:7f:ff:fd dev eth0 self permanent
+01:00:5e:00:00:01 dev wlan0 self permanent
+33:33:00:00:00:01 dev wlan0 self permanent
+33:33:ff:c2:84:3b dev wlan0 self permanent
+33:33:00:00:00:fb dev wlan0 self permanent
+01:00:5e:00:00:01 dev virbr0 self permanent
+01:00:5e:00:00:fb dev virbr0 self permanent
+33:33:00:00:00:01 dev br0 self permanent
+33:33:00:00:00:01 dev sw1 self permanent
 33:33:00:00:00:01 dev dummy0 self permanent
-33:33:00:00:00:01 dev ifb0 self permanent
-33:33:00:00:00:01 dev ifb1 self permanent
-33:33:00:00:00:01 dev eth0 self permanent
-01:00:5e:00:00:01 dev eth0 self permanent
-33:33:ff:22:01:01 dev eth0 self permanent
-02:00:00:12:01:02 dev eth1 vlan 0 master br0 permanent
-00:17:42:8a:b4:05 dev eth1 vlan 0 master br0 permanent
-00:17:42:8a:b4:07 dev eth1 self permanent
+5e:f4:03:44:da:9a dev sw1-p1 vlan 0 master sw1 permanent
+33:33:00:00:00:01 dev sw1-p1 self permanent
+b6:5e:dd:ce:d7:5e dev eth1 vlan 0 master br0 permanent
 33:33:00:00:00:01 dev eth1 self permanent
-33:33:00:00:00:01 dev gretap0 self permanent
-02:00:00:12:01:04 dev br0 vlan 0 master br0 permanent <=== there it is
-da:ac:46:27:d9:53 dev sw1-p1 vlan 0 master br0 permanent
+
+Lets see a netdev that is *not* attached to a bridge
+
+root@moja-mojo:bridge# ./bridge fdb show brport eth0
+33:33:00:00:00:01 self permanent
+01:00:5e:00:00:01 self permanent
+33:33:ff:92:c0:60 self permanent
+33:33:00:00:00:fb self permanent
+01:00:5e:00:00:fb self permanent
+01:00:5e:7f:ff:fd self permanent
+
+Lets see a netdev that is bridge port
+root@moja-mojo:bridge# ./bridge fdb show brport eth1
+hadi@jhs-1:/media/MT1/other-gits/iproute-jul04/bridge$ ./bridge fdb show brport eth1
+b6:5e:dd:ce:d7:5e vlan 0 master br0 permanent
+33:33:00:00:00:01 self permanent
+
+Specify the correct bridge and you get good stuff
+root@moja-mojo:bridge# ./bridge fdb show brport eth1 br br0
+6:5e:dd:ce:d7:5e vlan 0 master br0 permanent
+33:33:00:00:00:01 self permanent
+
+Specify the wrong bridge and you get good nada
+root@moja-mojo:bridge# ./bridge fdb show brport eth1 br sw1
+
+dump br0
+root@moja-mojo:bridge# ./bridge fdb show br br0
+33:33:00:00:00:01 dev br0 self permanent
+b6:5e:dd:ce:d7:5e dev eth1 vlan 0 master br0 permanent
+33:33:00:00:00:01 dev eth1 self permanent
+
+dump sw1
+root@moja-mojo:bridge# ./bridge fdb show br sw1
+33:33:00:00:00:01 dev sw1 self permanent
+5e:f4:03:44:da:9a dev sw1-p1 vlan 0 master sw1 permanent
 33:33:00:00:00:01 dev sw1-p1 self permanent
 
-//can we see it if we filter by bridge?
-root@moja-1:/configs/may30-iprt/bridge# ./bridge fdb show br br0
-02:00:00:12:01:02 dev eth1 vlan 0 master br0 permanent
-00:17:42:8a:b4:05 dev eth1 vlan 0 master br0 permanent
-00:17:42:8a:b4:07 dev eth1 self permanent
-33:33:00:00:00:01 dev eth1 self permanent
-02:00:00:12:01:04 dev br0 vlan 0 master br0 permanent <=== there it is
-da:ac:46:27:d9:53 dev sw1-p1 vlan 0 master br0 permanent
+Lets move a port from one bridge to another for shits-and-giggles
+(as the New Brunswickians like to say)
+root@moja-mojo:bridge# ip link set sw1-p1 master br0
+
+Now dump again br0
+root@moja-mojo:bridge# ./bridge fdb show br br0
+33:33:00:00:00:01 dev br0 self permanent
+5e:f4:03:44:da:9a dev sw1-p1 vlan 0 master br0 permanent
 33:33:00:00:00:01 dev sw1-p1 self permanent
+b6:5e:dd:ce:d7:5e dev eth1 vlan 0 master br0 permanent
+33:33:00:00:00:01 dev eth1 self permanent
 
 Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 ---
- net/bridge/br_fdb.c  |   15 ++++++++--
- net/core/rtnetlink.c |   74 +++++++++++++++++++++++++++++++++++++++-----------
- 2 files changed, 70 insertions(+), 19 deletions(-)
+ bridge/fdb.c |   38 +++++++++++++++++++++++++++++++++-----
+ 1 file changed, 33 insertions(+), 5 deletions(-)
 
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index 6edecd1..0bb9d8b 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -692,9 +692,18 @@ int br_fdb_dump(struct sk_buff *skb,
- 			if (idx < cb->args[0])
- 				goto skip;
+diff --git a/bridge/fdb.c b/bridge/fdb.c
+index 9a07a32..a55fac1 100644
+--- a/bridge/fdb.c
++++ b/bridge/fdb.c
+@@ -34,7 +34,7 @@ static void usage(void)
+ 	fprintf(stderr, "Usage: bridge fdb { add | append | del | replace } ADDR dev DEV {self|master} [ temp ]\n"
+ 		        "              [router] [ dst IPADDR] [ vlan VID ]\n"
+ 		        "              [ port PORT] [ vni VNI ] [via DEV]\n");
+-	fprintf(stderr, "       bridge fdb {show} [ dev DEV ]\n");
++	fprintf(stderr, "       bridge fdb {show} [ br BRDEV ] [ brport DEV ]\n");
+ 	exit(-1);
+ }
  
--			if (filter_dev && (!f->dst || !f->dst->dev ||
--					   f->dst->dev != filter_dev))
--				goto skip;
-+			if (filter_dev &&
-+			    (!f->dst || f->dst->dev != filter_dev)) {
-+				if (filter_dev != dev)
-+					goto skip;
-+				/* !f->dst is a speacial case for bridge
-+				 * It means the MAC belongs to the bridge
-+				 * Therefore need a little more filtering
-+				 * we only want to dump the !f->dst case
-+				 */
-+				if (f->dst)
-+					goto skip;
-+			}
+@@ -161,18 +161,45 @@ int print_fdb(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
  
- 			if (fdb_fill_info(skb, br, f,
- 					  NETLINK_CB(cb->skb).portid,
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 90a906e..1f8a59e 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -2535,30 +2535,72 @@ EXPORT_SYMBOL(ndo_dflt_fdb_dump);
- 
- static int rtnl_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
+ static int fdb_show(int argc, char **argv)
  {
--	int idx = 0;
--	struct net *net = sock_net(skb->sk);
- 	struct net_device *dev;
-+	struct nlattr *tb[IFLA_MAX+1];
-+	struct net_device *bdev = NULL;
-+	struct net_device *br_dev = NULL;
-+	const struct net_device_ops *ops = NULL;
-+	const struct net_device_ops *cops = NULL;
-+	struct ifinfomsg *ifm = nlmsg_data(cb->nlh);
-+	struct net *net = sock_net(skb->sk);
-+	int brport_idx = 0;
-+	int br_idx = 0;
-+	int idx = 0;
++	struct {
++		struct nlmsghdr 	n;
++		struct ifinfomsg	ifm;
++		char   			buf[256];
++	} req;
 +
-+	if (nlmsg_parse(cb->nlh, sizeof(struct ifinfomsg), tb, IFLA_MAX,
-+			ifla_policy) == 0) {
-+		if (tb[IFLA_MASTER])
-+			br_idx = nla_get_u32(tb[IFLA_MASTER]);
-+	}
+ 	char *filter_dev = NULL;
++	char *br = NULL;
++	int msg_size = sizeof(struct ifinfomsg);
 +
-+	brport_idx = ifm->ifi_index;
-+
-+	if (br_idx) {
-+		br_dev = __dev_get_by_index(net, br_idx);
-+		if (!br_dev)
-+			return -ENODEV;
-+
-+		ops = br_dev->netdev_ops;
-+		bdev = br_dev;
-+	}
-+
-+	for_each_netdev(net, dev) {
-+		if (brport_idx && (dev->ifindex != brport_idx))
-+			continue;
-+
-+		if (!br_idx) { /* user did not specify a specific bridge */
-+			if (dev->priv_flags & IFF_BRIDGE_PORT) {
-+				br_dev = netdev_master_upper_dev_get(dev);
-+				cops = br_dev->netdev_ops;
-+			}
-+
-+			bdev = dev;
++	memset(&req, 0, sizeof(req));
++	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
++	req.ifm.ifi_family = PF_BRIDGE;
+ 
+ 	while (argc > 0) {
+-		if (strcmp(*argv, "dev") == 0) {
++		if ((strcmp(*argv, "brport") == 0) || strcmp(*argv, "dev") == 0) {
+ 			NEXT_ARG();
+-			if (filter_dev)
+-				duparg("dev", *argv);
+ 			filter_dev = *argv;
++		} else if (strcmp(*argv, "br") == 0) {
++			NEXT_ARG();
++			br = *argv;
 +		} else {
-+			if (dev != br_dev &&
-+			    !(dev->priv_flags & IFF_BRIDGE_PORT))
-+				continue;
-+
-+			if (br_dev != netdev_master_upper_dev_get(dev) &&
-+			    !(dev->priv_flags & IFF_EBRIDGE))
-+				continue;
-+
-+			bdev = br_dev;
-+			cops = ops;
-+		}
- 
--	rcu_read_lock();
--	for_each_netdev_rcu(net, dev) {
- 		if (dev->priv_flags & IFF_BRIDGE_PORT) {
--			struct net_device *br_dev;
--			const struct net_device_ops *ops;
--
--			br_dev = netdev_master_upper_dev_get(dev);
--			ops = br_dev->netdev_ops;
--			if (ops->ndo_fdb_dump)
--				idx = ops->ndo_fdb_dump(skb, cb, dev, NULL,
--							idx);
-+			if (cops && cops->ndo_fdb_dump)
-+				idx = cops->ndo_fdb_dump(skb, cb, br_dev, dev,
-+							 idx);
++			if (matches(*argv, "help") == 0)
++				usage();
  		}
- 
-+		idx = ndo_dflt_fdb_dump(skb, cb, dev, NULL, idx);
- 		if (dev->netdev_ops->ndo_fdb_dump)
--			idx = dev->netdev_ops->ndo_fdb_dump(skb, cb, dev, NULL,
-+			idx = dev->netdev_ops->ndo_fdb_dump(skb, cb, bdev, dev,
- 							    idx);
--		else
--			idx = ndo_dflt_fdb_dump(skb, cb, dev, NULL, idx);
-+
-+		cops = NULL;
+ 		argc--; argv++;
  	}
--	rcu_read_unlock();
  
- 	cb->args[0] = idx;
- 	return skb->len;
++	if (br) {
++		int br_ifindex = ll_name_to_index(br);
++		if (br_ifindex == 0) {
++			fprintf(stderr, "Cannot find bridge device \"%s\"\n", br);
++			return -1;
++		}
++		addattr32(&req.n, sizeof(req), IFLA_MASTER, br_ifindex);
++		msg_size += RTA_LENGTH(4);
++	}
++
++	/*we'll keep around filter_dev for older kernels */
+ 	if (filter_dev) {
+ 		filter_index = if_nametoindex(filter_dev);
+ 		if (filter_index == 0) {
+@@ -180,9 +207,10 @@ static int fdb_show(int argc, char **argv)
+ 				filter_dev);
+ 			return -1;
+ 		}
++		req.ifm.ifi_index = filter_index;
+ 	}
+ 
+-	if (rtnl_wilddump_request(&rth, PF_BRIDGE, RTM_GETNEIGH) < 0) {
++	if (rtnl_dump_request(&rth, RTM_GETNEIGH, &req.ifm, msg_size) < 0) {
+ 		perror("Cannot send dump request");
+ 		exit(1);
+ 	}
 -- 
 1.7.9.5
