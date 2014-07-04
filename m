@@ -1,153 +1,176 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH V2 1/1] net: can: Remodel FlexCAN register read/write
- APIs for BE instances
-Date: Fri, 04 Jul 2014 15:53:16 +0200
-Message-ID: <53B6B1CC.5080702@pengutronix.de>
-References: <1404478881-21853-1-git-send-email-bhupesh.sharma@freescale.com> <53B6AEF4.6080301@pengutronix.de> <f1a24210440e496381238a53d9a23db7@BN1PR03MB220.namprd03.prod.outlook.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: [PATCH net-next v2 1/3] net: sctp: Inline the functions from
+ command.c
+Date: Fri, 4 Jul 2014 14:35:51 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1726CA65@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="JA7B9lOLici4a86j3aKP0oeLFibew2FEp"
-Cc: "wg@grandegger.com" <wg@grandegger.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "bhupesh.sharma@freescale.com" <bhupesh.sharma@freescale.com>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <f1a24210440e496381238a53d9a23db7@BN1PR03MB220.namprd03.prod.outlook.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "David S. Miller" <davem@davemloft.net>
+To: Network Development <netdev@vger.kernel.org>,
+	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:58021 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1754121AbaGDOhF convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jul 2014 10:37:05 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 21573-08 for <netdev@vger.kernel.org>;
+ Fri,  4 Jul 2014 15:36:56 +0100 (BST)
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---JA7B9lOLici4a86j3aKP0oeLFibew2FEp
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+sctp_init_cmd_seq() and sctp_next_cmd() are only called from one place.
+The call sequence for sctp_add_cmd_sf() is likely to be longer than
+the inlined code. 
+With sctp_add_cmd_sf() inlined the compiler can optimise repeated calls.
 
-On 07/04/2014 03:47 PM, bhupesh.sharma@freescale.com wrote:
-> Hi Marc,
->=20
-> Thanks for your review.
->=20
->> -----Original Message-----
->> From: Marc Kleine-Budde [mailto:mkl@pengutronix.de]
->> Sent: Friday, July 04, 2014 7:11 PM
->> To: Sharma Bhupesh-B45370; linux-can@vger.kernel.org
->> Cc: wg@grandegger.com; netdev@vger.kernel.org
->> Subject: Re: [PATCH V2 1/1] net: can: Remodel FlexCAN register read/wr=
-ite
->> APIs for BE instances
->>
->> On 07/04/2014 03:01 PM, Bhupesh Sharma wrote:
->>> The FlexCAN IP on certain SoCs like (Freescale's LS1021A) is modelled=
+Signed-off-by: David Laight <david.laight@aculab.com>
+---
 
->>> in a big-endian fashion, i.e. the registers and the message buffers
->>> are organized in a BE way.
->>>
->>> More details about the LS1021A SoC can be seen here:
->>> http://www.freescale.com/webapp/sps/site/prod_summary.jsp?code=3DLS10=
-21A
->>> &nodeId=3D018rH325E4017B#
->>>
->>> This patch ensures that the register read/write APIs are remodelled t=
-o
->>> address such cases, while ensuring that existing platforms (where the=
+Changes for v2: None
 
->>> FlexCAN IP was modelled in LE way) do not break.
->>>
->>> Tested on LS1021A-QDS board.
->>>
->>> Signed-off-by: Bhupesh Sharma <bhupesh.sharma@freescale.com>
->>> ---
->>> Changes since v1:
->>> - Addressed Marc's review comments.
->>> - Also tried on ARM big-endian kernel
->>>
->>> Rebased against v3.16-rc2
->>
->> Please use net-next or linux-can-next, but I think this makes no
->> difference here.
->>
->>>  drivers/net/can/flexcan.c |  192
->>> +++++++++++++++++++++++++++------------------
->>>  1 file changed, 114 insertions(+), 78 deletions(-)
->>
->> I'm missing the DT documentation update.
->=20
-> Yes. I just wanted to get some early comments on this.
->=20
->> [...]
->>
->> 		of_property_read_u32(pdev->dev.of_node,
->>> @@ -1149,6 +1166,25 @@ static int flexcan_probe(struct platform_devic=
-e
->> *pdev)
->>>  	dev->flags |=3D IFF_ECHO;
->>>
->>>  	priv =3D netdev_priv(dev);
->>> +
->>> +	if (IS_ENABLED(CONFIG_CPU_BIG_ENDIAN))
->>> +		core_is_little =3D false;
->>> +
->>> +	if (of_property_read_bool(dev->dev.of_node, "big-endian"))
->>> +		module_is_little =3D false;
->>> +
->>> +	if ((core_is_little && module_is_little) ||
->>> +	    (!core_is_little && !module_is_little)) {
->>
->> I think this is broken on PPC, where both core and module are BE. Plea=
-se
->> assume native endianess an default, if neither big-endian nor little-
->> endian is present.
->=20
-> On PPC platforms (which are BE) the IP is essentially LE (I verified th=
-is on P1010 RDB).
->=20
-> If both are BE, then we need no swap operations, right? Or am I missing=
- something.
+ include/net/sctp/command.h | 27 +++++++++++++++---
+ net/sctp/Makefile          |  2 +-
+ net/sctp/command.c         | 68 ----------------------------------------------
+ 3 files changed, 24 insertions(+), 73 deletions(-)
+ delete mode 100644 net/sctp/command.c
 
-Have a look at the existing code:
-
-> /*
->  * Abstract off the read/write for arm versus ppc. This
->  * assumes that PPC uses big-endian registers and everything
->  * else uses little-endian registers, independent of CPU
->  * endianess.
->  */
-> #if defined(CONFIG_PPC)
-> static inline u32 flexcan_read(void __iomem *addr)
-> {
-> 	return in_be32(addr);
-> }
->=20
-> static inline void flexcan_write(u32 val, void __iomem *addr)
-> {
-> 	out_be32(addr, val);
-> }
-> #else
-
-I think in_be32() does the same regarding to endianess as ioread32be()
-
-Marc
-
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---JA7B9lOLici4a86j3aKP0oeLFibew2FEp
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
-
-iEYEARECAAYFAlO2scwACgkQjTAFq1RaXHN3xQCcCoCaQSfJH8YnOXbSKgG3UYhR
-BKMAnjI9K9GFE7Q+v4xWS1aO/uJRAzk3
-=kRSc
------END PGP SIGNATURE-----
-
---JA7B9lOLici4a86j3aKP0oeLFibew2FEp--
+diff --git a/include/net/sctp/command.h b/include/net/sctp/command.h
+index 6547ab7..020eb95 100644
+--- a/include/net/sctp/command.h
++++ b/include/net/sctp/command.h
+@@ -210,19 +210,38 @@ typedef struct {
+ /* Initialize a block of memory as a command sequence.
+  * Return 0 if the initialization fails.
+  */
+-int sctp_init_cmd_seq(sctp_cmd_seq_t *seq);
++static inline int sctp_init_cmd_seq(sctp_cmd_seq_t *seq)
++{
++	memset(seq, 0, sizeof(sctp_cmd_seq_t));
++	return 1;		/* We always succeed.  */
++}
++
+ 
+ /* Add a command to an sctp_cmd_seq_t.
+  *
+  * Use the SCTP_* constructors defined by SCTP_ARG_CONSTRUCTOR() above
+  * to wrap data which goes in the obj argument.
+  */
+-void sctp_add_cmd_sf(sctp_cmd_seq_t *seq, sctp_verb_t verb, sctp_arg_t obj);
++static inline void sctp_add_cmd_sf(sctp_cmd_seq_t *seq, sctp_verb_t verb,
++				   sctp_arg_t obj)
++{
++	BUG_ON(seq->next_free_slot >= SCTP_MAX_NUM_COMMANDS);
++
++	seq->cmds[seq->next_free_slot].verb = verb;
++	seq->cmds[seq->next_free_slot++].obj = obj;
++}
+ 
+ /* Return the next command structure in an sctp_cmd_seq.
+  * Return NULL at the end of the sequence.
+  */
+-sctp_cmd_t *sctp_next_cmd(sctp_cmd_seq_t *seq);
++static inline sctp_cmd_t *sctp_next_cmd(sctp_cmd_seq_t *seq)
++{
++	sctp_cmd_t *retval = NULL;
+ 
+-#endif /* __net_sctp_command_h__ */
++	if (seq->next_cmd < seq->next_free_slot)
++		retval = &seq->cmds[seq->next_cmd++];
++
++	return retval;
++}
+ 
++#endif /* __net_sctp_command_h__ */
+diff --git a/net/sctp/Makefile b/net/sctp/Makefile
+index 5c30b7a..3b4ffb0 100644
+--- a/net/sctp/Makefile
++++ b/net/sctp/Makefile
+@@ -8,7 +8,7 @@ obj-$(CONFIG_NET_SCTPPROBE) += sctp_probe.o
+ sctp-y := sm_statetable.o sm_statefuns.o sm_sideeffect.o \
+ 	  protocol.o endpointola.o associola.o \
+ 	  transport.o chunk.o sm_make_chunk.o ulpevent.o \
+-	  inqueue.o outqueue.o ulpqueue.o command.o \
++	  inqueue.o outqueue.o ulpqueue.o \
+ 	  tsnmap.o bind_addr.o socket.o primitive.o \
+ 	  output.o input.o debug.o ssnmap.o auth.o
+ 
+diff --git a/net/sctp/command.c b/net/sctp/command.c
+deleted file mode 100644
+index dd73758..0000000
+--- a/net/sctp/command.c
++++ /dev/null
+@@ -1,68 +0,0 @@
+-/* SCTP kernel implementation Copyright (C) 1999-2001
+- * Cisco, Motorola, and IBM
+- * Copyright 2001 La Monte H.P. Yarroll
+- *
+- * This file is part of the SCTP kernel implementation
+- *
+- * These functions manipulate sctp command sequences.
+- *
+- * This SCTP implementation is free software;
+- * you can redistribute it and/or modify it under the terms of
+- * the GNU General Public License as published by
+- * the Free Software Foundation; either version 2, or (at your option)
+- * any later version.
+- *
+- * This SCTP implementation is distributed in the hope that it
+- * will be useful, but WITHOUT ANY WARRANTY; without even the implied
+- *                 ************************
+- * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+- * See the GNU General Public License for more details.
+- *
+- * You should have received a copy of the GNU General Public License
+- * along with GNU CC; see the file COPYING.  If not, see
+- * <http://www.gnu.org/licenses/>.
+- *
+- * Please send any bug reports or fixes you make to the
+- * email address(es):
+- *    lksctp developers <linux-sctp@vger.kernel.org>
+- *
+- * Written or modified by:
+- *    La Monte H.P. Yarroll <piggy@acm.org>
+- *    Karl Knutson <karl@athena.chicago.il.us>
+- */
+-
+-#include <linux/types.h>
+-#include <net/sctp/sctp.h>
+-#include <net/sctp/sm.h>
+-
+-/* Initialize a block of memory as a command sequence. */
+-int sctp_init_cmd_seq(sctp_cmd_seq_t *seq)
+-{
+-	memset(seq, 0, sizeof(sctp_cmd_seq_t));
+-	return 1;		/* We always succeed.  */
+-}
+-
+-/* Add a command to a sctp_cmd_seq_t.
+- * Return 0 if the command sequence is full.
+- */
+-void sctp_add_cmd_sf(sctp_cmd_seq_t *seq, sctp_verb_t verb, sctp_arg_t obj)
+-{
+-	BUG_ON(seq->next_free_slot >= SCTP_MAX_NUM_COMMANDS);
+-
+-	seq->cmds[seq->next_free_slot].verb = verb;
+-	seq->cmds[seq->next_free_slot++].obj = obj;
+-}
+-
+-/* Return the next command structure in a sctp_cmd_seq.
+- * Returns NULL at the end of the sequence.
+- */
+-sctp_cmd_t *sctp_next_cmd(sctp_cmd_seq_t *seq)
+-{
+-	sctp_cmd_t *retval = NULL;
+-
+-	if (seq->next_cmd < seq->next_free_slot)
+-		retval = &seq->cmds[seq->next_cmd++];
+-
+-	return retval;
+-}
+-
+-- 
+1.8.1.2
