@@ -1,53 +1,70 @@
-From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Subject: Re: [PATCH 2/3] ARM: mvebu: Add support for the network controller
- in Armada 375 SoC
-Date: Fri, 4 Jul 2014 16:06:47 -0300
-Message-ID: <20140704190647.GA29955@arch.cereza>
-References: <1404498697-21978-1-git-send-email-ezequiel.garcia@free-electrons.com>
- <1404498697-21978-3-git-send-email-ezequiel.garcia@free-electrons.com>
- <53B6F796.3090004@cogentembedded.com>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: RSS is not efficient when forwarding (ixgbe)
+Date: Fri, 4 Jul 2014 16:36:44 -0300
+Message-ID: <20140704193644.GB2343@t520.home>
+References: <20140703224408.GA2343@t520.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Marcin Wojtas <mw@semihalf.com>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Tawfik Bayouk <tawfik@marvell.com>,
-	Lior Amsalem <alior@marvell.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jacob Keller <jacob.e.keller@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:60224 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752421AbaGDTHn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jul 2014 15:07:43 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:51489 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752602AbaGDTgr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Jul 2014 15:36:47 -0400
 Content-Disposition: inline
-In-Reply-To: <53B6F796.3090004@cogentembedded.com>
+In-Reply-To: <20140703224408.GA2343@t520.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04 Jul 10:51 PM, Sergei Shtylyov wrote:
-> >+			/* Network controller */
-> >+			pp2@f0000 {
-> >+				compatible =3D "marvell,armada-375-pp2";
-> >+				reg =3D <0xf0000 0xa000>, /* Packet Processor regs */
-> >+				      <0xc0000 0x3060>, /* LMS regs */
-> >+				      <0xc4000 0x100>,  /* eth0 regs */
-> >+				      <0xc5000 0x100>;  /* eth1 regs */
->=20
->    Hm, why are the above two ranges not listed under the "ethernet" s=
-ubnodes?
->=20
+On Thu, Jul 03, 2014 at 07:44:08PM -0300, Flavio Leitner wrote:
+> 
+> Hi,
+> 
+> I have a simple router setup which forwards traffic from
+> one ixgbe 82599ES to another ixgbe of the same model.
+> 
+> kernel: 3.16.0-rc2-00262-ga921e2a
+> 
+>   p2p1: 192.168.155.1/24 is the gateway of the LAN
+>   p2p2: 192.168.156.1/24 is the gateway of the other LAN
+> 
+> While the ARP is resolving, I can see the packets being spread
+> among all the 8 queues (8 online CPUs) available and that is fine.
+> 
+> However, as soon as the TCP traffic starts, all streams are
+> merged to rx-queue-0 which overwhelms one single CPU, so the
+> total throughput is about 4Gbits/sec.
+> 
+> I can see the driver sending different skb->hash for each stream,
+> so it can't be the NIC.
+> 
+> Also, if I run a local http on the router, the skb->hash pattern
+> doesn't change, but the workload is spread among all CPUs.
+> 
+> debug output while reproducing all the streams on rx-queue-0:
+> [...]
+> [11685.885093] ixgbe_rx_skb:1713 skb(ffff880222a77200) hash: 0xC2AF4A27
+> [11685.891454] ixgbe_rx_skb:1713 skb(ffff880222a77200) hash: 0x8C5B749D
+> [11685.897820] ixgbe_rx_skb:1713 skb(ffff880222a77200) hash: 0xA33BA6D5
+> [11690.845032] net_ratelimit: 3276406 callbacks suppressed
+> [...]
 
-Because as far as I know, if we want to put reg =3D <...> properties in=
- a sub-node,
-then the parent node has to be a bus, but that's not the case.
+The command 'ehtool -S p2p1 | grep rx_queue' shows only rx queue #0
+receiving packets.  Also, /proc/interrupts shows only p2p1-TxRx-0
+generating interrupts.
 
-I can't remember where have I read that, I'll take a look at the refere=
-nce.
---=20
-Ezequiel Garc=EDa, Free Electrons
-Embedded Linux, Kernel and Android Engineering
-http://free-electrons.com
+Nothing changes when I start irqbalance in the middle of the test.
+However, if I create new streams, they are correctly distributed
+among the NIC queues/irqs/CPUs.
+
+I have tried the same setup and test with another card (bnx2, 1GbE)
+and all queues got traffic by default though they were all assigned
+to CPU#0 (no irqbalance), so this is expected and makes me think
+this is specific to the ixgbe driver.
+
+Any ideas?
+
+Thanks,
+fbl
