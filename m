@@ -1,40 +1,52 @@
-From: Wang Weidong <wangweidong1@huawei.com>
-Subject: [PATCH net-next] appletalk: fix a coccinella warning in net/appletalk/ddp.c
-Date: Fri, 4 Jul 2014 15:29:48 +0800
-Message-ID: <53B657EC.6060105@huawei.com>
+From: Will Deacon <will.deacon@arm.com>
+Subject: Re: [PATCH RFC] arm64: eBPF JIT compiler
+Date: Fri, 4 Jul 2014 09:07:51 +0100
+Message-ID: <20140704080751.GA23379@arm.com>
+References: <1404278424-31176-1-git-send-email-zlim.lnx@gmail.com>
+ <20140703091450.GB12958@arm.com>
+ <CABg9mcuCQHXacgq-C7A=G5GH_p7b0TxCYB8A9qXvGJSoSbjs5A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: <acme@ghostprotocols.net>, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:2568 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753249AbaGDH37 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jul 2014 03:29:59 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Catalin Marinas <Catalin.Marinas@arm.com>,
+ Chema Gonzalez <chema@google.com>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ Daniel Borkmann <dborkman@redhat.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "David S. Miller" <davem@davemloft.net>,
+ "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>,
+ Alexei Starovoitov <ast@plumgrid.com>
+To: Z Lim <zlim.lnx@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <CABg9mcuCQHXacgq-C7A=G5GH_p7b0TxCYB8A9qXvGJSoSbjs5A@mail.gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-This warning is introduced by commit 7b30600cc6 ("appletalk:
-fix checkpatch error with indent"), So fix it.
+On Fri, Jul 04, 2014 at 07:56:54AM +0100, Z Lim wrote:
+> On Thu, Jul 3, 2014 at 2:14 AM, Will Deacon <will.deacon@arm.com> wrote:
+> > Does this sound remotely feasible?
+> 
+> So I looked at insn.c and the only overlap at this point is B/BL codegen.
+> A whole lot more, e.g. arithmetic, logical, and memory ops, will need
+> to be shuffled in.
 
-Signed-off-by: Wang Weidong <wangweidong1@huawei.com>
----
- net/appletalk/ddp.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Yup, the more the merrier. I just want to avoid having N subtley different
+encoders/decoders, as this stuff tends to be hard to review and easy to make
+small mistakes.
 
-diff --git a/net/appletalk/ddp.c b/net/appletalk/ddp.c
-index 01a1082..8ceabc0 100644
---- a/net/appletalk/ddp.c
-+++ b/net/appletalk/ddp.c
-@@ -1808,7 +1808,7 @@ static int atalk_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
- 		long amount = 0;
- 
- 		if (skb)
--		amount = skb->len - sizeof(struct ddpehdr);
-+			amount = skb->len - sizeof(struct ddpehdr);
- 		rc = put_user(amount, (int __user *)argp);
- 		break;
- 	}
--- 
-1.7.12
+> Let me address Alexei's review comments and send out a v2.
+> After that, I can take a stab at consolidating bpf_jit.h into
+> insn.{c,h}. Sounds good to you?
+
+Perfect.
+
+Will
