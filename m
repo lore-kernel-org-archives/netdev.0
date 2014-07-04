@@ -1,49 +1,57 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: e1000e (82579LM) management mode under KVM/QEMU
-Date: Fri, 4 Jul 2014 09:37:26 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1726C745@AcuExch.aculab.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Network Development <netdev@vger.kernel.org>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [net-next-2.6 PATCH v6 0/2] bridge: fdb dumping takes a filter device
+Date: Fri,  4 Jul 2014 07:57:59 -0400
+Message-ID: <1404475081-8611-1-git-send-email-jhs@emojatatu.com>
+Cc: netdev@vger.kernel.org, vyasevic@redhat.com,
+	sfeldma@cumulusnetworks.com, john.r.fastabend@intel.com,
+	roopa@cumulusnetworks.com, eric.dumazet@gmail.com,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: davem@davemloft.net, stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:53595 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1756462AbaGDJij convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jul 2014 05:38:39 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 02358-01 for <netdev@vger.kernel.org>;
- Fri,  4 Jul 2014 10:38:30 +0100 (BST)
-Content-Language: en-US
+Received: from mail-ig0-f172.google.com ([209.85.213.172]:61182 "EHLO
+	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750714AbaGDL6a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jul 2014 07:58:30 -0400
+Received: by mail-ig0-f172.google.com with SMTP id hn18so8677610igb.11
+        for <netdev@vger.kernel.org>; Fri, 04 Jul 2014 04:58:29 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We are seeing some issues with an e1000e (82579LM) interface if
-the 'management mode' stuff is enabled to allow VNC+ console access.
-This is an Ivy bridge cpu, so will be a Panther point (PCH7) chipset.
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-The 82579LM interface and a second 82574L one are 'passed through'
-to a KVM/qemu VM and then bonded together.
+Changes
 
-The link is only coming up at 10M HDX (sometimes FDX) even after
-replugging the cable.
-(ping -s 60000 confirms that the reported speed is correct.)
+v6:
+Missed checkpatch > 80 chars lines found by Varka Bhadram 
 
-Forcing n-way negotiation with ethtool results in the correct
-100M/1G speed.
+v5:
+ Embarassing qlnic compile failure found by DaveM
 
-The failing system is running an ubuntu built 3.11 kernel.
-I don't see the same problem on a non-VM with 3.14(ish) kernel
-on the same motherboard.
-Running a more recent kernel on the VM is a bit tricky.
+v4:
+ Request from DaveM to use proper comment tagging and remove if-stmnt braces
 
-I can't see any obvious changes since 3.11, but the driver code
-has a lot of conditions based on the PCH (etc) type.
-I'm not sure whether the VM kernel is using the correct functions.
-I can't see any trace that indicates which host controller the
-e1000e driver thinks the device is connected to.
+V3:
+ Suggestion from Eric D. to use for_each_netdev
+ Suggestion from Stephen H. to reduce level of indentation
 
-Any hints on how to determine what is actually going on?
+V2:
+Suggestions from Vlad
+ Get rid of rcu read lock since rtnl_lock is being held
+ simplify for readability
 
-	David
+
+Jamal Hadi Salim (2):
+  bridge: fdb dumping takes a filter device
+  bridge: netlink dump interface at par with brctl
+
+ drivers/net/ethernet/intel/i40e/i40e_main.c      |    3 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    7 +-
+ include/linux/netdevice.h                        |    1 +
+ include/linux/rtnetlink.h                        |    1 +
+ net/bridge/br_fdb.c                              |   14 ++++
+ net/bridge/br_private.h                          |    2 +-
+ net/core/rtnetlink.c                             |   75 +++++++++++++++++-----
+ 7 files changed, 83 insertions(+), 20 deletions(-)
+
+-- 
+1.7.9.5
