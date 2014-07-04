@@ -1,116 +1,77 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH V2 1/1] net: can: Remodel FlexCAN register read/write
- APIs for BE instances
-Date: Fri, 04 Jul 2014 15:41:08 +0200
-Message-ID: <53B6AEF4.6080301@pengutronix.de>
+From: "bhupesh.sharma@freescale.com" <bhupesh.sharma@freescale.com>
+Subject: RE: [PATCH V2 1/1] net: can: Remodel FlexCAN register read/write APIs
+ for BE instances
+Date: Fri, 4 Jul 2014 13:47:59 +0000
+Message-ID: <f1a24210440e496381238a53d9a23db7@BN1PR03MB220.namprd03.prod.outlook.com>
 References: <1404478881-21853-1-git-send-email-bhupesh.sharma@freescale.com>
+ <53B6AEF4.6080301@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="fT0H515w4SlkG0r1t2K2DKp6Pn1f9vv6a"
-Cc: wg@grandegger.com, netdev@vger.kernel.org
-To: Bhupesh Sharma <bhupesh.sharma@freescale.com>,
-	linux-can@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1404478881-21853-1-git-send-email-bhupesh.sharma@freescale.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "wg@grandegger.com" <wg@grandegger.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Marc Kleine-Budde <mkl@pengutronix.de>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-by2lp0244.outbound.protection.outlook.com ([207.46.163.244]:22136
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753285AbaGDNsH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 4 Jul 2014 09:48:07 -0400
+In-Reply-To: <53B6AEF4.6080301@pengutronix.de>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---fT0H515w4SlkG0r1t2K2DKp6Pn1f9vv6a
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-
-On 07/04/2014 03:01 PM, Bhupesh Sharma wrote:
-> The FlexCAN IP on certain SoCs like (Freescale's LS1021A) is
-> modelled in a big-endian fashion, i.e. the registers and the
-> message buffers are organized in a BE way.
->=20
-> More details about the LS1021A SoC can be seen here:
-> http://www.freescale.com/webapp/sps/site/prod_summary.jsp?code=3DLS1021=
-A&nodeId=3D018rH325E4017B#
->=20
-> This patch ensures that the register read/write APIs are remodelled
-> to address such cases, while ensuring that existing platforms (where
-> the FlexCAN IP was modelled in LE way) do not break.
->=20
-> Tested on LS1021A-QDS board.
->=20
-> Signed-off-by: Bhupesh Sharma <bhupesh.sharma@freescale.com>
-> ---
-> Changes since v1:
-> - Addressed Marc's review comments.
-> - Also tried on ARM big-endian kernel
->=20
-> Rebased against v3.16-rc2
-
-Please use net-next or linux-can-next, but I think this makes no
-difference here.
-
->  drivers/net/can/flexcan.c |  192 +++++++++++++++++++++++++++----------=
---------
->  1 file changed, 114 insertions(+), 78 deletions(-)
-
-I'm missing the DT documentation update.
-
-[...]
-
-		of_property_read_u32(pdev->dev.of_node,
-> @@ -1149,6 +1166,25 @@ static int flexcan_probe(struct platform_device =
-*pdev)
->  	dev->flags |=3D IFF_ECHO;
-> =20
->  	priv =3D netdev_priv(dev);
-> +
-> +	if (IS_ENABLED(CONFIG_CPU_BIG_ENDIAN))
-> +		core_is_little =3D false;
-> +
-> +	if (of_property_read_bool(dev->dev.of_node, "big-endian"))
-> +		module_is_little =3D false;
-> +
-> +	if ((core_is_little && module_is_little) ||
-> +	    (!core_is_little && !module_is_little)) {
-
-I think this is broken on PPC, where both core and module are BE. Please
-assume native endianess an default, if neither big-endian nor
-little-endian is present.
-
-> +		priv->read =3D flexcan_read_le;
-> +		priv->write =3D flexcan_write_le;
-> +	}
-> +
-> +	if ((!core_is_little && module_is_little) ||
-> +	    (core_is_little && !module_is_little)) {
-> +		priv->read =3D flexcan_read_be;
-> +		priv->write =3D flexcan_write_be;
-> +	}
-> +
->  	priv->can.clock.freq =3D clock_freq;
->  	priv->can.bittiming_const =3D &flexcan_bittiming_const;
->  	priv->can.do_set_mode =3D flexcan_set_mode;
->=20
-
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---fT0H515w4SlkG0r1t2K2DKp6Pn1f9vv6a
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
-
-iEYEARECAAYFAlO2rvQACgkQjTAFq1RaXHOC6QCfdPxxfuNFrMJHl6xsYN2+ECYw
-GGAAniJvSgiutiGsUBRrCFtbXpsE9+TO
-=VWgF
------END PGP SIGNATURE-----
-
---fT0H515w4SlkG0r1t2K2DKp6Pn1f9vv6a--
+SGkgTWFyYywNCg0KVGhhbmtzIGZvciB5b3VyIHJldmlldy4NCg0KPiAtLS0tLU9yaWdpbmFsIE1l
+c3NhZ2UtLS0tLQ0KPiBGcm9tOiBNYXJjIEtsZWluZS1CdWRkZSBbbWFpbHRvOm1rbEBwZW5ndXRy
+b25peC5kZV0NCj4gU2VudDogRnJpZGF5LCBKdWx5IDA0LCAyMDE0IDc6MTEgUE0NCj4gVG86IFNo
+YXJtYSBCaHVwZXNoLUI0NTM3MDsgbGludXgtY2FuQHZnZXIua2VybmVsLm9yZw0KPiBDYzogd2dA
+Z3JhbmRlZ2dlci5jb207IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNCj4gU3ViamVjdDogUmU6IFtQ
+QVRDSCBWMiAxLzFdIG5ldDogY2FuOiBSZW1vZGVsIEZsZXhDQU4gcmVnaXN0ZXIgcmVhZC93cml0
+ZQ0KPiBBUElzIGZvciBCRSBpbnN0YW5jZXMNCj4gDQo+IE9uIDA3LzA0LzIwMTQgMDM6MDEgUE0s
+IEJodXBlc2ggU2hhcm1hIHdyb3RlOg0KPiA+IFRoZSBGbGV4Q0FOIElQIG9uIGNlcnRhaW4gU29D
+cyBsaWtlIChGcmVlc2NhbGUncyBMUzEwMjFBKSBpcyBtb2RlbGxlZA0KPiA+IGluIGEgYmlnLWVu
+ZGlhbiBmYXNoaW9uLCBpLmUuIHRoZSByZWdpc3RlcnMgYW5kIHRoZSBtZXNzYWdlIGJ1ZmZlcnMN
+Cj4gPiBhcmUgb3JnYW5pemVkIGluIGEgQkUgd2F5Lg0KPiA+DQo+ID4gTW9yZSBkZXRhaWxzIGFi
+b3V0IHRoZSBMUzEwMjFBIFNvQyBjYW4gYmUgc2VlbiBoZXJlOg0KPiA+IGh0dHA6Ly93d3cuZnJl
+ZXNjYWxlLmNvbS93ZWJhcHAvc3BzL3NpdGUvcHJvZF9zdW1tYXJ5LmpzcD9jb2RlPUxTMTAyMUEN
+Cj4gPiAmbm9kZUlkPTAxOHJIMzI1RTQwMTdCIw0KPiA+DQo+ID4gVGhpcyBwYXRjaCBlbnN1cmVz
+IHRoYXQgdGhlIHJlZ2lzdGVyIHJlYWQvd3JpdGUgQVBJcyBhcmUgcmVtb2RlbGxlZCB0bw0KPiA+
+IGFkZHJlc3Mgc3VjaCBjYXNlcywgd2hpbGUgZW5zdXJpbmcgdGhhdCBleGlzdGluZyBwbGF0Zm9y
+bXMgKHdoZXJlIHRoZQ0KPiA+IEZsZXhDQU4gSVAgd2FzIG1vZGVsbGVkIGluIExFIHdheSkgZG8g
+bm90IGJyZWFrLg0KPiA+DQo+ID4gVGVzdGVkIG9uIExTMTAyMUEtUURTIGJvYXJkLg0KPiA+DQo+
+ID4gU2lnbmVkLW9mZi1ieTogQmh1cGVzaCBTaGFybWEgPGJodXBlc2guc2hhcm1hQGZyZWVzY2Fs
+ZS5jb20+DQo+ID4gLS0tDQo+ID4gQ2hhbmdlcyBzaW5jZSB2MToNCj4gPiAtIEFkZHJlc3NlZCBN
+YXJjJ3MgcmV2aWV3IGNvbW1lbnRzLg0KPiA+IC0gQWxzbyB0cmllZCBvbiBBUk0gYmlnLWVuZGlh
+biBrZXJuZWwNCj4gPg0KPiA+IFJlYmFzZWQgYWdhaW5zdCB2My4xNi1yYzINCj4gDQo+IFBsZWFz
+ZSB1c2UgbmV0LW5leHQgb3IgbGludXgtY2FuLW5leHQsIGJ1dCBJIHRoaW5rIHRoaXMgbWFrZXMg
+bm8NCj4gZGlmZmVyZW5jZSBoZXJlLg0KPiANCj4gPiAgZHJpdmVycy9uZXQvY2FuL2ZsZXhjYW4u
+YyB8ICAxOTINCj4gPiArKysrKysrKysrKysrKysrKysrKysrKysrKystLS0tLS0tLS0tLS0tLS0t
+LS0NCj4gPiAgMSBmaWxlIGNoYW5nZWQsIDExNCBpbnNlcnRpb25zKCspLCA3OCBkZWxldGlvbnMo
+LSkNCj4gDQo+IEknbSBtaXNzaW5nIHRoZSBEVCBkb2N1bWVudGF0aW9uIHVwZGF0ZS4NCg0KWWVz
+LiBJIGp1c3Qgd2FudGVkIHRvIGdldCBzb21lIGVhcmx5IGNvbW1lbnRzIG9uIHRoaXMuDQoNCj4g
+Wy4uLl0NCj4gDQo+IAkJb2ZfcHJvcGVydHlfcmVhZF91MzIocGRldi0+ZGV2Lm9mX25vZGUsDQo+
+ID4gQEAgLTExNDksNiArMTE2NiwyNSBAQCBzdGF0aWMgaW50IGZsZXhjYW5fcHJvYmUoc3RydWN0
+IHBsYXRmb3JtX2RldmljZQ0KPiAqcGRldikNCj4gPiAgCWRldi0+ZmxhZ3MgfD0gSUZGX0VDSE87
+DQo+ID4NCj4gPiAgCXByaXYgPSBuZXRkZXZfcHJpdihkZXYpOw0KPiA+ICsNCj4gPiArCWlmIChJ
+U19FTkFCTEVEKENPTkZJR19DUFVfQklHX0VORElBTikpDQo+ID4gKwkJY29yZV9pc19saXR0bGUg
+PSBmYWxzZTsNCj4gPiArDQo+ID4gKwlpZiAob2ZfcHJvcGVydHlfcmVhZF9ib29sKGRldi0+ZGV2
+Lm9mX25vZGUsICJiaWctZW5kaWFuIikpDQo+ID4gKwkJbW9kdWxlX2lzX2xpdHRsZSA9IGZhbHNl
+Ow0KPiA+ICsNCj4gPiArCWlmICgoY29yZV9pc19saXR0bGUgJiYgbW9kdWxlX2lzX2xpdHRsZSkg
+fHwNCj4gPiArCSAgICAoIWNvcmVfaXNfbGl0dGxlICYmICFtb2R1bGVfaXNfbGl0dGxlKSkgew0K
+PiANCj4gSSB0aGluayB0aGlzIGlzIGJyb2tlbiBvbiBQUEMsIHdoZXJlIGJvdGggY29yZSBhbmQg
+bW9kdWxlIGFyZSBCRS4gUGxlYXNlDQo+IGFzc3VtZSBuYXRpdmUgZW5kaWFuZXNzIGFuIGRlZmF1
+bHQsIGlmIG5laXRoZXIgYmlnLWVuZGlhbiBub3IgbGl0dGxlLQ0KPiBlbmRpYW4gaXMgcHJlc2Vu
+dC4NCg0KT24gUFBDIHBsYXRmb3JtcyAod2hpY2ggYXJlIEJFKSB0aGUgSVAgaXMgZXNzZW50aWFs
+bHkgTEUgKEkgdmVyaWZpZWQgdGhpcyBvbiBQMTAxMCBSREIpLg0KDQpJZiBib3RoIGFyZSBCRSwg
+dGhlbiB3ZSBuZWVkIG5vIHN3YXAgb3BlcmF0aW9ucywgcmlnaHQ/IE9yIGFtIEkgbWlzc2luZyBz
+b21ldGhpbmcuDQoNCj4gDQo+ID4gKwkJcHJpdi0+cmVhZCA9IGZsZXhjYW5fcmVhZF9sZTsNCj4g
+PiArCQlwcml2LT53cml0ZSA9IGZsZXhjYW5fd3JpdGVfbGU7DQo+ID4gKwl9DQo+ID4gKw0KPiA+
+ICsJaWYgKCghY29yZV9pc19saXR0bGUgJiYgbW9kdWxlX2lzX2xpdHRsZSkgfHwNCj4gPiArCSAg
+ICAoY29yZV9pc19saXR0bGUgJiYgIW1vZHVsZV9pc19saXR0bGUpKSB7DQo+ID4gKwkJcHJpdi0+
+cmVhZCA9IGZsZXhjYW5fcmVhZF9iZTsNCj4gPiArCQlwcml2LT53cml0ZSA9IGZsZXhjYW5fd3Jp
+dGVfYmU7DQo+ID4gKwl9DQo+ID4gKw0KPiA+ICAJcHJpdi0+Y2FuLmNsb2NrLmZyZXEgPSBjbG9j
+a19mcmVxOw0KPiA+ICAJcHJpdi0+Y2FuLmJpdHRpbWluZ19jb25zdCA9ICZmbGV4Y2FuX2JpdHRp
+bWluZ19jb25zdDsNCj4gPiAgCXByaXYtPmNhbi5kb19zZXRfbW9kZSA9IGZsZXhjYW5fc2V0X21v
+ZGU7DQo+ID4NCj4gDQoNCg0KUmVnYXJkcywNCkJodXBlc2gNCg==
