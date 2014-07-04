@@ -1,212 +1,210 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [PATCH net-next V2 0/2] send process status in SCM_PROCINFO
-Date: Fri, 4 Jul 2014 08:15:24 -0700
-Message-ID: <CALCETrVfuvJGH0umKEXHKDkey3XTdXVepfqgOaPjpjy70xOJAA@mail.gmail.com>
-References: <1403787354-15177-1-git-send-email-p.wilczek@samsung.com>
- <001101cf9684$10c4dbe0$324e93a0$%wilczek@samsung.com> <CALCETrW0Fib+dMb7LWjsyd+hJ9KUYzf0kFjeekWi596aQD+V1Q@mail.gmail.com>
- <3535310.6TMK657dAA@amdc1032>
+From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+Subject: Re: [PATCH RFC net-next 03/14] bpf: introduce syscall(BPF, ...) and
+ BPF maps
+Date: Fri, 4 Jul 2014 08:17:25 -0700
+Message-ID: <CALCETrWQnQS=jjuhQzxM9YMhGk-fJ1oNetdPuZ0v4yujBLZ+fA@mail.gmail.com>
+References: <1403913966-4927-1-git-send-email-ast@plumgrid.com>
+ <1403913966-4927-4-git-send-email-ast@plumgrid.com> <CALCETrV3WLBmHewCZgfhCkjODWfq_byRg6sF7HpqZ6n9BVMBVQ@mail.gmail.com>
+ <CAMEtUuzWs+MbSOGGD-Rc01DHKASa4GxbHdtCrSCLit4cUM35mA@mail.gmail.com>
+ <CALCETrWy6=dzTycy-ckiMR92+nQeqAWp_Hw=hi__VSzVWZ43Ag@mail.gmail.com>
+ <CAMEtUuwRf--qyPu3rKB7-57KAu2NdsQdEpVRckqabmf61g+h-g@mail.gmail.com>
+ <CALCETrUoOTtQ1R1A8Ak35fxHxaFTPHWP6oZWnXDVLKa_ESziWw@mail.gmail.com>
+ <CAMEtUuzS=9Y_ZjigofvQ5d3=89RS=+d8-WGPk9VVSMc3qawWsw@mail.gmail.com>
+ <CALCETrWq+=Q3G2Smjd2RYES42UagpmD0EKxFM+jNufi6_qitWg@mail.gmail.com>
+ <CAMEtUuyKY=haqP11VgXHdfHBkqfB-KxuswygUd7hDPLkOFz9HQ@mail.gmail.com>
+ <CALCETrW3=idHOKF56d94suiA0NoiUGwr7pENm13q6=1XMbBPdw@mail.gmail.com>
+ <CAMEtUuyX-tybpMEW=f-00qgq9h3AcHovLNW0_bak3oT4Oj3FuA@mail.gmail.com>
+ <CALCETrWpA5M74pKJLFJ0t-2hi2TXMi_BV6DbJMmdDOJyOoHOyg@mail.gmail.com>
+ <CAMEtUuzHrzyUG1nie5cWzGZYTDTnqL7vPvAmPZdie_uSM_wqRA@mail.gmail.com>
+ <CALCETrW5WitpzcFmkGDwR6U=qOwCkOfQMy=XOtQTuHs-942Drw@mail.gmail.com> <CAMEtUuzkVANM341xPTKH1bNVNuK6TQcyqsdZdkGWausLT5Qj6A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: Piotr Wilczek <p.wilczek@samsung.com>,
-	David Miller <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	Kyungmin Park <kyungmin.park@samsung.com>,
-	juho80.son@samsung.com, jkaluza@redhat.com
-To: Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f47.google.com ([209.85.215.47]:48601 "EHLO
-	mail-la0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751554AbaGDPPq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jul 2014 11:15:46 -0400
-Received: by mail-la0-f47.google.com with SMTP id s18so1258169lam.20
-        for <netdev@vger.kernel.org>; Fri, 04 Jul 2014 08:15:44 -0700 (PDT)
-In-Reply-To: <3535310.6TMK657dAA@amdc1032>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAMEtUuzkVANM341xPTKH1bNVNuK6TQcyqsdZdkGWausLT5Qj6A-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 4, 2014 at 6:26 AM, Bartlomiej Zolnierkiewicz
-<b.zolnierkie@samsung.com> wrote:
->
-> Hi,
->
-> On Thursday, July 03, 2014 09:14:56 AM Andy Lutomirski wrote:
->> On Wed, Jul 2, 2014 at 11:00 PM, Piotr Wilczek <p.wilczek@samsung.com> wrote:
->> >
->> >
->> >> -----Original Message-----
->> >> From: Andy Lutomirski [mailto:luto@amacapital.net]
->> >> Sent: Wednesday, July 02, 2014 1:52 AM
->> >> To: David Miller
->> >> Cc: Piotr Wilczek; Network Development; Kyungmin Park;
->> >> juho80.son@samsung.com; Bartlomiej Zolnierkiewicz; jkaluza@redhat.com
->> >> Subject: Re: [PATCH net-next V2 0/2] send process status in
->> >> SCM_PROCINFO
->> >>
->> >> On Tue, Jul 1, 2014 at 4:31 PM, David Miller <davem@davemloft.net>
->> >> wrote:
->> >> > From: Piotr Wilczek <p.wilczek@samsung.com>
->> >> > Date: Thu, 26 Jun 2014 14:55:52 +0200
->> >> >
->> >> >> Server-like processes in many cases need credentials and other
->> >> >> metadata of the peer, to decide if the calling process is allowed to
->> >> >> request a specific action, or the server just wants to log away this
->> >> >> type of information for auditing tasks.
->> >> >>
->> >> >> The current practice to retrieve such process metadata is to look
->> >> >> that information up in procfs with the $PID received over
->> >> SCM_CREDENTIALS.
->> >> >> This is sufficient for long-running tasks, but introduces a race
->> >> >> which cannot be worked around for short-living processes; the
->> >> calling
->> >> >> process and all the information in /proc/$PID/ is gone before the
->> >> >> receiver of the socket message can look it up.
->> >> >>
->> >> >> Changes introduced in this patchset can also increase performance of
->> >> >> such server-like processes, because current way of opening and
->> >> >> parsing /proc/$PID/* files is much more expensive than receiving
->> >> >> these metadata using SCM.
->> >> >>
->> >> >> As an example, this patch set improves systemd-journald performance
->> >> >> by about 20%. Generally, performance improvement depends on how
->> >> >> heavily procfs is read the calling process.
->> >> >> http://comments.gmane.org/gmane.comp.sysutils.systemd.devel/19467
->> >> >>
->> >> >> This patch set is split in two patches:
->> >> >> - the first adds library to retrive process information without
->> >> >> dependency on procfs.
->> >> >> - the second introduces a new SCM type called SCM_PROCINFO to
->> >> >> optionally allow the direct attaching of process status to SCM.
->> >> >
->> >> > I really would like someone smarter than me to review the security
->> >> > implications et al. of these changes before I apply them.
->> >> >
->> >> > Andy?  Maybe you have an opinion?
->> >> >
->> >>
->> >> The degree to which I dislike this depends on what "procinfo" is.
->> >>
->> >> From the patch, it looks like procinfo includes cmdline.  In which
->> >> case, NAK in almost the strongest possible terms.  (If it includes
->> >> userspace addresses, then I'll upgrade that to the strongest possible
->> >> terms.)  This is a giant information leak.  Imagine what happens when a
->> >> privileged program gets one of these things as stdout.  Keep in mind
->> >> that procfs has an option to hide pids that belong to other users.
->> >>
->> >> Even if procinfo were made relatively innocuous, this is just an
->> >> extension of a bad interface.  If you all really want a way to
->> >> efficiently pass kernel-verified information through a unix socket,
->> >> then add something reasonable.  This means:
->> >>
->> >> 1. It needs to be opt-in, *per send*.  After all of the vulnerabilities
->> >> that have happened due to write(2) capturing unexpected credentials of
->> >> the caller, there's just no excuse for adding new examples of this.
->> >> Yes, this will prevent you from getting a magic speed-up with legacy
->> >> clients, but I've spent long enough battling this sh*t from a security
->> >> and correctness POV to care.  Fix the clients.
->> >>
->> >> 2. It should be easily extensible, because people keep wanting to add
->> >> new things here.
->> >>
->> >> Here's a proposal for how it could work:
->> >>
->> >> Senders can send SCM_VERIFIED_INFO.  The payload is a list of (type,
->> >> flags, value) where type is the type of verified information and value
->> >> is what the sender wants to send.
->> >>
->> >> Flags can include SCMVI_FLAG_MANDATORY: failure to send this attribute
->> >> returns -EPERM.
->> >> SCMVI_FLAG_AUTO: value must be blank; the kernel will fill it in.
->> >> Any other flags: -EINVAL.
->> >>
->> >> This could be in CMSG format or in nlattr format.  Or it could be one
->> >> cmsg per value (which might be easier).
->> >>
->> >> Receivers can set SO_PASS_VERIFIED_INFO.  If so, then they'll receive
->> >> all of the sent values that have recognized types and pass
->> >> verification.
->> >>
->> >> For stream sockets, presumably the sender would send an
->> >> scm_verified_info using setsockopt and the receiver would grab it using
->> >> getsockopt.
->> >>
->> >> Types could include:
->> >>
->> >> SCMVI_UID
->> >> SCMVI_GID
->> >> SCMVI_PID (racy, but still better than SCM_CREDENTIALS) SCMVI_LOGONUID
->> >> (but only if CONFIG_AUDITSYSCALL, and someone needs to figure out wtf
->> >> its semantics are and *document* it before I'd ack such a thing)
->> >> SCMVI_CGROUP (sigh) SCMVI_AUDIT_SESSIONID (because sessionid is an
->> >> awful name) etc.
->> >>
->> >> I *might* get around to implementing this, but don't expect anything
->> >> soon -- my current kernel hacking bandwidth is well-occupied by
->> >> seccomp.  But I'd be happy to review.
->> >>
->> >> --Andy
->> >
->> > In this patch the kernel sends information about the sender. In your proposal, the sender sends the information and the kernel maybe completes the missing data. Could you please explain why your solution is secure? Is the source or the range of information sent the security problem?
->> >
+On Wed, Jul 2, 2014 at 7:29 PM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> w=
+rote:
+> On Wed, Jul 2, 2014 at 6:43 PM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>=
+ wrote:
+>> On Tue, Jul 1, 2014 at 10:33 PM, Alexei Starovoitov <ast-uqk4Ao+rVK7QFizaE/u3fw@public.gmane.org=
+m> wrote:
+>>> I want to avoid string names, since they will force new 'strtab', '=
+symtab'
+>>> sections in the programs/maps and will uglify the user interface qu=
+ite a bit.
 >>
->> The problem is neither; it's the sending of information that's
->> unexpected by the sender that's a problem.  Here are two concrete
->> issues:
+>> To be fair, you really need to imitate ELF here.  A very simple
+>> relocation-like table should do the trick.
+>
+> simple.. right :) I do see the amount of struggle you have with
+> binutils and vdso.
+> I really don't want to add relocation unless this is last resort.
+> Especially since it can be solved without it.
+> I don't think I explained it enough in my last email=E2=80=A6 trying =
+again:
+>
+>>> Back in september one loadable unit was: one eBPF program + set of =
+maps,
+>>> but tracing requirements forced a change, since multiple programs n=
+eed
+>>> to access the same map and maps may need to be pre-populated before
+>>> the programs start executing, so I've split maps and programs into =
+mostly
+>>> independent entities, but programs still need to think of maps as l=
+ocal:
+>>> For example I want to do a skb leak check 'tracing filter':
+>>> - attach this program to kretprobe of __alloc_skb():
+>>>   u64 key =3D (u64) skb;
+>>>   u64 value =3D bpf_get_time();
+>>>   bpf_update_map_elem(1/*const_map_id*/, &key, &value);
+>>> - attach this program to consume_skb and kfree_skb tracepoints:
+>>>   u64 key =3D (u64) skb;
+>>>   bpf_delete_map_elem(1/*const_map_id*/, &key);
+>>> - and have user space do:
+>>>   prior to loading:
+>>>   bpf_create_map(1/*map_id*/, 8/*key_size*/, 8/*value*/, 1M /*max_e=
+ntries*/)
+>>>   and then periodically iterate the map to see whether any skb stay=
+ed
+>>>   in the map for too long.
+>>>
+>>> Programs need to be written with hard coded map_ids otherwise usabi=
+lity
+>>> suffers, so I did global 32-bit id in this RFC
+>>>, but this indeed doesn't work
 >>
->> 1. Information leaks.  Currently, sending on a UNIX socket reveals
->> your uid, gid, and pid.  I would argue that that is already a mistake,
->> but it's well-enshrined in the API.  But imagine if sending on a UNIX
->> socket suddenly started revealing, say, a few bytes of sender memory
->> -- this would have huge security implications.  This code doesn't do
->> that, but it's not clear to me that revealing cmdline or random bits
->> of process status is much better.
+>> Really?  That will mean that you have to edit the source of your
+>> filter program if the small integer map number you chose conflicts
+>> with another program.  That sounds unpleasant.
 >
-> The current patch doesn't reveal any new information about process that
-> is currently not revealed by procfs already by default and if necessary
-> we can add a procfs (or sysfs) entry for disabling SCM_PROCINFO feature
-> completely.
-
-Ugh.  We should cautious by default, not the other way around.  Also,
-if you add a sysctl like that, it'll be worthless because I'm sure
-it'll break systemd in a year.
-
+> unpleasant. exactly. that's why I'm proposing per-process local map-i=
+d,
+> so that programs don't need to be edited.
 >
->> 2. Inadvertent assertions of authority.  In Unix (and most, but not
->> all, other OSes), for better or for worse, many APIs implicitly use
->> the caller's credentials.  For the most part, these are
->> well-understood, and the caller intends to use the credential.  For
->> example, open(2) is expected to use euid/egid (or fsuid/fsgid) to
->> check access.  bind(2) checks capabilities to determine whether
->> binding low-numbered ports is okay.  write(2) *does not check* the
->> caller's authority.  (Except for SCM_CREDENTIALS, which I would argue
->> is a mistake.)  Because everyone knows that write(2) does not use the
->> caller's authority in a potentially dangerous way, no one takes any
->> precautions against it.  For example, basically every setuid program
->> on anyone's system will happily write untrusted data to stdout or
->> stderr.
+>>> for unprivileged chrome browser unless programs are previously load=
+ed
+>>> by root and chrome only does attach to seccomp.
+>>>
+>>> So here is the non-root bpf syscall interface I'm thinking about:
+>>>
+>>> ufd =3D bpf_create_map(map_id, key_size, value_size, max_entries);
+>>>
+>>> it will create a global map in the system which will be accessible
+>>> in this process via 'ufd'. Internally this 'ufd' will be assigned g=
+lobal map_id
+>>> and process-local map_id that was passed as a 1st argument.
+>>> To do update/lookup the process will use bpf_map_xxx_elem(ufd,=E2=80=
+=A6)
+>>>
 >>
->> The problem here is that there have been multiple vulnerabilities that
->> result from the kernel assuming that a program that calls write(2)
->> actually *intends* to use its authority.  For example, at one point,
->> writes to /proc/PID/uid_map checked capabilities at write(2) time.
->> That was a root hole.  There are probably real root holes due to the
->> same effect on UNIX datagram sockets.
+>> Erk.  Unprivileged programs shouldn't be able to allocate global ids
+>> of their choosing, especially if privileged programs can also do it.
+>> Otherwise unprivileged programs can force a collision and possibly
+>> steal information.
 >
-> From what I understand about the current patch it doesn't change
-> anything from the application POV and it doesn't cause write(2) to
-> send any additional information (all SCM_PROCINFO data on socket
-> read comes from kernel).
-
-This one isn't about revealing information.  It's about the recipient
-trusting that information.
-
+> of course. that's not what said.
 >
->> If senders have to explicitly ask to use credentials, then this type
->> of attack can't happen.
+>>> Then to load eBPF program the process will do:
+>>> ufd =3D bpf_prog_load(prog_type, ebpf_insn_array, license)
+>>> and instructions will be referring to maps via local map_id that
+>>> was hard coded as part of the program.
+>>
+>> I think relocations would be must prettier than per-process map id t=
+ables.
 >
-> Could you also please be more specific and tell what kind of attacks
-> exactly is made possible by the current patch?
+> I think per process map_id are much cleaner.
+>
+> non-root API:
+>
+> ufd =3D bpf_create_map(local_map_id,=E2=80=A6 )
+> bpf_map_update/delete/lookup_elem(ufd,=E2=80=A6)
+> ufd =3D bpf_prog_load(insns)
+> close(ufd)
+>
+> root only API:
+>
+> global_id =3D bpf_get_id(ufd) // returns either map or prog global id
+> bpf_map_delete(global_map_id)
+> bpf_prog_unload(global_prog_id)
+>
+> Details:
+>
+> ufd =3D bpf_create_map(local_map_id, ...);
+>
+> local_map_id - process local map_id
+> (this id is used to access maps from eBPF program loaded by this proc=
+ess)
+>
+> ufd - process local file descriptor
+> (used to update/lookup maps from this process)
+>
+> global_map_id =3D bpf_get_id(ufd)
+> this is root only call to get global_ids and pass them to global even=
+ts
+> like tracing.
+>
+> global ids will only be seen by root. There is no way for root or non=
+-root
+> to influence id ranges.
+>
+>>> Beyond the normal create_map, update/lookup/delete, load_prog
+>>> operations (that are accessible to both root and non-root), the roo=
+t user
+>>> gains one more operations: bpf_get_global_id(ufd) that returns
+>>> global map_id or prog_id. This id can be attached to global events
+>>> like tracing. Non-root users lose ability to do delete_map and
+>>> unload_prog (they do close(ufd) instead), so this ops are for root
+>>> only and operate on global ids.
+>>> This is the cleanest way I could think of to combine non-root
+>>> security, per-process id and global id all in one API. Thoughts?
+>>
+>> I think I'm okay with this part, although an interface to get a map =
+fd
+>> given some reference to the program (in sysfs) that uses it would al=
+so
+>> work and maybe be more straightforward.
+>
+> If you meant debugfs, then yes. I'm planning to add a way for root
+> to see all loaded programs and maps (similar to /proc as lsmod does),
+> and then do bpf_map_delete/bpf_prog_unload (similar to rmmod)
+>
+> setsockopt and seccomp will be non-root and programs will go
+> through additional dont_leak_pointers check in verifier.
+> tracing/dtrace will be for root only, since they would need to attach
+> to global events.
+>
+> I think it will be cleaner once I finish fd conversion as a patch.
 
-CVE-2013-1959 and CVE-2014-0181 were both examples of this type of attack.
+OK
+
+=46WIW, per-process local id maps sound almost equivalent to relocation=
+s
+-- the latter could be as simple as an extra nlattr giving a list of
+pairs of (per-eBPF-program id, fd).
+
+My current binutils mess is mainly just because I'm trying to do
+something weird with an old, old file format that needs to support
+lots of legacy tools.  You won't have that problem.
 
 --Andy
