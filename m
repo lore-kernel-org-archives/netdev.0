@@ -1,80 +1,43 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: RSS is not efficient when forwarding (ixgbe)
-Date: Sat, 5 Jul 2014 09:09:34 -0700
-Message-ID: <CA+mtBx-dY2eoDzL-1K8F8Br224H+c4fzVtVPu9JmnjLdQKuAOg@mail.gmail.com>
-References: <20140703224408.GA2343@t520.home>
-	<20140704193644.GB2343@t520.home>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] defxx: Fix issues with debug printk calls
+Date: Sat, 05 Jul 2014 09:44:00 -0700
+Message-ID: <1404578640.6384.49.camel@joe-AO725>
+References: <alpine.LFD.2.11.1407051520310.15455@eddie.linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: Linux Netdev List <netdev@vger.kernel.org>,
-	Jacob Keller <jacob.e.keller@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: "Maciej W. Rozycki" <macro@linux-mips.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f182.google.com ([209.85.213.182]:54125 "EHLO
-	mail-ig0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751685AbaGEQJf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jul 2014 12:09:35 -0400
-Received: by mail-ig0-f182.google.com with SMTP id l13so3088761iga.3
-        for <netdev@vger.kernel.org>; Sat, 05 Jul 2014 09:09:34 -0700 (PDT)
-In-Reply-To: <20140704193644.GB2343@t520.home>
+Received: from smtprelay0109.hostedemail.com ([216.40.44.109]:42719 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751314AbaGEQoE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jul 2014 12:44:04 -0400
+In-Reply-To: <alpine.LFD.2.11.1407051520310.15455@eddie.linux-mips.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 4, 2014 at 12:36 PM, Flavio Leitner <fbl@redhat.com> wrote:
-> On Thu, Jul 03, 2014 at 07:44:08PM -0300, Flavio Leitner wrote:
->>
->> Hi,
->>
->> I have a simple router setup which forwards traffic from
->> one ixgbe 82599ES to another ixgbe of the same model.
->>
->> kernel: 3.16.0-rc2-00262-ga921e2a
->>
->>   p2p1: 192.168.155.1/24 is the gateway of the LAN
->>   p2p2: 192.168.156.1/24 is the gateway of the other LAN
->>
->> While the ARP is resolving, I can see the packets being spread
->> among all the 8 queues (8 online CPUs) available and that is fine.
->>
->> However, as soon as the TCP traffic starts, all streams are
->> merged to rx-queue-0 which overwhelms one single CPU, so the
->> total throughput is about 4Gbits/sec.
->>
->> I can see the driver sending different skb->hash for each stream,
->> so it can't be the NIC.
->>
->> Also, if I run a local http on the router, the skb->hash pattern
->> doesn't change, but the workload is spread among all CPUs.
->>
->> debug output while reproducing all the streams on rx-queue-0:
->> [...]
->> [11685.885093] ixgbe_rx_skb:1713 skb(ffff880222a77200) hash: 0xC2AF4A27
->> [11685.891454] ixgbe_rx_skb:1713 skb(ffff880222a77200) hash: 0x8C5B749D
->> [11685.897820] ixgbe_rx_skb:1713 skb(ffff880222a77200) hash: 0xA33BA6D5
->> [11690.845032] net_ratelimit: 3276406 callbacks suppressed
->> [...]
->
-> The command 'ehtool -S p2p1 | grep rx_queue' shows only rx queue #0
-> receiving packets.  Also, /proc/interrupts shows only p2p1-TxRx-0
-> generating interrupts.
->
-> Nothing changes when I start irqbalance in the middle of the test.
-> However, if I create new streams, they are correctly distributed
-> among the NIC queues/irqs/CPUs.
->
-Could this be interaction with flow director? Is the application
-running on just one CPU?
+On Sat, 2014-07-05 at 15:28 +0100, Maciej W. Rozycki wrote:
+[]
+> +++ linux-20140623-swarm64-eb/drivers/net/fddi/defxx.h
+> @@ -1693,7 +1693,7 @@ typedef union
+>  /* Only execute special print call when debug driver was built */
+>  
+>  #ifdef DEFXX_DEBUG
+> -#define DBG_printk(args...) printk(## args)
+> +#define DBG_printk(args...) printk(args)
+>  #else
+>  #define DBG_printk(args...)
+>  #endif
 
-> I have tried the same setup and test with another card (bnx2, 1GbE)
-> and all queues got traffic by default though they were all assigned
-> to CPU#0 (no irqbalance), so this is expected and makes me think
-> this is specific to the ixgbe driver.
->
-> Any ideas?
->
-> Thanks,
-> fbl
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+It'd be nicer to change this bit to
+
+#ifdef DEFXX_DEBUG
+#define DBG_printk(fmt, ...)					\
+	printk(KERN_DEBUG fmt, ##__VA_ARGS__)
+#else
+#define DBG_printk(fmt, ...) 					\
+	do (if (0) printk(KERN_DEBUG fmt, ##__VA_ARGS__); } while (0)
+#endif
+
+or just use pr_debug everywhere instead.
