@@ -1,36 +1,73 @@
-From: "Maciej W. Rozycki" <macro@linux-mips.org>
-Subject: Re: [PATCH v2] declance: Fix 64-bit compilation warnings
-Date: Sat, 5 Jul 2014 18:39:49 +0100 (BST)
-Message-ID: <alpine.LFD.2.11.1407051833400.15455@eddie.linux-mips.org>
-References: <alpine.LFD.2.11.1406290246120.15455@eddie.linux-mips.org>         <20140702.182807.1245632778216212860.davem@davemloft.net>         <alpine.LFD.2.11.1407030244230.15455@eddie.linux-mips.org>         <alpine.LFD.2.11.1407030331550.15455@eddie.linux-mips.org>
-         <1404356734.14741.18.camel@joe-AO725>         <alpine.LFD.2.11.1407030423300.15455@eddie.linux-mips.org>         <1404364565.14741.26.camel@joe-AO725>         <alpine.LFD.2.11.1407030637030.15455@eddie.linux-mips.org>         <1404368746.14741.36.camel@joe-AO725>
-         <alpine.LFD.2.11.1407051529040.15455@eddie.linux-mips.org> <1404576420.6384.41.camel@joe-AO725>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Grant Likely <grant.likely@secretlab.ca>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1404576420.6384.41.camel@joe-AO725>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net 1/1] tipc: fix bug in multicast/broadcast message reassembly
+Date: Sat,  5 Jul 2014 13:44:13 -0400
+Message-ID: <1404582253-21815-1-git-send-email-jon.maloy@ericsson.com>
+Cc: netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net,
+	Jon Maloy <jon.maloy@ericsson.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp104.biz.mail.gq1.yahoo.com ([98.137.12.179]:41452 "HELO
+	smtp104.biz.mail.gq1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1755805AbaGERos (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jul 2014 13:44:48 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 5 Jul 2014, Joe Perches wrote:
+Since commit 37e22164a8a3c39bdad45aa463b1e69a1fdf4110 ("tipc: rename and
+move message reassembly function") reassembly of long broadcast messages
+has been broken. This is because we test for a non-NULL return value
+of the *buf parameter as criteria for succesful reassembly. However, this
+parameter is left defined even after reception of the first fragment,
+when reassebly is still incomplete. This leads to a kernel crash as soon
+as a the first fragment of a long broadcast message is received.
 
-> >  One question though, does either of you or anybody else know why we're 
-> > inconsistent about this 0x prefixing of virtual addresses vs physical 
-> > addresses?  Specifically %p vs e.g. %pad.
-> 
-> I think it's a mistake and I agree.
-> 
-> I submitted a patch to remove the prefix from %pad.
-> 
-> https://lkml.org/lkml/2014/3/21/333
+We fix this with this commit, by implementing a stricter behavior of the
+function and its return values.
 
- Great!  Your proposal looks good to me in principle, however you need to 
-factor in SPECIAL having been set by `#' somehow as `number' will respect 
-it.  I suggest using the same field width calculation that `pointer' uses 
-for `default_width' (sans the type used with `sizeof' of course, that is).
+This commit should be applied to both net and net-next.
 
-  Maciej
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+---
+ net/tipc/msg.c |   11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/net/tipc/msg.c b/net/tipc/msg.c
+index 8be6e94..0a37a47 100644
+--- a/net/tipc/msg.c
++++ b/net/tipc/msg.c
+@@ -101,9 +101,11 @@ int tipc_msg_build(struct tipc_msg *hdr, struct iovec const *msg_sect,
+ }
+ 
+ /* tipc_buf_append(): Append a buffer to the fragment list of another buffer
+- * Let first buffer become head buffer
+- * Returns 1 and sets *buf to headbuf if chain is complete, otherwise 0
+- * Leaves headbuf pointer at NULL if failure
++ * @*headbuf: in:  NULL for first frag, otherwise value returned from prev call
++ *            out: set when successful non-complete reassembly, otherwise NULL
++ * @*buf:     in:  the buffer to append. Always defined
++ *            out: head buf after sucessful complete reassembly, otherwise NULL
++ * Returns 1 when reassembly complete, otherwise 0
+  */
+ int tipc_buf_append(struct sk_buff **headbuf, struct sk_buff **buf)
+ {
+@@ -122,6 +124,7 @@ int tipc_buf_append(struct sk_buff **headbuf, struct sk_buff **buf)
+ 			goto out_free;
+ 		head = *headbuf = frag;
+ 		skb_frag_list_init(head);
++		*buf = NULL;
+ 		return 0;
+ 	}
+ 	if (!head)
+@@ -150,5 +153,7 @@ int tipc_buf_append(struct sk_buff **headbuf, struct sk_buff **buf)
+ out_free:
+ 	pr_warn_ratelimited("Unable to build fragment list\n");
+ 	kfree_skb(*buf);
++	kfree_skb(*headbuf);
++	*buf = *headbuf = NULL;
+ 	return 0;
+ }
+-- 
+1.7.9.5
