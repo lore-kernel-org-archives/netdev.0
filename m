@@ -1,44 +1,38 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v2] declance: Fix 64-bit compilation warnings
-Date: Sat, 05 Jul 2014 11:31:39 -0700
-Message-ID: <1404585099.6384.53.camel@joe-AO725>
-References: <alpine.LFD.2.11.1406290246120.15455@eddie.linux-mips.org>
-	 <20140702.182807.1245632778216212860.davem@davemloft.net>
-	 <alpine.LFD.2.11.1407030244230.15455@eddie.linux-mips.org>
-	 <alpine.LFD.2.11.1407030331550.15455@eddie.linux-mips.org>
-	 <1404356734.14741.18.camel@joe-AO725>
-	 <alpine.LFD.2.11.1407030423300.15455@eddie.linux-mips.org>
-	 <1404364565.14741.26.camel@joe-AO725>
-	 <alpine.LFD.2.11.1407030637030.15455@eddie.linux-mips.org>
-	 <1404368746.14741.36.camel@joe-AO725>
-	 <alpine.LFD.2.11.1407051529040.15455@eddie.linux-mips.org>
-	 <1404576420.6384.41.camel@joe-AO725>
-	 <alpine.LFD.2.11.1407051833400.15455@eddie.linux-mips.org>
-	 <1404583739.6384.51.camel@joe-AO725>
-	 <alpine.LFD.2.11.1407051917480.15455@eddie.linux-mips.org>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next repost v2 2/3] ptp: Classify ptp over ip over
+ vlan packets
+Date: Sat, 5 Jul 2014 20:58:46 +0200
+Message-ID: <20140705185846.GA3869@localhost.localdomain>
+References: <1404312104-19154-1-git-send-email-stefan.sorensen@spectralink.com>
+ <1404312104-19154-3-git-send-email-stefan.sorensen@spectralink.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Grant Likely <grant.likely@secretlab.ca>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Maciej W. Rozycki" <macro@linux-mips.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.11.1407051917480.15455@eddie.linux-mips.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, kaber@trash.net, netdev@vger.kernel.org
+To: Stefan =?iso-8859-1?Q?S=F8rensen?=
+	<stefan.sorensen@spectralink.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f173.google.com ([209.85.212.173]:62935 "EHLO
+	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754882AbaGES7K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jul 2014 14:59:10 -0400
+Received: by mail-wi0-f173.google.com with SMTP id cc10so14101423wib.12
+        for <netdev@vger.kernel.org>; Sat, 05 Jul 2014 11:59:09 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1404312104-19154-3-git-send-email-stefan.sorensen@spectralink.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2014-07-05 at 19:20 +0100, Maciej W. Rozycki wrote:
-> On Sat, 5 Jul 2014, Joe Perches wrote:
-> > I don't think %#p is valid so it
-> > shouldn't have been set by #.
-> 
->  Huh?  As recently as last Wednesday you pointed me at the specific commit 
-> from Grant that made it valid (GCC format complaints aside).
+On Wed, Jul 02, 2014 at 04:41:43PM +0200, Stefan S=F8rensen wrote:
+> This extends the ptp bpf to also match ptp over ip over vlan packets.=
+ The ptp
+> classes are changed to orthogonal bitfields representing version, tra=
+nsport
+> and vlan values to simplify matching.
+>=20
+> Signed-off-by: Stefan S=F8rensen <stefan.sorensen@spectralink.com>
 
-Those gcc complaints are precisely the thing
-that makes it invalid.
+I like the simplied matching routines, and I also checked the BPF_ASM
+program. Thanks for this patch series.
 
-I believe you're tilting at windmills.
-
-Hey, it works sometimes.  Knock yourself out.
+Acked-by: Richard Cochran <richardcochran@gmail.com>
