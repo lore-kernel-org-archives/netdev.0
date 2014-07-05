@@ -1,231 +1,250 @@
-From: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Subject: [PATCH] farsync: fix invalid memory accesses in fst_add_one() and fst_init_card()
-Date: Sat,  5 Jul 2014 03:35:50 +0400
-Message-ID: <1404516950-17900-1-git-send-email-khoroshilov@ispras.ru>
-Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
-To: Kevin Curtis <kevin.curtis@farsite.co.uk>,
-	"David S . Miller" <davem@davemloft.net>
+From: Asias He <asias.hejun@gmail.com>
+Subject: [RFC V2 0/7] Introduce VM Sockets virtio transport
+Date: Sat,  5 Jul 2014 11:23:09 +0800
+Message-ID: <cover.1404529115.git.asias.hejun@gmail.com>
+To: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.ispras.ru ([83.149.199.45]:52121 "EHLO mail.ispras.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753689AbaGDXgC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 4 Jul 2014 19:36:02 -0400
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:65386 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753964AbaGEDXr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 4 Jul 2014 23:23:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are several issues in fst_add_one() and fst_init_card():
-- invalid pointer dereference at card->ports[card->nports - 1] if
-  register_hdlc_device() fails for the first port in fst_init_card();
-- fst_card_array overflow at fst_card_array[no_of_cards_added]
-  because there is no checks for array overflow;
-- use after free because pointer to deallocated card is left in fst_card_array
-  if something fails after fst_card_array[no_of_cards_added] = card;
-- several leaks on failure paths in fst_add_one().
+Hello guys,
 
-The patch fixes all the issues and makes code more readable.
+This was V2 of the virtio-vsock back in last October. I do not have time to
+work on it since then. People are asking the latest status of virtio-vsock from
+time to time, so I'm sending out the code for people who are interested in.
+Feel free to grab the code and work on it if you want.
 
-Found by Linux Driver Verification project (linuxtesting.org).
 
-Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
----
- drivers/net/wan/farsync.c | 106 +++++++++++++++++++++++++---------------------
- 1 file changed, 57 insertions(+), 49 deletions(-)
 
-diff --git a/drivers/net/wan/farsync.c b/drivers/net/wan/farsync.c
-index 93ace042d0aa..ff6b659f955d 100644
---- a/drivers/net/wan/farsync.c
-+++ b/drivers/net/wan/farsync.c
-@@ -2363,7 +2363,7 @@ static char *type_strings[] = {
- 	"FarSync TE1"
- };
- 
--static void
-+static int
- fst_init_card(struct fst_card_info *card)
- {
- 	int i;
-@@ -2374,24 +2374,25 @@ fst_init_card(struct fst_card_info *card)
- 	 * we'll have to revise it in some way then.
- 	 */
- 	for (i = 0; i < card->nports; i++) {
--                err = register_hdlc_device(card->ports[i].dev);
--                if (err < 0) {
-+		err = register_hdlc_device(card->ports[i].dev);
-+		if (err < 0) {
- 			int j;
- 			pr_err("Cannot register HDLC device for port %d (errno %d)\n",
--			       i, -err);
-+				i, -err);
- 			for (j = i; j < card->nports; j++) {
- 				free_netdev(card->ports[j].dev);
- 				card->ports[j].dev = NULL;
- 			}
--                        card->nports = i;
--                        break;
--                }
-+			card->nports = i;
-+			return (card->nports == 0) ? err : 0;
-+		}
- 	}
- 
- 	pr_info("%s-%s: %s IRQ%d, %d ports\n",
- 		port_to_dev(&card->ports[0])->name,
- 		port_to_dev(&card->ports[card->nports - 1])->name,
- 		type_strings[card->type], card->irq, card->nports);
-+	return 0;
- }
- 
- static const struct net_device_ops fst_ops = {
-@@ -2447,15 +2448,12 @@ fst_add_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	/* Try to enable the device */
- 	if ((err = pci_enable_device(pdev)) != 0) {
- 		pr_err("Failed to enable card. Err %d\n", -err);
--		kfree(card);
--		return err;
-+		goto enable_fail;
- 	}
- 
- 	if ((err = pci_request_regions(pdev, "FarSync")) !=0) {
- 		pr_err("Failed to allocate regions. Err %d\n", -err);
--		pci_disable_device(pdev);
--		kfree(card);
--	        return err;
-+		goto regions_fail;
- 	}
- 
- 	/* Get virtual addresses of memory regions */
-@@ -2464,30 +2462,21 @@ fst_add_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	card->phys_ctlmem = pci_resource_start(pdev, 3);
- 	if ((card->mem = ioremap(card->phys_mem, FST_MEMSIZE)) == NULL) {
- 		pr_err("Physical memory remap failed\n");
--		pci_release_regions(pdev);
--		pci_disable_device(pdev);
--		kfree(card);
--		return -ENODEV;
-+		err = -ENODEV;
-+		goto ioremap_physmem_fail;
- 	}
- 	if ((card->ctlmem = ioremap(card->phys_ctlmem, 0x10)) == NULL) {
- 		pr_err("Control memory remap failed\n");
--		pci_release_regions(pdev);
--		pci_disable_device(pdev);
--		iounmap(card->mem);
--		kfree(card);
--		return -ENODEV;
-+		err = -ENODEV;
-+		goto ioremap_ctlmem_fail;
- 	}
- 	dbg(DBG_PCI, "kernel mem %p, ctlmem %p\n", card->mem, card->ctlmem);
- 
- 	/* Register the interrupt handler */
- 	if (request_irq(pdev->irq, fst_intr, IRQF_SHARED, FST_DEV_NAME, card)) {
- 		pr_err("Unable to register interrupt %d\n", card->irq);
--		pci_release_regions(pdev);
--		pci_disable_device(pdev);
--		iounmap(card->ctlmem);
--		iounmap(card->mem);
--		kfree(card);
--		return -ENODEV;
-+		err = -ENODEV;
-+		goto irq_fail;
- 	}
- 
- 	/* Record info we need */
-@@ -2513,13 +2502,8 @@ fst_add_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 			while (i--)
- 				free_netdev(card->ports[i].dev);
- 			pr_err("FarSync: out of memory\n");
--                        free_irq(card->irq, card);
--                        pci_release_regions(pdev);
--                        pci_disable_device(pdev);
--                        iounmap(card->ctlmem);
--                        iounmap(card->mem);
--                        kfree(card);
--                        return -ENODEV;
-+			err = -ENOMEM;
-+			goto hdlcdev_fail;
- 		}
- 		card->ports[i].dev    = dev;
-                 card->ports[i].card   = card;
-@@ -2565,9 +2549,16 @@ fst_add_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	pci_set_drvdata(pdev, card);
- 
- 	/* Remainder of card setup */
-+	if (no_of_cards_added >= FST_MAX_CARDS) {
-+		pr_err("FarSync: too many cards\n");
-+		err = -ENOMEM;
-+		goto card_array_fail;
-+	}
- 	fst_card_array[no_of_cards_added] = card;
- 	card->card_no = no_of_cards_added++;	/* Record instance and bump it */
--	fst_init_card(card);
-+	err = fst_init_card(card);
-+	if (err)
-+		goto init_card_fail;
- 	if (card->family == FST_FAMILY_TXU) {
- 		/*
- 		 * Allocate a dma buffer for transmit and receives
-@@ -2577,29 +2568,46 @@ fst_add_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 					 &card->rx_dma_handle_card);
- 		if (card->rx_dma_handle_host == NULL) {
- 			pr_err("Could not allocate rx dma buffer\n");
--			fst_disable_intr(card);
--			pci_release_regions(pdev);
--			pci_disable_device(pdev);
--			iounmap(card->ctlmem);
--			iounmap(card->mem);
--			kfree(card);
--			return -ENOMEM;
-+			err = -ENOMEM;
-+			goto rx_dma_fail;
- 		}
- 		card->tx_dma_handle_host =
- 		    pci_alloc_consistent(card->device, FST_MAX_MTU,
- 					 &card->tx_dma_handle_card);
- 		if (card->tx_dma_handle_host == NULL) {
- 			pr_err("Could not allocate tx dma buffer\n");
--			fst_disable_intr(card);
--			pci_release_regions(pdev);
--			pci_disable_device(pdev);
--			iounmap(card->ctlmem);
--			iounmap(card->mem);
--			kfree(card);
--			return -ENOMEM;
-+			err = -ENOMEM;
-+			goto tx_dma_fail;
- 		}
- 	}
- 	return 0;		/* Success */
-+
-+tx_dma_fail:
-+	pci_free_consistent(card->device, FST_MAX_MTU,
-+			    card->rx_dma_handle_host,
-+			    card->rx_dma_handle_card);
-+rx_dma_fail:
-+	fst_disable_intr(card);
-+	for (i = 0 ; i < card->nports ; i++)
-+		unregister_hdlc_device(card->ports[i].dev);
-+init_card_fail:
-+	fst_card_array[card->card_no] = NULL;
-+card_array_fail:
-+	for (i = 0 ; i < card->nports ; i++)
-+		free_netdev(card->ports[i].dev);
-+hdlcdev_fail:
-+	free_irq(card->irq, card);
-+irq_fail:
-+	iounmap(card->ctlmem);
-+ioremap_ctlmem_fail:
-+	iounmap(card->mem);
-+ioremap_physmem_fail:
-+	pci_release_regions(pdev);
-+regions_fail:
-+	pci_disable_device(pdev);
-+enable_fail:
-+	kfree(card);
-+	return err;
- }
- 
- /*
+
+In commit d021c344051af91 (VSOCK: Introduce VM Sockets), VMware added VM
+Sockets support. VM Sockets allows communication between virtual
+machines and the hypervisor. VM Sockets is able to use different
+hyervisor neutral transport to transfer data. Currently, only VMware
+VMCI transport is supported.
+
+This series introduces virtio transport for VM Sockets.
+
+Changes since v1:
+
+- DGRAM fgramentation
+- DGRAM credit support
+- SYN cookie support
+- 32 bit tx_cnt, fwd_cnt and buf_alloc
+- 3-way instead of 4-way connection creation
+- various bug fixes
+
+Code:
+=========================
+1) kernel bits
+   git://github.com/asias/linux.git vsock
+
+2) userspace bits:
+   git://github.com/asias/linux-kvm.git vsock
+
+Howto:
+=========================
+Make sure you have these kernel options:
+
+  CONFIG_VSOCKETS=y
+  CONFIG_VIRTIO_VSOCKETS=y
+  CONFIG_VIRTIO_VSOCKETS_COMMON=y
+  CONFIG_VHOST_VSOCK=m
+
+$ git clone git://github.com/asias/linux-kvm.git
+$ cd linux-kvm/tools/kvm
+$ co -b vsock origin/vsock
+$ make
+$ modprobe vhost_vsock
+$ ./lkvm run -d os.img -k bzImage --vsock guest_cid
+
+Test:
+=========================
+I hacked busybox's http server and wget to run over vsock. Start http
+server in host and guest, download a 512MB file in guest and host
+simultaneously for 6000 times. Manged to run the http stress test.
+
+Also, I wrote a small libvsock.so to play the LD_PRELOAD trick and
+managed to make sshd and ssh work over virito-vsock without modifying
+the source code.
+
+Draft VM Sockets Virtio Device spec:
+=========================
+Appendix K: VM Sockets Device
+
+The virtio VM sockets device is a virtio transport device for VM Sockets. VM
+Sockets allows communication between virtual machines and the hypervisor.
+
+Configuration:
+
+Subsystem Device ID 13
+
+Virtqueues:
+    0:controlq; 1:receiveq0; 2:transmitq0 ... 2N+1:receivqN; 2N+2:transmitqN
+
+Feature bits:
+    Currently, no feature bits are defined.
+
+Device configuration layout:
+
+Two configuration fields are currently defined.
+
+   struct virtio_vsock_config {
+           __le32 guest_cid;
+           __le32 max_virtqueue_pairs;
+
+   };
+
+The guest_cid field specifies the guest context id which likes the guest IP
+address. The max_virtqueue_pairs field specifies the maximum number of receive
+and transmit virtqueue pairs (receiveq0 ...  receiveqN and transmitq0 ...
+transmitqN respectively; N = max_virtqueue_pairs - 1 ) that can be configured.
+The driver is free to use only one virtqueue pairs, or it can use more to
+achieve better performance.
+
+Device Initialization:
+The initialization routine should discover the device's virtqueues.
+
+Device Operation:
+Packets are transmitted by placing them in the transmitq0..transmitqN, and
+buffers for incoming packets are placed in the receiveq0..receiveqN. In each
+case, the packet itself is preceded by a header:
+
+   struct virtio_vsock_hdr {
+           __le32  src_cid;
+           __le32  src_port;
+           __le32  dst_cid;
+           __le32  dst_port;
+           __le32  len;
+           __le16  type;
+           __le16  op;
+           __le32  flags;
+           __le32  buf_alloc;
+           __le32  fwd_cnt;
+   };
+
+src_cid and dst_cid: specify the source and destination context id.
+
+src_port and dst_port: specify the source and destination port.
+
+len: specifies the size of the data payload, it could be zero if no data
+payload is transferred. When the payload is for SOCK_DGRAM, the upper 16 bits
+of len specifies the totoal length of the datagram, the lower 16 bits of len
+specifies the length of this pkt. When the payload is for SOCK_STREAM,
+len specifies the length of the pkt.
+
+type: specifies the type of the packet, it can be SOCK_STREAM or SOCK_DGRAM.
+
+op: specifies the operation of the packet, it is defined as follows.
+
+   enum {
+           VIRTIO_VSOCK_OP_INVALID = 0,
+           VIRTIO_VSOCK_OP_REQUEST = 1,
+           VIRTIO_VSOCK_OP_RESPONSE = 2,
+           VIRTIO_VSOCK_OP_ACK = 3,
+           VIRTIO_VSOCK_OP_RW = 4,
+           VIRTIO_VSOCK_OP_CREDIT = 5,
+           VIRTIO_VSOCK_OP_WANTCREDIT = 6,
+           VIRTIO_VSOCK_OP_RST = 7,
+           VIRTIO_VSOCK_OP_SHUTDOWN = 8,
+   };
+
+/*FIXME*/
+flags: has different meanings for differentdifferent operations. 
+
+  When op is VIRTIO_VSOCK_OP_REQUEST or VIRTIO_VSOCK_OP_RESPONSE or
+  VIRTIO_VSOCK_OP_ACK, flags specifies the cookie for connection creation.
+  
+  When op is VIRTIO_VSOCK_OP_RW, if the pkt is for SOCK_DGRAM, the upper 16 bits of flags
+  specifies dgram_id of this datagram, the lower 16 bits specifies the offset of
+  this pkt in this datagram. if the pkt is for SOCK_STREAM, flags is not defined.
+  
+  When op is VIRTIO_VSOCK_OP_CREDIT or VIRTIO_VSOCK_OP_WANTCREDIT or
+  VIRTIO_VSOCK_OP_RST, flags is not defined.
+  
+  When op is VIRTIO_VSOCK_OP_SHUTDOWN, flags specifies the shutdown mode when the
+  socket is being shutdown. 1 is for receive shutdown, 2 is for transmit
+  shutdown, 3 is for both receive and transmit shutdown.
+
+fwd_cnt: specifies the the number of bytes the receiver has forwarded to
+userspace.
+
+buf_alloc: specifies the size of the receiver's recieve buffer in bytes.
+
+Virtio VM socket connection creation:
+1) Client sends VIRTIO_VSOCK_OP_REQUEST to server
+2) Server responses with VIRTIO_VSOCK_OP_RESPONSE to client
+3) Client responses with VIRTIO_VSOCK_OP_ATTACH to server
+
+Virtio VM socket credit update:
+Virtio VM socket uses credit-based flow control. The sender maintains tx_cnt
+which counts the totoal number of bytes it has sent out, peer_fwd_cnt which
+counts the totoal number of byes the receiver has forwarded, and peer_buf_alloc
+which is the size of the receiver's receive buffer. The sender can send no more
+than the credit the receiver gives to the sender: credit = peer_buf_alloc -
+(tx_cnt - peer_fwd_cnt). The receiver can send VIRTIO_VSOCK_OP_CREDIT packet to
+tell sender its current fwd_cnt and buf_alloc value explicitly. However, as an
+optimization, the fwd_cnt and buf_alloc is always included in the packet header
+virtio_vsock_hdr.
+
+Virtio VM socket syn cookie:
+When a server receives a VIRTIO_VSOCK_OP_REQUEST pkt from client, it does not
+allocate the resouces immediately. It calculates a secret cookie and sends a
+VIRTIO_VSOCK_OP_RESPONSE pkt to client. When a client receives a
+VIRTIO_VSOCK_OP_RESPONSE pkt, it sends a VIRTIO_VSOCK_OP_ACK pkt to server.
+When the server receives the VIRTIO_VSOCK_OP_ACK pkt, it checks the cookie to
+make sure the cookie is sent by the server. If the check is passed, the
+connection is created. If the check is not passed, the pkt is dropped and no
+connection is created.
+
+Virtio VM socket SOCK_DGRAM frgamentation:
+The maximum datagram supported is 64KB. The maximum rx buffer is 4KB. If a
+datagram is larger than the maximum rx buffer, the datagram is fragmented into
+multiple small 4KB pkt.
+
+The guest driver should make the receive virtqueue as fully populated as
+possible: if it runs out, the performance will suffer.
+
+The controlq is used to control device. Currently, no control operation is
+defined.
+
+Asias He (7):
+  VSOCK: Introduce vsock_find_unbound_socket and
+    vsock_bind_dgram_generic
+  VSOCK: Add dgram_skb to vsock_sock
+  VSOCK: Introduce virtio-vsock-common.ko
+  VSOCK: Introduce virtio-vsock.ko
+  VSOCK: Introduce vhost-vsock.ko
+  VSOCK: Add Makefile and Kconfig
+  Disable debug
+
+ drivers/vhost/Kconfig                              |    4 +
+ drivers/vhost/Kconfig.vsock                        |    7 +
+ drivers/vhost/Makefile                             |    4 +
+ drivers/vhost/vsock.c                              |  572 +++++++++
+ drivers/vhost/vsock.h                              |    4 +
+ include/linux/virtio_vsock.h                       |  207 ++++
+ include/net/af_vsock.h                             |    3 +
+ include/uapi/linux/virtio_ids.h                    |    1 +
+ .../uapi/linux/{virtio_ids.h => virtio_vsock.h}    |   78 +-
+ net/vmw_vsock/Kconfig                              |   18 +
+ net/vmw_vsock/Makefile                             |    2 +
+ net/vmw_vsock/af_vsock.c                           |   71 ++
+ net/vmw_vsock/virtio_transport.c                   |  448 +++++++
+ net/vmw_vsock/virtio_transport_common.c            | 1220 ++++++++++++++++++++
+ 14 files changed, 2618 insertions(+), 21 deletions(-)
+ create mode 100644 drivers/vhost/Kconfig.vsock
+ create mode 100644 drivers/vhost/vsock.c
+ create mode 100644 drivers/vhost/vsock.h
+ create mode 100644 include/linux/virtio_vsock.h
+ copy include/uapi/linux/{virtio_ids.h => virtio_vsock.h} (50%)
+ create mode 100644 net/vmw_vsock/virtio_transport.c
+ create mode 100644 net/vmw_vsock/virtio_transport_common.c
+
 -- 
-1.9.1
+1.9.3
