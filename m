@@ -1,57 +1,36 @@
 From: "Maciej W. Rozycki" <macro@linux-mips.org>
-Subject: Re: [PATCH] defxx: Fix issues with debug printk calls
-Date: Sat, 5 Jul 2014 18:29:35 +0100 (BST)
-Message-ID: <alpine.LFD.2.11.1407051818370.15455@eddie.linux-mips.org>
-References: <alpine.LFD.2.11.1407051520310.15455@eddie.linux-mips.org> <1404578640.6384.49.camel@joe-AO725>
+Subject: Re: [PATCH v2] declance: Fix 64-bit compilation warnings
+Date: Sat, 5 Jul 2014 18:39:49 +0100 (BST)
+Message-ID: <alpine.LFD.2.11.1407051833400.15455@eddie.linux-mips.org>
+References: <alpine.LFD.2.11.1406290246120.15455@eddie.linux-mips.org>         <20140702.182807.1245632778216212860.davem@davemloft.net>         <alpine.LFD.2.11.1407030244230.15455@eddie.linux-mips.org>         <alpine.LFD.2.11.1407030331550.15455@eddie.linux-mips.org>
+         <1404356734.14741.18.camel@joe-AO725>         <alpine.LFD.2.11.1407030423300.15455@eddie.linux-mips.org>         <1404364565.14741.26.camel@joe-AO725>         <alpine.LFD.2.11.1407030637030.15455@eddie.linux-mips.org>         <1404368746.14741.36.camel@joe-AO725>
+         <alpine.LFD.2.11.1407051529040.15455@eddie.linux-mips.org> <1404576420.6384.41.camel@joe-AO725>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
+Cc: Grant Likely <grant.likely@secretlab.ca>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eddie.linux-mips.org ([78.24.191.182]:60189 "EHLO
-	cvs.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753091AbaGER3h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jul 2014 13:29:37 -0400
-Received: from localhost.localdomain ([127.0.0.1]:48647 "EHLO
-        localhost.localdomain" rhost-flags-OK-OK-OK-OK)
-        by eddie.linux-mips.org with ESMTP id S6818711AbaGER3fla0E5 (ORCPT
-        <rfc822;netdev@vger.kernel.org>); Sat, 5 Jul 2014 19:29:35 +0200
-In-Reply-To: <1404578640.6384.49.camel@joe-AO725>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1404576420.6384.41.camel@joe-AO725>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 On Sat, 5 Jul 2014, Joe Perches wrote:
 
-> > +++ linux-20140623-swarm64-eb/drivers/net/fddi/defxx.h
-> > @@ -1693,7 +1693,7 @@ typedef union
-> >  /* Only execute special print call when debug driver was built */
-> >  
-> >  #ifdef DEFXX_DEBUG
-> > -#define DBG_printk(args...) printk(## args)
-> > +#define DBG_printk(args...) printk(args)
-> >  #else
-> >  #define DBG_printk(args...)
-> >  #endif
+> >  One question though, does either of you or anybody else know why we're 
+> > inconsistent about this 0x prefixing of virtual addresses vs physical 
+> > addresses?  Specifically %p vs e.g. %pad.
 > 
-> It'd be nicer to change this bit to
+> I think it's a mistake and I agree.
 > 
-> #ifdef DEFXX_DEBUG
-> #define DBG_printk(fmt, ...)					\
-> 	printk(KERN_DEBUG fmt, ##__VA_ARGS__)
-> #else
-> #define DBG_printk(fmt, ...) 					\
-> 	do (if (0) printk(KERN_DEBUG fmt, ##__VA_ARGS__); } while (0)
-> #endif
+> I submitted a patch to remove the prefix from %pad.
 > 
-> or just use pr_debug everywhere instead.
+> https://lkml.org/lkml/2014/3/21/333
 
- I plan to overhaul this driver to use pr_* or dev_* printk interfaces 
-(depending on which of the two I'll find appropriate), but not at this 
-stage, here are only strict bug fixes and I don't want to mix bug fixes 
-with code quality improvements, so that'd have to be a separate follow-up 
-patch anyway (removing DEFXX_DEBUG at the same time as no longer needed).  
-This change is at least obviously correct.
-
- Thanks for your input.
+ Great!  Your proposal looks good to me in principle, however you need to 
+factor in SPECIAL having been set by `#' somehow as `number' will respect 
+it.  I suggest using the same field width calculation that `pointer' uses 
+for `default_width' (sans the type used with `sizeof' of course, that is).
 
   Maciej
