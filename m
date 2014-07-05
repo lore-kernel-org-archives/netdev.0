@@ -1,34 +1,70 @@
-From: Varka Bhadram <varkabhadram@gmail.com>
-Subject: Re: [RFC V2 4/7] VSOCK: Introduce virtio-vsock.ko
-Date: Sat, 05 Jul 2014 09:14:17 +0530
-Message-ID: <53B77491.6080107@gmail.com>
-References: <cover.1404529115.git.asias.hejun@gmail.com> <f546c3430cbd8b141f7b6aaf4327907909479ae2.1404529115.git.asias.hejun@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Asias He <asias.hejun@gmail.com>, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org
-Return-path: <kvm-owner@vger.kernel.org>
-In-Reply-To: <f546c3430cbd8b141f7b6aaf4327907909479ae2.1404529115.git.asias.hejun@gmail.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+Subject: [PATCH v2 net-next 0/3] Network driver for Armada 375 SoC
+Date: Sat,  5 Jul 2014 08:54:45 -0300
+Message-ID: <1404561288-11720-1-git-send-email-ezequiel.garcia@free-electrons.com>
+Cc: David Miller <davem@davemloft.net>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Marcin Wojtas <mw@semihalf.com>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Tawfik Bayouk <tawfik@marvell.com>,
+	Lior Amsalem <alior@marvell.com>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+To: <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from top.free-electrons.com ([176.31.233.9]:34463 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752156AbaGEL4F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jul 2014 07:56:05 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Changes from v1:
+  * Marcin Wojtas is the author of the driver, so I fixed authorship
+    for patch 1/3:
+    "ethernet: Add new driver for Marvell Armada 375 network unit"
 
-On Saturday 05 July 2014 08:53 AM, Asias He wrote:
-> From: Asias He <asias@redhat.com>
->
-> VM sockets virtio transport implementation. This module runs in guest
-> kernel.
->
-> Signed-off-by: Asias He <asias@redhat.com>
-> ---
->   net/vmw_vsock/virtio_transport.c | 448 +++++++++++++++++++++++++++++++++++++++
->   1 file changed, 448 insertions(+)
->   create mode 100644 net/vmw_vsock/virtio_transport.c
+This patchset adds a new network driver to support the network controller
+in Armada 375 SoC.
 
-This patch also having the coding style problems..
+The network interfaces share a common hardware unit called Packet Processor,
+which contains a common register space and per-port register spaces.
+    
+The new network unit has different RXQ and TXQ management. The ports
+associate so-called per-port "logical queues" which are mapped to "physical
+queues". The latter are shared among the ports.
+
+Fo the egress part, the mapping for each port is predefined by hardware.
+The egress path incorporates so-called aggregation queues (one per CPU),
+from where the data is passed to the physical queues and then via prefetch
+buffer to the TxDMA.
+    
+The ingress path has a Parser and Classifier (PnC) and a Buffer Manager (BM)
+whose usage is obligatory. We are only implementing a simple configuration
+for the Parser and Classifier, yet the code is considerably large.
+    
+This network unit has other optional features like xPON, WoL, Hardware
+Forwarding, and more. This initial commit doesn't provide support for these.
+    
+The mvpp2 network driver has been written by Marcin Wojtas and then reviewed
+and cleaned up by Ezequiel Garcia.
+
+Ezequiel Garcia (2):
+  ARM: mvebu: Add support for the network controller in Armada 375 SoC
+  ARM: mvebu: Enable the network controller in Armada 375 DB board
+
+Marcin Wojtas (1):
+  ethernet: Add new driver for Marvell Armada 375 network unit
+
+ .../devicetree/bindings/net/marvell-pp2.txt        |   61 +
+ arch/arm/boot/dts/armada-375-db.dts                |   26 +
+ arch/arm/boot/dts/armada-375.dtsi                  |   31 +
+ drivers/net/ethernet/marvell/Kconfig               |    8 +
+ drivers/net/ethernet/marvell/Makefile              |    1 +
+ drivers/net/ethernet/marvell/mvpp2.c               | 6378 ++++++++++++++++++++
+ 6 files changed, 6505 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/marvell-pp2.txt
+ create mode 100644 drivers/net/ethernet/marvell/mvpp2.c
 
 -- 
-Regards,
-Varka Bhadram
-
+1.9.1
