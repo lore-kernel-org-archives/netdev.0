@@ -1,40 +1,47 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next v2 1/8] net-timestamp: explicit SO_TIMESTAMPING
- ancillary data struct
-Date: Sat, 5 Jul 2014 22:18:51 +0200
-Message-ID: <20140705201851.GE3869@localhost.localdomain>
-References: <1404416380-3545-1-git-send-email-willemb@google.com>
- <1404416380-3545-2-git-send-email-willemb@google.com>
+From: "Maciej W. Rozycki" <macro@linux-mips.org>
+Subject: Re: [PATCH v2] declance: Fix 64-bit compilation warnings
+Date: Sat, 5 Jul 2014 21:25:52 +0100 (BST)
+Message-ID: <alpine.LFD.2.11.1407052103130.15455@eddie.linux-mips.org>
+References: <alpine.LFD.2.11.1406290246120.15455@eddie.linux-mips.org>         <20140702.182807.1245632778216212860.davem@davemloft.net>         <alpine.LFD.2.11.1407030244230.15455@eddie.linux-mips.org>         <alpine.LFD.2.11.1407030331550.15455@eddie.linux-mips.org>
+         <1404356734.14741.18.camel@joe-AO725>         <alpine.LFD.2.11.1407030423300.15455@eddie.linux-mips.org>         <1404364565.14741.26.camel@joe-AO725>         <alpine.LFD.2.11.1407030637030.15455@eddie.linux-mips.org>         <1404368746.14741.36.camel@joe-AO725>
+         <alpine.LFD.2.11.1407051529040.15455@eddie.linux-mips.org>         <1404576420.6384.41.camel@joe-AO725>         <alpine.LFD.2.11.1407051833400.15455@eddie.linux-mips.org>         <1404583739.6384.51.camel@joe-AO725>        
+ <alpine.LFD.2.11.1407051917480.15455@eddie.linux-mips.org> <1404585099.6384.53.camel@joe-AO725>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	eric.dumazet@gmail.com, richardcochran@gomail.com,
-	stephen@networkplumber.org
-To: Willem de Bruijn <willemb@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:58553 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932320AbaGEUTO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jul 2014 16:19:14 -0400
-Received: by mail-wi0-f177.google.com with SMTP id r20so5147925wiv.10
-        for <netdev@vger.kernel.org>; Sat, 05 Jul 2014 13:19:13 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1404416380-3545-2-git-send-email-willemb@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Grant Likely <grant.likely@secretlab.ca>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1404585099.6384.53.camel@joe-AO725>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 03, 2014 at 03:39:33PM -0400, Willem de Bruijn wrote:
+On Sat, 5 Jul 2014, Joe Perches wrote:
 
-> +#define SCM_TSTAMP_SND		0x1	/* driver passed skb to NIC */
-> +#define SCM_TSTAMP_ACK		0x2	/* transport layer saw ACK */
-> +#define SCM_TSTAMP_ENQ		0x4	/* stack passed skb to TC layer */
-> +#define SCM_TSTAMP_RCV		0x8	/* stack received skb */
-> +#define SCM_TSTAMP_HWSYS	0x10	/* NIC tstamp in system format */
+> > > I don't think %#p is valid so it
+> > > shouldn't have been set by #.
+> > 
+> >  Huh?  As recently as last Wednesday you pointed me at the specific commit 
+> > from Grant that made it valid (GCC format complaints aside).
+> 
+> Those gcc complaints are precisely the thing
+> that makes it invalid.
 
-We don't need this flag. Better to omit it, because we are not going
-to allow this kind of time stamp ever again.
+ So enforce that in code then, clear the SPECIAL flag where appropriate 
+and do not try to handle it in one place while leaving other ones to 
+behave randomly (i.e. a supposedly fixed field width varies depending on 
+the two uppermost digits).  Please note that it's only your proposed 
+change that introduces that randomness, right now code does what's 
+supposed and documented to, except a bit inconsistently.
 
-> +#define SCM_TSTAMP_HWRAW	0x20	/* NIC tstamp in native format */
+> I believe you're tilting at windmills.
+> 
+> Hey, it works sometimes.  Knock yourself out.
 
-Thanks,
-Richard
+ I pointed out an inconsistency with the intent to propose a fix once a 
+consensus have been reached, one way or another.  And I think shifting the 
+inconsistency to a different place, which is what your proposal does, 
+isn't really a complete solution, although I do recognise the improvement.
+
+  Maciej
