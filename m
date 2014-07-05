@@ -1,70 +1,42 @@
-From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Subject: [PATCH v2 3/3] ARM: mvebu: Enable the network controller in Armada 375 DB board
-Date: Sat,  5 Jul 2014 08:54:48 -0300
-Message-ID: <1404561288-11720-4-git-send-email-ezequiel.garcia@free-electrons.com>
-References: <1404561288-11720-1-git-send-email-ezequiel.garcia@free-electrons.com>
-Cc: David Miller <davem@davemloft.net>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Marcin Wojtas <mw@semihalf.com>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Tawfik Bayouk <tawfik@marvell.com>,
-	Lior Amsalem <alior@marvell.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-To: <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>
+From: "Western Union Money Transfer" <akirayagi@nexyzbb.ne.jp>
+Subject: Dear Concern
+Date: Sat, 5 Jul 2014 22:33:53 +0900 (JST)
+Message-ID: <53515.93.189.5.227.1404567233.risu@wmail.nexyzbb.ne.jp>
+Reply-To: sir.nick_poweall@fengv.com
+Mime-Version: 1.0
+Content-Type: text/plain;charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:34485 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753472AbaGEL4Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jul 2014 07:56:16 -0400
-In-Reply-To: <1404561288-11720-1-git-send-email-ezequiel.garcia@free-electrons.com>
+Received: from gw1.nexyzbb.ne.jp ([61.195.191.143]:57082 "EHLO
+	mx16.nexyzbb.ne.jp" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751309AbaGEN4U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 5 Jul 2014 09:56:20 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This commit enables the network controller in the Armada 375 DB board,
-and configures the two available ethernet interfaces.
 
-Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
----
- arch/arm/boot/dts/armada-375-db.dts | 26 ++++++++++++++++++++++++++
- 1 file changed, 26 insertions(+)
 
-diff --git a/arch/arm/boot/dts/armada-375-db.dts b/arch/arm/boot/dts/armada-375-db.dts
-index 1e2919d..43ac381 100644
---- a/arch/arm/boot/dts/armada-375-db.dts
-+++ b/arch/arm/boot/dts/armada-375-db.dts
-@@ -123,6 +123,32 @@
- 				cd-gpios = <&gpio1 12 GPIO_ACTIVE_HIGH>;
- 				wp-gpios = <&gpio1 13 GPIO_ACTIVE_HIGH>;
- 			};
-+
-+			mdio {
-+				phy0: ethernet-phy@0 {
-+					reg = <0>;
-+				};
-+
-+				phy3: ethernet-phy@3 {
-+					reg = <3>;
-+				};
-+			};
-+
-+			pp2@f0000 {
-+				status = "okay";
-+
-+				ethernet@c4000 {
-+					status = "okay";
-+					phy = <&phy0>;
-+					phy-mode = "rgmii-id";
-+				};
-+
-+				ethernet@c5000 {
-+					status = "okay";
-+					phy = <&phy3>;
-+					phy-mode = "gmii";
-+				};
-+			};
- 		};
- 
- 		pcie-controller {
+
 -- 
-1.9.1
+Dear Concern,
+
+Some groups of companies joined together and gave me an instruction to
+kindly inform you of your first payment of $7,199 USD by Exxon Mobil,
+Vitol, the British Prime Minister Mr. David Cameron and the G-20 committee
+and I will keep on sending you $7,199 USD until the payment of $659,999
+USD is fully completed.
+
+Your first MTCN number: 755-937-9650
+Sender’s Name: Mr. Isaiah David
+Amount sent: $7,199 USD
+
+Your full names and your Mobile number are to forward to Western Union
+Money Transfer agent to track your funds Via Email to:
+
+Mr. Nick Powell
+D/L Number: +44 (0) 704 572 2050
+E-mail:sir.nick_poweall@fengv.com
+
+Regard,
+Mrs. Erla Mamatha.
