@@ -1,49 +1,59 @@
-From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-Subject: [PATCH] isdn: hisax: l3ni1.c:  Fix for possible null pointer dereference
-Date: Sun,  6 Jul 2014 14:04:37 +0200
-Message-ID: <1404648277-12419-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Karsten Keil <isdn@linux-pingi.de>,
-	Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH net-next 0/2] bonding: remove rlb_enabled and alb_set_mac_address()
+Date: Sun, 6 Jul 2014 16:56:26 +0300
+Message-ID: <CAJZOPZKrkVEZGoCfP3wgvSMSK+5qO0syxxoQhWqhF_oBbooHnQ@mail.gmail.com>
+References: <1400764324-23221-1-git-send-email-vfalico@gmail.com>
+	<20140522.172217.1728568872131751930.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Veaceslav Falico <vfalico@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Amir Vadai <amirv@mellanox.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f50.google.com ([209.85.192.50]:54676 "EHLO
+	mail-qg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750856AbaGFN41 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jul 2014 09:56:27 -0400
+Received: by mail-qg0-f50.google.com with SMTP id j5so2804554qga.9
+        for <netdev@vger.kernel.org>; Sun, 06 Jul 2014 06:56:26 -0700 (PDT)
+In-Reply-To: <20140522.172217.1728568872131751930.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There is otherwise a risk of a possible null pointer dereference.
+On Fri, May 23, 2014 at 12:22 AM, David Miller <davem@davemloft.net> wrote:
+>
+> From: Veaceslav Falico <vfalico@gmail.com>
+> Date: Thu, 22 May 2014 15:12:02 +0200
+>
+> > Currently rlb_enabled works as
+> > rlb_enabled == (BOND_MODE(bond) == BOND_MODE_ALB)
+> > so we can always use this verification and drop maintenance of this
+> > variable.
+> >
+> > alb_set_mac_address(), OTOH, isn't used at all (as the mac changing logic
+> > is used in other parts), and isn't ever called, so it's safe to remove it
+> > as well.
+> >
+> > CC: Jay Vosburgh <j.vosburgh@gmail.com>
+> > CC: Andy Gospodarek <andy@greyhouse.net>
+> > CC: netdev@vger.kernel.org
+> > Signed-off-by: Veaceslav Falico <vfalico@gmail.com>
+>
+> I agree with Jay's feedback and that you should:
+>
+> 1) Just go to the new MAC stash scheme in net-next instead of trying
+>    to fix something you intend to immediately remove.
+>
+> 2) Something to fix this as minimally as possible for 'net' and
+>    -stable should be done as well.
+>
+> I'm therefore not applying this series to the tree.
 
-Was largely found by using a static code analysis program called cppcheck.
+Hi Veaceslav ,
 
-Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
----
- drivers/isdn/hisax/l3ni1.c |   14 +++++++++-----
- 1 file changed, 9 insertions(+), 5 deletions(-)
+Just a reminder, any progress on this matter?
 
-diff --git a/drivers/isdn/hisax/l3ni1.c b/drivers/isdn/hisax/l3ni1.c
-index 0df6691..8dc791b 100644
---- a/drivers/isdn/hisax/l3ni1.c
-+++ b/drivers/isdn/hisax/l3ni1.c
-@@ -2059,13 +2059,17 @@ static int l3ni1_cmd_global(struct PStack *st, isdn_ctrl *ic)
- 			memcpy(p, ic->parm.ni1_io.data, ic->parm.ni1_io.datalen); /* copy data */
- 			l = (p - temp) + ic->parm.ni1_io.datalen; /* total length */
- 
--			if (ic->parm.ni1_io.timeout > 0)
--				if (!(pc = ni1_new_l3_process(st, -1)))
--				{ free_invoke_id(st, id);
-+			if (ic->parm.ni1_io.timeout > 0) {
-+				pc = ni1_new_l3_process(st, -1);
-+				if (!pc) {
-+					free_invoke_id(st, id);
- 					return (-2);
- 				}
--			pc->prot.ni1.ll_id = ic->parm.ni1_io.ll_id; /* remember id */
--			pc->prot.ni1.proc = ic->parm.ni1_io.proc; /* and procedure */
-+				/* remember id */
-+				pc->prot.ni1.ll_id = ic->parm.ni1_io.ll_id;
-+				/* and procedure */
-+				pc->prot.ni1.proc = ic->parm.ni1_io.proc;
-+			}
- 
- 			if (!(skb = l3_alloc_skb(l)))
- 			{ free_invoke_id(st, id);
--- 
-1.7.10.4
+Or.
