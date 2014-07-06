@@ -1,59 +1,101 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH net-next 0/2] bonding: remove rlb_enabled and alb_set_mac_address()
-Date: Sun, 6 Jul 2014 16:56:26 +0300
-Message-ID: <CAJZOPZKrkVEZGoCfP3wgvSMSK+5qO0syxxoQhWqhF_oBbooHnQ@mail.gmail.com>
-References: <1400764324-23221-1-git-send-email-vfalico@gmail.com>
-	<20140522.172217.1728568872131751930.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] vsprintf: Remove SPECIAL from pointer types
+Date: Sun, 06 Jul 2014 07:32:40 -0700
+Message-ID: <1404657160.27043.29.camel@joe-AO725>
+References: <alpine.LFD.2.11.1406290246120.15455@eddie.linux-mips.org>
+	 <20140702.182807.1245632778216212860.davem@davemloft.net>
+	 <alpine.LFD.2.11.1407030244230.15455@eddie.linux-mips.org>
+	 <alpine.LFD.2.11.1407030331550.15455@eddie.linux-mips.org>
+	 <1404356734.14741.18.camel@joe-AO725>
+	 <alpine.LFD.2.11.1407030423300.15455@eddie.linux-mips.org>
+	 <1404364565.14741.26.camel@joe-AO725>
+	 <alpine.LFD.2.11.1407030637030.15455@eddie.linux-mips.org>
+	 <1404368746.14741.36.camel@joe-AO725>
+	 <alpine.LFD.2.11.1407051529040.15455@eddie.linux-mips.org>
+	 <1404576420.6384.41.camel@joe-AO725>
+	 <alpine.LFD.2.11.1407051833400.15455@eddie.linux-mips.org>
+	 <1404583739.6384.51.camel@joe-AO725>
+	 <alpine.LFD.2.11.1407051917480.15455@eddie.linux-mips.org>
+	 <1404585099.6384.53.camel@joe-AO725>
+	 <alpine.LFD.2.11.1407052103130.15455@eddie.linux-mips.org>
+	 <1404593114.6384.72.camel@joe-AO725>
+	 <alpine.LFD.2.11.1407061222270.15455@eddie.linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Veaceslav Falico <vfalico@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Amir Vadai <amirv@mellanox.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Maciej W. Rozycki" <macro@linux-mips.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f50.google.com ([209.85.192.50]:54676 "EHLO
-	mail-qg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750856AbaGFN41 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jul 2014 09:56:27 -0400
-Received: by mail-qg0-f50.google.com with SMTP id j5so2804554qga.9
-        for <netdev@vger.kernel.org>; Sun, 06 Jul 2014 06:56:26 -0700 (PDT)
-In-Reply-To: <20140522.172217.1728568872131751930.davem@davemloft.net>
+Received: from smtprelay0191.hostedemail.com ([216.40.44.191]:33686 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751492AbaGFOco (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jul 2014 10:32:44 -0400
+In-Reply-To: <alpine.LFD.2.11.1407061222270.15455@eddie.linux-mips.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 23, 2014 at 12:22 AM, David Miller <davem@davemloft.net> wrote:
->
-> From: Veaceslav Falico <vfalico@gmail.com>
-> Date: Thu, 22 May 2014 15:12:02 +0200
->
-> > Currently rlb_enabled works as
-> > rlb_enabled == (BOND_MODE(bond) == BOND_MODE_ALB)
-> > so we can always use this verification and drop maintenance of this
-> > variable.
-> >
-> > alb_set_mac_address(), OTOH, isn't used at all (as the mac changing logic
-> > is used in other parts), and isn't ever called, so it's safe to remove it
-> > as well.
-> >
-> > CC: Jay Vosburgh <j.vosburgh@gmail.com>
-> > CC: Andy Gospodarek <andy@greyhouse.net>
-> > CC: netdev@vger.kernel.org
-> > Signed-off-by: Veaceslav Falico <vfalico@gmail.com>
->
-> I agree with Jay's feedback and that you should:
->
-> 1) Just go to the new MAC stash scheme in net-next instead of trying
->    to fix something you intend to immediately remove.
->
-> 2) Something to fix this as minimally as possible for 'net' and
->    -stable should be done as well.
->
-> I'm therefore not applying this series to the tree.
+On Sun, 2014-07-06 at 12:44 +0100, Maciej W. Rozycki wrote:
+> On Sat, 5 Jul 2014, Joe Perches wrote:
+> 
+> > Because gcc issues a complaint about any pointer format with %#p,
+> > remove the use of SPECIAL to prefix 0x to various pointer types.
+[]
+>  Conceptually good, thanks for your effort, but you still need to clear 
+> SPECIAL in `pointer' and maybe elsewhere, as that'll have been set for the 
+> case concerned in `format_decode' by this code:
+> 
+> 		case '#': spec->flags |= SPECIAL; break;
+> 
+> (that doesn't check what follows) and then respected once `number' is 
+> reached.  E.g.:
+> 
+> char *pointer(const char *fmt, char *buf, char *end, void *ptr,
+> 	      struct printf_spec spec)
+> {
+> 	int default_width = 2 * sizeof(void *);
+> 
+> 	spec.flags &= ~SPECIAL;
+> 
+> or suchlike.  Sorry to have been unclear about it.
 
-Hi Veaceslav ,
+I think you're not right here.
+The patch shouldn't remove the capability to prefix.
 
-Just a reminder, any progress on this matter?
+But neither am I right with the commit log actually.
+It should say something like "remove the default extra
+width for the 0x prefix from %#p".
 
-Or.
+Actually, I'm not sure that removing "SPECIAL adds
+the pointer prefix length" to width is that good.
+
+I think it doesn't matter much.
+
+I do like removing the prefix it from %pa though.
+
+linux's printf like capability is not exactly like
+gcc's.  It doesn't have to be.  linux's implementation
+already does not prefix 0x to pointers when gcc does.
+gcc uses '(nil)', linux '(null)', etc.
+
+And linux's variant does a bunch of extended outputs
+for %p<foo> variants where it overrides any size and
+prefixing specified.
+
+The only difference introduced by the proposed patch
+here is that a generic pointer type will now have a
+variable output width if %#p is used depending on the
+high two bytes of the pointer value if a size is not
+specified.
+
+fyi: gcc will output a prefix 0x with %#p just as it
+     does for %p.
+
+The major difference is that linux uses a default of
+sizeof(void *) * 2 for the width and zero fills without
+prefix, gcc defaults to the minimum # of chars required
+and prefixes.
+
+cheers, Joe
