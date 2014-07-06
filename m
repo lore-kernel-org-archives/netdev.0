@@ -1,64 +1,49 @@
-From: Andrey Utkin <andrey.krieger.utkin@gmail.com>
-Subject: [PATCH] appletalk: Set skb with destructor
-Date: Sun,  6 Jul 2014 14:56:56 +0300
-Message-ID: <1404647816-7564-1-git-send-email-andrey.krieger.utkin@gmail.com>
-References: <20140705202821.GA25880@mwanda>
-Cc: davem@davemloft.net, Andrey Utkin <andrey.krieger.utkin@gmail.com>
-To: linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	acme@ghostprotocols.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f47.google.com ([209.85.215.47]:59381 "EHLO
-	mail-la0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750978AbaGFL6K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jul 2014 07:58:10 -0400
-In-Reply-To: <20140705202821.GA25880@mwanda>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+Subject: [PATCH] isdn: hisax: l3ni1.c:  Fix for possible null pointer dereference
+Date: Sun,  6 Jul 2014 14:04:37 +0200
+Message-ID: <1404648277-12419-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Karsten Keil <isdn@linux-pingi.de>,
+	Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The sock ref counting is off so there is a kernel panic when you run
-`atalkd`.  See https://bugzilla.kernel.org/show_bug.cgi?id=79441
-This fix is similar to 0ae89beb283a ('can: add destructor for self
-generated skbs')
+There is otherwise a risk of a possible null pointer dereference.
 
-Reported-by: Ed Martin <edman007@edman007.com>
-Signed-off-by: Andrey Utkin <andrey.krieger.utkin@gmail.com>
+Was largely found by using a static code analysis program called cppcheck.
+
+Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
 ---
- net/appletalk/ddp.c | 9 +++++++++
- 1 file changed, 9 insertions(+)
+ drivers/isdn/hisax/l3ni1.c |   14 +++++++++-----
+ 1 file changed, 9 insertions(+), 5 deletions(-)
 
-diff --git a/net/appletalk/ddp.c b/net/appletalk/ddp.c
-index 01a1082..3d8ab34 100644
---- a/net/appletalk/ddp.c
-+++ b/net/appletalk/ddp.c
-@@ -1399,6 +1399,11 @@ drop:
- 	return NET_RX_DROP;
- }
+diff --git a/drivers/isdn/hisax/l3ni1.c b/drivers/isdn/hisax/l3ni1.c
+index 0df6691..8dc791b 100644
+--- a/drivers/isdn/hisax/l3ni1.c
++++ b/drivers/isdn/hisax/l3ni1.c
+@@ -2059,13 +2059,17 @@ static int l3ni1_cmd_global(struct PStack *st, isdn_ctrl *ic)
+ 			memcpy(p, ic->parm.ni1_io.data, ic->parm.ni1_io.datalen); /* copy data */
+ 			l = (p - temp) + ic->parm.ni1_io.datalen; /* total length */
  
-+static inline void atalk_skb_destructor(struct sk_buff *skb)
-+{
-+	sock_put(skb->sk);
-+}
-+
- /**
-  *	atalk_rcv - Receive a packet (in skb) from device dev
-  *	@skb - packet received
-@@ -1489,6 +1494,8 @@ static int atalk_rcv(struct sk_buff *skb, struct net_device *dev,
- 		goto drop;
+-			if (ic->parm.ni1_io.timeout > 0)
+-				if (!(pc = ni1_new_l3_process(st, -1)))
+-				{ free_invoke_id(st, id);
++			if (ic->parm.ni1_io.timeout > 0) {
++				pc = ni1_new_l3_process(st, -1);
++				if (!pc) {
++					free_invoke_id(st, id);
+ 					return (-2);
+ 				}
+-			pc->prot.ni1.ll_id = ic->parm.ni1_io.ll_id; /* remember id */
+-			pc->prot.ni1.proc = ic->parm.ni1_io.proc; /* and procedure */
++				/* remember id */
++				pc->prot.ni1.ll_id = ic->parm.ni1_io.ll_id;
++				/* and procedure */
++				pc->prot.ni1.proc = ic->parm.ni1_io.proc;
++			}
  
- 	/* Queue packet (standard) */
-+	sock_hold(sock);
-+	skb->destructor = atalk_skb_destructor;
- 	skb->sk = sock;
- 
- 	if (sock_queue_rcv_skb(sock, skb) < 0)
-@@ -1644,6 +1651,8 @@ static int atalk_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr
- 	if (!skb)
- 		goto out;
- 
-+	sock_hold(sk);
-+	skb->destructor = atalk_skb_destructor;
- 	skb->sk = sk;
- 	skb_reserve(skb, ddp_dl->header_length);
- 	skb_reserve(skb, dev->hard_header_len);
+ 			if (!(skb = l3_alloc_skb(l)))
+ 			{ free_invoke_id(st, id);
 -- 
-1.8.3.2
+1.7.10.4
