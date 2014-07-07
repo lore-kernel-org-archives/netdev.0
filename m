@@ -1,59 +1,69 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 2/2] hso: fix deadlock when receiving bursts of data
-Date: Mon, 7 Jul 2014 12:55:44 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1726D772@AcuExch.aculab.com>
-References: <1404723967-24245-1-git-send-email-olivier@sobrie.be>
- <1404723967-24245-2-git-send-email-olivier@sobrie.be>
- <063D6719AE5E284EB5DD2968C1650D6D1726D5E9@AcuExch.aculab.com>
- <20140707104220.GA31340@hposo>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] vsprintf: Remove SPECIAL from pointer types
+Date: Mon, 07 Jul 2014 06:26:17 -0700
+Message-ID: <1404739577.27043.65.camel@joe-AO725>
+References: <alpine.LFD.2.11.1406290246120.15455@eddie.linux-mips.org>
+	 <20140702.182807.1245632778216212860.davem@davemloft.net>
+	 <alpine.LFD.2.11.1407030244230.15455@eddie.linux-mips.org>
+	 <alpine.LFD.2.11.1407030331550.15455@eddie.linux-mips.org>
+	 <1404356734.14741.18.camel@joe-AO725>
+	 <alpine.LFD.2.11.1407030423300.15455@eddie.linux-mips.org>
+	 <1404364565.14741.26.camel@joe-AO725>
+	 <alpine.LFD.2.11.1407030637030.15455@eddie.linux-mips.org>
+	 <1404368746.14741.36.camel@joe-AO725>
+	 <alpine.LFD.2.11.1407051529040.15455@eddie.linux-mips.org>
+	 <1404576420.6384.41.camel@joe-AO725>
+	 <alpine.LFD.2.11.1407051833400.15455@eddie.linux-mips.org>
+	 <1404583739.6384.51.camel@joe-AO725>
+	 <alpine.LFD.2.11.1407051917480.15455@eddie.linux-mips.org>
+	 <1404585099.6384.53.camel@joe-AO725>
+	 <alpine.LFD.2.11.1407052103130.15455@eddie.linux-mips.org>
+	 <1404593114.6384.72.camel@joe-AO725>
+	 <063D6719AE5E284EB5DD2968C1650D6D1726D4E1@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Jan Dumon <j.dumon@option.com>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "Maciej W. Rozycki" <macro@linux-mips.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	David Miller <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: 'Olivier Sobrie' <olivier@sobrie.be>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140707104220.GA31340@hposo>
-Content-Language: en-US
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1726D4E1@AcuExch.aculab.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Olivier Sobrie 
-> Hi David,
+On Mon, 2014-07-07 at 08:26 +0000, David Laight wrote:
+> From: Joe Perches
+> > Because gcc issues a complaint about any pointer format with %#p,
+> > remove the use of SPECIAL to prefix 0x to various pointer types.
+> > 
+> > There are no uses in the kernel tree of %#p.
 > 
-> On Mon, Jul 07, 2014 at 09:13:53AM +0000, David Laight wrote:
-> > From: Olivier Sobrie
-> > > When the module sends bursts of data, sometimes a deadlock happens in
-> > > the hso driver when the tty buffer doesn't get the chance to be flushed
-> > > quickly enough.
-> > >
-> > > To avoid this, first, we remove the endless while loop in
-> > > put_rx_bufdata() which is the root cause of the deadlock.
-> > > Secondly, when there is no room anymore in the tty buffer, we set up a
-> > > timer of 100 msecs to give a chance to the upper layer to flush the tty
-> > > buffer and make room for new data.
-> >
-> > What is the timer for?
-> > You need to get the sending code woken up by the urb completion.
+> I know you guys don't really care about them, but there might
+> be uses in out of tree drivers.
 > 
-> In put_rxbuf_data() (which can be called under irq disabled),
-> tty_flip_buffer_push() is called and schedules a push of the tty buffer.
-> When the buffer is full, I give some time to the above layer in order
-> to flush it.
-> The timer is used to recall put_rxbuf_data_and_resubmit_bulk_urb()
-> later in order to read the remaining data stored in
-> "urb->transfer_buffer" and then to resubmit the urb to receive more data
-> from the gsm module.
-> I don't understand what you mean by "getting the sending code woken up".
-> Calling tty_port_tty_wakeup()?? We are in the receive path...
+> With the change what is output for %#p ?
 
-Sorry, it isn't at all clear from the general description whether you
-are referring to the transmit or receive path.
+Linux's output of %#p for normal, non %p<foo> extension use,
+continues to be prefixed with 0x and zero filled.
 
-'flush' can mean all sorts of things ...
+Prior to this proposed change:
+%#p uses a fixed width of sizeof(void *) * 2 + 2.
+%p uses a fixed with of sizeof(void *) * 2
 
-In either case a 100ms delay to data doesn't seem right at all.
+Post:
+%#p uses a variable width of the minimum of sizeof(void *) * 2
+to sizeof(void *) * 2 + 2 depending on the high order 2 bytes
+of the pointer value.
 
-	David
+There is no in-kernel tree code that uses %#p so it
+has no net effect.
+
+Personally, I prefer %#p uses the "+ 2" fixed width.
+
+The real benefit is removing the auto-prefixing of 0x
+when using the %pa extension to be consistent with
+other naked pointer output types.
