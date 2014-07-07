@@ -1,45 +1,49 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next v2 1/8] net-timestamp: explicit SO_TIMESTAMPING
- ancillary data struct
-Date: Mon, 7 Jul 2014 22:18:17 +0200
-Message-ID: <20140707201817.GA10683@localhost.localdomain>
-References: <1404416380-3545-1-git-send-email-willemb@google.com>
- <1404416380-3545-2-git-send-email-willemb@google.com>
- <20140705201851.GE3869@localhost.localdomain>
- <CA+FuTSeSOBUzDLahLBNoW4i-UZe-VOXZr4LgA2bXBfjWxe10Fw@mail.gmail.com>
- <20140707184700.GA1610@localhost.localdomain>
- <CA+FuTSeqf=xgjjVreasKGZVPR1iXRKr68R7dj8n9w31-hUnznA@mail.gmail.com>
- <53BAF8AC.6010907@cavium.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Willem de Bruijn <willemb@google.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Chad Reese <kreese@caviumnetworks.com>,
-	David Daney <david.daney@cavium.com>
-To: Chad Reese <kreese@cavium.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:62226 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750979AbaGGUSk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2014 16:18:40 -0400
-Received: by mail-wi0-f169.google.com with SMTP id hi2so76021wib.0
-        for <netdev@vger.kernel.org>; Mon, 07 Jul 2014 13:18:39 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <53BAF8AC.6010907@cavium.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrey Utkin <andrey.krieger.utkin@gmail.com>
+Subject: [PATCH] appletalk: Fix socket referencing in skb
+Date: Mon,  7 Jul 2014 23:22:50 +0300
+Message-ID: <1404764570-24120-1-git-send-email-andrey.krieger.utkin@gmail.com>
+Cc: acme@ghostprotocols.net, davem@davemloft.net,
+	eric.dumazet@gmail.com,
+	Andrey Utkin <andrey.krieger.utkin@gmail.com>
+To: linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 07, 2014 at 12:44:44PM -0700, Chad Reese wrote:
-> 
-> For Octeon, you can optionally use the hardware timestamp as the
-> system clock reference. Most people don't, but it is the only way to
-> get the system time to be accurate. 1588 can synchronize two Octeon
-> boards to less than 1ns for the hardware timer. The Linux software
-> timers is always farther off.
+Setting just skb->sk without taking its reference and setting a
+destructor is invalid. However, in the places where this was done, skb
+is used in a way not requiring skb->sk setting. So dropping the setting
+of skb->sk.
+Thanks to Eric Dumazet <eric.dumazet@gmail.com> for correct solution.
 
-Did you mean 1us ?
+Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=79441
+Reported-by: Ed Martin <edman007@edman007.com>
+Signed-off-by: Andrey Utkin <andrey.krieger.utkin@gmail.com>
+---
+ net/appletalk/ddp.c | 3 ---
+ 1 file changed, 3 deletions(-)
 
-Thanks,
-Richard
+diff --git a/net/appletalk/ddp.c b/net/appletalk/ddp.c
+index 01a1082..bfcf6be 100644
+--- a/net/appletalk/ddp.c
++++ b/net/appletalk/ddp.c
+@@ -1489,8 +1489,6 @@ static int atalk_rcv(struct sk_buff *skb, struct net_device *dev,
+ 		goto drop;
+ 
+ 	/* Queue packet (standard) */
+-	skb->sk = sock;
+-
+ 	if (sock_queue_rcv_skb(sock, skb) < 0)
+ 		goto drop;
+ 
+@@ -1644,7 +1642,6 @@ static int atalk_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr
+ 	if (!skb)
+ 		goto out;
+ 
+-	skb->sk = sk;
+ 	skb_reserve(skb, ddp_dl->header_length);
+ 	skb_reserve(skb, dev->hard_header_len);
+ 	skb->dev = dev;
+-- 
+1.8.3.2
