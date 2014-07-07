@@ -1,35 +1,53 @@
-From: Andrey Utkin <andrey.krieger.utkin@gmail.com>
-Subject: Re: [PATCH] appletalk: Set skb with destructor
-Date: Mon, 7 Jul 2014 13:02:48 +0300
-Message-ID: <CANZNk81UtoCOANXnmUPLx3uCP37BH=Wb54YjD3UQ1BwNc1P2Vw@mail.gmail.com>
-References: <20140705202821.GA25880@mwanda>
-	<1404647816-7564-1-git-send-email-andrey.krieger.utkin@gmail.com>
-	<1404682932.4501.6.camel@edumazet-glaptop2.roam.corp.google.com>
-	<CANZNk81v7YHKpzjZ65KHdUi1BgBiV_ibZO24b8uauuCVZeUv2A@mail.gmail.com>
-	<1404723456.4501.14.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1404725217.4501.15.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Olivier Sobrie <olivier@sobrie.be>
+Subject: Re: [PATCH 2/2] hso: fix deadlock when receiving bursts of data
+Date: Mon, 7 Jul 2014 12:42:20 +0200
+Message-ID: <20140707104220.GA31340@hposo>
+References: <1404723967-24245-1-git-send-email-olivier@sobrie.be>
+ <1404723967-24245-2-git-send-email-olivier@sobrie.be>
+ <063D6719AE5E284EB5DD2968C1650D6D1726D5E9@AcuExch.aculab.com>
+Reply-To: Olivier Sobrie <olivier@sobrie.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	acme@ghostprotocols.net, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <1404725217.4501.15.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: kernel-janitors-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jan Dumon <j.dumon@option.com>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1726D5E9@AcuExch.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2014-07-07 12:26 GMT+03:00 Eric Dumazet <eric.dumazet@gmail.com>:
-> Reading again this code, I think all you need is to remove the 2 buggy
-> lines.
->
-> No need for setup destructors.
+Hi David,
 
-Reviewing the code again, i find you're right and adding a destructor
-in that place is stupid, and just not setting skb->sk would make bug
-disappear, assuming skb->sk is previously NULL.
-And what about the second case, at ddp.c near line 1650? Is destructor
-needed here?
+On Mon, Jul 07, 2014 at 09:13:53AM +0000, David Laight wrote:
+> From: Olivier Sobrie
+> > When the module sends bursts of data, sometimes a deadlock happens in
+> > the hso driver when the tty buffer doesn't get the chance to be flushed
+> > quickly enough.
+> > 
+> > To avoid this, first, we remove the endless while loop in
+> > put_rx_bufdata() which is the root cause of the deadlock.
+> > Secondly, when there is no room anymore in the tty buffer, we set up a
+> > timer of 100 msecs to give a chance to the upper layer to flush the tty
+> > buffer and make room for new data.
+> 
+> What is the timer for?
+> You need to get the sending code woken up by the urb completion.
+
+In put_rxbuf_data() (which can be called under irq disabled),
+tty_flip_buffer_push() is called and schedules a push of the tty buffer.
+When the buffer is full, I give some time to the above layer in order
+to flush it.
+The timer is used to recall put_rxbuf_data_and_resubmit_bulk_urb()
+later in order to read the remaining data stored in
+"urb->transfer_buffer" and then to resubmit the urb to receive more data
+from the gsm module.
+I don't understand what you mean by "getting the sending code woken up".
+Calling tty_port_tty_wakeup()?? We are in the receive path...
+
+Thanks,
 
 -- 
-Andrey Utkin
+Olivier
