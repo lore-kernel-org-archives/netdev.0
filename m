@@ -1,38 +1,111 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [PATCH CFT 00/30] Initial round of Freescale FEC ethernet
-	patches
-Date: Mon, 7 Jul 2014 22:41:33 +0100
-Message-ID: <20140707214133.GF21766@n2100.arm.linux.org.uk>
-References: <20140627151542.GL32514@n2100.arm.linux.org.uk>
+From: Pavel Machek <pavel@denx.de>
+Subject: Re: socfpga/sockit ethernet problems
+Date: Mon, 7 Jul 2014 23:43:40 +0200
+Message-ID: <20140707214340.GA29061@amd.pavel.ucw.cz>
+References: <20140507104518.GB18139@amd.pavel.ucw.cz>
+ <20140703093548.GA9937@amd.pavel.ucw.cz>
+ <1404764751.14294.3.camel@linux-builds1>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Fugang Duan <B38611@freescale.com>
-To: David Miller <davem@davemloft.net>,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
+Cc: peppe.cavallaro@st.com, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, gsi@denx.de, dzu@denx.de,
+	s.trumtrar@pengutronix.de
+To: Dinh Nguyen <dinguyen@altera.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:57921 "EHLO
-	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751225AbaGGVlo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2014 17:41:44 -0400
+Received: from atrey.karlin.mff.cuni.cz ([195.113.26.193]:34829 "EHLO
+	atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750979AbaGGVnm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2014 17:43:42 -0400
 Content-Disposition: inline
-In-Reply-To: <20140627151542.GL32514@n2100.arm.linux.org.uk>
+In-Reply-To: <1404764751.14294.3.camel@linux-builds1>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 27, 2014 at 04:15:42PM +0100, Russell King - ARM Linux wrote:
-> This is v2 of my initial round of patches (roughly half of my total
-> patch set) for the Freescale FEC driver.
+Hi!
 
-As there have been no further comments on this series, and I have
-Andy's ack for all the patches, I'm intending to send the set to
-David in the next few days.
+> > I made this, but ethernet problems I currently see are not frequent
+> > enough to allow easy debugging. If link takes long to  estabilish for
+> > you, could you test the patch below?
 
-David, are you happy for me to send you 29 patches, or I shall supply
-a pull request against an -rc kernel (which will be on
-ftp.arm.linux.org.uk).  I don't have a kernel.org account.
+> > +static int ksz9021rn_phy_fixup(struct phy_device *phydev)
+> > +{
+> > +        if (IS_BUILTIN(CONFIG_PHYLIB)) {
+> > +		printk("------------- running phy fixup\n");
+> > +
+> > +                /* min rx data delay */
+> > +                phy_write(phydev, MICREL_KSZ9021_EXTREG_CTRL,
+> > +			  0x8000 | MICREL_KSZ9021_RGMII_RX_DATA_PAD_SKEW);
+> > +                phy_write(phydev, MICREL_KSZ9021_EXTREG_DATA_WRITE, 0x0000);
+> > +
+> > +                phy_write(phydev, MICREL_KSZ9021_EXTREG_CTRL,
+> > +			  0x8000 | MICREL_KSZ9021_RGMII_TX_DATA_PAD_SKEW);
+> > +                phy_write(phydev, MICREL_KSZ9021_EXTREG_DATA_WRITE, 0x0000);
+> > +
+> > +                /* max rx/tx clock delay, min rx/tx control delay */
+> > +                phy_write(phydev, MICREL_KSZ9021_EXTREG_CTRL,
+> > +			  0x8000 | MICREL_KSZ9021_RGMII_CLK_CTRL_PAD_SKEW);
+> > +                phy_write(phydev, MICREL_KSZ9021_EXTREG_DATA_WRITE, 0xf0f0);
+> > +                phy_write(phydev, MICREL_KSZ9021_EXTREG_CTRL,
+> > +			  MICREL_KSZ9021_RGMII_CLK_CTRL_PAD_SKEW);
+> > +        }
+> > +
+> > +        return 0;
+> > +}
+> > +
+> 
+> All of this stuff is not needed as it's already taken care of by the
+> Micrel phy driver. The clock skew values are now represented in the DTS.
+> Please look at:
+> 
+> Documentation/devicetree/bindings/net/micrel-ksz90x1.txt
 
-Thanks.
+Aah, thanks for the pointer. 
+
+At least socfpga_cyclone5_socrates.dts is in the mainline, but it does
+not have any skew configuration. That may explain why the board seems
+to have problems with ethernet... (or not).
+
+Are there suitable default values?
+
+u-boot uses these defaults:
+
+include/configs/socfpga_common.h:#define CONFIG_KSZ9021_CLK_SKEW_VAL
+0xf0f0
+include/configs/socfpga_common.h:#define CONFIG_KSZ9021_DATA_SKEW_VAL
+0x0
+
+...that should correspond to txc-skew-ps == rxc-skew-ps == 3000, all
+other skew values == 0?
+
+Could someone with socrates board and network problems test if this
+makes any difference?
+
+Signed-off-by: Pavel Machek <pavel@denx.de>
+
+diff --git a/arch/arm/boot/dts/socfpga_cyclone5_socrates.dts b/arch/arm/boot/dts/socfpga_cyclone5_socrates.dts
+index a1814b4..eba8eea 100644
+--- a/arch/arm/boot/dts/socfpga_cyclone5_socrates.dts
++++ b/arch/arm/boot/dts/socfpga_cyclone5_socrates.dts
+@@ -34,6 +34,16 @@
+ 
+ &gmac1 {
+ 	status = "okay";
++	phy-mode = "rgmii";
++
++	rxd0-skew-ps = <0>;
++	rxd1-skew-ps = <0>;
++	rxd2-skew-ps = <0>;
++	rxd3-skew-ps = <0>;
++	txen-skew-ps = <0>;
++	txc-skew-ps = <3000>;
++	rxdv-skew-ps = <0>;
++	rxc-skew-ps = <3000>;
+ };
+ 
+ &i2c0 {
+
+
 
 -- 
-FTTC broadband for 0.8mile line: now at 9.7Mbps down 460kbps up... slowly
-improving, and getting towards what was expected from it.
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
