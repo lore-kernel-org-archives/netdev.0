@@ -1,73 +1,75 @@
 From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH A 07/12] net: fec: stop the phy before shutting down the MAC
-Date: Tue, 08 Jul 2014 00:23:04 +0100
-Message-ID: <E1X4IFU-0004x5-Kp@rmk-PC.arm.linux.org.uk>
+Subject: [PATCH A 08/12] net: fec: remove useless fep->opened
+Date: Tue, 08 Jul 2014 00:23:09 +0100
+Message-ID: <E1X4IFZ-0004x9-OM@rmk-PC.arm.linux.org.uk>
 References: <20140707232148.GG21766@n2100.arm.linux.org.uk>
 Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:57987 "EHLO
+Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:57990 "EHLO
 	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752791AbaGGXXG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2014 19:23:06 -0400
+	by vger.kernel.org with ESMTP id S1751608AbaGGXXL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2014 19:23:11 -0400
 In-Reply-To: <20140707232148.GG21766@n2100.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When the network interface goes down, stop the phy to prevent further
-link up status changes before taking the MAC or netif sections down.
-This prevents further reception of link up events which could
-potentially call fec_restart().
+napi_disable() waits until the NAPI processing has completed, and then
+prevents any further polls.  At this point, the driver then clears
+fep->opened.  The NAPI poll function uses this to stop processing in
+the receive path.  Hence, it will never see this variable cleared,
+because the NAPI poll has to complete before it will be cleared.
 
-Since phy_stop() takes the mutex which adjust_link() runs under, we
-also ensure that adjust_link() will not already be processing a link
-up event.
-
-We also need to do this when suspending as well - we don't want a
-mis-timed phy state change to restart the MAC after we have stopped
-it for suspend, and thus need to restart the phy when resuming.
+Therefore, this variable serves no purpose, so let's remove it.
 
 Acked-by: Fugang Duan <B38611@freescale.com>
 Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- drivers/net/ethernet/freescale/fec_main.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/freescale/fec.h      | 1 -
+ drivers/net/ethernet/freescale/fec_main.c | 5 -----
+ 2 files changed, 6 deletions(-)
 
+diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
+index 671d080105a7..96d2a18f1b99 100644
+--- a/drivers/net/ethernet/freescale/fec.h
++++ b/drivers/net/ethernet/freescale/fec.h
+@@ -308,7 +308,6 @@ struct fec_enet_private {
+ 
+ 	struct	platform_device *pdev;
+ 
+-	int	opened;
+ 	int	dev_id;
+ 
+ 	/* Phylib and MDIO interface */
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index cf805468eecc..e0a1ac1826b7 100644
+index e0a1ac1826b7..309aa2ff8cc9 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -2181,13 +2181,14 @@ fec_enet_close(struct net_device *ndev)
- {
- 	struct fec_enet_private *fep = netdev_priv(ndev);
+@@ -1215,9 +1215,6 @@ fec_enet_rx(struct net_device *ndev, int budget)
+ 		if ((status & BD_ENET_RX_LAST) == 0)
+ 			netdev_err(ndev, "rcv is not +last\n");
  
-+	phy_stop(fep->phy_dev);
-+
+-		if (!fep->opened)
+-			goto rx_processing_done;
+-
+ 		/* Check for errors. */
+ 		if (status & (BD_ENET_RX_LG | BD_ENET_RX_SH | BD_ENET_RX_NO |
+ 			   BD_ENET_RX_CR | BD_ENET_RX_OV)) {
+@@ -2172,7 +2169,6 @@ fec_enet_open(struct net_device *ndev)
+ 	napi_enable(&fep->napi);
+ 	phy_start(fep->phy_dev);
+ 	netif_start_queue(ndev);
+-	fep->opened = 1;
+ 	return 0;
+ }
+ 
+@@ -2185,7 +2181,6 @@ fec_enet_close(struct net_device *ndev)
+ 
  	/* Don't know what to do yet. */
  	napi_disable(&fep->napi);
- 	fep->opened = 0;
+-	fep->opened = 0;
  	netif_tx_disable(ndev);
  	fec_stop(ndev);
  
--	phy_stop(fep->phy_dev);
- 	phy_disconnect(fep->phy_dev);
- 	fep->phy_dev = NULL;
- 
-@@ -2669,6 +2670,7 @@ fec_suspend(struct device *dev)
- 	struct fec_enet_private *fep = netdev_priv(ndev);
- 
- 	if (netif_running(ndev)) {
-+		phy_stop(fep->phy_dev);
- 		fec_stop(ndev);
- 		netif_device_detach(ndev);
- 	}
-@@ -2702,6 +2704,7 @@ fec_resume(struct device *dev)
- 	if (netif_running(ndev)) {
- 		fec_restart(ndev, fep->full_duplex);
- 		netif_device_attach(ndev);
-+		phy_start(fep->phy_dev);
- 	}
- 
- 	return 0;
 -- 
 1.8.3.1
