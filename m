@@ -1,64 +1,106 @@
-From: Sitsofe Wheeler <sitsofe@gmail.com>
-Subject: Re: [BISECTED][REGRESSION] Loading Hyper-V network drivers is racy
- in 3.14+ on Hyper-V 2012 R2
-Date: Mon, 7 Jul 2014 19:13:41 +0100
-Message-ID: <20140707181341.GA2646@sucs.org>
-References: <20140706201800.GA10587@sucs.org>
- <941b0055b1a94c66b3a608ae67764d11@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: KY Srinivasan <kys@microsoft.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Haiyang Zhang <haiyangz@microsoft.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <941b0055b1a94c66b3a608ae67764d11@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+Subject: [PATCH v3 net-next 0/4] Network driver for Armada 375 SoC
+Date: Mon,  7 Jul 2014 15:45:47 -0300
+Message-ID: <1404758751-2346-1-git-send-email-ezequiel.garcia@free-electrons.com>
+Cc: David Miller <davem@davemloft.net>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Marcin Wojtas <mw@semihalf.com>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Tawfik Bayouk <tawfik@marvell.com>,
+	Lior Amsalem <alior@marvell.com>, romieu@fr.zoreil.com,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+To: <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from top.free-electrons.com ([176.31.233.9]:59764 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751181AbaGGSqw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2014 14:46:52 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 07, 2014 at 04:54:20PM +0000, Haiyang Zhang wrote:
-> 
-> > -----Original Message-----
-> > From: Sitsofe Wheeler [mailto:sitsofe@gmail.com]
-> > Sent: Sunday, July 6, 2014 4:18 PM
-> > To: Haiyang Zhang
-> > Cc: KY Srinivasan; David S. Miller; devel@linuxdriverproject.org; linux-
-> > kernel@vger.kernel.org; netdev@vger.kernel.org
-> > Subject: [BISECTED][REGRESSION] Loading Hyper-V network drivers is racy in
-> > 3.14+ on Hyper-V 2012 R2
-> > 
-> > With the 3.14 kernel Hyper-V no longer reliably enables its
-> > networking devices in time on cloud images leading to network
-> > devices permanently remaining offline.
-> > 
-<snip>
-> > the system will usually stop rebooting before 20 passes but the most
-> > extreme cases were always less than 100. With a pre
-> > b679ef73edc251f6d200a7dd2396e9fef9e36fc3 kernel it did over 390
-> > passes before I manually stopped it.
-> > 
-> > Originally filed on https://bugzilla.redhat.com/show_bug.cgi?id=1095387
-> > and then on https://bugzilla.kernel.org/show_bug.cgi?id=78771 but without
-> > reply...
-> > 
-> > Might also be related to
-> > http://thread.gmane.org/gmane.linux.kernel/1711873/focus=1733398
-> > (Regression in hyperv network driver in 3.14).
-> 
-> What's the memory size assigned to the Linux guest? And, have you seen
-> any related messages in the dmesg log after this issue?
+Changes from v2:
 
-(Feel free to trim my emails when replying - it makes it easier to see
-your reply :-)
+  * Reworked mvpp2_prs_tcam_first_free() as suggested by Joe and Francois,
+    to have a single loop instead of two.
 
-I've had as little as 256 MBytes and as much as 4 GBytes (non-dynamic)
-and still seen the issue.
+  * Replaced mvpp2_cpu_interrupts_enable/disable(pp, cpu) with one function
+    that enables/disable interrupts on all the CPUs at once.
 
-See https://bugzilla.kernel.org/attachment.cgi?id=142201 for a recent
-dmesg (an older dmesg snippet can be seen on the Red Hat bugzilla).
+  * Factor out Tx descriptor DMA unmap + descriptor put sequence to have
+    more readable code, as suggested by Francois.
+
+  * Remove redundant netif_running() checks in the ingress and egress path,
+    as suggested by Francois.
+
+  * Reworked ring parameter, MTU and MAC address setting to produce a
+    more gentle modification of the parameter, and have a fallback in the
+    event of a failure.
+
+  * Fixed a percpu memory leak on error path, also noted by Francois.
+
+  * Removed the usage of the legacy net_device irq field, requested by
+    Francois.
+
+  * Removed the unneeded multiple Tx port support. It was hardcoded to a single
+    Tx port in the previous version so we decided to drop it and simplify the
+    code.
+
+  * Optimize the on_each_cpu() calls to clear the sent counters and the
+    TX_DONE pkts coalescing setting. on_each_cpu is expensive so it's better
+    to minize the calls to it.
+
+  * Used sane node names in the devicetree files.
+
+Changes from v1:
+
+  * Marcin Wojtas is the author of the driver, so I fixed authorship
+    for patch 1/3:
+    "ethernet: Add new driver for Marvell Armada 375 network unit"
+
+This patchset adds a new network driver to support the network controller
+in Armada 375 SoC.
+
+The network interfaces share a common hardware unit called Packet Processor,
+which contains a common register space and per-port register spaces.
+    
+The new network unit has different RXQ and TXQ management. The ports
+associate so-called per-port "logical queues" which are mapped to "physical
+queues". The latter are shared among the ports.
+
+Fo the egress part, the mapping for each port is predefined by hardware.
+The egress path incorporates so-called aggregation queues (one per CPU),
+from where the data is passed to the physical queues and then via prefetch
+buffer to the TxDMA.
+    
+The ingress path has a Parser and Classifier (PnC) and a Buffer Manager (BM)
+whose usage is obligatory. We are only implementing a simple configuration
+for the Parser and Classifier, yet the code is considerably large.
+    
+This network unit has other optional features like xPON, WoL, Hardware
+Forwarding, and more. This initial commit doesn't provide support for these.
+    
+The mvpp2 network driver has been written by Marcin Wojtas and then reviewed
+and cleaned up by Ezequiel Garcia.
+
+Ezequiel Garcia (2):
+  ARM: mvebu: Add support for the network controller in Armada 375 SoC
+  ARM: mvebu: Enable the network controller in Armada 375 DB board
+
+Marcin Wojtas (2):
+  ethernet: Add new driver for Marvell Armada 375 network unit
+  ARM: mvebu: enable Armada 375 network driver in mvebu_v7_defconfig
+
+ .../devicetree/bindings/net/marvell-pp2.txt        |   61 +
+ arch/arm/boot/dts/armada-375-db.dts                |   26 +
+ arch/arm/boot/dts/armada-375.dtsi                  |   31 +
+ arch/arm/configs/mvebu_v7_defconfig                |    1 +
+ drivers/net/ethernet/marvell/Kconfig               |    8 +
+ drivers/net/ethernet/marvell/Makefile              |    1 +
+ drivers/net/ethernet/marvell/mvpp2.c               | 6390 ++++++++++++++++++++
+ 7 files changed, 6518 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/marvell-pp2.txt
+ create mode 100644 drivers/net/ethernet/marvell/mvpp2.c
 
 -- 
-Sitsofe | http://sucs.org/~sits/
+1.9.1
