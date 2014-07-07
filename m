@@ -1,81 +1,77 @@
 From: Ying Xue <ying.xue@windriver.com>
-Subject: Re: [PATCH net 1/1] tipc: fix bug in multicast/broadcast message
- reassembly
-Date: Mon, 7 Jul 2014 11:22:14 +0800
-Message-ID: <53BA1266.7090101@windriver.com>
-References: <1404582253-21815-1-git-send-email-jon.maloy@ericsson.com>
+Subject: Re: [PATCH net-next 1/1] tipc: fix a memleak when
+	sending data
+Date: Mon, 7 Jul 2014 11:28:34 +0800
+Message-ID: <53BA13E2.6060800@windriver.com>
+References: <1404693530-2531-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	<erik.hugne@ericsson.com>, <maloy@donjonn.com>,
-	<tipc-discussion@lists.sourceforge.net>
+Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net,
+	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: Jon Maloy <jon.maloy@ericsson.com>, <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:61524 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752024AbaGGDWk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 6 Jul 2014 23:22:40 -0400
-In-Reply-To: <1404582253-21815-1-git-send-email-jon.maloy@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <1404693530-2531-1-git-send-email-jon.maloy@ericsson.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On 07/06/2014 01:44 AM, Jon Maloy wrote:
-> Since commit 37e22164a8a3c39bdad45aa463b1e69a1fdf4110 ("tipc: rename and
-> move message reassembly function") reassembly of long broadcast messages
-> has been broken. This is because we test for a non-NULL return value
-> of the *buf parameter as criteria for succesful reassembly. However, this
-> parameter is left defined even after reception of the first fragment,
-> when reassebly is still incomplete. This leads to a kernel crash as soon
-> as a the first fragment of a long broadcast message is received.
+On 07/07/2014 08:38 AM, Jon Maloy wrote:
+> From: Erik Hugne <erik.hugne@ericsson.com>
 > 
-> We fix this with this commit, by implementing a stricter behavior of the
-> function and its return values.
+> This fixes a regression bug caused by:
+> 067608e9d019d6477fd45dd948e81af0e5bf599f ("tipc: introduce direct
+> iovec to buffer chain fragmentation function")
 > 
-> This commit should be applied to both net and net-next.
+> If data is sent on a nonblocking socket and the destination link
+> is congested, the buffer chain is leaked. We fix this by freeing
+> the chain in this case.
 > 
+> Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
 > Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 
 Acked-by: Ying Xue <ying.xue@windriver.com>
 
 > ---
->  net/tipc/msg.c |   11 ++++++++---
->  1 file changed, 8 insertions(+), 3 deletions(-)
+>  net/tipc/socket.c |    5 ++++-
+>  1 file changed, 4 insertions(+), 1 deletion(-)
 > 
-> diff --git a/net/tipc/msg.c b/net/tipc/msg.c
-> index 8be6e94..0a37a47 100644
-> --- a/net/tipc/msg.c
-> +++ b/net/tipc/msg.c
-> @@ -101,9 +101,11 @@ int tipc_msg_build(struct tipc_msg *hdr, struct iovec const *msg_sect,
->  }
+> diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+> index ede78b1..8c5600c 100644
+> --- a/net/tipc/socket.c
+> +++ b/net/tipc/socket.c
+> @@ -784,8 +784,9 @@ new_mtu:
+>  			break;
 >  
->  /* tipc_buf_append(): Append a buffer to the fragment list of another buffer
-> - * Let first buffer become head buffer
-> - * Returns 1 and sets *buf to headbuf if chain is complete, otherwise 0
-> - * Leaves headbuf pointer at NULL if failure
-> + * @*headbuf: in:  NULL for first frag, otherwise value returned from prev call
-> + *            out: set when successful non-complete reassembly, otherwise NULL
-> + * @*buf:     in:  the buffer to append. Always defined
-> + *            out: head buf after sucessful complete reassembly, otherwise NULL
-> + * Returns 1 when reassembly complete, otherwise 0
->   */
->  int tipc_buf_append(struct sk_buff **headbuf, struct sk_buff **buf)
->  {
-> @@ -122,6 +124,7 @@ int tipc_buf_append(struct sk_buff **headbuf, struct sk_buff **buf)
->  			goto out_free;
->  		head = *headbuf = frag;
->  		skb_frag_list_init(head);
-> +		*buf = NULL;
->  		return 0;
->  	}
->  	if (!head)
-> @@ -150,5 +153,7 @@ int tipc_buf_append(struct sk_buff **headbuf, struct sk_buff **buf)
->  out_free:
->  	pr_warn_ratelimited("Unable to build fragment list\n");
->  	kfree_skb(*buf);
-> +	kfree_skb(*headbuf);
-> +	*buf = *headbuf = NULL;
->  	return 0;
->  }
+>  		rc = tipc_wait_for_sndmsg(sock, &timeo);
+> +		if (rc)
+> +			kfree_skb_list(buf);
+>  	} while (!rc);
+> -
+>  exit:
+>  	if (iocb)
+>  		release_sock(sk);
+> @@ -898,6 +899,8 @@ next:
+>  				break;
+>  		}
+>  		rc = tipc_wait_for_sndpkt(sock, &timeo);
+> +		if (rc)
+> +			kfree_skb_list(buf);
+>  	} while (!rc);
+>  exit:
+>  	if (iocb)
 > 
+
+
+------------------------------------------------------------------------------
+Open source business process management suite built on Java and Eclipse
+Turn processes into business applications with Bonita BPM Community Edition
+Quickly connect people, data, and systems into organized workflows
+Winner of BOSSIE, CODIE, OW2 and Gartner awards
+http://p.sf.net/sfu/Bonitasoft
