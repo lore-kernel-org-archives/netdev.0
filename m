@@ -1,56 +1,35 @@
-From: Sathya Perla <Sathya.Perla@Emulex.Com>
-Subject: RE: [PATCH net-next v2 0/4] be2net: patch set
-Date: Mon, 7 Jul 2014 09:38:33 +0000
-Message-ID: <CF9D1877D81D214CB0CA0669EFAE020C56C9DF62@CMEXMB1.ad.emulex.com>
-References: <1404113493-14851-1-git-send-email-sathya.perla@emulex.com>
- <20140702.184146.931095313472029442.davem@davemloft.net>
+From: Andrey Utkin <andrey.krieger.utkin@gmail.com>
+Subject: Re: [PATCH] appletalk: Set skb with destructor
+Date: Mon, 7 Jul 2014 13:02:48 +0300
+Message-ID: <CANZNk81UtoCOANXnmUPLx3uCP37BH=Wb54YjD3UQ1BwNc1P2Vw@mail.gmail.com>
+References: <20140705202821.GA25880@mwanda>
+	<1404647816-7564-1-git-send-email-andrey.krieger.utkin@gmail.com>
+	<1404682932.4501.6.camel@edumazet-glaptop2.roam.corp.google.com>
+	<CANZNk81v7YHKpzjZ65KHdUi1BgBiV_ibZO24b8uauuCVZeUv2A@mail.gmail.com>
+	<1404723456.4501.14.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1404725217.4501.15.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:5079 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751383AbaGGJie convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2014 05:38:34 -0400
-In-Reply-To: <20140702.184146.931095313472029442.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	acme@ghostprotocols.net, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <1404725217.4501.15.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> 
-> From: Sathya Perla <sathya.perla@emulex.com>
-> Date: Mon, 30 Jun 2014 13:01:29 +0530
-> 
-> > v2 change: merged 2 lines into one in patch 4
-> >
-> > Patch 1 refactors be_cmd_get_profile_config() routine to reduce
-> > code duplication by using the be_cmd_notify_wait() routine, instead
-> > of using a separate variant of the code for MBOX and MCCQ.
-> >
-> > Patch 2 introduces the required FW-cmd code in the PF to query
-> > RSS support on a VF. This is in preparation for patch 3.
-> >
-> > Patch 3 adds support for the PF driver to re-configure the resource
-> > distribution in FW based on the number of VFs enabled by the user. When
-> > the user is not interested in enabling VFs, all resources of a port are
-> > set-aside for the PF. If less than maximum number of VFs are enabled,
-> then
-> > each VF gets a better share of the resources and can now enable RSS (if
-> > the interface supports it.)
-> >
-> > Patch 4 is a minor fix to re-enable HW vlan filtering as soon as the number
-> > of vlans programmed is within the HW limit.
-> >
-> > Please consider applying to net-next tree. Thanks!
-> 
-> Series applied, thanks.
+2014-07-07 12:26 GMT+03:00 Eric Dumazet <eric.dumazet@gmail.com>:
+> Reading again this code, I think all you need is to remove the 2 buggy
+> lines.
+>
+> No need for setup destructors.
 
-David, this patch-set doesn't seem to show up on the net-next tree.
-Could you pls check.
+Reviewing the code again, i find you're right and adding a destructor
+in that place is stupid, and just not setting skb->sk would make bug
+disappear, assuming skb->sk is previously NULL.
+And what about the second case, at ddp.c near line 1650? Is destructor
+needed here?
 
-thanks,
--Sathya
+-- 
+Andrey Utkin
