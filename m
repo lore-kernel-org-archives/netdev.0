@@ -1,85 +1,47 @@
 From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH A 09/12] net: fec: make rx skb handling more robust
-Date: Tue, 08 Jul 2014 00:23:14 +0100
-Message-ID: <E1X4IFe-0004xE-Rp@rmk-PC.arm.linux.org.uk>
+Subject: [PATCH A 11/12] net: fec: ensure fec_enet_free_buffers() properly
+ cleans the rings
+Date: Tue, 08 Jul 2014 00:23:25 +0100
+Message-ID: <E1X4IFp-0004xM-2c@rmk-PC.arm.linux.org.uk>
 References: <20140707232148.GG21766@n2100.arm.linux.org.uk>
 Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:57994 "EHLO
+Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:57999 "EHLO
 	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751608AbaGGXXR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2014 19:23:17 -0400
+	by vger.kernel.org with ESMTP id S1752881AbaGGXX1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2014 19:23:27 -0400
 In-Reply-To: <20140707232148.GG21766@n2100.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allocate, and then map the receive skb before writing any data to the
-ring descriptor or storing the skb.  When freeing the receive ring
-entries, unmap and free the skb, and then clear the stored skb pointer.
-
-This means we have ring data and skb pointer in one of two states:
-either both fully setup, or nothing setup.
-
-This simplifies the cleanup, as we can use just the skb pointer to
-indicate whether the descriptor is setup, and thus avoids potentially
-calling dma_unmap_single() on a DMA error value.
+Ensure that we do not double-free any allocations, and that any transmit
+skbuffs are properly freed when we clean up the rings.
 
 Acked-by: Fugang Duan <B38611@freescale.com>
 Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- drivers/net/ethernet/freescale/fec_main.c | 17 +++++++++++------
- 1 file changed, 11 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/freescale/fec_main.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 309aa2ff8cc9..70853a59627a 100644
+index 9c5570a3e32e..5499bd8ad0a5 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -2066,12 +2066,12 @@ static void fec_enet_free_buffers(struct net_device *ndev)
- 	bdp = fep->rx_bd_base;
- 	for (i = 0; i < fep->rx_ring_size; i++) {
- 		skb = fep->rx_skbuff[i];
--
--		if (bdp->cbd_bufaddr)
-+		fep->rx_skbuff[i] = NULL;
-+		if (skb) {
- 			dma_unmap_single(&fep->pdev->dev, bdp->cbd_bufaddr,
- 					FEC_ENET_RX_FRSIZE, DMA_FROM_DEVICE);
--		if (skb)
- 			dev_kfree_skb(skb);
-+		}
- 		bdp = fec_enet_get_nextdesc(bdp, fep);
+@@ -2079,8 +2079,13 @@ static void fec_enet_free_buffers(struct net_device *ndev)
  	}
  
-@@ -2089,21 +2089,26 @@ static int fec_enet_alloc_buffers(struct net_device *ndev)
+ 	bdp = fep->tx_bd_base;
+-	for (i = 0; i < fep->tx_ring_size; i++)
++	for (i = 0; i < fep->tx_ring_size; i++) {
+ 		kfree(fep->tx_bounce[i]);
++		fep->tx_bounce[i] = NULL;
++		skb = fep->tx_skbuff[i];
++		fep->tx_skbuff[i] = NULL;
++		dev_kfree_skb(skb);
++	}
+ }
  
- 	bdp = fep->rx_bd_base;
- 	for (i = 0; i < fep->rx_ring_size; i++) {
-+		dma_addr_t addr;
-+
- 		skb = netdev_alloc_skb(ndev, FEC_ENET_RX_FRSIZE);
- 		if (!skb) {
- 			fec_enet_free_buffers(ndev);
- 			return -ENOMEM;
- 		}
--		fep->rx_skbuff[i] = skb;
- 
--		bdp->cbd_bufaddr = dma_map_single(&fep->pdev->dev, skb->data,
-+		addr = dma_map_single(&fep->pdev->dev, skb->data,
- 				FEC_ENET_RX_FRSIZE, DMA_FROM_DEVICE);
--		if (dma_mapping_error(&fep->pdev->dev, bdp->cbd_bufaddr)) {
-+		if (dma_mapping_error(&fep->pdev->dev, addr)) {
-+			dev_kfree_skb(skb);
- 			fec_enet_free_buffers(ndev);
- 			if (net_ratelimit())
- 				netdev_err(ndev, "Rx DMA memory map failed\n");
- 			return -ENOMEM;
- 		}
-+
-+		fep->rx_skbuff[i] = skb;
-+		bdp->cbd_bufaddr = addr;
- 		bdp->cbd_sc = BD_ENET_RX_EMPTY;
- 
- 		if (fep->bufdesc_ex) {
+ static int fec_enet_alloc_buffers(struct net_device *ndev)
 -- 
 1.8.3.1
