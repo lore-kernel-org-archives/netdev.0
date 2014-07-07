@@ -1,92 +1,58 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: Re: RSS is not efficient when forwarding (ixgbe)
-Date: Mon, 7 Jul 2014 07:55:23 -0300
-Message-ID: <20140707105523.GC2343@t520.home>
-References: <20140703224408.GA2343@t520.home>
- <20140704193644.GB2343@t520.home>
- <CA+mtBx-dY2eoDzL-1K8F8Br224H+c4fzVtVPu9JmnjLdQKuAOg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Jacob Keller <jacob.e.keller@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: Tom Herbert <therbert@google.com>
+From: Grant Likely <grant.likely@secretlab.ca>
+Subject: Re: [PATCH v2] declance: Fix 64-bit compilation warnings
+Date: Mon, 07 Jul 2014 13:01:52 +0100
+Message-ID: <20140707120152.CF82BC40921@trevor.secretlab.ca>
+References: <alpine.LFD.2.11.1406290246120.15455@eddie.linux-mips.org>
+	<20140702.182807.1245632778216212860.davem@davemloft.net>
+	<alpine.LFD.2.11.1407030244230.15455@eddie.linux-mips.org>
+	<alpine.LFD.2.11.1407030331550.15455@eddie.linux-mips.org>
+	<1404356734.14741.18.camel@joe-AO725>
+	<alpine.LFD.2.11.1407030423300.15455@eddie.linux-mips.org>
+	<1404364565.14741.26.camel@joe-AO725>
+	<alpine.LFD.2.11.1407030637030.15455@eddie.linux-mips.org>
+	<1404368746.14741.36.camel@joe-AO725>
+	<alpine.LFD.2.11.1407051529040.15455@eddie.linux-mips.org>
+	<1404576420.6384.41.camel@joe-AO725>
+	<alpine.LFD.2.11.1407051833400.15455@eddie.linux-mips.org>
+	<1404583739.6384.51.camel@joe-AO725>
+	<alpine.LFD.2.11.1407051917480.15455@eddie.linux-mips.org>
+	<1404585099.6384.53.camel@joe-AO725>
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>,
+	"Maciej W. Rozycki" <macro@linux-mips.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:20103 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752024AbaGGKz1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 7 Jul 2014 06:55:27 -0400
-Content-Disposition: inline
-In-Reply-To: <CA+mtBx-dY2eoDzL-1K8F8Br224H+c4fzVtVPu9JmnjLdQKuAOg@mail.gmail.com>
+Received: from mail-we0-f178.google.com ([74.125.82.178]:47581 "EHLO
+	mail-we0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753231AbaGGMCE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2014 08:02:04 -0400
+Received: by mail-we0-f178.google.com with SMTP id x48so4270437wes.37
+        for <netdev@vger.kernel.org>; Mon, 07 Jul 2014 05:02:01 -0700 (PDT)
+In-Reply-To: <1404585099.6384.53.camel@joe-AO725>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jul 05, 2014 at 09:09:34AM -0700, Tom Herbert wrote:
-> On Fri, Jul 4, 2014 at 12:36 PM, Flavio Leitner <fbl@redhat.com> wrote:
-> > On Thu, Jul 03, 2014 at 07:44:08PM -0300, Flavio Leitner wrote:
-> >>
-> >> Hi,
-> >>
-> >> I have a simple router setup which forwards traffic from
-> >> one ixgbe 82599ES to another ixgbe of the same model.
-> >>
-> >> kernel: 3.16.0-rc2-00262-ga921e2a
-> >>
-> >>   p2p1: 192.168.155.1/24 is the gateway of the LAN
-> >>   p2p2: 192.168.156.1/24 is the gateway of the other LAN
-> >>
-> >> While the ARP is resolving, I can see the packets being spread
-> >> among all the 8 queues (8 online CPUs) available and that is fine.
-> >>
-> >> However, as soon as the TCP traffic starts, all streams are
-> >> merged to rx-queue-0 which overwhelms one single CPU, so the
-> >> total throughput is about 4Gbits/sec.
-> >>
-> >> I can see the driver sending different skb->hash for each stream,
-> >> so it can't be the NIC.
-> >>
-> >> Also, if I run a local http on the router, the skb->hash pattern
-> >> doesn't change, but the workload is spread among all CPUs.
-> >>
-> >> debug output while reproducing all the streams on rx-queue-0:
-> >> [...]
-> >> [11685.885093] ixgbe_rx_skb:1713 skb(ffff880222a77200) hash: 0xC2AF4A27
-> >> [11685.891454] ixgbe_rx_skb:1713 skb(ffff880222a77200) hash: 0x8C5B749D
-> >> [11685.897820] ixgbe_rx_skb:1713 skb(ffff880222a77200) hash: 0xA33BA6D5
-> >> [11690.845032] net_ratelimit: 3276406 callbacks suppressed
-> >> [...]
-> >
-> > The command 'ehtool -S p2p1 | grep rx_queue' shows only rx queue #0
-> > receiving packets.  Also, /proc/interrupts shows only p2p1-TxRx-0
-> > generating interrupts.
-> >
-> > Nothing changes when I start irqbalance in the middle of the test.
-> > However, if I create new streams, they are correctly distributed
-> > among the NIC queues/irqs/CPUs.
-> >
-> Could this be interaction with flow director? Is the application
-> running on just one CPU?
-
-It's a router forwarding traffic from one interface to another, so
-I guess it's only the kernel. BTW, no firewall.
-
-Flow Director needs to be enabled and I am using defaults.
- 
-> > I have tried the same setup and test with another card (bnx2, 1GbE)
-> > and all queues got traffic by default though they were all assigned
-> > to CPU#0 (no irqbalance), so this is expected and makes me think
-> > this is specific to the ixgbe driver.
-> >
-> > Any ideas?
-> >
-> > Thanks,
-> > fbl
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On Sat, 05 Jul 2014 11:31:39 -0700, Joe Perches <joe@perches.com> wrote:
+> On Sat, 2014-07-05 at 19:20 +0100, Maciej W. Rozycki wrote:
+> > On Sat, 5 Jul 2014, Joe Perches wrote:
+> > > I don't think %#p is valid so it
+> > > shouldn't have been set by #.
+> > 
+> >  Huh?  As recently as last Wednesday you pointed me at the specific commit 
+> > from Grant that made it valid (GCC format complaints aside).
 > 
+> Those gcc complaints are precisely the thing
+> that makes it invalid.
+
+That's the most inane reason ever for saying something is invalid. "The
+tool doesn't recognise it, there for it is invalid?" Seriously?
+
+Tools are just tools. They aren't the source of what is valid/invalid,
+they only report on what we as engineers have told them to do, because
+*we* define what should be valid/invalid.
+
+If you've got a real reason that explains *why* the tool rejects that
+construct, then I'd be happy to hear it, but otherwise that argument
+makes no sense.
+
+g.
