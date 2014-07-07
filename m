@@ -1,7 +1,9 @@
 From: =?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@web.de>
-Subject: [PATCH net-next 0/4] bridge: multicast snooping exports #2
-Date: Mon,  7 Jul 2014 05:41:15 +0200
-Message-ID: <1404704477-19448-1-git-send-email-linus.luessing@web.de>
+Subject: [PATCH net-next 2/2] bridge: export knowledge about the
+	presence of IGMP/MLD queriers
+Date: Mon,  7 Jul 2014 05:41:17 +0200
+Message-ID: <1404704477-19448-3-git-send-email-linus.luessing@web.de>
+References: <1404704477-19448-1-git-send-email-linus.luessing@web.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: quoted-printable
@@ -12,6 +14,7 @@ Cc: b.a.t.m.a.n@lists.open-mesh.org, bridge@lists.linux-foundation.org,
 	"David S. Miller" <davem@davemloft.net>
 To: netdev@vger.kernel.org
 Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1404704477-19448-1-git-send-email-linus.luessing@web.de>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
 	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
@@ -23,38 +26,110 @@ Sender: bridge-bounces@lists.linux-foundation.org
 Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+With this patch other modules are able to ask the bridge whether an
+IGMP or MLD querier exists on the according, bridged link layer.
 
-Some people pointed out to me that it might be helpful to add stubs for
-the newly added multicast exports. That way e.g. batman-adv should contin=
-ue
-to be compile and useable without having to have a kernel compiled
-with bridge code in the future. This is what the first patch is supposed
-to do.
+Multicast snooping can only be performed if a valid, selected querier
+exists on a link.
 
-The second patch adds a third multicast export for the bridge which
-e.g. batman-adv is supposed to use, too, soon: Just like the bridge
-disables its multicast snooping activities if no querier is present,
-batman-adv needs to do the same if bridges are involved.
+Just like the bridge only enables its multicast snooping if a querier
+exists, e.g. batman-adv too can only activate its multicast
+snooping in bridged scenarios if a querier is present.
 
+For instance this export avoids having to reimplement IGMP/MLD
+querier message snooping and parsing in e.g. batman-adv, when
+multicast optimizations for bridged scenarios are added in the
+future.
 
-These three exports should be the final ones needed to marry the bridge
-multicast snooping with the batman-adv multicast optimizations recently
-added for the 3.15 kernel, allowing to use these optimzations in common
-setups having a bridge on top of e.g. bat0, too. So far these bridged
-setups would fall back to simple flooding through the batman-adv mesh
-network for any multicast packet entering bat0.
+Signed-off-by: Linus L=C3=BCssing <linus.luessing@web.de>
+---
+ include/linux/if_bridge.h |    6 ++++++
+ net/bridge/br_multicast.c |   37 +++++++++++++++++++++++++++++++++++++
+ 2 files changed, 43 insertions(+)
 
-More information about the batman-adv multicast optimizations currently
-implemented can be found here:
-
-http://www.open-mesh.org/projects/batman-adv/wiki/Basic-multicast-optimiz=
-ations
-
-The integration on the batman-adv side could afterwards look like this,
-for instance (now including the third export):
-
-http://git.open-mesh.org/batman-adv.git/commitdiff/61e4f6af4b7a21ed4040f2=
-e711d50c778e5b6d93?hp=3D6ae4281474675fbca5bedcf768972a32db586eb6
-
-Cheers, Linus
+diff --git a/include/linux/if_bridge.h b/include/linux/if_bridge.h
+index e0c575c..808dcb8 100644
+--- a/include/linux/if_bridge.h
++++ b/include/linux/if_bridge.h
+@@ -40,6 +40,7 @@ extern br_should_route_hook_t __rcu *br_should_route_ho=
+ok;
+ #if IS_ENABLED(CONFIG_BRIDGE) && IS_ENABLED(CONFIG_BRIDGE_IGMP_SNOOPING)
+ int br_multicast_list_adjacent(struct net_device *dev,
+ 			       struct list_head *br_ip_list);
++bool br_multicast_has_querier_anywhere(struct net_device *dev, int proto=
+);
+ bool br_multicast_has_querier_adjacent(struct net_device *dev, int proto=
+);
+ #else
+ static inline int br_multicast_list_adjacent(struct net_device *dev,
+@@ -47,6 +48,11 @@ static inline int br_multicast_list_adjacent(struct ne=
+t_device *dev,
+ {
+ 	return 0;
+ }
++static inline bool br_multicast_has_querier_anywhere(struct net_device *=
+dev,
++						     int proto)
++{
++	return false;
++}
+ static inline bool br_multicast_has_querier_adjacent(struct net_device *=
+dev,
+ 						     int proto)
+ {
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index abfa0b65..b4845f4 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -2216,6 +2216,43 @@ unlock:
+ EXPORT_SYMBOL_GPL(br_multicast_list_adjacent);
+=20
+ /**
++ * br_multicast_has_querier_anywhere - Checks for a querier on a bridge
++ * @dev: The bridge port providing the bridge on which to check for a qu=
+erier
++ * @proto: The protocol family to check for: IGMP -> ETH_P_IP, MLD -> ET=
+H_P_IPV6
++ *
++ * Checks whether the given interface has a bridge on top and if so retu=
+rns
++ * true if a valid querier exists anywhere on the bridged link layer.
++ * Otherwise returns false.
++ */
++bool br_multicast_has_querier_anywhere(struct net_device *dev, int proto=
+)
++{
++	struct net_bridge *br;
++	struct net_bridge_port *port;
++	struct ethhdr eth;
++	bool ret =3D false;
++
++	rcu_read_lock();
++	if (!br_port_exists(dev))
++		goto unlock;
++
++	port =3D br_port_get_rcu(dev);
++	if (!port || !port->br)
++		goto unlock;
++
++	br =3D port->br;
++
++	memset(&eth, 0, sizeof(eth));
++	eth.h_proto =3D htons(proto);
++
++	ret =3D br_multicast_querier_exists(br, &eth);
++
++unlock:
++	rcu_read_unlock();
++	return ret;
++}
++EXPORT_SYMBOL_GPL(br_multicast_has_querier_anywhere);
++
++/**
+  * br_multicast_has_querier_adjacent - Checks for a querier behind a bri=
+dge port
+  * @dev: The bridge port adjacent to which to check for a querier
+  * @proto: The protocol family to check for: IGMP -> ETH_P_IP, MLD -> ET=
+H_P_IPV6
+--=20
+1.7.10.4
