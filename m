@@ -1,53 +1,92 @@
-From: Olivier Sobrie <olivier@sobrie.be>
-Subject: Re: [PATCH 2/2] hso: fix deadlock when receiving bursts of data
-Date: Mon, 7 Jul 2014 12:42:20 +0200
-Message-ID: <20140707104220.GA31340@hposo>
-References: <1404723967-24245-1-git-send-email-olivier@sobrie.be>
- <1404723967-24245-2-git-send-email-olivier@sobrie.be>
- <063D6719AE5E284EB5DD2968C1650D6D1726D5E9@AcuExch.aculab.com>
-Reply-To: Olivier Sobrie <olivier@sobrie.be>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: RSS is not efficient when forwarding (ixgbe)
+Date: Mon, 7 Jul 2014 07:55:23 -0300
+Message-ID: <20140707105523.GC2343@t520.home>
+References: <20140703224408.GA2343@t520.home>
+ <20140704193644.GB2343@t520.home>
+ <CA+mtBx-dY2eoDzL-1K8F8Br224H+c4fzVtVPu9JmnjLdQKuAOg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jan Dumon <j.dumon@option.com>,
-	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Jacob Keller <jacob.e.keller@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:20103 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752024AbaGGKz1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Jul 2014 06:55:27 -0400
 Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1726D5E9@AcuExch.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <CA+mtBx-dY2eoDzL-1K8F8Br224H+c4fzVtVPu9JmnjLdQKuAOg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+On Sat, Jul 05, 2014 at 09:09:34AM -0700, Tom Herbert wrote:
+> On Fri, Jul 4, 2014 at 12:36 PM, Flavio Leitner <fbl@redhat.com> wrote:
+> > On Thu, Jul 03, 2014 at 07:44:08PM -0300, Flavio Leitner wrote:
+> >>
+> >> Hi,
+> >>
+> >> I have a simple router setup which forwards traffic from
+> >> one ixgbe 82599ES to another ixgbe of the same model.
+> >>
+> >> kernel: 3.16.0-rc2-00262-ga921e2a
+> >>
+> >>   p2p1: 192.168.155.1/24 is the gateway of the LAN
+> >>   p2p2: 192.168.156.1/24 is the gateway of the other LAN
+> >>
+> >> While the ARP is resolving, I can see the packets being spread
+> >> among all the 8 queues (8 online CPUs) available and that is fine.
+> >>
+> >> However, as soon as the TCP traffic starts, all streams are
+> >> merged to rx-queue-0 which overwhelms one single CPU, so the
+> >> total throughput is about 4Gbits/sec.
+> >>
+> >> I can see the driver sending different skb->hash for each stream,
+> >> so it can't be the NIC.
+> >>
+> >> Also, if I run a local http on the router, the skb->hash pattern
+> >> doesn't change, but the workload is spread among all CPUs.
+> >>
+> >> debug output while reproducing all the streams on rx-queue-0:
+> >> [...]
+> >> [11685.885093] ixgbe_rx_skb:1713 skb(ffff880222a77200) hash: 0xC2AF4A27
+> >> [11685.891454] ixgbe_rx_skb:1713 skb(ffff880222a77200) hash: 0x8C5B749D
+> >> [11685.897820] ixgbe_rx_skb:1713 skb(ffff880222a77200) hash: 0xA33BA6D5
+> >> [11690.845032] net_ratelimit: 3276406 callbacks suppressed
+> >> [...]
+> >
+> > The command 'ehtool -S p2p1 | grep rx_queue' shows only rx queue #0
+> > receiving packets.  Also, /proc/interrupts shows only p2p1-TxRx-0
+> > generating interrupts.
+> >
+> > Nothing changes when I start irqbalance in the middle of the test.
+> > However, if I create new streams, they are correctly distributed
+> > among the NIC queues/irqs/CPUs.
+> >
+> Could this be interaction with flow director? Is the application
+> running on just one CPU?
 
-On Mon, Jul 07, 2014 at 09:13:53AM +0000, David Laight wrote:
-> From: Olivier Sobrie
-> > When the module sends bursts of data, sometimes a deadlock happens in
-> > the hso driver when the tty buffer doesn't get the chance to be flushed
-> > quickly enough.
-> > 
-> > To avoid this, first, we remove the endless while loop in
-> > put_rx_bufdata() which is the root cause of the deadlock.
-> > Secondly, when there is no room anymore in the tty buffer, we set up a
-> > timer of 100 msecs to give a chance to the upper layer to flush the tty
-> > buffer and make room for new data.
+It's a router forwarding traffic from one interface to another, so
+I guess it's only the kernel. BTW, no firewall.
+
+Flow Director needs to be enabled and I am using defaults.
+ 
+> > I have tried the same setup and test with another card (bnx2, 1GbE)
+> > and all queues got traffic by default though they were all assigned
+> > to CPU#0 (no irqbalance), so this is expected and makes me think
+> > this is specific to the ixgbe driver.
+> >
+> > Any ideas?
+> >
+> > Thanks,
+> > fbl
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 > 
-> What is the timer for?
-> You need to get the sending code woken up by the urb completion.
-
-In put_rxbuf_data() (which can be called under irq disabled),
-tty_flip_buffer_push() is called and schedules a push of the tty buffer.
-When the buffer is full, I give some time to the above layer in order
-to flush it.
-The timer is used to recall put_rxbuf_data_and_resubmit_bulk_urb()
-later in order to read the remaining data stored in
-"urb->transfer_buffer" and then to resubmit the urb to receive more data
-from the gsm module.
-I don't understand what you mean by "getting the sending code woken up".
-Calling tty_port_tty_wakeup()?? We are in the receive path...
-
-Thanks,
-
--- 
-Olivier
