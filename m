@@ -1,54 +1,69 @@
-From: Loic Prylli <loicp@google.com>
-Subject: Re: [PATCH] net: Fix NETDEV_CHANGE notifier usage causing spurious
- arp flush
-Date: Mon, 7 Jul 2014 13:34:32 -0700
-Message-ID: <20140707203432.GB25441@google.com>
-References: <1404275983-7908-1-git-send-email-loicp@google.com>
- <20140702070349.GA11943@gmail.com>
+From: Chad Reese <kreese@cavium.com>
+Subject: Re: [PATCH net-next v2 1/8] net-timestamp: explicit SO_TIMESTAMPING
+ ancillary data struct
+Date: Mon, 07 Jul 2014 14:03:38 -0700
+Message-ID: <53BB0B2A.3060708@cavium.com>
+References: <1404416380-3545-1-git-send-email-willemb@google.com> <1404416380-3545-2-git-send-email-willemb@google.com> <20140705201851.GE3869@localhost.localdomain> <CA+FuTSeSOBUzDLahLBNoW4i-UZe-VOXZr4LgA2bXBfjWxe10Fw@mail.gmail.com> <20140707184700.GA1610@localhost.localdomain> <CA+FuTSeqf=xgjjVreasKGZVPR1iXRKr68R7dj8n9w31-hUnznA@mail.gmail.com> <53BAF8AC.6010907@cavium.com> <20140707201156.GA10265@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	timo.teras@iki.fi, Jiri Pirko <jiri@resnulli.us>
-To: Dan Aloni <dan@kernelim.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140702070349.GA11943@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Willem de Bruijn <willemb@google.com>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Chad Reese <kreese@caviumnetworks.com>,
+	David Daney <david.daney@cavium.com>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f171.google.com ([209.85.223.171]:56136 "EHLO
+	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751205AbaGGVDl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2014 17:03:41 -0400
+Received: by mail-ie0-f171.google.com with SMTP id rp18so1641502iec.30
+        for <netdev@vger.kernel.org>; Mon, 07 Jul 2014 14:03:40 -0700 (PDT)
+In-Reply-To: <20140707201156.GA10265@localhost.localdomain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 02, 2014 at 10:03:49AM +0300, Dan Aloni wrote:
-> On Tue, Jul 01, 2014 at 09:39:43PM -0700, Loic Prylli wrote:
-> > A bug was introduced in NETDEV_CHANGE notifier sequence causing the
-> > arp table to be sometimes spuriously cleared (including manual arp
-> > entries marked permanent), upon network link carrier changes.
-> > 
-> > The changed argument for the notifier was applied only to a single
-> > caller of NETDEV_CHANGE, missing among others netdev_state_change().
-> > So upon net_carrier events induced by the network, which are
-> > triggering a call to netdev_state_change(), arp_netdev_event() would
-> > decide whether to clear or not arp cache based on random/junk stack
-> > values (a kind of read buffer overflow).
-> [..]
-> >  {
-> >  	if (dev->flags & IFF_UP) {
-> > -		call_netdevice_notifiers(NETDEV_CHANGE, dev);
-> > +		struct netdev_notifier_change_info change_info;
-> > +
-> > +		change_info.flags_changed = 0;
-> 
-> I think it would be safer to do:
-> 
->    struct netdev_notifier_change_info change_info = {};
-> 
-> So that when future fields are added to the struct and this call-site
-> happens to be forgotten, they will get 0 by default rather than
-> random stack values.
+On 07/07/2014 01:11 PM, Richard Cochran wrote:
+> On Mon, Jul 07, 2014 at 12:44:44PM -0700, Chad Reese wrote:
+>>
+>> A hardware timer used for ethernet timestamps is completely
+>> independent from the kernel's software view of time. Since the
+>> hardware timestamps are only exposed in the driver, how can they be
+>> correlated with system time? If the driver doesn't do it, then
+>> nobody else knows how.
+>
+> Um, implement a PTP Hardware Clock device?
 
-Thanks for the review. Will take into account suggestion. For the
-record, another (possibly bigger) trap from the preexisting code that
-remains (and caused the bug) is NETDEV_CHANGE being the only netdev
-notifier with a different special calling sequence. Since calls to
-NETDEV_CHANGE notifier have been reduced over time to the two
-instances in net/core/dev.c, it hopefully won't be a problem (and
-fixing that maintainability issue would be out-of-scope of this simple
-low-risk bug fix).
+Octeon does support using the 1588 clock as the kernel's clock source. 
+Unfortunately most people don't seem to want to use it. I have no idea why.
+
+> Don't reimplement clock servos in your driver. Instead, leave that to
+> the PTP stack (like using linuxptp's phc2sys).
+
+I obviously did it wrong. The one line comment in 
+Documentation/networking/timestamping.txt was not enough for me to 
+figure out the proper usage of syststamp.
+
+>> For Octeon, you can optionally use the hardware timestamp as the
+>> system clock reference. Most people don't, but it is the only way to
+>> get the system time to be accurate. 1588 can synchronize two Octeon
+>> boards to less than 1ns for the hardware timer. The Linux software
+>> timers is always farther off.
+>
+> 1588 cannot synchronize boards unless you expose the clock to the
+> userland PTP stack. Why don't you do that?
+
+I was trying to stick with standard linux userspace APIs. People have no 
+interest in the PTP clock at all. All they want is for the standard 
+system time to be correct.
+
+Chad
+
+-- 
+
+Chad Reese <kreese@cavium.com>
+Cavium Networks
+Phone: 408 - 943 - 7183
+Cell: 321 - 438 - 7753
