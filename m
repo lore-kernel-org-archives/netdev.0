@@ -1,30 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] Add ptp vlan support
-Date: Mon, 07 Jul 2014 16:58:11 -0700 (PDT)
-Message-ID: <20140707.165811.2162088078754102232.davem@davemloft.net>
-References: <1403863151-13337-1-git-send-email-stefan.sorensen@spectralink.com>
+Subject: Re: [PATCH] batman-adv: Use kasprintf
+Date: Mon, 07 Jul 2014 17:00:55 -0700 (PDT)
+Message-ID: <20140707.170055.1999993887924074843.davem@davemloft.net>
+References: <20140628183628.GA9946@himangi-Dell>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: richardcochran@gmail.com, kaber@trash.net, netdev@vger.kernel.org
-To: stefan.sorensen@spectralink.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47708 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752412AbaGGX6O convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2014 19:58:14 -0400
-In-Reply-To: <1403863151-13337-1-git-send-email-stefan.sorensen@spectralink.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mareklindner@neomailbox.ch, sw@simonwunderlich.de,
+	antonio@meshcoding.com, b.a.t.m.a.n@lists.open-mesh.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	julia.lawall@lip6.fr
+To: himangi774@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140628183628.GA9946@himangi-Dell>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Stefan S=F8rensen <stefan.sorensen@spectralink.com>
-Date: Fri, 27 Jun 2014 11:59:08 +0200
+From: Himangi Saraogi <himangi774@gmail.com>
+Date: Sun, 29 Jun 2014 00:06:29 +0530
 
-> This patch series adds functionality for running ptp/ieee1588 over vl=
-an.
->=20
-> Changes since v1:
->   Split ptp class check simplification onto seperate patch
+> kasprintf combines kmalloc and sprintf, and takes care of the size
+> calculation itself.
+> 
+> The semantic patch that makes this change is as follows:
+ ...
+> Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
+> Acked-by: Julia Lawall <julia.lawall@lip6.fr>
 
-Series applied, but really longer term we need a much more generic
-solution to "ptp over encapsulation X".
+Applied, thanks.
