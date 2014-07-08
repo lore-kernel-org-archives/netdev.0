@@ -1,39 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] defxx: Fix issues with debug printk calls
-Date: Tue, 08 Jul 2014 15:32:11 -0700 (PDT)
-Message-ID: <20140708.153211.1389512038724757200.davem@davemloft.net>
-References: <alpine.LFD.2.11.1407051520310.15455@eddie.linux-mips.org>
+From: Thomas Fitzsimmons <fitzsim@fitzsim.org>
+Subject: [PATCH] net: mvneta: Fix big endian issue in mvneta_txq_desc_csum()
+Date: Tue, 08 Jul 2014 18:30:54 -0400
+Message-ID: <m31ttvqy8x.fsf@fitzsim.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: macro@linux-mips.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54722 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753773AbaGHWcM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2014 18:32:12 -0400
-In-Reply-To: <alpine.LFD.2.11.1407051520310.15455@eddie.linux-mips.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+ Andrew Lunn <andrew@lunn.ch>, Jason Cooper <jason@lakedaemon.net>,
+ Gregory Clement <gregory.clement@free-electrons.com>,
+ linux-arm-kernel@lists.infradead.org,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: David S. Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: "Maciej W. Rozycki" <macro@linux-mips.org>
-Date: Sat, 5 Jul 2014 15:28:22 +0100 (BST)
+This commit fixes the command value generated for CSUM calculation
+when running in big endian mode.  The Ethernet protocol ID for IP was
+being unconditionally byte-swapped in the layer 3 protocol check (with
+swab16), which caused the mvneta driver to not function correctly in
+big endian mode.  This patch byte-swaps the ID conditionally with
+htons.
 
-> This fixes issues with debug printk calls across the driver, normally 
-> disabled; first compilation errors:
-> 
-> drivers/net/fddi/defxx.c:676:1: error: pasting "(" and ""In dfx_bus_init...\n"" does not give a valid preprocessing token
-> drivers/net/fddi/defxx.c:820:1: error: pasting "(" and ""In dfx_bus_uninit...\n"" does not give a valid preprocessing token
-> 
-> and so on, and then warnings:
-> 
-> drivers/net/fddi/defxx.c: In function 'dfx_driver_init':
-> drivers/net/fddi/defxx.c:1132: warning: format '%0X' expects type 'unsigned int', but argument 4 has type 'dma_addr_t'
-> drivers/net/fddi/defxx.c:1132: warning: format '%0X' expects type 'unsigned int', but argument 4 has type 'dma_addr_t'
-> 
-> etc.  Additionally casts are removed from virtual addresses and %p used.
-> 
-> Signed-off-by: Maciej W. Rozycki <macro@linux-mips.org>
+Cc: <stable@vger.kernel.org> # v3.13+
+Signed-off-by: Thomas Fitzsimmons <fitzsim@fitzsim.org>
+---
+The mvneta driver existed prior to v3.13, but it has only supported big
+endian from v3.13 onward.  If it's accepted, this patch needs to be
+backported for stable only as far back as v3.13.
 
-Applied to net-next, thanks.
+ drivers/net/ethernet/marvell/mvneta.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index 45beca1..667cf65 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -1207,7 +1207,7 @@ static u32 mvneta_txq_desc_csum(int l3_offs, int l3_proto,
+ 	command =  l3_offs    << MVNETA_TX_L3_OFF_SHIFT;
+ 	command |= ip_hdr_len << MVNETA_TX_IP_HLEN_SHIFT;
+ 
+-	if (l3_proto == swab16(ETH_P_IP))
++	if (l3_proto == htons(ETH_P_IP))
+ 		command |= MVNETA_TXD_IP_CSUM;
+ 	else
+ 		command |= MVNETA_TX_L3_IP6;
+-- 
+1.7.1
