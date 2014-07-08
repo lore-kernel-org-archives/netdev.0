@@ -1,55 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-next 2014-07-03
-Date: Tue, 08 Jul 2014 14:13:28 -0700 (PDT)
-Message-ID: <20140708.141328.1589777085621867948.davem@davemloft.net>
-References: <20140703191211.GB13303@tuxdriver.com>
-	<20140703204141.GD13303@tuxdriver.com>
+Subject: Re: [PATCH net-next v1 2/2] netpoll: avoid reference leaks
+Date: Tue, 08 Jul 2014 14:17:08 -0700 (PDT)
+Message-ID: <20140708.141708.2064358397103630362.davem@davemloft.net>
+References: <f98ccbfee35a7ab7f9499ede9b34e6b1120d88f1.1404172155.git.decot@googlers.com>
+	<20140707.193505.345276817146527821.davem@davemloft.net>
+	<CAG88wWZ9GiqoOscqG4-ePOWo8bXgSTAQ6=6-tZPahMcxOvQMLg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ebiederm@xmission.com, edumazet@google.com, amwang@redhat.com,
+	antonio@meshcoding.com, jpirko@redhat.com
+To: decot@googlers.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140703204141.GD13303@tuxdriver.com>
+In-Reply-To: <CAG88wWZ9GiqoOscqG4-ePOWo8bXgSTAQ6=6-tZPahMcxOvQMLg@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Thu, 3 Jul 2014 16:41:42 -0400
+From: David Decotigny <decot@googlers.com>
+Date: Tue, 8 Jul 2014 12:35:14 -0700
 
-> On Thu, Jul 03, 2014 at 03:12:11PM -0400, John W. Linville wrote:
->> Dave,
->> 
->> Please pull this first batch of wireless updates intended for the
->> 3.17 stream...
->> 
->> For the mac80211 bits, Johannes says:
->> 
->> "The biggest thing here is probably Arik's TDLS rework, beyond that we
->> have smaller improvements and features like David's scanning IE thing,
->> Luca's queue work, some CSA work, etc. Also your PID rate control
->> removal, of course."
->> 
->> For the iwlwifi bits, Emmanuel says:
->> 
->> "I have here a fix from Eliad for scheduled scan: it fixes a firmware
->> assertion. Arik reverts a patch I made that didn't take into account
->> that 3160 doesn't have UAPSD and hence, we can't assume that all
->> newer firmwares support the feature. Here too, the visible effect
->> is a firmware assertion. Along with that, we have a few fixes and
->> additions to the device list."
+> Thanks for the feedback. This patch results from manual inspection of
+> the code. I agree my commit description is abusive: in the case of
+> bonding, I think everything is fine, there should be no ref leak,
+> cleanup paths seem clean.
 > 
-> I copied the wrong text.  It should have read as follows:
-> 
-> "I have here a whole bunch of various things. Andy contributes
-> better debug prints for dvm specific flows and a module parameter to
-> completely disable power save for dvm. Andrei is sharing the premises
-> of his work on CSA - more to come. Eran and Liad keep on working
-> on the new devices. I have the regular amount of BT Coex stuff and
-> I continue to work on the firmware error report system adding more
-> debug capabilities. More to come on that subject too."
-> 
-> Sorry for the confusion!
+> My point was to make things more predictable: ndo_netpoll_cleanup
+> called anyways to acknowledge actual loss of a ref to npinfo,
+> irrespective of whether it's the last ref or not. Without this patch,
+> calling ndo_netpoll_cleanup would depend on some timing behavior, hard
+> to predict, and users of the API have better be careful to reclaim the
+> refs manually anyways: as a consequence, not sure this callback is
+> actually required in its current inception.
 
-I fixed the text up and pulled, thanks John.
+You've increased my confusion rather than decreased it.
+
+You fail to address the core issue in my feedback:
+
+	Whoever drops the refcount to zero must be the one to invoke
+	the cleanup function.
+
+Please address this concisely, and directly.
