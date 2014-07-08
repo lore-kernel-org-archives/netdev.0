@@ -1,44 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] enic: fix return values in enic_set_coalesce
-Date: Mon, 07 Jul 2014 21:34:02 -0700 (PDT)
-Message-ID: <20140707.213402.533534622692381995.davem@davemloft.net>
-References: <1404295935-13597-1-git-send-email-_govind@gmx.com>
+Subject: Re: [PATCH] net: arcnet: Remove "#define bool int"
+Date: Mon, 07 Jul 2014 21:35:01 -0700 (PDT)
+Message-ID: <20140707.213501.964032202172502145.davem@davemloft.net>
+References: <1404303121-2548-1-git-send-email-linux@rasmusvillemoes.dk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, benve@cisco.com, ssujith@cisco.com,
-	ben@decadent.org.uk
-To: _govind@gmx.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48849 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751077AbaGHEeD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2014 00:34:03 -0400
-In-Reply-To: <1404295935-13597-1-git-send-email-_govind@gmx.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux@rasmusvillemoes.dk
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1404303121-2548-1-git-send-email-linux@rasmusvillemoes.dk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Date: Wed,  2 Jul 2014 15:42:15 +0530
+From: Rasmus Villemoes <linux@rasmusvillemoes.dk>
+Date: Wed,  2 Jul 2014 14:12:01 +0200
 
-> enic_set_coalesce() has two problems.
+> The header file include/linux/arcdevice.h #defines bool to int, if
+> bool is not already #defined. However, the files which use that header
+> file seem to rely on that #define (unconditionally) being in effect:
+> the prototypes for the functions arcrimi_reset, com20020_reset,
+> com90io_reset, com90xx_reset (whose addresses are assigned to the
+> hw.reset member of struct arcnet_local) use int explicitly.
 > 
-> * It should return -EINVAL and not -EOPNOTSUPP for invalid coalesce values.
+> Moreover, that #define is an accident waiting to happen (scenario:
+> inclusion of arcdevice.h followed by inclusion of some header which
+> declares function prototypes using bool). Also, #include
+> <linux/types.h> must appear before #include <linux/arcdevice.h> (the
+> compiler wouldn't like "typedef _Bool int").
 > 
-> * In case of MSIX, enic_set_coalesce return error after applying requested
->   coalescing setting partially. We should either apply all the setting requeste
->   and return success or apply non and return error.
+> Since none of the files using arcdevice.h declare variables of type
+> "bool", the patch is actually quite simple, unlike the commit message.
 > 
-> * This patch also simplifies the algo.
-> 
-> This was introduced by
-> '7c2ce6e60f703 enic: Add support for adaptive interrupt coalescing'
-> 
-> These changes were suggested by Ben Hutchings here
-> http://www.spinics.net/lists/netdev/msg283972.html
-> 
-> Also change enic driver version.
-> 
-> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
+> Signed-off-by: Rasmus Villemoes <linux@rasmusvillemoes.dk>
 
-Applied, thanks.
+Applied to net-next, thanks.
