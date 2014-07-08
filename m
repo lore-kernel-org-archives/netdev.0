@@ -1,57 +1,56 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 3/6] net/mlx4: Verify port number in __mlx4_unregister_mac
-Date: Tue,  8 Jul 2014 11:25:21 +0300
-Message-ID: <1404807924-29038-4-git-send-email-amirv@mellanox.com>
-References: <1404807924-29038-1-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next 0/6] Mellanox driver update Jul-08-2014
+Date: Tue,  8 Jul 2014 11:25:18 +0300
+Message-ID: <1404807924-29038-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Eugenia Emantayev <eugenia@mellanox.com>,
-	Eli Cohen <eli@mellanox.com>
+	Amir Vadai <amirv@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:47655 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:44678 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753322AbaGHI00 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Jul 2014 04:26:26 -0400
-In-Reply-To: <1404807924-29038-1-git-send-email-amirv@mellanox.com>
+	id S1753532AbaGHI01 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Jul 2014 04:26:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eugenia Emantayev <eugenia@mellanox.com>
+Hi,
 
-Verify port number to avoid crashes if port number is outside the range.
+This patch set introduce some small bug fixes.
+Most of the patches are small fixes to cornet case bugs.
+The patch by Noa ("Fix mac_hash database inconsistency") was sent in the past
+[1] and was droped because a fix to the bonding code was supposed to make it
+unnecessary. After a second look on the patch, it is still needed even
+after the direct access to dev_addr by the bonding will be fixed.
 
+Patches were applied and tested over commit bd4578b
+("drivers/net/hyperv/netvsc.c: remove unnecessary null test before kfree")
 
-Signed-off-by: Eli Cohen <eli@mellanox.com>
-Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/port.c | 10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
+[1] - http://permalink.gmane.org/gmane.linux.network/315900
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/port.c b/drivers/net/ethernet/mellanox/mlx4/port.c
-index 5d76a60..9ba0c1c 100644
---- a/drivers/net/ethernet/mellanox/mlx4/port.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/port.c
-@@ -244,10 +244,16 @@ EXPORT_SYMBOL_GPL(mlx4_get_base_qpn);
- 
- void __mlx4_unregister_mac(struct mlx4_dev *dev, u8 port, u64 mac)
- {
--	struct mlx4_port_info *info = &mlx4_priv(dev)->port[port];
--	struct mlx4_mac_table *table = &info->mac_table;
-+	struct mlx4_port_info *info;
-+	struct mlx4_mac_table *table;
- 	int index;
- 
-+	if (port < 1 || port > dev->caps.num_ports) {
-+		mlx4_warn(dev, "invalid port number (%d), aborting...\n", port);
-+		return;
-+	}
-+	info = &mlx4_priv(dev)->port[port];
-+	table = &info->mac_table;
- 	mutex_lock(&table->mutex);
- 	index = find_index(dev, table, mac);
- 
+Thanks,
+Amir
+
+Eugenia Emantayev (4):
+  net/mlx4_en: Fix set port ratelimit
+  net/mlx4_en: Run loopback test only when port is up
+  net/mlx4: Verify port number in __mlx4_unregister_mac
+  net/mlx4_en: Do not disable vlan filter during promiscuous mode
+
+Noa Osherovich (1):
+  net/mlx4_en: Fix mac_hash database inconsistency
+
+Yishai Hadas (1):
+  net/mlx4_en: Do not count LLC/SNAP in MTU calculation
+
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c   | 33 ++++++++++--------------
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c       |  2 +-
+ drivers/net/ethernet/mellanox/mlx4/en_selftest.c |  3 ++-
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h        |  5 ----
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h     |  4 +--
+ drivers/net/ethernet/mellanox/mlx4/port.c        | 32 ++++++++++++++++++-----
+ include/linux/mlx4/device.h                      | 11 ++++++++
+ 7 files changed, 54 insertions(+), 36 deletions(-)
+
 -- 
 1.8.3.4
