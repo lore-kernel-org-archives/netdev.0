@@ -1,102 +1,132 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net] r8169: disable L23
-Date: Tue, 8 Jul 2014 16:26:10 +0800
-Message-ID: <1394712342-15778-6-Taiwan-albertk@realtek.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<nic_swsd@realtek.com>, Hayes Wang <hayeswang@realtek.com>
-To: <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net-next 6/6] net/mlx4_en: Fix mac_hash database inconsistency
+Date: Tue,  8 Jul 2014 11:25:24 +0300
+Message-ID: <1404807924-29038-7-git-send-email-amirv@mellanox.com>
+References: <1404807924-29038-1-git-send-email-amirv@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Noa Osherovich <noaos@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailp.voltaire.com ([193.47.165.129]:44711 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753748AbaGHI0l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Jul 2014 04:26:41 -0400
+In-Reply-To: <1404807924-29038-1-git-send-email-amirv@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-For RTL8411, RTL8111G, RTL8402, RTL8105, and RTL8106, the nic couldn't
-leave the power saving mode of L23 for certain situation. This causes
-the device lost for the system. Disable the L23 mode to avoid it.
+From: Noa Osherovich <noaos@mellanox.com>
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+Using a local copy of dev_addr in mlx4_en_set_mac() to prevent dev_addr
+from being modified during error flow or when dev_addr is modified in
+another context (which is another problem that is being discussed over
+the mailing list [1]).
+Also fixing bad naming of priv->prev_mac into priv->current_mac.
+
+[1] - http://patchwork.ozlabs.org/patch/351489/
+
+
+Reviewed-by: Eyal Perry <eyalpe@mellanox.com>
+Signed-off-by: Noa Osherovich <noaos@mellanox.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- drivers/net/ethernet/realtek/r8169.c | 25 +++++++++++++++++++++++++
- 1 file changed, 25 insertions(+)
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 23 ++++++++++++++---------
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |  2 +-
+ 2 files changed, 15 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index be425ad..38144ee 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -538,6 +538,7 @@ enum rtl_register_content {
- 	MagicPacket	= (1 << 5),	/* Wake up when receives a Magic Packet */
- 	LinkUp		= (1 << 4),	/* Wake up when the cable connection is re-established */
- 	Jumbo_En0	= (1 << 2),	/* 8168 only. Reserved in the 8168b */
-+	Rdy_to_L23	= (1 << 1),	/* L23 Enable */
- 	Beacon_en	= (1 << 0),	/* 8168 only. Reserved in the 8168b */
- 
- 	/* Config4 register */
-@@ -4897,6 +4898,21 @@ static void rtl_enable_clock_request(struct pci_dev *pdev)
- 				 PCI_EXP_LNKCTL_CLKREQ_EN);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 255950a..f384b354 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -760,21 +760,22 @@ static int mlx4_en_replace_mac(struct mlx4_en_priv *priv, int qpn,
+ 	return __mlx4_replace_mac(dev, priv->port, qpn, new_mac_u64);
  }
  
-+static void rtl_l23_enable(struct rtl8169_private *tp, bool enable)
-+{
-+	void __iomem *ioaddr = tp->mmio_addr;
-+	u8 data;
-+
-+	data = RTL_R8(Config3);
-+
-+	if (enable)
-+		data |= Rdy_to_L23;
-+	else
-+		data &= ~Rdy_to_L23;
-+
-+	RTL_W8(Config3, data);
-+}
-+
- #define R8168_CPCMD_QUIRK_MASK (\
- 	EnableBist | \
- 	Mac_dbgo_oe | \
-@@ -5246,6 +5262,7 @@ static void rtl_hw_start_8411(struct rtl8169_private *tp)
- 	};
+-static int mlx4_en_do_set_mac(struct mlx4_en_priv *priv)
++static int mlx4_en_do_set_mac(struct mlx4_en_priv *priv,
++			      unsigned char new_mac[ETH_ALEN + 2])
+ {
+ 	int err = 0;
  
- 	rtl_hw_start_8168f(tp);
-+	rtl_l23_enable(tp, false);
+ 	if (priv->port_up) {
+ 		/* Remove old MAC and insert the new one */
+ 		err = mlx4_en_replace_mac(priv, priv->base_qpn,
+-					  priv->dev->dev_addr, priv->prev_mac);
++					  new_mac, priv->current_mac);
+ 		if (err)
+ 			en_err(priv, "Failed changing HW MAC address\n");
+ 	} else
+ 		en_dbg(HW, priv, "Port is down while registering mac, exiting...\n");
  
- 	rtl_ephy_init(tp, e_info_8168f_1, ARRAY_SIZE(e_info_8168f_1));
+-	memcpy(priv->prev_mac, priv->dev->dev_addr,
+-	       sizeof(priv->prev_mac));
++	if (!err)
++		memcpy(priv->current_mac, new_mac, sizeof(priv->current_mac));
  
-@@ -5284,6 +5301,8 @@ static void rtl_hw_start_8168g_1(struct rtl8169_private *tp)
- 
- 	rtl_w1w0_eri(tp, 0x2fc, ERIAR_MASK_0001, 0x01, 0x06, ERIAR_EXGMAC);
- 	rtl_w1w0_eri(tp, 0x1b0, ERIAR_MASK_0011, 0x0000, 0x1000, ERIAR_EXGMAC);
-+
-+	rtl_l23_enable(tp, false);
+ 	return err;
  }
+@@ -784,14 +785,17 @@ static int mlx4_en_set_mac(struct net_device *dev, void *addr)
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 	struct mlx4_en_dev *mdev = priv->mdev;
+ 	struct sockaddr *saddr = addr;
++	unsigned char new_mac[ETH_ALEN + 2];
+ 	int err;
  
- static void rtl_hw_start_8168g_2(struct rtl8169_private *tp)
-@@ -5536,6 +5555,8 @@ static void rtl_hw_start_8105e_1(struct rtl8169_private *tp)
- 	RTL_W8(DLLPR, RTL_R8(DLLPR) | PFM_EN);
+ 	if (!is_valid_ether_addr(saddr->sa_data))
+ 		return -EADDRNOTAVAIL;
  
- 	rtl_ephy_init(tp, e_info_8105e_1, ARRAY_SIZE(e_info_8105e_1));
-+
-+	rtl_l23_enable(tp, false);
- }
+ 	mutex_lock(&mdev->state_lock);
+-	memcpy(dev->dev_addr, saddr->sa_data, ETH_ALEN);
+-	err = mlx4_en_do_set_mac(priv);
++	memcpy(new_mac, saddr->sa_data, ETH_ALEN);
++	err = mlx4_en_do_set_mac(priv, new_mac);
++	if (!err)
++		memcpy(dev->dev_addr, saddr->sa_data, ETH_ALEN);
+ 	mutex_unlock(&mdev->state_lock);
  
- static void rtl_hw_start_8105e_2(struct rtl8169_private *tp)
-@@ -5571,6 +5592,8 @@ static void rtl_hw_start_8402(struct rtl8169_private *tp)
- 	rtl_eri_write(tp, 0xc0, ERIAR_MASK_0011, 0x0000, ERIAR_EXGMAC);
- 	rtl_eri_write(tp, 0xb8, ERIAR_MASK_0011, 0x0000, ERIAR_EXGMAC);
- 	rtl_w1w0_eri(tp, 0x0d4, ERIAR_MASK_0011, 0x0e00, 0xff00, ERIAR_EXGMAC);
-+
-+	rtl_l23_enable(tp, false);
- }
+ 	return err;
+@@ -1156,7 +1160,8 @@ static void mlx4_en_do_uc_filter(struct mlx4_en_priv *priv,
+ 			}
  
- static void rtl_hw_start_8106(struct rtl8169_private *tp)
-@@ -5583,6 +5606,8 @@ static void rtl_hw_start_8106(struct rtl8169_private *tp)
- 	RTL_W32(MISC, (RTL_R32(MISC) | DISABLE_LAN_EN) & ~EARLY_TALLY_EN);
- 	RTL_W8(MCU, RTL_R8(MCU) | EN_NDP | EN_OOB_RESET);
- 	RTL_W8(DLLPR, RTL_R8(DLLPR) & ~PFM_EN);
-+
-+	rtl_l23_enable(tp, false);
- }
+ 			/* MAC address of the port is not in uc list */
+-			if (ether_addr_equal_64bits(entry->mac, dev->dev_addr))
++			if (ether_addr_equal_64bits(entry->mac,
++						    priv->current_mac))
+ 				found = true;
  
- static void rtl_hw_start_8101(struct net_device *dev)
+ 			if (!found) {
+@@ -1466,7 +1471,7 @@ static void mlx4_en_do_get_stats(struct work_struct *work)
+ 		queue_delayed_work(mdev->workqueue, &priv->stats_task, STATS_DELAY);
+ 	}
+ 	if (mdev->mac_removed[MLX4_MAX_PORTS + 1 - priv->port]) {
+-		mlx4_en_do_set_mac(priv);
++		mlx4_en_do_set_mac(priv, priv->current_mac);
+ 		mdev->mac_removed[MLX4_MAX_PORTS + 1 - priv->port] = 0;
+ 	}
+ 	mutex_unlock(&mdev->state_lock);
+@@ -2524,7 +2529,7 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+ 		}
+ 	}
+ 
+-	memcpy(priv->prev_mac, dev->dev_addr, sizeof(priv->prev_mac));
++	memcpy(priv->current_mac, dev->dev_addr, sizeof(priv->current_mac));
+ 
+ 	priv->stride = roundup_pow_of_two(sizeof(struct mlx4_en_rx_desc) +
+ 					  DS_SIZE * MLX4_EN_MAX_RX_FRAGS);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index 01011d4..7c1b5ec 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -530,7 +530,7 @@ struct mlx4_en_priv {
+ 	int registered;
+ 	int allocated;
+ 	int stride;
+-	unsigned char prev_mac[ETH_ALEN + 2];
++	unsigned char current_mac[ETH_ALEN + 2];
+ 	int mac_index;
+ 	unsigned max_mtu;
+ 	int base_qpn;
 -- 
-1.9.3
+1.8.3.4
