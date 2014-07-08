@@ -1,58 +1,31 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCH] net: mvneta: fix operation in 10 Mbit/s mode
-Date: Tue,  8 Jul 2014 10:49:43 +0200
-Message-ID: <1404809383-5597-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	linux-arm-kernel@lists.infradead.org,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	Tawfik Bayouk <tawfik@marvell.com>,
-	Nadav Haklai <nadavh@marvell.com>,
-	Lior Amsalem <alior@marvell.com>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	<stable@vger.kernel.org>,
-	Maggie Mae Roxas <maggie.mae.roxas@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
+From: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
+Subject: [net-next PATCH 0/3] Broadcast/Multicast rate limit via Ethtool Coalesce
+Date: Tue, 8 Jul 2014 14:27:38 +0530
+Message-ID: <1404809861-7040-1-git-send-email-mugunthanvnm@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
+To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-As reported by Maggie Mae Roxas, the mvneta driver doesn't behave
-properly in 10 Mbit/s mode. This is due to a misconfiguration of the
-MVNETA_GMAC_AUTONEG_CONFIG register: bit MVNETA_GMAC_CONFIG_MII_SPEED
-must be set for a 100 Mbit/s speed, but cleared for a 10 Mbit/s speed,
-which the driver was not properly doing. This commit adjusts that by
-setting the MVNETA_GMAC_CONFIG_MII_SPEED bit only in 100 Mbit/s mode,
-and relying on the fact that all the speed related bits of this
-register are cleared at the beginning of the mvneta_adjust_link()
-function.
+A system/cpu can be loaded by a hacker with flooding of broadcast or
+multicast packets, to prevent this some Ethernet controllers like CPSW
+provide a mechanism to limit the broadcast/multicast packet rate via
+hardware limiters. This patch series enables this feature via
+Ethtool Coalesce.
 
-This problem exists since c5aff18204da0 ("net: mvneta: driver for
-Marvell Armada 370/XP network unit") which is the commit that
-introduced the mvneta driver in the kernel.
+Mugunthan V N (3):
+  net: ethtool: Add Multicast and broadcast rate limit coalescing
+    feature
+  drivers: net: cpsw: remove redundancy check
+  drivers: net: cpsw: Add support for multicast/boradcast rate limit
 
-Cc: <stable@vger.kernel.org> # v3.8+
-Fixes: c5aff18204da0 ("net: mvneta: driver for Marvell Armada 370/XP network unit")
-Reported-by: Maggie Mae Roxas <maggie.mae.roxas@gmail.com>
-Cc: Maggie Mae Roxas <maggie.mae.roxas@gmail.com>
-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
----
- drivers/net/ethernet/marvell/mvneta.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/ti/cpsw.c | 83 +++++++++++++++++++++++++++++++++++++++---
+ include/uapi/linux/ethtool.h   |  4 ++
+ 2 files changed, 82 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 45beca1..d49f08d 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -2529,7 +2529,7 @@ static void mvneta_adjust_link(struct net_device *ndev)
- 
- 			if (phydev->speed == SPEED_1000)
- 				val |= MVNETA_GMAC_CONFIG_GMII_SPEED;
--			else
-+			else if (phydev->speed == SPEED_100)
- 				val |= MVNETA_GMAC_CONFIG_MII_SPEED;
- 
- 			mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG, val);
 -- 
-2.0.0
+2.0.0.390.gcb682f8
