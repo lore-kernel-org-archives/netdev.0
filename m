@@ -1,36 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] appletalk: Fix socket referencing in skb
-Date: Tue, 08 Jul 2014 08:12:59 +0200
-Message-ID: <1404799979.3515.0.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1404764570-24120-1-git-send-email-andrey.krieger.utkin@gmail.com>
+From: =?utf-8?B?U8O4cmVuc2VuLCBTdGVmYW4=?=
+	<Stefan.Sorensen@spectralink.com>
+Subject: Re: [PATCH] dp83640: Always decode received status frames
+Date: Tue, 8 Jul 2014 06:39:52 +0000
+Message-ID: <1404801588.2494.5.camel@e37108.spectralink.com>
+References: <1403700016-11398-1-git-send-email-stefan.sorensen@spectralink.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	netdev@vger.kernel.org, acme@ghostprotocols.net,
-	davem@davemloft.net
-To: Andrey Utkin <andrey.krieger.utkin@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"richardcochran@gmail.com" <richardcochran@gmail.com>
+To: "davem@davemloft.net" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f171.google.com ([74.125.82.171]:34891 "EHLO
-	mail-we0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752922AbaGHGNF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2014 02:13:05 -0400
-In-Reply-To: <1404764570-24120-1-git-send-email-andrey.krieger.utkin@gmail.com>
+Received: from mail-bl2lp0207.outbound.protection.outlook.com ([207.46.163.207]:14331
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751931AbaGHGkP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Jul 2014 02:40:15 -0400
+In-Reply-To: <1403700016-11398-1-git-send-email-stefan.sorensen@spectralink.com>
+Content-Language: en-US
+Content-ID: <3D6F43E483B15A489046F2517BDF5C88@namprd07.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-07-07 at 23:22 +0300, Andrey Utkin wrote:
-> Setting just skb->sk without taking its reference and setting a
-> destructor is invalid. However, in the places where this was done, skb
-> is used in a way not requiring skb->sk setting. So dropping the setting
-> of skb->sk.
-> Thanks to Eric Dumazet <eric.dumazet@gmail.com> for correct solution.
-> 
-> Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=79441
-> Reported-by: Ed Martin <edman007@edman007.com>
-> Signed-off-by: Andrey Utkin <andrey.krieger.utkin@gmail.com>
-> ---
-
-Thanks !
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+T24gV2VkLCAyMDE0LTA2LTI1IGF0IDE0OjQwICswMjAwLCBTdGVmYW4gU8O4cmVuc2VuIHdyb3Rl
+Og0KPiBDdXJyZW50bHkgc3RhdHVzIGZyYW1lcyBhcmUgb25seSBoYW5kbGVkIHdoZW4gcGFja2V0
+IHRpbWVzdGFtcGluZyBpcw0KPiBlbmFibGVkLCBidXQgc3RhdHVzIGZyYW1lcyBhcmUgYWxzbyBu
+ZWVkZWQgZm9yIHBpbiBldmVudCB0aW1lc3RhbXBpbmcuDQo+IA0KPiBGaXggYnkgbW92aW5nIHBh
+Y2tldCB0aW1lc3RhbXBpbmcgY2hlY2sgdG8gYWZ0ZXIgc3RhdHVzIGZyYW1lIGRlY29kZS4NCj4g
+DQo+IFNpZ25lZC1vZmYtYnk6IFN0ZWZhbiBTw7hyZW5zZW4gPHN0ZWZhbi5zb3JlbnNlbkBzcGVj
+dHJhbGluay5jb20+DQoNCkRhdmUsIEkgaGF2ZSBub3RpY2VkIHRoYXQgdGhpcyBwYXRjaCBpcyBt
+YXJrZWQgYXMgc3VwZXJzZWRlZCBpbg0KcGF0Y2h3b3JrcyAoaHR0cDovL3BhdGNod29yay5vemxh
+YnMub3JnL3BhdGNoLzM2Mzk4OS8pLCB0aG91Z2ggSSBoYXZlDQpub3QgcG9zdGVkIGFueSB1cGRh
+dGVkIHBhdGNoIGFuZCBvbmx5IHJlc3BvbnNlIGlzIGFuIEFja2VkLUJ5IGZyb20NClJpY2hhcmQu
+DQoNClN0ZWZhbg0KDQo=
