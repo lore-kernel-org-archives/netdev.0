@@ -1,40 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v1 2/2] netpoll: avoid reference leaks
-Date: Mon, 07 Jul 2014 19:35:05 -0700 (PDT)
-Message-ID: <20140707.193505.345276817146527821.davem@davemloft.net>
-References: <0f692012238337f2c40893319830ae042523ce18.1404172155.git.decot@googlers.com>
-	<cover.1404172155.git.decot@googlers.com>
-	<f98ccbfee35a7ab7f9499ede9b34e6b1120d88f1.1404172155.git.decot@googlers.com>
+Subject: Re: [PATCH] netlink: Fix netlink_recvmsg() handling of error from
+ netlink_dump().
+Date: Mon, 07 Jul 2014 19:37:35 -0700 (PDT)
+Message-ID: <20140707.193735.766947638929765410.davem@davemloft.net>
+References: <1404167704-22408-1-git-send-email-blp@nicira.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ebiederm@xmission.com, edumazet@google.com, amwang@redhat.com,
-	antonio@meshcoding.com, jpirko@redhat.com
-To: decot@googlers.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <f98ccbfee35a7ab7f9499ede9b34e6b1120d88f1.1404172155.git.decot@googlers.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: blp@nicira.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48369 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751704AbaGHChg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2014 22:37:36 -0400
+In-Reply-To: <1404167704-22408-1-git-send-email-blp@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Decotigny <decot@googlers.com>
-Date: Mon, 30 Jun 2014 16:50:10 -0700
+From: Ben Pfaff <blp@nicira.com>
+Date: Mon, 30 Jun 2014 15:35:04 -0700
 
-> This ensures that the ndo_netpoll_cleanup callback is called for every
-> device that provides one. Otherwise there is a risk of reference leak
-> with bonding for example, which depends on this callback to cleanup
-> the slaves' references to netpoll info.
+> netlink_dump() returns a negative errno value on error.  Until now,
+> netlink_recvmsg() directly recorded that negative value in sk->sk_err,
+> but that's wrong since sk_err takes positive errno values.  (This manifests
+> as userspace receiving a positive return value from the recv() system call,
+> falsely indicating success.)
 > 
-> Tested:
->   see patch "netpoll: fix use after free"
+> This bug was introduced in the commit that started checking the
+> netlink_dump() return value, commit b44d211 (netlink: handle errors from
+> netlink_dump()).
 > 
-> Signed-off-by: David Decotigny <decot@googlers.com>
+> Multithreaded Netlink dumps are one way to trigger this behavior in
+> practice, as described in the commit message for the userspace workaround
+> posted here:
+>     http://openvswitch.org/pipermail/dev/2014-June/042339.html
+> 
+> Signed-off-by: Ben Pfaff <blp@nicira.com>
 
-I definitely don't understand this.
+There's another place, later in this file, doing the same exact thing.
 
-Why would we call the cleanup function of an object before it's
-reference count hits zero?  It is exactly the act of reaching a
-zero refcount which should trigger invoking the cleanup callback.
+Please respin this patch, fixing that location too.
 
-If a refcount is being released in another location without checking
-if it hits zero and invoking the cleanup if so, _THAT_ is the bug.
+Thanks.
