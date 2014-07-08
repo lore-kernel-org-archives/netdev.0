@@ -1,40 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] hso: fix deadlock when receiving bursts of data
-Date: Tue, 08 Jul 2014 16:16:33 -0700 (PDT)
-Message-ID: <20140708.161633.2130069042930765600.davem@davemloft.net>
-References: <1404723967-24245-1-git-send-email-olivier@sobrie.be>
-	<1404723967-24245-2-git-send-email-olivier@sobrie.be>
+Subject: Re: [PATCH] net: mvneta: Fix big endian issue in
+ mvneta_txq_desc_csum()
+Date: Tue, 08 Jul 2014 16:19:28 -0700 (PDT)
+Message-ID: <20140708.161928.1591951083514191398.davem@davemloft.net>
+References: <m31ttvqy8x.fsf@fitzsim.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: j.dumon@option.com, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: olivier@sobrie.be
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1404723967-24245-2-git-send-email-olivier@sobrie.be>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, thomas.petazzoni@free-electrons.com,
+	jason@lakedaemon.net, andrew@lunn.ch,
+	sebastian.hesselbarth@gmail.com,
+	gregory.clement@free-electrons.com,
+	linux-arm-kernel@lists.infradead.org
+To: fitzsim@fitzsim.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55004 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750907AbaGHXTa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2014 19:19:30 -0400
+In-Reply-To: <m31ttvqy8x.fsf@fitzsim.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Olivier Sobrie <olivier@sobrie.be>
-Date: Mon,  7 Jul 2014 11:06:07 +0200
 
-> When the module sends bursts of data, sometimes a deadlock happens in
-> the hso driver when the tty buffer doesn't get the chance to be flushed
-> quickly enough.
-> 
-> To avoid this, first, we remove the endless while loop in
-> put_rx_bufdata() which is the root cause of the deadlock.
-> Secondly, when there is no room anymore in the tty buffer, we set up a
-> timer of 100 msecs to give a chance to the upper layer to flush the tty
-> buffer and make room for new data.
-> 
-> Signed-off-by: Olivier Sobrie <olivier@sobrie.be>
+Your postings was rejected because you did not enclose my full
+name in double quotes.
 
-I agree with the feedback you've been given in that adding a delay
-like this is really not a reasonable solution.
-
-Why is it so difficult to make the event which places the data there
-trigger to necessary calls to pull the data out of the URB transfer
-buffer?
-
-This should be totally and completely event based.
+When a name which has special characters such as ".", as my full
+name does, it must be surrounded by double quotes when it appears
+in email headers.
