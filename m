@@ -1,87 +1,72 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [Xen-devel] [PATCH net-next v3] xen-netback: Adding debugfs "io_ring_qX"
- files
-Date: Tue, 8 Jul 2014 19:43:16 +0100
-Message-ID: <53BC3BC4.5010504@citrix.com>
-References: <1404837194-16726-1-git-send-email-zoltan.kiss@citrix.com> <20140708173934.GA6597@laptop.dumpdata.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 00/10] net/hsr: Use list_head+rcu, better
+ frame dispatch, etc.
+Date: Tue, 08 Jul 2014 11:45:48 -0700 (PDT)
+Message-ID: <20140708.114548.1274719854380242049.davem@davemloft.net>
+References: <53B71DB8.1040505@alten.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<xen-devel@lists.xenproject.org>
-To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140708173934.GA6597@laptop.dumpdata.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: arvid.brodin@alten.se
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53331 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753816AbaGHSpt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2014 14:45:49 -0400
+In-Reply-To: <53B71DB8.1040505@alten.se>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/07/14 18:39, Konrad Rzeszutek Wilk wrote:
+From: Arvid Brodin <arvid.brodin@alten.se>
+Date: Fri, 4 Jul 2014 23:33:44 +0200
 
->
->
->> +	return count;
->> +}
->> +
->> +static int xenvif_dump_open(struct inode *inode, struct file *filp)
->> +{
->> +	int ret;
->> +	void *queue = NULL;
->> +
->> +	if (inode->i_private)
->> +		queue = inode->i_private;
->> +	ret = single_open(filp, xenvif_read_io_ring, queue);
->> +	filp->f_mode |= FMODE_PWRITE;
->> +	return ret;
->> +}
->> +
->> +static const struct file_operations xenvif_dbg_io_ring_ops_fops = {
->> +	.owner = THIS_MODULE,
->> +	.open = xenvif_dump_open,
->> +	.read = seq_read,
->> +	.llseek = seq_lseek,
->> +	.release = single_release,
->> +	.write = xenvif_write_io_ring,
->> +};
->> +
->> +static void xenvif_debugfs_addif(struct xenvif_queue *queue)
->> +{
->> +	struct dentry *pfile;
->> +	struct xenvif *vif = queue->vif;
->> +	int i;
->> +
->> +	if (!IS_ERR_OR_NULL(xen_netback_dbg_root))
->> +		return;
->
-> I am curious to how you tested this patch, as my reading of
-> the code above would imply that when xen_netback_dbg_root is
-> initialized - we won't continue within this function?
-Indeed, I've just copy-pasted that snippet you wrote in your prev mail 
-and I haven't tried it out, as it was a very small change. I'll fix it.
+> This patch series is meant to improve the HSR code in several ways:
+> 
+> * Better code readability.
+> * In general, make the code structure more like the net/bridge code (HSR 
+>   operates similarly to a bridge, but uses the HSR-specific frame headers to 
+>   break up rings, instead of the STP protocol).
+> * Better handling of HSR ports' net_device features.
+> * Use list_head and the _rcu list traversing routines instead of array of slave 
+>   devices.
+> * Make it easy to support HSR Interlink devices (for future Redbox/Quadbox 
+>   support).
+> * Somewhat better throughput on non-HAVE_EFFICIENT_UNALIGNED_ACCESS archs, due 
+>   to lesser copying of skb data.
+> 
+> The code has been tested in a ring together with other HSR nodes running 
+> unchanged code, on both avr32 and x86_64. There should only be one minor change 
+> in behaviour from a user perspective:
+> 
+> * Anyone using the Netlink HSR_C_GET_NODE_LIST message to dump the internal 
+>   node database will notice that the database now also contains the self node.
+> 
+> All patches pass 'checkpatch.pl --ignore CAMELCASE --max-line-length=83 
+> --strict' with only CHECKs, each of which have been deliberately left in place.
+> 
+> The final code passes sparse checks with no output.
 
->> +
->>   static int netback_remove(struct xenbus_device *dev)
->>   {
->>   	struct backend_info *be = dev_get_drvdata(&dev->dev);
->> @@ -246,8 +413,12 @@ static void backend_create_xenvif(struct backend_info *be)
->>
->>   static void backend_disconnect(struct backend_info *be)
->>   {
->> -	if (be->vif)
->> +	if (be->vif) {
->> +#ifdef CONFIG_DEBUG_FS
->> +		xenvif_debugfs_delif(be->vif);
->> +#endif /* CONFIG_DEBUG_FS */
->
-> Why don't you just leave it as it (without the #ifdef) and add an
-> empty function for the #else CONFIG_DEBUG_FS like:
->
-> #else
-> static inline void xenvif_debugfs_addif(struct xenvif_queue *queue) {}
-> static inline void xenvif_debugfs_delif(struct xenvif *vif) {}
-> #endif
-It wouldn't change the end result, but from the code reader's point of 
-view the current way is a little bit better, as (s)he doesn't need to 
-check the declaration to realize it has effect only if that config 
-option is enabled.
+Series applied, thanks.
+
+Just one question:
+
+@@ -575,6 +579,13 @@ int hsr_dev_finalize(struct net_device *hsr_dev, struct net_device *slave[2],
+ 		}
+ 	}
+ 
++	for (i = 0; i < HSR_MAX_SLAVE; i++) {
++		res = netdev_rx_handler_register(slave[i], hsr_handle_frame,
++						 hsr);
++		if (res)
++			goto fail;
++	}
++
+ 	/* Make sure we recognize frames from ourselves in hsr_rcv() */
+ 	res = hsr_create_self_node(&hsr->self_node_db, hsr_dev->dev_addr,
+ 				   hsr->slave[1]->dev_addr);
+
+If one of the slaves fails to register it's RX handler here, what unregisters
+the slaves which already succeeded?
+
+Thanks.
