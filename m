@@ -1,34 +1,68 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net-next 0/5] SCTP updates
-Date: Tue, 8 Jul 2014 10:41:27 -0400
-Message-ID: <20140708144127.GB23026@hmsreliant.think-freely.org>
-References: <1404507908-6949-1-git-send-email-dborkman@redhat.com>
- <20140708111408.GA23026@hmsreliant.think-freely.org>
- <53BBFAA6.80408@redhat.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: mm/sched/net: BUG when running simple code
+Date: Tue, 8 Jul 2014 16:51:47 +0200
+Message-ID: <20140708145147.GH6758@twins.programming.kicks-ass.net>
+References: <539A6850.4090408@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, geirola@gmail.com, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:35097 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750929AbaGHOli (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2014 10:41:38 -0400
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="D3uGefx/nfj0hkMF"
+Cc: "linux-mm@kvack.org" <linux-mm@kvack.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Ingo Molnar <mingo@kernel.org>, LKML <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Dave Jones <davej@redhat.com>
+To: Sasha Levin <sasha.levin@oracle.com>
+Return-path: <owner-linux-mm@kvack.org>
 Content-Disposition: inline
-In-Reply-To: <53BBFAA6.80408@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <539A6850.4090408@oracle.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 08, 2014 at 04:05:26PM +0200, Daniel Borkmann wrote:
-> On 07/08/2014 01:14 PM, Neil Horman wrote:
-> ...
-> >since you're adding cmsg's from rfc6458, do you also want to add some
-> >deprecation warnings around the use of SCTP_SNDRCVINFO too, so we can start to
-> >schedule its eventual removal?
-> 
-> Sure, we can do that. Do you want me to include it into the set?
-> 
 
-If you're plan is to implement 6458, then yes, I think that would be good.
-Neil
+--D3uGefx/nfj0hkMF
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Thu, Jun 12, 2014 at 10:56:16PM -0400, Sasha Levin wrote:
+> Hi all,
+>=20
+> Okay, I'm really lost. I got the following when fuzzing, and can't really=
+ explain what's
+> going on. It seems that we get a "unable to handle kernel paging request"=
+ when running
+> rather simple code, and I can't figure out how it would cause it.
+>=20
+
+Are you running on AMD hardware? If so; check out this thread:
+
+  http://marc.info/?i=3D53B02CEB.7010607@web.de
+
+--D3uGefx/nfj0hkMF
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBAgAGBQJTvAWDAAoJEHZH4aRLwOS6VnEP/05c2sj5PFztHzQWIEtZ7xo7
+C9fdGJntcS00lx8pqS8e2wL8j5lk3LJZiJppgtH1xNXVGIKFE03vTgt+K+W6WFtA
+KHZhFlarHk73JEZhFD1aCcqUC9mqfY6vOgy3FuluQg029OnAxSQQ52xDEiiYPODx
+9VugzaxExZmWk0ke13szomqq8adbwjYCc5pWUIPNf1QbdUhj/w5X05ppDoNqz4TP
+mLAgu7aLkYW0HaXgk3Qi0nUKcbHrQ+iBB8qmifWNw3oVMW9dsrJ3DQdYFK74EfE3
+89o8kd9TxjInToggT3dFKYJNHISikolaGVFr5lfVOeOLJkegobA9eCwgVZ8vrjO4
+QNt6Mu9dkYO0ZpyC/7VJZl02uILeMtKEPU3lcn8EKPAlb9UUsBrPEoI2m5e/my7F
+uA6cEATo5wOzUtg9XDn3kLgSkQfXMGWCIArD/NhCiRU7rbUFic5kd22oK+I8CS7v
+O7dp1cyU1Aged1nO4TOwUsj/OcWFbM9CHXUKDqs5on42YrQakagViUi4i8Zi2P9i
+JDxZIaNlLQsEz39imnXM70AMRXoPoOdxgZlIZz2Bxc+R/QT6eYyYC+NK8vjLuNGV
+Jo7vjWlKWQ5UqlIyZQ1z7zl5sDvEXe/URXwXvnyKChsP23IW8H0KG0Wax0TZUU75
+iqT2wd/0IfSQmpBzaX2G
+=yYJn
+-----END PGP SIGNATURE-----
+
+--D3uGefx/nfj0hkMF--
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
