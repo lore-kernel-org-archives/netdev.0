@@ -1,42 +1,43 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: [PATCH] hyperv: Add netpoll support
-Date: Tue, 08 Jul 2014 22:16:52 +0200
-Message-ID: <53BC51B4.4010703@nod.at>
-References: <1404811947-5174-1-git-send-email-richard@nod.at>
- <9fb91c2ee32a4a59a2bec54043a6b9fd@BY2PR03MB299.namprd03.prod.outlook.com>
- <53BC3AC5.6000203@nod.at>
- <b2835410139848be8811403e3d7fa708@BY2PR03MB299.namprd03.prod.outlook.com>
+From: Wolfgang Walter <linux@stwm.de>
+Subject: GRO: very bad routing performance with 3.14.4 for GRE-packets
+Date: Tue, 08 Jul 2014 22:35:41 +0200
+Message-ID: <1442942.x8F4o95O8x@h2o.as.studentenwerk.mhn.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: KY Srinivasan <kys@microsoft.com>, Haiyang Zhang <haiyangz@microsoft.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <b2835410139848be8811403e3d7fa708@BY2PR03MB299.namprd03.prod.outlook.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailin.studentenwerk.mhn.de ([141.84.225.229]:43860 "EHLO
+	email.studentenwerk.mhn.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753857AbaGHUl3 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Jul 2014 16:41:29 -0400
+Received: from mailhub.studentenwerk.mhn.de (mailhub.studentenwerk.mhn.de [127.0.0.1])
+	by email.studentenwerk.mhn.de (Postfix) with ESMTP id 3h7Fld68G3z2hYf
+	for <netdev@vger.kernel.org>; Tue,  8 Jul 2014 22:35:41 +0200 (CEST)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am 08.07.2014 22:03, schrieb KY Srinivasan:
-> The VCPU the channel is bound to is available in the channel state. You could use the following code
-> Fragment to ensure that the call is made on the "right" cpu:
-> 
-> smp_call_function_single(dev->channel->target_cpu,
->                                          netvsc_channel_cb, dev->channel, true);
+Hello,
 
-This won't work as netpoll runs with IRQs disabled.
-->ndo_poll_controller() has to make sure that SKBs can be received and transmitted
-while IRQs are off. I thought calling the channel callback by hand would be enough
-to receive SKBs.
+I upgraded a router from 3.10.46 to 3.14.4 and I see a dramatic perfoma=
+nce=20
+loss for GRE-pakets if (and only if) GRO is enabled on the incoming or=20
+outgoing interface (drops to 1/50th to 1/100th).
 
-Thanks,
-//richard
+Other traffic is just fine.
+
+The router itself is not endpoint of the GRE-tunnel.
+
+The router has connection tracking enabled and does NAT (but most of th=
+e=20
+traffic is not NATed nor are GRE-packets).
+
+The network card is an Intel Corporation I350 Gigabit (both interfaces)=
+=2E
+
+Regards,
+--=20
+Wolfgang Walter
+Studentenwerk M=FCnchen
+Anstalt des =F6ffentlichen Rechts
