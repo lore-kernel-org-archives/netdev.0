@@ -1,57 +1,70 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: Re: RSS is not efficient when forwarding (ixgbe)
-Date: Tue, 8 Jul 2014 14:21:27 -0300
-Message-ID: <20140708172127.GV2346@t520.home>
-References: <20140703224408.GA2343@t520.home>
- <20140704193644.GB2343@t520.home>
- <CA+mtBx-dY2eoDzL-1K8F8Br224H+c4fzVtVPu9JmnjLdQKuAOg@mail.gmail.com>
- <20140707105523.GC2343@t520.home>
- <F6FB0E698C9B3143BDF729DF2228664685DCFE12@ORSMSX110.amr.corp.intel.com>
- <20140708002837.GS2346@t520.home>
- <21436.9657.845209.575715@fisica.ufpr.br>
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Subject: Re: [Xen-devel] [PATCH net-next v2] xen-netback: Adding debugfs
+ "io_ring_qX" files
+Date: Tue, 8 Jul 2014 11:01:04 -0400
+Message-ID: <20140708150104.GA2863@laptop.dumpdata.com>
+References: <1404330830-24504-1-git-send-email-zoltan.kiss@citrix.com>
+ <20140702200252.GA17294@laptop.dumpdata.com>
+ <53BC014E.5090600@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	Tom Herbert <therbert@google.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Carlos Carvalho <carlos@fisica.ufpr.br>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43499 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754427AbaGHRVf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Jul 2014 13:21:35 -0400
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, xen-devel@lists.xenproject.org
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <21436.9657.845209.575715@fisica.ufpr.br>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <53BC014E.5090600@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 08, 2014 at 02:09:13PM -0300, Carlos Carvalho wrote:
-> Flavio Leitner (fbl@redhat.com) wrote on 7 July 2014 21:28:
->  >On Mon, Jul 07, 2014 at 04:33:24PM +0000, Skidmore, Donald C wrote:
->  >> 
->  >> 
->  >> > 
->  >> > It's a router forwarding traffic from one interface to another, so I guess it's
->  >> > only the kernel. BTW, no firewall.
->  >> > 
->  >> > Flow Director needs to be enabled and I am using defaults.
->  >> 
->  >> Flow Director in ATR mode is on by default for ixgbe.  So like Tom mentioned the driver will create hash buckets for egress packets.  You could try disabling ATR and just use RSS.  Which would probably be the right thing to do any way since Flow Director isn't very useful for routing scenarios.  
->  >
->  >That was it.
+On Tue, Jul 08, 2014 at 03:33:50PM +0100, Zoltan Kiss wrote:
+> On 02/07/14 21:02, Konrad Rzeszutek Wilk wrote:
+> >On Wed, Jul 02, 2014 at 08:53:50PM +0100, Zoltan Kiss wrote:
+> >>+static ssize_t
+> >>+xenvif_write_io_ring(struct file *filp, const char __user *buf, size_t count,
+> >>+		     loff_t *ppos)
+> >>+{
+> >>+	struct xenvif_queue *queue =
+> >>+		((struct seq_file *)filp->private_data)->private;
+> >>+	int len;
+> >>+	char write[sizeof("kick")];
+> >
+> ><blinks>
+> >>+
+> >>+	/* don't allow partial writes and check the length */
+> >>+	if (*ppos != 0)
+> >>+		return 0;
+> >>+	if (count < sizeof("kick") - 1)
+> >
+> >Um, could you just use a #define please?
+> OK
 > 
-> We have a similar setup and similar problem. How do we disable ATR? I
-> tried to set ntuple off but this almost zeroed traffic. I also tried
-> to change rx-flow-hash but ethtool says it's not possible. The docs
-> say that one can disable ATR by setting AtrSampleRate to 0 but this
-> parameter doesn't exist in 3.14.10.
+> >
+> >>+		return -ENOSPC;
+> >>+
+> >>+	len = simple_write_to_buffer(write,
+> >>+				     sizeof(write),
+> >>+				     ppos,
+> >>+				     buf,
+> >>+				     count);
+> >>+	if (len < 0)
+> >>+		return len;
+> >>+
+> >>+	if (!strncmp(write, "kick", sizeof("kick") - 1))
+> >>+		xenvif_interrupt(0, (void *)queue);
+> >>+	else
+> >>+		pr_warn("Unknown command to io_ring. Available: kick\n");
+> >
+> >It is 'io_ring_q%d'?
+> Yes
 > 
-> So, how do we disable ATR and keep RSS?
- 
-Keep in mind that this is actually 2 problems. One is enabling the
-NIC to receive the streams in all queues for this scenario (setting
-ntuple off and restarting the traffic works for me). The second problem
-is having all the queue interrupts spread among the CPUs. That's what
-does irqbalance, tuna, etc...
+> >Why don't you split that back out to the user
+> >instead of the console?
+> How do you mean? Printing it into buf? I don't think the user cares about
+> its content after doing the write syscall. More importantly, I don't know if
+> that buffer is big enough to hold the message.
 
-fbl
+Isn't it 4K? 
+
+Either way I think you need to do 'count = -EINVAL' here.
