@@ -1,39 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Fix NETDEV_CHANGE notifier usage causing spurious
- arp flush
-Date: Mon, 07 Jul 2014 21:20:34 -0700 (PDT)
-Message-ID: <20140707.212034.2224956636540078311.davem@davemloft.net>
-References: <1404275983-7908-1-git-send-email-loicp@google.com>
+Subject: Re: [PATCH A 00/12] Freescale ethernet driver updates
+Date: Mon, 07 Jul 2014 21:22:07 -0700 (PDT)
+Message-ID: <20140707.212207.2183324359841756924.davem@davemloft.net>
+References: <20140707232148.GG21766@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	timo.teras@iki.fi, jiri@resnulli.us
-To: loicp@google.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1404275983-7908-1-git-send-email-loicp@google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
+To: linux@arm.linux.org.uk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48750 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751229AbaGHEWI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2014 00:22:08 -0400
+In-Reply-To: <20140707232148.GG21766@n2100.arm.linux.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Loic Prylli <loicp@google.com>
-Date: Tue,  1 Jul 2014 21:39:43 -0700
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Date: Tue, 8 Jul 2014 00:21:48 +0100
 
-> A bug was introduced in NETDEV_CHANGE notifier sequence causing the
-> arp table to be sometimes spuriously cleared (including manual arp
-> entries marked permanent), upon network link carrier changes.
+> Here's the first batch of patches for the Freescale FEC ethernet driver.
+> They require the previously applied "net: fec: Don't clear IPV6 header
+> checksum field when IP accelerator enable" patch.
 > 
-> The changed argument for the notifier was applied only to a single
-> caller of NETDEV_CHANGE, missing among others netdev_state_change().
-> So upon net_carrier events induced by the network, which are
-> triggering a call to netdev_state_change(), arp_netdev_event() would
-> decide whether to clear or not arp cache based on random/junk stack
-> values (a kind of read buffer overflow).
-> 
-> Fixes: be9efd365328 ("net: pass changed flags along with NETDEV_CHANGE event")
-> Fixes: 6c8b4e3ff81b ("arp: flush arp cache on IFF_NOARP change")
-> Signed-off-by: Loic Prylli <loicp@google.com>
+> I'll mail further patches tomorrow, once I hear back from you.
 
-Applied, thanks.
-
-We should probably make plain call_netdevice_notifiers() BUG if it is
-invoked for NETDEV_CHANGE.
+Applied to net-next, thanks.
