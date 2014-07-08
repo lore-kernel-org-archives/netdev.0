@@ -1,59 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ipv4: fix a race in ip4_datagram_release_cb()
-Date: Tue, 08 Jul 2014 08:47:44 +0200
-Message-ID: <1404802064.3515.4.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <CA+FTKhs45vD66xSQRgijwFjSuy-Mt8EGr3cRv60oCcEnFPKnaQ@mail.gmail.com>
-	    <1402407781.3645.426.camel@edumazet-glaptop2.roam.corp.google.com>
-	    <alpine.DEB.2.02.1406101726390.11647@dtop>
-	    <1402448128.3645.437.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <1402449173.3645.440.camel@edumazet-glaptop2.roam.corp.google.com>
-	   <1402450009.3645.444.camel@edumazet-glaptop2.roam.corp.google.com>
-	   <alpine.DEB.2.02.1406281724370.18954@dtop>
-	  <1404110292.15139.42.camel@edumazet-glaptop2.roam.corp.google.com>
-	  <alpine.DEB.2.02.1406300112340.31629@dtop>
-	 <1404117049.15139.63.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <alpine.DEB.2.02.1407071834230.586@dtop>
+From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH net] r8152: wake up the device before dumping the hw counter
+Date: Tue, 8 Jul 2014 14:49:28 +0800
+Message-ID: <1394712342-15778-5-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Alexey Preobrazhensky <preobr@google.com>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	David Miller <davem@davemloft.net>, paulmck@linux.vnet.ibm.com,
-	netdev@vger.kernel.org, Kostya Serebryany <kcc@google.com>,
-	Dmitry Vyukov <dvyukov@google.com>,
-	Lars Bull <larsbull@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Bruce Curtis <brutus@google.com>,
-	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>
-To: dormando <dormando@rydia.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f171.google.com ([209.85.212.171]:57758 "EHLO
-	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751300AbaGHGru (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2014 02:47:50 -0400
-Received: by mail-wi0-f171.google.com with SMTP id n15so364034wiw.10
-        for <netdev@vger.kernel.org>; Mon, 07 Jul 2014 23:47:49 -0700 (PDT)
-In-Reply-To: <alpine.DEB.2.02.1407071834230.586@dtop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2014-07-07 at 18:41 -0700, dormando wrote:
+The device should be waked up from runtime suspend before dumping
+the hw counter.
 
-> Mostly there, but I think we hit what might be a new bug.. The machines
-> which crashed every few days previously have been stable for weeks.
-> 
-> however I had one machine running the new kernel in a larger cluster
-> elsewhere; we had a network event and the one machine on the new kernel
-> panic'ed in ipv4_dst_destroy, but what looks like a new path. Sadly I've
-> had to halt the rollout :( All of the older unfixed kernels survived this
-> particular network event.
-> 
-> Unfortunately this is still on 3.10, due to a bad softirq regression in
-> 3.14 I've not had time to track down. I applied all of your patches for
-> what wasn't already in 3.10. The only other change I made was to un-revert
-> 62713c4b6bc10c2d082ee1540e11b01a2b2162ab - which I'd been keeping reverted
-> as it was making crashes much more frequent.
+Signed-off-by: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+---
+ drivers/net/usb/r8152.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-Hmm, always give patch title or a valid sha1 commit, this one is not in
-David trees, so its hard to tell.
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index 2543196..a795ecf 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -3204,8 +3204,13 @@ static void rtl8152_get_ethtool_stats(struct net_device *dev,
+ 	struct r8152 *tp = netdev_priv(dev);
+ 	struct tally_counter tally;
+ 
++	if (usb_autopm_get_interface(tp->intf) < 0)
++		return;
++
+ 	generic_ocp_read(tp, PLA_TALLYCNT, sizeof(tally), &tally, MCU_TYPE_PLA);
+ 
++	usb_autopm_put_interface(tp->intf);
++
+ 	data[0] = le64_to_cpu(tally.tx_packets);
+ 	data[1] = le64_to_cpu(tally.rx_packets);
+ 	data[2] = le64_to_cpu(tally.tx_errors);
+-- 
+1.9.3
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
