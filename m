@@ -1,45 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] declance: Fix 64-bit compilation warnings
-Date: Tue, 08 Jul 2014 14:05:02 -0700 (PDT)
-Message-ID: <20140708.140502.2094195777978560656.davem@davemloft.net>
-References: <alpine.LFD.2.11.1407030552290.15455@eddie.linux-mips.org>
+Subject: Re: [net-next-2.6 PATCH v5 0/2] bridge: fdb dumping takes a filter
+ device
+Date: Tue, 08 Jul 2014 14:10:38 -0700 (PDT)
+Message-ID: <20140708.141038.712786607116212110.davem@davemloft.net>
+References: <1404380290-17040-1-git-send-email-jhs@emojatatu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, joe@perches.com
-To: macro@linux-mips.org
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	vyasevic@redhat.com, sfeldma@cumulusnetworks.com,
+	john.r.fastabend@intel.com, roopa@cumulusnetworks.com,
+	eric.dumazet@gmail.com
+To: jhs@mojatatu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54217 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54240 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753137AbaGHVFG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2014 17:05:06 -0400
-In-Reply-To: <alpine.LFD.2.11.1407030552290.15455@eddie.linux-mips.org>
+	with ESMTP id S1753411AbaGHVKj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2014 17:10:39 -0400
+In-Reply-To: <1404380290-17040-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Maciej W. Rozycki" <macro@linux-mips.org>
-Date: Thu, 3 Jul 2014 05:56:51 +0100 (BST)
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Date: Thu,  3 Jul 2014 05:38:08 -0400
 
-> This fixes compiler warnings:
+> Changes:
+> v5:
+>  Embarassing qlnic compile failure found by DaveM
 > 
-> drivers/net/ethernet/amd/declance.c: In function 'lance_init_ring':
-> drivers/net/ethernet/amd/declance.c:478: warning: format '%8.8x' expects type 'unsigned int', but argument 3 has type 'long unsigned int'
-> drivers/net/ethernet/amd/declance.c:487: warning: format '%8.8x' expects type 'unsigned int', but argument 3 has type 'long unsigned int'
-> drivers/net/ethernet/amd/declance.c:503: warning: cast from pointer to integer of different size
-> drivers/net/ethernet/amd/declance.c:520: warning: cast from pointer to integer of different size
+> v4:
+>  Request from DaveM to use proper comment tagging and remove if-stmnt braces
 > 
-> in 64-bit compilation.  Where the value printed is an offset (whose range 
-> will always fit) the cast uses a 32-bit type, otherwise, where it is a 
-> host memory address, the pointer is output directly with %p.  Also the 
-> remaining `0x' prefix is dropped for consistency across these messages.
+> V3:
+>  Suggestion from Eric D. to use for_each_netdev
+>  Suggestion from Stephen H. to reduce level of indentation
 > 
-> Tested with both 32-bit and 64-bit compilation, as well as at the run time 
-> (with the debug messages affected enabled).
-> 
-> Signed-off-by: Maciej W. Rozycki <macro@linux-mips.org>
-> ---
->  Update from v2 switches to using the %p format specifier where
-> appropriate and drops the `0x' prefix for consistency across these debug
-> messages.  Please apply.
+> V2:
+> Suggestions from Vlad
+>  Get rid of rcu read lock since rtnl_lock is being held
+>  simplify for readability
 
-Applied to net-next, thank you.
+Series applied, I'll push it out after doing another build test :-)
