@@ -1,45 +1,87 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCH net-next 1/2] bridge: adding stubs for
-	multicast exports
-Date: Tue, 8 Jul 2014 11:41:59 -0700
-Message-ID: <CAHA+R7NjR4yovAskx3yym_wyXCOZRqSd81=+mnF_1wwUfPEn1Q@mail.gmail.com>
-References: <1404704477-19448-1-git-send-email-linus.luessing@web.de>
-	<1404704477-19448-2-git-send-email-linus.luessing@web.de>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [Xen-devel] [PATCH net-next v3] xen-netback: Adding debugfs "io_ring_qX"
+ files
+Date: Tue, 8 Jul 2014 19:43:16 +0100
+Message-ID: <53BC3BC4.5010504@citrix.com>
+References: <1404837194-16726-1-git-send-email-zoltan.kiss@citrix.com> <20140708173934.GA6597@laptop.dumpdata.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: b.a.t.m.a.n@lists.open-mesh.org, netdev <netdev@vger.kernel.org>,
-	"bridge@lists.linux-foundation.org" <bridge@lists.linux-foundation.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: =?UTF-8?Q?Linus_L=C3=BCssing?= <linus.luessing@web.de>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1404704477-19448-2-git-send-email-linus.luessing@web.de>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<xen-devel@lists.xenproject.org>
+To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140708173934.GA6597@laptop.dumpdata.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jul 6, 2014 at 8:41 PM, Linus L=C3=BCssing <linus.luessing@web.de> =
-wrote:
-> diff --git a/include/linux/if_bridge.h b/include/linux/if_bridge.h
-> index fd22789..e0c575c 100644
-> --- a/include/linux/if_bridge.h
-> +++ b/include/linux/if_bridge.h
-> @@ -36,8 +36,22 @@ extern void brioctl_set(int (*ioctl_hook)(struct net *=
-, unsigned int, void __use
->
->  typedef int br_should_route_hook_t(struct sk_buff *skb);
->  extern br_should_route_hook_t __rcu *br_should_route_hook;
-> +
-> +#if IS_ENABLED(CONFIG_BRIDGE) && IS_ENABLED(CONFIG_BRIDGE_IGMP_SNOOPING)
+On 08/07/14 18:39, Konrad Rzeszutek Wilk wrote:
 
-Nit: CONFIG_BRIDGE_IGMP_SNOOPING depends CONFIG_BRIDGE,
-so you can just check CONFIG_BRIDGE_IGMP_SNOOPING.
+>
+>
+>> +	return count;
+>> +}
+>> +
+>> +static int xenvif_dump_open(struct inode *inode, struct file *filp)
+>> +{
+>> +	int ret;
+>> +	void *queue = NULL;
+>> +
+>> +	if (inode->i_private)
+>> +		queue = inode->i_private;
+>> +	ret = single_open(filp, xenvif_read_io_ring, queue);
+>> +	filp->f_mode |= FMODE_PWRITE;
+>> +	return ret;
+>> +}
+>> +
+>> +static const struct file_operations xenvif_dbg_io_ring_ops_fops = {
+>> +	.owner = THIS_MODULE,
+>> +	.open = xenvif_dump_open,
+>> +	.read = seq_read,
+>> +	.llseek = seq_lseek,
+>> +	.release = single_release,
+>> +	.write = xenvif_write_io_ring,
+>> +};
+>> +
+>> +static void xenvif_debugfs_addif(struct xenvif_queue *queue)
+>> +{
+>> +	struct dentry *pfile;
+>> +	struct xenvif *vif = queue->vif;
+>> +	int i;
+>> +
+>> +	if (!IS_ERR_OR_NULL(xen_netback_dbg_root))
+>> +		return;
+>
+> I am curious to how you tested this patch, as my reading of
+> the code above would imply that when xen_netback_dbg_root is
+> initialized - we won't continue within this function?
+Indeed, I've just copy-pasted that snippet you wrote in your prev mail 
+and I haven't tried it out, as it was a very small change. I'll fix it.
+
+>> +
+>>   static int netback_remove(struct xenbus_device *dev)
+>>   {
+>>   	struct backend_info *be = dev_get_drvdata(&dev->dev);
+>> @@ -246,8 +413,12 @@ static void backend_create_xenvif(struct backend_info *be)
+>>
+>>   static void backend_disconnect(struct backend_info *be)
+>>   {
+>> -	if (be->vif)
+>> +	if (be->vif) {
+>> +#ifdef CONFIG_DEBUG_FS
+>> +		xenvif_debugfs_delif(be->vif);
+>> +#endif /* CONFIG_DEBUG_FS */
+>
+> Why don't you just leave it as it (without the #ifdef) and add an
+> empty function for the #else CONFIG_DEBUG_FS like:
+>
+> #else
+> static inline void xenvif_debugfs_addif(struct xenvif_queue *queue) {}
+> static inline void xenvif_debugfs_delif(struct xenvif *vif) {}
+> #endif
+It wouldn't change the end result, but from the code reader's point of 
+view the current way is a little bit better, as (s)he doesn't need to 
+check the declaration to realize it has effect only if that config 
+option is enabled.
