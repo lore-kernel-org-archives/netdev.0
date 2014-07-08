@@ -1,42 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/8] net: Improvements and applications of packet flow
- hash in transmit path
-Date: Mon, 07 Jul 2014 21:18:18 -0700 (PDT)
-Message-ID: <20140707.211818.1347035145310620241.davem@davemloft.net>
-References: <alpine.DEB.2.02.1407012056320.26744@tomh.mtv.corp.google.com>
+Subject: Re: [PATCH] net: Fix NETDEV_CHANGE notifier usage causing spurious
+ arp flush
+Date: Mon, 07 Jul 2014 21:20:34 -0700 (PDT)
+Message-ID: <20140707.212034.2224956636540078311.davem@davemloft.net>
+References: <1404275983-7908-1-git-send-email-loicp@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: therbert@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48728 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751219AbaGHEST (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2014 00:18:19 -0400
-In-Reply-To: <alpine.DEB.2.02.1407012056320.26744@tomh.mtv.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	timo.teras@iki.fi, jiri@resnulli.us
+To: loicp@google.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1404275983-7908-1-git-send-email-loicp@google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Herbert <therbert@google.com>
-Date: Tue, 1 Jul 2014 21:31:55 -0700 (PDT)
+From: Loic Prylli <loicp@google.com>
+Date: Tue,  1 Jul 2014 21:39:43 -0700
 
-> This patch series includes some patches which improve and make use
-> of skb->hash in the transmit path.
+> A bug was introduced in NETDEV_CHANGE notifier sequence causing the
+> arp table to be sometimes spuriously cleared (including manual arp
+> entries marked permanent), upon network link carrier changes.
 > 
-> What is included:
+> The changed argument for the notifier was applied only to a single
+> caller of NETDEV_CHANGE, missing among others netdev_state_change().
+> So upon net_carrier events induced by the network, which are
+> triggering a call to netdev_state_change(), arp_netdev_event() would
+> decide whether to clear or not arp cache based on random/junk stack
+> values (a kind of read buffer overflow).
 > 
-> - Infrastructure to save a precomputed hash in the sock structure.
->   For connected TCP and UDP sockets we only need to compute the
->   flow hash once and not once for every packet.
-> - Call skb_get_hash in get_xps_queue and __skb_tx_hash. This eliminates
->   the awkward access to skb->sk->sk_hash in the lower transmit path.
-> - Move UDP source port generation into a common function in udp.h This
->   implementation is mostly based on vxlan_src_port.
-> - Use non-zero IPv6 flow labels in flow_dissector as port information
->   for flow hash calculation.
-> - Implement automatic flow label generation on transmit (per RFC 6438).
-> - Don't repeatedly try to compute an L4 hash in skb_get_hash if we've
->   already tried to find one in software stack calculation.
+> Fixes: be9efd365328 ("net: pass changed flags along with NETDEV_CHANGE event")
+> Fixes: 6c8b4e3ff81b ("arp: flush arp cache on IFF_NOARP change")
+> Signed-off-by: Loic Prylli <loicp@google.com>
 
-Series applied, thanks Tom.
+Applied, thanks.
+
+We should probably make plain call_netdevice_notifiers() BUG if it is
+invoked for NETDEV_CHANGE.
