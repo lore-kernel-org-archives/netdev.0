@@ -1,96 +1,27 @@
-From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH C 7/7] net: fec: consolidate hwtstamp implementation
-Date: Tue, 08 Jul 2014 13:02:09 +0100
-Message-ID: <E1X4U65-0005uM-HG@rmk-PC.arm.linux.org.uk>
-References: <20140708120117.GJ21766@n2100.arm.linux.org.uk>
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: "David S. Miller" <davem@davemloft.net>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next 0/5] SCTP updates
+Date: Tue, 08 Jul 2014 16:05:26 +0200
+Message-ID: <53BBFAA6.80408@redhat.com>
+References: <1404507908-6949-1-git-send-email-dborkman@redhat.com> <20140708111408.GA23026@hmsreliant.think-freely.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, geirola@gmail.com, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:58749 "EHLO
-	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754426AbaGHMCL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2014 08:02:11 -0400
-In-Reply-To: <20140708120117.GJ21766@n2100.arm.linux.org.uk>
+Received: from mx1.redhat.com ([209.132.183.28]:22860 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754430AbaGHOFo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Jul 2014 10:05:44 -0400
+In-Reply-To: <20140708111408.GA23026@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Both transmit and receive use the same infrastructure for calculating
-the packet timestamp.  Rather than duplicating the code, provide a
-function to do this common work.  Model this function in the Intel
-e1000e version which avoids calling ns_to_ktime() within the spinlock;
-the spinlock is critical for timecounter_cyc2time() but not
-ns_to_ktime().
+On 07/08/2014 01:14 PM, Neil Horman wrote:
+...
+> since you're adding cmsg's from rfc6458, do you also want to add some
+> deprecation warnings around the use of SCTP_SNDRCVINFO too, so we can start to
+> schedule its eventual removal?
 
-Acked-by: Richard Cochran <richardcochran@gmail.com>
-Acked-by: Fugang Duan <B38611@freescale.com>
-Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
----
- drivers/net/ethernet/freescale/fec_main.c | 37 ++++++++++++++++---------------
- 1 file changed, 19 insertions(+), 18 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 8679c919419c..e0efb212223f 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1065,6 +1065,21 @@ static void fec_enet_timeout_work(struct work_struct *work)
- }
- 
- static void
-+fec_enet_hwtstamp(struct fec_enet_private *fep, unsigned ts,
-+	struct skb_shared_hwtstamps *hwtstamps)
-+{
-+	unsigned long flags;
-+	u64 ns;
-+
-+	spin_lock_irqsave(&fep->tmreg_lock, flags);
-+	ns = timecounter_cyc2time(&fep->tc, ts);
-+	spin_unlock_irqrestore(&fep->tmreg_lock, flags);
-+
-+	memset(hwtstamps, 0, sizeof(*hwtstamps));
-+	hwtstamps->hwtstamp = ns_to_ktime(ns);
-+}
-+
-+static void
- fec_enet_tx(struct net_device *ndev)
- {
- 	struct	fec_enet_private *fep;
-@@ -1122,14 +1137,9 @@ fec_enet_tx(struct net_device *ndev)
- 		if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_IN_PROGRESS) &&
- 			fep->bufdesc_ex) {
- 			struct skb_shared_hwtstamps shhwtstamps;
--			unsigned long flags;
- 			struct bufdesc_ex *ebdp = (struct bufdesc_ex *)bdp;
- 
--			memset(&shhwtstamps, 0, sizeof(shhwtstamps));
--			spin_lock_irqsave(&fep->tmreg_lock, flags);
--			shhwtstamps.hwtstamp = ns_to_ktime(
--				timecounter_cyc2time(&fep->tc, ebdp->ts));
--			spin_unlock_irqrestore(&fep->tmreg_lock, flags);
-+			fec_enet_hwtstamp(fep, ebdp->ts, &shhwtstamps);
- 			skb_tstamp_tx(skb, &shhwtstamps);
- 		}
- 
-@@ -1288,18 +1298,9 @@ fec_enet_rx(struct net_device *ndev, int budget)
- 			skb->protocol = eth_type_trans(skb, ndev);
- 
- 			/* Get receive timestamp from the skb */
--			if (fep->hwts_rx_en && fep->bufdesc_ex) {
--				struct skb_shared_hwtstamps *shhwtstamps =
--							    skb_hwtstamps(skb);
--				unsigned long flags;
--
--				memset(shhwtstamps, 0, sizeof(*shhwtstamps));
--
--				spin_lock_irqsave(&fep->tmreg_lock, flags);
--				shhwtstamps->hwtstamp = ns_to_ktime(
--				    timecounter_cyc2time(&fep->tc, ebdp->ts));
--				spin_unlock_irqrestore(&fep->tmreg_lock, flags);
--			}
-+			if (fep->hwts_rx_en && fep->bufdesc_ex)
-+				fec_enet_hwtstamp(fep, ebdp->ts,
-+						  skb_hwtstamps(skb));
- 
- 			if (fep->bufdesc_ex &&
- 			    (fep->csum_flags & FLAG_RX_CSUM_ENABLED)) {
--- 
-1.8.3.1
+Sure, we can do that. Do you want me to include it into the set?
