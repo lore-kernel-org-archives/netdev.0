@@ -1,56 +1,63 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 0/6] Mellanox driver update Jul-08-2014
-Date: Tue,  8 Jul 2014 11:25:18 +0300
-Message-ID: <1404807924-29038-1-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next 4/6] net/mlx4_en: Do not disable vlan filter during promiscuous mode
+Date: Tue,  8 Jul 2014 11:25:22 +0300
+Message-ID: <1404807924-29038-5-git-send-email-amirv@mellanox.com>
+References: <1404807924-29038-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>
+	Amir Vadai <amirv@mellanox.com>,
+	Eugenia Emantayev <eugenia@mellanox.com>,
+	Aviad Yehezkel <aviadye@mellanox.co.il>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:44678 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:44693 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753532AbaGHI01 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Jul 2014 04:26:27 -0400
+	id S1753598AbaGHI0d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 8 Jul 2014 04:26:33 -0400
+In-Reply-To: <1404807924-29038-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Eugenia Emantayev <eugenia@mellanox.com>
 
-This patch set introduce some small bug fixes.
-Most of the patches are small fixes to cornet case bugs.
-The patch by Noa ("Fix mac_hash database inconsistency") was sent in the past
-[1] and was droped because a fix to the bonding code was supposed to make it
-unnecessary. After a second look on the patch, it is still needed even
-after the direct access to dev_addr by the bonding will be fixed.
+Promiscous mode is only for MACs.
+Should not disable/enable VLAN filter when entering/leaving promisuous mode.
 
-Patches were applied and tested over commit bd4578b
-("drivers/net/hyperv/netvsc.c: remove unnecessary null test before kfree")
 
-[1] - http://permalink.gmane.org/gmane.linux.network/315900
+Signed-off-by: Aviad Yehezkel <aviadye@mellanox.co.il>
+Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 10 ----------
+ 1 file changed, 10 deletions(-)
 
-Thanks,
-Amir
-
-Eugenia Emantayev (4):
-  net/mlx4_en: Fix set port ratelimit
-  net/mlx4_en: Run loopback test only when port is up
-  net/mlx4: Verify port number in __mlx4_unregister_mac
-  net/mlx4_en: Do not disable vlan filter during promiscuous mode
-
-Noa Osherovich (1):
-  net/mlx4_en: Fix mac_hash database inconsistency
-
-Yishai Hadas (1):
-  net/mlx4_en: Do not count LLC/SNAP in MTU calculation
-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c   | 33 ++++++++++--------------
- drivers/net/ethernet/mellanox/mlx4/en_rx.c       |  2 +-
- drivers/net/ethernet/mellanox/mlx4/en_selftest.c |  3 ++-
- drivers/net/ethernet/mellanox/mlx4/mlx4.h        |  5 ----
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h     |  4 +--
- drivers/net/ethernet/mellanox/mlx4/port.c        | 32 ++++++++++++++++++-----
- include/linux/mlx4/device.h                      | 11 ++++++++
- 7 files changed, 54 insertions(+), 36 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 7d4fb7b..255950a 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -940,11 +940,6 @@ static void mlx4_en_set_promisc_mode(struct mlx4_en_priv *priv,
+ 					  0, MLX4_MCAST_DISABLE);
+ 		if (err)
+ 			en_err(priv, "Failed disabling multicast filter\n");
+-
+-		/* Disable port VLAN filter */
+-		err = mlx4_SET_VLAN_FLTR(mdev->dev, priv);
+-		if (err)
+-			en_err(priv, "Failed disabling VLAN filter\n");
+ 	}
+ }
+ 
+@@ -993,11 +988,6 @@ static void mlx4_en_clear_promisc_mode(struct mlx4_en_priv *priv,
+ 			en_err(priv, "Failed disabling promiscuous mode\n");
+ 		break;
+ 	}
+-
+-	/* Enable port VLAN filter */
+-	err = mlx4_SET_VLAN_FLTR(mdev->dev, priv);
+-	if (err)
+-		en_err(priv, "Failed enabling VLAN filter\n");
+ }
+ 
+ static void mlx4_en_do_multicast(struct mlx4_en_priv *priv,
 -- 
 1.8.3.4
