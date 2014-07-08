@@ -1,41 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/5] amd-xgbe: AMD 10Gb Ethernet driver updates
-Date: Mon, 07 Jul 2014 21:38:36 -0700 (PDT)
-Message-ID: <20140707.213836.844443830383552014.davem@davemloft.net>
-References: <20140702180422.14996.88116.stgit@tlendack-t1.amdoffice.net>
+Subject: Re: [PATCH net] net/mlx4_en: Don't configure the HW vxlan parser
+ when vxlan offloading isn't set
+Date: Mon, 07 Jul 2014 21:40:08 -0700 (PDT)
+Message-ID: <20140707.214008.1100817705691828133.davem@davemloft.net>
+References: <1404311783-7963-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: thomas.lendacky@amd.com
+Cc: netdev@vger.kernel.org, amirv@mellanox.com
+To: ogerlitz@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48891 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48895 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750854AbaGHEih (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2014 00:38:37 -0400
-In-Reply-To: <20140702180422.14996.88116.stgit@tlendack-t1.amdoffice.net>
+	with ESMTP id S1750747AbaGHEkJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2014 00:40:09 -0400
+In-Reply-To: <1404311783-7963-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Date: Wed, 2 Jul 2014 13:04:22 -0500
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Date: Wed,  2 Jul 2014 17:36:23 +0300
 
-> The following series fixes some bugs and provides new/changed support
-> in the driver.
+> The add_vxlan_port ndo driver code was wrongly testing whether HW vxlan offloads
+> are supported by the device instead of checking if they are currently enabled.
 > 
-> - Fix a debugfs backward compatibility issue introduced by a previous patch
-> - Write to the interrupt enablement register, not the status register when
->   setting MTL interrupts
-> - Call netif_napi_del whenever the ndo_stop operation is called (to match
->   the call to netif_napi_add on ndo_open)
-> - Peformance enhancements:
->   - Adjusted default coalescing settings
->   - AXI DMA changes (burst length size and cache settings)
->   - ioread/iowrite reduction during interrupt
->   - Napi poll updates
-> - AXI DMA settings based on device tree property to account for a change in
->   the ARM64 default cache operations assignment
+> This causes the driver to configure the HW parser to conduct matching for vxlan
+> packets but since no steering rules were set, vxlan packets are dropped on RX.
 > 
-> This patch series is based on net-next.
+> Fix that by doing the right test, as done in the del_vxlan_port ndo handler.
+> 
+> Fixes: 1b136de ('net/mlx4: Implement vxlan ndo calls')
+> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+> ---
+> 
+> Hi Dave,
+> 
+> This fixes a bug from 3.15-rc1, can you please push to 3.15.y too?
 
-Series applied, thanks.
+Applied and queued up for -stable, thanks.
