@@ -1,62 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] igmp: fix the problem when mc leave group
-Date: Mon, 07 Jul 2014 21:31:32 -0700 (PDT)
-Message-ID: <20140707.213132.448071496887411114.davem@davemloft.net>
-References: <53B39DB8.2060306@huawei.com>
+Subject: Re: [patch net-next] bonding: remove no longer relevant vlan
+ warnings
+Date: Mon, 07 Jul 2014 21:32:19 -0700 (PDT)
+Message-ID: <20140707.213219.1034908728845983391.davem@davemloft.net>
+References: <1404294938-9968-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org
-To: dingtianhong@huawei.com
+Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, vfalico@gmail.com,
+	andy@greyhouse.net, teg@jklm.no, jay.vosburgh@canonical.com,
+	mkubecek@suse.cz
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48829 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48839 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751656AbaGHEbd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2014 00:31:33 -0400
-In-Reply-To: <53B39DB8.2060306@huawei.com>
+	with ESMTP id S1750854AbaGHEcU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2014 00:32:20 -0400
+In-Reply-To: <1404294938-9968-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ding Tianhong <dingtianhong@huawei.com>
-Date: Wed, 2 Jul 2014 13:50:48 +0800
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Wed,  2 Jul 2014 11:55:38 +0200
 
-> The problem was triggered by these steps:
+> These warnings are no longer relevant. Even when last slave is
+> removed, there is a valid address assigned to bond (random).
+> The correct functionality of vlans is ensured by maintaining unicast
+> list in vlan_sync_address().
 > 
-> 1) create socket, bind and then setsockopt for add mc group.
->    mreq.imr_multiaddr.s_addr = inet_addr("255.0.0.37");
->    mreq.imr_interface.s_addr = inet_addr("192.168.1.2");
->    setsockopt(sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq));
-> 
-> 2) drop the mc group for this socket.
->    mreq.imr_multiaddr.s_addr = inet_addr("255.0.0.37");
->    mreq.imr_interface.s_addr = inet_addr("0.0.0.0");
->    setsockopt(sockfd, IPPROTO_IP, IP_DROP_MEMBERSHIP, &mreq, sizeof(mreq));
-> 
-> 3) and then drop the socket, I found the mc group was still used by the dev:
-> 
->    netstat -g
-> 
->    Interface       RefCnt Group
->    --------------- ------ ---------------------
->    eth2		   1	  255.0.0.37
-> 
-> Normally even though the IP_DROP_MEMBERSHIP return error, the mc group still need
-> to be released for the netdev when drop the socket, but this process was broken when
-> route default is NULL, the reason is that:
-> 
-> The ip_mc_leave_group() will choose the in_dev by the imr_interface.s_addr, if input addr
-> is NULL, the default route dev will be chosen, then the ifindex is got from the dev,
-> then polling the inet->mc_list and return -ENODEV, but if the default route dev is NULL,
-> the in_dev and ifIndex is both NULL, when polling the inet->mc_list, the mc group will be
-> released from the mc_list, but the dev didn't dec the refcnt for this mc group, so
-> when dropping the socket, the mc_list is NULL and the dev still keep this group.
-> 
-> v1->v2: According Hideaki's suggestion, we should align with IPv6 (RFC3493) and BSDs,
-> 	so I add the checking for the in_dev before polling the mc_list, make sure when
-> 	we remove the mc group, dec the refcnt to the real dev which was using the mc address.
-> 	The problem would never happened again.
-> 
-> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+> Suggested-by: Jay Vosburgh <jay.vosburgh@canonical.com>
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 
-Applied, thank you.
+Applied, thanks.
