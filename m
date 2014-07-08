@@ -1,26 +1,78 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] r8152: increase the tx timeout
-Date: Tue, 08 Jul 2014 11:32:02 -0700 (PDT)
-Message-ID: <20140708.113202.326542398099281937.davem@davemloft.net>
-References: <1404359748-4202-1-git-send-email-hayeswang@realtek.com>
+From: Richard Weinberger <richard@nod.at>
+Subject: Re: [PATCH] hyperv: Add netpoll support
+Date: Tue, 08 Jul 2014 20:39:01 +0200
+Message-ID: <53BC3AC5.6000203@nod.at>
+References: <1404811947-5174-1-git-send-email-richard@nod.at>
+ <9fb91c2ee32a4a59a2bec54043a6b9fd@BY2PR03MB299.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-usb@vger.kernel.org
-To: hayeswang@realtek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1404359748-4202-1-git-send-email-hayeswang@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: KY Srinivasan <kys@microsoft.com>, Haiyang Zhang <haiyangz@microsoft.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <9fb91c2ee32a4a59a2bec54043a6b9fd@BY2PR03MB299.namprd03.prod.outlook.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-From: Hayes Wang <hayeswang@realtek.com>
-Date: Thu, 3 Jul 2014 11:55:48 +0800
-
-> When the system is too busy to complete the urb, the tx timout function
-> would be called. This causes the other tx urbs would be killed, too.
-> Increase the tx timeout to avoid it.
+Am 08.07.2014 20:01, schrieb KY Srinivasan:
 > 
-> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+> 
+>> -----Original Message-----
+>> From: Richard Weinberger [mailto:richard@nod.at]
+>> Sent: Tuesday, July 8, 2014 2:32 AM
+>> To: KY Srinivasan; Haiyang Zhang
+>> Cc: devel@linuxdriverproject.org; netdev@vger.kernel.org; linux-
+>> kernel@vger.kernel.org; Richard Weinberger
+>> Subject: [PATCH] hyperv: Add netpoll support
+>>
+>> In order to have at least a netconsole to debug kernel issues on Windows
+>> Azure this patch implements netpoll support.
+>> Sending packets is easy, netvsc_start_xmit() does already everything
+>> needed.
+>> To receive we need to trigger the channel callback which is usally called via
+>> tasklet_schedule().
+>>
+>> Signed-off-by: Richard Weinberger <richard@nod.at>
+>> ---
+>>  drivers/net/hyperv/netvsc_drv.c | 14 ++++++++++++++
+>>  1 file changed, 14 insertions(+)
+>>
+>> diff --git a/drivers/net/hyperv/netvsc_drv.c
+>> b/drivers/net/hyperv/netvsc_drv.c index 4fd71b7..367b71e 100644
+>> --- a/drivers/net/hyperv/netvsc_drv.c
+>> +++ b/drivers/net/hyperv/netvsc_drv.c
+>> @@ -736,6 +736,17 @@ static int netvsc_set_mac_addr(struct net_device
+>> *ndev, void *p)
+>>  	return err;
+>>  }
+>>
+>> +#ifdef CONFIG_NET_POLL_CONTROLLER
+>> +static void netvsc_poll_controller(struct net_device *net) {
+>> +	struct net_device_context *net_device_ctx = netdev_priv(net);
+>> +	struct hv_device *dev = net_device_ctx->device_ctx;
+>> +
+>> +	local_bh_disable();
+>> +	netvsc_channel_cb(dev->channel);
+>> +	local_bh_enable();
+>> +}
+>> +#endif
+> 
+> Each channel is bound to a specific VCPU in the guest and the channel callback is expected to be delivered on
+> the VCPU the channel is bound to. This code is not satisfying that requirement.
 
-Applied, thank you.
+But struct hv_device has only one channel attribute. How does this work with multiple VCPUs?
+
+Anyways, what solution to you propose?
+
+Thanks,
+//richard
