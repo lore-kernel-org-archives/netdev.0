@@ -1,51 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: GRO: very bad routing performance with 3.14.4 for GRE-packets
-Date: Wed, 09 Jul 2014 00:44:35 +0200
-Message-ID: <1404859475.3515.10.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1442942.x8F4o95O8x@h2o.as.studentenwerk.mhn.de>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] hyperv: Add netpoll support
+Date: Wed, 9 Jul 2014 00:47:24 +0200
+Message-ID: <20140708224724.GA2994@electric-eye.fr.zoreil.com>
+References: <1404811947-5174-1-git-send-email-richard@nod.at>
+ <9fb91c2ee32a4a59a2bec54043a6b9fd@BY2PR03MB299.namprd03.prod.outlook.com>
+ <53BC3AC5.6000203@nod.at>
+ <b2835410139848be8811403e3d7fa708@BY2PR03MB299.namprd03.prod.outlook.com>
+ <53BC51B4.4010703@nod.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Jerry Chu <hkchu@google.com>
-To: Wolfgang Walter <linux@stwm.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: KY Srinivasan <kys@microsoft.com>,
+	Haiyang Zhang <haiyangz@microsoft.com>,
+	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Richard Weinberger <richard@nod.at>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f171.google.com ([209.85.212.171]:36440 "EHLO
-	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751163AbaGHWok (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2014 18:44:40 -0400
-Received: by mail-wi0-f171.google.com with SMTP id f8so1296483wiw.10
-        for <netdev@vger.kernel.org>; Tue, 08 Jul 2014 15:44:38 -0700 (PDT)
-In-Reply-To: <1442942.x8F4o95O8x@h2o.as.studentenwerk.mhn.de>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:43549 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751969AbaGHWrq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2014 18:47:46 -0400
+Content-Disposition: inline
+In-Reply-To: <53BC51B4.4010703@nod.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-07-08 at 22:35 +0200, Wolfgang Walter wrote:
-> Hello,
-> 
-> I upgraded a router from 3.10.46 to 3.14.4 and I see a dramatic perfomance 
-> loss for GRE-pakets if (and only if) GRO is enabled on the incoming or 
-> outgoing interface (drops to 1/50th to 1/100th).
-> 
-> Other traffic is just fine.
-> 
-> The router itself is not endpoint of the GRE-tunnel.
-> 
-> The router has connection tracking enabled and does NAT (but most of the 
-> traffic is not NATed nor are GRE-packets).
-> 
-> The network card is an Intel Corporation I350 Gigabit (both interfaces).
-> 
-> Regards,
+Richard Weinberger <richard@nod.at> :
+[...]
+> This won't work as netpoll runs with IRQs disabled.
+> ->ndo_poll_controller() has to make sure that SKBs can be received and transmitted
+> while IRQs are off. I thought calling the channel callback by hand would be
+> enough to receive SKBs.
 
-GRO is a win if the consumer of the packets understands GSO packets.
+What are you taking about ? netconsole does not need to receive.
 
-In this case, Intel driver is not able to send GSO packets with GRE
-encapsulation, so they need to be segmented before being sent.
+hyperv start_xmit handler almost does its own Tx completion as you have
+noticed. The situation is imho close to a virtual device one as was veth
+in bb446c19fefd7b4435adb12a9dd7666adc5b553a.
 
-That's extra work and not worth it, as you noticed.
-
-One way to get good performance would be to implement a software TSO in
-the Intel driver for the GRE encapsulated packets.
-
-You might revert bf5a755f5e9186406bbf50f4087100af5bd68e40, or submit a
-patch to make the GRE handling in GRO an optional feature.
+-- 
+Ueimor
