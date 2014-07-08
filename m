@@ -1,65 +1,39 @@
-From: Peter Zijlstra <peterz@infradead.org>
+From: Sasha Levin <sasha.levin@oracle.com>
 Subject: Re: mm/sched/net: BUG when running simple code
-Date: Tue, 8 Jul 2014 16:51:47 +0200
-Message-ID: <20140708145147.GH6758@twins.programming.kicks-ass.net>
-References: <539A6850.4090408@oracle.com>
+Date: Tue, 08 Jul 2014 11:25:49 -0400
+Message-ID: <53BC0D7D.9000207@oracle.com>
+References: <539A6850.4090408@oracle.com> <20140708145147.GH6758@twins.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="D3uGefx/nfj0hkMF"
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 Cc: "linux-mm@kvack.org" <linux-mm@kvack.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Ingo Molnar <mingo@kernel.org>, LKML <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Dave Jones <davej@redhat.com>
-To: Sasha Levin <sasha.levin@oracle.com>
+        Andrew Morton <akpm@linux-foundation.org>,
+        Ingo Molnar <mingo@kernel.org>, LKML <linux-kernel@vger.kernel.org>,
+        "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+        Dave Jones <davej@redhat.com>
+To: Peter Zijlstra <peterz@infradead.org>
 Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <539A6850.4090408@oracle.com>
+In-Reply-To: <20140708145147.GH6758@twins.programming.kicks-ass.net>
 Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
+On 07/08/2014 10:51 AM, Peter Zijlstra wrote:
+> On Thu, Jun 12, 2014 at 10:56:16PM -0400, Sasha Levin wrote:
+>> Hi all,
+>> 
+>> Okay, I'm really lost. I got the following when fuzzing, and can't really explain what's going on. It seems that we get a "unable to handle kernel paging request" when running rather simple code, and I can't figure out how it would cause it.
+>> 
+> 
+> Are you running on AMD hardware? If so; check out this thread:
+> 
+> http://marc.info/?i=53B02CEB.7010607@web.de
+> 
 
---D3uGefx/nfj0hkMF
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Unfortunately (luckily?) it's all Intel over here.
 
-On Thu, Jun 12, 2014 at 10:56:16PM -0400, Sasha Levin wrote:
-> Hi all,
->=20
-> Okay, I'm really lost. I got the following when fuzzing, and can't really=
- explain what's
-> going on. It seems that we get a "unable to handle kernel paging request"=
- when running
-> rather simple code, and I can't figure out how it would cause it.
->=20
 
-Are you running on AMD hardware? If so; check out this thread:
-
-  http://marc.info/?i=3D53B02CEB.7010607@web.de
-
---D3uGefx/nfj0hkMF
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAEBAgAGBQJTvAWDAAoJEHZH4aRLwOS6VnEP/05c2sj5PFztHzQWIEtZ7xo7
-C9fdGJntcS00lx8pqS8e2wL8j5lk3LJZiJppgtH1xNXVGIKFE03vTgt+K+W6WFtA
-KHZhFlarHk73JEZhFD1aCcqUC9mqfY6vOgy3FuluQg029OnAxSQQ52xDEiiYPODx
-9VugzaxExZmWk0ke13szomqq8adbwjYCc5pWUIPNf1QbdUhj/w5X05ppDoNqz4TP
-mLAgu7aLkYW0HaXgk3Qi0nUKcbHrQ+iBB8qmifWNw3oVMW9dsrJ3DQdYFK74EfE3
-89o8kd9TxjInToggT3dFKYJNHISikolaGVFr5lfVOeOLJkegobA9eCwgVZ8vrjO4
-QNt6Mu9dkYO0ZpyC/7VJZl02uILeMtKEPU3lcn8EKPAlb9UUsBrPEoI2m5e/my7F
-uA6cEATo5wOzUtg9XDn3kLgSkQfXMGWCIArD/NhCiRU7rbUFic5kd22oK+I8CS7v
-O7dp1cyU1Aged1nO4TOwUsj/OcWFbM9CHXUKDqs5on42YrQakagViUi4i8Zi2P9i
-JDxZIaNlLQsEz39imnXM70AMRXoPoOdxgZlIZz2Bxc+R/QT6eYyYC+NK8vjLuNGV
-Jo7vjWlKWQ5UqlIyZQ1z7zl5sDvEXe/URXwXvnyKChsP23IW8H0KG0Wax0TZUU75
-iqT2wd/0IfSQmpBzaX2G
-=yYJn
------END PGP SIGNATURE-----
-
---D3uGefx/nfj0hkMF--
+Thanks,
+Sasha
 
 --
 To unsubscribe, send a message with 'unsubscribe linux-mm' in
