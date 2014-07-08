@@ -1,62 +1,62 @@
-From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Subject: Re: [PATCH v2 1/3] ethernet: Add new driver for Marvell Armada 375
- network unit
-Date: Tue, 8 Jul 2014 20:40:24 -0300
-Message-ID: <20140708234024.GA28830@arch.cereza>
-References: <1404561288-11720-1-git-send-email-ezequiel.garcia@free-electrons.com>
- <1404561288-11720-2-git-send-email-ezequiel.garcia@free-electrons.com>
- <20140708.152655.619472955292197550.davem@davemloft.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] hyperv: Add netpoll support
+Date: Wed, 9 Jul 2014 01:43:38 +0200
+Message-ID: <20140708234338.GA4181@electric-eye.fr.zoreil.com>
+References: <1404811947-5174-1-git-send-email-richard@nod.at>
+ <9fb91c2ee32a4a59a2bec54043a6b9fd@BY2PR03MB299.namprd03.prod.outlook.com>
+ <53BC3AC5.6000203@nod.at>
+ <b2835410139848be8811403e3d7fa708@BY2PR03MB299.namprd03.prod.outlook.com>
+ <53BC51B4.4010703@nod.at>
+ <20140708224724.GA2994@electric-eye.fr.zoreil.com>
+ <53BC7666.3050408@nod.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	jason@lakedaemon.net, mw@semihalf.com,
-	thomas.petazzoni@free-electrons.com,
-	gregory.clement@free-electrons.com, tawfik@marvell.com,
-	alior@marvell.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:42146 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750907AbaGHXlU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2014 19:41:20 -0400
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+ Haiyang Zhang <haiyangz@microsoft.com>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Richard Weinberger <richard@nod.at>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
 Content-Disposition: inline
-In-Reply-To: <20140708.152655.619472955292197550.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <53BC7666.3050408@nod.at>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-On 08 Jul 03:26 PM, David Miller wrote:
-> From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-> Date: Sat,  5 Jul 2014 08:54:46 -0300
->=20
-> > +module_param(rxq_number, int, S_IRUGO);
-> > +module_param(txq_number, int, S_IRUGO);
->=20
-> Please don't use module parameters (undocumented ones at that) for th=
-ings
-> like this.
->=20
-> Instead, use or create standard interfaces which other drivers can us=
-e as
-> well, so that the user interface is consistent for setting things of =
-this
-> nature regardless of device type.
->=20
+Richard Weinberger <richard@nod.at> :
+> Am 09.07.2014 00:47, schrieb Francois Romieu:
+[...]
+> > What are you taking about ? netconsole does not need to receive.
+> 
+> Isn't netconsole is only one user of netpoll ?
 
-Hm... in fact these two parameters should be removed. They are redundan=
-t in
-this and the mvneta driver. The Rx queue number should be fixed and non=
-e of
-the drivers support more than 1.
+Out of tree users are irrelevant. See netpoll related comments in
+cd6362befe4cc7bf589a5236d2a780af2d47bcc9
 
-The Tx queue number should be set to the hardware supported one, there'=
-s no
-reason to use something different.
+> Of course netconsole needs only to transmit SKBs.
+> But if you look at other ->ndo_poll_controller implementations
+> you'll notice that they care also about receiving.
 
-So, unless someone objects, we'll remove them in v4.
+It's just the long, illuminating history of netpoll :o)
 
-Thanks for the feedback,
---=20
-Ezequiel Garc=EDa, Free Electrons
-Embedded Linux, Kernel and Android Engineering
-http://free-electrons.com
+Some limited Rx netpoll support may be done but it needs more work
+than was originally advertised.
+
+> > hyperv start_xmit handler almost does its own Tx completion as you have
+> > noticed. The situation is imho close to a virtual device one as was veth
+> > in bb446c19fefd7b4435adb12a9dd7666adc5b553a.
+> 
+> Bad commit reference: bb446c19fefd7b4435adb12a9dd7666adc5b553a
+
+Sorry, it currently belongs to davem's net-next.
+
+-- 
+Ueimor
