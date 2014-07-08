@@ -1,40 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: Performance fix for process_backlog
-Date: Mon, 07 Jul 2014 19:25:19 -0700 (PDT)
-Message-ID: <20140707.192519.1302110449886053251.davem@davemloft.net>
-References: <alpine.DEB.2.02.1406300949290.5624@tomh.mtv.corp.google.com>
+Subject: Re: [PATCH net-next] tcp: switch snt_synack back to measuring
+ transmit time of first SYNACK
+Date: Mon, 07 Jul 2014 19:26:52 -0700 (PDT)
+Message-ID: <20140707.192652.2078847253054450980.davem@davemloft.net>
+References: <1404155389-22927-1-git-send-email-ncardwell@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: therbert@google.com
+Cc: netdev@vger.kernel.org, ycheng@google.com,
+	octavian.purdila@intel.com, hkchu@google.com
+To: ncardwell@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48297 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48302 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751412AbaGHCZW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2014 22:25:22 -0400
-In-Reply-To: <alpine.DEB.2.02.1406300949290.5624@tomh.mtv.corp.google.com>
+	with ESMTP id S1752230AbaGHC0x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2014 22:26:53 -0400
+In-Reply-To: <1404155389-22927-1-git-send-email-ncardwell@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Mon, 30 Jun 2014 09:50:40 -0700 (PDT)
+From: Neal Cardwell <ncardwell@google.com>
+Date: Mon, 30 Jun 2014 15:09:49 -0400
 
-> In process_backlog the input_pkt_queue is only checked once for new
-> packets and quota is artificially reduced to reflect precisely the
-> number of packets on the input_pkt_queue so that the loop exits
-> appropriately.
+> Always store in snt_synack the time at which the server received the
+> first client SYN and attempted to send the first SYNACK.
 > 
-> This patches changes the behavior to be more straightforward and
-> less convoluted. Packets are processed until either the quota
-> is met or there are no more packets to process.
+> Recent commit aa27fc501 ("tcp: tcp_v[46]_conn_request: fix snt_synack
+> initialization") resolved an inconsistency between IPv4 and IPv6 in
+> the initialization of snt_synack. This commit brings back the idea
+> from 843f4a55e (tcp: use tcp_v4_send_synack on first SYN-ACK), which
+> was going for the original behavior of snt_synack from the commit
+> where it was added in 9ad7c049f0f79 ("tcp: RFC2988bis + taking RTT
+> sample from 3WHS for the passive open side") in v3.1.
 > 
-> This patch seems to provide a small, but noticeable performance
-> improvement. The performance improvement is a result of staying
-> in the process_backlog loop longer which can reduce number of IPI's.
+> In addition to being simpler (and probably a tiny bit faster),
+> unconditionally storing the time of the first SYNACK attempt has been
+> useful because it allows calculating a performance metric quantifying
+> how long it took to establish a passive TCP connection.
 > 
-> Performance data using super_netperf TCP_RR with 200 flows:
-...
-> Signed-off-by: Tom Herbert <therbert@google.com>
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+> Signed-off-by: Yuchung Cheng <ycheng@google.com>
 
-Applied, thanks Tom.
+Applied, thanks.
