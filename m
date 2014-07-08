@@ -1,62 +1,55 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] hyperv: Add netpoll support
-Date: Wed, 9 Jul 2014 01:43:38 +0200
-Message-ID: <20140708234338.GA4181@electric-eye.fr.zoreil.com>
-References: <1404811947-5174-1-git-send-email-richard@nod.at>
- <9fb91c2ee32a4a59a2bec54043a6b9fd@BY2PR03MB299.namprd03.prod.outlook.com>
- <53BC3AC5.6000203@nod.at>
- <b2835410139848be8811403e3d7fa708@BY2PR03MB299.namprd03.prod.outlook.com>
- <53BC51B4.4010703@nod.at>
- <20140708224724.GA2994@electric-eye.fr.zoreil.com>
- <53BC7666.3050408@nod.at>
+From: Thomas Fitzsimmons <fitzsim@fitzsim.org>
+Subject: [PATCH resend] net: mvneta: Fix big endian issue in mvneta_txq_desc_csum()
+Date: Tue, 08 Jul 2014 19:44:07 -0400
+Message-ID: <m3wqbnpgag.fsf@fitzsim.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
- Haiyang Zhang <haiyangz@microsoft.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Richard Weinberger <richard@nod.at>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <53BC7666.3050408@nod.at>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	linux-arm-kernel@lists.infradead.org
+To: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:42600 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753786AbaGHXoL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2014 19:44:11 -0400
+Received: by mail-ie0-f174.google.com with SMTP id rd18so5411459iec.5
+        for <netdev@vger.kernel.org>; Tue, 08 Jul 2014 16:44:10 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Richard Weinberger <richard@nod.at> :
-> Am 09.07.2014 00:47, schrieb Francois Romieu:
-[...]
-> > What are you taking about ? netconsole does not need to receive.
-> 
-> Isn't netconsole is only one user of netpoll ?
+This commit fixes the command value generated for CSUM calculation
+when running in big endian mode.  The Ethernet protocol ID for IP was
+being unconditionally byte-swapped in the layer 3 protocol check (with
+swab16), which caused the mvneta driver to not function correctly in
+big endian mode.  This patch byte-swaps the ID conditionally with
+htons.
 
-Out of tree users are irrelevant. See netpoll related comments in
-cd6362befe4cc7bf589a5236d2a780af2d47bcc9
+Cc: <stable@vger.kernel.org> # v3.13+
+Signed-off-by: Thomas Fitzsimmons <fitzsim@fitzsim.org>
+---
+The mvneta driver existed prior to v3.13, but it has only supported big
+endian from v3.13 onward.  If it's accepted, this patch needs to be
+backported for stable only as far back as v3.13.
 
-> Of course netconsole needs only to transmit SKBs.
-> But if you look at other ->ndo_poll_controller implementations
-> you'll notice that they care also about receiving.
+ drivers/net/ethernet/marvell/mvneta.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-It's just the long, illuminating history of netpoll :o)
-
-Some limited Rx netpoll support may be done but it needs more work
-than was originally advertised.
-
-> > hyperv start_xmit handler almost does its own Tx completion as you have
-> > noticed. The situation is imho close to a virtual device one as was veth
-> > in bb446c19fefd7b4435adb12a9dd7666adc5b553a.
-> 
-> Bad commit reference: bb446c19fefd7b4435adb12a9dd7666adc5b553a
-
-Sorry, it currently belongs to davem's net-next.
-
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index 45beca1..667cf65 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -1207,7 +1207,7 @@ static u32 mvneta_txq_desc_csum(int l3_offs, int l3_proto,
+ 	command =  l3_offs    << MVNETA_TX_L3_OFF_SHIFT;
+ 	command |= ip_hdr_len << MVNETA_TX_IP_HLEN_SHIFT;
+ 
+-	if (l3_proto == swab16(ETH_P_IP))
++	if (l3_proto == htons(ETH_P_IP))
+ 		command |= MVNETA_TXD_IP_CSUM;
+ 	else
+ 		command |= MVNETA_TX_L3_IP6;
 -- 
-Ueimor
+1.7.1
