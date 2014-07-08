@@ -1,120 +1,132 @@
 From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH C 1/7] net: fec: better implementation of iMX6 ERR006358 quirk
-Date: Tue, 08 Jul 2014 13:01:38 +0100
-Message-ID: <E1X4U5a-0005tx-UZ@rmk-PC.arm.linux.org.uk>
+Subject: [PATCH C 2/7] net: fec: replace delayed work with standard work
+Date: Tue, 08 Jul 2014 13:01:44 +0100
+Message-ID: <E1X4U5g-0005u1-1S@rmk-PC.arm.linux.org.uk>
 References: <20140708120117.GJ21766@n2100.arm.linux.org.uk>
 Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:58731 "EHLO
+Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:58734 "EHLO
 	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754499AbaGHMBl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2014 08:01:41 -0400
+	by vger.kernel.org with ESMTP id S1754499AbaGHMBq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2014 08:01:46 -0400
 In-Reply-To: <20140708120117.GJ21766@n2100.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Using a (delayed) workqueue for ERR006358 is not correct - a work queue
-is a single-trigger device.  Once the work queue has been scheduled, it
-can't be re-scheduled until it has been run.  This can cause problems -
-with an appropriate packet timing, we can end up with packets queued,
-but not sent by the hardware, resulting in the transmit timeout firing.
+As of "better implementation of iMX6 ERR006358 quirk", we no longer have
+a requirement for a delayed work.  Moreover, the work is now only used
+for timeout purposes, so the timeout flag is also pointless - we set it
+each time we queue the work, and the work clears it.
 
-Re-implement this as per the workaround detailed in the ERR006358
-documentation - if there are packets waiting to be sent when we service
-the transmit ring, and we see that the transmitter is not running,
-kick the transmitter to run the pending entries in the ring.
-
-Testing here with a 10Mbit half duplex link sees the resulting iperf
-TCP bandwidth increase from between 1 to 2Mbps to between 8 to 9Mbps.
+Replace the fec_enet_delayed_work struct with a standard work_struct,
+resulting in simplified timeout handling code.
 
 Acked-by: Fugang Duan <B38611@freescale.com>
 Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- drivers/net/ethernet/freescale/fec.h      |  1 -
- drivers/net/ethernet/freescale/fec_main.c | 30 ++++--------------------------
- 2 files changed, 4 insertions(+), 27 deletions(-)
+ drivers/net/ethernet/freescale/fec.h      |  8 ++------
+ drivers/net/ethernet/freescale/fec_main.c | 34 +++++++++++++------------------
+ 2 files changed, 16 insertions(+), 26 deletions(-)
 
 diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
-index 96d2a18f1b99..17e294970207 100644
+index 17e294970207..bd53caf1c1eb 100644
 --- a/drivers/net/ethernet/freescale/fec.h
 +++ b/drivers/net/ethernet/freescale/fec.h
-@@ -259,7 +259,6 @@ struct bufdesc_ex {
- struct fec_enet_delayed_work {
- 	struct delayed_work delay_work;
- 	bool timeout;
--	bool trig_tx;
+@@ -256,11 +256,6 @@ struct bufdesc_ex {
+ #define FLAG_RX_CSUM_ENABLED	(BD_ENET_RX_ICE | BD_ENET_RX_PCR)
+ #define FLAG_RX_CSUM_ERROR	(BD_ENET_RX_ICE | BD_ENET_RX_PCR)
+ 
+-struct fec_enet_delayed_work {
+-	struct delayed_work delay_work;
+-	bool timeout;
+-};
+-
+ /* The FEC buffer descriptors track the ring buffers.  The rx_bd_base and
+  * tx_bd_base always point to the base of the buffer descriptors.  The
+  * cur_rx and cur_tx point to the currently available buffer.
+@@ -326,6 +321,8 @@ struct fec_enet_private {
+ 	struct	napi_struct napi;
+ 	int	csum_flags;
+ 
++	struct work_struct tx_timeout_work;
++
+ 	struct ptp_clock *ptp_clock;
+ 	struct ptp_clock_info ptp_caps;
+ 	unsigned long last_overflow_check;
+@@ -338,7 +335,6 @@ struct fec_enet_private {
+ 	int hwts_rx_en;
+ 	int hwts_tx_en;
+ 	struct timer_list time_keep;
+-	struct fec_enet_delayed_work delay_work;
+ 	struct regulator *reg_phy;
  };
  
- /* The FEC buffer descriptors track the ring buffers.  The rx_bd_base and
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 9d82d915b06d..8cfc3a3de7fb 100644
+index 8cfc3a3de7fb..b2ae7e706d5e 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -342,22 +342,6 @@ fec_enet_clear_csum(struct sk_buff *skb, struct net_device *ndev)
- 	return 0;
+@@ -1020,31 +1020,25 @@ fec_timeout(struct net_device *ndev)
+ 
+ 	ndev->stats.tx_errors++;
+ 
+-	fep->delay_work.timeout = true;
+-	schedule_delayed_work(&(fep->delay_work.delay_work), 0);
++	schedule_work(&fep->tx_timeout_work);
  }
  
--static void
--fec_enet_submit_work(struct bufdesc *bdp, struct fec_enet_private *fep)
--{
--	const struct platform_device_id *id_entry =
--				platform_get_device_id(fep->pdev);
--	struct bufdesc *bdp_pre;
--
--	bdp_pre = fec_enet_get_prevdesc(bdp, fep);
--	if ((id_entry->driver_data & FEC_QUIRK_ERR006358) &&
--	    !(bdp_pre->cbd_sc & BD_ENET_TX_READY)) {
--		fep->delay_work.trig_tx = true;
--		schedule_delayed_work(&(fep->delay_work.delay_work),
--					msecs_to_jiffies(1));
--	}
--}
--
- static int
- fec_enet_txq_submit_frag_skb(struct sk_buff *skb, struct net_device *ndev)
+-static void fec_enet_work(struct work_struct *work)
++static void fec_enet_timeout_work(struct work_struct *work)
  {
-@@ -545,8 +529,6 @@ static int fec_enet_txq_submit_skb(struct sk_buff *skb, struct net_device *ndev)
- 	status |= (BD_ENET_TX_READY | BD_ENET_TX_TC);
- 	bdp->cbd_sc = status;
+ 	struct fec_enet_private *fep =
+-		container_of(work,
+-			     struct fec_enet_private,
+-			     delay_work.delay_work.work);
++		container_of(work, struct fec_enet_private, tx_timeout_work);
+ 	struct net_device *ndev = fep->netdev;
  
--	fec_enet_submit_work(bdp, fep);
--
- 	/* If this was the last BD in the ring, start at the beginning again. */
- 	bdp = fec_enet_get_nextdesc(last_bdp, fep);
- 
-@@ -735,8 +717,6 @@ static int fec_enet_txq_submit_tso(struct sk_buff *skb, struct net_device *ndev)
- 	/* Save skb pointer */
- 	fep->tx_skbuff[index] = skb;
- 
--	fec_enet_submit_work(bdp, fep);
--
- 	skb_tx_timestamp(skb);
- 	fep->cur_tx = bdp;
- 
-@@ -1065,11 +1045,6 @@ static void fec_enet_work(struct work_struct *work)
- 		}
- 		rtnl_unlock();
+-	if (fep->delay_work.timeout) {
+-		fep->delay_work.timeout = false;
+-		rtnl_lock();
+-		if (netif_device_present(ndev) || netif_running(ndev)) {
+-			napi_disable(&fep->napi);
+-			netif_tx_lock_bh(ndev);
+-			fec_restart(ndev);
+-			netif_wake_queue(ndev);
+-			netif_tx_unlock_bh(ndev);
+-			napi_enable(&fep->napi);
+-		}
+-		rtnl_unlock();
++	rtnl_lock();
++	if (netif_device_present(ndev) || netif_running(ndev)) {
++		napi_disable(&fep->napi);
++		netif_tx_lock_bh(ndev);
++		fec_restart(ndev);
++		netif_wake_queue(ndev);
++		netif_tx_unlock_bh(ndev);
++		napi_enable(&fep->napi);
  	}
--
--	if (fep->delay_work.trig_tx) {
--		fep->delay_work.trig_tx = false;
--		writel(0, fep->hwp + FEC_X_DES_ACTIVE);
--	}
++	rtnl_unlock();
  }
  
  static void
-@@ -1166,7 +1141,10 @@ fec_enet_tx(struct net_device *ndev)
- 				netif_wake_queue(ndev);
- 		}
- 	}
--	return;
-+
-+	/* ERR006538: Keep the transmitter going */
-+	if (bdp != fep->cur_tx && readl(fep->hwp + FEC_X_DES_ACTIVE) == 0)
-+		writel(0, fep->hwp + FEC_X_DES_ACTIVE);
- }
+@@ -2642,7 +2636,7 @@ fec_probe(struct platform_device *pdev)
+ 	if (fep->bufdesc_ex && fep->ptp_clock)
+ 		netdev_info(ndev, "registered PHC device %d\n", fep->dev_id);
  
- /* During a receive, the cur_rx points to the current incoming buffer.
+-	INIT_DELAYED_WORK(&(fep->delay_work.delay_work), fec_enet_work);
++	INIT_WORK(&fep->tx_timeout_work, fec_enet_timeout_work);
+ 	return 0;
+ 
+ failed_register:
+@@ -2667,7 +2661,7 @@ fec_drv_remove(struct platform_device *pdev)
+ 	struct net_device *ndev = platform_get_drvdata(pdev);
+ 	struct fec_enet_private *fep = netdev_priv(ndev);
+ 
+-	cancel_delayed_work_sync(&(fep->delay_work.delay_work));
++	cancel_work_sync(&fep->tx_timeout_work);
+ 	unregister_netdev(ndev);
+ 	fec_enet_mii_remove(fep);
+ 	del_timer_sync(&fep->time_keep);
 -- 
 1.8.3.1
