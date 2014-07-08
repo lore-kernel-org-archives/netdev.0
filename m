@@ -1,50 +1,39 @@
-From: David Decotigny <decot@googlers.com>
-Subject: Re: [PATCH net-next v1 2/2] netpoll: avoid reference leaks
-Date: Tue, 8 Jul 2014 14:50:24 -0700
-Message-ID: <CAG88wWa9WTz4gwLHWAys1e96eWBgD+mcVW=hPh7a+b2ooJzBeQ@mail.gmail.com>
-References: <f98ccbfee35a7ab7f9499ede9b34e6b1120d88f1.1404172155.git.decot@googlers.com>
- <20140707.193505.345276817146527821.davem@davemloft.net> <CAG88wWZ9GiqoOscqG4-ePOWo8bXgSTAQ6=6-tZPahMcxOvQMLg@mail.gmail.com>
- <20140708.141708.2064358397103630362.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ip_tunnel: fix ip_tunnel_lookup
+Date: Tue, 08 Jul 2014 15:12:10 -0700 (PDT)
+Message-ID: <20140708.151210.1879376103263511218.davem@davemloft.net>
+References: <20140705022637.73152ff57309c468c1fdb563@qrator.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Eric Dumazet <edumazet@google.com>, amwang@redhat.com,
-	antonio@meshcoding.com, Jiri Pirko <jpirko@redhat.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: ixaphire@qrator.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140708.141708.2064358397103630362.davem@davemloft.net>
+In-Reply-To: <20140705022637.73152ff57309c468c1fdb563@qrator.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In that case, that's what the original code does: dropping this patch 2/2.
+From: Dmitry Popov <ixaphire@qrator.net>
+Date: Sat, 5 Jul 2014 02:26:37 +0400
 
-Patch 1/2 "netpoll: fix use after free" is still needed to prevent
-panics, though.
+> @@ -205,6 +207,8 @@ struct ip_tunnel *ip_tunnel_lookup(struct ip_tunnel_net *itn,
+>  
+>  	hlist_for_each_entry_rcu(t, head, hash_node) {
+>  		if (t->parms.i_key != key ||
+> +		    t->parms.iph.saddr != 0 ||
+> +		    t->parms.iph.daddr != 0 ||
+>  		    !(t->dev->flags & IFF_UP))
+>  			continue;
+>  
 
-On Tue, Jul 8, 2014 at 2:17 PM, David Miller <davem@davemloft.net> wrote:
-> From: David Decotigny <decot@googlers.com>
-> Date: Tue, 8 Jul 2014 12:35:14 -0700
->
->> Thanks for the feedback. This patch results from manual inspection of
->> the code. I agree my commit description is abusive: in the case of
->> bonding, I think everything is fine, there should be no ref leak,
->> cleanup paths seem clean.
->>
->> My point was to make things more predictable: ndo_netpoll_cleanup
->> called anyways to acknowledge actual loss of a ref to npinfo,
->> irrespective of whether it's the last ref or not. Without this patch,
->> calling ndo_netpoll_cleanup would depend on some timing behavior, hard
->> to predict, and users of the API have better be careful to reclaim the
->> refs manually anyways: as a consequence, not sure this callback is
->> actually required in its current inception.
->
-> You've increased my confusion rather than decreased it.
->
-> You fail to address the core issue in my feedback:
->
->         Whoever drops the refcount to zero must be the one to invoke
->         the cleanup function.
->
-> Please address this concisely, and directly.
+I don't really understand the logic of these tests.
+
+Usually the canonical way to test these kinds of things is:
+
+	if (parms->saddr && parms->saddr != saddr)
+		goto no_match;
+
+But you are signalling a non-match any time the address is not a
+wildcard.
+
+Why?
