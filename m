@@ -1,57 +1,99 @@
-From: David Decotigny <decot@googlers.com>
-Subject: Re: [PATCH net-next v1 2/2] netpoll: avoid reference leaks
-Date: Tue, 8 Jul 2014 12:35:14 -0700
-Message-ID: <CAG88wWZ9GiqoOscqG4-ePOWo8bXgSTAQ6=6-tZPahMcxOvQMLg@mail.gmail.com>
-References: <0f692012238337f2c40893319830ae042523ce18.1404172155.git.decot@googlers.com>
- <cover.1404172155.git.decot@googlers.com> <f98ccbfee35a7ab7f9499ede9b34e6b1120d88f1.1404172155.git.decot@googlers.com>
- <20140707.193505.345276817146527821.davem@davemloft.net>
+From: KY Srinivasan <kys@microsoft.com>
+Subject: RE: [PATCH] hyperv: Add netpoll support
+Date: Tue, 8 Jul 2014 20:03:45 +0000
+Message-ID: <b2835410139848be8811403e3d7fa708@BY2PR03MB299.namprd03.prod.outlook.com>
+References: <1404811947-5174-1-git-send-email-richard@nod.at>
+ <9fb91c2ee32a4a59a2bec54043a6b9fd@BY2PR03MB299.namprd03.prod.outlook.com>
+ <53BC3AC5.6000203@nod.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Eric Dumazet <edumazet@google.com>, amwang@redhat.com,
-	antonio@meshcoding.com, Jiri Pirko <jpirko@redhat.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140707.193505.345276817146527821.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Richard Weinberger <richard@nod.at>, Haiyang Zhang <haiyangz@microsoft.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <53BC3AC5.6000203@nod.at>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
 
-Thanks for the feedback. This patch results from manual inspection of
-the code. I agree my commit description is abusive: in the case of
-bonding, I think everything is fine, there should be no ref leak,
-cleanup paths seem clean.
 
-My point was to make things more predictable: ndo_netpoll_cleanup
-called anyways to acknowledge actual loss of a ref to npinfo,
-irrespective of whether it's the last ref or not. Without this patch,
-calling ndo_netpoll_cleanup would depend on some timing behavior, hard
-to predict, and users of the API have better be careful to reclaim the
-refs manually anyways: as a consequence, not sure this callback is
-actually required in its current inception.
+> -----Original Message-----
+> From: Richard Weinberger [mailto:richard@nod.at]
+> Sent: Tuesday, July 8, 2014 11:39 AM
+> To: KY Srinivasan; Haiyang Zhang
+> Cc: devel@linuxdriverproject.org; netdev@vger.kernel.org; linux-
+> kernel@vger.kernel.org
+> Subject: Re: [PATCH] hyperv: Add netpoll support
+> 
+> Am 08.07.2014 20:01, schrieb KY Srinivasan:
+> >
+> >
+> >> -----Original Message-----
+> >> From: Richard Weinberger [mailto:richard@nod.at]
+> >> Sent: Tuesday, July 8, 2014 2:32 AM
+> >> To: KY Srinivasan; Haiyang Zhang
+> >> Cc: devel@linuxdriverproject.org; netdev@vger.kernel.org; linux-
+> >> kernel@vger.kernel.org; Richard Weinberger
+> >> Subject: [PATCH] hyperv: Add netpoll support
+> >>
+> >> In order to have at least a netconsole to debug kernel issues on
+> >> Windows Azure this patch implements netpoll support.
+> >> Sending packets is easy, netvsc_start_xmit() does already everything
+> >> needed.
+> >> To receive we need to trigger the channel callback which is usally
+> >> called via tasklet_schedule().
+> >>
+> >> Signed-off-by: Richard Weinberger <richard@nod.at>
+> >> ---
+> >>  drivers/net/hyperv/netvsc_drv.c | 14 ++++++++++++++
+> >>  1 file changed, 14 insertions(+)
+> >>
+> >> diff --git a/drivers/net/hyperv/netvsc_drv.c
+> >> b/drivers/net/hyperv/netvsc_drv.c index 4fd71b7..367b71e 100644
+> >> --- a/drivers/net/hyperv/netvsc_drv.c
+> >> +++ b/drivers/net/hyperv/netvsc_drv.c
+> >> @@ -736,6 +736,17 @@ static int netvsc_set_mac_addr(struct net_device
+> >> *ndev, void *p)
+> >>  	return err;
+> >>  }
+> >>
+> >> +#ifdef CONFIG_NET_POLL_CONTROLLER
+> >> +static void netvsc_poll_controller(struct net_device *net) {
+> >> +	struct net_device_context *net_device_ctx = netdev_priv(net);
+> >> +	struct hv_device *dev = net_device_ctx->device_ctx;
+> >> +
+> >> +	local_bh_disable();
+> >> +	netvsc_channel_cb(dev->channel);
+> >> +	local_bh_enable();
+> >> +}
+> >> +#endif
+> >
+> > Each channel is bound to a specific VCPU in the guest and the channel
+> > callback is expected to be delivered on the VCPU the channel is bound to.
+> This code is not satisfying that requirement.
+> 
+> But struct hv_device has only one channel attribute. How does this work with
+> multiple VCPUs?
+> 
+> Anyways, what solution to you propose?
 
-On Mon, Jul 7, 2014 at 7:35 PM, David Miller <davem@davemloft.net> wrote:
-> From: David Decotigny <decot@googlers.com>
-> Date: Mon, 30 Jun 2014 16:50:10 -0700
->
->> This ensures that the ndo_netpoll_cleanup callback is called for every
->> device that provides one. Otherwise there is a risk of reference leak
->> with bonding for example, which depends on this callback to cleanup
->> the slaves' references to netpoll info.
->>
->> Tested:
->>   see patch "netpoll: fix use after free"
->>
->> Signed-off-by: David Decotigny <decot@googlers.com>
->
-> I definitely don't understand this.
->
-> Why would we call the cleanup function of an object before it's
-> reference count hits zero?  It is exactly the act of reaching a
-> zero refcount which should trigger invoking the cleanup callback.
->
-> If a refcount is being released in another location without checking
-> if it hits zero and invoking the cleanup if so, _THAT_ is the bug.
+The VCPU the channel is bound to is available in the channel state. You could use the following code
+Fragment to ensure that the call is made on the "right" cpu:
+
+smp_call_function_single(dev->channel->target_cpu,
+                                         netvsc_channel_cb, dev->channel, true);
+
+Hope this helps.
+
+K. Y
