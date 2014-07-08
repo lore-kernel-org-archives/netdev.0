@@ -1,63 +1,58 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 4/6] net/mlx4_en: Do not disable vlan filter during promiscuous mode
-Date: Tue,  8 Jul 2014 11:25:22 +0300
-Message-ID: <1404807924-29038-5-git-send-email-amirv@mellanox.com>
-References: <1404807924-29038-1-git-send-email-amirv@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Eugenia Emantayev <eugenia@mellanox.com>,
-	Aviad Yehezkel <aviadye@mellanox.co.il>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:44693 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753598AbaGHI0d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Jul 2014 04:26:33 -0400
-In-Reply-To: <1404807924-29038-1-git-send-email-amirv@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: [PATCH] net: mvneta: fix operation in 10 Mbit/s mode
+Date: Tue,  8 Jul 2014 10:49:43 +0200
+Message-ID: <1404809383-5597-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Cc: Jason Cooper <jason@lakedaemon.net>, Andrew Lunn <andrew@lunn.ch>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	linux-arm-kernel@lists.infradead.org,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	Tawfik Bayouk <tawfik@marvell.com>,
+	Nadav Haklai <nadavh@marvell.com>,
+	Lior Amsalem <alior@marvell.com>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	<stable@vger.kernel.org>,
+	Maggie Mae Roxas <maggie.mae.roxas@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eugenia Emantayev <eugenia@mellanox.com>
+As reported by Maggie Mae Roxas, the mvneta driver doesn't behave
+properly in 10 Mbit/s mode. This is due to a misconfiguration of the
+MVNETA_GMAC_AUTONEG_CONFIG register: bit MVNETA_GMAC_CONFIG_MII_SPEED
+must be set for a 100 Mbit/s speed, but cleared for a 10 Mbit/s speed,
+which the driver was not properly doing. This commit adjusts that by
+setting the MVNETA_GMAC_CONFIG_MII_SPEED bit only in 100 Mbit/s mode,
+and relying on the fact that all the speed related bits of this
+register are cleared at the beginning of the mvneta_adjust_link()
+function.
 
-Promiscous mode is only for MACs.
-Should not disable/enable VLAN filter when entering/leaving promisuous mode.
+This problem exists since c5aff18204da0 ("net: mvneta: driver for
+Marvell Armada 370/XP network unit") which is the commit that
+introduced the mvneta driver in the kernel.
 
-
-Signed-off-by: Aviad Yehezkel <aviadye@mellanox.co.il>
-Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
+Cc: <stable@vger.kernel.org> # v3.8+
+Fixes: c5aff18204da0 ("net: mvneta: driver for Marvell Armada 370/XP network unit")
+Reported-by: Maggie Mae Roxas <maggie.mae.roxas@gmail.com>
+Cc: Maggie Mae Roxas <maggie.mae.roxas@gmail.com>
+Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 10 ----------
- 1 file changed, 10 deletions(-)
+ drivers/net/ethernet/marvell/mvneta.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 7d4fb7b..255950a 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -940,11 +940,6 @@ static void mlx4_en_set_promisc_mode(struct mlx4_en_priv *priv,
- 					  0, MLX4_MCAST_DISABLE);
- 		if (err)
- 			en_err(priv, "Failed disabling multicast filter\n");
--
--		/* Disable port VLAN filter */
--		err = mlx4_SET_VLAN_FLTR(mdev->dev, priv);
--		if (err)
--			en_err(priv, "Failed disabling VLAN filter\n");
- 	}
- }
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index 45beca1..d49f08d 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -2529,7 +2529,7 @@ static void mvneta_adjust_link(struct net_device *ndev)
  
-@@ -993,11 +988,6 @@ static void mlx4_en_clear_promisc_mode(struct mlx4_en_priv *priv,
- 			en_err(priv, "Failed disabling promiscuous mode\n");
- 		break;
- 	}
--
--	/* Enable port VLAN filter */
--	err = mlx4_SET_VLAN_FLTR(mdev->dev, priv);
--	if (err)
--		en_err(priv, "Failed enabling VLAN filter\n");
- }
+ 			if (phydev->speed == SPEED_1000)
+ 				val |= MVNETA_GMAC_CONFIG_GMII_SPEED;
+-			else
++			else if (phydev->speed == SPEED_100)
+ 				val |= MVNETA_GMAC_CONFIG_MII_SPEED;
  
- static void mlx4_en_do_multicast(struct mlx4_en_priv *priv,
+ 			mvreg_write(pp, MVNETA_GMAC_AUTONEG_CONFIG, val);
 -- 
-1.8.3.4
+2.0.0
