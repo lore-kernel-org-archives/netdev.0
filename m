@@ -1,60 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: icmp: Fix pMTU handling for rare case
-Date: Mon, 07 Jul 2014 17:23:29 -0700 (PDT)
-Message-ID: <20140707.172329.1811708260574978031.davem@davemloft.net>
-References: <1404141362-21015-1-git-send-email-edward.allcutt@openmarket.com>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: RSS is not efficient when forwarding (ixgbe)
+Date: Mon, 7 Jul 2014 21:28:37 -0300
+Message-ID: <20140708002837.GS2346@t520.home>
+References: <20140703224408.GA2343@t520.home>
+ <20140704193644.GB2343@t520.home>
+ <CA+mtBx-dY2eoDzL-1K8F8Br224H+c4fzVtVPu9JmnjLdQKuAOg@mail.gmail.com>
+ <20140707105523.GC2343@t520.home>
+ <F6FB0E698C9B3143BDF729DF2228664685DCFE12@ORSMSX110.amr.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: edward.allcutt@openmarket.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Tom Herbert <therbert@google.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	"Keller, Jacob E" <jacob.e.keller@intel.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+To: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47819 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754253AbaGHAXb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2014 20:23:31 -0400
-In-Reply-To: <1404141362-21015-1-git-send-email-edward.allcutt@openmarket.com>
+Received: from mx1.redhat.com ([209.132.183.28]:58715 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754749AbaGHA2n (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 7 Jul 2014 20:28:43 -0400
+Content-Disposition: inline
+In-Reply-To: <F6FB0E698C9B3143BDF729DF2228664685DCFE12@ORSMSX110.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Edward Allcutt <edward.allcutt@openmarket.com>
-Date: Mon, 30 Jun 2014 16:16:02 +0100
+On Mon, Jul 07, 2014 at 04:33:24PM +0000, Skidmore, Donald C wrote:
+> 
+> 
+> > 
+> > It's a router forwarding traffic from one interface to another, so I guess it's
+> > only the kernel. BTW, no firewall.
+> > 
+> > Flow Director needs to be enabled and I am using defaults.
+> 
+> Flow Director in ATR mode is on by default for ixgbe.  So like Tom mentioned the driver will create hash buckets for egress packets.  You could try disabling ATR and just use RSS.  Which would probably be the right thing to do any way since Flow Director isn't very useful for routing scenarios.  
 
-> Some older router implementations still send Fragmentation Needed
-> errors with the Next-Hop MTU field set to zero. This is explicitly
-> described as an eventuality that hosts must deal with by the
-> standard (RFC 1191) since older standards specified that those
-> bits must be zero.
-> 
-> Linux had a generic (for all of IPv4) implementation of the algorithm
-> described in the RFC for searching a list of MTU plateaus for a good
-> value. Commit 46517008e116 ("ipv4: Kill ip_rt_frag_needed().")
-> removed this as part of the changes to remove the routing cache.
-> Subsequently any Fragmentation Needed packet with a zero Next-Hop
-> MTU has been discarded without being passed to the per-protocol
-> handlers or notifying userspace for raw sockets.
-> 
-> When there is a router which does not implement RFC 1191 on an
-> MTU limited path then this results in stalled connections since
-> large packets are discarded and the local protocols are not
-> notified so they never attempt to lower the pMTU.
-> 
-> One example I have seen is an OpenBSD router terminating IPSec
-> tunnels. It's worth pointing out that this case is distinct from
-> the BSD 4.2 bug which incorrectly calculated the Next-Hop MTU
-> since the commit in question dismissed that as a valid concern.
-> 
-> All of the per-protocols handlers implement the simple approach from
-> RFC 1191 of immediately falling back to the minimum value. Although
-> this is sub-optimal it is vastly preferable to connections hanging
-> indefinitely.
-> 
-> Remove the Next-Hop MTU != 0 check and allow such packets
-> to follow the normal path.
-> 
-> Fixes: 46517008e116 ("ipv4: Kill ip_rt_frag_needed().")
-> Signed-off-by: Edward Allcutt <edward.allcutt@openmarket.com>
-
-Applied and queued up for -stable, thanks.
+That was it.
+Thanks a lot
+fbl
