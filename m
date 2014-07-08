@@ -1,43 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next-2.6 PATCH v5 0/2] bridge: fdb dumping takes a filter
- device
-Date: Tue, 08 Jul 2014 14:10:38 -0700 (PDT)
-Message-ID: <20140708.141038.712786607116212110.davem@davemloft.net>
-References: <1404380290-17040-1-git-send-email-jhs@emojatatu.com>
+Subject: Re: [PATCHv2 net-next] net: filter: move load_pointer() into
+ filter.h
+Date: Tue, 08 Jul 2014 14:11:37 -0700 (PDT)
+Message-ID: <20140708.141137.1850005112297468089.davem@davemloft.net>
+References: <1404399414-32099-1-git-send-email-zlim.lnx@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
-	vyasevic@redhat.com, sfeldma@cumulusnetworks.com,
-	john.r.fastabend@intel.com, roopa@cumulusnetworks.com,
-	eric.dumazet@gmail.com
-To: jhs@mojatatu.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54240 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753411AbaGHVKj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2014 17:10:39 -0400
-In-Reply-To: <1404380290-17040-1-git-send-email-jhs@emojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dborkman@redhat.com, ast@plumgrid.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: zlim.lnx@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1404399414-32099-1-git-send-email-zlim.lnx@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Date: Thu,  3 Jul 2014 05:38:08 -0400
+From: Zi Shen Lim <zlim.lnx@gmail.com>
+Date: Thu,  3 Jul 2014 07:56:54 -0700
 
-> Changes:
-> v5:
->  Embarassing qlnic compile failure found by DaveM
+> load_pointer() is already a static inline function.
+> Let's move it into filter.h so BPF JIT implementations can reuse this
+> function.
 > 
-> v4:
->  Request from DaveM to use proper comment tagging and remove if-stmnt braces
+> Since we're exporting this function, let's also rename it to
+> bpf_load_pointer() for clarity.
 > 
-> V3:
->  Suggestion from Eric D. to use for_each_netdev
->  Suggestion from Stephen H. to reduce level of indentation
-> 
-> V2:
-> Suggestions from Vlad
->  Get rid of rcu read lock since rtnl_lock is being held
->  simplify for readability
+> Signed-off-by: Zi Shen Lim <zlim.lnx@gmail.com>
+> ---
+> v1->v2:
+> * Renamed to more specific name of bpf_load_pointer(), as suggested
+>   by Daniel.
 
-Series applied, I'll push it out after doing another build test :-)
+Applied, thank you.
