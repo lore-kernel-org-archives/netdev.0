@@ -1,27 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT net] Open vSwitch
-Date: Mon, 07 Jul 2014 19:39:50 -0700 (PDT)
-Message-ID: <20140707.193950.10213608306624570.davem@davemloft.net>
-References: <1404196396-5040-1-git-send-email-pshelar@nicira.com>
+Subject: Re: linux-next: build failure after merge of the net tree
+Date: Mon, 07 Jul 2014 19:53:30 -0700 (PDT)
+Message-ID: <20140707.195330.1593299312055099195.davem@davemloft.net>
+References: <20140704113907.468a366a@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dev@openvswitch.org, netdev@vger.kernel.org
-To: pshelar@nicira.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48387 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752447AbaGHCjv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 7 Jul 2014 22:39:51 -0400
-In-Reply-To: <1404196396-5040-1-git-send-email-pshelar@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, vbridgers2013@gmail.com
+To: sfr@canb.auug.org.au
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140704113907.468a366a@canb.auug.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Pravin B Shelar <pshelar@nicira.com>
-Date: Mon, 30 Jun 2014 23:33:16 -0700
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Fri, 4 Jul 2014 11:39:07 +1000
 
-> A set of fixes for net.
-> First bug is related flow-table management.  Second one is in sample
-> action. Third is related flow stats and last one add gre-err handler for ovs.
+> After merging the net tree, today's linux-next build (x86_64
+> allmodconfig) failed like this:
+> 
+> ERROR: "phy_resume" [drivers/net/ethernet/stmicro/stmmac/stmmac.ko] undefined!
+> 
+> Caused by commit 0acf16768740 ("net: stmmac: add platform init/exit for
+> Altera's ARM socfpga").
+> 
+> I reverted that commit for today.
 
-Pulled, thanks Pravin.
+Vince you haven't made any effort to fix this build failure, so I am reverting
+your changes.
