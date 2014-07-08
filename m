@@ -1,30 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] igmp: fix the problem when mc leave group
-Date: Mon, 07 Jul 2014 21:59:46 -0700 (PDT)
-Message-ID: <20140707.215946.875639581739785936.davem@davemloft.net>
-References: <53B39DB8.2060306@huawei.com>
-	<20140707.213132.448071496887411114.davem@davemloft.net>
-	<53BB77D4.5000505@huawei.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next v2 1/8] net-timestamp: explicit SO_TIMESTAMPING
+ ancillary data struct
+Date: Tue, 8 Jul 2014 07:49:19 +0200
+Message-ID: <20140708054919.GA3977@localhost.localdomain>
+References: <1404416380-3545-1-git-send-email-willemb@google.com>
+ <1404416380-3545-2-git-send-email-willemb@google.com>
+ <20140705201851.GE3869@localhost.localdomain>
+ <CA+FuTSeSOBUzDLahLBNoW4i-UZe-VOXZr4LgA2bXBfjWxe10Fw@mail.gmail.com>
+ <20140707184700.GA1610@localhost.localdomain>
+ <CA+FuTSeqf=xgjjVreasKGZVPR1iXRKr68R7dj8n9w31-hUnznA@mail.gmail.com>
+ <53BAF8AC.6010907@cavium.com>
+ <20140707201817.GA10683@localhost.localdomain>
+ <53BB0C69.6000304@cavium.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org
-To: dingtianhong@huawei.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Willem de Bruijn <willemb@google.com>, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Chad Reese <kreese@caviumnetworks.com>,
+	David Daney <david.daney@cavium.com>
+To: Chad Reese <kreese@cavium.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48956 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750854AbaGHE7r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2014 00:59:47 -0400
-In-Reply-To: <53BB77D4.5000505@huawei.com>
+Received: from mail-wi0-f171.google.com ([209.85.212.171]:48308 "EHLO
+	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751566AbaGHFtn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2014 01:49:43 -0400
+Received: by mail-wi0-f171.google.com with SMTP id n15so300503wiw.16
+        for <netdev@vger.kernel.org>; Mon, 07 Jul 2014 22:49:42 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <53BB0C69.6000304@cavium.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ding Tianhong <dingtianhong@huawei.com>
-Date: Tue, 8 Jul 2014 12:47:16 +0800
+On Mon, Jul 07, 2014 at 02:08:57PM -0700, Chad Reese wrote:
+> 
+> No, it was 1ns. Who would go through all this effort if all you
+> wanted was 1us?  Our requirement was within 20ns, but me managed to
+> get 1ns with a lab setup. We had to be careful that the scope probes
+> used in the measurement were the same length.
 
-> Can you queue this patch to stable, this problem is existed in every
-> earlier kernel version, and could be triggered easily, I think we
-> should fix it for every stable tree.
+Well, in a lab, carefully compensating for phy delays, etc, etc,
+achieving 1ns is one thing. As a general statement, telling the
+public, "our PTP hardware synchronizes to within one nanosecond",
+is quite another thing.
 
-Done.
+Thanks,
+Richard
