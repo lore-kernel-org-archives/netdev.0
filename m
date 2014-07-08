@@ -1,65 +1,102 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 5/6] net/mlx4_en: Do not count LLC/SNAP in MTU calculation
-Date: Tue,  8 Jul 2014 11:25:23 +0300
-Message-ID: <1404807924-29038-6-git-send-email-amirv@mellanox.com>
-References: <1404807924-29038-1-git-send-email-amirv@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Yishai Hadas <yishaih@mellanox.com>,
-	Eugenia Emantayev <eugenia@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:47659 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752912AbaGHI00 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Jul 2014 04:26:26 -0400
-In-Reply-To: <1404807924-29038-1-git-send-email-amirv@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net] r8169: disable L23
+Date: Tue, 8 Jul 2014 16:26:10 +0800
+Message-ID: <1394712342-15778-6-Taiwan-albertk@realtek.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<nic_swsd@realtek.com>, Hayes Wang <hayeswang@realtek.com>
+To: <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Yishai Hadas <yishaih@mellanox.com>
+For RTL8411, RTL8111G, RTL8402, RTL8105, and RTL8106, the nic couldn't
+leave the power saving mode of L23 for certain situation. This causes
+the device lost for the system. Disable the L23 mode to avoid it.
 
-LLC/SNAP 8 bytes should not be added as part of header calculation.
-If used, payload will be decreased accordingly. For MTU of 1500
-we'll set 1522 instead of 1523.
-
-
-Signed-off-by: Yishai Hadas <yishaih@mellanox.com>
-Reviewed-by: Liran Liss <liranl@mellanox.com>
-Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
-
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_rx.c   | 2 +-
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h | 2 --
- 2 files changed, 1 insertion(+), 3 deletions(-)
+ drivers/net/ethernet/realtek/r8169.c | 25 +++++++++++++++++++++++++
+ 1 file changed, 25 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index d2d4157..b8ec920 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -922,7 +922,7 @@ static const int frag_sizes[] = {
- void mlx4_en_calc_rx_buf(struct net_device *dev)
- {
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
--	int eff_mtu = dev->mtu + ETH_HLEN + VLAN_HLEN + ETH_LLC_SNAP_SIZE;
-+	int eff_mtu = dev->mtu + ETH_HLEN + VLAN_HLEN;
- 	int buf_size = 0;
- 	int i = 0;
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index be425ad..38144ee 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -538,6 +538,7 @@ enum rtl_register_content {
+ 	MagicPacket	= (1 << 5),	/* Wake up when receives a Magic Packet */
+ 	LinkUp		= (1 << 4),	/* Wake up when the cable connection is re-established */
+ 	Jumbo_En0	= (1 << 2),	/* 8168 only. Reserved in the 8168b */
++	Rdy_to_L23	= (1 << 1),	/* L23 Enable */
+ 	Beacon_en	= (1 << 0),	/* 8168 only. Reserved in the 8168b */
  
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 0e15295..01011d4 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -152,8 +152,6 @@ enum {
- #define MLX4_EN_TX_POLL_MODER	16
- #define MLX4_EN_TX_POLL_TIMEOUT	(HZ / 4)
+ 	/* Config4 register */
+@@ -4897,6 +4898,21 @@ static void rtl_enable_clock_request(struct pci_dev *pdev)
+ 				 PCI_EXP_LNKCTL_CLKREQ_EN);
+ }
  
--#define ETH_LLC_SNAP_SIZE	8
--
- #define SMALL_PACKET_SIZE      (256 - NET_IP_ALIGN)
- #define HEADER_COPY_SIZE       (128 - NET_IP_ALIGN)
- #define MLX4_LOOPBACK_TEST_PAYLOAD (HEADER_COPY_SIZE - ETH_HLEN)
++static void rtl_l23_enable(struct rtl8169_private *tp, bool enable)
++{
++	void __iomem *ioaddr = tp->mmio_addr;
++	u8 data;
++
++	data = RTL_R8(Config3);
++
++	if (enable)
++		data |= Rdy_to_L23;
++	else
++		data &= ~Rdy_to_L23;
++
++	RTL_W8(Config3, data);
++}
++
+ #define R8168_CPCMD_QUIRK_MASK (\
+ 	EnableBist | \
+ 	Mac_dbgo_oe | \
+@@ -5246,6 +5262,7 @@ static void rtl_hw_start_8411(struct rtl8169_private *tp)
+ 	};
+ 
+ 	rtl_hw_start_8168f(tp);
++	rtl_l23_enable(tp, false);
+ 
+ 	rtl_ephy_init(tp, e_info_8168f_1, ARRAY_SIZE(e_info_8168f_1));
+ 
+@@ -5284,6 +5301,8 @@ static void rtl_hw_start_8168g_1(struct rtl8169_private *tp)
+ 
+ 	rtl_w1w0_eri(tp, 0x2fc, ERIAR_MASK_0001, 0x01, 0x06, ERIAR_EXGMAC);
+ 	rtl_w1w0_eri(tp, 0x1b0, ERIAR_MASK_0011, 0x0000, 0x1000, ERIAR_EXGMAC);
++
++	rtl_l23_enable(tp, false);
+ }
+ 
+ static void rtl_hw_start_8168g_2(struct rtl8169_private *tp)
+@@ -5536,6 +5555,8 @@ static void rtl_hw_start_8105e_1(struct rtl8169_private *tp)
+ 	RTL_W8(DLLPR, RTL_R8(DLLPR) | PFM_EN);
+ 
+ 	rtl_ephy_init(tp, e_info_8105e_1, ARRAY_SIZE(e_info_8105e_1));
++
++	rtl_l23_enable(tp, false);
+ }
+ 
+ static void rtl_hw_start_8105e_2(struct rtl8169_private *tp)
+@@ -5571,6 +5592,8 @@ static void rtl_hw_start_8402(struct rtl8169_private *tp)
+ 	rtl_eri_write(tp, 0xc0, ERIAR_MASK_0011, 0x0000, ERIAR_EXGMAC);
+ 	rtl_eri_write(tp, 0xb8, ERIAR_MASK_0011, 0x0000, ERIAR_EXGMAC);
+ 	rtl_w1w0_eri(tp, 0x0d4, ERIAR_MASK_0011, 0x0e00, 0xff00, ERIAR_EXGMAC);
++
++	rtl_l23_enable(tp, false);
+ }
+ 
+ static void rtl_hw_start_8106(struct rtl8169_private *tp)
+@@ -5583,6 +5606,8 @@ static void rtl_hw_start_8106(struct rtl8169_private *tp)
+ 	RTL_W32(MISC, (RTL_R32(MISC) | DISABLE_LAN_EN) & ~EARLY_TALLY_EN);
+ 	RTL_W8(MCU, RTL_R8(MCU) | EN_NDP | EN_OOB_RESET);
+ 	RTL_W8(DLLPR, RTL_R8(DLLPR) & ~PFM_EN);
++
++	rtl_l23_enable(tp, false);
+ }
+ 
+ static void rtl_hw_start_8101(struct net_device *dev)
 -- 
-1.8.3.4
+1.9.3
