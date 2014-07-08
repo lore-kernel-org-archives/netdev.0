@@ -1,55 +1,41 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: [PATCH] hyperv: Add netpoll support
-Date: Wed, 09 Jul 2014 00:53:26 +0200
-Message-ID: <53BC7666.3050408@nod.at>
-References: <1404811947-5174-1-git-send-email-richard@nod.at>
- <9fb91c2ee32a4a59a2bec54043a6b9fd@BY2PR03MB299.namprd03.prod.outlook.com>
- <53BC3AC5.6000203@nod.at>
- <b2835410139848be8811403e3d7fa708@BY2PR03MB299.namprd03.prod.outlook.com>
- <53BC51B4.4010703@nod.at> <20140708224724.GA2994@electric-eye.fr.zoreil.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 1/1] tipc: fix bug in multicast/broadcast message
+ reassembly
+Date: Tue, 08 Jul 2014 15:55:42 -0700 (PDT)
+Message-ID: <20140708.155542.2880546866748428.davem@davemloft.net>
+References: <1404582253-21815-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
- Haiyang Zhang <haiyangz@microsoft.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20140708224724.GA2994@electric-eye.fr.zoreil.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net
+To: jon.maloy@ericsson.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54847 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752726AbaGHWzq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2014 18:55:46 -0400
+In-Reply-To: <1404582253-21815-1-git-send-email-jon.maloy@ericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am 09.07.2014 00:47, schrieb Francois Romieu:
-> Richard Weinberger <richard@nod.at> :
-> [...]
->> This won't work as netpoll runs with IRQs disabled.
->> ->ndo_poll_controller() has to make sure that SKBs can be received and transmitted
->> while IRQs are off. I thought calling the channel callback by hand would be
->> enough to receive SKBs.
+From: Jon Maloy <jon.maloy@ericsson.com>
+Date: Sat,  5 Jul 2014 13:44:13 -0400
+
+> Since commit 37e22164a8a3c39bdad45aa463b1e69a1fdf4110 ("tipc: rename and
+> move message reassembly function") reassembly of long broadcast messages
+> has been broken. This is because we test for a non-NULL return value
+> of the *buf parameter as criteria for succesful reassembly. However, this
+> parameter is left defined even after reception of the first fragment,
+> when reassebly is still incomplete. This leads to a kernel crash as soon
+> as a the first fragment of a long broadcast message is received.
 > 
-> What are you taking about ? netconsole does not need to receive.
+> We fix this with this commit, by implementing a stricter behavior of the
+> function and its return values.
+> 
+> This commit should be applied to both net and net-next.
+> 
+> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 
-Isn't netconsole is only one user of netpoll?
-Of course netconsole needs only to transmit SKBs.
-But if you look at other ->ndo_poll_controller implementations
-you'll notice that they care also about receiving.
-
-> hyperv start_xmit handler almost does its own Tx completion as you have
-> noticed. The situation is imho close to a virtual device one as was veth
-> in bb446c19fefd7b4435adb12a9dd7666adc5b553a.
-
-Bad commit reference: bb446c19fefd7b4435adb12a9dd7666adc5b553a
-
-:-(
-
-Thanks,
-//richard
+Applied, thanks.
