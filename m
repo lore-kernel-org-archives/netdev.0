@@ -1,43 +1,45 @@
-From: Wolfgang Walter <linux@stwm.de>
-Subject: GRO: very bad routing performance with 3.14.4 for GRE-packets
-Date: Tue, 08 Jul 2014 22:35:41 +0200
-Message-ID: <1442942.x8F4o95O8x@h2o.as.studentenwerk.mhn.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3] declance: Fix 64-bit compilation warnings
+Date: Tue, 08 Jul 2014 14:05:02 -0700 (PDT)
+Message-ID: <20140708.140502.2094195777978560656.davem@davemloft.net>
+References: <alpine.LFD.2.11.1407030552290.15455@eddie.linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, joe@perches.com
+To: macro@linux-mips.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailin.studentenwerk.mhn.de ([141.84.225.229]:43860 "EHLO
-	email.studentenwerk.mhn.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753857AbaGHUl3 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 8 Jul 2014 16:41:29 -0400
-Received: from mailhub.studentenwerk.mhn.de (mailhub.studentenwerk.mhn.de [127.0.0.1])
-	by email.studentenwerk.mhn.de (Postfix) with ESMTP id 3h7Fld68G3z2hYf
-	for <netdev@vger.kernel.org>; Tue,  8 Jul 2014 22:35:41 +0200 (CEST)
+Received: from shards.monkeyblade.net ([149.20.54.216]:54217 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753137AbaGHVFG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2014 17:05:06 -0400
+In-Reply-To: <alpine.LFD.2.11.1407030552290.15455@eddie.linux-mips.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+From: "Maciej W. Rozycki" <macro@linux-mips.org>
+Date: Thu, 3 Jul 2014 05:56:51 +0100 (BST)
 
-I upgraded a router from 3.10.46 to 3.14.4 and I see a dramatic perfoma=
-nce=20
-loss for GRE-pakets if (and only if) GRO is enabled on the incoming or=20
-outgoing interface (drops to 1/50th to 1/100th).
+> This fixes compiler warnings:
+> 
+> drivers/net/ethernet/amd/declance.c: In function 'lance_init_ring':
+> drivers/net/ethernet/amd/declance.c:478: warning: format '%8.8x' expects type 'unsigned int', but argument 3 has type 'long unsigned int'
+> drivers/net/ethernet/amd/declance.c:487: warning: format '%8.8x' expects type 'unsigned int', but argument 3 has type 'long unsigned int'
+> drivers/net/ethernet/amd/declance.c:503: warning: cast from pointer to integer of different size
+> drivers/net/ethernet/amd/declance.c:520: warning: cast from pointer to integer of different size
+> 
+> in 64-bit compilation.  Where the value printed is an offset (whose range 
+> will always fit) the cast uses a 32-bit type, otherwise, where it is a 
+> host memory address, the pointer is output directly with %p.  Also the 
+> remaining `0x' prefix is dropped for consistency across these messages.
+> 
+> Tested with both 32-bit and 64-bit compilation, as well as at the run time 
+> (with the debug messages affected enabled).
+> 
+> Signed-off-by: Maciej W. Rozycki <macro@linux-mips.org>
+> ---
+>  Update from v2 switches to using the %p format specifier where
+> appropriate and drops the `0x' prefix for consistency across these debug
+> messages.  Please apply.
 
-Other traffic is just fine.
-
-The router itself is not endpoint of the GRE-tunnel.
-
-The router has connection tracking enabled and does NAT (but most of th=
-e=20
-traffic is not NATed nor are GRE-packets).
-
-The network card is an Intel Corporation I350 Gigabit (both interfaces)=
-=2E
-
-Regards,
---=20
-Wolfgang Walter
-Studentenwerk M=FCnchen
-Anstalt des =F6ffentlichen Rechts
+Applied to net-next, thank you.
