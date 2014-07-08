@@ -1,50 +1,38 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: [PATCH] hyperv: Add netpoll support
-Date: Wed, 09 Jul 2014 01:08:35 +0200
-Message-ID: <53BC79F3.8080409@nod.at>
-References: <1404811947-5174-1-git-send-email-richard@nod.at>
- <9fb91c2ee32a4a59a2bec54043a6b9fd@BY2PR03MB299.namprd03.prod.outlook.com>
- <53BC3AC5.6000203@nod.at>
- <b2835410139848be8811403e3d7fa708@BY2PR03MB299.namprd03.prod.outlook.com>
- <53BC51B4.4010703@nod.at> <20140708224724.GA2994@electric-eye.fr.zoreil.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/1] tipc: fix a memleak when sending data
+Date: Tue, 08 Jul 2014 16:10:22 -0700 (PDT)
+Message-ID: <20140708.161022.1576638989039162794.davem@davemloft.net>
+References: <1404693530-2531-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
- Haiyang Zhang <haiyangz@microsoft.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20140708224724.GA2994@electric-eye.fr.zoreil.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net
+To: jon.maloy@ericsson.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54929 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751151AbaGHXKX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2014 19:10:23 -0400
+In-Reply-To: <1404693530-2531-1-git-send-email-jon.maloy@ericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am 09.07.2014 00:47, schrieb Francois Romieu:
-> Richard Weinberger <richard@nod.at> :
-> [...]
->> This won't work as netpoll runs with IRQs disabled.
->> ->ndo_poll_controller() has to make sure that SKBs can be received and transmitted
->> while IRQs are off. I thought calling the channel callback by hand would be
->> enough to receive SKBs.
+From: Jon Maloy <jon.maloy@ericsson.com>
+Date: Sun,  6 Jul 2014 20:38:50 -0400
+
+> From: Erik Hugne <erik.hugne@ericsson.com>
 > 
-> What are you taking about ? netconsole does not need to receive.
+> This fixes a regression bug caused by:
+> 067608e9d019d6477fd45dd948e81af0e5bf599f ("tipc: introduce direct
+> iovec to buffer chain fragmentation function")
 > 
-> hyperv start_xmit handler almost does its own Tx completion as you have
-> noticed. The situation is imho close to a virtual device one as was veth
-> in bb446c19fefd7b4435adb12a9dd7666adc5b553a.
+> If data is sent on a nonblocking socket and the destination link
+> is congested, the buffer chain is leaked. We fix this by freeing
+> the chain in this case.
+> 
+> Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
+> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 
-Ah, net-next.git.
-My first (in-house) patch had the same empty poll controller as tun.c and now veth.c have.
-If we are fine with tx only, I'll happily resend an updated patch with an empty poll controller. :-)
-
-Thanks,
-//richard
+Applied, thank you.
