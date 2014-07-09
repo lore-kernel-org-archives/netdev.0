@@ -1,60 +1,97 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2] hyperv: Add netpoll support
-Date: Wed, 09 Jul 2014 18:13:17 +0400
-Message-ID: <53BD4DFD.6070805@cogentembedded.com>
-References: <1404892702-11094-1-git-send-email-richard@nod.at>
+From: Santosh Shilimkar <santosh.shilimkar@ti.com>
+Subject: Re: [PATCH 1/2] net: davinci_mdio: reuse for keystone2 arch
+Date: Wed, 9 Jul 2014 10:20:31 -0400
+Message-ID: <53BD4FAF.8060502@ti.com>
+References: <1404911451-9921-1-git-send-email-grygorii.strashko@ti.com> <1404911451-9921-2-git-send-email-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, devel@linuxdriverproject.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Richard Weinberger <richard@nod.at>, kys@microsoft.com,
-	haiyangz@microsoft.com
+Cc: <prabhakar.csengg@gmail.com>, Sekhar Nori <nsekhar@ti.com>,
+	Rob Herring <robh+dt@kernel.org>,
+	<linux-kernel@vger.kernel.org>, <devicetree@vger.kernel.org>,
+	<davinci-linux-open-source@linux.davincidsp.com>
+To: Grygorii Strashko <grygorii.strashko@ti.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	<netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1404892702-11094-1-git-send-email-richard@nod.at>
+In-Reply-To: <1404911451-9921-2-git-send-email-grygorii.strashko@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
-
-On 07/09/2014 11:58 AM, Richard Weinberger wrote:
-
-> In order to have at least a netconsole to debug kernel issues on
-> Windows Azure this patch implements netpoll support.
-> Sending packets is easy, netvsc_start_xmit() does already everything
-> needed.
-
-> Signed-off-by: Richard Weinberger <richard@nod.at>
+On Wednesday 09 July 2014 09:10 AM, Grygorii Strashko wrote:
+> The similar MDIO HW blocks is used by keystone 2 SoCs as
+> in Davinci SoCs:
+> - one in Gigabit Ethernet (GbE) Switch Subsystem
+>   See http://www.ti.com/lit/ug/sprugv9d/sprugv9d.pdf
+> - one in 10 Gigabit Ethernet Subsystem
+>   See http://www.ti.com/lit/ug/spruhj5/spruhj5.pdf
+> 
+> Hence, reuse Davinci MDIO driver for Keystone 2 and
+> enable TI networking for Keystone 2 devices
+> 
+> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
 > ---
->   drivers/net/hyperv/netvsc_drv.c | 11 +++++++++++
->   1 file changed, 11 insertions(+)
+Looks good to me.
+Reviewed-by: Santosh Shilimkar <santosh.shilimkar@ti.com>
 
-> diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-> index 4fd71b7..45218d5 100644
-> --- a/drivers/net/hyperv/netvsc_drv.c
-> +++ b/drivers/net/hyperv/netvsc_drv.c
-> @@ -736,6 +736,14 @@ static int netvsc_set_mac_addr(struct net_device *ndev, void *p)
->   	return err;
->   }
->
-> +#ifdef CONFIG_NET_POLL_CONTROLLER
-> +static void netvsc_poll_controller(struct net_device *net)
-> +{
-> +	/* As netvsc_start_xmit() works synchronous we don't have to
-> +	   trigger anything here. */
-
-    The multi-line comment style in the networking code is this:
-
-/* bla
-  * bla
-  */
-
-> +	return;
-
-    Not needed.
-
-> +}
-> +#endif
-[...]
-
-WBR, Sergei
+>  .../devicetree/bindings/net/davinci-mdio.txt       |    8 ++++----
+>  drivers/net/ethernet/ti/Kconfig                    |    4 ++--
+>  2 files changed, 6 insertions(+), 6 deletions(-)
+> 
+> diff --git a/Documentation/devicetree/bindings/net/davinci-mdio.txt b/Documentation/devicetree/bindings/net/davinci-mdio.txt
+> index 72efaaf..d2e68e7 100644
+> --- a/Documentation/devicetree/bindings/net/davinci-mdio.txt
+> +++ b/Documentation/devicetree/bindings/net/davinci-mdio.txt
+> @@ -1,8 +1,8 @@
+> -TI SoC Davinci MDIO Controller Device Tree Bindings
+> +TI SoC Davinci/Keystone2 MDIO Controller Device Tree Bindings
+>  ---------------------------------------------------
+>  
+>  Required properties:
+> -- compatible		: Should be "ti,davinci_mdio"
+> +- compatible		: Should be "ti,davinci_mdio" or "ti,keystone-mdio"
+>  - reg			: physical base address and size of the davinci mdio
+>  			  registers map
+>  - bus_freq		: Mdio Bus frequency
+> @@ -19,7 +19,7 @@ file.
+>  Examples:
+>  
+>  	mdio: davinci_mdio@4A101000 {
+> -		compatible = "ti,cpsw";
+> +		compatible = "ti,davinci_mdio";
+>  		reg = <0x4A101000 0x1000>;
+>  		bus_freq = <1000000>;
+>  	};
+> @@ -27,7 +27,7 @@ Examples:
+>  (or)
+>  
+>  	mdio: davinci_mdio@4A101000 {
+> -		compatible = "ti,cpsw";
+> +		compatible = "ti,davinci_mdio";
+>  		ti,hwmods = "davinci_mdio";
+>  		bus_freq = <1000000>;
+>  	};
+> diff --git a/drivers/net/ethernet/ti/Kconfig b/drivers/net/ethernet/ti/Kconfig
+> index 53150c2..1769700 100644
+> --- a/drivers/net/ethernet/ti/Kconfig
+> +++ b/drivers/net/ethernet/ti/Kconfig
+> @@ -5,7 +5,7 @@
+>  config NET_VENDOR_TI
+>  	bool "Texas Instruments (TI) devices"
+>  	default y
+> -	depends on PCI || EISA || AR7 || (ARM && (ARCH_DAVINCI || ARCH_OMAP3 || SOC_AM33XX))
+> +	depends on PCI || EISA || AR7 || (ARM && (ARCH_DAVINCI || ARCH_OMAP3 || SOC_AM33XX || ARCH_KEYSTONE))
+>  	---help---
+>  	  If you have a network (Ethernet) card belonging to this class, say Y
+>  	  and read the Ethernet-HOWTO, available from
+> @@ -32,7 +32,7 @@ config TI_DAVINCI_EMAC
+>  
+>  config TI_DAVINCI_MDIO
+>  	tristate "TI DaVinci MDIO Support"
+> -	depends on ARM && ( ARCH_DAVINCI || ARCH_OMAP3 || SOC_AM33XX )
+> +	depends on ARM && ( ARCH_DAVINCI || ARCH_OMAP3 || SOC_AM33XX || ARCH_KEYSTONE )
+>  	select PHYLIB
+>  	---help---
+>  	  This driver supports TI's DaVinci MDIO module.
+> 
