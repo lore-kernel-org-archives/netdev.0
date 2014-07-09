@@ -1,97 +1,103 @@
-From: Santosh Shilimkar <santosh.shilimkar@ti.com>
-Subject: Re: [PATCH 1/2] net: davinci_mdio: reuse for keystone2 arch
-Date: Wed, 9 Jul 2014 10:20:31 -0400
-Message-ID: <53BD4FAF.8060502@ti.com>
-References: <1404911451-9921-1-git-send-email-grygorii.strashko@ti.com> <1404911451-9921-2-git-send-email-grygorii.strashko@ti.com>
+From: Santosh Shilimkar <santosh.shilimkar-l0cyMroinI0@public.gmane.org>
+Subject: Re: [PATCH 2/2] net: davinci_mdio: allow to create phys from dt
+Date: Wed, 9 Jul 2014 10:23:34 -0400
+Message-ID: <53BD5066.4000500@ti.com>
+References: <1404911451-9921-1-git-send-email-grygorii.strashko@ti.com>
+	<1404911451-9921-3-git-send-email-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <prabhakar.csengg@gmail.com>, Sekhar Nori <nsekhar@ti.com>,
-	Rob Herring <robh+dt@kernel.org>,
-	<linux-kernel@vger.kernel.org>, <devicetree@vger.kernel.org>,
-	<davinci-linux-open-source@linux.davincidsp.com>
-To: Grygorii Strashko <grygorii.strashko@ti.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	<netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1404911451-9921-2-git-send-email-grygorii.strashko@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>,
+        <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>,
+        "David S. Miller"
+	<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+In-Reply-To: <1404911451-9921-3-git-send-email-grygorii.strashko-l0cyMroinI0@public.gmane.org>
+List-Unsubscribe: <http://linux.davincidsp.com/mailman/options/davinci-linux-open-source>,
+	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://linux.davincidsp.com/pipermail/davinci-linux-open-source>
+List-Post: <mailto:davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+List-Help: <mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=help>
+List-Subscribe: <http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source>,
+	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=subscribe>
+Sender: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+Errors-To: davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 On Wednesday 09 July 2014 09:10 AM, Grygorii Strashko wrote:
-> The similar MDIO HW blocks is used by keystone 2 SoCs as
-> in Davinci SoCs:
-> - one in Gigabit Ethernet (GbE) Switch Subsystem
->   See http://www.ti.com/lit/ug/sprugv9d/sprugv9d.pdf
-> - one in 10 Gigabit Ethernet Subsystem
->   See http://www.ti.com/lit/ug/spruhj5/spruhj5.pdf
+> This patch allows to create PHYs from DT in case
+> if they are explicitly defined. The of_mdiobus_register() is
+> used for such purposes.
 > 
-> Hence, reuse Davinci MDIO driver for Keystone 2 and
-> enable TI networking for Keystone 2 devices
+> For backward compatibility, call  of_mdiobus_register() only in case
+> if at least one PHY's child is defined in DT, otherwise rollback to
+> mdiobus_register().
 > 
-> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+> Signed-off-by: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
 > ---
-Looks good to me.
-Reviewed-by: Santosh Shilimkar <santosh.shilimkar@ti.com>
-
->  .../devicetree/bindings/net/davinci-mdio.txt       |    8 ++++----
->  drivers/net/ethernet/ti/Kconfig                    |    4 ++--
->  2 files changed, 6 insertions(+), 6 deletions(-)
+>  drivers/net/ethernet/ti/davinci_mdio.c |   18 ++++++++++++++++--
+>  1 file changed, 16 insertions(+), 2 deletions(-)
 > 
-> diff --git a/Documentation/devicetree/bindings/net/davinci-mdio.txt b/Documentation/devicetree/bindings/net/davinci-mdio.txt
-> index 72efaaf..d2e68e7 100644
-> --- a/Documentation/devicetree/bindings/net/davinci-mdio.txt
-> +++ b/Documentation/devicetree/bindings/net/davinci-mdio.txt
-> @@ -1,8 +1,8 @@
-> -TI SoC Davinci MDIO Controller Device Tree Bindings
-> +TI SoC Davinci/Keystone2 MDIO Controller Device Tree Bindings
->  ---------------------------------------------------
+> diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
+> index 735dc53..22d3dab 100644
+> --- a/drivers/net/ethernet/ti/davinci_mdio.c
+> +++ b/drivers/net/ethernet/ti/davinci_mdio.c
+> @@ -38,6 +38,7 @@
+>  #include <linux/davinci_emac.h>
+>  #include <linux/of.h>
+>  #include <linux/of_device.h>
+> +#include <linux/of_mdio.h>
+>  #include <linux/pinctrl/consumer.h>
 >  
->  Required properties:
-> -- compatible		: Should be "ti,davinci_mdio"
-> +- compatible		: Should be "ti,davinci_mdio" or "ti,keystone-mdio"
->  - reg			: physical base address and size of the davinci mdio
->  			  registers map
->  - bus_freq		: Mdio Bus frequency
-> @@ -19,7 +19,7 @@ file.
->  Examples:
+>  /*
+> @@ -95,6 +96,7 @@ struct davinci_mdio_data {
+>  	struct mii_bus	*bus;
+>  	bool		suspended;
+>  	unsigned long	access_time; /* jiffies */
+> +	bool		skip_scan;
+The vairiable name is not too intutive so probably add a little
+bit description on what are you skipping with it.
+
+>  };
 >  
->  	mdio: davinci_mdio@4A101000 {
-> -		compatible = "ti,cpsw";
-> +		compatible = "ti,davinci_mdio";
->  		reg = <0x4A101000 0x1000>;
->  		bus_freq = <1000000>;
->  	};
-> @@ -27,7 +27,7 @@ Examples:
->  (or)
+>  static void __davinci_mdio_reset(struct davinci_mdio_data *data)
+> @@ -144,6 +146,9 @@ static int davinci_mdio_reset(struct mii_bus *bus)
+>  	dev_info(data->dev, "davinci mdio revision %d.%d\n",
+>  		 (ver >> 8) & 0xff, ver & 0xff);
 >  
->  	mdio: davinci_mdio@4A101000 {
-> -		compatible = "ti,cpsw";
-> +		compatible = "ti,davinci_mdio";
->  		ti,hwmods = "davinci_mdio";
->  		bus_freq = <1000000>;
->  	};
-> diff --git a/drivers/net/ethernet/ti/Kconfig b/drivers/net/ethernet/ti/Kconfig
-> index 53150c2..1769700 100644
-> --- a/drivers/net/ethernet/ti/Kconfig
-> +++ b/drivers/net/ethernet/ti/Kconfig
-> @@ -5,7 +5,7 @@
->  config NET_VENDOR_TI
->  	bool "Texas Instruments (TI) devices"
->  	default y
-> -	depends on PCI || EISA || AR7 || (ARM && (ARCH_DAVINCI || ARCH_OMAP3 || SOC_AM33XX))
-> +	depends on PCI || EISA || AR7 || (ARM && (ARCH_DAVINCI || ARCH_OMAP3 || SOC_AM33XX || ARCH_KEYSTONE))
->  	---help---
->  	  If you have a network (Ethernet) card belonging to this class, say Y
->  	  and read the Ethernet-HOWTO, available from
-> @@ -32,7 +32,7 @@ config TI_DAVINCI_EMAC
+> +	if (data->skip_scan)
+> +		return 0;
+> +
+>  	/* get phy mask from the alive register */
+>  	phy_mask = __raw_readl(&data->regs->alive);
+>  	if (phy_mask) {
+> @@ -369,8 +374,17 @@ static int davinci_mdio_probe(struct platform_device *pdev)
+>  		goto bail_out;
+>  	}
 >  
->  config TI_DAVINCI_MDIO
->  	tristate "TI DaVinci MDIO Support"
-> -	depends on ARM && ( ARCH_DAVINCI || ARCH_OMAP3 || SOC_AM33XX )
-> +	depends on ARM && ( ARCH_DAVINCI || ARCH_OMAP3 || SOC_AM33XX || ARCH_KEYSTONE )
->  	select PHYLIB
->  	---help---
->  	  This driver supports TI's DaVinci MDIO module.
+> -	/* register the mii bus */
+> -	ret = mdiobus_register(data->bus);
+> +	/* register the mii bus
+> +	 * Create PHYs from DT only in case if PHY child nodes are explicitly
+> +	 * defined to support backward compatibility with DTs which assume that
+> +	 * Davinci MDIO will always scan the bus for PHYs detection.
+> +	 */
+multi line comment is not as per coding style. Please fix that.
+Patch as such looks good to me so with those minor fixes, feel
+free to append my review tag.
+
+Reviewed-by: Santosh Shilimkar <santosh.shilimkar-l0cyMroinI0@public.gmane.org>
+
+> +	if (dev->of_node && of_get_child_count(dev->of_node)) {
+> +		data->skip_scan = true;
+> +		ret = of_mdiobus_register(data->bus, dev->of_node);
+> +	} else {
+> +		ret = mdiobus_register(data->bus);
+> +	}
+>  	if (ret)
+>  		goto bail_out;
+>  
 > 
