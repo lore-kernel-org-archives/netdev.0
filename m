@@ -1,117 +1,69 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next] r8152: support jumbo frame for RTL8153
-Date: Wed, 9 Jul 2014 16:07:02 +0800
-Message-ID: <1394712342-15778-8-Taiwan-albertk@realtek.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: [PATCH v2 net-next 0/3] net: sctp:  Add partial MSG_MORE support to
+ SCTP
+Date: Wed, 9 Jul 2014 08:29:11 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1726E6A3@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: "'davem@davemloft.net'" <davem@davemloft.net>
+To: "'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
+	"'linux-sctp@vger.kernel.org'" <linux-sctp@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:54407 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1753955AbaGIIao convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2014 04:30:44 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 26166-08 for <netdev@vger.kernel.org>;
+ Wed,  9 Jul 2014 09:30:34 +0100 (BST)
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The maximum jumbo frame size for RTL8153 is 9K bytes.
-Change the max rx packet size to 9K.
-Change the use of the shared fifo from 6K (default) to 12K for tx.
+If an application has disabled Nagle then it is almost impossible
+to get more than one DATA chunk into an ethernet packet even if
+the application has more than one data chunk ready to transmit.
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/usb/r8152.c | 39 +++++++++++++++++++++++++++++++++++----
- 1 file changed, 35 insertions(+), 4 deletions(-)
+This could be fixed by adding an SCTP_CORK socket option - but
+using that requires a lot of system calls.
+An alternative is to honour MSG_MORE - using it to mean that
+another chunk will be sent soon.
+(There isn't much point using MSG_MORE to allow a chunk be extended,
+sendv() can be used for fragmented data.)
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index e9685ce..c3ce4e4 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -59,6 +59,7 @@
- #define PLA_WDT6_CTRL		0xe428
- #define PLA_TCR0		0xe610
- #define PLA_TCR1		0xe612
-+#define PLA_MTPS		0xe615
- #define PLA_TXFIFO_CTRL		0xe618
- #define PLA_RSTTALLY		0xe800
- #define PLA_CR			0xe813
-@@ -180,6 +181,10 @@
- /* PLA_TCR1 */
- #define VERSION_MASK		0x7cf0
- 
-+/* PLA_MTPS */
-+#define MTPS_JUMBO		(12 * 1024 / 64)
-+#define MTPS_DEFAULT		(6 * 1024 / 64)
-+
- /* PLA_RSTTALLY */
- #define TALLY_RESET		0x0001
- 
-@@ -440,7 +445,10 @@ enum rtl_register_content {
- #define BYTE_EN_START_MASK	0x0f
- #define BYTE_EN_END_MASK	0xf0
- 
-+#define RTL8153_MAX_PACKET	9216 /* 9K */
-+#define RTL8153_MAX_MTU		(RTL8153_MAX_PACKET - VLAN_ETH_HLEN - VLAN_HLEN)
- #define RTL8152_RMS		(VLAN_ETH_FRAME_LEN + VLAN_HLEN)
-+#define RTL8153_RMS		RTL8153_MAX_PACKET
- #define RTL8152_TX_TIMEOUT	(5 * HZ)
- 
- /* rtl8152 flags */
-@@ -2522,7 +2530,8 @@ static void r8153_first_init(struct r8152 *tp)
- 	ocp_data &= ~CPCR_RX_VLAN;
- 	ocp_write_word(tp, MCU_TYPE_PLA, PLA_CPCR, ocp_data);
- 
--	ocp_write_word(tp, MCU_TYPE_PLA, PLA_RMS, RTL8152_RMS);
-+	ocp_write_word(tp, MCU_TYPE_PLA, PLA_RMS, RTL8153_RMS);
-+	ocp_write_byte(tp, MCU_TYPE_PLA, PLA_MTPS, MTPS_JUMBO);
- 
- 	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_TCR0);
- 	ocp_data |= TCR0_AUTO_FIFO;
-@@ -2572,7 +2581,7 @@ static void r8153_enter_oob(struct r8152 *tp)
- 		mdelay(1);
- 	}
- 
--	ocp_write_word(tp, MCU_TYPE_PLA, PLA_RMS, RTL8152_RMS);
-+	ocp_write_word(tp, MCU_TYPE_PLA, PLA_RMS, RTL8153_RMS);
- 
- 	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_TEREDO_CFG);
- 	ocp_data &= ~TEREDO_WAKE_MASK;
-@@ -3284,6 +3293,29 @@ out:
- 	return res;
- }
- 
-+static int rtl8152_change_mtu(struct net_device *dev, int new_mtu)
-+{
-+	struct r8152 *tp = netdev_priv(dev);
-+
-+	if (dev->mtu == new_mtu)
-+		return 0;
-+
-+	switch (tp->version) {
-+	case RTL_VER_01:
-+	case RTL_VER_02:
-+		return eth_change_mtu(dev, new_mtu);
-+	default:
-+		break;
-+	}
-+
-+	if (new_mtu < 68 || new_mtu > RTL8153_MAX_MTU)
-+		return -EINVAL;
-+
-+	dev->mtu = new_mtu;
-+
-+	return 0;
-+}
-+
- static const struct net_device_ops rtl8152_netdev_ops = {
- 	.ndo_open		= rtl8152_open,
- 	.ndo_stop		= rtl8152_close,
-@@ -3292,8 +3324,7 @@ static const struct net_device_ops rtl8152_netdev_ops = {
- 	.ndo_tx_timeout		= rtl8152_tx_timeout,
- 	.ndo_set_rx_mode	= rtl8152_set_rx_mode,
- 	.ndo_set_mac_address	= rtl8152_set_mac_address,
--
--	.ndo_change_mtu		= eth_change_mtu,
-+	.ndo_change_mtu		= rtl8152_change_mtu,
- 	.ndo_validate_addr	= eth_validate_addr,
- };
- 
--- 
-1.9.3
+This is a partial implementation and takes a couple of shortcuts:
+1) We only worry about whether MSG_MORE was set on the last send.
+   Data sent (by the application) with MSG_MORE unset will only be
+   unsent for flow control reasons.
+   So if the last send had MSG_MORE set, and an ack opens the window
+   then the unsent data won't be sent immediately.
+
+2) If the application doesn't do a send with MSG_MORE unset, then
+   buffered data shouldn't be buffered forever.
+   Rather than using a timer (as TCP does - which ought to be configurable
+   on a per-socket basis) we use the same rules as Nagle and ensure
+   that there is always some data outstanding.
+   This does mean that the first data chunk on an idle connection
+   is send in its own packet even if MSG_MORE is set.
+
+Because of the way Nagle is implemented in SCTP, the change is effectively
+just enabling and disabling Nagle prior to each send.
+
+The patch is split into 3 parts:
+Parts 1 and 2 do not affect the logic.
+1) Splits out the 6-clause condition (all of which must be true)
+   for Nagle to delay sends into 6 if statements.
+   This allows each condition to have its own comment.
+2) Renames an internal return value.
+3) Renames the 'nodelay' field to 'tx_delay' and defines separate bits for 'Nagle'
+   and MSG_MORE (an extra bit could be used for SCTP_CORKED).
+   So 'tx_delay' contains the 'reason(s) why a transmit should be delayed'.
+   Save the MSG_MORE bit from the last send in 'tx_delay', apply the same
+   delay rules as if Nagle were enabled.
+
+Changes for v2:
+Parts 1 and 2 added, constants replaced by defines.
+
+	David
