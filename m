@@ -1,70 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: provide stubs for ip6_set_txhash and
- ip6_make_flowlabel
-Date: Tue, 08 Jul 2014 20:43:31 -0700 (PDT)
-Message-ID: <20140708.204331.179733401892555162.davem@davemloft.net>
-References: <1404843303-15405-1-git-send-email-f.fainelli@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, therbert@google.com, edumazet@google.com
-To: f.fainelli@gmail.com
+From: Varka Bhadram <varkabhadram@gmail.com>
+Subject: [PATCH net-next 0/2] cleanup for ieee802154 and mac802154
+Date: Wed,  9 Jul 2014 09:14:03 +0530
+Message-ID: <1404877445-2757-1-git-send-email-varkab@cdac.in>
+Cc: alex.aring@gmail.com, linux-zigbee-devel@lists.sourceforge.net,
+	davem@davemloft.net, Varka Bhadram <varkab@cdac.in>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56193 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751172AbaGIDnb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2014 23:43:31 -0400
-In-Reply-To: <1404843303-15405-1-git-send-email-f.fainelli@gmail.com>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:58170 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751345AbaGIDp0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2014 23:45:26 -0400
+Received: by mail-pa0-f54.google.com with SMTP id et14so8503159pad.13
+        for <netdev@vger.kernel.org>; Tue, 08 Jul 2014 20:45:25 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Tue,  8 Jul 2014 11:15:03 -0700
+This patch series remove the unwanted headerfiles for ieee802154 and mac802154
 
-> Commit cb1ce2ef387b ("ipv6: Implement automatic flow label generation on
-> transmit") introduced ip6_make_flowlabel, while commit b73c3d0e4f0e
-> ("net: Save TX flow hash in sock and set in skbuf on xmit") introduced
-> ip6_set_txhash.
-> 
-> ip6_set_tx_hash() uses sk_v6_daddr which references
-> __sk_common.skc_v6_daddr from struct sock_common, which is gated with
-> IS_ENABLED(CONFIG_IPV6).
-> 
-> ip6_make_flowlabel() uses the ipv6 member from struct net which is also
-> gated with IS_ENABLED(CONFIG_IPV6).
-> 
-> When CONFIG_IPV6 is disabled, we will hit a build failure that looks like this
-> when the compiler attempts inlining these functions:
-> 
->   CC [M]  drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.o
-> In file included from include/net/inet_sock.h:27:0,
->                  from include/net/ip.h:30,
->                  from drivers/net/ethernet/broadcom/cnic.c:37:
-> include/net/ipv6.h: In function 'ip6_set_txhash':
-> include/net/sock.h:327:33: error: 'struct sock_common' has no member
-> named 'skc_v6_daddr'
->  #define sk_v6_daddr  __sk_common.skc_v6_daddr
->                                  ^
-> include/net/ipv6.h:696:49: note: in expansion of macro 'sk_v6_daddr'
->   keys.dst = (__force __be32)ipv6_addr_hash(&sk->sk_v6_daddr);
->                                                  ^
-> In file included from include/net/inetpeer.h:15:0,
->                  from include/net/route.h:28,
->                  from include/net/ip.h:31,
->                  from drivers/net/ethernet/broadcom/cnic.c:37:
-> include/net/ipv6.h: In function 'ip6_make_flowlabel':
-> include/net/ipv6.h:706:37: error: 'struct net' has no member named
-> 'ipv6'
->   if (!flowlabel && (autolabel || net->ipv6.sysctl.auto_flowlabels)) {
->                                      ^
-> 
-> Fixes: cb1ce2ef387b ("ipv6: Implement automatic flow label generation on
-> transmit)
-> Fixes: b73c3d0e4f0e ("net: Save TX flow hash in sock and set
-> in skbuf on xmit")
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+Varka Bhadram (2):
+  ieee802154: removed unwanted header files
+  mac802154: removed unwanted header files
 
-Applied, thanks Florian.
+ net/ieee802154/6lowpan_iphc.c  |    4 ----
+ net/ieee802154/6lowpan_rtnl.c  |    7 -------
+ net/ieee802154/af_ieee802154.c |   11 -----------
+ net/ieee802154/dgram.c         |    6 ------
+ net/ieee802154/header_ops.c    |    1 -
+ net/ieee802154/netlink.c       |    2 --
+ net/ieee802154/nl-mac.c        |    8 --------
+ net/ieee802154/nl-phy.c        |    4 ----
+ net/ieee802154/nl_policy.c     |    1 -
+ net/ieee802154/raw.c           |    5 -----
+ net/ieee802154/reassembly.c    |   11 -----------
+ net/ieee802154/wpan-class.c    |    4 ----
+ net/mac802154/ieee802154_dev.c |    5 -----
+ net/mac802154/llsec.c          |    7 -------
+ net/mac802154/llsec.h          |    4 ----
+ net/mac802154/mac802154.h      |    2 --
+ net/mac802154/mac_cmd.c        |    3 ---
+ net/mac802154/mib.c            |    2 --
+ net/mac802154/monitor.c        |    4 ----
+ net/mac802154/rx.c             |    7 -------
+ net/mac802154/tx.c             |    5 -----
+ net/mac802154/wpan.c           |    6 ------
+ 22 files changed, 109 deletions(-)
 
-BTW, please don't chop up long lines in your commit message for things
-like the "Fixes: " and other tags, thanks.
+-- 
+1.7.9.5
