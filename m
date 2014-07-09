@@ -1,49 +1,54 @@
-From: Varka Bhadram <varkabhadram@gmail.com>
-Subject: Re: [PATCH net-next 1/2] ieee802154: removed unwanted header files
-Date: Wed, 09 Jul 2014 09:57:08 +0530
-Message-ID: <53BCC49C.5090503@gmail.com>
-References: <1404877445-2757-1-git-send-email-varkab@cdac.in>	<1404877445-2757-2-git-send-email-varkab@cdac.in> <20140708.205605.1846044536261079477.davem@davemloft.net>
+From: Z Lim <zlim.lnx@gmail.com>
+Subject: Re: [PATCH RFCv2] arm64: eBPF JIT compiler
+Date: Tue, 8 Jul 2014 22:11:54 -0700
+Message-ID: <CABg9mcv+7qSOSKw9emq1A+JbEvrUT9k4vAHMx9pdJiy4R4ZF9A@mail.gmail.com>
+References: <1404803213-10653-1-git-send-email-zlim.lnx@gmail.com>
+	<CAMEtUuydrYMGdg2zNDYX4vKL0_-reF+yOPKx5hpUvy4guuVeBg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, alex.aring@gmail.com,
-	linux-zigbee-devel@lists.sourceforge.net, varkab@cdac.in
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:57194 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750915AbaGIE2Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2014 00:28:25 -0400
-Received: by mail-pd0-f178.google.com with SMTP id r10so8219903pdi.23
-        for <netdev@vger.kernel.org>; Tue, 08 Jul 2014 21:28:24 -0700 (PDT)
-In-Reply-To: <20140708.205605.1846044536261079477.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Catalin Marinas <catalin.marinas@arm.com>,
+	Will Deacon <will.deacon@arm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Chema Gonzalez <chema@google.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	Network Development <netdev@vger.kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAMEtUuydrYMGdg2zNDYX4vKL0_-reF+yOPKx5hpUvy4guuVeBg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/09/2014 09:26 AM, David Miller wrote:
-> These changes are completely bogus.
+On Tue, Jul 8, 2014 at 2:24 AM, Alexei Starovoitov <ast@plumgrid.com> wrote:
+> On Tue, Jul 8, 2014 at 12:06 AM, Zi Shen Lim <zlim.lnx@gmail.com> wrote:
+[...]
+>>   Also, per discussion with Alexei, and additional suggestion from
+>>   Daniel:
+>>   - moved load_pointer() from net/core/filter.c into filter.h
+>>     as bpf_load_pointer()
+>>   which is done as a separate preparatory patch. [1]
+>>
+>> [1] http://patchwork.ozlabs.org/patch/366906/
 >
-> Where are the definitions of the data types for "struct in6_addr" and
-> "struct ipv6hdr" coming from.
+> Just to clarify. This patch is on top of [1]
+
+Yes, that's correct. This patch uses bpf_load_pointer() from [1].
+
+BTW, looks like David has applied it in net-next 9f12fbe603f7
+("net: filter: move load_pointer() into filter.h").
+
+[...]
+>> +               case BPF_DW:
 >
-> I'm not even going to look at these patches until you:
->
-> 1) Properly audit the files.  Removing an include and typing "make"
->     is not auditing the header file requriements.  Reading the code
->     and looking at where declarations and definitions actually come
->     from _is_.
+> this case can be removed too.
 
-I got your point. Thanks
+Thanks for catching this :) I've removed it.
 
 >
-> 2) Write a real commit message, this one is way too terse and tells me
->     nothing.  Explain why each header file was removed, and what the
->     justification is.
+> Acked-by: Alexei Starovoitov <ast@plumgrid.com>
+>
+> Great work. Thanks.
 
-Ok i will explain about the changes. I thinks i have to change the entire
-patch. I have to rework on it. Thanks
-
-
--- 
-Regards,
-Varka Bhadram.
+Thanks for your time and feedback!
