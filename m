@@ -1,94 +1,65 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: Re: [PATCH v8 4/4] drivers: net: Add APM X-Gene SoC ethernet driver support.
-Date: Wed, 9 Jul 2014 15:39:45 -0700
-Message-ID: <CAKh23Fmxv887dje8r5xF7sQwPumCm15ZWxL7cdpRSZJeBh1FjQ@mail.gmail.com>
-References: <1403306296-26198-1-git-send-email-isubramanian@apm.com>
-	<1403306296-26198-5-git-send-email-isubramanian@apm.com>
-	<CALdTtnvHt5mYMC3619E4F3KK0jPOw7mCpKE6bTn0Um6fdZ4rbw@mail.gmail.com>
-	<20140625230450.GO32514@n2100.arm.linux.org.uk>
+From: Alexey Orishko <alexey.orishko@gmail.com>
+Subject: Re: the side effect of using copy skb instead of skb_clone in cdc
+ ncm/mbim driver
+Date: Thu, 10 Jul 2014 01:41:37 +0200
+Message-ID: <CAL_Kpj0-g-o5yKJQu=oh773ugfYi-=pjVkJ8-N5OCyuz2EYWOw@mail.gmail.com>
+References: <CAOa2BBy4t_17J7G5bBpAZZpBWZYh+Cpc6Fn4u+9cV98M8CZ5gw@mail.gmail.com>
+	<87y4w4jprx.fsf@nemi.mork.no>
+	<CAOa2BBwVxcC_WoAqExRgEX57BwkikOL_sOBnjus+udNzVB0zqw@mail.gmail.com>
+	<87zjgih66u.fsf@nemi.mork.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Dann Frazier <dann.frazier@canonical.com>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"jcm@redhat.com" <jcm@redhat.com>, netdev <netdev@vger.kernel.org>,
-	patches <patches@apm.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Keyur Chudgar <kchudgar@apm.com>,
-	David Miller <davem@davemloft.net>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	Ravi Patel <rapatel@apm.com>
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140625230450.GO32514@n2100.arm.linux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: joey ming <joey.zming@gmail.com>, jim_baxter@mentor.com,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	zhao.ming9@zte.com.cn
+To: =?UTF-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f181.google.com ([209.85.216.181]:56203 "EHLO
+	mail-qc0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751232AbaGIXlh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2014 19:41:37 -0400
+Received: by mail-qc0-f181.google.com with SMTP id x13so7195616qcv.40
+        for <netdev@vger.kernel.org>; Wed, 09 Jul 2014 16:41:37 -0700 (PDT)
+In-Reply-To: <87zjgih66u.fsf@nemi.mork.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 25, 2014 at 4:04 PM, Russell King - ARM Linux
-<linux@arm.linux.org.uk> wrote:
-> On Tue, Jun 24, 2014 at 10:29:48PM -0600, Dann Frazier wrote:
->> On Fri, Jun 20, 2014 at 5:18 PM, Iyappan Subramanian
->> <isubramanian@apm.com> wrote:
->> > +       ring->desc_addr = dma_zalloc_coherent(dev, size, &ring->dma,
->> > +                                             GFP_KERNEL);
->>
->> Iyappan,
->> When testing this driver on a 3.16-rc2 base, I'm finding that
->> desc_addr gets assigned to NULL here, which results in an oops later
->> on (see below).
->
-> Note that on failure here...
->
->> > +       if (!ring->desc_addr)
->> > +               goto err;
->
-> we jump to 'err'.
->
->> > +err:
->> > +       dma_free_coherent(dev, size, ring->desc_addr, ring->dma);
->
-> which then tries to call dma_free_coherent on a NULL pointer, and
-> possibly undefined ring->dma value.  That's not a nice thing to do,
-> and will probably lead to problems.  I know that none of the ARM
-> flavours of this function will handle this gracefully, and neither
-> does x86's version either.  So this is very probably illegal.
+On Wed, Jul 9, 2014 at 6:01 PM, Bj=C3=B8rn Mork <bjorn@mork.no> wrote:
+> Alexey's results were on modem hardware, and I am guessing the OS was=
+n't
+> Linux.
+NCM driver was deployed on Unix-like realtime OS and on various
+embedded application CPU running Android.
 
-I will fix this.
+> So NCM is probably a great win for the modems,
+> and you are right: That is likely why this aggregating protocol was
+> invented.
 
->
->> > +static int xgene_enet_create_desc_rings(struct net_device *ndev)
->> > +{
->> > +       struct xgene_enet_pdata *pdata = netdev_priv(ndev);
->> > +       struct device *dev = &pdata->pdev->dev;
->> > +       struct xgene_enet_desc_ring *rx_ring, *tx_ring, *cp_ring;
->> > +       struct xgene_enet_desc_ring *buf_pool = NULL;
->> > +       u8 cpu_bufnum = 0, eth_bufnum = 0;
->> > +       u8 bp_bufnum = 0x20;
->> > +       u16 ring_id, ring_num = 0;
->> > +       int ret;
->> > +
->> > +       /* allocate rx descriptor ring */
->> > +       ring_id = xgene_enet_get_ring_id(RING_OWNER_CPU, cpu_bufnum++);
->> > +       rx_ring = xgene_enet_create_desc_ring(ndev, ring_num++,
->> > +                                             RING_CFGSIZE_16KB, ring_id);
->> > +       if (IS_ERR_OR_NULL(rx_ring)) {
->> > +               ret = PTR_ERR(rx_ring);
->> > +               goto err;
->> > +       }
->>
->> Here we test for IS_ERR_OR_NULL. In the oops I'm hitting, rx_ring is
->> NULL here - but PTR_ERR() apparently returns 0 in that case. So this
->> function ends up returning no error.
->
-> Yes, IS_ERR_OR_NULL is evil for this very reason and should be avoided
-> where possible.  There were discussions a while back about removing it,
-> or at least deprecating it because it causes more bugs (exactly of this
-> type) than it solves.
+One comment for this and earlier passages about USB-IF: during
+specification development there was no intention "to make life easier"
+on the host side, the goal was to make mobile device more efficient
+with a weak CPU (since 2007 situation changed significantly for mobile
+computing power).
 
-Thanks for pointing it out.  I will redesign IS_ERR_OR_NULL usage.
+One important comment though about the main idea of the aggregation pro=
+tocol:
+- in order to get a *real* benefit of the protocol sender shall
+initially send only a table containing pointers in a separate 512
+bytes packet and only then send the rest of NTB.
+- receiving side shall allocate DMA job for receiving 512 bytes first
+and after parsing it, setup a job for receiving all IP packets into
+separate data buffers. After that DMA engine will handle data without
+involving CPU.
+As a result: minimum CPU usage and all IP packets are placed into
+separate skb-s.
 
->
-> --
-> FTTC broadband for 0.8mile line: now at 9.7Mbps down 460kbps up... slowly
-> improving, and getting towards what was expected from it.
+However, I don't believe usbnet infrastructure is capable of doing
+that, but it can be done in proprietary code in usb modem. I don't
+have any info if someone actually manage to build such a system, which
+required a lot of efforts; it is much easier to do data coping with
+Intel Quad Core 3+GHz CPU with 8+GB RAM - you hardly notice any
+difference comparing to embedded systems...
+
+Regards,
+Alexey
