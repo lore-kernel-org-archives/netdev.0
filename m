@@ -1,99 +1,161 @@
-From: Manish Chopra <manish.chopra@qlogic.com>
-Subject: RE: [PATCH NET-NEXT V2] netxen: fix ethtool rx_dropped information
+From: vaughan <vaughan.cao@oracle.com>
+Subject: Re: [PATCH NET-NEXT V2] netxen: fix ethtool rx_dropped information
  in ethtool get_ethtool_stats()
-Date: Wed, 9 Jul 2014 11:32:38 +0000
-Message-ID: <31AFFC7280259C4184970ABA9AFE8B93E074D13E@avmb3.qlogic.org>
-References: <1404827830-22990-1-git-send-email-ethan.zhao@oracle.com>
- <53BCABD3.3050207@oracle.com>
+Date: Wed, 09 Jul 2014 19:45:06 +0800
+Message-ID: <53BD2B42.9000008@oracle.com>
+References: <1404827830-22990-1-git-send-email-ethan.zhao@oracle.com> <53BCABD3.3050207@oracle.com> <31AFFC7280259C4184970ABA9AFE8B93E074D13E@avmb3.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: "balbi@ti.com" <balbi@ti.com>, netdev <netdev@vger.kernel.org>,
 	linux-kernel <linux-kernel@vger.kernel.org>,
 	"sriharsha.devdas@oracle.com" <sriharsha.devdas@oracle.com>,
-	"ethan.kernel@gmail.com" <ethan.kernel@gmail.com>,
-	vaughan <vaughan.cao@oracle.com>
-To: ethan zhao <ethan.zhao@oracle.com>,
+	"ethan.kernel@gmail.com" <ethan.kernel@gmail.com>
+To: Manish Chopra <manish.chopra@qlogic.com>,
+	ethan zhao <ethan.zhao@oracle.com>,
 	David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <53BCABD3.3050207@oracle.com>
-Content-Language: en-US
+In-Reply-To: <31AFFC7280259C4184970ABA9AFE8B93E074D13E@avmb3.qlogic.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogbmV0ZGV2LW93bmVyQHZnZXIua2Vy
-bmVsLm9yZyBbbWFpbHRvOm5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5vcmddDQo+T24gQmVoYWxm
-IE9mIGV0aGFuIHpoYW8NCj5TZW50OiBXZWRuZXNkYXksIEp1bHkgMDksIDIwMTQgODoxMSBBTQ0K
-PlRvOiBEYXZpZCBNaWxsZXINCj5DYzogYmFsYmlAdGkuY29tOyBuZXRkZXY7IGxpbnV4LWtlcm5l
-bDsgc3JpaGFyc2hhLmRldmRhc0BvcmFjbGUuY29tOw0KPmV0aGFuLmtlcm5lbEBnbWFpbC5jb207
-IHZhdWdoYW4NCj5TdWJqZWN0OiBSZTogW1BBVENIIE5FVC1ORVhUIFYyXSBuZXR4ZW46IGZpeCBl
-dGh0b29sIHJ4X2Ryb3BwZWQgaW5mb3JtYXRpb24gaW4NCj5ldGh0b29sIGdldF9ldGh0b29sX3N0
-YXRzKCkNCj4NCj5EYXZpZCwNCj4NCj4gICAgUGxlYXNlIGhlbHAgdG8gcmV2aWV3IGFuZCBjb25m
-aXJtIHRoaXMgcGF0Y2guDQo+DQo+VGhhbmtzLA0KPkV0aGFuDQo+DQo+T24gMjAxNC83LzggMjE6
-NTcsIEV0aGFuIFpoYW8gd3JvdGU6DQo+PiBuZXR4ZW4gZHJpdmVyIGhhcyBpbXBsZW1lbnRlZCBu
-ZXR4ZW5fbmljX2dldF9ldGh0b29sX3N0YXRzKCkNCj4+IGludGVyZmFjZSwgYnV0IGl0IGRvZXNu
-J3QgY29sbGVjdCBzdGF0cy5yeGRyb3BwZWQgaW4gZHJpdmVyLCBzbyB3ZQ0KPj4gd2lsbCBnZXQg
-ZGlmZmVyZW50IHJ4X2Ryb3BwZWQgc3RhdGlzdGljIGluZm9ybWF0aW9uIHdoaWxlIHVzaW5nIGlm
-Y29uZmlnIGFuZA0KPmV0aHRvb2wuDQo+PiB0aGlzIHBhdGNoIGZpbGxzIHN0YXRzLnJ4ZHJvcHBl
-ZCBmaWVsZCB3aXRoIGRhdGEgZnJvbSBuZXQgY29yZSB3aXRoDQo+PiBkZXZfZ2V0X3N0YXRzKCkg
-anVzdCBhcyBpeGdiZSBkcml2ZXIgZGlkIGZvciBzb21lIG9mIGl0cyBzdGF0cy4NCj4+DQo+PiBW
-Mjogb25seSBmaXggdGhlIHN0YXRzLnJ4ZHJvcHBlZCBmaWVsZC4NCj4+DQo+PiBUZXN0ZWQgd2l0
-aCBsYXN0IG5ldHhlbiA0LjAuODINCj4+IENvbXBpbGVkIHdpdGggbmV0LW5leHQgYnJhbmNoIDMu
-MTYtcmMyDQo+Pg0KPj4gU2lnbmVkLW9mZi1ieTogRXRoYW4gWmhhbyA8ZXRoYW4uemhhb0BvcmFj
-bGUuY29tPg0KPj4gVGVzdGVkLWJ5OiBTcmloYXJzaGEgWWFkYWd1ZGRlIDxzcmloYXJzaGEuZGV2
-ZGFzQG9yYWNsZS5jb20+DQo+PiAtLS0NCj4+ICAgLi4uL2V0aGVybmV0L3Fsb2dpYy9uZXR4ZW4v
-bmV0eGVuX25pY19ldGh0b29sLmMgICAgfCAgIDM0ICsrKysrKysrKysrKysrKysrLQ0KPi0tDQo+
-PiAgIDEgZmlsZXMgY2hhbmdlZCwgMjkgaW5zZXJ0aW9ucygrKSwgNSBkZWxldGlvbnMoLSkNCj4+
-DQo+PiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvcWxvZ2ljL25ldHhlbi9uZXR4
-ZW5fbmljX2V0aHRvb2wuYw0KPj4gYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMvbmV0eGVu
-L25ldHhlbl9uaWNfZXRodG9vbC5jDQo+PiBpbmRleCA0Y2EyYzE5Li40OWU2YTFiIDEwMDY0NA0K
-Pj4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvcWxvZ2ljL25ldHhlbi9uZXR4ZW5fbmljX2V0
-aHRvb2wuYw0KPj4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvcWxvZ2ljL25ldHhlbi9uZXR4
-ZW5fbmljX2V0aHRvb2wuYw0KPj4gQEAgLTMzLDIyICszMywzMCBAQA0KPj4gICAjaW5jbHVkZSAi
-bmV0eGVuX25pYy5oIg0KPj4gICAjaW5jbHVkZSAibmV0eGVuX25pY19ody5oIg0KPj4NCj4+ICtl
-bnVtIHtORVRERVZfU1RBVFMsIE5FVFhFTl9TVEFUU307DQo+PiArDQo+PiAgIHN0cnVjdCBuZXR4
-ZW5fbmljX3N0YXRzIHsNCj4+ICAgCWNoYXIgc3RhdF9zdHJpbmdbRVRIX0dTVFJJTkdfTEVOXTsN
-Cj4+ICsJaW50IHR5cGU7DQo+PiAgIAlpbnQgc2l6ZW9mX3N0YXQ7DQo+PiAgIAlpbnQgc3RhdF9v
-ZmZzZXQ7DQo+PiAgIH07DQo+Pg0KPj4gLSNkZWZpbmUgTkVUWEVOX05JQ19TVEFUKG0pIHNpemVv
-ZigoKHN0cnVjdCBuZXR4ZW5fYWRhcHRlciAqKTApLT5tKSwgXA0KPj4gKyNkZWZpbmUgTkVUWEVO
-X05JQ19TVEFUKG0pCU5FVFhFTl9TVEFUUywgXA0KPj4gKwkJCXNpemVvZigoKHN0cnVjdCBuZXR4
-ZW5fYWRhcHRlciAqKTApLT5tKSwgXA0KPj4gICAJCQlvZmZzZXRvZihzdHJ1Y3QgbmV0eGVuX2Fk
-YXB0ZXIsIG0pDQo+Pg0KPj4gKyNkZWZpbmUgTkVUWEVOX05FVERFVl9TVEFUKG0pCU5FVERFVl9T
-VEFUUywgXA0KPj4gKwkJCXNpemVvZigoKHN0cnVjdCBydG5sX2xpbmtfc3RhdHM2NCAqKTApLT5t
-KSwgXA0KPj4gKwkJCW9mZnNldG9mKHN0cnVjdCBydG5sX2xpbmtfc3RhdHM2NCwgbSkNCj4+ICsN
-Cj4+ICAgI2RlZmluZSBORVRYRU5fTklDX1BPUlRfV0lORE9XIDB4MTAwMDANCj4+ICAgI2RlZmlu
-ZSBORVRYRU5fTklDX0lOVkFMSURfREFUQSAweERFQURCRUVGDQo+Pg0KPj4gICBzdGF0aWMgY29u
-c3Qgc3RydWN0IG5ldHhlbl9uaWNfc3RhdHMgbmV0eGVuX25pY19nc3RyaW5nc19zdGF0c1tdID0g
-ew0KPj4gICAJeyJ4bWl0X2NhbGxlZCIsIE5FVFhFTl9OSUNfU1RBVChzdGF0cy54bWl0Y2FsbGVk
-KX0sDQo+PiAgIAl7InhtaXRfZmluaXNoZWQiLCBORVRYRU5fTklDX1NUQVQoc3RhdHMueG1pdGZp
-bmlzaGVkKX0sDQo+PiAtCXsicnhfZHJvcHBlZCIsIE5FVFhFTl9OSUNfU1RBVChzdGF0cy5yeGRy
-b3BwZWQpfSwNCj4+ICsJeyJyeF9kcm9wcGVkIiwgTkVUWEVOX05FVERFVl9TVEFUKHJ4X2Ryb3Bw
-ZWQpfSwNCj4+ICAgCXsidHhfZHJvcHBlZCIsIE5FVFhFTl9OSUNfU1RBVChzdGF0cy50eGRyb3Bw
-ZWQpfSwNCj4+ICAgCXsiY3N1bW1lZCIsIE5FVFhFTl9OSUNfU1RBVChzdGF0cy5jc3VtbWVkKX0s
-DQo+PiAgIAl7InJ4X3BrdHMiLCBORVRYRU5fTklDX1NUQVQoc3RhdHMucnhfcGt0cyl9LCBAQCAt
-Njc5LDExICs2ODcsMjcgQEANCj4+IG5ldHhlbl9uaWNfZ2V0X2V0aHRvb2xfc3RhdHMoc3RydWN0
-IG5ldF9kZXZpY2UgKmRldiwNCj4+ICAgew0KPj4gICAJc3RydWN0IG5ldHhlbl9hZGFwdGVyICph
-ZGFwdGVyID0gbmV0ZGV2X3ByaXYoZGV2KTsNCj4+ICAgCWludCBpbmRleDsNCj4+ICsJc3RydWN0
-IHJ0bmxfbGlua19zdGF0czY0IHRlbXA7DQo+PiArCWNvbnN0IHN0cnVjdCBydG5sX2xpbmtfc3Rh
-dHM2NCAqbmV0X3N0YXRzOw0KPj4gKwljaGFyICpwID0gTlVMTDsNCj4+DQo+PiArCW5ldF9zdGF0
-cyA9IGRldl9nZXRfc3RhdHMoZGV2LCAmdGVtcCk7DQo+PiAgIAlmb3IgKGluZGV4ID0gMDsgaW5k
-ZXggPCBORVRYRU5fTklDX1NUQVRTX0xFTjsgaW5kZXgrKykgew0KPj4gLQkJY2hhciAqcCA9DQo+
-PiAtCQkgICAgKGNoYXIgKilhZGFwdGVyICsNCj4+IC0JCSAgICBuZXR4ZW5fbmljX2dzdHJpbmdz
-X3N0YXRzW2luZGV4XS5zdGF0X29mZnNldDsNCj4+ICsNCj4+ICsJCXN3aXRjaCAobmV0eGVuX25p
-Y19nc3RyaW5nc19zdGF0c1tpbmRleF0udHlwZSkgew0KPj4gKwkJY2FzZSBORVRERVZfU1RBVFM6
-DQo+PiArCQkJcCA9IChjaGFyICopbmV0X3N0YXRzICsNCj4+ICsJCQkJbmV0eGVuX25pY19nc3Ry
-aW5nc19zdGF0c1tpbmRleF0uc3RhdF9vZmZzZXQ7DQo+PiArCQkJYnJlYWs7DQo+PiArCQljYXNl
-IE5FVFhFTl9TVEFUUzoNCj4+ICsJCQlwID0gKGNoYXIgKilhZGFwdGVyICsNCj4+ICsJCQkJbmV0
-eGVuX25pY19nc3RyaW5nc19zdGF0c1tpbmRleF0uc3RhdF9vZmZzZXQ7DQo+PiArCQkJYnJlYWs7
-DQo+PiArCQlkZWZhdWx0Og0KPj4gKwkJCWRhdGFbaW5kZXhdID0gMDsNCj4+ICsJCQljb250aW51
-ZTsNCj4+ICsJCX0NCj4+ICsNCj4+ICAgCQlkYXRhW2luZGV4XSA9DQo+PiAgIAkJICAgIChuZXR4
-ZW5fbmljX2dzdHJpbmdzX3N0YXRzW2luZGV4XS5zaXplb2Zfc3RhdCA9PQ0KPj4gICAJCSAgICAg
-c2l6ZW9mKHU2NCkpID8gKih1NjQgKikgcCA6ICoodTMyICopIHA7DQoNCkV0aGFuLCBJIGNhbid0
-IGRvd25sb2FkIHRoaXMgcGF0Y2ggYXMgSSBkb27igJl0IHNlZSBpdCBpbiBuZXRkZXYgcGF0Y2h3
-b3JrLiBKdXN0IGxvb2tpbmcgYXQgdGhlIGRpZmYgSSB0aGluayB0aGVyZSBpcyBzdHlsZSBpc3N1
-ZSB3aXRoIG1hY3JvIGRlZmluaXRpb24gb2YgTkVUWEVOX05JQ19TVEFUIGFuZCBORVRYRU5fTkVU
-REVWX1NUQVQuDQpFbmNsb3NlIG1hY3JvIGRlZmluaXRpb24gaW4gcGFyZW50aGVzZXMgYXMgdGhl
-eSBhcmUgY29udGFpbmluZyBjb21wbGV4IHZhbHVlcy4NCg0KU2VuZCB0aGlzIHBhdGNoIHRhcmdl
-dGVkIGZvciBuZXQgaW5zdGVhZCBvZiBuZXQtbmV4dCBiZWluZyBhIGJ1ZyBmaXguIFBsZWFzZSBh
-bHNvIHJ1biBjaGVja3BhdGNoLnBsIHRvIGNvcnJlY3QgYW55IHN0eWxlIHdhcm5pbmcvZXJyb3Jz
-IGluIHRoZSBwYXRjaC4NCg0KVGhhbmtzISEgIA0KDQo=
+On 07/09/2014 07:32 PM, Manish Chopra wrote:
+>> -----Original Message-----
+>> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.=
+org]
+>> On Behalf Of ethan zhao
+>> Sent: Wednesday, July 09, 2014 8:11 AM
+>> To: David Miller
+>> Cc: balbi@ti.com; netdev; linux-kernel; sriharsha.devdas@oracle.com;
+>> ethan.kernel@gmail.com; vaughan
+>> Subject: Re: [PATCH NET-NEXT V2] netxen: fix ethtool rx_dropped info=
+rmation in
+>> ethtool get_ethtool_stats()
+>>
+>> David,
+>>
+>>    Please help to review and confirm this patch.
+>>
+>> Thanks,
+>> Ethan
+>>
+>> On 2014/7/8 21:57, Ethan Zhao wrote:
+>>> netxen driver has implemented netxen_nic_get_ethtool_stats()
+>>> interface, but it doesn't collect stats.rxdropped in driver, so we
+>>> will get different rx_dropped statistic information while using ifc=
+onfig and
+>> ethtool.
+>>> this patch fills stats.rxdropped field with data from net core with
+>>> dev_get_stats() just as ixgbe driver did for some of its stats.
+>>>
+>>> V2: only fix the stats.rxdropped field.
+>>>
+>>> Tested with last netxen 4.0.82
+>>> Compiled with net-next branch 3.16-rc2
+>>>
+>>> Signed-off-by: Ethan Zhao <ethan.zhao@oracle.com>
+>>> Tested-by: Sriharsha Yadagudde <sriharsha.devdas@oracle.com>
+>>> ---
+>>>   .../ethernet/qlogic/netxen/netxen_nic_ethtool.c    |   34 +++++++=
+++++++++++-
+>> --
+>>>   1 files changed, 29 insertions(+), 5 deletions(-)
+>>>
+>>> diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.=
+c
+>>> b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
+>>> index 4ca2c19..49e6a1b 100644
+>>> --- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
+>>> +++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
+>>> @@ -33,22 +33,30 @@
+>>>   #include "netxen_nic.h"
+>>>   #include "netxen_nic_hw.h"
+>>>
+>>> +enum {NETDEV_STATS, NETXEN_STATS};
+>>> +
+>>>   struct netxen_nic_stats {
+>>>   	char stat_string[ETH_GSTRING_LEN];
+>>> +	int type;
+>>>   	int sizeof_stat;
+>>>   	int stat_offset;
+>>>   };
+>>>
+>>> -#define NETXEN_NIC_STAT(m) sizeof(((struct netxen_adapter *)0)->m)=
+, \
+>>> +#define NETXEN_NIC_STAT(m)	NETXEN_STATS, \
+>>> +			sizeof(((struct netxen_adapter *)0)->m), \
+>>>   			offsetof(struct netxen_adapter, m)
+>>>
+>>> +#define NETXEN_NETDEV_STAT(m)	NETDEV_STATS, \
+>>> +			sizeof(((struct rtnl_link_stats64 *)0)->m), \
+>>> +			offsetof(struct rtnl_link_stats64, m)
+>>> +
+>>>   #define NETXEN_NIC_PORT_WINDOW 0x10000
+>>>   #define NETXEN_NIC_INVALID_DATA 0xDEADBEEF
+>>>
+>>>   static const struct netxen_nic_stats netxen_nic_gstrings_stats[] =
+=3D {
+>>>   	{"xmit_called", NETXEN_NIC_STAT(stats.xmitcalled)},
+>>>   	{"xmit_finished", NETXEN_NIC_STAT(stats.xmitfinished)},
+>>> -	{"rx_dropped", NETXEN_NIC_STAT(stats.rxdropped)},
+>>> +	{"rx_dropped", NETXEN_NETDEV_STAT(rx_dropped)},
+>>>   	{"tx_dropped", NETXEN_NIC_STAT(stats.txdropped)},
+>>>   	{"csummed", NETXEN_NIC_STAT(stats.csummed)},
+>>>   	{"rx_pkts", NETXEN_NIC_STAT(stats.rx_pkts)}, @@ -679,11 +687,27 =
+@@
+>>> netxen_nic_get_ethtool_stats(struct net_device *dev,
+>>>   {
+>>>   	struct netxen_adapter *adapter =3D netdev_priv(dev);
+>>>   	int index;
+>>> +	struct rtnl_link_stats64 temp;
+>>> +	const struct rtnl_link_stats64 *net_stats;
+>>> +	char *p =3D NULL;
+>>>
+>>> +	net_stats =3D dev_get_stats(dev, &temp);
+>>>   	for (index =3D 0; index < NETXEN_NIC_STATS_LEN; index++) {
+>>> -		char *p =3D
+>>> -		    (char *)adapter +
+>>> -		    netxen_nic_gstrings_stats[index].stat_offset;
+>>> +
+>>> +		switch (netxen_nic_gstrings_stats[index].type) {
+>>> +		case NETDEV_STATS:
+>>> +			p =3D (char *)net_stats +
+>>> +				netxen_nic_gstrings_stats[index].stat_offset;
+>>> +			break;
+>>> +		case NETXEN_STATS:
+>>> +			p =3D (char *)adapter +
+>>> +				netxen_nic_gstrings_stats[index].stat_offset;
+>>> +			break;
+>>> +		default:
+>>> +			data[index] =3D 0;
+>>> +			continue;
+>>> +		}
+>>> +
+>>>   		data[index] =3D
+>>>   		    (netxen_nic_gstrings_stats[index].sizeof_stat =3D=3D
+>>>   		     sizeof(u64)) ? *(u64 *) p : *(u32 *) p;
+> Ethan, I can't download this patch as I don=E2=80=99t see it in netde=
+v patchwork. Just looking at the diff I think there is style issue with=
+ macro definition of NETXEN_NIC_STAT and NETXEN_NETDEV_STAT.
+> Enclose macro definition in parentheses as they are containing comple=
+x values.
+It's not an error as checkpatch.pl indicates.  As the definition of
+netxen_nic_stats shows,
+
+  struct netxen_nic_stats {
+  	char stat_string[ETH_GSTRING_LEN];
++	int type;
+  	int sizeof_stat;
+  	int stat_offset;
+  };
+
+This macros consists of multiple elements, which shouldn't be enclosed
+in parentheses.
+
+>
+> Send this patch targeted for net instead of net-next being a bug fix.=
+ Please also run checkpatch.pl to correct any style warning/errors in t=
+he patch.
+>
+> Thanks!! =20
+>
