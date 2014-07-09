@@ -1,43 +1,64 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [net-next PATCH v2 2/3] drivers: net: cpsw: remove redundancy check
-Date: Wed, 9 Jul 2014 12:44:09 +0530
-Message-ID: <1404890050-4020-3-git-send-email-mugunthanvnm@ti.com>
-References: <1404890050-4020-1-git-send-email-mugunthanvnm@ti.com>
+From: Richard Weinberger <richard@nod.at>
+Subject: [PATCH v2] hyperv: Add netpoll support
+Date: Wed,  9 Jul 2014 09:58:22 +0200
+Message-ID: <1404892702-11094-1-git-send-email-richard@nod.at>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <linux-api@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, Mugunthan V N <mugunthanvnm@ti.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from comal.ext.ti.com ([198.47.26.152]:40256 "EHLO comal.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754498AbaGIHOY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Jul 2014 03:14:24 -0400
-In-Reply-To: <1404890050-4020-1-git-send-email-mugunthanvnm@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Richard Weinberger <richard@nod.at>, devel@linuxdriverproject.org,
+ netdev@vger.kernel.org, linux-kernel@vger.kernel.org, romieu@fr.zoreil.com
+To: kys@microsoft.com,
+	haiyangz@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-In cpsw_set_coalesce, rx_coalesce_usecs is already checked before
-calling this function, so removing redundancy check.
+In order to have at least a netconsole to debug kernel issues on
+Windows Azure this patch implements netpoll support.
+Sending packets is easy, netvsc_start_xmit() does already everything
+needed.
 
-Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+Signed-off-by: Richard Weinberger <richard@nod.at>
 ---
- drivers/net/ethernet/ti/cpsw.c | 3 ---
- 1 file changed, 3 deletions(-)
+ drivers/net/hyperv/netvsc_drv.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index b988d16..a6117e6 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -884,9 +884,6 @@ static int cpsw_set_coalesce(struct net_device *ndev,
- 	u32 addnl_dvdr = 1;
- 	u32 coal_intvl = 0;
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index 4fd71b7..45218d5 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -736,6 +736,14 @@ static int netvsc_set_mac_addr(struct net_device *ndev, void *p)
+ 	return err;
+ }
  
--	if (!coal->rx_coalesce_usecs)
--		return -EINVAL;
--
- 	coal_intvl = coal->rx_coalesce_usecs;
++#ifdef CONFIG_NET_POLL_CONTROLLER
++static void netvsc_poll_controller(struct net_device *net)
++{
++	/* As netvsc_start_xmit() works synchronous we don't have to
++	   trigger anything here. */
++	return;
++}
++#endif
  
- 	int_ctrl =  readl(&priv->wr_regs->int_control);
+ static const struct ethtool_ops ethtool_ops = {
+ 	.get_drvinfo	= netvsc_get_drvinfo,
+@@ -751,6 +759,9 @@ static const struct net_device_ops device_ops = {
+ 	.ndo_validate_addr =		eth_validate_addr,
+ 	.ndo_set_mac_address =		netvsc_set_mac_addr,
+ 	.ndo_select_queue =		netvsc_select_queue,
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	.ndo_poll_controller =		netvsc_poll_controller,
++#endif
+ };
+ 
+ /*
 -- 
-2.0.0.390.gcb682f8
+2.0.1
