@@ -1,134 +1,58 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net-next 0/5] SCTP updates
-Date: Wed, 9 Jul 2014 14:35:08 -0400
-Message-ID: <20140709183508.GB14509@hmsreliant.think-freely.org>
-References: <20140708111408.GA23026@hmsreliant.think-freely.org>
- <53BBFAA6.80408@redhat.com>
- <20140708144127.GB23026@hmsreliant.think-freely.org>
- <53BD1211.4080504@redhat.com>
- <20140709104958.GA3784@hmsreliant.think-freely.org>
- <53BD4363.70306@redhat.com>
- <20140709151354.GA5250@localhost.localdomain>
- <53BD6167.1030000@gmail.com>
- <20140709154428.GD5250@localhost.localdomain>
- <53BD6EB7.7070302@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Borkmann <dborkman@redhat.com>, davem@davemloft.net,
-	geirola@gmail.com, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: Vlad Yasevich <vyasevich@gmail.com>
+From: Fabian Frederick <fabf@skynet.be>
+Subject: [PATCH 1/1 net-next] ipconfig: move ic_dev_xid under IPCONFIG_BOOTP
+Date: Wed,  9 Jul 2014 20:35:21 +0200
+Message-ID: <1404930921-14879-1-git-send-email-fabf@skynet.be>
+Cc: Fabian Frederick <fabf@skynet.be>,
+	Fengguang Wu <fengguang.wu@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:56514 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751778AbaGISfV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2014 14:35:21 -0400
-Content-Disposition: inline
-In-Reply-To: <53BD6EB7.7070302@gmail.com>
+Received: from mailrelay004.isp.belgacom.be ([195.238.6.170]:52735 "EHLO
+	mailrelay004.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756180AbaGISfa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2014 14:35:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 09, 2014 at 12:32:55PM -0400, Vlad Yasevich wrote:
-> On 07/09/2014 11:44 AM, Neil Horman wrote:
-> > On Wed, Jul 09, 2014 at 11:36:07AM -0400, Vlad Yasevich wrote:
-> >> On 07/09/2014 11:13 AM, Neil Horman wrote:
-> >>> On Wed, Jul 09, 2014 at 03:28:03PM +0200, Daniel Borkmann wrote:
-> >>>> On 07/09/2014 12:49 PM, Neil Horman wrote:
-> >>>>> On Wed, Jul 09, 2014 at 11:57:37AM +0200, Daniel Borkmann wrote:
-> >>>>>> On 07/08/2014 04:41 PM, Neil Horman wrote:
-> >>>>>>> On Tue, Jul 08, 2014 at 04:05:26PM +0200, Daniel Borkmann wrote:
-> >>>>>>>> On 07/08/2014 01:14 PM, Neil Horman wrote:
-> >>>>>>>> ...
-> >>>>>>>>> since you're adding cmsg's from rfc6458, do you also want to add some
-> >>>>>>>>> deprecation warnings around the use of SCTP_SNDRCVINFO too, so we can start to
-> >>>>>>>>> schedule its eventual removal?
-> >>>>>>>>
-> >>>>>>>> Sure, we can do that. Do you want me to include it into the set?
-> >>>>>>>
-> >>>>>>> If you're plan is to implement 6458, then yes, I think that would be good.
-> >>>>>>
-> >>>>>> Looking a bit closer at it, all our pr_warn_ratelimited(DEPRECATED ...)
-> >>>>>> warnings in SCTP are being done in 'slowpath' {set,get}sockopt(2) operations
-> >>>>>> only, which is fine. What you're suggesting is to place similar ratelimited
-> >>>>>> warnings (due to different possible pids on the machine) into the 'fastpath'
-> >>>>>> where we get and set cmsg message headers.
-> >>>>>>
-> >>>>>> While that may be fine for {set,get}sockopt(2) that's called once or very few
-> >>>>>> times, I'm not sure this is a good idea in SCTP_SNDRCVINFO as it will yield
-> >>>>>> to unnecessary spamming the klog since up to now this is the only way our
-> >>>>>> users can set or receive this info. I'm not sure we want to annoy users like
-> >>>>>> that ...
-> >>>>>>
-> >>>>> Then we wrap it in a ONCE macro so that it only triggers on the first use
-> >>>>> instance.
-> >>>>
-> >>>> I'm not convinced about this so far. The whole point is that we also provide the
-> >>>> pid just as we currently do, so that we give the user a chance to possibly pin
-> >>>> point the process that needs code change to not use the deprecated API anymore.
-> >>>>
-> >>>>>> In how many years do you plan a removal ... I think we're stuck with uapi
-> >>>>>> basically forever as we don't want to break old binaries, no? ;/
-> >>>>>>
-> >>>>> I thought we could remove things on a schedule if we followed the deprecation
-> >>>>> process, but that may just be for sysfs.  Regardless, it would still be nice to
-> >>>>> inform people they are using an older api.
-> >>>>
-> >>>> I think we rather might be stuck with also the deprecated stuff forever, just
-> >>>> as AF_PACKET still has to carry around the old spkt stuff. :( So if we don't
-> >>>> remove anything, there's actually also no point to spam the log about it, if
-> >>>> everyone can/should read it from the RFC anyway.
-> >>>>
-> >>> So this begs the question as to why we have deprecation warnings to begin with.
-> >>> At what point do we draw the line where we can change some aspect of the user
-> >>> api.  I agree if the answer is never, then yeah we're stuck, but then, why
-> >>> bother announcing deprecation warnings at all?
-> >>
-> >> I think we can deprecate user API after a significantly long period of time
-> >> (like 5 or 6 years).  That's why we also have a deprecation schedule that can
-> >> be updated and hopefully that's something people pay attention to.
-> >>
-> >> The problem here is deprecation of ancillary data and that's is a lot tougher
-> >> then socket options.  In this particular case (SCTP_SNDRCVINFO vs SCTP_RCVINFO),
-> >> I don't think there is any way to deprecate the SCTP_SNDRCVINFO since the event
-> >> enabling it is the same as the one for SCTP_RCVINFO.  This was a mistake in the
-> >> spec.  Ancillary data should not have been enabled using even notification api,
-> >> as it is not an event, but we now have to live with it.
-> >>
-> > Ugh I didn't even consider cmsg type overlap.  Thats probably it then, we can't
-> > deprecate it.  Though that does call the question up as to how to differentiate
-> > expectations of the data format for each cmsg, if they use the same type.  Does
-> > the SCTP_RCVINFO data struct overlay the SNDRCVINFO struct exactly?  (sorry I've
-> > not checked myself yet).
-> 
-> No there is not direct overlap between the two.  However, as Michael pointed out,
-> there is a new option to control SCTP_RCVINFO.  So would could add a deprecation
-> warning to the over SCTP_EVENTS option and carry SCTP_SNDRCVINFO with it.
-> Once SCTP_EVENTS goes away so can SCTP_SNDRCVINFO.
-> 
-Ok, so we should still consider deprecation warnings then.  Daniel, what about
-ratelimited warnings with pids included then?
-Neil
+ic_dev_xid is only used in __init ic_bootp_recv under IPCONFIG_BOOTP
+and __init ic_dynamic under IPCONFIG_DYNAMIC(which is itself defined
+with the same IPCONFIG_BOOTP)
 
-> -vlad
-> 
-> > 
-> > Neil
-> > 
-> >> -vlad
-> >>
-> >>>
-> >>> Neil
-> >>>
-> >>> --
-> >>> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> >>> the body of a message to majordomo@vger.kernel.org
-> >>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> >>>
-> >>
-> >> --
-> >> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> >> the body of a message to majordomo@vger.kernel.org
-> >> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> >>
-> 
-> 
+This patch fixes the following warning when IPCONFIG_BOOTP is not set:
+>> net/ipv4/ipconfig.c:146:15: warning: 'ic_dev_xid' defined but not used [-Wunused-variable]
+    static __be32 ic_dev_xid;  /* Device under configuration */
+
+Reported-by: Fengguang Wu <fengguang.wu@intel.com>
+Cc: Fengguang Wu <fengguang.wu@intel.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: netdev@vger.kernel.org
+Signed-off-by: Fabian Frederick <fabf@skynet.be>
+---
+ net/ipv4/ipconfig.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
+index f0f3f9f..f02f594 100644
+--- a/net/ipv4/ipconfig.c
++++ b/net/ipv4/ipconfig.c
+@@ -143,8 +143,6 @@ __be32 ic_servaddr = NONE;	/* Boot server IP address */
+ __be32 root_server_addr = NONE;	/* Address of NFS server */
+ u8 root_server_path[256] = { 0, };	/* Path to mount as root */
+ 
+-static __be32 ic_dev_xid;		/* Device under configuration */
+-
+ /* vendor class identifier */
+ static char vendor_class_identifier[253] __initdata;
+ 
+@@ -654,6 +652,7 @@ static struct packet_type bootp_packet_type __initdata = {
+ 	.func =	ic_bootp_recv,
+ };
+ 
++static __be32 ic_dev_xid;		/* Device under configuration */
+ 
+ /*
+  *  Initialize DHCP/BOOTP extension fields in the request.
+-- 
+1.9.1
