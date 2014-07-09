@@ -1,32 +1,46 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [PATCH C 1/7] net: fec: better implementation of iMX6
-	ERR006358 quirk
-Date: Wed, 9 Jul 2014 10:33:09 +0100
-Message-ID: <20140709093309.GM21766@n2100.arm.linux.org.uk>
-References: <20140708120117.GJ21766@n2100.arm.linux.org.uk> <E1X4oCZ-0004Yk-1O@rmk-PC.arm.linux.org.uk>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next 0/5] SCTP updates
+Date: Wed, 09 Jul 2014 11:57:37 +0200
+Message-ID: <53BD1211.4080504@redhat.com>
+References: <1404507908-6949-1-git-send-email-dborkman@redhat.com> <20140708111408.GA23026@hmsreliant.think-freely.org> <53BBFAA6.80408@redhat.com> <20140708144127.GB23026@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, geirola@gmail.com, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:59968 "EHLO
-	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753971AbaGIJdN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2014 05:33:13 -0400
-Content-Disposition: inline
-In-Reply-To: <E1X4oCZ-0004Yk-1O@rmk-PC.arm.linux.org.uk>
+Received: from mx1.redhat.com ([209.132.183.28]:56027 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754412AbaGIJ5w (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Jul 2014 05:57:52 -0400
+In-Reply-To: <20140708144127.GB23026@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 09, 2014 at 10:30:11AM +0100, Russell King wrote:
-> Using a (delayed) workqueue for ERR006358 is not correct - a work queue
-> is a single-trigger device.  Once the work queue has been scheduled, it
-> can't be re-scheduled until it has been run.  This can cause problems -
-> with an appropriate packet timing, we can end up with packets queued,
-> but not sent by the hardware, resulting in the transmit timeout firing.
+On 07/08/2014 04:41 PM, Neil Horman wrote:
+> On Tue, Jul 08, 2014 at 04:05:26PM +0200, Daniel Borkmann wrote:
+>> On 07/08/2014 01:14 PM, Neil Horman wrote:
+>> ...
+>>> since you're adding cmsg's from rfc6458, do you also want to add some
+>>> deprecation warnings around the use of SCTP_SNDRCVINFO too, so we can start to
+>>> schedule its eventual removal?
+>>
+>> Sure, we can do that. Do you want me to include it into the set?
+>
+> If you're plan is to implement 6458, then yes, I think that would be good.
 
-Oops, please ignore this patch; re-sent in error.
+Looking a bit closer at it, all our pr_warn_ratelimited(DEPRECATED ...)
+warnings in SCTP are being done in 'slowpath' {set,get}sockopt(2) operations
+only, which is fine. What you're suggesting is to place similar ratelimited
+warnings (due to different possible pids on the machine) into the 'fastpath'
+where we get and set cmsg message headers.
 
--- 
-FTTC broadband for 0.8mile line: now at 9.7Mbps down 460kbps up... slowly
-improving, and getting towards what was expected from it.
+While that may be fine for {set,get}sockopt(2) that's called once or very few
+times, I'm not sure this is a good idea in SCTP_SNDRCVINFO as it will yield
+to unnecessary spamming the klog since up to now this is the only way our
+users can set or receive this info. I'm not sure we want to annoy users like
+that ...
+
+In how many years do you plan a removal ... I think we're stuck with uapi
+basically forever as we don't want to break old binaries, no? ;/
