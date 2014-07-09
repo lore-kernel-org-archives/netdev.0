@@ -1,56 +1,99 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH net-next] sunvnet: call unregister_netdev() exactly once
- per device
-Date: Wed, 09 Jul 2014 07:27:26 -0400
-Message-ID: <53BD271E.6030901@oracle.com>
-References: <20140708161827.GO19954@sowmini.varadhan@oracle.com> <20140708.204218.141082766724192890.davem@davemloft.net>
-Reply-To: sowmini.varadhan@oracle.com
+From: Manish Chopra <manish.chopra@qlogic.com>
+Subject: RE: [PATCH NET-NEXT V2] netxen: fix ethtool rx_dropped information
+ in ethtool get_ethtool_stats()
+Date: Wed, 9 Jul 2014 11:32:38 +0000
+Message-ID: <31AFFC7280259C4184970ABA9AFE8B93E074D13E@avmb3.qlogic.org>
+References: <1404827830-22990-1-git-send-email-ethan.zhao@oracle.com>
+ <53BCABD3.3050207@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dave.kleikamp@oracle.com,
-	dan.carpenter@oracle.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:37058 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751032AbaGIL1e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2014 07:27:34 -0400
-In-Reply-To: <20140708.204218.141082766724192890.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "balbi@ti.com" <balbi@ti.com>, netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	"sriharsha.devdas@oracle.com" <sriharsha.devdas@oracle.com>,
+	"ethan.kernel@gmail.com" <ethan.kernel@gmail.com>,
+	vaughan <vaughan.cao@oracle.com>
+To: ethan zhao <ethan.zhao@oracle.com>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <53BCABD3.3050207@oracle.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/08/2014 11:42 PM, David Miller wrote:
-
->
-> This is definitely not the right fix, you're just removing a symptom
-> of a much larger problem.
->
-> And that problem is that nothing cleans up the objects created by
-> vnet_new(), they are completely leaked.
-
-the bug(s) in modprobe -r is one manifestation of the problem
-and should certainly be fixed, I can look into the suggestions
-you have below.
-
-But this is actually a bit worse. Whenever a node goes
-away, it triggers a vio_port_remove() on all the peering nodes,
-and blows away their networking. IOW this can happen without
-involving vnet_exit() at all. Thus it might be necessary
-for vio_port_remove() itself to check if its the last port
-before doing the unregister?
-
-BTW, for some odd reason I did not see my original patch submission
-show up in the list. I'm not sure why.
-
->
-> vnet_exit(), after doing the vio_unregister_driver(), should call a
-> helper function that iterates over vnet_list and cleans up those
-> objects.
->
-> That's where the unregister_netdevice() belongs, not in vnet_port_remove().
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogbmV0ZGV2LW93bmVyQHZnZXIua2Vy
+bmVsLm9yZyBbbWFpbHRvOm5ldGRldi1vd25lckB2Z2VyLmtlcm5lbC5vcmddDQo+T24gQmVoYWxm
+IE9mIGV0aGFuIHpoYW8NCj5TZW50OiBXZWRuZXNkYXksIEp1bHkgMDksIDIwMTQgODoxMSBBTQ0K
+PlRvOiBEYXZpZCBNaWxsZXINCj5DYzogYmFsYmlAdGkuY29tOyBuZXRkZXY7IGxpbnV4LWtlcm5l
+bDsgc3JpaGFyc2hhLmRldmRhc0BvcmFjbGUuY29tOw0KPmV0aGFuLmtlcm5lbEBnbWFpbC5jb207
+IHZhdWdoYW4NCj5TdWJqZWN0OiBSZTogW1BBVENIIE5FVC1ORVhUIFYyXSBuZXR4ZW46IGZpeCBl
+dGh0b29sIHJ4X2Ryb3BwZWQgaW5mb3JtYXRpb24gaW4NCj5ldGh0b29sIGdldF9ldGh0b29sX3N0
+YXRzKCkNCj4NCj5EYXZpZCwNCj4NCj4gICAgUGxlYXNlIGhlbHAgdG8gcmV2aWV3IGFuZCBjb25m
+aXJtIHRoaXMgcGF0Y2guDQo+DQo+VGhhbmtzLA0KPkV0aGFuDQo+DQo+T24gMjAxNC83LzggMjE6
+NTcsIEV0aGFuIFpoYW8gd3JvdGU6DQo+PiBuZXR4ZW4gZHJpdmVyIGhhcyBpbXBsZW1lbnRlZCBu
+ZXR4ZW5fbmljX2dldF9ldGh0b29sX3N0YXRzKCkNCj4+IGludGVyZmFjZSwgYnV0IGl0IGRvZXNu
+J3QgY29sbGVjdCBzdGF0cy5yeGRyb3BwZWQgaW4gZHJpdmVyLCBzbyB3ZQ0KPj4gd2lsbCBnZXQg
+ZGlmZmVyZW50IHJ4X2Ryb3BwZWQgc3RhdGlzdGljIGluZm9ybWF0aW9uIHdoaWxlIHVzaW5nIGlm
+Y29uZmlnIGFuZA0KPmV0aHRvb2wuDQo+PiB0aGlzIHBhdGNoIGZpbGxzIHN0YXRzLnJ4ZHJvcHBl
+ZCBmaWVsZCB3aXRoIGRhdGEgZnJvbSBuZXQgY29yZSB3aXRoDQo+PiBkZXZfZ2V0X3N0YXRzKCkg
+anVzdCBhcyBpeGdiZSBkcml2ZXIgZGlkIGZvciBzb21lIG9mIGl0cyBzdGF0cy4NCj4+DQo+PiBW
+Mjogb25seSBmaXggdGhlIHN0YXRzLnJ4ZHJvcHBlZCBmaWVsZC4NCj4+DQo+PiBUZXN0ZWQgd2l0
+aCBsYXN0IG5ldHhlbiA0LjAuODINCj4+IENvbXBpbGVkIHdpdGggbmV0LW5leHQgYnJhbmNoIDMu
+MTYtcmMyDQo+Pg0KPj4gU2lnbmVkLW9mZi1ieTogRXRoYW4gWmhhbyA8ZXRoYW4uemhhb0BvcmFj
+bGUuY29tPg0KPj4gVGVzdGVkLWJ5OiBTcmloYXJzaGEgWWFkYWd1ZGRlIDxzcmloYXJzaGEuZGV2
+ZGFzQG9yYWNsZS5jb20+DQo+PiAtLS0NCj4+ICAgLi4uL2V0aGVybmV0L3Fsb2dpYy9uZXR4ZW4v
+bmV0eGVuX25pY19ldGh0b29sLmMgICAgfCAgIDM0ICsrKysrKysrKysrKysrKysrLQ0KPi0tDQo+
+PiAgIDEgZmlsZXMgY2hhbmdlZCwgMjkgaW5zZXJ0aW9ucygrKSwgNSBkZWxldGlvbnMoLSkNCj4+
+DQo+PiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvcWxvZ2ljL25ldHhlbi9uZXR4
+ZW5fbmljX2V0aHRvb2wuYw0KPj4gYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9xbG9naWMvbmV0eGVu
+L25ldHhlbl9uaWNfZXRodG9vbC5jDQo+PiBpbmRleCA0Y2EyYzE5Li40OWU2YTFiIDEwMDY0NA0K
+Pj4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvcWxvZ2ljL25ldHhlbi9uZXR4ZW5fbmljX2V0
+aHRvb2wuYw0KPj4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvcWxvZ2ljL25ldHhlbi9uZXR4
+ZW5fbmljX2V0aHRvb2wuYw0KPj4gQEAgLTMzLDIyICszMywzMCBAQA0KPj4gICAjaW5jbHVkZSAi
+bmV0eGVuX25pYy5oIg0KPj4gICAjaW5jbHVkZSAibmV0eGVuX25pY19ody5oIg0KPj4NCj4+ICtl
+bnVtIHtORVRERVZfU1RBVFMsIE5FVFhFTl9TVEFUU307DQo+PiArDQo+PiAgIHN0cnVjdCBuZXR4
+ZW5fbmljX3N0YXRzIHsNCj4+ICAgCWNoYXIgc3RhdF9zdHJpbmdbRVRIX0dTVFJJTkdfTEVOXTsN
+Cj4+ICsJaW50IHR5cGU7DQo+PiAgIAlpbnQgc2l6ZW9mX3N0YXQ7DQo+PiAgIAlpbnQgc3RhdF9v
+ZmZzZXQ7DQo+PiAgIH07DQo+Pg0KPj4gLSNkZWZpbmUgTkVUWEVOX05JQ19TVEFUKG0pIHNpemVv
+ZigoKHN0cnVjdCBuZXR4ZW5fYWRhcHRlciAqKTApLT5tKSwgXA0KPj4gKyNkZWZpbmUgTkVUWEVO
+X05JQ19TVEFUKG0pCU5FVFhFTl9TVEFUUywgXA0KPj4gKwkJCXNpemVvZigoKHN0cnVjdCBuZXR4
+ZW5fYWRhcHRlciAqKTApLT5tKSwgXA0KPj4gICAJCQlvZmZzZXRvZihzdHJ1Y3QgbmV0eGVuX2Fk
+YXB0ZXIsIG0pDQo+Pg0KPj4gKyNkZWZpbmUgTkVUWEVOX05FVERFVl9TVEFUKG0pCU5FVERFVl9T
+VEFUUywgXA0KPj4gKwkJCXNpemVvZigoKHN0cnVjdCBydG5sX2xpbmtfc3RhdHM2NCAqKTApLT5t
+KSwgXA0KPj4gKwkJCW9mZnNldG9mKHN0cnVjdCBydG5sX2xpbmtfc3RhdHM2NCwgbSkNCj4+ICsN
+Cj4+ICAgI2RlZmluZSBORVRYRU5fTklDX1BPUlRfV0lORE9XIDB4MTAwMDANCj4+ICAgI2RlZmlu
+ZSBORVRYRU5fTklDX0lOVkFMSURfREFUQSAweERFQURCRUVGDQo+Pg0KPj4gICBzdGF0aWMgY29u
+c3Qgc3RydWN0IG5ldHhlbl9uaWNfc3RhdHMgbmV0eGVuX25pY19nc3RyaW5nc19zdGF0c1tdID0g
+ew0KPj4gICAJeyJ4bWl0X2NhbGxlZCIsIE5FVFhFTl9OSUNfU1RBVChzdGF0cy54bWl0Y2FsbGVk
+KX0sDQo+PiAgIAl7InhtaXRfZmluaXNoZWQiLCBORVRYRU5fTklDX1NUQVQoc3RhdHMueG1pdGZp
+bmlzaGVkKX0sDQo+PiAtCXsicnhfZHJvcHBlZCIsIE5FVFhFTl9OSUNfU1RBVChzdGF0cy5yeGRy
+b3BwZWQpfSwNCj4+ICsJeyJyeF9kcm9wcGVkIiwgTkVUWEVOX05FVERFVl9TVEFUKHJ4X2Ryb3Bw
+ZWQpfSwNCj4+ICAgCXsidHhfZHJvcHBlZCIsIE5FVFhFTl9OSUNfU1RBVChzdGF0cy50eGRyb3Bw
+ZWQpfSwNCj4+ICAgCXsiY3N1bW1lZCIsIE5FVFhFTl9OSUNfU1RBVChzdGF0cy5jc3VtbWVkKX0s
+DQo+PiAgIAl7InJ4X3BrdHMiLCBORVRYRU5fTklDX1NUQVQoc3RhdHMucnhfcGt0cyl9LCBAQCAt
+Njc5LDExICs2ODcsMjcgQEANCj4+IG5ldHhlbl9uaWNfZ2V0X2V0aHRvb2xfc3RhdHMoc3RydWN0
+IG5ldF9kZXZpY2UgKmRldiwNCj4+ICAgew0KPj4gICAJc3RydWN0IG5ldHhlbl9hZGFwdGVyICph
+ZGFwdGVyID0gbmV0ZGV2X3ByaXYoZGV2KTsNCj4+ICAgCWludCBpbmRleDsNCj4+ICsJc3RydWN0
+IHJ0bmxfbGlua19zdGF0czY0IHRlbXA7DQo+PiArCWNvbnN0IHN0cnVjdCBydG5sX2xpbmtfc3Rh
+dHM2NCAqbmV0X3N0YXRzOw0KPj4gKwljaGFyICpwID0gTlVMTDsNCj4+DQo+PiArCW5ldF9zdGF0
+cyA9IGRldl9nZXRfc3RhdHMoZGV2LCAmdGVtcCk7DQo+PiAgIAlmb3IgKGluZGV4ID0gMDsgaW5k
+ZXggPCBORVRYRU5fTklDX1NUQVRTX0xFTjsgaW5kZXgrKykgew0KPj4gLQkJY2hhciAqcCA9DQo+
+PiAtCQkgICAgKGNoYXIgKilhZGFwdGVyICsNCj4+IC0JCSAgICBuZXR4ZW5fbmljX2dzdHJpbmdz
+X3N0YXRzW2luZGV4XS5zdGF0X29mZnNldDsNCj4+ICsNCj4+ICsJCXN3aXRjaCAobmV0eGVuX25p
+Y19nc3RyaW5nc19zdGF0c1tpbmRleF0udHlwZSkgew0KPj4gKwkJY2FzZSBORVRERVZfU1RBVFM6
+DQo+PiArCQkJcCA9IChjaGFyICopbmV0X3N0YXRzICsNCj4+ICsJCQkJbmV0eGVuX25pY19nc3Ry
+aW5nc19zdGF0c1tpbmRleF0uc3RhdF9vZmZzZXQ7DQo+PiArCQkJYnJlYWs7DQo+PiArCQljYXNl
+IE5FVFhFTl9TVEFUUzoNCj4+ICsJCQlwID0gKGNoYXIgKilhZGFwdGVyICsNCj4+ICsJCQkJbmV0
+eGVuX25pY19nc3RyaW5nc19zdGF0c1tpbmRleF0uc3RhdF9vZmZzZXQ7DQo+PiArCQkJYnJlYWs7
+DQo+PiArCQlkZWZhdWx0Og0KPj4gKwkJCWRhdGFbaW5kZXhdID0gMDsNCj4+ICsJCQljb250aW51
+ZTsNCj4+ICsJCX0NCj4+ICsNCj4+ICAgCQlkYXRhW2luZGV4XSA9DQo+PiAgIAkJICAgIChuZXR4
+ZW5fbmljX2dzdHJpbmdzX3N0YXRzW2luZGV4XS5zaXplb2Zfc3RhdCA9PQ0KPj4gICAJCSAgICAg
+c2l6ZW9mKHU2NCkpID8gKih1NjQgKikgcCA6ICoodTMyICopIHA7DQoNCkV0aGFuLCBJIGNhbid0
+IGRvd25sb2FkIHRoaXMgcGF0Y2ggYXMgSSBkb27igJl0IHNlZSBpdCBpbiBuZXRkZXYgcGF0Y2h3
+b3JrLiBKdXN0IGxvb2tpbmcgYXQgdGhlIGRpZmYgSSB0aGluayB0aGVyZSBpcyBzdHlsZSBpc3N1
+ZSB3aXRoIG1hY3JvIGRlZmluaXRpb24gb2YgTkVUWEVOX05JQ19TVEFUIGFuZCBORVRYRU5fTkVU
+REVWX1NUQVQuDQpFbmNsb3NlIG1hY3JvIGRlZmluaXRpb24gaW4gcGFyZW50aGVzZXMgYXMgdGhl
+eSBhcmUgY29udGFpbmluZyBjb21wbGV4IHZhbHVlcy4NCg0KU2VuZCB0aGlzIHBhdGNoIHRhcmdl
+dGVkIGZvciBuZXQgaW5zdGVhZCBvZiBuZXQtbmV4dCBiZWluZyBhIGJ1ZyBmaXguIFBsZWFzZSBh
+bHNvIHJ1biBjaGVja3BhdGNoLnBsIHRvIGNvcnJlY3QgYW55IHN0eWxlIHdhcm5pbmcvZXJyb3Jz
+IGluIHRoZSBwYXRjaC4NCg0KVGhhbmtzISEgIA0KDQo=
