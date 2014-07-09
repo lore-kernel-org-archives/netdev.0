@@ -1,49 +1,45 @@
-From: Ben Pfaff <blp@nicira.com>
-Subject: Re: [PATCH] netlink: Fix netlink_recvmsg() handling of error from
- netlink_dump().
-Date: Wed, 9 Jul 2014 10:32:54 -0700
-Message-ID: <20140709173254.GD4291@nicira.com>
-References: <1404167704-22408-1-git-send-email-blp@nicira.com>
- <20140707.193735.766947638929765410.davem@davemloft.net>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next] dp83640: Adjust ptp event timestamps
+Date: Wed, 9 Jul 2014 19:41:49 +0200
+Message-ID: <20140709174149.GA3859@localhost.localdomain>
+References: <1404901343-19445-1-git-send-email-stefan.sorensen@spectralink.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+To: Stefan =?iso-8859-1?Q?S=F8rensen?=
+	<stefan.sorensen@spectralink.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog125.obsmtp.com ([74.125.149.153]:50186 "HELO
-	na3sys009aog125.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754252AbaGIRdA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2014 13:33:00 -0400
-Received: by mail-vc0-f175.google.com with SMTP id hy4so7568741vcb.6
-        for <netdev@vger.kernel.org>; Wed, 09 Jul 2014 10:33:00 -0700 (PDT)
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:37700 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755291AbaGIRmK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2014 13:42:10 -0400
+Received: by mail-wi0-f174.google.com with SMTP id d1so902249wiv.13
+        for <netdev@vger.kernel.org>; Wed, 09 Jul 2014 10:42:09 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20140707.193735.766947638929765410.davem@davemloft.net>
+In-Reply-To: <1404901343-19445-1-git-send-email-stefan.sorensen@spectralink.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 07, 2014 at 07:37:35PM -0700, David Miller wrote:
-> From: Ben Pfaff <blp@nicira.com>
-> Date: Mon, 30 Jun 2014 15:35:04 -0700
-> 
-> > netlink_dump() returns a negative errno value on error.  Until now,
-> > netlink_recvmsg() directly recorded that negative value in sk->sk_err,
-> > but that's wrong since sk_err takes positive errno values.  (This manifests
-> > as userspace receiving a positive return value from the recv() system call,
-> > falsely indicating success.)
-> > 
-> > This bug was introduced in the commit that started checking the
-> > netlink_dump() return value, commit b44d211 (netlink: handle errors from
-> > netlink_dump()).
-> > 
-> > Multithreaded Netlink dumps are one way to trigger this behavior in
-> > practice, as described in the commit message for the userspace workaround
-> > posted here:
-> >     http://openvswitch.org/pipermail/dev/2014-June/042339.html
-> > 
-> > Signed-off-by: Ben Pfaff <blp@nicira.com>
-> 
-> There's another place, later in this file, doing the same exact thing.
-> 
-> Please respin this patch, fixing that location too.
+On Wed, Jul 09, 2014 at 12:22:23PM +0200, Stefan S=F8rensen wrote:
+> From the dp86340 Software Development Guide:
+>   Event timestamp values should be adjusted by 3*reference clock peri=
+od +
+>   11 ns =3D 35 ns to compensate for input path and synchronization de=
+lays.
+>=20
+> So subtract 35ns from event timestamps.
 
-Thanks for pointing that out, I sent out v2.
+I have avoided adding this kind of thing into drivers because I think
+people will want to make the correction in the delayAsymmetry field of
+their user space stack. After all, this is exactly what that value is
+supposed to cover.
+
+Some parts have fixed delays (or at least they claim to) and some have
+variable delays that can depend on link speed or other factors. So my
+gut feeling tells me to be consistent and leave all such corrections
+out, because in that way the end user will not have to research
+whether a particular driver is "pre-correcting" or not.
+
+Thanks,
+Richard
