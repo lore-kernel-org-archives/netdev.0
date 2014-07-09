@@ -1,74 +1,60 @@
-From: Chris Redpath <Chris.Redpath@arm.com>
-Subject: Re: [RFC 7/7] net: don't check for active hrtimer after adding it
-Date: Wed, 09 Jul 2014 11:48:12 +0100
-Message-ID: <53BD1DEC.7050305@arm.com>
-References: <cover.1404888801.git.viresh.kumar@linaro.org>	<a8994b5dda7599c0d8ce9f66aef40b8587acf691.1404888801.git.viresh.kumar@linaro.org>	<53BD1A56.7000902@arm.com> <CAKohpomdxB7ui4WQTWfJva9YYYqcfs6cabsC+SyYijdRUViT_g@mail.gmail.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net-next 0/5] SCTP updates
+Date: Wed, 9 Jul 2014 06:49:58 -0400
+Message-ID: <20140709104958.GA3784@hmsreliant.think-freely.org>
+References: <1404507908-6949-1-git-send-email-dborkman@redhat.com>
+ <20140708111408.GA23026@hmsreliant.think-freely.org>
+ <53BBFAA6.80408@redhat.com>
+ <20140708144127.GB23026@hmsreliant.think-freely.org>
+ <53BD1211.4080504@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "tglx@linutronix.de" <tglx@linutronix.de>,
-	"linaro-kernel@lists.linaro.org" <linaro-kernel@lists.linaro.org>,
-	"fweisbec@gmail.com" <fweisbec@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"preeti@linux.vnet.ibm.com" <preeti@linux.vnet.ibm.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Arvind Chauhan <Arvind.Chauhan@arm.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Viresh Kumar <viresh.kumar@linaro.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, geirola@gmail.com, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fw-tnat.austin.arm.com ([217.140.110.23]:54067 "EHLO
-	collaborate-mta1.arm.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751183AbaGIKsU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2014 06:48:20 -0400
-In-Reply-To: <CAKohpomdxB7ui4WQTWfJva9YYYqcfs6cabsC+SyYijdRUViT_g@mail.gmail.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:48361 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751032AbaGIKuU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2014 06:50:20 -0400
+Content-Disposition: inline
+In-Reply-To: <53BD1211.4080504@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09/07/14 11:44, Viresh Kumar wrote:
-> Hi Chris,
->
-> On 9 July 2014 16:02, Chris Redpath <Chris.Redpath@arm.com> wrote:
->
->>> diff --git a/net/core/pktgen.c b/net/core/pktgen.c
->>> index fc17a9d..f911acd 100644
->>> --- a/net/core/pktgen.c
->>> +++ b/net/core/pktgen.c
->>> @@ -2186,8 +2186,6 @@ static void spin(struct pktgen_dev *pkt_dev, ktime_t
->>> spin_until)
->>>                  do {
->>>                          set_current_state(TASK_INTERRUPTIBLE);
->>>                          hrtimer_start_expires(&t.timer, HRTIMER_MODE_ABS);
->>> -                       if (!hrtimer_active(&t.timer))
->>> -                               t.task = NULL;
->>>
->>>                          if (likely(t.task))
->>>                                  schedule();
->>
->>
->> I think this if condition can also be removed. hrtimer_init_sleeper copies
->> the supplied task_struct * to the timer, which in this case is 'current'.
->> The check is likely to be there in case of !active case you removed.
->
-> Yeah, it looks like we can get rid of this. Also,
->
->          } while (t.task && pkt_dev->running && !signal_pending(current));
->
-> is present in the closing "}" of do-while loop and probably we
-> don't need to check t.task here as well.
->
-> And this review comment applies to patch 2/7 as well:
-> hrtimer: don't check for active hrtimer after adding it
->
-> I would still wait for somebody to prove us wrong :), and will resend
-> it next week only.
->
-> Thanks.
->
+On Wed, Jul 09, 2014 at 11:57:37AM +0200, Daniel Borkmann wrote:
+> On 07/08/2014 04:41 PM, Neil Horman wrote:
+> >On Tue, Jul 08, 2014 at 04:05:26PM +0200, Daniel Borkmann wrote:
+> >>On 07/08/2014 01:14 PM, Neil Horman wrote:
+> >>...
+> >>>since you're adding cmsg's from rfc6458, do you also want to add some
+> >>>deprecation warnings around the use of SCTP_SNDRCVINFO too, so we can start to
+> >>>schedule its eventual removal?
+> >>
+> >>Sure, we can do that. Do you want me to include it into the set?
+> >
+> >If you're plan is to implement 6458, then yes, I think that would be good.
+> 
+> Looking a bit closer at it, all our pr_warn_ratelimited(DEPRECATED ...)
+> warnings in SCTP are being done in 'slowpath' {set,get}sockopt(2) operations
+> only, which is fine. What you're suggesting is to place similar ratelimited
+> warnings (due to different possible pids on the machine) into the 'fastpath'
+> where we get and set cmsg message headers.
+> 
+> While that may be fine for {set,get}sockopt(2) that's called once or very few
+> times, I'm not sure this is a good idea in SCTP_SNDRCVINFO as it will yield
+> to unnecessary spamming the klog since up to now this is the only way our
+> users can set or receive this info. I'm not sure we want to annoy users like
+> that ...
+> 
+Then we wrap it in a ONCE macro so that it only triggers on the first use
+instance.
 
-Yeah, no worries. I just happened to read it and not knowing any of the 
-APIs had to look up what is going on.
+> In how many years do you plan a removal ... I think we're stuck with uapi
+> basically forever as we don't want to break old binaries, no? ;/
+> 
+I thought we could remove things on a schedule if we followed the deprecation
+process, but that may just be for sysfs.  Regardless, it would still be nice to
+inform people they are using an older api.
 
-BTW, I *will* get back to you about that broadcast stuff when I get back 
-to it myself. Other priorities at the moment again.
-
---Chris
+Neil
