@@ -1,36 +1,107 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: RE: [PATCH net] r8169: disable L23
-Date: Wed, 9 Jul 2014 06:36:05 +0000
-Message-ID: <0835B3720019904CB8F7AA43166CEEB2505DFA@RTITMBSV03.realtek.com.tw>
+Subject: [PATCH net v2] r8169: disable L23
+Date: Wed, 9 Jul 2014 14:52:51 +0800
+Message-ID: <1394712342-15778-7-Taiwan-albertk@realtek.com>
 References: <1394712342-15778-6-Taiwan-albertk@realtek.com>
- <20140708201630.GA31885@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	nic_swsd <nic_swsd@realtek.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<nic_swsd@realtek.com>, Hayes Wang <hayeswang@realtek.com>
+To: <romieu@fr.zoreil.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140708201630.GA31885@electric-eye.fr.zoreil.com>
-Content-Language: zh-TW
+In-Reply-To: <1394712342-15778-6-Taiwan-albertk@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
- Francois Romieu [mailto:romieu@fr.zoreil.com] 
-> Sent: Wednesday, July 09, 2014 4:17 AM
-> To: Hayes Wang
-> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org; nic_swsd
-> Subject: Re: [PATCH net] r8169: disable L23
-[...]
-> Can you elaborate what L23 is or should the commit message be reworded
-> as "Disable a (yet undocumented) power saving feature that randomly
-> causes RTL8411, RTL8111G, RTL8402, RTL8105, and RTL8106 devices to be
-> lost on some systems." ?
+For RTL8411, RTL8111G, RTL8402, RTL8105, and RTL8106, disable the feature
+of entering the L2/L3 link state of the PCIe. When the nic starts the process
+of entering the L2/L3 link state and the PCI reset occurs before the work
+is finished, the work would be queued and continue after the next the PCI
+reset occurs. This causes the device stays in L2/L3 link state, and the system
+couldn't find the device.
 
-The L2/L3 are the link status which are defined in the specification of the PCI
-Express Base Specification for the link state power manager. I don't know them
-much, so I don't sure if I could explain them clearly. 
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+---
+ drivers/net/ethernet/realtek/r8169.c | 25 +++++++++++++++++++++++++
+ 1 file changed, 25 insertions(+)
 
-Best Regards,
-Hayes
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index be425ad..38144ee 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -538,6 +538,7 @@ enum rtl_register_content {
+ 	MagicPacket	= (1 << 5),	/* Wake up when receives a Magic Packet */
+ 	LinkUp		= (1 << 4),	/* Wake up when the cable connection is re-established */
+ 	Jumbo_En0	= (1 << 2),	/* 8168 only. Reserved in the 8168b */
++	Rdy_to_L23	= (1 << 1),	/* L23 Enable */
+ 	Beacon_en	= (1 << 0),	/* 8168 only. Reserved in the 8168b */
+ 
+ 	/* Config4 register */
+@@ -4897,6 +4898,21 @@ static void rtl_enable_clock_request(struct pci_dev *pdev)
+ 				 PCI_EXP_LNKCTL_CLKREQ_EN);
+ }
+ 
++static void rtl_l23_enable(struct rtl8169_private *tp, bool enable)
++{
++	void __iomem *ioaddr = tp->mmio_addr;
++	u8 data;
++
++	data = RTL_R8(Config3);
++
++	if (enable)
++		data |= Rdy_to_L23;
++	else
++		data &= ~Rdy_to_L23;
++
++	RTL_W8(Config3, data);
++}
++
+ #define R8168_CPCMD_QUIRK_MASK (\
+ 	EnableBist | \
+ 	Mac_dbgo_oe | \
+@@ -5246,6 +5262,7 @@ static void rtl_hw_start_8411(struct rtl8169_private *tp)
+ 	};
+ 
+ 	rtl_hw_start_8168f(tp);
++	rtl_l23_enable(tp, false);
+ 
+ 	rtl_ephy_init(tp, e_info_8168f_1, ARRAY_SIZE(e_info_8168f_1));
+ 
+@@ -5284,6 +5301,8 @@ static void rtl_hw_start_8168g_1(struct rtl8169_private *tp)
+ 
+ 	rtl_w1w0_eri(tp, 0x2fc, ERIAR_MASK_0001, 0x01, 0x06, ERIAR_EXGMAC);
+ 	rtl_w1w0_eri(tp, 0x1b0, ERIAR_MASK_0011, 0x0000, 0x1000, ERIAR_EXGMAC);
++
++	rtl_l23_enable(tp, false);
+ }
+ 
+ static void rtl_hw_start_8168g_2(struct rtl8169_private *tp)
+@@ -5536,6 +5555,8 @@ static void rtl_hw_start_8105e_1(struct rtl8169_private *tp)
+ 	RTL_W8(DLLPR, RTL_R8(DLLPR) | PFM_EN);
+ 
+ 	rtl_ephy_init(tp, e_info_8105e_1, ARRAY_SIZE(e_info_8105e_1));
++
++	rtl_l23_enable(tp, false);
+ }
+ 
+ static void rtl_hw_start_8105e_2(struct rtl8169_private *tp)
+@@ -5571,6 +5592,8 @@ static void rtl_hw_start_8402(struct rtl8169_private *tp)
+ 	rtl_eri_write(tp, 0xc0, ERIAR_MASK_0011, 0x0000, ERIAR_EXGMAC);
+ 	rtl_eri_write(tp, 0xb8, ERIAR_MASK_0011, 0x0000, ERIAR_EXGMAC);
+ 	rtl_w1w0_eri(tp, 0x0d4, ERIAR_MASK_0011, 0x0e00, 0xff00, ERIAR_EXGMAC);
++
++	rtl_l23_enable(tp, false);
+ }
+ 
+ static void rtl_hw_start_8106(struct rtl8169_private *tp)
+@@ -5583,6 +5606,8 @@ static void rtl_hw_start_8106(struct rtl8169_private *tp)
+ 	RTL_W32(MISC, (RTL_R32(MISC) | DISABLE_LAN_EN) & ~EARLY_TALLY_EN);
+ 	RTL_W8(MCU, RTL_R8(MCU) | EN_NDP | EN_OOB_RESET);
+ 	RTL_W8(DLLPR, RTL_R8(DLLPR) & ~PFM_EN);
++
++	rtl_l23_enable(tp, false);
+ }
+ 
+ static void rtl_hw_start_8101(struct net_device *dev)
+-- 
+1.9.3
