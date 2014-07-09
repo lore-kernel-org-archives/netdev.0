@@ -1,93 +1,74 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH] bonding: Do not try to send packets over dead link in
- TLB mode.
-Date: Wed, 09 Jul 2014 12:25:43 +0200
-Message-ID: <53BD18A7.6090109@redhat.com>
-References: <1404868198-24839-1-git-send-email-maheshb@google.com> <20140709102441.GB1227@redhat.com>
+From: Chris Redpath <Chris.Redpath@arm.com>
+Subject: Re: [RFC 7/7] net: don't check for active hrtimer after adding it
+Date: Wed, 09 Jul 2014 11:32:54 +0100
+Message-ID: <53BD1A56.7000902@arm.com>
+References: <cover.1404888801.git.viresh.kumar@linaro.org> <a8994b5dda7599c0d8ce9f66aef40b8587acf691.1404888801.git.viresh.kumar@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Maciej Zenczykowski <maze@google.com>
-To: Veaceslav Falico <vfalico@redhat.com>,
-	Mahesh Bandewar <maheshb@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54900 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754479AbaGIKbO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Jul 2014 06:31:14 -0400
-In-Reply-To: <20140709102441.GB1227@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "linaro-kernel@lists.linaro.org" <linaro-kernel@lists.linaro.org>,
+	"fweisbec@gmail.com" <fweisbec@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"preeti@linux.vnet.ibm.com" <preeti@linux.vnet.ibm.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Arvind Chauhan <Arvind.Chauhan@arm.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Viresh Kumar <viresh.kumar@linaro.org>,
+	"tglx@linutronix.de" <tglx@linutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <a8994b5dda7599c0d8ce9f66aef40b8587acf691.1404888801.git.viresh.kumar@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/09/2014 12:24 PM, Veaceslav Falico wrote:
-> On Tue, Jul 08, 2014 at 06:09:58PM -0700, Mahesh Bandewar wrote:
->> In TLB mode if tlb_dynamic_lb is NOT set, slaves from the bond
->> group are selected based on the hash distribution. This does not
->> exclude dead links which are part of the bond. Also if there is a
->> temporary link event which brings down the interface, packets
->> hashed on that interface would be dropped too.
->>
->> This patch fixes these issues and distributes flows across the
->> UP links only. Also the array construction of links which are
->> capable of sending packets happen in the control path leaving
->> only link-selection duing the data-path.
->>
->> One possible side effect of this is - at a link event; all
->> flows will be shuffled to get good distribution. But impact of
->> this should be minimum with the assumption that a member or
->> members of the bond group are not available is a very temporary
->> situation.
-> 
-> Good one, it indeed will speed up things/fix it.
-> 
-> Some comments:
-> 
-> I didn't see how you handle the case when a slave is removed (i.e.
-> released) from bonding.
-> 
->>
->> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
-> ...snip...
->> +static int bond_tlb_update_slave_arr(struct bonding *bond)
->> +{
->> +    struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
->> +    struct slave *tx_slave;
->> +    struct list_head *iter;
->> +    struct tlb_up_slave *new_arr, *old_arr;
->> +
->> +    new_arr = kzalloc(offsetof(struct tlb_up_slave, arr[bond->slave_cnt]),
->> +              GFP_KERNEL);
->> +    if (!new_arr)
->> +        return -ENOMEM;
->> +
->> +    bond_for_each_slave(bond, tx_slave, iter) {
->> +        if (bond_slave_can_tx(tx_slave))
->> +            new_arr->arr[new_arr->count++] = tx_slave;
->> +    }
->> +
->> +    spin_lock(&bond_info->slave_arr_lock);
-> 
-> I don't think you can re-enter bond_alb_handle_link_change(), as it's
-> protected either by rtnl or write-lock curr_active_slave.
-> 
-Actually a very good catch :-)
-Maybe the allocation above should be done with GFP_ATOMIC.
+Hi Viresh,
 
->> +    old_arr = bond_info->slave_arr;
->> +    rcu_assign_pointer(bond_info->slave_arr, new_arr);
->> +    spin_unlock(&bond_info->slave_arr_lock);
->> +    if (old_arr)
->> +        kfree_rcu(old_arr, rcu);
->> +
->> +    return 0;
->> +}
-> ...snip...
-> -- 
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On 09/07/14 07:55, Viresh Kumar wrote:
+> hrtimer_start*() family never fails to enqueue a hrtimer to a clock-base. The
+> only special case is when the hrtimer was in past. If it is getting enqueued to
+> local CPUs's clock-base, we raise a softirq and exit, else we handle that on
+> next interrupt on remote CPU.
+>
+> At several places in the kernel, we try to make sure if hrtimer was added
+> properly or not by calling hrtimer_active(), like:
+>
+> 	hrtimer_start(timer, expires, mode);
+> 	if (hrtimer_active(timer)) {
+> 		/* Added successfully */
+> 	} else {
+> 		/* Was added in the past */
+> 	}
+>
+> As hrtimer_start*() never fails, hrtimer_active() is guaranteed to return '1'.
+> So, there is no point calling hrtimer_active().
+>
+> This patch updates net core to get this fixed.
+>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: Viresh Kumar <viresh.kumar@linaro.org>
+> ---
+>   net/core/pktgen.c | 2 --
+>   1 file changed, 2 deletions(-)
+>
+> diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+> index fc17a9d..f911acd 100644
+> --- a/net/core/pktgen.c
+> +++ b/net/core/pktgen.c
+> @@ -2186,8 +2186,6 @@ static void spin(struct pktgen_dev *pkt_dev, ktime_t spin_until)
+>   		do {
+>   			set_current_state(TASK_INTERRUPTIBLE);
+>   			hrtimer_start_expires(&t.timer, HRTIMER_MODE_ABS);
+> -			if (!hrtimer_active(&t.timer))
+> -				t.task = NULL;
+>
+>   			if (likely(t.task))
+>   				schedule();
+
+I think this if condition can also be removed. hrtimer_init_sleeper 
+copies the supplied task_struct * to the timer, which in this case is 
+'current'. The check is likely to be there in case of !active case you 
+removed.
+
+>
+
+--Chris
