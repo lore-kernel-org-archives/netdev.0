@@ -1,57 +1,120 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: [PATCH] arc_emac: Remove unused pointer to net_device from arc_emac_priv
-Date: Wed,  9 Jul 2014 11:07:56 +0200
-Message-ID: <1404896876-29315-1-git-send-email-tklauser@distanz.ch>
-Cc: netdev@vger.kernel.org
+From: Russell King <rmk+kernel@arm.linux.org.uk>
+Subject: [PATCH C 1/7] net: fec: better implementation of iMX6 ERR006358 quirk
+Date: Wed, 09 Jul 2014 10:30:11 +0100
+Message-ID: <E1X4oCZ-0004Yk-1O@rmk-PC.arm.linux.org.uk>
+References: <20140708120117.GJ21766@n2100.arm.linux.org.uk>
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.zhinst.com ([212.126.164.98]:39108 "EHLO mail.zhinst.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753660AbaGIJIA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Jul 2014 05:08:00 -0400
+Received: from gw-1.arm.linux.org.uk ([78.32.30.217]:59962 "EHLO
+	pandora.arm.linux.org.uk" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751268AbaGIJaP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2014 05:30:15 -0400
+In-Reply-To: <20140708120117.GJ21766@n2100.arm.linux.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The pointer to the struct net_device in the private data is only
-assigned but never used, so delete it.
+Using a (delayed) workqueue for ERR006358 is not correct - a work queue
+is a single-trigger device.  Once the work queue has been scheduled, it
+can't be re-scheduled until it has been run.  This can cause problems -
+with an appropriate packet timing, we can end up with packets queued,
+but not sent by the hardware, resulting in the transmit timeout firing.
 
-Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+Re-implement this as per the workaround detailed in the ERR006358
+documentation - if there are packets waiting to be sent when we service
+the transmit ring, and we see that the transmitter is not running,
+kick the transmitter to run the pending entries in the ring.
+
+Testing here with a 10Mbit half duplex link sees the resulting iperf
+TCP bandwidth increase from between 1 to 2Mbps to between 8 to 9Mbps.
+
+Acked-by: Fugang Duan <B38611@freescale.com>
+Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- drivers/net/ethernet/arc/emac.h      | 2 --
- drivers/net/ethernet/arc/emac_main.c | 1 -
- 2 files changed, 3 deletions(-)
+ drivers/net/ethernet/freescale/fec.h      |  1 -
+ drivers/net/ethernet/freescale/fec_main.c | 30 ++++--------------------------
+ 2 files changed, 4 insertions(+), 27 deletions(-)
 
-diff --git a/drivers/net/ethernet/arc/emac.h b/drivers/net/ethernet/arc/emac.h
-index 8e7c1a1..36cc9bd 100644
---- a/drivers/net/ethernet/arc/emac.h
-+++ b/drivers/net/ethernet/arc/emac.h
-@@ -105,7 +105,6 @@ struct buffer_state {
- /**
-  * struct arc_emac_priv - Storage of EMAC's private information.
-  * @dev:	Pointer to the current device.
-- * @ndev:	Pointer to the current network device.
-  * @phy_dev:	Pointer to attached PHY device.
-  * @bus:	Pointer to the current MII bus.
-  * @regs:	Base address of EMAC memory-mapped control registers.
-@@ -126,7 +125,6 @@ struct buffer_state {
- struct arc_emac_priv {
- 	/* Devices */
- 	struct device *dev;
--	struct net_device *ndev;
- 	struct phy_device *phy_dev;
- 	struct mii_bus *bus;
+diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
+index 96d2a18f1b99..17e294970207 100644
+--- a/drivers/net/ethernet/freescale/fec.h
++++ b/drivers/net/ethernet/freescale/fec.h
+@@ -259,7 +259,6 @@ struct bufdesc_ex {
+ struct fec_enet_delayed_work {
+ 	struct delayed_work delay_work;
+ 	bool timeout;
+-	bool trig_tx;
+ };
  
-diff --git a/drivers/net/ethernet/arc/emac_main.c b/drivers/net/ethernet/arc/emac_main.c
-index 6cfcd38..fe5cfea 100644
---- a/drivers/net/ethernet/arc/emac_main.c
-+++ b/drivers/net/ethernet/arc/emac_main.c
-@@ -720,7 +720,6 @@ static int arc_emac_probe(struct platform_device *pdev)
+ /* The FEC buffer descriptors track the ring buffers.  The rx_bd_base and
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 9d82d915b06d..8cfc3a3de7fb 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -342,22 +342,6 @@ fec_enet_clear_csum(struct sk_buff *skb, struct net_device *ndev)
+ 	return 0;
+ }
  
- 	priv = netdev_priv(ndev);
- 	priv->dev = &pdev->dev;
--	priv->ndev = ndev;
+-static void
+-fec_enet_submit_work(struct bufdesc *bdp, struct fec_enet_private *fep)
+-{
+-	const struct platform_device_id *id_entry =
+-				platform_get_device_id(fep->pdev);
+-	struct bufdesc *bdp_pre;
+-
+-	bdp_pre = fec_enet_get_prevdesc(bdp, fep);
+-	if ((id_entry->driver_data & FEC_QUIRK_ERR006358) &&
+-	    !(bdp_pre->cbd_sc & BD_ENET_TX_READY)) {
+-		fep->delay_work.trig_tx = true;
+-		schedule_delayed_work(&(fep->delay_work.delay_work),
+-					msecs_to_jiffies(1));
+-	}
+-}
+-
+ static int
+ fec_enet_txq_submit_frag_skb(struct sk_buff *skb, struct net_device *ndev)
+ {
+@@ -545,8 +529,6 @@ static int fec_enet_txq_submit_skb(struct sk_buff *skb, struct net_device *ndev)
+ 	status |= (BD_ENET_TX_READY | BD_ENET_TX_TC);
+ 	bdp->cbd_sc = status;
  
- 	priv->regs = devm_ioremap_resource(&pdev->dev, &res_regs);
- 	if (IS_ERR(priv->regs)) {
+-	fec_enet_submit_work(bdp, fep);
+-
+ 	/* If this was the last BD in the ring, start at the beginning again. */
+ 	bdp = fec_enet_get_nextdesc(last_bdp, fep);
+ 
+@@ -735,8 +717,6 @@ static int fec_enet_txq_submit_tso(struct sk_buff *skb, struct net_device *ndev)
+ 	/* Save skb pointer */
+ 	fep->tx_skbuff[index] = skb;
+ 
+-	fec_enet_submit_work(bdp, fep);
+-
+ 	skb_tx_timestamp(skb);
+ 	fep->cur_tx = bdp;
+ 
+@@ -1065,11 +1045,6 @@ static void fec_enet_work(struct work_struct *work)
+ 		}
+ 		rtnl_unlock();
+ 	}
+-
+-	if (fep->delay_work.trig_tx) {
+-		fep->delay_work.trig_tx = false;
+-		writel(0, fep->hwp + FEC_X_DES_ACTIVE);
+-	}
+ }
+ 
+ static void
+@@ -1166,7 +1141,10 @@ fec_enet_tx(struct net_device *ndev)
+ 				netif_wake_queue(ndev);
+ 		}
+ 	}
+-	return;
++
++	/* ERR006538: Keep the transmitter going */
++	if (bdp != fep->cur_tx && readl(fep->hwp + FEC_X_DES_ACTIVE) == 0)
++		writel(0, fep->hwp + FEC_X_DES_ACTIVE);
+ }
+ 
+ /* During a receive, the cur_rx points to the current incoming buffer.
 -- 
-2.0.1
+1.8.3.1
