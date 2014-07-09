@@ -1,69 +1,58 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: the side effect of using copy skb instead of skb_clone in cdc ncm/mbim driver
-Date: Wed, 09 Jul 2014 18:01:45 +0200
-Message-ID: <87zjgih66u.fsf@nemi.mork.no>
-References: <CAOa2BBy4t_17J7G5bBpAZZpBWZYh+Cpc6Fn4u+9cV98M8CZ5gw@mail.gmail.com>
-	<87y4w4jprx.fsf@nemi.mork.no>
-	<CAOa2BBwVxcC_WoAqExRgEX57BwkikOL_sOBnjus+udNzVB0zqw@mail.gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 0/5] SCTP updates
+Date: Wed, 9 Jul 2014 16:02:01 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1726F39D@AcuExch.aculab.com>
+References: <1404507908-6949-1-git-send-email-dborkman@redhat.com>
+ <20140708111408.GA23026@hmsreliant.think-freely.org>
+ <53BBFAA6.80408@redhat.com>
+ <20140708144127.GB23026@hmsreliant.think-freely.org>
+ <53BD1211.4080504@redhat.com>
+ <20140709104958.GA3784@hmsreliant.think-freely.org>
+ <53BD4363.70306@redhat.com> <20140709151354.GA5250@localhost.localdomain>
+ <53BD6167.1030000@gmail.com> <20140709154428.GD5250@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: jim_baxter@mentor.com, Alexey Orishko <alexey.orishko@gmail.com>,
-	netdev@vger.kernel.org, zhao.ming9@zte.com.cn
-To: joey ming <joey.zming@gmail.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Daniel Borkmann <dborkman@redhat.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"geirola@gmail.com" <geirola@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
+To: 'Neil Horman' <nhorman@tuxdriver.com>,
+	Vlad Yasevich <vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:40862 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755407AbaGIQB4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2014 12:01:56 -0400
-In-Reply-To: <CAOa2BBwVxcC_WoAqExRgEX57BwkikOL_sOBnjus+udNzVB0zqw@mail.gmail.com>
-	(joey ming's message of "Wed, 9 Jul 2014 22:55:05 +0800")
+Received: from mx0.aculab.com ([213.249.233.131]:34849 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1755658AbaGIQDe convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2014 12:03:34 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 30994-02 for <netdev@vger.kernel.org>;
+ Wed,  9 Jul 2014 17:03:26 +0100 (BST)
+In-Reply-To: <20140709154428.GD5250@localhost.localdomain>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[didn't notice earlier, but Alexey's address was wrong - I fixed it on
-this reply]
+From: Neil Horman
+...
+> > The problem here is deprecation of ancillary data and that's is a lot tougher
+> > then socket options.  In this particular case (SCTP_SNDRCVINFO vs SCTP_RCVINFO),
+> > I don't think there is any way to deprecate the SCTP_SNDRCVINFO since the event
+> > enabling it is the same as the one for SCTP_RCVINFO.  This was a mistake in the
+> > spec.  Ancillary data should not have been enabled using even notification api,
+> > as it is not an event, but we now have to live with it.
+> >
+> Ugh I didn't even consider cmsg type overlap.  Thats probably it then, we can't
+> deprecate it.  Though that does call the question up as to how to differentiate
+> expectations of the data format for each cmsg, if they use the same type.  Does
+> the SCTP_RCVINFO data struct overlay the SNDRCVINFO struct exactly?  (sorry I've
+> not checked myself yet).
 
-joey ming <joey.zming@gmail.com> writes:
+Not from what I remember from when I read that RFC.
+I think the lengths are different enough to determine which is which.
 
-> thanks for your reply.
-> from my test results, perhaps the ncm protocol is the same efficiency=
- with
-> cdc-ecm. But Alexey(alexey.orishko@stericsson.com) said his experimen=
-t two
-> years ago:"One real-world example was modem for 21+6Mbit/s what used =
-100%
-> CPU with ECM responsible for approx. 40% of the MIPS used. Using NCM
-> instead CPU was only at approx. 65% utilization. Which allowed multip=
-le
-> other functions to be added and significantly increased the usability=
- and
-> value of the modem". I don't know why the test result was differ so l=
-arge.
-> Is that correct that cdc-ncm is effctive than cdc-ecm for low speed d=
-evice
-> but not for high speed device?
+That RFC (I've forgotten the number) looks like an entire bag of poo
+that should be ignored...
 
-Alexey's results were on modem hardware, and I am guessing the OS wasn'=
-t
-Linux.  I have no doubt that you can increase efficiency if you can tak=
-e
-a fixed size big NCM buffer, and make the radio interface write packets
-directly into it using the alignment of your choice, before you just
-give the whole buffer to a USB controller.  You mostly don't have to
-involve the CPU at all.  So NCM is probably a great win for the modems,
-and you are right: That is likely why this aggregating protocol was
-invented.
-
-But little of this is applicable to the typical Linux implementation,
-whether it runs on a host or a device.  Big USB buffers do not help muc=
-h
-on the USB controllers, and they are just a hassle other places because
-it's difficult to pass partial buffers around.
-
-And I think modem hardware now has become so much more powerful that th=
-e
-same applies to it as well.
-
-
-Bj=C3=B8rn
+	David
