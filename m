@@ -1,59 +1,94 @@
-From: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
+From: Iyappan Subramanian <isubramanian@apm.com>
 Subject: Re: [PATCH v8 4/4] drivers: net: Add APM X-Gene SoC ethernet driver support.
-Date: Wed, 9 Jul 2014 15:38:00 -0700
-Message-ID: <CAKh23FnraikR3apUtrxOWYransQYEFVVJcSaL9d6OWzeWiVT1A@mail.gmail.com>
+Date: Wed, 9 Jul 2014 15:39:45 -0700
+Message-ID: <CAKh23Fmxv887dje8r5xF7sQwPumCm15ZWxL7cdpRSZJeBh1FjQ@mail.gmail.com>
 References: <1403306296-26198-1-git-send-email-isubramanian@apm.com>
 	<1403306296-26198-5-git-send-email-isubramanian@apm.com>
-	<20140624.223442.1599243407487139839.davem@davemloft.net>
+	<CALdTtnvHt5mYMC3619E4F3KK0jPOw7mCpKE6bTn0Um6fdZ4rbw@mail.gmail.com>
+	<20140625230450.GO32514@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	"jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org" <jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, patches <patches-qTEPVZfXA3Y@public.gmane.org>,
-	Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>, Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140624.223442.1599243407487139839.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Dann Frazier <dann.frazier@canonical.com>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"jcm@redhat.com" <jcm@redhat.com>, netdev <netdev@vger.kernel.org>,
+	patches <patches@apm.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Keyur Chudgar <kchudgar@apm.com>,
+	David Miller <davem@davemloft.net>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	Ravi Patel <rapatel@apm.com>
+To: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140625230450.GO32514@n2100.arm.linux.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 24, 2014 at 10:34 PM, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org> wrote:
-> From: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
-> Date: Fri, 20 Jun 2014 16:18:16 -0700
->
->> This patch adds network driver for APM X-Gene SoC ethernet.
+On Wed, Jun 25, 2014 at 4:04 PM, Russell King - ARM Linux
+<linux@arm.linux.org.uk> wrote:
+> On Tue, Jun 24, 2014 at 10:29:48PM -0600, Dann Frazier wrote:
+>> On Fri, Jun 20, 2014 at 5:18 PM, Iyappan Subramanian
+>> <isubramanian@apm.com> wrote:
+>> > +       ring->desc_addr = dma_zalloc_coherent(dev, size, &ring->dma,
+>> > +                                             GFP_KERNEL);
 >>
->> Signed-off-by: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
->> Signed-off-by: Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>
->> Signed-off-by: Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>
+>> Iyappan,
+>> When testing this driver on a 3.16-rc2 base, I'm finding that
+>> desc_addr gets assigned to NULL here, which results in an oops later
+>> on (see below).
 >
-> I really don't like how you handle the hardware descriptors in this
-> driver.
+> Note that on failure here...
 >
-> You copy back and forth between a software format and the hardware
-> format.  That's extremely wasteful and will hurt performance.
+>> > +       if (!ring->desc_addr)
+>> > +               goto err;
 >
-> Just use the raw format throughout, you can extract the fields when
-> you need them.
+> we jump to 'err'.
+>
+>> > +err:
+>> > +       dma_free_coherent(dev, size, ring->desc_addr, ring->dma);
+>
+> which then tries to call dma_free_coherent on a NULL pointer, and
+> possibly undefined ring->dma value.  That's not a nice thing to do,
+> and will probably lead to problems.  I know that none of the ARM
+> flavours of this function will handle this gracefully, and neither
+> does x86's version either.  So this is very probably illegal.
 
-I agree and I will fix this and resubmit the patches.
+I will fix this.
 
 >
-> You also make two passes when building a hardware descriptor:
+>> > +static int xgene_enet_create_desc_rings(struct net_device *ndev)
+>> > +{
+>> > +       struct xgene_enet_pdata *pdata = netdev_priv(ndev);
+>> > +       struct device *dev = &pdata->pdev->dev;
+>> > +       struct xgene_enet_desc_ring *rx_ring, *tx_ring, *cp_ring;
+>> > +       struct xgene_enet_desc_ring *buf_pool = NULL;
+>> > +       u8 cpu_bufnum = 0, eth_bufnum = 0;
+>> > +       u8 bp_bufnum = 0x20;
+>> > +       u16 ring_id, ring_num = 0;
+>> > +       int ret;
+>> > +
+>> > +       /* allocate rx descriptor ring */
+>> > +       ring_id = xgene_enet_get_ring_id(RING_OWNER_CPU, cpu_bufnum++);
+>> > +       rx_ring = xgene_enet_create_desc_ring(ndev, ring_num++,
+>> > +                                             RING_CFGSIZE_16KB, ring_id);
+>> > +       if (IS_ERR_OR_NULL(rx_ring)) {
+>> > +               ret = PTR_ERR(rx_ring);
+>> > +               goto err;
+>> > +       }
+>>
+>> Here we test for IS_ERR_OR_NULL. In the oops I'm hitting, rx_ring is
+>> NULL here - but PTR_ERR() apparently returns 0 in that case. So this
+>> function ends up returning no error.
 >
-> 1) write the values
-> 2) endian swap
+> Yes, IS_ERR_OR_NULL is evil for this very reason and should be avoided
+> where possible.  There were discussions a while back about removing it,
+> or at least deprecating it because it causes more bugs (exactly of this
+> type) than it solves.
+
+Thanks for pointing it out.  I will redesign IS_ERR_OR_NULL usage.
+
 >
-> This means you make three memory accesses on every 64-bit word
-> in every descriptor you setup, this is really inefficient.
->
-> You should just byte swap them in-situ as you build the raw
-> descriptors.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> --
+> FTTC broadband for 0.8mile line: now at 9.7Mbps down 460kbps up... slowly
+> improving, and getting towards what was expected from it.
