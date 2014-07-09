@@ -1,27 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] r8169: disable L23
-Date: Tue, 08 Jul 2014 19:59:57 -0700 (PDT)
-Message-ID: <20140708.195957.83100573934289236.davem@davemloft.net>
-References: <1394712342-15778-6-Taiwan-albertk@realtek.com>
+Subject: Re: [PATCH net] net/mlx4_en: Ignore budget on TX napi polling
+Date: Tue, 08 Jul 2014 20:01:16 -0700 (PDT)
+Message-ID: <20140708.200116.1002049422940185215.davem@davemloft.net>
+References: <1404808092-29411-1-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, nic_swsd@realtek.com
-To: hayeswang@realtek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-6-Taiwan-albertk@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: edumazet@google.com, netdev@vger.kernel.org, yevgenyp@mellanox.com,
+	ogerlitz@mellanox.com
+To: amirv@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:56012 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754511AbaGIDBR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2014 23:01:17 -0400
+In-Reply-To: <1404808092-29411-1-git-send-email-amirv@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hayes Wang <hayeswang@realtek.com>
-Date: Tue, 8 Jul 2014 16:26:10 +0800
+From: Amir Vadai <amirv@mellanox.com>
+Date: Tue,  8 Jul 2014 11:28:12 +0300
 
-> For RTL8411, RTL8111G, RTL8402, RTL8105, and RTL8106, the nic couldn't
-> leave the power saving mode of L23 for certain situation. This causes
-> the device lost for the system. Disable the L23 mode to avoid it.
+> It is recommended that TX work not count against the quota.
+> The cost of TX packet liberation is a minute percentage of what it costs to
+> process an RX frame. Furthermore, that SKB freeing makes memory available for
+> other paths in the stack.
 > 
-> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+> Give the TX a larger budget and be more aggressive about cleaning up the Tx
+> descriptors this budget could be changed using ethtool:
+> $ ethtool -C eth1 tx-frames-irq <budget>
+> 
+> Signed-off-by: Amir Vadai <amirv@mellanox.com>
 
-I agree with Francois, you need to provide a more detailed changelog
-for this patch.
+Applied, thanks for following up on this.
