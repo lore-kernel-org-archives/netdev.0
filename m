@@ -1,16 +1,18 @@
 From: Richard Weinberger <richard@nod.at>
-Subject: [PATCH v3] hyperv: Add netpoll support
-Date: Wed,  9 Jul 2014 16:23:59 +0200
-Message-ID: <1404915839-15940-1-git-send-email-richard@nod.at>
+Subject: Re: [PATCH v2] hyperv: Add netpoll support
+Date: Wed, 09 Jul 2014 16:24:50 +0200
+Message-ID: <53BD50B2.8050007@nod.at>
+References: <1404892702-11094-1-git-send-email-richard@nod.at>
+ <53BD4DFD.6070805@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: sergei.shtylyov@cogentembedded.com, Richard Weinberger <richard@nod.at>,
- romieu@fr.zoreil.com, linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
- devel@linuxdriverproject.org
-To: kys@microsoft.com,
-	haiyangz@microsoft.com
+Cc: devel@linuxdriverproject.org, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, romieu@fr.zoreil.com
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+ kys@microsoft.com, haiyangz@microsoft.com
 Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <53BD4DFD.6070805@cogentembedded.com>
 List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
  <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
 List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
@@ -22,44 +24,50 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-In order to have at least a netconsole to debug kernel issues on
-Windows Azure this patch implements netpoll support.
-Sending packets is easy, netvsc_start_xmit() does already everything
-needed.
+Am 09.07.2014 16:13, schrieb Sergei Shtylyov:
+> Hello.
+> 
+> On 07/09/2014 11:58 AM, Richard Weinberger wrote:
+> 
+>> In order to have at least a netconsole to debug kernel issues on
+>> Windows Azure this patch implements netpoll support.
+>> Sending packets is easy, netvsc_start_xmit() does already everything
+>> needed.
+> 
+>> Signed-off-by: Richard Weinberger <richard@nod.at>
+>> ---
+>>   drivers/net/hyperv/netvsc_drv.c | 11 +++++++++++
+>>   1 file changed, 11 insertions(+)
+> 
+>> diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+>> index 4fd71b7..45218d5 100644
+>> --- a/drivers/net/hyperv/netvsc_drv.c
+>> +++ b/drivers/net/hyperv/netvsc_drv.c
+>> @@ -736,6 +736,14 @@ static int netvsc_set_mac_addr(struct net_device *ndev, void *p)
+>>       return err;
+>>   }
+>>
+>> +#ifdef CONFIG_NET_POLL_CONTROLLER
+>> +static void netvsc_poll_controller(struct net_device *net)
+>> +{
+>> +    /* As netvsc_start_xmit() works synchronous we don't have to
+>> +       trigger anything here. */
+> 
+>    The multi-line comment style in the networking code is this:
+> 
+> /* bla
+>  * bla
+>  */
+> 
+>> +    return;
+> 
+>    Not needed.
+> 
+>> +}
+>> +#endif
+> [...]
 
-Signed-off-by: Richard Weinberger <richard@nod.at>
----
- drivers/net/hyperv/netvsc_drv.c | 11 +++++++++++
- 1 file changed, 11 insertions(+)
+-ETOOMANYCODINGSTYLES :)
 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 4fd71b7..fcf3be7 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -736,6 +736,14 @@ static int netvsc_set_mac_addr(struct net_device *ndev, void *p)
- 	return err;
- }
- 
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+static void netvsc_poll_controller(struct net_device *net)
-+{
-+	/* As netvsc_start_xmit() works synchronous we don't have to
-+	 * trigger anything here.
-+	 */
-+}
-+#endif
- 
- static const struct ethtool_ops ethtool_ops = {
- 	.get_drvinfo	= netvsc_get_drvinfo,
-@@ -751,6 +759,9 @@ static const struct net_device_ops device_ops = {
- 	.ndo_validate_addr =		eth_validate_addr,
- 	.ndo_set_mac_address =		netvsc_set_mac_addr,
- 	.ndo_select_queue =		netvsc_select_queue,
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	.ndo_poll_controller =		netvsc_poll_controller,
-+#endif
- };
- 
- /*
--- 
-2.0.1
+Thanks,
+//richard
