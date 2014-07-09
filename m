@@ -1,15 +1,23 @@
 From: Richard Weinberger <richard@nod.at>
-Subject: [PATCH v2] hyperv: Add netpoll support
-Date: Wed,  9 Jul 2014 09:58:22 +0200
-Message-ID: <1404892702-11094-1-git-send-email-richard@nod.at>
+Subject: Re: [PATCH] hyperv: Add netpoll support
+Date: Wed, 09 Jul 2014 09:59:15 +0200
+Message-ID: <53BCF653.9030904@nod.at>
+References: <1404811947-5174-1-git-send-email-richard@nod.at>
+ <9fb91c2ee32a4a59a2bec54043a6b9fd@BY2PR03MB299.namprd03.prod.outlook.com>
+ <53BC3AC5.6000203@nod.at>
+ <b2835410139848be8811403e3d7fa708@BY2PR03MB299.namprd03.prod.outlook.com>
+ <53BC51B4.4010703@nod.at> <20140708224724.GA2994@electric-eye.fr.zoreil.com>
+ <53BC7666.3050408@nod.at> <20140708234338.GA4181@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Richard Weinberger <richard@nod.at>, devel@linuxdriverproject.org,
- netdev@vger.kernel.org, linux-kernel@vger.kernel.org, romieu@fr.zoreil.com
-To: kys@microsoft.com,
-	haiyangz@microsoft.com
+Cc: "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+ Haiyang Zhang <haiyangz@microsoft.com>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20140708234338.GA4181@electric-eye.fr.zoreil.com>
 List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
  <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
 List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
@@ -21,44 +29,37 @@ Errors-To: driverdev-devel-bounces@linuxdriverproject.org
 Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-In order to have at least a netconsole to debug kernel issues on
-Windows Azure this patch implements netpoll support.
-Sending packets is easy, netvsc_start_xmit() does already everything
-needed.
+Am 09.07.2014 01:43, schrieb Francois Romieu:
+> Richard Weinberger <richard@nod.at> :
+>> Am 09.07.2014 00:47, schrieb Francois Romieu:
+> [...]
+>>> What are you taking about ? netconsole does not need to receive.
+>>
+>> Isn't netconsole is only one user of netpoll ?
+> 
+> Out of tree users are irrelevant. See netpoll related comments in
+> cd6362befe4cc7bf589a5236d2a780af2d47bcc9
 
-Signed-off-by: Richard Weinberger <richard@nod.at>
----
- drivers/net/hyperv/netvsc_drv.c | 11 +++++++++++
- 1 file changed, 11 insertions(+)
+Thanks lot for pointing this out!
 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index 4fd71b7..45218d5 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -736,6 +736,14 @@ static int netvsc_set_mac_addr(struct net_device *ndev, void *p)
- 	return err;
- }
- 
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+static void netvsc_poll_controller(struct net_device *net)
-+{
-+	/* As netvsc_start_xmit() works synchronous we don't have to
-+	   trigger anything here. */
-+	return;
-+}
-+#endif
- 
- static const struct ethtool_ops ethtool_ops = {
- 	.get_drvinfo	= netvsc_get_drvinfo,
-@@ -751,6 +759,9 @@ static const struct net_device_ops device_ops = {
- 	.ndo_validate_addr =		eth_validate_addr,
- 	.ndo_set_mac_address =		netvsc_set_mac_addr,
- 	.ndo_select_queue =		netvsc_select_queue,
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	.ndo_poll_controller =		netvsc_poll_controller,
-+#endif
- };
- 
- /*
--- 
-2.0.1
+>> Of course netconsole needs only to transmit SKBs.
+>> But if you look at other ->ndo_poll_controller implementations
+>> you'll notice that they care also about receiving.
+> 
+> It's just the long, illuminating history of netpoll :o)
+> 
+> Some limited Rx netpoll support may be done but it needs more work
+> than was originally advertised.
+> 
+>>> hyperv start_xmit handler almost does its own Tx completion as you have
+>>> noticed. The situation is imho close to a virtual device one as was veth
+>>> in bb446c19fefd7b4435adb12a9dd7666adc5b553a.
+>>
+>> Bad commit reference: bb446c19fefd7b4435adb12a9dd7666adc5b553a
+> 
+> Sorry, it currently belongs to davem's net-next.
+
+Found it already. :)
+
+Thanks,
+//richard
