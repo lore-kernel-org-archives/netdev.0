@@ -1,73 +1,52 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: [PATCH v2] hyperv: Add netpoll support
-Date: Wed, 09 Jul 2014 16:24:50 +0200
-Message-ID: <53BD50B2.8050007@nod.at>
-References: <1404892702-11094-1-git-send-email-richard@nod.at>
- <53BD4DFD.6070805@cogentembedded.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net-next 1/3 v4] pktgen: Fill the payload optionally with
+ a pattern
+Date: Wed, 9 Jul 2014 15:51:34 +0100
+Message-ID: <53BD56F6.3060407@citrix.com>
+References: <1404330855-24546-1-git-send-email-zoltan.kiss@citrix.com>	<1404330855-24546-2-git-send-email-zoltan.kiss@citrix.com> <20140708.112838.2087453949565741801.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: devel@linuxdriverproject.org, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, romieu@fr.zoreil.com
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
- kys@microsoft.com, haiyangz@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <53BD4DFD.6070805@cogentembedded.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+Cc: <steffen.klassert@secunet.com>, <minipli@googlemail.com>,
+	<dborkman@redhat.com>, <tgraf@suug.ch>, <joe@perches.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<xen-devel@lists.xenproject.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140708.112838.2087453949565741801.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Am 09.07.2014 16:13, schrieb Sergei Shtylyov:
-> Hello.
-> 
-> On 07/09/2014 11:58 AM, Richard Weinberger wrote:
-> 
->> In order to have at least a netconsole to debug kernel issues on
->> Windows Azure this patch implements netpoll support.
->> Sending packets is easy, netvsc_start_xmit() does already everything
->> needed.
-> 
->> Signed-off-by: Richard Weinberger <richard@nod.at>
->> ---
->>   drivers/net/hyperv/netvsc_drv.c | 11 +++++++++++
->>   1 file changed, 11 insertions(+)
-> 
->> diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
->> index 4fd71b7..45218d5 100644
->> --- a/drivers/net/hyperv/netvsc_drv.c
->> +++ b/drivers/net/hyperv/netvsc_drv.c
->> @@ -736,6 +736,14 @@ static int netvsc_set_mac_addr(struct net_device *ndev, void *p)
->>       return err;
->>   }
+On 08/07/14 19:28, David Miller wrote:
+> From: Zoltan Kiss <zoltan.kiss@citrix.com>
+> Date: Wed, 2 Jul 2014 20:54:13 +0100
+>
+>> @@ -1129,11 +1133,13 @@ static ssize_t pktgen_if_write(struct file *file,
+>>   		i += len;
 >>
->> +#ifdef CONFIG_NET_POLL_CONTROLLER
->> +static void netvsc_poll_controller(struct net_device *net)
->> +{
->> +    /* As netvsc_start_xmit() works synchronous we don't have to
->> +       trigger anything here. */
-> 
->    The multi-line comment style in the networking code is this:
-> 
-> /* bla
->  * bla
->  */
-> 
->> +    return;
-> 
->    Not needed.
-> 
->> +}
->> +#endif
-> [...]
+>>   		if (node_possible(value)) {
+>> +			int j;
+>>   			pkt_dev->node = value;
+>>   			sprintf(pg_result, "OK: node=%d", pkt_dev->node);
+>> -			if (pkt_dev->page) {
+>> -				put_page(pkt_dev->page);
+>> -				pkt_dev->page = NULL;
+>> +			for (j = 0; j < MAX_SKB_FRAGS; ++j)
+>> +				if (pkt_dev->pages[j]) {
+>> +					put_page(pkt_dev->pages[j]);
+>> +					pkt_dev->pages[j] = NULL;
+>>   			}
+>>   		}
+>
+> I'm scratching my head with the bracing created here, and it's because
+> the indentation is wrong:
+>
+> 	for () /* <-- no openning curly brace */
+> 		if () {
+> 			x;
+> 			y;
+> 	} /* <-- thus, wrong indentation */
 
--ETOOMANYCODINGSTYLES :)
+Hm, checkpatch couldn't catch this, I'll report it to the maintainers.
 
-Thanks,
-//richard
+Zoli
