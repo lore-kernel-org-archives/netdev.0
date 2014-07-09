@@ -1,60 +1,59 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net-next 0/5] SCTP updates
-Date: Wed, 9 Jul 2014 06:49:58 -0400
-Message-ID: <20140709104958.GA3784@hmsreliant.think-freely.org>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 0/5] SCTP updates
+Date: Wed, 9 Jul 2014 11:12:06 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1726F0E9@AcuExch.aculab.com>
 References: <1404507908-6949-1-git-send-email-dborkman@redhat.com>
  <20140708111408.GA23026@hmsreliant.think-freely.org>
  <53BBFAA6.80408@redhat.com>
  <20140708144127.GB23026@hmsreliant.think-freely.org>
  <53BD1211.4080504@redhat.com>
+ <20140709104958.GA3784@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, geirola@gmail.com, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"geirola@gmail.com" <geirola@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
+To: 'Neil Horman' <nhorman@tuxdriver.com>,
+	Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:48361 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751032AbaGIKuU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2014 06:50:20 -0400
-Content-Disposition: inline
-In-Reply-To: <53BD1211.4080504@redhat.com>
+Received: from mx0.aculab.com ([213.249.233.131]:57820 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1755313AbaGILNk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2014 07:13:40 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 04345-06 for <netdev@vger.kernel.org>;
+ Wed,  9 Jul 2014 12:13:31 +0100 (BST)
+In-Reply-To: <20140709104958.GA3784@hmsreliant.think-freely.org>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 09, 2014 at 11:57:37AM +0200, Daniel Borkmann wrote:
-> On 07/08/2014 04:41 PM, Neil Horman wrote:
-> >On Tue, Jul 08, 2014 at 04:05:26PM +0200, Daniel Borkmann wrote:
-> >>On 07/08/2014 01:14 PM, Neil Horman wrote:
-> >>...
-> >>>since you're adding cmsg's from rfc6458, do you also want to add some
-> >>>deprecation warnings around the use of SCTP_SNDRCVINFO too, so we can start to
-> >>>schedule its eventual removal?
-> >>
-> >>Sure, we can do that. Do you want me to include it into the set?
+From: Neil Horman
+> > In how many years do you plan a removal ... I think we're stuck with uapi
+> > basically forever as we don't want to break old binaries, no? ;/
 > >
-> >If you're plan is to implement 6458, then yes, I think that would be good.
-> 
-> Looking a bit closer at it, all our pr_warn_ratelimited(DEPRECATED ...)
-> warnings in SCTP are being done in 'slowpath' {set,get}sockopt(2) operations
-> only, which is fine. What you're suggesting is to place similar ratelimited
-> warnings (due to different possible pids on the machine) into the 'fastpath'
-> where we get and set cmsg message headers.
-> 
-> While that may be fine for {set,get}sockopt(2) that's called once or very few
-> times, I'm not sure this is a good idea in SCTP_SNDRCVINFO as it will yield
-> to unnecessary spamming the klog since up to now this is the only way our
-> users can set or receive this info. I'm not sure we want to annoy users like
-> that ...
-> 
-Then we wrap it in a ONCE macro so that it only triggers on the first use
-instance.
+> I thought we could remove things on a schedule if we followed the deprecation
+> process, but that may just be for sysfs.  Regardless, it would still be nice to
+> inform people they are using an older api.
 
-> In how many years do you plan a removal ... I think we're stuck with uapi
-> basically forever as we don't want to break old binaries, no? ;/
-> 
-I thought we could remove things on a schedule if we followed the deprecation
-process, but that may just be for sysfs.  Regardless, it would still be nice to
-inform people they are using an older api.
+The issue here is that it is an application API, not a system programming one.
+I'd guess that most sysfs stuff is only used by programs that are released
+as part of a Linux distribution - and thus code that is likely to be
+release with a matching kernel.
 
-Neil
+These sccp structures are much more likely to be used by 'proper' 3rd party
+applications, targeted at multiple kernel versions - possibly in binary form.
+We compile applications on the oldest linux version we think our customers
+are using - otherwise we'd have to release multiple copies.
+
+So I don't think they can be deprecated (with warnings from the kernel) for
+a long time, perhaps 5 or 10 years!
+
+The first stage would be (somehow) to generate warnings when applications
+are compiled. Only when that has been in place for some time would it
+make sense to generate kernel warnings.
+
+		David
