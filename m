@@ -1,65 +1,37 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: [PATCH] hyperv: Add netpoll support
-Date: Wed, 09 Jul 2014 09:59:15 +0200
-Message-ID: <53BCF653.9030904@nod.at>
-References: <1404811947-5174-1-git-send-email-richard@nod.at>
- <9fb91c2ee32a4a59a2bec54043a6b9fd@BY2PR03MB299.namprd03.prod.outlook.com>
- <53BC3AC5.6000203@nod.at>
- <b2835410139848be8811403e3d7fa708@BY2PR03MB299.namprd03.prod.outlook.com>
- <53BC51B4.4010703@nod.at> <20140708224724.GA2994@electric-eye.fr.zoreil.com>
- <53BC7666.3050408@nod.at> <20140708234338.GA4181@electric-eye.fr.zoreil.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next 0/5] SCTP updates
+Date: Wed, 09 Jul 2014 09:59:52 +0200
+Message-ID: <53BCF678.7060107@redhat.com>
+References: <1404507908-6949-1-git-send-email-dborkman@redhat.com> <20140708.144022.1506800165140398530.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
- Haiyang Zhang <haiyangz@microsoft.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20140708234338.GA4181@electric-eye.fr.zoreil.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Cc: geirola@gmail.com, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:47025 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753276AbaGIH76 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Jul 2014 03:59:58 -0400
+In-Reply-To: <20140708.144022.1506800165140398530.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am 09.07.2014 01:43, schrieb Francois Romieu:
-> Richard Weinberger <richard@nod.at> :
->> Am 09.07.2014 00:47, schrieb Francois Romieu:
-> [...]
->>> What are you taking about ? netconsole does not need to receive.
+On 07/08/2014 11:40 PM, David Miller wrote:
+> From: Daniel Borkmann <dborkman@redhat.com>
+> Date: Fri,  4 Jul 2014 23:05:03 +0200
+>
+>> This set improves the SCTP socket API to be more in line with
+>> RFC6458, Geir and myself have finalized it eventually. While
+>> at it, the first patch also fixes two possible information
+>> leaks that should go to net tree as well. For more details, I
+>> refer you to the patches themselves.
 >>
->> Isn't netconsole is only one user of netpoll ?
-> 
-> Out of tree users are irrelevant. See netpoll related comments in
-> cd6362befe4cc7bf589a5236d2a780af2d47bcc9
+>> Thanks a lot.
+>
+> Where are we with this series?  Will there be another respin?
 
-Thanks lot for pointing this out!
-
->> Of course netconsole needs only to transmit SKBs.
->> But if you look at other ->ndo_poll_controller implementations
->> you'll notice that they care also about receiving.
-> 
-> It's just the long, illuminating history of netpoll :o)
-> 
-> Some limited Rx netpoll support may be done but it needs more work
-> than was originally advertised.
-> 
->>> hyperv start_xmit handler almost does its own Tx completion as you have
->>> noticed. The situation is imho close to a virtual device one as was veth
->>> in bb446c19fefd7b4435adb12a9dd7666adc5b553a.
->>
->> Bad commit reference: bb446c19fefd7b4435adb12a9dd7666adc5b553a
-> 
-> Sorry, it currently belongs to davem's net-next.
-
-Found it already. :)
-
-Thanks,
-//richard
+I'll add a 6th patch into the series to address Neil's feedback
+and will respin with the rest unchanged. I'll try to get to that
+by today. Thanks.
