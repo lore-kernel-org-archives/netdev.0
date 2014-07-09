@@ -1,23 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build failure after merge of the net-next tree
-Date: Tue, 08 Jul 2014 20:47:51 -0700 (PDT)
-Message-ID: <20140708.204751.1058890009924915825.davem@davemloft.net>
-References: <20140709132619.19eb3f6a@canb.auug.org.au>
+Subject: Re: [PATCH net-next v4] xen-netback: Adding debugfs "io_ring_qX"
+ files
+Date: Tue, 08 Jul 2014 20:49:15 -0700 (PDT)
+Message-ID: <20140708.204915.1577238573149775056.davem@davemloft.net>
+References: <1404845354-16237-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, therbert@google.com
-To: sfr@canb.auug.org.au
+Cc: wei.liu2@citrix.com, Ian.Campbell@citrix.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	xen-devel@lists.xenproject.org
+To: zoltan.kiss@citrix.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140709132619.19eb3f6a@canb.auug.org.au>
+In-Reply-To: <1404845354-16237-1-git-send-email-zoltan.kiss@citrix.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Wed, 9 Jul 2014 13:26:19 +1000
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Date: Tue, 8 Jul 2014 19:49:14 +0100
 
-> After merging the net-next tree, today's linux-next build (powerpc
-> ppc64_defconfig) failed like this:
+> This patch adds debugfs capabilities to netback. There used to be a similar
+> patch floating around for classic kernel, but it used procfs. It is based on a
+> very similar blkback patch.
+> It creates xen-netback/[vifname]/io_ring_q[queueno] files, reading them output
+> various ring variables etc. Writing "kick" into it imitates an interrupt
+> happened, it can be useful to check whether the ring is just stalled due to a
+> missed interrupt.
+> 
+> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
 
-This got fixed 5 minutes ago.
+Applied, but like others I consider those ifdefs hella ugly.
+
+Provide stubs in an #else block, then you don't have to crap up the
+main code.
