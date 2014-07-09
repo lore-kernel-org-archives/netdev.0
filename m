@@ -1,68 +1,44 @@
-From: Boris BREZILLON <boris.brezillon@free-electrons.com>
-Subject: Re: [PATCH v2 0/2] ARM: at91: remove phy fixup for sama5d3xek
- boards
-Date: Wed, 9 Jul 2014 18:34:42 +0200
-Message-ID: <20140709183442.14b8aef8@bbrezillon>
-References: <1403777615-25685-1-git-send-email-boris.brezillon@free-electrons.com>
+From: Mahesh Bandewar <maheshb@google.com>
+Subject: Re: [PATCH] bonding: Do not try to send packets over dead link in TLB mode.
+Date: Wed, 9 Jul 2014 09:52:40 -0700
+Message-ID: <CAF2d9jgLAx8hFQODpt3T=qk7RvVRNzYEE=ARo+Hvk2Pk_bbPjA@mail.gmail.com>
+References: <1404868198-24839-1-git-send-email-maheshb@google.com>
+ <20140709102441.GB1227@redhat.com> <53BD18A7.6090109@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Boris BREZILLON <boris.brezillon@free-electrons.com>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>,
-	Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
-	Alexandre Belloni <alexandre.belloni@free-electrons.com>,
-	Andrew Victor <linux@maxim.org.za>,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Bo Shen <voice.shen@atmel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1403777615-25685-1-git-send-email-boris.brezillon@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Veaceslav Falico <vfalico@redhat.com>,
+	Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Maciej Zenczykowski <maze@google.com>
+To: Nikolay Aleksandrov <nikolay@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vc0-f173.google.com ([209.85.220.173]:43564 "EHLO
+	mail-vc0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752746AbaGIQxC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2014 12:53:02 -0400
+Received: by mail-vc0-f173.google.com with SMTP id lf12so7455303vcb.32
+        for <netdev@vger.kernel.org>; Wed, 09 Jul 2014 09:53:01 -0700 (PDT)
+In-Reply-To: <53BD18A7.6090109@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Bo,
-
-I know you're quite busy, but if you have some time could you test this
-series on both CPU Modules (Embest and Ronetix): I only own the Embest
-one.
-
-Best Regards,
-
-Boris
-
-On Thu, 26 Jun 2014 12:13:33 +0200
-Boris BREZILLON <boris.brezillon@free-electrons.com> wrote:
-
-> Hello,
-> 
-> This patch removes a board specific hook for sama5d3xek boards from the
-> sama5d3 generic DT board file.
-> 
-> This hook (which register a phy fixup configuring board specific delays
-> in the ksz9021 ethernet phy) is now replaced by the appropriate DT
-> properties definitions in the sama5d3xcm.dtsi file.
-> 
-> Best Regards,
-> 
-> Boris
-> 
-> Changes since v1:
->  - fix txc-skew-ps and rxc-skew-ps delays
->  - remove phy address info to handle Ronetix and Embest HW designs
-> 
-> Boris BREZILLON (2):
->   ARM: at91/dt: describe rgmii ethernet phy connected to sama5d3xek
->     boards
->   ARM: at91: remove phy fixup for sama5d3xek boards
-> 
->  arch/arm/boot/dts/sama5d3xcm.dtsi   | 15 +++++++++++++++
->  arch/arm/mach-at91/board-dt-sama5.c | 22 ----------------------
->  2 files changed, 15 insertions(+), 22 deletions(-)
-> 
-
-
-
--- 
-Boris Brezillon, Free Electrons
-Embedded Linux and Kernel engineering
-http://free-electrons.com
+On Wed, Jul 9, 2014 at 3:25 AM, Nikolay Aleksandrov <nikolay@redhat.com> wrote:
+[...]
+>>> +
+>>> +    spin_lock(&bond_info->slave_arr_lock);
+>>
+>> I don't think you can re-enter bond_alb_handle_link_change(), as it's
+>> protected either by rtnl or write-lock curr_active_slave.
+>>
+> Actually a very good catch :-)
+> Maybe the allocation above should be done with GFP_ATOMIC.
+>
+Actually I did try relying on RTNL but looks like in miimon path the
+RTNL is not held and RTNL_ASSERT failed. But I do see that
+curr_active_slave lock is held but not sure if that is always the
+case. So it does make sense to change the alloc to use GFP_ATOMIC in
+this case.
+[...]
