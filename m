@@ -1,46 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] return the right retcode when add a unreachable route
-Date: Tue, 08 Jul 2014 19:33:57 -0700 (PDT)
-Message-ID: <20140708.193357.143714071345442602.davem@davemloft.net>
-References: <1404644511-22112-1-git-send-email-lucien.xin@gmail.com>
-	<CAHA+R7OgTOCASmT03H37KKobb6m0hs3amF7GNWLy=JRLW+2dew@mail.gmail.com>
-	<CADvbK_fBvG9WSMRWifJRUr6p-OQsZJL+MXC8LdDSbTEW8uSS4w@mail.gmail.com>
+Subject: Re: [PATCH] ip_tunnel: fix ip_tunnel_lookup
+Date: Tue, 08 Jul 2014 19:35:36 -0700 (PDT)
+Message-ID: <20140708.193536.1470966008910828465.davem@davemloft.net>
+References: <20140705022637.73152ff57309c468c1fdb563@qrator.net>
+	<20140708.151210.1879376103263511218.davem@davemloft.net>
+	<20140709044759.009fdce94cf1fb2d872a4a4f@qrator.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: cwang@twopensource.com, netdev@vger.kernel.org
-To: lucien.xin@gmail.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: ixaphire@qrator.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55913 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55927 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751163AbaGICeA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2014 22:34:00 -0400
-In-Reply-To: <CADvbK_fBvG9WSMRWifJRUr6p-OQsZJL+MXC8LdDSbTEW8uSS4w@mail.gmail.com>
+	with ESMTP id S1751163AbaGICfh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 8 Jul 2014 22:35:37 -0400
+In-Reply-To: <20140709044759.009fdce94cf1fb2d872a4a4f@qrator.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: lucien xin <lucien.xin@gmail.com>
-Date: Wed, 9 Jul 2014 09:51:02 +0800
+From: Dmitry Popov <ixaphire@qrator.net>
+Date: Wed, 9 Jul 2014 04:47:59 +0400
 
-> On Wed, Jul 9, 2014 at 2:49 AM, Cong Wang <cwang@twopensource.com> wrote:
->> On Sun, Jul 6, 2014 at 4:01 AM, Xin Long <lucien.xin@gmail.com> wrote:
->>
->> This would potentially break user-space applications.
+> How I see ip_tunnel_lookup logic:
+> 1) try to find exact match (and if found return this tunnel):
+> tunnel.saddr == iph.daddr && tunnel.daddr == iph.saddr && key_matched()
+> 2) try to find matched (local) wildcard tunnel:
+> tunnel.saddr == any && tunnel.daddr == iph.saddr && key_matched()
+> 3) try to find matched (remote) wildcard tunnel:
+> tunnel.saddr == iph.daddr && tunnel.daddr == any && key_matched()
+> (there is also a test for multicast tunnel, but let's skip it for simplicity)
+> 4) try to find matched (full) wildcard tunnel:
+> tunnel.saddr == any && tunnel.daddr == any && key_matched()
+> 5) if nothing found return default tunnel.
 > 
-> yes, you are right. if I only handle the -ESRCH , like:
-> 
-> -       return __fib_lookup(net, flp, res);
-> +
-> +       err = __fib_lookup(net, flp, res);
-> +       if(err == -ESRCH)
-> +               return -ENETUNREACH;
-> +
-> +       return err;
-> 
-> I think it will be ok, after all, it looks confused that err is *No
-> such process* when add a route.
+> According to this logic, in 4th loop (the one you quoted) we have to test that
+> tunnel.daddr == any && tunnel.saddr == any. In my opinion those two new lines
+> are the best way to achieve it.
 
-It doesn't matter, if applications want to work on all kernels they
-will test whatever error code is being provided now.
+Now it makes sense, thanks for explaining.
 
-Therefore, by changing it you will break those applications.
+Applied and queued up for -stable, thanks again.
