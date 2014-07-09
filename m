@@ -1,29 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] arc_emac: Remove unused pointer to net_device from
- arc_emac_priv
-Date: Wed, 09 Jul 2014 16:49:43 -0700 (PDT)
-Message-ID: <20140709.164943.797934251131977857.davem@davemloft.net>
-References: <1404896876-29315-1-git-send-email-tklauser@distanz.ch>
+Subject: Re: [PATCH 1/2] net: davinci_mdio: reuse for keystone2 arch
+Date: Wed, 09 Jul 2014 16:52:32 -0700 (PDT)
+Message-ID: <20140709.165232.539576872991411664.davem@davemloft.net>
+References: <1404911451-9921-1-git-send-email-grygorii.strashko@ti.com>
+	<1404911451-9921-2-git-send-email-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: tklauser@distanz.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34657 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751294AbaGIXto (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2014 19:49:44 -0400
-In-Reply-To: <1404896876-29315-1-git-send-email-tklauser@distanz.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: f.fainelli@gmail.com, santosh.shilimkar@ti.com,
+	netdev@vger.kernel.org, prabhakar.csengg@gmail.com, nsekhar@ti.com,
+	robh+dt@kernel.org, linux-kernel@vger.kernel.org,
+	devicetree@vger.kernel.org,
+	davinci-linux-open-source@linux.davincidsp.com
+To: grygorii.strashko@ti.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1404911451-9921-2-git-send-email-grygorii.strashko@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tobias Klauser <tklauser@distanz.ch>
-Date: Wed,  9 Jul 2014 11:07:56 +0200
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Date: Wed, 9 Jul 2014 16:10:50 +0300
 
-> The pointer to the struct net_device in the private data is only
-> assigned but never used, so delete it.
-> 
-> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+>  Required properties:
+> -- compatible		: Should be "ti,davinci_mdio"
+> +- compatible		: Should be "ti,davinci_mdio" or "ti,keystone-mdio"
 
-Also applied, thank you.
+Why the inconsistency in naming schemes?  I don't see any reason
+to be different wrt. "_" vs. "-" in the name string.
