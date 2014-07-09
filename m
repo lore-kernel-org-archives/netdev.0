@@ -1,92 +1,61 @@
-From: "Luis R. Rodriguez" <mcgrof@suse.com>
-Subject: Re: [PATCH 0/3] drivers: expand usage of request_firmware_direct()
-Date: Wed, 9 Jul 2014 02:46:02 +0200
-Message-ID: <20140709004602.GT27687@wotan.suse.de>
-References: <1403649583-12707-1-git-send-email-mcgrof@do-not-panic.com> <s5hmwczve4i.wl%tiwai@suse.de> <20140708222536.GA7745@kroah.com> <20140708235244.GS27687@wotan.suse.de> <20140709002405.GA7025@kroah.com>
+From: Dmitry Popov <ixaphire@qrator.net>
+Subject: Re: [PATCH] ip_tunnel: fix ip_tunnel_lookup
+Date: Wed, 9 Jul 2014 04:47:59 +0400
+Message-ID: <20140709044759.009fdce94cf1fb2d872a4a4f@qrator.net>
+References: <20140705022637.73152ff57309c468c1fdb563@qrator.net>
+	<20140708.151210.1879376103263511218.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Takashi Iwai <tiwai@suse.de>,
-	"Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	chunkeey@googlemail.com, leedom@chelsio.com, cocci@systeme.lip6.fr,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-wireless@vger.kernel.org, linux-firmware@kernel.org
-To: Greg KH <gregkh@linuxfoundation.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140709002405.GA7025@kroah.com>
+In-Reply-To: <20140708.151210.1879376103263511218.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 08, 2014 at 05:24:05PM -0700, Greg KH wrote:
-> On Wed, Jul 09, 2014 at 01:52:44AM +0200, Luis R. Rodriguez wrote:
-> > On Tue, Jul 08, 2014 at 03:25:36PM -0700, Greg KH wrote:
-> > > On Thu, Jun 26, 2014 at 06:18:05PM +0200, Takashi Iwai wrote:
-> > > > At Tue, 24 Jun 2014 15:39:40 -0700,
-> > > > Luis R. Rodriguez wrote:
-> > > > > 
-> > > > > From: "Luis R. Rodriguez" <mcgrof@suse.com>
-> > > > > 
-> > > > > Takashi added request_firmware_direct() via bba3a87e9 through v3.14-rc1
-> > > > > which avoids the unnecessary delay introduced by using the udev firmware
-> > > > > loader in case the first try failed when loading we know loading "firmware"
-> > > > > is optional. The first use case was for microcode update but if drivers are
-> > > > > using it for optional configuration updates, custom EEPROMs, and other
-> > > > > junk other than firmware that should apply as well as good use cases,
-> > > > > specially if the driver already had a first phase in which it loaded
-> > > > > the first required firmware. While reviewing one driver I figured it'd
-> > > > > be best to try to give formalizing a check with SmPL. This isn't perfect
-> > > > > it had 1 false possitive drivers/fmc/fmc-fakedev.c on the entire kernel
-> > > > > run but my hope is this can be extended a bit more to build more
-> > > > > confidence, and then perhaps stuff it as a coccicheck.
-> > > > > 
-> > > > > I suppose this will not be required once and if we remove
-> > > > > CONFIG_FW_LOADER_USER_HELPER. Is that ever going away for good? I know
-> > > > > there was a recent attempt to remove the udev loader support but
-> > > > > it was unclear if the special alternative helper support would be
-> > > > > removed upstream from the kernel.
-> > > > 
-> > > > Actually a few weeks ago I sent a patch to make request_firmware()
-> > > > with usermode helper explicitly to be used by some drivers (like
-> > > > dell-rbu).  I hope Greg took it for 3.17.  Once when this patch is in,
-> > > > distros can turn off the usermode helper fallback gracefully, so no
-> > > > ugly timeout issue shouldn't happen.
-> > > 
-> > > That patch is now merged, so this series should not be needed anymore,
-> > > right?
-> > 
-> > Now that it is merged, and another patch I posted which you also merged about
-> > printing differences, the main difference between request_firmware() and
-> > request_firmware_direct() for distributions that did not enable the fw
-> > loader helper is just a printk. That's all. While the difference is minor
-> > this series addresses a few drivers that we know have firmware that is
-> > optional, so a printk is indeed not really needed as otherwise it can confuse
-> > users in terms of expectations. The SmPL grammar for this series could
-> > likely be expanded to cover other uses cases but obviously this is not
-> > critical and at best best effort. For distributions that stay in the stone age
-> > and do not disable the fw loader helper this will speed up boot for a few use
-> > cases. This series still applies then.
-> > 
-> > Whether or not its required or optional for firmware to be loaded for a driver
-> > is an example small difference in specifications that I expect drivers /
-> > subsystems to be able to make, I suspect the differences might grow in the
-> > future so I rather keep these requirements well annonated for now. Another
-> > example difference I am looking into is whether or not firmware should be
-> > digitally signed. While it may be questionable whether or not this is needed
-> > for actual firmware that runs on microprocessors some subsystems might want to
-> > use this to abandon other udev helpers which simply throw data over, one of
-> > which I am looking into replacing is CRDA for the regulatory database. We
-> > recently ran into some snags when the internal regdb is used and we use a
-> > parser, having the ability to load it directly using request_firmware_direct()
-> > with digital signature support as an option would enable us to simplify how the
-> > redb is used/parsed on both embedded and non-embedded systems.
-> 
-> I'm confused, do you want me to review your patches or not?
-> 
-> If so, care to resend them, they are now purged from my patch queue...
+On Tue, 08 Jul 2014 15:12:10 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-You can ignore these patches and each driver / subsystem maintainer can
-merge as they see fit. The p54 patch already went in, the cxgb4 mainainers
-and vub300 maintainers should review the patches for those drivers and
-can decide.
+> From: Dmitry Popov <ixaphire@qrator.net>
+> Date: Sat, 5 Jul 2014 02:26:37 +0400
+> 
+> > @@ -205,6 +207,8 @@ struct ip_tunnel *ip_tunnel_lookup(struct ip_tunnel_net *itn,
+> >  
+> >  	hlist_for_each_entry_rcu(t, head, hash_node) {
+> >  		if (t->parms.i_key != key ||
+> > +		    t->parms.iph.saddr != 0 ||
+> > +		    t->parms.iph.daddr != 0 ||
+> >  		    !(t->dev->flags & IFF_UP))
+> >  			continue;
+> >  
+> 
+> I don't really understand the logic of these tests.
+> 
+> Usually the canonical way to test these kinds of things is:
+> 
+> 	if (parms->saddr && parms->saddr != saddr)
+> 		goto no_match;
+> 
+> But you are signalling a non-match any time the address is not a
+> wildcard.
+> 
+> Why?
 
-  Luis
+Because that's exactly what I want: to skip any non-wildcard tunnels.
+
+How I see ip_tunnel_lookup logic:
+1) try to find exact match (and if found return this tunnel):
+tunnel.saddr == iph.daddr && tunnel.daddr == iph.saddr && key_matched()
+2) try to find matched (local) wildcard tunnel:
+tunnel.saddr == any && tunnel.daddr == iph.saddr && key_matched()
+3) try to find matched (remote) wildcard tunnel:
+tunnel.saddr == iph.daddr && tunnel.daddr == any && key_matched()
+(there is also a test for multicast tunnel, but let's skip it for simplicity)
+4) try to find matched (full) wildcard tunnel:
+tunnel.saddr == any && tunnel.daddr == any && key_matched()
+5) if nothing found return default tunnel.
+
+According to this logic, in 4th loop (the one you quoted) we have to test that
+tunnel.daddr == any && tunnel.saddr == any. In my opinion those two new lines
+are the best way to achieve it.
