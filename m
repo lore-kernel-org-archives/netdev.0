@@ -1,87 +1,65 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: Re: RSS is not efficient when forwarding (ixgbe)
-Date: Wed, 9 Jul 2014 02:22:05 -0300
-Message-ID: <20140709052205.GW2346@t520.home>
-References: <20140703224408.GA2343@t520.home>
- <20140704193644.GB2343@t520.home>
- <CA+mtBx-dY2eoDzL-1K8F8Br224H+c4fzVtVPu9JmnjLdQKuAOg@mail.gmail.com>
- <20140707105523.GC2343@t520.home>
- <F6FB0E698C9B3143BDF729DF2228664685DCFE12@ORSMSX110.amr.corp.intel.com>
- <20140708002837.GS2346@t520.home>
- <21436.9657.845209.575715@fisica.ufpr.br>
- <20140708172127.GV2346@t520.home>
- <21436.11067.667194.899369@fisica.ufpr.br>
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Subject: RE: [PATCH NET-NEXT V2] netxen: fix ethtool rx_dropped information
+ in ethtool get_ethtool_stats()
+Date: Wed, 9 Jul 2014 06:30:36 +0000
+Message-ID: <262CB373A6D1F14F9B81E82F74F77D5A46FEEF8B@avmb2.qlogic.org>
+References: <1404827830-22990-1-git-send-email-ethan.zhao@oracle.com>
+ <53BCABD3.3050207@oracle.com>
+ <20140708.204602.1475610247455018529.davem@davemloft.net>
+ <53BCCFE1.5000806@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Skidmore, Donald C" <donald.c.skidmore@intel.com>,
-	Tom Herbert <therbert@google.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Carlos Carvalho <carlos@fisica.ufpr.br>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "balbi@ti.com" <balbi@ti.com>, netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	"sriharsha.devdas@oracle.com" <sriharsha.devdas@oracle.com>,
+	"ethan.kernel@gmail.com" <ethan.kernel@gmail.com>,
+	"vaughan.cao@oracle.com" <vaughan.cao@oracle.com>
+To: ethan zhao <ethan.zhao@oracle.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56076 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751271AbaGIFWP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 9 Jul 2014 01:22:15 -0400
-Content-Disposition: inline
-In-Reply-To: <21436.11067.667194.899369@fisica.ufpr.br>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:30727 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751054AbaGIGam convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Jul 2014 02:30:42 -0400
+In-Reply-To: <53BCCFE1.5000806@oracle.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 08, 2014 at 02:32:43PM -0300, Carlos Carvalho wrote:
-> Flavio Leitner (fbl@redhat.com) wrote on 8 July 2014 14:21:
->  >On Tue, Jul 08, 2014 at 02:09:13PM -0300, Carlos Carvalho wrote:
->  >> Flavio Leitner (fbl@redhat.com) wrote on 7 July 2014 21:28:
->  >>  >On Mon, Jul 07, 2014 at 04:33:24PM +0000, Skidmore, Donald C wrote:
->  >>  >> 
->  >>  >> 
->  >>  >> > 
->  >>  >> > It's a router forwarding traffic from one interface to another, so I guess it's
->  >>  >> > only the kernel. BTW, no firewall.
->  >>  >> > 
->  >>  >> > Flow Director needs to be enabled and I am using defaults.
->  >>  >> 
->  >>  >> Flow Director in ATR mode is on by default for ixgbe.  So like Tom mentioned the driver will create hash buckets for egress packets.  You could try disabling ATR and just use RSS.  Which would probably be the right thing to do any way since Flow Director isn't very useful for routing scenarios.  
->  >>  >
->  >>  >That was it.
->  >> 
->  >> We have a similar setup and similar problem. How do we disable ATR? I
->  >> tried to set ntuple off but this almost zeroed traffic. I also tried
->  >> to change rx-flow-hash but ethtool says it's not possible. The docs
->  >> say that one can disable ATR by setting AtrSampleRate to 0 but this
->  >> parameter doesn't exist in 3.14.10.
->  >> 
->  >> So, how do we disable ATR and keep RSS?
->  > 
->  >Keep in mind that this is actually 2 problems. One is enabling the
->  >NIC to receive the streams in all queues for this scenario (setting
->  >ntuple off and restarting the traffic works for me). The second problem
->  >is having all the queue interrupts spread among the CPUs. That's what
->  >does irqbalance, tuna, etc...
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-
+> owner@vger.kernel.org] On Behalf Of ethan zhao
+> Sent: Wednesday, July 09, 2014 10:45 AM
+> To: David Miller
+> Cc: balbi@ti.com; netdev; linux-kernel; sriharsha.devdas@oracle.com;
+> ethan.kernel@gmail.com; vaughan.cao@oracle.com
+> Subject: Re: [PATCH NET-NEXT V2] netxen: fix ethtool rx_dropped
+> information in ethtool get_ethtool_stats()
 > 
-> Spreading the interrupts among the cpus is not the issue for us. The
-> problem is that the number of interrupts is *very* different among the
-> irq's, so no matter how I distribute them among cores there will
-> always be a few that get saturated while 70% of the machine capacity
-> remains idle. Your case seems to be the extreme of ours, where all
-> the flux goes to a single irq.
-> 
-> The problem is in how the NIC distributes traffic among the irq's in
-> the router. Traffic comes almost only from a single machine and
-> spreads through several thousand destinations in the internet. That's
-> why I tried to set the receiving hash mode to the destination IP, but
-> the NIC or driver refuses. So how do I even out the frequency of irq's?
+> David,
+>      Sorry I don't know who owns this driver, the SOB of other patches to
+> netxen may mislead me you could ACK it or not,  so it is definitely not the
+> original meaning that ask you specifically to review one patch.
+> just ask for help point to someone could review it
 
-So you see the traffic going to a few queues only and the rest is
-idle, is that correct?  If so, then RSS seems to be working, but
-since all the traffic comes from one server and likely one port,
-maybe the hash is not good enough to distribute among all queues.
-I'd try using software hashing instead of hw hashing to see if it
-helps:
-# ethtool -K <iface> rxhash off
+Ethan,
 
-or using Perfect Filters, but then it depends on the traffic's specifics.
+You can get the maintainers of netxen_nic driver from " MAINTAINERS" file.
+Please copy maintainers of this driver for review.
 
-BTW, there was a typo in my previous post, I had to turn on ntuple to
-disable ATR.
+NETXEN (1/10) GbE SUPPORT
+M:      Manish Chopra <manish.chopra@qlogic.com>
+M:      Sony Chacko <sony.chacko@qlogic.com>
+M:      Rajesh Borundia <rajesh.borundia@qlogic.com>
+L:      netdev@vger.kernel.org
+W:      http://www.qlogic.com
+S:      Supported
+F:      drivers/net/ethernet/qlogic/netxen/
 
-fbl
+
+HTH.
+
+Thanks,
+Shahed
