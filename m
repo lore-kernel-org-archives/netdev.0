@@ -1,63 +1,122 @@
-From: Tom Gundersen <teg@jklm.no>
-Subject: Re: [PATCH v7 10/33] net: dummy - set name assign type
-Date: Thu, 10 Jul 2014 14:18:32 +0200
-Message-ID: <CAG-2HqVOviqCYrKL-F3o_cR66EAe2skbL20pR48CmEikG1o-7g@mail.gmail.com>
-References: <1404980258-30853-1-git-send-email-teg@jklm.no>
- <1404980258-30853-11-git-send-email-teg@jklm.no> <87pphdh85q.fsf@nemi.mork.no>
- <CAG-2HqWSRRfW1EygXd_1=eYFsTeDd3SsJBfF3BuH35hgGxogxA@mail.gmail.com> <87d2ddh1zd.fsf@nemi.mork.no>
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: Re: [PATCH 2/2] net: davinci_mdio: allow to create phys from dt
+Date: Thu, 10 Jul 2014 16:15:25 +0300
+Message-ID: <53BE91ED.9020305@ti.com>
+References: <1404911451-9921-1-git-send-email-grygorii.strashko@ti.com> <1404911451-9921-3-git-send-email-grygorii.strashko@ti.com> <53BD5066.4000500@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	David Herrmann <dh.herrmann@gmail.com>,
-	Kay Sievers <kay@vrfy.org>,
-	dingtianhong <dingtianhong@huawei.com>,
-	Tan Xiaojun <tanxiaojun@huawei.com>,
-	WANG Cong <xiyou.wangcong@gmail.com>
-To: =?UTF-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87d2ddh1zd.fsf@nemi.mork.no>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <prabhakar.csengg@gmail.com>, Sekhar Nori <nsekhar@ti.com>,
+	Rob Herring <robh+dt@kernel.org>,
+	<linux-kernel@vger.kernel.org>, <devicetree@vger.kernel.org>,
+	<davinci-linux-open-source@linux.davincidsp.com>
+To: Santosh Shilimkar <santosh.shilimkar@ti.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	<netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from arroyo.ext.ti.com ([192.94.94.40]:41032 "EHLO arroyo.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752173AbaGJM3D (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Jul 2014 08:29:03 -0400
+In-Reply-To: <53BD5066.4000500@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 10, 2014 at 1:44 PM, Bj=C3=B8rn Mork <bjorn@mork.no> wrote:
-> Tom Gundersen <teg@jklm.no> writes:
->
->> The result of
+On 07/09/2014 05:23 PM, Santosh Shilimkar wrote:
+> On Wednesday 09 July 2014 09:10 AM, Grygorii Strashko wrote:
+>> This patch allows to create PHYs from DT in case
+>> if they are explicitly defined. The of_mdiobus_register() is
+>> used for such purposes.
 >>
->> modprobe dummy numdummies=3D2
+>> For backward compatibility, call  of_mdiobus_register() only in case
+>> if at least one PHY's child is defined in DT, otherwise rollback to
+>> mdiobus_register().
 >>
->> is to create dummy0 and dummy1, always with the same names.
+>> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+>> ---
+>>   drivers/net/ethernet/ti/davinci_mdio.c |   18 ++++++++++++++++--
+>>   1 file changed, 16 insertions(+), 2 deletions(-)
 >>
->> The result of
+>> diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
+>> index 735dc53..22d3dab 100644
+>> --- a/drivers/net/ethernet/ti/davinci_mdio.c
+>> +++ b/drivers/net/ethernet/ti/davinci_mdio.c
+>> @@ -38,6 +38,7 @@
+>>   #include <linux/davinci_emac.h>
+>>   #include <linux/of.h>
+>>   #include <linux/of_device.h>
+>> +#include <linux/of_mdio.h>
+>>   #include <linux/pinctrl/consumer.h>
+>>   
+>>   /*
+>> @@ -95,6 +96,7 @@ struct davinci_mdio_data {
+>>   	struct mii_bus	*bus;
+>>   	bool		suspended;
+>>   	unsigned long	access_time; /* jiffies */
+
+	/*
+	 * Indicates that driver shouldn't modify phy_mask in case
+	 * if MDIO bus is registered from DT.
+	 */
+
+>> +	bool		skip_scan;
+> The vairiable name is not too intutive so probably add a little
+> bit description on what are you skipping with it.
+
+
+Now the Davinci MDIO driver updates mii_bus->phy_mask from
+its reset routine to limit number of phy addresses to be scanned.
+
+The MDIO bus scanning has to be skipped at all in case of DT MDIO registration.
+And of_mdiobus_register() maintain mii_bus->phy_mask by itself,
+thus driver shouldn't touch it.
+
+I'll add above comment. Is it ok?
+
+
+> 
+>>   };
+>>   
+>>   static void __davinci_mdio_reset(struct davinci_mdio_data *data)
+>> @@ -144,6 +146,9 @@ static int davinci_mdio_reset(struct mii_bus *bus)
+>>   	dev_info(data->dev, "davinci mdio revision %d.%d\n",
+>>   		 (ver >> 8) & 0xff, ver & 0xff);
+>>   
+>> +	if (data->skip_scan)
+>> +		return 0;
+>> +
+>>   	/* get phy mask from the alive register */
+>>   	phy_mask = __raw_readl(&data->regs->alive);
+>>   	if (phy_mask) {
+>> @@ -369,8 +374,17 @@ static int davinci_mdio_probe(struct platform_device *pdev)
+>>   		goto bail_out;
+>>   	}
+>>   
+>> -	/* register the mii bus */
+>> -	ret = mdiobus_register(data->bus);
+>> +	/* register the mii bus
+>> +	 * Create PHYs from DT only in case if PHY child nodes are explicitly
+>> +	 * defined to support backward compatibility with DTs which assume that
+>> +	 * Davinci MDIO will always scan the bus for PHYs detection.
+>> +	 */
+> multi line comment is not as per coding style. Please fix that.
+> Patch as such looks good to me so with those minor fixes, feel
+> free to append my review tag.
+
+will fix it.
+
+> 
+> Reviewed-by: Santosh Shilimkar <santosh.shilimkar@ti.com>
+> 
+>> +	if (dev->of_node && of_get_child_count(dev->of_node)) {
+>> +		data->skip_scan = true;
+>> +		ret = of_mdiobus_register(data->bus, dev->of_node);
+>> +	} else {
+>> +		ret = mdiobus_register(data->bus);
+>> +	}
+>>   	if (ret)
+>>   		goto bail_out;
+>>   
 >>
->> ip link add type dummy
->>
->> is to create dummyX, where X depends on what came before.
->
-> Which is no different. That's exacly what happens when
-> "modprobe dummy numdummies=3D2" creates the two first interfaces.
->
->
->  ip link add link wwan0 name dummy0 type vlan id 2
->  modprobe dummy numdummies=3D2
->
-> ends up with dummy1 and dummy2 created by the dummy driver.
->
-> You are trying to make up differences that just aren't there.
-
-Ah, good point. You are right. So the dummy interfaces should be
-labelled NET_NAME_ENUM.
-
-I suppose the distinction should be that statically created devices
-like these should be NET_NAME_PREDICTABLE only if they fail when the
-name they want is already taken (rather than just picking the next
-one).
-
-Thanks for looking into this!
-
-Cheers,
-
-Tom
+> 
