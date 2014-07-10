@@ -1,27 +1,23 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 08/11] net: bcmgenet: handle UMAC_IRQ_MPD_R interrupt bit
-Date: Thu, 10 Jul 2014 15:46:21 -0700
-Message-ID: <1405032384-24006-9-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next 07/11] net: bcmgenet: handle GENET_POWER_WOL_MAGIC
+Date: Thu, 10 Jul 2014 15:46:20 -0700
+Message-ID: <1405032384-24006-8-git-send-email-f.fainelli@gmail.com>
 References: <1405032384-24006-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f176.google.com ([209.85.213.176]:57642 "EHLO
-	mail-ig0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752301AbaGJWqg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2014 18:46:36 -0400
-Received: by mail-ig0-f176.google.com with SMTP id r10so3639507igi.9
-        for <netdev@vger.kernel.org>; Thu, 10 Jul 2014 15:46:35 -0700 (PDT)
+Received: from mail-ig0-f170.google.com ([209.85.213.170]:51714 "EHLO
+	mail-ig0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752373AbaGJWqf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2014 18:46:35 -0400
+Received: by mail-ig0-f170.google.com with SMTP id h15so3600297igd.3
+        for <netdev@vger.kernel.org>; Thu, 10 Jul 2014 15:46:34 -0700 (PDT)
 In-Reply-To: <1405032384-24006-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Handle UMAC_IRQ_MPD_R interrupt bit in our workqueue to make sure that
-we properly re-configure the GENET adapter from Wake-on-LAN.
-
-bcmgenet_power_up() makes sure that we will not leave the UniMAC
-hardware in MagicPacket matching mode, since that would prevent any
-other packet from being received.
+Update bcmgenet_power_{up,down} to handle the case where the adapter has
+been suspend respectively resumed from Wake-on-LAN using MagicPackets.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
@@ -29,22 +25,29 @@ Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
  1 file changed, 7 insertions(+)
 
 diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index b010637ee69f..552fba4e72da 100644
+index d913139bf5f3..b010637ee69f 100644
 --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
 +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -1843,6 +1843,13 @@ static void bcmgenet_irq_task(struct work_struct *work)
+@@ -743,6 +743,10 @@ static void bcmgenet_power_down(struct bcmgenet_priv *priv,
+ 		phy_detach(priv->phydev);
+ 		break;
  
- 	netif_dbg(priv, intr, priv->dev, "%s\n", __func__);
- 
-+	if (priv->irq0_stat & UMAC_IRQ_MPD_R) {
-+		priv->irq0_stat &= ~UMAC_IRQ_MPD_R;
-+		netif_dbg(priv, wol, priv->dev,
-+			  "magic packet detected, waking up\n");
-+		bcmgenet_power_up(priv, GENET_POWER_WOL_MAGIC);
-+	}
++	case GENET_POWER_WOL_MAGIC:
++		bcmgenet_wol_power_down_cfg(priv, mode);
++		break;
 +
- 	/* Link UP/DOWN event */
- 	if ((priv->hw_params->flags & GENET_HAS_MDIO_INTR) &&
- 		(priv->irq0_stat & (UMAC_IRQ_LINK_UP|UMAC_IRQ_LINK_DOWN))) {
+ 	case GENET_POWER_PASSIVE:
+ 		/* Power down LED */
+ 		bcmgenet_mii_reset(priv->dev);
+@@ -777,6 +781,9 @@ static void bcmgenet_power_up(struct bcmgenet_priv *priv,
+ 		/* enable APD */
+ 		reg |= EXT_PWR_DN_EN_LD;
+ 		break;
++	case GENET_POWER_WOL_MAGIC:
++		bcmgenet_wol_power_up_cfg(priv, mode);
++		return;
+ 	default:
+ 		break;
+ 	}
 -- 
 1.9.1
