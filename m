@@ -1,143 +1,213 @@
 From: Tom Gundersen <teg@jklm.no>
-Subject: [PATCH v8 00/4] Provide netdev naming-policy via sysfs
-Date: Thu, 10 Jul 2014 23:01:02 +0200
-Message-ID: <1405026066-2547-1-git-send-email-teg@jklm.no>
+Subject: [PATCH v8 1/4] net: add name_assign_type netdev attribute
+Date: Thu, 10 Jul 2014 23:01:03 +0200
+Message-ID: <1405026066-2547-2-git-send-email-teg@jklm.no>
+References: <1405026066-2547-1-git-send-email-teg@jklm.no>
 Cc: linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
 	David Herrmann <dh.herrmann@gmail.com>,
 	Kay Sievers <kay@vrfy.org>, Tom Gundersen <teg@jklm.no>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:36959 "EHLO
+	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752477AbaGJVBX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2014 17:01:23 -0400
+Received: by mail-wi0-f181.google.com with SMTP id bs8so358979wib.8
+        for <netdev@vger.kernel.org>; Thu, 10 Jul 2014 14:01:22 -0700 (PDT)
+In-Reply-To: <1405026066-2547-1-git-send-email-teg@jklm.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Resending only the core changes. These patches alone would already be
-very useful to udev. The remaning ones can be reviewed and applied
-individually later.
+Based on a patch by David Herrmann.
 
-See patch 1 for details.
+The name_assign_type attribute gives hints where the interface name of a
+given net-device comes from. These values are currently defined:
+  NET_NAME_ENUM:
+    The ifname is provided by the kernel with an enumerated
+    suffix, typically based on order of discovery. Names may
+    be reused and unpredictable.
+  NET_NAME_PREDICTABLE:
+    The ifname has been assigned by the kernel in a predictable way
+    that is guaranteed to avoid reuse and always be the same for a
+    given device. Examples include statically created devices like
+    the loopback device and names deduced from hardware properties
+    (including being given explicitly by the firmware). Names
+    depending on the order of discovery, or in any other way on the
+    existence of other devices, must not be marked as PREDICTABLE.
+  NET_NAME_USER:
+    The ifname was provided by user-space during net-device setup.
+  NET_NAME_RENAMED:
+    The net-device has been renamed from userspace. Once this type is set,
+    it cannot change again.
+  NET_NAME_UNKNOWN:
+    This is an internal placeholder to indicate that we yet haven't yet
+    categorized the name. It will not be exposed to userspace, rather
+    -EINVAL is returned.
 
-Cheers,
+The aim of these patches is to improve user-space renaming of interfaces. As
+a general rule, userspace must rename interfaces to guarantee that names stay
+the same every time a given piece of hardware appears (at boot, or when
+attaching it). However, there are several situations where userspace should
+not perform the renaming, and that depends on both the policy of the local
+admin, but crucially also on the nature of the current interface name.
 
-Tom
+If an interface was created in repsonse to a userspace request, and userspace
+already provided a name, we most probably want to leave that name alone. The
+main instance of this is wifi-P2P devices created over nl80211, which currently
+have a long-standing bug where they are getting renamed by udev. We label such
+names NET_NAME_USER.
 
-Changes since v7:
- - drop non-core changes
-Changes since v6:
- - change alloc_netdev to take the name assign type as an argument.
- - introduce an internal assign type NET_NAME_UNKNOWN, which makes
-   it simpler to split up the patches, but may eventually be dropped.
- - introduce a new assign type NET_NAME_PREDICTABLE to indicate to
-   userspace that the kernel-assigned names are well-behaved.
+If an interface, unbeknown to us, has already been renamed from userspace, we
+most probably want to leave also that alone. This will typically happen when
+third-party plugins (for instance to udev, but the interface is generic so could
+be from anywhere) renames the interface without informing udev about it. A
+typical situation is when you switch root from an installer or an initrd to the
+real system and the new instance of udev does not know what happened before
+the switch. These types of problems have caused repeated issues in the past. To
+solve this, once an interface has been renamed, its name is labelled
+NET_NAME_RENAMED.
 
-Tom Gundersen (4):
-  net: add name_assign_type netdev attribute
-  net: set name assign type for renamed devices
-  net: set name_assign_type in alloc_netdev()
-  net: rtnetlink - make create_link take name_assign_type
+In many cases, the kernel is actually able to name interfaces in such a
+way that there is no need for userspace to rename them. This is the case when
+the enumeration order of devices, or in fact any other (non-parent) device on
+the system, can not influence the name of the interface. Examples include
+statically created devices, or any naming schemes based on hardware properties
+of the interface. In this case the admin may prefer to use the kernel-provided
+names, and to make that possible we label such names NET_NAME_PREDICTABLE.
+We want the kernel to have tho possibilty of performing predictable interface
+naming itself (and exposing to userspace that it has), as the information
+necessary for a proper naming scheme for a certain class of devices may not
+be exposed to userspace.
 
- Documentation/ABI/testing/sysfs-class-net           | 11 +++++++++++
- drivers/firewire/net.c                              |  3 ++-
- drivers/hsi/clients/ssi_protocol.c                  |  2 +-
- drivers/infiniband/hw/amso1100/c2_provider.c        |  2 +-
- drivers/infiniband/ulp/ipoib/ipoib_main.c           |  4 ++--
- drivers/isdn/i4l/isdn_net.c                         |  3 ++-
- drivers/media/dvb-core/dvb_net.c                    |  3 ++-
- drivers/misc/sgi-xp/xpnet.c                         |  3 ++-
- drivers/net/arcnet/arcnet.c                         |  3 ++-
- drivers/net/bonding/bond_main.c                     |  2 +-
- drivers/net/caif/caif_serial.c                      |  3 ++-
- drivers/net/caif/caif_spi.c                         |  4 ++--
- drivers/net/caif/caif_virtio.c                      |  2 +-
- drivers/net/can/dev.c                               |  2 +-
- drivers/net/can/slcan.c                             |  2 +-
- drivers/net/dummy.c                                 |  2 +-
- drivers/net/eql.c                                   |  3 ++-
- drivers/net/ethernet/8390/lib8390.c                 |  2 +-
- drivers/net/ethernet/tile/tilegx.c                  |  4 ++--
- drivers/net/ethernet/tile/tilepro.c                 |  3 ++-
- drivers/net/hamradio/6pack.c                        |  3 ++-
- drivers/net/hamradio/baycom_epp.c                   |  2 +-
- drivers/net/hamradio/bpqether.c                     |  4 ++--
- drivers/net/hamradio/dmascc.c                       |  4 ++--
- drivers/net/hamradio/hdlcdrv.c                      |  2 +-
- drivers/net/hamradio/mkiss.c                        |  3 ++-
- drivers/net/hamradio/scc.c                          |  2 +-
- drivers/net/hamradio/yam.c                          |  2 +-
- drivers/net/ieee802154/fakehard.c                   |  3 ++-
- drivers/net/ifb.c                                   |  4 ++--
- drivers/net/loopback.c                              |  2 +-
- drivers/net/ppp/ppp_generic.c                       |  3 ++-
- drivers/net/slip/slip.c                             |  2 +-
- drivers/net/tun.c                                   |  3 ++-
- drivers/net/usb/cdc-phonet.c                        |  2 +-
- drivers/net/usb/hso.c                               |  3 ++-
- drivers/net/veth.c                                  | 11 ++++++++---
- drivers/net/wan/dlci.c                              |  4 ++--
- drivers/net/wan/hdlc.c                              |  3 ++-
- drivers/net/wan/hdlc_fr.c                           |  5 +++--
- drivers/net/wan/lapbether.c                         |  4 ++--
- drivers/net/wan/sbni.c                              |  7 ++++---
- drivers/net/wan/sdla.c                              |  3 ++-
- drivers/net/wan/x25_asy.c                           |  4 ++--
- drivers/net/wimax/i2400m/usb.c                      |  2 +-
- drivers/net/wireless/airo.c                         |  5 +++--
- drivers/net/wireless/ath/ath6kl/cfg80211.c          |  2 +-
- drivers/net/wireless/ath/wil6210/netdev.c           |  2 +-
- drivers/net/wireless/brcm80211/brcmfmac/dhd_linux.c |  3 ++-
- drivers/net/wireless/libertas/main.c                |  2 +-
- drivers/net/wireless/libertas/mesh.c                |  2 +-
- drivers/net/wireless/mac80211_hwsim.c               |  3 ++-
- drivers/net/wireless/mwifiex/cfg80211.c             |  3 ++-
- drivers/net/xen-netback/interface.c                 |  4 ++--
- drivers/s390/net/claw.c                             |  2 +-
- drivers/s390/net/ctcm_main.c                        |  6 ++++--
- drivers/s390/net/netiucv.c                          |  2 +-
- drivers/s390/net/qeth_l2_main.c                     |  6 ++++--
- drivers/s390/net/qeth_l3_main.c                     |  3 ++-
- drivers/staging/cxt1e1/linux.c                      |  3 ++-
- drivers/staging/gdm724x/gdm_lte.c                   |  2 +-
- drivers/staging/gdm72xx/gdm_wimax.c                 |  3 ++-
- drivers/staging/vt6655/wpactl.c                     |  3 ++-
- drivers/staging/wlan-ng/p80211netdev.c              |  2 +-
- drivers/tty/n_gsm.c                                 |  5 ++---
- drivers/usb/gadget/f_phonet.c                       |  3 ++-
- include/linux/netdevice.h                           | 12 ++++++++----
- include/net/rtnetlink.h                             |  1 +
- include/uapi/linux/netdevice.h                      |  6 ++++++
- net/802/fc.c                                        |  2 +-
- net/802/fddi.c                                      |  3 ++-
- net/802/hippi.c                                     |  3 ++-
- net/8021q/vlan.c                                    |  3 ++-
- net/appletalk/dev.c                                 |  3 ++-
- net/atm/br2684.c                                    |  4 ++--
- net/atm/clip.c                                      |  3 ++-
- net/batman-adv/soft-interface.c                     |  2 +-
- net/bluetooth/6lowpan.c                             |  3 ++-
- net/bluetooth/bnep/core.c                           |  5 +++--
- net/bridge/br_if.c                                  |  2 +-
- net/core/dev.c                                      | 20 +++++++++++++++-----
- net/core/net-sysfs.c                                | 20 ++++++++++++++++++++
- net/core/rtnetlink.c                                | 14 +++++++++-----
- net/dsa/slave.c                                     |  4 ++--
- net/ethernet/eth.c                                  |  3 ++-
- net/ipv4/ip_tunnel.c                                |  2 +-
- net/ipv4/ipmr.c                                     |  2 +-
- net/ipv6/ip6_gre.c                                  |  6 ++++--
- net/ipv6/ip6_tunnel.c                               |  5 +++--
- net/ipv6/ip6_vti.c                                  |  4 ++--
- net/ipv6/ip6mr.c                                    |  2 +-
- net/ipv6/sit.c                                      |  4 +++-
- net/irda/irda_device.c                              |  3 ++-
- net/irda/irlan/irlan_eth.c                          |  2 +-
- net/l2tp/l2tp_eth.c                                 |  3 ++-
- net/mac80211/iface.c                                |  6 +++---
- net/mac802154/ieee802154_dev.c                      |  6 ++++--
- net/netrom/af_netrom.c                              |  2 +-
- net/openvswitch/vport-internal_dev.c                |  3 ++-
- net/phonet/pep-gprs.c                               |  2 +-
- net/rose/af_rose.c                                  |  2 +-
- net/sched/sch_teql.c                                |  4 ++--
- 102 files changed, 248 insertions(+), 139 deletions(-)
+The case where renaming is almost certainly desired, is when the kernel has
+given the interface a name using global device enumeration based on order of
+discovery (ethX, wlanY, etc). These naming schemes are labelled NET_NAME_ENUM.
 
+Lastly, a fallback is left as NET_NAME_UNKNOWN, to indicate that a driver has
+not yet been ported. This is mostly useful as a transitionary measure, allowing
+us to label the various naming schemes bit by bit.
+
+Signed-off-by: Tom Gundersen <teg@jklm.no>
+Reviewed-by: David Herrmann <dh.herrmann@gmail.com>
+Reviewed-by: Kay Sievers <kay@vrfy.org>
+
+v8: minor documentation fixes
+---
+ Documentation/ABI/testing/sysfs-class-net | 11 +++++++++++
+ include/linux/netdevice.h                 |  2 ++
+ include/uapi/linux/netdevice.h            |  6 ++++++
+ net/core/dev.c                            | 11 ++++++-----
+ net/core/net-sysfs.c                      | 20 ++++++++++++++++++++
+ 5 files changed, 45 insertions(+), 5 deletions(-)
+
+diff --git a/Documentation/ABI/testing/sysfs-class-net b/Documentation/ABI/testing/sysfs-class-net
+index 416c5d5..d322b05 100644
+--- a/Documentation/ABI/testing/sysfs-class-net
++++ b/Documentation/ABI/testing/sysfs-class-net
+@@ -1,3 +1,14 @@
++What:		/sys/class/net/<iface>/name_assign_type
++Date:		July 2014
++KernelVersion:	3.17
++Contact:	netdev@vger.kernel.org
++Description:
++		Indicates the name assignment type. Possible values are:
++		1: enumerated by the kernel, possibly in an unpredictable way
++		2: predictably named by the kernel
++		3: named by userspace
++		4: renamed
++
+ What:		/sys/class/net/<iface>/addr_assign_type
+ Date:		July 2010
+ KernelVersion:	3.2
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 66f9a04..551e187 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1379,6 +1379,8 @@ struct net_device {
+ 	struct kset		*queues_kset;
+ #endif
+ 
++	unsigned char		name_assign_type;
++
+ 	bool			uc_promisc;
+ 	unsigned int		promiscuity;
+ 	unsigned int		allmulti;
+diff --git a/include/uapi/linux/netdevice.h b/include/uapi/linux/netdevice.h
+index fdfbd1c..5581854 100644
+--- a/include/uapi/linux/netdevice.h
++++ b/include/uapi/linux/netdevice.h
+@@ -37,6 +37,12 @@
+ #define INIT_NETDEV_GROUP	0
+ 
+ 
++/* interface name assignment types (sysfs name_assign_type attribute) */
++#define NET_NAME_UNKNOWN	0	/* unknown origin (not exposed to userspace) */
++#define NET_NAME_ENUM		1	/* enumerated by kernel */
++#define NET_NAME_PREDICTABLE	2	/* predictably named by the kernel */
++#define NET_NAME_USER		3	/* provided by user-space */
++#define NET_NAME_RENAMED	4	/* renamed by user-space */
+ 
+ /* Media selection options. */
+ enum {
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 30eedf6..392c784 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -6438,11 +6438,12 @@ void netdev_freemem(struct net_device *dev)
+ 
+ /**
+  *	alloc_netdev_mqs - allocate network device
+- *	@sizeof_priv:	size of private data to allocate space for
+- *	@name:		device name format string
+- *	@setup:		callback to initialize device
+- *	@txqs:		the number of TX subqueues to allocate
+- *	@rxqs:		the number of RX subqueues to allocate
++ *	@sizeof_priv:		size of private data to allocate space for
++ *	@name:			device name format string
++ *	@name_assign_type: 	origin of device name
++ *	@setup:			callback to initialize device
++ *	@txqs:			the number of TX subqueues to allocate
++ *	@rxqs:			the number of RX subqueues to allocate
+  *
+  *	Allocates a struct net_device with private data area for driver use
+  *	and performs basic initialization.  Also allocates subqueue structs
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index 1cac29e..7752f2a 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -112,6 +112,25 @@ NETDEVICE_SHOW_RO(ifindex, fmt_dec);
+ NETDEVICE_SHOW_RO(type, fmt_dec);
+ NETDEVICE_SHOW_RO(link_mode, fmt_dec);
+ 
++static ssize_t format_name_assign_type(const struct net_device *net, char *buf)
++{
++	return sprintf(buf, fmt_dec, net->name_assign_type);
++}
++
++static ssize_t name_assign_type_show(struct device *dev,
++				     struct device_attribute *attr,
++				     char *buf)
++{
++	struct net_device *net = to_net_dev(dev);
++	ssize_t ret = -EINVAL;
++
++	if (net->name_assign_type != NET_NAME_UNKNOWN)
++		ret = netdev_show(dev, attr, buf, format_name_assign_type);
++
++	return ret;
++}
++static DEVICE_ATTR_RO(name_assign_type);
++
+ /* use same locking rules as GIFHWADDR ioctl's */
+ static ssize_t address_show(struct device *dev, struct device_attribute *attr,
+ 			    char *buf)
+@@ -387,6 +406,7 @@ static struct attribute *net_class_attrs[] = {
+ 	&dev_attr_dev_port.attr,
+ 	&dev_attr_iflink.attr,
+ 	&dev_attr_ifindex.attr,
++	&dev_attr_name_assign_type.attr,
+ 	&dev_attr_addr_assign_type.attr,
+ 	&dev_attr_addr_len.attr,
+ 	&dev_attr_link_mode.attr,
 -- 
 1.9.3
