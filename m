@@ -1,88 +1,47 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net-next 0/5] SCTP updates
-Date: Thu, 10 Jul 2014 15:04:26 -0400
-Message-ID: <53BEE3BA.5070500@gmail.com>
-References: <20140708111408.GA23026@hmsreliant.think-freely.org> <53BBFAA6.80408@redhat.com> <20140708144127.GB23026@hmsreliant.think-freely.org> <53BD1211.4080504@redhat.com> <20140709104958.GA3784@hmsreliant.think-freely.org> <53BD4363.70306@redhat.com> <20140709151354.GA5250@localhost.localdomain> <53BD6167.1030000@gmail.com> <20140709154428.GD5250@localhost.localdomain> <53BD6EB7.7070302@gmail.com> <20140709183508.GB14509@hmsreliant.think-freely.org> <063D6719AE5E284EB5DD2968C1650D6D1726FBA0@AcuExch.aculab.com> <53BE5ECF.3050202@redhat.com>
+From: Tom Gundersen <teg@jklm.no>
+Subject: Re: [PATCH v7 00/33] Provide netdev naming-policy via sysfs
+Date: Thu, 10 Jul 2014 21:11:46 +0200
+Message-ID: <CAG-2HqVLE=P6KTPnZY4d6jzkQ5_1C-ETJRu6AH0KcY9FAFBASA@mail.gmail.com>
+References: <1404980258-30853-1-git-send-email-teg@jklm.no>
+ <20140710.014355.387392730830362973.davem@davemloft.net> <CAG-2HqUPRqFgn1PfDoYzuyoYRcfB=RQCVg3PJZvaakiVtK07yw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: 'Neil Horman' <nhorman@tuxdriver.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"geirola@gmail.com" <geirola@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>
-To: Daniel Borkmann <dborkman@redhat.com>,
-	David Laight <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f46.google.com ([209.85.192.46]:63854 "EHLO
-	mail-qg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751095AbaGJTE3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2014 15:04:29 -0400
-In-Reply-To: <53BE5ECF.3050202@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Herrmann <dh.herrmann@gmail.com>,
+	Kay Sievers <kay@vrfy.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAG-2HqUPRqFgn1PfDoYzuyoYRcfB=RQCVg3PJZvaakiVtK07yw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/10/2014 05:37 AM, Daniel Borkmann wrote:
-> On 07/10/2014 11:02 AM, David Laight wrote:
->> From: Neil Horman
->> ...
->>>> No there is not direct overlap between the two.  However, as Michael pointed out,
->>>> there is a new option to control SCTP_RCVINFO.  So would could add a deprecation
->>>> warning to the over SCTP_EVENTS option and carry SCTP_SNDRCVINFO with it.
->>>> Once SCTP_EVENTS goes away so can SCTP_SNDRCVINFO.
->>>>
->>> Ok, so we should still consider deprecation warnings then.  Daniel, what about
->>> ratelimited warnings with pids included then?
+On Thu, Jul 10, 2014 at 11:19 AM, Tom Gundersen <teg@jklm.no> wrote:
+> Thanks for the quick answer.
+>
+> On Thu, Jul 10, 2014 at 10:43 AM, David Miller <davem@davemloft.net> wrote:
+>> It is not reasonable to expect people to review such a large number of
+>> patches at one time.
 >>
->> Can you defer any deprecation warnings for a few kernel versions?
->> This gives time for applications to be recoded.
-> 
-> I am fine either way, adding the warning a bit later seems fine, too.
-> 
-> Right now, even in-kernel users like dlm would hit it if we include
-> it immediately.
-> 
-> Otherwise, I'll just add something like the below ...
-> 
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index d95a50c..6a0e5a4 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -2205,8 +2205,13 @@ static int sctp_setsockopt_events(struct sock *sk, char __user
-> *optval,
->      if (copy_from_user(&sctp_sk(sk)->subscribe, optval, optlen))
->          return -EFAULT;
-> 
-> -    /*
-> -     * At the time when a user app subscribes to SCTP_SENDER_DRY_EVENT,
-> +    if (sctp_sk(sk)->subscribe.sctp_data_io_event)
-> +        pr_warn_ratelimited(DEPRECATED "%s (pid %d) "
-> +                    "Requested SCTP_SNDRCVINFO event.\n"
-> +                    "Use SCTP_RCVINFO through SCTP_RECVRCVINFO option instead.\n",
-> +                    current->comm, task_pid_nr(current));
-> +
-> +    /* At the time when a user app subscribes to SCTP_SENDER_DRY_EVENT,
->       * if there is no data to be sent or retransmit, the stack will
->       * immediately send up this notification.
->       */
-> 
+>> Split your series up into logical, and more reasonably sized chunks.
+>>
+>> I'd say 14 or 15 at a time is the limit.
+>>
+>> I'm not even looking at this series until you submit it more reasonably.
+>>
+>> Thank you.
+>
+> Ok. I suggest you review patches 1-7, as these are the generic ones.
+> Then once they have been applied I can resubmit the subsequent patches
+> individually.
+>
+> Do you want me to resubmit patches 1-7, or do you just want to pick
+> them from this series as they are?
 
-This is OK for step 1.  Once we implement SCTP_EVENT, we can cover the rest of the events.
+I'll redo the first few patches based on the comments received so far,
+and resend them in a shorter series, so no need to review the current
+one.
 
--vlad
+Thanks.
 
->> Including argv[0] (even just the exec-time value) is much more use than the pid.
->>
->> Actually this is 'right PITA' for an application.
->> A program binary that needs to work with old and new kernels will have to
->> try the new option, and if it fails fall back to the old one, and then
->> conditionally create/inspect the cmsg data.
->> I can't actually imagine anyone bothering!
->>
->> Our sctp code is actually in a kernel module, so we can look at the kernel
->> version when (part of) the driver is compiled on the target system.
->>
->>     David
->>
->>
->>
+Tom
