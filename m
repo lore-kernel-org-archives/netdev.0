@@ -1,87 +1,33 @@
-From: 'Ezequiel Garcia' <ezequiel.garcia@free-electrons.com>
-Subject: Re: [PATCH v3 1/4] ethernet: Add new driver for Marvell Armada 375
- network unit
-Date: Thu, 10 Jul 2014 14:07:16 -0300
-Message-ID: <20140710170716.GA17727@arch.cereza>
-References: <1404758751-2346-1-git-send-email-ezequiel.garcia@free-electrons.com>
- <1404758751-2346-2-git-send-email-ezequiel.garcia@free-electrons.com>
- <20140707221823.GC16677@electric-eye.fr.zoreil.com>
- <20140710151904.GA5283@arch.cereza>
- <063D6719AE5E284EB5DD2968C1650D6D172700F9@AcuExch.aculab.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: Fw: [Bug 79891] New: Router causes TCP retransmits for windows
+ hosts after "ip_forward: fix inverted local_df test"
+Date: Thu, 10 Jul 2014 10:11:04 -0700
+Message-ID: <CAHA+R7N0ZgLfZNMrnHyRD+C=rGD86QXVkE0weLOLCM9npXMozg@mail.gmail.com>
+References: <20140710064433.1fd17105@samsung-9>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Marcin Wojtas <mw@semihalf.com>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Tawfik Bayouk <tawfik@marvell.com>,
-	Lior Amsalem <alior@marvell.com>
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:57503 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751701AbaGJRIJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2014 13:08:09 -0400
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D172700F9@AcuExch.aculab.com>
+Received: from mail-la0-f50.google.com ([209.85.215.50]:49264 "EHLO
+	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750927AbaGJRLG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2014 13:11:06 -0400
+Received: by mail-la0-f50.google.com with SMTP id pv20so6542041lab.9
+        for <netdev@vger.kernel.org>; Thu, 10 Jul 2014 10:11:04 -0700 (PDT)
+In-Reply-To: <20140710064433.1fd17105@samsung-9>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 10 Jul 03:26 PM, David Laight wrote:
-> From: Ezequiel Garcia
-> ...
-> > > > +/* Compare tcam data bytes with a pattern */
-> > > > +static bool mvpp2_prs_tcam_data_cmp(struct mvpp2_prs_entry *pe=
-,
-> > > > +				    unsigned int offs, unsigned int size,
-> > > > +					   unsigned char *bytes)
-> > > > +{
-> > > > +	unsigned char byte, mask;
-> > > > +	int i;
->=20
-> Hmm. should be 'unsigned int' for the comparison against 'size'.
->=20
+On Thu, Jul 10, 2014 at 6:44 AM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+>
+> After upgrading a router to Linux 3.2.60 most windows machines behind it
+> started experiencing connection stalls. Downgrade to 3.2.59 resolved the
+> problem. Using git bisect I pinpointed it to
+> "59d9f389df3cdf72833d5ee17c3fe959b6bdc792 is the first bad commit", which
+> entered the kernel from here
+> http://marc.info/?l=linux-netdev&m=139949081418806&w=2
+>
 
-Right. I've reworked this entirely, because it was barely readable,
-and now the size parameter is gone.
-
-> > > > +
-> > > > +	for (i =3D 0; i < size; i++) {
-> > > > +		mvpp2_prs_tcam_data_byte_get(pe, offs + i, &byte, &mask);
-> > > > +
-> > > > +		if (byte !=3D bytes[i])
-> > > > +			return false;
-> > >
-> > > Please reduce the scope of "byte" and "mask".
-> > >
-> >=20
-> > Agreed. This applies on several other places, I'll fix them all.
-> >=20
-> > > > +	}
-> > > > +	return true;
->=20
-> Not sure about other people, but I prefer variables to be defined
-> at the top of a function so that I can find them.
-> Minimising the scope tends to make code harder to read.
->=20
-> If this was a big function, then reducing the scope of 'temporary'
-> variables need for a few lines (like the above loop) can make sense
-> because it reduces the clutter at the top of the function.
->=20
-
-Yeah, that makes sense. I'm fine either way; I'll be submitting v4 now
-addressing most of Francois' feedback. Feel free to complain if you thi=
-nk
-some function is not readable enough and can be improved.
-
-Thanks for taking a look,
---=20
-Ezequiel Garc=EDa, Free Electrons
-Embedded Linux, Kernel and Android Engineering
-http://free-electrons.com
+This commit should have been reverted for older kernels like 3.2.y.
