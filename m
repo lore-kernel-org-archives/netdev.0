@@ -1,50 +1,81 @@
-From: Tom Gundersen <teg@jklm.no>
-Subject: [PATCH v7 15/33] net: xen-netback - set name assign type
-Date: Thu, 10 Jul 2014 10:17:20 +0200
-Message-ID: <1404980258-30853-16-git-send-email-teg@jklm.no>
+From: Tom Gundersen <teg-B22kvLQNl6c@public.gmane.org>
+Subject: [PATCH v7 23/33] net: openvswitch - set name assign type
+Date: Thu, 10 Jul 2014 10:17:28 +0200
+Message-ID: <1404980258-30853-24-git-send-email-teg@jklm.no>
 References: <1404980258-30853-1-git-send-email-teg@jklm.no>
-Cc: linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
-	David Herrmann <dh.herrmann@gmail.com>,
-	Kay Sievers <kay@vrfy.org>, Tom Gundersen <teg@jklm.no>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>, xen-devel@lists.xenproject.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f173.google.com ([209.85.217.173]:50963 "EHLO
-	mail-lb0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752193AbaGJISc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2014 04:18:32 -0400
-Received: by mail-lb0-f173.google.com with SMTP id s7so5881643lbd.32
-        for <netdev@vger.kernel.org>; Thu, 10 Jul 2014 01:18:31 -0700 (PDT)
-In-Reply-To: <1404980258-30853-1-git-send-email-teg@jklm.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, Kay Sievers <kay-tD+1rO4QERM@public.gmane.org>,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Tom Gundersen <teg-B22kvLQNl6c@public.gmane.org>,
+ David Herrmann <dh.herrmann-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1404980258-30853-1-git-send-email-teg-B22kvLQNl6c@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-The name contains then xen handle, which is not guaranteed to be
-stable between restarts, so label this NET_NAME_ENUM.
-
-Signed-off-by: Tom Gundersen <teg@jklm.no>
-Cc: Ian Campbell <ian.campbell@citrix.com>
-Cc: Wei Liu <wei.liu2@citrix.com>
-Cc: xen-devel@lists.xenproject.org
+Signed-off-by: Tom Gundersen <teg-B22kvLQNl6c@public.gmane.org>
+Cc: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
 ---
- drivers/net/xen-netback/interface.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/openvswitch/datapath.c           | 1 +
+ net/openvswitch/vport-internal_dev.c | 2 +-
+ net/openvswitch/vport.h              | 2 ++
+ 3 files changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index 793275d..da906d1 100644
---- a/drivers/net/xen-netback/interface.c
-+++ b/drivers/net/xen-netback/interface.c
-@@ -418,8 +418,8 @@ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
- 	 * When the guest selects the desired number, it will be updated
- 	 * via netif_set_real_num_*_queues().
- 	 */
--	dev = alloc_netdev_mq(sizeof(struct xenvif), name, NET_NAME_UNKNOWN,
--			      ether_setup, xenvif_max_queues);
-+	dev = alloc_netdev_mq(sizeof(struct xenvif), name, NET_NAME_ENUM, ether_setup,
-+			      xenvif_max_queues);
- 	if (dev == NULL) {
- 		pr_warn("Could not allocate netdev for %s\n", name);
- 		return ERR_PTR(-ENOMEM);
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index 0d407bc..f216eca 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -1370,6 +1370,7 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
+ 
+ 	/* Set up our datapath device. */
+ 	parms.name = nla_data(a[OVS_DP_ATTR_NAME]);
++	parms.name_assign_type = NET_NAME_USER;
+ 	parms.type = OVS_VPORT_TYPE_INTERNAL;
+ 	parms.options = NULL;
+ 	parms.dp = dp;
+diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
+index 0a5e077..ceb098c 100644
+--- a/net/openvswitch/vport-internal_dev.c
++++ b/net/openvswitch/vport-internal_dev.c
+@@ -159,7 +159,7 @@ static struct vport *internal_dev_create(const struct vport_parms *parms)
+ 	netdev_vport = netdev_vport_priv(vport);
+ 
+ 	netdev_vport->dev = alloc_netdev(sizeof(struct internal_dev),
+-					 parms->name, NET_NAME_UNKNOWN,
++					 parms->name, parms->name_assign_type,
+ 					 do_setup);
+ 	if (!netdev_vport->dev) {
+ 		err = -ENOMEM;
+diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
+index 8d721e6..a9d7480 100644
+--- a/net/openvswitch/vport.h
++++ b/net/openvswitch/vport.h
+@@ -97,6 +97,7 @@ struct vport {
+  * struct vport_parms - parameters for creating a new vport
+  *
+  * @name: New vport's name.
++ * @name_assign_type: New vport's name's origin.
+  * @type: New vport's type.
+  * @options: %OVS_VPORT_ATTR_OPTIONS attribute from Netlink message, %NULL if
+  * none was supplied.
+@@ -105,6 +106,7 @@ struct vport {
+  */
+ struct vport_parms {
+ 	const char *name;
++	unsigned char name_assign_type;
+ 	enum ovs_vport_type type;
+ 	struct nlattr *options;
+ 
 -- 
 1.9.3
