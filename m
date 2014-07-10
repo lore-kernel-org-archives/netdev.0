@@ -1,73 +1,70 @@
-From: Frederic Weisbecker <fweisbec@gmail.com>
-Subject: Re: [RFC 0/7] hrtimer: drop active hrtimer checks after adding it
-Date: Thu, 10 Jul 2014 03:34:58 +0200
-Message-ID: <20140710013456.GB6480@localhost.localdomain>
-References: <cover.1404888801.git.viresh.kumar@linaro.org>
- <alpine.DEB.2.10.1407092321130.4357@nanos>
+From: Bo Shen <voice.shen@atmel.com>
+Subject: Re: [PATCH v2 0/2] ARM: at91: remove phy fixup for sama5d3xek boards
+Date: Thu, 10 Jul 2014 10:24:06 +0800
+Message-ID: <53BDF946.7060404@atmel.com>
+References: <1403777615-25685-1-git-send-email-boris.brezillon@free-electrons.com> <20140709183442.14b8aef8@bbrezillon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Viresh Kumar <viresh.kumar@linaro.org>,
-	linaro-kernel@lists.linaro.org, linux-kernel@vger.kernel.org,
-	arvind.chauhan@arm.com, preeti@linux.vnet.ibm.com,
-	khilman@linaro.org, Darren Hart <dvhart@linux.intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@redhat.com>, netdev@vger.kernel.org,
-	Peter Zijlstra <peterz@infradead.org>
-To: Thomas Gleixner <tglx@linutronix.de>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>,
+	Jean-Christophe Plagniol-Villard <plagnioj@jcrosoft.com>,
+	Alexandre Belloni <alexandre.belloni@free-electrons.com>,
+	Andrew Victor <linux@maxim.org.za>,
+	<linux-arm-kernel@lists.infradead.org>,
+	<linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Boris BREZILLON <boris.brezillon@free-electrons.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.10.1407092321130.4357@nanos>
+In-Reply-To: <20140709183442.14b8aef8@bbrezillon>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 09, 2014 at 11:30:41PM +0200, Thomas Gleixner wrote:
-> On Wed, 9 Jul 2014, Viresh Kumar wrote:
-> 
-> So your patch series drops active hrtimer checks after adding it,
-> according to your subject line.
-> 
-> Quite useeul to drop something after adding it, right?
-> 
-> > hrtimer_start*() family never fails to enqueue a hrtimer to a clock-base. The
-> > only special case is when the hrtimer was in past. If it is getting enqueued to
-> > local CPUs's clock-base, we raise a softirq and exit, else we handle that on
-> > next interrupt on remote CPU.
-> > 
-> > At several places in the kernel, we try to make sure if hrtimer was added
-> > properly or not by calling hrtimer_active(), like:
-> > 
-> > 	hrtimer_start(timer, expires, mode);
-> > 	if (hrtimer_active(timer)) {
-> > 		/* Added successfully */
-> > 	} else {
-> > 		/* Was added in the past */
-> > 	}
-> > 
-> > As hrtimer_start*() never fails, hrtimer_active() is guaranteed to return '1'.
-> > So, there is no point calling hrtimer_active().
-> 
-> Wrong as usual.
-> 
-> It's a common pattern that short timeouts are given which lead to
-> immediate expiry so the extra round through schedule is even more
-> pointless than the extra check.
+Hi Boris,
 
-It may be a common pattern but it's not obvious at all as is in the code
-except for timers gurus.
+On 07/10/2014 12:34 AM, Boris BREZILLON wrote:
+> Hello Bo,
+>
+> I know you're quite busy, but if you have some time could you test this
+> series on both CPU Modules (Embest and Ronetix): I only own the Embest
+> one.
+>
+> Best Regards,
+>
+> Boris
+>
+> On Thu, 26 Jun 2014 12:13:33 +0200
+> Boris BREZILLON <boris.brezillon@free-electrons.com> wrote:
+>
+>> Hello,
+>>
+>> This patch removes a board specific hook for sama5d3xek boards from the
+>> sama5d3 generic DT board file.
+>>
+>> This hook (which register a phy fixup configuring board specific delays
+>> in the ksz9021 ethernet phy) is now replaced by the appropriate DT
+>> properties definitions in the sama5d3xcm.dtsi file.
+>>
+>> Best Regards,
+>>
+>> Boris
+>>
+>> Changes since v1:
+>>   - fix txc-skew-ps and rxc-skew-ps delays
+>>   - remove phy address info to handle Ronetix and Embest HW designs
+>>
+>> Boris BREZILLON (2):
+>>    ARM: at91/dt: describe rgmii ethernet phy connected to sama5d3xek
+>>      boards
+>>    ARM: at91: remove phy fixup for sama5d3xek boards
+>>
+>>   arch/arm/boot/dts/sama5d3xcm.dtsi   | 15 +++++++++++++++
+>>   arch/arm/mach-at91/board-dt-sama5.c | 22 ----------------------
+>>   2 files changed, 15 insertions(+), 22 deletions(-)
+>>
 
-It looks like error handling while it's actually an optimization.
+For this series, test OK on sama5d33ek (Ronetix) and sama5d34ek (Embest).
 
-Also what about this pattern when it's used in interrupt or interrupt-disabled code?
-In this case the handler is not going to fire right away, unless it's enqueued
-on another CPU for unpinned timers.
+Tested-by: Bo Shen <voice.shen@atmel.com>
 
-For example this code in tick_nohz_stop_sched_tick():
-
-          hrtimer_start(&ts->sched_timer, expires, HRTIMER_MODE_ABS_PINNED);
-          /* Check, if the timer was already in the past */
-          if (hrtimer_active(&ts->sched_timer))
-                 goto out;
-
-It's not clear what this is handling. Concurrent immediate callback expiration from another CPU?
-But the timer is pinned local so it can't execute right away between hrtimer_start() and hrtimer_active()
-check...
+Best Regards,
+Bo Shen
