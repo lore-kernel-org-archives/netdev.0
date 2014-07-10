@@ -1,38 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: cpmac: fix in debug messages
-Date: Thu, 10 Jul 2014 16:55:36 -0700 (PDT)
-Message-ID: <20140710.165536.354400157362107483.davem@davemloft.net>
-References: <1404986378-28555-1-git-send-email-varkabhadram@gmail.com>
+Subject: Re: [PATCH net-next] ipv6: fix the check when handle RA
+Date: Thu, 10 Jul 2014 16:56:54 -0700 (PDT)
+Message-ID: <20140710.165654.637520801607248596.davem@davemloft.net>
+References: <1404986566-9651-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mugunthanvnm@ti.com,
-	linux@rainbow-software.org, balbi@ti.com, george.cherian@ti.com,
-	varkab@cdac.in
-To: varkabhadram@gmail.com
+Cc: netdev@vger.kernel.org, hannes@redhat.com, greearb@candelatech.com
+To: roy.qing.li@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46159 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46169 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751142AbaGJXzh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2014 19:55:37 -0400
-In-Reply-To: <1404986378-28555-1-git-send-email-varkabhadram@gmail.com>
+	with ESMTP id S1751011AbaGJX4y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2014 19:56:54 -0400
+In-Reply-To: <1404986566-9651-1-git-send-email-roy.qing.li@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: varkabhadram@gmail.com
-Date: Thu, 10 Jul 2014 15:29:38 +0530
+From: roy.qing.li@gmail.com
+Date: Thu, 10 Jul 2014 18:02:46 +0800
 
-> From: Varka Bhadram <varkab@cdac.in>
+> From: Li RongQing <roy.qing.li@gmail.com>
 > 
-> This patch fix the debug message format. This patch changes to the
-> commit f160a2d0b524eeebd97a68e2fbb59fad4cdd3fee: net: cpmac: dynamic debug fixes
+> d9333196572(ipv6:  Allow accepting RA from local IP addresses.) made the wrong
+> check, whether or not to accept RA with source-addr found on local machine, when
+> accept_ra_from_local is 0.
 > 
-> When we use pr_debug()/netdev_dbg() new lines are inserting in b/w
-> the values. The format when i use the printk()
-> 
-> These formats used in skb dump and reg dump. This functions
-> called from the entire code. So this will be enabled all the lines.
-> 
-> Signed-off-by: Varka Bhadram <varkab@cdac.in>
+> Fixes: d9333196572(ipv6:  Allow accepting RA from local IP addresses.)
+> Cc: Ben Greear <greearb@candelatech.com>
+> Cc: Hannes Frederic Sowa <hannes@redhat.com>
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 
-Applied, thank you.
+Applied, thanks.
