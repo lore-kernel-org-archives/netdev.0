@@ -1,41 +1,56 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH net-next v2 1/8] net-timestamp: explicit SO_TIMESTAMPING
- ancillary data struct
-Date: Thu, 10 Jul 2014 11:36:22 -0400
-Message-ID: <CA+FuTSd9iJqfntCXNMSiX0YKKGvLvKDJ9XBnh2m3sfRNJDLvdw@mail.gmail.com>
-References: <1404416380-3545-2-git-send-email-willemb@google.com>
- <20140705201851.GE3869@localhost.localdomain> <CA+FuTSeSOBUzDLahLBNoW4i-UZe-VOXZr4LgA2bXBfjWxe10Fw@mail.gmail.com>
- <20140707184700.GA1610@localhost.localdomain> <CA+FuTSeqf=xgjjVreasKGZVPR1iXRKr68R7dj8n9w31-hUnznA@mail.gmail.com>
- <53BAF8AC.6010907@cavium.com> <20140707201156.GA10265@localhost.localdomain>
- <53BB0B2A.3060708@cavium.com> <20140708060441.GB3977@localhost.localdomain>
- <53BBA0F6.3090003@caviumnetworks.com> <20140708094118.GB6249@localhost.localdomain>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net 1/7] net: cpmac: remove space in macro defination
+Date: Thu, 10 Jul 2014 08:38:15 -0700
+Message-ID: <1405006695.2796.3.camel@joe-AO725>
+References: <1404967680-13206-1-git-send-email-varkabhadram@gmail.com>
+	 <1404967680-13206-2-git-send-email-varkabhadram@gmail.com>
+	 <CAGVrzcY7OpzGwY8eO-iJ9u6H91r8ywUu7y0doP5G_1pyzBd0Wg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Chad Reese <kreese@caviumnetworks.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	David Daney <david.daney@cavium.com>
-To: Richard Cochran <richardcochran@gmail.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	mugunthanvnm <mugunthanvnm@ti.com>,
+	Ondrej Zary <linux@rainbow-software.org>, balbi@ti.com,
+	george.cherian@ti.com, David Miller <davem@davemloft.net>,
+	Varka Bhadram <varkab@cdac.in>
+To: Florian Fainelli <florian@openwrt.org>,
+	Varka Bhadram <varkabhadram@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f50.google.com ([209.85.192.50]:41685 "EHLO
-	mail-qg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751989AbaGJPgx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2014 11:36:53 -0400
-Received: by mail-qg0-f50.google.com with SMTP id j5so7728414qga.23
-        for <netdev@vger.kernel.org>; Thu, 10 Jul 2014 08:36:53 -0700 (PDT)
-In-Reply-To: <20140708094118.GB6249@localhost.localdomain>
+Received: from smtprelay0015.hostedemail.com ([216.40.44.15]:48142 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750778AbaGJPiX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2014 11:38:23 -0400
+In-Reply-To: <CAGVrzcY7OpzGwY8eO-iJ9u6H91r8ywUu7y0doP5G_1pyzBd0Wg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> So, the question becomes, will removing the sys time stamp from the
-> octeon driver spoil your application?
+> 2014-07-09 21:47 GMT-07:00  <varkabhadram@gmail.com>:
+[]
+> > diff --git a/drivers/net/ethernet/ti/cpmac.c b/drivers/net/ethernet/ti/cpmac.c
+> > index 7399a52..61eb691 100644
+> > --- a/drivers/net/ethernet/ti/cpmac.c
+> > +++ b/drivers/net/ethernet/ti/cpmac.c
+> > @@ -67,42 +67,42 @@ MODULE_PARM_DESC(dumb_switch, "Assume switch is not connected to MDIO bus");
+> >  #define CPMAC_RX_CONTROL               0x0014
+> >  #define CPMAC_RX_TEARDOWN              0x0018
+> >  #define CPMAC_MBP                      0x0100
+> > -# define MBP_RXPASSCRC                 0x40000000
+> > -# define MBP_RXQOS                     0x20000000
+> > -# define MBP_RXNOCHAIN                 0x10000000
+> > -# define MBP_RXCMF                     0x01000000
+> > -# define MBP_RXSHORT                   0x00800000
+> > -# define MBP_RXCEF                     0x00400000
+> > -# define MBP_RXPROMISC                 0x00200000
+> > -# define MBP_PROMISCCHAN(channel)      (((channel) & 0x7) << 16)
+> > -# define MBP_RXBCAST                   0x00002000
+> > -# define MBP_BCASTCHAN(channel)                (((channel) & 0x7) << 8)
+> > -# define MBP_RXMCAST                   0x00000020
+> > -# define MBP_MCASTCHAN(channel)                ((channel) & 0x7)
 
-Chad? If it cannot be removed easily, I will prepare the temporary
-documentation patch to mark the field as deprecated.
+I think these are al relatively poor cleanups as
+it is now no longer visually obvious that these
+MBP_<FOO> defines are related to CPMAC_MBP
 
-On the topic of this original patch: I'll remove SCM_TSTAMP_HWSYS
-and will simplify ee_info to only hold a type. No need for an explicit
-index field if we simply assume that the ts[] index is always 0, except
-for SCM_TSTAMP_HW, which is 2. We can even copy that one into
-both fields 0 and 2 and consider the latter as a legacy workaround.
+If you really want to do this I suggest something like:
+#define CPMAC_MBP			0x0100
+#define		MBP_RXPASSCRC		0x40000000
