@@ -1,49 +1,41 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH v7 03/33] net: set name_assign_type in alloc_netdev()
-Date: Thu, 10 Jul 2014 11:16:50 +0200
-Message-ID: <87tx6ph8u5.fsf@nemi.mork.no>
-References: <1404980258-30853-1-git-send-email-teg@jklm.no>
-	<1404980258-30853-4-git-send-email-teg@jklm.no>
+From: Tom Gundersen <teg@jklm.no>
+Subject: Re: [PATCH v7 00/33] Provide netdev naming-policy via sysfs
+Date: Thu, 10 Jul 2014 11:19:42 +0200
+Message-ID: <CAG-2HqUPRqFgn1PfDoYzuyoYRcfB=RQCVg3PJZvaakiVtK07yw@mail.gmail.com>
+References: <1404980258-30853-1-git-send-email-teg@jklm.no> <20140710.014355.387392730830362973.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
 	David Herrmann <dh.herrmann@gmail.com>,
 	Kay Sievers <kay@vrfy.org>
-To: Tom Gundersen <teg@jklm.no>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1404980258-30853-4-git-send-email-teg@jklm.no> (Tom Gundersen's
-	message of "Thu, 10 Jul 2014 10:17:08 +0200")
+In-Reply-To: <20140710.014355.387392730830362973.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Tom Gundersen <teg@jklm.no> writes:
+Thanks for the quick answer.
 
-> diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
-> index 5dc638c..f405e05 100644
-> --- a/net/ethernet/eth.c
-> +++ b/net/ethernet/eth.c
-> @@ -390,7 +390,8 @@ EXPORT_SYMBOL(ether_setup);
->  struct net_device *alloc_etherdev_mqs(int sizeof_priv, unsigned int =
-txqs,
->  				      unsigned int rxqs)
->  {
-> -	return alloc_netdev_mqs(sizeof_priv, "eth%d", ether_setup, txqs, rx=
-qs);
-> +	return alloc_netdev_mqs(sizeof_priv, "eth%d", NET_NAME_UNKNOWN,
-> +				ether_setup, txqs, rxqs);
->  }
->  EXPORT_SYMBOL(alloc_etherdev_mqs);
+On Thu, Jul 10, 2014 at 10:43 AM, David Miller <davem@davemloft.net> wrote:
+> It is not reasonable to expect people to review such a large number of
+> patches at one time.
+>
+> Split your series up into logical, and more reasonably sized chunks.
+>
+> I'd say 14 or 15 at a time is the limit.
+>
+> I'm not even looking at this series until you submit it more reasonably.
+>
+> Thank you.
 
-I believe this chunk makes the rest of this exercise pretty pointless.
+Ok. I suggest you review patches 1-7, as these are the generic ones.
+Then once they have been applied I can resubmit the subsequent patches
+individually.
 
-bjorn@nemi:/usr/local/src/git/linux$ git grep alloc_etherdev drivers/ne=
-t/|wc -l
-283
+Do you want me to resubmit patches 1-7, or do you just want to pick
+them from this series as they are?
 
-I don't care enough to go look, but I'd be surprised if none of those
-drivers rename the device before registering it.
+Cheers,
 
-
-Bj=C3=B8rn
+Tom
