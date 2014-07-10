@@ -1,52 +1,119 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 2/2 v2] net: systemport: use kcalloc instead of kzalloc
-Date: Wed,  9 Jul 2014 17:36:47 -0700
-Message-ID: <1404952607-10412-3-git-send-email-f.fainelli@gmail.com>
-References: <1404952607-10412-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: RSS is not efficient when forwarding (ixgbe)
+Date: Wed, 9 Jul 2014 22:14:35 -0300
+Message-ID: <20140710011435.GH2346@t520.home>
+References: <20140704193644.GB2343@t520.home>
+ <CA+mtBx-dY2eoDzL-1K8F8Br224H+c4fzVtVPu9JmnjLdQKuAOg@mail.gmail.com>
+ <20140707105523.GC2343@t520.home>
+ <F6FB0E698C9B3143BDF729DF2228664685DCFE12@ORSMSX110.amr.corp.intel.com>
+ <20140708002837.GS2346@t520.home>
+ <21436.9657.845209.575715@fisica.ufpr.br>
+ <20140708172127.GV2346@t520.home>
+ <21436.11067.667194.899369@fisica.ufpr.br>
+ <20140709052205.GW2346@t520.home>
+ <21437.55675.61176.767736@fisica.ufpr.br>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	Tom Herbert <therbert@google.com>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Carlos Carvalho <carlos@fisica.ufpr.br>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:56973 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756835AbaGJAhg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2014 20:37:36 -0400
-Received: by mail-pd0-f172.google.com with SMTP id w10so9898877pde.3
-        for <netdev@vger.kernel.org>; Wed, 09 Jul 2014 17:37:36 -0700 (PDT)
-In-Reply-To: <1404952607-10412-1-git-send-email-f.fainelli@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:59170 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751263AbaGJBOo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 9 Jul 2014 21:14:44 -0400
+Content-Disposition: inline
+In-Reply-To: <21437.55675.61176.767736@fisica.ufpr.br>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-checkpatch.pl flagged two uses of kzalloc() for allocating and zeroing
-arrays, use kcalloc() instead as recommended.
+On Wed, Jul 09, 2014 at 09:08:27PM -0300, Carlos Carvalho wrote:
+> Flavio Leitner (fbl@redhat.com) wrote on 9 July 2014 02:22:
+>  >On Tue, Jul 08, 2014 at 02:32:43PM -0300, Carlos Carvalho wrote:
+>  >> Flavio Leitner (fbl@redhat.com) wrote on 8 July 2014 14:21:
+>  >>  >On Tue, Jul 08, 2014 at 02:09:13PM -0300, Carlos Carvalho wrote:
+>  >>  >> Flavio Leitner (fbl@redhat.com) wrote on 7 July 2014 21:28:
+>  >>  >>  >On Mon, Jul 07, 2014 at 04:33:24PM +0000, Skidmore, Donald C wrote:
+>  >>  >>  >> 
+>  >>  >>  >> 
+>  >>  >>  >> > 
+>  >>  >>  >> > It's a router forwarding traffic from one interface to another, so I guess it's
+>  >>  >>  >> > only the kernel. BTW, no firewall.
+>  >>  >>  >> > 
+>  >>  >>  >> > Flow Director needs to be enabled and I am using defaults.
+>  >>  >>  >> 
+>  >>  >>  >> Flow Director in ATR mode is on by default for ixgbe.  So like Tom mentioned the driver will create hash buckets for egress packets.  You could try disabling ATR and just use RSS.  Which would probably be the right thing to do any way since Flow Director isn't very useful for routing scenarios.  
+>  >>  >>  >
+>  >>  >>  >That was it.
+>  >>  >> 
+>  >>  >> We have a similar setup and similar problem. How do we disable ATR? I
+>  >>  >> tried to set ntuple off but this almost zeroed traffic. I also tried
+>  >>  >> to change rx-flow-hash but ethtool says it's not possible. The docs
+>  >>  >> say that one can disable ATR by setting AtrSampleRate to 0 but this
+>  >>  >> parameter doesn't exist in 3.14.10.
+>  >>  >> 
+>  >>  >> So, how do we disable ATR and keep RSS?
+>  >>  > 
+>  >>  >Keep in mind that this is actually 2 problems. One is enabling the
+>  >>  >NIC to receive the streams in all queues for this scenario (setting
+>  >>  >ntuple off and restarting the traffic works for me). The second problem
+>  >>  >is having all the queue interrupts spread among the CPUs. That's what
+>  >>  >does irqbalance, tuna, etc...
+>  >> 
+>  >> Spreading the interrupts among the cpus is not the issue for us. The
+>  >> problem is that the number of interrupts is *very* different among the
+>  >> irq's, so no matter how I distribute them among cores there will
+>  >> always be a few that get saturated while 70% of the machine capacity
+>  >> remains idle. Your case seems to be the extreme of ours, where all
+>  >> the flux goes to a single irq.
+>  >> 
+>  >> The problem is in how the NIC distributes traffic among the irq's in
+>  >> the router. Traffic comes almost only from a single machine and
+>  >> spreads through several thousand destinations in the internet. That's
+>  >> why I tried to set the receiving hash mode to the destination IP, but
+>  >> the NIC or driver refuses. So how do I even out the frequency of irq's?
+>  >
+>  >So you see the traffic going to a few queues only and the rest is
+>  >idle, is that correct?  If so, then RSS seems to be working, but
+>  >since all the traffic comes from one server and likely one port,
+>  >maybe the hash is not good enough to distribute among all queues.
+>  >I'd try using software hashing instead of hw hashing to see if it
+>  >helps:
+>  ># ethtool -K <iface> rxhash off
+> 
+> I'm all for using software instead of hardware. However, in this case
+> this is a fundamental function of the NIC, to distribute the load
+> among cores; if we do it via software, a single core (or subset of
+> them) will have to do all the work. So in this particular case I think
+> the correct way is to try to do it in the NIC.
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/ethernet/broadcom/bcmsysport.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
-index b6e4c7b418be..31b5340c685e 100644
---- a/drivers/net/ethernet/broadcom/bcmsysport.c
-+++ b/drivers/net/ethernet/broadcom/bcmsysport.c
-@@ -1095,7 +1095,7 @@ static int bcm_sysport_init_tx_ring(struct bcm_sysport_priv *priv,
- 		return -ENOMEM;
- 	}
+Actually no, you can use RPS with software hashing to distribute the
+workload.  Take a look at Documentation/networking/scaling.txt for
+more details.
  
--	ring->cbs = kzalloc(sizeof(struct bcm_sysport_cb) * size, GFP_KERNEL);
-+	ring->cbs = kcalloc(size, sizeof(struct bcm_sysport_cb), GFP_KERNEL);
- 	if (!ring->cbs) {
- 		netif_err(priv, hw, priv->netdev, "CB allocation failed\n");
- 		return -ENOMEM;
-@@ -1238,8 +1238,8 @@ static int bcm_sysport_init_rx_ring(struct bcm_sysport_priv *priv)
- 	priv->rx_bd_assign_index = 0;
- 	priv->rx_c_index = 0;
- 	priv->rx_read_ptr = 0;
--	priv->rx_cbs = kzalloc(priv->num_rx_bds *
--				sizeof(struct bcm_sysport_cb), GFP_KERNEL);
-+	priv->rx_cbs = kcalloc(priv->num_rx_bds, sizeof(struct bcm_sysport_cb),
-+				GFP_KERNEL);
- 	if (!priv->rx_cbs) {
- 		netif_err(priv, hw, priv->netdev, "CB allocation failed\n");
- 		return -ENOMEM;
--- 
-1.9.1
+>  >BTW, there was a typo in my previous post, I had to turn on ntuple to
+>  >disable ATR.
+> 
+> Ah. Here it was off by default, which contradicts what Donald said
+> above... I turned it on, and nothing changed(?!). The nic was reset
+> but the distribution among queues is the same.
+
+ntuple is about Perfect Filters and it's OFF by default which leaves
+ATR mode ON. In my case, ATR mode was responsible for directing all
+the packets to a single queue. Once I enable nutple, the driver
+disables ATR and that works for me.
+
+> I checked now and in fact the distribution is almost constant among
+> 16 IRQ's. That's the problem, because it leaves the other 24
+> cores idle. Not completely, but the difference is 4 orders of
+> magnitude: 5.41e+08 interruptions in the active 16 IRQ's versus
+> 6.36e+04 in the others. So 60% of the machine is just contributing to
+> global warming and, importantly, limiting our performance :-(
+
+How many NIC queues do you have?  It sounds like you have only 16,
+so you're limited by the number of queues which maps to 16 CPUs.
+That's one case where RPS can be beneficial.
+ 
+fbl
+ 
