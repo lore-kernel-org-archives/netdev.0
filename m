@@ -1,52 +1,68 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH v7 10/33] net: dummy - set name assign type
-Date: Thu, 10 Jul 2014 11:31:29 +0200
-Message-ID: <87pphdh85q.fsf@nemi.mork.no>
-References: <1404980258-30853-1-git-send-email-teg@jklm.no>
-	<1404980258-30853-11-git-send-email-teg@jklm.no>
+From: Varka Bhadram <varkabhadram@gmail.com>
+Subject: Re: [PATCH net v2 3/7] net: cpmac: dynamic debug fixes
+Date: Thu, 10 Jul 2014 15:05:39 +0530
+Message-ID: <53BE5E6B.1070209@gmail.com>
+References: <1404970545-26508-1-git-send-email-varkabhadram@gmail.com>	 <1404970545-26508-4-git-send-email-varkabhadram@gmail.com>	 <1404981109.8839.6.camel@joe-AO725> <53BE52B7.40107@gmail.com> <1404983014.8839.8.camel@joe-AO725>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	David Herrmann <dh.herrmann@gmail.com>,
-	Kay Sievers <kay@vrfy.org>,
-	dingtianhong <dingtianhong@huawei.com>,
-	Tan Xiaojun <tanxiaojun@huawei.com>,
-	WANG Cong <xiyou.wangcong@gmail.com>
-To: Tom Gundersen <teg@jklm.no>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1404980258-30853-11-git-send-email-teg@jklm.no> (Tom Gundersen's
-	message of "Thu, 10 Jul 2014 10:17:15 +0200")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mugunthanvnm@ti.com,
+	linux@rainbow-software.org, balbi@ti.com, george.cherian@ti.com,
+	davem@davemloft.net, Varka Bhadram <varkab@cdac.in>
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:33190 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752051AbaGJJgw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2014 05:36:52 -0400
+Received: by mail-pd0-f173.google.com with SMTP id r10so10587291pdi.32
+        for <netdev@vger.kernel.org>; Thu, 10 Jul 2014 02:36:52 -0700 (PDT)
+In-Reply-To: <1404983014.8839.8.camel@joe-AO725>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Tom Gundersen <teg@jklm.no> writes:
+On 07/10/2014 02:33 PM, Joe Perches wrote:
+> On Thu, 2014-07-10 at 14:15 +0530, Varka Bhadram wrote:
+>> Hi,
+> Hello.
+>
+>> This series already applied to net-next by David Miller.
+> You could improve it anyway.
+>
+>> Anyway we will discuss this. If change required i will send the patch
+>>
+>> On 07/10/2014 02:01 PM, Joe Perches wrote:
+>>> On Thu, 2014-07-10 at 11:05 +0530, varkabhadram@gmail.com wrote:
+>>>> From: Varka Bhadram <varkab@cdac.in>
+>>>>
+>>>> This patch does the following changes
+>>>> 1. convert printk(KERN_DEBUG.. to netdev_dbg() if we have net_device object
+>>>>      or convert to dev_dbg() if we have device object.
+>>> []
+>>>> diff --git a/drivers/net/ethernet/ti/cpmac.c b/drivers/net/ethernet/ti/cpmac.c
+>>> []
+>>>> @@ -228,21 +228,20 @@ static void cpmac_dump_regs(struct net_device *dev)
+>>>>    		if (i % 16 == 0) {
+>>>>    			if (i)
+>>>>    				pr_cont("\n");
+>>>> -			printk(KERN_DEBUG "%s: reg[%p]:", dev->name,
+>>>> -			       priv->regs + i);
+>>>> +			netdev_dbg(dev, "reg[%p]:", priv->regs + i);
+>>>>    		}
+>>>> -		printk(" %08x", cpmac_read(priv->regs, i));
+>>>> +		pr_debug(" %08x", cpmac_read(priv->regs, i));
+>> You mean to say that the pr_debug will insert the new line ?... I dont think so..
+> Try it.
+>
+> If you're using dynamic_debug, remember to
+> enable all the lines.
+>
+>
+Ya you are correct. New line inserted when i use pr_debug().
+I will submit the patch for this.
 
-> A fixed number of indistinguishable dummy devices are allocated at mo=
-dule init time,
-> the names are therefore PREDICTABLE rather than ENUM.
+Thanks.
 
-OK?  So if I go do
-
- modprobe dummy numdummies=3D2
- ip link add type dummy
- ip link add type dummy
-
-then I'd have dummy0 and dummy1 with NET_NAME_PREDICTABLE, but dummy2 a=
-nd
-dummy3 with NET_NAME_ENUM (from your rtnetlink patch).
-
-I think this just demonstrates that there aren't that many different
-name types.  There is no real difference between your NET_NAME_ENUM and
-NET_NAME_PREDICTABLE, resulting in arbitrary choices like this one.
-
-The same goes for NET_NAME_USER and NET_NAME_RENAMED. These are the sam=
-e
-from a kernel point of view.  If userspace wants to keep track of devic=
-e
-name history then it is free to do so without any need for a RENAMED
-type.
-
-
-Bj=C3=B8rn
+-- 
+Regards,
+Varka Bhadram.
