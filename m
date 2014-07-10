@@ -1,58 +1,72 @@
-From: =?UTF-8?Q?Maciej_=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Subject: Re: [PATCH] bonding: Do not try to send packets over dead link in TLB mode.
-Date: Thu, 10 Jul 2014 10:25:01 +0200
-Message-ID: <CAHo-OoxZaRdvg7yD2KBcYz5Eb5B+4TdoZc-Db+3q4T8uHOVduA@mail.gmail.com>
-References: <1404868198-24839-1-git-send-email-maheshb@google.com>
-	<20140709102441.GB1227@redhat.com>
-	<53BD18A7.6090109@redhat.com>
-	<20140709120437.GC1227@redhat.com>
-	<1404911849.3515.28.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20140709132709.GA11974@redhat.com>
-	<CAF2d9ji-E4Og94X+NbcGs=WKSemryy6-WoPKzSVCaM13Rqjiug@mail.gmail.com>
-	<CAF2d9jhJuisK1TmePtz-X79-oDmQHGHhvipAVAE=5Y2cu7tSEg@mail.gmail.com>
-	<53BDAF1A.4050701@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Mahesh Bandewar <maheshb@google.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Jay Vosburgh <j.vosburgh@gmail.com>
-To: Nikolay Aleksandrov <nikolay@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f49.google.com ([209.85.192.49]:65125 "EHLO
-	mail-qg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751488AbaGJIZD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2014 04:25:03 -0400
-Received: by mail-qg0-f49.google.com with SMTP id 63so479640qgz.22
-        for <netdev@vger.kernel.org>; Thu, 10 Jul 2014 01:25:02 -0700 (PDT)
-In-Reply-To: <53BDAF1A.4050701@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tom Gundersen <teg@jklm.no>
+Subject: [PATCH v7 20/33] net: irlan - set name assign type
+Date: Thu, 10 Jul 2014 10:17:25 +0200
+Message-ID: <1404980258-30853-21-git-send-email-teg@jklm.no>
+References: <1404980258-30853-1-git-send-email-teg@jklm.no>
+Cc: linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
+	David Herrmann <dh.herrmann@gmail.com>,
+	Kay Sievers <kay@vrfy.org>, Tom Gundersen <teg@jklm.no>,
+	Samuel Ortiz <samuel@sortiz.org>,
+	Dragos Foianu <dragos.foianu@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1404980258-30853-1-git-send-email-teg@jklm.no>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->> Please note that I got this assert-fail on 3.10 kernel and haven't
->> verified if things have changed in mii_monitor context since then.
->>
-> Okay, this is definitely it. Moreover I cannot find
-> "bond_handle_link_change" function in any bonding version, google search
-> also shows up empty.
->
-> Could you please test this patch with the tree that it is intended for ?
-> I'm pretty certain that there won't be any problem.
->
-> And one more thing, please update the CC list, Jay's email now is:
-> j.vosburgh@gmail.com
-> according to the MAINTAINERS file.
+Signed-off-by: Tom Gundersen <teg@jklm.no>
+Cc: Samuel Ortiz <samuel@sortiz.org>
+Cc: Dragos Foianu <dragos.foianu@gmail.com>
+---
+ include/net/irda/irlan_eth.h  | 2 +-
+ net/irda/irlan/irlan_common.c | 2 +-
+ net/irda/irlan/irlan_eth.c    | 7 ++++---
+ 3 files changed, 6 insertions(+), 5 deletions(-)
 
-Mahesh you're running into one of the 2 or 3 internal bonding mode
-changes that haven't been upstreamed.
-Some sort of lacp churn machine and faster/better link up/down/change
-notification propagation are among them.
-We really should clean those up and get them submitted.
-
-You should probably do this development on upstream 3.15 ;-)
-
-- Maciej
+diff --git a/include/net/irda/irlan_eth.h b/include/net/irda/irlan_eth.h
+index de5c816..00fd2f8 100644
+--- a/include/net/irda/irlan_eth.h
++++ b/include/net/irda/irlan_eth.h
+@@ -25,7 +25,7 @@
+ #ifndef IRLAN_ETH_H
+ #define IRLAN_ETH_H
+ 
+-struct net_device *alloc_irlandev(const char *name);
++struct net_device *alloc_irlandev(const char *name, unsigned char name_assign_type);
+ int  irlan_eth_receive(void *instance, void *sap, struct sk_buff *skb);
+ 
+ void irlan_eth_flow_indication( void *instance, void *sap, LOCAL_FLOW flow);
+diff --git a/net/irda/irlan/irlan_common.c b/net/irda/irlan/irlan_common.c
+index 7ac4d1b..5a458b0 100644
+--- a/net/irda/irlan/irlan_common.c
++++ b/net/irda/irlan/irlan_common.c
+@@ -204,7 +204,7 @@ static struct irlan_cb *irlan_open(__u32 saddr, __u32 daddr)
+ 	IRDA_DEBUG(2, "%s()\n", __func__ );
+ 
+ 	/* Create network device with irlan */
+-	dev = alloc_irlandev(eth ? "eth%d" : "irlan%d");
++	dev = alloc_irlandev(eth ? "eth%d" : "irlan%d", NET_NAME_ENUM);
+ 	if (!dev)
+ 		return NULL;
+ 
+diff --git a/net/irda/irlan/irlan_eth.c b/net/irda/irlan/irlan_eth.c
+index dc13f1a..b62a822 100644
+--- a/net/irda/irlan/irlan_eth.c
++++ b/net/irda/irlan/irlan_eth.c
+@@ -94,10 +94,11 @@ static void irlan_eth_setup(struct net_device *dev)
+  *    Allocate network device and control block
+  *
+  */
+-struct net_device *alloc_irlandev(const char *name)
++struct net_device *alloc_irlandev(const char *name,
++				  unsigned char name_assign_type)
+ {
+-	return alloc_netdev(sizeof(struct irlan_cb), name, NET_NAME_UNKNOWN,
+-			    irlan_eth_setup);
++	return alloc_netdev(sizeof(struct irlan_cb), name,
++			    name_assign_type, irlan_eth_setup);
+ }
+ 
+ /*
+-- 
+1.9.3
