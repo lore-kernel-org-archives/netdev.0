@@ -1,7 +1,7 @@
 From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Subject: [PATCH v4 3/4] ARM: mvebu: Enable the network controller in Armada 375 DB board
-Date: Thu, 10 Jul 2014 16:52:15 -0300
-Message-ID: <1405021936-28658-4-git-send-email-ezequiel.garcia@free-electrons.com>
+Subject: [PATCH v4 2/4] ARM: mvebu: Add support for the network controller in Armada 375 SoC
+Date: Thu, 10 Jul 2014 16:52:14 -0300
+Message-ID: <1405021936-28658-3-git-send-email-ezequiel.garcia@free-electrons.com>
 References: <1405021936-28658-1-git-send-email-ezequiel.garcia@free-electrons.com>
 Cc: David Miller <davem@davemloft.net>,
 	Jason Cooper <jason@lakedaemon.net>,
@@ -13,58 +13,63 @@ Cc: David Miller <davem@davemloft.net>,
 	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
 To: <netdev@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:58532 "EHLO
+Received: from top.free-electrons.com ([176.31.233.9]:58524 "EHLO
 	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751914AbaGJTxb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2014 15:53:31 -0400
+	with ESMTP id S1751585AbaGJTx1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2014 15:53:27 -0400
 In-Reply-To: <1405021936-28658-1-git-send-email-ezequiel.garcia@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This commit enables the network controller in the Armada 375 DB board,
-and configures the two available ethernet interfaces.
+This commit adds the support for the network controller in Marvell
+Armada 375 SoC devicetree.
 
 Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
 ---
- arch/arm/boot/dts/armada-375-db.dts | 26 ++++++++++++++++++++++++++
- 1 file changed, 26 insertions(+)
+ arch/arm/boot/dts/armada-375.dtsi | 31 +++++++++++++++++++++++++++++++
+ 1 file changed, 31 insertions(+)
 
-diff --git a/arch/arm/boot/dts/armada-375-db.dts b/arch/arm/boot/dts/armada-375-db.dts
-index 1e2919d..929ae00 100644
---- a/arch/arm/boot/dts/armada-375-db.dts
-+++ b/arch/arm/boot/dts/armada-375-db.dts
-@@ -123,6 +123,32 @@
- 				cd-gpios = <&gpio1 12 GPIO_ACTIVE_HIGH>;
- 				wp-gpios = <&gpio1 13 GPIO_ACTIVE_HIGH>;
+diff --git a/arch/arm/boot/dts/armada-375.dtsi b/arch/arm/boot/dts/armada-375.dtsi
+index fb92551..d4619ad 100644
+--- a/arch/arm/boot/dts/armada-375.dtsi
++++ b/arch/arm/boot/dts/armada-375.dtsi
+@@ -151,6 +151,37 @@
+ 				      <0xc100 0x100>;
  			};
-+
-+			mdio {
-+				phy0: ethernet-phy@0 {
-+					reg = <0>;
-+				};
-+
-+				phy3: ethernet-phy@3 {
-+					reg = <3>;
-+				};
-+			};
-+
-+			ethernet@f0000 {
-+				status = "okay";
-+
-+				eth0@c4000 {
-+					status = "okay";
-+					phy = <&phy0>;
-+					phy-mode = "rgmii-id";
-+				};
-+
-+				eth1@c5000 {
-+					status = "okay";
-+					phy = <&phy3>;
-+					phy-mode = "gmii";
-+				};
-+			};
- 		};
  
- 		pcie-controller {
++			mdio {
++				#address-cells = <1>;
++				#size-cells = <0>;
++				compatible = "marvell,orion-mdio";
++				reg = <0xc0054 0x4>;
++			};
++
++			/* Network controller */
++			ethernet@f0000 {
++				compatible = "marvell,armada-375-pp2";
++				reg = <0xf0000 0xa000>, /* Packet Processor regs */
++				      <0xc0000 0x3060>, /* LMS regs */
++				      <0xc4000 0x100>,  /* eth0 regs */
++				      <0xc5000 0x100>;  /* eth1 regs */
++				clocks = <&gateclk 3>, <&gateclk 19>;
++				clock-names = "pp_clk", "gop_clk";
++				status = "disabled";
++
++				eth0: eth0@c4000 {
++					interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
++					port-id = <0>;
++					status = "disabled";
++				};
++
++				eth1: eth1@c5000 {
++					interrupts = <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>;
++					port-id = <1>;
++					status = "disabled";
++				};
++			};
++
+ 			spi0: spi@10600 {
+ 				compatible = "marvell,orion-spi";
+ 				reg = <0x10600 0x50>;
 -- 
 1.9.1
