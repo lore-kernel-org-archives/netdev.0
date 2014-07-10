@@ -1,57 +1,40 @@
-From: Tom Gundersen <teg@jklm.no>
-Subject: Re: [PATCH v7 03/33] net: set name_assign_type in alloc_netdev()
-Date: Thu, 10 Jul 2014 12:21:44 +0200
-Message-ID: <CAG-2HqVvW2dh5y8xn9v-B29ohFTcPGgY3NY-P5y_xZu0SGgG3g@mail.gmail.com>
-References: <1404980258-30853-1-git-send-email-teg@jklm.no>
- <1404980258-30853-4-git-send-email-teg@jklm.no> <87tx6ph8u5.fsf@nemi.mork.no>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [net-next-2.6 PATCH v5 0/2] bridge: fdb dumping takes a filter
+ device
+Date: Thu, 10 Jul 2014 06:23:32 -0400
+Message-ID: <53BE69A4.7010808@mojatatu.com>
+References: <1404380290-17040-1-git-send-email-jhs@emojatatu.com>	<20140708.141038.712786607116212110.davem@davemloft.net> <20140708.142155.1915030425034037065.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-7;
+	format=flowed
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	David Herrmann <dh.herrmann@gmail.com>,
-	Kay Sievers <kay@vrfy.org>
-To: =?UTF-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87tx6ph8u5.fsf@nemi.mork.no>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	vyasevic@redhat.com, sfeldma@cumulusnetworks.com,
+	john.r.fastabend@intel.com, roopa@cumulusnetworks.com,
+	eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f175.google.com ([209.85.223.175]:62057 "EHLO
+	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751865AbaGJKXr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2014 06:23:47 -0400
+Received: by mail-ie0-f175.google.com with SMTP id x19so140436ier.34
+        for <netdev@vger.kernel.org>; Thu, 10 Jul 2014 03:23:47 -0700 (PDT)
+In-Reply-To: <20140708.142155.1915030425034037065.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 10, 2014 at 11:16 AM, Bj=C3=B8rn Mork <bjorn@mork.no> wrote=
-:
-> Tom Gundersen <teg@jklm.no> writes:
->
->> diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
->> index 5dc638c..f405e05 100644
->> --- a/net/ethernet/eth.c
->> +++ b/net/ethernet/eth.c
->> @@ -390,7 +390,8 @@ EXPORT_SYMBOL(ether_setup);
->>  struct net_device *alloc_etherdev_mqs(int sizeof_priv, unsigned int=
- txqs,
->>                                     unsigned int rxqs)
->>  {
->> -     return alloc_netdev_mqs(sizeof_priv, "eth%d", ether_setup, txq=
-s, rxqs);
->> +     return alloc_netdev_mqs(sizeof_priv, "eth%d", NET_NAME_UNKNOWN=
-,
->> +                             ether_setup, txqs, rxqs);
->>  }
->>  EXPORT_SYMBOL(alloc_etherdev_mqs);
->
-> I believe this chunk makes the rest of this exercise pretty pointless=
-=2E
->
-> bjorn@nemi:/usr/local/src/git/linux$ git grep alloc_etherdev drivers/=
-net/|wc -l
-> 283
->
-> I don't care enough to go look, but I'd be surprised if none of those
-> drivers rename the device before registering it.
+On 07/08/14 17:21, David Miller wrote:
 
-I did look for that, and I only found devices being renamed to the
-same name assign type as eth%d (wlan%d, etc).
+>
+> drivers/net/vxlan.c:2181:2: warning: initialization from incompatible=
+ pointer type [enabled by default]
+> drivers/net/vxlan.c:2181:2: warning: (near initialization for =A1vxla=
+n_netdev_ops.ndo_fdb_dump=A2) [enabled by default]
+>
 
-Cheers,
+Your patience knows no bounds ;->
+I will send an update shortly.
 
-Tom
+cheers,
+jamal
