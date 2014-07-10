@@ -1,36 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] hyperv: Add netpoll support
-Date: Wed, 09 Jul 2014 16:53:26 -0700 (PDT)
-Message-ID: <20140709.165326.390545212542541507.davem@davemloft.net>
-References: <1404915839-15940-1-git-send-email-richard@nod.at>
+Subject: Re: [PATCH] dp83640: Always decode received status frames
+Date: Wed, 09 Jul 2014 17:01:23 -0700 (PDT)
+Message-ID: <20140709.170123.670690749424659365.davem@davemloft.net>
+References: <1403700016-11398-1-git-send-email-stefan.sorensen@spectralink.com>
+	<1404801588.2494.5.camel@e37108.spectralink.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org,
- haiyangz@microsoft.com, linux-kernel@vger.kernel.org, romieu@fr.zoreil.com,
- devel@linuxdriverproject.org
-To: richard@nod.at
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1404915839-15940-1-git-send-email-richard@nod.at>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, richardcochran@gmail.com
+To: Stefan.Sorensen@spectralink.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34696 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753407AbaGJABY convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2014 20:01:24 -0400
+In-Reply-To: <1404801588.2494.5.camel@e37108.spectralink.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Richard Weinberger <richard@nod.at>
-Date: Wed,  9 Jul 2014 16:23:59 +0200
+=46rom: S=F8rensen, Stefan <Stefan.Sorensen@spectralink.com>
+Date: Tue, 8 Jul 2014 06:39:52 +0000
 
-> In order to have at least a netconsole to debug kernel issues on
-> Windows Azure this patch implements netpoll support.
-> Sending packets is easy, netvsc_start_xmit() does already everything
-> needed.
-> 
-> Signed-off-by: Richard Weinberger <richard@nod.at>
+> On Wed, 2014-06-25 at 14:40 +0200, Stefan S=F8rensen wrote:
+>> Currently status frames are only handled when packet timestamping is
+>> enabled, but status frames are also needed for pin event timestampin=
+g.
+>>=20
+>> Fix by moving packet timestamping check to after status frame decode=
+=2E
+>>=20
+>> Signed-off-by: Stefan S=F8rensen <stefan.sorensen@spectralink.com>
+>=20
+> Dave, I have noticed that this patch is marked as superseded in
+> patchworks (http://patchwork.ozlabs.org/patch/363989/), though I have
+> not posted any updated patch and only response is an Acked-By from
+> Richard.
 
-Applied to net-next, thanks.
+Sorry about that, applied, thanks.
