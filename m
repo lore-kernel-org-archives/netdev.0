@@ -1,32 +1,48 @@
-From: SYSTEM UPDATE <armando.junior@unilider.com.br>
-Subject: Warning!!
-Date: Thu, 10 Jul 2014 05:46:47 +0100
-Message-ID: <20140710040538.B5A143C082D9@mpt-mta2.mpt.net.mm>
-Reply-To: No-reply@mpt-mta2.mpt.net.mm
+From: David Miller <davem@davemloft.net>
+Subject: [PATCH] ipconfig: Only bootp paths should reference ic_dev_xid.
+Date: Wed, 09 Jul 2014 22:25:44 -0700 (PDT)
+Message-ID: <20140709.222544.1574277089327564341.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <armando.junior@unilider.com.br>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mpt-mta2.mpt.net.mm ([203.81.64.67]:48997 "EHLO
-	mpt-mta2.mpt.net.mm" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750702AbaGJFDI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2014 01:03:08 -0400
-Content-Description: Mail message body
+Received: from shards.monkeyblade.net ([149.20.54.216]:36218 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750708AbaGJFZp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2014 01:25:45 -0400
+Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
+	(Authenticated sender: davem-davemloft)
+	by shards.monkeyblade.net (Postfix) with ESMTPSA id BF799581CD6
+	for <netdev@vger.kernel.org>; Wed,  9 Jul 2014 22:25:44 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear: Account User,
-This message is from the System Administrator support center. Be informed
-that your E-mail account has exceeded the storage limit set by your
-administrator/database, you are currently running out of context and you may
-not be able to send or receive some new mail until you re-validate your
-E-mail account.To prevent your email account from been closed, re-validate your mailbox
-below please click and visit this site of lick: >>
-http://webmailupgrade-team.tripod.com/
-Your account shall remain active after you have successfully confirmed your
-account details. Thank you for your swift response to this notification we
-apologize for any inconvenience.
-We appreciate your continued help and support.
-Regards,
-SYSTEM ADMINISTRATOR HELPDESK TEAM 2014
+
+It is only tested, and declared, in the bootp code.
+
+So, in ic_dynamic() guard it's setting with IPCONFIG_BOOTP.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv4/ipconfig.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv4/ipconfig.c b/net/ipv4/ipconfig.c
+index f02f594..5bbef4f 100644
+--- a/net/ipv4/ipconfig.c
++++ b/net/ipv4/ipconfig.c
+@@ -1217,10 +1217,10 @@ static int __init ic_dynamic(void)
+ 	get_random_bytes(&timeout, sizeof(timeout));
+ 	timeout = CONF_BASE_TIMEOUT + (timeout % (unsigned int) CONF_TIMEOUT_RANDOM);
+ 	for (;;) {
++#ifdef IPCONFIG_BOOTP
+ 		/* Track the device we are configuring */
+ 		ic_dev_xid = d->xid;
+ 
+-#ifdef IPCONFIG_BOOTP
+ 		if (do_bootp && (d->able & IC_BOOTP))
+ 			ic_bootp_send_if(d, jiffies - start_jiffies);
+ #endif
+-- 
+1.7.11.7
