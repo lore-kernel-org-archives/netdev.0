@@ -1,41 +1,51 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: [PATCH 1/2] net: davinci_mdio: reuse for keystone2 arch
-Date: Thu, 10 Jul 2014 15:58:31 +0300
-Message-ID: <53BE8DF7.9090303@ti.com>
-References: <1404911451-9921-1-git-send-email-grygorii.strashko@ti.com>	<1404911451-9921-2-git-send-email-grygorii.strashko@ti.com> <20140709.165232.539576872991411664.davem@davemloft.net>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH v7 15/33] net: xen-netback - set name assign type
+Date: Thu, 10 Jul 2014 13:13:10 +0100
+Message-ID: <1404994390.8558.4.camel@kazak.uk.xensource.com>
+References: <1404980258-30853-1-git-send-email-teg@jklm.no>
+	 <1404980258-30853-16-git-send-email-teg@jklm.no>
+	 <1404982886.30660.4.camel@hastur.hellion.org.uk>
+	 <CAG-2HqV+suLoSnge4dG4HUPbAS6EqC9rjy0W9G9AZqaVgRFF+A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <f.fainelli@gmail.com>, <santosh.shilimkar@ti.com>,
-	<netdev@vger.kernel.org>, <prabhakar.csengg@gmail.com>,
-	<nsekhar@ti.com>, <robh+dt@kernel.org>,
-	<linux-kernel@vger.kernel.org>, <devicetree@vger.kernel.org>,
-	<davinci-linux-open-source@linux.davincidsp.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:48956 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751051AbaGJMMJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2014 08:12:09 -0400
-In-Reply-To: <20140709.165232.539576872991411664.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	David Herrmann <dh.herrmann@gmail.com>,
+	Kay Sievers <kay@vrfy.org>, Wei Liu <wei.liu2@citrix.com>,
+	xen-devel <xen-devel@lists.xenproject.org>
+To: Tom Gundersen <teg@jklm.no>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAG-2HqV+suLoSnge4dG4HUPbAS6EqC9rjy0W9G9AZqaVgRFF+A@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi David,
-
-On 07/10/2014 02:52 AM, David Miller wrote:
-> From: Grygorii Strashko <grygorii.strashko@ti.com>
-> Date: Wed, 9 Jul 2014 16:10:50 +0300
+On Thu, 2014-07-10 at 12:46 +0200, Tom Gundersen wrote:
+> On Thu, Jul 10, 2014 at 11:01 AM, Ian Campbell <ian.campbell@citrix.com> wrote:
+> > On Thu, 2014-07-10 at 10:17 +0200, Tom Gundersen wrote:
+> >> The name contains then xen handle, which is not guaranteed to be
+> >> stable between restarts, so label this NET_NAME_ENUM.
+> >
+> > FWIW the N'th interface for domain with domid D will always be named
+> > vifD.N.
+> >
+> > If you reboot domain D then it's domid will change to E and the new
+> > device will be vifE.N.
+> >
+> > I don't know if that counts as predictable as far as the interface you
+> > are introducing is concerned.
 > 
->>   Required properties:
->> -- compatible		: Should be "ti,davinci_mdio"
->> +- compatible		: Should be "ti,davinci_mdio" or "ti,keystone-mdio"
+> That was my understanding, thanks for confirming.
 > 
-> Why the inconsistency in naming schemes?  I don't see any reason
-> to be different wrt. "_" vs. "-" in the name string.
-> 
+> The idea is that the same interface on the same machine must get the
+> same name between reboots in order to be considered predictable. So
+> under the assumption that a rebooted domain should be considered "the
+> same machine" (i.e., it still has the same local configuration,
+> possibly referencing the interface names), then we should consider the
+> names not predictable, so NET_NAME_ENUM.
 
-Hm. Looks like the common way is to use "-", but I can rename it if you insist.
+OK, thanks. I'll defer to you understanding of what this interface is
+supposed to mean: Acked-by: Ian Campbell <ian.campbell@citrix.com>
 
-Regards,
--grygorii
+Ian.
