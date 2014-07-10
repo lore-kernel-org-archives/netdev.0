@@ -1,120 +1,81 @@
 From: Felipe Balbi <balbi@ti.com>
-Subject: Re: [PATCH net v2 6/7] net: cpmac: fix proper spacing before return
- statement
-Date: Thu, 10 Jul 2014 08:09:03 -0500
-Message-ID: <20140710130903.GF15340@saruman.home>
+Subject: Re: [PATCH net v2 7/7] net: cpmac: fix in releasing resources
+Date: Thu, 10 Jul 2014 08:11:53 -0500
+Message-ID: <20140710131153.GG15340@saruman.home>
 References: <1404970545-26508-1-git-send-email-varkabhadram@gmail.com>
- <1404970545-26508-7-git-send-email-varkabhadram@gmail.com>
+ <1404970545-26508-8-git-send-email-varkabhadram@gmail.com>
 Reply-To: <balbi@ti.com>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="SxgehGEc6vB0cZwN"
+	protocol="application/pgp-signature"; boundary="yZnyZsPjQYjG7xG7"
 Cc: <netdev@vger.kernel.org>, <mugunthanvnm@ti.com>,
 	<linux@rainbow-software.org>, <balbi@ti.com>,
 	<george.cherian@ti.com>, <davem@davemloft.net>,
 	Varka Bhadram <varkab@cdac.in>
 To: <varkabhadram@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:42711 "EHLO arroyo.ext.ti.com"
+Received: from arroyo.ext.ti.com ([192.94.94.40]:42827 "EHLO arroyo.ext.ti.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753644AbaGJNKC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Jul 2014 09:10:02 -0400
+	id S1753702AbaGJNMs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Jul 2014 09:12:48 -0400
 Content-Disposition: inline
-In-Reply-To: <1404970545-26508-7-git-send-email-varkabhadram@gmail.com>
+In-Reply-To: <1404970545-26508-8-git-send-email-varkabhadram@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---SxgehGEc6vB0cZwN
+--yZnyZsPjQYjG7xG7
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On Thu, Jul 10, 2014 at 11:05:44AM +0530, varkabhadram@gmail.com wrote:
+On Thu, Jul 10, 2014 at 11:05:45AM +0530, varkabhadram@gmail.com wrote:
 > From: Varka Bhadram <varkab@cdac.in>
 >=20
-> This patch insert proper spaces before return statement.
+> before registering the the net device this code freeing net device
+
+remove one 'the'
+
+> by using the label 'fail'
+>=20
+> fixed by introducing an another label 'out'
 >=20
 > Signed-off-by: Varka Bhadram <varkab@cdac.in>
-
-can probably be merged with previous patch:
-
-Reviewed-by: Felipe Balbi <balbi@ti.com>
-
 > ---
->  drivers/net/ethernet/ti/cpmac.c |    8 ++++++++
->  1 file changed, 8 insertions(+)
+>  drivers/net/ethernet/ti/cpmac.c |    5 +++--
+>  1 file changed, 3 insertions(+), 2 deletions(-)
 >=20
 > diff --git a/drivers/net/ethernet/ti/cpmac.c b/drivers/net/ethernet/ti/cp=
 mac.c
-> index 3d3ead4..b6efe3e 100644
+> index b6efe3e..b68c5b5 100644
 > --- a/drivers/net/ethernet/ti/cpmac.c
 > +++ b/drivers/net/ethernet/ti/cpmac.c
-> @@ -283,6 +283,7 @@ static int cpmac_mdio_read(struct mii_bus *bus, int p=
-hy_id, int reg)
->  		    MDIO_PHY(phy_id));
->  	while ((val =3D cpmac_read(bus->priv, CPMAC_MDIO_ACCESS(0))) & MDIO_BUS=
-Y)
->  		cpu_relax();
-> +
->  	return MDIO_DATA(val);
->  }
-> =20
-> @@ -293,6 +294,7 @@ static int cpmac_mdio_write(struct mii_bus *bus, int =
-phy_id,
->  		cpu_relax();
->  	cpmac_write(bus->priv, CPMAC_MDIO_ACCESS(0), MDIO_BUSY | MDIO_WRITE |
->  		    MDIO_REG(reg) | MDIO_PHY(phy_id) | MDIO_DATA(val));
-> +
->  	return 0;
->  }
-> =20
-> @@ -308,6 +310,7 @@ static int cpmac_mdio_reset(struct mii_bus *bus)
->  	ar7_device_reset(AR7_RESET_BIT_MDIO);
->  	cpmac_write(bus->priv, CPMAC_MDIO_CONTROL, MDIOC_ENABLE |
->  		    MDIOC_CLKDIV(clk_get_rate(cpmac_clk) / 2200000 - 1));
-> +
->  	return 0;
->  }
-> =20
-> @@ -537,6 +540,7 @@ fatal_error:
->  	cpmac_hw_stop(priv->dev);
->  	if (!schedule_work(&priv->reset_work))
->  		atomic_dec(&priv->reset_pending);
-> +
->  	return 0;
-> =20
->  }
-> @@ -883,6 +887,7 @@ static int cpmac_set_ringparam(struct net_device *dev,
->  	if (netif_running(dev))
->  		return -EBUSY;
->  	priv->ring_size =3D ring->rx_pending;
-> +
->  	return 0;
->  }
-> =20
-> @@ -1076,6 +1081,7 @@ static int cpmac_stop(struct net_device *dev)
->  	dma_free_coherent(&dev->dev, sizeof(struct cpmac_desc) *
->  			  (CPMAC_QUEUES + priv->ring_size),
->  			  priv->desc_ring, priv->dma_ring);
-> +
->  	return 0;
->  }
-> =20
-> @@ -1178,6 +1184,7 @@ static int cpmac_probe(struct platform_device *pdev)
->  			 "mac: %pM\n", (void *)mem->start, dev->irq,
->  			 priv->phy_name, dev->dev_addr);
+> @@ -1142,7 +1142,7 @@ static int cpmac_probe(struct platform_device *pdev)
+>  	mem =3D platform_get_resource_byname(pdev, IORESOURCE_MEM, "regs");
+>  	if (!mem) {
+>  		rc =3D -ENODEV;
+> -		goto fail;
+> +		goto out;
 >  	}
-> +
->  	return 0;
+> =20
+>  	dev->irq =3D platform_get_irq_byname(pdev, "irq");
+> @@ -1170,7 +1170,7 @@ static int cpmac_probe(struct platform_device *pdev)
+>  			dev_err(&pdev->dev, "Could not attach to PHY\n");
+> =20
+>  		rc =3D PTR_ERR(priv->phy);
+> -		goto fail;
+> +		goto out;
+>  	}
+> =20
+>  	rc =3D register_netdev(dev);
+> @@ -1189,6 +1189,7 @@ static int cpmac_probe(struct platform_device *pdev)
 > =20
 >  fail:
-> @@ -1191,6 +1198,7 @@ static int cpmac_remove(struct platform_device *pde=
-v)
-> =20
->  	unregister_netdev(dev);
 >  	free_netdev(dev);
-> +
->  	return 0;
+> +out:
+
+this will leak 'dev'.
+
+>  	return rc;
 >  }
 > =20
 > --=20
@@ -124,26 +85,26 @@ v)
 --=20
 balbi
 
---SxgehGEc6vB0cZwN
+--yZnyZsPjQYjG7xG7
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: Digital signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iQIcBAEBAgAGBQJTvpBvAAoJEIaOsuA1yqREzWMP/RfNh5nzKvHRmCsjPF9AG2fl
-oFdmxjBuRblihKnC7fD4rB/Gsf7Ly6Hn0zsY5ZTJs8DploFatEKfVV/iIoSolqzH
-6yBOYVBfYwdSw/VW0kBErIQGaGvRqGj4LL/LBI1Oukc5axBeqDTyUtvbOT35UqW1
-B1vzH2OVdngNC9ZrthF3dDyDSGFKo0anr65Xpccl0UlyIpRt3CbvEJcf5TYztzbW
-pVoJ5l7YPGrsyIGkGeOMyzAh8HX4W1CxHCf+IcovRunGxErQxk2VV2rTS+yQsnh9
-ptyg852pzHlpNynj8vb+cBLJ1yLpuRtpVan/mLo2VaMXtr5FXh4AzYDJ63qXohfE
-/fDUHHwaOtcAEQWzBKwo8KN/epe5SDhzJvd4l4hELkZJ30B4hf6bMcBwct4+k0kL
-s5emkMSg8feFk5BEL+amnfAkhmmI+rCjHn2AbJlKo1go0ilKeS4oiEdU9dWxYAzv
-+PuznIpeLik8Zq3vWH9mRN5XInJRDtvRNvw+FNb04A1d+sm/lxQOJLtA5sMXttRg
-PLAn+1O2mRD4FXQs5UVzeGlROhiM6B/cRd25kiG3RlL0HZOaAasI7Q2FspBYrX48
-jG7e6rt/tULl6h35pQVjpGrYwuS4DG67ya0g42a7PVWMWflKdiPPc5gMDgd0F02M
-EngcpSgwG8Fb0ubZ6ec0
-=9p44
+iQIcBAEBAgAGBQJTvpEZAAoJEIaOsuA1yqREFRIQALGUYki6Rroh1u6iRWBd8dlm
+zVrwjGmFzLgapFj4oYGHauG7kGz6VPZSem81eZ8pCm1DouvYKRrJwpmzZrdCSPPy
+mbEQW0/BH+O/wo/6IVS9/qFgXmba0PWStZP451iqI9ZHra5N7jEPNgP4UG9Ve3hd
+BCbcyA19TCPPkNzCwTh86RdojAkBEFj5oi51CfIn13x+HioF/1caLECInRRdhvHq
+YbORFG6Rafa2USDsh99T7kw4rgnh2Y0ASeFTzY67j7pP9hSb2qEKHgNr2ZaEoNaX
+oYyxfzMvBSKlnrkz+TDZ1aTjTecARoMQzYPO7EHrKQHN9lf/K9g9+tyZz+2ILJDF
+XqQklRZCjUZijJ6bGOaKCPi61hSWKw/Ph6eh6j6vq4JOZ+qr3z/gcoGwTfClcw6k
+BvuRdgxKDV52O9u0uStkUowEkaXDLInwBhTnYdg5CMHf0auZRStW4X6SQ1waBF8s
+7Bl+hZ9EsFCEPCrGjNK+5TEPYRyugjAicGtfVxi5D4SlMQQ61XHtbh7FQTzi/q7h
+q1AaYCtV4/bhDaXLjjGPXkvroK/0blYTNrXMXGeX56Lj5RzxMwgoS13no56GeTkD
+JkFtsRbZcQu3lYcrTTOcShtxhZCaiUldSR4J1k6TOsWKKeb8PXfMUNkg7nZrE9ai
+WUGYXLBkwhrf0/apwAZn
+=o8T5
 -----END PGP SIGNATURE-----
 
---SxgehGEc6vB0cZwN--
+--yZnyZsPjQYjG7xG7--
