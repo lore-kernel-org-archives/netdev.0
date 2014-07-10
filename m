@@ -1,26 +1,168 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2 v2] net: systemport: checkpatch fixes
-Date: Wed, 09 Jul 2014 18:21:12 -0700 (PDT)
-Message-ID: <20140709.182112.677705470229160265.davem@davemloft.net>
-References: <1404952607-10412-1-git-send-email-f.fainelli@gmail.com>
+From: ethan zhao <ethan.zhao@oracle.com>
+Subject: Re: [PATCH NET-NEXT V2] netxen: fix ethtool rx_dropped information
+ in ethtool get_ethtool_stats()
+Date: Thu, 10 Jul 2014 09:31:31 +0800
+Message-ID: <53BDECF3.9030703@oracle.com>
+References: <1404827830-22990-1-git-send-email-ethan.zhao@oracle.com> <53BCABD3.3050207@oracle.com> <31AFFC7280259C4184970ABA9AFE8B93E074D13E@avmb3.qlogic.org> <53BD2B42.9000008@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34992 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751263AbaGJBVQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 9 Jul 2014 21:21:16 -0400
-In-Reply-To: <1404952607-10412-1-git-send-email-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Manish Chopra <manish.chopra@qlogic.com>,
+	David Miller <davem@davemloft.net>,
+	"balbi@ti.com" <balbi@ti.com>, netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	"sriharsha.devdas@oracle.com" <sriharsha.devdas@oracle.com>,
+	"ethan.kernel@gmail.com" <ethan.kernel@gmail.com>
+To: vaughan <vaughan.cao@oracle.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <53BD2B42.9000008@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Wed,  9 Jul 2014 17:36:45 -0700
 
-> These two patches fixes the multiple line alignment issues and
-> kzalloc on array reported by checkpatch.pl
-
-Series applied, thanks.
+On 2014/7/9 19:45, vaughan wrote:
+> On 07/09/2014 07:32 PM, Manish Chopra wrote:
+>>> -----Original Message-----
+>>> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel=
+=2Eorg]
+>>> On Behalf Of ethan zhao
+>>> Sent: Wednesday, July 09, 2014 8:11 AM
+>>> To: David Miller
+>>> Cc: balbi@ti.com; netdev; linux-kernel; sriharsha.devdas@oracle.com=
+;
+>>> ethan.kernel@gmail.com; vaughan
+>>> Subject: Re: [PATCH NET-NEXT V2] netxen: fix ethtool rx_dropped inf=
+ormation in
+>>> ethtool get_ethtool_stats()
+>>>
+>>> David,
+>>>
+>>>     Please help to review and confirm this patch.
+>>>
+>>> Thanks,
+>>> Ethan
+>>>
+>>> On 2014/7/8 21:57, Ethan Zhao wrote:
+>>>> netxen driver has implemented netxen_nic_get_ethtool_stats()
+>>>> interface, but it doesn't collect stats.rxdropped in driver, so we
+>>>> will get different rx_dropped statistic information while using if=
+config and
+>>> ethtool.
+>>>> this patch fills stats.rxdropped field with data from net core wit=
+h
+>>>> dev_get_stats() just as ixgbe driver did for some of its stats.
+>>>>
+>>>> V2: only fix the stats.rxdropped field.
+>>>>
+>>>> Tested with last netxen 4.0.82
+>>>> Compiled with net-next branch 3.16-rc2
+>>>>
+>>>> Signed-off-by: Ethan Zhao <ethan.zhao@oracle.com>
+>>>> Tested-by: Sriharsha Yadagudde <sriharsha.devdas@oracle.com>
+>>>> ---
+>>>>    .../ethernet/qlogic/netxen/netxen_nic_ethtool.c    |   34 +++++=
+++++++++++++-
+>>> --
+>>>>    1 files changed, 29 insertions(+), 5 deletions(-)
+>>>>
+>>>> diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool=
+=2Ec
+>>>> b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
+>>>> index 4ca2c19..49e6a1b 100644
+>>>> --- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
+>>>> +++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
+>>>> @@ -33,22 +33,30 @@
+>>>>    #include "netxen_nic.h"
+>>>>    #include "netxen_nic_hw.h"
+>>>>
+>>>> +enum {NETDEV_STATS, NETXEN_STATS};
+>>>> +
+>>>>    struct netxen_nic_stats {
+>>>>    	char stat_string[ETH_GSTRING_LEN];
+>>>> +	int type;
+>>>>    	int sizeof_stat;
+>>>>    	int stat_offset;
+>>>>    };
+>>>>
+>>>> -#define NETXEN_NIC_STAT(m) sizeof(((struct netxen_adapter *)0)->m=
+), \
+>>>> +#define NETXEN_NIC_STAT(m)	NETXEN_STATS, \
+>>>> +			sizeof(((struct netxen_adapter *)0)->m), \
+>>>>    			offsetof(struct netxen_adapter, m)
+>>>>
+>>>> +#define NETXEN_NETDEV_STAT(m)	NETDEV_STATS, \
+>>>> +			sizeof(((struct rtnl_link_stats64 *)0)->m), \
+>>>> +			offsetof(struct rtnl_link_stats64, m)
+>>>> +
+>>>>    #define NETXEN_NIC_PORT_WINDOW 0x10000
+>>>>    #define NETXEN_NIC_INVALID_DATA 0xDEADBEEF
+>>>>
+>>>>    static const struct netxen_nic_stats netxen_nic_gstrings_stats[=
+] =3D {
+>>>>    	{"xmit_called", NETXEN_NIC_STAT(stats.xmitcalled)},
+>>>>    	{"xmit_finished", NETXEN_NIC_STAT(stats.xmitfinished)},
+>>>> -	{"rx_dropped", NETXEN_NIC_STAT(stats.rxdropped)},
+>>>> +	{"rx_dropped", NETXEN_NETDEV_STAT(rx_dropped)},
+>>>>    	{"tx_dropped", NETXEN_NIC_STAT(stats.txdropped)},
+>>>>    	{"csummed", NETXEN_NIC_STAT(stats.csummed)},
+>>>>    	{"rx_pkts", NETXEN_NIC_STAT(stats.rx_pkts)}, @@ -679,11 +687,2=
+7 @@
+>>>> netxen_nic_get_ethtool_stats(struct net_device *dev,
+>>>>    {
+>>>>    	struct netxen_adapter *adapter =3D netdev_priv(dev);
+>>>>    	int index;
+>>>> +	struct rtnl_link_stats64 temp;
+>>>> +	const struct rtnl_link_stats64 *net_stats;
+>>>> +	char *p =3D NULL;
+>>>>
+>>>> +	net_stats =3D dev_get_stats(dev, &temp);
+>>>>    	for (index =3D 0; index < NETXEN_NIC_STATS_LEN; index++) {
+>>>> -		char *p =3D
+>>>> -		    (char *)adapter +
+>>>> -		    netxen_nic_gstrings_stats[index].stat_offset;
+>>>> +
+>>>> +		switch (netxen_nic_gstrings_stats[index].type) {
+>>>> +		case NETDEV_STATS:
+>>>> +			p =3D (char *)net_stats +
+>>>> +				netxen_nic_gstrings_stats[index].stat_offset;
+>>>> +			break;
+>>>> +		case NETXEN_STATS:
+>>>> +			p =3D (char *)adapter +
+>>>> +				netxen_nic_gstrings_stats[index].stat_offset;
+>>>> +			break;
+>>>> +		default:
+>>>> +			data[index] =3D 0;
+>>>> +			continue;
+>>>> +		}
+>>>> +
+>>>>    		data[index] =3D
+>>>>    		    (netxen_nic_gstrings_stats[index].sizeof_stat =3D=3D
+>>>>    		     sizeof(u64)) ? *(u64 *) p : *(u32 *) p;
+>> Ethan, I can't download this patch as I don=E2=80=99t see it in netd=
+ev patchwork. Just looking at the diff I think there is style issue wit=
+h macro definition of NETXEN_NIC_STAT and NETXEN_NETDEV_STAT.
+>> Enclose macro definition in parentheses as they are containing compl=
+ex values.
+> It's not an error as checkpatch.pl indicates.  As the definition of
+> netxen_nic_stats shows,
+>
+>    struct netxen_nic_stats {
+>    	char stat_string[ETH_GSTRING_LEN];
+> +	int type;
+>    	int sizeof_stat;
+>    	int stat_offset;
+>    };
+>
+> This macros consists of multiple elements, which shouldn't be enclose=
+d
+> in parentheses.
+  Agree, I am sure it is error of checkpatch.pl.
+  Thanks,
+  Ethan
+>> Send this patch targeted for net instead of net-next being a bug fix=
+=2E Please also run checkpatch.pl to correct any style warning/errors i=
+n the patch.
+>>
+>> Thanks!!
+>>
