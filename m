@@ -1,29 +1,40 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: sh_eth DMA API violations
-Date: Fri, 11 Jul 2014 02:51:17 +0400
-Message-ID: <53BF18E5.2030302@cogentembedded.com>
-References: <CAMuHMdVgBe89P6a5Zmk4Z3VTBOgA=YE7Nvy9twpHOEAX+mk6TA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: wireless 2014-07-10
+Date: Thu, 10 Jul 2014 16:10:53 -0700 (PDT)
+Message-ID: <20140710.161053.291577122645461749.davem@davemloft.net>
+References: <20140710212248.GB21203@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Laurent Pinchart <laurent.pinchart@ideasonboard.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linux-sh list <linux-sh@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <CAMuHMdVgBe89P6a5Zmk4Z3VTBOgA=YE7Nvy9twpHOEAX+mk6TA@mail.gmail.com>
-Sender: linux-sh-owner@vger.kernel.org
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linville@tuxdriver.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140710212248.GB21203@tuxdriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Thu, 10 Jul 2014 17:22:49 -0400
 
-On 07/10/2014 02:12 PM, Geert Uytterhoeven wrote:
+> Please pull this batch of fixes intended for the 3.16 stream!
+> 
+> For the iwlwifi bits, Emmanuel says:
+> 
+> "I have here 2 patches that disable the usage of CTS to self. This
+> keeps making trouble to the firmware and is not a really reliable
+> protection anyway. We may re-enable it in the future, but in rarer
+> cases. Along with this, I have a fix from Ilan that prevents a
+> firmware assertion."
+> 
+> On top of that...
+> 
+> Amitkumar Karwar provides an mwifiex fix to properly initialize
+> (i.e. zero) tx_info/rx_info.
+> 
+> Andrea Merello stops rt2800usb from doing DMA operations on the
+> stack...yikes!
+> 
+> Please let me know if there are problems...
 
-> After enabling CONFIG_DMA_API_DEBUG=y, several violations of the DMA API
-> are reported:
-
-    Thank you for the report. I'll try to look at these issues when the time 
-permits.
-
-WBR, Sergei
-
+Pulled, thanks John.
