@@ -1,45 +1,58 @@
-From: Tom Gundersen <teg@jklm.no>
-Subject: [PATCH v7 16/33] net: gdm_lte - set name assign type
-Date: Thu, 10 Jul 2014 10:17:21 +0200
-Message-ID: <1404980258-30853-17-git-send-email-teg@jklm.no>
-References: <1404980258-30853-1-git-send-email-teg@jklm.no>
-Cc: linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
-	David Herrmann <dh.herrmann@gmail.com>,
-	Kay Sievers <kay@vrfy.org>, Tom Gundersen <teg@jklm.no>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Won Kang <wkang77@gmail.com>,
-	Rashika Kheria <rashika.kheria@gmail.com>,
-	devel@driverdev.osuosl.org
+From: roy.qing.li@gmail.com
+Subject: [RFC][PATCH] ipv6: fix the check when handle RA
+Date: Thu, 10 Jul 2014 16:29:06 +0800
+Message-ID: <1404980946-3289-1-git-send-email-roy.qing.li@gmail.com>
+Cc: greearb@candelatech.com
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1404980258-30853-1-git-send-email-teg@jklm.no>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:44643 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751779AbaGJI3E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2014 04:29:04 -0400
+Received: by mail-pd0-f177.google.com with SMTP id y10so10291970pdj.8
+        for <netdev@vger.kernel.org>; Thu, 10 Jul 2014 01:29:03 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Devices are named according to the scheme lteXpdnY, where Y is the
-nic type, and X is the normal enumeration, so the scheme is NET_NAME_ENUM.
+From: Li RongQing <roy.qing.li@gmail.com>
 
-Signed-off-by: Tom Gundersen <teg@jklm.no>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: Won Kang <wkang77@gmail.com>
-Cc: Rashika Kheria <rashika.kheria@gmail.com>
-Cc: devel@driverdev.osuosl.org
+d9333196572(ipv6:  Allow accepting RA from local IP addresses.) made
+ndisc_router_discovery to skip to handle RA when accept_ra_from_local
+is 0 and saddr of packet is not the device address, in fact, this
+condition should be handled
+
+Fixes: d9333196572(ipv6:  Allow accepting RA from local IP addresses.)
+Cc: Ben Greear <greearb@candelatech.com>
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 ---
- drivers/staging/gdm724x/gdm_lte.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/ipv6/ndisc.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/staging/gdm724x/gdm_lte.c b/drivers/staging/gdm724x/gdm_lte.c
-index c226852..094a91a 100644
---- a/drivers/staging/gdm724x/gdm_lte.c
-+++ b/drivers/staging/gdm724x/gdm_lte.c
-@@ -885,7 +885,7 @@ int register_lte_device(struct phy_dev *phy_dev,
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index a845e3d..e70e805 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -1152,8 +1152,8 @@ static void ndisc_router_discovery(struct sk_buff *skb)
+ 	 * accept_ra_from_local is set to true.
+ 	 */
+ 	if (!(in6_dev->cnf.accept_ra_from_local ||
+-	      ipv6_chk_addr(dev_net(in6_dev->dev), &ipv6_hdr(skb)->saddr,
+-			    NULL, 0))) {
++	      !ipv6_chk_addr(dev_net(in6_dev->dev), &ipv6_hdr(skb)->saddr,
++			     NULL, 0))) {
+ 		ND_PRINTK(2, info,
+ 			  "RA from local address detected on dev: %s: default router ignored\n",
+ 			  skb->dev->name);
+@@ -1295,8 +1295,8 @@ skip_linkparms:
  
- 		/* Allocate netdev */
- 		net = alloc_netdev(sizeof(struct nic), pdn_dev_name,
--				   NET_NAME_UNKNOWN, ether_setup);
-+				   NET_NAME_ENUM, ether_setup);
- 		if (net == NULL) {
- 			pr_err("alloc_netdev failed\n");
- 			ret = -ENOMEM;
+ #ifdef CONFIG_IPV6_ROUTE_INFO
+ 	if (!(in6_dev->cnf.accept_ra_from_local ||
+-	      ipv6_chk_addr(dev_net(in6_dev->dev), &ipv6_hdr(skb)->saddr,
+-			    NULL, 0))) {
++	      !ipv6_chk_addr(dev_net(in6_dev->dev), &ipv6_hdr(skb)->saddr,
++			     NULL, 0))) {
+ 		ND_PRINTK(2, info,
+ 			  "RA from local address detected on dev: %s: router info ignored.\n",
+ 			  skb->dev->name);
 -- 
-1.9.3
+1.7.10.4
