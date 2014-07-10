@@ -1,168 +1,73 @@
-From: ethan zhao <ethan.zhao@oracle.com>
-Subject: Re: [PATCH NET-NEXT V2] netxen: fix ethtool rx_dropped information
- in ethtool get_ethtool_stats()
-Date: Thu, 10 Jul 2014 09:31:31 +0800
-Message-ID: <53BDECF3.9030703@oracle.com>
-References: <1404827830-22990-1-git-send-email-ethan.zhao@oracle.com> <53BCABD3.3050207@oracle.com> <31AFFC7280259C4184970ABA9AFE8B93E074D13E@avmb3.qlogic.org> <53BD2B42.9000008@oracle.com>
+From: Frederic Weisbecker <fweisbec@gmail.com>
+Subject: Re: [RFC 0/7] hrtimer: drop active hrtimer checks after adding it
+Date: Thu, 10 Jul 2014 03:34:58 +0200
+Message-ID: <20140710013456.GB6480@localhost.localdomain>
+References: <cover.1404888801.git.viresh.kumar@linaro.org>
+ <alpine.DEB.2.10.1407092321130.4357@nanos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Manish Chopra <manish.chopra@qlogic.com>,
-	David Miller <davem@davemloft.net>,
-	"balbi@ti.com" <balbi@ti.com>, netdev <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	"sriharsha.devdas@oracle.com" <sriharsha.devdas@oracle.com>,
-	"ethan.kernel@gmail.com" <ethan.kernel@gmail.com>
-To: vaughan <vaughan.cao@oracle.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Viresh Kumar <viresh.kumar@linaro.org>,
+	linaro-kernel@lists.linaro.org, linux-kernel@vger.kernel.org,
+	arvind.chauhan@arm.com, preeti@linux.vnet.ibm.com,
+	khilman@linaro.org, Darren Hart <dvhart@linux.intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@redhat.com>, netdev@vger.kernel.org,
+	Peter Zijlstra <peterz@infradead.org>
+To: Thomas Gleixner <tglx@linutronix.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <53BD2B42.9000008@oracle.com>
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.10.1407092321130.4357@nanos>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, Jul 09, 2014 at 11:30:41PM +0200, Thomas Gleixner wrote:
+> On Wed, 9 Jul 2014, Viresh Kumar wrote:
+> 
+> So your patch series drops active hrtimer checks after adding it,
+> according to your subject line.
+> 
+> Quite useeul to drop something after adding it, right?
+> 
+> > hrtimer_start*() family never fails to enqueue a hrtimer to a clock-base. The
+> > only special case is when the hrtimer was in past. If it is getting enqueued to
+> > local CPUs's clock-base, we raise a softirq and exit, else we handle that on
+> > next interrupt on remote CPU.
+> > 
+> > At several places in the kernel, we try to make sure if hrtimer was added
+> > properly or not by calling hrtimer_active(), like:
+> > 
+> > 	hrtimer_start(timer, expires, mode);
+> > 	if (hrtimer_active(timer)) {
+> > 		/* Added successfully */
+> > 	} else {
+> > 		/* Was added in the past */
+> > 	}
+> > 
+> > As hrtimer_start*() never fails, hrtimer_active() is guaranteed to return '1'.
+> > So, there is no point calling hrtimer_active().
+> 
+> Wrong as usual.
+> 
+> It's a common pattern that short timeouts are given which lead to
+> immediate expiry so the extra round through schedule is even more
+> pointless than the extra check.
 
-On 2014/7/9 19:45, vaughan wrote:
-> On 07/09/2014 07:32 PM, Manish Chopra wrote:
->>> -----Original Message-----
->>> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel=
-=2Eorg]
->>> On Behalf Of ethan zhao
->>> Sent: Wednesday, July 09, 2014 8:11 AM
->>> To: David Miller
->>> Cc: balbi@ti.com; netdev; linux-kernel; sriharsha.devdas@oracle.com=
-;
->>> ethan.kernel@gmail.com; vaughan
->>> Subject: Re: [PATCH NET-NEXT V2] netxen: fix ethtool rx_dropped inf=
-ormation in
->>> ethtool get_ethtool_stats()
->>>
->>> David,
->>>
->>>     Please help to review and confirm this patch.
->>>
->>> Thanks,
->>> Ethan
->>>
->>> On 2014/7/8 21:57, Ethan Zhao wrote:
->>>> netxen driver has implemented netxen_nic_get_ethtool_stats()
->>>> interface, but it doesn't collect stats.rxdropped in driver, so we
->>>> will get different rx_dropped statistic information while using if=
-config and
->>> ethtool.
->>>> this patch fills stats.rxdropped field with data from net core wit=
-h
->>>> dev_get_stats() just as ixgbe driver did for some of its stats.
->>>>
->>>> V2: only fix the stats.rxdropped field.
->>>>
->>>> Tested with last netxen 4.0.82
->>>> Compiled with net-next branch 3.16-rc2
->>>>
->>>> Signed-off-by: Ethan Zhao <ethan.zhao@oracle.com>
->>>> Tested-by: Sriharsha Yadagudde <sriharsha.devdas@oracle.com>
->>>> ---
->>>>    .../ethernet/qlogic/netxen/netxen_nic_ethtool.c    |   34 +++++=
-++++++++++++-
->>> --
->>>>    1 files changed, 29 insertions(+), 5 deletions(-)
->>>>
->>>> diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool=
-=2Ec
->>>> b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
->>>> index 4ca2c19..49e6a1b 100644
->>>> --- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
->>>> +++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
->>>> @@ -33,22 +33,30 @@
->>>>    #include "netxen_nic.h"
->>>>    #include "netxen_nic_hw.h"
->>>>
->>>> +enum {NETDEV_STATS, NETXEN_STATS};
->>>> +
->>>>    struct netxen_nic_stats {
->>>>    	char stat_string[ETH_GSTRING_LEN];
->>>> +	int type;
->>>>    	int sizeof_stat;
->>>>    	int stat_offset;
->>>>    };
->>>>
->>>> -#define NETXEN_NIC_STAT(m) sizeof(((struct netxen_adapter *)0)->m=
-), \
->>>> +#define NETXEN_NIC_STAT(m)	NETXEN_STATS, \
->>>> +			sizeof(((struct netxen_adapter *)0)->m), \
->>>>    			offsetof(struct netxen_adapter, m)
->>>>
->>>> +#define NETXEN_NETDEV_STAT(m)	NETDEV_STATS, \
->>>> +			sizeof(((struct rtnl_link_stats64 *)0)->m), \
->>>> +			offsetof(struct rtnl_link_stats64, m)
->>>> +
->>>>    #define NETXEN_NIC_PORT_WINDOW 0x10000
->>>>    #define NETXEN_NIC_INVALID_DATA 0xDEADBEEF
->>>>
->>>>    static const struct netxen_nic_stats netxen_nic_gstrings_stats[=
-] =3D {
->>>>    	{"xmit_called", NETXEN_NIC_STAT(stats.xmitcalled)},
->>>>    	{"xmit_finished", NETXEN_NIC_STAT(stats.xmitfinished)},
->>>> -	{"rx_dropped", NETXEN_NIC_STAT(stats.rxdropped)},
->>>> +	{"rx_dropped", NETXEN_NETDEV_STAT(rx_dropped)},
->>>>    	{"tx_dropped", NETXEN_NIC_STAT(stats.txdropped)},
->>>>    	{"csummed", NETXEN_NIC_STAT(stats.csummed)},
->>>>    	{"rx_pkts", NETXEN_NIC_STAT(stats.rx_pkts)}, @@ -679,11 +687,2=
-7 @@
->>>> netxen_nic_get_ethtool_stats(struct net_device *dev,
->>>>    {
->>>>    	struct netxen_adapter *adapter =3D netdev_priv(dev);
->>>>    	int index;
->>>> +	struct rtnl_link_stats64 temp;
->>>> +	const struct rtnl_link_stats64 *net_stats;
->>>> +	char *p =3D NULL;
->>>>
->>>> +	net_stats =3D dev_get_stats(dev, &temp);
->>>>    	for (index =3D 0; index < NETXEN_NIC_STATS_LEN; index++) {
->>>> -		char *p =3D
->>>> -		    (char *)adapter +
->>>> -		    netxen_nic_gstrings_stats[index].stat_offset;
->>>> +
->>>> +		switch (netxen_nic_gstrings_stats[index].type) {
->>>> +		case NETDEV_STATS:
->>>> +			p =3D (char *)net_stats +
->>>> +				netxen_nic_gstrings_stats[index].stat_offset;
->>>> +			break;
->>>> +		case NETXEN_STATS:
->>>> +			p =3D (char *)adapter +
->>>> +				netxen_nic_gstrings_stats[index].stat_offset;
->>>> +			break;
->>>> +		default:
->>>> +			data[index] =3D 0;
->>>> +			continue;
->>>> +		}
->>>> +
->>>>    		data[index] =3D
->>>>    		    (netxen_nic_gstrings_stats[index].sizeof_stat =3D=3D
->>>>    		     sizeof(u64)) ? *(u64 *) p : *(u32 *) p;
->> Ethan, I can't download this patch as I don=E2=80=99t see it in netd=
-ev patchwork. Just looking at the diff I think there is style issue wit=
-h macro definition of NETXEN_NIC_STAT and NETXEN_NETDEV_STAT.
->> Enclose macro definition in parentheses as they are containing compl=
-ex values.
-> It's not an error as checkpatch.pl indicates.  As the definition of
-> netxen_nic_stats shows,
->
->    struct netxen_nic_stats {
->    	char stat_string[ETH_GSTRING_LEN];
-> +	int type;
->    	int sizeof_stat;
->    	int stat_offset;
->    };
->
-> This macros consists of multiple elements, which shouldn't be enclose=
-d
-> in parentheses.
-  Agree, I am sure it is error of checkpatch.pl.
-  Thanks,
-  Ethan
->> Send this patch targeted for net instead of net-next being a bug fix=
-=2E Please also run checkpatch.pl to correct any style warning/errors i=
-n the patch.
->>
->> Thanks!!
->>
+It may be a common pattern but it's not obvious at all as is in the code
+except for timers gurus.
+
+It looks like error handling while it's actually an optimization.
+
+Also what about this pattern when it's used in interrupt or interrupt-disabled code?
+In this case the handler is not going to fire right away, unless it's enqueued
+on another CPU for unpinned timers.
+
+For example this code in tick_nohz_stop_sched_tick():
+
+          hrtimer_start(&ts->sched_timer, expires, HRTIMER_MODE_ABS_PINNED);
+          /* Check, if the timer was already in the past */
+          if (hrtimer_active(&ts->sched_timer))
+                 goto out;
+
+It's not clear what this is handling. Concurrent immediate callback expiration from another CPU?
+But the timer is pinned local so it can't execute right away between hrtimer_start() and hrtimer_active()
+check...
