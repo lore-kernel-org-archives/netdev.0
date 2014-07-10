@@ -1,68 +1,130 @@
 From: Tom Gundersen <teg@jklm.no>
-Subject: [PATCH v8 2/4] net: set name assign type for renamed devices
-Date: Thu, 10 Jul 2014 23:01:04 +0200
-Message-ID: <1405026066-2547-3-git-send-email-teg@jklm.no>
+Subject: [PATCH v8 4/4] net: rtnetlink - make create_link take name_assign_type
+Date: Thu, 10 Jul 2014 23:01:06 +0200
+Message-ID: <1405026066-2547-5-git-send-email-teg@jklm.no>
 References: <1405026066-2547-1-git-send-email-teg@jklm.no>
 Cc: linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
 	David Herrmann <dh.herrmann@gmail.com>,
 	Kay Sievers <kay@vrfy.org>, Tom Gundersen <teg@jklm.no>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:55473 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752584AbaGJVBZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2014 17:01:25 -0400
-Received: by mail-wg0-f44.google.com with SMTP id m15so145022wgh.27
-        for <netdev@vger.kernel.org>; Thu, 10 Jul 2014 14:01:24 -0700 (PDT)
+Received: from mail-we0-f171.google.com ([74.125.82.171]:40008 "EHLO
+	mail-we0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752202AbaGJVBb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2014 17:01:31 -0400
+Received: by mail-we0-f171.google.com with SMTP id q58so151440wes.2
+        for <netdev@vger.kernel.org>; Thu, 10 Jul 2014 14:01:28 -0700 (PDT)
 In-Reply-To: <1405026066-2547-1-git-send-email-teg@jklm.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Based on a patch from David Herrmann.
-
-This is the only place devices can be renamed.
+This passes down NET_NAME_USER (or NET_NAME_ENUM) to alloc_netdev(),
+for any device created over rtnetlink.
 
 Signed-off-by: Tom Gundersen <teg@jklm.no>
-Reviewed-by: David Herrmann <dh.herrmann@gmail.com>
 ---
- net/core/dev.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+ drivers/net/veth.c      | 11 ++++++++---
+ include/net/rtnetlink.h |  1 +
+ net/core/rtnetlink.c    | 12 ++++++++----
+ 3 files changed, 17 insertions(+), 7 deletions(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 392c784..5d7b2a6 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1083,6 +1083,7 @@ static int dev_get_valid_name(struct net *net,
- int dev_change_name(struct net_device *dev, const char *newname)
- {
- 	char oldname[IFNAMSIZ];
-+	unsigned char old_assign_type;
- 	int err = 0;
- 	int ret;
+diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+index b4a10bc..5058700 100644
+--- a/drivers/net/veth.c
++++ b/drivers/net/veth.c
+@@ -319,6 +319,7 @@ static int veth_newlink(struct net *src_net, struct net_device *dev,
+ 	struct nlattr *peer_tb[IFLA_MAX + 1], **tbp;
+ 	struct ifinfomsg *ifmp;
  	struct net *net;
-@@ -1109,10 +1110,14 @@ int dev_change_name(struct net_device *dev, const char *newname)
- 		return err;
++	unsigned char name_assign_type;
+ 
+ 	/*
+ 	 * create and register peer first
+@@ -344,16 +345,20 @@ static int veth_newlink(struct net *src_net, struct net_device *dev,
+ 		tbp = tb;
  	}
  
-+	old_assign_type = dev->name_assign_type;
-+	dev->name_assign_type = NET_NAME_RENAMED;
-+
- rollback:
- 	ret = device_rename(&dev->dev, dev->name);
- 	if (ret) {
- 		memcpy(dev->name, oldname, IFNAMSIZ);
-+		dev->name_assign_type = old_assign_type;
- 		write_seqcount_end(&devnet_rename_seq);
- 		return ret;
- 	}
-@@ -1141,6 +1146,8 @@ rollback:
- 			write_seqcount_begin(&devnet_rename_seq);
- 			memcpy(dev->name, oldname, IFNAMSIZ);
- 			memcpy(oldname, newname, IFNAMSIZ);
-+			dev->name_assign_type = old_assign_type;
-+			old_assign_type = NET_NAME_RENAMED;
- 			goto rollback;
- 		} else {
- 			pr_err("%s: name change rollback failed: %d\n",
+-	if (tbp[IFLA_IFNAME])
++	if (tbp[IFLA_IFNAME]) {
+ 		nla_strlcpy(ifname, tbp[IFLA_IFNAME], IFNAMSIZ);
+-	else
++		name_assign_type = NET_NAME_USER;
++	} else {
+ 		snprintf(ifname, IFNAMSIZ, DRV_NAME "%%d");
++		name_assign_type = NET_NAME_ENUM;
++	}
+ 
+ 	net = rtnl_link_get_net(src_net, tbp);
+ 	if (IS_ERR(net))
+ 		return PTR_ERR(net);
+ 
+-	peer = rtnl_create_link(net, ifname, &veth_link_ops, tbp);
++	peer = rtnl_create_link(net, ifname, name_assign_type,
++				&veth_link_ops, tbp);
+ 	if (IS_ERR(peer)) {
+ 		put_net(net);
+ 		return PTR_ERR(peer);
+diff --git a/include/net/rtnetlink.h b/include/net/rtnetlink.h
+index 72240e5..e21b9f9 100644
+--- a/include/net/rtnetlink.h
++++ b/include/net/rtnetlink.h
+@@ -136,6 +136,7 @@ void rtnl_af_unregister(struct rtnl_af_ops *ops);
+ 
+ struct net *rtnl_link_get_net(struct net *src_net, struct nlattr *tb[]);
+ struct net_device *rtnl_create_link(struct net *net, char *ifname,
++				    unsigned char name_assign_type,
+ 				    const struct rtnl_link_ops *ops,
+ 				    struct nlattr *tb[]);
+ int rtnl_configure_link(struct net_device *dev, const struct ifinfomsg *ifm);
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index 899de40..09456ff 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1805,7 +1805,8 @@ int rtnl_configure_link(struct net_device *dev, const struct ifinfomsg *ifm)
+ EXPORT_SYMBOL(rtnl_configure_link);
+ 
+ struct net_device *rtnl_create_link(struct net *net,
+-	char *ifname, const struct rtnl_link_ops *ops, struct nlattr *tb[])
++	char *ifname, unsigned char name_assign_type,
++	const struct rtnl_link_ops *ops, struct nlattr *tb[])
+ {
+ 	int err;
+ 	struct net_device *dev;
+@@ -1823,7 +1824,7 @@ struct net_device *rtnl_create_link(struct net *net,
+ 		num_rx_queues = ops->get_num_rx_queues();
+ 
+ 	err = -ENOMEM;
+-	dev = alloc_netdev_mqs(ops->priv_size, ifname, NET_NAME_UNKNOWN,
++	dev = alloc_netdev_mqs(ops->priv_size, ifname, name_assign_type,
+ 			       ops->setup, num_tx_queues, num_rx_queues);
+ 	if (!dev)
+ 		goto err;
+@@ -1889,6 +1890,7 @@ static int rtnl_newlink(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	char ifname[IFNAMSIZ];
+ 	struct nlattr *tb[IFLA_MAX+1];
+ 	struct nlattr *linkinfo[IFLA_INFO_MAX+1];
++	unsigned char name_assign_type = NET_NAME_USER;
+ 	int err;
+ 
+ #ifdef CONFIG_MODULES
+@@ -2038,14 +2040,16 @@ replay:
+ 			return -EOPNOTSUPP;
+ 		}
+ 
+-		if (!ifname[0])
++		if (!ifname[0]) {
+ 			snprintf(ifname, IFNAMSIZ, "%s%%d", ops->kind);
++			name_assign_type = NET_NAME_ENUM;
++		}
+ 
+ 		dest_net = rtnl_link_get_net(net, tb);
+ 		if (IS_ERR(dest_net))
+ 			return PTR_ERR(dest_net);
+ 
+-		dev = rtnl_create_link(dest_net, ifname, ops, tb);
++		dev = rtnl_create_link(dest_net, ifname, name_assign_type, ops, tb);
+ 		if (IS_ERR(dev)) {
+ 			err = PTR_ERR(dev);
+ 			goto out;
 -- 
 1.9.3
