@@ -1,68 +1,61 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 09/11] net: bcmgenet: fix bcmgenet_wol_resume
-Date: Thu, 10 Jul 2014 15:46:22 -0700
-Message-ID: <1405032384-24006-10-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next 10/11] net: bcmgenet: suspend and resume from Wake-on-LAN
+Date: Thu, 10 Jul 2014 15:46:23 -0700
+Message-ID: <1405032384-24006-11-git-send-email-f.fainelli@gmail.com>
 References: <1405032384-24006-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f181.google.com ([209.85.223.181]:47295 "EHLO
-	mail-ie0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752433AbaGJWqh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2014 18:46:37 -0400
-Received: by mail-ie0-f181.google.com with SMTP id rp18so232363iec.40
-        for <netdev@vger.kernel.org>; Thu, 10 Jul 2014 15:46:36 -0700 (PDT)
+Received: from mail-ie0-f173.google.com ([209.85.223.173]:48887 "EHLO
+	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752466AbaGJWqi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2014 18:46:38 -0400
+Received: by mail-ie0-f173.google.com with SMTP id tr6so239574ieb.4
+        for <netdev@vger.kernel.org>; Thu, 10 Jul 2014 15:46:37 -0700 (PDT)
 In-Reply-To: <1405032384-24006-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-bcmgenet_wol_resume() will create an unbalanced clock state for the
-wol_clk clock pointer since everywhere else in the code, we always call
-clk_prepare_enable() and clk_disable_unprepare(). This function also
-calls init_umac() which is neither correct nor necessary since
-bcmgenet_resume() and bcmgenet_open() already does that.
-
-Finally calling bcmgenet_wol_resume() in bcmgenet_open() is not correct,
-since the interface would not have been able to put us in Wake-on-LAN
-mode if it was not UP before.
+Update bcmgenet_suspend() to prepare the hardware for being put into
+Wake-on-LAN mode if the device can wakeup the system, and Wake-on-LAN is
+enabled. Whether we resume from Wake-on-LAN or not, make sure that
+bcmgenet_resume() disables the UniMAC MagicPacket matching mode and puts
+the hardware in a state where it can receive all incoming packets.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 14 +-------------
- 1 file changed, 1 insertion(+), 13 deletions(-)
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
 
 diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index 552fba4e72da..5b2b9c546ee7 100644
+index 5b2b9c546ee7..e80afa3cc321 100644
 --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
 +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -1972,14 +1972,8 @@ static void bcmgenet_set_hw_addr(struct bcmgenet_priv *priv,
+@@ -2639,6 +2639,12 @@ static int bcmgenet_suspend(struct device *d)
+ 	bcmgenet_tx_reclaim_all(dev);
+ 	bcmgenet_fini_dma(priv);
  
- static int bcmgenet_wol_resume(struct bcmgenet_priv *priv)
- {
--	int ret;
--
- 	/* From WOL-enabled suspend, switch to regular clock */
--	clk_disable(priv->clk_wol);
--	/* init umac registers to synchronize s/w with h/w */
--	ret = init_umac(priv);
--	if (ret)
--		return ret;
-+	clk_disable_unprepare(priv->clk_wol);
++	/* Prepare the device for Wake-on-LAN and switch to the slow clock */
++	if (device_may_wakeup(d) && priv->wolopts) {
++		bcmgenet_power_down(priv, GENET_POWER_WOL_MAGIC);
++		clk_prepare_enable(priv->clk_wol);
++	}
++
+ 	/* Turn off the clocks */
+ 	clk_disable_unprepare(priv->clk);
  
- 	phy_init_hw(priv->phydev);
- 	/* Speed settings must be restored */
-@@ -2070,12 +2064,6 @@ static int bcmgenet_open(struct net_device *dev)
+@@ -2667,6 +2673,12 @@ static int bcmgenet_resume(struct device *d)
+ 	if (ret)
+ 		goto out_clk_disable;
  
- 	bcmgenet_set_hw_addr(priv, dev->dev_addr);
++	if (priv->wolopts)
++		ret = bcmgenet_wol_resume(priv);
++
++	if (ret)
++		goto out_clk_disable;
++
+ 	/* disable ethernet MAC while updating its registers */
+ 	umac_enable_set(priv, CMD_TX_EN | CMD_RX_EN, 0);
  
--	if (priv->wol_enabled) {
--		ret = bcmgenet_wol_resume(priv);
--		if (ret)
--			return ret;
--	}
--
- 	if (phy_is_internal(priv->phydev)) {
- 		reg = bcmgenet_ext_readl(priv, EXT_EXT_PWR_MGMT);
- 		reg |= EXT_ENERGY_DET_MASK;
 -- 
 1.9.1
