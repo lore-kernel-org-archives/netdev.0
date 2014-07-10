@@ -1,61 +1,93 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 10/11] net: bcmgenet: suspend and resume from Wake-on-LAN
-Date: Thu, 10 Jul 2014 15:46:23 -0700
-Message-ID: <1405032384-24006-11-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next 05/11] net: bcmgenet: request Wake-on-LAN interrupt
+Date: Thu, 10 Jul 2014 15:46:18 -0700
+Message-ID: <1405032384-24006-6-git-send-email-f.fainelli@gmail.com>
 References: <1405032384-24006-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f173.google.com ([209.85.223.173]:48887 "EHLO
-	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752466AbaGJWqi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2014 18:46:38 -0400
-Received: by mail-ie0-f173.google.com with SMTP id tr6so239574ieb.4
-        for <netdev@vger.kernel.org>; Thu, 10 Jul 2014 15:46:37 -0700 (PDT)
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:39651 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752332AbaGJWqd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2014 18:46:33 -0400
+Received: by mail-ie0-f174.google.com with SMTP id rd18so234497iec.33
+        for <netdev@vger.kernel.org>; Thu, 10 Jul 2014 15:46:32 -0700 (PDT)
 In-Reply-To: <1405032384-24006-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Update bcmgenet_suspend() to prepare the hardware for being put into
-Wake-on-LAN mode if the device can wakeup the system, and Wake-on-LAN is
-enabled. Whether we resume from Wake-on-LAN or not, make sure that
-bcmgenet_resume() disables the UniMAC MagicPacket matching mode and puts
-the hardware in a state where it can receive all incoming packets.
+Attempt to the request the Wake-on-LAN interrupt bit, and if successful,
+advertise wakeup capability instead of doing this unconditionnally.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 19 +++++++++++++++++--
+ drivers/net/ethernet/broadcom/genet/bcmgenet.h |  2 ++
+ 2 files changed, 19 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index 5b2b9c546ee7..e80afa3cc321 100644
+index f810cddbcf58..d913139bf5f3 100644
 --- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
 +++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -2639,6 +2639,12 @@ static int bcmgenet_suspend(struct device *d)
- 	bcmgenet_tx_reclaim_all(dev);
- 	bcmgenet_fini_dma(priv);
+@@ -1925,6 +1925,15 @@ static irqreturn_t bcmgenet_isr0(int irq, void *dev_id)
+ 	return IRQ_HANDLED;
+ }
  
-+	/* Prepare the device for Wake-on-LAN and switch to the slow clock */
-+	if (device_may_wakeup(d) && priv->wolopts) {
-+		bcmgenet_power_down(priv, GENET_POWER_WOL_MAGIC);
-+		clk_prepare_enable(priv->clk_wol);
-+	}
++static irqreturn_t bcmgenet_wol_isr(int irq, void *dev_id)
++{
++	struct bcmgenet_priv *priv = dev_id;
 +
- 	/* Turn off the clocks */
- 	clk_disable_unprepare(priv->clk);
- 
-@@ -2667,6 +2673,12 @@ static int bcmgenet_resume(struct device *d)
- 	if (ret)
- 		goto out_clk_disable;
- 
-+	if (priv->wolopts)
-+		ret = bcmgenet_wol_resume(priv);
++	pm_wakeup_event(&priv->pdev->dev, 0);
 +
-+	if (ret)
-+		goto out_clk_disable;
++	return IRQ_HANDLED;
++}
 +
- 	/* disable ethernet MAC while updating its registers */
- 	umac_enable_set(priv, CMD_TX_EN | CMD_RX_EN, 0);
+ static void bcmgenet_umac_reset(struct bcmgenet_priv *priv)
+ {
+ 	u32 reg;
+@@ -2059,8 +2068,6 @@ static int bcmgenet_open(struct net_device *dev)
+ 		bcmgenet_ext_writel(priv, reg, EXT_EXT_PWR_MGMT);
+ 	}
  
+-	device_set_wakeup_capable(&dev->dev, 1);
+-
+ 	/* Disable RX/TX DMA and flush TX queues */
+ 	dma_ctrl = bcmgenet_dma_disable(priv);
+ 
+@@ -2486,6 +2493,7 @@ static int bcmgenet_probe(struct platform_device *pdev)
+ 	priv = netdev_priv(dev);
+ 	priv->irq0 = platform_get_irq(pdev, 0);
+ 	priv->irq1 = platform_get_irq(pdev, 1);
++	priv->wol_irq = platform_get_irq(pdev, 2);
+ 	if (!priv->irq0 || !priv->irq1) {
+ 		dev_err(&pdev->dev, "can't find IRQs\n");
+ 		err = -EINVAL;
+@@ -2520,6 +2528,13 @@ static int bcmgenet_probe(struct platform_device *pdev)
+ 	dev->hw_features |= NETIF_F_SG | NETIF_F_IP_CSUM |
+ 		NETIF_F_IPV6_CSUM | NETIF_F_RXCSUM;
+ 
++	/* Request the WOL interrupt and advertise suspend if available */
++	priv->wol_irq_disabled = 1;
++	err = devm_request_irq(&pdev->dev, priv->wol_irq, bcmgenet_wol_isr, 0,
++			       dev->name, priv);
++	if (!err)
++		device_set_wakeup_capable(&pdev->dev, 1);
++
+ 	/* Set the needed headroom to account for any possible
+ 	 * features enabling/disabling at runtime
+ 	 */
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.h b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
+index b3a5b49a7610..00a5e27ce0e5 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.h
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
+@@ -569,6 +569,8 @@ struct bcmgenet_priv {
+ 	int irq1;
+ 	unsigned int irq0_stat;
+ 	unsigned int irq1_stat;
++	int wol_irq;
++	unsigned int wol_irq_disabled;
+ 
+ 	/* HW descriptors/checksum variables */
+ 	bool desc_64b_en;
 -- 
 1.9.1
