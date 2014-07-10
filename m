@@ -1,241 +1,155 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [net-next-2.6 PATCH v7 2/2] bridge: netlink dump interface at par with brctl
-Date: Thu, 10 Jul 2014 07:01:59 -0400
-Message-ID: <1404990119-16968-3-git-send-email-jhs@emojatatu.com>
-References: <1404990119-16968-1-git-send-email-jhs@emojatatu.com>
-Cc: netdev@vger.kernel.org, vyasevic@redhat.com,
-	sfeldma@cumulusnetworks.com, john.r.fastabend@intel.com,
-	roopa@cumulusnetworks.com, eric.dumazet@gmail.com,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: davem@davemloft.net, stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f173.google.com ([209.85.223.173]:42605 "EHLO
-	mail-ie0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751971AbaGJLCU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2014 07:02:20 -0400
-Received: by mail-ie0-f173.google.com with SMTP id tr6so192322ieb.18
-        for <netdev@vger.kernel.org>; Thu, 10 Jul 2014 04:02:19 -0700 (PDT)
-In-Reply-To: <1404990119-16968-1-git-send-email-jhs@emojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH v7 03/33] net: set name_assign_type in alloc_netdev()
+Date: Thu, 10 Jul 2014 13:29:35 +0200
+Message-ID: <87ha2ph2ow.fsf@nemi.mork.no>
+References: <1404980258-30853-1-git-send-email-teg@jklm.no>
+	<1404980258-30853-4-git-send-email-teg@jklm.no>
+	<87tx6ph8u5.fsf@nemi.mork.no>
+	<CAG-2HqVvW2dh5y8xn9v-B29ohFTcPGgY3NY-P5y_xZu0SGgG3g@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	David Herrmann <dh.herrmann@gmail.com>,
+	Kay Sievers <kay@vrfy.org>
+To: Tom Gundersen <teg@jklm.no>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAG-2HqVvW2dh5y8xn9v-B29ohFTcPGgY3NY-P5y_xZu0SGgG3g@mail.gmail.com>
+	(Tom Gundersen's message of "Thu, 10 Jul 2014 12:21:44 +0200")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
+Tom Gundersen <teg@jklm.no> writes:
+> On Thu, Jul 10, 2014 at 11:16 AM, Bj=C3=B8rn Mork <bjorn@mork.no> wro=
+te:
+>> Tom Gundersen <teg@jklm.no> writes:
+>>
+>>> diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
+>>> index 5dc638c..f405e05 100644
+>>> --- a/net/ethernet/eth.c
+>>> +++ b/net/ethernet/eth.c
+>>> @@ -390,7 +390,8 @@ EXPORT_SYMBOL(ether_setup);
+>>>  struct net_device *alloc_etherdev_mqs(int sizeof_priv, unsigned in=
+t txqs,
+>>>                                     unsigned int rxqs)
+>>>  {
+>>> -     return alloc_netdev_mqs(sizeof_priv, "eth%d", ether_setup, tx=
+qs, rxqs);
+>>> +     return alloc_netdev_mqs(sizeof_priv, "eth%d", NET_NAME_UNKNOW=
+N,
+>>> +                             ether_setup, txqs, rxqs);
+>>>  }
+>>>  EXPORT_SYMBOL(alloc_etherdev_mqs);
+>>
+>> I believe this chunk makes the rest of this exercise pretty pointles=
+s.
+>>
+>> bjorn@nemi:/usr/local/src/git/linux$ git grep alloc_etherdev drivers=
+/net/|wc -l
+>> 283
+>>
+>> I don't care enough to go look, but I'd be surprised if none of thos=
+e
+>> drivers rename the device before registering it.
+>
+> I did look for that, and I only found devices being renamed to the
+> same name assign type as eth%d (wlan%d, etc).
 
-Actually better than brctl showmacs because we can filter by bridge
-port in the kernel.
-The current bridge netlink interface doesnt scale when you have many
-bridges each with large fdbs or even bridges with many bridge ports
+You explain the vlan patch as follows:
 
-And now for the science non-fiction novel you have all been
-waiting for..
+ "When deriving the name from the real device, inherit the assign type,=
+ otherwise
+  set PREDICTABLE as the name will be uniquely determined by the VLANID=
+=2E"
 
-//lets see what bridge ports we have
-root@moja-1:/configs/may30-iprt/bridge# ./bridge link show
-8: eth1 state DOWN : <BROADCAST,MULTICAST> mtu 1500 master br0 state
-disabled priority 32 cost 19
-17: sw1-p1 state DOWN : <BROADCAST,NOARP> mtu 1500 master br0 state
-disabled priority 32 cost 100
 
-// show all..
-root@moja-1:/configs/may30-iprt/bridge# ./bridge fdb show
-33:33:00:00:00:01 dev bond0 self permanent
-33:33:00:00:00:01 dev dummy0 self permanent
-33:33:00:00:00:01 dev ifb0 self permanent
-33:33:00:00:00:01 dev ifb1 self permanent
-33:33:00:00:00:01 dev eth0 self permanent
-01:00:5e:00:00:01 dev eth0 self permanent
-33:33:ff:22:01:01 dev eth0 self permanent
-02:00:00:12:01:02 dev eth1 vlan 0 master br0 permanent
-00:17:42:8a:b4:05 dev eth1 vlan 0 master br0 permanent
-00:17:42:8a:b4:07 dev eth1 self permanent
-33:33:00:00:00:01 dev eth1 self permanent
-33:33:00:00:00:01 dev gretap0 self permanent
-da:ac:46:27:d9:53 dev sw1-p1 vlan 0 master br0 permanent
-33:33:00:00:00:01 dev sw1-p1 self permanent
+How come the same doesn't apply here?:
 
-//filter by bridge
-root@moja-1:/configs/may30-iprt/bridge# ./bridge fdb show br br0
-02:00:00:12:01:02 dev eth1 vlan 0 master br0 permanent
-00:17:42:8a:b4:05 dev eth1 vlan 0 master br0 permanent
-00:17:42:8a:b4:07 dev eth1 self permanent
-33:33:00:00:00:01 dev eth1 self permanent
-da:ac:46:27:d9:53 dev sw1-p1 vlan 0 master br0 permanent
-33:33:00:00:00:01 dev sw1-p1 self permanent
+struct net_device * hostap_add_interface(struct local_info *local,
+                                         int type, int rtnl_locked,
+                                         const char *prefix,
+                                         const char *name)
+{
+        struct net_device *dev, *mdev;
+        struct hostap_interface *iface;
+        int ret;
 
-// bridge sw1 has no ports attached..
-root@moja-1:/configs/may30-iprt/bridge# ./bridge fdb show br sw1
+        dev =3D alloc_etherdev(sizeof(struct hostap_interface));
+        if (dev =3D=3D NULL)
+                return NULL;
 
-//filter by port
-root@moja-1:/configs/may30-iprt/bridge# ./bridge fdb show brport eth1
-02:00:00:12:01:02 vlan 0 master br0 permanent
-00:17:42:8a:b4:05 vlan 0 master br0 permanent
-00:17:42:8a:b4:07 self permanent
-33:33:00:00:00:01 self permanent
+        iface =3D netdev_priv(dev);
+        iface->dev =3D dev;
+        iface->local =3D local;
+        iface->type =3D type;
+        list_add(&iface->list, &local->hostap_interfaces);
 
-// filter by port + bridge
-root@moja-1:/configs/may30-iprt/bridge# ./bridge fdb show br br0 brport
-sw1-p1
-da:ac:46:27:d9:53 vlan 0 master br0 permanent
-33:33:00:00:00:01 self permanent
+        mdev =3D local->dev;
+        eth_hw_addr_inherit(dev, mdev);
+        dev->base_addr =3D mdev->base_addr;
+        dev->irq =3D mdev->irq;
+        dev->mem_start =3D mdev->mem_start;
+        dev->mem_end =3D mdev->mem_end;
 
-// for shits and giggles (as they say in New Brunswick), lets
-// change the mac that br0 uses
-// Note: a magical fdb entry with no brport is added ...
-root@moja-1:/configs/may30-iprt/bridge# ip link set dev br0 address
-02:00:00:12:01:04
+        hostap_setup_dev(dev, local, type);
+        dev->destructor =3D free_netdev;
 
-// lets see if we can see the unicorn ..
-root@moja-1:/configs/may30-iprt/bridge# ./bridge fdb show
-33:33:00:00:00:01 dev bond0 self permanent
-33:33:00:00:00:01 dev dummy0 self permanent
-33:33:00:00:00:01 dev ifb0 self permanent
-33:33:00:00:00:01 dev ifb1 self permanent
-33:33:00:00:00:01 dev eth0 self permanent
-01:00:5e:00:00:01 dev eth0 self permanent
-33:33:ff:22:01:01 dev eth0 self permanent
-02:00:00:12:01:02 dev eth1 vlan 0 master br0 permanent
-00:17:42:8a:b4:05 dev eth1 vlan 0 master br0 permanent
-00:17:42:8a:b4:07 dev eth1 self permanent
-33:33:00:00:00:01 dev eth1 self permanent
-33:33:00:00:00:01 dev gretap0 self permanent
-02:00:00:12:01:04 dev br0 vlan 0 master br0 permanent <=== there it is
-da:ac:46:27:d9:53 dev sw1-p1 vlan 0 master br0 permanent
-33:33:00:00:00:01 dev sw1-p1 self permanent
+        sprintf(dev->name, "%s%s", prefix, name);
+=2E.
 
-//can we see it if we filter by bridge?
-root@moja-1:/configs/may30-iprt/bridge# ./bridge fdb show br br0
-02:00:00:12:01:02 dev eth1 vlan 0 master br0 permanent
-00:17:42:8a:b4:05 dev eth1 vlan 0 master br0 permanent
-00:17:42:8a:b4:07 dev eth1 self permanent
-33:33:00:00:00:01 dev eth1 self permanent
-02:00:00:12:01:04 dev br0 vlan 0 master br0 permanent <=== there it is
-da:ac:46:27:d9:53 dev sw1-p1 vlan 0 master br0 permanent
-33:33:00:00:00:01 dev sw1-p1 self permanent
+when this is called as
 
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
----
- net/bridge/br_fdb.c  |   15 ++++++++--
- net/core/rtnetlink.c |   74 +++++++++++++++++++++++++++++++++++++++-----------
- 2 files changed, 70 insertions(+), 19 deletions(-)
+        dev =3D hostap_add_interface(local, HOSTAP_INTERFACE_WDS, rtnl_=
+locked,
+                                   local->ddev->name, "wds%d");
 
-diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index 6edecd1..0bb9d8b 100644
---- a/net/bridge/br_fdb.c
-+++ b/net/bridge/br_fdb.c
-@@ -692,9 +692,18 @@ int br_fdb_dump(struct sk_buff *skb,
- 			if (idx < cb->args[0])
- 				goto skip;
- 
--			if (filter_dev && (!f->dst || !f->dst->dev ||
--					   f->dst->dev != filter_dev))
--				goto skip;
-+			if (filter_dev &&
-+			    (!f->dst || f->dst->dev != filter_dev)) {
-+				if (filter_dev != dev)
-+					goto skip;
-+				/* !f->dst is a speacial case for bridge
-+				 * It means the MAC belongs to the bridge
-+				 * Therefore need a little more filtering
-+				 * we only want to dump the !f->dst case
-+				 */
-+				if (f->dst)
-+					goto skip;
-+			}
- 
- 			if (fdb_fill_info(skb, br, f,
- 					  NETLINK_CB(cb->skb).portid,
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 90a906e..1f8a59e 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -2535,30 +2535,72 @@ EXPORT_SYMBOL(ndo_dflt_fdb_dump);
- 
- static int rtnl_fdb_dump(struct sk_buff *skb, struct netlink_callback *cb)
- {
--	int idx = 0;
--	struct net *net = sock_net(skb->sk);
- 	struct net_device *dev;
-+	struct nlattr *tb[IFLA_MAX+1];
-+	struct net_device *bdev = NULL;
-+	struct net_device *br_dev = NULL;
-+	const struct net_device_ops *ops = NULL;
-+	const struct net_device_ops *cops = NULL;
-+	struct ifinfomsg *ifm = nlmsg_data(cb->nlh);
-+	struct net *net = sock_net(skb->sk);
-+	int brport_idx = 0;
-+	int br_idx = 0;
-+	int idx = 0;
-+
-+	if (nlmsg_parse(cb->nlh, sizeof(struct ifinfomsg), tb, IFLA_MAX,
-+			ifla_policy) == 0) {
-+		if (tb[IFLA_MASTER])
-+			br_idx = nla_get_u32(tb[IFLA_MASTER]);
-+	}
-+
-+	brport_idx = ifm->ifi_index;
-+
-+	if (br_idx) {
-+		br_dev = __dev_get_by_index(net, br_idx);
-+		if (!br_dev)
-+			return -ENODEV;
-+
-+		ops = br_dev->netdev_ops;
-+		bdev = br_dev;
-+	}
-+
-+	for_each_netdev(net, dev) {
-+		if (brport_idx && (dev->ifindex != brport_idx))
-+			continue;
-+
-+		if (!br_idx) { /* user did not specify a specific bridge */
-+			if (dev->priv_flags & IFF_BRIDGE_PORT) {
-+				br_dev = netdev_master_upper_dev_get(dev);
-+				cops = br_dev->netdev_ops;
-+			}
-+
-+			bdev = dev;
-+		} else {
-+			if (dev != br_dev &&
-+			    !(dev->priv_flags & IFF_BRIDGE_PORT))
-+				continue;
-+
-+			if (br_dev != netdev_master_upper_dev_get(dev) &&
-+			    !(dev->priv_flags & IFF_EBRIDGE))
-+				continue;
-+
-+			bdev = br_dev;
-+			cops = ops;
-+		}
- 
--	rcu_read_lock();
--	for_each_netdev_rcu(net, dev) {
- 		if (dev->priv_flags & IFF_BRIDGE_PORT) {
--			struct net_device *br_dev;
--			const struct net_device_ops *ops;
--
--			br_dev = netdev_master_upper_dev_get(dev);
--			ops = br_dev->netdev_ops;
--			if (ops->ndo_fdb_dump)
--				idx = ops->ndo_fdb_dump(skb, cb, dev, NULL,
--							idx);
-+			if (cops && cops->ndo_fdb_dump)
-+				idx = cops->ndo_fdb_dump(skb, cb, br_dev, dev,
-+							 idx);
- 		}
- 
-+		idx = ndo_dflt_fdb_dump(skb, cb, dev, NULL, idx);
- 		if (dev->netdev_ops->ndo_fdb_dump)
--			idx = dev->netdev_ops->ndo_fdb_dump(skb, cb, dev, NULL,
-+			idx = dev->netdev_ops->ndo_fdb_dump(skb, cb, bdev, dev,
- 							    idx);
--		else
--			idx = ndo_dflt_fdb_dump(skb, cb, dev, NULL, idx);
-+
-+		cops = NULL;
- 	}
--	rcu_read_unlock();
- 
- 	cb->args[0] = idx;
- 	return skb->len;
--- 
-1.7.9.5
+=2E.
+        local->apdev =3D hostap_add_interface(local, HOSTAP_INTERFACE_A=
+P,
+                                            rtnl_locked, local->ddev->n=
+ame,
+                                            "ap");
+=2E.
+        local->stadev =3D hostap_add_interface(local, HOSTAP_INTERFACE_=
+STA,
+                                             rtnl_locked, local->ddev->=
+name,
+                                             "sta");
+
+
+?
+
+Yes, this is an exception.  But so are every instance of alloc_netdev
+ending up with something different from NET_NAME_ENUM...
+
+How much would this patchset reduce to if you just set
+dev->name_assign_type =3D NET_NAME_UNKNOWN in alloc_netdev() and change=
+d
+it only in the few places where you actually *know* the name_assign_typ=
+e?
+
+My fear wrt this pathset is that the 'name_assign_type' will end up as
+yet another useless field like 'addr_assign_type' and 'type'. There is
+no way the kernel will be able to set these with 100% confidence, and
+the value is therefore next to nothing.  If userspace is stupid enough
+to trust them, then you end up with extremely hard to fix errors in the
+cases where the driver/kernel guesswork is wrong.
+
+Just one example of this, affecting the 'type': Huawei happens to use
+the same device IDs for modems requiring userspace management (should
+have a wwan_type) and modems with built-in management (should have a
+default type).  So which 'type' should we choose for this device?
+userspace can figure out by careful probing, but if it trusts the 'type=
+'
+set by the driver then it will get it wrong. The field provides no valu=
+e
+at all.
+
+But if you limit the scope of the 'name_assign_type' patches to only
+those cases where you actually have some information, then I guess it
+might provide some value for userspace.
+
+
+Bj=C3=B8rn
