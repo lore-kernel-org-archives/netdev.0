@@ -1,116 +1,101 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next v2] r8152: support jumbo frame for RTL8153
-Date: Thu, 10 Jul 2014 10:58:54 +0800
-Message-ID: <1394712342-15778-9-Taiwan-albertk@realtek.com>
-References: <1394712342-15778-8-Taiwan-albertk@realtek.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: Procfs race condition bug
+Date: Wed, 09 Jul 2014 21:40:07 -0700
+Message-ID: <87fvi925eg.fsf@x220.int.ebiederm.org>
+References: <CACVxJT8U-E+vYjGPbiop-7Fqcwt0sWhMtmuCRQHLAnALU+5AgQ@mail.gmail.com>
+	<CACVxJT8+9oJa5r2acCdNe5+PjDxYVmASMY2Pcb=FyzB4x+0Naw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>
-To: <netdev@vger.kernel.org>
+Cc: Mike Cardwell <mike.cardwell@grepular.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Pavel Emelianov <xemul@parallels.com>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>,
+	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
+To: Alexey Dobriyan <adobriyan@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-8-Taiwan-albertk@realtek.com>
+In-Reply-To: <CACVxJT8+9oJa5r2acCdNe5+PjDxYVmASMY2Pcb=FyzB4x+0Naw@mail.gmail.com>
+	(Alexey Dobriyan's message of "Wed, 9 Jul 2014 15:20:53 +0300")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The maximum jumbo frame size for RTL8153 is 9K bytes.
-Change the max rx packet size to 9K.
-Change the use of the shared fifo from 6K (default) to 12K for tx.
+Alexey Dobriyan <adobriyan@gmail.com> writes:
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/usb/r8152.c | 36 ++++++++++++++++++++++++++++++++----
- 1 file changed, 32 insertions(+), 4 deletions(-)
+> [broken email]
+>
+> On Wed, Jul 9, 2014 at 3:17 PM, Alexey Dobriyan <adobriyan@gmail.com> wrote:
+>>> I originally posted this two years ago (*) but received no response.
+>>> I just had a look and the problem still exists on the 3.14 kernel
+>>> I am currently running.
+>>>
+>>> I *think* I've uncovered a race condition bug in procfs.
+>>> If I attempt to open a file in /proc/net, eg "/proc/net/tcp"
+>>> it works fine, but if I spawn a POSIX thread and attempt to do it
+>>> from there, it *usually* fails with a "No such file or directory",
+>>> but some times succeeds. If I do a system call inside the thread
+>>> to look up the thread ID and then open "/proc/THREADID/net/tcp"
+>>> instead, it works fine.
+>>>
+>>> There are more details and some example code
+>>> so you can replicate the problem on a stack overflow question
+>>> I asked previously here:
+>>> http://stackoverflow.com/questions/11580020/opening-proc-net-tcp-in-c-from-a-posix-thread-fails-most-of-the-time
+>>>
+>>> (*) https://lkml.org/lkml/2012/7/20/331
+>>
+>> Mike,
+>>
+>> as was correctly notes on SO, what's happening is that original thread exits
+>> before spawned thread does open().
+>>
+>> ->lookup
+>> proc_tgid_net_lookup
+>> get_proc_task_net
+>> nsproxy = NULL          <== thread is dead
+>> ENOENT
+>>
+>> This was probably broken when /proc/net became symlink:
+>>
+>> commit e9720acd728a46cb40daa52c99a979f7c4ff195c
+>> Author: Pavel Emelyanov <xemul@openvz.org>
+>> Date:   Fri Mar 7 11:08:40 2008 -0800
+>>
+>>     [NET]: Make /proc/net a symlink on /proc/self/net (v3)
+>>
+>>
+>> So, userspace has two solutions:
+>> 1) original thread doesn't exit too early
+>> 2) spawned thread uses /proc/$TID
+>>
+>>
+>> So,
+>> we definitely broke /proc/net/tcp somewhere after netns concept was introduced.
+>>
+>> But,
+>> you'd have very same problem with other /proc files (anything under
+>> /proc/$PID/).
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index e9685ce..7d2dd80 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -59,6 +59,7 @@
- #define PLA_WDT6_CTRL		0xe428
- #define PLA_TCR0		0xe610
- #define PLA_TCR1		0xe612
-+#define PLA_MTPS		0xe615
- #define PLA_TXFIFO_CTRL		0xe618
- #define PLA_RSTTALLY		0xe800
- #define PLA_CR			0xe813
-@@ -180,6 +181,10 @@
- /* PLA_TCR1 */
- #define VERSION_MASK		0x7cf0
- 
-+/* PLA_MTPS */
-+#define MTPS_JUMBO		(12 * 1024 / 64)
-+#define MTPS_DEFAULT		(6 * 1024 / 64)
-+
- /* PLA_RSTTALLY */
- #define TALLY_RESET		0x0001
- 
-@@ -440,7 +445,10 @@ enum rtl_register_content {
- #define BYTE_EN_START_MASK	0x0f
- #define BYTE_EN_END_MASK	0xf0
- 
-+#define RTL8153_MAX_PACKET	9216 /* 9K */
-+#define RTL8153_MAX_MTU		(RTL8153_MAX_PACKET - VLAN_ETH_HLEN - VLAN_HLEN)
- #define RTL8152_RMS		(VLAN_ETH_FRAME_LEN + VLAN_HLEN)
-+#define RTL8153_RMS		RTL8153_MAX_PACKET
- #define RTL8152_TX_TIMEOUT	(5 * HZ)
- 
- /* rtl8152 flags */
-@@ -2522,7 +2530,8 @@ static void r8153_first_init(struct r8152 *tp)
- 	ocp_data &= ~CPCR_RX_VLAN;
- 	ocp_write_word(tp, MCU_TYPE_PLA, PLA_CPCR, ocp_data);
- 
--	ocp_write_word(tp, MCU_TYPE_PLA, PLA_RMS, RTL8152_RMS);
-+	ocp_write_word(tp, MCU_TYPE_PLA, PLA_RMS, RTL8153_RMS);
-+	ocp_write_byte(tp, MCU_TYPE_PLA, PLA_MTPS, MTPS_JUMBO);
- 
- 	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_TCR0);
- 	ocp_data |= TCR0_AUTO_FIFO;
-@@ -2572,7 +2581,7 @@ static void r8153_enter_oob(struct r8152 *tp)
- 		mdelay(1);
- 	}
- 
--	ocp_write_word(tp, MCU_TYPE_PLA, PLA_RMS, RTL8152_RMS);
-+	ocp_write_word(tp, MCU_TYPE_PLA, PLA_RMS, RTL8153_RMS);
- 
- 	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_TEREDO_CFG);
- 	ocp_data &= ~TEREDO_WAKE_MASK;
-@@ -3284,6 +3293,26 @@ out:
- 	return res;
- }
- 
-+static int rtl8152_change_mtu(struct net_device *dev, int new_mtu)
-+{
-+	struct r8152 *tp = netdev_priv(dev);
-+
-+	switch (tp->version) {
-+	case RTL_VER_01:
-+	case RTL_VER_02:
-+		return eth_change_mtu(dev, new_mtu);
-+	default:
-+		break;
-+	}
-+
-+	if (new_mtu < 68 || new_mtu > RTL8153_MAX_MTU)
-+		return -EINVAL;
-+
-+	dev->mtu = new_mtu;
-+
-+	return 0;
-+}
-+
- static const struct net_device_ops rtl8152_netdev_ops = {
- 	.ndo_open		= rtl8152_open,
- 	.ndo_stop		= rtl8152_close,
-@@ -3292,8 +3321,7 @@ static const struct net_device_ops rtl8152_netdev_ops = {
- 	.ndo_tx_timeout		= rtl8152_tx_timeout,
- 	.ndo_set_rx_mode	= rtl8152_set_rx_mode,
- 	.ndo_set_mac_address	= rtl8152_set_mac_address,
--
--	.ndo_change_mtu		= eth_change_mtu,
-+	.ndo_change_mtu		= rtl8152_change_mtu,
- 	.ndo_validate_addr	= eth_validate_addr,
- };
- 
--- 
-1.9.3
+
+Agreed it is a /proc/$TGID vs /proc/$TID issue.
+
+In principle this is fixable by creating a /proc/current symlink that
+always points to the proc directory for the current thread and then
+pointing /proc/net and /proc/mounts at it.
+
+This is one of those weird cases it so that /proc/net or /proc/mounts
+resolves may actually break an existing userspace application, because
+different threads can point at different values.  (I very much dislike
+what the linux pthread support did to /proc/self).
+
+I tilted at that windmill once and ran out of steam.  While I can write
+the patch I don't have the energy to test and see if there are any
+pthread programs that will break if /proc/net points to
+/proc/current/net instead of /proc/self/net.
+
+Frankly new applications should be using netlink and not /proc/net so I
+personally don't think this is worth fixing for the /proc/net case.  Are
+there real world applications that are broken by the kernel change in
+behavior?  The stackoverflow discussion sounds like it was just an
+investigation into weird kernel behavior.
+
+Eric
