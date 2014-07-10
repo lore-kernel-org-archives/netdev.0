@@ -1,49 +1,45 @@
 From: Tom Gundersen <teg@jklm.no>
-Subject: Re: [PATCH v7 10/33] net: dummy - set name assign type
-Date: Thu, 10 Jul 2014 12:33:57 +0200
-Message-ID: <CAG-2HqV0LV_ZtK=S-nLsWAfQ_ayOuGZHcGC495pAkMijeSzx3Q@mail.gmail.com>
+Subject: Re: [PATCH v7 15/33] net: xen-netback - set name assign type
+Date: Thu, 10 Jul 2014 12:46:58 +0200
+Message-ID: <CAG-2HqV+suLoSnge4dG4HUPbAS6EqC9rjy0W9G9AZqaVgRFF+A@mail.gmail.com>
 References: <1404980258-30853-1-git-send-email-teg@jklm.no>
- <1404980258-30853-11-git-send-email-teg@jklm.no> <87pphdh85q.fsf@nemi.mork.no>
- <CAG-2HqWSRRfW1EygXd_1=eYFsTeDd3SsJBfF3BuH35hgGxogxA@mail.gmail.com> <CANq1E4TCW_bnbTYacnfJHRvZAcOYnSgqxytHk26EaWeQKkphGA@mail.gmail.com>
+ <1404980258-30853-16-git-send-email-teg@jklm.no> <1404982886.30660.4.camel@hastur.hellion.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: =?UTF-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>,
-	netdev <netdev@vger.kernel.org>,
+Cc: netdev <netdev@vger.kernel.org>,
 	LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, Kay Sievers <kay@vrfy.org>,
-	dingtianhong <dingtianhong@huawei.com>,
-	Tan Xiaojun <tanxiaojun@huawei.com>,
-	WANG Cong <xiyou.wangcong@gmail.com>
-To: David Herrmann <dh.herrmann@gmail.com>
+	David Miller <davem@davemloft.net>,
+	David Herrmann <dh.herrmann@gmail.com>,
+	Kay Sievers <kay@vrfy.org>, Wei Liu <wei.liu2@citrix.com>,
+	xen-devel <xen-devel@lists.xenproject.org>
+To: Ian Campbell <ian.campbell@citrix.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CANq1E4TCW_bnbTYacnfJHRvZAcOYnSgqxytHk26EaWeQKkphGA@mail.gmail.com>
+In-Reply-To: <1404982886.30660.4.camel@hastur.hellion.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 10, 2014 at 12:26 PM, David Herrmann <dh.herrmann@gmail.com> wrote:
-> Hi
+On Thu, Jul 10, 2014 at 11:01 AM, Ian Campbell <ian.campbell@citrix.com> wrote:
+> On Thu, 2014-07-10 at 10:17 +0200, Tom Gundersen wrote:
+>> The name contains then xen handle, which is not guaranteed to be
+>> stable between restarts, so label this NET_NAME_ENUM.
 >
->>> The same goes for NET_NAME_USER and NET_NAME_RENAMED. These are the same
->>> from a kernel point of view.
->>
->> You mean to collapse the two, and just label renamed interfaces
->> NET_NAME_USER instead?
+> FWIW the N'th interface for domain with domid D will always be named
+> vifD.N.
 >
-> I have no real objections to merging NAME_USER and NAME_RENAMED. Both
-> values imply that there is a user-space authority that applied some
-> kind of rules to the naming-scheme. Therefore, anyone reacting to
-> those names should better treat them equally and fix the
-> naming-authority instead of overwriting it.
+> If you reboot domain D then it's domid will change to E and the new
+> device will be vifE.N.
+>
+> I don't know if that counts as predictable as far as the interface you
+> are introducing is concerned.
 
-I basically agree. There is no strong reason to keep these separate,
-so I would not object strongly to merging them.
+That was my understanding, thanks for confirming.
 
-However, I also don't see any harm in keeping the distinction. If
-userspace wants to treat them the same, it easily can. However, if a
-usecase appears in the future where the distinction is important, we
-can no longer split them apart again. For that reason, I'd slightly
-prefer keeping them separate, unless there is a compelling reason not
-to...
+The idea is that the same interface on the same machine must get the
+same name between reboots in order to be considered predictable. So
+under the assumption that a rebooted domain should be considered "the
+same machine" (i.e., it still has the same local configuration,
+possibly referencing the interface names), then we should consider the
+names not predictable, so NET_NAME_ENUM.
 
 Cheers,
 
