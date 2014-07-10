@@ -1,62 +1,52 @@
-From: Hannes Frederic Sowa <hannes@redhat.com>
-Subject: Re: [RFC][PATCH] ipv6: fix the check when handle RA
-Date: Thu, 10 Jul 2014 11:26:50 +0200
-Message-ID: <1404984410.12704.3.camel@localhost>
-References: <1404980946-3289-1-git-send-email-roy.qing.li@gmail.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH v7 10/33] net: dummy - set name assign type
+Date: Thu, 10 Jul 2014 11:31:29 +0200
+Message-ID: <87pphdh85q.fsf@nemi.mork.no>
+References: <1404980258-30853-1-git-send-email-teg@jklm.no>
+	<1404980258-30853-11-git-send-email-teg@jklm.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, greearb@candelatech.com
-To: roy.qing.li@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:64785 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752005AbaGJJ0z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Jul 2014 05:26:55 -0400
-In-Reply-To: <1404980946-3289-1-git-send-email-roy.qing.li@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	David Herrmann <dh.herrmann@gmail.com>,
+	Kay Sievers <kay@vrfy.org>,
+	dingtianhong <dingtianhong@huawei.com>,
+	Tan Xiaojun <tanxiaojun@huawei.com>,
+	WANG Cong <xiyou.wangcong@gmail.com>
+To: Tom Gundersen <teg@jklm.no>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1404980258-30853-11-git-send-email-teg@jklm.no> (Tom Gundersen's
+	message of "Thu, 10 Jul 2014 10:17:15 +0200")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+Tom Gundersen <teg@jklm.no> writes:
 
-On Do, 2014-07-10 at 16:29 +0800, roy.qing.li@gmail.com wrote:
-> From: Li RongQing <roy.qing.li@gmail.com>
-> 
-> d9333196572(ipv6:  Allow accepting RA from local IP addresses.) made
-> ndisc_router_discovery to skip to handle RA when accept_ra_from_local
-> is 0 and saddr of packet is not the device address, in fact, this
-> condition should be handled
-> 
-> Fixes: d9333196572(ipv6:  Allow accepting RA from local IP addresses.)
-> Cc: Ben Greear <greearb@candelatech.com>
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
->  net/ipv6/ndisc.c |    8 ++++----
->  1 file changed, 4 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-> index a845e3d..e70e805 100644
-> --- a/net/ipv6/ndisc.c
-> +++ b/net/ipv6/ndisc.c
-> @@ -1152,8 +1152,8 @@ static void ndisc_router_discovery(struct sk_buff *skb)
->  	 * accept_ra_from_local is set to true.
->  	 */
->  	if (!(in6_dev->cnf.accept_ra_from_local ||
-> -	      ipv6_chk_addr(dev_net(in6_dev->dev), &ipv6_hdr(skb)->saddr,
-> -			    NULL, 0))) {
-> +	      !ipv6_chk_addr(dev_net(in6_dev->dev), &ipv6_hdr(skb)->saddr,
-> +			     NULL, 0))) {
+> A fixed number of indistinguishable dummy devices are allocated at mo=
+dule init time,
+> the names are therefore PREDICTABLE rather than ENUM.
 
-Uh!
+OK?  So if I go do
 
-Instead of double negotiation can you please write
+ modprobe dummy numdummies=3D2
+ ip link add type dummy
+ ip link add type dummy
 
-if (!in6_dev->cnf.accept_ra_from_local &&
-    ipv6_chk_addr(...)) {
-	printk(...);
-	goto skip;
-}
+then I'd have dummy0 and dummy1 with NET_NAME_PREDICTABLE, but dummy2 a=
+nd
+dummy3 with NET_NAME_ENUM (from your rtnetlink patch).
 
-Thanks for fixing this, good catch!
+I think this just demonstrates that there aren't that many different
+name types.  There is no real difference between your NET_NAME_ENUM and
+NET_NAME_PREDICTABLE, resulting in arbitrary choices like this one.
 
-Thanks,
-Hannes
+The same goes for NET_NAME_USER and NET_NAME_RENAMED. These are the sam=
+e
+from a kernel point of view.  If userspace wants to keep track of devic=
+e
+name history then it is free to do so without any need for a RENAMED
+type.
+
+
+Bj=C3=B8rn
