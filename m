@@ -1,104 +1,117 @@
 From: Tom Gundersen <teg@jklm.no>
-Subject: [PATCH v7 19/33] net: isdn - set name assign type
-Date: Thu, 10 Jul 2014 10:17:24 +0200
-Message-ID: <1404980258-30853-20-git-send-email-teg@jklm.no>
+Subject: [PATCH v7 26/33] net: ipoib - set name assign type
+Date: Thu, 10 Jul 2014 10:17:31 +0200
+Message-ID: <1404980258-30853-27-git-send-email-teg@jklm.no>
 References: <1404980258-30853-1-git-send-email-teg@jklm.no>
 Cc: linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
 	David Herrmann <dh.herrmann@gmail.com>,
 	Kay Sievers <kay@vrfy.org>, Tom Gundersen <teg@jklm.no>,
-	Karsten Keil <isdn@linux-pingi.de>
+	Roland Dreier <roland@kernel.org>,
+	Sean Hefty <sean.hefty@intel.com>,
+	Hal Rosenstock <hal.rosenstock@gmail.com>,
+	Erez Shitrit <erezsh@mellanox.com>,
+	Michal Schmidt <mschmidt@redhat.com>,
+	Jim Foraker <foraker1@llnl.gov>, linux-rdma@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f180.google.com ([209.85.217.180]:39081 "EHLO
+	mail-lb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752305AbaGJIS5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2014 04:18:57 -0400
+Received: by mail-lb0-f180.google.com with SMTP id w7so5775617lbi.39
+        for <netdev@vger.kernel.org>; Thu, 10 Jul 2014 01:18:56 -0700 (PDT)
 In-Reply-To: <1404980258-30853-1-git-send-email-teg@jklm.no>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+When naming a device based on a combination of the parent device, and
+the upsr-supplied key, inherit the name assign type from the parent.
 
 Signed-off-by: Tom Gundersen <teg@jklm.no>
-Cc: Karsten Keil <isdn@linux-pingi.de>
+Cc: Roland Dreier <roland@kernel.org>
+Cc: Sean Hefty <sean.hefty@intel.com>
+Cc: Hal Rosenstock <hal.rosenstock@gmail.com>
+Cc: Erez Shitrit <erezsh@mellanox.com>
+Cc: Michal Schmidt <mschmidt@redhat.com>
+Cc: Jim Foraker <foraker1@llnl.gov>
+Cc: linux-rdma@vger.kernel.org
 ---
- drivers/isdn/i4l/isdn_common.c |  4 ++--
- drivers/isdn/i4l/isdn_net.c    | 10 +++++-----
- drivers/isdn/i4l/isdn_net.h    |  4 ++--
- 3 files changed, 9 insertions(+), 9 deletions(-)
+ drivers/infiniband/ulp/ipoib/ipoib.h      |  2 +-
+ drivers/infiniband/ulp/ipoib/ipoib_main.c | 12 +++++++-----
+ drivers/infiniband/ulp/ipoib/ipoib_vlan.c |  2 +-
+ 3 files changed, 9 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/isdn/i4l/isdn_common.c b/drivers/isdn/i4l/isdn_common.c
-index 9b856e1..67840ca 100644
---- a/drivers/isdn/i4l/isdn_common.c
-+++ b/drivers/isdn/i4l/isdn_common.c
-@@ -1364,7 +1364,7 @@ isdn_ioctl(struct file *file, uint cmd, ulong arg)
- 			}
- 			ret = mutex_lock_interruptible(&dev->mtx);
- 			if (ret) return ret;
--			if ((s = isdn_net_new(s, NULL))) {
-+			if ((s = isdn_net_new(s, NET_NAME_USER, NULL))) {
- 				if (copy_to_user(argp, s, strlen(s) + 1)) {
- 					ret = -EFAULT;
- 				} else {
-@@ -1383,7 +1383,7 @@ isdn_ioctl(struct file *file, uint cmd, ulong arg)
- 				return -EINVAL;
- 			ret = mutex_lock_interruptible(&dev->mtx);
- 			if (ret) return ret;
--			if ((s = isdn_net_newslave(bname))) {
-+			if ((s = isdn_net_newslave(bname, NET_NAME_USER))) {
- 				if (copy_to_user(argp, s, strlen(s) + 1)) {
- 					ret = -EFAULT;
- 				} else {
-diff --git a/drivers/isdn/i4l/isdn_net.c b/drivers/isdn/i4l/isdn_net.c
-index c2ed624..d16fec0 100644
---- a/drivers/isdn/i4l/isdn_net.c
-+++ b/drivers/isdn/i4l/isdn_net.c
-@@ -2573,7 +2573,7 @@ static void _isdn_setup(struct net_device *dev)
-  * Allocate a new network-interface and initialize its data structures.
-  */
- char *
--isdn_net_new(char *name, struct net_device *master)
-+isdn_net_new(char *name, unsigned char name_assign_type, struct net_device *master)
- {
- 	isdn_net_dev *netdev;
+diff --git a/drivers/infiniband/ulp/ipoib/ipoib.h b/drivers/infiniband/ulp/ipoib/ipoib.h
+index c639f90..2654288 100644
+--- a/drivers/infiniband/ulp/ipoib/ipoib.h
++++ b/drivers/infiniband/ulp/ipoib/ipoib.h
+@@ -464,7 +464,7 @@ void ipoib_reap_ah(struct work_struct *work);
  
-@@ -2588,8 +2588,8 @@ isdn_net_new(char *name, struct net_device *master)
- 		printk(KERN_WARNING "isdn_net: Could not allocate net-device\n");
+ void ipoib_mark_paths_invalid(struct net_device *dev);
+ void ipoib_flush_paths(struct net_device *dev);
+-struct ipoib_dev_priv *ipoib_intf_alloc(const char *format);
++struct ipoib_dev_priv *ipoib_intf_alloc(const char *format, unsigned char name_assign_type);
+ 
+ int ipoib_ib_dev_init(struct net_device *dev, struct ib_device *ca, int port);
+ void ipoib_ib_dev_flush_light(struct work_struct *work);
+diff --git a/drivers/infiniband/ulp/ipoib/ipoib_main.c b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+index 4e675f4..b1d58ef 100644
+--- a/drivers/infiniband/ulp/ipoib/ipoib_main.c
++++ b/drivers/infiniband/ulp/ipoib/ipoib_main.c
+@@ -1390,12 +1390,13 @@ void ipoib_setup(struct net_device *dev)
+ 	INIT_DELAYED_WORK(&priv->neigh_reap_task, ipoib_reap_neigh);
+ }
+ 
+-struct ipoib_dev_priv *ipoib_intf_alloc(const char *name)
++struct ipoib_dev_priv *ipoib_intf_alloc(const char *name,
++					unsigned char name_assign_type)
+ {
+ 	struct net_device *dev;
+ 
+-	dev = alloc_netdev((int)sizeof(struct ipoib_dev_priv), name,
+-			   NET_NAME_UNKNOWN, ipoib_setup);
++	dev = alloc_netdev((int) sizeof (struct ipoib_dev_priv), name,
++			   name_assign_type, ipoib_setup);
+ 	if (!dev)
  		return NULL;
- 	}
--	netdev->dev = alloc_netdev(sizeof(isdn_net_local), name,
--				   NET_NAME_UNKNOWN, _isdn_setup);
-+	netdev->dev = alloc_netdev(sizeof(isdn_net_local), name, name_assign_type,
-+				   _isdn_setup);
- 	if (!netdev->dev) {
- 		printk(KERN_WARNING "isdn_net: Could not allocate network device\n");
- 		kfree(netdev);
-@@ -2637,7 +2637,7 @@ isdn_net_new(char *name, struct net_device *master)
+ 
+@@ -1535,13 +1536,14 @@ int ipoib_set_dev_features(struct ipoib_dev_priv *priv, struct ib_device *hca)
  }
  
- char *
--isdn_net_newslave(char *parm)
-+isdn_net_newslave(char *parm, unsigned char name_assign_type)
+ static struct net_device *ipoib_add_port(const char *format,
++					 unsigned char name_assign_type,
+ 					 struct ib_device *hca, u8 port)
  {
- 	char *p = strchr(parm, ',');
- 	isdn_net_dev *n;
-@@ -2658,7 +2658,7 @@ isdn_net_newslave(char *parm)
- 		/* Master must not be started yet */
- 		if (isdn_net_device_started(n))
- 			return NULL;
--		return (isdn_net_new(newname, n->dev));
-+		return (isdn_net_new(newname, name_assign_type, n->dev));
- 	}
- 	return NULL;
- }
-diff --git a/drivers/isdn/i4l/isdn_net.h b/drivers/isdn/i4l/isdn_net.h
-index cca6d68..99f0c47 100644
---- a/drivers/isdn/i4l/isdn_net.h
-+++ b/drivers/isdn/i4l/isdn_net.h
-@@ -31,8 +31,8 @@
- #define CISCO_SLARP_REPLY     1
- #define CISCO_SLARP_KEEPALIVE 2
+ 	struct ipoib_dev_priv *priv;
+ 	struct ib_port_attr attr;
+ 	int result = -ENOMEM;
  
--extern char *isdn_net_new(char *, struct net_device *);
--extern char *isdn_net_newslave(char *);
-+extern char *isdn_net_new(char *, unsigned char, struct net_device *);
-+extern char *isdn_net_newslave(char *, unsigned char);
- extern int isdn_net_rm(char *);
- extern int isdn_net_rmall(void);
- extern int isdn_net_stat_callback(int, isdn_ctrl *);
+-	priv = ipoib_intf_alloc(format);
++	priv = ipoib_intf_alloc(format, name_assign_type);
+ 	if (!priv)
+ 		goto alloc_mem_failed;
+ 
+@@ -1676,7 +1678,7 @@ static void ipoib_add_one(struct ib_device *device)
+ 	for (p = s; p <= e; ++p) {
+ 		if (rdma_port_get_link_layer(device, p) != IB_LINK_LAYER_INFINIBAND)
+ 			continue;
+-		dev = ipoib_add_port("ib%d", device, p);
++		dev = ipoib_add_port("ib%d", NET_NAME_ENUM, device, p);
+ 		if (!IS_ERR(dev)) {
+ 			priv = netdev_priv(dev);
+ 			list_add_tail(&priv->list, dev_list);
+diff --git a/drivers/infiniband/ulp/ipoib/ipoib_vlan.c b/drivers/infiniband/ulp/ipoib/ipoib_vlan.c
+index 9fad7b5..88558d3 100644
+--- a/drivers/infiniband/ulp/ipoib/ipoib_vlan.c
++++ b/drivers/infiniband/ulp/ipoib/ipoib_vlan.c
+@@ -133,7 +133,7 @@ int ipoib_vlan_add(struct net_device *pdev, unsigned short pkey)
+ 
+ 	snprintf(intf_name, sizeof intf_name, "%s.%04x",
+ 		 ppriv->dev->name, pkey);
+-	priv = ipoib_intf_alloc(intf_name);
++	priv = ipoib_intf_alloc(intf_name, ppriv->dev->name_assign_type);
+ 	if (!priv)
+ 		return -ENOMEM;
+ 
 -- 
 1.9.3
