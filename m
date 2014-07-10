@@ -1,280 +1,200 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 06/11] net: bcmgenet: add Wake-on-LAN support code
-Date: Thu, 10 Jul 2014 15:46:19 -0700
-Message-ID: <1405032384-24006-7-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next 03/11] net: bcmgenet: modularize bcmgenet_{open,close}
+Date: Thu, 10 Jul 2014 15:46:16 -0700
+Message-ID: <1405032384-24006-4-git-send-email-f.fainelli@gmail.com>
 References: <1405032384-24006-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f174.google.com ([209.85.213.174]:61190 "EHLO
-	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752301AbaGJWqe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2014 18:46:34 -0400
-Received: by mail-ig0-f174.google.com with SMTP id c1so3638065igq.7
-        for <netdev@vger.kernel.org>; Thu, 10 Jul 2014 15:46:33 -0700 (PDT)
+Received: from mail-ig0-f172.google.com ([209.85.213.172]:36360 "EHLO
+	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751561AbaGJWqb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2014 18:46:31 -0400
+Received: by mail-ig0-f172.google.com with SMTP id hn18so3637325igb.11
+        for <netdev@vger.kernel.org>; Thu, 10 Jul 2014 15:46:30 -0700 (PDT)
 In-Reply-To: <1405032384-24006-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add all the required code to program the GENET hardware to enter
-Wake-on-LAN mode and wake using MagicPackets with or without SecureOn
-password.
-
-This code is hooked to the build system, but is not yet referenced from
-ethtool or the main bcmgenet driver.
+Introduce a bunch of helper functions: bcmgenet_netif_start,
+bcmgenet_netif_stop and bcmgenet_intr_disable to help reuse code that is
+going to be necessary for suspend/resume.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/broadcom/genet/Makefile       |   2 +-
- drivers/net/ethernet/broadcom/genet/bcmgenet.h     |   9 +
- drivers/net/ethernet/broadcom/genet/bcmgenet_wol.c | 206 +++++++++++++++++++++
- 3 files changed, 216 insertions(+), 1 deletion(-)
- create mode 100644 drivers/net/ethernet/broadcom/genet/bcmgenet_wol.c
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 86 ++++++++++++++++----------
+ 1 file changed, 53 insertions(+), 33 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/genet/Makefile b/drivers/net/ethernet/broadcom/genet/Makefile
-index 31f55a90a197..9b6885efa9e7 100644
---- a/drivers/net/ethernet/broadcom/genet/Makefile
-+++ b/drivers/net/ethernet/broadcom/genet/Makefile
-@@ -1,2 +1,2 @@
- obj-$(CONFIG_BCMGENET) += genet.o
--genet-objs := bcmgenet.o bcmmii.o
-+genet-objs := bcmgenet.o bcmmii.o bcmgenet_wol.o
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.h b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
-index 00a5e27ce0e5..e78707b5bcf9 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.h
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
-@@ -456,6 +456,7 @@ struct enet_cb {
- enum bcmgenet_power_mode {
- 	GENET_POWER_CABLE_SENSE = 0,
- 	GENET_POWER_PASSIVE,
-+	GENET_POWER_WOL_MAGIC,
- };
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index ae5a0c50e6ca..4d586f0d7d63 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -1495,6 +1495,17 @@ static int reset_umac(struct bcmgenet_priv *priv)
+ 	return 0;
+ }
  
- struct bcmgenet_priv;
-@@ -626,4 +627,12 @@ int bcmgenet_mii_config(struct net_device *dev);
- void bcmgenet_mii_exit(struct net_device *dev);
- void bcmgenet_mii_reset(struct net_device *dev);
++static void bcmgenet_intr_disable(struct bcmgenet_priv *priv)
++{
++	/* Mask all interrupts.*/
++	bcmgenet_intrl2_0_writel(priv, 0xFFFFFFFF, INTRL2_CPU_MASK_SET);
++	bcmgenet_intrl2_0_writel(priv, 0xFFFFFFFF, INTRL2_CPU_CLEAR);
++	bcmgenet_intrl2_0_writel(priv, 0, INTRL2_CPU_MASK_CLEAR);
++	bcmgenet_intrl2_1_writel(priv, 0xFFFFFFFF, INTRL2_CPU_MASK_SET);
++	bcmgenet_intrl2_1_writel(priv, 0xFFFFFFFF, INTRL2_CPU_CLEAR);
++	bcmgenet_intrl2_1_writel(priv, 0, INTRL2_CPU_MASK_CLEAR);
++}
++
+ static int init_umac(struct bcmgenet_priv *priv)
+ {
+ 	struct device *kdev = &priv->pdev->dev;
+@@ -1523,10 +1534,7 @@ static int init_umac(struct bcmgenet_priv *priv)
+ 	if (!GENET_IS_V1(priv) && !GENET_IS_V2(priv))
+ 		bcmgenet_rbuf_writel(priv, 1, RBUF_TBUF_SIZE_CTRL);
  
-+/* Wake-on-LAN routines */
-+void bcmgenet_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol);
-+int bcmgenet_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol);
-+int bcmgenet_wol_power_down_cfg(struct bcmgenet_priv *priv,
-+				enum bcmgenet_power_mode mode);
-+void bcmgenet_wol_power_up_cfg(struct bcmgenet_priv *priv,
-+			       enum bcmgenet_power_mode mode);
-+
- #endif /* __BCMGENET_H__ */
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet_wol.c b/drivers/net/ethernet/broadcom/genet/bcmgenet_wol.c
-new file mode 100644
-index 000000000000..3aa3cc5c31c7
---- /dev/null
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet_wol.c
-@@ -0,0 +1,206 @@
-+/*
-+ * Broadcom GENET (Gigabit Ethernet) Wake-on-LAN support
-+ *
-+ * Copyright (c) 2014 Broadcom Corporation
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ */
-+
-+#define pr_fmt(fmt)				"bcmgenet_wol: " fmt
-+
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/sched.h>
-+#include <linux/types.h>
-+#include <linux/interrupt.h>
-+#include <linux/string.h>
-+#include <linux/init.h>
-+#include <linux/errno.h>
-+#include <linux/delay.h>
-+#include <linux/pm.h>
-+#include <linux/clk.h>
-+#include <linux/version.h>
-+#include <linux/platform_device.h>
-+#include <net/arp.h>
-+
-+#include <linux/mii.h>
-+#include <linux/ethtool.h>
-+#include <linux/netdevice.h>
-+#include <linux/inetdevice.h>
-+#include <linux/etherdevice.h>
-+#include <linux/skbuff.h>
-+#include <linux/in.h>
-+#include <linux/ip.h>
-+#include <linux/ipv6.h>
-+#include <linux/phy.h>
-+
-+#include "bcmgenet.h"
-+
-+/* ethtool function - get WOL (Wake on LAN) settings, Only Magic Packet
-+ * Detection is supported through ethtool
-+ */
-+void bcmgenet_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
+-	/* Mask all interrupts.*/
+-	bcmgenet_intrl2_0_writel(priv, 0xFFFFFFFF, INTRL2_CPU_MASK_SET);
+-	bcmgenet_intrl2_0_writel(priv, 0xFFFFFFFF, INTRL2_CPU_CLEAR);
+-	bcmgenet_intrl2_0_writel(priv, 0, INTRL2_CPU_MASK_CLEAR);
++	bcmgenet_intr_disable(priv);
+ 
+ 	cpu_mask_clear = UMAC_IRQ_RXDMA_BDONE;
+ 
+@@ -1993,6 +2001,23 @@ static void bcmgenet_enable_dma(struct bcmgenet_priv *priv, u32 dma_ctrl)
+ 	bcmgenet_tdma_writel(priv, reg, DMA_CTRL);
+ }
+ 
++static void bcmgenet_netif_start(struct net_device *dev)
 +{
 +	struct bcmgenet_priv *priv = netdev_priv(dev);
-+	u32 reg;
 +
-+	wol->supported = WAKE_MAGIC | WAKE_MAGICSECURE;
-+	wol->wolopts = priv->wolopts;
-+	memset(wol->sopass, 0, sizeof(wol->sopass));
++	/* Start the network engine */
++	napi_enable(&priv->napi);
 +
-+	if (wol->wolopts & WAKE_MAGICSECURE) {
-+		reg = bcmgenet_umac_readl(priv, UMAC_MPD_PW_MS);
-+		put_unaligned_be16(reg, &wol->sopass[0]);
-+		reg = bcmgenet_umac_readl(priv, UMAC_MPD_PW_LS);
-+		put_unaligned_be32(reg, &wol->sopass[2]);
-+	}
++	umac_enable_set(priv, CMD_TX_EN | CMD_RX_EN, 1);
++
++	if (phy_is_internal(priv->phydev))
++		bcmgenet_power_up(priv, GENET_POWER_PASSIVE);
++
++	netif_tx_start_all_queues(dev);
++
++	phy_start(priv->phydev);
 +}
 +
-+/* ethtool function - set WOL (Wake on LAN) settings.
-+ * Only for magic packet detection mode.
-+ */
-+int bcmgenet_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
+ static int bcmgenet_open(struct net_device *dev)
+ {
+ 	struct bcmgenet_priv *priv = netdev_priv(dev);
+@@ -2016,6 +2041,10 @@ static int bcmgenet_open(struct net_device *dev)
+ 	/* disable ethernet MAC while updating its registers */
+ 	umac_enable_set(priv, CMD_TX_EN | CMD_RX_EN, 0);
+ 
++	/* Make sure we reflect the value of CRC_CMD_FWD */
++	reg = bcmgenet_umac_readl(priv, UMAC_CMD);
++	priv->crc_fwd_en = !!(reg & CMD_CRC_FWD);
++
+ 	bcmgenet_set_hw_addr(priv, dev->dev_addr);
+ 
+ 	if (priv->wol_enabled) {
+@@ -2030,6 +2059,8 @@ static int bcmgenet_open(struct net_device *dev)
+ 		bcmgenet_ext_writel(priv, reg, EXT_EXT_PWR_MGMT);
+ 	}
+ 
++	device_set_wakeup_capable(&dev->dev, 1);
++
+ 	/* Disable RX/TX DMA and flush TX queues */
+ 	dma_ctrl = bcmgenet_dma_disable(priv);
+ 
+@@ -2057,23 +2088,7 @@ static int bcmgenet_open(struct net_device *dev)
+ 		goto err_irq0;
+ 	}
+ 
+-	/* Start the network engine */
+-	napi_enable(&priv->napi);
+-
+-	umac_enable_set(priv, CMD_TX_EN | CMD_RX_EN, 1);
+-
+-	/* Make sure we reflect the value of CRC_CMD_FWD */
+-	reg = bcmgenet_umac_readl(priv, UMAC_CMD);
+-	priv->crc_fwd_en = !!(reg & CMD_CRC_FWD);
+-
+-	device_set_wakeup_capable(&dev->dev, 1);
+-
+-	if (phy_is_internal(priv->phydev))
+-		bcmgenet_power_up(priv, GENET_POWER_PASSIVE);
+-
+-	netif_tx_start_all_queues(dev);
+-
+-	phy_start(priv->phydev);
++	bcmgenet_netif_start(dev);
+ 
+ 	return 0;
+ 
+@@ -2140,6 +2155,22 @@ static int bcmgenet_dma_teardown(struct bcmgenet_priv *priv)
+ 	return ret;
+ }
+ 
++static void bcmgenet_netif_stop(struct net_device *dev)
 +{
 +	struct bcmgenet_priv *priv = netdev_priv(dev);
-+	struct device *kdev = &priv->pdev->dev;
-+	u32 reg;
 +
-+	if (!device_can_wakeup(kdev))
-+		return -ENOTSUPP;
++	netif_tx_stop_all_queues(dev);
++	napi_disable(&priv->napi);
++	phy_stop(priv->phydev);
 +
-+	if (wol->wolopts & ~(WAKE_MAGIC | WAKE_MAGICSECURE))
-+		return -EINVAL;
++	bcmgenet_intr_disable(priv);
 +
-+	if (wol->wolopts & WAKE_MAGICSECURE) {
-+		bcmgenet_umac_writel(priv, get_unaligned_be16(&wol->sopass[0]),
-+				     UMAC_MPD_PW_MS);
-+		bcmgenet_umac_writel(priv, get_unaligned_be32(&wol->sopass[2]),
-+				     UMAC_MPD_PW_LS);
-+		reg = bcmgenet_umac_readl(priv, UMAC_MPD_CTRL);
-+		reg |= MPD_PW_EN;
-+		bcmgenet_umac_writel(priv, reg, UMAC_MPD_CTRL);
-+	}
-+
-+	/* Flag the device and relevant IRQ as wakeup capable */
-+	if (wol->wolopts) {
-+		device_set_wakeup_enable(kdev, 1);
-+		enable_irq_wake(priv->wol_irq);
-+		priv->wol_irq_disabled = 0;
-+	} else {
-+		device_set_wakeup_enable(kdev, 0);
-+		/* Avoid unbalanced disable_irq_wake calls */
-+		if (!priv->wol_irq_disabled)
-+			disable_irq_wake(priv->wol_irq);
-+		priv->wol_irq_disabled = 1;
-+	}
-+
-+	priv->wolopts = wol->wolopts;
-+
-+	return 0;
++	/* Wait for pending work items to complete. Since interrupts are
++	 * disabled no new work will be scheduled.
++	 */
++	cancel_work_sync(&priv->bcmgenet_irq_work);
 +}
 +
-+static int bcmgenet_poll_wol_status(struct bcmgenet_priv *priv)
-+{
-+	struct net_device *dev = priv->dev;
-+	int retries = 0;
-+
-+	while (!(bcmgenet_rbuf_readl(priv, RBUF_STATUS)
-+		& RBUF_STATUS_WOL)) {
-+		retries++;
-+		if (retries > 5) {
-+			netdev_crit(dev, "polling wol mode timeout\n");
-+			return -ETIMEDOUT;
-+		}
-+		mdelay(1);
-+	}
-+
-+	return retries;
-+}
-+
-+int bcmgenet_wol_power_down_cfg(struct bcmgenet_priv *priv,
-+				enum bcmgenet_power_mode mode)
-+{
-+	struct net_device *dev = priv->dev;
-+	u32 cpu_mask_clear;
-+	int retries = 0;
-+	u32 reg;
-+
-+	if (mode != GENET_POWER_WOL_MAGIC) {
-+		netif_err(priv, wol, dev, "unsupported mode: %d\n", mode);
-+		return -EINVAL;
-+	}
-+
-+	/* disable RX */
-+	reg = bcmgenet_umac_readl(priv, UMAC_CMD);
-+	reg &= ~CMD_RX_EN;
-+	bcmgenet_umac_writel(priv, reg, UMAC_CMD);
-+	mdelay(10);
-+
-+	reg = bcmgenet_umac_readl(priv, UMAC_MPD_CTRL);
-+	reg |= MPD_EN;
-+	bcmgenet_umac_writel(priv, reg, UMAC_MPD_CTRL);
-+
-+	/* Do not leave UniMAC in MPD mode only */
-+	retries = bcmgenet_poll_wol_status(priv);
-+	if (retries < 0) {
-+		reg = bcmgenet_umac_readl(priv, UMAC_MPD_CTRL);
-+		reg &= ~MPD_EN;
-+		bcmgenet_umac_writel(priv, reg, UMAC_MPD_CTRL);
-+		return retries;
-+	}
-+
-+	netif_dbg(priv, wol, dev, "MPD WOL-ready status set after %d msec\n",
-+		  retries);
-+
-+	/* Enable CRC forward */
-+	reg = bcmgenet_umac_readl(priv, UMAC_CMD);
-+	priv->crc_fwd_en = 1;
-+	reg |= CMD_CRC_FWD;
-+
-+	/* Receiver must be enabled for WOL MP detection */
-+	reg |= CMD_RX_EN;
-+	bcmgenet_umac_writel(priv, reg, UMAC_CMD);
-+
-+	if (priv->hw_params->flags & GENET_HAS_EXT) {
-+		reg = bcmgenet_ext_readl(priv, EXT_EXT_PWR_MGMT);
-+		reg &= ~EXT_ENERGY_DET_MASK;
-+		bcmgenet_ext_writel(priv, reg, EXT_EXT_PWR_MGMT);
-+	}
-+
-+	/* Enable the MPD interrupt */
-+	cpu_mask_clear = UMAC_IRQ_MPD_R;
-+
-+	bcmgenet_intrl2_0_writel(priv, cpu_mask_clear, INTRL2_CPU_MASK_CLEAR);
-+
-+	return 0;
-+}
-+
-+void bcmgenet_wol_power_up_cfg(struct bcmgenet_priv *priv,
-+			       enum bcmgenet_power_mode mode)
-+{
-+	u32 cpu_mask_set;
-+	u32 reg;
-+
-+	if (mode != GENET_POWER_WOL_MAGIC) {
-+		netif_err(priv, wol, priv->dev, "invalid mode: %d\n", mode);
-+		return;
-+	}
-+
-+	reg = bcmgenet_umac_readl(priv, UMAC_MPD_CTRL);
-+	reg &= ~MPD_EN;
-+	bcmgenet_umac_writel(priv, reg, UMAC_MPD_CTRL);
-+
-+	/* Disable CRC Forward */
-+	reg = bcmgenet_umac_readl(priv, UMAC_CMD);
-+	reg &= ~CMD_CRC_FWD;
-+	bcmgenet_umac_writel(priv, reg, UMAC_CMD);
-+	priv->crc_fwd_en = 0;
-+
-+	/* Stop monitoring magic packet IRQ */
-+	cpu_mask_set = UMAC_IRQ_MPD_R;
-+
-+	/* Stop monitoring magic packet IRQ */
-+	bcmgenet_intrl2_0_writel(priv, cpu_mask_set, INTRL2_CPU_MASK_SET);
-+}
+ static int bcmgenet_close(struct net_device *dev)
+ {
+ 	struct bcmgenet_priv *priv = netdev_priv(dev);
+@@ -2147,13 +2178,11 @@ static int bcmgenet_close(struct net_device *dev)
+ 
+ 	netif_dbg(priv, ifdown, dev, "bcmgenet_close\n");
+ 
+-	phy_stop(priv->phydev);
++	bcmgenet_netif_stop(dev);
+ 
+ 	/* Disable MAC receive */
+ 	umac_enable_set(priv, CMD_RX_EN, 0);
+ 
+-	netif_tx_stop_all_queues(dev);
+-
+ 	ret = bcmgenet_dma_teardown(priv);
+ 	if (ret)
+ 		return ret;
+@@ -2161,8 +2190,6 @@ static int bcmgenet_close(struct net_device *dev)
+ 	/* Disable MAC transmit. TX DMA disabled have to done before this */
+ 	umac_enable_set(priv, CMD_TX_EN, 0);
+ 
+-	napi_disable(&priv->napi);
+-
+ 	/* tx reclaim */
+ 	bcmgenet_tx_reclaim_all(dev);
+ 	bcmgenet_fini_dma(priv);
+@@ -2170,12 +2197,6 @@ static int bcmgenet_close(struct net_device *dev)
+ 	free_irq(priv->irq0, priv);
+ 	free_irq(priv->irq1, priv);
+ 
+-	/* Wait for pending work items to complete - we are stopping
+-	 * the clock now. Since interrupts are disabled, no new work
+-	 * will be scheduled.
+-	 */
+-	cancel_work_sync(&priv->bcmgenet_irq_work);
+-
+ 	if (phy_is_internal(priv->phydev))
+ 		bcmgenet_power_down(priv, GENET_POWER_PASSIVE);
+ 
+@@ -2573,7 +2594,6 @@ static int bcmgenet_remove(struct platform_device *pdev)
+ 	return 0;
+ }
+ 
+-
+ static struct platform_driver bcmgenet_driver = {
+ 	.probe	= bcmgenet_probe,
+ 	.remove	= bcmgenet_remove,
 -- 
 1.9.1
