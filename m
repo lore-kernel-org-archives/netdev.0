@@ -1,49 +1,49 @@
-From: =?utf-8?B?U8O4cmVuc2VuLCBTdGVmYW4=?=
-	<Stefan.Sorensen@spectralink.com>
-Subject: Re: [PATCH net-next] dp83640: Adjust ptp event timestamps
-Date: Thu, 10 Jul 2014 09:13:51 +0000
-Message-ID: <1404983629.2901.8.camel@e37108.spectralink.com>
-References: <1404901343-19445-1-git-send-email-stefan.sorensen@spectralink.com>
-	 <20140709174149.GA3859@localhost.localdomain>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH v7 03/33] net: set name_assign_type in alloc_netdev()
+Date: Thu, 10 Jul 2014 11:16:50 +0200
+Message-ID: <87tx6ph8u5.fsf@nemi.mork.no>
+References: <1404980258-30853-1-git-send-email-teg@jklm.no>
+	<1404980258-30853-4-git-send-email-teg@jklm.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "richardcochran@gmail.com" <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2lp0207.outbound.protection.outlook.com ([207.46.163.207]:23606
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752216AbaGJJOI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Jul 2014 05:14:08 -0400
-In-Reply-To: <20140709174149.GA3859@localhost.localdomain>
-Content-Language: en-US
-Content-ID: <FD63CA7B29BF0F4EBF5C217F19E589AF@namprd07.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	David Herrmann <dh.herrmann@gmail.com>,
+	Kay Sievers <kay@vrfy.org>
+To: Tom Gundersen <teg@jklm.no>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1404980258-30853-4-git-send-email-teg@jklm.no> (Tom Gundersen's
+	message of "Thu, 10 Jul 2014 10:17:08 +0200")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-T24gV2VkLCAyMDE0LTA3LTA5IGF0IDE5OjQxICswMjAwLCBSaWNoYXJkIENvY2hyYW4gd3JvdGU6
-DQo+IE9uIFdlZCwgSnVsIDA5LCAyMDE0IGF0IDEyOjIyOjIzUE0gKzAyMDAsIFN0ZWZhbiBTw7hy
-ZW5zZW4gd3JvdGU6DQo+ID4gRnJvbSB0aGUgZHA4NjM0MCBTb2Z0d2FyZSBEZXZlbG9wbWVudCBH
-dWlkZToNCj4gPiAgIEV2ZW50IHRpbWVzdGFtcCB2YWx1ZXMgc2hvdWxkIGJlIGFkanVzdGVkIGJ5
-IDMqcmVmZXJlbmNlIGNsb2NrIHBlcmlvZCArDQo+ID4gICAxMSBucyA9IDM1IG5zIHRvIGNvbXBl
-bnNhdGUgZm9yIGlucHV0IHBhdGggYW5kIHN5bmNocm9uaXphdGlvbiBkZWxheXMuDQo+ID4gDQo+
-ID4gU28gc3VidHJhY3QgMzVucyBmcm9tIGV2ZW50IHRpbWVzdGFtcHMuDQo+IA0KPiBJIGhhdmUg
-YXZvaWRlZCBhZGRpbmcgdGhpcyBraW5kIG9mIHRoaW5nIGludG8gZHJpdmVycyBiZWNhdXNlIEkg
-dGhpbmsNCj4gcGVvcGxlIHdpbGwgd2FudCB0byBtYWtlIHRoZSBjb3JyZWN0aW9uIGluIHRoZSBk
-ZWxheUFzeW1tZXRyeSBmaWVsZCBvZg0KPiB0aGVpciB1c2VyIHNwYWNlIHN0YWNrLiBBZnRlciBh
-bGwsIHRoaXMgaXMgZXhhY3RseSB3aGF0IHRoYXQgdmFsdWUgaXMNCj4gc3VwcG9zZWQgdG8gY292
-ZXIuDQoNClRoaXMgaXMgbm90IGFkanVzdGluZyB0aGUgcGFja2V0IHRpbWVzdGFtcHMgYnV0IHRo
-ZSBncGlvIGV2ZW50DQp0aW1lc3RhbXBzIC0gdGhlIHB0cCBwcm90b2NvbCBpcyBub3QgaW52b2x2
-ZWQgaGVyZS4gV2l0aG91dCB0aGlzDQphZGp1c3RtZW50LCBsb29waW5nIGJhY2sgYSBwcHMgc2ln
-bmFsIGZyb20gb25lIGdwaW8gdG8gYW5vdGhlciB3aWxsDQpyZXN1bHQgaW4gYSB+MzVucyBvZmZz
-ZXQuDQoNCj4gU29tZSBwYXJ0cyBoYXZlIGZpeGVkIGRlbGF5cyAob3IgYXQgbGVhc3QgdGhleSBj
-bGFpbSB0bykgYW5kIHNvbWUgaGF2ZQ0KPiB2YXJpYWJsZSBkZWxheXMgdGhhdCBjYW4gZGVwZW5k
-IG9uIGxpbmsgc3BlZWQgb3Igb3RoZXIgZmFjdG9ycy4gU28gbXkNCj4gZ3V0IGZlZWxpbmcgdGVs
-bHMgbWUgdG8gYmUgY29uc2lzdGVudCBhbmQgbGVhdmUgYWxsIHN1Y2ggY29ycmVjdGlvbnMNCj4g
-b3V0LCBiZWNhdXNlIGluIHRoYXQgd2F5IHRoZSBlbmQgdXNlciB3aWxsIG5vdCBoYXZlIHRvIHJl
-c2VhcmNoDQo+IHdoZXRoZXIgYSBwYXJ0aWN1bGFyIGRyaXZlciBpcyAicHJlLWNvcnJlY3Rpbmci
-IG9yIG5vdC4NCg0KVGhlbiB0aGUgZW5kIHVzZXIgd2lsbCBoYXZlIHRvIGZpZ3VyZSBvdXQgd2hh
-dCBkZWxheSBjb3JyZWN0aW9ucyBuZWVkIHRvDQpiZSBtYWRlIGFuZCBjb25maWd1cmUgdGhlIGFw
-cGxpY2F0aW9ucyhzKSB0byBhZGp1c3QgZm9yIHRoaXMuIEJ1dCBJDQpkb24ndCBzZWUgYW55IGdv
-b2Qgc29sdXRpb24gdG8gdGhpcyBlaXRoZXIuIA0KDQpTdGVmYW4NCg0K
+Tom Gundersen <teg@jklm.no> writes:
+
+> diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
+> index 5dc638c..f405e05 100644
+> --- a/net/ethernet/eth.c
+> +++ b/net/ethernet/eth.c
+> @@ -390,7 +390,8 @@ EXPORT_SYMBOL(ether_setup);
+>  struct net_device *alloc_etherdev_mqs(int sizeof_priv, unsigned int =
+txqs,
+>  				      unsigned int rxqs)
+>  {
+> -	return alloc_netdev_mqs(sizeof_priv, "eth%d", ether_setup, txqs, rx=
+qs);
+> +	return alloc_netdev_mqs(sizeof_priv, "eth%d", NET_NAME_UNKNOWN,
+> +				ether_setup, txqs, rxqs);
+>  }
+>  EXPORT_SYMBOL(alloc_etherdev_mqs);
+
+I believe this chunk makes the rest of this exercise pretty pointless.
+
+bjorn@nemi:/usr/local/src/git/linux$ git grep alloc_etherdev drivers/ne=
+t/|wc -l
+283
+
+I don't care enough to go look, but I'd be surprised if none of those
+drivers rename the device before registering it.
+
+
+Bj=C3=B8rn
