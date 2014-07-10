@@ -1,122 +1,271 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: [PATCH 2/2] net: davinci_mdio: allow to create phys from dt
-Date: Thu, 10 Jul 2014 16:15:25 +0300
-Message-ID: <53BE91ED.9020305@ti.com>
-References: <1404911451-9921-1-git-send-email-grygorii.strashko@ti.com> <1404911451-9921-3-git-send-email-grygorii.strashko@ti.com> <53BD5066.4000500@ti.com>
+From: Gerlando Falauto <gerlando.falauto@keymile.com>
+Subject: Re: [PATCH V3] net/dt: Add support for overriding phy configuration
+ from device tree
+Date: Thu, 10 Jul 2014 14:37:38 +0200
+Message-ID: <53BE8912.4090804@keymile.com>
+References: <7510122.cayuQ6qt8r@wuerfel> <1389999459-9483-1-git-send-email-matthew.garrett@nebula.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <prabhakar.csengg@gmail.com>, Sekhar Nori <nsekhar@ti.com>,
-	Rob Herring <robh+dt@kernel.org>,
-	<linux-kernel@vger.kernel.org>, <devicetree@vger.kernel.org>,
-	<davinci-linux-open-source@linux.davincidsp.com>
-To: Santosh Shilimkar <santosh.shilimkar@ti.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	<netdev@vger.kernel.org>
+Cc: devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kishon@ti.com, Florian Fainelli <f.fainelli@gmail.com>
+To: Matthew Garrett <matthew.garrett@nebula.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:41032 "EHLO arroyo.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752173AbaGJM3D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Jul 2014 08:29:03 -0400
-In-Reply-To: <53BD5066.4000500@ti.com>
+Received: from mail-de.keymile.com ([195.8.104.250]:41792 "EHLO
+	mail-de.keymile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752756AbaGJMpB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2014 08:45:01 -0400
+In-Reply-To: <1389999459-9483-1-git-send-email-matthew.garrett@nebula.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/09/2014 05:23 PM, Santosh Shilimkar wrote:
-> On Wednesday 09 July 2014 09:10 AM, Grygorii Strashko wrote:
->> This patch allows to create PHYs from DT in case
->> if they are explicitly defined. The of_mdiobus_register() is
->> used for such purposes.
->>
->> For backward compatibility, call  of_mdiobus_register() only in case
->> if at least one PHY's child is defined in DT, otherwise rollback to
->> mdiobus_register().
->>
->> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
->> ---
->>   drivers/net/ethernet/ti/davinci_mdio.c |   18 ++++++++++++++++--
->>   1 file changed, 16 insertions(+), 2 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
->> index 735dc53..22d3dab 100644
->> --- a/drivers/net/ethernet/ti/davinci_mdio.c
->> +++ b/drivers/net/ethernet/ti/davinci_mdio.c
->> @@ -38,6 +38,7 @@
->>   #include <linux/davinci_emac.h>
->>   #include <linux/of.h>
->>   #include <linux/of_device.h>
->> +#include <linux/of_mdio.h>
->>   #include <linux/pinctrl/consumer.h>
->>   
->>   /*
->> @@ -95,6 +96,7 @@ struct davinci_mdio_data {
->>   	struct mii_bus	*bus;
->>   	bool		suspended;
->>   	unsigned long	access_time; /* jiffies */
+Hi Matthew,
 
-	/*
-	 * Indicates that driver shouldn't modify phy_mask in case
-	 * if MDIO bus is registered from DT.
-	 */
+On 01/17/2014 11:57 PM, Matthew Garrett wrote:
+> Some hardware may be broken in interesting and board-specific ways, such
+> that various bits of functionality don't work. This patch provides a
+> mechanism for overriding mii registers during init based on the contents of
+> the device tree data, allowing board-specific fixups without having to
+> pollute generic code.
 
->> +	bool		skip_scan;
-> The vairiable name is not too intutive so probably add a little
-> bit description on what are you skipping with it.
+[six months later]
+I assume nothing ever came out of this patch... is that right?
 
+Thank you,
+Gerlando
 
-Now the Davinci MDIO driver updates mii_bus->phy_mask from
-its reset routine to limit number of phy addresses to be scanned.
-
-The MDIO bus scanning has to be skipped at all in case of DT MDIO registration.
-And of_mdiobus_register() maintain mii_bus->phy_mask by itself,
-thus driver shouldn't touch it.
-
-I'll add above comment. Is it ok?
-
-
-> 
->>   };
->>   
->>   static void __davinci_mdio_reset(struct davinci_mdio_data *data)
->> @@ -144,6 +146,9 @@ static int davinci_mdio_reset(struct mii_bus *bus)
->>   	dev_info(data->dev, "davinci mdio revision %d.%d\n",
->>   		 (ver >> 8) & 0xff, ver & 0xff);
->>   
->> +	if (data->skip_scan)
->> +		return 0;
->> +
->>   	/* get phy mask from the alive register */
->>   	phy_mask = __raw_readl(&data->regs->alive);
->>   	if (phy_mask) {
->> @@ -369,8 +374,17 @@ static int davinci_mdio_probe(struct platform_device *pdev)
->>   		goto bail_out;
->>   	}
->>   
->> -	/* register the mii bus */
->> -	ret = mdiobus_register(data->bus);
->> +	/* register the mii bus
->> +	 * Create PHYs from DT only in case if PHY child nodes are explicitly
->> +	 * defined to support backward compatibility with DTs which assume that
->> +	 * Davinci MDIO will always scan the bus for PHYs detection.
->> +	 */
-> multi line comment is not as per coding style. Please fix that.
-> Patch as such looks good to me so with those minor fixes, feel
-> free to append my review tag.
-
-will fix it.
-
-> 
-> Reviewed-by: Santosh Shilimkar <santosh.shilimkar@ti.com>
-> 
->> +	if (dev->of_node && of_get_child_count(dev->of_node)) {
->> +		data->skip_scan = true;
->> +		ret = of_mdiobus_register(data->bus, dev->of_node);
->> +	} else {
->> +		ret = mdiobus_register(data->bus);
->> +	}
->>   	if (ret)
->>   		goto bail_out;
->>   
->>
-> 
+>
+> Signed-off-by: Matthew Garrett <matthew.garrett@nebula.com>
+> ---
+>
+> V3: Break the main function out into some helper functions and store the
+> values in some structs.
+>
+>   Documentation/devicetree/bindings/net/phy.txt | 21 +++++++
+>   drivers/net/phy/phy_device.c                  | 29 ++++++++-
+>   drivers/of/of_net.c                           | 87 +++++++++++++++++++++++++++
+>   include/linux/of_net.h                        | 12 ++++
+>   4 files changed, 148 insertions(+), 1 deletion(-)
+>
+> diff --git a/Documentation/devicetree/bindings/net/phy.txt b/Documentation/devicetree/bindings/net/phy.txt
+> index 7cd18fb..fc50f02 100644
+> --- a/Documentation/devicetree/bindings/net/phy.txt
+> +++ b/Documentation/devicetree/bindings/net/phy.txt
+> @@ -23,6 +23,21 @@ Optional Properties:
+>     assume clause 22. The compatible list may also contain other
+>     elements.
+>
+> +The following properties may be added to either the phy node or the parent
+> +ethernet device. If not present, the hardware defaults will be used.
+> +
+> +- phy-mii-advertise-10half: 1 to advertise half-duplex 10MBit, 0 to disable
+> +- phy-mii-advertise-10full: 1 to advertise full-duplex 10MBit, 0 to disable
+> +- phy-mii-advertise-100half: 1 to advertise half-duplex 100MBit, 0 to disable
+> +- phy-mii-advertise-100full: 1 to advertise full-duplex 100MBit, 0 to disable
+> +- phy-mii-advertise-100base4: 1 to advertise 100base4, 0 to disable
+> +- phy-mii-advertise-1000half: 1 to advertise half-duplex 1000MBit, 0 to disable
+> +- phy-mii-advertise-1000full: 1 to advertise full-duplex 1000MBit, 0 to disable
+> +- phy-mii-manual-master: 1 to enable manual master/slave configuration, 0
+> +  to disable manual master/slave configuration
+> +- phy-mii-as-master: 1 to configure phy to act as master, 0 to configure phy
+> +  to act as slave. Ignored if manual master/slave configuration is not enabled.
+> +
+>   Example:
+>
+>   ethernet-phy@0 {
+> @@ -32,4 +47,10 @@ ethernet-phy@0 {
+>   	interrupts = <35 1>;
+>   	reg = <0>;
+>   	device_type = "ethernet-phy";
+> +	// Disable advertising of full duplex 1000MBit
+> +	phy-mii-advertise-1000full = <0>;
+> +	// Force manual phy master/slave configuration
+> +	phy-mii-manual-master = <1>;
+> +	// Forcibly configure phy as slave
+> +	phy-mii-as-master = <0>;
+>   };
+> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+> index d6447b3..91793bc 100644
+> --- a/drivers/net/phy/phy_device.c
+> +++ b/drivers/net/phy/phy_device.c
+> @@ -33,6 +33,7 @@
+>   #include <linux/mii.h>
+>   #include <linux/ethtool.h>
+>   #include <linux/phy.h>
+> +#include <linux/of_net.h>
+>
+>   #include <asm/io.h>
+>   #include <asm/irq.h>
+> @@ -497,6 +498,28 @@ void phy_disconnect(struct phy_device *phydev)
+>   }
+>   EXPORT_SYMBOL(phy_disconnect);
+>
+> +int phy_override_from_of(struct phy_device *phydev)
+> +{
+> +	int reg, regval;
+> +	u16 val, mask;
+> +
+> +	/* Check for phy register overrides from OF */
+> +	for (reg = 0; reg < 16; reg++) {
+> +		if (!of_get_mii_register(phydev, reg, &val, &mask)) {
+> +			if (!mask)
+> +				continue;
+> +			regval = phy_read(phydev, reg);
+> +			if (regval < 0)
+> +				continue;
+> +			regval &= ~mask;
+> +			regval |= val;
+> +			phy_write(phydev, reg, regval);
+> +		}
+> +	}
+> +
+> +	return 0;
+> +}
+> +
+>   int phy_init_hw(struct phy_device *phydev)
+>   {
+>   	int ret;
+> @@ -508,7 +531,11 @@ int phy_init_hw(struct phy_device *phydev)
+>   	if (ret < 0)
+>   		return ret;
+>
+> -	return phydev->drv->config_init(phydev);
+> +	ret = phydev->drv->config_init(phydev);
+> +	if (ret < 0)
+> +		return ret;
+> +
+> +	return phy_override_from_of(phydev);
+>   }
+>
+>   /**
+> diff --git a/drivers/of/of_net.c b/drivers/of/of_net.c
+> index 8f9be2e..75751b7 100644
+> --- a/drivers/of/of_net.c
+> +++ b/drivers/of/of_net.c
+> @@ -93,3 +93,90 @@ const void *of_get_mac_address(struct device_node *np)
+>   	return NULL;
+>   }
+>   EXPORT_SYMBOL(of_get_mac_address);
+> +
+> +struct mii_override {
+> +	char *prop;
+> +	u32 supported;
+> +	u16 value;
+> +};
+> +
+> +static struct mii_override mii_advertise_override[] = {
+> +	{ "phy-mii-advertise-10half", SUPPORTED_10baseT_Half,
+> +	  ADVERTISE_10HALF },
+> +	{ "phy-mii-advertise-10full", SUPPORTED_10baseT_Full,
+> +	  ADVERTISE_10FULL },
+> +	{ "phy-mii-advertise-100half", SUPPORTED_100baseT_Half,
+> +	  ADVERTISE_100HALF },
+> +	{ "phy-mii-advertise-100full", SUPPORTED_100baseT_Full,
+> +	  ADVERTISE_100FULL },
+> +	{ "phy-mii-advertise-100base4", 0, ADVERTISE_100BASE4 },
+> +	{ NULL },
+> +};
+> +
+> +static struct mii_override mii_gigabit_override[] = {
+> +	{ "phy-mii-advertise-1000half", SUPPORTED_1000baseT_Half,
+> +	  ADVERTISE_1000HALF },
+> +	{ "phy-mii-advertise-1000full", SUPPORTED_1000baseT_Full,
+> +	  ADVERTISE_1000FULL },
+> +	{ "phy-mii-as-master", 0, CTL1000_AS_MASTER },
+> +	{ "phy-mii-manual-master", 0, CTL1000_ENABLE_MASTER },
+> +	{ NULL },
+> +};
+> +
+> +static void mii_handle_override(struct mii_override *override_list,
+> +				struct phy_device *phydev, u16 *val, u16 *mask)
+> +{
+> +	struct device *dev = &phydev->dev;
+> +	struct device_node *np = dev->of_node;
+> +	struct mii_override *override;
+> +	u32 tmp;
+> +
+> +	if (!np && dev->parent->of_node)
+> +		np = dev->parent->of_node;
+> +
+> +	if (!np)
+> +		return;
+> +
+> +	for (override = &override_list[0]; override->prop != NULL; override++) {
+> +		if (!of_property_read_u32(np, override->prop, &tmp)) {
+> +			if (tmp) {
+> +				*val |= override->value;
+> +				phydev->advertising |= override->supported;
+> +			} else {
+> +				phydev->advertising &= ~(override->supported);
+> +			}
+> +
+> +			*mask |= override->value;
+> +		}
+> +	}
+> +
+> +	return;
+> +}
+> +
+> +/**
+> + * Provide phy register overrides from the device tree. Some hardware may
+> + * be broken in interesting and board-specific ways, so we want a mechanism
+> + * for the board data to provide overrides for default values. This should be
+> + * called during phy init.
+> + */
+> +int of_get_mii_register(struct phy_device *phydev, int reg, u16 *val,
+> +			u16 *mask)
+> +{
+> +	*val = 0;
+> +	*mask = 0;
+> +
+> +	switch (reg) {
+> +	case MII_ADVERTISE:
+> +		mii_handle_override(mii_advertise_override, phydev, val, mask);
+> +		break;
+> +
+> +	case MII_CTRL1000:
+> +		mii_handle_override(mii_gigabit_override, phydev, val, mask);
+> +		break;
+> +
+> +	default:
+> +		return -EINVAL;
+> +	}
+> +	return 0;
+> +}
+> +EXPORT_SYMBOL(of_get_mii_register);
+> diff --git a/include/linux/of_net.h b/include/linux/of_net.h
+> index 34597c8..2e478bc 100644
+> --- a/include/linux/of_net.h
+> +++ b/include/linux/of_net.h
+> @@ -7,10 +7,14 @@
+>   #ifndef __LINUX_OF_NET_H
+>   #define __LINUX_OF_NET_H
+>
+> +#include <linux/phy.h>
+> +
+>   #ifdef CONFIG_OF_NET
+>   #include <linux/of.h>
+>   extern int of_get_phy_mode(struct device_node *np);
+>   extern const void *of_get_mac_address(struct device_node *np);
+> +extern int of_get_mii_register(struct phy_device *np, int reg, u16 *val,
+> +			       u16 *mask);
+>   #else
+>   static inline int of_get_phy_mode(struct device_node *np)
+>   {
+> @@ -21,6 +25,14 @@ static inline const void *of_get_mac_address(struct device_node *np)
+>   {
+>   	return NULL;
+>   }
+> +static inline int of_get_mii_register(struct phy_device *np, int reg, u16 *val,
+> +				      u16 *mask)
+> +{
+> +	*val = 0;
+> +	*mask = 0;
+> +
+> +	return -EINVAL;
+> +}
+>   #endif
+>
+>   #endif /* __LINUX_OF_NET_H */
+>
