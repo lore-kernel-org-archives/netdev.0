@@ -1,43 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v7 00/33] Provide netdev naming-policy via sysfs
-Date: Thu, 10 Jul 2014 12:19:37 -0700 (PDT)
-Message-ID: <20140710.121937.888036537035743904.davem@davemloft.net>
-References: <1404980258-30853-1-git-send-email-teg@jklm.no>
-	<20140710.014355.387392730830362973.davem@davemloft.net>
-	<CAG-2HqUPRqFgn1PfDoYzuyoYRcfB=RQCVg3PJZvaakiVtK07yw@mail.gmail.com>
+Subject: Re: [net-next-2.6 PATCH v5 0/2] bridge: fdb dumping takes a filter
+ device
+Date: Thu, 10 Jul 2014 12:20:55 -0700 (PDT)
+Message-ID: <20140710.122055.1076579568928568405.davem@davemloft.net>
+References: <20140708.141038.712786607116212110.davem@davemloft.net>
+	<20140708.142155.1915030425034037065.davem@davemloft.net>
+	<53BE69A4.7010808@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	dh.herrmann@gmail.com, kay@vrfy.org
-To: teg@jklm.no
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAG-2HqUPRqFgn1PfDoYzuyoYRcfB=RQCVg3PJZvaakiVtK07yw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	vyasevic@redhat.com, sfeldma@cumulusnetworks.com,
+	john.r.fastabend@intel.com, roopa@cumulusnetworks.com,
+	eric.dumazet@gmail.com
+To: jhs@mojatatu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42627 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752154AbaGJTU4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2014 15:20:56 -0400
+In-Reply-To: <53BE69A4.7010808@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Tom Gundersen <teg@jklm.no>
-Date: Thu, 10 Jul 2014 11:19:42 +0200
-
-> Thanks for the quick answer.
-> 
-> On Thu, Jul 10, 2014 at 10:43 AM, David Miller <davem@davemloft.net> wrote:
->> It is not reasonable to expect people to review such a large number of
->> patches at one time.
->>
->> Split your series up into logical, and more reasonably sized chunks.
->>
->> I'd say 14 or 15 at a time is the limit.
->>
->> I'm not even looking at this series until you submit it more reasonably.
->>
->> Thank you.
-> 
-> Ok. I suggest you review patches 1-7, as these are the generic ones.
-> Then once they have been applied I can resubmit the subsequent patches
-> individually.
-> 
-> Do you want me to resubmit patches 1-7, or do you just want to pick
-> them from this series as they are?
-
-I said submit it more reasonably, what do you think that means?
+RnJvbTogSmFtYWwgSGFkaSBTYWxpbSA8amhzQG1vamF0YXR1LmNvbT4NCkRhdGU6IFRodSwgMTAg
+SnVsIDIwMTQgMDY6MjM6MzIgLTA0MDANCg0KPiBPbiAwNy8wOC8xNCAxNzoyMSwgRGF2aWQgTWls
+bGVyIHdyb3RlOg0KPiANCj4+DQo+PiBkcml2ZXJzL25ldC92eGxhbi5jOjIxODE6Mjogd2Fybmlu
+ZzogaW5pdGlhbGl6YXRpb24gZnJvbSBpbmNvbXBhdGlibGUNCj4+IHBvaW50ZXIgdHlwZSBbZW5h
+YmxlZCBieSBkZWZhdWx0XQ0KPj4gZHJpdmVycy9uZXQvdnhsYW4uYzoyMTgxOjI6IHdhcm5pbmc6
+IChuZWFyIGluaXRpYWxpemF0aW9uIGZvcg0KPj4goXZ4bGFuX25ldGRldl9vcHMubmRvX2ZkYl9k
+dW1woikgW2VuYWJsZWQgYnkgZGVmYXVsdF0NCj4+DQo+IA0KPiBZb3VyIHBhdGllbmNlIGtub3dz
+IG5vIGJvdW5kcyA7LT4NCg0KTXkgcGF0aWVuY2UgaGFzIG5vIGNob2ljZS4gOikNCg0K
