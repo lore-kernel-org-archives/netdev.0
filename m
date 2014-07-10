@@ -1,144 +1,137 @@
 From: varkabhadram@gmail.com
-Subject: [PATCH net 1/7] net: cpmac: remove space in macro defination
-Date: Thu, 10 Jul 2014 10:17:54 +0530
-Message-ID: <1404967680-13206-2-git-send-email-varkabhadram@gmail.com>
+Subject: [PATCH net 2/7] net: cpmac: fix comments
+Date: Thu, 10 Jul 2014 10:17:55 +0530
+Message-ID: <1404967680-13206-3-git-send-email-varkabhadram@gmail.com>
 References: <1404967680-13206-1-git-send-email-varkabhadram@gmail.com>
 Cc: mugunthanvnm@ti.com, linux@rainbow-software.org, balbi@ti.com,
 	george.cherian@ti.com, davem@davemloft.net,
 	Varka Bhadram <varkab@cdac.in>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:51297 "EHLO
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:58686 "EHLO
 	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750702AbaGJEtY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2014 00:49:24 -0400
-Received: by mail-pa0-f53.google.com with SMTP id ey11so10261849pad.26
-        for <netdev@vger.kernel.org>; Wed, 09 Jul 2014 21:49:24 -0700 (PDT)
+	with ESMTP id S1750702AbaGJEt1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2014 00:49:27 -0400
+Received: by mail-pa0-f53.google.com with SMTP id ey11so10370599pad.40
+        for <netdev@vger.kernel.org>; Wed, 09 Jul 2014 21:49:27 -0700 (PDT)
 In-Reply-To: <1404967680-13206-1-git-send-email-varkabhadram@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Varka Bhadram <varkab@cdac.in>
 
-This patch fix the space after '#' in macro defination
+This patch convert the normal comments to networking subsystem
+style comments.
 
 Signed-off-by: Varka Bhadram <varkab@cdac.in>
 ---
- drivers/net/ethernet/ti/cpmac.c |   82 +++++++++++++++++++--------------------
- 1 file changed, 41 insertions(+), 41 deletions(-)
+ drivers/net/ethernet/ti/cpmac.c |   40 ++++++++++++++++++++-------------------
+ 1 file changed, 21 insertions(+), 19 deletions(-)
 
 diff --git a/drivers/net/ethernet/ti/cpmac.c b/drivers/net/ethernet/ti/cpmac.c
-index 7399a52..61eb691 100644
+index 61eb691..1d8ef39 100644
 --- a/drivers/net/ethernet/ti/cpmac.c
 +++ b/drivers/net/ethernet/ti/cpmac.c
-@@ -67,42 +67,42 @@ MODULE_PARM_DESC(dumb_switch, "Assume switch is not connected to MDIO bus");
- #define CPMAC_RX_CONTROL		0x0014
- #define CPMAC_RX_TEARDOWN		0x0018
- #define CPMAC_MBP			0x0100
--# define MBP_RXPASSCRC			0x40000000
--# define MBP_RXQOS			0x20000000
--# define MBP_RXNOCHAIN			0x10000000
--# define MBP_RXCMF			0x01000000
--# define MBP_RXSHORT			0x00800000
--# define MBP_RXCEF			0x00400000
--# define MBP_RXPROMISC			0x00200000
--# define MBP_PROMISCCHAN(channel)	(((channel) & 0x7) << 16)
--# define MBP_RXBCAST			0x00002000
--# define MBP_BCASTCHAN(channel)		(((channel) & 0x7) << 8)
--# define MBP_RXMCAST			0x00000020
--# define MBP_MCASTCHAN(channel)		((channel) & 0x7)
-+#define MBP_RXPASSCRC			0x40000000
-+#define MBP_RXQOS			0x20000000
-+#define MBP_RXNOCHAIN			0x10000000
-+#define MBP_RXCMF			0x01000000
-+#define MBP_RXSHORT			0x00800000
-+#define MBP_RXCEF			0x00400000
-+#define MBP_RXPROMISC			0x00200000
-+#define MBP_PROMISCCHAN(channel)	(((channel) & 0x7) << 16)
-+#define MBP_RXBCAST			0x00002000
-+#define MBP_BCASTCHAN(channel)		(((channel) & 0x7) << 8)
-+#define MBP_RXMCAST			0x00000020
-+#define MBP_MCASTCHAN(channel)		((channel) & 0x7)
- #define CPMAC_UNICAST_ENABLE		0x0104
- #define CPMAC_UNICAST_CLEAR		0x0108
- #define CPMAC_MAX_LENGTH		0x010c
- #define CPMAC_BUFFER_OFFSET		0x0110
- #define CPMAC_MAC_CONTROL		0x0160
--# define MAC_TXPTYPE			0x00000200
--# define MAC_TXPACE			0x00000040
--# define MAC_MII			0x00000020
--# define MAC_TXFLOW			0x00000010
--# define MAC_RXFLOW			0x00000008
--# define MAC_MTEST			0x00000004
--# define MAC_LOOPBACK			0x00000002
--# define MAC_FDX			0x00000001
-+#define MAC_TXPTYPE			0x00000200
-+#define MAC_TXPACE			0x00000040
-+#define MAC_MII				0x00000020
-+#define MAC_TXFLOW			0x00000010
-+#define MAC_RXFLOW			0x00000008
-+#define MAC_MTEST			0x00000004
-+#define MAC_LOOPBACK			0x00000002
-+#define MAC_FDX				0x00000001
- #define CPMAC_MAC_STATUS		0x0164
--# define MAC_STATUS_QOS			0x00000004
--# define MAC_STATUS_RXFLOW		0x00000002
--# define MAC_STATUS_TXFLOW		0x00000001
-+#define MAC_STATUS_QOS			0x00000004
-+#define MAC_STATUS_RXFLOW		0x00000002
-+#define MAC_STATUS_TXFLOW		0x00000001
- #define CPMAC_TX_INT_ENABLE		0x0178
- #define CPMAC_TX_INT_CLEAR		0x017c
- #define CPMAC_MAC_INT_VECTOR		0x0180
--# define MAC_INT_STATUS			0x00080000
--# define MAC_INT_HOST			0x00040000
--# define MAC_INT_RX			0x00020000
--# define MAC_INT_TX			0x00010000
-+#define MAC_INT_STATUS			0x00080000
-+#define MAC_INT_HOST			0x00040000
-+#define MAC_INT_RX			0x00020000
-+#define MAC_INT_TX			0x00010000
- #define CPMAC_MAC_EOI_VECTOR		0x0184
- #define CPMAC_RX_INT_ENABLE		0x0198
- #define CPMAC_RX_INT_CLEAR		0x019c
-@@ -157,24 +157,24 @@ MODULE_PARM_DESC(dumb_switch, "Assume switch is not connected to MDIO bus");
- /* MDIO bus */
- #define CPMAC_MDIO_VERSION		0x0000
- #define CPMAC_MDIO_CONTROL		0x0004
--# define MDIOC_IDLE			0x80000000
--# define MDIOC_ENABLE			0x40000000
--# define MDIOC_PREAMBLE			0x00100000
--# define MDIOC_FAULT			0x00080000
--# define MDIOC_FAULTDETECT		0x00040000
--# define MDIOC_INTTEST			0x00020000
--# define MDIOC_CLKDIV(div)		((div) & 0xff)
-+#define MDIOC_IDLE			0x80000000
-+#define MDIOC_ENABLE			0x40000000
-+#define MDIOC_PREAMBLE			0x00100000
-+#define MDIOC_FAULT			0x00080000
-+#define MDIOC_FAULTDETECT		0x00040000
-+#define MDIOC_INTTEST			0x00020000
-+#define MDIOC_CLKDIV(div)		((div) & 0xff)
- #define CPMAC_MDIO_ALIVE		0x0008
- #define CPMAC_MDIO_LINK			0x000c
- #define CPMAC_MDIO_ACCESS(channel)	(0x0080 + (channel) * 8)
--# define MDIO_BUSY			0x80000000
--# define MDIO_WRITE			0x40000000
--# define MDIO_REG(reg)			(((reg) & 0x1f) << 21)
--# define MDIO_PHY(phy)			(((phy) & 0x1f) << 16)
--# define MDIO_DATA(data)		((data) & 0xffff)
-+#define MDIO_BUSY			0x80000000
-+#define MDIO_WRITE			0x40000000
-+#define MDIO_REG(reg)			(((reg) & 0x1f) << 21)
-+#define MDIO_PHY(phy)			(((phy) & 0x1f) << 16)
-+#define MDIO_DATA(data)			((data) & 0xffff)
- #define CPMAC_MDIO_PHYSEL(channel)	(0x0084 + (channel) * 8)
--# define PHYSEL_LINKSEL			0x00000040
--# define PHYSEL_LINKINT			0x00000020
-+#define PHYSEL_LINKSEL			0x00000040
-+#define PHYSEL_LINKINT			0x00000020
+@@ -118,8 +118,8 @@ MODULE_PARM_DESC(dumb_switch, "Assume switch is not connected to MDIO bus");
+ #define CPMAC_TX_ACK(channel)		(0x0640 + (channel) * 4)
+ #define CPMAC_RX_ACK(channel)		(0x0660 + (channel) * 4)
+ #define CPMAC_REG_END			0x0680
+-/*
+- * Rx/Tx statistics
++
++/* Rx/Tx statistics
+  * TODO: use some of them to fill stats in cpmac_stats()
+  */
+ #define CPMAC_STATS_RX_GOOD		0x0200
+@@ -331,8 +331,7 @@ static void cpmac_set_multicast_list(struct net_device *dev)
+ 			cpmac_write(priv->regs, CPMAC_MAC_HASH_LO, 0xffffffff);
+ 			cpmac_write(priv->regs, CPMAC_MAC_HASH_HI, 0xffffffff);
+ 		} else {
+-			/*
+-			 * cpmac uses some strange mac address hashing
++			/* cpmac uses some strange mac address hashing
+ 			 * (not crc32)
+ 			 */
+ 			netdev_for_each_mc_addr(ha, dev) {
+@@ -432,10 +431,10 @@ static int cpmac_poll(struct napi_struct *napi, int budget)
  
- struct cpmac_desc {
- 	u32 hw_next;
+ 		if ((desc->dataflags & CPMAC_EOQ) != 0) {
+ 			/* The last update to eoq->hw_next didn't happen
+-			* soon enough, and the receiver stopped here.
+-			*Remember this descriptor so we can restart
+-			* the receiver after freeing some space.
+-			*/
++			 * soon enough, and the receiver stopped here.
++			 * Remember this descriptor so we can restart
++			 * the receiver after freeing some space.
++			 */
+ 			if (unlikely(restart)) {
+ 				if (netif_msg_rx_err(priv))
+ 					printk(KERN_ERR "%s: poll found a"
+@@ -457,25 +456,27 @@ static int cpmac_poll(struct napi_struct *napi, int budget)
+ 
+ 	if (desc != priv->rx_head) {
+ 		/* We freed some buffers, but not the whole ring,
+-		 * add what we did free to the rx list */
++		 * add what we did free to the rx list
++		 */
+ 		desc->prev->hw_next = (u32)0;
+ 		priv->rx_head->prev->hw_next = priv->rx_head->mapping;
+ 	}
+ 
+ 	/* Optimization: If we did not actually process an EOQ (perhaps because
+ 	 * of quota limits), check to see if the tail of the queue has EOQ set.
+-	* We should immediately restart in that case so that the receiver can
+-	* restart and run in parallel with more packet processing.
+-	* This lets us handle slightly larger bursts before running
+-	* out of ring space (assuming dev->weight < ring_size) */
++	 * We should immediately restart in that case so that the receiver can
++	 * restart and run in parallel with more packet processing.
++	 * This lets us handle slightly larger bursts before running
++	 * out of ring space (assuming dev->weight < ring_size)
++	 */
+ 
+ 	if (!restart &&
+ 	     (priv->rx_head->prev->dataflags & (CPMAC_OWN|CPMAC_EOQ))
+ 		    == CPMAC_EOQ &&
+ 	     (priv->rx_head->dataflags & CPMAC_OWN) != 0) {
+ 		/* reset EOQ so the poll loop (above) doesn't try to
+-		* restart this when it eventually gets to this descriptor.
+-		*/
++		 * restart this when it eventually gets to this descriptor.
++		 */
+ 		priv->rx_head->prev->dataflags &= ~CPMAC_EOQ;
+ 		restart = priv->rx_head;
+ 	}
+@@ -506,7 +507,8 @@ static int cpmac_poll(struct napi_struct *napi, int budget)
+ 		       priv->dev->name, received);
+ 	if (processed == 0) {
+ 		/* we ran out of packets to read,
+-		 * revert to interrupt-driven mode */
++		 * revert to interrupt-driven mode
++		 */
+ 		napi_complete(napi);
+ 		cpmac_write(priv->regs, CPMAC_RX_INT_ENABLE, 1);
+ 		return 0;
+@@ -516,8 +518,8 @@ static int cpmac_poll(struct napi_struct *napi, int budget)
+ 
+ fatal_error:
+ 	/* Something went horribly wrong.
+-	 * Reset hardware to try to recover rather than wedging. */
+-
++	 * Reset hardware to try to recover rather than wedging.
++	 */
+ 	if (netif_msg_drv(priv)) {
+ 		printk(KERN_ERR "%s: cpmac_poll is confused. "
+ 				"Resetting hardware\n", priv->dev->name);
+@@ -751,7 +753,7 @@ static void cpmac_check_status(struct net_device *dev)
+ 	if (rx_code || tx_code) {
+ 		if (netif_msg_drv(priv) && net_ratelimit()) {
+ 			/* Can't find any documentation on what these
+-			 *error codes actually are. So just log them and hope..
++			 * error codes actually are. So just log them and hope..
+ 			 */
+ 			if (rx_code)
+ 				printk(KERN_WARNING "%s: host error %d on rx "
 -- 
 1.7.9.5
