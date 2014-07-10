@@ -1,33 +1,38 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: Fw: [Bug 79891] New: Router causes TCP retransmits for windows
- hosts after "ip_forward: fix inverted local_df test"
-Date: Thu, 10 Jul 2014 10:11:04 -0700
-Message-ID: <CAHA+R7N0ZgLfZNMrnHyRD+C=rGD86QXVkE0weLOLCM9npXMozg@mail.gmail.com>
-References: <20140710064433.1fd17105@samsung-9>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: randconfig build error with next-20140710, in net/ipv4/ipconfig.c
+Date: Thu, 10 Jul 2014 10:15:56 -0700
+Message-ID: <CAGVrzcYc+B-tsvGBspD3mujYf_mMsyRx2VoYJj3hEvwkZffX1Q@mail.gmail.com>
+References: <CA+r1ZhhJxs_EL3UbtL8qAK4_JAqo3sJ3fF3KJ_3=NcRhnJiYjg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f50.google.com ([209.85.215.50]:49264 "EHLO
-	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750927AbaGJRLG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2014 13:11:06 -0400
-Received: by mail-la0-f50.google.com with SMTP id pv20so6542041lab.9
-        for <netdev@vger.kernel.org>; Thu, 10 Jul 2014 10:11:04 -0700 (PDT)
-In-Reply-To: <20140710064433.1fd17105@samsung-9>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	linux-next <linux-next@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	Patrick McHardy <kaber@trash.net>,
+	netdev <netdev@vger.kernel.org>
+To: Jim Davis <jim.epost@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+r1ZhhJxs_EL3UbtL8qAK4_JAqo3sJ3fF3KJ_3=NcRhnJiYjg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 10, 2014 at 6:44 AM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
+2014-07-10 10:07 GMT-07:00 Jim Davis <jim.epost@gmail.com>:
+> Building with the attached random configuration file,
 >
-> After upgrading a router to Linux 3.2.60 most windows machines behind it
-> started experiencing connection stalls. Downgrade to 3.2.59 resolved the
-> problem. Using git bisect I pinpointed it to
-> "59d9f389df3cdf72833d5ee17c3fe959b6bdc792 is the first bad commit", which
-> entered the kernel from here
-> http://marc.info/?l=linux-netdev&m=139949081418806&w=2
->
+> net/ipv4/ipconfig.c: In function =E2=80=98ic_dynamic=E2=80=99:
+> net/ipv4/ipconfig.c:1221:3: error: =E2=80=98ic_dev_xid=E2=80=99 undec=
+lared (first use
+> in this function)
+>    ic_dev_xid =3D d->xid;
+>    ^
+> net/ipv4/ipconfig.c:1221:3: note: each undeclared identifier is
+> reported only once for each function it appears in
+> make[2]: *** [net/ipv4/ipconfig.o] Error 1
 
-This commit should have been reverted for older kernels like 3.2.y.
+Looks like David just fixed it with: http://patchwork.ozlabs.org/patch/=
+368463/
+--=20
+=46lorian
