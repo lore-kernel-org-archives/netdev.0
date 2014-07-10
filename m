@@ -1,56 +1,51 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net 1/7] net: cpmac: remove space in macro defination
-Date: Thu, 10 Jul 2014 08:38:15 -0700
-Message-ID: <1405006695.2796.3.camel@joe-AO725>
-References: <1404967680-13206-1-git-send-email-varkabhadram@gmail.com>
-	 <1404967680-13206-2-git-send-email-varkabhadram@gmail.com>
-	 <CAGVrzcY7OpzGwY8eO-iJ9u6H91r8ywUu7y0doP5G_1pyzBd0Wg@mail.gmail.com>
+From: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH 2/2] hso: fix deadlock when receiving bursts of data
+Date: Thu, 10 Jul 2014 16:50:03 +0100
+Message-ID: <20140710165003.0309924e@alan.etchedpixels.co.uk>
+References: <1404723967-24245-1-git-send-email-olivier@sobrie.be>
+	<1404723967-24245-2-git-send-email-olivier@sobrie.be>
+	<20140708.161633.2130069042930765600.davem@davemloft.net>
+	<20140710142848.GA28056@hposo>
+	<063D6719AE5E284EB5DD2968C1650D6D17270044@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	mugunthanvnm <mugunthanvnm@ti.com>,
-	Ondrej Zary <linux@rainbow-software.org>, balbi@ti.com,
-	george.cherian@ti.com, David Miller <davem@davemloft.net>,
-	Varka Bhadram <varkab@cdac.in>
-To: Florian Fainelli <florian@openwrt.org>,
-	Varka Bhadram <varkabhadram@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0015.hostedemail.com ([216.40.44.15]:48142 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750778AbaGJPiX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2014 11:38:23 -0400
-In-Reply-To: <CAGVrzcY7OpzGwY8eO-iJ9u6H91r8ywUu7y0doP5G_1pyzBd0Wg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "'Olivier Sobrie'" <olivier@sobrie.be>,
+	David Miller <davem@davemloft.net>,
+	"j.dumon@option.com" <j.dumon@option.com>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D17270044@AcuExch.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> 2014-07-09 21:47 GMT-07:00  <varkabhadram@gmail.com>:
-[]
-> > diff --git a/drivers/net/ethernet/ti/cpmac.c b/drivers/net/ethernet/ti/cpmac.c
-> > index 7399a52..61eb691 100644
-> > --- a/drivers/net/ethernet/ti/cpmac.c
-> > +++ b/drivers/net/ethernet/ti/cpmac.c
-> > @@ -67,42 +67,42 @@ MODULE_PARM_DESC(dumb_switch, "Assume switch is not connected to MDIO bus");
-> >  #define CPMAC_RX_CONTROL               0x0014
-> >  #define CPMAC_RX_TEARDOWN              0x0018
-> >  #define CPMAC_MBP                      0x0100
-> > -# define MBP_RXPASSCRC                 0x40000000
-> > -# define MBP_RXQOS                     0x20000000
-> > -# define MBP_RXNOCHAIN                 0x10000000
-> > -# define MBP_RXCMF                     0x01000000
-> > -# define MBP_RXSHORT                   0x00800000
-> > -# define MBP_RXCEF                     0x00400000
-> > -# define MBP_RXPROMISC                 0x00200000
-> > -# define MBP_PROMISCCHAN(channel)      (((channel) & 0x7) << 16)
-> > -# define MBP_RXBCAST                   0x00002000
-> > -# define MBP_BCASTCHAN(channel)                (((channel) & 0x7) << 8)
-> > -# define MBP_RXMCAST                   0x00000020
-> > -# define MBP_MCASTCHAN(channel)                ((channel) & 0x7)
+On Thu, 10 Jul 2014 14:37:37 +0000
+David Laight <David.Laight@ACULAB.COM> wrote:
 
-I think these are al relatively poor cleanups as
-it is now no longer visually obvious that these
-MBP_<FOO> defines are related to CPMAC_MBP
+> From: Olivier Sobrie
+> ...
+> > The function put_rxbuf_data() is called from the urb completion handler.
+> > It puts the data of the urb transfer in the tty buffer with
+> > tty_insert_flip_string_flags() and schedules a work queue in order to
+> > push the data to the ldisc.
+> > Problem is that we are in a urb completion handler so we can't wait
+> > until there is room in the tty buffer.
 
-If you really want to do this I suggest something like:
-#define CPMAC_MBP			0x0100
-#define		MBP_RXPASSCRC		0x40000000
+The tty provides the input queue, if the queue is full then just chuck
+the data in the bitbucket.  hso is trying to be far too clever.
+
+If hso is fast enough that the buffering isn't sufficient on the tty side
+then we need to fix the tty buffer size.
+
+Arguably what we need are tty fastpaths for non N_TTY but thats rather
+more work. There's no fundamental reason that hso can't throw the buffer
+at buffer straight at the PPP ldisc and straight into the network stack -
+just that 
+
+1. The tty mid layer glue is standing in the way
+2. The change of line discipline code has to lock against it
+
+Alan
