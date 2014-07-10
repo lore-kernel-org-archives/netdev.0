@@ -1,54 +1,41 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH v7 10/33] net: dummy - set name assign type
-Date: Thu, 10 Jul 2014 13:44:54 +0200
-Message-ID: <87d2ddh1zd.fsf@nemi.mork.no>
-References: <1404980258-30853-1-git-send-email-teg@jklm.no>
-	<1404980258-30853-11-git-send-email-teg@jklm.no>
-	<87pphdh85q.fsf@nemi.mork.no>
-	<CAG-2HqWSRRfW1EygXd_1=eYFsTeDd3SsJBfF3BuH35hgGxogxA@mail.gmail.com>
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: Re: [PATCH 1/2] net: davinci_mdio: reuse for keystone2 arch
+Date: Thu, 10 Jul 2014 15:58:31 +0300
+Message-ID: <53BE8DF7.9090303@ti.com>
+References: <1404911451-9921-1-git-send-email-grygorii.strashko@ti.com>	<1404911451-9921-2-git-send-email-grygorii.strashko@ti.com> <20140709.165232.539576872991411664.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	David Herrmann <dh.herrmann@gmail.com>,
-	Kay Sievers <kay@vrfy.org>,
-	dingtianhong <dingtianhong@huawei.com>,
-	Tan Xiaojun <tanxiaojun@huawei.com>,
-	WANG Cong <xiyou.wangcong@gmail.com>
-To: Tom Gundersen <teg@jklm.no>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAG-2HqWSRRfW1EygXd_1=eYFsTeDd3SsJBfF3BuH35hgGxogxA@mail.gmail.com>
-	(Tom Gundersen's message of "Thu, 10 Jul 2014 12:12:28 +0200")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <f.fainelli@gmail.com>, <santosh.shilimkar@ti.com>,
+	<netdev@vger.kernel.org>, <prabhakar.csengg@gmail.com>,
+	<nsekhar@ti.com>, <robh+dt@kernel.org>,
+	<linux-kernel@vger.kernel.org>, <devicetree@vger.kernel.org>,
+	<davinci-linux-open-source@linux.davincidsp.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from devils.ext.ti.com ([198.47.26.153]:48956 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751051AbaGJMMJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2014 08:12:09 -0400
+In-Reply-To: <20140709.165232.539576872991411664.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Tom Gundersen <teg@jklm.no> writes:
+Hi David,
 
-> The result of
->
-> modprobe dummy numdummies=3D2
->
-> is to create dummy0 and dummy1, always with the same names.
->
-> The result of
->
-> ip link add type dummy
->
-> is to create dummyX, where X depends on what came before.
+On 07/10/2014 02:52 AM, David Miller wrote:
+> From: Grygorii Strashko <grygorii.strashko@ti.com>
+> Date: Wed, 9 Jul 2014 16:10:50 +0300
+> 
+>>   Required properties:
+>> -- compatible		: Should be "ti,davinci_mdio"
+>> +- compatible		: Should be "ti,davinci_mdio" or "ti,keystone-mdio"
+> 
+> Why the inconsistency in naming schemes?  I don't see any reason
+> to be different wrt. "_" vs. "-" in the name string.
+> 
 
-Which is no different. That's exacly what happens when
-"modprobe dummy numdummies=3D2" creates the two first interfaces.
+Hm. Looks like the common way is to use "-", but I can rename it if you insist.
 
-
- ip link add link wwan0 name dummy0 type vlan id 2
- modprobe dummy numdummies=3D2
-
-ends up with dummy1 and dummy2 created by the dummy driver.
-
-You are trying to make up differences that just aren't there.
-
-
-
-Bj=C3=B8rn
+Regards,
+-grygorii
