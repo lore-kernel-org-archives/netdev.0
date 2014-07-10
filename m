@@ -1,73 +1,74 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: the side effect of using copy skb instead of skb_clone in cdc
- ncm/mbim driver
-Date: Thu, 10 Jul 2014 08:50:22 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1726FB4D@AcuExch.aculab.com>
-References: <CAOa2BBy4t_17J7G5bBpAZZpBWZYh+Cpc6Fn4u+9cV98M8CZ5gw@mail.gmail.com>
-	<87y4w4jprx.fsf@nemi.mork.no>
-	<CAOa2BBwVxcC_WoAqExRgEX57BwkikOL_sOBnjus+udNzVB0zqw@mail.gmail.com>
-	<87zjgih66u.fsf@nemi.mork.no>
- <CAL_Kpj0-g-o5yKJQu=oh773ugfYi-=pjVkJ8-N5OCyuz2EYWOw@mail.gmail.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH v7 04/33] net: set name assign type for names assigned
+ using a static template
+Date: Thu, 10 Jul 2014 10:52:29 +0200
+Message-ID: <53BE544D.7000104@pengutronix.de>
+References: <1404980258-30853-1-git-send-email-teg@jklm.no> <1404980258-30853-5-git-send-email-teg@jklm.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: joey ming <joey.zming@gmail.com>,
-	"jim_baxter@mentor.com" <jim_baxter@mentor.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"zhao.ming9@zte.com.cn" <zhao.ming9@zte.com.cn>
-To: 'Alexey Orishko' <alexey.orishko@gmail.com>,
-	=?utf-8?B?QmrDuHJuIE1vcms=?= <bjorn@mork.no>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:44381 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752644AbaGJIv6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Jul 2014 04:51:58 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 20864-03 for <netdev@vger.kernel.org>;
- Thu, 10 Jul 2014 09:51:49 +0100 (BST)
-In-Reply-To: <CAL_Kpj0-g-o5yKJQu=oh773ugfYi-=pjVkJ8-N5OCyuz2EYWOw@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="p4lE36Uvm3pHr8rfKi22GgQoDG4pXl6vd"
+Cc: linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
+	David Herrmann <dh.herrmann@gmail.com>,
+	Kay Sievers <kay@vrfy.org>
+To: Tom Gundersen <teg@jklm.no>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1404980258-30853-5-git-send-email-teg@jklm.no>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogQWxleGV5IE9yaXNoa28NCj4gT24gV2VkLCBKdWwgOSwgMjAxNCBhdCA2OjAxIFBNLCBC
-anJuIE1vcmsgPGJqb3JuQG1vcmsubm8+IHdyb3RlOg0KPiA+IEFsZXhleSdzIHJlc3VsdHMgd2Vy
-ZSBvbiBtb2RlbSBoYXJkd2FyZSwgYW5kIEkgYW0gZ3Vlc3NpbmcgdGhlIE9TIHdhc24ndA0KPiA+
-IExpbnV4Lg0KPiBOQ00gZHJpdmVyIHdhcyBkZXBsb3llZCBvbiBVbml4LWxpa2UgcmVhbHRpbWUg
-T1MgYW5kIG9uIHZhcmlvdXMNCj4gZW1iZWRkZWQgYXBwbGljYXRpb24gQ1BVIHJ1bm5pbmcgQW5k
-cm9pZC4NCj4gDQo+ID4gU28gTkNNIGlzIHByb2JhYmx5IGEgZ3JlYXQgd2luIGZvciB0aGUgbW9k
-ZW1zLA0KPiA+IGFuZCB5b3UgYXJlIHJpZ2h0OiBUaGF0IGlzIGxpa2VseSB3aHkgdGhpcyBhZ2dy
-ZWdhdGluZyBwcm90b2NvbCB3YXMNCj4gPiBpbnZlbnRlZC4NCj4gDQo+IE9uZSBjb21tZW50IGZv
-ciB0aGlzIGFuZCBlYXJsaWVyIHBhc3NhZ2VzIGFib3V0IFVTQi1JRjogZHVyaW5nDQo+IHNwZWNp
-ZmljYXRpb24gZGV2ZWxvcG1lbnQgdGhlcmUgd2FzIG5vIGludGVudGlvbiAidG8gbWFrZSBsaWZl
-IGVhc2llciINCj4gb24gdGhlIGhvc3Qgc2lkZSwgdGhlIGdvYWwgd2FzIHRvIG1ha2UgbW9iaWxl
-IGRldmljZSBtb3JlIGVmZmljaWVudA0KPiB3aXRoIGEgd2VhayBDUFUgKHNpbmNlIDIwMDcgc2l0
-dWF0aW9uIGNoYW5nZWQgc2lnbmlmaWNhbnRseSBmb3IgbW9iaWxlDQo+IGNvbXB1dGluZyBwb3dl
-cikuDQo+IA0KPiBPbmUgaW1wb3J0YW50IGNvbW1lbnQgdGhvdWdoIGFib3V0IHRoZSBtYWluIGlk
-ZWEgb2YgdGhlIGFnZ3JlZ2F0aW9uIHByb3RvY29sOg0KPiAtIGluIG9yZGVyIHRvIGdldCBhICpy
-ZWFsKiBiZW5lZml0IG9mIHRoZSBwcm90b2NvbCBzZW5kZXIgc2hhbGwNCj4gaW5pdGlhbGx5IHNl
-bmQgb25seSBhIHRhYmxlIGNvbnRhaW5pbmcgcG9pbnRlcnMgaW4gYSBzZXBhcmF0ZSA1MTINCj4g
-Ynl0ZXMgcGFja2V0IGFuZCBvbmx5IHRoZW4gc2VuZCB0aGUgcmVzdCBvZiBOVEIuDQo+IC0gcmVj
-ZWl2aW5nIHNpZGUgc2hhbGwgYWxsb2NhdGUgRE1BIGpvYiBmb3IgcmVjZWl2aW5nIDUxMiBieXRl
-cyBmaXJzdA0KPiBhbmQgYWZ0ZXIgcGFyc2luZyBpdCwgc2V0dXAgYSBqb2IgZm9yIHJlY2Vpdmlu
-ZyBhbGwgSVAgcGFja2V0cyBpbnRvDQo+IHNlcGFyYXRlIGRhdGEgYnVmZmVycy4gQWZ0ZXIgdGhh
-dCBETUEgZW5naW5lIHdpbGwgaGFuZGxlIGRhdGEgd2l0aG91dA0KPiBpbnZvbHZpbmcgQ1BVLg0K
-PiBBcyBhIHJlc3VsdDogbWluaW11bSBDUFUgdXNhZ2UgYW5kIGFsbCBJUCBwYWNrZXRzIGFyZSBw
-bGFjZWQgaW50bw0KPiBzZXBhcmF0ZSBza2Itcy4NCj4gDQo+IEhvd2V2ZXIsIEkgZG9uJ3QgYmVs
-aWV2ZSB1c2JuZXQgaW5mcmFzdHJ1Y3R1cmUgaXMgY2FwYWJsZSBvZiBkb2luZw0KPiB0aGF0LCBi
-dXQgaXQgY2FuIGJlIGRvbmUgaW4gcHJvcHJpZXRhcnkgY29kZSBpbiB1c2IgbW9kZW0uIEkgZG9u
-J3QNCj4gaGF2ZSBhbnkgaW5mbyBpZiBzb21lb25lIGFjdHVhbGx5IG1hbmFnZSB0byBidWlsZCBz
-dWNoIGEgc3lzdGVtLCB3aGljaA0KPiByZXF1aXJlZCBhIGxvdCBvZiBlZmZvcnRzOyBpdCBpcyBt
-dWNoIGVhc2llciB0byBkbyBkYXRhIGNvcGluZyB3aXRoDQo+IEludGVsIFF1YWQgQ29yZSAzK0dI
-eiBDUFUgd2l0aCA4K0dCIFJBTSAtIHlvdSBoYXJkbHkgbm90aWNlIGFueQ0KPiBkaWZmZXJlbmNl
-IGNvbXBhcmluZyB0byBlbWJlZGRlZCBzeXN0ZW1zLi4uDQoNCklmIHRoZSBzdWJzZXF1ZW50IGRh
-dGEgaXMgcGFja2VkIGludG8gYSBzaW5nbGUgVVNCIGJ1bGsgZGF0YSB0cmFuc2ZlciwNCnRoZW4g
-b25seSB0aGUgeGhjaSBjb250cm9sbGVyIGhhcyB0aGUgY2FwYWJpbGl0eSB0byBwZXJmb3JtIHRo
-ZSByZXF1aXJlZA0KZG1hIHRyYW5zZmVycyAtIHNpbmNlIGl0IG5lZWRzIGFyYml0cmFyeSBzY2F0
-dGVyLWdhdGhlciBzdXBwb3J0Lg0KDQpUaGUgdXNibmV0IGluZnJhc3RydWN0dXJlIHdvdWxkIGFs
-c28gbmVlZCBjaGFuZ2luZy4NCg0KSW4gcHJhY3Rpc2UgSSBzdXNwZWN0IHRoYXQgYSBkYXRhIGNv
-cHkgaW4gdGhlIGhvc3QgaXMgdW5saWtlbHkgdG8NCmJlIHNpZ25pZmljYW50IGZvciBhbnl0aGlu
-ZyBydW5uaW5nIFVTQjIgc3BlZWRzIG9yIDEwME0gZXRoZXJuZXQuDQpUaGVyZSBpcyBwcm9iYWJs
-eSBtb3JlIHNjb3BlIGZvciByZWR1Y2luZyBjcHUgdXNhZ2UgYnkgb3B0aW1pc2luZw0KdGhlIFVT
-QiBzdGFjayBpdHNlbGYuDQoNCglEYXZpZA0KDQoNCg==
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--p4lE36Uvm3pHr8rfKi22GgQoDG4pXl6vd
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+On 07/10/2014 10:17 AM, Tom Gundersen wrote:
+> This covers the trivial case:
+>=20
+> alloc_netdev(_, "foo%d", NET_NAME_ENUM, _);
+>=20
+> Signed-off-by: Tom Gundersen <teg@jklm.no>
+> ---
+>  drivers/net/can/dev.c                     | 2 +-
+
+> diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
+> index 9f91fcb..2441348 100644
+> --- a/drivers/net/can/dev.c
+> +++ b/drivers/net/can/dev.c
+> @@ -565,7 +565,7 @@ struct net_device *alloc_candev(int sizeof_priv, un=
+signed int echo_skb_max)
+>  	else
+>  		size =3D sizeof_priv;
+> =20
+> -	dev =3D alloc_netdev(size, "can%d", NET_NAME_UNKNOWN, can_setup);
+> +	dev =3D alloc_netdev(size, "can%d", NET_NAME_ENUM, can_setup);
+>  	if (!dev)
+>  		return NULL;
+> =20
+
+For can/dev.c:
+
+Acked-by: Marc Kleine-Budde <mkl@pengutronix.de>
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--p4lE36Uvm3pHr8rfKi22GgQoDG4pXl6vd
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+
+iEYEARECAAYFAlO+VE0ACgkQjTAFq1RaXHNcOgCeO4HisNnrIp0rzUB8DHz5XKFW
+4hAAn1X+kNUOytY/MCzPMdcTTZ+NPVR+
+=lr5p
+-----END PGP SIGNATURE-----
+
+--p4lE36Uvm3pHr8rfKi22GgQoDG4pXl6vd--
