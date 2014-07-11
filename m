@@ -1,230 +1,490 @@
-From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH 1/4] iw_cxgb4: Detect Ing. Padding Boundary at run-time
-Date: Fri, 11 Jul 2014 20:44:19 +0530
-Message-ID: <1405091662-5270-2-git-send-email-hariprasad@chelsio.com>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH 2/4] cxgb4/iw_cxgb4: use firmware ord/ird resource limits
+Date: Fri, 11 Jul 2014 20:44:20 +0530
+Message-ID: <1405091662-5270-3-git-send-email-hariprasad@chelsio.com>
 References: <1405091662-5270-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org,
-	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1405091662-5270-1-git-send-email-hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, roland@purestorage.com,
+	swise@opengridcomputing.com, leedom@chelsio.com,
+	nirranjan@chelsio.com, kumaras@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:34051
+	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754241AbaGKPIv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jul 2014 11:08:51 -0400
+In-Reply-To: <1405091662-5270-1-git-send-email-hariprasad@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Updates iw_cxgb4 to determine the Ingress Padding Boundary from
-cxgb4_lld_info, and take subsequent actions.
+Advertise a larger max read queue depth for qps, and gather the resource limits
+from fw and use them to avoid exhaustinq all the resources.
 
-Signed-off-by: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
-Signed-off-by: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Design:
+
+cxgb4:
+
+Obtain the max_ordird_qp and max_ird_adapter device params from FW
+at init time and pass them up to the ULDs when they attach.  If these
+parameters are not available, due to older firmware, then hard-code
+the values based on the known values for older firmware.
+iw_cxgb4:
+
+Fix the c4iw_query_device() to report these correct values based on
+adapter parameters.  ibv_query_device() will always return:
+
+max_qp_rd_atom = max_qp_init_rd_atom = min(module_max, max_ordird_qp)
+max_res_rd_atom = max_ird_adapter
+
+Bump up the per qp max module option to 32, allowing it to be increased
+by the user up to the device max of max_ordird_qp.  32 seems to be
+sufficient to maximize throughput for streaming read benchmarks.
+
+Fail connection setup if the negotiated IRD exhausts the available
+adapter ird resources.  So the driver will track the amount of ird
+resource in use and not send an RI_WR/INIT to FW that would reduce the
+available ird resources below zero.
+
+Signed-off-by: Steve Wise <swise@opengridcomputing.com>
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- drivers/infiniband/hw/cxgb4/cq.c                |    4 ++--
- drivers/infiniband/hw/cxgb4/device.c            |   21 +++++++++++++++++++++
- drivers/infiniband/hw/cxgb4/iw_cxgb4.h          |   12 ++++++++++++
- drivers/infiniband/hw/cxgb4/provider.c          |    4 ++--
- drivers/infiniband/hw/cxgb4/qp.c                |   10 ++++++----
- drivers/infiniband/hw/cxgb4/t4.h                |    8 --------
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |    2 ++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |    2 ++
- 8 files changed, 47 insertions(+), 16 deletions(-)
+ drivers/infiniband/hw/cxgb4/cm.c                |   80 ++++++++++++++++-------
+ drivers/infiniband/hw/cxgb4/device.c            |    2 +
+ drivers/infiniband/hw/cxgb4/iw_cxgb4.h          |    9 ++-
+ drivers/infiniband/hw/cxgb4/provider.c          |    6 +-
+ drivers/infiniband/hw/cxgb4/qp.c                |   53 +++++++++++++--
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |    3 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   18 +++++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |    2 +
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   |    2 +
+ 9 files changed, 141 insertions(+), 34 deletions(-)
 
-diff --git a/drivers/infiniband/hw/cxgb4/cq.c b/drivers/infiniband/hw/cxgb4/cq.c
-index c04292c..f04a838 100644
---- a/drivers/infiniband/hw/cxgb4/cq.c
-+++ b/drivers/infiniband/hw/cxgb4/cq.c
-@@ -895,7 +895,7 @@ struct ib_cq *c4iw_create_cq(struct ib_device *ibdev, int entries,
- 	/*
- 	 * Make actual HW queue 2x to avoid cdix_inc overflows.
- 	 */
--	hwentries = min(entries * 2, T4_MAX_IQ_SIZE);
-+	hwentries = min(entries * 2, rhp->rdev.hw_queue.t4_max_iq_size);
+diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
+index d62a0f9..df5bd3d 100644
+--- a/drivers/infiniband/hw/cxgb4/cm.c
++++ b/drivers/infiniband/hw/cxgb4/cm.c
+@@ -79,9 +79,10 @@ static int dack_mode = 1;
+ module_param(dack_mode, int, 0644);
+ MODULE_PARM_DESC(dack_mode, "Delayed ack mode (default=1)");
  
- 	/*
- 	 * Make HW queue at least 64 entries so GTS updates aren't too
-@@ -912,7 +912,7 @@ struct ib_cq *c4iw_create_cq(struct ib_device *ibdev, int entries,
- 	if (ucontext) {
- 		memsize = roundup(memsize, PAGE_SIZE);
- 		hwentries = memsize / sizeof *chp->cq.queue;
--		while (hwentries > T4_MAX_IQ_SIZE) {
-+		while (hwentries > rhp->rdev.hw_queue.t4_max_iq_size) {
- 			memsize -= PAGE_SIZE;
- 			hwentries = memsize / sizeof *chp->cq.queue;
+-int c4iw_max_read_depth = 8;
++uint c4iw_max_read_depth = 32;
+ module_param(c4iw_max_read_depth, int, 0644);
+-MODULE_PARM_DESC(c4iw_max_read_depth, "Per-connection max ORD/IRD (default=8)");
++MODULE_PARM_DESC(c4iw_max_read_depth,
++		 "Per-connection max ORD/IRD (default=32)");
+ 
+ static int enable_tcp_timestamps;
+ module_param(enable_tcp_timestamps, int, 0644);
+@@ -813,6 +814,8 @@ static void send_mpa_req(struct c4iw_ep *ep, struct sk_buff *skb,
+ 	if (mpa_rev_to_use == 2) {
+ 		mpa->private_data_size = htons(ntohs(mpa->private_data_size) +
+ 					       sizeof (struct mpa_v2_conn_params));
++		PDBG("%s initiator ird %u ord %u\n", __func__, ep->ird,
++		     ep->ord);
+ 		mpa_v2_params.ird = htons((u16)ep->ird);
+ 		mpa_v2_params.ord = htons((u16)ep->ord);
+ 
+@@ -1182,8 +1185,8 @@ static int connect_request_upcall(struct c4iw_ep *ep)
+ 			sizeof(struct mpa_v2_conn_params);
+ 	} else {
+ 		/* this means MPA_v1 is used. Send max supported */
+-		event.ord = c4iw_max_read_depth;
+-		event.ird = c4iw_max_read_depth;
++		event.ord = cur_max_read_depth(ep->com.dev);
++		event.ird = cur_max_read_depth(ep->com.dev);
+ 		event.private_data_len = ep->plen;
+ 		event.private_data = ep->mpa_pkt + sizeof(struct mpa_message);
+ 	}
+@@ -1247,6 +1250,8 @@ static int update_rx_credits(struct c4iw_ep *ep, u32 credits)
+ 	return credits;
+ }
+ 
++#define RELAXED_IRD_NEGOTIATION 1
++
+ static int process_mpa_reply(struct c4iw_ep *ep, struct sk_buff *skb)
+ {
+ 	struct mpa_message *mpa;
+@@ -1358,17 +1363,33 @@ static int process_mpa_reply(struct c4iw_ep *ep, struct sk_buff *skb)
+ 				MPA_V2_IRD_ORD_MASK;
+ 			resp_ord = ntohs(mpa_v2_params->ord) &
+ 				MPA_V2_IRD_ORD_MASK;
++			PDBG("%s responder ird %u ord %u ep ird %u ord %u\n",
++			     __func__, resp_ird, resp_ord, ep->ird, ep->ord);
+ 
+ 			/*
+ 			 * This is a double-check. Ideally, below checks are
+ 			 * not required since ird/ord stuff has been taken
+ 			 * care of in c4iw_accept_cr
+ 			 */
+-			if ((ep->ird < resp_ord) || (ep->ord > resp_ird)) {
++			if (ep->ird < resp_ord) {
++				if (RELAXED_IRD_NEGOTIATION && resp_ord <=
++				    ep->com.dev->rdev.lldi.max_ordird_qp)
++					ep->ird = resp_ord;
++				else
++					insuff_ird = 1;
++			} else if (ep->ird > resp_ord) {
++				ep->ird = resp_ord;
++			}
++			if (ep->ord > resp_ird) {
++				if (RELAXED_IRD_NEGOTIATION)
++					ep->ord = resp_ird;
++				else
++					insuff_ird = 1;
++			}
++			if (insuff_ird) {
+ 				err = -ENOMEM;
+ 				ep->ird = resp_ord;
+ 				ep->ord = resp_ird;
+-				insuff_ird = 1;
+ 			}
+ 
+ 			if (ntohs(mpa_v2_params->ird) &
+@@ -1571,6 +1592,8 @@ static void process_mpa_request(struct c4iw_ep *ep, struct sk_buff *skb)
+ 				MPA_V2_IRD_ORD_MASK;
+ 			ep->ord = ntohs(mpa_v2_params->ord) &
+ 				MPA_V2_IRD_ORD_MASK;
++			PDBG("%s initiator ird %u ord %u\n", __func__, ep->ird,
++			     ep->ord);
+ 			if (ntohs(mpa_v2_params->ird) & MPA_V2_PEER2PEER_MODEL)
+ 				if (peer2peer) {
+ 					if (ntohs(mpa_v2_params->ord) &
+@@ -2724,8 +2747,8 @@ int c4iw_accept_cr(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param)
+ 	BUG_ON(!qp);
+ 
+ 	set_bit(ULP_ACCEPT, &ep->com.history);
+-	if ((conn_param->ord > c4iw_max_read_depth) ||
+-	    (conn_param->ird > c4iw_max_read_depth)) {
++	if ((conn_param->ord > cur_max_read_depth(ep->com.dev)) ||
++	    (conn_param->ird > cur_max_read_depth(ep->com.dev))) {
+ 		abort_connection(ep, NULL, GFP_KERNEL);
+ 		err = -EINVAL;
+ 		goto err;
+@@ -2733,31 +2756,41 @@ int c4iw_accept_cr(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param)
+ 
+ 	if (ep->mpa_attr.version == 2 && ep->mpa_attr.enhanced_rdma_conn) {
+ 		if (conn_param->ord > ep->ird) {
+-			ep->ird = conn_param->ird;
+-			ep->ord = conn_param->ord;
+-			send_mpa_reject(ep, conn_param->private_data,
+-					conn_param->private_data_len);
+-			abort_connection(ep, NULL, GFP_KERNEL);
+-			err = -ENOMEM;
+-			goto err;
++			if (RELAXED_IRD_NEGOTIATION) {
++				ep->ord = ep->ird;
++			} else {
++				ep->ird = conn_param->ird;
++				ep->ord = conn_param->ord;
++				send_mpa_reject(ep, conn_param->private_data,
++						conn_param->private_data_len);
++				abort_connection(ep, NULL, GFP_KERNEL);
++				err = -ENOMEM;
++				goto err;
++			}
  		}
+-		if (conn_param->ird > ep->ord) {
+-			if (!ep->ord)
+-				conn_param->ird = 1;
+-			else {
++		if (conn_param->ird < ep->ord) {
++			if (RELAXED_IRD_NEGOTIATION &&
++			    ep->ord <= h->rdev.lldi.max_ordird_qp) {
++				conn_param->ird = ep->ord;
++			} else {
+ 				abort_connection(ep, NULL, GFP_KERNEL);
+ 				err = -ENOMEM;
+ 				goto err;
+ 			}
+ 		}
+-
+ 	}
+ 	ep->ird = conn_param->ird;
+ 	ep->ord = conn_param->ord;
+ 
+-	if (ep->mpa_attr.version != 2)
++	if (ep->mpa_attr.version == 1) {
+ 		if (peer2peer && ep->ird == 0)
+ 			ep->ird = 1;
++	} else {
++		if (peer2peer &&
++		    (ep->mpa_attr.p2p_type != FW_RI_INIT_P2PTYPE_DISABLED) &&
++		    (p2p_type == FW_RI_INIT_P2PTYPE_READ_REQ) && ep->ord == 0)
++			ep->ird = 1;
++	}
+ 
+ 	PDBG("%s %d ird %d ord %d\n", __func__, __LINE__, ep->ird, ep->ord);
+ 
+@@ -2796,6 +2829,7 @@ int c4iw_accept_cr(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param)
+ 	return 0;
+ err1:
+ 	ep->com.cm_id = NULL;
++	abort_connection(ep, NULL, GFP_KERNEL);
+ 	cm_id->rem_ref(cm_id);
+ err:
+ 	mutex_unlock(&ep->com.mutex);
+@@ -2879,8 +2913,8 @@ int c4iw_connect(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param)
+ 	int iptype;
+ 	int iwpm_err = 0;
+ 
+-	if ((conn_param->ord > c4iw_max_read_depth) ||
+-	    (conn_param->ird > c4iw_max_read_depth)) {
++	if ((conn_param->ord > cur_max_read_depth(dev)) ||
++	    (conn_param->ird > cur_max_read_depth(dev))) {
+ 		err = -EINVAL;
+ 		goto out;
+ 	}
 diff --git a/drivers/infiniband/hw/cxgb4/device.c b/drivers/infiniband/hw/cxgb4/device.c
-index dd93aad..95e6c6c 100644
+index 95e6c6c..d2d3dba 100644
 --- a/drivers/infiniband/hw/cxgb4/device.c
 +++ b/drivers/infiniband/hw/cxgb4/device.c
-@@ -768,6 +768,27 @@ static struct c4iw_dev *c4iw_alloc(const struct cxgb4_lld_info *infop)
- 	}
- 	devp->rdev.lldi = *infop;
+@@ -348,6 +348,7 @@ static int stats_show(struct seq_file *seq, void *v)
+ 		   dev->rdev.stats.act_ofld_conn_fails);
+ 	seq_printf(seq, "PAS_OFLD_CONN_FAILS: %10llu\n",
+ 		   dev->rdev.stats.pas_ofld_conn_fails);
++	seq_printf(seq, "AVAILABLE IRD: %10u\n", dev->avail_ird);
+ 	return 0;
+ }
  
-+	/* init various hw-queue params based on lld info */
-+	pr_info("%s: ing. padding boundary is %d, egrsstatuspagesize = %d\n",
-+		__func__, devp->rdev.lldi.sge_ingpadboundary,
-+		devp->rdev.lldi.sge_egrstatuspagesize);
-+
-+	devp->rdev.hw_queue.t4_eq_status_entries =
-+		devp->rdev.lldi.sge_ingpadboundary > 64 ? 2 : 1;
-+	devp->rdev.hw_queue.t4_max_eq_size =
-+		65520 - devp->rdev.hw_queue.t4_eq_status_entries;
-+	devp->rdev.hw_queue.t4_max_iq_size = 65520 - 1;
-+	devp->rdev.hw_queue.t4_max_rq_size =
-+		8192 - devp->rdev.hw_queue.t4_eq_status_entries;
-+	devp->rdev.hw_queue.t4_max_sq_size =
-+		devp->rdev.hw_queue.t4_max_eq_size - 1;
-+	devp->rdev.hw_queue.t4_max_qp_depth =
-+		devp->rdev.hw_queue.t4_max_rq_size - 1;
-+	devp->rdev.hw_queue.t4_max_cq_depth =
-+		devp->rdev.hw_queue.t4_max_iq_size - 1;
-+	devp->rdev.hw_queue.t4_stat_len =
-+		devp->rdev.lldi.sge_egrstatuspagesize;
-+
- 	/*
- 	 * For T5 devices, we map all of BAR2 with WC.
- 	 * For T4 devices with onchip qp mem, we map only that part
+@@ -839,6 +840,7 @@ static struct c4iw_dev *c4iw_alloc(const struct cxgb4_lld_info *infop)
+ 	mutex_init(&devp->rdev.stats.lock);
+ 	mutex_init(&devp->db_mutex);
+ 	INIT_LIST_HEAD(&devp->db_fc_list);
++	devp->avail_ird = devp->rdev.lldi.max_ird_adapter;
+ 
+ 	if (c4iw_debugfs_root) {
+ 		devp->debugfs_root = debugfs_create_dir(
 diff --git a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
-index 125bc5d..9b9754c 100644
+index 9b9754c..75541cb 100644
 --- a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
 +++ b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
-@@ -139,6 +139,17 @@ struct c4iw_stats {
- 	u64  pas_ofld_conn_fails;
+@@ -249,6 +249,7 @@ struct c4iw_dev {
+ 	struct idr atid_idr;
+ 	struct idr stid_idr;
+ 	struct list_head db_fc_list;
++	u32 avail_ird;
  };
  
-+struct c4iw_hw_queue {
-+	int t4_eq_status_entries;
-+	int t4_max_eq_size;
-+	int t4_max_iq_size;
-+	int t4_max_rq_size;
-+	int t4_max_sq_size;
-+	int t4_max_qp_depth;
-+	int t4_max_cq_depth;
-+	int t4_stat_len;
-+};
+ static inline struct c4iw_dev *to_c4iw_dev(struct ib_device *ibdev)
+@@ -330,6 +331,13 @@ static inline void remove_handle_nolock(struct c4iw_dev *rhp,
+ 	_remove_handle(rhp, idr, id, 0);
+ }
+ 
++extern uint c4iw_max_read_depth;
 +
- struct c4iw_rdev {
- 	struct c4iw_resource resource;
- 	unsigned long qpshift;
-@@ -156,6 +167,7 @@ struct c4iw_rdev {
- 	unsigned long oc_mw_pa;
- 	void __iomem *oc_mw_kva;
- 	struct c4iw_stats stats;
-+	struct c4iw_hw_queue hw_queue;
- 	struct t4_dev_status_page *status_page;
- };
++static inline int cur_max_read_depth(struct c4iw_dev *dev)
++{
++	return min(dev->rdev.lldi.max_ordird_qp, c4iw_max_read_depth);
++}
++
+ struct c4iw_pd {
+ 	struct ib_pd ibpd;
+ 	u32 pdid;
+@@ -1003,7 +1011,6 @@ void c4iw_ev_dispatch(struct c4iw_dev *dev, struct t4_cqe *err_cqe);
  
+ extern struct cxgb4_client t4c_client;
+ extern c4iw_handler_func c4iw_handlers[NUM_CPL_CMDS];
+-extern int c4iw_max_read_depth;
+ extern int db_fc_threshold;
+ extern int db_coalescing_threshold;
+ extern int use_dsgl;
 diff --git a/drivers/infiniband/hw/cxgb4/provider.c b/drivers/infiniband/hw/cxgb4/provider.c
-index b1d3053..1d41b92 100644
+index 1d41b92..67c4a69 100644
 --- a/drivers/infiniband/hw/cxgb4/provider.c
 +++ b/drivers/infiniband/hw/cxgb4/provider.c
-@@ -319,13 +319,13 @@ static int c4iw_query_device(struct ib_device *ibdev,
- 	props->vendor_part_id = (u32)dev->rdev.lldi.pdev->device;
- 	props->max_mr_size = T4_MAX_MR_SIZE;
- 	props->max_qp = T4_MAX_NUM_QP;
--	props->max_qp_wr = T4_MAX_QP_DEPTH;
-+	props->max_qp_wr = dev->rdev.hw_queue.t4_max_qp_depth;
+@@ -322,8 +322,10 @@ static int c4iw_query_device(struct ib_device *ibdev,
+ 	props->max_qp_wr = dev->rdev.hw_queue.t4_max_qp_depth;
  	props->max_sge = T4_MAX_RECV_SGE;
  	props->max_sge_rd = 1;
- 	props->max_qp_rd_atom = c4iw_max_read_depth;
- 	props->max_qp_init_rd_atom = c4iw_max_read_depth;
+-	props->max_qp_rd_atom = c4iw_max_read_depth;
+-	props->max_qp_init_rd_atom = c4iw_max_read_depth;
++	props->max_res_rd_atom = dev->rdev.lldi.max_ird_adapter;
++	props->max_qp_rd_atom = min(dev->rdev.lldi.max_ordird_qp,
++				    c4iw_max_read_depth);
++	props->max_qp_init_rd_atom = props->max_qp_rd_atom;
  	props->max_cq = T4_MAX_NUM_CQ;
--	props->max_cqe = T4_MAX_CQ_DEPTH;
-+	props->max_cqe = dev->rdev.hw_queue.t4_max_cq_depth;
+ 	props->max_cqe = dev->rdev.hw_queue.t4_max_cq_depth;
  	props->max_mr = c4iw_num_stags(&dev->rdev);
- 	props->max_pd = T4_MAX_NUM_PD;
- 	props->local_ca_ack_delay = 0;
 diff --git a/drivers/infiniband/hw/cxgb4/qp.c b/drivers/infiniband/hw/cxgb4/qp.c
-index 086f62f..6f74e0e 100644
+index 6f74e0e..c911e96 100644
 --- a/drivers/infiniband/hw/cxgb4/qp.c
 +++ b/drivers/infiniband/hw/cxgb4/qp.c
-@@ -258,7 +258,8 @@ static int create_qp(struct c4iw_rdev *rdev, struct t4_wq *wq,
- 	/*
- 	 * eqsize is the number of 64B entries plus the status page size.
- 	 */
--	eqsize = wq->sq.size * T4_SQ_NUM_SLOTS + T4_EQ_STATUS_ENTRIES;
-+	eqsize = wq->sq.size * T4_SQ_NUM_SLOTS +
-+		rdev->hw_queue.t4_eq_status_entries;
+@@ -58,6 +58,30 @@ static int max_fr_immd = T4_MAX_FR_IMMD;
+ module_param(max_fr_immd, int, 0644);
+ MODULE_PARM_DESC(max_fr_immd, "fastreg threshold for using DSGL instead of immedate");
  
- 	res->u.sqrq.fetchszm_to_iqid = cpu_to_be32(
- 		V_FW_RI_RES_WR_HOSTFCMODE(0) |	/* no host cidx updates */
-@@ -283,7 +284,8 @@ static int create_qp(struct c4iw_rdev *rdev, struct t4_wq *wq,
- 	/*
- 	 * eqsize is the number of 64B entries plus the status page size.
- 	 */
--	eqsize = wq->rq.size * T4_RQ_NUM_SLOTS + T4_EQ_STATUS_ENTRIES;
-+	eqsize = wq->rq.size * T4_RQ_NUM_SLOTS +
-+		rdev->hw_queue.t4_eq_status_entries;
- 	res->u.sqrq.fetchszm_to_iqid = cpu_to_be32(
- 		V_FW_RI_RES_WR_HOSTFCMODE(0) |	/* no host cidx updates */
- 		V_FW_RI_RES_WR_CPRIO(0) |	/* don't keep in chip cache */
-@@ -1570,11 +1572,11 @@ struct ib_qp *c4iw_create_qp(struct ib_pd *pd, struct ib_qp_init_attr *attrs,
- 		return ERR_PTR(-EINVAL);
++static int alloc_ird(struct c4iw_dev *dev, u32 ird)
++{
++	int ret;
++
++	spin_lock_irq(&dev->lock);
++	if (ird <= dev->avail_ird) {
++		dev->avail_ird -= ird;
++		ret = 0;
++	} else {
++		ret = -ENOMEM;
++		pr_info("%s: device IRD resources exhausted\n",
++			pci_name(dev->rdev.lldi.pdev));
++	}
++	spin_unlock_irq(&dev->lock);
++	return ret;
++}
++
++static void free_ird(struct c4iw_dev *dev, int ird)
++{
++	spin_lock_irq(&dev->lock);
++	dev->avail_ird += ird;
++	spin_unlock_irq(&dev->lock);
++}
++
+ static void set_state(struct c4iw_qp *qhp, enum c4iw_qp_state state)
+ {
+ 	unsigned long flag;
+@@ -1204,12 +1228,20 @@ static int rdma_init(struct c4iw_dev *rhp, struct c4iw_qp *qhp)
+ 	int ret;
+ 	struct sk_buff *skb;
  
- 	rqsize = roundup(attrs->cap.max_recv_wr + 1, 16);
--	if (rqsize > T4_MAX_RQ_SIZE)
-+	if (rqsize > rhp->rdev.hw_queue.t4_max_rq_size)
- 		return ERR_PTR(-E2BIG);
+-	PDBG("%s qhp %p qid 0x%x tid %u\n", __func__, qhp, qhp->wq.sq.qid,
+-	     qhp->ep->hwtid);
++	PDBG("%s qhp %p qid 0x%x tid %u ird %u ord %u\n", __func__, qhp,
++	     qhp->wq.sq.qid, qhp->ep->hwtid, qhp->ep->ird, qhp->ep->ord);
  
- 	sqsize = roundup(attrs->cap.max_send_wr + 1, 16);
--	if (sqsize > T4_MAX_SQ_SIZE)
-+	if (sqsize > rhp->rdev.hw_queue.t4_max_sq_size)
- 		return ERR_PTR(-E2BIG);
+ 	skb = alloc_skb(sizeof *wqe, GFP_KERNEL);
+-	if (!skb)
+-		return -ENOMEM;
++	if (!skb) {
++		ret = -ENOMEM;
++		goto out;
++	}
++	ret = alloc_ird(rhp, qhp->attr.max_ird);
++	if (ret) {
++		qhp->attr.max_ird = 0;
++		kfree_skb(skb);
++		goto out;
++	}
+ 	set_wr_txq(skb, CPL_PRIORITY_DATA, qhp->ep->txq_idx);
  
- 	ucontext = pd->uobject ? to_c4iw_ucontext(pd->uobject->context) : NULL;
-diff --git a/drivers/infiniband/hw/cxgb4/t4.h b/drivers/infiniband/hw/cxgb4/t4.h
-index 68b0a6b..e64fa8b 100644
---- a/drivers/infiniband/hw/cxgb4/t4.h
-+++ b/drivers/infiniband/hw/cxgb4/t4.h
-@@ -39,19 +39,11 @@
- #define T4_MAX_NUM_QP 65536
- #define T4_MAX_NUM_CQ 65536
- #define T4_MAX_NUM_PD 65536
--#define T4_EQ_STATUS_ENTRIES (L1_CACHE_BYTES > 64 ? 2 : 1)
--#define T4_MAX_EQ_SIZE (65520 - T4_EQ_STATUS_ENTRIES)
--#define T4_MAX_IQ_SIZE (65520 - 1)
--#define T4_MAX_RQ_SIZE (8192 - T4_EQ_STATUS_ENTRIES)
--#define T4_MAX_SQ_SIZE (T4_MAX_EQ_SIZE - 1)
--#define T4_MAX_QP_DEPTH (T4_MAX_RQ_SIZE - 1)
--#define T4_MAX_CQ_DEPTH (T4_MAX_IQ_SIZE - 1)
- #define T4_MAX_NUM_STAG (1<<15)
- #define T4_MAX_MR_SIZE (~0ULL)
- #define T4_PAGESIZE_MASK 0xffff000  /* 4KB-128MB */
- #define T4_STAG_UNSET 0xffffffff
- #define T4_FW_MAJ 0
--#define T4_EQ_STATUS_ENTRIES (L1_CACHE_BYTES > 64 ? 2 : 1)
- #define A_PCIE_MA_SYNC 0x30b4
+ 	wqe = (struct fw_ri_wr *)__skb_put(skb, sizeof(*wqe));
+@@ -1260,10 +1292,14 @@ static int rdma_init(struct c4iw_dev *rhp, struct c4iw_qp *qhp)
  
- struct t4_status_page {
+ 	ret = c4iw_ofld_send(&rhp->rdev, skb);
+ 	if (ret)
+-		goto out;
++		goto err1;
+ 
+ 	ret = c4iw_wait_for_reply(&rhp->rdev, &qhp->ep->com.wr_wait,
+ 				  qhp->ep->hwtid, qhp->wq.sq.qid, __func__);
++	if (!ret)
++		goto out;
++err1:
++	free_ird(rhp, qhp->attr.max_ird);
+ out:
+ 	PDBG("%s ret %d\n", __func__, ret);
+ 	return ret;
+@@ -1308,7 +1344,7 @@ int c4iw_modify_qp(struct c4iw_dev *rhp, struct c4iw_qp *qhp,
+ 			newattr.max_ord = attrs->max_ord;
+ 		}
+ 		if (mask & C4IW_QP_ATTR_MAX_IRD) {
+-			if (attrs->max_ird > c4iw_max_read_depth) {
++			if (attrs->max_ird > cur_max_read_depth(rhp)) {
+ 				ret = -EINVAL;
+ 				goto out;
+ 			}
+@@ -1531,6 +1567,7 @@ int c4iw_destroy_qp(struct ib_qp *ib_qp)
+ 	if (!list_empty(&qhp->db_fc_entry))
+ 		list_del_init(&qhp->db_fc_entry);
+ 	spin_unlock_irq(&rhp->lock);
++	free_ird(rhp, qhp->attr.max_ird);
+ 
+ 	ucontext = ib_qp->uobject ?
+ 		   to_c4iw_ucontext(ib_qp->uobject->context) : NULL;
+@@ -1621,8 +1658,8 @@ struct ib_qp *c4iw_create_qp(struct ib_pd *pd, struct ib_qp_init_attr *attrs,
+ 	qhp->attr.enable_rdma_read = 1;
+ 	qhp->attr.enable_rdma_write = 1;
+ 	qhp->attr.enable_bind = 1;
+-	qhp->attr.max_ord = 1;
+-	qhp->attr.max_ird = 1;
++	qhp->attr.max_ord = 0;
++	qhp->attr.max_ird = 0;
+ 	qhp->sq_sig_all = attrs->sq_sig_type == IB_SIGNAL_ALL_WR;
+ 	spin_lock_init(&qhp->lock);
+ 	mutex_init(&qhp->mutex);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index f338a7f..4615621 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -310,6 +310,9 @@ struct adapter_params {
+ 
+ 	unsigned int ofldq_wr_cred;
+ 	bool ulptx_memwrite_dsgl;          /* use of T5 DSGL allowed */
++
++	unsigned int max_ordird_qp;       /* Max read depth per RDMA QP */
++	unsigned int max_ird_adapter;     /* Max read depth per adapter */
+ };
+ 
+ #include "t4fw_api.h"
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 2b438bd..a7ce996 100644
+index a7ce996..767cbba 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -4109,6 +4109,8 @@ static void uld_attach(struct adapter *adap, unsigned int uld)
- 	lli.db_reg = adap->regs + MYPF_REG(SGE_PF_KDOORBELL);
- 	lli.fw_vers = adap->params.fw_vers;
- 	lli.dbfifo_int_thresh = dbfifo_int_thresh;
-+	lli.sge_ingpadboundary = adap->sge.fl_align;
-+	lli.sge_egrstatuspagesize = adap->sge.stat_len;
+@@ -4113,6 +4113,8 @@ static void uld_attach(struct adapter *adap, unsigned int uld)
+ 	lli.sge_egrstatuspagesize = adap->sge.stat_len;
  	lli.sge_pktshift = adap->sge.pktshift;
  	lli.enable_fw_ofld_conn = adap->flags & FW_OFLD_CONN;
++	lli.max_ordird_qp = adap->params.max_ordird_qp;
++	lli.max_ird_adapter = adap->params.max_ird_adapter;
  	lli.ulptx_memwrite_dsgl = adap->params.ulptx_memwrite_dsgl;
+ 
+ 	handle = ulds[uld].add(&lli);
+@@ -5877,6 +5879,22 @@ static int adap_init0(struct adapter *adap)
+ 		adap->vres.cq.size = val[3] - val[2] + 1;
+ 		adap->vres.ocq.start = val[4];
+ 		adap->vres.ocq.size = val[5] - val[4] + 1;
++
++		params[0] = FW_PARAM_DEV(MAXORDIRD_QP);
++		params[1] = FW_PARAM_DEV(MAXIRD_ADAPTER);
++		ret = t4_query_params(adap, 0, 0, 0, 2, params, val);
++		if (ret < 0) {
++			adap->params.max_ordird_qp = 8;
++			adap->params.max_ird_adapter = 32 * adap->tids.ntids;
++			ret = 0;
++		} else {
++			adap->params.max_ordird_qp = val[0];
++			adap->params.max_ird_adapter = val[1];
++		}
++		dev_info(adap->pdev_dev,
++			 "max_ordird_qp %d max_ird_adapter %d\n",
++			 adap->params.max_ordird_qp,
++			 adap->params.max_ird_adapter);
+ 	}
+ 	if (caps_cmd.iscsicaps) {
+ 		params[0] = FW_PARAM_PFVF(ISCSI_START);
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-index 8f60851..962458f 100644
+index 962458f..df1d944 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-@@ -251,6 +251,8 @@ struct cxgb4_lld_info {
- 	void __iomem *gts_reg;               /* address of GTS register */
- 	void __iomem *db_reg;                /* address of kernel doorbell */
- 	int dbfifo_int_thresh;		     /* doorbell fifo int threshold */
-+	unsigned int sge_ingpadboundary;     /* SGE ingress padding boundary */
-+	unsigned int sge_egrstatuspagesize;  /* SGE egress status page size */
- 	unsigned int sge_pktshift;           /* Padding between CPL and */
- 					     /*	packet data */
+@@ -258,6 +258,8 @@ struct cxgb4_lld_info {
  	unsigned int pf;		     /* Physical Function we're using */
+ 	bool enable_fw_ofld_conn;            /* Enable connection through fw */
+ 					     /* WR */
++	unsigned int max_ordird_qp;          /* Max ORD/IRD depth per RDMA QP */
++	unsigned int max_ird_adapter;        /* Max IRD memory per adapter */
+ 	bool ulptx_memwrite_dsgl;            /* use of T5 DSGL allowed */
+ };
+ 
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+index 4a6ae4d..ff709e3 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+@@ -934,6 +934,8 @@ enum fw_params_param_dev {
+ 	FW_PARAMS_PARAM_DEV_FWREV = 0x0B,
+ 	FW_PARAMS_PARAM_DEV_TPREV = 0x0C,
+ 	FW_PARAMS_PARAM_DEV_CF = 0x0D,
++	FW_PARAMS_PARAM_DEV_MAXORDIRD_QP = 0x13, /* max supported QP IRD/ORD */
++	FW_PARAMS_PARAM_DEV_MAXIRD_ADAPTER = 0x14, /* max supported adap IRD */
+ 	FW_PARAMS_PARAM_DEV_ULPTX_MEMWRITE_DSGL = 0x17,
+ };
+ 
 -- 
 1.7.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
