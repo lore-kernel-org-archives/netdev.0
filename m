@@ -1,15 +1,13 @@
 From: Jiang Liu <jiang.liu@linux.intel.com>
-Subject: [RFC Patch V1 04/30] mm, netfilter: Use cpu_to_mem()/numa_mem_id() to support memoryless node
-Date: Fri, 11 Jul 2014 15:37:21 +0800
-Message-ID: <1405064267-11678-5-git-send-email-jiang.liu@linux.intel.com>
+Subject: [RFC Patch V1 10/30] mm, xfrm: Use cpu_to_mem()/numa_mem_id() to support memoryless node
+Date: Fri, 11 Jul 2014 15:37:27 +0800
+Message-ID: <1405064267-11678-11-git-send-email-jiang.liu@linux.intel.com>
 References: <1405064267-11678-1-git-send-email-jiang.liu@linux.intel.com>
 Cc: Jiang Liu <jiang.liu@linux.intel.com>,
 	Tony Luck <tony.luck@intel.com>,
 	linux-mm@kvack.org,
 	linux-hotplug@vger.kernel.org,
 	linux-kernel@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	coreteam@netfilter.org,
 	netdev@vger.kernel.org
 To: Andrew Morton <akpm@linux-foundation.org>,
 	Mel Gorman <mgorman@suse.de>,
@@ -17,9 +15,8 @@ To: Andrew Morton <akpm@linux-foundation.org>,
 	Mike Galbraith <umgwanakikbuti@gmail.com>,
 	Peter Zijlstra <peterz@infradead.org>,
 	"Rafael J . Wysocki" <rafael.j.wysocki@intel.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
 	"David S. Miller" <davem@davemloft.net>
 Return-path: <owner-linux-mm@kvack.org>
 In-Reply-To: <1405064267-11678-1-git-send-email-jiang.liu@linux.intel.com>
@@ -37,39 +34,22 @@ is the same as cpu_to_node()/numa_node_id().
 
 Signed-off-by: Jiang Liu <jiang.liu@linux.intel.com>
 ---
- net/netfilter/x_tables.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ net/xfrm/xfrm_ipcomp.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
-index 227aa11e8409..6e7d4bc81422 100644
---- a/net/netfilter/x_tables.c
-+++ b/net/netfilter/x_tables.c
-@@ -692,10 +692,10 @@ struct xt_table_info *xt_alloc_table_info(unsigned int size)
- 		if (size <= PAGE_SIZE)
- 			newinfo->entries[cpu] = kmalloc_node(size,
- 							GFP_KERNEL,
--							cpu_to_node(cpu));
-+							cpu_to_mem(cpu));
- 		else
- 			newinfo->entries[cpu] = vmalloc_node(size,
--							cpu_to_node(cpu));
-+							cpu_to_mem(cpu));
+diff --git a/net/xfrm/xfrm_ipcomp.c b/net/xfrm/xfrm_ipcomp.c
+index ccfdc7115a83..129f469ae75d 100644
+--- a/net/xfrm/xfrm_ipcomp.c
++++ b/net/xfrm/xfrm_ipcomp.c
+@@ -235,7 +235,7 @@ static void * __percpu *ipcomp_alloc_scratches(void)
+ 	for_each_possible_cpu(i) {
+ 		void *scratch;
  
- 		if (newinfo->entries[cpu] == NULL) {
- 			xt_free_table_info(newinfo);
-@@ -801,10 +801,10 @@ static int xt_jumpstack_alloc(struct xt_table_info *i)
- 	for_each_possible_cpu(cpu) {
- 		if (size > PAGE_SIZE)
- 			i->jumpstack[cpu] = vmalloc_node(size,
--				cpu_to_node(cpu));
-+				cpu_to_mem(cpu));
- 		else
- 			i->jumpstack[cpu] = kmalloc_node(size,
--				GFP_KERNEL, cpu_to_node(cpu));
-+				GFP_KERNEL, cpu_to_mem(cpu));
- 		if (i->jumpstack[cpu] == NULL)
- 			/*
- 			 * Freeing will be done later on by the callers. The
+-		scratch = vmalloc_node(IPCOMP_SCRATCH_SIZE, cpu_to_node(i));
++		scratch = vmalloc_node(IPCOMP_SCRATCH_SIZE, cpu_to_mem(i));
+ 		if (!scratch)
+ 			return NULL;
+ 		*per_cpu_ptr(scratches, i) = scratch;
 -- 
 1.7.10.4
 
