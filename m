@@ -1,108 +1,93 @@
-From: Karl Heiss <kheiss@gmail.com>
-Subject: Re: IPSEC: tunnel breakage with out-of-order IPv4 fragments
-Date: Fri, 11 Jul 2014 08:51:14 -0400
-Message-ID: <CAGugRbWPOyWLrdiTqtScWi2JTKeyEEjOLRvDUqx20SG7uXifLw@mail.gmail.com>
-References: <CAGugRbVWyTM2J0Fyw1Cq1byqfjZBy_EFLSShqVdzxYZmmUWK_g@mail.gmail.com>
-	<20140711110035.GB6633@secunet.com>
+From: Ethan Zhao <ethan.kernel@gmail.com>
+Subject: Re: [PATCH 2/2 V3] PCI: implement VFs assignment
+	reference counter
+Date: Fri, 11 Jul 2014 20:51:36 +0800
+Message-ID: <CABawtvOV5DQqqLu96CFktxmHkJA+n3FUyA3Nt3HtPMKs5KpVOw@mail.gmail.com>
+References: <1405081802-419-1-git-send-email-ethan.zhao@oracle.com>
+	<1405081802-419-2-git-send-email-ethan.zhao@oracle.com>
+	<53BFDBC0.8000705@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f179.google.com ([209.85.223.179]:43247 "EHLO
-	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752099AbaGKMvP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jul 2014 08:51:15 -0400
-Received: by mail-ie0-f179.google.com with SMTP id lx4so847011iec.10
-        for <netdev@vger.kernel.org>; Fri, 11 Jul 2014 05:51:15 -0700 (PDT)
-In-Reply-To: <20140711110035.GB6633@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "<kvm@vger.kernel.org>" <kvm@vger.kernel.org>,
+	linux-pci <linux-pci@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"vaughan.cao@oracle.com" <vaughan.cao@oracle.com>, "Brandeburg,
+	Jesse" <jesse.brandeburg@intel.com>, Ethan Zhao <ethan.zhao@oracle.com>,
+	"<linux.nics@intel.com>" <linux.nics@intel.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	"<gleb@kernel.org>" <gleb@kernel.org>,
+	"<alex.williamson@redhat.com>" <alex.williamson@redhat.com>,
+	Bjorn Helgaas <bhelgaas@google.com>,
+	"<boris.ostrovsky@oracle.com>" <boris.ostrovsky@oracle.com>,
+	netdev <netdev@vger.kernel.org>, "Allan,
+	Bruce W" <bruce.w.allan@intel.com>, LKML <linux-kernel@vger.kernel.org>,
+	"<john.ronciak@intel.com>" <john.ronciak@intel.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	"<pbonzini@redhat.com>" <pbonzini@redhat.com>
+To: Varka Bhadram <varkabhadram@gmail.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <53BFDBC0.8000705@gmail.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 11, 2014 at 7:00 AM, Steffen Klassert
-<steffen.klassert@secunet.com> wrote:
-> On Thu, Jul 10, 2014 at 10:57:21AM -0400, Karl Heiss wrote:
->> I believe I have found an issue whereby IPv4 fragments arriving
->> out-of-order will cause an IPSEC tunnel to stop passing any traffic
->> which arrived fragmented, citing 'SA-icv-failure'.
->
-> Why do you think the arriving order causes our problems? SA-icv-failure
-> means that the integrity check failed and this is independent of the
-> packet order, unless you use 64 bit extended sequence numbers (ESN).
-> I would guess you don't use ESN because you noticed these problems
-> already with v2.6.32 and this had no ESN support.
-
-Because using a simple scapy script (from a 3rd host with readily
-available information), I can kill an existing IPsec connection which
-is passing fragmented traffic 100% of the time.  Once the failure
-occurs, every subsequent fragmented packet causes an audit entry
-citing SA-icv-failure.
-
->
-> If this happens just with fragmented packets, I'd guess there is a
-> problem when packets get fragmented after IPsec and reassembled
-> before IPsec processing.
->
-
-If I am reading the tcpdump correctly, the issue is that the packets
-are getting fragmented after IPsec processing.
-
-    10.240.34.75.35689 > linux.local.60000: sctp (1) [COOKIE ECHO]
-08:23:05.821858 IP (tos 0x2,ECT(0), ttl 64, id 0, offset 0, flags
-[DF], proto ESP (50), length 104)
-    linux.local > 10.240.34.75: ESP(spi=0x0d34ea75,seq=0x44be), length 84
-08:23:06.823989 IP (tos 0x2,ECT(0), ttl 60, id 0, offset 0, flags [+],
-proto ESP (50), length 1500)
-    10.240.34.75 > linux.local: ESP(spi=0xedc4a797,seq=0x89b5), length 1480
-08:23:06.824001 IP (tos 0x2,ECT(0), ttl 60, id 0, offset 1480, flags
-[none], proto ESP (50), length 32)
-    10.240.34.75 > linux.local: esp
-08:23:06.824030 IP (tos 0x2,ECT(0), ttl 60, id 0, offset 0, flags [+],
-proto ESP (50), length 1500)
-    10.240.34.75 > linux.local: ESP(spi=0xedc4a797,seq=0x89b6), length 1480
-08:23:06.824035 IP (tos 0x2,ECT(0), ttl 60, id 0, offset 1480, flags
-[none], proto ESP (50), length 32)
-    10.240.34.75 > linux.local: esp
-08:23:06.824057 IP (tos 0x2,ECT(0), ttl 60, id 0, offset 0, flags [+],
-proto ESP (50), length 1500)
-    10.240.34.75 > linux.local: ESP(spi=0xedc4a797,seq=0x89b7), length 1480
-08:23:06.824060 IP (tos 0x2,ECT(0), ttl 60, id 0, offset 1480, flags
-[none], proto ESP (50), length 32)
-
->> Packets which were
->> not fragmented will validate and pass successfully, even once the
->> condition has been triggered.  I have decrypted the traffic and have
->> verified that the traffic is arriving correctly.  It appears as if the
->> condition persists until all connections are closed.
->>
->> The issue was originally discovered in RHEL 6.5 (2.6.32-431.11.2.el6)
->> kernel and verified with Fedora 20 running 3.15.0-rc8-nn on x86_64.
->>
->> The easiest way I have found to reproduce the issue is to use a kernel
->> without commit c08751c851b78514f6ec5 (Fix data chunk fragmentation for
->> MTU values which are not multiple of 4) to generate fragmented SCTP
->> traffic using multiple single-homed connections.
->
-> Do you have some odd MTU/PMTU value on this route? If so, you might
-> get post IPsec fragmented packets without that commit.
->
-
-The MTU for this path is 1500 all the way through.
-
-Yes, this commit most likely fixes the post IPsec fragmentation, as
-SCTP was not previously accounting for the IPsec headers when sizing
-chunks.  However, if the traffic worked in this case without
-reordering, wouldn't we hope it could handle the reordered case, even
-with the post IPsec fragmentation?
-
-> I have a lot of testcases where I test PMTU discovery and fragmentation
-> with IPsec. I've never seen such problems, but I don't use sctp. Is there
-> any chance to reproduce this with another protocol?
->
-
-I can try to reproduce this with TCP, but I think I would have to
-specially craft post IPsec fragments since I don't think the stack
-would let me fragment them (DF set, TCP takes IPsec headers into
-account).  The un-patched SCTP is what specifically allows this.
-
-Karl
+T24gRnJpLCBKdWwgMTEsIDIwMTQgYXQgODo0MiBQTSwgVmFya2EgQmhhZHJhbSA8dmFya2FiaGFk
+cmFtQGdtYWlsLmNvbT4gd3JvdGU6Cj4gT24gMDcvMTEvMjAxNCAwNjowMCBQTSwgRXRoYW4gWmhh
+byB3cm90ZToKPj4KPj4gQ3VycmVudCBpbXBsZW1lbnRhdGlvbiBvZiBoZWxwZXIgZnVuY3Rpb24g
+cGNpX3Zmc19hc3NpZ25lZCgpIGlzIGEKPj4gbGl0dGxlIGNvbXBsZXgsIHRvIGdldCBzdW0gb2Yg
+VkZzIHRoYXQgYXNzaWduZWQgdG8gVk0sIGFjY2VzcyBsb3cKPj4gbGV2ZWwgY29uZmlndXJhdGlv
+biBzcGFjZSByZWdpc3RlciBhbmQgdGhlbiBsb29wIGluIHRyYXZlcnNpbmcKPj4gZGV2aWNlIHRy
+ZWUuCj4KPgo+ICguLi4pCj4KPgo+PiBAQCAtNjUwLDYgKzYzMCwxMSBAQCBFWFBPUlRfU1lNQk9M
+X0dQTChwY2lfdmZzX2Fzc2lnbmVkKTsKPj4gICB2b2lkIHBjaV9pb3ZfYXNzaWduX2RldmljZShz
+dHJ1Y3QgcGNpX2RldiAqcGRldikKPj4gICB7Cj4+ICAgICAgICAgcGRldi0+ZGV2X2ZsYWdzIHw9
+IFBDSV9ERVZfRkxBR1NfQVNTSUdORUQ7Cj4+ICsgICAgICAgaWYgKHBkZXYtPmlzX3ZpcnRmbiAm
+JiAhcGRldi0+aXNfcGh5c2ZuKQo+PiArICAgICAgICAgICAgICAgaWYgKHBkZXYtPnBoeXNmbikK
+Pj4gKyAgICAgICAgICAgICAgICAgICAgICAgaWYgKHBkZXYtPnBoeXNmbi0+c3Jpb3YpCj4KPgo+
+IFdoeSBkb24ndCB3ZSBtYWtlIGxhc3QgdHdvICdpZicgY29uZGl0aW9ucyBpbnRvIHNpbmdsZSAn
+aWYnCj4KPiBpZiAocGRldi0+cGh5c2ZuICYmIHBkZXYtPnBoeXNmbi0+c3Jpb3YpCgpZZWFo77yM
+IHRoaXMgb25lIGxvb2tzIGJldHRlciwgIHRoYXQgc3R5bGUgdXNlZCB0byB0ZWxsIG15c2VsZiwg
+SSBtaWdodApmb3JnZXQgdGhlIHdoaWNoIHNpZGUgb2YgICYmIG9wZXJhdG9yICBmaXJzdCwgaWYg
+eW91IHN1cmUgbGVmdCBmaXJzdCwKSSBwcmVmZXIgdGhhdCB0b28gOj4KPgo+Cj4+ICsgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgYXRvbWljX2luYygmcGRldi0+cGh5c2ZuLT5zcmlvdi0+
+Cj4+ICsgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBWRnNfYXNzaWduZWRf
+Y250KTsKPj4gICB9Cj4+ICAgRVhQT1JUX1NZTUJPTF9HUEwocGNpX2lvdl9hc3NpZ25fZGV2aWNl
+KTsKPj4gICBAQCAtNjYwLDYgKzY0NSwxMSBAQCBFWFBPUlRfU1lNQk9MX0dQTChwY2lfaW92X2Fz
+c2lnbl9kZXZpY2UpOwo+PiAgIHZvaWQgcGNpX2lvdl9kZWFzc2lnbl9kZXZpY2Uoc3RydWN0IHBj
+aV9kZXYgKnBkZXYpCj4+ICAgewo+PiAgICAgICAgIHBkZXYtPmRldl9mbGFncyAmPSB+UENJX0RF
+Vl9GTEFHU19BU1NJR05FRDsKPj4gKyAgICAgICBpZiAocGRldi0+aXNfdmlydGZuICYmICFwZGV2
+LT5pc19waHlzZm4pCj4+ICsgICAgICAgICAgICAgICBpZiAocGRldi0+cGh5c2ZuKQo+PiArICAg
+ICAgICAgICAgICAgICAgICAgICBpZiAocGRldi0+cGh5c2ZuLT5zcmlvdikKPgo+Cj4gc2FtZS4u
+LgogICBzYW1lIGFzIGFib3ZlLgoKVGhhbmtzLApFdGhhbgo+Cj4KPj4gKyAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICBhdG9taWNfZGVjKCZwZGV2LT5waHlzZm4tPnNyaW92LT4KPj4gKyAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIFZGc19hc3NpZ25lZF9jbnQpOwo+
+PiAgIH0KPj4gICBFWFBPUlRfU1lNQk9MX0dQTChwY2lfaW92X2RlYXNzaWduX2RldmljZSk7Cj4+
+ICAgZGlmZiAtLWdpdCBhL2RyaXZlcnMvcGNpL3BjaS5oIGIvZHJpdmVycy9wY2kvcGNpLmgKPj4g
+aW5kZXggNmJkMDgyMi4uZDE3YmRhMiAxMDA2NDQKPj4gLS0tIGEvZHJpdmVycy9wY2kvcGNpLmgK
+Pj4gKysrIGIvZHJpdmVycy9wY2kvcGNpLmgKPj4gQEAgLTIzNSw2ICsyMzUsNyBAQCBzdHJ1Y3Qg
+cGNpX3NyaW92IHsKPj4gICAgICAgICB1MzIgcGdzejsgICAgICAgICAgICAgICAvKiBwYWdlIHNp
+emUgZm9yIEJBUiBhbGlnbm1lbnQgKi8KPj4gICAgICAgICB1OCBsaW5rOyAgICAgICAgICAgICAg
+ICAvKiBGdW5jdGlvbiBEZXBlbmRlbmN5IExpbmsgKi8KPj4gICAgICAgICB1MTYgZHJpdmVyX21h
+eF9WRnM7ICAgICAvKiBtYXggbnVtIFZGcyBkcml2ZXIgc3VwcG9ydHMgKi8KPj4gKyAgICAgICBh
+dG9taWNfdCBWRnNfYXNzaWduZWRfY250OyAvKiBjb3VudGVyIG9mIFZGcyBhc3NpZ25lZCB0byBW
+TSAqLwo+PiAgICAgICAgIHN0cnVjdCBwY2lfZGV2ICpkZXY7ICAgIC8qIGxvd2VzdCBudW1iZXJl
+ZCBQRiAqLwo+PiAgICAgICAgIHN0cnVjdCBwY2lfZGV2ICpzZWxmOyAgIC8qIHRoaXMgUEYgKi8K
+Pj4gICAgICAgICBzdHJ1Y3QgbXV0ZXggbG9jazsgICAgICAvKiBsb2NrIGZvciBWRiBidXMgKi8K
+Pgo+Cj4gLS0KPiBSZWdhcmRzLAo+IFZhcmthIEJoYWRyYW0uCj4KCi0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLQpPcGVuIHNvdXJjZSBidXNpbmVzcyBwcm9jZXNzIG1hbmFnZW1lbnQgc3VpdGUgYnVpbHQg
+b24gSmF2YSBhbmQgRWNsaXBzZQpUdXJuIHByb2Nlc3NlcyBpbnRvIGJ1c2luZXNzIGFwcGxpY2F0
+aW9ucyB3aXRoIEJvbml0YSBCUE0gQ29tbXVuaXR5IEVkaXRpb24KUXVpY2tseSBjb25uZWN0IHBl
+b3BsZSwgZGF0YSwgYW5kIHN5c3RlbXMgaW50byBvcmdhbml6ZWQgd29ya2Zsb3dzCldpbm5lciBv
+ZiBCT1NTSUUsIENPRElFLCBPVzIgYW5kIEdhcnRuZXIgYXdhcmRzCmh0dHA6Ly9wLnNmLm5ldC9z
+ZnUvQm9uaXRhc29mdApfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fXwpFMTAwMC1kZXZlbCBtYWlsaW5nIGxpc3QKRTEwMDAtZGV2ZWxAbGlzdHMuc291cmNlZm9y
+Z2UubmV0Cmh0dHBzOi8vbGlzdHMuc291cmNlZm9yZ2UubmV0L2xpc3RzL2xpc3RpbmZvL2UxMDAw
+LWRldmVsClRvIGxlYXJuIG1vcmUgYWJvdXQgSW50ZWwmIzE3NDsgRXRoZXJuZXQsIHZpc2l0IGh0
+dHA6Ly9jb21tdW5pdGllcy5pbnRlbC5jb20vY29tbXVuaXR5L3dpcmVkCg==
