@@ -1,13 +1,14 @@
 From: Jiang Liu <jiang.liu@linux.intel.com>
-Subject: [RFC Patch V1 10/30] mm, xfrm: Use cpu_to_mem()/numa_mem_id() to support memoryless node
-Date: Fri, 11 Jul 2014 15:37:27 +0800
-Message-ID: <1405064267-11678-11-git-send-email-jiang.liu@linux.intel.com>
+Subject: [RFC Patch V1 13/30] mm, i40e: Use cpu_to_mem()/numa_mem_id() to support memoryless node
+Date: Fri, 11 Jul 2014 15:37:30 +0800
+Message-ID: <1405064267-11678-14-git-send-email-jiang.liu@linux.intel.com>
 References: <1405064267-11678-1-git-send-email-jiang.liu@linux.intel.com>
 Cc: Jiang Liu <jiang.liu@linux.intel.com>,
 	Tony Luck <tony.luck@intel.com>,
 	linux-mm@kvack.org,
 	linux-hotplug@vger.kernel.org,
 	linux-kernel@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net,
 	netdev@vger.kernel.org
 To: Andrew Morton <akpm@linux-foundation.org>,
 	Mel Gorman <mgorman@suse.de>,
@@ -15,9 +16,16 @@ To: Andrew Morton <akpm@linux-foundation.org>,
 	Mike Galbraith <umgwanakikbuti@gmail.com>,
 	Peter Zijlstra <peterz@infradead.org>,
 	"Rafael J . Wysocki" <rafael.j.wysocki@intel.com>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	Alex Duyck <alexander.h.duyck@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	Linux NICS <linux.nics@intel.com>
 Return-path: <owner-linux-mm@kvack.org>
 In-Reply-To: <1405064267-11678-1-git-send-email-jiang.liu@linux.intel.com>
 Sender: owner-linux-mm@kvack.org
@@ -34,22 +42,22 @@ is the same as cpu_to_node()/numa_node_id().
 
 Signed-off-by: Jiang Liu <jiang.liu@linux.intel.com>
 ---
- net/xfrm/xfrm_ipcomp.c |    2 +-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/xfrm/xfrm_ipcomp.c b/net/xfrm/xfrm_ipcomp.c
-index ccfdc7115a83..129f469ae75d 100644
---- a/net/xfrm/xfrm_ipcomp.c
-+++ b/net/xfrm/xfrm_ipcomp.c
-@@ -235,7 +235,7 @@ static void * __percpu *ipcomp_alloc_scratches(void)
- 	for_each_possible_cpu(i) {
- 		void *scratch;
- 
--		scratch = vmalloc_node(IPCOMP_SCRATCH_SIZE, cpu_to_node(i));
-+		scratch = vmalloc_node(IPCOMP_SCRATCH_SIZE, cpu_to_mem(i));
- 		if (!scratch)
- 			return NULL;
- 		*per_cpu_ptr(scratches, i) = scratch;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+index e49f31dbd5d8..e9f6f9efd944 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
+@@ -1342,7 +1342,7 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+ 	unsigned int total_rx_bytes = 0, total_rx_packets = 0;
+ 	u16 rx_packet_len, rx_header_len, rx_sph, rx_hbo;
+ 	u16 cleaned_count = I40E_DESC_UNUSED(rx_ring);
+-	const int current_node = numa_node_id();
++	const int current_node = numa_mem_id();
+ 	struct i40e_vsi *vsi = rx_ring->vsi;
+ 	u16 i = rx_ring->next_to_clean;
+ 	union i40e_rx_desc *rx_desc;
 -- 
 1.7.10.4
 
