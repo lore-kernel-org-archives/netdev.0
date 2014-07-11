@@ -1,8 +1,8 @@
 From: Ethan Zhao <ethan.zhao@oracle.com>
-Subject: [PATCH 2/4] xen-pciback: use PCI VFs assignment
-	helper functions
-Date: Fri, 11 Jul 2014 08:47:20 +0800
-Message-ID: <1405039642-23519-2-git-send-email-ethan.zhao@oracle.com>
+Subject: [PATCH 4/4] i40e: use PCI VFs assignment helper
+	function simplify i40e_vfs_are_assigned()
+Date: Fri, 11 Jul 2014 08:47:22 +0800
+Message-ID: <1405039642-23519-4-git-send-email-ethan.zhao@oracle.com>
 References: <1405039642-23519-1-git-send-email-ethan.zhao@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -36,31 +36,38 @@ PCI SRIOV, use them instead of manipulating device flag directly.
 
 Signed-off-by: Ethan Zhao <ethan.zhao@oracle.com>
 ---
- drivers/xen/xen-pciback/pci_stub.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |   17 ++---------------
+ 1 files changed, 2 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/xen/xen-pciback/pci_stub.c b/drivers/xen/xen-pciback/pci_stub.c
-index 62fcd48..1d7b747 100644
---- a/drivers/xen/xen-pciback/pci_stub.c
-+++ b/drivers/xen/xen-pciback/pci_stub.c
-@@ -133,7 +133,7 @@ static void pcistub_device_release(struct kref *kref)
- 	xen_pcibk_config_free_dyn_fields(dev);
- 	xen_pcibk_config_free_dev(dev);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 02c11a7..781040e 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -693,22 +693,9 @@ complete_reset:
+ static bool i40e_vfs_are_assigned(struct i40e_pf *pf)
+ {
+ 	struct pci_dev *pdev = pf->pdev;
+-	struct pci_dev *vfdev;
+-
+-	/* loop through all the VFs to see if we own any that are assigned */
+-	vfdev = pci_get_device(PCI_VENDOR_ID_INTEL, I40E_DEV_ID_VF , NULL);
+-	while (vfdev) {
+-		/* if we don't own it we don't care */
+-		if (vfdev->is_virtfn && pci_physfn(vfdev) == pdev) {
+-			/* if it is assigned we cannot release it */
+-			if (vfdev->dev_flags & PCI_DEV_FLAGS_ASSIGNED)
+-				return true;
+-		}
  
--	dev->dev_flags &= ~PCI_DEV_FLAGS_ASSIGNED;
-+	pci_sriov_deassign_device(dev);
- 	pci_dev_put(dev);
+-		vfdev = pci_get_device(PCI_VENDOR_ID_INTEL,
+-				       I40E_DEV_ID_VF,
+-				       vfdev);
+-	}
++	if (pci_vfs_assigned(pdev))
++		return true;
  
- 	kfree(psdev);
-@@ -404,7 +404,7 @@ static int pcistub_init_device(struct pci_dev *dev)
- 	dev_dbg(&dev->dev, "reset device\n");
- 	xen_pcibk_reset_device(dev);
- 
--	dev->dev_flags |= PCI_DEV_FLAGS_ASSIGNED;
-+	pci_sriov_assign_device(dev);
- 	return 0;
- 
- config_release:
+ 	return false;
+ }
 -- 
 1.7.1
 
