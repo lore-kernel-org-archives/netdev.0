@@ -1,109 +1,212 @@
-From: Bo Shen <voice.shen-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v3 1/2] ARM: at91/dt: describe rgmii ethernet phy connected
- to sama5d3xek boards
-Date: Fri, 11 Jul 2014 09:47:50 +0800
-Message-ID: <53BF4246.2070706@atmel.com>
-References: <1405022394-8311-1-git-send-email-boris.brezillon@free-electrons.com> <1405022394-8311-2-git-send-email-boris.brezillon@free-electrons.com>
+From: Alex Williamson <alex.williamson@redhat.com>
+Subject: Re: [PATCH 1/4] PCI: introduce VFs reference counter
+ and simplify pci_vfs_assigned() implementation
+Date: Thu, 10 Jul 2014 19:48:13 -0600
+Message-ID: <1405043293.4098.46.camel@ul30vt.home>
+References: <1405039642-23519-1-git-send-email-ethan.zhao@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Pawel Moll" <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
-	Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-To: Boris BREZILLON <boris.brezillon-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-	Nicolas Ferre <nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>,
-	Jean-Christophe Plagniol-Villard <plagnioj-sclMFOaUSTBWk0Htik3J/w@public.gmane.org>,
-	Alexandre Belloni <alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
-	Andrew Victor <linux-PelNFVqkFnVyf+4FbqDuWQ@public.gmane.org>,
-	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1405022394-8311-2-git-send-email-boris.brezillon-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: kvm@vger.kernel.org, linux-pci@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net, vaughan.cao@oracle.com,
+	jesse.brandeburg@intel.com, ethan.kernel@gmail.com,
+	linux.nics@intel.com, konrad.wilk@oracle.com, gleb@kernel.org,
+	bhelgaas@google.com, boris.ostrovsky@oracle.com,
+	netdev@vger.kernel.org, bruce.w.allan@intel.com,
+	linux-kernel@vger.kernel.org, john.ronciak@intel.com,
+	david.vrabel@citrix.com, pbonzini@redhat.com
+To: Ethan Zhao <ethan.zhao@oracle.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1405039642-23519-1-git-send-email-ethan.zhao@oracle.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Hi Boris,
 
-On 07/11/2014 03:59 AM, Boris BREZILLON wrote:
-> Add ethernet-phy nodes and specify phy interrupt (connected to pin PB25)
-> and board specific timing configs.
->
-> Atmel has two different HW designs for its CPU modules: the first one
-> (produced by Embest) is connecting PHYAD[0-2] pins to pull up resistors
-> and the other one (produced by Ronetix) is connecting PHYAD0 to a pull up
-> resistor and PHYAD[1-2] to pull down resistors.
-> As a result, Ronetix design will have its PHY available at address 0x1 and
-> Embest design at 0x7.
-> By defining both phys we're letting the phy core detect the one actually
-> available on the MDIO bus.
->
-> Signed-off-by: Boris BREZILLON <boris.brezillon-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Since there's no 0th patch, I guess I'll comment here.  This series is
+not bisectable, patch 1 breaks the existing implementation.  I'd
+suggest:
 
-For this patch series, test OK on both Embest (sama5d34ek) and Ronetix 
-(sama5d33ek).
+patch 1 - fix i40e
+patch 2 - create assign/deassign that uses dev_flags
+patch 3 - convert users to new interface
+patch 4 - convert interface to use atomic_t
 
-Tested-by: Bo Shen <voice.shen-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>
+IMHO, the assigned flag is a horrible hack and I don't know why drivers
+like xenback need to use it.  KVM needs to use it because it doesn't
+actually have a driver to bind to when a device is assigned, it's happy
+to assign devices without any driver.  Thanks,
 
+Alex
+
+
+On Fri, 2014-07-11 at 08:47 +0800, Ethan Zhao wrote:
+> Current implementation of helper function pci_vfs_assigned() is a little complex, to
+> get sum of VFs that assigned to VM, access low level configuration space register and
+> then loop in traversing device tree.
+> 
+> This patch introduce an atomic reference counter for VFs that assigned to VM in struct
+> pci_sriov, and compose two more helper functions
+> 
+> pci_sriov_assign_device(),
+> pci_sriov_deassign_device()
+> 
+> to replace manipulation to device flag and the meanwhile increase and decease the counter.
+> 
+> Passed building on 3.15.5
+> 
+> Signed-off-by: Ethan Zhao <ethan.zhao@oracle.com>
 > ---
->
-> Florian, I dropped your Reviewed-by tag because this patch has slightly
-> changed.
->
->
->   arch/arm/boot/dts/sama5d3xcm.dtsi | 30 ++++++++++++++++++++++++++++++
->   1 file changed, 30 insertions(+)
->
-> diff --git a/arch/arm/boot/dts/sama5d3xcm.dtsi b/arch/arm/boot/dts/sama5d3xcm.dtsi
-> index b0b1331..755369e 100644
-> --- a/arch/arm/boot/dts/sama5d3xcm.dtsi
-> +++ b/arch/arm/boot/dts/sama5d3xcm.dtsi
-> @@ -34,6 +34,36 @@
->
->   			macb0: ethernet@f0028000 {
->   				phy-mode = "rgmii";
-> +				#address-cells = <1>;
-> +				#size-cells = <0>;
-> +
-> +				ethernet-phy@1 {
-> +					reg = <0x1>;
-> +					interrupt-parent = <&pioB>;
-> +					interrupts = <25 IRQ_TYPE_EDGE_FALLING>;
-> +					txen-skew-ps = <800>;
-> +					txc-skew-ps = <3000>;
-> +					rxdv-skew-ps = <400>;
-> +					rxc-skew-ps = <3000>;
-> +					rxd0-skew-ps = <400>;
-> +					rxd1-skew-ps = <400>;
-> +					rxd2-skew-ps = <400>;
-> +					rxd3-skew-ps = <400>;
-> +				};
-> +
-> +				ethernet-phy@7 {
-> +					reg = <0x7>;
-> +					interrupt-parent = <&pioB>;
-> +					interrupts = <25 IRQ_TYPE_EDGE_FALLING>;
-> +					txen-skew-ps = <800>;
-> +					txc-skew-ps = <3000>;
-> +					rxdv-skew-ps = <400>;
-> +					rxc-skew-ps = <3000>;
-> +					rxd0-skew-ps = <400>;
-> +					rxd1-skew-ps = <400>;
-> +					rxd2-skew-ps = <400>;
-> +					rxd3-skew-ps = <400>;
-> +				};
->   			};
->
->   			pmc: pmc@fffffc00 {
->
+>  drivers/pci/iov.c   |   65 ++++++++++++++++++++++++++++----------------------
+>  drivers/pci/pci.h   |    1 +
+>  include/linux/pci.h |    4 +++
+>  3 files changed, 41 insertions(+), 29 deletions(-)
+> 
+> diff --git a/drivers/pci/iov.c b/drivers/pci/iov.c
+> index de7a747..72e267f 100644
+> --- a/drivers/pci/iov.c
+> +++ b/drivers/pci/iov.c
+> @@ -382,6 +382,7 @@ found:
+>  	iov->nres = nres;
+>  	iov->ctrl = ctrl;
+>  	iov->total_VFs = total;
+> +	atomic_set(&iov->VFs_assigned_cnt, 0);
+>  	iov->offset = offset;
+>  	iov->stride = stride;
+>  	iov->pgsz = pgsz;
+> @@ -603,45 +604,51 @@ int pci_num_vf(struct pci_dev *dev)
+>  EXPORT_SYMBOL_GPL(pci_num_vf);
+>  
+>  /**
+> - * pci_vfs_assigned - returns number of VFs are assigned to a guest
+> - * @dev: the PCI device
+> + * pci_vfs_assigned - returns number of VFs are assigned to VM
+> + * @dev: the physical PCI device that contains the VFs.
+>   *
+> - * Returns number of VFs belonging to this device that are assigned to a guest.
+> + * Returns number of VFs belonging to this device that are assigned to VM.
+>   * If device is not a physical function returns 0.
+>   */
+>  int pci_vfs_assigned(struct pci_dev *dev)
+>  {
+> -	struct pci_dev *vfdev;
+> -	unsigned int vfs_assigned = 0;
+> -	unsigned short dev_id;
+> -
+> -	/* only search if we are a PF */
+>  	if (!dev->is_physfn)
+>  		return 0;
+> +	if (dev->sriov)
+> +		return atomic_read(&dev->sriov->VFs_assigned_cnt);
+> +	return 0;
+> +}
+> +EXPORT_SYMBOL_GPL(pci_vfs_assigned);
+>  
+> -	/*
+> -	 * determine the device ID for the VFs, the vendor ID will be the
+> -	 * same as the PF so there is no need to check for that one
+> -	 */
+> -	pci_read_config_word(dev, dev->sriov->pos + PCI_SRIOV_VF_DID, &dev_id);
+> -
+> -	/* loop through all the VFs to see if we own any that are assigned */
+> -	vfdev = pci_get_device(dev->vendor, dev_id, NULL);
+> -	while (vfdev) {
+> -		/*
+> -		 * It is considered assigned if it is a virtual function with
+> -		 * our dev as the physical function and the assigned bit is set
+> -		 */
+> -		if (vfdev->is_virtfn && (vfdev->physfn == dev) &&
+> -		    (vfdev->dev_flags & PCI_DEV_FLAGS_ASSIGNED))
+> -			vfs_assigned++;
+> -
+> -		vfdev = pci_get_device(dev->vendor, dev_id, vfdev);
+> -	}
+> +/**
+> + * pci_sriov_assign_device - assign device to VM
+> + * @pdev: the device to be assigned.
+> + */
+> +void pci_sriov_assign_device(struct pci_dev *pdev)
+> +{
+> +	pdev->dev_flags |= PCI_DEV_FLAGS_ASSIGNED;
+> +	if (pdev->is_virtfn && !pdev->is_physfn)
+> +		if (pdev->physfn)
+> +			if (pdev->physfn->sriov)
+> +				atomic_inc(&pdev->physfn->sriov->
+> +						VFs_assigned_cnt);
+> +}
+> +EXPORT_SYMBOL_GPL(pci_sriov_assign_device);
+>  
+> -	return vfs_assigned;
+> +/**
+> + * pci_sriov_deassign_device - deasign device from VM
+> + * @pdev: the device to be deassigned.
+> + */
+> +void pci_sriov_deassign_device(struct pci_dev *pdev)
+> +{
+> +	pdev->dev_flags &= ~PCI_DEV_FLAGS_ASSIGNED;
+> +	if (pdev->is_virtfn && !pdev->is_physfn)
+> +		if (pdev->physfn)
+> +			if (pdev->physfn->sriov)
+> +				atomic_dec(&pdev->physfn->sriov->
+> +						VFs_assigned_cnt);
+>  }
+> -EXPORT_SYMBOL_GPL(pci_vfs_assigned);
+> +EXPORT_SYMBOL_GPL(pci_sriov_deassign_device);
+>  
+>  /**
+>   * pci_sriov_set_totalvfs -- reduce the TotalVFs available
+> diff --git a/drivers/pci/pci.h b/drivers/pci/pci.h
+> index 6bd0822..d17bda2 100644
+> --- a/drivers/pci/pci.h
+> +++ b/drivers/pci/pci.h
+> @@ -235,6 +235,7 @@ struct pci_sriov {
+>  	u32 pgsz;		/* page size for BAR alignment */
+>  	u8 link;		/* Function Dependency Link */
+>  	u16 driver_max_VFs;	/* max num VFs driver supports */
+> +	atomic_t VFs_assigned_cnt; /* counter of VFs assigned to VM */
+>  	struct pci_dev *dev;	/* lowest numbered PF */
+>  	struct pci_dev *self;	/* this PF */
+>  	struct mutex lock;	/* lock for VF bus */
+> diff --git a/include/linux/pci.h b/include/linux/pci.h
+> index aab57b4..5cf6833 100644
+> --- a/include/linux/pci.h
+> +++ b/include/linux/pci.h
+> @@ -1601,6 +1601,8 @@ int pci_enable_sriov(struct pci_dev *dev, int nr_virtfn);
+>  void pci_disable_sriov(struct pci_dev *dev);
+>  int pci_num_vf(struct pci_dev *dev);
+>  int pci_vfs_assigned(struct pci_dev *dev);
+> +void pci_sriov_assign_device(struct pci_dev *dev);
+> +void pci_sriov_deassign_device(struct pci_dev *dev);
+>  int pci_sriov_set_totalvfs(struct pci_dev *dev, u16 numvfs);
+>  int pci_sriov_get_totalvfs(struct pci_dev *dev);
+>  #else
+> @@ -1610,6 +1612,8 @@ static inline void pci_disable_sriov(struct pci_dev *dev) { }
+>  static inline int pci_num_vf(struct pci_dev *dev) { return 0; }
+>  static inline int pci_vfs_assigned(struct pci_dev *dev)
+>  { return 0; }
+> +static inline void pci_sriov_assign_device(struct pci_dev *dev) { }
+> +static inline void pci_sriov_deassign_device(struct pci_dev *dev) { }
+>  static inline int pci_sriov_set_totalvfs(struct pci_dev *dev, u16 numvfs)
+>  { return 0; }
+>  static inline int pci_sriov_get_totalvfs(struct pci_dev *dev)
 
-Best Regards,
-Bo Shen
 
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+------------------------------------------------------------------------------
+Open source business process management suite built on Java and Eclipse
+Turn processes into business applications with Bonita BPM Community Edition
+Quickly connect people, data, and systems into organized workflows
+Winner of BOSSIE, CODIE, OW2 and Gartner awards
+http://p.sf.net/sfu/Bonitasoft
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
