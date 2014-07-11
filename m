@@ -1,159 +1,246 @@
-From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
-Subject: RE: RSS is not efficient when forwarding (ixgbe)
-Date: Fri, 11 Jul 2014 14:11:55 +0000
-Message-ID: <F6FB0E698C9B3143BDF729DF2228664685DD1669@ORSMSX110.amr.corp.intel.com>
-References: <20140704193644.GB2343@t520.home>
-	<CA+mtBx-dY2eoDzL-1K8F8Br224H+c4fzVtVPu9JmnjLdQKuAOg@mail.gmail.com>
-	<20140707105523.GC2343@t520.home>
-	<F6FB0E698C9B3143BDF729DF2228664685DCFE12@ORSMSX110.amr.corp.intel.com>
-	<20140708002837.GS2346@t520.home>	<21436.9657.845209.575715@fisica.ufpr.br>
-	<20140708172127.GV2346@t520.home>	<21436.11067.667194.899369@fisica.ufpr.br>
-	<20140709052205.GW2346@t520.home>	<21437.55675.61176.767736@fisica.ufpr.br>
-	<20140710011435.GH2346@t520.home> <21439.11207.651173.426859@fisica.ufpr.br>
+From: Alex Williamson <alex.williamson@redhat.com>
+Subject: Re: [PATCH 1/2 V3] PCI: introduce device assignment
+ interface and refactory related code
+Date: Fri, 11 Jul 2014 08:15:47 -0600
+Message-ID: <1405088147.4098.64.camel@ul30vt.home>
+References: <1405081802-419-1-git-send-email-ethan.zhao@oracle.com>
+	<1405084407.4098.59.camel@ul30vt.home>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Tom Herbert <therbert@google.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Carlos Carvalho <carlos@fisica.ufpr.br>,
-	Flavio Leitner <fbl@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:61751 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753955AbaGKOMA convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jul 2014 10:12:00 -0400
-In-Reply-To: <21439.11207.651173.426859@fisica.ufpr.br>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, linux-pci@vger.kernel.org,
+	e1000-devel@lists.sourceforge.net, vaughan.cao@oracle.com,
+	jesse.brandeburg@intel.com, ethan.kernel@gmail.com,
+	linux.nics@intel.com, konrad.wilk@oracle.com, gleb@kernel.org,
+	bhelgaas@google.com, boris.ostrovsky@oracle.com,
+	netdev@vger.kernel.org, bruce.w.allan@intel.com,
+	linux-kernel@vger.kernel.org, john.ronciak@intel.com,
+	david.vrabel@citrix.com, pbonzini@redhat.com
+To: Ethan Zhao <ethan.zhao@oracle.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1405084407.4098.59.camel@ul30vt.home>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-
-
-> -----Original Message-----
-> From: Carlos Carvalho [mailto:carlos@fisica.ufpr.br]
-> Sent: Thursday, July 10, 2014 5:12 PM
-> To: Flavio Leitner
-> Cc: Skidmore, Donald C; Tom Herbert; Linux Netdev List
-> Subject: Re: RSS is not efficient when forwarding (ixgbe)
+On Fri, 2014-07-11 at 07:13 -0600, Alex Williamson wrote:
+> On Fri, 2014-07-11 at 20:30 +0800, Ethan Zhao wrote:
+> > This patch introduces two new device assignment functions
+> > 
+> > pci_iov_assign_device(),
+> > pci_iov_deassign_device()
+> > 
+> > along with the existed one
+> > 
+> > pci_vfs_assigned()
+> > 
+> > They construct the VFs assignment management interface, used to assign/
+> > deassign device to VM and query the VFs reference counter. instead of
+> > direct manipulation of device flag.
+> > 
+> > This patch refashioned the related code and make them atomic.
+> > 
+> > v3: change the naming of device assignment helpers, because they work
+> > for all kind of PCI device, not only SR-IOV (david.vrabel@citrix.com)
+> > 
+> > v2: reorder the patchset and make it bisectable and atomic, steps clear
+> > between interface defination and implemenation according to the
+> > suggestion from alex.williamson@redhat.com
+> > 
+> > Signed-off-by: Ethan Zhao <ethan.zhao@oracle.com>
+> > ---
 > 
-> Flavio Leitner (fbl@redhat.com) wrote on 9 July 2014 22:14:
->  >On Wed, Jul 09, 2014 at 09:08:27PM -0300, Carlos Carvalho wrote:
->  >> Flavio Leitner (fbl@redhat.com) wrote on 9 July 2014 02:22:
->  >>  >On Tue, Jul 08, 2014 at 02:32:43PM -0300, Carlos Carvalho wrote:
->  >>  >> Flavio Leitner (fbl@redhat.com) wrote on 8 July 2014 14:21:
->  >>  >>  >On Tue, Jul 08, 2014 at 02:09:13PM -0300, Carlos Carvalho wrote:
->  >>  >>  >> Flavio Leitner (fbl@redhat.com) wrote on 7 July 2014 21:28:
->  >>  >>  >>  >On Mon, Jul 07, 2014 at 04:33:24PM +0000, Skidmore, Donald C
-> wrote:
->  >>  >>  >>  >>
->  >>  >>  >>  >>
->  >>  >>  >>  >> >
->  >>  >>  >>  >> > It's a router forwarding traffic from one interface to another,
-> so I guess it's  >>  >>  >>  >> > only the kernel. BTW, no firewall.
->  >>  >>  >>  >> >
->  >>  >>  >>  >> > Flow Director needs to be enabled and I am using defaults.
->  >>  >>  >>  >>
->  >>  >>  >>  >> Flow Director in ATR mode is on by default for ixgbe.  So like
-> Tom mentioned the driver will create hash buckets for egress packets.  You
-> could try disabling ATR and just use RSS.  Which would probably be the right
-> thing to do any way since Flow Director isn't very useful for routing scenarios.
->  >>  >>  >>  >
->  >>  >>  >>  >That was it.
->  >>  >>  >>
->  >>  >>  >> We have a similar setup and similar problem. How do we disable
-> ATR? I  >>  >>  >> tried to set ntuple off but this almost zeroed traffic. I also
-> tried  >>  >>  >> to change rx-flow-hash but ethtool says it's not possible. The
-> docs  >>  >>  >> say that one can disable ATR by setting AtrSampleRate to 0
-> but this  >>  >>  >> parameter doesn't exist in 3.14.10.
->  >>  >>  >>
->  >>  >>  >> So, how do we disable ATR and keep RSS?
->  >>  >>  >
->  >>  >>  >Keep in mind that this is actually 2 problems. One is enabling the  >>
-> >>  >NIC to receive the streams in all queues for this scenario (setting  >>  >>
-> >ntuple off and restarting the traffic works for me). The second problem  >>
-> >>  >is having all the queue interrupts spread among the CPUs. That's what
-> >>  >>  >does irqbalance, tuna, etc...
->  >>  >>
->  >>  >> Spreading the interrupts among the cpus is not the issue for us. The
-> >>  >> problem is that the number of interrupts is *very* different among
-> the  >>  >> irq's, so no matter how I distribute them among cores there will
-> >>  >> always be a few that get saturated while 70% of the machine capacity
-> >>  >> remains idle. Your case seems to be the extreme of ours, where all  >>
-> >> the flux goes to a single irq.
->  >>  >>
->  >>  >> The problem is in how the NIC distributes traffic among the irq's in  >>
-> >> the router. Traffic comes almost only from a single machine and  >>  >>
-> spreads through several thousand destinations in the internet. That's  >>  >>
-> why I tried to set the receiving hash mode to the destination IP, but  >>  >>
-> the NIC or driver refuses. So how do I even out the frequency of irq's?
->  >>  >
->  >>  >So you see the traffic going to a few queues only and the rest is  >>
-> >idle, is that correct?  If so, then RSS seems to be working, but  >>  >since all
-> the traffic comes from one server and likely one port,  >>  >maybe the hash
-> is not good enough to distribute among all queues.
->  >>  >I'd try using software hashing instead of hw hashing to see if it  >>
-> >helps:
->  >>  ># ethtool -K <iface> rxhash off
->  >>
->  >> I'm all for using software instead of hardware. However, in this case  >>
-> this is a fundamental function of the NIC, to distribute the load  >> among
-> cores; if we do it via software, a single core (or subset of  >> them) will have
-> to do all the work. So in this particular case I think  >> the correct way is to try
-> to do it in the NIC.
->  >
->  >Actually no, you can use RPS with software hashing to distribute the
-> >workload.  Take a look at Documentation/networking/scaling.txt for  >more
-> details.
+> - Use a cover patch to describe the series
 > 
-> Thanks for the pointer. I'll try that if there's no way to do it on the NIC.
+> - Version information goes here, below the "---", not above it
 > 
->  >>  >BTW, there was a typo in my previous post, I had to turn on ntuple to
-> >>  >disable ATR.
->  >>
->  >> Ah. Here it was off by default, which contradicts what Donald said  >>
-> above... I turned it on, and nothing changed(?!). The nic was reset  >> but
-> the distribution among queues is the same.
->  >
->  >ntuple is about Perfect Filters and it's OFF by default which leaves  >ATR
-> mode ON. In my case, ATR mode was responsible for directing all  >the
-> packets to a single queue. Once I enable nutple, the driver  >disables ATR
-> and that works for me.
+> - I stand by the patch breakdown I suggested originally, there are too
+> many logical changes here in patch 1.  There are easily 3 separate
+> patches here.
 > 
-> There does seem to be some confusion about this. However this thread is
-> getting long and since it makes no difference for us I'd rather focus on our
-> problem.
+> - Renaming s/sriov/iov/ doesn't address the problem David raised.  The
+> name is still synonymous with SR-IOV and it's defined on
+> drivers/pci/iov.c, which is only built with CONFIG_PCI_IOV.
 > 
->  >> I checked now and in fact the distribution is almost constant among  >> 16
-> IRQ's. That's the problem, because it leaves the other 24  >> cores idle. Not
-> completely, but the difference is 4 orders of  >> magnitude: 5.41e+08
-> interruptions in the active 16 IRQ's versus  >> 6.36e+04 in the others. So 60%
-> of the machine is just contributing to  >> global warming and, importantly,
-> limiting our performance :-(  >  >How many NIC queues do you have?  It
-> sounds like you have only 16,  >so you're limited by the number of queues
-> which maps to 16 CPUs.
-> 
-> 40 for each NIC. The driver seems to configure the number of queues equal
-> to the number of cores; in another machine with the same NIC but
-> 32 cores there are 32 queues.
-> 
-> Does hyperthreading make a difference? There are actually only 20 cores. It
-> seems that hyperthreading doesn't help for NIC interrrupt processing, so the
-> card/kernel could just be ignoring the virtual cores. However, in this case it
-> should not allocate queues for the virtual cores. Also, the number of
-> interruptions in the virtual cores should be zero, but it isn't.
-> 
-> Further, why doesn't the NIC use all of the 20 real cores? Is it limited to
-> power of 2 cores?
+> - PCI_DEV_FLAGS_ASSIGNED should be unused after this series, why is it
+> not removed?
 
-Hey Guys,
+I guess it's still used, which is even worse because now we have
+separate data elements, one tracking how many VFs are assigned from a PF
+and another tracking each device that's assigned.  What are we actually
+gaining or fixing by doing this?
 
-This is getting a bit difficult to read so I will just reply down here. :)
+> >  drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |   17 ++---------------
+> >  drivers/pci/iov.c                                  |   20 ++++++++++++++++++++
+> >  drivers/xen/xen-pciback/pci_stub.c                 |    4 ++--
+> >  include/linux/pci.h                                |    4 ++++
+> >  virt/kvm/assigned-dev.c                            |    2 +-
+> >  virt/kvm/iommu.c                                   |    4 ++--
+> 
+> - This patch touch 4 separate logical code areas, who do you expect to
+> ack and commit it?  Split it up.
+> 
+> >  6 files changed, 31 insertions(+), 20 deletions(-)
+> > 
+> > diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+> > index 02c11a7..781040e 100644
+> > --- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+> > +++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+> > @@ -693,22 +693,9 @@ complete_reset:
+> >  static bool i40e_vfs_are_assigned(struct i40e_pf *pf)
+> >  {
+> >  	struct pci_dev *pdev = pf->pdev;
+> > -	struct pci_dev *vfdev;
+> > -
+> > -	/* loop through all the VFs to see if we own any that are assigned */
+> > -	vfdev = pci_get_device(PCI_VENDOR_ID_INTEL, I40E_DEV_ID_VF , NULL);
+> > -	while (vfdev) {
+> > -		/* if we don't own it we don't care */
+> > -		if (vfdev->is_virtfn && pci_physfn(vfdev) == pdev) {
+> > -			/* if it is assigned we cannot release it */
+> > -			if (vfdev->dev_flags & PCI_DEV_FLAGS_ASSIGNED)
+> > -				return true;
+> > -		}
+> >  
+> > -		vfdev = pci_get_device(PCI_VENDOR_ID_INTEL,
+> > -				       I40E_DEV_ID_VF,
+> > -				       vfdev);
+> > -	}
+> > +	if (pci_vfs_assigned(pdev))
+> > +		return true;
+> >  
+> >  	return false;
+> >  }
+> > diff --git a/drivers/pci/iov.c b/drivers/pci/iov.c
+> > index de7a747..090f827 100644
+> > --- a/drivers/pci/iov.c
+> > +++ b/drivers/pci/iov.c
+> > @@ -644,6 +644,26 @@ int pci_vfs_assigned(struct pci_dev *dev)
+> >  EXPORT_SYMBOL_GPL(pci_vfs_assigned);
+> >  
+> >  /**
+> > + * pci_iov_assign_device - assign device to VM
+> > + * @pdev: the device to be assigned.
+> > + */
+> > +void pci_iov_assign_device(struct pci_dev *pdev)
+> > +{
+> > +	pdev->dev_flags |= PCI_DEV_FLAGS_ASSIGNED;
+> > +}
+> > +EXPORT_SYMBOL_GPL(pci_iov_assign_device);
+> > +
+> > +/**
+> > + * pci_iov_deassign_device - deasign device from VM
+> > + * @pdev: the device to be deassigned.
+> > + */
+> > +void pci_iov_deassign_device(struct pci_dev *pdev)
+> > +{
+> > +	pdev->dev_flags &= ~PCI_DEV_FLAGS_ASSIGNED;
+> > +}
+> > +EXPORT_SYMBOL_GPL(pci_iov_deassign_device);
+> > +
+> > +/**
+> >   * pci_sriov_set_totalvfs -- reduce the TotalVFs available
+> >   * @dev: the PCI PF device
+> >   * @numvfs: number that should be used for TotalVFs supported
+> > diff --git a/drivers/xen/xen-pciback/pci_stub.c b/drivers/xen/xen-pciback/pci_stub.c
+> > index 62fcd48..27e00d1 100644
+> > --- a/drivers/xen/xen-pciback/pci_stub.c
+> > +++ b/drivers/xen/xen-pciback/pci_stub.c
+> > @@ -133,7 +133,7 @@ static void pcistub_device_release(struct kref *kref)
+> >  	xen_pcibk_config_free_dyn_fields(dev);
+> >  	xen_pcibk_config_free_dev(dev);
+> >  
+> > -	dev->dev_flags &= ~PCI_DEV_FLAGS_ASSIGNED;
+> > +	pci_iov_deassign_device(dev);
+> >  	pci_dev_put(dev);
+> >  
+> >  	kfree(psdev);
+> > @@ -404,7 +404,7 @@ static int pcistub_init_device(struct pci_dev *dev)
+> >  	dev_dbg(&dev->dev, "reset device\n");
+> >  	xen_pcibk_reset_device(dev);
+> >  
+> > -	dev->dev_flags |= PCI_DEV_FLAGS_ASSIGNED;
+> > +	pci_iov_assign_device(dev);
+> >  	return 0;
+> >  
+> >  config_release:
+> > diff --git a/include/linux/pci.h b/include/linux/pci.h
+> > index aab57b4..5ece6d6 100644
+> > --- a/include/linux/pci.h
+> > +++ b/include/linux/pci.h
+> > @@ -1603,6 +1603,8 @@ int pci_num_vf(struct pci_dev *dev);
+> >  int pci_vfs_assigned(struct pci_dev *dev);
+> >  int pci_sriov_set_totalvfs(struct pci_dev *dev, u16 numvfs);
+> >  int pci_sriov_get_totalvfs(struct pci_dev *dev);
+> > +void pci_iov_assign_device(struct pci_dev *dev);
+> > +void pci_iov_deassign_device(struct pci_dev *dev);
+> >  #else
+> >  static inline int pci_enable_sriov(struct pci_dev *dev, int nr_virtfn)
+> >  { return -ENODEV; }
+> > @@ -1614,6 +1616,8 @@ static inline int pci_sriov_set_totalvfs(struct pci_dev *dev, u16 numvfs)
+> >  { return 0; }
+> >  static inline int pci_sriov_get_totalvfs(struct pci_dev *dev)
+> >  { return 0; }
+> > +static inline void pci_iov_assign_device(struct pci_dev *dev) { }
+> > +static inline void pci_iov_deassign_device(struct pci_dev *dev) { }
+> >  #endif
+> >  
+> >  #if defined(CONFIG_HOTPLUG_PCI) || defined(CONFIG_HOTPLUG_PCI_MODULE)
+> > diff --git a/virt/kvm/assigned-dev.c b/virt/kvm/assigned-dev.c
+> > index bf06577..7fac58d 100644
+> > --- a/virt/kvm/assigned-dev.c
+> > +++ b/virt/kvm/assigned-dev.c
+> > @@ -302,7 +302,7 @@ static void kvm_free_assigned_device(struct kvm *kvm,
+> >  	else
+> >  		pci_restore_state(assigned_dev->dev);
+> >  
+> > -	assigned_dev->dev->dev_flags &= ~PCI_DEV_FLAGS_ASSIGNED;
+> > +	pci_iov_deassign_device(assigned_dev->dev);
+> >  
+> >  	pci_release_regions(assigned_dev->dev);
+> >  	pci_disable_device(assigned_dev->dev);
+> > diff --git a/virt/kvm/iommu.c b/virt/kvm/iommu.c
+> > index 0df7d4b..641ee73 100644
+> > --- a/virt/kvm/iommu.c
+> > +++ b/virt/kvm/iommu.c
+> > @@ -194,7 +194,7 @@ int kvm_assign_device(struct kvm *kvm,
+> >  			goto out_unmap;
+> >  	}
+> >  
+> > -	pdev->dev_flags |= PCI_DEV_FLAGS_ASSIGNED;
+> > +	pci_iov_assign_device(pdev);
+> >  
+> >  	dev_info(&pdev->dev, "kvm assign device\n");
+> >  
+> > @@ -220,7 +220,7 @@ int kvm_deassign_device(struct kvm *kvm,
+> >  
+> >  	iommu_detach_device(domain, &pdev->dev);
+> >  
+> > -	pdev->dev_flags &= ~PCI_DEV_FLAGS_ASSIGNED;
+> > +	pci_iov_deassign_device(pdev);
+> >  
+> >  	dev_info(&pdev->dev, "kvm deassign device\n");
+> >  
+> 
+> 
 
-The ixgbe driver by default runs with ATR and RSS enabled.   ATR is a form of flow director the other mode being perfect filter which is enabled, as mentioned above, by ntuple.  ATR stands for application targeted receive, which mean we (the driver) create a hash bucket on ever SYN packet transmitted and returning packets of that flow will be scheduled to the same queue.  Now since that packet could be created on any core we need to have one queue per core (including hyper threads).  Any received packet that does not match an ATR hash bucket is then scheduled via RSS.
 
-I believe you mentioned you were doing forwarding traffic, as you can imagine ATR is not that useful for traffic not tied to user space.  As others suggested you could just turn off ATR and then all packets would be assigned a queue via RSS.  Our RSS hash produces an output that is 4bits long, so the most we can spread out the load is over 16 queues.  This is why you only see 16 interrupts in use if you only use RSS. 
 
-If you wanted to use all the queue and thus all the cores you could create your own filtering rules with perfect filter.  This may be tricky as you would have to have a pretty good understanding of your flow patterns to balance the load evenly.
 
-Thanks,
--Don Skidmore <donald.c.skidmore@intel.com>
+------------------------------------------------------------------------------
+Open source business process management suite built on Java and Eclipse
+Turn processes into business applications with Bonita BPM Community Edition
+Quickly connect people, data, and systems into organized workflows
+Winner of BOSSIE, CODIE, OW2 and Gartner awards
+http://p.sf.net/sfu/Bonitasoft
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
