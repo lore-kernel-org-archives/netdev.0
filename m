@@ -1,7 +1,7 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next 2/3] r8169: use Giant Send
-Date: Fri, 11 Jul 2014 16:25:57 +0800
-Message-ID: <1394712342-15778-12-Taiwan-albertk@realtek.com>
+Subject: [PATCH net-next 1/3] r8169: split rtl8169_tso_csum
+Date: Fri, 11 Jul 2014 16:25:56 +0800
+Message-ID: <1394712342-15778-11-Taiwan-albertk@realtek.com>
 References: <1394712342-15778-10-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,44 +13,142 @@ In-Reply-To: <1394712342-15778-10-Taiwan-albertk@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Replace large send with giant send for TSO for RTL8111C and later ICs.
-The large send setting of the RTL8111DP is different from the other
-chips. However, the giant send setting is the same for all the chips
-which support it. Use the giant send to synchronize the settings.
+According to the txd_version, split rtl8169_tso_csum() into
+rtl8169_tso_csum_v1() and rtl8169_tso_csum_v2().
 
 Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/ethernet/realtek/r8169.c | 8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/realtek/r8169.c | 71 +++++++++++++++++++-----------------
+ 1 file changed, 37 insertions(+), 34 deletions(-)
 
 diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 6b7e21a..e5a0bdb 100644
+index be425ad..6b7e21a 100644
 --- a/drivers/net/ethernet/realtek/r8169.c
 +++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -626,6 +626,10 @@ enum rtl_tx_desc_bit_0 {
+@@ -633,32 +633,6 @@ enum rtl_tx_desc_bit_1 {
+ 	TD1_UDP_CS	= (1 << 31),		/* Calculate UDP/IP checksum */
+ };
  
- /* 8102e, 8168c and beyond. */
- enum rtl_tx_desc_bit_1 {
-+	/* First doubleword. */
-+	TD1_GTSENV4	= (1 << 26),		/* Giant Send for IPv4 */
-+#define GTTCPHO_SHIFT			18
-+
- 	/* Second doubleword. */
- #define TD1_MSS_SHIFT			18	/* MSS position (11 bits) */
- 	TD1_IP_CS	= (1 << 29),		/* Calculate IP checksum */
-@@ -5941,10 +5945,12 @@ static bool rtl8169_tso_csum_v1(struct rtl8169_private *tp,
- static bool rtl8169_tso_csum_v2(struct rtl8169_private *tp,
- 				struct sk_buff *skb, u32 *opts)
+-static const struct rtl_tx_desc_info {
+-	struct {
+-		u32 udp;
+-		u32 tcp;
+-	} checksum;
+-	u16 mss_shift;
+-	u16 opts_offset;
+-} tx_desc_info [] = {
+-	[RTL_TD_0] = {
+-		.checksum = {
+-			.udp	= TD0_IP_CS | TD0_UDP_CS,
+-			.tcp	= TD0_IP_CS | TD0_TCP_CS
+-		},
+-		.mss_shift	= TD0_MSS_SHIFT,
+-		.opts_offset	= 0
+-	},
+-	[RTL_TD_1] = {
+-		.checksum = {
+-			.udp	= TD1_IP_CS | TD1_UDP_CS,
+-			.tcp	= TD1_IP_CS | TD1_TCP_CS
+-		},
+-		.mss_shift	= TD1_MSS_SHIFT,
+-		.opts_offset	= 1
+-	}
+-};
+-
+ enum rtl_rx_desc_bit {
+ 	/* Rx private */
+ 	PID1		= (1 << 18), /* Protocol ID bit 1/2 */
+@@ -782,6 +756,7 @@ struct rtl8169_private {
+ 	unsigned int (*phy_reset_pending)(struct rtl8169_private *tp);
+ 	unsigned int (*link_ok)(void __iomem *);
+ 	int (*do_ioctl)(struct rtl8169_private *tp, struct mii_ioctl_data *data, int cmd);
++	bool (*tso_csum)(struct rtl8169_private *, struct sk_buff *, u32 *);
+ 
+ 	struct {
+ 		DECLARE_BITMAP(flags, RTL_FLAG_MAX);
+@@ -5941,16 +5916,36 @@ static bool rtl_test_hw_pad_bug(struct rtl8169_private *tp, struct sk_buff *skb)
+ 	return skb->len < ETH_ZLEN && tp->mac_version == RTL_GIGA_MAC_VER_34;
+ }
+ 
+-static inline bool rtl8169_tso_csum(struct rtl8169_private *tp,
+-				    struct sk_buff *skb, u32 *opts)
++static bool rtl8169_tso_csum_v1(struct rtl8169_private *tp,
++				struct sk_buff *skb, u32 *opts)
  {
-+	u32 transport_offset = (u32)skb_transport_offset(skb);
+-	const struct rtl_tx_desc_info *info = tx_desc_info + tp->txd_version;
  	u32 mss = skb_shinfo(skb)->gso_size;
+-	int offset = info->opts_offset;
  
  	if (mss) {
--		opts[0] |= TD_LSO;
-+		opts[0] |= TD1_GTSENV4;
-+		opts[0] |= transport_offset << GTTCPHO_SHIFT;
- 		opts[1] |= min(mss, TD_MSS_MAX) << TD1_MSS_SHIFT;
+ 		opts[0] |= TD_LSO;
+-		opts[offset] |= min(mss, TD_MSS_MAX) << info->mss_shift;
++		opts[0] |= min(mss, TD_MSS_MAX) << TD0_MSS_SHIFT;
++	} else if (skb->ip_summed == CHECKSUM_PARTIAL) {
++		const struct iphdr *ip = ip_hdr(skb);
++
++		if (ip->protocol == IPPROTO_TCP)
++			opts[0] |= TD0_IP_CS | TD0_TCP_CS;
++		else if (ip->protocol == IPPROTO_UDP)
++			opts[0] |= TD0_IP_CS | TD0_UDP_CS;
++		else
++			WARN_ON_ONCE(1);
++	}
++
++	return true;
++}
++
++static bool rtl8169_tso_csum_v2(struct rtl8169_private *tp,
++				struct sk_buff *skb, u32 *opts)
++{
++	u32 mss = skb_shinfo(skb)->gso_size;
++
++	if (mss) {
++		opts[0] |= TD_LSO;
++		opts[1] |= min(mss, TD_MSS_MAX) << TD1_MSS_SHIFT;
  	} else if (skb->ip_summed == CHECKSUM_PARTIAL) {
  		const struct iphdr *ip = ip_hdr(skb);
+ 
+@@ -5958,15 +5953,16 @@ static inline bool rtl8169_tso_csum(struct rtl8169_private *tp,
+ 			return skb_checksum_help(skb) == 0 && rtl_skb_pad(skb);
+ 
+ 		if (ip->protocol == IPPROTO_TCP)
+-			opts[offset] |= info->checksum.tcp;
++			opts[1] |= TD1_IP_CS | TD1_TCP_CS;
+ 		else if (ip->protocol == IPPROTO_UDP)
+-			opts[offset] |= info->checksum.udp;
++			opts[1] |= TD1_IP_CS | TD1_UDP_CS;
+ 		else
+ 			WARN_ON_ONCE(1);
+ 	} else {
+ 		if (unlikely(rtl_test_hw_pad_bug(tp, skb)))
+ 			return rtl_skb_pad(skb);
+ 	}
++
+ 	return true;
+ }
+ 
+@@ -5994,7 +5990,7 @@ static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
+ 	opts[1] = cpu_to_le32(rtl8169_tx_vlan_tag(skb));
+ 	opts[0] = DescOwn;
+ 
+-	if (!rtl8169_tso_csum(tp, skb, opts))
++	if (!tp->tso_csum(tp, skb, opts))
+ 		goto err_update_stats;
+ 
+ 	len = skb_headlen(skb);
+@@ -7145,6 +7141,13 @@ rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		/* 8110SCd requires hardware Rx VLAN - disallow toggling */
+ 		dev->hw_features &= ~NETIF_F_HW_VLAN_CTAG_RX;
+ 
++	if (tp->txd_version == RTL_TD_0)
++		tp->tso_csum = rtl8169_tso_csum_v1;
++	else if (tp->txd_version == RTL_TD_1)
++		tp->tso_csum = rtl8169_tso_csum_v2;
++	else
++		WARN_ON_ONCE(1);
++
+ 	dev->hw_features |= NETIF_F_RXALL;
+ 	dev->hw_features |= NETIF_F_RXFCS;
+ 
 -- 
 1.9.3
