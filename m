@@ -1,65 +1,37 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v2 net-next 0/3] net: sctp: Add partial MSG_MORE support
- to SCTP
-Date: Fri, 11 Jul 2014 08:39:32 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1727086F@AcuExch.aculab.com>
-References: <063D6719AE5E284EB5DD2968C1650D6D1726E6A3@AcuExch.aculab.com>
- <20140710.161427.343089945230334314.davem@davemloft.net>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net] r8152: fix r8152_csum_workaround function
+Date: Fri, 11 Jul 2014 16:48:27 +0800
+Message-ID: <1394712342-15778-14-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-sctp@vger.kernel.org" <linux-sctp@vger.kernel.org>,
-	"vyasevich@gmail.com" <vyasevich@gmail.com>,
-	"nhorman@tuxdriver.com" <nhorman@tuxdriver.com>
-To: 'David Miller' <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:34159 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751790AbaGKIkL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jul 2014 04:40:11 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 05691-06 for <netdev@vger.kernel.org>;
- Fri, 11 Jul 2014 09:40:02 +0100 (BST)
-In-Reply-To: <20140710.161427.343089945230334314.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+	<linux-usb@vger.kernel.org>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Miller 
-> From: David Laight <David.Laight@ACULAB.COM>
-> Date: Wed, 9 Jul 2014 08:29:11 +0000
-> 
-> > If an application has disabled Nagle then it is almost impossible
-> > to get more than one DATA chunk into an ethernet packet even if
-> > the application has more than one data chunk ready to transmit.
-> >
-> > This could be fixed by adding an SCTP_CORK socket option - but
-> > using that requires a lot of system calls.
-> > An alternative is to honour MSG_MORE - using it to mean that
-> > another chunk will be sent soon.
-> > (There isn't much point using MSG_MORE to allow a chunk be extended,
-> > sendv() can be used for fragmented data.)
-> >
-> > This is a partial implementation and takes a couple of shortcuts:
-> > 1) We only worry about whether MSG_MORE was set on the last send.
-> >    Data sent (by the application) with MSG_MORE unset will only be
-> >    unsent for flow control reasons.
-> >    So if the last send had MSG_MORE set, and an ack opens the window
-> >    then the unsent data won't be sent immediately.
-> >
-> > 2) If the application doesn't do a send with MSG_MORE unset, then
-> >    buffered data shouldn't be buffered forever.
-> >    Rather than using a timer (as TCP does - which ought to be configurable
-> >    on a per-socket basis) we use the same rules as Nagle and ensure
-> >    that there is always some data outstanding.
-> >    This does mean that the first data chunk on an idle connection
-> >    is send in its own packet even if MSG_MORE is set.
-> 
-> I need some SCTP experts to review this series, thanks.
+The transport offset of the IPv4 packet should be fixed and wouldn't
+be out of the hw limitation, so the r8152_csum_workaround() should
+be used for IPv6 packets.
 
-One thing that makes it easier, is that there is only one conditional
-in the entire sctp stack that checks whether Nagle is enabled.
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+---
+ drivers/net/usb/r8152.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-	David
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index a795ecf..7bad2d3 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -1359,7 +1359,7 @@ static void r8152_csum_workaround(struct r8152 *tp, struct sk_buff *skb,
+ 		struct sk_buff_head seg_list;
+ 		struct sk_buff *segs, *nskb;
+ 
+-		features &= ~(NETIF_F_IP_CSUM | NETIF_F_SG | NETIF_F_TSO);
++		features &= ~(NETIF_F_SG | NETIF_F_IPV6_CSUM | NETIF_F_TSO6);
+ 		segs = skb_gso_segment(skb, features);
+ 		if (IS_ERR(segs) || !segs)
+ 			goto drop;
+-- 
+1.9.3
