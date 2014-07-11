@@ -1,52 +1,57 @@
-From: =?UTF-8?q?Stefan=20S=C3=B8rensen?=
-	<stefan.sorensen@spectralink.com>
-Subject: [PATCH net-next] dp83640: Adjust ptp event timestamps
-Date: Fri, 11 Jul 2014 08:18:26 +0200
-Message-ID: <1405059506-3996-1-git-send-email-stefan.sorensen@spectralink.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <richardcochran@gmail.com>, <netdev@vger.kernel.org>,
-	=?UTF-8?q?Stefan=20S=C3=B8rensen?=
-	<stefan.sorensen@spectralink.com>
-To: <davem@davemloft.net>
+From: roy.qing.li@gmail.com
+Subject: [PATCH net-next] ipv4: remove the unnecessary variable in udp_mcast_next
+Date: Fri, 11 Jul 2014 14:32:17 +0800
+Message-ID: <1405060337-12528-1-git-send-email-roy.qing.li@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2lp0244.outbound.protection.outlook.com ([207.46.163.244]:39335
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752566AbaGKGSt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Jul 2014 02:18:49 -0400
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:34944 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752380AbaGKGcW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jul 2014 02:32:22 -0400
+Received: by mail-pa0-f49.google.com with SMTP id lj1so897624pab.22
+        for <netdev@vger.kernel.org>; Thu, 10 Jul 2014 23:32:22 -0700 (PDT)
+Received: from localhost ([1.202.252.122])
+        by mx.google.com with ESMTPSA id ni6sm1629831pdb.96.2014.07.10.23.32.20
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
+        Thu, 10 Jul 2014 23:32:21 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom the dp86340 Software Development Guide:
-  Event timestamp values should be adjusted by 3*reference clock period=
- +
-  11 ns =3D 35 ns to compensate for input path and synchronization dela=
-ys.
+From: Li RongQing <roy.qing.li@gmail.com> 
 
-So subtract 35ns from event timestamps.
-
-Signed-off-by: Stefan S=C3=B8rensen <stefan.sorensen@spectralink.com>
-Acked-by: Richard Cochran <richardcochran@gmail.com>
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 ---
- drivers/net/phy/dp83640.c | 3 +++
- 1 file changed, 3 insertions(+)
+ net/ipv4/udp.c |    9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/phy/dp83640.c b/drivers/net/phy/dp83640.c
-index 53bd1af..76fbd39 100644
---- a/drivers/net/phy/dp83640.c
-+++ b/drivers/net/phy/dp83640.c
-@@ -755,6 +755,9 @@ static int decode_evnt(struct dp83640_private *dp83=
-640,
- 	event.type =3D PTP_CLOCK_EXTTS;
- 	event.timestamp =3D phy2txts(&dp83640->edata);
-=20
-+	/* Compensate for input path and synchronization delays */
-+	event.timestamp -=3D 35;
-+
- 	for (i =3D 0; i < N_EXT_TS; i++) {
- 		if (ext_status & exts_chan_to_edata(i)) {
- 			event.index =3D i;
---=20
-1.9.3
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index d92f94b..ac30e10 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -600,19 +600,18 @@ static inline struct sock *udp_v4_mcast_next(struct net *net, struct sock *sk,
+ 					     int dif)
+ {
+ 	struct hlist_nulls_node *node;
+-	struct sock *s = sk;
+ 	unsigned short hnum = ntohs(loc_port);
+ 
+-	sk_nulls_for_each_from(s, node) {
+-		if (__udp_is_mcast_sock(net, s,
++	sk_nulls_for_each_from(sk, node) {
++		if (__udp_is_mcast_sock(net, sk,
+ 					loc_port, loc_addr,
+ 					rmt_port, rmt_addr,
+ 					dif, hnum))
+ 			goto found;
+ 	}
+-	s = NULL;
++	sk = NULL;
+ found:
+-	return s;
++	return sk;
+ }
+ 
+ /*
+-- 
+1.7.10.4
