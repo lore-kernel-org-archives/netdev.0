@@ -1,14 +1,12 @@
-From: Ethan Zhao <ethan.kernel@gmail.com>
+From: Varka Bhadram <varkabhadram@gmail.com>
 Subject: Re: [PATCH 2/2 V3] PCI: implement VFs assignment
 	reference counter
-Date: Fri, 11 Jul 2014 20:51:36 +0800
-Message-ID: <CABawtvOV5DQqqLu96CFktxmHkJA+n3FUyA3Nt3HtPMKs5KpVOw@mail.gmail.com>
-References: <1405081802-419-1-git-send-email-ethan.zhao@oracle.com>
-	<1405081802-419-2-git-send-email-ethan.zhao@oracle.com>
-	<53BFDBC0.8000705@gmail.com>
+Date: Fri, 11 Jul 2014 18:26:36 +0530
+Message-ID: <53BFDF04.7090906@gmail.com>
+References: <1405081802-419-1-git-send-email-ethan.zhao@oracle.com>	<1405081802-419-2-git-send-email-ethan.zhao@oracle.com>	<53BFDBC0.8000705@gmail.com>
+	<CABawtvOV5DQqqLu96CFktxmHkJA+n3FUyA3Nt3HtPMKs5KpVOw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
+Content-Type: multipart/mixed; boundary="===============2649968982497602119=="
 Cc: "<kvm@vger.kernel.org>" <kvm@vger.kernel.org>,
 	linux-pci <linux-pci@vger.kernel.org>,
 	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
@@ -25,9 +23,9 @@ Cc: "<kvm@vger.kernel.org>" <kvm@vger.kernel.org>,
 	"<john.ronciak@intel.com>" <john.ronciak@intel.com>,
 	David Vrabel <david.vrabel@citrix.com>,
 	"<pbonzini@redhat.com>" <pbonzini@redhat.com>
-To: Varka Bhadram <varkabhadram@gmail.com>
+To: Ethan Zhao <ethan.kernel@gmail.com>
 Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <53BFDBC0.8000705@gmail.com>
+In-Reply-To: <CABawtvOV5DQqqLu96CFktxmHkJA+n3FUyA3Nt3HtPMKs5KpVOw@mail.gmail.com>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
@@ -38,56 +36,74 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-T24gRnJpLCBKdWwgMTEsIDIwMTQgYXQgODo0MiBQTSwgVmFya2EgQmhhZHJhbSA8dmFya2FiaGFk
-cmFtQGdtYWlsLmNvbT4gd3JvdGU6Cj4gT24gMDcvMTEvMjAxNCAwNjowMCBQTSwgRXRoYW4gWmhh
-byB3cm90ZToKPj4KPj4gQ3VycmVudCBpbXBsZW1lbnRhdGlvbiBvZiBoZWxwZXIgZnVuY3Rpb24g
-cGNpX3Zmc19hc3NpZ25lZCgpIGlzIGEKPj4gbGl0dGxlIGNvbXBsZXgsIHRvIGdldCBzdW0gb2Yg
-VkZzIHRoYXQgYXNzaWduZWQgdG8gVk0sIGFjY2VzcyBsb3cKPj4gbGV2ZWwgY29uZmlndXJhdGlv
-biBzcGFjZSByZWdpc3RlciBhbmQgdGhlbiBsb29wIGluIHRyYXZlcnNpbmcKPj4gZGV2aWNlIHRy
-ZWUuCj4KPgo+ICguLi4pCj4KPgo+PiBAQCAtNjUwLDYgKzYzMCwxMSBAQCBFWFBPUlRfU1lNQk9M
-X0dQTChwY2lfdmZzX2Fzc2lnbmVkKTsKPj4gICB2b2lkIHBjaV9pb3ZfYXNzaWduX2RldmljZShz
-dHJ1Y3QgcGNpX2RldiAqcGRldikKPj4gICB7Cj4+ICAgICAgICAgcGRldi0+ZGV2X2ZsYWdzIHw9
-IFBDSV9ERVZfRkxBR1NfQVNTSUdORUQ7Cj4+ICsgICAgICAgaWYgKHBkZXYtPmlzX3ZpcnRmbiAm
-JiAhcGRldi0+aXNfcGh5c2ZuKQo+PiArICAgICAgICAgICAgICAgaWYgKHBkZXYtPnBoeXNmbikK
-Pj4gKyAgICAgICAgICAgICAgICAgICAgICAgaWYgKHBkZXYtPnBoeXNmbi0+c3Jpb3YpCj4KPgo+
-IFdoeSBkb24ndCB3ZSBtYWtlIGxhc3QgdHdvICdpZicgY29uZGl0aW9ucyBpbnRvIHNpbmdsZSAn
-aWYnCj4KPiBpZiAocGRldi0+cGh5c2ZuICYmIHBkZXYtPnBoeXNmbi0+c3Jpb3YpCgpZZWFo77yM
-IHRoaXMgb25lIGxvb2tzIGJldHRlciwgIHRoYXQgc3R5bGUgdXNlZCB0byB0ZWxsIG15c2VsZiwg
-SSBtaWdodApmb3JnZXQgdGhlIHdoaWNoIHNpZGUgb2YgICYmIG9wZXJhdG9yICBmaXJzdCwgaWYg
-eW91IHN1cmUgbGVmdCBmaXJzdCwKSSBwcmVmZXIgdGhhdCB0b28gOj4KPgo+Cj4+ICsgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgYXRvbWljX2luYygmcGRldi0+cGh5c2ZuLT5zcmlvdi0+
-Cj4+ICsgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBWRnNfYXNzaWduZWRf
-Y250KTsKPj4gICB9Cj4+ICAgRVhQT1JUX1NZTUJPTF9HUEwocGNpX2lvdl9hc3NpZ25fZGV2aWNl
-KTsKPj4gICBAQCAtNjYwLDYgKzY0NSwxMSBAQCBFWFBPUlRfU1lNQk9MX0dQTChwY2lfaW92X2Fz
-c2lnbl9kZXZpY2UpOwo+PiAgIHZvaWQgcGNpX2lvdl9kZWFzc2lnbl9kZXZpY2Uoc3RydWN0IHBj
-aV9kZXYgKnBkZXYpCj4+ICAgewo+PiAgICAgICAgIHBkZXYtPmRldl9mbGFncyAmPSB+UENJX0RF
-Vl9GTEFHU19BU1NJR05FRDsKPj4gKyAgICAgICBpZiAocGRldi0+aXNfdmlydGZuICYmICFwZGV2
-LT5pc19waHlzZm4pCj4+ICsgICAgICAgICAgICAgICBpZiAocGRldi0+cGh5c2ZuKQo+PiArICAg
-ICAgICAgICAgICAgICAgICAgICBpZiAocGRldi0+cGh5c2ZuLT5zcmlvdikKPgo+Cj4gc2FtZS4u
-LgogICBzYW1lIGFzIGFib3ZlLgoKVGhhbmtzLApFdGhhbgo+Cj4KPj4gKyAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICBhdG9taWNfZGVjKCZwZGV2LT5waHlzZm4tPnNyaW92LT4KPj4gKyAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIFZGc19hc3NpZ25lZF9jbnQpOwo+
-PiAgIH0KPj4gICBFWFBPUlRfU1lNQk9MX0dQTChwY2lfaW92X2RlYXNzaWduX2RldmljZSk7Cj4+
-ICAgZGlmZiAtLWdpdCBhL2RyaXZlcnMvcGNpL3BjaS5oIGIvZHJpdmVycy9wY2kvcGNpLmgKPj4g
-aW5kZXggNmJkMDgyMi4uZDE3YmRhMiAxMDA2NDQKPj4gLS0tIGEvZHJpdmVycy9wY2kvcGNpLmgK
-Pj4gKysrIGIvZHJpdmVycy9wY2kvcGNpLmgKPj4gQEAgLTIzNSw2ICsyMzUsNyBAQCBzdHJ1Y3Qg
-cGNpX3NyaW92IHsKPj4gICAgICAgICB1MzIgcGdzejsgICAgICAgICAgICAgICAvKiBwYWdlIHNp
-emUgZm9yIEJBUiBhbGlnbm1lbnQgKi8KPj4gICAgICAgICB1OCBsaW5rOyAgICAgICAgICAgICAg
-ICAvKiBGdW5jdGlvbiBEZXBlbmRlbmN5IExpbmsgKi8KPj4gICAgICAgICB1MTYgZHJpdmVyX21h
-eF9WRnM7ICAgICAvKiBtYXggbnVtIFZGcyBkcml2ZXIgc3VwcG9ydHMgKi8KPj4gKyAgICAgICBh
-dG9taWNfdCBWRnNfYXNzaWduZWRfY250OyAvKiBjb3VudGVyIG9mIFZGcyBhc3NpZ25lZCB0byBW
-TSAqLwo+PiAgICAgICAgIHN0cnVjdCBwY2lfZGV2ICpkZXY7ICAgIC8qIGxvd2VzdCBudW1iZXJl
-ZCBQRiAqLwo+PiAgICAgICAgIHN0cnVjdCBwY2lfZGV2ICpzZWxmOyAgIC8qIHRoaXMgUEYgKi8K
-Pj4gICAgICAgICBzdHJ1Y3QgbXV0ZXggbG9jazsgICAgICAvKiBsb2NrIGZvciBWRiBidXMgKi8K
-Pgo+Cj4gLS0KPiBSZWdhcmRzLAo+IFZhcmthIEJoYWRyYW0uCj4KCi0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLQpPcGVuIHNvdXJjZSBidXNpbmVzcyBwcm9jZXNzIG1hbmFnZW1lbnQgc3VpdGUgYnVpbHQg
-b24gSmF2YSBhbmQgRWNsaXBzZQpUdXJuIHByb2Nlc3NlcyBpbnRvIGJ1c2luZXNzIGFwcGxpY2F0
-aW9ucyB3aXRoIEJvbml0YSBCUE0gQ29tbXVuaXR5IEVkaXRpb24KUXVpY2tseSBjb25uZWN0IHBl
-b3BsZSwgZGF0YSwgYW5kIHN5c3RlbXMgaW50byBvcmdhbml6ZWQgd29ya2Zsb3dzCldpbm5lciBv
-ZiBCT1NTSUUsIENPRElFLCBPVzIgYW5kIEdhcnRuZXIgYXdhcmRzCmh0dHA6Ly9wLnNmLm5ldC9z
-ZnUvQm9uaXRhc29mdApfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fXwpFMTAwMC1kZXZlbCBtYWlsaW5nIGxpc3QKRTEwMDAtZGV2ZWxAbGlzdHMuc291cmNlZm9y
-Z2UubmV0Cmh0dHBzOi8vbGlzdHMuc291cmNlZm9yZ2UubmV0L2xpc3RzL2xpc3RpbmZvL2UxMDAw
-LWRldmVsClRvIGxlYXJuIG1vcmUgYWJvdXQgSW50ZWwmIzE3NDsgRXRoZXJuZXQsIHZpc2l0IGh0
-dHA6Ly9jb21tdW5pdGllcy5pbnRlbC5jb20vY29tbXVuaXR5L3dpcmVkCg==
+This is a multi-part message in MIME format.
+--===============2649968982497602119==
+Content-Type: multipart/alternative;
+	boundary="------------050002060201000302080704"
+
+This is a multi-part message in MIME format.
+--------------050002060201000302080704
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 8bit
+
+On 07/11/2014 06:21 PM, Ethan Zhao wrote:
+> On Fri, Jul 11, 2014 at 8:42 PM, Varka Bhadram <varkabhadram@gmail.com> wrote:
+>> On 07/11/2014 06:00 PM, Ethan Zhao wrote:
+>>> Current implementation of helper function pci_vfs_assigned() is a
+>>> little complex, to get sum of VFs that assigned to VM, access low
+>>> level configuration space register and then loop in traversing
+>>> device tree.
+>>
+>> (...)
+>>
+>>
+>>> @@ -650,6 +630,11 @@ EXPORT_SYMBOL_GPL(pci_vfs_assigned);
+>>>    void pci_iov_assign_device(struct pci_dev *pdev)
+>>>    {
+>>>          pdev->dev_flags |= PCI_DEV_FLAGS_ASSIGNED;
+>>> +       if (pdev->is_virtfn && !pdev->is_physfn)
+>>> +               if (pdev->physfn)
+>>> +                       if (pdev->physfn->sriov)
+>>
+>> Why don't we make last two 'if' conditions into single 'if'
+>>
+>> if (pdev->physfn && pdev->physfn->sriov)
+> Yeah， this one looks better,  that style used to tell myself, I might
+> forget the which side of  && operator  first, if you sure left first,
+> I prefer that too :>
+
+|for &&  operator - evaluation is from Left to Right|
+
+-- 
+Regards,
+Varka Bhadram.
+
+
+--------------050002060201000302080704--
+
+
+--===============2649968982497602119==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+------------------------------------------------------------------------------
+Open source business process management suite built on Java and Eclipse
+Turn processes into business applications with Bonita BPM Community Edition
+Quickly connect people, data, and systems into organized workflows
+Winner of BOSSIE, CODIE, OW2 and Gartner awards
+http://p.sf.net/sfu/Bonitasoft
+--===============2649968982497602119==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+
+--===============2649968982497602119==--
