@@ -1,85 +1,60 @@
-From: Thomas Jarosch <thomas.jarosch@intra2net.com>
-Subject: Fwd: Re: GRO issue with kernel 3.4.94 (icmp fragmentation needed)
-Date: Fri, 11 Jul 2014 17:12:55 +0200
-Message-ID: <1836813.giEndUKvmp@storm>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [BISECTED][REGRESSION] Loading Hyper-V network drivers is racy
+ in 3.14+ on Hyper-V 2012 R2
+Date: Fri, 11 Jul 2014 15:25:11 +0000
+Message-ID: <52afbe119b1a481aa1c80f909c3a2432@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+References: <20140706201800.GA10587@sucs.org>
+ <941b0055b1a94c66b3a608ae67764d11@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+ <20140707181341.GA2646@sucs.org> <20140711055259.GA10317@sucs.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>
-To: Greg KH <greg@kroah.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rs04.intra2net.com ([85.214.66.2]:48864 "EHLO
-	rs04.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752728AbaGKPYN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jul 2014 11:24:13 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 8BIT
+Cc: KY Srinivasan <kys@microsoft.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Sitsofe Wheeler <sitsofe@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140711055259.GA10317@sucs.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Greg,
 
-I don't have the original patch email, but please include
-the mentioned commit
 
-------------------------------------------
-commit 21d1196a35f5686c4323e42a62fdb4b23b0ab4a3
-Author: Eric Dumazet <edumazet@google.com>
-ipv4: set transport header earlier
-------------------------------------------
+> -----Original Message-----
+> From: Sitsofe Wheeler [mailto:sitsofe@gmail.com]
+> Sent: Friday, July 11, 2014 1:53 AM
+> To: Haiyang Zhang
+> Cc: KY Srinivasan; David S. Miller; devel@linuxdriverproject.org; linux-
+> kernel@vger.kernel.org; netdev@vger.kernel.org
+> Subject: Re: [BISECTED][REGRESSION] Loading Hyper-V network drivers is
+> racy in 3.14+ on Hyper-V 2012 R2
 
-in the 3.4.x stable tree.
+> Oops that should have been
+> https://bugzilla.kernel.org/attachment.cgi?id=142351 (either way it's
+> information linked off
+> https://bugzilla.kernel.org/show_bug.cgi?id=78771 ).
 
-After updating from 3.4.91 to 3.4.96, TCP connections
-from Windows 7 clients slowed down to a crawl.
-(to be precise: totally unusable)
+Thanks for the dmesg. By looking at it, seems the netvsc driver was loaded properly, and 2 NICs are up, one NIC is down (probably not set to connected in HyperV manager?). Or, this dmesg wasn't the one when bug happens?
 
-The commit recommended by Florian Westphal fixes it immediately.
+[    8.514493] hv_netvsc: hv_netvsc channel opened successfully
+[    9.343318] hv_netvsc vmbus_0_14: Send section size: 6144, Section count:170
+[    9.345831] hv_netvsc vmbus_0_14: Device MAC 00:15:5d:6f:02:8f link state up
 
-Best regards,
-Thomas
+[    9.347101] hv_netvsc: hv_netvsc channel opened successfully
+[   10.170308] hv_netvsc vmbus_0_15: Send section size: 6144, Section count:170
+[   10.170702] hv_netvsc vmbus_0_15: Device MAC 00:15:5d:6f:02:a5 link state up
 
-----------  Forwarded Message  ----------
+[   10.172826] hv_netvsc: hv_netvsc channel opened successfully
+[   10.988146] hv_netvsc vmbus_0_16: Send section size: 6144, Section count:170
+[   10.989069] hv_netvsc vmbus_0_16: Device MAC 00:15:5d:6f:02:a6 link state down
 
-Subject: Re: GRO issue with kernel 3.4.94 (icmp fragmentation needed)
-Date: Friday, 27. June 2014, 11:05:25
-From: Florian Westphal <fw@strlen.de>
-To: jungwon park <jwpark2@whitecode.co.kr>
-CC: netdev@vger.kernel.org
+Since you found the commit b679ef73edc is related to this problem, could you do a simple test:
+  Reduce the receive buffer size back to 2MB, like below, then re-test it, see if the problem goes away?
+	drivers/net/hyperv/hyperv_net.h
+	#define NETVSC_RECEIVE_BUFFER_SIZE		(1024*1024*2)	/* 2MB */
 
-jungwon park <jwpark2@whitecode.co.kr> wrote:
-> When using the linux router is turned on GRO, router send the 
-'fragmentation
-> needed' packets to the sender.
-
-Indeed 8-(
-
-> When I turned off GRO, the router operate normally, and there is no 
-problem.
-> and with 3.4.91 kernel, the router has no problem.
-> 
-> I doubt 'ipv4: ip_forward: fix inverted local_df test' patch.
-> (http://patchwork.ozlabs.org/patch/345509/)
-> When I revert this patch, the router has no problem.
-
-Can you please cherry-pick following patch on top of vanilla 3.4.92?
-https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=21d1196a35f5686c4323e42a62fdb4b23b0ab4a3
-
-commit 21d1196a35f5686c4323e42a62fdb4b23b0ab4a3
-Author: Eric Dumazet <edumazet@google.com>
-ipv4: set transport header earlier
-
-I think that should fix this bug, it should apply cleanly on top of
-3.4.y tree.
-
-[ patch is in 3.11, also backported to 3.10.y tree ]
-
-The problem is that, when dealing with GRO packets, we try to determine
-the size of the individual packets.  To do this, we rely on the
-transport header.
-
-Unfortunately the transport header is not set for the forward path in 3.4,
-so we look at the network header instead.
---
-To unsubscribe from this list: send the line "unsubscribe netdev" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
------------------------------------------
+Thanks,
+- Haiyang
