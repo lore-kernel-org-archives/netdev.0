@@ -1,7 +1,7 @@
 From: Jiang Liu <jiang.liu@linux.intel.com>
-Subject: [RFC Patch V1 15/30] mm, igb: Use cpu_to_mem()/numa_mem_id() to support memoryless node
-Date: Fri, 11 Jul 2014 15:37:32 +0800
-Message-ID: <1405064267-11678-16-git-send-email-jiang.liu@linux.intel.com>
+Subject: [RFC Patch V1 16/30] mm, ixgbe: Use cpu_to_mem()/numa_mem_id() to support memoryless node
+Date: Fri, 11 Jul 2014 15:37:33 +0800
+Message-ID: <1405064267-11678-17-git-send-email-jiang.liu@linux.intel.com>
 References: <1405064267-11678-1-git-send-email-jiang.liu@linux.intel.com>
 Cc: Jiang Liu <jiang.liu@linux.intel.com>,
 	Tony Luck <tony.luck@intel.com>,
@@ -42,23 +42,14 @@ is the same as cpu_to_node()/numa_node_id().
 
 Signed-off-by: Jiang Liu <jiang.liu@linux.intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb_main.c |    4 ++--
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index f145adbb55ac..2b74bffa5648 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -6518,7 +6518,7 @@ static bool igb_can_reuse_rx_page(struct igb_rx_buffer *rx_buffer,
- 				  unsigned int truesize)
- {
- 	/* avoid re-using remote pages */
--	if (unlikely(page_to_nid(page) != numa_node_id()))
-+	if (unlikely(page_to_nid(page) != numa_mem_id()))
- 		return false;
- 
- #if (PAGE_SIZE < 8192)
-@@ -6588,7 +6588,7 @@ static bool igb_add_rx_frag(struct igb_ring *rx_ring,
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index f5aa3311ea28..46dc083573ea 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -1962,7 +1962,7 @@ static bool ixgbe_add_rx_frag(struct ixgbe_ring *rx_ring,
  		memcpy(__skb_put(skb, size), va, ALIGN(size, sizeof(long)));
  
  		/* we can reuse buffer as-is, just make sure it is local */
@@ -67,6 +58,15 @@ index f145adbb55ac..2b74bffa5648 100644
  			return true;
  
  		/* this page cannot be reused so discard it */
+@@ -1974,7 +1974,7 @@ static bool ixgbe_add_rx_frag(struct ixgbe_ring *rx_ring,
+ 			rx_buffer->page_offset, size, truesize);
+ 
+ 	/* avoid re-using remote pages */
+-	if (unlikely(page_to_nid(page) != numa_node_id()))
++	if (unlikely(page_to_nid(page) != numa_mem_id()))
+ 		return false;
+ 
+ #if (PAGE_SIZE < 8192)
 -- 
 1.7.10.4
 
