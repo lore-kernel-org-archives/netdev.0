@@ -1,103 +1,52 @@
-From: Varka Bhadram <varkabhadram@gmail.com>
-Subject: Re: [PATCH 2/2 V3] PCI: implement VFs assignment
-	reference counter
-Date: Fri, 11 Jul 2014 18:12:40 +0530
-Message-ID: <53BFDBC0.8000705@gmail.com>
-References: <1405081802-419-1-git-send-email-ethan.zhao@oracle.com>
-	<1405081802-419-2-git-send-email-ethan.zhao@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux.nics@intel.com, kvm@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net, linux-pci@vger.kernel.org,
-	vaughan.cao@oracle.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, ethan.kernel@gmail.com
-To: Ethan Zhao <ethan.zhao@oracle.com>, bhelgaas@google.com,
-	konrad.wilk@oracle.com, boris.ostrovsky@oracle.com,
-	david.vrabel@citrix.com, gleb@kernel.org, pbonzini@redhat.com,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	bruce.w.allan@intel.com, carolyn.wyborny@intel.com,
-	donald.c.skidmore@intel.com, gregory.v.rose@intel.com,
-	alexander.h.duyck@intel.com, john.ronciak@intel.com,
-	mitch.a.williams@intel.com, alex.williamson@redhat.com
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1405081802-419-2-git-send-email-ethan.zhao@oracle.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net 1/1] tipc: clear 'next'-pointer of message fragments before reassembly
+Date: Fri, 11 Jul 2014 08:45:27 -0400
+Message-ID: <1405082727-14546-1-git-send-email-jon.maloy@ericsson.com>
+Cc: netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net,
+	Jon Maloy <jon.maloy@ericsson.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp102.biz.mail.gq1.yahoo.com ([98.137.12.177]:22040 "EHLO
+	smtp102.biz.mail.gq1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752099AbaGKMpi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jul 2014 08:45:38 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/11/2014 06:00 PM, Ethan Zhao wrote:
-> Current implementation of helper function pci_vfs_assigned() is a
-> little complex, to get sum of VFs that assigned to VM, access low
-> level configuration space register and then loop in traversing
-> device tree.
+If the 'next' pointer of the last fragment buffer in a message is not
+zeroed before reassembly, we risk ending up with a corrupt message,
+since the reassembly function itself isn't doing this.
 
-(...)
+Currently, when a buffer is retrieved from the deferred queue of the
+broadcast link, the next pointer is not cleared, with the result as
+described above.
 
-> @@ -650,6 +630,11 @@ EXPORT_SYMBOL_GPL(pci_vfs_assigned);
->   void pci_iov_assign_device(struct pci_dev *pdev)
->   {
->   	pdev->dev_flags |= PCI_DEV_FLAGS_ASSIGNED;
-> +	if (pdev->is_virtfn && !pdev->is_physfn)
-> +		if (pdev->physfn)
-> +			if (pdev->physfn->sriov)
+This commit corrects this, and thereby fixes a bug that may occur when
+long broadcast messages are transmitted across dual interfaces. The bug
+has been present since 40ba3cdf542a469aaa9083fa041656e59b109b90 ("tipc:
+message reassembly using fragment chain")
 
-Why don't we make last two 'if' conditions into single 'if'
+This commit should be applied to both net and net-next.
 
-if (pdev->physfn && pdev->physfn->sriov)
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+---
+ net/tipc/bcast.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-> +				atomic_inc(&pdev->physfn->sriov->
-> +					VFs_assigned_cnt);
->   }
->   EXPORT_SYMBOL_GPL(pci_iov_assign_device);
->   
-> @@ -660,6 +645,11 @@ EXPORT_SYMBOL_GPL(pci_iov_assign_device);
->   void pci_iov_deassign_device(struct pci_dev *pdev)
->   {
->   	pdev->dev_flags &= ~PCI_DEV_FLAGS_ASSIGNED;
-> +	if (pdev->is_virtfn && !pdev->is_physfn)
-> +		if (pdev->physfn)
-> +			if (pdev->physfn->sriov)
-
-same...
-
-> +				atomic_dec(&pdev->physfn->sriov->
-> +					VFs_assigned_cnt);
->   }
->   EXPORT_SYMBOL_GPL(pci_iov_deassign_device);
->   
-> diff --git a/drivers/pci/pci.h b/drivers/pci/pci.h
-> index 6bd0822..d17bda2 100644
-> --- a/drivers/pci/pci.h
-> +++ b/drivers/pci/pci.h
-> @@ -235,6 +235,7 @@ struct pci_sriov {
->   	u32 pgsz;		/* page size for BAR alignment */
->   	u8 link;		/* Function Dependency Link */
->   	u16 driver_max_VFs;	/* max num VFs driver supports */
-> +	atomic_t VFs_assigned_cnt; /* counter of VFs assigned to VM */
->   	struct pci_dev *dev;	/* lowest numbered PF */
->   	struct pci_dev *self;	/* this PF */
->   	struct mutex lock;	/* lock for VF bus */
-
+diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
+index 2663167..55c6c9d 100644
+--- a/net/tipc/bcast.c
++++ b/net/tipc/bcast.c
+@@ -559,6 +559,7 @@ receive:
+ 
+ 		buf = node->bclink.deferred_head;
+ 		node->bclink.deferred_head = buf->next;
++		buf->next = NULL;
+ 		node->bclink.deferred_size--;
+ 		goto receive;
+ 	}
 -- 
-Regards,
-Varka Bhadram.
-
-
-------------------------------------------------------------------------------
-Open source business process management suite built on Java and Eclipse
-Turn processes into business applications with Bonita BPM Community Edition
-Quickly connect people, data, and systems into organized workflows
-Winner of BOSSIE, CODIE, OW2 and Gartner awards
-http://p.sf.net/sfu/Bonitasoft
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+1.7.9.5
