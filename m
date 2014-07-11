@@ -1,42 +1,28 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: Fw: [Bug 79891] New: Router causes TCP retransmits for windows
- hosts after "ip_forward: fix inverted local_df test"
-Date: Fri, 11 Jul 2014 11:38:33 -0700
-Message-ID: <CAHA+R7PDJ42Y1Wovtw=dzN-JqQjcamPtDPSmS_SyUK95JNp_aA@mail.gmail.com>
-References: <20140710064433.1fd17105@samsung-9>
-	<CAHA+R7N0ZgLfZNMrnHyRD+C=rGD86QXVkE0weLOLCM9npXMozg@mail.gmail.com>
-	<1405102310.26540.83.camel@deadeye.wl.decadent.org.uk>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next 1/2] 6lowpan: introduce new net/6lowpan
+ directory
+Date: Fri, 11 Jul 2014 11:54:04 -0700 (PDT)
+Message-ID: <20140711.115404.789639941964682816.davem@davemloft.net>
+References: <8A1EF84C-3EDC-4540-B8F4-1FCBF4BF8D93@holtmann.org>
+	<20140711113507.GA24370@omega>
+	<E54EDE3F-99A2-49C0-842B-D15E8B7826D2@holtmann.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	stable <stable@vger.kernel.org>
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1405102310.26540.83.camel@deadeye.wl.decadent.org.uk>
-Sender: stable-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org,
+	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <E54EDE3F-99A2-49C0-842B-D15E8B7826D2-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 11, 2014 at 11:11 AM, Ben Hutchings <ben@decadent.org.uk> wrote:
-> On Thu, 2014-07-10 at 10:11 -0700, Cong Wang wrote:
->> On Thu, Jul 10, 2014 at 6:44 AM, Stephen Hemminger
->> <stephen@networkplumber.org> wrote:
->> >
->> > After upgrading a router to Linux 3.2.60 most windows machines behind it
->> > started experiencing connection stalls. Downgrade to 3.2.59 resolved the
->> > problem. Using git bisect I pinpointed it to
->> > "59d9f389df3cdf72833d5ee17c3fe959b6bdc792 is the first bad commit", which
->> > entered the kernel from here
->> > http://marc.info/?l=linux-netdev&m=139949081418806&w=2
->> >
->>
->> This commit should have been reverted for older kernels like 3.2.y.
->
-> Really?  We already had fe6cc55f3a9 ("net: ip, ipv6: handle gso skbs in
-> forwarding path") backported in 3.2.57.
+From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Date: Fri, 11 Jul 2014 14:33:03 +0200
 
-I haven't read the code, but according to a previous discussion it sounds
-like that should be reverted:
+> If you want I can also take the net/6lowpan stuff through bluetooth-next tree.
 
-http://lists.openwall.net/netdev/2014/06/11/67
+Please take this stuff via the bluetooth/wireless trees to avoid the
+conflicts, thanks.
