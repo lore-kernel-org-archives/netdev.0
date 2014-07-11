@@ -1,51 +1,28 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [PATCH 1/2 V2] PCI: introduce device assignment interface and
- refactory related code
-Date: Fri, 11 Jul 2014 10:41:18 +0100
-Message-ID: <53BFB13E.1060505@citrix.com>
-References: <1405057961-7234-1-git-send-email-ethan.zhao@oracle.com>
+From: "Dave and Angela Dawes" <d.mrdave@hotmail.com>
+Subject: Good Day
+Date: Fri, 11 Jul 2014 14:38:21 +0530 (IST)
+Message-ID: <58785.172.16.0.100.1405069701.squirrel__19221.6366566301$1405071920$gmane$org@mail.allahabadhighcourt.in>
+Reply-To: d.mrdave11@hotmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <linux-pci@vger.kernel.org>, <kvm@vger.kernel.org>,
-	<linux.nics@intel.com>, <e1000-devel@lists.sourceforge.net>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<ethan.kernel@gmail.com>, <vaughan.cao@oracle.com>
-To: Ethan Zhao <ethan.zhao@oracle.com>, <bhelgaas@google.com>,
-	<konrad.wilk@oracle.com>, <boris.ostrovsky@oracle.com>,
-	<gleb@kernel.org>, <pbonzini@redhat.com>,
-	<jeffrey.t.kirsher@intel.com>, <jesse.brandeburg@intel.com>,
-	<bruce.w.allan@intel.com>, <carolyn.wyborny@intel.com>,
-	<donald.c.skidmore@intel.com>, <gregory.v.rose@intel.com>,
-	<alexander.h.duyck@intel.com>, <john.ronciak@intel.com>,
-	<mitch.a.williams@intel.com>, <alex.williamson@redhat.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <1405057961-7234-1-git-send-email-ethan.zhao@oracle.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 221-134-71-212.sify.net ([221.134.71.212]:47775 "EHLO
+	mail.allahabadhighcourt.in" rhost-flags-OK-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1751933AbaGKJpJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jul 2014 05:45:09 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/07/14 06:52, Ethan Zhao wrote:
-> 
-> --- a/drivers/xen/xen-pciback/pci_stub.c
-> +++ b/drivers/xen/xen-pciback/pci_stub.c
-> @@ -133,7 +133,7 @@ static void pcistub_device_release(struct kref *kref)
->  	xen_pcibk_config_free_dyn_fields(dev);
->  	xen_pcibk_config_free_dev(dev);
->  
-> -	dev->dev_flags &= ~PCI_DEV_FLAGS_ASSIGNED;
-> +	pci_sriov_deassign_device(dev);
->  	pci_dev_put(dev);
->  
->  	kfree(psdev);
-> @@ -404,7 +404,7 @@ static int pcistub_init_device(struct pci_dev *dev)
->  	dev_dbg(&dev->dev, "reset device\n");
->  	xen_pcibk_reset_device(dev);
->  
-> -	dev->dev_flags |= PCI_DEV_FLAGS_ASSIGNED;
-> +	pci_sriov_assign_device(dev);
->  	return 0;
 
-Xen's PCI passthrough works with all PCI devices not just SR-IOV ones,
-so the naming of the helpers isn't correct.
 
-David
+
+-- 
+Good Day
+
+This is a personal email directed to you.I am Dave Dawes,my fiance and I
+have a wish  for you. Kindly get back to us
+
+Regards,
+Dave and Angela Dawes
