@@ -1,44 +1,47 @@
-From: Sonic Zhang <sonic.adi@gmail.com>
-Subject: Re: [PATCH] bfin_mac: convert bfin Ethernet driver to NAPI framework
-Date: Fri, 11 Jul 2014 12:57:10 +0800
-Message-ID: <CAJxxZ0Ow8E3KYbAS-RNKmxJ+2uanFod1ZmvtVYcAUTmE0ep4gg@mail.gmail.com>
-References: <1404985944-30463-1-git-send-email-sonic.adi@gmail.com>
-	<20140710.165342.434372844542249917.davem@davemloft.net>
+From: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
+Subject: Re: [PATCH 1/2] net: davinci_mdio: reuse for keystone2 arch
+Date: Fri, 11 Jul 2014 10:33:51 +0530
+Message-ID: <53BF7037.3000800@ti.com>
+References: <1404911451-9921-1-git-send-email-grygorii.strashko@ti.com>
+	<1404911451-9921-2-git-send-email-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	adi-buildroot-devel@lists.sourceforge.net,
-	"Zhang, Sonic" <sonic.zhang@analog.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f177.google.com ([209.85.214.177]:53104 "EHLO
-	mail-ob0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750775AbaGKE5L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jul 2014 00:57:11 -0400
-Received: by mail-ob0-f177.google.com with SMTP id wp18so605649obc.22
-        for <netdev@vger.kernel.org>; Thu, 10 Jul 2014 21:57:11 -0700 (PDT)
-In-Reply-To: <20140710.165342.434372844542249917.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>,
+        <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>,
+        "David S. Miller"
+	<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+        Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <santosh.shilimkar-l0cyMroinI0@public.gmane.org>,
+        <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+In-Reply-To: <1404911451-9921-2-git-send-email-grygorii.strashko-l0cyMroinI0@public.gmane.org>
+List-Unsubscribe: <http://linux.davincidsp.com/mailman/options/davinci-linux-open-source>,
+	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://linux.davincidsp.com/pipermail/davinci-linux-open-source>
+List-Post: <mailto:davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+List-Help: <mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=help>
+List-Subscribe: <http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source>,
+	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=subscribe>
+Sender: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+Errors-To: davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi David,
-
-On Fri, Jul 11, 2014 at 7:53 AM, David Miller <davem@davemloft.net> wrote:
-> From: Sonic Zhang <sonic.adi@gmail.com>
-> Date: Thu, 10 Jul 2014 17:52:24 +0800
+On Wednesday 09 July 2014 06:40 PM, Grygorii Strashko wrote:
+> The similar MDIO HW blocks is used by keystone 2 SoCs as
+> in Davinci SoCs:
+> - one in Gigabit Ethernet (GbE) Switch Subsystem
+>   See http://www.ti.com/lit/ug/sprugv9d/sprugv9d.pdf
+> - one in 10 Gigabit Ethernet Subsystem
+>   See http://www.ti.com/lit/ug/spruhj5/spruhj5.pdf
 >
->> +     if (i < budget && !test_bit(NAPI_STATE_NPSVC, &napi->state)) {
->> +             napi_complete(napi);
->> +             enable_irq(IRQ_MAC_RX);
->> +     }
+> Hence, reuse Davinci MDIO driver for Keystone 2 and
+> enable TI networking for Keystone 2 devices
 >
-> Drivers are not supposed to test this bit directly.
->
-> If you have not exhausted the budget, and the chip has no more work to
-> do, you should unconditionally exit the NAPI poll.
+> Signed-off-by: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
 
-OK. I will send a new patch.
+Acked-by: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
 
-Regards,
-
-Sonic
+Regards
+Mugunthan V N
