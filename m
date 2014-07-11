@@ -1,68 +1,62 @@
-From: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
-Subject: RE: [PATCH 2/2] hso: fix deadlock when receiving bursts of data
-Date: Fri, 11 Jul 2014 09:28:47 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1727090C@AcuExch.aculab.com>
-References: <1404723967-24245-1-git-send-email-olivier@sobrie.be>
- <1404723967-24245-2-git-send-email-olivier@sobrie.be>
- <20140708.161633.2130069042930765600.davem@davemloft.net>
- <20140710142848.GA28056@hposo>
- <063D6719AE5E284EB5DD2968C1650D6D17270044@AcuExch.aculab.com>
- <20140710165003.0309924e@alan.etchedpixels.co.uk>
- <20140711091803.GA19663@hposo>
+From: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
+Subject: Re: [PATCH 1/2] net: davinci_mdio: reuse for keystone2 arch
+Date: Fri, 11 Jul 2014 13:24:52 +0300
+Message-ID: <53BFBB74.80104@ti.com>
+References: <1404911451-9921-2-git-send-email-grygorii.strashko@ti.com>	<20140709.165232.539576872991411664.davem@davemloft.net>	<53BE8DF7.9090303@ti.com>
+	<20140710.123900.1696373067218564684.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org" <j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>,
-	"linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: 'Olivier Sobrie' <olivier-Ui3EtX6WB9GzQB+pC5nmwQ@public.gmane.org>,
-	One Thousand Gnomes <gnomes-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140711091803.GA19663@hposo>
-Content-Language: en-US
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="us-ascii"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>, <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+        <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+        <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <santosh.shilimkar-l0cyMroinI0@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+In-Reply-To: <20140710.123900.1696373067218564684.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <http://linux.davincidsp.com/mailman/options/davinci-linux-open-source>,
+	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://linux.davincidsp.com/pipermail/davinci-linux-open-source>
+List-Post: <mailto:davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+List-Help: <mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=help>
+List-Subscribe: <http://linux.davincidsp.com/mailman/listinfo/davinci-linux-open-source>,
+	<mailto:davinci-linux-open-source-request-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org?subject=subscribe>
+Sender: <davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>
+Errors-To: davinci-linux-open-source-bounces-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Olivier Sobrie Olivier Sobrie
-> Hi Alan and Davids,
-> 
-> On Thu, Jul 10, 2014 at 04:50:03PM +0100, One Thousand Gnomes wrote:
-> > On Thu, 10 Jul 2014 14:37:37 +0000
-> > David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org> wrote:
-> >
-> > > From: Olivier Sobrie
-> > > ...
-> > > > The function put_rxbuf_data() is called from the urb completion handler.
-> > > > It puts the data of the urb transfer in the tty buffer with
-> > > > tty_insert_flip_string_flags() and schedules a work queue in order to
-> > > > push the data to the ldisc.
-> > > > Problem is that we are in a urb completion handler so we can't wait
-> > > > until there is room in the tty buffer.
-> >
-> > The tty provides the input queue, if the queue is full then just chuck
-> > the data in the bitbucket.  hso is trying to be far too clever.
-> >
-> > If hso is fast enough that the buffering isn't sufficient on the tty side
-> > then we need to fix the tty buffer size.
-> 
-> Ok I'll adapt the patch to drop the data that can't be put in the tty
-> buffer. I test this and resend a new patch.
+On 07/10/2014 10:39 PM, David Miller wrote:
+> From: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
+> Date: Thu, 10 Jul 2014 15:58:31 +0300
+>
+>> Hi David,
+>>
+>> On 07/10/2014 02:52 AM, David Miller wrote:
+>>> From: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
+>>> Date: Wed, 9 Jul 2014 16:10:50 +0300
+>>>
+>>>>    Required properties:
+>>>> -- compatible		: Should be "ti,davinci_mdio"
+>>>> +- compatible		: Should be "ti,davinci_mdio" or "ti,keystone-mdio"
+>>>
+>>> Why the inconsistency in naming schemes?  I don't see any reason
+>>> to be different wrt. "_" vs. "-" in the name string.
+>>>
+>>
+>> Hm. Looks like the common way is to use "-", but I can rename it if you insist.
+>
+> I'm just saying, is there a strong reason to be inconsistent?
+>
 
-If you are going to drop data, then ideally you want to discard entire ppp
-packets. Depending on exactly how the interface works it might be that
-urb are likely to contain complete packets.
+I've followed the same format as for all latest compatibility strings in 
+Kernel. Also I've checked ePAPR and dash is used for all examples there.
 
-So discarding entire urb might work better than discarding a few bytes.
-(But don't even think of scanning the data stream in the usb driver - except
-for experiments.)
+"ti,davinci_mdio" was added 2 years ago, so possibly no strict 
+convention or review were done then. Now, I can't change 
+"ti,davinci_mdio" -> "ti,davinci-mdio" to be consistent with Kernel due 
+to compatibility issues.
 
-	David
+May be DT Gurus can say more?
 
 
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Regards,
+-grygorii
