@@ -1,166 +1,74 @@
-From: Ethan Zhao <ethan.zhao@oracle.com>
-Subject: [PATCH 2/2 V3] PCI: implement VFs assignment
-	reference counter
-Date: Fri, 11 Jul 2014 20:30:02 +0800
-Message-ID: <1405081802-419-2-git-send-email-ethan.zhao@oracle.com>
-References: <1405081802-419-1-git-send-email-ethan.zhao@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Ethan Zhao <ethan.zhao@oracle.com>, linux.nics@intel.com,
-	kvm@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	linux-pci@vger.kernel.org, vaughan.cao@oracle.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	ethan.kernel@gmail.com
-To: bhelgaas@google.com, konrad.wilk@oracle.com, boris.ostrovsky@oracle.com,
-	david.vrabel@citrix.com, gleb@kernel.org, pbonzini@redhat.com,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	bruce.w.allan@intel.com, carolyn.wyborny@intel.com,
-	donald.c.skidmore@intel.com, gregory.v.rose@intel.com,
-	alexander.h.duyck@intel.com, john.ronciak@intel.com,
-	mitch.a.williams@intel.com, alex.williamson@redhat.com
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1405081802-419-1-git-send-email-ethan.zhao@oracle.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH net-next 1/2] 6lowpan: introduce new net/6lowpan directory
+Date: Fri, 11 Jul 2014 14:33:03 +0200
+Message-ID: <E54EDE3F-99A2-49C0-842B-D15E8B7826D2@holtmann.org>
+References: <1405067059-18782-1-git-send-email-alex.aring@gmail.com> <1405067059-18782-2-git-send-email-alex.aring@gmail.com> <8A1EF84C-3EDC-4540-B8F4-1FCBF4BF8D93@holtmann.org> <20140711113507.GA24370@omega>
+Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Jukka Rissanen <jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140711113507.GA24370@omega>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Current implementation of helper function pci_vfs_assigned() is a
-little complex, to get sum of VFs that assigned to VM, access low
-level configuration space register and then loop in traversing
-device tree.
+Hi Alexander,
 
-This patch introduces an atomic reference counter for VFs those
-were assigned to VM in struct pci_sriov. and simplify the code in
-pci_vfs_assigned().
+>>> index cbbbe6d..7ed1970 100644
+>>> --- a/net/Makefile
+>>> +++ b/net/Makefile
+>>> @@ -57,7 +57,8 @@ obj-$(CONFIG_CAIF)		+= caif/
+>>> ifneq ($(CONFIG_DCB),)
+>>> obj-y				+= dcb/
+>>> endif
+>>> -obj-y				+= ieee802154/
+>>> +obj-$(CONFIG_6LOWPAN)		+= 6lowpan/
+>>> +obj-$(CONFIG_IEEE802154)	+= ieee802154/
+>>> obj-$(CONFIG_MAC802154)		+= mac802154/
+>>> 
+>>> ifeq ($(CONFIG_NET),y)
+>>> diff --git a/net/bluetooth/Kconfig b/net/bluetooth/Kconfig
+>>> index 06ec144..a54777d 100644
+>>> --- a/net/bluetooth/Kconfig
+>>> +++ b/net/bluetooth/Kconfig
+>>> @@ -6,7 +6,6 @@ menuconfig BT
+>>> 	tristate "Bluetooth subsystem support"
+>>> 	depends on NET && !S390
+>>> 	depends on RFKILL || !RFKILL
+>>> -	select 6LOWPAN_IPHC if BT_6LOWPAN
+>>> 	select CRC16
+>>> 	select CRYPTO
+>>> 	select CRYPTO_BLKCIPHER
+>>> @@ -42,7 +41,7 @@ menuconfig BT
+>>> 
+>>> config BT_6LOWPAN
+>>> 	bool "Bluetooth 6LoWPAN support"
+>>> -	depends on BT && IPV6
+>>> +	depends on BT && 6LOWPAN
+>>> 	help
+>>> 	  IPv6 compression over Bluetooth.
+>> 
+>> this will conflict with our changes in wireless-next tree. We converted out 6LoWPAN support into a separate module.
+>> 
+> 
+> oops, sorry I didn't check on this. I simple based it on net-next,
+> because the patch series adds a new branch.
+> 
+> 
+> 
+> btw. we need to talk about who branch will commit changes to iphc code
+> to avoid conflicts.
 
-v3: change the naming of device assignment helpers, because they work
-for all kind of PCI device, not only SR-IOV (david.vrabel@citrix.com)
+a few years back we decided to merge bluetooth-next via John's wireless-next tree so that any interaction with 802.11 and Bluetooth can be sorted out in John's tree. We are now also merging NFC into the wireless-next tree.
 
-v2: reorder the patchset according to the suggestion from
-alex.williamson@redhat.com
+So it might be a good idea to include the 6LoWPAN parts into the wireless-next tree as well. If there are conflicts with 802.15.4, maybe that should also go through his trees.
 
-Signed-off-by: Ethan Zhao <ethan.zhao@oracle.com>
----
- drivers/pci/iov.c |   42 ++++++++++++++++--------------------------
- drivers/pci/pci.h |    1 +
- 2 files changed, 17 insertions(+), 26 deletions(-)
+If you want I can also take the net/6lowpan stuff through bluetooth-next tree.
 
-diff --git a/drivers/pci/iov.c b/drivers/pci/iov.c
-index 090f827..10efe43 100644
---- a/drivers/pci/iov.c
-+++ b/drivers/pci/iov.c
-@@ -382,6 +382,7 @@ found:
- 	iov->nres = nres;
- 	iov->ctrl = ctrl;
- 	iov->total_VFs = total;
-+	atomic_set(&iov->VFs_assigned_cnt, 0);
- 	iov->offset = offset;
- 	iov->stride = stride;
- 	iov->pgsz = pgsz;
-@@ -603,43 +604,22 @@ int pci_num_vf(struct pci_dev *dev)
- EXPORT_SYMBOL_GPL(pci_num_vf);
- 
- /**
-- * pci_vfs_assigned - returns number of VFs are assigned to a guest
-- * @dev: the PCI device
-+ * pci_vfs_assigned - returns number of VFs are assigned to VM
-+ * @dev: the physical PCI device that contains the VFs.
-  *
-  * Returns number of VFs belonging to this device that are assigned to a guest.
-  * If device is not a physical function returns 0.
-  */
- int pci_vfs_assigned(struct pci_dev *dev)
- {
--	struct pci_dev *vfdev;
--	unsigned int vfs_assigned = 0;
--	unsigned short dev_id;
- 
- 	/* only search if we are a PF */
- 	if (!dev->is_physfn)
- 		return 0;
- 
--	/*
--	 * determine the device ID for the VFs, the vendor ID will be the
--	 * same as the PF so there is no need to check for that one
--	 */
--	pci_read_config_word(dev, dev->sriov->pos + PCI_SRIOV_VF_DID, &dev_id);
--
--	/* loop through all the VFs to see if we own any that are assigned */
--	vfdev = pci_get_device(dev->vendor, dev_id, NULL);
--	while (vfdev) {
--		/*
--		 * It is considered assigned if it is a virtual function with
--		 * our dev as the physical function and the assigned bit is set
--		 */
--		if (vfdev->is_virtfn && (vfdev->physfn == dev) &&
--		    (vfdev->dev_flags & PCI_DEV_FLAGS_ASSIGNED))
--			vfs_assigned++;
--
--		vfdev = pci_get_device(dev->vendor, dev_id, vfdev);
--	}
--
--	return vfs_assigned;
-+	if (dev->sriov)
-+		return atomic_read(&dev->sriov->VFs_assigned_cnt);
-+	return 0;
- }
- EXPORT_SYMBOL_GPL(pci_vfs_assigned);
- 
-@@ -650,6 +630,11 @@ EXPORT_SYMBOL_GPL(pci_vfs_assigned);
- void pci_iov_assign_device(struct pci_dev *pdev)
- {
- 	pdev->dev_flags |= PCI_DEV_FLAGS_ASSIGNED;
-+	if (pdev->is_virtfn && !pdev->is_physfn)
-+		if (pdev->physfn)
-+			if (pdev->physfn->sriov)
-+				atomic_inc(&pdev->physfn->sriov->
-+					VFs_assigned_cnt);
- }
- EXPORT_SYMBOL_GPL(pci_iov_assign_device);
- 
-@@ -660,6 +645,11 @@ EXPORT_SYMBOL_GPL(pci_iov_assign_device);
- void pci_iov_deassign_device(struct pci_dev *pdev)
- {
- 	pdev->dev_flags &= ~PCI_DEV_FLAGS_ASSIGNED;
-+	if (pdev->is_virtfn && !pdev->is_physfn)
-+		if (pdev->physfn)
-+			if (pdev->physfn->sriov)
-+				atomic_dec(&pdev->physfn->sriov->
-+					VFs_assigned_cnt);
- }
- EXPORT_SYMBOL_GPL(pci_iov_deassign_device);
- 
-diff --git a/drivers/pci/pci.h b/drivers/pci/pci.h
-index 6bd0822..d17bda2 100644
---- a/drivers/pci/pci.h
-+++ b/drivers/pci/pci.h
-@@ -235,6 +235,7 @@ struct pci_sriov {
- 	u32 pgsz;		/* page size for BAR alignment */
- 	u8 link;		/* Function Dependency Link */
- 	u16 driver_max_VFs;	/* max num VFs driver supports */
-+	atomic_t VFs_assigned_cnt; /* counter of VFs assigned to VM */
- 	struct pci_dev *dev;	/* lowest numbered PF */
- 	struct pci_dev *self;	/* this PF */
- 	struct mutex lock;	/* lock for VF bus */
--- 
-1.7.1
+Regards
 
-
-------------------------------------------------------------------------------
-Open source business process management suite built on Java and Eclipse
-Turn processes into business applications with Bonita BPM Community Edition
-Quickly connect people, data, and systems into organized workflows
-Winner of BOSSIE, CODIE, OW2 and Gartner awards
-http://p.sf.net/sfu/Bonitasoft
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Marcel
