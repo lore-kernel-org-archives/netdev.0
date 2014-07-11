@@ -1,430 +1,214 @@
-From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH 4/4] cxgb4/iw_cxgb4: work request logging feature
-Date: Fri, 11 Jul 2014 20:44:22 +0530
-Message-ID: <1405091662-5270-5-git-send-email-hariprasad@chelsio.com>
-References: <1405091662-5270-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org,
-	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1405091662-5270-1-git-send-email-hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Ethan Zhao <ethan.kernel@gmail.com>
+Subject: Re: [PATCH 1/2 V3] PCI: introduce device assignment
+	interface and refactory related code
+Date: Fri, 11 Jul 2014 23:19:31 +0800
+Message-ID: <F2B2A07D-B9A9-4CE0-9679-50D7768ACDE6@gmail.com>
+References: <1405081802-419-1-git-send-email-ethan.zhao@oracle.com>
+	<1405084407.4098.59.camel@ul30vt.home>
+	<1405088147.4098.64.camel@ul30vt.home>
+	<1F7DCDA9-37C9-4001-B383-6CCAFDFB67D1@gmail.com>
+	<1405090481.4098.83.camel@ul30vt.home>
+Mime-Version: 1.0 (1.0)
+Content-Type: text/plain; charset="gb2312"
+Content-Transfer-Encoding: base64
+Cc: "kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"vaughan.cao@oracle.com" <vaughan.cao@oracle.com>,
+	"jesse.brandeburg@intel.com" <jesse.brandeburg@intel.com>,
+	Ethan Zhao <ethan.zhao@oracle.com>,
+	"linux.nics@intel.com" <linux.nics@intel.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
+	"gleb@kernel.org" <gleb@kernel.org>,
+	"bhelgaas@google.com" <bhelgaas@google.com>,
+	"boris.ostrovsky@oracle.com" <boris.ostrovsky@oracle.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bruce.w.allan@intel.com" <bruce.w.allan@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"john.ronciak@intel.com" <john.ronciak@intel.com>,
+	"david.vrabel@citrix.com" <david.vrabel@citrix.com>,
+	"pbonzini@redhat.com" <pbonzini@redhat.com>
+To: Alex Williamson <alex.williamson@redhat.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1405090481.4098.83.camel@ul30vt.home>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-This commit enhances the iwarp driver to optionally keep a log of rdma
-work request timining data for kernel mode QPs.  If iw_cxgb4 module option
-c4iw_wr_log is set to non-zero, each work request is tracked and timing
-data maintained in a rolling log that is 4096 entries deep by default.
-Module option c4iw_wr_log_size_order allows specifing a log2 size to use
-instead of the default order of 12 (4096 entries). Both module options
-are read-only and must be passed in at module load time to set them. IE:
-
-modprobe iw_cxgb4 c4iw_wr_log=1 c4iw_wr_log_size_order=10
-
-The timing data is viewable via the iw_cxgb4 debugfs file "wr_log".
-Writing anything to this file will clear all the timing data.
-Data tracked includes:
-
-- The host time when the work request was posted, just before ringing
-the doorbell.  The host time when the completion was polled by the
-application.  This is also the time the log entry is created.  The delta
-of these two times is the amount of time took processing the work request.
-
-- The qid of the EQ used to post the work request.
-
-- The work request opcode.
-
-- The cqe wr_id field.  For sq completions requests this is the swsqe
-index.  For recv completions this is the MSN of the ingress SEND.
-This value can be used to match log entries from this log with firmware
-flowc event entries.
-
-- The sge timestamp value just before ringing the doorbell when
-posting,  the sge timestamp value just after polling the completion,
-and CQE.timestamp field from the completion itself.  With these three
-timestamps we can track the latency from post to poll, and the amount
-of time the completion resided in the CQ before being reaped by the
-application.  With debug firmware, the sge timestamp is also logged by
-firmware in its flowc history so that we can compute the latency from
-posting the work request until the firmware sees it.
-
-Signed-off-by: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
-Signed-off-by: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
----
- drivers/infiniband/hw/cxgb4/cq.c                |    4 +
- drivers/infiniband/hw/cxgb4/device.c            |  137 +++++++++++++++++++++++
- drivers/infiniband/hw/cxgb4/iw_cxgb4.h          |   17 +++
- drivers/infiniband/hw/cxgb4/qp.c                |   12 ++
- drivers/infiniband/hw/cxgb4/t4.h                |    4 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   14 +++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |    2 +
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |    6 +
- 8 files changed, 196 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/infiniband/hw/cxgb4/cq.c b/drivers/infiniband/hw/cxgb4/cq.c
-index f04a838..de9bcf2 100644
---- a/drivers/infiniband/hw/cxgb4/cq.c
-+++ b/drivers/infiniband/hw/cxgb4/cq.c
-@@ -633,11 +633,15 @@ proc_cqe:
- 		wq->sq.cidx = (uint16_t)idx;
- 		PDBG("%s completing sq idx %u\n", __func__, wq->sq.cidx);
- 		*cookie = wq->sq.sw_sq[wq->sq.cidx].wr_id;
-+		if (c4iw_wr_log)
-+			c4iw_log_wr_stats(wq, hw_cqe);
- 		t4_sq_consume(wq);
- 	} else {
- 		PDBG("%s completing rq idx %u\n", __func__, wq->rq.cidx);
- 		*cookie = wq->rq.sw_rq[wq->rq.cidx].wr_id;
- 		BUG_ON(t4_rq_empty(wq));
-+		if (c4iw_wr_log)
-+			c4iw_log_wr_stats(wq, hw_cqe);
- 		t4_rq_consume(wq);
- 		goto skip_cqe;
- 	}
-diff --git a/drivers/infiniband/hw/cxgb4/device.c b/drivers/infiniband/hw/cxgb4/device.c
-index e8b79a3..f070b08 100644
---- a/drivers/infiniband/hw/cxgb4/device.c
-+++ b/drivers/infiniband/hw/cxgb4/device.c
-@@ -55,6 +55,15 @@ module_param(allow_db_coalescing_on_t5, int, 0644);
- MODULE_PARM_DESC(allow_db_coalescing_on_t5,
- 		 "Allow DB Coalescing on T5 (default = 0)");
- 
-+int c4iw_wr_log = 0;
-+module_param(c4iw_wr_log, int, 0444);
-+MODULE_PARM_DESC(c4iw_wr_log, "Enables logging of work request timing data.");
-+
-+int c4iw_wr_log_size_order = 12;
-+module_param(c4iw_wr_log_size_order, int, 0444);
-+MODULE_PARM_DESC(c4iw_wr_log_size_order,
-+		 "Number of entries (log2) in the work request timing log.");
-+
- struct uld_ctx {
- 	struct list_head entry;
- 	struct cxgb4_lld_info lldi;
-@@ -103,6 +112,117 @@ static ssize_t debugfs_read(struct file *file, char __user *buf, size_t count,
- 	return simple_read_from_buffer(buf, count, ppos, d->buf, d->pos);
- }
- 
-+void c4iw_log_wr_stats(struct t4_wq *wq, struct t4_cqe *cqe)
-+{
-+	struct wr_log_entry le;
-+	int idx;
-+
-+	if (!wq->rdev->wr_log)
-+		return;
-+
-+	idx = (atomic_inc_return(&wq->rdev->wr_log_idx) - 1) &
-+		(wq->rdev->wr_log_size - 1);
-+	le.poll_sge_ts = cxgb4_read_sge_timestamp(wq->rdev->lldi.ports[0]);
-+	getnstimeofday(&le.poll_host_ts);
-+	le.valid = 1;
-+	le.cqe_sge_ts = CQE_TS(cqe);
-+	if (SQ_TYPE(cqe)) {
-+		le.qid = wq->sq.qid;
-+		le.opcode = CQE_OPCODE(cqe);
-+		le.post_host_ts = wq->sq.sw_sq[wq->sq.cidx].host_ts;
-+		le.post_sge_ts = wq->sq.sw_sq[wq->sq.cidx].sge_ts;
-+		le.wr_id = CQE_WRID_SQ_IDX(cqe);
-+	} else {
-+		le.qid = wq->rq.qid;
-+		le.opcode = FW_RI_RECEIVE;
-+		le.post_host_ts = wq->rq.sw_rq[wq->rq.cidx].host_ts;
-+		le.post_sge_ts = wq->rq.sw_rq[wq->rq.cidx].sge_ts;
-+		le.wr_id = CQE_WRID_MSN(cqe);
-+	}
-+	wq->rdev->wr_log[idx] = le;
-+}
-+
-+static int wr_log_show(struct seq_file *seq, void *v)
-+{
-+	struct c4iw_dev *dev = seq->private;
-+	struct timespec prev_ts = {0, 0};
-+	struct wr_log_entry *lep;
-+	int prev_ts_set = 0;
-+	int idx, end;
-+
-+#define ts2ns(ts) ((ts) * dev->rdev.lldi.cclk_ps / 1000)
-+
-+	idx = atomic_read(&dev->rdev.wr_log_idx) &
-+		(dev->rdev.wr_log_size - 1);
-+	end = idx - 1;
-+	if (end < 0)
-+		end = dev->rdev.wr_log_size - 1;
-+	lep = &dev->rdev.wr_log[idx];
-+	while (idx != end) {
-+		if (lep->valid) {
-+			if (!prev_ts_set) {
-+				prev_ts_set = 1;
-+				prev_ts = lep->poll_host_ts;
-+			}
-+			seq_printf(seq, "%04u: sec %lu nsec %lu qid %u opcode "
-+				   "%u %s 0x%x host_wr_delta sec %lu nsec %lu "
-+				   "post_sge_ts 0x%llx cqe_sge_ts 0x%llx "
-+				   "poll_sge_ts 0x%llx post_poll_delta_ns %llu "
-+				   "cqe_poll_delta_ns %llu\n",
-+				   idx,
-+				   timespec_sub(lep->poll_host_ts,
-+						prev_ts).tv_sec,
-+				   timespec_sub(lep->poll_host_ts,
-+						prev_ts).tv_nsec,
-+				   lep->qid, lep->opcode,
-+				   lep->opcode == FW_RI_RECEIVE ?
-+							"msn" : "wrid",
-+				   lep->wr_id,
-+				   timespec_sub(lep->poll_host_ts,
-+						lep->post_host_ts).tv_sec,
-+				   timespec_sub(lep->poll_host_ts,
-+						lep->post_host_ts).tv_nsec,
-+				   lep->post_sge_ts, lep->cqe_sge_ts,
-+				   lep->poll_sge_ts,
-+				   ts2ns(lep->poll_sge_ts - lep->post_sge_ts),
-+				   ts2ns(lep->poll_sge_ts - lep->cqe_sge_ts));
-+			prev_ts = lep->poll_host_ts;
-+		}
-+		idx++;
-+		if (idx > (dev->rdev.wr_log_size - 1))
-+			idx = 0;
-+		lep = &dev->rdev.wr_log[idx];
-+	}
-+#undef ts2ns
-+	return 0;
-+}
-+
-+static int wr_log_open(struct inode *inode, struct file *file)
-+{
-+	return single_open(file, wr_log_show, inode->i_private);
-+}
-+
-+static ssize_t wr_log_clear(struct file *file, const char __user *buf,
-+			    size_t count, loff_t *pos)
-+{
-+	struct c4iw_dev *dev = ((struct seq_file *)file->private_data)->private;
-+	int i;
-+
-+	if (dev->rdev.wr_log)
-+		for (i = 0; i < dev->rdev.wr_log_size; i++)
-+			dev->rdev.wr_log[i].valid = 0;
-+	return count;
-+}
-+
-+static const struct file_operations wr_log_debugfs_fops = {
-+	.owner   = THIS_MODULE,
-+	.open    = wr_log_open,
-+	.release = single_release,
-+	.read    = seq_read,
-+	.llseek  = seq_lseek,
-+	.write   = wr_log_clear,
-+};
-+
- static int dump_qp(int id, void *p, void *data)
- {
- 	struct c4iw_qp *qp = p;
-@@ -603,6 +723,12 @@ static int setup_debugfs(struct c4iw_dev *devp)
- 	if (de && de->d_inode)
- 		de->d_inode->i_size = 4096;
- 
-+	if (c4iw_wr_log) {
-+		de = debugfs_create_file("wr_log", S_IWUSR, devp->debugfs_root,
-+					 (void *)devp, &wr_log_debugfs_fops);
-+		if (de && de->d_inode)
-+			de->d_inode->i_size = 4096;
-+	}
- 	return 0;
- }
- 
-@@ -716,6 +842,16 @@ static int c4iw_rdev_open(struct c4iw_rdev *rdev)
- 		pr_err(MOD "error allocating status page\n");
- 		goto err4;
- 	}
-+	if (c4iw_wr_log) {
-+		rdev->wr_log = kzalloc((1 << c4iw_wr_log_size_order) *
-+				       sizeof(*rdev->wr_log), GFP_KERNEL);
-+		if (rdev->wr_log) {
-+			rdev->wr_log_size = 1 << c4iw_wr_log_size_order;
-+			atomic_set(&rdev->wr_log_idx, 0);
-+		} else {
-+			pr_err(MOD "error allocating wr_log. Logging disabled\n");
-+		}
-+	}
- 	return 0;
- err4:
- 	c4iw_rqtpool_destroy(rdev);
-@@ -729,6 +865,7 @@ err1:
- 
- static void c4iw_rdev_close(struct c4iw_rdev *rdev)
- {
-+	kfree(rdev->wr_log);
- 	free_page((unsigned long)rdev->status_page);
- 	c4iw_pblpool_destroy(rdev);
- 	c4iw_rqtpool_destroy(rdev);
-diff --git a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
-index 75541cb..69f047c 100644
---- a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
-+++ b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
-@@ -150,6 +150,18 @@ struct c4iw_hw_queue {
- 	int t4_stat_len;
- };
- 
-+struct wr_log_entry {
-+	struct timespec post_host_ts;
-+	struct timespec poll_host_ts;
-+	u64 post_sge_ts;
-+	u64 cqe_sge_ts;
-+	u64 poll_sge_ts;
-+	u16 qid;
-+	u16 wr_id;
-+	u8 opcode;
-+	u8 valid;
-+};
-+
- struct c4iw_rdev {
- 	struct c4iw_resource resource;
- 	unsigned long qpshift;
-@@ -169,6 +181,9 @@ struct c4iw_rdev {
- 	struct c4iw_stats stats;
- 	struct c4iw_hw_queue hw_queue;
- 	struct t4_dev_status_page *status_page;
-+	atomic_t wr_log_idx;
-+	struct wr_log_entry *wr_log;
-+	int wr_log_size;
- };
- 
- static inline int c4iw_fatal_error(struct c4iw_rdev *rdev)
-@@ -1011,6 +1026,8 @@ void c4iw_ev_dispatch(struct c4iw_dev *dev, struct t4_cqe *err_cqe);
- 
- extern struct cxgb4_client t4c_client;
- extern c4iw_handler_func c4iw_handlers[NUM_CPL_CMDS];
-+extern void c4iw_log_wr_stats(struct t4_wq *wq, struct t4_cqe *cqe);
-+extern int c4iw_wr_log;
- extern int db_fc_threshold;
- extern int db_coalescing_threshold;
- extern int use_dsgl;
-diff --git a/drivers/infiniband/hw/cxgb4/qp.c b/drivers/infiniband/hw/cxgb4/qp.c
-index c911e96..0495b63 100644
---- a/drivers/infiniband/hw/cxgb4/qp.c
-+++ b/drivers/infiniband/hw/cxgb4/qp.c
-@@ -822,6 +822,11 @@ int c4iw_post_send(struct ib_qp *ibqp, struct ib_send_wr *wr,
- 				  qhp->sq_sig_all;
- 		swsqe->flushed = 0;
- 		swsqe->wr_id = wr->wr_id;
-+		if (c4iw_wr_log) {
-+			swsqe->sge_ts = cxgb4_read_sge_timestamp(
-+					qhp->rhp->rdev.lldi.ports[0]);
-+			getnstimeofday(&swsqe->host_ts);
-+		}
- 
- 		init_wr_hdr(wqe, qhp->wq.sq.pidx, fw_opcode, fw_flags, len16);
- 
-@@ -885,6 +890,13 @@ int c4iw_post_receive(struct ib_qp *ibqp, struct ib_recv_wr *wr,
- 		}
- 
- 		qhp->wq.rq.sw_rq[qhp->wq.rq.pidx].wr_id = wr->wr_id;
-+		if (c4iw_wr_log) {
-+			qhp->wq.rq.sw_rq[qhp->wq.rq.pidx].sge_ts =
-+				cxgb4_read_sge_timestamp(
-+						qhp->rhp->rdev.lldi.ports[0]);
-+			getnstimeofday(
-+				&qhp->wq.rq.sw_rq[qhp->wq.rq.pidx].host_ts);
-+		}
- 
- 		wqe->recv.opcode = FW_RI_RECV_WR;
- 		wqe->recv.r1 = 0;
-diff --git a/drivers/infiniband/hw/cxgb4/t4.h b/drivers/infiniband/hw/cxgb4/t4.h
-index dd45186..c9f7034 100644
---- a/drivers/infiniband/hw/cxgb4/t4.h
-+++ b/drivers/infiniband/hw/cxgb4/t4.h
-@@ -269,6 +269,8 @@ struct t4_swsqe {
- 	int			signaled;
- 	u16			idx;
- 	int                     flushed;
-+	struct timespec         host_ts;
-+	u64                     sge_ts;
- };
- 
- static inline pgprot_t t4_pgprot_wc(pgprot_t prot)
-@@ -306,6 +308,8 @@ struct t4_sq {
- 
- struct t4_swrqe {
- 	u64 wr_id;
-+	struct timespec host_ts;
-+	u64 sge_ts;
- };
- 
- struct t4_rq {
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index ba7d13d..9c7e4f0 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -3898,6 +3898,19 @@ err:
- }
- EXPORT_SYMBOL(cxgb4_read_tpte);
- 
-+u64 cxgb4_read_sge_timestamp(struct net_device *dev)
-+{
-+	u32 hi, lo;
-+	struct adapter *adap;
-+
-+	adap = netdev2adap(dev);
-+	lo = t4_read_reg(adap, SGE_TIMESTAMP_LO);
-+	hi = GET_TSVAL(t4_read_reg(adap, SGE_TIMESTAMP_HI));
-+
-+	return ((u64)hi << 32) | (u64)lo;
-+}
-+EXPORT_SYMBOL(cxgb4_read_sge_timestamp);
-+
- static struct pci_driver cxgb4_driver;
- 
- static void check_neigh_update(struct neighbour *neigh)
-@@ -4161,6 +4174,7 @@ static void uld_attach(struct adapter *adap, unsigned int uld)
- 	lli.wr_cred = adap->params.ofldq_wr_cred;
- 	lli.adapter_type = adap->params.chip;
- 	lli.iscsi_iolen = MAXRXDATA_GET(t4_read_reg(adap, TP_PARA_REG2));
-+	lli.cclk_ps = 1000000000 / adap->params.vpd.cclk;
- 	lli.udb_density = 1 << QUEUESPERPAGEPF0_GET(
- 			t4_read_reg(adap, SGE_EGRESS_QUEUES_PER_PAGE_PF) >>
- 			(adap->fn * 4));
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-index c7170d6..79a84de 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-@@ -243,6 +243,7 @@ struct cxgb4_lld_info {
- 	unsigned char fw_api_ver;            /* FW API version */
- 	unsigned int fw_vers;                /* FW version */
- 	unsigned int iscsi_iolen;            /* iSCSI max I/O length */
-+	unsigned int cclk_ps;                /* Core clock period in psec */
- 	unsigned short udb_density;          /* # of user DB/page */
- 	unsigned short ucq_density;          /* # of user CQs/page */
- 	unsigned short filt_mode;            /* filter optional components */
-@@ -297,5 +298,6 @@ int cxgb4_flush_eq_cache(struct net_device *dev);
- void cxgb4_disable_db_coalescing(struct net_device *dev);
- void cxgb4_enable_db_coalescing(struct net_device *dev);
- int cxgb4_read_tpte(struct net_device *dev, u32 stag, __be32 *tpte);
-+u64 cxgb4_read_sge_timestamp(struct net_device *dev);
- 
- #endif  /* !__CXGB4_OFLD_H */
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-index ae77764..3b244ab 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-@@ -251,6 +251,12 @@
- #define V_NOCOALESCE(x) ((x) << S_NOCOALESCE)
- #define F_NOCOALESCE    V_NOCOALESCE(1U)
- 
-+#define SGE_TIMESTAMP_LO 0x1098
-+#define SGE_TIMESTAMP_HI 0x109c
-+#define S_TSVAL    0
-+#define M_TSVAL    0xfffffffU
-+#define GET_TSVAL(x) (((x) >> S_TSVAL) & M_TSVAL)
-+
- #define SGE_TIMER_VALUE_0_AND_1 0x10b8
- #define  TIMERVALUE0_MASK   0xffff0000U
- #define  TIMERVALUE0_SHIFT  16
--- 
-1.7.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Cgo+INTaIDIwMTTE6jfUwjExyNWjrM/CzucxMDo1NKOsQWxleCBXaWxsaWFtc29uIDxhbGV4Lndp
+bGxpYW1zb25AcmVkaGF0LmNvbT4g0LS1wKO6Cj4gCj4+IE9uIEZyaSwgMjAxNC0wNy0xMSBhdCAy
+MjozNyArMDgwMCwgRXRoYW4gWmhhbyB3cm90ZToKPj4gCj4+Pj4g1NogMjAxNMTqN9TCMTHI1aOs
+z8LO5zEwOjE1o6xBbGV4IFdpbGxpYW1zb24gPGFsZXgud2lsbGlhbXNvbkByZWRoYXQuY29tPiDQ
+tLXAo7oKPj4+PiAKPj4+Pj4gT24gRnJpLCAyMDE0LTA3LTExIGF0IDA3OjEzIC0wNjAwLCBBbGV4
+IFdpbGxpYW1zb24gd3JvdGU6Cj4+Pj4+IE9uIEZyaSwgMjAxNC0wNy0xMSBhdCAyMDozMCArMDgw
+MCwgRXRoYW4gWmhhbyB3cm90ZToKPj4+Pj4gVGhpcyBwYXRjaCBpbnRyb2R1Y2VzIHR3byBuZXcg
+ZGV2aWNlIGFzc2lnbm1lbnQgZnVuY3Rpb25zCj4+Pj4+IAo+Pj4+PiBwY2lfaW92X2Fzc2lnbl9k
+ZXZpY2UoKSwKPj4+Pj4gcGNpX2lvdl9kZWFzc2lnbl9kZXZpY2UoKQo+Pj4+PiAKPj4+Pj4gYWxv
+bmcgd2l0aCB0aGUgZXhpc3RlZCBvbmUKPj4+Pj4gCj4+Pj4+IHBjaV92ZnNfYXNzaWduZWQoKQo+
+Pj4+PiAKPj4+Pj4gVGhleSBjb25zdHJ1Y3QgdGhlIFZGcyBhc3NpZ25tZW50IG1hbmFnZW1lbnQg
+aW50ZXJmYWNlLCB1c2VkIHRvIGFzc2lnbi8KPj4+Pj4gZGVhc3NpZ24gZGV2aWNlIHRvIFZNIGFu
+ZCBxdWVyeSB0aGUgVkZzIHJlZmVyZW5jZSBjb3VudGVyLiBpbnN0ZWFkIG9mCj4+Pj4+IGRpcmVj
+dCBtYW5pcHVsYXRpb24gb2YgZGV2aWNlIGZsYWcuCj4+Pj4+IAo+Pj4+PiBUaGlzIHBhdGNoIHJl
+ZmFzaGlvbmVkIHRoZSByZWxhdGVkIGNvZGUgYW5kIG1ha2UgdGhlbSBhdG9taWMuCj4+Pj4+IAo+
+Pj4+PiB2MzogY2hhbmdlIHRoZSBuYW1pbmcgb2YgZGV2aWNlIGFzc2lnbm1lbnQgaGVscGVycywg
+YmVjYXVzZSB0aGV5IHdvcmsKPj4+Pj4gZm9yIGFsbCBraW5kIG9mIFBDSSBkZXZpY2UsIG5vdCBv
+bmx5IFNSLUlPViAoZGF2aWQudnJhYmVsQGNpdHJpeC5jb20pCj4+Pj4+IAo+Pj4+PiB2MjogcmVv
+cmRlciB0aGUgcGF0Y2hzZXQgYW5kIG1ha2UgaXQgYmlzZWN0YWJsZSBhbmQgYXRvbWljLCBzdGVw
+cyBjbGVhcgo+Pj4+PiBiZXR3ZWVuIGludGVyZmFjZSBkZWZpbmF0aW9uIGFuZCBpbXBsZW1lbmF0
+aW9uIGFjY29yZGluZyB0byB0aGUKPj4+Pj4gc3VnZ2VzdGlvbiBmcm9tIGFsZXgud2lsbGlhbXNv
+bkByZWRoYXQuY29tCj4+Pj4+IAo+Pj4+PiBTaWduZWQtb2ZmLWJ5OiBFdGhhbiBaaGFvIDxldGhh
+bi56aGFvQG9yYWNsZS5jb20+Cj4+Pj4+IC0tLQo+Pj4+IAo+Pj4+IC0gVXNlIGEgY292ZXIgcGF0
+Y2ggdG8gZGVzY3JpYmUgdGhlIHNlcmllcwo+Pj4+IAo+Pj4+IC0gVmVyc2lvbiBpbmZvcm1hdGlv
+biBnb2VzIGhlcmUsIGJlbG93IHRoZSAiLS0tIiwgbm90IGFib3ZlIGl0Cj4+Pj4gCj4+Pj4gLSBJ
+IHN0YW5kIGJ5IHRoZSBwYXRjaCBicmVha2Rvd24gSSBzdWdnZXN0ZWQgb3JpZ2luYWxseSwgdGhl
+cmUgYXJlIHRvbwo+Pj4+IG1hbnkgbG9naWNhbCBjaGFuZ2VzIGhlcmUgaW4gcGF0Y2ggMS4gIFRo
+ZXJlIGFyZSBlYXNpbHkgMyBzZXBhcmF0ZQo+Pj4+IHBhdGNoZXMgaGVyZS4KPj4+PiAKPj4+PiAt
+IFJlbmFtaW5nIHMvc3Jpb3YvaW92LyBkb2Vzbid0IGFkZHJlc3MgdGhlIHByb2JsZW0gRGF2aWQg
+cmFpc2VkLiAgVGhlCj4+Pj4gbmFtZSBpcyBzdGlsbCBzeW5vbnltb3VzIHdpdGggU1ItSU9WIGFu
+ZCBpdCdzIGRlZmluZWQgb24KPj4+PiBkcml2ZXJzL3BjaS9pb3YuYywgd2hpY2ggaXMgb25seSBi
+dWlsdCB3aXRoIENPTkZJR19QQ0lfSU9WLgo+Pj4+IAo+Pj4+IC0gUENJX0RFVl9GTEFHU19BU1NJ
+R05FRCBzaG91bGQgYmUgdW51c2VkIGFmdGVyIHRoaXMgc2VyaWVzLCB3aHkgaXMgaXQKPj4+PiBu
+b3QgcmVtb3ZlZD8KPj4+IAo+Pj4gSSBndWVzcyBpdCdzIHN0aWxsIHVzZWQsIHdoaWNoIGlzIGV2
+ZW4gd29yc2UgYmVjYXVzZSBub3cgd2UgaGF2ZQo+Pj4gc2VwYXJhdGUgZGF0YSBlbGVtZW50cywg
+b25lIHRyYWNraW5nIGhvdyBtYW55IFZGcyBhcmUgYXNzaWduZWQgZnJvbSBhIFBGCj4+PiBhbmQg
+YW5vdGhlciB0cmFja2luZyBlYWNoIGRldmljZSB0aGF0J3MgYXNzaWduZWQuICBXaGF0IGFyZSB3
+ZSBhY3R1YWxseQo+Pj4gZ2FpbmluZyBvciBmaXhpbmcgYnkgZG9pbmcgdGhpcz8KPj4gCj4+IE9m
+IGNvdXJzZSBpdCBpcyB1c2VkIHRvIHRyYWNraW5nIFBGL1ZGIGFzc2lnbmVkLCAgd2hhdCB3ZSBn
+YWluZWQgYXJlIC0gd2UgaGlkZSB0aGUgZGV0YWlscwo+PiBJbiBhc3NpZ25tZW50IGhlbHBlcnMs
+IHdlIHdvdWxkbid0IGJvdGhlciB0aGUgdXNlcnMgYW55bW9yZSBhbmQgaW1wbGVtZW50IHdoYXQg
+aW5zaWRlCj4+IFRoZSBoZWxwZXJzLCBteSBpbml0aWFsIHB1cnBvc2UgaXMgdG8gc2ltcGxpZnkg
+dGhlIHVnbHkgIHBjaV92ZnNfYXNzaWduZWQoKSB3aXRoIGNvdW50ZXIuCj4+IAo+PiBJIGRvbid0
+IHdhbnQgdG8gcHVzaCBtb3JlIGNoYW5nZSBpbiBvbmUgc3RlcCwgdGhhdCB3b3VsZCBvdXQgb2Yg
+Y29udHJvbCB0byBnZXQgcGVyZmVjdCByZXN1bHQuCj4gCj4gQnV0IGEgY291bnRlciBtZWFucyB0
+aGF0IHdlJ3JlIHRyYWNraW5nIHRoZSBkYXRhIGluIHR3byBzZXBhcmF0ZSBwbGFjZXMsCj4gd2hp
+Y2ggaXMgZ2VuZXJhbGx5IGEgYmFkIGlkZWEuICBDbGVhbmluZyB1cCBkaXJlY3QgYWNjZXNzIHRv
+IGZsYWdzIGlzCj4gZmluZSwgYnV0IGNyZWF0aW5nIGEgc2VwYXJhdGUgY291bnRlciBkb2Vzbid0
+IHJlYWxseSBzZWVtIHRvIGFkZCBhbnkKPiB2YWx1ZS4KCklmIHlvdSBhcmUgYXNrZWQgaG93IG1h
+bnkgYXBwbGVzIGluIHlvdXIgYmFnICwgeW91IGxpa2UgdG8gY291bnQgdGhlbSBvbmUgYnkgb25l
+IGFuZApHaXZlIHRoZSBhbnN3ZXIgPyBXaGF0IGFyZSB5b3UgZG9pbmcgd2hlbiB5b3UgcHV0IHRo
+ZW0gaW50byB0aGUgYmFnID8gCgo+Pj4+PiBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pNDBl
+L2k0MGVfdmlydGNobmxfcGYuYyB8ICAgMTcgKystLS0tLS0tLS0tLS0tLS0KPj4+Pj4gZHJpdmVy
+cy9wY2kvaW92LmMgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAgIDIwICsrKysr
+KysrKysrKysrKysrKysrCj4+Pj4+IGRyaXZlcnMveGVuL3hlbi1wY2liYWNrL3BjaV9zdHViLmMg
+ICAgICAgICAgICAgICAgIHwgICAgNCArKy0tCj4+Pj4+IGluY2x1ZGUvbGludXgvcGNpLmggICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAgNCArKysrCj4+Pj4+IHZpcnQva3ZtL2Fz
+c2lnbmVkLWRldi5jICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAgMiArLQo+Pj4+PiB2
+aXJ0L2t2bS9pb21tdS5jICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8ICAgIDQg
+KystLQo+Pj4+IAo+Pj4+IC0gVGhpcyBwYXRjaCB0b3VjaCA0IHNlcGFyYXRlIGxvZ2ljYWwgY29k
+ZSBhcmVhcywgd2hvIGRvIHlvdSBleHBlY3QgdG8KPj4+PiBhY2sgYW5kIGNvbW1pdCBpdD8gIFNw
+bGl0IGl0IHVwLgo+Pj4+IAo+Pj4+PiA2IGZpbGVzIGNoYW5nZWQsIDMxIGluc2VydGlvbnMoKyks
+IDIwIGRlbGV0aW9ucygtKQo+Pj4+PiAKPj4+Pj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0
+aGVybmV0L2ludGVsL2k0MGUvaTQwZV92aXJ0Y2hubF9wZi5jIGIvZHJpdmVycy9uZXQvZXRoZXJu
+ZXQvaW50ZWwvaTQwZS9pNDBlX3ZpcnRjaG5sX3BmLmMKPj4+Pj4gaW5kZXggMDJjMTFhNy4uNzgx
+MDQwZSAxMDA2NDQKPj4+Pj4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZS9p
+NDBlX3ZpcnRjaG5sX3BmLmMKPj4+Pj4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwv
+aTQwZS9pNDBlX3ZpcnRjaG5sX3BmLmMKPj4+Pj4gQEAgLTY5MywyMiArNjkzLDkgQEAgY29tcGxl
+dGVfcmVzZXQ6Cj4+Pj4+IHN0YXRpYyBib29sIGk0MGVfdmZzX2FyZV9hc3NpZ25lZChzdHJ1Y3Qg
+aTQwZV9wZiAqcGYpCj4+Pj4+IHsKPj4+Pj4gICBzdHJ1Y3QgcGNpX2RldiAqcGRldiA9IHBmLT5w
+ZGV2Owo+Pj4+PiAtICAgIHN0cnVjdCBwY2lfZGV2ICp2ZmRldjsKPj4+Pj4gLQo+Pj4+PiAtICAg
+IC8qIGxvb3AgdGhyb3VnaCBhbGwgdGhlIFZGcyB0byBzZWUgaWYgd2Ugb3duIGFueSB0aGF0IGFy
+ZSBhc3NpZ25lZCAqLwo+Pj4+PiAtICAgIHZmZGV2ID0gcGNpX2dldF9kZXZpY2UoUENJX1ZFTkRP
+Ul9JRF9JTlRFTCwgSTQwRV9ERVZfSURfVkYgLCBOVUxMKTsKPj4+Pj4gLSAgICB3aGlsZSAodmZk
+ZXYpIHsKPj4+Pj4gLSAgICAgICAgLyogaWYgd2UgZG9uJ3Qgb3duIGl0IHdlIGRvbid0IGNhcmUg
+Ki8KPj4+Pj4gLSAgICAgICAgaWYgKHZmZGV2LT5pc192aXJ0Zm4gJiYgcGNpX3BoeXNmbih2ZmRl
+dikgPT0gcGRldikgewo+Pj4+PiAtICAgICAgICAgICAgLyogaWYgaXQgaXMgYXNzaWduZWQgd2Ug
+Y2Fubm90IHJlbGVhc2UgaXQgKi8KPj4+Pj4gLSAgICAgICAgICAgIGlmICh2ZmRldi0+ZGV2X2Zs
+YWdzICYgUENJX0RFVl9GTEFHU19BU1NJR05FRCkKPj4+Pj4gLSAgICAgICAgICAgICAgICByZXR1
+cm4gdHJ1ZTsKPj4+Pj4gLSAgICAgICAgfQo+Pj4+PiAKPj4+Pj4gLSAgICAgICAgdmZkZXYgPSBw
+Y2lfZ2V0X2RldmljZShQQ0lfVkVORE9SX0lEX0lOVEVMLAo+Pj4+PiAtICAgICAgICAgICAgICAg
+ICAgICAgICBJNDBFX0RFVl9JRF9WRiwKPj4+Pj4gLSAgICAgICAgICAgICAgICAgICAgICAgdmZk
+ZXYpOwo+Pj4+PiAtICAgIH0KPj4+Pj4gKyAgICBpZiAocGNpX3Zmc19hc3NpZ25lZChwZGV2KSkK
+Pj4+Pj4gKyAgICAgICAgcmV0dXJuIHRydWU7Cj4+Pj4+IAo+Pj4+PiAgIHJldHVybiBmYWxzZTsK
+Pj4+Pj4gfQo+Pj4+PiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9wY2kvaW92LmMgYi9kcml2ZXJzL3Bj
+aS9pb3YuYwo+Pj4+PiBpbmRleCBkZTdhNzQ3Li4wOTBmODI3IDEwMDY0NAo+Pj4+PiAtLS0gYS9k
+cml2ZXJzL3BjaS9pb3YuYwo+Pj4+PiArKysgYi9kcml2ZXJzL3BjaS9pb3YuYwo+Pj4+PiBAQCAt
+NjQ0LDYgKzY0NCwyNiBAQCBpbnQgcGNpX3Zmc19hc3NpZ25lZChzdHJ1Y3QgcGNpX2RldiAqZGV2
+KQo+Pj4+PiBFWFBPUlRfU1lNQk9MX0dQTChwY2lfdmZzX2Fzc2lnbmVkKTsKPj4+Pj4gCj4+Pj4+
+IC8qKgo+Pj4+PiArICogcGNpX2lvdl9hc3NpZ25fZGV2aWNlIC0gYXNzaWduIGRldmljZSB0byBW
+TQo+Pj4+PiArICogQHBkZXY6IHRoZSBkZXZpY2UgdG8gYmUgYXNzaWduZWQuCj4+Pj4+ICsgKi8K
+Pj4+Pj4gK3ZvaWQgcGNpX2lvdl9hc3NpZ25fZGV2aWNlKHN0cnVjdCBwY2lfZGV2ICpwZGV2KQo+
+Pj4+PiArewo+Pj4+PiArICAgIHBkZXYtPmRldl9mbGFncyB8PSBQQ0lfREVWX0ZMQUdTX0FTU0lH
+TkVEOwo+Pj4+PiArfQo+Pj4+PiArRVhQT1JUX1NZTUJPTF9HUEwocGNpX2lvdl9hc3NpZ25fZGV2
+aWNlKTsKPj4+Pj4gKwo+Pj4+PiArLyoqCj4+Pj4+ICsgKiBwY2lfaW92X2RlYXNzaWduX2Rldmlj
+ZSAtIGRlYXNpZ24gZGV2aWNlIGZyb20gVk0KPj4+Pj4gKyAqIEBwZGV2OiB0aGUgZGV2aWNlIHRv
+IGJlIGRlYXNzaWduZWQuCj4+Pj4+ICsgKi8KPj4+Pj4gK3ZvaWQgcGNpX2lvdl9kZWFzc2lnbl9k
+ZXZpY2Uoc3RydWN0IHBjaV9kZXYgKnBkZXYpCj4+Pj4+ICt7Cj4+Pj4+ICsgICAgcGRldi0+ZGV2
+X2ZsYWdzICY9IH5QQ0lfREVWX0ZMQUdTX0FTU0lHTkVEOwo+Pj4+PiArfQo+Pj4+PiArRVhQT1JU
+X1NZTUJPTF9HUEwocGNpX2lvdl9kZWFzc2lnbl9kZXZpY2UpOwo+Pj4+PiArCj4+Pj4+ICsvKioK
+Pj4+Pj4gKiBwY2lfc3Jpb3Zfc2V0X3RvdGFsdmZzIC0tIHJlZHVjZSB0aGUgVG90YWxWRnMgYXZh
+aWxhYmxlCj4+Pj4+ICogQGRldjogdGhlIFBDSSBQRiBkZXZpY2UKPj4+Pj4gKiBAbnVtdmZzOiBu
+dW1iZXIgdGhhdCBzaG91bGQgYmUgdXNlZCBmb3IgVG90YWxWRnMgc3VwcG9ydGVkCj4+Pj4+IGRp
+ZmYgLS1naXQgYS9kcml2ZXJzL3hlbi94ZW4tcGNpYmFjay9wY2lfc3R1Yi5jIGIvZHJpdmVycy94
+ZW4veGVuLXBjaWJhY2svcGNpX3N0dWIuYwo+Pj4+PiBpbmRleCA2MmZjZDQ4Li4yN2UwMGQxIDEw
+MDY0NAo+Pj4+PiAtLS0gYS9kcml2ZXJzL3hlbi94ZW4tcGNpYmFjay9wY2lfc3R1Yi5jCj4+Pj4+
+ICsrKyBiL2RyaXZlcnMveGVuL3hlbi1wY2liYWNrL3BjaV9zdHViLmMKPj4+Pj4gQEAgLTEzMyw3
+ICsxMzMsNyBAQCBzdGF0aWMgdm9pZCBwY2lzdHViX2RldmljZV9yZWxlYXNlKHN0cnVjdCBrcmVm
+ICprcmVmKQo+Pj4+PiAgIHhlbl9wY2lia19jb25maWdfZnJlZV9keW5fZmllbGRzKGRldik7Cj4+
+Pj4+ICAgeGVuX3BjaWJrX2NvbmZpZ19mcmVlX2RldihkZXYpOwo+Pj4+PiAKPj4+Pj4gLSAgICBk
+ZXYtPmRldl9mbGFncyAmPSB+UENJX0RFVl9GTEFHU19BU1NJR05FRDsKPj4+Pj4gKyAgICBwY2lf
+aW92X2RlYXNzaWduX2RldmljZShkZXYpOwo+Pj4+PiAgIHBjaV9kZXZfcHV0KGRldik7Cj4+Pj4+
+IAo+Pj4+PiAgIGtmcmVlKHBzZGV2KTsKPj4+Pj4gQEAgLTQwNCw3ICs0MDQsNyBAQCBzdGF0aWMg
+aW50IHBjaXN0dWJfaW5pdF9kZXZpY2Uoc3RydWN0IHBjaV9kZXYgKmRldikKPj4+Pj4gICBkZXZf
+ZGJnKCZkZXYtPmRldiwgInJlc2V0IGRldmljZVxuIik7Cj4+Pj4+ICAgeGVuX3BjaWJrX3Jlc2V0
+X2RldmljZShkZXYpOwo+Pj4+PiAKPj4+Pj4gLSAgICBkZXYtPmRldl9mbGFncyB8PSBQQ0lfREVW
+X0ZMQUdTX0FTU0lHTkVEOwo+Pj4+PiArICAgIHBjaV9pb3ZfYXNzaWduX2RldmljZShkZXYpOwo+
+Pj4+PiAgIHJldHVybiAwOwo+Pj4+PiAKPj4+Pj4gY29uZmlnX3JlbGVhc2U6Cj4+Pj4+IGRpZmYg
+LS1naXQgYS9pbmNsdWRlL2xpbnV4L3BjaS5oIGIvaW5jbHVkZS9saW51eC9wY2kuaAo+Pj4+PiBp
+bmRleCBhYWI1N2I0Li41ZWNlNmQ2IDEwMDY0NAo+Pj4+PiAtLS0gYS9pbmNsdWRlL2xpbnV4L3Bj
+aS5oCj4+Pj4+ICsrKyBiL2luY2x1ZGUvbGludXgvcGNpLmgKPj4+Pj4gQEAgLTE2MDMsNiArMTYw
+Myw4IEBAIGludCBwY2lfbnVtX3ZmKHN0cnVjdCBwY2lfZGV2ICpkZXYpOwo+Pj4+PiBpbnQgcGNp
+X3Zmc19hc3NpZ25lZChzdHJ1Y3QgcGNpX2RldiAqZGV2KTsKPj4+Pj4gaW50IHBjaV9zcmlvdl9z
+ZXRfdG90YWx2ZnMoc3RydWN0IHBjaV9kZXYgKmRldiwgdTE2IG51bXZmcyk7Cj4+Pj4+IGludCBw
+Y2lfc3Jpb3ZfZ2V0X3RvdGFsdmZzKHN0cnVjdCBwY2lfZGV2ICpkZXYpOwo+Pj4+PiArdm9pZCBw
+Y2lfaW92X2Fzc2lnbl9kZXZpY2Uoc3RydWN0IHBjaV9kZXYgKmRldik7Cj4+Pj4+ICt2b2lkIHBj
+aV9pb3ZfZGVhc3NpZ25fZGV2aWNlKHN0cnVjdCBwY2lfZGV2ICpkZXYpOwo+Pj4+PiAjZWxzZQo+
+Pj4+PiBzdGF0aWMgaW5saW5lIGludCBwY2lfZW5hYmxlX3NyaW92KHN0cnVjdCBwY2lfZGV2ICpk
+ZXYsIGludCBucl92aXJ0Zm4pCj4+Pj4+IHsgcmV0dXJuIC1FTk9ERVY7IH0KPj4+Pj4gQEAgLTE2
+MTQsNiArMTYxNiw4IEBAIHN0YXRpYyBpbmxpbmUgaW50IHBjaV9zcmlvdl9zZXRfdG90YWx2ZnMo
+c3RydWN0IHBjaV9kZXYgKmRldiwgdTE2IG51bXZmcykKPj4+Pj4geyByZXR1cm4gMDsgfQo+Pj4+
+PiBzdGF0aWMgaW5saW5lIGludCBwY2lfc3Jpb3ZfZ2V0X3RvdGFsdmZzKHN0cnVjdCBwY2lfZGV2
+ICpkZXYpCj4+Pj4+IHsgcmV0dXJuIDA7IH0KPj4+Pj4gK3N0YXRpYyBpbmxpbmUgdm9pZCBwY2lf
+aW92X2Fzc2lnbl9kZXZpY2Uoc3RydWN0IHBjaV9kZXYgKmRldikgeyB9Cj4+Pj4+ICtzdGF0aWMg
+aW5saW5lIHZvaWQgcGNpX2lvdl9kZWFzc2lnbl9kZXZpY2Uoc3RydWN0IHBjaV9kZXYgKmRldikg
+eyB9Cj4+Pj4+ICNlbmRpZgo+Pj4+PiAKPj4+Pj4gI2lmIGRlZmluZWQoQ09ORklHX0hPVFBMVUdf
+UENJKSB8fCBkZWZpbmVkKENPTkZJR19IT1RQTFVHX1BDSV9NT0RVTEUpCj4+Pj4+IGRpZmYgLS1n
+aXQgYS92aXJ0L2t2bS9hc3NpZ25lZC1kZXYuYyBiL3ZpcnQva3ZtL2Fzc2lnbmVkLWRldi5jCj4+
+Pj4+IGluZGV4IGJmMDY1NzcuLjdmYWM1OGQgMTAwNjQ0Cj4+Pj4+IC0tLSBhL3ZpcnQva3ZtL2Fz
+c2lnbmVkLWRldi5jCj4+Pj4+ICsrKyBiL3ZpcnQva3ZtL2Fzc2lnbmVkLWRldi5jCj4+Pj4+IEBA
+IC0zMDIsNyArMzAyLDcgQEAgc3RhdGljIHZvaWQga3ZtX2ZyZWVfYXNzaWduZWRfZGV2aWNlKHN0
+cnVjdCBrdm0gKmt2bSwKPj4+Pj4gICBlbHNlCj4+Pj4+ICAgICAgIHBjaV9yZXN0b3JlX3N0YXRl
+KGFzc2lnbmVkX2Rldi0+ZGV2KTsKPj4+Pj4gCj4+Pj4+IC0gICAgYXNzaWduZWRfZGV2LT5kZXYt
+PmRldl9mbGFncyAmPSB+UENJX0RFVl9GTEFHU19BU1NJR05FRDsKPj4+Pj4gKyAgICBwY2lfaW92
+X2RlYXNzaWduX2RldmljZShhc3NpZ25lZF9kZXYtPmRldik7Cj4+Pj4+IAo+Pj4+PiAgIHBjaV9y
+ZWxlYXNlX3JlZ2lvbnMoYXNzaWduZWRfZGV2LT5kZXYpOwo+Pj4+PiAgIHBjaV9kaXNhYmxlX2Rl
+dmljZShhc3NpZ25lZF9kZXYtPmRldik7Cj4+Pj4+IGRpZmYgLS1naXQgYS92aXJ0L2t2bS9pb21t
+dS5jIGIvdmlydC9rdm0vaW9tbXUuYwo+Pj4+PiBpbmRleCAwZGY3ZDRiLi42NDFlZTczIDEwMDY0
+NAo+Pj4+PiAtLS0gYS92aXJ0L2t2bS9pb21tdS5jCj4+Pj4+ICsrKyBiL3ZpcnQva3ZtL2lvbW11
+LmMKPj4+Pj4gQEAgLTE5NCw3ICsxOTQsNyBAQCBpbnQga3ZtX2Fzc2lnbl9kZXZpY2Uoc3RydWN0
+IGt2bSAqa3ZtLAo+Pj4+PiAgICAgICAgICAgZ290byBvdXRfdW5tYXA7Cj4+Pj4+ICAgfQo+Pj4+
+PiAKPj4+Pj4gLSAgICBwZGV2LT5kZXZfZmxhZ3MgfD0gUENJX0RFVl9GTEFHU19BU1NJR05FRDsK
+Pj4+Pj4gKyAgICBwY2lfaW92X2Fzc2lnbl9kZXZpY2UocGRldik7Cj4+Pj4+IAo+Pj4+PiAgIGRl
+dl9pbmZvKCZwZGV2LT5kZXYsICJrdm0gYXNzaWduIGRldmljZVxuIik7Cj4+Pj4+IAo+Pj4+PiBA
+QCAtMjIwLDcgKzIyMCw3IEBAIGludCBrdm1fZGVhc3NpZ25fZGV2aWNlKHN0cnVjdCBrdm0gKmt2
+bSwKPj4+Pj4gCj4+Pj4+ICAgaW9tbXVfZGV0YWNoX2RldmljZShkb21haW4sICZwZGV2LT5kZXYp
+Owo+Pj4+PiAKPj4+Pj4gLSAgICBwZGV2LT5kZXZfZmxhZ3MgJj0gflBDSV9ERVZfRkxBR1NfQVNT
+SUdORUQ7Cj4+Pj4+ICsgICAgcGNpX2lvdl9kZWFzc2lnbl9kZXZpY2UocGRldik7Cj4+Pj4+IAo+
+Pj4+PiAgIGRldl9pbmZvKCZwZGV2LT5kZXYsICJrdm0gZGVhc3NpZ24gZGV2aWNlXG4iKTsKPiAK
+PiAKPiAKCi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQpPcGVuIHNvdXJjZSBidXNpbmVzcyBwcm9jZXNz
+IG1hbmFnZW1lbnQgc3VpdGUgYnVpbHQgb24gSmF2YSBhbmQgRWNsaXBzZQpUdXJuIHByb2Nlc3Nl
+cyBpbnRvIGJ1c2luZXNzIGFwcGxpY2F0aW9ucyB3aXRoIEJvbml0YSBCUE0gQ29tbXVuaXR5IEVk
+aXRpb24KUXVpY2tseSBjb25uZWN0IHBlb3BsZSwgZGF0YSwgYW5kIHN5c3RlbXMgaW50byBvcmdh
+bml6ZWQgd29ya2Zsb3dzCldpbm5lciBvZiBCT1NTSUUsIENPRElFLCBPVzIgYW5kIEdhcnRuZXIg
+YXdhcmRzCmh0dHA6Ly9wLnNmLm5ldC9zZnUvQm9uaXRhc29mdApfX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fXwpFMTAwMC1kZXZlbCBtYWlsaW5nIGxpc3QKRTEw
+MDAtZGV2ZWxAbGlzdHMuc291cmNlZm9yZ2UubmV0Cmh0dHBzOi8vbGlzdHMuc291cmNlZm9yZ2Uu
+bmV0L2xpc3RzL2xpc3RpbmZvL2UxMDAwLWRldmVsClRvIGxlYXJuIG1vcmUgYWJvdXQgSW50ZWwm
+IzE3NDsgRXRoZXJuZXQsIHZpc2l0IGh0dHA6Ly9jb21tdW5pdGllcy5pbnRlbC5jb20vY29tbXVu
+aXR5L3dpcmVkCg==
