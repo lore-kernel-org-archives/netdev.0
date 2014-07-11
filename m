@@ -1,22 +1,31 @@
-From: Alex Williamson <alex.williamson@redhat.com>
+From: Ethan Zhao <ethan.kernel@gmail.com>
 Subject: Re: [PATCH 1/2 V3] PCI: introduce device assignment
- interface and refactory related code
-Date: Fri, 11 Jul 2014 08:15:47 -0600
-Message-ID: <1405088147.4098.64.camel@ul30vt.home>
+	interface and refactory related code
+Date: Fri, 11 Jul 2014 22:20:45 +0800
+Message-ID: <D67EBEA1-234D-4BCB-B06C-FD19E84D3CFD@gmail.com>
 References: <1405081802-419-1-git-send-email-ethan.zhao@oracle.com>
 	<1405084407.4098.59.camel@ul30vt.home>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, linux-pci@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net, vaughan.cao@oracle.com,
-	jesse.brandeburg@intel.com, ethan.kernel@gmail.com,
-	linux.nics@intel.com, konrad.wilk@oracle.com, gleb@kernel.org,
-	bhelgaas@google.com, boris.ostrovsky@oracle.com,
-	netdev@vger.kernel.org, bruce.w.allan@intel.com,
-	linux-kernel@vger.kernel.org, john.ronciak@intel.com,
-	david.vrabel@citrix.com, pbonzini@redhat.com
-To: Ethan Zhao <ethan.zhao@oracle.com>
+Mime-Version: 1.0 (1.0)
+Content-Type: text/plain; charset="gb2312"
+Content-Transfer-Encoding: base64
+Cc: "kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"vaughan.cao@oracle.com" <vaughan.cao@oracle.com>,
+	"jesse.brandeburg@intel.com" <jesse.brandeburg@intel.com>,
+	Ethan Zhao <ethan.zhao@oracle.com>,
+	"linux.nics@intel.com" <linux.nics@intel.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
+	"gleb@kernel.org" <gleb@kernel.org>,
+	"bhelgaas@google.com" <bhelgaas@google.com>,
+	"boris.ostrovsky@oracle.com" <boris.ostrovsky@oracle.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bruce.w.allan@intel.com" <bruce.w.allan@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"john.ronciak@intel.com" <john.ronciak@intel.com>,
+	"david.vrabel@citrix.com" <david.vrabel@citrix.com>,
+	"pbonzini@redhat.com" <pbonzini@redhat.com>
+To: Alex Williamson <alex.williamson@redhat.com>
 Return-path: <e1000-devel-bounces@lists.sourceforge.net>
 In-Reply-To: <1405084407.4098.59.camel@ul30vt.home>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
@@ -29,218 +38,148 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2014-07-11 at 07:13 -0600, Alex Williamson wrote:
-> On Fri, 2014-07-11 at 20:30 +0800, Ethan Zhao wrote:
-> > This patch introduces two new device assignment functions
-> > 
-> > pci_iov_assign_device(),
-> > pci_iov_deassign_device()
-> > 
-> > along with the existed one
-> > 
-> > pci_vfs_assigned()
-> > 
-> > They construct the VFs assignment management interface, used to assign/
-> > deassign device to VM and query the VFs reference counter. instead of
-> > direct manipulation of device flag.
-> > 
-> > This patch refashioned the related code and make them atomic.
-> > 
-> > v3: change the naming of device assignment helpers, because they work
-> > for all kind of PCI device, not only SR-IOV (david.vrabel@citrix.com)
-> > 
-> > v2: reorder the patchset and make it bisectable and atomic, steps clear
-> > between interface defination and implemenation according to the
-> > suggestion from alex.williamson@redhat.com
-> > 
-> > Signed-off-by: Ethan Zhao <ethan.zhao@oracle.com>
-> > ---
-> 
-> - Use a cover patch to describe the series
-> 
-> - Version information goes here, below the "---", not above it
-> 
-> - I stand by the patch breakdown I suggested originally, there are too
-> many logical changes here in patch 1.  There are easily 3 separate
-> patches here.
-> 
-> - Renaming s/sriov/iov/ doesn't address the problem David raised.  The
-> name is still synonymous with SR-IOV and it's defined on
-> drivers/pci/iov.c, which is only built with CONFIG_PCI_IOV.
-> 
-> - PCI_DEV_FLAGS_ASSIGNED should be unused after this series, why is it
-> not removed?
-
-I guess it's still used, which is even worse because now we have
-separate data elements, one tracking how many VFs are assigned from a PF
-and another tracking each device that's assigned.  What are we actually
-gaining or fixing by doing this?
-
-> >  drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |   17 ++---------------
-> >  drivers/pci/iov.c                                  |   20 ++++++++++++++++++++
-> >  drivers/xen/xen-pciback/pci_stub.c                 |    4 ++--
-> >  include/linux/pci.h                                |    4 ++++
-> >  virt/kvm/assigned-dev.c                            |    2 +-
-> >  virt/kvm/iommu.c                                   |    4 ++--
-> 
-> - This patch touch 4 separate logical code areas, who do you expect to
-> ack and commit it?  Split it up.
-> 
-> >  6 files changed, 31 insertions(+), 20 deletions(-)
-> > 
-> > diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-> > index 02c11a7..781040e 100644
-> > --- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-> > +++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-> > @@ -693,22 +693,9 @@ complete_reset:
-> >  static bool i40e_vfs_are_assigned(struct i40e_pf *pf)
-> >  {
-> >  	struct pci_dev *pdev = pf->pdev;
-> > -	struct pci_dev *vfdev;
-> > -
-> > -	/* loop through all the VFs to see if we own any that are assigned */
-> > -	vfdev = pci_get_device(PCI_VENDOR_ID_INTEL, I40E_DEV_ID_VF , NULL);
-> > -	while (vfdev) {
-> > -		/* if we don't own it we don't care */
-> > -		if (vfdev->is_virtfn && pci_physfn(vfdev) == pdev) {
-> > -			/* if it is assigned we cannot release it */
-> > -			if (vfdev->dev_flags & PCI_DEV_FLAGS_ASSIGNED)
-> > -				return true;
-> > -		}
-> >  
-> > -		vfdev = pci_get_device(PCI_VENDOR_ID_INTEL,
-> > -				       I40E_DEV_ID_VF,
-> > -				       vfdev);
-> > -	}
-> > +	if (pci_vfs_assigned(pdev))
-> > +		return true;
-> >  
-> >  	return false;
-> >  }
-> > diff --git a/drivers/pci/iov.c b/drivers/pci/iov.c
-> > index de7a747..090f827 100644
-> > --- a/drivers/pci/iov.c
-> > +++ b/drivers/pci/iov.c
-> > @@ -644,6 +644,26 @@ int pci_vfs_assigned(struct pci_dev *dev)
-> >  EXPORT_SYMBOL_GPL(pci_vfs_assigned);
-> >  
-> >  /**
-> > + * pci_iov_assign_device - assign device to VM
-> > + * @pdev: the device to be assigned.
-> > + */
-> > +void pci_iov_assign_device(struct pci_dev *pdev)
-> > +{
-> > +	pdev->dev_flags |= PCI_DEV_FLAGS_ASSIGNED;
-> > +}
-> > +EXPORT_SYMBOL_GPL(pci_iov_assign_device);
-> > +
-> > +/**
-> > + * pci_iov_deassign_device - deasign device from VM
-> > + * @pdev: the device to be deassigned.
-> > + */
-> > +void pci_iov_deassign_device(struct pci_dev *pdev)
-> > +{
-> > +	pdev->dev_flags &= ~PCI_DEV_FLAGS_ASSIGNED;
-> > +}
-> > +EXPORT_SYMBOL_GPL(pci_iov_deassign_device);
-> > +
-> > +/**
-> >   * pci_sriov_set_totalvfs -- reduce the TotalVFs available
-> >   * @dev: the PCI PF device
-> >   * @numvfs: number that should be used for TotalVFs supported
-> > diff --git a/drivers/xen/xen-pciback/pci_stub.c b/drivers/xen/xen-pciback/pci_stub.c
-> > index 62fcd48..27e00d1 100644
-> > --- a/drivers/xen/xen-pciback/pci_stub.c
-> > +++ b/drivers/xen/xen-pciback/pci_stub.c
-> > @@ -133,7 +133,7 @@ static void pcistub_device_release(struct kref *kref)
-> >  	xen_pcibk_config_free_dyn_fields(dev);
-> >  	xen_pcibk_config_free_dev(dev);
-> >  
-> > -	dev->dev_flags &= ~PCI_DEV_FLAGS_ASSIGNED;
-> > +	pci_iov_deassign_device(dev);
-> >  	pci_dev_put(dev);
-> >  
-> >  	kfree(psdev);
-> > @@ -404,7 +404,7 @@ static int pcistub_init_device(struct pci_dev *dev)
-> >  	dev_dbg(&dev->dev, "reset device\n");
-> >  	xen_pcibk_reset_device(dev);
-> >  
-> > -	dev->dev_flags |= PCI_DEV_FLAGS_ASSIGNED;
-> > +	pci_iov_assign_device(dev);
-> >  	return 0;
-> >  
-> >  config_release:
-> > diff --git a/include/linux/pci.h b/include/linux/pci.h
-> > index aab57b4..5ece6d6 100644
-> > --- a/include/linux/pci.h
-> > +++ b/include/linux/pci.h
-> > @@ -1603,6 +1603,8 @@ int pci_num_vf(struct pci_dev *dev);
-> >  int pci_vfs_assigned(struct pci_dev *dev);
-> >  int pci_sriov_set_totalvfs(struct pci_dev *dev, u16 numvfs);
-> >  int pci_sriov_get_totalvfs(struct pci_dev *dev);
-> > +void pci_iov_assign_device(struct pci_dev *dev);
-> > +void pci_iov_deassign_device(struct pci_dev *dev);
-> >  #else
-> >  static inline int pci_enable_sriov(struct pci_dev *dev, int nr_virtfn)
-> >  { return -ENODEV; }
-> > @@ -1614,6 +1616,8 @@ static inline int pci_sriov_set_totalvfs(struct pci_dev *dev, u16 numvfs)
-> >  { return 0; }
-> >  static inline int pci_sriov_get_totalvfs(struct pci_dev *dev)
-> >  { return 0; }
-> > +static inline void pci_iov_assign_device(struct pci_dev *dev) { }
-> > +static inline void pci_iov_deassign_device(struct pci_dev *dev) { }
-> >  #endif
-> >  
-> >  #if defined(CONFIG_HOTPLUG_PCI) || defined(CONFIG_HOTPLUG_PCI_MODULE)
-> > diff --git a/virt/kvm/assigned-dev.c b/virt/kvm/assigned-dev.c
-> > index bf06577..7fac58d 100644
-> > --- a/virt/kvm/assigned-dev.c
-> > +++ b/virt/kvm/assigned-dev.c
-> > @@ -302,7 +302,7 @@ static void kvm_free_assigned_device(struct kvm *kvm,
-> >  	else
-> >  		pci_restore_state(assigned_dev->dev);
-> >  
-> > -	assigned_dev->dev->dev_flags &= ~PCI_DEV_FLAGS_ASSIGNED;
-> > +	pci_iov_deassign_device(assigned_dev->dev);
-> >  
-> >  	pci_release_regions(assigned_dev->dev);
-> >  	pci_disable_device(assigned_dev->dev);
-> > diff --git a/virt/kvm/iommu.c b/virt/kvm/iommu.c
-> > index 0df7d4b..641ee73 100644
-> > --- a/virt/kvm/iommu.c
-> > +++ b/virt/kvm/iommu.c
-> > @@ -194,7 +194,7 @@ int kvm_assign_device(struct kvm *kvm,
-> >  			goto out_unmap;
-> >  	}
-> >  
-> > -	pdev->dev_flags |= PCI_DEV_FLAGS_ASSIGNED;
-> > +	pci_iov_assign_device(pdev);
-> >  
-> >  	dev_info(&pdev->dev, "kvm assign device\n");
-> >  
-> > @@ -220,7 +220,7 @@ int kvm_deassign_device(struct kvm *kvm,
-> >  
-> >  	iommu_detach_device(domain, &pdev->dev);
-> >  
-> > -	pdev->dev_flags &= ~PCI_DEV_FLAGS_ASSIGNED;
-> > +	pci_iov_deassign_device(pdev);
-> >  
-> >  	dev_info(&pdev->dev, "kvm deassign device\n");
-> >  
-> 
-> 
-
-
-
-
-------------------------------------------------------------------------------
-Open source business process management suite built on Java and Eclipse
-Turn processes into business applications with Bonita BPM Community Edition
-Quickly connect people, data, and systems into organized workflows
-Winner of BOSSIE, CODIE, OW2 and Gartner awards
-http://p.sf.net/sfu/Bonitasoft
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Cj4g1NogMjAxNMTqN9TCMTHI1aOsz8LO5zk6MTOjrEFsZXggV2lsbGlhbXNvbiA8YWxleC53aWxs
+aWFtc29uQHJlZGhhdC5jb20+INC0tcCjugo+IAo+PiBPbiBGcmksIDIwMTQtMDctMTEgYXQgMjA6
+MzAgKzA4MDAsIEV0aGFuIFpoYW8gd3JvdGU6Cj4+IFRoaXMgcGF0Y2ggaW50cm9kdWNlcyB0d28g
+bmV3IGRldmljZSBhc3NpZ25tZW50IGZ1bmN0aW9ucwo+PiAKPj4gcGNpX2lvdl9hc3NpZ25fZGV2
+aWNlKCksCj4+IHBjaV9pb3ZfZGVhc3NpZ25fZGV2aWNlKCkKPj4gCj4+IGFsb25nIHdpdGggdGhl
+IGV4aXN0ZWQgb25lCj4+IAo+PiBwY2lfdmZzX2Fzc2lnbmVkKCkKPj4gCj4+IFRoZXkgY29uc3Ry
+dWN0IHRoZSBWRnMgYXNzaWdubWVudCBtYW5hZ2VtZW50IGludGVyZmFjZSwgdXNlZCB0byBhc3Np
+Z24vCj4+IGRlYXNzaWduIGRldmljZSB0byBWTSBhbmQgcXVlcnkgdGhlIFZGcyByZWZlcmVuY2Ug
+Y291bnRlci4gaW5zdGVhZCBvZgo+PiBkaXJlY3QgbWFuaXB1bGF0aW9uIG9mIGRldmljZSBmbGFn
+Lgo+PiAKPj4gVGhpcyBwYXRjaCByZWZhc2hpb25lZCB0aGUgcmVsYXRlZCBjb2RlIGFuZCBtYWtl
+IHRoZW0gYXRvbWljLgo+PiAKPj4gdjM6IGNoYW5nZSB0aGUgbmFtaW5nIG9mIGRldmljZSBhc3Np
+Z25tZW50IGhlbHBlcnMsIGJlY2F1c2UgdGhleSB3b3JrCj4+IGZvciBhbGwga2luZCBvZiBQQ0kg
+ZGV2aWNlLCBub3Qgb25seSBTUi1JT1YgKGRhdmlkLnZyYWJlbEBjaXRyaXguY29tKQo+PiAKPj4g
+djI6IHJlb3JkZXIgdGhlIHBhdGNoc2V0IGFuZCBtYWtlIGl0IGJpc2VjdGFibGUgYW5kIGF0b21p
+Yywgc3RlcHMgY2xlYXIKPj4gYmV0d2VlbiBpbnRlcmZhY2UgZGVmaW5hdGlvbiBhbmQgaW1wbGVt
+ZW5hdGlvbiBhY2NvcmRpbmcgdG8gdGhlCj4+IHN1Z2dlc3Rpb24gZnJvbSBhbGV4LndpbGxpYW1z
+b25AcmVkaGF0LmNvbQo+PiAKPj4gU2lnbmVkLW9mZi1ieTogRXRoYW4gWmhhbyA8ZXRoYW4uemhh
+b0BvcmFjbGUuY29tPgo+PiAtLS0KPiAKPiAtIFVzZSBhIGNvdmVyIHBhdGNoIHRvIGRlc2NyaWJl
+IHRoZSBzZXJpZXMKPiAKIEhtbW0sCj4gLSBWZXJzaW9uIGluZm9ybWF0aW9uIGdvZXMgaGVyZSwg
+YmVsb3cgdGhlICItLS0iLCBub3QgYWJvdmUgaXQKPiAKPiAtIEkgc3RhbmQgYnkgdGhlIHBhdGNo
+IGJyZWFrZG93biBJIHN1Z2dlc3RlZCBvcmlnaW5hbGx5LCB0aGVyZSBhcmUgdG9vCj4gbWFueSBs
+b2dpY2FsIGNoYW5nZXMgaGVyZSBpbiBwYXRjaCAxLiAgVGhlcmUgYXJlIGVhc2lseSAzIHNlcGFy
+YXRlCj4gcGF0Y2hlcyBoZXJlLgo+IAogWW91IHByZWZlciB2MSBhZ2FpbiA/IAoKPiAtIFJlbmFt
+aW5nIHMvc3Jpb3YvaW92LyBkb2Vzbid0IGFkZHJlc3MgdGhlIHByb2JsZW0gRGF2aWQgcmFpc2Vk
+LiAgVGhlCj4gbmFtZSBpcyBzdGlsbCBzeW5vbnltb3VzIHdpdGggU1ItSU9WIGFuZCBpdCdzIGRl
+ZmluZWQgb24KPiBkcml2ZXJzL3BjaS9pb3YuYywgd2hpY2ggaXMgb25seSBidWlsdCB3aXRoIENP
+TkZJR19QQ0lfSU9WLgo+IAogVGhpcyBpcyByZWFsIGlzc3VlLCB0aGUgaW50ZXJmYWNlIHNob3Vs
+ZCB3b3JrIHdpdGhvdXQgQ09ORklHX1BDSV9JT1YgZGVmaW5lZC4KU2hvdWxkIGJlIGZpeGVkLgoK
+PiAtIFBDSV9ERVZfRkxBR1NfQVNTSUdORUQgc2hvdWxkIGJlIHVudXNlZCBhZnRlciB0aGlzIHNl
+cmllcywgd2h5IGlzIGl0Cj4gbm90IHJlbW92ZWQ/CnlvdSB3YW5uYSBkbyBhbGwgdGhpbmdzIGlu
+IG9uZSBzdGVwID8gQmUgcHJhY3RpY2FsLiBUaGF0IGlzIG5vdCBteSBvcmlnaW5hbCBwdXJwb3Nl
+Lgo+IAo+PiBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pNDBlL2k0MGVfdmlydGNobmxfcGYu
+YyB8ICAgMTcgKystLS0tLS0tLS0tLS0tLS0KPj4gZHJpdmVycy9wY2kvaW92LmMgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgfCAgIDIwICsrKysrKysrKysrKysrKysrKysrCj4+IGRy
+aXZlcnMveGVuL3hlbi1wY2liYWNrL3BjaV9zdHViLmMgICAgICAgICAgICAgICAgIHwgICAgNCAr
+Ky0tCj4+IGluY2x1ZGUvbGludXgvcGNpLmggICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+IHwgICAgNCArKysrCj4+IHZpcnQva3ZtL2Fzc2lnbmVkLWRldi5jICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgIHwgICAgMiArLQo+PiB2aXJ0L2t2bS9pb21tdS5jICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICB8ICAgIDQgKystLQo+IAo+IC0gVGhpcyBwYXRjaCB0b3VjaCA0IHNl
+cGFyYXRlIGxvZ2ljYWwgY29kZSBhcmVhcywgd2hvIGRvIHlvdSBleHBlY3QgdG8KPiBhY2sgYW5k
+IGNvbW1pdCBpdD8gIFNwbGl0IGl0IHVwLgo+IAogICBTdWNoIHdvdWxkIGdvIGJhY2sgdG8gdGhl
+IHYxLCBmb3VyIHBhdGNoZXMsIGlmIG9uZSBsb3N0IHRvIGJlIGNvbW1pdHRlZCwga2VybmVsIGNv
+dWxkIGJlIGJ1Z2d5LiAgCgo+PiA2IGZpbGVzIGNoYW5nZWQsIDMxIGluc2VydGlvbnMoKyksIDIw
+IGRlbGV0aW9ucygtKQo+PiAKPj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2lu
+dGVsL2k0MGUvaTQwZV92aXJ0Y2hubF9wZi5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwv
+aTQwZS9pNDBlX3ZpcnRjaG5sX3BmLmMKPj4gaW5kZXggMDJjMTFhNy4uNzgxMDQwZSAxMDA2NDQK
+Pj4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZS9pNDBlX3ZpcnRjaG5sX3Bm
+LmMKPj4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZS9pNDBlX3ZpcnRjaG5s
+X3BmLmMKPj4gQEAgLTY5MywyMiArNjkzLDkgQEAgY29tcGxldGVfcmVzZXQ6Cj4+IHN0YXRpYyBi
+b29sIGk0MGVfdmZzX2FyZV9hc3NpZ25lZChzdHJ1Y3QgaTQwZV9wZiAqcGYpCj4+IHsKPj4gICAg
+c3RydWN0IHBjaV9kZXYgKnBkZXYgPSBwZi0+cGRldjsKPj4gLSAgICBzdHJ1Y3QgcGNpX2RldiAq
+dmZkZXY7Cj4+IC0KPj4gLSAgICAvKiBsb29wIHRocm91Z2ggYWxsIHRoZSBWRnMgdG8gc2VlIGlm
+IHdlIG93biBhbnkgdGhhdCBhcmUgYXNzaWduZWQgKi8KPj4gLSAgICB2ZmRldiA9IHBjaV9nZXRf
+ZGV2aWNlKFBDSV9WRU5ET1JfSURfSU5URUwsIEk0MEVfREVWX0lEX1ZGICwgTlVMTCk7Cj4+IC0g
+ICAgd2hpbGUgKHZmZGV2KSB7Cj4+IC0gICAgICAgIC8qIGlmIHdlIGRvbid0IG93biBpdCB3ZSBk
+b24ndCBjYXJlICovCj4+IC0gICAgICAgIGlmICh2ZmRldi0+aXNfdmlydGZuICYmIHBjaV9waHlz
+Zm4odmZkZXYpID09IHBkZXYpIHsKPj4gLSAgICAgICAgICAgIC8qIGlmIGl0IGlzIGFzc2lnbmVk
+IHdlIGNhbm5vdCByZWxlYXNlIGl0ICovCj4+IC0gICAgICAgICAgICBpZiAodmZkZXYtPmRldl9m
+bGFncyAmIFBDSV9ERVZfRkxBR1NfQVNTSUdORUQpCj4+IC0gICAgICAgICAgICAgICAgcmV0dXJu
+IHRydWU7Cj4+IC0gICAgICAgIH0KPj4gCj4+IC0gICAgICAgIHZmZGV2ID0gcGNpX2dldF9kZXZp
+Y2UoUENJX1ZFTkRPUl9JRF9JTlRFTCwKPj4gLSAgICAgICAgICAgICAgICAgICAgICAgSTQwRV9E
+RVZfSURfVkYsCj4+IC0gICAgICAgICAgICAgICAgICAgICAgIHZmZGV2KTsKPj4gLSAgICB9Cj4+
+ICsgICAgaWYgKHBjaV92ZnNfYXNzaWduZWQocGRldikpCj4+ICsgICAgICAgIHJldHVybiB0cnVl
+Owo+PiAKPj4gICAgcmV0dXJuIGZhbHNlOwo+PiB9Cj4+IGRpZmYgLS1naXQgYS9kcml2ZXJzL3Bj
+aS9pb3YuYyBiL2RyaXZlcnMvcGNpL2lvdi5jCj4+IGluZGV4IGRlN2E3NDcuLjA5MGY4MjcgMTAw
+NjQ0Cj4+IC0tLSBhL2RyaXZlcnMvcGNpL2lvdi5jCj4+ICsrKyBiL2RyaXZlcnMvcGNpL2lvdi5j
+Cj4+IEBAIC02NDQsNiArNjQ0LDI2IEBAIGludCBwY2lfdmZzX2Fzc2lnbmVkKHN0cnVjdCBwY2lf
+ZGV2ICpkZXYpCj4+IEVYUE9SVF9TWU1CT0xfR1BMKHBjaV92ZnNfYXNzaWduZWQpOwo+PiAKPj4g
+LyoqCj4+ICsgKiBwY2lfaW92X2Fzc2lnbl9kZXZpY2UgLSBhc3NpZ24gZGV2aWNlIHRvIFZNCj4+
+ICsgKiBAcGRldjogdGhlIGRldmljZSB0byBiZSBhc3NpZ25lZC4KPj4gKyAqLwo+PiArdm9pZCBw
+Y2lfaW92X2Fzc2lnbl9kZXZpY2Uoc3RydWN0IHBjaV9kZXYgKnBkZXYpCj4+ICt7Cj4+ICsgICAg
+cGRldi0+ZGV2X2ZsYWdzIHw9IFBDSV9ERVZfRkxBR1NfQVNTSUdORUQ7Cj4+ICt9Cj4+ICtFWFBP
+UlRfU1lNQk9MX0dQTChwY2lfaW92X2Fzc2lnbl9kZXZpY2UpOwo+PiArCj4+ICsvKioKPj4gKyAq
+IHBjaV9pb3ZfZGVhc3NpZ25fZGV2aWNlIC0gZGVhc2lnbiBkZXZpY2UgZnJvbSBWTQo+PiArICog
+QHBkZXY6IHRoZSBkZXZpY2UgdG8gYmUgZGVhc3NpZ25lZC4KPj4gKyAqLwo+PiArdm9pZCBwY2lf
+aW92X2RlYXNzaWduX2RldmljZShzdHJ1Y3QgcGNpX2RldiAqcGRldikKPj4gK3sKPj4gKyAgICBw
+ZGV2LT5kZXZfZmxhZ3MgJj0gflBDSV9ERVZfRkxBR1NfQVNTSUdORUQ7Cj4+ICt9Cj4+ICtFWFBP
+UlRfU1lNQk9MX0dQTChwY2lfaW92X2RlYXNzaWduX2RldmljZSk7Cj4+ICsKPj4gKy8qKgo+PiAg
+KiBwY2lfc3Jpb3Zfc2V0X3RvdGFsdmZzIC0tIHJlZHVjZSB0aGUgVG90YWxWRnMgYXZhaWxhYmxl
+Cj4+ICAqIEBkZXY6IHRoZSBQQ0kgUEYgZGV2aWNlCj4+ICAqIEBudW12ZnM6IG51bWJlciB0aGF0
+IHNob3VsZCBiZSB1c2VkIGZvciBUb3RhbFZGcyBzdXBwb3J0ZWQKPj4gZGlmZiAtLWdpdCBhL2Ry
+aXZlcnMveGVuL3hlbi1wY2liYWNrL3BjaV9zdHViLmMgYi9kcml2ZXJzL3hlbi94ZW4tcGNpYmFj
+ay9wY2lfc3R1Yi5jCj4+IGluZGV4IDYyZmNkNDguLjI3ZTAwZDEgMTAwNjQ0Cj4+IC0tLSBhL2Ry
+aXZlcnMveGVuL3hlbi1wY2liYWNrL3BjaV9zdHViLmMKPj4gKysrIGIvZHJpdmVycy94ZW4veGVu
+LXBjaWJhY2svcGNpX3N0dWIuYwo+PiBAQCAtMTMzLDcgKzEzMyw3IEBAIHN0YXRpYyB2b2lkIHBj
+aXN0dWJfZGV2aWNlX3JlbGVhc2Uoc3RydWN0IGtyZWYgKmtyZWYpCj4+ICAgIHhlbl9wY2lia19j
+b25maWdfZnJlZV9keW5fZmllbGRzKGRldik7Cj4+ICAgIHhlbl9wY2lia19jb25maWdfZnJlZV9k
+ZXYoZGV2KTsKPj4gCj4+IC0gICAgZGV2LT5kZXZfZmxhZ3MgJj0gflBDSV9ERVZfRkxBR1NfQVNT
+SUdORUQ7Cj4+ICsgICAgcGNpX2lvdl9kZWFzc2lnbl9kZXZpY2UoZGV2KTsKPj4gICAgcGNpX2Rl
+dl9wdXQoZGV2KTsKPj4gCj4+ICAgIGtmcmVlKHBzZGV2KTsKPj4gQEAgLTQwNCw3ICs0MDQsNyBA
+QCBzdGF0aWMgaW50IHBjaXN0dWJfaW5pdF9kZXZpY2Uoc3RydWN0IHBjaV9kZXYgKmRldikKPj4g
+ICAgZGV2X2RiZygmZGV2LT5kZXYsICJyZXNldCBkZXZpY2VcbiIpOwo+PiAgICB4ZW5fcGNpYmtf
+cmVzZXRfZGV2aWNlKGRldik7Cj4+IAo+PiAtICAgIGRldi0+ZGV2X2ZsYWdzIHw9IFBDSV9ERVZf
+RkxBR1NfQVNTSUdORUQ7Cj4+ICsgICAgcGNpX2lvdl9hc3NpZ25fZGV2aWNlKGRldik7Cj4+ICAg
+IHJldHVybiAwOwo+PiAKPj4gY29uZmlnX3JlbGVhc2U6Cj4+IGRpZmYgLS1naXQgYS9pbmNsdWRl
+L2xpbnV4L3BjaS5oIGIvaW5jbHVkZS9saW51eC9wY2kuaAo+PiBpbmRleCBhYWI1N2I0Li41ZWNl
+NmQ2IDEwMDY0NAo+PiAtLS0gYS9pbmNsdWRlL2xpbnV4L3BjaS5oCj4+ICsrKyBiL2luY2x1ZGUv
+bGludXgvcGNpLmgKPj4gQEAgLTE2MDMsNiArMTYwMyw4IEBAIGludCBwY2lfbnVtX3ZmKHN0cnVj
+dCBwY2lfZGV2ICpkZXYpOwo+PiBpbnQgcGNpX3Zmc19hc3NpZ25lZChzdHJ1Y3QgcGNpX2RldiAq
+ZGV2KTsKPj4gaW50IHBjaV9zcmlvdl9zZXRfdG90YWx2ZnMoc3RydWN0IHBjaV9kZXYgKmRldiwg
+dTE2IG51bXZmcyk7Cj4+IGludCBwY2lfc3Jpb3ZfZ2V0X3RvdGFsdmZzKHN0cnVjdCBwY2lfZGV2
+ICpkZXYpOwo+PiArdm9pZCBwY2lfaW92X2Fzc2lnbl9kZXZpY2Uoc3RydWN0IHBjaV9kZXYgKmRl
+dik7Cj4+ICt2b2lkIHBjaV9pb3ZfZGVhc3NpZ25fZGV2aWNlKHN0cnVjdCBwY2lfZGV2ICpkZXYp
+Owo+PiAjZWxzZQo+PiBzdGF0aWMgaW5saW5lIGludCBwY2lfZW5hYmxlX3NyaW92KHN0cnVjdCBw
+Y2lfZGV2ICpkZXYsIGludCBucl92aXJ0Zm4pCj4+IHsgcmV0dXJuIC1FTk9ERVY7IH0KPj4gQEAg
+LTE2MTQsNiArMTYxNiw4IEBAIHN0YXRpYyBpbmxpbmUgaW50IHBjaV9zcmlvdl9zZXRfdG90YWx2
+ZnMoc3RydWN0IHBjaV9kZXYgKmRldiwgdTE2IG51bXZmcykKPj4geyByZXR1cm4gMDsgfQo+PiBz
+dGF0aWMgaW5saW5lIGludCBwY2lfc3Jpb3ZfZ2V0X3RvdGFsdmZzKHN0cnVjdCBwY2lfZGV2ICpk
+ZXYpCj4+IHsgcmV0dXJuIDA7IH0KPj4gK3N0YXRpYyBpbmxpbmUgdm9pZCBwY2lfaW92X2Fzc2ln
+bl9kZXZpY2Uoc3RydWN0IHBjaV9kZXYgKmRldikgeyB9Cj4+ICtzdGF0aWMgaW5saW5lIHZvaWQg
+cGNpX2lvdl9kZWFzc2lnbl9kZXZpY2Uoc3RydWN0IHBjaV9kZXYgKmRldikgeyB9Cj4+ICNlbmRp
+Zgo+PiAKPj4gI2lmIGRlZmluZWQoQ09ORklHX0hPVFBMVUdfUENJKSB8fCBkZWZpbmVkKENPTkZJ
+R19IT1RQTFVHX1BDSV9NT0RVTEUpCj4+IGRpZmYgLS1naXQgYS92aXJ0L2t2bS9hc3NpZ25lZC1k
+ZXYuYyBiL3ZpcnQva3ZtL2Fzc2lnbmVkLWRldi5jCj4+IGluZGV4IGJmMDY1NzcuLjdmYWM1OGQg
+MTAwNjQ0Cj4+IC0tLSBhL3ZpcnQva3ZtL2Fzc2lnbmVkLWRldi5jCj4+ICsrKyBiL3ZpcnQva3Zt
+L2Fzc2lnbmVkLWRldi5jCj4+IEBAIC0zMDIsNyArMzAyLDcgQEAgc3RhdGljIHZvaWQga3ZtX2Zy
+ZWVfYXNzaWduZWRfZGV2aWNlKHN0cnVjdCBrdm0gKmt2bSwKPj4gICAgZWxzZQo+PiAgICAgICAg
+cGNpX3Jlc3RvcmVfc3RhdGUoYXNzaWduZWRfZGV2LT5kZXYpOwo+PiAKPj4gLSAgICBhc3NpZ25l
+ZF9kZXYtPmRldi0+ZGV2X2ZsYWdzICY9IH5QQ0lfREVWX0ZMQUdTX0FTU0lHTkVEOwo+PiArICAg
+IHBjaV9pb3ZfZGVhc3NpZ25fZGV2aWNlKGFzc2lnbmVkX2Rldi0+ZGV2KTsKPj4gCj4+ICAgIHBj
+aV9yZWxlYXNlX3JlZ2lvbnMoYXNzaWduZWRfZGV2LT5kZXYpOwo+PiAgICBwY2lfZGlzYWJsZV9k
+ZXZpY2UoYXNzaWduZWRfZGV2LT5kZXYpOwo+PiBkaWZmIC0tZ2l0IGEvdmlydC9rdm0vaW9tbXUu
+YyBiL3ZpcnQva3ZtL2lvbW11LmMKPj4gaW5kZXggMGRmN2Q0Yi4uNjQxZWU3MyAxMDA2NDQKPj4g
+LS0tIGEvdmlydC9rdm0vaW9tbXUuYwo+PiArKysgYi92aXJ0L2t2bS9pb21tdS5jCj4+IEBAIC0x
+OTQsNyArMTk0LDcgQEAgaW50IGt2bV9hc3NpZ25fZGV2aWNlKHN0cnVjdCBrdm0gKmt2bSwKPj4g
+ICAgICAgICAgICBnb3RvIG91dF91bm1hcDsKPj4gICAgfQo+PiAKPj4gLSAgICBwZGV2LT5kZXZf
+ZmxhZ3MgfD0gUENJX0RFVl9GTEFHU19BU1NJR05FRDsKPj4gKyAgICBwY2lfaW92X2Fzc2lnbl9k
+ZXZpY2UocGRldik7Cj4+IAo+PiAgICBkZXZfaW5mbygmcGRldi0+ZGV2LCAia3ZtIGFzc2lnbiBk
+ZXZpY2VcbiIpOwo+PiAKPj4gQEAgLTIyMCw3ICsyMjAsNyBAQCBpbnQga3ZtX2RlYXNzaWduX2Rl
+dmljZShzdHJ1Y3Qga3ZtICprdm0sCj4+IAo+PiAgICBpb21tdV9kZXRhY2hfZGV2aWNlKGRvbWFp
+biwgJnBkZXYtPmRldik7Cj4+IAo+PiAtICAgIHBkZXYtPmRldl9mbGFncyAmPSB+UENJX0RFVl9G
+TEFHU19BU1NJR05FRDsKPj4gKyAgICBwY2lfaW92X2RlYXNzaWduX2RldmljZShwZGV2KTsKPj4g
+Cj4+ICAgIGRldl9pbmZvKCZwZGV2LT5kZXYsICJrdm0gZGVhc3NpZ24gZGV2aWNlXG4iKTsKPiAK
+PiAKPiAKCi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQpPcGVuIHNvdXJjZSBidXNpbmVzcyBwcm9jZXNz
+IG1hbmFnZW1lbnQgc3VpdGUgYnVpbHQgb24gSmF2YSBhbmQgRWNsaXBzZQpUdXJuIHByb2Nlc3Nl
+cyBpbnRvIGJ1c2luZXNzIGFwcGxpY2F0aW9ucyB3aXRoIEJvbml0YSBCUE0gQ29tbXVuaXR5IEVk
+aXRpb24KUXVpY2tseSBjb25uZWN0IHBlb3BsZSwgZGF0YSwgYW5kIHN5c3RlbXMgaW50byBvcmdh
+bml6ZWQgd29ya2Zsb3dzCldpbm5lciBvZiBCT1NTSUUsIENPRElFLCBPVzIgYW5kIEdhcnRuZXIg
+YXdhcmRzCmh0dHA6Ly9wLnNmLm5ldC9zZnUvQm9uaXRhc29mdApfX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fXwpFMTAwMC1kZXZlbCBtYWlsaW5nIGxpc3QKRTEw
+MDAtZGV2ZWxAbGlzdHMuc291cmNlZm9yZ2UubmV0Cmh0dHBzOi8vbGlzdHMuc291cmNlZm9yZ2Uu
+bmV0L2xpc3RzL2xpc3RpbmZvL2UxMDAwLWRldmVsClRvIGxlYXJuIG1vcmUgYWJvdXQgSW50ZWwm
+IzE3NDsgRXRoZXJuZXQsIHZpc2l0IGh0dHA6Ly9jb21tdW5pdGllcy5pbnRlbC5jb20vY29tbXVu
+aXR5L3dpcmVkCg==
