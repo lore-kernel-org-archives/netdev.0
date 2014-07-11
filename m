@@ -1,47 +1,99 @@
-From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH] be2net: set EQ DB clear-intr bit in be_open()
-Date: Fri, 11 Jul 2014 14:03:01 +0530
-Message-ID: <1405067581-31955-1-git-send-email-sathya.perla@emulex.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch iproute2] iproute2: allow to ipv6 set address generation mode
+Date: Fri, 11 Jul 2014 10:30:24 +0200
+Message-ID: <1405067424-11911-1-git-send-email-jiri@resnulli.us>
+References: <1405066774-11740-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net,
+	sfeldma@cumulusnetworks.com, arvid.brodin@alten.se,
+	sucheta.chakraborty@qlogic.com, hannes@stressinduktion.org,
+	stephen@networkplumber.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:39210 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752026AbaGKIah (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jul 2014 04:30:37 -0400
+Received: from mail-we0-f176.google.com ([74.125.82.176]:50171 "EHLO
+	mail-we0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752051AbaGKIaj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jul 2014 04:30:39 -0400
+Received: by mail-we0-f176.google.com with SMTP id u56so700849wes.7
+        for <netdev@vger.kernel.org>; Fri, 11 Jul 2014 01:30:35 -0700 (PDT)
+In-Reply-To: <1405066774-11740-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Suresh Reddy <Suresh.Reddy@emulex.com>
-
-On BE3, if the clear-interrupt bit of the EQ doorbell is not set the first
-time it is armed, ocassionally we have observed that the EQ doesn't raise
-anymore interrupts even if it is in armed state.
-This patch fixes this by setting the clear-interrupt bit when EQs are
-armed for the first time in be_open().
-
-Signed-off-by: Suresh Reddy <Suresh.Reddy@emulex.com>
-Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
+ include/linux/if_link.h |  6 ++++++
+ ip/iplink.c             | 22 ++++++++++++++++++++++
+ 2 files changed, 28 insertions(+)
 
-David, could you pls queue this patch for the -stable tree. Thks.
-
- drivers/net/ethernet/emulex/benet/be_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
-
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 34a26e4..1e187fb 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -2902,7 +2902,7 @@ static int be_open(struct net_device *netdev)
- 	for_all_evt_queues(adapter, eqo, i) {
- 		napi_enable(&eqo->napi);
- 		be_enable_busy_poll(eqo);
--		be_eq_notify(adapter, eqo->q.id, true, false, 0);
-+		be_eq_notify(adapter, eqo->q.id, true, true, 0);
- 	}
- 	adapter->flags |= BE_FLAGS_NAPI_ENABLED;
+diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+index fadef0f..39cb62c 100644
+--- a/include/linux/if_link.h
++++ b/include/linux/if_link.h
+@@ -202,11 +202,17 @@ enum {
+ 	IFLA_INET6_CACHEINFO,	/* time values and max reasm size */
+ 	IFLA_INET6_ICMP6STATS,	/* statistics (icmpv6)		*/
+ 	IFLA_INET6_TOKEN,	/* device token			*/
++	IFLA_INET6_ADDR_GEN_MODE, /* implicit address generator mode */
+ 	__IFLA_INET6_MAX
+ };
  
+ #define IFLA_INET6_MAX	(__IFLA_INET6_MAX - 1)
+ 
++enum in6_addr_gen_mode {
++	IN6_ADDR_GEN_MODE_EUI64,
++	IN6_ADDR_GEN_MODE_NONE,
++};
++
+ enum {
+ 	BRIDGE_MODE_UNSPEC,
+ 	BRIDGE_MODE_HAIRPIN,
+diff --git a/ip/iplink.c b/ip/iplink.c
+index 0d020ef..ecb05d6 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -81,6 +81,7 @@ void iplink_usage(void)
+ 	fprintf(stderr, "				   [ state { auto | enable | disable} ] ]\n");
+ 	fprintf(stderr, "			  [ master DEVICE ]\n");
+ 	fprintf(stderr, "			  [ nomaster ]\n");
++	fprintf(stderr, "			  [ addrgenmode { eui64 | none } ]\n");
+ 	fprintf(stderr, "       ip link show [ DEVICE | group GROUP ] [up]\n");
+ 
+ 	if (iplink_have_newlink()) {
+@@ -161,6 +162,15 @@ static int get_link_mode(const char *mode)
+ 	return -1;
+ }
+ 
++static int get_addr_gen_mode(const char *mode)
++{
++	if (strcasecmp(mode, "eui64") == 0)
++		return IN6_ADDR_GEN_MODE_EUI64;
++	if (strcasecmp(mode, "none") == 0)
++		return IN6_ADDR_GEN_MODE_NONE;
++	return -1;
++}
++
+ #if IPLINK_IOCTL_COMPAT
+ static int have_rtnl_newlink = -1;
+ 
+@@ -557,6 +567,18 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
+ 				invarg("Invalid \"numrxqueues\" value\n", *argv);
+ 			addattr_l(&req->n, sizeof(*req), IFLA_NUM_RX_QUEUES,
+ 				  &numrxqueues, 4);
++		} else if (matches(*argv, "addrgenmode") == 0) {
++			struct rtattr *afs, *afs6;
++			int mode;
++			NEXT_ARG();
++			mode = get_addr_gen_mode(*argv);
++			if (mode < 0)
++				invarg("Invalid address generation mode\n", *argv);
++			afs = addattr_nest(&req->n, sizeof(*req), IFLA_AF_SPEC);
++			afs6 = addattr_nest(&req->n, sizeof(*req), AF_INET6);
++			addattr8(&req->n, sizeof(*req), IFLA_INET6_ADDR_GEN_MODE, mode);
++			addattr_nest_end(&req->n, afs6);
++			addattr_nest_end(&req->n, afs);
+ 		} else {
+ 			if (strcmp(*argv, "dev") == 0) {
+ 				NEXT_ARG();
 -- 
-1.7.1
+1.9.0
