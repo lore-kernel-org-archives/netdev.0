@@ -1,32 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] r8152: fix r8152_csum_workaround function
-Date: Fri, 11 Jul 2014 14:52:33 -0700 (PDT)
-Message-ID: <20140711.145233.467436750120498278.davem@davemloft.net>
-References: <1394712342-15778-14-Taiwan-albertk@realtek.com>
+Subject: Re: [PATCH net-next] enic: Add ethtool support to show classifier
+ filters added by the driver
+Date: Fri, 11 Jul 2014 14:59:17 -0700 (PDT)
+Message-ID: <20140711.145917.653569199285104303.davem@davemloft.net>
+References: <1405070051-10445-1-git-send-email-_govind@gmx.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: hayeswang@realtek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-14-Taiwan-albertk@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ssujith@cisco.com, benve@cisco.com
+To: _govind@gmx.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57907 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751444AbaGKV7S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jul 2014 17:59:18 -0400
+In-Reply-To: <1405070051-10445-1-git-send-email-_govind@gmx.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hayes Wang <hayeswang@realtek.com>
-Date: Fri, 11 Jul 2014 16:48:27 +0800
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Date: Fri, 11 Jul 2014 14:44:11 +0530
 
-> The transport offset of the IPv4 packet should be fixed and wouldn't
-> be out of the hw limitation, so the r8152_csum_workaround() should
-> be used for IPv6 packets.
-> 
-> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+> Right now Accelerated RFS is the only feature which adds classifier filters.
+> So enable get_rxnfc only when CONFIG_RFS_ACCEL = y
+ ...
+> @@ -293,6 +389,9 @@ static const struct ethtool_ops enic_ethtool_ops = {
+>  	.get_ethtool_stats = enic_get_ethtool_stats,
+>  	.get_coalesce = enic_get_coalesce,
+>  	.set_coalesce = enic_set_coalesce,
+> +#ifdef CONFIG_RFS_ACCEL
+> +	.get_rxnfc = enic_get_rxnfc,
+> +#endif
 
-Applied and queued up for -stable, but this patch was harder to review
-than it needed to be...
-
-> -		features &= ~(NETIF_F_IP_CSUM | NETIF_F_SG | NETIF_F_TSO);
-> +		features &= ~(NETIF_F_SG | NETIF_F_IPV6_CSUM | NETIF_F_TSO6);
-
-because you changed the order of the flags unnecessarily.
+No other driver protects this method in this way, please don't do this.
