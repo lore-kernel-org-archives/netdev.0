@@ -1,31 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 net-next 0/4] Network driver for Armada 375 SoC
-Date: Thu, 10 Jul 2014 17:20:02 -0700 (PDT)
-Message-ID: <20140710.172002.527288974818817073.davem@davemloft.net>
-References: <1405021936-28658-1-git-send-email-ezequiel.garcia@free-electrons.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	jason@lakedaemon.net, mw@semihalf.com,
-	thomas.petazzoni@free-electrons.com,
-	gregory.clement@free-electrons.com, tawfik@marvell.com,
-	alior@marvell.com
-To: ezequiel.garcia@free-electrons.com
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net] GRE: enable offloads for GRE
+Date: Thu, 10 Jul 2014 17:29:21 -0700
+Message-ID: <1405038561-14852-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Amritha Nambiar <amritha.nambiar@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	Joseph Gasparakis <joseph.gasparakis@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46325 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751170AbaGKAUF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2014 20:20:05 -0400
-In-Reply-To: <1405021936-28658-1-git-send-email-ezequiel.garcia@free-electrons.com>
+Received: from mga02.intel.com ([134.134.136.20]:40355 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751170AbaGKA3Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 10 Jul 2014 20:29:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Date: Thu, 10 Jul 2014 16:52:12 -0300
+From: Amritha Nambiar <amritha.nambiar@intel.com>
 
-> If there's nothing else to fix, we'd like to merge this for v3.17. The first
-> patch should go through the network tree, and the other patches through
-> the mvebu tree.
+To get offloads to work with Generic Routing Encapsulation (GRE), the
+outer transport header has to be reset after skb_push is done. This
+patch has the support for this fix and hence GRE offloading.
 
-I've merged the first patch into net-next, thanks.
+Signed-off-by: Amritha Nambiar <amritha.nambiar@intel.com>
+Signed-off-by: Joseph Gasparakis <joseph.gasparakis@intel.com>
+Tested-By: Jim Young <jamesx.m.young@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ net/ipv4/gre_demux.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/ipv4/gre_demux.c b/net/ipv4/gre_demux.c
+index 4e9619b..0485bf7 100644
+--- a/net/ipv4/gre_demux.c
++++ b/net/ipv4/gre_demux.c
+@@ -68,6 +68,7 @@ void gre_build_header(struct sk_buff *skb, const struct tnl_ptk_info *tpi,
+ 
+ 	skb_push(skb, hdr_len);
+ 
++	skb_reset_transport_header(skb);
+ 	greh = (struct gre_base_hdr *)skb->data;
+ 	greh->flags = tnl_flags_to_gre_flags(tpi->flags);
+ 	greh->protocol = tpi->proto;
+-- 
+1.9.3
