@@ -1,99 +1,251 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch iproute2] iproute2: allow to ipv6 set address generation mode
-Date: Fri, 11 Jul 2014 10:30:24 +0200
-Message-ID: <1405067424-11911-1-git-send-email-jiri@resnulli.us>
-References: <1405066774-11740-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net,
-	sfeldma@cumulusnetworks.com, arvid.brodin@alten.se,
-	sucheta.chakraborty@qlogic.com, hannes@stressinduktion.org,
-	stephen@networkplumber.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f176.google.com ([74.125.82.176]:50171 "EHLO
-	mail-we0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752051AbaGKIaj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jul 2014 04:30:39 -0400
-Received: by mail-we0-f176.google.com with SMTP id u56so700849wes.7
-        for <netdev@vger.kernel.org>; Fri, 11 Jul 2014 01:30:35 -0700 (PDT)
-In-Reply-To: <1405066774-11740-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net-next 3/3] r8169: support IPv6
+Date: Fri, 11 Jul 2014 16:25:58 +0800
+Message-ID: <1394712342-15778-13-Taiwan-albertk@realtek.com>
+References: <1394712342-15778-10-Taiwan-albertk@realtek.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<nic_swsd@realtek.com>
+To: <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394712342-15778-10-Taiwan-albertk@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+Support the IPv6 hw checksum for RTL8111C and later chips. Note
+that the hw has the limitation for the transport offset. The
+checksum must be calculated by sw, when the transport offset is
+out of the range which the hw accepts.
+
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- include/linux/if_link.h |  6 ++++++
- ip/iplink.c             | 22 ++++++++++++++++++++++
- 2 files changed, 28 insertions(+)
+ drivers/net/ethernet/realtek/r8169.c | 157 ++++++++++++++++++++++++++++++++---
+ 1 file changed, 145 insertions(+), 12 deletions(-)
 
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index fadef0f..39cb62c 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -202,11 +202,17 @@ enum {
- 	IFLA_INET6_CACHEINFO,	/* time values and max reasm size */
- 	IFLA_INET6_ICMP6STATS,	/* statistics (icmpv6)		*/
- 	IFLA_INET6_TOKEN,	/* device token			*/
-+	IFLA_INET6_ADDR_GEN_MODE, /* implicit address generator mode */
- 	__IFLA_INET6_MAX
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
+index e5a0bdb..51c78ce 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -27,6 +27,8 @@
+ #include <linux/firmware.h>
+ #include <linux/pci-aspm.h>
+ #include <linux/prefetch.h>
++#include <linux/ipv6.h>
++#include <net/ip6_checksum.h>
+ 
+ #include <asm/io.h>
+ #include <asm/irq.h>
+@@ -628,11 +630,16 @@ enum rtl_tx_desc_bit_0 {
+ enum rtl_tx_desc_bit_1 {
+ 	/* First doubleword. */
+ 	TD1_GTSENV4	= (1 << 26),		/* Giant Send for IPv4 */
++	TD1_GTSENV6	= (1 << 25),		/* Giant Send for IPv6 */
+ #define GTTCPHO_SHIFT			18
++#define GTTCPHO_MAX			0x7fU
+ 
+ 	/* Second doubleword. */
++#define TCPHO_SHIFT			18
++#define TCPHO_MAX			0x3ffU
+ #define TD1_MSS_SHIFT			18	/* MSS position (11 bits) */
+-	TD1_IP_CS	= (1 << 29),		/* Calculate IP checksum */
++	TD1_IPv6_CS	= (1 << 28),		/* Calculate IPv6 checksum */
++	TD1_IPv4_CS	= (1 << 29),		/* Calculate IPv4 checksum */
+ 	TD1_TCP_CS	= (1 << 30),		/* Calculate TCP/IP checksum */
+ 	TD1_UDP_CS	= (1 << 31),		/* Calculate UDP/IP checksum */
  };
- 
- #define IFLA_INET6_MAX	(__IFLA_INET6_MAX - 1)
- 
-+enum in6_addr_gen_mode {
-+	IN6_ADDR_GEN_MODE_EUI64,
-+	IN6_ADDR_GEN_MODE_NONE,
-+};
-+
- enum {
- 	BRIDGE_MODE_UNSPEC,
- 	BRIDGE_MODE_HAIRPIN,
-diff --git a/ip/iplink.c b/ip/iplink.c
-index 0d020ef..ecb05d6 100644
---- a/ip/iplink.c
-+++ b/ip/iplink.c
-@@ -81,6 +81,7 @@ void iplink_usage(void)
- 	fprintf(stderr, "				   [ state { auto | enable | disable} ] ]\n");
- 	fprintf(stderr, "			  [ master DEVICE ]\n");
- 	fprintf(stderr, "			  [ nomaster ]\n");
-+	fprintf(stderr, "			  [ addrgenmode { eui64 | none } ]\n");
- 	fprintf(stderr, "       ip link show [ DEVICE | group GROUP ] [up]\n");
- 
- 	if (iplink_have_newlink()) {
-@@ -161,6 +162,15 @@ static int get_link_mode(const char *mode)
- 	return -1;
+@@ -5920,6 +5927,82 @@ static bool rtl_test_hw_pad_bug(struct rtl8169_private *tp, struct sk_buff *skb)
+ 	return skb->len < ETH_ZLEN && tp->mac_version == RTL_GIGA_MAC_VER_34;
  }
  
-+static int get_addr_gen_mode(const char *mode)
++static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
++				      struct net_device *dev);
++/* r8169_csum_workaround()
++ * The hw limites the value the transport offset. When the offset is out of the
++ * range, calculate the checksum by sw.
++ */
++static void r8169_csum_workaround(struct rtl8169_private *tp,
++				  struct sk_buff *skb)
 +{
-+	if (strcasecmp(mode, "eui64") == 0)
-+		return IN6_ADDR_GEN_MODE_EUI64;
-+	if (strcasecmp(mode, "none") == 0)
-+		return IN6_ADDR_GEN_MODE_NONE;
-+	return -1;
++	if (skb_shinfo(skb)->gso_size) {
++		netdev_features_t features = tp->dev->features;
++		struct sk_buff *segs, *nskb;
++
++		features &= ~(NETIF_F_SG | NETIF_F_IPV6_CSUM | NETIF_F_TSO6);
++		segs = skb_gso_segment(skb, features);
++		if (IS_ERR(segs) || !segs)
++			goto drop;
++
++		do {
++			nskb = segs;
++			segs = segs->next;
++			nskb->next = NULL;
++			rtl8169_start_xmit(nskb, tp->dev);
++		} while (segs);
++
++		dev_kfree_skb(skb);
++	} else if (skb->ip_summed == CHECKSUM_PARTIAL) {
++		if (skb_checksum_help(skb) < 0)
++			goto drop;
++
++		rtl8169_start_xmit(skb, tp->dev);
++	} else {
++		struct net_device_stats *stats;
++
++drop:
++		stats = &tp->dev->stats;
++		stats->tx_dropped++;
++		dev_kfree_skb(skb);
++	}
 +}
 +
- #if IPLINK_IOCTL_COMPAT
- static int have_rtnl_newlink = -1;
++/* msdn_giant_send_check()
++ * According to the document of microsoft, the TCP Pseudo Header excludes the
++ * packet length for IPv6 TCP large packets.
++ */
++static int msdn_giant_send_check(struct sk_buff *skb)
++{
++	const struct ipv6hdr *ipv6h;
++	struct tcphdr *th;
++	int ret;
++
++	ret = skb_cow_head(skb, 0);
++	if (ret)
++		return ret;
++
++	ipv6h = ipv6_hdr(skb);
++	th = tcp_hdr(skb);
++
++	th->check = 0;
++	th->check = ~tcp_v6_check(0, &ipv6h->saddr, &ipv6h->daddr, 0);
++
++	return ret;
++}
++
++static inline __be16 get_protocol(struct sk_buff *skb)
++{
++	__be16 protocol;
++
++	if (skb->protocol == htons(ETH_P_8021Q))
++		protocol = vlan_eth_hdr(skb)->h_vlan_encapsulated_proto;
++	else
++		protocol = skb->protocol;
++
++	return protocol;
++}
++
+ static bool rtl8169_tso_csum_v1(struct rtl8169_private *tp,
+ 				struct sk_buff *skb, u32 *opts)
+ {
+@@ -5949,21 +6032,69 @@ static bool rtl8169_tso_csum_v2(struct rtl8169_private *tp,
+ 	u32 mss = skb_shinfo(skb)->gso_size;
  
-@@ -557,6 +567,18 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
- 				invarg("Invalid \"numrxqueues\" value\n", *argv);
- 			addattr_l(&req->n, sizeof(*req), IFLA_NUM_RX_QUEUES,
- 				  &numrxqueues, 4);
-+		} else if (matches(*argv, "addrgenmode") == 0) {
-+			struct rtattr *afs, *afs6;
-+			int mode;
-+			NEXT_ARG();
-+			mode = get_addr_gen_mode(*argv);
-+			if (mode < 0)
-+				invarg("Invalid address generation mode\n", *argv);
-+			afs = addattr_nest(&req->n, sizeof(*req), IFLA_AF_SPEC);
-+			afs6 = addattr_nest(&req->n, sizeof(*req), AF_INET6);
-+			addattr8(&req->n, sizeof(*req), IFLA_INET6_ADDR_GEN_MODE, mode);
-+			addattr_nest_end(&req->n, afs6);
-+			addattr_nest_end(&req->n, afs);
- 		} else {
- 			if (strcmp(*argv, "dev") == 0) {
- 				NEXT_ARG();
+ 	if (mss) {
+-		opts[0] |= TD1_GTSENV4;
++		if (transport_offset > GTTCPHO_MAX) {
++			netif_warn(tp, tx_err, tp->dev,
++				   "Invalid transport offset 0x%x for TSO\n",
++				   transport_offset);
++			return false;
++		}
++
++		switch (get_protocol(skb)) {
++		case htons(ETH_P_IP):
++			opts[0] |= TD1_GTSENV4;
++			break;
++
++		case htons(ETH_P_IPV6):
++			if (msdn_giant_send_check(skb))
++				return false;
++
++			opts[0] |= TD1_GTSENV6;
++			break;
++
++		default:
++			WARN_ON_ONCE(1);
++			break;
++		}
++
+ 		opts[0] |= transport_offset << GTTCPHO_SHIFT;
+ 		opts[1] |= min(mss, TD_MSS_MAX) << TD1_MSS_SHIFT;
+ 	} else if (skb->ip_summed == CHECKSUM_PARTIAL) {
+-		const struct iphdr *ip = ip_hdr(skb);
++		u8 ip_protocol;
+ 
+ 		if (unlikely(rtl_test_hw_pad_bug(tp, skb)))
+ 			return skb_checksum_help(skb) == 0 && rtl_skb_pad(skb);
+ 
+-		if (ip->protocol == IPPROTO_TCP)
+-			opts[1] |= TD1_IP_CS | TD1_TCP_CS;
+-		else if (ip->protocol == IPPROTO_UDP)
+-			opts[1] |= TD1_IP_CS | TD1_UDP_CS;
++		if (transport_offset > TCPHO_MAX) {
++			netif_warn(tp, tx_err, tp->dev,
++				   "Invalid transport offset 0x%x\n",
++				   transport_offset);
++			return false;
++		}
++
++		switch (get_protocol(skb)) {
++		case htons(ETH_P_IP):
++			opts[1] |= TD1_IPv4_CS;
++			ip_protocol = ip_hdr(skb)->protocol;
++			break;
++
++		case htons(ETH_P_IPV6):
++			opts[1] |= TD1_IPv6_CS;
++			ip_protocol = ipv6_hdr(skb)->nexthdr;
++			break;
++
++		default:
++			ip_protocol = IPPROTO_RAW;
++			break;
++		}
++
++		if (ip_protocol == IPPROTO_TCP)
++			opts[1] |= TD1_TCP_CS;
++		else if (ip_protocol == IPPROTO_UDP)
++			opts[1] |= TD1_UDP_CS;
+ 		else
+ 			WARN_ON_ONCE(1);
++
++		opts[1] |= transport_offset << TCPHO_SHIFT;
+ 	} else {
+ 		if (unlikely(rtl_test_hw_pad_bug(tp, skb)))
+ 			return rtl_skb_pad(skb);
+@@ -5996,8 +6127,10 @@ static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
+ 	opts[1] = cpu_to_le32(rtl8169_tx_vlan_tag(skb));
+ 	opts[0] = DescOwn;
+ 
+-	if (!tp->tso_csum(tp, skb, opts))
+-		goto err_update_stats;
++	if (!tp->tso_csum(tp, skb, opts)) {
++		r8169_csum_workaround(tp, skb);
++		return NETDEV_TX_OK;
++	}
+ 
+ 	len = skb_headlen(skb);
+ 	mapping = dma_map_single(d, skb->data, len, DMA_TO_DEVICE);
+@@ -6062,7 +6195,6 @@ err_dma_1:
+ 	rtl8169_unmap_tx_skb(d, tp->tx_skb + entry, txd);
+ err_dma_0:
+ 	dev_kfree_skb_any(skb);
+-err_update_stats:
+ 	dev->stats.tx_dropped++;
+ 	return NETDEV_TX_OK;
+ 
+@@ -7149,9 +7281,10 @@ rtl_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	if (tp->txd_version == RTL_TD_0)
+ 		tp->tso_csum = rtl8169_tso_csum_v1;
+-	else if (tp->txd_version == RTL_TD_1)
++	else if (tp->txd_version == RTL_TD_1) {
+ 		tp->tso_csum = rtl8169_tso_csum_v2;
+-	else
++		dev->hw_features |= NETIF_F_IPV6_CSUM | NETIF_F_TSO6;
++	} else
+ 		WARN_ON_ONCE(1);
+ 
+ 	dev->hw_features |= NETIF_F_RXALL;
 -- 
-1.9.0
+1.9.3
