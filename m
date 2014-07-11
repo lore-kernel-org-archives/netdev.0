@@ -1,195 +1,69 @@
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: [PATCH net-next] enic: Add ethtool support to show classifier filters added by the driver
-Date: Fri, 11 Jul 2014 14:44:11 +0530
-Message-ID: <1405070051-10445-1-git-send-email-_govind@gmx.com>
-Cc: ssujith@cisco.com, benve@cisco.com,
-	Govindarajulu Varadarajan <_govind@gmx.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: YOSHIFUJI Hideaki <hideaki.yoshifuji@miraclelinux.com>
+Subject: Re: [patch net-next] ipv6: addrconf: implement address generation
+ modes
+Date: Fri, 11 Jul 2014 18:16:07 +0900
+Message-ID: <53BFAB57.10700@miraclelinux.com>
+References: <1405066774-11740-1-git-send-email-jiri@resnulli.us>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
+Cc: hideaki.yoshifuji@miraclelinux.com, davem@davemloft.net,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, sfeldma@cumulusnetworks.com,
+	arvid.brodin@alten.se, sucheta.chakraborty@qlogic.com,
+	hannes@stressinduktion.org
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.com ([74.208.4.201]:52440 "EHLO mout.gmx.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751402AbaGKJPK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Jul 2014 05:15:10 -0400
+Received: from exprod7og111.obsmtp.com ([64.18.2.175]:32867 "HELO
+	exprod7og111.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1751402AbaGKJQL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jul 2014 05:16:11 -0400
+Received: by mail-pd0-f175.google.com with SMTP id v10so1083851pde.20
+        for <netdev@vger.kernel.org>; Fri, 11 Jul 2014 02:16:11 -0700 (PDT)
+In-Reply-To: <1405066774-11740-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch impliments ethtool_ops->get_rxnfc() to display the classifier
-filter added by the driver.
+Hi,
 
-Right now Accelerated RFS is the only feature which adds classifier filters.
-So enable get_rxnfc only when CONFIG_RFS_ACCEL = y
+Jiri Pirko wrote:
+> This patch introduces a possibility for userspace to set various (so far
+> two) modes of generating addresses. This is useful for example for
+> NetworkManager because it can set the mode to NONE and take care of link
+> local addresses itself. That allow it to have the interface up,
+> monitoring carrier but still don't have any addresses on it.
+> 
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> ---
+>   include/net/if_inet6.h       |  1 +
+>   include/uapi/linux/if_link.h |  6 +++++
+>   net/ipv6/addrconf.c          | 56 ++++++++++++++++++++++++++++++--------------
+>   3 files changed, 45 insertions(+), 18 deletions(-)
+> 
+> diff --git a/include/net/if_inet6.h b/include/net/if_inet6.h
+> index b4956a5..f82b281 100644
+> --- a/include/net/if_inet6.h
+> +++ b/include/net/if_inet6.h
+> @@ -206,6 +206,7 @@ struct inet6_dev {
+>   	__u8			rs_probes;
+>   
+>   	unsigned long		tstamp; /* ipv6InterfaceTable update timestamp */
+> +	enum in6_addr_gen_mode	addr_gen_mode;
 
-Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
----
- drivers/net/ethernet/cisco/enic/enic_clsf.c    | 18 +++++
- drivers/net/ethernet/cisco/enic/enic_clsf.h    |  1 +
- drivers/net/ethernet/cisco/enic/enic_ethtool.c | 99 ++++++++++++++++++++++++++
- 3 files changed, 118 insertions(+)
+How about putting this as __u8 after dad_probes?
 
-diff --git a/drivers/net/ethernet/cisco/enic/enic_clsf.c b/drivers/net/ethernet/cisco/enic/enic_clsf.c
-index bc451ba..92752b1 100644
---- a/drivers/net/ethernet/cisco/enic/enic_clsf.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_clsf.c
-@@ -152,6 +152,24 @@ static struct enic_rfs_fltr_node *htbl_key_search(struct hlist_head *h,
- 	return NULL;
- }
- 
-+struct enic_rfs_fltr_node *htbl_fltr_search(struct enic *enic, u16 fltr_id)
-+{
-+	int i;
-+
-+	for (i = 0; i < (1 << ENIC_RFS_FLW_BITSHIFT); i++) {
-+		struct hlist_head *hhead;
-+		struct hlist_node *tmp;
-+		struct enic_rfs_fltr_node *n;
-+
-+		hhead = &enic->rfs_h.ht_head[i];
-+		hlist_for_each_entry_safe(n, tmp, hhead, node)
-+			if (n->fltr_id == fltr_id)
-+				return n;
-+	}
-+
-+	return NULL;
-+}
-+
- int enic_rx_flow_steer(struct net_device *dev, const struct sk_buff *skb,
- 		       u16 rxq_index, u32 flow_id)
- {
-diff --git a/drivers/net/ethernet/cisco/enic/enic_clsf.h b/drivers/net/ethernet/cisco/enic/enic_clsf.h
-index d572704..8a41a98 100644
---- a/drivers/net/ethernet/cisco/enic/enic_clsf.h
-+++ b/drivers/net/ethernet/cisco/enic/enic_clsf.h
-@@ -14,6 +14,7 @@ void enic_rfs_flw_tbl_init(struct enic *enic);
- void enic_rfs_flw_tbl_free(struct enic *enic);
- int enic_rx_flow_steer(struct net_device *dev, const struct sk_buff *skb,
- 		       u16 rxq_index, u32 flow_id);
-+struct enic_rfs_fltr_node *htbl_fltr_search(struct enic *enic, u16 fltr_id);
- #else
- static inline void enic_rfs_flw_tbl_init(struct enic *enic) {}
- static inline void enic_rfs_flw_tbl_free(struct enic *enic) {}
-diff --git a/drivers/net/ethernet/cisco/enic/enic_ethtool.c b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
-index c75f84b..c542082 100644
---- a/drivers/net/ethernet/cisco/enic/enic_ethtool.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
-@@ -22,6 +22,7 @@
- #include "enic_res.h"
- #include "enic.h"
- #include "enic_dev.h"
-+#include "enic_clsf.h"
- 
- struct enic_stat {
- 	char name[ETH_GSTRING_LEN];
-@@ -282,6 +283,101 @@ static int enic_set_coalesce(struct net_device *netdev,
- 	return 0;
- }
- 
-+#ifdef CONFIG_RFS_ACCEL
-+static int enic_grxclsrlall(struct enic *enic, struct ethtool_rxnfc *cmd,
-+			    u32 *rule_locs)
-+{
-+	int j, ret = 0, cnt = 0;
-+
-+	cmd->data = enic->rfs_h.max - enic->rfs_h.free;
-+	for (j = 0; j < (1 << ENIC_RFS_FLW_BITSHIFT); j++) {
-+		struct hlist_head *hhead;
-+		struct hlist_node *tmp;
-+		struct enic_rfs_fltr_node *n;
-+
-+		hhead = &enic->rfs_h.ht_head[j];
-+		hlist_for_each_entry_safe(n, tmp, hhead, node) {
-+			if (cnt == cmd->rule_cnt)
-+				return -EMSGSIZE;
-+			rule_locs[cnt] = n->fltr_id;
-+			cnt++;
-+		}
-+	}
-+	cmd->rule_cnt = cnt;
-+
-+	return ret;
-+}
-+
-+static int enic_grxclsrule(struct enic *enic, struct ethtool_rxnfc *cmd)
-+{
-+	struct ethtool_rx_flow_spec *fsp =
-+				(struct ethtool_rx_flow_spec *)&cmd->fs;
-+	struct enic_rfs_fltr_node *n;
-+
-+	n = htbl_fltr_search(enic, (u16)fsp->location);
-+	if (!n)
-+		return -EINVAL;
-+	switch (n->keys.ip_proto) {
-+	case IPPROTO_TCP:
-+		fsp->flow_type = TCP_V4_FLOW;
-+		break;
-+	case IPPROTO_UDP:
-+		fsp->flow_type = UDP_V4_FLOW;
-+		break;
-+	default:
-+		return -EINVAL;
-+		break;
-+	}
-+
-+	fsp->h_u.tcp_ip4_spec.ip4src = n->keys.src;
-+	fsp->h_u.tcp_ip4_spec.ip4dst = n->keys.dst;
-+	fsp->h_u.tcp_ip4_spec.psrc = n->keys.port16[0];
-+	fsp->h_u.tcp_ip4_spec.pdst = n->keys.port16[1];
-+	fsp->ring_cookie = n->rq_id;
-+
-+	fsp->m_u.tcp_ip4_spec.ip4src = (__u32)~0;
-+	fsp->m_u.tcp_ip4_spec.ip4dst = (__u32)~0;
-+	fsp->m_u.tcp_ip4_spec.psrc = (__u16)~0;
-+	fsp->m_u.tcp_ip4_spec.pdst = (__u16)~0;
-+
-+	return 0;
-+}
-+
-+static int enic_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd,
-+			  u32 *rule_locs)
-+{
-+	struct enic *enic = netdev_priv(dev);
-+	int ret = 0;
-+
-+	switch (cmd->cmd) {
-+	case ETHTOOL_GRXRINGS:
-+		cmd->data = enic->rq_count;
-+		break;
-+	case ETHTOOL_GRXCLSRLCNT:
-+		spin_lock_bh(&enic->rfs_h.lock);
-+		cmd->rule_cnt = enic->rfs_h.max - enic->rfs_h.free;
-+		cmd->data = enic->rfs_h.max;
-+		spin_unlock_bh(&enic->rfs_h.lock);
-+		break;
-+	case ETHTOOL_GRXCLSRLALL:
-+		spin_lock_bh(&enic->rfs_h.lock);
-+		ret = enic_grxclsrlall(enic, cmd, rule_locs);
-+		spin_unlock_bh(&enic->rfs_h.lock);
-+		break;
-+	case ETHTOOL_GRXCLSRULE:
-+		spin_lock_bh(&enic->rfs_h.lock);
-+		ret = enic_grxclsrule(enic, cmd);
-+		spin_unlock_bh(&enic->rfs_h.lock);
-+		break;
-+	default:
-+		ret = -EOPNOTSUPP;
-+		break;
-+	}
-+
-+	return ret;
-+}
-+#endif /* CONFIG_RFS_ACCEL */
-+
- static const struct ethtool_ops enic_ethtool_ops = {
- 	.get_settings = enic_get_settings,
- 	.get_drvinfo = enic_get_drvinfo,
-@@ -293,6 +389,9 @@ static const struct ethtool_ops enic_ethtool_ops = {
- 	.get_ethtool_stats = enic_get_ethtool_stats,
- 	.get_coalesce = enic_get_coalesce,
- 	.set_coalesce = enic_set_coalesce,
-+#ifdef CONFIG_RFS_ACCEL
-+	.get_rxnfc = enic_get_rxnfc,
-+#endif
- };
- 
- void enic_set_ethtool_ops(struct net_device *netdev)
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index 358edd2..2c75ec1 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -2730,9 +2730,25 @@ static void addrconf_add_linklocal(struct inet6_dev *idev, const struct in6_addr
+>   	}
+>   }
+>   
+> +static void addr_conf_addr_gen(struct inet6_dev *idev, bool prefix_route)
+
+s/addr_conf/addrconf/
+
 -- 
-2.0.1
+Hideaki Yoshifuji <hideaki.yoshifuji@miraclelinux.com>
+Technical Division, MIRACLE LINUX CORPORATION
