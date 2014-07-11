@@ -1,221 +1,206 @@
-From: Alex Williamson <alex.williamson@redhat.com>
-Subject: Re: [PATCH 1/2 V3] PCI: introduce device assignment
- interface and refactory related code
-Date: Fri, 11 Jul 2014 09:25:10 -0600
-Message-ID: <1405092310.4098.90.camel@ul30vt.home>
-References: <1405081802-419-1-git-send-email-ethan.zhao@oracle.com>
-	<1405084407.4098.59.camel@ul30vt.home>
-	<1405088147.4098.64.camel@ul30vt.home>
-	<1F7DCDA9-37C9-4001-B383-6CCAFDFB67D1@gmail.com>
-	<1405090481.4098.83.camel@ul30vt.home>
-	<F2B2A07D-B9A9-4CE0-9679-50D7768ACDE6@gmail.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [patch net-next] ipv6: addrconf: implement address generation
+ modes
+Date: Fri, 11 Jul 2014 10:40:48 -0500
+Message-ID: <1405093248.865.10.camel@dcbw.local>
+References: <1405066774-11740-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"vaughan.cao@oracle.com" <vaughan.cao@oracle.com>,
-	"jesse.brandeburg@intel.com" <jesse.brandeburg@intel.com>,
-	Ethan Zhao <ethan.zhao@oracle.com>,
-	"linux.nics@intel.com" <linux.nics@intel.com>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
-	"gleb@kernel.org" <gleb@kernel.org>,
-	"bhelgaas@google.com" <bhelgaas@google.com>,
-	"boris.ostrovsky@oracle.com" <boris.ostrovsky@oracle.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bruce.w.allan@intel.com" <bruce.w.allan@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"john.ronciak@intel.com" <john.ronciak@intel.com>,
-	"david.vrabel@citrix.com" <david.vrabel@citrix.com>,
-	"pbonzini@redhat.com" <pbonzini@redhat.com>
-To: Ethan Zhao <ethan.kernel@gmail.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <F2B2A07D-B9A9-4CE0-9679-50D7768ACDE6@gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	sfeldma@cumulusnetworks.com, arvid.brodin@alten.se,
+	sucheta.chakraborty@qlogic.com, hannes@stressinduktion.org
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:52919 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753874AbaGKPmP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Jul 2014 11:42:15 -0400
+In-Reply-To: <1405066774-11740-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gRnJpLCAyMDE0LTA3LTExIGF0IDIzOjE5ICswODAwLCBFdGhhbiBaaGFvIHdyb3RlOgo+IAo+
-ID4g5ZyoIDIwMTTlubQ35pyIMTHml6XvvIzkuIvljYgxMDo1NO+8jEFsZXggV2lsbGlhbXNvbiA8
-YWxleC53aWxsaWFtc29uQHJlZGhhdC5jb20+IOWGmemBk++8mgo+ID4gCj4gPj4gT24gRnJpLCAy
-MDE0LTA3LTExIGF0IDIyOjM3ICswODAwLCBFdGhhbiBaaGFvIHdyb3RlOgo+ID4+IAo+ID4+Pj4g
-5ZyoIDIwMTTlubQ35pyIMTHml6XvvIzkuIvljYgxMDoxNe+8jEFsZXggV2lsbGlhbXNvbiA8YWxl
-eC53aWxsaWFtc29uQHJlZGhhdC5jb20+IOWGmemBk++8mgo+ID4+Pj4gCj4gPj4+Pj4gT24gRnJp
-LCAyMDE0LTA3LTExIGF0IDA3OjEzIC0wNjAwLCBBbGV4IFdpbGxpYW1zb24gd3JvdGU6Cj4gPj4+
-Pj4gT24gRnJpLCAyMDE0LTA3LTExIGF0IDIwOjMwICswODAwLCBFdGhhbiBaaGFvIHdyb3RlOgo+
-ID4+Pj4+IFRoaXMgcGF0Y2ggaW50cm9kdWNlcyB0d28gbmV3IGRldmljZSBhc3NpZ25tZW50IGZ1
-bmN0aW9ucwo+ID4+Pj4+IAo+ID4+Pj4+IHBjaV9pb3ZfYXNzaWduX2RldmljZSgpLAo+ID4+Pj4+
-IHBjaV9pb3ZfZGVhc3NpZ25fZGV2aWNlKCkKPiA+Pj4+PiAKPiA+Pj4+PiBhbG9uZyB3aXRoIHRo
-ZSBleGlzdGVkIG9uZQo+ID4+Pj4+IAo+ID4+Pj4+IHBjaV92ZnNfYXNzaWduZWQoKQo+ID4+Pj4+
-IAo+ID4+Pj4+IFRoZXkgY29uc3RydWN0IHRoZSBWRnMgYXNzaWdubWVudCBtYW5hZ2VtZW50IGlu
-dGVyZmFjZSwgdXNlZCB0byBhc3NpZ24vCj4gPj4+Pj4gZGVhc3NpZ24gZGV2aWNlIHRvIFZNIGFu
-ZCBxdWVyeSB0aGUgVkZzIHJlZmVyZW5jZSBjb3VudGVyLiBpbnN0ZWFkIG9mCj4gPj4+Pj4gZGly
-ZWN0IG1hbmlwdWxhdGlvbiBvZiBkZXZpY2UgZmxhZy4KPiA+Pj4+PiAKPiA+Pj4+PiBUaGlzIHBh
-dGNoIHJlZmFzaGlvbmVkIHRoZSByZWxhdGVkIGNvZGUgYW5kIG1ha2UgdGhlbSBhdG9taWMuCj4g
-Pj4+Pj4gCj4gPj4+Pj4gdjM6IGNoYW5nZSB0aGUgbmFtaW5nIG9mIGRldmljZSBhc3NpZ25tZW50
-IGhlbHBlcnMsIGJlY2F1c2UgdGhleSB3b3JrCj4gPj4+Pj4gZm9yIGFsbCBraW5kIG9mIFBDSSBk
-ZXZpY2UsIG5vdCBvbmx5IFNSLUlPViAoZGF2aWQudnJhYmVsQGNpdHJpeC5jb20pCj4gPj4+Pj4g
-Cj4gPj4+Pj4gdjI6IHJlb3JkZXIgdGhlIHBhdGNoc2V0IGFuZCBtYWtlIGl0IGJpc2VjdGFibGUg
-YW5kIGF0b21pYywgc3RlcHMgY2xlYXIKPiA+Pj4+PiBiZXR3ZWVuIGludGVyZmFjZSBkZWZpbmF0
-aW9uIGFuZCBpbXBsZW1lbmF0aW9uIGFjY29yZGluZyB0byB0aGUKPiA+Pj4+PiBzdWdnZXN0aW9u
-IGZyb20gYWxleC53aWxsaWFtc29uQHJlZGhhdC5jb20KPiA+Pj4+PiAKPiA+Pj4+PiBTaWduZWQt
-b2ZmLWJ5OiBFdGhhbiBaaGFvIDxldGhhbi56aGFvQG9yYWNsZS5jb20+Cj4gPj4+Pj4gLS0tCj4g
-Pj4+PiAKPiA+Pj4+IC0gVXNlIGEgY292ZXIgcGF0Y2ggdG8gZGVzY3JpYmUgdGhlIHNlcmllcwo+
-ID4+Pj4gCj4gPj4+PiAtIFZlcnNpb24gaW5mb3JtYXRpb24gZ29lcyBoZXJlLCBiZWxvdyB0aGUg
-Ii0tLSIsIG5vdCBhYm92ZSBpdAo+ID4+Pj4gCj4gPj4+PiAtIEkgc3RhbmQgYnkgdGhlIHBhdGNo
-IGJyZWFrZG93biBJIHN1Z2dlc3RlZCBvcmlnaW5hbGx5LCB0aGVyZSBhcmUgdG9vCj4gPj4+PiBt
-YW55IGxvZ2ljYWwgY2hhbmdlcyBoZXJlIGluIHBhdGNoIDEuICBUaGVyZSBhcmUgZWFzaWx5IDMg
-c2VwYXJhdGUKPiA+Pj4+IHBhdGNoZXMgaGVyZS4KPiA+Pj4+IAo+ID4+Pj4gLSBSZW5hbWluZyBz
-L3NyaW92L2lvdi8gZG9lc24ndCBhZGRyZXNzIHRoZSBwcm9ibGVtIERhdmlkIHJhaXNlZC4gIFRo
-ZQo+ID4+Pj4gbmFtZSBpcyBzdGlsbCBzeW5vbnltb3VzIHdpdGggU1ItSU9WIGFuZCBpdCdzIGRl
-ZmluZWQgb24KPiA+Pj4+IGRyaXZlcnMvcGNpL2lvdi5jLCB3aGljaCBpcyBvbmx5IGJ1aWx0IHdp
-dGggQ09ORklHX1BDSV9JT1YuCj4gPj4+PiAKPiA+Pj4+IC0gUENJX0RFVl9GTEFHU19BU1NJR05F
-RCBzaG91bGQgYmUgdW51c2VkIGFmdGVyIHRoaXMgc2VyaWVzLCB3aHkgaXMgaXQKPiA+Pj4+IG5v
-dCByZW1vdmVkPwo+ID4+PiAKPiA+Pj4gSSBndWVzcyBpdCdzIHN0aWxsIHVzZWQsIHdoaWNoIGlz
-IGV2ZW4gd29yc2UgYmVjYXVzZSBub3cgd2UgaGF2ZQo+ID4+PiBzZXBhcmF0ZSBkYXRhIGVsZW1l
-bnRzLCBvbmUgdHJhY2tpbmcgaG93IG1hbnkgVkZzIGFyZSBhc3NpZ25lZCBmcm9tIGEgUEYKPiA+
-Pj4gYW5kIGFub3RoZXIgdHJhY2tpbmcgZWFjaCBkZXZpY2UgdGhhdCdzIGFzc2lnbmVkLiAgV2hh
-dCBhcmUgd2UgYWN0dWFsbHkKPiA+Pj4gZ2FpbmluZyBvciBmaXhpbmcgYnkgZG9pbmcgdGhpcz8K
-PiA+PiAKPiA+PiBPZiBjb3Vyc2UgaXQgaXMgdXNlZCB0byB0cmFja2luZyBQRi9WRiBhc3NpZ25l
-ZCwgIHdoYXQgd2UgZ2FpbmVkIGFyZSAtIHdlIGhpZGUgdGhlIGRldGFpbHMKPiA+PiBJbiBhc3Np
-Z25tZW50IGhlbHBlcnMsIHdlIHdvdWxkbid0IGJvdGhlciB0aGUgdXNlcnMgYW55bW9yZSBhbmQg
-aW1wbGVtZW50IHdoYXQgaW5zaWRlCj4gPj4gVGhlIGhlbHBlcnMsIG15IGluaXRpYWwgcHVycG9z
-ZSBpcyB0byBzaW1wbGlmeSB0aGUgdWdseSAgcGNpX3Zmc19hc3NpZ25lZCgpIHdpdGggY291bnRl
-ci4KPiA+PiAKPiA+PiBJIGRvbid0IHdhbnQgdG8gcHVzaCBtb3JlIGNoYW5nZSBpbiBvbmUgc3Rl
-cCwgdGhhdCB3b3VsZCBvdXQgb2YgY29udHJvbCB0byBnZXQgcGVyZmVjdCByZXN1bHQuCj4gPiAK
-PiA+IEJ1dCBhIGNvdW50ZXIgbWVhbnMgdGhhdCB3ZSdyZSB0cmFja2luZyB0aGUgZGF0YSBpbiB0
-d28gc2VwYXJhdGUgcGxhY2VzLAo+ID4gd2hpY2ggaXMgZ2VuZXJhbGx5IGEgYmFkIGlkZWEuICBD
-bGVhbmluZyB1cCBkaXJlY3QgYWNjZXNzIHRvIGZsYWdzIGlzCj4gPiBmaW5lLCBidXQgY3JlYXRp
-bmcgYSBzZXBhcmF0ZSBjb3VudGVyIGRvZXNuJ3QgcmVhbGx5IHNlZW0gdG8gYWRkIGFueQo+ID4g
-dmFsdWUuCj4gCj4gSWYgeW91IGFyZSBhc2tlZCBob3cgbWFueSBhcHBsZXMgaW4geW91ciBiYWcg
-LCB5b3UgbGlrZSB0byBjb3VudCB0aGVtIG9uZSBieSBvbmUgYW5kCj4gR2l2ZSB0aGUgYW5zd2Vy
-ID8gV2hhdCBhcmUgeW91IGRvaW5nIHdoZW4geW91IHB1dCB0aGVtIGludG8gdGhlIGJhZyA/CgpJ
-ZiBwZXJmb3JtYW5jZSBtYXR0ZXJlZCwgdGhlbiB5ZXMsIGtlZXBpbmcgYSBjb3VudCBtYXkgYmUg
-YWR2YW50YWdlb3VzLgpQZXJmb3JtYW5jZSBkb2VzIG5vdCBtYXR0ZXIgaW4gYW55IHBhdGggd2hl
-cmUgdGhpcyBpcyB1c2VkLgoKPiA+Pj4+PiBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pNDBl
-L2k0MGVfdmlydGNobmxfcGYuYyB8ICAgMTcgKystLS0tLS0tLS0tLS0tLS0KPiA+Pj4+PiBkcml2
-ZXJzL3BjaS9pb3YuYyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8ICAgMjAgKysr
-KysrKysrKysrKysrKysrKysKPiA+Pj4+PiBkcml2ZXJzL3hlbi94ZW4tcGNpYmFjay9wY2lfc3R1
-Yi5jICAgICAgICAgICAgICAgICB8ICAgIDQgKystLQo+ID4+Pj4+IGluY2x1ZGUvbGludXgvcGNp
-LmggICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAgNCArKysrCj4gPj4+Pj4gdmly
-dC9rdm0vYXNzaWduZWQtZGV2LmMgICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAgICAyICst
-Cj4gPj4+Pj4gdmlydC9rdm0vaW9tbXUuYyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgfCAgICA0ICsrLS0KPiA+Pj4+IAo+ID4+Pj4gLSBUaGlzIHBhdGNoIHRvdWNoIDQgc2VwYXJh
-dGUgbG9naWNhbCBjb2RlIGFyZWFzLCB3aG8gZG8geW91IGV4cGVjdCB0bwo+ID4+Pj4gYWNrIGFu
-ZCBjb21taXQgaXQ/ICBTcGxpdCBpdCB1cC4KPiA+Pj4+IAo+ID4+Pj4+IDYgZmlsZXMgY2hhbmdl
-ZCwgMzEgaW5zZXJ0aW9ucygrKSwgMjAgZGVsZXRpb25zKC0pCj4gPj4+Pj4gCj4gPj4+Pj4gZGlm
-ZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2k0MGUvaTQwZV92aXJ0Y2hubF9w
-Zi5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZS9pNDBlX3ZpcnRjaG5sX3BmLmMK
-PiA+Pj4+PiBpbmRleCAwMmMxMWE3Li43ODEwNDBlIDEwMDY0NAo+ID4+Pj4+IC0tLSBhL2RyaXZl
-cnMvbmV0L2V0aGVybmV0L2ludGVsL2k0MGUvaTQwZV92aXJ0Y2hubF9wZi5jCj4gPj4+Pj4gKysr
-IGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZS9pNDBlX3ZpcnRjaG5sX3BmLmMKPiA+
-Pj4+PiBAQCAtNjkzLDIyICs2OTMsOSBAQCBjb21wbGV0ZV9yZXNldDoKPiA+Pj4+PiBzdGF0aWMg
-Ym9vbCBpNDBlX3Zmc19hcmVfYXNzaWduZWQoc3RydWN0IGk0MGVfcGYgKnBmKQo+ID4+Pj4+IHsK
-PiA+Pj4+PiAgIHN0cnVjdCBwY2lfZGV2ICpwZGV2ID0gcGYtPnBkZXY7Cj4gPj4+Pj4gLSAgICBz
-dHJ1Y3QgcGNpX2RldiAqdmZkZXY7Cj4gPj4+Pj4gLQo+ID4+Pj4+IC0gICAgLyogbG9vcCB0aHJv
-dWdoIGFsbCB0aGUgVkZzIHRvIHNlZSBpZiB3ZSBvd24gYW55IHRoYXQgYXJlIGFzc2lnbmVkICov
-Cj4gPj4+Pj4gLSAgICB2ZmRldiA9IHBjaV9nZXRfZGV2aWNlKFBDSV9WRU5ET1JfSURfSU5URUws
-IEk0MEVfREVWX0lEX1ZGICwgTlVMTCk7Cj4gPj4+Pj4gLSAgICB3aGlsZSAodmZkZXYpIHsKPiA+
-Pj4+PiAtICAgICAgICAvKiBpZiB3ZSBkb24ndCBvd24gaXQgd2UgZG9uJ3QgY2FyZSAqLwo+ID4+
-Pj4+IC0gICAgICAgIGlmICh2ZmRldi0+aXNfdmlydGZuICYmIHBjaV9waHlzZm4odmZkZXYpID09
-IHBkZXYpIHsKPiA+Pj4+PiAtICAgICAgICAgICAgLyogaWYgaXQgaXMgYXNzaWduZWQgd2UgY2Fu
-bm90IHJlbGVhc2UgaXQgKi8KPiA+Pj4+PiAtICAgICAgICAgICAgaWYgKHZmZGV2LT5kZXZfZmxh
-Z3MgJiBQQ0lfREVWX0ZMQUdTX0FTU0lHTkVEKQo+ID4+Pj4+IC0gICAgICAgICAgICAgICAgcmV0
-dXJuIHRydWU7Cj4gPj4+Pj4gLSAgICAgICAgfQo+ID4+Pj4+IAo+ID4+Pj4+IC0gICAgICAgIHZm
-ZGV2ID0gcGNpX2dldF9kZXZpY2UoUENJX1ZFTkRPUl9JRF9JTlRFTCwKPiA+Pj4+PiAtICAgICAg
-ICAgICAgICAgICAgICAgICBJNDBFX0RFVl9JRF9WRiwKPiA+Pj4+PiAtICAgICAgICAgICAgICAg
-ICAgICAgICB2ZmRldik7Cj4gPj4+Pj4gLSAgICB9Cj4gPj4+Pj4gKyAgICBpZiAocGNpX3Zmc19h
-c3NpZ25lZChwZGV2KSkKPiA+Pj4+PiArICAgICAgICByZXR1cm4gdHJ1ZTsKPiA+Pj4+PiAKPiA+
-Pj4+PiAgIHJldHVybiBmYWxzZTsKPiA+Pj4+PiB9Cj4gPj4+Pj4gZGlmZiAtLWdpdCBhL2RyaXZl
-cnMvcGNpL2lvdi5jIGIvZHJpdmVycy9wY2kvaW92LmMKPiA+Pj4+PiBpbmRleCBkZTdhNzQ3Li4w
-OTBmODI3IDEwMDY0NAo+ID4+Pj4+IC0tLSBhL2RyaXZlcnMvcGNpL2lvdi5jCj4gPj4+Pj4gKysr
-IGIvZHJpdmVycy9wY2kvaW92LmMKPiA+Pj4+PiBAQCAtNjQ0LDYgKzY0NCwyNiBAQCBpbnQgcGNp
-X3Zmc19hc3NpZ25lZChzdHJ1Y3QgcGNpX2RldiAqZGV2KQo+ID4+Pj4+IEVYUE9SVF9TWU1CT0xf
-R1BMKHBjaV92ZnNfYXNzaWduZWQpOwo+ID4+Pj4+IAo+ID4+Pj4+IC8qKgo+ID4+Pj4+ICsgKiBw
-Y2lfaW92X2Fzc2lnbl9kZXZpY2UgLSBhc3NpZ24gZGV2aWNlIHRvIFZNCj4gPj4+Pj4gKyAqIEBw
-ZGV2OiB0aGUgZGV2aWNlIHRvIGJlIGFzc2lnbmVkLgo+ID4+Pj4+ICsgKi8KPiA+Pj4+PiArdm9p
-ZCBwY2lfaW92X2Fzc2lnbl9kZXZpY2Uoc3RydWN0IHBjaV9kZXYgKnBkZXYpCj4gPj4+Pj4gK3sK
-PiA+Pj4+PiArICAgIHBkZXYtPmRldl9mbGFncyB8PSBQQ0lfREVWX0ZMQUdTX0FTU0lHTkVEOwo+
-ID4+Pj4+ICt9Cj4gPj4+Pj4gK0VYUE9SVF9TWU1CT0xfR1BMKHBjaV9pb3ZfYXNzaWduX2Rldmlj
-ZSk7Cj4gPj4+Pj4gKwo+ID4+Pj4+ICsvKioKPiA+Pj4+PiArICogcGNpX2lvdl9kZWFzc2lnbl9k
-ZXZpY2UgLSBkZWFzaWduIGRldmljZSBmcm9tIFZNCj4gPj4+Pj4gKyAqIEBwZGV2OiB0aGUgZGV2
-aWNlIHRvIGJlIGRlYXNzaWduZWQuCj4gPj4+Pj4gKyAqLwo+ID4+Pj4+ICt2b2lkIHBjaV9pb3Zf
-ZGVhc3NpZ25fZGV2aWNlKHN0cnVjdCBwY2lfZGV2ICpwZGV2KQo+ID4+Pj4+ICt7Cj4gPj4+Pj4g
-KyAgICBwZGV2LT5kZXZfZmxhZ3MgJj0gflBDSV9ERVZfRkxBR1NfQVNTSUdORUQ7Cj4gPj4+Pj4g
-K30KPiA+Pj4+PiArRVhQT1JUX1NZTUJPTF9HUEwocGNpX2lvdl9kZWFzc2lnbl9kZXZpY2UpOwo+
-ID4+Pj4+ICsKPiA+Pj4+PiArLyoqCj4gPj4+Pj4gKiBwY2lfc3Jpb3Zfc2V0X3RvdGFsdmZzIC0t
-IHJlZHVjZSB0aGUgVG90YWxWRnMgYXZhaWxhYmxlCj4gPj4+Pj4gKiBAZGV2OiB0aGUgUENJIFBG
-IGRldmljZQo+ID4+Pj4+ICogQG51bXZmczogbnVtYmVyIHRoYXQgc2hvdWxkIGJlIHVzZWQgZm9y
-IFRvdGFsVkZzIHN1cHBvcnRlZAo+ID4+Pj4+IGRpZmYgLS1naXQgYS9kcml2ZXJzL3hlbi94ZW4t
-cGNpYmFjay9wY2lfc3R1Yi5jIGIvZHJpdmVycy94ZW4veGVuLXBjaWJhY2svcGNpX3N0dWIuYwo+
-ID4+Pj4+IGluZGV4IDYyZmNkNDguLjI3ZTAwZDEgMTAwNjQ0Cj4gPj4+Pj4gLS0tIGEvZHJpdmVy
-cy94ZW4veGVuLXBjaWJhY2svcGNpX3N0dWIuYwo+ID4+Pj4+ICsrKyBiL2RyaXZlcnMveGVuL3hl
-bi1wY2liYWNrL3BjaV9zdHViLmMKPiA+Pj4+PiBAQCAtMTMzLDcgKzEzMyw3IEBAIHN0YXRpYyB2
-b2lkIHBjaXN0dWJfZGV2aWNlX3JlbGVhc2Uoc3RydWN0IGtyZWYgKmtyZWYpCj4gPj4+Pj4gICB4
-ZW5fcGNpYmtfY29uZmlnX2ZyZWVfZHluX2ZpZWxkcyhkZXYpOwo+ID4+Pj4+ICAgeGVuX3BjaWJr
-X2NvbmZpZ19mcmVlX2RldihkZXYpOwo+ID4+Pj4+IAo+ID4+Pj4+IC0gICAgZGV2LT5kZXZfZmxh
-Z3MgJj0gflBDSV9ERVZfRkxBR1NfQVNTSUdORUQ7Cj4gPj4+Pj4gKyAgICBwY2lfaW92X2RlYXNz
-aWduX2RldmljZShkZXYpOwo+ID4+Pj4+ICAgcGNpX2Rldl9wdXQoZGV2KTsKPiA+Pj4+PiAKPiA+
-Pj4+PiAgIGtmcmVlKHBzZGV2KTsKPiA+Pj4+PiBAQCAtNDA0LDcgKzQwNCw3IEBAIHN0YXRpYyBp
-bnQgcGNpc3R1Yl9pbml0X2RldmljZShzdHJ1Y3QgcGNpX2RldiAqZGV2KQo+ID4+Pj4+ICAgZGV2
-X2RiZygmZGV2LT5kZXYsICJyZXNldCBkZXZpY2VcbiIpOwo+ID4+Pj4+ICAgeGVuX3BjaWJrX3Jl
-c2V0X2RldmljZShkZXYpOwo+ID4+Pj4+IAo+ID4+Pj4+IC0gICAgZGV2LT5kZXZfZmxhZ3MgfD0g
-UENJX0RFVl9GTEFHU19BU1NJR05FRDsKPiA+Pj4+PiArICAgIHBjaV9pb3ZfYXNzaWduX2Rldmlj
-ZShkZXYpOwo+ID4+Pj4+ICAgcmV0dXJuIDA7Cj4gPj4+Pj4gCj4gPj4+Pj4gY29uZmlnX3JlbGVh
-c2U6Cj4gPj4+Pj4gZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGludXgvcGNpLmggYi9pbmNsdWRlL2xp
-bnV4L3BjaS5oCj4gPj4+Pj4gaW5kZXggYWFiNTdiNC4uNWVjZTZkNiAxMDA2NDQKPiA+Pj4+PiAt
-LS0gYS9pbmNsdWRlL2xpbnV4L3BjaS5oCj4gPj4+Pj4gKysrIGIvaW5jbHVkZS9saW51eC9wY2ku
-aAo+ID4+Pj4+IEBAIC0xNjAzLDYgKzE2MDMsOCBAQCBpbnQgcGNpX251bV92ZihzdHJ1Y3QgcGNp
-X2RldiAqZGV2KTsKPiA+Pj4+PiBpbnQgcGNpX3Zmc19hc3NpZ25lZChzdHJ1Y3QgcGNpX2RldiAq
-ZGV2KTsKPiA+Pj4+PiBpbnQgcGNpX3NyaW92X3NldF90b3RhbHZmcyhzdHJ1Y3QgcGNpX2RldiAq
-ZGV2LCB1MTYgbnVtdmZzKTsKPiA+Pj4+PiBpbnQgcGNpX3NyaW92X2dldF90b3RhbHZmcyhzdHJ1
-Y3QgcGNpX2RldiAqZGV2KTsKPiA+Pj4+PiArdm9pZCBwY2lfaW92X2Fzc2lnbl9kZXZpY2Uoc3Ry
-dWN0IHBjaV9kZXYgKmRldik7Cj4gPj4+Pj4gK3ZvaWQgcGNpX2lvdl9kZWFzc2lnbl9kZXZpY2Uo
-c3RydWN0IHBjaV9kZXYgKmRldik7Cj4gPj4+Pj4gI2Vsc2UKPiA+Pj4+PiBzdGF0aWMgaW5saW5l
-IGludCBwY2lfZW5hYmxlX3NyaW92KHN0cnVjdCBwY2lfZGV2ICpkZXYsIGludCBucl92aXJ0Zm4p
-Cj4gPj4+Pj4geyByZXR1cm4gLUVOT0RFVjsgfQo+ID4+Pj4+IEBAIC0xNjE0LDYgKzE2MTYsOCBA
-QCBzdGF0aWMgaW5saW5lIGludCBwY2lfc3Jpb3Zfc2V0X3RvdGFsdmZzKHN0cnVjdCBwY2lfZGV2
-ICpkZXYsIHUxNiBudW12ZnMpCj4gPj4+Pj4geyByZXR1cm4gMDsgfQo+ID4+Pj4+IHN0YXRpYyBp
-bmxpbmUgaW50IHBjaV9zcmlvdl9nZXRfdG90YWx2ZnMoc3RydWN0IHBjaV9kZXYgKmRldikKPiA+
-Pj4+PiB7IHJldHVybiAwOyB9Cj4gPj4+Pj4gK3N0YXRpYyBpbmxpbmUgdm9pZCBwY2lfaW92X2Fz
-c2lnbl9kZXZpY2Uoc3RydWN0IHBjaV9kZXYgKmRldikgeyB9Cj4gPj4+Pj4gK3N0YXRpYyBpbmxp
-bmUgdm9pZCBwY2lfaW92X2RlYXNzaWduX2RldmljZShzdHJ1Y3QgcGNpX2RldiAqZGV2KSB7IH0K
-PiA+Pj4+PiAjZW5kaWYKPiA+Pj4+PiAKPiA+Pj4+PiAjaWYgZGVmaW5lZChDT05GSUdfSE9UUExV
-R19QQ0kpIHx8IGRlZmluZWQoQ09ORklHX0hPVFBMVUdfUENJX01PRFVMRSkKPiA+Pj4+PiBkaWZm
-IC0tZ2l0IGEvdmlydC9rdm0vYXNzaWduZWQtZGV2LmMgYi92aXJ0L2t2bS9hc3NpZ25lZC1kZXYu
-Ywo+ID4+Pj4+IGluZGV4IGJmMDY1NzcuLjdmYWM1OGQgMTAwNjQ0Cj4gPj4+Pj4gLS0tIGEvdmly
-dC9rdm0vYXNzaWduZWQtZGV2LmMKPiA+Pj4+PiArKysgYi92aXJ0L2t2bS9hc3NpZ25lZC1kZXYu
-Ywo+ID4+Pj4+IEBAIC0zMDIsNyArMzAyLDcgQEAgc3RhdGljIHZvaWQga3ZtX2ZyZWVfYXNzaWdu
-ZWRfZGV2aWNlKHN0cnVjdCBrdm0gKmt2bSwKPiA+Pj4+PiAgIGVsc2UKPiA+Pj4+PiAgICAgICBw
-Y2lfcmVzdG9yZV9zdGF0ZShhc3NpZ25lZF9kZXYtPmRldik7Cj4gPj4+Pj4gCj4gPj4+Pj4gLSAg
-ICBhc3NpZ25lZF9kZXYtPmRldi0+ZGV2X2ZsYWdzICY9IH5QQ0lfREVWX0ZMQUdTX0FTU0lHTkVE
-Owo+ID4+Pj4+ICsgICAgcGNpX2lvdl9kZWFzc2lnbl9kZXZpY2UoYXNzaWduZWRfZGV2LT5kZXYp
-Owo+ID4+Pj4+IAo+ID4+Pj4+ICAgcGNpX3JlbGVhc2VfcmVnaW9ucyhhc3NpZ25lZF9kZXYtPmRl
-dik7Cj4gPj4+Pj4gICBwY2lfZGlzYWJsZV9kZXZpY2UoYXNzaWduZWRfZGV2LT5kZXYpOwo+ID4+
-Pj4+IGRpZmYgLS1naXQgYS92aXJ0L2t2bS9pb21tdS5jIGIvdmlydC9rdm0vaW9tbXUuYwo+ID4+
-Pj4+IGluZGV4IDBkZjdkNGIuLjY0MWVlNzMgMTAwNjQ0Cj4gPj4+Pj4gLS0tIGEvdmlydC9rdm0v
-aW9tbXUuYwo+ID4+Pj4+ICsrKyBiL3ZpcnQva3ZtL2lvbW11LmMKPiA+Pj4+PiBAQCAtMTk0LDcg
-KzE5NCw3IEBAIGludCBrdm1fYXNzaWduX2RldmljZShzdHJ1Y3Qga3ZtICprdm0sCj4gPj4+Pj4g
-ICAgICAgICAgIGdvdG8gb3V0X3VubWFwOwo+ID4+Pj4+ICAgfQo+ID4+Pj4+IAo+ID4+Pj4+IC0g
-ICAgcGRldi0+ZGV2X2ZsYWdzIHw9IFBDSV9ERVZfRkxBR1NfQVNTSUdORUQ7Cj4gPj4+Pj4gKyAg
-ICBwY2lfaW92X2Fzc2lnbl9kZXZpY2UocGRldik7Cj4gPj4+Pj4gCj4gPj4+Pj4gICBkZXZfaW5m
-bygmcGRldi0+ZGV2LCAia3ZtIGFzc2lnbiBkZXZpY2VcbiIpOwo+ID4+Pj4+IAo+ID4+Pj4+IEBA
-IC0yMjAsNyArMjIwLDcgQEAgaW50IGt2bV9kZWFzc2lnbl9kZXZpY2Uoc3RydWN0IGt2bSAqa3Zt
-LAo+ID4+Pj4+IAo+ID4+Pj4+ICAgaW9tbXVfZGV0YWNoX2RldmljZShkb21haW4sICZwZGV2LT5k
-ZXYpOwo+ID4+Pj4+IAo+ID4+Pj4+IC0gICAgcGRldi0+ZGV2X2ZsYWdzICY9IH5QQ0lfREVWX0ZM
-QUdTX0FTU0lHTkVEOwo+ID4+Pj4+ICsgICAgcGNpX2lvdl9kZWFzc2lnbl9kZXZpY2UocGRldik7
-Cj4gPj4+Pj4gCj4gPj4+Pj4gICBkZXZfaW5mbygmcGRldi0+ZGV2LCAia3ZtIGRlYXNzaWduIGRl
-dmljZVxuIik7Cj4gPiAKPiA+IAo+ID4gCgoKCgotLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KRTEwMDAtZGV2ZWwgbWFp
-bGluZyBsaXN0CkUxMDAwLWRldmVsQGxpc3RzLnNvdXJjZWZvcmdlLm5ldApodHRwczovL2xpc3Rz
-LnNvdXJjZWZvcmdlLm5ldC9saXN0cy9saXN0aW5mby9lMTAwMC1kZXZlbApUbyBsZWFybiBtb3Jl
-IGFib3V0IEludGVsJiMxNzQ7IEV0aGVybmV0LCB2aXNpdCBodHRwOi8vY29tbXVuaXRpZXMuaW50
-ZWwuY29tL2NvbW11bml0eS93aXJlZAo=
+On Fri, 2014-07-11 at 10:19 +0200, Jiri Pirko wrote:
+> This patch introduces a possibility for userspace to set various (so far
+> two) modes of generating addresses. This is useful for example for
+> NetworkManager because it can set the mode to NONE and take care of link
+> local addresses itself. That allow it to have the interface up,
+> monitoring carrier but still don't have any addresses on it.
+
+One more use-case:
+
+WWAN devices often have their LL address provided by the firmware of the
+device, which sometimes refuses to respond to incorrect LL addresses
+when doing DHCPv6 or IPv6 ND.  The kernel cannot generate the correct LL
+address for two reasons:
+
+1) WWAN pseudo-ethernet interfaces often construct a fake MAC address,
+or read a meaningless MAC address from the firmware.  Thus the EUI64 and
+the IPv6LL address the kernel assigns will be wrong.  The real LL
+address is often retrieved from the firmware with AT or proprietary
+commands.
+
+2) WWAN PPP interfaces receive their LL address from IPV6CP, not from
+kernel assignments.  Only after IPV6CP has completed do we know the LL
+address of the PPP interface and its peer.  But the kernel has already
+assigned an incorrect LL address to the interface.
+
+So being able to suppress the kernel LL address generation and assign
+the one retrieved from the firmware is less complicated and more robust.
+
+Dan
+
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> ---
+>  include/net/if_inet6.h       |  1 +
+>  include/uapi/linux/if_link.h |  6 +++++
+>  net/ipv6/addrconf.c          | 56 ++++++++++++++++++++++++++++++--------------
+>  3 files changed, 45 insertions(+), 18 deletions(-)
+> 
+> diff --git a/include/net/if_inet6.h b/include/net/if_inet6.h
+> index b4956a5..f82b281 100644
+> --- a/include/net/if_inet6.h
+> +++ b/include/net/if_inet6.h
+> @@ -206,6 +206,7 @@ struct inet6_dev {
+>  	__u8			rs_probes;
+>  
+>  	unsigned long		tstamp; /* ipv6InterfaceTable update timestamp */
+> +	enum in6_addr_gen_mode	addr_gen_mode;
+>  	struct rcu_head		rcu;
+>  };
+>  
+> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+> index b385348..ff95760 100644
+> --- a/include/uapi/linux/if_link.h
+> +++ b/include/uapi/linux/if_link.h
+> @@ -204,11 +204,17 @@ enum {
+>  	IFLA_INET6_CACHEINFO,	/* time values and max reasm size */
+>  	IFLA_INET6_ICMP6STATS,	/* statistics (icmpv6)		*/
+>  	IFLA_INET6_TOKEN,	/* device token			*/
+> +	IFLA_INET6_ADDR_GEN_MODE, /* implicit address generator mode */
+>  	__IFLA_INET6_MAX
+>  };
+>  
+>  #define IFLA_INET6_MAX	(__IFLA_INET6_MAX - 1)
+>  
+> +enum in6_addr_gen_mode {
+> +	IN6_ADDR_GEN_MODE_EUI64,
+> +	IN6_ADDR_GEN_MODE_NONE,
+> +};
+> +
+>  enum {
+>  	BRIDGE_MODE_UNSPEC,
+>  	BRIDGE_MODE_HAIRPIN,
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index 358edd2..2c75ec1 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -2730,9 +2730,25 @@ static void addrconf_add_linklocal(struct inet6_dev *idev, const struct in6_addr
+>  	}
+>  }
+>  
+> +static void addr_conf_addr_gen(struct inet6_dev *idev, bool prefix_route)
+> +{
+> +	if (idev->addr_gen_mode == IN6_ADDR_GEN_MODE_EUI64) {
+> +		struct in6_addr addr;
+> +
+> +		ipv6_addr_set(&addr,  htonl(0xFE800000), 0, 0, 0);
+> +		/* addrconf_add_linklocal also adds a prefix_route and we
+> +		 * only need to care about prefix routes if ipv6_generate_eui64
+> +		 * couldn't generate one.
+> +		 */
+> +		if (ipv6_generate_eui64(addr.s6_addr + 8, idev->dev) == 0)
+> +			addrconf_add_linklocal(idev, &addr);
+> +		else if (prefix_route)
+> +			addrconf_prefix_route(&addr, 64, idev->dev, 0, 0);
+> +	}
+> +}
+> +
+>  static void addrconf_dev_config(struct net_device *dev)
+>  {
+> -	struct in6_addr addr;
+>  	struct inet6_dev *idev;
+>  
+>  	ASSERT_RTNL();
+> @@ -2753,11 +2769,7 @@ static void addrconf_dev_config(struct net_device *dev)
+>  	if (IS_ERR(idev))
+>  		return;
+>  
+> -	memset(&addr, 0, sizeof(struct in6_addr));
+> -	addr.s6_addr32[0] = htonl(0xFE800000);
+> -
+> -	if (ipv6_generate_eui64(addr.s6_addr + 8, dev) == 0)
+> -		addrconf_add_linklocal(idev, &addr);
+> +	addr_conf_addr_gen(idev, false);
+>  }
+>  
+>  #if IS_ENABLED(CONFIG_IPV6_SIT)
+> @@ -2779,11 +2791,7 @@ static void addrconf_sit_config(struct net_device *dev)
+>  	}
+>  
+>  	if (dev->priv_flags & IFF_ISATAP) {
+> -		struct in6_addr addr;
+> -
+> -		ipv6_addr_set(&addr,  htonl(0xFE800000), 0, 0, 0);
+> -		if (!ipv6_generate_eui64(addr.s6_addr + 8, dev))
+> -			addrconf_add_linklocal(idev, &addr);
+> +		addr_conf_addr_gen(idev, false);
+>  		return;
+>  	}
+>  
+> @@ -2798,7 +2806,6 @@ static void addrconf_sit_config(struct net_device *dev)
+>  static void addrconf_gre_config(struct net_device *dev)
+>  {
+>  	struct inet6_dev *idev;
+> -	struct in6_addr addr;
+>  
+>  	ASSERT_RTNL();
+>  
+> @@ -2807,11 +2814,7 @@ static void addrconf_gre_config(struct net_device *dev)
+>  		return;
+>  	}
+>  
+> -	ipv6_addr_set(&addr,  htonl(0xFE800000), 0, 0, 0);
+> -	if (!ipv6_generate_eui64(addr.s6_addr + 8, dev))
+> -		addrconf_add_linklocal(idev, &addr);
+> -	else
+> -		addrconf_prefix_route(&addr, 64, dev, 0, 0);
+> +	addr_conf_addr_gen(idev, true);
+>  }
+>  #endif
+>  
+> @@ -4423,6 +4426,10 @@ static int inet6_fill_ifla6_attrs(struct sk_buff *skb, struct inet6_dev *idev)
+>  	nla = nla_reserve(skb, IFLA_INET6_TOKEN, sizeof(struct in6_addr));
+>  	if (nla == NULL)
+>  		goto nla_put_failure;
+> +
+> +	if (nla_put_u8(skb, IFLA_INET6_ADDR_GEN_MODE, idev->addr_gen_mode))
+> +		goto nla_put_failure;
+> +
+>  	read_lock_bh(&idev->lock);
+>  	memcpy(nla_data(nla), idev->token.s6_addr, nla_len(nla));
+>  	read_unlock_bh(&idev->lock);
+> @@ -4527,8 +4534,21 @@ static int inet6_set_link_af(struct net_device *dev, const struct nlattr *nla)
+>  	if (nla_parse_nested(tb, IFLA_INET6_MAX, nla, NULL) < 0)
+>  		BUG();
+>  
+> -	if (tb[IFLA_INET6_TOKEN])
+> +	if (tb[IFLA_INET6_TOKEN]) {
+>  		err = inet6_set_iftoken(idev, nla_data(tb[IFLA_INET6_TOKEN]));
+> +		if (err)
+> +			return err;
+> +	}
+> +
+> +	if (tb[IFLA_INET6_ADDR_GEN_MODE]) {
+> +		u8 mode = nla_get_u8(tb[IFLA_INET6_ADDR_GEN_MODE]);
+> +
+> +		if (mode != IN6_ADDR_GEN_MODE_EUI64 &&
+> +		    mode != IN6_ADDR_GEN_MODE_NONE)
+> +			return -EINVAL;
+> +		idev->addr_gen_mode = mode;
+> +		err = 0;
+> +	}
+>  
+>  	return err;
+>  }
