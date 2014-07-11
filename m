@@ -1,206 +1,69 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [patch net-next] ipv6: addrconf: implement address generation
- modes
-Date: Fri, 11 Jul 2014 10:40:48 -0500
-Message-ID: <1405093248.865.10.camel@dcbw.local>
-References: <1405066774-11740-1-git-send-email-jiri@resnulli.us>
+From: Arvid Brodin <arvid.brodin@alten.se>
+Subject: Re: [PATCH net-next 00/10] net/hsr: Use list_head+rcu, better frame
+ dispatch, etc.
+Date: Fri, 11 Jul 2014 17:45:28 +0200
+Message-ID: <53C00698.4000901@alten.se>
+References: <53B71DB8.1040505@alten.se> <20140708.114548.1274719854380242049.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	sfeldma@cumulusnetworks.com, arvid.brodin@alten.se,
-	sucheta.chakraborty@qlogic.com, hannes@stressinduktion.org
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52919 "EHLO mx1.redhat.com"
+Received: from spam1.webland.se ([91.207.112.90]:49961 "EHLO spam1.webland.se"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753874AbaGKPmP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 11 Jul 2014 11:42:15 -0400
-In-Reply-To: <1405066774-11740-1-git-send-email-jiri@resnulli.us>
+	id S1750823AbaGKPux (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 11 Jul 2014 11:50:53 -0400
+In-Reply-To: <20140708.114548.1274719854380242049.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2014-07-11 at 10:19 +0200, Jiri Pirko wrote:
-> This patch introduces a possibility for userspace to set various (so far
-> two) modes of generating addresses. This is useful for example for
-> NetworkManager because it can set the mode to NONE and take care of link
-> local addresses itself. That allow it to have the interface up,
-> monitoring carrier but still don't have any addresses on it.
-
-One more use-case:
-
-WWAN devices often have their LL address provided by the firmware of the
-device, which sometimes refuses to respond to incorrect LL addresses
-when doing DHCPv6 or IPv6 ND.  The kernel cannot generate the correct LL
-address for two reasons:
-
-1) WWAN pseudo-ethernet interfaces often construct a fake MAC address,
-or read a meaningless MAC address from the firmware.  Thus the EUI64 and
-the IPv6LL address the kernel assigns will be wrong.  The real LL
-address is often retrieved from the firmware with AT or proprietary
-commands.
-
-2) WWAN PPP interfaces receive their LL address from IPV6CP, not from
-kernel assignments.  Only after IPV6CP has completed do we know the LL
-address of the PPP interface and its peer.  But the kernel has already
-assigned an incorrect LL address to the interface.
-
-So being able to suppress the kernel LL address generation and assign
-the one retrieved from the firmware is less complicated and more robust.
-
-Dan
-
-> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> ---
->  include/net/if_inet6.h       |  1 +
->  include/uapi/linux/if_link.h |  6 +++++
->  net/ipv6/addrconf.c          | 56 ++++++++++++++++++++++++++++++--------------
->  3 files changed, 45 insertions(+), 18 deletions(-)
-> 
-> diff --git a/include/net/if_inet6.h b/include/net/if_inet6.h
-> index b4956a5..f82b281 100644
-> --- a/include/net/if_inet6.h
-> +++ b/include/net/if_inet6.h
-> @@ -206,6 +206,7 @@ struct inet6_dev {
->  	__u8			rs_probes;
->  
->  	unsigned long		tstamp; /* ipv6InterfaceTable update timestamp */
-> +	enum in6_addr_gen_mode	addr_gen_mode;
->  	struct rcu_head		rcu;
->  };
->  
-> diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-> index b385348..ff95760 100644
-> --- a/include/uapi/linux/if_link.h
-> +++ b/include/uapi/linux/if_link.h
-> @@ -204,11 +204,17 @@ enum {
->  	IFLA_INET6_CACHEINFO,	/* time values and max reasm size */
->  	IFLA_INET6_ICMP6STATS,	/* statistics (icmpv6)		*/
->  	IFLA_INET6_TOKEN,	/* device token			*/
-> +	IFLA_INET6_ADDR_GEN_MODE, /* implicit address generator mode */
->  	__IFLA_INET6_MAX
->  };
->  
->  #define IFLA_INET6_MAX	(__IFLA_INET6_MAX - 1)
->  
-> +enum in6_addr_gen_mode {
-> +	IN6_ADDR_GEN_MODE_EUI64,
-> +	IN6_ADDR_GEN_MODE_NONE,
-> +};
-> +
->  enum {
->  	BRIDGE_MODE_UNSPEC,
->  	BRIDGE_MODE_HAIRPIN,
-> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> index 358edd2..2c75ec1 100644
-> --- a/net/ipv6/addrconf.c
-> +++ b/net/ipv6/addrconf.c
-> @@ -2730,9 +2730,25 @@ static void addrconf_add_linklocal(struct inet6_dev *idev, const struct in6_addr
+On 2014-07-08 20:45, David Miller wrote:
+>=20
+> Just one question:
+>=20
+> @@ -575,6 +579,13 @@ int hsr_dev_finalize(struct net_device *hsr_dev,=
+ struct net_device *slave[2],
+>  		}
 >  	}
->  }
->  
-> +static void addr_conf_addr_gen(struct inet6_dev *idev, bool prefix_route)
-> +{
-> +	if (idev->addr_gen_mode == IN6_ADDR_GEN_MODE_EUI64) {
-> +		struct in6_addr addr;
-> +
-> +		ipv6_addr_set(&addr,  htonl(0xFE800000), 0, 0, 0);
-> +		/* addrconf_add_linklocal also adds a prefix_route and we
-> +		 * only need to care about prefix routes if ipv6_generate_eui64
-> +		 * couldn't generate one.
-> +		 */
-> +		if (ipv6_generate_eui64(addr.s6_addr + 8, idev->dev) == 0)
-> +			addrconf_add_linklocal(idev, &addr);
-> +		else if (prefix_route)
-> +			addrconf_prefix_route(&addr, 64, idev->dev, 0, 0);
-> +	}
-> +}
-> +
->  static void addrconf_dev_config(struct net_device *dev)
->  {
-> -	struct in6_addr addr;
->  	struct inet6_dev *idev;
->  
->  	ASSERT_RTNL();
-> @@ -2753,11 +2769,7 @@ static void addrconf_dev_config(struct net_device *dev)
->  	if (IS_ERR(idev))
->  		return;
->  
-> -	memset(&addr, 0, sizeof(struct in6_addr));
-> -	addr.s6_addr32[0] = htonl(0xFE800000);
-> -
-> -	if (ipv6_generate_eui64(addr.s6_addr + 8, dev) == 0)
-> -		addrconf_add_linklocal(idev, &addr);
-> +	addr_conf_addr_gen(idev, false);
->  }
->  
->  #if IS_ENABLED(CONFIG_IPV6_SIT)
-> @@ -2779,11 +2791,7 @@ static void addrconf_sit_config(struct net_device *dev)
->  	}
->  
->  	if (dev->priv_flags & IFF_ISATAP) {
-> -		struct in6_addr addr;
-> -
-> -		ipv6_addr_set(&addr,  htonl(0xFE800000), 0, 0, 0);
-> -		if (!ipv6_generate_eui64(addr.s6_addr + 8, dev))
-> -			addrconf_add_linklocal(idev, &addr);
-> +		addr_conf_addr_gen(idev, false);
->  		return;
->  	}
->  
-> @@ -2798,7 +2806,6 @@ static void addrconf_sit_config(struct net_device *dev)
->  static void addrconf_gre_config(struct net_device *dev)
->  {
->  	struct inet6_dev *idev;
-> -	struct in6_addr addr;
->  
->  	ASSERT_RTNL();
->  
-> @@ -2807,11 +2814,7 @@ static void addrconf_gre_config(struct net_device *dev)
->  		return;
->  	}
->  
-> -	ipv6_addr_set(&addr,  htonl(0xFE800000), 0, 0, 0);
-> -	if (!ipv6_generate_eui64(addr.s6_addr + 8, dev))
-> -		addrconf_add_linklocal(idev, &addr);
-> -	else
-> -		addrconf_prefix_route(&addr, 64, dev, 0, 0);
-> +	addr_conf_addr_gen(idev, true);
->  }
->  #endif
->  
-> @@ -4423,6 +4426,10 @@ static int inet6_fill_ifla6_attrs(struct sk_buff *skb, struct inet6_dev *idev)
->  	nla = nla_reserve(skb, IFLA_INET6_TOKEN, sizeof(struct in6_addr));
->  	if (nla == NULL)
->  		goto nla_put_failure;
-> +
-> +	if (nla_put_u8(skb, IFLA_INET6_ADDR_GEN_MODE, idev->addr_gen_mode))
-> +		goto nla_put_failure;
-> +
->  	read_lock_bh(&idev->lock);
->  	memcpy(nla_data(nla), idev->token.s6_addr, nla_len(nla));
->  	read_unlock_bh(&idev->lock);
-> @@ -4527,8 +4534,21 @@ static int inet6_set_link_af(struct net_device *dev, const struct nlattr *nla)
->  	if (nla_parse_nested(tb, IFLA_INET6_MAX, nla, NULL) < 0)
->  		BUG();
->  
-> -	if (tb[IFLA_INET6_TOKEN])
-> +	if (tb[IFLA_INET6_TOKEN]) {
->  		err = inet6_set_iftoken(idev, nla_data(tb[IFLA_INET6_TOKEN]));
-> +		if (err)
-> +			return err;
+> =20
+> +	for (i =3D 0; i < HSR_MAX_SLAVE; i++) {
+> +		res =3D netdev_rx_handler_register(slave[i], hsr_handle_frame,
+> +						 hsr);
+> +		if (res)
+> +			goto fail;
 > +	}
 > +
-> +	if (tb[IFLA_INET6_ADDR_GEN_MODE]) {
-> +		u8 mode = nla_get_u8(tb[IFLA_INET6_ADDR_GEN_MODE]);
-> +
-> +		if (mode != IN6_ADDR_GEN_MODE_EUI64 &&
-> +		    mode != IN6_ADDR_GEN_MODE_NONE)
-> +			return -EINVAL;
-> +		idev->addr_gen_mode = mode;
-> +		err = 0;
-> +	}
->  
->  	return err;
->  }
+>  	/* Make sure we recognize frames from ourselves in hsr_rcv() */
+>  	res =3D hsr_create_self_node(&hsr->self_node_db, hsr_dev->dev_addr,
+>  				   hsr->slave[1]->dev_addr);
+>=20
+> If one of the slaves fails to register it's RX handler here, what unr=
+egisters
+> the slaves which already succeeded?
+
+This looks like it's from "[PATCH net-next 02/10] net/hsr: Switch from =
+dev_add_pack() to=20
+netdev_rx_handler_register()". If so, the code under the fail: label ca=
+lls restore_slaves(),=20
+which in turn iterates over the slaves. From the same patch:=20
+
+@@ -402,8 +402,12 @@ static void restore_slaves(struct net_device *hsr_=
+dev)
+ 			netdev_info(hsr_dev,
+ 				    "Cannot restore slave promiscuity (%s, %d)\n",
+ 				    hsr->slave[i]->name, res);
++
++		if (hsr->slave[i]->rx_handler =3D=3D hsr_handle_frame)
++			netdev_rx_handler_unregister(hsr->slave[i]);
+ 	}
+=20
++
+ 	rtnl_unlock();
+ }
+=20
+
+--=20
+Arvid Brodin | Consultant (Linux)
+ALTEN | Knarrarn=E4sgatan 7 | SE-164 40 Kista | Sweden
+arvid.brodin@alten.se | www.alten.se/en/
