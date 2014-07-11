@@ -1,214 +1,85 @@
-From: Ethan Zhao <ethan.kernel@gmail.com>
-Subject: Re: [PATCH 1/2 V3] PCI: introduce device assignment
-	interface and refactory related code
-Date: Fri, 11 Jul 2014 23:19:31 +0800
-Message-ID: <F2B2A07D-B9A9-4CE0-9679-50D7768ACDE6@gmail.com>
-References: <1405081802-419-1-git-send-email-ethan.zhao@oracle.com>
-	<1405084407.4098.59.camel@ul30vt.home>
-	<1405088147.4098.64.camel@ul30vt.home>
-	<1F7DCDA9-37C9-4001-B383-6CCAFDFB67D1@gmail.com>
-	<1405090481.4098.83.camel@ul30vt.home>
-Mime-Version: 1.0 (1.0)
-Content-Type: text/plain; charset="gb2312"
-Content-Transfer-Encoding: base64
-Cc: "kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"vaughan.cao@oracle.com" <vaughan.cao@oracle.com>,
-	"jesse.brandeburg@intel.com" <jesse.brandeburg@intel.com>,
-	Ethan Zhao <ethan.zhao@oracle.com>,
-	"linux.nics@intel.com" <linux.nics@intel.com>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
-	"gleb@kernel.org" <gleb@kernel.org>,
-	"bhelgaas@google.com" <bhelgaas@google.com>,
-	"boris.ostrovsky@oracle.com" <boris.ostrovsky@oracle.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bruce.w.allan@intel.com" <bruce.w.allan@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"john.ronciak@intel.com" <john.ronciak@intel.com>,
-	"david.vrabel@citrix.com" <david.vrabel@citrix.com>,
-	"pbonzini@redhat.com" <pbonzini@redhat.com>
-To: Alex Williamson <alex.williamson@redhat.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1405090481.4098.83.camel@ul30vt.home>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+From: Thomas Jarosch <thomas.jarosch@intra2net.com>
+Subject: Fwd: Re: GRO issue with kernel 3.4.94 (icmp fragmentation needed)
+Date: Fri, 11 Jul 2014 17:12:55 +0200
+Message-ID: <1836813.giEndUKvmp@storm>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>
+To: Greg KH <greg@kroah.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from rs04.intra2net.com ([85.214.66.2]:48864 "EHLO
+	rs04.intra2net.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752728AbaGKPYN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jul 2014 11:24:13 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Cgo+INTaIDIwMTTE6jfUwjExyNWjrM/CzucxMDo1NKOsQWxleCBXaWxsaWFtc29uIDxhbGV4Lndp
-bGxpYW1zb25AcmVkaGF0LmNvbT4g0LS1wKO6Cj4gCj4+IE9uIEZyaSwgMjAxNC0wNy0xMSBhdCAy
-MjozNyArMDgwMCwgRXRoYW4gWmhhbyB3cm90ZToKPj4gCj4+Pj4g1NogMjAxNMTqN9TCMTHI1aOs
-z8LO5zEwOjE1o6xBbGV4IFdpbGxpYW1zb24gPGFsZXgud2lsbGlhbXNvbkByZWRoYXQuY29tPiDQ
-tLXAo7oKPj4+PiAKPj4+Pj4gT24gRnJpLCAyMDE0LTA3LTExIGF0IDA3OjEzIC0wNjAwLCBBbGV4
-IFdpbGxpYW1zb24gd3JvdGU6Cj4+Pj4+IE9uIEZyaSwgMjAxNC0wNy0xMSBhdCAyMDozMCArMDgw
-MCwgRXRoYW4gWmhhbyB3cm90ZToKPj4+Pj4gVGhpcyBwYXRjaCBpbnRyb2R1Y2VzIHR3byBuZXcg
-ZGV2aWNlIGFzc2lnbm1lbnQgZnVuY3Rpb25zCj4+Pj4+IAo+Pj4+PiBwY2lfaW92X2Fzc2lnbl9k
-ZXZpY2UoKSwKPj4+Pj4gcGNpX2lvdl9kZWFzc2lnbl9kZXZpY2UoKQo+Pj4+PiAKPj4+Pj4gYWxv
-bmcgd2l0aCB0aGUgZXhpc3RlZCBvbmUKPj4+Pj4gCj4+Pj4+IHBjaV92ZnNfYXNzaWduZWQoKQo+
-Pj4+PiAKPj4+Pj4gVGhleSBjb25zdHJ1Y3QgdGhlIFZGcyBhc3NpZ25tZW50IG1hbmFnZW1lbnQg
-aW50ZXJmYWNlLCB1c2VkIHRvIGFzc2lnbi8KPj4+Pj4gZGVhc3NpZ24gZGV2aWNlIHRvIFZNIGFu
-ZCBxdWVyeSB0aGUgVkZzIHJlZmVyZW5jZSBjb3VudGVyLiBpbnN0ZWFkIG9mCj4+Pj4+IGRpcmVj
-dCBtYW5pcHVsYXRpb24gb2YgZGV2aWNlIGZsYWcuCj4+Pj4+IAo+Pj4+PiBUaGlzIHBhdGNoIHJl
-ZmFzaGlvbmVkIHRoZSByZWxhdGVkIGNvZGUgYW5kIG1ha2UgdGhlbSBhdG9taWMuCj4+Pj4+IAo+
-Pj4+PiB2MzogY2hhbmdlIHRoZSBuYW1pbmcgb2YgZGV2aWNlIGFzc2lnbm1lbnQgaGVscGVycywg
-YmVjYXVzZSB0aGV5IHdvcmsKPj4+Pj4gZm9yIGFsbCBraW5kIG9mIFBDSSBkZXZpY2UsIG5vdCBv
-bmx5IFNSLUlPViAoZGF2aWQudnJhYmVsQGNpdHJpeC5jb20pCj4+Pj4+IAo+Pj4+PiB2MjogcmVv
-cmRlciB0aGUgcGF0Y2hzZXQgYW5kIG1ha2UgaXQgYmlzZWN0YWJsZSBhbmQgYXRvbWljLCBzdGVw
-cyBjbGVhcgo+Pj4+PiBiZXR3ZWVuIGludGVyZmFjZSBkZWZpbmF0aW9uIGFuZCBpbXBsZW1lbmF0
-aW9uIGFjY29yZGluZyB0byB0aGUKPj4+Pj4gc3VnZ2VzdGlvbiBmcm9tIGFsZXgud2lsbGlhbXNv
-bkByZWRoYXQuY29tCj4+Pj4+IAo+Pj4+PiBTaWduZWQtb2ZmLWJ5OiBFdGhhbiBaaGFvIDxldGhh
-bi56aGFvQG9yYWNsZS5jb20+Cj4+Pj4+IC0tLQo+Pj4+IAo+Pj4+IC0gVXNlIGEgY292ZXIgcGF0
-Y2ggdG8gZGVzY3JpYmUgdGhlIHNlcmllcwo+Pj4+IAo+Pj4+IC0gVmVyc2lvbiBpbmZvcm1hdGlv
-biBnb2VzIGhlcmUsIGJlbG93IHRoZSAiLS0tIiwgbm90IGFib3ZlIGl0Cj4+Pj4gCj4+Pj4gLSBJ
-IHN0YW5kIGJ5IHRoZSBwYXRjaCBicmVha2Rvd24gSSBzdWdnZXN0ZWQgb3JpZ2luYWxseSwgdGhl
-cmUgYXJlIHRvbwo+Pj4+IG1hbnkgbG9naWNhbCBjaGFuZ2VzIGhlcmUgaW4gcGF0Y2ggMS4gIFRo
-ZXJlIGFyZSBlYXNpbHkgMyBzZXBhcmF0ZQo+Pj4+IHBhdGNoZXMgaGVyZS4KPj4+PiAKPj4+PiAt
-IFJlbmFtaW5nIHMvc3Jpb3YvaW92LyBkb2Vzbid0IGFkZHJlc3MgdGhlIHByb2JsZW0gRGF2aWQg
-cmFpc2VkLiAgVGhlCj4+Pj4gbmFtZSBpcyBzdGlsbCBzeW5vbnltb3VzIHdpdGggU1ItSU9WIGFu
-ZCBpdCdzIGRlZmluZWQgb24KPj4+PiBkcml2ZXJzL3BjaS9pb3YuYywgd2hpY2ggaXMgb25seSBi
-dWlsdCB3aXRoIENPTkZJR19QQ0lfSU9WLgo+Pj4+IAo+Pj4+IC0gUENJX0RFVl9GTEFHU19BU1NJ
-R05FRCBzaG91bGQgYmUgdW51c2VkIGFmdGVyIHRoaXMgc2VyaWVzLCB3aHkgaXMgaXQKPj4+PiBu
-b3QgcmVtb3ZlZD8KPj4+IAo+Pj4gSSBndWVzcyBpdCdzIHN0aWxsIHVzZWQsIHdoaWNoIGlzIGV2
-ZW4gd29yc2UgYmVjYXVzZSBub3cgd2UgaGF2ZQo+Pj4gc2VwYXJhdGUgZGF0YSBlbGVtZW50cywg
-b25lIHRyYWNraW5nIGhvdyBtYW55IFZGcyBhcmUgYXNzaWduZWQgZnJvbSBhIFBGCj4+PiBhbmQg
-YW5vdGhlciB0cmFja2luZyBlYWNoIGRldmljZSB0aGF0J3MgYXNzaWduZWQuICBXaGF0IGFyZSB3
-ZSBhY3R1YWxseQo+Pj4gZ2FpbmluZyBvciBmaXhpbmcgYnkgZG9pbmcgdGhpcz8KPj4gCj4+IE9m
-IGNvdXJzZSBpdCBpcyB1c2VkIHRvIHRyYWNraW5nIFBGL1ZGIGFzc2lnbmVkLCAgd2hhdCB3ZSBn
-YWluZWQgYXJlIC0gd2UgaGlkZSB0aGUgZGV0YWlscwo+PiBJbiBhc3NpZ25tZW50IGhlbHBlcnMs
-IHdlIHdvdWxkbid0IGJvdGhlciB0aGUgdXNlcnMgYW55bW9yZSBhbmQgaW1wbGVtZW50IHdoYXQg
-aW5zaWRlCj4+IFRoZSBoZWxwZXJzLCBteSBpbml0aWFsIHB1cnBvc2UgaXMgdG8gc2ltcGxpZnkg
-dGhlIHVnbHkgIHBjaV92ZnNfYXNzaWduZWQoKSB3aXRoIGNvdW50ZXIuCj4+IAo+PiBJIGRvbid0
-IHdhbnQgdG8gcHVzaCBtb3JlIGNoYW5nZSBpbiBvbmUgc3RlcCwgdGhhdCB3b3VsZCBvdXQgb2Yg
-Y29udHJvbCB0byBnZXQgcGVyZmVjdCByZXN1bHQuCj4gCj4gQnV0IGEgY291bnRlciBtZWFucyB0
-aGF0IHdlJ3JlIHRyYWNraW5nIHRoZSBkYXRhIGluIHR3byBzZXBhcmF0ZSBwbGFjZXMsCj4gd2hp
-Y2ggaXMgZ2VuZXJhbGx5IGEgYmFkIGlkZWEuICBDbGVhbmluZyB1cCBkaXJlY3QgYWNjZXNzIHRv
-IGZsYWdzIGlzCj4gZmluZSwgYnV0IGNyZWF0aW5nIGEgc2VwYXJhdGUgY291bnRlciBkb2Vzbid0
-IHJlYWxseSBzZWVtIHRvIGFkZCBhbnkKPiB2YWx1ZS4KCklmIHlvdSBhcmUgYXNrZWQgaG93IG1h
-bnkgYXBwbGVzIGluIHlvdXIgYmFnICwgeW91IGxpa2UgdG8gY291bnQgdGhlbSBvbmUgYnkgb25l
-IGFuZApHaXZlIHRoZSBhbnN3ZXIgPyBXaGF0IGFyZSB5b3UgZG9pbmcgd2hlbiB5b3UgcHV0IHRo
-ZW0gaW50byB0aGUgYmFnID8gCgo+Pj4+PiBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pNDBl
-L2k0MGVfdmlydGNobmxfcGYuYyB8ICAgMTcgKystLS0tLS0tLS0tLS0tLS0KPj4+Pj4gZHJpdmVy
-cy9wY2kvaW92LmMgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAgIDIwICsrKysr
-KysrKysrKysrKysrKysrCj4+Pj4+IGRyaXZlcnMveGVuL3hlbi1wY2liYWNrL3BjaV9zdHViLmMg
-ICAgICAgICAgICAgICAgIHwgICAgNCArKy0tCj4+Pj4+IGluY2x1ZGUvbGludXgvcGNpLmggICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAgNCArKysrCj4+Pj4+IHZpcnQva3ZtL2Fz
-c2lnbmVkLWRldi5jICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgICAgMiArLQo+Pj4+PiB2
-aXJ0L2t2bS9pb21tdS5jICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICB8ICAgIDQg
-KystLQo+Pj4+IAo+Pj4+IC0gVGhpcyBwYXRjaCB0b3VjaCA0IHNlcGFyYXRlIGxvZ2ljYWwgY29k
-ZSBhcmVhcywgd2hvIGRvIHlvdSBleHBlY3QgdG8KPj4+PiBhY2sgYW5kIGNvbW1pdCBpdD8gIFNw
-bGl0IGl0IHVwLgo+Pj4+IAo+Pj4+PiA2IGZpbGVzIGNoYW5nZWQsIDMxIGluc2VydGlvbnMoKyks
-IDIwIGRlbGV0aW9ucygtKQo+Pj4+PiAKPj4+Pj4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0
-aGVybmV0L2ludGVsL2k0MGUvaTQwZV92aXJ0Y2hubF9wZi5jIGIvZHJpdmVycy9uZXQvZXRoZXJu
-ZXQvaW50ZWwvaTQwZS9pNDBlX3ZpcnRjaG5sX3BmLmMKPj4+Pj4gaW5kZXggMDJjMTFhNy4uNzgx
-MDQwZSAxMDA2NDQKPj4+Pj4gLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZS9p
-NDBlX3ZpcnRjaG5sX3BmLmMKPj4+Pj4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwv
-aTQwZS9pNDBlX3ZpcnRjaG5sX3BmLmMKPj4+Pj4gQEAgLTY5MywyMiArNjkzLDkgQEAgY29tcGxl
-dGVfcmVzZXQ6Cj4+Pj4+IHN0YXRpYyBib29sIGk0MGVfdmZzX2FyZV9hc3NpZ25lZChzdHJ1Y3Qg
-aTQwZV9wZiAqcGYpCj4+Pj4+IHsKPj4+Pj4gICBzdHJ1Y3QgcGNpX2RldiAqcGRldiA9IHBmLT5w
-ZGV2Owo+Pj4+PiAtICAgIHN0cnVjdCBwY2lfZGV2ICp2ZmRldjsKPj4+Pj4gLQo+Pj4+PiAtICAg
-IC8qIGxvb3AgdGhyb3VnaCBhbGwgdGhlIFZGcyB0byBzZWUgaWYgd2Ugb3duIGFueSB0aGF0IGFy
-ZSBhc3NpZ25lZCAqLwo+Pj4+PiAtICAgIHZmZGV2ID0gcGNpX2dldF9kZXZpY2UoUENJX1ZFTkRP
-Ul9JRF9JTlRFTCwgSTQwRV9ERVZfSURfVkYgLCBOVUxMKTsKPj4+Pj4gLSAgICB3aGlsZSAodmZk
-ZXYpIHsKPj4+Pj4gLSAgICAgICAgLyogaWYgd2UgZG9uJ3Qgb3duIGl0IHdlIGRvbid0IGNhcmUg
-Ki8KPj4+Pj4gLSAgICAgICAgaWYgKHZmZGV2LT5pc192aXJ0Zm4gJiYgcGNpX3BoeXNmbih2ZmRl
-dikgPT0gcGRldikgewo+Pj4+PiAtICAgICAgICAgICAgLyogaWYgaXQgaXMgYXNzaWduZWQgd2Ug
-Y2Fubm90IHJlbGVhc2UgaXQgKi8KPj4+Pj4gLSAgICAgICAgICAgIGlmICh2ZmRldi0+ZGV2X2Zs
-YWdzICYgUENJX0RFVl9GTEFHU19BU1NJR05FRCkKPj4+Pj4gLSAgICAgICAgICAgICAgICByZXR1
-cm4gdHJ1ZTsKPj4+Pj4gLSAgICAgICAgfQo+Pj4+PiAKPj4+Pj4gLSAgICAgICAgdmZkZXYgPSBw
-Y2lfZ2V0X2RldmljZShQQ0lfVkVORE9SX0lEX0lOVEVMLAo+Pj4+PiAtICAgICAgICAgICAgICAg
-ICAgICAgICBJNDBFX0RFVl9JRF9WRiwKPj4+Pj4gLSAgICAgICAgICAgICAgICAgICAgICAgdmZk
-ZXYpOwo+Pj4+PiAtICAgIH0KPj4+Pj4gKyAgICBpZiAocGNpX3Zmc19hc3NpZ25lZChwZGV2KSkK
-Pj4+Pj4gKyAgICAgICAgcmV0dXJuIHRydWU7Cj4+Pj4+IAo+Pj4+PiAgIHJldHVybiBmYWxzZTsK
-Pj4+Pj4gfQo+Pj4+PiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9wY2kvaW92LmMgYi9kcml2ZXJzL3Bj
-aS9pb3YuYwo+Pj4+PiBpbmRleCBkZTdhNzQ3Li4wOTBmODI3IDEwMDY0NAo+Pj4+PiAtLS0gYS9k
-cml2ZXJzL3BjaS9pb3YuYwo+Pj4+PiArKysgYi9kcml2ZXJzL3BjaS9pb3YuYwo+Pj4+PiBAQCAt
-NjQ0LDYgKzY0NCwyNiBAQCBpbnQgcGNpX3Zmc19hc3NpZ25lZChzdHJ1Y3QgcGNpX2RldiAqZGV2
-KQo+Pj4+PiBFWFBPUlRfU1lNQk9MX0dQTChwY2lfdmZzX2Fzc2lnbmVkKTsKPj4+Pj4gCj4+Pj4+
-IC8qKgo+Pj4+PiArICogcGNpX2lvdl9hc3NpZ25fZGV2aWNlIC0gYXNzaWduIGRldmljZSB0byBW
-TQo+Pj4+PiArICogQHBkZXY6IHRoZSBkZXZpY2UgdG8gYmUgYXNzaWduZWQuCj4+Pj4+ICsgKi8K
-Pj4+Pj4gK3ZvaWQgcGNpX2lvdl9hc3NpZ25fZGV2aWNlKHN0cnVjdCBwY2lfZGV2ICpwZGV2KQo+
-Pj4+PiArewo+Pj4+PiArICAgIHBkZXYtPmRldl9mbGFncyB8PSBQQ0lfREVWX0ZMQUdTX0FTU0lH
-TkVEOwo+Pj4+PiArfQo+Pj4+PiArRVhQT1JUX1NZTUJPTF9HUEwocGNpX2lvdl9hc3NpZ25fZGV2
-aWNlKTsKPj4+Pj4gKwo+Pj4+PiArLyoqCj4+Pj4+ICsgKiBwY2lfaW92X2RlYXNzaWduX2Rldmlj
-ZSAtIGRlYXNpZ24gZGV2aWNlIGZyb20gVk0KPj4+Pj4gKyAqIEBwZGV2OiB0aGUgZGV2aWNlIHRv
-IGJlIGRlYXNzaWduZWQuCj4+Pj4+ICsgKi8KPj4+Pj4gK3ZvaWQgcGNpX2lvdl9kZWFzc2lnbl9k
-ZXZpY2Uoc3RydWN0IHBjaV9kZXYgKnBkZXYpCj4+Pj4+ICt7Cj4+Pj4+ICsgICAgcGRldi0+ZGV2
-X2ZsYWdzICY9IH5QQ0lfREVWX0ZMQUdTX0FTU0lHTkVEOwo+Pj4+PiArfQo+Pj4+PiArRVhQT1JU
-X1NZTUJPTF9HUEwocGNpX2lvdl9kZWFzc2lnbl9kZXZpY2UpOwo+Pj4+PiArCj4+Pj4+ICsvKioK
-Pj4+Pj4gKiBwY2lfc3Jpb3Zfc2V0X3RvdGFsdmZzIC0tIHJlZHVjZSB0aGUgVG90YWxWRnMgYXZh
-aWxhYmxlCj4+Pj4+ICogQGRldjogdGhlIFBDSSBQRiBkZXZpY2UKPj4+Pj4gKiBAbnVtdmZzOiBu
-dW1iZXIgdGhhdCBzaG91bGQgYmUgdXNlZCBmb3IgVG90YWxWRnMgc3VwcG9ydGVkCj4+Pj4+IGRp
-ZmYgLS1naXQgYS9kcml2ZXJzL3hlbi94ZW4tcGNpYmFjay9wY2lfc3R1Yi5jIGIvZHJpdmVycy94
-ZW4veGVuLXBjaWJhY2svcGNpX3N0dWIuYwo+Pj4+PiBpbmRleCA2MmZjZDQ4Li4yN2UwMGQxIDEw
-MDY0NAo+Pj4+PiAtLS0gYS9kcml2ZXJzL3hlbi94ZW4tcGNpYmFjay9wY2lfc3R1Yi5jCj4+Pj4+
-ICsrKyBiL2RyaXZlcnMveGVuL3hlbi1wY2liYWNrL3BjaV9zdHViLmMKPj4+Pj4gQEAgLTEzMyw3
-ICsxMzMsNyBAQCBzdGF0aWMgdm9pZCBwY2lzdHViX2RldmljZV9yZWxlYXNlKHN0cnVjdCBrcmVm
-ICprcmVmKQo+Pj4+PiAgIHhlbl9wY2lia19jb25maWdfZnJlZV9keW5fZmllbGRzKGRldik7Cj4+
-Pj4+ICAgeGVuX3BjaWJrX2NvbmZpZ19mcmVlX2RldihkZXYpOwo+Pj4+PiAKPj4+Pj4gLSAgICBk
-ZXYtPmRldl9mbGFncyAmPSB+UENJX0RFVl9GTEFHU19BU1NJR05FRDsKPj4+Pj4gKyAgICBwY2lf
-aW92X2RlYXNzaWduX2RldmljZShkZXYpOwo+Pj4+PiAgIHBjaV9kZXZfcHV0KGRldik7Cj4+Pj4+
-IAo+Pj4+PiAgIGtmcmVlKHBzZGV2KTsKPj4+Pj4gQEAgLTQwNCw3ICs0MDQsNyBAQCBzdGF0aWMg
-aW50IHBjaXN0dWJfaW5pdF9kZXZpY2Uoc3RydWN0IHBjaV9kZXYgKmRldikKPj4+Pj4gICBkZXZf
-ZGJnKCZkZXYtPmRldiwgInJlc2V0IGRldmljZVxuIik7Cj4+Pj4+ICAgeGVuX3BjaWJrX3Jlc2V0
-X2RldmljZShkZXYpOwo+Pj4+PiAKPj4+Pj4gLSAgICBkZXYtPmRldl9mbGFncyB8PSBQQ0lfREVW
-X0ZMQUdTX0FTU0lHTkVEOwo+Pj4+PiArICAgIHBjaV9pb3ZfYXNzaWduX2RldmljZShkZXYpOwo+
-Pj4+PiAgIHJldHVybiAwOwo+Pj4+PiAKPj4+Pj4gY29uZmlnX3JlbGVhc2U6Cj4+Pj4+IGRpZmYg
-LS1naXQgYS9pbmNsdWRlL2xpbnV4L3BjaS5oIGIvaW5jbHVkZS9saW51eC9wY2kuaAo+Pj4+PiBp
-bmRleCBhYWI1N2I0Li41ZWNlNmQ2IDEwMDY0NAo+Pj4+PiAtLS0gYS9pbmNsdWRlL2xpbnV4L3Bj
-aS5oCj4+Pj4+ICsrKyBiL2luY2x1ZGUvbGludXgvcGNpLmgKPj4+Pj4gQEAgLTE2MDMsNiArMTYw
-Myw4IEBAIGludCBwY2lfbnVtX3ZmKHN0cnVjdCBwY2lfZGV2ICpkZXYpOwo+Pj4+PiBpbnQgcGNp
-X3Zmc19hc3NpZ25lZChzdHJ1Y3QgcGNpX2RldiAqZGV2KTsKPj4+Pj4gaW50IHBjaV9zcmlvdl9z
-ZXRfdG90YWx2ZnMoc3RydWN0IHBjaV9kZXYgKmRldiwgdTE2IG51bXZmcyk7Cj4+Pj4+IGludCBw
-Y2lfc3Jpb3ZfZ2V0X3RvdGFsdmZzKHN0cnVjdCBwY2lfZGV2ICpkZXYpOwo+Pj4+PiArdm9pZCBw
-Y2lfaW92X2Fzc2lnbl9kZXZpY2Uoc3RydWN0IHBjaV9kZXYgKmRldik7Cj4+Pj4+ICt2b2lkIHBj
-aV9pb3ZfZGVhc3NpZ25fZGV2aWNlKHN0cnVjdCBwY2lfZGV2ICpkZXYpOwo+Pj4+PiAjZWxzZQo+
-Pj4+PiBzdGF0aWMgaW5saW5lIGludCBwY2lfZW5hYmxlX3NyaW92KHN0cnVjdCBwY2lfZGV2ICpk
-ZXYsIGludCBucl92aXJ0Zm4pCj4+Pj4+IHsgcmV0dXJuIC1FTk9ERVY7IH0KPj4+Pj4gQEAgLTE2
-MTQsNiArMTYxNiw4IEBAIHN0YXRpYyBpbmxpbmUgaW50IHBjaV9zcmlvdl9zZXRfdG90YWx2ZnMo
-c3RydWN0IHBjaV9kZXYgKmRldiwgdTE2IG51bXZmcykKPj4+Pj4geyByZXR1cm4gMDsgfQo+Pj4+
-PiBzdGF0aWMgaW5saW5lIGludCBwY2lfc3Jpb3ZfZ2V0X3RvdGFsdmZzKHN0cnVjdCBwY2lfZGV2
-ICpkZXYpCj4+Pj4+IHsgcmV0dXJuIDA7IH0KPj4+Pj4gK3N0YXRpYyBpbmxpbmUgdm9pZCBwY2lf
-aW92X2Fzc2lnbl9kZXZpY2Uoc3RydWN0IHBjaV9kZXYgKmRldikgeyB9Cj4+Pj4+ICtzdGF0aWMg
-aW5saW5lIHZvaWQgcGNpX2lvdl9kZWFzc2lnbl9kZXZpY2Uoc3RydWN0IHBjaV9kZXYgKmRldikg
-eyB9Cj4+Pj4+ICNlbmRpZgo+Pj4+PiAKPj4+Pj4gI2lmIGRlZmluZWQoQ09ORklHX0hPVFBMVUdf
-UENJKSB8fCBkZWZpbmVkKENPTkZJR19IT1RQTFVHX1BDSV9NT0RVTEUpCj4+Pj4+IGRpZmYgLS1n
-aXQgYS92aXJ0L2t2bS9hc3NpZ25lZC1kZXYuYyBiL3ZpcnQva3ZtL2Fzc2lnbmVkLWRldi5jCj4+
-Pj4+IGluZGV4IGJmMDY1NzcuLjdmYWM1OGQgMTAwNjQ0Cj4+Pj4+IC0tLSBhL3ZpcnQva3ZtL2Fz
-c2lnbmVkLWRldi5jCj4+Pj4+ICsrKyBiL3ZpcnQva3ZtL2Fzc2lnbmVkLWRldi5jCj4+Pj4+IEBA
-IC0zMDIsNyArMzAyLDcgQEAgc3RhdGljIHZvaWQga3ZtX2ZyZWVfYXNzaWduZWRfZGV2aWNlKHN0
-cnVjdCBrdm0gKmt2bSwKPj4+Pj4gICBlbHNlCj4+Pj4+ICAgICAgIHBjaV9yZXN0b3JlX3N0YXRl
-KGFzc2lnbmVkX2Rldi0+ZGV2KTsKPj4+Pj4gCj4+Pj4+IC0gICAgYXNzaWduZWRfZGV2LT5kZXYt
-PmRldl9mbGFncyAmPSB+UENJX0RFVl9GTEFHU19BU1NJR05FRDsKPj4+Pj4gKyAgICBwY2lfaW92
-X2RlYXNzaWduX2RldmljZShhc3NpZ25lZF9kZXYtPmRldik7Cj4+Pj4+IAo+Pj4+PiAgIHBjaV9y
-ZWxlYXNlX3JlZ2lvbnMoYXNzaWduZWRfZGV2LT5kZXYpOwo+Pj4+PiAgIHBjaV9kaXNhYmxlX2Rl
-dmljZShhc3NpZ25lZF9kZXYtPmRldik7Cj4+Pj4+IGRpZmYgLS1naXQgYS92aXJ0L2t2bS9pb21t
-dS5jIGIvdmlydC9rdm0vaW9tbXUuYwo+Pj4+PiBpbmRleCAwZGY3ZDRiLi42NDFlZTczIDEwMDY0
-NAo+Pj4+PiAtLS0gYS92aXJ0L2t2bS9pb21tdS5jCj4+Pj4+ICsrKyBiL3ZpcnQva3ZtL2lvbW11
-LmMKPj4+Pj4gQEAgLTE5NCw3ICsxOTQsNyBAQCBpbnQga3ZtX2Fzc2lnbl9kZXZpY2Uoc3RydWN0
-IGt2bSAqa3ZtLAo+Pj4+PiAgICAgICAgICAgZ290byBvdXRfdW5tYXA7Cj4+Pj4+ICAgfQo+Pj4+
-PiAKPj4+Pj4gLSAgICBwZGV2LT5kZXZfZmxhZ3MgfD0gUENJX0RFVl9GTEFHU19BU1NJR05FRDsK
-Pj4+Pj4gKyAgICBwY2lfaW92X2Fzc2lnbl9kZXZpY2UocGRldik7Cj4+Pj4+IAo+Pj4+PiAgIGRl
-dl9pbmZvKCZwZGV2LT5kZXYsICJrdm0gYXNzaWduIGRldmljZVxuIik7Cj4+Pj4+IAo+Pj4+PiBA
-QCAtMjIwLDcgKzIyMCw3IEBAIGludCBrdm1fZGVhc3NpZ25fZGV2aWNlKHN0cnVjdCBrdm0gKmt2
-bSwKPj4+Pj4gCj4+Pj4+ICAgaW9tbXVfZGV0YWNoX2RldmljZShkb21haW4sICZwZGV2LT5kZXYp
-Owo+Pj4+PiAKPj4+Pj4gLSAgICBwZGV2LT5kZXZfZmxhZ3MgJj0gflBDSV9ERVZfRkxBR1NfQVNT
-SUdORUQ7Cj4+Pj4+ICsgICAgcGNpX2lvdl9kZWFzc2lnbl9kZXZpY2UocGRldik7Cj4+Pj4+IAo+
-Pj4+PiAgIGRldl9pbmZvKCZwZGV2LT5kZXYsICJrdm0gZGVhc3NpZ24gZGV2aWNlXG4iKTsKPiAK
-PiAKPiAKCi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQpPcGVuIHNvdXJjZSBidXNpbmVzcyBwcm9jZXNz
-IG1hbmFnZW1lbnQgc3VpdGUgYnVpbHQgb24gSmF2YSBhbmQgRWNsaXBzZQpUdXJuIHByb2Nlc3Nl
-cyBpbnRvIGJ1c2luZXNzIGFwcGxpY2F0aW9ucyB3aXRoIEJvbml0YSBCUE0gQ29tbXVuaXR5IEVk
-aXRpb24KUXVpY2tseSBjb25uZWN0IHBlb3BsZSwgZGF0YSwgYW5kIHN5c3RlbXMgaW50byBvcmdh
-bml6ZWQgd29ya2Zsb3dzCldpbm5lciBvZiBCT1NTSUUsIENPRElFLCBPVzIgYW5kIEdhcnRuZXIg
-YXdhcmRzCmh0dHA6Ly9wLnNmLm5ldC9zZnUvQm9uaXRhc29mdApfX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fXwpFMTAwMC1kZXZlbCBtYWlsaW5nIGxpc3QKRTEw
-MDAtZGV2ZWxAbGlzdHMuc291cmNlZm9yZ2UubmV0Cmh0dHBzOi8vbGlzdHMuc291cmNlZm9yZ2Uu
-bmV0L2xpc3RzL2xpc3RpbmZvL2UxMDAwLWRldmVsClRvIGxlYXJuIG1vcmUgYWJvdXQgSW50ZWwm
-IzE3NDsgRXRoZXJuZXQsIHZpc2l0IGh0dHA6Ly9jb21tdW5pdGllcy5pbnRlbC5jb20vY29tbXVu
-aXR5L3dpcmVkCg==
+Hi Greg,
+
+I don't have the original patch email, but please include
+the mentioned commit
+
+------------------------------------------
+commit 21d1196a35f5686c4323e42a62fdb4b23b0ab4a3
+Author: Eric Dumazet <edumazet@google.com>
+ipv4: set transport header earlier
+------------------------------------------
+
+in the 3.4.x stable tree.
+
+After updating from 3.4.91 to 3.4.96, TCP connections
+from Windows 7 clients slowed down to a crawl.
+(to be precise: totally unusable)
+
+The commit recommended by Florian Westphal fixes it immediately.
+
+Best regards,
+Thomas
+
+----------  Forwarded Message  ----------
+
+Subject: Re: GRO issue with kernel 3.4.94 (icmp fragmentation needed)
+Date: Friday, 27. June 2014, 11:05:25
+From: Florian Westphal <fw@strlen.de>
+To: jungwon park <jwpark2@whitecode.co.kr>
+CC: netdev@vger.kernel.org
+
+jungwon park <jwpark2@whitecode.co.kr> wrote:
+> When using the linux router is turned on GRO, router send the 
+'fragmentation
+> needed' packets to the sender.
+
+Indeed 8-(
+
+> When I turned off GRO, the router operate normally, and there is no 
+problem.
+> and with 3.4.91 kernel, the router has no problem.
+> 
+> I doubt 'ipv4: ip_forward: fix inverted local_df test' patch.
+> (http://patchwork.ozlabs.org/patch/345509/)
+> When I revert this patch, the router has no problem.
+
+Can you please cherry-pick following patch on top of vanilla 3.4.92?
+https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=21d1196a35f5686c4323e42a62fdb4b23b0ab4a3
+
+commit 21d1196a35f5686c4323e42a62fdb4b23b0ab4a3
+Author: Eric Dumazet <edumazet@google.com>
+ipv4: set transport header earlier
+
+I think that should fix this bug, it should apply cleanly on top of
+3.4.y tree.
+
+[ patch is in 3.11, also backported to 3.10.y tree ]
+
+The problem is that, when dealing with GRO packets, we try to determine
+the size of the individual packets.  To do this, we rely on the
+transport header.
+
+Unfortunately the transport header is not set for the forward path in 3.4,
+so we look at the network header instead.
+--
+To unsubscribe from this list: send the line "unsubscribe netdev" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-----------------------------------------
