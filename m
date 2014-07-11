@@ -1,45 +1,64 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net] GRE: enable offloads for GRE
-Date: Thu, 10 Jul 2014 17:29:21 -0700
-Message-ID: <1405038561-14852-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Amritha Nambiar <amritha.nambiar@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Fabio Estevam <festevam@gmail.com>
+Subject: Re: [Bug 79821] New: ethernet/freescale/gianfar_ethtool.c:1584:
+ possible bad expression ?
+Date: Thu, 10 Jul 2014 21:37:47 -0300
+Message-ID: <CAOMZO5BDzOQU62-ibYH6sL+tzMGtjXcYFUtW1YUG9eKpoF=SPw@mail.gmail.com>
+References: <20140710055100.394e6a09@samsung-9>
+	<20140710.170610.787241466056112359.davem@davemloft.net>
+	<20140710.170704.1439211670228191396.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	sebastian.poehn@belden.com
+To: David Miller <davem@davemloft.net>,
+	Claudiu Manoil <claudiu.manoil@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:40355 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751170AbaGKA3Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 10 Jul 2014 20:29:24 -0400
+Received: from mail-lb0-f179.google.com ([209.85.217.179]:48294 "EHLO
+	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750896AbaGKAht (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 10 Jul 2014 20:37:49 -0400
+Received: by mail-lb0-f179.google.com with SMTP id z11so271501lbi.24
+        for <netdev@vger.kernel.org>; Thu, 10 Jul 2014 17:37:47 -0700 (PDT)
+In-Reply-To: <20140710.170704.1439211670228191396.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amritha Nambiar <amritha.nambiar@intel.com>
+On Thu, Jul 10, 2014 at 9:07 PM, David Miller <davem@davemloft.net> wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Thu, 10 Jul 2014 17:06:10 -0700 (PDT)
+>
+>> From: Stephen Hemminger <stephen@networkplumber.org>
+>> Date: Thu, 10 Jul 2014 05:51:00 -0700
+>>
+>>> [linux-3.16-rc4/drivers/net/ethernet/freescale/gianfar_ethtool.c:1584]: (style)
+>>> Same expression on both sides of '|'.
+>>>
+>>>     for (; i < MAX_FILER_IDX - 1 && (tab->fe[i].ctrl | tab->fe[i].ctrl);
+>>
+>> Probably this is meant to be:
+>>
+>> diff --git a/drivers/net/ethernet/freescale/gianfar_ethtool.c b/drivers/net/ethernet/freescale/gianfar_ethtool.c
+>> index 76d7070..f697118 100644
+>> --- a/drivers/net/ethernet/freescale/gianfar_ethtool.c
+>> +++ b/drivers/net/ethernet/freescale/gianfar_ethtool.c
+>> @@ -1581,7 +1581,7 @@ static int gfar_write_filer_table(struct gfar_private *priv,
+>>               return -EBUSY;
+>>
+>>       /* Fill regular entries */
+>> -     for (; i < MAX_FILER_IDX - 1 && (tab->fe[i].ctrl | tab->fe[i].ctrl);
+>> +     for (; i < MAX_FILER_IDX - 1 && (tab->fe[i].ctrl | tab->fe[i].prop);
+>>            i++)
+>>               gfar_write_filer(priv, i, tab->fe[i].ctrl, tab->fe[i].prop);
+>>       /* Fill the rest with fall-troughs */
+>>
+>> But only a Gianfar expert can say for sure.
+>>
+>> Sebastian, this is your code, please help us out.
+>
+> Ok, we have a problem, Sebastian's email bounces.
+>
+> Anyone else who knows this chip can help us out?  We don't have a listed
+> maintainer for Gianfar in MAINTAINERS :-/
 
-To get offloads to work with Generic Routing Encapsulation (GRE), the
-outer transport header has to be reset after skb_push is done. This
-patch has the support for this fix and hence GRE offloading.
-
-Signed-off-by: Amritha Nambiar <amritha.nambiar@intel.com>
-Signed-off-by: Joseph Gasparakis <joseph.gasparakis@intel.com>
-Tested-By: Jim Young <jamesx.m.young@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- net/ipv4/gre_demux.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/ipv4/gre_demux.c b/net/ipv4/gre_demux.c
-index 4e9619b..0485bf7 100644
---- a/net/ipv4/gre_demux.c
-+++ b/net/ipv4/gre_demux.c
-@@ -68,6 +68,7 @@ void gre_build_header(struct sk_buff *skb, const struct tnl_ptk_info *tpi,
- 
- 	skb_push(skb, hdr_len);
- 
-+	skb_reset_transport_header(skb);
- 	greh = (struct gre_base_hdr *)skb->data;
- 	greh->flags = tnl_flags_to_gre_flags(tpi->flags);
- 	greh->protocol = tpi->proto;
--- 
-1.9.3
+Adding Claudiu on Cc in case he could help.
