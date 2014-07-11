@@ -1,7 +1,7 @@
 From: Jiang Liu <jiang.liu@linux.intel.com>
-Subject: [RFC Patch V1 13/30] mm, i40e: Use cpu_to_mem()/numa_mem_id() to support memoryless node
-Date: Fri, 11 Jul 2014 15:37:30 +0800
-Message-ID: <1405064267-11678-14-git-send-email-jiang.liu@linux.intel.com>
+Subject: [RFC Patch V1 14/30] mm, i40evf: Use cpu_to_mem()/numa_mem_id() to support memoryless node
+Date: Fri, 11 Jul 2014 15:37:31 +0800
+Message-ID: <1405064267-11678-15-git-send-email-jiang.liu@linux.intel.com>
 References: <1405064267-11678-1-git-send-email-jiang.liu@linux.intel.com>
 Cc: Jiang Liu <jiang.liu@linux.intel.com>,
 	Tony Luck <tony.luck@intel.com>,
@@ -42,14 +42,14 @@ is the same as cpu_to_node()/numa_node_id().
 
 Signed-off-by: Jiang Liu <jiang.liu@linux.intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_txrx.c |    2 +-
+ drivers/net/ethernet/intel/i40evf/i40e_txrx.c |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index e49f31dbd5d8..e9f6f9efd944 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -1342,7 +1342,7 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
+diff --git a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+index 48ebb6cd69f2..5c057ae21c22 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
++++ b/drivers/net/ethernet/intel/i40evf/i40e_txrx.c
+@@ -877,7 +877,7 @@ static int i40e_clean_rx_irq(struct i40e_ring *rx_ring, int budget)
  	unsigned int total_rx_bytes = 0, total_rx_packets = 0;
  	u16 rx_packet_len, rx_header_len, rx_sph, rx_hbo;
  	u16 cleaned_count = I40E_DESC_UNUSED(rx_ring);
