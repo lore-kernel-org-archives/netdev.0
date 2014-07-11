@@ -1,73 +1,74 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: Question about settings array in phy.c
-Date: Fri, 11 Jul 2014 10:21:09 -0700
-Message-ID: <CAGVrzcbrasYjNMqVVjVMdeM+Lv4w+s-=NM4XM_oB-mYw_a+7bw@mail.gmail.com>
-References: <53C007E3.4010009@amd.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: Fw: [Bug 79891] New: Router causes TCP retransmits for windows
+ hosts after "ip_forward: fix inverted local_df test"
+Date: Fri, 11 Jul 2014 19:11:50 +0100
+Message-ID: <1405102310.26540.83.camel@deadeye.wl.decadent.org.uk>
+References: <20140710064433.1fd17105@samsung-9>
+	 <CAHA+R7N0ZgLfZNMrnHyRD+C=rGD86QXVkE0weLOLCM9npXMozg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: Tom Lendacky <thomas.lendacky@amd.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f49.google.com ([209.85.219.49]:55253 "EHLO
-	mail-oa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754246AbaGKRVu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 11 Jul 2014 13:21:50 -0400
-Received: by mail-oa0-f49.google.com with SMTP id eb12so1515483oac.22
-        for <netdev@vger.kernel.org>; Fri, 11 Jul 2014 10:21:49 -0700 (PDT)
-In-Reply-To: <53C007E3.4010009@amd.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Hi Tom,
-
-2014-07-11 8:50 GMT-07:00 Tom Lendacky <thomas.lendacky@amd.com>:
-> In drivers/net/phy/phy.c there is an array of struct phy_setting named
-> settings that is used when auto negotiation is disabled to sanitize
-> the phy settings.  This array uses only *baseT* features for validating
-> the various speed/duplex combinations.  This may result in not finding
-> the correct array entry in regards to speed and duplex if the *baseT*
-> feature is not supported.
-
-Part of the reason is that libphy was designed around 2006-2007 and
-initially only supported 10/100/1000 PHY devices, and until recently
-it did not support 10GbE PHYs at all.
-
->
-> For example, a 10GbE phy that supports KR mode would end up not matching
-> an entry and defaulting to the last entry of the array (SPEED_10 and
-> DUPLEX_HALF) which is not what is desired.
->
-> Is it appropriate to be able to extend this array?  Either by adding
-> additional array entries or extending the "setting" to include other
-> features?  Or is there a specific reason that only the *baseT* values
-> are used?
-
-It seems to me like it will be easier to refine/extend the matching
-logic by adding a new entries which contain a single 'setting' to be
-matched against, such as the one you show below:
-
->
-> Examples of changing the array:
->
->   Add a new entry
->         {
->                 .speed = SPEED_10000,
->                 .duplex = DUPLEX_FULL,
->                 .setting = SUPPORTED_10000baseKR_Full,
->         },
->
->   or extend current entry
->         {
->                 .speed = SPEED_10000,
->                 .duplex = DUPLEX_FULL,
->                 .setting = SUPPORTED_10000baseT_Full |
->                            SUPPORTED_10000baseKR_Full,
->         },
->
-> Thanks,
-> Tom
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-DMYllYvn2Tr9qqGt8pKi"
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	stable <stable@vger.kernel.org>
+To: Cong Wang <cwang@twopensource.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <CAHA+R7N0ZgLfZNMrnHyRD+C=rGD86QXVkE0weLOLCM9npXMozg@mail.gmail.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
+--=-DMYllYvn2Tr9qqGt8pKi
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
--- 
-Florian
+On Thu, 2014-07-10 at 10:11 -0700, Cong Wang wrote:
+> On Thu, Jul 10, 2014 at 6:44 AM, Stephen Hemminger
+> <stephen@networkplumber.org> wrote:
+> >
+> > After upgrading a router to Linux 3.2.60 most windows machines behind i=
+t
+> > started experiencing connection stalls. Downgrade to 3.2.59 resolved th=
+e
+> > problem. Using git bisect I pinpointed it to
+> > "59d9f389df3cdf72833d5ee17c3fe959b6bdc792 is the first bad commit", whi=
+ch
+> > entered the kernel from here
+> > http://marc.info/?l=3Dlinux-netdev&m=3D139949081418806&w=3D2
+> >
+>=20
+> This commit should have been reverted for older kernels like 3.2.y.
+
+Really?  We already had fe6cc55f3a9 ("net: ip, ipv6: handle gso skbs in
+forwarding path") backported in 3.2.57.
+
+Ben.
+
+--=20
+Ben Hutchings
+To err is human; to really foul things up requires a computer.
+
+--=-DMYllYvn2Tr9qqGt8pKi
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIVAwUAU8Ao6+e/yOyVhhEJAQoptA//c6J04aFx0zGSZcQhmUgD5W4m02dp4/dF
+sKUjMcZMCW4W5+oRI1oIvXlkfKXHMFRkDl+mZ7Oqe+JqbAPMeBqgHWKzVlHSigfs
+5zIxmubkcA/UXVpJYPxAbicTAX/xjWQEKM61nFi87spnLoVyiQ9AAewgB+VxPk7d
+D7I6zvpHS7HwheJ7tP2Rh72gbSZTaO2QZWPoMZNs39n9QzwRKfaYXth2AP3SYb2y
+l7rJ8af8xWbmQGivlIKY/49enD1CXZi0sft/NTninxNxFjffTXFwI1qo0pfE3rpk
+eIvlryOMgQXY63r33zkDxZKav7p9JCziT1GodqZTAgrVh6B9rkXYwZ425sIPyBZq
+V4wo+F6NeZCxPzuXJ2L0EV30yrHHXwcqDhHphZv8gHlvvn5VJYtEkkJdQtzL7CI+
+vqGEmo2Oms8qKKTDTFLZBr4XLSbOI1GNUGXfisw+COhxI9+ziCEaojf/Lop+2dyw
+vpKIYQaZghzsE9fyxEtnIPo0dxZ95vSsPkIbrgmmwamEn/08JqjCFwMLKk89Y6YP
+M2TNhYicmUp05Gnps76wly4Qw6PhMNGvFJdO31S482rmg2CT8ZEKgGh3oA7tasQ+
+D8vSFtSh7ICh7ZZQyjoaexSfDWd2BZumJOfXWr2hO0KhQl8kzo/qHfbZu9M3JWao
+DpHO0uGpbLc=
+=mq8Z
+-----END PGP SIGNATURE-----
+
+--=-DMYllYvn2Tr9qqGt8pKi--
