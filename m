@@ -1,8 +1,8 @@
 From: Ethan Zhao <ethan.zhao@oracle.com>
-Subject: [PATCH 3/4] KVM: use PCI VFs assignment helper
-	functions
-Date: Fri, 11 Jul 2014 08:47:21 +0800
-Message-ID: <1405039642-23519-3-git-send-email-ethan.zhao@oracle.com>
+Subject: [PATCH 2/4] xen-pciback: use PCI VFs assignment
+	helper functions
+Date: Fri, 11 Jul 2014 08:47:20 +0800
+Message-ID: <1405039642-23519-2-git-send-email-ethan.zhao@oracle.com>
 References: <1405039642-23519-1-git-send-email-ethan.zhao@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -36,45 +36,31 @@ PCI SRIOV, use them instead of manipulating device flag directly.
 
 Signed-off-by: Ethan Zhao <ethan.zhao@oracle.com>
 ---
- virt/kvm/assigned-dev.c |    2 +-
- virt/kvm/iommu.c        |    4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/xen/xen-pciback/pci_stub.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/virt/kvm/assigned-dev.c b/virt/kvm/assigned-dev.c
-index bf06577..80b477f 100644
---- a/virt/kvm/assigned-dev.c
-+++ b/virt/kvm/assigned-dev.c
-@@ -302,7 +302,7 @@ static void kvm_free_assigned_device(struct kvm *kvm,
- 	else
- 		pci_restore_state(assigned_dev->dev);
+diff --git a/drivers/xen/xen-pciback/pci_stub.c b/drivers/xen/xen-pciback/pci_stub.c
+index 62fcd48..1d7b747 100644
+--- a/drivers/xen/xen-pciback/pci_stub.c
++++ b/drivers/xen/xen-pciback/pci_stub.c
+@@ -133,7 +133,7 @@ static void pcistub_device_release(struct kref *kref)
+ 	xen_pcibk_config_free_dyn_fields(dev);
+ 	xen_pcibk_config_free_dev(dev);
  
--	assigned_dev->dev->dev_flags &= ~PCI_DEV_FLAGS_ASSIGNED;
-+	pci_sriov_deassign_device(assigned_dev->dev);
+-	dev->dev_flags &= ~PCI_DEV_FLAGS_ASSIGNED;
++	pci_sriov_deassign_device(dev);
+ 	pci_dev_put(dev);
  
- 	pci_release_regions(assigned_dev->dev);
- 	pci_disable_device(assigned_dev->dev);
-diff --git a/virt/kvm/iommu.c b/virt/kvm/iommu.c
-index 0df7d4b..6d3f5ef 100644
---- a/virt/kvm/iommu.c
-+++ b/virt/kvm/iommu.c
-@@ -194,7 +194,7 @@ int kvm_assign_device(struct kvm *kvm,
- 			goto out_unmap;
- 	}
+ 	kfree(psdev);
+@@ -404,7 +404,7 @@ static int pcistub_init_device(struct pci_dev *dev)
+ 	dev_dbg(&dev->dev, "reset device\n");
+ 	xen_pcibk_reset_device(dev);
  
--	pdev->dev_flags |= PCI_DEV_FLAGS_ASSIGNED;
-+	pci_sriov_assign_device(pdev);
+-	dev->dev_flags |= PCI_DEV_FLAGS_ASSIGNED;
++	pci_sriov_assign_device(dev);
+ 	return 0;
  
- 	dev_info(&pdev->dev, "kvm assign device\n");
- 
-@@ -220,7 +220,7 @@ int kvm_deassign_device(struct kvm *kvm,
- 
- 	iommu_detach_device(domain, &pdev->dev);
- 
--	pdev->dev_flags &= ~PCI_DEV_FLAGS_ASSIGNED;
-+	pci_sriov_deassign_device(pdev);
- 
- 	dev_info(&pdev->dev, "kvm deassign device\n");
- 
+ config_release:
 -- 
 1.7.1
 
