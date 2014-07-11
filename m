@@ -1,85 +1,109 @@
-From: Ethan Zhao <ethan.zhao@oracle.com>
-Subject: [PATCH 4/4] i40e: use PCI VFs assignment helper
-	function simplify i40e_vfs_are_assigned()
-Date: Fri, 11 Jul 2014 08:47:22 +0800
-Message-ID: <1405039642-23519-4-git-send-email-ethan.zhao@oracle.com>
-References: <1405039642-23519-1-git-send-email-ethan.zhao@oracle.com>
+From: Bo Shen <voice.shen-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v3 1/2] ARM: at91/dt: describe rgmii ethernet phy connected
+ to sama5d3xek boards
+Date: Fri, 11 Jul 2014 09:47:50 +0800
+Message-ID: <53BF4246.2070706@atmel.com>
+References: <1405022394-8311-1-git-send-email-boris.brezillon@free-electrons.com> <1405022394-8311-2-git-send-email-boris.brezillon@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Ethan Zhao <ethan.zhao@oracle.com>, linux.nics@intel.com,
-	kvm@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	linux-pci@vger.kernel.org, vaughan.cao@oracle.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	ethan.kernel@gmail.com
-To: bhelgaas@google.com, konrad.wilk@oracle.com, boris.ostrovsky@oracle.com,
-	david.vrabel@citrix.com, gleb@kernel.org, pbonzini@redhat.com,
-	jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	bruce.w.allan@intel.com, carolyn.wyborny@intel.com,
-	donald.c.skidmore@intel.com, gregory.v.rose@intel.com,
-	alexander.h.duyck@intel.com, john.ronciak@intel.com,
-	mitch.a.williams@intel.com
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1405039642-23519-1-git-send-email-ethan.zhao@oracle.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"Pawel Moll" <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+	Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+To: Boris BREZILLON <boris.brezillon-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	Nicolas Ferre <nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>,
+	Jean-Christophe Plagniol-Villard <plagnioj-sclMFOaUSTBWk0Htik3J/w@public.gmane.org>,
+	Alexandre Belloni <alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	Andrew Victor <linux-PelNFVqkFnVyf+4FbqDuWQ@public.gmane.org>,
+	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1405022394-8311-2-git-send-email-boris.brezillon-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-New VFs reference counter mechanism and VFs assignment helper functions are introduced to
-PCI SRIOV, use them instead of manipulating device flag directly.
+Hi Boris,
 
-Signed-off-by: Ethan Zhao <ethan.zhao@oracle.com>
----
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |   17 ++---------------
- 1 files changed, 2 insertions(+), 15 deletions(-)
+On 07/11/2014 03:59 AM, Boris BREZILLON wrote:
+> Add ethernet-phy nodes and specify phy interrupt (connected to pin PB25)
+> and board specific timing configs.
+>
+> Atmel has two different HW designs for its CPU modules: the first one
+> (produced by Embest) is connecting PHYAD[0-2] pins to pull up resistors
+> and the other one (produced by Ronetix) is connecting PHYAD0 to a pull up
+> resistor and PHYAD[1-2] to pull down resistors.
+> As a result, Ronetix design will have its PHY available at address 0x1 and
+> Embest design at 0x7.
+> By defining both phys we're letting the phy core detect the one actually
+> available on the MDIO bus.
+>
+> Signed-off-by: Boris BREZILLON <boris.brezillon-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 02c11a7..781040e 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -693,22 +693,9 @@ complete_reset:
- static bool i40e_vfs_are_assigned(struct i40e_pf *pf)
- {
- 	struct pci_dev *pdev = pf->pdev;
--	struct pci_dev *vfdev;
--
--	/* loop through all the VFs to see if we own any that are assigned */
--	vfdev = pci_get_device(PCI_VENDOR_ID_INTEL, I40E_DEV_ID_VF , NULL);
--	while (vfdev) {
--		/* if we don't own it we don't care */
--		if (vfdev->is_virtfn && pci_physfn(vfdev) == pdev) {
--			/* if it is assigned we cannot release it */
--			if (vfdev->dev_flags & PCI_DEV_FLAGS_ASSIGNED)
--				return true;
--		}
- 
--		vfdev = pci_get_device(PCI_VENDOR_ID_INTEL,
--				       I40E_DEV_ID_VF,
--				       vfdev);
--	}
-+	if (pci_vfs_assigned(pdev))
-+		return true;
- 
- 	return false;
- }
--- 
-1.7.1
+For this patch series, test OK on both Embest (sama5d34ek) and Ronetix 
+(sama5d33ek).
 
+Tested-by: Bo Shen <voice.shen-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>
 
-------------------------------------------------------------------------------
-Open source business process management suite built on Java and Eclipse
-Turn processes into business applications with Bonita BPM Community Edition
-Quickly connect people, data, and systems into organized workflows
-Winner of BOSSIE, CODIE, OW2 and Gartner awards
-http://p.sf.net/sfu/Bonitasoft
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+> ---
+>
+> Florian, I dropped your Reviewed-by tag because this patch has slightly
+> changed.
+>
+>
+>   arch/arm/boot/dts/sama5d3xcm.dtsi | 30 ++++++++++++++++++++++++++++++
+>   1 file changed, 30 insertions(+)
+>
+> diff --git a/arch/arm/boot/dts/sama5d3xcm.dtsi b/arch/arm/boot/dts/sama5d3xcm.dtsi
+> index b0b1331..755369e 100644
+> --- a/arch/arm/boot/dts/sama5d3xcm.dtsi
+> +++ b/arch/arm/boot/dts/sama5d3xcm.dtsi
+> @@ -34,6 +34,36 @@
+>
+>   			macb0: ethernet@f0028000 {
+>   				phy-mode = "rgmii";
+> +				#address-cells = <1>;
+> +				#size-cells = <0>;
+> +
+> +				ethernet-phy@1 {
+> +					reg = <0x1>;
+> +					interrupt-parent = <&pioB>;
+> +					interrupts = <25 IRQ_TYPE_EDGE_FALLING>;
+> +					txen-skew-ps = <800>;
+> +					txc-skew-ps = <3000>;
+> +					rxdv-skew-ps = <400>;
+> +					rxc-skew-ps = <3000>;
+> +					rxd0-skew-ps = <400>;
+> +					rxd1-skew-ps = <400>;
+> +					rxd2-skew-ps = <400>;
+> +					rxd3-skew-ps = <400>;
+> +				};
+> +
+> +				ethernet-phy@7 {
+> +					reg = <0x7>;
+> +					interrupt-parent = <&pioB>;
+> +					interrupts = <25 IRQ_TYPE_EDGE_FALLING>;
+> +					txen-skew-ps = <800>;
+> +					txc-skew-ps = <3000>;
+> +					rxdv-skew-ps = <400>;
+> +					rxc-skew-ps = <3000>;
+> +					rxd0-skew-ps = <400>;
+> +					rxd1-skew-ps = <400>;
+> +					rxd2-skew-ps = <400>;
+> +					rxd3-skew-ps = <400>;
+> +				};
+>   			};
+>
+>   			pmc: pmc@fffffc00 {
+>
+
+Best Regards,
+Bo Shen
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
