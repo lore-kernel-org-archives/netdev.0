@@ -1,75 +1,108 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCHv2] bonding: Do not try to send packets over dead link in
- TLB mode.
-Date: Sat, 12 Jul 2014 10:49:01 +0200
-Message-ID: <1405154941.3515.34.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1405113030-28877-1-git-send-email-maheshb@google.com>
+From: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next 1/2] 6lowpan: introduce new net/6lowpan directory
+Date: Sat, 12 Jul 2014 11:17:14 +0200
+Message-ID: <20140712091712.GA15269@omega>
+References: <1405067059-18782-1-git-send-email-alex.aring@gmail.com>
+ <1405067059-18782-2-git-send-email-alex.aring@gmail.com>
+ <8A1EF84C-3EDC-4540-B8F4-1FCBF4BF8D93@holtmann.org>
+ <20140711113507.GA24370@omega>
+ <E54EDE3F-99A2-49C0-842B-D15E8B7826D2@holtmann.org>
+ <20140711225340.GA7561@omega>
+ <07699E7C-9AA6-4BF7-9E52-996D69C499C1@holtmann.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Maciej Zenczykowski <maze@google.com>
-To: Mahesh Bandewar <maheshb@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:49477 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751546AbaGLItI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jul 2014 04:49:08 -0400
-Received: by mail-wi0-f177.google.com with SMTP id ho1so327369wib.10
-        for <netdev@vger.kernel.org>; Sat, 12 Jul 2014 01:49:06 -0700 (PDT)
-In-Reply-To: <1405113030-28877-1-git-send-email-maheshb@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Jukka Rissanen <jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <07699E7C-9AA6-4BF7-9E52-996D69C499C1-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2014-07-11 at 14:10 -0700, Mahesh Bandewar wrote:
-...
-> This patch fixes these issues and distributes flows across the
-> UP links only. Also the array construction of links which are
-> capable of sending packets happen in the control path leaving
-> only link-selection during the data-path.
-...
-> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
-> ---
-...
->  
-> +static int bond_tlb_update_slave_arr(struct bonding *bond)
-> +{
-> +	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
-> +	struct slave *tx_slave;
-> +	struct list_head *iter;
-> +	struct tlb_up_slave *new_arr, *old_arr;
-> +
-> +	new_arr = kzalloc(offsetof(struct tlb_up_slave, arr[bond->slave_cnt]),
-> +			  GFP_KERNEL);
-> +	if (!new_arr)
-> +		return -ENOMEM;
-> +
-> +	bond_for_each_slave(bond, tx_slave, iter) {
-> +		if (bond_slave_can_tx(tx_slave))
-> +			new_arr->arr[new_arr->count++] = tx_slave;
-> +	}
-> +
-> +	old_arr = bond_info->slave_arr;
+Hi Marcel,
 
-Check your patch with :
+On Sat, Jul 12, 2014 at 01:58:26AM +0200, Marcel Holtmann wrote:
+> Hi Alexander,
+> 
+> >>>>> index cbbbe6d..7ed1970 100644
+> >>>>> --- a/net/Makefile
+> >>>>> +++ b/net/Makefile
+> >>>>> @@ -57,7 +57,8 @@ obj-$(CONFIG_CAIF)		+= caif/
+> >>>>> ifneq ($(CONFIG_DCB),)
+> >>>>> obj-y				+= dcb/
+> >>>>> endif
+> >>>>> -obj-y				+= ieee802154/
+> >>>>> +obj-$(CONFIG_6LOWPAN)		+= 6lowpan/
+> >>>>> +obj-$(CONFIG_IEEE802154)	+= ieee802154/
+> >>>>> obj-$(CONFIG_MAC802154)		+= mac802154/
+> >>>>> 
+> >>>>> ifeq ($(CONFIG_NET),y)
+> >>>>> diff --git a/net/bluetooth/Kconfig b/net/bluetooth/Kconfig
+> >>>>> index 06ec144..a54777d 100644
+> >>>>> --- a/net/bluetooth/Kconfig
+> >>>>> +++ b/net/bluetooth/Kconfig
+> >>>>> @@ -6,7 +6,6 @@ menuconfig BT
+> >>>>> 	tristate "Bluetooth subsystem support"
+> >>>>> 	depends on NET && !S390
+> >>>>> 	depends on RFKILL || !RFKILL
+> >>>>> -	select 6LOWPAN_IPHC if BT_6LOWPAN
+> >>>>> 	select CRC16
+> >>>>> 	select CRYPTO
+> >>>>> 	select CRYPTO_BLKCIPHER
+> >>>>> @@ -42,7 +41,7 @@ menuconfig BT
+> >>>>> 
+> >>>>> config BT_6LOWPAN
+> >>>>> 	bool "Bluetooth 6LoWPAN support"
+> >>>>> -	depends on BT && IPV6
+> >>>>> +	depends on BT && 6LOWPAN
+> >>>>> 	help
+> >>>>> 	  IPv6 compression over Bluetooth.
+> >>>> 
+> >>>> this will conflict with our changes in wireless-next tree. We converted out 6LoWPAN support into a separate module.
+> >>>> 
+> >>> 
+> >>> oops, sorry I didn't check on this. I simple based it on net-next,
+> >>> because the patch series adds a new branch.
+> >>> 
+> >>> 
+> >>> 
+> >>> btw. we need to talk about who branch will commit changes to iphc code
+> >>> to avoid conflicts.
+> >> 
+> >> a few years back we decided to merge bluetooth-next via John's wireless-next tree so that any interaction with 802.11 and Bluetooth can be sorted out in John's tree. We are now also merging NFC into the wireless-next tree.
+> >> 
+> >> So it might be a good idea to include the 6LoWPAN parts into the wireless-next tree as well. If there are conflicts with 802.15.4, maybe that should also go through his trees.
+> >> 
+> > 
+> > Ok. I am maintainer since three days ago and I need some time to setup
+> > my infrastructure, then I will ask him. At the end I need to update the
+> > MAINTAINERS file to the new infrastructure.
+> > 
+> >> If you want I can also take the net/6lowpan stuff through bluetooth-next tree.
+> >> 
+> > 
+> > Yes, please Marcel. This is one file at the moment. I have in my local
+> > branch also some patches (most of them use IPv6 API for address scopes
+> > instead using the self builded macros). There is also a issue with error
+> > handling which should be a long overdue fix. You will get some patches
+> > for these issues in the next days.
+> 
+> I resolved the conflict locally in bluetooth-next and applied both of your patches to bluetooth-next tree.
+> 
+ok. Thanks.
 
-CONFIG_SPARSE_RCU_POINTER=y
-make C=2 drivers/net/bonding/bond_alb.o
+I notice there is a patch in net-next for the old file
+4710d806fcb825156e0a7b3a81104915c5e90f5d ("6lowpan: mac802154: fix coding
+style issues").
 
-Hint : You need here to use
+It's not in bluetooth-next currently and the movement patch should not
+occur any conflicts (I think). But I can't send you patches until this
+is in bluetooth-next.
 
-	old_arr = rtnl_dereference(bond_info->slave_arr);
-	
+I wait until the next sync of bluetooth-next with net-next and you should not
+apply any patches to "net/6lowpan/iphc.c" until that.
 
-> +	rcu_assign_pointer(bond_info->slave_arr, new_arr);
-> +	if (old_arr)
-> +		kfree_rcu(old_arr, rcu);
-> +
-> +	return 0;
-> +}
-> +
+- Alex
