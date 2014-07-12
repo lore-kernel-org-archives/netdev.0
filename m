@@ -1,232 +1,57 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next v2 5/6] net: sctp: implement rfc6458, 8.1.31. SCTP_DEFAULT_SNDINFO support
-Date: Sat, 12 Jul 2014 20:30:39 +0200
-Message-ID: <1405189840-31171-6-git-send-email-dborkman@redhat.com>
+Subject: [PATCH net-next v2 6/6] net: sctp: deprecate rfc6458, 5.3.2. SCTP_SNDRCV support
+Date: Sat, 12 Jul 2014 20:30:40 +0200
+Message-ID: <1405189840-31171-7-git-send-email-dborkman@redhat.com>
 References: <1405189840-31171-1-git-send-email-dborkman@redhat.com>
 Cc: geirola@gmail.com, netdev@vger.kernel.org,
 	linux-sctp@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:14619 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:40691 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752674AbaGLSa6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Jul 2014 14:30:58 -0400
+	id S1752686AbaGLSbA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Jul 2014 14:31:00 -0400
 In-Reply-To: <1405189840-31171-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Geir Ola Vaagland <geirola@gmail.com>
+With support of SCTP_SNDINFO/SCTP_RCVINFO as described in RFC6458,
+5.3.4/5.3.5, we can now deprecate SCTP_SNDRCV. The RFC already
+declares it as deprecated:
 
-This patch implements section 8.1.31. of RFC6458, which adds support
-for setting/retrieving SCTP_DEFAULT_SNDINFO:
+  This structure mixes the send and receive path. SCTP_SNDINFO
+  (described in Section 5.3.4) and SCTP_RCVINFO (described in
+  Section 5.3.5) split this information. These structures should
+  be used, when possible, since SCTP_SNDRCV is deprecated.
 
-  Applications that wish to use the sendto() system call may wish
-  to specify a default set of parameters that would normally be
-  supplied through the inclusion of ancillary data. This socket
-  option allows such an application to set the default sctp_sndinfo
-  structure. The application that wishes to use this socket option
-  simply passes the sctp_sndinfo structure (defined in Section 5.3.4)
-  to this call. The input parameters accepted by this call include
-  snd_sid, snd_flags, snd_ppid, and snd_context. The snd_flags
-  parameter is composed of a bitwise OR of SCTP_UNORDERED, SCTP_EOF,
-  and SCTP_SENDALL. The snd_assoc_id field specifies the association
-  to which to apply the parameters. For a one-to-many style socket,
-  any of the predefined constants are also allowed in this field.
-  The field is ignored for one-to-one style sockets.
+So whenever a user tries to subscribe to sctp_data_io_event via
+setsockopt(2) which triggers inclusion of SCTP_SNDRCV cmsg_type,
+issue a warning in the log.
 
-Joint work with Daniel Borkmann.
-
-Signed-off-by: Geir Ola Vaagland <geirola@gmail.com>
 Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 ---
- include/uapi/linux/sctp.h |   1 +
- net/sctp/socket.c         | 107 ++++++++++++++++++++++++++++++++++++++++++----
- 2 files changed, 99 insertions(+), 9 deletions(-)
+ net/sctp/socket.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
 
-diff --git a/include/uapi/linux/sctp.h b/include/uapi/linux/sctp.h
-index 222f82f..ce70fe6 100644
---- a/include/uapi/linux/sctp.h
-+++ b/include/uapi/linux/sctp.h
-@@ -97,6 +97,7 @@ typedef __s32 sctp_assoc_t;
- #define SCTP_PEER_ADDR_THLDS	31
- #define SCTP_RECVRCVINFO	32
- #define SCTP_RECVNXTINFO	33
-+#define SCTP_DEFAULT_SNDINFO	34
- 
- /* Internal Socket Options. Some of the sctp library functions are
-  * implemented using these socket options.
 diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 9bca87e..d95a50c 100644
+index d95a50c..743308f 100644
 --- a/net/sctp/socket.c
 +++ b/net/sctp/socket.c
-@@ -2770,19 +2770,22 @@ static int sctp_setsockopt_default_send_param(struct sock *sk,
- 					      char __user *optval,
- 					      unsigned int optlen)
- {
--	struct sctp_sndrcvinfo info;
--	struct sctp_association *asoc;
- 	struct sctp_sock *sp = sctp_sk(sk);
-+	struct sctp_association *asoc;
-+	struct sctp_sndrcvinfo info;
- 
--	if (optlen != sizeof(struct sctp_sndrcvinfo))
-+	if (optlen != sizeof(info))
- 		return -EINVAL;
- 	if (copy_from_user(&info, optval, optlen))
+@@ -2205,8 +2205,13 @@ static int sctp_setsockopt_events(struct sock *sk, char __user *optval,
+ 	if (copy_from_user(&sctp_sk(sk)->subscribe, optval, optlen))
  		return -EFAULT;
-+	if (info.sinfo_flags &
-+	    ~(SCTP_UNORDERED | SCTP_ADDR_OVER |
-+	      SCTP_ABORT | SCTP_EOF))
-+		return -EINVAL;
  
- 	asoc = sctp_id2assoc(sk, info.sinfo_assoc_id);
- 	if (!asoc && info.sinfo_assoc_id && sctp_style(sk, UDP))
- 		return -EINVAL;
--
- 	if (asoc) {
- 		asoc->default_stream = info.sinfo_stream;
- 		asoc->default_flags = info.sinfo_flags;
-@@ -2800,6 +2803,44 @@ static int sctp_setsockopt_default_send_param(struct sock *sk,
- 	return 0;
- }
- 
-+/* RFC6458, Section 8.1.31. Set/get Default Send Parameters
-+ * (SCTP_DEFAULT_SNDINFO)
-+ */
-+static int sctp_setsockopt_default_sndinfo(struct sock *sk,
-+					   char __user *optval,
-+					   unsigned int optlen)
-+{
-+	struct sctp_sock *sp = sctp_sk(sk);
-+	struct sctp_association *asoc;
-+	struct sctp_sndinfo info;
+-	/*
+-	 * At the time when a user app subscribes to SCTP_SENDER_DRY_EVENT,
++	if (sctp_sk(sk)->subscribe.sctp_data_io_event)
++		pr_warn_ratelimited(DEPRECATED "%s (pid %d) "
++				    "Requested SCTP_SNDRCVINFO event.\n"
++				    "Use SCTP_RCVINFO through SCTP_RECVRCVINFO option instead.\n",
++				    current->comm, task_pid_nr(current));
 +
-+	if (optlen != sizeof(info))
-+		return -EINVAL;
-+	if (copy_from_user(&info, optval, optlen))
-+		return -EFAULT;
-+	if (info.snd_flags &
-+	    ~(SCTP_UNORDERED | SCTP_ADDR_OVER |
-+	      SCTP_ABORT | SCTP_EOF))
-+		return -EINVAL;
-+
-+	asoc = sctp_id2assoc(sk, info.snd_assoc_id);
-+	if (!asoc && info.snd_assoc_id && sctp_style(sk, UDP))
-+		return -EINVAL;
-+	if (asoc) {
-+		asoc->default_stream = info.snd_sid;
-+		asoc->default_flags = info.snd_flags;
-+		asoc->default_ppid = info.snd_ppid;
-+		asoc->default_context = info.snd_context;
-+	} else {
-+		sp->default_stream = info.snd_sid;
-+		sp->default_flags = info.snd_flags;
-+		sp->default_ppid = info.snd_ppid;
-+		sp->default_context = info.snd_context;
-+	}
-+
-+	return 0;
-+}
-+
- /* 7.1.10 Set Primary Address (SCTP_PRIMARY_ADDR)
-  *
-  * Requests that the local SCTP stack use the enclosed peer address as
-@@ -3725,6 +3766,9 @@ static int sctp_setsockopt(struct sock *sk, int level, int optname,
- 		retval = sctp_setsockopt_default_send_param(sk, optval,
- 							    optlen);
- 		break;
-+	case SCTP_DEFAULT_SNDINFO:
-+		retval = sctp_setsockopt_default_sndinfo(sk, optval, optlen);
-+		break;
- 	case SCTP_PRIMARY_ADDR:
- 		retval = sctp_setsockopt_primary_addr(sk, optval, optlen);
- 		break;
-@@ -5027,14 +5071,14 @@ static int sctp_getsockopt_default_send_param(struct sock *sk,
- 					int len, char __user *optval,
- 					int __user *optlen)
- {
--	struct sctp_sndrcvinfo info;
--	struct sctp_association *asoc;
- 	struct sctp_sock *sp = sctp_sk(sk);
-+	struct sctp_association *asoc;
-+	struct sctp_sndrcvinfo info;
- 
--	if (len < sizeof(struct sctp_sndrcvinfo))
-+	if (len < sizeof(info))
- 		return -EINVAL;
- 
--	len = sizeof(struct sctp_sndrcvinfo);
-+	len = sizeof(info);
- 
- 	if (copy_from_user(&info, optval, len))
- 		return -EFAULT;
-@@ -5042,7 +5086,6 @@ static int sctp_getsockopt_default_send_param(struct sock *sk,
- 	asoc = sctp_id2assoc(sk, info.sinfo_assoc_id);
- 	if (!asoc && info.sinfo_assoc_id && sctp_style(sk, UDP))
- 		return -EINVAL;
--
- 	if (asoc) {
- 		info.sinfo_stream = asoc->default_stream;
- 		info.sinfo_flags = asoc->default_flags;
-@@ -5065,6 +5108,48 @@ static int sctp_getsockopt_default_send_param(struct sock *sk,
- 	return 0;
- }
- 
-+/* RFC6458, Section 8.1.31. Set/get Default Send Parameters
-+ * (SCTP_DEFAULT_SNDINFO)
-+ */
-+static int sctp_getsockopt_default_sndinfo(struct sock *sk, int len,
-+					   char __user *optval,
-+					   int __user *optlen)
-+{
-+	struct sctp_sock *sp = sctp_sk(sk);
-+	struct sctp_association *asoc;
-+	struct sctp_sndinfo info;
-+
-+	if (len < sizeof(info))
-+		return -EINVAL;
-+
-+	len = sizeof(info);
-+
-+	if (copy_from_user(&info, optval, len))
-+		return -EFAULT;
-+
-+	asoc = sctp_id2assoc(sk, info.snd_assoc_id);
-+	if (!asoc && info.snd_assoc_id && sctp_style(sk, UDP))
-+		return -EINVAL;
-+	if (asoc) {
-+		info.snd_sid = asoc->default_stream;
-+		info.snd_flags = asoc->default_flags;
-+		info.snd_ppid = asoc->default_ppid;
-+		info.snd_context = asoc->default_context;
-+	} else {
-+		info.snd_sid = sp->default_stream;
-+		info.snd_flags = sp->default_flags;
-+		info.snd_ppid = sp->default_ppid;
-+		info.snd_context = sp->default_context;
-+	}
-+
-+	if (put_user(len, optlen))
-+		return -EFAULT;
-+	if (copy_to_user(optval, &info, len))
-+		return -EFAULT;
-+
-+	return 0;
-+}
-+
- /*
-  *
-  * 7.1.5 SCTP_NODELAY
-@@ -5924,6 +6009,10 @@ static int sctp_getsockopt(struct sock *sk, int level, int optname,
- 		retval = sctp_getsockopt_default_send_param(sk, len,
- 							    optval, optlen);
- 		break;
-+	case SCTP_DEFAULT_SNDINFO:
-+		retval = sctp_getsockopt_default_sndinfo(sk, len,
-+							 optval, optlen);
-+		break;
- 	case SCTP_PRIMARY_ADDR:
- 		retval = sctp_getsockopt_primary_addr(sk, len, optval, optlen);
- 		break;
++	/* At the time when a user app subscribes to SCTP_SENDER_DRY_EVENT,
+ 	 * if there is no data to be sent or retransmit, the stack will
+ 	 * immediately send up this notification.
+ 	 */
 -- 
 1.7.11.7
