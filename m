@@ -1,266 +1,232 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next v2 1/6] net: sctp: fix information leaks in ulpevent layer
-Date: Sat, 12 Jul 2014 20:30:35 +0200
-Message-ID: <1405189840-31171-2-git-send-email-dborkman@redhat.com>
+Subject: [PATCH net-next v2 5/6] net: sctp: implement rfc6458, 8.1.31. SCTP_DEFAULT_SNDINFO support
+Date: Sat, 12 Jul 2014 20:30:39 +0200
+Message-ID: <1405189840-31171-6-git-send-email-dborkman@redhat.com>
 References: <1405189840-31171-1-git-send-email-dborkman@redhat.com>
 Cc: geirola@gmail.com, netdev@vger.kernel.org,
 	linux-sctp@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:29219 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:14619 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752635AbaGLSap (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Jul 2014 14:30:45 -0400
+	id S1752674AbaGLSa6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Jul 2014 14:30:58 -0400
 In-Reply-To: <1405189840-31171-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While working on some other SCTP code, I noticed that some
-structures shared with user space are leaking uninitialized
-stack or heap buffer. In particular, struct sctp_sndrcvinfo
-has a 2 bytes hole between .sinfo_flags and .sinfo_ppid that
-remains unfilled by us in sctp_ulpevent_read_sndrcvinfo() when
-putting this into cmsg. But also struct sctp_remote_error
-contains a 2 bytes hole that we don't fill but place into a skb
-through skb_copy_expand() via sctp_ulpevent_make_remote_error().
+From: Geir Ola Vaagland <geirola@gmail.com>
 
-Both structures are defined by the IETF in RFC6458:
+This patch implements section 8.1.31. of RFC6458, which adds support
+for setting/retrieving SCTP_DEFAULT_SNDINFO:
 
-* Section 5.3.2. SCTP Header Information Structure:
+  Applications that wish to use the sendto() system call may wish
+  to specify a default set of parameters that would normally be
+  supplied through the inclusion of ancillary data. This socket
+  option allows such an application to set the default sctp_sndinfo
+  structure. The application that wishes to use this socket option
+  simply passes the sctp_sndinfo structure (defined in Section 5.3.4)
+  to this call. The input parameters accepted by this call include
+  snd_sid, snd_flags, snd_ppid, and snd_context. The snd_flags
+  parameter is composed of a bitwise OR of SCTP_UNORDERED, SCTP_EOF,
+  and SCTP_SENDALL. The snd_assoc_id field specifies the association
+  to which to apply the parameters. For a one-to-many style socket,
+  any of the predefined constants are also allowed in this field.
+  The field is ignored for one-to-one style sockets.
 
-  The sctp_sndrcvinfo structure is defined below:
+Joint work with Daniel Borkmann.
 
-  struct sctp_sndrcvinfo {
-    uint16_t sinfo_stream;
-    uint16_t sinfo_ssn;
-    uint16_t sinfo_flags;
-    <-- 2 bytes hole  -->
-    uint32_t sinfo_ppid;
-    uint32_t sinfo_context;
-    uint32_t sinfo_timetolive;
-    uint32_t sinfo_tsn;
-    uint32_t sinfo_cumtsn;
-    sctp_assoc_t sinfo_assoc_id;
-  };
-
-* 6.1.3. SCTP_REMOTE_ERROR:
-
-  A remote peer may send an Operation Error message to its peer.
-  This message indicates a variety of error conditions on an
-  association. The entire ERROR chunk as it appears on the wire
-  is included in an SCTP_REMOTE_ERROR event. Please refer to the
-  SCTP specification [RFC4960] and any extensions for a list of
-  possible error formats. An SCTP error notification has the
-  following format:
-
-  struct sctp_remote_error {
-    uint16_t sre_type;
-    uint16_t sre_flags;
-    uint32_t sre_length;
-    uint16_t sre_error;
-    <-- 2 bytes hole  -->
-    sctp_assoc_t sre_assoc_id;
-    uint8_t  sre_data[];
-  };
-
-Fix this by setting both to 0 before filling them out. We also
-have other structures shared between user and kernel space in
-SCTP that contains holes (e.g. struct sctp_paddrthlds), but we
-copy that buffer over from user space first and thus don't need
-to care about it in that cases.
-
-While at it, we can also remove lengthy comments copied from
-the draft, instead, we update the comment with the correct RFC
-number where one can look it up.
-
+Signed-off-by: Geir Ola Vaagland <geirola@gmail.com>
 Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 ---
- net/sctp/ulpevent.c | 122 +++++++---------------------------------------------
- 1 file changed, 15 insertions(+), 107 deletions(-)
+ include/uapi/linux/sctp.h |   1 +
+ net/sctp/socket.c         | 107 ++++++++++++++++++++++++++++++++++++++++++----
+ 2 files changed, 99 insertions(+), 9 deletions(-)
 
-diff --git a/net/sctp/ulpevent.c b/net/sctp/ulpevent.c
-index 85c6465..b6842fd 100644
---- a/net/sctp/ulpevent.c
-+++ b/net/sctp/ulpevent.c
-@@ -366,9 +366,10 @@ fail:
-  * specification [SCTP] and any extensions for a list of possible
-  * error formats.
-  */
--struct sctp_ulpevent *sctp_ulpevent_make_remote_error(
--	const struct sctp_association *asoc, struct sctp_chunk *chunk,
--	__u16 flags, gfp_t gfp)
-+struct sctp_ulpevent *
-+sctp_ulpevent_make_remote_error(const struct sctp_association *asoc,
-+				struct sctp_chunk *chunk, __u16 flags,
-+				gfp_t gfp)
+diff --git a/include/uapi/linux/sctp.h b/include/uapi/linux/sctp.h
+index 222f82f..ce70fe6 100644
+--- a/include/uapi/linux/sctp.h
++++ b/include/uapi/linux/sctp.h
+@@ -97,6 +97,7 @@ typedef __s32 sctp_assoc_t;
+ #define SCTP_PEER_ADDR_THLDS	31
+ #define SCTP_RECVRCVINFO	32
+ #define SCTP_RECVNXTINFO	33
++#define SCTP_DEFAULT_SNDINFO	34
+ 
+ /* Internal Socket Options. Some of the sctp library functions are
+  * implemented using these socket options.
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 9bca87e..d95a50c 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -2770,19 +2770,22 @@ static int sctp_setsockopt_default_send_param(struct sock *sk,
+ 					      char __user *optval,
+ 					      unsigned int optlen)
  {
- 	struct sctp_ulpevent *event;
- 	struct sctp_remote_error *sre;
-@@ -387,8 +388,7 @@ struct sctp_ulpevent *sctp_ulpevent_make_remote_error(
- 	/* Copy the skb to a new skb with room for us to prepend
- 	 * notification with.
- 	 */
--	skb = skb_copy_expand(chunk->skb, sizeof(struct sctp_remote_error),
--			      0, gfp);
-+	skb = skb_copy_expand(chunk->skb, sizeof(*sre), 0, gfp);
+-	struct sctp_sndrcvinfo info;
+-	struct sctp_association *asoc;
+ 	struct sctp_sock *sp = sctp_sk(sk);
++	struct sctp_association *asoc;
++	struct sctp_sndrcvinfo info;
  
- 	/* Pull off the rest of the cause TLV from the chunk.  */
- 	skb_pull(chunk->skb, elen);
-@@ -399,62 +399,21 @@ struct sctp_ulpevent *sctp_ulpevent_make_remote_error(
- 	event = sctp_skb2event(skb);
- 	sctp_ulpevent_init(event, MSG_NOTIFICATION, skb->truesize);
+-	if (optlen != sizeof(struct sctp_sndrcvinfo))
++	if (optlen != sizeof(info))
+ 		return -EINVAL;
+ 	if (copy_from_user(&info, optval, optlen))
+ 		return -EFAULT;
++	if (info.sinfo_flags &
++	    ~(SCTP_UNORDERED | SCTP_ADDR_OVER |
++	      SCTP_ABORT | SCTP_EOF))
++		return -EINVAL;
  
--	sre = (struct sctp_remote_error *)
--		skb_push(skb, sizeof(struct sctp_remote_error));
-+	sre = (struct sctp_remote_error *) skb_push(skb, sizeof(*sre));
- 
- 	/* Trim the buffer to the right length.  */
--	skb_trim(skb, sizeof(struct sctp_remote_error) + elen);
-+	skb_trim(skb, sizeof(*sre) + elen);
- 
--	/* Socket Extensions for SCTP
--	 * 5.3.1.3 SCTP_REMOTE_ERROR
--	 *
--	 * sre_type:
--	 *   It should be SCTP_REMOTE_ERROR.
--	 */
-+	/* RFC6458, Section 6.1.3. SCTP_REMOTE_ERROR */
-+	memset(sre, 0, sizeof(*sre));
- 	sre->sre_type = SCTP_REMOTE_ERROR;
+ 	asoc = sctp_id2assoc(sk, info.sinfo_assoc_id);
+ 	if (!asoc && info.sinfo_assoc_id && sctp_style(sk, UDP))
+ 		return -EINVAL;
 -
--	/*
--	 * Socket Extensions for SCTP
--	 * 5.3.1.3 SCTP_REMOTE_ERROR
--	 *
--	 * sre_flags: 16 bits (unsigned integer)
--	 *   Currently unused.
--	 */
- 	sre->sre_flags = 0;
--
--	/* Socket Extensions for SCTP
--	 * 5.3.1.3 SCTP_REMOTE_ERROR
--	 *
--	 * sre_length: sizeof (__u32)
--	 *
--	 * This field is the total length of the notification data,
--	 * including the notification header.
--	 */
- 	sre->sre_length = skb->len;
--
--	/* Socket Extensions for SCTP
--	 * 5.3.1.3 SCTP_REMOTE_ERROR
--	 *
--	 * sre_error: 16 bits (unsigned integer)
--	 * This value represents one of the Operational Error causes defined in
--	 * the SCTP specification, in network byte order.
--	 */
- 	sre->sre_error = cause;
--
--	/* Socket Extensions for SCTP
--	 * 5.3.1.3 SCTP_REMOTE_ERROR
--	 *
--	 * sre_assoc_id: sizeof (sctp_assoc_t)
--	 *
--	 * The association id field, holds the identifier for the association.
--	 * All notifications for a given association have the same association
--	 * identifier.  For TCP style socket, this field is ignored.
--	 */
- 	sctp_ulpevent_set_owner(event, asoc);
- 	sre->sre_assoc_id = sctp_assoc2id(asoc);
- 
- 	return event;
--
- fail:
- 	return NULL;
- }
-@@ -899,7 +858,9 @@ __u16 sctp_ulpevent_get_notification_type(const struct sctp_ulpevent *event)
- 	return notification->sn_header.sn_type;
+ 	if (asoc) {
+ 		asoc->default_stream = info.sinfo_stream;
+ 		asoc->default_flags = info.sinfo_flags;
+@@ -2800,6 +2803,44 @@ static int sctp_setsockopt_default_send_param(struct sock *sk,
+ 	return 0;
  }
  
--/* Copy out the sndrcvinfo into a msghdr.  */
-+/* RFC6458, Section 5.3.2. SCTP Header Information Structure
-+ * (SCTP_SNDRCV, DEPRECATED)
++/* RFC6458, Section 8.1.31. Set/get Default Send Parameters
++ * (SCTP_DEFAULT_SNDINFO)
 + */
- void sctp_ulpevent_read_sndrcvinfo(const struct sctp_ulpevent *event,
- 				   struct msghdr *msghdr)
++static int sctp_setsockopt_default_sndinfo(struct sock *sk,
++					   char __user *optval,
++					   unsigned int optlen)
++{
++	struct sctp_sock *sp = sctp_sk(sk);
++	struct sctp_association *asoc;
++	struct sctp_sndinfo info;
++
++	if (optlen != sizeof(info))
++		return -EINVAL;
++	if (copy_from_user(&info, optval, optlen))
++		return -EFAULT;
++	if (info.snd_flags &
++	    ~(SCTP_UNORDERED | SCTP_ADDR_OVER |
++	      SCTP_ABORT | SCTP_EOF))
++		return -EINVAL;
++
++	asoc = sctp_id2assoc(sk, info.snd_assoc_id);
++	if (!asoc && info.snd_assoc_id && sctp_style(sk, UDP))
++		return -EINVAL;
++	if (asoc) {
++		asoc->default_stream = info.snd_sid;
++		asoc->default_flags = info.snd_flags;
++		asoc->default_ppid = info.snd_ppid;
++		asoc->default_context = info.snd_context;
++	} else {
++		sp->default_stream = info.snd_sid;
++		sp->default_flags = info.snd_flags;
++		sp->default_ppid = info.snd_ppid;
++		sp->default_context = info.snd_context;
++	}
++
++	return 0;
++}
++
+ /* 7.1.10 Set Primary Address (SCTP_PRIMARY_ADDR)
+  *
+  * Requests that the local SCTP stack use the enclosed peer address as
+@@ -3725,6 +3766,9 @@ static int sctp_setsockopt(struct sock *sk, int level, int optname,
+ 		retval = sctp_setsockopt_default_send_param(sk, optval,
+ 							    optlen);
+ 		break;
++	case SCTP_DEFAULT_SNDINFO:
++		retval = sctp_setsockopt_default_sndinfo(sk, optval, optlen);
++		break;
+ 	case SCTP_PRIMARY_ADDR:
+ 		retval = sctp_setsockopt_primary_addr(sk, optval, optlen);
+ 		break;
+@@ -5027,14 +5071,14 @@ static int sctp_getsockopt_default_send_param(struct sock *sk,
+ 					int len, char __user *optval,
+ 					int __user *optlen)
  {
-@@ -908,74 +869,21 @@ void sctp_ulpevent_read_sndrcvinfo(const struct sctp_ulpevent *event,
- 	if (sctp_ulpevent_is_notification(event))
- 		return;
+-	struct sctp_sndrcvinfo info;
+-	struct sctp_association *asoc;
+ 	struct sctp_sock *sp = sctp_sk(sk);
++	struct sctp_association *asoc;
++	struct sctp_sndrcvinfo info;
  
--	/* Sockets API Extensions for SCTP
--	 * Section 5.2.2 SCTP Header Information Structure (SCTP_SNDRCV)
--	 *
--	 * sinfo_stream: 16 bits (unsigned integer)
--	 *
--	 * For recvmsg() the SCTP stack places the message's stream number in
--	 * this value.
--	*/
-+	memset(&sinfo, 0, sizeof(sinfo));
- 	sinfo.sinfo_stream = event->stream;
--	/* sinfo_ssn: 16 bits (unsigned integer)
--	 *
--	 * For recvmsg() this value contains the stream sequence number that
--	 * the remote endpoint placed in the DATA chunk.  For fragmented
--	 * messages this is the same number for all deliveries of the message
--	 * (if more than one recvmsg() is needed to read the message).
--	 */
- 	sinfo.sinfo_ssn = event->ssn;
--	/* sinfo_ppid: 32 bits (unsigned integer)
--	 *
--	 * In recvmsg() this value is
--	 * the same information that was passed by the upper layer in the peer
--	 * application.  Please note that byte order issues are NOT accounted
--	 * for and this information is passed opaquely by the SCTP stack from
--	 * one end to the other.
--	 */
- 	sinfo.sinfo_ppid = event->ppid;
--	/* sinfo_flags: 16 bits (unsigned integer)
--	 *
--	 * This field may contain any of the following flags and is composed of
--	 * a bitwise OR of these values.
--	 *
--	 * recvmsg() flags:
--	 *
--	 * SCTP_UNORDERED - This flag is present when the message was sent
--	 *                 non-ordered.
--	 */
- 	sinfo.sinfo_flags = event->flags;
--	/* sinfo_tsn: 32 bit (unsigned integer)
--	 *
--	 * For the receiving side, this field holds a TSN that was
--	 * assigned to one of the SCTP Data Chunks.
--	 */
- 	sinfo.sinfo_tsn = event->tsn;
--	/* sinfo_cumtsn: 32 bit (unsigned integer)
--	 *
--	 * This field will hold the current cumulative TSN as
--	 * known by the underlying SCTP layer.  Note this field is
--	 * ignored when sending and only valid for a receive
--	 * operation when sinfo_flags are set to SCTP_UNORDERED.
--	 */
- 	sinfo.sinfo_cumtsn = event->cumtsn;
--	/* sinfo_assoc_id: sizeof (sctp_assoc_t)
--	 *
--	 * The association handle field, sinfo_assoc_id, holds the identifier
--	 * for the association announced in the COMMUNICATION_UP notification.
--	 * All notifications for a given association have the same identifier.
--	 * Ignored for one-to-one style sockets.
--	 */
- 	sinfo.sinfo_assoc_id = sctp_assoc2id(event->asoc);
--
--	/* context value that is set via SCTP_CONTEXT socket option. */
-+	/* Context value that is set via SCTP_CONTEXT socket option. */
- 	sinfo.sinfo_context = event->asoc->default_rcv_context;
--
- 	/* These fields are not used while receiving. */
- 	sinfo.sinfo_timetolive = 0;
+-	if (len < sizeof(struct sctp_sndrcvinfo))
++	if (len < sizeof(info))
+ 		return -EINVAL;
  
- 	put_cmsg(msghdr, IPPROTO_SCTP, SCTP_SNDRCV,
--		 sizeof(struct sctp_sndrcvinfo), (void *)&sinfo);
-+		 sizeof(sinfo), &sinfo);
+-	len = sizeof(struct sctp_sndrcvinfo);
++	len = sizeof(info);
+ 
+ 	if (copy_from_user(&info, optval, len))
+ 		return -EFAULT;
+@@ -5042,7 +5086,6 @@ static int sctp_getsockopt_default_send_param(struct sock *sk,
+ 	asoc = sctp_id2assoc(sk, info.sinfo_assoc_id);
+ 	if (!asoc && info.sinfo_assoc_id && sctp_style(sk, UDP))
+ 		return -EINVAL;
+-
+ 	if (asoc) {
+ 		info.sinfo_stream = asoc->default_stream;
+ 		info.sinfo_flags = asoc->default_flags;
+@@ -5065,6 +5108,48 @@ static int sctp_getsockopt_default_send_param(struct sock *sk,
+ 	return 0;
  }
  
- /* Do accounting for bytes received and hold a reference to the association
++/* RFC6458, Section 8.1.31. Set/get Default Send Parameters
++ * (SCTP_DEFAULT_SNDINFO)
++ */
++static int sctp_getsockopt_default_sndinfo(struct sock *sk, int len,
++					   char __user *optval,
++					   int __user *optlen)
++{
++	struct sctp_sock *sp = sctp_sk(sk);
++	struct sctp_association *asoc;
++	struct sctp_sndinfo info;
++
++	if (len < sizeof(info))
++		return -EINVAL;
++
++	len = sizeof(info);
++
++	if (copy_from_user(&info, optval, len))
++		return -EFAULT;
++
++	asoc = sctp_id2assoc(sk, info.snd_assoc_id);
++	if (!asoc && info.snd_assoc_id && sctp_style(sk, UDP))
++		return -EINVAL;
++	if (asoc) {
++		info.snd_sid = asoc->default_stream;
++		info.snd_flags = asoc->default_flags;
++		info.snd_ppid = asoc->default_ppid;
++		info.snd_context = asoc->default_context;
++	} else {
++		info.snd_sid = sp->default_stream;
++		info.snd_flags = sp->default_flags;
++		info.snd_ppid = sp->default_ppid;
++		info.snd_context = sp->default_context;
++	}
++
++	if (put_user(len, optlen))
++		return -EFAULT;
++	if (copy_to_user(optval, &info, len))
++		return -EFAULT;
++
++	return 0;
++}
++
+ /*
+  *
+  * 7.1.5 SCTP_NODELAY
+@@ -5924,6 +6009,10 @@ static int sctp_getsockopt(struct sock *sk, int level, int optname,
+ 		retval = sctp_getsockopt_default_send_param(sk, len,
+ 							    optval, optlen);
+ 		break;
++	case SCTP_DEFAULT_SNDINFO:
++		retval = sctp_getsockopt_default_sndinfo(sk, len,
++							 optval, optlen);
++		break;
+ 	case SCTP_PRIMARY_ADDR:
+ 		retval = sctp_getsockopt_primary_addr(sk, len, optval, optlen);
+ 		break;
 -- 
 1.7.11.7
