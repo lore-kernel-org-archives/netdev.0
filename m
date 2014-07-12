@@ -1,10 +1,12 @@
 From: Fabian Frederick <fabf@skynet.be>
-Subject: [PATCH V2 5/9] ps3_gelic: remove unnecessary break after goto
-Date: Sat, 12 Jul 2014 20:09:44 +0200
-Message-ID: <1405188597-2815-6-git-send-email-fabf@skynet.be>
+Subject: [PATCH V2 6/9] orinoco_usb: remove unnecessary break after goto
+Date: Sat, 12 Jul 2014 20:09:45 +0200
+Message-ID: <1405188597-2815-7-git-send-email-fabf@skynet.be>
 References: <1405188597-2815-1-git-send-email-fabf@skynet.be>
 Cc: davem@davemloft.net, joe@perches.com,
-	Fabian Frederick <fabf@skynet.be>, netdev@vger.kernel.org
+	Fabian Frederick <fabf@skynet.be>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1405188597-2815-1-git-send-email-fabf@skynet.be>
@@ -13,26 +15,20 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Fabian Frederick <fabf@skynet.be>
 ---
- drivers/net/ethernet/toshiba/ps3_gelic_wireless.c | 3 ---
- 1 file changed, 3 deletions(-)
+ drivers/net/wireless/orinoco/orinoco_usb.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/toshiba/ps3_gelic_wireless.c b/drivers/net/ethernet/toshiba/ps3_gelic_wireless.c
-index d568af1..2553ed5 100644
---- a/drivers/net/ethernet/toshiba/ps3_gelic_wireless.c
-+++ b/drivers/net/ethernet/toshiba/ps3_gelic_wireless.c
-@@ -723,13 +723,10 @@ static int gelic_wl_get_scan(struct net_device *netdev,
- 		/* If a scan in progress, caller should call me again */
- 		ret = -EAGAIN;
- 		goto out;
+diff --git a/drivers/net/wireless/orinoco/orinoco_usb.c b/drivers/net/wireless/orinoco/orinoco_usb.c
+index c90939c..d3cf7c3 100644
+--- a/drivers/net/wireless/orinoco/orinoco_usb.c
++++ b/drivers/net/wireless/orinoco/orinoco_usb.c
+@@ -921,7 +921,6 @@ static int ezusb_access_ltv(struct ezusb_priv *upriv,
+ 			retval = -EFAULT;
+ 		}
+ 		goto exit;
 -		break;
--
- 	case GELIC_WL_SCAN_STAT_INIT:
- 		/* last scan request failed or never issued */
- 		ret = -ENODEV;
- 		goto out;
--		break;
- 	case GELIC_WL_SCAN_STAT_GOT_LIST:
- 		/* ok, use current list */
- 		break;
+ 	}
+ 	if (ctx->in_rid) {
+ 		struct ezusb_packet *ans = ctx->buf;
 -- 
 1.9.1
