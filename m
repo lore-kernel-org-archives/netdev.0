@@ -1,88 +1,243 @@
-From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH net-next 1/2] 6lowpan: introduce new net/6lowpan directory
-Date: Sat, 12 Jul 2014 01:58:26 +0200
-Message-ID: <07699E7C-9AA6-4BF7-9E52-996D69C499C1@holtmann.org>
-References: <1405067059-18782-1-git-send-email-alex.aring@gmail.com> <1405067059-18782-2-git-send-email-alex.aring@gmail.com> <8A1EF84C-3EDC-4540-B8F4-1FCBF4BF8D93@holtmann.org> <20140711113507.GA24370@omega> <E54EDE3F-99A2-49C0-842B-D15E8B7826D2@holtmann.org> <20140711225340.GA7561@omega>
-Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Jukka Rissanen <jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Alexander Aring <alex.aring-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140711225340.GA7561@omega>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Ethan Zhao <ethan.kernel@gmail.com>
+Subject: Re: [PATCH 1/2 V3] PCI: introduce device assignment
+	interface and refactory related code
+Date: Sat, 12 Jul 2014 08:27:34 +0800
+Message-ID: <7703695D-E99D-4346-83FD-399F597BC5A8@gmail.com>
+References: <1405081802-419-1-git-send-email-ethan.zhao@oracle.com>
+	<1405084407.4098.59.camel@ul30vt.home>
+	<1405088147.4098.64.camel@ul30vt.home>
+	<1F7DCDA9-37C9-4001-B383-6CCAFDFB67D1@gmail.com>
+	<1405090481.4098.83.camel@ul30vt.home>
+	<F2B2A07D-B9A9-4CE0-9679-50D7768ACDE6@gmail.com>
+	<1405092310.4098.90.camel@ul30vt.home>
+	<012C1369-E3BF-49F9-B50A-F5A8918F1E5F@gmail.com>
+	<1405095196.4098.93.camel@ul30vt.home>
+Mime-Version: 1.0 (1.0)
+Content-Type: text/plain; charset="gb2312"
+Content-Transfer-Encoding: base64
+Cc: "kvm@vger.kernel.org" <kvm@vger.kernel.org>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"vaughan.cao@oracle.com" <vaughan.cao@oracle.com>,
+	"jesse.brandeburg@intel.com" <jesse.brandeburg@intel.com>,
+	Ethan Zhao <ethan.zhao@oracle.com>,
+	"linux.nics@intel.com" <linux.nics@intel.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
+	"gleb@kernel.org" <gleb@kernel.org>,
+	"bhelgaas@google.com" <bhelgaas@google.com>,
+	"boris.ostrovsky@oracle.com" <boris.ostrovsky@oracle.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"bruce.w.allan@intel.com" <bruce.w.allan@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"john.ronciak@intel.com" <john.ronciak@intel.com>,
+	"david.vrabel@citrix.com" <david.vrabel@citrix.com>,
+	"pbonzini@redhat.com" <pbonzini@redhat.com>
+To: Alex Williamson <alex.williamson@redhat.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1405095196.4098.93.camel@ul30vt.home>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Hi Alexander,
-
->>>>> index cbbbe6d..7ed1970 100644
->>>>> --- a/net/Makefile
->>>>> +++ b/net/Makefile
->>>>> @@ -57,7 +57,8 @@ obj-$(CONFIG_CAIF)		+= caif/
->>>>> ifneq ($(CONFIG_DCB),)
->>>>> obj-y				+= dcb/
->>>>> endif
->>>>> -obj-y				+= ieee802154/
->>>>> +obj-$(CONFIG_6LOWPAN)		+= 6lowpan/
->>>>> +obj-$(CONFIG_IEEE802154)	+= ieee802154/
->>>>> obj-$(CONFIG_MAC802154)		+= mac802154/
->>>>> 
->>>>> ifeq ($(CONFIG_NET),y)
->>>>> diff --git a/net/bluetooth/Kconfig b/net/bluetooth/Kconfig
->>>>> index 06ec144..a54777d 100644
->>>>> --- a/net/bluetooth/Kconfig
->>>>> +++ b/net/bluetooth/Kconfig
->>>>> @@ -6,7 +6,6 @@ menuconfig BT
->>>>> 	tristate "Bluetooth subsystem support"
->>>>> 	depends on NET && !S390
->>>>> 	depends on RFKILL || !RFKILL
->>>>> -	select 6LOWPAN_IPHC if BT_6LOWPAN
->>>>> 	select CRC16
->>>>> 	select CRYPTO
->>>>> 	select CRYPTO_BLKCIPHER
->>>>> @@ -42,7 +41,7 @@ menuconfig BT
->>>>> 
->>>>> config BT_6LOWPAN
->>>>> 	bool "Bluetooth 6LoWPAN support"
->>>>> -	depends on BT && IPV6
->>>>> +	depends on BT && 6LOWPAN
->>>>> 	help
->>>>> 	  IPv6 compression over Bluetooth.
->>>> 
->>>> this will conflict with our changes in wireless-next tree. We converted out 6LoWPAN support into a separate module.
->>>> 
->>> 
->>> oops, sorry I didn't check on this. I simple based it on net-next,
->>> because the patch series adds a new branch.
->>> 
->>> 
->>> 
->>> btw. we need to talk about who branch will commit changes to iphc code
->>> to avoid conflicts.
->> 
->> a few years back we decided to merge bluetooth-next via John's wireless-next tree so that any interaction with 802.11 and Bluetooth can be sorted out in John's tree. We are now also merging NFC into the wireless-next tree.
->> 
->> So it might be a good idea to include the 6LoWPAN parts into the wireless-next tree as well. If there are conflicts with 802.15.4, maybe that should also go through his trees.
->> 
-> 
-> Ok. I am maintainer since three days ago and I need some time to setup
-> my infrastructure, then I will ask him. At the end I need to update the
-> MAINTAINERS file to the new infrastructure.
-> 
->> If you want I can also take the net/6lowpan stuff through bluetooth-next tree.
->> 
-> 
-> Yes, please Marcel. This is one file at the moment. I have in my local
-> branch also some patches (most of them use IPv6 API for address scopes
-> instead using the self builded macros). There is also a issue with error
-> handling which should be a long overdue fix. You will get some patches
-> for these issues in the next days.
-
-I resolved the conflict locally in bluetooth-next and applied both of your patches to bluetooth-next tree.
-
-Regards
-
-Marcel
+Cgo+INTaIDIwMTTE6jfUwjEyyNWjrMnPzucxMjoxM6OsQWxleCBXaWxsaWFtc29uIDxhbGV4Lndp
+bGxpYW1zb25AcmVkaGF0LmNvbT4g0LS1wKO6Cj4gCj4+IE9uIFNhdCwgMjAxNC0wNy0xMiBhdCAw
+MDowNiArMDgwMCwgRXRoYW4gWmhhbyB3cm90ZToKPj4gCj4+Pj4g1NogMjAxNMTqN9TCMTHI1aOs
+z8LO5zExOjI1o6xBbGV4IFdpbGxpYW1zb24gPGFsZXgud2lsbGlhbXNvbkByZWRoYXQuY29tPiDQ
+tLXAo7oKPj4+PiAKPj4+PiBPbiBGcmksIDIwMTQtMDctMTEgYXQgMjM6MTkgKzA4MDAsIEV0aGFu
+IFpoYW8gd3JvdGU6Cj4+Pj4gCj4+Pj4+PiDU2iAyMDE0xOo31MIxMcjVo6zPws7nMTA6NTSjrEFs
+ZXggV2lsbGlhbXNvbiA8YWxleC53aWxsaWFtc29uQHJlZGhhdC5jb20+INC0tcCjugo+Pj4+Pj4g
+Cj4+Pj4+PiBPbiBGcmksIDIwMTQtMDctMTEgYXQgMjI6MzcgKzA4MDAsIEV0aGFuIFpoYW8gd3Jv
+dGU6Cj4+Pj4+PiAKPj4+Pj4+Pj4g1NogMjAxNMTqN9TCMTHI1aOsz8LO5zEwOjE1o6xBbGV4IFdp
+bGxpYW1zb24gPGFsZXgud2lsbGlhbXNvbkByZWRoYXQuY29tPiDQtLXAo7oKPj4+Pj4+Pj4gCj4+
+Pj4+Pj4+PiBPbiBGcmksIDIwMTQtMDctMTEgYXQgMDc6MTMgLTA2MDAsIEFsZXggV2lsbGlhbXNv
+biB3cm90ZToKPj4+Pj4+Pj4+IE9uIEZyaSwgMjAxNC0wNy0xMSBhdCAyMDozMCArMDgwMCwgRXRo
+YW4gWmhhbyB3cm90ZToKPj4+Pj4+Pj4+IFRoaXMgcGF0Y2ggaW50cm9kdWNlcyB0d28gbmV3IGRl
+dmljZSBhc3NpZ25tZW50IGZ1bmN0aW9ucwo+Pj4+Pj4+Pj4gCj4+Pj4+Pj4+PiBwY2lfaW92X2Fz
+c2lnbl9kZXZpY2UoKSwKPj4+Pj4+Pj4+IHBjaV9pb3ZfZGVhc3NpZ25fZGV2aWNlKCkKPj4+Pj4+
+Pj4+IAo+Pj4+Pj4+Pj4gYWxvbmcgd2l0aCB0aGUgZXhpc3RlZCBvbmUKPj4+Pj4+Pj4+IAo+Pj4+
+Pj4+Pj4gcGNpX3Zmc19hc3NpZ25lZCgpCj4+Pj4+Pj4+PiAKPj4+Pj4+Pj4+IFRoZXkgY29uc3Ry
+dWN0IHRoZSBWRnMgYXNzaWdubWVudCBtYW5hZ2VtZW50IGludGVyZmFjZSwgdXNlZCB0byBhc3Np
+Z24vCj4+Pj4+Pj4+PiBkZWFzc2lnbiBkZXZpY2UgdG8gVk0gYW5kIHF1ZXJ5IHRoZSBWRnMgcmVm
+ZXJlbmNlIGNvdW50ZXIuIGluc3RlYWQgb2YKPj4+Pj4+Pj4+IGRpcmVjdCBtYW5pcHVsYXRpb24g
+b2YgZGV2aWNlIGZsYWcuCj4+Pj4+Pj4+PiAKPj4+Pj4+Pj4+IFRoaXMgcGF0Y2ggcmVmYXNoaW9u
+ZWQgdGhlIHJlbGF0ZWQgY29kZSBhbmQgbWFrZSB0aGVtIGF0b21pYy4KPj4+Pj4+Pj4+IAo+Pj4+
+Pj4+Pj4gdjM6IGNoYW5nZSB0aGUgbmFtaW5nIG9mIGRldmljZSBhc3NpZ25tZW50IGhlbHBlcnMs
+IGJlY2F1c2UgdGhleSB3b3JrCj4+Pj4+Pj4+PiBmb3IgYWxsIGtpbmQgb2YgUENJIGRldmljZSwg
+bm90IG9ubHkgU1ItSU9WIChkYXZpZC52cmFiZWxAY2l0cml4LmNvbSkKPj4+Pj4+Pj4+IAo+Pj4+
+Pj4+Pj4gdjI6IHJlb3JkZXIgdGhlIHBhdGNoc2V0IGFuZCBtYWtlIGl0IGJpc2VjdGFibGUgYW5k
+IGF0b21pYywgc3RlcHMgY2xlYXIKPj4+Pj4+Pj4+IGJldHdlZW4gaW50ZXJmYWNlIGRlZmluYXRp
+b24gYW5kIGltcGxlbWVuYXRpb24gYWNjb3JkaW5nIHRvIHRoZQo+Pj4+Pj4+Pj4gc3VnZ2VzdGlv
+biBmcm9tIGFsZXgud2lsbGlhbXNvbkByZWRoYXQuY29tCj4+Pj4+Pj4+PiAKPj4+Pj4+Pj4+IFNp
+Z25lZC1vZmYtYnk6IEV0aGFuIFpoYW8gPGV0aGFuLnpoYW9Ab3JhY2xlLmNvbT4KPj4+Pj4+Pj4+
+IC0tLQo+Pj4+Pj4+PiAKPj4+Pj4+Pj4gLSBVc2UgYSBjb3ZlciBwYXRjaCB0byBkZXNjcmliZSB0
+aGUgc2VyaWVzCj4+Pj4+Pj4+IAo+Pj4+Pj4+PiAtIFZlcnNpb24gaW5mb3JtYXRpb24gZ29lcyBo
+ZXJlLCBiZWxvdyB0aGUgIi0tLSIsIG5vdCBhYm92ZSBpdAo+Pj4+Pj4+PiAKPj4+Pj4+Pj4gLSBJ
+IHN0YW5kIGJ5IHRoZSBwYXRjaCBicmVha2Rvd24gSSBzdWdnZXN0ZWQgb3JpZ2luYWxseSwgdGhl
+cmUgYXJlIHRvbwo+Pj4+Pj4+PiBtYW55IGxvZ2ljYWwgY2hhbmdlcyBoZXJlIGluIHBhdGNoIDEu
+ICBUaGVyZSBhcmUgZWFzaWx5IDMgc2VwYXJhdGUKPj4+Pj4+Pj4gcGF0Y2hlcyBoZXJlLgo+Pj4+
+Pj4+PiAKPj4+Pj4+Pj4gLSBSZW5hbWluZyBzL3NyaW92L2lvdi8gZG9lc24ndCBhZGRyZXNzIHRo
+ZSBwcm9ibGVtIERhdmlkIHJhaXNlZC4gIFRoZQo+Pj4+Pj4+PiBuYW1lIGlzIHN0aWxsIHN5bm9u
+eW1vdXMgd2l0aCBTUi1JT1YgYW5kIGl0J3MgZGVmaW5lZCBvbgo+Pj4+Pj4+PiBkcml2ZXJzL3Bj
+aS9pb3YuYywgd2hpY2ggaXMgb25seSBidWlsdCB3aXRoIENPTkZJR19QQ0lfSU9WLgo+Pj4+Pj4+
+PiAKPj4+Pj4+Pj4gLSBQQ0lfREVWX0ZMQUdTX0FTU0lHTkVEIHNob3VsZCBiZSB1bnVzZWQgYWZ0
+ZXIgdGhpcyBzZXJpZXMsIHdoeSBpcyBpdAo+Pj4+Pj4+PiBub3QgcmVtb3ZlZD8KPj4+Pj4+PiAK
+Pj4+Pj4+PiBJIGd1ZXNzIGl0J3Mgc3RpbGwgdXNlZCwgd2hpY2ggaXMgZXZlbiB3b3JzZSBiZWNh
+dXNlIG5vdyB3ZSBoYXZlCj4+Pj4+Pj4gc2VwYXJhdGUgZGF0YSBlbGVtZW50cywgb25lIHRyYWNr
+aW5nIGhvdyBtYW55IFZGcyBhcmUgYXNzaWduZWQgZnJvbSBhIFBGCj4+Pj4+Pj4gYW5kIGFub3Ro
+ZXIgdHJhY2tpbmcgZWFjaCBkZXZpY2UgdGhhdCdzIGFzc2lnbmVkLiAgV2hhdCBhcmUgd2UgYWN0
+dWFsbHkKPj4+Pj4+PiBnYWluaW5nIG9yIGZpeGluZyBieSBkb2luZyB0aGlzPwo+Pj4+Pj4gCj4+
+Pj4+PiBPZiBjb3Vyc2UgaXQgaXMgdXNlZCB0byB0cmFja2luZyBQRi9WRiBhc3NpZ25lZCwgIHdo
+YXQgd2UgZ2FpbmVkIGFyZSAtIHdlIGhpZGUgdGhlIGRldGFpbHMKPj4+Pj4+IEluIGFzc2lnbm1l
+bnQgaGVscGVycywgd2Ugd291bGRuJ3QgYm90aGVyIHRoZSB1c2VycyBhbnltb3JlIGFuZCBpbXBs
+ZW1lbnQgd2hhdCBpbnNpZGUKPj4+Pj4+IFRoZSBoZWxwZXJzLCBteSBpbml0aWFsIHB1cnBvc2Ug
+aXMgdG8gc2ltcGxpZnkgdGhlIHVnbHkgIHBjaV92ZnNfYXNzaWduZWQoKSB3aXRoIGNvdW50ZXIu
+Cj4+Pj4+PiAKPj4+Pj4+IEkgZG9uJ3Qgd2FudCB0byBwdXNoIG1vcmUgY2hhbmdlIGluIG9uZSBz
+dGVwLCB0aGF0IHdvdWxkIG91dCBvZiBjb250cm9sIHRvIGdldCBwZXJmZWN0IHJlc3VsdC4KPj4+
+Pj4gCj4+Pj4+IEJ1dCBhIGNvdW50ZXIgbWVhbnMgdGhhdCB3ZSdyZSB0cmFja2luZyB0aGUgZGF0
+YSBpbiB0d28gc2VwYXJhdGUgcGxhY2VzLAo+Pj4+PiB3aGljaCBpcyBnZW5lcmFsbHkgYSBiYWQg
+aWRlYS4gIENsZWFuaW5nIHVwIGRpcmVjdCBhY2Nlc3MgdG8gZmxhZ3MgaXMKPj4+Pj4gZmluZSwg
+YnV0IGNyZWF0aW5nIGEgc2VwYXJhdGUgY291bnRlciBkb2Vzbid0IHJlYWxseSBzZWVtIHRvIGFk
+ZCBhbnkKPj4+Pj4gdmFsdWUuCj4+Pj4gCj4+Pj4gSWYgeW91IGFyZSBhc2tlZCBob3cgbWFueSBh
+cHBsZXMgaW4geW91ciBiYWcgLCB5b3UgbGlrZSB0byBjb3VudCB0aGVtIG9uZSBieSBvbmUgYW5k
+Cj4+Pj4gR2l2ZSB0aGUgYW5zd2VyID8gV2hhdCBhcmUgeW91IGRvaW5nIHdoZW4geW91IHB1dCB0
+aGVtIGludG8gdGhlIGJhZyA/Cj4+PiAKPj4+IElmIHBlcmZvcm1hbmNlIG1hdHRlcmVkLCB0aGVu
+IHllcywga2VlcGluZyBhIGNvdW50IG1heSBiZSBhZHZhbnRhZ2VvdXMuCj4+PiBQZXJmb3JtYW5j
+ZSBkb2VzIG5vdCBtYXR0ZXIgaW4gYW55IHBhdGggd2hlcmUgdGhpcyBpcyB1c2VkLgo+PiBOb3Qg
+b25seSBwZXJmb3JtYW5jZSwgY29uY3VycmVuY3kgc2lkZS1lZmZlY3QgaXQgY2F1c2VkLiAKPj4g
+QW5kIGxlc3MgY29tcGxpY2F0aW9uLCBsZXNzZXIgYnVnZ3kuCj4gCj4gSSdkIGFyZ3VlIHRoYXQg
+aXQgZG9lc24ndCBmaXggYW55dGhpbmcgdGhlcmUsIHRoZSBjb3VudCBjYW4gc3RpbGwgY2hhbmdl
+Cj4gYWZ0ZXIgaXQncyBiZWVuIHJlYWQgYnV0IGJlZm9yZSBhbnkgYWN0aW9uIGhhcyBiZWVuIHRh
+a2VuIGJhc2VkIG9uIHRoZQo+IGNvdW50LiAgVGhlIG9ubHkgdGhpbmcgaXQgZG9lcyBpcyBlbGlt
+aW5hdGUgdGhlIGFjdCBvZiByZS1jb3VudGluZy4KCklmIG5vIGNvdW50ZXIsIGhvdyB0byBhdm9p
+ZCB0cmF2ZXJzaW5nIGRldmljZXMgYW5kIGdldCBWRnMgYXNzaWduZWQgY291bnQgPyBUbyBhdm9p
+ZCAKUmUtY291bnRpbmcgaXMgZW5vdWdoIEkgdGhpbmsuIAoKPiAKPj4+Pj4+Pj4+IGRyaXZlcnMv
+bmV0L2V0aGVybmV0L2ludGVsL2k0MGUvaTQwZV92aXJ0Y2hubF9wZi5jIHwgICAxNyArKy0tLS0t
+LS0tLS0tLS0tLQo+Pj4+Pj4+Pj4gZHJpdmVycy9wY2kvaW92LmMgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgfCAgIDIwICsrKysrKysrKysrKysrKysrKysrCj4+Pj4+Pj4+PiBkcml2
+ZXJzL3hlbi94ZW4tcGNpYmFjay9wY2lfc3R1Yi5jICAgICAgICAgICAgICAgICB8ICAgIDQgKyst
+LQo+Pj4+Pj4+Pj4gaW5jbHVkZS9saW51eC9wY2kuaCAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgfCAgICA0ICsrKysKPj4+Pj4+Pj4+IHZpcnQva3ZtL2Fzc2lnbmVkLWRldi5jICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgIHwgICAgMiArLQo+Pj4+Pj4+Pj4gdmlydC9rdm0vaW9tbXUu
+YyAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAgICA0ICsrLS0KPj4+Pj4+Pj4g
+Cj4+Pj4+Pj4+IC0gVGhpcyBwYXRjaCB0b3VjaCA0IHNlcGFyYXRlIGxvZ2ljYWwgY29kZSBhcmVh
+cywgd2hvIGRvIHlvdSBleHBlY3QgdG8KPj4+Pj4+Pj4gYWNrIGFuZCBjb21taXQgaXQ/ICBTcGxp
+dCBpdCB1cC4KPj4+Pj4+Pj4gCj4+Pj4+Pj4+PiA2IGZpbGVzIGNoYW5nZWQsIDMxIGluc2VydGlv
+bnMoKyksIDIwIGRlbGV0aW9ucygtKQo+Pj4+Pj4+Pj4gCj4+Pj4+Pj4+PiBkaWZmIC0tZ2l0IGEv
+ZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaTQwZS9pNDBlX3ZpcnRjaG5sX3BmLmMgYi9kcml2
+ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pNDBlL2k0MGVfdmlydGNobmxfcGYuYwo+Pj4+Pj4+Pj4g
+aW5kZXggMDJjMTFhNy4uNzgxMDQwZSAxMDA2NDQKPj4+Pj4+Pj4+IC0tLSBhL2RyaXZlcnMvbmV0
+L2V0aGVybmV0L2ludGVsL2k0MGUvaTQwZV92aXJ0Y2hubF9wZi5jCj4+Pj4+Pj4+PiArKysgYi9k
+cml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9pNDBlL2k0MGVfdmlydGNobmxfcGYuYwo+Pj4+Pj4+
+Pj4gQEAgLTY5MywyMiArNjkzLDkgQEAgY29tcGxldGVfcmVzZXQ6Cj4+Pj4+Pj4+PiBzdGF0aWMg
+Ym9vbCBpNDBlX3Zmc19hcmVfYXNzaWduZWQoc3RydWN0IGk0MGVfcGYgKnBmKQo+Pj4+Pj4+Pj4g
+ewo+Pj4+Pj4+Pj4gc3RydWN0IHBjaV9kZXYgKnBkZXYgPSBwZi0+cGRldjsKPj4+Pj4+Pj4+IC0g
+ICAgc3RydWN0IHBjaV9kZXYgKnZmZGV2Owo+Pj4+Pj4+Pj4gLQo+Pj4+Pj4+Pj4gLSAgICAvKiBs
+b29wIHRocm91Z2ggYWxsIHRoZSBWRnMgdG8gc2VlIGlmIHdlIG93biBhbnkgdGhhdCBhcmUgYXNz
+aWduZWQgKi8KPj4+Pj4+Pj4+IC0gICAgdmZkZXYgPSBwY2lfZ2V0X2RldmljZShQQ0lfVkVORE9S
+X0lEX0lOVEVMLCBJNDBFX0RFVl9JRF9WRiAsIE5VTEwpOwo+Pj4+Pj4+Pj4gLSAgICB3aGlsZSAo
+dmZkZXYpIHsKPj4+Pj4+Pj4+IC0gICAgICAgIC8qIGlmIHdlIGRvbid0IG93biBpdCB3ZSBkb24n
+dCBjYXJlICovCj4+Pj4+Pj4+PiAtICAgICAgICBpZiAodmZkZXYtPmlzX3ZpcnRmbiAmJiBwY2lf
+cGh5c2ZuKHZmZGV2KSA9PSBwZGV2KSB7Cj4+Pj4+Pj4+PiAtICAgICAgICAgICAgLyogaWYgaXQg
+aXMgYXNzaWduZWQgd2UgY2Fubm90IHJlbGVhc2UgaXQgKi8KPj4+Pj4+Pj4+IC0gICAgICAgICAg
+ICBpZiAodmZkZXYtPmRldl9mbGFncyAmIFBDSV9ERVZfRkxBR1NfQVNTSUdORUQpCj4+Pj4+Pj4+
+PiAtICAgICAgICAgICAgICAgIHJldHVybiB0cnVlOwo+Pj4+Pj4+Pj4gLSAgICAgICAgfQo+Pj4+
+Pj4+Pj4gCj4+Pj4+Pj4+PiAtICAgICAgICB2ZmRldiA9IHBjaV9nZXRfZGV2aWNlKFBDSV9WRU5E
+T1JfSURfSU5URUwsCj4+Pj4+Pj4+PiAtICAgICAgICAgICAgICAgICAgICAgICBJNDBFX0RFVl9J
+RF9WRiwKPj4+Pj4+Pj4+IC0gICAgICAgICAgICAgICAgICAgICAgIHZmZGV2KTsKPj4+Pj4+Pj4+
+IC0gICAgfQo+Pj4+Pj4+Pj4gKyAgICBpZiAocGNpX3Zmc19hc3NpZ25lZChwZGV2KSkKPj4+Pj4+
+Pj4+ICsgICAgICAgIHJldHVybiB0cnVlOwo+Pj4+Pj4+Pj4gCj4+Pj4+Pj4+PiByZXR1cm4gZmFs
+c2U7Cj4+Pj4+Pj4+PiB9Cj4+Pj4+Pj4+PiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9wY2kvaW92LmMg
+Yi9kcml2ZXJzL3BjaS9pb3YuYwo+Pj4+Pj4+Pj4gaW5kZXggZGU3YTc0Ny4uMDkwZjgyNyAxMDA2
+NDQKPj4+Pj4+Pj4+IC0tLSBhL2RyaXZlcnMvcGNpL2lvdi5jCj4+Pj4+Pj4+PiArKysgYi9kcml2
+ZXJzL3BjaS9pb3YuYwo+Pj4+Pj4+Pj4gQEAgLTY0NCw2ICs2NDQsMjYgQEAgaW50IHBjaV92ZnNf
+YXNzaWduZWQoc3RydWN0IHBjaV9kZXYgKmRldikKPj4+Pj4+Pj4+IEVYUE9SVF9TWU1CT0xfR1BM
+KHBjaV92ZnNfYXNzaWduZWQpOwo+Pj4+Pj4+Pj4gCj4+Pj4+Pj4+PiAvKioKPj4+Pj4+Pj4+ICsg
+KiBwY2lfaW92X2Fzc2lnbl9kZXZpY2UgLSBhc3NpZ24gZGV2aWNlIHRvIFZNCj4+Pj4+Pj4+PiAr
+ICogQHBkZXY6IHRoZSBkZXZpY2UgdG8gYmUgYXNzaWduZWQuCj4+Pj4+Pj4+PiArICovCj4+Pj4+
+Pj4+PiArdm9pZCBwY2lfaW92X2Fzc2lnbl9kZXZpY2Uoc3RydWN0IHBjaV9kZXYgKnBkZXYpCj4+
+Pj4+Pj4+PiArewo+Pj4+Pj4+Pj4gKyAgICBwZGV2LT5kZXZfZmxhZ3MgfD0gUENJX0RFVl9GTEFH
+U19BU1NJR05FRDsKPj4+Pj4+Pj4+ICt9Cj4+Pj4+Pj4+PiArRVhQT1JUX1NZTUJPTF9HUEwocGNp
+X2lvdl9hc3NpZ25fZGV2aWNlKTsKPj4+Pj4+Pj4+ICsKPj4+Pj4+Pj4+ICsvKioKPj4+Pj4+Pj4+
+ICsgKiBwY2lfaW92X2RlYXNzaWduX2RldmljZSAtIGRlYXNpZ24gZGV2aWNlIGZyb20gVk0KPj4+
+Pj4+Pj4+ICsgKiBAcGRldjogdGhlIGRldmljZSB0byBiZSBkZWFzc2lnbmVkLgo+Pj4+Pj4+Pj4g
+KyAqLwo+Pj4+Pj4+Pj4gK3ZvaWQgcGNpX2lvdl9kZWFzc2lnbl9kZXZpY2Uoc3RydWN0IHBjaV9k
+ZXYgKnBkZXYpCj4+Pj4+Pj4+PiArewo+Pj4+Pj4+Pj4gKyAgICBwZGV2LT5kZXZfZmxhZ3MgJj0g
+flBDSV9ERVZfRkxBR1NfQVNTSUdORUQ7Cj4+Pj4+Pj4+PiArfQo+Pj4+Pj4+Pj4gK0VYUE9SVF9T
+WU1CT0xfR1BMKHBjaV9pb3ZfZGVhc3NpZ25fZGV2aWNlKTsKPj4+Pj4+Pj4+ICsKPj4+Pj4+Pj4+
+ICsvKioKPj4+Pj4+Pj4+ICogcGNpX3NyaW92X3NldF90b3RhbHZmcyAtLSByZWR1Y2UgdGhlIFRv
+dGFsVkZzIGF2YWlsYWJsZQo+Pj4+Pj4+Pj4gKiBAZGV2OiB0aGUgUENJIFBGIGRldmljZQo+Pj4+
+Pj4+Pj4gKiBAbnVtdmZzOiBudW1iZXIgdGhhdCBzaG91bGQgYmUgdXNlZCBmb3IgVG90YWxWRnMg
+c3VwcG9ydGVkCj4+Pj4+Pj4+PiBkaWZmIC0tZ2l0IGEvZHJpdmVycy94ZW4veGVuLXBjaWJhY2sv
+cGNpX3N0dWIuYyBiL2RyaXZlcnMveGVuL3hlbi1wY2liYWNrL3BjaV9zdHViLmMKPj4+Pj4+Pj4+
+IGluZGV4IDYyZmNkNDguLjI3ZTAwZDEgMTAwNjQ0Cj4+Pj4+Pj4+PiAtLS0gYS9kcml2ZXJzL3hl
+bi94ZW4tcGNpYmFjay9wY2lfc3R1Yi5jCj4+Pj4+Pj4+PiArKysgYi9kcml2ZXJzL3hlbi94ZW4t
+cGNpYmFjay9wY2lfc3R1Yi5jCj4+Pj4+Pj4+PiBAQCAtMTMzLDcgKzEzMyw3IEBAIHN0YXRpYyB2
+b2lkIHBjaXN0dWJfZGV2aWNlX3JlbGVhc2Uoc3RydWN0IGtyZWYgKmtyZWYpCj4+Pj4+Pj4+PiB4
+ZW5fcGNpYmtfY29uZmlnX2ZyZWVfZHluX2ZpZWxkcyhkZXYpOwo+Pj4+Pj4+Pj4geGVuX3BjaWJr
+X2NvbmZpZ19mcmVlX2RldihkZXYpOwo+Pj4+Pj4+Pj4gCj4+Pj4+Pj4+PiAtICAgIGRldi0+ZGV2
+X2ZsYWdzICY9IH5QQ0lfREVWX0ZMQUdTX0FTU0lHTkVEOwo+Pj4+Pj4+Pj4gKyAgICBwY2lfaW92
+X2RlYXNzaWduX2RldmljZShkZXYpOwo+Pj4+Pj4+Pj4gcGNpX2Rldl9wdXQoZGV2KTsKPj4+Pj4+
+Pj4+IAo+Pj4+Pj4+Pj4ga2ZyZWUocHNkZXYpOwo+Pj4+Pj4+Pj4gQEAgLTQwNCw3ICs0MDQsNyBA
+QCBzdGF0aWMgaW50IHBjaXN0dWJfaW5pdF9kZXZpY2Uoc3RydWN0IHBjaV9kZXYgKmRldikKPj4+
+Pj4+Pj4+IGRldl9kYmcoJmRldi0+ZGV2LCAicmVzZXQgZGV2aWNlXG4iKTsKPj4+Pj4+Pj4+IHhl
+bl9wY2lia19yZXNldF9kZXZpY2UoZGV2KTsKPj4+Pj4+Pj4+IAo+Pj4+Pj4+Pj4gLSAgICBkZXYt
+PmRldl9mbGFncyB8PSBQQ0lfREVWX0ZMQUdTX0FTU0lHTkVEOwo+Pj4+Pj4+Pj4gKyAgICBwY2lf
+aW92X2Fzc2lnbl9kZXZpY2UoZGV2KTsKPj4+Pj4+Pj4+IHJldHVybiAwOwo+Pj4+Pj4+Pj4gCj4+
+Pj4+Pj4+PiBjb25maWdfcmVsZWFzZToKPj4+Pj4+Pj4+IGRpZmYgLS1naXQgYS9pbmNsdWRlL2xp
+bnV4L3BjaS5oIGIvaW5jbHVkZS9saW51eC9wY2kuaAo+Pj4+Pj4+Pj4gaW5kZXggYWFiNTdiNC4u
+NWVjZTZkNiAxMDA2NDQKPj4+Pj4+Pj4+IC0tLSBhL2luY2x1ZGUvbGludXgvcGNpLmgKPj4+Pj4+
+Pj4+ICsrKyBiL2luY2x1ZGUvbGludXgvcGNpLmgKPj4+Pj4+Pj4+IEBAIC0xNjAzLDYgKzE2MDMs
+OCBAQCBpbnQgcGNpX251bV92ZihzdHJ1Y3QgcGNpX2RldiAqZGV2KTsKPj4+Pj4+Pj4+IGludCBw
+Y2lfdmZzX2Fzc2lnbmVkKHN0cnVjdCBwY2lfZGV2ICpkZXYpOwo+Pj4+Pj4+Pj4gaW50IHBjaV9z
+cmlvdl9zZXRfdG90YWx2ZnMoc3RydWN0IHBjaV9kZXYgKmRldiwgdTE2IG51bXZmcyk7Cj4+Pj4+
+Pj4+PiBpbnQgcGNpX3NyaW92X2dldF90b3RhbHZmcyhzdHJ1Y3QgcGNpX2RldiAqZGV2KTsKPj4+
+Pj4+Pj4+ICt2b2lkIHBjaV9pb3ZfYXNzaWduX2RldmljZShzdHJ1Y3QgcGNpX2RldiAqZGV2KTsK
+Pj4+Pj4+Pj4+ICt2b2lkIHBjaV9pb3ZfZGVhc3NpZ25fZGV2aWNlKHN0cnVjdCBwY2lfZGV2ICpk
+ZXYpOwo+Pj4+Pj4+Pj4gI2Vsc2UKPj4+Pj4+Pj4+IHN0YXRpYyBpbmxpbmUgaW50IHBjaV9lbmFi
+bGVfc3Jpb3Yoc3RydWN0IHBjaV9kZXYgKmRldiwgaW50IG5yX3ZpcnRmbikKPj4+Pj4+Pj4+IHsg
+cmV0dXJuIC1FTk9ERVY7IH0KPj4+Pj4+Pj4+IEBAIC0xNjE0LDYgKzE2MTYsOCBAQCBzdGF0aWMg
+aW5saW5lIGludCBwY2lfc3Jpb3Zfc2V0X3RvdGFsdmZzKHN0cnVjdCBwY2lfZGV2ICpkZXYsIHUx
+NiBudW12ZnMpCj4+Pj4+Pj4+PiB7IHJldHVybiAwOyB9Cj4+Pj4+Pj4+PiBzdGF0aWMgaW5saW5l
+IGludCBwY2lfc3Jpb3ZfZ2V0X3RvdGFsdmZzKHN0cnVjdCBwY2lfZGV2ICpkZXYpCj4+Pj4+Pj4+
+PiB7IHJldHVybiAwOyB9Cj4+Pj4+Pj4+PiArc3RhdGljIGlubGluZSB2b2lkIHBjaV9pb3ZfYXNz
+aWduX2RldmljZShzdHJ1Y3QgcGNpX2RldiAqZGV2KSB7IH0KPj4+Pj4+Pj4+ICtzdGF0aWMgaW5s
+aW5lIHZvaWQgcGNpX2lvdl9kZWFzc2lnbl9kZXZpY2Uoc3RydWN0IHBjaV9kZXYgKmRldikgeyB9
+Cj4+Pj4+Pj4+PiAjZW5kaWYKPj4+Pj4+Pj4+IAo+Pj4+Pj4+Pj4gI2lmIGRlZmluZWQoQ09ORklH
+X0hPVFBMVUdfUENJKSB8fCBkZWZpbmVkKENPTkZJR19IT1RQTFVHX1BDSV9NT0RVTEUpCj4+Pj4+
+Pj4+PiBkaWZmIC0tZ2l0IGEvdmlydC9rdm0vYXNzaWduZWQtZGV2LmMgYi92aXJ0L2t2bS9hc3Np
+Z25lZC1kZXYuYwo+Pj4+Pj4+Pj4gaW5kZXggYmYwNjU3Ny4uN2ZhYzU4ZCAxMDA2NDQKPj4+Pj4+
+Pj4+IC0tLSBhL3ZpcnQva3ZtL2Fzc2lnbmVkLWRldi5jCj4+Pj4+Pj4+PiArKysgYi92aXJ0L2t2
+bS9hc3NpZ25lZC1kZXYuYwo+Pj4+Pj4+Pj4gQEAgLTMwMiw3ICszMDIsNyBAQCBzdGF0aWMgdm9p
+ZCBrdm1fZnJlZV9hc3NpZ25lZF9kZXZpY2Uoc3RydWN0IGt2bSAqa3ZtLAo+Pj4+Pj4+Pj4gZWxz
+ZQo+Pj4+Pj4+Pj4gICAgIHBjaV9yZXN0b3JlX3N0YXRlKGFzc2lnbmVkX2Rldi0+ZGV2KTsKPj4+
+Pj4+Pj4+IAo+Pj4+Pj4+Pj4gLSAgICBhc3NpZ25lZF9kZXYtPmRldi0+ZGV2X2ZsYWdzICY9IH5Q
+Q0lfREVWX0ZMQUdTX0FTU0lHTkVEOwo+Pj4+Pj4+Pj4gKyAgICBwY2lfaW92X2RlYXNzaWduX2Rl
+dmljZShhc3NpZ25lZF9kZXYtPmRldik7Cj4+Pj4+Pj4+PiAKPj4+Pj4+Pj4+IHBjaV9yZWxlYXNl
+X3JlZ2lvbnMoYXNzaWduZWRfZGV2LT5kZXYpOwo+Pj4+Pj4+Pj4gcGNpX2Rpc2FibGVfZGV2aWNl
+KGFzc2lnbmVkX2Rldi0+ZGV2KTsKPj4+Pj4+Pj4+IGRpZmYgLS1naXQgYS92aXJ0L2t2bS9pb21t
+dS5jIGIvdmlydC9rdm0vaW9tbXUuYwo+Pj4+Pj4+Pj4gaW5kZXggMGRmN2Q0Yi4uNjQxZWU3MyAx
+MDA2NDQKPj4+Pj4+Pj4+IC0tLSBhL3ZpcnQva3ZtL2lvbW11LmMKPj4+Pj4+Pj4+ICsrKyBiL3Zp
+cnQva3ZtL2lvbW11LmMKPj4+Pj4+Pj4+IEBAIC0xOTQsNyArMTk0LDcgQEAgaW50IGt2bV9hc3Np
+Z25fZGV2aWNlKHN0cnVjdCBrdm0gKmt2bSwKPj4+Pj4+Pj4+ICAgICAgICAgZ290byBvdXRfdW5t
+YXA7Cj4+Pj4+Pj4+PiB9Cj4+Pj4+Pj4+PiAKPj4+Pj4+Pj4+IC0gICAgcGRldi0+ZGV2X2ZsYWdz
+IHw9IFBDSV9ERVZfRkxBR1NfQVNTSUdORUQ7Cj4+Pj4+Pj4+PiArICAgIHBjaV9pb3ZfYXNzaWdu
+X2RldmljZShwZGV2KTsKPj4+Pj4+Pj4+IAo+Pj4+Pj4+Pj4gZGV2X2luZm8oJnBkZXYtPmRldiwg
+Imt2bSBhc3NpZ24gZGV2aWNlXG4iKTsKPj4+Pj4+Pj4+IAo+Pj4+Pj4+Pj4gQEAgLTIyMCw3ICsy
+MjAsNyBAQCBpbnQga3ZtX2RlYXNzaWduX2RldmljZShzdHJ1Y3Qga3ZtICprdm0sCj4+Pj4+Pj4+
+PiAKPj4+Pj4+Pj4+IGlvbW11X2RldGFjaF9kZXZpY2UoZG9tYWluLCAmcGRldi0+ZGV2KTsKPj4+
+Pj4+Pj4+IAo+Pj4+Pj4+Pj4gLSAgICBwZGV2LT5kZXZfZmxhZ3MgJj0gflBDSV9ERVZfRkxBR1Nf
+QVNTSUdORUQ7Cj4+Pj4+Pj4+PiArICAgIHBjaV9pb3ZfZGVhc3NpZ25fZGV2aWNlKHBkZXYpOwo+
+Pj4+Pj4+Pj4gCj4+Pj4+Pj4+PiBkZXZfaW5mbygmcGRldi0+ZGV2LCAia3ZtIGRlYXNzaWduIGRl
+dmljZVxuIik7Cj4gCj4gCj4gCgotLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KRTEwMDAtZGV2ZWwgbWFpbGluZyBsaXN0
+CkUxMDAwLWRldmVsQGxpc3RzLnNvdXJjZWZvcmdlLm5ldApodHRwczovL2xpc3RzLnNvdXJjZWZv
+cmdlLm5ldC9saXN0cy9saXN0aW5mby9lMTAwMC1kZXZlbApUbyBsZWFybiBtb3JlIGFib3V0IElu
+dGVsJiMxNzQ7IEV0aGVybmV0LCB2aXNpdCBodHRwOi8vY29tbXVuaXRpZXMuaW50ZWwuY29tL2Nv
+bW11bml0eS93aXJlZAo=
