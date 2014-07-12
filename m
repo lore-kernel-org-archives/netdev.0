@@ -1,46 +1,266 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next v2 0/6] SCTP updates
-Date: Sat, 12 Jul 2014 20:30:34 +0200
-Message-ID: <1405189840-31171-1-git-send-email-dborkman@redhat.com>
+Subject: [PATCH net-next v2 1/6] net: sctp: fix information leaks in ulpevent layer
+Date: Sat, 12 Jul 2014 20:30:35 +0200
+Message-ID: <1405189840-31171-2-git-send-email-dborkman@redhat.com>
+References: <1405189840-31171-1-git-send-email-dborkman@redhat.com>
 Cc: geirola@gmail.com, netdev@vger.kernel.org,
 	linux-sctp@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:2625 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:29219 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752635AbaGLSao (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 12 Jul 2014 14:30:44 -0400
+	id S1752635AbaGLSap (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Jul 2014 14:30:45 -0400
+In-Reply-To: <1405189840-31171-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This set improves the SCTP socket API to be more in line with
-RFC6458, Geir and myself have finalized it eventually. While
-at it, the first patch also fixes two possible information
-leaks that should go to net tree as well. For more details, I
-refer you to the patches themselves.
+While working on some other SCTP code, I noticed that some
+structures shared with user space are leaking uninitialized
+stack or heap buffer. In particular, struct sctp_sndrcvinfo
+has a 2 bytes hole between .sinfo_flags and .sinfo_ppid that
+remains unfilled by us in sctp_ulpevent_read_sndrcvinfo() when
+putting this into cmsg. But also struct sctp_remote_error
+contains a 2 bytes hole that we don't fill but place into a skb
+through skb_copy_expand() via sctp_ulpevent_make_remote_error().
 
-Thanks a lot.
+Both structures are defined by the IETF in RFC6458:
 
-v1 -> v2:
- - Added 6th patch to deprecate SCTP_SNDRCV, rest unchanged
+* Section 5.3.2. SCTP Header Information Structure:
 
-Daniel Borkmann (2):
-  net: sctp: fix information leaks in ulpevent layer
-  net: sctp: deprecate rfc6458, 5.3.2. SCTP_SNDRCV support
+  The sctp_sndrcvinfo structure is defined below:
 
-Geir Ola Vaagland (4):
-  net: sctp: implement rfc6458, 5.3.4. SCTP_SNDINFO cmsg support
-  net: sctp: implement rfc6458, 5.3.5. SCTP_RCVINFO cmsg support
-  net: sctp: implement rfc6458, 5.3.6. SCTP_NXTINFO cmsg support
-  net: sctp: implement rfc6458, 8.1.31. SCTP_DEFAULT_SNDINFO support
+  struct sctp_sndrcvinfo {
+    uint16_t sinfo_stream;
+    uint16_t sinfo_ssn;
+    uint16_t sinfo_flags;
+    <-- 2 bytes hole  -->
+    uint32_t sinfo_ppid;
+    uint32_t sinfo_context;
+    uint32_t sinfo_timetolive;
+    uint32_t sinfo_tsn;
+    uint32_t sinfo_cumtsn;
+    sctp_assoc_t sinfo_assoc_id;
+  };
 
- include/net/sctp/sctp.h     |   1 +
- include/net/sctp/structs.h  |   7 +-
- include/net/sctp/ulpevent.h |  14 +--
- include/uapi/linux/sctp.h   | 102 +++++++++++----
- net/sctp/socket.c           | 294 ++++++++++++++++++++++++++++++++++++++------
- net/sctp/ulpevent.c         | 185 ++++++++++++----------------
- 6 files changed, 430 insertions(+), 173 deletions(-)
+* 6.1.3. SCTP_REMOTE_ERROR:
 
+  A remote peer may send an Operation Error message to its peer.
+  This message indicates a variety of error conditions on an
+  association. The entire ERROR chunk as it appears on the wire
+  is included in an SCTP_REMOTE_ERROR event. Please refer to the
+  SCTP specification [RFC4960] and any extensions for a list of
+  possible error formats. An SCTP error notification has the
+  following format:
+
+  struct sctp_remote_error {
+    uint16_t sre_type;
+    uint16_t sre_flags;
+    uint32_t sre_length;
+    uint16_t sre_error;
+    <-- 2 bytes hole  -->
+    sctp_assoc_t sre_assoc_id;
+    uint8_t  sre_data[];
+  };
+
+Fix this by setting both to 0 before filling them out. We also
+have other structures shared between user and kernel space in
+SCTP that contains holes (e.g. struct sctp_paddrthlds), but we
+copy that buffer over from user space first and thus don't need
+to care about it in that cases.
+
+While at it, we can also remove lengthy comments copied from
+the draft, instead, we update the comment with the correct RFC
+number where one can look it up.
+
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ net/sctp/ulpevent.c | 122 +++++++---------------------------------------------
+ 1 file changed, 15 insertions(+), 107 deletions(-)
+
+diff --git a/net/sctp/ulpevent.c b/net/sctp/ulpevent.c
+index 85c6465..b6842fd 100644
+--- a/net/sctp/ulpevent.c
++++ b/net/sctp/ulpevent.c
+@@ -366,9 +366,10 @@ fail:
+  * specification [SCTP] and any extensions for a list of possible
+  * error formats.
+  */
+-struct sctp_ulpevent *sctp_ulpevent_make_remote_error(
+-	const struct sctp_association *asoc, struct sctp_chunk *chunk,
+-	__u16 flags, gfp_t gfp)
++struct sctp_ulpevent *
++sctp_ulpevent_make_remote_error(const struct sctp_association *asoc,
++				struct sctp_chunk *chunk, __u16 flags,
++				gfp_t gfp)
+ {
+ 	struct sctp_ulpevent *event;
+ 	struct sctp_remote_error *sre;
+@@ -387,8 +388,7 @@ struct sctp_ulpevent *sctp_ulpevent_make_remote_error(
+ 	/* Copy the skb to a new skb with room for us to prepend
+ 	 * notification with.
+ 	 */
+-	skb = skb_copy_expand(chunk->skb, sizeof(struct sctp_remote_error),
+-			      0, gfp);
++	skb = skb_copy_expand(chunk->skb, sizeof(*sre), 0, gfp);
+ 
+ 	/* Pull off the rest of the cause TLV from the chunk.  */
+ 	skb_pull(chunk->skb, elen);
+@@ -399,62 +399,21 @@ struct sctp_ulpevent *sctp_ulpevent_make_remote_error(
+ 	event = sctp_skb2event(skb);
+ 	sctp_ulpevent_init(event, MSG_NOTIFICATION, skb->truesize);
+ 
+-	sre = (struct sctp_remote_error *)
+-		skb_push(skb, sizeof(struct sctp_remote_error));
++	sre = (struct sctp_remote_error *) skb_push(skb, sizeof(*sre));
+ 
+ 	/* Trim the buffer to the right length.  */
+-	skb_trim(skb, sizeof(struct sctp_remote_error) + elen);
++	skb_trim(skb, sizeof(*sre) + elen);
+ 
+-	/* Socket Extensions for SCTP
+-	 * 5.3.1.3 SCTP_REMOTE_ERROR
+-	 *
+-	 * sre_type:
+-	 *   It should be SCTP_REMOTE_ERROR.
+-	 */
++	/* RFC6458, Section 6.1.3. SCTP_REMOTE_ERROR */
++	memset(sre, 0, sizeof(*sre));
+ 	sre->sre_type = SCTP_REMOTE_ERROR;
+-
+-	/*
+-	 * Socket Extensions for SCTP
+-	 * 5.3.1.3 SCTP_REMOTE_ERROR
+-	 *
+-	 * sre_flags: 16 bits (unsigned integer)
+-	 *   Currently unused.
+-	 */
+ 	sre->sre_flags = 0;
+-
+-	/* Socket Extensions for SCTP
+-	 * 5.3.1.3 SCTP_REMOTE_ERROR
+-	 *
+-	 * sre_length: sizeof (__u32)
+-	 *
+-	 * This field is the total length of the notification data,
+-	 * including the notification header.
+-	 */
+ 	sre->sre_length = skb->len;
+-
+-	/* Socket Extensions for SCTP
+-	 * 5.3.1.3 SCTP_REMOTE_ERROR
+-	 *
+-	 * sre_error: 16 bits (unsigned integer)
+-	 * This value represents one of the Operational Error causes defined in
+-	 * the SCTP specification, in network byte order.
+-	 */
+ 	sre->sre_error = cause;
+-
+-	/* Socket Extensions for SCTP
+-	 * 5.3.1.3 SCTP_REMOTE_ERROR
+-	 *
+-	 * sre_assoc_id: sizeof (sctp_assoc_t)
+-	 *
+-	 * The association id field, holds the identifier for the association.
+-	 * All notifications for a given association have the same association
+-	 * identifier.  For TCP style socket, this field is ignored.
+-	 */
+ 	sctp_ulpevent_set_owner(event, asoc);
+ 	sre->sre_assoc_id = sctp_assoc2id(asoc);
+ 
+ 	return event;
+-
+ fail:
+ 	return NULL;
+ }
+@@ -899,7 +858,9 @@ __u16 sctp_ulpevent_get_notification_type(const struct sctp_ulpevent *event)
+ 	return notification->sn_header.sn_type;
+ }
+ 
+-/* Copy out the sndrcvinfo into a msghdr.  */
++/* RFC6458, Section 5.3.2. SCTP Header Information Structure
++ * (SCTP_SNDRCV, DEPRECATED)
++ */
+ void sctp_ulpevent_read_sndrcvinfo(const struct sctp_ulpevent *event,
+ 				   struct msghdr *msghdr)
+ {
+@@ -908,74 +869,21 @@ void sctp_ulpevent_read_sndrcvinfo(const struct sctp_ulpevent *event,
+ 	if (sctp_ulpevent_is_notification(event))
+ 		return;
+ 
+-	/* Sockets API Extensions for SCTP
+-	 * Section 5.2.2 SCTP Header Information Structure (SCTP_SNDRCV)
+-	 *
+-	 * sinfo_stream: 16 bits (unsigned integer)
+-	 *
+-	 * For recvmsg() the SCTP stack places the message's stream number in
+-	 * this value.
+-	*/
++	memset(&sinfo, 0, sizeof(sinfo));
+ 	sinfo.sinfo_stream = event->stream;
+-	/* sinfo_ssn: 16 bits (unsigned integer)
+-	 *
+-	 * For recvmsg() this value contains the stream sequence number that
+-	 * the remote endpoint placed in the DATA chunk.  For fragmented
+-	 * messages this is the same number for all deliveries of the message
+-	 * (if more than one recvmsg() is needed to read the message).
+-	 */
+ 	sinfo.sinfo_ssn = event->ssn;
+-	/* sinfo_ppid: 32 bits (unsigned integer)
+-	 *
+-	 * In recvmsg() this value is
+-	 * the same information that was passed by the upper layer in the peer
+-	 * application.  Please note that byte order issues are NOT accounted
+-	 * for and this information is passed opaquely by the SCTP stack from
+-	 * one end to the other.
+-	 */
+ 	sinfo.sinfo_ppid = event->ppid;
+-	/* sinfo_flags: 16 bits (unsigned integer)
+-	 *
+-	 * This field may contain any of the following flags and is composed of
+-	 * a bitwise OR of these values.
+-	 *
+-	 * recvmsg() flags:
+-	 *
+-	 * SCTP_UNORDERED - This flag is present when the message was sent
+-	 *                 non-ordered.
+-	 */
+ 	sinfo.sinfo_flags = event->flags;
+-	/* sinfo_tsn: 32 bit (unsigned integer)
+-	 *
+-	 * For the receiving side, this field holds a TSN that was
+-	 * assigned to one of the SCTP Data Chunks.
+-	 */
+ 	sinfo.sinfo_tsn = event->tsn;
+-	/* sinfo_cumtsn: 32 bit (unsigned integer)
+-	 *
+-	 * This field will hold the current cumulative TSN as
+-	 * known by the underlying SCTP layer.  Note this field is
+-	 * ignored when sending and only valid for a receive
+-	 * operation when sinfo_flags are set to SCTP_UNORDERED.
+-	 */
+ 	sinfo.sinfo_cumtsn = event->cumtsn;
+-	/* sinfo_assoc_id: sizeof (sctp_assoc_t)
+-	 *
+-	 * The association handle field, sinfo_assoc_id, holds the identifier
+-	 * for the association announced in the COMMUNICATION_UP notification.
+-	 * All notifications for a given association have the same identifier.
+-	 * Ignored for one-to-one style sockets.
+-	 */
+ 	sinfo.sinfo_assoc_id = sctp_assoc2id(event->asoc);
+-
+-	/* context value that is set via SCTP_CONTEXT socket option. */
++	/* Context value that is set via SCTP_CONTEXT socket option. */
+ 	sinfo.sinfo_context = event->asoc->default_rcv_context;
+-
+ 	/* These fields are not used while receiving. */
+ 	sinfo.sinfo_timetolive = 0;
+ 
+ 	put_cmsg(msghdr, IPPROTO_SCTP, SCTP_SNDRCV,
+-		 sizeof(struct sctp_sndrcvinfo), (void *)&sinfo);
++		 sizeof(sinfo), &sinfo);
+ }
+ 
+ /* Do accounting for bytes received and hold a reference to the association
 -- 
 1.7.11.7
