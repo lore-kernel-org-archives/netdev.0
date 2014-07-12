@@ -1,32 +1,42 @@
-From: SYSTEM UPDATE <armando.junior@unilider.com.br>
-Subject: Warning!!
-Date: Sat, 12 Jul 2014 05:25:35 +0100
-Message-ID: <20140712042549.98FA75F6B6C@zmail.goiania.go.gov.br>
-Reply-To: No-reply@zmail.goiania.go.gov.br
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Subject: Re: [PATCH net-next] enic: Add ethtool support to show classifier
+ filters added by the driver
+Date: Sat, 12 Jul 2014 14:09:15 +0530 (IST)
+Message-ID: <alpine.LNX.2.03.1407121406100.1782@ws.cisco>
+References: <1405070051-10445-1-git-send-email-_govind@gmx.com> <20140711.145917.653569199285104303.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <armando.junior@unilider.com.br>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: _govind@gmx.com, netdev@vger.kernel.org, ssujith@cisco.com,
+	benve@cisco.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from correio.amob.goiania.go.gov.br ([200.199.226.132]:38029 "EHLO
-	zmail.goiania.go.gov.br" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750765AbaGLEfP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jul 2014 00:35:15 -0400
-Content-Description: Mail message body
+Received: from mout.gmx.com ([74.208.4.201]:63233 "EHLO mout.gmx.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751763AbaGLIkA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 12 Jul 2014 04:40:00 -0400
+In-Reply-To: <20140711.145917.653569199285104303.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear: Account User,
-This message is from the System Administrator support center. Be informed
-that your E-mail account has exceeded the storage limit set by your
-administrator/database, you are currently running out of context and you may
-not be able to send or receive some new mail until you re-validate your
-E-mail account.To prevent your email account from been closed, re-validate your mailbox
-below please click and visit this site of lick: >>
-http://webmailupgrade-team.tripod.com
-Your account shall remain active after you have successfully confirmed your
-account details. Thank you for your swift response to this notification we
-apologize for any inconvenience.
-We appreciate your continued help and support.
-Regards,
-SYSTEM ADMINISTRATOR HELPDESK TEAM 2014
+On Fri, 11 Jul 2014, David Miller wrote:
+
+> From: Govindarajulu Varadarajan <_govind@gmx.com>
+> Date: Fri, 11 Jul 2014 14:44:11 +0530
+>
+>> Right now Accelerated RFS is the only feature which adds classifier filters.
+>> So enable get_rxnfc only when CONFIG_RFS_ACCEL = y
+> ...
+>> @@ -293,6 +389,9 @@ static const struct ethtool_ops enic_ethtool_ops = {
+>>  	.get_ethtool_stats = enic_get_ethtool_stats,
+>>  	.get_coalesce = enic_get_coalesce,
+>>  	.set_coalesce = enic_set_coalesce,
+>> +#ifdef CONFIG_RFS_ACCEL
+>> +	.get_rxnfc = enic_get_rxnfc,
+>> +#endif
+>
+> No other driver protects this method in this way, please don't do this.
+>
+
+I will move the ifdef's to .h files and resubmit.
+
+Thanks
