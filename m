@@ -1,79 +1,31 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: filter: sk_chk_filter() no longer mangles
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next] net: filter: sk_chk_filter() no longer mangles
  filter
-Date: Sat, 12 Jul 2014 15:49:16 +0200
-Message-ID: <1405172956.3515.41.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <53BF8DEC.4000307@kristov.de>
-	 <CAADnVQLQR9fYVGfxfnwpirXt4CwBUzr36tJL+aEoo0err7cppw@mail.gmail.com>
-	 <53C10C8A.70706@redhat.com>
+Date: Sat, 12 Jul 2014 17:23:59 +0200
+Message-ID: <53C1530F.7020603@redhat.com>
+References: <53BF8DEC.4000307@kristov.de>  <CAADnVQLQR9fYVGfxfnwpirXt4CwBUzr36tJL+aEoo0err7cppw@mail.gmail.com>  <53C10C8A.70706@redhat.com> <1405172956.3515.41.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+Cc: David Miller <davem@davemloft.net>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
 	Christoph Schulz <develop@kristov.de>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	linux-ppp@vger.kernel.org, paulus@samba.org, isdn@linux-pingi.de
-To: Daniel Borkmann <dborkman@redhat.com>,
-	David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <53C10C8A.70706@redhat.com>
+In-Reply-To: <1405172956.3515.41.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: linux-ppp-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On 07/12/2014 03:49 PM, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> Add const attribute to filter argument to make clear it is no
+> longer modified.
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Add const attribute to filter argument to make clear it is no
-longer modified.
+Good point, thanks Eric.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- include/linux/filter.h |    2 +-
- net/core/filter.c      |    6 +++---
- 2 files changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index b885dcb7eaca..c43c8258e682 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -362,7 +362,7 @@ void sk_unattached_filter_destroy(struct sk_filter *fp);
- int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk);
- int sk_detach_filter(struct sock *sk);
- 
--int sk_chk_filter(struct sock_filter *filter, unsigned int flen);
-+int sk_chk_filter(const struct sock_filter *filter, unsigned int flen);
- int sk_get_filter(struct sock *sk, struct sock_filter __user *filter,
- 		  unsigned int len);
- 
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 87af1e3e56c0..b90ae7fb3b89 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -1085,7 +1085,7 @@ err:
-  * a cell if not previously written, and we check all branches to be sure
-  * a malicious user doesn't try to abuse us.
-  */
--static int check_load_and_stores(struct sock_filter *filter, int flen)
-+static int check_load_and_stores(const struct sock_filter *filter, int flen)
- {
- 	u16 *masks, memvalid = 0; /* One bit per cell, 16 cells */
- 	int pc, ret = 0;
-@@ -1218,7 +1218,7 @@ static bool chk_code_allowed(u16 code_to_probe)
-  *
-  * Returns 0 if the rule set is legal or -EINVAL if not.
-  */
--int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
-+int sk_chk_filter(const struct sock_filter *filter, unsigned int flen)
- {
- 	bool anc_found;
- 	int pc;
-@@ -1228,7 +1228,7 @@ int sk_chk_filter(struct sock_filter *filter, unsigned int flen)
- 
- 	/* Check the filter code now */
- 	for (pc = 0; pc < flen; pc++) {
--		struct sock_filter *ftest = &filter[pc];
-+		const struct sock_filter *ftest = &filter[pc];
- 
- 		/* May we actually operate on this code? */
- 		if (!chk_code_allowed(ftest->code))
-
-
+Acked-by: Daniel Borkmann <dborkman@redhat.com>
