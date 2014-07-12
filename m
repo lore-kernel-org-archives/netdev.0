@@ -1,18 +1,32 @@
-From: Miguel =?utf-8?Q?Narv=C3=A1ez_?= <mnarvaez@cortenacional.gob.ec>
-Subject: 500,000Pounds awaiting for pick-up.contact: wu.transfer001@qq.com
- for more details.
-Date: Sat, 12 Jul 2014 05:50:18 -0500 (ECT)
-Message-ID: <1149201733.759396.1405162218429.JavaMail.root@cortenacional.gob.ec>
-Reply-To: "Mrs. Hillary Florence" <wu.transfer001@qq.com>
+From: SYSTEM UPDATE <armando.junior@unilider.com.br>
+Subject: Warning!!
+Date: Sat, 12 Jul 2014 14:23:12 +0100
+Message-ID: <20140712124154.3DDBF3C185DC@mpt-mta2.mpt.net.mm>
+Reply-To: No-reply@mpt-mta2.mpt.net.mm
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: unlisted-recipients:; (no To-header on input)
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <armando.junior@unilider.com.br>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.cortenacional.gob.ec ([190.11.26.205]:46309 "EHLO
-	ironcorte.cortenacional.gob.ec" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752946AbaGLLh0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jul 2014 07:37:26 -0400
+Received: from mpt-mta2.mpt.net.mm ([203.81.64.67]:38702 "EHLO
+	mpt-mta2.mpt.net.mm" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751119AbaGLNam convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 12 Jul 2014 09:30:42 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Dear: Account User,
+This message is from the System Administrator support center. Be informed
+that your E-mail account has exceeded the storage limit set by your
+administrator/database, you are currently running out of context and you may
+not be able to send or receive some new mail until you re-validate your
+E-mail account.To prevent your email account from been closed, re-validate your mailbox
+below please click and visit this site of lick: >>
+http://webmailupgrade-team.tripod.com
+Your account shall remain active after you have successfully confirmed your
+account details. Thank you for your swift response to this notification we
+apologize for any inconvenience.
+We appreciate your continued help and support.
+Regards,
+SYSTEM ADMINISTRATOR HELPDESK TEAM 2014
