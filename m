@@ -1,45 +1,83 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net-next] net: ppp: don't call sk_chk_filter twice
-Date: Sun, 13 Jul 2014 12:27:05 +0200
-Message-ID: <53C25EF9.7030909@redhat.com>
-References: <53BF8DEC.4000307@kristov.de> <CAADnVQLQR9fYVGfxfnwpirXt4CwBUzr36tJL+aEoo0err7cppw@mail.gmail.com> <20140712231126.103531fxfrk9sola@kristov.noip.me>
+From: Yann Droneaud <ydroneaud-RlY5vtjFyJ3QT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH 2/4] cxgb4/iw_cxgb4: use firmware ord/ird resource limits
+Date: Sun, 13 Jul 2014 13:59:24 +0200
+Message-ID: <1405252764.32637.21.camel@localhost.localdomain>
+References: <1405091662-5270-1-git-send-email-hariprasad@chelsio.com>
+	 <1405091662-5270-3-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-ppp@vger.kernel.org, paulus@samba.org, isdn@linux-pingi.de
-To: Christoph Schulz <develop@kristov.de>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <20140712231126.103531fxfrk9sola@kristov.noip.me>
-Sender: linux-ppp-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org,
+	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+To: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1405091662-5270-3-git-send-email-hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 07/12/2014 11:11 PM, Christoph Schulz wrote:
-> Hello!
->
-> Alexei Starovoitov schrieb am Sat, 12 Jul 2014 05:59:46 +0200:
->
->>> However, sk_chk_filter() is not idempotent as it sometimes replaces filter
->>> codes. So running it a second time over the same filter does not work and
->>
->> It's a good thing not to call sk_chk_filter() twice, but the commit
->> log is incorrect.
->> sk_chk_filter() doesn't replace filter codes anymore.
->
-> Fair enough. Then how should I correctly proceed to submit this patch which
- > fixes a bug in the 3.15 branch (only)? In 3.15.x filter codes _are_ replaced
- > (I just checked the code in 3.15.5). And I originally based my analysis on
- > 3.15.1. Your statement makes the patch an optional improvement for 3.16.x,
- > but it's a necessary fix for 3.15.x. Do I need to submit this patch two times
- > with different commit logs?
+Hi,
 
-I think the patch makes sense, and you could submit it against net tree
-(so 'PATCH net' in subject) with a slightly different commit log at the
-beginning, but the rest could stay explaining that that's the case for
-3.15. By that, this could then be picked up into the net tree and thus
-Dave can queue it for stable inclusion. If you need any help, let me know.
+Le vendredi 11 juillet 2014 =C3=A0 20:44 +0530, Hariprasad Shenai a =C3=
+=A9crit :
+> diff --git a/drivers/infiniband/hw/cxgb4/qp.c
+> b/drivers/infiniband/hw/cxgb4/qp.c
+> index 6f74e0e..c911e96 100644
+> --- a/drivers/infiniband/hw/cxgb4/qp.c
+> +++ b/drivers/infiniband/hw/cxgb4/qp.c
+> @@ -58,6 +58,30 @@ static int max_fr_immd =3D T4_MAX_FR_IMMD;
+>  module_param(max_fr_immd, int, 0644);
+>  MODULE_PARM_DESC(max_fr_immd, "fastreg threshold for using DSGL
+> instead of immedate");
+> =20
+> +static int alloc_ird(struct c4iw_dev *dev, u32 ird)
+> +{
+> +       int ret;
+> +
+> +       spin_lock_irq(&dev->lock);
+> +       if (ird <=3D dev->avail_ird) {
+> +               dev->avail_ird -=3D ird;
+> +               ret =3D 0;
+> +       } else {
+> +               ret =3D -ENOMEM;
+> +               pr_info("%s: device IRD resources exhausted\n",
+> +                       pci_name(dev->rdev.lldi.pdev));
+> +       }
+> +       spin_unlock_irq(&dev->lock);
+> +       return ret;
+> +}
+> +
 
-Thanks again,
+I would have written this function has:
 
-Daniel
+static int alloc_ird(struct c4iw_dev *dev, u32 ird)
+{
+	int ret =3D 0
+
+	spin_lock_irq(&dev->lock);
+	if (ird <=3D dev->avail_ird)
+		dev->avail_ird -=3D ird;
+	else
+		ret =3D -ENOMEM;
+	spin_unlock_irq(&dev->lock);
+
+	if (ret)
+		dev_warn(dev->rdev.lldi.pdev,
+			 "device IRD resources exhausted\n");
+
+	return ret;
+}
+
+Regards.
+
+--=20
+Yann Droneaud
+OPTEYA
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
+n
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
