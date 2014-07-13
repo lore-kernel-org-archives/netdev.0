@@ -1,50 +1,45 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH net] bonding: fix ad_select module param check
-Date: Sun, 13 Jul 2014 09:47:47 +0200
-Message-ID: <1405237667-17531-1-git-send-email-nikolay@redhat.com>
-Cc: Nikolay Aleksandrov <nikolay@redhat.com>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:27419 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751555AbaGMHsI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 13 Jul 2014 03:48:08 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next] net: ppp: don't call sk_chk_filter twice
+Date: Sun, 13 Jul 2014 12:27:05 +0200
+Message-ID: <53C25EF9.7030909@redhat.com>
+References: <53BF8DEC.4000307@kristov.de> <CAADnVQLQR9fYVGfxfnwpirXt4CwBUzr36tJL+aEoo0err7cppw@mail.gmail.com> <20140712231126.103531fxfrk9sola@kristov.noip.me>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-ppp@vger.kernel.org, paulus@samba.org, isdn@linux-pingi.de
+To: Christoph Schulz <develop@kristov.de>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <20140712231126.103531fxfrk9sola@kristov.noip.me>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Obvious copy/paste error when I converted the ad_select to the new
-option API. "lacp_rate" there should be "ad_select" so we can get the
-proper value.
+On 07/12/2014 11:11 PM, Christoph Schulz wrote:
+> Hello!
+>
+> Alexei Starovoitov schrieb am Sat, 12 Jul 2014 05:59:46 +0200:
+>
+>>> However, sk_chk_filter() is not idempotent as it sometimes replaces filter
+>>> codes. So running it a second time over the same filter does not work and
+>>
+>> It's a good thing not to call sk_chk_filter() twice, but the commit
+>> log is incorrect.
+>> sk_chk_filter() doesn't replace filter codes anymore.
+>
+> Fair enough. Then how should I correctly proceed to submit this patch which
+ > fixes a bug in the 3.15 branch (only)? In 3.15.x filter codes _are_ replaced
+ > (I just checked the code in 3.15.5). And I originally based my analysis on
+ > 3.15.1. Your statement makes the patch an optional improvement for 3.16.x,
+ > but it's a necessary fix for 3.15.x. Do I need to submit this patch two times
+ > with different commit logs?
 
-CC: Jay Vosburgh <j.vosburgh@gmail.com>
-CC: Veaceslav Falico <vfalico@gmail.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
-CC: David S. Miller <davem@davemloft.net>
+I think the patch makes sense, and you could submit it against net tree
+(so 'PATCH net' in subject) with a slightly different commit log at the
+beginning, but the rest could stay explaining that that's the case for
+3.15. By that, this could then be picked up into the net tree and thus
+Dave can queue it for stable inclusion. If you need any help, let me know.
 
-Fixes: 9e5f5eebe765 ("bonding: convert ad_select to use the new option
-API")
-Reported-by: Karim Scheik <karim.scheik@prisma-solutions.at>
-Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
----
- drivers/net/bonding/bond_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Thanks again,
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 3a451b6cd3d5..701f86cd5993 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -4068,7 +4068,7 @@ static int bond_check_params(struct bond_params *params)
- 	}
- 
- 	if (ad_select) {
--		bond_opt_initstr(&newval, lacp_rate);
-+		bond_opt_initstr(&newval, ad_select);
- 		valptr = bond_opt_parse(bond_opt_get(BOND_OPT_AD_SELECT),
- 					&newval);
- 		if (!valptr) {
--- 
-1.9.3
+Daniel
