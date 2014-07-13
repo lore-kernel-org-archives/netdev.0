@@ -1,105 +1,135 @@
-From: "H.K. Jerry Chu" <hkchu@google.com>
-Subject: [PATCH net-next] net-gre-gro: Fix a bug that breaks the forwarding path
-Date: Sun, 13 Jul 2014 07:46:20 -0700
-Message-ID: <1405262780-20232-1-git-send-email-hkchu@google.com>
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Jerry Chu <hkchu@google.com>
-To: edumazet@google.com, ogerlitz@mellanox.com, linux@stwm.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f202.google.com ([209.85.216.202]:57889 "EHLO
-	mail-qc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751493AbaGMOqZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jul 2014 10:46:25 -0400
-Received: by mail-qc0-f202.google.com with SMTP id x13so527840qcv.5
-        for <netdev@vger.kernel.org>; Sun, 13 Jul 2014 07:46:24 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Varka Bhadram <varkabhadram@gmail.com>
+Subject: Re: [PATCH net 1/1] net: ppp: fix creating PPP pass and active filters
+Date: Sun, 13 Jul 2014 20:24:34 +0530
+Message-ID: <53C29DAA.8020405@gmail.com>
+References: <53C28297.4080507@kristov.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-15; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-ppp@vger.kernel.org, paulus@samba.org, isdn@linux-pingi.de
+To: Christoph Schulz <develop@kristov.de>, netdev@vger.kernel.org
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <53C28297.4080507@kristov.de>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jerry Chu <hkchu@google.com>
+On Sunday 13 July 2014 06:29 PM, Christoph Schulz wrote:
+> From: Christoph Schulz <develop@kristov.de>
+>
+> Commit 568f194e8bd16c353ad50f9ab95d98b20578a39d ("net: ppp: use
+> sk_unattached_filter api") inadvertently changed the logic when setting
+> PPP pass and active filters. This applies to both the generic PPP subsystem
+> implemented by drivers/net/ppp/ppp_generic.c and the ISDN PPP subsystem
+> implemented by drivers/isdn/i4l/isdn_ppp.c. The original code in ppp_ioctl()
+> (or isdn_ppp_ioctl(), resp.) handling PPPIOCSPASS and PPPIOCSACTIVE allowed to
+> remove a pass/active filter previously set by using a filter of length zero.
+> However, with the new code this is not possible anymore as this case is not
+> explicitly checked for, which leads to passing NULL as a filter to
+> sk_unattached_filter_create(). This results in returning EINVAL to the caller.
+>
+> Additionally, the variables ppp->pass_filter and ppp->active_filter (or
+> is->pass_filter and is->active_filter, resp.) are not reset to NULL, although
+> the filters they point to may have been destroyed by
+> sk_unattached_filter_destroy(), so in this EINVAL case dangling pointers are
+> left behind (provided the pointers were previously non-NULL).
+>
+> This patch corrects both problems by checking whether the filter passed is
+> empty or non-empty, and prevents sk_unattached_filter_create() from being
+> called in the first case. Moreover, the pointers are always reset to NULL
+> as soon as sk_unattached_filter_destroy() returns.
+>
+> Signed-off-by: Christoph Schulz <develop@kristov.de>
+> ---
+> diff --git a/drivers/isdn/i4l/isdn_ppp.c b/drivers/isdn/i4l/isdn_ppp.c
+> index 61ac632..cd2f4c3 100644
+> --- a/drivers/isdn/i4l/isdn_ppp.c
+> +++ b/drivers/isdn/i4l/isdn_ppp.c
+> @@ -644,9 +644,15 @@ isdn_ppp_ioctl(int min, struct file *file, unsigned int cmd, unsigned long arg)
+>   		fprog.len = len;
+>   		fprog.filter = code;
+>   
+> -		if (is->pass_filter)
+> +		if (is->pass_filter) {
+>   			sk_unattached_filter_destroy(is->pass_filter);
+> -		err = sk_unattached_filter_create(&is->pass_filter, &fprog);
+> +			is->pass_filter = NULL;
+> +		}
+> +		if (fprog.filter != NULL)
+> +			err = sk_unattached_filter_create(&is->pass_filter,
+> +							  &fprog);
+> +		else
+> +			err = 0;
+>   		kfree(code);
+>   
+>   		return err;
+> @@ -663,9 +669,15 @@ isdn_ppp_ioctl(int min, struct file *file, unsigned int cmd, unsigned long arg)
+>   		fprog.len = len;
+>   		fprog.filter = code;
+>   
+> -		if (is->active_filter)
+> +		if (is->active_filter) {
+>   			sk_unattached_filter_destroy(is->active_filter);
+> -		err = sk_unattached_filter_create(&is->active_filter, &fprog);
+> +			is->active_filter = NULL;
+> +		}
+> +		if (fprog.filter != NULL)
+> +			err = sk_unattached_filter_create(&is->active_filter,
+> +							  &fprog);
+> +		else
+> +			err = 0;
+>   		kfree(code);
+>   
+>   		return err;
+> diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
+> index 91d6c12..d0f6f93 100644
+> --- a/drivers/net/ppp/ppp_generic.c
+> +++ b/drivers/net/ppp/ppp_generic.c
+> @@ -763,10 +763,15 @@ static long ppp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+>   			};
+>   
+>   			ppp_lock(ppp);
+> -			if (ppp->pass_filter)
+> +			if (ppp->pass_filter) {
+>   				sk_unattached_filter_destroy(ppp->pass_filter);
+> -			err = sk_unattached_filter_create(&ppp->pass_filter,
+> -							  &fprog);
+> +				ppp->pass_filter = NULL;
+> +			}
+> +			if (fprog.filter != NULL)
+> +				err = sk_unattached_filter_create(&ppp->pass_filter,
+> +								  &fprog);
+> +			else
+> +				err = 0;
+>   			kfree(code);
+>   			ppp_unlock(ppp);
+>   		}
+> @@ -784,10 +789,15 @@ static long ppp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+>   			};
+>   
+>   			ppp_lock(ppp);
+> -			if (ppp->active_filter)
+> +			if (ppp->active_filter) {
+>   				sk_unattached_filter_destroy(ppp->active_filter);
+> -			err = sk_unattached_filter_create(&ppp->active_filter,
+> -							  &fprog);
+> +				ppp->active_filter = NULL;
+> +			}
+> +			if (fprog.filter != NULL)
+> +				err = sk_unattached_filter_create(&ppp->active_filter,
+> +								  &fprog);
+> +			else
+> +				err = 0;
+>   			kfree(code);
+>   			ppp_unlock(ppp);
+>   		}
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Fixed a bug that was introduced by my GRE-GRO patch
-(bf5a755f5e9186406bbf50f4087100af5bd68e40 net-gre-gro: Add GRE
-support to the GRO stack) that breaks the forwarding path
-because various GSO related fields were not set. The bug will
-cause on the egress path either the GSO code to fail, or a
-GRE-TSO capable (NETIF_F_GSO_GRE) NICs to choke. The following
-fix has been tested for both cases.
+checkpatch warnings on this patch
 
-Signed-off-by: H.K. Jerry Chu <hkchu@google.com>
----
- net/core/dev.c           | 2 ++
- net/ipv4/af_inet.c       | 3 +++
- net/ipv4/gre_offload.c   | 3 +++
- net/ipv4/tcp_offload.c   | 2 +-
- net/ipv6/tcpv6_offload.c | 2 +-
- 5 files changed, 10 insertions(+), 2 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 6e2a2cd..d603c14 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4089,6 +4089,8 @@ static void napi_reuse_skb(struct napi_struct *napi, struct sk_buff *skb)
- 	skb->vlan_tci = 0;
- 	skb->dev = napi->dev;
- 	skb->skb_iif = 0;
-+	skb->encapsulation = 0;
-+	skb_shinfo(skb)->gso_type = 0;
- 	skb->truesize = SKB_TRUESIZE(skb_end_offset(skb));
- 
- 	napi->skb = skb;
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index d5e6836..d156b3c 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1429,6 +1429,9 @@ static int inet_gro_complete(struct sk_buff *skb, int nhoff)
- 	int proto = iph->protocol;
- 	int err = -ENOSYS;
- 
-+	if (skb->encapsulation)
-+		skb_set_inner_network_header(skb, nhoff);
-+
- 	csum_replace2(&iph->check, iph->tot_len, newlen);
- 	iph->tot_len = newlen;
- 
-diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
-index eb92deb..f0bdd47 100644
---- a/net/ipv4/gre_offload.c
-+++ b/net/ipv4/gre_offload.c
-@@ -263,6 +263,9 @@ static int gre_gro_complete(struct sk_buff *skb, int nhoff)
- 	int err = -ENOENT;
- 	__be16 type;
- 
-+	skb->encapsulation = 1;
-+	skb_shinfo(skb)->gso_type = SKB_GSO_GRE;
-+
- 	type = greh->protocol;
- 	if (greh->flags & GRE_KEY)
- 		grehlen += GRE_HEADER_SECTION;
-diff --git a/net/ipv4/tcp_offload.c b/net/ipv4/tcp_offload.c
-index 4e86c59..55046ec 100644
---- a/net/ipv4/tcp_offload.c
-+++ b/net/ipv4/tcp_offload.c
-@@ -309,7 +309,7 @@ static int tcp4_gro_complete(struct sk_buff *skb, int thoff)
- 
- 	th->check = ~tcp_v4_check(skb->len - thoff, iph->saddr,
- 				  iph->daddr, 0);
--	skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
-+	skb_shinfo(skb)->gso_type |= SKB_GSO_TCPV4;
- 
- 	return tcp_gro_complete(skb);
- }
-diff --git a/net/ipv6/tcpv6_offload.c b/net/ipv6/tcpv6_offload.c
-index 8517d3c..01b0ff9 100644
---- a/net/ipv6/tcpv6_offload.c
-+++ b/net/ipv6/tcpv6_offload.c
-@@ -73,7 +73,7 @@ static int tcp6_gro_complete(struct sk_buff *skb, int thoff)
- 
- 	th->check = ~tcp_v6_check(skb->len - thoff, &iph->saddr,
- 				  &iph->daddr, 0);
--	skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
-+	skb_shinfo(skb)->gso_type |= SKB_GSO_TCPV6;
- 
- 	return tcp_gro_complete(skb);
- }
 -- 
-2.0.0.526.g5318336
+Regards,
+Varka Bhadram
+
