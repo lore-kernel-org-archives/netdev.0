@@ -1,86 +1,68 @@
-From: Jerry Chu <hkchu@google.com>
-Subject: Re: [PATCH net-next] net-gre-gro: Fix a bug that breaks the
- forwarding path
-Date: Mon, 14 Jul 2014 14:30:09 -0700
-Message-ID: <CAPshTCiKnKx_P=JLQcgjS36rWmCtSS43XYNJHeif9Z9yP8C36Q@mail.gmail.com>
-References: <1405262780-20232-1-git-send-email-hkchu@google.com>
-	<CAJZOPZ+wu=6t_AKoKg1KhVJ0=DhczfQ8ekDFKFLEkQv6d=cOfA@mail.gmail.com>
-	<CAPshTCjiw8vFK9Y4APwsX5kWnKDByLuOn+1MJa4C08FOevZKQQ@mail.gmail.com>
-	<CAJZOPZLwiT7LhxDFYdAq=0iU6heSwBQfCvwxXtoAXMqg=eNAmA@mail.gmail.com>
+From: Sitsofe Wheeler <sitsofe@gmail.com>
+Subject: Re: [BISECTED][REGRESSION] Loading Hyper-V network drivers is racy
+ in 3.14+ on Hyper-V 2012 R2
+Date: Mon, 14 Jul 2014 22:30:32 +0100
+Message-ID: <20140714213032.GA23639@sucs.org>
+References: <20140706201800.GA10587@sucs.org>
+ <941b0055b1a94c66b3a608ae67764d11@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+ <20140707181341.GA2646@sucs.org> <20140711055259.GA10317@sucs.org>
+ <52afbe119b1a481aa1c80f909c3a2432@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Tom Herbert <therbert@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Wolfgang Walter <linux@stwm.de>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Or Gerlitz <or.gerlitz@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f53.google.com ([209.85.213.53]:39391 "EHLO
-	mail-yh0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756358AbaGNVaL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 17:30:11 -0400
-Received: by mail-yh0-f53.google.com with SMTP id b6so2118934yha.12
-        for <netdev@vger.kernel.org>; Mon, 14 Jul 2014 14:30:10 -0700 (PDT)
-In-Reply-To: <CAJZOPZLwiT7LhxDFYdAq=0iU6heSwBQfCvwxXtoAXMqg=eNAmA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "David S. Miller" <davem@davemloft.net>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Haiyang Zhang <haiyangz@microsoft.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+In-Reply-To: <52afbe119b1a481aa1c80f909c3a2432@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 14, 2014 at 1:38 PM, Or Gerlitz <or.gerlitz@gmail.com> wrote:
-> On Mon, Jul 14, 2014 at 10:16 PM, Jerry Chu <hkchu@google.com> wrote:
->> On Mon, Jul 14, 2014 at 12:05 PM, Or Gerlitz <or.gerlitz@gmail.com> wrote:
->>> On Sun, Jul 13, 2014 at 5:46 PM, H.K. Jerry Chu <hkchu@google.com> wrote:
->>>> Fixed a bug that was introduced by my GRE-GRO patch
->>>> (bf5a755f5e9186406bbf50f4087100af5bd68e40 net-gre-gro: Add GRE
->>>> support to the GRO stack) that breaks the forwarding path
->>>> because various GSO related fields were not set. The bug will
->>>> cause on the egress path either the GSO code to fail, or a
->>>> GRE-TSO capable (NETIF_F_GSO_GRE) NICs to choke. The following
->>>> fix has been tested for both cases.
->
->>> Anything different in this version vs. the one you posted earlier on
->>> February or this is a plain re-post?
->
->> I simply moved the patch against the latest net-next and resolved some small
->> conflict so yes it's pretty much the same.
->
-> OK, got it.
->
->> Also I don't see the subsequent
->> discussion on skb->encapsulation affects the validity of this patch so
->> i'm resubmitting it. Also the patch has been confirmed to address the problem
->> Wolfgang reported last week. Feel free to test against the configuration (VXLAN?)
->> you had some question about earlier.
->
-> Well, re-reading that thread, we were not very decisive there... my
-> comment of setting the inner network header twice in inet_gro_complete
-> doesn't apply only to vxlan but to other tunneling protocols.
+On Fri, Jul 11, 2014 at 03:25:11PM +0000, Haiyang Zhang wrote:
+> 
+> > -----Original Message-----
+> > From: Sitsofe Wheeler [mailto:sitsofe@gmail.com]
+> > Sent: Friday, July 11, 2014 1:53 AM
+> > To: Haiyang Zhang
+> > Cc: KY Srinivasan; David S. Miller; devel@linuxdriverproject.org; linux-
+> > kernel@vger.kernel.org; netdev@vger.kernel.org
+> > Subject: Re: [BISECTED][REGRESSION] Loading Hyper-V network drivers is
+> > racy in 3.14+ on Hyper-V 2012 R2
+> 
+> > Oops that should have been
+> > https://bugzilla.kernel.org/attachment.cgi?id=142351 (either way it's
+> > information linked off
+> > https://bugzilla.kernel.org/show_bug.cgi?id=78771 ).
+> 
+> Thanks for the dmesg. By looking at it, seems the netvsc driver was
+> loaded properly, and 2 NICs are up, one NIC is down (probably not set
+> to connected in HyperV manager?). Or, this dmesg wasn't the one when
+> bug happens?
 
-Understood, but my reply about it applying to the inner most hdr in the end
-is not limited to vxlan either.
+This was a dmesg where the bug did happen and your first guess is right
+- there are 3 NICs but only the first two are connected and the last is
+set to "Not connected" in Hyper-V Manager.
 
-> Also, if
-> we really need (why do we? or explained it on the Feb thread) to set
-> skb->encapsulation for the sake of TX in a protocol (GRE) gro
-> complete, looks a bit fishy to me...
+> Since you found the commit b679ef73edc is related to this problem,
+> could you do a simple test:
+>   Reduce the receive buffer size back to 2MB, like below, then re-test
+>   it, see if the problem goes away?
+> 	drivers/net/hyperv/hyperv_net.h
+> 	#define NETVSC_RECEIVE_BUFFER_SIZE		(1024*1024*2)	/* 2MB */
 
-Why does it look fishy? When h/w support sLRO on tunneled pkts
-driver will set that bit. So it seems very reasonable for the GRO stack
-that supports tunneled pkts to set that bit too.
+After doing this I was able to reach over 900 reboots where the network
+connected properly.
 
-> but saying this I think brings us
-> back to that incomplete discussion [1]  sounds as this needs some
-> plumbering... Still, this way or another I understand a regression was
-> introduced here and should be fixed.
-
-Yep. I thought we've made reasonable progress on the skb->encapsualtion
-even though we can't close all the questions/issues (but we have a real
-bug that needs to be fixed here).
-
-Jerry
-
->
-> Or.
->
-> [1] http://marc.info/?t=139353642700003&r=1&w=2
+-- 
+Sitsofe | http://sucs.org/~sits/
