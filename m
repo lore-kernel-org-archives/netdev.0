@@ -1,86 +1,83 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: IPSEC: tunnel breakage with out-of-order IPv4 fragments
-Date: Mon, 14 Jul 2014 11:33:45 +0200
-Message-ID: <20140714093345.GC6633@secunet.com>
-References: <CAGugRbVWyTM2J0Fyw1Cq1byqfjZBy_EFLSShqVdzxYZmmUWK_g@mail.gmail.com>
- <20140711110035.GB6633@secunet.com>
- <CAGugRbWPOyWLrdiTqtScWi2JTKeyEEjOLRvDUqx20SG7uXifLw@mail.gmail.com>
+From: "p.kosyh" <p.kosyh@gmail.com>
+Subject: napi and softirq sticking (stuck) solution
+Date: Mon, 14 Jul 2014 13:57:39 +0400
+Message-ID: <53C3A993.4050007@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <netdev@vger.kernel.org>
-To: Karl Heiss <kheiss@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:56663 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751718AbaGNJdy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Jul 2014 05:33:54 -0400
-Content-Disposition: inline
-In-Reply-To: <CAGugRbWPOyWLrdiTqtScWi2JTKeyEEjOLRvDUqx20SG7uXifLw@mail.gmail.com>
+Received: from mail-lb0-f179.google.com ([209.85.217.179]:36534 "EHLO
+	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753624AbaGNJtD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 05:49:03 -0400
+Received: by mail-lb0-f179.google.com with SMTP id v6so249986lbi.24
+        for <netdev@vger.kernel.org>; Mon, 14 Jul 2014 02:49:01 -0700 (PDT)
+Received: from [192.168.33.99] ([83.220.32.68])
+        by mx.google.com with ESMTPSA id n1sm15132587lbs.0.2014.07.14.02.48.59
+        for <netdev@vger.kernel.org>
+        (version=TLSv1 cipher=ECDHE-RSA-RC4-SHA bits=128/128);
+        Mon, 14 Jul 2014 02:49:00 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 11, 2014 at 08:51:14AM -0400, Karl Heiss wrote:
-> On Fri, Jul 11, 2014 at 7:00 AM, Steffen Klassert
-> <steffen.klassert@secunet.com> wrote:
-> 
-> >
-> > If this happens just with fragmented packets, I'd guess there is a
-> > problem when packets get fragmented after IPsec and reassembled
-> > before IPsec processing.
-> >
-> 
-> If I am reading the tcpdump correctly, the issue is that the packets
-> are getting fragmented after IPsec processing.
-> 
->     10.240.34.75.35689 > linux.local.60000: sctp (1) [COOKIE ECHO]
-> 08:23:05.821858 IP (tos 0x2,ECT(0), ttl 64, id 0, offset 0, flags
-> [DF], proto ESP (50), length 104)
->     linux.local > 10.240.34.75: ESP(spi=0x0d34ea75,seq=0x44be), length 84
-> 08:23:06.823989 IP (tos 0x2,ECT(0), ttl 60, id 0, offset 0, flags [+],
-> proto ESP (50), length 1500)
->     10.240.34.75 > linux.local: ESP(spi=0xedc4a797,seq=0x89b5), length 1480
-> 08:23:06.824001 IP (tos 0x2,ECT(0), ttl 60, id 0, offset 1480, flags
-> [none], proto ESP (50), length 32)
->     10.240.34.75 > linux.local: esp
-> 08:23:06.824030 IP (tos 0x2,ECT(0), ttl 60, id 0, offset 0, flags [+],
-> proto ESP (50), length 1500)
->     10.240.34.75 > linux.local: ESP(spi=0xedc4a797,seq=0x89b6), length 1480
-> 08:23:06.824035 IP (tos 0x2,ECT(0), ttl 60, id 0, offset 1480, flags
-> [none], proto ESP (50), length 32)
->     10.240.34.75 > linux.local: esp
-> 08:23:06.824057 IP (tos 0x2,ECT(0), ttl 60, id 0, offset 0, flags [+],
-> proto ESP (50), length 1500)
->     10.240.34.75 > linux.local: ESP(spi=0xedc4a797,seq=0x89b7), length 1480
-> 08:23:06.824060 IP (tos 0x2,ECT(0), ttl 60, id 0, offset 1480, flags
-> [none], proto ESP (50), length 32)
+Hello!
 
-Your tcpdump looks interesting. Is it possible that all your
-fragmented packets have the id field set to 'id 0'? This should
-be only the case if the DF flag is set on that packet, but this
-is apparently not the case here. If all the fragmented packets
-have id 0, it is not possible to determine the correct fragment
-chain. If only one fragment gets lost, all further packets might
-be reassembled wrong.
+There is one problem (well known?) we have with napi and softirq 
+sticking while irq balancing.
+We are solved this problem so may be someone will find this information 
+useful.
 
-When looking at the code, is seems that sctp sets the DF flag
-on packets as the default. The IPsec encapsulation code copies
-the DF bit from the inner header and sets 'id 0' in this case.
-A first guess would be that someone removes the DF flag after
-the IPsec encapsulation.
+For example, we have some multi-queue ethernet devices. Each tx/rx-queue 
+uses own irq.
+Lets assume that at start we have not optimal irq affinity and some 
+queues irq are
+binded to the same CPU.
 
-Is the DF flag set on your inner sctp packets?
+Then we have a heavy load traffic. So, some irqs are on (for example) 
+CPU#1. And we have
+100% softirq on that CPU#1. Ethernet driver is working in napi mode, 
+because there are always
+a lot of packets in queues to poll.
 
-> >
-> > Do you have some odd MTU/PMTU value on this route? If so, you might
-> > get post IPsec fragmented packets without that commit.
-> >
-> 
-> The MTU for this path is 1500 all the way through.
-> 
-> Yes, this commit most likely fixes the post IPsec fragmentation, as
-> SCTP was not previously accounting for the IPsec headers when sizing
-> chunks.  However, if the traffic worked in this case without
-> reordering, wouldn't we hope it could handle the reordered case, even
-> with the post IPsec fragmentation?
+Here, we want to make affinity better!
 
-Sure, I just wanted to know whether I look into the right direction :)
+irq affinity in our situation is managed in realtime by irq balancer. 
+There are no many balancers.
+We found, that irqbalance and irqd sometimes do fuzzy logic, so, we have 
+developed own
+balancer that works well. Here it is: http://birq.libcode.org
+
+But we can reproduce problem without balancer, just echo affinity in 
+smp_affinity proc entries under
+heavy load.
+
+Anyway, under heavy load, after changing smp_affinity we stays with 100% 
+softirq at CPU#1, just
+because we are still in polling mode (irq disabled) and napi object is 
+always scheduled on same CPU#1.
+
+So, under heavy traffic, the irq ballancing is not works at all.
+
+To solve this problem we just break napi mode sometimes in network driver.
+For example, e1000e/netdev.c
+
+In e1000e_poll function:
+=============
+         if (time_is_before_jiffies(adapter->napi_stamp + 
+usecs_to_jiffies(netdev_napi_limit)))
+                 work_done = 0;
+...
+         /* If weight not fully consumed, exit the polling mode */
+                 if (work_done < weight) {
+=============
+
+So, every 1 sec (for example) we are breaking napi mode, and softirq 
+will move on another CPU (according smp_affinity).
+
+The bad thing is that we have to patch every network driver. But without 
+this we can not use Linux as good router.
+
+So, i hope, this text will be useful.
+
+Thank you.
