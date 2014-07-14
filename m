@@ -1,45 +1,63 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH 4/4] udp: Move udp_tunnel_segment into udp_offload.c
-Date: Mon, 14 Jul 2014 13:14:45 -0700
-Message-ID: <CA+mtBx-j81E_WZsSN51Hn-k9G6FmC-kVLbxgg0hEtXSpMtLKrw@mail.gmail.com>
-References: <alpine.DEB.2.02.1407131940460.24734@tomh.mtv.corp.google.com>
-	<1405329093.10255.0.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Himangi Saraogi <himangi774-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH] Bluetooth: cmtp: Remove unnecessary null test
+Date: Tue, 15 Jul 2014 02:04:13 +0530
+Message-ID: <20140714203412.GA16532@himangi-Dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f171.google.com ([209.85.223.171]:43261 "EHLO
-	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756879AbaGNUOq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 16:14:46 -0400
-Received: by mail-ie0-f171.google.com with SMTP id at1so3737633iec.16
-        for <netdev@vger.kernel.org>; Mon, 14 Jul 2014 13:14:46 -0700 (PDT)
-In-Reply-To: <1405329093.10255.0.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: julia.lawall-L2FTfq7BK8M@public.gmane.org
+To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+	Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
+	Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 14, 2014 at 2:11 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Sun, 2014-07-13 at 19:49 -0700, Tom Herbert wrote:
->> Signed-off-by: Tom Herbert <therbert@google.com>
->> ---
->
->> diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
->> index 546d2d4..4807544 100644
->> --- a/net/ipv4/udp_offload.c
->> +++ b/net/ipv4/udp_offload.c
->> @@ -47,6 +47,82 @@ static int udp4_ufo_send_check(struct sk_buff *skb)
->>       return 0;
->>  }
->>
->> +struct sk_buff *skb_udp_tunnel_segment(struct sk_buff *skb,
->> +                                    netdev_features_t features)
->> +{
->
->
-> Hmm. Looks like skb_udp_tunnel_segment() should be static then ?
->
-It's also called from net/ipv6/udp_offload.c
+This patch removes the null test on ctrl. ctrl is initialized at the
+beginning of the function to &session->ctrl. Since session is
+dereferenced prior to the null test, session must be a valid pointer,
+and &session->ctrl cannot be null.
 
->
+The following Coccinelle script is used for detecting the change:
+
+@r@
+expression e,f;
+identifier g,y;
+statement S1,S2;
+@@
+
+*e = &f->g
+<+...
+ f->y
+ ...+>
+*if (e != NULL || ...)
+ S1 else S2
+
+Signed-off-by: Himangi Saraogi <himangi774-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Acked-by: Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org>
+---
+ net/bluetooth/cmtp/capi.c | 6 ------
+ 1 file changed, 6 deletions(-)
+
+diff --git a/net/bluetooth/cmtp/capi.c b/net/bluetooth/cmtp/capi.c
+index cd75e4d..1ca8a87 100644
+--- a/net/bluetooth/cmtp/capi.c
++++ b/net/bluetooth/cmtp/capi.c
+@@ -362,12 +362,6 @@ void cmtp_recv_capimsg(struct cmtp_session *session, struct sk_buff *skb)
+ 		CAPIMSG_SETCONTROL(skb->data, contr);
+ 	}
+ 
+-	if (!ctrl) {
+-		BT_ERR("Can't find controller %d for message", session->num);
+-		kfree_skb(skb);
+-		return;
+-	}
+-
+ 	capi_ctr_handle_message(ctrl, appl, skb);
+ }
+ 
+-- 
+1.9.1
