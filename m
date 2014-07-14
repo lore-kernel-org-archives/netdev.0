@@ -1,75 +1,58 @@
-From: varkabhadram@gmail.com
-Subject: [PATCH net-next v3 1/6] ethernet: amd: move amd111e_remove_one after probe
-Date: Mon, 14 Jul 2014 14:09:04 +0530
-Message-ID: <1405327149-6554-2-git-send-email-varkabhadram@gmail.com>
-References: <1405327149-6554-1-git-send-email-varkabhadram@gmail.com>
-Cc: Thomas.Lendacky@amd.com, geert+renesas@linux-m68k.org,
-	ebiederm@xmission.com, macro@linux-mips.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net,
-	Varka Bhadram <varkab@cdac.in>
-To: netdev@vger.kernel.org
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 1/2 net-next] vxlan: Be liberal on receive and only
+ require the I bit to be set
+Date: Mon, 14 Jul 2014 08:46:51 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D17271981@AcuExch.aculab.com>
+References: <cover.1405097440.git.tgraf@suug.ch>
+	<cc7b11d065475a303d4a12a34acfded4e830c313.1405097440.git.tgraf@suug.ch>
+ <20140711124126.262c2876@samsung-9>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"therbert@google.com" <therbert@google.com>,
+	"nicolas.dichtel@6wind.com" <nicolas.dichtel@6wind.com>,
+	"pshelar@nicira.com" <pshelar@nicira.com>,
+	"xiyou.wangcong@gmail.com" <xiyou.wangcong@gmail.com>,
+	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
+	"dborkman@redhat.com" <dborkman@redhat.com>,
+	"Pritesh Kothari (pritkoth)" <pritkoth@cisco.com>,
+	Madhu Challa <challa@noironetworks.com>
+To: 'Stephen Hemminger' <stephen@networkplumber.org>,
+	Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:44764 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752915AbaGNIlE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 04:41:04 -0400
-In-Reply-To: <1405327149-6554-1-git-send-email-varkabhadram@gmail.com>
+Received: from mx0.aculab.com ([213.249.233.131]:42527 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751479AbaGNIrl convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 04:47:41 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 06588-09 for <netdev@vger.kernel.org>;
+ Mon, 14 Jul 2014 09:47:32 +0100 (BST)
+In-Reply-To: <20140711124126.262c2876@samsung-9>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Varka Bhadram <varkab@cdac.in>
+From: Stephen Hemminger
+> On Fri, 11 Jul 2014 18:59:49 +0200
+> Thomas Graf <tgraf@suug.ch> wrote:
+> 
+> > @@ -1617,7 +1646,9 @@ static int vxlan6_xmit_skb(struct vxlan_sock *vs,
+> >  	}
+> >
+> >  	vxh = (struct vxlanhdr *) __skb_push(skb, sizeof(*vxh));
+> > -	vxh->vx_flags = htonl(VXLAN_FLAGS);
+> > +	vxlan_flags(vxh) = VXLAN_FLAG_VNI;
+> > +	vxh->vx_reserved1 = 0;
+> > +	vxh->vx_reserved2 = 0;
+> >  	vxh->vx_vni = vni;
+> >
+> 
+> Okay, but initializing bitfields generates crappy code.
+> Can we just alias and do one assignment.
 
-This patch moves the remove functionalities after the probe
-so that we can see the registered and released resources properly.
-Every driver follows the same concept.
+If you write to all the bitfields gcc ought to manage to do a single write.
+If it doesn't then all the bitfields should be ripped out :-)
 
-Signed-off-by: Varka Bhadram <varkab@cdac.in>
----
- drivers/net/ethernet/amd/amd8111e.c |   25 +++++++++++++------------
- 1 file changed, 13 insertions(+), 12 deletions(-)
-
-diff --git a/drivers/net/ethernet/amd/amd8111e.c b/drivers/net/ethernet/amd/amd8111e.c
-index 068dc7c..ddd09e8 100644
---- a/drivers/net/ethernet/amd/amd8111e.c
-+++ b/drivers/net/ethernet/amd/amd8111e.c
-@@ -1701,18 +1701,6 @@ static int amd8111e_resume(struct pci_dev *pci_dev)
- 	return 0;
- }
- 
--
--static void amd8111e_remove_one(struct pci_dev *pdev)
--{
--	struct net_device *dev = pci_get_drvdata(pdev);
--	if (dev) {
--		unregister_netdev(dev);
--		iounmap(((struct amd8111e_priv *)netdev_priv(dev))->mmio);
--		free_netdev(dev);
--		pci_release_regions(pdev);
--		pci_disable_device(pdev);
--	}
--}
- static void amd8111e_config_ipg(struct net_device* dev)
- {
- 	struct amd8111e_priv *lp = netdev_priv(dev);
-@@ -1970,6 +1958,19 @@ err_disable_pdev:
- 
- }
- 
-+static void amd8111e_remove_one(struct pci_dev *pdev)
-+{
-+	struct net_device *dev = pci_get_drvdata(pdev);
-+
-+	if (dev) {
-+		unregister_netdev(dev);
-+		iounmap(((struct amd8111e_priv *)netdev_priv(dev))->mmio);
-+		free_netdev(dev);
-+		pci_release_regions(pdev);
-+		pci_disable_device(pdev);
-+	}
-+}
-+
- static struct pci_driver amd8111e_driver = {
- 	.name   	= MODULE_NAME,
- 	.id_table	= amd8111e_pci_tbl,
--- 
-1.7.9.5
+	David
