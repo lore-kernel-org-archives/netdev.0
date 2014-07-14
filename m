@@ -1,31 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] mlx4: mark napi id for gro_skb
-Date: Mon, 14 Jul 2014 16:14:35 -0700 (PDT)
-Message-ID: <20140714.161435.909932787419949578.davem@davemloft.net>
-References: <1405309364-32258-1-git-send-email-jasowang@redhat.com>
+Subject: Re: [PATCH net v2 1/1] net: ppp: don't call sk_chk_filter twice
+Date: Mon, 14 Jul 2014 16:15:23 -0700 (PDT)
+Message-ID: <20140714.161523.399591287185710608.davem@davemloft.net>
+References: <53C37226.2020106@kristov.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: amirv@mellanox.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: jasowang@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1405309364-32258-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-ppp@vger.kernel.org,
+	paulus@samba.org, isdn@linux-pingi.de
+To: develop@kristov.de
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <53C37226.2020106@kristov.de>
+Sender: linux-ppp-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Mon, 14 Jul 2014 11:42:44 +0800
+From: Christoph Schulz <develop@kristov.de>
+Date: Mon, 14 Jul 2014 08:01:10 +0200
 
-> Napi id was not marked for gro_skb, this will lead rx busy loop won't
-> work correctly since they stack never try to call low latency receive
-> method because of a zero socket napi id. Fix this by marking napi id
-> for gro_skb.
+> From: Christoph Schulz <develop@kristov.de>
 > 
-> The transaction rate of 1 byte netperf tcp_rr gets about 50% increased
-> (from 20531.68 to 30610.88).
+> Commit 568f194e8bd16c353ad50f9ab95d98b20578a39d ("net: ppp: use
+> sk_unattached_filter api") causes sk_chk_filter() to be called twice when
+> setting a PPP pass or active filter. This applies to both the generic PPP
+> subsystem implemented by drivers/net/ppp/ppp_generic.c and the ISDN PPP
+> subsystem implemented by drivers/isdn/i4l/isdn_ppp.c. The first call is from
+> within get_filter(). The second one is through the call chain
 > 
-> Cc: Amir Vadai <amirv@mellanox.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>   ppp_ioctl() or isdn_ppp_ioctl()
+>   --> sk_unattached_filter_create()
+>       --> __sk_prepare_filter()
+>           --> sk_chk_filter()
+> 
+> The first call from within get_filter() should be deleted as get_filter() is
+> called just before calling sk_unattached_filter_create() later on, which
+> eventually calls sk_chk_filter() anyway.
+> 
+> For 3.15.x, this proposed change is a bugfix rather than a pure optimization as
+> in that branch, sk_chk_filter() may replace filter codes by other codes which
+> are not recognized when executing sk_chk_filter() a second time. So with
+> 3.15.x, if sk_chk_filter() is called twice, the second invocation may yield
+> EINVAL (this depends on the filter codes found in the filter to be set, but
+> because the replacement is done for frequently used codes, this is almost
+> always the case). The net effect is that setting pass and/or active PPP filters
+> does not work anymore, since sk_unattached_filter_create() always returns
+> EINVAL due to the second call to sk_chk_filter(), regardless whether the filter
+> was originally sane or not.
+> 
+> Signed-off-by: Christoph Schulz <develop@kristov.de>
 
-Applied, thanks.
+Applied, thank you.
