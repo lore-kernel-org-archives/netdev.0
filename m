@@ -1,58 +1,50 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH] Bluetooth: cmtp: Remove unnecessary null test
-Date: Mon, 14 Jul 2014 23:02:26 +0200
-Message-ID: <E909042B-4973-4601-92AD-07D948BBDA83@holtmann.org>
-References: <20140714203412.GA16532@himangi-Dell>
-Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
-Content-Type: text/plain; charset=us-ascii
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 1/6] net: sctp: fix information leaks in
+ ulpevent layer
+Date: Mon, 14 Jul 2014 14:19:45 -0700 (PDT)
+Message-ID: <20140714.141945.278096782065573850.davem@davemloft.net>
+References: <1405189840-31171-1-git-send-email-dborkman@redhat.com>
+	<1405189840-31171-2-git-send-email-dborkman@redhat.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Gustavo F. Padovan" <gustavo@padovan.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Bluetooth mailing list
-	<linux-bluetooth@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-kernel@vger.kernel.org, julia.lawall@lip6.fr
-To: Himangi Saraogi <himangi774@gmail.com>
+Cc: geirola@gmail.com, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: dborkman@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:33764 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756215AbaGNVCT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 17:02:19 -0400
-In-Reply-To: <20140714203412.GA16532@himangi-Dell>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35868 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756896AbaGNVTq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 17:19:46 -0400
+In-Reply-To: <1405189840-31171-2-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Himangi,
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Sat, 12 Jul 2014 20:30:35 +0200
 
-> This patch removes the null test on ctrl. ctrl is initialized at the
-> beginning of the function to &session->ctrl. Since session is
-> dereferenced prior to the null test, session must be a valid pointer,
-> and &session->ctrl cannot be null.
+> While working on some other SCTP code, I noticed that some
+> structures shared with user space are leaking uninitialized
+> stack or heap buffer. In particular, struct sctp_sndrcvinfo
+> has a 2 bytes hole between .sinfo_flags and .sinfo_ppid that
+> remains unfilled by us in sctp_ulpevent_read_sndrcvinfo() when
+> putting this into cmsg. But also struct sctp_remote_error
+> contains a 2 bytes hole that we don't fill but place into a skb
+> through skb_copy_expand() via sctp_ulpevent_make_remote_error().
+ ...
+> Fix this by setting both to 0 before filling them out. We also
+> have other structures shared between user and kernel space in
+> SCTP that contains holes (e.g. struct sctp_paddrthlds), but we
+> copy that buffer over from user space first and thus don't need
+> to care about it in that cases.
 > 
-> The following Coccinelle script is used for detecting the change:
+> While at it, we can also remove lengthy comments copied from
+> the draft, instead, we update the comment with the correct RFC
+> number where one can look it up.
 > 
-> @r@
-> expression e,f;
-> identifier g,y;
-> statement S1,S2;
-> @@
-> 
-> *e = &f->g
-> <+...
-> f->y
-> ...+>
-> *if (e != NULL || ...)
-> S1 else S2
-> 
-> Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
-> Acked-by: Julia Lawall <julia.lawall@lip6.fr>
-> ---
-> net/bluetooth/cmtp/capi.c | 6 ------
-> 1 file changed, 6 deletions(-)
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 
-patch has been applied to bluetooth-next tree.
+Applied to 'net' and queued up for -stable.
 
-Regards
-
-Marcel
+I'll get to the rest of this series after I next merge net into
+net-next, thanks.
