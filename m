@@ -1,39 +1,31 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: wireless-next 2014-07-11
-Date: Sun, 13 Jul 2014 22:50:09 -0700 (PDT)
-Message-ID: <20140713.225009.396398583917314813.davem@davemloft.net>
-References: <20140711200650.GL25478@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] dns_resolver: Null-terminate the right string
+Date: Sun, 13 Jul 2014 22:53:51 -0700 (PDT)
+Message-ID: <20140713.225351.231848412675803840.davem@davemloft.net>
+References: <1405110685.26540.95.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140711200650.GL25478-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, manuel.schoelling@gmx.de
+To: ben@decadent.org.uk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58094 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752856AbaGNFxw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 01:53:52 -0400
+In-Reply-To: <1405110685.26540.95.camel@deadeye.wl.decadent.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Date: Fri, 11 Jul 2014 16:06:50 -0400
+From: Ben Hutchings <ben@decadent.org.uk>
+Date: Fri, 11 Jul 2014 21:31:25 +0100
 
-> Please pull this batch of updates intended for the 3.17 stream...
+> *_result[len] is parsed as *(_result[len]) which is not at all what we
+> want to touch here.
 > 
-> This is primarily a Bluetooth pull.  Gustavo says:
-> 
-> "A lot of patches to 3.17. The bulk of changes here are for LE support.
-> The 6loWPAN over Bluetooth now has it own module, we also have support for
-> background auto-connection and passive scanning, Bluetooth device address
-> provisioning, support for reading Bluetooth clock values and LE connection
-> parameters plus many many fixes."
-> 
-> The balance is just a pull of the wireless.git tree, to avoid some
-> pending merge problems.
-> 
-> Please let me know if there are problems!
+> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 
-Pulled, thanks John.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Please add an appropriate Fixes: tag (for 84a7c0b1) or commit
+reference in the commit message proper.
+
+Thanks.
