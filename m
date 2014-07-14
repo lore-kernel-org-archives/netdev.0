@@ -1,94 +1,132 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: napi and softirq sticking (stuck) solution
-Date: Mon, 14 Jul 2014 12:24:48 +0200
-Message-ID: <1405333488.10255.8.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <53C3A993.4050007@gmail.com>
+From: Andy Green <andy.green@linaro.org>
+Subject: Re: [PATCH 6/8] net: ethernet driver: Fujitsu OGMA
+Date: Mon, 14 Jul 2014 18:36:11 +0800
+Message-ID: <CAAfg0W5hFJwjEO+U55CfUq6B82DCmsDzbzL1-ND1R7VZCjad3Q@mail.gmail.com>
+References: <1405233107-4762-1-git-send-email-mollie.wu@linaro.org>
+	<20140714090628.GA7668@distanz.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: "p.kosyh" <p.kosyh@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Mollie Wu <mollie.wu@linaro.org>,
+	linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
+	netdev <netdev@vger.kernel.org>,
+	Patch Tracking <patches@linaro.org>,
+	Jaswinder Singh <jaswinder.singh@linaro.org>,
+	linux@arm.linux.org.uk, arnd@arndb.de,
+	Olof Johansson <olof@lixom.net>, mark.rutland@arm.com,
+	robh+dt@kernel.org, pawel.moll@arm.com,
+	David Miller <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Tetsuya Takinishi <t.takinishi@jp.fujitsu.com>
+To: Tobias Klauser <tklauser@distanz.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f41.google.com ([74.125.82.41]:63510 "EHLO
-	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751718AbaGNKYz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 06:24:55 -0400
-Received: by mail-wg0-f41.google.com with SMTP id z12so3827227wgg.12
-        for <netdev@vger.kernel.org>; Mon, 14 Jul 2014 03:24:52 -0700 (PDT)
-In-Reply-To: <53C3A993.4050007@gmail.com>
+Received: from mail-qc0-f180.google.com ([209.85.216.180]:38247 "EHLO
+	mail-qc0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754370AbaGNKgM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 06:36:12 -0400
+Received: by mail-qc0-f180.google.com with SMTP id l6so3019942qcy.39
+        for <netdev@vger.kernel.org>; Mon, 14 Jul 2014 03:36:12 -0700 (PDT)
+In-Reply-To: <20140714090628.GA7668@distanz.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-07-14 at 13:57 +0400, p.kosyh wrote:
-> Hello!
-> 
-> There is one problem (well known?) we have with napi and softirq 
-> sticking while irq balancing.
-> We are solved this problem so may be someone will find this information 
-> useful.
-> 
-> For example, we have some multi-queue ethernet devices. Each tx/rx-queue 
-> uses own irq.
-> Lets assume that at start we have not optimal irq affinity and some 
-> queues irq are
-> binded to the same CPU.
-> 
-> Then we have a heavy load traffic. So, some irqs are on (for example) 
-> CPU#1. And we have
-> 100% softirq on that CPU#1. Ethernet driver is working in napi mode, 
-> because there are always
-> a lot of packets in queues to poll.
-> 
-> Here, we want to make affinity better!
-> 
-> irq affinity in our situation is managed in realtime by irq balancer. 
-> There are no many balancers.
-> We found, that irqbalance and irqd sometimes do fuzzy logic, so, we have 
-> developed own
-> balancer that works well. Here it is: http://birq.libcode.org
-> 
-> But we can reproduce problem without balancer, just echo affinity in 
-> smp_affinity proc entries under
-> heavy load.
-> 
-> Anyway, under heavy load, after changing smp_affinity we stays with 100% 
-> softirq at CPU#1, just
-> because we are still in polling mode (irq disabled) and napi object is 
-> always scheduled on same CPU#1.
-> 
-> So, under heavy traffic, the irq ballancing is not works at all.
-> 
-> To solve this problem we just break napi mode sometimes in network driver.
-> For example, e1000e/netdev.c
-> 
-> In e1000e_poll function:
-> =============
->          if (time_is_before_jiffies(adapter->napi_stamp + 
-> usecs_to_jiffies(netdev_napi_limit)))
->                  work_done = 0;
-> ...
->          /* If weight not fully consumed, exit the polling mode */
->                  if (work_done < weight) {
-> =============
-> 
-> So, every 1 sec (for example) we are breaking napi mode, and softirq 
-> will move on another CPU (according smp_affinity).
-> 
-> The bad thing is that we have to patch every network driver. But without 
-> this we can not use Linux as good router.
-> 
-> So, i hope, this text will be useful.
-> 
-> Thank you.
+On 14 July 2014 17:06, Tobias Klauser <tklauser@distanz.ch> wrote:
+> On 2014-07-13 at 08:31:47 +0200, Mollie Wu <mollie.wu@linaro.org> wrote:
+>> This driver adds support for "ogma", a Fujitsu Semiconductor Ltd IP Gigabit
+>> Ethernet + PHY IP used in a variety of their ARM-based ASICs.
+>>
+>> This is being sent as part of a series including the arch support that uses it,
+>> Fujitsu mb86s7x.
+>>
+>> This driver was originally written by guys inside Fujitsu as an abstracted
+>> "you can build this for Windows as well" type code, I've removed all that,
+>> modernized various things, added runtime_pm, and ported it to work with
+>> Device Tree, using only the bindings already mentioned in
+>>
+>> ./Documentation/devicetree/bindings/net/ethernet.txt
+>>
+>> Bindings documentation is added by this patch.
+>>
+>> Signed-off-by: Andy Green <andy.green@linaro.org>
+>> Signed-off-by: Tetsuya Takinishi <t.takinishi@jp.fujitsu.com>
+>> Signed-off-by: Mollie Wu <mollie.wu@linaro.org>
+>> ---
+>>  .../devicetree/bindings/net/fujitsu-ogma.txt       |  43 ++
+>>  drivers/net/ethernet/fujitsu/Kconfig               |  12 +
+>>  drivers/net/ethernet/fujitsu/Makefile              |   1 +
+>>  drivers/net/ethernet/fujitsu/ogma/Makefile         |   6 +
+>>  drivers/net/ethernet/fujitsu/ogma/ogma.h           | 380 +++++++++++++
+>>  .../ethernet/fujitsu/ogma/ogma_desc_ring_access.c  | 627 +++++++++++++++++++++
+>>  drivers/net/ethernet/fujitsu/ogma/ogma_ethtool.c   |  95 ++++
+>>  .../net/ethernet/fujitsu/ogma/ogma_gmac_access.c   | 295 ++++++++++
+>>  drivers/net/ethernet/fujitsu/ogma/ogma_netdev.c    | 592 +++++++++++++++++++
+>>  drivers/net/ethernet/fujitsu/ogma/ogma_platform.c  | 333 +++++++++++
+>>  10 files changed, 2384 insertions(+)
+>>  create mode 100644 Documentation/devicetree/bindings/net/fujitsu-ogma.txt
+>>  create mode 100644 drivers/net/ethernet/fujitsu/ogma/Makefile
+>>  create mode 100644 drivers/net/ethernet/fujitsu/ogma/ogma.h
+>>  create mode 100644 drivers/net/ethernet/fujitsu/ogma/ogma_desc_ring_access.c
+>>  create mode 100644 drivers/net/ethernet/fujitsu/ogma/ogma_ethtool.c
+>>  create mode 100644 drivers/net/ethernet/fujitsu/ogma/ogma_gmac_access.c
+>>  create mode 100644 drivers/net/ethernet/fujitsu/ogma/ogma_netdev.c
+>>  create mode 100644 drivers/net/ethernet/fujitsu/ogma/ogma_platform.c
+>
+> [...]
+>
+>> diff --git a/drivers/net/ethernet/fujitsu/ogma/ogma_platform.c b/drivers/net/ethernet/fujitsu/ogma/ogma_platform.c
+>> new file mode 100644
+>> index 0000000..09071da
+>> --- /dev/null
+>> +++ b/drivers/net/ethernet/fujitsu/ogma/ogma_platform.c
+>
+> [...]
+>
+>> +#ifdef CONFIG_PM
+>> +static const struct dev_pm_ops ogma_pm_ops = {
+>> +     SET_SYSTEM_SLEEP_PM_OPS(ogma_pm_suspend, ogma_pm_resume)
+>> +     SET_RUNTIME_PM_OPS(ogma_runtime_suspend, ogma_runtime_resume, NULL)
+>> +};
+>> +#endif
+>
+> #ifdef CONFIG_PM can be omitted here since
+> SET_{SYSTEM_SLEEP,RUNTIME}_PM_OPS will just evaluate empty if CONFIG_PM
+> is not defined.
+>
+>> +
+>> +static const struct of_device_id ogma_dt_ids[] = {
+>> +     {.compatible = "fujitsu,ogma"},
+>> +     { /* sentinel */ }
+>> +};
+>> +
+>> +MODULE_DEVICE_TABLE(of, ogma_dt_ids);
+>> +
+>> +static struct platform_driver ogma_driver = {
+>> +     .probe = ogma_probe,
+>> +     .remove = ogma_remove,
+>> +     .driver = {
+>> +             .name = "ogma",
+>> +             .of_match_table = ogma_dt_ids,
+>> +#ifdef CONFIG_PM
+>> +             .pm = &ogma_pm_ops,
+>> +#endif
+>
+> With the above #ifdef CONFIG_PM removed, ogma_pm_ops will be all NULL if
+> CONFIG_PM is not set. Thus, the #ifdef can be removed as well.
 
-This is a known problem and at least one driver is already trying to
-address it.
+OK will fix, thanks.
 
-Idea is to check that current cpu in napi_poll is still part of irq
-affinity for the IRQ. This check can be done only when we consumed all
-the budget, so that it is not done under moderate load.
+-Andy
 
-Take a look at drivers/net/ethernet/mellanox/mlx4 in recent tree for
-example ( commit 35f6f45368632f21bd27559c44dbb1cab51d8947 "net/mlx4_en:
-Don't use irq_affinity_notifier to track changes in IRQ affinity
-map") ...
+>> +             },
+>> +};
+>> +
+>> +module_platform_driver(ogma_driver);
+>> +
+>> +MODULE_AUTHOR("Fujitsu Semiconductor Ltd");
+>> +MODULE_DESCRIPTION("OGMA Ethernet driver");
+>> +MODULE_LICENSE("GPL");
+>> +
+>> +MODULE_ALIAS("platform:ogma");
+>> --
+>> 1.8.1.2
