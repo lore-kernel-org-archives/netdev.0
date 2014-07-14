@@ -1,167 +1,196 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH 3/4] l2tp: Call udp_sock_create
-Date: Sun, 13 Jul 2014 19:49:48 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1407131942060.24981@tomh.mtv.corp.google.com>
+Subject: [PATCH 4/4] udp: Move udp_tunnel_segment into udp_offload.c
+Date: Sun, 13 Jul 2014 19:49:56 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1407131940460.24734@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f202.google.com ([209.85.214.202]:54583 "EHLO
-	mail-ob0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752588AbaGNCtu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jul 2014 22:49:50 -0400
-Received: by mail-ob0-f202.google.com with SMTP id wp18so676792obc.3
-        for <netdev@vger.kernel.org>; Sun, 13 Jul 2014 19:49:49 -0700 (PDT)
+Received: from mail-qa0-f73.google.com ([209.85.216.73]:34540 "EHLO
+	mail-qa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752526AbaGNC6B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jul 2014 22:58:01 -0400
+Received: by mail-qa0-f73.google.com with SMTP id s7so241230qap.4
+        for <netdev@vger.kernel.org>; Sun, 13 Jul 2014 19:58:00 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In l2tp driver call common function udp_sock_create to create the
-listener UDP port.
-
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- net/l2tp/Kconfig     |  1 +
- net/l2tp/l2tp_core.c | 86 +++++++++++++++++-----------------------------------
- 2 files changed, 28 insertions(+), 59 deletions(-)
+ net/ipv4/udp.c         | 76 --------------------------------------------------
+ net/ipv4/udp_offload.c | 76 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 76 insertions(+), 76 deletions(-)
 
-diff --git a/net/l2tp/Kconfig b/net/l2tp/Kconfig
-index adb9843..378c73b 100644
---- a/net/l2tp/Kconfig
-+++ b/net/l2tp/Kconfig
-@@ -6,6 +6,7 @@ menuconfig L2TP
- 	tristate "Layer Two Tunneling Protocol (L2TP)"
- 	depends on (IPV6 || IPV6=n)
- 	depends on INET
-+	select NET_UDP_TUNNEL
- 	---help---
- 	  Layer Two Tunneling Protocol
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index ac30e10..f6dfe52 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -2522,79 +2522,3 @@ void __init udp_init(void)
+ 	sysctl_udp_rmem_min = SK_MEM_QUANTUM;
+ 	sysctl_udp_wmem_min = SK_MEM_QUANTUM;
+ }
+-
+-struct sk_buff *skb_udp_tunnel_segment(struct sk_buff *skb,
+-				       netdev_features_t features)
+-{
+-	struct sk_buff *segs = ERR_PTR(-EINVAL);
+-	u16 mac_offset = skb->mac_header;
+-	int mac_len = skb->mac_len;
+-	int tnl_hlen = skb_inner_mac_header(skb) - skb_transport_header(skb);
+-	__be16 protocol = skb->protocol;
+-	netdev_features_t enc_features;
+-	int udp_offset, outer_hlen;
+-	unsigned int oldlen;
+-	bool need_csum;
+-
+-	oldlen = (u16)~skb->len;
+-
+-	if (unlikely(!pskb_may_pull(skb, tnl_hlen)))
+-		goto out;
+-
+-	skb->encapsulation = 0;
+-	__skb_pull(skb, tnl_hlen);
+-	skb_reset_mac_header(skb);
+-	skb_set_network_header(skb, skb_inner_network_offset(skb));
+-	skb->mac_len = skb_inner_network_offset(skb);
+-	skb->protocol = htons(ETH_P_TEB);
+-
+-	need_csum = !!(skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL_CSUM);
+-	if (need_csum)
+-		skb->encap_hdr_csum = 1;
+-
+-	/* segment inner packet. */
+-	enc_features = skb->dev->hw_enc_features & netif_skb_features(skb);
+-	segs = skb_mac_gso_segment(skb, enc_features);
+-	if (!segs || IS_ERR(segs)) {
+-		skb_gso_error_unwind(skb, protocol, tnl_hlen, mac_offset,
+-				     mac_len);
+-		goto out;
+-	}
+-
+-	outer_hlen = skb_tnl_header_len(skb);
+-	udp_offset = outer_hlen - tnl_hlen;
+-	skb = segs;
+-	do {
+-		struct udphdr *uh;
+-		int len;
+-
+-		skb_reset_inner_headers(skb);
+-		skb->encapsulation = 1;
+-
+-		skb->mac_len = mac_len;
+-
+-		skb_push(skb, outer_hlen);
+-		skb_reset_mac_header(skb);
+-		skb_set_network_header(skb, mac_len);
+-		skb_set_transport_header(skb, udp_offset);
+-		len = skb->len - udp_offset;
+-		uh = udp_hdr(skb);
+-		uh->len = htons(len);
+-
+-		if (need_csum) {
+-			__be32 delta = htonl(oldlen + len);
+-
+-			uh->check = ~csum_fold((__force __wsum)
+-					       ((__force u32)uh->check +
+-						(__force u32)delta));
+-			uh->check = gso_make_checksum(skb, ~uh->check);
+-
+-			if (uh->check == 0)
+-				uh->check = CSUM_MANGLED_0;
+-		}
+-
+-		skb->protocol = protocol;
+-	} while ((skb = skb->next));
+-out:
+-	return segs;
+-}
+diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
+index 546d2d4..4807544 100644
+--- a/net/ipv4/udp_offload.c
++++ b/net/ipv4/udp_offload.c
+@@ -47,6 +47,82 @@ static int udp4_ufo_send_check(struct sk_buff *skb)
+ 	return 0;
+ }
  
-diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
-index bea2590..1109d3b 100644
---- a/net/l2tp/l2tp_core.c
-+++ b/net/l2tp/l2tp_core.c
-@@ -52,6 +52,7 @@
- #include <net/dst.h>
- #include <net/ip.h>
- #include <net/udp.h>
-+#include <net/udp_tunnel.h>
- #include <net/inet_common.h>
- #include <net/xfrm.h>
- #include <net/protocol.h>
-@@ -1358,81 +1359,46 @@ static int l2tp_tunnel_sock_create(struct net *net,
++struct sk_buff *skb_udp_tunnel_segment(struct sk_buff *skb,
++				       netdev_features_t features)
++{
++	struct sk_buff *segs = ERR_PTR(-EINVAL);
++	u16 mac_offset = skb->mac_header;
++	int mac_len = skb->mac_len;
++	int tnl_hlen = skb_inner_mac_header(skb) - skb_transport_header(skb);
++	__be16 protocol = skb->protocol;
++	netdev_features_t enc_features;
++	int udp_offset, outer_hlen;
++	unsigned int oldlen;
++	bool need_csum;
++
++	oldlen = (u16)~skb->len;
++
++	if (unlikely(!pskb_may_pull(skb, tnl_hlen)))
++		goto out;
++
++	skb->encapsulation = 0;
++	__skb_pull(skb, tnl_hlen);
++	skb_reset_mac_header(skb);
++	skb_set_network_header(skb, skb_inner_network_offset(skb));
++	skb->mac_len = skb_inner_network_offset(skb);
++	skb->protocol = htons(ETH_P_TEB);
++
++	need_csum = !!(skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL_CSUM);
++	if (need_csum)
++		skb->encap_hdr_csum = 1;
++
++	/* segment inner packet. */
++	enc_features = skb->dev->hw_enc_features & netif_skb_features(skb);
++	segs = skb_mac_gso_segment(skb, enc_features);
++	if (!segs || IS_ERR(segs)) {
++		skb_gso_error_unwind(skb, protocol, tnl_hlen, mac_offset,
++				     mac_len);
++		goto out;
++	}
++
++	outer_hlen = skb_tnl_header_len(skb);
++	udp_offset = outer_hlen - tnl_hlen;
++	skb = segs;
++	do {
++		struct udphdr *uh;
++		int len;
++
++		skb_reset_inner_headers(skb);
++		skb->encapsulation = 1;
++
++		skb->mac_len = mac_len;
++
++		skb_push(skb, outer_hlen);
++		skb_reset_mac_header(skb);
++		skb_set_network_header(skb, mac_len);
++		skb_set_transport_header(skb, udp_offset);
++		len = skb->len - udp_offset;
++		uh = udp_hdr(skb);
++		uh->len = htons(len);
++
++		if (need_csum) {
++			__be32 delta = htonl(oldlen + len);
++
++			uh->check = ~csum_fold((__force __wsum)
++					       ((__force u32)uh->check +
++						(__force u32)delta));
++			uh->check = gso_make_checksum(skb, ~uh->check);
++
++			if (uh->check == 0)
++				uh->check = CSUM_MANGLED_0;
++		}
++
++		skb->protocol = protocol;
++	} while ((skb = skb->next));
++out:
++	return segs;
++}
++
+ static struct sk_buff *udp4_ufo_fragment(struct sk_buff *skb,
+ 					 netdev_features_t features)
  {
- 	int err = -EINVAL;
- 	struct socket *sock = NULL;
--	struct sockaddr_in udp_addr = {0};
--	struct sockaddr_l2tpip ip_addr = {0};
--#if IS_ENABLED(CONFIG_IPV6)
--	struct sockaddr_in6 udp6_addr = {0};
--	struct sockaddr_l2tpip6 ip6_addr = {0};
--#endif
-+	struct udp_port_cfg udp_conf;
- 
- 	switch (cfg->encap) {
- 	case L2TP_ENCAPTYPE_UDP:
-+		memset(&udp_conf, 0, sizeof(udp_conf));
-+
- #if IS_ENABLED(CONFIG_IPV6)
- 		if (cfg->local_ip6 && cfg->peer_ip6) {
--			err = sock_create_kern(AF_INET6, SOCK_DGRAM, 0, &sock);
--			if (err < 0)
--				goto out;
--
--			sk_change_net(sock->sk, net);
--
--			udp6_addr.sin6_family = AF_INET6;
--			memcpy(&udp6_addr.sin6_addr, cfg->local_ip6,
--			       sizeof(udp6_addr.sin6_addr));
--			udp6_addr.sin6_port = htons(cfg->local_udp_port);
--			err = kernel_bind(sock, (struct sockaddr *) &udp6_addr,
--					  sizeof(udp6_addr));
--			if (err < 0)
--				goto out;
--
--			udp6_addr.sin6_family = AF_INET6;
--			memcpy(&udp6_addr.sin6_addr, cfg->peer_ip6,
--			       sizeof(udp6_addr.sin6_addr));
--			udp6_addr.sin6_port = htons(cfg->peer_udp_port);
--			err = kernel_connect(sock,
--					     (struct sockaddr *) &udp6_addr,
--					     sizeof(udp6_addr), 0);
--			if (err < 0)
--				goto out;
--
--			if (cfg->udp6_zero_tx_checksums)
--				udp_set_no_check6_tx(sock->sk, true);
--			if (cfg->udp6_zero_rx_checksums)
--				udp_set_no_check6_rx(sock->sk, true);
-+			udp_conf.family = AF_INET6;
-+			memcpy(&udp_conf.local_ip6, cfg->local_ip6,
-+			       sizeof(udp_conf.local_ip6));
-+			memcpy(&udp_conf.peer_ip6, cfg->peer_ip6,
-+			       sizeof(udp_conf.peer_ip6));
-+			udp_conf.use_udp6_tx_checksums =
-+			    cfg->udp6_zero_tx_checksums;
-+			udp_conf.use_udp6_rx_checksums =
-+			    cfg->udp6_zero_rx_checksums;
- 		} else
- #endif
- 		{
--			err = sock_create_kern(AF_INET, SOCK_DGRAM, 0, &sock);
--			if (err < 0)
--				goto out;
--
--			sk_change_net(sock->sk, net);
--
--			udp_addr.sin_family = AF_INET;
--			udp_addr.sin_addr = cfg->local_ip;
--			udp_addr.sin_port = htons(cfg->local_udp_port);
--			err = kernel_bind(sock, (struct sockaddr *) &udp_addr,
--					  sizeof(udp_addr));
--			if (err < 0)
--				goto out;
--
--			udp_addr.sin_family = AF_INET;
--			udp_addr.sin_addr = cfg->peer_ip;
--			udp_addr.sin_port = htons(cfg->peer_udp_port);
--			err = kernel_connect(sock,
--					     (struct sockaddr *) &udp_addr,
--					     sizeof(udp_addr), 0);
--			if (err < 0)
--				goto out;
-+			udp_conf.family = AF_INET;
-+			udp_conf.local_ip = cfg->local_ip;
-+			udp_conf.peer_ip = cfg->peer_ip;
-+			udp_conf.use_udp_checksums = cfg->use_udp_checksums;
- 		}
- 
--		if (!cfg->use_udp_checksums)
--			sock->sk->sk_no_check_tx = 1;
-+		udp_conf.local_udp_port = htons(cfg->local_udp_port);
-+		udp_conf.peer_udp_port = htons(cfg->peer_udp_port);
-+
-+		err = udp_sock_create(net, &udp_conf, &sock);
-+		if (err < 0)
-+			goto out;
- 
- 		break;
- 
- 	case L2TP_ENCAPTYPE_IP:
- #if IS_ENABLED(CONFIG_IPV6)
- 		if (cfg->local_ip6 && cfg->peer_ip6) {
-+			struct sockaddr_l2tpip6 ip6_addr = {0};
-+
- 			err = sock_create_kern(AF_INET6, SOCK_DGRAM,
- 					  IPPROTO_L2TP, &sock);
- 			if (err < 0)
-@@ -1461,6 +1427,8 @@ static int l2tp_tunnel_sock_create(struct net *net,
- 		} else
- #endif
- 		{
-+			struct sockaddr_l2tpip ip_addr = {0};
-+
- 			err = sock_create_kern(AF_INET, SOCK_DGRAM,
- 					  IPPROTO_L2TP, &sock);
- 			if (err < 0)
 -- 
 2.0.0.526.g5318336
