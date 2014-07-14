@@ -1,50 +1,86 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 1/6] net: sctp: fix information leaks in
- ulpevent layer
-Date: Mon, 14 Jul 2014 14:19:45 -0700 (PDT)
-Message-ID: <20140714.141945.278096782065573850.davem@davemloft.net>
-References: <1405189840-31171-1-git-send-email-dborkman@redhat.com>
-	<1405189840-31171-2-git-send-email-dborkman@redhat.com>
+From: Jerry Chu <hkchu@google.com>
+Subject: Re: [PATCH net-next] net-gre-gro: Fix a bug that breaks the
+ forwarding path
+Date: Mon, 14 Jul 2014 14:30:09 -0700
+Message-ID: <CAPshTCiKnKx_P=JLQcgjS36rWmCtSS43XYNJHeif9Z9yP8C36Q@mail.gmail.com>
+References: <1405262780-20232-1-git-send-email-hkchu@google.com>
+	<CAJZOPZ+wu=6t_AKoKg1KhVJ0=DhczfQ8ekDFKFLEkQv6d=cOfA@mail.gmail.com>
+	<CAPshTCjiw8vFK9Y4APwsX5kWnKDByLuOn+1MJa4C08FOevZKQQ@mail.gmail.com>
+	<CAJZOPZLwiT7LhxDFYdAq=0iU6heSwBQfCvwxXtoAXMqg=eNAmA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: geirola@gmail.com, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: dborkman@redhat.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Tom Herbert <therbert@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Wolfgang Walter <linux@stwm.de>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Or Gerlitz <or.gerlitz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35868 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756896AbaGNVTq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 17:19:46 -0400
-In-Reply-To: <1405189840-31171-2-git-send-email-dborkman@redhat.com>
+Received: from mail-yh0-f53.google.com ([209.85.213.53]:39391 "EHLO
+	mail-yh0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756358AbaGNVaL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 17:30:11 -0400
+Received: by mail-yh0-f53.google.com with SMTP id b6so2118934yha.12
+        for <netdev@vger.kernel.org>; Mon, 14 Jul 2014 14:30:10 -0700 (PDT)
+In-Reply-To: <CAJZOPZLwiT7LhxDFYdAq=0iU6heSwBQfCvwxXtoAXMqg=eNAmA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Sat, 12 Jul 2014 20:30:35 +0200
+On Mon, Jul 14, 2014 at 1:38 PM, Or Gerlitz <or.gerlitz@gmail.com> wrote:
+> On Mon, Jul 14, 2014 at 10:16 PM, Jerry Chu <hkchu@google.com> wrote:
+>> On Mon, Jul 14, 2014 at 12:05 PM, Or Gerlitz <or.gerlitz@gmail.com> wrote:
+>>> On Sun, Jul 13, 2014 at 5:46 PM, H.K. Jerry Chu <hkchu@google.com> wrote:
+>>>> Fixed a bug that was introduced by my GRE-GRO patch
+>>>> (bf5a755f5e9186406bbf50f4087100af5bd68e40 net-gre-gro: Add GRE
+>>>> support to the GRO stack) that breaks the forwarding path
+>>>> because various GSO related fields were not set. The bug will
+>>>> cause on the egress path either the GSO code to fail, or a
+>>>> GRE-TSO capable (NETIF_F_GSO_GRE) NICs to choke. The following
+>>>> fix has been tested for both cases.
+>
+>>> Anything different in this version vs. the one you posted earlier on
+>>> February or this is a plain re-post?
+>
+>> I simply moved the patch against the latest net-next and resolved some small
+>> conflict so yes it's pretty much the same.
+>
+> OK, got it.
+>
+>> Also I don't see the subsequent
+>> discussion on skb->encapsulation affects the validity of this patch so
+>> i'm resubmitting it. Also the patch has been confirmed to address the problem
+>> Wolfgang reported last week. Feel free to test against the configuration (VXLAN?)
+>> you had some question about earlier.
+>
+> Well, re-reading that thread, we were not very decisive there... my
+> comment of setting the inner network header twice in inet_gro_complete
+> doesn't apply only to vxlan but to other tunneling protocols.
 
-> While working on some other SCTP code, I noticed that some
-> structures shared with user space are leaking uninitialized
-> stack or heap buffer. In particular, struct sctp_sndrcvinfo
-> has a 2 bytes hole between .sinfo_flags and .sinfo_ppid that
-> remains unfilled by us in sctp_ulpevent_read_sndrcvinfo() when
-> putting this into cmsg. But also struct sctp_remote_error
-> contains a 2 bytes hole that we don't fill but place into a skb
-> through skb_copy_expand() via sctp_ulpevent_make_remote_error().
- ...
-> Fix this by setting both to 0 before filling them out. We also
-> have other structures shared between user and kernel space in
-> SCTP that contains holes (e.g. struct sctp_paddrthlds), but we
-> copy that buffer over from user space first and thus don't need
-> to care about it in that cases.
-> 
-> While at it, we can also remove lengthy comments copied from
-> the draft, instead, we update the comment with the correct RFC
-> number where one can look it up.
-> 
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Understood, but my reply about it applying to the inner most hdr in the end
+is not limited to vxlan either.
 
-Applied to 'net' and queued up for -stable.
+> Also, if
+> we really need (why do we? or explained it on the Feb thread) to set
+> skb->encapsulation for the sake of TX in a protocol (GRE) gro
+> complete, looks a bit fishy to me...
 
-I'll get to the rest of this series after I next merge net into
-net-next, thanks.
+Why does it look fishy? When h/w support sLRO on tunneled pkts
+driver will set that bit. So it seems very reasonable for the GRO stack
+that supports tunneled pkts to set that bit too.
+
+> but saying this I think brings us
+> back to that incomplete discussion [1]  sounds as this needs some
+> plumbering... Still, this way or another I understand a regression was
+> introduced here and should be fixed.
+
+Yep. I thought we've made reasonable progress on the skb->encapsualtion
+even though we can't close all the questions/issues (but we have a real
+bug that needs to be fixed here).
+
+Jerry
+
+>
+> Or.
+>
+> [1] http://marc.info/?t=139353642700003&r=1&w=2
