@@ -1,7 +1,7 @@
 From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCHv2 net-next 2/4] cxgb4/iw_cxgb4: use firmware ord/ird resource limits
-Date: Mon, 14 Jul 2014 21:34:52 +0530
-Message-ID: <1405353894-17495-3-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCHv2 net-next 3/4] cxgb4/iw_cxgb4: display TPTE on errors
+Date: Mon, 14 Jul 2014 21:34:53 +0530
+Message-ID: <1405353894-17495-4-git-send-email-hariprasad@chelsio.com>
 References: <1405353894-17495-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org,
 	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
@@ -13,476 +13,255 @@ In-Reply-To: <1405353894-17495-1-git-send-email-hariprasad-ut6Up61K2wZBDgjK7y7TU
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Advertise a larger max read queue depth for qps, and gather the resource limits
-from fw and use them to avoid exhaustinq all the resources.
-
-Design:
-
-cxgb4:
-
-Obtain the max_ordird_qp and max_ird_adapter device params from FW
-at init time and pass them up to the ULDs when they attach.  If these
-parameters are not available, due to older firmware, then hard-code
-the values based on the known values for older firmware.
-iw_cxgb4:
-
-Fix the c4iw_query_device() to report these correct values based on
-adapter parameters.  ibv_query_device() will always return:
-
-max_qp_rd_atom = max_qp_init_rd_atom = min(module_max, max_ordird_qp)
-max_res_rd_atom = max_ird_adapter
-
-Bump up the per qp max module option to 32, allowing it to be increased
-by the user up to the device max of max_ordird_qp.  32 seems to be
-sufficient to maximize throughput for streaming read benchmarks.
-
-Fail connection setup if the negotiated IRD exhausts the available
-adapter ird resources.  So the driver will track the amount of ird
-resource in use and not send an RI_WR/INIT to FW that would reduce the
-available ird resources below zero.
+With ingress WRITE or READ RESPONSE errors, HW provides the offending
+stag from the packet.  This patch adds logic to log the parsed TPTE
+in this case. cxgb4 now exports a function to read a TPTE entry
+from adapter memory.
 
 Signed-off-by: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
 Signed-off-by: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
 ---
- drivers/infiniband/hw/cxgb4/cm.c                |   80 ++++++++++++++++-------
- drivers/infiniband/hw/cxgb4/device.c            |    2 +
- drivers/infiniband/hw/cxgb4/iw_cxgb4.h          |    9 ++-
- drivers/infiniband/hw/cxgb4/provider.c          |    6 +-
- drivers/infiniband/hw/cxgb4/qp.c                |   54 +++++++++++++--
- drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |    3 +
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   18 +++++
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |    2 +
- drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   |    2 +
- 9 files changed, 142 insertions(+), 34 deletions(-)
+ drivers/infiniband/hw/cxgb4/device.c            |   28 ++++++++--
+ drivers/infiniband/hw/cxgb4/ev.c                |   55 +++++++++++++++++--
+ drivers/infiniband/hw/cxgb4/t4.h                |    4 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   66 +++++++++++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |    1 +
+ 5 files changed, 143 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
-index d62a0f9..df5bd3d 100644
---- a/drivers/infiniband/hw/cxgb4/cm.c
-+++ b/drivers/infiniband/hw/cxgb4/cm.c
-@@ -79,9 +79,10 @@ static int dack_mode = 1;
- module_param(dack_mode, int, 0644);
- MODULE_PARM_DESC(dack_mode, "Delayed ack mode (default=1)");
- 
--int c4iw_max_read_depth = 8;
-+uint c4iw_max_read_depth = 32;
- module_param(c4iw_max_read_depth, int, 0644);
--MODULE_PARM_DESC(c4iw_max_read_depth, "Per-connection max ORD/IRD (default=8)");
-+MODULE_PARM_DESC(c4iw_max_read_depth,
-+		 "Per-connection max ORD/IRD (default=32)");
- 
- static int enable_tcp_timestamps;
- module_param(enable_tcp_timestamps, int, 0644);
-@@ -813,6 +814,8 @@ static void send_mpa_req(struct c4iw_ep *ep, struct sk_buff *skb,
- 	if (mpa_rev_to_use == 2) {
- 		mpa->private_data_size = htons(ntohs(mpa->private_data_size) +
- 					       sizeof (struct mpa_v2_conn_params));
-+		PDBG("%s initiator ird %u ord %u\n", __func__, ep->ird,
-+		     ep->ord);
- 		mpa_v2_params.ird = htons((u16)ep->ird);
- 		mpa_v2_params.ord = htons((u16)ep->ord);
- 
-@@ -1182,8 +1185,8 @@ static int connect_request_upcall(struct c4iw_ep *ep)
- 			sizeof(struct mpa_v2_conn_params);
- 	} else {
- 		/* this means MPA_v1 is used. Send max supported */
--		event.ord = c4iw_max_read_depth;
--		event.ird = c4iw_max_read_depth;
-+		event.ord = cur_max_read_depth(ep->com.dev);
-+		event.ird = cur_max_read_depth(ep->com.dev);
- 		event.private_data_len = ep->plen;
- 		event.private_data = ep->mpa_pkt + sizeof(struct mpa_message);
- 	}
-@@ -1247,6 +1250,8 @@ static int update_rx_credits(struct c4iw_ep *ep, u32 credits)
- 	return credits;
- }
- 
-+#define RELAXED_IRD_NEGOTIATION 1
-+
- static int process_mpa_reply(struct c4iw_ep *ep, struct sk_buff *skb)
- {
- 	struct mpa_message *mpa;
-@@ -1358,17 +1363,33 @@ static int process_mpa_reply(struct c4iw_ep *ep, struct sk_buff *skb)
- 				MPA_V2_IRD_ORD_MASK;
- 			resp_ord = ntohs(mpa_v2_params->ord) &
- 				MPA_V2_IRD_ORD_MASK;
-+			PDBG("%s responder ird %u ord %u ep ird %u ord %u\n",
-+			     __func__, resp_ird, resp_ord, ep->ird, ep->ord);
- 
- 			/*
- 			 * This is a double-check. Ideally, below checks are
- 			 * not required since ird/ord stuff has been taken
- 			 * care of in c4iw_accept_cr
- 			 */
--			if ((ep->ird < resp_ord) || (ep->ord > resp_ird)) {
-+			if (ep->ird < resp_ord) {
-+				if (RELAXED_IRD_NEGOTIATION && resp_ord <=
-+				    ep->com.dev->rdev.lldi.max_ordird_qp)
-+					ep->ird = resp_ord;
-+				else
-+					insuff_ird = 1;
-+			} else if (ep->ird > resp_ord) {
-+				ep->ird = resp_ord;
-+			}
-+			if (ep->ord > resp_ird) {
-+				if (RELAXED_IRD_NEGOTIATION)
-+					ep->ord = resp_ird;
-+				else
-+					insuff_ird = 1;
-+			}
-+			if (insuff_ird) {
- 				err = -ENOMEM;
- 				ep->ird = resp_ord;
- 				ep->ord = resp_ird;
--				insuff_ird = 1;
- 			}
- 
- 			if (ntohs(mpa_v2_params->ird) &
-@@ -1571,6 +1592,8 @@ static void process_mpa_request(struct c4iw_ep *ep, struct sk_buff *skb)
- 				MPA_V2_IRD_ORD_MASK;
- 			ep->ord = ntohs(mpa_v2_params->ord) &
- 				MPA_V2_IRD_ORD_MASK;
-+			PDBG("%s initiator ird %u ord %u\n", __func__, ep->ird,
-+			     ep->ord);
- 			if (ntohs(mpa_v2_params->ird) & MPA_V2_PEER2PEER_MODEL)
- 				if (peer2peer) {
- 					if (ntohs(mpa_v2_params->ord) &
-@@ -2724,8 +2747,8 @@ int c4iw_accept_cr(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param)
- 	BUG_ON(!qp);
- 
- 	set_bit(ULP_ACCEPT, &ep->com.history);
--	if ((conn_param->ord > c4iw_max_read_depth) ||
--	    (conn_param->ird > c4iw_max_read_depth)) {
-+	if ((conn_param->ord > cur_max_read_depth(ep->com.dev)) ||
-+	    (conn_param->ird > cur_max_read_depth(ep->com.dev))) {
- 		abort_connection(ep, NULL, GFP_KERNEL);
- 		err = -EINVAL;
- 		goto err;
-@@ -2733,31 +2756,41 @@ int c4iw_accept_cr(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param)
- 
- 	if (ep->mpa_attr.version == 2 && ep->mpa_attr.enhanced_rdma_conn) {
- 		if (conn_param->ord > ep->ird) {
--			ep->ird = conn_param->ird;
--			ep->ord = conn_param->ord;
--			send_mpa_reject(ep, conn_param->private_data,
--					conn_param->private_data_len);
--			abort_connection(ep, NULL, GFP_KERNEL);
--			err = -ENOMEM;
--			goto err;
-+			if (RELAXED_IRD_NEGOTIATION) {
-+				ep->ord = ep->ird;
-+			} else {
-+				ep->ird = conn_param->ird;
-+				ep->ord = conn_param->ord;
-+				send_mpa_reject(ep, conn_param->private_data,
-+						conn_param->private_data_len);
-+				abort_connection(ep, NULL, GFP_KERNEL);
-+				err = -ENOMEM;
-+				goto err;
-+			}
- 		}
--		if (conn_param->ird > ep->ord) {
--			if (!ep->ord)
--				conn_param->ird = 1;
--			else {
-+		if (conn_param->ird < ep->ord) {
-+			if (RELAXED_IRD_NEGOTIATION &&
-+			    ep->ord <= h->rdev.lldi.max_ordird_qp) {
-+				conn_param->ird = ep->ord;
-+			} else {
- 				abort_connection(ep, NULL, GFP_KERNEL);
- 				err = -ENOMEM;
- 				goto err;
- 			}
- 		}
--
- 	}
- 	ep->ird = conn_param->ird;
- 	ep->ord = conn_param->ord;
- 
--	if (ep->mpa_attr.version != 2)
-+	if (ep->mpa_attr.version == 1) {
- 		if (peer2peer && ep->ird == 0)
- 			ep->ird = 1;
-+	} else {
-+		if (peer2peer &&
-+		    (ep->mpa_attr.p2p_type != FW_RI_INIT_P2PTYPE_DISABLED) &&
-+		    (p2p_type == FW_RI_INIT_P2PTYPE_READ_REQ) && ep->ord == 0)
-+			ep->ird = 1;
-+	}
- 
- 	PDBG("%s %d ird %d ord %d\n", __func__, __LINE__, ep->ird, ep->ord);
- 
-@@ -2796,6 +2829,7 @@ int c4iw_accept_cr(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param)
- 	return 0;
- err1:
- 	ep->com.cm_id = NULL;
-+	abort_connection(ep, NULL, GFP_KERNEL);
- 	cm_id->rem_ref(cm_id);
- err:
- 	mutex_unlock(&ep->com.mutex);
-@@ -2879,8 +2913,8 @@ int c4iw_connect(struct iw_cm_id *cm_id, struct iw_cm_conn_param *conn_param)
- 	int iptype;
- 	int iwpm_err = 0;
- 
--	if ((conn_param->ord > c4iw_max_read_depth) ||
--	    (conn_param->ird > c4iw_max_read_depth)) {
-+	if ((conn_param->ord > cur_max_read_depth(dev)) ||
-+	    (conn_param->ird > cur_max_read_depth(dev))) {
- 		err = -EINVAL;
- 		goto out;
- 	}
 diff --git a/drivers/infiniband/hw/cxgb4/device.c b/drivers/infiniband/hw/cxgb4/device.c
-index 88291ef..e76358e 100644
+index e76358e..8386678 100644
 --- a/drivers/infiniband/hw/cxgb4/device.c
 +++ b/drivers/infiniband/hw/cxgb4/device.c
-@@ -348,6 +348,7 @@ static int stats_show(struct seq_file *seq, void *v)
- 		   dev->rdev.stats.act_ofld_conn_fails);
- 	seq_printf(seq, "PAS_OFLD_CONN_FAILS: %10llu\n",
- 		   dev->rdev.stats.pas_ofld_conn_fails);
-+	seq_printf(seq, "AVAILABLE IRD: %10u\n", dev->avail_ird);
+@@ -241,12 +241,32 @@ static int dump_stag(int id, void *p, void *data)
+ 	struct c4iw_debugfs_data *stagd = data;
+ 	int space;
+ 	int cc;
++	struct fw_ri_tpte tpte;
++	int ret;
+ 
+ 	space = stagd->bufsize - stagd->pos - 1;
+ 	if (space == 0)
+ 		return 1;
+ 
+-	cc = snprintf(stagd->buf + stagd->pos, space, "0x%x\n", id<<8);
++	ret = cxgb4_read_tpte(stagd->devp->rdev.lldi.ports[0], (u32)id<<8,
++			      (__be32 *)&tpte);
++	if (ret) {
++		dev_err(&stagd->devp->rdev.lldi.pdev->dev,
++			"%s cxgb4_read_tpte err %d\n", __func__, ret);
++		return ret;
++	}
++	cc = snprintf(stagd->buf + stagd->pos, space,
++		      "stag: idx 0x%x valid %d key 0x%x state %d pdid %d "
++		      "perm 0x%x ps %d len 0x%llx va 0x%llx\n",
++		      (u32)id<<8,
++		      G_FW_RI_TPTE_VALID(ntohl(tpte.valid_to_pdid)),
++		      G_FW_RI_TPTE_STAGKEY(ntohl(tpte.valid_to_pdid)),
++		      G_FW_RI_TPTE_STAGSTATE(ntohl(tpte.valid_to_pdid)),
++		      G_FW_RI_TPTE_PDID(ntohl(tpte.valid_to_pdid)),
++		      G_FW_RI_TPTE_PERM(ntohl(tpte.locread_to_qpid)),
++		      G_FW_RI_TPTE_PS(ntohl(tpte.locread_to_qpid)),
++		      ((u64)ntohl(tpte.len_hi) << 32) | ntohl(tpte.len_lo),
++		      ((u64)ntohl(tpte.va_hi) << 32) | ntohl(tpte.va_lo_fbo));
+ 	if (cc < space)
+ 		stagd->pos += cc;
+ 	return 0;
+@@ -259,7 +279,7 @@ static int stag_release(struct inode *inode, struct file *file)
+ 		printk(KERN_INFO "%s null stagd?\n", __func__);
+ 		return 0;
+ 	}
+-	kfree(stagd->buf);
++	vfree(stagd->buf);
+ 	kfree(stagd);
  	return 0;
  }
+@@ -282,8 +302,8 @@ static int stag_open(struct inode *inode, struct file *file)
+ 	idr_for_each(&stagd->devp->mmidr, count_idrs, &count);
+ 	spin_unlock_irq(&stagd->devp->lock);
  
-@@ -839,6 +840,7 @@ static struct c4iw_dev *c4iw_alloc(const struct cxgb4_lld_info *infop)
- 	mutex_init(&devp->rdev.stats.lock);
- 	mutex_init(&devp->db_mutex);
- 	INIT_LIST_HEAD(&devp->db_fc_list);
-+	devp->avail_ird = devp->rdev.lldi.max_ird_adapter;
+-	stagd->bufsize = count * sizeof("0x12345678\n");
+-	stagd->buf = kmalloc(stagd->bufsize, GFP_KERNEL);
++	stagd->bufsize = count * 256;
++	stagd->buf = vmalloc(stagd->bufsize);
+ 	if (!stagd->buf) {
+ 		ret = -ENOMEM;
+ 		goto err1;
+diff --git a/drivers/infiniband/hw/cxgb4/ev.c b/drivers/infiniband/hw/cxgb4/ev.c
+index d61d0a1..fbe6051 100644
+--- a/drivers/infiniband/hw/cxgb4/ev.c
++++ b/drivers/infiniband/hw/cxgb4/ev.c
+@@ -35,6 +35,55 @@
  
- 	if (c4iw_debugfs_root) {
- 		devp->debugfs_root = debugfs_create_dir(
-diff --git a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
-index 9b9754c..75541cb 100644
---- a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
-+++ b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
-@@ -249,6 +249,7 @@ struct c4iw_dev {
- 	struct idr atid_idr;
- 	struct idr stid_idr;
- 	struct list_head db_fc_list;
-+	u32 avail_ird;
- };
+ #include "iw_cxgb4.h"
  
- static inline struct c4iw_dev *to_c4iw_dev(struct ib_device *ibdev)
-@@ -330,6 +331,13 @@ static inline void remove_handle_nolock(struct c4iw_dev *rhp,
- 	_remove_handle(rhp, idr, id, 0);
- }
- 
-+extern uint c4iw_max_read_depth;
-+
-+static inline int cur_max_read_depth(struct c4iw_dev *dev)
++static void print_tpte(struct c4iw_dev *dev, u32 stag)
 +{
-+	return min(dev->rdev.lldi.max_ordird_qp, c4iw_max_read_depth);
-+}
++	int ret;
++	struct fw_ri_tpte tpte;
 +
- struct c4iw_pd {
- 	struct ib_pd ibpd;
- 	u32 pdid;
-@@ -1003,7 +1011,6 @@ void c4iw_ev_dispatch(struct c4iw_dev *dev, struct t4_cqe *err_cqe);
- 
- extern struct cxgb4_client t4c_client;
- extern c4iw_handler_func c4iw_handlers[NUM_CPL_CMDS];
--extern int c4iw_max_read_depth;
- extern int db_fc_threshold;
- extern int db_coalescing_threshold;
- extern int use_dsgl;
-diff --git a/drivers/infiniband/hw/cxgb4/provider.c b/drivers/infiniband/hw/cxgb4/provider.c
-index 1d41b92..67c4a69 100644
---- a/drivers/infiniband/hw/cxgb4/provider.c
-+++ b/drivers/infiniband/hw/cxgb4/provider.c
-@@ -322,8 +322,10 @@ static int c4iw_query_device(struct ib_device *ibdev,
- 	props->max_qp_wr = dev->rdev.hw_queue.t4_max_qp_depth;
- 	props->max_sge = T4_MAX_RECV_SGE;
- 	props->max_sge_rd = 1;
--	props->max_qp_rd_atom = c4iw_max_read_depth;
--	props->max_qp_init_rd_atom = c4iw_max_read_depth;
-+	props->max_res_rd_atom = dev->rdev.lldi.max_ird_adapter;
-+	props->max_qp_rd_atom = min(dev->rdev.lldi.max_ordird_qp,
-+				    c4iw_max_read_depth);
-+	props->max_qp_init_rd_atom = props->max_qp_rd_atom;
- 	props->max_cq = T4_MAX_NUM_CQ;
- 	props->max_cqe = dev->rdev.hw_queue.t4_max_cq_depth;
- 	props->max_mr = c4iw_num_stags(&dev->rdev);
-diff --git a/drivers/infiniband/hw/cxgb4/qp.c b/drivers/infiniband/hw/cxgb4/qp.c
-index 6f74e0e..0de3cf6 100644
---- a/drivers/infiniband/hw/cxgb4/qp.c
-+++ b/drivers/infiniband/hw/cxgb4/qp.c
-@@ -58,6 +58,31 @@ static int max_fr_immd = T4_MAX_FR_IMMD;
- module_param(max_fr_immd, int, 0644);
- MODULE_PARM_DESC(max_fr_immd, "fastreg threshold for using DSGL instead of immedate");
- 
-+static int alloc_ird(struct c4iw_dev *dev, u32 ird)
-+{
-+	int ret = 0;
-+
-+	spin_lock_irq(&dev->lock);
-+	if (ird <= dev->avail_ird)
-+		dev->avail_ird -= ird;
-+	else
-+		ret = -ENOMEM;
-+	spin_unlock_irq(&dev->lock);
-+
-+	if (ret)
-+		dev_warn(&dev->rdev.lldi.pdev->dev,
-+			 "device IRD resources exhausted\n");
-+
-+	return ret;
-+}
-+
-+static void free_ird(struct c4iw_dev *dev, int ird)
-+{
-+	spin_lock_irq(&dev->lock);
-+	dev->avail_ird += ird;
-+	spin_unlock_irq(&dev->lock);
-+}
-+
- static void set_state(struct c4iw_qp *qhp, enum c4iw_qp_state state)
- {
- 	unsigned long flag;
-@@ -1204,12 +1229,20 @@ static int rdma_init(struct c4iw_dev *rhp, struct c4iw_qp *qhp)
- 	int ret;
- 	struct sk_buff *skb;
- 
--	PDBG("%s qhp %p qid 0x%x tid %u\n", __func__, qhp, qhp->wq.sq.qid,
--	     qhp->ep->hwtid);
-+	PDBG("%s qhp %p qid 0x%x tid %u ird %u ord %u\n", __func__, qhp,
-+	     qhp->wq.sq.qid, qhp->ep->hwtid, qhp->ep->ird, qhp->ep->ord);
- 
- 	skb = alloc_skb(sizeof *wqe, GFP_KERNEL);
--	if (!skb)
--		return -ENOMEM;
-+	if (!skb) {
-+		ret = -ENOMEM;
-+		goto out;
-+	}
-+	ret = alloc_ird(rhp, qhp->attr.max_ird);
++	ret = cxgb4_read_tpte(dev->rdev.lldi.ports[0], stag,
++			      (__be32 *)&tpte);
 +	if (ret) {
-+		qhp->attr.max_ird = 0;
-+		kfree_skb(skb);
-+		goto out;
++		dev_err(&dev->rdev.lldi.pdev->dev,
++			"%s cxgb4_read_tpte err %d\n", __func__, ret);
++		return;
 +	}
- 	set_wr_txq(skb, CPL_PRIORITY_DATA, qhp->ep->txq_idx);
- 
- 	wqe = (struct fw_ri_wr *)__skb_put(skb, sizeof(*wqe));
-@@ -1260,10 +1293,14 @@ static int rdma_init(struct c4iw_dev *rhp, struct c4iw_qp *qhp)
- 
- 	ret = c4iw_ofld_send(&rhp->rdev, skb);
- 	if (ret)
--		goto out;
-+		goto err1;
- 
- 	ret = c4iw_wait_for_reply(&rhp->rdev, &qhp->ep->com.wr_wait,
- 				  qhp->ep->hwtid, qhp->wq.sq.qid, __func__);
-+	if (!ret)
-+		goto out;
-+err1:
-+	free_ird(rhp, qhp->attr.max_ird);
- out:
- 	PDBG("%s ret %d\n", __func__, ret);
- 	return ret;
-@@ -1308,7 +1345,7 @@ int c4iw_modify_qp(struct c4iw_dev *rhp, struct c4iw_qp *qhp,
- 			newattr.max_ord = attrs->max_ord;
- 		}
- 		if (mask & C4IW_QP_ATTR_MAX_IRD) {
--			if (attrs->max_ird > c4iw_max_read_depth) {
-+			if (attrs->max_ird > cur_max_read_depth(rhp)) {
- 				ret = -EINVAL;
- 				goto out;
- 			}
-@@ -1531,6 +1568,7 @@ int c4iw_destroy_qp(struct ib_qp *ib_qp)
- 	if (!list_empty(&qhp->db_fc_entry))
- 		list_del_init(&qhp->db_fc_entry);
- 	spin_unlock_irq(&rhp->lock);
-+	free_ird(rhp, qhp->attr.max_ird);
- 
- 	ucontext = ib_qp->uobject ?
- 		   to_c4iw_ucontext(ib_qp->uobject->context) : NULL;
-@@ -1621,8 +1659,8 @@ struct ib_qp *c4iw_create_qp(struct ib_pd *pd, struct ib_qp_init_attr *attrs,
- 	qhp->attr.enable_rdma_read = 1;
- 	qhp->attr.enable_rdma_write = 1;
- 	qhp->attr.enable_bind = 1;
--	qhp->attr.max_ord = 1;
--	qhp->attr.max_ird = 1;
-+	qhp->attr.max_ord = 0;
-+	qhp->attr.max_ird = 0;
- 	qhp->sq_sig_all = attrs->sq_sig_type == IB_SIGNAL_ALL_WR;
- 	spin_lock_init(&qhp->lock);
- 	mutex_init(&qhp->mutex);
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-index f338a7f..4615621 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
-@@ -310,6 +310,9 @@ struct adapter_params {
- 
- 	unsigned int ofldq_wr_cred;
- 	bool ulptx_memwrite_dsgl;          /* use of T5 DSGL allowed */
++	PDBG("stag idx 0x%x valid %d key 0x%x state %d pdid %d "
++	       "perm 0x%x ps %d len 0x%llx va 0x%llx\n",
++	       stag & 0xffffff00,
++	       G_FW_RI_TPTE_VALID(ntohl(tpte.valid_to_pdid)),
++	       G_FW_RI_TPTE_STAGKEY(ntohl(tpte.valid_to_pdid)),
++	       G_FW_RI_TPTE_STAGSTATE(ntohl(tpte.valid_to_pdid)),
++	       G_FW_RI_TPTE_PDID(ntohl(tpte.valid_to_pdid)),
++	       G_FW_RI_TPTE_PERM(ntohl(tpte.locread_to_qpid)),
++	       G_FW_RI_TPTE_PS(ntohl(tpte.locread_to_qpid)),
++	       ((u64)ntohl(tpte.len_hi) << 32) | ntohl(tpte.len_lo),
++	       ((u64)ntohl(tpte.va_hi) << 32) | ntohl(tpte.va_lo_fbo));
++}
 +
-+	unsigned int max_ordird_qp;       /* Max read depth per RDMA QP */
-+	unsigned int max_ird_adapter;     /* Max read depth per adapter */
- };
++static void dump_err_cqe(struct c4iw_dev *dev, struct t4_cqe *err_cqe)
++{
++	__be64 *p = (void *)err_cqe;
++
++	dev_err(&dev->rdev.lldi.pdev->dev,
++		"AE qpid %d opcode %d status 0x%x "
++		"type %d len 0x%x wrid.hi 0x%x wrid.lo 0x%x\n",
++		CQE_QPID(err_cqe), CQE_OPCODE(err_cqe),
++		CQE_STATUS(err_cqe), CQE_TYPE(err_cqe), ntohl(err_cqe->len),
++		CQE_WRID_HI(err_cqe), CQE_WRID_LOW(err_cqe));
++
++	PDBG("%016llx %016llx %016llx %016llx\n",
++	     be64_to_cpu(p[0]), be64_to_cpu(p[1]), be64_to_cpu(p[2]),
++	     be64_to_cpu(p[3]));
++
++	/*
++	 * Ingress WRITE and READ_RESP errors provide
++	 * the offending stag, so parse and log it.
++	 */
++	if (RQ_TYPE(err_cqe) && (CQE_OPCODE(err_cqe) == FW_RI_RDMA_WRITE ||
++				 CQE_OPCODE(err_cqe) == FW_RI_READ_RESP))
++		print_tpte(dev, CQE_WRID_STAG(err_cqe));
++}
++
+ static void post_qp_event(struct c4iw_dev *dev, struct c4iw_cq *chp,
+ 			  struct c4iw_qp *qhp,
+ 			  struct t4_cqe *err_cqe,
+@@ -44,11 +93,7 @@ static void post_qp_event(struct c4iw_dev *dev, struct c4iw_cq *chp,
+ 	struct c4iw_qp_attributes attrs;
+ 	unsigned long flag;
  
- #include "t4fw_api.h"
+-	printk(KERN_ERR MOD "AE qpid 0x%x opcode %d status 0x%x "
+-	       "type %d wrid.hi 0x%x wrid.lo 0x%x\n",
+-	       CQE_QPID(err_cqe), CQE_OPCODE(err_cqe),
+-	       CQE_STATUS(err_cqe), CQE_TYPE(err_cqe),
+-	       CQE_WRID_HI(err_cqe), CQE_WRID_LOW(err_cqe));
++	dump_err_cqe(dev, err_cqe);
+ 
+ 	if (qhp->attr.state == C4IW_QP_STATE_RTS) {
+ 		attrs.next_state = C4IW_QP_STATE_TERMINATE;
+diff --git a/drivers/infiniband/hw/cxgb4/t4.h b/drivers/infiniband/hw/cxgb4/t4.h
+index e64fa8b..dd45186 100644
+--- a/drivers/infiniband/hw/cxgb4/t4.h
++++ b/drivers/infiniband/hw/cxgb4/t4.h
+@@ -236,8 +236,8 @@ struct t4_cqe {
+ #define CQE_WRID_SQ_IDX(x)	((x)->u.scqe.cidx)
+ 
+ /* generic accessor macros */
+-#define CQE_WRID_HI(x)		((x)->u.gen.wrid_hi)
+-#define CQE_WRID_LOW(x)		((x)->u.gen.wrid_low)
++#define CQE_WRID_HI(x)		(be32_to_cpu((x)->u.gen.wrid_hi))
++#define CQE_WRID_LOW(x)		(be32_to_cpu((x)->u.gen.wrid_low))
+ 
+ /* macros for flit 3 of the cqe */
+ #define S_CQE_GENBIT	63
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index a7ce996..767cbba 100644
+index 767cbba..ba7d13d 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -4113,6 +4113,8 @@ static void uld_attach(struct adapter *adap, unsigned int uld)
- 	lli.sge_egrstatuspagesize = adap->sge.stat_len;
- 	lli.sge_pktshift = adap->sge.pktshift;
- 	lli.enable_fw_ofld_conn = adap->flags & FW_OFLD_CONN;
-+	lli.max_ordird_qp = adap->params.max_ordird_qp;
-+	lli.max_ird_adapter = adap->params.max_ird_adapter;
- 	lli.ulptx_memwrite_dsgl = adap->params.ulptx_memwrite_dsgl;
+@@ -3832,6 +3832,72 @@ void cxgb4_enable_db_coalescing(struct net_device *dev)
+ }
+ EXPORT_SYMBOL(cxgb4_enable_db_coalescing);
  
- 	handle = ulds[uld].add(&lli);
-@@ -5877,6 +5879,22 @@ static int adap_init0(struct adapter *adap)
- 		adap->vres.cq.size = val[3] - val[2] + 1;
- 		adap->vres.ocq.start = val[4];
- 		adap->vres.ocq.size = val[5] - val[4] + 1;
++int cxgb4_read_tpte(struct net_device *dev, u32 stag, __be32 *tpte)
++{
++	struct adapter *adap;
++	u32 offset, memtype, memaddr;
++	u32 edc0_size, edc1_size, mc0_size, mc1_size;
++	u32 edc0_end, edc1_end, mc0_end, mc1_end;
++	int ret;
 +
-+		params[0] = FW_PARAM_DEV(MAXORDIRD_QP);
-+		params[1] = FW_PARAM_DEV(MAXIRD_ADAPTER);
-+		ret = t4_query_params(adap, 0, 0, 0, 2, params, val);
-+		if (ret < 0) {
-+			adap->params.max_ordird_qp = 8;
-+			adap->params.max_ird_adapter = 32 * adap->tids.ntids;
-+			ret = 0;
++	adap = netdev2adap(dev);
++
++	offset = ((stag >> 8) * 32) + adap->vres.stag.start;
++
++	/* Figure out where the offset lands in the Memory Type/Address scheme.
++	 * This code assumes that the memory is laid out starting at offset 0
++	 * with no breaks as: EDC0, EDC1, MC0, MC1. All cards have both EDC0
++	 * and EDC1.  Some cards will have neither MC0 nor MC1, most cards have
++	 * MC0, and some have both MC0 and MC1.
++	 */
++	edc0_size = EDRAM_SIZE_GET(t4_read_reg(adap, MA_EDRAM0_BAR)) << 20;
++	edc1_size = EDRAM_SIZE_GET(t4_read_reg(adap, MA_EDRAM1_BAR)) << 20;
++	mc0_size = EXT_MEM_SIZE_GET(t4_read_reg(adap, MA_EXT_MEMORY_BAR)) << 20;
++
++	edc0_end = edc0_size;
++	edc1_end = edc0_end + edc1_size;
++	mc0_end = edc1_end + mc0_size;
++
++	if (offset < edc0_end) {
++		memtype = MEM_EDC0;
++		memaddr = offset;
++	} else if (offset < edc1_end) {
++		memtype = MEM_EDC1;
++		memaddr = offset - edc0_end;
++	} else {
++		if (offset < mc0_end) {
++			memtype = MEM_MC0;
++			memaddr = offset - edc1_end;
++		} else if (is_t4(adap->params.chip)) {
++			/* T4 only has a single memory channel */
++			goto err;
 +		} else {
-+			adap->params.max_ordird_qp = val[0];
-+			adap->params.max_ird_adapter = val[1];
++			mc1_size = EXT_MEM_SIZE_GET(
++					t4_read_reg(adap,
++						    MA_EXT_MEMORY1_BAR)) << 20;
++			mc1_end = mc0_end + mc1_size;
++			if (offset < mc1_end) {
++				memtype = MEM_MC1;
++				memaddr = offset - mc0_end;
++			} else {
++				/* offset beyond the end of any memory */
++				goto err;
++			}
 +		}
-+		dev_info(adap->pdev_dev,
-+			 "max_ordird_qp %d max_ird_adapter %d\n",
-+			 adap->params.max_ordird_qp,
-+			 adap->params.max_ird_adapter);
- 	}
- 	if (caps_cmd.iscsicaps) {
- 		params[0] = FW_PARAM_PFVF(ISCSI_START);
++	}
++
++	spin_lock(&adap->win0_lock);
++	ret = t4_memory_rw(adap, 0, memtype, memaddr, 32, tpte, T4_MEMORY_READ);
++	spin_unlock(&adap->win0_lock);
++	return ret;
++
++err:
++	dev_err(adap->pdev_dev, "stag %#x, offset %#x out of range\n",
++		stag, offset);
++	return -EINVAL;
++}
++EXPORT_SYMBOL(cxgb4_read_tpte);
++
+ static struct pci_driver cxgb4_driver;
+ 
+ static void check_neigh_update(struct neighbour *neigh)
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-index 962458f..df1d944 100644
+index df1d944..c7170d6 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-@@ -258,6 +258,8 @@ struct cxgb4_lld_info {
- 	unsigned int pf;		     /* Physical Function we're using */
- 	bool enable_fw_ofld_conn;            /* Enable connection through fw */
- 					     /* WR */
-+	unsigned int max_ordird_qp;          /* Max ORD/IRD depth per RDMA QP */
-+	unsigned int max_ird_adapter;        /* Max IRD memory per adapter */
- 	bool ulptx_memwrite_dsgl;            /* use of T5 DSGL allowed */
- };
+@@ -296,5 +296,6 @@ int cxgb4_sync_txq_pidx(struct net_device *dev, u16 qid, u16 pidx, u16 size);
+ int cxgb4_flush_eq_cache(struct net_device *dev);
+ void cxgb4_disable_db_coalescing(struct net_device *dev);
+ void cxgb4_enable_db_coalescing(struct net_device *dev);
++int cxgb4_read_tpte(struct net_device *dev, u32 stag, __be32 *tpte);
  
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-index 4a6ae4d..ff709e3 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
-@@ -934,6 +934,8 @@ enum fw_params_param_dev {
- 	FW_PARAMS_PARAM_DEV_FWREV = 0x0B,
- 	FW_PARAMS_PARAM_DEV_TPREV = 0x0C,
- 	FW_PARAMS_PARAM_DEV_CF = 0x0D,
-+	FW_PARAMS_PARAM_DEV_MAXORDIRD_QP = 0x13, /* max supported QP IRD/ORD */
-+	FW_PARAMS_PARAM_DEV_MAXIRD_ADAPTER = 0x14, /* max supported adap IRD */
- 	FW_PARAMS_PARAM_DEV_ULPTX_MEMWRITE_DSGL = 0x17,
- };
- 
+ #endif  /* !__CXGB4_OFLD_H */
 -- 
 1.7.1
 
