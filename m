@@ -1,98 +1,33 @@
-From: "H.K. Jerry Chu" <hkchu@google.com>
-Subject: [PATCH net] net-gre-gro: Fix a bug that breaks the forwarding path
-Date: Mon, 14 Jul 2014 15:54:46 -0700
-Message-ID: <1405378486-18129-1-git-send-email-hkchu@google.com>
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Jerry Chu <hkchu@google.com>
-To: edumazet@google.com, linux@stwm.de, ogerlitz@mellanox.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/4] udp: UDP tunnel enhancements
+Date: Mon, 14 Jul 2014 16:12:54 -0700 (PDT)
+Message-ID: <20140714.161254.1495587038499399882.davem@davemloft.net>
+References: <alpine.DEB.2.02.1407131942580.25072@tomh.mtv.corp.google.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: therbert@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f202.google.com ([209.85.223.202]:37524 "EHLO
-	mail-ie0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757021AbaGNWyw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 18:54:52 -0400
-Received: by mail-ie0-f202.google.com with SMTP id rl12so478681iec.3
-        for <netdev@vger.kernel.org>; Mon, 14 Jul 2014 15:54:52 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:36568 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757061AbaGNXM5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 19:12:57 -0400
+In-Reply-To: <alpine.DEB.2.02.1407131942580.25072@tomh.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jerry Chu <hkchu@google.com>
+From: Tom Herbert <therbert@google.com>
+Date: Sun, 13 Jul 2014 19:49:29 -0700 (PDT)
 
-Fixed a bug that was introduced by my GRE-GRO patch
-(bf5a755f5e9186406bbf50f4087100af5bd68e40 net-gre-gro: Add GRE
-support to the GRO stack) that breaks the forwarding path
-because various GSO related fields were not set. The bug will
-cause on the egress path either the GSO code to fail, or a
-GRE-TSO capable (NETIF_F_GSO_GRE) NICs to choke. The following
-fix has been tested for both cases.
+> - Add udp_sock_create in new helper module udp_tunnel. Tunnel
+>   implementations call this function to create listener UDP ports.
+> - Make vxlan and l2tp call udp_sock_create.
+> - Move udp_tunnel_segment into udp_offload.c.
 
-Signed-off-by: H.K. Jerry Chu <hkchu@google.com>
+Series applied, thank Tom.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 7990984..367a586 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4096,6 +4096,8 @@ static void napi_reuse_skb(struct napi_struct *napi, struct sk_buff *skb)
- 	skb->vlan_tci = 0;
- 	skb->dev = napi->dev;
- 	skb->skb_iif = 0;
-+	skb->encapsulation = 0;
-+	skb_shinfo(skb)->gso_type = 0;
- 	skb->truesize = SKB_TRUESIZE(skb_end_offset(skb));
- 
- 	napi->skb = skb;
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index d5e6836..d156b3c 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1429,6 +1429,9 @@ static int inet_gro_complete(struct sk_buff *skb, int nhoff)
- 	int proto = iph->protocol;
- 	int err = -ENOSYS;
- 
-+	if (skb->encapsulation)
-+		skb_set_inner_network_header(skb, nhoff);
-+
- 	csum_replace2(&iph->check, iph->tot_len, newlen);
- 	iph->tot_len = newlen;
- 
-diff --git a/net/ipv4/gre_offload.c b/net/ipv4/gre_offload.c
-index eb92deb..f0bdd47 100644
---- a/net/ipv4/gre_offload.c
-+++ b/net/ipv4/gre_offload.c
-@@ -263,6 +263,9 @@ static int gre_gro_complete(struct sk_buff *skb, int nhoff)
- 	int err = -ENOENT;
- 	__be16 type;
- 
-+	skb->encapsulation = 1;
-+	skb_shinfo(skb)->gso_type = SKB_GSO_GRE;
-+
- 	type = greh->protocol;
- 	if (greh->flags & GRE_KEY)
- 		grehlen += GRE_HEADER_SECTION;
-diff --git a/net/ipv4/tcp_offload.c b/net/ipv4/tcp_offload.c
-index 4e86c59..55046ec 100644
---- a/net/ipv4/tcp_offload.c
-+++ b/net/ipv4/tcp_offload.c
-@@ -309,7 +309,7 @@ static int tcp4_gro_complete(struct sk_buff *skb, int thoff)
- 
- 	th->check = ~tcp_v4_check(skb->len - thoff, iph->saddr,
- 				  iph->daddr, 0);
--	skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
-+	skb_shinfo(skb)->gso_type |= SKB_GSO_TCPV4;
- 
- 	return tcp_gro_complete(skb);
- }
-diff --git a/net/ipv6/tcpv6_offload.c b/net/ipv6/tcpv6_offload.c
-index 8517d3c..01b0ff9 100644
---- a/net/ipv6/tcpv6_offload.c
-+++ b/net/ipv6/tcpv6_offload.c
-@@ -73,7 +73,7 @@ static int tcp6_gro_complete(struct sk_buff *skb, int thoff)
- 
- 	th->check = ~tcp_v6_check(skb->len - thoff, &iph->saddr,
- 				  &iph->daddr, 0);
--	skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
-+	skb_shinfo(skb)->gso_type |= SKB_GSO_TCPV6;
- 
- 	return tcp_gro_complete(skb);
- }
--- 
-2.0.0.526.g5318336
+Please make the target tree (net-next in this case) explicit in
+future submissions.
+
+Thanks again.
