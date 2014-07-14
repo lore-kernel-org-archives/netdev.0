@@ -1,53 +1,98 @@
-From: Jerry Chu <hkchu@google.com>
-Subject: Re: [PATCH net-next] net-gre-gro: Fix a bug that breaks the
- forwarding path
-Date: Mon, 14 Jul 2014 15:18:14 -0700
-Message-ID: <CAPshTCjTBk6pJ5YpdwTWMxoQ_vFDPhe3UjeMgM1j=KYJmQfJiA@mail.gmail.com>
-References: <1405262780-20232-1-git-send-email-hkchu@google.com>
-	<20140714.150513.1524175237353581279.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <edumazet@google.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Wolfgang Walter <linux@stwm.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: [PATCH v9 3/4] dts: Add bindings for APM X-Gene SoC ethernet driver
+Date: Mon, 14 Jul 2014 15:18:04 -0700
+Message-ID: <1405376285-23008-4-git-send-email-isubramanian@apm.com>
+References: <1405376285-23008-1-git-send-email-isubramanian@apm.com>
+Cc: gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, jcm@redhat.com,
+	patches@apm.com, Iyappan Subramanian <isubramanian@apm.com>,
+	Ravi Patel <rapatel@apm.com>, Keyur Chudgar <kchudgar@apm.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f41.google.com ([209.85.213.41]:47548 "EHLO
-	mail-yh0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757506AbaGNWSQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 18:18:16 -0400
-Received: by mail-yh0-f41.google.com with SMTP id z6so2179983yhz.28
-        for <netdev@vger.kernel.org>; Mon, 14 Jul 2014 15:18:15 -0700 (PDT)
-In-Reply-To: <20140714.150513.1524175237353581279.davem@davemloft.net>
+Received: from exprod5og122.obsmtp.com ([64.18.0.192]:48324 "HELO
+	exprod5og122.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1757430AbaGNWR5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 18:17:57 -0400
+Received: by mail-pd0-f175.google.com with SMTP id v10so5930790pde.20
+        for <netdev@vger.kernel.org>; Mon, 14 Jul 2014 15:17:55 -0700 (PDT)
+In-Reply-To: <1405376285-23008-1-git-send-email-isubramanian@apm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 14, 2014 at 3:05 PM, David Miller <davem@davemloft.net> wrote:
->
-> From: "H.K. Jerry Chu" <hkchu@google.com>
-> Date: Sun, 13 Jul 2014 07:46:20 -0700
->
-> > From: Jerry Chu <hkchu@google.com>
-> >
-> > Fixed a bug that was introduced by my GRE-GRO patch
-> > (bf5a755f5e9186406bbf50f4087100af5bd68e40 net-gre-gro: Add GRE
-> > support to the GRO stack) that breaks the forwarding path
-> > because various GSO related fields were not set. The bug will
-> > cause on the egress path either the GSO code to fail, or a
-> > GRE-TSO capable (NETIF_F_GSO_GRE) NICs to choke. The following
-> > fix has been tested for both cases.
-> >
-> > Signed-off-by: H.K. Jerry Chu <hkchu@google.com>
->
-> As a regression fix, this should be targetted at 'net' rather than
-> 'net-next' so I can queue it up for -stable too.
+This patch adds bindings for APM X-Gene SoC ethernet driver.
 
-Ok, will submit a separate patch for 'net' soon.
+Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+Signed-off-by: Ravi Patel <rapatel@apm.com>
+Signed-off-by: Keyur Chudgar <kchudgar@apm.com>
+---
+ arch/arm64/boot/dts/apm-mustang.dts |  4 ++++
+ arch/arm64/boot/dts/apm-storm.dtsi  | 30 +++++++++++++++++++++++++++---
+ 2 files changed, 31 insertions(+), 3 deletions(-)
 
-Thanks,
-
-Jerry
-
->
-> Thanks.
+diff --git a/arch/arm64/boot/dts/apm-mustang.dts b/arch/arm64/boot/dts/apm-mustang.dts
+index 6541962..b2f5622 100644
+--- a/arch/arm64/boot/dts/apm-mustang.dts
++++ b/arch/arm64/boot/dts/apm-mustang.dts
+@@ -28,3 +28,7 @@
+ &serial0 {
+ 	status = "ok";
+ };
++
++&menet {
++	status = "ok";
++};
+diff --git a/arch/arm64/boot/dts/apm-storm.dtsi b/arch/arm64/boot/dts/apm-storm.dtsi
+index 40aa96c..c0aceef 100644
+--- a/arch/arm64/boot/dts/apm-storm.dtsi
++++ b/arch/arm64/boot/dts/apm-storm.dtsi
+@@ -167,14 +167,13 @@
+ 				clock-output-names = "ethclk";
+ 			};
+ 
+-			eth8clk: eth8clk {
++			menetclk: menetclk {
+ 				compatible = "apm,xgene-device-clock";
+ 				#clock-cells = <1>;
+ 				clocks = <&ethclk 0>;
+-				clock-names = "eth8clk";
+ 				reg = <0x0 0x1702C000 0x0 0x1000>;
+ 				reg-names = "csr-reg";
+-				clock-output-names = "eth8clk";
++				clock-output-names = "menetclk";
+ 			};
+ 
+ 			sataphy1clk: sataphy1clk@1f21c000 {
+@@ -397,5 +396,30 @@
+ 			#clock-cells = <1>;
+ 			clocks = <&rtcclk 0>;
+ 		};
++
++		menet: ethernet@17020000 {
++			compatible = "apm,xgene-enet";
++			status = "disabled";
++			reg = <0x0 0x17020000 0x0 0xd100>,
++			      <0x0 0X17030000 0x0 0X400>,
++			      <0x0 0X10000000 0x0 0X200>;
++			reg-names = "enet_csr", "ring_csr", "ring_cmd";
++			interrupts = <0x0 0x3c 0x4>;
++			dma-coherent;
++			clocks = <&menetclk 0>;
++			local-mac-address = [00 01 73 00 00 01];
++			phy-connection-type = "rgmii";
++			phy-handle = <&menetphy>;
++			mdio {
++				compatible = "apm,xgene-mdio";
++				#address-cells = <1>;
++				#size-cells = <0>;
++				menetphy: menetphy@3 {
++					compatible = "ethernet-phy-id001c.c915";
++					reg = <0x3>;
++				};
++
++			};
++		};
+ 	};
+ };
+-- 
+1.9.1
