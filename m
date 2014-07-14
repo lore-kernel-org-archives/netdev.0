@@ -1,65 +1,86 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] bonding: enhance L2 hash helper with packet type
-Date: Mon, 14 Jul 2014 11:15:36 +0200
-Message-ID: <1405329336.10255.3.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1405317926-27221-1-git-send-email-Jianhua.Xie@freescale.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: IPSEC: tunnel breakage with out-of-order IPv4 fragments
+Date: Mon, 14 Jul 2014 11:33:45 +0200
+Message-ID: <20140714093345.GC6633@secunet.com>
+References: <CAGugRbVWyTM2J0Fyw1Cq1byqfjZBy_EFLSShqVdzxYZmmUWK_g@mail.gmail.com>
+ <20140711110035.GB6633@secunet.com>
+ <CAGugRbWPOyWLrdiTqtScWi2JTKeyEEjOLRvDUqx20SG7uXifLw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Pan Jiafei <Jiafei.Pan@freescale.com>
-To: Xie Jianhua <Jianhua.Xie@freescale.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>
+To: Karl Heiss <kheiss@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f51.google.com ([74.125.82.51]:47180 "EHLO
-	mail-wg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751718AbaGNJPk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 05:15:40 -0400
-Received: by mail-wg0-f51.google.com with SMTP id b13so1642811wgh.34
-        for <netdev@vger.kernel.org>; Mon, 14 Jul 2014 02:15:39 -0700 (PDT)
-In-Reply-To: <1405317926-27221-1-git-send-email-Jianhua.Xie@freescale.com>
+Received: from a.mx.secunet.com ([195.81.216.161]:56663 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751718AbaGNJdy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Jul 2014 05:33:54 -0400
+Content-Disposition: inline
+In-Reply-To: <CAGugRbWPOyWLrdiTqtScWi2JTKeyEEjOLRvDUqx20SG7uXifLw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-07-14 at 14:05 +0800, Xie Jianhua wrote:
-> From: Jianhua Xie <jianhua.xie@freescale.com>
+On Fri, Jul 11, 2014 at 08:51:14AM -0400, Karl Heiss wrote:
+> On Fri, Jul 11, 2014 at 7:00 AM, Steffen Klassert
+> <steffen.klassert@secunet.com> wrote:
 > 
-> Current L2 hash helper calculates destination eth addr and
-> source ether addr as L2 hash factors. This patch is adding
-> packet type ID field into hash factors, which can help to
-> distribute different types of packets like IPv4/IPv6 packets
-> to different slave devices while only BOND_XMIT_POLICY_LAYER2
-> is applied.
+> >
+> > If this happens just with fragmented packets, I'd guess there is a
+> > problem when packets get fragmented after IPsec and reassembled
+> > before IPsec processing.
+> >
 > 
-> CC: Jay Vosburgh <j.vosburgh@gmail.com>
-> CC: Veaceslav Falico <vfalico@gmail.com>
-> CC: Andy Gospodarek <andy@greyhouse.net>
-> CC: David S. Miller <davem@davemloft.net>
-> CC: Pan Jiafei <Jiafei.Pan@freescale.com>
+> If I am reading the tcpdump correctly, the issue is that the packets
+> are getting fragmented after IPsec processing.
 > 
-> Signed-off-by: Jianhua Xie <jianhua.xie@freescale.com>
-> ---
->  drivers/net/bonding/bond_main.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 3a451b6..4a72c2f 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -3002,7 +3002,7 @@ static inline u32 bond_eth_hash(struct sk_buff *skb)
->  	struct ethhdr *data = (struct ethhdr *)skb->data;
->  
->  	if (skb_headlen(skb) >= offsetof(struct ethhdr, h_proto))
-> -		return data->h_dest[5] ^ data->h_source[5];
-> +		return data->h_dest[5] ^ data->h_source[5] ^ data->h_proto;
->  
->  	return 0;
->  }
+>     10.240.34.75.35689 > linux.local.60000: sctp (1) [COOKIE ECHO]
+> 08:23:05.821858 IP (tos 0x2,ECT(0), ttl 64, id 0, offset 0, flags
+> [DF], proto ESP (50), length 104)
+>     linux.local > 10.240.34.75: ESP(spi=0x0d34ea75,seq=0x44be), length 84
+> 08:23:06.823989 IP (tos 0x2,ECT(0), ttl 60, id 0, offset 0, flags [+],
+> proto ESP (50), length 1500)
+>     10.240.34.75 > linux.local: ESP(spi=0xedc4a797,seq=0x89b5), length 1480
+> 08:23:06.824001 IP (tos 0x2,ECT(0), ttl 60, id 0, offset 1480, flags
+> [none], proto ESP (50), length 32)
+>     10.240.34.75 > linux.local: esp
+> 08:23:06.824030 IP (tos 0x2,ECT(0), ttl 60, id 0, offset 0, flags [+],
+> proto ESP (50), length 1500)
+>     10.240.34.75 > linux.local: ESP(spi=0xedc4a797,seq=0x89b6), length 1480
+> 08:23:06.824035 IP (tos 0x2,ECT(0), ttl 60, id 0, offset 1480, flags
+> [none], proto ESP (50), length 32)
+>     10.240.34.75 > linux.local: esp
+> 08:23:06.824057 IP (tos 0x2,ECT(0), ttl 60, id 0, offset 0, flags [+],
+> proto ESP (50), length 1500)
+>     10.240.34.75 > linux.local: ESP(spi=0xedc4a797,seq=0x89b7), length 1480
+> 08:23:06.824060 IP (tos 0x2,ECT(0), ttl 60, id 0, offset 1480, flags
+> [none], proto ESP (50), length 32)
 
-If you really want this, you also need to change the test, because
-otherwise there is no guarantee data->h_proto is valid at his point.
+Your tcpdump looks interesting. Is it possible that all your
+fragmented packets have the id field set to 'id 0'? This should
+be only the case if the DF flag is set on that packet, but this
+is apparently not the case here. If all the fragmented packets
+have id 0, it is not possible to determine the correct fragment
+chain. If only one fragment gets lost, all further packets might
+be reassembled wrong.
 
-if (skb_headlen(skb) >= sizeof(*data))
-   ...
+When looking at the code, is seems that sctp sets the DF flag
+on packets as the default. The IPsec encapsulation code copies
+the DF bit from the inner header and sets 'id 0' in this case.
+A first guess would be that someone removes the DF flag after
+the IPsec encapsulation.
+
+Is the DF flag set on your inner sctp packets?
+
+> >
+> > Do you have some odd MTU/PMTU value on this route? If so, you might
+> > get post IPsec fragmented packets without that commit.
+> >
+> 
+> The MTU for this path is 1500 all the way through.
+> 
+> Yes, this commit most likely fixes the post IPsec fragmentation, as
+> SCTP was not previously accounting for the IPsec headers when sizing
+> chunks.  However, if the traffic worked in this case without
+> reordering, wouldn't we hope it could handle the reordered case, even
+> with the post IPsec fragmentation?
+
+Sure, I just wanted to know whether I look into the right direction :)
