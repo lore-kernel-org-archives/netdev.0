@@ -1,55 +1,50 @@
-From: Jeff Layton <jlayton@primarydata.com>
-Subject: [PATCH] net: clean up some sparse endianness warnings in ipv6.h
-Date: Mon, 14 Jul 2014 08:25:46 -0400
-Message-ID: <1405340746-10678-1-git-send-email-jlayton@primarydata.com>
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-nfs@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Pavel Machek <pavel@denx.de>
+Subject: Re: socfpga/sockit ethernet problems
+Date: Mon, 14 Jul 2014 14:34:16 +0200
+Message-ID: <20140714123416.GF14300@amd.pavel.ucw.cz>
+References: <20140507104518.GB18139@amd.pavel.ucw.cz>
+ <20140703093548.GA9937@amd.pavel.ucw.cz>
+ <1404764751.14294.3.camel@linux-builds1>
+ <20140707214340.GA29061@amd.pavel.ucw.cz>
+ <53BBA219.8000607@roese.nl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Dinh Nguyen <dinguyen@altera.com>, dzu@denx.de,
+	netdev@vger.kernel.org, gsi@denx.de, peppe.cavallaro@st.com,
+	s.trumtrar@pengutronix.de, linux-arm-kernel@lists.infradead.org
+To: Stefan Roese <mail@roese.nl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from atrey.karlin.mff.cuni.cz ([195.113.26.193]:33442 "EHLO
+	atrey.karlin.mff.cuni.cz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754326AbaGNMeS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 08:34:18 -0400
+Content-Disposition: inline
+In-Reply-To: <53BBA219.8000607@roese.nl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-sparse is throwing warnings when building sunrpc modules due to some
-endianness shenanigans in ipv6.h. Sprinkle some endianness fixups to
-silence them. These should all get fixed up at compile time, so I don't
-think this will add any extra work to be done at runtime.
+Hi!
 
-Signed-off-by: Jeff Layton <jlayton@primarydata.com>
----
- include/net/ipv6.h | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+> >Are there suitable default values?
+> >
+> >u-boot uses these defaults:
+> >
+> >include/configs/socfpga_common.h:#define CONFIG_KSZ9021_CLK_SKEW_VAL
+> >0xf0f0
+> >include/configs/socfpga_common.h:#define CONFIG_KSZ9021_DATA_SKEW_VAL
+> >0x0
+> >
+> >...that should correspond to txc-skew-ps == rxc-skew-ps == 3000, all
+> >other skew values == 0?
+> >
+> >Could someone with socrates board and network problems test if this
+> >makes any difference?
+> 
+> SoCrates uses a different PHY, the Lantiq PEF7071 (PHY11G). So those
+> dts additions have no effect on SoCrates.
 
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index 574337fe72dd..5ed2c24fe950 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -557,9 +557,9 @@ static inline u32 __ipv6_addr_jhash(const struct in6_addr *a, const u32 initval)
- static inline bool ipv6_addr_loopback(const struct in6_addr *a)
- {
- #if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS) && BITS_PER_LONG == 64
--	const unsigned long *ul = (const unsigned long *)a;
-+	const __be64 *be = (const __be64 *)a;
- 
--	return (ul[0] | (ul[1] ^ cpu_to_be64(1))) == 0UL;
-+	return (be[0] | (be[1] ^ cpu_to_be64(1))) == cpu_to_be64(0UL);
- #else
- 	return (a->s6_addr32[0] | a->s6_addr32[1] |
- 		a->s6_addr32[2] | (a->s6_addr32[3] ^ htonl(1))) == 0;
-@@ -570,11 +570,11 @@ static inline bool ipv6_addr_v4mapped(const struct in6_addr *a)
- {
- 	return (
- #if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS) && BITS_PER_LONG == 64
--		*(__be64 *)a |
-+		(*(__be64 *)a != cpu_to_be64(0)) |
- #else
--		(a->s6_addr32[0] | a->s6_addr32[1]) |
-+		((a->s6_addr32[0] | a->s6_addr32[1]) != cpu_to_be32(0)) |
- #endif
--		(a->s6_addr32[2] ^ htonl(0x0000ffff))) == 0UL;
-+		((a->s6_addr32[2] ^ htonl(0x0000ffff)) == cpu_to_be32(0)));
- }
- 
- /*
+Oops, I guess I was confused.
+									Pavel
 -- 
-1.9.3
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
