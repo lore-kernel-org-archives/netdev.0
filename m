@@ -1,48 +1,81 @@
 From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH 07/11] openvswitch: Avoid memory corruption in queue_userspace_packet()
-Date: Sun, 13 Jul 2014 17:13:46 -0700
-Message-ID: <1405296826-3823-1-git-send-email-pshelar@nicira.com>
-Cc: netdev@vger.kernel.org, Andy Zhou <azhou@nicira.com>,
+Subject: [PATCH 08/11] openvswitch: Free skb(s) on recirculation error
+Date: Sun, 13 Jul 2014 17:13:51 -0700
+Message-ID: <1405296831-3852-1-git-send-email-pshelar@nicira.com>
+Cc: netdev@vger.kernel.org, Simon Horman <horms@verge.net.au>,
+	Jesse Gross <jesse@nicira.com>,
 	Pravin B Shelar <pshelar@nicira.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog126.obsmtp.com ([74.125.149.155]:38932 "HELO
-	na3sys009aog126.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751731AbaGNANt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jul 2014 20:13:49 -0400
-Received: by mail-pa0-f50.google.com with SMTP id bj1so4426552pad.9
-        for <netdev@vger.kernel.org>; Sun, 13 Jul 2014 17:13:49 -0700 (PDT)
+Received: from na3sys009aog103.obsmtp.com ([74.125.149.71]:37301 "HELO
+	na3sys009aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751731AbaGNANy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jul 2014 20:13:54 -0400
+Received: by mail-pd0-f173.google.com with SMTP id r10so4230985pdi.4
+        for <netdev@vger.kernel.org>; Sun, 13 Jul 2014 17:13:53 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Zhou <azhou@nicira.com>
+From: Simon Horman <horms@verge.net.au>
 
-In queue_userspace_packet(), the ovs_nla_put_flow return value is
-not checked. This is fine as long as key_attr_size() returns the
-correct value. In case it does not, the current code may corrupt buffer
-memory. Add a run time assertion catch this case to avoid silent
-failure.
+This patch attempts to ensure that skb(s) are always freed (once)
+if an error occurs in execute_recirc(). It does so in two ways:
 
-Reported-by: Ben Pfaff <blp@nicira.com>
-Signed-off-by: Andy Zhou <azhou@nicira.com>
+1. Ensure that execute_recirc() always consimes skb passed to it.
+   Specifically, free the skb if the call to ovs_flow_extract() fails.
+
+2. Return from the recirc case in execute_recirc() whenever
+   the skb has not been cloned immediately above.
+
+This is only the case if the action is both the last action and the
+keep_skb parameter of execute_recirc is not true.  As it is the last
+action and the skb is consumed one way or another by execute_recirc() it
+is correct to return here.  In particular this avoids the possibility of
+the skb, which has been consumed by execute_recirc() from being freed.
+
+Conversely if this is not the case then the skb has been cloned
+and the clone has been consumed by execute_recirc().
+This leads to three sub-cases:
+* If execute_recirc() returned an error code then the original skb
+  will be freed by the error handling code below the case statement in
+  do_execute_actions().
+* If this is not the last action then action processing will continue,
+  using the original skb.
+* If this is the last action then it must also be the case that keep_skb
+  is true (otherwise the skb would not have been cloned). Thus
+  do_execute_actions() will return without freeing the original skb.
+
+Signed-off-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: Jesse Gross <jesse@nicira.com>
 Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 ---
- net/openvswitch/datapath.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ net/openvswitch/actions.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 995dfa1..de7d4db 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -481,7 +481,8 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
- 	upcall->dp_ifindex = dp_ifindex;
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index 8875697..f131d69 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -529,8 +529,10 @@ static int execute_recirc(struct datapath *dp, struct sk_buff *skb,
+ 	int err;
  
- 	nla = nla_nest_start(user_skb, OVS_PACKET_ATTR_KEY);
--	ovs_nla_put_flow(upcall_info->key, upcall_info->key, user_skb);
-+	err = ovs_nla_put_flow(upcall_info->key, upcall_info->key, user_skb);
-+	BUG_ON(err);
- 	nla_nest_end(user_skb, nla);
+ 	err = ovs_flow_extract(skb, p->port_no, &recirc_key);
+-	if (err)
++	if (err) {
++		kfree_skb(skb);
+ 		return err;
++	}
  
- 	if (upcall_info->userdata)
+ 	recirc_key.ovs_flow_hash = hash;
+ 	recirc_key.recirc_id = nla_get_u32(a);
+@@ -602,7 +604,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
+ 			err = execute_recirc(dp, recirc_skb, a);
+ 			__this_cpu_dec(net_xmit_recursion);
+ 
+-			if (last_action || err)
++			if (recirc_skb == skb)
+ 				return err;
+ 
+ 			break;
 -- 
 1.9.3
