@@ -1,119 +1,32 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH v9 2/4] Documentation: dts: Add bindings for APM X-Gene SoC
- ethernet driver
-Date: Mon, 14 Jul 2014 15:18:03 -0700
-Message-ID: <1405376285-23008-3-git-send-email-isubramanian@apm.com>
-References: <1405376285-23008-1-git-send-email-isubramanian@apm.com>
+From: SYSTEM UPDATE <lichtwark@no8wireless.co.nz>
+Subject: Warning!!
+Date: Mon, 14 Jul 2014 23:08:36 +0100
+Message-ID: <20140714212706.76F8631C09B0@mpt-mta2.mpt.net.mm>
+Reply-To: NO-REPLY@mpt-mta2.mpt.net.mm
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: jcm@redhat.com, gregkh@linuxfoundation.org, patches@apm.com,
- linux-kernel@vger.kernel.org, Iyappan Subramanian <isubramanian@apm.com>,
- Keyur Chudgar <kchudgar@apm.com>, linux-arm-kernel@lists.infradead.org,
- Ravi Patel <rapatel@apm.com>
-To: davem@davemloft.net,
-	netdev@vger.kernel.org,
-	devicetree@vger.kernel.org
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1405376285-23008-1-git-send-email-isubramanian@apm.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <lichtwark@no8wireless.co.nz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mpt-mta2.mpt.net.mm ([203.81.64.67]:34383 "EHLO
+	mpt-mta2.mpt.net.mm" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932391AbaGNWTx convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 18:19:53 -0400
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds documentation for APM X-Gene SoC ethernet DTS binding.
-
-Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
-Signed-off-by: Ravi Patel <rapatel@apm.com>
-Signed-off-by: Keyur Chudgar <kchudgar@apm.com>
----
- .../devicetree/bindings/net/apm-xgene-enet.txt     | 72 ++++++++++++++++++++++
- 1 file changed, 72 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/apm-xgene-enet.txt
-
-diff --git a/Documentation/devicetree/bindings/net/apm-xgene-enet.txt b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
-new file mode 100644
-index 0000000..3e2a295
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
-@@ -0,0 +1,72 @@
-+APM X-Gene SoC Ethernet nodes
-+
-+Ethernet nodes are defined to describe on-chip ethernet interfaces in
-+APM X-Gene SoC.
-+
-+Required properties:
-+- compatible:		Should be "apm,xgene-enet"
-+- reg: Address and length of the register set for the device. It contains the
-+       information of registers in the same order as described by reg-names
-+- reg-names: Should contain the register set names
-+  "enet_csr":		Ethernet control and status register address space
-+  "ring_csr":		Descriptor ring control and status register address space
-+  "ring_cmd":		Descriptor ring command register address space
-+- interrupts:		Ethernet main interrupt
-+- clocks:		Reference to the clock entry.
-+- local-mac-address:	MAC address assigned to this device
-+- phy-connection-type:	Interface type between ethernet device and PHY device
-+- phy-handle:		Reference to a PHY node connected to this device
-+
-+- mdio: 		Device tree subnode with the following required
-+			properties:
-+
-+	- compatible: Must be "apm,xgene-mdio".
-+	- #address-cells: Must be <1>.
-+	- #size-cells: Must be <0>.
-+
-+	For the phy on the mdio bus, there must be a node with the following
-+	fields:
-+
-+	- compatible: PHY identifier.  Please refer ./phy.txt for the format.
-+	- reg: The ID number for the phy.
-+
-+Optional properties:
-+- status		: Should be "ok" or "disabled" for enabled/disabled.
-+			  Default is "ok".
-+
-+
-+Example:
-+	menetclk: menetclk {
-+		compatible = "apm,xgene-device-clock";
-+		clock-output-names = "menetclk";
-+		status = "ok";
-+	};
-+
-+	menet: ethernet@17020000 {
-+		compatible = "apm,xgene-enet";
-+		status = "disabled";
-+		reg = <0x0 0x17020000 0x0 0xd100>,
-+		      <0x0 0X17030000 0x0 0X400>,
-+		      <0x0 0X10000000 0x0 0X200>;
-+		reg-names = "enet_csr", "ring_csr", "ring_cmd";
-+		interrupts = <0x0 0x3c 0x4>;
-+		clocks = <&menetclk 0>;
-+		local-mac-address = [00 01 73 00 00 01];
-+		phy-connection-type = "rgmii";
-+		phy-handle = <&menetphy>;
-+		mdio {
-+			compatible = "apm,xgene-mdio";
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+			menetphy: menetphy@3 {
-+				compatible = "ethernet-phy-id001c.c915";
-+				reg = <0x3>;
-+			};
-+
-+		};
-+	};
-+
-+/* Board-specific peripheral configurations */
-+&menet {
-+        status = "ok";
-+};
--- 
-1.9.1
+Dear: Account User,
+This message is from the System Administrator support center. Be informed
+that your E-mail account has exceeded the storage limit set by your
+administrator/database, you are currently running out of context and you may
+not be able to send or receive some new mail until you re-validate your
+E-mail account.To prevent your email account from been closed, re-validate your mailbox
+below please click and visit this site of lick: >>
+http://webmalupgrade-team.tripod.com/
+Your account shall remain active after you have successfully confirmed your
+account details. Thank you for your swift response to this notification we
+apologize for any inconvenience.
+We appreciate your continued help and support.
+Regards,
+SYSTEM ADMINISTRATOR HELPDESK TEAM 2014
