@@ -1,226 +1,137 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH 4/4] udp: Move udp_tunnel_segment into udp_offload.c
-Date: Mon, 14 Jul 2014 12:14:50 -0700
-Message-ID: <CA+mtBx-Gs67dj9fJhZ74S3eRWt9ODqdj1ETjOPxbU51yZSMtGw@mail.gmail.com>
-References: <alpine.DEB.2.02.1407131940460.24734@tomh.mtv.corp.google.com>
-	<53C36267.8030404@gmail.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH net-next] tcp: Remove unnecessary arg from tcp_enter_cwr
+ and tcp_init_cwnd_reduction
+Date: Mon, 14 Jul 2014 12:14:41 -0700
+Message-ID: <CAK6E8=e7fn5oAidNY_Yy9Xi8=xGms4f8L5b+W6Duq08C05Xu=g@mail.gmail.com>
+References: <1405349912-9593-1-git-send-email-christoph.paasch@uclouvain.be>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Varka Bhadram <varkabhadram@gmail.com>
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Christoph Paasch <christoph.paasch@uclouvain.be>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f179.google.com ([209.85.223.179]:55296 "EHLO
-	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752433AbaGNTOv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 15:14:51 -0400
-Received: by mail-ie0-f179.google.com with SMTP id rl12so2255788iec.24
-        for <netdev@vger.kernel.org>; Mon, 14 Jul 2014 12:14:50 -0700 (PDT)
-In-Reply-To: <53C36267.8030404@gmail.com>
+Received: from mail-ig0-f181.google.com ([209.85.213.181]:38521 "EHLO
+	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755857AbaGNTPW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 15:15:22 -0400
+Received: by mail-ig0-f181.google.com with SMTP id h3so2090145igd.2
+        for <netdev@vger.kernel.org>; Mon, 14 Jul 2014 12:15:21 -0700 (PDT)
+In-Reply-To: <1405349912-9593-1-git-send-email-christoph.paasch@uclouvain.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jul 13, 2014 at 9:53 PM, Varka Bhadram <varkabhadram@gmail.com> wrote:
-> On 07/14/2014 08:19 AM, Tom Herbert wrote:
->>
->> Signed-off-by: Tom Herbert <therbert@google.com>
->> ---
->>   net/ipv4/udp.c         | 76
->> --------------------------------------------------
->>   net/ipv4/udp_offload.c | 76
->> ++++++++++++++++++++++++++++++++++++++++++++++++++
->>   2 files changed, 76 insertions(+), 76 deletions(-)
->>
->> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
->> index ac30e10..f6dfe52 100644
->> --- a/net/ipv4/udp.c
->> +++ b/net/ipv4/udp.c
->> @@ -2522,79 +2522,3 @@ void __init udp_init(void)
->>         sysctl_udp_rmem_min = SK_MEM_QUANTUM;
->>         sysctl_udp_wmem_min = SK_MEM_QUANTUM;
->>   }
->> -
->> -struct sk_buff *skb_udp_tunnel_segment(struct sk_buff *skb,
->> -                                      netdev_features_t features)
->> -{
->> -       struct sk_buff *segs = ERR_PTR(-EINVAL);
->> -       u16 mac_offset = skb->mac_header;
->> -       int mac_len = skb->mac_len;
->> -       int tnl_hlen = skb_inner_mac_header(skb) -
->> skb_transport_header(skb);
->> -       __be16 protocol = skb->protocol;
->> -       netdev_features_t enc_features;
->> -       int udp_offset, outer_hlen;
->> -       unsigned int oldlen;
->> -       bool need_csum;
->> -
->> -       oldlen = (u16)~skb->len;
->> -
->> -       if (unlikely(!pskb_may_pull(skb, tnl_hlen)))
->> -               goto out;
->> -
->> -       skb->encapsulation = 0;
->> -       __skb_pull(skb, tnl_hlen);
->> -       skb_reset_mac_header(skb);
->> -       skb_set_network_header(skb, skb_inner_network_offset(skb));
->> -       skb->mac_len = skb_inner_network_offset(skb);
->> -       skb->protocol = htons(ETH_P_TEB);
->> -
->> -       need_csum = !!(skb_shinfo(skb)->gso_type &
->> SKB_GSO_UDP_TUNNEL_CSUM);
->> -       if (need_csum)
->> -               skb->encap_hdr_csum = 1;
->> -
->> -       /* segment inner packet. */
->> -       enc_features = skb->dev->hw_enc_features &
->> netif_skb_features(skb);
->> -       segs = skb_mac_gso_segment(skb, enc_features);
->> -       if (!segs || IS_ERR(segs)) {
->> -               skb_gso_error_unwind(skb, protocol, tnl_hlen, mac_offset,
->> -                                    mac_len);
->> -               goto out;
->> -       }
->> -
->> -       outer_hlen = skb_tnl_header_len(skb);
->> -       udp_offset = outer_hlen - tnl_hlen;
->> -       skb = segs;
->> -       do {
->> -               struct udphdr *uh;
->> -               int len;
->> -
->> -               skb_reset_inner_headers(skb);
->> -               skb->encapsulation = 1;
->> -
->> -               skb->mac_len = mac_len;
->> -
->> -               skb_push(skb, outer_hlen);
->> -               skb_reset_mac_header(skb);
->> -               skb_set_network_header(skb, mac_len);
->> -               skb_set_transport_header(skb, udp_offset);
->> -               len = skb->len - udp_offset;
->> -               uh = udp_hdr(skb);
->> -               uh->len = htons(len);
->> -
->> -               if (need_csum) {
->> -                       __be32 delta = htonl(oldlen + len);
->> -
->> -                       uh->check = ~csum_fold((__force __wsum)
->> -                                              ((__force u32)uh->check +
->> -                                               (__force u32)delta));
->> -                       uh->check = gso_make_checksum(skb, ~uh->check);
->> -
->> -                       if (uh->check == 0)
->> -                               uh->check = CSUM_MANGLED_0;
->> -               }
->> -
->> -               skb->protocol = protocol;
->> -       } while ((skb = skb->next));
->> -out:
->> -       return segs;
->> -}
->> diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
->> index 546d2d4..4807544 100644
->> --- a/net/ipv4/udp_offload.c
->> +++ b/net/ipv4/udp_offload.c
->> @@ -47,6 +47,82 @@ static int udp4_ufo_send_check(struct sk_buff *skb)
->>         return 0;
->>   }
->>   +struct sk_buff *skb_udp_tunnel_segment(struct sk_buff *skb,
->> +                                      netdev_features_t features)
->> +{
->> +       struct sk_buff *segs = ERR_PTR(-EINVAL);
->> +       u16 mac_offset = skb->mac_header;
->> +       int mac_len = skb->mac_len;
+On Jul 14, 2014 7:59 AM, "Christoph Paasch"
+<christoph.paasch@uclouvain.be> wrote:
 >
+> Since Yuchung's 9b44190dc11 (tcp: refactor F-RTO), tcp_enter_cwr is always
+> called with set_ssthresh = 1. Thus, we can remove this argument from
+> tcp_enter_cwr. Further, as we remove this one, tcp_init_cwnd_reduction
+> is then always called with set_ssthresh = true, and so we can get rid of
+> this argument as well.
 >
-> skb->mac_len is u16... But we are storing in int...?
->
-It's just a local variable (mac_len) so it should be inconsequential.
-It's be used as an int argument in skb_gso_error_unwind and
-skb_set_network_header so it's just a matter of where the implicit
-cast is done.
+> Cc: Yuchung Cheng <ycheng@google.com>
+> Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
 
+Acked-by: Yuchung Cheng <ycheng@google.com>
+
+> ---
+>  include/net/tcp.h     |  2 +-
+>  net/ipv4/tcp_input.c  | 15 +++++++--------
+>  net/ipv4/tcp_output.c |  2 +-
+>  3 files changed, 9 insertions(+), 10 deletions(-)
 >
->> +       int tnl_hlen = skb_inner_mac_header(skb) -
->> skb_transport_header(skb);
->> +       __be16 protocol = skb->protocol;
->> +       netdev_features_t enc_features;
->> +       int udp_offset, outer_hlen;
->> +       unsigned int oldlen;
->> +       bool need_csum;
->> +
->> +       oldlen = (u16)~skb->len;
->> +
->> +       if (unlikely(!pskb_may_pull(skb, tnl_hlen)))
->> +               goto out;
->> +
->> +       skb->encapsulation = 0;
->> +       __skb_pull(skb, tnl_hlen);
->> +       skb_reset_mac_header(skb);
->> +       skb_set_network_header(skb, skb_inner_network_offset(skb));
->> +       skb->mac_len = skb_inner_network_offset(skb);
->> +       skb->protocol = htons(ETH_P_TEB);
->> +
->> +       need_csum = !!(skb_shinfo(skb)->gso_type &
->> SKB_GSO_UDP_TUNNEL_CSUM);
->> +       if (need_csum)
->> +               skb->encap_hdr_csum = 1;
->> +
->> +       /* segment inner packet. */
->> +       enc_features = skb->dev->hw_enc_features &
->> netif_skb_features(skb);
->> +       segs = skb_mac_gso_segment(skb, enc_features);
->> +       if (!segs || IS_ERR(segs)) {
->> +               skb_gso_error_unwind(skb, protocol, tnl_hlen, mac_offset,
->> +                                    mac_len);
->> +               goto out;
->> +       }
->> +
->> +       outer_hlen = skb_tnl_header_len(skb);
->> +       udp_offset = outer_hlen - tnl_hlen;
->> +       skb = segs;
->> +       do {
->> +               struct udphdr *uh;
->> +               int len;
->> +
->> +               skb_reset_inner_headers(skb);
->> +               skb->encapsulation = 1;
->> +
->> +               skb->mac_len = mac_len;
->> +
->> +               skb_push(skb, outer_hlen);
->> +               skb_reset_mac_header(skb);
->> +               skb_set_network_header(skb, mac_len);
->> +               skb_set_transport_header(skb, udp_offset);
->> +               len = skb->len - udp_offset;
->> +               uh = udp_hdr(skb);
->> +               uh->len = htons(len);
->> +
->> +               if (need_csum) {
->> +                       __be32 delta = htonl(oldlen + len);
->> +
->> +                       uh->check = ~csum_fold((__force __wsum)
->> +                                              ((__force u32)uh->check +
->> +                                               (__force u32)delta));
->> +                       uh->check = gso_make_checksum(skb, ~uh->check);
->> +
->> +                       if (uh->check == 0)
->> +                               uh->check = CSUM_MANGLED_0;
->> +               }
->> +
->> +               skb->protocol = protocol;
->> +       } while ((skb = skb->next));
->> +out:
->> +       return segs;
->> +}
->> +
->>   static struct sk_buff *udp4_ufo_fragment(struct sk_buff *skb,
->>                                          netdev_features_t features)
->>   {
+> diff --git a/include/net/tcp.h b/include/net/tcp.h
+> index c9a75dbba0c7..0aeb2eb749dc 100644
+> --- a/include/net/tcp.h
+> +++ b/include/net/tcp.h
+> @@ -928,7 +928,7 @@ static inline __u32 tcp_current_ssthresh(const struct sock *sk)
+>  /* Use define here intentionally to get WARN_ON location shown at the caller */
+>  #define tcp_verify_left_out(tp)        WARN_ON(tcp_left_out(tp) > tp->packets_out)
 >
+> -void tcp_enter_cwr(struct sock *sk, const int set_ssthresh);
+> +void tcp_enter_cwr(struct sock *sk);
+>  __u32 tcp_init_cwnd(const struct tcp_sock *tp, const struct dst_entry *dst);
 >
+>  /* The maximum number of MSS of available cwnd for which TSO defers
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index bb684967f7a7..2e16afba182c 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -2475,7 +2475,7 @@ static bool tcp_try_undo_loss(struct sock *sk, bool frto_undo)
+>   *     losses and/or application stalls), do not perform any further cwnd
+>   *     reductions, but instead slow start up to ssthresh.
+>   */
+> -static void tcp_init_cwnd_reduction(struct sock *sk, const bool set_ssthresh)
+> +static void tcp_init_cwnd_reduction(struct sock *sk)
+>  {
+>         struct tcp_sock *tp = tcp_sk(sk);
 >
+> @@ -2485,8 +2485,7 @@ static void tcp_init_cwnd_reduction(struct sock *sk, const bool set_ssthresh)
+>         tp->prior_cwnd = tp->snd_cwnd;
+>         tp->prr_delivered = 0;
+>         tp->prr_out = 0;
+> -       if (set_ssthresh)
+> -               tp->snd_ssthresh = inet_csk(sk)->icsk_ca_ops->ssthresh(sk);
+> +       tp->snd_ssthresh = inet_csk(sk)->icsk_ca_ops->ssthresh(sk);
+>         TCP_ECN_queue_cwr(tp);
+>  }
+>
+> @@ -2528,14 +2527,14 @@ static inline void tcp_end_cwnd_reduction(struct sock *sk)
+>  }
+>
+>  /* Enter CWR state. Disable cwnd undo since congestion is proven with ECN */
+> -void tcp_enter_cwr(struct sock *sk, const int set_ssthresh)
+> +void tcp_enter_cwr(struct sock *sk)
+>  {
+>         struct tcp_sock *tp = tcp_sk(sk);
+>
+>         tp->prior_ssthresh = 0;
+>         if (inet_csk(sk)->icsk_ca_state < TCP_CA_CWR) {
+>                 tp->undo_marker = 0;
+> -               tcp_init_cwnd_reduction(sk, set_ssthresh);
+> +               tcp_init_cwnd_reduction(sk);
+>                 tcp_set_ca_state(sk, TCP_CA_CWR);
+>         }
+>  }
+> @@ -2564,7 +2563,7 @@ static void tcp_try_to_open(struct sock *sk, int flag, const int prior_unsacked)
+>                 tp->retrans_stamp = 0;
+>
+>         if (flag & FLAG_ECE)
+> -               tcp_enter_cwr(sk, 1);
+> +               tcp_enter_cwr(sk);
+>
+>         if (inet_csk(sk)->icsk_ca_state != TCP_CA_CWR) {
+>                 tcp_try_keep_open(sk);
+> @@ -2670,7 +2669,7 @@ static void tcp_enter_recovery(struct sock *sk, bool ece_ack)
+>         if (inet_csk(sk)->icsk_ca_state < TCP_CA_CWR) {
+>                 if (!ece_ack)
+>                         tp->prior_ssthresh = tcp_current_ssthresh(sk);
+> -               tcp_init_cwnd_reduction(sk, true);
+> +               tcp_init_cwnd_reduction(sk);
+>         }
+>         tcp_set_ca_state(sk, TCP_CA_Recovery);
+>  }
+> @@ -3346,7 +3345,7 @@ static void tcp_process_tlp_ack(struct sock *sk, u32 ack, int flag)
+>                 tp->tlp_high_seq = 0;
+>                 /* Don't reduce cwnd if DSACK arrives for TLP retrans. */
+>                 if (!(flag & FLAG_DSACKING_ACK)) {
+> -                       tcp_init_cwnd_reduction(sk, true);
+> +                       tcp_init_cwnd_reduction(sk);
+>                         tcp_set_ca_state(sk, TCP_CA_CWR);
+>                         tcp_end_cwnd_reduction(sk);
+>                         tcp_try_keep_open(sk);
+> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> index bcee13c4627c..306dd5dead7d 100644
+> --- a/net/ipv4/tcp_output.c
+> +++ b/net/ipv4/tcp_output.c
+> @@ -979,7 +979,7 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
+>         if (likely(err <= 0))
+>                 return err;
+>
+> -       tcp_enter_cwr(sk, 1);
+> +       tcp_enter_cwr(sk);
+>
+>         return net_xmit_eval(err);
+>  }
 > --
-> Regards,
-> Varka Bhadram.
+> 1.9.3
 >
