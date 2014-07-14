@@ -1,89 +1,67 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH v2 0/4] net: Checksum offload changes - Part IV
-Date: Sun, 13 Jul 2014 16:01:21 -0700
-Message-ID: <CA+mtBx_7O3TXkUF_P+fF=ebtxuBm4-3xRuU6nFPSiKZP=+08Mg@mail.gmail.com>
-References: <alpine.DEB.2.02.1406101848350.5666@tomh.mtv.corp.google.com>
-	<20140611.154635.2203844517927313680.davem@davemloft.net>
-	<CAJzFV35iTRbgECjg5S3bL025E4b8A3c1sBhfZX=OY3njFDYYoQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Sharat Masetty <sharat04@gmail.com>
+From: Pravin B Shelar <pshelar@nicira.com>
+Subject: [GIT net-next] Open vSwitch
+Date: Sun, 13 Jul 2014 17:12:43 -0700
+Message-ID: <1405296763-3619-1-git-send-email-pshelar@nicira.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f178.google.com ([209.85.223.178]:64045 "EHLO
-	mail-ie0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751095AbaGMXBW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jul 2014 19:01:22 -0400
-Received: by mail-ie0-f178.google.com with SMTP id tp5so2561286ieb.23
-        for <netdev@vger.kernel.org>; Sun, 13 Jul 2014 16:01:22 -0700 (PDT)
-In-Reply-To: <CAJzFV35iTRbgECjg5S3bL025E4b8A3c1sBhfZX=OY3njFDYYoQ@mail.gmail.com>
+Received: from na3sys009aog133.obsmtp.com ([74.125.149.82]:49879 "HELO
+	na3sys009aog133.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751022AbaGNAMu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jul 2014 20:12:50 -0400
+Received: by mail-pa0-f52.google.com with SMTP id eu11so4379930pac.39
+        for <netdev@vger.kernel.org>; Sun, 13 Jul 2014 17:12:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 10, 2014 at 10:40 PM, Sharat Masetty <sharat04@gmail.com> wrote:
->> Don't do skb_checksum more than once per packet
-> Was wondering in which cases does the stack perform the checksum more
-> than once? __skb_checksum_complete_head() already sets the ip_summed
-> to CHECKSUM_UNNECESSARY, so future checksum calculations are avoided.
+Following patches adds three features to OVS
+1. Add fairness to upcall processing.
+2. Recirculation and Hash action.
+3. Enable Tunnel GSO features.
+Rest of patches are bug fixes related to patches from same series.
 
-Consider the following scenario:
+The following changes since commit 279f64b7a771d84cbdea51ac2f794becfb06bcd4:
 
-1) VXLAN packet is receive with non-zero UDP checksum and driver did
-not set checksum unnecessary.
-2) Stack computes and verifies UDP checksum and sets ip_summed to
-CHECKSUM_UNNECESSARY.
-3) Packet enters UDP tunnel processing, ip_summed is set to
-CHECKSUM_NONE since skb->encapsulation == 0
-4) Stack will then recompute checksum for an encapsulated TCP packet.
+  net/hsr: Remove left-over never-true conditional code. (2014-07-11 15:04:40 -0700)
 
-So in this case the bytes in the TCP header and all its data were
-checksum twice. To avoid this we don't set CHECKSUM_UNNECESSARY but
-keep ip_summed == CHECKSUM_COMPLETE.
+are available in the git repository at:
 
-There are other cases where the packet can be checksummed twice, for
-instance it checksum is bad I believe both GRO and normal path will
-compute it (still need to fix this).
+  git://git.kernel.org/pub/scm/linux/kernel/git/pshelar/openvswitch.git net_next_ovs
 
-Tom
+for you to fetch changes up to 3dec4774b6343e5db5d346f1f05c6a883e0069db:
 
-> What am I missing?
->
-> Thanks
-> Sharat
->
-> On Wed, Jun 11, 2014 at 4:46 PM, David Miller <davem@davemloft.net> wrote:
->> From: Tom Herbert <therbert@google.com>
->> Date: Tue, 10 Jun 2014 18:54:03 -0700 (PDT)
->>
->>> I am working on overhauling RX checksum offload. Goals of this effort
->>> are:
->>>
->>> - Specify what exactly it means when driver returns CHECKSUM_UNNECESSARY
->>> - Preserve CHECKSUM_COMPLETE through encapsulation layers
->>> - Don't do skb_checksum more than once per packet
->>> - Unify GRO and non-GRO csum verification as much as possible
->>> - Unify the checksum functions (checksum_init)
->>> - Simply code
->>>
->>> What is in this fourth patch set:
->>>
->>> - Preserve CHECKSUM_COMPLETE instead of changing it to
->>>   CHECKSUM_UNNECESSARY. This allows correct reuse in validating multiple
->>>   csums in a packet.
->>> - When SW needs to compute the packet checksum, save it as
->>>   CHECKSUM_COMPLETE. Also mark that checksum was compute by SW.
->>> - Add skb_gro_postpull_rcsum to udp and vxlan to make GRO work with
->>>   CHECKSUM_COMPLETE.
->>>
->>> v2: Removed patch setting skb_encapsulation when validating checksum
->>>     in tcp_gro_receive
->>>
->>> Please review carefully and test if possible, mucking with basic
->>> checksum functions is always a little precarious :-)
->>
->> Series applied, thanks Tom.
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+  openvswitch: Add skb_clone NULL check for the sampling action. (2014-07-13 12:02:12 -0700)
+
+----------------------------------------------------------------
+Alex Wang (1):
+      openvswitch: Allow each vport to have an array of 'port_id's.
+
+Andy Zhou (6):
+      openvswitch: Add hash action
+      openvswitch: Add recirc action
+      openvswitch: Fix key size computation in key_attr_size()
+      openvswitch: Avoid memory corruption in queue_userspace_packet()
+      openvswitch: Add skb_clone NULL check in the recirc action.
+      openvswitch: Add skb_clone NULL check for the sampling action.
+
+Pravin B Shelar (2):
+      openvswitch: Enable tunnel GSO for OVS bridge.
+      net: Export xmit_recursion
+
+Simon Horman (2):
+      openvswitch: Free skb(s) on recirculation error
+      openvswitch: Sample action without side effects
+
+ include/linux/netdev_features.h      |   8 +++
+ include/linux/netdevice.h            |   3 +
+ include/uapi/linux/openvswitch.h     |  39 ++++++++++--
+ net/core/dev.c                       |  10 +--
+ net/openvswitch/actions.c            | 119 +++++++++++++++++++++++++++++++----
+ net/openvswitch/datapath.c           |  79 ++++++++++++++++-------
+ net/openvswitch/datapath.h           |   8 ++-
+ net/openvswitch/flow.h               |   2 +
+ net/openvswitch/flow_netlink.c       |  43 ++++++++++++-
+ net/openvswitch/vport-internal_dev.c |   5 +-
+ net/openvswitch/vport.c              | 102 +++++++++++++++++++++++++++++-
+ net/openvswitch/vport.h              |  27 ++++++--
+ 12 files changed, 393 insertions(+), 52 deletions(-)
