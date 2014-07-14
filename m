@@ -1,7 +1,8 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next 1/2] phy: Expand phy speed/duplex settings array
-Date: Mon, 14 Jul 2014 14:05:46 -0500
-Message-ID: <20140714190546.23626.22878.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next 2/2] amd-xgbe: Remove the adjustments needed for
+ fixed speed
+Date: Mon, 14 Jul 2014 14:05:52 -0500
+Message-ID: <20140714190552.23626.93428.stgit@tlendack-t1.amdoffice.net>
 References: <20140714190540.23626.62720.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,65 +11,58 @@ Cc: Florian Fainelli <f.fainelli@gmail.com>,
 	David Miller <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2lp0212.outbound.protection.outlook.com ([207.46.163.212]:12441
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+Received: from dns-bn1lp0143.outbound.protection.outlook.com ([207.46.163.143]:3924
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752433AbaGNTF6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 14 Jul 2014 15:05:58 -0400
+	id S1756890AbaGNTF7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Jul 2014 15:05:59 -0400
 In-Reply-To: <20140714190540.23626.62720.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Expand the phy speed/duplex settings array to support more
-than just baseT features. This change adds entries to support
-the following additional speed/duplex/media types:
-	SUPPORTED_10000baseKR_Full
-	SUPPORTED_10000baseKX4_Full
-	SUPPORTED_2500baseX_Full
-	SUPPORTED_1000baseKX_Full
-
-Additionally, it changes the 10GbE baseT entry from using the
-hardcoded value 10000 to the SPEED_10000 define.
+With the addition of entries in the phy speed/duplex settings
+array to support KR and KX mode, the work-around to add/remove
+baseT settings to run at a fixed speed is no longer needed.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/phy/phy.c |   22 +++++++++++++++++++++-
- 1 file changed, 21 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c |   10 ----------
+ drivers/net/ethernet/amd/xgbe/xgbe-mdio.c    |    4 ----
+ 2 files changed, 14 deletions(-)
 
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index f7c6181..e56e269 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -138,11 +138,31 @@ struct phy_setting {
- /* A mapping of all SUPPORTED settings to speed/duplex */
- static const struct phy_setting settings[] = {
- 	{
--		.speed = 10000,
-+		.speed = SPEED_10000,
-+		.duplex = DUPLEX_FULL,
-+		.setting = SUPPORTED_10000baseKR_Full,
-+	},
-+	{
-+		.speed = SPEED_10000,
-+		.duplex = DUPLEX_FULL,
-+		.setting = SUPPORTED_10000baseKX4_Full,
-+	},
-+	{
-+		.speed = SPEED_10000,
- 		.duplex = DUPLEX_FULL,
- 		.setting = SUPPORTED_10000baseT_Full,
- 	},
- 	{
-+		.speed = SPEED_2500,
-+		.duplex = DUPLEX_FULL,
-+		.setting = SUPPORTED_2500baseX_Full,
-+	},
-+	{
-+		.speed = SPEED_1000,
-+		.duplex = DUPLEX_FULL,
-+		.setting = SUPPORTED_1000baseKX_Full,
-+	},
-+	{
- 		.speed = SPEED_1000,
- 		.duplex = DUPLEX_FULL,
- 		.setting = SUPPORTED_1000baseT_Full,
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
+index 8909f2b..f740526 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
+@@ -331,16 +331,6 @@ static int xgbe_set_settings(struct net_device *netdev,
+ 	     (cmd->duplex != DUPLEX_FULL)))
+ 		goto unlock;
+ 
+-	if (cmd->autoneg == AUTONEG_ENABLE) {
+-		/* Clear settings needed to force speeds */
+-		phydev->supported &= ~SUPPORTED_1000baseT_Full;
+-		phydev->supported &= ~SUPPORTED_10000baseT_Full;
+-	} else {
+-		/* Add settings needed to force speed */
+-		phydev->supported |= SUPPORTED_1000baseT_Full;
+-		phydev->supported |= SUPPORTED_10000baseT_Full;
+-	}
+-
+ 	cmd->advertising &= phydev->supported;
+ 	if ((cmd->autoneg == AUTONEG_ENABLE) && !cmd->advertising)
+ 		goto unlock;
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c b/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
+index ea7a5d6..225f22d 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
+@@ -375,10 +375,6 @@ int xgbe_mdio_register(struct xgbe_prv_data *pdata)
+ 
+ 	phydev->autoneg = pdata->default_autoneg;
+ 	if (phydev->autoneg == AUTONEG_DISABLE) {
+-		/* Add settings needed to force speed */
+-		phydev->supported |= SUPPORTED_1000baseT_Full;
+-		phydev->supported |= SUPPORTED_10000baseT_Full;
+-
+ 		phydev->speed = pdata->default_speed;
+ 		phydev->duplex = DUPLEX_FULL;
+ 
