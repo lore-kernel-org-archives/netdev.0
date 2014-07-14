@@ -1,135 +1,98 @@
 From: Willem de Bruijn <willemb@google.com>
-Subject: [PATCH net-next] net-timestamp: SOCK_RAW and PING timestamping
-Date: Mon, 14 Jul 2014 17:55:06 -0400
-Message-ID: <1405374906-4657-1-git-send-email-willemb@google.com>
+Subject: [PATCH net-next] net-timestamp: document deprecated syststamp
+Date: Mon, 14 Jul 2014 17:55:30 -0400
+Message-ID: <1405374930-4763-1-git-send-email-willemb@google.com>
 Cc: davem@davemloft.net, stephen@networkplumber.org,
 	richardcochran@gmail.com, Willem de Bruijn <willemb@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f74.google.com ([209.85.220.74]:36328 "EHLO
-	mail-pa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756387AbaGNVzP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 17:55:15 -0400
-Received: by mail-pa0-f74.google.com with SMTP id rd3so394878pab.3
-        for <netdev@vger.kernel.org>; Mon, 14 Jul 2014 14:55:15 -0700 (PDT)
+Received: from mail-qc0-f201.google.com ([209.85.216.201]:37480 "EHLO
+	mail-qc0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750724AbaGNVze (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 17:55:34 -0400
+Received: by mail-qc0-f201.google.com with SMTP id m20so453497qcx.4
+        for <netdev@vger.kernel.org>; Mon, 14 Jul 2014 14:55:33 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add SO_TIMESTAMPING to sockets of type PF_INET[6]/SOCK_RAW:
+The SO_TIMESTAMPING API defines option SOF_TIMESTAMPING_SYS_HW.
+This feature is deprecated. It should not be implemented by new
+device drivers. Existing drivers do not implement it, either --
+with one exception.
 
-Add the necessary sock_tx_timestamp calls to the datapath for RAW
-sockets (ping sockets already had these calls).
+Driver developers are encouraged to expose the NIC hw clock as a
+PTP HW clock source, instead, and synchronize system time to the
+HW source.
 
-Fix the IP output path to pass the timestamp flags on the first
-fragment also for these sockets. The existing code relies on
-transhdrlen != 0 to indicate a first fragment. For these sockets,
-that assumption does not hold.
+The control flag cannot be removed due to being part of the ABI, nor
+can the structure scm_timestamping that is returned. Due to the one
+legacy driver, the internal datapath and structure are not removed.
 
-This fixes http://bugzilla.kernel.org/show_bug.cgi?id=77221
-
-Tested SOCK_RAW on IPv4 and IPv6, not PING.
+This patch only clearly marks the interface as deprecated. Device
+drivers should always return a syststamp value of zero.
 
 Signed-off-by: Willem de Bruijn <willemb@google.com>
 
---
+----
 
-I previously submitted this as part of a new feature set. It
-makes more sense to send it as a separate fix.
-
-v1->v2:
-- added IPv6
-- moved tx_flags write to initial read to hit warm cache
+We can consider adding a WARN_ON_ONCE in__sock_recv_timestamp
+if non-zero syststamp is encountered
 ---
- net/ipv4/ip_output.c  |  7 +++----
- net/ipv4/raw.c        |  4 ++++
- net/ipv6/ip6_output.c | 13 ++++---------
- 3 files changed, 11 insertions(+), 13 deletions(-)
+ Documentation/networking/timestamping.txt | 10 ++++++++--
+ include/linux/skbuff.h                    |  6 ++++--
+ 2 files changed, 12 insertions(+), 4 deletions(-)
 
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 8d3b6b0..b165568 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -962,10 +962,6 @@ alloc_new_skb:
- 							   sk->sk_allocation);
- 				if (unlikely(skb == NULL))
- 					err = -ENOBUFS;
--				else
--					/* only the initial fragment is
--					   time stamped */
--					cork->tx_flags = 0;
- 			}
- 			if (skb == NULL)
- 				goto error;
-@@ -976,7 +972,10 @@ alloc_new_skb:
- 			skb->ip_summed = csummode;
- 			skb->csum = 0;
- 			skb_reserve(skb, hh_len);
-+
-+			/* only the initial fragment is time stamped */
- 			skb_shinfo(skb)->tx_flags = cork->tx_flags;
-+			cork->tx_flags = 0;
+diff --git a/Documentation/networking/timestamping.txt b/Documentation/networking/timestamping.txt
+index bc35541..8b4ad80 100644
+--- a/Documentation/networking/timestamping.txt
++++ b/Documentation/networking/timestamping.txt
+@@ -40,7 +40,7 @@ the set bits correspond to data that is available, then the control
+ message will not be generated:
  
- 			/*
- 			 *	Find where to start putting bytes.
-diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
-index 2c65160..2054d71 100644
---- a/net/ipv4/raw.c
-+++ b/net/ipv4/raw.c
-@@ -365,6 +365,8 @@ static int raw_send_hdrinc(struct sock *sk, struct flowi4 *fl4,
+ SOF_TIMESTAMPING_SOFTWARE:     report systime if available
+-SOF_TIMESTAMPING_SYS_HARDWARE: report hwtimetrans if available
++SOF_TIMESTAMPING_SYS_HARDWARE: report hwtimetrans if available (deprecated)
+ SOF_TIMESTAMPING_RAW_HARDWARE: report hwtimeraw if available
  
- 	skb->ip_summed = CHECKSUM_NONE;
+ It is worth noting that timestamps may be collected for reasons other
+@@ -94,7 +94,13 @@ not perfect; as a consequence, sorting packets received via different
+ NICs by their hwtimetrans may differ from the order in which they were
+ received. hwtimetrans may be non-monotonic even for the same NIC.
+ Filled in if SOF_TIMESTAMPING_SYS_HARDWARE is set. Requires support
+-by the network device and will be empty without that support.
++by the network device and will be empty without that support. This
++field is DEPRECATED. Only one driver computes this value. New device
++drivers must leave this zero. Instead, they can expose the hardware
++clock device on the NIC directly as a HW PTP clock source, to allow
++time conversion in userspace and optionally synchronize system time
++with a userspace PTP stack such as linuxptp. For the PTP clock API,
++see Documentation/ptp/ptp.txt.
  
-+	sock_tx_timestamp(sk, &skb_shinfo(skb)->tx_flags);
-+
- 	skb->transport_header = skb->network_header;
- 	err = -EFAULT;
- 	if (memcpy_fromiovecend((void *)iph, from, 0, length))
-@@ -606,6 +608,8 @@ back_from_confirm:
- 				      &rt, msg->msg_flags);
  
- 	 else {
-+		sock_tx_timestamp(sk, &ipc.tx_flags);
-+
- 		if (!ipc.addr)
- 			ipc.addr = fl4.daddr;
- 		lock_sock(sk);
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 9b395c6..759456f 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -1271,7 +1271,7 @@ emsgsize:
- 	}
- 
- 	/* For UDP, check if TX timestamp is enabled */
--	if (sk->sk_type == SOCK_DGRAM)
-+	if (sk->sk_type == SOCK_DGRAM || sk->sk_type == SOCK_RAW)
- 		sock_tx_timestamp(sk, &tx_flags);
- 
- 	/*
-@@ -1380,12 +1380,6 @@ alloc_new_skb:
- 							   sk->sk_allocation);
- 				if (unlikely(skb == NULL))
- 					err = -ENOBUFS;
--				else {
--					/* Only the initial fragment
--					 * is time stamped.
--					 */
--					tx_flags = 0;
--				}
- 			}
- 			if (skb == NULL)
- 				goto error;
-@@ -1399,8 +1393,9 @@ alloc_new_skb:
- 			skb_reserve(skb, hh_len + sizeof(struct frag_hdr) +
- 				    dst_exthdrlen);
- 
--			if (sk->sk_type == SOCK_DGRAM)
--				skb_shinfo(skb)->tx_flags = tx_flags;
-+			/* Only the initial fragment is time stamped */
-+			skb_shinfo(skb)->tx_flags = tx_flags;
-+			tx_flags = 0;
- 
- 			/*
- 			 *	Find where to start putting bytes
+ SIOCSHWTSTAMP, SIOCGHWTSTAMP:
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 890fb33..3694303 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -211,7 +211,7 @@ static inline void skb_frag_size_sub(skb_frag_t *frag, int delta)
+  * struct skb_shared_hwtstamps - hardware time stamps
+  * @hwtstamp:	hardware time stamp transformed into duration
+  *		since arbitrary point in time
+- * @syststamp:	hwtstamp transformed to system time base
++ * @syststamp:	hwtstamp transformed to system time base (deprecated)
+  *
+  * Software time stamps generated by ktime_get_real() are stored in
+  * skb->tstamp. The relation between the different kinds of time
+@@ -222,7 +222,9 @@ static inline void skb_frag_size_sub(skb_frag_t *frag, int delta)
+  * syststamp/tstamp/"syststamp from other device" comparison is
+  * limited by the accuracy of the transformation into system time
+  * base. This depends on the device driver and its underlying
+- * hardware.
++ * hardware. The syststamp implementation is deprecated in favor
++ * of hwtstamps and hw PTP clock sources exposed directly to
++ * userspace.
+  *
+  * hwtstamps can only be compared against other hwtstamps from
+  * the same device.
 -- 
 2.0.0.526.g5318336
