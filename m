@@ -1,131 +1,188 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 6/8] net: ethernet driver: Fujitsu OGMA
-Date: Mon, 14 Jul 2014 15:50:52 +0200
-Message-ID: <18609483.Jzi9Hxcq2r@wuerfel>
-References: <1405233107-4762-1-git-send-email-mollie.wu@linaro.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Mollie Wu <mollie.wu@linaro.org>, devicetree@vger.kernel.org,
-	netdev@vger.kernel.org, mark.rutland@arm.com,
-	Tetsuya Takinishi <t.takinishi@jp.fujitsu.com>,
-	andy.green@linaro.org, linux@arm.linux.org.uk, pawel.moll@arm.com,
-	patches@linaro.org, stephen@networkplumber.org,
-	jaswinder.singh@linaro.org, robh+dt@kernel.org,
-	romieu@fr.zoreil.com, olof@lixom.net, f.fainelli@gmail.com,
-	davem@davemloft.net
-To: linux-arm-kernel@lists.infradead.org
+From: Tom Gundersen <teg@jklm.no>
+Subject: [PATCH v9 1/4] net: add name_assign_type netdev attribute
+Date: Mon, 14 Jul 2014 16:37:22 +0200
+Message-ID: <1405348645-1995-1-git-send-email-teg@jklm.no>
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	Tom Gundersen <teg@jklm.no>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.187]:61929 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754953AbaGNNvH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 09:51:07 -0400
-In-Reply-To: <1405233107-4762-1-git-send-email-mollie.wu@linaro.org>
+Received: from mail-wg0-f49.google.com ([74.125.82.49]:56471 "EHLO
+	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753497AbaGNOho (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 10:37:44 -0400
+Received: by mail-wg0-f49.google.com with SMTP id k14so3492265wgh.8
+        for <netdev@vger.kernel.org>; Mon, 14 Jul 2014 07:37:43 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sunday 13 July 2014 14:31:47 Mollie Wu wrote:
-> +
-> +Example:
-> +	eth0: f_taiki {
-> +                compatible = "fujitsu,ogma";
-> +		reg = <0 0x31600000 0x10000>, <0 0x31618000 0x4000>, <0 0x3161c000 0x4000>;
-> +		interrupts = <0 163 0x4>;
-> +		clocks = <&clk_alw_0_8>;
-> +		phy-mode = "rgmii";
-> +		max-speed = <1000>;
-> +		max-frame-size = <9000>;
-> +		local-mac-address = [ a4 17 31 00 00 ed ];
-> +		phy-handle = <&ethphy0>;
-> +
-> +		#address-cells = <1>;
-> +		#size-cells = <0>;
-> +
-> +		ethphy0: ethernet-phy@1 {
-> +			device_type = "ethernet-phy";
-> +			compatible = "ethernet-phy-ieee802.3-c22";
-> +			reg = <1>;
-> +		};
-> +	};
+Based on a patch by David Herrmann.
 
-The name of the device should be "ethernet" rather than "f_taiki".
+The name_assign_type attribute gives hints where the interface name of a
+given net-device comes from. These values are currently defined:
+  NET_NAME_ENUM:
+    The ifname is provided by the kernel with an enumerated
+    suffix, typically based on order of discovery. Names may
+    be reused and unpredictable.
+  NET_NAME_PREDICTABLE:
+    The ifname has been assigned by the kernel in a predictable way
+    that is guaranteed to avoid reuse and always be the same for a
+    given device. Examples include statically created devices like
+    the loopback device and names deduced from hardware properties
+    (including being given explicitly by the firmware). Names
+    depending on the order of discovery, or in any other way on the
+    existence of other devices, must not be marked as PREDICTABLE.
+  NET_NAME_USER:
+    The ifname was provided by user-space during net-device setup.
+  NET_NAME_RENAMED:
+    The net-device has been renamed from userspace. Once this type is set,
+    it cannot change again.
+  NET_NAME_UNKNOWN:
+    This is an internal placeholder to indicate that we yet haven't yet
+    categorized the name. It will not be exposed to userspace, rather
+    -EINVAL is returned.
 
-For the compatible string, it would be good to have a version number included.
-If you cannot find out the version of the ogma hardware, add the identifier for
-the soc it is used in, e.g.
+The aim of these patches is to improve user-space renaming of interfaces. As
+a general rule, userspace must rename interfaces to guarantee that names stay
+the same every time a given piece of hardware appears (at boot, or when
+attaching it). However, there are several situations where userspace should
+not perform the renaming, and that depends on both the policy of the local
+admin, but crucially also on the nature of the current interface name.
 
-	compatible = "fujitsu,mb86s73-ogma", "fujitsu,ogma";
+If an interface was created in repsonse to a userspace request, and userspace
+already provided a name, we most probably want to leave that name alone. The
+main instance of this is wifi-P2P devices created over nl80211, which currently
+have a long-standing bug where they are getting renamed by udev. We label such
+names NET_NAME_USER.
 
-The driver only needs to match the generic string, but it's better
-to be prepared for the case where we have to support slightly different
-variants.
+If an interface, unbeknown to us, has already been renamed from userspace, we
+most probably want to leave also that alone. This will typically happen when
+third-party plugins (for instance to udev, but the interface is generic so could
+be from anywhere) renames the interface without informing udev about it. A
+typical situation is when you switch root from an installer or an initrd to the
+real system and the new instance of udev does not know what happened before
+the switch. These types of problems have caused repeated issues in the past. To
+solve this, once an interface has been renamed, its name is labelled
+NET_NAME_RENAMED.
 
-> +static inline void ogma_writel(struct ogma_priv *priv, u32 reg_addr, u32 val)
-> +{
-> +	writel(val, priv->ioaddr + (reg_addr << 2));
-> +}
-> +
-> +static inline u32 ogma_readl(struct ogma_priv *priv, u32 reg_addr)
-> +{
-> +	return readl(priv->ioaddr + (reg_addr << 2));
-> +}
-for best performance, it may be better to use readl_relaxed() by default
-and only use the nonrelaxed accesses in the cases where you have to
-synchronize with DMA transfers.
+In many cases, the kernel is actually able to name interfaces in such a
+way that there is no need for userspace to rename them. This is the case when
+the enumeration order of devices, or in fact any other (non-parent) device on
+the system, can not influence the name of the interface. Examples include
+statically created devices, or any naming schemes based on hardware properties
+of the interface. In this case the admin may prefer to use the kernel-provided
+names, and to make that possible we label such names NET_NAME_PREDICTABLE.
+We want the kernel to have tho possibilty of performing predictable interface
+naming itself (and exposing to userspace that it has), as the information
+necessary for a proper naming scheme for a certain class of devices may not
+be exposed to userspace.
 
-> +
-> +#define TIMEOUT_SPINS_MAC 1000000
-> +
-> +static u32 ogma_clk_type(u32 freq)
-> +{
-> +	if (freq < 35 * OGMA_CLK_MHZ)
-> +		return OGMA_GMAC_GAR_REG_CR_25_35_MHZ;
-> +	if (freq < 60 * OGMA_CLK_MHZ)
-> +		return OGMA_GMAC_GAR_REG_CR_35_60_MHZ;
-> +	if (freq < 100 * OGMA_CLK_MHZ)
-> +		return OGMA_GMAC_GAR_REG_CR_60_100_MHZ;
-> +	if (freq < 150 * OGMA_CLK_MHZ)
-> +		return OGMA_GMAC_GAR_REG_CR_100_150_MHZ;
-> +	if (freq < 250 * OGMA_CLK_MHZ)
-> +		return OGMA_GMAC_GAR_REG_CR_150_250_MHZ;
-> +
-> +	return OGMA_GMAC_GAR_REG_CR_250_300_MHZ;
-> +}
-> +
-> +static int ogma_wait_while_busy(struct ogma_priv *priv, u32 addr, u32 mask)
-> +{
-> +	u32 timeout = TIMEOUT_SPINS_MAC;
-> +
-> +	while (--timeout && ogma_readl(priv, addr) & mask)
-> +		;
-> +	if (!timeout) {
-> +		netdev_WARN(priv->net_device, "%s: timeout\n", __func__);
-> +		return -ETIMEDOUT;
-> +	}
-> +
-> +	return 0;
-> +}
+The case where renaming is almost certainly desired, is when the kernel has
+given the interface a name using global device enumeration based on order of
+discovery (ethX, wlanY, etc). These naming schemes are labelled NET_NAME_ENUM.
 
-The callers of this function seem to all be from non-atomic context, so it
-would be good to occasionally msleep() here, either after each try, or
-after initially spinning for as long as it takes to succeed most of the
-time.
+Lastly, a fallback is left as NET_NAME_UNKNOWN, to indicate that a driver has
+not yet been ported. This is mostly useful as a transitionary measure, allowing
+us to label the various naming schemes bit by bit.
 
-> +
-> +static void ogma_napi_tx_processing(struct napi_struct *napi_p)
-> +{
-> +	struct ogma_priv *priv = container_of(napi_p, struct ogma_priv, napi);
-> +
-> +	ogma_ring_irq_clr(priv, OGMA_RING_TX, OGMA_IRQ_EMPTY);
-> +	ogma_clean_tx_desc_ring(priv);
-> +
-> +	if (netif_queue_stopped(priv->net_device) &&
-> +	    ogma_get_tx_avail_num(priv) >= OGMA_NETDEV_TX_PKT_SCAT_NUM_MAX)
-> +		netif_wake_queue(priv->net_device);
-> +}
+v8: minor documentation fixes
+v9: move comment to the right commit
 
-You should probably call netdev_tx_completed_queue() here and 
-netdev_tx_sent_queue() when sending the frame. See http://lwn.net/Articles/454390/
-for a description of the API.
+Signed-off-by: Tom Gundersen <teg@jklm.no>
+Reviewed-by: David Herrmann <dh.herrmann@gmail.com>
+Reviewed-by: Kay Sievers <kay@vrfy.org>
+---
+ Documentation/ABI/testing/sysfs-class-net | 11 +++++++++++
+ include/linux/netdevice.h                 |  2 ++
+ include/uapi/linux/netdevice.h            |  6 ++++++
+ net/core/net-sysfs.c                      | 20 ++++++++++++++++++++
+ 4 files changed, 39 insertions(+)
 
-	Arnd
+diff --git a/Documentation/ABI/testing/sysfs-class-net b/Documentation/ABI/testing/sysfs-class-net
+index 416c5d5..d322b05 100644
+--- a/Documentation/ABI/testing/sysfs-class-net
++++ b/Documentation/ABI/testing/sysfs-class-net
+@@ -1,3 +1,14 @@
++What:		/sys/class/net/<iface>/name_assign_type
++Date:		July 2014
++KernelVersion:	3.17
++Contact:	netdev@vger.kernel.org
++Description:
++		Indicates the name assignment type. Possible values are:
++		1: enumerated by the kernel, possibly in an unpredictable way
++		2: predictably named by the kernel
++		3: named by userspace
++		4: renamed
++
+ What:		/sys/class/net/<iface>/addr_assign_type
+ Date:		July 2010
+ KernelVersion:	3.2
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 66f9a04..551e187 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1379,6 +1379,8 @@ struct net_device {
+ 	struct kset		*queues_kset;
+ #endif
+ 
++	unsigned char		name_assign_type;
++
+ 	bool			uc_promisc;
+ 	unsigned int		promiscuity;
+ 	unsigned int		allmulti;
+diff --git a/include/uapi/linux/netdevice.h b/include/uapi/linux/netdevice.h
+index fdfbd1c..5581854 100644
+--- a/include/uapi/linux/netdevice.h
++++ b/include/uapi/linux/netdevice.h
+@@ -37,6 +37,12 @@
+ #define INIT_NETDEV_GROUP	0
+ 
+ 
++/* interface name assignment types (sysfs name_assign_type attribute) */
++#define NET_NAME_UNKNOWN	0	/* unknown origin (not exposed to userspace) */
++#define NET_NAME_ENUM		1	/* enumerated by kernel */
++#define NET_NAME_PREDICTABLE	2	/* predictably named by the kernel */
++#define NET_NAME_USER		3	/* provided by user-space */
++#define NET_NAME_RENAMED	4	/* renamed by user-space */
+ 
+ /* Media selection options. */
+ enum {
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index 1cac29e..7752f2a 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -112,6 +112,25 @@ NETDEVICE_SHOW_RO(ifindex, fmt_dec);
+ NETDEVICE_SHOW_RO(type, fmt_dec);
+ NETDEVICE_SHOW_RO(link_mode, fmt_dec);
+ 
++static ssize_t format_name_assign_type(const struct net_device *net, char *buf)
++{
++	return sprintf(buf, fmt_dec, net->name_assign_type);
++}
++
++static ssize_t name_assign_type_show(struct device *dev,
++				     struct device_attribute *attr,
++				     char *buf)
++{
++	struct net_device *net = to_net_dev(dev);
++	ssize_t ret = -EINVAL;
++
++	if (net->name_assign_type != NET_NAME_UNKNOWN)
++		ret = netdev_show(dev, attr, buf, format_name_assign_type);
++
++	return ret;
++}
++static DEVICE_ATTR_RO(name_assign_type);
++
+ /* use same locking rules as GIFHWADDR ioctl's */
+ static ssize_t address_show(struct device *dev, struct device_attribute *attr,
+ 			    char *buf)
+@@ -387,6 +406,7 @@ static struct attribute *net_class_attrs[] = {
+ 	&dev_attr_dev_port.attr,
+ 	&dev_attr_iflink.attr,
+ 	&dev_attr_ifindex.attr,
++	&dev_attr_name_assign_type.attr,
+ 	&dev_attr_addr_assign_type.attr,
+ 	&dev_attr_addr_len.attr,
+ 	&dev_attr_link_mode.attr,
+-- 
+1.9.3
