@@ -1,37 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] neigh: sysctl - simplify address calculation of gc_*
- variables
-Date: Mon, 14 Jul 2014 14:33:18 -0700 (PDT)
-Message-ID: <20140714.143318.1099738757410344842.davem@davemloft.net>
-References: <1405197404-19127-1-git-send-email-minipli@googlemail.com>
+Subject: Re: [PATCH 1/1] net: pppoe: use correct channel MTU when using
+ Multilink PPP
+Date: Mon, 14 Jul 2014 14:36:24 -0700 (PDT)
+Message-ID: <20140714.143624.287339351063026762.davem@davemloft.net>
+References: <53C1BC5B.9010004@kristov.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, spender@grsecurity.net
-To: minipli@googlemail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35953 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756122AbaGNVdT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 17:33:19 -0400
-In-Reply-To: <1405197404-19127-1-git-send-email-minipli@googlemail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-ppp@vger.kernel.org,
+	mostrows@gmail.com
+To: develop@kristov.de
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <53C1BC5B.9010004@kristov.de>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mathias Krause <minipli@googlemail.com>
-Date: Sat, 12 Jul 2014 22:36:44 +0200
+From: Christoph Schulz <develop@kristov.de>
+Date: Sun, 13 Jul 2014 00:53:15 +0200
 
-> The code in neigh_sysctl_register() relies on a specific layout of
-> struct neigh_table, namely that the 'gc_*' variables are directly
-> following the 'parms' member in a specific order. The code, though,
-> expresses this in the most ugly way.
+> The PPP channel MTU is used with Multilink PPP when ppp_mp_explode() (see
+> ppp_generic module) tries to determine how big a fragment might be. According
+> to RFC 1661, the MTU excludes the 2-byte PPP protocol field, see the
+> corresponding comment and code in ppp_mp_explode():
 > 
-> Get rid of the ugly casts and use the 'tbl' pointer to get a handle to
-> the table. This way we can refer to the 'gc_*' variables directly.
+> 		/*
+> 		 * hdrlen includes the 2-byte PPP protocol field, but the
+> 		 * MTU counts only the payload excluding the protocol field.
+> 		 * (RFC1661 Section 2)
+> 		 */
+> 		mtu = pch->chan->mtu - (hdrlen - 2);
 > 
-> Similarly seen in the grsecurity patch, written by Brad Spengler.
-> 
-> Signed-off-by: Mathias Krause <minipli@googlemail.com>
-> Cc: Brad Spengler <spender@grsecurity.net>
+> However, the pppoe module *does* include the PPP protocol field in the channel
+> MTU, which is wrong as it causes the PPP payload to be 1-2 bytes too big under
+> certain circumstances (one byte if PPP protocol compression is used, two
+> otherwise), causing the generated Ethernet packets to be dropped. So the pppoe
+> module has to subtract two bytes from the channel MTU. This error only
+> manifests itself when using Multilink PPP, as otherwise the channel MTU is not
+> used anywhere.
 
-Looks good, applied, thanks.
+Applied and queued up for -stable, thank you.
