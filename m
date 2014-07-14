@@ -1,33 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] udp: UDP tunnel enhancements
-Date: Mon, 14 Jul 2014 16:12:54 -0700 (PDT)
-Message-ID: <20140714.161254.1495587038499399882.davem@davemloft.net>
-References: <alpine.DEB.2.02.1407131942580.25072@tomh.mtv.corp.google.com>
+Subject: Re: [PATCH net] mlx4: mark napi id for gro_skb
+Date: Mon, 14 Jul 2014 16:14:35 -0700 (PDT)
+Message-ID: <20140714.161435.909932787419949578.davem@davemloft.net>
+References: <1405309364-32258-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: therbert@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36568 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757061AbaGNXM5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 19:12:57 -0400
-In-Reply-To: <alpine.DEB.2.02.1407131942580.25072@tomh.mtv.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: amirv@mellanox.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: jasowang@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1405309364-32258-1-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Herbert <therbert@google.com>
-Date: Sun, 13 Jul 2014 19:49:29 -0700 (PDT)
+From: Jason Wang <jasowang@redhat.com>
+Date: Mon, 14 Jul 2014 11:42:44 +0800
 
-> - Add udp_sock_create in new helper module udp_tunnel. Tunnel
->   implementations call this function to create listener UDP ports.
-> - Make vxlan and l2tp call udp_sock_create.
-> - Move udp_tunnel_segment into udp_offload.c.
+> Napi id was not marked for gro_skb, this will lead rx busy loop won't
+> work correctly since they stack never try to call low latency receive
+> method because of a zero socket napi id. Fix this by marking napi id
+> for gro_skb.
+> 
+> The transaction rate of 1 byte netperf tcp_rr gets about 50% increased
+> (from 20531.68 to 30610.88).
+> 
+> Cc: Amir Vadai <amirv@mellanox.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Series applied, thank Tom.
-
-Please make the target tree (net-next in this case) explicit in
-future submissions.
-
-Thanks again.
+Applied, thanks.
