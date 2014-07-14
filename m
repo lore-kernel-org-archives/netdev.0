@@ -1,29 +1,37 @@
-From: Shradha Shah <sshah@solarflare.com>
-Subject: [PATCH net-next 0/2] sfc: Add 40G support
-Date: Mon, 14 Jul 2014 08:37:06 +0100
-Message-ID: <53C388A2.5040705@solarflare.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next v2 3/6] ethernet: amd: dynamic debug fixes
+Date: Mon, 14 Jul 2014 01:06:06 -0700
+Message-ID: <1405325166.9132.40.camel@joe-AO725>
+References: <1405319147-5212-1-git-send-email-varkabhadram@gmail.com>
+	 <1405319147-5212-4-git-send-email-varkabhadram@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, Thomas.Lendacky@amd.com,
+	geert+renesas@linux-m68k.org, ebiederm@xmission.com,
+	macro@linux-mips.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, Varka Bhadram <varkab@cdac.in>
+To: varkabhadram@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:3991 "EHLO
-	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751899AbaGNHuq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 03:50:46 -0400
+Received: from smtprelay0097.hostedemail.com ([216.40.44.97]:59071 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750943AbaGNIGL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 04:06:11 -0400
+In-Reply-To: <1405319147-5212-4-git-send-email-varkabhadram@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series adds support for Solarflare 7000 series
-40G Solarflare network adapters starting with the SFN7X42Q. 
+On Mon, 2014-07-14 at 11:55 +0530, varkabhadram@gmail.com wrote:
+> From: Varka Bhadram <varkab@cdac.in>
+[]
+> diff --git a/drivers/net/ethernet/amd/amd8111e.c b/drivers/net/ethernet/amd/amd8111e.c
+[]
+> @@ -501,8 +501,7 @@ static int amd8111e_restart(struct net_device *dev)
+>  
+>  	/* Enable interrupt coalesce */
+>  	if(lp->options & OPTION_INTR_COAL_ENABLE){
+> -		printk(KERN_INFO "%s: Interrupt Coalescing Enabled.\n",
+> -								dev->name);
+> +		netdev_info(dev, "Interrupt Coalescing Enabled");
 
-Edward Cree (1):
-  sfc: Add 40G link capability decoding
-
-Mateusz Wrzesinski (1):
-  sfc: Adding PCI ID for Solarflare 7000 series 40G network adapter.
-
- drivers/net/ethernet/sfc/efx.c       |  2 ++
- drivers/net/ethernet/sfc/mcdi_port.c | 11 +++++++++++
- 2 files changed, 13 insertions(+)
+This needs a terminating newlines.
