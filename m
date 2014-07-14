@@ -1,38 +1,36 @@
 From: Fabian Frederick <fabf@skynet.be>
-Subject: [PATCH 13/16] caif: remove unnecessary break after goto
-Date: Mon, 14 Jul 2014 18:36:36 +0200
-Message-ID: <1405355799-7691-4-git-send-email-fabf@skynet.be>
+Subject: [PATCH 11/16] ipv6: remove unnecessary break after return
+Date: Mon, 14 Jul 2014 18:36:34 +0200
+Message-ID: <1405355799-7691-2-git-send-email-fabf@skynet.be>
 References: <1405355799-7691-1-git-send-email-fabf@skynet.be>
 Cc: davem@davemloft.net, joe@perches.com,
 	Fabian Frederick <fabf@skynet.be>,
-	Dmitry Tarnyagin <dmitry.tarnyagin@lockless.no>,
-	netdev@vger.kernel.org
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailrelay008.isp.belgacom.be ([195.238.6.174]:28504 "EHLO
-	mailrelay008.isp.belgacom.be" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932157AbaGNQfi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 12:35:38 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1405355799-7691-1-git-send-email-fabf@skynet.be>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Fabian Frederick <fabf@skynet.be>
 ---
- net/caif/cfctrl.c | 1 -
+ net/ipv6/ipv6_sockglue.c | 1 -
  1 file changed, 1 deletion(-)
 
-diff --git a/net/caif/cfctrl.c b/net/caif/cfctrl.c
-index 0f45522..f5afda1 100644
---- a/net/caif/cfctrl.c
-+++ b/net/caif/cfctrl.c
-@@ -547,7 +547,6 @@ static int cfctrl_recv(struct cflayer *layer, struct cfpkt *pkt)
- 	default:
- 		pr_err("Unrecognized Control Frame\n");
- 		goto error;
+diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+index edb58af..7666cfe 100644
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -1158,7 +1158,6 @@ static int do_ipv6_getsockopt(struct sock *sk, int level, int optname,
+ 			return -EFAULT;
+ 
+ 		return 0;
 -		break;
  	}
- 	ret = 0;
- error:
+ 
+ 	case IPV6_TRANSPARENT:
 -- 
 1.8.4.5
