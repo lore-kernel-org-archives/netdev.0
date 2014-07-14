@@ -1,99 +1,57 @@
-From: Christoph Schulz <develop@kristov.de>
-Subject: [PATCH net v2 1/1] net: ppp: don't call sk_chk_filter twice
-Date: Mon, 14 Jul 2014 08:01:10 +0200
-Message-ID: <53C37226.2020106@kristov.de>
+From: Xie Jianhua <Jianhua.Xie@freescale.com>
+Subject: [PATCH net] bonding: enhance L2 hash helper with packet type
+Date: Mon, 14 Jul 2014 14:05:26 +0800
+Message-ID: <1405317926-27221-1-git-send-email-Jianhua.Xie@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: linux-ppp@vger.kernel.org, paulus@samba.org, isdn@linux-pingi.de
-To: netdev@vger.kernel.org
-Return-path: <linux-ppp-owner@vger.kernel.org>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Jianhua Xie <jianhua.xie@freescale.com>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Pan Jiafei <Jiafei.Pan@freescale.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bl2lp0209.outbound.protection.outlook.com ([207.46.163.209]:37090
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751325AbaGNGLW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Jul 2014 02:11:22 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Christoph Schulz <develop@kristov.de>
+From: Jianhua Xie <jianhua.xie@freescale.com>
 
-Commit 568f194e8bd16c353ad50f9ab95d98b20578a39d ("net: ppp: use
-sk_unattached_filter api") causes sk_chk_filter() to be called twice when
-setting a PPP pass or active filter. This applies to both the generic PPP
-subsystem implemented by drivers/net/ppp/ppp_generic.c and the ISDN PPP
-subsystem implemented by drivers/isdn/i4l/isdn_ppp.c. The first call is from
-within get_filter(). The second one is through the call chain
+Current L2 hash helper calculates destination eth addr and
+source ether addr as L2 hash factors. This patch is adding
+packet type ID field into hash factors, which can help to
+distribute different types of packets like IPv4/IPv6 packets
+to different slave devices while only BOND_XMIT_POLICY_LAYER2
+is applied.
 
-  ppp_ioctl() or isdn_ppp_ioctl()
-  --> sk_unattached_filter_create()
-      --> __sk_prepare_filter()
-          --> sk_chk_filter()
+CC: Jay Vosburgh <j.vosburgh@gmail.com>
+CC: Veaceslav Falico <vfalico@gmail.com>
+CC: Andy Gospodarek <andy@greyhouse.net>
+CC: David S. Miller <davem@davemloft.net>
+CC: Pan Jiafei <Jiafei.Pan@freescale.com>
 
-The first call from within get_filter() should be deleted as get_filter() is
-called just before calling sk_unattached_filter_create() later on, which
-eventually calls sk_chk_filter() anyway.
-
-For 3.15.x, this proposed change is a bugfix rather than a pure optimization as
-in that branch, sk_chk_filter() may replace filter codes by other codes which
-are not recognized when executing sk_chk_filter() a second time. So with
-3.15.x, if sk_chk_filter() is called twice, the second invocation may yield
-EINVAL (this depends on the filter codes found in the filter to be set, but
-because the replacement is done for frequently used codes, this is almost
-always the case). The net effect is that setting pass and/or active PPP filters
-does not work anymore, since sk_unattached_filter_create() always returns
-EINVAL due to the second call to sk_chk_filter(), regardless whether the filter
-was originally sane or not.
-
-Signed-off-by: Christoph Schulz <develop@kristov.de>
+Signed-off-by: Jianhua Xie <jianhua.xie@freescale.com>
 ---
-Changes to first version:
-- corrupted patch corrected
+ drivers/net/bonding/bond_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/isdn/i4l/isdn_ppp.c b/drivers/isdn/i4l/isdn_ppp.c
-index 61ac632..a333b7f 100644
---- a/drivers/isdn/i4l/isdn_ppp.c
-+++ b/drivers/isdn/i4l/isdn_ppp.c
-@@ -442,7 +442,7 @@ static int get_filter(void __user *arg, struct sock_filter **p)
- {
- 	struct sock_fprog uprog;
- 	struct sock_filter *code = NULL;
--	int len, err;
-+	int len;
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 3a451b6..4a72c2f 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -3002,7 +3002,7 @@ static inline u32 bond_eth_hash(struct sk_buff *skb)
+ 	struct ethhdr *data = (struct ethhdr *)skb->data;
  
- 	if (copy_from_user(&uprog, arg, sizeof(uprog)))
- 		return -EFAULT;
-@@ -458,12 +458,6 @@ static int get_filter(void __user *arg, struct sock_filter **p)
- 	if (IS_ERR(code))
- 		return PTR_ERR(code);
+ 	if (skb_headlen(skb) >= offsetof(struct ethhdr, h_proto))
+-		return data->h_dest[5] ^ data->h_source[5];
++		return data->h_dest[5] ^ data->h_source[5] ^ data->h_proto;
  
--	err = sk_chk_filter(code, uprog.len);
--	if (err) {
--		kfree(code);
--		return err;
--	}
--
- 	*p = code;
- 	return uprog.len;
+ 	return 0;
  }
-diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
-index 91d6c12..e2f20f8 100644
---- a/drivers/net/ppp/ppp_generic.c
-+++ b/drivers/net/ppp/ppp_generic.c
-@@ -539,7 +539,7 @@ static int get_filter(void __user *arg, struct sock_filter **p)
- {
- 	struct sock_fprog uprog;
- 	struct sock_filter *code = NULL;
--	int len, err;
-+	int len;
- 
- 	if (copy_from_user(&uprog, arg, sizeof(uprog)))
- 		return -EFAULT;
-@@ -554,12 +554,6 @@ static int get_filter(void __user *arg, struct sock_filter **p)
- 	if (IS_ERR(code))
- 		return PTR_ERR(code);
- 
--	err = sk_chk_filter(code, uprog.len);
--	if (err) {
--		kfree(code);
--		return err;
--	}
--
- 	*p = code;
- 	return uprog.len;
- }
+-- 
+1.8.5
