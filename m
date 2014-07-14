@@ -1,98 +1,40 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: [PATCH net-next] net-timestamp: document deprecated syststamp
-Date: Mon, 14 Jul 2014 17:55:30 -0400
-Message-ID: <1405374930-4763-1-git-send-email-willemb@google.com>
-Cc: davem@davemloft.net, stephen@networkplumber.org,
-	richardcochran@gmail.com, Willem de Bruijn <willemb@google.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net-gre-gro: Fix a bug that breaks the
+ forwarding path
+Date: Mon, 14 Jul 2014 15:05:13 -0700 (PDT)
+Message-ID: <20140714.150513.1524175237353581279.davem@davemloft.net>
+References: <1405262780-20232-1-git-send-email-hkchu@google.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: edumazet@google.com, ogerlitz@mellanox.com, linux@stwm.de,
+	netdev@vger.kernel.org
+To: hkchu@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f201.google.com ([209.85.216.201]:37480 "EHLO
-	mail-qc0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750724AbaGNVze (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 17:55:34 -0400
-Received: by mail-qc0-f201.google.com with SMTP id m20so453497qcx.4
-        for <netdev@vger.kernel.org>; Mon, 14 Jul 2014 14:55:33 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:36135 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756749AbaGNWFQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 18:05:16 -0400
+In-Reply-To: <1405262780-20232-1-git-send-email-hkchu@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The SO_TIMESTAMPING API defines option SOF_TIMESTAMPING_SYS_HW.
-This feature is deprecated. It should not be implemented by new
-device drivers. Existing drivers do not implement it, either --
-with one exception.
+From: "H.K. Jerry Chu" <hkchu@google.com>
+Date: Sun, 13 Jul 2014 07:46:20 -0700
 
-Driver developers are encouraged to expose the NIC hw clock as a
-PTP HW clock source, instead, and synchronize system time to the
-HW source.
+> From: Jerry Chu <hkchu@google.com>
+> 
+> Fixed a bug that was introduced by my GRE-GRO patch
+> (bf5a755f5e9186406bbf50f4087100af5bd68e40 net-gre-gro: Add GRE
+> support to the GRO stack) that breaks the forwarding path
+> because various GSO related fields were not set. The bug will
+> cause on the egress path either the GSO code to fail, or a
+> GRE-TSO capable (NETIF_F_GSO_GRE) NICs to choke. The following
+> fix has been tested for both cases.
+> 
+> Signed-off-by: H.K. Jerry Chu <hkchu@google.com>
 
-The control flag cannot be removed due to being part of the ABI, nor
-can the structure scm_timestamping that is returned. Due to the one
-legacy driver, the internal datapath and structure are not removed.
+As a regression fix, this should be targetted at 'net' rather than
+'net-next' so I can queue it up for -stable too.
 
-This patch only clearly marks the interface as deprecated. Device
-drivers should always return a syststamp value of zero.
-
-Signed-off-by: Willem de Bruijn <willemb@google.com>
-
-----
-
-We can consider adding a WARN_ON_ONCE in__sock_recv_timestamp
-if non-zero syststamp is encountered
----
- Documentation/networking/timestamping.txt | 10 ++++++++--
- include/linux/skbuff.h                    |  6 ++++--
- 2 files changed, 12 insertions(+), 4 deletions(-)
-
-diff --git a/Documentation/networking/timestamping.txt b/Documentation/networking/timestamping.txt
-index bc35541..8b4ad80 100644
---- a/Documentation/networking/timestamping.txt
-+++ b/Documentation/networking/timestamping.txt
-@@ -40,7 +40,7 @@ the set bits correspond to data that is available, then the control
- message will not be generated:
- 
- SOF_TIMESTAMPING_SOFTWARE:     report systime if available
--SOF_TIMESTAMPING_SYS_HARDWARE: report hwtimetrans if available
-+SOF_TIMESTAMPING_SYS_HARDWARE: report hwtimetrans if available (deprecated)
- SOF_TIMESTAMPING_RAW_HARDWARE: report hwtimeraw if available
- 
- It is worth noting that timestamps may be collected for reasons other
-@@ -94,7 +94,13 @@ not perfect; as a consequence, sorting packets received via different
- NICs by their hwtimetrans may differ from the order in which they were
- received. hwtimetrans may be non-monotonic even for the same NIC.
- Filled in if SOF_TIMESTAMPING_SYS_HARDWARE is set. Requires support
--by the network device and will be empty without that support.
-+by the network device and will be empty without that support. This
-+field is DEPRECATED. Only one driver computes this value. New device
-+drivers must leave this zero. Instead, they can expose the hardware
-+clock device on the NIC directly as a HW PTP clock source, to allow
-+time conversion in userspace and optionally synchronize system time
-+with a userspace PTP stack such as linuxptp. For the PTP clock API,
-+see Documentation/ptp/ptp.txt.
- 
- 
- SIOCSHWTSTAMP, SIOCGHWTSTAMP:
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 890fb33..3694303 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -211,7 +211,7 @@ static inline void skb_frag_size_sub(skb_frag_t *frag, int delta)
-  * struct skb_shared_hwtstamps - hardware time stamps
-  * @hwtstamp:	hardware time stamp transformed into duration
-  *		since arbitrary point in time
-- * @syststamp:	hwtstamp transformed to system time base
-+ * @syststamp:	hwtstamp transformed to system time base (deprecated)
-  *
-  * Software time stamps generated by ktime_get_real() are stored in
-  * skb->tstamp. The relation between the different kinds of time
-@@ -222,7 +222,9 @@ static inline void skb_frag_size_sub(skb_frag_t *frag, int delta)
-  * syststamp/tstamp/"syststamp from other device" comparison is
-  * limited by the accuracy of the transformation into system time
-  * base. This depends on the device driver and its underlying
-- * hardware.
-+ * hardware. The syststamp implementation is deprecated in favor
-+ * of hwtstamps and hw PTP clock sources exposed directly to
-+ * userspace.
-  *
-  * hwtstamps can only be compared against other hwtstamps from
-  * the same device.
--- 
-2.0.0.526.g5318336
+Thanks.
