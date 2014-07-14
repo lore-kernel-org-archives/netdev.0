@@ -1,56 +1,48 @@
 From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH 06/11] openvswitch: Fix key size computation in key_attr_size()
-Date: Sun, 13 Jul 2014 17:13:39 -0700
-Message-ID: <1405296819-3794-1-git-send-email-pshelar@nicira.com>
+Subject: [PATCH 07/11] openvswitch: Avoid memory corruption in queue_userspace_packet()
+Date: Sun, 13 Jul 2014 17:13:46 -0700
+Message-ID: <1405296826-3823-1-git-send-email-pshelar@nicira.com>
 Cc: netdev@vger.kernel.org, Andy Zhou <azhou@nicira.com>,
 	Pravin B Shelar <pshelar@nicira.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog136.obsmtp.com ([74.125.149.85]:41207 "HELO
-	na3sys009aog136.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751731AbaGNANn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jul 2014 20:13:43 -0400
-Received: by mail-pa0-f51.google.com with SMTP id ey11so1422549pad.24
-        for <netdev@vger.kernel.org>; Sun, 13 Jul 2014 17:13:43 -0700 (PDT)
+Received: from na3sys009aog126.obsmtp.com ([74.125.149.155]:38932 "HELO
+	na3sys009aog126.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751731AbaGNANt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jul 2014 20:13:49 -0400
+Received: by mail-pa0-f50.google.com with SMTP id bj1so4426552pad.9
+        for <netdev@vger.kernel.org>; Sun, 13 Jul 2014 17:13:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Andy Zhou <azhou@nicira.com>
 
-The key_attr_size() was not updated when RECIRC_ID and DP_HASH
-key fields are added to support recircualtion. This patch fixes it.
+In queue_userspace_packet(), the ovs_nla_put_flow return value is
+not checked. This is fine as long as key_attr_size() returns the
+correct value. In case it does not, the current code may corrupt buffer
+memory. Add a run time assertion catch this case to avoid silent
+failure.
 
 Reported-by: Ben Pfaff <blp@nicira.com>
 Signed-off-by: Andy Zhou <azhou@nicira.com>
 Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 ---
- net/openvswitch/datapath.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+ net/openvswitch/datapath.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 911f192..995dfa1 100644
+index 995dfa1..de7d4db 100644
 --- a/net/openvswitch/datapath.c
 +++ b/net/openvswitch/datapath.c
-@@ -376,6 +376,11 @@ static int queue_gso_packets(struct datapath *dp, struct sk_buff *skb,
+@@ -481,7 +481,8 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
+ 	upcall->dp_ifindex = dp_ifindex;
  
- static size_t key_attr_size(void)
- {
-+	/* Whenever adding new OVS_KEY_ FIELDS, we should consider
-+	 * updating this function.
-+	 */
-+	BUILD_BUG_ON(OVS_KEY_ATTR_IPV4_TUNNEL != 21);
-+
- 	return    nla_total_size(4)   /* OVS_KEY_ATTR_PRIORITY */
- 		+ nla_total_size(0)   /* OVS_KEY_ATTR_TUNNEL */
- 		  + nla_total_size(8)   /* OVS_TUNNEL_KEY_ATTR_ID */
-@@ -387,6 +392,8 @@ static size_t key_attr_size(void)
- 		  + nla_total_size(0)   /* OVS_TUNNEL_KEY_ATTR_CSUM */
- 		+ nla_total_size(4)   /* OVS_KEY_ATTR_IN_PORT */
- 		+ nla_total_size(4)   /* OVS_KEY_ATTR_SKB_MARK */
-+		+ nla_total_size(4)   /* OVS_KEY_ATTR_DP_HASH */
-+		+ nla_total_size(4)   /* OVS_KEY_ATTR_RECIRC_ID */
- 		+ nla_total_size(12)  /* OVS_KEY_ATTR_ETHERNET */
- 		+ nla_total_size(2)   /* OVS_KEY_ATTR_ETHERTYPE */
- 		+ nla_total_size(4)   /* OVS_KEY_ATTR_8021Q */
+ 	nla = nla_nest_start(user_skb, OVS_PACKET_ATTR_KEY);
+-	ovs_nla_put_flow(upcall_info->key, upcall_info->key, user_skb);
++	err = ovs_nla_put_flow(upcall_info->key, upcall_info->key, user_skb);
++	BUG_ON(err);
+ 	nla_nest_end(user_skb, nla);
+ 
+ 	if (upcall_info->userdata)
 -- 
 1.9.3
