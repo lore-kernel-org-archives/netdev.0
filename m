@@ -1,43 +1,41 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH net-next] net-gre-gro: Fix a bug that breaks the
- forwarding path
-Date: Mon, 14 Jul 2014 22:05:30 +0300
-Message-ID: <CAJZOPZ+wu=6t_AKoKg1KhVJ0=DhczfQ8ekDFKFLEkQv6d=cOfA@mail.gmail.com>
-References: <1405262780-20232-1-git-send-email-hkchu@google.com>
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: [PATCH net-next 0/2] amd-xgbe: Remove baseT workaround for fixed
+ speeds
+Date: Mon, 14 Jul 2014 14:05:40 -0500
+Message-ID: <20140714190540.23626.62720.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <edumazet@google.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>, linux@stwm.de,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "H.K. Jerry Chu" <hkchu@google.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	David Miller <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f182.google.com ([209.85.216.182]:40145 "EHLO
-	mail-qc0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754870AbaGNTFc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 15:05:32 -0400
-Received: by mail-qc0-f182.google.com with SMTP id r5so3177185qcx.13
-        for <netdev@vger.kernel.org>; Mon, 14 Jul 2014 12:05:30 -0700 (PDT)
-In-Reply-To: <1405262780-20232-1-git-send-email-hkchu@google.com>
+Received: from mail-bl2lp0206.outbound.protection.outlook.com ([207.46.163.206]:46681
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754870AbaGNTF5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Jul 2014 15:05:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jul 13, 2014 at 5:46 PM, H.K. Jerry Chu <hkchu@google.com> wrote:
->
-> From: Jerry Chu <hkchu@google.com>
->
-> Fixed a bug that was introduced by my GRE-GRO patch
-> (bf5a755f5e9186406bbf50f4087100af5bd68e40 net-gre-gro: Add GRE
-> support to the GRO stack) that breaks the forwarding path
-> because various GSO related fields were not set. The bug will
-> cause on the egress path either the GSO code to fail, or a
-> GRE-TSO capable (NETIF_F_GSO_GRE) NICs to choke. The following
-> fix has been tested for both cases.
+The following series expands the speed/duplex settings array in phy.c
+to support additional media types. With this expansion the workaround
+in the amd-xgbe driver to set/remove baseT media types based on whether
+auto negotiation is enabled can be removed.
+
+This patch series is based on net-next.
+
+---
+
+Tom Lendacky (2):
+      phy: Expand phy speed/duplex settings array
+      amd-xgbe: Remove the adjustments needed for fixed speed
 
 
-Hi Jerry,
+ drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c |   10 ----------
+ drivers/net/ethernet/amd/xgbe/xgbe-mdio.c    |    4 ----
+ drivers/net/phy/phy.c                        |   22 +++++++++++++++++++++-
+ 3 files changed, 21 insertions(+), 15 deletions(-)
 
-Anything different in this version vs. the one you posted earlier on
-February or this is a plain re-post?
-
-Or.
+-- 
+Tom Lendacky
