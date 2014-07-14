@@ -1,196 +1,66 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH 4/4] udp: Move udp_tunnel_segment into udp_offload.c
-Date: Sun, 13 Jul 2014 19:49:56 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1407131940460.24734@tomh.mtv.corp.google.com>
+From: Sonic Zhang <sonic.adi@gmail.com>
+Subject: Re: [PATCH v3] bfin_mac: convert bfin Ethernet driver to NAPI framework
+Date: Mon, 14 Jul 2014 11:40:37 +0800
+Message-ID: <CAJxxZ0PLapq1jodHN5u+1qNm4dxLkCC9kvbB+D=R3gNfWjk-3w@mail.gmail.com>
+References: <1405074434-13947-1-git-send-email-sonic.adi@gmail.com>
+	<20140711.150136.1090869144440145481.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	adi-buildroot-devel@lists.sourceforge.net,
+	"Zhang, Sonic" <sonic.zhang@analog.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f73.google.com ([209.85.216.73]:34540 "EHLO
-	mail-qa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752526AbaGNC6B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jul 2014 22:58:01 -0400
-Received: by mail-qa0-f73.google.com with SMTP id s7so241230qap.4
-        for <netdev@vger.kernel.org>; Sun, 13 Jul 2014 19:58:00 -0700 (PDT)
+Received: from mail-ob0-f179.google.com ([209.85.214.179]:46523 "EHLO
+	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752110AbaGNDki (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 13 Jul 2014 23:40:38 -0400
+Received: by mail-ob0-f179.google.com with SMTP id wn1so1616826obc.38
+        for <netdev@vger.kernel.org>; Sun, 13 Jul 2014 20:40:37 -0700 (PDT)
+In-Reply-To: <20140711.150136.1090869144440145481.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- net/ipv4/udp.c         | 76 --------------------------------------------------
- net/ipv4/udp_offload.c | 76 ++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 76 insertions(+), 76 deletions(-)
+Hi David,
 
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index ac30e10..f6dfe52 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -2522,79 +2522,3 @@ void __init udp_init(void)
- 	sysctl_udp_rmem_min = SK_MEM_QUANTUM;
- 	sysctl_udp_wmem_min = SK_MEM_QUANTUM;
- }
--
--struct sk_buff *skb_udp_tunnel_segment(struct sk_buff *skb,
--				       netdev_features_t features)
--{
--	struct sk_buff *segs = ERR_PTR(-EINVAL);
--	u16 mac_offset = skb->mac_header;
--	int mac_len = skb->mac_len;
--	int tnl_hlen = skb_inner_mac_header(skb) - skb_transport_header(skb);
--	__be16 protocol = skb->protocol;
--	netdev_features_t enc_features;
--	int udp_offset, outer_hlen;
--	unsigned int oldlen;
--	bool need_csum;
--
--	oldlen = (u16)~skb->len;
--
--	if (unlikely(!pskb_may_pull(skb, tnl_hlen)))
--		goto out;
--
--	skb->encapsulation = 0;
--	__skb_pull(skb, tnl_hlen);
--	skb_reset_mac_header(skb);
--	skb_set_network_header(skb, skb_inner_network_offset(skb));
--	skb->mac_len = skb_inner_network_offset(skb);
--	skb->protocol = htons(ETH_P_TEB);
--
--	need_csum = !!(skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL_CSUM);
--	if (need_csum)
--		skb->encap_hdr_csum = 1;
--
--	/* segment inner packet. */
--	enc_features = skb->dev->hw_enc_features & netif_skb_features(skb);
--	segs = skb_mac_gso_segment(skb, enc_features);
--	if (!segs || IS_ERR(segs)) {
--		skb_gso_error_unwind(skb, protocol, tnl_hlen, mac_offset,
--				     mac_len);
--		goto out;
--	}
--
--	outer_hlen = skb_tnl_header_len(skb);
--	udp_offset = outer_hlen - tnl_hlen;
--	skb = segs;
--	do {
--		struct udphdr *uh;
--		int len;
--
--		skb_reset_inner_headers(skb);
--		skb->encapsulation = 1;
--
--		skb->mac_len = mac_len;
--
--		skb_push(skb, outer_hlen);
--		skb_reset_mac_header(skb);
--		skb_set_network_header(skb, mac_len);
--		skb_set_transport_header(skb, udp_offset);
--		len = skb->len - udp_offset;
--		uh = udp_hdr(skb);
--		uh->len = htons(len);
--
--		if (need_csum) {
--			__be32 delta = htonl(oldlen + len);
--
--			uh->check = ~csum_fold((__force __wsum)
--					       ((__force u32)uh->check +
--						(__force u32)delta));
--			uh->check = gso_make_checksum(skb, ~uh->check);
--
--			if (uh->check == 0)
--				uh->check = CSUM_MANGLED_0;
--		}
--
--		skb->protocol = protocol;
--	} while ((skb = skb->next));
--out:
--	return segs;
--}
-diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
-index 546d2d4..4807544 100644
---- a/net/ipv4/udp_offload.c
-+++ b/net/ipv4/udp_offload.c
-@@ -47,6 +47,82 @@ static int udp4_ufo_send_check(struct sk_buff *skb)
- 	return 0;
- }
- 
-+struct sk_buff *skb_udp_tunnel_segment(struct sk_buff *skb,
-+				       netdev_features_t features)
-+{
-+	struct sk_buff *segs = ERR_PTR(-EINVAL);
-+	u16 mac_offset = skb->mac_header;
-+	int mac_len = skb->mac_len;
-+	int tnl_hlen = skb_inner_mac_header(skb) - skb_transport_header(skb);
-+	__be16 protocol = skb->protocol;
-+	netdev_features_t enc_features;
-+	int udp_offset, outer_hlen;
-+	unsigned int oldlen;
-+	bool need_csum;
-+
-+	oldlen = (u16)~skb->len;
-+
-+	if (unlikely(!pskb_may_pull(skb, tnl_hlen)))
-+		goto out;
-+
-+	skb->encapsulation = 0;
-+	__skb_pull(skb, tnl_hlen);
-+	skb_reset_mac_header(skb);
-+	skb_set_network_header(skb, skb_inner_network_offset(skb));
-+	skb->mac_len = skb_inner_network_offset(skb);
-+	skb->protocol = htons(ETH_P_TEB);
-+
-+	need_csum = !!(skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL_CSUM);
-+	if (need_csum)
-+		skb->encap_hdr_csum = 1;
-+
-+	/* segment inner packet. */
-+	enc_features = skb->dev->hw_enc_features & netif_skb_features(skb);
-+	segs = skb_mac_gso_segment(skb, enc_features);
-+	if (!segs || IS_ERR(segs)) {
-+		skb_gso_error_unwind(skb, protocol, tnl_hlen, mac_offset,
-+				     mac_len);
-+		goto out;
-+	}
-+
-+	outer_hlen = skb_tnl_header_len(skb);
-+	udp_offset = outer_hlen - tnl_hlen;
-+	skb = segs;
-+	do {
-+		struct udphdr *uh;
-+		int len;
-+
-+		skb_reset_inner_headers(skb);
-+		skb->encapsulation = 1;
-+
-+		skb->mac_len = mac_len;
-+
-+		skb_push(skb, outer_hlen);
-+		skb_reset_mac_header(skb);
-+		skb_set_network_header(skb, mac_len);
-+		skb_set_transport_header(skb, udp_offset);
-+		len = skb->len - udp_offset;
-+		uh = udp_hdr(skb);
-+		uh->len = htons(len);
-+
-+		if (need_csum) {
-+			__be32 delta = htonl(oldlen + len);
-+
-+			uh->check = ~csum_fold((__force __wsum)
-+					       ((__force u32)uh->check +
-+						(__force u32)delta));
-+			uh->check = gso_make_checksum(skb, ~uh->check);
-+
-+			if (uh->check == 0)
-+				uh->check = CSUM_MANGLED_0;
-+		}
-+
-+		skb->protocol = protocol;
-+	} while ((skb = skb->next));
-+out:
-+	return segs;
-+}
-+
- static struct sk_buff *udp4_ufo_fragment(struct sk_buff *skb,
- 					 netdev_features_t features)
- {
--- 
-2.0.0.526.g5318336
+On Sat, Jul 12, 2014 at 6:01 AM, David Miller <davem@davemloft.net> wrote:
+> From: Sonic Zhang <sonic.adi@gmail.com>
+> Date: Fri, 11 Jul 2014 18:27:14 +0800
+>
+>> +     if (i < budget) {
+>> +             napi_complete(napi);
+>> +             if (!(bfin_read_IPEND() & IRQ_EVX))
+>> +                     enable_irq(IRQ_MAC_RX);
+>> +     }
+>
+> This doesn't make any sense, why are you only re-enabling the
+> interrupt if the status bit is clear?
+>
+> You should do this unconditionally.
+
+In the case of netpoll_poll_dev() is invoked repeatedly from an
+exception handler and no packet is available in the Ethernet device
+buffer, the MAC_RX IRQ is not disabled in bfin_mac_interrupt handler
+when ndo_poll_controller() callback is invoked. But, the NAPI poll()
+callback is always called with bit NAPI_STATE_NPSVC set in
+poll_one_napi(). If the MAC_RX IRQ is enabled unconditionally, kernel
+warning "Unbalanced enable for IRQ %d\n" is always printed out in
+function __enable_irq().
+
+This exception status checking is to avoid the unbalanced IRQ warning
+from enable_irq(). There is no similar warning in
+disable_irq_nosync(). Do you have any better solution for this
+problem?
+
+Thanks,
+
+Sonic
+
+
+>
+> If your logic triggers, polling is disabled and the interrupt handler
+> isn't going to run, so your driver will stop taking packets.
+>
+> Please please, stop being so clever with the conditions here, simply
+> if you didn't use the whole budget turn off NAPI and reenable
+> interrupts.
