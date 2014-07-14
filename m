@@ -1,74 +1,58 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Fw: [Bug 80201] New: general protection fault: 0000 [#1] SMP (while
- using HTB)
-Date: Mon, 14 Jul 2014 08:47:33 -0700
-Message-ID: <20140714084733.0b4aeeef@haswell>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:43129 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755828AbaGNPrb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 11:47:31 -0400
-Received: by mail-pa0-f47.google.com with SMTP id kx10so4243668pab.20
-        for <netdev@vger.kernel.org>; Mon, 14 Jul 2014 08:47:31 -0700 (PDT)
-Received: from haswell (static-50-53-66-61.bvtn.or.frontiernet.net. [50.53.66.61])
-        by mx.google.com with ESMTPSA id q7sm14989816pdm.17.2014.07.14.08.47.30
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
-        Mon, 14 Jul 2014 08:47:31 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCHv2 net-next 0/4] Misc. fixes for iw_cxgb4
+Date: Mon, 14 Jul 2014 21:34:50 +0530
+Message-ID: <1405353894-17495-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org,
+	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+This patch series adds support to determine ingress padding boundary at runtime.
+Advertise a larger max read queue depth for qps, and gather the resource limits
+from fw and use them to avoid exhausting all the resources and display TPTE on
+errors and add support for work request logging feature.
 
+The patches series is created against 'net-next' tree.
+And includes patches on cxgb4 and iw_cxgb4 driver.
 
-Begin forwarded message:
+Since this patch-series contains changes which are dependent on commit id
+fc5ab02 ("cxgb4: Replaced the backdoor mechanism to access the HW memory with
+PCIe Window method") we would like to request this patch series to get merged
+via David Miller's 'net-next' tree.
 
-Date: Mon, 14 Jul 2014 04:12:45 -0700
-From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-To: "stephen@networkplumber.org" <stephen@networkplumber.org>
-Subject: [Bug 80201] New: general protection fault: 0000 [#1] SMP (while using HTB)
+We have included all the maintainers of respective drivers. Kindly review the
+change and let us know in case of any review comments. 
 
+V2:
+ Optimized alloc_ird function, and several other changes related to debug prints
+ based on review comments given by Yann Droneaud.
 
-https://bugzilla.kernel.org/show_bug.cgi?id=80201
+Hariprasad Shenai (4):
+  iw_cxgb4: Detect Ing. Padding Boundary at run-time
+  cxgb4/iw_cxgb4: use firmware ord/ird resource limits
+  cxgb4/iw_cxgb4: display TPTE on errors
+  cxgb4/iw_cxgb4: work request logging feature
 
-            Bug ID: 80201
-           Summary: general protection fault: 0000 [#1] SMP (while using
-                    HTB)
-           Product: Networking
-           Version: 2.5
-    Kernel Version: Linux 3.10.41-1.el6.elrepo.x86_64
-          Hardware: x86-64
-                OS: Linux
-              Tree: Mainline
-            Status: NEW
-          Severity: normal
-          Priority: P1
-         Component: Other
-          Assignee: shemminger@linux-foundation.org
-          Reporter: cenek.zach@gmail.com
-        Regression: No
+ drivers/infiniband/hw/cxgb4/cm.c                |   80 +++++++---
+ drivers/infiniband/hw/cxgb4/cq.c                |    8 +-
+ drivers/infiniband/hw/cxgb4/device.c            |  188 ++++++++++++++++++++++-
+ drivers/infiniband/hw/cxgb4/ev.c                |   55 ++++++-
+ drivers/infiniband/hw/cxgb4/iw_cxgb4.h          |   38 +++++-
+ drivers/infiniband/hw/cxgb4/provider.c          |   10 +-
+ drivers/infiniband/hw/cxgb4/qp.c                |   76 ++++++++--
+ drivers/infiniband/hw/cxgb4/t4.h                |   16 +--
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |    3 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |  100 ++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |    7 +
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |    6 +
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   |    2 +
+ 13 files changed, 528 insertions(+), 61 deletions(-)
 
-Created attachment 142971
-  --> https://bugzilla.kernel.org/attachment.cgi?id=142971&action=edit
-Kernel GPF stack trace
-
-Encountered GPF under normal circumstances - no heavy load (CPU, IO, net). 
-
-HTB configuration is very simple: 1 HTB class with SFQ qdisc and filter on
-source port 80:
-
-tc qdisc add dev eth0 root handle 1: htb default 30
-tc class add dev eth0 parent 1: classid 1:1 htb rate $LIMIT burst 1500k cburst
-1500k
-tc qdisc add dev eth0 parent 1:1 handle 10: sfq perturb 10
-tc filter add dev eth0 protocol ip parent 1:0 prio 1 u32 match ip sport 80
-0xffff flowid 1:1
-
-Relevant part of vmcore-dmesg.txt attached.
-
--- 
-You are receiving this mail because:
-You are the assignee for the bug.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
