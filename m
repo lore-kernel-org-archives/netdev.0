@@ -1,137 +1,115 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [PATCH net-next] tcp: Remove unnecessary arg from tcp_enter_cwr
- and tcp_init_cwnd_reduction
-Date: Mon, 14 Jul 2014 12:14:41 -0700
-Message-ID: <CAK6E8=e7fn5oAidNY_Yy9Xi8=xGms4f8L5b+W6Duq08C05Xu=g@mail.gmail.com>
-References: <1405349912-9593-1-git-send-email-christoph.paasch@uclouvain.be>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH net-next v2 3/3] net: sctp: Add partial support for MSG_MORE
+ on SCTP
+Date: Mon, 14 Jul 2014 15:15:36 -0400
+Message-ID: <53C42C58.3050108@gmail.com>
+References: <063D6719AE5E284EB5DD2968C1650D6D1726EEB7@AcuExch.aculab.com> <53C04509.70304@gmail.com> <063D6719AE5E284EB5DD2968C1650D6D17271E0B@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Christoph Paasch <christoph.paasch@uclouvain.be>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: "'davem@davemloft.net'" <davem@davemloft.net>
+To: David Laight <David.Laight@ACULAB.COM>,
+	"'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
+	"'linux-sctp@vger.kernel.org'" <linux-sctp@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f181.google.com ([209.85.213.181]:38521 "EHLO
-	mail-ig0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755857AbaGNTPW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 15:15:22 -0400
-Received: by mail-ig0-f181.google.com with SMTP id h3so2090145igd.2
-        for <netdev@vger.kernel.org>; Mon, 14 Jul 2014 12:15:21 -0700 (PDT)
-In-Reply-To: <1405349912-9593-1-git-send-email-christoph.paasch@uclouvain.be>
+Received: from mail-qa0-f42.google.com ([209.85.216.42]:44799 "EHLO
+	mail-qa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756147AbaGNTPk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 15:15:40 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D17271E0B@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Jul 14, 2014 7:59 AM, "Christoph Paasch"
-<christoph.paasch@uclouvain.be> wrote:
->
-> Since Yuchung's 9b44190dc11 (tcp: refactor F-RTO), tcp_enter_cwr is always
-> called with set_ssthresh = 1. Thus, we can remove this argument from
-> tcp_enter_cwr. Further, as we remove this one, tcp_init_cwnd_reduction
-> is then always called with set_ssthresh = true, and so we can get rid of
-> this argument as well.
->
-> Cc: Yuchung Cheng <ycheng@google.com>
-> Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
+On 07/14/2014 12:27 PM, David Laight wrote:
+> From: Vlad Yasevich
+> ...
+>>> +	/* Setting MSG_MORE currently has the same effect as enabling Nagle.
+>>> +	 * This means that the user can't force bundling of the first two data
+>>> +	 * chunks.  It does mean that all the data chunks will be sent
+>>> +	 * without an extra timer.
+>>> +	 * It is enough to save the last value since any data sent with
+>>> +	 * MSG_MORE clear will already have been sent (subject to flow control).
+>>> +	 */
+>>> +	if (msg->msg_flags & MSG_MORE)
+>>> +		sp->tx_delay |= SCTP_F_TX_MSG_MORE;
+>>> +	else
+>>> +		sp->tx_delay &= ~SCTP_F_TX_MSG_MORE;
+>>> +
+>>
+>> This is ok for 1-1 sockets, but it doesn't really work for 1-many sockets.  If one of
+>> the associations uses MSG_MORE while another does not, we'll see some interesting
+>> side-effects on the wire.
+> 
+> They shouldn't cause any grief, and are somewhat unlikely.
+> Unless multiple threads/processes are writing data into the same socket
+> and are also flipping MSG_MORE (and the socket locking allows the
+> send path to run concurrently - I suspect it doesn't).
+> 
+> AFAICT the tx_delay/Nagle flag is looked at in two code paths:
+> 1) After the application tries to send some data.
+> 2) When processing a received ack chunk.
+> 
+> For 1-many sockets I suspect the code that checks tx_delay after a send()
+> is executed before a send() from a different thread could change the value.
+> And that sends for alternate destinations won't try to clear the tx queue
+> for the other association.
+> So the send() processing is unlikely to be affected by the MSG_MORE flag
+> value for the other association.
 
-Acked-by: Yuchung Cheng <ycheng@google.com>
+But the MSG_MORE is not per association.  It is per socket.  So if you have
+a process with 2 threads that clears Nagle (sets SCTP_NODELAY) and then
+uses MSG_MORE to force bundling when it has a lot of data in queue then
+you can have the following:
+  1: send(MSG_MORE)
+  1: send(MSG_MORE)
+  2: send()
 
-> ---
->  include/net/tcp.h     |  2 +-
->  net/ipv4/tcp_input.c  | 15 +++++++--------
->  net/ipv4/tcp_output.c |  2 +-
->  3 files changed, 9 insertions(+), 10 deletions(-)
->
-> diff --git a/include/net/tcp.h b/include/net/tcp.h
-> index c9a75dbba0c7..0aeb2eb749dc 100644
-> --- a/include/net/tcp.h
-> +++ b/include/net/tcp.h
-> @@ -928,7 +928,7 @@ static inline __u32 tcp_current_ssthresh(const struct sock *sk)
->  /* Use define here intentionally to get WARN_ON location shown at the caller */
->  #define tcp_verify_left_out(tp)        WARN_ON(tcp_left_out(tp) > tp->packets_out)
->
-> -void tcp_enter_cwr(struct sock *sk, const int set_ssthresh);
-> +void tcp_enter_cwr(struct sock *sk);
->  __u32 tcp_init_cwnd(const struct tcp_sock *tp, const struct dst_entry *dst);
->
->  /* The maximum number of MSS of available cwnd for which TSO defers
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index bb684967f7a7..2e16afba182c 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -2475,7 +2475,7 @@ static bool tcp_try_undo_loss(struct sock *sk, bool frto_undo)
->   *     losses and/or application stalls), do not perform any further cwnd
->   *     reductions, but instead slow start up to ssthresh.
->   */
-> -static void tcp_init_cwnd_reduction(struct sock *sk, const bool set_ssthresh)
-> +static void tcp_init_cwnd_reduction(struct sock *sk)
->  {
->         struct tcp_sock *tp = tcp_sk(sk);
->
-> @@ -2485,8 +2485,7 @@ static void tcp_init_cwnd_reduction(struct sock *sk, const bool set_ssthresh)
->         tp->prior_cwnd = tp->snd_cwnd;
->         tp->prr_delivered = 0;
->         tp->prr_out = 0;
-> -       if (set_ssthresh)
-> -               tp->snd_ssthresh = inet_csk(sk)->icsk_ca_ops->ssthresh(sk);
-> +       tp->snd_ssthresh = inet_csk(sk)->icsk_ca_ops->ssthresh(sk);
->         TCP_ECN_queue_cwr(tp);
->  }
->
-> @@ -2528,14 +2527,14 @@ static inline void tcp_end_cwnd_reduction(struct sock *sk)
->  }
->
->  /* Enter CWR state. Disable cwnd undo since congestion is proven with ECN */
-> -void tcp_enter_cwr(struct sock *sk, const int set_ssthresh)
-> +void tcp_enter_cwr(struct sock *sk)
->  {
->         struct tcp_sock *tp = tcp_sk(sk);
->
->         tp->prior_ssthresh = 0;
->         if (inet_csk(sk)->icsk_ca_state < TCP_CA_CWR) {
->                 tp->undo_marker = 0;
-> -               tcp_init_cwnd_reduction(sk, set_ssthresh);
-> +               tcp_init_cwnd_reduction(sk);
->                 tcp_set_ca_state(sk, TCP_CA_CWR);
->         }
->  }
-> @@ -2564,7 +2563,7 @@ static void tcp_try_to_open(struct sock *sk, int flag, const int prior_unsacked)
->                 tp->retrans_stamp = 0;
->
->         if (flag & FLAG_ECE)
-> -               tcp_enter_cwr(sk, 1);
-> +               tcp_enter_cwr(sk);
->
->         if (inet_csk(sk)->icsk_ca_state != TCP_CA_CWR) {
->                 tcp_try_keep_open(sk);
-> @@ -2670,7 +2669,7 @@ static void tcp_enter_recovery(struct sock *sk, bool ece_ack)
->         if (inet_csk(sk)->icsk_ca_state < TCP_CA_CWR) {
->                 if (!ece_ack)
->                         tp->prior_ssthresh = tcp_current_ssthresh(sk);
-> -               tcp_init_cwnd_reduction(sk, true);
-> +               tcp_init_cwnd_reduction(sk);
->         }
->         tcp_set_ca_state(sk, TCP_CA_Recovery);
->  }
-> @@ -3346,7 +3345,7 @@ static void tcp_process_tlp_ack(struct sock *sk, u32 ack, int flag)
->                 tp->tlp_high_seq = 0;
->                 /* Don't reduce cwnd if DSACK arrives for TLP retrans. */
->                 if (!(flag & FLAG_DSACKING_ACK)) {
-> -                       tcp_init_cwnd_reduction(sk, true);
-> +                       tcp_init_cwnd_reduction(sk);
->                         tcp_set_ca_state(sk, TCP_CA_CWR);
->                         tcp_end_cwnd_reduction(sk);
->                         tcp_try_keep_open(sk);
-> diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-> index bcee13c4627c..306dd5dead7d 100644
-> --- a/net/ipv4/tcp_output.c
-> +++ b/net/ipv4/tcp_output.c
-> @@ -979,7 +979,7 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
->         if (likely(err <= 0))
->                 return err;
->
-> -       tcp_enter_cwr(sk, 1);
-> +       tcp_enter_cwr(sk);
->
->         return net_xmit_eval(err);
->  }
-> --
-> 1.9.3
->
+The send from thread2 will reset the tx_delay across the socket.  If
+association from thread 1 then receives a SACK, it will flush the queue
+before it's ready.  So, you have a side-effect that you don't get the
+bundling that you are really after with MSG_MORE usage.
+
+> 
+> The only time there will be sendable data for (2) is if the connection
+> were flow-controlled off, or if data were unsent due the MSG_MORE/Nagle
+> being set when the last send was processed.
+> Most likely the queued data will be sent - either because there is nothing
+> outstanding, because there is more than a packet full, or because the last
+> send had MSG_MORE clear.
+> 
+> The expectation is that an application will send some data chunks with
+> MSG_MORE set, followed by one with it clear.
+> 
+
+Within a single thread, sure.  But it you have multiple association as above,
+you could end up with a scenario where MSG_MORE is almost useless.
+
+> The only scenario I can see that might be unexpected is:
+> - a 1-many socket.
+> - one destination flow controlled (ie waiting an ack chunk) but
+>   with less than 1500 bytes queued.
+> - send with MSG_MORE set for a different destination.
+> - ack received, queued data not sent.
+> 
+> But if you are waiting for ack chunks on a 1-many socket you are already
+> in deep trouble - since there is only a single socket send buffer.
+
+Not always.  A lot of deployments that use 1-many socket specifically
+change buffering policy.
+
+> 
+> I don't think this is a problem.
+
+Not, it is not a _problem_, but it does make MSG_MORE rather useless
+in some situations.  Waiting for an ACK across low-latency links
+is rare, but in a high-latency scenarios where you want to utilize the
+bandwidth better with bundling, you may not see the gains you expect.
+
+Since MSG_MORE is association, it should be handled as such and an
+a change on one association should not effect the others.
+
+-vlad
+> 
+> 	David
+> 
+> 
