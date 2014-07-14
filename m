@@ -1,30 +1,65 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH V2 0/9] drivers/net: remove unnecessary break after goto
-Date: Sun, 13 Jul 2014 23:46:14 -0700 (PDT)
-Message-ID: <20140713.234614.1536480358445017348.davem@davemloft.net>
-References: <1405188597-2815-1-git-send-email-fabf@skynet.be>
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Subject: Re: [PATCH net-next] enic: Add ethtool support to show classifier
+ filters added by the driver
+Date: Mon, 14 Jul 2014 12:28:58 +0530 (IST)
+Message-ID: <alpine.LNX.2.03.1407141150300.4699@ws.cisco>
+References: <1405070051-10445-1-git-send-email-_govind@gmx.com> <20140711.145917.653569199285104303.davem@davemloft.net> <alpine.LNX.2.03.1407121406100.1782@ws.cisco> <20140713.003145.1522390926593819876.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org,
-	e1000-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	wcn36xx-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: fabf-AgBVmzD5pcezQB+pC5nmwQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1405188597-2815-1-git-send-email-fabf-AgBVmzD5pcezQB+pC5nmwQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: _govind@gmx.com, netdev@vger.kernel.org, ssujith@cisco.com,
+	benve@cisco.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.gmx.com ([74.208.4.200]:61888 "EHLO mout.gmx.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751364AbaGNG7a (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Jul 2014 02:59:30 -0400
+In-Reply-To: <20140713.003145.1522390926593819876.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Fabian Frederick <fabf-AgBVmzD5pcezQB+pC5nmwQ@public.gmane.org>
-Date: Sat, 12 Jul 2014 20:09:39 +0200
+On Sun, 13 Jul 2014, David Miller wrote:
 
-> Small patchset addressing break redundancy on drivers/net branch
-> (suggested by Joe Perches). 
-> 
-> V2: cc to maintainers of each section.
+> From: Govindarajulu Varadarajan <_govind@gmx.com>
+> Date: Sat, 12 Jul 2014 14:09:15 +0530 (IST)
+>
+>> On Fri, 11 Jul 2014, David Miller wrote:
+>>
+>>> From: Govindarajulu Varadarajan <_govind@gmx.com>
+>>> Date: Fri, 11 Jul 2014 14:44:11 +0530
+>>>
+>>>> Right now Accelerated RFS is the only feature which adds classifier
+>>>> filters.
+>>>> So enable get_rxnfc only when CONFIG_RFS_ACCEL = y
+>>> ...
+>>>> @@ -293,6 +389,9 @@ static const struct ethtool_ops enic_ethtool_ops =
+>>>> {
+>>>>  	.get_ethtool_stats = enic_get_ethtool_stats,
+>>>>  	.get_coalesce = enic_get_coalesce,
+>>>>  	.set_coalesce = enic_set_coalesce,
+>>>> +#ifdef CONFIG_RFS_ACCEL
+>>>> +	.get_rxnfc = enic_get_rxnfc,
+>>>> +#endif
+>>>
+>>> No other driver protects this method in this way, please don't do
+>>> this.
+>>>
+>>
+>> I will move the ifdef's to .h files and resubmit.
+>
+> I meant, at all.
+>
 
-Series applied to net-next, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+You do not like the idea of #ifdef around .get_rxnfc (including moving it to
+.h file) or the idea of displaying filters added by RFS?
+
+I am actually considering moving driver filter structures out of
+#ifdef CONFIG_RFS_ACCEL, and make it available always. This will allow us to
+define .get_rxnfc without any #ifdefs.
+
+This change is anyway needed when I implement .set_rxnfc to added user entered
+filters.
+
+This it fine with you?
+
+Thanks
