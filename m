@@ -1,7 +1,7 @@
 From: varkabhadram@gmail.com
-Subject: [PATCH net-next v3 5/6] ethernet: amd: fix pci device ids
-Date: Mon, 14 Jul 2014 14:09:08 +0530
-Message-ID: <1405327149-6554-6-git-send-email-varkabhadram@gmail.com>
+Subject: [PATCH net-next v3 2/6] ethernet: amd: use devm_ioremap()
+Date: Mon, 14 Jul 2014 14:09:05 +0530
+Message-ID: <1405327149-6554-3-git-send-email-varkabhadram@gmail.com>
 References: <1405327149-6554-1-git-send-email-varkabhadram@gmail.com>
 Cc: Thomas.Lendacky@amd.com, geert+renesas@linux-m68k.org,
 	ebiederm@xmission.com, macro@linux-mips.org,
@@ -15,59 +15,52 @@ List-Id: netdev.vger.kernel.org
 
 From: Varka Bhadram <varkab@cdac.in>
 
-Normally any device ids will be above the corresponding device driver
-structure. This patch moves the pci device ids and MODULE_DEVICE_TABLE()
-above the pci driver structure. 
+This patch replace ioremap() with the devm_ioremap() so that
+the resource will be freed automatically with the probe failed.
 
 Signed-off-by: Varka Bhadram <varkab@cdac.in>
 ---
- drivers/net/ethernet/amd/amd8111e.c |   20 +++++++++++---------
- 1 file changed, 11 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/amd/amd8111e.c |    7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/amd/amd8111e.c b/drivers/net/ethernet/amd/amd8111e.c
-index a8f5c49..9f8a15e 100644
+index ddd09e8..433107c 100644
 --- a/drivers/net/ethernet/amd/amd8111e.c
 +++ b/drivers/net/ethernet/amd/amd8111e.c
-@@ -101,7 +101,6 @@ Revision History:
- MODULE_AUTHOR("Advanced Micro Devices, Inc.");
- MODULE_DESCRIPTION ("AMD8111 based 10/100 Ethernet Controller. Driver Version "MODULE_VERS);
- MODULE_LICENSE("GPL");
--MODULE_DEVICE_TABLE(pci, amd8111e_pci_tbl);
- module_param_array(speed_duplex, int, NULL, 0);
- MODULE_PARM_DESC(speed_duplex, "Set device speed and duplex modes, 0: Auto Negotiate, 1: 10Mbps Half Duplex, 2: 10Mbps Full Duplex, 3: 100Mbps Half Duplex, 4: 100Mbps Full Duplex");
- module_param_array(coalesce, bool, NULL, 0);
-@@ -109,14 +108,6 @@ MODULE_PARM_DESC(coalesce, "Enable or Disable interrupt coalescing, 1: Enable, 0
- module_param_array(dynamic_ipg, bool, NULL, 0);
- MODULE_PARM_DESC(dynamic_ipg, "Enable or Disable dynamic IPG, 1: Enable, 0: Disable");
+@@ -1866,7 +1866,7 @@ static int amd8111e_probe_one(struct pci_dev *pdev,
  
--static DEFINE_PCI_DEVICE_TABLE(amd8111e_pci_tbl) = {
--
--	{ PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD8111E_7462,
--	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0UL },
--	{ 0, }
--
--};
--
- /* This function will read the PHY registers. */
- static int amd8111e_read_phy(struct amd8111e_priv* lp, int phy_id, int reg, u32* val)
- {
-@@ -1953,6 +1944,17 @@ static void amd8111e_remove_one(struct pci_dev *pdev)
+ 	spin_lock_init(&lp->lock);
+ 
+-	lp->mmio = ioremap(reg_addr, reg_len);
++	lp->mmio = devm_ioremap(&pdev->dev, reg_addr, reg_len);
+ 	if (!lp->mmio) {
+ 		printk(KERN_ERR "amd8111e: Cannot map device registers, "
+ 		       "exiting\n");
+@@ -1913,7 +1913,7 @@ static int amd8111e_probe_one(struct pci_dev *pdev,
+ 	if (err) {
+ 		printk(KERN_ERR "amd8111e: Cannot register net device, "
+ 		       "exiting.\n");
+-		goto err_iounmap;
++		goto err_free_dev;
  	}
- }
  
-+static const struct pci_device_id amd8111e_pci_tbl[] = {
-+	{
-+	 .vendor = PCI_VENDOR_ID_AMD,
-+	 .device = PCI_DEVICE_ID_AMD8111E_7462,
-+	},
-+	{
-+	 .vendor = 0,
-+	}
-+};
-+MODULE_DEVICE_TABLE(pci, amd8111e_pci_tbl);
-+
- static struct pci_driver amd8111e_driver = {
- 	.name   	= MODULE_NAME,
- 	.id_table	= amd8111e_pci_tbl,
+ 	pci_set_drvdata(pdev, dev);
+@@ -1943,8 +1943,6 @@ static int amd8111e_probe_one(struct pci_dev *pdev,
+ 		printk(KERN_INFO "%s: Couldn't detect MII PHY, assuming address 0x01\n",
+ 		       dev->name);
+     	return 0;
+-err_iounmap:
+-	iounmap(lp->mmio);
+ 
+ err_free_dev:
+ 	free_netdev(dev);
+@@ -1964,7 +1962,6 @@ static void amd8111e_remove_one(struct pci_dev *pdev)
+ 
+ 	if (dev) {
+ 		unregister_netdev(dev);
+-		iounmap(((struct amd8111e_priv *)netdev_priv(dev))->mmio);
+ 		free_netdev(dev);
+ 		pci_release_regions(pdev);
+ 		pci_disable_device(pdev);
 -- 
 1.7.9.5
