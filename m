@@ -1,67 +1,121 @@
-From: Jongsung Kim <neidhard.kim@lge.com>
-Subject: [PATCH 1/2] net: cadence: macb: add support for the WOL
-Date: Mon, 14 Jul 2014 18:02:18 +0900
-Message-ID: <1405328538-29153-1-git-send-email-neidhard.kim@lge.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net, Jongsung Kim <neidhard.kim@lge.com>
-To: nicolas.ferre@atmel.com
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: Re: [PATCH 6/8] net: ethernet driver: Fujitsu OGMA
+Date: Mon, 14 Jul 2014 11:06:28 +0200
+Message-ID: <20140714090628.GA7668@distanz.ch>
+References: <message-id-of-cover-letter>
+ <1405233107-4762-1-git-send-email-mollie.wu@linaro.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-arm-kernel@lists.infradead.org, devicetree@vger.kernel.org,
+	netdev@vger.kernel.org, andy.green@linaro.org, patches@linaro.org,
+	jaswinder.singh@linaro.org, linux@arm.linux.org.uk, arnd@arndb.de,
+	olof@lixom.net, mark.rutland@arm.com, robh+dt@kernel.org,
+	pawel.moll@arm.com, davem@davemloft.net,
+	stephen@networkplumber.org, f.fainelli@gmail.com,
+	romieu@fr.zoreil.com,
+	Tetsuya Takinishi <t.takinishi@jp.fujitsu.com>
+To: Mollie Wu <mollie.wu@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lgeamrelo01.lge.com ([156.147.1.125]:60643 "EHLO
-	lgeamrelo01.lge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753664AbaGNJCi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 05:02:38 -0400
+Received: from sym2.noone.org ([178.63.92.236]:48958 "EHLO sym2.noone.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752967AbaGNJGe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 14 Jul 2014 05:06:34 -0400
+Content-Disposition: inline
+In-Reply-To: <1405233107-4762-1-git-send-email-mollie.wu@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch enables the ethtool utility to control the WOL function
-of the PHY connected to the GEM/MACB. (if supported)
+On 2014-07-13 at 08:31:47 +0200, Mollie Wu <mollie.wu@linaro.org> wrote:
+> This driver adds support for "ogma", a Fujitsu Semiconductor Ltd IP Gigabit
+> Ethernet + PHY IP used in a variety of their ARM-based ASICs.
+> 
+> This is being sent as part of a series including the arch support that uses it,
+> Fujitsu mb86s7x.
+> 
+> This driver was originally written by guys inside Fujitsu as an abstracted
+> "you can build this for Windows as well" type code, I've removed all that,
+> modernized various things, added runtime_pm, and ported it to work with
+> Device Tree, using only the bindings already mentioned in
+> 
+> ./Documentation/devicetree/bindings/net/ethernet.txt
+> 
+> Bindings documentation is added by this patch.
+> 
+> Signed-off-by: Andy Green <andy.green@linaro.org>
+> Signed-off-by: Tetsuya Takinishi <t.takinishi@jp.fujitsu.com>
+> Signed-off-by: Mollie Wu <mollie.wu@linaro.org>
+> ---
+>  .../devicetree/bindings/net/fujitsu-ogma.txt       |  43 ++
+>  drivers/net/ethernet/fujitsu/Kconfig               |  12 +
+>  drivers/net/ethernet/fujitsu/Makefile              |   1 +
+>  drivers/net/ethernet/fujitsu/ogma/Makefile         |   6 +
+>  drivers/net/ethernet/fujitsu/ogma/ogma.h           | 380 +++++++++++++
+>  .../ethernet/fujitsu/ogma/ogma_desc_ring_access.c  | 627 +++++++++++++++++++++
+>  drivers/net/ethernet/fujitsu/ogma/ogma_ethtool.c   |  95 ++++
+>  .../net/ethernet/fujitsu/ogma/ogma_gmac_access.c   | 295 ++++++++++
+>  drivers/net/ethernet/fujitsu/ogma/ogma_netdev.c    | 592 +++++++++++++++++++
+>  drivers/net/ethernet/fujitsu/ogma/ogma_platform.c  | 333 +++++++++++
+>  10 files changed, 2384 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/fujitsu-ogma.txt
+>  create mode 100644 drivers/net/ethernet/fujitsu/ogma/Makefile
+>  create mode 100644 drivers/net/ethernet/fujitsu/ogma/ogma.h
+>  create mode 100644 drivers/net/ethernet/fujitsu/ogma/ogma_desc_ring_access.c
+>  create mode 100644 drivers/net/ethernet/fujitsu/ogma/ogma_ethtool.c
+>  create mode 100644 drivers/net/ethernet/fujitsu/ogma/ogma_gmac_access.c
+>  create mode 100644 drivers/net/ethernet/fujitsu/ogma/ogma_netdev.c
+>  create mode 100644 drivers/net/ethernet/fujitsu/ogma/ogma_platform.c
 
-Signed-off-by: Jongsung Kim <neidhard.kim@lge.com>
----
- drivers/net/ethernet/cadence/macb.c |   26 ++++++++++++++++++++++++++
- 1 files changed, 26 insertions(+), 0 deletions(-)
+[...]
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index e9daa07..7ad8909 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -1742,11 +1742,37 @@ static void macb_get_regs(struct net_device *dev, struct ethtool_regs *regs,
- 	}
- }
- 
-+static void macb_get_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
-+{
-+	struct macb *bp = netdev_priv(netdev);
-+	struct phy_device *phydev = bp->phy_dev;
-+
-+	wol->supported = 0;
-+	wol->wolopts = 0;
-+
-+	if (phydev)
-+		phy_ethtool_get_wol(phydev, wol);
-+}
-+
-+static int macb_set_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
-+{
-+	struct macb *bp = netdev_priv(netdev);
-+	struct phy_device *phydev = bp->phy_dev;
-+	int err = -ENODEV;
-+
-+	if (phydev)
-+		err = phy_ethtool_set_wol(phydev, wol);
-+
-+	return err;
-+}
-+
- const struct ethtool_ops macb_ethtool_ops = {
- 	.get_settings		= macb_get_settings,
- 	.set_settings		= macb_set_settings,
- 	.get_regs_len		= macb_get_regs_len,
- 	.get_regs		= macb_get_regs,
-+	.get_wol		= macb_get_wol,
-+	.set_wol		= macb_set_wol,
- 	.get_link		= ethtool_op_get_link,
- 	.get_ts_info		= ethtool_op_get_ts_info,
- };
--- 
-1.7.1
+> diff --git a/drivers/net/ethernet/fujitsu/ogma/ogma_platform.c b/drivers/net/ethernet/fujitsu/ogma/ogma_platform.c
+> new file mode 100644
+> index 0000000..09071da
+> --- /dev/null
+> +++ b/drivers/net/ethernet/fujitsu/ogma/ogma_platform.c
+
+[...]
+
+> +#ifdef CONFIG_PM
+> +static const struct dev_pm_ops ogma_pm_ops = {
+> +	SET_SYSTEM_SLEEP_PM_OPS(ogma_pm_suspend, ogma_pm_resume)
+> +	SET_RUNTIME_PM_OPS(ogma_runtime_suspend, ogma_runtime_resume, NULL)
+> +};
+> +#endif
+
+#ifdef CONFIG_PM can be omitted here since
+SET_{SYSTEM_SLEEP,RUNTIME}_PM_OPS will just evaluate empty if CONFIG_PM
+is not defined.
+
+> +
+> +static const struct of_device_id ogma_dt_ids[] = {
+> +	{.compatible = "fujitsu,ogma"},
+> +	{ /* sentinel */ }
+> +};
+> +
+> +MODULE_DEVICE_TABLE(of, ogma_dt_ids);
+> +
+> +static struct platform_driver ogma_driver = {
+> +	.probe = ogma_probe,
+> +	.remove = ogma_remove,
+> +	.driver = {
+> +		.name = "ogma",
+> +		.of_match_table = ogma_dt_ids,
+> +#ifdef CONFIG_PM
+> +		.pm = &ogma_pm_ops,
+> +#endif
+
+With the above #ifdef CONFIG_PM removed, ogma_pm_ops will be all NULL if
+CONFIG_PM is not set. Thus, the #ifdef can be removed as well.
+
+> +		},
+> +};
+> +
+> +module_platform_driver(ogma_driver);
+> +
+> +MODULE_AUTHOR("Fujitsu Semiconductor Ltd");
+> +MODULE_DESCRIPTION("OGMA Ethernet driver");
+> +MODULE_LICENSE("GPL");
+> +
+> +MODULE_ALIAS("platform:ogma");
+> -- 
+> 1.8.1.2
