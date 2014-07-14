@@ -1,51 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2 1/1] net: ppp: don't call sk_chk_filter twice
-Date: Mon, 14 Jul 2014 16:15:23 -0700 (PDT)
-Message-ID: <20140714.161523.399591287185710608.davem@davemloft.net>
-References: <53C37226.2020106@kristov.de>
+Subject: Re: [PATCH 01/11] openvswitch: Allow each vport to have an array
+ of 'port_id's.
+Date: Mon, 14 Jul 2014 16:17:26 -0700 (PDT)
+Message-ID: <20140714.161726.579481406574025687.davem@davemloft.net>
+References: <1405296774-3648-1-git-send-email-pshelar@nicira.com>
+	<20140714.151337.573086784322485064.davem@davemloft.net>
+	<CALnjE+pSnhG4W55j-QBhsQLdmHQ1BU-rLbjj_Nf-Ju04Y1972g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-ppp@vger.kernel.org,
-	paulus@samba.org, isdn@linux-pingi.de
-To: develop@kristov.de
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <53C37226.2020106@kristov.de>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, alexw@nicira.com
+To: pshelar@nicira.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36648 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757251AbaGNXR1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 19:17:27 -0400
+In-Reply-To: <CALnjE+pSnhG4W55j-QBhsQLdmHQ1BU-rLbjj_Nf-Ju04Y1972g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Christoph Schulz <develop@kristov.de>
-Date: Mon, 14 Jul 2014 08:01:10 +0200
+From: Pravin Shelar <pshelar@nicira.com>
+Date: Mon, 14 Jul 2014 15:28:23 -0700
 
-> From: Christoph Schulz <develop@kristov.de>
+> On Mon, Jul 14, 2014 at 3:13 PM, David Miller <davem@davemloft.net> wrote:
+>> From: Pravin B Shelar <pshelar@nicira.com>
+>> Date: Sun, 13 Jul 2014 17:12:54 -0700
+>>
+>>>  void ovs_vport_free(struct vport *vport)
+>>>  {
+>>> +     kfree((struct vport_portids __force *)vport->upcall_portids);
+>>
+>> This cast is ugly and never correct for this situation, you need to
+>> use rcu_dereference().
 > 
-> Commit 568f194e8bd16c353ad50f9ab95d98b20578a39d ("net: ppp: use
-> sk_unattached_filter api") causes sk_chk_filter() to be called twice when
-> setting a PPP pass or active filter. This applies to both the generic PPP
-> subsystem implemented by drivers/net/ppp/ppp_generic.c and the ISDN PPP
-> subsystem implemented by drivers/isdn/i4l/isdn_ppp.c. The first call is from
-> within get_filter(). The second one is through the call chain
-> 
->   ppp_ioctl() or isdn_ppp_ioctl()
->   --> sk_unattached_filter_create()
->       --> __sk_prepare_filter()
->           --> sk_chk_filter()
-> 
-> The first call from within get_filter() should be deleted as get_filter() is
-> called just before calling sk_unattached_filter_create() later on, which
-> eventually calls sk_chk_filter() anyway.
-> 
-> For 3.15.x, this proposed change is a bugfix rather than a pure optimization as
-> in that branch, sk_chk_filter() may replace filter codes by other codes which
-> are not recognized when executing sk_chk_filter() a second time. So with
-> 3.15.x, if sk_chk_filter() is called twice, the second invocation may yield
-> EINVAL (this depends on the filter codes found in the filter to be set, but
-> because the replacement is done for frequently used codes, this is almost
-> always the case). The net effect is that setting pass and/or active PPP filters
-> does not work anymore, since sk_unattached_filter_create() always returns
-> EINVAL due to the second call to sk_chk_filter(), regardless whether the filter
-> was originally sane or not.
-> 
-> Signed-off-by: Christoph Schulz <develop@kristov.de>
+> This function is called either from RCU callback or error path, So it is fine.
+> I do not use rcu_dereference() since rcu_read lock is not held. To
+> avoid rcu sparse checker warning the typecast is done.
 
-Applied, thank you.
+You need to find a cleaner way to express this, it's too ugly.
