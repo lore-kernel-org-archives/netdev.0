@@ -1,35 +1,41 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH 01/11] openvswitch: Allow each vport to have an array of 'port_id's.
-Date: Mon, 14 Jul 2014 15:28:23 -0700
-Message-ID: <CALnjE+pSnhG4W55j-QBhsQLdmHQ1BU-rLbjj_Nf-Ju04Y1972g@mail.gmail.com>
-References: <1405296774-3648-1-git-send-email-pshelar@nicira.com>
-	<20140714.151337.573086784322485064.davem@davemloft.net>
+From: Paul Moore <paul@paul-moore.com>
+Subject: Re: [PATCH 05/16] netlabel: remove unnecessary break after goto
+Date: Mon, 14 Jul 2014 18:30:58 -0400
+Message-ID: <1736644.xDSijyH7JM@sifl>
+References: <1405355467-7350-1-git-send-email-fabf@skynet.be> <1405355467-7350-6-git-send-email-fabf@skynet.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, Alex Wang <alexw@nicira.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog128.obsmtp.com ([74.125.149.141]:47329 "HELO
-	na3sys009aog128.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1756976AbaGNW2Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 18:28:24 -0400
-Received: by mail-vc0-f179.google.com with SMTP id id10so8485524vcb.38
-        for <netdev@vger.kernel.org>; Mon, 14 Jul 2014 15:28:23 -0700 (PDT)
-In-Reply-To: <20140714.151337.573086784322485064.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: linux-kernel@vger.kernel.org, davem@davemloft.net, joe@perches.com,
+	netdev@vger.kernel.org
+To: Fabian Frederick <fabf@skynet.be>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1405355467-7350-6-git-send-email-fabf@skynet.be>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 14, 2014 at 3:13 PM, David Miller <davem@davemloft.net> wrote:
-> From: Pravin B Shelar <pshelar@nicira.com>
-> Date: Sun, 13 Jul 2014 17:12:54 -0700
->
->>  void ovs_vport_free(struct vport *vport)
->>  {
->> +     kfree((struct vport_portids __force *)vport->upcall_portids);
->
-> This cast is ugly and never correct for this situation, you need to
-> use rcu_dereference().
+On Monday, July 14, 2014 06:30:55 PM Fabian Frederick wrote:
+> Signed-off-by: Fabian Frederick <fabf@skynet.be>
 
-This function is called either from RCU callback or error path, So it is fine.
-I do not use rcu_dereference() since rcu_read lock is not held. To
-avoid rcu sparse checker warning the typecast is done.
+Acked-by: Paul Moore <paul@paul-moore.com>
+
+> ---
+>  net/netlabel/netlabel_kapi.c | 1 -
+>  1 file changed, 1 deletion(-)
+> 
+> diff --git a/net/netlabel/netlabel_kapi.c b/net/netlabel/netlabel_kapi.c
+> index 3045a96..fe9415e 100644
+> --- a/net/netlabel/netlabel_kapi.c
+> +++ b/net/netlabel/netlabel_kapi.c
+> @@ -170,7 +170,6 @@ int netlbl_cfg_unlbl_map_add(const char *domain,
+>  #endif /* IPv6 */
+>  		default:
+>  			goto cfg_unlbl_map_add_failure;
+> -			break;
+>  		}
+> 
+>  		entry->def.addrsel = addrmap;
+
+-- 
+paul moore
+www.paul-moore.com
