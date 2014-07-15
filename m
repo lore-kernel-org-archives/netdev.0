@@ -1,54 +1,38 @@
 From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH net-next] bonding: fix bond_option_mode_set warning
-Date: Tue, 15 Jul 2014 16:08:57 +0200
-Message-ID: <1405433337-8806-1-git-send-email-nikolay@redhat.com>
-Cc: Nikolay Aleksandrov <nikolay@redhat.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
+Subject: Re: [PATCH v2 net-next 4/4] bonding: add proper __rcu annotation
+ for current_arp_slave
+Date: Tue, 15 Jul 2014 16:07:46 +0200
+Message-ID: <53C535B2.4070306@redhat.com>
+References: <1405432616-12414-1-git-send-email-edumazet@google.com> <1405432616-12414-5-git-send-email-edumazet@google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Jay Vosburgh <j.vosburgh@gmail.com>,
 	Veaceslav Falico <vfalico@gmail.com>,
 	Andy Gospodarek <andy@greyhouse.net>,
+	Mahesh Bandewar <maheshb@google.com>
+To: Eric Dumazet <edumazet@google.com>,
 	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44819 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:34578 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750984AbaGOOJu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Jul 2014 10:09:50 -0400
+	id S1750960AbaGOONX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Jul 2014 10:13:23 -0400
+In-Reply-To: <1405432616-12414-5-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-During the conversion to "static" functions this one got left out, only its
-prototype was converted, thus resulting in:
-drivers/net/bonding//bond_options.c:674:5: warning: symbol
-'bond_option_mode_set' was not declared. Should it be static?
+On 07/15/2014 03:56 PM, Eric Dumazet wrote:
+> Using __rcu annotation actually helps to spot all accesses to
+> bond->current_arp_slave are correctly protected, with LOCKDEP support.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
+>  drivers/net/bonding/bond_main.c | 15 +++++++++------
+>  drivers/net/bonding/bonding.h   |  2 +-
+>  2 files changed, 10 insertions(+), 7 deletions(-)
+> 
 
-Fix it by making it static and also break the line in two as it was too
-long.
+you're fast, thanks again :-)
 
-CC: Stephen Hemminger <stephen@networkplumber.org>
-CC: Jay Vosburgh <j.vosburgh@gmail.com>
-CC: Veaceslav Falico <vfalico@gmail.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
-CC: David S. Miller <davem@davemloft.net>
-
-Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
----
- drivers/net/bonding/bond_options.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/bonding/bond_options.c b/drivers/net/bonding/bond_options.c
-index 540e0167bf24..124a8135e139 100644
---- a/drivers/net/bonding/bond_options.c
-+++ b/drivers/net/bonding/bond_options.c
-@@ -671,7 +671,8 @@ const struct bond_option *bond_opt_get(unsigned int option)
- 	return &bond_opts[option];
- }
- 
--int bond_option_mode_set(struct bonding *bond, const struct bond_opt_value *newval)
-+static int bond_option_mode_set(struct bonding *bond,
-+				const struct bond_opt_value *newval)
- {
- 	if (!bond_mode_uses_arp(newval->value) && bond->params.arp_interval) {
- 		pr_info("%s: %s mode is incompatible with arp monitoring, start mii monitoring\n",
--- 
-1.9.3
+Reviewed-by: Nikolay Aleksandrov <nikolay@redhat.com>
