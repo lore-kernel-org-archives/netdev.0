@@ -1,74 +1,70 @@
-From: Veaceslav Falico <vfalico@gmail.com>
-Subject: Re: [PATCH net-next 2/2] bonding: make hard-coded defines
- configurable at build
-Date: Tue, 15 Jul 2014 19:11:39 +0200
-Message-ID: <20140715171139.GD5225@mikrodark.usersys.redhat.com>
-References: <1405419341-31510-1-git-send-email-vfalico@gmail.com>
- <1405419341-31510-3-git-send-email-vfalico@gmail.com>
- <CAADnVQJCNJVTBFkinNzo=1mSWEBhif3dOVnVvuievJxijtNb7w@mail.gmail.com>
- <20140715161802.GC5225@mikrodark.usersys.redhat.com>
- <CAADnVQJaUQsDF1--4ffnCUz=1Tw1Ox=kgUw3h1L1EnrDs0WQfw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+From: Pravin B Shelar <pshelar@nicira.com>
+Subject: [GIT net-next v2] Open vSwitch
+Date: Tue, 15 Jul 2014 10:14:08 -0700
+Message-ID: <1405444448-16836-1-git-send-email-pshelar@nicira.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f182.google.com ([74.125.82.182]:51436 "EHLO
-	mail-we0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755534AbaGOROh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 13:14:37 -0400
-Received: by mail-we0-f182.google.com with SMTP id q59so5969349wes.13
-        for <netdev@vger.kernel.org>; Tue, 15 Jul 2014 10:14:36 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAADnVQJaUQsDF1--4ffnCUz=1Tw1Ox=kgUw3h1L1EnrDs0WQfw@mail.gmail.com>
+Received: from na3sys009aog112.obsmtp.com ([74.125.149.207]:35411 "HELO
+	na3sys009aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1756153AbaGOROO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 13:14:14 -0400
+Received: by mail-pa0-f54.google.com with SMTP id fa1so4187776pad.41
+        for <netdev@vger.kernel.org>; Tue, 15 Jul 2014 10:14:14 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 15, 2014 at 09:45:36AM -0700, Alexei Starovoitov wrote:
->On Tue, Jul 15, 2014 at 9:18 AM, Veaceslav Falico <vfalico@gmail.com> wrote:
->> On Tue, Jul 15, 2014 at 08:48:01AM -0700, Alexei Starovoitov wrote:
->>>
->>> On Tue, Jul 15, 2014 at 3:15 AM, Veaceslav Falico <vfalico@gmail.com>
->>> wrote:
->>>>
->>>> +
->>>> +config BOND_MAX_VLAN_ENCAP
->>>> +       int "Maximum number of stacked vlans on top of bonding"
->>>> +       default "2"
->>>> +
->>>
->>> I don't think we should allow changing these defaults so easily.
->>> Not a single HW supports 3 vlan tags. There is no standard for it either.
->>> Why you would ever change this?
->>
->> There have been discussions about vlan nestings for bonding, and the
->> outcome was that more than 2 are possible. Also, iirc, no standard limits
->> it to only 2.
->
->standard doesn't say that the maximum is 2, but it doesn't specify what
->should be done in such case, so all vlan-aware switches that I know will
->be just dropping packets with 3 vlans.
+Following patches adds three features to OVS
+1. Add fairness to upcall processing.
+2. Recirculation and Hash action.
+3. Enable Tunnel GSO features.
+Rest of patches are bug fixes related to patches from same series.
 
-There might be switches that support it/don't really care, there are
-bridges (including soft ones) etc. that all can make use of it.
+v2 series changes first patch according to comments from Dave Miller.
 
-Given that it's a build-time configuration option that affects a small part
-of arp monitoring, which is a small part of bonding module, which is ... -
-I don't understand why it can't be configured.
+The following changes since commit 0854a7f13206d7523abe773235bbe4d13958fc4b:
 
->Therefore for bond driver there is no reason to accept such packets
->in the first place from user space, since they won't go too far in the network.
->
->> These defaults are scalable by their nature, and there are people
->> maintaining their own patches to change them. So making them available to
->> be configured at compile time is a good thing to do, I think.
->
->people keep a patch to support 3 vlans? what's the use case?
+  Merge branch 'amd811e-cleanups' (2014-07-14 19:14:44 -0700)
 
-I guess it has something to do with virtualization, including nested one.
+are available in the git repository at:
 
-But, again, does this matter? I don't see how it can give us something bad.
-It's a configuration option with a default value that suits most users, and
-that might be configured for some advanced/weird use-cases.
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pshelar/openvswitch.git net_next_ovs
+
+for you to fetch changes up to 56ea5457d4b83118798bdfb4ce0316aa66f2e7b2:
+
+  openvswitch: Add skb_clone NULL check for the sampling action. (2014-07-15 09:00:18 -0700)
+
+----------------------------------------------------------------
+Alex Wang (1):
+      openvswitch: Allow each vport to have an array of 'port_id's.
+
+Andy Zhou (6):
+      openvswitch: Add hash action
+      openvswitch: Add recirc action
+      openvswitch: Fix key size computation in key_attr_size()
+      openvswitch: Avoid memory corruption in queue_userspace_packet()
+      openvswitch: Add skb_clone NULL check in the recirc action.
+      openvswitch: Add skb_clone NULL check for the sampling action.
+
+Pravin B Shelar (2):
+      openvswitch: Enable tunnel GSO for OVS bridge.
+      net: Export xmit_recursion
+
+Simon Horman (2):
+      openvswitch: Free skb(s) on recirculation error
+      openvswitch: Sample action without side effects
+
+ include/linux/netdev_features.h      |   8 +++
+ include/linux/netdevice.h            |   3 +
+ include/uapi/linux/openvswitch.h     |  39 ++++++++++--
+ net/core/dev.c                       |  10 +--
+ net/openvswitch/actions.c            | 119 +++++++++++++++++++++++++++++++----
+ net/openvswitch/datapath.c           |  79 ++++++++++++++++-------
+ net/openvswitch/datapath.h           |   8 ++-
+ net/openvswitch/flow.h               |   2 +
+ net/openvswitch/flow_netlink.c       |  43 ++++++++++++-
+ net/openvswitch/vport-internal_dev.c |   5 +-
+ net/openvswitch/vport.c              | 105 ++++++++++++++++++++++++++++++-
+ net/openvswitch/vport.h              |  27 ++++++--
+ 12 files changed, 396 insertions(+), 52 deletions(-)
