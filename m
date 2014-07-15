@@ -1,141 +1,236 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 2/2] udp: Use hash2 for long hash1 chains in
- __udp*_lib_mcast_deliver.
-Date: Tue, 15 Jul 2014 10:33:01 +0200
-Message-ID: <1405413181.10255.21.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1405377039-10082-1-git-send-email-drheld@google.com>
-	 <1405377039-10082-2-git-send-email-drheld@google.com>
+From: Sonic Zhang <sonic.adi@gmail.com>
+Subject: [PATCH v4] bfin_mac: convert bfin Ethernet driver to NAPI framework
+Date: Tue, 15 Jul 2014 16:43:40 +0800
+Message-ID: <1405413820-28739-1-git-send-email-sonic.adi@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, willemb@google.com
-To: David Held <drheld@google.com>
+Content-Type: text/plain
+Cc: <adi-buildroot-devel@lists.sourceforge.net>,
+	Sonic Zhang <sonic.zhang@analog.com>
+To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f173.google.com ([209.85.212.173]:44690 "EHLO
-	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757709AbaGOIdG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 04:33:06 -0400
-Received: by mail-wi0-f173.google.com with SMTP id f8so2950544wiw.6
-        for <netdev@vger.kernel.org>; Tue, 15 Jul 2014 01:33:04 -0700 (PDT)
-In-Reply-To: <1405377039-10082-2-git-send-email-drheld@google.com>
+Received: from mail-bl2lp0204.outbound.protection.outlook.com ([207.46.163.204]:30025
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1757584AbaGOIoD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Jul 2014 04:44:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-07-14 at 18:30 -0400, David Held wrote:
-> Many multicast sources can have the same port which can result in a very
-> large list when hashing by port only. Hash by address and port instead
-> if this is the case. This makes multicast more similar to unicast.
-> 
-> On a 24-core machine receiving from 500 multicast sockets on the same
-> port, before this patch 80% of system CPU was used up by spin locking
-> and only ~25% of packets were successfully delivered.
-> 
-> With this patch, all packets are delivered and kernel overhead is ~8%
-> system CPU on spinlocks.
-> 
-> Signed-off-by: David Held <drheld@google.com>
-> ---
->  include/net/sock.h | 14 ++++++++++++++
->  net/ipv4/udp.c     | 30 ++++++++++++++++++++----------
->  net/ipv6/udp.c     | 29 +++++++++++++++++++----------
->  3 files changed, 53 insertions(+), 20 deletions(-)
-> 
-> diff --git a/include/net/sock.h b/include/net/sock.h
-> index cb84b2f..6734cab 100644
-> --- a/include/net/sock.h
-> +++ b/include/net/sock.h
-> @@ -660,6 +660,20 @@ static inline void sk_add_bind_node(struct sock *sk,
->  #define sk_for_each_bound(__sk, list) \
->  	hlist_for_each_entry(__sk, list, sk_bind_node)
->  
-> +/**
-> + * sk_nulls_for_each_entry_offset - iterate over a list at a given struct offset
-> + * @tpos:	the type * to use as a loop cursor.
-> + * @pos:	the &struct hlist_node to use as a loop cursor.
-> + * @head:	the head for your list.
-> + * @offset:	offset of hlist_node within the struct.
-> + *
-> + */
-> +#define sk_nulls_for_each_entry_offset(tpos, pos, head, offset)		       \
-> +	for (pos = (head)->first;					       \
-> +	     (!is_a_nulls(pos)) &&					       \
-> +		({ tpos = (typeof(*tpos) *)((void *)pos - offset); 1;});       \
-> +	     pos = pos->next)
-> +
->  static inline struct user_namespace *sk_user_ns(struct sock *sk)
->  {
->  	/* Careful only use this in a context where these parameters
-> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-> index 8089ba2..b023a36 100644
-> --- a/net/ipv4/udp.c
-> +++ b/net/ipv4/udp.c
-> @@ -1616,6 +1616,8 @@ static void flush_stack(struct sock **stack, unsigned int count,
->  
->  		if (skb1 && udp_queue_rcv_skb(sk, skb1) <= 0)
->  			skb1 = NULL;
-> +
-> +		sock_put(sk);
->  	}
->  	if (unlikely(skb1))
->  		kfree_skb(skb1);
-> @@ -1648,37 +1650,45 @@ static int __udp4_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
->  	unsigned short hnum = ntohs(uh->dest);
->  	struct udp_hslot *hslot = udp_hashslot(udptable, net, hnum);
->  	int dif = skb->dev->ifindex;
-> -	unsigned int i, count = 0;
-> +	unsigned int count = 0, offset = offsetof(typeof(*sk), sk_nulls_node);
-> +	unsigned int hash2 = 0, hash2_any = 0, use_hash2 = (hslot->count > 10);
-> +
-Not sure why hash2 and hash2_any are set to 0 here ?
+From: Sonic Zhang <sonic.zhang@analog.com>
 
+Ethernet RX DMA buffers are polled in NAPI work queue other than received
+directly in DMA RX interrupt handler.
 
-> +	if (use_hash2) {
-> +		hash2_any = udp4_portaddr_hash(net, htonl(INADDR_ANY), hnum);
-> +		hash2 = udp4_portaddr_hash(net, daddr, hnum);
+Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
 
-you probably could AND the mask here
-	hash2_any = udp4_portaddr_hash(net, htonl(INADDR_ANY), hnum) & udp_table.mask;
-	hash2 = udp4_portaddr_hash(net, daddr, hnum) & udp_table.mask;
+---
+v2-changes:
+- avoid test NAPI_STATE_NPSVC bit in net device driver
 
-> +start_lookup:
-> +		hslot = &udp_table.hash2[hash2 & udp_table.mask];
-> +		offset = offsetof(typeof(*sk), __sk_common.skc_portaddr_node);
-> +	}
->  
->  	spin_lock(&hslot->lock);
-> -	sk_nulls_for_each(sk, node, &hslot->head) {
-> +	sk_nulls_for_each_entry_offset(sk, node, &hslot->head, offset) {
->  		if (__udp_is_mcast_sock(net, sk,
->  					uh->dest, daddr,
->  					uh->source, saddr,
->  					dif, hnum)) {
->  			stack[count++] = sk;
-> +			sock_hold(sk);
->  			if (unlikely(count == ARRAY_SIZE(stack))) {
->  				flush_stack(stack, count, skb, ~0);
->  				count = 0;
->  			}
->  		}
->  	}
-> -	/*
-> -	 * before releasing chain lock, we must take a reference on sockets
-> -	 */
-> -	for (i = 0; i < count; i++)
-> -		sock_hold(stack[i]);
->  
->  	spin_unlock(&hslot->lock);
->  
-> +	/* Also lookup *:port if we are using hash2 and haven't done so yet. */
-> +	if (use_hash2 && hash2 != hash2_any) {
+v3-changes:
+- use tabs while indenting the code
 
-The thing that really matters here is not hash2 != hash2_any, but that
-the hash bucket (after masking hash2 with udp_table.mask) is the same or
-not.
+v4-changes:
+- unconditionally compete the NAPI poll and re-enable the MAC_RX IRQ
 
-If the test is not properly done here, we are doing to deliver two
-copies of each packet to each socket.
+Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
+---
+ drivers/net/ethernet/adi/bfin_mac.c | 79 +++++++++++++++++++++++--------------
+ drivers/net/ethernet/adi/bfin_mac.h |  1 +
+ 2 files changed, 50 insertions(+), 30 deletions(-)
 
-> +		hash2 = hash2_any;
-> +		goto start_lookup;
-> +	}
-> +
+diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
+index 7ae74d4..b838e81 100644
+--- a/drivers/net/ethernet/adi/bfin_mac.c
++++ b/drivers/net/ethernet/adi/bfin_mac.c
+@@ -1218,11 +1218,13 @@ out:
+ #define RX_ERROR_MASK (RX_LONG | RX_ALIGN | RX_CRC | RX_LEN | \
+ 	RX_FRAG | RX_ADDR | RX_DMAO | RX_PHY | RX_LATE | RX_RANGE)
+ 
+-static void bfin_mac_rx(struct net_device *dev)
++static void bfin_mac_rx(struct napi_struct *napi, int budget)
+ {
++	struct bfin_mac_local *lp = container_of(napi,
++				struct bfin_mac_local, napi);
++	struct net_device *dev = lp->ndev;
+ 	struct sk_buff *skb, *new_skb;
+ 	unsigned short len;
+-	struct bfin_mac_local *lp __maybe_unused = netdev_priv(dev);
+ #if defined(BFIN_MAC_CSUM_OFFLOAD)
+ 	unsigned int i;
+ 	unsigned char fcs[ETH_FCS_LEN + 1];
+@@ -1256,7 +1258,7 @@ static void bfin_mac_rx(struct net_device *dev)
+ 	current_rx_ptr->skb = new_skb;
+ 	current_rx_ptr->desc_a.start_addr = (unsigned long)new_skb->data - 2;
+ 
+-	len = (unsigned short)((current_rx_ptr->status.status_word) & RX_FRLEN);
++	len = (unsigned short)(current_rx_ptr->status.status_word & RX_FRLEN);
+ 	/* Deduce Ethernet FCS length from Ethernet payload length */
+ 	len -= ETH_FCS_LEN;
+ 	skb_put(skb, len);
+@@ -1294,7 +1296,8 @@ static void bfin_mac_rx(struct net_device *dev)
+ 	}
+ #endif
+ 
+-	netif_rx(skb);
++	napi_gro_receive(&lp->napi, skb);
++
+ 	dev->stats.rx_packets++;
+ 	dev->stats.rx_bytes += len;
+ out:
+@@ -1302,41 +1305,51 @@ out:
+ 	current_rx_ptr = current_rx_ptr->next;
+ }
+ 
++static int bfin_mac_poll(struct napi_struct *napi, int budget)
++{
++	int i = 0;
++	unsigned long flags;
++
++	while (current_rx_ptr->status.status_word != 0 && i < budget) {
++		bfin_mac_rx(napi, budget);
++		i++;
++	}
++
++	if (i < budget) {
++		napi_gro_flush(napi, false);
++		local_irq_save(flags);
++		__napi_complete(napi);
++		local_irq_restore(flags);
++		enable_irq(IRQ_MAC_RX);
++	}
++
++	return i;
++}
++
+ /* interrupt routine to handle rx and error signal */
+ static irqreturn_t bfin_mac_interrupt(int irq, void *dev_id)
+ {
+-	struct net_device *dev = dev_id;
+-	int number = 0;
+-
+-get_one_packet:
+-	if (current_rx_ptr->status.status_word == 0) {
+-		/* no more new packet received */
+-		if (number == 0) {
+-			if (current_rx_ptr->next->status.status_word != 0) {
+-				current_rx_ptr = current_rx_ptr->next;
+-				goto real_rx;
+-			}
+-		}
+-		bfin_write_DMA1_IRQ_STATUS(bfin_read_DMA1_IRQ_STATUS() |
+-					   DMA_DONE | DMA_ERR);
+-		return IRQ_HANDLED;
++	struct bfin_mac_local *lp = netdev_priv(dev_id);
++	u32 status;
++
++	status = bfin_read_DMA1_IRQ_STATUS();
++
++	bfin_write_DMA1_IRQ_STATUS(status | DMA_DONE | DMA_ERR);
++	if ((status & DMA_DONE) && napi_schedule_prep(&lp->napi)) {
++		disable_irq_nosync(IRQ_MAC_RX);
++		__napi_schedule(&lp->napi);
+ 	}
+ 
+-real_rx:
+-	bfin_mac_rx(dev);
+-	number++;
+-	goto get_one_packet;
++	return IRQ_HANDLED;
+ }
+ 
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+-static void bfin_mac_poll(struct net_device *dev)
++static void bfin_mac_poll_controller(struct net_device *dev)
+ {
+ 	struct bfin_mac_local *lp = netdev_priv(dev);
+ 
+-	disable_irq(IRQ_MAC_RX);
+ 	bfin_mac_interrupt(IRQ_MAC_RX, dev);
+ 	tx_reclaim_skb(lp);
+-	enable_irq(IRQ_MAC_RX);
+ }
+ #endif				/* CONFIG_NET_POLL_CONTROLLER */
+ 
+@@ -1428,14 +1441,13 @@ static void bfin_mac_timeout(struct net_device *dev)
+ 		tx_list_head = tx_list_head->next;
+ 	}
+ 
+-	if (netif_queue_stopped(lp->ndev))
+-		netif_wake_queue(lp->ndev);
++	if (netif_queue_stopped(dev))
++		netif_wake_queue(dev);
+ 
+ 	bfin_mac_enable(lp->phydev);
+ 
+ 	/* We can accept TX packets again */
+ 	dev->trans_start = jiffies; /* prevent tx timeout */
+-	netif_wake_queue(dev);
+ }
+ 
+ static void bfin_mac_multicast_hash(struct net_device *dev)
+@@ -1562,6 +1574,7 @@ static int bfin_mac_open(struct net_device *dev)
+ 		return ret;
+ 	pr_debug("hardware init finished\n");
+ 
++	napi_enable(&lp->napi);
+ 	netif_start_queue(dev);
+ 	netif_carrier_on(dev);
+ 
+@@ -1579,6 +1592,7 @@ static int bfin_mac_close(struct net_device *dev)
+ 	pr_debug("%s: %s\n", dev->name, __func__);
+ 
+ 	netif_stop_queue(dev);
++	napi_disable(&lp->napi);
+ 	netif_carrier_off(dev);
+ 
+ 	phy_stop(lp->phydev);
+@@ -1604,7 +1618,7 @@ static const struct net_device_ops bfin_mac_netdev_ops = {
+ 	.ndo_validate_addr	= eth_validate_addr,
+ 	.ndo_change_mtu		= eth_change_mtu,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+-	.ndo_poll_controller	= bfin_mac_poll,
++	.ndo_poll_controller	= bfin_mac_poll_controller,
+ #endif
+ };
+ 
+@@ -1689,6 +1703,8 @@ static int bfin_mac_probe(struct platform_device *pdev)
+ 	lp->tx_reclaim_timer.data = (unsigned long)lp;
+ 	lp->tx_reclaim_timer.function = tx_reclaim_skb_timeout;
+ 
++	netif_napi_add(ndev, &lp->napi, bfin_mac_poll, CONFIG_BFIN_RX_DESC_NUM);
++
+ 	spin_lock_init(&lp->lock);
+ 
+ 	/* now, enable interrupts */
+@@ -1723,6 +1739,7 @@ out_err_phc:
+ out_err_reg_ndev:
+ 	free_irq(IRQ_MAC_RX, ndev);
+ out_err_request_irq:
++	netif_napi_del(&lp->napi);
+ out_err_mii_probe:
+ 	mdiobus_unregister(lp->mii_bus);
+ 	mdiobus_free(lp->mii_bus);
+@@ -1743,6 +1760,8 @@ static int bfin_mac_remove(struct platform_device *pdev)
+ 
+ 	unregister_netdev(ndev);
+ 
++	netif_napi_del(&lp->napi);
++
+ 	free_irq(IRQ_MAC_RX, ndev);
+ 
+ 	free_netdev(ndev);
+diff --git a/drivers/net/ethernet/adi/bfin_mac.h b/drivers/net/ethernet/adi/bfin_mac.h
+index 6dec86a..3523f0e 100644
+--- a/drivers/net/ethernet/adi/bfin_mac.h
++++ b/drivers/net/ethernet/adi/bfin_mac.h
+@@ -80,6 +80,7 @@ struct bfin_mac_local {
+ 	int irq_wake_requested;
+ 	struct timer_list tx_reclaim_timer;
+ 	struct net_device *ndev;
++	struct napi_struct napi;
+ 
+ 	/* Data for EMAC_VLAN1 regs */
+ 	u16 vlan1_mask, vlan2_mask;
+-- 
+1.8.2.3
