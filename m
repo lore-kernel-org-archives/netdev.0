@@ -1,29 +1,59 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH] net: clean up some sparse endianness warnings in ipv6.h
-Date: Tue, 15 Jul 2014 10:01:07 -0700
-Message-ID: <20140715170107.GA1722@infradead.org>
-References: <1405340746-10678-1-git-send-email-jlayton@primarydata.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 2/2] bonding: make hard-coded defines configurable
+ at build
+Date: Tue, 15 Jul 2014 21:11:51 +0400
+Message-ID: <53C560D7.5020308@cogentembedded.com>
+References: <1405419341-31510-1-git-send-email-vfalico@gmail.com> <1405419341-31510-3-git-send-email-vfalico@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-nfs@vger.kernel.org
-To: Jeff Layton <jlayton@primarydata.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1405340746-10678-1-git-send-email-jlayton@primarydata.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Veaceslav Falico <vfalico@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f176.google.com ([209.85.217.176]:54792 "EHLO
+	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751604AbaGORLu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 13:11:50 -0400
+Received: by mail-lb0-f176.google.com with SMTP id w7so3739505lbi.21
+        for <netdev@vger.kernel.org>; Tue, 15 Jul 2014 10:11:48 -0700 (PDT)
+In-Reply-To: <1405419341-31510-3-git-send-email-vfalico@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->  #if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS) && BITS_PER_LONG == 64
-> -	const unsigned long *ul = (const unsigned long *)a;
-> +	const __be64 *be = (const __be64 *)a;
->  
-> -	return (ul[0] | (ul[1] ^ cpu_to_be64(1))) == 0UL;
-> +	return (be[0] | (be[1] ^ cpu_to_be64(1))) == cpu_to_be64(0UL);
+Hello.
 
-Do you need the swap for 0UL?  I know sparse treats 0 as special, so why
-wouldn't it treat 0UL special?  Or just remove the 0UL postfix, no need
-for it in a simple comparism.
+On 07/15/2014 02:15 PM, Veaceslav Falico wrote:
 
-Otherwise looks fine to me.
+> CC: Jay Vosburgh <j.vosburgh@gmail.com>
+> CC: Andy Gospodarek <andy@greyhouse.net>
+> Signed-off-by: Veaceslav Falico <vfalico@gmail.com>
+> ---
+>   drivers/net/bonding/Kconfig   | 16 ++++++++++++++++
+>   drivers/net/bonding/bonding.h |  6 +++---
+>   2 files changed, 19 insertions(+), 3 deletions(-)
+
+> diff --git a/drivers/net/bonding/Kconfig b/drivers/net/bonding/Kconfig
+> index 7b1a0fa..28fb3af 100644
+> --- a/drivers/net/bonding/Kconfig
+> +++ b/drivers/net/bonding/Kconfig
+> @@ -15,3 +15,19 @@ menuconfig BONDING
+>
+>   	  To compile this driver as a module, choose M here: the module
+>   	  will be called bonding.
+> +
+> +if BONDING
+> +
+> +config BOND_MAX_VLAN_ENCAP
+> +	int "Maximum number of stacked vlans on top of bonding"
+
+    s/vlans/VLANs/?
+
+> +	default "2"
+> +
+> +config BOND_MAX_ARP_TARGETS
+> +	int "Maximum number of ip targets arp monitor supports"
+
+    s/ip/IP/, s/arp/ARP/?
+
+WBR, Sergei
