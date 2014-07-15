@@ -1,29 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: clean up some sparse endianness warnings in ipv6.h
-Date: Tue, 15 Jul 2014 16:05:55 -0700 (PDT)
-Message-ID: <20140715.160555.407533257702039786.davem@davemloft.net>
-References: <1405340746-10678-1-git-send-email-jlayton@primarydata.com>
+Subject: Re: [PATCH] net: mvpp2: Fix a typo in the license
+Date: Tue, 15 Jul 2014 16:07:20 -0700 (PDT)
+Message-ID: <20140715.160720.1512890990226376533.davem@davemloft.net>
+References: <1405344887-25819-1-git-send-email-ezequiel.garcia@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-nfs@vger.kernel.org
-To: jlayton@primarydata.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1405340746-10678-1-git-send-email-jlayton@primarydata.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, mw@semihalf.com,
+	thomas.petazzoni@free-electrons.com,
+	gregory.clement@free-electrons.com, tawfik@marvell.com,
+	alior@marvell.com, arnd@arndb.de
+To: ezequiel.garcia@free-electrons.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45393 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759331AbaGOXHV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 19:07:21 -0400
+In-Reply-To: <1405344887-25819-1-git-send-email-ezequiel.garcia@free-electrons.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Layton <jlayton@primarydata.com>
-Date: Mon, 14 Jul 2014 08:25:46 -0400
+From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+Date: Mon, 14 Jul 2014 10:34:47 -0300
 
->  #endif
-> -		(a->s6_addr32[2] ^ htonl(0x0000ffff))) == 0UL;
-> +		((a->s6_addr32[2] ^ htonl(0x0000ffff)) == cpu_to_be32(0)));
+> The proper string for this license is "GPL v2", instead of "GPLv2".
+> This commit fixes that.
+> 
+> Reported-by: Arnd Bergmann <arnd@arndb.de>
+> Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
 
-While you are spinning a new version, change this htonl() to be
-cpu_to_be32().  All the rest of this entire expression uses the
-cpu_to_*() interfaces, so for consistency this should too.
-
-Thanks.
+Applied, thank you.
