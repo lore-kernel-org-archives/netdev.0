@@ -1,35 +1,55 @@
-From: Jongsung Kim <neidhard.kim@lge.com>
-Subject: Re: [PATCH 1/2] net: cadence: macb: add support for the WOL
-Date: Tue, 15 Jul 2014 16:02:34 +0900
-Message-ID: <53C4D20A.2050909@lge.com>
-References: <1405328538-29153-1-git-send-email-neidhard.kim@lge.com> <53C3ADB9.4010309@gmail.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH 1/2 net-next] vxlan: Be liberal on receive and only require
+ the I bit to be set
+Date: Tue, 15 Jul 2014 09:18:01 +0200
+Message-ID: <53C4D5A9.1030008@6wind.com>
+References: <cover.1405097440.git.tgraf@suug.ch> <cc7b11d065475a303d4a12a34acfded4e830c313.1405097440.git.tgraf@suug.ch> <CA+mtBx_VpbrddO3AMRZbZ3Qdkp2QBs5i7rN2tqD4GFM0hT7zYg@mail.gmail.com> <20140714081802.GA19186@casper.infradead.org>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net
-To: Varka Bhadram <varkabhadram@gmail.com>, nicolas.ferre@atmel.com
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	xiyou.wangcong@gmail.com, Or Gerlitz <ogerlitz@mellanox.com>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	"Pritesh Kothari (pritkoth)" <pritkoth@cisco.com>,
+	Madhu Challa <challa@noironetworks.com>
+To: Thomas Graf <tgraf@suug.ch>, Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from LGEMRELSE7Q.lge.com ([156.147.1.151]:48437 "EHLO
-	lgemrelse7q.lge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757767AbaGOHCg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 03:02:36 -0400
-In-Reply-To: <53C3ADB9.4010309@gmail.com>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:56569 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757712AbaGOHSF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 03:18:05 -0400
+Received: by mail-wi0-f174.google.com with SMTP id d1so3806523wiv.1
+        for <netdev@vger.kernel.org>; Tue, 15 Jul 2014 00:18:03 -0700 (PDT)
+In-Reply-To: <20140714081802.GA19186@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/14/2014 07:15 PM, Varka Bhadram wrote:
-> 
-> I think we can do in this way:
-> 
-> if (phydev)
->     return phy_ethtool_set_wol(phydev, wol);
-> else
->     return -ENODEV;
-> 
-> 
-> we can save err. What do you say ...?
-> 
-
-Thank you for your comment. I just wanted the function to return
-at one position. However, I'll think about your point..
+Le 14/07/2014 10:18, Thomas Graf a =E9crit :
+> On 07/13/14 at 03:08pm, Tom Herbert wrote:
+>> On Fri, Jul 11, 2014 at 9:59 AM, Thomas Graf <tgraf@suug.ch> wrote:
+>>> The VXLAN receive code is currently conservative in what it accepts=
+ and
+>>> will reject any frame that uses any of the reserved fields. The VXL=
+AN
+>>> draft specifies that "reserved fields MUST be set to zero on transm=
+it
+>>> and ignored on receive." though.
+>>>
+>>> Be liberal in only requiring the I bit to allow for VXLAN extension=
+s
+>>> to be implemented.
+>>>
+>> This is not robust (this is a problem in the VXLAN spec not your
+>> patch). There is no requirement that the VXLAN bits are optional. Fo=
+r
+>> example, if a receiver accepts a GPE packet but doesn't implement it
+>> the packet will be misinterpreted. I've already pointed this out to
+>> the VLXAN folks on nvo3 list. Dropping packets with unknown bits set
+>> is the only sane approach.
+>
+> I agree, it's a mess.
++1
