@@ -1,83 +1,107 @@
-From: Veaceslav Falico <vfalico@gmail.com>
-Subject: Re: [PATCH net v2] bonding: enhance L2 hash helper with packet type
-Date: Tue, 15 Jul 2014 10:20:28 +0200
-Message-ID: <20140715082028.GA28235@mikrodark.usersys.redhat.com>
-References: <1405410083-26489-1-git-send-email-Jianhua.Xie@freescale.com>
+From: Vladimir Davydov <vdavydov@parallels.com>
+Subject: [PATCH] bluetooth: never linger on process exit
+Date: Tue, 15 Jul 2014 12:25:28 +0400
+Message-ID: <1405412728-4706-1-git-send-email-vdavydov@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Pan Jiafei <Jiafei.Pan@freescale.com>
-To: Xie Jianhua <Jianhua.Xie@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:54476 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751509AbaGOIX1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 04:23:27 -0400
-Received: by mail-wi0-f172.google.com with SMTP id n3so3904195wiv.5
-        for <netdev@vger.kernel.org>; Tue, 15 Jul 2014 01:23:26 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1405410083-26489-1-git-send-email-Jianhua.Xie@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	Gustavo Padovan <gustavo@padovan.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>
+To: <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 15, 2014 at 03:41:23PM +0800, Xie Jianhua wrote:
->From: Jianhua Xie <jianhua.xie@freescale.com>
->
->Current L2 hash helper calculates destination eth addr and
->source ether addr as L2 hash factors. This patch is adding
->packet type ID field into hash factors, which can help to
->distribute different types of packets like IPv4/IPv6 packets
->to different slave devices while only BOND_XMIT_POLICY_LAYER2
->is applied.
+If the current process is exiting, lingering on socket close will make
+it unkillable, so we should avoid it.
 
-1) It's also used in BOND_XMIT_POLICY_{LAYER|ENCAP}23, for the 2nd level
-hash.
-2) The documentation (D/networking/bonding.txt) also needs an update.
+Reproducer:
 
-Otherwise, looks good.
+  #include <sys/types.h>
+  #include <sys/socket.h>
 
->
->CC: Jay Vosburgh <j.vosburgh@gmail.com>
->CC: Veaceslav Falico <vfalico@gmail.com>
->CC: Andy Gospodarek <andy@greyhouse.net>
->CC: David S. Miller <davem@davemloft.net>
->CC: Pan Jiafei <Jiafei.Pan@freescale.com>
->
->Suggested-by: David S. Miller <davem@davemloft.net>
->Signed-off-by: Jianhua Xie <jianhua.xie@freescale.com>
->---
->
->v2-changes:
-> Use the appropriate interface skb_header_pointer()
-> to check skb headlen, fragmented packet or not is
-> not distinguished any more.
->
->
-> drivers/net/bonding/bond_main.c | 8 ++++----
-> 1 file changed, 4 insertions(+), 4 deletions(-)
->
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index 3a451b6..bcff90c 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -2999,11 +2999,11 @@ static struct notifier_block bond_netdev_notifier = {
-> /* L2 hash helper */
-> static inline u32 bond_eth_hash(struct sk_buff *skb)
-> {
->-	struct ethhdr *data = (struct ethhdr *)skb->data;
->-
->-	if (skb_headlen(skb) >= offsetof(struct ethhdr, h_proto))
->-		return data->h_dest[5] ^ data->h_source[5];
->+	struct ethhdr *ep, hdr_tmp;
->
->+	ep = skb_header_pointer(skb, 0, sizeof(hdr_tmp), &hdr_tmp);
->+	if (ep)
->+		return ep->h_dest[5] ^ ep->h_source[5] ^ ep->h_proto;
-> 	return 0;
-> }
->
->-- 
->1.8.5
->
+  #define BTPROTO_L2CAP   0
+  #define BTPROTO_SCO     2
+  #define BTPROTO_RFCOMM  3
+
+  int main()
+  {
+          int fd;
+          struct linger ling;
+
+          fd = socket(PF_BLUETOOTH, SOCK_STREAM, BTPROTO_RFCOMM);
+          //or: fd = socket(PF_BLUETOOTH, SOCK_DGRAM, BTPROTO_L2CAP);
+          //or: fd = socket(PF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_SCO);
+
+          ling.l_onoff = 1;
+          ling.l_linger = 1000000000;
+          setsockopt(fd, SOL_SOCKET, SO_LINGER, &ling, sizeof(ling));
+
+          return 0;
+  }
+
+Signed-off-by: Vladimir Davydov <vdavydov@parallels.com>
+Cc: Marcel Holtmann <marcel@holtmann.org>
+Cc: Gustavo Padovan <gustavo@padovan.org>
+Cc: Johan Hedberg <johan.hedberg@gmail.com>
+---
+ net/bluetooth/l2cap_sock.c  |    3 ++-
+ net/bluetooth/rfcomm/sock.c |    3 ++-
+ net/bluetooth/sco.c         |    6 ++++--
+ 3 files changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/net/bluetooth/l2cap_sock.c b/net/bluetooth/l2cap_sock.c
+index e1378693cc90..d0fd8b04f2e6 100644
+--- a/net/bluetooth/l2cap_sock.c
++++ b/net/bluetooth/l2cap_sock.c
+@@ -1111,7 +1111,8 @@ static int l2cap_sock_shutdown(struct socket *sock, int how)
+ 		l2cap_chan_close(chan, 0);
+ 		lock_sock(sk);
+ 
+-		if (sock_flag(sk, SOCK_LINGER) && sk->sk_lingertime)
++		if (sock_flag(sk, SOCK_LINGER) && sk->sk_lingertime &&
++		    !(current->flags & PF_EXITING))
+ 			err = bt_sock_wait_state(sk, BT_CLOSED,
+ 						 sk->sk_lingertime);
+ 	}
+diff --git a/net/bluetooth/rfcomm/sock.c b/net/bluetooth/rfcomm/sock.c
+index c603a5eb4720..8bbbb5ec468c 100644
+--- a/net/bluetooth/rfcomm/sock.c
++++ b/net/bluetooth/rfcomm/sock.c
+@@ -918,7 +918,8 @@ static int rfcomm_sock_shutdown(struct socket *sock, int how)
+ 		sk->sk_shutdown = SHUTDOWN_MASK;
+ 		__rfcomm_sock_close(sk);
+ 
+-		if (sock_flag(sk, SOCK_LINGER) && sk->sk_lingertime)
++		if (sock_flag(sk, SOCK_LINGER) && sk->sk_lingertime &&
++		    !(current->flags & PF_EXITING))
+ 			err = bt_sock_wait_state(sk, BT_CLOSED, sk->sk_lingertime);
+ 	}
+ 	release_sock(sk);
+diff --git a/net/bluetooth/sco.c b/net/bluetooth/sco.c
+index c06dbd3938e8..dbbbc0292bd0 100644
+--- a/net/bluetooth/sco.c
++++ b/net/bluetooth/sco.c
+@@ -909,7 +909,8 @@ static int sco_sock_shutdown(struct socket *sock, int how)
+ 		sco_sock_clear_timer(sk);
+ 		__sco_sock_close(sk);
+ 
+-		if (sock_flag(sk, SOCK_LINGER) && sk->sk_lingertime)
++		if (sock_flag(sk, SOCK_LINGER) && sk->sk_lingertime &&
++		    !(current->flags & PF_EXITING))
+ 			err = bt_sock_wait_state(sk, BT_CLOSED,
+ 						 sk->sk_lingertime);
+ 	}
+@@ -929,7 +930,8 @@ static int sco_sock_release(struct socket *sock)
+ 
+ 	sco_sock_close(sk);
+ 
+-	if (sock_flag(sk, SOCK_LINGER) && sk->sk_lingertime) {
++	if (sock_flag(sk, SOCK_LINGER) && sk->sk_lingertime &&
++	    !(current->flags & PF_EXITING)) {
+ 		lock_sock(sk);
+ 		err = bt_sock_wait_state(sk, BT_CLOSED, sk->sk_lingertime);
+ 		release_sock(sk);
+-- 
+1.7.10.4
