@@ -1,128 +1,108 @@
-From: Varka Bhadram <varkabhadram@gmail.com>
-Subject: Re: [PATCH v9 2/4] Documentation: dts: Add bindings for APM X-Gene
- SoC ethernet driver
-Date: Tue, 15 Jul 2014 11:15:22 +0530
-Message-ID: <53C4BFF2.5080103@gmail.com>
-References: <1405376285-23008-1-git-send-email-isubramanian@apm.com> <1405376285-23008-3-git-send-email-isubramanian@apm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, jcm@redhat.com,
-	patches@apm.com, Ravi Patel <rapatel@apm.com>,
-	Keyur Chudgar <kchudgar@apm.com>
-To: Iyappan Subramanian <isubramanian@apm.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, devicetree@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1405376285-23008-3-git-send-email-isubramanian@apm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Zi Shen Lim <zlim.lnx@gmail.com>
+Subject: [PATCH RFCv3 03/14] arm64: introduce aarch64_insn_gen_cond_branch_imm()
+Date: Mon, 14 Jul 2014 23:25:01 -0700
+Message-ID: <1405405512-4423-4-git-send-email-zlim.lnx@gmail.com>
+References: <1405405512-4423-1-git-send-email-zlim.lnx@gmail.com>
+Cc: Zi Shen Lim <zlim.lnx@gmail.com>, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
+To: Catalin Marinas <catalin.marinas@arm.com>,
+	Will Deacon <will.deacon@arm.com>,
+	Jiang Liu <liuj97@gmail.com>,
+	AKASHI Takahiro <takahiro.akashi@linaro.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:60471 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757770AbaGOGZf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 02:25:35 -0400
+In-Reply-To: <1405405512-4423-1-git-send-email-zlim.lnx@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/15/2014 03:48 AM, Iyappan Subramanian wrote:
-> This patch adds documentation for APM X-Gene SoC ethernet DTS binding.
->
-> Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
-> Signed-off-by: Ravi Patel <rapatel@apm.com>
-> Signed-off-by: Keyur Chudgar <kchudgar@apm.com>
-> ---
->   .../devicetree/bindings/net/apm-xgene-enet.txt     | 72 ++++++++++++++++++++++
->   1 file changed, 72 insertions(+)
->   create mode 100644 Documentation/devicetree/bindings/net/apm-xgene-enet.txt
->
-> diff --git a/Documentation/devicetree/bindings/net/apm-xgene-enet.txt b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
-> new file mode 100644
-> index 0000000..3e2a295
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
-> @@ -0,0 +1,72 @@
-> +APM X-Gene SoC Ethernet nodes
-> +
-> +Ethernet nodes are defined to describe on-chip ethernet interfaces in
-> +APM X-Gene SoC.
-> +
-> +Required properties:
-> +- compatible:		Should be "apm,xgene-enet"
-> +- reg: Address and length of the register set for the device. It contains the
-> +       information of registers in the same order as described by reg-names
-> +- reg-names: Should contain the register set names
+Introduce function to generate conditional branch (immediate)
+instructions.
 
-These are not aligned properly...
+Signed-off-by: Zi Shen Lim <zlim.lnx@gmail.com>
+---
+ arch/arm64/include/asm/insn.h | 21 +++++++++++++++++++++
+ arch/arm64/kernel/insn.c      | 17 +++++++++++++++++
+ 2 files changed, 38 insertions(+)
 
-Required properties:
-- compatble		: Should be "apm,xgene-enet"
-- reg			: Address and length of the register set for the device.
-			  It contains the information of registers in the same order
-			  as described by reg-names
-
-.....
-
-> +  "enet_csr":		Ethernet control and status register address space
-> +  "ring_csr":		Descriptor ring control and status register address space
-> +  "ring_cmd":		Descriptor ring command register address space
-> +- interrupts:		Ethernet main interrupt
-> +- clocks:		Reference to the clock entry.
-> +- local-mac-address:	MAC address assigned to this device
-> +- phy-connection-type:	Interface type between ethernet device and PHY device
-> +- phy-handle:		Reference to a PHY node connected to this device
-> +
-> +- mdio: 		Device tree subnode with the following required
-> +			properties:
-> +
-> +	- compatible: Must be "apm,xgene-mdio".
-> +	- #address-cells: Must be <1>.
-> +	- #size-cells: Must be <0>.
-> +
-> +	For the phy on the mdio bus, there must be a node with the following
-> +	fields:
-> +
-> +	- compatible: PHY identifier.  Please refer ./phy.txt for the format.
-> +	- reg: The ID number for the phy.
-> +
-
-alignment...  :-)
-
-> +Optional properties:
-> +- status		: Should be "ok" or "disabled" for enabled/disabled.
-> +			  Default is "ok".
-> +
-> +
-> +Example:
-> +	menetclk: menetclk {
-> +		compatible = "apm,xgene-device-clock";
-> +		clock-output-names = "menetclk";
-> +		status = "ok";
-> +	};
-> +
-> +	menet: ethernet@17020000 {
-> +		compatible = "apm,xgene-enet";
-> +		status = "disabled";
-> +		reg = <0x0 0x17020000 0x0 0xd100>,
-> +		      <0x0 0X17030000 0x0 0X400>,
-> +		      <0x0 0X10000000 0x0 0X200>;
-> +		reg-names = "enet_csr", "ring_csr", "ring_cmd";
-> +		interrupts = <0x0 0x3c 0x4>;
-> +		clocks = <&menetclk 0>;
-> +		local-mac-address = [00 01 73 00 00 01];
-> +		phy-connection-type = "rgmii";
-> +		phy-handle = <&menetphy>;
-> +		mdio {
-> +			compatible = "apm,xgene-mdio";
-> +			#address-cells = <1>;
-> +			#size-cells = <0>;
-> +			menetphy: menetphy@3 {
-> +				compatible = "ethernet-phy-id001c.c915";
-> +				reg = <0x3>;
-> +			};
-> +
-> +		};
-> +	};
-> +
-> +/* Board-specific peripheral configurations */
-> +&menet {
-> +        status = "ok";
-> +};
-
-
+diff --git a/arch/arm64/include/asm/insn.h b/arch/arm64/include/asm/insn.h
+index 5080962..86a8a9c 100644
+--- a/arch/arm64/include/asm/insn.h
++++ b/arch/arm64/include/asm/insn.h
+@@ -117,6 +117,24 @@ enum aarch64_insn_variant {
+ 	AARCH64_INSN_VARIANT_64BIT
+ };
+ 
++enum aarch64_insn_condition {
++	AARCH64_INSN_COND_EQ = 0x0, /* == */
++	AARCH64_INSN_COND_NE = 0x1, /* != */
++	AARCH64_INSN_COND_CS = 0x2, /* unsigned >= */
++	AARCH64_INSN_COND_CC = 0x3, /* unsigned < */
++	AARCH64_INSN_COND_MI = 0x4, /* < 0 */
++	AARCH64_INSN_COND_PL = 0x5, /* >= 0 */
++	AARCH64_INSN_COND_VS = 0x6, /* overflow */
++	AARCH64_INSN_COND_VC = 0x7, /* no overflow */
++	AARCH64_INSN_COND_HI = 0x8, /* unsigned > */
++	AARCH64_INSN_COND_LS = 0x9, /* unsigned <= */
++	AARCH64_INSN_COND_GE = 0xa, /* signed >= */
++	AARCH64_INSN_COND_LT = 0xb, /* signed < */
++	AARCH64_INSN_COND_GT = 0xc, /* signed > */
++	AARCH64_INSN_COND_LE = 0xd, /* signed <= */
++	AARCH64_INSN_COND_AL = 0xe, /* always */
++};
++
+ enum aarch64_insn_branch_type {
+ 	AARCH64_INSN_BRANCH_NOLINK,
+ 	AARCH64_INSN_BRANCH_LINK,
+@@ -135,6 +153,7 @@ __AARCH64_INSN_FUNCS(b,		0xFC000000, 0x14000000)
+ __AARCH64_INSN_FUNCS(bl,	0xFC000000, 0x94000000)
+ __AARCH64_INSN_FUNCS(cbz,	0xFE000000, 0x34000000)
+ __AARCH64_INSN_FUNCS(cbnz,	0xFE000000, 0x35000000)
++__AARCH64_INSN_FUNCS(bcond,	0xFF000010, 0x54000000)
+ __AARCH64_INSN_FUNCS(svc,	0xFFE0001F, 0xD4000001)
+ __AARCH64_INSN_FUNCS(hvc,	0xFFE0001F, 0xD4000002)
+ __AARCH64_INSN_FUNCS(smc,	0xFFE0001F, 0xD4000003)
+@@ -159,6 +178,8 @@ u32 aarch64_insn_gen_comp_branch_imm(unsigned long pc, unsigned long addr,
+ 				     enum aarch64_insn_register reg,
+ 				     enum aarch64_insn_variant variant,
+ 				     enum aarch64_insn_branch_type type);
++u32 aarch64_insn_gen_cond_branch_imm(unsigned long pc, unsigned long addr,
++				     enum aarch64_insn_condition cond);
+ u32 aarch64_insn_gen_hint(enum aarch64_insn_hint_op op);
+ u32 aarch64_insn_gen_nop(void);
+ u32 aarch64_insn_gen_branch_reg(enum aarch64_insn_register reg,
+diff --git a/arch/arm64/kernel/insn.c b/arch/arm64/kernel/insn.c
+index 50193d5..f2cf8ab 100644
+--- a/arch/arm64/kernel/insn.c
++++ b/arch/arm64/kernel/insn.c
+@@ -378,6 +378,23 @@ u32 aarch64_insn_gen_comp_branch_imm(unsigned long pc, unsigned long addr,
+ 					     offset >> 2);
+ }
+ 
++u32 aarch64_insn_gen_cond_branch_imm(unsigned long pc, unsigned long addr,
++				     enum aarch64_insn_condition cond)
++{
++	u32 insn;
++	long offset;
++
++	offset = branch_imm_common(pc, addr, SZ_1M);
++
++	insn = aarch64_insn_get_bcond_value();
++
++	BUG_ON(cond < AARCH64_INSN_COND_EQ || cond > AARCH64_INSN_COND_AL);
++	insn |= cond;
++
++	return aarch64_insn_encode_immediate(AARCH64_INSN_IMM_19, insn,
++					     offset >> 2);
++}
++
+ u32 __kprobes aarch64_insn_gen_hint(enum aarch64_insn_hint_op op)
+ {
+ 	return aarch64_insn_get_hint_value() | op;
 -- 
-Regards,
-Varka Bhadram.
+1.9.1
