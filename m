@@ -1,7 +1,7 @@
 From: Zi Shen Lim <zlim.lnx@gmail.com>
-Subject: [PATCH RFCv3 10/14] arm64: introduce aarch64_insn_gen_data1()
-Date: Mon, 14 Jul 2014 23:25:08 -0700
-Message-ID: <1405405512-4423-11-git-send-email-zlim.lnx@gmail.com>
+Subject: [PATCH RFCv3 11/14] arm64: introduce aarch64_insn_gen_data2()
+Date: Mon, 14 Jul 2014 23:25:09 -0700
+Message-ID: <1405405512-4423-12-git-send-email-zlim.lnx@gmail.com>
 References: <1405405512-4423-1-git-send-email-zlim.lnx@gmail.com>
 Cc: Zi Shen Lim <zlim.lnx@gmail.com>, linux-kernel@vger.kernel.org,
 	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
@@ -17,78 +17,94 @@ In-Reply-To: <1405405512-4423-1-git-send-email-zlim.lnx@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Introduce function to generate data-processing (1 source) instructions.
+Introduce function to generate data-processing (2 source) instructions.
 
 Signed-off-by: Zi Shen Lim <zlim.lnx@gmail.com>
 ---
- arch/arm64/include/asm/insn.h | 13 +++++++++++++
- arch/arm64/kernel/insn.c      | 37 +++++++++++++++++++++++++++++++++++++
- 2 files changed, 50 insertions(+)
+ arch/arm64/include/asm/insn.h | 20 ++++++++++++++++++
+ arch/arm64/kernel/insn.c      | 48 +++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 68 insertions(+)
 
 diff --git a/arch/arm64/include/asm/insn.h b/arch/arm64/include/asm/insn.h
-index c0a765d..246d214 100644
+index 246d214..367245f 100644
 --- a/arch/arm64/include/asm/insn.h
 +++ b/arch/arm64/include/asm/insn.h
-@@ -185,6 +185,12 @@ enum aarch64_insn_bitfield_type {
- 	AARCH64_INSN_BITFIELD_MOVE_SIGNED
+@@ -191,6 +191,15 @@ enum aarch64_insn_data1_type {
+ 	AARCH64_INSN_DATA1_REVERSE_64,
  };
  
-+enum aarch64_insn_data1_type {
-+	AARCH64_INSN_DATA1_REVERSE_16,
-+	AARCH64_INSN_DATA1_REVERSE_32,
-+	AARCH64_INSN_DATA1_REVERSE_64,
++enum aarch64_insn_data2_type {
++	AARCH64_INSN_DATA2_UDIV,
++	AARCH64_INSN_DATA2_SDIV,
++	AARCH64_INSN_DATA2_LSLV,
++	AARCH64_INSN_DATA2_LSRV,
++	AARCH64_INSN_DATA2_ASRV,
++	AARCH64_INSN_DATA2_RORV,
 +};
 +
  #define	__AARCH64_INSN_FUNCS(abbr, mask, val)	\
  static __always_inline bool aarch64_insn_is_##abbr(u32 code) \
  { return (code & (mask)) == (val); } \
-@@ -211,6 +217,9 @@ __AARCH64_INSN_FUNCS(add,	0x7F200000, 0x0B000000)
+@@ -217,6 +226,12 @@ __AARCH64_INSN_FUNCS(add,	0x7F200000, 0x0B000000)
  __AARCH64_INSN_FUNCS(adds,	0x7F200000, 0x2B000000)
  __AARCH64_INSN_FUNCS(sub,	0x7F200000, 0x4B000000)
  __AARCH64_INSN_FUNCS(subs,	0x7F200000, 0x6B000000)
-+__AARCH64_INSN_FUNCS(rev16,	0x7FFFFC00, 0x5AC00400)
-+__AARCH64_INSN_FUNCS(rev32,	0x7FFFFC00, 0x5AC00800)
-+__AARCH64_INSN_FUNCS(rev64,	0x7FFFFC00, 0x5AC00C00)
- __AARCH64_INSN_FUNCS(b,		0xFC000000, 0x14000000)
- __AARCH64_INSN_FUNCS(bl,	0xFC000000, 0x94000000)
- __AARCH64_INSN_FUNCS(cbz,	0xFE000000, 0x34000000)
-@@ -276,6 +285,10 @@ u32 aarch64_insn_gen_add_sub_shifted_reg(enum aarch64_insn_register dst,
- 					 int shift,
- 					 enum aarch64_insn_variant variant,
- 					 enum aarch64_insn_adsb_type type);
-+u32 aarch64_insn_gen_data1(enum aarch64_insn_register dst,
++__AARCH64_INSN_FUNCS(udiv,	0x7FE0FC00, 0x1AC00800)
++__AARCH64_INSN_FUNCS(sdiv,	0x7FE0FC00, 0x1AC00C00)
++__AARCH64_INSN_FUNCS(lslv,	0x7FE0FC00, 0x1AC02000)
++__AARCH64_INSN_FUNCS(lsrv,	0x7FE0FC00, 0x1AC02400)
++__AARCH64_INSN_FUNCS(asrv,	0x7FE0FC00, 0x1AC02800)
++__AARCH64_INSN_FUNCS(rorv,	0x7FE0FC00, 0x1AC02C00)
+ __AARCH64_INSN_FUNCS(rev16,	0x7FFFFC00, 0x5AC00400)
+ __AARCH64_INSN_FUNCS(rev32,	0x7FFFFC00, 0x5AC00800)
+ __AARCH64_INSN_FUNCS(rev64,	0x7FFFFC00, 0x5AC00C00)
+@@ -289,6 +304,11 @@ u32 aarch64_insn_gen_data1(enum aarch64_insn_register dst,
+ 			   enum aarch64_insn_register src,
+ 			   enum aarch64_insn_variant variant,
+ 			   enum aarch64_insn_data1_type type);
++u32 aarch64_insn_gen_data2(enum aarch64_insn_register dst,
 +			   enum aarch64_insn_register src,
++			   enum aarch64_insn_register reg,
 +			   enum aarch64_insn_variant variant,
-+			   enum aarch64_insn_data1_type type);
++			   enum aarch64_insn_data2_type type);
  
  bool aarch64_insn_hotpatch_safe(u32 old_insn, u32 new_insn);
  
 diff --git a/arch/arm64/kernel/insn.c b/arch/arm64/kernel/insn.c
-index e24cb13..49a9528 100644
+index 49a9528..7778b18 100644
 --- a/arch/arm64/kernel/insn.c
 +++ b/arch/arm64/kernel/insn.c
-@@ -745,3 +745,40 @@ u32 aarch64_insn_gen_add_sub_shifted_reg(enum aarch64_insn_register dst,
+@@ -782,3 +782,51 @@ u32 aarch64_insn_gen_data1(enum aarch64_insn_register dst,
  
- 	return aarch64_insn_encode_immediate(AARCH64_INSN_IMM_6, insn, shift);
+ 	return aarch64_insn_encode_register(AARCH64_INSN_REGTYPE_RN, insn, src);
  }
 +
-+u32 aarch64_insn_gen_data1(enum aarch64_insn_register dst,
++u32 aarch64_insn_gen_data2(enum aarch64_insn_register dst,
 +			   enum aarch64_insn_register src,
++			   enum aarch64_insn_register reg,
 +			   enum aarch64_insn_variant variant,
-+			   enum aarch64_insn_data1_type type)
++			   enum aarch64_insn_data2_type type)
 +{
 +	u32 insn;
 +
 +	switch (type) {
-+	case AARCH64_INSN_DATA1_REVERSE_16:
-+		insn = aarch64_insn_get_rev16_value();
++	case AARCH64_INSN_DATA2_UDIV:
++		insn = aarch64_insn_get_udiv_value();
 +		break;
-+	case AARCH64_INSN_DATA1_REVERSE_32:
-+		insn = aarch64_insn_get_rev32_value();
++	case AARCH64_INSN_DATA2_SDIV:
++		insn = aarch64_insn_get_sdiv_value();
 +		break;
-+	case AARCH64_INSN_DATA1_REVERSE_64:
-+		BUG_ON(variant != AARCH64_INSN_VARIANT_64BIT);
-+		insn = aarch64_insn_get_rev64_value();
++	case AARCH64_INSN_DATA2_LSLV:
++		insn = aarch64_insn_get_lslv_value();
++		break;
++	case AARCH64_INSN_DATA2_LSRV:
++		insn = aarch64_insn_get_lsrv_value();
++		break;
++	case AARCH64_INSN_DATA2_ASRV:
++		insn = aarch64_insn_get_asrv_value();
++		break;
++	case AARCH64_INSN_DATA2_RORV:
++		insn = aarch64_insn_get_rorv_value();
 +		break;
 +	default:
 +		BUG_ON(1);
@@ -106,7 +122,9 @@ index e24cb13..49a9528 100644
 +
 +	insn = aarch64_insn_encode_register(AARCH64_INSN_REGTYPE_RD, insn, dst);
 +
-+	return aarch64_insn_encode_register(AARCH64_INSN_REGTYPE_RN, insn, src);
++	insn = aarch64_insn_encode_register(AARCH64_INSN_REGTYPE_RN, insn, src);
++
++	return aarch64_insn_encode_register(AARCH64_INSN_REGTYPE_RM, insn, reg);
 +}
 -- 
 1.9.1
