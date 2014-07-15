@@ -1,72 +1,103 @@
-From: Xie Jianhua <Jianhua.Xie@freescale.com>
-Subject: [PATCH] bonding: enhance L2 hash helper with packet type
-Date: Tue, 15 Jul 2014 15:39:26 +0800
-Message-ID: <1405409966-19935-1-git-send-email-Jianhua.Xie@freescale.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can-next 2014-07-15
+Date: Tue, 15 Jul 2014 09:44:18 +0200
+Message-ID: <53C4DBD2.8010309@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Jianhua Xie <jianhua.xie@freescale.com>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Pan Jiafei <Jiafei.Pan@freescale.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1blp0188.outbound.protection.outlook.com ([207.46.163.188]:36541
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752949AbaGOHnI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Jul 2014 03:43:08 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="SrvoRqa5b1HcG5sVBLlT9mktXAxfp8uIC"
+Cc: David Miller <davem@davemloft.net>,
+	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	"kernel@pengutronix.de" <kernel@pengutronix.de>
+To: netdev@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jianhua Xie <jianhua.xie@freescale.com>
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--SrvoRqa5b1HcG5sVBLlT9mktXAxfp8uIC
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-Current L2 hash helper calculates destination eth addr and
-source ether addr as L2 hash factors. This patch is adding
-packet type ID field into hash factors, which can help to
-distribute different types of packets like IPv4/IPv6 packets
-to different slave devices while only BOND_XMIT_POLICY_LAYER2
-is applied.
+Hello David,
 
-CC: Jay Vosburgh <j.vosburgh@gmail.com>
-CC: Veaceslav Falico <vfalico@gmail.com>
-CC: Andy Gospodarek <andy@greyhouse.net>
-CC: David S. Miller <davem@davemloft.net>
-CC: Pan Jiafei <Jiafei.Pan@freescale.com>
+this is a pull request of 4 patches for net-next/master.
 
-Suggested-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Jianhua Xie <jianhua.xie@freescale.com>
+Prabhakar Lad contributes a patch that converts the c_can driver to use
+the devm api. The remaining four patches by Nikita Edward Baruzdin
+improve the SJA1000 driver with loopback testing support and introduce
+a new testing mode presume ack, for successful transmission even if no
+ACK is received.
+
+Marc
+
 ---
 
-v2-changes:
- Use the appropriate interface skb_header_pointer()
- to check skb headlen, fragmented packet or not is
- not distinguished any more.
+The following changes since commit 0854a7f13206d7523abe773235bbe4d13958fc=
+4b:
+
+  Merge branch 'amd811e-cleanups' (2014-07-14 19:14:44 -0700)
+
+are available in the git repository at:
+
+  git://gitorious.org/linux-can/linux-can-next.git tags/linux-can-next-fo=
+r-3.17-20140715
+
+for you to fetch changes up to 5b853ec3494e34eb4882f65ebbcd04b495ff3c85:
+
+  can: sja1000: Add support for CAN_CTRLMODE_PRESUME_ACK (2014-07-15 09:3=
+4:27 +0200)
+
+----------------------------------------------------------------
+linux-can-next-for-3.17-20140715
+
+----------------------------------------------------------------
+Lad, Prabhakar (1):
+      can: c_can: convert to use devm * api
+
+Nikita Edward Baruzdin (4):
+      can: netlink: Remove space before tab
+      can: netlink: Add CAN_CTRLMODE_PRESUME_ACK flag
+      can: sja1000: Add support for CAN_CTRLMODE_LOOPBACK
+      can: sja1000: Add support for CAN_CTRLMODE_PRESUME_ACK
+
+ drivers/net/can/c_can/c_can_platform.c | 43 ++++++++--------------------=
+------
+ drivers/net/can/sja1000/sja1000.c      | 27 ++++++++++++++-------
+ include/uapi/linux/can/netlink.h       |  3 ++-
+ 3 files changed, 31 insertions(+), 42 deletions(-)
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
 
- drivers/net/bonding/bond_main.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 3a451b6..bcff90c 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2999,11 +2999,11 @@ static struct notifier_block bond_netdev_notifier = {
- /* L2 hash helper */
- static inline u32 bond_eth_hash(struct sk_buff *skb)
- {
--	struct ethhdr *data = (struct ethhdr *)skb->data;
--
--	if (skb_headlen(skb) >= offsetof(struct ethhdr, h_proto))
--		return data->h_dest[5] ^ data->h_source[5];
-+	struct ethhdr *ep, hdr_tmp;
- 
-+	ep = skb_header_pointer(skb, 0, sizeof(hdr_tmp), &hdr_tmp);
-+	if (ep)
-+		return ep->h_dest[5] ^ ep->h_source[5] ^ ep->h_proto;
- 	return 0;
- }
- 
--- 
-1.8.5
+
+
+
+
+
+
+
+
+
+
+
+--SrvoRqa5b1HcG5sVBLlT9mktXAxfp8uIC
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+
+iEYEARECAAYFAlPE29IACgkQjTAFq1RaXHPtcACgkfKiKy6HkFOj8pDYkP6b+Nml
+gjAAnjShsKF4DjoBcshAZqrjo/u3tDoQ
+=qK4j
+-----END PGP SIGNATURE-----
+
+--SrvoRqa5b1HcG5sVBLlT9mktXAxfp8uIC--
