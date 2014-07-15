@@ -1,59 +1,78 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 2/2] bonding: make hard-coded defines configurable
- at build
-Date: Tue, 15 Jul 2014 21:11:51 +0400
-Message-ID: <53C560D7.5020308@cogentembedded.com>
-References: <1405419341-31510-1-git-send-email-vfalico@gmail.com> <1405419341-31510-3-git-send-email-vfalico@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Veaceslav Falico <vfalico@gmail.com>, netdev@vger.kernel.org
+From: Pravin B Shelar <pshelar@nicira.com>
+Subject: [PATCH net-next v2 04/11] net: Export xmit_recursion
+Date: Tue, 15 Jul 2014 10:14:57 -0700
+Message-ID: <1405444497-16954-1-git-send-email-pshelar@nicira.com>
+Cc: netdev@vger.kernel.org, Pravin B Shelar <pshelar@nicira.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f176.google.com ([209.85.217.176]:54792 "EHLO
-	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751604AbaGORLu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 13:11:50 -0400
-Received: by mail-lb0-f176.google.com with SMTP id w7so3739505lbi.21
-        for <netdev@vger.kernel.org>; Tue, 15 Jul 2014 10:11:48 -0700 (PDT)
-In-Reply-To: <1405419341-31510-3-git-send-email-vfalico@gmail.com>
+Received: from na3sys009aog132.obsmtp.com ([74.125.149.250]:53242 "HELO
+	na3sys009aog132.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1758343AbaGORPA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 13:15:00 -0400
+Received: by mail-pd0-f175.google.com with SMTP id v10so7445653pde.34
+        for <netdev@vger.kernel.org>; Tue, 15 Jul 2014 10:15:00 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Next patch adds re-circulation action to OVS. This is recursive
+action needs to be limited to safe number recursions to
+avoid overflowing kernel stack space.  This patch export
+xmit_recursion so that OVS can increment and check the value
+before executing recirc action.
 
-On 07/15/2014 02:15 PM, Veaceslav Falico wrote:
+Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+---
+ include/linux/netdevice.h |  3 +++
+ net/core/dev.c            | 10 +++++-----
+ 2 files changed, 8 insertions(+), 5 deletions(-)
 
-> CC: Jay Vosburgh <j.vosburgh@gmail.com>
-> CC: Andy Gospodarek <andy@greyhouse.net>
-> Signed-off-by: Veaceslav Falico <vfalico@gmail.com>
-> ---
->   drivers/net/bonding/Kconfig   | 16 ++++++++++++++++
->   drivers/net/bonding/bonding.h |  6 +++---
->   2 files changed, 19 insertions(+), 3 deletions(-)
-
-> diff --git a/drivers/net/bonding/Kconfig b/drivers/net/bonding/Kconfig
-> index 7b1a0fa..28fb3af 100644
-> --- a/drivers/net/bonding/Kconfig
-> +++ b/drivers/net/bonding/Kconfig
-> @@ -15,3 +15,19 @@ menuconfig BONDING
->
->   	  To compile this driver as a module, choose M here: the module
->   	  will be called bonding.
-> +
-> +if BONDING
-> +
-> +config BOND_MAX_VLAN_ENCAP
-> +	int "Maximum number of stacked vlans on top of bonding"
-
-    s/vlans/VLANs/?
-
-> +	default "2"
-> +
-> +config BOND_MAX_ARP_TARGETS
-> +	int "Maximum number of ip targets arp monitor supports"
-
-    s/ip/IP/, s/arp/ARP/?
-
-WBR, Sergei
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 3a320db..ca7a1ab 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1941,6 +1941,9 @@ static inline struct net_device *first_net_device_rcu(struct net *net)
+ 	return lh == &net->dev_base_head ? NULL : net_device_entry(lh);
+ }
+ 
++#define NET_RECURSION_LIMIT 10
++DECLARE_PER_CPU(int, net_xmit_recursion);
++
+ int netdev_boot_setup_check(struct net_device *dev);
+ unsigned long netdev_boot_base(const char *prefix, int unit);
+ struct net_device *dev_getbyhwaddr_rcu(struct net *net, unsigned short type,
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 6e2a2cd..7f36a4f 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2804,8 +2804,8 @@ static void skb_update_prio(struct sk_buff *skb)
+ #define skb_update_prio(skb)
+ #endif
+ 
+-static DEFINE_PER_CPU(int, xmit_recursion);
+-#define RECURSION_LIMIT 10
++DEFINE_PER_CPU(int, net_xmit_recursion);
++EXPORT_SYMBOL_GPL(net_xmit_recursion);
+ 
+ /**
+  *	dev_loopback_xmit - loop back @skb
+@@ -2895,15 +2895,15 @@ static int __dev_queue_xmit(struct sk_buff *skb, void *accel_priv)
+ 
+ 		if (txq->xmit_lock_owner != cpu) {
+ 
+-			if (__this_cpu_read(xmit_recursion) > RECURSION_LIMIT)
++			if (__this_cpu_read(net_xmit_recursion) > NET_RECURSION_LIMIT)
+ 				goto recursion_alert;
+ 
+ 			HARD_TX_LOCK(dev, txq, cpu);
+ 
+ 			if (!netif_xmit_stopped(txq)) {
+-				__this_cpu_inc(xmit_recursion);
++				__this_cpu_inc(net_xmit_recursion);
+ 				rc = dev_hard_start_xmit(skb, dev, txq);
+-				__this_cpu_dec(xmit_recursion);
++				__this_cpu_dec(net_xmit_recursion);
+ 				if (dev_xmit_complete(rc)) {
+ 					HARD_TX_UNLOCK(dev, txq);
+ 					goto out;
+-- 
+1.9.3
