@@ -1,32 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 0/3] bonding: rcu cleanups
-Date: Tue, 15 Jul 2014 13:51:52 +0200
-Message-ID: <1405425112.10255.31.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1405417604-7828-1-git-send-email-edumazet@google.com>
-	 <53C50897.2020605@redhat.com>
+From: Veaceslav Falico <vfalico@gmail.com>
+Subject: Re: [PATCH net-next] bonding: permit enslaving interfaces without
+ set_mac support
+Date: Tue, 15 Jul 2014 13:59:19 +0200
+Message-ID: <20140715115919.GA5225@mikrodark.usersys.redhat.com>
+References: <1405423561-9114-1-git-send-email-vfalico@gmail.com>
+ <53C5145E.5040908@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Mahesh Bandewar <maheshb@google.com>
-To: Nikolay Aleksandrov <nikolay@redhat.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: netdev@vger.kernel.org, Jay Vosburgh <j.vosburgh@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Varka Bhadram <varkabhadram@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f173.google.com ([74.125.82.173]:39136 "EHLO
-	mail-we0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758321AbaGOLv6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 07:51:58 -0400
-Received: by mail-we0-f173.google.com with SMTP id q58so518325wes.4
-        for <netdev@vger.kernel.org>; Tue, 15 Jul 2014 04:51:57 -0700 (PDT)
-In-Reply-To: <53C50897.2020605@redhat.com>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:52073 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758321AbaGOMCS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 08:02:18 -0400
+Received: by mail-wg0-f44.google.com with SMTP id m15so5361302wgh.3
+        for <netdev@vger.kernel.org>; Tue, 15 Jul 2014 05:02:16 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <53C5145E.5040908@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-07-15 at 12:55 +0200, Nikolay Aleksandrov wrote:
-> Nice clean up, I also gave it a quick run. I believe similar clean up would
-> be beneficial for current_arp_slave at some point.
+On Tue, Jul 15, 2014 at 05:15:34PM +0530, Varka Bhadram wrote:
+>On 07/15/2014 04:56 PM, Veaceslav Falico wrote:
+...snip...
+>>-			pr_warn("%s: Warning: The first slave device specified does not support setting the MAC address\n",
+>>-				bond_dev->name);
+>>-			if (BOND_MODE(bond) == BOND_MODE_ACTIVEBACKUP) {
+>>+		pr_warn("%s: Warning: The slave device specified does not support setting the MAC address\n",
+>>+			bond_dev->name);
+>
+>netdev_warn() instead of pr_warn()... We are having net_device object?
 
-Yes this one should be much easier, I'll send it, thanks.
+It's done in consistency with the whole function - there are pr_*
+everywhere there, and netdev_x here and there would only mess things up.
+
+I'll send a follow-up patch that transforms all pr_* into netdev_*.
+
+Thank you!
