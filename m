@@ -1,56 +1,128 @@
 From: Varka Bhadram <varkabhadram@gmail.com>
-Subject: Re: [PATCH net 1/1] net: ppp: fix creating PPP pass and active filters
-Date: Tue, 15 Jul 2014 10:48:55 +0530
-Message-ID: <53C4B9BF.1020902@gmail.com>
-References: <53C28297.4080507@kristov.de> <53C29DAA.8020405@gmail.com> <20140713180735.209671xd9qjsgmo7@berry.schulz.ip-v6.eu> <53C2D541.8080900@redhat.com> <20140715065458.15013qglk08wv3mq@kristov.noip.me>
+Subject: Re: [PATCH v9 2/4] Documentation: dts: Add bindings for APM X-Gene
+ SoC ethernet driver
+Date: Tue, 15 Jul 2014 11:15:22 +0530
+Message-ID: <53C4BFF2.5080103@gmail.com>
+References: <1405376285-23008-1-git-send-email-isubramanian@apm.com> <1405376285-23008-3-git-send-email-isubramanian@apm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-ppp@vger.kernel.org,
-	paulus@samba.org, isdn@linux-pingi.de
-To: Christoph Schulz <develop@kristov.de>,
-	Daniel Borkmann <dborkman@redhat.com>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <20140715065458.15013qglk08wv3mq@kristov.noip.me>
-Sender: linux-ppp-owner@vger.kernel.org
+Cc: gregkh@linuxfoundation.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, jcm@redhat.com,
+	patches@apm.com, Ravi Patel <rapatel@apm.com>,
+	Keyur Chudgar <kchudgar@apm.com>
+To: Iyappan Subramanian <isubramanian@apm.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, devicetree@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1405376285-23008-3-git-send-email-isubramanian@apm.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 07/15/2014 10:24 AM, Christoph Schulz wrote:
-> Hello!
+On 07/15/2014 03:48 AM, Iyappan Subramanian wrote:
+> This patch adds documentation for APM X-Gene SoC ethernet DTS binding.
 >
-> Daniel Borkmann schrieb am Sun, 13 Jul 2014 20:51:45 +0200:
+> Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+> Signed-off-by: Ravi Patel <rapatel@apm.com>
+> Signed-off-by: Keyur Chudgar <kchudgar@apm.com>
+> ---
+>   .../devicetree/bindings/net/apm-xgene-enet.txt     | 72 ++++++++++++++++++++++
+>   1 file changed, 72 insertions(+)
+>   create mode 100644 Documentation/devicetree/bindings/net/apm-xgene-enet.txt
 >
->> I think going with the first variant is just fine.
->
-> Well, then I need not change anything, do I? This first variant causes 
-> checkpatch to warn twice about a line exceeding 80 characters:
->
-> WARNING: line over 80 characters
-> #83: FILE: drivers/net/ppp/ppp_generic.c:771:
-> +                               err = 
-> sk_unattached_filter_create(&ppp->pass_filter,
->
-> WARNING: line over 80 characters
-> #102: FILE: drivers/net/ppp/ppp_generic.c:797:
-> +                               err = 
-> sk_unattached_filter_create(&ppp->active_filter,
->
-> But I don't see how to shorten them. This is because 
-> "sk_unattached_filter_create" is such a long identifier...
->
-> Any proposals what I can do in order to get the fix accepted?
->
->
-There are can be two solutions:
+> diff --git a/Documentation/devicetree/bindings/net/apm-xgene-enet.txt b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
+> new file mode 100644
+> index 0000000..3e2a295
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/apm-xgene-enet.txt
+> @@ -0,0 +1,72 @@
+> +APM X-Gene SoC Ethernet nodes
+> +
+> +Ethernet nodes are defined to describe on-chip ethernet interfaces in
+> +APM X-Gene SoC.
+> +
+> +Required properties:
+> +- compatible:		Should be "apm,xgene-enet"
+> +- reg: Address and length of the register set for the device. It contains the
+> +       information of registers in the same order as described by reg-names
+> +- reg-names: Should contain the register set names
 
-1. Replace the long function name (sk_unattached_filter_create) with the simple macro.
-    We can define the macro locally with our driver name.I don't know how many people
-    will accept it. For this we have to change the entire filter framework.
+These are not aligned properly...
 
-2. Shorten the argument name 'pass_filter/active_filter'.
-    For this also we need to change the entire framework. People many not be accept it.
+Required properties:
+- compatble		: Should be "apm,xgene-enet"
+- reg			: Address and length of the register set for the device.
+			  It contains the information of registers in the same order
+			  as described by reg-names
+
+.....
+
+> +  "enet_csr":		Ethernet control and status register address space
+> +  "ring_csr":		Descriptor ring control and status register address space
+> +  "ring_cmd":		Descriptor ring command register address space
+> +- interrupts:		Ethernet main interrupt
+> +- clocks:		Reference to the clock entry.
+> +- local-mac-address:	MAC address assigned to this device
+> +- phy-connection-type:	Interface type between ethernet device and PHY device
+> +- phy-handle:		Reference to a PHY node connected to this device
+> +
+> +- mdio: 		Device tree subnode with the following required
+> +			properties:
+> +
+> +	- compatible: Must be "apm,xgene-mdio".
+> +	- #address-cells: Must be <1>.
+> +	- #size-cells: Must be <0>.
+> +
+> +	For the phy on the mdio bus, there must be a node with the following
+> +	fields:
+> +
+> +	- compatible: PHY identifier.  Please refer ./phy.txt for the format.
+> +	- reg: The ID number for the phy.
+> +
+
+alignment...  :-)
+
+> +Optional properties:
+> +- status		: Should be "ok" or "disabled" for enabled/disabled.
+> +			  Default is "ok".
+> +
+> +
+> +Example:
+> +	menetclk: menetclk {
+> +		compatible = "apm,xgene-device-clock";
+> +		clock-output-names = "menetclk";
+> +		status = "ok";
+> +	};
+> +
+> +	menet: ethernet@17020000 {
+> +		compatible = "apm,xgene-enet";
+> +		status = "disabled";
+> +		reg = <0x0 0x17020000 0x0 0xd100>,
+> +		      <0x0 0X17030000 0x0 0X400>,
+> +		      <0x0 0X10000000 0x0 0X200>;
+> +		reg-names = "enet_csr", "ring_csr", "ring_cmd";
+> +		interrupts = <0x0 0x3c 0x4>;
+> +		clocks = <&menetclk 0>;
+> +		local-mac-address = [00 01 73 00 00 01];
+> +		phy-connection-type = "rgmii";
+> +		phy-handle = <&menetphy>;
+> +		mdio {
+> +			compatible = "apm,xgene-mdio";
+> +			#address-cells = <1>;
+> +			#size-cells = <0>;
+> +			menetphy: menetphy@3 {
+> +				compatible = "ethernet-phy-id001c.c915";
+> +				reg = <0x3>;
+> +			};
+> +
+> +		};
+> +	};
+> +
+> +/* Board-specific peripheral configurations */
+> +&menet {
+> +        status = "ok";
+> +};
+
 
 -- 
 Regards,
 Varka Bhadram.
-
