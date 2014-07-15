@@ -1,152 +1,21 @@
-From: Jerry Chu <hkchu@google.com>
-Subject: Re: [PATCH net-next] net-gre-gro: Fix a bug that breaks the
- forwarding path
-Date: Tue, 15 Jul 2014 13:22:45 -0700
-Message-ID: <CAPshTCh66uHYgftjUO8YjeTZum9mbkd4xO-D15k1Ww7_fV8pAw@mail.gmail.com>
-References: <1405262780-20232-1-git-send-email-hkchu@google.com>
-	<CAJZOPZ+wu=6t_AKoKg1KhVJ0=DhczfQ8ekDFKFLEkQv6d=cOfA@mail.gmail.com>
-	<CAPshTCjiw8vFK9Y4APwsX5kWnKDByLuOn+1MJa4C08FOevZKQQ@mail.gmail.com>
-	<CAJZOPZLwiT7LhxDFYdAq=0iU6heSwBQfCvwxXtoAXMqg=eNAmA@mail.gmail.com>
-	<CAPshTCiKnKx_P=JLQcgjS36rWmCtSS43XYNJHeif9Z9yP8C36Q@mail.gmail.com>
-	<CAJZOPZJcxb1j+_A2T=yN8bkjBH3CFjnb05q56dxAwtZ4i85Mpw@mail.gmail.com>
-	<CAPshTCgCdJNH6rr-Yri0L8-aDL_kQfWbY9XtwVLxsoHcf-9Ghg@mail.gmail.com>
-	<CAJZOPZLqqBad5p_TH2gvHsWOgrNWdwUz0A4x-20mr2Jw-Ev=8Q@mail.gmail.com>
+From: CLAIM THIS MONEY <accounting-01@pemi.co.id>
+Subject: CLAIM THIS MONEY
+Date: Wed, 16 Jul 2014 03:47:36 +0700 (WIT)
+Message-ID: <28606277.20802.1405457256678.JavaMail.root@svrmailpemi.pemi.co.id>
+Reply-To: CLAIM THIS MONEY <amendhassan1@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Tom Herbert <therbert@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Wolfgang Walter <linux@stwm.de>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Or Gerlitz <or.gerlitz@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f45.google.com ([209.85.213.45]:58864 "EHLO
-	mail-yh0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756509AbaGOUWq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 16:22:46 -0400
-Received: by mail-yh0-f45.google.com with SMTP id 29so2045733yhl.32
-        for <netdev@vger.kernel.org>; Tue, 15 Jul 2014 13:22:45 -0700 (PDT)
-In-Reply-To: <CAJZOPZLqqBad5p_TH2gvHsWOgrNWdwUz0A4x-20mr2Jw-Ev=8Q@mail.gmail.com>
+Received: from smtp.pemi.co.id ([202.152.163.41]:3373 "EHLO smtp.pemi.co.id"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754788AbaGOU6Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Jul 2014 16:58:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 15, 2014 at 11:21 AM, Or Gerlitz <or.gerlitz@gmail.com> wrote:
-> On Tue, Jul 15, 2014 at 8:17 PM, Jerry Chu <hkchu@google.com> wrote:
->>
->> On Tue, Jul 15, 2014 at 7:06 AM, Or Gerlitz <or.gerlitz@gmail.com> wrote:
->> > On Tue, Jul 15, 2014 at 12:30 AM, Jerry Chu <hkchu@google.com> wrote:
->> >>
->> >> On Mon, Jul 14, 2014 at 1:38 PM, Or Gerlitz <or.gerlitz@gmail.com>
->> >> wrote:
->> >> > On Mon, Jul 14, 2014 at 10:16 PM, Jerry Chu <hkchu@google.com> wrote:
->> >> >> On Mon, Jul 14, 2014 at 12:05 PM, Or Gerlitz <or.gerlitz@gmail.com>
->> >> >> wrote:
->> >> >>> On Sun, Jul 13, 2014 at 5:46 PM, H.K. Jerry Chu <hkchu@google.com>
->> >> >>> wrote:
->> >> >>>> Fixed a bug that was introduced by my GRE-GRO patch
->> >> >>>> (bf5a755f5e9186406bbf50f4087100af5bd68e40 net-gre-gro: Add GRE
->> >> >>>> support to the GRO stack) that breaks the forwarding path
->> >> >>>> because various GSO related fields were not set. The bug will
->> >> >>>> cause on the egress path either the GSO code to fail, or a
->> >> >>>> GRE-TSO capable (NETIF_F_GSO_GRE) NICs to choke. The following
->> >> >>>> fix has been tested for both cases.
->> >> >
->> >> >>> Anything different in this version vs. the one you posted earlier
->> >> >>> on
->> >> >>> February or this is a plain re-post?
->> >> >
->> >> >> I simply moved the patch against the latest net-next and resolved
->> >> >> some small
->> >> >> conflict so yes it's pretty much the same.
->> >> >
->> >> > OK, got it.
->> >> >
->> >> >> Also I don't see the subsequent
->> >> >> discussion on skb->encapsulation affects the validity of this patch
->> >> >> so
->> >> >> i'm resubmitting it. Also the patch has been confirmed to address
->> >> >> the problem
->> >> >> Wolfgang reported last week. Feel free to test against the
->> >> >> configuration (VXLAN?)
->> >> >> you had some question about earlier.
->> >> >
->> >> > Well, re-reading that thread, we were not very decisive there... my
->> >> > comment of setting the inner network header twice in
->> >> > inet_gro_complete
->> >> > doesn't apply only to vxlan but to other tunneling protocols.
->> >>
->> >> Understood, but my reply about it applying to the inner most hdr in the
->> >> end
->> >> is not limited to vxlan either.
->> >>
->> >> > Also, if
->> >> > we really need (why do we? or explained it on the Feb thread) to set
->> >> > skb->encapsulation for the sake of TX in a protocol (GRE) gro
->> >> > complete, looks a bit fishy to me...
->> >>
->> >> Why does it look fishy? When h/w support sLRO on tunneled pkts
->> >> driver will set that bit. So it seems very reasonable for the GRO stack
->> >> that supports tunneled pkts to set that bit too.
->> >
->> >
->> > what do you mean by "h/w support sLRO on tunneled pkts" here? as far
->> > as I understand, the driver should set the bit when they know it's an
->> > encapsulated
->> > packet for which the HW offloaded checksum verification.
->> >
->> > So my fishiness comment was referring to the fact that we see here
->> > that the stack
->> > is setting this bit too sometimes.
->>
->> There are many other places in the "stack" that will set that bit if you
->> grep it. I think many of them are there to make GSO work on tunneled pkts.
->> The code here is no different.
->
->
-> I am not near the code now, but AFAIK, the "stack" sets it in the TX path
-> and the driver sets it in the RX path, any deviation you see there for this
-> convension except for the change introduced by this patch.
 
-Where does the forwarding path (e.g., the case at hand) belong then?
 
-AFAICT the current dev_hard_start_xmit() code pretty much requires
-skb->encapsulation to be set on all tunneled pkts in order for the proper
-TX offload to be possible.
-
->
->
->>
->>
->> >
->> >> > but saying this I think brings us
->> >> > back to that incomplete discussion [1]  sounds as this needs some
->> >> > plumbering... Still, this way or another I understand a regression
->> >> > was
->> >> > introduced here and should be fixed.
->> >
->> >> Yep. I thought we've made reasonable progress on the skb->encapsualtion
->> >> even though we can't close all the questions/issues
->> >
->> > where/how exactly (or more or less) this progress comes into play, is it
->> > by the description exchanged in the emails sent over the Feb/Mar thread
->> > or in Tom's 3.15/16/17 patches?
->>
->> Davem wanted a more precise definition of skb->encapsulation and I thought
->> some worthy discussion has happened as part of the thread of the
->> original patch (even though it left with some more questions but
->> that's often the case with complex kernel code, right?)
->
->
-> complex as it may be, if the design is valid (e.g doesn't contradict itself,
-> etc...) it should be subject to proper documentation and implementation. So
-> in that repspect, I read Dave's comment as saying -- guys, this isn't the
-> case with that skb encapsulation bit.
->
-> For a nearby example, see the documentation of the semantic of the different
-> checksum values (e.g none/unnecessary/complete/partial) that the stack and
-> drivers are setting, it wasn't very clear/percise since maybe kernel 2.4 and
-> only over one of the last kernel cycles on Dec 2013 this patch made it clear
-> "net: skbuff: improve comment on checksumming"
->
-> Or.
+Dear Beloved,
+My name is AHMED HASSAN a merchant in Dubai, in the U.A.E. I want you to help me collect $21,000,000.00 USD and dispatched it to the poor.I have set aside 25% for you for the work. Contact me for more details. Email: amendhassan1@gmail.com
