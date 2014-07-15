@@ -1,80 +1,72 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [RFC PATCH net-next 0/5] netns: allow to identify peer netns
-Date: Tue, 15 Jul 2014 16:32:26 +0200
-Message-ID: <53C53B7A.5000909@6wind.com>
-References: <537327F1.4060603@6wind.com>	<1404302346-4507-1-git-send-email-nicolas.dichtel@6wind.com> <87simj7ca1.fsf@x220.int.ebiederm.org>
-Reply-To: nicolas.dichtel@6wind.com
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next v2 3/3] net: sctp: Add partial support for
+ MSG_MORE on SCTP
+Date: Tue, 15 Jul 2014 14:33:54 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D17273C31@AcuExch.aculab.com>
+References: <063D6719AE5E284EB5DD2968C1650D6D1726EEB7@AcuExch.aculab.com>
+ <53C04509.70304@gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6D17271E0B@AcuExch.aculab.com>
+ <53C42C58.3050108@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	stephen@networkplumber.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "'davem@davemloft.net'" <davem@davemloft.net>
+To: 'Vlad Yasevich' <vyasevich@gmail.com>,
+	"'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
+	"'linux-sctp@vger.kernel.org'" <linux-sctp@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f182.google.com ([74.125.82.182]:39115 "EHLO
-	mail-we0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752025AbaGOOca (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 10:32:30 -0400
-Received: by mail-we0-f182.google.com with SMTP id q59so5745456wes.13
-        for <netdev@vger.kernel.org>; Tue, 15 Jul 2014 07:32:28 -0700 (PDT)
-In-Reply-To: <87simj7ca1.fsf@x220.int.ebiederm.org>
+Received: from mx0.aculab.com ([213.249.233.131]:38282 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751867AbaGOOes convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 10:34:48 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 21580-10 for <netdev@vger.kernel.org>;
+ Tue, 15 Jul 2014 15:34:39 +0100 (BST)
+In-Reply-To: <53C42C58.3050108@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 02/07/2014 22:09, Eric W. Biederman a =C3=A9crit :
-> Nicolas Dichtel <nicolas.dichtel@6wind.com> writes:
->
->> The goal of this serie is to be able to multicast netlink messages w=
-ith an
->> attribute that identify a peer netns.
->> This is needed by the userland to interpret some informations contai=
-ned in
->> netlink messages (like IFLA_LINK value, but also some other attribut=
-es in case
->> of x-netns netdevice (see also
->> http://thread.gmane.org/gmane.linux.network/315933/focus=3D316064)).
->>
->> Each network namespaces allocates its own ids for other netns (inclu=
-ding
->> itself). The user can retrieve these ids via a new netlink messages,=
- but only
->> if he has a FD which points to this netns. Dump is not implemented s=
-o that a
->> user cannot get the whole netns list.
->>
->> The goal of this RFC is mainly to validate the principle, ie patch 1=
-/5 and 2/5.
->> Patch 3/5 and 4/5 shows an example of how to use these ids in rtnetl=
-ink
->> messages. And patch 5/5 shows that the netlink messages can be symet=
-ric between
->> a GET and a SET.
->
-> This approach fundamentally breaks process migration, and calls for a
-> namespace of namespaces.
-Maybe there is no other solution. Network people uses netns to implemen=
-t
-"virtual router", ie only network namespaces are used. Userland daemons
-manage a set of netns. These daemons need to be able to identify a peer=
- netns
-when netlink messages from kernel are parsed. For now, these netlink me=
-ssages
-are incomplete and contain information that cannot be interpreted (like=
- the
-IFLA_LINK ifindex).
+From: Vlad Yasevich 
+> On 07/14/2014 12:27 PM, David Laight wrote:
+> > From: Vlad Yasevich
+> > ...
+> >>> +	/* Setting MSG_MORE currently has the same effect as enabling Nagle.
+> >>> +	 * This means that the user can't force bundling of the first two data
+> >>> +	 * chunks.  It does mean that all the data chunks will be sent
+> >>> +	 * without an extra timer.
+> >>> +	 * It is enough to save the last value since any data sent with
+> >>> +	 * MSG_MORE clear will already have been sent (subject to flow control).
+> >>> +	 */
+> >>> +	if (msg->msg_flags & MSG_MORE)
+> >>> +		sp->tx_delay |= SCTP_F_TX_MSG_MORE;
+> >>> +	else
+> >>> +		sp->tx_delay &= ~SCTP_F_TX_MSG_MORE;
+> >>> +
+> >>
+> >> This is ok for 1-1 sockets, but it doesn't really work for 1-many sockets.  If one of
+> >> the associations uses MSG_MORE while another does not, we'll see some interesting
+> >> side-effects on the wire.
+> >
+...
+> > I don't think this is a problem.
+> 
+> Not, it is not a _problem_, but it does make MSG_MORE rather useless
+> in some situations.  Waiting for an ACK across low-latency links
+> is rare, but in a high-latency scenarios where you want to utilize the
+> bandwidth better with bundling, you may not see the gains you expect.
+> 
+> Since MSG_MORE is association, it should be handled as such and an
+> a change on one association should not effect the others.
 
-Can you give me more details about the "process migration"? How does it=
- work
-when you have a veth tunnel between two netns?
+I think the comments already say that it is only a partial implementation.
+(If you send 2 chunks on an idle connection, they get sent separately.)
+Perhaps I'll add a note about possibly 'odd' effects for 1-many sockets
+with multi-threaded apps.
 
->
-> Which means this is a major mess that really isn't going to work beca=
-use
-> it generates more problems than it solves.
-It's just a netns inside another netns, or to be easier to figure out, =
-one or
-more virtual router inside a netns ;-)
+It helps a lot for my M3UA traffic.
+I can get the same effect on an old kernel by repeatedly changing SCTP_NODELAY,
+but that does rather rely on the way Nagle is implemented.
 
-Regards,
-Nicolas
+	David
