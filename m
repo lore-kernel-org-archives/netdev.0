@@ -1,7 +1,7 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 6/7] tipc: rename temporarily named functions
-Date: Tue, 15 Jul 2014 13:46:09 -0400
-Message-ID: <1405446370-11781-7-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 1/7] tipc: make name table distributor use new send function
+Date: Tue, 15 Jul 2014 13:46:04 -0400
+Message-ID: <1405446370-11781-2-git-send-email-jon.maloy@ericsson.com>
 References: <1405446370-11781-1-git-send-email-jon.maloy@ericsson.com>
 Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
@@ -10,364 +10,270 @@ Cc: netdev@vger.kernel.org,
 	Jon Maloy <jon.maloy@ericsson.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp104.biz.mail.gq1.yahoo.com ([98.137.12.179]:29375 "HELO
+Received: from smtp104.biz.mail.gq1.yahoo.com ([98.137.12.179]:29124 "HELO
 	smtp104.biz.mail.gq1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755339AbaGORqW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 13:46:22 -0400
+	by vger.kernel.org with SMTP id S1756423AbaGORqQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 13:46:16 -0400
 In-Reply-To: <1405446370-11781-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After the previous commit, we can now give the functions with temporary
-names, such as tipc_link_xmit2(), tipc_msg_build2() etc., their proper
-names.
+In a previous commit series ("tipc: new unicast transmission code")
+we introduced a new message sending function, tipc_link_xmit2(),
+and moved the unicast data users over to use that function. We now
+let the internal name table distributor do the same.
 
-There are no functional changes in this commit.
+The interaction between the name distributor and the node/link
+layer also becomes significantly simpler, so we can eliminate
+the function tipc_link_names_xmit().
 
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
 Reviewed-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/bcast.c      |    6 +++---
- net/tipc/bcast.h      |    2 +-
- net/tipc/link.c       |   18 +++++++++---------
- net/tipc/link.h       |    4 ++--
- net/tipc/msg.c        |    6 +++---
- net/tipc/msg.h        |    4 ++--
- net/tipc/name_distr.c |    4 ++--
- net/tipc/port.c       |   10 +++++-----
- net/tipc/socket.c     |   20 ++++++++++----------
- 9 files changed, 37 insertions(+), 37 deletions(-)
+ net/tipc/link.c       |   41 --------------------------
+ net/tipc/link.h       |    1 -
+ net/tipc/name_distr.c |   76 ++++++++++++++++++++++++++++---------------------
+ net/tipc/name_distr.h |    2 +-
+ net/tipc/node.c       |   13 ++-------
+ 5 files changed, 48 insertions(+), 85 deletions(-)
 
-diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
-index 2b68173..e7b7f87 100644
---- a/net/tipc/bcast.c
-+++ b/net/tipc/bcast.c
-@@ -389,13 +389,13 @@ static void bclink_peek_nack(struct tipc_msg *msg)
- 	tipc_node_unlock(n_ptr);
- }
- 
--/* tipc_bclink_xmit2 - broadcast buffer chain to all nodes in cluster
-- *                     and to identified node local sockets
-+/* tipc_bclink_xmit - broadcast buffer chain to all nodes in cluster
-+ *                    and to identified node local sockets
-  * @buf: chain of buffers containing message
-  * Consumes the buffer chain, except when returning -ELINKCONG
-  * Returns 0 if success, otherwise errno: -ELINKCONG,-EHOSTUNREACH,-EMSGSIZE
-  */
--int tipc_bclink_xmit2(struct sk_buff *buf)
-+int tipc_bclink_xmit(struct sk_buff *buf)
- {
- 	int rc = 0;
- 	int bc = 0;
-diff --git a/net/tipc/bcast.h b/net/tipc/bcast.h
-index af6b657..4875d95 100644
---- a/net/tipc/bcast.h
-+++ b/net/tipc/bcast.h
-@@ -98,6 +98,6 @@ int  tipc_bclink_reset_stats(void);
- int  tipc_bclink_set_queue_limits(u32 limit);
- void tipc_bcbearer_sort(struct tipc_node_map *nm_ptr, u32 node, bool action);
- uint  tipc_bclink_get_mtu(void);
--int tipc_bclink_xmit2(struct sk_buff *buf);
-+int tipc_bclink_xmit(struct sk_buff *buf);
- 
- #endif
 diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 28730dd..fb1485d 100644
+index a235b24..367b0f5 100644
 --- a/net/tipc/link.c
 +++ b/net/tipc/link.c
-@@ -706,7 +706,7 @@ static int tipc_link_cong(struct tipc_link *link, struct sk_buff *buf)
- }
- 
- /**
-- * __tipc_link_xmit2(): same as tipc_link_xmit2, but destlink is known & locked
-+ * __tipc_link_xmit(): same as tipc_link_xmit, but destlink is known & locked
-  * @link: link to use
-  * @buf: chain of buffers containing message
-  * Consumes the buffer chain, except when returning -ELINKCONG
-@@ -715,7 +715,7 @@ static int tipc_link_cong(struct tipc_link *link, struct sk_buff *buf)
-  * Only the socket functions tipc_send_stream() and tipc_send_packet() need
-  * to act on the return value, since they may need to do more send attempts.
-  */
--int __tipc_link_xmit2(struct tipc_link *link, struct sk_buff *buf)
-+int __tipc_link_xmit(struct tipc_link *link, struct sk_buff *buf)
- {
- 	struct tipc_msg *msg = buf_msg(buf);
- 	uint psz = msg_size(msg);
-@@ -783,7 +783,7 @@ int __tipc_link_xmit2(struct tipc_link *link, struct sk_buff *buf)
- }
- 
- /**
-- * tipc_link_xmit2() is the general link level function for message sending
-+ * tipc_link_xmit() is the general link level function for message sending
-  * @buf: chain of buffers containing message
-  * @dsz: amount of user data to be sent
-  * @dnode: address of destination node
-@@ -791,7 +791,7 @@ int __tipc_link_xmit2(struct tipc_link *link, struct sk_buff *buf)
-  * Consumes the buffer chain, except when returning -ELINKCONG
-  * Returns 0 if success, otherwise errno: -ELINKCONG,-EHOSTUNREACH,-EMSGSIZE
-  */
--int tipc_link_xmit2(struct sk_buff *buf, u32 dnode, u32 selector)
-+int tipc_link_xmit(struct sk_buff *buf, u32 dnode, u32 selector)
- {
- 	struct tipc_link *link = NULL;
- 	struct tipc_node *node;
-@@ -802,7 +802,7 @@ int tipc_link_xmit2(struct sk_buff *buf, u32 dnode, u32 selector)
- 		tipc_node_lock(node);
- 		link = node->active_links[selector & 1];
- 		if (link)
--			rc = __tipc_link_xmit2(link, buf);
-+			rc = __tipc_link_xmit(link, buf);
- 		tipc_node_unlock(node);
- 	}
- 
-@@ -836,7 +836,7 @@ static void tipc_link_sync_xmit(struct tipc_link *link)
- 	msg = buf_msg(buf);
- 	tipc_msg_init(msg, BCAST_PROTOCOL, STATE_MSG, INT_H_SIZE, link->addr);
- 	msg_set_last_bcast(msg, link->owner->bclink.acked);
--	__tipc_link_xmit2(link, buf);
-+	__tipc_link_xmit(link, buf);
+@@ -1033,47 +1033,6 @@ static void tipc_link_sync_rcv(struct tipc_node *n, struct sk_buff *buf)
  }
  
  /*
-@@ -1683,7 +1683,7 @@ static void tipc_link_tunnel_xmit(struct tipc_link *l_ptr,
- 	}
- 	skb_copy_to_linear_data(buf, tunnel_hdr, INT_H_SIZE);
- 	skb_copy_to_linear_data_offset(buf, INT_H_SIZE, msg, length);
--	__tipc_link_xmit2(tunnel, buf);
-+	__tipc_link_xmit(tunnel, buf);
- }
- 
- 
-@@ -1716,7 +1716,7 @@ void tipc_link_failover_send_queue(struct tipc_link *l_ptr)
- 		if (buf) {
- 			skb_copy_to_linear_data(buf, &tunnel_hdr, INT_H_SIZE);
- 			msg_set_size(&tunnel_hdr, INT_H_SIZE);
--			__tipc_link_xmit2(tunnel, buf);
-+			__tipc_link_xmit(tunnel, buf);
- 		} else {
- 			pr_warn("%sunable to send changeover msg\n",
- 				link_co_err);
-@@ -1789,7 +1789,7 @@ void tipc_link_dup_queue_xmit(struct tipc_link *l_ptr,
- 		skb_copy_to_linear_data(outbuf, &tunnel_hdr, INT_H_SIZE);
- 		skb_copy_to_linear_data_offset(outbuf, INT_H_SIZE, iter->data,
- 					       length);
--		__tipc_link_xmit2(tunnel, outbuf);
-+		__tipc_link_xmit(tunnel, outbuf);
- 		if (!tipc_link_is_up(l_ptr))
- 			return;
- 		iter = iter->next;
+- * tipc_link_names_xmit - send name table entries to new neighbor
+- *
+- * Send routine for bulk delivery of name table messages when contact
+- * with a new neighbor occurs. No link congestion checking is performed
+- * because name table messages *must* be delivered. The messages must be
+- * small enough not to require fragmentation.
+- * Called without any locks held.
+- */
+-void tipc_link_names_xmit(struct list_head *message_list, u32 dest)
+-{
+-	struct tipc_node *n_ptr;
+-	struct tipc_link *l_ptr;
+-	struct sk_buff *buf;
+-	struct sk_buff *temp_buf;
+-
+-	if (list_empty(message_list))
+-		return;
+-
+-	n_ptr = tipc_node_find(dest);
+-	if (n_ptr) {
+-		tipc_node_lock(n_ptr);
+-		l_ptr = n_ptr->active_links[0];
+-		if (l_ptr) {
+-			/* convert circular list to linear list */
+-			((struct sk_buff *)message_list->prev)->next = NULL;
+-			link_add_chain_to_outqueue(l_ptr,
+-				(struct sk_buff *)message_list->next, 0);
+-			tipc_link_push_queue(l_ptr);
+-			INIT_LIST_HEAD(message_list);
+-		}
+-		tipc_node_unlock(n_ptr);
+-	}
+-
+-	/* discard the messages if they couldn't be sent */
+-	list_for_each_safe(buf, temp_buf, ((struct sk_buff *)message_list)) {
+-		list_del((struct list_head *)buf);
+-		kfree_skb(buf);
+-	}
+-}
+-
+-/*
+  * tipc_link_push_packet: Push one unsent packet to the media
+  */
+ static u32 tipc_link_push_packet(struct tipc_link *l_ptr)
 diff --git a/net/tipc/link.h b/net/tipc/link.h
-index f0ebeb6..782983c 100644
+index 227ff81..04a59c5 100644
 --- a/net/tipc/link.h
 +++ b/net/tipc/link.h
-@@ -226,8 +226,8 @@ struct sk_buff *tipc_link_cmd_reset_stats(const void *req_tlv_area,
- void tipc_link_reset_all(struct tipc_node *node);
- void tipc_link_reset(struct tipc_link *l_ptr);
+@@ -228,7 +228,6 @@ void tipc_link_reset(struct tipc_link *l_ptr);
  void tipc_link_reset_list(unsigned int bearer_id);
--int tipc_link_xmit2(struct sk_buff *buf, u32 dest, u32 selector);
--int __tipc_link_xmit2(struct tipc_link *link, struct sk_buff *buf);
-+int tipc_link_xmit(struct sk_buff *buf, u32 dest, u32 selector);
-+int __tipc_link_xmit(struct tipc_link *link, struct sk_buff *buf);
- u32 tipc_link_get_max_pkt(u32 dest, u32 selector);
- void tipc_link_bundle_rcv(struct sk_buff *buf);
- void tipc_link_proto_xmit(struct tipc_link *l_ptr, u32 msg_typ, int prob,
-diff --git a/net/tipc/msg.c b/net/tipc/msg.c
-index 04e5cad..21b803a 100644
---- a/net/tipc/msg.c
-+++ b/net/tipc/msg.c
-@@ -115,7 +115,7 @@ out_free:
- 
- 
- /**
-- * tipc_msg_build2 - create buffer chain containing specified header and data
-+ * tipc_msg_build - create buffer chain containing specified header and data
-  * @mhdr: Message header, to be prepended to data
-  * @iov: User data
-  * @offset: Posision in iov to start copying from
-@@ -124,8 +124,8 @@ out_free:
-  * @chain: Buffer or chain of buffers to be returned to caller
-  * Returns message data size or errno: -ENOMEM, -EFAULT
-  */
--int tipc_msg_build2(struct tipc_msg *mhdr, struct iovec const *iov,
--		    int offset, int dsz, int pktmax , struct sk_buff **chain)
-+int tipc_msg_build(struct tipc_msg *mhdr, struct iovec const *iov,
-+		   int offset, int dsz, int pktmax , struct sk_buff **chain)
- {
- 	int mhsz = msg_hdr_sz(mhdr);
- 	int msz = mhsz + dsz;
-diff --git a/net/tipc/msg.h b/net/tipc/msg.h
-index 868fe22..462fa19 100644
---- a/net/tipc/msg.h
-+++ b/net/tipc/msg.h
-@@ -738,8 +738,8 @@ bool tipc_msg_bundle(struct sk_buff *bbuf, struct sk_buff *buf, u32 mtu);
- 
- bool tipc_msg_make_bundle(struct sk_buff **buf, u32 mtu, u32 dnode);
- 
--int tipc_msg_build2(struct tipc_msg *mhdr, struct iovec const *iov,
--		    int offset, int dsz, int mtu , struct sk_buff **chain);
-+int tipc_msg_build(struct tipc_msg *mhdr, struct iovec const *iov,
-+		   int offset, int dsz, int mtu , struct sk_buff **chain);
- 
- struct sk_buff *tipc_msg_reassemble(struct sk_buff *chain);
- 
+ int tipc_link_xmit(struct sk_buff *buf, u32 dest, u32 selector);
+ int tipc_link_xmit2(struct sk_buff *buf, u32 dest, u32 selector);
+-void tipc_link_names_xmit(struct list_head *message_list, u32 dest);
+ int __tipc_link_xmit(struct tipc_link *l_ptr, struct sk_buff *buf);
+ int __tipc_link_xmit2(struct tipc_link *link, struct sk_buff *buf);
+ int tipc_link_send_buf(struct tipc_link *l_ptr, struct sk_buff *buf);
 diff --git a/net/tipc/name_distr.c b/net/tipc/name_distr.c
-index d16f947..dcc15bc 100644
+index 8ce7309..d16f947 100644
 --- a/net/tipc/name_distr.c
 +++ b/net/tipc/name_distr.c
-@@ -116,7 +116,7 @@ void named_cluster_distribute(struct sk_buff *buf)
- 		if (!obuf)
- 			break;
- 		msg_set_destnode(buf_msg(obuf), dnode);
--		tipc_link_xmit2(obuf, dnode, dnode);
-+		tipc_link_xmit(obuf, dnode, dnode);
+@@ -101,24 +101,22 @@ static struct sk_buff *named_prepare_buf(u32 type, u32 size, u32 dest)
+ 
+ void named_cluster_distribute(struct sk_buff *buf)
+ {
+-	struct sk_buff *buf_copy;
+-	struct tipc_node *n_ptr;
+-	struct tipc_link *l_ptr;
++	struct sk_buff *obuf;
++	struct tipc_node *node;
++	u32 dnode;
+ 
+ 	rcu_read_lock();
+-	list_for_each_entry_rcu(n_ptr, &tipc_node_list, list) {
+-		tipc_node_lock(n_ptr);
+-		l_ptr = n_ptr->active_links[n_ptr->addr & 1];
+-		if (l_ptr) {
+-			buf_copy = skb_copy(buf, GFP_ATOMIC);
+-			if (!buf_copy) {
+-				tipc_node_unlock(n_ptr);
+-				break;
+-			}
+-			msg_set_destnode(buf_msg(buf_copy), n_ptr->addr);
+-			__tipc_link_xmit(l_ptr, buf_copy);
+-		}
+-		tipc_node_unlock(n_ptr);
++	list_for_each_entry_rcu(node, &tipc_node_list, list) {
++		dnode = node->addr;
++		if (in_own_node(dnode))
++			continue;
++		if (!tipc_node_active_links(node))
++			continue;
++		obuf = skb_copy(buf, GFP_ATOMIC);
++		if (!obuf)
++			break;
++		msg_set_destnode(buf_msg(obuf), dnode);
++		tipc_link_xmit2(obuf, dnode, dnode);
  	}
  	rcu_read_unlock();
  
-@@ -232,7 +232,7 @@ void tipc_named_node_up(u32 dnode)
- 	/* Convert circular list to linear list and send: */
- 	buf_chain = (struct sk_buff *)msg_list.next;
- 	((struct sk_buff *)msg_list.prev)->next = NULL;
--	tipc_link_xmit2(buf_chain, dnode, dnode);
-+	tipc_link_xmit(buf_chain, dnode, dnode);
+@@ -175,34 +173,44 @@ struct sk_buff *tipc_named_withdraw(struct publication *publ)
+ 	return buf;
+ }
+ 
+-/*
++/**
+  * named_distribute - prepare name info for bulk distribution to another node
++ * @msg_list: list of messages (buffers) to be returned from this function
++ * @dnode: node to be updated
++ * @pls: linked list of publication items to be packed into buffer chain
+  */
+-static void named_distribute(struct list_head *message_list, u32 node,
+-			     struct publ_list *pls, u32 max_item_buf)
++static void named_distribute(struct list_head *msg_list, u32 dnode,
++			     struct publ_list *pls)
+ {
+ 	struct publication *publ;
+ 	struct sk_buff *buf = NULL;
+ 	struct distr_item *item = NULL;
+-	u32 left = 0;
+-	u32 rest = pls->size * ITEM_SIZE;
++	uint dsz = pls->size * ITEM_SIZE;
++	uint msg_dsz = (tipc_node_get_mtu(dnode, 0) / ITEM_SIZE) * ITEM_SIZE;
++	uint rem = dsz;
++	uint msg_rem = 0;
+ 
+ 	list_for_each_entry(publ, &pls->list, local_list) {
++		/* Prepare next buffer: */
+ 		if (!buf) {
+-			left = (rest <= max_item_buf) ? rest : max_item_buf;
+-			rest -= left;
+-			buf = named_prepare_buf(PUBLICATION, left, node);
++			msg_rem = min_t(uint, rem, msg_dsz);
++			rem -= msg_rem;
++			buf = named_prepare_buf(PUBLICATION, msg_rem, dnode);
+ 			if (!buf) {
+ 				pr_warn("Bulk publication failure\n");
+ 				return;
+ 			}
+ 			item = (struct distr_item *)msg_data(buf_msg(buf));
+ 		}
++
++		/* Pack publication into message: */
+ 		publ_to_item(item, publ);
+ 		item++;
+-		left -= ITEM_SIZE;
+-		if (!left) {
+-			list_add_tail((struct list_head *)buf, message_list);
++		msg_rem -= ITEM_SIZE;
++
++		/* Append full buffer to list: */
++		if (!msg_rem) {
++			list_add_tail((struct list_head *)buf, msg_list);
+ 			buf = NULL;
+ 		}
+ 	}
+@@ -211,16 +219,20 @@ static void named_distribute(struct list_head *message_list, u32 node,
+ /**
+  * tipc_named_node_up - tell specified node about all publications by this node
+  */
+-void tipc_named_node_up(u32 max_item_buf, u32 node)
++void tipc_named_node_up(u32 dnode)
+ {
+-	LIST_HEAD(message_list);
++	LIST_HEAD(msg_list);
++	struct sk_buff *buf_chain;
+ 
+ 	read_lock_bh(&tipc_nametbl_lock);
+-	named_distribute(&message_list, node, &publ_cluster, max_item_buf);
+-	named_distribute(&message_list, node, &publ_zone, max_item_buf);
++	named_distribute(&msg_list, dnode, &publ_cluster);
++	named_distribute(&msg_list, dnode, &publ_zone);
+ 	read_unlock_bh(&tipc_nametbl_lock);
+ 
+-	tipc_link_names_xmit(&message_list, node);
++	/* Convert circular list to linear list and send: */
++	buf_chain = (struct sk_buff *)msg_list.next;
++	((struct sk_buff *)msg_list.prev)->next = NULL;
++	tipc_link_xmit2(buf_chain, dnode, dnode);
  }
  
  /**
-diff --git a/net/tipc/port.c b/net/tipc/port.c
-index 835dca1..7e096a5 100644
---- a/net/tipc/port.c
-+++ b/net/tipc/port.c
-@@ -130,7 +130,7 @@ void tipc_port_destroy(struct tipc_port *p_ptr)
- 		tipc_nodesub_unsubscribe(&p_ptr->subscription);
- 		msg = buf_msg(buf);
- 		peer = msg_destnode(msg);
--		tipc_link_xmit2(buf, peer, msg_link_selector(msg));
-+		tipc_link_xmit(buf, peer, msg_link_selector(msg));
+diff --git a/net/tipc/name_distr.h b/net/tipc/name_distr.h
+index b2eed4e..8afe32b 100644
+--- a/net/tipc/name_distr.h
++++ b/net/tipc/name_distr.h
+@@ -70,7 +70,7 @@ struct distr_item {
+ struct sk_buff *tipc_named_publish(struct publication *publ);
+ struct sk_buff *tipc_named_withdraw(struct publication *publ);
+ void named_cluster_distribute(struct sk_buff *buf);
+-void tipc_named_node_up(u32 max_item_buf, u32 node);
++void tipc_named_node_up(u32 dnode);
+ void tipc_named_rcv(struct sk_buff *buf);
+ void tipc_named_reinit(void);
+ 
+diff --git a/net/tipc/node.c b/net/tipc/node.c
+index d959343..f706929 100644
+--- a/net/tipc/node.c
++++ b/net/tipc/node.c
+@@ -474,8 +474,6 @@ int tipc_node_get_linkname(u32 bearer_id, u32 addr, char *linkname, size_t len)
+ void tipc_node_unlock(struct tipc_node *node)
+ {
+ 	LIST_HEAD(nsub_list);
+-	struct tipc_link *link;
+-	int pkt_sz = 0;
+ 	u32 addr = 0;
+ 
+ 	if (likely(!node->action_flags)) {
+@@ -488,18 +486,13 @@ void tipc_node_unlock(struct tipc_node *node)
+ 		node->action_flags &= ~TIPC_NOTIFY_NODE_DOWN;
  	}
- 	spin_lock_bh(&tipc_port_list_lock);
- 	list_del(&p_ptr->port_list);
-@@ -187,7 +187,7 @@ static void port_timeout(unsigned long ref)
+ 	if (node->action_flags & TIPC_NOTIFY_NODE_UP) {
+-		link = node->active_links[0];
+ 		node->action_flags &= ~TIPC_NOTIFY_NODE_UP;
+-		if (link) {
+-			pkt_sz = ((link->max_pkt - INT_H_SIZE) / ITEM_SIZE) *
+-				  ITEM_SIZE;
+-			addr = node->addr;
+-		}
++		addr = node->addr;
  	}
- 	tipc_port_unlock(p_ptr);
- 	msg = buf_msg(buf);
--	tipc_link_xmit2(buf, msg_destnode(msg),	msg_link_selector(msg));
-+	tipc_link_xmit(buf, msg_destnode(msg),	msg_link_selector(msg));
+ 	spin_unlock_bh(&node->lock);
+ 
+ 	if (!list_empty(&nsub_list))
+ 		tipc_nodesub_notify(&nsub_list);
+-	if (pkt_sz)
+-		tipc_named_node_up(pkt_sz, addr);
++	if (addr)
++		tipc_named_node_up(addr);
  }
- 
- 
-@@ -202,7 +202,7 @@ static void port_handle_node_down(unsigned long ref)
- 	buf = port_build_self_abort_msg(p_ptr, TIPC_ERR_NO_NODE);
- 	tipc_port_unlock(p_ptr);
- 	msg = buf_msg(buf);
--	tipc_link_xmit2(buf, msg_destnode(msg),	msg_link_selector(msg));
-+	tipc_link_xmit(buf, msg_destnode(msg),	msg_link_selector(msg));
- }
- 
- 
-@@ -347,7 +347,7 @@ void tipc_acknowledge(u32 ref, u32 ack)
- 	if (!buf)
- 		return;
- 	msg = buf_msg(buf);
--	tipc_link_xmit2(buf, msg_destnode(msg),	msg_link_selector(msg));
-+	tipc_link_xmit(buf, msg_destnode(msg),	msg_link_selector(msg));
- }
- 
- int tipc_publish(struct tipc_port *p_ptr, unsigned int scope,
-@@ -509,6 +509,6 @@ int tipc_port_shutdown(u32 ref)
- 	buf = port_build_peer_abort_msg(p_ptr, TIPC_CONN_SHUTDOWN);
- 	tipc_port_unlock(p_ptr);
- 	msg = buf_msg(buf);
--	tipc_link_xmit2(buf, msg_destnode(msg),	msg_link_selector(msg));
-+	tipc_link_xmit(buf, msg_destnode(msg),	msg_link_selector(msg));
- 	return tipc_port_disconnect(ref);
- }
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index ae3d716..495bcf4 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -131,7 +131,7 @@ static void reject_rx_queue(struct sock *sk)
- 
- 	while ((buf = __skb_dequeue(&sk->sk_receive_queue))) {
- 		if (tipc_msg_reverse(buf, &dnode, TIPC_ERR_NO_PORT))
--			tipc_link_xmit2(buf, dnode, 0);
-+			tipc_link_xmit(buf, dnode, 0);
- 	}
- }
- 
-@@ -341,7 +341,7 @@ static int tipc_release(struct socket *sock)
- 				tipc_port_disconnect(port->ref);
- 			}
- 			if (tipc_msg_reverse(buf, &dnode, TIPC_ERR_NO_PORT))
--				tipc_link_xmit2(buf, dnode, 0);
-+				tipc_link_xmit(buf, dnode, 0);
- 		}
- 	}
- 
-@@ -566,7 +566,7 @@ static int tipc_sendmcast(struct  socket *sock, struct tipc_name_seq *seq,
- 
- new_mtu:
- 	mtu = tipc_bclink_get_mtu();
--	rc = tipc_msg_build2(mhdr, iov, 0, dsz, mtu, &buf);
-+	rc = tipc_msg_build(mhdr, iov, 0, dsz, mtu, &buf);
- 	if (unlikely(rc < 0))
- 		return rc;
- 
-@@ -821,12 +821,12 @@ static int tipc_sendmsg(struct kiocb *iocb, struct socket *sock,
- 
- new_mtu:
- 	mtu = tipc_node_get_mtu(dnode, tsk->port.ref);
--	rc = tipc_msg_build2(mhdr, iov, 0, dsz, mtu, &buf);
-+	rc = tipc_msg_build(mhdr, iov, 0, dsz, mtu, &buf);
- 	if (rc < 0)
- 		goto exit;
- 
- 	do {
--		rc = tipc_link_xmit2(buf, dnode, tsk->port.ref);
-+		rc = tipc_link_xmit(buf, dnode, tsk->port.ref);
- 		if (likely(rc >= 0)) {
- 			if (sock->state != SS_READY)
- 				sock->state = SS_CONNECTING;
-@@ -934,12 +934,12 @@ static int tipc_send_stream(struct kiocb *iocb, struct socket *sock,
- next:
- 	mtu = port->max_pkt;
- 	send = min_t(uint, dsz - sent, TIPC_MAX_USER_MSG_SIZE);
--	rc = tipc_msg_build2(mhdr, m->msg_iov, sent, send, mtu, &buf);
-+	rc = tipc_msg_build(mhdr, m->msg_iov, sent, send, mtu, &buf);
- 	if (unlikely(rc < 0))
- 		goto exit;
- 	do {
- 		if (likely(!tipc_sk_conn_cong(tsk))) {
--			rc = tipc_link_xmit2(buf, dnode, ref);
-+			rc = tipc_link_xmit(buf, dnode, ref);
- 			if (likely(!rc)) {
- 				tsk->sent_unacked++;
- 				sent += send;
-@@ -1571,7 +1571,7 @@ static int tipc_backlog_rcv(struct sock *sk, struct sk_buff *buf)
- 	if ((rc < 0) && !tipc_msg_reverse(buf, &onode, -rc))
- 		return 0;
- 
--	tipc_link_xmit2(buf, onode, 0);
-+	tipc_link_xmit(buf, onode, 0);
- 
- 	return 0;
- }
-@@ -1623,7 +1623,7 @@ exit:
- 	if ((rc < 0) && !tipc_msg_reverse(buf, &dnode, -rc))
- 		return -EHOSTUNREACH;
- 
--	tipc_link_xmit2(buf, dnode, 0);
-+	tipc_link_xmit(buf, dnode, 0);
- 	return (rc < 0) ? -EHOSTUNREACH : 0;
- }
- 
-@@ -1910,7 +1910,7 @@ restart:
- 			}
- 			tipc_port_disconnect(port->ref);
- 			if (tipc_msg_reverse(buf, &peer, TIPC_CONN_SHUTDOWN))
--				tipc_link_xmit2(buf, peer, 0);
-+				tipc_link_xmit(buf, peer, 0);
- 		} else {
- 			tipc_port_shutdown(port->ref);
- 		}
 -- 
 1.7.9.5
