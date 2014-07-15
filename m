@@ -1,47 +1,51 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v2 2/2] hso: fix deadlock when receiving bursts of data
-Date: Mon, 14 Jul 2014 19:27:58 -0700 (PDT)
-Message-ID: <20140714.192758.1087918241017989929.davem@davemloft.net>
-References: <1405332530-2507-1-git-send-email-olivier@sobrie.be>
-	<1405332530-2507-2-git-send-email-olivier@sobrie.be>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org,
-	gnomes-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org, dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org
-To: olivier-Ui3EtX6WB9GzQB+pC5nmwQ@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1405332530-2507-2-git-send-email-olivier-Ui3EtX6WB9GzQB+pC5nmwQ@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net-next 0/7] tipc: multicast and internal users to new send functions
+Date: Mon, 14 Jul 2014 23:54:19 -0400
+Message-ID: <1405396466-4594-1-git-send-email-jon.maloy@ericsson.com>
+Cc: netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net,
+	Jon Maloy <jon.maloy@ericsson.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp106.biz.mail.gq1.yahoo.com ([98.137.12.181]:29829 "HELO
+	smtp106.biz.mail.gq1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754106AbaGODyt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 23:54:49 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Olivier Sobrie <olivier-Ui3EtX6WB9GzQB+pC5nmwQ@public.gmane.org>
-Date: Mon, 14 Jul 2014 12:08:50 +0200
+We move the remaining data transmit users: multicast, name table
+distributor, and link internal protocols to use the new data
+transmission framework introduced in a previous commit series
+("tipc: new unicast transmission code").
 
-> When the module sends bursts of data, sometimes a deadlock happens in
-> the hso driver when the tty buffer doesn't get the chance to be flushed
-> quickly enough.
-> 
-> Remove the endless while loop in function put_rxbuf_data() which is
-> called by the urb completion handler.
-> If there isn't enough room in the tty buffer, discards all the data
-> received in the URB.
-> 
-> Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-> Cc: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
-> Cc: One Thousand Gnomes <gnomes-qBU/x9rampVanCEyBjwyrvXRex20P6io@public.gmane.org>
-> Cc: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-> Cc: Jan Dumon <j.dumon-x9gZzRpC1QbQT0dZR+AlfA@public.gmane.org>
-> Signed-off-by: Olivier Sobrie <olivier-Ui3EtX6WB9GzQB+pC5nmwQ@public.gmane.org>
-> ---
-> Changes in v2:
->  - remove the unthrottle timer added in the previous patch version
->  - drop entire rx urb data if there is not enough space in tty buffer
->  - remove variable curr_rx_urb_offset from hso_serial structure
+Finally, we remove the code obsoleted by the new functions.
 
-Applied, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Jon Maloy (7):
+  tipc: make name table distributor use new send function
+  tipc: let internal link users call the new link send function
+  tipc: add new functions for multicast and broadcast distribution
+  tipc: start using the new multicast functions
+  tipc: remove unreferenced functions
+  tipc: rename temporarily named functions
+  tipc: ensure sequential message delivery across dual bearers
+
+ net/tipc/bcast.c      |   82 +++++++------
+ net/tipc/bcast.h      |    5 +-
+ net/tipc/link.c       |  307 ++-----------------------------------------------
+ net/tipc/link.h       |    9 +-
+ net/tipc/msg.c        |   79 +++++++------
+ net/tipc/msg.h        |    9 +-
+ net/tipc/name_distr.c |   76 ++++++------
+ net/tipc/name_distr.h |    2 +-
+ net/tipc/node.c       |   13 +--
+ net/tipc/port.c       |  122 +-------------------
+ net/tipc/port.h       |   10 --
+ net/tipc/socket.c     |  148 ++++++++++++++++--------
+ net/tipc/socket.h     |    2 +
+ 13 files changed, 263 insertions(+), 601 deletions(-)
+
+-- 
+1.7.9.5
