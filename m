@@ -1,305 +1,41 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH net-next] sfc: add extra RX drop counters for nodesc_trunc
- and noskb_drop
-Date: Tue, 15 Jul 2014 11:58:12 +0100
-Message-ID: <alpine.LFD.2.03.1407141534440.19512@solarflare.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Dave Miller <davem@davemloft.net>,
-	<linux-net-drivers@solarflare.com>
-To: <netdev@vger.kernel.org>
+From: Sachin Kamat <sachin.kamat@samsung.com>
+Subject: [PATCH 1/1] ethernet: mvpp2: Fix build breakage
+Date: Tue, 15 Jul 2014 16:36:05 +0530
+Message-ID: <1405422365-6214-1-git-send-email-sachin.kamat@samsung.com>
+Cc: davem@davemloft.net, spk.linux@gmail.com,
+	Marcin Wojtas <mw@semihalf.com>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:38686 "EHLO
-	nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758038AbaGOLG7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 07:06:59 -0400
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:57417 "EHLO
+	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758738AbaGOLKE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 07:10:04 -0400
+Received: by mail-pd0-f171.google.com with SMTP id z10so4656809pdj.2
+        for <netdev@vger.kernel.org>; Tue, 15 Jul 2014 04:10:03 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Added a counter rx_noskb_drop for failure to allocate an skb.
-Summed the per-channel rx_nodesc_trunc counters earlier so that they can
- be included in rx_dropped.
+A missing space in the module license string caused the following error
+while doing a modular build.
+FATAL: modpost: GPL-incompatible module mvpp2.ko uses GPL-only symbol 'platform_driver_unregister'
 
-Signed-off-by: Edward Cree <ecree@solarflare.com>
+Signed-off-by: Sachin Kamat <sachin.kamat@samsung.com>
+Cc: Marcin Wojtas <mw@semihalf.com>
+Cc: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
 ---
-Tested that new stats appear in ethtool -S.
-However, because of the way the GENERIC_STATs are defined, they appear
- at the top of the output.  Does the order of stats matter?
----
- drivers/net/ethernet/sfc/ef10.c       | 14 +++++++++++---
- drivers/net/ethernet/sfc/efx.c        | 11 +++++++++++
- drivers/net/ethernet/sfc/efx.h        |  3 +++
- drivers/net/ethernet/sfc/ethtool.c    |  1 -
- drivers/net/ethernet/sfc/falcon.c     |  9 ++++++++-
- drivers/net/ethernet/sfc/net_driver.h |  2 ++
- drivers/net/ethernet/sfc/nic.h        | 13 ++++++++++---
- drivers/net/ethernet/sfc/rx.c         |  4 +++-
- drivers/net/ethernet/sfc/siena.c      |  9 ++++++++-
- 9 files changed, 56 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/marvell/mvpp2.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
-index b5ed30a..002d4cd 100644
---- a/drivers/net/ethernet/sfc/ef10.c
-+++ b/drivers/net/ethernet/sfc/ef10.c
-@@ -755,6 +755,8 @@ static int efx_ef10_reset(struct efx_nic *efx, enum reset_type reset_type)
- 	{ NULL, 64, 8 * MC_CMD_MAC_ ## mcdi_name }
- #define EF10_OTHER_STAT(ext_name)				\
- 	[EF10_STAT_ ## ext_name] = { #ext_name, 0, 0 }
-+#define GENERIC_SW_STAT(ext_name)				\
-+	[GENERIC_STAT_ ## ext_name] = { #ext_name, 0, 0 }
+diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
+index 9463ede32e6a..f4de2a9316ff 100644
+--- a/drivers/net/ethernet/marvell/mvpp2.c
++++ b/drivers/net/ethernet/marvell/mvpp2.c
+@@ -6390,4 +6390,4 @@ module_platform_driver(mvpp2_driver);
  
- static const struct efx_hw_stat_desc efx_ef10_stat_desc[EF10_STAT_COUNT] = {
- 	EF10_DMA_STAT(tx_bytes, TX_BYTES),
-@@ -798,6 +800,8 @@ static const struct efx_hw_stat_desc efx_ef10_stat_desc[EF10_STAT_COUNT] = {
- 	EF10_DMA_STAT(rx_align_error, RX_ALIGN_ERROR_PKTS),
- 	EF10_DMA_STAT(rx_length_error, RX_LENGTH_ERROR_PKTS),
- 	EF10_DMA_STAT(rx_nodesc_drops, RX_NODESC_DROPS),
-+	GENERIC_SW_STAT(rx_nodesc_trunc),
-+	GENERIC_SW_STAT(rx_noskb_drops),
- 	EF10_DMA_STAT(rx_pm_trunc_bb_overflow, PM_TRUNC_BB_OVERFLOW),
- 	EF10_DMA_STAT(rx_pm_discard_bb_overflow, PM_DISCARD_BB_OVERFLOW),
- 	EF10_DMA_STAT(rx_pm_trunc_vfifo_full, PM_TRUNC_VFIFO_FULL),
-@@ -841,7 +845,9 @@ static const struct efx_hw_stat_desc efx_ef10_stat_desc[EF10_STAT_COUNT] = {
- 			       (1ULL << EF10_STAT_rx_gtjumbo) |		\
- 			       (1ULL << EF10_STAT_rx_bad_gtjumbo) |	\
- 			       (1ULL << EF10_STAT_rx_overflow) |	\
--			       (1ULL << EF10_STAT_rx_nodesc_drops))
-+			       (1ULL << EF10_STAT_rx_nodesc_drops) |	\
-+			       (1ULL << GENERIC_STAT_rx_nodesc_trunc) |	\
-+			       (1ULL << GENERIC_STAT_rx_noskb_drops))
- 
- /* These statistics are only provided by the 10G MAC.  For a 10G/40G
-  * switchable port we do not expose these because they might not
-@@ -951,7 +957,7 @@ static int efx_ef10_try_update_nic_stats(struct efx_nic *efx)
- 		stats[EF10_STAT_rx_bytes_minus_good_bytes];
- 	efx_update_diff_stat(&stats[EF10_STAT_rx_bad_bytes],
- 			     stats[EF10_STAT_rx_bytes_minus_good_bytes]);
--
-+	efx_update_sw_stats(efx, stats);
- 	return 0;
- }
- 
-@@ -990,7 +996,9 @@ static size_t efx_ef10_update_stats(struct efx_nic *efx, u64 *full_stats,
- 		core_stats->tx_packets = stats[EF10_STAT_tx_packets];
- 		core_stats->rx_bytes = stats[EF10_STAT_rx_bytes];
- 		core_stats->tx_bytes = stats[EF10_STAT_tx_bytes];
--		core_stats->rx_dropped = stats[EF10_STAT_rx_nodesc_drops];
-+		core_stats->rx_dropped = stats[EF10_STAT_rx_nodesc_drops] +
-+					 stats[GENERIC_STAT_rx_nodesc_trunc] +
-+					 stats[GENERIC_STAT_rx_noskb_drops];
- 		core_stats->multicast = stats[EF10_STAT_rx_multicast];
- 		core_stats->rx_length_errors =
- 			stats[EF10_STAT_rx_gtjumbo] +
-diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index 1e27404..2c7cdfc 100644
---- a/drivers/net/ethernet/sfc/efx.c
-+++ b/drivers/net/ethernet/sfc/efx.c
-@@ -2722,6 +2722,17 @@ static void efx_fini_struct(struct efx_nic *efx)
- 	}
- }
- 
-+void efx_update_sw_stats(struct efx_nic *efx, u64 *stats)
-+{
-+	u64 n_rx_nodesc_trunc = 0;
-+	struct efx_channel *channel;
-+
-+	efx_for_each_channel(channel, efx)
-+		n_rx_nodesc_trunc += channel->n_rx_nodesc_trunc;
-+	stats[GENERIC_STAT_rx_nodesc_trunc] = n_rx_nodesc_trunc;
-+	stats[GENERIC_STAT_rx_noskb_drops] = atomic_read(&efx->n_rx_noskb_drops);
-+}
-+
- /**************************************************************************
-  *
-  * PCI interface
-diff --git a/drivers/net/ethernet/sfc/efx.h b/drivers/net/ethernet/sfc/efx.h
-index 9903258..b41601e 100644
---- a/drivers/net/ethernet/sfc/efx.h
-+++ b/drivers/net/ethernet/sfc/efx.h
-@@ -199,6 +199,9 @@ void efx_get_irq_moderation(struct efx_nic *efx, unsigned int *tx_usecs,
- int efx_port_dummy_op_int(struct efx_nic *efx);
- void efx_port_dummy_op_void(struct efx_nic *efx);
- 
-+/* Update the generic software stats in the passed stats array */
-+void efx_update_sw_stats(struct efx_nic *efx, u64 *stats);
-+
- /* MTD */
- #ifdef CONFIG_SFC_MTD
- int efx_mtd_add(struct efx_nic *efx, struct efx_mtd_partition *parts,
-diff --git a/drivers/net/ethernet/sfc/ethtool.c b/drivers/net/ethernet/sfc/ethtool.c
-index 74739c4..03fe4e7 100644
---- a/drivers/net/ethernet/sfc/ethtool.c
-+++ b/drivers/net/ethernet/sfc/ethtool.c
-@@ -77,7 +77,6 @@ static const struct efx_sw_stat_desc efx_sw_stat_desc[] = {
- 	EFX_ETHTOOL_UINT_CHANNEL_STAT(rx_tcp_udp_chksum_err),
- 	EFX_ETHTOOL_UINT_CHANNEL_STAT(rx_mcast_mismatch),
- 	EFX_ETHTOOL_UINT_CHANNEL_STAT(rx_frm_trunc),
--	EFX_ETHTOOL_UINT_CHANNEL_STAT(rx_nodesc_trunc),
- 	EFX_ETHTOOL_UINT_CHANNEL_STAT(rx_merge_events),
- 	EFX_ETHTOOL_UINT_CHANNEL_STAT(rx_merge_packets),
- };
-diff --git a/drivers/net/ethernet/sfc/falcon.c b/drivers/net/ethernet/sfc/falcon.c
-index fae25a4..1570375 100644
---- a/drivers/net/ethernet/sfc/falcon.c
-+++ b/drivers/net/ethernet/sfc/falcon.c
-@@ -142,6 +142,8 @@
- 	  hw_name ## _ ## offset }
- #define FALCON_OTHER_STAT(ext_name)					\
- 	[FALCON_STAT_ ## ext_name] = { #ext_name, 0, 0 }
-+#define GENERIC_SW_STAT(ext_name)				\
-+	[GENERIC_STAT_ ## ext_name] = { #ext_name, 0, 0 }
- 
- static const struct efx_hw_stat_desc falcon_stat_desc[FALCON_STAT_COUNT] = {
- 	FALCON_DMA_STAT(tx_bytes, XgTxOctets),
-@@ -191,6 +193,8 @@ static const struct efx_hw_stat_desc falcon_stat_desc[FALCON_STAT_COUNT] = {
- 	FALCON_DMA_STAT(rx_length_error, XgRxLengthError),
- 	FALCON_DMA_STAT(rx_internal_error, XgRxInternalMACError),
- 	FALCON_OTHER_STAT(rx_nodesc_drop_cnt),
-+	GENERIC_SW_STAT(rx_nodesc_trunc),
-+	GENERIC_SW_STAT(rx_noskb_drops),
- };
- static const unsigned long falcon_stat_mask[] = {
- 	[0 ... BITS_TO_LONGS(FALCON_STAT_COUNT) - 1] = ~0UL,
-@@ -2574,6 +2578,7 @@ static size_t falcon_update_nic_stats(struct efx_nic *efx, u64 *full_stats,
- 				     stats[FALCON_STAT_rx_bytes] -
- 				     stats[FALCON_STAT_rx_good_bytes] -
- 				     stats[FALCON_STAT_rx_control] * 64);
-+		efx_update_sw_stats(efx, stats);
- 	}
- 
- 	if (full_stats)
-@@ -2584,7 +2589,9 @@ static size_t falcon_update_nic_stats(struct efx_nic *efx, u64 *full_stats,
- 		core_stats->tx_packets = stats[FALCON_STAT_tx_packets];
- 		core_stats->rx_bytes = stats[FALCON_STAT_rx_bytes];
- 		core_stats->tx_bytes = stats[FALCON_STAT_tx_bytes];
--		core_stats->rx_dropped = stats[FALCON_STAT_rx_nodesc_drop_cnt];
-+		core_stats->rx_dropped = stats[FALCON_STAT_rx_nodesc_drop_cnt] +
-+					 stats[GENERIC_STAT_rx_nodesc_trunc] +
-+					 stats[GENERIC_STAT_rx_noskb_drops];
- 		core_stats->multicast = stats[FALCON_STAT_rx_multicast];
- 		core_stats->rx_length_errors =
- 			stats[FALCON_STAT_rx_gtjumbo] +
-diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
-index 5bdae8e..8a02d45 100644
---- a/drivers/net/ethernet/sfc/net_driver.h
-+++ b/drivers/net/ethernet/sfc/net_driver.h
-@@ -777,6 +777,7 @@ struct vfdi_status;
-  *	interrupt has occurred.
-  * @stats_lock: Statistics update lock. Must be held when calling
-  *	efx_nic_type::{update,start,stop}_stats.
-+ * @n_rx_noskb_drops: Count of RX packets dropped due to failure to allocate an skb
-  *
-  * This is stored in the private area of the &struct net_device.
-  */
-@@ -930,6 +931,7 @@ struct efx_nic {
- 	spinlock_t biu_lock;
- 	int last_irq_cpu;
- 	spinlock_t stats_lock;
-+	atomic_t n_rx_noskb_drops;
- };
- 
- static inline int efx_dev_registered(struct efx_nic *efx)
-diff --git a/drivers/net/ethernet/sfc/nic.h b/drivers/net/ethernet/sfc/nic.h
-index d3ad8ed..60f8514 100644
---- a/drivers/net/ethernet/sfc/nic.h
-+++ b/drivers/net/ethernet/sfc/nic.h
-@@ -135,6 +135,13 @@ enum {
- /* Size and alignment of buffer table entries (same) */
- #define EFX_BUF_SIZE	EFX_PAGE_SIZE
- 
-+/* NIC-generic software stats */
-+enum {
-+	GENERIC_STAT_rx_noskb_drops,
-+	GENERIC_STAT_rx_nodesc_trunc,
-+	GENERIC_STAT_COUNT
-+};
-+
- /**
-  * struct falcon_board_type - board operations and type information
-  * @id: Board type id, as found in NVRAM
-@@ -205,7 +212,7 @@ static inline bool falcon_spi_present(const struct falcon_spi_device *spi)
- }
- 
- enum {
--	FALCON_STAT_tx_bytes,
-+	FALCON_STAT_tx_bytes = GENERIC_STAT_COUNT,
- 	FALCON_STAT_tx_packets,
- 	FALCON_STAT_tx_pause,
- 	FALCON_STAT_tx_control,
-@@ -290,7 +297,7 @@ static inline struct falcon_board *falcon_board(struct efx_nic *efx)
- }
- 
- enum {
--	SIENA_STAT_tx_bytes,
-+	SIENA_STAT_tx_bytes = GENERIC_STAT_COUNT,
- 	SIENA_STAT_tx_good_bytes,
- 	SIENA_STAT_tx_bad_bytes,
- 	SIENA_STAT_tx_packets,
-@@ -361,7 +368,7 @@ struct siena_nic_data {
- };
- 
- enum {
--	EF10_STAT_tx_bytes,
-+	EF10_STAT_tx_bytes = GENERIC_STAT_COUNT,
- 	EF10_STAT_tx_packets,
- 	EF10_STAT_tx_pause,
- 	EF10_STAT_tx_control,
-diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
-index 48588dd..bf537a2 100644
---- a/drivers/net/ethernet/sfc/rx.c
-+++ b/drivers/net/ethernet/sfc/rx.c
-@@ -480,8 +480,10 @@ static struct sk_buff *efx_rx_mk_skb(struct efx_channel *channel,
- 	skb = netdev_alloc_skb(efx->net_dev,
- 			       efx->rx_ip_align + efx->rx_prefix_size +
- 			       hdr_len);
--	if (unlikely(skb == NULL))
-+	if (unlikely(skb == NULL)) {
-+		atomic_inc(&efx->n_rx_noskb_drops);
- 		return NULL;
-+	}
- 
- 	EFX_BUG_ON_PARANOID(rx_buf->len < hdr_len);
- 
-diff --git a/drivers/net/ethernet/sfc/siena.c b/drivers/net/ethernet/sfc/siena.c
-index 50ffefe..ae69685 100644
---- a/drivers/net/ethernet/sfc/siena.c
-+++ b/drivers/net/ethernet/sfc/siena.c
-@@ -424,6 +424,8 @@ static void siena_remove_nic(struct efx_nic *efx)
- 	{ #ext_name, 64, 8 * MC_CMD_MAC_ ## mcdi_name }
- #define SIENA_OTHER_STAT(ext_name)				\
- 	[SIENA_STAT_ ## ext_name] = { #ext_name, 0, 0 }
-+#define GENERIC_SW_STAT(ext_name)				\
-+	[GENERIC_STAT_ ## ext_name] = { #ext_name, 0, 0 }
- 
- static const struct efx_hw_stat_desc siena_stat_desc[SIENA_STAT_COUNT] = {
- 	SIENA_DMA_STAT(tx_bytes, TX_BYTES),
-@@ -483,6 +485,8 @@ static const struct efx_hw_stat_desc siena_stat_desc[SIENA_STAT_COUNT] = {
- 	SIENA_DMA_STAT(rx_length_error, RX_LENGTH_ERROR_PKTS),
- 	SIENA_DMA_STAT(rx_internal_error, RX_INTERNAL_ERROR_PKTS),
- 	SIENA_DMA_STAT(rx_nodesc_drop_cnt, RX_NODESC_DROPS),
-+	GENERIC_SW_STAT(rx_nodesc_trunc),
-+	GENERIC_SW_STAT(rx_noskb_drops),
- };
- static const unsigned long siena_stat_mask[] = {
- 	[0 ... BITS_TO_LONGS(SIENA_STAT_COUNT) - 1] = ~0UL,
-@@ -528,6 +532,7 @@ static int siena_try_update_nic_stats(struct efx_nic *efx)
- 	efx_update_diff_stat(&stats[SIENA_STAT_rx_good_bytes],
- 			     stats[SIENA_STAT_rx_bytes] -
- 			     stats[SIENA_STAT_rx_bad_bytes]);
-+	efx_update_sw_stats(efx, stats);
- 	return 0;
- }
- 
-@@ -554,7 +559,9 @@ static size_t siena_update_nic_stats(struct efx_nic *efx, u64 *full_stats,
- 		core_stats->tx_packets = stats[SIENA_STAT_tx_packets];
- 		core_stats->rx_bytes = stats[SIENA_STAT_rx_bytes];
- 		core_stats->tx_bytes = stats[SIENA_STAT_tx_bytes];
--		core_stats->rx_dropped = stats[SIENA_STAT_rx_nodesc_drop_cnt];
-+		core_stats->rx_dropped = stats[SIENA_STAT_rx_nodesc_drop_cnt] +
-+					 stats[GENERIC_STAT_rx_nodesc_trunc] +
-+					 stats[GENERIC_STAT_rx_noskb_drops];
- 		core_stats->multicast = stats[SIENA_STAT_rx_multicast];
- 		core_stats->collisions = stats[SIENA_STAT_tx_collision];
- 		core_stats->rx_length_errors =
+ MODULE_DESCRIPTION("Marvell PPv2 Ethernet Driver - www.marvell.com");
+ MODULE_AUTHOR("Marcin Wojtas <mw@semihalf.com>");
+-MODULE_LICENSE("GPLv2");
++MODULE_LICENSE("GPL v2");
 -- 
-1.7.11.7
+1.7.9.5
