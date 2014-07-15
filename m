@@ -1,33 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: Remove unnecessary arg from
- tcp_enter_cwr and tcp_init_cwnd_reduction
-Date: Tue, 15 Jul 2014 16:19:46 -0700 (PDT)
-Message-ID: <20140715.161946.1183860717468576831.davem@davemloft.net>
-References: <1405349912-9593-1-git-send-email-christoph.paasch@uclouvain.be>
+Subject: Re: [PATCHv2 net-next 0/4] Misc. fixes for iw_cxgb4
+Date: Tue, 15 Jul 2014 16:25:41 -0700 (PDT)
+Message-ID: <20140715.162541.2252769771295806367.davem@davemloft.net>
+References: <1405353894-17495-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ycheng@google.com
-To: christoph.paasch@uclouvain.be
+Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
+	roland@purestorage.com, swise@opengridcomputing.com,
+	leedom@chelsio.com, nirranjan@chelsio.com, kumaras@chelsio.com
+To: hariprasad@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45505 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45547 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965213AbaGOXTr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 19:19:47 -0400
-In-Reply-To: <1405349912-9593-1-git-send-email-christoph.paasch@uclouvain.be>
+	with ESMTP id S1751591AbaGOXZn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 19:25:43 -0400
+In-Reply-To: <1405353894-17495-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Date: Mon, 14 Jul 2014 16:58:32 +0200
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Mon, 14 Jul 2014 21:34:50 +0530
 
-> Since Yuchung's 9b44190dc11 (tcp: refactor F-RTO), tcp_enter_cwr is always
-> called with set_ssthresh = 1. Thus, we can remove this argument from
-> tcp_enter_cwr. Further, as we remove this one, tcp_init_cwnd_reduction
-> is then always called with set_ssthresh = true, and so we can get rid of
-> this argument as well.
+> This patch series adds support to determine ingress padding boundary at runtime.
+> Advertise a larger max read queue depth for qps, and gather the resource limits
+> from fw and use them to avoid exhausting all the resources and display TPTE on
+> errors and add support for work request logging feature.
 > 
-> Cc: Yuchung Cheng <ycheng@google.com>
-> Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
+> The patches series is created against 'net-next' tree.
+> And includes patches on cxgb4 and iw_cxgb4 driver.
+> 
+> Since this patch-series contains changes which are dependent on commit id
+> fc5ab02 ("cxgb4: Replaced the backdoor mechanism to access the HW memory with
+> PCIe Window method") we would like to request this patch series to get merged
+> via David Miller's 'net-next' tree.
+> 
+> We have included all the maintainers of respective drivers. Kindly review the
+> change and let us know in case of any review comments. 
+> 
+> V2:
+>  Optimized alloc_ird function, and several other changes related to debug prints
+>  based on review comments given by Yann Droneaud.
 
-Applied, thank you.
+Series applied to net-next, thanks.
