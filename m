@@ -1,50 +1,52 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH] staging: rtl8192ee: Fix setting highest n rate
-Date: Mon, 14 Jul 2014 22:56:32 -0500
-Message-ID: <1405396592-909-1-git-send-email-Larry.Finger@lwfinger.net>
+From: Christoph Schulz <develop@kristov.de>
+Subject: Re: [PATCH net 1/1] net: ppp: fix creating PPP pass and active
+ filters
+Date: Tue, 15 Jul 2014 06:54:58 +0200
+Message-ID: <20140715065458.15013qglk08wv3mq@kristov.noip.me>
+References: <53C28297.4080507@kristov.de> <53C29DAA.8020405@gmail.com>
+ <20140713180735.209671xd9qjsgmo7@berry.schulz.ip-v6.eu>
+ <53C2D541.8080900@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+ charset=UTF-8;
+ DelSp="Yes";
+ format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
- Larry Finger <Larry.Finger@lwfinger.net>
-To: gregkh@linuxfoundation.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+Cc: Varka Bhadram <varkabhadram@gmail.com>, netdev@vger.kernel.org,
+	linux-ppp@vger.kernel.org, paulus@samba.org, isdn@linux-pingi.de
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <53C2D541.8080900@redhat.com>
+Content-Disposition: inline
+Sender: linux-ppp-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Commit 4fb6a37c3f94c1cb4b828bfcc4347771e1628f88 by Andrey Utkin
-<andrey.krieger.utkin@gmail.com> and entitled "staging: rtl8192ee:
-"Correct bitmask in comparsion" fixed what appeared to be a typo. After
-consultation with the Realtek engineers, merely testing for a 2T2R device
-is sufficient to ensure that the TX MCS map will equal 0x0c, thus the second
-test can be ignored.
+Hello!
 
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
----
- drivers/staging/rtl8192ee/base.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+Daniel Borkmann schrieb am Sun, 13 Jul 2014 20:51:45 +0200:
 
-diff --git a/drivers/staging/rtl8192ee/base.c b/drivers/staging/rtl8192ee/base.c
-index 71ed12e..b8b897a 100644
---- a/drivers/staging/rtl8192ee/base.c
-+++ b/drivers/staging/rtl8192ee/base.c
-@@ -826,8 +826,7 @@ static u8 _rtl_get_vht_highest_n_rate(struct ieee80211_hw *hw,
- 	u8 hw_rate;
- 	u16 map = le16_to_cpu(sta->vht_cap.vht_mcs.tx_mcs_map);
- 
--	if ((get_rf_type(rtlphy) == RF_2T2R) &&
--	    (map & 0x000c) != 0x000c) {
-+	if ((get_rf_type(rtlphy) == RF_2T2R) {
- 		if ((map & 0x000c) >> 2 == IEEE80211_VHT_MCS_SUPPORT_0_7)
- 			hw_rate =
- 			rtlpriv->cfg->maps[RTL_RC_VHT_RATE_2SS_MCS7];
--- 
-1.8.4.5
+> I think going with the first variant is just fine.
+
+Well, then I need not change anything, do I? This first variant causes  
+checkpatch to warn twice about a line exceeding 80 characters:
+
+WARNING: line over 80 characters
+#83: FILE: drivers/net/ppp/ppp_generic.c:771:
++                               err =  
+sk_unattached_filter_create(&ppp->pass_filter,
+
+WARNING: line over 80 characters
+#102: FILE: drivers/net/ppp/ppp_generic.c:797:
++                               err =  
+sk_unattached_filter_create(&ppp->active_filter,
+
+But I don't see how to shorten them. This is because  
+"sk_unattached_filter_create" is such a long identifier...
+
+Any proposals what I can do in order to get the fix accepted?
+
+
+Thank you in advance,
+
+Christoph Schulz
+
