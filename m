@@ -1,56 +1,51 @@
-From: Veaceslav Falico <vfalico@gmail.com>
-Subject: Re: [PATCH v2 net-next 0/4] bonding: rcu cleanups
-Date: Tue, 15 Jul 2014 16:37:15 +0200
-Message-ID: <20140715143714.GB5225@mikrodark.usersys.redhat.com>
-References: <1405432616-12414-1-git-send-email-edumazet@google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	Mahesh Bandewar <maheshb@google.com>
-To: Eric Dumazet <edumazet@google.com>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net-next 0/7] tipc: multicast and internal users to new send functions
+Date: Tue, 15 Jul 2014 10:49:50 -0400
+Message-ID: <1405435797-30116-1-git-send-email-jon.maloy@ericsson.com>
+Cc: netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net,
+	Jon Maloy <jon.maloy@ericsson.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f51.google.com ([74.125.82.51]:61176 "EHLO
-	mail-wg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751867AbaGOOkN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 10:40:13 -0400
-Received: by mail-wg0-f51.google.com with SMTP id b13so3576384wgh.10
-        for <netdev@vger.kernel.org>; Tue, 15 Jul 2014 07:40:12 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1405432616-12414-1-git-send-email-edumazet@google.com>
+Received: from smtp107.biz.mail.ne1.yahoo.com ([98.138.207.14]:33982 "HELO
+	smtp107.biz.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751426AbaGOOuD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 10:50:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 15, 2014 at 06:56:52AM -0700, Eric Dumazet wrote:
->RCU was added to bonding in linux-3.12 but lacked proper sparse annotations.
->
->Using __rcu annotation actually helps to spot all accesses to
->bond->curr_active_slave & cond->current_arp_slave
->are correctly protected, with full sparse & LOCKDEP support.
->
->Lets clean the code.
+We move the remaining data transmit users: multicast, name table
+distributor, and link internal protocols to use the new data
+transmission framework introduced in a previous commit series
+("tipc: new unicast transmission code").
 
-Awesome work, thank you!
+Finally, we remove the code obsoleted by the new functions.
 
-Acked-by: Veaceslav Falico <vfalico@gmail.com>
+Jon Maloy (7):
+  tipc: make name table distributor use new send function
+  tipc: let internal link users call the new link send function
+  tipc: add new functions for multicast and broadcast distribution
+  tipc: start using the new multicast functions
+  tipc: remove unreferenced functions
+  tipc: rename temporarily named functions
+  tipc: ensure sequential message delivery across dual bearers
 
->
->Eric Dumazet (4):
->  bonding: get rid of bond_option_active_slave_get()
->  bonding: use rcu_access_pointer() in bonding_show_mii_status()
->  bonding: add proper __rcu annotation for curr_active_slave
->  bonding: add proper __rcu annotation for current_arp_slave
->
-> drivers/net/bonding/bond_alb.c     | 47 +++++++++++++++-----------
-> drivers/net/bonding/bond_main.c    | 68 +++++++++++++++++++++-----------------
-> drivers/net/bonding/bond_netlink.c | 21 +++++++++---
-> drivers/net/bonding/bond_options.c |  7 +---
-> drivers/net/bonding/bond_sysfs.c   |  3 +-
-> drivers/net/bonding/bonding.h      |  9 +++--
-> 6 files changed, 91 insertions(+), 64 deletions(-)
->
->-- 
->2.0.0.526.g5318336
->
+ net/tipc/bcast.c      |   87 ++++++++------
+ net/tipc/bcast.h      |    5 +-
+ net/tipc/link.c       |  307 ++-----------------------------------------------
+ net/tipc/link.h       |    9 +-
+ net/tipc/msg.c        |   79 +++++++------
+ net/tipc/msg.h        |    9 +-
+ net/tipc/name_distr.c |   76 ++++++------
+ net/tipc/name_distr.h |    2 +-
+ net/tipc/node.c       |   13 +--
+ net/tipc/port.c       |  122 +-------------------
+ net/tipc/port.h       |   10 --
+ net/tipc/socket.c     |  148 ++++++++++++++++--------
+ net/tipc/socket.h     |    2 +
+ 13 files changed, 268 insertions(+), 601 deletions(-)
+
+-- 
+1.7.9.5
