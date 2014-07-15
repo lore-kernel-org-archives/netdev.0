@@ -1,50 +1,80 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH net-next] bonding: fix bond_option_mode_set warning
-Date: Tue, 15 Jul 2014 16:13:49 +0200
-Message-ID: <53C5371D.9060003@redhat.com>
-References: <1405433337-8806-1-git-send-email-nikolay@redhat.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [RFC PATCH net-next 0/5] netns: allow to identify peer netns
+Date: Tue, 15 Jul 2014 16:32:26 +0200
+Message-ID: <53C53B7A.5000909@6wind.com>
+References: <537327F1.4060603@6wind.com>	<1404302346-4507-1-git-send-email-nicolas.dichtel@6wind.com> <87simj7ca1.fsf@x220.int.ebiederm.org>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	stephen@networkplumber.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:4820 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752265AbaGOOTY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Jul 2014 10:19:24 -0400
-In-Reply-To: <1405433337-8806-1-git-send-email-nikolay@redhat.com>
+Received: from mail-we0-f182.google.com ([74.125.82.182]:39115 "EHLO
+	mail-we0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752025AbaGOOca (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 10:32:30 -0400
+Received: by mail-we0-f182.google.com with SMTP id q59so5745456wes.13
+        for <netdev@vger.kernel.org>; Tue, 15 Jul 2014 07:32:28 -0700 (PDT)
+In-Reply-To: <87simj7ca1.fsf@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/15/2014 04:08 PM, Nikolay Aleksandrov wrote:
-> During the conversion to "static" functions this one got left out, only its
-> prototype was converted, thus resulting in:
-> drivers/net/bonding//bond_options.c:674:5: warning: symbol
-> 'bond_option_mode_set' was not declared. Should it be static?
-> 
-> Fix it by making it static and also break the line in two as it was too
-> long.
-> 
-> CC: Stephen Hemminger <stephen@networkplumber.org>
-> CC: Jay Vosburgh <j.vosburgh@gmail.com>
-> CC: Veaceslav Falico <vfalico@gmail.com>
-> CC: Andy Gospodarek <andy@greyhouse.net>
-> CC: David S. Miller <davem@davemloft.net>
-> 
-> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
-> ---
+Le 02/07/2014 22:09, Eric W. Biederman a =C3=A9crit :
+> Nicolas Dichtel <nicolas.dichtel@6wind.com> writes:
+>
+>> The goal of this serie is to be able to multicast netlink messages w=
+ith an
+>> attribute that identify a peer netns.
+>> This is needed by the userland to interpret some informations contai=
+ned in
+>> netlink messages (like IFLA_LINK value, but also some other attribut=
+es in case
+>> of x-netns netdevice (see also
+>> http://thread.gmane.org/gmane.linux.network/315933/focus=3D316064)).
+>>
+>> Each network namespaces allocates its own ids for other netns (inclu=
+ding
+>> itself). The user can retrieve these ids via a new netlink messages,=
+ but only
+>> if he has a FD which points to this netns. Dump is not implemented s=
+o that a
+>> user cannot get the whole netns list.
+>>
+>> The goal of this RFC is mainly to validate the principle, ie patch 1=
+/5 and 2/5.
+>> Patch 3/5 and 4/5 shows an example of how to use these ids in rtnetl=
+ink
+>> messages. And patch 5/5 shows that the netlink messages can be symet=
+ric between
+>> a GET and a SET.
+>
+> This approach fundamentally breaks process migration, and calls for a
+> namespace of namespaces.
+Maybe there is no other solution. Network people uses netns to implemen=
+t
+"virtual router", ie only network namespaces are used. Userland daemons
+manage a set of netns. These daemons need to be able to identify a peer=
+ netns
+when netlink messages from kernel are parsed. For now, these netlink me=
+ssages
+are incomplete and contain information that cannot be interpreted (like=
+ the
+IFLA_LINK ifindex).
 
-Just FYI, I targeted this at net-next as it's more cosmetic and there aren't any
-real side-effects because of it. In case you decide it's more appropriate for
--net, the commit that did this was:
-f3253339a47f ("bonding: options handling cleanup")
+Can you give me more details about the "process migration"? How does it=
+ work
+when you have a veth tunnel between two netns?
 
-and I tested that this patch applies cleanly to -net, so it's fit for there too.
+>
+> Which means this is a major mess that really isn't going to work beca=
+use
+> it generates more problems than it solves.
+It's just a netns inside another netns, or to be easier to figure out, =
+one or
+more virtual router inside a netns ;-)
 
-Cheers,
- Nik
+Regards,
+Nicolas
