@@ -1,27 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT] Networking
-Date: Tue, 15 Jul 2014 16:02:50 -0700 (PDT)
-Message-ID: <20140715.160250.1513610183186367133.davem@davemloft.net>
-References: <20140715.002844.679028486034873225.davem@davemloft.net>
-	<CA+55aFw9=c_jSb7GOXDoityxWGiDs9y7LsdasyPHXESiZR75bg@mail.gmail.com>
+Subject: Re: [PATCH] net: clean up some sparse endianness warnings in ipv6.h
+Date: Tue, 15 Jul 2014 16:05:55 -0700 (PDT)
+Message-ID: <20140715.160555.407533257702039786.davem@davemloft.net>
+References: <1405340746-10678-1-git-send-email-jlayton@primarydata.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-nfs@vger.kernel.org
+To: jlayton@primarydata.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+55aFw9=c_jSb7GOXDoityxWGiDs9y7LsdasyPHXESiZR75bg@mail.gmail.com>
+In-Reply-To: <1405340746-10678-1-git-send-email-jlayton@primarydata.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Tue, 15 Jul 2014 08:52:33 -0700
+From: Jeff Layton <jlayton@primarydata.com>
+Date: Mon, 14 Jul 2014 08:25:46 -0400
 
-> Ugh, I wanted to point this out, since looking at the history it's
-> really ugly with silly extraneous merges for no good reason:
+>  #endif
+> -		(a->s6_addr32[2] ^ htonl(0x0000ffff))) == 0UL;
+> +		((a->s6_addr32[2] ^ htonl(0x0000ffff)) == cpu_to_be32(0)));
 
-Linus is there anything you want me to do to my tree before you'll
-pull this?
+While you are spinning a new version, change this htonl() to be
+cpu_to_be32().  All the rest of this entire expression uses the
+cpu_to_*() interfaces, so for consistency this should too.
 
-Just wondering...
+Thanks.
