@@ -1,59 +1,50 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next 2/2] bonding: make hard-coded defines
- configurable at build
-Date: Tue, 15 Jul 2014 11:55:29 -0700
-Message-ID: <CAADnVQKeFOhbZOSHtpodnWb6OXem79jjozHm=Qgzz8PyVTryRg@mail.gmail.com>
-References: <1405419341-31510-1-git-send-email-vfalico@gmail.com>
-	<1405419341-31510-3-git-send-email-vfalico@gmail.com>
-	<CAADnVQJCNJVTBFkinNzo=1mSWEBhif3dOVnVvuievJxijtNb7w@mail.gmail.com>
-	<20140715161802.GC5225@mikrodark.usersys.redhat.com>
-	<CAADnVQJaUQsDF1--4ffnCUz=1Tw1Ox=kgUw3h1L1EnrDs0WQfw@mail.gmail.com>
-	<20140715171139.GD5225@mikrodark.usersys.redhat.com>
-	<CAADnVQKPJTHFGdCRtbQHLAg_NpDkKQ+8WVwfkic8KE+dQxZw2g@mail.gmail.com>
-	<20140715175331.GA14109@mikrodark.usersys.redhat.com>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH] staging: rtl8192ee: Fix setting highest n rate
+Date: Tue, 15 Jul 2014 12:06:34 -0700
+Message-ID: <20140715190634.GA16330@kroah.com>
+References: <1405396592-909-1-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Veaceslav Falico <vfalico@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f50.google.com ([209.85.215.50]:40253 "EHLO
-	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932826AbaGOSzb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 14:55:31 -0400
-Received: by mail-la0-f50.google.com with SMTP id pv20so4581865lab.37
-        for <netdev@vger.kernel.org>; Tue, 15 Jul 2014 11:55:29 -0700 (PDT)
-In-Reply-To: <20140715175331.GA14109@mikrodark.usersys.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org
+To: Larry Finger <Larry.Finger@lwfinger.net>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+In-Reply-To: <1405396592-909-1-git-send-email-Larry.Finger@lwfinger.net>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 15, 2014 at 10:53 AM, Veaceslav Falico <vfalico@gmail.com> wrote:
-> On Tue, Jul 15, 2014 at 10:33:25AM -0700, Alexei Starovoitov wrote:
-> ..snip...
->
->> For 3 vlan case to be useful, first somebody needs to define a meaning
->> for it and real use case. I haven't seen one.
->
->
-> You also haven't seen switches that support it, however juniper switches do
-> support them, as a quick google shows. I can guess that cisco can also be
-> made to support them.
+On Mon, Jul 14, 2014 at 10:56:32PM -0500, Larry Finger wrote:
+> Commit 4fb6a37c3f94c1cb4b828bfcc4347771e1628f88 by Andrey Utkin
+> <andrey.krieger.utkin@gmail.com> and entitled "staging: rtl8192ee:
+> "Correct bitmask in comparsion" fixed what appeared to be a typo. After
+> consultation with the Realtek engineers, merely testing for a 2T2R device
+> is sufficient to ensure that the TX MCS map will equal 0x0c, thus the second
+> test can be ignored.
+> 
+> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+> ---
+>  drivers/staging/rtl8192ee/base.c | 3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
+> 
+> diff --git a/drivers/staging/rtl8192ee/base.c b/drivers/staging/rtl8192ee/base.c
+> index 71ed12e..b8b897a 100644
+> --- a/drivers/staging/rtl8192ee/base.c
+> +++ b/drivers/staging/rtl8192ee/base.c
+> @@ -826,8 +826,7 @@ static u8 _rtl_get_vht_highest_n_rate(struct ieee80211_hw *hw,
+>  	u8 hw_rate;
+>  	u16 map = le16_to_cpu(sta->vht_cap.vht_mcs.tx_mcs_map);
+>  
+> -	if ((get_rf_type(rtlphy) == RF_2T2R) &&
+> -	    (map & 0x000c) != 0x000c) {
+> +	if ((get_rf_type(rtlphy) == RF_2T2R) {
 
-I don't think juniper switches support them either.
-Please send the link to the spec.
-Protocol parsers in HW fail to parse beyond two, since behavior
-is undefined and it's considered invalid packet.
-I'm talking about broadcom/intel/cisco asics.
-Generally speaking I think it's a mistake of linux stack to support
-any nested level. Not too long ago we saw issues with broken hw
-offloads for basic qinq. I won't be surprised if creating triple stacked
-vlan devices actually breaks all sort of things.
-
-> I'll happily drop any/all of these configs if I'd see a reason NOT to add
-> them. Till now I haven't seen anything except "I don't know why should I
-> use it", and that's not a valid reason to me, sorry.
-
-correct. I don't see a good reason to change these defaults and you also
-seem to acknowledge the same. To me it's a red flag when somebody
-requests a feature without proper justification.
+I don't think you test built this change :(
