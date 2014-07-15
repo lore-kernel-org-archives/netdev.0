@@ -1,188 +1,99 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 4/7] tipc: start using the new multicast functions
-Date: Tue, 15 Jul 2014 10:49:54 -0400
-Message-ID: <1405435797-30116-5-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 2/7] tipc: let internal link
+	users call the new link send function
+Date: Tue, 15 Jul 2014 10:49:52 -0400
+Message-ID: <1405435797-30116-3-git-send-email-jon.maloy@ericsson.com>
 References: <1405435797-30116-1-git-send-email-jon.maloy@ericsson.com>
-Cc: netdev@vger.kernel.org,
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net,
-	Jon Maloy <jon.maloy@ericsson.com>
+	tipc-discussion@lists.sourceforge.net
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp107.biz.mail.ne1.yahoo.com ([98.138.207.14]:34039 "HELO
-	smtp107.biz.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753248AbaGOOuG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 10:50:06 -0400
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
 In-Reply-To: <1405435797-30116-1-git-send-email-jon.maloy@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-In this commit, we convert the socket multicast send function to
-directly call the new multicast/broadcast function (tipc_bclink_xmit2())
-introduced in the previous commit. We do this instead of letting the
-call go via the now obsolete tipc_port_mcast_xmit(), hence saving
-a call level and some code complexity.
-
-We also remove the initial destination lookup at the message sending
-side, and replace that with an unconditional lookup at the receiving
-side, including on the sending node itself. This makes the destination
-lookup and message transfer more uniform than before.
+We convert the link internal users (changeover protocol, broadcast
+synchronization) to use the new packet send function.
 
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
 Reviewed-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/bcast.c  |    7 ++---
- net/tipc/socket.c |   90 +++++++++++++++++++++++++++++++----------------------
- 2 files changed, 56 insertions(+), 41 deletions(-)
+ net/tipc/link.c |   15 +++++++--------
+ 1 file changed, 7 insertions(+), 8 deletions(-)
 
-diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
-index 4742d60..c665c95 100644
---- a/net/tipc/bcast.c
-+++ b/net/tipc/bcast.c
-@@ -496,7 +496,7 @@ void tipc_bclink_rcv(struct sk_buff *buf)
- 	struct tipc_node *node;
- 	u32 next_in;
- 	u32 seqno;
--	int deferred;
-+	int deferred = 0;
- 
- 	/* Screen out unwanted broadcast messages */
- 
-@@ -547,7 +547,7 @@ receive:
- 			tipc_bclink_unlock();
- 			tipc_node_unlock(node);
- 			if (likely(msg_mcast(msg)))
--				tipc_port_mcast_rcv(buf, NULL);
-+				tipc_sk_mcast_rcv(buf);
- 			else
- 				kfree_skb(buf);
- 		} else if (msg_user(msg) == MSG_BUNDLER) {
-@@ -625,8 +625,7 @@ receive:
- 		node->bclink.deferred_size += deferred;
- 		bclink_update_last_sent(node, seqno);
- 		buf = NULL;
--	} else
--		deferred = 0;
-+	}
- 
- 	tipc_bclink_lock();
- 
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index d16550f..ae3d716 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -53,6 +53,7 @@ static void tipc_data_ready(struct sock *sk);
- static void tipc_write_space(struct sock *sk);
- static int tipc_release(struct socket *sock);
- static int tipc_accept(struct socket *sock, struct socket *new_sock, int flags);
-+static int tipc_wait_for_sndmsg(struct socket *sock, long *timeo_p);
- 
- static const struct proto_ops packet_ops;
- static const struct proto_ops stream_ops;
-@@ -534,6 +535,58 @@ static unsigned int tipc_poll(struct file *file, struct socket *sock,
- 	return mask;
- }
- 
-+/**
-+ * tipc_sendmcast - send multicast message
-+ * @sock: socket structure
-+ * @seq: destination address
-+ * @iov: message data to send
-+ * @dsz: total length of message data
-+ * @timeo: timeout to wait for wakeup
-+ *
-+ * Called from function tipc_sendmsg(), which has done all sanity checks
-+ * Returns the number of bytes sent on success, or errno
-+ */
-+static int tipc_sendmcast(struct  socket *sock, struct tipc_name_seq *seq,
-+			  struct iovec *iov, size_t dsz, long timeo)
-+{
-+	struct sock *sk = sock->sk;
-+	struct tipc_msg *mhdr = &tipc_sk(sk)->port.phdr;
-+	struct sk_buff *buf;
-+	uint mtu;
-+	int rc;
-+
-+	msg_set_type(mhdr, TIPC_MCAST_MSG);
-+	msg_set_lookup_scope(mhdr, TIPC_CLUSTER_SCOPE);
-+	msg_set_destport(mhdr, 0);
-+	msg_set_destnode(mhdr, 0);
-+	msg_set_nametype(mhdr, seq->type);
-+	msg_set_namelower(mhdr, seq->lower);
-+	msg_set_nameupper(mhdr, seq->upper);
-+	msg_set_hdr_sz(mhdr, MCAST_H_SIZE);
-+
-+new_mtu:
-+	mtu = tipc_bclink_get_mtu();
-+	rc = tipc_msg_build2(mhdr, iov, 0, dsz, mtu, &buf);
-+	if (unlikely(rc < 0))
-+		return rc;
-+
-+	do {
-+		rc = tipc_bclink_xmit(buf);
-+		if (likely(rc >= 0)) {
-+			rc = dsz;
-+			break;
-+		}
-+		if (rc == -EMSGSIZE)
-+			goto new_mtu;
-+		if (rc != -ELINKCONG)
-+			break;
-+		rc = tipc_wait_for_sndmsg(sock, &timeo);
-+		if (rc)
-+			kfree_skb_list(buf);
-+	} while (!rc);
-+	return rc;
-+}
-+
- /* tipc_sk_mcast_rcv - Deliver multicast message to all destination sockets
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 367b0f5..d1255ba 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -999,7 +999,7 @@ int tipc_link_xmit2(struct sk_buff *buf, u32 dnode, u32 selector)
+  *
+  * Called with node locked
   */
- void tipc_sk_mcast_rcv(struct sk_buff *buf)
-@@ -670,43 +723,6 @@ static int tipc_wait_for_sndmsg(struct socket *sock, long *timeo_p)
+-static void tipc_link_sync_xmit(struct tipc_link *l)
++static void tipc_link_sync_xmit(struct tipc_link *link)
+ {
+ 	struct sk_buff *buf;
+ 	struct tipc_msg *msg;
+@@ -1009,10 +1009,9 @@ static void tipc_link_sync_xmit(struct tipc_link *l)
+ 		return;
+ 
+ 	msg = buf_msg(buf);
+-	tipc_msg_init(msg, BCAST_PROTOCOL, STATE_MSG, INT_H_SIZE, l->addr);
+-	msg_set_last_bcast(msg, l->owner->bclink.acked);
+-	link_add_chain_to_outqueue(l, buf, 0);
+-	tipc_link_push_queue(l);
++	tipc_msg_init(msg, BCAST_PROTOCOL, STATE_MSG, INT_H_SIZE, link->addr);
++	msg_set_last_bcast(msg, link->owner->bclink.acked);
++	__tipc_link_xmit2(link, buf);
  }
  
- /**
-- * tipc_sendmcast - send multicast message
-- * @sock: socket structure
-- * @seq: destination address
-- * @iov: message data to send
-- * @dsz: total length of message data
-- * @timeo: timeout to wait for wakeup
-- *
-- * Called from function tipc_sendmsg(), which has done all sanity checks
-- * Returns the number of bytes sent on success, or errno
-- */
--static int tipc_sendmcast(struct  socket *sock, struct tipc_name_seq *seq,
--			  struct iovec *iov, size_t dsz, long timeo)
--{
--	struct sock *sk = sock->sk;
--	struct tipc_sock *tsk = tipc_sk(sk);
--	int rc;
--
--	do {
--		if (sock->state != SS_READY) {
--			rc = -EOPNOTSUPP;
--			break;
--		}
--		rc = tipc_port_mcast_xmit(&tsk->port, seq, iov, dsz);
--		if (likely(rc >= 0)) {
--			if (sock->state != SS_READY)
--				sock->state = SS_CONNECTING;
--			break;
--		}
--		if (rc != -ELINKCONG)
--			break;
--		rc = tipc_wait_for_sndmsg(sock, &timeo);
--	} while (!rc);
--
--	return rc;
--}
--
--/**
-  * tipc_sendmsg - send message in connectionless manner
-  * @iocb: if NULL, indicates that socket lock is already held
-  * @sock: socket structure
+ /*
+@@ -1859,7 +1858,7 @@ static void tipc_link_tunnel_xmit(struct tipc_link *l_ptr,
+ 	}
+ 	skb_copy_to_linear_data(buf, tunnel_hdr, INT_H_SIZE);
+ 	skb_copy_to_linear_data_offset(buf, INT_H_SIZE, msg, length);
+-	__tipc_link_xmit(tunnel, buf);
++	__tipc_link_xmit2(tunnel, buf);
+ }
+ 
+ 
+@@ -1892,7 +1891,7 @@ void tipc_link_failover_send_queue(struct tipc_link *l_ptr)
+ 		if (buf) {
+ 			skb_copy_to_linear_data(buf, &tunnel_hdr, INT_H_SIZE);
+ 			msg_set_size(&tunnel_hdr, INT_H_SIZE);
+-			__tipc_link_xmit(tunnel, buf);
++			__tipc_link_xmit2(tunnel, buf);
+ 		} else {
+ 			pr_warn("%sunable to send changeover msg\n",
+ 				link_co_err);
+@@ -1965,7 +1964,7 @@ void tipc_link_dup_queue_xmit(struct tipc_link *l_ptr,
+ 		skb_copy_to_linear_data(outbuf, &tunnel_hdr, INT_H_SIZE);
+ 		skb_copy_to_linear_data_offset(outbuf, INT_H_SIZE, iter->data,
+ 					       length);
+-		__tipc_link_xmit(tunnel, outbuf);
++		__tipc_link_xmit2(tunnel, outbuf);
+ 		if (!tipc_link_is_up(l_ptr))
+ 			return;
+ 		iter = iter->next;
 -- 
 1.7.9.5
+
+
+------------------------------------------------------------------------------
+Want fast and easy access to all the code in your enterprise? Index and
+search up to 200,000 lines of code with a free copy of Black Duck
+Code Sight - the same software that powers the world's largest code
+search on Ohloh, the Black Duck Open Hub! Try it now.
+http://p.sf.net/sfu/bds
