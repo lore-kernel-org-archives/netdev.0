@@ -1,116 +1,58 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 7/7] tipc: ensure sequential
-	message delivery across dual bearers
-Date: Tue, 15 Jul 2014 10:49:57 -0400
-Message-ID: <1405435797-30116-8-git-send-email-jon.maloy@ericsson.com>
-References: <1405435797-30116-1-git-send-email-jon.maloy@ericsson.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: [net-next PATCH 1/1] drivers: net: cpsw: disable coalesce when rx_coalesce_usecs is zero
+Date: Tue, 15 Jul 2014 20:26:53 +0530
+Message-ID: <1405436213-11428-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	tipc-discussion@lists.sourceforge.net
-To: davem@davemloft.net
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1405435797-30116-1-git-send-email-jon.maloy@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, Mugunthan V N <mugunthanvnm@ti.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from comal.ext.ti.com ([198.47.26.152]:45844 "EHLO comal.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751027AbaGOO5A (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Jul 2014 10:57:00 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When we run broadcast packets over dual bearers/interfaces, the
-current transmission code is flipping bearers between each sent
-packet, with the purpose of leveraging the double bandwidth
-available. The receiving bclink is resequencing the packets if
-needed, so all messages are delivered upwards from the broadcast
-link in the correct order, even if they may arrive in concurrent
-interrupts.
+instead of return error on zero rx_coalesce_usecs, disable coalesce
 
-However, at the moment of delivery upwards to the socket, we release
-all spinlocks (bclink_lock, node_lock), so it is still possible
-that arriving messages bypass each other before they reach the socket
-queue.
-
-We fix this by applying the same technique we are using for unicast
-traffic. We use a link selector (i.e., the last bit of sending port
-number) to ensure that messages from the same sender socket always are
-sent over the same bearer. This guarantees sequential delivery between
-socket pairs, which is sufficient to satisfy the protocol spec, as well
-as all known user requirements.
-
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
-Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
-Reviewed-by: Ying Xue <ying.xue@windriver.com>
+Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
 ---
- net/tipc/bcast.c |   17 +++++------------
- 1 file changed, 5 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/ti/cpsw.c | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
 
-diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
-index e7b7f87..d0aba9a 100644
---- a/net/tipc/bcast.c
-+++ b/net/tipc/bcast.c
-@@ -636,6 +636,7 @@ static int tipc_bcbearer_send(struct sk_buff *buf, struct tipc_bearer *unused1,
- 			      struct tipc_media_addr *unused2)
- {
- 	int bp_index;
-+	struct tipc_msg *msg = buf_msg(buf);
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 0940bc2..a9b5bbb 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -884,14 +884,16 @@ static int cpsw_set_coalesce(struct net_device *ndev,
+ 	u32 addnl_dvdr = 1;
+ 	u32 coal_intvl = 0;
  
- 	/* Prepare broadcast link message for reliable transmission,
- 	 * if first time trying to send it;
-@@ -643,10 +644,7 @@ static int tipc_bcbearer_send(struct sk_buff *buf, struct tipc_bearer *unused1,
- 	 * since they are sent in an unreliable manner and don't need it
- 	 */
- 	if (likely(!msg_non_seq(buf_msg(buf)))) {
--		struct tipc_msg *msg;
+-	if (!coal->rx_coalesce_usecs)
+-		return -EINVAL;
 -
- 		bcbuf_set_acks(buf, bclink->bcast_nodes.count);
--		msg = buf_msg(buf);
- 		msg_set_non_seq(msg, 1);
- 		msg_set_mc_netid(msg, tipc_net_id);
- 		bcl->stats.sent_info++;
-@@ -663,12 +661,14 @@ static int tipc_bcbearer_send(struct sk_buff *buf, struct tipc_bearer *unused1,
- 	for (bp_index = 0; bp_index < MAX_BEARERS; bp_index++) {
- 		struct tipc_bearer *p = bcbearer->bpairs[bp_index].primary;
- 		struct tipc_bearer *s = bcbearer->bpairs[bp_index].secondary;
--		struct tipc_bearer *b = p;
-+		struct tipc_bearer *bp[2] = {p, s};
-+		struct tipc_bearer *b = bp[msg_link_selector(msg)];
- 		struct sk_buff *tbuf;
+ 	coal_intvl = coal->rx_coalesce_usecs;
  
- 		if (!p)
- 			break; /* No more bearers to try */
--
-+		if (!b)
-+			b = p;
- 		tipc_nmap_diff(&bcbearer->remains, &b->nodes,
- 			       &bcbearer->remains_new);
- 		if (bcbearer->remains_new.count == bcbearer->remains.count)
-@@ -685,13 +685,6 @@ static int tipc_bcbearer_send(struct sk_buff *buf, struct tipc_bearer *unused1,
- 			tipc_bearer_send(b->identity, tbuf, &b->bcast_addr);
- 			kfree_skb(tbuf); /* Bearer keeps a clone */
- 		}
--
--		/* Swap bearers for next packet */
--		if (s) {
--			bcbearer->bpairs[bp_index].primary = s;
--			bcbearer->bpairs[bp_index].secondary = p;
--		}
--
- 		if (bcbearer->remains_new.count == 0)
- 			break; /* All targets reached */
+ 	int_ctrl =  readl(&priv->wr_regs->int_control);
+ 	prescale = priv->bus_freq_mhz * 4;
  
++	if (!coal->rx_coalesce_usecs) {
++		int_ctrl &= ~(CPSW_INTPRESCALE_MASK | CPSW_INTPACEEN);
++		goto update_return;
++	}
++
+ 	if (coal_intvl < CPSW_CMINTMIN_INTVL)
+ 		coal_intvl = CPSW_CMINTMIN_INTVL;
+ 
+@@ -919,6 +921,8 @@ static int cpsw_set_coalesce(struct net_device *ndev,
+ 	int_ctrl |= CPSW_INTPACEEN;
+ 	int_ctrl &= (~CPSW_INTPRESCALE_MASK);
+ 	int_ctrl |= (prescale & CPSW_INTPRESCALE_MASK);
++
++update_return:
+ 	writel(int_ctrl, &priv->wr_regs->int_control);
+ 
+ 	cpsw_notice(priv, timer, "Set coalesce to %d usecs.\n", coal_intvl);
 -- 
-1.7.9.5
-
-
-------------------------------------------------------------------------------
-Want fast and easy access to all the code in your enterprise? Index and
-search up to 200,000 lines of code with a free copy of Black Duck
-Code Sight - the same software that powers the world's largest code
-search on Ohloh, the Black Duck Open Hub! Try it now.
-http://p.sf.net/sfu/bds
+2.0.0.390.gcb682f8
