@@ -1,65 +1,55 @@
-From: Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>
-Subject: RE: [PATCH v6 ethtool 0/2] patchset - Support for configurable RSS
- hash key
-Date: Tue, 15 Jul 2014 15:24:18 +0000
-Message-ID: <e0356375-ac11-4291-9848-e6807c5a8ce9@CMEXHTCAS1.ad.emulex.com>
-References: <1f23ef3b-5ffd-4668-aff6-a719dc63fb28@CMEXHTCAS2.ad.emulex.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net 1/1] net: ppp: fix creating PPP pass and active filters
+Date: Tue, 15 Jul 2014 08:38:58 -0700
+Message-ID: <CAADnVQJ3GEdxTBg9BvvLfW1JFsMQ2-J6HgRvEim7vWaSDeWd_Q@mail.gmail.com>
+References: <53C28297.4080507@kristov.de>
+	<53C29DAA.8020405@gmail.com>
+	<20140713180735.209671xd9qjsgmo7@berry.schulz.ip-v6.eu>
+	<53C2D541.8080900@redhat.com>
+	<20140715065458.15013qglk08wv3mq@kristov.noip.me>
+	<53C4D14C.607@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>
-To: "ben@decadent.org.uk" <ben@decadent.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:34765 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751664AbaGOPYW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 11:24:22 -0400
-In-Reply-To: <1f23ef3b-5ffd-4668-aff6-a719dc63fb28@CMEXHTCAS2.ad.emulex.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Christoph Schulz <develop@kristov.de>,
+	Varka Bhadram <varkabhadram@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-ppp@vger.kernel.org, paulus@samba.org, isdn@linux-pingi.de
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <53C4D14C.607@redhat.com>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Ben, 
-Are there any  review comments on this patchset?
+On Mon, Jul 14, 2014 at 11:59 PM, Daniel Borkmann <dborkman@redhat.com> wrote:
+> On 07/15/2014 06:54 AM, Christoph Schulz wrote:
+>>
+>> Hello!
+>>
+>> Daniel Borkmann schrieb am Sun, 13 Jul 2014 20:51:45 +0200:
+>>
+>>> I think going with the first variant is just fine.
+>>
+>>
+>> Well, then I need not change anything, do I? This first variant causes
+>> checkpatch to warn twice about a line exceeding 80 characters:
+>>
+>> WARNING: line over 80 characters
+>> #83: FILE: drivers/net/ppp/ppp_generic.c:771:
+>> +                               err =
+>> sk_unattached_filter_create(&ppp->pass_filter,
+>>
+>> WARNING: line over 80 characters
+>> #102: FILE: drivers/net/ppp/ppp_generic.c:797:
+>> +                               err =
+>> sk_unattached_filter_create(&ppp->active_filter,
+>>
+>> But I don't see how to shorten them. This is because
+>> "sk_unattached_filter_create" is such a long identifier...
+>
+>
+> Well, this is a soft-limit, and in this particular circumstance
+> it should be fine to use your original proposal. I don't see how
+> Varka's suggestions make this better in _any way_, rather the
+> very opposite.
 
-/Venkat.
-
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-
-> owner@vger.kernel.org] On Behalf Of Venkat Duvvuru
-> Sent: Friday, June 06, 2014 9:21 PM
-> To: ben@decadent.org.uk
-> Cc: netdev@vger.kernel.org; Venkat Duvvuru
-> Subject: [PATCH v6 ethtool 0/2] patchset - Support for configurable RSS hash
-> key
-> 
-> NIC drivers that support RSS use either a hard-coded value or a random value
-> for the RSS hash key. Irrespective of the type of the key used, the user
-> would want to change the hash key if he/she is not satisfied with the
-> effectiveness of the default hash-key in spreading the incoming flows evenly
-> across the RSS queues.
-> 
-> This patch set adds support for configuring the RSS hash-key via the ethtool
-> interface using .X/-x option.
-> 
-> v6:
-> 1. Addressed Ben's comments.
-> 2. Fixed memory leaks in do_grxfhindir, do_srxfhindir, do_srxfh, do_grxfh.
-> 3. Handled memory allocation failures in do_grxfhindir, do_srxfhindir,
-> do_srxfh, do_grxfh.
-> 
-> Venkat Duvvuru (2):
->   ethtool: Support for configurable RSS hash key
->   ethtool: Support for configurable RSS hash key
-> 
->  ethtool-copy.h |  478
-> ++++++++++++++++++++++++++++++++++++++++++--------------
->  ethtool.8.in   |   18 ++-
->  ethtool.c      |  390 ++++++++++++++++++++++++++++++++++++++--------
->  3 files changed, 703 insertions(+), 183 deletions(-)
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
++1
