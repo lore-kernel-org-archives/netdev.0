@@ -1,73 +1,38 @@
-From: Varka Bhadram <varkabhadram@gmail.com>
-Subject: Re: [PATCH v4] bfin_mac: convert bfin Ethernet driver to NAPI framework
-Date: Tue, 15 Jul 2014 14:24:13 +0530
-Message-ID: <53C4EC35.1080205@gmail.com>
-References: <1405413820-28739-1-git-send-email-sonic.adi@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: adi-buildroot-devel@lists.sourceforge.net,
-	Sonic Zhang <sonic.zhang@analog.com>
-To: Sonic Zhang <sonic.adi@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+From: Masatake YAMATO <yamato@redhat.com>
+Subject: [PATCH resend] ip: add nlmon as a device type to help message
+Date: Tue, 15 Jul 2014 17:57:16 +0900
+Message-ID: <1405414636-31362-1-git-send-email-yamato@redhat.com>
+Cc: yamato@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:56020 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758136AbaGOIz0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 04:55:26 -0400
-Received: by mail-pa0-f45.google.com with SMTP id rd3so6952312pab.4
-        for <netdev@vger.kernel.org>; Tue, 15 Jul 2014 01:55:26 -0700 (PDT)
-In-Reply-To: <1405413820-28739-1-git-send-email-sonic.adi@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:59048 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757279AbaGOI51 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Jul 2014 04:57:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/15/2014 02:13 PM, Sonic Zhang wrote:
-> From: Sonic Zhang <sonic.zhang@analog.com>
->
-> Ethernet RX DMA buffers are polled in NAPI work queue other than received
-> directly in DMA RX interrupt handler.
->
-> Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
->
-> ---
-> v2-changes:
-> - avoid test NAPI_STATE_NPSVC bit in net device driver
->
-> v3-changes:
-> - use tabs while indenting the code
->
-> v4-changes:
-> - unconditionally compete the NAPI poll and re-enable the MAC_RX IRQ
->
-> Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
-> ---
->   drivers/net/ethernet/adi/bfin_mac.c | 79 +++++++++++++++++++++++--------------
->   drivers/net/ethernet/adi/bfin_mac.h |  1 +
->   2 files changed, 50 insertions(+), 30 deletions(-)
->
-> diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
-> index 7ae74d4..b838e81 100644
-> --- a/drivers/net/ethernet/adi/bfin_mac.c
-> +++ b/drivers/net/ethernet/adi/bfin_mac.c
-> @@ -1218,11 +1218,13 @@ out:
->   #define RX_ERROR_MASK (RX_LONG | RX_ALIGN | RX_CRC | RX_LEN | \
->   	RX_FRAG | RX_ADDR | RX_DMAO | RX_PHY | RX_LATE | RX_RANGE)
->   
-> -static void bfin_mac_rx(struct net_device *dev)
-> +static void bfin_mac_rx(struct napi_struct *napi, int budget)
->   {
-> +	struct bfin_mac_local *lp = container_of(napi,
-> +				struct bfin_mac_local, napi);
+Though nlmon device can be added, it was not listed
+in the output of "ip link help".
 
-should match open parenthesis
+Acked-by: Daniel Borkmann <dborkman@redhat.com>
+Signed-off-by: Masatake YAMATO <yamato@redhat.com>
+---
+ ip/iplink.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-struct bfin_mac_local *lp = container_of(napi,
-					 struct bfin_mac_local,
-					 napi);
-
-> +	struct net_device *dev = lp->ndev;
->   	
-
+diff --git a/ip/iplink.c b/ip/iplink.c
+index de9ef5d..5e428da 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -87,7 +87,7 @@ void iplink_usage(void)
+ 		fprintf(stderr, "\n");
+ 		fprintf(stderr, "TYPE := { vlan | veth | vcan | dummy | ifb | macvlan | macvtap |\n");
+ 		fprintf(stderr, "          bridge | bond | ipoib | ip6tnl | ipip | sit | vxlan |\n");
+-		fprintf(stderr, "          gre | gretap | ip6gre | ip6gretap | vti }\n");
++		fprintf(stderr, "          gre | gretap | ip6gre | ip6gretap | vti | nlmon }\n");
+ 	}
+ 	exit(-1);
+ }
 -- 
-Regards,
-Varka Bhadram.
+1.9.3
