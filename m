@@ -1,121 +1,93 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH net-next v2 05/11] openvswitch: Add recirc action
-Date: Tue, 15 Jul 2014 19:47:18 +0200
-Message-ID: <53C56926.8@redhat.com>
-References: <1405444503-17000-1-git-send-email-pshelar@nicira.com> <53C567EF.60208@redhat.com>
+From: Veaceslav Falico <vfalico@gmail.com>
+Subject: Re: [PATCH net-next 2/2] bonding: make hard-coded defines
+ configurable at build
+Date: Tue, 15 Jul 2014 19:53:31 +0200
+Message-ID: <20140715175331.GA14109@mikrodark.usersys.redhat.com>
+References: <1405419341-31510-1-git-send-email-vfalico@gmail.com>
+ <1405419341-31510-3-git-send-email-vfalico@gmail.com>
+ <CAADnVQJCNJVTBFkinNzo=1mSWEBhif3dOVnVvuievJxijtNb7w@mail.gmail.com>
+ <20140715161802.GC5225@mikrodark.usersys.redhat.com>
+ <CAADnVQJaUQsDF1--4ffnCUz=1Tw1Ox=kgUw3h1L1EnrDs0WQfw@mail.gmail.com>
+ <20140715171139.GD5225@mikrodark.usersys.redhat.com>
+ <CAADnVQKPJTHFGdCRtbQHLAg_NpDkKQ+8WVwfkic8KE+dQxZw2g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Andy Zhou <azhou@nicira.com>
-To: Pravin B Shelar <pshelar@nicira.com>, davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42665 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753657AbaGORrX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Jul 2014 13:47:23 -0400
-In-Reply-To: <53C567EF.60208@redhat.com>
+Received: from mail-we0-f181.google.com ([74.125.82.181]:55677 "EHLO
+	mail-we0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751595AbaGOR43 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 13:56:29 -0400
+Received: by mail-we0-f181.google.com with SMTP id q59so6017754wes.40
+        for <netdev@vger.kernel.org>; Tue, 15 Jul 2014 10:56:28 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAADnVQKPJTHFGdCRtbQHLAg_NpDkKQ+8WVwfkic8KE+dQxZw2g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/15/2014 07:42 PM, Nikolay Aleksandrov wrote:
-> On 07/15/2014 07:15 PM, Pravin B Shelar wrote:
->> From: Andy Zhou <azhou@nicira.com>
->>
->> Recirculation implementation for Linux kernel data path.
->>
->> Signed-off-by: Andy Zhou <azhou@nicira.com>
->> Acked-by: Jesse Gross <jesse@nicira.com>
->> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
->> ---
->>  include/uapi/linux/openvswitch.h |  2 ++
->>  net/openvswitch/actions.c        | 46 +++++++++++++++++++++++++++++++++++++-
->>  net/openvswitch/datapath.c       | 48 ++++++++++++++++++++++++++++------------
->>  net/openvswitch/datapath.h       |  8 +++++--
->>  net/openvswitch/flow.h           |  1 +
->>  net/openvswitch/flow_netlink.c   | 16 ++++++++++++++
->>  6 files changed, 104 insertions(+), 17 deletions(-)
->>  };
-> <snip>
->> diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
->> index 56c22f0..8875697 100644
->> --- a/net/openvswitch/actions.c
->> +++ b/net/openvswitch/actions.c
->> @@ -1,5 +1,5 @@
->>  /*
->> - * Copyright (c) 2007-2013 Nicira, Inc.
->> + * Copyright (c) 2007-2014 Nicira, Inc.
->>   *
->>   * This program is free software; you can redistribute it and/or
->>   * modify it under the terms of version 2 of the GNU General Public
->> @@ -520,6 +520,26 @@ static int execute_set_action(struct sk_buff *skb,
->>  	return err;
->>  }
->>  
->> +static int execute_recirc(struct datapath *dp, struct sk_buff *skb,
->> +			  const struct nlattr *a)
->> +{
->> +	struct sw_flow_key recirc_key;
->> +	const struct vport *p = OVS_CB(skb)->input_vport;
->> +	uint32_t hash = OVS_CB(skb)->pkt_key->ovs_flow_hash;
->> +	int err;
->> +
->> +	err = ovs_flow_extract(skb, p->port_no, &recirc_key);
->> +	if (err)
->> +		return err;
->> +
->> +	recirc_key.ovs_flow_hash = hash;
->> +	recirc_key.recirc_id = nla_get_u32(a);
->> +
->> +	ovs_dp_process_packet_with_key(skb, &recirc_key);
->> +
->> +	return 0;
->> +}
->> +
->>  /* Execute a list of actions against 'skb'. */
->>  static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
->>  			const struct nlattr *attr, int len, bool keep_skb)
->> @@ -564,6 +584,30 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
->>  			err = pop_vlan(skb);
->>  			break;
->>  
->> +		case OVS_ACTION_ATTR_RECIRC: {
->> +			struct sk_buff *recirc_skb;
->> +			const bool last_action = (a->nla_len == rem);
->> +
->> +			if (__this_cpu_read(net_xmit_recursion) > NET_RECURSION_LIMIT) {
->> +				net_crit_ratelimited("Net recursion limit readched\n");
->> +				break;
->> +			}
->> +
->> +			if (!last_action || keep_skb)
->> +				recirc_skb = skb_clone(skb, GFP_ATOMIC);
-> 				^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-> skb_clone can return NULL and later recirc_skb will be dereferenced in
-> execute_recirc(). Shouldn't there be a NULL check in this "if" case ?
-> 
-> 
-Nevermind, I saw patch 10 and 11 later :-)
+On Tue, Jul 15, 2014 at 10:33:25AM -0700, Alexei Starovoitov wrote:
+..snip...
+>For 3 vlan case to be useful, first somebody needs to define a meaning
+>for it and real use case. I haven't seen one.
 
->> +			else
->> +				recirc_skb = skb;
->> +
->> +			__this_cpu_inc(net_xmit_recursion);
->> +			err = execute_recirc(dp, recirc_skb, a);
->> +			__this_cpu_dec(net_xmit_recursion);
->> +
->> +			if (last_action || err)
->> +				return err;
->> +
->> +			break;
->> +		}
->> +
->>  		case OVS_ACTION_ATTR_SET:
->>  			err = execute_set_action(skb, nla_data(a));
->>  			break;
-> <snip>
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+You also haven't seen switches that support it, however juniper switches do
+support them, as a quick google shows. I can guess that cisco can also be
+made to support them.
+
+You'd be surprised which weird bonding configurations I've seen :).
+
+>Making bond driver support fictitious configuration is pointless.
+
+bond driver *already* supports it, by changing a hardcoded value.
+
+>
+>>> Therefore for bond driver there is no reason to accept such packets
+>>> in the first place from user space, since they won't go too far in the
+>>> network.
+>>>
+>>>> These defaults are scalable by their nature, and there are people
+>>>> maintaining their own patches to change them. So making them available to
+>>>> be configured at compile time is a good thing to do, I think.
+>>>
+>>>
+>>> people keep a patch to support 3 vlans? what's the use case?
+>>
+>>
+>> I guess it has something to do with virtualization, including nested one.
+>
+>sounds like you're inventing a use case instead of having it already.
+>imo we shouldn't be adding features because it _feels_ useful.
+>use cases gotta be real.
+
+I've got a report asking to make those hardcoded values configurable. I've
+never said it was specific to 3 vlans, it was your assumption. I've only
+tried to guess one possible way of using it.
+
+>
+>> But, again, does this matter? I don't see how it can give us something bad.
+>> It's a configuration option with a default value that suits most users, and
+>> that might be configured for some advanced/weird use-cases.
+>
+>it's bad, since it increases test matrix.
+
+Fair enough, and by this way we'll find bugs that otherwise wouldn't be
+found because of hardcoded values. That's good for bonding, actually, and
+for the networking stack itself.
+
+>You said there are people out there that have some secret patches
+>to tweak these defaults. Please share.
+
+I've got a request to make those hardcoded values configurable, as people
+tweak them. I don't really care how exactly they tweak them - by using more
+arp targets, or less, by tweaking mii default to not failover on first
+start if the NICs firmware wasn't fast enough, by using some weird QinQinQ
+configurations etc. - because these are values that any power-user can
+understand and use, and thus they should be made available to configure
+without getting into the code.
+
+I'll happily drop any/all of these configs if I'd see a reason NOT to add
+them. Till now I haven't seen anything except "I don't know why should I
+use it", and that's not a valid reason to me, sorry.
