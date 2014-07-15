@@ -1,201 +1,121 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 4/7] tipc: start using the new
-	multicast functions
-Date: Tue, 15 Jul 2014 13:46:07 -0400
-Message-ID: <1405446370-11781-5-git-send-email-jon.maloy@ericsson.com>
-References: <1405446370-11781-1-git-send-email-jon.maloy@ericsson.com>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: Re: [PATCH net-next v2 05/11] openvswitch: Add recirc action
+Date: Tue, 15 Jul 2014 19:47:18 +0200
+Message-ID: <53C56926.8@redhat.com>
+References: <1405444503-17000-1-git-send-email-pshelar@nicira.com> <53C567EF.60208@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	tipc-discussion@lists.sourceforge.net
-To: davem@davemloft.net
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1405446370-11781-1-git-send-email-jon.maloy@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Andy Zhou <azhou@nicira.com>
+To: Pravin B Shelar <pshelar@nicira.com>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:42665 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753657AbaGORrX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Jul 2014 13:47:23 -0400
+In-Reply-To: <53C567EF.60208@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In this commit, we convert the socket multicast send function to
-directly call the new multicast/broadcast function (tipc_bclink_xmit2())
-introduced in the previous commit. We do this instead of letting the
-call go via the now obsolete tipc_port_mcast_xmit(), hence saving
-a call level and some code complexity.
+On 07/15/2014 07:42 PM, Nikolay Aleksandrov wrote:
+> On 07/15/2014 07:15 PM, Pravin B Shelar wrote:
+>> From: Andy Zhou <azhou@nicira.com>
+>>
+>> Recirculation implementation for Linux kernel data path.
+>>
+>> Signed-off-by: Andy Zhou <azhou@nicira.com>
+>> Acked-by: Jesse Gross <jesse@nicira.com>
+>> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+>> ---
+>>  include/uapi/linux/openvswitch.h |  2 ++
+>>  net/openvswitch/actions.c        | 46 +++++++++++++++++++++++++++++++++++++-
+>>  net/openvswitch/datapath.c       | 48 ++++++++++++++++++++++++++++------------
+>>  net/openvswitch/datapath.h       |  8 +++++--
+>>  net/openvswitch/flow.h           |  1 +
+>>  net/openvswitch/flow_netlink.c   | 16 ++++++++++++++
+>>  6 files changed, 104 insertions(+), 17 deletions(-)
+>>  };
+> <snip>
+>> diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+>> index 56c22f0..8875697 100644
+>> --- a/net/openvswitch/actions.c
+>> +++ b/net/openvswitch/actions.c
+>> @@ -1,5 +1,5 @@
+>>  /*
+>> - * Copyright (c) 2007-2013 Nicira, Inc.
+>> + * Copyright (c) 2007-2014 Nicira, Inc.
+>>   *
+>>   * This program is free software; you can redistribute it and/or
+>>   * modify it under the terms of version 2 of the GNU General Public
+>> @@ -520,6 +520,26 @@ static int execute_set_action(struct sk_buff *skb,
+>>  	return err;
+>>  }
+>>  
+>> +static int execute_recirc(struct datapath *dp, struct sk_buff *skb,
+>> +			  const struct nlattr *a)
+>> +{
+>> +	struct sw_flow_key recirc_key;
+>> +	const struct vport *p = OVS_CB(skb)->input_vport;
+>> +	uint32_t hash = OVS_CB(skb)->pkt_key->ovs_flow_hash;
+>> +	int err;
+>> +
+>> +	err = ovs_flow_extract(skb, p->port_no, &recirc_key);
+>> +	if (err)
+>> +		return err;
+>> +
+>> +	recirc_key.ovs_flow_hash = hash;
+>> +	recirc_key.recirc_id = nla_get_u32(a);
+>> +
+>> +	ovs_dp_process_packet_with_key(skb, &recirc_key);
+>> +
+>> +	return 0;
+>> +}
+>> +
+>>  /* Execute a list of actions against 'skb'. */
+>>  static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
+>>  			const struct nlattr *attr, int len, bool keep_skb)
+>> @@ -564,6 +584,30 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
+>>  			err = pop_vlan(skb);
+>>  			break;
+>>  
+>> +		case OVS_ACTION_ATTR_RECIRC: {
+>> +			struct sk_buff *recirc_skb;
+>> +			const bool last_action = (a->nla_len == rem);
+>> +
+>> +			if (__this_cpu_read(net_xmit_recursion) > NET_RECURSION_LIMIT) {
+>> +				net_crit_ratelimited("Net recursion limit readched\n");
+>> +				break;
+>> +			}
+>> +
+>> +			if (!last_action || keep_skb)
+>> +				recirc_skb = skb_clone(skb, GFP_ATOMIC);
+> 				^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> skb_clone can return NULL and later recirc_skb will be dereferenced in
+> execute_recirc(). Shouldn't there be a NULL check in this "if" case ?
+> 
+> 
+Nevermind, I saw patch 10 and 11 later :-)
 
-We also remove the initial destination lookup at the message sending
-side, and replace that with an unconditional lookup at the receiving
-side, including on the sending node itself. This makes the destination
-lookup and message transfer more uniform than before.
-
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
-Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
-Reviewed-by: Ying Xue <ying.xue@windriver.com>
----
- net/tipc/bcast.c  |    7 ++---
- net/tipc/socket.c |   90 +++++++++++++++++++++++++++++++----------------------
- 2 files changed, 56 insertions(+), 41 deletions(-)
-
-diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
-index 4742d60..c665c95 100644
---- a/net/tipc/bcast.c
-+++ b/net/tipc/bcast.c
-@@ -496,7 +496,7 @@ void tipc_bclink_rcv(struct sk_buff *buf)
- 	struct tipc_node *node;
- 	u32 next_in;
- 	u32 seqno;
--	int deferred;
-+	int deferred = 0;
- 
- 	/* Screen out unwanted broadcast messages */
- 
-@@ -547,7 +547,7 @@ receive:
- 			tipc_bclink_unlock();
- 			tipc_node_unlock(node);
- 			if (likely(msg_mcast(msg)))
--				tipc_port_mcast_rcv(buf, NULL);
-+				tipc_sk_mcast_rcv(buf);
- 			else
- 				kfree_skb(buf);
- 		} else if (msg_user(msg) == MSG_BUNDLER) {
-@@ -625,8 +625,7 @@ receive:
- 		node->bclink.deferred_size += deferred;
- 		bclink_update_last_sent(node, seqno);
- 		buf = NULL;
--	} else
--		deferred = 0;
-+	}
- 
- 	tipc_bclink_lock();
- 
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index d16550f..ae3d716 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -53,6 +53,7 @@ static void tipc_data_ready(struct sock *sk);
- static void tipc_write_space(struct sock *sk);
- static int tipc_release(struct socket *sock);
- static int tipc_accept(struct socket *sock, struct socket *new_sock, int flags);
-+static int tipc_wait_for_sndmsg(struct socket *sock, long *timeo_p);
- 
- static const struct proto_ops packet_ops;
- static const struct proto_ops stream_ops;
-@@ -534,6 +535,58 @@ static unsigned int tipc_poll(struct file *file, struct socket *sock,
- 	return mask;
- }
- 
-+/**
-+ * tipc_sendmcast - send multicast message
-+ * @sock: socket structure
-+ * @seq: destination address
-+ * @iov: message data to send
-+ * @dsz: total length of message data
-+ * @timeo: timeout to wait for wakeup
-+ *
-+ * Called from function tipc_sendmsg(), which has done all sanity checks
-+ * Returns the number of bytes sent on success, or errno
-+ */
-+static int tipc_sendmcast(struct  socket *sock, struct tipc_name_seq *seq,
-+			  struct iovec *iov, size_t dsz, long timeo)
-+{
-+	struct sock *sk = sock->sk;
-+	struct tipc_msg *mhdr = &tipc_sk(sk)->port.phdr;
-+	struct sk_buff *buf;
-+	uint mtu;
-+	int rc;
-+
-+	msg_set_type(mhdr, TIPC_MCAST_MSG);
-+	msg_set_lookup_scope(mhdr, TIPC_CLUSTER_SCOPE);
-+	msg_set_destport(mhdr, 0);
-+	msg_set_destnode(mhdr, 0);
-+	msg_set_nametype(mhdr, seq->type);
-+	msg_set_namelower(mhdr, seq->lower);
-+	msg_set_nameupper(mhdr, seq->upper);
-+	msg_set_hdr_sz(mhdr, MCAST_H_SIZE);
-+
-+new_mtu:
-+	mtu = tipc_bclink_get_mtu();
-+	rc = tipc_msg_build2(mhdr, iov, 0, dsz, mtu, &buf);
-+	if (unlikely(rc < 0))
-+		return rc;
-+
-+	do {
-+		rc = tipc_bclink_xmit(buf);
-+		if (likely(rc >= 0)) {
-+			rc = dsz;
-+			break;
-+		}
-+		if (rc == -EMSGSIZE)
-+			goto new_mtu;
-+		if (rc != -ELINKCONG)
-+			break;
-+		rc = tipc_wait_for_sndmsg(sock, &timeo);
-+		if (rc)
-+			kfree_skb_list(buf);
-+	} while (!rc);
-+	return rc;
-+}
-+
- /* tipc_sk_mcast_rcv - Deliver multicast message to all destination sockets
-  */
- void tipc_sk_mcast_rcv(struct sk_buff *buf)
-@@ -670,43 +723,6 @@ static int tipc_wait_for_sndmsg(struct socket *sock, long *timeo_p)
- }
- 
- /**
-- * tipc_sendmcast - send multicast message
-- * @sock: socket structure
-- * @seq: destination address
-- * @iov: message data to send
-- * @dsz: total length of message data
-- * @timeo: timeout to wait for wakeup
-- *
-- * Called from function tipc_sendmsg(), which has done all sanity checks
-- * Returns the number of bytes sent on success, or errno
-- */
--static int tipc_sendmcast(struct  socket *sock, struct tipc_name_seq *seq,
--			  struct iovec *iov, size_t dsz, long timeo)
--{
--	struct sock *sk = sock->sk;
--	struct tipc_sock *tsk = tipc_sk(sk);
--	int rc;
--
--	do {
--		if (sock->state != SS_READY) {
--			rc = -EOPNOTSUPP;
--			break;
--		}
--		rc = tipc_port_mcast_xmit(&tsk->port, seq, iov, dsz);
--		if (likely(rc >= 0)) {
--			if (sock->state != SS_READY)
--				sock->state = SS_CONNECTING;
--			break;
--		}
--		if (rc != -ELINKCONG)
--			break;
--		rc = tipc_wait_for_sndmsg(sock, &timeo);
--	} while (!rc);
--
--	return rc;
--}
--
--/**
-  * tipc_sendmsg - send message in connectionless manner
-  * @iocb: if NULL, indicates that socket lock is already held
-  * @sock: socket structure
--- 
-1.7.9.5
-
-
-------------------------------------------------------------------------------
-Want fast and easy access to all the code in your enterprise? Index and
-search up to 200,000 lines of code with a free copy of Black Duck
-Code Sight - the same software that powers the world's largest code
-search on Ohloh, the Black Duck Open Hub! Try it now.
-http://p.sf.net/sfu/bds
+>> +			else
+>> +				recirc_skb = skb;
+>> +
+>> +			__this_cpu_inc(net_xmit_recursion);
+>> +			err = execute_recirc(dp, recirc_skb, a);
+>> +			__this_cpu_dec(net_xmit_recursion);
+>> +
+>> +			if (last_action || err)
+>> +				return err;
+>> +
+>> +			break;
+>> +		}
+>> +
+>>  		case OVS_ACTION_ATTR_SET:
+>>  			err = execute_set_action(skb, nla_data(a));
+>>  			break;
+> <snip>
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
