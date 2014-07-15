@@ -1,26 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/6] cleanup for AMD8111E ethernet driver
-Date: Mon, 14 Jul 2014 19:15:01 -0700 (PDT)
-Message-ID: <20140714.191501.882679517122084075.davem@davemloft.net>
-References: <1405327149-6554-1-git-send-email-varkabhadram@gmail.com>
+Subject: Re: [PATCH v2 1/2] hso: remove unused workqueue
+Date: Mon, 14 Jul 2014 19:27:51 -0700 (PDT)
+Message-ID: <20140714.192751.860546525235995890.davem@davemloft.net>
+References: <1405332530-2507-1-git-send-email-olivier@sobrie.be>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Thomas.Lendacky@amd.com,
-	geert+renesas@linux-m68k.org, ebiederm@xmission.com,
-	macro@linux-mips.org, linux-kernel@vger.kernel.org, varkab@cdac.in
-To: varkabhadram@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1405327149-6554-1-git-send-email-varkabhadram@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: olivier@sobrie.be
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37437 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753241AbaGOC1x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 14 Jul 2014 22:27:53 -0400
+In-Reply-To: <1405332530-2507-1-git-send-email-olivier@sobrie.be>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: varkabhadram@gmail.com
-Date: Mon, 14 Jul 2014 14:09:03 +0530
+From: Olivier Sobrie <olivier@sobrie.be>
+Date: Mon, 14 Jul 2014 12:08:49 +0200
 
-> This series cleanup for AMD8111E ethernet driver
+> The workqueue "retry_unthrottle_workqueue" is not scheduled anywhere
+> in the code. So, remove it.
 > 
-> v1: fix checkpatch warnings.
-> v2: added new line in debug messages
+> Signed-off-by: Olivier Sobrie <olivier@sobrie.be>
 
-Series applied, thank you.
+Applied.
