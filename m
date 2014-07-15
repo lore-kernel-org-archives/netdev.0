@@ -1,57 +1,56 @@
-From: Sitsofe Wheeler <sitsofe@gmail.com>
-Subject: Re: [BISECTED][REGRESSION] Loading Hyper-V network drivers is racy
- in 3.14+ on Hyper-V 2012 R2
-Date: Tue, 15 Jul 2014 06:08:32 +0100
-Message-ID: <20140715050832.GA28549@sucs.org>
-References: <20140706201800.GA10587@sucs.org>
- <941b0055b1a94c66b3a608ae67764d11@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
- <20140707181341.GA2646@sucs.org> <20140711055259.GA10317@sucs.org>
- <52afbe119b1a481aa1c80f909c3a2432@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
- <20140714213032.GA23639@sucs.org>
- <8b68f48141a045f784c10f9c081cd51f@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+From: Varka Bhadram <varkabhadram@gmail.com>
+Subject: Re: [PATCH net 1/1] net: ppp: fix creating PPP pass and active filters
+Date: Tue, 15 Jul 2014 10:48:55 +0530
+Message-ID: <53C4B9BF.1020902@gmail.com>
+References: <53C28297.4080507@kristov.de> <53C29DAA.8020405@gmail.com> <20140713180735.209671xd9qjsgmo7@berry.schulz.ip-v6.eu> <53C2D541.8080900@redhat.com> <20140715065458.15013qglk08wv3mq@kristov.noip.me>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "David S. Miller" <davem@davemloft.net>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Haiyang Zhang <haiyangz@microsoft.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-Content-Disposition: inline
-In-Reply-To: <8b68f48141a045f784c10f9c081cd51f@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+Cc: netdev@vger.kernel.org, linux-ppp@vger.kernel.org,
+	paulus@samba.org, isdn@linux-pingi.de
+To: Christoph Schulz <develop@kristov.de>,
+	Daniel Borkmann <dborkman@redhat.com>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <20140715065458.15013qglk08wv3mq@kristov.noip.me>
+Sender: linux-ppp-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 14, 2014 at 10:39:48PM +0000, Haiyang Zhang wrote:
-> > -----Original Message-----
-> > From: Sitsofe Wheeler [mailto:sitsofe@gmail.com]
-> > Sent: Monday, July 14, 2014 5:31 PM
-> > To: Haiyang Zhang
-> > Cc: KY Srinivasan; David S. Miller; devel@linuxdriverproject.org; linux-
-> > kernel@vger.kernel.org; netdev@vger.kernel.org
-> > Subject: Re: [BISECTED][REGRESSION] Loading Hyper-V network drivers is
-> > racy in 3.14+ on Hyper-V 2012 R2
-> 
-> Thanks for the tests! I will make a patch that can automatically retry
-> smaller memory allocs when memory is insufficient.
+On 07/15/2014 10:24 AM, Christoph Schulz wrote:
+> Hello!
+>
+> Daniel Borkmann schrieb am Sun, 13 Jul 2014 20:51:45 +0200:
+>
+>> I think going with the first variant is just fine.
+>
+> Well, then I need not change anything, do I? This first variant causes 
+> checkpatch to warn twice about a line exceeding 80 characters:
+>
+> WARNING: line over 80 characters
+> #83: FILE: drivers/net/ppp/ppp_generic.c:771:
+> +                               err = 
+> sk_unattached_filter_create(&ppp->pass_filter,
+>
+> WARNING: line over 80 characters
+> #102: FILE: drivers/net/ppp/ppp_generic.c:797:
+> +                               err = 
+> sk_unattached_filter_create(&ppp->active_filter,
+>
+> But I don't see how to shorten them. This is because 
+> "sk_unattached_filter_create" is such a long identifier...
+>
+> Any proposals what I can do in order to get the fix accepted?
+>
+>
+There are can be two solutions:
 
-This concerns me a bit - why would there be insufficient memory on a 64
-bit VM with 4 GBytes of RAM just after startup (presumably the host's
-memory isn't the issue)? Additionally, while things might fail just when
-things are starting up, doing ifup eth0 at some point later succeeds so
-whatever issue it had seems temporary.
+1. Replace the long function name (sk_unattached_filter_create) with the simple macro.
+    We can define the macro locally with our driver name.I don't know how many people
+    will accept it. For this we have to change the entire filter framework.
 
-Perhaps it would be wise to adding some debugging output to see if the
-allocation really failed and why...
+2. Shorten the argument name 'pass_filter/active_filter'.
+    For this also we need to change the entire framework. People many not be accept it.
 
 -- 
-Sitsofe | http://sucs.org/~sits/
+Regards,
+Varka Bhadram.
+
