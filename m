@@ -1,21 +1,24 @@
-From: CLAIM THIS MONEY <accounting-01@pemi.co.id>
-Subject: CLAIM THIS MONEY
-Date: Wed, 16 Jul 2014 03:47:36 +0700 (WIT)
-Message-ID: <28606277.20802.1405457256678.JavaMail.root@svrmailpemi.pemi.co.id>
-Reply-To: CLAIM THIS MONEY <amendhassan1@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+From: David Held <drheld@google.com>
+Subject: [PATCH net-next v2 0/2] udp: Fix multicast performance issues.
+Date: Tue, 15 Jul 2014 17:22:41 -0400
+Message-ID: <1405459363-3047-1-git-send-email-drheld@google.com>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com, willemb@google.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.pemi.co.id ([202.152.163.41]:3373 "EHLO smtp.pemi.co.id"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754788AbaGOU6Q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Jul 2014 16:58:16 -0400
+Received: from mail-oa0-f74.google.com ([209.85.219.74]:47038 "EHLO
+	mail-oa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750785AbaGOVWs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 17:22:48 -0400
+Received: by mail-oa0-f74.google.com with SMTP id eb12so356oac.1
+        for <netdev@vger.kernel.org>; Tue, 15 Jul 2014 14:22:47 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Fix performance issues with listening to many different multicast
+sockets on different addresses with the same port. Instead of always
+using hash1, fall back to hash2 lookup when hash1 lookup is long.
+Patch 1 is a general cleanup and simplification which also makes the
+main implementation in Patch 2 simpler.
 
-
-Dear Beloved,
-My name is AHMED HASSAN a merchant in Dubai, in the U.A.E. I want you to help me collect $21,000,000.00 USD and dispatched it to the poor.I have set aside 25% for you for the work. Contact me for more details. Email: amendhassan1@gmail.com
+Eric's recent change 63c6f81cdde5 avoided this being an issue in early
+demux. This makes it work for regular delivery as well.
