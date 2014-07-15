@@ -1,68 +1,32 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: IPSEC: tunnel breakage with out-of-order IPv4 fragments
-Date: Tue, 15 Jul 2014 11:16:13 +0200
-Message-ID: <20140715091613.GD6633@secunet.com>
-References: <CAGugRbVWyTM2J0Fyw1Cq1byqfjZBy_EFLSShqVdzxYZmmUWK_g@mail.gmail.com>
- <20140711110035.GB6633@secunet.com>
- <CAGugRbWPOyWLrdiTqtScWi2JTKeyEEjOLRvDUqx20SG7uXifLw@mail.gmail.com>
- <20140714093345.GC6633@secunet.com>
- <CAGugRbWL8Orkobwt4FENyswLsm1jWLBMdr-WJ6mCBhVn-xGwXw@mail.gmail.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH resend] ip: add nlmon as a device type to help message
+Date: Tue, 15 Jul 2014 11:29:04 +0200
+Message-ID: <53C4F460.3020805@redhat.com>
+References: <1405414636-31362-1-git-send-email-yamato@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>
-To: Karl Heiss <kheiss@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Masatake YAMATO <yamato@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:44760 "EHLO a.mx.secunet.com"
+Received: from mx1.redhat.com ([209.132.183.28]:15801 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757540AbaGOJQW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 05:16:22 -0400
-Content-Disposition: inline
-In-Reply-To: <CAGugRbWL8Orkobwt4FENyswLsm1jWLBMdr-WJ6mCBhVn-xGwXw@mail.gmail.com>
+	id S1757853AbaGOJ3J (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 15 Jul 2014 05:29:09 -0400
+Received: from int-mx11.intmail.prod.int.phx2.redhat.com (int-mx11.intmail.prod.int.phx2.redhat.com [10.5.11.24])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s6F9T7vZ005386
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Tue, 15 Jul 2014 05:29:08 -0400
+In-Reply-To: <1405414636-31362-1-git-send-email-yamato@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 14, 2014 at 07:52:23AM -0400, Karl Heiss wrote:
-> On Mon, Jul 14, 2014 at 5:33 AM, Steffen Klassert
-> <steffen.klassert@secunet.com> wrote:
-> >
-> > Your tcpdump looks interesting. Is it possible that all your
-> > fragmented packets have the id field set to 'id 0'? This should
-> > be only the case if the DF flag is set on that packet, but this
-> > is apparently not the case here. If all the fragmented packets
-> > have id 0, it is not possible to determine the correct fragment
-> > chain. If only one fragment gets lost, all further packets might
-> > be reassembled wrong.
-> >
-> 
-> Yes, all fragments have 'id 0'.
-> 
-> > When looking at the code, is seems that sctp sets the DF flag
-> > on packets as the default. The IPsec encapsulation code copies
-> > the DF bit from the inner header and sets 'id 0' in this case.
-> > A first guess would be that someone removes the DF flag after
-> > the IPsec encapsulation.
-> >
-> > Is the DF flag set on your inner sctp packets?
-> >
-> 
-> Yes, the inner packets have DF set, but the outer do not.
+On 07/15/2014 10:57 AM, Masatake YAMATO wrote:
+> Though nlmon device can be added, it was not listed
+> in the output of "ip link help".
+>
+> Acked-by: Daniel Borkmann <dborkman@redhat.com>
+> Signed-off-by: Masatake YAMATO <yamato@redhat.com>
 
-So we need to find where the DF flag disappears.
-
-I tried to reproduce your issue with the current net tree,
-but I was not able to do so.
-
-With the plain net tree, all packets have the DF flag set
-(sctp and esp), no fragments.
-
-With the net tree and commit c08751c851b78514f6ec5 reverted,
-I have some packets with the DF flag and some without. The
-packets without the DF flag got fragmented after IPsec
-processing. But even in this case, the ESP packet has the
-DF flag set whenever the inner sctp packet has it set.
-And also, the DF flag is set whenever a packet has 'id 0'.
-The fragmented packets never have the 'id 0'.
-
-Can you describe your usecase more precisely? Do you use
-any additional tunnel like ipip/gre etc. or packet mangling?
+No need to resend, your original patch is still queued
+up here: http://patchwork.ozlabs.org/patch/358864/
