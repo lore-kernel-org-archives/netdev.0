@@ -1,44 +1,48 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next] net-timestamp: document deprecated syststamp
-Date: Tue, 15 Jul 2014 08:31:01 +0200
-Message-ID: <20140715063101.GB4087@localhost.localdomain>
-References: <1405374930-4763-1-git-send-email-willemb@google.com>
+From: Christoph Schulz <develop@kristov.de>
+Subject: Re: [PATCH net 1/1] net: ppp: fix creating PPP pass and active filters
+Date: Tue, 15 Jul 2014 08:35:29 +0200
+Message-ID: <53C4CBB1.5000202@kristov.de>
+References: <53C28297.4080507@kristov.de> <53C29DAA.8020405@gmail.com> <20140713180735.209671xd9qjsgmo7@berry.schulz.ip-v6.eu> <53C2D541.8080900@redhat.com> <20140715065458.15013qglk08wv3mq@kristov.noip.me> <53C4B9BF.1020902@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	stephen@networkplumber.org
-To: Willem de Bruijn <willemb@google.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-ppp@vger.kernel.org,
+	paulus@samba.org, isdn@linux-pingi.de
+To: Varka Bhadram <varkabhadram@gmail.com>,
+	Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:37391 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757766AbaGOGbX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 02:31:23 -0400
-Received: by mail-wi0-f172.google.com with SMTP id n3so3700652wiv.11
-        for <netdev@vger.kernel.org>; Mon, 14 Jul 2014 23:31:21 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1405374930-4763-1-git-send-email-willemb@google.com>
+Received: from server721-han.de-nserver.de ([85.158.180.102]:33236 "EHLO
+	server721-han.de-nserver.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757616AbaGOGfe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 02:35:34 -0400
+In-Reply-To: <53C4B9BF.1020902@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 14, 2014 at 05:55:30PM -0400, Willem de Bruijn wrote:
-> The SO_TIMESTAMPING API defines option SOF_TIMESTAMPING_SYS_HW.
-> This feature is deprecated. It should not be implemented by new
-> device drivers. Existing drivers do not implement it, either --
-> with one exception.
-> 
-> Driver developers are encouraged to expose the NIC hw clock as a
-> PTP HW clock source, instead, and synchronize system time to the
-> HW source.
-> 
-> The control flag cannot be removed due to being part of the ABI, nor
-> can the structure scm_timestamping that is returned. Due to the one
-> legacy driver, the internal datapath and structure are not removed.
-> 
-> This patch only clearly marks the interface as deprecated. Device
-> drivers should always return a syststamp value of zero.
-> 
-> Signed-off-by: Willem de Bruijn <willemb@google.com>
+Hello!
 
-Thanks a bunch for this!
+Am 15.07.2014 07:18, schrieb Varka Bhadram:
+> There are can be two solutions:
+> 
+> 1. Replace the long function name (sk_unattached_filter_create) with the simple macro.
+>     We can define the macro locally with our driver name.I don't know how many people
+>     will accept it. For this we have to change the entire filter framework.
+> 
+> 2. Shorten the argument name 'pass_filter/active_filter'.
+>     For this also we need to change the entire framework. People many not be accept it.
 
-Acked-by: Richard Cochran <richardcochran@gmail.com>
+Is the 80 characters limit really that strong?
+Documentation/SubmittingPatches contains the paragraph:
+
+> The style checker should be viewed as
+> a guide not as the final word.  If your code looks better with
+> a violation then its probably best left alone.
+
+IMHO defining and using local macros only to shorten two lines does not
+improve code readability. Note that we talk about 83 and 85 characters,
+respectively, not about >= 100.
+
+
+Regards,
+
+Christoph Schulz
