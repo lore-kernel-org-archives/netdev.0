@@ -1,41 +1,33 @@
-From: Sachin Kamat <sachin.kamat@samsung.com>
-Subject: [PATCH 1/1] ethernet: mvpp2: Fix build breakage
-Date: Tue, 15 Jul 2014 16:36:05 +0530
-Message-ID: <1405422365-6214-1-git-send-email-sachin.kamat@samsung.com>
-Cc: davem@davemloft.net, spk.linux@gmail.com,
-	Marcin Wojtas <mw@semihalf.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-To: netdev@vger.kernel.org
+From: Varka Bhadram <varkabhadram@gmail.com>
+Subject: Re: [PATCH net-next] sfc: add extra RX drop counters for nodesc_trunc
+ and noskb_drop
+Date: Tue, 15 Jul 2014 16:40:45 +0530
+Message-ID: <53C50C35.80200@gmail.com>
+References: <alpine.LFD.2.03.1407141534440.19512@solarflare.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Dave Miller <davem@davemloft.net>, linux-net-drivers@solarflare.com
+To: Edward Cree <ecree@solarflare.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:57417 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758738AbaGOLKE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 07:10:04 -0400
-Received: by mail-pd0-f171.google.com with SMTP id z10so4656809pdj.2
-        for <netdev@vger.kernel.org>; Tue, 15 Jul 2014 04:10:03 -0700 (PDT)
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:64193 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758043AbaGOLL6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 07:11:58 -0400
+Received: by mail-pa0-f42.google.com with SMTP id lf10so3203871pab.15
+        for <netdev@vger.kernel.org>; Tue, 15 Jul 2014 04:11:58 -0700 (PDT)
+In-Reply-To: <alpine.LFD.2.03.1407141534440.19512@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A missing space in the module license string caused the following error
-while doing a modular build.
-FATAL: modpost: GPL-incompatible module mvpp2.ko uses GPL-only symbol 'platform_driver_unregister'
+On 07/15/2014 04:28 PM, Edward Cree wrote:
+> Added a counter rx_noskb_drop for failure to allocate an skb.
+> Summed the per-channel rx_nodesc_trunc counters earlier so that they can
+>   be included in rx_dropped.
+>
+>
+check patch errors on this patch...  :-)
 
-Signed-off-by: Sachin Kamat <sachin.kamat@samsung.com>
-Cc: Marcin Wojtas <mw@semihalf.com>
-Cc: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
----
- drivers/net/ethernet/marvell/mvpp2.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 9463ede32e6a..f4de2a9316ff 100644
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -6390,4 +6390,4 @@ module_platform_driver(mvpp2_driver);
- 
- MODULE_DESCRIPTION("Marvell PPv2 Ethernet Driver - www.marvell.com");
- MODULE_AUTHOR("Marcin Wojtas <mw@semihalf.com>");
--MODULE_LICENSE("GPLv2");
-+MODULE_LICENSE("GPL v2");
 -- 
-1.7.9.5
+Regards,
+Varka Bhadram.
