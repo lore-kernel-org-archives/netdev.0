@@ -1,79 +1,65 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net-next v2 3/3] net: sctp: Add partial support for MSG_MORE
- on SCTP
-Date: Tue, 15 Jul 2014 11:24:29 -0400
-Message-ID: <53C547AD.3090906@gmail.com>
-References: <063D6719AE5E284EB5DD2968C1650D6D1726EEB7@AcuExch.aculab.com> <53C04509.70304@gmail.com> <063D6719AE5E284EB5DD2968C1650D6D17271E0B@AcuExch.aculab.com> <53C42C58.3050108@gmail.com> <063D6719AE5E284EB5DD2968C1650D6D17273C31@AcuExch.aculab.com>
+From: Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>
+Subject: RE: [PATCH v6 ethtool 0/2] patchset - Support for configurable RSS
+ hash key
+Date: Tue, 15 Jul 2014 15:24:18 +0000
+Message-ID: <e0356375-ac11-4291-9848-e6807c5a8ce9@CMEXHTCAS1.ad.emulex.com>
+References: <1f23ef3b-5ffd-4668-aff6-a719dc63fb28@CMEXHTCAS2.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: "'davem@davemloft.net'" <davem@davemloft.net>
-To: David Laight <David.Laight@ACULAB.COM>,
-	"'netdev@vger.kernel.org'" <netdev@vger.kernel.org>,
-	"'linux-sctp@vger.kernel.org'" <linux-sctp@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>
+To: "ben@decadent.org.uk" <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f181.google.com ([209.85.216.181]:64649 "EHLO
-	mail-qc0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755324AbaGOPYc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 11:24:32 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D17273C31@AcuExch.aculab.com>
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:34765 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751664AbaGOPYW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 11:24:22 -0400
+In-Reply-To: <1f23ef3b-5ffd-4668-aff6-a719dc63fb28@CMEXHTCAS2.ad.emulex.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/15/2014 10:33 AM, David Laight wrote:
-> From: Vlad Yasevich 
->> On 07/14/2014 12:27 PM, David Laight wrote:
->>> From: Vlad Yasevich
->>> ...
->>>>> +	/* Setting MSG_MORE currently has the same effect as enabling Nagle.
->>>>> +	 * This means that the user can't force bundling of the first two data
->>>>> +	 * chunks.  It does mean that all the data chunks will be sent
->>>>> +	 * without an extra timer.
->>>>> +	 * It is enough to save the last value since any data sent with
->>>>> +	 * MSG_MORE clear will already have been sent (subject to flow control).
->>>>> +	 */
->>>>> +	if (msg->msg_flags & MSG_MORE)
->>>>> +		sp->tx_delay |= SCTP_F_TX_MSG_MORE;
->>>>> +	else
->>>>> +		sp->tx_delay &= ~SCTP_F_TX_MSG_MORE;
->>>>> +
->>>>
->>>> This is ok for 1-1 sockets, but it doesn't really work for 1-many sockets.  If one of
->>>> the associations uses MSG_MORE while another does not, we'll see some interesting
->>>> side-effects on the wire.
->>>
-> ...
->>> I don't think this is a problem.
->>
->> Not, it is not a _problem_, but it does make MSG_MORE rather useless
->> in some situations.  Waiting for an ACK across low-latency links
->> is rare, but in a high-latency scenarios where you want to utilize the
->> bandwidth better with bundling, you may not see the gains you expect.
->>
->> Since MSG_MORE is association, it should be handled as such and an
->> a change on one association should not effect the others.
-> 
-> I think the comments already say that it is only a partial implementation.
-> (If you send 2 chunks on an idle connection, they get sent separately.)
-> Perhaps I'll add a note about possibly 'odd' effects for 1-many sockets
-> with multi-threaded apps.
-> 
-> It helps a lot for my M3UA traffic.
-> I can get the same effect on an old kernel by repeatedly changing SCTP_NODELAY,
-> but that does rather rely on the way Nagle is implemented.
+Ben, 
+Are there any  review comments on this patchset?
 
-You can fix this by having an sp->tx_delay value and a assoc->tx_delay value
-and simple check (sp->tx_delay | assoc->tx_delay).  MSG_MORE would only set
-the assoc->tx_delay while SCTP_NODELAY would effect the socket.
+/Venkat.
 
-This way, when one association uses MSG_MORE, it will not effect other associations
-on the same socket that don't use it.
-
--vlad
-
+> -----Original Message-----
+> From: netdev-owner@vger.kernel.org [mailto:netdev-
+> owner@vger.kernel.org] On Behalf Of Venkat Duvvuru
+> Sent: Friday, June 06, 2014 9:21 PM
+> To: ben@decadent.org.uk
+> Cc: netdev@vger.kernel.org; Venkat Duvvuru
+> Subject: [PATCH v6 ethtool 0/2] patchset - Support for configurable RSS hash
+> key
 > 
-> 	David
+> NIC drivers that support RSS use either a hard-coded value or a random value
+> for the RSS hash key. Irrespective of the type of the key used, the user
+> would want to change the hash key if he/she is not satisfied with the
+> effectiveness of the default hash-key in spreading the incoming flows evenly
+> across the RSS queues.
 > 
+> This patch set adds support for configuring the RSS hash-key via the ethtool
+> interface using .X/-x option.
 > 
+> v6:
+> 1. Addressed Ben's comments.
+> 2. Fixed memory leaks in do_grxfhindir, do_srxfhindir, do_srxfh, do_grxfh.
+> 3. Handled memory allocation failures in do_grxfhindir, do_srxfhindir,
+> do_srxfh, do_grxfh.
 > 
+> Venkat Duvvuru (2):
+>   ethtool: Support for configurable RSS hash key
+>   ethtool: Support for configurable RSS hash key
 > 
+>  ethtool-copy.h |  478
+> ++++++++++++++++++++++++++++++++++++++++++--------------
+>  ethtool.8.in   |   18 ++-
+>  ethtool.c      |  390 ++++++++++++++++++++++++++++++++++++++--------
+>  3 files changed, 703 insertions(+), 183 deletions(-)
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
