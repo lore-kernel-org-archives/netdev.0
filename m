@@ -1,42 +1,64 @@
-From: =?UTF-8?q?Michel=20D=C3=A4nzer?= <michel@daenzer.net>
-Subject: [PATCH] r8169: Enable RX_MULTI_EN for RTL_GIGA_MAC_VER_40
-Date: Tue, 15 Jul 2014 15:41:40 +0900
-Message-ID: <1405406500-1208-1-git-send-email-michel@daenzer.net>
+From: Jongsung Kim <neidhard.kim@lge.com>
+Subject: Re: [PATCH 1/2] net: cadence: macb: add support for the WOL
+Date: Tue, 15 Jul 2014 15:58:46 +0900
+Message-ID: <53C4D126.5000005@lge.com>
+References: <1405328538-29153-1-git-send-email-neidhard.kim@lge.com> <53C3ADB9.4010309@gmail.com> <063D6719AE5E284EB5DD2968C1650D6D17271AC1@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>,
-	Realtek linux nic maintainers <nic_swsd@realtek.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: David Laight <David.Laight@ACULAB.COM>,
+	'Varka Bhadram' <varkabhadram@gmail.com>,
+	"nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D17271AC1@AcuExch.aculab.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Without this, the ethernet port on my ASUS A88X Pro mainboard stops
-working sometimes, with messages like these in dmesg:
+On 07/14/2014 07:49 PM, David Laight wrote:
+> From: Varka Bhadram
+>> On 07/14/2014 02:32 PM, Jongsung Kim wrote:
+>>> This patch enables the ethtool utility to control the WOL function
+>>> of the PHY connected to the GEM/MACB. (if supported)
+> ...
+>>> +static int macb_set_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
+>>> +{
+>>> +	struct macb *bp = netdev_priv(netdev);
+>>> +	struct phy_device *phydev = bp->phy_dev;
+>>> +	int err = -ENODEV;
+>>> +
+>>> +	if (phydev)
+>>> +		err = phy_ethtool_set_wol(phydev, wol);
+>>> +
+>>> +	return err;
+>>> +}
+>>> +
+>>
+>> I think we can do in this way:
+>>
+>> if (phydev)
+>> 	return phy_ethtool_set_wol(phydev, wol);
+>> else
+>> 	return -ENODEV;
+>>
+>>
+>> we can save err. What do you say ...?
+> 
+> I would do:
+> 	if (!phydev)
+> 		return -ENODEV;
+> 	return phy_ethtool_set_wol(phydev, wol);
+> 
+> Although it might even be worth moving the NULL test into the function.
+> (sort of depends on style and the number of callers who need to do the test.)
+> 
 
-AMD-Vi: Event logged [IO_PAGE_FAULT device=3D05:00.0 domain=3D0x001e ad=
-dress=3D0x0000000000003000 flags=3D0x0050]
-Signed-off-by: Michel D=C3=A4nzer <michel@daenzer.net>
----
- drivers/net/ethernet/realtek/r8169.c | 2 ++
- 1 file changed, 2 insertions(+)
+Totally agreed. I'd be better to submit a patch about it first.
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/etherne=
-t/realtek/r8169.c
-index be425ad..e577566 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -4239,6 +4239,8 @@ static void rtl_init_rxcfg(struct rtl8169_private=
- *tp)
- 		RTL_W32(RxConfig, RX128_INT_EN | RX_MULTI_EN | RX_DMA_BURST);
- 		break;
- 	case RTL_GIGA_MAC_VER_40:
-+		RTL_W32(RxConfig, RX128_INT_EN | RX_MULTI_EN | RX_DMA_BURST | RX_EAR=
-LY_OFF);
-+		break;
- 	case RTL_GIGA_MAC_VER_41:
- 	case RTL_GIGA_MAC_VER_42:
- 	case RTL_GIGA_MAC_VER_43:
---=20
-2.0.0
+> 	David
+> 
+> 
+> 
+> 
