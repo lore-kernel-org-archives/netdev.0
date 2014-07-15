@@ -1,48 +1,42 @@
-From: Christoph Schulz <develop@kristov.de>
-Subject: Re: [PATCH net 1/1] net: ppp: fix creating PPP pass and active filters
-Date: Tue, 15 Jul 2014 08:35:29 +0200
-Message-ID: <53C4CBB1.5000202@kristov.de>
-References: <53C28297.4080507@kristov.de> <53C29DAA.8020405@gmail.com> <20140713180735.209671xd9qjsgmo7@berry.schulz.ip-v6.eu> <53C2D541.8080900@redhat.com> <20140715065458.15013qglk08wv3mq@kristov.noip.me> <53C4B9BF.1020902@gmail.com>
+From: =?UTF-8?q?Michel=20D=C3=A4nzer?= <michel@daenzer.net>
+Subject: [PATCH] r8169: Enable RX_MULTI_EN for RTL_GIGA_MAC_VER_40
+Date: Tue, 15 Jul 2014 15:41:40 +0900
+Message-ID: <1405406500-1208-1-git-send-email-michel@daenzer.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-ppp@vger.kernel.org,
-	paulus@samba.org, isdn@linux-pingi.de
-To: Varka Bhadram <varkabhadram@gmail.com>,
-	Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from server721-han.de-nserver.de ([85.158.180.102]:33236 "EHLO
-	server721-han.de-nserver.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757616AbaGOGfe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 02:35:34 -0400
-In-Reply-To: <53C4B9BF.1020902@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>,
+	Realtek linux nic maintainers <nic_swsd@realtek.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello!
+Without this, the ethernet port on my ASUS A88X Pro mainboard stops
+working sometimes, with messages like these in dmesg:
 
-Am 15.07.2014 07:18, schrieb Varka Bhadram:
-> There are can be two solutions:
-> 
-> 1. Replace the long function name (sk_unattached_filter_create) with the simple macro.
->     We can define the macro locally with our driver name.I don't know how many people
->     will accept it. For this we have to change the entire filter framework.
-> 
-> 2. Shorten the argument name 'pass_filter/active_filter'.
->     For this also we need to change the entire framework. People many not be accept it.
+AMD-Vi: Event logged [IO_PAGE_FAULT device=3D05:00.0 domain=3D0x001e ad=
+dress=3D0x0000000000003000 flags=3D0x0050]
+Signed-off-by: Michel D=C3=A4nzer <michel@daenzer.net>
+---
+ drivers/net/ethernet/realtek/r8169.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-Is the 80 characters limit really that strong?
-Documentation/SubmittingPatches contains the paragraph:
-
-> The style checker should be viewed as
-> a guide not as the final word.  If your code looks better with
-> a violation then its probably best left alone.
-
-IMHO defining and using local macros only to shorten two lines does not
-improve code readability. Note that we talk about 83 and 85 characters,
-respectively, not about >= 100.
-
-
-Regards,
-
-Christoph Schulz
+diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/etherne=
+t/realtek/r8169.c
+index be425ad..e577566 100644
+--- a/drivers/net/ethernet/realtek/r8169.c
++++ b/drivers/net/ethernet/realtek/r8169.c
+@@ -4239,6 +4239,8 @@ static void rtl_init_rxcfg(struct rtl8169_private=
+ *tp)
+ 		RTL_W32(RxConfig, RX128_INT_EN | RX_MULTI_EN | RX_DMA_BURST);
+ 		break;
+ 	case RTL_GIGA_MAC_VER_40:
++		RTL_W32(RxConfig, RX128_INT_EN | RX_MULTI_EN | RX_DMA_BURST | RX_EAR=
+LY_OFF);
++		break;
+ 	case RTL_GIGA_MAC_VER_41:
+ 	case RTL_GIGA_MAC_VER_42:
+ 	case RTL_GIGA_MAC_VER_43:
+--=20
+2.0.0
