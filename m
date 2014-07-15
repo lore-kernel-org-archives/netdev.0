@@ -1,51 +1,52 @@
-From: Jianhua Xie <jianhua.xie@freescale.com>
-Subject: Re: [PATCH net] bonding: enhance L2 hash helper with packet type
-Date: Tue, 15 Jul 2014 15:48:09 +0800
-Message-ID: <53C4DCB9.1050208@freescale.com>
-References: <1405317926-27221-1-git-send-email-Jianhua.Xie@freescale.com> <20140714.190839.1595507738609644305.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net v2] bonding: enhance L2 hash helper with packet type
+Date: Tue, 15 Jul 2014 10:05:36 +0200
+Message-ID: <1405411536.10255.15.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1405410083-26489-1-git-send-email-Jianhua.Xie@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <j.vosburgh@gmail.com>,
-	<vfalico@gmail.com>, <andy@greyhouse.net>,
-	<Jiafei.Pan@freescale.com>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Pan Jiafei <Jiafei.Pan@freescale.com>
+To: Xie Jianhua <Jianhua.Xie@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1lp0140.outbound.protection.outlook.com ([207.46.163.140]:10858
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1757882AbaGOHsq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 15 Jul 2014 03:48:46 -0400
-In-Reply-To: <20140714.190839.1595507738609644305.davem@davemloft.net>
+Received: from mail-we0-f179.google.com ([74.125.82.179]:53909 "EHLO
+	mail-we0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757702AbaGOIFl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 04:05:41 -0400
+Received: by mail-we0-f179.google.com with SMTP id u57so2987795wes.38
+        for <netdev@vger.kernel.org>; Tue, 15 Jul 2014 01:05:40 -0700 (PDT)
+In-Reply-To: <1405410083-26489-1-git-send-email-Jianhua.Xie@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/15/2014 10:08 AM, David Miller wrote:
-> From: Xie Jianhua <Jianhua.Xie@freescale.com>
-> Date: Mon, 14 Jul 2014 14:05:26 +0800
->
->> @@ -3002,7 +3002,7 @@ static inline u32 bond_eth_hash(struct sk_buff *skb)
->>   	struct ethhdr *data = (struct ethhdr *)skb->data;
->>   
->>   	if (skb_headlen(skb) >= offsetof(struct ethhdr, h_proto))
->> -		return data->h_dest[5] ^ data->h_source[5];
->> +		return data->h_dest[5] ^ data->h_source[5] ^ data->h_proto;
->>   
->>   	return 0;
->>   }
-> About the headlen check, I don't like the idea that the hash depends upon
-> whether we have a fully fragmented packet or not.
->
-> Just use the appropriate interface, skb_header_pointer(), and recode this
-> as:
->
-> 	struct ethhdr *ep, _hdr;
->
-> 	ep = skb_header_pointer(skb, 0, sizeof(_hdr), &_hdr);
-> 	if (ep)
-> 		return ep->h_dest[5] ^ ep->h_source[5] ^ ep->h_proto;
-> 	return 0;
-Many thanks, patch v2 is coming.
+On Tue, 2014-07-15 at 15:41 +0800, Xie Jianhua wrote:
+> From: Jianhua Xie <jianhua.xie@freescale.com>
+> 
+> Current L2 hash helper calculates destination eth addr and
+> source ether addr as L2 hash factors. This patch is adding
+> packet type ID field into hash factors, which can help to
+> distribute different types of packets like IPv4/IPv6 packets
+> to different slave devices while only BOND_XMIT_POLICY_LAYER2
+> is applied.
+> 
+> CC: Jay Vosburgh <j.vosburgh@gmail.com>
+> CC: Veaceslav Falico <vfalico@gmail.com>
+> CC: Andy Gospodarek <andy@greyhouse.net>
+> CC: David S. Miller <davem@davemloft.net>
+> CC: Pan Jiafei <Jiafei.Pan@freescale.com>
+> 
+> Suggested-by: David S. Miller <davem@davemloft.net>
 
-Best Regards,
-Jianhua
+I do not think this patch was suggested by David.
+
+He suggested to use skb_header_pointer() which is an implementation
+detail.
+
+Anyway, patch looks fine, even if bond_eth_hash() is no longer a leaf
+function.
+
+Acked-by: Eric Dumazet <edumazet@google.com>
