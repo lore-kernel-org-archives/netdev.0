@@ -1,7 +1,7 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 3/7] tipc: add new functions for multicast and broadcast distribution
-Date: Tue, 15 Jul 2014 10:49:53 -0400
-Message-ID: <1405435797-30116-4-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next 1/7] tipc: make name table distributor use new send function
+Date: Tue, 15 Jul 2014 10:49:51 -0400
+Message-ID: <1405435797-30116-2-git-send-email-jon.maloy@ericsson.com>
 References: <1405435797-30116-1-git-send-email-jon.maloy@ericsson.com>
 Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
@@ -10,267 +10,270 @@ Cc: netdev@vger.kernel.org,
 	Jon Maloy <jon.maloy@ericsson.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp107.biz.mail.ne1.yahoo.com ([98.138.207.14]:34022 "HELO
+Received: from smtp107.biz.mail.ne1.yahoo.com ([98.138.207.14]:33997 "HELO
 	smtp107.biz.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751426AbaGOOuF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 10:50:05 -0400
+	by vger.kernel.org with SMTP id S1752419AbaGOOuD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 10:50:03 -0400
 In-Reply-To: <1405435797-30116-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We add a new broadcast link transmit function in bclink.c and a new
-receive function in socket.c. The purpose is to move the branching
-between external and internal destination down to the link layer,
-just as we have done with unicast in earlier commits. We also make
-use of the new link-independent fragmentation support that was
-introduced in an earlier commit series.
+In a previous commit series ("tipc: new unicast transmission code")
+we introduced a new message sending function, tipc_link_xmit2(),
+and moved the unicast data users over to use that function. We now
+let the internal name table distributor do the same.
 
-This gives a shorter and simpler code path, and makes it possible
-to obtain copy-free buffer delivery to all node local destination
-sockets.
-
-The new transmission code is added in parallel with the existing one,
-and will be used by the socket multicast send function in the next
-commit in this series.
+The interaction between the name distributor and the node/link
+layer also becomes significantly simpler, so we can eliminate
+the function tipc_link_names_xmit().
 
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
 Reviewed-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/bcast.c  |   55 ++++++++++++++++++++++++++++++++++++++++++++++++++++-
- net/tipc/bcast.h  |    4 +++-
- net/tipc/msg.c    |   38 ++++++++++++++++++++++++++++++++++++
- net/tipc/msg.h    |    2 ++
- net/tipc/socket.c |   40 ++++++++++++++++++++++++++++++++++++++
- net/tipc/socket.h |    2 ++
- 6 files changed, 139 insertions(+), 2 deletions(-)
+ net/tipc/link.c       |   41 --------------------------
+ net/tipc/link.h       |    1 -
+ net/tipc/name_distr.c |   76 ++++++++++++++++++++++++++++---------------------
+ net/tipc/name_distr.h |    2 +-
+ net/tipc/node.c       |   13 ++-------
+ 5 files changed, 48 insertions(+), 85 deletions(-)
 
-diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
-index 2663167..4742d60 100644
---- a/net/tipc/bcast.c
-+++ b/net/tipc/bcast.c
-@@ -1,7 +1,7 @@
- /*
-  * net/tipc/bcast.c: TIPC broadcast code
-  *
-- * Copyright (c) 2004-2006, Ericsson AB
-+ * Copyright (c) 2004-2006, 2014, Ericsson AB
-  * Copyright (c) 2004, Intel Corporation.
-  * Copyright (c) 2005, 2010-2011, Wind River Systems
-  * All rights reserved.
-@@ -38,6 +38,8 @@
- #include "core.h"
- #include "link.h"
- #include "port.h"
-+#include "socket.h"
-+#include "msg.h"
- #include "bcast.h"
- #include "name_distr.h"
- 
-@@ -138,6 +140,11 @@ static void tipc_bclink_unlock(void)
- 		tipc_link_reset_all(node);
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index a235b24..367b0f5 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -1033,47 +1033,6 @@ static void tipc_link_sync_rcv(struct tipc_node *n, struct sk_buff *buf)
  }
  
-+uint  tipc_bclink_get_mtu(void)
-+{
-+	return MAX_PKT_DEFAULT_MCAST;
-+}
-+
- void tipc_bclink_set_flags(unsigned int flags)
+ /*
+- * tipc_link_names_xmit - send name table entries to new neighbor
+- *
+- * Send routine for bulk delivery of name table messages when contact
+- * with a new neighbor occurs. No link congestion checking is performed
+- * because name table messages *must* be delivered. The messages must be
+- * small enough not to require fragmentation.
+- * Called without any locks held.
+- */
+-void tipc_link_names_xmit(struct list_head *message_list, u32 dest)
+-{
+-	struct tipc_node *n_ptr;
+-	struct tipc_link *l_ptr;
+-	struct sk_buff *buf;
+-	struct sk_buff *temp_buf;
+-
+-	if (list_empty(message_list))
+-		return;
+-
+-	n_ptr = tipc_node_find(dest);
+-	if (n_ptr) {
+-		tipc_node_lock(n_ptr);
+-		l_ptr = n_ptr->active_links[0];
+-		if (l_ptr) {
+-			/* convert circular list to linear list */
+-			((struct sk_buff *)message_list->prev)->next = NULL;
+-			link_add_chain_to_outqueue(l_ptr,
+-				(struct sk_buff *)message_list->next, 0);
+-			tipc_link_push_queue(l_ptr);
+-			INIT_LIST_HEAD(message_list);
+-		}
+-		tipc_node_unlock(n_ptr);
+-	}
+-
+-	/* discard the messages if they couldn't be sent */
+-	list_for_each_safe(buf, temp_buf, ((struct sk_buff *)message_list)) {
+-		list_del((struct list_head *)buf);
+-		kfree_skb(buf);
+-	}
+-}
+-
+-/*
+  * tipc_link_push_packet: Push one unsent packet to the media
+  */
+ static u32 tipc_link_push_packet(struct tipc_link *l_ptr)
+diff --git a/net/tipc/link.h b/net/tipc/link.h
+index 227ff81..04a59c5 100644
+--- a/net/tipc/link.h
++++ b/net/tipc/link.h
+@@ -228,7 +228,6 @@ void tipc_link_reset(struct tipc_link *l_ptr);
+ void tipc_link_reset_list(unsigned int bearer_id);
+ int tipc_link_xmit(struct sk_buff *buf, u32 dest, u32 selector);
+ int tipc_link_xmit2(struct sk_buff *buf, u32 dest, u32 selector);
+-void tipc_link_names_xmit(struct list_head *message_list, u32 dest);
+ int __tipc_link_xmit(struct tipc_link *l_ptr, struct sk_buff *buf);
+ int __tipc_link_xmit2(struct tipc_link *link, struct sk_buff *buf);
+ int tipc_link_send_buf(struct tipc_link *l_ptr, struct sk_buff *buf);
+diff --git a/net/tipc/name_distr.c b/net/tipc/name_distr.c
+index 8ce7309..d16f947 100644
+--- a/net/tipc/name_distr.c
++++ b/net/tipc/name_distr.c
+@@ -101,24 +101,22 @@ static struct sk_buff *named_prepare_buf(u32 type, u32 size, u32 dest)
+ 
+ void named_cluster_distribute(struct sk_buff *buf)
  {
- 	bclink->flags |= flags;
-@@ -408,6 +415,52 @@ exit:
- 	return res;
- }
+-	struct sk_buff *buf_copy;
+-	struct tipc_node *n_ptr;
+-	struct tipc_link *l_ptr;
++	struct sk_buff *obuf;
++	struct tipc_node *node;
++	u32 dnode;
  
-+/* tipc_bclink_xmit2 - broadcast buffer chain to all nodes in cluster
-+ *                     and to identified node local sockets
-+ * @buf: chain of buffers containing message
-+ * Consumes the buffer chain, except when returning -ELINKCONG
-+ * Returns 0 if success, otherwise errno: -ELINKCONG,-EHOSTUNREACH,-EMSGSIZE
-+ */
-+int tipc_bclink_xmit2(struct sk_buff *buf)
-+{
-+	int rc = 0;
-+	int bc = 0;
-+	struct sk_buff *clbuf;
-+
-+	/* Prepare clone of message for local node */
-+	clbuf = tipc_msg_reassemble(buf);
-+	if (unlikely(!clbuf)) {
-+		kfree_skb_list(buf);
-+		return -EHOSTUNREACH;
-+	}
-+
-+	/* Broadcast to all other nodes */
-+	if (likely(bclink)) {
-+		tipc_bclink_lock();
-+		if (likely(bclink->bcast_nodes.count)) {
-+			rc = __tipc_link_xmit(bcl, buf);
-+			if (likely(!rc)) {
-+				bclink_set_last_sent();
-+				bcl->stats.queue_sz_counts++;
-+				bcl->stats.accu_queue_sz += bcl->out_queue_size;
-+			}
-+			bc = 1;
-+		}
-+		tipc_bclink_unlock();
-+	}
-+
-+	if (unlikely(!bc))
-+		kfree_skb_list(buf);
-+
-+	/* Deliver message clone */
-+	if (likely(!rc))
-+		tipc_sk_mcast_rcv(clbuf);
-+	else
-+		kfree_skb(clbuf);
-+
-+	return rc;
-+}
-+
- /**
-  * bclink_accept_pkt - accept an incoming, in-sequence broadcast packet
-  *
-diff --git a/net/tipc/bcast.h b/net/tipc/bcast.h
-index 00330c4..d90645f 100644
---- a/net/tipc/bcast.h
-+++ b/net/tipc/bcast.h
-@@ -1,7 +1,7 @@
- /*
-  * net/tipc/bcast.h: Include file for TIPC broadcast code
-  *
-- * Copyright (c) 2003-2006, Ericsson AB
-+ * Copyright (c) 2003-2006, 2014, Ericsson AB
-  * Copyright (c) 2005, 2010-2011, Wind River Systems
-  * All rights reserved.
-  *
-@@ -98,5 +98,7 @@ int  tipc_bclink_stats(char *stats_buf, const u32 buf_size);
- int  tipc_bclink_reset_stats(void);
- int  tipc_bclink_set_queue_limits(u32 limit);
- void tipc_bcbearer_sort(struct tipc_node_map *nm_ptr, u32 node, bool action);
-+uint  tipc_bclink_get_mtu(void);
-+int tipc_bclink_xmit2(struct sk_buff *buf);
- 
- #endif
-diff --git a/net/tipc/msg.c b/net/tipc/msg.c
-index 6ec9584..4662b16 100644
---- a/net/tipc/msg.c
-+++ b/net/tipc/msg.c
-@@ -412,3 +412,41 @@ int tipc_msg_eval(struct sk_buff *buf, u32 *dnode)
- 	msg_set_destport(msg, dport);
- 	return TIPC_OK;
- }
-+
-+/* tipc_msg_reassemble() - clone a buffer chain of fragments and
-+ *                         reassemble the clones into one message
-+ */
-+struct sk_buff *tipc_msg_reassemble(struct sk_buff *chain)
-+{
-+	struct sk_buff *buf = chain;
-+	struct sk_buff *frag = buf;
-+	struct sk_buff *head = NULL;
-+	int hdr_sz;
-+
-+	/* Copy header if single buffer */
-+	if (!buf->next) {
-+		hdr_sz = skb_headroom(buf) + msg_hdr_sz(buf_msg(buf));
-+		head = __pskb_copy(buf, hdr_sz, GFP_ATOMIC);
-+		if (likely(head))
-+			return head;
-+		return NULL;
-+	}
-+
-+	/* Clone all fragments and reassemble */
-+	while (buf) {
-+		frag = skb_clone(buf, GFP_ATOMIC);
-+		if (!frag)
-+			goto error;
-+		frag->next = NULL;
-+		if (tipc_buf_append(&head, &frag))
+ 	rcu_read_lock();
+-	list_for_each_entry_rcu(n_ptr, &tipc_node_list, list) {
+-		tipc_node_lock(n_ptr);
+-		l_ptr = n_ptr->active_links[n_ptr->addr & 1];
+-		if (l_ptr) {
+-			buf_copy = skb_copy(buf, GFP_ATOMIC);
+-			if (!buf_copy) {
+-				tipc_node_unlock(n_ptr);
+-				break;
+-			}
+-			msg_set_destnode(buf_msg(buf_copy), n_ptr->addr);
+-			__tipc_link_xmit(l_ptr, buf_copy);
+-		}
+-		tipc_node_unlock(n_ptr);
++	list_for_each_entry_rcu(node, &tipc_node_list, list) {
++		dnode = node->addr;
++		if (in_own_node(dnode))
++			continue;
++		if (!tipc_node_active_links(node))
++			continue;
++		obuf = skb_copy(buf, GFP_ATOMIC);
++		if (!obuf)
 +			break;
-+		if (!head)
-+			goto error;
-+		buf = buf->next;
-+	}
-+	return frag;
-+error:
-+	pr_warn("Failed do clone local mcast rcv buffer\n");
-+	kfree_skb(head);
-+	return NULL;
-+}
-diff --git a/net/tipc/msg.h b/net/tipc/msg.h
-index 7d57434..a15d596 100644
---- a/net/tipc/msg.h
-+++ b/net/tipc/msg.h
-@@ -744,4 +744,6 @@ bool tipc_msg_make_bundle(struct sk_buff **buf, u32 mtu, u32 dnode);
- int tipc_msg_build2(struct tipc_msg *mhdr, struct iovec const *iov,
- 		    int offset, int dsz, int mtu , struct sk_buff **chain);
++		msg_set_destnode(buf_msg(obuf), dnode);
++		tipc_link_xmit2(obuf, dnode, dnode);
+ 	}
+ 	rcu_read_unlock();
  
-+struct sk_buff *tipc_msg_reassemble(struct sk_buff *chain);
-+
- #endif
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 8c5600c..d16550f 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -534,6 +534,46 @@ static unsigned int tipc_poll(struct file *file, struct socket *sock,
- 	return mask;
+@@ -175,34 +173,44 @@ struct sk_buff *tipc_named_withdraw(struct publication *publ)
+ 	return buf;
  }
  
-+/* tipc_sk_mcast_rcv - Deliver multicast message to all destination sockets
-+ */
-+void tipc_sk_mcast_rcv(struct sk_buff *buf)
-+{
-+	struct tipc_msg *msg = buf_msg(buf);
-+	struct tipc_port_list dports = {0, NULL, };
-+	struct tipc_port_list *item;
-+	struct sk_buff *b;
-+	uint i, last, dst = 0;
-+	u32 scope = TIPC_CLUSTER_SCOPE;
+-/*
++/**
+  * named_distribute - prepare name info for bulk distribution to another node
++ * @msg_list: list of messages (buffers) to be returned from this function
++ * @dnode: node to be updated
++ * @pls: linked list of publication items to be packed into buffer chain
+  */
+-static void named_distribute(struct list_head *message_list, u32 node,
+-			     struct publ_list *pls, u32 max_item_buf)
++static void named_distribute(struct list_head *msg_list, u32 dnode,
++			     struct publ_list *pls)
+ {
+ 	struct publication *publ;
+ 	struct sk_buff *buf = NULL;
+ 	struct distr_item *item = NULL;
+-	u32 left = 0;
+-	u32 rest = pls->size * ITEM_SIZE;
++	uint dsz = pls->size * ITEM_SIZE;
++	uint msg_dsz = (tipc_node_get_mtu(dnode, 0) / ITEM_SIZE) * ITEM_SIZE;
++	uint rem = dsz;
++	uint msg_rem = 0;
+ 
+ 	list_for_each_entry(publ, &pls->list, local_list) {
++		/* Prepare next buffer: */
+ 		if (!buf) {
+-			left = (rest <= max_item_buf) ? rest : max_item_buf;
+-			rest -= left;
+-			buf = named_prepare_buf(PUBLICATION, left, node);
++			msg_rem = min_t(uint, rem, msg_dsz);
++			rem -= msg_rem;
++			buf = named_prepare_buf(PUBLICATION, msg_rem, dnode);
+ 			if (!buf) {
+ 				pr_warn("Bulk publication failure\n");
+ 				return;
+ 			}
+ 			item = (struct distr_item *)msg_data(buf_msg(buf));
+ 		}
 +
-+	if (in_own_node(msg_orignode(msg)))
-+		scope = TIPC_NODE_SCOPE;
++		/* Pack publication into message: */
+ 		publ_to_item(item, publ);
+ 		item++;
+-		left -= ITEM_SIZE;
+-		if (!left) {
+-			list_add_tail((struct list_head *)buf, message_list);
++		msg_rem -= ITEM_SIZE;
 +
-+	/* Create destination port list: */
-+	tipc_nametbl_mc_translate(msg_nametype(msg),
-+				  msg_namelower(msg),
-+				  msg_nameupper(msg),
-+				  scope,
-+				  &dports);
-+	last = dports.count;
-+	if (!last) {
-+		kfree_skb(buf);
-+		return;
-+	}
-+
-+	for (item = &dports; item; item = item->next) {
-+		for (i = 0; i < PLSIZE && ++dst <= last; i++) {
-+			b = (dst != last) ? skb_clone(buf, GFP_ATOMIC) : buf;
-+			if (!b) {
-+				pr_warn("Failed do clone mcast rcv buffer\n");
-+				continue;
-+			}
-+			msg_set_destport(msg, item->ports[i]);
-+			tipc_sk_rcv(b);
-+		}
-+	}
-+	tipc_port_list_free(&dports);
-+}
-+
++		/* Append full buffer to list: */
++		if (!msg_rem) {
++			list_add_tail((struct list_head *)buf, msg_list);
+ 			buf = NULL;
+ 		}
+ 	}
+@@ -211,16 +219,20 @@ static void named_distribute(struct list_head *message_list, u32 node,
  /**
-  * tipc_sk_proto_rcv - receive a connection mng protocol message
-  * @tsk: receiving socket
-diff --git a/net/tipc/socket.h b/net/tipc/socket.h
-index 2cdede9..43b75b3 100644
---- a/net/tipc/socket.h
-+++ b/net/tipc/socket.h
-@@ -85,4 +85,6 @@ static inline int tipc_sk_conn_cong(struct tipc_sock *tsk)
+  * tipc_named_node_up - tell specified node about all publications by this node
+  */
+-void tipc_named_node_up(u32 max_item_buf, u32 node)
++void tipc_named_node_up(u32 dnode)
+ {
+-	LIST_HEAD(message_list);
++	LIST_HEAD(msg_list);
++	struct sk_buff *buf_chain;
  
- int tipc_sk_rcv(struct sk_buff *buf);
+ 	read_lock_bh(&tipc_nametbl_lock);
+-	named_distribute(&message_list, node, &publ_cluster, max_item_buf);
+-	named_distribute(&message_list, node, &publ_zone, max_item_buf);
++	named_distribute(&msg_list, dnode, &publ_cluster);
++	named_distribute(&msg_list, dnode, &publ_zone);
+ 	read_unlock_bh(&tipc_nametbl_lock);
  
-+void tipc_sk_mcast_rcv(struct sk_buff *buf);
-+
- #endif
+-	tipc_link_names_xmit(&message_list, node);
++	/* Convert circular list to linear list and send: */
++	buf_chain = (struct sk_buff *)msg_list.next;
++	((struct sk_buff *)msg_list.prev)->next = NULL;
++	tipc_link_xmit2(buf_chain, dnode, dnode);
+ }
+ 
+ /**
+diff --git a/net/tipc/name_distr.h b/net/tipc/name_distr.h
+index b2eed4e..8afe32b 100644
+--- a/net/tipc/name_distr.h
++++ b/net/tipc/name_distr.h
+@@ -70,7 +70,7 @@ struct distr_item {
+ struct sk_buff *tipc_named_publish(struct publication *publ);
+ struct sk_buff *tipc_named_withdraw(struct publication *publ);
+ void named_cluster_distribute(struct sk_buff *buf);
+-void tipc_named_node_up(u32 max_item_buf, u32 node);
++void tipc_named_node_up(u32 dnode);
+ void tipc_named_rcv(struct sk_buff *buf);
+ void tipc_named_reinit(void);
+ 
+diff --git a/net/tipc/node.c b/net/tipc/node.c
+index d959343..f706929 100644
+--- a/net/tipc/node.c
++++ b/net/tipc/node.c
+@@ -474,8 +474,6 @@ int tipc_node_get_linkname(u32 bearer_id, u32 addr, char *linkname, size_t len)
+ void tipc_node_unlock(struct tipc_node *node)
+ {
+ 	LIST_HEAD(nsub_list);
+-	struct tipc_link *link;
+-	int pkt_sz = 0;
+ 	u32 addr = 0;
+ 
+ 	if (likely(!node->action_flags)) {
+@@ -488,18 +486,13 @@ void tipc_node_unlock(struct tipc_node *node)
+ 		node->action_flags &= ~TIPC_NOTIFY_NODE_DOWN;
+ 	}
+ 	if (node->action_flags & TIPC_NOTIFY_NODE_UP) {
+-		link = node->active_links[0];
+ 		node->action_flags &= ~TIPC_NOTIFY_NODE_UP;
+-		if (link) {
+-			pkt_sz = ((link->max_pkt - INT_H_SIZE) / ITEM_SIZE) *
+-				  ITEM_SIZE;
+-			addr = node->addr;
+-		}
++		addr = node->addr;
+ 	}
+ 	spin_unlock_bh(&node->lock);
+ 
+ 	if (!list_empty(&nsub_list))
+ 		tipc_nodesub_notify(&nsub_list);
+-	if (pkt_sz)
+-		tipc_named_node_up(pkt_sz, addr);
++	if (addr)
++		tipc_named_node_up(addr);
+ }
 -- 
 1.7.9.5
