@@ -1,57 +1,94 @@
-From: Anish Bhatt <anish@chelsio.com>
-Subject: [PATCH net-next] cxgb4: Fix static checker warnings
-Date: Tue, 15 Jul 2014 12:17:23 -0700
-Message-ID: <1405451843-3081-1-git-send-email-anish@chelsio.com>
-Cc: davem@davemloft.net, leedom@chelsio.com, hariprasad@chelsio.com,
-	dan.carpenter@oracle.com, Anish Bhatt <anish@chelsio.com>
-To: netdev@vger.kernel.org
+From: Veaceslav Falico <vfalico@gmail.com>
+Subject: Re: [PATCH net-next 2/2] bonding: make hard-coded defines
+ configurable at build
+Date: Tue, 15 Jul 2014 21:18:11 +0200
+Message-ID: <20140715191810.GA16963@mikrodark.usersys.redhat.com>
+References: <1405419341-31510-1-git-send-email-vfalico@gmail.com>
+ <1405419341-31510-3-git-send-email-vfalico@gmail.com>
+ <CAADnVQJCNJVTBFkinNzo=1mSWEBhif3dOVnVvuievJxijtNb7w@mail.gmail.com>
+ <20140715161802.GC5225@mikrodark.usersys.redhat.com>
+ <CAADnVQJaUQsDF1--4ffnCUz=1Tw1Ox=kgUw3h1L1EnrDs0WQfw@mail.gmail.com>
+ <20140715171139.GD5225@mikrodark.usersys.redhat.com>
+ <CAADnVQKPJTHFGdCRtbQHLAg_NpDkKQ+8WVwfkic8KE+dQxZw2g@mail.gmail.com>
+ <20140715175331.GA14109@mikrodark.usersys.redhat.com>
+ <CAADnVQKeFOhbZOSHtpodnWb6OXem79jjozHm=Qgzz8PyVTryRg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:35449
-	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S933003AbaGOTRa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 15:17:30 -0400
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:42988 "EHLO
+	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932760AbaGOTVJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 15:21:09 -0400
+Received: by mail-wi0-f181.google.com with SMTP id bs8so112485wib.8
+        for <netdev@vger.kernel.org>; Tue, 15 Jul 2014 12:21:08 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAADnVQKeFOhbZOSHtpodnWb6OXem79jjozHm=Qgzz8PyVTryRg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes static checker warnings as pointed out on by Dan Carpenter
+On Tue, Jul 15, 2014 at 11:55:29AM -0700, Alexei Starovoitov wrote:
+>On Tue, Jul 15, 2014 at 10:53 AM, Veaceslav Falico <vfalico@gmail.com> wrote:
+>> On Tue, Jul 15, 2014 at 10:33:25AM -0700, Alexei Starovoitov wrote:
+>> ..snip...
+>>
+>>> For 3 vlan case to be useful, first somebody needs to define a meaning
+>>> for it and real use case. I haven't seen one.
+>>
+>>
+>> You also haven't seen switches that support it, however juniper switches do
+>> support them, as a quick google shows. I can guess that cisco can also be
+>> made to support them.
+>
+>I don't think juniper switches support them either.
+>Please send the link to the spec.
 
-Fixes: 76bcb31efc06 ("cxgb4 : Add DCBx support codebase  and dcbnl_ops")
-Signed-off-by: Anish Bhatt <anish@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+No spec, but a reply from a juniper employee, as it states:
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
-index a8b1073e6373..8734dfe0da32 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
-@@ -676,15 +676,15 @@ static u8 cxgb4_setapp(struct net_device *dev, u8 app_idtype, u16 app_id,
- 
- 
- 	if (pi->dcb.state != CXGB4_DCB_STATE_FW_ALLSYNCED)
--		return -EINVAL;
-+		return 0;
- 
- 	/* DCB info gets thrown away on link up */
- 	if (!netif_carrier_ok(dev))
--		return -ENOLINK;
-+		return 0;
- 
- 	if (app_idtype != DCB_APP_IDTYPE_ETHTYPE &&
- 	    app_idtype != DCB_APP_IDTYPE_PORTNUM)
--		return -EINVAL;
-+		return 0;
- 
- 	for (i = 0; i < CXGB4_MAX_DCBX_APP_SUPPORTED; i++) {
- 		INIT_PORT_DCB_READ_LOCAL_CMD(pcmd, pi->port_id);
-@@ -710,7 +710,7 @@ static u8 cxgb4_setapp(struct net_device *dev, u8 app_idtype, u16 app_id,
- 	if (i == CXGB4_MAX_DCBX_APP_SUPPORTED) {
- 		/* no empty slots available */
- 		dev_err(adap->pdev_dev, "DCB app table full\n");
--		return -EBUSY;
-+		return 0;
- 	}
- 
- 	/* write out new app table entry */
--- 
-2.0.1
+http://forums.juniper.net/t5/Ethernet-Switching/Is-it-possible-to-do-QinQinQ/td-p/29409
+
+Also, it's a valid use case, described there.
+
+>Protocol parsers in HW fail to parse beyond two, since behavior
+>is undefined and it's considered invalid packet.
+>I'm talking about broadcom/intel/cisco asics.
+
+You're mentioning it for the 3rd or 4th time already. Can you please
+provide a proof? It'd be interesting to read, as I see over the net that
+people are managing to do triple vlan tagging on cisco.
+
+Also, could you explain what do you mean by "undefined behaviour"? I can't
+really understand what can be undefined in 3 tags.
+
+>Generally speaking I think it's a mistake of linux stack to support
+>any nested level. Not too long ago we saw issues with broken hw
+>offloads for basic qinq. I won't be surprised if creating triple stacked
+>vlan devices actually breaks all sort of things.
+
+That's not the problem with any nested vlan level, but with hw offload. I
+guess it's the source/consiquencies thing.
+
+>
+>> I'll happily drop any/all of these configs if I'd see a reason NOT to add
+>> them. Till now I haven't seen anything except "I don't know why should I
+>> use it", and that's not a valid reason to me, sorry.
+>
+>correct. I don't see a good reason to change these defaults and you also
+>seem to acknowledge the same.
+
+You're putting words in my mouth for the second time already. I didn't say
+that I don't see a good reason to change the defaults, I've said that I
+don't see a good reason to drop this enhancement only because someone
+doesn't know what to use it for.
+
+>To me it's a red flag when somebody
+>requests a feature without proper justification.
+
+The feature is there already. It's just a configuration to enable this
+feature without changing one define.
+
+And, also, the any-level nesting in linux stack *is* already present, and
+bonding just tries to stay up-to-date with that.
