@@ -1,49 +1,33 @@
-From: varkabhadram@gmail.com
-Subject: [PATCH net-next] netlink: remove bool varible
-Date: Wed, 16 Jul 2014 10:59:47 +0530
-Message-ID: <1405488587-26119-1-git-send-email-varkabhadram@gmail.com>
-Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
-	Varka Bhadram <varkab@cdac.in>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/1] net: ppp: reset nextseq counter when
+ enabling SC_MULTILINK
+Date: Tue, 15 Jul 2014 22:52:59 -0700 (PDT)
+Message-ID: <20140715.225259.1933230941203001162.davem@davemloft.net>
+References: <53C4F987.1040401@kristov.de>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-ppp@vger.kernel.org, paulus@samba.org
+To: develop@kristov.de
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <53C4F987.1040401@kristov.de>
+Sender: linux-ppp-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Varka Bhadram <varkab@cdac.in>
+From: Christoph Schulz <develop@kristov.de>
+Date: Tue, 15 Jul 2014 11:51:03 +0200
 
-This patch removes the bool variable 'pass'.
-If the swith case exist return true or return false.
+> From: Christoph Schulz <develop@kristov.de>
+> 
+> If using a demand-dialled PPP unit for a PPP multilink master, the pppd
+> daemon needs to reset the sequence counter between two connections. This
+> allows the daemon to reuse the PPP unit instead of destroying and recreating
+> it. As there is no API to reset the counter, this patch resets the counter
+> whenever the SC_MULTILINK flag is set.
+> 
+> Signed-off-by: Christoph Schulz <develop@kristov.de>
+> ---
+> Note that the stock pppd does not yet support multilink PPP over a
+> demand-dialled interface. I used a locally patched version for testing.
 
-Signed-off-by: Varka Bhadram <varkab@cdac.in>
----
- net/netlink/af_netlink.c |    6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
-
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index e8c9f97..5dd8193 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -170,7 +170,6 @@ EXPORT_SYMBOL_GPL(netlink_remove_tap);
- static bool netlink_filter_tap(const struct sk_buff *skb)
- {
- 	struct sock *sk = skb->sk;
--	bool pass = false;
- 
- 	/* We take the more conservative approach and
- 	 * whitelist socket protocols that may pass.
-@@ -184,11 +183,10 @@ static bool netlink_filter_tap(const struct sk_buff *skb)
- 	case NETLINK_FIB_LOOKUP:
- 	case NETLINK_NETFILTER:
- 	case NETLINK_GENERIC:
--		pass = true;
--		break;
-+		return true;
- 	}
- 
--	return pass;
-+	return false;
- }
- 
- static int __netlink_deliver_tap_skb(struct sk_buff *skb,
--- 
-1.7.9.5
+Applied, thanks Christoph.
