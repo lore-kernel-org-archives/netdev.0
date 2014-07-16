@@ -1,79 +1,122 @@
-From: David Held <drheld@google.com>
-Subject: Re: [PATCH net-next 1/2] udp: Simplify __udp*_lib_mcast_deliver.
-Date: Tue, 15 Jul 2014 23:23:48 -0400
-Message-ID: <CAGa1Tm6k0x88oE0pNEa2GBJg9+TVupmyTsuF=qj=UybFhmbv-Q@mail.gmail.com>
-References: <1405377039-10082-1-git-send-email-drheld@google.com>
-	<20140715.171431.1611412835087664432.davem@davemloft.net>
-	<CAGa1Tm6hC5-JOidCHWHBHwni2mtpjUdqvQPByK7g9ZH2QHW=Jw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	Willem de Bruijn <willemb@google.com>
-To: David Miller <davem@davemloft.net>
+From: roopa@cumulusnetworks.com
+Subject: [PATCH iproute2 v1] link dump filter
+Date: Tue, 15 Jul 2014 20:28:33 -0700
+Message-ID: <1405481313-26360-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: shm@cumulusnetworks.com, nolan@cumulusnetworks.com,
+	sfeldma@cumulusnetworks.com, jhs@mojatatu.com
+To: davem@davemloft.net, stephen@networkplumber.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f179.google.com ([209.85.213.179]:49854 "EHLO
-	mail-ig0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752988AbaGPDXt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 23:23:49 -0400
-Received: by mail-ig0-f179.google.com with SMTP id h18so407687igc.0
-        for <netdev@vger.kernel.org>; Tue, 15 Jul 2014 20:23:49 -0700 (PDT)
-In-Reply-To: <CAGa1Tm6hC5-JOidCHWHBHwni2mtpjUdqvQPByK7g9ZH2QHW=Jw@mail.gmail.com>
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:36972 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757797AbaGPD1y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 23:27:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Will resubmit the patchset with that update.
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-On Tue, Jul 15, 2014 at 9:53 PM, David Held <drheld@google.com> wrote:
-> On Tue, Jul 15, 2014 at 8:14 PM, David Miller <davem@davemloft.net> wrote:
->> From: David Held <drheld@google.com>
->> Date: Mon, 14 Jul 2014 18:30:38 -0400
->>
->>>       spin_lock(&hslot->lock);
->>> -     sk = sk_nulls_head(&hslot->head);
->>> -     dif = skb->dev->ifindex;
->>> -     sk = udp_v4_mcast_next(net, sk, uh->dest, daddr, uh->source, saddr, dif);
->>> -     while (sk) {
->>> -             stack[count++] = sk;
->>> -             sk = udp_v4_mcast_next(net, sk_nulls_next(sk), uh->dest,
->>> -                                    daddr, uh->source, saddr, dif);
->>> -             if (unlikely(count == ARRAY_SIZE(stack))) {
->>> -                     if (!sk)
->>> -                             break;
->>> -                     flush_stack(stack, count, skb, ~0);
->>> -                     count = 0;
->>> +     sk_nulls_for_each(sk, node, &hslot->head) {
->>> +             if (__udp_is_mcast_sock(net, sk,
->>> +                                     uh->dest, daddr,
->>> +                                     uh->source, saddr,
->>> +                                     dif, hnum)) {
->>> +                     stack[count++] = sk;
->>> +                     if (unlikely(count == ARRAY_SIZE(stack))) {
->>> +                             flush_stack(stack, count, skb, ~0);
->>> +                             count = 0;
->>> +                     }
->>>               }
->>>       }
->>
->> I think you are changing the logic of the loop in the edge case.
->>
->> If we have exactly ARRAY_SIZE(stack) sockets to process, the old code
->> performs the flush_stack() outside of the hslot->lock, but with your
->> change we'll do it inside the lock.
->>
->> The tradeoff here is reducing hslot->lock hold times vs. avoiding
->> taking a hold on all the sockets in the stack[] array.
->>
->> I just wanted to point this out and make sure you are aware of and
->> are ok with this.
->
-> The followup patch makes it so we always take a hold on the sockets
-> anyway (it makes things simpler and only changes things for the too
-> large array case), so might as well reduce the lock time for the
-> exactly ARRAY_SIZE case.
->
-> Should just be a matter of moving the stack addition below the ARRAY_SIZE check:
-> +                       if (unlikely(count == ARRAY_SIZE(stack))) {
-> +                               flush_stack(stack, count, skb, ~0);
-> +                               count = 0;
-> +                       }
-> +                       stack[count++] = sk;
+This patch avoids a full link wildump request when the user has specified
+a single link. Uses RTM_GETLINK without the NLM_F_DUMP flag.
+
+This helps on a system with large number of interfaces.
+
+This patch currently only uses the link ifindex in the filter.
+Hoping to provide a subsequent kernel patch to do link dump filtering on
+other attributes in the kernel.
+
+In iplink_get, to be safe, this patch currently sets the answer buffer
+size to the max size that libnetlink rtnl_talk can copy. The current api
+does not seem to provide a way to indicate the answer buf size.
+
+changelog from RFC to v1:
+    - incorporated comments from stephen (fixed comment and fixed if/else block)
+
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+---
+ ip/ip_common.h |    1 +
+ ip/ipaddress.c |   13 +++++++++++++
+ ip/iplink.c    |   32 ++++++++++++++++++++++++++++++++
+ 3 files changed, 46 insertions(+)
+
+diff --git a/ip/ip_common.h b/ip/ip_common.h
+index ac1e4c1..e56d1ac 100644
+--- a/ip/ip_common.h
++++ b/ip/ip_common.h
+@@ -51,6 +51,7 @@ extern int do_ipl2tp(int argc, char **argv);
+ extern int do_tcp_metrics(int argc, char **argv);
+ extern int do_ipnetconf(int argc, char **argv);
+ extern int do_iptoken(int argc, char **argv);
++extern int iplink_get(unsigned int flags, char *name, __u32 filt_mask);
+ 
+ static inline int rtm_get_table(struct rtmsg *r, struct rtattr **tb)
+ {
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index 8138e86..f64c0ed 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -1241,6 +1241,19 @@ static int ipaddr_list_flush_or_save(int argc, char **argv, int action)
+ 		exit(0);
+ 	}
+ 
++    /*
++     * If only filter_dev present and none of the other
++     * link filters are present, use RTM_GETLINK to get
++     * the link device
++     */
++	if (filter_dev && filter.group == -1 && do_link == 1) {
++		if (iplink_get(0, filter_dev, RTEXT_FILTER_VF) < 0) {
++			perror("Cannot send link get request");
++			exit(1);
++		}
++		exit(0);
++	}
++
+ 	if (rtnl_wilddump_request(&rth, preferred_family, RTM_GETLINK) < 0) {
+ 		perror("Cannot send dump request");
+ 		exit(1);
+diff --git a/ip/iplink.c b/ip/iplink.c
+index 0d020ef..7ac2813 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -703,6 +703,38 @@ static int iplink_modify(int cmd, unsigned int flags, int argc, char **argv)
+ 	return 0;
+ }
+ 
++int iplink_get(unsigned int flags, char *name, __u32 filt_mask)
++{
++	int len;
++	struct iplink_req req;
++	char answer[16384];
++
++	memset(&req, 0, sizeof(req));
++
++	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
++	req.n.nlmsg_flags = NLM_F_REQUEST|flags;
++	req.n.nlmsg_type = RTM_GETLINK;
++	req.i.ifi_family = preferred_family;
++
++	if (name) {
++		len = strlen(name) + 1;
++		if (len == 1)
++			invarg("\"\" is not a valid device identifier\n",
++				   "name");
++		if (len > IFNAMSIZ)
++			invarg("\"name\" too long\n", name);
++		addattr_l(&req.n, sizeof(req), IFLA_IFNAME, name, len);
++	}
++	addattr32(&req.n, sizeof(req), IFLA_EXT_MASK, filt_mask);
++
++	if (rtnl_talk(&rth, &req.n, 0, 0, (struct nlmsghdr *)answer) < 0)
++		return -2;
++
++	print_linkinfo(NULL, (struct nlmsghdr *)answer, stdout);
++
++	return 0;
++}
++
+ #if IPLINK_IOCTL_COMPAT
+ static int get_ctl_fd(void)
+ {
+-- 
+1.7.10.4
