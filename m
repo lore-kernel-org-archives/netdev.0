@@ -1,93 +1,39 @@
-From: Zi Shen Lim <zlim.lnx@gmail.com>
-Subject: Re: [PATCH RFCv3 08/14] arm64: introduce aarch64_insn_gen_movewide()
-Date: Wed, 16 Jul 2014 15:04:22 -0700
-Message-ID: <20140716220422.GB18109@gup76>
-References: <1405405512-4423-1-git-send-email-zlim.lnx@gmail.com>
- <1405405512-4423-9-git-send-email-zlim.lnx@gmail.com>
- <20140716161715.GU29414@arm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 3/7] tipc: add new functions for multicast and
+ broadcast distribution
+Date: Wed, 16 Jul 2014 15:10:50 -0700 (PDT)
+Message-ID: <20140716.151050.974076735111970390.davem@davemloft.net>
+References: <1405446370-11781-1-git-send-email-jon.maloy@ericsson.com>
+	<1405446370-11781-4-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Catalin Marinas <Catalin.Marinas@arm.com>,
-	Jiang Liu <liuj97@gmail.com>,
-	AKASHI Takahiro <takahiro.akashi@linaro.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Will Deacon <will.deacon@arm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140716161715.GU29414@arm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net
+To: jon.maloy@ericsson.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55348 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752674AbaGPWKv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2014 18:10:51 -0400
+In-Reply-To: <1405446370-11781-4-git-send-email-jon.maloy@ericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 16, 2014 at 05:17:15PM +0100, Will Deacon wrote:
-> On Tue, Jul 15, 2014 at 07:25:06AM +0100, Zi Shen Lim wrote:
-> > Introduce function to generate move wide (immediate) instructions.
-> 
-> [...]
-> 
-> > +u32 aarch64_insn_gen_movewide(enum aarch64_insn_register dst,
-> > +			      int imm, int shift,
-> > +			      enum aarch64_insn_variant variant,
-> > +			      enum aarch64_insn_movewide_type type)
-> > +{
-> > +	u32 insn;
-> > +
-> > +	switch (type) {
-> > +	case AARCH64_INSN_MOVEWIDE_ZERO:
-> > +		insn = aarch64_insn_get_movz_value();
-> > +		break;
-> > +	case AARCH64_INSN_MOVEWIDE_KEEP:
-> > +		insn = aarch64_insn_get_movk_value();
-> > +		break;
-> > +	case AARCH64_INSN_MOVEWIDE_INVERSE:
-> > +		insn = aarch64_insn_get_movn_value();
-> > +		break;
-> > +	default:
-> > +		BUG_ON(1);
-> > +	}
-> > +
-> > +	BUG_ON(imm < 0 || imm > 65535);
-> 
-> Do this check with masking instead?
+From: Jon Maloy <jon.maloy@ericsson.com>
+Date: Tue, 15 Jul 2014 13:46:06 -0400
 
-Ok, if you prefer, I can change it to:
+> +	/* Copy header if single buffer */
+> +	if (!buf->next) {
+> +		hdr_sz = skb_headroom(buf) + msg_hdr_sz(buf_msg(buf));
+> +		head = __pskb_copy(buf, hdr_sz, GFP_ATOMIC);
+> +		if (likely(head))
+> +			return head;
+> +		return NULL;
 
-	BUG_ON(imm & ~GENMASK(15, 0));
+These last four lines are simply:
 
-> 
-> > +
-> > +	switch (variant) {
-> > +	case AARCH64_INSN_VARIANT_32BIT:
-> > +		BUG_ON(shift != 0 && shift != 16);
-> > +		break;
-> > +	case AARCH64_INSN_VARIANT_64BIT:
-> > +		insn |= BIT(31);
-> > +		BUG_ON(shift != 0 && shift != 16 && shift != 32 &&
-> > +		       shift != 48);
-> 
-> Would be neater as a nested switch, perhaps? If you reorder the
-> outer-switch, you could probably fall-through too and combine the shift
-> checks.
+		return __pskb_copy(buf, hdr_sz, GFP_ATOMIC);
 
-Not sure I picture what you had in mind... I couldn't come up with a
-neater version with the properties you described.
-
-The alternative I had was using masks instead of integer values, but
-one could argue that while neater, it could also be harder to read:
-
-	switch (variant) {
-	case AARCH64_INSN_VARIANT_32BIT:
-		BUG_ON(shift & ~BIT(4));
-		break;
-	case AARCH64_INSN_VARIANT_64BIT:
-		insn |= BIT(31);
-		BUG_ON(shift & ~GENMASK(5, 4));
-	...
-
-> 
-> Will
+Don't make this code more complicated than necessary :)
