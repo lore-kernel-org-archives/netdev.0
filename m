@@ -1,85 +1,48 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH iproute2 v1] link dump filter
-Date: Wed, 16 Jul 2014 10:26:07 +0200
-Message-ID: <53C6371F.5070200@6wind.com>
-References: <1405481313-26360-1-git-send-email-roopa@cumulusnetworks.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Anish Bhatt <anish-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Subject: RE: [PATCH net-next 0/4] cxgb4i: Add ipv6 support
+Date: Wed, 16 Jul 2014 08:32:59 +0000
+Message-ID: <525DB349B3FB5444AE057A887CB2A8D854356F@nice.asicdesigners.com>
+References: <1405479353-2289-1-git-send-email-anish@chelsio.com>,<20140716080849.GA29924@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: shm@cumulusnetworks.com, nolan@cumulusnetworks.com,
-	sfeldma@cumulusnetworks.com, jhs@mojatatu.com
-To: roopa@cumulusnetworks.com, davem@davemloft.net,
-	stephen@networkplumber.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:51223 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758621AbaGPI0L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2014 04:26:11 -0400
-Received: by mail-wi0-f172.google.com with SMTP id n3so5730629wiv.5
-        for <netdev@vger.kernel.org>; Wed, 16 Jul 2014 01:26:09 -0700 (PDT)
-In-Reply-To: <1405481313-26360-1-git-send-email-roopa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	"roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org" <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>,
+	"michaelc-hcNo3dDEHLuVc3sceRu5cw@public.gmane.org" <michaelc-hcNo3dDEHLuVc3sceRu5cw@public.gmane.org>,
+	"jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org" <jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
+	Karen Xie <kxie-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
+	Casey Leedom <leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
+	Hariprasad S <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>,
+	SWise OGC <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+To: Christoph Hellwig <hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140716080849.GA29924-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Content-Language: en-US
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Le 16/07/2014 05:28, roopa@cumulusnetworks.com a =C3=A9crit :
-> From: Roopa Prabhu <roopa@cumulusnetworks.com>
->
-> This patch avoids a full link wildump request when the user has speci=
-fied
-> a single link. Uses RTM_GETLINK without the NLM_F_DUMP flag.
->
-> This helps on a system with large number of interfaces.
->
-> This patch currently only uses the link ifindex in the filter.
-> Hoping to provide a subsequent kernel patch to do link dump filtering=
- on
-> other attributes in the kernel.
->
-> In iplink_get, to be safe, this patch currently sets the answer buffe=
-r
-> size to the max size that libnetlink rtnl_talk can copy. The current =
-api
-> does not seem to provide a way to indicate the answer buf size.
->
-> changelog from RFC to v1:
->      - incorporated comments from stephen (fixed comment and fixed if=
-/else block)
->
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-> ---
->   ip/ip_common.h |    1 +
->   ip/ipaddress.c |   13 +++++++++++++
->   ip/iplink.c    |   32 ++++++++++++++++++++++++++++++++
->   3 files changed, 46 insertions(+)
->
-> diff --git a/ip/ip_common.h b/ip/ip_common.h
-> index ac1e4c1..e56d1ac 100644
-> --- a/ip/ip_common.h
-> +++ b/ip/ip_common.h
-> @@ -51,6 +51,7 @@ extern int do_ipl2tp(int argc, char **argv);
->   extern int do_tcp_metrics(int argc, char **argv);
->   extern int do_ipnetconf(int argc, char **argv);
->   extern int do_iptoken(int argc, char **argv);
-> +extern int iplink_get(unsigned int flags, char *name, __u32 filt_mas=
-k);
->
->   static inline int rtm_get_table(struct rtmsg *r, struct rtattr **tb=
-)
->   {
-> diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-> index 8138e86..f64c0ed 100644
-> --- a/ip/ipaddress.c
-> +++ b/ip/ipaddress.c
-> @@ -1241,6 +1241,19 @@ static int ipaddr_list_flush_or_save(int argc,=
- char **argv, int action)
->   		exit(0);
->   	}
->
-> +    /*
-> +     * If only filter_dev present and none of the other
-> +     * link filters are present, use RTM_GETLINK to get
-> +     * the link device
-> +     */
-The comment is indented with spaces instead tabs.
+We don't have any specific changes queued for 3.17, but the next update 
+requires a similar change to cxgb4. I'm okay submitting that to net-next if it
+is okay with you. Plus one of the patches requires cxgb4 dcb code that is
+not yet in the scsi tree.
+-Anish
+________________________________________
+From: Christoph Hellwig [hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org]
+Sent: Wednesday, July 16, 2014 1:08 AM
+To: Anish Bhatt
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org; roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org; hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org; michaelc-hcNo3dDEHLuVc3sceRu5cw@public.gmane.org; jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org; Karen Xie; Casey Leedom; Hariprasad S; SWise OGC
+Subject: Re: [PATCH net-next 0/4] cxgb4i: Add ipv6 support
+
+Hi Anish,
+
+the scsi side changes looks fine to me.  Unless you have major updates
+to the scsi driver for 3.17 that could cause conflicts I'm fine with
+merging the whole series in through the networking tree.
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
