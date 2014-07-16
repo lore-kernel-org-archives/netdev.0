@@ -1,49 +1,31 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH] ipvs: avoid netns exit crash on ip_vs_conn_drop_conntrack
-Date: Wed, 16 Jul 2014 09:56:08 +0900
-Message-ID: <1405472168-25192-2-git-send-email-horms@verge.net.au>
-References: <1405472168-25192-1-git-send-email-horms@verge.net.au>
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Hans Schillstrom <hans@schillstrom.com>,
-	Simon Horman <horms@verge.net.au>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 2/2] bonding: make hard-coded defines
+ configurable at build
+Date: Tue, 15 Jul 2014 18:01:27 -0700 (PDT)
+Message-ID: <20140715.180127.1522148852965459173.davem@davemloft.net>
+References: <20140715175331.GA14109@mikrodark.usersys.redhat.com>
+	<CAADnVQKeFOhbZOSHtpodnWb6OXem79jjozHm=Qgzz8PyVTryRg@mail.gmail.com>
+	<20140715191810.GA16963@mikrodark.usersys.redhat.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
+	j.vosburgh@gmail.com, andy@greyhouse.net
+To: vfalico@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:57109 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755490AbaGPA4S (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 20:56:18 -0400
-In-Reply-To: <1405472168-25192-1-git-send-email-horms@verge.net.au>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46235 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759344AbaGPBB2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 21:01:28 -0400
+In-Reply-To: <20140715191810.GA16963@mikrodark.usersys.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julian Anastasov <ja@ssi.bg>
+From: Veaceslav Falico <vfalico@gmail.com>
+Date: Tue, 15 Jul 2014 21:18:11 +0200
 
-commit 8f4e0a18682d91 ("IPVS netns exit causes crash in conntrack")
-added second ip_vs_conn_drop_conntrack call instead of just adding
-the needed check. As result, the first call still can cause
-crash on netns exit. Remove it.
+> No spec, but a reply from a juniper employee, as it states:
+> 
+> http://forums.juniper.net/t5/Ethernet-Switching/Is-it-possible-to-do-QinQinQ/td-p/29409
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Hans Schillstrom <hans@schillstrom.com>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- net/netfilter/ipvs/ip_vs_conn.c | 1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
-index a8eb0a8..610e19c 100644
---- a/net/netfilter/ipvs/ip_vs_conn.c
-+++ b/net/netfilter/ipvs/ip_vs_conn.c
-@@ -797,7 +797,6 @@ static void ip_vs_conn_expire(unsigned long data)
- 			ip_vs_control_del(cp);
- 
- 		if (cp->flags & IP_VS_CONN_F_NFCT) {
--			ip_vs_conn_drop_conntrack(cp);
- 			/* Do not access conntracks during subsys cleanup
- 			 * because nf_conntrack_find_get can not be used after
- 			 * conntrack cleanup for the net.
--- 
-2.0.0
+I will note that this engineer uses the word "should".
