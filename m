@@ -1,75 +1,92 @@
-From: Jeff Layton <jlayton@primarydata.com>
-Subject: [PATCH v2] net: clean up some sparse endianness warnings in ipv6.h
-Date: Wed, 16 Jul 2014 06:55:46 -0400
-Message-ID: <1405508146-13004-1-git-send-email-jlayton@primarydata.com>
-References: <1405340746-10678-1-git-send-email-jlayton@primarydata.com>
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-nfs@vger.kernel.org,
-	hch@infradead.org
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1405340746-10678-1-git-send-email-jlayton@primarydata.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: IPSEC: tunnel breakage with out-of-order IPv4 fragments
+Date: Wed, 16 Jul 2014 12:59:16 +0200
+Message-ID: <20140716105916.GA5540@secunet.com>
+References: <CAGugRbVWyTM2J0Fyw1Cq1byqfjZBy_EFLSShqVdzxYZmmUWK_g@mail.gmail.com>
+ <20140711110035.GB6633@secunet.com>
+ <CAGugRbWPOyWLrdiTqtScWi2JTKeyEEjOLRvDUqx20SG7uXifLw@mail.gmail.com>
+ <20140714093345.GC6633@secunet.com>
+ <CAGugRbWL8Orkobwt4FENyswLsm1jWLBMdr-WJ6mCBhVn-xGwXw@mail.gmail.com>
+ <20140715091613.GD6633@secunet.com>
+ <CAGugRbXgAqO_qJRemfaYMM6+WE+nRnfU0LK3DkpBpSOwOkcD0Q@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>
+To: Karl Heiss <kheiss@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([195.81.216.161]:35931 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756860AbaGPK7Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Jul 2014 06:59:25 -0400
+Content-Disposition: inline
+In-Reply-To: <CAGugRbXgAqO_qJRemfaYMM6+WE+nRnfU0LK3DkpBpSOwOkcD0Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-sparse is throwing warnings when building sunrpc modules due to some
-endianness shenanigans in ipv6.h. Specifically:
+On Tue, Jul 15, 2014 at 08:13:01AM -0400, Karl Heiss wrote:
+> On Tue, Jul 15, 2014 at 5:16 AM, Steffen Klassert
+> <steffen.klassert@secunet.com> wrote:
+> > On Mon, Jul 14, 2014 at 07:52:23AM -0400, Karl Heiss wrote:
+> >> On Mon, Jul 14, 2014 at 5:33 AM, Steffen Klassert
+> >> <steffen.klassert@secunet.com> wrote:
+> >> >
+> >> > Your tcpdump looks interesting. Is it possible that all your
+> >> > fragmented packets have the id field set to 'id 0'? This should
+> >> > be only the case if the DF flag is set on that packet, but this
+> >> > is apparently not the case here. If all the fragmented packets
+> >> > have id 0, it is not possible to determine the correct fragment
+> >> > chain. If only one fragment gets lost, all further packets might
+> >> > be reassembled wrong.
+> >> >
+> >>
+> >> Yes, all fragments have 'id 0'.
+> >>
+> >> > When looking at the code, is seems that sctp sets the DF flag
+> >> > on packets as the default. The IPsec encapsulation code copies
+> >> > the DF bit from the inner header and sets 'id 0' in this case.
+> >> > A first guess would be that someone removes the DF flag after
+> >> > the IPsec encapsulation.
+> >> >
+> >> > Is the DF flag set on your inner sctp packets?
+> >> >
+> >>
+> >> Yes, the inner packets have DF set, but the outer do not.
+> >
+> > So we need to find where the DF flag disappears.
+> 
+> I feel like we may be focusing on two different things.  I am more
+> interested in figuring out why the receive side does not handle these
+> packets gracefully.  I would assume that the missing/reordered
+> fragments may not get reassembled correctly and would be dropped,
+> which is OK.  However, it is when this event occurs and then every
+> subsequent, correctly ordered, fragmented packet is dropped that I am
+> concerned about.  While the sender may be in a broken state, the
+> receiver should be consistent with receive behavior, agreed?
 
-  CHECK   net/sunrpc/addr.c
-include/net/ipv6.h:573:17: warning: restricted __be64 degrades to integer
-include/net/ipv6.h:577:34: warning: restricted __be32 degrades to integer
-include/net/ipv6.h:573:17: warning: restricted __be64 degrades to integer
-include/net/ipv6.h:577:34: warning: restricted __be32 degrades to integer
+Ugh. No, not at all. The sender causes these problems on the receive
+side by using 'id 0' on all fragments. The id field is used to
+determine which fragments belong to which packet. The id must
+be unique for each fragmented packet. I.e. all fragments of a
+given packet must have the same id, fragments of other packets
+must have different id values. If all fragmented packets have
+the same id, they get reassembled in the order they arrive.
+Say the second fragment of packet A gets lost, then the first
+fragment of Packet A is reassembled with the second fragment
+of packet B and so on. This leads to authentication failures
+as you observe it.
 
-Sprinkle some endianness fixups to silence them. These should all get
-fixed up at compile time, so I don't think this will add any extra work
-to be done at runtime.
+> 
+> >
+> > Can you describe your usecase more precisely? Do you use
+> > any additional tunnel like ipip/gre etc. or packet mangling?
+> 
+> I apologize, I did leave out one critical bit of information in that
+> the sender is based on a RHEL 6.5 kernel with a backported 3.4.75 SCTP
+> stack.  As for other mangling or anything else, the case is as
+> straightforward as originally described.  I will try and see if I can
+> find which combination of commits need to be removed to allow this
+> case on the sending side.  I didn't think to elaborate on the sending
+> side as I was solely concentrating on the receive aspect :(
 
-Signed-off-by: Jeff Layton <jlayton@primarydata.com>
----
- include/net/ipv6.h | 17 +++++++++++------
- 1 file changed, 11 insertions(+), 6 deletions(-)
-
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index 574337fe72dd..0535da61fe0b 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -557,24 +557,29 @@ static inline u32 __ipv6_addr_jhash(const struct in6_addr *a, const u32 initval)
- static inline bool ipv6_addr_loopback(const struct in6_addr *a)
- {
- #if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS) && BITS_PER_LONG == 64
--	const unsigned long *ul = (const unsigned long *)a;
-+	const __be64 *be = (const __be64 *)a;
- 
--	return (ul[0] | (ul[1] ^ cpu_to_be64(1))) == 0UL;
-+	return (be[0] | (be[1] ^ cpu_to_be64(1))) == 0UL;
- #else
- 	return (a->s6_addr32[0] | a->s6_addr32[1] |
--		a->s6_addr32[2] | (a->s6_addr32[3] ^ htonl(1))) == 0;
-+		a->s6_addr32[2] | (a->s6_addr32[3] ^ cpu_to_be32(1))) == 0;
- #endif
- }
- 
-+/*
-+ * Note that we must __force cast these to unsigned long to make sparse happy,
-+ * since all of the endian-annotated types are fixed size regardless of arch.
-+ */
- static inline bool ipv6_addr_v4mapped(const struct in6_addr *a)
- {
- 	return (
- #if defined(CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS) && BITS_PER_LONG == 64
--		*(__be64 *)a |
-+		*(unsigned long *)a |
- #else
--		(a->s6_addr32[0] | a->s6_addr32[1]) |
-+		(__force unsigned long)(a->s6_addr32[0] | a->s6_addr32[1]) |
- #endif
--		(a->s6_addr32[2] ^ htonl(0x0000ffff))) == 0UL;
-+		(__force unsigned long)(a->s6_addr32[2] ^
-+					cpu_to_be32(0x0000ffff))) == 0UL;
- }
- 
- /*
--- 
-1.9.3
+Please try with unpatched kernels from kernel.org on the sender and
+the receiver.
