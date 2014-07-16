@@ -1,98 +1,81 @@
-From: Veaceslav Falico <vfalico@gmail.com>
-Subject: Re: [PATCH net-next] bonding: use rtnl_deref in
- bond_change_rx_flags()
-Date: Wed, 16 Jul 2014 11:34:11 +0200
-Message-ID: <20140716093411.GB12030@mikrodark.usersys.redhat.com>
-References: <1405495467-16187-1-git-send-email-vfalico@gmail.com>
- <1405501548.10255.51.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Sonic Zhang <sonic.adi@gmail.com>
+Subject: Re: [PATCH v4] bfin_mac: convert bfin Ethernet driver to NAPI framework
+Date: Wed, 16 Jul 2014 17:46:13 +0800
+Message-ID: <CAJxxZ0MxpY7ZpgR39zDexURieAr7vNqfGCZpfgwcnwMRuzoD0w@mail.gmail.com>
+References: <1405413820-28739-1-git-send-email-sonic.adi@gmail.com>
+	<53C4EC35.1080205@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	adi-buildroot-devel@lists.sourceforge.net,
+	Sonic Zhang <sonic.zhang@analog.com>
+To: Varka Bhadram <varkabhadram@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:58064 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750935AbaGPJhK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2014 05:37:10 -0400
-Received: by mail-wi0-f178.google.com with SMTP id hi2so966796wib.5
-        for <netdev@vger.kernel.org>; Wed, 16 Jul 2014 02:37:08 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1405501548.10255.51.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-oa0-f51.google.com ([209.85.219.51]:39727 "EHLO
+	mail-oa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751361AbaGPJqO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2014 05:46:14 -0400
+Received: by mail-oa0-f51.google.com with SMTP id o6so682286oag.24
+        for <netdev@vger.kernel.org>; Wed, 16 Jul 2014 02:46:13 -0700 (PDT)
+In-Reply-To: <53C4EC35.1080205@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 16, 2014 at 11:05:48AM +0200, Eric Dumazet wrote:
->On Wed, 2014-07-16 at 09:24 +0200, Veaceslav Falico wrote:
->> As it's always called with RTNL held, via dev_set_allmulti/promiscuity.
+Hi Varka,
+
+On Tue, Jul 15, 2014 at 4:54 PM, Varka Bhadram <varkabhadram@gmail.com> wrote:
+> On 07/15/2014 02:13 PM, Sonic Zhang wrote:
 >>
->> CC: Jay Vosburgh <j.vosburgh@gmail.com>
->> CC: Andy Gospodarek <andy@greyhouse.net>
->> Signed-off-by: Veaceslav Falico <vfalico@gmail.com>
+>> From: Sonic Zhang <sonic.zhang@analog.com>
+>>
+>> Ethernet RX DMA buffers are polled in NAPI work queue other than received
+>> directly in DMA RX interrupt handler.
+>>
+>> Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
+>>
 >> ---
->>  drivers/net/bonding/bond_main.c | 4 ++--
->>  1 file changed, 2 insertions(+), 2 deletions(-)
+>> v2-changes:
+>> - avoid test NAPI_STATE_NPSVC bit in net device driver
 >>
->> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->> index d643807..2998710 100644
->> --- a/drivers/net/bonding/bond_main.c
->> +++ b/drivers/net/bonding/bond_main.c
->> @@ -498,7 +498,7 @@ static int bond_set_promiscuity(struct bonding *bond, int inc)
->>  	int err = 0;
+>> v3-changes:
+>> - use tabs while indenting the code
 >>
->>  	if (bond_uses_primary(bond)) {
->> -		struct slave *curr_active = bond_deref_active_protected(bond);
->> +		struct slave *curr_active = rtnl_dereference(bond->curr_active_slave);
+>> v4-changes:
+>> - unconditionally compete the NAPI poll and re-enable the MAC_RX IRQ
 >>
->>  		/* write lock already acquired */
->
->This seems dubious to me. What really protects curr_active_slave being
->modified ?
-
-That's indeed all messed up, also I assume you've meant "c_a_s variable
-changes its value" but not "the slave's internal parts are modified".
-
->
->Considering the presence of the previous comment, I assumed the sync
->point was the write lock. Not rtnl.
-
-Good point, this comment should be removed. I'll send v2 if we'll agree
-with this one removed.
-
->
->If write lock is never held without rtnl, then maybe the write lock is
->useless, I don't know.
-
-The c_a_s is set under rtnl, i.e. we can't have another slave there while
-we hold the rtnl.
-
-However, quite a few functions (alb usually) uses the c_a_s write lock to
-assure that the *current* slave isn't modified again (like - by re-entering
-this function) or in parallel with some another function, or even changing
-the current slave to which c_a_s points.
-
-i.e. rtnl prevents changing the slave to which c_a_s points, while the
-spinlock protects the interiors of the slave from changing, and the slave
-itself.
-
-So, the write lock isn't exactly useless currently, however it should go
-away.
-
-Yes, I know it's a mess. :(
-
->
->But after your patch its not really consistent and we increase
->confusion.
->
->>  		if (curr_active)
->> @@ -524,7 +524,7 @@ static int bond_set_allmulti(struct bonding *bond, int inc)
->>  	int err = 0;
+>> Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
+>> ---
+>>   drivers/net/ethernet/adi/bfin_mac.c | 79
+>> +++++++++++++++++++++++--------------
+>>   drivers/net/ethernet/adi/bfin_mac.h |  1 +
+>>   2 files changed, 50 insertions(+), 30 deletions(-)
 >>
->>  	if (bond_uses_primary(bond)) {
->> -		struct slave *curr_active = bond_deref_active_protected(bond);
->> +		struct slave *curr_active = rtnl_dereference(bond->curr_active_slave);
->>
->>  		/* write lock already acquired */
->>  		if (curr_active)
+>> diff --git a/drivers/net/ethernet/adi/bfin_mac.c
+>> b/drivers/net/ethernet/adi/bfin_mac.c
+>> index 7ae74d4..b838e81 100644
+>> --- a/drivers/net/ethernet/adi/bfin_mac.c
+>> +++ b/drivers/net/ethernet/adi/bfin_mac.c
+>> @@ -1218,11 +1218,13 @@ out:
+>>   #define RX_ERROR_MASK (RX_LONG | RX_ALIGN | RX_CRC | RX_LEN | \
+>>         RX_FRAG | RX_ADDR | RX_DMAO | RX_PHY | RX_LATE | RX_RANGE)
+>>   -static void bfin_mac_rx(struct net_device *dev)
+>> +static void bfin_mac_rx(struct napi_struct *napi, int budget)
+>>   {
+>> +       struct bfin_mac_local *lp = container_of(napi,
+>> +                               struct bfin_mac_local, napi);
 >
 >
+> should match open parenthesis
+>
+>
+> struct bfin_mac_local *lp = container_of(napi,
+>                                          struct bfin_mac_local,
+>                                          napi);
+>
+
+OK.
+
+Thanks,
+
+Sonic
