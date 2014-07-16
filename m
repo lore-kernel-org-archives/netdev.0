@@ -1,58 +1,144 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the staging tree with the net-next tree
-Date: Wed, 16 Jul 2014 16:43:22 +1000
-Message-ID: <20140716164322.472de7c7@canb.auug.org.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCHv3] bonding: Do not try to send packets over dead link in
+ TLB mode.
+Date: Wed, 16 Jul 2014 08:43:25 +0200
+Message-ID: <1405493005.10255.42.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1405467125-26822-1-git-send-email-maheshb@google.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/NxFSIUSMY2k5bljjAX4QPYO"; protocol="application/pgp-signature"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Tom Gundersen <teg@jklm.no>,
-	Kristina =?UTF-8?B?TWFydMWhZW5rbw==?=
-	<kristina.martsenko@gmail.com>
-To: Greg KH <greg@kroah.com>, David Miller <davem@davemloft.net>,
-	<netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Maciej Zenczykowski <maze@google.com>
+To: Mahesh Bandewar <maheshb@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f46.google.com ([74.125.82.46]:41274 "EHLO
+	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934806AbaGPGnb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2014 02:43:31 -0400
+Received: by mail-wg0-f46.google.com with SMTP id m15so401401wgh.29
+        for <netdev@vger.kernel.org>; Tue, 15 Jul 2014 23:43:29 -0700 (PDT)
+In-Reply-To: <1405467125-26822-1-git-send-email-maheshb@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Sig_/NxFSIUSMY2k5bljjAX4QPYO
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+On Tue, 2014-07-15 at 16:32 -0700, Mahesh Bandewar wrote:
+> In TLB mode if tlb_dynamic_lb is NOT set, slaves from the bond
+> group are selected based on the hash distribution. This does not
+> exclude dead links which are part of the bond. Also if there is a
+> temporary link event which brings down the interface, packets
+> hashed on that interface would be dropped too.
+> 
+> This patch fixes these issues and distributes flows across the
+> UP links only. Also the array construction of links which are
+> capable of sending packets happen in the control path leaving
+> only link-selection during the data-path.
+> 
+> One possible side effect of this is - at a link event; all
+> flows will be shuffled to get good distribution. But impact of
+> this should be minimum with the assumption that a member or
+> members of the bond group are not available is a very temporary
+> situation.
+> 
+> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
+> ---
+>  drivers/net/bonding/bond_alb.c | 57 ++++++++++++++++++++++++++++++++++++++----
+>  drivers/net/bonding/bond_alb.h |  8 ++++++
+>  drivers/net/bonding/bonding.h  |  6 +++++
+>  3 files changed, 66 insertions(+), 5 deletions(-)
+> 
+> [v1]
+>   * Initial patch
+> [v2]
+>   * Removed spinlock protection
+>   * Removed explicit rcu_read_(un)lock() calls since Xmit fn run in RCU
+>   * Updated condition during bond-dismantle to check for only arrays' existance.
+> [v3]
+>   * Correct RCU annotation during dismantle
+>   * Alloc changed from GFP_KERNEL to GFP_ATOMIC
+>   * Added another call during alb_deinit_slave() to update array.
+> 
+> diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+> index 76c0dade233f..55ff399a16f4 100644
+> --- a/drivers/net/bonding/bond_alb.c
+> +++ b/drivers/net/bonding/bond_alb.c
+> @@ -209,6 +209,13 @@ static void tlb_deinitialize(struct bonding *bond)
+>  	bond_info->tx_hashtbl = NULL;
+>  
+>  	_unlock_tx_hashtbl_bh(bond);
+> +
+> +	if (bond_info->slave_arr) {
+> +		struct tlb_up_slave *arr;
+> +
+> +		arr = rtnl_dereference(bond_info->slave_arr);
+> +		kfree_rcu(arr, rcu);
+> +	}
 
-Hi Greg,
+This is very dubious and bad habit.
 
-Today's linux-next merge of the staging tree got a conflict in
-drivers/staging/cxt1e1/linux.c between commit c835a6773314 ("net: set
-name_assign_type in alloc_netdev()") from the net-next tree and commit
-14b596c9d80b ("staging: cxt1e1: remove driver") from the staging tree.
+In fact you need to use correct rcu dereference every time you access
+slave_arr, even if sparse allows this construct without a warning.
 
-I fixed it up (I just removed the file) and can carry the fix as
-necessary (no action is required).
+To be obviously correct here, slave_arr should be read once.
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+arr = rtnl_dereference(bond_info->slave_arr);
+if (arr)
+    kfree_rcu(arr, rcu);
 
---Sig_/NxFSIUSMY2k5bljjAX4QPYO
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
+Using this is also better, because LOCKDEP will perform its check (about
+RTNL being held) even if slave_arr is NULL, so we get better coverage.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
 
-iQIcBAEBCAAGBQJTxh8PAAoJEMDTa8Ir7ZwVMw0P/05jTQh4OobsTpXerH/ebdUZ
-zN8LVRvDiK/iyp7UAKp6XXKPoSqTYtm8o6Gj6ZXUGS3gUY5ct9B1DhhSySjQV9Vj
-UAr0ZIHlFQ98ks35pyO3lkKQV73nIMpk0ElkNmGpm1d2xdE4y95N/RBYqSLV2Hoo
-1EX0apw+YR+o5zs9XOjf9giSBHRyQUQ4eP5v/gTZ/uc2s9m/zhQsns6jauPJXyuY
-ckpnqhxwjnd70cFj8zLRCKDmJq5fQp1jCt+lxsCEIAANKR4MnR63q6OflCy20OzR
-Rh7nf/NZgWI+iGYGFPQe0/oGibARsPxPFfW5G7B6yLHjMp70Bdiec7URKw09DeLz
-7YX4g8IA4xpR+3D5Ly7kkjwupjDcWQhtbYUHFuMLMjTwK3X6OTF7JuJlhWrFMmJ1
-zKWeblDXvO2M6lTA41m4+7DUacaRZ2elpdAPYyekalvwz+wWIAlqnS6BWHx6F1uL
-PTkGF3/BjC2NgvpJB69rfWIKSzNFNOCBpDxnWRDyzCxPV8H4zlkoycmnE+oVdkOK
-SDOMQLknYRXHA9O52VXYe61u5SS7jkQx/d5RGaDLbmn6bLNcTwqpkhIBw3nt7Hrs
-oJQUKO4x+oJeTNnRTgDlPvnffEHBe4eoN6mCsoiKCqhq6nz+CkqbmYQ9Ff6Mhpiz
-qGcjfQ+3ca1ofMZRp6Vb
-=79nJ
------END PGP SIGNATURE-----
+>  }
+>  
+>  static long long compute_gap(struct slave *slave)
+> @@ -1406,9 +1413,39 @@ out:
+>  	return NETDEV_TX_OK;
+>  }
+>  
+> +static int bond_tlb_update_slave_arr(struct bonding *bond,
+> +				     struct slave *skipslave)
+> +{
+> +	struct alb_bond_info *bond_info = &(BOND_ALB_INFO(bond));
+> +	struct slave *tx_slave;
+> +	struct list_head *iter;
+> +	struct tlb_up_slave *new_arr, *old_arr;
+> +
+> +	new_arr = kzalloc(offsetof(struct tlb_up_slave, arr[bond->slave_cnt]),
+> +			  GFP_ATOMIC);
+> +	if (!new_arr)
+> +		return -ENOMEM;
+> +
+> +	bond_for_each_slave(bond, tx_slave, iter) {
+> +		if (!bond_slave_can_tx(tx_slave))
+> +			continue;
+> +		if (skipslave && skipslave == tx_slave)
+> +			continue;
 
---Sig_/NxFSIUSMY2k5bljjAX4QPYO--
+Here, tx_slave is not NULL, so the whole condition can be reduced to :
+
+		if (tx_slave == skipslave)
+			continue;
+
+> +		new_arr->arr[new_arr->count++] = tx_slave;
+> +	}
+> +
+> +	old_arr = bond_info->slave_arr;
+
+Same here. You need some correct rcu accessor, to clearly express what
+protects you here, as I already pointed to you in a previous feedback.
+
+	old_arr = rtnl_dereference(bond_info->slave_arr);
+
+
+> +	rcu_assign_pointer(bond_info->slave_arr, new_arr);
+> +	if (old_arr)
+> +		kfree_rcu(old_arr, rcu);
+> +
+> +	return 0;
+> +}
+> +
