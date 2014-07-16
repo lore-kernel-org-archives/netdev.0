@@ -1,54 +1,93 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCHv4] bonding: Do not try to send packets over dead link in
- TLB mode.
-Date: Wed, 16 Jul 2014 23:52:03 +0200
-Message-ID: <1405547523.10255.61.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1405534236-26542-1-git-send-email-maheshb@google.com>
+From: Zi Shen Lim <zlim.lnx@gmail.com>
+Subject: Re: [PATCH RFCv3 08/14] arm64: introduce aarch64_insn_gen_movewide()
+Date: Wed, 16 Jul 2014 15:04:22 -0700
+Message-ID: <20140716220422.GB18109@gup76>
+References: <1405405512-4423-1-git-send-email-zlim.lnx@gmail.com>
+ <1405405512-4423-9-git-send-email-zlim.lnx@gmail.com>
+ <20140716161715.GU29414@arm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Maciej Zenczykowski <maze@google.com>
-To: Mahesh Bandewar <maheshb@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f170.google.com ([74.125.82.170]:60285 "EHLO
-	mail-we0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754043AbaGPVwI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2014 17:52:08 -0400
-Received: by mail-we0-f170.google.com with SMTP id w62so1583495wes.29
-        for <netdev@vger.kernel.org>; Wed, 16 Jul 2014 14:52:07 -0700 (PDT)
-In-Reply-To: <1405534236-26542-1-git-send-email-maheshb@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Catalin Marinas <Catalin.Marinas@arm.com>,
+	Jiang Liu <liuj97@gmail.com>,
+	AKASHI Takahiro <takahiro.akashi@linaro.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Will Deacon <will.deacon@arm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140716161715.GU29414@arm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-07-16 at 11:10 -0700, Mahesh Bandewar wrote:
-> In TLB mode if tlb_dynamic_lb is NOT set, slaves from the bond
-> group are selected based on the hash distribution. This does not
-> exclude dead links which are part of the bond. Also if there is a
-> temporary link event which brings down the interface, packets
-> hashed on that interface would be dropped too.
+On Wed, Jul 16, 2014 at 05:17:15PM +0100, Will Deacon wrote:
+> On Tue, Jul 15, 2014 at 07:25:06AM +0100, Zi Shen Lim wrote:
+> > Introduce function to generate move wide (immediate) instructions.
 > 
-> This patch fixes these issues and distributes flows across the
-> UP links only. Also the array construction of links which are
-> capable of sending packets happen in the control path leaving
-> only link-selection during the data-path.
+> [...]
 > 
-> One possible side effect of this is - at a link event; all
-> flows will be shuffled to get good distribution. But impact of
-> this should be minimum with the assumption that a member or
-> members of the bond group are not available is a very temporary
-> situation.
+> > +u32 aarch64_insn_gen_movewide(enum aarch64_insn_register dst,
+> > +			      int imm, int shift,
+> > +			      enum aarch64_insn_variant variant,
+> > +			      enum aarch64_insn_movewide_type type)
+> > +{
+> > +	u32 insn;
+> > +
+> > +	switch (type) {
+> > +	case AARCH64_INSN_MOVEWIDE_ZERO:
+> > +		insn = aarch64_insn_get_movz_value();
+> > +		break;
+> > +	case AARCH64_INSN_MOVEWIDE_KEEP:
+> > +		insn = aarch64_insn_get_movk_value();
+> > +		break;
+> > +	case AARCH64_INSN_MOVEWIDE_INVERSE:
+> > +		insn = aarch64_insn_get_movn_value();
+> > +		break;
+> > +	default:
+> > +		BUG_ON(1);
+> > +	}
+> > +
+> > +	BUG_ON(imm < 0 || imm > 65535);
 > 
-> Signed-off-by: Mahesh Bandewar <maheshb@google.com>
-> ---
+> Do this check with masking instead?
 
-OK, this one seems fine, thanks ;)
+Ok, if you prefer, I can change it to:
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+	BUG_ON(imm & ~GENMASK(15, 0));
 
-This is for net-next tree.
+> 
+> > +
+> > +	switch (variant) {
+> > +	case AARCH64_INSN_VARIANT_32BIT:
+> > +		BUG_ON(shift != 0 && shift != 16);
+> > +		break;
+> > +	case AARCH64_INSN_VARIANT_64BIT:
+> > +		insn |= BIT(31);
+> > +		BUG_ON(shift != 0 && shift != 16 && shift != 32 &&
+> > +		       shift != 48);
+> 
+> Would be neater as a nested switch, perhaps? If you reorder the
+> outer-switch, you could probably fall-through too and combine the shift
+> checks.
+
+Not sure I picture what you had in mind... I couldn't come up with a
+neater version with the properties you described.
+
+The alternative I had was using masks instead of integer values, but
+one could argue that while neater, it could also be harder to read:
+
+	switch (variant) {
+	case AARCH64_INSN_VARIANT_32BIT:
+		BUG_ON(shift & ~BIT(4));
+		break;
+	case AARCH64_INSN_VARIANT_64BIT:
+		insn |= BIT(31);
+		BUG_ON(shift & ~GENMASK(5, 4));
+	...
+
+> 
+> Will
