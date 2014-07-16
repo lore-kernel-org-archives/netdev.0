@@ -1,75 +1,47 @@
-From: David Held <drheld@google.com>
-Subject: Re: [PATCH net-next 1/2] udp: Simplify __udp*_lib_mcast_deliver.
-Date: Tue, 15 Jul 2014 21:53:26 -0400
-Message-ID: <CAGa1Tm6hC5-JOidCHWHBHwni2mtpjUdqvQPByK7g9ZH2QHW=Jw@mail.gmail.com>
-References: <1405377039-10082-1-git-send-email-drheld@google.com>
-	<20140715.171431.1611412835087664432.davem@davemloft.net>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next] virtio-net: rx busy polling support
+Date: Wed, 16 Jul 2014 10:44:46 +0800
+Message-ID: <53C5E71E.7050706@redhat.com>
+References: <1405417265-13103-1-git-send-email-jasowang@redhat.com>
+	<1405419703.10255.26.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	Willem de Bruijn <willemb@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f171.google.com ([209.85.223.171]:45564 "EHLO
-	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757993AbaGPBx1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 21:53:27 -0400
-Received: by mail-ie0-f171.google.com with SMTP id at1so215528iec.30
-        for <netdev@vger.kernel.org>; Tue, 15 Jul 2014 18:53:26 -0700 (PDT)
-In-Reply-To: <20140715.171431.1611412835087664432.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Vlad Yasevich <vyasevic@redhat.com>, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1405419703.10255.26.camel@edumazet-glaptop2.roam.corp.google.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 15, 2014 at 8:14 PM, David Miller <davem@davemloft.net> wrote:
-> From: David Held <drheld@google.com>
-> Date: Mon, 14 Jul 2014 18:30:38 -0400
+On 07/15/2014 06:21 PM, Eric Dumazet wrote:
+> On Tue, 2014-07-15 at 17:41 +0800, Jason Wang wrote:
+>> Add basic support for rx busy polling.
+>>
+>> 1 byte netperf tcp_rr on mlx4 shows 116% improvement: the transaction
+>> rate was increased from 9151.94 to 19787.37.
+> This is a misleading changelog.
 >
->>       spin_lock(&hslot->lock);
->> -     sk = sk_nulls_head(&hslot->head);
->> -     dif = skb->dev->ifindex;
->> -     sk = udp_v4_mcast_next(net, sk, uh->dest, daddr, uh->source, saddr, dif);
->> -     while (sk) {
->> -             stack[count++] = sk;
->> -             sk = udp_v4_mcast_next(net, sk_nulls_next(sk), uh->dest,
->> -                                    daddr, uh->source, saddr, dif);
->> -             if (unlikely(count == ARRAY_SIZE(stack))) {
->> -                     if (!sk)
->> -                             break;
->> -                     flush_stack(stack, count, skb, ~0);
->> -                     count = 0;
->> +     sk_nulls_for_each(sk, node, &hslot->head) {
->> +             if (__udp_is_mcast_sock(net, sk,
->> +                                     uh->dest, daddr,
->> +                                     uh->source, saddr,
->> +                                     dif, hnum)) {
->> +                     stack[count++] = sk;
->> +                     if (unlikely(count == ARRAY_SIZE(stack))) {
->> +                             flush_stack(stack, count, skb, ~0);
->> +                             count = 0;
->> +                     }
->>               }
->>       }
+> You forgot to describe how you allowed busy polling, as it is not
+> 'automatic'
 >
-> I think you are changing the logic of the loop in the edge case.
->
-> If we have exactly ARRAY_SIZE(stack) sockets to process, the old code
-> performs the flush_stack() outside of the hslot->lock, but with your
-> change we'll do it inside the lock.
->
-> The tradeoff here is reducing hslot->lock hold times vs. avoiding
-> taking a hold on all the sockets in the stack[] array.
->
-> I just wanted to point this out and make sure you are aware of and
-> are ok with this.
+> If not, this patch adds two spinlock/unlock pairs in fast path.
 
-The followup patch makes it so we always take a hold on the sockets
-anyway (it makes things simpler and only changes things for the too
-large array case), so might as well reduce the lock time for the
-exactly ARRAY_SIZE case.
+Ok.
+> Also, it looks like you could split this in smaller patches.
+>
+> virtnet_napi_disable_all() & virtnet_napi_enable_all() could be added in
+> a separate patch for example.
 
-Should just be a matter of moving the stack addition below the ARRAY_SIZE check:
-+                       if (unlikely(count == ARRAY_SIZE(stack))) {
-+                               flush_stack(stack, count, skb, ~0);
-+                               count = 0;
-+                       }
-+                       stack[count++] = sk;
+Sure, will split this patch into smaller ones in V2.
+
+Thanks
