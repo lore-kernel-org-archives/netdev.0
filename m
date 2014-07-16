@@ -1,36 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] bonding: add its own Kconfig
-Date: Tue, 15 Jul 2014 18:10:56 -0700 (PDT)
-Message-ID: <20140715.181056.2116924949727575928.davem@davemloft.net>
-References: <1405419341-31510-1-git-send-email-vfalico@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, andy@greyhouse.net
-To: vfalico@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46280 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753220AbaGPBK5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 21:10:57 -0400
-In-Reply-To: <1405419341-31510-1-git-send-email-vfalico@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: [GIT PULL nf-next 0/2] IPVS Updates for v3.17
+Date: Wed, 16 Jul 2014 10:11:28 +0900
+Message-ID: <1405473090-10432-1-git-send-email-horms@verge.net.au>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Veaceslav Falico <vfalico@gmail.com>
-Date: Tue, 15 Jul 2014 12:15:39 +0200
+Hi Pablo,
 
-> Currently to change some built-in defaults it's necessary to change the
-> code, and to maintain these patches on each update.
-> 
-> Create a bonding's Kconfig to make it possible to configure them at build
-> time.
+please consider these IPVS Updates for v3.17.
 
-There is really no reason these values can't be set at run time, and that
-is my only, but firm, objection to this patch series.
 
-For the per-slave things, make new netlink attributes that can be provided
-when the slave is added, using the existing default if not specified.
+The following changes since commit 24de3d377539e384621c5b8f8f8d8d01852dddc8:
 
-This means the fixed sized arrays involved here need to become
-dynamically allocated.
+  netfilter: use IS_ENABLED() macro (2014-06-30 11:38:03 +0200)
+
+are available in the git repository at:
+
+  https://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git tags/ipvs-for-v3.17
+
+for you to fetch changes up to 16ea4c6b9dde2ff44b2bd8bb459daa283cf3a46e:
+
+  ipvs: Remove dead debug code (2014-07-16 10:07:11 +0900)
+
+----------------------------------------------------------------
+IPVS Updates for v3.17
+
+Some clean-ups:
+* Remove unnecessary NULL check before call to kfree
+* Remove dead debug code
+
+----------------------------------------------------------------
+Fabian Frederick (1):
+      ipvs: remove null test before kfree
+
+Yannick Brosseau (1):
+      ipvs: Remove dead debug code
+
+ net/netfilter/ipvs/ip_vs_ctl.c  | 86 -----------------------------------------
+ net/netfilter/ipvs/ip_vs_sync.c |  3 +-
+ 2 files changed, 1 insertion(+), 88 deletions(-)
