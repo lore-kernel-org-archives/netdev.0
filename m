@@ -1,122 +1,211 @@
-From: roopa@cumulusnetworks.com
-Subject: [PATCH iproute2 v1] link dump filter
-Date: Tue, 15 Jul 2014 20:28:33 -0700
-Message-ID: <1405481313-26360-1-git-send-email-roopa@cumulusnetworks.com>
-Cc: shm@cumulusnetworks.com, nolan@cumulusnetworks.com,
-	sfeldma@cumulusnetworks.com, jhs@mojatatu.com
-To: davem@davemloft.net, stephen@networkplumber.org,
-	netdev@vger.kernel.org
+From: David Held <drheld@google.com>
+Subject: [PATCH net-next v3 1/2] udp: Simplify __udp*_lib_mcast_deliver.
+Date: Tue, 15 Jul 2014 23:28:31 -0400
+Message-ID: <1405481312-7790-2-git-send-email-drheld@google.com>
+References: <1405481312-7790-1-git-send-email-drheld@google.com>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com, willemb@google.com,
+	David Held <drheld@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ext3.cumulusnetworks.com ([198.211.106.187]:36972 "EHLO
-	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757797AbaGPD1y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 23:27:54 -0400
+Received: from mail-qc0-f201.google.com ([209.85.216.201]:62446 "EHLO
+	mail-qc0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759199AbaGPD2h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 23:28:37 -0400
+Received: by mail-qc0-f201.google.com with SMTP id m20so50174qcx.4
+        for <netdev@vger.kernel.org>; Tue, 15 Jul 2014 20:28:36 -0700 (PDT)
+In-Reply-To: <1405481312-7790-1-git-send-email-drheld@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Switch to using sk_nulls_for_each which shortens the code and makes it
+easier to update.
 
-This patch avoids a full link wildump request when the user has specified
-a single link. Uses RTM_GETLINK without the NLM_F_DUMP flag.
-
-This helps on a system with large number of interfaces.
-
-This patch currently only uses the link ifindex in the filter.
-Hoping to provide a subsequent kernel patch to do link dump filtering on
-other attributes in the kernel.
-
-In iplink_get, to be safe, this patch currently sets the answer buffer
-size to the max size that libnetlink rtnl_talk can copy. The current api
-does not seem to provide a way to indicate the answer buf size.
-
-changelog from RFC to v1:
-    - incorporated comments from stephen (fixed comment and fixed if/else block)
-
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+Signed-off-by: David Held <drheld@google.com>
 ---
- ip/ip_common.h |    1 +
- ip/ipaddress.c |   13 +++++++++++++
- ip/iplink.c    |   32 ++++++++++++++++++++++++++++++++
- 3 files changed, 46 insertions(+)
+ net/ipv4/udp.c | 48 ++++++++++----------------------
+ net/ipv6/udp.c | 88 +++++++++++++++++++++++-----------------------------------
+ 2 files changed, 49 insertions(+), 87 deletions(-)
 
-diff --git a/ip/ip_common.h b/ip/ip_common.h
-index ac1e4c1..e56d1ac 100644
---- a/ip/ip_common.h
-+++ b/ip/ip_common.h
-@@ -51,6 +51,7 @@ extern int do_ipl2tp(int argc, char **argv);
- extern int do_tcp_metrics(int argc, char **argv);
- extern int do_ipnetconf(int argc, char **argv);
- extern int do_iptoken(int argc, char **argv);
-+extern int iplink_get(unsigned int flags, char *name, __u32 filt_mask);
- 
- static inline int rtm_get_table(struct rtmsg *r, struct rtattr **tb)
- {
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 8138e86..f64c0ed 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -1241,6 +1241,19 @@ static int ipaddr_list_flush_or_save(int argc, char **argv, int action)
- 		exit(0);
- 	}
- 
-+    /*
-+     * If only filter_dev present and none of the other
-+     * link filters are present, use RTM_GETLINK to get
-+     * the link device
-+     */
-+	if (filter_dev && filter.group == -1 && do_link == 1) {
-+		if (iplink_get(0, filter_dev, RTEXT_FILTER_VF) < 0) {
-+			perror("Cannot send link get request");
-+			exit(1);
-+		}
-+		exit(0);
-+	}
-+
- 	if (rtnl_wilddump_request(&rth, preferred_family, RTM_GETLINK) < 0) {
- 		perror("Cannot send dump request");
- 		exit(1);
-diff --git a/ip/iplink.c b/ip/iplink.c
-index 0d020ef..7ac2813 100644
---- a/ip/iplink.c
-+++ b/ip/iplink.c
-@@ -703,6 +703,38 @@ static int iplink_modify(int cmd, unsigned int flags, int argc, char **argv)
- 	return 0;
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index f6dfe52..1347a24 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -594,26 +594,6 @@ static inline bool __udp_is_mcast_sock(struct net *net, struct sock *sk,
+ 	return true;
  }
  
-+int iplink_get(unsigned int flags, char *name, __u32 filt_mask)
-+{
-+	int len;
-+	struct iplink_req req;
-+	char answer[16384];
-+
-+	memset(&req, 0, sizeof(req));
-+
-+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
-+	req.n.nlmsg_flags = NLM_F_REQUEST|flags;
-+	req.n.nlmsg_type = RTM_GETLINK;
-+	req.i.ifi_family = preferred_family;
-+
-+	if (name) {
-+		len = strlen(name) + 1;
-+		if (len == 1)
-+			invarg("\"\" is not a valid device identifier\n",
-+				   "name");
-+		if (len > IFNAMSIZ)
-+			invarg("\"name\" too long\n", name);
-+		addattr_l(&req.n, sizeof(req), IFLA_IFNAME, name, len);
-+	}
-+	addattr32(&req.n, sizeof(req), IFLA_EXT_MASK, filt_mask);
-+
-+	if (rtnl_talk(&rth, &req.n, 0, 0, (struct nlmsghdr *)answer) < 0)
-+		return -2;
-+
-+	print_linkinfo(NULL, (struct nlmsghdr *)answer, stdout);
-+
-+	return 0;
-+}
-+
- #if IPLINK_IOCTL_COMPAT
- static int get_ctl_fd(void)
+-static inline struct sock *udp_v4_mcast_next(struct net *net, struct sock *sk,
+-					     __be16 loc_port, __be32 loc_addr,
+-					     __be16 rmt_port, __be32 rmt_addr,
+-					     int dif)
+-{
+-	struct hlist_nulls_node *node;
+-	unsigned short hnum = ntohs(loc_port);
+-
+-	sk_nulls_for_each_from(sk, node) {
+-		if (__udp_is_mcast_sock(net, sk,
+-					loc_port, loc_addr,
+-					rmt_port, rmt_addr,
+-					dif, hnum))
+-			goto found;
+-	}
+-	sk = NULL;
+-found:
+-	return sk;
+-}
+-
+ /*
+  * This routine is called by the ICMP module when it gets some
+  * sort of error condition.  If err < 0 then the socket should
+@@ -1664,23 +1644,23 @@ static int __udp4_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
+ 				    struct udp_table *udptable)
  {
+ 	struct sock *sk, *stack[256 / sizeof(struct sock *)];
+-	struct udp_hslot *hslot = udp_hashslot(udptable, net, ntohs(uh->dest));
+-	int dif;
++	struct hlist_nulls_node *node;
++	unsigned short hnum = ntohs(uh->dest);
++	struct udp_hslot *hslot = udp_hashslot(udptable, net, hnum);
++	int dif = skb->dev->ifindex;
+ 	unsigned int i, count = 0;
+ 
+ 	spin_lock(&hslot->lock);
+-	sk = sk_nulls_head(&hslot->head);
+-	dif = skb->dev->ifindex;
+-	sk = udp_v4_mcast_next(net, sk, uh->dest, daddr, uh->source, saddr, dif);
+-	while (sk) {
+-		stack[count++] = sk;
+-		sk = udp_v4_mcast_next(net, sk_nulls_next(sk), uh->dest,
+-				       daddr, uh->source, saddr, dif);
+-		if (unlikely(count == ARRAY_SIZE(stack))) {
+-			if (!sk)
+-				break;
+-			flush_stack(stack, count, skb, ~0);
+-			count = 0;
++	sk_nulls_for_each(sk, node, &hslot->head) {
++		if (__udp_is_mcast_sock(net, sk,
++					uh->dest, daddr,
++					uh->source, saddr,
++					dif, hnum)) {
++			if (unlikely(count == ARRAY_SIZE(stack))) {
++				flush_stack(stack, count, skb, ~0);
++				count = 0;
++			}
++			stack[count++] = sk;
+ 		}
+ 	}
+ 	/*
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index c2bd28f..6bcfbb8 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -698,43 +698,26 @@ drop:
+ 	return -1;
+ }
+ 
+-static struct sock *udp_v6_mcast_next(struct net *net, struct sock *sk,
+-				      __be16 loc_port, const struct in6_addr *loc_addr,
+-				      __be16 rmt_port, const struct in6_addr *rmt_addr,
+-				      int dif)
++static bool __udp_v6_is_mcast_sock(struct net *net, struct sock *sk,
++				   __be16 loc_port, const struct in6_addr *loc_addr,
++				   __be16 rmt_port, const struct in6_addr *rmt_addr,
++				   int dif, unsigned short hnum)
+ {
+-	struct hlist_nulls_node *node;
+-	unsigned short num = ntohs(loc_port);
+-
+-	sk_nulls_for_each_from(sk, node) {
+-		struct inet_sock *inet = inet_sk(sk);
+-
+-		if (!net_eq(sock_net(sk), net))
+-			continue;
+-
+-		if (udp_sk(sk)->udp_port_hash == num &&
+-		    sk->sk_family == PF_INET6) {
+-			if (inet->inet_dport) {
+-				if (inet->inet_dport != rmt_port)
+-					continue;
+-			}
+-			if (!ipv6_addr_any(&sk->sk_v6_daddr) &&
+-			    !ipv6_addr_equal(&sk->sk_v6_daddr, rmt_addr))
+-				continue;
+-
+-			if (sk->sk_bound_dev_if && sk->sk_bound_dev_if != dif)
+-				continue;
++	struct inet_sock *inet = inet_sk(sk);
+ 
+-			if (!ipv6_addr_any(&sk->sk_v6_rcv_saddr)) {
+-				if (!ipv6_addr_equal(&sk->sk_v6_rcv_saddr, loc_addr))
+-					continue;
+-			}
+-			if (!inet6_mc_check(sk, loc_addr, rmt_addr))
+-				continue;
+-			return sk;
+-		}
+-	}
+-	return NULL;
++	if (!net_eq(sock_net(sk), net))
++		return false;
++
++	if (udp_sk(sk)->udp_port_hash != hnum ||
++	    sk->sk_family != PF_INET6 ||
++	    (inet->inet_dport && inet->inet_dport != rmt_port) ||
++	    (!ipv6_addr_any(&sk->sk_v6_daddr) &&
++		    !ipv6_addr_equal(&sk->sk_v6_daddr, rmt_addr)) ||
++	    (sk->sk_bound_dev_if && sk->sk_bound_dev_if != dif))
++		return false;
++	if (!inet6_mc_check(sk, loc_addr, rmt_addr))
++		return false;
++	return true;
+ }
+ 
+ static void flush_stack(struct sock **stack, unsigned int count,
+@@ -783,28 +766,27 @@ static int __udp6_lib_mcast_deliver(struct net *net, struct sk_buff *skb,
+ {
+ 	struct sock *sk, *stack[256 / sizeof(struct sock *)];
+ 	const struct udphdr *uh = udp_hdr(skb);
+-	struct udp_hslot *hslot = udp_hashslot(udptable, net, ntohs(uh->dest));
+-	int dif;
++	struct hlist_nulls_node *node;
++	unsigned short hnum = ntohs(uh->dest);
++	struct udp_hslot *hslot = udp_hashslot(udptable, net, hnum);
++	int dif = inet6_iif(skb);
+ 	unsigned int i, count = 0;
+ 
+ 	spin_lock(&hslot->lock);
+-	sk = sk_nulls_head(&hslot->head);
+-	dif = inet6_iif(skb);
+-	sk = udp_v6_mcast_next(net, sk, uh->dest, daddr, uh->source, saddr, dif);
+-	while (sk) {
+-		/* If zero checksum and no_check is not on for
+-		 * the socket then skip it.
+-		 */
+-		if (uh->check || udp_sk(sk)->no_check6_rx)
++	sk_nulls_for_each(sk, node, &hslot->head) {
++		if (__udp_v6_is_mcast_sock(net, sk,
++					   uh->dest, daddr,
++					   uh->source, saddr,
++					   dif, hnum) &&
++		    /* If zero checksum and no_check is not on for
++		     * the socket then skip it.
++		     */
++		    (uh->check || udp_sk(sk)->no_check6_rx)) {
++			if (unlikely(count == ARRAY_SIZE(stack))) {
++				flush_stack(stack, count, skb, ~0);
++				count = 0;
++			}
+ 			stack[count++] = sk;
+-
+-		sk = udp_v6_mcast_next(net, sk_nulls_next(sk), uh->dest, daddr,
+-				       uh->source, saddr, dif);
+-		if (unlikely(count == ARRAY_SIZE(stack))) {
+-			if (!sk)
+-				break;
+-			flush_stack(stack, count, skb, ~0);
+-			count = 0;
+ 		}
+ 	}
+ 	/*
 -- 
-1.7.10.4
+2.0.0.526.g5318336
