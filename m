@@ -1,39 +1,34 @@
-From: Christoph Schulz <develop@kristov.de>
-Subject: [PATCH net-next 1/1] net: ppp: access ppp->nextseq only if CONFIG_PPP_MULTILINK
- is defined
-Date: Wed, 16 Jul 2014 23:41:26 +0200
-Message-ID: <53C6F186.30809@kristov.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 0/6] SCTP updates
+Date: Wed, 16 Jul 2014 14:44:10 -0700 (PDT)
+Message-ID: <20140716.144410.2191854657630314423.davem@davemloft.net>
+References: <1405189840-31171-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-ppp@vger.kernel.org, Paul Mackerras <paulus@samba.org>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: geirola@gmail.com, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: dborkman@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55073 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751327AbaGPVoL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2014 17:44:11 -0400
+In-Reply-To: <1405189840-31171-1-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Christoph Schulz <develop@kristov.de>
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Sat, 12 Jul 2014 20:30:34 +0200
 
-Commit d762d038497c9df51c19fcbe69b094b3bf8e5568 resets the counter holding the
-next sequence number for multilink PPP fragments to zero whenever the
-SC_MULTILINK flag is set. However, this counter only exists if
-CONFIG_PPP_MULTILINK is defined. Consequently, the new code has to be enclosed
-within #ifdef CONFIG_PPP_MULTILINK ... #endif.
+> This set improves the SCTP socket API to be more in line with
+> RFC6458, Geir and myself have finalized it eventually. While
+> at it, the first patch also fixes two possible information
+> leaks that should go to net tree as well. For more details, I
+> refer you to the patches themselves.
+> 
+> v1 -> v2:
+>  - Added 6th patch to deprecate SCTP_SNDRCV, rest unchanged
 
-Signed-off-by: Christoph Schulz <develop@kristov.de>
----
-diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
-index c38ee90..458be47 100644
---- a/drivers/net/ppp/ppp_generic.c
-+++ b/drivers/net/ppp/ppp_generic.c
-@@ -661,8 +661,10 @@ static long ppp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
- 			break;
- 		ppp_lock(ppp);
- 		cflags = ppp->flags & ~val;
-+#ifdef CONFIG_PPP_MULTILINK
- 		if (!(ppp->flags & SC_MULTILINK) && (val & SC_MULTILINK))
- 			ppp->nextseq = 0;
-+#endif
- 		ppp->flags = val & SC_FLAG_BITS;
- 		ppp_unlock(ppp);
- 		if (cflags & SC_CCP_OPEN)
+Now that patch #1 has propagated into net-next, I applied the
+rest of this series, thanks.
