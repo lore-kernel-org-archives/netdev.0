@@ -1,131 +1,75 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH 2/2] ipvs: Remove dead debug code
-Date: Wed, 16 Jul 2014 10:11:30 +0900
-Message-ID: <1405473090-10432-3-git-send-email-horms@verge.net.au>
-References: <1405473090-10432-1-git-send-email-horms@verge.net.au>
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Yannick Brosseau <scientist@fb.com>,
-	Simon Horman <horms@verge.net.au>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+From: David Held <drheld@google.com>
+Subject: Re: [PATCH net-next 1/2] udp: Simplify __udp*_lib_mcast_deliver.
+Date: Tue, 15 Jul 2014 21:53:26 -0400
+Message-ID: <CAGa1Tm6hC5-JOidCHWHBHwni2mtpjUdqvQPByK7g9ZH2QHW=Jw@mail.gmail.com>
+References: <1405377039-10082-1-git-send-email-drheld@google.com>
+	<20140715.171431.1611412835087664432.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
+	Willem de Bruijn <willemb@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:56549 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753220AbaGPBLg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 21:11:36 -0400
-In-Reply-To: <1405473090-10432-1-git-send-email-horms@verge.net.au>
+Received: from mail-ie0-f171.google.com ([209.85.223.171]:45564 "EHLO
+	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757993AbaGPBx1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 21:53:27 -0400
+Received: by mail-ie0-f171.google.com with SMTP id at1so215528iec.30
+        for <netdev@vger.kernel.org>; Tue, 15 Jul 2014 18:53:26 -0700 (PDT)
+In-Reply-To: <20140715.171431.1611412835087664432.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yannick Brosseau <scientist@fb.com>
+On Tue, Jul 15, 2014 at 8:14 PM, David Miller <davem@davemloft.net> wrote:
+> From: David Held <drheld@google.com>
+> Date: Mon, 14 Jul 2014 18:30:38 -0400
+>
+>>       spin_lock(&hslot->lock);
+>> -     sk = sk_nulls_head(&hslot->head);
+>> -     dif = skb->dev->ifindex;
+>> -     sk = udp_v4_mcast_next(net, sk, uh->dest, daddr, uh->source, saddr, dif);
+>> -     while (sk) {
+>> -             stack[count++] = sk;
+>> -             sk = udp_v4_mcast_next(net, sk_nulls_next(sk), uh->dest,
+>> -                                    daddr, uh->source, saddr, dif);
+>> -             if (unlikely(count == ARRAY_SIZE(stack))) {
+>> -                     if (!sk)
+>> -                             break;
+>> -                     flush_stack(stack, count, skb, ~0);
+>> -                     count = 0;
+>> +     sk_nulls_for_each(sk, node, &hslot->head) {
+>> +             if (__udp_is_mcast_sock(net, sk,
+>> +                                     uh->dest, daddr,
+>> +                                     uh->source, saddr,
+>> +                                     dif, hnum)) {
+>> +                     stack[count++] = sk;
+>> +                     if (unlikely(count == ARRAY_SIZE(stack))) {
+>> +                             flush_stack(stack, count, skb, ~0);
+>> +                             count = 0;
+>> +                     }
+>>               }
+>>       }
+>
+> I think you are changing the logic of the loop in the edge case.
+>
+> If we have exactly ARRAY_SIZE(stack) sockets to process, the old code
+> performs the flush_stack() outside of the hslot->lock, but with your
+> change we'll do it inside the lock.
+>
+> The tradeoff here is reducing hslot->lock hold times vs. avoiding
+> taking a hold on all the sockets in the stack[] array.
+>
+> I just wanted to point this out and make sure you are aware of and
+> are ok with this.
 
-This code section cannot compile as it refer to non existing variable
-It also pre-date git history.
+The followup patch makes it so we always take a hold on the sockets
+anyway (it makes things simpler and only changes things for the too
+large array case), so might as well reduce the lock time for the
+exactly ARRAY_SIZE case.
 
-Signed-off-by: Yannick Brosseau <scientist@fb.com>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- net/netfilter/ipvs/ip_vs_ctl.c | 86 ------------------------------------------
- 1 file changed, 86 deletions(-)
-
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index c42e83d..335fdb8 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -1807,92 +1807,6 @@ static struct ctl_table vs_vars[] = {
- 		.proc_handler	= proc_dointvec,
- 	},
- #endif
--#if 0
--	{
--		.procname	= "timeout_established",
--		.data	= &vs_timeout_table_dos.timeout[IP_VS_S_ESTABLISHED],
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= proc_dointvec_jiffies,
--	},
--	{
--		.procname	= "timeout_synsent",
--		.data	= &vs_timeout_table_dos.timeout[IP_VS_S_SYN_SENT],
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= proc_dointvec_jiffies,
--	},
--	{
--		.procname	= "timeout_synrecv",
--		.data	= &vs_timeout_table_dos.timeout[IP_VS_S_SYN_RECV],
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= proc_dointvec_jiffies,
--	},
--	{
--		.procname	= "timeout_finwait",
--		.data	= &vs_timeout_table_dos.timeout[IP_VS_S_FIN_WAIT],
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= proc_dointvec_jiffies,
--	},
--	{
--		.procname	= "timeout_timewait",
--		.data	= &vs_timeout_table_dos.timeout[IP_VS_S_TIME_WAIT],
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= proc_dointvec_jiffies,
--	},
--	{
--		.procname	= "timeout_close",
--		.data	= &vs_timeout_table_dos.timeout[IP_VS_S_CLOSE],
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= proc_dointvec_jiffies,
--	},
--	{
--		.procname	= "timeout_closewait",
--		.data	= &vs_timeout_table_dos.timeout[IP_VS_S_CLOSE_WAIT],
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= proc_dointvec_jiffies,
--	},
--	{
--		.procname	= "timeout_lastack",
--		.data	= &vs_timeout_table_dos.timeout[IP_VS_S_LAST_ACK],
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= proc_dointvec_jiffies,
--	},
--	{
--		.procname	= "timeout_listen",
--		.data	= &vs_timeout_table_dos.timeout[IP_VS_S_LISTEN],
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= proc_dointvec_jiffies,
--	},
--	{
--		.procname	= "timeout_synack",
--		.data	= &vs_timeout_table_dos.timeout[IP_VS_S_SYNACK],
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= proc_dointvec_jiffies,
--	},
--	{
--		.procname	= "timeout_udp",
--		.data	= &vs_timeout_table_dos.timeout[IP_VS_S_UDP],
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= proc_dointvec_jiffies,
--	},
--	{
--		.procname	= "timeout_icmp",
--		.data	= &vs_timeout_table_dos.timeout[IP_VS_S_ICMP],
--		.maxlen		= sizeof(int),
--		.mode		= 0644,
--		.proc_handler	= proc_dointvec_jiffies,
--	},
--#endif
- 	{ }
- };
- 
--- 
-2.0.0
+Should just be a matter of moving the stack addition below the ARRAY_SIZE check:
++                       if (unlikely(count == ARRAY_SIZE(stack))) {
++                               flush_stack(stack, count, skb, ~0);
++                               count = 0;
++                       }
++                       stack[count++] = sk;
