@@ -1,318 +1,58 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next V2 3/3] virtio-net: rx busy polling support
-Date: Wed, 16 Jul 2014 14:21:47 +0800
-Message-ID: <1405491707-22706-4-git-send-email-jasowang@redhat.com>
-References: <1405491707-22706-1-git-send-email-jasowang@redhat.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the staging tree with the net-next tree
+Date: Wed, 16 Jul 2014 16:43:22 +1000
+Message-ID: <20140716164322.472de7c7@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Vlad Yasevich <vyasevic@redhat.com>, Eric Dumazet <eric.dumazet@gmail.com>
-To: rusty@rustcorp.com.au, mst@redhat.com,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1405491707-22706-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/NxFSIUSMY2k5bljjAX4QPYO"; protocol="application/pgp-signature"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Tom Gundersen <teg@jklm.no>,
+	Kristina =?UTF-8?B?TWFydMWhZW5rbw==?=
+	<kristina.martsenko@gmail.com>
+To: Greg KH <greg@kroah.com>, David Miller <davem@davemloft.net>,
+	<netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add basic support for rx busy polling.
+--Sig_/NxFSIUSMY2k5bljjAX4QPYO
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-Test was done between a kvm guest and an external host. Two hosts were
-connected through 40gb mlx4 cards. With both busy_poll and busy_read
-are set to 50 in guest, 1 byte netperf tcp_rr shows 116% improvement:
-transaction rate was increased from 9151.94 to 19787.37.
+Hi Greg,
 
-Cc: Rusty Russell <rusty@rustcorp.com.au>
-Cc: Michael S. Tsirkin <mst@redhat.com>
-Cc: Vlad Yasevich <vyasevic@redhat.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/net/virtio_net.c | 190 ++++++++++++++++++++++++++++++++++++++++++++++-
- 1 file changed, 187 insertions(+), 3 deletions(-)
+Today's linux-next merge of the staging tree got a conflict in
+drivers/staging/cxt1e1/linux.c between commit c835a6773314 ("net: set
+name_assign_type in alloc_netdev()") from the net-next tree and commit
+14b596c9d80b ("staging: cxt1e1: remove driver") from the staging tree.
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index e417d93..4830713 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -27,6 +27,7 @@
- #include <linux/slab.h>
- #include <linux/cpu.h>
- #include <linux/average.h>
-+#include <net/busy_poll.h>
- 
- static int napi_weight = NAPI_POLL_WEIGHT;
- module_param(napi_weight, int, 0444);
-@@ -94,8 +95,143 @@ struct receive_queue {
- 
- 	/* Name of this receive queue: input.$index */
- 	char name[40];
-+
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+	unsigned int state;
-+#define VIRTNET_RQ_STATE_IDLE        0
-+#define VIRTNET_RQ_STATE_NAPI	     1    /* NAPI or refill owns this RQ */
-+#define VIRTNET_RQ_STATE_POLL	     2    /* poll owns this RQ */
-+#define VIRTNET_RQ_STATE_DISABLED    4    /* RQ is disabled */
-+#define VIRTNET_RQ_OWNED (VIRTNET_RQ_STATE_NAPI | VIRTNET_RQ_STATE_POLL)
-+#define VIRTNET_RQ_LOCKED (VIRTNET_RQ_OWNED | VIRTNET_RQ_STATE_DISABLED)
-+#define VIRTNET_RQ_STATE_NAPI_YIELD  8    /* NAPI or refill yielded this RQ */
-+#define VIRTNET_RQ_STATE_POLL_YIELD  16   /* poll yielded this RQ */
-+	spinlock_t lock;
-+#endif  /* CONFIG_NET_RX_BUSY_POLL */
- };
- 
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+static inline void virtnet_rq_init_lock(struct receive_queue *rq)
-+{
-+
-+	spin_lock_init(&rq->lock);
-+	rq->state = VIRTNET_RQ_STATE_IDLE;
-+}
-+
-+/* called from the device poll routine or refill routine to get ownership of a
-+ * receive queue.
-+ */
-+static inline bool virtnet_rq_lock_napi_refill(struct receive_queue *rq)
-+{
-+	int rc = true;
-+
-+	spin_lock(&rq->lock);
-+	if (rq->state & VIRTNET_RQ_LOCKED) {
-+		WARN_ON(rq->state & VIRTNET_RQ_STATE_NAPI);
-+		rq->state |= VIRTNET_RQ_STATE_NAPI_YIELD;
-+		rc = false;
-+	} else
-+		/* we don't care if someone yielded */
-+		rq->state = VIRTNET_RQ_STATE_NAPI;
-+	spin_unlock(&rq->lock);
-+	return rc;
-+}
-+
-+/* returns true is someone tried to get the rq while napi or refill had it */
-+static inline bool virtnet_rq_unlock_napi_refill(struct receive_queue *rq)
-+{
-+	int rc = false;
-+
-+	spin_lock(&rq->lock);
-+	WARN_ON(rq->state & (VIRTNET_RQ_STATE_POLL |
-+			     VIRTNET_RQ_STATE_NAPI_YIELD));
-+
-+	if (rq->state & VIRTNET_RQ_STATE_POLL_YIELD)
-+		rc = true;
-+	/* will reset state to idle, unless RQ is disabled */
-+	rq->state &= VIRTNET_RQ_STATE_DISABLED;
-+	spin_unlock(&rq->lock);
-+	return rc;
-+}
-+
-+/* called from virtnet_low_latency_recv() */
-+static inline bool virtnet_rq_lock_poll(struct receive_queue *rq)
-+{
-+	int rc = true;
-+
-+	spin_lock_bh(&rq->lock);
-+	if ((rq->state & VIRTNET_RQ_LOCKED)) {
-+		rq->state |= VIRTNET_RQ_STATE_POLL_YIELD;
-+		rc = false;
-+	} else
-+		/* preserve yield marks */
-+		rq->state |= VIRTNET_RQ_STATE_POLL;
-+	spin_unlock_bh(&rq->lock);
-+	return rc;
-+}
-+
-+/* returns true if someone tried to get the receive queue while it was locked */
-+static inline bool virtnet_rq_unlock_poll(struct receive_queue *rq)
-+{
-+	int rc = false;
-+
-+	spin_lock_bh(&rq->lock);
-+	WARN_ON(rq->state & (VIRTNET_RQ_STATE_NAPI));
-+
-+	if (rq->state & VIRTNET_RQ_STATE_POLL_YIELD)
-+		rc = true;
-+	/* will reset state to idle, unless RQ is disabled */
-+	rq->state &= VIRTNET_RQ_STATE_DISABLED;
-+	spin_unlock_bh(&rq->lock);
-+	return rc;
-+}
-+
-+/* return false if RQ is currently owned */
-+static inline bool virtnet_rq_disable(struct receive_queue *rq)
-+{
-+	int rc = true;
-+
-+	spin_lock_bh(&rq->lock);
-+	if (rq->state & VIRTNET_RQ_OWNED)
-+		rc = false;
-+	rq->state |= VIRTNET_RQ_STATE_DISABLED;
-+	spin_unlock_bh(&rq->lock);
-+
-+	return rc;
-+}
-+
-+#else /* CONFIG_NET_RX_BUSY_POLL */
-+static inline void virtnet_rq_init_lock(struct receive_queue *rq)
-+{
-+}
-+
-+static inline bool virtnet_rq_lock_napi_refill(struct receive_queue *rq)
-+{
-+	return true;
-+}
-+
-+static inline bool virtnet_rq_unlock_napi_refill(struct receive_queue *rq)
-+{
-+	return false;
-+}
-+
-+static inline bool virtnet_rq_lock_poll(struct receive_queue *rq)
-+{
-+	return false;
-+}
-+
-+static inline bool virtnet_rq_unlock_poll(struct receive_queue *rq)
-+{
-+	return false;
-+}
-+
-+static inline bool virtnet_rq_disable(struct receive_queue *rq)
-+{
-+	return true;
-+}
-+
-+#endif /* CONFIG_NET_RX_BUSY_POLL */
-+
- struct virtnet_info {
- 	struct virtio_device *vdev;
- 	struct virtqueue *cvq;
-@@ -521,6 +657,8 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
- 		skb_shinfo(skb)->gso_segs = 0;
- 	}
- 
-+	skb_mark_napi_id(skb, &rq->napi);
-+
- 	netif_receive_skb(skb);
- 	return;
- 
-@@ -714,7 +852,12 @@ static void refill_work(struct work_struct *work)
- 		struct receive_queue *rq = &vi->rq[i];
- 
- 		napi_disable(&rq->napi);
-+		if (!virtnet_rq_lock_napi_refill(rq)) {
-+			virtnet_napi_enable(rq);
-+			continue;
-+		}
- 		still_empty = !try_fill_recv(rq, GFP_KERNEL);
-+		virtnet_rq_unlock_napi_refill(rq);
- 		virtnet_napi_enable(rq);
- 
- 		/* In theory, this can happen: if we don't get any buffers in
-@@ -752,8 +895,13 @@ static int virtnet_poll(struct napi_struct *napi, int budget)
- 	unsigned int r, received = 0;
- 
- again:
-+	if (!virtnet_rq_lock_napi_refill(rq))
-+		return budget;
-+
- 	received += virtnet_receive(rq, budget);
- 
-+	virtnet_rq_unlock_napi_refill(rq);
-+
- 	/* Out of packets? */
- 	if (received < budget) {
- 		r = virtqueue_enable_cb_prepare(rq->vq);
-@@ -770,20 +918,50 @@ again:
- 	return received;
- }
- 
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+/* must be called with local_bh_disable()d */
-+static int virtnet_low_latency_recv(struct napi_struct *napi)
-+{
-+	struct receive_queue *rq =
-+		container_of(napi, struct receive_queue, napi);
-+	struct virtnet_info *vi = rq->vq->vdev->priv;
-+	int received;
-+
-+	if (!(vi->status & VIRTIO_NET_S_LINK_UP))
-+		return LL_FLUSH_FAILED;
-+
-+	if (!virtnet_rq_lock_poll(rq))
-+		return LL_FLUSH_BUSY;
-+
-+	received = virtnet_receive(rq, 4);
-+
-+	virtnet_rq_unlock_poll(rq);
-+
-+	return received;
-+}
-+#endif	/* CONFIG_NET_RX_BUSY_POLL */
-+
- static void virtnet_napi_enable_all(struct virtnet_info *vi)
- {
- 	int i;
- 
--	for (i = 0; i < vi->max_queue_pairs; i++)
-+	for (i = 0; i < vi->max_queue_pairs; i++) {
-+		virtnet_rq_init_lock(&vi->rq[i]);
- 		virtnet_napi_enable(&vi->rq[i]);
-+	}
- }
- 
- static void virtnet_napi_disable_all(struct virtnet_info *vi)
- {
- 	int i;
- 
--	for (i = 0; i < vi->max_queue_pairs; i++)
-+	for (i = 0; i < vi->max_queue_pairs; i++) {
- 		napi_disable(&vi->rq[i].napi);
-+		while (!virtnet_rq_disable(&vi->rq[i])) {
-+			pr_info("RQ %d locked\n", i);
-+			usleep_range(1000, 20000);
-+		}
-+	}
- }
- 
- static int virtnet_open(struct net_device *dev)
-@@ -1372,6 +1550,9 @@ static const struct net_device_ops virtnet_netdev = {
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller = virtnet_netpoll,
- #endif
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+	.ndo_busy_poll		= virtnet_low_latency_recv,
-+#endif
- };
- 
- static void virtnet_config_changed_work(struct work_struct *work)
-@@ -1577,6 +1758,7 @@ static int virtnet_alloc_queues(struct virtnet_info *vi)
- 		vi->rq[i].pages = NULL;
- 		netif_napi_add(vi->dev, &vi->rq[i].napi, virtnet_poll,
- 			       napi_weight);
-+		napi_hash_add(&vi->rq[i].napi);
- 
- 		sg_init_table(vi->rq[i].sg, ARRAY_SIZE(vi->rq[i].sg));
- 		ewma_init(&vi->rq[i].mrg_avg_pkt_len, 1, RECEIVE_AVG_WEIGHT);
-@@ -1880,8 +2062,10 @@ static int virtnet_freeze(struct virtio_device *vdev)
- 
- 	if (netif_running(vi->dev)) {
- 		virtnet_napi_disable_all(vi);
--		for (i = 0; i < vi->max_queue_pairs; i++)
-+		for (i = 0; i < vi->max_queue_pairs; i++) {
-+			napi_hash_del(&vi->rq[i].napi);
- 			netif_napi_del(&vi->rq[i].napi);
-+		}
- 	}
- 
- 	remove_vq_common(vi);
--- 
-1.8.3.1
+I fixed it up (I just removed the file) and can carry the fix as
+necessary (no action is required).
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Sig_/NxFSIUSMY2k5bljjAX4QPYO
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJTxh8PAAoJEMDTa8Ir7ZwVMw0P/05jTQh4OobsTpXerH/ebdUZ
+zN8LVRvDiK/iyp7UAKp6XXKPoSqTYtm8o6Gj6ZXUGS3gUY5ct9B1DhhSySjQV9Vj
+UAr0ZIHlFQ98ks35pyO3lkKQV73nIMpk0ElkNmGpm1d2xdE4y95N/RBYqSLV2Hoo
+1EX0apw+YR+o5zs9XOjf9giSBHRyQUQ4eP5v/gTZ/uc2s9m/zhQsns6jauPJXyuY
+ckpnqhxwjnd70cFj8zLRCKDmJq5fQp1jCt+lxsCEIAANKR4MnR63q6OflCy20OzR
+Rh7nf/NZgWI+iGYGFPQe0/oGibARsPxPFfW5G7B6yLHjMp70Bdiec7URKw09DeLz
+7YX4g8IA4xpR+3D5Ly7kkjwupjDcWQhtbYUHFuMLMjTwK3X6OTF7JuJlhWrFMmJ1
+zKWeblDXvO2M6lTA41m4+7DUacaRZ2elpdAPYyekalvwz+wWIAlqnS6BWHx6F1uL
+PTkGF3/BjC2NgvpJB69rfWIKSzNFNOCBpDxnWRDyzCxPV8H4zlkoycmnE+oVdkOK
+SDOMQLknYRXHA9O52VXYe61u5SS7jkQx/d5RGaDLbmn6bLNcTwqpkhIBw3nt7Hrs
+oJQUKO4x+oJeTNnRTgDlPvnffEHBe4eoN6mCsoiKCqhq6nz+CkqbmYQ9Ff6Mhpiz
+qGcjfQ+3ca1ofMZRp6Vb
+=79nJ
+-----END PGP SIGNATURE-----
+
+--Sig_/NxFSIUSMY2k5bljjAX4QPYO--
