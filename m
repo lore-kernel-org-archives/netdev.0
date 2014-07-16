@@ -1,52 +1,43 @@
 From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next v3 10/11] openvswitch: Add skb_clone NULL check in the recirc action.
-Date: Wed, 16 Jul 2014 00:32:39 -0700
-Message-ID: <1405495959-2221-1-git-send-email-pshelar@nicira.com>
+Subject: [PATCH net-next v3 11/11] openvswitch: Add skb_clone NULL check for the sampling action.
+Date: Wed, 16 Jul 2014 00:32:44 -0700
+Message-ID: <1405495964-2250-1-git-send-email-pshelar@nicira.com>
 Cc: netdev@vger.kernel.org, Andy Zhou <azhou@nicira.com>,
 	Pravin B Shelar <pshelar@nicira.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog116.obsmtp.com ([74.125.149.240]:54838 "HELO
-	na3sys009aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S965354AbaGPHck (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2014 03:32:40 -0400
-Received: by mail-pd0-f181.google.com with SMTP id v10so766118pde.40
-        for <netdev@vger.kernel.org>; Wed, 16 Jul 2014 00:32:39 -0700 (PDT)
+Received: from na3sys009aog119.obsmtp.com ([74.125.149.246]:53307 "HELO
+	na3sys009aog119.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1030672AbaGPHcp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2014 03:32:45 -0400
+Received: by mail-pd0-f172.google.com with SMTP id ft15so768405pdb.31
+        for <netdev@vger.kernel.org>; Wed, 16 Jul 2014 00:32:45 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Andy Zhou <azhou@nicira.com>
 
-The main change is to fix a bug where the NULL check after skb clone()
-call is missing.  The fix is to return 0 whenever skb_clone()
-failed to create a clone so that we can continue with rest of actions.
+Fix a bug where skb_clone() NULL check is missing in sample action
+implementation.
 
-Reported-by: Pravin B Shelar <pshelar@nicira.com>
 Signed-off-by: Andy Zhou <azhou@nicira.com>
 Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 ---
- net/openvswitch/actions.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+ net/openvswitch/actions.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
 diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-index 2b11473..5920512 100644
+index 5920512..09ccbb8 100644
 --- a/net/openvswitch/actions.c
 +++ b/net/openvswitch/actions.c
-@@ -624,10 +624,13 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
- 				break;
- 			}
+@@ -477,6 +477,8 @@ static int sample(struct datapath *dp, struct sk_buff *skb,
+ 		skb_get(skb);
+ 	} else {
+ 		sample_skb = skb_clone(skb, GFP_ATOMIC);
++		if (!sample_skb) /* Skip sample action when out of memory. */
++			return 0;
+ 	}
  
--			if (!last_action(a, rem))
-+			if (!last_action(a, rem)) {
- 				recirc_skb = skb_clone(skb, GFP_ATOMIC);
--			else
-+				if (!recirc_skb)
-+					return 0;
-+			} else {
- 				recirc_skb = skb;
-+			}
- 
- 			__this_cpu_inc(net_xmit_recursion);
- 			err = execute_recirc(dp, recirc_skb, a);
+ 	/* Note that do_execute_actions() never consumes skb.
 -- 
 1.9.3
