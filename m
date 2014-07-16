@@ -1,36 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] sfc: add extra RX drop counters for
- nodesc_trunc and noskb_drop
-Date: Tue, 15 Jul 2014 22:53:56 -0700 (PDT)
-Message-ID: <20140715.225356.2046608141773950507.davem@davemloft.net>
-References: <alpine.LFD.2.03.1407141534440.19512@solarflare.com>
+Subject: Re: [PATCH net-next] bonding: permit enslaving interfaces without
+ set_mac support
+Date: Tue, 15 Jul 2014 22:55:02 -0700 (PDT)
+Message-ID: <20140715.225502.1504304277971621146.davem@davemloft.net>
+References: <1405423561-9114-1-git-send-email-vfalico@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: ecree@solarflare.com
+Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, andy@greyhouse.net
+To: vfalico@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47725 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47730 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932702AbaGPFx5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2014 01:53:57 -0400
-In-Reply-To: <alpine.LFD.2.03.1407141534440.19512@solarflare.com>
+	with ESMTP id S934451AbaGPFzD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2014 01:55:03 -0400
+In-Reply-To: <1405423561-9114-1-git-send-email-vfalico@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Edward Cree <ecree@solarflare.com>
-Date: Tue, 15 Jul 2014 11:58:12 +0100
+From: Veaceslav Falico <vfalico@gmail.com>
+Date: Tue, 15 Jul 2014 13:26:01 +0200
 
-> Added a counter rx_noskb_drop for failure to allocate an skb.
-> Summed the per-channel rx_nodesc_trunc counters earlier so that they can
->  be included in rx_dropped.
+> Currently we exit if the slave isn't the first slave, doesn't support mac
+> address setting and fail_over_mac isn't FOM_ACTIVE. It's wrong because we
+> only require ndo_set_mac_address in case bonding is in active-backup mode
+> and FOM isn't FOM_ACTIVE.
 > 
-> Signed-off-by: Edward Cree <ecree@solarflare.com>
-> ---
-> Tested that new stats appear in ethtool -S.
-> However, because of the way the GENERIC_STATs are defined, they appear
->  at the top of the output.  Does the order of stats matter?
+> To fix this - only exit with an error if we're in a/b mode and have
+> fail_over_mac != FOM_ACTIVE.
+> 
+> Also, maintain current behaviour on the first slave (forcibly change fom to
+> FOM_ACTIVE) to not break anyone's configuration.
+> 
+> CC: Jay Vosburgh <j.vosburgh@gmail.com>
+> CC: Andy Gospodarek <andy@greyhouse.net>
+> Signed-off-by: Veaceslav Falico <vfalico@gmail.com>
 
-I don't think the order matters.
-
-Applied, thanks Edward.
+Applied, thank you.
