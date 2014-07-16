@@ -1,67 +1,68 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 1/5] net/mlx4_core: Fix leakage of SW multicast entries
-Date: Wed, 16 Jul 2014 11:57:47 +0300
-Message-ID: <1405501071-9340-2-git-send-email-amirv@mellanox.com>
-References: <1405501071-9340-1-git-send-email-amirv@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.co.il>,
-	Eugenia Emantayev <eugenia@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] bonding: use rtnl_deref in
+ bond_change_rx_flags()
+Date: Wed, 16 Jul 2014 11:05:48 +0200
+Message-ID: <1405501548.10255.51.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1405495467-16187-1-git-send-email-vfalico@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Jay Vosburgh <j.vosburgh@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Veaceslav Falico <vfalico@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:50752 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1759786AbaGPI6I (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Jul 2014 04:58:08 -0400
-In-Reply-To: <1405501071-9340-1-git-send-email-amirv@mellanox.com>
+Received: from mail-wg0-f52.google.com ([74.125.82.52]:55866 "EHLO
+	mail-wg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750935AbaGPJF4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2014 05:05:56 -0400
+Received: by mail-wg0-f52.google.com with SMTP id a1so571435wgh.23
+        for <netdev@vger.kernel.org>; Wed, 16 Jul 2014 02:05:54 -0700 (PDT)
+In-Reply-To: <1405495467-16187-1-git-send-email-vfalico@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
+On Wed, 2014-07-16 at 09:24 +0200, Veaceslav Falico wrote:
+> As it's always called with RTNL held, via dev_set_allmulti/promiscuity.
+> 
+> CC: Jay Vosburgh <j.vosburgh@gmail.com>
+> CC: Andy Gospodarek <andy@greyhouse.net>
+> Signed-off-by: Veaceslav Falico <vfalico@gmail.com>
+> ---
+>  drivers/net/bonding/bond_main.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index d643807..2998710 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -498,7 +498,7 @@ static int bond_set_promiscuity(struct bonding *bond, int inc)
+>  	int err = 0;
+>  
+>  	if (bond_uses_primary(bond)) {
+> -		struct slave *curr_active = bond_deref_active_protected(bond);
+> +		struct slave *curr_active = rtnl_dereference(bond->curr_active_slave);
+>  
+>  		/* write lock already acquired */
 
-When removing multicast address in B0 steering mode there is
-a bug in cases where there is a single QP registered for the address,
-and this QP is also promiscuous. In such cases the entry wouldn't be
-deleted from the SW structure representing all Ethernet MCG entries,
-but would be removed in HW. This way when driver goes to remove it
-from SW and HW structures the HW deletion fails.
-Moreover the same index could later be used for registering
-different address, which can be Infiniband.
+This seems dubious to me. What really protects curr_active_slave being
+modified ?
 
+Considering the presence of the previous comment, I assumed the sync
+point was the write lock. Not rtnl.
 
-Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.co.il>
-Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/mcg.c | 14 +++++++++++++-
- 1 file changed, 13 insertions(+), 1 deletion(-)
+If write lock is never held without rtnl, then maybe the write lock is
+useless, I don't know.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mcg.c b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-index 4c36def..14a4071 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mcg.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-@@ -363,8 +363,20 @@ static bool can_remove_steering_entry(struct mlx4_dev *dev, u8 port,
- 	ret = true;
- 	list_for_each_entry_safe(entry, tmp_entry, &s_steer->steer_entries[steer], list) {
- 		if (entry->index == index) {
--			if (list_empty(&entry->duplicates)) {
-+			if (list_empty(&entry->duplicates) ||
-+			    members_count == 1) {
-+				struct mlx4_promisc_qp *pqp, *tmp_pqp;
-+				/* If there is only 1 entry in duplicates then
-+				 * this is the QP we want to delete, going over
-+				 * the list and deleting the entry.
-+				 */
- 				list_del(&entry->list);
-+				list_for_each_entry_safe(pqp, tmp_pqp,
-+							 &entry->duplicates,
-+							 list) {
-+					list_del(&pqp->list);
-+					kfree(pqp);
-+				}
- 				kfree(entry);
- 			} else {
- 				/* This entry contains duplicates so it shouldn't be removed */
--- 
-1.8.3.4
+But after your patch its not really consistent and we increase
+confusion.
+
+>  		if (curr_active)
+> @@ -524,7 +524,7 @@ static int bond_set_allmulti(struct bonding *bond, int inc)
+>  	int err = 0;
+>  
+>  	if (bond_uses_primary(bond)) {
+> -		struct slave *curr_active = bond_deref_active_protected(bond);
+> +		struct slave *curr_active = rtnl_dereference(bond->curr_active_slave);
+>  
+>  		/* write lock already acquired */
+>  		if (curr_active)
