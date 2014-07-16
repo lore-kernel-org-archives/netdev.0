@@ -1,42 +1,51 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] bonding: enhance L2 hash helper with packet type
-Date: Wed, 16 Jul 2014 15:23:43 -0700 (PDT)
-Message-ID: <20140716.152343.1176736920908144557.davem@davemloft.net>
-References: <1405410083-26489-1-git-send-email-Jianhua.Xie@freescale.com>
-	<20140715082028.GA28235@mikrodark.usersys.redhat.com>
+Subject: Re: [PATCH] r8169: Enable RX_MULTI_EN for RTL_GIGA_MAC_VER_40
+Date: Wed, 16 Jul 2014 15:25:17 -0700 (PDT)
+Message-ID: <20140716.152517.952351917803362794.davem@davemloft.net>
+References: <1405406500-1208-1-git-send-email-michel@daenzer.net>
+	<0835B3720019904CB8F7AA43166CEEB25066DC@RTITMBSV03.realtek.com.tw>
+	<20140715215412.GA19363@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Jianhua.Xie@freescale.com, netdev@vger.kernel.org,
-	j.vosburgh@gmail.com, andy@greyhouse.net, Jiafei.Pan@freescale.com
-To: vfalico@gmail.com
+Cc: hayeswang@realtek.com, michel@daenzer.net, nic_swsd@realtek.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55431 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55451 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754524AbaGPWXp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2014 18:23:45 -0400
-In-Reply-To: <20140715082028.GA28235@mikrodark.usersys.redhat.com>
+	with ESMTP id S1753385AbaGPWZS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2014 18:25:18 -0400
+In-Reply-To: <20140715215412.GA19363@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Veaceslav Falico <vfalico@gmail.com>
-Date: Tue, 15 Jul 2014 10:20:28 +0200
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Tue, 15 Jul 2014 23:54:12 +0200
 
-> On Tue, Jul 15, 2014 at 03:41:23PM +0800, Xie Jianhua wrote:
->>From: Jianhua Xie <jianhua.xie@freescale.com>
->>
->>Current L2 hash helper calculates destination eth addr and
->>source ether addr as L2 hash factors. This patch is adding
->>packet type ID field into hash factors, which can help to
->>distribute different types of packets like IPv4/IPv6 packets
->>to different slave devices while only BOND_XMIT_POLICY_LAYER2
->>is applied.
+> Hayes Wang <hayeswang@realtek.com> :
+>>  Michel D?nzer [mailto:michel@daenzer.net] 
+> [...]
+>> > Without this, the ethernet port on my ASUS A88X Pro mainboard stops
+>> > working sometimes, with messages like these in dmesg:
+>> > 
+>> > AMD-Vi: Event logged [IO_PAGE_FAULT device=05:00.0 
+>> > domain=0x001e address=0x0000000000003000 flags=0x0050]
+>> 
+>> I search the information about your issue. It seems to be
+>> relative to the IOMMU. I don't sure if your patch is the root
+>> cause or a workaround.
 > 
-> 1) It's also used in BOND_XMIT_POLICY_{LAYER|ENCAP}23, for the 2nd
-> level
-> hash.
-> 2) The documentation (D/networking/bonding.txt) also needs an update.
+> Btw, a few extra identifiers in rtl_init_rxcfg may improve consistency:
 > 
-> Otherwise, looks good.
+>            missing             |          included
+> -------------------------------+-------------------------------
+> RTL_GIGA_MAC_VER_36 (8168f)    | RTL_GIGA_MAC_VER_35 (8168f)
+> RTL_GIGA_MAC_VER_38 (RTL8411)  | RTL_GIGA_MAC_VER_44 (RTL8411)
+> RTL_GIGA_MAC_VER_39 (RTL8106e) | RTL_GIGA_MAC_VER_43 (RTL8106e)
+> RTL_GIGA_MAC_VER_37 (RTL8402)  |
 
-Please make these adjustments and resubmit this patch, thank you.
+Michel please take Francois's feedback here into consideration and also
+provide a more detailed commit message so other people reading the commit
+can understand your reasoning for making this change, not just what the
+result might be for making it.
