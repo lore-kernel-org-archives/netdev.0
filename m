@@ -1,8 +1,7 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next V2 1/3] virtio-net: introduce helpers to enable and
-	disable all NAPIs
-Date: Wed, 16 Jul 2014 14:21:45 +0800
-Message-ID: <1405491707-22706-2-git-send-email-jasowang@redhat.com>
+Subject: [PATCH net-next V2 2/3] virtio-net: introduce virtnet_receive()
+Date: Wed, 16 Jul 2014 14:21:46 +0800
+Message-ID: <1405491707-22706-3-git-send-email-jasowang@redhat.com>
 References: <1405491707-22706-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -24,8 +23,8 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-This patch introduces helpers to disable and enable NAPI for all rx
-queues. This will be used by rx busy polling support.
+Move common receive logic to a new helper virtnet_receive(). It will
+also be used by rx busy polling method.
 
 Cc: Rusty Russell <rusty@rustcorp.com.au>
 Cc: Michael S. Tsirkin <mst@redhat.com>
@@ -33,88 +32,57 @@ Cc: Vlad Yasevich <vyasevic@redhat.com>
 Cc: Eric Dumazet <eric.dumazet@gmail.com>
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/net/virtio_net.c | 34 ++++++++++++++++++++++++----------
- 1 file changed, 24 insertions(+), 10 deletions(-)
+ drivers/net/virtio_net.c | 20 +++++++++++++++-----
+ 1 file changed, 15 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 7d9f84a..e1e1691 100644
+index e1e1691..e417d93 100644
 --- a/drivers/net/virtio_net.c
 +++ b/drivers/net/virtio_net.c
-@@ -760,6 +760,22 @@ again:
- 	return received;
+@@ -725,15 +725,12 @@ static void refill_work(struct work_struct *work)
+ 	}
  }
  
-+static void virtnet_napi_enable_all(struct virtnet_info *vi)
-+{
-+	int i;
-+
-+	for (i = 0; i < vi->max_queue_pairs; i++)
-+		virtnet_napi_enable(&vi->rq[i]);
-+}
-+
-+static void virtnet_napi_disable_all(struct virtnet_info *vi)
-+{
-+	int i;
-+
-+	for (i = 0; i < vi->max_queue_pairs; i++)
-+		napi_disable(&vi->rq[i].napi);
-+}
-+
- static int virtnet_open(struct net_device *dev)
+-static int virtnet_poll(struct napi_struct *napi, int budget)
++static int virtnet_receive(struct receive_queue *rq, int budget)
  {
- 	struct virtnet_info *vi = netdev_priv(dev);
-@@ -770,9 +786,10 @@ static int virtnet_open(struct net_device *dev)
- 			/* Make sure we have some buffers: if oom use wq. */
- 			if (!try_fill_recv(&vi->rq[i], GFP_KERNEL))
- 				schedule_delayed_work(&vi->refill, 0);
--		virtnet_napi_enable(&vi->rq[i]);
+-	struct receive_queue *rq =
+-		container_of(napi, struct receive_queue, napi);
+ 	struct virtnet_info *vi = rq->vq->vdev->priv;
++	unsigned int len, received = 0;
+ 	void *buf;
+-	unsigned int r, len, received = 0;
+ 
+-again:
+ 	while (received < budget &&
+ 	       (buf = virtqueue_get_buf(rq->vq, &len)) != NULL) {
+ 		receive_buf(rq, buf, len);
+@@ -745,6 +742,18 @@ again:
+ 			schedule_delayed_work(&vi->refill, 0);
  	}
  
-+	virtnet_napi_enable_all(vi);
++	return received;
++}
 +
- 	return 0;
- }
- 
-@@ -1076,13 +1093,11 @@ static int virtnet_set_queues(struct virtnet_info *vi, u16 queue_pairs)
- static int virtnet_close(struct net_device *dev)
- {
- 	struct virtnet_info *vi = netdev_priv(dev);
--	int i;
- 
- 	/* Make sure refill_work doesn't re-enable napi! */
- 	cancel_delayed_work_sync(&vi->refill);
- 
--	for (i = 0; i < vi->max_queue_pairs; i++)
--		napi_disable(&vi->rq[i].napi);
-+	virtnet_napi_disable_all(vi);
- 
- 	return 0;
- }
-@@ -1853,11 +1868,11 @@ static int virtnet_freeze(struct virtio_device *vdev)
- 	netif_device_detach(vi->dev);
- 	cancel_delayed_work_sync(&vi->refill);
- 
--	if (netif_running(vi->dev))
--		for (i = 0; i < vi->max_queue_pairs; i++) {
--			napi_disable(&vi->rq[i].napi);
-+	if (netif_running(vi->dev)) {
-+		virtnet_napi_disable_all(vi);
-+		for (i = 0; i < vi->max_queue_pairs; i++)
- 			netif_napi_del(&vi->rq[i].napi);
--		}
-+	}
- 
- 	remove_vq_common(vi);
- 
-@@ -1880,8 +1895,7 @@ static int virtnet_restore(struct virtio_device *vdev)
- 			if (!try_fill_recv(&vi->rq[i], GFP_KERNEL))
- 				schedule_delayed_work(&vi->refill, 0);
- 
--		for (i = 0; i < vi->max_queue_pairs; i++)
--			virtnet_napi_enable(&vi->rq[i]);
-+		virtnet_napi_enable_all(vi);
++static int virtnet_poll(struct napi_struct *napi, int budget)
++{
++	struct receive_queue *rq =
++		container_of(napi, struct receive_queue, napi);
++	unsigned int r, received = 0;
++
++again:
++	received += virtnet_receive(rq, budget);
++
+ 	/* Out of packets? */
+ 	if (received < budget) {
+ 		r = virtqueue_enable_cb_prepare(rq->vq);
+@@ -753,6 +762,7 @@ again:
+ 		    napi_schedule_prep(napi)) {
+ 			virtqueue_disable_cb(rq->vq);
+ 			__napi_schedule(napi);
++			budget -= received;
+ 			goto again;
+ 		}
  	}
- 
- 	netif_device_attach(vi->dev);
 -- 
 1.8.3.1
