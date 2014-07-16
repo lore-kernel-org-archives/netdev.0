@@ -1,53 +1,34 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net] net/mlx4_en: cq->irq_desc wasn't set in legacy EQ's
-Date: Wed, 16 Jul 2014 13:33:50 +0300
-Message-ID: <1405506830-12178-1-git-send-email-amirv@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:39583 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751705AbaGPKeD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Jul 2014 06:34:03 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Will Deacon <will.deacon@arm.com>
+Subject: Re: [PATCH RFCv3 00/14] arm64: eBPF JIT compiler
+Date: Wed, 16 Jul 2014 11:41:54 +0100
+Message-ID: <20140716104153.GL29414@arm.com>
+References: <1405405512-4423-1-git-send-email-zlim.lnx@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Catalin Marinas <Catalin.Marinas@arm.com>,
+	Jiang Liu <liuj97@gmail.com>,
+	AKASHI Takahiro <takahiro.akashi@linaro.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Chema Gonzalez <chema@google.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Zi Shen Lim <zlim.lnx@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1405405512-4423-1-git-send-email-zlim.lnx@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fix a regression introduced by commit 35f6f45 ("net/mlx4_en: Don't use
-irq_affinity_notifier to track changes in IRQ affinity map").
-When core is started in legacy EQ's (number of IRQ's < rx rings), cq->irq_desc
-was NULL.  This caused a kernel crash under heavy traffic - when having more
-than rx NAPI budget completions.
-Fixed to have it set for both EQ modes.
+On Tue, Jul 15, 2014 at 07:24:58AM +0100, Zi Shen Lim wrote:
+> This series implements eBPF JIT compiler for arm64.
+> See [14/14] for change log.
+> 
+> Patches [1-13/14] implement code generation functions.
 
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_cq.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+Nice work, I'll take a look. Thanks!
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_cq.c b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-index 14c0004..82322b1 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_cq.c
-@@ -129,14 +129,15 @@ int mlx4_en_activate_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq,
- 						  name);
- 				}
- 
--				cq->irq_desc =
--					irq_to_desc(mlx4_eq_get_irq(mdev->dev,
--								    cq->vector));
- 			}
- 		} else {
- 			cq->vector = (cq->ring + 1 + priv->port) %
- 				mdev->dev->caps.num_comp_vectors;
- 		}
-+
-+		cq->irq_desc =
-+			irq_to_desc(mlx4_eq_get_irq(mdev->dev,
-+						    cq->vector));
- 	} else {
- 		/* For TX we use the same irq per
- 		ring we assigned for the RX    */
--- 
-1.8.3.4
+Will
