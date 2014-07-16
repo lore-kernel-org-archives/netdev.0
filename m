@@ -1,34 +1,49 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: linux-next: manual merge of the staging tree with the net-next
- tree
-Date: Wed, 16 Jul 2014 13:52:20 -0700
-Message-ID: <20140716205220.GA14387@kroah.com>
-References: <20140716164322.472de7c7@canb.auug.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v5] bfin_mac: convert bfin Ethernet driver to NAPI
+ framework
+Date: Wed, 16 Jul 2014 14:03:01 -0700 (PDT)
+Message-ID: <20140716.140301.896018835447121717.davem@davemloft.net>
+References: <1405504302-21344-1-git-send-email-sonic.adi@gmail.com>
+	<1405516649.10255.59.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Tom Gundersen <teg@jklm.no>,
-	Kristina =?utf-8?Q?Mart=C5=A1enko?=
-	<kristina.martsenko@gmail.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140716164322.472de7c7@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: sonic.adi@gmail.com, netdev@vger.kernel.org,
+	varkabhadram@gmail.com, adi-buildroot-devel@lists.sourceforge.net,
+	sonic.zhang@analog.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54758 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750854AbaGPVDF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2014 17:03:05 -0400
+In-Reply-To: <1405516649.10255.59.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 16, 2014 at 04:43:22PM +1000, Stephen Rothwell wrote:
-> Hi Greg,
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 16 Jul 2014 15:17:29 +0200
+
+> On Wed, 2014-07-16 at 17:51 +0800, Sonic Zhang wrote:
+>> From: Sonic Zhang <sonic.zhang@analog.com>
+>> +	if (i < budget) {
+>> +		napi_gro_flush(napi, false);
+>> +		local_irq_save(flags);
+>> +		__napi_complete(napi);
+>> +		local_irq_restore(flags);
+>> +		enable_irq(IRQ_MAC_RX);
 > 
-> Today's linux-next merge of the staging tree got a conflict in
-> drivers/staging/cxt1e1/linux.c between commit c835a6773314 ("net: set
-> name_assign_type in alloc_netdev()") from the net-next tree and commit
-> 14b596c9d80b ("staging: cxt1e1: remove driver") from the staging tree.
+> I have no idea why you open-code napi_complete();
 > 
-> I fixed it up (I just removed the file) and can carry the fix as
-> necessary (no action is required).
+> Why cant you just copy/paste what other drivers do here ?
+> 
+> 	if (i < budget) {
+> 		napi_complete(napi);
+> 		enable_irq(IRQ_MAC_RX);
+> 	}
 
-That is fine, thanks.
+Generally speaking, I am very frustrated at how this bfin_mac NAPI
+conversion tries to do things in special ways.
 
-greg k-h
+Please mimick what other drivers do rather than trying to do things in
+a special way unique to your driver.
