@@ -1,28 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can-next 2014-07-15
-Date: Tue, 15 Jul 2014 17:40:27 -0700 (PDT)
-Message-ID: <20140715.174027.1724741587245396612.davem@davemloft.net>
-References: <53C4DBD2.8010309@pengutronix.de>
+Subject: Re: [PATCH v2 net-next 0/4] bonding: rcu cleanups
+Date: Tue, 15 Jul 2014 17:50:41 -0700 (PDT)
+Message-ID: <20140715.175041.1779643875444299705.davem@davemloft.net>
+References: <1405432616-12414-1-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	kernel@pengutronix.de
-To: mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <53C4DBD2.8010309@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, vfalico@gmail.com,
+	andy@greyhouse.net, nikolay@redhat.com, maheshb@google.com
+To: edumazet@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46186 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759950AbaGPAum (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 20:50:42 -0400
+In-Reply-To: <1405432616-12414-1-git-send-email-edumazet@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Tue, 15 Jul 2014 09:44:18 +0200
+From: Eric Dumazet <edumazet@google.com>
+Date: Tue, 15 Jul 2014 06:56:52 -0700
 
-> this is a pull request of 4 patches for net-next/master.
+> RCU was added to bonding in linux-3.12 but lacked proper sparse annotations.
 > 
-> Prabhakar Lad contributes a patch that converts the c_can driver to use
-> the devm api. The remaining four patches by Nikita Edward Baruzdin
-> improve the SJA1000 driver with loopback testing support and introduce
-> a new testing mode presume ack, for successful transmission even if no
-> ACK is received.
+> Using __rcu annotation actually helps to spot all accesses to
+> bond->curr_active_slave & cond->current_arp_slave
+> are correctly protected, with full sparse & LOCKDEP support.
+> 
+> Lets clean the code.
 
-Pulled, thanks Marc.
+Series applied, thanks a lot Eric.
