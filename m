@@ -1,48 +1,110 @@
-From: Christoph Schulz <develop@kristov.de>
-Subject: Re: [PATCH net 1/1] net: ppp: fix creating PPP pass and active
- filters
-Date: Wed, 16 Jul 2014 20:47:55 +0200
-Message-ID: <20140716204755.36527ey95gjknnx7@berry.schulz.ip-v6.eu>
-References: <53C28297.4080507@kristov.de> <53C29DAA.8020405@gmail.com>
- <20140713180735.209671xd9qjsgmo7@berry.schulz.ip-v6.eu>
- <53C2D541.8080900@redhat.com>
- <20140715065458.15013qglk08wv3mq@kristov.noip.me> <53C4D14C.607@redhat.com>
- <CAADnVQJ3GEdxTBg9BvvLfW1JFsMQ2-J6HgRvEim7vWaSDeWd_Q@mail.gmail.com>
+From: Prabhakar Lad <prabhakar.csengg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v2 1/2] net: davinci_mdio: reuse for keystone2 arch
+Date: Wed, 16 Jul 2014 20:22:10 +0100
+Message-ID: <CA+V-a8sJXtXSzhSc9+6oq_yhommNnnUp=Y903hfyVcjsfe6Jcw@mail.gmail.com>
+References: <1405512783-20307-1-git-send-email-grygorii.strashko@ti.com> <1405512783-20307-2-git-send-email-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8;
- DelSp="Yes";
- format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <dborkman@redhat.com>,
-	Varka Bhadram <varkabhadram@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-ppp@vger.kernel.org, paulus@samba.org, isdn@linux-pingi.de
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <CAADnVQJ3GEdxTBg9BvvLfW1JFsMQ2-J6HgRvEim7vWaSDeWd_Q@mail.gmail.com>
-Content-Disposition: inline
-Sender: linux-ppp-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Santosh Shilimkar <santosh.shilimkar-l0cyMroinI0@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	dlos <davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org>,
+	Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
+To: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1405512783-20307-2-git-send-email-grygorii.strashko-l0cyMroinI0@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
-
-Alexei Starovoitov schrieb am Tue, 15 Jul 2014 08:38:58 -0700:
-
->> Well, this is a soft-limit, and in this particular circumstance
->> it should be fine to use your original proposal. I don't see how
->> Varka's suggestions make this better in _any way_, rather the
->> very opposite.
+On Wed, Jul 16, 2014 at 1:13 PM, Grygorii Strashko
+<grygorii.strashko-l0cyMroinI0@public.gmane.org> wrote:
+> The similar MDIO HW blocks is used by keystone 2 SoCs as
+> in Davinci SoCs:
+> - one in Gigabit Ethernet (GbE) Switch Subsystem
+>   See http://www.ti.com/lit/ug/sprugv9d/sprugv9d.pdf
+> - one in 10 Gigabit Ethernet Subsystem
+>   See http://www.ti.com/lit/ug/spruhj5/spruhj5.pdf
 >
-> +1
+> Hence, reuse Davinci MDIO driver for Keystone 2 and
+> enable TI networking for Keystone 2 devices
+>
+> Reviewed-by: Santosh Shilimkar <santosh.shilimkar-l0cyMroinI0@public.gmane.org>
+> Acked-by: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
+> Signed-off-by: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
 
-Fine. So I need not change anything, right? How can I change (or  
-trigger changing) the patch's state from "Changes Requested" to "Under  
-Review" again without resubmitting it without any modifications? Or  
-will that happen eventually anyway after some time has elapsed?
+Reviewed-by: Lad, Prabhakar <prabhakar.csengg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
+Thanks,
+--Prabhakar Lad
 
-Best regards,
-
-Christoph Schulz
-
+> ---
+>  .../devicetree/bindings/net/davinci-mdio.txt       |    8 ++++----
+>  drivers/net/ethernet/ti/Kconfig                    |    4 ++--
+>  2 files changed, 6 insertions(+), 6 deletions(-)
+>
+> diff --git a/Documentation/devicetree/bindings/net/davinci-mdio.txt b/Documentation/devicetree/bindings/net/davinci-mdio.txt
+> index 72efaaf..0369e25 100644
+> --- a/Documentation/devicetree/bindings/net/davinci-mdio.txt
+> +++ b/Documentation/devicetree/bindings/net/davinci-mdio.txt
+> @@ -1,8 +1,8 @@
+> -TI SoC Davinci MDIO Controller Device Tree Bindings
+> +TI SoC Davinci/Keystone2 MDIO Controller Device Tree Bindings
+>  ---------------------------------------------------
+>
+>  Required properties:
+> -- compatible           : Should be "ti,davinci_mdio"
+> +- compatible           : Should be "ti,davinci_mdio" or "ti,keystone_mdio"
+>  - reg                  : physical base address and size of the davinci mdio
+>                           registers map
+>  - bus_freq             : Mdio Bus frequency
+> @@ -19,7 +19,7 @@ file.
+>  Examples:
+>
+>         mdio: davinci_mdio@4A101000 {
+> -               compatible = "ti,cpsw";
+> +               compatible = "ti,davinci_mdio";
+>                 reg = <0x4A101000 0x1000>;
+>                 bus_freq = <1000000>;
+>         };
+> @@ -27,7 +27,7 @@ Examples:
+>  (or)
+>
+>         mdio: davinci_mdio@4A101000 {
+> -               compatible = "ti,cpsw";
+> +               compatible = "ti,davinci_mdio";
+>                 ti,hwmods = "davinci_mdio";
+>                 bus_freq = <1000000>;
+>         };
+> diff --git a/drivers/net/ethernet/ti/Kconfig b/drivers/net/ethernet/ti/Kconfig
+> index 53150c2..1769700 100644
+> --- a/drivers/net/ethernet/ti/Kconfig
+> +++ b/drivers/net/ethernet/ti/Kconfig
+> @@ -5,7 +5,7 @@
+>  config NET_VENDOR_TI
+>         bool "Texas Instruments (TI) devices"
+>         default y
+> -       depends on PCI || EISA || AR7 || (ARM && (ARCH_DAVINCI || ARCH_OMAP3 || SOC_AM33XX))
+> +       depends on PCI || EISA || AR7 || (ARM && (ARCH_DAVINCI || ARCH_OMAP3 || SOC_AM33XX || ARCH_KEYSTONE))
+>         ---help---
+>           If you have a network (Ethernet) card belonging to this class, say Y
+>           and read the Ethernet-HOWTO, available from
+> @@ -32,7 +32,7 @@ config TI_DAVINCI_EMAC
+>
+>  config TI_DAVINCI_MDIO
+>         tristate "TI DaVinci MDIO Support"
+> -       depends on ARM && ( ARCH_DAVINCI || ARCH_OMAP3 || SOC_AM33XX )
+> +       depends on ARM && ( ARCH_DAVINCI || ARCH_OMAP3 || SOC_AM33XX || ARCH_KEYSTONE )
+>         select PHYLIB
+>         ---help---
+>           This driver supports TI's DaVinci MDIO module.
+> --
+> 1.7.9.5
+>
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
