@@ -1,81 +1,166 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 3/5] i40e: fix race conditions on queuing skb for HW time stamp
-Date: Wed, 16 Jul 2014 14:35:32 -0700
-Message-ID: <1405546534-21025-4-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 1/5] i40e: Add ndo_get_phys_port_id() callback support
+Date: Wed, 16 Jul 2014 14:35:30 -0700
+Message-ID: <1405546534-21025-2-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1405546534-21025-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jakub Kicinski <kubakici@wp.pl>, netdev@vger.kernel.org,
+Cc: Neerav Parikh <neerav.parikh@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:28354 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:28351 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752673AbaGPVgN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Jul 2014 17:36:13 -0400
+	id S1752414AbaGPVgM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Jul 2014 17:36:12 -0400
 In-Reply-To: <1405546534-21025-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jakub Kicinski <kubakici@wp.pl>
+From: Neerav Parikh <neerav.parikh@intel.com>
 
-i40e has a single set of TX time stamping resources per NIC.
-Use a simple bit lock to avoid race conditions and leaking skbs
-when multiple TX rings try to claim time stamping.
+This patch adds a new API to get the port mac address from firmware.
+It also adds support to the ndo_get_phys_port_id() callback to provide
+port specific unique id to the netdev layer.
+If the adapter has a valid per-port mac address then that
+would be used for this purpose and is expected to be unique
+on a per-port basis.
 
-Signed-off-by: Jakub Kicinski <kubakici@wp.pl>
-Tested-By: Jim Young <jamesx.m.young@intel.com>
+The information can be viewed by reading the phys_port_id
+attribute in sysfs for each netdev or via IF netlink
+interface.
+
+Change-ID: I341fa6fff9c112f1f6d987189309e730e0b50e8b
+Signed-off-by: Neerav Parikh <neerav.parikh@intel.com>
+Acked-by: Shannon Nelson <shannon.nelson@intel.com>
+Tested-by: Jim Young <jamesx.m.young@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e.h      | 1 +
- drivers/net/ethernet/intel/i40e/i40e_ptp.c  | 2 ++
- drivers/net/ethernet/intel/i40e/i40e_txrx.c | 3 ++-
- 3 files changed, 5 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e.h           |  1 +
+ drivers/net/ethernet/intel/i40e/i40e_common.c    | 25 ++++++++++++++++++++++++
+ drivers/net/ethernet/intel/i40e/i40e_main.c      | 20 +++++++++++++++++++
+ drivers/net/ethernet/intel/i40e/i40e_prototype.h |  4 ++--
+ drivers/net/ethernet/intel/i40e/i40e_type.h      |  1 +
+ 5 files changed, 49 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/i40e/i40e.h b/drivers/net/ethernet/intel/i40e/i40e.h
-index f7bf69f..29cd81a 100644
+index 0fbb32a..f7bf69f 100644
 --- a/drivers/net/ethernet/intel/i40e/i40e.h
 +++ b/drivers/net/ethernet/intel/i40e/i40e.h
-@@ -134,6 +134,7 @@ enum i40e_state_t {
- 	__I40E_EMP_RESET_REQUESTED,
- 	__I40E_FILTER_OVERFLOW_PROMISC,
- 	__I40E_SUSPENDED,
-+	__I40E_PTP_TX_IN_PROGRESS,
- 	__I40E_BAD_EEPROM,
- 	__I40E_DOWN_REQUESTED,
- };
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_ptp.c b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
-index c364781..582704a 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_ptp.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_ptp.c
-@@ -314,6 +314,7 @@ void i40e_ptp_tx_hwtstamp(struct i40e_pf *pf)
- 	skb_tstamp_tx(pf->ptp_tx_skb, &shhwtstamps);
- 	dev_kfree_skb_any(pf->ptp_tx_skb);
- 	pf->ptp_tx_skb = NULL;
-+	clear_bit_unlock(__I40E_PTP_TX_IN_PROGRESS, &pf->state);
+@@ -279,6 +279,7 @@ struct i40e_pf {
+ #ifdef CONFIG_I40E_VXLAN
+ #define I40E_FLAG_VXLAN_FILTER_SYNC            (u64)(1 << 27)
+ #endif
++#define I40E_FLAG_PORT_ID_VALID                (u64)(1 << 28)
+ #define I40E_FLAG_DCB_CAPABLE                  (u64)(1 << 29)
+ 
+ 	/* tracks features that get auto disabled by errors */
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+index bf808d4..51087b5 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+@@ -655,6 +655,31 @@ i40e_status i40e_get_mac_addr(struct i40e_hw *hw, u8 *mac_addr)
  }
  
  /**
-@@ -677,6 +678,7 @@ void i40e_ptp_stop(struct i40e_pf *pf)
- 	if (pf->ptp_tx_skb) {
- 		dev_kfree_skb_any(pf->ptp_tx_skb);
- 		pf->ptp_tx_skb = NULL;
-+		clear_bit_unlock(__I40E_PTP_TX_IN_PROGRESS, &pf->state);
- 	}
++ * i40e_get_port_mac_addr - get Port MAC address
++ * @hw: pointer to the HW structure
++ * @mac_addr: pointer to Port MAC address
++ *
++ * Reads the adapter's Port MAC address
++ **/
++i40e_status i40e_get_port_mac_addr(struct i40e_hw *hw, u8 *mac_addr)
++{
++	struct i40e_aqc_mac_address_read_data addrs;
++	i40e_status status;
++	u16 flags = 0;
++
++	status = i40e_aq_mac_address_read(hw, &flags, &addrs, NULL);
++	if (status)
++		return status;
++
++	if (flags & I40E_AQC_PORT_ADDR_VALID)
++		memcpy(mac_addr, &addrs.port_mac, sizeof(addrs.port_mac));
++	else
++		status = I40E_ERR_INVALID_MAC_ADDR;
++
++	return status;
++}
++
++/**
+  * i40e_pre_tx_queue_cfg - pre tx queue configure
+  * @hw: pointer to the HW structure
+  * @queue: target pf queue index
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 2899f78..1f72eec 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -7018,6 +7018,22 @@ static void i40e_del_vxlan_port(struct net_device *netdev,
+ }
  
- 	if (pf->ptp_clock) {
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_txrx.c b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-index f65d361..79489a8 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_txrx.c
-@@ -1856,7 +1856,8 @@ static int i40e_tsyn(struct i40e_ring *tx_ring, struct sk_buff *skb,
- 	 * we are not already transmitting a packet to be timestamped
- 	 */
- 	pf = i40e_netdev_to_pf(tx_ring->netdev);
--	if (pf->ptp_tx && !pf->ptp_tx_skb) {
-+	if (pf->ptp_tx &&
-+	    !test_and_set_bit_lock(__I40E_PTP_TX_IN_PROGRESS, &pf->state)) {
- 		skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
- 		pf->ptp_tx_skb = skb_get(skb);
- 	} else {
+ #endif
++static int i40e_get_phys_port_id(struct net_device *netdev,
++				 struct netdev_phys_port_id *ppid)
++{
++	struct i40e_netdev_priv *np = netdev_priv(netdev);
++	struct i40e_pf *pf = np->vsi->back;
++	struct i40e_hw *hw = &pf->hw;
++
++	if (!(pf->flags & I40E_FLAG_PORT_ID_VALID))
++		return -EOPNOTSUPP;
++
++	ppid->id_len = min_t(int, sizeof(hw->mac.port_addr), sizeof(ppid->id));
++	memcpy(ppid->id, hw->mac.port_addr, ppid->id_len);
++
++	return 0;
++}
++
+ #ifdef HAVE_FDB_OPS
+ #ifdef USE_CONST_DEV_UC_CHAR
+ static int i40e_ndo_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
+@@ -7137,6 +7153,7 @@ static const struct net_device_ops i40e_netdev_ops = {
+ 	.ndo_add_vxlan_port	= i40e_add_vxlan_port,
+ 	.ndo_del_vxlan_port	= i40e_del_vxlan_port,
+ #endif
++	.ndo_get_phys_port_id	= i40e_get_phys_port_id,
+ #ifdef HAVE_FDB_OPS
+ 	.ndo_fdb_add		= i40e_ndo_fdb_add,
+ #ifndef USE_DEFAULT_FDB_DEL_DUMP
+@@ -8686,6 +8703,9 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	}
+ 	dev_info(&pdev->dev, "MAC address: %pM\n", hw->mac.addr);
+ 	ether_addr_copy(hw->mac.perm_addr, hw->mac.addr);
++	i40e_get_port_mac_addr(hw, hw->mac.port_addr);
++	if (is_valid_ether_addr(hw->mac.port_addr))
++		pf->flags |= I40E_FLAG_PORT_ID_VALID;
+ 
+ 	pci_set_drvdata(pdev, pf);
+ 	pci_save_state(pdev);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_prototype.h b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
+index b6849fb..9383f08 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_prototype.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
+@@ -230,8 +230,8 @@ i40e_status i40e_pf_reset(struct i40e_hw *hw);
+ void i40e_clear_hw(struct i40e_hw *hw);
+ void i40e_clear_pxe_mode(struct i40e_hw *hw);
+ bool i40e_get_link_status(struct i40e_hw *hw);
+-i40e_status i40e_get_mac_addr(struct i40e_hw *hw,
+-						u8 *mac_addr);
++i40e_status i40e_get_mac_addr(struct i40e_hw *hw, u8 *mac_addr);
++i40e_status i40e_get_port_mac_addr(struct i40e_hw *hw, u8 *mac_addr);
+ i40e_status i40e_validate_mac_addr(u8 *mac_addr);
+ void i40e_pre_tx_queue_cfg(struct i40e_hw *hw, u32 queue, bool enable);
+ /* prototype for functions used for NVM access */
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_type.h b/drivers/net/ethernet/intel/i40e/i40e_type.h
+index 380eb53..1fcf220 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_type.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_type.h
+@@ -246,6 +246,7 @@ struct i40e_mac_info {
+ 	u8 addr[ETH_ALEN];
+ 	u8 perm_addr[ETH_ALEN];
+ 	u8 san_addr[ETH_ALEN];
++	u8 port_addr[ETH_ALEN];
+ 	u16 max_fcoeq;
+ };
+ 
 -- 
 1.9.3
