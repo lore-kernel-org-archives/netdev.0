@@ -1,31 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 2/2] bonding: make hard-coded defines
- configurable at build
-Date: Tue, 15 Jul 2014 18:01:27 -0700 (PDT)
-Message-ID: <20140715.180127.1522148852965459173.davem@davemloft.net>
-References: <20140715175331.GA14109@mikrodark.usersys.redhat.com>
-	<CAADnVQKeFOhbZOSHtpodnWb6OXem79jjozHm=Qgzz8PyVTryRg@mail.gmail.com>
-	<20140715191810.GA16963@mikrodark.usersys.redhat.com>
+Subject: Re: [PATCH net-next 0/2] bonding: add its own Kconfig
+Date: Tue, 15 Jul 2014 18:10:56 -0700 (PDT)
+Message-ID: <20140715.181056.2116924949727575928.davem@davemloft.net>
+References: <1405419341-31510-1-git-send-email-vfalico@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
-	j.vosburgh@gmail.com, andy@greyhouse.net
+Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, andy@greyhouse.net
 To: vfalico@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46235 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46280 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759344AbaGPBB2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 21:01:28 -0400
-In-Reply-To: <20140715191810.GA16963@mikrodark.usersys.redhat.com>
+	with ESMTP id S1753220AbaGPBK5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 15 Jul 2014 21:10:57 -0400
+In-Reply-To: <1405419341-31510-1-git-send-email-vfalico@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Veaceslav Falico <vfalico@gmail.com>
-Date: Tue, 15 Jul 2014 21:18:11 +0200
+Date: Tue, 15 Jul 2014 12:15:39 +0200
 
-> No spec, but a reply from a juniper employee, as it states:
+> Currently to change some built-in defaults it's necessary to change the
+> code, and to maintain these patches on each update.
 > 
-> http://forums.juniper.net/t5/Ethernet-Switching/Is-it-possible-to-do-QinQinQ/td-p/29409
+> Create a bonding's Kconfig to make it possible to configure them at build
+> time.
 
-I will note that this engineer uses the word "should".
+There is really no reason these values can't be set at run time, and that
+is my only, but firm, objection to this patch series.
+
+For the per-slave things, make new netlink attributes that can be provided
+when the slave is added, using the existing default if not specified.
+
+This means the fixed sized arrays involved here need to become
+dynamically allocated.
