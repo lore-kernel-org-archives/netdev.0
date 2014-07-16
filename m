@@ -1,145 +1,86 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v5] bfin_mac: convert bfin Ethernet driver to NAPI
- framework
-Date: Wed, 16 Jul 2014 15:17:29 +0200
-Message-ID: <1405516649.10255.59.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1405504302-21344-1-git-send-email-sonic.adi@gmail.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: [PATCHv2 net-next] sunvnet: clean up objects created in vnet_new()
+ on vnet_exit()
+Date: Wed, 16 Jul 2014 10:02:26 -0400
+Message-ID: <20140716140226.GA29999@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Varka Bhadram <varkabhadram@gmail.com>,
-	adi-buildroot-devel@lists.sourceforge.net,
-	Sonic Zhang <sonic.zhang@analog.com>
-To: Sonic Zhang <sonic.adi@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net, dave.kleikamp@oracle.com, karl.volz@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f52.google.com ([74.125.82.52]:34337 "EHLO
-	mail-wg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758244AbaGPNRe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2014 09:17:34 -0400
-Received: by mail-wg0-f52.google.com with SMTP id a1so894170wgh.11
-        for <netdev@vger.kernel.org>; Wed, 16 Jul 2014 06:17:33 -0700 (PDT)
-In-Reply-To: <1405504302-21344-1-git-send-email-sonic.adi@gmail.com>
+Received: from userp1040.oracle.com ([156.151.31.81]:48565 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934090AbaGPOCf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2014 10:02:35 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-07-16 at 17:51 +0800, Sonic Zhang wrote:
-> From: Sonic Zhang <sonic.zhang@analog.com>
-> 
-> Ethernet RX DMA buffers are polled in NAPI work queue other than received
-> directly in DMA RX interrupt handler.
-> 
-> Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
-> 
-> ---
-> v2-changes:
-> - avoid test NAPI_STATE_NPSVC bit in net device driver
-> 
-> v3-changes:
-> - use tabs while indenting the code
-> 
-> v4-changes:
-> - unconditionally complete the NAPI poll and re-enable the MAC_RX IRQ
-> 
-> v5-changes:
-> - should match open parenthesis
-> 
-> Signed-off-by: Sonic Zhang <sonic.zhang@analog.com>
-> ---
->  drivers/net/ethernet/adi/bfin_mac.c | 80 +++++++++++++++++++++++--------------
->  drivers/net/ethernet/adi/bfin_mac.h |  1 +
->  2 files changed, 51 insertions(+), 30 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
-> index 7ae74d4..6dde102 100644
-> --- a/drivers/net/ethernet/adi/bfin_mac.c
-> +++ b/drivers/net/ethernet/adi/bfin_mac.c
-> @@ -1218,11 +1218,14 @@ out:
->  #define RX_ERROR_MASK (RX_LONG | RX_ALIGN | RX_CRC | RX_LEN | \
->  	RX_FRAG | RX_ADDR | RX_DMAO | RX_PHY | RX_LATE | RX_RANGE)
->  
-> -static void bfin_mac_rx(struct net_device *dev)
-> +static void bfin_mac_rx(struct napi_struct *napi, int budget)
 
+Nothing cleans up the objects created by
+vnet_new(), they are completely leaked.
 
-budget seems unused in this function.
+vnet_exit(), after doing the vio_unregister_driver() to clean
+up ports, should call a helper function that iterates over vnet_list
+and cleans up those objects. This includes unregister_netdevice()
+as well as free_netdev().
 
->  {
-> +	struct bfin_mac_local *lp = container_of(napi,
-> +						 struct bfin_mac_local,
-> +						 napi);
-> +	struct net_device *dev = lp->ndev;
->  	struct sk_buff *skb, *new_skb;
->  	unsigned short len;
-> -	struct bfin_mac_local *lp __maybe_unused = netdev_priv(dev);
->  #if defined(BFIN_MAC_CSUM_OFFLOAD)
->  	unsigned int i;
->  	unsigned char fcs[ETH_FCS_LEN + 1];
-> @@ -1256,7 +1259,7 @@ static void bfin_mac_rx(struct net_device *dev)
->  	current_rx_ptr->skb = new_skb;
->  	current_rx_ptr->desc_a.start_addr = (unsigned long)new_skb->data - 2;
->  
-> -	len = (unsigned short)((current_rx_ptr->status.status_word) & RX_FRLEN);
-> +	len = (unsigned short)(current_rx_ptr->status.status_word & RX_FRLEN);
->  	/* Deduce Ethernet FCS length from Ethernet payload length */
->  	len -= ETH_FCS_LEN;
->  	skb_put(skb, len);
-> @@ -1294,7 +1297,8 @@ static void bfin_mac_rx(struct net_device *dev)
->  	}
->  #endif
->  
-> -	netif_rx(skb);
-> +	napi_gro_receive(&lp->napi, skb);
-> +
->  	dev->stats.rx_packets++;
->  	dev->stats.rx_bytes += len;
->  out:
-> @@ -1302,41 +1306,51 @@ out:
->  	current_rx_ptr = current_rx_ptr->next;
->  }
->  
-> +static int bfin_mac_poll(struct napi_struct *napi, int budget)
-> +{
-> +	int i = 0;
-> +	unsigned long flags;
-> +
-> +	while (current_rx_ptr->status.status_word != 0 && i < budget) {
-> +		bfin_mac_rx(napi, budget);
-> +		i++;
-> +	}
-> +
-> +	if (i < budget) {
-> +		napi_gro_flush(napi, false);
-> +		local_irq_save(flags);
-> +		__napi_complete(napi);
-> +		local_irq_restore(flags);
-> +		enable_irq(IRQ_MAC_RX);
+Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Acked-by: Dave Kleikamp <dave.kleikamp@oracle.com>
+Reviewed-by: Karl Volz <karl.volz@oracle.com>
 
-I have no idea why you open-code napi_complete();
+---
+v2: incorporated comments from David Miller.
+v3: muttrc config tweaks to avoid list-rejection
+and set up correct From/Message-ID headers.
 
-Why cant you just copy/paste what other drivers do here ?
+ drivers/net/ethernet/sun/sunvnet.c | 20 +++++++++++++++++++-
+ 1 file changed, 19 insertions(+), 1 deletion(-)
 
-	if (i < budget) {
-		napi_complete(napi);
-		enable_irq(IRQ_MAC_RX);
-	}
-
-
-
-...
-
->  
-> @@ -1689,6 +1704,8 @@ static int bfin_mac_probe(struct platform_device *pdev)
->  	lp->tx_reclaim_timer.data = (unsigned long)lp;
->  	lp->tx_reclaim_timer.function = tx_reclaim_skb_timeout;
->  
-> +	netif_napi_add(ndev, &lp->napi, bfin_mac_poll, CONFIG_BFIN_RX_DESC_NUM);
-
-
-Have you checked kernel log ?
-
-You should have hit :
-
-        if (weight > NAPI_POLL_WEIGHT)
-                pr_err_once("netif_napi_add() called with weight %d on device %s\n",
-                            weight, dev->name);
+diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
+index 1c24a8f..fd411d6 100644
+--- a/drivers/net/ethernet/sun/sunvnet.c
++++ b/drivers/net/ethernet/sun/sunvnet.c
+@@ -1083,6 +1083,24 @@ static struct vnet *vnet_find_or_create(const u64 *local_mac)
+ 	return vp;
+ }
+ 
++static void vnet_cleanup(void)
++{
++	struct vnet *vp;
++	struct net_device *dev;
++
++	mutex_lock(&vnet_list_mutex);
++	while (!list_empty(&vnet_list)) {
++		vp = list_first_entry(&vnet_list, struct vnet, list);
++		list_del(&vp->list);
++		dev = vp->dev;
++		/* vio_unregister_driver() should have cleaned up port_list */
++		BUG_ON(!list_empty(&vp->port_list));
++		unregister_netdev(dev);
++		free_netdev(dev);
++	}
++	mutex_unlock(&vnet_list_mutex);
++}
++
+ static const char *local_mac_prop = "local-mac-address";
+ 
+ static struct vnet *vnet_find_parent(struct mdesc_handle *hp,
+@@ -1240,7 +1258,6 @@ static int vnet_port_remove(struct vio_dev *vdev)
+ 
+ 		kfree(port);
+ 
+-		unregister_netdev(vp->dev);
+ 	}
+ 	return 0;
+ }
+@@ -1268,6 +1285,7 @@ static int __init vnet_init(void)
+ static void __exit vnet_exit(void)
+ {
+ 	vio_unregister_driver(&vnet_port_driver);
++	vnet_cleanup();
+ }
+ 
+ module_init(vnet_init);
+-- 
+1.8.4.2
