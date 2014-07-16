@@ -1,66 +1,78 @@
 From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next v3 02/11] openvswitch: Enable tunnel GSO for OVS bridge.
-Date: Wed, 16 Jul 2014 00:31:56 -0700
-Message-ID: <1405495916-1989-1-git-send-email-pshelar@nicira.com>
+Subject: [PATCH net-next v3 04/11] net: Export xmit_recursion
+Date: Wed, 16 Jul 2014 00:32:06 -0700
+Message-ID: <1405495926-2047-1-git-send-email-pshelar@nicira.com>
 Cc: netdev@vger.kernel.org, Pravin B Shelar <pshelar@nicira.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog106.obsmtp.com ([74.125.149.77]:52674 "HELO
-	na3sys009aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S934102AbaGPHb4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2014 03:31:56 -0400
-Received: by mail-pd0-f180.google.com with SMTP id y13so773263pdi.39
-        for <netdev@vger.kernel.org>; Wed, 16 Jul 2014 00:31:56 -0700 (PDT)
+Received: from na3sys009aob139.obsmtp.com ([74.125.149.251]:36093 "HELO
+	psmtp.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
+	id S965345AbaGPHcM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Jul 2014 03:32:12 -0400
+Received: by mail-pa0-f47.google.com with SMTP id kx10so814737pab.34
+        for <netdev@vger.kernel.org>; Wed, 16 Jul 2014 00:32:06 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Following patch enables all available tunnel GSO features for OVS
-bridge device so that ovs can use hardware offloads available to
-underling device.
+Next patch adds re-circulation action to OVS. This is recursive
+action needs to be limited to safe number recursions to
+avoid overflowing kernel stack space.  This patch export
+xmit_recursion so that OVS can increment and check the value
+before executing recirc action.
 
 Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
-Acked-by: Andy Zhou <azhou@nicira.com>
 ---
- include/linux/netdev_features.h      | 8 ++++++++
- net/openvswitch/vport-internal_dev.c | 5 ++++-
- 2 files changed, 12 insertions(+), 1 deletion(-)
+ include/linux/netdevice.h |  3 +++
+ net/core/dev.c            | 10 +++++-----
+ 2 files changed, 8 insertions(+), 5 deletions(-)
 
-diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
-index d99800c..dcfdecb 100644
---- a/include/linux/netdev_features.h
-+++ b/include/linux/netdev_features.h
-@@ -176,4 +176,12 @@ enum {
- 				 NETIF_F_HW_VLAN_STAG_RX | \
- 				 NETIF_F_HW_VLAN_STAG_TX)
- 
-+#define NETIF_F_GSO_ENCAP_ALL	(NETIF_F_GSO_GRE |			\
-+				 NETIF_F_GSO_GRE_CSUM |			\
-+				 NETIF_F_GSO_IPIP |			\
-+				 NETIF_F_GSO_SIT |			\
-+				 NETIF_F_GSO_UDP_TUNNEL |		\
-+				 NETIF_F_GSO_UDP_TUNNEL_CSUM |		\
-+				 NETIF_F_GSO_MPLS)
-+
- #endif	/* _LINUX_NETDEV_FEATURES_H */
-diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
-index 295471a..4e8285f 100644
---- a/net/openvswitch/vport-internal_dev.c
-+++ b/net/openvswitch/vport-internal_dev.c
-@@ -140,11 +140,14 @@ static void do_setup(struct net_device *netdev)
- 	netdev->tx_queue_len = 0;
- 
- 	netdev->features = NETIF_F_LLTX | NETIF_F_SG | NETIF_F_FRAGLIST |
--			   NETIF_F_HIGHDMA | NETIF_F_HW_CSUM | NETIF_F_GSO_SOFTWARE;
-+			   NETIF_F_HIGHDMA | NETIF_F_HW_CSUM |
-+			   NETIF_F_GSO_SOFTWARE | NETIF_F_GSO_ENCAP_ALL;
- 
- 	netdev->vlan_features = netdev->features;
-+	netdev->hw_enc_features = netdev->features;
- 	netdev->features |= NETIF_F_HW_VLAN_CTAG_TX;
- 	netdev->hw_features = netdev->features & ~NETIF_F_LLTX;
-+
- 	eth_hw_addr_random(netdev);
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 3a320db..ca7a1ab 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1941,6 +1941,9 @@ static inline struct net_device *first_net_device_rcu(struct net *net)
+ 	return lh == &net->dev_base_head ? NULL : net_device_entry(lh);
  }
  
++#define NET_RECURSION_LIMIT 10
++DECLARE_PER_CPU(int, net_xmit_recursion);
++
+ int netdev_boot_setup_check(struct net_device *dev);
+ unsigned long netdev_boot_base(const char *prefix, int unit);
+ struct net_device *dev_getbyhwaddr_rcu(struct net *net, unsigned short type,
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 6e2a2cd..7f36a4f 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2804,8 +2804,8 @@ static void skb_update_prio(struct sk_buff *skb)
+ #define skb_update_prio(skb)
+ #endif
+ 
+-static DEFINE_PER_CPU(int, xmit_recursion);
+-#define RECURSION_LIMIT 10
++DEFINE_PER_CPU(int, net_xmit_recursion);
++EXPORT_SYMBOL_GPL(net_xmit_recursion);
+ 
+ /**
+  *	dev_loopback_xmit - loop back @skb
+@@ -2895,15 +2895,15 @@ static int __dev_queue_xmit(struct sk_buff *skb, void *accel_priv)
+ 
+ 		if (txq->xmit_lock_owner != cpu) {
+ 
+-			if (__this_cpu_read(xmit_recursion) > RECURSION_LIMIT)
++			if (__this_cpu_read(net_xmit_recursion) > NET_RECURSION_LIMIT)
+ 				goto recursion_alert;
+ 
+ 			HARD_TX_LOCK(dev, txq, cpu);
+ 
+ 			if (!netif_xmit_stopped(txq)) {
+-				__this_cpu_inc(xmit_recursion);
++				__this_cpu_inc(net_xmit_recursion);
+ 				rc = dev_hard_start_xmit(skb, dev, txq);
+-				__this_cpu_dec(xmit_recursion);
++				__this_cpu_dec(net_xmit_recursion);
+ 				if (dev_xmit_complete(rc)) {
+ 					HARD_TX_UNLOCK(dev, txq);
+ 					goto out;
 -- 
 1.9.3
