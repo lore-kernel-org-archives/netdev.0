@@ -1,52 +1,59 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH RFCv3 08/14] arm64: introduce aarch64_insn_gen_movewide()
-Date: Wed, 16 Jul 2014 16:25:35 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D17274D55@AcuExch.aculab.com>
-References: <1405405512-4423-1-git-send-email-zlim.lnx@gmail.com>
- <1405405512-4423-9-git-send-email-zlim.lnx@gmail.com>
- <20140716161715.GU29414@arm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Catalin Marinas <Catalin.Marinas@arm.com>,
-	Jiang Liu <liuj97@gmail.com>,
-	AKASHI Takahiro <takahiro.akashi@linaro.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	"Alexei Starovoitov" <ast@plumgrid.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Will Deacon' <will.deacon@arm.com>,
-	Zi Shen Lim <zlim.lnx@gmail.com>
+From: Veaceslav Falico <vfalico@gmail.com>
+Subject: [PATCH v2 net-next] bonding: use rtnl_deref in bond_change_rx_flags()
+Date: Wed, 16 Jul 2014 18:32:01 +0200
+Message-ID: <1405528321-19877-1-git-send-email-vfalico@gmail.com>
+Cc: Veaceslav Falico <vfalico@gmail.com>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:58420 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S934347AbaGPQ0e convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2014 12:26:34 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 26052-04 for <netdev@vger.kernel.org>;
- Wed, 16 Jul 2014 17:26:31 +0100 (BST)
-In-Reply-To: <20140716161715.GU29414@arm.com>
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:36017 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752706AbaGPQg3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Jul 2014 12:36:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Will Deacon
-...
-> > +	BUG_ON(imm < 0 || imm > 65535);
-> 
-> Do this check with masking instead?
+As it's always called with RTNL held, via dev_set_allmulti/promiscuity.
+Also, remove the wrong comment.
 
-The compiler will convert that to a single unsigned comparison.
+CC: Jay Vosburgh <j.vosburgh@gmail.com>
+CC: Andy Gospodarek <andy@greyhouse.net>
+Signed-off-by: Veaceslav Falico <vfalico@gmail.com>
+---
 
-...
-> > +		BUG_ON(shift != 0 && shift != 16 && shift != 32 &&
-> > +		       shift != 48);
+Notes:
+    v1->v2:
+    also remove the misleading comment
 
-OTOH I don't think it will convert that to:
-		BUG_ON(shift & ~48);
+ drivers/net/bonding/bond_main.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-	David
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index d643807..c4f8162 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -498,9 +498,8 @@ static int bond_set_promiscuity(struct bonding *bond, int inc)
+ 	int err = 0;
+ 
+ 	if (bond_uses_primary(bond)) {
+-		struct slave *curr_active = bond_deref_active_protected(bond);
++		struct slave *curr_active = rtnl_dereference(bond->curr_active_slave);
+ 
+-		/* write lock already acquired */
+ 		if (curr_active)
+ 			err = dev_set_promiscuity(curr_active->dev, inc);
+ 	} else {
+@@ -524,9 +523,8 @@ static int bond_set_allmulti(struct bonding *bond, int inc)
+ 	int err = 0;
+ 
+ 	if (bond_uses_primary(bond)) {
+-		struct slave *curr_active = bond_deref_active_protected(bond);
++		struct slave *curr_active = rtnl_dereference(bond->curr_active_slave);
+ 
+-		/* write lock already acquired */
+ 		if (curr_active)
+ 			err = dev_set_allmulti(curr_active->dev, inc);
+ 	} else {
+-- 
+1.8.4
