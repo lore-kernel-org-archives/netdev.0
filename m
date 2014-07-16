@@ -1,56 +1,49 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 3/5] net/mlx4_core: Make sure the max number of QPs per MCG isn't exceeded
-Date: Wed, 16 Jul 2014 11:57:49 +0300
-Message-ID: <1405501071-9340-4-git-send-email-amirv@mellanox.com>
-References: <1405501071-9340-1-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next 0/5] Mellanox driver update Jul-16-2014
+Date: Wed, 16 Jul 2014 11:57:46 +0300
+Message-ID: <1405501071-9340-1-git-send-email-amirv@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Alexander Guller <alexg@mellanox.com>,
-	Eugenia Emantayev <eugenia@mellanox.com>
+	Amir Vadai <amirv@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:50768 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:35177 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756699AbaGPI6M (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Jul 2014 04:58:12 -0400
-In-Reply-To: <1405501071-9340-1-git-send-email-amirv@mellanox.com>
+	id S1759712AbaGPI6I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 16 Jul 2014 04:58:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Guller <alexg@mellanox.com>
+Hi,
 
-In B0 steering mode when adding QPs to the default MCG entry need
-to check that maximal number of QPs per MCG entry was not exceeded.
+This patchset contains some bug fixes related to MCG table management (flow
+steering) in Mellanox NIC.
 
+Fixes were applied and tested over commit 0854a7f ("Merge branch
+'amd811e-cleanups'").
 
-Signed-off-by: Alexander Guller <alexg@mellanox.com>
-Reviewed-by: Aviad Yehezkel <aviadye@mellanox.co.il>
-Signed-off-by: Eugenia Emantayev <eugenia@mellanox.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/mcg.c | 8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
+Thanks,
+Amir
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mcg.c b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-index 04a8636..39ab85a 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mcg.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-@@ -477,8 +477,14 @@ static int add_promisc_qp(struct mlx4_dev *dev, u8 port,
- 	/* now need to add all the promisc qps to default entry */
- 	memset(mgm, 0, sizeof *mgm);
- 	members_count = 0;
--	list_for_each_entry(dqp, &s_steer->promisc_qps[steer], list)
-+	list_for_each_entry(dqp, &s_steer->promisc_qps[steer], list) {
-+		if (members_count == dev->caps.num_qp_per_mgm) {
-+			/* entry is full */
-+			err = -ENOMEM;
-+			goto out_list;
-+		}
- 		mgm->qp[members_count++] = cpu_to_be32(dqp->qpn & MGM_QPN_MASK);
-+	}
- 	mgm->members_count = cpu_to_be32(members_count | MLX4_PROT_ETH << 30);
- 
- 	err = mlx4_WRITE_PROMISC(dev, port, steer, mailbox);
+Alexander Guller (1):
+  net/mlx4_core: Make sure the max number of QPs per MCG isn't exceeded
+
+Dotan Barak (1):
+  net/mlx4_core: Make sure that negative array index isn't used
+
+Eugenia Emantayev (1):
+  net/mlx4_core: In SR-IOV mode host should add promisc QP to default
+    entry only
+
+Saeed Mahameed (1):
+  net/mlx4_core: Remove MCG in case it is attached to promiscuous QPs
+    only
+
+Yevgeny Petrilin (1):
+  net/mlx4_core: Fix leakage of SW multicast entries
+
+ drivers/net/ethernet/mellanox/mlx4/mcg.c | 279 +++++++++++++++++++++----------
+ 1 file changed, 188 insertions(+), 91 deletions(-)
+
 -- 
 1.8.3.4
