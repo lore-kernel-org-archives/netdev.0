@@ -1,335 +1,192 @@
 From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next v3 05/11] openvswitch: Add recirc action
-Date: Wed, 16 Jul 2014 00:32:12 -0700
-Message-ID: <1405495932-2076-1-git-send-email-pshelar@nicira.com>
-Cc: netdev@vger.kernel.org, Andy Zhou <azhou@nicira.com>,
+Subject: [PATCH net-next v3 09/11] openvswitch: Sample action without side effects
+Date: Wed, 16 Jul 2014 00:32:34 -0700
+Message-ID: <1405495954-2192-1-git-send-email-pshelar@nicira.com>
+Cc: netdev@vger.kernel.org, Simon Horman <horms@verge.net.au>,
+	Jesse Gross <jesse@nicira.com>,
 	Pravin B Shelar <pshelar@nicira.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog127.obsmtp.com ([74.125.149.107]:42619 "HELO
-	na3sys009aog127.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S965354AbaGPHcQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2014 03:32:16 -0400
-Received: by mail-pd0-f173.google.com with SMTP id w10so763297pde.4
-        for <netdev@vger.kernel.org>; Wed, 16 Jul 2014 00:32:12 -0700 (PDT)
+Received: from na3sys009aog126.obsmtp.com ([74.125.149.155]:35474 "HELO
+	na3sys009aog126.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S965354AbaGPHce (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2014 03:32:34 -0400
+Received: by mail-pd0-f178.google.com with SMTP id w10so763411pde.37
+        for <netdev@vger.kernel.org>; Wed, 16 Jul 2014 00:32:34 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Zhou <azhou@nicira.com>
+From: Simon Horman <horms@verge.net.au>
 
-Recirculation implementation for Linux kernel data path.
+The sample action is rather generic, allowing arbitrary actions to be
+executed based on a probability. However its use, within the Open
+vSwitch
+code-base is limited: only a single user-space action is ever nested.
 
-Signed-off-by: Andy Zhou <azhou@nicira.com>
-Acked-by: Jesse Gross <jesse@nicira.com>
+A consequence of the current implementation of sample actions is that
+depending on weather the sample action executed (due to its probability)
+any side-effects of nested actions may or may not be present before
+executing subsequent actions.  This has the potential to complicate
+verification of valid actions by the (kernel) datapath. And indeed
+adding support for push and pop MPLS actions inside sample actions
+is one case where such case.
+
+In order to allow all supported actions to be continue to be nested
+inside sample actions without the potential need for complex
+verification code this patch changes the implementation of the sample
+action in the kernel datapath so that sample actions are more like
+a function call and any side effects of nested actions are not
+present when executing subsequent actions.
+
+With the above in mind the motivation for this change is twofold:
+
+* To contain side-effects the sample action in the hope of making it
+  easier to deal with in the future and;
+* To avoid some rather complex verification code introduced in the MPLS
+  datapath patch.
+
+Some notes about the implementation:
+
+* This patch silently changes the behaviour of sample actions whose
+  nested actions have side-effects. There are no known users of such
+  sample actions.
+
+* sample() does not clone the skb for the only known use-case of the
+  sample action: a single nested userspace action. In such a case
+  a clone is not needed as the userspace action has no side effects.
+
+  Given that there are no known users of other nested actions and in
+  order to avoid the complexity of predicting if other sequences of
+  actions have side-effects in such cases the skb is cloned.
+
+* As sample() provides a cloned skb in the unlikely case where there are
+  nested actions other than a single userspace action it is no longer
+  necessary to clone the skb in do_execute_actions() when executing a
+  recirculation action just because the keep_skb parameter is set: this
+  parameter was only set when processing the nested actions of a sample
+  action.  Moreover it is possible to remove the keep_skb parameter of
+  do_execute_actions entirely.
+
+Signed-off-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: Jesse Gross <jesse@nicira.com>
 Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 ---
- include/uapi/linux/openvswitch.h |  2 ++
- net/openvswitch/actions.c        | 46 +++++++++++++++++++++++++++++++++++++-
- net/openvswitch/datapath.c       | 48 ++++++++++++++++++++++++++++------------
- net/openvswitch/datapath.h       |  8 +++++--
- net/openvswitch/flow.h           |  1 +
- net/openvswitch/flow_netlink.c   | 16 ++++++++++++++
- 6 files changed, 104 insertions(+), 17 deletions(-)
+ net/openvswitch/actions.c | 51 +++++++++++++++++++++++++++++++++++------------
+ 1 file changed, 38 insertions(+), 13 deletions(-)
 
-diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
-index eaf2d68..f91e2ff 100644
---- a/include/uapi/linux/openvswitch.h
-+++ b/include/uapi/linux/openvswitch.h
-@@ -291,6 +291,7 @@ enum ovs_key_attr {
- 	OVS_KEY_ATTR_TCP_FLAGS,	/* be16 TCP flags. */
- 	OVS_KEY_ATTR_DP_HASH,      /* u32 hash value. Value 0 indicates the hash
- 				   is not computed by the datapath. */
-+	OVS_KEY_ATTR_RECIRC_ID, /* u32 recirc id */
- 
- #ifdef __KERNEL__
- 	OVS_KEY_ATTR_IPV4_TUNNEL,  /* struct ovs_key_ipv4_tunnel */
-@@ -544,6 +545,7 @@ enum ovs_action_attr {
- 	OVS_ACTION_ATTR_PUSH_VLAN,    /* struct ovs_action_push_vlan. */
- 	OVS_ACTION_ATTR_POP_VLAN,     /* No argument. */
- 	OVS_ACTION_ATTR_SAMPLE,       /* Nested OVS_SAMPLE_ATTR_*. */
-+	OVS_ACTION_ATTR_RECIRC,       /* u32 recirc_id. */
- 	OVS_ACTION_ATTR_HASH,         /* struct ovs_action_hash. */
- 	__OVS_ACTION_ATTR_MAX
- };
 diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-index 56c22f0..8875697 100644
+index f131d69..2b11473 100644
 --- a/net/openvswitch/actions.c
 +++ b/net/openvswitch/actions.c
-@@ -1,5 +1,5 @@
- /*
-- * Copyright (c) 2007-2013 Nicira, Inc.
-+ * Copyright (c) 2007-2014 Nicira, Inc.
-  *
-  * This program is free software; you can redistribute it and/or
-  * modify it under the terms of version 2 of the GNU General Public
-@@ -520,6 +520,26 @@ static int execute_set_action(struct sk_buff *skb,
- 	return err;
+@@ -38,7 +38,7 @@
+ #include "vport.h"
+ 
+ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
+-			const struct nlattr *attr, int len, bool keep_skb);
++			      const struct nlattr *attr, int len);
+ 
+ static int make_writable(struct sk_buff *skb, int write_len)
+ {
+@@ -434,11 +434,17 @@ static int output_userspace(struct datapath *dp, struct sk_buff *skb,
+ 	return ovs_dp_upcall(dp, skb, &upcall);
  }
  
-+static int execute_recirc(struct datapath *dp, struct sk_buff *skb,
-+			  const struct nlattr *a)
++static bool last_action(const struct nlattr *a, int rem)
 +{
-+	struct sw_flow_key recirc_key;
-+	const struct vport *p = OVS_CB(skb)->input_vport;
-+	uint32_t hash = OVS_CB(skb)->pkt_key->ovs_flow_hash;
-+	int err;
-+
-+	err = ovs_flow_extract(skb, p->port_no, &recirc_key);
-+	if (err)
-+		return err;
-+
-+	recirc_key.ovs_flow_hash = hash;
-+	recirc_key.recirc_id = nla_get_u32(a);
-+
-+	ovs_dp_process_packet_with_key(skb, &recirc_key);
-+
-+	return 0;
++	return a->nla_len == rem;
 +}
 +
+ static int sample(struct datapath *dp, struct sk_buff *skb,
+ 		  const struct nlattr *attr)
+ {
+ 	const struct nlattr *acts_list = NULL;
+ 	const struct nlattr *a;
++	struct sk_buff *sample_skb;
+ 	int rem;
+ 
+ 	for (a = nla_data(attr), rem = nla_len(attr); rem > 0;
+@@ -455,8 +461,32 @@ static int sample(struct datapath *dp, struct sk_buff *skb,
+ 		}
+ 	}
+ 
+-	return do_execute_actions(dp, skb, nla_data(acts_list),
+-						 nla_len(acts_list), true);
++	rem = nla_len(acts_list);
++	a = nla_data(acts_list);
++
++	/* Actions list is either empty or only contains a single user-space
++	 * action, the latter being a special case as it is the only known
++	 * usage of the sample action.
++	 * In these special cases don't clone the skb as there are no
++	 * side-effects in the nested actions.
++	 * Otherwise, clone in case the nested actions have side effects.
++	 */
++	if (likely(rem == 0 || (nla_type(a) == OVS_ACTION_ATTR_USERSPACE &&
++				last_action(a, rem)))) {
++		sample_skb = skb;
++		skb_get(skb);
++	} else {
++		sample_skb = skb_clone(skb, GFP_ATOMIC);
++	}
++
++	/* Note that do_execute_actions() never consumes skb.
++	 * In the case where skb has been cloned above it is the clone that
++	 * is consumed.  Otherwise the skb_get(skb) call prevents
++	 * consumption by do_execute_actions(). Thus, it is safe to simply
++	 * return the error code and let the caller (also
++	 * do_execute_actions()) free skb on error.
++	 */
++	return do_execute_actions(dp, sample_skb, a, rem);
+ }
+ 
+ static void execute_hash(struct sk_buff *skb, const struct nlattr *attr)
+@@ -544,7 +574,7 @@ static int execute_recirc(struct datapath *dp, struct sk_buff *skb,
+ 
  /* Execute a list of actions against 'skb'. */
  static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
- 			const struct nlattr *attr, int len, bool keep_skb)
-@@ -564,6 +584,30 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
- 			err = pop_vlan(skb);
- 			break;
- 
-+		case OVS_ACTION_ATTR_RECIRC: {
-+			struct sk_buff *recirc_skb;
-+			const bool last_action = (a->nla_len == rem);
-+
-+			if (__this_cpu_read(net_xmit_recursion) > NET_RECURSION_LIMIT) {
-+				net_crit_ratelimited("Net recursion limit readched\n");
-+				break;
-+			}
-+
-+			if (!last_action || keep_skb)
-+				recirc_skb = skb_clone(skb, GFP_ATOMIC);
-+			else
-+				recirc_skb = skb;
-+
-+			__this_cpu_inc(net_xmit_recursion);
-+			err = execute_recirc(dp, recirc_skb, a);
-+			__this_cpu_dec(net_xmit_recursion);
-+
-+			if (last_action || err)
-+				return err;
-+
-+			break;
-+		}
-+
- 		case OVS_ACTION_ATTR_SET:
- 			err = execute_set_action(skb, nla_data(a));
- 			break;
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 09fe334..911f192 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -238,33 +238,25 @@ void ovs_dp_detach_port(struct vport *p)
- 	ovs_vport_del(p);
- }
- 
--/* Must be called with rcu_read_lock. */
--void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
-+void ovs_dp_process_packet_with_key(struct sk_buff *skb,
-+				    struct sw_flow_key *pkt_key)
+-			const struct nlattr *attr, int len, bool keep_skb)
++			      const struct nlattr *attr, int len)
  {
-+	const struct vport *p = OVS_CB(skb)->input_vport;
- 	struct datapath *dp = p->dp;
- 	struct sw_flow *flow;
- 	struct dp_stats_percpu *stats;
--	struct sw_flow_key key;
- 	u64 *stats_counter;
- 	u32 n_mask_hit;
--	int error;
+ 	/* Every output action needs a separate clone of 'skb', but the common
+ 	 * case is just a single output action, so that doing a clone and
+@@ -588,14 +618,13 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
  
- 	stats = this_cpu_ptr(dp->stats_percpu);
+ 		case OVS_ACTION_ATTR_RECIRC: {
+ 			struct sk_buff *recirc_skb;
+-			const bool last_action = (a->nla_len == rem);
  
--	/* Extract flow from 'skb' into 'key'. */
--	error = ovs_flow_extract(skb, p->port_no, &key);
--	if (unlikely(error)) {
--		kfree_skb(skb);
--		return;
--	}
+ 			if (__this_cpu_read(net_xmit_recursion) > NET_RECURSION_LIMIT) {
+ 				net_crit_ratelimited("Net recursion limit readched\n");
+ 				break;
+ 			}
+ 
+-			if (!last_action || keep_skb)
++			if (!last_action(a, rem))
+ 				recirc_skb = skb_clone(skb, GFP_ATOMIC);
+ 			else
+ 				recirc_skb = skb;
+@@ -625,12 +654,9 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
+ 		}
+ 	}
+ 
+-	if (prev_port != -1) {
+-		if (keep_skb)
+-			skb = skb_clone(skb, GFP_ATOMIC);
 -
- 	/* Look up flow. */
--	flow = ovs_flow_tbl_lookup_stats(&dp->table, &key, &n_mask_hit);
-+	flow = ovs_flow_tbl_lookup_stats(&dp->table, pkt_key, &n_mask_hit);
- 	if (unlikely(!flow)) {
- 		struct dp_upcall_info upcall;
++	if (prev_port != -1)
+ 		do_output(dp, skb, prev_port);
+-	} else if (!keep_skb)
++	else
+ 		consume_skb(skb);
  
- 		upcall.cmd = OVS_PACKET_CMD_MISS;
--		upcall.key = &key;
-+		upcall.key = pkt_key;
- 		upcall.userdata = NULL;
- 		upcall.portid = ovs_vport_find_upcall_portid(p, skb);
- 		ovs_dp_upcall(dp, skb, &upcall);
-@@ -274,7 +266,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
- 	}
+ 	return 0;
+@@ -642,6 +668,5 @@ int ovs_execute_actions(struct datapath *dp, struct sk_buff *skb)
+ 	struct sw_flow_actions *acts = rcu_dereference(OVS_CB(skb)->flow->sf_acts);
  
- 	OVS_CB(skb)->flow = flow;
--	OVS_CB(skb)->pkt_key = &key;
-+	OVS_CB(skb)->pkt_key = pkt_key;
- 
- 	ovs_flow_stats_update(OVS_CB(skb)->flow, skb);
- 	ovs_execute_actions(dp, skb);
-@@ -288,6 +280,24 @@ out:
- 	u64_stats_update_end(&stats->syncp);
+ 	OVS_CB(skb)->tun_key = NULL;
+-	return do_execute_actions(dp, skb, acts->actions,
+-					 acts->actions_len, false);
++	return do_execute_actions(dp, skb, acts->actions, acts->actions_len);
  }
- 
-+/* Must be called with rcu_read_lock. */
-+void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
-+{
-+	int error;
-+	struct sw_flow_key key;
-+
-+	OVS_CB(skb)->input_vport = p;
-+
-+	/* Extract flow from 'skb' into 'key'. */
-+	error = ovs_flow_extract(skb, p->port_no, &key);
-+	if (unlikely(error)) {
-+		kfree_skb(skb);
-+		return;
-+	}
-+
-+	ovs_dp_process_packet_with_key(skb, &key);
-+}
-+
- int ovs_dp_upcall(struct datapath *dp, struct sk_buff *skb,
- 		  const struct dp_upcall_info *upcall_info)
- {
-@@ -511,6 +521,7 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
- 	struct sw_flow *flow;
- 	struct datapath *dp;
- 	struct ethhdr *eth;
-+	struct vport *input_vport;
- 	int len;
- 	int err;
- 
-@@ -574,6 +585,15 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
- 	if (!dp)
- 		goto err_unlock;
- 
-+	input_vport = ovs_vport_rcu(dp, flow->key.phy.in_port);
-+	if (!input_vport)
-+		input_vport = ovs_vport_rcu(dp, OVSP_LOCAL);
-+
-+	if (!input_vport)
-+		goto err_unlock;
-+
-+	OVS_CB(packet)->input_vport = input_vport;
-+
- 	local_bh_disable();
- 	err = ovs_execute_actions(dp, packet);
- 	local_bh_enable();
-diff --git a/net/openvswitch/datapath.h b/net/openvswitch/datapath.h
-index 7ede507..6ff2352 100644
---- a/net/openvswitch/datapath.h
-+++ b/net/openvswitch/datapath.h
-@@ -1,5 +1,5 @@
- /*
-- * Copyright (c) 2007-2012 Nicira, Inc.
-+ * Copyright (c) 2007-2014 Nicira, Inc.
-  *
-  * This program is free software; you can redistribute it and/or
-  * modify it under the terms of version 2 of the GNU General Public
-@@ -97,12 +97,14 @@ struct datapath {
-  * @flow: The flow associated with this packet.  May be %NULL if no flow.
-  * @pkt_key: The flow information extracted from the packet.  Must be nonnull.
-  * @tun_key: Key for the tunnel that encapsulated this packet. NULL if the
-- * packet is not being tunneled.
-+ * @input_vport: The original vport packet came in on. This value is cached
-+ * when a packet is received by OVS.
-  */
- struct ovs_skb_cb {
- 	struct sw_flow		*flow;
- 	struct sw_flow_key	*pkt_key;
- 	struct ovs_key_ipv4_tunnel  *tun_key;
-+	struct vport	*input_vport;
- };
- #define OVS_CB(skb) ((struct ovs_skb_cb *)(skb)->cb)
- 
-@@ -184,6 +186,8 @@ extern struct notifier_block ovs_dp_device_notifier;
- extern struct genl_family dp_vport_genl_family;
- 
- void ovs_dp_process_received_packet(struct vport *, struct sk_buff *);
-+void ovs_dp_process_packet_with_key(struct sk_buff *,
-+				    struct sw_flow_key *pkt_key);
- void ovs_dp_detach_port(struct vport *);
- int ovs_dp_upcall(struct datapath *, struct sk_buff *,
- 		  const struct dp_upcall_info *);
-diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
-index ae15599..0878867 100644
---- a/net/openvswitch/flow.h
-+++ b/net/openvswitch/flow.h
-@@ -73,6 +73,7 @@ struct sw_flow_key {
- 		u16	in_port;	/* Input switch port (or DP_MAX_PORTS). */
- 	} __packed phy; /* Safe when right after 'tun_key'. */
- 	u32 ovs_flow_hash;		/* Datapath computed hash value.  */
-+	u32 recirc_id;			/* Recirculation ID.  */
- 	struct {
- 		u8     src[ETH_ALEN];	/* Ethernet source address. */
- 		u8     dst[ETH_ALEN];	/* Ethernet destination address. */
-diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
-index 504f794..686e2f2 100644
---- a/net/openvswitch/flow_netlink.c
-+++ b/net/openvswitch/flow_netlink.c
-@@ -252,6 +252,7 @@ static const int ovs_key_lens[OVS_KEY_ATTR_MAX + 1] = {
- 	[OVS_KEY_ATTR_ARP] = sizeof(struct ovs_key_arp),
- 	[OVS_KEY_ATTR_ND] = sizeof(struct ovs_key_nd),
- 	[OVS_KEY_ATTR_DP_HASH] = sizeof(u32),
-+	[OVS_KEY_ATTR_RECIRC_ID] = sizeof(u32),
- 	[OVS_KEY_ATTR_TUNNEL] = -1,
- };
- 
-@@ -462,6 +463,13 @@ static int metadata_from_nlattrs(struct sw_flow_match *match,  u64 *attrs,
- 		*attrs &= ~(1 << OVS_KEY_ATTR_DP_HASH);
- 	}
- 
-+	if (*attrs & (1 << OVS_KEY_ATTR_RECIRC_ID)) {
-+		u32 recirc_id = nla_get_u32(a[OVS_KEY_ATTR_RECIRC_ID]);
-+
-+		SW_FLOW_KEY_PUT(match, recirc_id, recirc_id, is_mask);
-+		*attrs &= ~(1 << OVS_KEY_ATTR_RECIRC_ID);
-+	}
-+
- 	if (*attrs & (1 << OVS_KEY_ATTR_PRIORITY)) {
- 		SW_FLOW_KEY_PUT(match, phy.priority,
- 			  nla_get_u32(a[OVS_KEY_ATTR_PRIORITY]), is_mask);
-@@ -867,6 +875,7 @@ int ovs_nla_get_flow_metadata(struct sw_flow *flow,
- 	flow->key.phy.priority = 0;
- 	flow->key.phy.skb_mark = 0;
- 	flow->key.ovs_flow_hash = 0;
-+	flow->key.recirc_id = 0;
- 	memset(tun_key, 0, sizeof(flow->key.tun_key));
- 
- 	err = parse_flow_nlattrs(attr, a, &attrs);
-@@ -893,6 +902,9 @@ int ovs_nla_put_flow(const struct sw_flow_key *swkey,
- 	if (nla_put_u32(skb, OVS_KEY_ATTR_DP_HASH, output->ovs_flow_hash))
- 		goto nla_put_failure;
- 
-+	if (nla_put_u32(skb, OVS_KEY_ATTR_RECIRC_ID, output->recirc_id))
-+		goto nla_put_failure;
-+
- 	if (nla_put_u32(skb, OVS_KEY_ATTR_PRIORITY, output->phy.priority))
- 		goto nla_put_failure;
- 
-@@ -1421,6 +1433,7 @@ int ovs_nla_copy_actions(const struct nlattr *attr,
- 		/* Expected argument lengths, (u32)-1 for variable length. */
- 		static const u32 action_lens[OVS_ACTION_ATTR_MAX + 1] = {
- 			[OVS_ACTION_ATTR_OUTPUT] = sizeof(u32),
-+			[OVS_ACTION_ATTR_RECIRC] = sizeof(u32),
- 			[OVS_ACTION_ATTR_USERSPACE] = (u32)-1,
- 			[OVS_ACTION_ATTR_PUSH_VLAN] = sizeof(struct ovs_action_push_vlan),
- 			[OVS_ACTION_ATTR_POP_VLAN] = 0,
-@@ -1477,6 +1490,9 @@ int ovs_nla_copy_actions(const struct nlattr *attr,
- 				return -EINVAL;
- 			break;
- 
-+		case OVS_ACTION_ATTR_RECIRC:
-+			break;
-+
- 		case OVS_ACTION_ATTR_SET:
- 			err = validate_set(a, key, sfa, &skip_copy);
- 			if (err)
 -- 
 1.9.3
