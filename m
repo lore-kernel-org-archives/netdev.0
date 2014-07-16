@@ -1,45 +1,38 @@
-From: Tom Gundersen <teg@jklm.no>
-Subject: [PATCH v8] net: ppp - set name assign type
-Date: Thu, 17 Jul 2014 00:43:14 +0200
-Message-ID: <1405550594-11786-7-git-send-email-teg@jklm.no>
-References: <1405550594-11786-1-git-send-email-teg@jklm.no>
-Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	Tom Gundersen <teg@jklm.no>, Paul Mackerras <paulus@samba.org>,
-	linux-ppp@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <1405550594-11786-1-git-send-email-teg@jklm.no>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] cxgb4: Fix static checker warnings
+Date: Wed, 16 Jul 2014 15:45:42 -0700 (PDT)
+Message-ID: <20140716.154542.601722446325914197.davem@davemloft.net>
+References: <1405451843-3081-1-git-send-email-anish@chelsio.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, leedom@chelsio.com, hariprasad@chelsio.com,
+	dan.carpenter@oracle.com
+To: anish@chelsio.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55613 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754743AbaGPWpo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2014 18:45:44 -0400
+In-Reply-To: <1405451843-3081-1-git-send-email-anish@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The ifname is of the form pppX where X is the unit number. This is either set
-by userspace, or userspace requests the kernel to chose one, which is then
-returned to userspace. Either way the creating user knows the name, so we
-treat both cases as if the user had explicitly chosen the name and label
-it NET_NAME_USER.
+From: Anish Bhatt <anish@chelsio.com>
+Date: Tue, 15 Jul 2014 12:17:23 -0700
 
-Signed-off-by: Tom Gundersen <teg@jklm.no>
-Cc: Paul Mackerras <paulus@samba.org>
-Cc: linux-ppp@vger.kernel.org
----
+> This patch fixes static checker warnings as pointed out on by Dan Carpenter
+> 
+> Fixes: 76bcb31efc06 ("cxgb4 : Add DCBx support codebase  and dcbnl_ops")
+> Signed-off-by: Anish Bhatt <anish@chelsio.com>
 
-This patch goes on top of net-next.
+The real bug here is more likely, as Casey Leedom said, that the method
+returns u8 instead of int.
 
- drivers/net/ppp/ppp_generic.c | 1 +
- 1 file changed, 1 insertion(+)
+The only other implementation of this method, bnx2x, also tries to return
+negative error codes.
 
-diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
-index c38ee90..6526057 100644
---- a/drivers/net/ppp/ppp_generic.c
-+++ b/drivers/net/ppp/ppp_generic.c
-@@ -2728,6 +2728,7 @@ ppp_create_interface(struct net *net, int unit, int *retp)
- 	/* Initialize the new ppp unit */
- 	ppp->file.index = unit;
- 	sprintf(dev->name, "ppp%d", unit);
-+	dev->name_assign_type = NET_NAME_USER;
- 
- 	ret = register_netdev(dev);
- 	if (ret != 0) {
--- 
-1.9.3
+So please just change the return type in the method signature and the
+two implementations.
 
+Thanks.
