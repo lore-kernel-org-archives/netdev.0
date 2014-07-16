@@ -1,86 +1,126 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCHv2 net-next] sunvnet: clean up objects created in vnet_new()
- on vnet_exit()
-Date: Wed, 16 Jul 2014 10:02:26 -0400
-Message-ID: <20140716140226.GA29999@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net, dave.kleikamp@oracle.com, karl.volz@oracle.com
+From: roopa@cumulusnetworks.com
+Subject: [PATCH iproute2 v2] link dump filter
+Date: Wed, 16 Jul 2014 07:13:25 -0700
+Message-ID: <1405520005-20523-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: shm@cumulusnetworks.com, nolan@cumulusnetworks.com,
+	sfeldma@cumulusnetworks.com, jhs@mojatatu.com,
+	nicolas.dichtel@6wind.com
+To: davem@davemloft.net, stephen@networkplumber.org,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:48565 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934090AbaGPOCf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2014 10:02:35 -0400
-Content-Disposition: inline
+Received: from ext3.cumulusnetworks.com ([198.211.106.187]:48545 "EHLO
+	ext3.cumulusnetworks.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754048AbaGPOMq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2014 10:12:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-Nothing cleans up the objects created by
-vnet_new(), they are completely leaked.
+This patch avoids a full link wildump request when the user has specified
+a single link. Uses RTM_GETLINK without the NLM_F_DUMP flag.
 
-vnet_exit(), after doing the vio_unregister_driver() to clean
-up ports, should call a helper function that iterates over vnet_list
-and cleans up those objects. This includes unregister_netdevice()
-as well as free_netdev().
+This helps on a system with large number of interfaces.
 
-Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Acked-by: Dave Kleikamp <dave.kleikamp@oracle.com>
-Reviewed-by: Karl Volz <karl.volz@oracle.com>
+This patch currently only uses the link ifindex in the filter.
+Hoping to provide a subsequent kernel patch to do link dump filtering on
+other attributes in the kernel.
 
+In iplink_get, to be safe, this patch currently sets the answer buffer
+size to the max size that libnetlink rtnl_talk can copy. The current api
+does not seem to provide a way to indicate the answer buf size.
+
+changelog from RFC to v1:
+    - incorporated comments from stephen (fixed comment and fixed if/else block)
+
+changelog from v1 to v2:
+    - fix whitespaces error
+
+Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
 ---
-v2: incorporated comments from David Miller.
-v3: muttrc config tweaks to avoid list-rejection
-and set up correct From/Message-ID headers.
+ ip/ip_common.h |    1 +
+ ip/ipaddress.c |   13 +++++++++++++
+ ip/iplink.c    |   32 ++++++++++++++++++++++++++++++++
+ 3 files changed, 46 insertions(+)
 
- drivers/net/ethernet/sun/sunvnet.c | 20 +++++++++++++++++++-
- 1 file changed, 19 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
-index 1c24a8f..fd411d6 100644
---- a/drivers/net/ethernet/sun/sunvnet.c
-+++ b/drivers/net/ethernet/sun/sunvnet.c
-@@ -1083,6 +1083,24 @@ static struct vnet *vnet_find_or_create(const u64 *local_mac)
- 	return vp;
- }
+diff --git a/ip/ip_common.h b/ip/ip_common.h
+index ac1e4c1..e56d1ac 100644
+--- a/ip/ip_common.h
++++ b/ip/ip_common.h
+@@ -51,6 +51,7 @@ extern int do_ipl2tp(int argc, char **argv);
+ extern int do_tcp_metrics(int argc, char **argv);
+ extern int do_ipnetconf(int argc, char **argv);
+ extern int do_iptoken(int argc, char **argv);
++extern int iplink_get(unsigned int flags, char *name, __u32 filt_mask);
  
-+static void vnet_cleanup(void)
-+{
-+	struct vnet *vp;
-+	struct net_device *dev;
-+
-+	mutex_lock(&vnet_list_mutex);
-+	while (!list_empty(&vnet_list)) {
-+		vp = list_first_entry(&vnet_list, struct vnet, list);
-+		list_del(&vp->list);
-+		dev = vp->dev;
-+		/* vio_unregister_driver() should have cleaned up port_list */
-+		BUG_ON(!list_empty(&vp->port_list));
-+		unregister_netdev(dev);
-+		free_netdev(dev);
-+	}
-+	mutex_unlock(&vnet_list_mutex);
-+}
-+
- static const char *local_mac_prop = "local-mac-address";
- 
- static struct vnet *vnet_find_parent(struct mdesc_handle *hp,
-@@ -1240,7 +1258,6 @@ static int vnet_port_remove(struct vio_dev *vdev)
- 
- 		kfree(port);
- 
--		unregister_netdev(vp->dev);
+ static inline int rtm_get_table(struct rtmsg *r, struct rtattr **tb)
+ {
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index 8138e86..a8f1b07 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -1241,6 +1241,19 @@ static int ipaddr_list_flush_or_save(int argc, char **argv, int action)
+ 		exit(0);
  	}
+ 
++	/*
++	 * If only filter_dev present and none of the other
++	 * link filters are present, use RTM_GETLINK to get
++	 * the link device
++	 */
++	if (filter_dev && filter.group == -1 && do_link == 1) {
++		if (iplink_get(0, filter_dev, RTEXT_FILTER_VF) < 0) {
++			perror("Cannot send link get request");
++			exit(1);
++		}
++		exit(0);
++	}
++
+ 	if (rtnl_wilddump_request(&rth, preferred_family, RTM_GETLINK) < 0) {
+ 		perror("Cannot send dump request");
+ 		exit(1);
+diff --git a/ip/iplink.c b/ip/iplink.c
+index 0d020ef..7ac2813 100644
+--- a/ip/iplink.c
++++ b/ip/iplink.c
+@@ -703,6 +703,38 @@ static int iplink_modify(int cmd, unsigned int flags, int argc, char **argv)
  	return 0;
  }
-@@ -1268,6 +1285,7 @@ static int __init vnet_init(void)
- static void __exit vnet_exit(void)
- {
- 	vio_unregister_driver(&vnet_port_driver);
-+	vnet_cleanup();
- }
  
- module_init(vnet_init);
++int iplink_get(unsigned int flags, char *name, __u32 filt_mask)
++{
++	int len;
++	struct iplink_req req;
++	char answer[16384];
++
++	memset(&req, 0, sizeof(req));
++
++	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
++	req.n.nlmsg_flags = NLM_F_REQUEST|flags;
++	req.n.nlmsg_type = RTM_GETLINK;
++	req.i.ifi_family = preferred_family;
++
++	if (name) {
++		len = strlen(name) + 1;
++		if (len == 1)
++			invarg("\"\" is not a valid device identifier\n",
++				   "name");
++		if (len > IFNAMSIZ)
++			invarg("\"name\" too long\n", name);
++		addattr_l(&req.n, sizeof(req), IFLA_IFNAME, name, len);
++	}
++	addattr32(&req.n, sizeof(req), IFLA_EXT_MASK, filt_mask);
++
++	if (rtnl_talk(&rth, &req.n, 0, 0, (struct nlmsghdr *)answer) < 0)
++		return -2;
++
++	print_linkinfo(NULL, (struct nlmsghdr *)answer, stdout);
++
++	return 0;
++}
++
+ #if IPLINK_IOCTL_COMPAT
+ static int get_ctl_fd(void)
+ {
 -- 
-1.8.4.2
+1.7.10.4
