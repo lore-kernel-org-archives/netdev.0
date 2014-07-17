@@ -1,42 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT net-next v4] Open vSwitch
-Date: Thu, 17 Jul 2014 14:57:56 -0700 (PDT)
-Message-ID: <20140717.145756.1982098731634690697.davem@davemloft.net>
-References: <1405556263-1653-1-git-send-email-pshelar@nicira.com>
-	<20140717.144848.463108059351725505.davem@davemloft.net>
+Subject: Re: [Patch net-next] net_sched: cancel nest attribute on failure
+ in tcf_exts_dump()
+Date: Thu, 17 Jul 2014 14:59:17 -0700 (PDT)
+Message-ID: <20140717.145917.1290089820359385864.davem@davemloft.net>
+References: <1405545931-13832-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: pshelar@nicira.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com, cwang@twopensource.com
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40988 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40996 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757645AbaGQV55 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 17:57:57 -0400
-In-Reply-To: <20140717.144848.463108059351725505.davem@davemloft.net>
+	with ESMTP id S1757755AbaGQV7R (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 17:59:17 -0400
+In-Reply-To: <1405545931-13832-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogVGh1LCAxNyBK
-dWwgMjAxNCAxNDo0ODo0OCAtMDcwMCAoUERUKQ0KDQo+IEZyb206IFByYXZpbiBCIFNoZWxhciA8
-cHNoZWxhckBuaWNpcmEuY29tPg0KPiBEYXRlOiBXZWQsIDE2IEp1bCAyMDE0IDE3OjE3OjQzIC0w
-NzAwDQo+IA0KPj4gRm9sbG93aW5nIHBhdGNoZXMgYWRkcyB0aHJlZSBmZWF0dXJlcyB0byBPVlMN
-Cj4+IDEuIEFkZCBmYWlybmVzcyB0byB1cGNhbGwgcHJvY2Vzc2luZy4NCj4+IDIuIFJlY2lyY3Vs
-YXRpb24gYW5kIEhhc2ggYWN0aW9uLg0KPj4gMy4gRW5hYmxlIFR1bm5lbCBHU08gZmVhdHVyZXMu
-DQo+PiBSZXN0IG9mIHBhdGNoZXMgYXJlIGJ1ZyBmaXhlcyByZWxhdGVkIHRvIHBhdGNoZXMgZnJv
-bSBzYW1lIHNlcmllcy4NCj4+IA0KPj4gdjIgc2VyaWVzIGNoYW5nZXMgZmlyc3QgcGF0Y2ggYWNj
-b3JkaW5nIHRvIGNvbW1lbnQgZnJvbSBEYXZlIE1pbGxlci4NCj4+IHYzIHNlcmllcyBjaGFuZ2Vz
-IGZpcnN0IHBhdGNoIGFjY29yZGluZyB0byBjb21tZW50IGZyb20gTmlrb2xheSBBbGVrc2FuZHJv
-di4NCj4+IHY0IHNlcmllcyBjaGFuZ2VzIHJlY2lyYyBwYXRjaCBjb21taXQgbXNnLg0KPiANCj4g
-UHVsbGVkLCB0aGFua3MuDQoNCkFjdHVhbGx5LCByZXZlcnRlZCwgdGhpcyBjb2RlIGRvZXNuJ3Qg
-ZXZlbiBjb21waWxlLg0KDQpuZXQvb3BlbnZzd2l0Y2gvZGF0YXBhdGguYzogSW4gZnVuY3Rpb24g
-oW92c19kcF9wcm9jZXNzX3BhY2tldF93aXRoX2tleaI6DQpuZXQvb3BlbnZzd2l0Y2gvZGF0YXBh
-dGguYzoyNzE6NDM6IGVycm9yOiCha2V5oiB1bmRlY2xhcmVkIChmaXJzdCB1c2UgaW4gdGhpcyBm
-dW5jdGlvbikNCm5ldC9vcGVudnN3aXRjaC9kYXRhcGF0aC5jOjI3MTo0Mzogbm90ZTogZWFjaCB1
-bmRlY2xhcmVkIGlkZW50aWZpZXIgaXMgcmVwb3J0ZWQgb25seSBvbmNlIGZvciBlYWNoIGZ1bmN0
-aW9uIGl0IGFwcGVhcnMgaW4NCg0KSXQgd291bGQgYmUgYSBzdHJvbmcgdW5kZXJzdGF0ZW1lbnQg
-dG8gc2F5IHRoYXQgSSdtIGRpc2FwcG9pbnRlZCBhdCB0aGlzLg0KDQpBcmUgeW91IGV2ZW4gYnVp
-bGQgdGVzdGluZyB0aGUgdHJlZSB5b3UgYXJlIGFza2luZyBtZSB0byBwdWxsIGZyb20/ICBUaGlz
-DQptZWFucyB5b3UgY2FuJ3QgaGF2ZSBwb3NzaWJseSBoYXZlIGZ1bmN0aW9uYWxseSB0ZXN0ZWQg
-dGhlIGNvZGUuDQoNCg==
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Wed, 16 Jul 2014 14:25:30 -0700
+
+> From: Cong Wang <cwang@twopensource.com>
+> 
+> Like other places, we need to cancel the nest attribute after
+> we start. Fortunately the netlink message will not be sent on
+> failure, so it's not a big problem at all.
+> 
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> Signed-off-by: Cong Wang <cwang@twopensource.com>
+
+Applied, thanks.
