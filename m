@@ -1,134 +1,182 @@
-From: Veaceslav Falico <vfalico@gmail.com>
-Subject: [PATCH v3 net-next 2/2] net: print net_device reg_state in netdev_* unless it's registered
-Date: Thu, 17 Jul 2014 19:46:10 +0200
-Message-ID: <1405619171-18172-3-git-send-email-vfalico@gmail.com>
-References: <1405619171-18172-1-git-send-email-vfalico@gmail.com>
-Cc: Veaceslav Falico <vfalico@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jason Baron <jbaron@akamai.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Vlad Yasevich <vyasevic@redhat.com>,
-	stephen hemminger <stephen@networkplumber.org>,
-	Jerry Chu <hkchu@google.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Joe Perches <joe@perches.com>
-To: netdev@vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net] net: sctp: inherit auth_capable on INIT collisions
+Date: Thu, 17 Jul 2014 20:05:19 +0200
+Message-ID: <1405620319-2021-1-git-send-email-dborkman@redhat.com>
+Cc: jgunthorpe@obsidianresearch.com, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48079 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:43304 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751552AbaGQRu5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Jul 2014 13:50:57 -0400
-In-Reply-To: <1405619171-18172-1-git-send-email-vfalico@gmail.com>
+	id S1751580AbaGQSF1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Jul 2014 14:05:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This way we'll always know in what status the device is, unless it's
-running normally (i.e. NETDEV_REGISTERED).
+Jason reported an oops caused by SCTP on his ARM machine with
+SCTP authentication enabled:
 
-Also, emit a warning once in case of a bad reg_state.
+Internal error: Oops: 17 [#1] ARM
+CPU: 0 PID: 104 Comm: sctp-test Not tainted 3.13.0-68744-g3632f30c9b20-dirty #1
+task: c6eefa40 ti: c6f52000 task.ti: c6f52000
+PC is at sctp_auth_calculate_hmac+0xc4/0x10c
+LR is at sg_init_table+0x20/0x38
+pc : [<c024bb80>]    lr : [<c00f32dc>]    psr: 40000013
+sp : c6f538e8  ip : 00000000  fp : c6f53924
+r10: c6f50d80  r9 : 00000000  r8 : 00010000
+r7 : 00000000  r6 : c7be4000  r5 : 00000000  r4 : c6f56254
+r3 : c00c8170  r2 : 00000001  r1 : 00000008  r0 : c6f1e660
+Flags: nZcv  IRQs on  FIQs on  Mode SVC_32  ISA ARM  Segment user
+Control: 0005397f  Table: 06f28000  DAC: 00000015
+Process sctp-test (pid: 104, stack limit = 0xc6f521c0)
+Stack: (0xc6f538e8 to 0xc6f54000)
+[...]
+Backtrace:
+[<c024babc>] (sctp_auth_calculate_hmac+0x0/0x10c) from [<c0249af8>] (sctp_packet_transmit+0x33c/0x5c8)
+[<c02497bc>] (sctp_packet_transmit+0x0/0x5c8) from [<c023e96c>] (sctp_outq_flush+0x7fc/0x844)
+[<c023e170>] (sctp_outq_flush+0x0/0x844) from [<c023ef78>] (sctp_outq_uncork+0x24/0x28)
+[<c023ef54>] (sctp_outq_uncork+0x0/0x28) from [<c0234364>] (sctp_side_effects+0x1134/0x1220)
+[<c0233230>] (sctp_side_effects+0x0/0x1220) from [<c02330b0>] (sctp_do_sm+0xac/0xd4)
+[<c0233004>] (sctp_do_sm+0x0/0xd4) from [<c023675c>] (sctp_assoc_bh_rcv+0x118/0x160)
+[<c0236644>] (sctp_assoc_bh_rcv+0x0/0x160) from [<c023d5bc>] (sctp_inq_push+0x6c/0x74)
+[<c023d550>] (sctp_inq_push+0x0/0x74) from [<c024a6b0>] (sctp_rcv+0x7d8/0x888)
 
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Jason Baron <jbaron@akamai.com>
-CC: Eric Dumazet <edumazet@google.com>
-CC: Vlad Yasevich <vyasevic@redhat.com>
-CC: stephen hemminger <stephen@networkplumber.org>
-CC: Jerry Chu <hkchu@google.com>
-CC: Ben Hutchings <bhutchings@solarflare.com>
-CC: Joe Perches <joe@perches.com>
-Signed-off-by: Veaceslav Falico <vfalico@gmail.com>
+While we already had various kind of bugs in that area
+ec0223ec48a9 ("net: sctp: fix sctp_sf_do_5_1D_ce to verify if
+we/peer is AUTH capable") and b14878ccb7fa ("net: sctp: cache
+auth_enable per endpoint"), this one is a bit of a different
+kind.
+
+Giving a bit more background on why SCTP authentication is
+needed can be found in RFC4895:
+
+  SCTP uses 32-bit verification tags to protect itself against
+  blind attackers. These values are not changed during the
+  lifetime of an SCTP association.
+
+  Looking at new SCTP extensions, there is the need to have a
+  method of proving that an SCTP chunk(s) was really sent by
+  the original peer that started the association and not by a
+  malicious attacker.
+
+To cause this bug, we're triggering an INIT collision between
+peers; normal SCTP handshake where both sides intent to
+authenticate packets contains RANDOM; CHUNKS; HMAC-ALGO
+parameters that are being negotiated among peers:
+
+  ---------- INIT[RANDOM; CHUNKS; HMAC-ALGO] ---------->
+  <------- INIT-ACK[RANDOM; CHUNKS; HMAC-ALGO] ---------
+  -------------------- COOKIE-ECHO -------------------->
+  <-------------------- COOKIE-ACK ---------------------
+
+RFC4895 says that each endpoint therefore knows its own random
+number and the peer's random number *after* the association has
+been established. The local and peer's random number along
+with the shared key are then part of the secret used for
+calculating the HMAC in the AUTH chunk.
+
+Now, in our scenario, we have 2 threads with 1 non-blocking
+SEQ_PACKET socket each, setting up common shared SCTP_AUTH_KEY
+and SCTP_AUTH_ACTIVE_KEY properly, and each of them calling
+sctp_bindx(3), listen(2) and connect(2) against each other,
+thus the handshake looks similar to this, e.g.:
+
+  ---------- INIT[RANDOM; CHUNKS; HMAC-ALGO] ---------->
+  <------- INIT-ACK[RANDOM; CHUNKS; HMAC-ALGO] ---------
+  <--------- INIT[RANDOM; CHUNKS; HMAC-ALGO] -----------
+  -------- INIT-ACK[RANDOM; CHUNKS; HMAC-ALGO] -------->
+  ...
+
+Since such collisions can also happen with verification tags,
+the RFC4895 for AUTH rather vaguely says under section 6.1:
+
+  In case of INIT collision, the rules governing the handling
+  of this Random Number follow the same pattern as those for
+  the Verification Tag, as explained in Section 5.2.4 of
+  RFC 2960 [5]. Therefore, each endpoint knows its own Random
+  Number and the peer's Random Number after the association
+  has been established.
+
+In RFC2960, section 5.2.4, we're eventually hitting Action B:
+
+  B) In this case, both sides may be attempting to start an
+     association at about the same time but the peer endpoint
+     started its INIT after responding to the local endpoint's
+     INIT. Thus it may have picked a new Verification Tag not
+     being aware of the previous Tag it had sent this endpoint.
+     The endpoint should stay in or enter the ESTABLISHED
+     state but it MUST update its peer's Verification Tag from
+     the State Cookie, stop any init or cookie timers that may
+     running and send a COOKIE ACK.
+
+In other words, the handling of the Random parameter is the
+same as behavior for the Verification Tag as described in
+Action B of section 5.2.4.
+
+Looking at the code, we exactly hit the sctp_sf_do_dupcook_b()
+case which triggers an SCTP_CMD_UPDATE_ASSOC command to the
+side effect interpreter, and in fact it copies over
+peer_{random, hmacs, chunks} parameter from the newly created
+association to update the existing one.
+
+Also, the old asoc_shared_key is being released and based on the
+new params, sctp_auth_asoc_init_active_key() updated. However,
+the issue observed in this case is that the previous
+asoc->peer.auth_capable was 0 [note, it was 0 first since
+peer.auth_capable is only being set on reception of INIT],
+and has *not* been updated, so that instead of creating a
+new secret, we're doing an early return from the function
+sctp_auth_asoc_init_active_key() leaving asoc->asoc_shared_key
+as NULL. However, we now have to authenticate chunks from
+the updated chunk list (e.g. COOKIE-ACK, ...).
+
+That in fact causes the server side when responding with ...
+
+  <------------------ AUTH; COOKIE-ACK -----------------
+
+... to trigger a NULL pointer dereference, since in
+sctp_packet_transmit(), it discovers that an AUTH chunk is
+being queued for xmit, and thus it calls sctp_auth_calculate_hmac().
+
+Since the asoc->active_key_id is still inherited from the end
+point, and the same as encoded into the chunk, it uses
+asoc->asoc_shared_key (which is still NULL) as an asoc_key and
+dereferences it in ...
+
+  crypto_hash_setkey(desc.tfm, &asoc_key->data[0], asoc_key->len)
+
+... causing an oops. All this happens because sctp_make_cookie_ack()
+called with the new association has the peer.auth_capable=1 and
+therefore marks the chunk with auth=1 after checking
+sctp_auth_send_cid(), but it is *actually* sent later on over
+the then *updated* association's transport that didn't initialize
+its shared key due to peer.auth_capable=0.
+
+The correct fix is to update to the new peer.auth_capable
+value as well in the collision case via sctp_assoc_update(),
+so that in case the collision migrated from 0 -> 1,
+sctp_auth_asoc_init_active_key() can properly recalculate
+the secret. This therefore fixes the observed server panic.
+
+Fixes: 730fc3d05cd4 ("[SCTP]: Implete SCTP-AUTH parameter processing")
+Reported-by: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Tested-by: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
 ---
+ net/sctp/associola.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-Notes:
-    v2->v3:
-    
-    Correct the string for _UNINITIALIZED and warn on a bad reg_state,
-    per Joe Perches's comments.
-
- include/linux/netdevice.h | 18 +++++++++++++++++-
- lib/dynamic_debug.c       |  8 +++++---
- net/core/dev.c            |  8 +++++---
- 3 files changed, 27 insertions(+), 7 deletions(-)
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 70256aa..8e8fb3e 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -3388,6 +3388,21 @@ static inline const char *netdev_name(const struct net_device *dev)
- 	return dev->name;
- }
- 
-+static inline const char *netdev_reg_state(const struct net_device *dev)
-+{
-+	switch (dev->reg_state) {
-+	case NETREG_UNINITIALIZED: return " (uninitialized)";
-+	case NETREG_REGISTERED: return "";
-+	case NETREG_UNREGISTERING: return " (unregistering)";
-+	case NETREG_UNREGISTERED: return " (unregistered)";
-+	case NETREG_RELEASED: return " (released)";
-+	case NETREG_DUMMY: return " (dummy)";
-+	}
-+
-+	WARN_ONCE(1, "%s: unknown reg_state %d\n", dev->name, dev->reg_state);
-+	return " (unknown)";
-+}
-+
- __printf(3, 4)
- int netdev_printk(const char *level, const struct net_device *dev,
- 		  const char *format, ...);
-@@ -3444,7 +3459,8 @@ do {								\
-  * file/line information and a backtrace.
-  */
- #define netdev_WARN(dev, format, args...)			\
--	WARN(1, "netdevice: %s\n" format, netdev_name(dev), ##args)
-+	WARN(1, "netdevice: %s%s\n" format, netdev_name(dev),	\
-+	     netdev_reg_state(dev), ##args)
- 
- /* netif printk helpers, similar to netdev_printk */
- 
-diff --git a/lib/dynamic_debug.c b/lib/dynamic_debug.c
-index 7288e38..c9afbe2 100644
---- a/lib/dynamic_debug.c
-+++ b/lib/dynamic_debug.c
-@@ -614,13 +614,15 @@ int __dynamic_netdev_dbg(struct _ddebug *descriptor,
- 		char buf[PREFIX_SIZE];
- 
- 		res = dev_printk_emit(7, dev->dev.parent,
--				      "%s%s %s %s: %pV",
-+				      "%s%s %s %s%s: %pV",
- 				      dynamic_emit_prefix(descriptor, buf),
- 				      dev_driver_string(dev->dev.parent),
- 				      dev_name(dev->dev.parent),
--				      netdev_name(dev), &vaf);
-+				      netdev_name(dev), netdev_reg_state(dev),
-+				      &vaf);
- 	} else if (dev) {
--		res = printk(KERN_DEBUG "%s: %pV", netdev_name(dev), &vaf);
-+		res = printk(KERN_DEBUG "%s%s: %pV", netdev_name(dev),
-+			     netdev_reg_state(dev), &vaf);
- 	} else {
- 		res = printk(KERN_DEBUG "(NULL net_device): %pV", &vaf);
- 	}
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 239722a..81d6101 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -6950,12 +6950,14 @@ static int __netdev_printk(const char *level, const struct net_device *dev,
- 	if (dev && dev->dev.parent) {
- 		r = dev_printk_emit(level[1] - '0',
- 				    dev->dev.parent,
--				    "%s %s %s: %pV",
-+				    "%s %s %s%s: %pV",
- 				    dev_driver_string(dev->dev.parent),
- 				    dev_name(dev->dev.parent),
--				    netdev_name(dev), vaf);
-+				    netdev_name(dev), netdev_reg_state(dev),
-+				    vaf);
- 	} else if (dev) {
--		r = printk("%s%s: %pV", level, netdev_name(dev), vaf);
-+		r = printk("%s%s%s: %pV", level, netdev_name(dev),
-+			   netdev_reg_state(dev), vaf);
- 	} else {
- 		r = printk("%s(NULL net_device): %pV", level, vaf);
- 	}
+diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+index 9de23a2..06a9ee6 100644
+--- a/net/sctp/associola.c
++++ b/net/sctp/associola.c
+@@ -1097,6 +1097,7 @@ void sctp_assoc_update(struct sctp_association *asoc,
+ 	asoc->c = new->c;
+ 	asoc->peer.rwnd = new->peer.rwnd;
+ 	asoc->peer.sack_needed = new->peer.sack_needed;
++	asoc->peer.auth_capable = new->peer.auth_capable;
+ 	asoc->peer.i = new->peer.i;
+ 	sctp_tsnmap_init(&asoc->peer.tsn_map, SCTP_TSN_MAP_INITIAL,
+ 			 asoc->peer.i.initial_tsn, GFP_ATOMIC);
 -- 
-1.8.4
+1.7.11.7
