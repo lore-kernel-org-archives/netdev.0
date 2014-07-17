@@ -1,55 +1,38 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH v5] bfin_mac: convert bfin Ethernet driver to NAPI
- framework
-Date: Fri, 18 Jul 2014 00:29:06 +0200
-Message-ID: <20140717222906.GA23125@electric-eye.fr.zoreil.com>
-References: <1405504302-21344-1-git-send-email-sonic.adi@gmail.com>
- <1405516649.10255.59.camel@edumazet-glaptop2.roam.corp.google.com>
- <20140716.140301.896018835447121717.davem@davemloft.net>
- <CAJxxZ0OybvReRHvRuL84N=25T6cRG8k1j_gXLcu7U6jHvSZ5Tw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch net-next] net_sched: hold tcf_lock in netdevice notifier
+Date: Thu, 17 Jul 2014 16:01:54 -0700 (PDT)
+Message-ID: <20140717.160154.2300876035776395529.davem@davemloft.net>
+References: <1405545931-13832-1-git-send-email-xiyou.wangcong@gmail.com>
+	<1405545931-13832-2-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Varka Bhadram <varkabhadram@gmail.com>,
-	adi-buildroot-devel@lists.sourceforge.net,
-	"Zhang, Sonic" <sonic.zhang@analog.com>
-To: Sonic Zhang <sonic.adi@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com, cwang@twopensource.com
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:45310 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756634AbaGQW3W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 18:29:22 -0400
-Content-Disposition: inline
-In-Reply-To: <CAJxxZ0OybvReRHvRuL84N=25T6cRG8k1j_gXLcu7U6jHvSZ5Tw@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41292 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753896AbaGQXBz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 19:01:55 -0400
+In-Reply-To: <1405545931-13832-2-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sonic Zhang <sonic.adi@gmail.com> :
-> On Thu, Jul 17, 2014 at 5:03 AM, David Miller <davem@davemloft.net> wrote:
-[...]
-> > Please mimick what other drivers do rather than trying to do things in
-> > a special way unique to your driver.
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Wed, 16 Jul 2014 14:25:31 -0700
+
+> From: Cong Wang <cwang@twopensource.com>
 > 
-> Driver realtek/8139cp.c does things in the same way as the bfin_mac
-> NAPI code.
+> We modify mirred action (m->tcfm_dev) in netdev event, we need to
+> prevent on-going mirred actions from reading freed m->tcfm_dev.
+> So we need to acquire this spin lock.
+> 
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Signed-off-by: Cong Wang <cwang@twopensource.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-It wasn't your lucky day.
+FWIW, from looking at the code, this lock is definitely necessary.
 
-> In net_poll loop, if napi_complete() is called, the EMAC IRQ is
-> enabled more times than the it is disabled. This is not a problem to
-> drivers which don't call enable_irq()/disable_irq_nosync(). But, the
-> IRQ enabling and disabling operations have to be balanced in the
-> bfin_mac driver via __napi_complete() to avoid the kernel warning.
-
-Thanks for the explanation.
-
-In order to use plain napi_complete, may I suggest keeping a mask of
-bfin_mac_interrupt disabled irq in the device private area then
-enable_irq relevant one - if any - in bfin_mac_poll ?
-
-It should keep things balanced.
-
--- 
-Ueimor
+The fact that device destruction is deferred to rtnl_unlock() only
+means the problem is harder to hit, rather than impossible.
