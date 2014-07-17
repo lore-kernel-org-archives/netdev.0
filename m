@@ -1,36 +1,55 @@
-From: Tom Gundersen <teg@jklm.no>
-Subject: Re: [PATCH v8] net: set name assign type for names assigned using a
- static string
-Date: Thu, 17 Jul 2014 09:17:07 +0200
-Message-ID: <CAG-2HqU=+DU3G-kxmf6rLGdKdN2ybUPiwsRN-HBYyu-ViZ8x0A@mail.gmail.com>
-References: <1405550594-11786-1-git-send-email-teg@jklm.no> <20140716.235609.2266614502105510844.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yk0-f173.google.com ([209.85.160.173]:33171 "EHLO
-	mail-yk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750928AbaGQHR1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 03:17:27 -0400
-Received: by mail-yk0-f173.google.com with SMTP id 131so1083337ykp.18
-        for <netdev@vger.kernel.org>; Thu, 17 Jul 2014 00:17:27 -0700 (PDT)
-In-Reply-To: <20140716.235609.2266614502105510844.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Anish Bhatt <anish-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH net-next v2 1/4] cxgb4/iw_cxgb4: Move common defines to cxgb4
+Date: Thu, 17 Jul 2014 00:18:15 -0700
+Message-ID: <1405581498-28092-2-git-send-email-anish@chelsio.com>
+References: <1405581498-28092-1-git-send-email-anish@chelsio.com>
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-scsi-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org,
+	michaelc-hcNo3dDEHLuVc3sceRu5cw@public.gmane.org, jbottomley-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org, kxie-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, Anish Bhatt <anish-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1405581498-28092-1-git-send-email-anish-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 17, 2014 at 8:56 AM, David Miller <davem@davemloft.net> wrote:
-> Tom, even if the patches are sort of independent, they logically
-> belong together.
->
-> So please number them, and provide an appropriate "[PATCH 0/N] ..."
-> cover letter.
->
-> Please resubmit these patches with that done properly, thank you.
+This define is used by cxgb4i and iw_cxgb4, moving to avoid code duplication
 
-Ok. Will do.
+Signed-off-by: Anish Bhatt <anish-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Acked-by: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+---
+ drivers/infiniband/hw/cxgb4/t4fw_ri_api.h   | 1 -
+ drivers/net/ethernet/chelsio/cxgb4/t4_msg.h | 1 +
+ 2 files changed, 1 insertion(+), 1 deletion(-)
 
-Thanks.
+diff --git a/drivers/infiniband/hw/cxgb4/t4fw_ri_api.h b/drivers/infiniband/hw/cxgb4/t4fw_ri_api.h
+index 91289a051af9..5709e77faf7c 100644
+--- a/drivers/infiniband/hw/cxgb4/t4fw_ri_api.h
++++ b/drivers/infiniband/hw/cxgb4/t4fw_ri_api.h
+@@ -849,6 +849,5 @@ enum {                     /* TCP congestion control algorithms */
+ #define G_CONG_CNTRL(x) (((x) >> S_CONG_CNTRL) & M_CONG_CNTRL)
+ 
+ #define CONG_CNTRL_VALID   (1 << 18)
+-#define T5_OPT_2_VALID       (1 << 31)
+ 
+ #endif /* _T4FW_RI_API_H_ */
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
+index abb45809c0c8..64006327df83 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
+@@ -276,6 +276,7 @@ struct cpl_pass_accept_rpl {
+ #define WND_SCALE_EN(x)      ((x) << 28)
+ #define TSTAMPS_EN(x)        ((x) << 29)
+ #define SACK_EN(x)           ((x) << 30)
++#define T5_OPT_2_VALID	     ((1U) << 31)
+ 	__be64 opt0;
+ };
+ 
+-- 
+2.0.1
 
-Tom
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
