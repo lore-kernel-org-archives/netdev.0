@@ -1,40 +1,72 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] r8169: Enable RX_MULTI_EN for RTL_GIGA_MAC_VER_40
-Date: Wed, 16 Jul 2014 22:24:15 -0700 (PDT)
-Message-ID: <20140716.222415.728402505581829764.davem@davemloft.net>
-References: <20140716.202945.2231269352453909430.davem@davemloft.net>
-	<1405569340-31507-1-git-send-email-michel@daenzer.net>
+From: Sonic Zhang <sonic.adi@gmail.com>
+Subject: Re: [PATCH v5] bfin_mac: convert bfin Ethernet driver to NAPI framework
+Date: Thu, 17 Jul 2014 13:28:36 +0800
+Message-ID: <CAJxxZ0OybvReRHvRuL84N=25T6cRG8k1j_gXLcu7U6jHvSZ5Tw@mail.gmail.com>
+References: <1405504302-21344-1-git-send-email-sonic.adi@gmail.com>
+	<1405516649.10255.59.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140716.140301.896018835447121717.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: nic_swsd@realtek.com, romieu@fr.zoreil.com, hayeswang@realtek.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: michel@daenzer.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1405569340-31507-1-git-send-email-michel@daenzer.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	Varka Bhadram <varkabhadram@gmail.com>,
+	adi-buildroot-devel@lists.sourceforge.net,
+	"Zhang, Sonic" <sonic.zhang@analog.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f169.google.com ([209.85.213.169]:59842 "EHLO
+	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752770AbaGQF2h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 01:28:37 -0400
+Received: by mail-ig0-f169.google.com with SMTP id r2so5122040igi.4
+        for <netdev@vger.kernel.org>; Wed, 16 Jul 2014 22:28:36 -0700 (PDT)
+In-Reply-To: <20140716.140301.896018835447121717.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Michel D=E4nzer <michel@daenzer.net>
-Date: Thu, 17 Jul 2014 12:55:40 +0900
+Hi David,
 
-> The ethernet port on my ASUS A88X Pro mainboard stopped working
-> several times a day, with messages like these in dmesg:
->=20
-> AMD-Vi: Event logged [IO_PAGE_FAULT device=3D05:00.0 domain=3D0x001e =
-address=3D0x0000000000003000 flags=3D0x0050]
->=20
-> Searching the web for these messages led me to similar reports about
-> different hardware supported by r8169, and eventually to commits
-> 3ced8c955e74d319f3e3997f7169c79d524dfd06 ('r8169: enforce RX_MULTI_EN
-> for the 8168f.') and eb2dc35d99028b698cdedba4f5522bc43e576bd2 ('r8169=
-:
-> RxConfig hack for the 8168evl'). So I tried this change, and it fixes
-> the problem for me.
->=20
-> Signed-off-by: Michel D=E4nzer <michel@daenzer.net>
-> ---
->=20
-> v2: Updated commit log, how about this?
+On Thu, Jul 17, 2014 at 5:03 AM, David Miller <davem@davemloft.net> wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Wed, 16 Jul 2014 15:17:29 +0200
+>
+>> On Wed, 2014-07-16 at 17:51 +0800, Sonic Zhang wrote:
+>>> From: Sonic Zhang <sonic.zhang@analog.com>
+>>> +    if (i < budget) {
+>>> +            napi_gro_flush(napi, false);
+>>> +            local_irq_save(flags);
+>>> +            __napi_complete(napi);
+>>> +            local_irq_restore(flags);
+>>> +            enable_irq(IRQ_MAC_RX);
+>>
+>> I have no idea why you open-code napi_complete();
+>>
+>> Why cant you just copy/paste what other drivers do here ?
+>>
+>>       if (i < budget) {
+>>               napi_complete(napi);
+>>               enable_irq(IRQ_MAC_RX);
+>>       }
+>
+> Generally speaking, I am very frustrated at how this bfin_mac NAPI
+> conversion tries to do things in special ways.
+>
+> Please mimick what other drivers do rather than trying to do things in
+> a special way unique to your driver.
 
-Works for me, applied, thanks.
+Driver realtek/8139cp.c does things in the same way as the bfin_mac
+NAPI code. Bfin EMAC device has no capability to disable the MAC_RX
+interrupt in its EMAC register directly. The bfin_mac driver has to do
+it in its system interrupt controller via the kernel API
+enable_irq()/disable_irq_nosync().
+
+In net_poll loop, if napi_complete() is called, the EMAC IRQ is
+enabled more times than the it is disabled. This is not a problem to
+drivers which don't call enable_irq()/disable_irq_nosync(). But, the
+IRQ enabling and disabling operations have to be balanced in the
+bfin_mac driver via __napi_complete() to avoid the kernel warning.
+
+
+Regards,
+
+Sonic Zhang
