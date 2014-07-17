@@ -1,167 +1,136 @@
-From: Anish Bhatt <anish@chelsio.com>
-Subject: [PATCH net-next] Update setapp/getapp prototypes in dcbnl_rtnl_ops to return int instead of u8
-Date: Wed, 16 Jul 2014 21:39:34 -0700
-Message-ID: <1405571974-23143-1-git-send-email-anish@chelsio.com>
-Cc: davem@davemloft.net, leedom@chelsio.com, dan.carpenter@oracle.com,
-	Anish Bhatt <anish@chelsio.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:53917
-	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751582AbaGQEjs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 00:39:48 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next V2 3/3] virtio-net: rx busy polling support
+Date: Thu, 17 Jul 2014 12:43:45 +0800
+Message-ID: <53C75481.1090705@redhat.com>
+References: <1405491707-22706-1-git-send-email-jasowang@redhat.com>
+	<1405491707-22706-4-git-send-email-jasowang@redhat.com>
+	<53C63A11.4050401@gmail.com> <53C73B29.4070107@redhat.com>
+	<53C742BA.3050402@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Vlad Yasevich <vyasevic@redhat.com>, Eric Dumazet <eric.dumazet@gmail.com>
+To: Varka Bhadram <varkabhadram@gmail.com>, rusty@rustcorp.com.au,
+	mst@redhat.com, virtualization@lists.linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <53C742BA.3050402@gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-This enables them to return actual errors instead of 0.
-Changed bnx2x/cxgb4/qlcnic/ixgbe as required
+On 07/17/2014 11:27 AM, Varka Bhadram wrote:
+>
+> On Thursday 17 July 2014 08:25 AM, Jason Wang wrote:
+>> On 07/16/2014 04:38 PM, Varka Bhadram wrote:
+>>> On 07/16/2014 11:51 AM, Jason Wang wrote:
+>>>> Add basic support for rx busy polling.
+>>>>
+>>>> Test was done between a kvm guest and an external host. Two hosts were
+>>>> connected through 40gb mlx4 cards. With both busy_poll and busy_read
+>>>> are set to 50 in guest, 1 byte netperf tcp_rr shows 116% improvement:
+>>>> transaction rate was increased from 9151.94 to 19787.37.
+>>>>
+>>>> Cc: Rusty Russell <rusty@rustcorp.com.au>
+>>>> Cc: Michael S. Tsirkin <mst@redhat.com>
+>>>> Cc: Vlad Yasevich <vyasevic@redhat.com>
+>>>> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+>>>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>>>> ---
+>>>>    drivers/net/virtio_net.c | 190
+>>>> ++++++++++++++++++++++++++++++++++++++++++++++-
+>>>>    1 file changed, 187 insertions(+), 3 deletions(-)
+>>>>
+>>>> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+>>>> index e417d93..4830713 100644
+>>>> --- a/drivers/net/virtio_net.c
+>>>> +++ b/drivers/net/virtio_net.c
+>>>> @@ -27,6 +27,7 @@
+>>>>    #include <linux/slab.h>
+>>>>    #include <linux/cpu.h>
+>>>>    #include <linux/average.h>
+>>>> +#include <net/busy_poll.h>
+>>>>      static int napi_weight = NAPI_POLL_WEIGHT;
+>>>>    module_param(napi_weight, int, 0444);
+>>>> @@ -94,8 +95,143 @@ struct receive_queue {
+>>>>          /* Name of this receive queue: input.$index */
+>>>>        char name[40];
+>>>> +
+>>>> +#ifdef CONFIG_NET_RX_BUSY_POLL
+>>>> +    unsigned int state;
+>>>> +#define VIRTNET_RQ_STATE_IDLE        0
+>>>> +#define VIRTNET_RQ_STATE_NAPI         1    /* NAPI or refill owns
+>>>> this RQ */
+>>>> +#define VIRTNET_RQ_STATE_POLL         2    /* poll owns this RQ */
+>>>> +#define VIRTNET_RQ_STATE_DISABLED    4    /* RQ is disabled */
+>>>> +#define VIRTNET_RQ_OWNED (VIRTNET_RQ_STATE_NAPI |
+>>>> VIRTNET_RQ_STATE_POLL)
+>>>> +#define VIRTNET_RQ_LOCKED (VIRTNET_RQ_OWNED |
+>>>> VIRTNET_RQ_STATE_DISABLED)
+>>>> +#define VIRTNET_RQ_STATE_NAPI_YIELD  8    /* NAPI or refill yielded
+>>>> this RQ */
+>>>> +#define VIRTNET_RQ_STATE_POLL_YIELD  16   /* poll yielded this RQ */
+>>>> +    spinlock_t lock;
+>>>> +#endif  /* CONFIG_NET_RX_BUSY_POLL */
+>>>>    };
+>>>>    +#ifdef CONFIG_NET_RX_BUSY_POLL
+>>>> +static inline void virtnet_rq_init_lock(struct receive_queue *rq)
+>>>> +{
+>>>> +
+>>>> +    spin_lock_init(&rq->lock);
+>>>> +    rq->state = VIRTNET_RQ_STATE_IDLE;
+>>>> +}
+>>>> +
+>>>> +/* called from the device poll routine or refill routine to get
+>>>> ownership of a
+>>>> + * receive queue.
+>>>> + */
+>>>> +static inline bool virtnet_rq_lock_napi_refill(struct receive_queue
+>>>> *rq)
+>>>> +{
+>>>> +    int rc = true;
+>>>> +
+>>> bool instead of int...?
+>> Yes, it was better.
+>>>> +    spin_lock(&rq->lock);
+>>>> +    if (rq->state & VIRTNET_RQ_LOCKED) {
+>>>> +        WARN_ON(rq->state & VIRTNET_RQ_STATE_NAPI);
+>>>> +        rq->state |= VIRTNET_RQ_STATE_NAPI_YIELD;
+>>>> +        rc = false;
+>>>> +    } else
+>>>> +        /* we don't care if someone yielded */
+>>>> +        rq->state = VIRTNET_RQ_STATE_NAPI;
+>>>> +    spin_unlock(&rq->lock);
+>>> Lock for rq->state ...?
+>>>
+>>> If yes:
+>>> spin_lock(&rq->lock);
+>>> if (rq->state & VIRTNET_RQ_LOCKED) {
+>>>      rq->state |= VIRTNET_RQ_STATE_NAPI_YIELD;
+>>>      spin_unlock(&rq->lock);
+>>>      WARN_ON(rq->state & VIRTNET_RQ_STATE_NAPI);
+>>>      rc = false;
+>>> } else {
+>>>      /* we don't care if someone yielded */
+>>>      rq->state = VIRTNET_RQ_STATE_NAPI;
+>>>      spin_unlock(&rq->lock);
+>>> }
+>> I didn't see any differences. Is this used to catch the bug of driver
+>> earlier? btw, several other rx busy polling capable driver does the same
+>> thing.
+>
+> We need not to include WARN_ON() & rc=false under critical section.
+>
 
-Signed-off-by: Anish Bhatt <anish@chelsio.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c |  4 ++--
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c  | 21 ++++++---------------
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c |  6 +++---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c |  4 ++--
- include/net/dcbnl.h                             |  4 ++--
- net/dcb/dcbnl.c                                 |  4 ++++
- 6 files changed, 19 insertions(+), 24 deletions(-)
+Ok. but unless there's a bug in the driver itself, WARN_ON() should be
+just a condition check for a branch, so there should not be noticeable
+differences.
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
-index 51a952c51cb1..fb26bc4c42a1 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
-@@ -2303,8 +2303,8 @@ static int bnx2x_set_admin_app_up(struct bnx2x *bp, u8 idtype, u16 idval, u8 up)
- 	return 0;
- }
- 
--static u8 bnx2x_dcbnl_set_app_up(struct net_device *netdev, u8 idtype,
--				 u16 idval, u8 up)
-+static int bnx2x_dcbnl_set_app_up(struct net_device *netdev, u8 idtype,
-+				  u16 idval, u8 up)
- {
- 	struct bnx2x *bp = netdev_priv(netdev);
- 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
-index a8b1073e6373..0d3a9df5be36 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
-@@ -648,26 +648,17 @@ static int __cxgb4_getapp(struct net_device *dev, u8 app_idtype, u16 app_id,
- }
- 
- /* Return the Application User Priority Map associated with the specified
-- * Application ID.  Since this routine is prototyped to return "u8" we can't
-- * return errors ...
-+ * Application ID.
-  */
--static u8 cxgb4_getapp(struct net_device *dev, u8 app_idtype, u16 app_id)
-+static int cxgb4_getapp(struct net_device *dev, u8 app_idtype, u16 app_id)
- {
--	int result = __cxgb4_getapp(dev, app_idtype, app_id, 0);
--
--	if (result < 0)
--		result = 0;
--
--	return result;
-+	return __cxgb4_getapp(dev, app_idtype, app_id, 0);
- }
- 
--/* Write a new Application User Priority Map for the specified Application ID.
-- * This routine is prototyped to return "u8" but other instantiations of the
-- * DCB NetLink Operations "setapp" routines return negative errnos for errors.
-- * We follow their lead.
-+/* Write a new Application User Priority Map for the specified Application ID
-  */
--static u8 cxgb4_setapp(struct net_device *dev, u8 app_idtype, u16 app_id,
--		       u8 app_prio)
-+static int cxgb4_setapp(struct net_device *dev, u8 app_idtype, u16 app_id,
-+			u8 app_prio)
- {
- 	struct fw_port_cmd pcmd;
- 	struct port_info *pi = netdev2pinfo(dev);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
-index 5172b6b12c09..ea1c1ab926e2 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
-@@ -495,10 +495,10 @@ static void ixgbe_dcbnl_setpfcstate(struct net_device *netdev, u8 state)
-  * @id: id is either ether type or TCP/UDP port number
-  *
-  * Returns : on success, returns a non-zero 802.1p user priority bitmap
-- * otherwise returns 0 as the invalid user priority bitmap to indicate an
-+ * otherwise returns -EINVAL as the invalid user priority bitmap to indicate an
-  * error.
-  */
--static u8 ixgbe_dcbnl_getapp(struct net_device *netdev, u8 idtype, u16 id)
-+static int ixgbe_dcbnl_getapp(struct net_device *netdev, u8 idtype, u16 id)
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
- 	struct dcb_app app = {
-@@ -507,7 +507,7 @@ static u8 ixgbe_dcbnl_getapp(struct net_device *netdev, u8 idtype, u16 id)
- 			     };
- 
- 	if (!(adapter->dcbx_cap & DCB_CAP_DCBX_VER_CEE))
--		return 0;
-+		return -EINVAL;
- 
- 	return dcb_getapp(netdev, &app);
- }
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c
-index 561cb11ca58c..a72bcddf160a 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c
-@@ -926,7 +926,7 @@ static int qlcnic_dcb_get_num_tcs(struct net_device *netdev, int attr, u8 *num)
- 	}
- }
- 
--static u8 qlcnic_dcb_get_app(struct net_device *netdev, u8 idtype, u16 id)
-+static int qlcnic_dcb_get_app(struct net_device *netdev, u8 idtype, u16 id)
- {
- 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
- 	struct dcb_app app = {
-@@ -935,7 +935,7 @@ static u8 qlcnic_dcb_get_app(struct net_device *netdev, u8 idtype, u16 id)
- 			     };
- 
- 	if (!test_bit(QLCNIC_DCB_STATE, &adapter->dcb->state))
--		return 0;
-+		return -EINVAL;
- 
- 	return dcb_getapp(netdev, &app);
- }
-diff --git a/include/net/dcbnl.h b/include/net/dcbnl.h
-index a975edf21b22..597b88a94332 100644
---- a/include/net/dcbnl.h
-+++ b/include/net/dcbnl.h
-@@ -81,8 +81,8 @@ struct dcbnl_rtnl_ops {
- 	void (*setbcncfg)(struct net_device *, int, u32);
- 	void (*getbcnrp)(struct net_device *, int, u8 *);
- 	void (*setbcnrp)(struct net_device *, int, u8);
--	u8   (*setapp)(struct net_device *, u8, u16, u8);
--	u8   (*getapp)(struct net_device *, u8, u16);
-+	int  (*setapp)(struct net_device *, u8, u16, u8);
-+	int  (*getapp)(struct net_device *, u8, u16);
- 	u8   (*getfeatcfg)(struct net_device *, int, u8 *);
- 	u8   (*setfeatcfg)(struct net_device *, int, u8);
- 
-diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
-index f8b98d89c285..3996f1fa3de6 100644
---- a/net/dcb/dcbnl.c
-+++ b/net/dcb/dcbnl.c
-@@ -472,6 +472,8 @@ static int dcbnl_getapp(struct net_device *netdev, struct nlmsghdr *nlh,
- 
- 	if (netdev->dcbnl_ops->getapp) {
- 		up = netdev->dcbnl_ops->getapp(netdev, idtype, id);
-+		if (up < 0)
-+			return up;
- 	} else {
- 		struct dcb_app app = {
- 					.selector = idtype,
-@@ -538,6 +540,8 @@ static int dcbnl_setapp(struct net_device *netdev, struct nlmsghdr *nlh,
- 
- 	if (netdev->dcbnl_ops->setapp) {
- 		ret = netdev->dcbnl_ops->setapp(netdev, idtype, id, up);
-+		if (ret < 0)
-+			return ret;
- 	} else {
- 		struct dcb_app app;
- 		app.selector = idtype;
--- 
-2.0.1
+Also we should not check rq->state outside the protection of lock.
