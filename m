@@ -1,339 +1,211 @@
 From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next v4 01/11] openvswitch: Allow each vport to have an array of 'port_id's.
-Date: Wed, 16 Jul 2014 17:18:00 -0700
-Message-ID: <1405556280-1682-1-git-send-email-pshelar@nicira.com>
-Cc: netdev@vger.kernel.org, Alex Wang <alexw@nicira.com>,
+Subject: [PATCH net-next v4 03/11] openvswitch: Add hash action
+Date: Wed, 16 Jul 2014 17:18:25 -0700
+Message-ID: <1405556305-1740-1-git-send-email-pshelar@nicira.com>
+Cc: netdev@vger.kernel.org, Andy Zhou <azhou@nicira.com>,
 	Pravin B Shelar <pshelar@nicira.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog122.obsmtp.com ([74.125.149.147]:58185 "HELO
-	na3sys009aog122.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753551AbaGQASM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2014 20:18:12 -0400
-Received: by mail-pd0-f169.google.com with SMTP id y10so2103348pdj.0
-        for <netdev@vger.kernel.org>; Wed, 16 Jul 2014 17:18:12 -0700 (PDT)
+Received: from na3sys009aog134.obsmtp.com ([74.125.149.83]:59367 "HELO
+	na3sys009aog134.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753720AbaGQAS2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2014 20:18:28 -0400
+Received: by mail-pa0-f44.google.com with SMTP id eu11so2225546pac.31
+        for <netdev@vger.kernel.org>; Wed, 16 Jul 2014 17:18:27 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alex Wang <alexw@nicira.com>
+From: Andy Zhou <azhou@nicira.com>
 
-In order to allow handlers directly read upcalls from datapath,
-we need to support per-handler netlink socket for each vport in
-datapath.  This commit makes this happen.  Also, it is guaranteed
-to be backward compatible with previous branch.
+OVS hash action calculates 5-tupple hash and set hash in flow-key
+hash. This can be used along with recirculation for distributing
+packets among different ports.
+For example:
+OVS bonding can use following actions:
+Match on: bond flow; Action: hash, recirc(id)
+Match on: recirc-id == id and hash lower bits == a;
+          Action: output port_bond_a
 
-Signed-off-by: Alex Wang <alexw@nicira.com>
-Acked-by: Thomas Graf <tgraf@redhat.com>
+Signed-off-by: Andy Zhou <azhou@nicira.com>
+Acked-by: Jesse Gross <jesse@nicira.com>
 Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 ---
- include/uapi/linux/openvswitch.h | 13 ++++--
- net/openvswitch/datapath.c       | 21 ++++++---
- net/openvswitch/vport.c          | 99 +++++++++++++++++++++++++++++++++++++++-
- net/openvswitch/vport.h          | 27 +++++++++--
- 4 files changed, 144 insertions(+), 16 deletions(-)
+ include/uapi/linux/openvswitch.h | 24 ++++++++++++++++++++++++
+ net/openvswitch/actions.c        | 19 +++++++++++++++++++
+ net/openvswitch/flow.h           |  1 +
+ net/openvswitch/flow_netlink.c   | 27 ++++++++++++++++++++++++++-
+ 4 files changed, 70 insertions(+), 1 deletion(-)
 
 diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
-index 0b979ee..a794d1d 100644
+index a794d1d..eaf2d68 100644
 --- a/include/uapi/linux/openvswitch.h
 +++ b/include/uapi/linux/openvswitch.h
-@@ -118,6 +118,9 @@ struct ovs_vport_stats {
- /* Allow last Netlink attribute to be unaligned */
- #define OVS_DP_F_UNALIGNED	(1 << 0)
+@@ -289,6 +289,8 @@ enum ovs_key_attr {
+ 	OVS_KEY_ATTR_TUNNEL,    /* Nested set of ovs_tunnel attributes */
+ 	OVS_KEY_ATTR_SCTP,      /* struct ovs_key_sctp */
+ 	OVS_KEY_ATTR_TCP_FLAGS,	/* be16 TCP flags. */
++	OVS_KEY_ATTR_DP_HASH,      /* u32 hash value. Value 0 indicates the hash
++				   is not computed by the datapath. */
  
-+/* Allow datapath to associate multiple Netlink PIDs to each vport */
-+#define OVS_DP_F_VPORT_PIDS	(1 << 1)
-+
- /* Fixed logical ports. */
- #define OVSP_LOCAL      ((__u32)0)
- 
-@@ -203,9 +206,10 @@ enum ovs_vport_type {
-  * this is the name of the network device.  Maximum length %IFNAMSIZ-1 bytes
-  * plus a null terminator.
-  * @OVS_VPORT_ATTR_OPTIONS: Vport-specific configuration information.
-- * @OVS_VPORT_ATTR_UPCALL_PID: The Netlink socket in userspace that
-- * OVS_PACKET_CMD_MISS upcalls will be directed to for packets received on
-- * this port.  A value of zero indicates that upcalls should not be sent.
-+ * @OVS_VPORT_ATTR_UPCALL_PID: The array of Netlink socket pids in userspace
-+ * among which OVS_PACKET_CMD_MISS upcalls will be distributed for packets
-+ * received on this port.  If this is a single-element array of value 0,
-+ * upcalls should not be sent.
-  * @OVS_VPORT_ATTR_STATS: A &struct ovs_vport_stats giving statistics for
-  * packets sent or received through the vport.
-  *
-@@ -228,7 +232,8 @@ enum ovs_vport_attr {
- 	OVS_VPORT_ATTR_TYPE,	/* u32 OVS_VPORT_TYPE_* constant. */
- 	OVS_VPORT_ATTR_NAME,	/* string name, up to IFNAMSIZ bytes long */
- 	OVS_VPORT_ATTR_OPTIONS, /* nested attributes, varies by vport type */
--	OVS_VPORT_ATTR_UPCALL_PID, /* u32 Netlink PID to receive upcalls */
-+	OVS_VPORT_ATTR_UPCALL_PID, /* array of u32 Netlink socket PIDs for */
-+				/* receiving upcalls */
- 	OVS_VPORT_ATTR_STATS,	/* struct ovs_vport_stats */
- 	__OVS_VPORT_ATTR_MAX
+ #ifdef __KERNEL__
+ 	OVS_KEY_ATTR_IPV4_TUNNEL,  /* struct ovs_key_ipv4_tunnel */
+@@ -493,6 +495,27 @@ struct ovs_action_push_vlan {
+ 	__be16 vlan_tci;	/* 802.1Q TCI (VLAN ID and priority). */
  };
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index fe95b6c..09fe334 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -266,7 +266,7 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
- 		upcall.cmd = OVS_PACKET_CMD_MISS;
- 		upcall.key = &key;
- 		upcall.userdata = NULL;
--		upcall.portid = p->upcall_portid;
-+		upcall.portid = ovs_vport_find_upcall_portid(p, skb);
- 		ovs_dp_upcall(dp, skb, &upcall);
- 		consume_skb(skb);
- 		stats_counter = &stats->n_missed;
-@@ -1374,7 +1374,7 @@ static int ovs_dp_cmd_new(struct sk_buff *skb, struct genl_info *info)
- 	parms.options = NULL;
- 	parms.dp = dp;
- 	parms.port_no = OVSP_LOCAL;
--	parms.upcall_portid = nla_get_u32(a[OVS_DP_ATTR_UPCALL_PID]);
-+	parms.upcall_portids = a[OVS_DP_ATTR_UPCALL_PID];
  
- 	ovs_dp_change(dp, a);
++/* Data path hash algorithm for computing Datapath hash.
++ *
++ * The algorithm type only specifies the fields in a flow
++ * will be used as part of the hash. Each datapath is free
++ * to use its own hash algorithm. The hash value will be
++ * opaque to the user space daemon.
++ */
++enum ovs_hash_alg {
++	OVS_HASH_ALG_L4,
++};
++
++/*
++ * struct ovs_action_hash - %OVS_ACTION_ATTR_HASH action argument.
++ * @hash_alg: Algorithm used to compute hash prior to recirculation.
++ * @hash_basis: basis used for computing hash.
++ */
++struct ovs_action_hash {
++	uint32_t  hash_alg;     /* One of ovs_hash_alg. */
++	uint32_t  hash_basis;
++};
++
+ /**
+  * enum ovs_action_attr - Action types.
+  *
+@@ -521,6 +544,7 @@ enum ovs_action_attr {
+ 	OVS_ACTION_ATTR_PUSH_VLAN,    /* struct ovs_action_push_vlan. */
+ 	OVS_ACTION_ATTR_POP_VLAN,     /* No argument. */
+ 	OVS_ACTION_ATTR_SAMPLE,       /* Nested OVS_SAMPLE_ATTR_*. */
++	OVS_ACTION_ATTR_HASH,         /* struct ovs_action_hash. */
+ 	__OVS_ACTION_ATTR_MAX
+ };
  
-@@ -1633,8 +1633,7 @@ static int ovs_vport_cmd_fill_info(struct vport *vport, struct sk_buff *skb,
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index c36856a..56c22f0 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -459,6 +459,21 @@ static int sample(struct datapath *dp, struct sk_buff *skb,
+ 						 nla_len(acts_list), true);
+ }
  
- 	if (nla_put_u32(skb, OVS_VPORT_ATTR_PORT_NO, vport->port_no) ||
- 	    nla_put_u32(skb, OVS_VPORT_ATTR_TYPE, vport->ops->type) ||
--	    nla_put_string(skb, OVS_VPORT_ATTR_NAME, vport->ops->get_name(vport)) ||
--	    nla_put_u32(skb, OVS_VPORT_ATTR_UPCALL_PID, vport->upcall_portid))
-+	    nla_put_string(skb, OVS_VPORT_ATTR_NAME, vport->ops->get_name(vport)))
- 		goto nla_put_failure;
++static void execute_hash(struct sk_buff *skb, const struct nlattr *attr)
++{
++	struct sw_flow_key *key = OVS_CB(skb)->pkt_key;
++	struct ovs_action_hash *hash_act = nla_data(attr);
++	u32 hash = 0;
++
++	/* OVS_HASH_ALG_L4 is the only possible hash algorithm.  */
++	hash = skb_get_hash(skb);
++	hash = jhash_1word(hash, hash_act->hash_basis);
++	if (!hash)
++		hash = 0x1;
++
++	key->ovs_flow_hash = hash;
++}
++
+ static int execute_set_action(struct sk_buff *skb,
+ 				 const struct nlattr *nested_attr)
+ {
+@@ -535,6 +550,10 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
+ 			output_userspace(dp, skb, a);
+ 			break;
  
- 	ovs_vport_get_stats(vport, &vport_stats);
-@@ -1642,6 +1641,9 @@ static int ovs_vport_cmd_fill_info(struct vport *vport, struct sk_buff *skb,
- 		    &vport_stats))
- 		goto nla_put_failure;
++		case OVS_ACTION_ATTR_HASH:
++			execute_hash(skb, a);
++			break;
++
+ 		case OVS_ACTION_ATTR_PUSH_VLAN:
+ 			err = push_vlan(skb, nla_data(a));
+ 			if (unlikely(err)) /* skb already freed. */
+diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
+index ac395d2..ae15599 100644
+--- a/net/openvswitch/flow.h
++++ b/net/openvswitch/flow.h
+@@ -72,6 +72,7 @@ struct sw_flow_key {
+ 		u32	skb_mark;	/* SKB mark. */
+ 		u16	in_port;	/* Input switch port (or DP_MAX_PORTS). */
+ 	} __packed phy; /* Safe when right after 'tun_key'. */
++	u32 ovs_flow_hash;		/* Datapath computed hash value.  */
+ 	struct {
+ 		u8     src[ETH_ALEN];	/* Ethernet source address. */
+ 		u8     dst[ETH_ALEN];	/* Ethernet destination address. */
+diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
+index d757848..504f794 100644
+--- a/net/openvswitch/flow_netlink.c
++++ b/net/openvswitch/flow_netlink.c
+@@ -251,6 +251,7 @@ static const int ovs_key_lens[OVS_KEY_ATTR_MAX + 1] = {
+ 	[OVS_KEY_ATTR_ICMPV6] = sizeof(struct ovs_key_icmpv6),
+ 	[OVS_KEY_ATTR_ARP] = sizeof(struct ovs_key_arp),
+ 	[OVS_KEY_ATTR_ND] = sizeof(struct ovs_key_nd),
++	[OVS_KEY_ATTR_DP_HASH] = sizeof(u32),
+ 	[OVS_KEY_ATTR_TUNNEL] = -1,
+ };
  
-+	if (ovs_vport_get_upcall_portids(vport, skb))
+@@ -454,6 +455,13 @@ static int ipv4_tun_to_nlattr(struct sk_buff *skb,
+ static int metadata_from_nlattrs(struct sw_flow_match *match,  u64 *attrs,
+ 				 const struct nlattr **a, bool is_mask)
+ {
++	if (*attrs & (1 << OVS_KEY_ATTR_DP_HASH)) {
++		u32 hash_val = nla_get_u32(a[OVS_KEY_ATTR_DP_HASH]);
++
++		SW_FLOW_KEY_PUT(match, ovs_flow_hash, hash_val, is_mask);
++		*attrs &= ~(1 << OVS_KEY_ATTR_DP_HASH);
++	}
++
+ 	if (*attrs & (1 << OVS_KEY_ATTR_PRIORITY)) {
+ 		SW_FLOW_KEY_PUT(match, phy.priority,
+ 			  nla_get_u32(a[OVS_KEY_ATTR_PRIORITY]), is_mask);
+@@ -858,6 +866,7 @@ int ovs_nla_get_flow_metadata(struct sw_flow *flow,
+ 	flow->key.phy.in_port = DP_MAX_PORTS;
+ 	flow->key.phy.priority = 0;
+ 	flow->key.phy.skb_mark = 0;
++	flow->key.ovs_flow_hash = 0;
+ 	memset(tun_key, 0, sizeof(flow->key.tun_key));
+ 
+ 	err = parse_flow_nlattrs(attr, a, &attrs);
+@@ -881,6 +890,9 @@ int ovs_nla_put_flow(const struct sw_flow_key *swkey,
+ 	struct nlattr *nla, *encap;
+ 	bool is_mask = (swkey != output);
+ 
++	if (nla_put_u32(skb, OVS_KEY_ATTR_DP_HASH, output->ovs_flow_hash))
 +		goto nla_put_failure;
 +
- 	err = ovs_vport_get_options(vport, skb);
- 	if (err == -EMSGSIZE)
- 		goto error;
-@@ -1763,7 +1765,7 @@ static int ovs_vport_cmd_new(struct sk_buff *skb, struct genl_info *info)
- 	parms.options = a[OVS_VPORT_ATTR_OPTIONS];
- 	parms.dp = dp;
- 	parms.port_no = port_no;
--	parms.upcall_portid = nla_get_u32(a[OVS_VPORT_ATTR_UPCALL_PID]);
-+	parms.upcall_portids = a[OVS_VPORT_ATTR_UPCALL_PID];
+ 	if (nla_put_u32(skb, OVS_KEY_ATTR_PRIORITY, output->phy.priority))
+ 		goto nla_put_failure;
  
- 	vport = new_vport(&parms);
- 	err = PTR_ERR(vport);
-@@ -1813,8 +1815,13 @@ static int ovs_vport_cmd_set(struct sk_buff *skb, struct genl_info *info)
- 			goto exit_unlock_free;
- 	}
+@@ -1413,7 +1425,8 @@ int ovs_nla_copy_actions(const struct nlattr *attr,
+ 			[OVS_ACTION_ATTR_PUSH_VLAN] = sizeof(struct ovs_action_push_vlan),
+ 			[OVS_ACTION_ATTR_POP_VLAN] = 0,
+ 			[OVS_ACTION_ATTR_SET] = (u32)-1,
+-			[OVS_ACTION_ATTR_SAMPLE] = (u32)-1
++			[OVS_ACTION_ATTR_SAMPLE] = (u32)-1,
++			[OVS_ACTION_ATTR_HASH] = sizeof(struct ovs_action_hash)
+ 		};
+ 		const struct ovs_action_push_vlan *vlan;
+ 		int type = nla_type(a);
+@@ -1440,6 +1453,18 @@ int ovs_nla_copy_actions(const struct nlattr *attr,
+ 				return -EINVAL;
+ 			break;
  
--	if (a[OVS_VPORT_ATTR_UPCALL_PID])
--		vport->upcall_portid = nla_get_u32(a[OVS_VPORT_ATTR_UPCALL_PID]);
++		case OVS_ACTION_ATTR_HASH: {
++			const struct ovs_action_hash *act_hash = nla_data(a);
 +
-+	if (a[OVS_VPORT_ATTR_UPCALL_PID]) {
-+		err = ovs_vport_set_upcall_portids(vport,
-+						   a[OVS_VPORT_ATTR_UPCALL_PID]);
-+		if (err)
-+			goto exit_unlock_free;
-+	}
++			switch (act_hash->hash_alg) {
++			case OVS_HASH_ALG_L4:
++				break;
++			default:
++				return  -EINVAL;
++			}
++
++			break;
++		}
  
- 	err = ovs_vport_cmd_fill_info(vport, reply, info->snd_portid,
- 				      info->snd_seq, 0, OVS_VPORT_CMD_NEW);
-diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
-index 42c0f4a..9563f6f 100644
---- a/net/openvswitch/vport.c
-+++ b/net/openvswitch/vport.c
-@@ -134,10 +134,12 @@ struct vport *ovs_vport_alloc(int priv_size, const struct vport_ops *ops,
- 
- 	vport->dp = parms->dp;
- 	vport->port_no = parms->port_no;
--	vport->upcall_portid = parms->upcall_portid;
- 	vport->ops = ops;
- 	INIT_HLIST_NODE(&vport->dp_hash_node);
- 
-+	if (ovs_vport_set_upcall_portids(vport, parms->upcall_portids))
-+		return ERR_PTR(-EINVAL);
-+
- 	vport->percpu_stats = netdev_alloc_pcpu_stats(struct pcpu_sw_netstats);
- 	if (!vport->percpu_stats) {
- 		kfree(vport);
-@@ -161,6 +163,10 @@ struct vport *ovs_vport_alloc(int priv_size, const struct vport_ops *ops,
-  */
- void ovs_vport_free(struct vport *vport)
- {
-+	/* vport is freed from RCU callback or error path, Therefore
-+	 * it is safe to use raw dereference.
-+	 */
-+	kfree(rcu_dereference_raw(vport->upcall_portids));
- 	free_percpu(vport->percpu_stats);
- 	kfree(vport);
- }
-@@ -327,6 +333,97 @@ int ovs_vport_get_options(const struct vport *vport, struct sk_buff *skb)
- }
- 
- /**
-+ *	ovs_vport_set_upcall_portids - set upcall portids of @vport.
-+ *
-+ * @vport: vport to modify.
-+ * @ids: new configuration, an array of port ids.
-+ *
-+ * Sets the vport's upcall_portids to @ids.
-+ *
-+ * Returns 0 if successful, -EINVAL if @ids is zero length or cannot be parsed
-+ * as an array of U32.
-+ *
-+ * Must be called with ovs_mutex.
-+ */
-+int ovs_vport_set_upcall_portids(struct vport *vport,  struct nlattr *ids)
-+{
-+	struct vport_portids *old, *vport_portids;
-+
-+	if (!nla_len(ids) || nla_len(ids) % sizeof(u32))
-+		return -EINVAL;
-+
-+	old = ovsl_dereference(vport->upcall_portids);
-+
-+	vport_portids = kmalloc(sizeof(*vport_portids) + nla_len(ids),
-+				GFP_KERNEL);
-+	if (!vport_portids)
-+		return -ENOMEM;
-+
-+	vport_portids->n_ids = nla_len(ids) / sizeof(u32);
-+	vport_portids->rn_ids = reciprocal_value(vport_portids->n_ids);
-+	nla_memcpy(vport_portids->ids, ids, nla_len(ids));
-+
-+	rcu_assign_pointer(vport->upcall_portids, vport_portids);
-+
-+	if (old)
-+		kfree_rcu(old, rcu);
-+	return 0;
-+}
-+
-+/**
-+ *	ovs_vport_get_upcall_portids - get the upcall_portids of @vport.
-+ *
-+ * @vport: vport from which to retrieve the portids.
-+ * @skb: sk_buff where portids should be appended.
-+ *
-+ * Retrieves the configuration of the given vport, appending the
-+ * %OVS_VPORT_ATTR_UPCALL_PID attribute which is the array of upcall
-+ * portids to @skb.
-+ *
-+ * Returns 0 if successful, -EMSGSIZE if @skb has insufficient room.
-+ * If an error occurs, @skb is left unmodified.  Must be called with
-+ * ovs_mutex or rcu_read_lock.
-+ */
-+int ovs_vport_get_upcall_portids(const struct vport *vport,
-+				 struct sk_buff *skb)
-+{
-+	struct vport_portids *ids;
-+
-+	ids = rcu_dereference_ovsl(vport->upcall_portids);
-+
-+	if (vport->dp->user_features & OVS_DP_F_VPORT_PIDS)
-+		return nla_put(skb, OVS_VPORT_ATTR_UPCALL_PID,
-+			       ids->n_ids * sizeof(u32), (void *)ids->ids);
-+	else
-+		return nla_put_u32(skb, OVS_VPORT_ATTR_UPCALL_PID, ids->ids[0]);
-+}
-+
-+/**
-+ *	ovs_vport_find_upcall_portid - find the upcall portid to send upcall.
-+ *
-+ * @vport: vport from which the missed packet is received.
-+ * @skb: skb that the missed packet was received.
-+ *
-+ * Uses the skb_get_hash() to select the upcall portid to send the
-+ * upcall.
-+ *
-+ * Returns the portid of the target socket.  Must be called with rcu_read_lock.
-+ */
-+u32 ovs_vport_find_upcall_portid(const struct vport *p, struct sk_buff *skb)
-+{
-+	struct vport_portids *ids;
-+	u32 hash;
-+
-+	ids = rcu_dereference(p->upcall_portids);
-+
-+	if (ids->n_ids == 1 && ids->ids[0] == 0)
-+		return 0;
-+
-+	hash = skb_get_hash(skb);
-+	return ids->ids[hash - ids->n_ids * reciprocal_divide(hash, ids->rn_ids)];
-+}
-+
-+/**
-  *	ovs_vport_receive - pass up received packet to the datapath for processing
-  *
-  * @vport: vport that received the packet
-diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
-index 8d721e6..35f89d8 100644
---- a/net/openvswitch/vport.h
-+++ b/net/openvswitch/vport.h
-@@ -23,6 +23,7 @@
- #include <linux/list.h>
- #include <linux/netlink.h>
- #include <linux/openvswitch.h>
-+#include <linux/reciprocal_div.h>
- #include <linux/skbuff.h>
- #include <linux/spinlock.h>
- #include <linux/u64_stats_sync.h>
-@@ -52,6 +53,10 @@ void ovs_vport_get_stats(struct vport *, struct ovs_vport_stats *);
- int ovs_vport_set_options(struct vport *, struct nlattr *options);
- int ovs_vport_get_options(const struct vport *, struct sk_buff *);
- 
-+int ovs_vport_set_upcall_portids(struct vport *, struct nlattr *pids);
-+int ovs_vport_get_upcall_portids(const struct vport *, struct sk_buff *);
-+u32 ovs_vport_find_upcall_portid(const struct vport *, struct sk_buff *);
-+
- int ovs_vport_send(struct vport *, struct sk_buff *);
- 
- /* The following definitions are for implementers of vport devices: */
-@@ -62,13 +67,27 @@ struct vport_err_stats {
- 	u64 tx_dropped;
- 	u64 tx_errors;
- };
-+/**
-+ * struct vport_portids - array of netlink portids of a vport.
-+ *                        must be protected by rcu.
-+ * @rn_ids: The reciprocal value of @n_ids.
-+ * @rcu: RCU callback head for deferred destruction.
-+ * @n_ids: Size of @ids array.
-+ * @ids: Array storing the Netlink socket pids to be used for packets received
-+ * on this port that miss the flow table.
-+ */
-+struct vport_portids {
-+	struct reciprocal_value rn_ids;
-+	struct rcu_head rcu;
-+	u32 n_ids;
-+	u32 ids[];
-+};
- 
- /**
-  * struct vport - one port within a datapath
-  * @rcu: RCU callback head for deferred destruction.
-  * @dp: Datapath to which this port belongs.
-- * @upcall_portid: The Netlink port to use for packets received on this port that
-- * miss the flow table.
-+ * @upcall_portids: RCU protected 'struct vport_portids'.
-  * @port_no: Index into @dp's @ports array.
-  * @hash_node: Element in @dev_table hash table in vport.c.
-  * @dp_hash_node: Element in @datapath->ports hash table in datapath.c.
-@@ -80,7 +99,7 @@ struct vport_err_stats {
- struct vport {
- 	struct rcu_head rcu;
- 	struct datapath	*dp;
--	u32 upcall_portid;
-+	struct vport_portids __rcu *upcall_portids;
- 	u16 port_no;
- 
- 	struct hlist_node hash_node;
-@@ -111,7 +130,7 @@ struct vport_parms {
- 	/* For ovs_vport_alloc(). */
- 	struct datapath *dp;
- 	u16 port_no;
--	u32 upcall_portid;
-+	struct nlattr *upcall_portids;
- };
- 
- /**
+ 		case OVS_ACTION_ATTR_POP_VLAN:
+ 			break;
 -- 
 1.9.3
