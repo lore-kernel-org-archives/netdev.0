@@ -1,292 +1,305 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH net-next 2/9] gue: Support for Generic UDP Encapsulation RX
- path
-Date: Wed, 16 Jul 2014 21:14:30 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1407162058200.2128@tomh.mtv.corp.google.com>
+Subject: [PATCH net-next 3/9] gue: Changes to ip_tunnel to support Generic
+ UDP Encapsulation
+Date: Wed, 16 Jul 2014 21:14:44 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1407162055520.29792@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f202.google.com ([209.85.223.202]:34467 "EHLO
-	mail-ie0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750748AbaGQEOc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 00:14:32 -0400
-Received: by mail-ie0-f202.google.com with SMTP id rl12so630390iec.3
-        for <netdev@vger.kernel.org>; Wed, 16 Jul 2014 21:14:31 -0700 (PDT)
+Received: from mail-pa0-f73.google.com ([209.85.220.73]:45641 "EHLO
+	mail-pa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752686AbaGQEOp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 00:14:45 -0400
+Received: by mail-pa0-f73.google.com with SMTP id kx10so498239pab.2
+        for <netdev@vger.kernel.org>; Wed, 16 Jul 2014 21:14:45 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch provides a Generic UDP Encapsulation receive path
-using the XFRM framework (udp_encap_rcv).
+This patch changes IP tunnel to support (secondary) encapsulation,
+Generic UDP Encapsulation. Changes include:
 
-This adds support for both direct encapsulation of IP protocols over
-UDP. The bound destination port is used to map to an IP protocol.
-This should support GRE over UDP encapsulation, see
-http://tools.ietf.org/html/draft-yong-tsvwg-gre-in-udp-encap-02,
-as will as the other IP tunneling protocols (IPIP, SIT).
+1) Adding tun_hlen as the tunnel header length, encap_hlen as the
+encapsulation header length (GUE), and hlen becomes the grand total
+of these.
+2) Added generic function to handle IOCTLs
+3) Added IOCTLs to setup or remove encapsulation. This includes
+uapi to configure encapsulation on a tunnel.
+4) Support to perform GUE encapsulation in ip_tunnel_xmit.
 
 Signed-off-by: Tom Herbert <therbert@google.com>
 ---
- include/net/gue.h |  49 +++++++++++++++++
- net/ipv4/Kconfig  |  10 ++++
- net/ipv4/Makefile |   1 +
- net/ipv4/gue.c    | 159 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 219 insertions(+)
- create mode 100644 include/net/gue.h
- create mode 100644 net/ipv4/gue.c
+ include/net/ip_tunnels.h       |  23 ++++++-
+ include/uapi/linux/if_tunnel.h |  20 ++++++
+ net/ipv4/ip_tunnel.c           | 149 ++++++++++++++++++++++++++++++++++++++++-
+ 3 files changed, 190 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/gue.h b/include/net/gue.h
-new file mode 100644
-index 0000000..86b91bc
---- /dev/null
-+++ b/include/net/gue.h
-@@ -0,0 +1,49 @@
-+#ifndef __NET_GUE_H
-+#define __NET_GUE_H
-+
-+#if defined(CONFIG_NET_GUE) || defined(CONFIG_NET_GUE_MODULE)
-+
-+#include <net/udp_tunnel.h>
-+
-+struct gue_port_cfg {
-+	u8			protocol;
-+	struct udp_port_cfg	udp_config;
-+};
-+
-+int gue_port_create(struct net *net, struct gue_port_cfg *cfg,
-+		    struct socket **sockp);
-+int gue_open_direct_port(unsigned short port, unsigned char proto,
-+			 struct socket **sockp);
-+void gue_close_port(struct socket *sock);
-+
-+/* Tunnel protocols can use GUE_TUNNEL_PARMS to set up per module static
-+ * variables that are used with the common GUE functions (open_gue_port,
-+ * close_gue_port).
-+ */
-+#define GUE_TUNNEL_PARMS(name, default_port)			\
-+static int gue_udp_port = default_port;				\
-+module_param(gue_udp_port, int, 0);				\
-+MODULE_PARM_DESC(gue_udp_port, name "/UDP port");		\
-+static struct socket *gue_sock;
-+
-+#define open_gue_port(proto)					\
-+	(gue_udp_port ?						\
-+	 gue_open_direct_port(gue_udp_port, proto, &gue_sock) :	\
-+	 0)
-+
-+#define close_gue_port() do {					\
-+	if (gue_sock) {						\
-+		gue_close_port(gue_sock);			\
-+		gue_sock = NULL;				\
-+	}							\
-+} while (0)
-+
-+#else /* defined(CONFIG_NET_GUE) || defined(CONFIG_NET_GUE_MODULE) */
-+
-+#define GUE_TUNNEL_PARMS(name, default_port)
-+#define open_gue_port(proto) (0)
-+#define close_gue_port()
-+
-+#endif
-+
-+#endif
-diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
-index dbc10d8..0551acb 100644
---- a/net/ipv4/Kconfig
-+++ b/net/ipv4/Kconfig
-@@ -311,6 +311,16 @@ config NET_UDP_TUNNEL
- 	tristate
- 	default n
+diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
+index a4daf9e..e1a379c 100644
+--- a/include/net/ip_tunnels.h
++++ b/include/net/ip_tunnels.h
+@@ -10,6 +10,7 @@
+ #include <net/gro_cells.h>
+ #include <net/inet_ecn.h>
+ #include <net/ip.h>
++#include <net/netns/generic.h>
+ #include <net/rtnetlink.h>
  
-+config NET_GUE
-+	tristate "IP: Generic UDP Encapsulation"
-+	select XFRM
-+	select NET_UDP_TUNNEL
-+	---help---
-+	  Generic UDP Encapsulation is a method to encapsulate IP
-+	  tunnels (IPIP, GRE, SIT) over UDP. By encapsulating in UDP
-+	  network mechanisms and optimizations for UDP (such as ECMP
-+	  and RSS) can be leveraged to provide better service.
+ #if IS_ENABLED(CONFIG_IPV6)
+@@ -55,13 +56,18 @@ struct ip_tunnel {
+ 	/* These four fields used only by GRE */
+ 	__u32		i_seqno;	/* The last seen seqno	*/
+ 	__u32		o_seqno;	/* The last output seqno */
+-	int		hlen;		/* Precalculated header length */
++	int		tun_hlen;	/* Precalculated header length */
+ 	int		mlink;
+ 
+ 	struct ip_tunnel_dst __percpu *dst_cache;
+ 
+ 	struct ip_tunnel_parm parms;
+ 
++	int encap_hlen;			/* Encap header length (GUE) */
++	struct ip_tunnel_encap encap;
 +
- config INET_AH
- 	tristate "IP: AH transformation"
- 	select XFRM_ALGO
-diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
-index 8ee1cd4..2044a14 100644
---- a/net/ipv4/Makefile
-+++ b/net/ipv4/Makefile
-@@ -20,6 +20,7 @@ obj-$(CONFIG_IP_MULTIPLE_TABLES) += fib_rules.o
- obj-$(CONFIG_IP_MROUTE) += ipmr.o
- obj-$(CONFIG_NET_IPIP) += ipip.o
- gre-y := gre_demux.o
-+obj-$(CONFIG_NET_GUE) += gue.o
- obj-$(CONFIG_NET_IPGRE_DEMUX) += gre.o
- obj-$(CONFIG_NET_IPGRE) += ip_gre.o
- obj-$(CONFIG_NET_UDP_TUNNEL) += udp_tunnel.o
-diff --git a/net/ipv4/gue.c b/net/ipv4/gue.c
-new file mode 100644
-index 0000000..17265bc
---- /dev/null
-+++ b/net/ipv4/gue.c
-@@ -0,0 +1,159 @@
-+#include <linux/module.h>
-+#include <linux/errno.h>
-+#include <linux/socket.h>
-+#include <linux/skbuff.h>
-+#include <linux/ip.h>
-+#include <linux/udp.h>
-+#include <linux/types.h>
-+#include <linux/kernel.h>
-+#include <net/ip.h>
-+#include <net/udp.h>
-+#include <net/gue.h>
-+#include <net/xfrm.h>
++	int		hlen;		/* tun_hlen + encap_hlen */
 +
-+struct gue {
-+	struct sock *sock;
-+	u8 protocol;
-+	void (*old_sk_destruct)(struct sock *sk);
+ 	/* for SIT */
+ #ifdef CONFIG_IPV6_SIT_6RD
+ 	struct ip_tunnel_6rd_parm ip6rd;
+@@ -113,6 +119,21 @@ void ip_tunnel_delete_net(struct ip_tunnel_net *itn, struct rtnl_link_ops *ops);
+ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
+ 		    const struct iphdr *tnl_params, const u8 protocol);
+ int ip_tunnel_ioctl(struct net_device *dev, struct ip_tunnel_parm *p, int cmd);
++int __ip_tunnel_gen_ioctl(struct net_device *dev, struct net_device *tundev,
++			  struct ifreq *ifr, int cmd);
++int ip_tunnel_encap(struct sk_buff *skb, struct ip_tunnel *t,
++		    u8 *protocol, struct flowi4 *fl4);
++
++static inline int ip_tunnel_gen_ioctl(struct net_device *dev,
++				      struct ifreq *ifr, int cmd)
++{
++	struct net *net = dev_net(dev);
++	struct ip_tunnel *tunnel = netdev_priv(dev);
++	struct ip_tunnel_net *itn = net_generic(net, tunnel->ip_tnl_net_id);
++
++	return __ip_tunnel_gen_ioctl(dev, itn->fb_tunnel_dev, ifr, cmd);
++}
++
+ int ip_tunnel_change_mtu(struct net_device *dev, int new_mtu);
+ 
+ struct rtnl_link_stats64 *ip_tunnel_get_stats64(struct net_device *dev,
+diff --git a/include/uapi/linux/if_tunnel.h b/include/uapi/linux/if_tunnel.h
+index 3bce9e9..30a8495 100644
+--- a/include/uapi/linux/if_tunnel.h
++++ b/include/uapi/linux/if_tunnel.h
+@@ -17,6 +17,10 @@
+ #define SIOCADD6RD      (SIOCDEVPRIVATE + 9)
+ #define SIOCDEL6RD      (SIOCDEVPRIVATE + 10)
+ #define SIOCCHG6RD      (SIOCDEVPRIVATE + 11)
++#define SIOCGETTUNENCAP (SIOCDEVPRIVATE + 12)
++#define SIOCADDTUNENCAP (SIOCDEVPRIVATE + 13)
++#define SIOCDELTUNENCAP (SIOCDEVPRIVATE + 14)
++#define SIOCCHGTUNENCAP (SIOCDEVPRIVATE + 15)
+ 
+ #define GRE_CSUM	__cpu_to_be16(0x8000)
+ #define GRE_ROUTING	__cpu_to_be16(0x4000)
+@@ -57,6 +61,22 @@ enum {
+ };
+ #define IFLA_IPTUN_MAX	(__IFLA_IPTUN_MAX - 1)
+ 
++enum tunnel_encap_types {
++	TUNNEL_ENCAP_NONE,
++	TUNNEL_ENCAP_GUE_DIRECT,
 +};
 +
-+static inline struct gue *gue_from_sock(struct sock *sk)
++#define TUNNEL_ENCAP_FLAG_CSUM	(1<<0)
++#define TUNNEL_ENCAP_FLAG_CSUM6	(1<<1)
++
++struct ip_tunnel_encap {
++	int			type;
++	__u16			sport;
++	__u16			dport;
++	__u16			i_flags;
++	__u16			o_flags;
++};
++
+ /* SIT-mode i_flags */
+ #define	SIT_ISATAP	0x0001
+ 
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index dd8c8c7..9dcce6b 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -55,6 +55,8 @@
+ #include <net/net_namespace.h>
+ #include <net/netns/generic.h>
+ #include <net/rtnetlink.h>
++#include <net/gue.h>
++#include <net/udp.h>
+ 
+ #if IS_ENABLED(CONFIG_IPV6)
+ #include <net/ipv6.h>
+@@ -528,8 +530,150 @@ static int tnl_update_pmtu(struct net_device *dev, struct sk_buff *skb,
+ 	return 0;
+ }
+ 
++static int ip_encap_hlen(struct ip_tunnel_encap *e)
 +{
-+	return (struct gue *)sk->sk_user_data;
++	switch (e->type) {
++	case TUNNEL_ENCAP_NONE:
++		return 0;
++	case TUNNEL_ENCAP_GUE_DIRECT:
++		return sizeof(struct udphdr);
++	default:
++		return -EINVAL;
++	}
 +}
 +
-+static int gue_udp_encap_recv_deliver(struct sk_buff *skb,
-+				      u8 protocol, size_t len)
++static int gue_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
++			    size_t hdr_len, u8 *protocol, struct flowi4 *fl4)
 +{
-+	struct iphdr *iph = ip_hdr(skb);
++	struct udphdr *uh;
++	__be16 sport;
 +
-+	/* Remove 'len' bytes from the packet (UDP header and
-+	 * GUE header if present), modify the protocol to the one
-+	 * we found, and then call rcv_encap.
-+	 */
-+	iph->tot_len = htons(ntohs(iph->tot_len) - len);
-+	__skb_pull(skb, len);
++	/* Get length and hash before making space in skb */
++
++	sport = e->sport ? : udp_flow_src_port(dev_net(skb->dev),
++					       skb, 0, 0, false);
++
++	skb_push(skb, hdr_len);
++
 +	skb_reset_transport_header(skb);
++	uh = udp_hdr(skb);
 +
-+	return -protocol;
-+}
++	uh->dest = e->dport;
++	uh->source = sport;
++	uh->len = htons(skb->len);
++	uh->check = 0;
++	udp_set_csum(!(e->o_flags & TUNNEL_ENCAP_FLAG_CSUM), skb,
++		     fl4->saddr, fl4->daddr, skb->len);
 +
-+int gue_udp_direct_recv(struct sock *sk, struct sk_buff *skb)
-+{
-+	struct gue *gue = gue_from_sock(sk);
++	*protocol = IPPROTO_UDP;
 +
-+	if (!gue)
-+		return 1;
-+
-+	return gue_udp_encap_recv_deliver(skb, gue->protocol,
-+					  sizeof(struct udphdr));
-+}
-+
-+void gue_sock_destruct(struct sock *sk)
-+{
-+	struct gue *gue = gue_from_sock(sk);
-+
-+	if (!gue)
-+		return;
-+
-+	/* Remove hooks into tunnel socket */
-+	sk->sk_destruct = gue->old_sk_destruct;
-+	sk->sk_user_data = NULL;
-+	gue->sock = NULL;
-+
-+	if (sk->sk_destruct)
-+		sk->sk_destruct(sk);
-+
-+	kfree(gue);
-+}
-+
-+int
-+gue_port_create(struct net *net, struct gue_port_cfg *cfg,
-+		struct socket **sockp)
-+{
-+	struct gue *gue = NULL;
-+	int err;
-+	struct socket *sock = NULL;
-+	struct sock *sk;
-+
-+	/* Open UDP socket */
-+	err = udp_sock_create(net, &cfg->udp_config, &sock);
-+	if (err < 0)
-+		goto error;
-+
-+	sk = sock->sk;
-+
-+	/* Allocate GUE port structure */
-+	gue = kzalloc(sizeof(*gue), GFP_KERNEL);
-+	if (!gue) {
-+		err = -ENOMEM;
-+		goto error;
++	return 0;
 +	}
 +
-+	/* Mark socket as an encapsulation socket. See net/ipv4/udp.c */
-+	gue->protocol = cfg->protocol;
-+	udp_sk(sk)->encap_rcv = gue_udp_direct_recv;
++int ip_tunnel_encap(struct sk_buff *skb, struct ip_tunnel *t,
++		    u8 *protocol, struct flowi4 *fl4)
++{
++	switch (t->encap.type) {
++	case TUNNEL_ENCAP_NONE:
++		return 0;
++	case TUNNEL_ENCAP_GUE_DIRECT:
++		return gue_build_header(skb, &t->encap, t->encap_hlen,
++					protocol, fl4);
++	default:
++		return -EINVAL;
++	}
++}
++EXPORT_SYMBOL(ip_tunnel_encap);
 +
-+	udp_sk(sk)->encap_type = 1;
-+	udp_encap_enable();
++int __ip_tunnel_gen_ioctl(struct net_device *dev, struct net_device *tundev,
++			  struct ifreq *ifr, int cmd)
++{
++	int err = 0;
++	struct ip_tunnel *t;
++	struct net *net = dev_net(dev);
++	size_t hlen;
++	struct ip_tunnel_encap e;
 +
-+	sk->sk_user_data = gue;
-+	gue->sock = sk;
++	switch (cmd) {
++	case SIOCGETTUNENCAP:
++		if (dev == tundev)
++			return -EINVAL;
 +
-+	sk->sk_allocation = GFP_ATOMIC;
++		t = netdev_priv(dev);
++		if (!t)
++			return -ENOENT;
 +
-+	/* Hook on the gue_port socket destructor so that we can cleanup
-+	 * if the tunnel socket goes away.
-+	 */
-+	sk->sk_destruct = &gue_sock_destruct;
-+	gue->old_sk_destruct = sk->sk_destruct;
++		if (copy_to_user(ifr->ifr_ifru.ifru_data, &t->encap,
++				 sizeof(t->encap)))
++			err = -EFAULT;
++		break;
 +
-+	if (sockp)
-+		*sockp = sock;
++	case SIOCDELTUNENCAP:
++		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
++			return -EPERM;
++		if (dev == tundev)
++			return -EINVAL;
 +
-+	return 0;
++		t = netdev_priv(dev);
++		if (!t)
++			return -ENOENT;
 +
-+error:
-+	kfree(gue);
-+	if (sock)
-+		sock_release(sock);
++		memset(&t->encap, 0, sizeof(t->encap));
++		t->encap.type = TUNNEL_ENCAP_NONE;
++		t->encap_hlen = 0;
++		t->hlen = t->encap_hlen + t->tun_hlen;
 +
++		dev->mtu = ip_tunnel_bind_dev(dev);
++
++		netdev_state_change(dev);
++		break;
++
++	case SIOCADDTUNENCAP:
++	case SIOCCHGTUNENCAP:
++		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
++			return -EPERM;
++		if (dev == tundev)
++			return -EINVAL;
++
++		t = netdev_priv(dev);
++		if (!t)
++			return -ENOENT;
++
++		if (copy_from_user(&e, ifr->ifr_ifru.ifru_data, sizeof(e))) {
++			err = -EFAULT;
++			break;
++		}
++		hlen = ip_encap_hlen(&e);
++		if (hlen < 0)
++			return hlen;
++
++		t->encap.type = e.type;
++		t->encap.sport = e.sport;
++		t->encap.dport = e.dport;
++		t->encap.i_flags = e.i_flags;
++		t->encap.o_flags = e.o_flags;
++		t->encap_hlen = hlen;
++		t->hlen = t->encap_hlen + t->tun_hlen;
++
++		dev->mtu = ip_tunnel_bind_dev(dev);
++
++		netdev_state_change(dev);
++		if (copy_to_user(ifr->ifr_ifru.ifru_data, &t->encap,
++				 sizeof(t->encap))) {
++			err = -EFAULT;
++			break;
++		}
++		break;
++
++	default:
++		err = -ENOIOCTLCMD;
++	}
 +	return err;
 +}
-+EXPORT_SYMBOL_GPL(gue_port_create);
++EXPORT_SYMBOL_GPL(__ip_tunnel_gen_ioctl);
 +
-+int gue_open_direct_port(unsigned short port, u8 proto,
-+			 struct socket **sockp)
-+{
-+	struct gue_port_cfg cfg;
+ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
+-		    const struct iphdr *tnl_params, const u8 protocol)
++		    const struct iphdr *tnl_params, u8 protocol)
+ {
+ 	struct ip_tunnel *tunnel = netdev_priv(dev);
+ 	const struct iphdr *inner_iph;
+@@ -610,6 +754,9 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
+ 	init_tunnel_flow(&fl4, protocol, dst, tnl_params->saddr,
+ 			 tunnel->parms.o_key, RT_TOS(tos), tunnel->parms.link);
+ 
++	if (ip_tunnel_encap(skb, tunnel, &protocol, &fl4) < 0)
++		goto tx_error;
 +
-+	memset(&cfg, 0, sizeof(cfg));
-+
-+	cfg.udp_config.family = AF_INET;
-+	cfg.udp_config.local_ip.s_addr = INADDR_ANY;
-+	cfg.udp_config.local_udp_port = htons(port);
-+	cfg.protocol = proto;
-+
-+	return gue_port_create(&init_net, &cfg, sockp);
-+}
-+EXPORT_SYMBOL_GPL(gue_open_direct_port);
-+
-+void gue_close_port(struct socket *sock)
-+{
-+	sock_release(sock);
-+}
-+EXPORT_SYMBOL_GPL(gue_close_port);
-+
-+static int __init gue_init(void)
-+{
-+	return 0;
-+}
-+
-+static void __exit gue_fini(void)
-+{
-+}
-+
-+module_init(gue_init);
-+module_exit(gue_fini);
-+MODULE_AUTHOR("Tom Herbert <therbert@google.com>");
-+MODULE_LICENSE("GPL");
+ 	rt = connected ? tunnel_rtable_get(tunnel, 0) : NULL;
+ 
+ 	if (!rt) {
 -- 
 2.0.0.526.g5318336
