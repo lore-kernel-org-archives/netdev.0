@@ -1,37 +1,68 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [Patch net-next] net_sched: hold tcf_lock in netdevice notifier
-Date: Thu, 17 Jul 2014 08:49:57 -0400
-Message-ID: <53C7C675.7090400@mojatatu.com>
-References: <1405545931-13832-1-git-send-email-xiyou.wangcong@gmail.com> <1405545931-13832-2-git-send-email-xiyou.wangcong@gmail.com>
+From: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Subject: RE: [net-next PATCH v2 0/3] Broadcast/Multicast rate limit via
+ Ethtool Coalesce
+Date: Thu, 17 Jul 2014 12:53:41 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D172768B0@AcuExch.aculab.com>
+References: <1404890050-4020-1-git-send-email-mugunthanvnm@ti.com>
+ <20140709.164420.157865201153845876.davem@davemloft.net>
+ <53C76990.3000304@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Cong Wang <cwang@twopensource.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f171.google.com ([209.85.223.171]:37833 "EHLO
-	mail-ie0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756043AbaGQMt7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 08:49:59 -0400
-Received: by mail-ie0-f171.google.com with SMTP id at1so2779502iec.30
-        for <netdev@vger.kernel.org>; Thu, 17 Jul 2014 05:49:59 -0700 (PDT)
-In-Reply-To: <1405545931-13832-2-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: 'Mugunthan V N' <mugunthanvnm-l0cyMroinI0@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <53C76990.3000304-l0cyMroinI0@public.gmane.org>
+Content-Language: en-US
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 07/16/14 17:25, Cong Wang wrote:
-> From: Cong Wang <cwang@twopensource.com>
->
-> We modify mirred action (m->tcfm_dev) in netdev event, we need to
-> prevent on-going mirred actions from reading freed m->tcfm_dev.
-> So we need to acquire this spin lock.
->
+> From: Mugunthan V N
+> On Thursday 10 July 2014 05:14 AM, David Miller wrote:
+> > From: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
+> > Date: Wed, 9 Jul 2014 12:44:07 +0530
+> >
+> >> A system/cpu can be loaded by a hacker with flooding of broadcast or
+> >> multicast packets, to prevent this some Ethernet controllers like CPSW
+> >> provide a mechanism to limit the broadcast/multicast packet rate via
+> >> hardware limiters. This patch series enables this feature via
+> >> Ethtool Coalesce.
+> > This is pretty bogus if you ask me.
+> >
+> > What is the difference from accepting a high rate of unicast packets?
+> > I say it is no different.
+> >
+> > Therefore, this feature makes no sense to me at all.
+> 
+> Any packet storm can cause an endpoint some issues. Typically packet
+> storms will cause the system CPU to thrash resulting is very low system
+> performance.
+> 
+> Unicast storms only target a single destination end station, it can be
+> easily mitigated by the host adding a blocking entry in the LUT for each
+> aggressor.
+> 
+> Broadcast and multicast target multiple end stations, or an entire
+> network, not only can it cause CPU thrashing, it can result in loss of
+> other broadcast and multicast services. The rate limiting feature allow
+> the broadcast and or multicast traffic to be dropped if the rates are
+> too high. This eliminates the CPU thrashing issue. It also allows the
+> system to analyze the aggressors and block them for future transgressions.
 
-Cong,
+Rate limiting multicast traffic will definitely cause the loss of multicast
+services.
 
-What setup prompted this? We have no problems dealing with deleted
-devices in the data path. It seems harmless otherwise.
+My experience of broadcast storms is that many of the ethernet switches
+(probably especially the cheap ones) end up using a much slower software?
+path for broadcasts. In a broadcast storm they start discarding normal
+traffic - to point where a single ssh session becomes unusable.
+This is true even when isolated from the storm by a 10M hub.
 
-cheers,
-jamal
+Broadcast storms are probably mostly caused by network topology issues.
+Especially is switches are sending traffic to 'all ports' while resetting
+the spanning tree tables.
+
+	David
