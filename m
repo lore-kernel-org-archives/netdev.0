@@ -1,45 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/14] be2net: patch set
-Date: Thu, 17 Jul 2014 16:38:39 -0700 (PDT)
-Message-ID: <20140717.163839.1715643021000195231.davem@davemloft.net>
-References: <1405594232-30818-1-git-send-email-sathya.perla@emulex.com>
+Subject: Re: [patch v2] wan/x25_asy: integer overflow in
+ x25_asy_change_mtu()
+Date: Thu, 17 Jul 2014 16:48:53 -0700 (PDT)
+Message-ID: <20140717.164853.1912480906913796691.davem@davemloft.net>
+References: <1405588471.10255.70.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20140717105044.GA28140@mwanda>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sathya.perla@emulex.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41545 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758044AbaGQXik (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 19:38:40 -0400
-In-Reply-To: <1405594232-30818-1-git-send-email-sathya.perla@emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: teg@jklm.no, dh.herrmann@gmail.com, netdev@vger.kernel.org,
+	eric.dumazet@gmail.com, David.Laight@ACULAB.COM,
+	kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20140717105044.GA28140@mwanda>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sathya Perla <sathya.perla@emulex.com>
-Date: Thu, 17 Jul 2014 16:20:18 +0530
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Thu, 17 Jul 2014 13:50:45 +0300
 
-> Patches 1 to 6 address issues with return values of some ndo/ethtool
-> driver methods. In error scenarios, either an inappropriate error or
-> a +ve return value (where the stack expects a -ve value) was being returned.
+> If "newmtu * 2 + 4" is too large then it can cause an integer overflow
+> leading to memory corruption.  Eric Dumazet suggests that 65534 is a
+> reasonable upper limit.
 > 
-> Patch 7 updates description strings for certain UE bits.
+> Btw, "newmtu" is not allowed to be a negative number because of the
+> check in dev_set_mtu(), so that's ok.
 > 
-> Patch 8 cleans up (reduces) argument passing for a few routines in be_cmds.c.
-> 
-> Patch 9 removes some unused code (unused definitions.)
-> 
-> Patch 10 updates NULL check in the driver to a consistent "if (!foo)" style.
-> 
-> Patchs 11 to 13 fix a few minor issues with the earlier patch bec84e6
-> ("create optimal number of queues on SR-IOV config"):
-> 	- patch 11 fixes BEx_get_resources() code to use be_max_vfs() macro
-> 	- patch 12 skips SR-IOV config code for BE2 that doesn't support SRIOV
-> 	- patch 13 uses adapter->flags to track SRIOV enabled state
-> 
-> Patch 14 updates the driver version.
-> 
-> Please consider applying to the net-next tree. Thanks.
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> ---
+> v2: Cap it at 65534 instead of just testing for integer overflows.
+>     Thanks David and Eric!
 
-Series applied, thanks.
+Applied.
