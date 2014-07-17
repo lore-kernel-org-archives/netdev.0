@@ -1,44 +1,37 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v2 0/2] net: davinci_mdio: reuse for keystone2 arch
-Date: Wed, 16 Jul 2014 23:33:47 -0700 (PDT)
-Message-ID: <20140716.233347.1283806216031286454.davem@davemloft.net>
-References: <1405512783-20307-1-git-send-email-grygorii.strashko@ti.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next] bonding: use rtnl_deref in
+ bond_change_rx_flags()
+Date: Wed, 16 Jul 2014 23:35:02 -0700 (PDT)
+Message-ID: <20140716.233502.8768823657977481.davem@davemloft.net>
+References: <1405528321-19877-1-git-send-email-vfalico@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, santosh.shilimkar-l0cyMroinI0@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, prabhakar.csengg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, nsekhar-l0cyMroinI0@public.gmane.org,
-	robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org, mugunthanvnm-l0cyMroinI0@public.gmane.org
-To: grygorii.strashko-l0cyMroinI0@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1405512783-20307-1-git-send-email-grygorii.strashko-l0cyMroinI0@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, andy@greyhouse.net,
+	edumazet@google.com
+To: vfalico@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57804 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752668AbaGQGfC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 02:35:02 -0400
+In-Reply-To: <1405528321-19877-1-git-send-email-vfalico@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
-Date: Wed, 16 Jul 2014 15:13:01 +0300
+From: Veaceslav Falico <vfalico@gmail.com>
+Date: Wed, 16 Jul 2014 18:32:01 +0200
 
-> The similar MDIO HW blocks is used by keystone 2 SoCs as
-> in Davinci SoCs:
-> - one in Gigabit Ethernet (GbE) Switch Subsystem
->   See http://www.ti.com/lit/ug/sprugv9d/sprugv9d.pdf
-> - one in 10 Gigabit Ethernet Subsystem
->   See http://www.ti.com/lit/ug/spruhj5/spruhj5.pdf
+> As it's always called with RTNL held, via dev_set_allmulti/promiscuity.
+> Also, remove the wrong comment.
 > 
-> Hence, reuse Davinci MDIO driver for Keystone 2 and
-> enable TI networking for Keystone 2 devices.
+> CC: Jay Vosburgh <j.vosburgh@gmail.com>
+> CC: Andy Gospodarek <andy@greyhouse.net>
+> Signed-off-by: Veaceslav Falico <vfalico@gmail.com>
+> ---
 > 
-> Also, as part of this series, enable PHY's creation from DT, because
-> Keystone 2 supports DT boot mode only.
-> 
-> Changes in v2:
-> - review comments applied. 
->   Keystone 2 compatibility string changed to "ti,keystone_mdio".
+> Notes:
+>     v1->v2:
+>     also remove the misleading comment
 
-Series applied to net-next, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Eric if this is fine with you now, please review and ack, thanks.
