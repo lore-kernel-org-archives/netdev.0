@@ -1,73 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: /proc/net/sockstat invalid memory accounting or memory leak in
- latest kernels?
-Date: Thu, 17 Jul 2014 13:51:58 +0200
-Message-ID: <1405597918.10255.76.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <40bc2b5fcda47d790f1fd247bc409041@visp.net.lb>
+From: Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>
+Subject: [PATCH net] bnx2x: fix set_setting for some PHYs
+Date: Thu, 17 Jul 2014 12:07:33 +0000
+Message-ID: <87B4DDAD5EAFA041BDC28F314593782D017BA138@avmb3.qlogic.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net, davem@davemloft.net
-To: Denys Fedoryshchenko <nuclearcat@nuclearcat.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Yaniv Rosner <Yaniv.Rosner@qlogic.com>,
+	Ariel Elior <Ariel.Elior@qlogic.com>,
+	"mschmidt@redhat.com" <mschmidt@redhat.com>
+To: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f170.google.com ([74.125.82.170]:48411 "EHLO
-	mail-we0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756330AbaGQLwC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 07:52:02 -0400
-Received: by mail-we0-f170.google.com with SMTP id w62so2575056wes.15
-        for <netdev@vger.kernel.org>; Thu, 17 Jul 2014 04:52:01 -0700 (PDT)
-In-Reply-To: <40bc2b5fcda47d790f1fd247bc409041@visp.net.lb>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:12926 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754888AbaGQMHk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 08:07:40 -0400
+Content-Language: en-US
+Content-ID: <2F7D44C1860FF347996C4C7A1E966A13@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-07-17 at 13:52 +0300, Denys Fedoryshchenko wrote:
-> Hi
-> 
-> I noticed TCP transfer rate slowdown after few days of operation on 
-> kernel 3.15.3, after some digging found out this:
-
-What was previous version you were using without this problem ?
-
-> 
-> balancer-backup ~ # cat /proc/net/sockstat
-> sockets: used 118236
-> TCP: inuse 122958 orphan 4986 tw 108010 alloc 123179 mem 1955339
-> UDP: inuse 1 mem 0
-> UDPLITE: inuse 0
-> RAW: inuse 0
-> FRAG: inuse 1 memory 2
-> 
-> after shutting down program
-> balancer-backup ~ # cat /proc/net/sockstat
-> sockets: used 47
-> TCP: inuse 10552 orphan 10547 tw 142645 alloc 10552 mem 1877061
-> UDP: inuse 0 mem 0
-> UDPLITE: inuse 0
-> RAW: inuse 0
-> FRAG: inuse 0 memory 0
-> 
-> sysctl settings:
-> net.ipv4.tcp_mem = 1767103      2045612 3068412
-> 
-> I restarted recently process, and mem value didnt changed (while because 
-> it is sockets should release all memory), also it looks incorrect, 
-> because at same time:
-> balancer-backup ~ # cat /proc/meminfo
-> MemTotal:       32939492 kB
-> MemFree:        29876564 kB
-> 
-> While 1955339 * 4096 should be around 8GB.
-> Probably it is just accounting issue or is it real memory leak?
-> What other info i can provide to troubleshoot this info more properly?
-> I will upgrade to 3.15.5 also now, to see if issue persist there.
-
-I see nothing really wrong in your report.
-
-It looks like you have a lot of sockets around after shutdown of the
-program. Each FIN-WAIT socket might consume a lot of buffers in its
-write queue, unless you use/force SO_LINGER or something.
-
-If you try the following command, you might see how many sockets have
-outstanding data.
-
-ss -amn
+RnJvbTogWWFuaXYgUm9zbmVyIDxZYW5pdi5Sb3NuZXJAcWxvZ2ljLmNvbT4NCg0KQWxsb3cgc2V0
+X3NldHRpbmdzKCkgdG8gY29tcGxldGUgc3VjY2Vzc2Z1bGx5IGV2ZW4gaWYgbGluayBpcw0Kbm90
+IGVzdGFibGlzaGVkIGFuZCBwb3J0IHR5cGUgaXNuJ3Qga25vd24geWV0Lg0KDQpTaWduZWQtb2Zm
+LWJ5OiBZYW5pdiBSb3NuZXIgPFlhbml2LlJvc25lckBxbG9naWMuY29tPg0KU2lnbmVkLW9mZi1i
+eTogRG1pdHJ5IEtyYXZrb3YgPERtaXRyeS5LcmF2a292QHFsb2dpYy5jb20+DQotLS0NCiBkcml2
+ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS9ibngyeC9ibngyeF9ldGh0b29sLmMgfCAxICsNCiAx
+IGZpbGUgY2hhbmdlZCwgMSBpbnNlcnRpb24oKykNCg0KZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0
+L2V0aGVybmV0L2Jyb2FkY29tL2JueDJ4L2JueDJ4X2V0aHRvb2wuYw0KYi9kcml2ZXJzL25ldC9l
+dGhlcm5ldC9icm9hZGNvbS9ibngyeC9ibngyeF9ldGh0b29sLmMNCmluZGV4IGJkMDYwMGMuLjI1
+ZWRkZDkgMTAwNjQ0DQotLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS9ibngyeC9i
+bngyeF9ldGh0b29sLmMNCisrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2Jyb2FkY29tL2JueDJ4
+L2JueDJ4X2V0aHRvb2wuYw0KQEAgLTM3OSw2ICszNzksNyBAQCBzdGF0aWMgaW50IGJueDJ4X3Nl
+dF9zZXR0aW5ncyhzdHJ1Y3QgbmV0X2RldmljZQ0KKmRldiwgc3RydWN0IGV0aHRvb2xfY21kICpj
+bWQpDQogICAgICAgICAgICAgICAgICAgICAgICBicmVhazsNCiAgICAgICAgICAgICAgICBjYXNl
+IFBPUlRfRklCUkU6DQogICAgICAgICAgICAgICAgY2FzZSBQT1JUX0RBOg0KKyAgICAgICAgICAg
+ICAgIGNhc2UgUE9SVF9OT05FOg0KICAgICAgICAgICAgICAgICAgICAgICAgaWYgKCEoYnAtPnBv
+cnQuc3VwcG9ydGVkWzBdICYgU1VQUE9SVEVEX0ZJQlJFIHx8DQogICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICBicC0+cG9ydC5zdXBwb3J0ZWRbMV0gJiBTVVBQT1JURURfRklCUkUpKSB7DQog
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIERQKEJOWDJYX01TR19FVEhUT09MLA0KLS0N
+CjEuOS4zDQoNCg0KDQpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXw0KDQpUaGlzIG1l
+c3NhZ2UgYW5kIGFueSBhdHRhY2hlZCBkb2N1bWVudHMgY29udGFpbiBpbmZvcm1hdGlvbiBmcm9t
+IFFMb2dpYyBDb3Jwb3JhdGlvbiBvciBpdHMgd2hvbGx5LW93bmVkIHN1YnNpZGlhcmllcyB0aGF0
+IG1heSBiZSBjb25maWRlbnRpYWwuIElmIHlvdSBhcmUgbm90IHRoZSBpbnRlbmRlZCByZWNpcGll
+bnQsIHlvdSBtYXkgbm90IHJlYWQsIGNvcHksIGRpc3RyaWJ1dGUsIG9yIHVzZSB0aGlzIGluZm9y
+bWF0aW9uLiBJZiB5b3UgaGF2ZSByZWNlaXZlZCB0aGlzIHRyYW5zbWlzc2lvbiBpbiBlcnJvciwg
+cGxlYXNlIG5vdGlmeSB0aGUgc2VuZGVyIGltbWVkaWF0ZWx5IGJ5IHJlcGx5IGUtbWFpbCBhbmQg
+dGhlbiBkZWxldGUgdGhpcyBtZXNzYWdlLg0K
