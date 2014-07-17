@@ -1,61 +1,49 @@
-From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next 02/14] be2net: fix error status for FW-download
-Date: Thu, 17 Jul 2014 16:20:20 +0530
-Message-ID: <1405594232-30818-3-git-send-email-sathya.perla@emulex.com>
-References: <1405594232-30818-1-git-send-email-sathya.perla@emulex.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch v2] wan/x25_asy: integer overflow in x25_asy_change_mtu()
+Date: Thu, 17 Jul 2014 13:50:45 +0300
+Message-ID: <20140717105044.GA28140@mwanda>
+References: <1405588471.10255.70.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:22735 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756760AbaGQKsd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 06:48:33 -0400
-In-Reply-To: <1405594232-30818-1-git-send-email-sathya.perla@emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Tom Gundersen <teg@jklm.no>,
+	David Herrmann <dh.herrmann@gmail.com>, netdev@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	David Laight <David.Laight@ACULAB.COM>,
+	kernel-janitors@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1405588471.10255.70.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Kalesh AP <kalesh.purayil@emulex.com>
+If "newmtu * 2 + 4" is too large then it can cause an integer overflow
+leading to memory corruption.  Eric Dumazet suggests that 65534 is a
+reasonable upper limit.
 
-For FW download ethtool cmd, if the user provides an FW-image incompatible
-with the chip, return -EINVAL instead of -1.
+Btw, "newmtu" is not allowed to be a negative number because of the
+check in dev_set_mtu(), so that's ok.
 
-Signed-off-by: Kalesh AP <kalesh.purayil@emulex.com>
-Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 ---
- drivers/net/ethernet/emulex/benet/be_main.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+v2: Cap it at 65534 instead of just testing for integer overflows.
+    Thanks David and Eric!
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index db5fb51..61632f8 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -3956,7 +3956,7 @@ static int be_flash_skyhawk(struct be_adapter *adapter,
- 	fsec = get_fsec_info(adapter, filehdr_size + img_hdrs_size, fw);
- 	if (!fsec) {
- 		dev_err(dev, "Invalid Cookie. FW image may be corrupted\n");
--		return -1;
+diff --git a/drivers/net/wan/x25_asy.c b/drivers/net/wan/x25_asy.c
+index df6c073..5c47b01 100644
+--- a/drivers/net/wan/x25_asy.c
++++ b/drivers/net/wan/x25_asy.c
+@@ -122,8 +122,12 @@ static int x25_asy_change_mtu(struct net_device *dev, int newmtu)
+ {
+ 	struct x25_asy *sl = netdev_priv(dev);
+ 	unsigned char *xbuff, *rbuff;
+-	int len = 2 * newmtu;
++	int len;
+ 
++	if (newmtu > 65534)
 +		return -EINVAL;
- 	}
++
++	len = 2 * newmtu;
+ 	xbuff = kmalloc(len + 4, GFP_ATOMIC);
+ 	rbuff = kmalloc(len + 4, GFP_ATOMIC);
  
- 	for (i = 0; i < le32_to_cpu(fsec->fsec_hdr.num_images); i++) {
-@@ -4187,7 +4187,7 @@ static int be_fw_download(struct be_adapter *adapter, const struct firmware* fw)
- 							      &flash_cmd,
- 							      num_imgs);
- 				else {
--					status = -1;
-+					status = -EINVAL;
- 					dev_err(&adapter->pdev->dev,
- 						"Can't load BE3 UFI on BE3R\n");
- 				}
-@@ -4198,7 +4198,7 @@ static int be_fw_download(struct be_adapter *adapter, const struct firmware* fw)
- 	if (ufi_type == UFI_TYPE2)
- 		status = be_flash_BEx(adapter, fw, &flash_cmd, 0);
- 	else if (ufi_type == -1)
--		status = -1;
-+		status = -EINVAL;
- 
- 	dma_free_coherent(&adapter->pdev->dev, flash_cmd.size, flash_cmd.va,
- 			  flash_cmd.dma);
--- 
-1.7.1
