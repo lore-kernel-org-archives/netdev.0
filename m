@@ -1,57 +1,73 @@
 From: Veaceslav Falico <vfalico@gmail.com>
-Subject: [PATCH v3 net-next 1/2] net: use dev->name in netdev_pr* when it's available
-Date: Thu, 17 Jul 2014 19:46:09 +0200
-Message-ID: <1405619171-18172-2-git-send-email-vfalico@gmail.com>
-References: <1405619171-18172-1-git-send-email-vfalico@gmail.com>
-Cc: Veaceslav Falico <vfalico@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Tom Gundersen <teg@jklm.no>
+Subject: [PATCH v3 net-next 0/2] net: print net_device name/state more often
+Date: Thu, 17 Jul 2014 19:46:08 +0200
+Message-ID: <1405619171-18172-1-git-send-email-vfalico@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jason Baron <jbaron@akamai.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Vlad Yasevich <vyasevic@redhat.com>,
+	stephen hemminger <stephen@networkplumber.org>,
+	Jerry Chu <hkchu@google.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Joe Perches <joe@perches.com>,
+	Veaceslav Falico <vfalico@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:22733 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:42094 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750964AbaGQRuk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Jul 2014 13:50:40 -0400
-In-Reply-To: <1405619171-18172-1-git-send-email-vfalico@gmail.com>
+	id S1751459AbaGQRuq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Jul 2014 13:50:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-netdev_name() returns dev->name only when the net_device is in
-NETREG_REGISTERED state.
+Hi,
 
-However, dev->name is always populated on creation, so we can easily use
-it.
+Currently we use net_device->name only if it's the NETREG_REGISTERED
+reg_state, otherwise we return "(unregistered device)".
 
-There are two cases when there's no real name - when it's an empty string
-or when the name is in form of "eth%d", then netdev_name() returns "unnamed
-net_device".
+However, we always populate net_device->name on creation, so it's always
+available to us for use. The only caveat is that we might have a name like
+"eth%d", in which case we cannot use it as it might change in the future.
+
+Also, the net_device might not be NETREG_UNREGISTERED when the function is
+called (_UNINITIALIZED, _UNREGISTERING, _RELEASED, _DUMMY), so it's
+misleading.
+
+So, a better way would be to always return the dev->name in netdev_name(),
+unless it's in the form of "eth%d" or it's empty, then return
+"unnamed net_device". This way we'll always return the name in
+NETREG_REGISTERED reg_state, and also return it in other states, when
+possible.
+
+Also, to be more verbose on non-NETREG_REGISTERED states, add a function
+netdev_reg_state(), which returns a string describing the state, and use it
+in netdev_printk()-related functions. If the dev is in NETREG_REGISTERED
+state then a void string is regurned and, thus, nothing changes.
+
+After these two patches we'll have the same behaviour in the usual cases,
+and more verbose in non-standardad/buggy ones.
+
+v2->v3:
+Correct the string for _UNINITIALIZED and warn on a bad reg_state,
+per Joe Perches's comments.
+
+v1->v2:
+As Tom Gundersen suggested, there might be a case when we have an empty
+string as a name for a device, so account this also and return "unnamed
+device" for that case too.
 
 CC: "David S. Miller" <davem@davemloft.net>
-CC: Tom Gundersen <teg@jklm.no>
+CC: Jason Baron <jbaron@akamai.com>
+CC: Eric Dumazet <edumazet@google.com>
+CC: Vlad Yasevich <vyasevic@redhat.com>
+CC: stephen hemminger <stephen@networkplumber.org>
+CC: Jerry Chu <hkchu@google.com>
+CC: Ben Hutchings <bhutchings@solarflare.com>
+CC: Joe Perches <joe@perches.com>
 Signed-off-by: Veaceslav Falico <vfalico@gmail.com>
+
 ---
-
-Notes:
-    v1->v2:
-    Also account for an empty string, as Tom Gundersen suggested.
-
- include/linux/netdevice.h | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 15ed750..70256aa 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -3383,8 +3383,8 @@ extern struct pernet_operations __net_initdata loopback_net_ops;
- 
- static inline const char *netdev_name(const struct net_device *dev)
- {
--	if (dev->reg_state != NETREG_REGISTERED)
--		return "(unregistered net_device)";
-+	if (!dev->name[0] || strchr(dev->name, '%'))
-+		return "(unnamed net_device)";
- 	return dev->name;
- }
- 
--- 
-1.8.4
+ include/linux/netdevice.h | 22 +++++++++++++++++++---
+ lib/dynamic_debug.c       |  8 +++++---
+ net/core/dev.c            |  8 +++++---
+ 3 files changed, 29 insertions(+), 9 deletions(-)
