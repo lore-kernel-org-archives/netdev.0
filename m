@@ -1,38 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 3/9] gue: Changes to ip_tunnel to support
- Generic UDP Encapsulation
-Date: Thu, 17 Jul 2014 14:53:45 -0700 (PDT)
-Message-ID: <20140717.145345.1627726281054820171.davem@davemloft.net>
-References: <alpine.DEB.2.02.1407162055520.29792@tomh.mtv.corp.google.com>
+Subject: Re: [GIT net-next v4] Open vSwitch
+Date: Thu, 17 Jul 2014 14:57:56 -0700 (PDT)
+Message-ID: <20140717.145756.1982098731634690697.davem@davemloft.net>
+References: <1405556263-1653-1-git-send-email-pshelar@nicira.com>
+	<20140717.144848.463108059351725505.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
 Cc: netdev@vger.kernel.org
-To: therbert@google.com
+To: pshelar@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40974 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40988 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754216AbaGQVxq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 17:53:46 -0400
-In-Reply-To: <alpine.DEB.2.02.1407162055520.29792@tomh.mtv.corp.google.com>
+	with ESMTP id S1757645AbaGQV55 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 17:57:57 -0400
+In-Reply-To: <20140717.144848.463108059351725505.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <therbert@google.com>
-Date: Wed, 16 Jul 2014 21:14:44 -0700 (PDT)
-
-> This patch changes IP tunnel to support (secondary) encapsulation,
-> Generic UDP Encapsulation. Changes include:
-> 
-> 1) Adding tun_hlen as the tunnel header length, encap_hlen as the
-> encapsulation header length (GUE), and hlen becomes the grand total
-> of these.
-> 2) Added generic function to handle IOCTLs
-> 3) Added IOCTLs to setup or remove encapsulation. This includes
-> uapi to configure encapsulation on a tunnel.
-> 4) Support to perform GUE encapsulation in ip_tunnel_xmit.
-> 
-> Signed-off-by: Tom Herbert <therbert@google.com>
-
-Please extend the netlink interface for creating IP tunnels rather
-than adding things to the the deprecated ioctl interface.
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogVGh1LCAxNyBK
+dWwgMjAxNCAxNDo0ODo0OCAtMDcwMCAoUERUKQ0KDQo+IEZyb206IFByYXZpbiBCIFNoZWxhciA8
+cHNoZWxhckBuaWNpcmEuY29tPg0KPiBEYXRlOiBXZWQsIDE2IEp1bCAyMDE0IDE3OjE3OjQzIC0w
+NzAwDQo+IA0KPj4gRm9sbG93aW5nIHBhdGNoZXMgYWRkcyB0aHJlZSBmZWF0dXJlcyB0byBPVlMN
+Cj4+IDEuIEFkZCBmYWlybmVzcyB0byB1cGNhbGwgcHJvY2Vzc2luZy4NCj4+IDIuIFJlY2lyY3Vs
+YXRpb24gYW5kIEhhc2ggYWN0aW9uLg0KPj4gMy4gRW5hYmxlIFR1bm5lbCBHU08gZmVhdHVyZXMu
+DQo+PiBSZXN0IG9mIHBhdGNoZXMgYXJlIGJ1ZyBmaXhlcyByZWxhdGVkIHRvIHBhdGNoZXMgZnJv
+bSBzYW1lIHNlcmllcy4NCj4+IA0KPj4gdjIgc2VyaWVzIGNoYW5nZXMgZmlyc3QgcGF0Y2ggYWNj
+b3JkaW5nIHRvIGNvbW1lbnQgZnJvbSBEYXZlIE1pbGxlci4NCj4+IHYzIHNlcmllcyBjaGFuZ2Vz
+IGZpcnN0IHBhdGNoIGFjY29yZGluZyB0byBjb21tZW50IGZyb20gTmlrb2xheSBBbGVrc2FuZHJv
+di4NCj4+IHY0IHNlcmllcyBjaGFuZ2VzIHJlY2lyYyBwYXRjaCBjb21taXQgbXNnLg0KPiANCj4g
+UHVsbGVkLCB0aGFua3MuDQoNCkFjdHVhbGx5LCByZXZlcnRlZCwgdGhpcyBjb2RlIGRvZXNuJ3Qg
+ZXZlbiBjb21waWxlLg0KDQpuZXQvb3BlbnZzd2l0Y2gvZGF0YXBhdGguYzogSW4gZnVuY3Rpb24g
+oW92c19kcF9wcm9jZXNzX3BhY2tldF93aXRoX2tleaI6DQpuZXQvb3BlbnZzd2l0Y2gvZGF0YXBh
+dGguYzoyNzE6NDM6IGVycm9yOiCha2V5oiB1bmRlY2xhcmVkIChmaXJzdCB1c2UgaW4gdGhpcyBm
+dW5jdGlvbikNCm5ldC9vcGVudnN3aXRjaC9kYXRhcGF0aC5jOjI3MTo0Mzogbm90ZTogZWFjaCB1
+bmRlY2xhcmVkIGlkZW50aWZpZXIgaXMgcmVwb3J0ZWQgb25seSBvbmNlIGZvciBlYWNoIGZ1bmN0
+aW9uIGl0IGFwcGVhcnMgaW4NCg0KSXQgd291bGQgYmUgYSBzdHJvbmcgdW5kZXJzdGF0ZW1lbnQg
+dG8gc2F5IHRoYXQgSSdtIGRpc2FwcG9pbnRlZCBhdCB0aGlzLg0KDQpBcmUgeW91IGV2ZW4gYnVp
+bGQgdGVzdGluZyB0aGUgdHJlZSB5b3UgYXJlIGFza2luZyBtZSB0byBwdWxsIGZyb20/ICBUaGlz
+DQptZWFucyB5b3UgY2FuJ3QgaGF2ZSBwb3NzaWJseSBoYXZlIGZ1bmN0aW9uYWxseSB0ZXN0ZWQg
+dGhlIGNvZGUuDQoNCg==
