@@ -1,56 +1,60 @@
-From: =?UTF-8?q?Michel=20D=C3=A4nzer?= <michel@daenzer.net>
-Subject: [PATCH v2] r8169: Enable RX_MULTI_EN for RTL_GIGA_MAC_VER_40
-Date: Thu, 17 Jul 2014 12:55:40 +0900
-Message-ID: <1405569340-31507-1-git-send-email-michel@daenzer.net>
-References: <20140716.202945.2231269352453909430.davem@davemloft.net>
+From: Tom Herbert <therbert@google.com>
+Subject: [PATCH net-next 1/9] gre: Fix GRE RX to use skb_transport_header
+Date: Wed, 16 Jul 2014 21:14:20 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1407162059180.3962@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Francois Romieu <romieu@fr.zoreil.com>, hayeswang@realtek.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Dave Miller <davem@davemloft.net>,
-	Realtek linux nic maintainers <nic_swsd@realtek.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140716.202945.2231269352453909430.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f74.google.com ([209.85.216.74]:61481 "EHLO
+	mail-qa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750748AbaGQEOV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 00:14:21 -0400
+Received: by mail-qa0-f74.google.com with SMTP id j15so265643qaq.3
+        for <netdev@vger.kernel.org>; Wed, 16 Jul 2014 21:14:20 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The ethernet port on my ASUS A88X Pro mainboard stopped working
-several times a day, with messages like these in dmesg:
+GRE assumes that the GRE header is at skb_network_header +
+ip_hrdlen(skb). It is more general to use skb_transport_header
+and this allows the possbility of inserting additional header
+between IP and GRE (which is what we will done in Generic UDP
+Encapsulation for GRE).
 
-AMD-Vi: Event logged [IO_PAGE_FAULT device=3D05:00.0 domain=3D0x001e ad=
-dress=3D0x0000000000003000 flags=3D0x0050]
-
-Searching the web for these messages led me to similar reports about
-different hardware supported by r8169, and eventually to commits
-3ced8c955e74d319f3e3997f7169c79d524dfd06 ('r8169: enforce RX_MULTI_EN
-for the 8168f.') and eb2dc35d99028b698cdedba4f5522bc43e576bd2 ('r8169:
-RxConfig hack for the 8168evl'). So I tried this change, and it fixes
-the problem for me.
-
-Signed-off-by: Michel D=C3=A4nzer <michel@daenzer.net>
+Signed-off-by: Tom Herbert <therbert@google.com>
 ---
+ net/ipv4/gre_demux.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-v2: Updated commit log, how about this?
-
- drivers/net/ethernet/realtek/r8169.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/etherne=
-t/realtek/r8169.c
-index 06bdc31..61623e9 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -4240,6 +4240,8 @@ static void rtl_init_rxcfg(struct rtl8169_private=
- *tp)
- 		RTL_W32(RxConfig, RX128_INT_EN | RX_MULTI_EN | RX_DMA_BURST);
- 		break;
- 	case RTL_GIGA_MAC_VER_40:
-+		RTL_W32(RxConfig, RX128_INT_EN | RX_MULTI_EN | RX_DMA_BURST | RX_EAR=
-LY_OFF);
-+		break;
- 	case RTL_GIGA_MAC_VER_41:
- 	case RTL_GIGA_MAC_VER_42:
- 	case RTL_GIGA_MAC_VER_43:
---=20
-2.0.0
+diff --git a/net/ipv4/gre_demux.c b/net/ipv4/gre_demux.c
+index 0485bf7..b24e511 100644
+--- a/net/ipv4/gre_demux.c
++++ b/net/ipv4/gre_demux.c
+@@ -98,7 +98,6 @@ EXPORT_SYMBOL_GPL(gre_build_header);
+ static int parse_gre_header(struct sk_buff *skb, struct tnl_ptk_info *tpi,
+ 			    bool *csum_err)
+ {
+-	unsigned int ip_hlen = ip_hdrlen(skb);
+ 	const struct gre_base_hdr *greh;
+ 	__be32 *options;
+ 	int hdr_len;
+@@ -106,7 +105,7 @@ static int parse_gre_header(struct sk_buff *skb, struct tnl_ptk_info *tpi,
+ 	if (unlikely(!pskb_may_pull(skb, sizeof(struct gre_base_hdr))))
+ 		return -EINVAL;
+ 
+-	greh = (struct gre_base_hdr *)(skb_network_header(skb) + ip_hlen);
++	greh = (struct gre_base_hdr *)skb_transport_header(skb);
+ 	if (unlikely(greh->flags & (GRE_VERSION | GRE_ROUTING)))
+ 		return -EINVAL;
+ 
+@@ -116,7 +115,7 @@ static int parse_gre_header(struct sk_buff *skb, struct tnl_ptk_info *tpi,
+ 	if (!pskb_may_pull(skb, hdr_len))
+ 		return -EINVAL;
+ 
+-	greh = (struct gre_base_hdr *)(skb_network_header(skb) + ip_hlen);
++	greh = (struct gre_base_hdr *)skb_transport_header(skb);
+ 	tpi->proto = greh->protocol;
+ 
+ 	options = (__be32 *)(greh + 1);
+-- 
+2.0.0.526.g5318336
