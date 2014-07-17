@@ -1,35 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch v2] wan/x25_asy: integer overflow in
- x25_asy_change_mtu()
-Date: Thu, 17 Jul 2014 16:48:53 -0700 (PDT)
-Message-ID: <20140717.164853.1912480906913796691.davem@davemloft.net>
-References: <1405588471.10255.70.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20140717105044.GA28140@mwanda>
+Subject: Re: [PATCH net-next v2] sfc: Add per-queue statistics in ethtool
+Date: Thu, 17 Jul 2014 16:49:01 -0700 (PDT)
+Message-ID: <20140717.164901.1967183695888196576.davem@davemloft.net>
+References: <53C7AF33.5000109@solarflare.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: teg@jklm.no, dh.herrmann@gmail.com, netdev@vger.kernel.org,
-	eric.dumazet@gmail.com, David.Laight@ACULAB.COM,
-	kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20140717105044.GA28140@mwanda>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
+To: sshah@solarflare.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41589 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758565AbaGQXtC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 19:49:02 -0400
+In-Reply-To: <53C7AF33.5000109@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Thu, 17 Jul 2014 13:50:45 +0300
+From: Shradha Shah <sshah@solarflare.com>
+Date: Thu, 17 Jul 2014 12:10:43 +0100
 
-> If "newmtu * 2 + 4" is too large then it can cause an integer overflow
-> leading to memory corruption.  Eric Dumazet suggests that 65534 is a
-> reasonable upper limit.
+> From: Andrew Rybchenko <Andrew.Rybchenko@oktetlabs.ru>
 > 
-> Btw, "newmtu" is not allowed to be a negative number because of the
-> check in dev_set_mtu(), so that's ok.
+> Implement per channel software TX and RX packet counters
+> accessed as ethtool statistics.
 > 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> ---
-> v2: Cap it at 65534 instead of just testing for integer overflows.
->     Thanks David and Eric!
+> This allows confirmation with MAC statistics.
+> 
+> Signed-off-by: Shradha Shah <sshah@solarflare.com>
 
 Applied.
