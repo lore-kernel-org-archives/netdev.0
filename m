@@ -1,214 +1,438 @@
 From: Tom Gundersen <teg@jklm.no>
-Subject: [PATCH net-next v9 1/9] net: set name assign type for names assigned using a static string
-Date: Thu, 17 Jul 2014 10:06:02 +0200
-Message-ID: <1405584370-30054-2-git-send-email-teg@jklm.no>
+Subject: [PATCH net-next v9 2/9] net: nl80211 - make rdev_add_virtual_intf take name_assign_type
+Date: Thu, 17 Jul 2014 10:06:03 +0200
+Message-ID: <1405584370-30054-3-git-send-email-teg@jklm.no>
 References: <1405584370-30054-1-git-send-email-teg@jklm.no>
 Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	Tom Gundersen <teg@jklm.no>
+	Tom Gundersen <teg@jklm.no>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	John Linville <linville@tuxdriver.com>
 To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1405584370-30054-1-git-send-email-teg@jklm.no>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This covers the trivial case:
-
-alloc_netdev(_, "bar", NET_NAME_PREDICTABLE, _);
+Pass the value down and set it at the same place the name itself is set.
 
 Signed-off-by: Tom Gundersen <teg@jklm.no>
+Cc: Johannes Berg <johannes@sipsolutions.net>
+Cc: John Linville <linville@tuxdriver.com>
 ---
- drivers/media/dvb-core/dvb_net.c | 2 +-
- drivers/misc/sgi-xp/xpnet.c      | 2 +-
- drivers/net/caif/caif_virtio.c   | 2 +-
- drivers/net/eql.c                | 4 ++--
- drivers/net/loopback.c           | 2 +-
- drivers/net/wan/sbni.c           | 2 +-
- drivers/net/wan/sdla.c           | 4 ++--
- drivers/s390/net/ctcm_main.c     | 4 ++--
- drivers/staging/vt6655/wpactl.c  | 2 +-
- net/ipv6/ip6_gre.c               | 2 +-
- net/ipv6/ip6_tunnel.c            | 3 ++-
- net/ipv6/ip6_vti.c               | 2 +-
- net/ipv6/sit.c                   | 2 +-
- 13 files changed, 17 insertions(+), 16 deletions(-)
+ drivers/net/wireless/ath/ath6kl/cfg80211.c            |  6 ++++--
+ drivers/net/wireless/ath/ath6kl/cfg80211.h            |  1 +
+ drivers/net/wireless/ath/ath6kl/core.c                |  4 ++--
+ drivers/net/wireless/brcm80211/brcmfmac/dhd.h         |  3 ++-
+ drivers/net/wireless/brcm80211/brcmfmac/dhd_linux.c   | 10 ++++++----
+ drivers/net/wireless/brcm80211/brcmfmac/fweh.c        |  2 +-
+ drivers/net/wireless/brcm80211/brcmfmac/p2p.c         |  3 +++
+ drivers/net/wireless/brcm80211/brcmfmac/p2p.h         |  1 +
+ drivers/net/wireless/brcm80211/brcmfmac/wl_cfg80211.c |  4 +++-
+ drivers/net/wireless/mwifiex/cfg80211.c               |  5 +++--
+ drivers/net/wireless/mwifiex/main.c                   |  2 +-
+ drivers/net/wireless/mwifiex/main.h                   |  1 +
+ drivers/staging/rtl8723au/os_dep/ioctl_cfg80211.c     |  6 +++++-
+ include/net/cfg80211.h                                |  1 +
+ net/mac80211/cfg.c                                    |  3 ++-
+ net/mac80211/ieee80211_i.h                            |  1 +
+ net/mac80211/iface.c                                  |  3 ++-
+ net/mac80211/main.c                                   |  2 +-
+ net/wireless/nl80211.c                                |  3 ++-
+ net/wireless/rdev-ops.h                               |  5 +++--
+ 20 files changed, 45 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/media/dvb-core/dvb_net.c b/drivers/media/dvb-core/dvb_net.c
-index 059e611..998baf6 100644
---- a/drivers/media/dvb-core/dvb_net.c
-+++ b/drivers/media/dvb-core/dvb_net.c
-@@ -1277,7 +1277,7 @@ static int dvb_net_add_if(struct dvb_net *dvbnet, u16 pid, u8 feedtype)
- 		return -EINVAL;
+diff --git a/drivers/net/wireless/ath/ath6kl/cfg80211.c b/drivers/net/wireless/ath/ath6kl/cfg80211.c
+index 1c4ce8e..3e0bc77 100644
+--- a/drivers/net/wireless/ath/ath6kl/cfg80211.c
++++ b/drivers/net/wireless/ath/ath6kl/cfg80211.c
+@@ -1494,6 +1494,7 @@ static int ath6kl_cfg80211_set_power_mgmt(struct wiphy *wiphy,
  
- 	net = alloc_netdev(sizeof(struct dvb_net_priv), "dvb",
--			   NET_NAME_UNKNOWN, dvb_net_setup);
-+			   NET_NAME_PREDICTABLE, dvb_net_setup);
- 	if (!net)
- 		return -ENOMEM;
+ static struct wireless_dev *ath6kl_cfg80211_add_iface(struct wiphy *wiphy,
+ 						      const char *name,
++						      unsigned char name_assign_type,
+ 						      enum nl80211_iftype type,
+ 						      u32 *flags,
+ 						      struct vif_params *params)
+@@ -1512,7 +1513,7 @@ static struct wireless_dev *ath6kl_cfg80211_add_iface(struct wiphy *wiphy,
+ 		return ERR_PTR(-EINVAL);
+ 	}
  
-diff --git a/drivers/misc/sgi-xp/xpnet.c b/drivers/misc/sgi-xp/xpnet.c
-index 557f978..2adb022 100644
---- a/drivers/misc/sgi-xp/xpnet.c
-+++ b/drivers/misc/sgi-xp/xpnet.c
-@@ -544,7 +544,7 @@ xpnet_init(void)
- 	 * use ether_setup() to init the majority of our device
- 	 * structure and then override the necessary pieces.
- 	 */
--	xpnet_device = alloc_netdev(0, XPNET_DEVICE_NAME, NET_NAME_UNKNOWN,
-+	xpnet_device = alloc_netdev(0, XPNET_DEVICE_NAME, NET_NAME_PREDICTABLE,
- 				    ether_setup);
- 	if (xpnet_device == NULL) {
- 		kfree(xpnet_broadcast_partitions);
-diff --git a/drivers/net/caif/caif_virtio.c b/drivers/net/caif/caif_virtio.c
-index a5fefb9..07c6a24 100644
---- a/drivers/net/caif/caif_virtio.c
-+++ b/drivers/net/caif/caif_virtio.c
-@@ -661,7 +661,7 @@ static int cfv_probe(struct virtio_device *vdev)
- 	int err = -EINVAL;
+-	wdev = ath6kl_interface_add(ar, name, type, if_idx, nw_type);
++	wdev = ath6kl_interface_add(ar, name, name_assign_type, type, if_idx, nw_type);
+ 	if (!wdev)
+ 		return ERR_PTR(-ENOMEM);
  
- 	netdev = alloc_netdev(sizeof(struct cfv_info), cfv_netdev_name,
--			      NET_NAME_UNKNOWN, cfv_netdev_setup);
-+			      NET_NAME_PREDICTABLE, cfv_netdev_setup);
- 	if (!netdev)
- 		return -ENOMEM;
+@@ -3630,13 +3631,14 @@ void ath6kl_cfg80211_vif_cleanup(struct ath6kl_vif *vif)
+ }
  
-diff --git a/drivers/net/eql.c b/drivers/net/eql.c
-index 957e5c0..5c1d986 100644
---- a/drivers/net/eql.c
-+++ b/drivers/net/eql.c
-@@ -585,8 +585,8 @@ static int __init eql_init_module(void)
+ struct wireless_dev *ath6kl_interface_add(struct ath6kl *ar, const char *name,
++					  unsigned char name_assign_type,
+ 					  enum nl80211_iftype type,
+ 					  u8 fw_vif_idx, u8 nw_type)
+ {
+ 	struct net_device *ndev;
+ 	struct ath6kl_vif *vif;
  
- 	pr_info("%s\n", version);
- 
--	dev_eql = alloc_netdev(sizeof(equalizer_t), "eql", NET_NAME_UNKNOWN,
--			       eql_setup);
-+	dev_eql = alloc_netdev(sizeof(equalizer_t), "eql",
-+			       NET_NAME_PREDICTABLE, eql_setup);
- 	if (!dev_eql)
- 		return -ENOMEM;
- 
-diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
-index 8f22625..6077691 100644
---- a/drivers/net/loopback.c
-+++ b/drivers/net/loopback.c
-@@ -195,7 +195,7 @@ static __net_init int loopback_net_init(struct net *net)
- 	int err;
- 
- 	err = -ENOMEM;
--	dev = alloc_netdev(0, "lo", NET_NAME_UNKNOWN, loopback_setup);
-+	dev = alloc_netdev(0, "lo", NET_NAME_PREDICTABLE, loopback_setup);
- 	if (!dev)
- 		goto out;
- 
-diff --git a/drivers/net/wan/sbni.c b/drivers/net/wan/sbni.c
-index 758c4ba..ea8ef51 100644
---- a/drivers/net/wan/sbni.c
-+++ b/drivers/net/wan/sbni.c
-@@ -228,7 +228,7 @@ int __init sbni_probe(int unit)
- 	int err;
- 
- 	dev = alloc_netdev(sizeof(struct net_local), "sbni",
--			   NET_NAME_UNKNOWN, sbni_devsetup);
-+			   NET_NAME_PREDICTABLE, sbni_devsetup);
- 	if (!dev)
- 		return -ENOMEM;
- 
-diff --git a/drivers/net/wan/sdla.c b/drivers/net/wan/sdla.c
-index 421ac5f..128d196 100644
---- a/drivers/net/wan/sdla.c
-+++ b/drivers/net/wan/sdla.c
-@@ -1631,8 +1631,8 @@ static int __init init_sdla(void)
- 
- 	printk("%s.\n", version);
- 
--	sdla = alloc_netdev(sizeof(struct frad_local), "sdla0",
--			    NET_NAME_UNKNOWN, setup_sdla);
-+	sdla = alloc_netdev(sizeof(struct frad_local), "sdla0", NET_NAME_PREDICTABLE,
-+			    setup_sdla);
- 	if (!sdla) 
- 		return -ENOMEM;
- 
-diff --git a/drivers/s390/net/ctcm_main.c b/drivers/s390/net/ctcm_main.c
-index e056dd4..5bf3254 100644
---- a/drivers/s390/net/ctcm_main.c
-+++ b/drivers/s390/net/ctcm_main.c
-@@ -1137,10 +1137,10 @@ static struct net_device *ctcm_init_netdevice(struct ctcm_priv *priv)
+-	ndev = alloc_netdev(sizeof(*vif), name, NET_NAME_UNKNOWN, ether_setup);
++	ndev = alloc_netdev(sizeof(*vif), name, name_assign_type, ether_setup);
+ 	if (!ndev)
  		return NULL;
  
- 	if (IS_MPC(priv))
--		dev = alloc_netdev(0, MPC_DEVICE_GENE, NET_NAME_UNKNOWN,
-+		dev = alloc_netdev(0, MPC_DEVICE_GENE, NET_NAME_PREDICTABLE,
- 				   ctcm_dev_setup);
+diff --git a/drivers/net/wireless/ath/ath6kl/cfg80211.h b/drivers/net/wireless/ath/ath6kl/cfg80211.h
+index b59becd..5aa57a7 100644
+--- a/drivers/net/wireless/ath/ath6kl/cfg80211.h
++++ b/drivers/net/wireless/ath/ath6kl/cfg80211.h
+@@ -25,6 +25,7 @@ enum ath6kl_cfg_suspend_mode {
+ };
+ 
+ struct wireless_dev *ath6kl_interface_add(struct ath6kl *ar, const char *name,
++					  unsigned char name_assign_type,
+ 					  enum nl80211_iftype type,
+ 					  u8 fw_vif_idx, u8 nw_type);
+ void ath6kl_cfg80211_ch_switch_notify(struct ath6kl_vif *vif, int freq,
+diff --git a/drivers/net/wireless/ath/ath6kl/core.c b/drivers/net/wireless/ath/ath6kl/core.c
+index b0b6520..997ef42 100644
+--- a/drivers/net/wireless/ath/ath6kl/core.c
++++ b/drivers/net/wireless/ath/ath6kl/core.c
+@@ -195,8 +195,8 @@ int ath6kl_core_init(struct ath6kl *ar, enum ath6kl_htc_type htc_type)
+ 	rtnl_lock();
+ 
+ 	/* Add an initial station interface */
+-	wdev = ath6kl_interface_add(ar, "wlan%d", NL80211_IFTYPE_STATION, 0,
+-				    INFRA_NETWORK);
++	wdev = ath6kl_interface_add(ar, "wlan%d", NET_NAME_ENUM,
++				    NL80211_IFTYPE_STATION, 0, INFRA_NETWORK);
+ 
+ 	rtnl_unlock();
+ 
+diff --git a/drivers/net/wireless/brcm80211/brcmfmac/dhd.h b/drivers/net/wireless/brcm80211/brcmfmac/dhd.h
+index a8998eb..4c27a78 100644
+--- a/drivers/net/wireless/brcm80211/brcmfmac/dhd.h
++++ b/drivers/net/wireless/brcm80211/brcmfmac/dhd.h
+@@ -171,7 +171,8 @@ char *brcmf_ifname(struct brcmf_pub *drvr, int idx);
+ 
+ int brcmf_net_attach(struct brcmf_if *ifp, bool rtnl_locked);
+ struct brcmf_if *brcmf_add_if(struct brcmf_pub *drvr, s32 bssidx, s32 ifidx,
+-			      char *name, u8 *mac_addr);
++			      char *name, unsigned char name_assign_type,
++			      u8 *mac_addr);
+ void brcmf_del_if(struct brcmf_pub *drvr, s32 bssidx);
+ void brcmf_txflowblock_if(struct brcmf_if *ifp,
+ 			  enum brcmf_netif_stop_reason reason, bool state);
+diff --git a/drivers/net/wireless/brcm80211/brcmfmac/dhd_linux.c b/drivers/net/wireless/brcm80211/brcmfmac/dhd_linux.c
+index 2699441..89845cb 100644
+--- a/drivers/net/wireless/brcm80211/brcmfmac/dhd_linux.c
++++ b/drivers/net/wireless/brcm80211/brcmfmac/dhd_linux.c
+@@ -773,7 +773,8 @@ fail:
+ }
+ 
+ struct brcmf_if *brcmf_add_if(struct brcmf_pub *drvr, s32 bssidx, s32 ifidx,
+-			      char *name, u8 *mac_addr)
++			      char *name, unsigned char name_assign_type,
++			      u8 *mac_addr)
+ {
+ 	struct brcmf_if *ifp;
+ 	struct net_device *ndev;
+@@ -808,7 +809,7 @@ struct brcmf_if *brcmf_add_if(struct brcmf_pub *drvr, s32 bssidx, s32 ifidx,
+ 	} else {
+ 		brcmf_dbg(INFO, "allocate netdev interface\n");
+ 		/* Allocate netdev, including space for private structure */
+-		ndev = alloc_netdev(sizeof(*ifp), name, NET_NAME_UNKNOWN,
++		ndev = alloc_netdev(sizeof(*ifp), name, name_assign_type,
+ 				    ether_setup);
+ 		if (!ndev)
+ 			return ERR_PTR(-ENOMEM);
+@@ -918,12 +919,13 @@ int brcmf_bus_start(struct device *dev)
+ 	brcmf_dbg(TRACE, "\n");
+ 
+ 	/* add primary networking interface */
+-	ifp = brcmf_add_if(drvr, 0, 0, "wlan%d", NULL);
++	ifp = brcmf_add_if(drvr, 0, 0, "wlan%d", NET_NAME_ENUM, NULL);
+ 	if (IS_ERR(ifp))
+ 		return PTR_ERR(ifp);
+ 
+ 	if (brcmf_p2p_enable)
+-		p2p_ifp = brcmf_add_if(drvr, 1, 0, "p2p%d", NULL);
++		p2p_ifp = brcmf_add_if(drvr, 1, 0, "p2p%d", NET_NAME_ENUM,
++				       NULL);
  	else
--		dev = alloc_netdev(0, CTC_DEVICE_GENE, NET_NAME_UNKNOWN,
-+		dev = alloc_netdev(0, CTC_DEVICE_GENE, NET_NAME_PREDICTABLE,
- 				   ctcm_dev_setup);
+ 		p2p_ifp = NULL;
+ 	if (IS_ERR(p2p_ifp))
+diff --git a/drivers/net/wireless/brcm80211/brcmfmac/fweh.c b/drivers/net/wireless/brcm80211/brcmfmac/fweh.c
+index fad77dd..f6990f2 100644
+--- a/drivers/net/wireless/brcm80211/brcmfmac/fweh.c
++++ b/drivers/net/wireless/brcm80211/brcmfmac/fweh.c
+@@ -201,7 +201,7 @@ static void brcmf_fweh_handle_if_event(struct brcmf_pub *drvr,
+ 		brcmf_dbg(EVENT, "adding %s (%pM)\n", emsg->ifname,
+ 			  emsg->addr);
+ 		ifp = brcmf_add_if(drvr, ifevent->bssidx, ifevent->ifidx,
+-				   emsg->ifname, emsg->addr);
++				   emsg->ifname, NET_NAME_UNKNOWN, emsg->addr);
+ 		if (IS_ERR(ifp))
+ 			return;
+ 		brcmf_fws_add_interface(ifp);
+diff --git a/drivers/net/wireless/brcm80211/brcmfmac/p2p.c b/drivers/net/wireless/brcm80211/brcmfmac/p2p.c
+index 588fdbd..0c1e26a 100644
+--- a/drivers/net/wireless/brcm80211/brcmfmac/p2p.c
++++ b/drivers/net/wireless/brcm80211/brcmfmac/p2p.c
+@@ -2245,11 +2245,13 @@ static void brcmf_p2p_delete_p2pdev(struct brcmf_p2p_info *p2p,
+  *
+  * @wiphy: wiphy device of new interface.
+  * @name: name of the new interface.
++ * @name_assign_type: origin of the interface name
+  * @type: nl80211 interface type.
+  * @flags: not used.
+  * @params: contains mac address for P2P device.
+  */
+ struct wireless_dev *brcmf_p2p_add_vif(struct wiphy *wiphy, const char *name,
++				       unsigned char name_assign_type,
+ 				       enum nl80211_iftype type, u32 *flags,
+ 				       struct vif_params *params)
+ {
+@@ -2309,6 +2311,7 @@ struct wireless_dev *brcmf_p2p_add_vif(struct wiphy *wiphy, const char *name,
+ 	}
  
+ 	strncpy(ifp->ndev->name, name, sizeof(ifp->ndev->name) - 1);
++	ifp->ndev->name_assign_type = name_assign_type;
+ 	err = brcmf_net_attach(ifp, true);
+ 	if (err) {
+ 		brcmf_err("Registering netdevice failed\n");
+diff --git a/drivers/net/wireless/brcm80211/brcmfmac/p2p.h b/drivers/net/wireless/brcm80211/brcmfmac/p2p.h
+index 6821b26..872f382 100644
+--- a/drivers/net/wireless/brcm80211/brcmfmac/p2p.h
++++ b/drivers/net/wireless/brcm80211/brcmfmac/p2p.h
+@@ -149,6 +149,7 @@ struct brcmf_p2p_info {
+ s32 brcmf_p2p_attach(struct brcmf_cfg80211_info *cfg);
+ void brcmf_p2p_detach(struct brcmf_p2p_info *p2p);
+ struct wireless_dev *brcmf_p2p_add_vif(struct wiphy *wiphy, const char *name,
++				       unsigned char name_assign_type,
+ 				       enum nl80211_iftype type, u32 *flags,
+ 				       struct vif_params *params);
+ int brcmf_p2p_del_vif(struct wiphy *wiphy, struct wireless_dev *wdev);
+diff --git a/drivers/net/wireless/brcm80211/brcmfmac/wl_cfg80211.c b/drivers/net/wireless/brcm80211/brcmfmac/wl_cfg80211.c
+index 9682cf2..7d7dda4 100644
+--- a/drivers/net/wireless/brcm80211/brcmfmac/wl_cfg80211.c
++++ b/drivers/net/wireless/brcm80211/brcmfmac/wl_cfg80211.c
+@@ -566,6 +566,7 @@ static bool brcmf_is_ibssmode(struct brcmf_cfg80211_vif *vif)
+ 
+ static struct wireless_dev *brcmf_cfg80211_add_iface(struct wiphy *wiphy,
+ 						     const char *name,
++						     unsigned char name_assign_type,
+ 						     enum nl80211_iftype type,
+ 						     u32 *flags,
+ 						     struct vif_params *params)
+@@ -583,7 +584,8 @@ static struct wireless_dev *brcmf_cfg80211_add_iface(struct wiphy *wiphy,
+ 	case NL80211_IFTYPE_P2P_CLIENT:
+ 	case NL80211_IFTYPE_P2P_GO:
+ 	case NL80211_IFTYPE_P2P_DEVICE:
+-		return brcmf_p2p_add_vif(wiphy, name, type, flags, params);
++		return brcmf_p2p_add_vif(wiphy, name, name_assign_type, type,
++					 flags, params);
+ 	case NL80211_IFTYPE_UNSPECIFIED:
+ 	default:
+ 		return ERR_PTR(-EINVAL);
+diff --git a/drivers/net/wireless/mwifiex/cfg80211.c b/drivers/net/wireless/mwifiex/cfg80211.c
+index ca87f92..fae2a4a 100644
+--- a/drivers/net/wireless/mwifiex/cfg80211.c
++++ b/drivers/net/wireless/mwifiex/cfg80211.c
+@@ -2114,10 +2114,11 @@ mwifiex_setup_ht_caps(struct ieee80211_sta_ht_cap *ht_info,
+ }
+ 
+ /*
+- *  create a new virtual interface with the given name
++ *  create a new virtual interface with the given name and name assign type
+  */
+ struct wireless_dev *mwifiex_add_virtual_intf(struct wiphy *wiphy,
+ 					      const char *name,
++					      unsigned char name_assign_type,
+ 					      enum nl80211_iftype type,
+ 					      u32 *flags,
+ 					      struct vif_params *params)
+@@ -2232,7 +2233,7 @@ struct wireless_dev *mwifiex_add_virtual_intf(struct wiphy *wiphy,
+ 	}
+ 
+ 	dev = alloc_netdev_mqs(sizeof(struct mwifiex_private *), name,
+-			       NET_NAME_UNKNOWN, ether_setup,
++			       name_assign_type, ether_setup,
+ 			       IEEE80211_NUM_ACS, 1);
  	if (!dev) {
-diff --git a/drivers/staging/vt6655/wpactl.c b/drivers/staging/vt6655/wpactl.c
-index 0814bfd..6167117 100644
---- a/drivers/staging/vt6655/wpactl.c
-+++ b/drivers/staging/vt6655/wpactl.c
-@@ -90,7 +90,7 @@ static int wpa_init_wpadev(PSDevice pDevice)
+ 		wiphy_err(wiphy, "no memory available for netdevice\n");
+diff --git a/drivers/net/wireless/mwifiex/main.c b/drivers/net/wireless/mwifiex/main.c
+index 3e5194f..f1b7e1d 100644
+--- a/drivers/net/wireless/mwifiex/main.c
++++ b/drivers/net/wireless/mwifiex/main.c
+@@ -476,7 +476,7 @@ static void mwifiex_fw_dpc(const struct firmware *firmware, void *context)
+ 
+ 	rtnl_lock();
+ 	/* Create station interface by default */
+-	wdev = mwifiex_add_virtual_intf(adapter->wiphy, "mlan%d",
++	wdev = mwifiex_add_virtual_intf(adapter->wiphy, "mlan%d", NET_NAME_ENUM,
+ 					NL80211_IFTYPE_STATION, NULL, NULL);
+ 	if (IS_ERR(wdev)) {
+ 		dev_err(adapter->dev, "cannot create default STA interface\n");
+diff --git a/drivers/net/wireless/mwifiex/main.h b/drivers/net/wireless/mwifiex/main.h
+index a2733b1..7e75ec45 100644
+--- a/drivers/net/wireless/mwifiex/main.h
++++ b/drivers/net/wireless/mwifiex/main.h
+@@ -1224,6 +1224,7 @@ u8 mwifiex_chan_type_to_sec_chan_offset(enum nl80211_channel_type chan_type);
+ 
+ struct wireless_dev *mwifiex_add_virtual_intf(struct wiphy *wiphy,
+ 					      const char *name,
++					      unsigned char name_assign_type,
+ 					      enum nl80211_iftype type,
+ 					      u32 *flags,
+ 					      struct vif_params *params);
+diff --git a/drivers/staging/rtl8723au/os_dep/ioctl_cfg80211.c b/drivers/staging/rtl8723au/os_dep/ioctl_cfg80211.c
+index f0839f6..969bf40 100644
+--- a/drivers/staging/rtl8723au/os_dep/ioctl_cfg80211.c
++++ b/drivers/staging/rtl8723au/os_dep/ioctl_cfg80211.c
+@@ -2655,6 +2655,7 @@ static const struct net_device_ops rtw_cfg80211_monitor_if_ops = {
+ };
+ 
+ static int rtw_cfg80211_add_monitor_if(struct rtw_adapter *padapter, char *name,
++				       unsigned char name_assign_type,
+ 				       struct net_device **ndev)
+ {
  	int ret = 0;
+@@ -2687,6 +2688,7 @@ static int rtw_cfg80211_add_monitor_if(struct rtw_adapter *padapter, char *name,
+ 	mon_ndev->type = ARPHRD_IEEE80211_RADIOTAP;
+ 	strncpy(mon_ndev->name, name, IFNAMSIZ);
+ 	mon_ndev->name[IFNAMSIZ - 1] = 0;
++	mon_ndev->name_assign_type = name_assign_type;
+ 	mon_ndev->destructor = rtw_ndev_destructor;
  
- 	pDevice->wpadev = alloc_netdev(sizeof(PSDevice), "vntwpa",
--				       NET_NAME_UNKNOWN, wpadev_setup);
-+				       NET_NAME_PREDICTABLE, wpadev_setup);
- 	if (pDevice->wpadev == NULL)
- 		return -ENOMEM;
+ 	mon_ndev->netdev_ops = &rtw_cfg80211_monitor_if_ops;
+@@ -2729,6 +2731,7 @@ out:
  
-diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
-index 5f19dfb..563238e 100644
---- a/net/ipv6/ip6_gre.c
-+++ b/net/ipv6/ip6_gre.c
-@@ -1327,7 +1327,7 @@ static int __net_init ip6gre_init_net(struct net *net)
+ static struct wireless_dev *
+ cfg80211_rtw_add_virtual_intf(struct wiphy *wiphy, const char *name,
++			      unsigned char name_assign_type,
+ 			      enum nl80211_iftype type, u32 *flags,
+ 			      struct vif_params *params)
+ {
+@@ -2748,7 +2751,8 @@ cfg80211_rtw_add_virtual_intf(struct wiphy *wiphy, const char *name,
+ 		break;
+ 	case NL80211_IFTYPE_MONITOR:
+ 		ret =
+-		    rtw_cfg80211_add_monitor_if(padapter, (char *)name, &ndev);
++		    rtw_cfg80211_add_monitor_if(padapter, (char *)name,
++						name_assign_type, &ndev);
+ 		break;
+ 
+ 	case NL80211_IFTYPE_P2P_CLIENT:
+diff --git a/include/net/cfg80211.h b/include/net/cfg80211.h
+index 0a080c4..26450ac 100644
+--- a/include/net/cfg80211.h
++++ b/include/net/cfg80211.h
+@@ -2321,6 +2321,7 @@ struct cfg80211_ops {
+ 
+ 	struct wireless_dev * (*add_virtual_intf)(struct wiphy *wiphy,
+ 						  const char *name,
++						  unsigned char name_assign_type,
+ 						  enum nl80211_iftype type,
+ 						  u32 *flags,
+ 						  struct vif_params *params);
+diff --git a/net/mac80211/cfg.c b/net/mac80211/cfg.c
+index 927b4ea..1573258 100644
+--- a/net/mac80211/cfg.c
++++ b/net/mac80211/cfg.c
+@@ -22,6 +22,7 @@
+ 
+ static struct wireless_dev *ieee80211_add_iface(struct wiphy *wiphy,
+ 						const char *name,
++						unsigned char name_assign_type,
+ 						enum nl80211_iftype type,
+ 						u32 *flags,
+ 						struct vif_params *params)
+@@ -31,7 +32,7 @@ static struct wireless_dev *ieee80211_add_iface(struct wiphy *wiphy,
+ 	struct ieee80211_sub_if_data *sdata;
  	int err;
  
- 	ign->fb_tunnel_dev = alloc_netdev(sizeof(struct ip6_tnl), "ip6gre0",
--					  NET_NAME_UNKNOWN,
-+					  NET_NAME_PREDICTABLE,
- 					  ip6gre_tunnel_setup);
- 	if (!ign->fb_tunnel_dev) {
- 		err = -ENOMEM;
-diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
-index f9de5a6..b694d7c 100644
---- a/net/ipv6/ip6_tunnel.c
-+++ b/net/ipv6/ip6_tunnel.c
-@@ -1774,7 +1774,8 @@ static int __net_init ip6_tnl_init_net(struct net *net)
+-	err = ieee80211_if_add(local, name, &wdev, type, params);
++	err = ieee80211_if_add(local, name, name_assign_type, &wdev, type, params);
+ 	if (err)
+ 		return ERR_PTR(err);
  
- 	err = -ENOMEM;
- 	ip6n->fb_tnl_dev = alloc_netdev(sizeof(struct ip6_tnl), "ip6tnl0",
--					NET_NAME_UNKNOWN, ip6_tnl_dev_setup);
-+					NET_NAME_PREDICTABLE,
-+					ip6_tnl_dev_setup);
+diff --git a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
+index 9e025e1..fdbd4472 100644
+--- a/net/mac80211/ieee80211_i.h
++++ b/net/mac80211/ieee80211_i.h
+@@ -1523,6 +1523,7 @@ int ieee80211_channel_switch(struct wiphy *wiphy, struct net_device *dev,
+ int ieee80211_iface_init(void);
+ void ieee80211_iface_exit(void);
+ int ieee80211_if_add(struct ieee80211_local *local, const char *name,
++		     unsigned char name_assign_type,
+ 		     struct wireless_dev **new_wdev, enum nl80211_iftype type,
+ 		     struct vif_params *params);
+ int ieee80211_if_change_type(struct ieee80211_sub_if_data *sdata,
+diff --git a/net/mac80211/iface.c b/net/mac80211/iface.c
+index 4edfc7c..29ec67c 100644
+--- a/net/mac80211/iface.c
++++ b/net/mac80211/iface.c
+@@ -1597,6 +1597,7 @@ static void ieee80211_assign_perm_addr(struct ieee80211_local *local,
+ }
  
- 	if (!ip6n->fb_tnl_dev)
- 		goto err_alloc_dev;
-diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
-index 17ee4fc..67fd4e5 100644
---- a/net/ipv6/ip6_vti.c
-+++ b/net/ipv6/ip6_vti.c
-@@ -1020,7 +1020,7 @@ static int __net_init vti6_init_net(struct net *net)
+ int ieee80211_if_add(struct ieee80211_local *local, const char *name,
++		     unsigned char name_assign_type,
+ 		     struct wireless_dev **new_wdev, enum nl80211_iftype type,
+ 		     struct vif_params *params)
+ {
+@@ -1625,7 +1626,7 @@ int ieee80211_if_add(struct ieee80211_local *local, const char *name,
+ 			txqs = IEEE80211_NUM_ACS;
  
- 	err = -ENOMEM;
- 	ip6n->fb_tnl_dev = alloc_netdev(sizeof(struct ip6_tnl), "ip6_vti0",
--					NET_NAME_UNKNOWN, vti6_dev_setup);
-+					NET_NAME_PREDICTABLE, vti6_dev_setup);
+ 		ndev = alloc_netdev_mqs(sizeof(*sdata) + local->hw.vif_data_size,
+-					name, NET_NAME_UNKNOWN,
++					name, name_assign_type,
+ 					ieee80211_if_setup, txqs, 1);
+ 		if (!ndev)
+ 			return -ENOMEM;
+diff --git a/net/mac80211/main.c b/net/mac80211/main.c
+index e0ab432..7929996 100644
+--- a/net/mac80211/main.c
++++ b/net/mac80211/main.c
+@@ -1019,7 +1019,7 @@ int ieee80211_register_hw(struct ieee80211_hw *hw)
  
- 	if (!ip6n->fb_tnl_dev)
- 		goto err_alloc_dev;
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index 2e9ba03..ff5aff8 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -1730,7 +1730,7 @@ static int __net_init sit_init_net(struct net *net)
- 	sitn->tunnels[3] = sitn->tunnels_r_l;
+ 	/* add one default STA interface if supported */
+ 	if (local->hw.wiphy->interface_modes & BIT(NL80211_IFTYPE_STATION)) {
+-		result = ieee80211_if_add(local, "wlan%d", NULL,
++		result = ieee80211_if_add(local, "wlan%d", NET_NAME_ENUM, NULL,
+ 					  NL80211_IFTYPE_STATION, NULL);
+ 		if (result)
+ 			wiphy_warn(local->hw.wiphy,
+diff --git a/net/wireless/nl80211.c b/net/wireless/nl80211.c
+index 082f5c6..18c5c1d 100644
+--- a/net/wireless/nl80211.c
++++ b/net/wireless/nl80211.c
+@@ -2613,7 +2613,8 @@ static int nl80211_new_interface(struct sk_buff *skb, struct genl_info *info)
  
- 	sitn->fb_tunnel_dev = alloc_netdev(sizeof(struct ip_tunnel), "sit0",
--					   NET_NAME_UNKNOWN,
-+					   NET_NAME_PREDICTABLE,
- 					   ipip6_tunnel_setup);
- 	if (!sitn->fb_tunnel_dev) {
- 		err = -ENOMEM;
+ 	wdev = rdev_add_virtual_intf(rdev,
+ 				nla_data(info->attrs[NL80211_ATTR_IFNAME]),
+-				type, err ? NULL : &flags, &params);
++				NET_NAME_USER, type, err ? NULL : &flags,
++				&params);
+ 	if (IS_ERR(wdev)) {
+ 		nlmsg_free(msg);
+ 		return PTR_ERR(wdev);
+diff --git a/net/wireless/rdev-ops.h b/net/wireless/rdev-ops.h
+index 56c2240..8f28587 100644
+--- a/net/wireless/rdev-ops.h
++++ b/net/wireless/rdev-ops.h
+@@ -35,13 +35,14 @@ static inline void rdev_set_wakeup(struct cfg80211_registered_device *rdev,
+ 
+ static inline struct wireless_dev
+ *rdev_add_virtual_intf(struct cfg80211_registered_device *rdev, char *name,
++		       unsigned char name_assign_type,
+ 		       enum nl80211_iftype type, u32 *flags,
+ 		       struct vif_params *params)
+ {
+ 	struct wireless_dev *ret;
+ 	trace_rdev_add_virtual_intf(&rdev->wiphy, name, type);
+-	ret = rdev->ops->add_virtual_intf(&rdev->wiphy, name, type, flags,
+-					  params);
++	ret = rdev->ops->add_virtual_intf(&rdev->wiphy, name, name_assign_type,
++					  type, flags, params);
+ 	trace_rdev_return_wdev(&rdev->wiphy, ret);
+ 	return ret;
+ }
 -- 
 1.9.3
