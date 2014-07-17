@@ -1,63 +1,103 @@
 From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next 00/14] be2net: patch set
-Date: Thu, 17 Jul 2014 16:20:18 +0530
-Message-ID: <1405594232-30818-1-git-send-email-sathya.perla@emulex.com>
+Subject: [PATCH net-next 10/14] be2net: use "if (!foo)" test style
+Date: Thu, 17 Jul 2014 16:20:28 +0530
+Message-ID: <1405594232-30818-11-git-send-email-sathya.perla@emulex.com>
+References: <1405594232-30818-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:22735 "EHLO
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:22736 "EHLO
 	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756708AbaGQKsc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 06:48:32 -0400
+	with ESMTP id S1756803AbaGQKsj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 06:48:39 -0400
+In-Reply-To: <1405594232-30818-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Patches 1 to 6 address issues with return values of some ndo/ethtool
-driver methods. In error scenarios, either an inappropriate error or
-a +ve return value (where the stack expects a -ve value) was being returned.
+From: Kalesh AP <kalesh.purayil@emulex.com>
 
-Patch 7 updates description strings for certain UE bits.
+Replace "if (foo == NULL)" statements with "if (!foo)" to be consistent
+across the driver.
 
-Patch 8 cleans up (reduces) argument passing for a few routines in be_cmds.c.
+Signed-off-by: Kalesh AP <kalesh.purayil@emulex.com>
+Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+---
+ drivers/net/ethernet/emulex/benet/be_main.c |   16 ++++++++--------
+ 1 files changed, 8 insertions(+), 8 deletions(-)
 
-Patch 9 removes some unused code (unused definitions.)
-
-Patch 10 updates NULL check in the driver to a consistent "if (!foo)" style.
-
-Patchs 11 to 13 fix a few minor issues with the earlier patch bec84e6
-("create optimal number of queues on SR-IOV config"):
-	- patch 11 fixes BEx_get_resources() code to use be_max_vfs() macro
-	- patch 12 skips SR-IOV config code for BE2 that doesn't support SRIOV
-	- patch 13 uses adapter->flags to track SRIOV enabled state
-
-Patch 14 updates the driver version.
-
-Please consider applying to the net-next tree. Thanks.
-
-Kalesh AP (9):
-  be2net: use -ENETDOWN error status when interface is down
-  be2net: fix error status for FW-download
-  be2net: return -ETIMEDOUT when a FW-cmd times out
-  be2net: return -ENOMEM for memory allocation failures
-  be2net: fix return status of some ethtool methods
-  be2net: fix return status of some ndo methods
-  be2net: reduce arguments passed to FW-cmd routines
-  be2net: remove unused structures in be_cmds.h
-  be2net: use "if (!foo)" test style
-
-Sathya Perla (1):
-  be2net: update driver version to 10.4
-
-Vasundhara Volam (4):
-  be2net: update UE bit description strings
-  be2net: use be_max_vfs() macro to access max-vfs
-  be2net: avoid SRIOV config for BE2 chip
-  be2net: use adapter->flags to track SRIOV state
-
- drivers/net/ethernet/emulex/benet/be.h         |    8 ++-
- drivers/net/ethernet/emulex/benet/be_cmds.c    |   23 ++---
- drivers/net/ethernet/emulex/benet/be_cmds.h    |   35 +-------
- drivers/net/ethernet/emulex/benet/be_ethtool.c |   12 ++-
- drivers/net/ethernet/emulex/benet/be_main.c    |  116 +++++++++++++-----------
- 5 files changed, 89 insertions(+), 105 deletions(-)
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 1abca8b..b354b28 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -2034,7 +2034,7 @@ static void be_rx_cq_clean(struct be_rx_obj *rxo)
+ 	 */
+ 	for (;;) {
+ 		rxcp = be_rx_compl_get(rxo);
+-		if (rxcp == NULL) {
++		if (!rxcp) {
+ 			if (lancer_chip(adapter))
+ 				break;
+ 
+@@ -2941,7 +2941,7 @@ static int be_setup_wol(struct be_adapter *adapter, bool enable)
+ 	cmd.size = sizeof(struct be_cmd_req_acpi_wol_magic_config);
+ 	cmd.va = dma_zalloc_coherent(&adapter->pdev->dev, cmd.size, &cmd.dma,
+ 				     GFP_KERNEL);
+-	if (cmd.va == NULL)
++	if (!cmd.va)
+ 		return -ENOMEM;
+ 
+ 	if (enable) {
+@@ -4133,7 +4133,7 @@ lancer_fw_exit:
+ static int be_get_ufi_type(struct be_adapter *adapter,
+ 			   struct flash_file_hdr_g3 *fhdr)
+ {
+-	if (fhdr == NULL)
++	if (!fhdr)
+ 		goto be_get_ufi_exit;
+ 
+ 	if (skyhawk_chip(adapter) && fhdr->build[0] == '4')
+@@ -4475,12 +4475,12 @@ static int be_map_pci_bars(struct be_adapter *adapter)
+ 
+ 	if (BEx_chip(adapter) && be_physfn(adapter)) {
+ 		adapter->csr = pci_iomap(adapter->pdev, 2, 0);
+-		if (adapter->csr == NULL)
++		if (!adapter->csr)
+ 			return -ENOMEM;
+ 	}
+ 
+ 	addr = pci_iomap(adapter->pdev, db_bar(adapter), 0);
+-	if (addr == NULL)
++	if (!addr)
+ 		goto pci_map_err;
+ 	adapter->db = addr;
+ 
+@@ -4543,7 +4543,7 @@ static int be_ctrl_init(struct be_adapter *adapter)
+ 	rx_filter->va = dma_zalloc_coherent(&adapter->pdev->dev,
+ 					    rx_filter->size, &rx_filter->dma,
+ 					    GFP_KERNEL);
+-	if (rx_filter->va == NULL) {
++	if (!rx_filter->va) {
+ 		status = -ENOMEM;
+ 		goto free_mbox;
+ 	}
+@@ -4592,7 +4592,7 @@ static int be_stats_init(struct be_adapter *adapter)
+ 
+ 	cmd->va = dma_zalloc_coherent(&adapter->pdev->dev, cmd->size, &cmd->dma,
+ 				      GFP_KERNEL);
+-	if (cmd->va == NULL)
++	if (!cmd->va)
+ 		return -ENOMEM;
+ 	return 0;
+ }
+@@ -4814,7 +4814,7 @@ static int be_probe(struct pci_dev *pdev, const struct pci_device_id *pdev_id)
+ 	pci_set_master(pdev);
+ 
+ 	netdev = alloc_etherdev_mqs(sizeof(*adapter), MAX_TX_QS, MAX_RX_QS);
+-	if (netdev == NULL) {
++	if (!netdev) {
+ 		status = -ENOMEM;
+ 		goto rel_reg;
+ 	}
+-- 
+1.7.1
