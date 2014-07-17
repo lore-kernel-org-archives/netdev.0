@@ -1,60 +1,31 @@
 From: Veaceslav Falico <vfalico@gmail.com>
-Subject: [PATCH v3 net-next 0/2] net: print net_device name/state more often
-Date: Thu, 17 Jul 2014 19:46:08 +0200
-Message-ID: <1405619171-18172-1-git-send-email-vfalico@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
+Subject: [PATCH v3 net-next 2/2] net: print net_device reg_state in netdev_* unless it's registered
+Date: Thu, 17 Jul 2014 19:46:10 +0200
+Message-ID: <1405619171-18172-3-git-send-email-vfalico@gmail.com>
+References: <1405619171-18172-1-git-send-email-vfalico@gmail.com>
+Cc: Veaceslav Falico <vfalico@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
 	Jason Baron <jbaron@akamai.com>,
 	Eric Dumazet <edumazet@google.com>,
 	Vlad Yasevich <vyasevic@redhat.com>,
 	stephen hemminger <stephen@networkplumber.org>,
 	Jerry Chu <hkchu@google.com>,
 	Ben Hutchings <bhutchings@solarflare.com>,
-	Joe Perches <joe@perches.com>,
-	Veaceslav Falico <vfalico@gmail.com>
+	Joe Perches <joe@perches.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42094 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:48079 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751459AbaGQRuq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Jul 2014 13:50:46 -0400
+	id S1751552AbaGQRu5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Jul 2014 13:50:57 -0400
+In-Reply-To: <1405619171-18172-1-git-send-email-vfalico@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+This way we'll always know in what status the device is, unless it's
+running normally (i.e. NETDEV_REGISTERED).
 
-Currently we use net_device->name only if it's the NETREG_REGISTERED
-reg_state, otherwise we return "(unregistered device)".
-
-However, we always populate net_device->name on creation, so it's always
-available to us for use. The only caveat is that we might have a name like
-"eth%d", in which case we cannot use it as it might change in the future.
-
-Also, the net_device might not be NETREG_UNREGISTERED when the function is
-called (_UNINITIALIZED, _UNREGISTERING, _RELEASED, _DUMMY), so it's
-misleading.
-
-So, a better way would be to always return the dev->name in netdev_name(),
-unless it's in the form of "eth%d" or it's empty, then return
-"unnamed net_device". This way we'll always return the name in
-NETREG_REGISTERED reg_state, and also return it in other states, when
-possible.
-
-Also, to be more verbose on non-NETREG_REGISTERED states, add a function
-netdev_reg_state(), which returns a string describing the state, and use it
-in netdev_printk()-related functions. If the dev is in NETREG_REGISTERED
-state then a void string is regurned and, thus, nothing changes.
-
-After these two patches we'll have the same behaviour in the usual cases,
-and more verbose in non-standardad/buggy ones.
-
-v2->v3:
-Correct the string for _UNINITIALIZED and warn on a bad reg_state,
-per Joe Perches's comments.
-
-v1->v2:
-As Tom Gundersen suggested, there might be a case when we have an empty
-string as a name for a device, so account this also and return "unnamed
-device" for that case too.
+Also, emit a warning once in case of a bad reg_state.
 
 CC: "David S. Miller" <davem@davemloft.net>
 CC: Jason Baron <jbaron@akamai.com>
@@ -65,9 +36,99 @@ CC: Jerry Chu <hkchu@google.com>
 CC: Ben Hutchings <bhutchings@solarflare.com>
 CC: Joe Perches <joe@perches.com>
 Signed-off-by: Veaceslav Falico <vfalico@gmail.com>
-
 ---
- include/linux/netdevice.h | 22 +++++++++++++++++++---
+
+Notes:
+    v2->v3:
+    
+    Correct the string for _UNINITIALIZED and warn on a bad reg_state,
+    per Joe Perches's comments.
+
+ include/linux/netdevice.h | 18 +++++++++++++++++-
  lib/dynamic_debug.c       |  8 +++++---
  net/core/dev.c            |  8 +++++---
- 3 files changed, 29 insertions(+), 9 deletions(-)
+ 3 files changed, 27 insertions(+), 7 deletions(-)
+
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 70256aa..8e8fb3e 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -3388,6 +3388,21 @@ static inline const char *netdev_name(const struct net_device *dev)
+ 	return dev->name;
+ }
+ 
++static inline const char *netdev_reg_state(const struct net_device *dev)
++{
++	switch (dev->reg_state) {
++	case NETREG_UNINITIALIZED: return " (uninitialized)";
++	case NETREG_REGISTERED: return "";
++	case NETREG_UNREGISTERING: return " (unregistering)";
++	case NETREG_UNREGISTERED: return " (unregistered)";
++	case NETREG_RELEASED: return " (released)";
++	case NETREG_DUMMY: return " (dummy)";
++	}
++
++	WARN_ONCE(1, "%s: unknown reg_state %d\n", dev->name, dev->reg_state);
++	return " (unknown)";
++}
++
+ __printf(3, 4)
+ int netdev_printk(const char *level, const struct net_device *dev,
+ 		  const char *format, ...);
+@@ -3444,7 +3459,8 @@ do {								\
+  * file/line information and a backtrace.
+  */
+ #define netdev_WARN(dev, format, args...)			\
+-	WARN(1, "netdevice: %s\n" format, netdev_name(dev), ##args)
++	WARN(1, "netdevice: %s%s\n" format, netdev_name(dev),	\
++	     netdev_reg_state(dev), ##args)
+ 
+ /* netif printk helpers, similar to netdev_printk */
+ 
+diff --git a/lib/dynamic_debug.c b/lib/dynamic_debug.c
+index 7288e38..c9afbe2 100644
+--- a/lib/dynamic_debug.c
++++ b/lib/dynamic_debug.c
+@@ -614,13 +614,15 @@ int __dynamic_netdev_dbg(struct _ddebug *descriptor,
+ 		char buf[PREFIX_SIZE];
+ 
+ 		res = dev_printk_emit(7, dev->dev.parent,
+-				      "%s%s %s %s: %pV",
++				      "%s%s %s %s%s: %pV",
+ 				      dynamic_emit_prefix(descriptor, buf),
+ 				      dev_driver_string(dev->dev.parent),
+ 				      dev_name(dev->dev.parent),
+-				      netdev_name(dev), &vaf);
++				      netdev_name(dev), netdev_reg_state(dev),
++				      &vaf);
+ 	} else if (dev) {
+-		res = printk(KERN_DEBUG "%s: %pV", netdev_name(dev), &vaf);
++		res = printk(KERN_DEBUG "%s%s: %pV", netdev_name(dev),
++			     netdev_reg_state(dev), &vaf);
+ 	} else {
+ 		res = printk(KERN_DEBUG "(NULL net_device): %pV", &vaf);
+ 	}
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 239722a..81d6101 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -6950,12 +6950,14 @@ static int __netdev_printk(const char *level, const struct net_device *dev,
+ 	if (dev && dev->dev.parent) {
+ 		r = dev_printk_emit(level[1] - '0',
+ 				    dev->dev.parent,
+-				    "%s %s %s: %pV",
++				    "%s %s %s%s: %pV",
+ 				    dev_driver_string(dev->dev.parent),
+ 				    dev_name(dev->dev.parent),
+-				    netdev_name(dev), vaf);
++				    netdev_name(dev), netdev_reg_state(dev),
++				    vaf);
+ 	} else if (dev) {
+-		r = printk("%s%s: %pV", level, netdev_name(dev), vaf);
++		r = printk("%s%s%s: %pV", level, netdev_name(dev),
++			   netdev_reg_state(dev), vaf);
+ 	} else {
+ 		r = printk("%s(NULL net_device): %pV", level, vaf);
+ 	}
+-- 
+1.8.4
