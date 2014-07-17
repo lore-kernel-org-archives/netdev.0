@@ -1,7 +1,7 @@
 From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next 09/14] be2net: remove unused structures in be_cmds.h
-Date: Thu, 17 Jul 2014 16:20:27 +0530
-Message-ID: <1405594232-30818-10-git-send-email-sathya.perla@emulex.com>
+Subject: [PATCH net-next 05/14] be2net: fix return status of some ethtool methods
+Date: Thu, 17 Jul 2014 16:20:23 +0530
+Message-ID: <1405594232-30818-6-git-send-email-sathya.perla@emulex.com>
 References: <1405594232-30818-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,94 +9,96 @@ To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:9070 "EHLO
 	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756795AbaGQKsi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 06:48:38 -0400
+	with ESMTP id S1756779AbaGQKsg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 06:48:36 -0400
 In-Reply-To: <1405594232-30818-1-git-send-email-sathya.perla@emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Kalesh AP <kalesh.purayil@emulex.com>
 
+ethtool expects a -ve status value to be returned when a driver method
+encounters an error. The driver was directly passing the
+error status returned by FW (a positive value) to ethtool.
+This patch fixes this by returning -EIO status in cases where FW returns
+an error.
 Signed-off-by: Kalesh AP <kalesh.purayil@emulex.com>
 Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be_cmds.h |   29 ---------------------------
- 1 files changed, 0 insertions(+), 29 deletions(-)
+ drivers/net/ethernet/emulex/benet/be.h         |    2 ++
+ drivers/net/ethernet/emulex/benet/be_ethtool.c |   12 +++++++-----
+ 2 files changed, 9 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index a9219a9..03e8a15 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.h
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -1081,11 +1081,6 @@ struct be_cmd_req_modify_eq_delay {
- 	struct be_set_eqd set_eqd[MAX_EVT_QS];
- } __packed;
+diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
+index d3d871b..3e639e8 100644
+--- a/drivers/net/ethernet/emulex/benet/be.h
++++ b/drivers/net/ethernet/emulex/benet/be.h
+@@ -672,6 +672,8 @@ static inline void swap_dws(void *wrb, int len)
+ #endif				/* __BIG_ENDIAN */
+ }
  
--struct be_cmd_resp_modify_eq_delay {
--	struct be_cmd_resp_hdr hdr;
--	u32 rsvd0;
--} __packed;
--
- /******************** Get FW Config *******************/
- /* The HW can come up in either of the following multi-channel modes
-  * based on the skew/IPL.
-@@ -1156,11 +1151,6 @@ struct be_cmd_req_enable_disable_beacon {
- 	u8  status_duration;
- } __packed;
++#define be_cmd_status(status)		(status > 0 ? -EIO : status)
++
+ static inline u8 is_tcp_pkt(struct sk_buff *skb)
+ {
+ 	u8 val = 0;
+diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+index e2da4d2..25f516d 100644
+--- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
++++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+@@ -643,7 +643,7 @@ be_set_pauseparam(struct net_device *netdev, struct ethtool_pauseparam *ecmd)
+ 	if (status)
+ 		dev_warn(&adapter->pdev->dev, "Pause param set failed.\n");
  
--struct be_cmd_resp_enable_disable_beacon {
--	struct be_cmd_resp_hdr resp_hdr;
--	u32 rsvd0;
--} __packed;
--
- struct be_cmd_req_get_beacon_state {
- 	struct be_cmd_req_hdr hdr;
- 	u8  port_num;
-@@ -1326,11 +1316,6 @@ struct be_cmd_req_set_lmode {
- 	u8 loopback_state;
- };
+-	return status;
++	return be_cmd_status(status);
+ }
  
--struct be_cmd_resp_set_lmode {
--	struct be_cmd_resp_hdr resp_hdr;
--	u8 rsvd0[4];
--};
--
- /********************** DDR DMA test *********************/
- struct be_cmd_req_ddrdma_test {
- 	struct be_cmd_req_hdr hdr;
-@@ -1434,11 +1419,6 @@ struct be_cmd_req_set_qos {
- 	u32 rsvd[7];
- };
+ static int be_set_phys_id(struct net_device *netdev,
+@@ -762,7 +762,7 @@ static int be_test_ddr_dma(struct be_adapter *adapter)
+ err:
+ 	dma_free_coherent(&adapter->pdev->dev, ddrdma_cmd.size, ddrdma_cmd.va,
+ 			  ddrdma_cmd.dma);
+-	return ret;
++	return be_cmd_status(ret);
+ }
  
--struct be_cmd_resp_set_qos {
--	struct be_cmd_resp_hdr hdr;
--	u32 rsvd;
--};
--
- /*********************** Controller Attributes ***********************/
- struct be_cmd_req_cntl_attribs {
- 	struct be_cmd_req_hdr hdr;
-@@ -1572,11 +1552,6 @@ struct be_cmd_req_set_hsw_config {
- 	u8 context[sizeof(struct amap_set_hsw_context) / 8];
- } __packed;
+ static u64 be_loopback_test(struct be_adapter *adapter, u8 loopback_type,
+@@ -885,7 +885,7 @@ static int be_read_eeprom(struct net_device *netdev,
+ 	dma_free_coherent(&adapter->pdev->dev, eeprom_cmd.size, eeprom_cmd.va,
+ 			  eeprom_cmd.dma);
  
--struct be_cmd_resp_set_hsw_config {
--	struct be_cmd_resp_hdr hdr;
--	u32 rsvd;
--};
--
- struct amap_get_hsw_req_context {
- 	u8 interface_id[16];
- 	u8 rsvd0[14];
-@@ -1966,10 +1941,6 @@ struct be_cmd_req_set_profile_config {
- 	u8 desc[2 * RESOURCE_DESC_SIZE_V1];
- } __packed;
+-	return status;
++	return be_cmd_status(status);
+ }
  
--struct be_cmd_resp_set_profile_config {
--	struct be_cmd_resp_hdr hdr;
--};
--
- struct be_cmd_req_get_active_profile {
- 	struct be_cmd_req_hdr hdr;
- 	u32 rsvd;
+ static u32 be_get_msg_level(struct net_device *netdev)
+@@ -1042,7 +1042,7 @@ static int be_set_rss_hash_opts(struct be_adapter *adapter,
+ 	if (!status)
+ 		adapter->rss_info.rss_flags = rss_flags;
+ 
+-	return status;
++	return be_cmd_status(status);
+ }
+ 
+ static int be_set_rxnfc(struct net_device *netdev, struct ethtool_rxnfc *cmd)
+@@ -1080,6 +1080,7 @@ static int be_set_channels(struct net_device  *netdev,
+ 			   struct ethtool_channels *ch)
+ {
+ 	struct be_adapter *adapter = netdev_priv(netdev);
++	int status;
+ 
+ 	if (ch->rx_count || ch->tx_count || ch->other_count ||
+ 	    !ch->combined_count || ch->combined_count > be_max_qs(adapter))
+@@ -1087,7 +1088,8 @@ static int be_set_channels(struct net_device  *netdev,
+ 
+ 	adapter->cfg_num_qs = ch->combined_count;
+ 
+-	return be_update_queues(adapter);
++	status = be_update_queues(adapter);
++	return be_cmd_status(status);
+ }
+ 
+ static u32 be_get_rxfh_indir_size(struct net_device *netdev)
 -- 
 1.7.1
