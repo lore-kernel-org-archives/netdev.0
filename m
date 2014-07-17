@@ -1,57 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [patch] wan/x25_asy: integer overflow in x25_asy_change_mtu()
-Date: Thu, 17 Jul 2014 11:14:31 +0200
-Message-ID: <1405588471.10255.70.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140717080310.GB477@mwanda>
-	 <063D6719AE5E284EB5DD2968C1650D6D1727688E@AcuExch.aculab.com>
-	 <20140717085818.GG18338@mwanda>
+From: Tom Gundersen <teg@jklm.no>
+Subject: Re: [PATCH net-next v9 2/9] net: nl80211 - make rdev_add_virtual_intf
+ take name_assign_type
+Date: Thu, 17 Jul 2014 11:16:56 +0200
+Message-ID: <CAG-2HqWGVqNFJGeh_Uj2pbC-+m8tsHeeO=f_3MD8JMcTDvpDDw@mail.gmail.com>
+References: <1405584370-30054-1-git-send-email-teg@jklm.no>
+ <1405584370-30054-3-git-send-email-teg@jklm.no> <1405587855.20120.0.camel@jlt4.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:43613 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755237AbaGQJOl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 05:14:41 -0400
-In-Reply-To: <20140717085818.GG18338@mwanda>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	LKML <linux-kernel@vger.kernel.org>,
+	John Linville <linville@tuxdriver.com>
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1405587855.20120.0.camel@jlt4.sipsolutions.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-07-17 at 11:58 +0300, Dan Carpenter wrote:
-> On Thu, Jul 17, 2014 at 08:45:58AM +0000, David Laight wrote:
-> > From: Dan Carpenter
-> > > If "newmtu * 2 + 4" is too large then it can cause an integer overflow
-> > > leading to memory corruption.  Btw, "newmtu" is not allowed to be a
-> > > negative number because of the check in dev_set_mtu(), so that's ok.
-> > 
-> > This still allows large numbers to be used to allocate almost all of
-> > kernel memory - causing massive issues elsewhere.
-> > 
-> > I'd have thought a 'sanity' limit on the mtu would be more appropriate.
-> > I've no idea which mtu is being changed here, and I can't even remember
-> > the x.25 protocol well enough if it is an x.25 level 3 limit.
-> > But I suspect that a 'sanity' bound to 1MB won't cause any grief.
-> > 
-> 
-> I agree that a sanity check is probably better but I don't think kmalloc
-> can allocate more than 128k (or something.  It's arch dependent as
-> well).  So using 1MB is almost no different from my original patch.
+On Thu, Jul 17, 2014 at 11:04 AM, Johannes Berg
+<johannes@sipsolutions.net> wrote:
+> On Thu, 2014-07-17 at 10:06 +0200, Tom Gundersen wrote:
+>> Pass the value down and set it at the same place the name itself is set.
+>
+> Huh? What's this? Can you explain why?
 
-kmalloc() can typically allocate up to 4MB (MAX_ORDER = 11) if you are
-lucky (enough contiguous memory)
+Sure, sorry the context got lost.
 
-Really, I do not think we should allow more than 65534 MTU, which would
-allocate two 128K blocks at most.
+We want to expose the origin of ifnames so that udev can better decide
+whether or not to rename them. In particular, this patch will allow
+udev to tell that it should no longer rename Wifi-P2P devices, which
+is currently a problem.
 
-If some bigger MTU was really needed, we would have switch to vmalloc()
-a long time ago.
+A general overview is in the patch introducing the interface:
+<http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=685343fc3ba61a1f6eef361b786601123db16c28>.
 
-X.25 was limited to 4096 bytes packets if I remember well, and I used
-128 and 256 only, that was a long time ago.
+>>  static struct wireless_dev *ath6kl_cfg80211_add_iface(struct wiphy *wiphy,
+>>                                                     const char *name,
+>> +                                                   unsigned char name_assign_type,
+>
+> unsigned char for an enum is really odd.
 
-( link speeds were limited to 128kbps, it would be quite impractical to
-use large packets...)
+Hm, this was based on the addr_assign_type attribute, which also is an
+unsigned char (and serves a very similar purpose).
+
+Out of interest, what would you have preferred (and why)?
+
+Cheers,
+
+Tom
