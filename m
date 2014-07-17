@@ -1,43 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net-next] sunvnet: clean up objects created in
- vnet_new() on vnet_exit()
-Date: Wed, 16 Jul 2014 22:44:32 -0700 (PDT)
-Message-ID: <20140716.224432.83094029257457367.davem@davemloft.net>
-References: <20140716140226.GA29999@oracle.com>
+From: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
+Subject: Re: [net-next PATCH v2 0/3] Broadcast/Multicast rate limit via Ethtool
+ Coalesce
+Date: Thu, 17 Jul 2014 11:43:36 +0530
+Message-ID: <53C76990.3000304@ti.com>
+References: <1404890050-4020-1-git-send-email-mugunthanvnm@ti.com> <20140709.164420.157865201153845876.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: dave.kleikamp@oracle.com, karl.volz@oracle.com,
-	netdev@vger.kernel.org
-To: sowmini.varadhan@oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57568 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751615AbaGQFod (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 01:44:33 -0400
-In-Reply-To: <20140716140226.GA29999@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140709.164420.157865201153845876.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Date: Wed, 16 Jul 2014 10:02:26 -0400
+On Thursday 10 July 2014 05:14 AM, David Miller wrote:
+> From: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
+> Date: Wed, 9 Jul 2014 12:44:07 +0530
+>
+>> A system/cpu can be loaded by a hacker with flooding of broadcast or
+>> multicast packets, to prevent this some Ethernet controllers like CPSW
+>> provide a mechanism to limit the broadcast/multicast packet rate via
+>> hardware limiters. This patch series enables this feature via
+>> Ethtool Coalesce.
+> This is pretty bogus if you ask me.
+>
+> What is the difference from accepting a high rate of unicast packets?
+> I say it is no different.
+>
+> Therefore, this feature makes no sense to me at all.
 
-> 
-> Nothing cleans up the objects created by
-> vnet_new(), they are completely leaked.
-> 
-> vnet_exit(), after doing the vio_unregister_driver() to clean
-> up ports, should call a helper function that iterates over vnet_list
-> and cleans up those objects. This includes unregister_netdevice()
-> as well as free_netdev().
-> 
-> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-> Acked-by: Dave Kleikamp <dave.kleikamp@oracle.com>
-> Reviewed-by: Karl Volz <karl.volz@oracle.com>
-> 
-> ---
-> v2: incorporated comments from David Miller.
-> v3: muttrc config tweaks to avoid list-rejection
-> and set up correct From/Message-ID headers.
+Any packet storm can cause an endpoint some issues. Typically packet
+storms will cause the system CPU to thrash resulting is very low system
+performance.
 
-Looks great, applied and queued up for -stable, thanks!
+Unicast storms only target a single destination end station, it can be
+easily mitigated by the host adding a blocking entry in the LUT for each
+aggressor.
+
+Broadcast and multicast target multiple end stations, or an entire
+network, not only can it cause CPU thrashing, it can result in loss of
+other broadcast and multicast services. The rate limiting feature allow
+the broadcast and or multicast traffic to be dropped if the rates are
+too high. This eliminates the CPU thrashing issue. It also allows the
+system to analyze the aggressors and block them for future transgressions.
+
+Regards
+Mugunthan V N
