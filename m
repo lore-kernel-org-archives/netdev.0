@@ -1,73 +1,66 @@
 From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [GIT net-next v4] Open vSwitch
-Date: Wed, 16 Jul 2014 17:17:43 -0700
-Message-ID: <1405556263-1653-1-git-send-email-pshelar@nicira.com>
-Cc: netdev@vger.kernel.org
+Subject: [PATCH net-next v4 02/11] openvswitch: Enable tunnel GSO for OVS bridge.
+Date: Wed, 16 Jul 2014 17:18:16 -0700
+Message-ID: <1405556296-1711-1-git-send-email-pshelar@nicira.com>
+Cc: netdev@vger.kernel.org, Pravin B Shelar <pshelar@nicira.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog120.obsmtp.com ([74.125.149.140]:38907 "HELO
-	na3sys009aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753551AbaGQAR5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2014 20:17:57 -0400
-Received: by mail-pa0-f52.google.com with SMTP id bj1so2192787pad.25
-        for <netdev@vger.kernel.org>; Wed, 16 Jul 2014 17:17:56 -0700 (PDT)
+Received: from na3sys009aog107.obsmtp.com ([74.125.149.197]:52453 "HELO
+	na3sys009aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754655AbaGQAST (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2014 20:18:19 -0400
+Received: by mail-pd0-f174.google.com with SMTP id fp1so2071165pdb.19
+        for <netdev@vger.kernel.org>; Wed, 16 Jul 2014 17:18:19 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Following patches adds three features to OVS
-1. Add fairness to upcall processing.
-2. Recirculation and Hash action.
-3. Enable Tunnel GSO features.
-Rest of patches are bug fixes related to patches from same series.
+Following patch enables all available tunnel GSO features for OVS
+bridge device so that ovs can use hardware offloads available to
+underling device.
 
-v2 series changes first patch according to comment from Dave Miller.
-v3 series changes first patch according to comment from Nikolay Aleksandrov.
-v4 series changes recirc patch commit msg.
+Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+Acked-by: Andy Zhou <azhou@nicira.com>
+---
+ include/linux/netdev_features.h      | 8 ++++++++
+ net/openvswitch/vport-internal_dev.c | 5 ++++-
+ 2 files changed, 12 insertions(+), 1 deletion(-)
+
+diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
+index d99800c..dcfdecb 100644
+--- a/include/linux/netdev_features.h
++++ b/include/linux/netdev_features.h
+@@ -176,4 +176,12 @@ enum {
+ 				 NETIF_F_HW_VLAN_STAG_RX | \
+ 				 NETIF_F_HW_VLAN_STAG_TX)
  
-----------------------------------------------------------------
-The following changes since commit 0854a7f13206d7523abe773235bbe4d13958fc4b:
-
-  Merge branch 'amd811e-cleanups' (2014-07-14 19:14:44 -0700)
-
-are available in the git repository at:
-
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pshelar/openvswitch.git net_next_ovs
-
-for you to fetch changes up to 657ea8e11e187a80e8e070a4d5a0ca1d7a8533e3:
-
-  openvswitch: Add skb_clone NULL check for the sampling action. (2014-07-16 16:58:25 -0700)
-
-----------------------------------------------------------------
-Alex Wang (1):
-      openvswitch: Allow each vport to have an array of 'port_id's.
-
-Andy Zhou (6):
-      openvswitch: Add hash action
-      openvswitch: Add recirc action
-      openvswitch: Fix key size computation in key_attr_size()
-      openvswitch: Avoid memory corruption in queue_userspace_packet()
-      openvswitch: Add skb_clone NULL check in the recirc action.
-      openvswitch: Add skb_clone NULL check for the sampling action.
-
-Pravin B Shelar (2):
-      openvswitch: Enable tunnel GSO for OVS bridge.
-      net: Export xmit_recursion
-
-Simon Horman (2):
-      openvswitch: Free skb(s) on recirculation error
-      openvswitch: Sample action without side effects
-
- include/linux/netdev_features.h      |   8 +++
- include/linux/netdevice.h            |   3 +
- include/uapi/linux/openvswitch.h     |  39 ++++++++++--
- net/core/dev.c                       |  10 +--
- net/openvswitch/actions.c            | 119 +++++++++++++++++++++++++++++++----
- net/openvswitch/datapath.c           |  79 ++++++++++++++++-------
- net/openvswitch/datapath.h           |   8 ++-
- net/openvswitch/flow.h               |   2 +
- net/openvswitch/flow_netlink.c       |  43 ++++++++++++-
- net/openvswitch/vport-internal_dev.c |   5 +-
- net/openvswitch/vport.c              |  99 ++++++++++++++++++++++++++++-
- net/openvswitch/vport.h              |  27 ++++++--
- 12 files changed, 390 insertions(+), 52 deletions(-)
++#define NETIF_F_GSO_ENCAP_ALL	(NETIF_F_GSO_GRE |			\
++				 NETIF_F_GSO_GRE_CSUM |			\
++				 NETIF_F_GSO_IPIP |			\
++				 NETIF_F_GSO_SIT |			\
++				 NETIF_F_GSO_UDP_TUNNEL |		\
++				 NETIF_F_GSO_UDP_TUNNEL_CSUM |		\
++				 NETIF_F_GSO_MPLS)
++
+ #endif	/* _LINUX_NETDEV_FEATURES_H */
+diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
+index 295471a..4e8285f 100644
+--- a/net/openvswitch/vport-internal_dev.c
++++ b/net/openvswitch/vport-internal_dev.c
+@@ -140,11 +140,14 @@ static void do_setup(struct net_device *netdev)
+ 	netdev->tx_queue_len = 0;
+ 
+ 	netdev->features = NETIF_F_LLTX | NETIF_F_SG | NETIF_F_FRAGLIST |
+-			   NETIF_F_HIGHDMA | NETIF_F_HW_CSUM | NETIF_F_GSO_SOFTWARE;
++			   NETIF_F_HIGHDMA | NETIF_F_HW_CSUM |
++			   NETIF_F_GSO_SOFTWARE | NETIF_F_GSO_ENCAP_ALL;
+ 
+ 	netdev->vlan_features = netdev->features;
++	netdev->hw_enc_features = netdev->features;
+ 	netdev->features |= NETIF_F_HW_VLAN_CTAG_TX;
+ 	netdev->hw_features = netdev->features & ~NETIF_F_LLTX;
++
+ 	eth_hw_addr_random(netdev);
+ }
+ 
+-- 
+1.9.3
