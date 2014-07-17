@@ -1,186 +1,48 @@
-From: Shradha Shah <sshah@solarflare.com>
-Subject: [PATCH net-next v2] sfc: Add per-queue statistics in ethtool
-Date: Thu, 17 Jul 2014 12:10:43 +0100
-Message-ID: <53C7AF33.5000109@solarflare.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
-To: David Miller <davem@davemloft.net>
+From: Veaceslav Falico <vfalico@gmail.com>
+Subject: [PATCH net-next 1/2] net: use dev->name in netdev_pr* when it's available
+Date: Thu, 17 Jul 2014 13:28:10 +0200
+Message-ID: <1405596491-5881-2-git-send-email-vfalico@gmail.com>
+References: <1405596491-5881-1-git-send-email-vfalico@gmail.com>
+Cc: Veaceslav Falico <vfalico@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:1400 "EHLO
-	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755856AbaGQLOe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 07:14:34 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:11220 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755856AbaGQLcl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Jul 2014 07:32:41 -0400
+In-Reply-To: <1405596491-5881-1-git-send-email-vfalico@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Rybchenko <Andrew.Rybchenko@oktetlabs.ru>
+netdev_name() returns dev->name only when the net_device is in
+NETREG_REGISTERED state.
 
-Implement per channel software TX and RX packet counters
-accessed as ethtool statistics.
+However, dev->name is always populated on creation, so we can easily use
+it. The only caveat is that the device still has a name of type "eth%d", in
+which case we cannot use this name as it'll change in the nearest future,
+thus return "unnamed net_device".
 
-This allows confirmation with MAC statistics.
-
-Signed-off-by: Shradha Shah <sshah@solarflare.com>
+CC: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Veaceslav Falico <vfalico@gmail.com>
 ---
- drivers/net/ethernet/sfc/ethtool.c    | 58 +++++++++++++++++++++++++++++++++--
- drivers/net/ethernet/sfc/net_driver.h |  4 +++
- drivers/net/ethernet/sfc/rx.c         |  2 ++
- drivers/net/ethernet/sfc/tx.c         |  4 +++
- 4 files changed, 66 insertions(+), 2 deletions(-)
+ include/linux/netdevice.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/ethtool.c b/drivers/net/ethernet/sfc/ethtool.c
-index 74739c4..ad9a500 100644
---- a/drivers/net/ethernet/sfc/ethtool.c
-+++ b/drivers/net/ethernet/sfc/ethtool.c
-@@ -360,6 +360,37 @@ static int efx_ethtool_fill_self_tests(struct efx_nic *efx,
- 	return n;
- }
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 15ed750..cde12a3 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -3383,8 +3383,8 @@ extern struct pernet_operations __net_initdata loopback_net_ops;
  
-+static size_t efx_describe_per_queue_stats(struct efx_nic *efx, u8 *strings)
-+{
-+	size_t n_stats = 0;
-+	struct efx_channel *channel;
-+
-+	efx_for_each_channel(channel, efx) {
-+		if (efx_channel_has_tx_queues(channel)) {
-+			n_stats++;
-+			if (strings != NULL) {
-+				snprintf(strings, ETH_GSTRING_LEN,
-+					 "tx-%u.tx_packets",
-+					 channel->tx_queue[0].queue /
-+					 EFX_TXQ_TYPES);
-+
-+				strings += ETH_GSTRING_LEN;
-+			}
-+		}
-+	}
-+	efx_for_each_channel(channel, efx) {
-+		if (efx_channel_has_rx_queue(channel)) {
-+			n_stats++;
-+			if (strings != NULL) {
-+				snprintf(strings, ETH_GSTRING_LEN,
-+					 "rx-%d.rx_packets", channel->channel);
-+				strings += ETH_GSTRING_LEN;
-+			}
-+		}
-+	}
-+	return n_stats;
-+}
-+
- static int efx_ethtool_get_sset_count(struct net_device *net_dev,
- 				      int string_set)
+ static inline const char *netdev_name(const struct net_device *dev)
  {
-@@ -368,8 +399,9 @@ static int efx_ethtool_get_sset_count(struct net_device *net_dev,
- 	switch (string_set) {
- 	case ETH_SS_STATS:
- 		return efx->type->describe_stats(efx, NULL) +
--			EFX_ETHTOOL_SW_STAT_COUNT +
--			efx_ptp_describe_stats(efx, NULL);
-+		       EFX_ETHTOOL_SW_STAT_COUNT +
-+		       efx_describe_per_queue_stats(efx, NULL) +
-+		       efx_ptp_describe_stats(efx, NULL);
- 	case ETH_SS_TEST:
- 		return efx_ethtool_fill_self_tests(efx, NULL, NULL, NULL);
- 	default:
-@@ -391,6 +423,8 @@ static void efx_ethtool_get_strings(struct net_device *net_dev,
- 			strlcpy(strings + i * ETH_GSTRING_LEN,
- 				efx_sw_stat_desc[i].name, ETH_GSTRING_LEN);
- 		strings += EFX_ETHTOOL_SW_STAT_COUNT * ETH_GSTRING_LEN;
-+		strings += (efx_describe_per_queue_stats(efx, strings) *
-+			    ETH_GSTRING_LEN);
- 		efx_ptp_describe_stats(efx, strings);
- 		break;
- 	case ETH_SS_TEST:
-@@ -410,6 +444,7 @@ static void efx_ethtool_get_stats(struct net_device *net_dev,
- 	const struct efx_sw_stat_desc *stat;
- 	struct efx_channel *channel;
- 	struct efx_tx_queue *tx_queue;
-+	struct efx_rx_queue *rx_queue;
- 	int i;
- 
- 	spin_lock_bh(&efx->stats_lock);
-@@ -445,6 +480,25 @@ static void efx_ethtool_get_stats(struct net_device *net_dev,
- 
- 	spin_unlock_bh(&efx->stats_lock);
- 
-+	efx_for_each_channel(channel, efx) {
-+		if (efx_channel_has_tx_queues(channel)) {
-+			*data = 0;
-+			efx_for_each_channel_tx_queue(tx_queue, channel) {
-+				*data += tx_queue->tx_packets;
-+			}
-+			data++;
-+		}
-+	}
-+	efx_for_each_channel(channel, efx) {
-+		if (efx_channel_has_rx_queue(channel)) {
-+			*data = 0;
-+			efx_for_each_channel_rx_queue(rx_queue, channel) {
-+				*data += rx_queue->rx_packets;
-+			}
-+			data++;
-+		}
-+	}
-+
- 	efx_ptp_update_stats(efx, data);
+-	if (dev->reg_state != NETREG_REGISTERED)
+-		return "(unregistered net_device)";
++	if (strchr(dev->name, '%'))
++		return "(unnamed net_device)";
+ 	return dev->name;
  }
  
-diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
-index 5bdae8e..dca6409 100644
---- a/drivers/net/ethernet/sfc/net_driver.h
-+++ b/drivers/net/ethernet/sfc/net_driver.h
-@@ -249,6 +249,8 @@ struct efx_tx_queue {
- 	unsigned int tso_packets;
- 	unsigned int pushes;
- 	unsigned int pio_packets;
-+	/* Statistics to supplement MAC stats */
-+	unsigned long tx_packets;
- 
- 	/* Members shared between paths and sometimes updated */
- 	unsigned int empty_read_count ____cacheline_aligned_in_smp;
-@@ -358,6 +360,8 @@ struct efx_rx_queue {
- 	unsigned int recycle_count;
- 	struct timer_list slow_fill;
- 	unsigned int slow_fill_count;
-+	/* Statistics to supplement MAC stats */
-+	unsigned long rx_packets;
- };
- 
- enum efx_sync_events_state {
-diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
-index 48588dd..4928c59 100644
---- a/drivers/net/ethernet/sfc/rx.c
-+++ b/drivers/net/ethernet/sfc/rx.c
-@@ -528,6 +528,8 @@ void efx_rx_packet(struct efx_rx_queue *rx_queue, unsigned int index,
- 	struct efx_channel *channel = efx_rx_queue_channel(rx_queue);
- 	struct efx_rx_buffer *rx_buf;
- 
-+	rx_queue->rx_packets++;
-+
- 	rx_buf = efx_rx_buffer(rx_queue, index);
- 	rx_buf->flags |= flags;
- 
-diff --git a/drivers/net/ethernet/sfc/tx.c b/drivers/net/ethernet/sfc/tx.c
-index ede8dcc..283e5f8 100644
---- a/drivers/net/ethernet/sfc/tx.c
-+++ b/drivers/net/ethernet/sfc/tx.c
-@@ -452,6 +452,8 @@ finish_packet:
- 	/* Pass off to hardware */
- 	efx_nic_push_buffers(tx_queue);
- 
-+	tx_queue->tx_packets++;
-+
- 	efx_tx_maybe_stop_queue(tx_queue);
- 
- 	return NETDEV_TX_OK;
-@@ -1245,6 +1247,8 @@ static int tso_start_new_packet(struct efx_tx_queue *tx_queue,
- 
- 	++tx_queue->tso_packets;
- 
-+	++tx_queue->tx_packets;
-+
- 	return 0;
- }
- 
+-- 
+1.8.4
