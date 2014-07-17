@@ -1,37 +1,33 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net-next] net_sched: hold tcf_lock in netdevice notifier
-Date: Thu, 17 Jul 2014 14:25:17 -0700
-Message-ID: <CAM_iQpUgDurOWfXHdx_aTBS2L0h1QWUFe-du3W6CsZw8jfaF7w@mail.gmail.com>
-References: <1405545931-13832-1-git-send-email-xiyou.wangcong@gmail.com>
-	<1405545931-13832-2-git-send-email-xiyou.wangcong@gmail.com>
-	<53C7C675.7090400@mojatatu.com>
-	<CAM_iQpU6=rtb+-T9NiiEJ+799PtJo=j1=EBuAL76Ac7=w=MKHA@mail.gmail.com>
-	<1405621030.10255.84.camel@edumazet-glaptop2.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT net-next v4] Open vSwitch
+Date: Thu, 17 Jul 2014 14:48:48 -0700 (PDT)
+Message-ID: <20140717.144848.463108059351725505.davem@davemloft.net>
+References: <1405556263-1653-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <cwang@twopensource.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: pshelar@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f45.google.com ([209.85.219.45]:53101 "EHLO
-	mail-oa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753118AbaGQVZS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 17:25:18 -0400
-Received: by mail-oa0-f45.google.com with SMTP id i7so1645205oag.4
-        for <netdev@vger.kernel.org>; Thu, 17 Jul 2014 14:25:17 -0700 (PDT)
-In-Reply-To: <1405621030.10255.84.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40933 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752507AbaGQVsu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 17:48:50 -0400
+In-Reply-To: <1405556263-1653-1-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 17, 2014 at 11:17 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
-> Anyway, tcfm_dev should probably be RCU protected.
->
+From: Pravin B Shelar <pshelar@nicira.com>
+Date: Wed, 16 Jul 2014 17:17:43 -0700
 
-Not sure how much we gain from making it RCU. We anyway
-need to hold that spinlock on fast path since we need to
-update its time stamp and stats.
+> Following patches adds three features to OVS
+> 1. Add fairness to upcall processing.
+> 2. Recirculation and Hash action.
+> 3. Enable Tunnel GSO features.
+> Rest of patches are bug fixes related to patches from same series.
+> 
+> v2 series changes first patch according to comment from Dave Miller.
+> v3 series changes first patch according to comment from Nikolay Aleksandrov.
+> v4 series changes recirc patch commit msg.
 
-I would just leave it as is.
+Pulled, thanks.
