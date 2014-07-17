@@ -1,33 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net/mlx4_en: cq->irq_desc wasn't set in legacy EQ's
-Date: Wed, 16 Jul 2014 23:29:07 -0700 (PDT)
-Message-ID: <20140716.232907.1529130147424838188.davem@davemloft.net>
-References: <1405506830-12178-1-git-send-email-amirv@mellanox.com>
+Subject: Re: [PATCH net-next v3 0/2] udp: Fix multicast performance issues.
+Date: Wed, 16 Jul 2014 23:30:41 -0700 (PDT)
+Message-ID: <20140716.233041.828381749836788214.davem@davemloft.net>
+References: <1405481312-7790-1-git-send-email-drheld@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com,
-	yevgenyp@mellanox.com
-To: amirv@mellanox.com
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, willemb@google.com
+To: drheld@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57751 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:57762 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750740AbaGQG3I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 02:29:08 -0400
-In-Reply-To: <1405506830-12178-1-git-send-email-amirv@mellanox.com>
+	with ESMTP id S1751202AbaGQGam (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 02:30:42 -0400
+In-Reply-To: <1405481312-7790-1-git-send-email-drheld@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amir Vadai <amirv@mellanox.com>
-Date: Wed, 16 Jul 2014 13:33:50 +0300
+From: David Held <drheld@google.com>
+Date: Tue, 15 Jul 2014 23:28:30 -0400
 
-> Fix a regression introduced by commit 35f6f45 ("net/mlx4_en: Don't use
-> irq_affinity_notifier to track changes in IRQ affinity map").
-> When core is started in legacy EQ's (number of IRQ's < rx rings), cq->irq_desc
-> was NULL.  This caused a kernel crash under heavy traffic - when having more
-> than rx NAPI budget completions.
-> Fixed to have it set for both EQ modes.
+> Fix performance issues with listening to many different multicast
+> sockets on different addresses with the same port. Instead of always
+> using hash1, fall back to hash2 lookup when hash1 lookup is long.
+> Patch 1 is a general cleanup and simplification which also makes the
+> main implementation in Patch 2 simpler.
 > 
-> Signed-off-by: Amir Vadai <amirv@mellanox.com>
+> Eric's recent change 63c6f81cdde5 avoided this being an issue in early
+> demux. This makes it work for regular delivery as well.
+> 
+> v1->v2
+>  - updated hash collision detection
+> 
+> v2->v3
+>  - avoid flushing under lock unnecessarily at ARRAY_SIZE boundary
 
-Applied, thank you.
+Series applied, thanks a lot David.
