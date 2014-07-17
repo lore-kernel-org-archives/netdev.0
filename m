@@ -1,35 +1,27 @@
-From: Christoph Schulz <develop@kristov.de>
-Subject: Re: [PATCH net-next 1/1] net: ppp: access ppp->nextseq only if
- CONFIG_PPP_MULTILINK is defined
-Date: Thu, 17 Jul 2014 08:37:58 +0200
-Message-ID: <20140717083758.98984tq5btsfm1c6@berry.schulz.ip-v6.eu>
-References: <53C6F186.30809@kristov.de>
- <53C6F330.3050602@cogentembedded.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] openvswitch: make generic netlink group const
+Date: Wed, 16 Jul 2014 23:41:38 -0700 (PDT)
+Message-ID: <20140716.234138.1487419320976627974.davem@davemloft.net>
+References: <20140716112552.55852dbf@samsung-9>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8;
- DelSp="Yes";
- format="flowed"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-ppp@vger.kernel.org, Paul Mackerras <paulus@samba.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <53C6F330.3050602@cogentembedded.com>
-Content-Disposition: inline
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: pshelar@nicira.com, dev@openvswitch.org, netdev@vger.kernel.org
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57837 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750740AbaGQGlj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 02:41:39 -0400
+In-Reply-To: <20140716112552.55852dbf@samsung-9>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello!
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Wed, 16 Jul 2014 11:25:52 -0700
 
-Sergei Shtylyov schrieb am Thu, 17 Jul 2014 01:48:32 +0400:
+> Generic netlink tables can be const.
+> 
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
->    Please also specify that commit's summary line in parens.
-
-Sorry, I will think of it in the future.
-
-
-Thank you,
-
-Christoph Schulz
-
+Applied, thanks Stephen.
