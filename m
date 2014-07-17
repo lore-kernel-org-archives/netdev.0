@@ -1,85 +1,76 @@
-From: Will Deacon <will.deacon@arm.com>
-Subject: Re: [PATCH RFCv3 01/14] arm64: introduce
- aarch64_insn_gen_comp_branch_imm()
-Date: Thu, 17 Jul 2014 18:25:26 +0100
-Message-ID: <20140717172526.GC4844@arm.com>
-References: <1405405512-4423-1-git-send-email-zlim.lnx@gmail.com>
- <1405405512-4423-2-git-send-email-zlim.lnx@gmail.com>
- <20140716160450.GT29414@arm.com> <20140716211931.GA18109@gup76>
- <20140717091931.GC21153@arm.com>
- <CAMEtUux1NRqz-Bqi_H8kJe8x9u+1Q12Sg4a-92cE6OsePEBLxg@mail.gmail.com>
+From: Veaceslav Falico <vfalico@gmail.com>
+Subject: Re: [PATCH v2 net-next 2/2] net: print net_device reg_state in
+ netdev_* unless it's registered
+Date: Thu, 17 Jul 2014 19:27:41 +0200
+Message-ID: <20140717172741.GC20406@mikrodark.usersys.redhat.com>
+References: <1405606186-13703-1-git-send-email-vfalico@gmail.com>
+ <1405606186-13703-3-git-send-email-vfalico@gmail.com>
+ <1405616424.12363.47.camel@joe-AO725>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Zi Shen Lim <zlim.lnx@gmail.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- AKASHI Takahiro <takahiro.akashi@linaro.org>,
- Daniel Borkmann <dborkman@redhat.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- Catalin Marinas <Catalin.Marinas@arm.com>,
- "David S. Miller" <davem@davemloft.net>,
- "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>,
- Jiang Liu <liuj97@gmail.com>
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Jason Baron <jbaron@akamai.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Vlad Yasevich <vyasevic@redhat.com>,
+	stephen hemminger <stephen@networkplumber.org>,
+	Jerry Chu <hkchu@google.com>,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:39324 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750737AbaGQRan (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 13:30:43 -0400
+Received: by mail-wi0-f169.google.com with SMTP id n3so7527937wiv.0
+        for <netdev@vger.kernel.org>; Thu, 17 Jul 2014 10:30:41 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <CAMEtUux1NRqz-Bqi_H8kJe8x9u+1Q12Sg4a-92cE6OsePEBLxg@mail.gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1405616424.12363.47.camel@joe-AO725>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 17, 2014 at 04:59:10PM +0100, Alexei Starovoitov wrote:
-> On Thu, Jul 17, 2014 at 2:19 AM, Will Deacon <will.deacon@arm.com> wrote:
-> > On Wed, Jul 16, 2014 at 10:19:31PM +0100, Zi Shen Lim wrote:
-> >> >
-> >> > Is a BUG_ON justifiable here? Is there not a nicer way to fail?
-> >>
-> >> In general, it'd be nice if we returned something like -EINVAL and
-> >> have all callers handle failures. Today all code gen functions return
-> >> the u32 instruction and there's no error handling by callers.
-> >> I think following the precedence (aarch64_insn_gen_branch_imm())
-> >> of failing with BUG_ON is a reasonable tradeoff.
-> >
-> > Well, I don't necessarily agree with that BUG_ON, either :)
-> > I take it eBPF doesn't have a `trap' instruction or similar? Otherwise, we
-> > could generate that and avoid having to propagate errors directly to the
-> > caller.
-> >
-> >> In this case here, when we hit the default (failure) case, that means
-> >> there's a serious error of attempting to use an unsupported
-> >> variant. I think we're better off failing hard here than trying to
-> >> arbitrarily "fallback" on a default choice.
-> >
-> > It might be a serious error for BPF, but a BUG_ON brings down the entire
-> > machine, which I think is unfortunate.
-> 
-> There is some misunderstanding here. Here BUG_ON will trigger
-> only on actual bug in JIT implementation, it cannot be triggered by user.
-> eBPF program is verified before it reaches JIT, so all instructions are
-> valid and input to JIT is proper. Two instruction are not yet
-> implemented in this JIT and they trigger pr_.._once().
-> So I don't see any issue with this usage of BUG_ON
-> imo living with silent bugs in JIT is more dangerous.
-> 
-> For the same reason there is no 'trap' instruction in eBPF.
-> Static verifier checks that program is valid. If there was a 'trap'
-> insn the program would be rejected. Like programs with
-> 'div by zero' are rejected. There is normal 'bpf_exit' insn to
-> return from the program.
+On Thu, Jul 17, 2014 at 10:00:24AM -0700, Joe Perches wrote:
+>On Thu, 2014-07-17 at 16:09 +0200, Veaceslav Falico wrote:
+>> This way we'll always know in what status the device is, unless it's
+>> running normally (i.e. NETDEV_REGISTERED).
+>[]
+>> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+>[]
+>> @@ -3388,6 +3388,20 @@ static inline const char *netdev_name(const struct net_device *dev)
+>>  	return dev->name;
+>>  }
+>>
+>> +static inline const char *netdev_reg_state(const struct net_device *dev)
+>> +{
+>> +	switch (dev->reg_state) {
+>> +	case NETREG_UNINITIALIZED: return " (unregistered)";
+>
+>Why not " (uninitialized)"?
 
-Ok, so assuming that BPF doesn't have any issues, I take your point.
-However, we could very easily re-use these functions for things like SMP
-alternatives and kprobes, where simply failing the instruction generation
-might be acceptable.
+Good one, thank you, missed it somehow. Will send v2.
 
-It just feels like a bit hammer to me, when the machine is probably happily
-scheduling user tasks, responding to interrupts, writing data to disk etc.
+>
+>> +	case NETREG_REGISTERED: return "";
+>> +	case NETREG_UNREGISTERING: return " (unregistering)";
+>> +	case NETREG_UNREGISTERED: return " (unregistered)";
+>> +	case NETREG_RELEASED: return " (released)";
+>> +	case NETREG_DUMMY: return " (dummy)";
+>> +	}
+>> +
+>> +	return " (unknown)";
+>
+>Shouldn't this " (unknown)" have stronger text
+>and use a WARN_ON_ONCE?
 
-Will
+Hrm, I don't remember why, but I've specifically dropped the warning here.
+Now it seems like a good idea, so I'll add it here.
+
+>
+>I'd put this in net/core/dev.c and make it not be static inline.
+
+Again, I don't think it's really needed, as it's used in 4 functions (which
+aren't inline), so the benefits are minimal, if any.
+
+I'll rather keep them inline, I guess...
+
+>
+>
