@@ -1,102 +1,47 @@
 From: Tom Gundersen <teg@jklm.no>
-Subject: [PATCH net-next v9 6/9] net: isdn - set name assign type
-Date: Thu, 17 Jul 2014 10:06:07 +0200
-Message-ID: <1405584370-30054-7-git-send-email-teg@jklm.no>
+Subject: [PATCH net-next v9 9/9] net: ppp - set name assign type
+Date: Thu, 17 Jul 2014 10:06:10 +0200
+Message-ID: <1405584370-30054-10-git-send-email-teg@jklm.no>
 References: <1405584370-30054-1-git-send-email-teg@jklm.no>
 Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	Tom Gundersen <teg@jklm.no>, Karsten Keil <isdn@linux-pingi.de>
+	Tom Gundersen <teg@jklm.no>, Paul Mackerras <paulus@samba.org>,
+	linux-ppp@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f173.google.com ([74.125.82.173]:60488 "EHLO
+	mail-we0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755404AbaGQIGk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 04:06:40 -0400
+Received: by mail-we0-f173.google.com with SMTP id q58so2038901wes.32
+        for <netdev@vger.kernel.org>; Thu, 17 Jul 2014 01:06:37 -0700 (PDT)
 In-Reply-To: <1405584370-30054-1-git-send-email-teg@jklm.no>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+The ifname is of the form pppX where X is the unit number. This is either set
+by userspace, or userspace requests the kernel to chose one, which is then
+returned to userspace. Either way the creating user knows the name, so we
+treat both cases as if the user had explicitly chosen the name and label
+it NET_NAME_USER.
 
 Signed-off-by: Tom Gundersen <teg@jklm.no>
-Cc: Karsten Keil <isdn@linux-pingi.de>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: linux-ppp@vger.kernel.org
 ---
- drivers/isdn/i4l/isdn_common.c |  4 ++--
- drivers/isdn/i4l/isdn_net.c    | 10 +++++-----
- drivers/isdn/i4l/isdn_net.h    |  4 ++--
- 3 files changed, 9 insertions(+), 9 deletions(-)
+ drivers/net/ppp/ppp_generic.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/isdn/i4l/isdn_common.c b/drivers/isdn/i4l/isdn_common.c
-index 9b856e1..67840ca 100644
---- a/drivers/isdn/i4l/isdn_common.c
-+++ b/drivers/isdn/i4l/isdn_common.c
-@@ -1364,7 +1364,7 @@ isdn_ioctl(struct file *file, uint cmd, ulong arg)
- 			}
- 			ret = mutex_lock_interruptible(&dev->mtx);
- 			if (ret) return ret;
--			if ((s = isdn_net_new(s, NULL))) {
-+			if ((s = isdn_net_new(s, NET_NAME_USER, NULL))) {
- 				if (copy_to_user(argp, s, strlen(s) + 1)) {
- 					ret = -EFAULT;
- 				} else {
-@@ -1383,7 +1383,7 @@ isdn_ioctl(struct file *file, uint cmd, ulong arg)
- 				return -EINVAL;
- 			ret = mutex_lock_interruptible(&dev->mtx);
- 			if (ret) return ret;
--			if ((s = isdn_net_newslave(bname))) {
-+			if ((s = isdn_net_newslave(bname, NET_NAME_USER))) {
- 				if (copy_to_user(argp, s, strlen(s) + 1)) {
- 					ret = -EFAULT;
- 				} else {
-diff --git a/drivers/isdn/i4l/isdn_net.c b/drivers/isdn/i4l/isdn_net.c
-index c2ed624..d16fec0 100644
---- a/drivers/isdn/i4l/isdn_net.c
-+++ b/drivers/isdn/i4l/isdn_net.c
-@@ -2573,7 +2573,7 @@ static void _isdn_setup(struct net_device *dev)
-  * Allocate a new network-interface and initialize its data structures.
-  */
- char *
--isdn_net_new(char *name, struct net_device *master)
-+isdn_net_new(char *name, unsigned char name_assign_type, struct net_device *master)
- {
- 	isdn_net_dev *netdev;
+diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
+index c38ee90..6526057 100644
+--- a/drivers/net/ppp/ppp_generic.c
++++ b/drivers/net/ppp/ppp_generic.c
+@@ -2728,6 +2728,7 @@ ppp_create_interface(struct net *net, int unit, int *retp)
+ 	/* Initialize the new ppp unit */
+ 	ppp->file.index = unit;
+ 	sprintf(dev->name, "ppp%d", unit);
++	dev->name_assign_type = NET_NAME_USER;
  
-@@ -2588,8 +2588,8 @@ isdn_net_new(char *name, struct net_device *master)
- 		printk(KERN_WARNING "isdn_net: Could not allocate net-device\n");
- 		return NULL;
- 	}
--	netdev->dev = alloc_netdev(sizeof(isdn_net_local), name,
--				   NET_NAME_UNKNOWN, _isdn_setup);
-+	netdev->dev = alloc_netdev(sizeof(isdn_net_local), name, name_assign_type,
-+				   _isdn_setup);
- 	if (!netdev->dev) {
- 		printk(KERN_WARNING "isdn_net: Could not allocate network device\n");
- 		kfree(netdev);
-@@ -2637,7 +2637,7 @@ isdn_net_new(char *name, struct net_device *master)
- }
- 
- char *
--isdn_net_newslave(char *parm)
-+isdn_net_newslave(char *parm, unsigned char name_assign_type)
- {
- 	char *p = strchr(parm, ',');
- 	isdn_net_dev *n;
-@@ -2658,7 +2658,7 @@ isdn_net_newslave(char *parm)
- 		/* Master must not be started yet */
- 		if (isdn_net_device_started(n))
- 			return NULL;
--		return (isdn_net_new(newname, n->dev));
-+		return (isdn_net_new(newname, name_assign_type, n->dev));
- 	}
- 	return NULL;
- }
-diff --git a/drivers/isdn/i4l/isdn_net.h b/drivers/isdn/i4l/isdn_net.h
-index cca6d68..99f0c47 100644
---- a/drivers/isdn/i4l/isdn_net.h
-+++ b/drivers/isdn/i4l/isdn_net.h
-@@ -31,8 +31,8 @@
- #define CISCO_SLARP_REPLY     1
- #define CISCO_SLARP_KEEPALIVE 2
- 
--extern char *isdn_net_new(char *, struct net_device *);
--extern char *isdn_net_newslave(char *);
-+extern char *isdn_net_new(char *, unsigned char, struct net_device *);
-+extern char *isdn_net_newslave(char *, unsigned char);
- extern int isdn_net_rm(char *);
- extern int isdn_net_rmall(void);
- extern int isdn_net_stat_callback(int, isdn_ctrl *);
+ 	ret = register_netdev(dev);
+ 	if (ret != 0) {
 -- 
 1.9.3
