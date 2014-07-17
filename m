@@ -1,44 +1,110 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH net-next v9 2/9] net: nl80211 - make
- rdev_add_virtual_intf take name_assign_type
-Date: Thu, 17 Jul 2014 11:23:06 +0200
-Message-ID: <1405588986.20120.1.camel@jlt4.sipsolutions.net>
-References: <1405584370-30054-1-git-send-email-teg@jklm.no>
-	 <1405584370-30054-3-git-send-email-teg@jklm.no>
-	 <1405587855.20120.0.camel@jlt4.sipsolutions.net>
-	 <CAG-2HqWGVqNFJGeh_Uj2pbC-+m8tsHeeO=f_3MD8JMcTDvpDDw@mail.gmail.com>
-	 (sfid-20140717_111719_497030_C610CFFC)
+From: Will Deacon <will.deacon@arm.com>
+Subject: Re: [PATCH RFCv3 08/14] arm64: introduce aarch64_insn_gen_movewide()
+Date: Thu, 17 Jul 2014 10:41:02 +0100
+Message-ID: <20140717094101.GD21153@arm.com>
+References: <1405405512-4423-1-git-send-email-zlim.lnx@gmail.com>
+ <1405405512-4423-9-git-send-email-zlim.lnx@gmail.com>
+ <20140716161715.GU29414@arm.com>
+ <20140716220422.GB18109@gup76>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	LKML <linux-kernel@vger.kernel.org>,
-	John Linville <linville@tuxdriver.com>
-To: Tom Gundersen <teg@jklm.no>
+Content-Type: text/plain; charset=us-ascii
+Cc: Catalin Marinas <Catalin.Marinas@arm.com>,
+	Jiang Liu <liuj97@gmail.com>,
+	AKASHI Takahiro <takahiro.akashi@linaro.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Zi Shen Lim <zlim.lnx@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([5.9.151.49]:53127 "EHLO sipsolutions.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755420AbaGQJXS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Jul 2014 05:23:18 -0400
-In-Reply-To: <CAG-2HqWGVqNFJGeh_Uj2pbC-+m8tsHeeO=f_3MD8JMcTDvpDDw@mail.gmail.com> (sfid-20140717_111719_497030_C610CFFC)
+Received: from cam-admin0.cambridge.arm.com ([217.140.96.50]:53977 "EHLO
+	cam-admin0.cambridge.arm.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756064AbaGQJlj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 05:41:39 -0400
+Content-Disposition: inline
+In-Reply-To: <20140716220422.GB18109@gup76>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-07-17 at 11:16 +0200, Tom Gundersen wrote:
-
-> >>  static struct wireless_dev *ath6kl_cfg80211_add_iface(struct wiphy *wiphy,
-> >>                                                     const char *name,
-> >> +                                                   unsigned char name_assign_type,
-> >
-> > unsigned char for an enum is really odd.
+On Wed, Jul 16, 2014 at 11:04:22PM +0100, Zi Shen Lim wrote:
+> On Wed, Jul 16, 2014 at 05:17:15PM +0100, Will Deacon wrote:
+> > On Tue, Jul 15, 2014 at 07:25:06AM +0100, Zi Shen Lim wrote:
+> > > Introduce function to generate move wide (immediate) instructions.
+> > 
+> > [...]
+> > 
+> > > +u32 aarch64_insn_gen_movewide(enum aarch64_insn_register dst,
+> > > +			      int imm, int shift,
+> > > +			      enum aarch64_insn_variant variant,
+> > > +			      enum aarch64_insn_movewide_type type)
+> > > +{
+> > > +	u32 insn;
+> > > +
+> > > +	switch (type) {
+> > > +	case AARCH64_INSN_MOVEWIDE_ZERO:
+> > > +		insn = aarch64_insn_get_movz_value();
+> > > +		break;
+> > > +	case AARCH64_INSN_MOVEWIDE_KEEP:
+> > > +		insn = aarch64_insn_get_movk_value();
+> > > +		break;
+> > > +	case AARCH64_INSN_MOVEWIDE_INVERSE:
+> > > +		insn = aarch64_insn_get_movn_value();
+> > > +		break;
+> > > +	default:
+> > > +		BUG_ON(1);
+> > > +	}
+> > > +
+> > > +	BUG_ON(imm < 0 || imm > 65535);
+> > 
+> > Do this check with masking instead?
 > 
-> Hm, this was based on the addr_assign_type attribute, which also is an
-> unsigned char (and serves a very similar purpose).
+> Ok, if you prefer, I can change it to:
 > 
-> Out of interest, what would you have preferred (and why)?
+> 	BUG_ON(imm & ~GENMASK(15, 0));
 
-Even if it eventually ends up being assigned to a u8 or something, it
-seems passing it around as an enum makes the interfaces better?
+Sure, that or use a named constant for the upper-bound (SZ_64K - 1).
 
-johannes
+> > > +	switch (variant) {
+> > > +	case AARCH64_INSN_VARIANT_32BIT:
+> > > +		BUG_ON(shift != 0 && shift != 16);
+> > > +		break;
+> > > +	case AARCH64_INSN_VARIANT_64BIT:
+> > > +		insn |= BIT(31);
+> > > +		BUG_ON(shift != 0 && shift != 16 && shift != 32 &&
+> > > +		       shift != 48);
+> > 
+> > Would be neater as a nested switch, perhaps? If you reorder the
+> > outer-switch, you could probably fall-through too and combine the shift
+> > checks.
+> 
+> Not sure I picture what you had in mind... I couldn't come up with a
+> neater version with the properties you described.
+> 
+> The alternative I had was using masks instead of integer values, but
+> one could argue that while neater, it could also be harder to read:
+> 
+> 	switch (variant) {
+> 	case AARCH64_INSN_VARIANT_32BIT:
+> 		BUG_ON(shift & ~BIT(4));
+> 		break;
+> 	case AARCH64_INSN_VARIANT_64BIT:
+> 		insn |= BIT(31);
+> 		BUG_ON(shift & ~GENMASK(5, 4));
+> 	...
+
+I was thinking of using nested switches, but that doesn't fall out like I
+hoped. How about:
+
+	switch (variant) {
+	case AARCH64_INSN_VARIANT_64BIT:
+		BUG_ON(shift != 32 && shift != 48);
+	case AARCH64_INSN_VARIANT_32BIT:
+		BUG_ON(shift != 0 && shift != 16);
+	};
+
+?
+
+Will
