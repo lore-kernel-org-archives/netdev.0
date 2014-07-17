@@ -1,109 +1,214 @@
 From: Tom Gundersen <teg@jklm.no>
-Subject: [PATCH net-next v9 3/9] net: nl802154 - make add_iface take name assign type
-Date: Thu, 17 Jul 2014 10:06:04 +0200
-Message-ID: <1405584370-30054-4-git-send-email-teg@jklm.no>
+Subject: [PATCH net-next v9 1/9] net: set name assign type for names assigned using a static string
+Date: Thu, 17 Jul 2014 10:06:02 +0200
+Message-ID: <1405584370-30054-2-git-send-email-teg@jklm.no>
 References: <1405584370-30054-1-git-send-email-teg@jklm.no>
 Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	Tom Gundersen <teg@jklm.no>,
-	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
-	linux-zigbee-devel@lists.sourceforge.net
+	Tom Gundersen <teg@jklm.no>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:63222 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755365AbaGQIG3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 04:06:29 -0400
-Received: by mail-wg0-f44.google.com with SMTP id m15so1943939wgh.27
-        for <netdev@vger.kernel.org>; Thu, 17 Jul 2014 01:06:27 -0700 (PDT)
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1405584370-30054-1-git-send-email-teg@jklm.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+This covers the trivial case:
+
+alloc_netdev(_, "bar", NET_NAME_PREDICTABLE, _);
 
 Signed-off-by: Tom Gundersen <teg@jklm.no>
-Acked-by: Alexander Aring <alex.aring@gmail.com>
-Cc: Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>
-Cc: linux-zigbee-devel@lists.sourceforge.net
 ---
- include/net/wpan-phy.h         | 4 +++-
- net/ieee802154/nl-phy.c        | 5 ++++-
- net/mac802154/ieee802154_dev.c | 7 ++++---
- 3 files changed, 11 insertions(+), 5 deletions(-)
+ drivers/media/dvb-core/dvb_net.c | 2 +-
+ drivers/misc/sgi-xp/xpnet.c      | 2 +-
+ drivers/net/caif/caif_virtio.c   | 2 +-
+ drivers/net/eql.c                | 4 ++--
+ drivers/net/loopback.c           | 2 +-
+ drivers/net/wan/sbni.c           | 2 +-
+ drivers/net/wan/sdla.c           | 4 ++--
+ drivers/s390/net/ctcm_main.c     | 4 ++--
+ drivers/staging/vt6655/wpactl.c  | 2 +-
+ net/ipv6/ip6_gre.c               | 2 +-
+ net/ipv6/ip6_tunnel.c            | 3 ++-
+ net/ipv6/ip6_vti.c               | 2 +-
+ net/ipv6/sit.c                   | 2 +-
+ 13 files changed, 17 insertions(+), 16 deletions(-)
 
-diff --git a/include/net/wpan-phy.h b/include/net/wpan-phy.h
-index 10ab0fc..bb07a1b 100644
---- a/include/net/wpan-phy.h
-+++ b/include/net/wpan-phy.h
-@@ -58,7 +58,9 @@ struct wpan_phy {
- 	int idx;
+diff --git a/drivers/media/dvb-core/dvb_net.c b/drivers/media/dvb-core/dvb_net.c
+index 059e611..998baf6 100644
+--- a/drivers/media/dvb-core/dvb_net.c
++++ b/drivers/media/dvb-core/dvb_net.c
+@@ -1277,7 +1277,7 @@ static int dvb_net_add_if(struct dvb_net *dvbnet, u16 pid, u8 feedtype)
+ 		return -EINVAL;
  
- 	struct net_device *(*add_iface)(struct wpan_phy *phy,
--					const char *name, int type);
-+					const char *name,
-+					unsigned char name_assign_type,
-+					int type);
- 	void (*del_iface)(struct wpan_phy *phy, struct net_device *dev);
+ 	net = alloc_netdev(sizeof(struct dvb_net_priv), "dvb",
+-			   NET_NAME_UNKNOWN, dvb_net_setup);
++			   NET_NAME_PREDICTABLE, dvb_net_setup);
+ 	if (!net)
+ 		return -ENOMEM;
  
- 	int (*set_txpower)(struct wpan_phy *phy, int db);
-diff --git a/net/ieee802154/nl-phy.c b/net/ieee802154/nl-phy.c
-index 972baf8..5e1a28e 100644
---- a/net/ieee802154/nl-phy.c
-+++ b/net/ieee802154/nl-phy.c
-@@ -174,6 +174,7 @@ int ieee802154_add_iface(struct sk_buff *skb, struct genl_info *info)
- 	struct wpan_phy *phy;
- 	const char *name;
- 	const char *devname;
-+	unsigned char name_assign_type;
- 	int rc = -ENOBUFS;
- 	struct net_device *dev;
- 	int type = __IEEE802154_DEV_INVALID;
-@@ -192,8 +193,10 @@ int ieee802154_add_iface(struct sk_buff *skb, struct genl_info *info)
- 		if (devname[nla_len(info->attrs[IEEE802154_ATTR_DEV_NAME]) - 1]
- 				!= '\0')
- 			return -EINVAL; /* phy name should be null-terminated */
-+		name_assign_type = NET_NAME_USER;
- 	} else  {
- 		devname = "wpan%d";
-+		name_assign_type = NET_NAME_ENUM;
- 	}
+diff --git a/drivers/misc/sgi-xp/xpnet.c b/drivers/misc/sgi-xp/xpnet.c
+index 557f978..2adb022 100644
+--- a/drivers/misc/sgi-xp/xpnet.c
++++ b/drivers/misc/sgi-xp/xpnet.c
+@@ -544,7 +544,7 @@ xpnet_init(void)
+ 	 * use ether_setup() to init the majority of our device
+ 	 * structure and then override the necessary pieces.
+ 	 */
+-	xpnet_device = alloc_netdev(0, XPNET_DEVICE_NAME, NET_NAME_UNKNOWN,
++	xpnet_device = alloc_netdev(0, XPNET_DEVICE_NAME, NET_NAME_PREDICTABLE,
+ 				    ether_setup);
+ 	if (xpnet_device == NULL) {
+ 		kfree(xpnet_broadcast_partitions);
+diff --git a/drivers/net/caif/caif_virtio.c b/drivers/net/caif/caif_virtio.c
+index a5fefb9..07c6a24 100644
+--- a/drivers/net/caif/caif_virtio.c
++++ b/drivers/net/caif/caif_virtio.c
+@@ -661,7 +661,7 @@ static int cfv_probe(struct virtio_device *vdev)
+ 	int err = -EINVAL;
  
- 	if (strlen(devname) >= IFNAMSIZ)
-@@ -227,7 +230,7 @@ int ieee802154_add_iface(struct sk_buff *skb, struct genl_info *info)
- 		}
- 	}
+ 	netdev = alloc_netdev(sizeof(struct cfv_info), cfv_netdev_name,
+-			      NET_NAME_UNKNOWN, cfv_netdev_setup);
++			      NET_NAME_PREDICTABLE, cfv_netdev_setup);
+ 	if (!netdev)
+ 		return -ENOMEM;
  
--	dev = phy->add_iface(phy, devname, type);
-+	dev = phy->add_iface(phy, devname, name_assign_type, type);
- 	if (IS_ERR(dev)) {
- 		rc = PTR_ERR(dev);
- 		goto nla_put_failure;
-diff --git a/net/mac802154/ieee802154_dev.c b/net/mac802154/ieee802154_dev.c
-index b36b2b9..cee12b2 100644
---- a/net/mac802154/ieee802154_dev.c
-+++ b/net/mac802154/ieee802154_dev.c
-@@ -159,7 +159,8 @@ mac802154_del_iface(struct wpan_phy *phy, struct net_device *dev)
- }
+diff --git a/drivers/net/eql.c b/drivers/net/eql.c
+index 957e5c0..5c1d986 100644
+--- a/drivers/net/eql.c
++++ b/drivers/net/eql.c
+@@ -585,8 +585,8 @@ static int __init eql_init_module(void)
  
- static struct net_device *
--mac802154_add_iface(struct wpan_phy *phy, const char *name, int type)
-+mac802154_add_iface(struct wpan_phy *phy, const char *name,
-+		    unsigned char name_assign_type, int type)
- {
- 	struct net_device *dev;
- 	int err = -ENOMEM;
-@@ -167,12 +168,12 @@ mac802154_add_iface(struct wpan_phy *phy, const char *name, int type)
- 	switch (type) {
- 	case IEEE802154_DEV_MONITOR:
- 		dev = alloc_netdev(sizeof(struct mac802154_sub_if_data),
--				   name, NET_NAME_UNKNOWN,
-+				   name, name_assign_type,
- 				   mac802154_monitor_setup);
- 		break;
- 	case IEEE802154_DEV_WPAN:
- 		dev = alloc_netdev(sizeof(struct mac802154_sub_if_data),
--				   name, NET_NAME_UNKNOWN,
-+				   name, name_assign_type,
- 				   mac802154_wpan_setup);
- 		break;
- 	default:
+ 	pr_info("%s\n", version);
+ 
+-	dev_eql = alloc_netdev(sizeof(equalizer_t), "eql", NET_NAME_UNKNOWN,
+-			       eql_setup);
++	dev_eql = alloc_netdev(sizeof(equalizer_t), "eql",
++			       NET_NAME_PREDICTABLE, eql_setup);
+ 	if (!dev_eql)
+ 		return -ENOMEM;
+ 
+diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
+index 8f22625..6077691 100644
+--- a/drivers/net/loopback.c
++++ b/drivers/net/loopback.c
+@@ -195,7 +195,7 @@ static __net_init int loopback_net_init(struct net *net)
+ 	int err;
+ 
+ 	err = -ENOMEM;
+-	dev = alloc_netdev(0, "lo", NET_NAME_UNKNOWN, loopback_setup);
++	dev = alloc_netdev(0, "lo", NET_NAME_PREDICTABLE, loopback_setup);
+ 	if (!dev)
+ 		goto out;
+ 
+diff --git a/drivers/net/wan/sbni.c b/drivers/net/wan/sbni.c
+index 758c4ba..ea8ef51 100644
+--- a/drivers/net/wan/sbni.c
++++ b/drivers/net/wan/sbni.c
+@@ -228,7 +228,7 @@ int __init sbni_probe(int unit)
+ 	int err;
+ 
+ 	dev = alloc_netdev(sizeof(struct net_local), "sbni",
+-			   NET_NAME_UNKNOWN, sbni_devsetup);
++			   NET_NAME_PREDICTABLE, sbni_devsetup);
+ 	if (!dev)
+ 		return -ENOMEM;
+ 
+diff --git a/drivers/net/wan/sdla.c b/drivers/net/wan/sdla.c
+index 421ac5f..128d196 100644
+--- a/drivers/net/wan/sdla.c
++++ b/drivers/net/wan/sdla.c
+@@ -1631,8 +1631,8 @@ static int __init init_sdla(void)
+ 
+ 	printk("%s.\n", version);
+ 
+-	sdla = alloc_netdev(sizeof(struct frad_local), "sdla0",
+-			    NET_NAME_UNKNOWN, setup_sdla);
++	sdla = alloc_netdev(sizeof(struct frad_local), "sdla0", NET_NAME_PREDICTABLE,
++			    setup_sdla);
+ 	if (!sdla) 
+ 		return -ENOMEM;
+ 
+diff --git a/drivers/s390/net/ctcm_main.c b/drivers/s390/net/ctcm_main.c
+index e056dd4..5bf3254 100644
+--- a/drivers/s390/net/ctcm_main.c
++++ b/drivers/s390/net/ctcm_main.c
+@@ -1137,10 +1137,10 @@ static struct net_device *ctcm_init_netdevice(struct ctcm_priv *priv)
+ 		return NULL;
+ 
+ 	if (IS_MPC(priv))
+-		dev = alloc_netdev(0, MPC_DEVICE_GENE, NET_NAME_UNKNOWN,
++		dev = alloc_netdev(0, MPC_DEVICE_GENE, NET_NAME_PREDICTABLE,
+ 				   ctcm_dev_setup);
+ 	else
+-		dev = alloc_netdev(0, CTC_DEVICE_GENE, NET_NAME_UNKNOWN,
++		dev = alloc_netdev(0, CTC_DEVICE_GENE, NET_NAME_PREDICTABLE,
+ 				   ctcm_dev_setup);
+ 
+ 	if (!dev) {
+diff --git a/drivers/staging/vt6655/wpactl.c b/drivers/staging/vt6655/wpactl.c
+index 0814bfd..6167117 100644
+--- a/drivers/staging/vt6655/wpactl.c
++++ b/drivers/staging/vt6655/wpactl.c
+@@ -90,7 +90,7 @@ static int wpa_init_wpadev(PSDevice pDevice)
+ 	int ret = 0;
+ 
+ 	pDevice->wpadev = alloc_netdev(sizeof(PSDevice), "vntwpa",
+-				       NET_NAME_UNKNOWN, wpadev_setup);
++				       NET_NAME_PREDICTABLE, wpadev_setup);
+ 	if (pDevice->wpadev == NULL)
+ 		return -ENOMEM;
+ 
+diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
+index 5f19dfb..563238e 100644
+--- a/net/ipv6/ip6_gre.c
++++ b/net/ipv6/ip6_gre.c
+@@ -1327,7 +1327,7 @@ static int __net_init ip6gre_init_net(struct net *net)
+ 	int err;
+ 
+ 	ign->fb_tunnel_dev = alloc_netdev(sizeof(struct ip6_tnl), "ip6gre0",
+-					  NET_NAME_UNKNOWN,
++					  NET_NAME_PREDICTABLE,
+ 					  ip6gre_tunnel_setup);
+ 	if (!ign->fb_tunnel_dev) {
+ 		err = -ENOMEM;
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index f9de5a6..b694d7c 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -1774,7 +1774,8 @@ static int __net_init ip6_tnl_init_net(struct net *net)
+ 
+ 	err = -ENOMEM;
+ 	ip6n->fb_tnl_dev = alloc_netdev(sizeof(struct ip6_tnl), "ip6tnl0",
+-					NET_NAME_UNKNOWN, ip6_tnl_dev_setup);
++					NET_NAME_PREDICTABLE,
++					ip6_tnl_dev_setup);
+ 
+ 	if (!ip6n->fb_tnl_dev)
+ 		goto err_alloc_dev;
+diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
+index 17ee4fc..67fd4e5 100644
+--- a/net/ipv6/ip6_vti.c
++++ b/net/ipv6/ip6_vti.c
+@@ -1020,7 +1020,7 @@ static int __net_init vti6_init_net(struct net *net)
+ 
+ 	err = -ENOMEM;
+ 	ip6n->fb_tnl_dev = alloc_netdev(sizeof(struct ip6_tnl), "ip6_vti0",
+-					NET_NAME_UNKNOWN, vti6_dev_setup);
++					NET_NAME_PREDICTABLE, vti6_dev_setup);
+ 
+ 	if (!ip6n->fb_tnl_dev)
+ 		goto err_alloc_dev;
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index 2e9ba03..ff5aff8 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -1730,7 +1730,7 @@ static int __net_init sit_init_net(struct net *net)
+ 	sitn->tunnels[3] = sitn->tunnels_r_l;
+ 
+ 	sitn->fb_tunnel_dev = alloc_netdev(sizeof(struct ip_tunnel), "sit0",
+-					   NET_NAME_UNKNOWN,
++					   NET_NAME_PREDICTABLE,
+ 					   ipip6_tunnel_setup);
+ 	if (!sitn->fb_tunnel_dev) {
+ 		err = -ENOMEM;
 -- 
 1.9.3
