@@ -1,63 +1,92 @@
-From: =?windows-1252?Q?Michel_D=E4nzer?= <michel@daenzer.net>
-Subject: Re: [PATCH] r8169: Enable RX_MULTI_EN for RTL_GIGA_MAC_VER_40
-Date: Thu, 17 Jul 2014 09:55:59 +0900
-Message-ID: <53C71F1F.8040607@daenzer.net>
-References: <1405406500-1208-1-git-send-email-michel@daenzer.net>	<0835B3720019904CB8F7AA43166CEEB25066DC@RTITMBSV03.realtek.com.tw>	<20140715215412.GA19363@electric-eye.fr.zoreil.com> <20140716.152517.952351917803362794.davem@davemloft.net>
+From: Ben Chan <benchan@chromium.org>
+Subject: Re: How to replace control code in gdm72xx?
+Date: Wed, 16 Jul 2014 17:59:15 -0700
+Message-ID: <CAC5Y2nNfiZ_cdiitj07KsB_DbGTgO=PMUwHGaXwrXjQ-U1bLyA@mail.gmail.com>
+References: <53C6DF7C.8030109@fastmail.fm> <20140716204004.GA31349@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: hayeswang@realtek.com, nic_swsd@realtek.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>, romieu@fr.zoreil.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140716.152517.952351917803362794.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
+ linux-wireless@vger.kernel.org, inaky@linux.intel.com
+To: Greg KH <greg@kroah.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20140716204004.GA31349@kroah.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-On 17.07.2014 07:25, David Miller wrote:
-> From: Francois Romieu <romieu@fr.zoreil.com>
-> Date: Tue, 15 Jul 2014 23:54:12 +0200
->=20
->> Hayes Wang <hayeswang@realtek.com> :
->>>  Michel D?nzer [mailto:michel@daenzer.net]=20
->> [...]
->>>> Without this, the ethernet port on my ASUS A88X Pro mainboard stop=
-s
->>>> working sometimes, with messages like these in dmesg:
->>>>
->>>> AMD-Vi: Event logged [IO_PAGE_FAULT device=3D05:00.0=20
->>>> domain=3D0x001e address=3D0x0000000000003000 flags=3D0x0050]
->>>
->>> I search the information about your issue. It seems to be
->>> relative to the IOMMU. I don't sure if your patch is the root
->>> cause or a workaround.
->>
->> Btw, a few extra identifiers in rtl_init_rxcfg may improve consisten=
-cy:
->>
->>            missing             |          included
->> -------------------------------+-------------------------------
->> RTL_GIGA_MAC_VER_36 (8168f)    | RTL_GIGA_MAC_VER_35 (8168f)
->> RTL_GIGA_MAC_VER_38 (RTL8411)  | RTL_GIGA_MAC_VER_44 (RTL8411)
->> RTL_GIGA_MAC_VER_39 (RTL8106e) | RTL_GIGA_MAC_VER_43 (RTL8106e)
->> RTL_GIGA_MAC_VER_37 (RTL8402)  |
->=20
-> Michel please take Francois's feedback here into consideration and al=
-so
-> provide a more detailed commit message so other people reading the co=
-mmit
-> can understand your reasoning for making this change, not just what t=
-he
-> result might be for making it.
+On Wed, Jul 16, 2014 at 1:40 PM, Greg KH <greg@kroah.com> wrote:
+>
+> On Wed, Jul 16, 2014 at 09:24:28PM +0100, Michalis Pappas wrote:
+> > Hi,
+> >
+> > I'm currently working on bringing the gdm72xx WiMAX driver out of
+> > staging. The driver currently uses two control channels:
+> >
+> > 1. The SIOCDEVPRIVATE ioctl to send and receive state messages
+> >
+> > 2. A customly defined netlink protocol for passing messages verbatim to
+> > the device controller
+> >
+> > AFAIK both of the above are deprecated, so I considered switching to
+> > the interface defined in wimax.h, which defines a communication protocol
+> > over generic netlink that replaces (2) nicely. However it is not
+> > compatible with (1), as:
+> >
+> > * Except from the device status, the gdm72xx driver uses two more types
+> > of messages (connection and OMA status), which is not supported
+> > by wimax.h.
+> >
+> > * The gdm driver needs to be able to receive status messages from
+> > userspace, which is not supported by wimax.h either.
+>
+> What type of status messages are needed to be sent to the driver?
+>
 
-I'm afraid I can't do that. I don't really understand any of this stuff=
-,
-I just googled the IOMMU event message, found similar patches for other
-chipsets, and adapted them for my mainboard until the problem stopped.
+>From what I read from the user-space code, the custom ioctl is to read
+the following information from the driver:
+
+enum {
+    SIOC_DATA_FSM,           // Device/Connection State
+    SIOC_DATA_NETLIST,       // Network list
+    SIOC_DATA_CONNNSP,     // Connected NSP
+    SIOC_DATA_CONNCOMP,    // Connection completion info
+    SIOC_DATA_PROFILEID,    // WiMAX profile ID
+    SIOC_DATA_END
+};
+
+Reference:
+
+https://chromium.googlesource.com/chromiumos/third_party/gdmwimax/+/master/sdk/io.c
+https://chromium.googlesource.com/chromiumos/third_party/gdmwimax/+/master/sdk/sdk.c
+https://chromium.googlesource.com/chromiumos/third_party/gdmwimax/+/master/sdk/wm_ioctl.h
 
 
---=20
-Earthling Michel D=E4nzer            |                  http://www.amd.=
-com
-Libre software enthusiast          |                Mesa and X develope=
-r
+>
+> > I therefore consider using the wimax stack as defined in wimax.h for the
+> > netlink part, but replacing the ioctl with a file under /sys/class/net/wm0/
+>
+> Is anyone still working on wimax to even object to add new functions
+> like this?  :)
+>
+
+The driver has a corresponding user-space library, so I'd like to
+figure out a way to maintain backward compatibility if possible. But
+I'm happy to help make minor changes to  the user-space library in
+case we need to modify the ioctl / netlink part of the driver (caveat:
+I'm not the author of the driver or the user-space library).
+
+> thanks,
+>
+> greg k-h
+> _______________________________________________
+> devel mailing list
+> devel@linuxdriverproject.org
+> http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel
