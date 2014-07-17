@@ -1,32 +1,29 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] sfc: Add per-queue statistics in ethtool
-Date: Thu, 17 Jul 2014 16:49:01 -0700 (PDT)
-Message-ID: <20140717.164901.1967183695888196576.davem@davemloft.net>
-References: <53C7AF33.5000109@solarflare.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net,stable] net: qmi_wwan: add two Sierra
+ Wireless/Netgear devices
+Date: Thu, 17 Jul 2014 16:50:59 -0700 (PDT)
+Message-ID: <20140717.165059.1514313486135546159.davem@davemloft.net>
+References: <1405596831-11759-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: sshah@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41589 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758565AbaGQXtC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 19:49:02 -0400
-In-Reply-To: <53C7AF33.5000109@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: bjorn-yOkvZcmFvRU@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1405596831-11759-1-git-send-email-bjorn-yOkvZcmFvRU@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Shradha Shah <sshah@solarflare.com>
-Date: Thu, 17 Jul 2014 12:10:43 +0100
+=46rom: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+Date: Thu, 17 Jul 2014 13:33:51 +0200
 
-> From: Andrew Rybchenko <Andrew.Rybchenko@oktetlabs.ru>
-> 
-> Implement per channel software TX and RX packet counters
-> accessed as ethtool statistics.
-> 
-> This allows confirmation with MAC statistics.
-> 
-> Signed-off-by: Shradha Shah <sshah@solarflare.com>
+> Add two device IDs found in an out-of-tree driver downloadable
+> from Netgear.
+>=20
+> Signed-off-by: Bj=F8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
 
-Applied.
+Applied and queued up for -stable.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
