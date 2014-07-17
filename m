@@ -1,8 +1,8 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next v2 7/7] tipc: ensure sequential
-	message delivery across dual bearers
-Date: Wed, 16 Jul 2014 20:18:38 -0400
-Message-ID: <1405556318-14240-8-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next v2 4/7] tipc: start using the new
+	multicast functions
+Date: Wed, 16 Jul 2014 20:18:35 -0400
+Message-ID: <1405556318-14240-5-git-send-email-jon.maloy@ericsson.com>
 References: <1405556318-14240-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,87 +23,172 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
 Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-When we run broadcast packets over dual bearers/interfaces, the
-current transmission code is flipping bearers between each sent
-packet, with the purpose of leveraging the double bandwidth
-available. The receiving bclink is resequencing the packets if
-needed, so all messages are delivered upwards from the broadcast
-link in the correct order, even if they may arrive in concurrent
-interrupts.
+In this commit, we convert the socket multicast send function to
+directly call the new multicast/broadcast function (tipc_bclink_xmit2())
+introduced in the previous commit. We do this instead of letting the
+call go via the now obsolete tipc_port_mcast_xmit(), hence saving
+a call level and some code complexity.
 
-However, at the moment of delivery upwards to the socket, we release
-all spinlocks (bclink_lock, node_lock), so it is still possible
-that arriving messages bypass each other before they reach the socket
-queue.
-
-We fix this by applying the same technique we are using for unicast
-traffic. We use a link selector (i.e., the last bit of sending port
-number) to ensure that messages from the same sender socket always are
-sent over the same bearer. This guarantees sequential delivery between
-socket pairs, which is sufficient to satisfy the protocol spec, as well
-as all known user requirements.
+We also remove the initial destination lookup at the message sending
+side, and replace that with an unconditional lookup at the receiving
+side, including on the sending node itself. This makes the destination
+lookup and message transfer more uniform than before.
 
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
 Reviewed-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/bcast.c |   17 +++++------------
- 1 file changed, 5 insertions(+), 12 deletions(-)
+ net/tipc/bcast.c  |    7 ++---
+ net/tipc/socket.c |   90 +++++++++++++++++++++++++++++++----------------------
+ 2 files changed, 56 insertions(+), 41 deletions(-)
 
 diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
-index 6755184..5ae41e0 100644
+index 071de5a..71076aa 100644
 --- a/net/tipc/bcast.c
 +++ b/net/tipc/bcast.c
-@@ -632,6 +632,7 @@ static int tipc_bcbearer_send(struct sk_buff *buf, struct tipc_bearer *unused1,
- 			      struct tipc_media_addr *unused2)
- {
- 	int bp_index;
-+	struct tipc_msg *msg = buf_msg(buf);
+@@ -491,7 +491,7 @@ void tipc_bclink_rcv(struct sk_buff *buf)
+ 	struct tipc_node *node;
+ 	u32 next_in;
+ 	u32 seqno;
+-	int deferred;
++	int deferred = 0;
  
- 	/* Prepare broadcast link message for reliable transmission,
- 	 * if first time trying to send it;
-@@ -639,10 +640,7 @@ static int tipc_bcbearer_send(struct sk_buff *buf, struct tipc_bearer *unused1,
- 	 * since they are sent in an unreliable manner and don't need it
- 	 */
- 	if (likely(!msg_non_seq(buf_msg(buf)))) {
--		struct tipc_msg *msg;
--
- 		bcbuf_set_acks(buf, bclink->bcast_nodes.count);
--		msg = buf_msg(buf);
- 		msg_set_non_seq(msg, 1);
- 		msg_set_mc_netid(msg, tipc_net_id);
- 		bcl->stats.sent_info++;
-@@ -659,12 +657,14 @@ static int tipc_bcbearer_send(struct sk_buff *buf, struct tipc_bearer *unused1,
- 	for (bp_index = 0; bp_index < MAX_BEARERS; bp_index++) {
- 		struct tipc_bearer *p = bcbearer->bpairs[bp_index].primary;
- 		struct tipc_bearer *s = bcbearer->bpairs[bp_index].secondary;
--		struct tipc_bearer *b = p;
-+		struct tipc_bearer *bp[2] = {p, s};
-+		struct tipc_bearer *b = bp[msg_link_selector(msg)];
- 		struct sk_buff *tbuf;
+ 	/* Screen out unwanted broadcast messages */
  
- 		if (!p)
- 			break; /* No more bearers to try */
+@@ -542,7 +542,7 @@ receive:
+ 			tipc_bclink_unlock();
+ 			tipc_node_unlock(node);
+ 			if (likely(msg_mcast(msg)))
+-				tipc_port_mcast_rcv(buf, NULL);
++				tipc_sk_mcast_rcv(buf);
+ 			else
+ 				kfree_skb(buf);
+ 		} else if (msg_user(msg) == MSG_BUNDLER) {
+@@ -621,8 +621,7 @@ receive:
+ 		node->bclink.deferred_size += deferred;
+ 		bclink_update_last_sent(node, seqno);
+ 		buf = NULL;
+-	} else
+-		deferred = 0;
++	}
+ 
+ 	tipc_bclink_lock();
+ 
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index 8d30995..b28eea5 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -53,6 +53,7 @@ static void tipc_data_ready(struct sock *sk);
+ static void tipc_write_space(struct sock *sk);
+ static int tipc_release(struct socket *sock);
+ static int tipc_accept(struct socket *sock, struct socket *new_sock, int flags);
++static int tipc_wait_for_sndmsg(struct socket *sock, long *timeo_p);
+ 
+ static const struct proto_ops packet_ops;
+ static const struct proto_ops stream_ops;
+@@ -534,6 +535,58 @@ static unsigned int tipc_poll(struct file *file, struct socket *sock,
+ 	return mask;
+ }
+ 
++/**
++ * tipc_sendmcast - send multicast message
++ * @sock: socket structure
++ * @seq: destination address
++ * @iov: message data to send
++ * @dsz: total length of message data
++ * @timeo: timeout to wait for wakeup
++ *
++ * Called from function tipc_sendmsg(), which has done all sanity checks
++ * Returns the number of bytes sent on success, or errno
++ */
++static int tipc_sendmcast(struct  socket *sock, struct tipc_name_seq *seq,
++			  struct iovec *iov, size_t dsz, long timeo)
++{
++	struct sock *sk = sock->sk;
++	struct tipc_msg *mhdr = &tipc_sk(sk)->port.phdr;
++	struct sk_buff *buf;
++	uint mtu;
++	int rc;
++
++	msg_set_type(mhdr, TIPC_MCAST_MSG);
++	msg_set_lookup_scope(mhdr, TIPC_CLUSTER_SCOPE);
++	msg_set_destport(mhdr, 0);
++	msg_set_destnode(mhdr, 0);
++	msg_set_nametype(mhdr, seq->type);
++	msg_set_namelower(mhdr, seq->lower);
++	msg_set_nameupper(mhdr, seq->upper);
++	msg_set_hdr_sz(mhdr, MCAST_H_SIZE);
++
++new_mtu:
++	mtu = tipc_bclink_get_mtu();
++	rc = tipc_msg_build2(mhdr, iov, 0, dsz, mtu, &buf);
++	if (unlikely(rc < 0))
++		return rc;
++
++	do {
++		rc = tipc_bclink_xmit(buf);
++		if (likely(rc >= 0)) {
++			rc = dsz;
++			break;
++		}
++		if (rc == -EMSGSIZE)
++			goto new_mtu;
++		if (rc != -ELINKCONG)
++			break;
++		rc = tipc_wait_for_sndmsg(sock, &timeo);
++		if (rc)
++			kfree_skb_list(buf);
++	} while (!rc);
++	return rc;
++}
++
+ /* tipc_sk_mcast_rcv - Deliver multicast message to all destination sockets
+  */
+ void tipc_sk_mcast_rcv(struct sk_buff *buf)
+@@ -670,43 +723,6 @@ static int tipc_wait_for_sndmsg(struct socket *sock, long *timeo_p)
+ }
+ 
+ /**
+- * tipc_sendmcast - send multicast message
+- * @sock: socket structure
+- * @seq: destination address
+- * @iov: message data to send
+- * @dsz: total length of message data
+- * @timeo: timeout to wait for wakeup
+- *
+- * Called from function tipc_sendmsg(), which has done all sanity checks
+- * Returns the number of bytes sent on success, or errno
+- */
+-static int tipc_sendmcast(struct  socket *sock, struct tipc_name_seq *seq,
+-			  struct iovec *iov, size_t dsz, long timeo)
+-{
+-	struct sock *sk = sock->sk;
+-	struct tipc_sock *tsk = tipc_sk(sk);
+-	int rc;
 -
-+		if (!b)
-+			b = p;
- 		tipc_nmap_diff(&bcbearer->remains, &b->nodes,
- 			       &bcbearer->remains_new);
- 		if (bcbearer->remains_new.count == bcbearer->remains.count)
-@@ -681,13 +681,6 @@ static int tipc_bcbearer_send(struct sk_buff *buf, struct tipc_bearer *unused1,
- 			tipc_bearer_send(b->identity, tbuf, &b->bcast_addr);
- 			kfree_skb(tbuf); /* Bearer keeps a clone */
- 		}
--
--		/* Swap bearers for next packet */
--		if (s) {
--			bcbearer->bpairs[bp_index].primary = s;
--			bcbearer->bpairs[bp_index].secondary = p;
+-	do {
+-		if (sock->state != SS_READY) {
+-			rc = -EOPNOTSUPP;
+-			break;
 -		}
+-		rc = tipc_port_mcast_xmit(&tsk->port, seq, iov, dsz);
+-		if (likely(rc >= 0)) {
+-			if (sock->state != SS_READY)
+-				sock->state = SS_CONNECTING;
+-			break;
+-		}
+-		if (rc != -ELINKCONG)
+-			break;
+-		rc = tipc_wait_for_sndmsg(sock, &timeo);
+-	} while (!rc);
 -
- 		if (bcbearer->remains_new.count == 0)
- 			break; /* All targets reached */
- 
+-	return rc;
+-}
+-
+-/**
+  * tipc_sendmsg - send message in connectionless manner
+  * @iocb: if NULL, indicates that socket lock is already held
+  * @sock: socket structure
 -- 
 1.7.9.5
 
