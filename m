@@ -1,131 +1,65 @@
-From: Varka Bhadram <varkabhadram@gmail.com>
-Subject: Re: [PATCH net-next V2 3/3] virtio-net: rx busy polling support
-Date: Thu, 17 Jul 2014 08:57:54 +0530
-Message-ID: <53C742BA.3050402@gmail.com>
-References: <1405491707-22706-1-git-send-email-jasowang@redhat.com>
-	<1405491707-22706-4-git-send-email-jasowang@redhat.com>
-	<53C63A11.4050401@gmail.com> <53C73B29.4070107@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] r8169: Enable RX_MULTI_EN for RTL_GIGA_MAC_VER_40
+Date: Wed, 16 Jul 2014 20:29:45 -0700 (PDT)
+Message-ID: <20140716.202945.2231269352453909430.davem@davemloft.net>
+References: <20140715215412.GA19363@electric-eye.fr.zoreil.com>
+	<20140716.152517.952351917803362794.davem@davemloft.net>
+	<53C71F1F.8040607@daenzer.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: Vlad Yasevich <vyasevic@redhat.com>, Eric Dumazet <eric.dumazet@gmail.com>
-To: Jason Wang <jasowang@redhat.com>, rusty@rustcorp.com.au,
-	mst@redhat.com, virtualization@lists.linux-foundation.org,
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: romieu@fr.zoreil.com, hayeswang@realtek.com, nic_swsd@realtek.com,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <53C73B29.4070107@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+To: michel@daenzer.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <53C71F1F.8040607@daenzer.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+=46rom: Michel D=E4nzer <michel@daenzer.net>
+Date: Thu, 17 Jul 2014 09:55:59 +0900
 
-On Thursday 17 July 2014 08:25 AM, Jason Wang wrote:
-> On 07/16/2014 04:38 PM, Varka Bhadram wrote:
->> On 07/16/2014 11:51 AM, Jason Wang wrote:
->>> Add basic support for rx busy polling.
+> On 17.07.2014 07:25, David Miller wrote:
+>> From: Francois Romieu <romieu@fr.zoreil.com>
+>> Date: Tue, 15 Jul 2014 23:54:12 +0200
+>>=20
+>>> Hayes Wang <hayeswang@realtek.com> :
+>>>>  Michel D?nzer [mailto:michel@daenzer.net]=20
+>>> [...]
+>>>>> Without this, the ethernet port on my ASUS A88X Pro mainboard sto=
+ps
+>>>>> working sometimes, with messages like these in dmesg:
+>>>>>
+>>>>> AMD-Vi: Event logged [IO_PAGE_FAULT device=3D05:00.0=20
+>>>>> domain=3D0x001e address=3D0x0000000000003000 flags=3D0x0050]
+>>>>
+>>>> I search the information about your issue. It seems to be
+>>>> relative to the IOMMU. I don't sure if your patch is the root
+>>>> cause or a workaround.
 >>>
->>> Test was done between a kvm guest and an external host. Two hosts were
->>> connected through 40gb mlx4 cards. With both busy_poll and busy_read
->>> are set to 50 in guest, 1 byte netperf tcp_rr shows 116% improvement:
->>> transaction rate was increased from 9151.94 to 19787.37.
+>>> Btw, a few extra identifiers in rtl_init_rxcfg may improve consiste=
+ncy:
 >>>
->>> Cc: Rusty Russell <rusty@rustcorp.com.au>
->>> Cc: Michael S. Tsirkin <mst@redhat.com>
->>> Cc: Vlad Yasevich <vyasevic@redhat.com>
->>> Cc: Eric Dumazet <eric.dumazet@gmail.com>
->>> Signed-off-by: Jason Wang <jasowang@redhat.com>
->>> ---
->>>    drivers/net/virtio_net.c | 190
->>> ++++++++++++++++++++++++++++++++++++++++++++++-
->>>    1 file changed, 187 insertions(+), 3 deletions(-)
->>>
->>> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
->>> index e417d93..4830713 100644
->>> --- a/drivers/net/virtio_net.c
->>> +++ b/drivers/net/virtio_net.c
->>> @@ -27,6 +27,7 @@
->>>    #include <linux/slab.h>
->>>    #include <linux/cpu.h>
->>>    #include <linux/average.h>
->>> +#include <net/busy_poll.h>
->>>      static int napi_weight = NAPI_POLL_WEIGHT;
->>>    module_param(napi_weight, int, 0444);
->>> @@ -94,8 +95,143 @@ struct receive_queue {
->>>          /* Name of this receive queue: input.$index */
->>>        char name[40];
->>> +
->>> +#ifdef CONFIG_NET_RX_BUSY_POLL
->>> +    unsigned int state;
->>> +#define VIRTNET_RQ_STATE_IDLE        0
->>> +#define VIRTNET_RQ_STATE_NAPI         1    /* NAPI or refill owns
->>> this RQ */
->>> +#define VIRTNET_RQ_STATE_POLL         2    /* poll owns this RQ */
->>> +#define VIRTNET_RQ_STATE_DISABLED    4    /* RQ is disabled */
->>> +#define VIRTNET_RQ_OWNED (VIRTNET_RQ_STATE_NAPI |
->>> VIRTNET_RQ_STATE_POLL)
->>> +#define VIRTNET_RQ_LOCKED (VIRTNET_RQ_OWNED |
->>> VIRTNET_RQ_STATE_DISABLED)
->>> +#define VIRTNET_RQ_STATE_NAPI_YIELD  8    /* NAPI or refill yielded
->>> this RQ */
->>> +#define VIRTNET_RQ_STATE_POLL_YIELD  16   /* poll yielded this RQ */
->>> +    spinlock_t lock;
->>> +#endif  /* CONFIG_NET_RX_BUSY_POLL */
->>>    };
->>>    +#ifdef CONFIG_NET_RX_BUSY_POLL
->>> +static inline void virtnet_rq_init_lock(struct receive_queue *rq)
->>> +{
->>> +
->>> +    spin_lock_init(&rq->lock);
->>> +    rq->state = VIRTNET_RQ_STATE_IDLE;
->>> +}
->>> +
->>> +/* called from the device poll routine or refill routine to get
->>> ownership of a
->>> + * receive queue.
->>> + */
->>> +static inline bool virtnet_rq_lock_napi_refill(struct receive_queue
->>> *rq)
->>> +{
->>> +    int rc = true;
->>> +
->> bool instead of int...?
-> Yes, it was better.
->>> +    spin_lock(&rq->lock);
->>> +    if (rq->state & VIRTNET_RQ_LOCKED) {
->>> +        WARN_ON(rq->state & VIRTNET_RQ_STATE_NAPI);
->>> +        rq->state |= VIRTNET_RQ_STATE_NAPI_YIELD;
->>> +        rc = false;
->>> +    } else
->>> +        /* we don't care if someone yielded */
->>> +        rq->state = VIRTNET_RQ_STATE_NAPI;
->>> +    spin_unlock(&rq->lock);
->> Lock for rq->state ...?
->>
->> If yes:
->> spin_lock(&rq->lock);
->> if (rq->state & VIRTNET_RQ_LOCKED) {
->>      rq->state |= VIRTNET_RQ_STATE_NAPI_YIELD;
->>      spin_unlock(&rq->lock);
->>      WARN_ON(rq->state & VIRTNET_RQ_STATE_NAPI);
->>      rc = false;
->> } else {
->>      /* we don't care if someone yielded */
->>      rq->state = VIRTNET_RQ_STATE_NAPI;
->>      spin_unlock(&rq->lock);
->> }
-> I didn't see any differences. Is this used to catch the bug of driver
-> earlier? btw, several other rx busy polling capable driver does the same
-> thing.
+>>>            missing             |          included
+>>> -------------------------------+-------------------------------
+>>> RTL_GIGA_MAC_VER_36 (8168f)    | RTL_GIGA_MAC_VER_35 (8168f)
+>>> RTL_GIGA_MAC_VER_38 (RTL8411)  | RTL_GIGA_MAC_VER_44 (RTL8411)
+>>> RTL_GIGA_MAC_VER_39 (RTL8106e) | RTL_GIGA_MAC_VER_43 (RTL8106e)
+>>> RTL_GIGA_MAC_VER_37 (RTL8402)  |
+>>=20
+>> Michel please take Francois's feedback here into consideration and a=
+lso
+>> provide a more detailed commit message so other people reading the c=
+ommit
+>> can understand your reasoning for making this change, not just what =
+the
+>> result might be for making it.
+>=20
+> I'm afraid I can't do that. I don't really understand any of this stu=
+ff,
+> I just googled the IOMMU event message, found similar patches for oth=
+er
+> chipsets, and adapted them for my mainboard until the problem stopped=
+=2E
 
-We need not to include WARN_ON() & rc=false under critical section.
-
--- 
-Regards,
-Varka Bhadram
+And if so, that's exactly what I want you to say in the commit message.
