@@ -1,83 +1,58 @@
-From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH] bluetooth: never linger on process exit
-Date: Thu, 17 Jul 2014 12:05:26 +0200
-Message-ID: <2ECFA3A4-C890-4512-86CD-B17EFDB57663@holtmann.org>
-References: <1405412728-4706-1-git-send-email-vdavydov@parallels.com>
-Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Gustavo F. Padovan" <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
-	Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Linux Bluetooth mailing list
-	<linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Vladimir Davydov <vdavydov-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1405412728-4706-1-git-send-email-vdavydov-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Veaceslav Falico <vfalico@gmail.com>
+Subject: [PATCH net-next] bonding: destroy proc directory only after all bonds are gone
+Date: Thu, 17 Jul 2014 12:04:08 +0200
+Message-ID: <1405591448-31797-1-git-send-email-vfalico@gmail.com>
+Cc: Veaceslav Falico <vfalico@gmail.com>,
+	Jay Vosburgh <j.vosburgh@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:34500 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754827AbaGQKIg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Jul 2014 06:08:36 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Vladimir,
+Currently we might arrive to bond_net_exit() with some bonds left (that
+were created while the module is unloading). We take care of that by
+destroying sysfs (the last possibility to add new bonds) and then
+destroying all the remaining bonds.
 
-please always include linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org since otherwise it might be missed in the massive amount of emails that is LKML.
+However, we destroy the /proc/net/bonding directory before destroying those
+last bonds, and get a warning that we're trying to destroy a non-empty
+proc directory (containing /proc/net/bonding/bondX).
 
-> If the current process is exiting, lingering on socket close will make
-> it unkillable, so we should avoid it.
-> 
-> Reproducer:
-> 
->  #include <sys/types.h>
->  #include <sys/socket.h>
-> 
->  #define BTPROTO_L2CAP   0
->  #define BTPROTO_SCO     2
->  #define BTPROTO_RFCOMM  3
-> 
->  int main()
->  {
->          int fd;
->          struct linger ling;
-> 
->          fd = socket(PF_BLUETOOTH, SOCK_STREAM, BTPROTO_RFCOMM);
->          //or: fd = socket(PF_BLUETOOTH, SOCK_DGRAM, BTPROTO_L2CAP);
->          //or: fd = socket(PF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_SCO);
-> 
->          ling.l_onoff = 1;
->          ling.l_linger = 1000000000;
->          setsockopt(fd, SOL_SOCKET, SO_LINGER, &ling, sizeof(ling));
-> 
->          return 0;
->  }
-> 
-> Signed-off-by: Vladimir Davydov <vdavydov-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
-> Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-> Cc: Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>
-> Cc: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> ---
-> net/bluetooth/l2cap_sock.c  |    3 ++-
-> net/bluetooth/rfcomm/sock.c |    3 ++-
-> net/bluetooth/sco.c         |    6 ++++--
-> 3 files changed, 8 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/bluetooth/l2cap_sock.c b/net/bluetooth/l2cap_sock.c
-> index e1378693cc90..d0fd8b04f2e6 100644
-> --- a/net/bluetooth/l2cap_sock.c
-> +++ b/net/bluetooth/l2cap_sock.c
-> @@ -1111,7 +1111,8 @@ static int l2cap_sock_shutdown(struct socket *sock, int how)
-> 		l2cap_chan_close(chan, 0);
-> 		lock_sock(sk);
-> 
-> -		if (sock_flag(sk, SOCK_LINGER) && sk->sk_lingertime)
-> +		if (sock_flag(sk, SOCK_LINGER) && sk->sk_lingertime &&
-> +		    !(current->flags & PF_EXITING))
-> 			err = bt_sock_wait_state(sk, BT_CLOSED,
-> 						 sk->sk_lingertime);
-> 	}
+Fix this by moving bond_destroy_proc_dir() after all the bonds are
+destroyed, so that we're sure that no bonds exist.
 
-The only other example of using PF_EXITING I found is net/ipv4/af_inet.c and if this is the preferred way of handling this, the patch looks fine to me.
+CC: Jay Vosburgh <j.vosburgh@gmail.com>
+CC: Andy Gospodarek <andy@greyhouse.net>
+Signed-off-by: Veaceslav Falico <vfalico@gmail.com>
+---
+ drivers/net/bonding/bond_main.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-Regards
-
-Marcel
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 1ff676ca..b4cee84 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4450,7 +4450,6 @@ static void __net_exit bond_net_exit(struct net *net)
+ 	LIST_HEAD(list);
+ 
+ 	bond_destroy_sysfs(bn);
+-	bond_destroy_proc_dir(bn);
+ 
+ 	/* Kill off any bonds created after unregistering bond rtnl ops */
+ 	rtnl_lock();
+@@ -4458,6 +4457,8 @@ static void __net_exit bond_net_exit(struct net *net)
+ 		unregister_netdevice_queue(bond->dev, &list);
+ 	unregister_netdevice_many(&list);
+ 	rtnl_unlock();
++
++	bond_destroy_proc_dir(bn);
+ }
+ 
+ static struct pernet_operations bond_net_ops = {
+-- 
+1.8.4
