@@ -1,7 +1,8 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next v2 0/7] tipc: multicast and internal users to new send functions
-Date: Wed, 16 Jul 2014 20:18:31 -0400
-Message-ID: <1405556318-14240-1-git-send-email-jon.maloy@ericsson.com>
+Subject: [PATCH net-next v2 2/7] tipc: let internal link users call the new link send function
+Date: Wed, 16 Jul 2014 20:18:33 -0400
+Message-ID: <1405556318-14240-3-git-send-email-jon.maloy@ericsson.com>
+References: <1405556318-14240-1-git-send-email-jon.maloy@ericsson.com>
 Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
 	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
@@ -9,47 +10,77 @@ Cc: netdev@vger.kernel.org,
 	Jon Maloy <jon.maloy@ericsson.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp102.biz.mail.ne1.yahoo.com ([98.138.207.9]:28252 "EHLO
+Received: from smtp102.biz.mail.ne1.yahoo.com ([98.138.207.9]:28273 "EHLO
 	smtp102.biz.mail.ne1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753720AbaGQATM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2014 20:19:12 -0400
+	by vger.kernel.org with ESMTP id S1754888AbaGQATO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 16 Jul 2014 20:19:14 -0400
+In-Reply-To: <1405556318-14240-1-git-send-email-jon.maloy@ericsson.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We move the remaining data transmit users: multicast, name table
-distributor, and link internal protocols to use the new data
-transmission framework introduced in a previous commit series
-("tipc: new unicast transmission code").
+We convert the link internal users (changeover protocol, broadcast
+synchronization) to use the new packet send function.
 
-Finally, we remove the code obsoleted by the new functions.
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+Reviewed-by: Erik Hugne <erik.hugne@ericsson.com>
+Reviewed-by: Ying Xue <ying.xue@windriver.com>
+---
+ net/tipc/link.c |   15 +++++++--------
+ 1 file changed, 7 insertions(+), 8 deletions(-)
 
-v2: - Fixed a braindead, but harmless return sequence in commit #3, as
-      reported by David Miller.
-    - Rebased series to 3.16.0-rc5+
-
-Jon Maloy (7):
-  tipc: make name table distributor use new send function
-  tipc: let internal link users call the new link send function
-  tipc: add new functions for multicast and broadcast distribution
-  tipc: start using the new multicast functions
-  tipc: remove unreferenced functions
-  tipc: rename temporarily named functions
-  tipc: ensure sequential message delivery across dual bearers
-
- net/tipc/bcast.c      |   82 +++++++------
- net/tipc/bcast.h      |    5 +-
- net/tipc/link.c       |  307 ++-----------------------------------------------
- net/tipc/link.h       |    9 +-
- net/tipc/msg.c        |   76 ++++++------
- net/tipc/msg.h        |    9 +-
- net/tipc/name_distr.c |   76 ++++++------
- net/tipc/name_distr.h |    2 +-
- net/tipc/node.c       |   13 +--
- net/tipc/port.c       |  122 +-------------------
- net/tipc/port.h       |   10 --
- net/tipc/socket.c     |  148 ++++++++++++++++--------
- net/tipc/socket.h     |    2 +
- 13 files changed, 260 insertions(+), 601 deletions(-)
-
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 367b0f5..d1255ba 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -999,7 +999,7 @@ int tipc_link_xmit2(struct sk_buff *buf, u32 dnode, u32 selector)
+  *
+  * Called with node locked
+  */
+-static void tipc_link_sync_xmit(struct tipc_link *l)
++static void tipc_link_sync_xmit(struct tipc_link *link)
+ {
+ 	struct sk_buff *buf;
+ 	struct tipc_msg *msg;
+@@ -1009,10 +1009,9 @@ static void tipc_link_sync_xmit(struct tipc_link *l)
+ 		return;
+ 
+ 	msg = buf_msg(buf);
+-	tipc_msg_init(msg, BCAST_PROTOCOL, STATE_MSG, INT_H_SIZE, l->addr);
+-	msg_set_last_bcast(msg, l->owner->bclink.acked);
+-	link_add_chain_to_outqueue(l, buf, 0);
+-	tipc_link_push_queue(l);
++	tipc_msg_init(msg, BCAST_PROTOCOL, STATE_MSG, INT_H_SIZE, link->addr);
++	msg_set_last_bcast(msg, link->owner->bclink.acked);
++	__tipc_link_xmit2(link, buf);
+ }
+ 
+ /*
+@@ -1859,7 +1858,7 @@ static void tipc_link_tunnel_xmit(struct tipc_link *l_ptr,
+ 	}
+ 	skb_copy_to_linear_data(buf, tunnel_hdr, INT_H_SIZE);
+ 	skb_copy_to_linear_data_offset(buf, INT_H_SIZE, msg, length);
+-	__tipc_link_xmit(tunnel, buf);
++	__tipc_link_xmit2(tunnel, buf);
+ }
+ 
+ 
+@@ -1892,7 +1891,7 @@ void tipc_link_failover_send_queue(struct tipc_link *l_ptr)
+ 		if (buf) {
+ 			skb_copy_to_linear_data(buf, &tunnel_hdr, INT_H_SIZE);
+ 			msg_set_size(&tunnel_hdr, INT_H_SIZE);
+-			__tipc_link_xmit(tunnel, buf);
++			__tipc_link_xmit2(tunnel, buf);
+ 		} else {
+ 			pr_warn("%sunable to send changeover msg\n",
+ 				link_co_err);
+@@ -1965,7 +1964,7 @@ void tipc_link_dup_queue_xmit(struct tipc_link *l_ptr,
+ 		skb_copy_to_linear_data(outbuf, &tunnel_hdr, INT_H_SIZE);
+ 		skb_copy_to_linear_data_offset(outbuf, INT_H_SIZE, iter->data,
+ 					       length);
+-		__tipc_link_xmit(tunnel, outbuf);
++		__tipc_link_xmit2(tunnel, outbuf);
+ 		if (!tipc_link_is_up(l_ptr))
+ 			return;
+ 		iter = iter->next;
 -- 
 1.7.9.5
