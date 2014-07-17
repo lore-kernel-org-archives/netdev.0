@@ -1,57 +1,34 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v3 net-next 2/2] net: print net_device reg_state in
- netdev_* unless it's registered
-Date: Thu, 17 Jul 2014 12:21:39 -0700
-Message-ID: <1405624899.14358.8.camel@joe-AO725>
-References: <1405619171-18172-1-git-send-email-vfalico@gmail.com>
-	 <1405619171-18172-3-git-send-email-vfalico@gmail.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH net-next] dp83640: Fix receive timestamp race condition
+Date: Thu, 17 Jul 2014 21:24:24 +0200
+Message-ID: <20140717192424.GA24456@localhost.localdomain>
+References: <1405603079-23572-1-git-send-email-stefan.sorensen@spectralink.com>
+ <20140717181222.GB23623@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Jason Baron <jbaron@akamai.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Vlad Yasevich <vyasevic@redhat.com>,
-	stephen hemminger <stephen@networkplumber.org>,
-	Jerry Chu <hkchu@google.com>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: Veaceslav Falico <vfalico@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Stefan =?iso-8859-1?Q?S=F8rensen?=
+	<stefan.sorensen@spectralink.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0013.hostedemail.com ([216.40.44.13]:49796 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752118AbaGQTVq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 15:21:46 -0400
-In-Reply-To: <1405619171-18172-3-git-send-email-vfalico@gmail.com>
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:41019 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752540AbaGQTYp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 15:24:45 -0400
+Received: by mail-wg0-f44.google.com with SMTP id m15so2485516wgh.3
+        for <netdev@vger.kernel.org>; Thu, 17 Jul 2014 12:24:44 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20140717181222.GB23623@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-07-17 at 19:46 +0200, Veaceslav Falico wrote:
-[]
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-[]
-> @@ -3444,7 +3459,8 @@ do {								\
->   * file/line information and a backtrace.
->   */
->  #define netdev_WARN(dev, format, args...)			\
-> -	WARN(1, "netdevice: %s\n" format, netdev_name(dev), ##args)
-> +	WARN(1, "netdevice: %s%s\n" format, netdev_name(dev),	\
-> +	     netdev_reg_state(dev), ##args)
+On Thu, Jul 17, 2014 at 08:12:22PM +0200, Richard Cochran wrote:
+> 
+> And what happens when the timestamp arrives *before* the PTP packet?
 
-trivia:
+It could also happen that the MAC driver re-orders the packets. Think
+about multiple hardware queues putting multicast UDP to one side, etc.
+Sure, maybe not a typical combination with the phyter, but still the
+driver should handle this.
 
-My preference for style here is to have the format
-and args on one line when it fits and separate
-the format and args lines when they don't.
-
-	WARN(1, "netdevice: %s%s\n" format,
-	     netdev_name(dev), netdev_reg_state(dev), ##args)
-
-Unrelated:  maybe it'd be better to change the '\n' to ": "
-
-> diff --git a/lib/dynamic_debug.c b/lib/dynamic_debug.c
-[]
-> -		res = printk(KERN_DEBUG "%s: %pV", netdev_name(dev), &vaf);
-> +		res = printk(KERN_DEBUG "%s%s: %pV", netdev_name(dev),
-> +			     netdev_reg_state(dev), &vaf);
-
-etc...
+Thanks,
+Richard
