@@ -1,47 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RESEND net 1/1] net: ppp: fix creating PPP pass and
- active filters
-Date: Wed, 16 Jul 2014 23:42:50 -0700 (PDT)
-Message-ID: <20140716.234250.1209740744579611908.davem@davemloft.net>
-References: <53C6DC35.3030400@kristov.de>
+Subject: Re: [Patch net-next] net_sched: cancel nest attribute on failure
+ in tcf_exts_dump()
+Date: Wed, 16 Jul 2014 23:51:38 -0700 (PDT)
+Message-ID: <20140716.235138.2067858960008875634.davem@davemloft.net>
+References: <1405545931-13832-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-ppp@vger.kernel.org,
-	paulus@samba.org, isdn@linux-pingi.de
-To: develop@kristov.de
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <53C6DC35.3030400@kristov.de>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com, cwang@twopensource.com
+To: xiyou.wangcong@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57994 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750928AbaGQGvj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 02:51:39 -0400
+In-Reply-To: <1405545931-13832-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Christoph Schulz <develop@kristov.de>
-Date: Wed, 16 Jul 2014 22:10:29 +0200
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Wed, 16 Jul 2014 14:25:30 -0700
 
-> From: Christoph Schulz <develop@kristov.de>
+> From: Cong Wang <cwang@twopensource.com>
 > 
-> Commit 568f194e8bd16c353ad50f9ab95d98b20578a39d ("net: ppp: use
-> sk_unattached_filter api") inadvertently changed the logic when setting
-> PPP pass and active filters. This applies to both the generic PPP subsystem
-> implemented by drivers/net/ppp/ppp_generic.c and the ISDN PPP subsystem
-> implemented by drivers/isdn/i4l/isdn_ppp.c. The original code in ppp_ioctl()
-> (or isdn_ppp_ioctl(), resp.) handling PPPIOCSPASS and PPPIOCSACTIVE allowed to
-> remove a pass/active filter previously set by using a filter of length zero.
-> However, with the new code this is not possible anymore as this case is not
-> explicitly checked for, which leads to passing NULL as a filter to
-> sk_unattached_filter_create(). This results in returning EINVAL to the caller.
+> Like other places, we need to cancel the nest attribute after
+> we start. Fortunately the netlink message will not be sent on
+> failure, so it's not a big problem at all.
 > 
-> Additionally, the variables ppp->pass_filter and ppp->active_filter (or
-> is->pass_filter and is->active_filter, resp.) are not reset to NULL, although
-> the filters they point to may have been destroyed by
-> sk_unattached_filter_destroy(), so in this EINVAL case dangling pointers are
-> left behind (provided the pointers were previously non-NULL).
-> 
-> This patch corrects both problems by checking whether the filter passed is
-> empty or non-empty, and prevents sk_unattached_filter_create() from being
-> called in the first case. Moreover, the pointers are always reset to NULL
-> as soon as sk_unattached_filter_destroy() returns.
-> 
-> Signed-off-by: Christoph Schulz <develop@kristov.de>
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> Signed-off-by: Cong Wang <cwang@twopensource.com>
 
-Applied and queued up for -stable, thanks.
+Jamal, if you could review these two changes from Cong I'd appreciate
+it, thanks!
