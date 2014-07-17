@@ -1,122 +1,50 @@
-From: Veaceslav Falico <vfalico@gmail.com>
-Subject: [PATCH net-next 2/2] net: print net_device reg_state in netdev_* unless it's registered
-Date: Thu, 17 Jul 2014 13:28:11 +0200
-Message-ID: <1405596491-5881-3-git-send-email-vfalico@gmail.com>
-References: <1405596491-5881-1-git-send-email-vfalico@gmail.com>
-Cc: Veaceslav Falico <vfalico@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jason Baron <jbaron@akamai.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Vlad Yasevich <vyasevic@redhat.com>,
-	stephen hemminger <stephen@networkplumber.org>,
-	Jerry Chu <hkchu@google.com>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:27386 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756459AbaGQLdD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Jul 2014 07:33:03 -0400
-In-Reply-To: <1405596491-5881-1-git-send-email-vfalico@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: [PATCH net,stable] net: qmi_wwan: add two Sierra Wireless/Netgear devices
+Date: Thu, 17 Jul 2014 13:33:51 +0200
+Message-ID: <1405596831-11759-1-git-send-email-bjorn@mork.no>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This way we'll always know in what status the device is, unless it's
-running normally (i.e. NETDEV_REGISTERED).
+Add two device IDs found in an out-of-tree driver downloadable
+from Netgear.
 
-CC: "David S. Miller" <davem@davemloft.net>
-CC: Jason Baron <jbaron@akamai.com>
-CC: Eric Dumazet <edumazet@google.com>
-CC: Vlad Yasevich <vyasevic@redhat.com>
-CC: stephen hemminger <stephen@networkplumber.org>
-CC: Jerry Chu <hkchu@google.com>
-CC: Ben Hutchings <bhutchings@solarflare.com>
-Signed-off-by: Veaceslav Falico <vfalico@gmail.com>
+Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
 ---
- include/linux/netdevice.h | 17 ++++++++++++++++-
- lib/dynamic_debug.c       |  8 +++++---
- net/core/dev.c            |  8 +++++---
- 3 files changed, 26 insertions(+), 7 deletions(-)
+ drivers/net/usb/qmi_wwan.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index cde12a3..4e93f14 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -3388,6 +3388,20 @@ static inline const char *netdev_name(const struct net_device *dev)
- 	return dev->name;
- }
- 
-+static inline const char *netdev_reg_state(const struct net_device *dev)
-+{
-+	switch (dev->reg_state) {
-+	case NETREG_UNINITIALIZED: return " (unregistered)";
-+	case NETREG_REGISTERED: return "";
-+	case NETREG_UNREGISTERING: return " (unregistering)";
-+	case NETREG_UNREGISTERED: return " (unregistered)";
-+	case NETREG_RELEASED: return " (released)";
-+	case NETREG_DUMMY: return " (dummy)";
-+	}
-+
-+	return " (unknown)";
-+}
-+
- __printf(3, 4)
- int netdev_printk(const char *level, const struct net_device *dev,
- 		  const char *format, ...);
-@@ -3444,7 +3458,8 @@ do {								\
-  * file/line information and a backtrace.
-  */
- #define netdev_WARN(dev, format, args...)			\
--	WARN(1, "netdevice: %s\n" format, netdev_name(dev), ##args)
-+	WARN(1, "netdevice: %s%s\n" format, netdev_name(dev),	\
-+	     netdev_reg_state(dev), ##args)
- 
- /* netif printk helpers, similar to netdev_printk */
- 
-diff --git a/lib/dynamic_debug.c b/lib/dynamic_debug.c
-index 7288e38..c9afbe2 100644
---- a/lib/dynamic_debug.c
-+++ b/lib/dynamic_debug.c
-@@ -614,13 +614,15 @@ int __dynamic_netdev_dbg(struct _ddebug *descriptor,
- 		char buf[PREFIX_SIZE];
- 
- 		res = dev_printk_emit(7, dev->dev.parent,
--				      "%s%s %s %s: %pV",
-+				      "%s%s %s %s%s: %pV",
- 				      dynamic_emit_prefix(descriptor, buf),
- 				      dev_driver_string(dev->dev.parent),
- 				      dev_name(dev->dev.parent),
--				      netdev_name(dev), &vaf);
-+				      netdev_name(dev), netdev_reg_state(dev),
-+				      &vaf);
- 	} else if (dev) {
--		res = printk(KERN_DEBUG "%s: %pV", netdev_name(dev), &vaf);
-+		res = printk(KERN_DEBUG "%s%s: %pV", netdev_name(dev),
-+			     netdev_reg_state(dev), &vaf);
- 	} else {
- 		res = printk(KERN_DEBUG "(NULL net_device): %pV", &vaf);
- 	}
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 239722a..81d6101 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -6950,12 +6950,14 @@ static int __netdev_printk(const char *level, const struct net_device *dev,
- 	if (dev && dev->dev.parent) {
- 		r = dev_printk_emit(level[1] - '0',
- 				    dev->dev.parent,
--				    "%s %s %s: %pV",
-+				    "%s %s %s%s: %pV",
- 				    dev_driver_string(dev->dev.parent),
- 				    dev_name(dev->dev.parent),
--				    netdev_name(dev), vaf);
-+				    netdev_name(dev), netdev_reg_state(dev),
-+				    vaf);
- 	} else if (dev) {
--		r = printk("%s%s: %pV", level, netdev_name(dev), vaf);
-+		r = printk("%s%s%s: %pV", level, netdev_name(dev),
-+			   netdev_reg_state(dev), vaf);
- 	} else {
- 		r = printk("%s(NULL net_device): %pV", level, vaf);
- 	}
--- 
-1.8.4
+diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
+index c4638c67f6b9..22756db53dca 100644
+--- a/drivers/net/usb/qmi_wwan.c
++++ b/drivers/net/usb/qmi_wwan.c
+@@ -667,6 +667,7 @@ static const struct usb_device_id products[] =3D {
+ 	{QMI_FIXED_INTF(0x05c6, 0x9084, 4)},
+ 	{QMI_FIXED_INTF(0x05c6, 0x920d, 0)},
+ 	{QMI_FIXED_INTF(0x05c6, 0x920d, 5)},
++	{QMI_FIXED_INTF(0x0846, 0x68a2, 8)},
+ 	{QMI_FIXED_INTF(0x12d1, 0x140c, 1)},	/* Huawei E173 */
+ 	{QMI_FIXED_INTF(0x12d1, 0x14ac, 1)},	/* Huawei E1820 */
+ 	{QMI_FIXED_INTF(0x16d8, 0x6003, 0)},	/* CMOTech 6003 */
+@@ -757,6 +758,7 @@ static const struct usb_device_id products[] =3D {
+ 	{QMI_FIXED_INTF(0x1199, 0x9054, 8)},	/* Sierra Wireless Modem */
+ 	{QMI_FIXED_INTF(0x1199, 0x9055, 8)},	/* Netgear AirCard 341U */
+ 	{QMI_FIXED_INTF(0x1199, 0x9056, 8)},	/* Sierra Wireless Modem */
++	{QMI_FIXED_INTF(0x1199, 0x9057, 8)},
+ 	{QMI_FIXED_INTF(0x1199, 0x9061, 8)},	/* Sierra Wireless Modem */
+ 	{QMI_FIXED_INTF(0x1bbb, 0x011e, 4)},	/* Telekom Speedstick LTE II (Al=
+catel One Touch L100V LTE) */
+ 	{QMI_FIXED_INTF(0x1bbb, 0x0203, 2)},	/* Alcatel L800MA */
+--=20
+2.0.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
