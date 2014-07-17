@@ -1,76 +1,57 @@
 From: Veaceslav Falico <vfalico@gmail.com>
-Subject: Re: [PATCH v2 net-next 2/2] net: print net_device reg_state in
- netdev_* unless it's registered
-Date: Thu, 17 Jul 2014 19:27:41 +0200
-Message-ID: <20140717172741.GC20406@mikrodark.usersys.redhat.com>
-References: <1405606186-13703-1-git-send-email-vfalico@gmail.com>
- <1405606186-13703-3-git-send-email-vfalico@gmail.com>
- <1405616424.12363.47.camel@joe-AO725>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Jason Baron <jbaron@akamai.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Vlad Yasevich <vyasevic@redhat.com>,
-	stephen hemminger <stephen@networkplumber.org>,
-	Jerry Chu <hkchu@google.com>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: Joe Perches <joe@perches.com>
+Subject: [PATCH v3 net-next 1/2] net: use dev->name in netdev_pr* when it's available
+Date: Thu, 17 Jul 2014 19:46:09 +0200
+Message-ID: <1405619171-18172-2-git-send-email-vfalico@gmail.com>
+References: <1405619171-18172-1-git-send-email-vfalico@gmail.com>
+Cc: Veaceslav Falico <vfalico@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Tom Gundersen <teg@jklm.no>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:39324 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750737AbaGQRan (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 13:30:43 -0400
-Received: by mail-wi0-f169.google.com with SMTP id n3so7527937wiv.0
-        for <netdev@vger.kernel.org>; Thu, 17 Jul 2014 10:30:41 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1405616424.12363.47.camel@joe-AO725>
+Received: from mx1.redhat.com ([209.132.183.28]:22733 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750964AbaGQRuk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 17 Jul 2014 13:50:40 -0400
+In-Reply-To: <1405619171-18172-1-git-send-email-vfalico@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 17, 2014 at 10:00:24AM -0700, Joe Perches wrote:
->On Thu, 2014-07-17 at 16:09 +0200, Veaceslav Falico wrote:
->> This way we'll always know in what status the device is, unless it's
->> running normally (i.e. NETDEV_REGISTERED).
->[]
->> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
->[]
->> @@ -3388,6 +3388,20 @@ static inline const char *netdev_name(const struct net_device *dev)
->>  	return dev->name;
->>  }
->>
->> +static inline const char *netdev_reg_state(const struct net_device *dev)
->> +{
->> +	switch (dev->reg_state) {
->> +	case NETREG_UNINITIALIZED: return " (unregistered)";
->
->Why not " (uninitialized)"?
+netdev_name() returns dev->name only when the net_device is in
+NETREG_REGISTERED state.
 
-Good one, thank you, missed it somehow. Will send v2.
+However, dev->name is always populated on creation, so we can easily use
+it.
 
->
->> +	case NETREG_REGISTERED: return "";
->> +	case NETREG_UNREGISTERING: return " (unregistering)";
->> +	case NETREG_UNREGISTERED: return " (unregistered)";
->> +	case NETREG_RELEASED: return " (released)";
->> +	case NETREG_DUMMY: return " (dummy)";
->> +	}
->> +
->> +	return " (unknown)";
->
->Shouldn't this " (unknown)" have stronger text
->and use a WARN_ON_ONCE?
+There are two cases when there's no real name - when it's an empty string
+or when the name is in form of "eth%d", then netdev_name() returns "unnamed
+net_device".
 
-Hrm, I don't remember why, but I've specifically dropped the warning here.
-Now it seems like a good idea, so I'll add it here.
+CC: "David S. Miller" <davem@davemloft.net>
+CC: Tom Gundersen <teg@jklm.no>
+Signed-off-by: Veaceslav Falico <vfalico@gmail.com>
+---
 
->
->I'd put this in net/core/dev.c and make it not be static inline.
+Notes:
+    v1->v2:
+    Also account for an empty string, as Tom Gundersen suggested.
 
-Again, I don't think it's really needed, as it's used in 4 functions (which
-aren't inline), so the benefits are minimal, if any.
+ include/linux/netdevice.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-I'll rather keep them inline, I guess...
-
->
->
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 15ed750..70256aa 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -3383,8 +3383,8 @@ extern struct pernet_operations __net_initdata loopback_net_ops;
+ 
+ static inline const char *netdev_name(const struct net_device *dev)
+ {
+-	if (dev->reg_state != NETREG_REGISTERED)
+-		return "(unregistered net_device)";
++	if (!dev->name[0] || strchr(dev->name, '%'))
++		return "(unnamed net_device)";
+ 	return dev->name;
+ }
+ 
+-- 
+1.8.4
