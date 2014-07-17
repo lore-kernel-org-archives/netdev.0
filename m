@@ -1,77 +1,90 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: Guest 8021q VLAN tags and macvtap
-Date: Wed, 16 Jul 2014 19:36:52 -0400
-Message-ID: <53C70C94.6050507@redhat.com>
-References: <53C6DD6B.5090007@linux.vnet.ibm.com>
-Reply-To: vyasevic@redhat.com
+From: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net-next] openvswitch: make generic netlink
+	group const
+Date: Wed, 16 Jul 2014 17:02:35 -0700
+Message-ID: <CALnjE+o8rF+VzMomhfVE0P0ruRp9CKFbtachrXOEm34eP9Qyow@mail.gmail.com>
+References: <20140716112552.55852dbf@samsung-9>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Matthew Rosato <mjrosato@linux.vnet.ibm.com>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:24580 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752695AbaGPXg5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 16 Jul 2014 19:36:57 -0400
-In-Reply-To: <53C6DD6B.5090007@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20140716112552.55852dbf@samsung-9>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On 07/16/2014 04:15 PM, Matthew Rosato wrote:
-> Prior to commit 6acf54f1cf (macvtap: Add support of packet capture on
-> macvtap device), I was able to setup an environment where qemu guests
-> connected via macvtaps (eg, guest eth0 --> host macvtap0 --> host eth0)
-> could configure guest 8021q tagging and communicate with each other over
-> the vlan, with the guests being responsible for tagging/untagging. I
-> accomplished this by configuring the desired vlan id on both the guest
-> interface (guest eth0.123) as well as by adding the vlan to the
-> underlying host macvtap (macvtap0.123).  Configuring the id on the
-> macvtap was done to allow the tagged packets to get past the lowerdev.
-> 
-> Now, post 6acf54f1cf, guest-tagged traffic never arrives on the target
-> guest (untagged traffic is fine).  I did some tracing as a tagged packet
-> comes in on the target host, summarized:
-> 
-> 1) __netif_receive_skb calls untag_vlan, vlan_tci is stashed,
-> vlan_do_receive returns false
-> 2) rx_handler (macvlan_handle_frame) is called
-> 3) netif_rx_ni is called, skb queued/dequeued (pass to macvtap)
-> 4) __netif_receive_skb called again - vlan_do_receive is called
-> successfully, causing us to lose our stashed vlan_tci
-> 5) rx_handler (macvtap_handle_frame) is called
-> 
-> My understanding is that macvtap expects packets to get untagged, and
-> intends to re-tag them later at macvtap_put_user.  But, because the
-> macvtap is vlan-enabled, the stashed vlan_tci is always gone because of
-> vlan_do_receive.
-> 
-> I think it boils down to the old macvtap_receive/forward logic not
-> calling vlan_do_receive, but now we do since we're using netif.  Was my
-> configuration wrong in the first place, or is this a bug?
-> 
-> FWIW, I hacked __netif_receive_skb to skip the vlan_do_receive call for
-> IFF_MACVLAN, and sure enough that restores my expected behavior, but
-> I'm not sure if that's the right solution.
+On Wed, Jul 16, 2014 at 11:25 AM, Stephen Hemminger
+<stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org> wrote:
+> Generic netlink tables can be const.
+>
 
-No, that's not the right solution.  The reason you are seeing loss of
-vlan_tci is due to the existance of macvtap0.123 (the host side vlan
-device).  If you remove that device, guest-guest comms will work,
-but guest-remote will stop
+OVS external module can not use const due to compatibility code. But
+there is no reason we can not do it for in-kernel module.
 
-Getting the tagged packets received at the lower dev is the issue.
-You could unload vlan module and that should restore guest-remote
-communications.
-You could setting promisc mode on the lower dev, but that's not a nice
-solution.
+Thanks.
 
-I need to thing about more about how better solve this.
-
-Thanks
--vlad
-
-
-> 
-> Thanks,
-> Matt
-> 
+> Signed-off-by: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
+>
+>
+> --- a/net/openvswitch/datapath.c        2014-07-09 03:06:11.400291765 -0700
+> +++ b/net/openvswitch/datapath.c        2014-07-09 03:09:35.688297236 -0700
+> @@ -66,16 +66,16 @@ static struct genl_family dp_packet_genl
+>  static struct genl_family dp_flow_genl_family;
+>  static struct genl_family dp_datapath_genl_family;
+>
+> -static struct genl_multicast_group ovs_dp_flow_multicast_group = {
+> -       .name = OVS_FLOW_MCGROUP
+> +static const struct genl_multicast_group ovs_dp_flow_multicast_group = {
+> +       .name = OVS_FLOW_MCGROUP,
+>  };
+>
+> -static struct genl_multicast_group ovs_dp_datapath_multicast_group = {
+> -       .name = OVS_DATAPATH_MCGROUP
+> +static const struct genl_multicast_group ovs_dp_datapath_multicast_group = {
+> +       .name = OVS_DATAPATH_MCGROUP,
+>  };
+>
+> -struct genl_multicast_group ovs_dp_vport_multicast_group = {
+> -       .name = OVS_VPORT_MCGROUP
+> +static const struct genl_multicast_group ovs_dp_vport_multicast_group = {
+> +       .name = OVS_VPORT_MCGROUP,
+>  };
+>
+>  /* Check if need to build a reply message.
+> @@ -1190,7 +1190,7 @@ static const struct nla_policy flow_poli
+>         [OVS_FLOW_ATTR_CLEAR] = { .type = NLA_FLAG },
+>  };
+>
+> -static struct genl_ops dp_flow_genl_ops[] = {
+> +static const struct genl_ops dp_flow_genl_ops[] = {
+>         { .cmd = OVS_FLOW_CMD_NEW,
+>           .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
+>           .policy = flow_policy,
+> @@ -1578,7 +1578,7 @@ static const struct nla_policy datapath_
+>         [OVS_DP_ATTR_USER_FEATURES] = { .type = NLA_U32 },
+>  };
+>
+> -static struct genl_ops dp_datapath_genl_ops[] = {
+> +static const struct genl_ops dp_datapath_genl_ops[] = {
+>         { .cmd = OVS_DP_CMD_NEW,
+>           .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
+>           .policy = datapath_policy,
+> @@ -1945,7 +1945,7 @@ static const struct nla_policy vport_pol
+>         [OVS_VPORT_ATTR_OPTIONS] = { .type = NLA_NESTED },
+>  };
+>
+> -static struct genl_ops dp_vport_genl_ops[] = {
+> +static const struct genl_ops dp_vport_genl_ops[] = {
+>         { .cmd = OVS_VPORT_CMD_NEW,
+>           .flags = GENL_ADMIN_PERM, /* Requires CAP_NET_ADMIN privilege. */
+>           .policy = vport_policy,
