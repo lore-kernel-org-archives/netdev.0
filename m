@@ -1,53 +1,56 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH net-next] dp83640: Fix receive timestamp race condition
-Date: Thu, 17 Jul 2014 20:12:22 +0200
-Message-ID: <20140717181222.GB23623@localhost.localdomain>
-References: <1405603079-23572-1-git-send-email-stefan.sorensen@spectralink.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Patch net-next] net_sched: hold tcf_lock in netdevice notifier
+Date: Thu, 17 Jul 2014 20:17:10 +0200
+Message-ID: <1405621030.10255.84.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1405545931-13832-1-git-send-email-xiyou.wangcong@gmail.com>
+	 <1405545931-13832-2-git-send-email-xiyou.wangcong@gmail.com>
+	 <53C7C675.7090400@mojatatu.com>
+	 <CAM_iQpU6=rtb+-T9NiiEJ+799PtJo=j1=EBuAL76Ac7=w=MKHA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Stefan =?iso-8859-1?Q?S=F8rensen?=
-	<stefan.sorensen@spectralink.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cong Wang <cwang@twopensource.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:56394 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751275AbaGQSMn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 14:12:43 -0400
-Received: by mail-wi0-f178.google.com with SMTP id hi2so3278839wib.11
-        for <netdev@vger.kernel.org>; Thu, 17 Jul 2014 11:12:42 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1405603079-23572-1-git-send-email-stefan.sorensen@spectralink.com>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:38618 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752030AbaGQSRP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 14:17:15 -0400
+Received: by mail-wi0-f174.google.com with SMTP id d1so8182376wiv.13
+        for <netdev@vger.kernel.org>; Thu, 17 Jul 2014 11:17:14 -0700 (PDT)
+In-Reply-To: <CAM_iQpU6=rtb+-T9NiiEJ+799PtJo=j1=EBuAL76Ac7=w=MKHA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 17, 2014 at 03:17:59PM +0200, Stefan S=F8rensen wrote:
-> When timestamping received packets, rx_timestamp_work may be schedule=
-d before
-> the timestamps is received from the hardware resulting in the packet =
-beeing
-> delivered without the timestamp.
->=20
-> This is fixed by changing the receive timestamp path: On receiving a =
-packet
-> that need timestamping, it is added to a queue. When a timestamp arri=
-ves, the
-> queue is traversed and if a matching packet is found, it is deliverd =
-with the
-> timestamp. In case the hardware drops a timestamp, a workqueue regula=
-rly
-> checks the queue for old packets and delivers them without a timestam=
-p.
+On Thu, 2014-07-17 at 09:45 -0700, Cong Wang wrote:
+> On Thu, Jul 17, 2014 at 5:49 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> > On 07/16/14 17:25, Cong Wang wrote:
+> >>
+> >> From: Cong Wang <cwang@twopensource.com>
+> >>
+> >> We modify mirred action (m->tcfm_dev) in netdev event, we need to
+> >> prevent on-going mirred actions from reading freed m->tcfm_dev.
+> >> So we need to acquire this spin lock.
+> >>
+> >
+> > Cong,
+> >
+> > What setup prompted this? We have no problems dealing with deleted
+> > devices in the data path. It seems harmless otherwise.
+> >
+> 
+> 
+> I found this during code review, don't see any real crash. This
+> is why I sent it for net-next not net. :)
+> 
+> The reason why it doesn't trigger a crash is I think dev_put()
+> doesn't immediately release dev when refcount hits zero,
+> instead it defers that to rtnl_unlock().
 
-And what happens when the timestamp arrives *before* the PTP packet?
+There is no way this dev_put() could make refcnt reaching 0, unless
+there is a serious bug elsewhere.
 
-The original code was desgined to handle this possibility. Although it
-makes logical sense for the PHY to deliver the status frame after the
-regular frame, there is nothing in the documentation that confirms
-this behavior, and hardware engineering decisions are not always
-logical. If some newer silicon revision were to buffer the incoming
-packet, waiting for the time stamp logic, then the driver should still
-work.
-
-Thanks,
-Richard
+Anyway, tcfm_dev should probably be RCU protected.
