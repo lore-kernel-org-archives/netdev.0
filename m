@@ -1,43 +1,44 @@
 From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH v2] net: clean up some sparse endianness warnings in
- ipv6.h
-Date: Wed, 16 Jul 2014 23:31:51 -0700 (PDT)
-Message-ID: <20140716.233151.1229307096154836730.davem@davemloft.net>
-References: <1405340746-10678-1-git-send-email-jlayton@primarydata.com>
-	<1405508146-13004-1-git-send-email-jlayton@primarydata.com>
+Subject: Re: [PATCH v2 0/2] net: davinci_mdio: reuse for keystone2 arch
+Date: Wed, 16 Jul 2014 23:33:47 -0700 (PDT)
+Message-ID: <20140716.233347.1283806216031286454.davem@davemloft.net>
+References: <1405512783-20307-1-git-send-email-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org, jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org, yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org,
-	kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	hch-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org
-To: jlayton-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1405508146-13004-1-git-send-email-jlayton-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, santosh.shilimkar-l0cyMroinI0@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, prabhakar.csengg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, nsekhar-l0cyMroinI0@public.gmane.org,
+	robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	davinci-linux-open-source-VycZQUHpC/PFrsHnngEfi1aTQe2KTcn/@public.gmane.org, mugunthanvnm-l0cyMroinI0@public.gmane.org
+To: grygorii.strashko-l0cyMroinI0@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1405512783-20307-1-git-send-email-grygorii.strashko-l0cyMroinI0@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Jeff Layton <jlayton-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
-Date: Wed, 16 Jul 2014 06:55:46 -0400
+From: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
+Date: Wed, 16 Jul 2014 15:13:01 +0300
 
-> sparse is throwing warnings when building sunrpc modules due to some
-> endianness shenanigans in ipv6.h. Specifically:
+> The similar MDIO HW blocks is used by keystone 2 SoCs as
+> in Davinci SoCs:
+> - one in Gigabit Ethernet (GbE) Switch Subsystem
+>   See http://www.ti.com/lit/ug/sprugv9d/sprugv9d.pdf
+> - one in 10 Gigabit Ethernet Subsystem
+>   See http://www.ti.com/lit/ug/spruhj5/spruhj5.pdf
 > 
->   CHECK   net/sunrpc/addr.c
-> include/net/ipv6.h:573:17: warning: restricted __be64 degrades to integer
-> include/net/ipv6.h:577:34: warning: restricted __be32 degrades to integer
-> include/net/ipv6.h:573:17: warning: restricted __be64 degrades to integer
-> include/net/ipv6.h:577:34: warning: restricted __be32 degrades to integer
+> Hence, reuse Davinci MDIO driver for Keystone 2 and
+> enable TI networking for Keystone 2 devices.
 > 
-> Sprinkle some endianness fixups to silence them. These should all get
-> fixed up at compile time, so I don't think this will add any extra work
-> to be done at runtime.
+> Also, as part of this series, enable PHY's creation from DT, because
+> Keystone 2 supports DT boot mode only.
 > 
-> Signed-off-by: Jeff Layton <jlayton-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
+> Changes in v2:
+> - review comments applied. 
+>   Keystone 2 compatibility string changed to "ti,keystone_mdio".
 
-Applied, thank you.
+Series applied to net-next, thanks.
 --
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
