@@ -1,93 +1,57 @@
-From: Jay Vosburgh <jay.vosburgh@canonical.com>
-Subject: Re: [PATCH net-next] bonding: permit enslaving interfaces without set_mac support
-Date: Thu, 17 Jul 2014 12:21:31 -0700
-Message-ID: <12382.1405624891@localhost.localdomain>
-References: <1405423561-9114-1-git-send-email-vfalico@gmail.com>
-Cc: netdev@vger.kernel.org, Andy Gospodarek <andy@greyhouse.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v3 net-next 2/2] net: print net_device reg_state in
+ netdev_* unless it's registered
+Date: Thu, 17 Jul 2014 12:21:39 -0700
+Message-ID: <1405624899.14358.8.camel@joe-AO725>
+References: <1405619171-18172-1-git-send-email-vfalico@gmail.com>
+	 <1405619171-18172-3-git-send-email-vfalico@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Jason Baron <jbaron@akamai.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Vlad Yasevich <vyasevic@redhat.com>,
+	stephen hemminger <stephen@networkplumber.org>,
+	Jerry Chu <hkchu@google.com>,
+	Ben Hutchings <bhutchings@solarflare.com>
 To: Veaceslav Falico <vfalico@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:40460 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752054AbaGQTVg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 15:21:36 -0400
-In-reply-to: <1405423561-9114-1-git-send-email-vfalico@gmail.com>
+Received: from smtprelay0013.hostedemail.com ([216.40.44.13]:49796 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752118AbaGQTVq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 15:21:46 -0400
+In-Reply-To: <1405619171-18172-3-git-send-email-vfalico@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Veaceslav Falico <vfalico@gmail.com> wrote:
+On Thu, 2014-07-17 at 19:46 +0200, Veaceslav Falico wrote:
+[]
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+[]
+> @@ -3444,7 +3459,8 @@ do {								\
+>   * file/line information and a backtrace.
+>   */
+>  #define netdev_WARN(dev, format, args...)			\
+> -	WARN(1, "netdevice: %s\n" format, netdev_name(dev), ##args)
+> +	WARN(1, "netdevice: %s%s\n" format, netdev_name(dev),	\
+> +	     netdev_reg_state(dev), ##args)
 
->Currently we exit if the slave isn't the first slave, doesn't support mac
->address setting and fail_over_mac isn't FOM_ACTIVE. It's wrong because we
->only require ndo_set_mac_address in case bonding is in active-backup mode
->and FOM isn't FOM_ACTIVE.
->
->To fix this - only exit with an error if we're in a/b mode and have
->fail_over_mac != FOM_ACTIVE.
->
->Also, maintain current behaviour on the first slave (forcibly change fom to
->FOM_ACTIVE) to not break anyone's configuration.
+trivia:
 
-	I'm just catching up on this, so I apologize for being late to
-the party here, but the main point of that test was to prohibit slaves
-that cannot change their MAC from joining a bond whose mode requires
-changing the MAC (which is all of them except for active-backup).
+My preference for style here is to have the format
+and args on one line when it fits and separate
+the format and args lines when they don't.
 
-	It looks like the new code path will still fail when
-bond_enslave() later on attempts to change the MAC, as long as
-fail_over_mac is not set.  If f_o_m is set, the enslave will succeed,
-after bypassing the dev_set_mac_address call.  That in turn would seem
-to allow creating a bond of any mode, setting fail_over_mac, then
-filling it with, e.g., ipoib devices.  That bond won't function
-correctly in the modes other than active-backup.
+	WARN(1, "netdevice: %s%s\n" format,
+	     netdev_name(dev), netdev_reg_state(dev), ##args)
 
-	Am I missing something here?
+Unrelated:  maybe it'd be better to change the '\n' to ": "
 
-	-J
+> diff --git a/lib/dynamic_debug.c b/lib/dynamic_debug.c
+[]
+> -		res = printk(KERN_DEBUG "%s: %pV", netdev_name(dev), &vaf);
+> +		res = printk(KERN_DEBUG "%s%s: %pV", netdev_name(dev),
+> +			     netdev_reg_state(dev), &vaf);
 
->CC: Jay Vosburgh <j.vosburgh@gmail.com>
->CC: Andy Gospodarek <andy@greyhouse.net>
->Signed-off-by: Veaceslav Falico <vfalico@gmail.com>
->---
-> drivers/net/bonding/bond_main.c | 19 ++++++++++---------
-> 1 file changed, 10 insertions(+), 9 deletions(-)
->
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index 09dc3ef..e0a33b5 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -1298,19 +1298,20 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
-> 	}
-> 
-> 	if (slave_ops->ndo_set_mac_address == NULL) {
->-		if (!bond_has_slaves(bond)) {
->-			pr_warn("%s: Warning: The first slave device specified does not support setting the MAC address\n",
->-				bond_dev->name);
->-			if (BOND_MODE(bond) == BOND_MODE_ACTIVEBACKUP) {
->+		pr_warn("%s: Warning: The slave device specified does not support setting the MAC address\n",
->+			bond_dev->name);
->+		if (BOND_MODE(bond) == BOND_MODE_ACTIVEBACKUP &&
->+		    bond->params.fail_over_mac != BOND_FOM_ACTIVE) {
->+			if (!bond_has_slaves(bond)) {
-> 				bond->params.fail_over_mac = BOND_FOM_ACTIVE;
-> 				pr_warn("%s: Setting fail_over_mac to active for active-backup mode\n",
-> 					bond_dev->name);
->+			} else {
->+				pr_err("%s: Error: The slave device specified does not support setting the MAC address, but fail_over_mac is not set to active\n",
->+				       bond_dev->name);
->+				res = -EOPNOTSUPP;
->+				goto err_undo_flags;
-> 			}
->-		} else if (bond->params.fail_over_mac != BOND_FOM_ACTIVE) {
->-			pr_err("%s: Error: The slave device specified does not support setting the MAC address, but fail_over_mac is not set to active\n",
->-			       bond_dev->name);
->-			res = -EOPNOTSUPP;
->-			goto err_undo_flags;
-> 		}
-> 	}
-> 
->-- 
->1.8.4
->
-
----
-	-Jay Vosburgh, jay.vosburgh@canonical.com
+etc...
