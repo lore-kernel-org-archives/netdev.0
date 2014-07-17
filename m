@@ -1,72 +1,170 @@
-From: Sonic Zhang <sonic.adi@gmail.com>
-Subject: Re: [PATCH v5] bfin_mac: convert bfin Ethernet driver to NAPI framework
-Date: Thu, 17 Jul 2014 13:28:36 +0800
-Message-ID: <CAJxxZ0OybvReRHvRuL84N=25T6cRG8k1j_gXLcu7U6jHvSZ5Tw@mail.gmail.com>
-References: <1405504302-21344-1-git-send-email-sonic.adi@gmail.com>
-	<1405516649.10255.59.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20140716.140301.896018835447121717.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Varka Bhadram <varkabhadram@gmail.com>,
-	adi-buildroot-devel@lists.sourceforge.net,
-	"Zhang, Sonic" <sonic.zhang@analog.com>
-To: David Miller <davem@davemloft.net>
+From: Anish Bhatt <anish@chelsio.com>
+Subject: [PATCH net-next v2] Update setapp/getapp prototypes in dcbnl_rtnl_ops to return int instead of u8
+Date: Wed, 16 Jul 2014 22:32:39 -0700
+Message-ID: <1405575159-24136-1-git-send-email-anish@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com, dan.carpenter@oracle.com,
+	Anish Bhatt <anish@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f169.google.com ([209.85.213.169]:59842 "EHLO
-	mail-ig0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752770AbaGQF2h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 01:28:37 -0400
-Received: by mail-ig0-f169.google.com with SMTP id r2so5122040igi.4
-        for <netdev@vger.kernel.org>; Wed, 16 Jul 2014 22:28:36 -0700 (PDT)
-In-Reply-To: <20140716.140301.896018835447121717.davem@davemloft.net>
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:53961
+	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751630AbaGQFcu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 01:32:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+v2: fixed issue with checking return of dcbnl_rtnl_ops->getapp()
 
-On Thu, Jul 17, 2014 at 5:03 AM, David Miller <davem@davemloft.net> wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Wed, 16 Jul 2014 15:17:29 +0200
->
->> On Wed, 2014-07-16 at 17:51 +0800, Sonic Zhang wrote:
->>> From: Sonic Zhang <sonic.zhang@analog.com>
->>> +    if (i < budget) {
->>> +            napi_gro_flush(napi, false);
->>> +            local_irq_save(flags);
->>> +            __napi_complete(napi);
->>> +            local_irq_restore(flags);
->>> +            enable_irq(IRQ_MAC_RX);
->>
->> I have no idea why you open-code napi_complete();
->>
->> Why cant you just copy/paste what other drivers do here ?
->>
->>       if (i < budget) {
->>               napi_complete(napi);
->>               enable_irq(IRQ_MAC_RX);
->>       }
->
-> Generally speaking, I am very frustrated at how this bfin_mac NAPI
-> conversion tries to do things in special ways.
->
-> Please mimick what other drivers do rather than trying to do things in
-> a special way unique to your driver.
+Signed-off-by: Anish Bhatt <anish@chelsio.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c |  4 ++--
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c  | 21 ++++++---------------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c |  6 +++---
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c |  4 ++--
+ include/net/dcbnl.h                             |  4 ++--
+ net/dcb/dcbnl.c                                 |  8 +++++++-
+ 6 files changed, 22 insertions(+), 25 deletions(-)
 
-Driver realtek/8139cp.c does things in the same way as the bfin_mac
-NAPI code. Bfin EMAC device has no capability to disable the MAC_RX
-interrupt in its EMAC register directly. The bfin_mac driver has to do
-it in its system interrupt controller via the kernel API
-enable_irq()/disable_irq_nosync().
-
-In net_poll loop, if napi_complete() is called, the EMAC IRQ is
-enabled more times than the it is disabled. This is not a problem to
-drivers which don't call enable_irq()/disable_irq_nosync(). But, the
-IRQ enabling and disabling operations have to be balanced in the
-bfin_mac driver via __napi_complete() to avoid the kernel warning.
-
-
-Regards,
-
-Sonic Zhang
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
+index 51a952c51cb1..fb26bc4c42a1 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_dcb.c
+@@ -2303,8 +2303,8 @@ static int bnx2x_set_admin_app_up(struct bnx2x *bp, u8 idtype, u16 idval, u8 up)
+ 	return 0;
+ }
+ 
+-static u8 bnx2x_dcbnl_set_app_up(struct net_device *netdev, u8 idtype,
+-				 u16 idval, u8 up)
++static int bnx2x_dcbnl_set_app_up(struct net_device *netdev, u8 idtype,
++				  u16 idval, u8 up)
+ {
+ 	struct bnx2x *bp = netdev_priv(netdev);
+ 
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
+index a8b1073e6373..0d3a9df5be36 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
+@@ -648,26 +648,17 @@ static int __cxgb4_getapp(struct net_device *dev, u8 app_idtype, u16 app_id,
+ }
+ 
+ /* Return the Application User Priority Map associated with the specified
+- * Application ID.  Since this routine is prototyped to return "u8" we can't
+- * return errors ...
++ * Application ID.
+  */
+-static u8 cxgb4_getapp(struct net_device *dev, u8 app_idtype, u16 app_id)
++static int cxgb4_getapp(struct net_device *dev, u8 app_idtype, u16 app_id)
+ {
+-	int result = __cxgb4_getapp(dev, app_idtype, app_id, 0);
+-
+-	if (result < 0)
+-		result = 0;
+-
+-	return result;
++	return __cxgb4_getapp(dev, app_idtype, app_id, 0);
+ }
+ 
+-/* Write a new Application User Priority Map for the specified Application ID.
+- * This routine is prototyped to return "u8" but other instantiations of the
+- * DCB NetLink Operations "setapp" routines return negative errnos for errors.
+- * We follow their lead.
++/* Write a new Application User Priority Map for the specified Application ID
+  */
+-static u8 cxgb4_setapp(struct net_device *dev, u8 app_idtype, u16 app_id,
+-		       u8 app_prio)
++static int cxgb4_setapp(struct net_device *dev, u8 app_idtype, u16 app_id,
++			u8 app_prio)
+ {
+ 	struct fw_port_cmd pcmd;
+ 	struct port_info *pi = netdev2pinfo(dev);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
+index 5172b6b12c09..ea1c1ab926e2 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
+@@ -495,10 +495,10 @@ static void ixgbe_dcbnl_setpfcstate(struct net_device *netdev, u8 state)
+  * @id: id is either ether type or TCP/UDP port number
+  *
+  * Returns : on success, returns a non-zero 802.1p user priority bitmap
+- * otherwise returns 0 as the invalid user priority bitmap to indicate an
++ * otherwise returns -EINVAL as the invalid user priority bitmap to indicate an
+  * error.
+  */
+-static u8 ixgbe_dcbnl_getapp(struct net_device *netdev, u8 idtype, u16 id)
++static int ixgbe_dcbnl_getapp(struct net_device *netdev, u8 idtype, u16 id)
+ {
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+ 	struct dcb_app app = {
+@@ -507,7 +507,7 @@ static u8 ixgbe_dcbnl_getapp(struct net_device *netdev, u8 idtype, u16 id)
+ 			     };
+ 
+ 	if (!(adapter->dcbx_cap & DCB_CAP_DCBX_VER_CEE))
+-		return 0;
++		return -EINVAL;
+ 
+ 	return dcb_getapp(netdev, &app);
+ }
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c
+index 561cb11ca58c..a72bcddf160a 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_dcb.c
+@@ -926,7 +926,7 @@ static int qlcnic_dcb_get_num_tcs(struct net_device *netdev, int attr, u8 *num)
+ 	}
+ }
+ 
+-static u8 qlcnic_dcb_get_app(struct net_device *netdev, u8 idtype, u16 id)
++static int qlcnic_dcb_get_app(struct net_device *netdev, u8 idtype, u16 id)
+ {
+ 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
+ 	struct dcb_app app = {
+@@ -935,7 +935,7 @@ static u8 qlcnic_dcb_get_app(struct net_device *netdev, u8 idtype, u16 id)
+ 			     };
+ 
+ 	if (!test_bit(QLCNIC_DCB_STATE, &adapter->dcb->state))
+-		return 0;
++		return -EINVAL;
+ 
+ 	return dcb_getapp(netdev, &app);
+ }
+diff --git a/include/net/dcbnl.h b/include/net/dcbnl.h
+index a975edf21b22..597b88a94332 100644
+--- a/include/net/dcbnl.h
++++ b/include/net/dcbnl.h
+@@ -81,8 +81,8 @@ struct dcbnl_rtnl_ops {
+ 	void (*setbcncfg)(struct net_device *, int, u32);
+ 	void (*getbcnrp)(struct net_device *, int, u8 *);
+ 	void (*setbcnrp)(struct net_device *, int, u8);
+-	u8   (*setapp)(struct net_device *, u8, u16, u8);
+-	u8   (*getapp)(struct net_device *, u8, u16);
++	int  (*setapp)(struct net_device *, u8, u16, u8);
++	int  (*getapp)(struct net_device *, u8, u16);
+ 	u8   (*getfeatcfg)(struct net_device *, int, u8 *);
+ 	u8   (*setfeatcfg)(struct net_device *, int, u8);
+ 
+diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
+index f8b98d89c285..c34af7a1d2d4 100644
+--- a/net/dcb/dcbnl.c
++++ b/net/dcb/dcbnl.c
+@@ -471,7 +471,11 @@ static int dcbnl_getapp(struct net_device *netdev, struct nlmsghdr *nlh,
+ 	id = nla_get_u16(app_tb[DCB_APP_ATTR_ID]);
+ 
+ 	if (netdev->dcbnl_ops->getapp) {
+-		up = netdev->dcbnl_ops->getapp(netdev, idtype, id);
++		ret = netdev->dcbnl_ops->getapp(netdev, idtype, id);
++		if (ret < 0)
++			return ret;
++		else
++			up = ret;
+ 	} else {
+ 		struct dcb_app app = {
+ 					.selector = idtype,
+@@ -538,6 +542,8 @@ static int dcbnl_setapp(struct net_device *netdev, struct nlmsghdr *nlh,
+ 
+ 	if (netdev->dcbnl_ops->setapp) {
+ 		ret = netdev->dcbnl_ops->setapp(netdev, idtype, id, up);
++		if (ret < 0)
++			return ret;
+ 	} else {
+ 		struct dcb_app app;
+ 		app.selector = idtype;
+-- 
+2.0.1
