@@ -1,53 +1,61 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH V2] staging: rtl8192ee: Fix setting highest n rate
-Date: Wed, 16 Jul 2014 22:03:09 -0500
-Message-ID: <1405566189-16281-1-git-send-email-Larry.Finger@lwfinger.net>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [GIT] Networking
+Date: Wed, 16 Jul 2014 17:05:12 -1000
+Message-ID: <CA+55aFzbpYjoJfLnoQy_rGb-FYoh5LKVeTRhp7xX_vXEFk_adA@mail.gmail.com>
+References: <20140715.002844.679028486034873225.davem@davemloft.net>
+	<CA+55aFw9=c_jSb7GOXDoityxWGiDs9y7LsdasyPHXESiZR75bg@mail.gmail.com>
+	<20140715.114614.827795344549781033.davem@davemloft.net>
+	<20140715190252.GC26012@tuxdriver.com>
+	<877g3cbueb.fsf@purkki.adurom.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: devel@driverdev.osuosl.org, netdev@vger.kernel.org,
- Larry Finger <Larry.Finger@lwfinger.net>
-To: gregkh@linuxfoundation.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Kalle Valo <kvalo@adurom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <877g3cbueb.fsf@purkki.adurom.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Commit 4fb6a37c3f94c1cb4b828bfcc4347771e1628f88 by Andrey Utkin
-<andrey.krieger.utkin@gmail.com> and entitled "staging: rtl8192ee:
-"Correct bitmask in comparsion" fixed what appeared to be a typo. After
-consultation with the Realtek engineers, merely testing for a 2T2R device
-is sufficient to ensure that the TX MCS map will equal 0x0c, thus the second
-test can be ignored.
+On Wed, Jul 16, 2014 at 4:18 PM, Kalle Valo <kvalo@adurom.com> wrote:
+>
+> Just out of curiosity, what is the best way to send a proposal how to
+> fix a merge conflict? For example, if I send a pull request to John
+> which I know will issue a conflict it would be nice to include
+> instructions (or some sort of patch) how I think it should be resolved.
 
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
----
+So from personal experience seeing lots of different explanations, my
+preferred one is not so much a patch, as explaining *why* something
+generates a merge conflict.
 
-V2 - Remove extraneous parenthesis
+Optimally for each conflict, say what happened ("X changed Y, A
+changed B close by") and then describe the result in those terms (eg
+"pick the code from my branch, but then do the rename of xyz to abc
+that caused the conflict", or "pick your side, it obsoletes the fix
+from me that causes the conflict" or whatever).
 
- drivers/staging/rtl8192ee/base.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+And if you have a *lot* of conflicts, explain why that happaned too,
+and think very hard about whether what you do is perhaps screwed up
+(or complain about the other entity that did annoying whitespace
+changes for no good reason or whatever). Maybe it's just that the
+source code is badly organized, but more likely it's because somebody
+is just doing something stupid, and people are stepping on each others
+toes. If the explanation is "this is a one-time issue brought on by
+xyz", then that's fine - sh*t happens. If it's something else, at
+least mention it. And if it keeps happening, something needs to be
+done.
 
-diff --git a/drivers/staging/rtl8192ee/base.c b/drivers/staging/rtl8192ee/base.c
-index 71ed12e..b8b897a 100644
---- a/drivers/staging/rtl8192ee/base.c
-+++ b/drivers/staging/rtl8192ee/base.c
-@@ -826,8 +826,7 @@ static u8 _rtl_get_vht_highest_n_rate(struct ieee80211_hw *hw,
- 	u8 hw_rate;
- 	u16 map = le16_to_cpu(sta->vht_cap.vht_mcs.tx_mcs_map);
- 
--	if ((get_rf_type(rtlphy) == RF_2T2R) &&
--	    (map & 0x000c) != 0x000c) {
-+	if (get_rf_type(rtlphy) == RF_2T2R) {
- 		if ((map & 0x000c) >> 2 == IEEE80211_VHT_MCS_SUPPORT_0_7)
- 			hw_rate =
- 			rtlpriv->cfg->maps[RTL_RC_VHT_RATE_2SS_MCS7];
--- 
-1.8.4.5
+And in the end, I personally tend to always resolve the conflicts
+*without* really looking at the explanation, by just trying to figure
+it out on my own. I've had people send me incorrect resolution
+suggestions, and I've also occasionally just screwed up my own
+resolution. Having somebody elses explanations of what they did is a
+good sanity check that things went right (when their explanation
+matches mine), and is a good red flag about "maybe this is more
+complicated than I thought" when the explanations and results don't
+match up.
+
+                     Linus
