@@ -1,46 +1,72 @@
 From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: [PATCH net,stable] net: qmi_wwan: add two Sierra Wireless/Netgear devices
-Date: Thu, 17 Jul 2014 13:33:51 +0200
-Message-ID: <1405596831-11759-1-git-send-email-bjorn@mork.no>
+Subject: [PATCH net,stable] net: huawei_cdc_ncm: add "subclass 3" devices
+Date: Thu, 17 Jul 2014 13:34:09 +0200
+Message-ID: <1405596849-11800-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>,
+	Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Add two device IDs found in an out-of-tree driver downloadable
-from Netgear.
+Huawei's usage of the subclass and protocol fields is not 100%
+clear to us, but there appears to be a very strict system.
 
+A device with the "shared" device ID 12d1:1506 and this NCM
+function was recently reported (showing only default altsetting):
+
+    Interface Descriptor:
+      bLength                 9
+      bDescriptorType         4
+      bInterfaceNumber        1
+      bAlternateSetting       0
+      bNumEndpoints           1
+      bInterfaceClass       255 Vendor Specific Class
+      bInterfaceSubClass      3
+      bInterfaceProtocol     22
+      iInterface              8 CDC Network Control Model (NCM)
+      ** UNRECOGNIZED:  05 24 00 10 01
+      ** UNRECOGNIZED:  06 24 1a 00 01 1f
+      ** UNRECOGNIZED:  0c 24 1b 00 01 00 04 10 14 dc 05 20
+      ** UNRECOGNIZED:  0d 24 0f 0a 0f 00 00 00 ea 05 03 00 01
+      ** UNRECOGNIZED:  05 24 06 01 01
+      Endpoint Descriptor:
+        bLength                 7
+        bDescriptorType         5
+        bEndpointAddress     0x85  EP 5 IN
+        bmAttributes            3
+          Transfer Type            Interrupt
+          Synch Type               None
+          Usage Type               Data
+        wMaxPacketSize     0x0010  1x 16 bytes
+        bInterval               9
+
+Cc: Enrico Mioso <mrkiko.rs-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
 ---
- drivers/net/usb/qmi_wwan.c | 2 ++
- 1 file changed, 2 insertions(+)
+ drivers/net/usb/huawei_cdc_ncm.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index c4638c67f6b9..22756db53dca 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -667,6 +667,7 @@ static const struct usb_device_id products[] =3D {
- 	{QMI_FIXED_INTF(0x05c6, 0x9084, 4)},
- 	{QMI_FIXED_INTF(0x05c6, 0x920d, 0)},
- 	{QMI_FIXED_INTF(0x05c6, 0x920d, 5)},
-+	{QMI_FIXED_INTF(0x0846, 0x68a2, 8)},
- 	{QMI_FIXED_INTF(0x12d1, 0x140c, 1)},	/* Huawei E173 */
- 	{QMI_FIXED_INTF(0x12d1, 0x14ac, 1)},	/* Huawei E1820 */
- 	{QMI_FIXED_INTF(0x16d8, 0x6003, 0)},	/* CMOTech 6003 */
-@@ -757,6 +758,7 @@ static const struct usb_device_id products[] =3D {
- 	{QMI_FIXED_INTF(0x1199, 0x9054, 8)},	/* Sierra Wireless Modem */
- 	{QMI_FIXED_INTF(0x1199, 0x9055, 8)},	/* Netgear AirCard 341U */
- 	{QMI_FIXED_INTF(0x1199, 0x9056, 8)},	/* Sierra Wireless Modem */
-+	{QMI_FIXED_INTF(0x1199, 0x9057, 8)},
- 	{QMI_FIXED_INTF(0x1199, 0x9061, 8)},	/* Sierra Wireless Modem */
- 	{QMI_FIXED_INTF(0x1bbb, 0x011e, 4)},	/* Telekom Speedstick LTE II (Al=
-catel One Touch L100V LTE) */
- 	{QMI_FIXED_INTF(0x1bbb, 0x0203, 2)},	/* Alcatel L800MA */
+diff --git a/drivers/net/usb/huawei_cdc_ncm.c b/drivers/net/usb/huawei_=
+cdc_ncm.c
+index 5d95a13dbe2a..735f7dadb9a0 100644
+--- a/drivers/net/usb/huawei_cdc_ncm.c
++++ b/drivers/net/usb/huawei_cdc_ncm.c
+@@ -194,6 +194,9 @@ static const struct usb_device_id huawei_cdc_ncm_de=
+vs[] =3D {
+ 	{ USB_VENDOR_AND_INTERFACE_INFO(0x12d1, 0xff, 0x02, 0x76),
+ 	  .driver_info =3D (unsigned long)&huawei_cdc_ncm_info,
+ 	},
++	{ USB_VENDOR_AND_INTERFACE_INFO(0x12d1, 0xff, 0x03, 0x16),
++	  .driver_info =3D (unsigned long)&huawei_cdc_ncm_info,
++	},
+=20
+ 	/* Terminating entry */
+ 	{
 --=20
 2.0.1
 
