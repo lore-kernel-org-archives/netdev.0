@@ -1,70 +1,55 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [GIT net-next v4] Open vSwitch
-Date: Thu, 17 Jul 2014 15:25:45 -0700
-Message-ID: <CALnjE+qVf9p7TsBU=S84GUtN5f940T-eWERVP=Zocr8Maupkfw@mail.gmail.com>
-References: <1405556263-1653-1-git-send-email-pshelar@nicira.com>
-	<20140717.144848.463108059351725505.davem@davemloft.net>
-	<20140717.145756.1982098731634690697.davem@davemloft.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH v5] bfin_mac: convert bfin Ethernet driver to NAPI
+ framework
+Date: Fri, 18 Jul 2014 00:29:06 +0200
+Message-ID: <20140717222906.GA23125@electric-eye.fr.zoreil.com>
+References: <1405504302-21344-1-git-send-email-sonic.adi@gmail.com>
+ <1405516649.10255.59.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20140716.140301.896018835447121717.davem@davemloft.net>
+ <CAJxxZ0OybvReRHvRuL84N=25T6cRG8k1j_gXLcu7U6jHvSZ5Tw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	Varka Bhadram <varkabhadram@gmail.com>,
+	adi-buildroot-devel@lists.sourceforge.net,
+	"Zhang, Sonic" <sonic.zhang@analog.com>
+To: Sonic Zhang <sonic.adi@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog119.obsmtp.com ([74.125.149.246]:44052 "HELO
-	na3sys009aog119.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753664AbaGQWZq convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 17 Jul 2014 18:25:46 -0400
-Received: by mail-vc0-f174.google.com with SMTP id la4so5843110vcb.5
-        for <netdev@vger.kernel.org>; Thu, 17 Jul 2014 15:25:45 -0700 (PDT)
-In-Reply-To: <20140717.145756.1982098731634690697.davem@davemloft.net>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:45310 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756634AbaGQW3W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 18:29:22 -0400
+Content-Disposition: inline
+In-Reply-To: <CAJxxZ0OybvReRHvRuL84N=25T6cRG8k1j_gXLcu7U6jHvSZ5Tw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 17, 2014 at 2:57 PM, David Miller <davem@davemloft.net> wro=
-te:
-> From: David Miller <davem@davemloft.net>
-> Date: Thu, 17 Jul 2014 14:48:48 -0700 (PDT)
->
->> From: Pravin B Shelar <pshelar@nicira.com>
->> Date: Wed, 16 Jul 2014 17:17:43 -0700
->>
->>> Following patches adds three features to OVS
->>> 1. Add fairness to upcall processing.
->>> 2. Recirculation and Hash action.
->>> 3. Enable Tunnel GSO features.
->>> Rest of patches are bug fixes related to patches from same series.
->>>
->>> v2 series changes first patch according to comment from Dave Miller=
-=2E
->>> v3 series changes first patch according to comment from Nikolay Ale=
-ksandrov.
->>> v4 series changes recirc patch commit msg.
->>
->> Pulled, thanks.
->
-> Actually, reverted, this code doesn't even compile.
->
-> net/openvswitch/datapath.c: In function =E2=80=98ovs_dp_process_packe=
-t_with_key=E2=80=99:
-> net/openvswitch/datapath.c:271:43: error: =E2=80=98key=E2=80=99 undec=
-lared (first use in this function)
-> net/openvswitch/datapath.c:271:43: note: each undeclared identifier i=
-s reported only once for each function it appears in
->
-> It would be a strong understatement to say that I'm disappointed at t=
-his.
->
-> Are you even build testing the tree you are asking me to pull from?  =
-This
-> means you can't have possibly have functionally tested the code.
->
-Yesterday when I created my branch, net-next was not merged with net.
-Now you have merged it. That resulted in conflict (due to commit
-ad55200734c65a3ec5d0c39d6ea904008baea536) which was silently resolved
-and as result you got error.
+Sonic Zhang <sonic.adi@gmail.com> :
+> On Thu, Jul 17, 2014 at 5:03 AM, David Miller <davem@davemloft.net> wrote:
+[...]
+> > Please mimick what other drivers do rather than trying to do things in
+> > a special way unique to your driver.
+> 
+> Driver realtek/8139cp.c does things in the same way as the bfin_mac
+> NAPI code.
 
-I did not refreshed my base net-next tree just before sending last
-pull request Sorry about that.
-I will update my branch to solve conflict send updated pull request.
+It wasn't your lucky day.
+
+> In net_poll loop, if napi_complete() is called, the EMAC IRQ is
+> enabled more times than the it is disabled. This is not a problem to
+> drivers which don't call enable_irq()/disable_irq_nosync(). But, the
+> IRQ enabling and disabling operations have to be balanced in the
+> bfin_mac driver via __napi_complete() to avoid the kernel warning.
+
+Thanks for the explanation.
+
+In order to use plain napi_complete, may I suggest keeping a mask of
+bfin_mac_interrupt disabled irq in the device private area then
+enable_irq relevant one - if any - in bfin_mac_poll ?
+
+It should keep things balanced.
+
+-- 
+Ueimor
