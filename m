@@ -1,58 +1,83 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH RFCv3 08/14] arm64: introduce aarch64_insn_gen_movewide()
-Date: Thu, 17 Jul 2014 09:51:33 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1727697D@AcuExch.aculab.com>
-References: <1405405512-4423-1-git-send-email-zlim.lnx@gmail.com>
- <1405405512-4423-9-git-send-email-zlim.lnx@gmail.com>
- <20140716161715.GU29414@arm.com> <20140716220422.GB18109@gup76>
- <20140717094101.GD21153@arm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
+From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH] bluetooth: never linger on process exit
+Date: Thu, 17 Jul 2014 12:05:26 +0200
+Message-ID: <2ECFA3A4-C890-4512-86CD-B17EFDB57663@holtmann.org>
+References: <1405412728-4706-1-git-send-email-vdavydov@parallels.com>
+Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 8BIT
-Cc: Catalin Marinas <Catalin.Marinas@arm.com>,
-	Jiang Liu <liuj97@gmail.com>,
-	AKASHI Takahiro <takahiro.akashi@linaro.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	"Alexei Starovoitov" <ast@plumgrid.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Will Deacon' <will.deacon@arm.com>,
-	Zi Shen Lim <zlim.lnx@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140717094101.GD21153@arm.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"Gustavo F. Padovan" <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
+	Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Linux Bluetooth mailing list
+	<linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Vladimir Davydov <vdavydov-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1405412728-4706-1-git-send-email-vdavydov-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Will Deacon
-...
-> > > > +	BUG_ON(imm < 0 || imm > 65535);
-> > >
-> > > Do this check with masking instead?
-> >
-> > Ok, if you prefer, I can change it to:
-> >
-> > 	BUG_ON(imm & ~GENMASK(15, 0));
+Hi Vladimir,
 
-Gah - then anyone reading the code has to look up another define.
-There isn't a prize for the most complicated method of defining
-a constant that can never change.
+please always include linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org since otherwise it might be missed in the massive amount of emails that is LKML.
 
-> Sure, that or use a named constant for the upper-bound (SZ_64K - 1).
+> If the current process is exiting, lingering on socket close will make
+> it unkillable, so we should avoid it.
+> 
+> Reproducer:
+> 
+>  #include <sys/types.h>
+>  #include <sys/socket.h>
+> 
+>  #define BTPROTO_L2CAP   0
+>  #define BTPROTO_SCO     2
+>  #define BTPROTO_RFCOMM  3
+> 
+>  int main()
+>  {
+>          int fd;
+>          struct linger ling;
+> 
+>          fd = socket(PF_BLUETOOTH, SOCK_STREAM, BTPROTO_RFCOMM);
+>          //or: fd = socket(PF_BLUETOOTH, SOCK_DGRAM, BTPROTO_L2CAP);
+>          //or: fd = socket(PF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_SCO);
+> 
+>          ling.l_onoff = 1;
+>          ling.l_linger = 1000000000;
+>          setsockopt(fd, SOL_SOCKET, SO_LINGER, &ling, sizeof(ling));
+> 
+>          return 0;
+>  }
+> 
+> Signed-off-by: Vladimir Davydov <vdavydov-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>
+> Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
+> Cc: Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>
+> Cc: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
+> net/bluetooth/l2cap_sock.c  |    3 ++-
+> net/bluetooth/rfcomm/sock.c |    3 ++-
+> net/bluetooth/sco.c         |    6 ++++--
+> 3 files changed, 8 insertions(+), 4 deletions(-)
+> 
+> diff --git a/net/bluetooth/l2cap_sock.c b/net/bluetooth/l2cap_sock.c
+> index e1378693cc90..d0fd8b04f2e6 100644
+> --- a/net/bluetooth/l2cap_sock.c
+> +++ b/net/bluetooth/l2cap_sock.c
+> @@ -1111,7 +1111,8 @@ static int l2cap_sock_shutdown(struct socket *sock, int how)
+> 		l2cap_chan_close(chan, 0);
+> 		lock_sock(sk);
+> 
+> -		if (sock_flag(sk, SOCK_LINGER) && sk->sk_lingertime)
+> +		if (sock_flag(sk, SOCK_LINGER) && sk->sk_lingertime &&
+> +		    !(current->flags & PF_EXITING))
+> 			err = bt_sock_wait_state(sk, BT_CLOSED,
+> 						 sk->sk_lingertime);
+> 	}
 
-There is nothing wrong with the original code.
-Maybe use 0xffff for those people (are there any) that don't know
-their powers of two.
+The only other example of using PF_EXITING I found is net/ipv4/af_inet.c and if this is the preferred way of handling this, the patch looks fine to me.
 
-These are strong constants, they aren't going to be changed to any
-other value, and it is unlikely that anyone will want to search for
-their uses.
+Regards
 
-I presume that SZ_64K is defined somewhere to 0x10000u.
-But IMHO using it (instead of the literal) doesn't make code
-any more readable.
-
-	David
+Marcel
