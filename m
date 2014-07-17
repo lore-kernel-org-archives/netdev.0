@@ -1,47 +1,39 @@
 From: Tom Gundersen <teg@jklm.no>
-Subject: [PATCH net-next v9 9/9] net: ppp - set name assign type
-Date: Thu, 17 Jul 2014 10:06:10 +0200
-Message-ID: <1405584370-30054-10-git-send-email-teg@jklm.no>
+Subject: [PATCH net-next v9 8/9] net: openvswitch - set name assign type
+Date: Thu, 17 Jul 2014 10:06:09 +0200
+Message-ID: <1405584370-30054-9-git-send-email-teg@jklm.no>
 References: <1405584370-30054-1-git-send-email-teg@jklm.no>
 Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	Tom Gundersen <teg@jklm.no>, Paul Mackerras <paulus@samba.org>,
-	linux-ppp@vger.kernel.org
+	Tom Gundersen <teg@jklm.no>,
+	Pravin Shelar <pshelar@nicira.com>, dev@openvswitch.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f173.google.com ([74.125.82.173]:60488 "EHLO
-	mail-we0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755404AbaGQIGk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 04:06:40 -0400
-Received: by mail-we0-f173.google.com with SMTP id q58so2038901wes.32
-        for <netdev@vger.kernel.org>; Thu, 17 Jul 2014 01:06:37 -0700 (PDT)
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1405584370-30054-1-git-send-email-teg@jklm.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-The ifname is of the form pppX where X is the unit number. This is either set
-by userspace, or userspace requests the kernel to chose one, which is then
-returned to userspace. Either way the creating user knows the name, so we
-treat both cases as if the user had explicitly chosen the name and label
-it NET_NAME_USER.
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Tom Gundersen <teg@jklm.no>
-Cc: Paul Mackerras <paulus@samba.org>
-Cc: linux-ppp@vger.kernel.org
+Cc: Pravin Shelar <pshelar@nicira.com>
+Cc: dev@openvswitch.org
 ---
- drivers/net/ppp/ppp_generic.c | 1 +
- 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
-index c38ee90..6526057 100644
---- a/drivers/net/ppp/ppp_generic.c
-+++ b/drivers/net/ppp/ppp_generic.c
-@@ -2728,6 +2728,7 @@ ppp_create_interface(struct net *net, int unit, int *retp)
- 	/* Initialize the new ppp unit */
- 	ppp->file.index = unit;
- 	sprintf(dev->name, "ppp%d", unit);
-+	dev->name_assign_type = NET_NAME_USER;
+v9: set NET_NAME_USER directly in internal_dev_create as requested by Pravin Shelar
+
+ net/openvswitch/vport-internal_dev.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
+index bd65855..2741285 100644
+--- a/net/openvswitch/vport-internal_dev.c
++++ b/net/openvswitch/vport-internal_dev.c
+@@ -165,7 +165,7 @@ static struct vport *internal_dev_create(const struct vport_parms *parms)
+ 	netdev_vport = netdev_vport_priv(vport);
  
- 	ret = register_netdev(dev);
- 	if (ret != 0) {
+ 	netdev_vport->dev = alloc_netdev(sizeof(struct internal_dev),
+-					 parms->name, NET_NAME_UNKNOWN,
++					 parms->name, NET_NAME_USER,
+ 					 do_setup);
+ 	if (!netdev_vport->dev) {
+ 		err = -ENOMEM;
 -- 
 1.9.3
