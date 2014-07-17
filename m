@@ -1,36 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next] net_sched: cancel nest attribute on failure
- in tcf_exts_dump()
-Date: Wed, 16 Jul 2014 23:51:38 -0700 (PDT)
-Message-ID: <20140716.235138.2067858960008875634.davem@davemloft.net>
-References: <1405545931-13832-1-git-send-email-xiyou.wangcong@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next] bonding: use rtnl_deref in
+ bond_change_rx_flags()
+Date: Thu, 17 Jul 2014 08:54:44 +0200
+Message-ID: <1405580084.10255.62.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1405528321-19877-1-git-send-email-vfalico@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com, cwang@twopensource.com
-To: xiyou.wangcong@gmail.com
+Cc: netdev@vger.kernel.org, Jay Vosburgh <j.vosburgh@gmail.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: Veaceslav Falico <vfalico@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57994 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750928AbaGQGvj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 02:51:39 -0400
-In-Reply-To: <1405545931-13832-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:42872 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753603AbaGQGyu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 02:54:50 -0400
+Received: by mail-wi0-f172.google.com with SMTP id n3so7342950wiv.11
+        for <netdev@vger.kernel.org>; Wed, 16 Jul 2014 23:54:48 -0700 (PDT)
+In-Reply-To: <1405528321-19877-1-git-send-email-vfalico@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Wed, 16 Jul 2014 14:25:30 -0700
-
-> From: Cong Wang <cwang@twopensource.com>
+On Wed, 2014-07-16 at 18:32 +0200, Veaceslav Falico wrote:
+> As it's always called with RTNL held, via dev_set_allmulti/promiscuity.
+> Also, remove the wrong comment.
 > 
-> Like other places, we need to cancel the nest attribute after
-> we start. Fortunately the netlink message will not be sent on
-> failure, so it's not a big problem at all.
-> 
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> Signed-off-by: Cong Wang <cwang@twopensource.com>
+> CC: Jay Vosburgh <j.vosburgh@gmail.com>
+> CC: Andy Gospodarek <andy@greyhouse.net>
+> Signed-off-by: Veaceslav Falico <vfalico@gmail.com>
+> ---
 
-Jamal, if you could review these two changes from Cong I'd appreciate
-it, thanks!
+Acked-by: Eric Dumazet <edumazet@google.com>
