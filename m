@@ -1,41 +1,34 @@
-From: Benoit Taine <benoit.taine@lip6.fr>
-Subject: [PATCH 4/25] net: pasemi: Replace DEFINE_PCI_DEVICE_TABLE macro use
-Date: Fri, 18 Jul 2014 17:26:51 +0200
-Message-ID: <1405697232-11785-5-git-send-email-benoit.taine@lip6.fr>
-References: <1405697232-11785-1-git-send-email-benoit.taine@lip6.fr>
-Cc: benoit.taine@lip6.fr, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Olof Johansson <olof@lixom.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from isis.lip6.fr ([132.227.60.2]:54977 "EHLO isis.lip6.fr"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965313AbaGRPbm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Jul 2014 11:31:42 -0400
-In-Reply-To: <1405697232-11785-1-git-send-email-benoit.taine@lip6.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrey Utkin <andrey.krieger.utkin@gmail.com>
+Subject: [PATCH 2/5] net/rxrpc/ar-key.c: drop negativity check on unsigned value
+Date: Fri, 18 Jul 2014 18:31:57 +0300
+Message-ID: <1405697517-23673-1-git-send-email-andrey.krieger.utkin@gmail.com>
+Cc: dcb314@hotmail.com, nwf@cs.jhu.edu, dhowells@redhat.com,
+	davem@davemloft.net, Andrey Utkin <andrey.krieger.utkin@gmail.com>
+To: linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We should prefer `struct pci_device_id` over `DEFINE_PCI_DEVICE_TABLE` to meet
-kernel coding style guidelines. This issue was reported by checkpatch.
-
-Signed-off-by: Benoit Taine <benoit.taine@lip6.fr>
-
+Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=80611
+Reported-by: David Binderman <dcb314@hotmail.com>
+Signed-off-by: Andrey Utkin <andrey.krieger.utkin@gmail.com>
 ---
-Not tested.
-
- drivers/net/ethernet/pasemi/pasemi_mac.c |    2 +-
+ net/rxrpc/ar-key.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/pasemi/pasemi_mac.c b/drivers/net/ethernet/pasemi/pasemi_mac.c
-index 9abf70d7..30d934d 100644
---- a/drivers/net/ethernet/pasemi/pasemi_mac.c
-+++ b/drivers/net/ethernet/pasemi/pasemi_mac.c
-@@ -1871,7 +1871,7 @@ static void pasemi_mac_remove(struct pci_dev *pdev)
- 	free_netdev(netdev);
- }
+diff --git a/net/rxrpc/ar-key.c b/net/rxrpc/ar-key.c
+index 0ad0807..eec998e 100644
+--- a/net/rxrpc/ar-key.c
++++ b/net/rxrpc/ar-key.c
+@@ -346,7 +346,7 @@ static int rxrpc_krb5_decode_tagged_array(struct krb5_tagged_data **_td,
  
--static DEFINE_PCI_DEVICE_TABLE(pasemi_mac_pci_tbl) = {
-+static const struct pci_device_id pasemi_mac_pci_tbl[] = {
- 	{ PCI_DEVICE(PCI_VENDOR_ID_PASEMI, 0xa005) },
- 	{ PCI_DEVICE(PCI_VENDOR_ID_PASEMI, 0xa006) },
- 	{ },
+ 	n_elem = ntohl(*xdr++);
+ 	toklen -= 4;
+-	if (n_elem < 0 || n_elem > max_n_elem)
++	if (n_elem > max_n_elem)
+ 		return -EINVAL;
+ 	*_n_elem = n_elem;
+ 	if (n_elem > 0) {
+-- 
+1.8.5.5
