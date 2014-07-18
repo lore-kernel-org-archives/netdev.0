@@ -1,128 +1,72 @@
-From: Neil Armstrong <superna9999@gmail.com>
-Subject: [PATCH 2/2 v2] net: macb: Handle errors in RX path
-Date: Fri, 18 Jul 2014 12:14:45 +0200
-Message-ID: <53C8F395.6050600@gmail.com>
+From: Varka Bhadram <varkabhadram@gmail.com>
+Subject: Re: [PATCH 1/2] net: macb: Separate rx and tx ring init function
+Date: Fri, 18 Jul 2014 15:45:24 +0530
+Message-ID: <53C8F3BC.4060607@gmail.com>
+References: <53C8EE60.8020707@gmail.com> <53C8F280.9040507@gmail.com> <53C8F34D.9090503@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-To: Nicolas Ferre <nicolas.ferre@atmel.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Neil Armstrong <superna9999@gmail.com>,
+	Nicolas Ferre <nicolas.ferre@atmel.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <53C8F34D.9090503@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In certain circumstances, the MACB fails to write correct RX ring
-descriptor, and lead to actually managed by BUG_ON() error cases.
+On 07/18/2014 03:43 PM, Neil Armstrong wrote:
+> Le 18/07/2014 12:10, Varka Bhadram a =E9crit :
+>> On 07/18/2014 03:22 PM, Neil Armstrong wrote:
+>>> A single method is called to initialize the TX and RX
+>>> rings. Separate the methods into distinct ones for
+>>> MACB and GEM context.
+>>>
+>>> Signed-off-by: Neil Armstrong <narmstrong@neotion.com>
+>>> ---
+>>>    drivers/net/ethernet/cadence/macb.c |   33 +++++++++++++++++++++=
++++---------
+>>>    drivers/net/ethernet/cadence/macb.h |    3 ++-
+>>>    2 files changed, 26 insertions(+), 10 deletions(-)
+>>>
+>>> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethe=
+rnet/cadence/macb.c
+>>> index e9daa07..20ad483 100644
+>>> --- a/drivers/net/ethernet/cadence/macb.c
+>>> +++ b/drivers/net/ethernet/cadence/macb.c
+>>> @@ -1219,7 +1219,14 @@ out_err:
+>>>    	return -ENOMEM;
+>>>    }
+>>>   =20
+>>> -static void gem_init_rings(struct macb *bp)
+>>> +static void gem_init_rx_rings(struct macb *bp)
+>>> +{
+>>> +	bp->rx_tail =3D bp->rx_prepared_head =3D 0;
+>>> +
+>>> +	gem_rx_refill(bp);
+>>> +}
+>>> +
+>>> +static void gem_init_tx_rings(struct macb *bp)
+>>>    {
+>>>    	int i;
+>>>   =20
+>>> @@ -1229,12 +1236,10 @@ static void gem_init_rings(struct macb *bp)
+>>>    	}
+>>>    	bp->tx_ring[TX_RING_SIZE - 1].ctrl |=3D MACB_BIT(TX_WRAP);
+>>>   =20
+>>> -	bp->rx_tail =3D bp->rx_prepared_head =3D bp->tx_head =3D bp->tx_t=
+ail =3D 0;
+>>> -
+>>> -	gem_rx_refill(bp);
+>>> +	bp->tx_head =3D bp->tx_tail =3D 0;
+>> This is not the preferred way of doing it....
+>>
+>> multiple assignments should be avoided
+> Should I change it ? I only moved the lines, the logic hasn't changed=
+=2E
+>
+Yes. we can change the logic also....  :-)
 
-Handle these two cases by returning error values, while resetting
-the RX ring and RX HW path in the poll methos.
-
-In the same time, check and handle BNA and OVR into poll method
-by using the same error management.
-
-Signed-off-by: Neil Armstrong <narmstrong@neotion.com>
----
- drivers/net/ethernet/cadence/macb.c |   54 +++++++++++++++++++++++++++++++---
- 1 files changed, 49 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 20ad483..f88ebc9 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -755,6 +755,17 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
- 		macb_rx_ring_wrap(first_frag),
- 		macb_rx_ring_wrap(last_frag), len);
- 
-+	if (!(desc->ctrl & MACB_BIT(RX_EOF))) {
-+		netdev_vdbg(bp->dev, "macb_rx_frame missing EOF\n");
-+		return -EIO;
-+	}
-+
-+	desc = macb_rx_desc(bp, first_frag);
-+	if (!(desc->ctrl & MACB_BIT(RX_SOF))) {
-+		netdev_vdbg(bp->dev, "macb_rx_frame missing SOF\n");
-+		return -EIO;
-+	}
-+
- 	/*
- 	 * The ethernet header starts NET_IP_ALIGN bytes into the
- 	 * first buffer. Since the header is 14 bytes, this makes the
-@@ -789,7 +800,10 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
- 		unsigned int frag_len = bp->rx_buffer_size;
- 
- 		if (offset + frag_len > len) {
--			BUG_ON(frag != last_frag);
-+			if (frag != last_frag) {
-+				dev_kfree_skb_any(skb);
-+				return -EIO;
-+			}
- 			frag_len = len - offset;
- 		}
- 		skb_copy_to_linear_data_offset(skb, offset,
-@@ -844,9 +858,13 @@ static int macb_rx(struct macb *bp, int budget)
- 
- 		if (ctrl & MACB_BIT(RX_EOF)) {
- 			int dropped;
--			BUG_ON(first_frag == -1);
-+			if (first_frag == -1)
-+				return -EIO;
- 
- 			dropped = macb_rx_frame(bp, first_frag, tail);
-+			if (dropped < 0)
-+				return dropped;
-+
- 			first_frag = -1;
- 			if (!dropped) {
- 				received++;
-@@ -872,12 +890,22 @@ static int macb_poll(struct napi_struct *napi, int budget)
- 	status = macb_readl(bp, RSR);
- 	macb_writel(bp, RSR, status);
- 
--	work_done = 0;
-+	work_done = -EIO;
- 
- 	netdev_vdbg(bp->dev, "poll: status = %08lx, budget = %d\n",
--		   (unsigned long)status, budget);
-+			(unsigned long)status, budget);
-+
-+	if (status & (MACB_BIT(OVR) | MACB_BIT(BNA)) ||
-+	    !(status & MACB_BIT(REC))) {
-+		netdev_err(bp->dev, "RX error, status = %02lx\n",
-+			   (unsigned long)status);
-+		goto rx_out;
-+	}
- 
- 	work_done = bp->macbgem_ops.mog_rx(bp, budget);
-+	if (work_done < 0)
-+		goto rx_out;
-+
- 	if (work_done < budget) {
- 		napi_complete(napi);
- 
-@@ -892,7 +920,23 @@ static int macb_poll(struct napi_struct *napi, int budget)
- 		}
- 	}
- 
--	/* TODO: Handle errors */
-+	return work_done;
-+
-+rx_out:
-+	/* In case of error, disable RX and reset
-+	 * the descriptor ring before re-enabling RX.
-+	 */
-+	macb_writel(bp, NCR, macb_readl(bp, NCR) & ~MACB_BIT(RE));
-+
-+	bp->macbgem_ops.mog_init_rx_rings(bp);
-+	macb_writel(bp, RBQP, bp->rx_ring_dma);
-+
-+	/* Re-enable RX and get notified for new packets */
-+	macb_writel(bp, NCR, macb_readl(bp, NCR) | MACB_BIT(RE));
-+
-+	napi_complete(napi);
-+
-+	macb_writel(bp, IER, MACB_RX_INT_FLAGS);
- 
- 	return work_done;
- }
--- 
-1.7.0.4
+--=20
+Regards,
+Varka Bhadram.
