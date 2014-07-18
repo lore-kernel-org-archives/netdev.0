@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH RFC v2 net-next 14/16] samples: bpf: add mini eBPF library to manipulate maps and programs
-Date: Thu, 17 Jul 2014 21:20:04 -0700
-Message-ID: <1405657206-12060-15-git-send-email-ast@plumgrid.com>
+Subject: [PATCH RFC v2 net-next 12/16] net: sock: allow eBPF programs to be attached to sockets
+Date: Thu, 17 Jul 2014 21:20:02 -0700
+Message-ID: <1405657206-12060-13-git-send-email-ast@plumgrid.com>
 References: <1405657206-12060-1-git-send-email-ast@plumgrid.com>
 Cc: Ingo Molnar <mingo@kernel.org>,
 	Linus Torvalds <torvalds@linux-foundation.org>,
@@ -24,173 +24,369 @@ In-Reply-To: <1405657206-12060-1-git-send-email-ast@plumgrid.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-the library includes a trivial set of BPF syscall wrappers:
+introduce new setsockopt() command:
 
-int bpf_create_map(int key_size, int value_size, int max_entries);
+int fd;
+setsockopt(sock, SOL_SOCKET, SO_ATTACH_FILTER_EBPF, &fd, sizeof(fd))
 
-int bpf_update_elem(int fd, void *key, void *value);
+fd is associated with eBPF program priorly loaded via:
 
-int bpf_lookup_elem(int fd, void *key, void *value);
+fd = syscall(__NR_bpf, BPF_PROG_LOAD, BPF_PROG_TYPE_SOCKET_FILTER,
+             &prog, sizeof(prog));
 
-int bpf_delete_elem(int fd, void *key);
+setsockopt() calls bpf_prog_get() which increment refcnt of the program,
+so it doesn't get unloaded while socket is using the program.
 
-int bpf_get_next_key(int fd, void *key, void *next_key);
+The same eBPF program can be attached to different sockets.
 
-int bpf_prog_load(enum bpf_prog_type prog_type,
-		  const struct sock_filter_int *insns, int insn_len,
-		  const char *license,
-		  const struct bpf_map_fixup *fixups, int fixup_len);
+Program exit automatically closes socket which calls sk_filter_uncharge()
+which decrements refcnt of eBPF program
 
 Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
- samples/bpf/libbpf.c |  109 ++++++++++++++++++++++++++++++++++++++++++++++++++
- samples/bpf/libbpf.h |   22 ++++++++++
- 2 files changed, 131 insertions(+)
- create mode 100644 samples/bpf/libbpf.c
- create mode 100644 samples/bpf/libbpf.h
+ arch/alpha/include/uapi/asm/socket.h   |    2 +
+ arch/avr32/include/uapi/asm/socket.h   |    2 +
+ arch/cris/include/uapi/asm/socket.h    |    2 +
+ arch/frv/include/uapi/asm/socket.h     |    2 +
+ arch/ia64/include/uapi/asm/socket.h    |    2 +
+ arch/m32r/include/uapi/asm/socket.h    |    2 +
+ arch/mips/include/uapi/asm/socket.h    |    2 +
+ arch/mn10300/include/uapi/asm/socket.h |    2 +
+ arch/parisc/include/uapi/asm/socket.h  |    2 +
+ arch/powerpc/include/uapi/asm/socket.h |    2 +
+ arch/s390/include/uapi/asm/socket.h    |    2 +
+ arch/sparc/include/uapi/asm/socket.h   |    2 +
+ arch/xtensa/include/uapi/asm/socket.h  |    2 +
+ include/linux/filter.h                 |    1 +
+ include/uapi/asm-generic/socket.h      |    2 +
+ net/core/filter.c                      |  112 ++++++++++++++++++++++++++++++++
+ net/core/sock.c                        |   13 ++++
+ 17 files changed, 154 insertions(+)
 
-diff --git a/samples/bpf/libbpf.c b/samples/bpf/libbpf.c
-new file mode 100644
-index 000000000000..5460d1f3ad43
---- /dev/null
-+++ b/samples/bpf/libbpf.c
-@@ -0,0 +1,109 @@
-+/* eBPF mini library */
-+#include <stdlib.h>
-+#include <linux/unistd.h>
-+#include <unistd.h>
-+#include <string.h>
-+#include <linux/netlink.h>
+diff --git a/arch/alpha/include/uapi/asm/socket.h b/arch/alpha/include/uapi/asm/socket.h
+index 3de1394bcab8..8c83c376b5ba 100644
+--- a/arch/alpha/include/uapi/asm/socket.h
++++ b/arch/alpha/include/uapi/asm/socket.h
+@@ -87,4 +87,6 @@
+ 
+ #define SO_BPF_EXTENSIONS	48
+ 
++#define SO_ATTACH_FILTER_EBPF	49
++
+ #endif /* _UAPI_ASM_SOCKET_H */
+diff --git a/arch/avr32/include/uapi/asm/socket.h b/arch/avr32/include/uapi/asm/socket.h
+index 6e6cd159924b..498ef7220466 100644
+--- a/arch/avr32/include/uapi/asm/socket.h
++++ b/arch/avr32/include/uapi/asm/socket.h
+@@ -80,4 +80,6 @@
+ 
+ #define SO_BPF_EXTENSIONS	48
+ 
++#define SO_ATTACH_FILTER_EBPF	49
++
+ #endif /* _UAPI__ASM_AVR32_SOCKET_H */
+diff --git a/arch/cris/include/uapi/asm/socket.h b/arch/cris/include/uapi/asm/socket.h
+index ed94e5ed0a23..0d5120724780 100644
+--- a/arch/cris/include/uapi/asm/socket.h
++++ b/arch/cris/include/uapi/asm/socket.h
+@@ -82,6 +82,8 @@
+ 
+ #define SO_BPF_EXTENSIONS	48
+ 
++#define SO_ATTACH_FILTER_EBPF	49
++
+ #endif /* _ASM_SOCKET_H */
+ 
+ 
+diff --git a/arch/frv/include/uapi/asm/socket.h b/arch/frv/include/uapi/asm/socket.h
+index ca2c6e6f31c6..81fba267c285 100644
+--- a/arch/frv/include/uapi/asm/socket.h
++++ b/arch/frv/include/uapi/asm/socket.h
+@@ -80,5 +80,7 @@
+ 
+ #define SO_BPF_EXTENSIONS	48
+ 
++#define SO_ATTACH_FILTER_EBPF	49
++
+ #endif /* _ASM_SOCKET_H */
+ 
+diff --git a/arch/ia64/include/uapi/asm/socket.h b/arch/ia64/include/uapi/asm/socket.h
+index a1b49bac7951..9cbb2e82fa7c 100644
+--- a/arch/ia64/include/uapi/asm/socket.h
++++ b/arch/ia64/include/uapi/asm/socket.h
+@@ -89,4 +89,6 @@
+ 
+ #define SO_BPF_EXTENSIONS	48
+ 
++#define SO_ATTACH_FILTER_EBPF	49
++
+ #endif /* _ASM_IA64_SOCKET_H */
+diff --git a/arch/m32r/include/uapi/asm/socket.h b/arch/m32r/include/uapi/asm/socket.h
+index 6c9a24b3aefa..587ac2fb4106 100644
+--- a/arch/m32r/include/uapi/asm/socket.h
++++ b/arch/m32r/include/uapi/asm/socket.h
+@@ -80,4 +80,6 @@
+ 
+ #define SO_BPF_EXTENSIONS	48
+ 
++#define SO_ATTACH_FILTER_EBPF	49
++
+ #endif /* _ASM_M32R_SOCKET_H */
+diff --git a/arch/mips/include/uapi/asm/socket.h b/arch/mips/include/uapi/asm/socket.h
+index a14baa218c76..ab1aed2306db 100644
+--- a/arch/mips/include/uapi/asm/socket.h
++++ b/arch/mips/include/uapi/asm/socket.h
+@@ -98,4 +98,6 @@
+ 
+ #define SO_BPF_EXTENSIONS	48
+ 
++#define SO_ATTACH_FILTER_EBPF	49
++
+ #endif /* _UAPI_ASM_SOCKET_H */
+diff --git a/arch/mn10300/include/uapi/asm/socket.h b/arch/mn10300/include/uapi/asm/socket.h
+index 6aa3ce1854aa..1c4f916d0ef1 100644
+--- a/arch/mn10300/include/uapi/asm/socket.h
++++ b/arch/mn10300/include/uapi/asm/socket.h
+@@ -80,4 +80,6 @@
+ 
+ #define SO_BPF_EXTENSIONS	48
+ 
++#define SO_ATTACH_FILTER_EBPF	49
++
+ #endif /* _ASM_SOCKET_H */
+diff --git a/arch/parisc/include/uapi/asm/socket.h b/arch/parisc/include/uapi/asm/socket.h
+index fe35ceacf0e7..d189bb79ca07 100644
+--- a/arch/parisc/include/uapi/asm/socket.h
++++ b/arch/parisc/include/uapi/asm/socket.h
+@@ -79,4 +79,6 @@
+ 
+ #define SO_BPF_EXTENSIONS	0x4029
+ 
++#define SO_ATTACH_FILTER_EBPF	0x402a
++
+ #endif /* _UAPI_ASM_SOCKET_H */
+diff --git a/arch/powerpc/include/uapi/asm/socket.h b/arch/powerpc/include/uapi/asm/socket.h
+index a9c3e2e18c05..88488f24ae7f 100644
+--- a/arch/powerpc/include/uapi/asm/socket.h
++++ b/arch/powerpc/include/uapi/asm/socket.h
+@@ -87,4 +87,6 @@
+ 
+ #define SO_BPF_EXTENSIONS	48
+ 
++#define SO_ATTACH_FILTER_EBPF	49
++
+ #endif	/* _ASM_POWERPC_SOCKET_H */
+diff --git a/arch/s390/include/uapi/asm/socket.h b/arch/s390/include/uapi/asm/socket.h
+index e031332096d7..c5f26af90366 100644
+--- a/arch/s390/include/uapi/asm/socket.h
++++ b/arch/s390/include/uapi/asm/socket.h
+@@ -86,4 +86,6 @@
+ 
+ #define SO_BPF_EXTENSIONS	48
+ 
++#define SO_ATTACH_FILTER_EBPF	49
++
+ #endif /* _ASM_SOCKET_H */
+diff --git a/arch/sparc/include/uapi/asm/socket.h b/arch/sparc/include/uapi/asm/socket.h
+index 54d9608681b6..667ed3fa63f2 100644
+--- a/arch/sparc/include/uapi/asm/socket.h
++++ b/arch/sparc/include/uapi/asm/socket.h
+@@ -76,6 +76,8 @@
+ 
+ #define SO_BPF_EXTENSIONS	0x0032
+ 
++#define SO_ATTACH_FILTER_EBPF	0x0033
++
+ /* Security levels - as per NRL IPv6 - don't actually do anything */
+ #define SO_SECURITY_AUTHENTICATION		0x5001
+ #define SO_SECURITY_ENCRYPTION_TRANSPORT	0x5002
+diff --git a/arch/xtensa/include/uapi/asm/socket.h b/arch/xtensa/include/uapi/asm/socket.h
+index 39acec0cf0b1..24f3e4434979 100644
+--- a/arch/xtensa/include/uapi/asm/socket.h
++++ b/arch/xtensa/include/uapi/asm/socket.h
+@@ -91,4 +91,6 @@
+ 
+ #define SO_BPF_EXTENSIONS	48
+ 
++#define SO_ATTACH_FILTER_EBPF	49
++
+ #endif	/* _XTENSA_SOCKET_H */
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index 822b310e75e1..5a310ed28fbb 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -73,6 +73,7 @@ int sk_unattached_filter_create(struct sk_filter **pfp,
+ void sk_unattached_filter_destroy(struct sk_filter *fp);
+ 
+ int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk);
++int sk_attach_filter_ebpf(u32 ufd, struct sock *sk);
+ int sk_detach_filter(struct sock *sk);
+ 
+ int sk_chk_filter(const struct sock_filter *filter, unsigned int flen);
+diff --git a/include/uapi/asm-generic/socket.h b/include/uapi/asm-generic/socket.h
+index ea0796bdcf88..f41844e9ac07 100644
+--- a/include/uapi/asm-generic/socket.h
++++ b/include/uapi/asm-generic/socket.h
+@@ -82,4 +82,6 @@
+ 
+ #define SO_BPF_EXTENSIONS	48
+ 
++#define SO_ATTACH_FILTER_EBPF	49
++
+ #endif /* __ASM_GENERIC_SOCKET_H */
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 255dba1bb678..ea929fed67b4 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -44,6 +44,7 @@
+ #include <linux/ratelimit.h>
+ #include <linux/seccomp.h>
+ #include <linux/if_vlan.h>
 +#include <linux/bpf.h>
-+#include <errno.h>
-+#include "libbpf.h"
+ 
+ /**
+  *	sk_filter - run a packet through a socket filter
+@@ -1117,6 +1118,117 @@ int sk_attach_filter(struct sock_fprog *fprog, struct sock *sk)
+ }
+ EXPORT_SYMBOL_GPL(sk_attach_filter);
+ 
++int sk_attach_filter_ebpf(u32 ufd, struct sock *sk)
++{
++	struct sk_filter *fp, *old_fp;
 +
-+struct nlattr_u32 {
-+	__u16 nla_len;
-+	__u16 nla_type;
-+	__u32 val;
++	if (sock_flag(sk, SOCK_FILTER_LOCKED))
++		return -EPERM;
++
++	fp = bpf_prog_get(ufd);
++	if (!fp)
++		return -EINVAL;
++
++	if (fp->info->prog_type != BPF_PROG_TYPE_SOCKET_FILTER) {
++		/* valid fd, but invalid program type */
++		sk_filter_release(fp);
++		return -EINVAL;
++	}
++
++	old_fp = rcu_dereference_protected(sk->sk_filter,
++					   sock_owned_by_user(sk));
++	rcu_assign_pointer(sk->sk_filter, fp);
++
++	if (old_fp)
++		sk_filter_uncharge(sk, old_fp);
++
++	return 0;
++}
++
++static struct bpf_func_proto sock_filter_funcs[] = {
++	[BPF_FUNC_map_lookup_elem] = {
++		.func = bpf_map_lookup_elem,
++		.gpl_only = false,
++		.ret_type = RET_PTR_TO_MAP_OR_NULL,
++		.arg1_type = ARG_CONST_MAP_ID,
++		.arg2_type = ARG_PTR_TO_MAP_KEY,
++	},
++	[BPF_FUNC_map_update_elem] = {
++		.func = bpf_map_update_elem,
++		.gpl_only = false,
++		.ret_type = RET_INTEGER,
++		.arg1_type = ARG_CONST_MAP_ID,
++		.arg2_type = ARG_PTR_TO_MAP_KEY,
++		.arg3_type = ARG_PTR_TO_MAP_VALUE,
++	},
++	[BPF_FUNC_map_delete_elem] = {
++		.func = bpf_map_delete_elem,
++		.gpl_only = false,
++		.ret_type = RET_INTEGER,
++		.arg1_type = ARG_CONST_MAP_ID,
++		.arg2_type = ARG_PTR_TO_MAP_KEY,
++	},
 +};
 +
-+int bpf_create_map(int key_size, int value_size, int max_entries)
++/* allow socket filters to call
++ * bpf_map_lookup_elem(), bpf_map_update_elem(), bpf_map_delete_elem()
++ */
++static const struct bpf_func_proto *sock_filter_func_proto(enum bpf_func_id func_id)
 +{
-+	struct nlattr_u32 attr[] = {
-+		{
-+			.nla_len = sizeof(struct nlattr_u32),
-+			.nla_type = BPF_MAP_KEY_SIZE,
-+			.val = key_size,
-+		},
-+		{
-+			.nla_len = sizeof(struct nlattr_u32),
-+			.nla_type = BPF_MAP_VALUE_SIZE,
-+			.val = value_size,
-+		},
-+		{
-+			.nla_len = sizeof(struct nlattr_u32),
-+			.nla_type = BPF_MAP_MAX_ENTRIES,
-+			.val = max_entries,
-+		},
-+	};
-+
-+	return syscall(__NR_bpf, BPF_MAP_CREATE, BPF_MAP_TYPE_HASH, attr, sizeof(attr));
++	if (func_id < 0 || func_id >= ARRAY_SIZE(sock_filter_funcs))
++		return NULL;
++	return &sock_filter_funcs[func_id];
 +}
 +
-+
-+int bpf_update_elem(int fd, void *key, void *value)
-+{
-+	return syscall(__NR_bpf, BPF_MAP_UPDATE_ELEM, fd, key, value);
-+}
-+
-+int bpf_lookup_elem(int fd, void *key, void *value)
-+{
-+	return syscall(__NR_bpf, BPF_MAP_LOOKUP_ELEM, fd, key, value);
-+}
-+
-+int bpf_delete_elem(int fd, void *key)
-+{
-+	return syscall(__NR_bpf, BPF_MAP_DELETE_ELEM, fd, key);
-+}
-+
-+int bpf_get_next_key(int fd, void *key, void *next_key)
-+{
-+	return syscall(__NR_bpf, BPF_MAP_GET_NEXT_KEY, fd, key, next_key);
-+}
-+
-+#define ROUND_UP(x, n) (((x) + (n) - 1u) & ~((n) - 1u))
-+
-+int bpf_prog_load(enum bpf_prog_type prog_type,
-+		  const struct bpf_insn *insns, int prog_len,
-+		  const char *license,
-+		  const struct bpf_map_fixup *fixups, int fixup_len)
-+{
-+	int nlattr_size, license_len, err;
-+	void *nlattr, *ptr;
-+
-+	license_len = strlen(license) + 1;
-+	nlattr_size = sizeof(struct nlattr) + prog_len + sizeof(struct nlattr) +
-+		ROUND_UP(license_len, 4) + sizeof(struct nlattr) +
-+		fixup_len;
-+
-+	ptr = nlattr = malloc(nlattr_size);
-+
-+	*(struct nlattr *) ptr = (struct nlattr) {
-+		.nla_len = prog_len + sizeof(struct nlattr),
-+		.nla_type = BPF_PROG_TEXT,
-+	};
-+	ptr += sizeof(struct nlattr);
-+
-+	memcpy(ptr, insns, prog_len);
-+	ptr += prog_len;
-+
-+	*(struct nlattr *) ptr = (struct nlattr) {
-+		.nla_len = ROUND_UP(license_len, 4) + sizeof(struct nlattr),
-+		.nla_type = BPF_PROG_LICENSE,
-+	};
-+	ptr += sizeof(struct nlattr);
-+
-+	memcpy(ptr, license, license_len);
-+	ptr += ROUND_UP(license_len, 4);
-+
-+	*(struct nlattr *) ptr = (struct nlattr) {
-+		.nla_len = fixup_len + sizeof(struct nlattr),
-+		.nla_type = BPF_PROG_MAP_FIXUP,
-+	};
-+	ptr += sizeof(struct nlattr);
-+
-+	memcpy(ptr, fixups, fixup_len);
-+	ptr += fixup_len;
-+
-+	err = syscall(__NR_bpf, BPF_PROG_LOAD, prog_type, nlattr, nlattr_size);
-+
-+	free(nlattr);
-+	return err;
-+}
-diff --git a/samples/bpf/libbpf.h b/samples/bpf/libbpf.h
-new file mode 100644
-index 000000000000..07f668e3dac0
---- /dev/null
-+++ b/samples/bpf/libbpf.h
-@@ -0,0 +1,22 @@
-+/* eBPF mini library */
-+#ifndef __LIBBPF_H
-+#define __LIBBPF_H
-+
-+struct bpf_insn;
-+
-+int bpf_create_map(int key_size, int value_size, int max_entries);
-+int bpf_update_elem(int fd, void *key, void *value);
-+int bpf_lookup_elem(int fd, void *key, void *value);
-+int bpf_delete_elem(int fd, void *key);
-+int bpf_get_next_key(int fd, void *key, void *next_key);
-+
-+struct bpf_map_fixup {
-+	int insn_idx;
-+	int fd;
++static const struct bpf_context_access {
++	int size;
++	enum bpf_access_type type;
++} sock_filter_ctx_access[] = {
++	[offsetof(struct sk_buff, mark)] = {
++		FIELD_SIZEOF(struct sk_buff, mark), BPF_READ
++	},
++	[offsetof(struct sk_buff, protocol)] = {
++		FIELD_SIZEOF(struct sk_buff, protocol), BPF_READ
++	},
++	[offsetof(struct sk_buff, queue_mapping)] = {
++		FIELD_SIZEOF(struct sk_buff, queue_mapping), BPF_READ
++	},
 +};
-+int bpf_prog_load(enum bpf_prog_type prog_type,
-+		  const struct bpf_insn *insns, int insn_len,
-+		  const char *license,
-+		  const struct bpf_map_fixup *fixups, int fixup_len);
 +
-+#endif
++/* allow socket filters to access to 'mark', 'protocol' and 'queue_mapping'
++ * fields of 'struct sk_buff'
++ */
++static bool sock_filter_is_valid_access(int off, int size, enum bpf_access_type type)
++{
++	const struct bpf_context_access *access;
++
++	if (off < 0 || off >= ARRAY_SIZE(sock_filter_ctx_access))
++		return false;
++
++	access = &sock_filter_ctx_access[off];
++	if (access->size == size && (access->type & type))
++		return true;
++
++	return false;
++}
++
++static struct bpf_verifier_ops sock_filter_ops = {
++	.get_func_proto = sock_filter_func_proto,
++	.is_valid_access = sock_filter_is_valid_access,
++};
++
++static struct bpf_prog_type_list tl = {
++	.ops = &sock_filter_ops,
++	.type = BPF_PROG_TYPE_SOCKET_FILTER,
++};
++
++static int __init register_sock_filter_ops(void)
++{
++	bpf_register_prog_type(&tl);
++	return 0;
++}
++late_initcall(register_sock_filter_ops);
++
+ int sk_detach_filter(struct sock *sk)
+ {
+ 	int ret = -ENOENT;
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 026e01f70274..005d5683ef5c 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -895,6 +895,19 @@ set_rcvbuf:
+ 		}
+ 		break;
+ 
++	case SO_ATTACH_FILTER_EBPF:
++		ret = -EINVAL;
++		if (optlen == sizeof(u32)) {
++			u32 ufd;
++
++			ret = -EFAULT;
++			if (copy_from_user(&ufd, optval, sizeof(ufd)))
++				break;
++
++			ret = sk_attach_filter_ebpf(ufd, sk);
++		}
++		break;
++
+ 	case SO_DETACH_FILTER:
+ 		ret = sk_detach_filter(sk);
+ 		break;
 -- 
 1.7.9.5
