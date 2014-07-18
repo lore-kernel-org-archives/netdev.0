@@ -1,228 +1,227 @@
-From: Thomas Gleixner <tglx@linutronix.de>
-Subject: [BUG] Lockdep splat in usb network gadget
-Date: Fri, 18 Jul 2014 16:04:28 +0200 (CEST)
-Message-ID: <alpine.DEB.2.10.1407181542290.24854@nanos>
+From: Cyrille Pitchen <cyrille.pitchen@atmel.com>
+Subject: [PATCH 1/6] net/macb: configure for FIFO mode and non-gigabit
+Date: Fri, 18 Jul 2014 16:21:13 +0200
+Message-ID: <34adf38d52eb31e3ffd36149d320eb0872452bb1.1405689937.git.cyrille.pitchen@atmel.com>
+References: <cover.1405689937.git.cyrille.pitchen@atmel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-usb@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www.linutronix.de ([62.245.132.108]:48240 "EHLO
-	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935078AbaGROEb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jul 2014 10:04:31 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <linux-kernel@vger.kernel.org>
+To: <nicolas.ferre@atmel.com>, <davem@davemloft.net>,
+	<linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
+	<soren.brinkmann@xilinx.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1405689937.git.cyrille.pitchen@atmel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On a Intel E660/EG20T system I can observe the following lockdep splats:
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
 
-[   10.154920] =================================
-[   10.156026] [ INFO: inconsistent lock state ]
-[   10.156026] 3.16.0-rc5+ #13 Not tainted
-[   10.156026] ---------------------------------
-[   10.156026] inconsistent {IN-HARDIRQ-W} -> {HARDIRQ-ON-W} usage.
-[   10.156026] swapper/1/0 [HC0[0]:SC1[5]:HE1:SE0] takes:
-[   10.156026]  (_xmit_ETHER){?.-...}, at: [<80948b6a>] sch_direct_xmit+0x7a/0x250
-[   10.156026] {IN-HARDIRQ-W} state was registered at:
-[   10.156026]   [<804811f0>] __lock_acquire+0x800/0x17a0
-[   10.156026]   [<804828ba>] lock_acquire+0x6a/0xf0
-[   10.156026]   [<809ed477>] _raw_spin_lock+0x27/0x40
-[   10.156026]   [<8088d508>] gether_disconnect+0x68/0x280
-[   10.156026]   [<8088e777>] eem_set_alt+0x37/0xc0
-[   10.156026]   [<808847ce>] composite_setup+0x30e/0x1240
-[   10.156026]   [<8088b8ae>] pch_udc_isr+0xa6e/0xf50
-[   10.156026]   [<8048abe8>] handle_irq_event_percpu+0x38/0x1e0
-[   10.156026]   [<8048adc1>] handle_irq_event+0x31/0x50
-[   10.156026]   [<8048d94b>] handle_fasteoi_irq+0x6b/0x140
-[   10.156026]   [<804040a5>] handle_irq+0x65/0x80
-[   10.156026]   [<80403cfc>] do_IRQ+0x3c/0xc0
-[   10.156026]   [<809ee6ae>] common_interrupt+0x2e/0x34
-[   10.156026]   [<804668c5>] finish_task_switch+0x65/0xd0
-[   10.156026]   [<809e89df>] __schedule+0x20f/0x7d0
-[   10.156026]   [<809e94aa>] schedule_preempt_disabled+0x2a/0x70
-[   10.156026]   [<8047bf03>] cpu_startup_entry+0x143/0x410
-[   10.156026]   [<809e2e61>] rest_init+0xa1/0xb0
-[   10.156026]   [<80ce2a3b>] start_kernel+0x336/0x33b
-[   10.156026]   [<80ce22ab>] i386_start_kernel+0x79/0x7d
-[   10.156026] irq event stamp: 52070
-[   10.156026] hardirqs last  enabled at (52070): [<809375de>] neigh_resolve_output+0xee/0x2a0
-[   10.156026] hardirqs last disabled at (52069): [<809375a8>] neigh_resolve_output+0xb8/0x2a0
-[   10.156026] softirqs last  enabled at (52020): [<8044401f>] _local_bh_enable+0x1f/0x50
-[   10.156026] softirqs last disabled at (52021): [<80404036>] do_softirq_own_stack+0x26/0x30
-[   10.156026] 
-[   10.156026] other info that might help us debug this:
-[   10.156026]  Possible unsafe locking scenario:
-[   10.156026] 
-[   10.156026]        CPU0
-[   10.156026]        ----
-[   10.156026]   lock(_xmit_ETHER);
-[   10.156026]   <Interrupt>
-[   10.156026]     lock(_xmit_ETHER);
-[   10.156026] 
-[   10.156026]  *** DEADLOCK ***
-[   10.156026] 
-[   10.156026] 4 locks held by swapper/1/0:
-[   10.156026]  #0:  (((&idev->mc_ifc_timer))){+.-...}, at: [<8044b100>] call_timer_fn+0x0/0x190
-[   10.156026]  #1:  (rcu_read_lock){......}, at: [<a0577c40>] mld_sendpack+0x0/0x590 [ipv6]
-[   10.156026]  #2:  (rcu_read_lock_bh){......}, at: [<a055680c>] ip6_finish_output2+0x4c/0x7f0 [ipv6]
-[   10.156026]  #3:  (rcu_read_lock_bh){......}, at: [<8092e510>] __dev_queue_xmit+0x0/0x5f0
-[   10.156026] 
-[   10.156026] stack backtrace:
-[   10.156026] CPU: 1 PID: 0 Comm: swapper/1 Not tainted 3.16.0-rc5+ #13
-[   10.156026]  811dbb10 00000000 9e919d10 809e6785 9e8b8000 9e919d3c 809e561e 80b95511
-[   10.156026]  80b9545a 80b9543d 80b95450 80b95441 80b957e4 9e8b84e0 00000002 8047f7b0
-[   10.156026]  9e919d5c 8048043b 00000002 00000000 9e8b8000 00000001 00000004 9e8b8000
-[   10.156026] Call Trace:
-[   10.156026]  [<809e6785>] dump_stack+0x48/0x69
-[   10.156026]  [<809e561e>] print_usage_bug+0x18f/0x19c
-[   10.156026]  [<8047f7b0>] ? print_shortest_lock_dependencies+0x170/0x170
-[   10.156026]  [<8048043b>] mark_lock+0x53b/0x5f0
-[   10.156026]  [<804810cf>] __lock_acquire+0x6df/0x17a0
-[   10.156026]  [<804828ba>] lock_acquire+0x6a/0xf0
-[   10.156026]  [<80948b6a>] ? sch_direct_xmit+0x7a/0x250
-[   10.156026]  [<809ed477>] _raw_spin_lock+0x27/0x40
-[   10.156026]  [<80948b6a>] ? sch_direct_xmit+0x7a/0x250
-[   10.156026]  [<80948b6a>] sch_direct_xmit+0x7a/0x250
-[   10.156026]  [<8092e6bf>] __dev_queue_xmit+0x1af/0x5f0
-[   10.156026]  [<80947fc0>] ? ether_setup+0x80/0x80
-[   10.156026]  [<8092eb0f>] dev_queue_xmit+0xf/0x20
-[   10.156026]  [<8093764c>] neigh_resolve_output+0x15c/0x2a0
-[   10.156026]  [<a0556927>] ip6_finish_output2+0x167/0x7f0 [ipv6]
-[   10.156026]  [<a0559b05>] ip6_finish_output+0x85/0x1c0 [ipv6]
-[   10.156026]  [<a0559cb7>] ip6_output+0x77/0x240 [ipv6]
-[   10.156026]  [<a0578163>] mld_sendpack+0x523/0x590 [ipv6]
-[   10.156026]  [<80480501>] ? mark_held_locks+0x11/0x90
-[   10.156026]  [<a057947d>] mld_ifc_timer_expire+0x15d/0x280 [ipv6]
-[   10.156026]  [<8044b168>] call_timer_fn+0x68/0x190
-[   10.156026]  [<a0579320>] ? igmp6_group_added+0x150/0x150 [ipv6]
-[   10.156026]  [<8044b3fa>] run_timer_softirq+0x16a/0x240
-[   10.156026]  [<a0579320>] ? igmp6_group_added+0x150/0x150 [ipv6]
-[   10.156026]  [<80444984>] __do_softirq+0xd4/0x2f0
-[   10.156026]  [<804448b0>] ? tasklet_action+0x100/0x100
-[   10.156026]  [<80404036>] do_softirq_own_stack+0x26/0x30
-[   10.156026]  <IRQ>  [<80444d05>] irq_exit+0x65/0x70
-[   10.156026]  [<8042d758>] smp_apic_timer_interrupt+0x38/0x50
-[   10.156026]  [<809ee91f>] apic_timer_interrupt+0x2f/0x34
-[   10.156026]  [<8048007b>] ? mark_lock+0x17b/0x5f0
-[   10.156026]  [<8040a912>] ? default_idle+0x22/0xf0
-[   10.156026]  [<8040b13e>] arch_cpu_idle+0xe/0x10
-[   10.156026]  [<8047bfc6>] cpu_startup_entry+0x206/0x410
-[   10.156026]  [<8042bfbd>] start_secondary+0x19d/0x1e0
+This addition will also allow to configure DMA burst length.
 
-Next try results in a different one:
+Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+Acked-by: Cyrille Pitchen <cyrille.pitchen@atmel.com>
+---
+ drivers/net/ethernet/cadence/macb.c | 72 +++++++++++++++++++++++++++----------
+ drivers/net/ethernet/cadence/macb.h | 19 ++++++++--
+ 2 files changed, 71 insertions(+), 20 deletions(-)
 
-[   23.899317] g_ether gadget: high-speed config #1: CDC Ethernet (EEM)
-[   23.900918] IPv6: ADDRCONF(NETDEV_CHANGE): usb0: link becomes ready
-[   23.901573] 
-[   23.903097] =================================
-[   23.904613] [ INFO: inconsistent lock state ]
-[   23.904613] 3.16.0-rc5+ #13 Not tainted
-[   23.904613] ---------------------------------
-[   23.904613] inconsistent {HARDIRQ-ON-W} -> {IN-HARDIRQ-W} usage.
-[   23.904613] kworker/0:1/29 [HC1[1]:SC0[2]:HE0:SE0] takes:
-[   23.904613]  (&(&dev->tx_global_lock)->rlock){?.-...}, at: [<8088d4d4>] gether_disconnect+0x34/0x280
-[   23.904613] {HARDIRQ-ON-W} state was registered at:
-[   23.904613]   [<804810cf>] __lock_acquire+0x6df/0x17a0
-[   23.904613]   [<804828ba>] lock_acquire+0x6a/0xf0
-[   23.904613]   [<809ed477>] _raw_spin_lock+0x27/0x40
-[   23.904613]   [<809486ce>] dev_watchdog+0x1e/0x210
-[   23.904613]   [<8044b168>] call_timer_fn+0x68/0x190
-[   23.904613]   [<8044b3fa>] run_timer_softirq+0x16a/0x240
-[   23.904613]   [<80444984>] __do_softirq+0xd4/0x2f0
-[   23.904613]   [<80404036>] do_softirq_own_stack+0x26/0x30
-[   23.904613]   [<80444d05>] irq_exit+0x65/0x70
-[   23.904613]   [<8042d758>] smp_apic_timer_interrupt+0x38/0x50
-[   23.904613]   [<809ee91f>] apic_timer_interrupt+0x2f/0x34
-[   23.904613]   [<8040b13e>] arch_cpu_idle+0xe/0x10
-[   23.904613]   [<8047bfc6>] cpu_startup_entry+0x206/0x410
-[   23.904613]   [<8042bfbd>] start_secondary+0x19d/0x1e0
-[   23.904613] irq event stamp: 5255
-[   23.904613] hardirqs last  enabled at (5254): [<809ed6e5>] _raw_spin_unlock_irqrestore+0x45/0x60
-[   23.904613] hardirqs last disabled at (5255): [<809ee6a7>] common_interrupt+0x27/0x34
-[   23.904613] softirqs last  enabled at (5248): [<a05636f5>] ipv6_mc_up+0x35/0x40 [ipv6]
-[   23.904613] softirqs last disabled at (5250): [<a054e48e>] ip6_route_add+0x2ce/0x820 [ipv6]
-[   23.904613] 
-[   23.904613] other info that might help us debug this:
-[   23.904613]  Possible unsafe locking scenario:
-[   23.904613] 
-[   23.904613]        CPU0
-[   23.904613]        ----
-[   23.904613]   lock(&(&dev->tx_global_lock)->rlock);
-[   23.904613]   <Interrupt>
-[   23.904613]     lock(&(&dev->tx_global_lock)->rlock);
-[   23.904613] 
-[   23.904613]  *** DEADLOCK ***
-[   23.904613] 
-[   23.904613] 5 locks held by kworker/0:1/29:
-[   23.904613]  #0:  ("events"){.+.+..}, at: [<804585a0>] process_one_work+0x100/0x4e0
-[   23.904613]  #1:  ((linkwatch_work).work){+.+...}, at: [<804585a0>] process_one_work+0x100/0x4e0
-[   23.904613]  #2:  (rtnl_mutex){+.+.+.}, at: [<809395d4>] rtnl_lock+0x14/0x20
-[   23.904613]  #3:  (&tb->tb6_lock){++....}, at: [<a054e48e>] ip6_route_add+0x2ce/0x820 [ipv6]
-[   23.904613]  #4:  (rcu_read_lock){......}, at: [<8091b2b0>] sock_def_readable+0x0/0xa0
-[   23.904613] 
-[   23.904613] stack backtrace:
-[   23.904613] CPU: 0 PID: 29 Comm: kworker/0:1 Not tainted 3.16.0-rc5+ #13
-[   23.904613] Workqueue: events linkwatch_event
-[   23.904613]  811f3220 00000000 9e80bde8 809e6785 9e923340 9e80be14 809e561e 80b95511
-[   23.904613]  80b9545a 80b9543d 80b95450 80b95441 80b957fe 9e923838 00000000 8047f8b0
-[   23.904613]  9e80be34 8048043b 00000000 00000002 9e923340 00000001 0000000c 9e923340
-[   23.904613] Call Trace:
-[   23.904613]  [<809e6785>] dump_stack+0x48/0x69
-[   23.904613]  [<809e561e>] print_usage_bug+0x18f/0x19c
-[   23.904613]  [<8047f8b0>] ? check_usage_backwards+0x100/0x100
-[   23.904613]  [<8048043b>] mark_lock+0x53b/0x5f0
-[   23.904613]  [<804811f0>] __lock_acquire+0x800/0x17a0
-[   23.904613]  [<804828ba>] lock_acquire+0x6a/0xf0
-[   23.904613]  [<8088d4d4>] ? gether_disconnect+0x34/0x280
-[   23.904613]  [<809ed477>] _raw_spin_lock+0x27/0x40
-[   23.904613]  [<8088d4d4>] ? gether_disconnect+0x34/0x280
-[   23.904613]  [<8088d4d4>] gether_disconnect+0x34/0x280
-[   23.904613]  [<8088e777>] eem_set_alt+0x37/0xc0
-[   23.904613]  [<8088e740>] ? eem_disable+0x20/0x20
-[   23.904613]  [<808847ce>] composite_setup+0x30e/0x1240
-[   23.904613]  [<8088ae5e>] ? pch_udc_isr+0x1e/0xf50
-[   23.904613]  [<8088b8ae>] pch_udc_isr+0xa6e/0xf50
-[   23.904613]  [<8048abe8>] handle_irq_event_percpu+0x38/0x1e0
-[   23.904613]  [<8048adc1>] handle_irq_event+0x31/0x50
-[   23.904613]  [<8048d2d0>] ? handle_simple_irq+0x80/0x80
-[   23.904613]  [<8048d32d>] handle_edge_irq+0x5d/0x110
-[   23.904613]  [<804040a5>] handle_irq+0x65/0x80
-[   23.904613]  <IRQ>  [<80403cfc>] do_IRQ+0x3c/0xc0
-[   23.904613]  [<809ee6ae>] common_interrupt+0x2e/0x34
-[   23.904613]  [<8048007b>] ? mark_lock+0x17b/0x5f0
-[   23.904613]  [<809ed6e7>] ? _raw_spin_unlock_irqrestore+0x47/0x60
-[   23.904613]  [<8047ba01>] __wake_up_sync_key+0x41/0x50
-[   23.904613]  [<8091b307>] sock_def_readable+0x57/0xa0
-[   23.904613]  [<8094ab4e>] __netlink_sendskb+0x2e/0x40
-[   23.904613]  [<8094b529>] netlink_broadcast_filtered+0x149/0x2f0
-[   23.904613]  [<8094d3b4>] nlmsg_notify+0xb4/0xd0
-[   23.904613]  [<80939972>] rtnl_notify+0x32/0x50
-[   23.904613]  [<a0550218>] inet6_rt_notify+0xa8/0x110 [ipv6]
-[   23.904613]  [<a0551e1b>] fib6_add+0x34b/0x7c0 [ipv6]
-[   23.904613]  [<a054e4a4>] ip6_route_add+0x2e4/0x820 [ipv6]
-[   23.904613]  [<a0543ff8>] addrconf_add_mroute.isra.38+0x58/0x60 [ipv6]
-[   23.904613]  [<a05465b3>] addrconf_add_dev+0x53/0x90 [ipv6]
-[   23.904613]  [<a054a3ee>] addrconf_notify+0x4ce/0x6a0 [ipv6]
-[   23.904613]  [<809c36e0>] ? packet_notifier+0xb0/0x1e0
-[   23.904613]  [<80462a39>] notifier_call_chain+0x49/0x70
-[   23.904613]  [<80462b11>] raw_notifier_call_chain+0x11/0x20
-[   23.904613]  [<80927fda>] call_netdevice_notifiers_info+0x2a/0x60
-[   23.904613]  [<80929cfd>] netdev_state_change+0x2d/0x50
-[   23.904613]  [<8093e3d3>] linkwatch_do_dev+0x33/0x50
-[   23.904613]  [<8093e6a9>] __linkwatch_run_queue+0x109/0x130
-[   23.904613]  [<8093e6f0>] linkwatch_event+0x20/0x30
-[   23.904613]  [<804585fb>] process_one_work+0x15b/0x4e0
-[   23.904613]  [<80458db1>] worker_thread+0x41/0x4c0
-[   23.904613]  [<8048073b>] ? trace_hardirqs_on+0xb/0x10
-[   23.904613]  [<80458d70>] ? create_and_start_worker+0x50/0x50
-[   23.904613]  [<8045e3d8>] kthread+0xa8/0xc0
-[   23.904613]  [<809edf81>] ret_from_kernel_thread+0x21/0x30
-[   23.904613]  [<8045e330>] ? kthread_create_on_node+0x150/0x150
-
-Aside of that something in that driver is really flakey and timing
-sensitive, but before digging into that I'd like to figure out how to
-fix the splats above.
-
-Thanks,
-
-	tglx
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index e9daa07..0896d88 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -264,7 +264,8 @@ static void macb_handle_link_change(struct net_device *dev)
+ 				reg |= MACB_BIT(FD);
+ 			if (phydev->speed == SPEED_100)
+ 				reg |= MACB_BIT(SPD);
+-			if (phydev->speed == SPEED_1000)
++			if (phydev->speed == SPEED_1000
++			 && bp->caps & MACB_CAPS_GIGABIT_MODE_AVAILABLE)
+ 				reg |= GEM_BIT(GBE);
+ 
+ 			macb_or_gem_writel(bp, NCFGR, reg);
+@@ -337,7 +338,7 @@ static int macb_mii_probe(struct net_device *dev)
+ 	}
+ 
+ 	/* mask with MAC supported features */
+-	if (macb_is_gem(bp))
++	if (macb_is_gem(bp) && bp->caps & MACB_CAPS_GIGABIT_MODE_AVAILABLE)
+ 		phydev->supported &= PHY_GBIT_FEATURES;
+ 	else
+ 		phydev->supported &= PHY_BASIC_FEATURES;
+@@ -1342,7 +1343,7 @@ static u32 macb_dbw(struct macb *bp)
+ /*
+  * Configure the receive DMA engine
+  * - use the correct receive buffer size
+- * - set the possibility to use INCR16 bursts
++ * - set best burst length for DMA operations
+  *   (if not supported by FIFO, it will fallback to default)
+  * - set both rx/tx packet buffers to full memory size
+  * These are configurable parameters for GEM.
+@@ -1354,24 +1355,15 @@ static void macb_configure_dma(struct macb *bp)
+ 	if (macb_is_gem(bp)) {
+ 		dmacfg = gem_readl(bp, DMACFG) & ~GEM_BF(RXBS, -1L);
+ 		dmacfg |= GEM_BF(RXBS, bp->rx_buffer_size / RX_BUFFER_MULTIPLE);
+-		dmacfg |= GEM_BF(FBLDO, 16);
++		if (bp->dma_burst_length)
++			dmacfg = GEM_BFINS(FBLDO, bp->dma_burst_length, dmacfg);
+ 		dmacfg |= GEM_BIT(TXPBMS) | GEM_BF(RXBMS, -1L);
+ 		dmacfg &= ~GEM_BIT(ENDIA);
++		netdev_dbg(bp->dev, "Cadence configure DMA with 0x%08x\n", dmacfg);
+ 		gem_writel(bp, DMACFG, dmacfg);
+ 	}
+ }
+ 
+-/*
+- * Configure peripheral capacities according to integration options used
+- */
+-static void macb_configure_caps(struct macb *bp)
+-{
+-	if (macb_is_gem(bp)) {
+-		if (GEM_BFEXT(IRQCOR, gem_readl(bp, DCFG1)) == 0)
+-			bp->caps |= MACB_CAPS_ISR_CLEAR_ON_WRITE;
+-	}
+-}
+-
+ static void macb_init_hw(struct macb *bp)
+ {
+ 	u32 config;
+@@ -1394,7 +1386,6 @@ static void macb_init_hw(struct macb *bp)
+ 	bp->duplex = DUPLEX_HALF;
+ 
+ 	macb_configure_dma(bp);
+-	macb_configure_caps(bp);
+ 
+ 	/* Initialize TX and RX buffers */
+ 	macb_writel(bp, RBQP, bp->rx_ring_dma);
+@@ -1783,17 +1774,59 @@ static const struct net_device_ops macb_netdev_ops = {
+ };
+ 
+ #if defined(CONFIG_OF)
++static struct macb_config pc302gem_config = {
++	.caps = MACB_CAPS_GIGABIT_MODE_AVAILABLE,
++	.dma_burst_length = 16,
++};
++
+ static const struct of_device_id macb_dt_ids[] = {
+ 	{ .compatible = "cdns,at32ap7000-macb" },
+ 	{ .compatible = "cdns,at91sam9260-macb" },
+ 	{ .compatible = "cdns,macb" },
+-	{ .compatible = "cdns,pc302-gem" },
+-	{ .compatible = "cdns,gem" },
++	{ .compatible = "cdns,pc302-gem", .data = &pc302gem_config },
++	{ .compatible = "cdns,gem", .data = &pc302gem_config },
+ 	{ /* sentinel */ }
+ };
+ MODULE_DEVICE_TABLE(of, macb_dt_ids);
+ #endif
+ 
++/*
++ * Configure peripheral capacities according to device tree
++ * and integration options used
++ */
++static void macb_configure_caps(struct macb *bp)
++{
++	u32 dcfg;
++	const struct of_device_id *match;
++
++	if (bp->pdev->dev.of_node) {
++		match = of_match_node(macb_dt_ids, bp->pdev->dev.of_node);
++		if (match && match->data) {
++			bp->caps = ((struct macb_config *)match->data)->caps;
++			/*
++			 * As we have access to the matching node, configure
++			 * DMA burst length as well
++			 */
++			bp->dma_burst_length =
++				((struct macb_config *)match->data)->dma_burst_length;
++		}
++	}
++
++	if (MACB_BFEXT(IDNUM, macb_readl(bp, MID)) == 0x2)
++		bp->caps |= MACB_CAPS_MACB_IS_GEM;
++
++	if (macb_is_gem(bp)) {
++		dcfg = gem_readl(bp, DCFG1);
++		if (GEM_BFEXT(IRQCOR, dcfg) == 0)
++			bp->caps |= MACB_CAPS_ISR_CLEAR_ON_WRITE;
++		dcfg = gem_readl(bp, DCFG2);
++		if ((dcfg & (GEM_BIT(RX_PKT_BUFF) | GEM_BIT(TX_PKT_BUFF))) == 0)
++			bp->caps |= MACB_CAPS_FIFO_MODE;
++	}
++
++	netdev_dbg(bp->dev, "Cadence caps 0x%08x\n", bp->caps);
++}
++
+ static int __init macb_probe(struct platform_device *pdev)
+ {
+ 	struct macb_platform_data *pdata;
+@@ -1897,6 +1930,9 @@ static int __init macb_probe(struct platform_device *pdev)
+ 
+ 	dev->base_addr = regs->start;
+ 
++	/* setup capacities */
++	macb_configure_caps(bp);
++
+ 	/* setup appropriated routines according to adapter type */
+ 	if (macb_is_gem(bp)) {
+ 		bp->macbgem_ops.mog_alloc_rx_buffers = gem_alloc_rx_buffers;
+diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
+index 51c0244..7ce751b 100644
+--- a/drivers/net/ethernet/cadence/macb.h
++++ b/drivers/net/ethernet/cadence/macb.h
+@@ -305,6 +305,12 @@
+ #define GEM_DBWDEF_OFFSET			25
+ #define GEM_DBWDEF_SIZE				3
+ 
++/* Bitfields in DCFG2. */
++#define GEM_RX_PKT_BUFF_OFFSET			20
++#define GEM_RX_PKT_BUFF_SIZE			1
++#define GEM_TX_PKT_BUFF_OFFSET			21
++#define GEM_TX_PKT_BUFF_SIZE			1
++
+ /* Constants for CLK */
+ #define MACB_CLK_DIV8				0
+ #define MACB_CLK_DIV16				1
+@@ -326,7 +332,10 @@
+ #define MACB_MAN_CODE				2
+ 
+ /* Capability mask bits */
+-#define MACB_CAPS_ISR_CLEAR_ON_WRITE		0x1
++#define MACB_CAPS_ISR_CLEAR_ON_WRITE		0x00000001
++#define MACB_CAPS_FIFO_MODE			0x10000000
++#define MACB_CAPS_GIGABIT_MODE_AVAILABLE	0x20000000
++#define MACB_CAPS_MACB_IS_GEM			0x80000000
+ 
+ /* Bit manipulation macros */
+ #define MACB_BIT(name)					\
+@@ -554,6 +563,11 @@ struct macb_or_gem_ops {
+ 	int	(*mog_rx)(struct macb *bp, int budget);
+ };
+ 
++struct macb_config {
++	u32			caps;
++	unsigned int		dma_burst_length;
++};
++
+ struct macb {
+ 	void __iomem		*regs;
+ 
+@@ -595,6 +609,7 @@ struct macb {
+ 	unsigned int 		duplex;
+ 
+ 	u32			caps;
++	unsigned int		dma_burst_length;
+ 
+ 	phy_interface_t		phy_interface;
+ 
+@@ -615,7 +630,7 @@ void macb_get_hwaddr(struct macb *bp);
+ 
+ static inline bool macb_is_gem(struct macb *bp)
+ {
+-	return MACB_BFEXT(IDNUM, macb_readl(bp, MID)) == 0x2;
++	return !!(bp->caps & MACB_CAPS_MACB_IS_GEM);
+ }
+ 
+ #endif /* _MACB_H */
+-- 
+1.8.2.2
