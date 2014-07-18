@@ -1,72 +1,30 @@
-From: Varka Bhadram <varkabhadram@gmail.com>
-Subject: Re: [PATCH 1/2] net: macb: Separate rx and tx ring init function
-Date: Fri, 18 Jul 2014 15:45:24 +0530
-Message-ID: <53C8F3BC.4060607@gmail.com>
-References: <53C8EE60.8020707@gmail.com> <53C8F280.9040507@gmail.com> <53C8F34D.9090503@gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [GIT PULL nf] Second Round of IPVS Fixes for v3.16
+Date: Fri, 18 Jul 2014 12:24:17 +0200
+Message-ID: <20140718102417.GA4209@salvia>
+References: <1405472168-25192-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Neil Armstrong <superna9999@gmail.com>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <53C8F34D.9090503@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1405472168-25192-1-git-send-email-horms@verge.net.au>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 07/18/2014 03:43 PM, Neil Armstrong wrote:
-> Le 18/07/2014 12:10, Varka Bhadram a =E9crit :
->> On 07/18/2014 03:22 PM, Neil Armstrong wrote:
->>> A single method is called to initialize the TX and RX
->>> rings. Separate the methods into distinct ones for
->>> MACB and GEM context.
->>>
->>> Signed-off-by: Neil Armstrong <narmstrong@neotion.com>
->>> ---
->>>    drivers/net/ethernet/cadence/macb.c |   33 +++++++++++++++++++++=
-+++---------
->>>    drivers/net/ethernet/cadence/macb.h |    3 ++-
->>>    2 files changed, 26 insertions(+), 10 deletions(-)
->>>
->>> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethe=
-rnet/cadence/macb.c
->>> index e9daa07..20ad483 100644
->>> --- a/drivers/net/ethernet/cadence/macb.c
->>> +++ b/drivers/net/ethernet/cadence/macb.c
->>> @@ -1219,7 +1219,14 @@ out_err:
->>>    	return -ENOMEM;
->>>    }
->>>   =20
->>> -static void gem_init_rings(struct macb *bp)
->>> +static void gem_init_rx_rings(struct macb *bp)
->>> +{
->>> +	bp->rx_tail =3D bp->rx_prepared_head =3D 0;
->>> +
->>> +	gem_rx_refill(bp);
->>> +}
->>> +
->>> +static void gem_init_tx_rings(struct macb *bp)
->>>    {
->>>    	int i;
->>>   =20
->>> @@ -1229,12 +1236,10 @@ static void gem_init_rings(struct macb *bp)
->>>    	}
->>>    	bp->tx_ring[TX_RING_SIZE - 1].ctrl |=3D MACB_BIT(TX_WRAP);
->>>   =20
->>> -	bp->rx_tail =3D bp->rx_prepared_head =3D bp->tx_head =3D bp->tx_t=
-ail =3D 0;
->>> -
->>> -	gem_rx_refill(bp);
->>> +	bp->tx_head =3D bp->tx_tail =3D 0;
->> This is not the preferred way of doing it....
->>
->> multiple assignments should be avoided
-> Should I change it ? I only moved the lines, the logic hasn't changed=
-=2E
->
-Yes. we can change the logic also....  :-)
+On Wed, Jul 16, 2014 at 09:56:07AM +0900, Simon Horman wrote:
+> Hi Pablo,
+> 
+> Please consider this IPVS fix for v3.16.
+> 
+> It resolves a problem that was introduced in v3.0.
+> 
+> I would like this fix considered for -stable and I have checked that it
+> applies cleanly on top of v3.15.5, v3.14.12, v3.12.24, v3.10.48,
+> v3.4.98 and v3.2.61.
 
---=20
-Regards,
-Varka Bhadram.
+Pulled and enqueue to -stable, thanks.
