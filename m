@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH RFC v2 net-next 05/16] bpf: introduce syscall(BPF, ...) and BPF maps
-Date: Thu, 17 Jul 2014 21:19:55 -0700
-Message-ID: <1405657206-12060-6-git-send-email-ast@plumgrid.com>
+Subject: [PATCH RFC v2 net-next 13/16] tracing: allow eBPF programs to be attached to events
+Date: Thu, 17 Jul 2014 21:20:03 -0700
+Message-ID: <1405657206-12060-14-git-send-email-ast@plumgrid.com>
 References: <1405657206-12060-1-git-send-email-ast@plumgrid.com>
 Cc: Ingo Molnar <mingo@kernel.org>,
 	Linus Torvalds <torvalds@linux-foundation.org>,
@@ -19,460 +19,606 @@ Cc: Ingo Molnar <mingo@kernel.org>,
 	Kees Cook <keescook@chromium.org>, linux-api@vger.kernel.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:37554 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760383AbaGREUz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jul 2014 00:20:55 -0400
+Received: by mail-pd0-f169.google.com with SMTP id y10so4333801pdj.0
+        for <netdev@vger.kernel.org>; Thu, 17 Jul 2014 21:20:55 -0700 (PDT)
 In-Reply-To: <1405657206-12060-1-git-send-email-ast@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-BPF syscall is a demux for different BPF releated commands.
+User interface:
+fd = open("/sys/kernel/debug/tracing/__event__/filter")
 
-'maps' is a generic storage of different types for sharing data between kernel
-and userspace.
+write(fd, "bpf_123")
 
-The maps can be created from user space via BPF syscall:
-- create a map with given type and attributes
-  fd = bpf_map_create(map_type, struct nlattr *attr, int len)
-  returns fd or negative error
+where 123 is process local FD associated with eBPF program previously loaded.
+__event__ is static tracepoint event.
+(kprobe events will be supported in the future patches)
+Once program is successfully attached to tracepoint event, the tracepoint
+will be auto-enabled
 
-- close(fd) deletes the map
+close(fd)
+auto-disables tracepoint event and detaches eBPF program from it
 
-Next patch allows userspace programs to populate/read maps that eBPF programs
-are concurrently updating.
-
-maps can have different types: hash, bloom filter, radix-tree, etc.
-
-The map is defined by:
-  . type
-  . max number of elements
-  . key size in bytes
-  . value size in bytes
-
-Next patches allow eBPF programs to access maps via API:
-  void * bpf_map_lookup_elem(u32 fd, void *key);
-  int bpf_map_update_elem(u32 fd, void *key, void *value);
-  int bpf_map_delete_elem(u32 fd, void *key);
-
-This patch establishes core infrastructure for BPF maps.
-Next patches implement lookup/update and hashtable type.
-More map types can be added in the future.
-
-syscall is using type-length-value style of passing arguments to be backwards
-compatible with future extensions to map attributes. Different map types may
-use different attributes as well.
-The concept of type-lenght-value is borrowed from netlink, but netlink itself
-is not applicable here, since BPF programs and maps can be used in NET-less
-configurations.
+eBPF programs can call in-kernel helper functions to:
+- lookup/update/delete elements in maps
+- memcmp
+- trace_printk
+- load_pointer
+- dump_stack
 
 Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
- Documentation/networking/filter.txt |   69 +++++++++++
- include/linux/bpf.h                 |   43 +++++++
- include/uapi/linux/bpf.h            |   24 ++++
- kernel/bpf/Makefile                 |    2 +-
- kernel/bpf/syscall.c                |  225 +++++++++++++++++++++++++++++++++++
- 5 files changed, 362 insertions(+), 1 deletion(-)
- create mode 100644 include/linux/bpf.h
- create mode 100644 kernel/bpf/syscall.c
+ include/linux/ftrace_event.h       |    5 +
+ include/trace/bpf_trace.h          |   29 +++++
+ include/trace/ftrace.h             |   10 ++
+ include/uapi/linux/bpf.h           |    5 +
+ kernel/trace/Kconfig               |    1 +
+ kernel/trace/Makefile              |    1 +
+ kernel/trace/bpf_trace.c           |  212 ++++++++++++++++++++++++++++++++++++
+ kernel/trace/trace.h               |    3 +
+ kernel/trace/trace_events.c        |   36 +++++-
+ kernel/trace/trace_events_filter.c |   72 +++++++++++-
+ 10 files changed, 372 insertions(+), 2 deletions(-)
+ create mode 100644 include/trace/bpf_trace.h
+ create mode 100644 kernel/trace/bpf_trace.c
 
-diff --git a/Documentation/networking/filter.txt b/Documentation/networking/filter.txt
-index ee78eba78a9d..e14e486f69cd 100644
---- a/Documentation/networking/filter.txt
-+++ b/Documentation/networking/filter.txt
-@@ -995,6 +995,75 @@ BPF_XADD | BPF_DW | BPF_STX: lock xadd *(u64 *)(dst_reg + off16) += src_reg
- Where size is one of: BPF_B or BPF_H or BPF_W or BPF_DW. Note that 1 and
- 2 byte atomic increments are not supported.
- 
-+eBPF maps
-+---------
-+'maps' is a generic storage of different types for sharing data between kernel
-+and userspace.
-+
-+The maps are accessed from user space via BPF syscall, which has commands:
-+- create a map with given id, type and attributes
-+  map_id = bpf_map_create(int map_id, map_type, struct nlattr *attr, int len)
-+  returns positive map id or negative error
-+
-+- delete map with given map id
-+  err = bpf_map_delete(int map_id)
-+  returns zero or negative error
-+
-+- lookup key in a given map referenced by map_id
-+  err = bpf_map_lookup_elem(int map_id, void *key, void *value)
-+  returns zero and stores found elem into value or negative error
-+
-+- create or update key/value pair in a given map
-+  err = bpf_map_update_elem(int map_id, void *key, void *value)
-+  returns zero or negative error
-+
-+- find and delete element by key in a given map
-+  err = bpf_map_delete_elem(int map_id, void *key)
-+
-+userspace programs uses this API to create/populate/read maps that eBPF programs
-+are concurrently updating.
-+
-+maps can have different types: hash, bloom filter, radix-tree, etc.
-+
-+The map is defined by:
-+  . id
-+  . type
-+  . max number of elements
-+  . key size in bytes
-+  . value size in bytes
-+
-+The maps are accesible from eBPF program with API:
-+  void * bpf_map_lookup_elem(u32 map_id, void *key);
-+  int bpf_map_update_elem(u32 map_id, void *key, void *value);
-+  int bpf_map_delete_elem(u32 map_id, void *key);
-+
-+If eBPF verifier is configured to recognize extra calls in the program
-+bpf_map_lookup_elem() and bpf_map_update_elem() then access to maps looks like:
-+  ...
-+  ptr_to_value = map_lookup_elem(const_int_map_id, key)
-+  access memory [ptr_to_value, ptr_to_value + value_size_in_bytes]
-+  ...
-+  prepare key2 and value2 on stack of key_size and value_size
-+  err = map_update_elem(const_int_map_id2, key2, value2)
-+  ...
-+
-+eBPF program cannot create or delete maps
-+(such calls will be unknown to verifier)
-+
-+During program loading the refcnt of used maps is incremented, so they don't get
-+deleted while program is running
-+
-+bpf_map_update_elem() can fail if maximum number of elements reached.
-+if key2 already exists, bpf_map_update_elem() replaces it with value2 atomically
-+
-+bpf_map_lookup_elem() can return null or ptr_to_value
-+ptr_to_value is read/write from the program point of view.
-+
-+The verifier will check that the program accesses map elements within specified
-+size. It will not let programs pass junk values as 'key' and 'value' to
-+bpf_map_*_elem() functions, so these functions (implemented in C inside kernel)
-+can safely access the pointers in all cases.
-+
- Testing
- -------
- 
-diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-new file mode 100644
-index 000000000000..57af236a0eb4
---- /dev/null
-+++ b/include/linux/bpf.h
-@@ -0,0 +1,43 @@
-+/* Copyright (c) 2011-2014 PLUMgrid, http://plumgrid.com
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ */
-+#ifndef _LINUX_BPF_H
-+#define _LINUX_BPF_H 1
-+
-+#include <uapi/linux/bpf.h>
-+#include <linux/workqueue.h>
-+
-+struct bpf_map;
-+struct nlattr;
-+
-+/* map is generic key/value storage optionally accesible by eBPF programs */
-+struct bpf_map_ops {
-+	/* funcs callable from userspace (via syscall) */
-+	struct bpf_map *(*map_alloc)(struct nlattr *attrs[BPF_MAP_ATTR_MAX + 1]);
-+	void (*map_free)(struct bpf_map *);
-+};
-+
-+struct bpf_map {
-+	atomic_t refcnt;
-+	int map_id;
-+	enum bpf_map_type map_type;
-+	u32 key_size;
-+	u32 value_size;
-+	u32 max_entries;
-+	struct bpf_map_ops *ops;
-+	struct work_struct work;
-+};
-+
-+struct bpf_map_type_list {
-+	struct list_head list_node;
-+	struct bpf_map_ops *ops;
-+	enum bpf_map_type type;
-+};
-+
-+void bpf_register_map_type(struct bpf_map_type_list *tl);
-+struct bpf_map *bpf_map_get(u32 map_id);
-+
-+#endif /* _LINUX_BPF_H */
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 3ff5bf5045a7..dcc7eb97a64a 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -300,4 +300,28 @@ struct bpf_insn {
- 	__s32	imm;		/* signed immediate constant */
+diff --git a/include/linux/ftrace_event.h b/include/linux/ftrace_event.h
+index cff3106ffe2c..de313bd9a434 100644
+--- a/include/linux/ftrace_event.h
++++ b/include/linux/ftrace_event.h
+@@ -237,6 +237,7 @@ enum {
+ 	TRACE_EVENT_FL_WAS_ENABLED_BIT,
+ 	TRACE_EVENT_FL_USE_CALL_FILTER_BIT,
+ 	TRACE_EVENT_FL_TRACEPOINT_BIT,
++	TRACE_EVENT_FL_BPF_BIT,
  };
  
-+/* BPF syscall commands */
-+enum bpf_cmd {
-+	/* create a map with given type and attributes
-+	 * fd = bpf_map_create(bpf_map_type, struct nlattr *attr, int len)
-+	 * returns fd or negative error
-+	 * map is deleted when fd is closed
-+	 */
-+	BPF_MAP_CREATE,
-+};
+ /*
+@@ -259,6 +260,7 @@ enum {
+ 	TRACE_EVENT_FL_WAS_ENABLED	= (1 << TRACE_EVENT_FL_WAS_ENABLED_BIT),
+ 	TRACE_EVENT_FL_USE_CALL_FILTER	= (1 << TRACE_EVENT_FL_USE_CALL_FILTER_BIT),
+ 	TRACE_EVENT_FL_TRACEPOINT	= (1 << TRACE_EVENT_FL_TRACEPOINT_BIT),
++	TRACE_EVENT_FL_BPF		= (1 << TRACE_EVENT_FL_BPF_BIT),
+ };
+ 
+ struct ftrace_event_call {
+@@ -536,6 +538,9 @@ event_trigger_unlock_commit_regs(struct ftrace_event_file *file,
+ 		event_triggers_post_call(file, tt);
+ }
+ 
++struct bpf_context;
++void trace_filter_call_bpf(struct event_filter *filter, struct bpf_context *ctx);
 +
-+enum bpf_map_attributes {
-+	BPF_MAP_UNSPEC,
-+	BPF_MAP_KEY_SIZE,	/* size of key in bytes */
-+	BPF_MAP_VALUE_SIZE,	/* size of value in bytes */
-+	BPF_MAP_MAX_ENTRIES,	/* maximum number of entries in a map */
-+	__BPF_MAP_ATTR_MAX,
-+};
-+#define BPF_MAP_ATTR_MAX (__BPF_MAP_ATTR_MAX - 1)
-+#define BPF_MAP_MAX_ATTR_SIZE 65535
-+
-+enum bpf_map_type {
-+	BPF_MAP_TYPE_UNSPEC,
-+};
-+
- #endif /* _UAPI__LINUX_BPF_H__ */
-diff --git a/kernel/bpf/Makefile b/kernel/bpf/Makefile
-index 6a71145e2769..e9f7334ed07a 100644
---- a/kernel/bpf/Makefile
-+++ b/kernel/bpf/Makefile
-@@ -1 +1 @@
--obj-y := core.o
-+obj-y := core.o syscall.o
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+ enum {
+ 	FILTER_OTHER = 0,
+ 	FILTER_STATIC_STRING,
+diff --git a/include/trace/bpf_trace.h b/include/trace/bpf_trace.h
 new file mode 100644
-index 000000000000..c4a330642653
+index 000000000000..2122437f1317
 --- /dev/null
-+++ b/kernel/bpf/syscall.c
-@@ -0,0 +1,225 @@
++++ b/include/trace/bpf_trace.h
+@@ -0,0 +1,29 @@
 +/* Copyright (c) 2011-2014 PLUMgrid, http://plumgrid.com
 + *
 + * This program is free software; you can redistribute it and/or
 + * modify it under the terms of version 2 of the GNU General Public
 + * License as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-+ * General Public License for more details.
 + */
++#ifndef _LINUX_KERNEL_BPF_TRACE_H
++#define _LINUX_KERNEL_BPF_TRACE_H
++
++/* For tracing filters save first six arguments of tracepoint events.
++ * On 64-bit architectures argN fields will match one to one to arguments passed
++ * to tracepoint events.
++ * On 32-bit architectures u64 arguments to events will be seen into two
++ * consecutive argN, argN+1 fields. Pointers, u32, u16, u8, bool types will
++ * match one to one
++ */
++struct bpf_context {
++	unsigned long arg1;
++	unsigned long arg2;
++	unsigned long arg3;
++	unsigned long arg4;
++	unsigned long arg5;
++	unsigned long arg6;
++};
++
++/* call from ftrace_raw_event_*() to copy tracepoint arguments into ctx */
++void populate_bpf_context(struct bpf_context *ctx, ...);
++
++#endif /* _LINUX_KERNEL_BPF_TRACE_H */
+diff --git a/include/trace/ftrace.h b/include/trace/ftrace.h
+index 26b4f2e13275..ad4987ac68bb 100644
+--- a/include/trace/ftrace.h
++++ b/include/trace/ftrace.h
+@@ -17,6 +17,7 @@
+  */
+ 
+ #include <linux/ftrace_event.h>
++#include <trace/bpf_trace.h>
+ 
+ /*
+  * DECLARE_EVENT_CLASS can be used to add a generic function
+@@ -634,6 +635,15 @@ ftrace_raw_event_##call(void *__data, proto)				\
+ 	if (ftrace_trigger_soft_disabled(ftrace_file))			\
+ 		return;							\
+ 									\
++	if (unlikely(ftrace_file->flags & FTRACE_EVENT_FL_FILTERED) &&	\
++	    unlikely(ftrace_file->event_call->flags & TRACE_EVENT_FL_BPF)) { \
++		struct bpf_context __ctx;				\
++									\
++		populate_bpf_context(&__ctx, args, 0, 0, 0, 0, 0);	\
++		trace_filter_call_bpf(ftrace_file->filter, &__ctx);	\
++		return;							\
++	}								\
++									\
+ 	__data_size = ftrace_get_offsets_##call(&__data_offsets, args); \
+ 									\
+ 	entry = ftrace_event_buffer_reserve(&fbuffer, ftrace_file,	\
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 06e0f63055fb..cedcf9a0db53 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -370,6 +370,7 @@ enum bpf_prog_attributes {
+ enum bpf_prog_type {
+ 	BPF_PROG_TYPE_UNSPEC,
+ 	BPF_PROG_TYPE_SOCKET_FILTER,
++	BPF_PROG_TYPE_TRACING_FILTER,
+ };
+ 
+ /* integer value in 'imm' field of BPF_CALL instruction selects which helper
+@@ -380,6 +381,10 @@ enum bpf_func_id {
+ 	BPF_FUNC_map_lookup_elem, /* void *map_lookup_elem(map_id, void *key) */
+ 	BPF_FUNC_map_update_elem, /* int map_update_elem(map_id, void *key, void *value) */
+ 	BPF_FUNC_map_delete_elem, /* int map_delete_elem(map_id, void *key) */
++	BPF_FUNC_load_pointer,    /* void *bpf_load_pointer(void *unsafe_ptr) */
++	BPF_FUNC_memcmp,          /* int bpf_memcmp(void *unsafe_ptr, void *safe_ptr, int size) */
++	BPF_FUNC_dump_stack,      /* void bpf_dump_stack(void) */
++	BPF_FUNC_printk,          /* int bpf_printk(const char *fmt, int fmt_size, ...) */
+ 	__BPF_FUNC_MAX_ID,
+ };
+ 
+diff --git a/kernel/trace/Kconfig b/kernel/trace/Kconfig
+index d4409356f40d..e36d42876634 100644
+--- a/kernel/trace/Kconfig
++++ b/kernel/trace/Kconfig
+@@ -80,6 +80,7 @@ config FTRACE_NMI_ENTER
+ 
+ config EVENT_TRACING
+ 	select CONTEXT_SWITCH_TRACER
++	depends on NET
+ 	bool
+ 
+ config CONTEXT_SWITCH_TRACER
+diff --git a/kernel/trace/Makefile b/kernel/trace/Makefile
+index 2611613f14f1..a0fcfd97101d 100644
+--- a/kernel/trace/Makefile
++++ b/kernel/trace/Makefile
+@@ -52,6 +52,7 @@ obj-$(CONFIG_EVENT_TRACING) += trace_event_perf.o
+ endif
+ obj-$(CONFIG_EVENT_TRACING) += trace_events_filter.o
+ obj-$(CONFIG_EVENT_TRACING) += trace_events_trigger.o
++obj-$(CONFIG_EVENT_TRACING) += bpf_trace.o
+ obj-$(CONFIG_KPROBE_EVENT) += trace_kprobe.o
+ obj-$(CONFIG_TRACEPOINTS) += power-traces.o
+ ifeq ($(CONFIG_PM_RUNTIME),y)
+diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
+new file mode 100644
+index 000000000000..7263491be792
+--- /dev/null
++++ b/kernel/trace/bpf_trace.c
+@@ -0,0 +1,212 @@
++/* Copyright (c) 2011-2014 PLUMgrid, http://plumgrid.com
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ */
++#include <linux/kernel.h>
++#include <linux/types.h>
++#include <linux/slab.h>
 +#include <linux/bpf.h>
-+#include <linux/syscalls.h>
-+#include <net/netlink.h>
-+#include <linux/anon_inodes.h>
++#include <linux/filter.h>
++#include <linux/uaccess.h>
++#include <trace/bpf_trace.h>
++#include "trace.h"
 +
-+/* mutex to protect insertion/deletion of map_id in IDR */
-+static DEFINE_MUTEX(bpf_map_lock);
-+static DEFINE_IDR(bpf_map_id_idr);
-+
-+/* maximum number of outstanding maps */
-+#define MAX_BPF_MAP_CNT 1024
-+static u32 bpf_map_cnt;
-+
-+static LIST_HEAD(bpf_map_types);
-+
-+static struct bpf_map *find_and_alloc_map(enum bpf_map_type type,
-+					  struct nlattr *tb[BPF_MAP_ATTR_MAX + 1])
++/* call from ftrace_raw_event_*() to copy tracepoint arguments into ctx */
++void populate_bpf_context(struct bpf_context *ctx, ...)
 +{
-+	struct bpf_map_type_list *tl;
-+	struct bpf_map *map;
++	va_list args;
 +
-+	list_for_each_entry(tl, &bpf_map_types, list_node) {
-+		if (tl->type == type) {
-+			map = tl->ops->map_alloc(tb);
-+			if (IS_ERR(map))
-+				return map;
-+			map->ops = tl->ops;
-+			map->map_type = type;
-+			return map;
-+		}
++	va_start(args, ctx);
++
++	ctx->arg1 = va_arg(args, unsigned long);
++	ctx->arg2 = va_arg(args, unsigned long);
++	ctx->arg3 = va_arg(args, unsigned long);
++	ctx->arg4 = va_arg(args, unsigned long);
++	ctx->arg5 = va_arg(args, unsigned long);
++	ctx->arg6 = va_arg(args, unsigned long);
++
++	va_end(args);
++}
++EXPORT_SYMBOL_GPL(populate_bpf_context);
++
++/* called from eBPF program with rcu lock held */
++static u64 bpf_load_ptr(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
++{
++        void *unsafe_ptr = (void *) r1;
++	void *ptr = NULL;
++
++	probe_kernel_read(&ptr, unsafe_ptr, sizeof(void *));
++	return (u64) (unsigned long) ptr;
++}
++
++static u64 bpf_memcmp(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
++{
++        void *unsafe_ptr = (void *) r1;
++	void *safe_ptr = (void *) r2;
++	u32 size = (u32) r3;
++	char buf[64];
++	int err;
++
++	if (size < 64) {
++		err = probe_kernel_read(buf, unsafe_ptr, size);
++		if (err)
++			return err;
++		return memcmp(buf, safe_ptr, size);
 +	}
-+	return ERR_PTR(-EINVAL);
++	return -1;
 +}
 +
-+/* boot time registration of different map implementations */
-+void bpf_register_map_type(struct bpf_map_type_list *tl)
++static u64 bpf_dump_stack(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
 +{
-+	list_add(&tl->list_node, &bpf_map_types);
-+}
-+
-+/* called from workqueue */
-+static void bpf_map_free_deferred(struct work_struct *work)
-+{
-+	struct bpf_map *map = container_of(work, struct bpf_map, work);
-+
-+	/* grab the mutex and free the map */
-+	mutex_lock(&bpf_map_lock);
-+
-+	bpf_map_cnt--;
-+	idr_remove(&bpf_map_id_idr, map->map_id);
-+
-+	mutex_unlock(&bpf_map_lock);
-+
-+	/* implementation dependent freeing */
-+	map->ops->map_free(map);
-+}
-+
-+/* decrement map refcnt and schedule it for freeing via workqueue
-+ * (unrelying map implementation ops->map_free() might sleep)
-+ */
-+static void __bpf_map_put(struct bpf_map *map)
-+{
-+	if (atomic_dec_and_test(&map->refcnt)) {
-+		INIT_WORK(&map->work, bpf_map_free_deferred);
-+		schedule_work(&map->work);
-+	}
-+}
-+
-+/* find map by id and decrement its refcnt
-+ *
-+ * can be called without any locks held
-+ *
-+ * returns true if map was found
-+ */
-+static bool bpf_map_put(u32 map_id)
-+{
-+	struct bpf_map *map;
-+
-+	rcu_read_lock();
-+	map = idr_find(&bpf_map_id_idr, map_id);
-+
-+	if (!map) {
-+		rcu_read_unlock();
-+		return false;
-+	}
-+
-+	__bpf_map_put(map);
-+	rcu_read_unlock();
-+
-+	return true;
-+}
-+
-+/* called with bpf_map_lock held */
-+struct bpf_map *bpf_map_get(u32 map_id)
-+{
-+	BUG_ON(!mutex_is_locked(&bpf_map_lock));
-+
-+	return idr_find(&bpf_map_id_idr, map_id);
-+}
-+
-+static int bpf_map_release(struct inode *inode, struct file *filp)
-+{
-+	struct bpf_map *map = filp->private_data;
-+
-+	__bpf_map_put(map);
++	trace_dump_stack(0);
 +	return 0;
 +}
 +
-+static const struct file_operations bpf_map_fops = {
-+        .release = bpf_map_release,
-+};
-+
-+static const struct nla_policy map_policy[BPF_MAP_ATTR_MAX + 1] = {
-+	[BPF_MAP_KEY_SIZE]    = { .type = NLA_U32 },
-+	[BPF_MAP_VALUE_SIZE]  = { .type = NLA_U32 },
-+	[BPF_MAP_MAX_ENTRIES] = { .type = NLA_U32 },
-+};
-+
-+/* called via syscall */
-+static int map_create(enum bpf_map_type type, struct nlattr __user *uattr, int len)
++/* limited printk()
++ * only %d %u %x conversion specifiers allowed
++ */
++static u64 bpf_printk(u64 r1, u64 fmt_size, u64 r3, u64 r4, u64 r5)
 +{
-+	struct nlattr *tb[BPF_MAP_ATTR_MAX + 1];
-+	struct bpf_map *map;
-+	struct nlattr *attr;
-+	int err;
++	char *fmt = (char *) r1;
++	int fmt_cnt = 0;
++	int i;
 +
-+	if (len <= 0 || len > BPF_MAP_MAX_ATTR_SIZE)
++	/* bpf_check() guarantees that fmt points to bpf program stack and
++	 * fmt_size bytes of it were initialized by bpf program
++	 */
++	if (fmt[fmt_size - 1] != 0)
 +		return -EINVAL;
 +
-+	attr = kmalloc(len, GFP_USER);
-+	if (!attr)
++	/* check format string for allowed specifiers */
++	for (i = 0; i < fmt_size; i++)
++		if (fmt[i] == '%') {
++			if (i + 1 >= fmt_size)
++				return -EINVAL;
++			if (fmt[i + 1] != 'd' && fmt[i + 1] != 'u' &&
++			    fmt[i + 1] != 'x')
++				return -EINVAL;
++			fmt_cnt++;
++		}
++
++	if (fmt_cnt > 3)
++		return -EINVAL;
++
++	return __trace_printk((unsigned long) __builtin_return_address(3), fmt,
++			      (u32) r3, (u32) r4, (u32) r5);
++}
++
++static struct bpf_func_proto tracing_filter_funcs[] = {
++	[BPF_FUNC_load_pointer] = {
++		.func = bpf_load_ptr,
++		.gpl_only = true,
++		.ret_type = RET_INTEGER,
++	},
++	[BPF_FUNC_memcmp] = {
++		.func = bpf_memcmp,
++		.gpl_only = false,
++		.ret_type = RET_INTEGER,
++		.arg1_type = ARG_ANYTHING,
++		.arg2_type = ARG_PTR_TO_STACK,
++		.arg3_type = ARG_CONST_STACK_SIZE,
++	},
++	[BPF_FUNC_dump_stack] = {
++		.func = bpf_dump_stack,
++		.gpl_only = false,
++		.ret_type = RET_VOID,
++	},
++	[BPF_FUNC_printk] = {
++		.func = bpf_printk,
++		.gpl_only = true,
++		.ret_type = RET_INTEGER,
++		.arg1_type = ARG_PTR_TO_STACK,
++		.arg2_type = ARG_CONST_STACK_SIZE,
++	},
++	[BPF_FUNC_map_lookup_elem] = {
++		.func = bpf_map_lookup_elem,
++		.gpl_only = false,
++		.ret_type = RET_PTR_TO_MAP_OR_NULL,
++		.arg1_type = ARG_CONST_MAP_ID,
++		.arg2_type = ARG_PTR_TO_MAP_KEY,
++	},
++	[BPF_FUNC_map_update_elem] = {
++		.func = bpf_map_update_elem,
++		.gpl_only = false,
++		.ret_type = RET_INTEGER,
++		.arg1_type = ARG_CONST_MAP_ID,
++		.arg2_type = ARG_PTR_TO_MAP_KEY,
++		.arg3_type = ARG_PTR_TO_MAP_VALUE,
++	},
++	[BPF_FUNC_map_delete_elem] = {
++		.func = bpf_map_delete_elem,
++		.gpl_only = false,
++		.ret_type = RET_INTEGER,
++		.arg1_type = ARG_CONST_MAP_ID,
++		.arg2_type = ARG_PTR_TO_MAP_KEY,
++	},
++};
++
++static const struct bpf_func_proto *tracing_filter_func_proto(enum bpf_func_id func_id)
++{
++	if (func_id < 0 || func_id >= ARRAY_SIZE(tracing_filter_funcs))
++		return NULL;
++	return &tracing_filter_funcs[func_id];
++}
++
++static const struct bpf_context_access {
++	int size;
++	enum bpf_access_type type;
++} tracing_filter_ctx_access[] = {
++	[offsetof(struct bpf_context, arg1)] = {
++		FIELD_SIZEOF(struct bpf_context, arg1),
++		BPF_READ
++	},
++	[offsetof(struct bpf_context, arg2)] = {
++		FIELD_SIZEOF(struct bpf_context, arg2),
++		BPF_READ
++	},
++	[offsetof(struct bpf_context, arg3)] = {
++		FIELD_SIZEOF(struct bpf_context, arg3),
++		BPF_READ
++	},
++	[offsetof(struct bpf_context, arg4)] = {
++		FIELD_SIZEOF(struct bpf_context, arg4),
++		BPF_READ
++	},
++	[offsetof(struct bpf_context, arg5)] = {
++		FIELD_SIZEOF(struct bpf_context, arg5),
++		BPF_READ
++	},
++};
++
++static bool tracing_filter_is_valid_access(int off, int size, enum bpf_access_type type)
++{
++	const struct bpf_context_access *access;
++
++	if (off < 0 || off >= ARRAY_SIZE(tracing_filter_ctx_access))
++		return false;
++
++	access = &tracing_filter_ctx_access[off];
++	if (access->size == size && (access->type & type))
++		return true;
++
++	return false;
++}
++
++static struct bpf_verifier_ops tracing_filter_ops = {
++	.get_func_proto = tracing_filter_func_proto,
++	.is_valid_access = tracing_filter_is_valid_access,
++};
++
++static struct bpf_prog_type_list tl = {
++	.ops = &tracing_filter_ops,
++	.type = BPF_PROG_TYPE_TRACING_FILTER,
++};
++
++static int __init register_tracing_filter_ops(void)
++{
++	bpf_register_prog_type(&tl);
++	return 0;
++}
++late_initcall(register_tracing_filter_ops);
+diff --git a/kernel/trace/trace.h b/kernel/trace/trace.h
+index 9258f5a815db..bb7c6a19ead5 100644
+--- a/kernel/trace/trace.h
++++ b/kernel/trace/trace.h
+@@ -984,12 +984,15 @@ struct ftrace_event_field {
+ 	int			is_signed;
+ };
+ 
++struct sk_filter;
++
+ struct event_filter {
+ 	int			n_preds;	/* Number assigned */
+ 	int			a_preds;	/* allocated */
+ 	struct filter_pred	*preds;
+ 	struct filter_pred	*root;
+ 	char			*filter_string;
++	struct sk_filter	*prog;
+ };
+ 
+ struct event_subsystem {
+diff --git a/kernel/trace/trace_events.c b/kernel/trace/trace_events.c
+index f99e0b3bca8c..de79c27a0a42 100644
+--- a/kernel/trace/trace_events.c
++++ b/kernel/trace/trace_events.c
+@@ -1048,6 +1048,26 @@ event_filter_read(struct file *filp, char __user *ubuf, size_t cnt,
+ 	return r;
+ }
+ 
++static int event_filter_release(struct inode *inode, struct file *filp)
++{
++	struct ftrace_event_file *file;
++	char buf[2] = "0";
++
++	mutex_lock(&event_mutex);
++	file = event_file_data(filp);
++	if (file) {
++		if (file->event_call->flags & TRACE_EVENT_FL_BPF) {
++			/* auto-disable the filter */
++			ftrace_event_enable_disable(file, 0);
++
++			/* if BPF filter was used, clear it on fd close */
++			apply_event_filter(file, buf);
++		}
++	}
++	mutex_unlock(&event_mutex);
++	return 0;
++}
++
+ static ssize_t
+ event_filter_write(struct file *filp, const char __user *ubuf, size_t cnt,
+ 		   loff_t *ppos)
+@@ -1071,10 +1091,23 @@ event_filter_write(struct file *filp, const char __user *ubuf, size_t cnt,
+ 
+ 	mutex_lock(&event_mutex);
+ 	file = event_file_data(filp);
+-	if (file)
++	if (file) {
+ 		err = apply_event_filter(file, buf);
++		if (!err && file->event_call->flags & TRACE_EVENT_FL_BPF)
++			/* once filter is applied, auto-enable it */
++			ftrace_event_enable_disable(file, 1);
++	}
++
+ 	mutex_unlock(&event_mutex);
+ 
++	if (file && file->event_call->flags & TRACE_EVENT_FL_BPF) {
++		/*
++		 * allocate per-cpu printk buffers, since eBPF program
++		 * might be calling bpf_trace_printk
++		 */
++		trace_printk_init_buffers();
++	}
++
+ 	free_page((unsigned long) buf);
+ 	if (err < 0)
+ 		return err;
+@@ -1325,6 +1358,7 @@ static const struct file_operations ftrace_event_filter_fops = {
+ 	.open = tracing_open_generic,
+ 	.read = event_filter_read,
+ 	.write = event_filter_write,
++	.release = event_filter_release,
+ 	.llseek = default_llseek,
+ };
+ 
+diff --git a/kernel/trace/trace_events_filter.c b/kernel/trace/trace_events_filter.c
+index 8a8631926a07..a27526fae0fe 100644
+--- a/kernel/trace/trace_events_filter.c
++++ b/kernel/trace/trace_events_filter.c
+@@ -23,6 +23,9 @@
+ #include <linux/mutex.h>
+ #include <linux/perf_event.h>
+ #include <linux/slab.h>
++#include <linux/bpf.h>
++#include <trace/bpf_trace.h>
++#include <linux/filter.h>
+ 
+ #include "trace.h"
+ #include "trace_output.h"
+@@ -535,6 +538,16 @@ static int filter_match_preds_cb(enum move_type move, struct filter_pred *pred,
+ 	return WALK_PRED_DEFAULT;
+ }
+ 
++void trace_filter_call_bpf(struct event_filter *filter, struct bpf_context *ctx)
++{
++	BUG_ON(!filter || !filter->prog);
++
++	rcu_read_lock();
++	SK_RUN_FILTER(filter->prog, (void *) ctx);
++	rcu_read_unlock();
++}
++EXPORT_SYMBOL_GPL(trace_filter_call_bpf);
++
+ /* return 1 if event matches, 0 otherwise (discard) */
+ int filter_match_preds(struct event_filter *filter, void *rec)
+ {
+@@ -794,6 +807,8 @@ static void __free_filter(struct event_filter *filter)
+ 	if (!filter)
+ 		return;
+ 
++	if (filter->prog)
++		sk_unattached_filter_destroy(filter->prog);
+ 	__free_preds(filter);
+ 	kfree(filter->filter_string);
+ 	kfree(filter);
+@@ -1898,6 +1913,48 @@ static int create_filter_start(char *filter_str, bool set_str,
+ 	return err;
+ }
+ 
++static int create_filter_bpf(char *filter_str, struct event_filter **filterp)
++{
++	struct event_filter *filter;
++	struct sk_filter *prog;
++	long ufd;
++	int err = 0;
++
++	*filterp = NULL;
++
++	filter = __alloc_filter();
++	if (!filter)
 +		return -ENOMEM;
 +
-+	/* copy map attributes from user space */
-+	err = -EFAULT;
-+	if (copy_from_user(attr, uattr, len) != 0)
-+		goto free_attr;
++	err = replace_filter_string(filter, filter_str);
++	if (err)
++		goto free_filter;
 +
-+	/* perform basic validation */
-+	err = nla_parse(tb, BPF_MAP_ATTR_MAX, attr, len, map_policy);
-+	if (err < 0)
-+		goto free_attr;
++	err = kstrtol(filter_str + 4, 0, &ufd);
++	if (err)
++		goto free_filter;
 +
-+	/* find map type and init map: hashtable vs rbtree vs bloom vs ... */
-+	map = find_and_alloc_map(type, tb);
-+	if (IS_ERR(map)) {
-+		err = PTR_ERR(map);
-+		goto free_attr;
-+	}
++	err = -ESRCH;
++	prog = bpf_prog_get(ufd);
++	if (!prog)
++		goto free_filter;
 +
-+	atomic_set(&map->refcnt, 1);
++	filter->prog = prog;
 +
-+	mutex_lock(&bpf_map_lock);
++	err = -EINVAL;
++	if (prog->info->prog_type != BPF_PROG_TYPE_TRACING_FILTER)
++		/* prog_id is valid, but it's not a tracing filter program */
++		goto free_filter;
 +
-+	if (bpf_map_cnt >= MAX_BPF_MAP_CNT) {
-+		mutex_unlock(&bpf_map_lock);
-+		err = -ENOSPC;
-+		goto free_map;
-+	}
++	*filterp = filter;
 +
-+	/* allocate map id */
-+	err = idr_alloc(&bpf_map_id_idr, map, 1 /* min map_id */, 0, GFP_USER);
++	return 0;
 +
-+	if (err > 0)
-+		bpf_map_cnt++;
-+
-+	map->map_id = err;
-+
-+	mutex_unlock(&bpf_map_lock);
-+
-+	if (err < 0)
-+		/* failed to allocate map id */
-+		goto free_map;
-+
-+	err = anon_inode_getfd("bpf-map", &bpf_map_fops, map, O_RDWR | O_CLOEXEC);
-+
-+	if (err < 0)
-+		/* failed to allocate fd */
-+		goto free_map_id;
-+
-+	/* user supplied array of map attributes is no longer needed */
-+	kfree(attr);
-+
-+	return err;
-+
-+free_map_id:
-+	/* grab the mutex and free the map */
-+	mutex_lock(&bpf_map_lock);
-+
-+	bpf_map_cnt--;
-+	idr_remove(&bpf_map_id_idr, map->map_id);
-+
-+	mutex_unlock(&bpf_map_lock);
-+free_map:
-+	map->ops->map_free(map);
-+free_attr:
-+	kfree(attr);
++free_filter:
++	__free_filter(filter);
 +	return err;
 +}
 +
-+SYSCALL_DEFINE5(bpf, int, cmd, unsigned long, arg2, unsigned long, arg3,
-+		unsigned long, arg4, unsigned long, arg5)
-+{
-+	if (!capable(CAP_SYS_ADMIN))
-+		return -EPERM;
-+
-+	switch (cmd) {
-+	case BPF_MAP_CREATE:
-+		return map_create((enum bpf_map_type) arg2,
-+				  (struct nlattr __user *) arg3, (int) arg4);
-+	default:
-+		return -EINVAL;
+ static void create_filter_finish(struct filter_parse_state *ps)
+ {
+ 	if (ps) {
+@@ -2007,7 +2064,20 @@ int apply_event_filter(struct ftrace_event_file *file, char *filter_string)
+ 		return 0;
+ 	}
+ 
+-	err = create_filter(call, filter_string, true, &filter);
++	/*
++	 * 'bpf_123' string is a request to attach eBPF program with id == 123
++	 * also accept 'bpf 123', 'bpf.123', 'bpf-123' variants
++	 */
++	if (memcmp(filter_string, "bpf", 3) == 0 && filter_string[3] != 0 &&
++	    filter_string[4] != 0) {
++		err = create_filter_bpf(filter_string, &filter);
++		if (!err)
++			call->flags |= TRACE_EVENT_FL_BPF;
++	} else {
++		err = create_filter(call, filter_string, true, &filter);
++		if (!err)
++			call->flags &= ~TRACE_EVENT_FL_BPF;
 +	}
-+}
+ 
+ 	/*
+ 	 * Always swap the call filter with the new filter
 -- 
 1.7.9.5
