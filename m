@@ -1,8 +1,8 @@
 From: Varka Bhadram <varkabhadram@gmail.com>
-Subject: Re: [PATCH 2/2] net: macb: Handle errors in RX path
-Date: Fri, 18 Jul 2014 15:35:22 +0530
-Message-ID: <53C8F162.9020304@gmail.com>
-References: <53C8EE99.6070605@gmail.com>
+Subject: Re: [PATCH 1/2] net: macb: Separate rx and tx ring init function
+Date: Fri, 18 Jul 2014 15:40:08 +0530
+Message-ID: <53C8F280.9040507@gmail.com>
+References: <53C8EE60.8020707@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -10,26 +10,128 @@ To: Neil Armstrong <superna9999@gmail.com>,
 	Nicolas Ferre <nicolas.ferre@atmel.com>,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <53C8EE99.6070605@gmail.com>
+In-Reply-To: <53C8EE60.8020707@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 07/18/2014 03:23 PM, Neil Armstrong wrote:
-> In certain circumstances, the MACB fails to write correct RX ring
-> descriptor, and lead to actually managed by BUG_ON() error cases.
->
-> Handle these two cases by returning error values, while resetting
-> the RX ring and RX HW path in the poll methos.
->
-> In the same time, check and handle BNA and OVR into poll method
-> by using the same error management.
+On 07/18/2014 03:22 PM, Neil Armstrong wrote:
+> A single method is called to initialize the TX and RX
+> rings. Separate the methods into distinct ones for
+> MACB and GEM context.
 >
 > Signed-off-by: Neil Armstrong <narmstrong@neotion.com>
 > ---
->   drivers/net/ethernet/cadence/macb.c |   55 +++++++++++++++++++++++++++++++---
->   1 files changed, 50 insertions(+), 5 deletions(-)
+>   drivers/net/ethernet/cadence/macb.c |   33 ++++++++++++++++++++++++---------
+>   drivers/net/ethernet/cadence/macb.h |    3 ++-
+>   2 files changed, 26 insertions(+), 10 deletions(-)
 >
-checkpatch errors/warnings on this patch...
+> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+> index e9daa07..20ad483 100644
+> --- a/drivers/net/ethernet/cadence/macb.c
+> +++ b/drivers/net/ethernet/cadence/macb.c
+> @@ -1219,7 +1219,14 @@ out_err:
+>   	return -ENOMEM;
+>   }
+>   
+> -static void gem_init_rings(struct macb *bp)
+> +static void gem_init_rx_rings(struct macb *bp)
+> +{
+> +	bp->rx_tail = bp->rx_prepared_head = 0;
+> +
+> +	gem_rx_refill(bp);
+> +}
+> +
+> +static void gem_init_tx_rings(struct macb *bp)
+>   {
+>   	int i;
+>   
+> @@ -1229,12 +1236,10 @@ static void gem_init_rings(struct macb *bp)
+>   	}
+>   	bp->tx_ring[TX_RING_SIZE - 1].ctrl |= MACB_BIT(TX_WRAP);
+>   
+> -	bp->rx_tail = bp->rx_prepared_head = bp->tx_head = bp->tx_tail = 0;
+> -
+> -	gem_rx_refill(bp);
+> +	bp->tx_head = bp->tx_tail = 0;
+
+This is not the preferred way of doing it....
+
+multiple assignments should be avoided
+
+>   }
+>   
+> -static void macb_init_rings(struct macb *bp)
+> +static void macb_init_rx_rings(struct macb *bp)
+>   {
+>   	int i;
+>   	dma_addr_t addr;
+> @@ -1247,13 +1252,20 @@ static void macb_init_rings(struct macb *bp)
+>   	}
+>   	bp->rx_ring[RX_RING_SIZE - 1].addr |= MACB_BIT(RX_WRAP);
+>   
+> +	bp->rx_tail = 0;
+> +}
+> +
+> +static void macb_init_tx_rings(struct macb *bp)
+> +{
+> +	int i;
+> +
+>   	for (i = 0; i < TX_RING_SIZE; i++) {
+>   		bp->tx_ring[i].addr = 0;
+>   		bp->tx_ring[i].ctrl = MACB_BIT(TX_USED);
+>   	}
+>   	bp->tx_ring[TX_RING_SIZE - 1].ctrl |= MACB_BIT(TX_WRAP);
+>   
+> -	bp->rx_tail = bp->tx_head = bp->tx_tail = 0;
+> +	bp->tx_head = bp->tx_tail = 0;
+
+Dto...
+
+>   }
+>   
+>   static void macb_reset_hw(struct macb *bp)
+> @@ -1554,7 +1566,8 @@ static int macb_open(struct net_device *dev)
+>   
+>   	napi_enable(&bp->napi);
+>   
+> -	bp->macbgem_ops.mog_init_rings(bp);
+> +	bp->macbgem_ops.mog_init_rx_rings(bp);
+> +	bp->macbgem_ops.mog_init_tx_rings(bp);
+>   	macb_init_hw(bp);
+>   
+>   	/* schedule a link state check */
+> @@ -1901,12 +1914,14 @@ static int __init macb_probe(struct platform_device *pdev)
+>   	if (macb_is_gem(bp)) {
+>   		bp->macbgem_ops.mog_alloc_rx_buffers = gem_alloc_rx_buffers;
+>   		bp->macbgem_ops.mog_free_rx_buffers = gem_free_rx_buffers;
+> -		bp->macbgem_ops.mog_init_rings = gem_init_rings;
+> +		bp->macbgem_ops.mog_init_rx_rings = gem_init_rx_rings;
+> +		bp->macbgem_ops.mog_init_tx_rings = gem_init_tx_rings;
+>   		bp->macbgem_ops.mog_rx = gem_rx;
+>   	} else {
+>   		bp->macbgem_ops.mog_alloc_rx_buffers = macb_alloc_rx_buffers;
+>   		bp->macbgem_ops.mog_free_rx_buffers = macb_free_rx_buffers;
+> -		bp->macbgem_ops.mog_init_rings = macb_init_rings;
+> +		bp->macbgem_ops.mog_init_rx_rings = macb_init_rx_rings;
+> +		bp->macbgem_ops.mog_init_tx_rings = macb_init_tx_rings;
+>   		bp->macbgem_ops.mog_rx = macb_rx;
+>   	}
+>   
+> diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
+> index 51c0244..8016d08 100644
+> --- a/drivers/net/ethernet/cadence/macb.h
+> +++ b/drivers/net/ethernet/cadence/macb.h
+> @@ -550,7 +550,8 @@ struct macb;
+>   struct macb_or_gem_ops {
+>   	int	(*mog_alloc_rx_buffers)(struct macb *bp);
+>   	void	(*mog_free_rx_buffers)(struct macb *bp);
+> -	void	(*mog_init_rings)(struct macb *bp);
+> +	void	(*mog_init_rx_rings)(struct macb *bp);
+> +	void	(*mog_init_tx_rings)(struct macb *bp);
+>   	int	(*mog_rx)(struct macb *bp, int budget);
+>   };
+>   
+
 
 -- 
 Regards,
