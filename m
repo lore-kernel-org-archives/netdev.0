@@ -1,92 +1,123 @@
-From: Yue Zhang <yuezha@microsoft.com>
-Subject: [PATCH] Hyperv: Trigger DHCP renew after host hibernation
-Date: Fri, 18 Jul 2014 03:55:03 -0700
-Message-ID: <1405680903-28176-1-git-send-email-yuezha@microsoft.com>
+From: Neil Armstrong <superna9999@gmail.com>
+Subject: [PATCH 1/2] net: macb: Separate rx and tx ring init function
+Date: Fri, 18 Jul 2014 11:52:32 +0200
+Message-ID: <53C8EE60.8020707@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: huishao@microsoft.com, haiyangz@microsoft.com
-To: netdev@vger.kernel.org, driverdev-devel@linuxdriverproject.org,
- linux-kernel@vger.kernel.org, gregkh@linuxfoundation.org, olaf@aepfle.de,
- jasowang@redhat.com, davem@davemloft.net
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+To: Nicolas Ferre <nicolas.ferre@atmel.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Yue Zhang <yuezha@microsoft.com>
+A single method is called to initialize the TX and RX
+rings. Separate the methods into distinct ones for
+MACB and GEM context.
 
-This patch addresses the comment from Olaf Hering and Greg KH
-for a previous commit 3a494e710367 ("hyperv: Add handler for
-RNDIS_STATUS_NETWORK_CHANGE event")
-
-In previous solution, the driver calls "network restart" to
-force a DHCP renew when the host is back from hibernation.
-
-In this fix, the driver will keep network carrier offline for
-10 seconds and then bring it back. So that ifplugd daemon will
-notice this change and refresh DHCP lease.
-
-Cc: Haiyang Zhang <haiyangz@microsoft.com>
-Cc: K. Y. Srinivasan <kys@microsoft.com>
-
-Signed-off-by: Yue Zhang <yuezha@microsoft.com>
+Signed-off-by: Neil Armstrong <narmstrong@neotion.com>
 ---
- drivers/net/hyperv/netvsc_drv.c | 21 +++++++++++++++++----
- 1 file changed, 17 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/cadence/macb.c |   33 ++++++++++++++++++++++++---------
+ drivers/net/ethernet/cadence/macb.h |    3 ++-
+ 2 files changed, 26 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
-index a9c5eaa..559c97d 100644
---- a/drivers/net/hyperv/netvsc_drv.c
-+++ b/drivers/net/hyperv/netvsc_drv.c
-@@ -33,6 +33,7 @@
- #include <linux/if_vlan.h>
- #include <linux/in.h>
- #include <linux/slab.h>
-+#include <linux/delay.h>
- #include <net/arp.h>
- #include <net/route.h>
- #include <net/sock.h>
-@@ -792,8 +793,7 @@ static void netvsc_link_change(struct work_struct *w)
- 	struct netvsc_device *net_device;
- 	struct rndis_device *rdev;
- 	bool notify, refresh = false;
--	char *argv[] = { "/etc/init.d/network", "restart", NULL };
--	char *envp[] = { "HOME=/", "PATH=/sbin:/usr/sbin:/bin:/usr/bin", NULL };
-+	int delay;
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index e9daa07..20ad483 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -1219,7 +1219,14 @@ out_err:
+ 	return -ENOMEM;
+ }
  
- 	rtnl_lock();
+-static void gem_init_rings(struct macb *bp)
++static void gem_init_rx_rings(struct macb *bp)
++{
++	bp->rx_tail = bp->rx_prepared_head = 0;
++
++	gem_rx_refill(bp);
++}
++
++static void gem_init_tx_rings(struct macb *bp)
+ {
+ 	int i;
  
-@@ -816,8 +816,21 @@ static void netvsc_link_change(struct work_struct *w)
+@@ -1229,12 +1236,10 @@ static void gem_init_rings(struct macb *bp)
+ 	}
+ 	bp->tx_ring[TX_RING_SIZE - 1].ctrl |= MACB_BIT(TX_WRAP);
  
- 	rtnl_unlock();
+-	bp->rx_tail = bp->rx_prepared_head = bp->tx_head = bp->tx_tail = 0;
+-
+-	gem_rx_refill(bp);
++	bp->tx_head = bp->tx_tail = 0;
+ }
  
--	if (refresh)
--		call_usermodehelper(argv[0], argv, envp, UMH_WAIT_EXEC);
-+	if (refresh) {
-+		/*
-+		 * Keep the carrier offline for 10 seconds
-+		 * to notify ifplugd daemon network change
-+		 */
-+		for (delay = 0; delay < 10; delay++) {
-+			rtnl_lock();
-+			netif_carrier_off(net);
-+			rtnl_unlock();
-+			ssleep(1);
-+		}
-+		rtnl_lock();
-+		netif_carrier_on(net);
-+		rtnl_unlock();
-+	}
+-static void macb_init_rings(struct macb *bp)
++static void macb_init_rx_rings(struct macb *bp)
+ {
+ 	int i;
+ 	dma_addr_t addr;
+@@ -1247,13 +1252,20 @@ static void macb_init_rings(struct macb *bp)
+ 	}
+ 	bp->rx_ring[RX_RING_SIZE - 1].addr |= MACB_BIT(RX_WRAP);
  
- 	if (notify)
- 		netdev_notify_peers(net);
++	bp->rx_tail = 0;
++}
++
++static void macb_init_tx_rings(struct macb *bp)
++{
++	int i;
++
+ 	for (i = 0; i < TX_RING_SIZE; i++) {
+ 		bp->tx_ring[i].addr = 0;
+ 		bp->tx_ring[i].ctrl = MACB_BIT(TX_USED);
+ 	}
+ 	bp->tx_ring[TX_RING_SIZE - 1].ctrl |= MACB_BIT(TX_WRAP);
+ 
+-	bp->rx_tail = bp->tx_head = bp->tx_tail = 0;
++	bp->tx_head = bp->tx_tail = 0;
+ }
+ 
+ static void macb_reset_hw(struct macb *bp)
+@@ -1554,7 +1566,8 @@ static int macb_open(struct net_device *dev)
+ 
+ 	napi_enable(&bp->napi);
+ 
+-	bp->macbgem_ops.mog_init_rings(bp);
++	bp->macbgem_ops.mog_init_rx_rings(bp);
++	bp->macbgem_ops.mog_init_tx_rings(bp);
+ 	macb_init_hw(bp);
+ 
+ 	/* schedule a link state check */
+@@ -1901,12 +1914,14 @@ static int __init macb_probe(struct platform_device *pdev)
+ 	if (macb_is_gem(bp)) {
+ 		bp->macbgem_ops.mog_alloc_rx_buffers = gem_alloc_rx_buffers;
+ 		bp->macbgem_ops.mog_free_rx_buffers = gem_free_rx_buffers;
+-		bp->macbgem_ops.mog_init_rings = gem_init_rings;
++		bp->macbgem_ops.mog_init_rx_rings = gem_init_rx_rings;
++		bp->macbgem_ops.mog_init_tx_rings = gem_init_tx_rings;
+ 		bp->macbgem_ops.mog_rx = gem_rx;
+ 	} else {
+ 		bp->macbgem_ops.mog_alloc_rx_buffers = macb_alloc_rx_buffers;
+ 		bp->macbgem_ops.mog_free_rx_buffers = macb_free_rx_buffers;
+-		bp->macbgem_ops.mog_init_rings = macb_init_rings;
++		bp->macbgem_ops.mog_init_rx_rings = macb_init_rx_rings;
++		bp->macbgem_ops.mog_init_tx_rings = macb_init_tx_rings;
+ 		bp->macbgem_ops.mog_rx = macb_rx;
+ 	}
+ 
+diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
+index 51c0244..8016d08 100644
+--- a/drivers/net/ethernet/cadence/macb.h
++++ b/drivers/net/ethernet/cadence/macb.h
+@@ -550,7 +550,8 @@ struct macb;
+ struct macb_or_gem_ops {
+ 	int	(*mog_alloc_rx_buffers)(struct macb *bp);
+ 	void	(*mog_free_rx_buffers)(struct macb *bp);
+-	void	(*mog_init_rings)(struct macb *bp);
++	void	(*mog_init_rx_rings)(struct macb *bp);
++	void	(*mog_init_tx_rings)(struct macb *bp);
+ 	int	(*mog_rx)(struct macb *bp, int budget);
+ };
+ 
 -- 
-1.9.1
+1.7.0.4
