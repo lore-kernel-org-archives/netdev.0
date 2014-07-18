@@ -1,53 +1,84 @@
-From: Tom Gundersen <teg@jklm.no>
-Subject: Re: [PATCH net-next v9 3/9] net: nl802154 - make add_iface take name
- assign type
-Date: Fri, 18 Jul 2014 10:41:33 +0200
-Message-ID: <CAG-2HqVfQtGYmHvFtajxFW-L3WTPd2cdR2Ou2K5DYtEkgmnk-Q@mail.gmail.com>
-References: <1405584370-30054-1-git-send-email-teg@jklm.no>
- <1405584370-30054-4-git-send-email-teg@jklm.no> <20140717.161931.283488873926282207.davem@davemloft.net>
+From: Will Deacon <will.deacon@arm.com>
+Subject: Re: [PATCH RFCv3 08/14] arm64: introduce aarch64_insn_gen_movewide()
+Date: Fri, 18 Jul 2014 09:43:20 +0100
+Message-ID: <20140718084320.GB9548@arm.com>
+References: <1405405512-4423-1-git-send-email-zlim.lnx@gmail.com>
+ <1405405512-4423-9-git-send-email-zlim.lnx@gmail.com>
+ <20140716161715.GU29414@arm.com>
+ <20140716220422.GB18109@gup76>
+ <20140717094101.GD21153@arm.com>
+ <CABg9mcv4t_BwcaM0qgLivDBDGEfH0FwfTAR2QjJc4+i=M58cng@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
-	linux-zigbee-devel@lists.sourceforge.net,
-	David Herrmann <dh.herrmann@gmail.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Catalin Marinas <Catalin.Marinas@arm.com>,
+	Jiang Liu <liuj97@gmail.com>,
+	AKASHI Takahiro <takahiro.akashi@linaro.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Z Lim <zlim.lnx@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140717.161931.283488873926282207.davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <CABg9mcv4t_BwcaM0qgLivDBDGEfH0FwfTAR2QjJc4+i=M58cng@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 18, 2014 at 1:19 AM, David Miller <davem@davemloft.net> wrote:
-> From: Tom Gundersen <teg@jklm.no>
-> Date: Thu, 17 Jul 2014 10:06:04 +0200
->
->> @@ -192,8 +193,10 @@ int ieee802154_add_iface(struct sk_buff *skb, struct genl_info *info)
->>               if (devname[nla_len(info->attrs[IEEE802154_ATTR_DEV_NAME]) - 1]
->>                               != '\0')
->>                       return -EINVAL; /* phy name should be null-terminated */
->> +             name_assign_type = NET_NAME_USER;
->>       } else  {
->>               devname = "wpan%d";
->> +             name_assign_type = NET_NAME_ENUM;
->>       }
->>
->>       if (strlen(devname) >= IFNAMSIZ)
->
-> Just wondering what should happen if "%d" appears in a user provided name.
->
-> That would seem to be both USER and ENUM.
+On Fri, Jul 18, 2014 at 06:47:22AM +0100, Z Lim wrote:
+> (resending this email in case the first one got caught in your spam
+> filter. sorry.)
+> 
+> On Thu, Jul 17, 2014 at 10:41:02AM +0100, Will Deacon wrote:
+> > On Wed, Jul 16, 2014 at 11:04:22PM +0100, Zi Shen Lim wrote:
+> > > On Wed, Jul 16, 2014 at 05:17:15PM +0100, Will Deacon wrote:
+> > > > On Tue, Jul 15, 2014 at 07:25:06AM +0100, Zi Shen Lim wrote:
+> > > > > Introduce function to generate move wide (immediate) instructions.
+> [...]
+> > > > > +       switch (variant) {
+> > > > > +       case AARCH64_INSN_VARIANT_32BIT:
+> > > > > +               BUG_ON(shift != 0 && shift != 16);
+> > > > > +               break;
+> > > > > +       case AARCH64_INSN_VARIANT_64BIT:
+> > > > > +               insn |= BIT(31);
+> > > > > +               BUG_ON(shift != 0 && shift != 16 && shift != 32 &&
+> > > > > +                      shift != 48);
+> > > >
+> > > > Would be neater as a nested switch, perhaps? If you reorder the
+> > > > outer-switch, you could probably fall-through too and combine the shift
+> > > > checks.
+> > >
+> > > Not sure I picture what you had in mind... I couldn't come up with a
+> > > neater version with the properties you described.
+> > >
+> > > The alternative I had was using masks instead of integer values, but
+> > > one could argue that while neater, it could also be harder to read:
+> > >
+> > >     switch (variant) {
+> > >     case AARCH64_INSN_VARIANT_32BIT:
+> > >             BUG_ON(shift & ~BIT(4));
+> > >             break;
+> > >     case AARCH64_INSN_VARIANT_64BIT:
+> > >             insn |= BIT(31);
+> > >             BUG_ON(shift & ~GENMASK(5, 4));
+> > >     ...
+> >
+> > I was thinking of using nested switches, but that doesn't fall out like I
+> > hoped. How about:
+> >
+> >       switch (variant) {
+> >       case AARCH64_INSN_VARIANT_64BIT:
+> >               BUG_ON(shift != 32 && shift != 48);
+> 
+> Sorry this won't work. For example, on the valid case of shift==0,
+> we'll barf right here - no fallthrough.
+> 
+> Shall we just leave the code as is? :)
 
-Yes, this is a bit of a grey area.
-
-I discussed this a bit with David Herrmann, and we landed on that
-these names should be USER. As the user has explicitly asked for the
-enumerated name, nobody should rename them to anything else (so ENUM
-would have the wrong effect as it indicates that userspace should
-rename the device), moreover, we should assume that the user knows
-what they are doing, and that the enumerated names are fine in this
-context.
+Yeah, I'm an idiot ;)
 
 Cheers,
 
-Tom
+Will
