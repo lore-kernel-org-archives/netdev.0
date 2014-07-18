@@ -1,97 +1,76 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [PATCH net 1/4] xen-netback: Fix handling frag_list on grant
- op error path
-Date: Fri, 18 Jul 2014 18:47:55 +0100
-Message-ID: <53C95DCB.90806@citrix.com>
-References: <1405624192-21722-1-git-send-email-zoltan.kiss@citrix.com> <1405624192-21722-2-git-send-email-zoltan.kiss@citrix.com> <20140718152435.GN7142@zion.uk.xensource.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 0/25] Replace DEFINE_PCI_DEVICE_TABLE macro use
+Date: Fri, 18 Jul 2014 11:05:39 -0700
+Message-ID: <1405706739.14358.68.camel@joe-AO725>
+References: <1405697232-11785-1-git-send-email-benoit.taine@lip6.fr>
+	 <20140718162213.GC31114@tuxdriver.com> <20140718164340.GA24960@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Ian Campbell <Ian.Campbell@citrix.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <xen-devel@lists.xenproject.org>
-To: Wei Liu <wei.liu2@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140718152435.GN7142@zion.uk.xensource.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	Benoit Taine <benoit.taine@lip6.fr>, linux-mips@linux-mips.org,
+	linux-fbdev@vger.kernel.org, linux-pci@vger.kernel.org,
+	dri-devel@lists.freedesktop.org, linux-kernel@vger.kernel.org,
+	ath5k-devel@venema.h4ckr.net, linux-acenic@sunsite.dk,
+	linux-scsi@vger.kernel.org, linux-rdma@vger.kernel.org,
+	ath10k@lists.infradead.org, linux-hippi@sunsite.dk,
+	industrypack-devel@lists.sourceforge.net,
+	linux-mmc@vger.kernel.org, MPT-FusionLinux.pdl@avagotech.com,
+	virtualization@lists.linux-foundation.org,
+	ath9k-devel@venema.h4ckr.net, wil6210@qca.qualcomm.com,
+	linux-pcmcia@lists.infradead.org, linux-can@vger.kernel.org,
+	xen-devel@lists.xenproject.org,
+	platform-driver-x86@vger.kernel.org, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org, users@rt2x00.serialmonkey.com,
+	e1000-devel@lists.sourceforge.net, linux-crypto@vger.kernel.org,
+	deve
+To: Greg KH <greg@kroah.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20140718164340.GA24960@kroah.com>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 18/07/14 16:24, Wei Liu wrote:
-> On Thu, Jul 17, 2014 at 08:09:49PM +0100, Zoltan Kiss wrote:
->> The error handling for skb's with frag_list was completely wrong, it caused
->> double unmap attempts to happen if the error was on the first skb. Move it to
->> the right place in the loop.
->>
->> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
->> Reported-by: Armin Zentai <armin.zentai@ezit.hu>
->> Cc: netdev@vger.kernel.org
->> Cc: linux-kernel@vger.kernel.org
->> Cc: xen-devel@lists.xenproject.org
->> ---
->> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
->> index 1844a47..604ff71 100644
->> --- a/drivers/net/xen-netback/netback.c
->> +++ b/drivers/net/xen-netback/netback.c
->> @@ -1030,10 +1030,16 @@ static int xenvif_tx_check_gop(struct xenvif_queue *queue,
->>   {
->>   	struct gnttab_map_grant_ref *gop_map = *gopp_map;
->>   	u16 pending_idx = XENVIF_TX_CB(skb)->pending_idx;
->> +	/* This points to the shinfo of the actually checked skb, which could be
->> +	 * either the first or the one on the frag_list
->> +	 */
->
-> I think "checked skb" should be "skb being checked". Feel free to
-> disagree as I'm not native English speaker. :-/
->
->>   	struct skb_shared_info *shinfo = skb_shinfo(skb);
->> +	/* If this is non-NULL, we are currently checking the frag_list skb, and
->> +	 * this points to the shinfo of the first one
->> +	 */
->> +	struct skb_shared_info *first_shinfo = NULL;
->>   	int nr_frags = shinfo->nr_frags;
->>   	int i, err;
->> -	struct sk_buff *first_skb = NULL;
->>
->>   	/* Check status of header. */
->>   	err = (*gopp_copy)->status;
->> @@ -1086,31 +1092,28 @@ check_frags:
->>   			xenvif_idx_unmap(queue, pending_idx);
->>   		}
->>
->> +		/* And if we found the error while checking the frag_list, unmap
->> +		 * the first skb's frags
->> +		 */
->> +		if (first_shinfo) {
->> +			for (j = 0; j < first_shinfo->nr_frags; j++) {
->> +				pending_idx = frag_get_pending_idx(&first_shinfo->frags[j]);
->> +				xenvif_idx_unmap(queue, pending_idx);
->> +			}
->> +		}
->> +
->>   		/* Remember the error: invalidate all subsequent fragments. */
->>   		err = newerr;
->>   	}
->>
->> -	if (skb_has_frag_list(skb)) {
->> -		first_skb = skb;
->> -		skb = shinfo->frag_list;
->> -		shinfo = skb_shinfo(skb);
->> +	if (skb_has_frag_list(skb) && !first_shinfo) {
->
-> Will it ever come to the point that we have another skb in this skb's
-> frag list? Is there any reason prevents you from looping over the
-> (possible) subsequent skbs? I guess if the error is deep in the list
-> it's a bit hard to bookkeep...
->
->> +		first_shinfo = skb_shinfo(skb);
->> +		shinfo = skb_shinfo(skb_shinfo(skb)->frag_list);
->
-> In that case I would suggest you add
-> BUG_ON(skb_has_frag_list(skb_shinfo(skb)->frag_list)). I think having
-> more nested frag_list should be a bug in current design.
+On Fri, 2014-07-18 at 09:43 -0700, Greg KH wrote:
+> On Fri, Jul 18, 2014 at 12:22:13PM -0400, John W. Linville wrote:
+> > On Fri, Jul 18, 2014 at 05:26:47PM +0200, Benoit Taine wrote:
+> > > We should prefer `const struct pci_device_id` over
+> > > `DEFINE_PCI_DEVICE_TABLE` to meet kernel coding style guidelines.
+> > > This issue was reported by checkpatch.
+> >  scripts/checkpatch.pl | 4 ++--
+> > Honestly, I prefer the macro -- it stands-out more.  Maybe the style
+> > guidelines and/or checkpatch should change instead?
+> 
+> The macro is horrid, no other bus has this type of thing just to save a
+> few characters in typing, so why should PCI be "special" in this regard
+> anymore?
 
-There are already 3 things which prevents this
-- in count_requests we drop the packet if it has more than 
-XEN_NETBK_LEGACY_SLOTS_MAX slots
-- in get_requests there is a BUG_ON(frag_overflow > MAX_SKB_FRAGS), 
-which shouldn't really due to the prev point
-- in the same funciont we create a frag_list skb exactly once
+I think it doesn't matter much.
+
+The PCI_DEVICE and PCI_VDEVICE macro uses are somewhat similar
+and are frequently used with PCI_DEVICE_TABLE, so there's some
+commonality there.
+
+The checkpatch message could be made --strict/CHK instead of
+WARN so most people would never see it.
+
+Of course it could be removed altogether too.  I don't care.
+---
+(suggested patch is for -next)
+
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/scripts/checkpatch.pl b/scripts/checkpatch.pl
+index dc72a9b..754fbf2 100755
+--- a/scripts/checkpatch.pl
++++ b/scripts/checkpatch.pl
+@@ -3018,8 +3018,8 @@ sub process {
+ 
+ # check for uses of DEFINE_PCI_DEVICE_TABLE
+ 		if ($line =~ /\bDEFINE_PCI_DEVICE_TABLE\s*\(\s*(\w+)\s*\)\s*=/) {
+-			if (WARN("DEFINE_PCI_DEVICE_TABLE",
+-				 "Prefer struct pci_device_id over deprecated DEFINE_PCI_DEVICE_TABLE\n" . $herecurr) &&
++			if (CHK("DEFINE_PCI_DEVICE_TABLE",
++				"Prefer struct pci_device_id over deprecated DEFINE_PCI_DEVICE_TABLE\n" . $herecurr) &&
+ 			    $fix) {
+ 				$fixed[$fixlinenr] =~ s/\b(?:static\s+|)DEFINE_PCI_DEVICE_TABLE\s*\(\s*(\w+)\s*\)\s*=\s*/static const struct pci_device_id $1\[\] = /;
+ 			}
