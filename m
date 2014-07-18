@@ -1,59 +1,122 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the net-next tree
-Date: Fri, 18 Jul 2014 13:21:06 +1000
-Message-ID: <20140718132106.073aa48e@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/x+9o704s=k.jUivpR8zEvlH"; protocol="application/pgp-signature"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Anish Bhatt <anish@chelsio.com>, Karen Xie <kxie@chelsio.com>,
-	Manoj Malviya <manojmalviya@chelsio.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+From: Ethan Zhao <ethan.zhao@oracle.com>
+Subject: [PATCH V3] netxen: fix ethtool rx_dropped information in ethtool get_ethtool_stats()
+Date: Fri, 18 Jul 2014 11:43:29 +0800
+Message-ID: <1405655009-18975-1-git-send-email-ethan.zhao@oracle.com>
+Cc: linux-kernel@vger.kernel.org, ethan.kernel@gmail.com,
+	Ethan Zhao <ethan.zhao@oracle.com>
+To: manish.chopra@qlogic.com, sony.chacko@qlogic.com,
+	rajesh.borundia@qlogic.com, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Sig_/x+9o704s=k.jUivpR8zEvlH
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+netxen driver has implemented netxen_nic_get_ethtool_stats() interface,
+but it doesn't collect stats.rxdropped in driver, so we will get
+different rx_dropped statistic information while using ifconfig and ethtool.
+this patch fills stats.rxdropped field with data from net core
+with dev_get_stats() just as ixgbe driver did for some of its stats.
 
-Hi all,
+Tested with last netxen 4.0.82
+Compiled with stable 3.15.6
 
-After merging the net-next tree, today's linux-next build (powerpc
-ppc64_defconfig) failed like this:
+Signed-off-by: Ethan Zhao <ethan.zhao@oracle.com>
+Tested-by: Sriharsha Yadagudde <sriharsha.devdas@oracle.com>
+---
+-v2 only fix rx_dropped field, not all.
+-v3 workaround checkpatch.pl bug according to suggestion from Joe Perches <joe@perches.com>
+ 
+.../ethernet/qlogic/netxen/netxen_nic_ethtool.c    |   59 +++++++++++++++-----
+ 1 files changed, 45 insertions(+), 14 deletions(-)
 
-ERROR: ".ipv6_dev_get_saddr" [drivers/scsi/cxgbi/libcxgbi.ko] undefined!
-ERROR: ".ip6_route_output" [drivers/scsi/cxgbi/libcxgbi.ko] undefined!
-
-Caused by commit fc8d0590d914 ("libcxgbi: Add ipv6 api to driver").
-Presumably some missing Kconfig dependency (this build does not have
-CONFIG_IPV6 enabled) or it needs some #ifdef guarding.
-
-I have used the net-next tree from next-20140717 for today.
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
---Sig_/x+9o704s=k.jUivpR8zEvlH
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJTyJKnAAoJEMDTa8Ir7ZwVU04QAIcf3Ww4b4/jjS+TKk1HHqbV
-WtN6MQwN5R0uJ81Mrv6e886asUS2/JU1qwXBB0nuG16AeilRkFTL96hFdhD2UpEE
-u0LkV+Pli12Cw3rQg/StEWW9Q9P2pzFM3mfZfxJYxu9Y3gaPUWC/G7lilpqEFCmA
-tjbkYMSgv9fTI0di8ERc8OZK91TsC9dBNeZ10OHe5XbprfXA5nwx5lXP5eL+uESJ
-aSPT0M/G8xt3xZ53aZw28MQAtdoGinBm1yR3EA6HTjMKxEy1NcnH4iJXzGzX4Wb8
-F6zsVmtQTUeyYuRRk5Uj/ce/WF53Ix50ik6vXVbmF31fbChLizdx9DY0aKdasAPc
-+f3qaCMcYet6rosJKptGyz+NTIkYIIm3Ba/e3gBgndxyNuzZxvGsn21AVo6bVESt
-XeatSLFrMCkAWiqBmf9QstzPq/ngClYatAYuyJXActofEmpdRbk55x2Sz4+O/MY4
-PKAHodBah5qYswJeKBmpLTxJo3h+O8OBL4PGJc7XBwma0AC4BlSPycmUgch5QFyB
-9ArOorpyy/xSOe3oys5Ns4x/e/V7rI3YWarb7af4gHaCwLsKqP6blUdfhwwJaEqa
-lxg859MWL0e9IfCDNeoTgPbgLlIYTe4gQGlKN/6R8PIgRI93Xo4kMM3MVLBkmpRO
-pb8P27Q1jDqzXwCIOMAS
-=sBI9
------END PGP SIGNATURE-----
-
---Sig_/x+9o704s=k.jUivpR8zEvlH--
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
+index 87e073c..2753f00 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
+@@ -31,28 +31,43 @@
+ #include "netxen_nic.h"
+ #include "netxen_nic_hw.h"
+ 
++enum {NETDEV_STATS, NETXEN_STATS};
++
+ struct netxen_nic_stats {
+ 	char stat_string[ETH_GSTRING_LEN];
++	int type;
+ 	int sizeof_stat;
+ 	int stat_offset;
+ };
+ 
+-#define NETXEN_NIC_STAT(m) sizeof(((struct netxen_adapter *)0)->m), \
+-			offsetof(struct netxen_adapter, m)
++#define NETXEN_NIC_STAT(name, m)					\
++{									\
++	.stat_string = name,						\
++	.type = NETXEN_STATS,						\
++	.sizeof_stat = FIELD_SIZEOF(struct netxen_adapter, m),		\
++	.stat_offset = offsetof(struct netxen_adapter, m)		\
++}
++
++#define NETXEN_NETDEV_STAT(name, m)					\
++{	.stat_string = name,						\
++	.type =	NETDEV_STATS,						\
++	.sizeof_stat = FIELD_SIZEOF(struct rtnl_link_stats64, m),	\
++	.stat_offset = offsetof(struct rtnl_link_stats64, m)		\
++}
+ 
+ #define NETXEN_NIC_PORT_WINDOW 0x10000
+ #define NETXEN_NIC_INVALID_DATA 0xDEADBEEF
+ 
+ static const struct netxen_nic_stats netxen_nic_gstrings_stats[] = {
+-	{"xmit_called", NETXEN_NIC_STAT(stats.xmitcalled)},
+-	{"xmit_finished", NETXEN_NIC_STAT(stats.xmitfinished)},
+-	{"rx_dropped", NETXEN_NIC_STAT(stats.rxdropped)},
+-	{"tx_dropped", NETXEN_NIC_STAT(stats.txdropped)},
+-	{"csummed", NETXEN_NIC_STAT(stats.csummed)},
+-	{"rx_pkts", NETXEN_NIC_STAT(stats.rx_pkts)},
+-	{"lro_pkts", NETXEN_NIC_STAT(stats.lro_pkts)},
+-	{"rx_bytes", NETXEN_NIC_STAT(stats.rxbytes)},
+-	{"tx_bytes", NETXEN_NIC_STAT(stats.txbytes)},
++	NETXEN_NIC_STAT("xmit_called", stats.xmitcalled),
++	NETXEN_NIC_STAT("xmit_finished", stats.xmitfinished),
++	NETXEN_NETDEV_STAT("rx_dropped", rx_dropped),
++	NETXEN_NIC_STAT("tx_dropped", stats.txdropped),
++	NETXEN_NIC_STAT("csummed", stats.csummed),
++	NETXEN_NIC_STAT("rx_pkts", stats.rx_pkts),
++	NETXEN_NIC_STAT("lro_pkts", stats.lro_pkts),
++	NETXEN_NIC_STAT("rx_bytes", stats.rxbytes),
++	NETXEN_NIC_STAT("tx_bytes", stats.txbytes),
+ };
+ 
+ #define NETXEN_NIC_STATS_LEN	ARRAY_SIZE(netxen_nic_gstrings_stats)
+@@ -677,11 +692,27 @@ netxen_nic_get_ethtool_stats(struct net_device *dev,
+ {
+ 	struct netxen_adapter *adapter = netdev_priv(dev);
+ 	int index;
++	struct rtnl_link_stats64 temp;
++	const struct rtnl_link_stats64 *net_stats;
++	char *p = NULL;
+ 
++	net_stats = dev_get_stats(dev, &temp);
+ 	for (index = 0; index < NETXEN_NIC_STATS_LEN; index++) {
+-		char *p =
+-		    (char *)adapter +
+-		    netxen_nic_gstrings_stats[index].stat_offset;
++
++		switch (netxen_nic_gstrings_stats[index].type) {
++		case NETDEV_STATS:
++			p = (char *)net_stats +
++				netxen_nic_gstrings_stats[index].stat_offset;
++			break;
++		case NETXEN_STATS:
++			p = (char *)adapter +
++				netxen_nic_gstrings_stats[index].stat_offset;
++			break;
++		default:
++			data[index] = 0;
++			continue;
++		}
++
+ 		data[index] =
+ 		    (netxen_nic_gstrings_stats[index].sizeof_stat ==
+ 		     sizeof(u64)) ? *(u64 *) p : *(u32 *) p;
+-- 
+1.7.1
