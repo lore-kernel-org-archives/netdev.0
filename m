@@ -1,63 +1,55 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH 0/25] Replace DEFINE_PCI_DEVICE_TABLE macro use
-Date: Fri, 18 Jul 2014 14:27:00 -0700
-Message-ID: <20140718212700.GA12121@kroah.com>
-References: <1405697232-11785-1-git-send-email-benoit.taine@lip6.fr>
-	<20140718162213.GC31114@tuxdriver.com>
-	<20140718164340.GA24960@kroah.com>
-	<1405702472.30262.1.camel@dabdike.int.hansenpartnership.com>
-	<20140718181759.GB2193@kroah.com>
-	<CAPM=9tzgWdnv7jc+xjsJUf0EcyGU+V7nFHzzQ16ui1eE0ihyQA@mail.gmail.com>
+From: Christoph Schulz <develop@kristov.de>
+Subject: Re: [PATCH net v2 1/1] net: ppp: don't call sk_chk_filter twice
+Date: Fri, 18 Jul 2014 23:34:50 +0200
+Message-ID: <53C992FA.4040204@kristov.de>
+References: <53C37226.2020106@kristov.de> <20140714.161523.399591287185710608.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-mips@linux-mips.org,
-	Linux Fbdev development list <linux-fbdev@vger.kernel.org>,
-	linux-pci@vger.kernel.org, dri-devel <dri-devel@lists.freedesktop.org>,
-	virtualization@lists.linux-foundation.org,
-	James Bottomley <James.Bottomley@hansenpartnership.com>,
-	Benoit Taine <benoit.taine@lip6.fr>,
-	ath5k-devel@venema.h4ckr.net, linux-acenic@sunsite.dk,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	users@rt2x00.serialmonkey.com, linux-rdma@vger.kernel.org,
-	ath10k@lists.infradead.org, linux-hippi@sunsite.dk,
-	industrypack-devel@lists.sourceforge.net,
-	Linux Wireless List <linux-wireless@vger.kernel.org>,
-	xen-devel@lists.xenproject.org,
-	MPT-FusionLinux.pdl@avagotech.com, ath9k-devel@venema.h4ckr.net,
-	wil6210@qca.qualcomm.com, linux-pcmcia@lists.infradead.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-can@vger.kernel.org, platform-driver-x86@vger.kernel.org,
-	Network D
-To: Dave Airlie <airlied@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <CAPM=9tzgWdnv7jc+xjsJUf0EcyGU+V7nFHzzQ16ui1eE0ihyQA@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: netdev@vger.kernel.org, linux-ppp@vger.kernel.org,
+	paulus@samba.org, isdn@linux-pingi.de
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <20140714.161523.399591287185710608.davem@davemloft.net>
+Sender: linux-ppp-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jul 19, 2014 at 07:14:12AM +1000, Dave Airlie wrote:
-> >
-> > We have almost 1000 more uses of the non-macro version than the "macro"
-> > version in the kernel today:
-> > $ git grep -w DEFINE_PCI_DEVICE_TABLE | wc -l
-> > 262
-> > $ git grep "const struct pci_device_id" | wc -l
-> > 1254
+Hello!
+
+Am 15.07.2014 01:15, schrieb David Miller:
+> From: Christoph Schulz <develop@kristov.de>
+> Date: Mon, 14 Jul 2014 08:01:10 +0200
 > 
-> did you check for non-const ones? just to see if we have any of the
-> broken case in the tree :-)
+>> From: Christoph Schulz <develop@kristov.de>
+>>
+>> Commit 568f194e8bd16c353ad50f9ab95d98b20578a39d ("net: ppp: use
+>> sk_unattached_filter api") causes sk_chk_filter() to be called twice when
+>> setting a PPP pass or active filter. This applies to both the generic PPP
+>> subsystem implemented by drivers/net/ppp/ppp_generic.c and the ISDN PPP
+>> subsystem implemented by drivers/isdn/i4l/isdn_ppp.c. The first call is from
+>> within get_filter().
+>> [...]
+>> For 3.15.x, this proposed change is a bugfix rather than a pure optimization as
+>> in that branch, sk_chk_filter() may replace filter codes by other codes which
+>> are not recognized when executing sk_chk_filter() a second time. So with
+>> 3.15.x, if sk_chk_filter() is called twice, the second invocation may yield
+>> EINVAL (this depends on the filter codes found in the filter to be set, but
+>> because the replacement is done for frequently used codes, this is almost
+>> always the case). The net effect is that setting pass and/or active PPP filters
+>> does not work anymore, since sk_unattached_filter_create() always returns
+>> EINVAL due to the second call to sk_chk_filter(), regardless whether the filter
+>> was originally sane or not.
+>>
+>> Signed-off-by: Christoph Schulz <develop@kristov.de>
+> 
+> Applied, thank you.
 
-I didn't :)
+As the commit message says, this patch is a bugfix for the 3.15.y
+branch. However, I don't see it in the netdev stable-queue. Could you
+please add it to -stable for 3.15.y?
 
-> as for consistency, pci_dev vs usb_device :-P
 
-Read farther down the email...
+Thank you in advance,
+
+Christoph Schulz
+
