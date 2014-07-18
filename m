@@ -1,110 +1,86 @@
 From: Wangyufen <wangyufen@huawei.com>
-Subject: [PATCH 5/7] net: Add variants of capable for use on on sockets
-Date: Fri, 18 Jul 2014 10:21:24 +0800
-Message-ID: <1405650086-58596-6-git-send-email-wangyufen@huawei.com>
+Subject: [PATCH 1/7] netlink: Make the sending netlink socket availabe in NETLINK_CB
+Date: Fri, 18 Jul 2014 10:21:20 +0800
+Message-ID: <1405650086-58596-2-git-send-email-wangyufen@huawei.com>
 References: <1405650086-58596-1-git-send-email-wangyufen@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:9518 "EHLO
+Received: from szxga03-in.huawei.com ([119.145.14.66]:9502 "EHLO
 	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753872AbaGRCVi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 22:21:38 -0400
+	with ESMTP id S1753872AbaGRCVg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 22:21:36 -0400
 In-Reply-To: <1405650086-58596-1-git-send-email-wangyufen@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Wang Yufen <wangyufen@huawei.com>
 
-sk_net_capable - The common case, operations that are safe in a network namespace.
-sk_capable - Operations that are not known to be safe in a network namespace
-sk_ns_capable - The general case for special cases.
+The sending socket of an skb is already available by it's port id
+in the NETLINK_CB.  If you want to know more like to examine the
+credentials on the sending socket you have to look up the sending
+socket by it's port id and all of the needed functions and data
+structures are static inside of af_netlink.c.  So do the simple
+thing and pass the sending socket to the receivers in the NETLINK_CB.
 
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
+I intend to use this to get the user namespace of the sending socket
+in inet_diag so that I can report uids in the context of the process
+who opened the socket, the same way I report uids in the contect
+of the process who opens files.
+ 
+Acked-by: David S. Miller <davem@davemloft.net>
+Acked-by: Serge Hallyn <serge.hallyn@canonical.com>
+Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
 Signed-off-by: Wang Yufen <wangyufen@huawei.com>
 ---
- include/net/sock.h |  5 +++++
- net/core/sock.c    | 49 +++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 54 insertions(+)
+ include/linux/netlink.h  | 1 +
+ net/netlink/af_netlink.c | 6 ++++--
+ 2 files changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index f673ba5..8d4046c 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -2148,6 +2148,11 @@ extern void sock_enable_timestamp(struct sock *sk, int flag);
- extern int sock_get_timestamp(struct sock *, struct timeval __user *);
- extern int sock_get_timestampns(struct sock *, struct timespec __user *);
+diff --git a/include/linux/netlink.h b/include/linux/netlink.h
+index b23e9cd..af6c763 100644
+--- a/include/linux/netlink.h
++++ b/include/linux/netlink.h
+@@ -166,6 +166,7 @@ struct netlink_skb_parms {
+ 	struct ucred		creds;		/* Skb credentials	*/
+ 	__u32			pid;
+ 	__u32			dst_group;
++	struct sock             *ssk;
+ };
  
-+bool sk_ns_capable(const struct sock *sk,
-+		   struct user_namespace *user_ns, int cap);
-+bool sk_capable(const struct sock *sk, int cap);
-+bool sk_net_capable(const struct sock *sk, int cap);
-+
- /* 
-  *	Enable debug/info messages 
-  */
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 832cf04..43854b0 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -139,6 +139,55 @@
- static DEFINE_MUTEX(proto_list_mutex);
- static LIST_HEAD(proto_list);
+ #define NETLINK_CB(skb)		(*(struct netlink_skb_parms*)&((skb)->cb))
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index ff960b7..571fc2c 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -899,7 +899,8 @@ static void netlink_rcv_wake(struct sock *sk)
+ 		wake_up_interruptible(&nlk->wait);
+ }
  
-+/**
-+ * sk_ns_capable - General socket capability test
-+ * @sk: Socket to use a capability on or through
-+ * @user_ns: The user namespace of the capability to use
-+ * @cap: The capability to use
-+ *
-+ * Test to see if the opener of the socket had when the socket was
-+ * created and the current process has the capability @cap in the user
-+ * namespace @user_ns.
-+ */
-+bool sk_ns_capable(const struct sock *sk,
-+		   struct user_namespace *user_ns, int cap)
-+{
-+	return file_ns_capable(sk->sk_socket->file, user_ns, cap) &&
-+		ns_capable(user_ns, cap);
-+}
-+EXPORT_SYMBOL(sk_ns_capable);
-+
-+/**
-+ * sk_capable - Socket global capability test
-+ * @sk: Socket to use a capability on or through
-+ * @cap: The global capbility to use
-+ *
-+ * Test to see if the opener of the socket had when the socket was
-+ * created and the current process has the capability @cap in all user
-+ * namespaces.
-+ */
-+bool sk_capable(const struct sock *sk, int cap)
-+{
-+	return sk_ns_capable(sk, &init_user_ns, cap);
-+}
-+EXPORT_SYMBOL(sk_capable);
-+
-+/**
-+ * sk_net_capable - Network namespace socket capability test
-+ * @sk: Socket to use a capability on or through
-+ * @cap: The capability to use
-+ *
-+ * Test to see if the opener of the socket had when the socke was created
-+ * and the current process has the capability @cap over the network namespace
-+ * the socket is a member of.
-+ */
-+bool sk_net_capable(const struct sock *sk, int cap)
-+{
-+	return sk_ns_capable(sk, sock_net(sk)->user_ns, cap);
-+}
-+EXPORT_SYMBOL(sk_net_capable);
-+
-+
- #ifdef CONFIG_CGROUP_MEM_RES_CTLR_KMEM
- int mem_cgroup_sockets_init(struct cgroup *cgrp, struct cgroup_subsys *ss)
+-static int netlink_unicast_kernel(struct sock *sk, struct sk_buff *skb)
++static int netlink_unicast_kernel(struct sock *sk, struct sk_buff *skb,
++				  struct sock *ssk)
  {
+ 	int ret;
+ 	struct netlink_sock *nlk = nlk_sk(sk);
+@@ -908,6 +909,7 @@ static int netlink_unicast_kernel(struct sock *sk, struct sk_buff *skb)
+ 	if (nlk->netlink_rcv != NULL) {
+ 		ret = skb->len;
+ 		skb_set_owner_r(skb, sk);
++		NETLINK_CB(skb).ssk = ssk;
+ 		nlk->netlink_rcv(skb);
+ 	}
+ 	kfree_skb(skb);
+@@ -932,7 +934,7 @@ retry:
+ 		return PTR_ERR(sk);
+ 	}
+ 	if (netlink_is_kernel(sk))
+-		return netlink_unicast_kernel(sk, skb);
++		return netlink_unicast_kernel(sk, skb, ssk);
+ 
+ 	if (sk_filter(sk, skb)) {
+ 		err = skb->len;
 -- 
 1.8.0
