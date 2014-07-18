@@ -1,45 +1,84 @@
-From: Rajesh Borundia <rajesh.borundia@qlogic.com>
-Subject: RE: [PATCH V3] netxen: fix ethtool rx_dropped information in
- ethtool get_ethtool_stats()
-Date: Fri, 18 Jul 2014 18:21:44 +0000
-Message-ID: <C562D0E12CBDE44E8A0CCAB77060096701283AD344@AVMB1.qlogic.org>
-References: <1405655009-18975-1-git-send-email-ethan.zhao@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-	"ethan.kernel@gmail.com" <ethan.kernel@gmail.com>
-To: Ethan Zhao <ethan.zhao@oracle.com>,
-	Manish Chopra <manish.chopra@qlogic.com>,
-	Sony Chacko <sony.chacko@qlogic.com>,
-	netdev <netdev@vger.kernel.org>
+From: Zi Shen Lim <zlim.lnx@gmail.com>
+Subject: [PATCH 00/14] arm64: eBPF JIT compiler
+Date: Fri, 18 Jul 2014 11:28:06 -0700
+Message-ID: <1405708100-13604-1-git-send-email-zlim.lnx@gmail.com>
+Cc: Zi Shen Lim <zlim.lnx@gmail.com>, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
+To: Catalin Marinas <catalin.marinas@arm.com>,
+	Will Deacon <will.deacon@arm.com>,
+	Jiang Liu <liuj97@gmail.com>,
+	AKASHI Takahiro <takahiro.akashi@linaro.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Chema Gonzalez <chema@google.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1405655009-18975-1-git-send-email-ethan.zhao@oracle.com>
-Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Ethan Zhao [mailto:ethan.zhao@oracle.com]
-> Sent: Friday, July 18, 2014 9:13 AM
-> To: Manish Chopra; Sony Chacko; Rajesh Borundia; netdev
-> Cc: linux-kernel; ethan.kernel@gmail.com; Ethan Zhao
-> Subject: [PATCH V3] netxen: fix ethtool rx_dropped information in ethtool
-> get_ethtool_stats()
-> 
-> netxen driver has implemented netxen_nic_get_ethtool_stats() interface,
-> but it doesn't collect stats.rxdropped in driver, so we will get different
-> rx_dropped statistic information while using ifconfig and ethtool.
-> this patch fills stats.rxdropped field with data from net core with
-> dev_get_stats() just as ixgbe driver did for some of its stats.
+This series implements eBPF JIT compiler for arm64.
+Please see [14/14] for change log.
 
-I think ethtool stats are adapter specific. Driver does not maintain
-rx_dropped stats and we also don't get it from adapter.  I am not
-sure if ethtool stats should match ifconfig stats as ifconfig also
-adds net core stats to adapter stats.
+Patches [1-13/14] implement code generation functions.
+Patch [14/14] implements the actual eBPF JIT compiler.
 
-If ethtool stats should report same values as ifconfig stats then
-we may also need to fix tx_dropped statistics.
+Many thanks to everyone who's reviewed the code from
+RFCv1->RFCv3, especially Alexei for BPF bits, and Will
+for ARM64 codegen bits :)
 
-Thanks,
-Rajesh
+BTW, I'm happy to maintain arch/arm64/net (i.e. arm64 BPF bits).
+Should I add a patch updating MAINTAINERS as Patch 15?
+
+This series requires a patch that exports a function
+from net/core (resulting from RFCv1 discussion). This patch
+has been merged into net-next @ 9f12fbe603f7
+("net: filter: move load_pointer() into filter.h").
+
+This series applies against net-next and is tested working
+with lib/test_bpf on ARMv8 Foundation Model.
+
+-----
+The following changes since commit da388973d4a15e71cada1219d625b5393c90e5ae:
+
+  iw_cxgb4: fix for 64-bit integer division (2014-07-17 16:52:08 -0700)
+
+are available in the git repository at:
+
+  https://github.com/zlim/linux.git arm64/bpf
+
+for you to fetch changes up to eef34dcb8bb9a3712091e0cdea4a1c3a6e42912a:
+
+  arm64: eBPF JIT compiler (2014-07-18 11:06:28 -0700)
+
+----------------------------------------------------------------
+Zi Shen Lim (14):
+  arm64: introduce aarch64_insn_gen_comp_branch_imm()
+  arm64: introduce aarch64_insn_gen_branch_reg()
+  arm64: introduce aarch64_insn_gen_cond_branch_imm()
+  arm64: introduce aarch64_insn_gen_load_store_reg()
+  arm64: introduce aarch64_insn_gen_load_store_pair()
+  arm64: introduce aarch64_insn_gen_add_sub_imm()
+  arm64: introduce aarch64_insn_gen_bitfield()
+  arm64: introduce aarch64_insn_gen_movewide()
+  arm64: introduce aarch64_insn_gen_add_sub_shifted_reg()
+  arm64: introduce aarch64_insn_gen_data1()
+  arm64: introduce aarch64_insn_gen_data2()
+  arm64: introduce aarch64_insn_gen_data3()
+  arm64: introduce aarch64_insn_gen_logical_shifted_reg()
+  arm64: eBPF JIT compiler
+
+ Documentation/networking/filter.txt |   2 +-
+ arch/arm64/Kconfig                  |   1 +
+ arch/arm64/Makefile                 |   1 +
+ arch/arm64/include/asm/insn.h       | 249 +++++++++++++
+ arch/arm64/kernel/insn.c            | 646 +++++++++++++++++++++++++++++++++-
+ arch/arm64/net/Makefile             |   4 +
+ arch/arm64/net/bpf_jit.h            | 169 +++++++++
+ arch/arm64/net/bpf_jit_comp.c       | 677 ++++++++++++++++++++++++++++++++++++
+ 8 files changed, 1741 insertions(+), 8 deletions(-)
+ create mode 100644 arch/arm64/net/Makefile
+ create mode 100644 arch/arm64/net/bpf_jit.h
+ create mode 100644 arch/arm64/net/bpf_jit_comp.c
+
+-- 
+1.9.1
