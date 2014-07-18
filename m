@@ -1,73 +1,101 @@
-From: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
-Subject: Re: [net-next PATCH v2 0/3] Broadcast/Multicast rate limit via Ethtool
- Coalesce
-Date: Fri, 18 Jul 2014 11:07:35 +0530
-Message-ID: <53C8B29F.5@ti.com>
-References: <1404890050-4020-1-git-send-email-mugunthanvnm@ti.com> <20140709.164420.157865201153845876.davem@davemloft.net> <53C76990.3000304@ti.com> <063D6719AE5E284EB5DD2968C1650D6D172768B0@AcuExch.aculab.com>
+From: Z Lim <zlim.lnx@gmail.com>
+Subject: Re: [PATCH RFCv3 01/14] arm64: introduce aarch64_insn_gen_comp_branch_imm()
+Date: Thu, 17 Jul 2014 22:44:08 -0700
+Message-ID: <CABg9mcs0Dz1NCL3TkZA7QcFdxJdnuf=hXn8za9Yo2uQ2SyKkQg@mail.gmail.com>
+References: <1405405512-4423-1-git-send-email-zlim.lnx@gmail.com>
+	<1405405512-4423-2-git-send-email-zlim.lnx@gmail.com>
+	<20140716160450.GT29414@arm.com>
+	<20140716211931.GA18109@gup76>
+	<20140717091931.GC21153@arm.com>
+	<CAMEtUux1NRqz-Bqi_H8kJe8x9u+1Q12Sg4a-92cE6OsePEBLxg@mail.gmail.com>
+	<20140717172526.GC4844@arm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D172768B0-VkEWCZq2GCInGFn1LkZF6NBPR1lH4CV8@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexei Starovoitov <ast@plumgrid.com>,
+	Catalin Marinas <Catalin.Marinas@arm.com>,
+	Jiang Liu <liuj97@gmail.com>,
+	AKASHI Takahiro <takahiro.akashi@linaro.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Will Deacon <will.deacon@arm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140717172526.GC4844@arm.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 17 July 2014 06:23 PM, David Laight wrote:
->> From: Mugunthan V N
->> On Thursday 10 July 2014 05:14 AM, David Miller wrote:
->>> From: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
->>> Date: Wed, 9 Jul 2014 12:44:07 +0530
->>>
->>>> A system/cpu can be loaded by a hacker with flooding of broadcast or
->>>> multicast packets, to prevent this some Ethernet controllers like CPSW
->>>> provide a mechanism to limit the broadcast/multicast packet rate via
->>>> hardware limiters. This patch series enables this feature via
->>>> Ethtool Coalesce.
->>> This is pretty bogus if you ask me.
->>>
->>> What is the difference from accepting a high rate of unicast packets?
->>> I say it is no different.
->>>
->>> Therefore, this feature makes no sense to me at all.
->> Any packet storm can cause an endpoint some issues. Typically packet
->> storms will cause the system CPU to thrash resulting is very low system
->> performance.
->>
->> Unicast storms only target a single destination end station, it can be
->> easily mitigated by the host adding a blocking entry in the LUT for each
->> aggressor.
->>
->> Broadcast and multicast target multiple end stations, or an entire
->> network, not only can it cause CPU thrashing, it can result in loss of
->> other broadcast and multicast services. The rate limiting feature allow
->> the broadcast and or multicast traffic to be dropped if the rates are
->> too high. This eliminates the CPU thrashing issue. It also allows the
->> system to analyze the aggressors and block them for future transgressions.
-> Rate limiting multicast traffic will definitely cause the loss of multicast
-> services.
+(resending this email in case the first one got caught in your spam
+filter. sorry.)
 
-When a system apply the rate limit, the system should expect to miss
-some of the broadcast/multicast packet depending on the rate limit it
-applies.
+On Thu, Jul 17, 2014 at 06:25:26PM +0100, Will Deacon wrote:
+> On Thu, Jul 17, 2014 at 04:59:10PM +0100, Alexei Starovoitov wrote:
+> > On Thu, Jul 17, 2014 at 2:19 AM, Will Deacon <will.deacon@arm.com> wrote:
+> > > On Wed, Jul 16, 2014 at 10:19:31PM +0100, Zi Shen Lim wrote:
+> > >> >
+> > >> > Is a BUG_ON justifiable here? Is there not a nicer way to fail?
+> > >>
+> > >> In general, it'd be nice if we returned something like -EINVAL and
+> > >> have all callers handle failures. Today all code gen functions return
+> > >> the u32 instruction and there's no error handling by callers.
+> > >> I think following the precedence (aarch64_insn_gen_branch_imm())
+> > >> of failing with BUG_ON is a reasonable tradeoff.
+> > >
+> > > Well, I don't necessarily agree with that BUG_ON, either :)
+> > > I take it eBPF doesn't have a `trap' instruction or similar? Otherwise, we
+> > > could generate that and avoid having to propagate errors directly to the
+> > > caller.
+> > >
+> > >> In this case here, when we hit the default (failure) case, that means
+> > >> there's a serious error of attempting to use an unsupported
+> > >> variant. I think we're better off failing hard here than trying to
+> > >> arbitrarily "fallback" on a default choice.
+> > >
+> > > It might be a serious error for BPF, but a BUG_ON brings down the entire
+> > > machine, which I think is unfortunate.
+> >
+> > There is some misunderstanding here. Here BUG_ON will trigger
+> > only on actual bug in JIT implementation, it cannot be triggered by user.
+> > eBPF program is verified before it reaches JIT, so all instructions are
+> > valid and input to JIT is proper. Two instruction are not yet
+> > implemented in this JIT and they trigger pr_.._once().
+> > So I don't see any issue with this usage of BUG_ON
+> > imo living with silent bugs in JIT is more dangerous.
+> >
+> > For the same reason there is no 'trap' instruction in eBPF.
+> > Static verifier checks that program is valid. If there was a 'trap'
+> > insn the program would be rejected. Like programs with
+> > 'div by zero' are rejected. There is normal 'bpf_exit' insn to
+> > return from the program.
+>
+> Ok, so assuming that BPF doesn't have any issues, I take your point.
+> However, we could very easily re-use these functions for things like SMP
+> alternatives and kprobes, where simply failing the instruction generation
+> might be acceptable.
+>
+> It just feels like a bit hammer to me, when the machine is probably happily
+> scheduling user tasks, responding to interrupts, writing data to disk etc.
+
+Yes I agree with you Will, it'd be truly unfortunate if we inadvertently
+allow the entire system to be brought down.
+
+Alexei accurately pointed out that if we ever hit such a case, it'd be a bug
+in the BPF JIT implementation (or bug in other in-kernel implementations).
+
+Our BPF JIT implementation actually handles this, making sure that input
+to the codegen function is valid, or gracefully fail by not JITing and
+falling back on the core BPF interpreter. This way our JIT will not trigger
+the BUG_ON.
+
+IMO, other future users of these codegen functions should do the same.
+
+An alternative would be to throw away all the BUG_ON and have callers
+check for and handle error conditions. I think this is actually more
+dangerous as callers who don't handle the error conditions properly may
+end up causing system crash later with subtle (and quite possibly hard to
+debug) bugs.
 
 >
-> My experience of broadcast storms is that many of the ethernet switches
-> (probably especially the cheap ones) end up using a much slower software?
-> path for broadcasts. In a broadcast storm they start discarding normal
-> traffic - to point where a single ssh session becomes unusable.
-> This is true even when isolated from the storm by a 10M hub.
->
-> Broadcast storms are probably mostly caused by network topology issues.
-> Especially is switches are sending traffic to 'all ports' while resetting
-> the spanning tree tables.
->
-
-This is one more example where broadcast/multicast rate limit can be used.
-
-Regards
-Mugunthan V N
+> Will
