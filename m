@@ -1,39 +1,58 @@
-From: Andrey Utkin <andrey.krieger.utkin@gmail.com>
-Subject: Re: [PATCH 3/5] net/netfilter/ipvs/ip_vs_ctl.c: drop argument range
- check just before the check for equality
-Date: Sat, 19 Jul 2014 00:06:28 +0300
-Message-ID: <CANZNk83dJCXAWrQ+i5rh=sdUuiiD5ZhzDua-rjJpBZCzzNGDJA@mail.gmail.com>
-References: <1405697638-23767-1-git-send-email-andrey.krieger.utkin@gmail.com>
-	<alpine.LFD.2.11.1407182339160.2273@ja.home.ssi.bg>
+From: Dave Airlie <airlied@gmail.com>
+Subject: Re: [PATCH 0/25] Replace DEFINE_PCI_DEVICE_TABLE macro use
+Date: Sat, 19 Jul 2014 07:14:12 +1000
+Message-ID: <CAPM=9tzgWdnv7jc+xjsJUf0EcyGU+V7nFHzzQ16ui1eE0ihyQA@mail.gmail.com>
+References: <1405697232-11785-1-git-send-email-benoit.taine@lip6.fr>
+	<20140718162213.GC31114@tuxdriver.com>
+	<20140718164340.GA24960@kroah.com>
+	<1405702472.30262.1.camel@dabdike.int.hansenpartnership.com>
+	<20140718181759.GB2193@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org, coreteam@netfilter.org,
-	netfilter-devel@vger.kernel.org, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, dcb314@hotmail.com,
-	David Miller <davem@davemloft.net>, kadlec@blackhole.kfki.hu,
-	Patrick McHardy <kaber@trash.net>, pablo@netfilter.org,
-	Simon Horman <horms@verge.net.au>, wensong@linux-vs.org
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.11.1407182339160.2273@ja.home.ssi.bg>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-mips@linux-mips.org,
+	Linux Fbdev development list <linux-fbdev@vger.kernel.org>,
+	linux-pci@vger.kernel.org, dri-devel <dri-devel@lists.freedesktop.org>,
+	virtualization@lists.linux-foundation.org,
+	James Bottomley <James.Bottomley@hansenpartnership.com>,
+	Benoit Taine <benoit.taine@lip6.fr>,
+	ath5k-devel@venema.h4ckr.net, linux-acenic@sunsite.dk,
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	users@rt2x00.serialmonkey.com, linux-rdma@vger.kernel.org,
+	ath10k@lists.infradead.org, linux-hippi@sunsite.dk,
+	industrypack-devel@lists.sourceforge.net,
+	Linux Wireless List <linux-wireless@vger.kernel.org>,
+	xen-devel@lists.xenproject.org,
+	MPT-FusionLinux.pdl@avagotech.com, ath9k-devel@venema.h4ckr.net,
+	wil6210@qca.qualcomm.com, linux-pcmcia@lists.infradead.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-can@vger.kernel.org, platform-driver-x86@vger.kernel.org,
+	Network D
+To: Greg KH <greg@kroah.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20140718181759.GB2193@kroah.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-2014-07-18 23:48 GMT+03:00 Julian Anastasov <ja@ssi.bg>:
->         The above check ensures the set_arglen[] value (some
-> struct size) does not exceed the arg[MAX_ARG_LEN] space. You can check
-> commit 04bcef2a83f40c ("ipvs: Add boundary check on ioctl arguments")
-> for more info.
+>
+> We have almost 1000 more uses of the non-macro version than the "macro"
+> version in the kernel today:
+> $ git grep -w DEFINE_PCI_DEVICE_TABLE | wc -l
+> 262
+> $ git grep "const struct pci_device_id" | wc -l
+> 1254
 
-Thanks for info.
-What about static check at compilation time?
+did you check for non-const ones? just to see if we have any of the
+broken case in the tree :-)
 
-#if (DAEMON_ARG_LEN > MAX_ARG_LEN) \
- || (SERVICE_ARG_LEN > MAX_ARG_LEN) \
- || (SVCDEST_ARG_LEN > MAX_ARG_LEN)
-#error MAX_ARG_LEN exceeded in set_arglen table
-#endif
+as for consistency, pci_dev vs usb_device :-P
 
--- 
-Andrey Utkin
+Dave.
