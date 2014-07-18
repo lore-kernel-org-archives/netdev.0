@@ -1,123 +1,37 @@
-From: Anish Bhatt <anish@chelsio.com>
-Subject: [PATCH net-next] libcxgbi:cxgb4i Guard ipv6 code with a config check
-Date: Thu, 17 Jul 2014 18:34:44 -0700
-Message-ID: <1405647284-498-1-git-send-email-anish@chelsio.com>
-Cc: davem@davemloft.net, kxie@chelsio.com, manojmalviya@chelsio.com,
-	Anish Bhatt <anish@chelsio.com>
-To: netdev@vger.kernel.org
+From: Wangyufen <wangyufen@huawei.com>
+Subject: [PATCH 0/7] Backport to stable-3.4 for fix CVE-2014-0181
+Date: Fri, 18 Jul 2014 10:21:19 +0800
+Message-ID: <1405650086-58596-1-git-send-email-wangyufen@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:56138
-	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752760AbaGRBex (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 21:34:53 -0400
+Received: from szxga03-in.huawei.com ([119.145.14.66]:9501 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754471AbaGRCVg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 22:21:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fixes: fc8d0590d914 ("libcxgbi: Add ipv6 api to driver")
-Fixes: 759a0cc5a3e1 ("cxgb4i: Add ipv6 code to driver, call into libcxgbi ipv6
-api")
-Signed-off-by: Anish Bhatt <anish@chelsio.com>
----
- drivers/scsi/cxgbi/cxgb4i/cxgb4i.c | 18 +++++++++++++++---
- drivers/scsi/cxgbi/libcxgbi.c      |  4 ++++
- 2 files changed, 19 insertions(+), 3 deletions(-)
+From: Wang Yufen <wangyufen@huawei.com>
 
-diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-index 1041574edcfc..a4a4e98effdd 100644
---- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-+++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-@@ -1289,8 +1289,14 @@ static int init_act_open(struct cxgbi_sock *csk)
- 
- 	if (csk->csk_family == AF_INET)
- 		daddr = &csk->daddr.sin_addr.s_addr;
--	else
-+#if IS_ENABLED(CONFIG_IPV6)
-+	else if (csk->csk_family == AF_INET6)
- 		daddr = &csk->daddr6.sin6_addr;
-+#endif
-+	else {
-+		pr_err("address family 0x%x not supported\n", csk->csk_family);
-+		goto rel_resource;
-+	}
- 
- 	n = dst_neigh_lookup(csk->dst, daddr);
- 
-@@ -1631,6 +1637,7 @@ static int cxgb4i_ddp_init(struct cxgbi_device *cdev)
- 	return 0;
- }
- 
-+#if IS_ENABLED(CONFIG_IPV6)
- static int cxgbi_inet6addr_handler(struct notifier_block *this,
- 				   unsigned long event, void *data)
- {
-@@ -1755,6 +1762,7 @@ static void cxgbi_update_clip(struct cxgbi_device *cdev)
- 	}
- 	rcu_read_unlock();
- }
-+#endif /* IS_ENABLED(CONFIG_IPV6) */
- 
- static void *t4_uld_add(const struct cxgb4_lld_info *lldi)
- {
-@@ -1874,7 +1882,9 @@ static int t4_uld_state_change(void *handle, enum cxgb4_state state)
- 	switch (state) {
- 	case CXGB4_STATE_UP:
- 		pr_info("cdev 0x%p, UP.\n", cdev);
-+#if IS_ENABLED(CONFIG_IPV6)
- 		cxgbi_update_clip(cdev);
-+#endif
- 		/* re-initialize */
- 		break;
- 	case CXGB4_STATE_START_RECOVERY:
-@@ -1906,15 +1916,17 @@ static int __init cxgb4i_init_module(void)
- 		return rc;
- 	cxgb4_register_uld(CXGB4_ULD_ISCSI, &cxgb4i_uld_info);
- 
-+#if IS_ENABLED(CONFIG_IPV6)
- 	register_inet6addr_notifier(&cxgbi_inet6addr_notifier);
--
-+#endif
- 	return 0;
- }
- 
- static void __exit cxgb4i_exit_module(void)
- {
-+#if IS_ENABLED(CONFIG_IPV6)
- 	unregister_inet6addr_notifier(&cxgbi_inet6addr_notifier);
--
-+#endif
- 	cxgb4_unregister_uld(CXGB4_ULD_ISCSI);
- 	cxgbi_device_unregister_all(CXGBI_FLAG_DEV_T4);
- 	cxgbi_iscsi_cleanup(&cxgb4i_iscsi_transport, &cxgb4i_stt);
-diff --git a/drivers/scsi/cxgbi/libcxgbi.c b/drivers/scsi/cxgbi/libcxgbi.c
-index d2fe507fc695..3d5322d59f15 100644
---- a/drivers/scsi/cxgbi/libcxgbi.c
-+++ b/drivers/scsi/cxgbi/libcxgbi.c
-@@ -602,6 +602,7 @@ err_out:
- 	return ERR_PTR(err);
- }
- 
-+#if IS_ENABLED(CONFIG_IPV6)
- static struct rt6_info *find_route_ipv6(const struct in6_addr *saddr,
- 					const struct in6_addr *daddr)
- {
-@@ -716,6 +717,7 @@ rel_rt:
- err_out:
- 	return ERR_PTR(err);
- }
-+#endif /* IS_ENABLED(CONFIG_IPV6) */
- 
- void cxgbi_sock_established(struct cxgbi_sock *csk, unsigned int snd_isn,
- 			unsigned int opt)
-@@ -2638,8 +2640,10 @@ struct iscsi_endpoint *cxgbi_ep_connect(struct Scsi_Host *shost,
- 
- 	if (dst_addr->sa_family == AF_INET) {
- 		csk = cxgbi_check_route(dst_addr);
-+#if IS_ENABLED(CONFIG_IPV6)
- 	} else if (dst_addr->sa_family == AF_INET6) {
- 		csk = cxgbi_check_route6(dst_addr);
-+#endif
- 	} else {
- 		pr_info("address family 0x%x NOT supported.\n",
- 			dst_addr->sa_family);
--- 
-2.0.1
+Hi David,
+
+This backport fix CVE-2014-0181 which would still be vulnerable in
+stable-3.4, please add it.
+
+patchset from 5187cd055b6e to 90f62cf30a78 fixed CVE-2014-0181,
+which can't backport to stable-3.4 directly, 
+
+Those three patches are needed:
+commit 935d8aabd4331f47a89c3e1daa5779d23cf244ee 
+commit 038e7332b8d4c0629a2965e3ede1a92e8e427bd6
+commit 3fbc290540a1ed1a8a076ed8f53bee7a38a9f408 
+
+and this patch is unneeded:
+commit a53b72c83a4216f2eb883ed45a0cbce014b8e62d
+
+
+ -- 
+1.7.12
