@@ -1,181 +1,1119 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 00/18] Netfilter updates for net-next
-Date: Fri, 18 Jul 2014 13:00:54 +0200
-Message-ID: <1405681272-4994-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 04/18] netfilter: kill ulog targets
+Date: Fri, 18 Jul 2014 13:00:58 +0200
+Message-ID: <1405681272-4994-5-git-send-email-pablo@netfilter.org>
+References: <1405681272-4994-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:46555 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753569AbaGRLBT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 18 Jul 2014 07:01:19 -0400
+In-Reply-To: <1405681272-4994-1-git-send-email-pablo@netfilter.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+This has been marked as deprecated for quite some time and the NFLOG
+target replacement has been also available since 2006.
 
-The following patchset contains updates for your net-next tree,
-they are:
-
-1) Use kvfree() helper function from x_tables, from Eric Dumazet.
-
-2) Remove extra timer from the conntrack ecache extension, use a
-   workqueue instead to redeliver lost events to userspace instead,
-   from Florian Westphal.
-
-3) Removal of the ulog targets for ebtables and iptables. The nflog
-   infrastructure superseded this almost 9 years ago, time to get rid
-   of this code.
-
-4) Replace the list of loggers by an array now that we can only have
-   two possible non-overlapping logger flavours, ie. kernel ring buffer
-   and netlink logging.
-
-5) Move Eric Dumazet's log buffer code to nf_log to reuse it from
-   all of the supported per-family loggers.
-
-6) Consolidate nf_log_packet() as an unified interface for packet logging.
-   After this patch, if the struct nf_loginfo is available, it explicitly
-   selects the logger that is used.
-
-7) Move ip and ip6 logging code from xt_LOG to the corresponding
-   per-family loggers. Thus, x_tables and nf_tables share the same code
-   for packet logging.
-
-8) Add generic ARP packet logger, which is used by nf_tables. The
-   format aims to be consistent with the output of xt_LOG.
-
-9) Add generic bridge packet logger. Again, this is used by nf_tables
-   and it routes the packets to the real family loggers. As a result,
-   we get consistent logging format for the bridge family. The ebt_log
-   logging code has been intentionally left in place not to break
-   backward compatibility since the logging output differs from xt_LOG.
-
-10) Update nft_log to explicitly request the required family logger when
-    needed.
-
-11) Finish nft_log so it supports arp, ip, ip6, bridge and inet families.
-    Allowing selection between netlink and kernel buffer ring logging.
-
-12) Several fixes coming after the netfilter core logging changes spotted
-    by robots.
-
-13) Use IS_ENABLED() macros whenever possible in the netfilter tree,
-    from Duan Jiong.
-
-14) Removal of a couple of unnecessary branch before kfree, from Fabian
-    Frederick.
-
-You can pull these changes from:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
-
-BTW, I would need that you pull net into net-next after this batch, most
-likely we'll have another round of nf_tables updates for net-next
-that depend on changes that are available in your net tree.
-
-Thanks a lot!
-
-----------------------------------------------------------------
-
-The following changes since commit 5433ba365f6dd9f30899188755eb4b093314732c:
-
-  cxgb4: Fix endian bug introduced in cxgb4 dcb patchset (2014-06-24 12:54:52 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git master
-
-for you to fetch changes up to 16ea4c6b9dde2ff44b2bd8bb459daa283cf3a46e:
-
-  ipvs: Remove dead debug code (2014-07-16 10:07:11 +0900)
-
-----------------------------------------------------------------
-Duan Jiong (1):
-      netfilter: use IS_ENABLED() macro
-
-Eric Dumazet (1):
-      netfilter: x_tables: xt_free_table_info() cleanup
-
-Fabian Frederick (2):
-      netfilter: ctnetlink: remove null test before kfree
-      ipvs: remove null test before kfree
-
-Fengguang Wu (1):
-      netfilter: nft_log: fix coccinelle warnings
-
-Florian Westphal (1):
-      netfilter: conntrack: remove timer from ecache extension
-
-Pablo Neira Ayuso (11):
-      netfilter: kill ulog targets
-      netfilter: nf_log: use an array of loggers instead of list
-      netfilter: nf_log: move log buffering to core logging
-      netfilter: log: split family specific code to nf_log_{ip,ip6,common}.c files
-      netfilter: log: nf_log_packet() as real unified interface
-      netfilter: add generic ARP packet logger
-      netfilter: bridge: add generic packet logger
-      netfilter: nft_log: request explicit logger when loading rules
-      netfilter: nft_log: complete logging support
-      netfilter: fix several Kconfig problems in NF_LOG_*
-      netfilter: xt_LOG: add missing string format in nf_log_packet()
-
-Yannick Brosseau (1):
-      ipvs: Remove dead debug code
-
- include/net/netfilter/nf_conntrack_ecache.h    |   26 +-
- include/net/netfilter/nf_log.h                 |   42 +-
- include/net/netfilter/xt_log.h                 |   54 --
- include/net/netns/conntrack.h                  |    6 +-
- include/uapi/linux/netfilter/nf_tables.h       |    4 +
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
  include/uapi/linux/netfilter_bridge/Kbuild     |    1 -
- include/uapi/linux/netfilter_bridge/ebt_ulog.h |   38 -
+ include/uapi/linux/netfilter_bridge/ebt_ulog.h |   38 --
  include/uapi/linux/netfilter_ipv4/Kbuild       |    1 -
- include/uapi/linux/netfilter_ipv4/ipt_ULOG.h   |   49 --
- net/bridge/netfilter/Kconfig                   |   19 +-
- net/bridge/netfilter/Makefile                  |    3 +
- net/bridge/netfilter/ebt_log.c                 |   47 +-
- net/bridge/netfilter/ebt_ulog.c                |  393 -----------
- net/bridge/netfilter/nf_log_bridge.c           |   96 +++
- net/ipv4/netfilter/Kconfig                     |   29 +-
- net/ipv4/netfilter/Makefile                    |    4 +
- net/ipv4/netfilter/ipt_ULOG.c                  |  498 -------------
- net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |    4 +-
- net/ipv4/netfilter/nf_conntrack_proto_icmp.c   |    4 +-
- net/ipv4/netfilter/nf_defrag_ipv4.c            |    8 +-
- net/ipv4/netfilter/nf_log_arp.c                |  149 ++++
- net/ipv4/netfilter/nf_log_ipv4.c               |  385 +++++++++++
- net/ipv4/netfilter/nf_nat_l3proto_ipv4.c       |    4 +
- net/ipv4/netfilter/nf_nat_proto_gre.c          |    2 +-
- net/ipv4/netfilter/nf_nat_proto_icmp.c         |    2 +-
- net/ipv6/netfilter/Kconfig                     |    5 +
- net/ipv6/netfilter/Makefile                    |    3 +
- net/ipv6/netfilter/nf_log_ipv6.c               |  417 +++++++++++
- net/ipv6/netfilter/nf_nat_l3proto_ipv6.c       |    4 +
- net/netfilter/Kconfig                          |    4 +
- net/netfilter/Makefile                         |    3 +
- net/netfilter/ipvs/ip_vs_ctl.c                 |   86 ---
- net/netfilter/ipvs/ip_vs_sync.c                |    3 +-
- net/netfilter/nf_conntrack_core.c              |   68 +-
- net/netfilter/nf_conntrack_ecache.c            |   96 ++-
- net/netfilter/nf_conntrack_netlink.c           |    3 +-
- net/netfilter/nf_log.c                         |  155 ++++-
- net/netfilter/nf_log_common.c                  |  187 +++++
- net/netfilter/nf_nat_core.c                    |    2 +-
- net/netfilter/nf_nat_proto_common.c            |    2 +-
- net/netfilter/nf_nat_proto_dccp.c              |    2 +-
- net/netfilter/nf_nat_proto_sctp.c              |    2 +-
- net/netfilter/nf_nat_proto_tcp.c               |    2 +-
- net/netfilter/nf_nat_proto_udp.c               |    2 +-
- net/netfilter/nf_nat_proto_udplite.c           |    2 +-
- net/netfilter/nfnetlink_log.c                  |    4 +
- net/netfilter/nft_log.c                        |   98 ++-
- net/netfilter/x_tables.c                       |   23 +-
- net/netfilter/xt_LOG.c                         |  884 +-----------------------
- 49 files changed, 1694 insertions(+), 2231 deletions(-)
- delete mode 100644 include/net/netfilter/xt_log.h
+ include/uapi/linux/netfilter_ipv4/ipt_ULOG.h   |   49 ---
+ net/bridge/netfilter/Kconfig                   |   16 -
+ net/bridge/netfilter/ebt_ulog.c                |  393 -------------------
+ net/ipv4/netfilter/Kconfig                     |   19 -
+ net/ipv4/netfilter/ipt_ULOG.c                  |  498 ------------------------
+ 8 files changed, 1015 deletions(-)
  delete mode 100644 include/uapi/linux/netfilter_bridge/ebt_ulog.h
  delete mode 100644 include/uapi/linux/netfilter_ipv4/ipt_ULOG.h
  delete mode 100644 net/bridge/netfilter/ebt_ulog.c
- create mode 100644 net/bridge/netfilter/nf_log_bridge.c
  delete mode 100644 net/ipv4/netfilter/ipt_ULOG.c
- create mode 100644 net/ipv4/netfilter/nf_log_arp.c
- create mode 100644 net/ipv4/netfilter/nf_log_ipv4.c
- create mode 100644 net/ipv6/netfilter/nf_log_ipv6.c
- create mode 100644 net/netfilter/nf_log_common.c
+
+diff --git a/include/uapi/linux/netfilter_bridge/Kbuild b/include/uapi/linux/netfilter_bridge/Kbuild
+index 348717c..0fbad8e 100644
+--- a/include/uapi/linux/netfilter_bridge/Kbuild
++++ b/include/uapi/linux/netfilter_bridge/Kbuild
+@@ -14,6 +14,5 @@ header-y += ebt_nflog.h
+ header-y += ebt_pkttype.h
+ header-y += ebt_redirect.h
+ header-y += ebt_stp.h
+-header-y += ebt_ulog.h
+ header-y += ebt_vlan.h
+ header-y += ebtables.h
+diff --git a/include/uapi/linux/netfilter_bridge/ebt_ulog.h b/include/uapi/linux/netfilter_bridge/ebt_ulog.h
+deleted file mode 100644
+index 89a6bec..0000000
+--- a/include/uapi/linux/netfilter_bridge/ebt_ulog.h
++++ /dev/null
+@@ -1,38 +0,0 @@
+-#ifndef _EBT_ULOG_H
+-#define _EBT_ULOG_H
+-
+-#include <linux/types.h>
+-
+-#define EBT_ULOG_DEFAULT_NLGROUP 0
+-#define EBT_ULOG_DEFAULT_QTHRESHOLD 1
+-#define EBT_ULOG_MAXNLGROUPS 32 /* hardcoded netlink max */
+-#define EBT_ULOG_PREFIX_LEN 32
+-#define EBT_ULOG_MAX_QLEN 50
+-#define EBT_ULOG_WATCHER "ulog"
+-#define EBT_ULOG_VERSION 1
+-
+-struct ebt_ulog_info {
+-	__u32 nlgroup;
+-	unsigned int cprange;
+-	unsigned int qthreshold;
+-	char prefix[EBT_ULOG_PREFIX_LEN];
+-};
+-
+-typedef struct ebt_ulog_packet_msg {
+-	int version;
+-	char indev[IFNAMSIZ];
+-	char outdev[IFNAMSIZ];
+-	char physindev[IFNAMSIZ];
+-	char physoutdev[IFNAMSIZ];
+-	char prefix[EBT_ULOG_PREFIX_LEN];
+-	struct timeval stamp;
+-	unsigned long mark;
+-	unsigned int hook;
+-	size_t data_len;
+-	/* The complete packet, including Ethernet header and perhaps
+-	 * the VLAN header is appended */
+-	unsigned char data[0] __attribute__
+-	                      ((aligned (__alignof__(struct ebt_ulog_info))));
+-} ebt_ulog_packet_msg_t;
+-
+-#endif /* _EBT_ULOG_H */
+diff --git a/include/uapi/linux/netfilter_ipv4/Kbuild b/include/uapi/linux/netfilter_ipv4/Kbuild
+index fb00843..ecb291d 100644
+--- a/include/uapi/linux/netfilter_ipv4/Kbuild
++++ b/include/uapi/linux/netfilter_ipv4/Kbuild
+@@ -5,7 +5,6 @@ header-y += ipt_ECN.h
+ header-y += ipt_LOG.h
+ header-y += ipt_REJECT.h
+ header-y += ipt_TTL.h
+-header-y += ipt_ULOG.h
+ header-y += ipt_ah.h
+ header-y += ipt_ecn.h
+ header-y += ipt_ttl.h
+diff --git a/include/uapi/linux/netfilter_ipv4/ipt_ULOG.h b/include/uapi/linux/netfilter_ipv4/ipt_ULOG.h
+deleted file mode 100644
+index 417aad2..0000000
+--- a/include/uapi/linux/netfilter_ipv4/ipt_ULOG.h
++++ /dev/null
+@@ -1,49 +0,0 @@
+-/* Header file for IP tables userspace logging, Version 1.8
+- *
+- * (C) 2000-2002 by Harald Welte <laforge@gnumonks.org>
+- * 
+- * Distributed under the terms of GNU GPL */
+-
+-#ifndef _IPT_ULOG_H
+-#define _IPT_ULOG_H
+-
+-#ifndef NETLINK_NFLOG
+-#define NETLINK_NFLOG 	5
+-#endif
+-
+-#define ULOG_DEFAULT_NLGROUP	1
+-#define ULOG_DEFAULT_QTHRESHOLD	1
+-
+-#define ULOG_MAC_LEN	80
+-#define ULOG_PREFIX_LEN	32
+-
+-#define ULOG_MAX_QLEN	50
+-/* Why 50? Well... there is a limit imposed by the slab cache 131000
+- * bytes. So the multipart netlink-message has to be < 131000 bytes.
+- * Assuming a standard ethernet-mtu of 1500, we could define this up
+- * to 80... but even 50 seems to be big enough. */
+-
+-/* private data structure for each rule with a ULOG target */
+-struct ipt_ulog_info {
+-	unsigned int nl_group;
+-	size_t copy_range;
+-	size_t qthreshold;
+-	char prefix[ULOG_PREFIX_LEN];
+-};
+-
+-/* Format of the ULOG packets passed through netlink */
+-typedef struct ulog_packet_msg {
+-	unsigned long mark;
+-	long timestamp_sec;
+-	long timestamp_usec;
+-	unsigned int hook;
+-	char indev_name[IFNAMSIZ];
+-	char outdev_name[IFNAMSIZ];
+-	size_t data_len;
+-	char prefix[ULOG_PREFIX_LEN];
+-	unsigned char mac_len;
+-	unsigned char mac[ULOG_MAC_LEN];
+-	unsigned char payload[0];
+-} ulog_packet_msg_t;
+-
+-#endif /*_IPT_ULOG_H*/
+diff --git a/net/bridge/netfilter/Kconfig b/net/bridge/netfilter/Kconfig
+index 629dc77..3a76ac7 100644
+--- a/net/bridge/netfilter/Kconfig
++++ b/net/bridge/netfilter/Kconfig
+@@ -202,22 +202,6 @@ config BRIDGE_EBT_LOG
+ 
+ 	  To compile it as a module, choose M here.  If unsure, say N.
+ 
+-config BRIDGE_EBT_ULOG
+-	tristate "ebt: ulog support (OBSOLETE)"
+-	help
+-	  This option enables the old bridge-specific "ebt_ulog" implementation
+-	  which has been obsoleted by the new "nfnetlink_log" code (see
+-	  CONFIG_NETFILTER_NETLINK_LOG).
+-
+-	  This option adds the ulog watcher, that you can use in any rule
+-	  in any ebtables table. The packet is passed to a userspace
+-	  logging daemon using netlink multicast sockets. This differs
+-	  from the log watcher in the sense that the complete packet is
+-	  sent to userspace instead of a descriptive text and that
+-	  netlink multicast sockets are used instead of the syslog.
+-
+-	  To compile it as a module, choose M here.  If unsure, say N.
+-
+ config BRIDGE_EBT_NFLOG
+ 	tristate "ebt: nflog support"
+ 	help
+diff --git a/net/bridge/netfilter/ebt_ulog.c b/net/bridge/netfilter/ebt_ulog.c
+deleted file mode 100644
+index 7c470c3..0000000
+--- a/net/bridge/netfilter/ebt_ulog.c
++++ /dev/null
+@@ -1,393 +0,0 @@
+-/*
+- * netfilter module for userspace bridged Ethernet frames logging daemons
+- *
+- *	Authors:
+- *	Bart De Schuymer <bdschuym@pandora.be>
+- *	Harald Welte <laforge@netfilter.org>
+- *
+- *  November, 2004
+- *
+- * Based on ipt_ULOG.c, which is
+- * (C) 2000-2002 by Harald Welte <laforge@netfilter.org>
+- *
+- * This module accepts two parameters:
+- *
+- * nlbufsiz:
+- *   The parameter specifies how big the buffer for each netlink multicast
+- * group is. e.g. If you say nlbufsiz=8192, up to eight kb of packets will
+- * get accumulated in the kernel until they are sent to userspace. It is
+- * NOT possible to allocate more than 128kB, and it is strongly discouraged,
+- * because atomically allocating 128kB inside the network rx softirq is not
+- * reliable. Please also keep in mind that this buffer size is allocated for
+- * each nlgroup you are using, so the total kernel memory usage increases
+- * by that factor.
+- *
+- * flushtimeout:
+- *   Specify, after how many hundredths of a second the queue should be
+- *   flushed even if it is not full yet.
+- *
+- */
+-#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+-#include <linux/module.h>
+-#include <linux/slab.h>
+-#include <linux/spinlock.h>
+-#include <linux/socket.h>
+-#include <linux/skbuff.h>
+-#include <linux/kernel.h>
+-#include <linux/timer.h>
+-#include <net/netlink.h>
+-#include <linux/netdevice.h>
+-#include <linux/netfilter/x_tables.h>
+-#include <linux/netfilter_bridge/ebtables.h>
+-#include <linux/netfilter_bridge/ebt_ulog.h>
+-#include <net/netfilter/nf_log.h>
+-#include <net/netns/generic.h>
+-#include <net/sock.h>
+-#include "../br_private.h"
+-
+-static unsigned int nlbufsiz = NLMSG_GOODSIZE;
+-module_param(nlbufsiz, uint, 0600);
+-MODULE_PARM_DESC(nlbufsiz, "netlink buffer size (number of bytes) "
+-			   "(defaults to 4096)");
+-
+-static unsigned int flushtimeout = 10;
+-module_param(flushtimeout, uint, 0600);
+-MODULE_PARM_DESC(flushtimeout, "buffer flush timeout (hundredths ofa second) "
+-			       "(defaults to 10)");
+-
+-typedef struct {
+-	unsigned int qlen;		/* number of nlmsgs' in the skb */
+-	struct nlmsghdr *lastnlh;	/* netlink header of last msg in skb */
+-	struct sk_buff *skb;		/* the pre-allocated skb */
+-	struct timer_list timer;	/* the timer function */
+-	spinlock_t lock;		/* the per-queue lock */
+-} ebt_ulog_buff_t;
+-
+-static int ebt_ulog_net_id __read_mostly;
+-struct ebt_ulog_net {
+-	unsigned int nlgroup[EBT_ULOG_MAXNLGROUPS];
+-	ebt_ulog_buff_t ulog_buffers[EBT_ULOG_MAXNLGROUPS];
+-	struct sock *ebtulognl;
+-};
+-
+-static struct ebt_ulog_net *ebt_ulog_pernet(struct net *net)
+-{
+-	return net_generic(net, ebt_ulog_net_id);
+-}
+-
+-/* send one ulog_buff_t to userspace */
+-static void ulog_send(struct ebt_ulog_net *ebt, unsigned int nlgroup)
+-{
+-	ebt_ulog_buff_t *ub = &ebt->ulog_buffers[nlgroup];
+-
+-	del_timer(&ub->timer);
+-
+-	if (!ub->skb)
+-		return;
+-
+-	/* last nlmsg needs NLMSG_DONE */
+-	if (ub->qlen > 1)
+-		ub->lastnlh->nlmsg_type = NLMSG_DONE;
+-
+-	NETLINK_CB(ub->skb).dst_group = nlgroup + 1;
+-	netlink_broadcast(ebt->ebtulognl, ub->skb, 0, nlgroup + 1, GFP_ATOMIC);
+-
+-	ub->qlen = 0;
+-	ub->skb = NULL;
+-}
+-
+-/* timer function to flush queue in flushtimeout time */
+-static void ulog_timer(unsigned long data)
+-{
+-	struct ebt_ulog_net *ebt = container_of((void *)data,
+-						struct ebt_ulog_net,
+-						nlgroup[*(unsigned int *)data]);
+-
+-	ebt_ulog_buff_t *ub = &ebt->ulog_buffers[*(unsigned int *)data];
+-	spin_lock_bh(&ub->lock);
+-	if (ub->skb)
+-		ulog_send(ebt, *(unsigned int *)data);
+-	spin_unlock_bh(&ub->lock);
+-}
+-
+-static struct sk_buff *ulog_alloc_skb(unsigned int size)
+-{
+-	struct sk_buff *skb;
+-	unsigned int n;
+-
+-	n = max(size, nlbufsiz);
+-	skb = alloc_skb(n, GFP_ATOMIC | __GFP_NOWARN);
+-	if (!skb) {
+-		if (n > size) {
+-			/* try to allocate only as much as we need for
+-			 * current packet */
+-			skb = alloc_skb(size, GFP_ATOMIC);
+-			if (!skb)
+-				pr_debug("cannot even allocate buffer of size %ub\n",
+-					 size);
+-		}
+-	}
+-
+-	return skb;
+-}
+-
+-static void ebt_ulog_packet(struct net *net, unsigned int hooknr,
+-			    const struct sk_buff *skb,
+-			    const struct net_device *in,
+-			    const struct net_device *out,
+-			    const struct ebt_ulog_info *uloginfo,
+-			    const char *prefix)
+-{
+-	ebt_ulog_packet_msg_t *pm;
+-	size_t size, copy_len;
+-	struct nlmsghdr *nlh;
+-	struct ebt_ulog_net *ebt = ebt_ulog_pernet(net);
+-	unsigned int group = uloginfo->nlgroup;
+-	ebt_ulog_buff_t *ub = &ebt->ulog_buffers[group];
+-	spinlock_t *lock = &ub->lock;
+-	ktime_t kt;
+-
+-	if ((uloginfo->cprange == 0) ||
+-	    (uloginfo->cprange > skb->len + ETH_HLEN))
+-		copy_len = skb->len + ETH_HLEN;
+-	else
+-		copy_len = uloginfo->cprange;
+-
+-	size = nlmsg_total_size(sizeof(*pm) + copy_len);
+-	if (size > nlbufsiz) {
+-		pr_debug("Size %Zd needed, but nlbufsiz=%d\n", size, nlbufsiz);
+-		return;
+-	}
+-
+-	spin_lock_bh(lock);
+-
+-	if (!ub->skb) {
+-		if (!(ub->skb = ulog_alloc_skb(size)))
+-			goto unlock;
+-	} else if (size > skb_tailroom(ub->skb)) {
+-		ulog_send(ebt, group);
+-
+-		if (!(ub->skb = ulog_alloc_skb(size)))
+-			goto unlock;
+-	}
+-
+-	nlh = nlmsg_put(ub->skb, 0, ub->qlen, 0,
+-			size - NLMSG_ALIGN(sizeof(*nlh)), 0);
+-	if (!nlh) {
+-		kfree_skb(ub->skb);
+-		ub->skb = NULL;
+-		goto unlock;
+-	}
+-	ub->qlen++;
+-
+-	pm = nlmsg_data(nlh);
+-	memset(pm, 0, sizeof(*pm));
+-
+-	/* Fill in the ulog data */
+-	pm->version = EBT_ULOG_VERSION;
+-	kt = ktime_get_real();
+-	pm->stamp = ktime_to_timeval(kt);
+-	if (ub->qlen == 1)
+-		ub->skb->tstamp = kt;
+-	pm->data_len = copy_len;
+-	pm->mark = skb->mark;
+-	pm->hook = hooknr;
+-	if (uloginfo->prefix != NULL)
+-		strcpy(pm->prefix, uloginfo->prefix);
+-
+-	if (in) {
+-		strcpy(pm->physindev, in->name);
+-		/* If in isn't a bridge, then physindev==indev */
+-		if (br_port_exists(in))
+-			/* rcu_read_lock()ed by nf_hook_slow */
+-			strcpy(pm->indev, br_port_get_rcu(in)->br->dev->name);
+-		else
+-			strcpy(pm->indev, in->name);
+-	}
+-
+-	if (out) {
+-		/* If out exists, then out is a bridge port */
+-		strcpy(pm->physoutdev, out->name);
+-		/* rcu_read_lock()ed by nf_hook_slow */
+-		strcpy(pm->outdev, br_port_get_rcu(out)->br->dev->name);
+-	}
+-
+-	if (skb_copy_bits(skb, -ETH_HLEN, pm->data, copy_len) < 0)
+-		BUG();
+-
+-	if (ub->qlen > 1)
+-		ub->lastnlh->nlmsg_flags |= NLM_F_MULTI;
+-
+-	ub->lastnlh = nlh;
+-
+-	if (ub->qlen >= uloginfo->qthreshold)
+-		ulog_send(ebt, group);
+-	else if (!timer_pending(&ub->timer)) {
+-		ub->timer.expires = jiffies + flushtimeout * HZ / 100;
+-		add_timer(&ub->timer);
+-	}
+-
+-unlock:
+-	spin_unlock_bh(lock);
+-}
+-
+-/* this function is registered with the netfilter core */
+-static void ebt_log_packet(struct net *net, u_int8_t pf, unsigned int hooknum,
+-   const struct sk_buff *skb, const struct net_device *in,
+-   const struct net_device *out, const struct nf_loginfo *li,
+-   const char *prefix)
+-{
+-	struct ebt_ulog_info loginfo;
+-
+-	if (!li || li->type != NF_LOG_TYPE_ULOG) {
+-		loginfo.nlgroup = EBT_ULOG_DEFAULT_NLGROUP;
+-		loginfo.cprange = 0;
+-		loginfo.qthreshold = EBT_ULOG_DEFAULT_QTHRESHOLD;
+-		loginfo.prefix[0] = '\0';
+-	} else {
+-		loginfo.nlgroup = li->u.ulog.group;
+-		loginfo.cprange = li->u.ulog.copy_len;
+-		loginfo.qthreshold = li->u.ulog.qthreshold;
+-		strlcpy(loginfo.prefix, prefix, sizeof(loginfo.prefix));
+-	}
+-
+-	ebt_ulog_packet(net, hooknum, skb, in, out, &loginfo, prefix);
+-}
+-
+-static unsigned int
+-ebt_ulog_tg(struct sk_buff *skb, const struct xt_action_param *par)
+-{
+-	struct net *net = dev_net(par->in ? par->in : par->out);
+-
+-	ebt_ulog_packet(net, par->hooknum, skb, par->in, par->out,
+-	                par->targinfo, NULL);
+-	return EBT_CONTINUE;
+-}
+-
+-static int ebt_ulog_tg_check(const struct xt_tgchk_param *par)
+-{
+-	struct ebt_ulog_info *uloginfo = par->targinfo;
+-
+-	if (!par->net->xt.ebt_ulog_warn_deprecated) {
+-		pr_info("ebt_ulog is deprecated and it will be removed soon, "
+-			"use ebt_nflog instead\n");
+-		par->net->xt.ebt_ulog_warn_deprecated = true;
+-	}
+-
+-	if (uloginfo->nlgroup > 31)
+-		return -EINVAL;
+-
+-	uloginfo->prefix[EBT_ULOG_PREFIX_LEN - 1] = '\0';
+-
+-	if (uloginfo->qthreshold > EBT_ULOG_MAX_QLEN)
+-		uloginfo->qthreshold = EBT_ULOG_MAX_QLEN;
+-
+-	return 0;
+-}
+-
+-static struct xt_target ebt_ulog_tg_reg __read_mostly = {
+-	.name		= "ulog",
+-	.revision	= 0,
+-	.family		= NFPROTO_BRIDGE,
+-	.target		= ebt_ulog_tg,
+-	.checkentry	= ebt_ulog_tg_check,
+-	.targetsize	= sizeof(struct ebt_ulog_info),
+-	.me		= THIS_MODULE,
+-};
+-
+-static struct nf_logger ebt_ulog_logger __read_mostly = {
+-	.name		= "ebt_ulog",
+-	.logfn		= &ebt_log_packet,
+-	.me		= THIS_MODULE,
+-};
+-
+-static int __net_init ebt_ulog_net_init(struct net *net)
+-{
+-	int i;
+-	struct ebt_ulog_net *ebt = ebt_ulog_pernet(net);
+-
+-	struct netlink_kernel_cfg cfg = {
+-		.groups	= EBT_ULOG_MAXNLGROUPS,
+-	};
+-
+-	/* initialize ulog_buffers */
+-	for (i = 0; i < EBT_ULOG_MAXNLGROUPS; i++) {
+-		ebt->nlgroup[i] = i;
+-		setup_timer(&ebt->ulog_buffers[i].timer, ulog_timer,
+-			    (unsigned long)&ebt->nlgroup[i]);
+-		spin_lock_init(&ebt->ulog_buffers[i].lock);
+-	}
+-
+-	ebt->ebtulognl = netlink_kernel_create(net, NETLINK_NFLOG, &cfg);
+-	if (!ebt->ebtulognl)
+-		return -ENOMEM;
+-
+-	nf_log_set(net, NFPROTO_BRIDGE, &ebt_ulog_logger);
+-	return 0;
+-}
+-
+-static void __net_exit ebt_ulog_net_fini(struct net *net)
+-{
+-	int i;
+-	struct ebt_ulog_net *ebt = ebt_ulog_pernet(net);
+-
+-	nf_log_unset(net, &ebt_ulog_logger);
+-	for (i = 0; i < EBT_ULOG_MAXNLGROUPS; i++) {
+-		ebt_ulog_buff_t *ub = &ebt->ulog_buffers[i];
+-		del_timer(&ub->timer);
+-
+-		if (ub->skb) {
+-			kfree_skb(ub->skb);
+-			ub->skb = NULL;
+-		}
+-	}
+-	netlink_kernel_release(ebt->ebtulognl);
+-}
+-
+-static struct pernet_operations ebt_ulog_net_ops = {
+-	.init = ebt_ulog_net_init,
+-	.exit = ebt_ulog_net_fini,
+-	.id   = &ebt_ulog_net_id,
+-	.size = sizeof(struct ebt_ulog_net),
+-};
+-
+-static int __init ebt_ulog_init(void)
+-{
+-	int ret;
+-
+-	if (nlbufsiz >= 128*1024) {
+-		pr_warn("Netlink buffer has to be <= 128kB,"
+-			"please try a smaller nlbufsiz parameter.\n");
+-		return -EINVAL;
+-	}
+-
+-	ret = register_pernet_subsys(&ebt_ulog_net_ops);
+-	if (ret)
+-		goto out_pernet;
+-
+-	ret = xt_register_target(&ebt_ulog_tg_reg);
+-	if (ret)
+-		goto out_target;
+-
+-	nf_log_register(NFPROTO_BRIDGE, &ebt_ulog_logger);
+-
+-	return 0;
+-
+-out_target:
+-	unregister_pernet_subsys(&ebt_ulog_net_ops);
+-out_pernet:
+-	return ret;
+-}
+-
+-static void __exit ebt_ulog_fini(void)
+-{
+-	nf_log_unregister(&ebt_ulog_logger);
+-	xt_unregister_target(&ebt_ulog_tg_reg);
+-	unregister_pernet_subsys(&ebt_ulog_net_ops);
+-}
+-
+-module_init(ebt_ulog_init);
+-module_exit(ebt_ulog_fini);
+-MODULE_LICENSE("GPL");
+-MODULE_AUTHOR("Bart De Schuymer <bdschuym@pandora.be>");
+-MODULE_DESCRIPTION("Ebtables: Packet logging to netlink using ULOG");
+diff --git a/net/ipv4/netfilter/Kconfig b/net/ipv4/netfilter/Kconfig
+index a26ce03..730faac 100644
+--- a/net/ipv4/netfilter/Kconfig
++++ b/net/ipv4/netfilter/Kconfig
+@@ -159,25 +159,6 @@ config IP_NF_TARGET_SYNPROXY
+ 
+ 	  To compile it as a module, choose M here. If unsure, say N.
+ 
+-config IP_NF_TARGET_ULOG
+-	tristate "ULOG target support (obsolete)"
+-	default m if NETFILTER_ADVANCED=n
+-	---help---
+-
+-	  This option enables the old IPv4-only "ipt_ULOG" implementation
+-	  which has been obsoleted by the new "nfnetlink_log" code (see
+-	  CONFIG_NETFILTER_NETLINK_LOG).
+-
+-	  This option adds a `ULOG' target, which allows you to create rules in
+-	  any iptables table. The packet is passed to a userspace logging
+-	  daemon using netlink multicast sockets; unlike the LOG target
+-	  which can only be viewed through syslog.
+-
+-	  The appropriate userspace logging daemon (ulogd) may be obtained from
+-	  <http://www.netfilter.org/projects/ulogd/index.html>
+-
+-	  To compile it as a module, choose M here.  If unsure, say N.
+-
+ # NAT + specific targets: nf_conntrack
+ config NF_NAT_IPV4
+ 	tristate "IPv4 NAT"
+diff --git a/net/ipv4/netfilter/ipt_ULOG.c b/net/ipv4/netfilter/ipt_ULOG.c
+deleted file mode 100644
+index 9cb993c..0000000
+--- a/net/ipv4/netfilter/ipt_ULOG.c
++++ /dev/null
+@@ -1,498 +0,0 @@
+-/*
+- * netfilter module for userspace packet logging daemons
+- *
+- * (C) 2000-2004 by Harald Welte <laforge@netfilter.org>
+- * (C) 1999-2001 Paul `Rusty' Russell
+- * (C) 2002-2004 Netfilter Core Team <coreteam@netfilter.org>
+- * (C) 2005-2007 Patrick McHardy <kaber@trash.net>
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License version 2 as
+- * published by the Free Software Foundation.
+- *
+- * This module accepts two parameters:
+- *
+- * nlbufsiz:
+- *   The parameter specifies how big the buffer for each netlink multicast
+- * group is. e.g. If you say nlbufsiz=8192, up to eight kb of packets will
+- * get accumulated in the kernel until they are sent to userspace. It is
+- * NOT possible to allocate more than 128kB, and it is strongly discouraged,
+- * because atomically allocating 128kB inside the network rx softirq is not
+- * reliable. Please also keep in mind that this buffer size is allocated for
+- * each nlgroup you are using, so the total kernel memory usage increases
+- * by that factor.
+- *
+- * Actually you should use nlbufsiz a bit smaller than PAGE_SIZE, since
+- * nlbufsiz is used with alloc_skb, which adds another
+- * sizeof(struct skb_shared_info).  Use NLMSG_GOODSIZE instead.
+- *
+- * flushtimeout:
+- *   Specify, after how many hundredths of a second the queue should be
+- *   flushed even if it is not full yet.
+- */
+-#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+-#include <linux/module.h>
+-#include <linux/spinlock.h>
+-#include <linux/socket.h>
+-#include <linux/slab.h>
+-#include <linux/skbuff.h>
+-#include <linux/kernel.h>
+-#include <linux/timer.h>
+-#include <net/netlink.h>
+-#include <linux/netdevice.h>
+-#include <linux/mm.h>
+-#include <linux/moduleparam.h>
+-#include <linux/netfilter.h>
+-#include <linux/netfilter/x_tables.h>
+-#include <linux/netfilter_ipv4/ipt_ULOG.h>
+-#include <net/netfilter/nf_log.h>
+-#include <net/netns/generic.h>
+-#include <net/sock.h>
+-#include <linux/bitops.h>
+-#include <asm/unaligned.h>
+-
+-MODULE_LICENSE("GPL");
+-MODULE_AUTHOR("Harald Welte <laforge@gnumonks.org>");
+-MODULE_DESCRIPTION("Xtables: packet logging to netlink using ULOG");
+-MODULE_ALIAS_NET_PF_PROTO(PF_NETLINK, NETLINK_NFLOG);
+-
+-#define ULOG_NL_EVENT		111		/* Harald's favorite number */
+-#define ULOG_MAXNLGROUPS	32		/* numer of nlgroups */
+-
+-static unsigned int nlbufsiz = NLMSG_GOODSIZE;
+-module_param(nlbufsiz, uint, 0400);
+-MODULE_PARM_DESC(nlbufsiz, "netlink buffer size");
+-
+-static unsigned int flushtimeout = 10;
+-module_param(flushtimeout, uint, 0600);
+-MODULE_PARM_DESC(flushtimeout, "buffer flush timeout (hundredths of a second)");
+-
+-static bool nflog = true;
+-module_param(nflog, bool, 0400);
+-MODULE_PARM_DESC(nflog, "register as internal netfilter logging module");
+-
+-/* global data structures */
+-
+-typedef struct {
+-	unsigned int qlen;		/* number of nlmsgs' in the skb */
+-	struct nlmsghdr *lastnlh;	/* netlink header of last msg in skb */
+-	struct sk_buff *skb;		/* the pre-allocated skb */
+-	struct timer_list timer;	/* the timer function */
+-} ulog_buff_t;
+-
+-static int ulog_net_id __read_mostly;
+-struct ulog_net {
+-	unsigned int nlgroup[ULOG_MAXNLGROUPS];
+-	ulog_buff_t ulog_buffers[ULOG_MAXNLGROUPS];
+-	struct sock *nflognl;
+-	spinlock_t lock;
+-};
+-
+-static struct ulog_net *ulog_pernet(struct net *net)
+-{
+-	return net_generic(net, ulog_net_id);
+-}
+-
+-/* send one ulog_buff_t to userspace */
+-static void ulog_send(struct ulog_net *ulog, unsigned int nlgroupnum)
+-{
+-	ulog_buff_t *ub = &ulog->ulog_buffers[nlgroupnum];
+-
+-	pr_debug("ulog_send: timer is deleting\n");
+-	del_timer(&ub->timer);
+-
+-	if (!ub->skb) {
+-		pr_debug("ulog_send: nothing to send\n");
+-		return;
+-	}
+-
+-	/* last nlmsg needs NLMSG_DONE */
+-	if (ub->qlen > 1)
+-		ub->lastnlh->nlmsg_type = NLMSG_DONE;
+-
+-	NETLINK_CB(ub->skb).dst_group = nlgroupnum + 1;
+-	pr_debug("throwing %d packets to netlink group %u\n",
+-		 ub->qlen, nlgroupnum + 1);
+-	netlink_broadcast(ulog->nflognl, ub->skb, 0, nlgroupnum + 1,
+-			  GFP_ATOMIC);
+-
+-	ub->qlen = 0;
+-	ub->skb = NULL;
+-	ub->lastnlh = NULL;
+-}
+-
+-
+-/* timer function to flush queue in flushtimeout time */
+-static void ulog_timer(unsigned long data)
+-{
+-	unsigned int groupnum = *((unsigned int *)data);
+-	struct ulog_net *ulog = container_of((void *)data,
+-					     struct ulog_net,
+-					     nlgroup[groupnum]);
+-	pr_debug("timer function called, calling ulog_send\n");
+-
+-	/* lock to protect against somebody modifying our structure
+-	 * from ipt_ulog_target at the same time */
+-	spin_lock_bh(&ulog->lock);
+-	ulog_send(ulog, groupnum);
+-	spin_unlock_bh(&ulog->lock);
+-}
+-
+-static struct sk_buff *ulog_alloc_skb(unsigned int size)
+-{
+-	struct sk_buff *skb;
+-	unsigned int n;
+-
+-	/* alloc skb which should be big enough for a whole
+-	 * multipart message. WARNING: has to be <= 131000
+-	 * due to slab allocator restrictions */
+-
+-	n = max(size, nlbufsiz);
+-	skb = alloc_skb(n, GFP_ATOMIC | __GFP_NOWARN);
+-	if (!skb) {
+-		if (n > size) {
+-			/* try to allocate only as much as we need for
+-			 * current packet */
+-
+-			skb = alloc_skb(size, GFP_ATOMIC);
+-			if (!skb)
+-				pr_debug("cannot even allocate %ub\n", size);
+-		}
+-	}
+-
+-	return skb;
+-}
+-
+-static void ipt_ulog_packet(struct net *net,
+-			    unsigned int hooknum,
+-			    const struct sk_buff *skb,
+-			    const struct net_device *in,
+-			    const struct net_device *out,
+-			    const struct ipt_ulog_info *loginfo,
+-			    const char *prefix)
+-{
+-	ulog_buff_t *ub;
+-	ulog_packet_msg_t *pm;
+-	size_t size, copy_len;
+-	struct nlmsghdr *nlh;
+-	struct timeval tv;
+-	struct ulog_net *ulog = ulog_pernet(net);
+-
+-	/* ffs == find first bit set, necessary because userspace
+-	 * is already shifting groupnumber, but we need unshifted.
+-	 * ffs() returns [1..32], we need [0..31] */
+-	unsigned int groupnum = ffs(loginfo->nl_group) - 1;
+-
+-	/* calculate the size of the skb needed */
+-	if (loginfo->copy_range == 0 || loginfo->copy_range > skb->len)
+-		copy_len = skb->len;
+-	else
+-		copy_len = loginfo->copy_range;
+-
+-	size = nlmsg_total_size(sizeof(*pm) + copy_len);
+-
+-	ub = &ulog->ulog_buffers[groupnum];
+-
+-	spin_lock_bh(&ulog->lock);
+-
+-	if (!ub->skb) {
+-		if (!(ub->skb = ulog_alloc_skb(size)))
+-			goto alloc_failure;
+-	} else if (ub->qlen >= loginfo->qthreshold ||
+-		   size > skb_tailroom(ub->skb)) {
+-		/* either the queue len is too high or we don't have
+-		 * enough room in nlskb left. send it to userspace. */
+-
+-		ulog_send(ulog, groupnum);
+-
+-		if (!(ub->skb = ulog_alloc_skb(size)))
+-			goto alloc_failure;
+-	}
+-
+-	pr_debug("qlen %d, qthreshold %Zu\n", ub->qlen, loginfo->qthreshold);
+-
+-	nlh = nlmsg_put(ub->skb, 0, ub->qlen, ULOG_NL_EVENT,
+-			sizeof(*pm)+copy_len, 0);
+-	if (!nlh) {
+-		pr_debug("error during nlmsg_put\n");
+-		goto out_unlock;
+-	}
+-	ub->qlen++;
+-
+-	pm = nlmsg_data(nlh);
+-	memset(pm, 0, sizeof(*pm));
+-
+-	/* We might not have a timestamp, get one */
+-	if (skb->tstamp.tv64 == 0)
+-		__net_timestamp((struct sk_buff *)skb);
+-
+-	/* copy hook, prefix, timestamp, payload, etc. */
+-	pm->data_len = copy_len;
+-	tv = ktime_to_timeval(skb->tstamp);
+-	put_unaligned(tv.tv_sec, &pm->timestamp_sec);
+-	put_unaligned(tv.tv_usec, &pm->timestamp_usec);
+-	put_unaligned(skb->mark, &pm->mark);
+-	pm->hook = hooknum;
+-	if (prefix != NULL) {
+-		strncpy(pm->prefix, prefix, sizeof(pm->prefix) - 1);
+-		pm->prefix[sizeof(pm->prefix) - 1] = '\0';
+-	}
+-	else if (loginfo->prefix[0] != '\0')
+-		strncpy(pm->prefix, loginfo->prefix, sizeof(pm->prefix));
+-
+-	if (in && in->hard_header_len > 0 &&
+-	    skb->mac_header != skb->network_header &&
+-	    in->hard_header_len <= ULOG_MAC_LEN) {
+-		memcpy(pm->mac, skb_mac_header(skb), in->hard_header_len);
+-		pm->mac_len = in->hard_header_len;
+-	} else
+-		pm->mac_len = 0;
+-
+-	if (in)
+-		strncpy(pm->indev_name, in->name, sizeof(pm->indev_name));
+-
+-	if (out)
+-		strncpy(pm->outdev_name, out->name, sizeof(pm->outdev_name));
+-
+-	/* copy_len <= skb->len, so can't fail. */
+-	if (skb_copy_bits(skb, 0, pm->payload, copy_len) < 0)
+-		BUG();
+-
+-	/* check if we are building multi-part messages */
+-	if (ub->qlen > 1)
+-		ub->lastnlh->nlmsg_flags |= NLM_F_MULTI;
+-
+-	ub->lastnlh = nlh;
+-
+-	/* if timer isn't already running, start it */
+-	if (!timer_pending(&ub->timer)) {
+-		ub->timer.expires = jiffies + flushtimeout * HZ / 100;
+-		add_timer(&ub->timer);
+-	}
+-
+-	/* if threshold is reached, send message to userspace */
+-	if (ub->qlen >= loginfo->qthreshold) {
+-		if (loginfo->qthreshold > 1)
+-			nlh->nlmsg_type = NLMSG_DONE;
+-		ulog_send(ulog, groupnum);
+-	}
+-out_unlock:
+-	spin_unlock_bh(&ulog->lock);
+-
+-	return;
+-
+-alloc_failure:
+-	pr_debug("Error building netlink message\n");
+-	spin_unlock_bh(&ulog->lock);
+-}
+-
+-static unsigned int
+-ulog_tg(struct sk_buff *skb, const struct xt_action_param *par)
+-{
+-	struct net *net = dev_net(par->in ? par->in : par->out);
+-
+-	ipt_ulog_packet(net, par->hooknum, skb, par->in, par->out,
+-	                par->targinfo, NULL);
+-	return XT_CONTINUE;
+-}
+-
+-static void ipt_logfn(struct net *net,
+-		      u_int8_t pf,
+-		      unsigned int hooknum,
+-		      const struct sk_buff *skb,
+-		      const struct net_device *in,
+-		      const struct net_device *out,
+-		      const struct nf_loginfo *li,
+-		      const char *prefix)
+-{
+-	struct ipt_ulog_info loginfo;
+-
+-	if (!li || li->type != NF_LOG_TYPE_ULOG) {
+-		loginfo.nl_group = ULOG_DEFAULT_NLGROUP;
+-		loginfo.copy_range = 0;
+-		loginfo.qthreshold = ULOG_DEFAULT_QTHRESHOLD;
+-		loginfo.prefix[0] = '\0';
+-	} else {
+-		loginfo.nl_group = li->u.ulog.group;
+-		loginfo.copy_range = li->u.ulog.copy_len;
+-		loginfo.qthreshold = li->u.ulog.qthreshold;
+-		strlcpy(loginfo.prefix, prefix, sizeof(loginfo.prefix));
+-	}
+-
+-	ipt_ulog_packet(net, hooknum, skb, in, out, &loginfo, prefix);
+-}
+-
+-static int ulog_tg_check(const struct xt_tgchk_param *par)
+-{
+-	const struct ipt_ulog_info *loginfo = par->targinfo;
+-
+-	if (!par->net->xt.ulog_warn_deprecated) {
+-		pr_info("ULOG is deprecated and it will be removed soon, "
+-			"use NFLOG instead\n");
+-		par->net->xt.ulog_warn_deprecated = true;
+-	}
+-
+-	if (loginfo->prefix[sizeof(loginfo->prefix) - 1] != '\0') {
+-		pr_debug("prefix not null-terminated\n");
+-		return -EINVAL;
+-	}
+-	if (loginfo->qthreshold > ULOG_MAX_QLEN) {
+-		pr_debug("queue threshold %Zu > MAX_QLEN\n",
+-			 loginfo->qthreshold);
+-		return -EINVAL;
+-	}
+-	return 0;
+-}
+-
+-#ifdef CONFIG_COMPAT
+-struct compat_ipt_ulog_info {
+-	compat_uint_t	nl_group;
+-	compat_size_t	copy_range;
+-	compat_size_t	qthreshold;
+-	char		prefix[ULOG_PREFIX_LEN];
+-};
+-
+-static void ulog_tg_compat_from_user(void *dst, const void *src)
+-{
+-	const struct compat_ipt_ulog_info *cl = src;
+-	struct ipt_ulog_info l = {
+-		.nl_group	= cl->nl_group,
+-		.copy_range	= cl->copy_range,
+-		.qthreshold	= cl->qthreshold,
+-	};
+-
+-	memcpy(l.prefix, cl->prefix, sizeof(l.prefix));
+-	memcpy(dst, &l, sizeof(l));
+-}
+-
+-static int ulog_tg_compat_to_user(void __user *dst, const void *src)
+-{
+-	const struct ipt_ulog_info *l = src;
+-	struct compat_ipt_ulog_info cl = {
+-		.nl_group	= l->nl_group,
+-		.copy_range	= l->copy_range,
+-		.qthreshold	= l->qthreshold,
+-	};
+-
+-	memcpy(cl.prefix, l->prefix, sizeof(cl.prefix));
+-	return copy_to_user(dst, &cl, sizeof(cl)) ? -EFAULT : 0;
+-}
+-#endif /* CONFIG_COMPAT */
+-
+-static struct xt_target ulog_tg_reg __read_mostly = {
+-	.name		= "ULOG",
+-	.family		= NFPROTO_IPV4,
+-	.target		= ulog_tg,
+-	.targetsize	= sizeof(struct ipt_ulog_info),
+-	.checkentry	= ulog_tg_check,
+-#ifdef CONFIG_COMPAT
+-	.compatsize	= sizeof(struct compat_ipt_ulog_info),
+-	.compat_from_user = ulog_tg_compat_from_user,
+-	.compat_to_user	= ulog_tg_compat_to_user,
+-#endif
+-	.me		= THIS_MODULE,
+-};
+-
+-static struct nf_logger ipt_ulog_logger __read_mostly = {
+-	.name		= "ipt_ULOG",
+-	.logfn		= ipt_logfn,
+-	.me		= THIS_MODULE,
+-};
+-
+-static int __net_init ulog_tg_net_init(struct net *net)
+-{
+-	int i;
+-	struct ulog_net *ulog = ulog_pernet(net);
+-	struct netlink_kernel_cfg cfg = {
+-		.groups	= ULOG_MAXNLGROUPS,
+-	};
+-
+-	spin_lock_init(&ulog->lock);
+-	/* initialize ulog_buffers */
+-	for (i = 0; i < ULOG_MAXNLGROUPS; i++) {
+-		ulog->nlgroup[i] = i;
+-		setup_timer(&ulog->ulog_buffers[i].timer, ulog_timer,
+-			    (unsigned long)&ulog->nlgroup[i]);
+-	}
+-
+-	ulog->nflognl = netlink_kernel_create(net, NETLINK_NFLOG, &cfg);
+-	if (!ulog->nflognl)
+-		return -ENOMEM;
+-
+-	if (nflog)
+-		nf_log_set(net, NFPROTO_IPV4, &ipt_ulog_logger);
+-
+-	return 0;
+-}
+-
+-static void __net_exit ulog_tg_net_exit(struct net *net)
+-{
+-	ulog_buff_t *ub;
+-	int i;
+-	struct ulog_net *ulog = ulog_pernet(net);
+-
+-	if (nflog)
+-		nf_log_unset(net, &ipt_ulog_logger);
+-
+-	netlink_kernel_release(ulog->nflognl);
+-
+-	/* remove pending timers and free allocated skb's */
+-	for (i = 0; i < ULOG_MAXNLGROUPS; i++) {
+-		ub = &ulog->ulog_buffers[i];
+-		pr_debug("timer is deleting\n");
+-		del_timer(&ub->timer);
+-
+-		if (ub->skb) {
+-			kfree_skb(ub->skb);
+-			ub->skb = NULL;
+-		}
+-	}
+-}
+-
+-static struct pernet_operations ulog_tg_net_ops = {
+-	.init = ulog_tg_net_init,
+-	.exit = ulog_tg_net_exit,
+-	.id   = &ulog_net_id,
+-	.size = sizeof(struct ulog_net),
+-};
+-
+-static int __init ulog_tg_init(void)
+-{
+-	int ret;
+-	pr_debug("init module\n");
+-
+-	if (nlbufsiz > 128*1024) {
+-		pr_warn("Netlink buffer has to be <= 128kB\n");
+-		return -EINVAL;
+-	}
+-
+-	ret = register_pernet_subsys(&ulog_tg_net_ops);
+-	if (ret)
+-		goto out_pernet;
+-
+-	ret = xt_register_target(&ulog_tg_reg);
+-	if (ret < 0)
+-		goto out_target;
+-
+-	if (nflog)
+-		nf_log_register(NFPROTO_IPV4, &ipt_ulog_logger);
+-
+-	return 0;
+-
+-out_target:
+-	unregister_pernet_subsys(&ulog_tg_net_ops);
+-out_pernet:
+-	return ret;
+-}
+-
+-static void __exit ulog_tg_exit(void)
+-{
+-	pr_debug("cleanup_module\n");
+-	if (nflog)
+-		nf_log_unregister(&ipt_ulog_logger);
+-	xt_unregister_target(&ulog_tg_reg);
+-	unregister_pernet_subsys(&ulog_tg_net_ops);
+-}
+-
+-module_init(ulog_tg_init);
+-module_exit(ulog_tg_exit);
+-- 
+1.7.10.4
