@@ -1,7 +1,8 @@
 From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: [PATCH net 0/4 v2] xen-netback: Fixing up xenvif_tx_check_gop
-Date: Fri, 18 Jul 2014 19:08:01 +0100
-Message-ID: <1405706885-16763-1-git-send-email-zoltan.kiss@citrix.com>
+Subject: [PATCH net 1/4 v2] xen-netback: Fix handling frag_list on grant op error path
+Date: Fri, 18 Jul 2014 19:08:02 +0100
+Message-ID: <1405706885-16763-2-git-send-email-zoltan.kiss@citrix.com>
+References: <1405706885-16763-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: Zoltan Kiss <zoltan.kiss@citrix.com>, <netdev@vger.kernel.org>,
@@ -9,18 +10,86 @@ Cc: Zoltan Kiss <zoltan.kiss@citrix.com>, <netdev@vger.kernel.org>,
 To: Wei Liu <wei.liu2@citrix.com>,
 	Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1405706885-16763-1-git-send-email-zoltan.kiss@citrix.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This series fixes a lot of bugs on the error path around this function, which
-were introduced with my grant mapping series in 3.15. They apply to the latest
-net tree, but probably to net-next as well without any modification.
-I'll post an another series which applies to 3.15 stable, as the problem was
-first discovered there. The only difference is that the "queue" variable name is
-replaced to "vif".
+The error handling for skb's with frag_list was completely wrong, it caused
+double unmap attempts to happen if the error was on the first skb. Move it to
+the right place in the loop.
 
 Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
 Reported-by: Armin Zentai <armin.zentai@ezit.hu>
 Cc: netdev@vger.kernel.org
 Cc: linux-kernel@vger.kernel.org
 Cc: xen-devel@lists.xenproject.org
+---
+v2: grammar change in comment
+
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index 1844a47..a773f20 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -1030,10 +1030,16 @@ static int xenvif_tx_check_gop(struct xenvif_queue *queue,
+ {
+ 	struct gnttab_map_grant_ref *gop_map = *gopp_map;
+ 	u16 pending_idx = XENVIF_TX_CB(skb)->pending_idx;
++	/* This always points to the shinfo of the skb being checked, which
++	 * could be either the first or the one on the frag_list
++	 */
+ 	struct skb_shared_info *shinfo = skb_shinfo(skb);
++	/* If this is non-NULL, we are currently checking the frag_list skb, and
++	 * this points to the shinfo of the first one
++	 */
++	struct skb_shared_info *first_shinfo = NULL;
+ 	int nr_frags = shinfo->nr_frags;
+ 	int i, err;
+-	struct sk_buff *first_skb = NULL;
+ 
+ 	/* Check status of header. */
+ 	err = (*gopp_copy)->status;
+@@ -1086,31 +1092,28 @@ check_frags:
+ 			xenvif_idx_unmap(queue, pending_idx);
+ 		}
+ 
++		/* And if we found the error while checking the frag_list, unmap
++		 * the first skb's frags
++		 */
++		if (first_shinfo) {
++			for (j = 0; j < first_shinfo->nr_frags; j++) {
++				pending_idx = frag_get_pending_idx(&first_shinfo->frags[j]);
++				xenvif_idx_unmap(queue, pending_idx);
++			}
++		}
++
+ 		/* Remember the error: invalidate all subsequent fragments. */
+ 		err = newerr;
+ 	}
+ 
+-	if (skb_has_frag_list(skb)) {
+-		first_skb = skb;
+-		skb = shinfo->frag_list;
+-		shinfo = skb_shinfo(skb);
++	if (skb_has_frag_list(skb) && !first_shinfo) {
++		first_shinfo = skb_shinfo(skb);
++		shinfo = skb_shinfo(skb_shinfo(skb)->frag_list);
+ 		nr_frags = shinfo->nr_frags;
+ 
+ 		goto check_frags;
+ 	}
+ 
+-	/* There was a mapping error in the frag_list skb. We have to unmap
+-	 * the first skb's frags
+-	 */
+-	if (first_skb && err) {
+-		int j;
+-		shinfo = skb_shinfo(first_skb);
+-		for (j = 0; j < shinfo->nr_frags; j++) {
+-			pending_idx = frag_get_pending_idx(&shinfo->frags[j]);
+-			xenvif_idx_unmap(queue, pending_idx);
+-		}
+-	}
+-
+ 	*gopp_map = gop_map;
+ 	return err;
+ }
