@@ -1,98 +1,55 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH net-next v2 1/8] net-timestamp: explicit SO_TIMESTAMPING
- ancillary data struct
-Date: Fri, 18 Jul 2014 11:54:12 -0400
-Message-ID: <CA+FuTSc-0oEi7vB8w6s55xtzFd+74o-f8qW-AUk8j7JqneKgqA@mail.gmail.com>
-References: <1404416380-3545-1-git-send-email-willemb@google.com>
- <1404416380-3545-2-git-send-email-willemb@google.com> <20140705201007.GC3869@localhost.localdomain>
+From: James Bottomley <James.Bottomley@HansenPartnership.com>
+Subject: Re: [PATCH 0/25] Replace DEFINE_PCI_DEVICE_TABLE macro use
+Date: Fri, 18 Jul 2014 09:28:54 -0700
+Message-ID: <1405700934.605.31.camel@jarvis.lan>
+References: <1405697232-11785-1-git-send-email-benoit.taine@lip6.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	richardcochran@gomail.com,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f171.google.com ([209.85.220.171]:35162 "EHLO
-	mail-vc0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756781AbaGRPyn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jul 2014 11:54:43 -0400
-Received: by mail-vc0-f171.google.com with SMTP id hq11so6146098vcb.2
-        for <netdev@vger.kernel.org>; Fri, 18 Jul 2014 08:54:43 -0700 (PDT)
-In-Reply-To: <20140705201007.GC3869@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-mips@linux-mips.org, linux-fbdev@vger.kernel.org,
+ linux-pci@vger.kernel.org, dri-devel@lists.freedesktop.org,
+ linux-kernel@vger.kernel.org, ath5k-devel@venema.h4ckr.net,
+ linux-acenic@sunsite.dk, linux-scsi@vger.kernel.org,
+ linux-rdma@vger.kernel.org, ath10k@lists.infradead.org, linux-hippi@sunsite.dk,
+ industrypack-devel@lists.sourceforge.net, linux-mmc@vger.kernel.org,
+ MPT-FusionLinux.pdl@avagotech.com, virtualization@lists.linux-foundation.org,
+ ath9k-devel@venema.h4ckr.net, wil6210@qca.qualcomm.com,
+ linux-pcmcia@lists.infradead.org, linux-can@vger.kernel.org,
+ xen-devel@lists.xenproject.org, platform-driver-x86@vger.kernel.org,
+ netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+ users@rt2x00.serialmonkey.com, e1000-devel@lists.sourceforge.net,
+ linux-crypto@vger.kernel.org, devel@linuxdriverproject.org
+To: Benoit Taine <benoit.taine@lip6.fr>
+Return-path: <dri-devel-bounces@lists.freedesktop.org>
+In-Reply-To: <1405697232-11785-1-git-send-email-benoit.taine@lip6.fr>
+List-Unsubscribe: <http://lists.freedesktop.org/mailman/options/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <http://lists.freedesktop.org/archives/dri-devel>
+List-Post: <mailto:dri-devel@lists.freedesktop.org>
+List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <http://lists.freedesktop.org/mailman/listinfo/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: dri-devel-bounces@lists.freedesktop.org
+Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
+List-Id: netdev.vger.kernel.org
 
-On Sat, Jul 5, 2014 at 4:10 PM, Richard Cochran
-<richardcochran@gmail.com> wrote:
-> On Thu, Jul 03, 2014 at 03:39:33PM -0400, Willem de Bruijn wrote:
->
->> +struct scm_timestamping {
->> +     struct timespec ts[3];
->> +};
->> +
->> +#define SCM_TSTAMP_SND               0x1     /* driver passed skb to NIC */
->> +#define SCM_TSTAMP_ACK               0x2     /* transport layer saw ACK */
->> +#define SCM_TSTAMP_ENQ               0x4     /* stack passed skb to TC layer */
->> +#define SCM_TSTAMP_RCV               0x8     /* stack received skb */
->> +#define SCM_TSTAMP_HWSYS     0x10    /* NIC tstamp in system format */
->> +#define SCM_TSTAMP_HWRAW     0x20    /* NIC tstamp in native format */
->> +
->> +#define SCM_TSTAMP_OFF(n, ts)        (ts << (10 * n))
->
-> Hm ...
->
+On Fri, 2014-07-18 at 17:26 +0200, Benoit Taine wrote:
+> We should prefer `const struct pci_device_id` over
+> `DEFINE_PCI_DEVICE_TABLE` to meet kernel coding style guidelines.
+> This issue was reported by checkpatch.
 
-> So you want ee_info to be a bit field like this?
->
->    | 10 bits    | 10 bits    | 10 bits    | 2 bits |
->    |------------+------------+------------+--------|
->    | ts[0] type | ts[1] type | ts[2] type | rsv    |
->
-> Why not simplify this into two fields:
->
-> 1. the index ts[] that contains a time stamp
-> 2. the type of the time stamp
->
-> The kernel never provides more than one value in ts[], and it is hard
-> to imagine that we will ever do this. The original so_timestamping
-> interface and documentation seem to suggest that multiple values are
-> possible, but there was never, ever any code that did this. As an end
-> user, I found that very confusing.
->
-> I would prefer making the extended interface simpler, rather than
-> giving the impression that multiple time stamps are possible when they
-> really are not.
+What kernel coding style?  checkpatch isn't the arbiter of style, if
+that's the only problem.
 
-Agreed. I have a simpler patchset ready where ee_info only
-defines contents of ts[0] and the SCM fields are just an enum.
+The DEFINE_PCI macro was a well reasoned addition when it was added in
+2008.  The problem was most people were getting the definition wrong.
+When we converted away from CONFIG_HOTPLUG, having this DEFINE_ meant
+that only one place needed changing instead of hundreds for PCI tables.
 
-Before I send the entire patchset again, I plan to simplify two
-other parts if no one objects.
+The reason people were getting the PCI table wrong was mostly the init
+section specifiers which are now gone, but it has enough underlying
+utility (mostly constification) that I don't think we'd want to churn
+the kernel hugely to make a change to struct pci_table and then have to
+start detecting and fixing misuses.
 
-1. only one MSG_TSTAMP send() flag.
-
-The socket flag space is limited, so defining a flag for
-each type of timestamp is not practical. Instead, define one flag
-MSG_TSTAMP that generates all timestamps by default. The
-default can be overridden at the socket level with timestamping
-option fields such as SOF_TIMESTAMPING_ENQ_SOFTWARE.
-
-2. correlate tstamps with data
-
-If multiple datagrams are in flight, it is ambiguous to which
-datagram a timestamp refers. The payload is looped with the
-timestamp, but content-based correlation can be expensive,
-even impossible.
-
-My previous patch addressed this for TCP only, by passing
-a seqno in ee_data. That has issues of its own. For one, with
-write_seq at send time not know to the process, it is still hard
-to correlate. I am going to remove that.
-
-Returning a counter in ee_data to distinguish tstamps from
-successive send(.., MSG_TSTAMP) calls allows correlation.
-Better is if it works for all protocols. An explicit per-sk counter
-+ per-skb id field would require scarce skb space. Instead.
-I plan to just loop skb->mark and leave it to the application to
-choose marks wisely.
+James
