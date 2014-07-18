@@ -1,148 +1,114 @@
 From: Zi Shen Lim <zlim.lnx@gmail.com>
-Subject: [PATCH 13/14] arm64: introduce aarch64_insn_gen_logical_shifted_reg()
-Date: Fri, 18 Jul 2014 11:28:19 -0700
-Message-ID: <1405708100-13604-14-git-send-email-zlim.lnx@gmail.com>
+Subject: [PATCH 03/14] arm64: introduce aarch64_insn_gen_cond_branch_imm()
+Date: Fri, 18 Jul 2014 11:28:09 -0700
+Message-ID: <1405708100-13604-4-git-send-email-zlim.lnx@gmail.com>
 References: <1405708100-13604-1-git-send-email-zlim.lnx@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Cc: Zi Shen Lim <zlim.lnx@gmail.com>, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
+ linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
 To: Catalin Marinas <catalin.marinas@arm.com>,
-	Will Deacon <will.deacon@arm.com>,
-	Jiang Liu <liuj97@gmail.com>,
-	AKASHI Takahiro <takahiro.akashi@linaro.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+ Will Deacon <will.deacon@arm.com>, Jiang Liu <liuj97@gmail.com>,
+ AKASHI Takahiro <takahiro.akashi@linaro.org>,
+ "David S. Miller" <davem@davemloft.net>,
+ Daniel Borkmann <dborkman@redhat.com>,
+ Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <1405708100-13604-1-git-send-email-zlim.lnx@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-Introduce function to generate logical (shifted register)
+Introduce function to generate conditional branch (immediate)
 instructions.
 
 Signed-off-by: Zi Shen Lim <zlim.lnx@gmail.com>
 ---
- arch/arm64/include/asm/insn.h | 25 ++++++++++++++++++
- arch/arm64/kernel/insn.c      | 60 +++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 85 insertions(+)
+ arch/arm64/include/asm/insn.h | 21 +++++++++++++++++++++
+ arch/arm64/kernel/insn.c      | 17 +++++++++++++++++
+ 2 files changed, 38 insertions(+)
 
 diff --git a/arch/arm64/include/asm/insn.h b/arch/arm64/include/asm/insn.h
-index 36e8465..56a9e63 100644
+index 5080962..86a8a9c 100644
 --- a/arch/arm64/include/asm/insn.h
 +++ b/arch/arm64/include/asm/insn.h
-@@ -206,6 +206,17 @@ enum aarch64_insn_data3_type {
- 	AARCH64_INSN_DATA3_MSUB,
+@@ -117,6 +117,24 @@ enum aarch64_insn_variant {
+ 	AARCH64_INSN_VARIANT_64BIT
  };
  
-+enum aarch64_insn_logic_type {
-+	AARCH64_INSN_LOGIC_AND,
-+	AARCH64_INSN_LOGIC_BIC,
-+	AARCH64_INSN_LOGIC_ORR,
-+	AARCH64_INSN_LOGIC_ORN,
-+	AARCH64_INSN_LOGIC_EOR,
-+	AARCH64_INSN_LOGIC_EON,
-+	AARCH64_INSN_LOGIC_AND_SETFLAGS,
-+	AARCH64_INSN_LOGIC_BIC_SETFLAGS
++enum aarch64_insn_condition {
++	AARCH64_INSN_COND_EQ = 0x0, /* == */
++	AARCH64_INSN_COND_NE = 0x1, /* != */
++	AARCH64_INSN_COND_CS = 0x2, /* unsigned >= */
++	AARCH64_INSN_COND_CC = 0x3, /* unsigned < */
++	AARCH64_INSN_COND_MI = 0x4, /* < 0 */
++	AARCH64_INSN_COND_PL = 0x5, /* >= 0 */
++	AARCH64_INSN_COND_VS = 0x6, /* overflow */
++	AARCH64_INSN_COND_VC = 0x7, /* no overflow */
++	AARCH64_INSN_COND_HI = 0x8, /* unsigned > */
++	AARCH64_INSN_COND_LS = 0x9, /* unsigned <= */
++	AARCH64_INSN_COND_GE = 0xa, /* signed >= */
++	AARCH64_INSN_COND_LT = 0xb, /* signed < */
++	AARCH64_INSN_COND_GT = 0xc, /* signed > */
++	AARCH64_INSN_COND_LE = 0xd, /* signed <= */
++	AARCH64_INSN_COND_AL = 0xe, /* always */
 +};
 +
- #define	__AARCH64_INSN_FUNCS(abbr, mask, val)	\
- static __always_inline bool aarch64_insn_is_##abbr(u32 code) \
- { return (code & (mask)) == (val); } \
-@@ -243,6 +254,14 @@ __AARCH64_INSN_FUNCS(rorv,	0x7FE0FC00, 0x1AC02C00)
- __AARCH64_INSN_FUNCS(rev16,	0x7FFFFC00, 0x5AC00400)
- __AARCH64_INSN_FUNCS(rev32,	0x7FFFFC00, 0x5AC00800)
- __AARCH64_INSN_FUNCS(rev64,	0x7FFFFC00, 0x5AC00C00)
-+__AARCH64_INSN_FUNCS(and,	0x7F200000, 0x0A000000)
-+__AARCH64_INSN_FUNCS(bic,	0x7F200000, 0x0A200000)
-+__AARCH64_INSN_FUNCS(orr,	0x7F200000, 0x2A000000)
-+__AARCH64_INSN_FUNCS(orn,	0x7F200000, 0x2A200000)
-+__AARCH64_INSN_FUNCS(eor,	0x7F200000, 0x4A000000)
-+__AARCH64_INSN_FUNCS(eon,	0x7F200000, 0x4A200000)
-+__AARCH64_INSN_FUNCS(ands,	0x7F200000, 0x6A000000)
-+__AARCH64_INSN_FUNCS(bics,	0x7F200000, 0x6A200000)
- __AARCH64_INSN_FUNCS(b,		0xFC000000, 0x14000000)
+ enum aarch64_insn_branch_type {
+ 	AARCH64_INSN_BRANCH_NOLINK,
+ 	AARCH64_INSN_BRANCH_LINK,
+@@ -135,6 +153,7 @@ __AARCH64_INSN_FUNCS(b,		0xFC000000, 0x14000000)
  __AARCH64_INSN_FUNCS(bl,	0xFC000000, 0x94000000)
  __AARCH64_INSN_FUNCS(cbz,	0xFE000000, 0x34000000)
-@@ -323,6 +342,12 @@ u32 aarch64_insn_gen_data3(enum aarch64_insn_register dst,
- 			   enum aarch64_insn_register reg2,
- 			   enum aarch64_insn_variant variant,
- 			   enum aarch64_insn_data3_type type);
-+u32 aarch64_insn_gen_logical_shifted_reg(enum aarch64_insn_register dst,
-+					 enum aarch64_insn_register src,
-+					 enum aarch64_insn_register reg,
-+					 int shift,
-+					 enum aarch64_insn_variant variant,
-+					 enum aarch64_insn_logic_type type);
- 
- bool aarch64_insn_hotpatch_safe(u32 old_insn, u32 new_insn);
- 
+ __AARCH64_INSN_FUNCS(cbnz,	0xFE000000, 0x35000000)
++__AARCH64_INSN_FUNCS(bcond,	0xFF000010, 0x54000000)
+ __AARCH64_INSN_FUNCS(svc,	0xFFE0001F, 0xD4000001)
+ __AARCH64_INSN_FUNCS(hvc,	0xFFE0001F, 0xD4000002)
+ __AARCH64_INSN_FUNCS(smc,	0xFFE0001F, 0xD4000003)
+@@ -159,6 +178,8 @@ u32 aarch64_insn_gen_comp_branch_imm(unsigned long pc, unsigned long addr,
+ 				     enum aarch64_insn_register reg,
+ 				     enum aarch64_insn_variant variant,
+ 				     enum aarch64_insn_branch_type type);
++u32 aarch64_insn_gen_cond_branch_imm(unsigned long pc, unsigned long addr,
++				     enum aarch64_insn_condition cond);
+ u32 aarch64_insn_gen_hint(enum aarch64_insn_hint_op op);
+ u32 aarch64_insn_gen_nop(void);
+ u32 aarch64_insn_gen_branch_reg(enum aarch64_insn_register reg,
 diff --git a/arch/arm64/kernel/insn.c b/arch/arm64/kernel/insn.c
-index f73a4bf..0668ee5 100644
+index 6797936..b65edc0 100644
 --- a/arch/arm64/kernel/insn.c
 +++ b/arch/arm64/kernel/insn.c
-@@ -874,3 +874,63 @@ u32 aarch64_insn_gen_data3(enum aarch64_insn_register dst,
- 	return aarch64_insn_encode_register(AARCH64_INSN_REGTYPE_RM, insn,
- 					    reg2);
+@@ -380,6 +380,23 @@ u32 aarch64_insn_gen_comp_branch_imm(unsigned long pc, unsigned long addr,
+ 					     offset >> 2);
  }
-+
-+u32 aarch64_insn_gen_logical_shifted_reg(enum aarch64_insn_register dst,
-+					 enum aarch64_insn_register src,
-+					 enum aarch64_insn_register reg,
-+					 int shift,
-+					 enum aarch64_insn_variant variant,
-+					 enum aarch64_insn_logic_type type)
+ 
++u32 aarch64_insn_gen_cond_branch_imm(unsigned long pc, unsigned long addr,
++				     enum aarch64_insn_condition cond)
 +{
 +	u32 insn;
++	long offset;
 +
-+	switch (type) {
-+	case AARCH64_INSN_LOGIC_AND:
-+		insn = aarch64_insn_get_and_value();
-+		break;
-+	case AARCH64_INSN_LOGIC_BIC:
-+		insn = aarch64_insn_get_bic_value();
-+		break;
-+	case AARCH64_INSN_LOGIC_ORR:
-+		insn = aarch64_insn_get_orr_value();
-+		break;
-+	case AARCH64_INSN_LOGIC_ORN:
-+		insn = aarch64_insn_get_orn_value();
-+		break;
-+	case AARCH64_INSN_LOGIC_EOR:
-+		insn = aarch64_insn_get_eor_value();
-+		break;
-+	case AARCH64_INSN_LOGIC_EON:
-+		insn = aarch64_insn_get_eon_value();
-+		break;
-+	case AARCH64_INSN_LOGIC_AND_SETFLAGS:
-+		insn = aarch64_insn_get_ands_value();
-+		break;
-+	case AARCH64_INSN_LOGIC_BIC_SETFLAGS:
-+		insn = aarch64_insn_get_bics_value();
-+		break;
-+	default:
-+		BUG_ON(1);
-+	}
++	offset = branch_imm_common(pc, addr, SZ_1M);
 +
-+	switch (variant) {
-+	case AARCH64_INSN_VARIANT_32BIT:
-+		BUG_ON(shift & ~(SZ_32 - 1));
-+		break;
-+	case AARCH64_INSN_VARIANT_64BIT:
-+		insn |= AARCH64_INSN_SF_BIT;
-+		BUG_ON(shift & ~(SZ_64 - 1));
-+		break;
-+	default:
-+		BUG_ON(1);
-+	}
++	insn = aarch64_insn_get_bcond_value();
 +
++	BUG_ON(cond < AARCH64_INSN_COND_EQ || cond > AARCH64_INSN_COND_AL);
++	insn |= cond;
 +
-+	insn = aarch64_insn_encode_register(AARCH64_INSN_REGTYPE_RD, insn, dst);
-+
-+	insn = aarch64_insn_encode_register(AARCH64_INSN_REGTYPE_RN, insn, src);
-+
-+	insn = aarch64_insn_encode_register(AARCH64_INSN_REGTYPE_RM, insn, reg);
-+
-+	return aarch64_insn_encode_immediate(AARCH64_INSN_IMM_6, insn, shift);
++	return aarch64_insn_encode_immediate(AARCH64_INSN_IMM_19, insn,
++					     offset >> 2);
 +}
++
+ u32 __kprobes aarch64_insn_gen_hint(enum aarch64_insn_hint_op op)
+ {
+ 	return aarch64_insn_get_hint_value() | op;
 -- 
 1.9.1
