@@ -1,97 +1,97 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: [PATCH net-next v3 2/3] Rename SCTP_XMIT_NAGLE_DELAY to
- SCTP_XMIT_DELAY
-Date: Fri, 18 Jul 2014 17:36:27 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D17278F4C@AcuExch.aculab.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net 1/4] xen-netback: Fix handling frag_list on grant
+ op error path
+Date: Fri, 18 Jul 2014 18:47:55 +0100
+Message-ID: <53C95DCB.90806@citrix.com>
+References: <1405624192-21722-1-git-send-email-zoltan.kiss@citrix.com> <1405624192-21722-2-git-send-email-zoltan.kiss@citrix.com> <20140718152435.GN7142@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: 'David Miller' <davem@davemloft.net>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"'linux-sctp@vger.kernel.org'" <linux-sctp@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:40041 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1030515AbaGRRhd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jul 2014 13:37:33 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 15129-06 for <netdev@vger.kernel.org>;
- Fri, 18 Jul 2014 18:37:24 +0100 (BST)
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ian Campbell <Ian.Campbell@citrix.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <xen-devel@lists.xenproject.org>
+To: Wei Liu <wei.liu2@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140718152435.GN7142@zion.uk.xensource.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-MSG_MORE and 'corking' a socket would require that the transmit of
-a data chunk be delayed.
-Rename the return value to be less specific.
+On 18/07/14 16:24, Wei Liu wrote:
+> On Thu, Jul 17, 2014 at 08:09:49PM +0100, Zoltan Kiss wrote:
+>> The error handling for skb's with frag_list was completely wrong, it caused
+>> double unmap attempts to happen if the error was on the first skb. Move it to
+>> the right place in the loop.
+>>
+>> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+>> Reported-by: Armin Zentai <armin.zentai@ezit.hu>
+>> Cc: netdev@vger.kernel.org
+>> Cc: linux-kernel@vger.kernel.org
+>> Cc: xen-devel@lists.xenproject.org
+>> ---
+>> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+>> index 1844a47..604ff71 100644
+>> --- a/drivers/net/xen-netback/netback.c
+>> +++ b/drivers/net/xen-netback/netback.c
+>> @@ -1030,10 +1030,16 @@ static int xenvif_tx_check_gop(struct xenvif_queue *queue,
+>>   {
+>>   	struct gnttab_map_grant_ref *gop_map = *gopp_map;
+>>   	u16 pending_idx = XENVIF_TX_CB(skb)->pending_idx;
+>> +	/* This points to the shinfo of the actually checked skb, which could be
+>> +	 * either the first or the one on the frag_list
+>> +	 */
+>
+> I think "checked skb" should be "skb being checked". Feel free to
+> disagree as I'm not native English speaker. :-/
+>
+>>   	struct skb_shared_info *shinfo = skb_shinfo(skb);
+>> +	/* If this is non-NULL, we are currently checking the frag_list skb, and
+>> +	 * this points to the shinfo of the first one
+>> +	 */
+>> +	struct skb_shared_info *first_shinfo = NULL;
+>>   	int nr_frags = shinfo->nr_frags;
+>>   	int i, err;
+>> -	struct sk_buff *first_skb = NULL;
+>>
+>>   	/* Check status of header. */
+>>   	err = (*gopp_copy)->status;
+>> @@ -1086,31 +1092,28 @@ check_frags:
+>>   			xenvif_idx_unmap(queue, pending_idx);
+>>   		}
+>>
+>> +		/* And if we found the error while checking the frag_list, unmap
+>> +		 * the first skb's frags
+>> +		 */
+>> +		if (first_shinfo) {
+>> +			for (j = 0; j < first_shinfo->nr_frags; j++) {
+>> +				pending_idx = frag_get_pending_idx(&first_shinfo->frags[j]);
+>> +				xenvif_idx_unmap(queue, pending_idx);
+>> +			}
+>> +		}
+>> +
+>>   		/* Remember the error: invalidate all subsequent fragments. */
+>>   		err = newerr;
+>>   	}
+>>
+>> -	if (skb_has_frag_list(skb)) {
+>> -		first_skb = skb;
+>> -		skb = shinfo->frag_list;
+>> -		shinfo = skb_shinfo(skb);
+>> +	if (skb_has_frag_list(skb) && !first_shinfo) {
+>
+> Will it ever come to the point that we have another skb in this skb's
+> frag list? Is there any reason prevents you from looping over the
+> (possible) subsequent skbs? I guess if the error is deep in the list
+> it's a bit hard to bookkeep...
+>
+>> +		first_shinfo = skb_shinfo(skb);
+>> +		shinfo = skb_shinfo(skb_shinfo(skb)->frag_list);
+>
+> In that case I would suggest you add
+> BUG_ON(skb_has_frag_list(skb_shinfo(skb)->frag_list)). I think having
+> more nested frag_list should be a bug in current design.
 
-Signed-off-by: David Laight <david.laight@aculab.com>
----
-
-No change from v2.
-
- include/net/sctp/constants.h | 2 +-
- net/sctp/output.c            | 4 ++--
- net/sctp/outqueue.c          | 4 ++--
- 3 files changed, 5 insertions(+), 5 deletions(-)
-
-diff --git a/include/net/sctp/constants.h b/include/net/sctp/constants.h
-index 307728f..8c337cd 100644
---- a/include/net/sctp/constants.h
-+++ b/include/net/sctp/constants.h
-@@ -311,7 +311,7 @@ typedef enum {
- 	SCTP_XMIT_OK,
- 	SCTP_XMIT_PMTU_FULL,
- 	SCTP_XMIT_RWND_FULL,
--	SCTP_XMIT_NAGLE_DELAY,
-+	SCTP_XMIT_DELAY,
- } sctp_xmit_t;
- 
- /* These are the commands for manipulating transports.  */
-diff --git a/net/sctp/output.c b/net/sctp/output.c
-index 553ba1d..7f28a8e 100644
---- a/net/sctp/output.c
-+++ b/net/sctp/output.c
-@@ -178,7 +178,7 @@ sctp_xmit_t sctp_packet_transmit_chunk(struct sctp_packet *packet,
- 
- 	case SCTP_XMIT_RWND_FULL:
- 	case SCTP_XMIT_OK:
--	case SCTP_XMIT_NAGLE_DELAY:
-+	case SCTP_XMIT_DELAY:
- 		break;
- 	}
- 
-@@ -712,7 +712,7 @@ static sctp_xmit_t sctp_packet_can_append_data(struct sctp_packet *packet,
- 		return SCTP_XMIT_OK;
- 
- 	/* Defer until all data acked or packet full */
--	return SCTP_XMIT_NAGLE_DELAY;
-+	return SCTP_XMIT_DELAY;
- }
- 
- /* This private function does management things when adding DATA chunk */
-diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-index 9c77947..9ce0f3d 100644
---- a/net/sctp/outqueue.c
-+++ b/net/sctp/outqueue.c
-@@ -629,7 +629,7 @@ redo:
- 			done = 1;
- 			break;
- 
--		case SCTP_XMIT_NAGLE_DELAY:
-+		case SCTP_XMIT_DELAY:
- 			/* Send this packet. */
- 			error = sctp_packet_transmit(pkt);
- 
-@@ -1015,7 +1015,7 @@ static int sctp_outq_flush(struct sctp_outq *q, int rtx_timeout)
- 			switch (status) {
- 			case SCTP_XMIT_PMTU_FULL:
- 			case SCTP_XMIT_RWND_FULL:
--			case SCTP_XMIT_NAGLE_DELAY:
-+			case SCTP_XMIT_DELAY:
- 				/* We could not append this chunk, so put
- 				 * the chunk back on the output queue.
- 				 */
--- 
-1.8.1.2
+There are already 3 things which prevents this
+- in count_requests we drop the packet if it has more than 
+XEN_NETBK_LEGACY_SLOTS_MAX slots
+- in get_requests there is a BUG_ON(frag_overflow > MAX_SKB_FRAGS), 
+which shouldn't really due to the prev point
+- in the same funciont we create a frag_list skb exactly once
