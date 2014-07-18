@@ -1,98 +1,123 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net] net_sched: avoid generating same handle for u32 filters
-Date: Thu, 17 Jul 2014 17:34:53 -0700
-Message-ID: <1405643693-4880-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Cong Wang <cwang@twopensource.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>
+From: Anish Bhatt <anish@chelsio.com>
+Subject: [PATCH net-next] libcxgbi:cxgb4i Guard ipv6 code with a config check
+Date: Thu, 17 Jul 2014 18:34:44 -0700
+Message-ID: <1405647284-498-1-git-send-email-anish@chelsio.com>
+Cc: davem@davemloft.net, kxie@chelsio.com, manojmalviya@chelsio.com,
+	Anish Bhatt <anish@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:60170 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758455AbaGRAfA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 20:35:00 -0400
-Received: by mail-pd0-f171.google.com with SMTP id z10so4020778pdj.30
-        for <netdev@vger.kernel.org>; Thu, 17 Jul 2014 17:34:59 -0700 (PDT)
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:56138
+	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752760AbaGRBex (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 21:34:53 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <cwang@twopensource.com>
-
-When kernel generates a handle for a u32 filter, it tries to start
-from the max in the bucket. So when we have a filter with the max (fff)
-handle, it will cause kernel always generates the same handle for new
-filters. This can be shown by the following command:
-
-	tc qdisc add dev eth0 ingress
-	tc filter add dev eth0 parent ffff: protocol ip pref 770 handle 800::fff u32 match ip protocol 1 0xff
-	tc filter add dev eth0 parent ffff: protocol ip pref 770 u32 match ip protocol 1 0xff
-	...
-
-we will get some u32 filters with same handle:
-
- # tc filter show dev eth0 parent ffff:
-filter protocol ip pref 770 u32 
-filter protocol ip pref 770 u32 fh 800: ht divisor 1 
-filter protocol ip pref 770 u32 fh 800::fff order 4095 key ht 800 bkt 0 
-  match 00010000/00ff0000 at 8
-filter protocol ip pref 770 u32 fh 800::fff order 4095 key ht 800 bkt 0 
-  match 00010000/00ff0000 at 8
-filter protocol ip pref 770 u32 fh 800::fff order 4095 key ht 800 bkt 0 
-  match 00010000/00ff0000 at 8
-filter protocol ip pref 770 u32 fh 800::fff order 4095 key ht 800 bkt 0 
-  match 00010000/00ff0000 at 8
-
-handles should be unique. This patch fixes it by looking up a bitmap,
-so that can guarantee the handle is as unique as possible. For compatibility,
-we still start from 0x800.
-
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Signed-off-by: Cong Wang <cwang@twopensource.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-
+Fixes: fc8d0590d914 ("libcxgbi: Add ipv6 api to driver")
+Fixes: 759a0cc5a3e1 ("cxgb4i: Add ipv6 code to driver, call into libcxgbi ipv6
+api")
+Signed-off-by: Anish Bhatt <anish@chelsio.com>
 ---
-diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
-index c39b583..70c0be8 100644
---- a/net/sched/cls_u32.c
-+++ b/net/sched/cls_u32.c
-@@ -38,6 +38,7 @@
- #include <linux/errno.h>
- #include <linux/rtnetlink.h>
- #include <linux/skbuff.h>
-+#include <linux/bitmap.h>
- #include <net/netlink.h>
- #include <net/act_api.h>
- #include <net/pkt_cls.h>
-@@ -460,17 +461,25 @@ static int u32_delete(struct tcf_proto *tp, unsigned long arg)
+ drivers/scsi/cxgbi/cxgb4i/cxgb4i.c | 18 +++++++++++++++---
+ drivers/scsi/cxgbi/libcxgbi.c      |  4 ++++
+ 2 files changed, 19 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
+index 1041574edcfc..a4a4e98effdd 100644
+--- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
++++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
+@@ -1289,8 +1289,14 @@ static int init_act_open(struct cxgbi_sock *csk)
+ 
+ 	if (csk->csk_family == AF_INET)
+ 		daddr = &csk->daddr.sin_addr.s_addr;
+-	else
++#if IS_ENABLED(CONFIG_IPV6)
++	else if (csk->csk_family == AF_INET6)
+ 		daddr = &csk->daddr6.sin6_addr;
++#endif
++	else {
++		pr_err("address family 0x%x not supported\n", csk->csk_family);
++		goto rel_resource;
++	}
+ 
+ 	n = dst_neigh_lookup(csk->dst, daddr);
+ 
+@@ -1631,6 +1637,7 @@ static int cxgb4i_ddp_init(struct cxgbi_device *cdev)
  	return 0;
  }
  
-+#define NR_U32_NODE (1<<12)
- static u32 gen_new_kid(struct tc_u_hnode *ht, u32 handle)
++#if IS_ENABLED(CONFIG_IPV6)
+ static int cxgbi_inet6addr_handler(struct notifier_block *this,
+ 				   unsigned long event, void *data)
  {
- 	struct tc_u_knode *n;
--	unsigned int i = 0x7FF;
-+	unsigned long i;
-+	unsigned long *bitmap = kzalloc(BITS_TO_LONGS(NR_U32_NODE) * sizeof(unsigned long),
-+					GFP_KERNEL);
-+	if (!bitmap)
-+		return handle | 0xFFF;
+@@ -1755,6 +1762,7 @@ static void cxgbi_update_clip(struct cxgbi_device *cdev)
+ 	}
+ 	rcu_read_unlock();
+ }
++#endif /* IS_ENABLED(CONFIG_IPV6) */
  
- 	for (n = ht->ht[TC_U32_HASH(handle)]; n; n = n->next)
--		if (i < TC_U32_NODE(n->handle))
--			i = TC_U32_NODE(n->handle);
--	i++;
-+		set_bit(TC_U32_NODE(n->handle), bitmap);
+ static void *t4_uld_add(const struct cxgb4_lld_info *lldi)
+ {
+@@ -1874,7 +1882,9 @@ static int t4_uld_state_change(void *handle, enum cxgb4_state state)
+ 	switch (state) {
+ 	case CXGB4_STATE_UP:
+ 		pr_info("cdev 0x%p, UP.\n", cdev);
++#if IS_ENABLED(CONFIG_IPV6)
+ 		cxgbi_update_clip(cdev);
++#endif
+ 		/* re-initialize */
+ 		break;
+ 	case CXGB4_STATE_START_RECOVERY:
+@@ -1906,15 +1916,17 @@ static int __init cxgb4i_init_module(void)
+ 		return rc;
+ 	cxgb4_register_uld(CXGB4_ULD_ISCSI, &cxgb4i_uld_info);
  
--	return handle | (i > 0xFFF ? 0xFFF : i);
-+	i = find_next_zero_bit(bitmap, NR_U32_NODE, 0x800);
-+	if (i >= NR_U32_NODE)
-+		i = find_next_zero_bit(bitmap, NR_U32_NODE, 1);
-+
-+	kfree(bitmap);
-+	return handle | (i >= NR_U32_NODE ? 0xFFF : i);
++#if IS_ENABLED(CONFIG_IPV6)
+ 	register_inet6addr_notifier(&cxgbi_inet6addr_notifier);
+-
++#endif
+ 	return 0;
  }
  
- static const struct nla_policy u32_policy[TCA_U32_MAX + 1] = {
+ static void __exit cxgb4i_exit_module(void)
+ {
++#if IS_ENABLED(CONFIG_IPV6)
+ 	unregister_inet6addr_notifier(&cxgbi_inet6addr_notifier);
+-
++#endif
+ 	cxgb4_unregister_uld(CXGB4_ULD_ISCSI);
+ 	cxgbi_device_unregister_all(CXGBI_FLAG_DEV_T4);
+ 	cxgbi_iscsi_cleanup(&cxgb4i_iscsi_transport, &cxgb4i_stt);
+diff --git a/drivers/scsi/cxgbi/libcxgbi.c b/drivers/scsi/cxgbi/libcxgbi.c
+index d2fe507fc695..3d5322d59f15 100644
+--- a/drivers/scsi/cxgbi/libcxgbi.c
++++ b/drivers/scsi/cxgbi/libcxgbi.c
+@@ -602,6 +602,7 @@ err_out:
+ 	return ERR_PTR(err);
+ }
+ 
++#if IS_ENABLED(CONFIG_IPV6)
+ static struct rt6_info *find_route_ipv6(const struct in6_addr *saddr,
+ 					const struct in6_addr *daddr)
+ {
+@@ -716,6 +717,7 @@ rel_rt:
+ err_out:
+ 	return ERR_PTR(err);
+ }
++#endif /* IS_ENABLED(CONFIG_IPV6) */
+ 
+ void cxgbi_sock_established(struct cxgbi_sock *csk, unsigned int snd_isn,
+ 			unsigned int opt)
+@@ -2638,8 +2640,10 @@ struct iscsi_endpoint *cxgbi_ep_connect(struct Scsi_Host *shost,
+ 
+ 	if (dst_addr->sa_family == AF_INET) {
+ 		csk = cxgbi_check_route(dst_addr);
++#if IS_ENABLED(CONFIG_IPV6)
+ 	} else if (dst_addr->sa_family == AF_INET6) {
+ 		csk = cxgbi_check_route6(dst_addr);
++#endif
+ 	} else {
+ 		pr_info("address family 0x%x NOT supported.\n",
+ 			dst_addr->sa_family);
+-- 
+2.0.1
