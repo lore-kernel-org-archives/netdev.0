@@ -1,12 +1,13 @@
-From: Dave Airlie <airlied@gmail.com>
+From: Greg KH <greg@kroah.com>
 Subject: Re: [PATCH 0/25] Replace DEFINE_PCI_DEVICE_TABLE macro use
-Date: Sat, 19 Jul 2014 07:14:12 +1000
-Message-ID: <CAPM=9tzgWdnv7jc+xjsJUf0EcyGU+V7nFHzzQ16ui1eE0ihyQA@mail.gmail.com>
+Date: Fri, 18 Jul 2014 14:27:00 -0700
+Message-ID: <20140718212700.GA12121@kroah.com>
 References: <1405697232-11785-1-git-send-email-benoit.taine@lip6.fr>
 	<20140718162213.GC31114@tuxdriver.com>
 	<20140718164340.GA24960@kroah.com>
 	<1405702472.30262.1.camel@dabdike.int.hansenpartnership.com>
 	<20140718181759.GB2193@kroah.com>
+	<CAPM=9tzgWdnv7jc+xjsJUf0EcyGU+V7nFHzzQ16ui1eE0ihyQA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -28,9 +29,10 @@ Cc: linux-mips@linux-mips.org,
 	"John W. Linville" <linville@tuxdriver.com>,
 	linux-can@vger.kernel.org, platform-driver-x86@vger.kernel.org,
 	Network D
-To: Greg KH <greg@kroah.com>
+To: Dave Airlie <airlied@gmail.com>
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20140718181759.GB2193@kroah.com>
+Content-Disposition: inline
+In-Reply-To: <CAPM=9tzgWdnv7jc+xjsJUf0EcyGU+V7nFHzzQ16ui1eE0ihyQA@mail.gmail.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -42,17 +44,20 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
->
-> We have almost 1000 more uses of the non-macro version than the "macro"
-> version in the kernel today:
-> $ git grep -w DEFINE_PCI_DEVICE_TABLE | wc -l
-> 262
-> $ git grep "const struct pci_device_id" | wc -l
-> 1254
+On Sat, Jul 19, 2014 at 07:14:12AM +1000, Dave Airlie wrote:
+> >
+> > We have almost 1000 more uses of the non-macro version than the "macro"
+> > version in the kernel today:
+> > $ git grep -w DEFINE_PCI_DEVICE_TABLE | wc -l
+> > 262
+> > $ git grep "const struct pci_device_id" | wc -l
+> > 1254
+> 
+> did you check for non-const ones? just to see if we have any of the
+> broken case in the tree :-)
 
-did you check for non-const ones? just to see if we have any of the
-broken case in the tree :-)
+I didn't :)
 
-as for consistency, pci_dev vs usb_device :-P
+> as for consistency, pci_dev vs usb_device :-P
 
-Dave.
+Read farther down the email...
