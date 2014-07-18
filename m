@@ -1,133 +1,92 @@
-From: Neil Armstrong <superna9999@gmail.com>
-Subject: [PATCH 2/2] net: macb: Handle errors in RX path
-Date: Fri, 18 Jul 2014 11:53:29 +0200
-Message-ID: <53C8EE99.6070605@gmail.com>
+From: Yue Zhang <yuezha@microsoft.com>
+Subject: [PATCH] Hyperv: Trigger DHCP renew after host hibernation
+Date: Fri, 18 Jul 2014 03:55:03 -0700
+Message-ID: <1405680903-28176-1-git-send-email-yuezha@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Nicolas Ferre <nicolas.ferre@atmel.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f172.google.com ([74.125.82.172]:56712 "EHLO
-	mail-we0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933956AbaGRJxb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jul 2014 05:53:31 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: huishao@microsoft.com, haiyangz@microsoft.com
+To: netdev@vger.kernel.org, driverdev-devel@linuxdriverproject.org,
+ linux-kernel@vger.kernel.org, gregkh@linuxfoundation.org, olaf@aepfle.de,
+ jasowang@redhat.com, davem@davemloft.net
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-In certain circumstances, the MACB fails to write correct RX ring
-descriptor, and lead to actually managed by BUG_ON() error cases.
+From: Yue Zhang <yuezha@microsoft.com>
 
-Handle these two cases by returning error values, while resetting
-the RX ring and RX HW path in the poll methos.
+This patch addresses the comment from Olaf Hering and Greg KH
+for a previous commit 3a494e710367 ("hyperv: Add handler for
+RNDIS_STATUS_NETWORK_CHANGE event")
 
-In the same time, check and handle BNA and OVR into poll method
-by using the same error management.
+In previous solution, the driver calls "network restart" to
+force a DHCP renew when the host is back from hibernation.
 
-Signed-off-by: Neil Armstrong <narmstrong@neotion.com>
+In this fix, the driver will keep network carrier offline for
+10 seconds and then bring it back. So that ifplugd daemon will
+notice this change and refresh DHCP lease.
+
+Cc: Haiyang Zhang <haiyangz@microsoft.com>
+Cc: K. Y. Srinivasan <kys@microsoft.com>
+
+Signed-off-by: Yue Zhang <yuezha@microsoft.com>
 ---
- drivers/net/ethernet/cadence/macb.c |   55 +++++++++++++++++++++++++++++++---
- 1 files changed, 50 insertions(+), 5 deletions(-)
+ drivers/net/hyperv/netvsc_drv.c | 21 +++++++++++++++++----
+ 1 file changed, 17 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 20ad483..c94355d 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -755,6 +755,17 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
- 		macb_rx_ring_wrap(first_frag),
- 		macb_rx_ring_wrap(last_frag), len);
+diff --git a/drivers/net/hyperv/netvsc_drv.c b/drivers/net/hyperv/netvsc_drv.c
+index a9c5eaa..559c97d 100644
+--- a/drivers/net/hyperv/netvsc_drv.c
++++ b/drivers/net/hyperv/netvsc_drv.c
+@@ -33,6 +33,7 @@
+ #include <linux/if_vlan.h>
+ #include <linux/in.h>
+ #include <linux/slab.h>
++#include <linux/delay.h>
+ #include <net/arp.h>
+ #include <net/route.h>
+ #include <net/sock.h>
+@@ -792,8 +793,7 @@ static void netvsc_link_change(struct work_struct *w)
+ 	struct netvsc_device *net_device;
+ 	struct rndis_device *rdev;
+ 	bool notify, refresh = false;
+-	char *argv[] = { "/etc/init.d/network", "restart", NULL };
+-	char *envp[] = { "HOME=/", "PATH=/sbin:/usr/sbin:/bin:/usr/bin", NULL };
++	int delay;
  
-+	if (!(desc->ctrl & MACB_BIT(RX_EOF))) {
-+		netdev_vdbg(bp->dev, "macb_rx_frame missing EOF\n");
-+		return -EIO;
-+	}
-+
-+	desc = macb_rx_desc(bp, first_frag);
-+	if (!(desc->ctrl & MACB_BIT(RX_SOF))) {
-+		netdev_vdbg(bp->dev, "macb_rx_frame missing SOF\n");
-+		return -EIO;
-+	}
-+
- 	/*
- 	 * The ethernet header starts NET_IP_ALIGN bytes into the
- 	 * first buffer. Since the header is 14 bytes, this makes the
-@@ -789,7 +800,10 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
- 		unsigned int frag_len = bp->rx_buffer_size;
+ 	rtnl_lock();
  
- 		if (offset + frag_len > len) {
--			BUG_ON(frag != last_frag);
-+			if(frag != last_frag) {
-+				dev_kfree_skb_any(skb);
-+				return -EIO;
-+			}
- 			frag_len = len - offset;
- 		}
- 		skb_copy_to_linear_data_offset(skb, offset,
-@@ -844,9 +858,13 @@ static int macb_rx(struct macb *bp, int budget)
+@@ -816,8 +816,21 @@ static void netvsc_link_change(struct work_struct *w)
  
- 		if (ctrl & MACB_BIT(RX_EOF)) {
- 			int dropped;
--			BUG_ON(first_frag == -1);
-+			if (first_frag == -1)
-+				return -EIO;
+ 	rtnl_unlock();
  
- 			dropped = macb_rx_frame(bp, first_frag, tail);
-+			if (dropped < 0)
-+				return dropped;
-+
- 			first_frag = -1;
- 			if (!dropped) {
- 				received++;
-@@ -872,12 +890,22 @@ static int macb_poll(struct napi_struct *napi, int budget)
- 	status = macb_readl(bp, RSR);
- 	macb_writel(bp, RSR, status);
- 
--	work_done = 0;
-+	work_done = -EIO;
- 
- 	netdev_vdbg(bp->dev, "poll: status = %08lx, budget = %d\n",
--		   (unsigned long)status, budget);
-+			(unsigned long)status, budget);
-+
-+	if (status & (MACB_BIT(OVR) | MACB_BIT(BNA)) ||
-+			!(status & MACB_BIT(REC))) {
-+		netdev_err(bp->dev, "RX error, status = %02lx\n",
-+				(unsigned long)status);
-+		goto rx_out;
+-	if (refresh)
+-		call_usermodehelper(argv[0], argv, envp, UMH_WAIT_EXEC);
++	if (refresh) {
++		/*
++		 * Keep the carrier offline for 10 seconds
++		 * to notify ifplugd daemon network change
++		 */
++		for (delay = 0; delay < 10; delay++) {
++			rtnl_lock();
++			netif_carrier_off(net);
++			rtnl_unlock();
++			ssleep(1);
++		}
++		rtnl_lock();
++		netif_carrier_on(net);
++		rtnl_unlock();
 +	}
  
- 	work_done = bp->macbgem_ops.mog_rx(bp, budget);
-+	if (work_done < 0)
-+		goto rx_out;
-+
- 	if (work_done < budget) {
- 		napi_complete(napi);
- 
-@@ -892,7 +920,24 @@ static int macb_poll(struct napi_struct *napi, int budget)
- 		}
- 	}
- 
--	/* TODO: Handle errors */
-+	return work_done;
-+
-+rx_out:
-+	/* 
-+	 * In case of error, disable RX and reset
-+	 * the descriptor ring before re-enabling RX.
-+	 */
-+	macb_writel(bp, NCR, macb_readl(bp, NCR) & ~MACB_BIT(RE));
-+
-+	bp->macbgem_ops.mog_init_rx_rings(bp);
-+	macb_writel(bp, RBQP, bp->rx_ring_dma);
-+
-+	/* Re-enable RX and get notified for new packets */
-+	macb_writel(bp, NCR, macb_readl(bp, NCR) | MACB_BIT(RE));
-+
-+	napi_complete(napi);
-+
-+	macb_writel(bp, IER, MACB_RX_INT_FLAGS);
- 
- 	return work_done;
- }
+ 	if (notify)
+ 		netdev_notify_peers(net);
 -- 
-1.7.0.4
+1.9.1
