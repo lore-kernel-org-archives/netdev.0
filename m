@@ -1,94 +1,68 @@
-From: Cyrille Pitchen <cyrille.pitchen@atmel.com>
-Subject: [PATCH 3/6] net/macb: add TX checksum offload feature
-Date: Fri, 18 Jul 2014 16:21:15 +0200
-Message-ID: <81148356bc5a52d07c49b18f68833fa7b2f97f2d.1405689937.git.cyrille.pitchen@atmel.com>
-References: <cover.1405689937.git.cyrille.pitchen@atmel.com>
+From: Nicolas Ferre <nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v3 0/2] ARM: at91: remove phy fixup for sama5d3xek boards
+Date: Fri, 18 Jul 2014 16:24:21 +0200
+Message-ID: <53C92E15.4030702@atmel.com>
+References: <1405022394-8311-1-git-send-email-boris.brezillon@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Cyrille Pitchen <cyrille.pitchen@atmel.com>, linux-kernel@vger.kernel.org
-To: <nicolas.ferre@atmel.com>, <davem@davemloft.net>,
- <linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
- <soren.brinkmann@xilinx.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <cover.1405689937.git.cyrille.pitchen@atmel.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Cc: <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+	"Mark Rutland" <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
+	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Boris BREZILLON <boris.brezillon-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	"Jean-Christophe Plagniol-Villard" <plagnioj-sclMFOaUSTBWk0Htik3J/w@public.gmane.org>,
+	Alexandre Belloni <alexandre.belloni-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>,
+	Andrew Victor <linux-PelNFVqkFnVyf+4FbqDuWQ@public.gmane.org>,
+	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1405022394-8311-1-git-send-email-boris.brezillon-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Cyrille Pitchen <cyrille.pitchen@atmel.com>
----
- drivers/net/ethernet/cadence/macb.c | 30 ++++++++++++++++++++++++++++++
- 1 file changed, 30 insertions(+)
+On 10/07/2014 21:59, Boris BREZILLON :
+> Hello,
+> 
+> This patch removes a board specific hook for sama5d3xek boards from the
+> sama5d3 generic DT board file.
+> 
+> This hook (which register a phy fixup configuring board specific delays
+> in the ksz9021 ethernet phy) is now replaced by the appropriate DT
+> properties definitions in the sama5d3xcm.dtsi file.
+> 
+> Best Regards,
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 06e9934..9bdcd1b 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -1524,6 +1524,10 @@ static void macb_configure_dma(struct macb *bp)
- 			dmacfg = GEM_BFINS(FBLDO, bp->dma_burst_length, dmacfg);
- 		dmacfg |= GEM_BIT(TXPBMS) | GEM_BF(RXBMS, -1L);
- 		dmacfg &= ~GEM_BIT(ENDIA);
-+		if (bp->dev->features & NETIF_F_HW_CSUM)
-+			dmacfg |= GEM_BIT(TXCOEN);
-+		else
-+			dmacfg &= ~GEM_BIT(TXCOEN);
- 		netdev_dbg(bp->dev, "Cadence configure DMA with 0x%08x\n", dmacfg);
- 		gem_writel(bp, DMACFG, dmacfg);
- 	}
-@@ -1923,6 +1927,27 @@ int macb_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- }
- EXPORT_SYMBOL_GPL(macb_ioctl);
- 
-+static int macb_set_features(struct net_device *netdev,
-+			     netdev_features_t features)
-+{
-+	struct macb *bp = netdev_priv(netdev);
-+	netdev_features_t changed = features ^ netdev->features;
-+
-+	/* TX checksum offload */
-+	if ((changed & NETIF_F_HW_CSUM) && macb_is_gem(bp)) {
-+		u32 dmacfg;
-+
-+		dmacfg = gem_readl(bp, DMACFG);
-+		if (features & NETIF_F_HW_CSUM)
-+			dmacfg |= GEM_BIT(TXCOEN);
-+		else
-+			dmacfg &= ~GEM_BIT(TXCOEN);
-+		gem_writel(bp, DMACFG, dmacfg);
-+	}
-+
-+	return 0;
-+}
-+
- static const struct net_device_ops macb_netdev_ops = {
- 	.ndo_open		= macb_open,
- 	.ndo_stop		= macb_close,
-@@ -1936,6 +1961,7 @@ static const struct net_device_ops macb_netdev_ops = {
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= macb_poll_controller,
- #endif
-+	.ndo_set_features	= macb_set_features,
- };
- 
- #if defined(CONFIG_OF)
-@@ -2118,6 +2144,10 @@ static int __init macb_probe(struct platform_device *pdev)
- 
- 	/* Set features */
- 	dev->hw_features = NETIF_F_SG;
-+	if (macb_is_gem(bp) && !(bp->caps & MACB_CAPS_FIFO_MODE)) {
-+		/* Checksum offload is only available on packet buffer design */
-+		dev->hw_features |= NETIF_F_HW_CSUM;
-+	}
- 	if (bp->caps & MACB_CAPS_SG_DISABLED)
- 		dev->hw_features &= ~NETIF_F_SG;
- 	dev->features = dev->hw_features;
+On the whole series:
+
+
+Acked-by: Nicolas Ferre <nicolas.ferre-AIFe0yeh4nAAvxtiuMwx3w@public.gmane.org>
+
+
+> Changes since v2:
+>  - define 2 phy nodes to handle Ronetix and Embest HW designs
+> 
+> Changes since v1:
+>  - fix txc-skew-ps and rxc-skew-ps delays
+>  - remove phy address info to handle Ronetix and Embest HW designs
+> 
+> Boris BREZILLON (2):
+>   ARM: at91/dt: describe rgmii ethernet phy connected to sama5d3xek
+>     boards
+>   ARM: at91: remove phy fixup for sama5d3xek boards
+> 
+>  arch/arm/boot/dts/sama5d3xcm.dtsi   | 30 ++++++++++++++++++++++++++++++
+>  arch/arm/mach-at91/board-dt-sama5.c | 22 ----------------------
+>  2 files changed, 30 insertions(+), 22 deletions(-)
+> 
+
+
 -- 
-1.8.2.2
+Nicolas Ferre
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
