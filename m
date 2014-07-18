@@ -1,76 +1,49 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [BISECTED][REGRESSION] Loading Hyper-V network drivers is racy
- in 3.14+ on Hyper-V 2012 R2
-Date: Fri, 18 Jul 2014 21:30:49 +0000
-Message-ID: <e72aea6f4eab48e6851fdc4d32b89fa2@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-References: <20140706201800.GA10587@sucs.org>
- <941b0055b1a94c66b3a608ae67764d11@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
- <20140707181341.GA2646@sucs.org> <20140711055259.GA10317@sucs.org>
- <52afbe119b1a481aa1c80f909c3a2432@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
- <20140714213032.GA23639@sucs.org>
- <8b68f48141a045f784c10f9c081cd51f@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
- <20140715050832.GA28549@sucs.org>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH net] net: sctp: inherit auth_capable on INIT collisions
+Date: Fri, 18 Jul 2014 17:59:58 -0400
+Message-ID: <53C998DE.2030805@gmail.com>
+References: <1405620319-2021-1-git-send-email-dborkman@redhat.com> <53C93157.1050002@gmail.com> <53C972BE.5090700@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: KY Srinivasan <kys@microsoft.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Sitsofe Wheeler <sitsofe@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140715050832.GA28549@sucs.org>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, jgunthorpe@obsidianresearch.com,
+	netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f47.google.com ([209.85.192.47]:42457 "EHLO
+	mail-qg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752348AbaGRWAC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jul 2014 18:00:02 -0400
+In-Reply-To: <53C972BE.5090700@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-> -----Original Message-----
-> From: Sitsofe Wheeler [mailto:sitsofe@gmail.com]
-> Sent: Tuesday, July 15, 2014 1:09 AM
-> To: Haiyang Zhang
-> Cc: KY Srinivasan; David S. Miller; devel@linuxdriverproject.org; linux-
-> kernel@vger.kernel.org; netdev@vger.kernel.org
-> Subject: Re: [BISECTED][REGRESSION] Loading Hyper-V network drivers is
-> racy in 3.14+ on Hyper-V 2012 R2
+On 07/18/2014 03:17 PM, Daniel Borkmann wrote:
+> On 07/18/2014 04:38 PM, Vlad Yasevich wrote:
+> ...
+>> Why is the original value of asoc->peer.auth_capable = 0?
+>> In case of collision, asoc is the old association that
+>> existed on the system.  That association was created as part of
+>> sending the INIT.  If it is processing a duplicate COOKIE-ECHO
+>> as you say, then it has already processed the INIT-ACK and
+>> should have determined that the peer is auth capable.
+>>
+>> Thus the capability of the new and the old associations should
+>> be same if we are in fact processing case B (collision).
+>>
+>> If not, then something else if wrong and my guess is that all
+>> other capabilities would be wrong too.
 > 
-> On Mon, Jul 14, 2014 at 10:39:48PM +0000, Haiyang Zhang wrote:
-> > > -----Original Message-----
-> > > From: Sitsofe Wheeler [mailto:sitsofe@gmail.com]
-> > > Sent: Monday, July 14, 2014 5:31 PM
-> > > To: Haiyang Zhang
-> > > Cc: KY Srinivasan; David S. Miller; devel@linuxdriverproject.org;
-> linux-
-> > > kernel@vger.kernel.org; netdev@vger.kernel.org
-> > > Subject: Re: [BISECTED][REGRESSION] Loading Hyper-V network drivers
-> is
-> > > racy in 3.14+ on Hyper-V 2012 R2
-> >
-> > Thanks for the tests! I will make a patch that can automatically retry
-> > smaller memory allocs when memory is insufficient.
+> I agree that they might likely also be flawed.
 > 
-> This concerns me a bit - why would there be insufficient memory on a 64
-> bit VM with 4 GBytes of RAM just after startup (presumably the host's
-> memory isn't the issue)? Additionally, while things might fail just when
-> things are starting up, doing ifup eth0 at some point later succeeds so
-> whatever issue it had seems temporary.
-> 
-> Perhaps it would be wise to adding some debugging output to see if the
-> allocation really failed and why...
+> Ok, let me dig further.
 
-Actually, there will be debug log in dmesg if the memory allocation fails. 
-But it didn't show up in your dmesg. And since it can be recovered by 
-"ifup eth0" later, the NIC must have been properly loaded (buffer alloc was 
-successful but took a bit longer time). I think the larger receive-buffer 
-size (16MB) may take longer time, because vzalloc() may sleep. And, that's 
-why we don't see the bug with a small buffer size, because the allocation 
-is quick.
+So I think I know why case D ends up not authenticating the COOKIE-ACK.
+Most likely the reason is the following statement:
+ repl = sctp_make_cookie_ack(new_asoc, chunk);
 
-Could you try put "LINKDELAY=60" into the this file?
-	/etc/sysconfig/network-scripts/ifcfg-eth0
-And see if the problem goes away?
+Note that we use new_asoc, instead of current asoc.
 
-Thanks,
-- Haiyang
+Not sure why case B is dumping core yet.
+
+-vlad
