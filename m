@@ -1,131 +1,50 @@
-From: Zi Shen Lim <zlim.lnx@gmail.com>
-Subject: [PATCH 08/14] arm64: introduce aarch64_insn_gen_movewide()
-Date: Fri, 18 Jul 2014 11:28:14 -0700
-Message-ID: <1405708100-13604-9-git-send-email-zlim.lnx@gmail.com>
-References: <1405708100-13604-1-git-send-email-zlim.lnx@gmail.com>
+From: Dmitry Popov <ixaphire@qrator.net>
+Subject: Re: Issue with GRE tunnel, created with "local any" on kernel 3.14
+Date: Fri, 18 Jul 2014 22:32:04 +0400
+Message-ID: <20140718223204.9422aa8df81f7ac5187588bb@qrator.net>
+References: <53C91AA3.1020106@gentoo.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Zi Shen Lim <zlim.lnx@gmail.com>, linux-kernel@vger.kernel.org,
- linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
-To: Catalin Marinas <catalin.marinas@arm.com>,
- Will Deacon <will.deacon@arm.com>, Jiang Liu <liuj97@gmail.com>,
- AKASHI Takahiro <takahiro.akashi@linaro.org>,
- "David S. Miller" <davem@davemloft.net>,
- Daniel Borkmann <dborkman@redhat.com>,
- Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1405708100-13604-1-git-send-email-zlim.lnx@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: Tom Herbert <therbert@google.com>, netdev@vger.kernel.org
+To: Sergey Popov <pinkbyte@gentoo.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f171.google.com ([209.85.217.171]:60115 "EHLO
+	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1945934AbaGRScJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jul 2014 14:32:09 -0400
+Received: by mail-lb0-f171.google.com with SMTP id l4so3171646lbv.16
+        for <netdev@vger.kernel.org>; Fri, 18 Jul 2014 11:32:07 -0700 (PDT)
+In-Reply-To: <53C91AA3.1020106@gentoo.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Introduce function to generate move wide (immediate) instructions.
+On Fri, 18 Jul 2014 17:01:23 +0400
+Sergey Popov <pinkbyte@gentoo.org> wrote:
 
-Signed-off-by: Zi Shen Lim <zlim.lnx@gmail.com>
----
- arch/arm64/include/asm/insn.h | 13 +++++++++++++
- arch/arm64/kernel/insn.c      | 43 +++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 56 insertions(+)
+> Hi. I have updated kernel on one of my servers to 3.14 and hit strange
+> issue:
 
-diff --git a/arch/arm64/include/asm/insn.h b/arch/arm64/include/asm/insn.h
-index 8fd31fc..49dec28 100644
---- a/arch/arm64/include/asm/insn.h
-+++ b/arch/arm64/include/asm/insn.h
-@@ -172,6 +172,12 @@ enum aarch64_insn_adsb_type {
- 	AARCH64_INSN_ADSB_SUB_SETFLAGS
- };
- 
-+enum aarch64_insn_movewide_type {
-+	AARCH64_INSN_MOVEWIDE_ZERO,
-+	AARCH64_INSN_MOVEWIDE_KEEP,
-+	AARCH64_INSN_MOVEWIDE_INVERSE
-+};
-+
- enum aarch64_insn_bitfield_type {
- 	AARCH64_INSN_BITFIELD_MOVE,
- 	AARCH64_INSN_BITFIELD_MOVE_UNSIGNED,
-@@ -194,9 +200,12 @@ __AARCH64_INSN_FUNCS(add_imm,	0x7F000000, 0x11000000)
- __AARCH64_INSN_FUNCS(adds_imm,	0x7F000000, 0x31000000)
- __AARCH64_INSN_FUNCS(sub_imm,	0x7F000000, 0x51000000)
- __AARCH64_INSN_FUNCS(subs_imm,	0x7F000000, 0x71000000)
-+__AARCH64_INSN_FUNCS(movn,	0x7F800000, 0x12800000)
- __AARCH64_INSN_FUNCS(sbfm,	0x7F800000, 0x13000000)
- __AARCH64_INSN_FUNCS(bfm,	0x7F800000, 0x33000000)
-+__AARCH64_INSN_FUNCS(movz,	0x7F800000, 0x52800000)
- __AARCH64_INSN_FUNCS(ubfm,	0x7F800000, 0x53000000)
-+__AARCH64_INSN_FUNCS(movk,	0x7F800000, 0x72800000)
- __AARCH64_INSN_FUNCS(b,		0xFC000000, 0x14000000)
- __AARCH64_INSN_FUNCS(bl,	0xFC000000, 0x94000000)
- __AARCH64_INSN_FUNCS(cbz,	0xFE000000, 0x34000000)
-@@ -252,6 +261,10 @@ u32 aarch64_insn_gen_bitfield(enum aarch64_insn_register dst,
- 			      int immr, int imms,
- 			      enum aarch64_insn_variant variant,
- 			      enum aarch64_insn_bitfield_type type);
-+u32 aarch64_insn_gen_movewide(enum aarch64_insn_register dst,
-+			      int imm, int shift,
-+			      enum aarch64_insn_variant variant,
-+			      enum aarch64_insn_movewide_type type);
- 
- bool aarch64_insn_hotpatch_safe(u32 old_insn, u32 new_insn);
- 
-diff --git a/arch/arm64/kernel/insn.c b/arch/arm64/kernel/insn.c
-index e07d026..7aa2784 100644
---- a/arch/arm64/kernel/insn.c
-+++ b/arch/arm64/kernel/insn.c
-@@ -655,3 +655,46 @@ u32 aarch64_insn_gen_bitfield(enum aarch64_insn_register dst,
- 
- 	return aarch64_insn_encode_immediate(AARCH64_INSN_IMM_S, insn, imms);
- }
-+
-+u32 aarch64_insn_gen_movewide(enum aarch64_insn_register dst,
-+			      int imm, int shift,
-+			      enum aarch64_insn_variant variant,
-+			      enum aarch64_insn_movewide_type type)
-+{
-+	u32 insn;
-+
-+	switch (type) {
-+	case AARCH64_INSN_MOVEWIDE_ZERO:
-+		insn = aarch64_insn_get_movz_value();
-+		break;
-+	case AARCH64_INSN_MOVEWIDE_KEEP:
-+		insn = aarch64_insn_get_movk_value();
-+		break;
-+	case AARCH64_INSN_MOVEWIDE_INVERSE:
-+		insn = aarch64_insn_get_movn_value();
-+		break;
-+	default:
-+		BUG_ON(1);
-+	}
-+
-+	BUG_ON(imm & ~(SZ_64K - 1));
-+
-+	switch (variant) {
-+	case AARCH64_INSN_VARIANT_32BIT:
-+		BUG_ON(shift != 0 && shift != 16);
-+		break;
-+	case AARCH64_INSN_VARIANT_64BIT:
-+		insn |= AARCH64_INSN_SF_BIT;
-+		BUG_ON(shift != 0 && shift != 16 && shift != 32 &&
-+		       shift != 48);
-+		break;
-+	default:
-+		BUG_ON(1);
-+	}
-+
-+	insn |= (shift >> 4) << 21;
-+
-+	insn = aarch64_insn_encode_register(AARCH64_INSN_REGTYPE_RD, insn, dst);
-+
-+	return aarch64_insn_encode_immediate(AARCH64_INSN_IMM_16, insn, imm);
-+}
--- 
-1.9.1
+> serv1(172.30.0.100) <-> serv2(172.30.0.251)
+
+> Gre tunnel(serv1):
+> ip tunnel add tun_test mode gre remote 172.30.0.251 local any ttl 225
+> ifconfig tun_test 192.168.0.1/30
+> 
+> Gre tunnel(serv2):
+> ip tunnel add tun_test mode gre remote 172.30.0.100 local any ttl 225
+> ifconfig tun_test 192.168.0.2/30
+
+> 16:49:39.340971 IP 0.0.0.0 > 172.30.0.100: GREv0, length 88: IP
+> 192.168.0.2 > 192.168.0.1: ICMP echo request, id 5259, seq 7, length 64
+
+Hi!
+
+It seems we have this issue since 7d442fab0 (ipv4: Cache dst in tunnels).
+It is in ip_tunnel_xmit: fl4 is initialized with saddr = 0 in
+init_tunnel_flow(&fl4, protocol, dst, ...), net/ipv4/ip_tunnel.c:610,
+and isn't changed until iptunnel_xmit(skb->sk, ...), line 677, because 
+connected = true and rt is almost always cached.
+
+I have no patch to fix this issue, but as a workaround, you can use 
+ip tunnel change tun_test tos inherit.
