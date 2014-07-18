@@ -1,86 +1,59 @@
-From: Wangyufen <wangyufen@huawei.com>
-Subject: [PATCH 1/7] netlink: Make the sending netlink socket availabe in NETLINK_CB
-Date: Fri, 18 Jul 2014 10:21:20 +0800
-Message-ID: <1405650086-58596-2-git-send-email-wangyufen@huawei.com>
-References: <1405650086-58596-1-git-send-email-wangyufen@huawei.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build failure after merge of the net-next tree
+Date: Fri, 18 Jul 2014 13:21:06 +1000
+Message-ID: <20140718132106.073aa48e@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:9502 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753872AbaGRCVg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 17 Jul 2014 22:21:36 -0400
-In-Reply-To: <1405650086-58596-1-git-send-email-wangyufen@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/x+9o704s=k.jUivpR8zEvlH"; protocol="application/pgp-signature"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Anish Bhatt <anish@chelsio.com>, Karen Xie <kxie@chelsio.com>,
+	Manoj Malviya <manojmalviya@chelsio.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wang Yufen <wangyufen@huawei.com>
+--Sig_/x+9o704s=k.jUivpR8zEvlH
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-The sending socket of an skb is already available by it's port id
-in the NETLINK_CB.  If you want to know more like to examine the
-credentials on the sending socket you have to look up the sending
-socket by it's port id and all of the needed functions and data
-structures are static inside of af_netlink.c.  So do the simple
-thing and pass the sending socket to the receivers in the NETLINK_CB.
+Hi all,
 
-I intend to use this to get the user namespace of the sending socket
-in inet_diag so that I can report uids in the context of the process
-who opened the socket, the same way I report uids in the contect
-of the process who opens files.
- 
-Acked-by: David S. Miller <davem@davemloft.net>
-Acked-by: Serge Hallyn <serge.hallyn@canonical.com>
-Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
-Signed-off-by: Wang Yufen <wangyufen@huawei.com>
----
- include/linux/netlink.h  | 1 +
- net/netlink/af_netlink.c | 6 ++++--
- 2 files changed, 5 insertions(+), 2 deletions(-)
+After merging the net-next tree, today's linux-next build (powerpc
+ppc64_defconfig) failed like this:
 
-diff --git a/include/linux/netlink.h b/include/linux/netlink.h
-index b23e9cd..af6c763 100644
---- a/include/linux/netlink.h
-+++ b/include/linux/netlink.h
-@@ -166,6 +166,7 @@ struct netlink_skb_parms {
- 	struct ucred		creds;		/* Skb credentials	*/
- 	__u32			pid;
- 	__u32			dst_group;
-+	struct sock             *ssk;
- };
- 
- #define NETLINK_CB(skb)		(*(struct netlink_skb_parms*)&((skb)->cb))
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index ff960b7..571fc2c 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -899,7 +899,8 @@ static void netlink_rcv_wake(struct sock *sk)
- 		wake_up_interruptible(&nlk->wait);
- }
- 
--static int netlink_unicast_kernel(struct sock *sk, struct sk_buff *skb)
-+static int netlink_unicast_kernel(struct sock *sk, struct sk_buff *skb,
-+				  struct sock *ssk)
- {
- 	int ret;
- 	struct netlink_sock *nlk = nlk_sk(sk);
-@@ -908,6 +909,7 @@ static int netlink_unicast_kernel(struct sock *sk, struct sk_buff *skb)
- 	if (nlk->netlink_rcv != NULL) {
- 		ret = skb->len;
- 		skb_set_owner_r(skb, sk);
-+		NETLINK_CB(skb).ssk = ssk;
- 		nlk->netlink_rcv(skb);
- 	}
- 	kfree_skb(skb);
-@@ -932,7 +934,7 @@ retry:
- 		return PTR_ERR(sk);
- 	}
- 	if (netlink_is_kernel(sk))
--		return netlink_unicast_kernel(sk, skb);
-+		return netlink_unicast_kernel(sk, skb, ssk);
- 
- 	if (sk_filter(sk, skb)) {
- 		err = skb->len;
--- 
-1.8.0
+ERROR: ".ipv6_dev_get_saddr" [drivers/scsi/cxgbi/libcxgbi.ko] undefined!
+ERROR: ".ip6_route_output" [drivers/scsi/cxgbi/libcxgbi.ko] undefined!
+
+Caused by commit fc8d0590d914 ("libcxgbi: Add ipv6 api to driver").
+Presumably some missing Kconfig dependency (this build does not have
+CONFIG_IPV6 enabled) or it needs some #ifdef guarding.
+
+I have used the net-next tree from next-20140717 for today.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Sig_/x+9o704s=k.jUivpR8zEvlH
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJTyJKnAAoJEMDTa8Ir7ZwVU04QAIcf3Ww4b4/jjS+TKk1HHqbV
+WtN6MQwN5R0uJ81Mrv6e886asUS2/JU1qwXBB0nuG16AeilRkFTL96hFdhD2UpEE
+u0LkV+Pli12Cw3rQg/StEWW9Q9P2pzFM3mfZfxJYxu9Y3gaPUWC/G7lilpqEFCmA
+tjbkYMSgv9fTI0di8ERc8OZK91TsC9dBNeZ10OHe5XbprfXA5nwx5lXP5eL+uESJ
+aSPT0M/G8xt3xZ53aZw28MQAtdoGinBm1yR3EA6HTjMKxEy1NcnH4iJXzGzX4Wb8
+F6zsVmtQTUeyYuRRk5Uj/ce/WF53Ix50ik6vXVbmF31fbChLizdx9DY0aKdasAPc
++f3qaCMcYet6rosJKptGyz+NTIkYIIm3Ba/e3gBgndxyNuzZxvGsn21AVo6bVESt
+XeatSLFrMCkAWiqBmf9QstzPq/ngClYatAYuyJXActofEmpdRbk55x2Sz4+O/MY4
+PKAHodBah5qYswJeKBmpLTxJo3h+O8OBL4PGJc7XBwma0AC4BlSPycmUgch5QFyB
+9ArOorpyy/xSOe3oys5Ns4x/e/V7rI3YWarb7af4gHaCwLsKqP6blUdfhwwJaEqa
+lxg859MWL0e9IfCDNeoTgPbgLlIYTe4gQGlKN/6R8PIgRI93Xo4kMM3MVLBkmpRO
+pb8P27Q1jDqzXwCIOMAS
+=sBI9
+-----END PGP SIGNATURE-----
+
+--Sig_/x+9o704s=k.jUivpR8zEvlH--
