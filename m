@@ -1,74 +1,172 @@
-From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [GIT net-next v5] Open vSwitch
-Date: Thu, 17 Jul 2014 22:54:55 -0700
-Message-ID: <1405662895-2046-1-git-send-email-pshelar@nicira.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog124.obsmtp.com ([74.125.149.151]:34822 "HELO
-	na3sys009aog124.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1759639AbaGRFzI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 18 Jul 2014 01:55:08 -0400
-Received: by mail-pa0-f46.google.com with SMTP id lj1so4689480pab.19
-        for <netdev@vger.kernel.org>; Thu, 17 Jul 2014 22:55:08 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ethan Zhao <ethan.kernel@gmail.com>
+Subject: Re: [PATCH V3] netxen: fix ethtool rx_dropped information in ethtool get_ethtool_stats()
+Date: Fri, 18 Jul 2014 14:05:19 +0800
+Message-ID: <CABawtvOpER3yEqmLigSDt8Wy5_9X0QA2e0zJ+KByhOy7du2gVQ@mail.gmail.com>
+References: <1405655009-18975-1-git-send-email-ethan.zhao@oracle.com>
+	<53C898E7.5080204@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Ethan Zhao <ethan.zhao@oracle.com>, manish.chopra@qlogic.com,
+	sony.chacko@qlogic.com, rajesh.borundia@qlogic.com,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Varka Bhadram <varkabhadram@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <53C898E7.5080204@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Following patches adds three features to OVS
-1. Add fairness to upcall processing.
-2. Recirculation and Hash action.
-3. Enable Tunnel GSO features.
-Rest of patches are bug fixes related to patches from same series.
+On Fri, Jul 18, 2014 at 11:47 AM, Varka Bhadram <varkabhadram@gmail.com> wrote:
+> On 07/18/2014 09:13 AM, Ethan Zhao wrote:
+>>
+>> netxen driver has implemented netxen_nic_get_ethtool_stats() interface,
+>> but it doesn't collect stats.rxdropped in driver, so we will get
+>> different rx_dropped statistic information while using ifconfig and
+>> ethtool.
+>> this patch fills stats.rxdropped field with data from net core
+>> with dev_get_stats() just as ixgbe driver did for some of its stats.
+>>
+>> Tested with last netxen 4.0.82
+>> Compiled with stable 3.15.6
+>>
+>> Signed-off-by: Ethan Zhao <ethan.zhao@oracle.com>
+>> Tested-by: Sriharsha Yadagudde <sriharsha.devdas@oracle.com>
+>> ---
+>> -v2 only fix rx_dropped field, not all.
+>> -v3 workaround checkpatch.pl bug according to suggestion from Joe Perches
+>> <joe@perches.com>
+>>   .../ethernet/qlogic/netxen/netxen_nic_ethtool.c    |   59
+>> +++++++++++++++-----
+>>   1 files changed, 45 insertions(+), 14 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
+>> b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
+>> index 87e073c..2753f00 100644
+>> --- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
+>> +++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_ethtool.c
+>> @@ -31,28 +31,43 @@
+>>   #include "netxen_nic.h"
+>>   #include "netxen_nic_hw.h"
+>>   +enum {NETDEV_STATS, NETXEN_STATS};
+>> +
+>>   struct netxen_nic_stats {
+>>         char stat_string[ETH_GSTRING_LEN];
+>> +       int type;
+>>         int sizeof_stat;
+>>         int stat_offset;
+>>   };
+>>   -#define NETXEN_NIC_STAT(m) sizeof(((struct netxen_adapter *)0)->m), \
+>> -                       offsetof(struct netxen_adapter, m)
+>> +#define NETXEN_NIC_STAT(name, m)                                       \
+>> +{                                                                      \
+>> +       .stat_string = name,                                            \
+>> +       .type = NETXEN_STATS,                                           \
+>> +       .sizeof_stat = FIELD_SIZEOF(struct netxen_adapter, m),          \
+>> +       .stat_offset = offsetof(struct netxen_adapter, m)               \
+>> +}
+>> +
+>> +#define NETXEN_NETDEV_STAT(name, m)                                    \
+>> +{      .stat_string = name,                                            \
+>> +       .type = NETDEV_STATS,                                           \
+>> +       .sizeof_stat = FIELD_SIZEOF(struct rtnl_link_stats64, m),       \
+>> +       .stat_offset = offsetof(struct rtnl_link_stats64, m)            \
+>> +}
+>>     #define NETXEN_NIC_PORT_WINDOW 0x10000
+>>   #define NETXEN_NIC_INVALID_DATA 0xDEADBEEF
+>>     static const struct netxen_nic_stats netxen_nic_gstrings_stats[] = {
+>> -       {"xmit_called", NETXEN_NIC_STAT(stats.xmitcalled)},
+>> -       {"xmit_finished", NETXEN_NIC_STAT(stats.xmitfinished)},
+>> -       {"rx_dropped", NETXEN_NIC_STAT(stats.rxdropped)},
+>> -       {"tx_dropped", NETXEN_NIC_STAT(stats.txdropped)},
+>> -       {"csummed", NETXEN_NIC_STAT(stats.csummed)},
+>> -       {"rx_pkts", NETXEN_NIC_STAT(stats.rx_pkts)},
+>> -       {"lro_pkts", NETXEN_NIC_STAT(stats.lro_pkts)},
+>> -       {"rx_bytes", NETXEN_NIC_STAT(stats.rxbytes)},
+>> -       {"tx_bytes", NETXEN_NIC_STAT(stats.txbytes)},
+>> +       NETXEN_NIC_STAT("xmit_called", stats.xmitcalled),
+>> +       NETXEN_NIC_STAT("xmit_finished", stats.xmitfinished),
+>> +       NETXEN_NETDEV_STAT("rx_dropped", rx_dropped),
+>> +       NETXEN_NIC_STAT("tx_dropped", stats.txdropped),
+>> +       NETXEN_NIC_STAT("csummed", stats.csummed),
+>> +       NETXEN_NIC_STAT("rx_pkts", stats.rx_pkts),
+>> +       NETXEN_NIC_STAT("lro_pkts", stats.lro_pkts),
+>> +       NETXEN_NIC_STAT("rx_bytes", stats.rxbytes),
+>> +       NETXEN_NIC_STAT("tx_bytes", stats.txbytes),
+>>   };
+>>     #define NETXEN_NIC_STATS_LEN
+>> ARRAY_SIZE(netxen_nic_gstrings_stats)
+>> @@ -677,11 +692,27 @@ netxen_nic_get_ethtool_stats(struct net_device *dev,
+>>   {
+>>         struct netxen_adapter *adapter = netdev_priv(dev);
+>>         int index;
+>> +       struct rtnl_link_stats64 temp;
+>> +       const struct rtnl_link_stats64 *net_stats;
+>> +       char *p = NULL;
+>>   +     net_stats = dev_get_stats(dev, &temp);
+>>         for (index = 0; index < NETXEN_NIC_STATS_LEN; index++) {
+>> -               char *p =
+>> -                   (char *)adapter +
+>> -                   netxen_nic_gstrings_stats[index].stat_offset;
+>> +
+>> +               switch (netxen_nic_gstrings_stats[index].type) {
+>> +               case NETDEV_STATS:
+>> +                       p = (char *)net_stats +
+>> +
+>> netxen_nic_gstrings_stats[index].stat_offset;
+>> +                       break;
+>> +               case NETXEN_STATS:
+>> +                       p = (char *)adapter +
+>> +
+>> netxen_nic_gstrings_stats[index].stat_offset;
+>> +                       break;
+>> +               default:
+>> +                       data[index] = 0;
+>> +                       continue;
+>
+>
+> If there is a chance of default case, then it will be always in switch case
+> ...?
+  It is possible that hit the default case, but will not stay in swich case.
+  try this little case
 
-v2 series changes first patch according to comment from Dave Miller.
-v3 series changes first patch according to comment from Nikolay Aleksandrov.
-v4 series chage recirc patch commit msg.
-v5 series resolve conflict with net-next, updated recic action patch.
- 
-----------------------------------------------------------------
+ #include <stdio.h>
+#include <stdlib.h>
 
-The following changes since commit da388973d4a15e71cada1219d625b5393c90e5ae:
+main()
+{
+        int i,j;
+        for (i=0; i<16; i++) {
+                j=i%3;
 
-  iw_cxgb4: fix for 64-bit integer division (2014-07-17 16:52:08 -0700)
+        switch(j) {
+        case 1:
+                printf("i=%d\n",i);
+                break;
+        case 2:
+                printf("i=%d\n",i);
+                break;
+        default:
+                printf("i=%d,j=%d\n",i,j);
+                continue;
+        }
+        }
+}
 
-are available in the git repository at:
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/pshelar/openvswitch.git net_next_ovs
 
-for you to fetch changes up to 21ee5f99279caddcb24f0df33fbcac05e88dbbff:
-
-  openvswitch: Add skb_clone NULL check for the sampling action. (2014-07-17 20:36:54 -0700)
-
-----------------------------------------------------------------
-Alex Wang (1):
-      openvswitch: Allow each vport to have an array of 'port_id's.
-
-Andy Zhou (6):
-      openvswitch: Add hash action
-      openvswitch: Add recirc action
-      openvswitch: Fix key size computation in key_attr_size()
-      openvswitch: Avoid memory corruption in queue_userspace_packet()
-      openvswitch: Add skb_clone NULL check in the recirc action.
-      openvswitch: Add skb_clone NULL check for the sampling action.
-
-Pravin B Shelar (2):
-      openvswitch: Enable tunnel GSO for OVS bridge.
-      net: Export xmit_recursion
-
-Simon Horman (2):
-      openvswitch: Free skb(s) on recirculation error
-      openvswitch: Sample action without side effects
-
- include/linux/netdev_features.h      |   8 +++
- include/linux/netdevice.h            |   3 +
- include/uapi/linux/openvswitch.h     |  39 ++++++++++--
- net/core/dev.c                       |  10 +--
- net/openvswitch/actions.c            | 119 +++++++++++++++++++++++++++++++----
- net/openvswitch/datapath.c           |  81 +++++++++++++++++-------
- net/openvswitch/datapath.h           |   8 ++-
- net/openvswitch/flow.h               |   2 +
- net/openvswitch/flow_netlink.c       |  43 ++++++++++++-
- net/openvswitch/vport-internal_dev.c |   5 +-
- net/openvswitch/vport.c              |  99 ++++++++++++++++++++++++++++-
- net/openvswitch/vport.h              |  27 ++++++--
- 12 files changed, 391 insertions(+), 53 deletions(-)
+  Thanks,
+  Ethan
+>
+>
+>> +               }
+>> +
+>>                 data[index] =
+>>                     (netxen_nic_gstrings_stats[index].sizeof_stat ==
+>>                      sizeof(u64)) ? *(u64 *) p : *(u32 *) p;
+>
+>
+>
+> --
+> Regards,
+> Varka Bhadram.
+>
