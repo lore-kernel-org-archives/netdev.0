@@ -1,59 +1,52 @@
 From: Benoit Taine <benoit.taine@lip6.fr>
-Subject: [PATCH 0/25] Replace DEFINE_PCI_DEVICE_TABLE macro use
-Date: Fri, 18 Jul 2014 17:26:47 +0200
-Message-ID: <1405697232-11785-1-git-send-email-benoit.taine@lip6.fr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-mips@linux-mips.org, linux-fbdev@vger.kernel.org,
- linux-mmc@vger.kernel.org, dri-devel@lists.freedesktop.org,
- linux-kernel@vger.kernel.org, benoit.taine@lip6.fr,
- ath5k-devel@venema.h4ckr.net, linux-acenic@sunsite.dk,
- linux-scsi@vger.kernel.org, linux-rdma@vger.kernel.org,
- ath10k@lists.infradead.org, linux-hippi@sunsite.dk,
- industrypack-devel@lists.sourceforge.net, xen-devel@lists.xenproject.org,
- MPT-FusionLinux.pdl@avagotech.com, virtualization@lists.linux-foundation.org,
- ath9k-devel@venema.h4ckr.net, wil6210@qca.qualcomm.com,
- linux-pcmcia@lists.infradead.org, linux-can@vger.kernel.org,
- platform-driver-x86@vger.kernel.org, netdev@vger.kernel.org,
- linux-wireless@vger.kernel.org, users@rt2x00.serialmonkey.com,
- e1000-devel@lists.sourceforge.net, linux-crypto@vger.kernel.org,
- devel@linuxdriverproject.org
-To: linux-pci@vger.kernel.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+Subject: [PATCH 3/25] iwlegacy: Replace DEFINE_PCI_DEVICE_TABLE macro use
+Date: Fri, 18 Jul 2014 17:26:50 +0200
+Message-ID: <1405697232-11785-4-git-send-email-benoit.taine@lip6.fr>
+References: <1405697232-11785-1-git-send-email-benoit.taine@lip6.fr>
+Cc: benoit.taine@lip6.fr, "John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Stanislaw Gruszka <sgruszka@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1405697232-11785-1-git-send-email-benoit.taine@lip6.fr>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We should prefer `const struct pci_device_id` over
-`DEFINE_PCI_DEVICE_TABLE` to meet kernel coding style guidelines.
-This issue was reported by checkpatch.
+We should prefer `struct pci_device_id` over `DEFINE_PCI_DEVICE_TABLE` to meet
+kernel coding style guidelines. This issue was reported by checkpatch.
 
-A simplified version of the semantic patch that makes this change is as
-follows (http://coccinelle.lip6.fr/):
+Signed-off-by: Benoit Taine <benoit.taine@lip6.fr>
 
-// <smpl>
+---
+Not tested.
 
-@@
-identifier i;
-declarer name DEFINE_PCI_DEVICE_TABLE;
-initializer z;
-@@
+ drivers/net/wireless/iwlegacy/3945.c     |    2 +-
+ drivers/net/wireless/iwlegacy/4965-mac.c |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-- DEFINE_PCI_DEVICE_TABLE(i)
-+ const struct pci_device_id i[]
-= z;
-
-// </smpl>
-
-I have 103 patches ready, and will only send a few for you to judge if
-it is useful enough, and to prevent from spamming too much.
-
-Thanks.
+diff --git a/drivers/net/wireless/iwlegacy/3945.c b/drivers/net/wireless/iwlegacy/3945.c
+index b598e28..93bdf68 100644
+--- a/drivers/net/wireless/iwlegacy/3945.c
++++ b/drivers/net/wireless/iwlegacy/3945.c
+@@ -2728,7 +2728,7 @@ static struct il_cfg il3945_abg_cfg = {
+ 	},
+ };
+ 
+-DEFINE_PCI_DEVICE_TABLE(il3945_hw_card_ids) = {
++const struct pci_device_id il3945_hw_card_ids[] = {
+ 	{IL_PCI_DEVICE(0x4222, 0x1005, il3945_bg_cfg)},
+ 	{IL_PCI_DEVICE(0x4222, 0x1034, il3945_bg_cfg)},
+ 	{IL_PCI_DEVICE(0x4222, 0x1044, il3945_bg_cfg)},
+diff --git a/drivers/net/wireless/iwlegacy/4965-mac.c b/drivers/net/wireless/iwlegacy/4965-mac.c
+index c159c05..3dcbe2c 100644
+--- a/drivers/net/wireless/iwlegacy/4965-mac.c
++++ b/drivers/net/wireless/iwlegacy/4965-mac.c
+@@ -6800,7 +6800,7 @@ il4965_txq_set_sched(struct il_priv *il, u32 mask)
+  *****************************************************************************/
+ 
+ /* Hardware specific file defines the PCI IDs table for that hardware module */
+-static DEFINE_PCI_DEVICE_TABLE(il4965_hw_card_ids) = {
++static const struct pci_device_id il4965_hw_card_ids[] = {
+ 	{IL_PCI_DEVICE(0x4229, PCI_ANY_ID, il4965_cfg)},
+ 	{IL_PCI_DEVICE(0x4230, PCI_ANY_ID, il4965_cfg)},
+ 	{0}
