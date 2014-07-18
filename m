@@ -1,226 +1,281 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 05/18] netfilter: nf_log: use an array of loggers instead of list
-Date: Fri, 18 Jul 2014 13:00:59 +0200
-Message-ID: <1405681272-4994-6-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 08/18] netfilter: log: nf_log_packet() as real unified interface
+Date: Fri, 18 Jul 2014 13:01:02 +0200
+Message-ID: <1405681272-4994-9-git-send-email-pablo@netfilter.org>
 References: <1405681272-4994-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:46548 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756347AbaGRLBS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 18 Jul 2014 07:01:18 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1405681272-4994-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Now that legacy ulog targets are not available anymore in the tree, we
-can have up to two possible loggers:
+Before this patch, the nf_loginfo parameter specified the logging
+configuration in case the specified default logger was loaded. This
+patch updates the semantics of the nf_loginfo parameter in
+nf_log_packet() which now indicates the logger that you explicitly
+want to use.
 
-1) The plain text logging via kernel logging ring.
-2) The nfnetlink_log infrastructure which delivers log messages
-   to userspace.
+Thus, nf_log_packet() is exposed as an unified interface which
+internally routes the log message to the corresponding logger type
+by family.
 
-This patch replaces the list of loggers by an array of two pointers
-per family for each possible logger and it also introduces a new field
-to the nf_logger structure which indicates the position in the logger
-array (based on the logger type).
+The module dependencies are expressed by the new nf_logger_find_get()
+and nf_logger_put() functions which bump the logger module refcount.
+Thus, you can not remove logger modules that are used by rules anymore.
 
-This prepares a follow up patch that consolidates the nf_log_packet()
-interface by allowing to specify the logger as parameter.
+Another important effect of this change is that the family specific
+module is only loaded when required. Therefore, xt_LOG and nft_log
+will just trigger the autoload of the nf_log_{ip,ip6} modules
+according to the family.
 
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_log.h |   15 +++++++-----
- net/bridge/netfilter/ebt_log.c |    1 +
- net/netfilter/nf_log.c         |   50 +++++++++++++++++++---------------------
- net/netfilter/nfnetlink_log.c  |    1 +
- net/netfilter/xt_LOG.c         |    2 ++
- 5 files changed, 37 insertions(+), 32 deletions(-)
+ include/net/netfilter/nf_log.h   |   20 ++++++-------------
+ net/ipv4/netfilter/nf_log_ipv4.c |   14 ++++++-------
+ net/ipv6/netfilter/nf_log_ipv6.c |   14 ++++++-------
+ net/netfilter/nf_log.c           |   41 +++++++++++++++++++++++++++++++++++++-
+ net/netfilter/nfnetlink_log.c    |    3 +++
+ net/netfilter/xt_LOG.c           |   22 ++++++++++----------
+ 6 files changed, 73 insertions(+), 41 deletions(-)
 
 diff --git a/include/net/netfilter/nf_log.h b/include/net/netfilter/nf_log.h
-index 99eac12..06b4c6b 100644
+index bba354e..b82dd19 100644
 --- a/include/net/netfilter/nf_log.h
 +++ b/include/net/netfilter/nf_log.h
-@@ -12,8 +12,11 @@
- #define NF_LOG_UID		0x08	/* Log UID owning local socket */
- #define NF_LOG_MASK		0x0f
+@@ -61,6 +61,12 @@ int nf_log_bind_pf(struct net *net, u_int8_t pf,
+ 		   const struct nf_logger *logger);
+ void nf_log_unbind_pf(struct net *net, u_int8_t pf);
  
--#define NF_LOG_TYPE_LOG		0x01
--#define NF_LOG_TYPE_ULOG	0x02
-+enum nf_log_type {
-+	NF_LOG_TYPE_LOG		= 0,
-+	NF_LOG_TYPE_ULOG,
-+	NF_LOG_TYPE_MAX
-+};
++int nf_logger_find_get(int pf, enum nf_log_type type);
++void nf_logger_put(int pf, enum nf_log_type type);
++
++#define MODULE_ALIAS_NF_LOGGER(family, type) \
++	MODULE_ALIAS("nf-logger-" __stringify(family) "-" __stringify(type))
++
+ /* Calls the registered backend logging function */
+ __printf(8, 9)
+ void nf_log_packet(struct net *net,
+@@ -78,20 +84,6 @@ struct nf_log_buf *nf_log_buf_open(void);
+ __printf(2, 3) int nf_log_buf_add(struct nf_log_buf *m, const char *f, ...);
+ void nf_log_buf_close(struct nf_log_buf *m);
  
- struct nf_loginfo {
- 	u_int8_t type;
-@@ -40,10 +43,10 @@ typedef void nf_logfn(struct net *net,
- 		      const char *prefix);
+-void nf_log_ip_packet(struct net *net, u_int8_t pf,
+-		      unsigned int hooknum, const struct sk_buff *skb,
+-		      const struct net_device *in,
+-		      const struct net_device *out,
+-		      const struct nf_loginfo *loginfo,
+-		      const char *prefix);
+-
+-void nf_log_ip6_packet(struct net *net, u_int8_t pf,
+-		       unsigned int hooknum, const struct sk_buff *skb,
+-		       const struct net_device *in,
+-		       const struct net_device *out,
+-		       const struct nf_loginfo *loginfo,
+-		       const char *prefix);
+-
+ /* common logging functions */
+ int nf_log_dump_udp_header(struct nf_log_buf *m, const struct sk_buff *skb,
+ 			   u8 proto, int fragment, unsigned int offset);
+diff --git a/net/ipv4/netfilter/nf_log_ipv4.c b/net/ipv4/netfilter/nf_log_ipv4.c
+index 7e69a40..078bdca 100644
+--- a/net/ipv4/netfilter/nf_log_ipv4.c
++++ b/net/ipv4/netfilter/nf_log_ipv4.c
+@@ -306,12 +306,12 @@ fallback:
+ 	nf_log_buf_add(m, " ");
+ }
  
- struct nf_logger {
--	struct module	*me;
--	nf_logfn 	*logfn;
--	char		*name;
--	struct list_head	list[NFPROTO_NUMPROTO];
-+	char			*name;
-+	enum nf_log_type	type;
-+	nf_logfn 		*logfn;
-+	struct module		*me;
- };
+-void nf_log_ip_packet(struct net *net, u_int8_t pf,
+-		      unsigned int hooknum, const struct sk_buff *skb,
+-		      const struct net_device *in,
+-		      const struct net_device *out,
+-		      const struct nf_loginfo *loginfo,
+-		      const char *prefix)
++static void nf_log_ip_packet(struct net *net, u_int8_t pf,
++			     unsigned int hooknum, const struct sk_buff *skb,
++			     const struct net_device *in,
++			     const struct net_device *out,
++			     const struct nf_loginfo *loginfo,
++			     const char *prefix)
+ {
+ 	struct nf_log_buf *m;
  
- /* Function to register/unregister log function. */
-diff --git a/net/bridge/netfilter/ebt_log.c b/net/bridge/netfilter/ebt_log.c
-index 5322a36..0577477 100644
---- a/net/bridge/netfilter/ebt_log.c
-+++ b/net/bridge/netfilter/ebt_log.c
-@@ -207,6 +207,7 @@ static struct xt_target ebt_log_tg_reg __read_mostly = {
+@@ -334,7 +334,6 @@ void nf_log_ip_packet(struct net *net, u_int8_t pf,
  
- static struct nf_logger ebt_log_logger __read_mostly = {
- 	.name 		= "ebt_log",
-+	.type		= NF_LOG_TYPE_LOG,
- 	.logfn		= &ebt_log_packet,
- 	.me		= THIS_MODULE,
- };
+ 	nf_log_buf_close(m);
+ }
+-EXPORT_SYMBOL_GPL(nf_log_ip_packet);
+ 
+ static struct nf_logger nf_ip_logger __read_mostly = {
+ 	.name		= "nf_log_ipv4",
+@@ -383,3 +382,4 @@ module_exit(nf_log_ipv4_exit);
+ MODULE_AUTHOR("Netfilter Core Team <coreteam@netfilter.org>");
+ MODULE_DESCRIPTION("Netfilter IPv4 packet logging");
+ MODULE_LICENSE("GPL");
++MODULE_ALIAS_NF_LOGGER(AF_INET, 0);
+diff --git a/net/ipv6/netfilter/nf_log_ipv6.c b/net/ipv6/netfilter/nf_log_ipv6.c
+index 8040609..7b17a0b 100644
+--- a/net/ipv6/netfilter/nf_log_ipv6.c
++++ b/net/ipv6/netfilter/nf_log_ipv6.c
+@@ -338,12 +338,12 @@ fallback:
+ 	}
+ }
+ 
+-void nf_log_ip6_packet(struct net *net, u_int8_t pf,
+-		       unsigned int hooknum, const struct sk_buff *skb,
+-		       const struct net_device *in,
+-		       const struct net_device *out,
+-		       const struct nf_loginfo *loginfo,
+-		       const char *prefix)
++static void nf_log_ip6_packet(struct net *net, u_int8_t pf,
++			      unsigned int hooknum, const struct sk_buff *skb,
++			      const struct net_device *in,
++			      const struct net_device *out,
++			      const struct nf_loginfo *loginfo,
++			      const char *prefix)
+ {
+ 	struct nf_log_buf *m;
+ 
+@@ -366,7 +366,6 @@ void nf_log_ip6_packet(struct net *net, u_int8_t pf,
+ 
+ 	nf_log_buf_close(m);
+ }
+-EXPORT_SYMBOL_GPL(nf_log_ip6_packet);
+ 
+ static struct nf_logger nf_ip6_logger __read_mostly = {
+ 	.name		= "nf_log_ipv6",
+@@ -415,3 +414,4 @@ module_exit(nf_log_ipv6_exit);
+ MODULE_AUTHOR("Netfilter Core Team <coreteam@netfilter.org>");
+ MODULE_DESCRIPTION("Netfilter IPv4 packet logging");
+ MODULE_LICENSE("GPL");
++MODULE_ALIAS_NF_LOGGER(AF_INET6, 0);
 diff --git a/net/netfilter/nf_log.c b/net/netfilter/nf_log.c
-index 85296d4..7a29a3a 100644
+index 0b6b2c8..0b2161c 100644
 --- a/net/netfilter/nf_log.c
 +++ b/net/netfilter/nf_log.c
-@@ -16,16 +16,22 @@
- #define NF_LOG_PREFIXLEN		128
- #define NFLOGGER_NAME_LEN		64
- 
--static struct list_head nf_loggers_l[NFPROTO_NUMPROTO] __read_mostly;
-+static struct nf_logger __rcu *loggers[NFPROTO_NUMPROTO][NF_LOG_TYPE_MAX] __read_mostly;
- static DEFINE_MUTEX(nf_log_mutex);
- 
- static struct nf_logger *__find_logger(int pf, const char *str_logger)
- {
--	struct nf_logger *t;
-+	struct nf_logger *log;
-+	int i;
-+
-+	for (i = 0; i < NF_LOG_TYPE_MAX; i++) {
-+		if (loggers[pf][i] == NULL)
-+			continue;
- 
--	list_for_each_entry(t, &nf_loggers_l[pf], list[pf]) {
--		if (!strnicmp(str_logger, t->name, strlen(t->name)))
--			return t;
-+		log = rcu_dereference_protected(loggers[pf][i],
-+						lockdep_is_held(&nf_log_mutex));
-+		if (!strnicmp(str_logger, log->name, strlen(log->name)))
-+			return log;
- 	}
- 
- 	return NULL;
-@@ -73,17 +79,14 @@ int nf_log_register(u_int8_t pf, struct nf_logger *logger)
- 	if (pf >= ARRAY_SIZE(init_net.nf.nf_loggers))
- 		return -EINVAL;
- 
--	for (i = 0; i < ARRAY_SIZE(logger->list); i++)
--		INIT_LIST_HEAD(&logger->list[i]);
--
- 	mutex_lock(&nf_log_mutex);
- 
- 	if (pf == NFPROTO_UNSPEC) {
- 		for (i = NFPROTO_UNSPEC; i < NFPROTO_NUMPROTO; i++)
--			list_add_tail(&(logger->list[i]), &(nf_loggers_l[i]));
-+			rcu_assign_pointer(loggers[i][logger->type], logger);
- 	} else {
- 		/* register at end of list to honor first register win */
--		list_add_tail(&logger->list[pf], &nf_loggers_l[pf]);
-+		rcu_assign_pointer(loggers[pf][logger->type], logger);
- 	}
- 
- 	mutex_unlock(&nf_log_mutex);
-@@ -98,7 +101,7 @@ void nf_log_unregister(struct nf_logger *logger)
- 
- 	mutex_lock(&nf_log_mutex);
- 	for (i = 0; i < NFPROTO_NUMPROTO; i++)
--		list_del(&logger->list[i]);
-+		RCU_INIT_POINTER(loggers[i][logger->type], NULL);
- 	mutex_unlock(&nf_log_mutex);
+@@ -132,6 +132,41 @@ void nf_log_unbind_pf(struct net *net, u_int8_t pf)
  }
- EXPORT_SYMBOL(nf_log_unregister);
-@@ -188,8 +191,7 @@ static int seq_show(struct seq_file *s, void *v)
- {
- 	loff_t *pos = v;
+ EXPORT_SYMBOL(nf_log_unbind_pf);
+ 
++int nf_logger_find_get(int pf, enum nf_log_type type)
++{
++	struct nf_logger *logger;
++	int ret = -ENOENT;
++
++	logger = loggers[pf][type];
++	if (logger == NULL)
++		request_module("nf-logger-%u-%u", pf, type);
++
++	rcu_read_lock();
++	logger = rcu_dereference(loggers[pf][type]);
++	if (logger == NULL)
++		goto out;
++
++	if (logger && try_module_get(logger->me))
++		ret = 0;
++out:
++	rcu_read_unlock();
++	return ret;
++}
++EXPORT_SYMBOL_GPL(nf_logger_find_get);
++
++void nf_logger_put(int pf, enum nf_log_type type)
++{
++	struct nf_logger *logger;
++
++	BUG_ON(loggers[pf][type] == NULL);
++
++	rcu_read_lock();
++	logger = rcu_dereference(loggers[pf][type]);
++	module_put(logger->me);
++	rcu_read_unlock();
++}
++EXPORT_SYMBOL_GPL(nf_logger_put);
++
+ void nf_log_packet(struct net *net,
+ 		   u_int8_t pf,
+ 		   unsigned int hooknum,
+@@ -146,7 +181,11 @@ void nf_log_packet(struct net *net,
  	const struct nf_logger *logger;
--	struct nf_logger *t;
--	int ret;
-+	int i, ret;
- 	struct net *net = seq_file_net(s);
  
- 	logger = rcu_dereference_protected(net->nf.nf_loggers[*pos],
-@@ -203,11 +205,16 @@ static int seq_show(struct seq_file *s, void *v)
- 	if (ret < 0)
- 		return ret;
- 
--	list_for_each_entry(t, &nf_loggers_l[*pos], list[*pos]) {
--		ret = seq_printf(s, "%s", t->name);
-+	for (i = 0; i < NF_LOG_TYPE_MAX; i++) {
-+		if (loggers[*pos][i] == NULL)
-+			continue;
+ 	rcu_read_lock();
+-	logger = rcu_dereference(net->nf.nf_loggers[pf]);
++	if (loginfo != NULL)
++		logger = rcu_dereference(loggers[pf][loginfo->type]);
++	else
++		logger = rcu_dereference(net->nf.nf_loggers[pf]);
 +
-+		logger = rcu_dereference_protected(loggers[*pos][i],
-+					   lockdep_is_held(&nf_log_mutex));
-+		ret = seq_printf(s, "%s", logger->name);
- 		if (ret < 0)
- 			return ret;
--		if (&t->list[*pos] != nf_loggers_l[*pos].prev) {
-+		if (i == 0 && loggers[*pos][i + 1] != NULL) {
- 			ret = seq_printf(s, ",");
- 			if (ret < 0)
- 				return ret;
-@@ -389,14 +396,5 @@ static struct pernet_operations nf_log_net_ops = {
- 
- int __init netfilter_log_init(void)
- {
--	int i, ret;
--
--	ret = register_pernet_subsys(&nf_log_net_ops);
--	if (ret < 0)
--		return ret;
--
--	for (i = NFPROTO_UNSPEC; i < NFPROTO_NUMPROTO; i++)
--		INIT_LIST_HEAD(&(nf_loggers_l[i]));
--
--	return 0;
-+	return register_pernet_subsys(&nf_log_net_ops);
- }
+ 	if (logger) {
+ 		va_start(args, fmt);
+ 		vsnprintf(prefix, sizeof(prefix), fmt, args);
 diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
-index d292c8d..160bb8e 100644
+index 160bb8e..a11c5ff 100644
 --- a/net/netfilter/nfnetlink_log.c
 +++ b/net/netfilter/nfnetlink_log.c
-@@ -773,6 +773,7 @@ nfulnl_recv_unsupp(struct sock *ctnl, struct sk_buff *skb,
+@@ -1106,6 +1106,9 @@ MODULE_DESCRIPTION("netfilter userspace logging");
+ MODULE_AUTHOR("Harald Welte <laforge@netfilter.org>");
+ MODULE_LICENSE("GPL");
+ MODULE_ALIAS_NFNL_SUBSYS(NFNL_SUBSYS_ULOG);
++MODULE_ALIAS_NF_LOGGER(AF_INET, 1);
++MODULE_ALIAS_NF_LOGGER(AF_INET6, 1);
++MODULE_ALIAS_NF_LOGGER(AF_BRIDGE, 1);
  
- static struct nf_logger nfulnl_logger __read_mostly = {
- 	.name	= "nfnetlink_log",
-+	.type	= NF_LOG_TYPE_ULOG,
- 	.logfn	= &nfulnl_log_packet,
- 	.me	= THIS_MODULE,
- };
+ module_init(nfnetlink_log_init);
+ module_exit(nfnetlink_log_fini);
 diff --git a/net/netfilter/xt_LOG.c b/net/netfilter/xt_LOG.c
-index 5ab2484..e668d97 100644
+index 5a6bd60..00eb491 100644
 --- a/net/netfilter/xt_LOG.c
 +++ b/net/netfilter/xt_LOG.c
-@@ -896,6 +896,7 @@ static struct xt_target log_tg_regs[] __read_mostly = {
+@@ -39,17 +39,8 @@ log_tg(struct sk_buff *skb, const struct xt_action_param *par)
+ 	li.u.log.level = loginfo->level;
+ 	li.u.log.logflags = loginfo->logflags;
  
- static struct nf_logger ipt_log_logger __read_mostly = {
- 	.name		= "ipt_LOG",
-+	.type		= NF_LOG_TYPE_LOG,
- 	.logfn		= &ipt_log_packet,
- 	.me		= THIS_MODULE,
- };
-@@ -903,6 +904,7 @@ static struct nf_logger ipt_log_logger __read_mostly = {
+-	if (par->family == NFPROTO_IPV4)
+-		nf_log_ip_packet(net, NFPROTO_IPV4, par->hooknum, skb, par->in,
+-			         par->out, &li, loginfo->prefix);
+-#if IS_ENABLED(CONFIG_IP6_NF_IPTABLES)
+-	else if (par->family == NFPROTO_IPV6)
+-		nf_log_ip6_packet(net, NFPROTO_IPV6, par->hooknum, skb, par->in,
+-				  par->out, &li, loginfo->prefix);
+-#endif
+-	else
+-		WARN_ON_ONCE(1);
+-
++	nf_log_packet(net, par->family, par->hooknum, skb, par->in, par->out,
++		      &li, loginfo->prefix);
+ 	return XT_CONTINUE;
+ }
+ 
+@@ -70,7 +61,12 @@ static int log_tg_check(const struct xt_tgchk_param *par)
+ 		return -EINVAL;
+ 	}
+ 
+-	return 0;
++	return nf_logger_find_get(par->family, NF_LOG_TYPE_LOG);
++}
++
++static void log_tg_destroy(const struct xt_tgdtor_param *par)
++{
++	nf_logger_put(par->family, NF_LOG_TYPE_LOG);
+ }
+ 
+ static struct xt_target log_tg_regs[] __read_mostly = {
+@@ -80,6 +76,7 @@ static struct xt_target log_tg_regs[] __read_mostly = {
+ 		.target		= log_tg,
+ 		.targetsize	= sizeof(struct xt_log_info),
+ 		.checkentry	= log_tg_check,
++		.destroy	= log_tg_destroy,
+ 		.me		= THIS_MODULE,
+ 	},
  #if IS_ENABLED(CONFIG_IP6_NF_IPTABLES)
- static struct nf_logger ip6t_log_logger __read_mostly = {
- 	.name		= "ip6t_LOG",
-+	.type		= NF_LOG_TYPE_LOG,
- 	.logfn		= &ip6t_log_packet,
- 	.me		= THIS_MODULE,
- };
+@@ -89,6 +86,7 @@ static struct xt_target log_tg_regs[] __read_mostly = {
+ 		.target		= log_tg,
+ 		.targetsize	= sizeof(struct xt_log_info),
+ 		.checkentry	= log_tg_check,
++		.destroy	= log_tg_destroy,
+ 		.me		= THIS_MODULE,
+ 	},
+ #endif
 -- 
 1.7.10.4
+
