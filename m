@@ -1,32 +1,41 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net] net_sched: avoid generating same handle for u32 filters
-Date: Sat, 19 Jul 2014 15:15:25 -0700
-Message-ID: <CAM_iQpU8P=sgbtOfjZ8QD6maoMCfwoiTgEsiEVG7M=j3M3v22g@mail.gmail.com>
-References: <1405643693-4880-1-git-send-email-xiyou.wangcong@gmail.com>
-	<53CAEC2F.4050808@mojatatu.com>
+From: Andrey Utkin <andrey.krieger.utkin@gmail.com>
+Subject: Re: [PATCH 3/5] net/netfilter/ipvs/ip_vs_ctl.c: drop argument range
+ check just before the check for equality
+Date: Sun, 20 Jul 2014 01:59:31 +0300
+Message-ID: <CANZNk83yhnbw0c77UPnisaJr8AO8XtmUon78vEKGe=PBDrfWMw@mail.gmail.com>
+References: <1405697638-23767-1-git-send-email-andrey.krieger.utkin@gmail.com>
+	<alpine.LFD.2.11.1407182339160.2273@ja.home.ssi.bg>
+	<CANZNk83dJCXAWrQ+i5rh=sdUuiiD5ZhzDua-rjJpBZCzzNGDJA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <cwang@twopensource.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org, coreteam@netfilter.org,
+	netfilter-devel@vger.kernel.org, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, dcb314@hotmail.com,
+	David Miller <davem@davemloft.net>, kadlec@blackhole.kfki.hu,
+	Patrick McHardy <kaber@trash.net>, pablo@netfilter.org,
+	Simon Horman <horms@verge.net.au>, wensong@linux-vs.org
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f48.google.com ([209.85.219.48]:60517 "EHLO
-	mail-oa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751299AbaGSWPZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Jul 2014 18:15:25 -0400
-Received: by mail-oa0-f48.google.com with SMTP id m1so5448764oag.35
-        for <netdev@vger.kernel.org>; Sat, 19 Jul 2014 15:15:25 -0700 (PDT)
-In-Reply-To: <53CAEC2F.4050808@mojatatu.com>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:52640 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751876AbaGSW7c (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Jul 2014 18:59:32 -0400
+In-Reply-To: <CANZNk83dJCXAWrQ+i5rh=sdUuiiD5ZhzDua-rjJpBZCzzNGDJA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jul 19, 2014 at 3:07 PM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+2014-07-19 0:06 GMT+03:00 Andrey Utkin <andrey.krieger.utkin@gmail.com>:
+> What about static check at compilation time?
 >
-> No fundamental objection - question though: What happens if i was to specify
-> the handle when i provision the filter?
-> Side note: these handles + other info are used to "route" around
-> hash trees for filters.
->
+> #if (DAEMON_ARG_LEN > MAX_ARG_LEN) \
+>  || (SERVICE_ARG_LEN > MAX_ARG_LEN) \
+>  || (SVCDEST_ARG_LEN > MAX_ARG_LEN)
+> #error MAX_ARG_LEN exceeded in set_arglen table
+> #endif
 
-gen_new_kid() is called only when handle is not specified by user.
+This approach doesn't work, looks because sizeof() values are not
+calculated at preprocessing stage.
+
+-- 
+Andrey Utkin
