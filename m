@@ -1,44 +1,45 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Measurable performance improvements from RCU_INIT_POINTER()?
-Date: Sat, 19 Jul 2014 01:12:40 -0700
-Message-ID: <20140719081240.GA13806@linux.vnet.ibm.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [Patch net-next] net_sched: hold tcf_lock in netdevice notifier
+Date: Sat, 19 Jul 2014 18:02:13 -0400
+Message-ID: <53CAEAE5.3090300@mojatatu.com>
+References: <1405545931-13832-1-git-send-email-xiyou.wangcong@gmail.com>	 <1405545931-13832-2-git-send-email-xiyou.wangcong@gmail.com>	 <53C7C675.7090400@mojatatu.com>	 <CAM_iQpU6=rtb+-T9NiiEJ+799PtJo=j1=EBuAL76Ac7=w=MKHA@mail.gmail.com>	 <1405621030.10255.84.camel@edumazet-glaptop2.roam.corp.google.com>	 <CAM_iQpUgDurOWfXHdx_aTBS2L0h1QWUFe-du3W6CsZw8jfaF7w@mail.gmail.com>	 <1405661823.10255.86.camel@edumazet-glaptop2.roam.corp.google.com>	 <CAM_iQpWO-SS0rEVp+Nmxd9N8O0UvtpufVj8ozc3csStuVtKshA@mail.gmail.com> <1405667332.10255.92.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: edumazet@google.com, davem@davemloft.net, brouer@redhat.com
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cong Wang <cwang@twopensource.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e36.co.us.ibm.com ([32.97.110.154]:47571 "EHLO
-	e36.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754118AbaGSRmn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 19 Jul 2014 13:42:43 -0400
-Received: from /spool/local
-	by e36.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <paulmck@linux.vnet.ibm.com>;
-	Sat, 19 Jul 2014 11:42:43 -0600
-Received: from b03cxnp07029.gho.boulder.ibm.com (b03cxnp07029.gho.boulder.ibm.com [9.17.130.16])
-	by d03dlp01.boulder.ibm.com (Postfix) with ESMTP id 873341FF003B
-	for <netdev@vger.kernel.org>; Sat, 19 Jul 2014 11:42:39 -0600 (MDT)
-Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
-	by b03cxnp07029.gho.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id s6JFcx982883974
-	for <netdev@vger.kernel.org>; Sat, 19 Jul 2014 17:38:59 +0200
-Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av06.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id s6JHklwo015547
-	for <netdev@vger.kernel.org>; Sat, 19 Jul 2014 11:46:47 -0600
-Content-Disposition: inline
+Received: from mail-wg0-f51.google.com ([74.125.82.51]:64218 "EHLO
+	mail-wg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750878AbaGSWC1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 19 Jul 2014 18:02:27 -0400
+Received: by mail-wg0-f51.google.com with SMTP id b13so4889410wgh.10
+        for <netdev@vger.kernel.org>; Sat, 19 Jul 2014 15:02:26 -0700 (PDT)
+In-Reply-To: <1405667332.10255.92.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello!
+On 07/18/14 03:08, Eric Dumazet wrote:
+> On Thu, 2014-07-17 at 22:51 -0700, Cong Wang wrote:
+>
+> If this conversion was already done by John, I would have pointed the
+> patch to finalize.
+>
+> There is nothing fundamental that requires this spinlock being held in
+> fast path.
+>
+> It is perfectly possible to remove this, and first step is to use RCU,
+> then percpu counters.
+>
 
-Did the replacement of selected calls to rcu_assign_pointer() by
-RCU_INIT_POINTER() in the networking stack result in measurable
-system-level performance improvements?
+I think rcufication would help in some the shared action instances.
+Note: post John's rcu-fication of classifier path this is not an
+issue i.e
+the most common use case default behavior (majority) is no sharing of
+instances - in such a case there is no lock contention.
 
-The reason I ask is that some of the compiler guys on the C and C++
-standards committees are suggesting changes that would add barriers
-in some cases.  I suspect that this is a very bad idea, and was hoping
-that you guys would have some hard numbers on the system-level effects
-of barriers.  ;-)
-
-							Thanx, Paul
+cheers,
+jamal
