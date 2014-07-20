@@ -1,72 +1,79 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: ethtool 3.15 released
-Date: Sun, 20 Jul 2014 22:57:34 +0100
-Message-ID: <1405893454.8631.3.camel@deadeye.wl.decadent.org.uk>
+Subject: [PATCH v2 net] dns_resolver: Null-terminate the right string
+Date: Mon, 21 Jul 2014 00:06:48 +0100
+Message-ID: <1405897608.8631.13.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-iiAZqmAuz2kSmOW5Rnb5"
-To: netdev <netdev@vger.kernel.org>
+	protocol="application/pgp-signature"; boundary="=-yl5CpZC0wjt95Umc6WTt"
+Cc: netdev <netdev@vger.kernel.org>,
+	Manuel =?ISO-8859-1?Q?Sch=F6lling?= <manuel.schoelling@gmx.de>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:36396 "EHLO
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:36528 "EHLO
 	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751506AbaGTV5m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2014 17:57:42 -0400
-Received: from deadeye.wl.decadent.org.uk ([192.168.4.249] helo=deadeye)
-	by shadbolt.decadent.org.uk with esmtps (TLS1.2:RSA_AES_128_CBC_SHA1:128)
-	(Exim 4.80)
-	(envelope-from <ben@decadent.org.uk>)
-	id 1X8z6x-0000XO-Oc
-	for netdev@vger.kernel.org; Sun, 20 Jul 2014 22:57:39 +0100
-Received: from ben by deadeye with local (Exim 4.82_1-5b7a7c0-XX)
-	(envelope-from <ben@decadent.org.uk>)
-	id 1X8z6s-0004Ax-Fy
-	for netdev@vger.kernel.org; Sun, 20 Jul 2014 22:57:34 +0100
+	by vger.kernel.org with ESMTP id S1751265AbaGTXHD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2014 19:07:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-iiAZqmAuz2kSmOW5Rnb5
+--=-yl5CpZC0wjt95Umc6WTt
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-ethtool version 3.15 has been released.
+*_result[len] is parsed as *(_result[len]) which is not at all what we
+want to touch here.
 
-Home page: https://www.kernel.org/pub/software/network/ethtool/
-Download link:
-https://www.kernel.org/pub/software/network/ethtool/ethtool-3.15.tar.xz
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+Fixes: 84a7c0b1db1c ("dns_resolver: assure that dns_query() result is null-=
+terminated")
+---
+v2: Add the Fixes header
 
-Release notes:
+ net/dns_resolver/dns_query.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-	* Feature: Add register dump support for Altera Triple Speed Ethernet
-	  (-d option)
+diff --git a/net/dns_resolver/dns_query.c b/net/dns_resolver/dns_query.c
+index 9acec61f..dd8696a 100644
+--- a/net/dns_resolver/dns_query.c
++++ b/net/dns_resolver/dns_query.c
+@@ -150,7 +150,7 @@ int dns_query(const char *type, const char *name, size_=
+t namelen,
+ 		goto put;
+=20
+ 	memcpy(*_result, upayload->data, len);
+-	*_result[len] =3D '\0';
++	(*_result)[len] =3D '\0';
+=20
+ 	if (_expiry)
+ 		*_expiry =3D rkey->expiry;
 
-Ben.
 
 --=20
 Ben Hutchings
-Kids!  Bringing about Armageddon can be dangerous.  Do not attempt it in
-your own home. - Terry Pratchett and Neil Gaiman, `Good Omens'
+Make three consecutive correct guesses and you will be considered an expert=
+.
 
---=-iiAZqmAuz2kSmOW5Rnb5
+--=-yl5CpZC0wjt95Umc6WTt
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v2
 
-iQIVAwUAU8w7Tue/yOyVhhEJAQpg/w/7BpCQ10GHHeh5A+ovh/TpHMbFcQI8hSXb
-hekp61byGyhVasZND3s/ju28zXpSkCY+1rarB5kv1vq9sMv2/cGU2yeVJ2H2bKMY
-gMDezxlJ87xwoVhEo2PVCYVDmu/J2yLXeUcclHlCV1G1uYzzR07rer/jsQkgxBlI
-ZW9Z+aQpHALBe28xYYSjmxmBd5hQSYbtojWsk6QTvs+AWi6St/3YvHBGnjK6HtCQ
-VC+NVUb44j6otqk00D73I5LkwilTXlH0emeq4DhCR9ReUPXNX8+OdkUUc/SM/wxD
-eqAdY/J9OTUMXLdzcDUgaxHby+1TUySZ8saOVyAXxhm7bVnJRPRtqNmaVmgxbXXA
-XS9XDe5XGUJ5ba3jrjuDS4bE0nz/aNvglkldIF1QTEP8/9jVryxkm0npBnkQrgf8
-wkmoCbiJXc8NdD1LIoGO2Q9IYnrYuNBJhCFKRuIJnMU+bwyXRFYDnzHPnZnbPLG3
-T/xCvyROIv22GB5jsCU6LgdF33LH1YXWATSE5D4Mp0PeDkI4Zc9wz69RSSJDXh5S
-lqTO9TGGajwgdp1kj6SsFTPU0+gnL+fAZmKUOKKKqWhHH1aPFKqsLGEdtk7VOg5X
-4cD00tM5eSKrCz+xbyhG+QmmBnqDaKQU7W+Su4/oGJGiQ4eLaOmuJ/CAtclnn7yP
-EOlX7eUM1TU=
-=Xoxw
+iQIVAwUAU8xLjee/yOyVhhEJAQrRmw//X4050c0UgwCuGuarsBP9a1HXxO+UJn1k
+Go/CexauAXCnEET+kl09lD8AVnczpOHzsCYuVliBz3oeZyK0O+EmpMOCswVQWKzz
+tJUUH0ZQZGzzakw6rz/gjsid7TgAQ0hHdXxLasq1gQNGRXOMaikT3JBLlzrQxs01
+zKMkRX3XArkh4nsj7b6kkonO/ludeOA928UddqNKvN4+nhwfe8rIolYYq9PMR9CS
+a3LaOsxNfLe2UKz/duXGIxcYAgYEQK3NI2c60EZ3InMsfRLu6L/yHXE68m2IaJiX
+RfeZxnI6PJXwFYz7CFh6gsG2NXD9b5+ddAc4cAVKJUHu2hQWyZY5y3TZBCFcMJa8
+8Pe85ixBj9OwJcInc5W5WVmDPe6HQNGxnpDGk4Ft4n82w5h+PGeZHlTedY1bDsTK
+DqiuK2qPRfNu5sRbQv4EShlvfXha/OxMnOkdQmIUfdX2uR4kKqnm1fQp0VUaZ7zZ
+0YSryXiP7u/jXynvv4IFjDzruYzYyUEfO1529ASYWdmE/p95ZBWqHUaW242Ia2Th
+wnd2P3ZwbInBbZub7G0stVMPDJZBOKg3h6lTBvV2I7l4/OD4omiIJ3GIpIfnulkx
+5FMpMBbDpSpiyDBMazUEOjCNjZgo8Tx4mLHqhKctSGUWnnIC2IZOwqIlLinb5Q7V
+MG/cBnHatzw=
+=kJvB
 -----END PGP SIGNATURE-----
 
---=-iiAZqmAuz2kSmOW5Rnb5--
+--=-yl5CpZC0wjt95Umc6WTt--
