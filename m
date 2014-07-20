@@ -1,11 +1,12 @@
 From: Fabian Frederick <fabf@skynet.be>
-Subject: [PATCH 24/30] sis900: remove unnecessary break after return
-Date: Sun, 20 Jul 2014 16:27:49 +0200
-Message-ID: <1405866475-24754-5-git-send-email-fabf@skynet.be>
+Subject: [PATCH 26/30] ucc_geth: remove unnecessary break after return
+Date: Sun, 20 Jul 2014 16:27:51 +0200
+Message-ID: <1405866475-24754-7-git-send-email-fabf@skynet.be>
 References: <1405866475-24754-1-git-send-email-fabf@skynet.be>
 Cc: davem@davemloft.net, joe@perches.com,
 	Fabian Frederick <fabf@skynet.be>,
-	Daniele Venzano <venza@brownhat.org>, netdev@vger.kernel.org
+	Li Yang <leoli@freescale.com>, netdev@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1405866475-24754-1-git-send-email-fabf@skynet.be>
@@ -14,20 +15,28 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Fabian Frederick <fabf@skynet.be>
 ---
- drivers/net/ethernet/sis/sis900.c | 1 -
- 1 file changed, 1 deletion(-)
+ drivers/net/ethernet/freescale/ucc_geth.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/sis/sis900.c b/drivers/net/ethernet/sis/sis900.c
-index 6072f09..7bea17c 100644
---- a/drivers/net/ethernet/sis/sis900.c
-+++ b/drivers/net/ethernet/sis/sis900.c
-@@ -2258,7 +2258,6 @@ static int sis900_set_config(struct net_device *dev, struct ifmap *map)
- 		case IF_PORT_100BASEFX: /* 100BaseFx */
-                 	/* These Modes are not supported (are they?)*/
- 			return -EOPNOTSUPP;
--			break;
+diff --git a/drivers/net/ethernet/freescale/ucc_geth.c b/drivers/net/ethernet/freescale/ucc_geth.c
+index 36fc429..8ceaf7a 100644
+--- a/drivers/net/ethernet/freescale/ucc_geth.c
++++ b/drivers/net/ethernet/freescale/ucc_geth.c
+@@ -2396,7 +2396,6 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 		if (netif_msg_ifup(ugeth))
+ 			pr_err("Bad number of Rx threads value\n");
+ 		return -EINVAL;
+-		break;
+ 	}
  
- 		default:
- 			return -EINVAL;
+ 	switch (ug_info->numThreadsTx) {
+@@ -2419,7 +2418,6 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 		if (netif_msg_ifup(ugeth))
+ 			pr_err("Bad number of Tx threads value\n");
+ 		return -EINVAL;
+-		break;
+ 	}
+ 
+ 	/* Calculate rx_extended_features */
 -- 
 1.9.1
