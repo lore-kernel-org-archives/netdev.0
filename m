@@ -1,8 +1,7 @@
 From: Fabian Frederick <fabf@skynet.be>
-Subject: [PATCH 09/30] rtlwifi: rtl8723be: remove unnecessary break after return
-Date: Sun, 20 Jul 2014 16:16:17 +0200
-Message-ID: <1405865801-18806-10-git-send-email-fabf@skynet.be>
-References: <1405865801-18806-1-git-send-email-fabf@skynet.be>
+Subject: [PATCH 10/30] rtlwifi: rtl8188ee: remove unnecessary break after return
+Date: Sun, 20 Jul 2014 16:25:11 +0200
+Message-ID: <1405866332-24652-1-git-send-email-fabf@skynet.be>
 Cc: davem@davemloft.net, joe@perches.com,
 	Fabian Frederick <fabf@skynet.be>,
 	Larry Finger <Larry.Finger@lwfinger.net>,
@@ -11,26 +10,25 @@ Cc: davem@davemloft.net, joe@perches.com,
 	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1405865801-18806-1-git-send-email-fabf@skynet.be>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Fabian Frederick <fabf@skynet.be>
 ---
- drivers/net/wireless/rtlwifi/rtl8723be/pwrseqcmd.c | 1 -
+ drivers/net/wireless/rtlwifi/rtl8188ee/pwrseqcmd.c | 1 -
  1 file changed, 1 deletion(-)
 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8723be/pwrseqcmd.c b/drivers/net/wireless/rtlwifi/rtl8723be/pwrseqcmd.c
-index e4a507a..4573310 100644
---- a/drivers/net/wireless/rtlwifi/rtl8723be/pwrseqcmd.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8723be/pwrseqcmd.c
-@@ -124,7 +124,6 @@ bool rtlbe_hal_pwrseqcmdparsing(struct rtl_priv *rtlpriv, u8 cut_version,
- 					 "rtlbe_hal_pwrseqcmdparsing(): "
- 					 "PWR_CMD_END\n");
+diff --git a/drivers/net/wireless/rtlwifi/rtl8188ee/pwrseqcmd.c b/drivers/net/wireless/rtlwifi/rtl8188ee/pwrseqcmd.c
+index a9cfa13..0f93142 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8188ee/pwrseqcmd.c
++++ b/drivers/net/wireless/rtlwifi/rtl8188ee/pwrseqcmd.c
+@@ -125,7 +125,6 @@ bool rtl88_hal_pwrseqcmdparsing(struct rtl_priv *rtlpriv, u8 cut_version,
+ 				RT_TRACE(rtlpriv, COMP_INIT, DBG_TRACE,
+ 					 "rtl88_hal_pwrseqcmdparsing(): PWR_CMD_END\n");
  				return true;
 -				break;
  			default:
  				RT_ASSERT(false,
- 					  "rtlbe_hal_pwrseqcmdparsing(): "
+ 					  "rtl88_hal_pwrseqcmdparsing(): Unknown CMD!!\n");
 -- 
 1.9.1
