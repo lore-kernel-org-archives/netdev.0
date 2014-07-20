@@ -1,8 +1,8 @@
 From: Fabian Frederick <fabf@skynet.be>
-Subject: [PATCH 17/30] e1000: remove unnecessary break after
+Subject: [PATCH 16/30] i40e: remove unnecessary break after
 	return
-Date: Sun, 20 Jul 2014 16:25:18 +0200
-Message-ID: <1405866332-24652-8-git-send-email-fabf@skynet.be>
+Date: Sun, 20 Jul 2014 16:25:17 +0200
+Message-ID: <1405866332-24652-7-git-send-email-fabf@skynet.be>
 References: <1405866332-24652-1-git-send-email-fabf@skynet.be>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -28,58 +28,34 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Fabian Frederick <fabf@skynet.be>
 ---
- drivers/net/ethernet/intel/e1000/e1000_ethtool.c | 3 ---
- drivers/net/ethernet/intel/e1000/e1000_hw.c      | 2 --
- 2 files changed, 5 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_common.c      | 1 -
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 1 -
+ 2 files changed, 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
-index d50f78a..cca5bca 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_ethtool.c
-@@ -1316,7 +1316,6 @@ static int e1000_set_phy_loopback(struct e1000_adapter *adapter)
- 	case e1000_82547:
- 	case e1000_82547_rev_2:
- 		return e1000_integrated_phy_loopback(adapter);
--		break;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+index 6e65f19..dd3a40d 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+@@ -554,7 +554,6 @@ i40e_status i40e_init_shared_code(struct i40e_hw *hw)
+ 		break;
  	default:
- 		/* Default PHY loopback work is to read the MII
- 		 * control register and assert bit 14 (loopback mode).
-@@ -1325,7 +1324,6 @@ static int e1000_set_phy_loopback(struct e1000_adapter *adapter)
- 		phy_reg |= MII_CR_LOOPBACK;
- 		e1000_write_phy_reg(hw, PHY_CTRL, phy_reg);
- 		return 0;
+ 		return I40E_ERR_DEVICE_NOT_SUPPORTED;
 -		break;
  	}
  
- 	return 8;
-@@ -1344,7 +1342,6 @@ static int e1000_setup_loopback_test(struct e1000_adapter *adapter)
- 		case e1000_82545_rev_3:
- 		case e1000_82546_rev_3:
- 			return e1000_set_phy_loopback(adapter);
--			break;
- 		default:
- 			rctl = er32(RCTL);
- 			rctl |= E1000_RCTL_LBM_TCVR;
-diff --git a/drivers/net/ethernet/intel/e1000/e1000_hw.c b/drivers/net/ethernet/intel/e1000/e1000_hw.c
-index e9b07cc..1acf503 100644
---- a/drivers/net/ethernet/intel/e1000/e1000_hw.c
-+++ b/drivers/net/ethernet/intel/e1000/e1000_hw.c
-@@ -902,7 +902,6 @@ static s32 e1000_setup_fiber_serdes_link(struct e1000_hw *hw)
+ 	hw->phy.get_link_info = true;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index f5b9d20..33ed628 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -1785,7 +1785,6 @@ static int i40e_vc_validate_vf_msg(struct i40e_vf *vf, u32 v_opcode,
+ 	case I40E_VIRTCHNL_OP_UNKNOWN:
  	default:
- 		e_dbg("Flow control param set incorrectly\n");
- 		return -E1000_ERR_CONFIG;
+ 		return -EPERM;
 -		break;
  	}
- 
- 	/* Since auto-negotiation is enabled, take the link out of reset (the
-@@ -5041,7 +5040,6 @@ static s32 e1000_get_cable_length(struct e1000_hw *hw, u16 *min_length,
- 			break;
- 		default:
- 			return -E1000_ERR_PHY;
--			break;
- 		}
- 	} else if (hw->phy_type == e1000_phy_igp) {	/* For IGP PHY */
- 		u16 cur_agc_value;
+ 	/* few more checks */
+ 	if ((valid_len != msglen) || (err_msg_format)) {
 -- 
 1.9.1
 
