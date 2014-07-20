@@ -1,33 +1,22 @@
-From: Shawn Guo <shawn.guo@freescale.com>
-Subject: FEC driver hangs hardware on i.MX6SX
-Date: Sun, 20 Jul 2014 10:57:33 +0800
-Message-ID: <20140720025732.GF8537@dragon>
+From: Nick Krause <xerofoify@gmail.com>
+Subject: solos-pci.c: Fix me
+Date: Sun, 20 Jul 2014 00:59:42 -0400
+Message-ID: <CAPDOMVjnK=OF8mQrXbbgGUtCRJO8oG4+PQOETEcskNk=95GLrg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Frank Li <Frank.li@freescale.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Shawn Guo <shawn.guo@freescale.com>, <netdev@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>
-To: Fugang Duan <B38611@freescale.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: chas@cmf.nrl.navy.mil
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2lp0244.outbound.protection.outlook.com ([207.46.163.244]:12805
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751544AbaGTC5x (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 19 Jul 2014 22:57:53 -0400
-Content-Disposition: inline
+Received: from mail-vc0-f172.google.com ([209.85.220.172]:52571 "EHLO
+	mail-vc0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751110AbaGTE7n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2014 00:59:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Fugang,
-
-Your commit e8fcfcd5684a (net: fec: optimize the clock management to
-save power) landed on mainline with v3.16-rc1.  It causes a hardware
-hang on i.MX6SX, if the rootfs is not on NFS but something else like
-MMC.
-
-I think the cause is that PTP is still accessing registers after FEC
-driver calls fec_enet_clk_enable(ndev, false) to disable FEC clocks.
-Can you please try to provide a fix for this regression soon?
-
-Shawn
+Hey Chas,
+There seems to be a fix me in this file in the function, solos_bh.
+Is the default statement correct and I remove the fix me or
+does it need to be rewritten.
+Cheers Nick
