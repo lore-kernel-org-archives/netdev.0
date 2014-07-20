@@ -1,117 +1,86 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH -next] tun: stop tx queue when limit is hit
-Date: Sun, 20 Jul 2014 20:51:25 +0200
-Message-ID: <1405882285-3072-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
-To: netdev@vger.kernel.org
+From: Veaceslav Falico <vfalico@gmail.com>
+Subject: Re: [PATCH net-next] net: print a notification on device rename
+Date: Sun, 20 Jul 2014 23:17:59 +0200
+Message-ID: <20140720211759.GA28467@mikrodark.usersys.redhat.com>
+References: <1405622012-5511-1-git-send-email-vfalico@gmail.com>
+ <B5657A6538887040AD3A81F1008BEC63B01758@avmb3.qlogic.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Vlad Yasevich <vyasevic@redhat.com>,
+	stephen hemminger <stephen@networkplumber.org>,
+	Jerry Chu <hkchu@google.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	David Laight <David.Laight@ACULAB.COM>
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:51799 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751401AbaGTS6F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2014 14:58:05 -0400
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:46899 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750835AbaGTVU7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2014 17:20:59 -0400
+Received: by mail-wi0-f174.google.com with SMTP id d1so3178205wiv.1
+        for <netdev@vger.kernel.org>; Sun, 20 Jul 2014 14:20:58 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <B5657A6538887040AD3A81F1008BEC63B01758@avmb3.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently tun just frees the skb and returns NETDEV_TX_OK
-when queue length exceeds txqlen.
+On Sun, Jul 20, 2014 at 12:37:52PM +0000, Yuval Mintz wrote:
+>> Currently it's done silently (from the kernel part), and thus it might be hard to
+>> track the renames from logs.
+>>
+>> Add a simple netdev_info() to notify the rename, but only in case the previous
+>> name was valid.
+>
+>Hi,
+>
+>Why you're at it, perhaps we could also consider adding an optional ndo callback
+>in the drivers to notify them of the device name change?
+>[e.g., multi-module dependencies where one would wish to inform the others
+>of the name change]
 
-This causes severe packetloss and unneeded resource
-consumption on host when sending to vm connected via tun.
+There's already one, I think:
 
-Instead, lets stop the transmit queue and start it once
-packets are consumed from the queue.  This allows the network
-stack to control applications that send data via tun device.
+1142         ret = call_netdevice_notifiers(NETDEV_CHANGENAME, dev);
 
-Before:
-time netperf -H 10.1.1.2 -t UDP_STREAM -- -m 1024
-Socket  Message  Elapsed      Messages
-Size    Size     Time         Okay Errors   Throughput
-bytes   bytes    secs            #      #   10^6bits/sec
+It's also possible to block it. Or did you mean something else?
 
-212992    1024   10.00     5712540      0    4679.65
-212992           10.00      804441            658.99
-0.40s user 9.62s system 71% cpu 14.030 total
+Thank you!
 
-After:
-time netperf -H 10.1.1.2 -t UDP_STREAM -- -m 1024
-Socket  Message  Elapsed      Messages
-Size    Size     Time         Okay Errors   Throughput
-bytes   bytes    secs            #      #   10^6bits/sec
-212992    1024   10.00     2060473      0    1687.92
-212992           10.00      904187            740.70
-0.18s user 5.14s system 37% cpu 14.028 total
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- drivers/net/tun.c | 42 ++++++++++++++++++++++++++++++++++++------
- 1 file changed, 36 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index acaaf67..c020215 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -733,6 +733,24 @@ static int tun_net_close(struct net_device *dev)
- 	return 0;
- }
- 
-+static unsigned long tun_queue_len(const struct tun_file *tfile, u32 numqueues)
-+{
-+	return skb_queue_len(&tfile->socket.sk->sk_receive_queue) * numqueues;
-+}
-+
-+static bool tun_queue_should_stop(const struct net_device *dev,
-+				  const struct tun_file *tfile, u32 numqueues)
-+{
-+	return tun_queue_len(tfile, numqueues) > dev->tx_queue_len;
-+}
-+
-+static bool tun_queue_should_wake(const struct net_device *dev,
-+				  const struct tun_file *tfile, u32 numqueues)
-+{
-+	return !tun_queue_should_stop(dev, tfile, numqueues);
-+}
-+
-+
- /* Net device start xmit */
- static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
- {
-@@ -779,12 +797,19 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
- 	    sk_filter(tfile->socket.sk, skb))
- 		goto drop;
- 
--	/* Limit the number of packets queued by dividing txq length with the
--	 * number of queues.
--	 */
--	if (skb_queue_len(&tfile->socket.sk->sk_receive_queue) * numqueues
--			  >= dev->tx_queue_len)
--		goto drop;
-+	if (tun_queue_should_stop(dev, tfile, numqueues)) {
-+		if (netif_subqueue_stopped(dev, skb))
-+			goto drop;
-+
-+		netif_stop_subqueue(dev, txq);
-+
-+		/* concurrent reader must not miss 'stopped queue' */
-+		smp_mb__after_atomic();
-+
-+		/* reader might have drained queue before stop_subqueue */
-+		if (tun_queue_should_wake(dev, tfile, numqueues))
-+			netif_start_subqueue(dev, txq);
-+	}
- 
- 	if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
- 		goto drop;
-@@ -1346,6 +1371,11 @@ static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
- 				  &peeked, &off, &err);
- 	if (skb) {
- 		ret = tun_put_user(tun, tfile, skb, iv, len);
-+
-+		if (netif_subqueue_stopped(tun->dev, skb) &&
-+		    tun_queue_should_wake(tun->dev, tfile, tun->numqueues))
-+			netif_wake_subqueue(tun->dev, skb->queue_mapping);
-+
- 		kfree_skb(skb);
- 	} else
- 		ret = err;
--- 
-1.8.1.5
+>
+>Cheers,
+>Yuval
+>
+>>
+>> CC: "David S. Miller" <davem@davemloft.net>
+>> CC: Eric Dumazet <edumazet@google.com>
+>> CC: Vlad Yasevich <vyasevic@redhat.com>
+>> CC: stephen hemminger <stephen@networkplumber.org>
+>> CC: Jerry Chu <hkchu@google.com>
+>> CC: Ben Hutchings <bhutchings@solarflare.com>
+>> CC: David Laight <David.Laight@ACULAB.COM>
+>> Signed-off-by: Veaceslav Falico <vfalico@gmail.com>
+>> ---
+>>  net/core/dev.c | 3 +++
+>>  1 file changed, 3 insertions(+)
+>>
+>> diff --git a/net/core/dev.c b/net/core/dev.c index 239722a..d14ebf0 100644
+>> --- a/net/core/dev.c
+>> +++ b/net/core/dev.c
+>> @@ -1113,6 +1113,9 @@ int dev_change_name(struct net_device *dev, const
+>> char *newname)
+>>               return err;
+>>       }
+>>
+>> +     if (oldname[0] && !strchr(oldname, '%'))
+>> +             netdev_info(dev, "renamed from %s\n", oldname);
+>> +
+>>       old_assign_type = dev->name_assign_type;
+>>       dev->name_assign_type = NET_NAME_RENAMED;
+>>
+>
+>________________________________
+>
+>This message and any attached documents contain information from QLogic Corporation or its wholly-owned subsidiaries that may be confidential. If you are not the intended recipient, you may not read, copy, distribute, or use this information. If you have received this transmission in error, please notify the sender immediately by reply e-mail and then delete this message.
