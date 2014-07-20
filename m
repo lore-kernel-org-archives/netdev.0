@@ -1,37 +1,29 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: FEC driver hangs hardware on i.MX6SX
-Date: Sun, 20 Jul 2014 08:20:49 +0200
-Message-ID: <20140720062048.GB5686@netboy>
-References: <20140720025732.GF8537@dragon>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] libcxgbi:cxgb4i Guard ipv6 code with a config
+ check
+Date: Sun, 20 Jul 2014 00:46:11 -0700 (PDT)
+Message-ID: <20140720.004611.2145097056679931630.davem@davemloft.net>
+References: <1405647284-498-1-git-send-email-anish@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Fugang Duan <B38611@freescale.com>,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	Frank Li <Frank.li@freescale.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Shawn Guo <shawn.guo@freescale.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kxie@chelsio.com, manojmalviya@chelsio.com
+To: anish@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f177.google.com ([74.125.82.177]:44502 "EHLO
-	mail-we0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752039AbaGTGVB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2014 02:21:01 -0400
-Received: by mail-we0-f177.google.com with SMTP id w62so6176793wes.36
-        for <netdev@vger.kernel.org>; Sat, 19 Jul 2014 23:20:59 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20140720025732.GF8537@dragon>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39005 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750699AbaGTHqO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2014 03:46:14 -0400
+In-Reply-To: <1405647284-498-1-git-send-email-anish@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jul 20, 2014 at 10:57:33AM +0800, Shawn Guo wrote:
-> 
-> I think the cause is that PTP is still accessing registers after FEC
-> driver calls fec_enet_clk_enable(ndev, false) to disable FEC clocks.
-> Can you please try to provide a fix for this regression soon?
+From: Anish Bhatt <anish@chelsio.com>
+Date: Thu, 17 Jul 2014 18:34:44 -0700
 
-What do you mean by, "PTP is still accessing registers"?
+> Fixes: fc8d0590d914 ("libcxgbi: Add ipv6 api to driver")
+> Fixes: 759a0cc5a3e1 ("cxgb4i: Add ipv6 code to driver, call into libcxgbi ipv6
+> api")
+> Signed-off-by: Anish Bhatt <anish@chelsio.com>
 
-The only access to any register is through the driver, and the driver
-can and should make sure all register accesses are safe.
-
-Thanks,
-Richard
+Applied, thanks.
