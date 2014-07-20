@@ -1,56 +1,37 @@
-From: weiyj_lk@163.com
-Subject: [PATCH -next] tipc: fix sparse non static symbol warnings
-Date: Sun, 20 Jul 2014 13:14:28 +0800
-Message-ID: <1405833268-6630-1-git-send-email-weiyj_lk@163.com>
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
-	netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net
-To: Jon Maloy <jon.maloy@ericsson.com>,
-	Allan Stephens <allan.stephens@windriver.com>,
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: FEC driver hangs hardware on i.MX6SX
+Date: Sun, 20 Jul 2014 08:20:49 +0200
+Message-ID: <20140720062048.GB5686@netboy>
+References: <20140720025732.GF8537@dragon>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Fugang Duan <B38611@freescale.com>,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	Frank Li <Frank.li@freescale.com>,
 	"David S. Miller" <davem@davemloft.net>
+To: Shawn Guo <shawn.guo@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from m12-12.163.com ([220.181.12.12]:34683 "EHLO m12-12.163.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751405AbaGTFPV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 20 Jul 2014 01:15:21 -0400
+Received: from mail-we0-f177.google.com ([74.125.82.177]:44502 "EHLO
+	mail-we0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752039AbaGTGVB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2014 02:21:01 -0400
+Received: by mail-we0-f177.google.com with SMTP id w62so6176793wes.36
+        for <netdev@vger.kernel.org>; Sat, 19 Jul 2014 23:20:59 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20140720025732.GF8537@dragon>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+On Sun, Jul 20, 2014 at 10:57:33AM +0800, Shawn Guo wrote:
+> 
+> I think the cause is that PTP is still accessing registers after FEC
+> driver calls fec_enet_clk_enable(ndev, false) to disable FEC clocks.
+> Can you please try to provide a fix for this regression soon?
 
-Fixes the following sparse warnings:
+What do you mean by, "PTP is still accessing registers"?
 
-net/tipc/socket.c:545:5: warning:
- symbol 'tipc_sk_proto_rcv' was not declared. Should it be static?
-net/tipc/socket.c:2015:5: warning:
- symbol 'tipc_ioctl' was not declared. Should it be static?
+The only access to any register is through the driver, and the driver
+can and should make sure all register accesses are safe.
 
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
----
- net/tipc/socket.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index de01622..42c3599 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -542,7 +542,8 @@ static unsigned int tipc_poll(struct file *file, struct socket *sock,
-  * Returns 0 (TIPC_OK) if message was consumed, 1 (TIPC_FWD_MSG) if
-  * (CONN_PROBE_REPLY) message should be forwarded.
-  */
--int tipc_sk_proto_rcv(struct tipc_sock *tsk, u32 *dnode, struct sk_buff *buf)
-+static int tipc_sk_proto_rcv(struct tipc_sock *tsk, u32 *dnode,
-+			     struct sk_buff *buf)
- {
- 	struct tipc_msg *msg = buf_msg(buf);
- 	struct tipc_port *port = &tsk->port;
-@@ -2012,7 +2013,7 @@ static int tipc_getsockopt(struct socket *sock, int lvl, int opt,
- 	return put_user(sizeof(value), ol);
- }
- 
--int tipc_ioctl(struct socket *sk, unsigned int cmd, unsigned long arg)
-+static int tipc_ioctl(struct socket *sk, unsigned int cmd, unsigned long arg)
- {
- 	struct tipc_sioc_ln_req lnr;
- 	void __user *argp = (void __user *)arg;
+Thanks,
+Richard
