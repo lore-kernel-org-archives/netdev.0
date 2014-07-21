@@ -1,124 +1,54 @@
-From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
-Subject: RE: [PATCH] net: fec: ptp: avoid register access when ipg clock is
- disabled
-Date: Mon, 21 Jul 2014 10:46:31 +0000
-Message-ID: <08eaaff4b82b42538d6a0f4193ecb805@BLUPR03MB373.namprd03.prod.outlook.com>
-References: <1405910155-29760-1-git-send-email-b38611@freescale.com>
- <20140721040301.GA4035@localhost.localdomain>
+From: frank.blaschka@de.ibm.com
+Subject: [patch 2/2] af_iucv: avoid path quiesce of severed path in shutdown()
+Date: Mon, 21 Jul 2014 12:54:44 +0200
+Message-ID: <20140721105502.589636932@de.ibm.com>
+References: <20140721105442.533889716@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "shawn.guo@linaro.org" <shawn.guo@linaro.org>,
-	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Richard Cochran <richardcochran@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	Ursula Braun <ursula.braun@de.ibm.com>,
+	Philipp Hachtmann <phacht@linux.vnet.ibm.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2lp0212.outbound.protection.outlook.com ([207.46.163.212]:5920
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754324AbaGUKqx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 06:46:53 -0400
-In-Reply-To: <20140721040301.GA4035@localhost.localdomain>
-Content-Language: en-US
+Received: from e06smtp17.uk.ibm.com ([195.75.94.113]:39628 "EHLO
+	e06smtp17.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754634AbaGUKzJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 06:55:09 -0400
+Received: from /spool/local
+	by e06smtp17.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <frank.blaschka@de.ibm.com>;
+	Mon, 21 Jul 2014 11:55:07 +0100
+Content-Disposition: inline; filename=601-af_iucv-path-quiesce.diff
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: netdev-owner@vger.kernel.org <netdev-owner@vger.kernel.org>
->Sent: Monday, July 21, 2014 12:03 PM
->To: Duan Fugang-B38611
->Cc: shawn.guo@linaro.org; Li Frank-B20596; davem@davemloft.net;
->netdev@vger.kernel.org
->Subject: Re: [PATCH] net: fec: ptp: avoid register access when ipg clock
->is disabled
->
->On Mon, Jul 21, 2014 at 10:35:55AM +0800, Fugang Duan wrote:
->
->> diff --git a/drivers/net/ethernet/freescale/fec_main.c
->> b/drivers/net/ethernet/freescale/fec_main.c
->> index e0efb21..c4944e1 100644
->> --- a/drivers/net/ethernet/freescale/fec_main.c
->> +++ b/drivers/net/ethernet/freescale/fec_main.c
->> @@ -997,7 +997,7 @@ fec_restart(struct net_device *ndev)
->>  	writel(ecntl, fep->hwp + FEC_ECNTRL);
->>  	writel(0, fep->hwp + FEC_R_DES_ACTIVE);
->>
->> -	if (fep->bufdesc_ex)
->> +	if (fep->bufdesc_ex && (fep->hwts_tx_en || fep->hwts_rx_en))
->>  		fec_ptp_start_cyclecounter(ndev);
->>
->>  	/* Enable interrupts we wish to service */ @@ -1026,6 +1026,9 @@
->> fec_stop(struct net_device *ndev)
->>  	writel(fep->phy_speed, fep->hwp + FEC_MII_SPEED);
->>  	writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
->>
->> +	if (fep->bufdesc_ex && (fep->hwts_tx_en || fep->hwts_rx_en))
->> +		fec_ptp_stop(ndev);
->
->So if user space turns time stamping off, then you keep running the timer.
->That is wrong, isn't it?
->
-If user close the ethx interface, or do suspend operation, fec driver will
-Close all clocks to save power, we also need to stop ptp, otherwise ptp timer
-Keep access register that cause system hang.
+From: Ursula Braun <ursula.braun@de.ibm.com>
 
-I don't think this is a good method, maybe I need some time to struct better solution.
+An af_iucv stress test showed -EPIPE results for sendmsg()
+calls. They are caused by quiescing a path even though it has
+been already severed by peer. For IUCV transport shutdown()
+consists of 2 steps:
+(1) sending the shutdown message to peer
+(2) quiescing the iucv path
+If the iucv path between these 2 steps is severed due to peer
+closing the path, the quiesce step is no longer needed.
 
->>  	/* We have to keep ENET enabled to have MII interrupt stay working
->*/
->>  	if (id_entry->driver_data & FEC_QUIRK_ENET_MAC) {
->>  		writel(2, fep->hwp + FEC_ECNTRL);
->> diff --git a/drivers/net/ethernet/freescale/fec_ptp.c
->> b/drivers/net/ethernet/freescale/fec_ptp.c
->> index 82386b2..b2e9eb4 100644
->> --- a/drivers/net/ethernet/freescale/fec_ptp.c
->> +++ b/drivers/net/ethernet/freescale/fec_ptp.c
->> @@ -128,6 +128,9 @@ void fec_ptp_start_cyclecounter(struct net_device
->*ndev)
->>  	timecounter_init(&fep->tc, &fep->cc, ktime_to_ns(ktime_get_real()));
->>
->>  	spin_unlock_irqrestore(&fep->tmreg_lock, flags);
->> +
->> +	if (!timer_pending(&fep->time_keep))
->> +		add_timer(&fep->time_keep);
->
->Why not use a work queue for this?
->
->Thanks,
->Richard
->
-There need one period timer to sync hw timer to avoid 32 bit hw counter overflow.
+Signed-off-by: Ursula Braun <ursula.braun@de.ibm.com>
+Signed-off-by: Frank Blaschka <blaschka@linux.vnet.ibm.com>
+Reported-by: Philipp Hachtmann <phacht@linux.vnet.ibm.com>
+---
+ net/iucv/af_iucv.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
->>  }
->>
->>  /**
->> @@ -390,7 +393,6 @@ void fec_ptp_init(struct platform_device *pdev)
->>  	fep->time_keep.data = (unsigned long)fep;
->>  	fep->time_keep.function = fec_time_keep;
->>  	fep->time_keep.expires = jiffies + HZ;
->> -	add_timer(&fep->time_keep);
->>
->>  	fep->ptp_clock = ptp_clock_register(&fep->ptp_caps, &pdev->dev);
->>  	if (IS_ERR(fep->ptp_clock)) {
->> @@ -398,3 +400,20 @@ void fec_ptp_init(struct platform_device *pdev)
->>  		pr_err("ptp_clock_register failed\n");
->>  	}
->>  }
->> +
->> +/*
->> + * Cleanup routine for 1588 module.
->> + * When FEC is stopped this routing is called  */ void
->> +fec_ptp_stop(struct net_device *ndev) {
->> +	struct fec_enet_private *priv = netdev_priv(ndev);
->> +
->> +	writel(0, priv->hwp + FEC_ATIME_CTRL);
->> +	writel(FEC_T_CTRL_RESTART, priv->hwp + FEC_ATIME_CTRL);
->> +
->> +	priv->hwts_tx_en = 0;
->> +	priv->hwts_rx_en = 0;
->> +
->> +	del_timer_sync(&priv->time_keep);
->> +}
->> --
->> 1.7.8
->>
+--- a/net/iucv/af_iucv.c
++++ b/net/iucv/af_iucv.c
+@@ -1542,7 +1542,8 @@ static int iucv_sock_shutdown(struct soc
+ 
+ 	sk->sk_shutdown |= how;
+ 	if (how == RCV_SHUTDOWN || how == SHUTDOWN_MASK) {
+-		if (iucv->transport == AF_IUCV_TRANS_IUCV) {
++		if ((iucv->transport == AF_IUCV_TRANS_IUCV) &&
++		    iucv->path) {
+ 			err = pr_iucv->path_quiesce(iucv->path, NULL);
+ 			if (err)
+ 				err = -ENOTCONN;
