@@ -1,36 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next] tipc: fix sparse non static symbol warnings
-Date: Sun, 20 Jul 2014 22:19:17 -0700 (PDT)
-Message-ID: <20140720.221917.617082228174513230.davem@davemloft.net>
-References: <1405833268-6630-1-git-send-email-weiyj_lk@163.com>
+Subject: Re: [PATCH] clean up sparse cast warning in do_ip_getsockopt
+Date: Sun, 20 Jul 2014 22:22:46 -0700 (PDT)
+Message-ID: <20140720.222246.722922848026554870.davem@davemloft.net>
+References: <20140720113017.GA8878@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, allan.stephens@windriver.com,
-	yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net
-To: weiyj_lk@163.com
+Cc: jmorris@namei.org, netdev@vger.kernel.org
+To: karoly.kemeny@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53572 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53604 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752224AbaGUFTX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 01:19:23 -0400
-In-Reply-To: <1405833268-6630-1-git-send-email-weiyj_lk@163.com>
+	with ESMTP id S1752041AbaGUFWr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 01:22:47 -0400
+In-Reply-To: <20140720113017.GA8878@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: weiyj_lk@163.com
-Date: Sun, 20 Jul 2014 13:14:28 +0800
+From: Karoly Kemeny <karoly.kemeny@gmail.com>
+Date: Sun, 20 Jul 2014 13:30:17 +0200
 
-> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> There is a sparse warning because of the implicit pointer cast in
+> do_ip_getsockopt.
 > 
-> Fixes the following sparse warnings:
-> 
-> net/tipc/socket.c:545:5: warning:
->  symbol 'tipc_sk_proto_rcv' was not declared. Should it be static?
-> net/tipc/socket.c:2015:5: warning:
->  symbol 'tipc_ioctl' was not declared. Should it be static?
-> 
-> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> Signed-off-by: Karoly Kemeny <karoly.kemeny@gmail.com>
 
-Applied, thank you.
+Please format your subject line correctly, it should be of the form:
+
+	[PATCH] ${SUBSYSTEM}: Description.
+
+Your's is missing the subsystem prefix, which in this case should
+be "ipv4: "
+
+> -		msg.msg_control = optval;
+> +		msg.msg_control = (__force void*) optval;
+
+Please put a space between "void" and "*" in the cast.
