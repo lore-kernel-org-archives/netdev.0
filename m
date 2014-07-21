@@ -1,39 +1,69 @@
-From: Fabian Frederick <fabf@skynet.be>
-Subject: Re: [PATCH 14/30] ath6kl: remove unnecessary break after return
-Date: Mon, 21 Jul 2014 10:20:23 +0200 (CEST)
-Message-ID: <456542272.930781.1405930823519.open-xchange@webmail.nmp.skynet.be>
-References: <1405866332-24652-1-git-send-email-fabf@skynet.be> <1405866332-24652-5-git-send-email-fabf@skynet.be> <87d2cz15yp.fsf@kamboji.qca.qualcomm.com>
-Reply-To: Fabian Frederick <fabf@skynet.be>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH -next] tun: stop tx queue when limit is hit
+Date: Mon, 21 Jul 2014 10:31:06 +0200
+Message-ID: <20140721083106.GC21375@breakpoint.cc>
+References: <1405882285-3072-1-git-send-email-fw@strlen.de>
+ <20140720.223313.1589952322700027038.davem@davemloft.net>
+ <20140721065419.GB21375@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, joe@perches.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net, "John W. Linville" <linville@tuxdriver.com>
-To: Kalle Valo <kvalo@qca.qualcomm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87d2cz15yp.fsf@kamboji.qca.qualcomm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	mst@redhat.com
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:52780 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753753AbaGUIbM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 04:31:12 -0400
+Content-Disposition: inline
+In-Reply-To: <20140721065419.GB21375@breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Florian Westphal <fw@strlen.de> wrote:
+> David Miller <davem@davemloft.net> wrote:
+> > From: Florian Westphal <fw@strlen.de>
+> > Date: Sun, 20 Jul 2014 20:51:25 +0200
+> > 
+> > > Currently tun just frees the skb and returns NETDEV_TX_OK
+> > > when queue length exceeds txqlen.
+> > > 
+> > > This causes severe packetloss and unneeded resource
+> > > consumption on host when sending to vm connected via tun.
+> > > 
+> > > Instead, lets stop the transmit queue and start it once
+> > > packets are consumed from the queue.  This allows the network
+> > > stack to control applications that send data via tun device.
+> > 
+> > I strongly suspect the current behavior is intentional, see
+> > commit:
+> > 
+> > commit 5d097109257c03a71845729f8db6b5770c4bbedc
+> > Author: Michael S. Tsirkin <mst@redhat.com>
+> > Date:   Mon Dec 3 10:07:14 2012 +0000
+> > 
+> >     tun: only queue packets on device
+> 
+> Looks like you're right :-/
+> 
+> Alright, please ignore my patch.
+> 
+> That being said, the current behaviour isn't ideal either.
+> 
+> It took me quite some time to realize that packetloss
+> was on the sender side inside tun driver and not on the receiver
+> vm.  Not stopping the queue was a bit ... unexpected.
 
+Michael, do you think we could restore the 'stop queue' default
+behaviour?
 
-> On 21 July 2014 at 10:17 Kalle Valo <kvalo@qca.qualcomm.com> wrote:
->
->
-> Fabian Frederick <fabf@skynet.be> writes:
->
-> > Signed-off-by: Fabian Frederick <fabf@skynet.be>
->
-> Acked-by: Kalle Valo <kvalo@qca.qualcomm.com>
->
-> Who is taking this patch? Please let me know if I should apply it to my
-> tree.
+Looking at your changelog, the only concern seems to be the
+'packets never consumed'/'receiver is stuck forever' case.
 
-Thanks Kalle, David Miller already applied this patchset to net-next.
+What about reverting 5d097109257c03a7184, and then adding some
+type of tun watchdog that will zap the rcv queue + tx queue wakeup?
 
-Regards,
-Fabian
->
-> --
-> Kalle Valo
+That should be quite noisy if we combine it with the WARN_ON
+you usually get when (physical) NIC driver detect stalled tx unit.
+
+What do you think?
