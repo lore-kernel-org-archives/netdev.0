@@ -1,89 +1,52 @@
-From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH 2/5] iw_cxgb4: log detailed warnings for negative advice
-Date: Mon, 21 Jul 2014 20:55:13 +0530
-Message-ID: <1405956316-13591-3-git-send-email-hariprasad@chelsio.com>
-References: <1405956316-13591-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org,
-	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, anish-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1405956316-13591-1-git-send-email-hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH 0/5] Misc. fix for cxgb4 and iw_cxgb4
+Date: Mon, 21 Jul 2014 20:55:11 +0530
+Message-ID: <1405956316-13591-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, roland@purestorage.com,
+	swise@opengridcomputing.com, leedom@chelsio.com,
+	nirranjan@chelsio.com, kumaras@chelsio.com, anish@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org, linux-rdma@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:32791
+	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752423AbaGUPTm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 11:19:42 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
-Signed-off-by: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
----
- drivers/infiniband/hw/cxgb4/cm.c |   29 +++++++++++++++++++++++------
- 1 files changed, 23 insertions(+), 6 deletions(-)
+Hi,
+This patch series adds support to enchance error reporting, log detailed
+warning for negative advice, support query_qp verb and advertise correct
+device max attributes for iwarp.
 
-diff --git a/drivers/infiniband/hw/cxgb4/cm.c b/drivers/infiniband/hw/cxgb4/cm.c
-index df5bd3d..6d61a16 100644
---- a/drivers/infiniband/hw/cxgb4/cm.c
-+++ b/drivers/infiniband/hw/cxgb4/cm.c
-@@ -1813,6 +1813,20 @@ static int is_neg_adv(unsigned int status)
- 	       status == CPL_ERR_KEEPALV_NEG_ADVICE;
- }
- 
-+static char *neg_adv_str(unsigned int status)
-+{
-+	switch (status) {
-+	case CPL_ERR_RTX_NEG_ADVICE:
-+		return "Retransmit timeout";
-+	case CPL_ERR_PERSIST_NEG_ADVICE:
-+		return "Persist timeout";
-+	case CPL_ERR_KEEPALV_NEG_ADVICE:
-+		return "Keepalive timeout";
-+	default:
-+		return "Unknown";
-+	}
-+}
-+
- static void set_tcp_window(struct c4iw_ep *ep, struct port_info *pi)
- {
- 	ep->snd_win = snd_win;
-@@ -2011,8 +2025,9 @@ static int act_open_rpl(struct c4iw_dev *dev, struct sk_buff *skb)
- 	     status, status2errno(status));
- 
- 	if (is_neg_adv(status)) {
--		printk(KERN_WARNING MOD "Connection problems for atid %u\n",
--			atid);
-+		dev_warn(&dev->rdev.lldi.pdev->dev,
-+			 "Connection problems for atid %u status %u (%s)\n",
-+			 atid, status, neg_adv_str(status));
- 		return 0;
- 	}
- 
-@@ -2488,8 +2503,9 @@ static int peer_abort(struct c4iw_dev *dev, struct sk_buff *skb)
- 
- 	ep = lookup_tid(t, tid);
- 	if (is_neg_adv(req->status)) {
--		PDBG("%s neg_adv_abort ep %p tid %u\n", __func__, ep,
--		     ep->hwtid);
-+		dev_warn(&dev->rdev.lldi.pdev->dev,
-+			 "Negative advice on abort - tid %u status %d (%s)\n",
-+			 ep->hwtid, req->status, neg_adv_str(req->status));
- 		return 0;
- 	}
- 	PDBG("%s ep %p tid %u state %u\n", __func__, ep, ep->hwtid,
-@@ -3894,8 +3910,9 @@ static int peer_abort_intr(struct c4iw_dev *dev, struct sk_buff *skb)
- 		return 0;
- 	}
- 	if (is_neg_adv(req->status)) {
--		PDBG("%s neg_adv_abort ep %p tid %u\n", __func__, ep,
--		     ep->hwtid);
-+		dev_warn(&dev->rdev.lldi.pdev->dev,
-+			 "Negative advice on abort - tid %u status %d (%s)\n",
-+			 ep->hwtid, req->status, neg_adv_str(req->status));
- 		kfree_skb(skb);
- 		return 0;
- 	}
--- 
-1.7.1
+The patches series is created against 'net-next' tree.
+And includes patches on cxgb4 and iw_cxgb4 driver.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Since this patch-series contains changes which are dependent on commit id
+4c2c5763 ("cxgb4/iw_cxgb4: use firmware ord/ird resource limits") of net-next
+tree we would like to request this patch series to get merged via David Miller's
+'net-next' tree.
+
+We have included all the maintainers of respective drivers. Kindly review the
+change and let us know in case of any review comments.
+
+Thanks 
+
+Hariprasad Shenai (5):
+  cxgb4: Add the MC1 registers to read in the interrupt handler
+  iw_cxgb4: log detailed warnings for negative advice
+  iw_cxgb4: Support query_qp() verb
+  iw_cxgb4: advertise the correct device max attributes
+  iw_cxgb4: Don't limit TPTE count to 32KB
+
+ drivers/infiniband/hw/cxgb4/cm.c             |   29 ++++++++++++++----
+ drivers/infiniband/hw/cxgb4/cq.c             |    8 +----
+ drivers/infiniband/hw/cxgb4/device.c         |   16 +++++-----
+ drivers/infiniband/hw/cxgb4/iw_cxgb4.h       |    2 +-
+ drivers/infiniband/hw/cxgb4/provider.c       |    4 +-
+ drivers/infiniband/hw/cxgb4/qp.c             |   41 +++++++++++++++++---------
+ drivers/infiniband/hw/cxgb4/t4.h             |    3 --
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c   |   16 ++++++++--
+ drivers/net/ethernet/chelsio/cxgb4/t4_regs.h |    3 ++
+ 9 files changed, 78 insertions(+), 44 deletions(-)
