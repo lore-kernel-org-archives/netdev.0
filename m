@@ -1,58 +1,70 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH -next] tun: stop tx queue when limit is hit
-Date: Mon, 21 Jul 2014 11:19:13 +0200
-Message-ID: <20140721091913.GD21375@breakpoint.cc>
-References: <1405882285-3072-1-git-send-email-fw@strlen.de>
- <20140720.223313.1589952322700027038.davem@davemloft.net>
- <20140721065419.GB21375@breakpoint.cc>
- <20140721083106.GC21375@breakpoint.cc>
- <1405932999.10255.114.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Will Deacon <will.deacon@arm.com>
+Subject: Re: [PATCH 00/14] arm64: eBPF JIT compiler
+Date: Mon, 21 Jul 2014 10:16:23 +0100
+Message-ID: <20140721091623.GA16122@arm.com>
+References: <1405708100-13604-1-git-send-email-zlim.lnx@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	mst@redhat.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Catalin Marinas <Catalin.Marinas@arm.com>,
+	Jiang Liu <liuj97@gmail.com>,
+	AKASHI Takahiro <takahiro.akashi@linaro.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Chema Gonzalez <chema@google.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Zi Shen Lim <zlim.lnx@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:52914 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752245AbaGUJTR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 05:19:17 -0400
+Received: from cam-admin0.cambridge.arm.com ([217.140.96.50]:41020 "EHLO
+	cam-admin0.cambridge.arm.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753031AbaGUJ0M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 05:26:12 -0400
 Content-Disposition: inline
-In-Reply-To: <1405932999.10255.114.camel@edumazet-glaptop2.roam.corp.google.com>
+In-Reply-To: <1405708100-13604-1-git-send-email-zlim.lnx@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Mon, 2014-07-21 at 10:31 +0200, Florian Westphal wrote:
-> > Michael, do you think we could restore the 'stop queue' default
-> > behaviour?
-> > 
-> > Looking at your changelog, the only concern seems to be the
-> > 'packets never consumed'/'receiver is stuck forever' case.
-> > 
-> > What about reverting 5d097109257c03a7184, and then adding some
-> > type of tun watchdog that will zap the rcv queue + tx queue wakeup?
-> > 
-> > That should be quite noisy if we combine it with the WARN_ON
-> > you usually get when (physical) NIC driver detect stalled tx unit.
-> > 
-> > What do you think?
+Hello,
+
+On Fri, Jul 18, 2014 at 07:28:06PM +0100, Zi Shen Lim wrote:
+> This series implements eBPF JIT compiler for arm64.
+> Please see [14/14] for change log.
 > 
-> Note that this patch had the ability to choose the behavior (drop or
-> back pressure)
+> Patches [1-13/14] implement code generation functions.
+> Patch [14/14] implements the actual eBPF JIT compiler.
 > 
->  http://patchwork.ozlabs.org/patch/338951/ ?
+> Many thanks to everyone who's reviewed the code from
+> RFCv1->RFCv3, especially Alexei for BPF bits, and Will
+> for ARM64 codegen bits :)
+> 
+> BTW, I'm happy to maintain arch/arm64/net (i.e. arm64 BPF bits).
+> Should I add a patch updating MAINTAINERS as Patch 15?
 
-Eric, many thanks for this pointer.  In fact, the related discussions
-in v2 of the patchset (http://patchwork.ozlabs.org/patch/338803/)
-also answers my questions above.
+I don't think that's necessary at the moment, but if we start seeing an
+influx of patches to arch/arm64/net, then that could make sense in the
+future.
 
-[ the concern is with applications that can get stuck just because
-  packet they sent is queued forever ]
+> This series requires a patch that exports a function
+> from net/core (resulting from RFCv1 discussion). This patch
+> has been merged into net-next @ 9f12fbe603f7
+> ("net: filter: move load_pointer() into filter.h").
+> 
+> This series applies against net-next and is tested working
+> with lib/test_bpf on ARMv8 Foundation Model.
 
-I need to think about this some more, but in any case Michael outlined
-a possible solution (limit queue delay) in the thread above.
+Looks like it works on my Juno board too, so:
 
-Thanks,
-Florian
+  Acked-by: Will Deacon <will.deacon@arm.com>
+
+for the series.
+
+It's a bit late for 3.17 now, so I guess we'll queue this for 3.18 (which
+also means the dependency on -next isn't an issue). Perhaps you could repost
+around -rc3?
+
+Cheers,
+
+Will
