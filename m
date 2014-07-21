@@ -1,59 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net] net_sched: avoid generating same handle for u32
- filters
-Date: Sun, 20 Jul 2014 20:49:53 -0700 (PDT)
-Message-ID: <20140720.204953.867212897376669839.davem@davemloft.net>
-References: <1405643693-4880-1-git-send-email-xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net 0/4 v2] xen-netback: Fixing up xenvif_tx_check_gop
+Date: Sun, 20 Jul 2014 20:57:11 -0700 (PDT)
+Message-ID: <20140720.205711.829460083215756821.davem@davemloft.net>
+References: <1405706885-16763-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com, cwang@twopensource.com
-To: xiyou.wangcong@gmail.com
+Cc: wei.liu2@citrix.com, Ian.Campbell@citrix.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	xen-devel@lists.xenproject.org
+To: zoltan.kiss@citrix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52899 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52991 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752449AbaGUDty (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2014 23:49:54 -0400
-In-Reply-To: <1405643693-4880-1-git-send-email-xiyou.wangcong@gmail.com>
+	with ESMTP id S1752508AbaGUD5N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2014 23:57:13 -0400
+In-Reply-To: <1405706885-16763-1-git-send-email-zoltan.kiss@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Thu, 17 Jul 2014 17:34:53 -0700
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Date: Fri, 18 Jul 2014 19:08:01 +0100
 
-> From: Cong Wang <cwang@twopensource.com>
+> This series fixes a lot of bugs on the error path around this function, which
+> were introduced with my grant mapping series in 3.15. They apply to the latest
+> net tree, but probably to net-next as well without any modification.
+> I'll post an another series which applies to 3.15 stable, as the problem was
+> first discovered there. The only difference is that the "queue" variable name is
+> replaced to "vif".
 > 
-> When kernel generates a handle for a u32 filter, it tries to start
-> from the max in the bucket. So when we have a filter with the max (fff)
-> handle, it will cause kernel always generates the same handle for new
-> filters. This can be shown by the following command:
-> 
-> 	tc qdisc add dev eth0 ingress
-> 	tc filter add dev eth0 parent ffff: protocol ip pref 770 handle 800::fff u32 match ip protocol 1 0xff
-> 	tc filter add dev eth0 parent ffff: protocol ip pref 770 u32 match ip protocol 1 0xff
-> 	...
-> 
-> we will get some u32 filters with same handle:
-> 
->  # tc filter show dev eth0 parent ffff:
-> filter protocol ip pref 770 u32 
-> filter protocol ip pref 770 u32 fh 800: ht divisor 1 
-> filter protocol ip pref 770 u32 fh 800::fff order 4095 key ht 800 bkt 0 
->   match 00010000/00ff0000 at 8
-> filter protocol ip pref 770 u32 fh 800::fff order 4095 key ht 800 bkt 0 
->   match 00010000/00ff0000 at 8
-> filter protocol ip pref 770 u32 fh 800::fff order 4095 key ht 800 bkt 0 
->   match 00010000/00ff0000 at 8
-> filter protocol ip pref 770 u32 fh 800::fff order 4095 key ht 800 bkt 0 
->   match 00010000/00ff0000 at 8
-> 
-> handles should be unique. This patch fixes it by looking up a bitmap,
-> so that can guarantee the handle is as unique as possible. For compatibility,
-> we still start from 0x800.
-> 
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Signed-off-by: Cong Wang <cwang@twopensource.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+> Reported-by: Armin Zentai <armin.zentai@ezit.hu>
 
-Applied, thank you.
+Series applied, thanks.
