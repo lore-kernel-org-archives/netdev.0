@@ -1,55 +1,50 @@
-From: "Yue Zhang (OSTC DEV)" <yuezha@microsoft.com>
-Subject: RE: [PATCH] Hyperv: Trigger DHCP renew after host hibernation
-Date: Mon, 21 Jul 2014 08:44:01 +0000
-Message-ID: <DC7803B42427924284F2D5252E076A3B4476A479@SINEX14MBXC416.southpacific.corp.microsoft.com>
-References: <1405680903-28176-1-git-send-email-yuezha@microsoft.com>
- <CAFLxGvxQU_z+mChHsNSu9VZEdXrU+RU75k6H18uKbdAj2TKD5g@mail.gmail.com>
- <DC7803B42427924284F2D5252E076A3B44769DCA@SINEX14MBXC416.southpacific.corp.microsoft.com>
- <53CCB944.8090709@nod.at>
- <DC7803B42427924284F2D5252E076A3B4476A363@SINEX14MBXC416.southpacific.corp.microsoft.com>
- <53CCCCAD.7080906@nod.at>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next v6 04/11] net: Export xmit_recursion
+Date: Mon, 21 Jul 2014 08:52:38 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D17279E9B@AcuExch.aculab.com>
+References: <1405923435-1971-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"driverdev-devel@linuxdriverproject.org"
-	<driverdev-devel@linuxdriverproject.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Greg KH <gregkh@linuxfoundation.org>,
-	"olaf@aepfle.de" <olaf@aepfle.de>,
-	"jasowang@redhat.com" <jasowang@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Haiyang Zhang <haiyangz@microsoft.com>,
-	KY Srinivasan <kys@microsoft.com>,
-	Thomas Shao <huishao@microsoft.com>,
-	Dexuan Cui <decui@microsoft.com>
-To: Richard Weinberger <richard@nod.at>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <53CCCCAD.7080906@nod.at>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Pravin B Shelar' <pshelar@nicira.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:45846 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1753493AbaGUIxz convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 04:53:55 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 11593-08 for <netdev@vger.kernel.org>;
+ Mon, 21 Jul 2014 09:53:45 +0100 (BST)
+In-Reply-To: <1405923435-1971-1-git-send-email-pshelar@nicira.com>
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiBGcm9tOiBSaWNoYXJkIFdlaW5iZXJnZXIgW21haWx0bzpyaWNoYXJkQG5vZC5hdF0NCj4gU2Vu
-dDogTW9uZGF5LCBKdWx5IDIxLCAyMDE0IDQ6MTggUE0NCj4gDQo+IFl1ZSwNCj4gDQo+IEFtIDIx
-LjA3LjIwMTQgMTA6MDUsIHNjaHJpZWIgWXVlIFpoYW5nIChPU1RDIERFVik6DQo+ID4gVGhlIHBy
-b2JsZW0gb2Ygc3lzdGVtZCBpbXBsZW1lbnRhdGlvbiBpcyB0aGF0IGluIGRpZmZlcmVudCBkaXN0
-cm9zLCB0aGUgd2F5cyANCj4gPiB0byByZXN0YXJ0IHNlcnZpY2UgYXJlIGRpZmZlcmVudC4gUHJv
-cGFnYXRpbmcgdGhlIGV2ZW50IHRvIHVzZXJzcGFjZSBhbHNvIGRvZXNuJ3QgDQo+ID4gaGVscCBm
-b3IgdGhpcyBpc3N1ZS4NCj4gDQo+IFRoaXMgd2F5IGVhY2ggZGlzdHJvIGNhbiBwcm92aWRlIHRo
-ZWlyIG93biByZXN0YXJ0IHNjcmlwdC4NCj4gU2FtZSBhcyBldmVyeSBkaXN0cm8gaGFzIGN1c3Rv
-bSBzdGFydCBzY3JpcHRzLCBldGMuLi4NCj4gDQo+ID4gVGhlIGFkdmFudGFnZSBvZiBjdXJyZW50
-IHNvbHV0aW9uIGlzIHRoYXQgaXQgc2ltdWxhdGVzIGEgY2FibGUgcGx1Z2dpbmcgDQo+ID4gaW4v
-b3V0IGV2ZW50LiBJTUhPLCBpbiBhbGwgdGhlIGRpc3Ryb3MsIHRoaXMgc2ltdWxhdGVkIGV2ZW50
-IGhhcyBhbHJlYWR5IGJlZW4gd2VsbCANCj4gPiBoYW5kbGVkLiBJdCBpcyBhIGR1cCBlZmZlY3Qg
-dG8gaW1wbGVtZW50IG5ldyBob29rcy4NCj4gDQo+IElmZiB0aGUgY3VycmVudCBzb2x1dGlvbiB3
-b3JrcyBmb3IgX2FsbF8gbmV0d29ya2luZyBpbXBsZW1lbnRhdGlvbnMuDQo+IA0KPiBUaGFua3Ms
-DQo+IC8vcmljaGFyZA0KDQpIaSwgUmljaGFyZA0KDQpJTUhPLCBhbGwgbmV0d29ya2luZyBpbXBs
-ZW1lbnRhdGlvbnMgc2hvdWxkIGhhbmRsZSB0aGUgY2FibGUgb2ZmbGluZSBldmVudC4gQ29uc2lk
-ZXINCnRoaXMgc2l0dWF0aW9uLiBJIHVucGx1Z2dlZCB0aGUgbmV0d29yayBjYWJsZSBhbmQgY29u
-bmVjdCBpdCB0byBhIG5ldyBuZXR3b3JrIHN3aXRjaA0KYWZ0ZXIgMTAgc2Vjb25kcy4gSWYgdGhl
-IERIQ1AgcmVuZXcgaXMgbm90IHRyaWdnZXJlZCwgdGhlIG5ldHdvcmsgd2lsbCBicmVhay4gSSB0
-aGluayBpbiANCm5vcm1hbCBjYXNlcywgaXQgc2hvdWxkIGFscmVhZHkgYmVlbiBoYW5kbGVkIHBy
-b3Blcmx5LiBVbmxlc3MgdGhlcmUgaXMgYSBzdHJvbmcgDQpqdXN0aWZpY2F0aW9uIGZvciBub3Qg
-ZG9pbmcgdGhpcy4gSW4gdGhhdCBjYXNlLCB3ZSBzaG91bGRuJ3QgcmVuZXcgREhDUCBhbnl3YXku
-DQoNClRoYW5rcw0KLS0tLQ0KWXVlDQo=
+From: Pravin B Shelar
+> Next patch adds re-circulation action to OVS. This is recursive
+> action needs to be limited to safe number recursions to
+> avoid overflowing kernel stack space.  This patch export
+> xmit_recursion so that OVS can increment and check the value
+> before executing recirc action.
+...
+> +#define NET_RECURSION_LIMIT 10
+
+I'm not entirely sure that any amount of recursion is a good idea
+inside the kernel.
+If the nested call frame is small enough so that your 10 nestings
+are valid it must also be reasonably easy to arrange for the code
+to be converted to a loop.
+
+Remember that the highest stack use is likely to be inside some
+error path (probably inside printk) so any experiments that seem
+to imply that that stack use is ok are doomed.
+Static analysis is possible (indirect calls make it tricky) provided
+there is no recursion.
+I did some static stack use analysis for an embedded system many
+years ago. It showed that we needed much larger stacks that we'd
+allowed for.
+
+	David
