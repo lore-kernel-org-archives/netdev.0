@@ -1,269 +1,351 @@
-From: Andrew Cooks <acooks@gmail.com>
-Subject: Problem: 82574L device (e1000e driver): Reset adapter unexpectedly /
- transmit queue 0 timed out
-Date: Mon, 21 Jul 2014 11:00:51 +0800
-Message-ID: <CAJtEV7bERYgwtQv1zAvk+XzaywF6g7K-QqAq3VLErNU1YSgxYA@mail.gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next V2 3/3] virtio-net: rx busy polling support
+Date: Mon, 21 Jul 2014 11:13:05 +0800
+Message-ID: <53CC8541.8090006@redhat.com>
+References: <1405491707-22706-1-git-send-email-jasowang@redhat.com>
+	<1405491707-22706-4-git-send-email-jasowang@redhat.com>
+	<20140720203111.GE2536@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Bruce Allan <bruce.w.allan@intel.com>,
-	Linux NICS <linux.nics@intel.com>, e1000-devel@lists.sf.net,
-	Dmitry Lifshitz <lifshitz@compulab.co.il>,
-	Igor Grinberg <grinberg@compulab.co.il>
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f175.google.com ([209.85.220.175]:33577 "EHLO
-	mail-vc0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751675AbaGUDAw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2014 23:00:52 -0400
-Received: by mail-vc0-f175.google.com with SMTP id hu12so10972649vcb.20
-        for <netdev@vger.kernel.org>; Sun, 20 Jul 2014 20:00:51 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Vlad Yasevich <vyasevic@redhat.com>, Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20140720203111.GE2536@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hi
+On 07/21/2014 04:31 AM, Michael S. Tsirkin wrote:
+> On Wed, Jul 16, 2014 at 02:21:47PM +0800, Jason Wang wrote:
+>> Add basic support for rx busy polling.
+>>
+>> Test was done between a kvm guest and an external host. Two hosts were
+>> connected through 40gb mlx4 cards. With both busy_poll and busy_read
+>> are set to 50 in guest, 1 byte netperf tcp_rr shows 116% improvement:
+>> transaction rate was increased from 9151.94 to 19787.37.
+> Pls include data about non polling tests: any effect on
+> cpu utilization there?
+> There could be as we are adding locking.
 
-The 82574L device, using the e1000e driver, is unstable on the
-fit-MultiLAN (aka CompuLab MultiLAN)[1] that I'm using and I need some
-help to understand what's causing it.
+I will do some test on this.
+>
+>> Cc: Rusty Russell <rusty@rustcorp.com.au>
+>> Cc: Michael S. Tsirkin <mst@redhat.com>
+>> Cc: Vlad Yasevich <vyasevic@redhat.com>
+>> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>> ---
+>>  drivers/net/virtio_net.c | 190 ++++++++++++++++++++++++++++++++++++++++++++++-
+>>  1 file changed, 187 insertions(+), 3 deletions(-)
+>>
+>> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+>> index e417d93..4830713 100644
+>> --- a/drivers/net/virtio_net.c
+>> +++ b/drivers/net/virtio_net.c
+>> @@ -27,6 +27,7 @@
+>>  #include <linux/slab.h>
+>>  #include <linux/cpu.h>
+>>  #include <linux/average.h>
+>> +#include <net/busy_poll.h>
+>>  
+>>  static int napi_weight = NAPI_POLL_WEIGHT;
+>>  module_param(napi_weight, int, 0444);
+>> @@ -94,8 +95,143 @@ struct receive_queue {
+>>  
+>>  	/* Name of this receive queue: input.$index */
+>>  	char name[40];
+>> +
+>> +#ifdef CONFIG_NET_RX_BUSY_POLL
+>> +	unsigned int state;
+>> +#define VIRTNET_RQ_STATE_IDLE        0
+>> +#define VIRTNET_RQ_STATE_NAPI	     1    /* NAPI or refill owns this RQ */
+>> +#define VIRTNET_RQ_STATE_POLL	     2    /* poll owns this RQ */
+>> +#define VIRTNET_RQ_STATE_DISABLED    4    /* RQ is disabled */
+>> +#define VIRTNET_RQ_OWNED (VIRTNET_RQ_STATE_NAPI | VIRTNET_RQ_STATE_POLL)
+>> +#define VIRTNET_RQ_LOCKED (VIRTNET_RQ_OWNED | VIRTNET_RQ_STATE_DISABLED)
+>> +#define VIRTNET_RQ_STATE_NAPI_YIELD  8    /* NAPI or refill yielded this RQ */
+>> +#define VIRTNET_RQ_STATE_POLL_YIELD  16   /* poll yielded this RQ */
+>> +	spinlock_t lock;
+>> +#endif  /* CONFIG_NET_RX_BUSY_POLL */
+> do we have to have a new state? no way to reuse the napi state
+> for this? two lock/unlock operations for a poll seems
+> excessive.
 
-The fit-MultiLAN has four 82574L devices[2]. On two different
-occasions I've seen a (different) device drop into an unusable state,
-while the rest of the 82574L devices continue to function normally.
-I'm not sure how to describe the state exactly, but it's as if the
-adapter can no longer detect a link and disconnecting/reconnecting the
-cable doesn't recover it.
+I try this way and it works. The only usage I can think of introducing
+those states is to detect the yield and do some optimizations after. But
+only few drivers (bnx2x) use the yield flag.
 
-I don't think there is any transition to/from a lower power state
-involved, because this happens while the device is in use (shunting
-packets), but I'm not sure how to rule it out either.
+I think I can  switch to use NAPI state since we don't do such
+optimization in virtio-net.
+>
+>>  };
+>>  
+>> +#ifdef CONFIG_NET_RX_BUSY_POLL
+>> +static inline void virtnet_rq_init_lock(struct receive_queue *rq)
+>> +{
+>> +
+>> +	spin_lock_init(&rq->lock);
+>> +	rq->state = VIRTNET_RQ_STATE_IDLE;
+>> +}
+>> +
+>> +/* called from the device poll routine or refill routine to get ownership of a
+>> + * receive queue.
+>> + */
+>> +static inline bool virtnet_rq_lock_napi_refill(struct receive_queue *rq)
+>> +{
+>> +	int rc = true;
+>> +
+>> +	spin_lock(&rq->lock);
+>> +	if (rq->state & VIRTNET_RQ_LOCKED) {
+>> +		WARN_ON(rq->state & VIRTNET_RQ_STATE_NAPI);
+>> +		rq->state |= VIRTNET_RQ_STATE_NAPI_YIELD;
+>> +		rc = false;
+>> +	} else
+>> +		/* we don't care if someone yielded */
+>> +		rq->state = VIRTNET_RQ_STATE_NAPI;
+>> +	spin_unlock(&rq->lock);
+>> +	return rc;
+>> +}
+>> +
+>> +/* returns true is someone tried to get the rq while napi or refill had it */
+> s/is/if/
+>
+>> +static inline bool virtnet_rq_unlock_napi_refill(struct receive_queue *rq)
+>> +{
+>> +	int rc = false;
+>> +
+>> +	spin_lock(&rq->lock);
+>> +	WARN_ON(rq->state & (VIRTNET_RQ_STATE_POLL |
+>> +			     VIRTNET_RQ_STATE_NAPI_YIELD));
+>> +
+>> +	if (rq->state & VIRTNET_RQ_STATE_POLL_YIELD)
+>> +		rc = true;
+>> +	/* will reset state to idle, unless RQ is disabled */
+>> +	rq->state &= VIRTNET_RQ_STATE_DISABLED;
+>> +	spin_unlock(&rq->lock);
+>> +	return rc;
+>> +}
+>> +
+>> +/* called from virtnet_low_latency_recv() */
+>> +static inline bool virtnet_rq_lock_poll(struct receive_queue *rq)
+>> +{
+>> +	int rc = true;
+>> +
+>> +	spin_lock_bh(&rq->lock);
+>> +	if ((rq->state & VIRTNET_RQ_LOCKED)) {
+>> +		rq->state |= VIRTNET_RQ_STATE_POLL_YIELD;
+>> +		rc = false;
+>> +	} else
+>> +		/* preserve yield marks */
+>> +		rq->state |= VIRTNET_RQ_STATE_POLL;
+>> +	spin_unlock_bh(&rq->lock);
+>> +	return rc;
+>> +}
+>> +
+>> +/* returns true if someone tried to get the receive queue while it was locked */
+>> +static inline bool virtnet_rq_unlock_poll(struct receive_queue *rq)
+>> +{
+>> +	int rc = false;
+>> +
+>> +	spin_lock_bh(&rq->lock);
+>> +	WARN_ON(rq->state & (VIRTNET_RQ_STATE_NAPI));
+>> +
+>> +	if (rq->state & VIRTNET_RQ_STATE_POLL_YIELD)
+>> +		rc = true;
+>> +	/* will reset state to idle, unless RQ is disabled */
+>> +	rq->state &= VIRTNET_RQ_STATE_DISABLED;
+>> +	spin_unlock_bh(&rq->lock);
+>> +	return rc;
+>> +}
+>> +
+>> +/* return false if RQ is currently owned */
+>> +static inline bool virtnet_rq_disable(struct receive_queue *rq)
+>> +{
+>> +	int rc = true;
+>> +
+>> +	spin_lock_bh(&rq->lock);
+>> +	if (rq->state & VIRTNET_RQ_OWNED)
+>> +		rc = false;
+>> +	rq->state |= VIRTNET_RQ_STATE_DISABLED;
+>> +	spin_unlock_bh(&rq->lock);
+>> +
+>> +	return rc;
+>> +}
+>> +
+>> +#else /* CONFIG_NET_RX_BUSY_POLL */
+>> +static inline void virtnet_rq_init_lock(struct receive_queue *rq)
+>> +{
+>> +}
+>> +
+>> +static inline bool virtnet_rq_lock_napi_refill(struct receive_queue *rq)
+>> +{
+>> +	return true;
+>> +}
+>> +
+>> +static inline bool virtnet_rq_unlock_napi_refill(struct receive_queue *rq)
+>> +{
+>> +	return false;
+>> +}
+>> +
+>> +static inline bool virtnet_rq_lock_poll(struct receive_queue *rq)
+>> +{
+>> +	return false;
+>> +}
+>> +
+>> +static inline bool virtnet_rq_unlock_poll(struct receive_queue *rq)
+>> +{
+>> +	return false;
+>> +}
+>> +
+>> +static inline bool virtnet_rq_disable(struct receive_queue *rq)
+>> +{
+>> +	return true;
+>> +}
+>> +
+>> +#endif /* CONFIG_NET_RX_BUSY_POLL */
+>> +
+>>  struct virtnet_info {
+>>  	struct virtio_device *vdev;
+>>  	struct virtqueue *cvq;
+>> @@ -521,6 +657,8 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
+>>  		skb_shinfo(skb)->gso_segs = 0;
+>>  	}
+>>  
+>> +	skb_mark_napi_id(skb, &rq->napi);
+>> +
+>>  	netif_receive_skb(skb);
+>>  	return;
+>>  
+>> @@ -714,7 +852,12 @@ static void refill_work(struct work_struct *work)
+>>  		struct receive_queue *rq = &vi->rq[i];
+>>  
+>>  		napi_disable(&rq->napi);
+>> +		if (!virtnet_rq_lock_napi_refill(rq)) {
+>> +			virtnet_napi_enable(rq);
+>> +			continue;
+>> +		}
+>>  		still_empty = !try_fill_recv(rq, GFP_KERNEL);
+>> +		virtnet_rq_unlock_napi_refill(rq);
+>>  		virtnet_napi_enable(rq);
+>>  
+>>  		/* In theory, this can happen: if we don't get any buffers in
+>> @@ -752,8 +895,13 @@ static int virtnet_poll(struct napi_struct *napi, int budget)
+>>  	unsigned int r, received = 0;
+>>  
+>>  again:
+>> +	if (!virtnet_rq_lock_napi_refill(rq))
+>> +		return budget;
+>> +
+>>  	received += virtnet_receive(rq, budget);
+>>  
+>> +	virtnet_rq_unlock_napi_refill(rq);
+>> +
+>>  	/* Out of packets? */
+>>  	if (received < budget) {
+>>  		r = virtqueue_enable_cb_prepare(rq->vq);
+>> @@ -770,20 +918,50 @@ again:
+>>  	return received;
+>>  }
+>>  
+>> +#ifdef CONFIG_NET_RX_BUSY_POLL
+>> +/* must be called with local_bh_disable()d */
+>> +static int virtnet_low_latency_recv(struct napi_struct *napi)
+> let's call it busy poll :)
 
-I can get the device working again without a power cycle, by doing the
-following (though I admit I'm not sure whether each of these is really
-needed):
-# echo 1 > /sys/bus/pci/devices/0000\:01\:00.0/remove
-# echo 1 > /sys/bus/pci/rescan
-# echo 1 > /sys/bus/pci/drivers_autoprobe
-# echo 1 > /sys/bus/pci/devices/0000\:01\:00.0/reset
+Ok.
+>> +{
+>> +	struct receive_queue *rq =
+>> +		container_of(napi, struct receive_queue, napi);
+>> +	struct virtnet_info *vi = rq->vq->vdev->priv;
+>> +	int received;
+>> +
+>> +	if (!(vi->status & VIRTIO_NET_S_LINK_UP))
+>> +		return LL_FLUSH_FAILED;
+>> +
+>> +	if (!virtnet_rq_lock_poll(rq))
+>> +		return LL_FLUSH_BUSY;
+>> +
+>> +	received = virtnet_receive(rq, 4);
+> Hmm why 4 exactly?
 
-This problem occurs with versions 3.15.0 and 3.16.0-rc5. I haven't
-tested older versions in the current configuration.
+I think the reason is we need a quota here to prevent the busy polling
+method from starving other threads. 4 is just copied form the existed
+implementation (ixgbe).
+>> +
+>> +	virtnet_rq_unlock_poll(rq);
+>> +
+>> +	return received;
+>> +}
+>> +#endif	/* CONFIG_NET_RX_BUSY_POLL */
+>> +
+>>  static void virtnet_napi_enable_all(struct virtnet_info *vi)
+>>  {
+>>  	int i;
+>>  
+>> -	for (i = 0; i < vi->max_queue_pairs; i++)
+>> +	for (i = 0; i < vi->max_queue_pairs; i++) {
+>> +		virtnet_rq_init_lock(&vi->rq[i]);
+>>  		virtnet_napi_enable(&vi->rq[i]);
+>> +	}
+>>  }
+>>  
+>>  static void virtnet_napi_disable_all(struct virtnet_info *vi)
+>>  {
+>>  	int i;
+>>  
+>> -	for (i = 0; i < vi->max_queue_pairs; i++)
+>> +	for (i = 0; i < vi->max_queue_pairs; i++) {
+>>  		napi_disable(&vi->rq[i].napi);
+>> +		while (!virtnet_rq_disable(&vi->rq[i])) {
+>> +			pr_info("RQ %d locked\n", i);
+>> +			usleep_range(1000, 20000);
+> What's going on here, exactly?
 
-Hopefully the information below will help pin it down.
-
-Kernel log:
-[18439.527157] ------------[ cut here ]------------
-[18439.527177] WARNING: CPU: 0 PID: 0 at net/sched/sch_generic.c:264
-dev_watchdog+0x266/0x270()
-[18439.527182] NETDEV WATCHDOG: eth2 (e1000e): transmit queue 0 timed out
-[18439.527185] Modules linked in: sch_cbq sch_netem nf_conntrack_ipv4
-nf_defrag_ipv4 xt_conntrack nf_conntrack xt_LOG xt_comment xt_tcpudp
-iptable_filter ip_tables x_tables nfnetlink_queue nfnetlink_log
-nfnetlink arc4 rtl8723ae rtl_pci rtlwifi mac80211 cfg80211
-rtl8723_common microcode sp5100_tco k10temp i2c_piix4 video
-hid_generic usbhid hid r8169 mii firmware_class ohci_pci ohci_hcd
-[18439.527231] CPU: 0 PID: 0 Comm: swapper/0 Not tainted 3.16.0-rc5 #2
-[18439.527235] Hardware name: CompuLab fit-PC3i/SBC fit-PC3i, BIOS
-SBCFP3I_2.1.0.333_1 X64 11/26/2013
-[18439.527238]  0000000000000009 ffff88014ec03db0 ffffffff8164c94d
-ffff88014ec03df8
-[18439.527244]  ffff88014ec03de8 ffffffff810479dd 0000000000000000
-ffff880091aec000
-[18439.527249]  0000000000000001 0000000000000000 ffff880091aec000
-ffff88014ec03e48
-[18439.527254] Call Trace:
-[18439.527258]  <IRQ>  [<ffffffff8164c94d>] dump_stack+0x45/0x56
-[18439.527271]  [<ffffffff810479dd>] warn_slowpath_common+0x7d/0xa0
-[18439.527277]  [<ffffffff81047a4c>] warn_slowpath_fmt+0x4c/0x50
-[18439.527283]  [<ffffffff8156c276>] dev_watchdog+0x266/0x270
-[18439.527288]  [<ffffffff8156c010>] ? dev_graft_qdisc+0x80/0x80
-[18439.527294]  [<ffffffff81053c86>] call_timer_fn+0x36/0x100
-[18439.527298]  [<ffffffff8156c010>] ? dev_graft_qdisc+0x80/0x80
-[18439.527303]  [<ffffffff81053f4c>] run_timer_softirq+0x1fc/0x2e0
-[18439.527309]  [<ffffffff8104c97d>] __do_softirq+0xed/0x2d0
-[18439.527315]  [<ffffffff8104cdcd>] irq_exit+0xcd/0xe0
-[18439.527320]  [<ffffffff81655695>] smp_apic_timer_interrupt+0x45/0x60
-[18439.527325]  [<ffffffff81653cfa>] apic_timer_interrupt+0x6a/0x70
-[18439.527328]  <EOI>  [<ffffffff8100cb9c>] ? default_idle+0x1c/0xb0
-[18439.527339]  [<ffffffff810aab93>] ? rcu_eqs_enter+0x63/0x90
-[18439.527344]  [<ffffffff8100d44f>] arch_cpu_idle+0xf/0x20
-[18439.527350]  [<ffffffff8108da15>] cpu_startup_entry+0x355/0x420
-[18439.527355]  [<ffffffff8164ecdd>] ? __schedule+0x30d/0x780
-[18439.527361]  [<ffffffff8163fb77>] rest_init+0x77/0x80
-[18439.527367]  [<ffffffff81cf9fd4>] start_kernel+0x435/0x442
-[18439.527372]  [<ffffffff81cf99a6>] ? set_init_arg+0x53/0x53
-[18439.527378]  [<ffffffff81cf95ad>] x86_64_start_reservations+0x2a/0x2c
-[18439.527383]  [<ffffffff81cf96a0>] x86_64_start_kernel+0xf1/0xf4
-[18439.527386] ---[ end trace e1cdd13e14fbe306 ]---
-[18439.527405] e1000e 0000:01:00.0 eth2: Reset adapter unexpectedly
-[18439.548497] br_v401: port 1(eth2_v401) entered disabled state
-[18439.548616] br_v402: port 1(eth2_v402) entered disabled state
-[18439.548703] br_v403: port 1(eth2_v403) entered disabled state
-[18439.548776] br_v404: port 1(eth2_v404) entered disabled state
-[18439.548849] br_v405: port 1(eth2_v405) entered disabled state
-[18439.548929] br_v406: port 1(eth2_v406) entered disabled state
-[18439.548997] br_v407: port 1(eth2_v407) entered disabled state
-[18439.549067] br_v487: port 1(eth2_v487) entered disabled state
-[18439.549144] br_v600: port 1(eth2_v600) entered disabled state
-[18439.549216] br_v602: port 1(eth2_v602) entered disabled state
-[18439.549284] br_v603: port 1(eth2_v603) entered disabled state
-[18439.549362] br_v1010: port 1(eth2_v1010) entered disabled state
-[18439.767733] e1000e 0000:01:00.0 eth2: Timesync Tx Control register
-not set as expected
-
-
-# lspci -vvnnk:
-01:00.0 Ethernet controller [0200]: Intel Corporation 82574L Gigabit
-Network Connection [8086:10d3]
-        Subsystem: Intel Corporation Device [8086:0000]
-        Control: I/O- Mem- BusMaster- SpecCycle- MemWINV- VGASnoop-
-ParErr- Stepping- SERR- FastB2B- DisINTx-
-        Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort-
-<TAbort- <MAbort- >SERR- <PERR- INTx-
-        Interrupt: pin A routed to IRQ 16
-        Region 0: [virtual] Memory at c1900000 (32-bit,
-non-prefetchable) [size=128K]
-        Region 1: [virtual] Memory at c1800000 (32-bit,
-non-prefetchable) [size=1M]
-        Region 2: I/O ports at 7000 [size=32]
-        Region 3: [virtual] Memory at c1920000 (32-bit,
-non-prefetchable) [size=16K]
-        [virtual] Expansion ROM at c1940000 [disabled] [size=256K]
-        Capabilities: [c8] Power Management version 2
-                Flags: PMEClk- DSI+ D1- D2- AuxCurrent=0mA
-PME(D0+,D1-,D2-,D3hot+,D3cold+)
-                Status: D0 NoSoftRst- PME-Enable- DSel=0 DScale=1 PME-
-        Capabilities: [d0] MSI: Enable- Count=1/1 Maskable- 64bit+
-                Address: 0000000000000000  Data: 0000
-        Capabilities: [e0] Express (v1) Endpoint, MSI 00
-                DevCap: MaxPayload 256 bytes, PhantFunc 0, Latency L0s
-<512ns, L1 <64us
-                        ExtTag- AttnBtn- AttnInd- PwrInd- RBE+ FLReset-
-                DevCtl: Report errors: Correctable- Non-Fatal- Fatal-
-Unsupported-
-                        RlxdOrd+ ExtTag- PhantFunc- AuxPwr- NoSnoop+
-                        MaxPayload 128 bytes, MaxReadReq 512 bytes
-                DevSta: CorrErr+ UncorrErr+ FatalErr- UnsuppReq+
-AuxPwr+ TransPend-
-                LnkCap: Port #1, Speed 2.5GT/s, Width x1, ASPM L0s L1,
-Latency L0 <128ns, L1 <64us
-                        ClockPM- Surprise- LLActRep- BwNot-
-                LnkCtl: ASPM Disabled; RCB 64 bytes Disabled- Retrain- CommClk-
-                        ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
-                LnkSta: Speed 2.5GT/s, Width x1, TrErr- Train-
-SlotClk+ DLActive- BWMgmt- ABWMgmt-
-        Capabilities: [a0] MSI-X: Enable- Count=5 Masked-
-                Vector table: BAR=3 offset=00000000
-                PBA: BAR=3 offset=00002000
-        Capabilities: [100 v1] Advanced Error Reporting
-                UESta:  DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt-
-UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq+ ACSViol-
-                UEMsk:  DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt-
-UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq- ACSViol-
-                UESvrt: DLP+ SDES- TLP- FCP+ CmpltTO- CmpltAbrt-
-UnxCmplt- RxOF+ MalfTLP+ ECRC- UnsupReq- ACSViol-
-                CESta:  RxErr+ BadTLP+ BadDLLP+ Rollover- Timeout- NonFatalErr+
-                CEMsk:  RxErr- BadTLP- BadDLLP- Rollover- Timeout- NonFatalErr+
-                AERCap: First Error Pointer: 14, GenCap- CGenEn- ChkCap- ChkEn-
-        Capabilities: [140 v1] Device Serial Number 00-01-c0-ff-ff-12-8a-64
-        Kernel driver in use: e1000e
-
-
-# ethtool eth2
-Settings for eth2:
-Supported ports: [ TP ]
-Supported link modes:   10baseT/Half 10baseT/Full
-                       100baseT/Half 100baseT/Full
-                       1000baseT/Full
-Supported pause frame use: No
-Supports auto-negotiation: Yes
-Advertised link modes:  10baseT/Half 10baseT/Full
-                       100baseT/Half 100baseT/Full
-                       1000baseT/Full
-Advertised pause frame use: No
-Advertised auto-negotiation: Yes
-Speed: Unknown!
-Duplex: Unknown! (255)
-Port: Twisted Pair
-PHYAD: 1
-Transceiver: internal
-Auto-negotiation: on
-MDI-X: Unknown (auto)
-Supports Wake-on: pumbg
-Wake-on: g
-Current message level: 0x00000007 (7)
-      drv probe link
-Link detected: no
-
-
-# ethtool -d eth2
-MAC Registers
--------------
-0x00000: CTRL (Device control register)  0xFFFFFFFF
-      Endian mode (buffers):             big
-      Link reset:                        reset
-      Set link up:                       1
-      Invert Loss-Of-Signal:             yes
-      Receive flow control:              enabled
-      Transmit flow control:             enabled
-      VLAN mode:                         enabled
-      Auto speed detect:                 enabled
-      Speed select:                      not used
-      Force speed:                       yes
-      Force duplex:                      yes
-0x00008: STATUS (Device status register) 0xFFFFFFFF
-      Duplex:                            full
-      Link up:                           link config
-      TBI mode:                          enabled
-      Link speed:                        not used
-      Bus type:                          PCI-X
-      Bus speed:                         133MHz
-      Bus width:                         64-bit
-0x00100: RCTL (Receive control register) 0xFFFFFFFF
-      Receiver:                          enabled
-      Store bad packets:                 enabled
-      Unicast promiscuous:               enabled
-      Multicast promiscuous:             enabled
-      Long packet:                       enabled
-      Descriptor minimum threshold size: reserved
-      Broadcast accept mode:             accept
-      VLAN filter:                       enabled
-      Canonical form indicator:          enabled
-      Discard pause frames:              ignored
-      Pass MAC control frames:           pass
-      Receive buffer size:               4096
-0x02808: RDLEN (Receive desc length)     0xFFFFFFFF
-0x02810: RDH   (Receive desc head)       0xFFFFFFFF
-0x02818: RDT   (Receive desc tail)       0xFFFFFFFF
-0x02820: RDTR  (Receive delay timer)     0xFFFFFFFF
-0x00400: TCTL (Transmit ctrl register)   0xFFFFFFFF
-      Transmitter:                       enabled
-      Pad short packets:                 enabled
-      Software XOFF Transmission:        enabled
-      Re-transmit on late collision:     enabled
-0x03808: TDLEN (Transmit desc length)    0xFFFFFFFF
-0x03810: TDH   (Transmit desc head)      0xFFFFFFFF
-0x03818: TDT   (Transmit desc tail)      0xFFFFFFFF
-0x03820: TIDV  (Transmit delay timer)    0xFFFFFFFF
-PHY type:                                unknown
-
-
-# ethtool -t eth2
-
-The test result is FAIL
-The test extra info:
-Register test  (offline) 40
-Eeprom test    (offline) 2
-Interrupt test (offline) 4
-Loopback test  (offline) 0
-Link test   (on/offline) 0
-
-References:
-1. http://www.fit-pc.com/web/solutions/multilan/
-2. http://fit-pc.com/download/face-modules/documents/face-modules-hw-specifications.pdf
-(FM-XTDE4U2/4 FACE Module, p36)
-
-Any suggestions of help to pin down the problem would be much appreciated.
-
-Thanks.
-
-a.
+It was used to wait for the completion of busy polling to finish.
+>> +		}
+>> +	}
+>>  }
+>>  
+>>  static int virtnet_open(struct net_device *dev)
+>> @@ -1372,6 +1550,9 @@ static const struct net_device_ops virtnet_netdev = {
+>>  #ifdef CONFIG_NET_POLL_CONTROLLER
+>>  	.ndo_poll_controller = virtnet_netpoll,
+>>  #endif
+>> +#ifdef CONFIG_NET_RX_BUSY_POLL
+>> +	.ndo_busy_poll		= virtnet_low_latency_recv,
+>> +#endif
+>>  };
+>>  
+>>  static void virtnet_config_changed_work(struct work_struct *work)
+>> @@ -1577,6 +1758,7 @@ static int virtnet_alloc_queues(struct virtnet_info *vi)
+>>  		vi->rq[i].pages = NULL;
+>>  		netif_napi_add(vi->dev, &vi->rq[i].napi, virtnet_poll,
+>>  			       napi_weight);
+>> +		napi_hash_add(&vi->rq[i].napi);
+>>  
+>>  		sg_init_table(vi->rq[i].sg, ARRAY_SIZE(vi->rq[i].sg));
+>>  		ewma_init(&vi->rq[i].mrg_avg_pkt_len, 1, RECEIVE_AVG_WEIGHT);
+>> @@ -1880,8 +2062,10 @@ static int virtnet_freeze(struct virtio_device *vdev)
+>>  
+>>  	if (netif_running(vi->dev)) {
+>>  		virtnet_napi_disable_all(vi);
+>> -		for (i = 0; i < vi->max_queue_pairs; i++)
+>> +		for (i = 0; i < vi->max_queue_pairs; i++) {
+>> +			napi_hash_del(&vi->rq[i].napi);
+>>  			netif_napi_del(&vi->rq[i].napi);
+>> +		}
+>>  	}
+>>  
+>>  	remove_vq_common(vi);
+>> -- 
+>> 1.8.3.1
