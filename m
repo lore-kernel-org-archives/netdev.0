@@ -1,13 +1,12 @@
 From: Ethan Zhao <ethan.kernel@gmail.com>
 Subject: Re: [PATCH 1/2 V3] PCI: introduce device assignment
  interface and refactory related code
-Date: Mon, 21 Jul 2014 11:17:10 +0800
-Message-ID: <CABawtvO5dSENsCzzTpxhmsUOSsSJ7=Qb08W9D+eWFOiK9m536A@mail.gmail.com>
+Date: Mon, 21 Jul 2014 11:28:04 +0800
+Message-ID: <CABawtvP=M=Pss_ipLxPvjZj-p-VwtkhATh+5ZawX0g0FT82r=Q@mail.gmail.com>
 References: <1405081802-419-1-git-send-email-ethan.zhao@oracle.com>
 	<1405084407.4098.59.camel@ul30vt.home>
 	<1405088147.4098.64.camel@ul30vt.home>
 	<B5657A6538887040AD3A81F1008BEC63B020DC@avmb3.qlogic.org>
-	<1405907916.4463.2.camel@ul30vt.home>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -16,10 +15,11 @@ Cc: "kvm@vger.kernel.org" <kvm@vger.kernel.org>,
 	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
 	"vaughan.cao@oracle.com" <vaughan.cao@oracle.com>,
 	"jesse.brandeburg@intel.com" <jesse.brandeburg@intel.com>,
-	Yuval Mintz <Yuval.Mintz@qlogic.com>, Ethan Zhao <ethan.zhao@oracle.com>,
+	Ethan Zhao <ethan.zhao@oracle.com>,
 	"linux.nics@intel.com" <linux.nics@intel.com>,
 	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
 	"gleb@kernel.org" <gleb@kernel.org>,
+	Alex Williamson <alex.williamson@redhat.com>,
 	"bhelgaas@google.com" <bhelgaas@google.com>,
 	"boris.ostrovsky@oracle.com" <boris.ostrovsky@oracle.com>,
 	netdev <netdev@vger.kernel.org>,
@@ -28,9 +28,9 @@ Cc: "kvm@vger.kernel.org" <kvm@vger.kernel.org>,
 	"john.ronciak@intel.com" <john.ronciak@intel.com>,
 	"david.vrabel@citrix.com" <david.vrabel@citrix.com>,
 	"pbonzini@redhat.com" <pbonzini@redhat.com>
-To: Alex Williamson <alex.williamson@redhat.com>
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>
 Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1405907916.4463.2.camel@ul30vt.home>
+In-Reply-To: <B5657A6538887040AD3A81F1008BEC63B020DC@avmb3.qlogic.org>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
@@ -41,55 +41,50 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 21, 2014 at 9:58 AM, Alex Williamson
-<alex.williamson@redhat.com> wrote:
-> On Sun, 2014-07-20 at 14:48 +0000, Yuval Mintz wrote:
->> > On Fri, 2014-07-11 at 07:13 -0600, Alex Williamson wrote:
->> > > On Fri, 2014-07-11 at 20:30 +0800, Ethan Zhao wrote:
->> > > > This patch introduces two new device assignment functions
->> > > >
->> > > > pci_iov_assign_device(),
->> > > > pci_iov_deassign_device()
->> > > >
->> > > > along with the existed one
->> > > >
->> > > > pci_vfs_assigned()
->> > > >
->> > > > They construct the VFs assignment management interface, used to
->> > > > assign/ deassign device to VM and query the VFs reference counter.
->> > > > instead of direct manipulation of device flag.
->>
->> Sorry for the late intrusion into the conversation, and perhaps it's a bit
->> unrelated, but given that you're creating a 'VF assignment management'
->> perhaps it's the right place to add some sort of mechanism in order to
->> prevent module removal once one of its VFs is assigned.
->> [e.g., incrementing module reference count]
->>
->> At the moment [to the best of my knowledge] there's no mechanism
->> preventing the 'not-so-bright' user from removing the driver, and no good
->> will come out of it.
+On Sun, Jul 20, 2014 at 10:48 PM, Yuval Mintz <Yuval.Mintz@qlogic.com> wrote:
+>> On Fri, 2014-07-11 at 07:13 -0600, Alex Williamson wrote:
+>> > On Fri, 2014-07-11 at 20:30 +0800, Ethan Zhao wrote:
+>> > > This patch introduces two new device assignment functions
+>> > >
+>> > > pci_iov_assign_device(),
+>> > > pci_iov_deassign_device()
+>> > >
+>> > > along with the existed one
+>> > >
+>> > > pci_vfs_assigned()
+>> > >
+>> > > They construct the VFs assignment management interface, used to
+>> > > assign/ deassign device to VM and query the VFs reference counter.
+>> > > instead of direct manipulation of device flag.
 >
-> On what module would the reference count be increased, the PF?  The
-> entire "VF assigned" interface is a hack to work around poor
-> architectures like legacy KVM device assignment where there's no proper
-> device owner for the VF.  This is "fixed" by using VFIO instead and
-> hopefully deprecating legacy KVM assignment.  Thanks,
+> Sorry for the late intrusion into the conversation, and perhaps it's a bit
+> unrelated, but given that you're creating a 'VF assignment management'
+> perhaps it's the right place to add some sort of mechanism in order to
+> prevent module removal once one of its VFs is assigned.
+> [e.g., incrementing module reference count]
 
-  To explain what Alex said, in another word, if VMs access VF via
-VFIO driver, the owner of the device is VFIO, in this case, if you
-unload PF driver, you still need to unload VFIO first, then unload PF
-driver. but the PF driver knows how to notify the VFIO driver to
-unload.
-  But without VFIO like driver, for example some of current code will
-assign devcie (PF/VF) directly to KVM or XEN without driver in the
-middle. and the PF driver doesn't know how to unbind the assignment...
+  This patch set is used to make the current hacked code well formed and make
+the interface clear to refactory later.  so we could keep the current
+direct assignment and woulnd't encounter the removal issue etc. in one
+word, manageable.
+>
+> At the moment [to the best of my knowledge] there's no mechanism
+> preventing the 'not-so-bright' user from removing the driver, and no good
+> will come out of it.
+ The best way is there is real 'driver' between device and the VM
+device manager or some similar machanism to make the assignment
+manageable.
 
 Thanks,
 Ethan
 
 >
-> Alex
+> Thanks,
+> Yuval
 >
+> ________________________________
+>
+> This message and any attached documents contain information from QLogic Corporation or its wholly-owned subsidiaries that may be confidential. If you are not the intended recipient, you may not read, copy, distribute, or use this information. If you have received this transmission in error, please notify the sender immediately by reply e-mail and then delete this message.
 
 ------------------------------------------------------------------------------
 Want fast and easy access to all the code in your enterprise? Index and
