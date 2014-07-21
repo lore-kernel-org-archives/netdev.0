@@ -1,137 +1,62 @@
-From: Arnaldo Carvalho de Melo <acme@kernel.org>
-Subject: [PATCH/RFC] net: Don't save mid batch datagram processing error for
- next recvmmsg call
-Date: Mon, 21 Jul 2014 16:30:42 -0300
-Message-ID: <20140721193042.GA20303@kernel.org>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="y0ulUmNC+osPPQO6"
-Content-Transfer-Encoding: 8bit
-Cc: Linux Networking Development Mailing List
-	<netdev@vger.kernel.org>,
-	Caitlin Bestler <caitlin.bestler@gmail.com>,
-	Chris Friesen <chris.friesen@windriver.com>,
-	David Laight <David.Laight@ACULAB.COM>,
-	Elie De Brauwer <eliedebrauwer@gmail.com>,
-	Michael Kerrisk <mtk.manpages@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	=?utf-8?B?T25kxZllaiBCw61sa2E=?= <neleai@seznam.cz>,
-	Paul Moore <paul@paul-moore.com>,
-	=?iso-8859-1?Q?R=E9mi?= Denis-Courmont <remi@remlab.net>,
-	Steven Whitehouse <steve@chygwyn.com>
-To: David Miller <davem@davemloft.net>
+From: Willem de Bruijn <willemb@google.com>
+Subject: [PATCH net-next v3 0/5] net-timestamp: additional sw tstamps and bytestream support
+Date: Mon, 21 Jul 2014 15:35:52 -0400
+Message-ID: <1405971357-22830-1-git-send-email-willemb@google.com>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com,
+	richardcochran@gmail.com, Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.19.201]:39173 "EHLO mail.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933495AbaGUTaz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Jul 2014 15:30:55 -0400
-Content-Disposition: inline
+Received: from mail-yh0-f73.google.com ([209.85.213.73]:48488 "EHLO
+	mail-yh0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754779AbaGUTgA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 15:36:00 -0400
+Received: by mail-yh0-f73.google.com with SMTP id f73so1054703yha.2
+        for <netdev@vger.kernel.org>; Mon, 21 Jul 2014 12:35:59 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Extend socket tx timestamping:
+- allow multiple types of software timestamps aside from send (1)
+- add software timestamp on tc enqueue (3)
+- add software timestamp for TCP (4)
+- add software timestamp for TCP on ACK (5)
 
---y0ulUmNC+osPPQO6
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+The sk_flags option space is nearly exhausted. Also move the
+many timestamp options to a new sk->sk_tstamps (2).
 
-Hi,
+The patchset extends Linux tx timestamping to monitoring of latency
+incurred within the kernel stack and to protocols embedded in TCP.
+Complex kernel setups may have multiple layers of queueing, including
+multiple instances of traffic shaping, and many classes per layer.
+Many applications embed discrete payloads into TCP bytestreams for
+reliability, flow control, etcetera. Detecting application tail
+latency in such scenarios relies on identifying the exact queue
+responsible if on the host, or the network latency if otherwise.
 
-	I think this addresses the problems reported by David Laight and
-others, where errors saved on a per socket area could be delivered to a
-different thread, so I just followed David Laight's suggestion and
-stopped saving it, we'll return it only if it happens for the first
-datagram, else we return less entries than asked for.
+Changelog:
+v2->v3
+  - extend the SO_TIMESTAMPING API, instead of defining a new one.
+  - add protocol independent support to correlate tstamps with data,
+    based on returning skb->mark.
+  - removed no-payload optimization and documentation (for now):
 
-	Steven, IIRC you was the one that suggested using this
-mechanism, no? Do you have anything against this move?
+    I have a follow-on patch that reintroduces MSG_TSTAMP along with a
+    new socket option SOF_TIMESTAMPING_OPT_ONFLAG. This is equivalent
+    to sequence setsockopt(<enable>); send(..); setsockopt(<disable>),
+    but avoids the need to define a MSG_TSTAMP_<TYPE> for each type.
 
-- Arnaldo
+    I will leave these three patches as follow-on, as this patchset is
+    large enough as is.
 
+v1->2
+  - expand timestamping (existing and new) to SOCK_RAW and ping sockets
+  - rename sock_errqueue_timestamping to scm_timestamping
+  - change timestamp data format: do not add fields to scm_timestamping.
+      Doing so could break legacy applications. Instead, communicate
+      through an existing, but unused, field in the error message.
+  - rename SOF_.._OPT_TX_NO_PAYLOAD to shorter SOF_.._OPT_TSONLY
+  - move msg_tstamp test app out of patchset and to github
+      git://github.com/wdebruij/kerneltools.git
 
---y0ulUmNC+osPPQO6
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: attachment; filename="0002-net-Don-t-save-mid-batch-datagram-processing-error-f.patch"
-Content-Transfer-Encoding: 8bit
-
->From 5cf1a5c682c8bb0add9adfb5167a63f269136523 Mon Sep 17 00:00:00 2001
-From: Arnaldo Carvalho de Melo <acme@redhat.com>
-Date: Mon, 21 Jul 2014 12:39:56 -0300
-Subject: [PATCH 2/2] net: Don't save mid batch datagram processing error for
- next recvmmsg call
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-
-When the call to the underlying per protocol recvmsg fails for some
-reason and we already have successfully processed at least one datagram
-in the batch, we were saving the error for the next recvmmsg (or
-recvmsg) call, so the user would eventually get notified of what
-happened.
-
-This was found to be fraught with problems, as, for instance, errors
-could be notified for a different thread than a faulty one providing
-invalid buffers.
-
-So just return the number of datagrams successfully received.
-
-Reported-by: David Laight <David.Laight@ACULAB.COM>
-Cc: Caitlin Bestler <caitlin.bestler@gmail.com>
-Cc: Chris Friesen <chris.friesen@windriver.com>
-Cc: David Laight <David.Laight@ACULAB.COM>
-Cc: Elie De Brauwer <eliedebrauwer@gmail.com>
-Cc: Michael Kerrisk <mtk.manpages@gmail.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>
-Cc: Ondřej Bílka <neleai@seznam.cz>
-Cc: Paul Moore <paul@paul-moore.com>
-Cc: Rémi Denis-Courmont <remi@remlab.net>
-Cc: Steven Whitehouse <steve@chygwyn.com>
-Link: http://lkml.kernel.org/n/net-next-yfgcm0gwo7un6eqf89xw47lo@git.kernel.org
-Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
----
- net/socket.c | 29 +++++++----------------------
- 1 file changed, 7 insertions(+), 22 deletions(-)
-
-diff --git a/net/socket.c b/net/socket.c
-index 310a50971769..b6836c5fd201 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -2436,28 +2436,13 @@ out_put:
- 		timeout->tv_nsec = (timeout_hz % HZ) * (NSEC_PER_SEC / HZ);
- 	}
- 
--	if (err == 0)
--		return datagrams;
--
--	if (datagrams != 0) {
--		/*
--		 * We may return less entries than requested (vlen) if the
--		 * sock is non block and there aren't enough datagrams...
--		 */
--		if (err != -EAGAIN) {
--			/*
--			 * ... or  if recvmsg returns an error after we
--			 * received some datagrams, where we record the
--			 * error to return on the next call or if the
--			 * app asks about it using getsockopt(SO_ERROR).
--			 */
--			sock->sk->sk_err = -err;
--		}
--
--		return datagrams;
--	}
--
--	return err;
-+	/*
-+	 * We may return less entries than requested (vlen) if the
-+	 * sock is non block and there aren't enough datagrams or
-+	 * if some problem happened after successfully receiving one
-+	 * datagram.
-+	 */
-+	return datagrams ?: err;
- }
- 
- SYSCALL_DEFINE5(recvmmsg, int, fd, struct mmsghdr __user *, mmsg,
 -- 
-1.9.3
-
-
---y0ulUmNC+osPPQO6--
+2.0.0.526.g5318336
