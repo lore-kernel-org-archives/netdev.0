@@ -1,138 +1,93 @@
-From: "Yue Zhang (OSTC DEV)" <yuezha@microsoft.com>
-Subject: RE: [PATCH] Hyperv: Trigger DHCP renew after host hibernation
-Date: Mon, 21 Jul 2014 10:21:06 +0000
-Message-ID: <DC7803B42427924284F2D5252E076A3B4476A6D1@SINEX14MBXC416.southpacific.corp.microsoft.com>
-References: <1405680903-28176-1-git-send-email-yuezha@microsoft.com>
- <CAG-2HqXFBUmpTAE8h13-DmP6Fq42viHzmuH9OfNoLgjW8XcQ3Q@mail.gmail.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: [PATCH for stable 3.15 1/4 v2] xen-netback: Fix handling frag_list on grant op error path
+Date: Mon, 21 Jul 2014 11:40:59 +0100
+Message-ID: <1405939262-7944-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "olaf@aepfle.de" <olaf@aepfle.de>, netdev <netdev@vger.kernel.org>,
- "jasowang@redhat.com" <jasowang@redhat.com>,
- "driverdev-devel@linuxdriverproject.org"
- <driverdev-devel@linuxdriverproject.org>,
- Haiyang Zhang <haiyangz@microsoft.com>, LKML <linux-kernel@vger.kernel.org>,
- Thomas Shao <huishao@microsoft.com>,
- Lennart Poettering <lennart@poettering.net>,
- Greg KH <gregkh@linuxfoundation.org>, David Miller <davem@davemloft.net>
-To: Tom Gundersen <teg@jklm.no>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <CAG-2HqXFBUmpTAE8h13-DmP6Fq42viHzmuH9OfNoLgjW8XcQ3Q@mail.gmail.com>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+Content-Type: text/plain
+Cc: Zoltan Kiss <zoltan.kiss@citrix.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <xen-devel@lists.xenproject.org>
+To: Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> From: Tom Gundersen [mailto:teg@jklm.no]
-> Sent: Monday, July 21, 2014 5:42 PM
-> 
-> On Fri, Jul 18, 2014 at 12:55 PM, Yue Zhang <yuezha@microsoft.com> wrote:
-> > From: Yue Zhang <yuezha@microsoft.com>
-> >
-> > This patch addresses the comment from Olaf Hering and Greg KH
-> > for a previous commit 3a494e710367 ("hyperv: Add handler for
-> > RNDIS_STATUS_NETWORK_CHANGE event")
-> >
-> > In previous solution, the driver calls "network restart" to
-> > force a DHCP renew when the host is back from hibernation.
-> >
-> > In this fix, the driver will keep network carrier offline for
-> > 10 seconds and then bring it back. So that ifplugd daemon will
-> > notice this change and refresh DHCP lease.
-> >
-> > Cc: Haiyang Zhang <haiyangz@microsoft.com>
-> > Cc: K. Y. Srinivasan <kys@microsoft.com>
-> >
-> > Signed-off-by: Yue Zhang <yuezha@microsoft.com>
-> > ---
-> >  drivers/net/hyperv/netvsc_drv.c | 21 +++++++++++++++++----
-> >  1 file changed, 17 insertions(+), 4 deletions(-)
-> >
-> > diff --git a/drivers/net/hyperv/netvsc_drv.c
-> b/drivers/net/hyperv/netvsc_drv.c
-> > index a9c5eaa..559c97d 100644
-> > --- a/drivers/net/hyperv/netvsc_drv.c
-> > +++ b/drivers/net/hyperv/netvsc_drv.c
-> > @@ -33,6 +33,7 @@
-> >  #include <linux/if_vlan.h>
-> >  #include <linux/in.h>
-> >  #include <linux/slab.h>
-> > +#include <linux/delay.h>
-> >  #include <net/arp.h>
-> >  #include <net/route.h>
-> >  #include <net/sock.h>
-> > @@ -792,8 +793,7 @@ static void netvsc_link_change(struct work_struct
-> *w)
-> >         struct netvsc_device *net_device;
-> >         struct rndis_device *rdev;
-> >         bool notify, refresh = false;
-> > -       char *argv[] = { "/etc/init.d/network", "restart", NULL };
-> > -       char *envp[] = { "HOME=/", "PATH=/sbin:/usr/sbin:/bin:/usr/bin",
-> NULL };
-> > +       int delay;
-> >
-> >         rtnl_lock();
-> >
-> > @@ -816,8 +816,21 @@ static void netvsc_link_change(struct work_struct
-> *w)
-> >
-> >         rtnl_unlock();
-> >
-> > -       if (refresh)
-> > -               call_usermodehelper(argv[0], argv, envp, UMH_WAIT_EXEC);
-> > +       if (refresh) {
-> > +               /*
-> > +                * Keep the carrier offline for 10 seconds
-> > +                * to notify ifplugd daemon network change
-> > +                */
-> > +               for (delay = 0; delay < 10; delay++) {
-> > +                       rtnl_lock();
-> > +                       netif_carrier_off(net);
-> > +                       rtnl_unlock();
-> > +                       ssleep(1);
-> > +               }
-> > +               rtnl_lock();
-> > +               netif_carrier_on(net);
-> > +               rtnl_unlock();
-> > +       }
-> 
-> Why is it necessary to wait for ten seconds? Why not just:
-> 
-> if (refresh) {
->         rtnl_lock();
->         netif_carrier_off(net);
->         netif_carrier_on(net);
->         rtnl_unlock();
-> }
-> 
-> At least systemd-networkd will renew the dhcp lease as long as it gets
-> NEWLINK messages indicating that the carrier was lost and regained,
-> regardless of the time between events. Is there any reason not to do
-> this?
-> 
-> Cheers,
-> 
-> Tom
-> 
+The error handling for skb's with frag_list was completely wrong, it caused
+double unmap attempts to happen if the error was on the first skb. Move it to
+the right place in the loop.
 
-Hi, Tom
-
-Some network monitoring daemon, like ifplugd has a deferring mechanism.
-When it detects carriers is offline, it doesn't trigger DHCP renew immediately. 
-Instead it will wait for another 5 seconds to check whether carrier is back to 
-online status. In that case, it will avoid renew DHCP lease.
-
-And also there is some optimization in Linux's network stack. If link state
-flipped so quickly, like the code you proposed. It is very likely the event won't
-be delivered to user space.
-
-Thanks
+Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+Reported-by: Armin Zentai <armin.zentai@ezit.hu>
+Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Cc: xen-devel@lists.xenproject.org
 ---
-Yue
+v2: grammar change in comment
+
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index 7367208..d7ae93d 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -1007,10 +1007,16 @@ static int xenvif_tx_check_gop(struct xenvif *vif,
+ {
+ 	struct gnttab_map_grant_ref *gop_map = *gopp_map;
+ 	u16 pending_idx = XENVIF_TX_CB(skb)->pending_idx;
++	/* This always points to the shinfo of the skb being checked, which
++	 * could be either the first or the one on the frag_list
++	 */
+ 	struct skb_shared_info *shinfo = skb_shinfo(skb);
++	/* If this is non-NULL, we are currently checking the frag_list skb, and
++	 * this points to the shinfo of the first one
++	 */
++	struct skb_shared_info *first_shinfo = NULL;
+ 	int nr_frags = shinfo->nr_frags;
+ 	int i, err;
+-	struct sk_buff *first_skb = NULL;
+ 
+ 	/* Check status of header. */
+ 	err = (*gopp_copy)->status;
+@@ -1063,31 +1069,28 @@ check_frags:
+ 			xenvif_idx_unmap(vif, pending_idx);
+ 		}
+ 
++		/* And if we found the error while checking the frag_list, unmap
++		 * the first skb's frags
++		 */
++		if (first_shinfo) {
++			for (j = 0; j < first_shinfo->nr_frags; j++) {
++				pending_idx = frag_get_pending_idx(&first_shinfo->frags[j]);
++				xenvif_idx_unmap(vif, pending_idx);
++			}
++		}
++
+ 		/* Remember the error: invalidate all subsequent fragments. */
+ 		err = newerr;
+ 	}
+ 
+-	if (skb_has_frag_list(skb)) {
+-		first_skb = skb;
+-		skb = shinfo->frag_list;
+-		shinfo = skb_shinfo(skb);
++	if (skb_has_frag_list(skb) && !first_shinfo) {
++		first_shinfo = skb_shinfo(skb);
++		shinfo = skb_shinfo(skb_shinfo(skb)->frag_list);
+ 		nr_frags = shinfo->nr_frags;
+ 
+ 		goto check_frags;
+ 	}
+ 
+-	/* There was a mapping error in the frag_list skb. We have to unmap
+-	 * the first skb's frags
+-	 */
+-	if (first_skb && err) {
+-		int j;
+-		shinfo = skb_shinfo(first_skb);
+-		for (j = 0; j < shinfo->nr_frags; j++) {
+-			pending_idx = frag_get_pending_idx(&shinfo->frags[j]);
+-			xenvif_idx_unmap(vif, pending_idx);
+-		}
+-	}
+-
+ 	*gopp_map = gop_map;
+ 	return err;
+ }
