@@ -1,41 +1,58 @@
-From: Olaf Hering <olaf@aepfle.de>
-Subject: Re: [PATCH] Hyperv: Trigger DHCP renew after host hibernation
-Date: Mon, 21 Jul 2014 11:18:51 +0200
-Message-ID: <20140721091851.GA28171@aepfle.de>
-References: <1405680903-28176-1-git-send-email-yuezha@microsoft.com>
- <CAFLxGvxQU_z+mChHsNSu9VZEdXrU+RU75k6H18uKbdAj2TKD5g@mail.gmail.com>
- <DC7803B42427924284F2D5252E076A3B44769DCA@SINEX14MBXC416.southpacific.corp.microsoft.com>
- <53CCB944.8090709@nod.at>
- <DC7803B42427924284F2D5252E076A3B4476A363@SINEX14MBXC416.southpacific.corp.microsoft.com>
- <53CCCCAD.7080906@nod.at>
- <DC7803B42427924284F2D5252E076A3B4476A479@SINEX14MBXC416.southpacific.corp.microsoft.com>
- <53CCD6F2.6020909@nod.at>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH -next] tun: stop tx queue when limit is hit
+Date: Mon, 21 Jul 2014 11:19:13 +0200
+Message-ID: <20140721091913.GD21375@breakpoint.cc>
+References: <1405882285-3072-1-git-send-email-fw@strlen.de>
+ <20140720.223313.1589952322700027038.davem@davemloft.net>
+ <20140721065419.GB21375@breakpoint.cc>
+ <20140721083106.GC21375@breakpoint.cc>
+ <1405932999.10255.114.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: "Yue Zhang (OSTC DEV)" <yuezha@microsoft.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"driverdev-devel@linuxdriverproject.org"
-	<driverdev-devel@linuxdriverproject.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Greg KH <gregkh@linuxfoundation.org>,
-	"jasowang@redhat.com" <jasowang@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Haiyang Zhang <haiyangz@microsoft.com>,
-	KY Srinivasan <kys@microsoft.com>,
-	Thomas Shao <huishao@microsoft.com>,
-	Dexuan Cui <decui@microsoft.com>
-To: Richard Weinberger <richard@nod.at>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	mst@redhat.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:52914 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752245AbaGUJTR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 05:19:17 -0400
 Content-Disposition: inline
-In-Reply-To: <53CCD6F2.6020909@nod.at>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1405932999.10255.114.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 21, Richard Weinberger wrote:
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Mon, 2014-07-21 at 10:31 +0200, Florian Westphal wrote:
+> > Michael, do you think we could restore the 'stop queue' default
+> > behaviour?
+> > 
+> > Looking at your changelog, the only concern seems to be the
+> > 'packets never consumed'/'receiver is stuck forever' case.
+> > 
+> > What about reverting 5d097109257c03a7184, and then adding some
+> > type of tun watchdog that will zap the rcv queue + tx queue wakeup?
+> > 
+> > That should be quite noisy if we combine it with the WARN_ON
+> > you usually get when (physical) NIC driver detect stalled tx unit.
+> > 
+> > What do you think?
+> 
+> Note that this patch had the ability to choose the behavior (drop or
+> back pressure)
+> 
+>  http://patchwork.ozlabs.org/patch/338951/ ?
 
-> My concern is that 10 seconds is maybe not a the right choice.
-> (As we cannot know all implementations)
+Eric, many thanks for this pointer.  In fact, the related discussions
+in v2 of the patchset (http://patchwork.ozlabs.org/patch/338803/)
+also answers my questions above.
 
-Until someone reports an issue with it, 10 is fine. Just like 20 or 666.
+[ the concern is with applications that can get stuck just because
+  packet they sent is queued forever ]
 
-Olaf
+I need to think about this some more, but in any case Michael outlined
+a possible solution (limit queue delay) in the thread above.
+
+Thanks,
+Florian
