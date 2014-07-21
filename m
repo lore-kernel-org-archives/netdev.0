@@ -1,7 +1,7 @@
 From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Subject: [PATCH 4/6] net: mvpp2: Simplify BM pool buffers freeing
-Date: Mon, 21 Jul 2014 13:48:14 -0300
-Message-ID: <1405961296-5846-5-git-send-email-ezequiel.garcia@free-electrons.com>
+Subject: [PATCH 6/6] ARM: mvebu: Add missing MDIO clock in Armada 375
+Date: Mon, 21 Jul 2014 13:48:16 -0300
+Message-ID: <1405961296-5846-7-git-send-email-ezequiel.garcia@free-electrons.com>
 References: <1405961296-5846-1-git-send-email-ezequiel.garcia@free-electrons.com>
 Cc: Jason Cooper <jason@lakedaemon.net>,
 	David Miller <davem@davemloft.net>,
@@ -13,89 +13,38 @@ Cc: Jason Cooper <jason@lakedaemon.net>,
 	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
 To: <netdev@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:55272 "EHLO
+Received: from top.free-electrons.com ([176.31.233.9]:55283 "EHLO
 	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932679AbaGUQtf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 12:49:35 -0400
+	with ESMTP id S932679AbaGUQtl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 12:49:41 -0400
 In-Reply-To: <1405961296-5846-1-git-send-email-ezequiel.garcia@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now that all the users of mvpp2_bm_bufs_free() have been fixed, we can safely
-clean the function prototype.
+In Armada 375 SoCs, the MDIO is handled by a separate orion-mdio driver,
+despite the register is contained within the "LMS" block of the network
+controller.
 
-The function is always called to release all the buffers in a BM pool, and
-the number of buffers freed is not needed. Therefore, we change the return
-to a void, and remove the "num" parameter. This is a cosmetic change, to
-make the code slightly cleaner.
+Therefore we need to add the clock to the MDIO devicetree to prevent the
+controller from being accesed with its clock gated. This is needed, for
+instance, to be able to load the MDIO driver before the network driver.
 
 Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c | 19 ++++++-------------
- 1 file changed, 6 insertions(+), 13 deletions(-)
+ arch/arm/boot/dts/armada-375.dtsi | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 43d3391..b009eee 100644
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -3385,17 +3385,12 @@ static void mvpp2_bm_pool_bufsize_set(struct mvpp2 *priv,
- 	mvpp2_write(priv, MVPP2_POOL_BUF_SIZE_REG(bm_pool->id), val);
- }
+diff --git a/arch/arm/boot/dts/armada-375.dtsi b/arch/arm/boot/dts/armada-375.dtsi
+index bfcbe58..c1e49e7 100644
+--- a/arch/arm/boot/dts/armada-375.dtsi
++++ b/arch/arm/boot/dts/armada-375.dtsi
+@@ -158,6 +158,7 @@
+ 				#size-cells = <0>;
+ 				compatible = "marvell,orion-mdio";
+ 				reg = <0xc0054 0x4>;
++				clocks = <&gateclk 19>;
+ 			};
  
--/* Free "num" buffers from the pool */
--static int mvpp2_bm_bufs_free(struct mvpp2 *priv,
--			      struct mvpp2_bm_pool *bm_pool, int num)
-+/* Free all buffers from the pool */
-+static void mvpp2_bm_bufs_free(struct mvpp2 *priv, struct mvpp2_bm_pool *bm_pool)
- {
- 	int i;
- 
--	if (num >= bm_pool->buf_num)
--		/* Free all buffers from the pool */
--		num = bm_pool->buf_num;
--
--	for (i = 0; i < num; i++) {
-+	for (i = 0; i < bm_pool->buf_num; i++) {
- 		u32 vaddr;
- 
- 		/* Get buffer virtual adress (indirect access) */
-@@ -3408,7 +3403,6 @@ static int mvpp2_bm_bufs_free(struct mvpp2 *priv,
- 
- 	/* Update BM driver with number of buffers removed from pool */
- 	bm_pool->buf_num -= i;
--	return i;
- }
- 
- /* Cleanup pool */
-@@ -3416,10 +3410,9 @@ static int mvpp2_bm_pool_destroy(struct platform_device *pdev,
- 				 struct mvpp2 *priv,
- 				 struct mvpp2_bm_pool *bm_pool)
- {
--	int num;
- 	u32 val;
- 
--	num = mvpp2_bm_bufs_free(priv, bm_pool, bm_pool->buf_num);
-+	mvpp2_bm_bufs_free(priv, bm_pool);
- 	if (bm_pool->buf_num) {
- 		WARN(1, "cannot free all buffers in pool %d\n", bm_pool->id);
- 		return 0;
-@@ -3675,7 +3668,7 @@ mvpp2_bm_pool_use(struct mvpp2_port *port, int pool, enum mvpp2_bm_type type,
- 				   MVPP2_BM_LONG_BUF_NUM :
- 				   MVPP2_BM_SHORT_BUF_NUM;
- 		else
--			mvpp2_bm_bufs_free(port->priv, new_pool, pkts_num);
-+			mvpp2_bm_bufs_free(port->priv, new_pool);
- 
- 		new_pool->pkt_size = pkt_size;
- 
-@@ -3748,7 +3741,7 @@ static int mvpp2_bm_update_mtu(struct net_device *dev, int mtu)
- 	int pkt_size = MVPP2_RX_PKT_SIZE(mtu);
- 
- 	/* Update BM pool with new buffer size */
--	mvpp2_bm_bufs_free(port->priv, port_pool, pkts_num);
-+	mvpp2_bm_bufs_free(port->priv, port_pool);
- 	if (port_pool->buf_num) {
- 		WARN(1, "cannot free all buffers in pool %d\n", port_pool->id);
- 		return -EIO;
+ 			/* Network controller */
 -- 
 2.0.1
