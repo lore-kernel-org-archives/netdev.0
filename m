@@ -1,49 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] clean up sparse cast warning in do_ip_getsockopt
-Date: Mon, 21 Jul 2014 14:31:46 -0700 (PDT)
-Message-ID: <20140721.143146.680791642503413523.davem@davemloft.net>
-References: <20140720113017.GA8878@gmail.com>
-	<20140720.222246.722922848026554870.davem@davemloft.net>
-	<063D6719AE5E284EB5DD2968C1650D6D17279EB0@AcuExch.aculab.com>
+Subject: Re: [PATCH] Hyperv: Trigger DHCP renew after host hibernation
+Date: Mon, 21 Jul 2014 14:32:25 -0700 (PDT)
+Message-ID: <20140721.143225.2040366896972949930.davem@davemloft.net>
+References: <DC7803B42427924284F2D5252E076A3B4476A479@SINEX14MBXC416.southpacific.corp.microsoft.com>
+ <53CCD6F2.6020909@nod.at> <20140721091851.GA28171@aepfle.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: karoly.kemeny@gmail.com, jmorris@namei.org, netdev@vger.kernel.org
-To: David.Laight@ACULAB.COM
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36585 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753514AbaGUVbs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 17:31:48 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D17279EB0@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: richard@nod.at, jasowang@redhat.com, driverdev-devel@linuxdriverproject.org,
+ haiyangz@microsoft.com, linux-kernel@vger.kernel.org, huishao@microsoft.com,
+ yuezha@microsoft.com, gregkh@linuxfoundation.org, netdev@vger.kernel.org
+To: olaf@aepfle.de
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20140721091851.GA28171@aepfle.de>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-From: David Laight <David.Laight@ACULAB.COM>
-Date: Mon, 21 Jul 2014 08:54:02 +0000
+From: Olaf Hering <olaf@aepfle.de>
+Date: Mon, 21 Jul 2014 11:18:51 +0200
 
-> From: David Miller
->> From: Karoly Kemeny <karoly.kemeny@gmail.com>
->> Date: Sun, 20 Jul 2014 13:30:17 +0200
->> 
->> > There is a sparse warning because of the implicit pointer cast in
->> > do_ip_getsockopt.
->> >
->> > Signed-off-by: Karoly Kemeny <karoly.kemeny@gmail.com>
->> 
->> Please format your subject line correctly, it should be of the form:
->> 
->> 	[PATCH] ${SUBSYSTEM}: Description.
->> 
->> Your's is missing the subsystem prefix, which in this case should
->> be "ipv4: "
->> 
->> > -		msg.msg_control = optval;
->> > +		msg.msg_control = (__force void*) optval;
->> 
->> Please put a space between "void" and "*" in the cast.
+> On Mon, Jul 21, Richard Weinberger wrote:
 > 
-> And remove the one after the ')' ?
+>> My concern is that 10 seconds is maybe not a the right choice.
+>> (As we cannot know all implementations)
+> 
+> Until someone reports an issue with it, 10 is fine. Just like 20 or 666.
 
-Not necessarily, I don't like when the closing parens and the variable
-"touch".
+Wrong, this is policy and belongs in userspace.
