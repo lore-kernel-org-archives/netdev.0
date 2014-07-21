@@ -1,45 +1,52 @@
-From: Daniele Venzano <venza@brownhat.org>
-Subject: Re: [PATCH 24/30] sis900: remove unnecessary break after return
-Date: Mon, 21 Jul 2014 08:26:10 +0200
-Message-ID: <53CCB282.7070901@brownhat.org>
-References: <1405866475-24754-1-git-send-email-fabf@skynet.be> <1405866475-24754-5-git-send-email-fabf@skynet.be>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH -next] tun: stop tx queue when limit is hit
+Date: Mon, 21 Jul 2014 08:54:20 +0200
+Message-ID: <20140721065419.GB21375@breakpoint.cc>
+References: <1405882285-3072-1-git-send-email-fw@strlen.de>
+ <20140720.223313.1589952322700027038.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, joe@perches.com, netdev@vger.kernel.org
-To: Fabian Frederick <fabf@skynet.be>, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: fw@strlen.de, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp4.infomaniak.ch ([84.16.68.92]:40465 "EHLO
-	smtp4.infomaniak.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752656AbaGUGcD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 02:32:03 -0400
-In-Reply-To: <1405866475-24754-5-git-send-email-fabf@skynet.be>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:52565 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751580AbaGUGyV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 02:54:21 -0400
+Content-Disposition: inline
+In-Reply-To: <20140720.223313.1589952322700027038.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Il 20/07/2014 16:27, Fabian Frederick ha scritto:
-> Signed-off-by: Fabian Frederick <fabf@skynet.be>
-Signed-off-by: Daniele Venzano <venza@brownhat.org>
-
-> ---
->  drivers/net/ethernet/sis/sis900.c | 1 -
->  1 file changed, 1 deletion(-)
+David Miller <davem@davemloft.net> wrote:
+> From: Florian Westphal <fw@strlen.de>
+> Date: Sun, 20 Jul 2014 20:51:25 +0200
 > 
-> diff --git a/drivers/net/ethernet/sis/sis900.c b/drivers/net/ethernet/sis/sis900.c
-> index 6072f09..7bea17c 100644
-> --- a/drivers/net/ethernet/sis/sis900.c
-> +++ b/drivers/net/ethernet/sis/sis900.c
-> @@ -2258,7 +2258,6 @@ static int sis900_set_config(struct net_device *dev, struct ifmap *map)
->  		case IF_PORT_100BASEFX: /* 100BaseFx */
->                  	/* These Modes are not supported (are they?)*/
->  			return -EOPNOTSUPP;
-> -			break;
->  
->  		default:
->  			return -EINVAL;
+> > Currently tun just frees the skb and returns NETDEV_TX_OK
+> > when queue length exceeds txqlen.
+> > 
+> > This causes severe packetloss and unneeded resource
+> > consumption on host when sending to vm connected via tun.
+> > 
+> > Instead, lets stop the transmit queue and start it once
+> > packets are consumed from the queue.  This allows the network
+> > stack to control applications that send data via tun device.
 > 
+> I strongly suspect the current behavior is intentional, see
+> commit:
+> 
+> commit 5d097109257c03a71845729f8db6b5770c4bbedc
+> Author: Michael S. Tsirkin <mst@redhat.com>
+> Date:   Mon Dec 3 10:07:14 2012 +0000
+> 
+>     tun: only queue packets on device
 
+Looks like you're right :-/
 
--- 
-Daniele Venzano
-http://www.brownhat.org
+Alright, please ignore my patch.
+
+That being said, the current behaviour isn't ideal either.
+
+It took me quite some time to realize that packetloss
+was on the sender side inside tun driver and not on the receiver
+vm.  Not stopping the queue was a bit ... unexpected.
