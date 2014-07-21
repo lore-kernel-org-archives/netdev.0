@@ -1,40 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V3] netxen: fix ethtool rx_dropped information in
- ethtool get_ethtool_stats()
-Date: Sun, 20 Jul 2014 20:58:30 -0700 (PDT)
-Message-ID: <20140720.205830.595868255699983537.davem@davemloft.net>
-References: <1405655009-18975-1-git-send-email-ethan.zhao@oracle.com>
+Subject: Re: [GIT net-next v5] Open vSwitch
+Date: Sun, 20 Jul 2014 21:00:24 -0700 (PDT)
+Message-ID: <20140720.210024.1201684667308639381.davem@davemloft.net>
+References: <1405662895-2046-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: manish.chopra@qlogic.com, sony.chacko@qlogic.com,
-	rajesh.borundia@qlogic.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ethan.kernel@gmail.com
-To: ethan.zhao@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1405655009-18975-1-git-send-email-ethan.zhao@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: pshelar@nicira.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53008 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750716AbaGUEAZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 00:00:25 -0400
+In-Reply-To: <1405662895-2046-1-git-send-email-pshelar@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ethan Zhao <ethan.zhao@oracle.com>
-Date: Fri, 18 Jul 2014 11:43:29 +0800
+From: Pravin B Shelar <pshelar@nicira.com>
+Date: Thu, 17 Jul 2014 22:54:55 -0700
 
-> netxen driver has implemented netxen_nic_get_ethtool_stats() interface,
-> but it doesn't collect stats.rxdropped in driver, so we will get
-> different rx_dropped statistic information while using ifconfig and ethtool.
-> this patch fills stats.rxdropped field with data from net core
-> with dev_get_stats() just as ixgbe driver did for some of its stats.
+> Following patches adds three features to OVS
+> 1. Add fairness to upcall processing.
+> 2. Recirculation and Hash action.
+> 3. Enable Tunnel GSO features.
+> Rest of patches are bug fixes related to patches from same series.
 > 
-> Tested with last netxen 4.0.82
-> Compiled with stable 3.15.6
-> 
-> Signed-off-by: Ethan Zhao <ethan.zhao@oracle.com>
-> Tested-by: Sriharsha Yadagudde <sriharsha.devdas@oracle.com>
+> v2 series changes first patch according to comment from Dave Miller.
+> v3 series changes first patch according to comment from Nikolay Aleksandrov.
+> v4 series chage recirc patch commit msg.
+> v5 series resolve conflict with net-next, updated recic action patch.
 
-ethtool stats are _NOT_ the place to duplicate normal netdev stats,
-PERIOD.
-
-The only exception is when you maintainer per-queue instaces of these
-stats, and want to export that information to the user.
-
-I'm not applying this, sorry.
+Please do not just provide a pull request, post the entire patch
+series.
