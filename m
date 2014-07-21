@@ -1,201 +1,36 @@
 From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: [PATCH net-next v2 1/2] enic: remove #ifdef CONFIG_RFS_ACCEL around filter structures
-Date: Mon, 21 Jul 2014 17:22:17 +0530
-Message-ID: <1405943538-3086-2-git-send-email-_govind@gmx.com>
-References: <1405943538-3086-1-git-send-email-_govind@gmx.com>
+Subject: [PATCH net-next v2 0/2] Display classifier filters using ethtool
+Date: Mon, 21 Jul 2014 17:22:16 +0530
+Message-ID: <1405943538-3086-1-git-send-email-_govind@gmx.com>
 Cc: ssujith@cisco.com, benve@cisco.com,
 	Govindarajulu Varadarajan <_govind@gmx.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.com ([74.208.4.201]:63393 "EHLO mout.gmx.com"
+Received: from mout.gmx.com ([74.208.4.201]:65055 "EHLO mout.gmx.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754061AbaGULxN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 21 Jul 2014 07:53:13 -0400
-In-Reply-To: <1405943538-3086-1-git-send-email-_govind@gmx.com>
+	id S1754347AbaGULxO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 21 Jul 2014 07:53:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch removes the #ifdef CONFIG_RFS_ACCEL around the classifier filter
-structures. This makes the filter structures available when CONFIG_RFS_ACCEL = n.
+This series adds ethtool support to show classifier filters added by driver.
 
-Introduce enic_rfs_timer_start() & enic_rfs_timer_stop() to start/stop the
-timer. These two functions are nop when CONFIG_RFS_ACCEL = n.
+v2:
+The patch 1/2 removes the $ifdef's around the filter structure. Making it
+available always. So that .get_rxnfc() can be implimented without any #ifdefs
 
-Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
----
- drivers/net/ethernet/cisco/enic/enic.h      |  5 ---
- drivers/net/ethernet/cisco/enic/enic_clsf.c | 69 ++++++++++++++---------------
- drivers/net/ethernet/cisco/enic/enic_clsf.h | 22 +++++++--
- 3 files changed, 51 insertions(+), 45 deletions(-)
+Please apply this to net-next.
 
-diff --git a/drivers/net/ethernet/cisco/enic/enic.h b/drivers/net/ethernet/cisco/enic/enic.h
-index 4ecbbb3..962510f 100644
---- a/drivers/net/ethernet/cisco/enic/enic.h
-+++ b/drivers/net/ethernet/cisco/enic/enic.h
-@@ -99,7 +99,6 @@ struct enic_port_profile {
- 	u8 mac_addr[ETH_ALEN];
- };
- 
--#ifdef CONFIG_RFS_ACCEL
- /* enic_rfs_fltr_node - rfs filter node in hash table
-  *	@@keys: IPv4 5 tuple
-  *	@flow_id: flow_id of clsf filter provided by kernel
-@@ -135,8 +134,6 @@ struct enic_rfs_flw_tbl {
- 	struct timer_list rfs_may_expire;
- };
- 
--#endif /* CONFIG_RFS_ACCEL */
--
- /* Per-instance private data structure */
- struct enic {
- 	struct net_device *netdev;
-@@ -188,9 +185,7 @@ struct enic {
- 	/* completion queue cache line section */
- 	____cacheline_aligned struct vnic_cq cq[ENIC_CQ_MAX];
- 	unsigned int cq_count;
--#ifdef CONFIG_RFS_ACCEL
- 	struct enic_rfs_flw_tbl rfs_h;
--#endif
- };
- 
- static inline struct device *enic_get_dev(struct enic *enic)
-diff --git a/drivers/net/ethernet/cisco/enic/enic_clsf.c b/drivers/net/ethernet/cisco/enic/enic_clsf.c
-index bc451ba..ee6acbf 100644
---- a/drivers/net/ethernet/cisco/enic/enic_clsf.c
-+++ b/drivers/net/ethernet/cisco/enic/enic_clsf.c
-@@ -65,37 +65,6 @@ int enic_delfltr(struct enic *enic, u16 filter_id)
- 	return ret;
- }
- 
--#ifdef CONFIG_RFS_ACCEL
--void enic_flow_may_expire(unsigned long data)
--{
--	struct enic *enic = (struct enic *)data;
--	bool res;
--	int j;
--
--	spin_lock(&enic->rfs_h.lock);
--	for (j = 0; j < ENIC_CLSF_EXPIRE_COUNT; j++) {
--		struct hlist_head *hhead;
--		struct hlist_node *tmp;
--		struct enic_rfs_fltr_node *n;
--
--		hhead = &enic->rfs_h.ht_head[enic->rfs_h.toclean++];
--		hlist_for_each_entry_safe(n, tmp, hhead, node) {
--			res = rps_may_expire_flow(enic->netdev, n->rq_id,
--						  n->flow_id, n->fltr_id);
--			if (res) {
--				res = enic_delfltr(enic, n->fltr_id);
--				if (unlikely(res))
--					continue;
--				hlist_del(&n->node);
--				kfree(n);
--				enic->rfs_h.free++;
--			}
--		}
--	}
--	spin_unlock(&enic->rfs_h.lock);
--	mod_timer(&enic->rfs_h.rfs_may_expire, jiffies + HZ/4);
--}
--
- /* enic_rfs_flw_tbl_init - initialize enic->rfs_h members
-  *	@enic: enic data
-  */
-@@ -109,17 +78,14 @@ void enic_rfs_flw_tbl_init(struct enic *enic)
- 	enic->rfs_h.max = enic->config.num_arfs;
- 	enic->rfs_h.free = enic->rfs_h.max;
- 	enic->rfs_h.toclean = 0;
--	init_timer(&enic->rfs_h.rfs_may_expire);
--	enic->rfs_h.rfs_may_expire.function = enic_flow_may_expire;
--	enic->rfs_h.rfs_may_expire.data = (unsigned long)enic;
--	mod_timer(&enic->rfs_h.rfs_may_expire, jiffies + HZ/4);
-+	enic_rfs_timer_start(enic);
- }
- 
- void enic_rfs_flw_tbl_free(struct enic *enic)
- {
- 	int i;
- 
--	del_timer_sync(&enic->rfs_h.rfs_may_expire);
-+	enic_rfs_timer_stop(enic);
- 	spin_lock(&enic->rfs_h.lock);
- 	enic->rfs_h.free = 0;
- 	for (i = 0; i < (1 << ENIC_RFS_FLW_BITSHIFT); i++) {
-@@ -137,6 +103,37 @@ void enic_rfs_flw_tbl_free(struct enic *enic)
- 	spin_unlock(&enic->rfs_h.lock);
- }
- 
-+#ifdef CONFIG_RFS_ACCEL
-+void enic_flow_may_expire(unsigned long data)
-+{
-+	struct enic *enic = (struct enic *)data;
-+	bool res;
-+	int j;
-+
-+	spin_lock(&enic->rfs_h.lock);
-+	for (j = 0; j < ENIC_CLSF_EXPIRE_COUNT; j++) {
-+		struct hlist_head *hhead;
-+		struct hlist_node *tmp;
-+		struct enic_rfs_fltr_node *n;
-+
-+		hhead = &enic->rfs_h.ht_head[enic->rfs_h.toclean++];
-+		hlist_for_each_entry_safe(n, tmp, hhead, node) {
-+			res = rps_may_expire_flow(enic->netdev, n->rq_id,
-+						  n->flow_id, n->fltr_id);
-+			if (res) {
-+				res = enic_delfltr(enic, n->fltr_id);
-+				if (unlikely(res))
-+					continue;
-+				hlist_del(&n->node);
-+				kfree(n);
-+				enic->rfs_h.free++;
-+			}
-+		}
-+	}
-+	spin_unlock(&enic->rfs_h.lock);
-+	mod_timer(&enic->rfs_h.rfs_may_expire, jiffies + HZ/4);
-+}
-+
- static struct enic_rfs_fltr_node *htbl_key_search(struct hlist_head *h,
- 						  struct flow_keys *k)
- {
-diff --git a/drivers/net/ethernet/cisco/enic/enic_clsf.h b/drivers/net/ethernet/cisco/enic/enic_clsf.h
-index d572704..221f364 100644
---- a/drivers/net/ethernet/cisco/enic/enic_clsf.h
-+++ b/drivers/net/ethernet/cisco/enic/enic_clsf.h
-@@ -8,15 +8,29 @@
- 
- int enic_addfltr_5t(struct enic *enic, struct flow_keys *keys, u16 rq);
- int enic_delfltr(struct enic *enic, u16 filter_id);
--
--#ifdef CONFIG_RFS_ACCEL
- void enic_rfs_flw_tbl_init(struct enic *enic);
- void enic_rfs_flw_tbl_free(struct enic *enic);
-+
-+#ifdef CONFIG_RFS_ACCEL
- int enic_rx_flow_steer(struct net_device *dev, const struct sk_buff *skb,
- 		       u16 rxq_index, u32 flow_id);
-+void enic_flow_may_expire(unsigned long data);
-+
-+static inline void enic_rfs_timer_start(struct enic *enic)
-+{
-+	init_timer(&enic->rfs_h.rfs_may_expire);
-+	enic->rfs_h.rfs_may_expire.function = enic_flow_may_expire;
-+	enic->rfs_h.rfs_may_expire.data = (unsigned long)enic;
-+	mod_timer(&enic->rfs_h.rfs_may_expire, jiffies + HZ/4);
-+}
-+
-+static inline void enic_rfs_timer_stop(struct enic *enic)
-+{
-+	del_timer_sync(&enic->rfs_h.rfs_may_expire);
-+}
- #else
--static inline void enic_rfs_flw_tbl_init(struct enic *enic) {}
--static inline void enic_rfs_flw_tbl_free(struct enic *enic) {}
-+static inline void enic_rfs_timer_start(struct enic *enic) {}
-+static inline void enic_rfs_timer_stop(struct enic *enic) {}
- #endif /* CONFIG_RFS_ACCEL */
- 
- #endif /* _ENIC_CLSF_H_ */
+Govindarajulu Varadarajan (2):
+  enic: remove #ifdef CONFIG_RFS_ACCEL around filter structures
+  enic: Add ethtool support to show classifier filters added by the
+    driver
+
+ drivers/net/ethernet/cisco/enic/enic.h         |  5 --
+ drivers/net/ethernet/cisco/enic/enic_clsf.c    | 87 +++++++++++++----------
+ drivers/net/ethernet/cisco/enic/enic_clsf.h    | 23 ++++--
+ drivers/net/ethernet/cisco/enic/enic_ethtool.c | 98 ++++++++++++++++++++++++++
+ 4 files changed, 168 insertions(+), 45 deletions(-)
+
 -- 
 2.0.2
