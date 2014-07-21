@@ -1,58 +1,65 @@
-From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
-Subject: Re: solos-pci.c: Fix me
-Date: Mon, 21 Jul 2014 14:18:51 -0400
-Message-ID: <20140721141851.7f270f4c@thirdoffive.cmf.nrl.navy.mil>
-References: <CAPDOMVjnK=OF8mQrXbbgGUtCRJO8oG4+PQOETEcskNk=95GLrg@mail.gmail.com>
-	<20140721091445.1ee700bb@thirdoffive.cmf.nrl.navy.mil>
-	<CAPDOMVh7cx57GtxHk-_tmorSWSj6xci-YkDrecdCLJfTANbHAQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Nick Krause <xerofoify@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAPDOMVh7cx57GtxHk-_tmorSWSj6xci-YkDrecdCLJfTANbHAQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+Subject: [RFC 0/2] net: phy: Prevent an MDIO bus from being unloaded while in use
+Date: Mon, 21 Jul 2014 15:26:08 -0300
+Message-ID: <1405967170-19353-1-git-send-email-ezequiel.garcia@free-electrons.com>
+Cc: David Miller <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from top.free-electrons.com ([176.31.233.9]:55866 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S933219AbaGUS1J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 14:27:09 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 21 Jul 2014 13:42:01 -0400
-Nick Krause <xerofoify@gmail.com> wrote:
+Hi all,
 
-> On Mon, Jul 21, 2014 at 9:14 AM, chas williams - CONTRACTOR
-> <chas@cmf.nrl.navy.mil> wrote:
-...
-> > @@ -850,8 +850,7 @@ static void solos_bh(unsigned long card_arg)
-> >                                 dev_kfree_skb_any(skb);
-> >                                 break;
-> >
-> > -                       case PKT_COMMAND:
-> > -                       default: /* FIXME: Not really, surely? */
-> > +                       default: /* PKT_COMMAND */
-> >                                 if (process_command(card, port, skb))
-> >                                         break;power
-> >                                 spin_lock(&card->cli_queue_lock);
-> >
-> > and be done with it since that will preserve existing behavior.
-> 
-> 
-> My only question then is this function causing bugs as is?
-> Cheers Nick
-> 
+This small patchset is a first proposal to fix the current lack of relationship
+between an ethernet driver and the MDIO bus behind the PHY device.
 
-It has been there since the first version of this driver was released.
-If it were breaking things, I would have to guess it would have been
-noticed by now.
+In such cases, we would find no visible link between the drivers:
 
-Just looking at the PKT_* defines, I would wildly guess that PKT_COMMAND
-PKT_POPEN and PKT_PCLOSE are all being handled via the PKT_COMMAND|default
-case.  If not, popen and pclose would be leaking a skb for each usage
-(which would be opening and closing the PVC -- not very often).
+  $ lsmod
+  Module                  Size  Used by    Not tainted
+  mvmdio                  2941  0 
+  mvneta                 22069  0 
 
-popen and pclose just seem like specialized PKT_COMMAND types.
-process_command() woud ignore PKT_POPEN and PKT_PCLOSE since they aren't
-long enough to contain a command.  So maybe the comment should just go
-away.
+Which means nothing prevents the MDIO driver from being removed:
 
-If you had access to hardware you could probably figure this out pretty
-quickly.  The programmer's manual doesn't seem to be available.
+  $ modprobe -r mvmdio
+
+  # Unable to handle kernel NULL pointer dereference at virtual address 00000060
+  pgd = c0004000
+  [00000060] *pgd=00000000
+  Internal error: Oops: 17 [#1] SMP ARM
+  Modules linked in: mvneta [last unloaded: mvmdio]
+  CPU: 0 PID: 22 Comm: kworker/0:1 Not tainted 3.16.0-rc5-01127-g62c0816-dirty #608
+  Workqueue: events_power_efficient phy_state_machine
+  task: df5ec840 ti: df67a000 task.ti: df67a000
+  PC is at phy_state_machine+0x1c/0x468
+  LR is at phy_state_machine+0x18/0x468
+  [snip]
+
+This patchset fixes this by calling module_{get,put} in the ethernet driver.
+After this patch, the mvmdio driver is no longer removable:
+
+  $ modprobe -r mvmdio
+  modprobe: can't unload module mvmdio: Resource temporarily unavailable
+
+Of course, we can expect a few drivers to have the same need and therefore
+we could argue about moving this to be part of the phydev connection.
+
+Ezequiel Garcia (2):
+  net: phy: Set the driver when registering an MDIO bus device
+  net: mvneta: Ensure the MDIO bus module is held
+
+ drivers/net/ethernet/marvell/mvneta.c | 12 ++++++++++++
+ drivers/net/phy/mdio_bus.c            |  1 +
+ 2 files changed, 13 insertions(+)
+
+-- 
+2.0.1
