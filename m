@@ -1,66 +1,70 @@
-From: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
-Subject: RE: FEC driver hangs hardware on i.MX6SX
-Date: Mon, 21 Jul 2014 02:13:39 +0000
-Message-ID: <06acadb1ae284d39915d32a7adfb052f@BLUPR03MB373.namprd03.prod.outlook.com>
-References: <20140720025732.GF8537@dragon> <20140720062048.GB5686@netboy>
- <20140721015915.GG8537@dragon>
+From: Ying Xue <ying.xue@windriver.com>
+Subject: Re: [PATCH -next] tipc: fix sparse non static symbol warnings
+Date: Mon, 21 Jul 2014 10:36:40 +0800
+Message-ID: <53CC7CB8.9090205@windriver.com>
+References: <1405833268-6630-1-git-send-email-weiyj_lk@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
+	<netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>
+To: <weiyj_lk@163.com>, Jon Maloy <jon.maloy@ericsson.com>,
+	Allan Stephens <allan.stephens@windriver.com>,
 	"David S. Miller" <davem@davemloft.net>
-To: Shawn Guo <Shawn.Guo@freescale.com>,
-	Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1blp0185.outbound.protection.outlook.com ([207.46.163.185]:52878
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750837AbaGUCNo convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2014 22:13:44 -0400
-In-Reply-To: <20140721015915.GG8537@dragon>
-Content-Language: en-US
+Received: from mail.windriver.com ([147.11.1.11]:63300 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751901AbaGUChP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2014 22:37:15 -0400
+In-Reply-To: <1405833268-6630-1-git-send-email-weiyj_lk@163.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shawn Guo <shawn.guo@freescale.com> Data: Monday, July 21, 2014 9:59 AM
->To: Richard Cochran
->Cc: Duan Fugang-B38611; linux-arm-kernel@lists.infradead.org;
->netdev@vger.kernel.org; Li Frank-B20596; David S. Miller
->Subject: Re: FEC driver hangs hardware on i.MX6SX
->
->On Sun, Jul 20, 2014 at 08:20:49AM +0200, Richard Cochran wrote:
->> On Sun, Jul 20, 2014 at 10:57:33AM +0800, Shawn Guo wrote:
->> >
->> > I think the cause is that PTP is still accessing registers after FEC
->> > driver calls fec_enet_clk_enable(ndev, false) to disable FEC clocks.
->> > Can you please try to provide a fix for this regression soon?
->>
->> What do you mean by, "PTP is still accessing registers"?
->>
->> The only access to any register is through the driver, and the driver
->> can and should make sure all register accesses are safe.
->
->Sorry for being vague, Richard.  I meant PTP driver is still accessing
->registers.
->
->With Fugang's clock management patch, FEC clocks will be disabled to save
->power after FEC gets probed.  But at that point, fec_ptp driver already
->launches a timer, which will trigger the read on FEC ATIME register once
->per second.
->
->Shawn
-	
-Yes, why does it cause at imx6sx platform ?
-Because imx5x, imx6q/dl/sl  enet register access don't cause system hang when clock is disab led, just return one error value that is zero.
-But for imx6sx, if there disable enet ipg clock, and access register, which cause system hang.
+On 07/20/2014 01:14 PM, weiyj_lk@163.com wrote:
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> 
+> Fixes the following sparse warnings:
+> 
+> net/tipc/socket.c:545:5: warning:
+>  symbol 'tipc_sk_proto_rcv' was not declared. Should it be static?
+> net/tipc/socket.c:2015:5: warning:
+>  symbol 'tipc_ioctl' was not declared. Should it be static?
+> 
 
-For clock management patch itself, there have no any problem.  
-Just ptp driver has one issue which think clock is always on.
+Acked-by: Ying Xue <ying.xue@windriver.com>
 
-I  submit one patch to fix the ptp issue.
-
-Thanks,
-Andy
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> ---
+>  net/tipc/socket.c | 5 +++--
+>  1 file changed, 3 insertions(+), 2 deletions(-)
+> 
+> diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+> index de01622..42c3599 100644
+> --- a/net/tipc/socket.c
+> +++ b/net/tipc/socket.c
+> @@ -542,7 +542,8 @@ static unsigned int tipc_poll(struct file *file, struct socket *sock,
+>   * Returns 0 (TIPC_OK) if message was consumed, 1 (TIPC_FWD_MSG) if
+>   * (CONN_PROBE_REPLY) message should be forwarded.
+>   */
+> -int tipc_sk_proto_rcv(struct tipc_sock *tsk, u32 *dnode, struct sk_buff *buf)
+> +static int tipc_sk_proto_rcv(struct tipc_sock *tsk, u32 *dnode,
+> +			     struct sk_buff *buf)
+>  {
+>  	struct tipc_msg *msg = buf_msg(buf);
+>  	struct tipc_port *port = &tsk->port;
+> @@ -2012,7 +2013,7 @@ static int tipc_getsockopt(struct socket *sock, int lvl, int opt,
+>  	return put_user(sizeof(value), ol);
+>  }
+>  
+> -int tipc_ioctl(struct socket *sk, unsigned int cmd, unsigned long arg)
+> +static int tipc_ioctl(struct socket *sk, unsigned int cmd, unsigned long arg)
+>  {
+>  	struct tipc_sioc_ln_req lnr;
+>  	void __user *argp = (void __user *)arg;
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+> 
