@@ -1,43 +1,45 @@
-From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next v6 11/11] openvswitch: Add skb_clone NULL check for the sampling action.
-Date: Sun, 20 Jul 2014 23:17:54 -0700
-Message-ID: <1405923474-2174-1-git-send-email-pshelar@nicira.com>
-Cc: netdev@vger.kernel.org, Andy Zhou <azhou@nicira.com>,
-	Pravin B Shelar <pshelar@nicira.com>
-To: davem@davemloft.net
+From: Daniele Venzano <venza@brownhat.org>
+Subject: Re: [PATCH 24/30] sis900: remove unnecessary break after return
+Date: Mon, 21 Jul 2014 08:26:10 +0200
+Message-ID: <53CCB282.7070901@brownhat.org>
+References: <1405866475-24754-1-git-send-email-fabf@skynet.be> <1405866475-24754-5-git-send-email-fabf@skynet.be>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, joe@perches.com, netdev@vger.kernel.org
+To: Fabian Frederick <fabf@skynet.be>, linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog104.obsmtp.com ([74.125.149.73]:57751 "HELO
-	na3sys009aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753441AbaGUGRz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 02:17:55 -0400
-Received: by mail-pa0-f47.google.com with SMTP id kx10so9037298pab.20
-        for <netdev@vger.kernel.org>; Sun, 20 Jul 2014 23:17:55 -0700 (PDT)
+Received: from smtp4.infomaniak.ch ([84.16.68.92]:40465 "EHLO
+	smtp4.infomaniak.ch" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752656AbaGUGcD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 02:32:03 -0400
+In-Reply-To: <1405866475-24754-5-git-send-email-fabf@skynet.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Zhou <azhou@nicira.com>
+Il 20/07/2014 16:27, Fabian Frederick ha scritto:
+> Signed-off-by: Fabian Frederick <fabf@skynet.be>
+Signed-off-by: Daniele Venzano <venza@brownhat.org>
 
-Fix a bug where skb_clone() NULL check is missing in sample action
-implementation.
+> ---
+>  drivers/net/ethernet/sis/sis900.c | 1 -
+>  1 file changed, 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/sis/sis900.c b/drivers/net/ethernet/sis/sis900.c
+> index 6072f09..7bea17c 100644
+> --- a/drivers/net/ethernet/sis/sis900.c
+> +++ b/drivers/net/ethernet/sis/sis900.c
+> @@ -2258,7 +2258,6 @@ static int sis900_set_config(struct net_device *dev, struct ifmap *map)
+>  		case IF_PORT_100BASEFX: /* 100BaseFx */
+>                  	/* These Modes are not supported (are they?)*/
+>  			return -EOPNOTSUPP;
+> -			break;
+>  
+>  		default:
+>  			return -EINVAL;
+> 
 
-Signed-off-by: Andy Zhou <azhou@nicira.com>
-Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
----
- net/openvswitch/actions.c | 2 ++
- 1 file changed, 2 insertions(+)
 
-diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-index a80bdbf..6071535 100644
---- a/net/openvswitch/actions.c
-+++ b/net/openvswitch/actions.c
-@@ -477,6 +477,8 @@ static int sample(struct datapath *dp, struct sk_buff *skb,
- 		skb_get(skb);
- 	} else {
- 		sample_skb = skb_clone(skb, GFP_ATOMIC);
-+		if (!sample_skb) /* Skip sample action when out of memory. */
-+			return 0;
- 	}
- 
- 	/* Note that do_execute_actions() never consumes skb.
 -- 
-1.9.3
+Daniele Venzano
+http://www.brownhat.org
