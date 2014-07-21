@@ -1,62 +1,80 @@
-From: kishan simha <ksimha123@gmail.com>
-Subject: Re: Information about SCTP patch
-Date: Mon, 21 Jul 2014 14:08:21 +0530
-Message-ID: <CAJ5TDg_qOkpGe7Ouzn_wfbsODL4FoVLmq7EmQes6hEW-dnMLWg@mail.gmail.com>
-References: <CAJ5TDg_0GjTWVin1Xr4sZwNhzMiT+bJPZwzfKB0xBdPMuK7T+g@mail.gmail.com>
-	<20140627200644.GA9086@marquez.int.rhx>
+From: Quentin Armitage <quentin@armitage.org.uk>
+Subject: Re: [PATCH] ipv4: Make IP_MULTICAST_ALL and IP_MSFILTER work on raw
+ sockets
+Date: Mon, 21 Jul 2014 09:42:58 +0100
+Message-ID: <1405932178.3485.66.camel@samson1.armitage.org.uk>
+References: <1405701503.3485.49.camel@samson1.armitage.org.uk>
+	 <20140720.212728.2235972803070688024.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	prasad.padiyar@nsn.com, sumit.11.kumar@nsn.com
-To: Michele Baldessari <michele@acksyn.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f52.google.com ([209.85.219.52]:57787 "EHLO
-	mail-oa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752439AbaGUIiV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 04:38:21 -0400
-In-Reply-To: <20140627200644.GA9086@marquez.int.rhx>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140720.212728.2235972803070688024.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello Michele,
+On Sun, 2014-07-20 at 21:27 -0700, David Miller wrote:
+> From: Quentin Armitage <quentin@armitage.org.uk>
+> Date: Fri, 18 Jul 2014 17:38:23 +0100
+> 
+> Currently, although IP_MULTICAST_ALL and IP_MSFILTER ioctl calls succeed on
+> raw sockets, there is no code to implement the functionality on received
+> packets; it is only implemented for UDP sockets. The raw(7) man page states:
+> "In addition, all ip(7) IPPROTO_IP socket options valid for datagram sockets
+> are supported", which implies these ioctls should work on raw sockets.
+> 
+> To fix this, add a call to ip_mc_sf_allow on raw sockets.
+> 
+> This should not break any existing code, since the current position of
+> not calling ip_mc_sf_filter makes it behave as if neither the IP_MULTICAST_ALL
+> nor the IP_MSFILTER ioctl had been called. Adding the call to ip_mc_sf_allow
+> will therefore maintain the current behaviour so long as IP_MULTICAST_ALL and
+> IP_MSFILTER ioctls are not called. Any code that currently is calling
+> IP_MULTICAST_ALL or IP_MSFILTER ioctls on raw sockets presumably is wanting
+> the filter to be applied, although no filtering will currently be occurring.
+> 
+> Signed-off-by: Quentin Armitage <quentin@armitage.org.uk>
+> ---
+>  net/ipv4/raw.c |    5 ++++-
+>  1 files changed, 4 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+> index 2c65160..2e1628c 100644
+> --- a/net/ipv4/raw.c
+> +++ b/net/ipv4/raw.c
+> @@ -58,6 +58,7 @@
+>  #include <linux/in_route.h>
+>  #include <linux/route.h>
+>  #include <linux/skbuff.h>
+> +#include <linux/igmp.h>
+>  #include <net/net_namespace.h>
+>  #include <net/dst.h>
+>  #include <net/sock.h>
+> @@ -174,7 +175,9 @@ static int raw_v4_input(struct sk_buff *skb, const struct iphdr *iph, int hash)
+>  
+>         while (sk) {
+>                 delivered = 1;
+> -               if (iph->protocol != IPPROTO_ICMP || !icmp_filter(sk, skb)) {
+> +               if ((iph->protocol != IPPROTO_ICMP || !icmp_filter(sk, skb)) &&
+> +                   ip_mc_sf_allow(sk, iph->daddr, iph->saddr,
+> +                                  skb->dev->ifindex)) {
+>                         struct sk_buff *clone = skb_clone(skb, GFP_ATOMIC);
+>  
+>                         /* Not releasing hash table! */
+> -- 
+> 1.7.7.6
+> 
+> 
+> 
+> Please form your subject line properly, the text should be of the form:
+> 
+> [PATCH] ${SUBSYSTEM}: Description.
+> 
+> Your's is missing the subsystem prefix, which should probable be "ipv4: "
+> in this case.
 
-Thank you for the response.
-
-I have a few more queries regarding the patch.
-
-We are trying to integrate this patch to a little older kernel 2.6.34.13.
-Additionally we are planning to give a proc file interface to display the stats.
-
-I came across a review comment for your patch, where the proc solution
-was rejected.
-
-Can you provide some information on why the solution was rejected ?
-
-Thanks and Regards
-Kishan
-
-
-
-On Sat, Jun 28, 2014 at 1:36 AM, Michele Baldessari <michele@acksyn.org> wrote:
-> Hi Kishan,
->
-> On Thu, Jun 26, 2014 at 12:58:54PM +0530, kishan simha wrote:
->> I wanted some information on the SCTP patch   "sctp: Add support to
->> per-association statistics via a new SCTP_GET_ASSOC_STA "
->>
->> The commit information is
->> commit 196d67593439b03088913227093e374235596e33
->> Author: Michele Baldessari <michele@acksyn.org>
->> Date:   Sat Dec 1 04:49:42 2012 +0000
->>
->> Is it possible to know into which kernel version did this patch go into?
->> I tried to find it online and I was not able to. Hence mailing to this list.
->
-> as Eric mentioned, it's in 3.8 (or also in RHEL-6.5). Feel free to reach out
-> if you have any questions.
->
-> cheers,
-> Michele
-> --
-> Michele Baldessari            <michele@acksyn.org>
-> C2A5 9DA3 9961 4FFB E01B  D0BC DDD4 DCCB 7515 5C6D
+Subsystem ipv4: added to subject.
