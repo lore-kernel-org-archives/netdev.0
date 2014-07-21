@@ -1,40 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: print a notification on device rename
-Date: Sun, 20 Jul 2014 20:44:39 -0700 (PDT)
-Message-ID: <20140720.204439.469415924513948216.davem@davemloft.net>
-References: <1405622012-5511-1-git-send-email-vfalico@gmail.com>
+Subject: Re: [Patch net] net_sched: avoid generating same handle for u32
+ filters
+Date: Sun, 20 Jul 2014 20:49:41 -0700 (PDT)
+Message-ID: <20140720.204941.2049170221961813123.davem@davemloft.net>
+References: <53CAEC2F.4050808@mojatatu.com>
+	<CAM_iQpU8P=sgbtOfjZ8QD6maoMCfwoiTgEsiEVG7M=j3M3v22g@mail.gmail.com>
+	<53CBEC4D.5000103@mojatatu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, vyasevic@redhat.com,
-	stephen@networkplumber.org, hkchu@google.com,
-	bhutchings@solarflare.com, David.Laight@ACULAB.COM
-To: vfalico@gmail.com
+Cc: xiyou.wangcong@gmail.com, netdev@vger.kernel.org,
+	cwang@twopensource.com
+To: jhs@mojatatu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52839 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52894 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751803AbaGUDok (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2014 23:44:40 -0400
-In-Reply-To: <1405622012-5511-1-git-send-email-vfalico@gmail.com>
+	with ESMTP id S1752074AbaGUDtm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2014 23:49:42 -0400
+In-Reply-To: <53CBEC4D.5000103@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Veaceslav Falico <vfalico@gmail.com>
-Date: Thu, 17 Jul 2014 20:33:32 +0200
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Date: Sun, 20 Jul 2014 12:20:29 -0400
 
-> Currently it's done silently (from the kernel part), and thus it might be
-> hard to track the renames from logs.
+> On 07/19/14 18:15, Cong Wang wrote:
+>> On Sat, Jul 19, 2014 at 3:07 PM, Jamal Hadi Salim <jhs@mojatatu.com>
+>> wrote:
 > 
-> Add a simple netdev_info() to notify the rename, but only in case the
-> previous name was valid.
+>>
+>> gen_new_kid() is called only when handle is not specified by user.
+>>
 > 
-> CC: "David S. Miller" <davem@davemloft.net>
-> CC: Eric Dumazet <edumazet@google.com>
-> CC: Vlad Yasevich <vyasevic@redhat.com>
-> CC: stephen hemminger <stephen@networkplumber.org>
-> CC: Jerry Chu <hkchu@google.com>
-> CC: Ben Hutchings <bhutchings@solarflare.com>
-> CC: David Laight <David.Laight@ACULAB.COM>
-> Signed-off-by: Veaceslav Falico <vfalico@gmail.com>
+> Ok, thanks. Please add my sign-off.
 
-This is fine, applied.
+Jamal, please in the future just simply say:
+
+Signed-off-by: Jamal ...
+
+when you want your signoff to get added, it's more work for everyone
+otherwise.
+
+Thanks.
