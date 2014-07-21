@@ -1,107 +1,152 @@
-From: Alex Williamson <alex.williamson@redhat.com>
-Subject: Re: [PATCH 1/2 V3] PCI: introduce device assignment
- interface and refactory related code
-Date: Mon, 21 Jul 2014 08:01:13 -0600
-Message-ID: <1405951273.4463.4.camel@ul30vt.home>
-References: <1405081802-419-1-git-send-email-ethan.zhao@oracle.com>
-	<1405084407.4098.59.camel@ul30vt.home>
-	<1405088147.4098.64.camel@ul30vt.home>
-	<B5657A6538887040AD3A81F1008BEC63B020DC@avmb3.qlogic.org>
-	<1405907916.4463.2.camel@ul30vt.home>
-	<CABawtvO5dSENsCzzTpxhmsUOSsSJ7=Qb08W9D+eWFOiK9m536A@mail.gmail.com>
-	<B5657A6538887040AD3A81F1008BEC63B025FE@avmb3.qlogic.org>
+From: Tom Gundersen <teg@jklm.no>
+Subject: Re: [PATCH] Hyperv: Trigger DHCP renew after host hibernation
+Date: Mon, 21 Jul 2014 16:06:48 +0200
+Message-ID: <CAG-2HqXNi1_yNOTLcvDys3hHJ4wHU+aJLOCgdu4uiYLBTwyFdw@mail.gmail.com>
+References: <1405680903-28176-1-git-send-email-yuezha@microsoft.com>
+ <CAG-2HqXFBUmpTAE8h13-DmP6Fq42viHzmuH9OfNoLgjW8XcQ3Q@mail.gmail.com> <DC7803B42427924284F2D5252E076A3B4476A6D1@SINEX14MBXC416.southpacific.corp.microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	linux-pci <linux-pci@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"vaughan.cao@oracle.com" <vaughan.cao@oracle.com>,
-	"jesse.brandeburg@intel.com" <jesse.brandeburg@intel.com>,
-	Ethan Zhao <ethan.kernel@gmail.com>, Ethan Zhao <ethan.zhao@oracle.com>,
-	"linux.nics@intel.com" <linux.nics@intel.com>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
-	"gleb@kernel.org" <gleb@kernel.org>,
-	"bhelgaas@google.com" <bhelgaas@google.com>,
-	"boris.ostrovsky@oracle.com" <boris.ostrovsky@oracle.com>,
-	netdev <netdev@vger.kernel.org>,
-	"bruce.w.allan@intel.com" <bruce.w.allan@intel.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	"john.ronciak@intel.com" <john.ronciak@intel.com>,
-	"david.vrabel@citrix.com" <david.vrabel@citrix.com>,
-	"pbonzini@redhat.com" <pbonzini@redhat.com>
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <B5657A6538887040AD3A81F1008BEC63B025FE@avmb3.qlogic.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	"driverdev-devel@linuxdriverproject.org"
+	<driverdev-devel@linuxdriverproject.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Greg KH <gregkh@linuxfoundation.org>,
+	"olaf@aepfle.de" <olaf@aepfle.de>,
+	"jasowang@redhat.com" <jasowang@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	Haiyang Zhang <haiyangz@microsoft.com>,
+	KY Srinivasan <kys@microsoft.com>,
+	Thomas Shao <huishao@microsoft.com>,
+	Dexuan Cui <decui@microsoft.com>,
+	Lennart Poettering <lennart@poettering.net>
+To: "Yue Zhang (OSTC DEV)" <yuezha@microsoft.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yh0-f51.google.com ([209.85.213.51]:58143 "EHLO
+	mail-yh0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932423AbaGUOHJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 10:07:09 -0400
+Received: by mail-yh0-f51.google.com with SMTP id f73so4060182yha.10
+        for <netdev@vger.kernel.org>; Mon, 21 Jul 2014 07:07:08 -0700 (PDT)
+In-Reply-To: <DC7803B42427924284F2D5252E076A3B4476A6D1@SINEX14MBXC416.southpacific.corp.microsoft.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-07-21 at 13:17 +0000, Yuval Mintz wrote:
-> > >> > > > This patch introduces two new device assignment functions
-> > >> > > >
-> > >> > > > pci_iov_assign_device(),
-> > >> > > > pci_iov_deassign_device()
-> > >> > > >
-> > >> > > > along with the existed one
-> > >> > > >
-> > >> > > > pci_vfs_assigned()
-> > >> > > >
-> > >> > > > They construct the VFs assignment management interface, used to
-> > >> > > > assign/ deassign device to VM and query the VFs reference counter.
-> > >> > > > instead of direct manipulation of device flag.
-> > >>
-> > >> Sorry for the late intrusion into the conversation, and perhaps it's
-> > >> a bit unrelated, but given that you're creating a 'VF assignment management'
-> > >> perhaps it's the right place to add some sort of mechanism in order
-> > >> to prevent module removal once one of its VFs is assigned.
-> > >> [e.g., incrementing module reference count]
-> > >>
-> > >> At the moment [to the best of my knowledge] there's no mechanism
-> > >> preventing the 'not-so-bright' user from removing the driver, and no
-> > >> good will come out of it.
-> > >
-> > > On what module would the reference count be increased, the PF?  The
-> > > entire "VF assigned" interface is a hack to work around poor
-> > > architectures like legacy KVM device assignment where there's no
-> > > proper device owner for the VF.  This is "fixed" by using VFIO instead
-> > > and hopefully deprecating legacy KVM assignment.  Thanks,
-> >
-> >   To explain what Alex said, in another word, if VMs access VF via VFIO driver,
-> > the owner of the device is VFIO, in this case, if you unload PF driver, you still
-> > need to unload VFIO first, then unload PF driver. but the PF driver knows how to
-> > notify the VFIO driver to unload.
-> >   But without VFIO like driver, for example some of current code will assign
-> > devcie (PF/VF) directly to KVM or XEN without driver in the middle. and the PF
-> > driver doesn't know how to unbind the assignment...
-> 
-> Hi,
-> 
-> I thought about perhaps incrementing the reference count of the PF's module
-> [i.e., the module supplying the driver for the PF] directly, so THAT module won't
-> be removable as long as the VF is assigned.
-> 
-> Although I don't know whether the module is even accessible; Can you derive a
-> pointer to a module from a net_device struct?
+On Mon, Jul 21, 2014 at 12:21 PM, Yue Zhang (OSTC DEV)
+<yuezha@microsoft.com> wrote:
+>> From: Tom Gundersen [mailto:teg@jklm.no]
+>> Sent: Monday, July 21, 2014 5:42 PM
+>>
+>> On Fri, Jul 18, 2014 at 12:55 PM, Yue Zhang <yuezha@microsoft.com> wrote:
+>> > From: Yue Zhang <yuezha@microsoft.com>
+>> >
+>> > This patch addresses the comment from Olaf Hering and Greg KH
+>> > for a previous commit 3a494e710367 ("hyperv: Add handler for
+>> > RNDIS_STATUS_NETWORK_CHANGE event")
+>> >
+>> > In previous solution, the driver calls "network restart" to
+>> > force a DHCP renew when the host is back from hibernation.
+>> >
+>> > In this fix, the driver will keep network carrier offline for
+>> > 10 seconds and then bring it back. So that ifplugd daemon will
+>> > notice this change and refresh DHCP lease.
+>> >
+>> > Cc: Haiyang Zhang <haiyangz@microsoft.com>
+>> > Cc: K. Y. Srinivasan <kys@microsoft.com>
+>> >
+>> > Signed-off-by: Yue Zhang <yuezha@microsoft.com>
+>> > ---
+>> >  drivers/net/hyperv/netvsc_drv.c | 21 +++++++++++++++++----
+>> >  1 file changed, 17 insertions(+), 4 deletions(-)
+>> >
+>> > diff --git a/drivers/net/hyperv/netvsc_drv.c
+>> b/drivers/net/hyperv/netvsc_drv.c
+>> > index a9c5eaa..559c97d 100644
+>> > --- a/drivers/net/hyperv/netvsc_drv.c
+>> > +++ b/drivers/net/hyperv/netvsc_drv.c
+>> > @@ -33,6 +33,7 @@
+>> >  #include <linux/if_vlan.h>
+>> >  #include <linux/in.h>
+>> >  #include <linux/slab.h>
+>> > +#include <linux/delay.h>
+>> >  #include <net/arp.h>
+>> >  #include <net/route.h>
+>> >  #include <net/sock.h>
+>> > @@ -792,8 +793,7 @@ static void netvsc_link_change(struct work_struct
+>> *w)
+>> >         struct netvsc_device *net_device;
+>> >         struct rndis_device *rdev;
+>> >         bool notify, refresh = false;
+>> > -       char *argv[] = { "/etc/init.d/network", "restart", NULL };
+>> > -       char *envp[] = { "HOME=/", "PATH=/sbin:/usr/sbin:/bin:/usr/bin",
+>> NULL };
+>> > +       int delay;
+>> >
+>> >         rtnl_lock();
+>> >
+>> > @@ -816,8 +816,21 @@ static void netvsc_link_change(struct work_struct
+>> *w)
+>> >
+>> >         rtnl_unlock();
+>> >
+>> > -       if (refresh)
+>> > -               call_usermodehelper(argv[0], argv, envp, UMH_WAIT_EXEC);
+>> > +       if (refresh) {
+>> > +               /*
+>> > +                * Keep the carrier offline for 10 seconds
+>> > +                * to notify ifplugd daemon network change
+>> > +                */
+>> > +               for (delay = 0; delay < 10; delay++) {
+>> > +                       rtnl_lock();
+>> > +                       netif_carrier_off(net);
+>> > +                       rtnl_unlock();
+>> > +                       ssleep(1);
+>> > +               }
+>> > +               rtnl_lock();
+>> > +               netif_carrier_on(net);
+>> > +               rtnl_unlock();
+>> > +       }
+>>
+>> Why is it necessary to wait for ten seconds? Why not just:
+>>
+>> if (refresh) {
+>>         rtnl_lock();
+>>         netif_carrier_off(net);
+>>         netif_carrier_on(net);
+>>         rtnl_unlock();
+>> }
+>>
+>> At least systemd-networkd will renew the dhcp lease as long as it gets
+>> NEWLINK messages indicating that the carrier was lost and regained,
+>> regardless of the time between events. Is there any reason not to do
+>> this?
+>>
+>> Cheers,
+>>
+>> Tom
+>>
+>
+> Hi, Tom
+>
+> Some network monitoring daemon, like ifplugd has a deferring mechanism.
+> When it detects carriers is offline, it doesn't trigger DHCP renew immediately.
+> Instead it will wait for another 5 seconds to check whether carrier is back to
+> online status. In that case, it will avoid renew DHCP lease.
+>
+> And also there is some optimization in Linux's network stack. If link state
+> flipped so quickly, like the code you proposed. It is very likely the event won't
+> be delivered to user space.
 
-A VF is not necessarily a net device.  A pci_dev does have a physfn
-pointer though.
+Ah, ok, I don't know the kernel side of this too well, you may need
+some sort of flush or sync between the calls I suggested. At any rate,
+I would say that the solution should be to send a "lower down"
+followed immediately by "lower up" and never have any sort of timeout.
+All the drivers I have tried send out such events immediately when the
+machine is resumed, so I guess most network software should know how
+to deal with that.
 
+I really think the policy of what to do in response to the various
+events should be left to userspace to figure out.
 
-------------------------------------------------------------------------------
-Want fast and easy access to all the code in your enterprise? Index and
-search up to 200,000 lines of code with a free copy of Black Duck
-Code Sight - the same software that powers the world's largest code
-search on Ohloh, the Black Duck Open Hub! Try it now.
-http://p.sf.net/sfu/bds
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Cheers,
+
+Tom
