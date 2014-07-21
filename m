@@ -1,59 +1,71 @@
-From: Nishanth Aravamudan <nacc@linux.vnet.ibm.com>
-Subject: Re: [RFC Patch V1 15/30] mm, igb: Use cpu_to_mem()/numa_mem_id() to
- support memoryless node
-Date: Mon, 21 Jul 2014 14:09:00 -0700
-Message-ID: <20140721210900.GI4156@linux.vnet.ibm.com>
-References: <1405064267-11678-1-git-send-email-jiang.liu@linux.intel.com>
- <1405064267-11678-16-git-send-email-jiang.liu@linux.intel.com>
- <20140721174218.GD4156@linux.vnet.ibm.com>
- <CAKgT0UdZdbduP-=R7uRCxJVxt1yCDoHpnercnDoyrCbWNtx=6Q@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v6 04/11] net: Export xmit_recursion
+Date: Mon, 21 Jul 2014 14:30:40 -0700 (PDT)
+Message-ID: <20140721.143040.505863988764762548.davem@davemloft.net>
+References: <1405923435-1971-1-git-send-email-pshelar@nicira.com>
+	<063D6719AE5E284EB5DD2968C1650D6D17279E9B@AcuExch.aculab.com>
+	<CALnjE+r7BaX1C1X5=9mz4LUQhZZ9B13prukwh0x5_vBsesZYEA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiang Liu <jiang.liu@linux.intel.com>,
-        Andrew Morton <akpm@linux-foundation.org>,
-        Mel Gorman <mgorman@suse.de>, David Rientjes <rientjes@google.com>,
-        Mike Galbraith <umgwanakikbuti@gmail.com>,
-        Peter Zijlstra <peterz@infradead.org>,
-        "Rafael J . Wysocki" <rafael.j.wysocki@intel.com>,
-        Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-        Jesse Brandeburg <jesse.brandeburg@intel.com>,
-        Bruce Allan <bruce.w.allan@intel.com>,
-        Carolyn Wyborny <carolyn.wyborny@intel.com>,
-        Don Skidmore <donald.c.skidmore@intel.com>,
-        Greg Rose <gregory.v.rose@intel.com>,
-        Alex Duyck <alexander.h.duyck@intel.com>,
-        John Ronciak <john.ronciak@intel.com>,
-        Mitch Williams <mitch.a.williams@intel.com>,
-        Linux NICS <linux.nics@intel.com>, Tony Luck <tony.luck@intel.com>,
-        linux-mm@kvack.org, linux-hotplug@
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <CAKgT0UdZdbduP-=R7uRCxJVxt1yCDoHpnercnDoyrCbWNtx=6Q@mail.gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: David.Laight@aculab.com, netdev@vger.kernel.org
+To: pshelar@nicira.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36572 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753809AbaGUVap (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 17:30:45 -0400
+In-Reply-To: <CALnjE+r7BaX1C1X5=9mz4LUQhZZ9B13prukwh0x5_vBsesZYEA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 21.07.2014 [12:53:33 -0700], Alexander Duyck wrote:
-> I do agree the description should probably be changed.  There shouldn't be
-> any panics involved, only a performance impact as it will be reallocating
-> always if it is on a node with no memory.
+From: Pravin Shelar <pshelar@nicira.com>
+Date: Mon, 21 Jul 2014 10:01:52 -0700
 
-Yep, thanks for the review.
+> On Mon, Jul 21, 2014 at 1:52 AM, David Laight <David.Laight@aculab.com> wrote:
+>> From: Pravin B Shelar
+>>> Next patch adds re-circulation action to OVS. This is recursive
+>>> action needs to be limited to safe number recursions to
+>>> avoid overflowing kernel stack space.  This patch export
+>>> xmit_recursion so that OVS can increment and check the value
+>>> before executing recirc action.
+>> ...
+>>> +#define NET_RECURSION_LIMIT 10
+>>
+>> I'm not entirely sure that any amount of recursion is a good idea
+>> inside the kernel.
+>> If the nested call frame is small enough so that your 10 nestings
+>> are valid it must also be reasonably easy to arrange for the code
+>> to be converted to a loop.
+>>
+>> Remember that the highest stack use is likely to be inside some
+>> error path (probably inside printk) so any experiments that seem
+>> to imply that that stack use is ok are doomed.
+>>
+>> Static analysis is possible (indirect calls make it tricky) provided
+>> there is no recursion.
+>> I did some static stack use analysis for an embedded system many
+>> years ago. It showed that we needed much larger stacks that we'd
+>> allowed for.
+> 
+> I am using same recursion counter as networking stack does. Recursion
+> in OVS has lesser cost compared to recursion in networking stack, So
+> it is conservative to use same counter to track recursion in OVS as
+> networking stack recursion.
 
-> My intention on this was to make certain that the memory used is from the
-> closest node possible.  As such I believe this change likely honours that.
+The networking core uses it is to prevent untenable configurations.
 
-Absolutely, just wanted to make it explicit that it's not a functional
-fix, just a performance fix (presuming this shows up at all on systems
-that have memoryless NUMA nodes).
+I was going to bring this issue up the other day but I've been
+to busy to do so.  I really want you to seriously look into using
+an iterative algorithm, it can't be so hard inside of openvswitch
+itself.
 
-I'd suggest an update to the comments, as well.
+Any time you go into openvswitch from "somewhere else" you initialize
+a per-cpu structure that keeps track of work to do, if you need to pop
+an MPLS header or whatever and recurse, record it in that structure
+and just return.
 
-Thanks,
-Nish
+This both eliminates recursion, and is faster, since you'll be reusing
+the same stack frame that's fresh and hot in the caches already.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+I want to do this in the core networking at some point too.
