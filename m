@@ -1,129 +1,62 @@
-From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCH] skbedit: allow the user to specify bitmask for mark
-Date: Mon, 21 Jul 2014 10:35:20 +0200
-Message-ID: <1405931720-24383-1-git-send-email-antonio@meshcoding.com>
-Cc: netdev@vger.kernel.org, Antonio Quartulli <antonio@open-mesh.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: davem@davemloft.net
+From: kishan simha <ksimha123@gmail.com>
+Subject: Re: Information about SCTP patch
+Date: Mon, 21 Jul 2014 14:08:21 +0530
+Message-ID: <CAJ5TDg_qOkpGe7Ouzn_wfbsODL4FoVLmq7EmQes6hEW-dnMLWg@mail.gmail.com>
+References: <CAJ5TDg_0GjTWVin1Xr4sZwNhzMiT+bJPZwzfKB0xBdPMuK7T+g@mail.gmail.com>
+	<20140627200644.GA9086@marquez.int.rhx>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
+	prasad.padiyar@nsn.com, sumit.11.kumar@nsn.com
+To: Michele Baldessari <michele@acksyn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.neomailbox.net ([178.209.62.157]:16023 "EHLO
-	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753118AbaGUIfp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 04:35:45 -0400
+Received: from mail-oa0-f52.google.com ([209.85.219.52]:57787 "EHLO
+	mail-oa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752439AbaGUIiV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 04:38:21 -0400
+In-Reply-To: <20140627200644.GA9086@marquez.int.rhx>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <antonio@open-mesh.com>
+Hello Michele,
 
-The user may want to use only some bits of the skb mark in
-his skbedit rules because the remaining part might be used by
-something else.
+Thank you for the response.
 
-Introduce the "mask" parameter to the skbedit actor in order
-to implement such functionality.
+I have a few more queries regarding the patch.
 
-When the mask is specified, only those bits selected by the
-latter are altered really changed by the actor, while the
-rest is left untouched.
+We are trying to integrate this patch to a little older kernel 2.6.34.13.
+Additionally we are planning to give a proc file interface to display the stats.
 
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Signed-off-by: Antonio Quartulli <antonio@open-mesh.com>
----
- include/net/tc_act/tc_skbedit.h        |  1 +
- include/uapi/linux/tc_act/tc_skbedit.h |  2 ++
- net/sched/act_skbedit.c                | 20 +++++++++++++++++---
- 3 files changed, 20 insertions(+), 3 deletions(-)
+I came across a review comment for your patch, where the proc solution
+was rejected.
 
-diff --git a/include/net/tc_act/tc_skbedit.h b/include/net/tc_act/tc_skbedit.h
-index 0df9a0d..a385c68 100644
---- a/include/net/tc_act/tc_skbedit.h
-+++ b/include/net/tc_act/tc_skbedit.h
-@@ -26,6 +26,7 @@ struct tcf_skbedit {
- 	u32			flags;
- 	u32     		priority;
- 	u32     		mark;
-+	u32			mask;
- 	u16			queue_mapping;
- 	/* XXX: 16-bit pad here? */
- };
-diff --git a/include/uapi/linux/tc_act/tc_skbedit.h b/include/uapi/linux/tc_act/tc_skbedit.h
-index 7a2e910..c7c8c5f 100644
---- a/include/uapi/linux/tc_act/tc_skbedit.h
-+++ b/include/uapi/linux/tc_act/tc_skbedit.h
-@@ -27,6 +27,7 @@
- #define SKBEDIT_F_PRIORITY		0x1
- #define SKBEDIT_F_QUEUE_MAPPING		0x2
- #define SKBEDIT_F_MARK			0x4
-+#define SKBEDIT_F_MASK			0x8
- 
- struct tc_skbedit {
- 	tc_gen;
-@@ -39,6 +40,7 @@ enum {
- 	TCA_SKBEDIT_PRIORITY,
- 	TCA_SKBEDIT_QUEUE_MAPPING,
- 	TCA_SKBEDIT_MARK,
-+	TCA_SKBEDIT_MASK,
- 	__TCA_SKBEDIT_MAX
- };
- #define TCA_SKBEDIT_MAX (__TCA_SKBEDIT_MAX - 1)
-diff --git a/net/sched/act_skbedit.c b/net/sched/act_skbedit.c
-index fcfeeaf..5fca32b 100644
---- a/net/sched/act_skbedit.c
-+++ b/net/sched/act_skbedit.c
-@@ -43,8 +43,12 @@ static int tcf_skbedit(struct sk_buff *skb, const struct tc_action *a,
- 	if (d->flags & SKBEDIT_F_QUEUE_MAPPING &&
- 	    skb->dev->real_num_tx_queues > d->queue_mapping)
- 		skb_set_queue_mapping(skb, d->queue_mapping);
--	if (d->flags & SKBEDIT_F_MARK)
--		skb->mark = d->mark;
-+	if (d->flags & SKBEDIT_F_MARK) {
-+		/* unset all the bits in the mask */
-+		skb->mark = skb->mark & ~d->mask;
-+		/* assign the mark value for the masked bit only */
-+		skb->mark |= d->mark & d->mask;
-+	}
- 
- 	spin_unlock(&d->tcf_lock);
- 	return d->tcf_action;
-@@ -55,6 +59,7 @@ static const struct nla_policy skbedit_policy[TCA_SKBEDIT_MAX + 1] = {
- 	[TCA_SKBEDIT_PRIORITY]		= { .len = sizeof(u32) },
- 	[TCA_SKBEDIT_QUEUE_MAPPING]	= { .len = sizeof(u16) },
- 	[TCA_SKBEDIT_MARK]		= { .len = sizeof(u32) },
-+	[TCA_SKBEDIT_MASK]		= { .len = sizeof(u32) },
- };
- 
- static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
-@@ -64,7 +69,7 @@ static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
- 	struct nlattr *tb[TCA_SKBEDIT_MAX + 1];
- 	struct tc_skbedit *parm;
- 	struct tcf_skbedit *d;
--	u32 flags = 0, *priority = NULL, *mark = NULL;
-+	u32 flags = 0, *priority = NULL, *mark = NULL, *mask = NULL;
- 	u16 *queue_mapping = NULL;
- 	int ret = 0, err;
- 
-@@ -93,6 +98,11 @@ static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
- 		mark = nla_data(tb[TCA_SKBEDIT_MARK]);
- 	}
- 
-+	if (tb[TCA_SKBEDIT_MASK] != NULL) {
-+		flags |= SKBEDIT_F_MASK;
-+		mask = nla_data(tb[TCA_SKBEDIT_MASK]);
-+	}
-+
- 	if (!flags)
- 		return -EINVAL;
- 
-@@ -123,6 +133,10 @@ static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
- 		d->queue_mapping = *queue_mapping;
- 	if (flags & SKBEDIT_F_MARK)
- 		d->mark = *mark;
-+	/* default behaviour is to use all the bits */
-+	d->mask = 0xffffffff;
-+	if (flags & SKBEDIT_F_MASK)
-+		d->mask = *mask;
- 
- 	d->tcf_action = parm->action;
- 
--- 
-1.8.5.5
+Can you provide some information on why the solution was rejected ?
+
+Thanks and Regards
+Kishan
+
+
+
+On Sat, Jun 28, 2014 at 1:36 AM, Michele Baldessari <michele@acksyn.org> wrote:
+> Hi Kishan,
+>
+> On Thu, Jun 26, 2014 at 12:58:54PM +0530, kishan simha wrote:
+>> I wanted some information on the SCTP patch   "sctp: Add support to
+>> per-association statistics via a new SCTP_GET_ASSOC_STA "
+>>
+>> The commit information is
+>> commit 196d67593439b03088913227093e374235596e33
+>> Author: Michele Baldessari <michele@acksyn.org>
+>> Date:   Sat Dec 1 04:49:42 2012 +0000
+>>
+>> Is it possible to know into which kernel version did this patch go into?
+>> I tried to find it online and I was not able to. Hence mailing to this list.
+>
+> as Eric mentioned, it's in 3.8 (or also in RHEL-6.5). Feel free to reach out
+> if you have any questions.
+>
+> cheers,
+> Michele
+> --
+> Michele Baldessari            <michele@acksyn.org>
+> C2A5 9DA3 9961 4FFB E01B  D0BC DDD4 DCCB 7515 5C6D
