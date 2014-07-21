@@ -1,122 +1,74 @@
-From: Alex Williamson <alex.williamson@redhat.com>
-Subject: Re: [PATCH 1/2 V3] PCI: introduce device assignment
- interface and refactory related code
-Date: Mon, 21 Jul 2014 08:39:03 -0600
-Message-ID: <1405953543.4463.19.camel@ul30vt.home>
-References: <1405081802-419-1-git-send-email-ethan.zhao@oracle.com>
-	<1405084407.4098.59.camel@ul30vt.home>
-	<1405088147.4098.64.camel@ul30vt.home>
-	<B5657A6538887040AD3A81F1008BEC63B020DC@avmb3.qlogic.org>
-	<1405907916.4463.2.camel@ul30vt.home>
-	<CABawtvO5dSENsCzzTpxhmsUOSsSJ7=Qb08W9D+eWFOiK9m536A@mail.gmail.com>
-	<B5657A6538887040AD3A81F1008BEC63B025FE@avmb3.qlogic.org>
-	<1405951273.4463.4.camel@ul30vt.home>
-	<B5657A6538887040AD3A81F1008BEC63B0268C@avmb3.qlogic.org>
+From: Mihail Dakov <mihail.dakov@ng4t.com>
+Subject: Re: AF_PACKET: tx_ring mirrored in rx_ring?
+Date: Mon, 21 Jul 2014 16:40:33 +0200
+Message-ID: <53CD2661.8070707@ng4t.com>
+References: <53CD1326.5090006@ng4t.com> <53CD1AE5.10408@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	linux-pci <linux-pci@vger.kernel.org>,
-	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"vaughan.cao@oracle.com" <vaughan.cao@oracle.com>,
-	"jesse.brandeburg@intel.com" <jesse.brandeburg@intel.com>,
-	Ethan Zhao <ethan.kernel@gmail.com>, Ethan Zhao <ethan.zhao@oracle.com>,
-	"linux.nics@intel.com" <linux.nics@intel.com>,
-	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
-	"gleb@kernel.org" <gleb@kernel.org>,
-	"bhelgaas@google.com" <bhelgaas@google.com>,
-	"boris.ostrovsky@oracle.com" <boris.ostrovsky@oracle.com>,
-	netdev <netdev@vger.kernel.org>,
-	"bruce.w.allan@intel.com" <bruce.w.allan@intel.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	"john.ronciak@intel.com" <john.ronciak@intel.com>,
-	"david.vrabel@citrix.com" <david.vrabel@citrix.com>,
-	"pbonzini@redhat.com" <pbonzini@redhat.com>
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <B5657A6538887040AD3A81F1008BEC63B0268C@avmb3.qlogic.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: linux-net@vger.kernel.org, netdev@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ud15.udmedia.de ([194.117.254.55]:46099 "EHLO
+	mail.ud15.udmedia.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755242AbaGUOkf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 10:40:35 -0400
+In-Reply-To: <53CD1AE5.10408@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-07-21 at 14:11 +0000, Yuval Mintz wrote:
-> > > > >> > > > pci_iov_assign_device(),
-> > > > >> > > > pci_iov_deassign_device()
-> > > > >> > > >
-> > > > >> > > > along with the existed one
-> > > > >> > > >
-> > > > >> > > > pci_vfs_assigned()
-> > > > >> > > >
-> > > > >> > > > They construct the VFs assignment management interface,
-> > > > >> perhaps it's the right place to add some sort of mechanism in
-> > > > >> order to prevent module removal once one of its VFs is assigned.
-> > > > >> [e.g., incrementing module reference count]
-> > > > >>
-> > > > > On what module would the reference count be increased, the PF?
-> > > > > The entire "VF assigned" interface is a hack to work around poor
-> > > > > architectures like legacy KVM device assignment where there's no
-> > > > > proper device owner for the VF.  This is "fixed" by using VFIO
-> > > > > instead and hopefully deprecating legacy KVM assignment.  Thanks,
-> > > >
-> > > >   To explain what Alex said, in another word, if VMs access VF via
-> > > > VFIO driver, the owner of the device is VFIO, in this case, if you
-> > > > unload PF driver, you still need to unload VFIO first, then unload
-> > > > PF driver. but the PF driver knows how to notify the VFIO driver to unload.
-> > > >   But without VFIO like driver, for example some of current code
-> > > > will assign devcie (PF/VF) directly to KVM or XEN without driver in
-> > > > the middle. and the PF driver doesn't know how to unbind the assignment...
-> > >
-> > > I thought about perhaps incrementing the reference count of the PF's
-> > > module [i.e., the module supplying the driver for the PF] directly, so
-> > > THAT module won't be removable as long as the VF is assigned.
-> > >
-> > > Although I don't know whether the module is even accessible; Can you
-> > > derive a pointer to a module from a net_device struct?
-> >
-> > A VF is not necessarily a net device.  A pci_dev does have a physfn pointer
-> > though.
-> 
-> I stand corrected.
-> 
-> Is there anything inherently wrong about this approach, though?
+Thank you for fast reply.
 
-What does incrementing the module reference on the PF driver accomplish?
-We can still unbind the PF device from the driver.  That's what this "VF
-used" flag is supposed to accomplish is preventing the PF from unbinding
-from the driver while VFs are in use, but as has been noted, it's a
-terrible hack.
-
-BTW, the below corporate disclaimer below is really inappropriate for
-the mailing list.  Thanks,
-
-Alex
-
-> ________________________________
-> 
-> This message and any attached documents contain information from
-> QLogic Corporation or its wholly-owned subsidiaries that may be
-> confidential. If you are not the intended recipient, you may not read,
-> copy, distribute, or use this information. If you have received this
-> transmission in error, please notify the sender immediately by reply
-> e-mail and then delete this message.
-
-
-
-
-------------------------------------------------------------------------------
-Want fast and easy access to all the code in your enterprise? Index and
-search up to 200,000 lines of code with a free copy of Black Duck
-Code Sight - the same software that powers the world's largest code
-search on Ohloh, the Black Duck Open Hub! Try it now.
-http://p.sf.net/sfu/bds
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+On 07/21/2014 03:51 PM, Daniel Borkmann wrote:
+> On 07/21/2014 03:18 PM, Mihail Dakov wrote:
+>> Hello guys,
+>>
+>> I am having a trouble using the RX/TX ring buffer for AF_PACKET 
+>> sockets. I create two sockets (one for rx, one for tx). I bind those 
+>> sockets to the same interface. According the docs you can create a 
+>> socket per direction or single socket for both directions (allocating 
+>> double the memory needed for a ring buffer, and then mapping first rx 
+>> and then tx buffer). In this case I opted for creating two sockets, 
+>> one per direction. The problem is that when I use the tx_ring to send 
+>> over the pf_socket I see those message "mirrored" in the rx_ring 
+>> buffer which is not an expected behavior for my application. In other 
+>> to reproduce the issue I simplified my application into a smaller 
+>> one. Then I send a manually created ping message with adjusted mac 
+>> and ip address so that a remote machine in my local network answers 
+>> it. I successfully see the ping request double (once in the tx_ring 
+>> and once in the rx_ring). Which I think is not expected behavior. 
+>> This application was tested on kernel
+>> 3.14.12-1 and was compiled with gcc (Debian 4.8.3-5) and on kernel 
+>> 3.2.0-52-lowlatency with compiler gcc (Ubuntu/Linaro 4.6.3-1ubuntu5) 
+>> 4.6.3.
+>>
+>> So some questions have arised:
+>>
+>> 1. Is this normal behavior? If it is, why? I mean, if I use a socket 
+>> per direction I expect to see only packets for that direction on the 
+>> correspondent socket, right?
+>> 2. Could you provide some more insights about why this "problem" is 
+>> happening? Am I doing it wrong? Did I get it wrong (the whole ring 
+>> buffer in af_packets)? Am I using wrong settings?
+>>
+>> I have attached the simple program which should reproduce the issue.
+>
+> It's expected behaviour (and actually also RX/TX ring independant).
+> Currently, when calling dev_hard_start_xmit() the kernel tries to push
+> local traffic back via dev_queue_xmit_nit() iff a packet socket is
+> present for that protocol, or for any kind of traffic for monitoring
+> purposes. 
+What'd you mean by local traffic? The packets which are replicated are 
+destined to remote machine(s).
+> skbs are not particularly marked for differentiating outgoing
+> traffic from normal protocols and from packet sockets. Even having 1
+> socket for RX/TX wouldn't work with your scenario as at some point in
+> time you need to bind to a protocol as well and we install dev_add_pack()
+> there, too. BPF might help in some situations, but still with a
+> performance penalty. You could use PACKET_QDISC_BYPASS to solve that
+This works on kernel 3.14.12 which isn't suitable for the program as 
+target machine(s) provide 3.2 kernel (where no PACKET_QDISC_BYPASS flag 
+exists). So I guess I have to adjust my app for the
+replicated packets in the rx_ring.
+> issue if your scenario allows for that, as here dev_queue_xmit_nit()
+> won't be called, and thus you won't mirror back.
