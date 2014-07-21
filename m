@@ -1,7 +1,7 @@
 From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH 1/5] cxgb4: Add the MC1 registers to read in the interrupt handler
-Date: Mon, 21 Jul 2014 20:55:12 +0530
-Message-ID: <1405956316-13591-2-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH 5/5] iw_cxgb4: Don't limit TPTE count to 32KB
+Date: Mon, 21 Jul 2014 20:55:16 +0530
+Message-ID: <1405956316-13591-6-git-send-email-hariprasad@chelsio.com>
 References: <1405956316-13591-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org,
 	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
@@ -13,79 +13,40 @@ In-Reply-To: <1405956316-13591-1-git-send-email-hariprasad-ut6Up61K2wZBDgjK7y7TU
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+Use the size advertised by FW
+
+Signed-off-by: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
 Signed-off-by: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
 ---
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c   |   16 +++++++++++++---
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h |    3 +++
- 2 files changed, 16 insertions(+), 3 deletions(-)
+ drivers/infiniband/hw/cxgb4/iw_cxgb4.h |    2 +-
+ drivers/infiniband/hw/cxgb4/t4.h       |    1 -
+ 2 files changed, 1 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index eb5a278..e768852 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -1719,16 +1719,24 @@ static void mps_intr_handler(struct adapter *adapter)
-  */
- static void mem_intr_handler(struct adapter *adapter, int idx)
+diff --git a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
+index 69f047c..c378fd2 100644
+--- a/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
++++ b/drivers/infiniband/hw/cxgb4/iw_cxgb4.h
+@@ -193,7 +193,7 @@ static inline int c4iw_fatal_error(struct c4iw_rdev *rdev)
+ 
+ static inline int c4iw_num_stags(struct c4iw_rdev *rdev)
  {
--	static const char name[3][5] = { "EDC0", "EDC1", "MC" };
-+	static const char name[4][7] = { "EDC0", "EDC1", "MC/MC0", "MC1" };
+-	return min((int)T4_MAX_NUM_STAG, (int)(rdev->lldi.vr->stag.size >> 5));
++	return (int)(rdev->lldi.vr->stag.size >> 5);
+ }
  
- 	unsigned int addr, cnt_addr, v;
+ #define C4IW_WR_TO (30*HZ)
+diff --git a/drivers/infiniband/hw/cxgb4/t4.h b/drivers/infiniband/hw/cxgb4/t4.h
+index 641ab55..df5edfa 100644
+--- a/drivers/infiniband/hw/cxgb4/t4.h
++++ b/drivers/infiniband/hw/cxgb4/t4.h
+@@ -37,7 +37,6 @@
+ #include "t4fw_ri_api.h"
  
- 	if (idx <= MEM_EDC1) {
- 		addr = EDC_REG(EDC_INT_CAUSE, idx);
- 		cnt_addr = EDC_REG(EDC_ECC_STATUS, idx);
-+	} else if (idx == MEM_MC) {
-+		if (is_t4(adapter->params.chip)) {
-+			addr = MC_INT_CAUSE;
-+			cnt_addr = MC_ECC_STATUS;
-+		} else {
-+			addr = MC_P_INT_CAUSE;
-+			cnt_addr = MC_P_ECC_STATUS;
-+		}
- 	} else {
--		addr = MC_INT_CAUSE;
--		cnt_addr = MC_ECC_STATUS;
-+		addr = MC_REG(MC_P_INT_CAUSE, 1);
-+		cnt_addr = MC_REG(MC_P_ECC_STATUS, 1);
- 	}
- 
- 	v = t4_read_reg(adapter, addr) & MEM_INT_MASK;
-@@ -1892,6 +1900,8 @@ int t4_slow_intr_handler(struct adapter *adapter)
- 		pcie_intr_handler(adapter);
- 	if (cause & MC)
- 		mem_intr_handler(adapter, MEM_MC);
-+	if (!is_t4(adapter->params.chip) && (cause & MC1))
-+		mem_intr_handler(adapter, MEM_MC1);
- 	if (cause & EDC0)
- 		mem_intr_handler(adapter, MEM_EDC0);
- 	if (cause & EDC1)
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-index 3b244ab..e3146e8 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_regs.h
-@@ -448,11 +448,13 @@
- #define  TDUE 0x00010000U
- 
- #define MC_INT_CAUSE 0x7518
-+#define MC_P_INT_CAUSE 0x41318
- #define  ECC_UE_INT_CAUSE 0x00000004U
- #define  ECC_CE_INT_CAUSE 0x00000002U
- #define  PERR_INT_CAUSE   0x00000001U
- 
- #define MC_ECC_STATUS 0x751c
-+#define MC_P_ECC_STATUS 0x4131c
- #define  ECC_CECNT_MASK   0xffff0000U
- #define  ECC_CECNT_SHIFT  16
- #define  ECC_CECNT(x)     ((x) << ECC_CECNT_SHIFT)
-@@ -1101,6 +1103,7 @@
- #define  I2CM       0x00000002U
- #define  CIM        0x00000001U
- 
-+#define MC1 0x31
- #define PL_INT_ENABLE 0x19410
- #define PL_INT_MAP0 0x19414
- #define PL_RST 0x19428
+ #define T4_MAX_NUM_PD 65536
+-#define T4_MAX_NUM_STAG (1<<15)
+ #define T4_MAX_MR_SIZE (~0ULL)
+ #define T4_PAGESIZE_MASK 0xffff000  /* 4KB-128MB */
+ #define T4_STAG_UNSET 0xffffffff
 -- 
 1.7.1
 
