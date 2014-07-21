@@ -1,79 +1,65 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH v2 net] dns_resolver: Null-terminate the right string
-Date: Mon, 21 Jul 2014 00:06:48 +0100
-Message-ID: <1405897608.8631.13.camel@deadeye.wl.decadent.org.uk>
+From: Ethan Zhao <ethan.kernel@gmail.com>
+Subject: Re: [PATCH V3] netxen: fix ethtool rx_dropped information in ethtool get_ethtool_stats()
+Date: Mon, 21 Jul 2014 09:56:08 +0800
+Message-ID: <CABawtvNrUqv4R4eacGZmjAm+X-RahurtJiE8XHRKKvptY+wNkw@mail.gmail.com>
+References: <1405655009-18975-1-git-send-email-ethan.zhao@oracle.com>
+	<C562D0E12CBDE44E8A0CCAB77060096701283AD344@AVMB1.qlogic.org>
+	<049BCC6F-0A2E-421A-9873-0B7ED6FFB3AC@gmail.com>
+	<20140719101946.GA4319@electric-eye.fr.zoreil.com>
+	<CABawtvP4+B_smOyi-=vt56KuUthzHF9L059PXP4ekXA7KPk_Dw@mail.gmail.com>
+	<20140719162816.GB7590@electric-eye.fr.zoreil.com>
+	<48774298-8C91-42A9-A5F2-4EAB789F356B@gmail.com>
+	<20140720180117.GA18951@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-yl5CpZC0wjt95Umc6WTt"
-Cc: netdev <netdev@vger.kernel.org>,
-	Manuel =?ISO-8859-1?Q?Sch=F6lling?= <manuel.schoelling@gmx.de>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:36528 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751265AbaGTXHD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2014 19:07:03 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Rajesh Borundia <rajesh.borundia@qlogic.com>,
+	Ethan Zhao <ethan.zhao@oracle.com>,
+	Manish Chopra <manish.chopra@qlogic.com>,
+	Sony Chacko <sony.chacko@qlogic.com>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140720180117.GA18951@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+---------- Forwarded message ----------
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Mon, Jul 21, 2014 at 2:01 AM
+Subject: Re: [PATCH V3] netxen: fix ethtool rx_dropped information in
+ethtool get_ethtool_stats()
+To: Ethan Zhao <ethan.kernel@gmail.com>
+Cc: Rajesh Borundia <rajesh.borundia@qlogic.com>, Ethan Zhao
+<ethan.zhao@oracle.com>, Manish Chopra <manish.chopra@qlogic.com>,
+Sony Chacko <sony.chacko@qlogic.com>, netdev <netdev@vger.kernel.org>,
+linux-kernel <linux-kernel@vger.kernel.org>
 
 
---=-yl5CpZC0wjt95Umc6WTt
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Ethan Zhao <ethan.kernel@gmail.com> :
+[...]
+> you leave us without a tool to track the net core part. Would you like to
+> hack the kernel code and rebuild just for peek the dropping packets ?
 
-*_result[len] is parsed as *(_result[len]) which is not at all what we
-want to touch here.
+Search 'dropwatch' on your favorite engine search.
 
-Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
-Fixes: 84a7c0b1db1c ("dns_resolver: assure that dns_query() result is null-=
-terminated")
----
-v2: Add the Fixes header
+That is a pretty good tool to trace and debug protocal stack when
+packet dropping happens. but it is more professional and specific to
+kernel kallsyms,
+has some bugs to work well on  my box. yet another different tool to
+output debug info while not statistic info.
 
- net/dns_resolver/dns_query.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+I think drivers output rx dropped has their own reason.
 
-diff --git a/net/dns_resolver/dns_query.c b/net/dns_resolver/dns_query.c
-index 9acec61f..dd8696a 100644
---- a/net/dns_resolver/dns_query.c
-+++ b/net/dns_resolver/dns_query.c
-@@ -150,7 +150,7 @@ int dns_query(const char *type, const char *name, size_=
-t namelen,
- 		goto put;
-=20
- 	memcpy(*_result, upayload->data, len);
--	*_result[len] =3D '\0';
-+	(*_result)[len] =3D '\0';
-=20
- 	if (_expiry)
- 		*_expiry =3D rkey->expiry;
+[...]
+> More radically, and maybe you should write patches to fix them to keep
+> their focus. That is to prove you have principle and always fight for it.
 
+It's 15 years late but it's still a good advice. :o)
 
---=20
-Ben Hutchings
-Make three consecutive correct guesses and you will be considered an expert=
-.
+Does it work ?
 
---=-yl5CpZC0wjt95Umc6WTt
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIVAwUAU8xLjee/yOyVhhEJAQrRmw//X4050c0UgwCuGuarsBP9a1HXxO+UJn1k
-Go/CexauAXCnEET+kl09lD8AVnczpOHzsCYuVliBz3oeZyK0O+EmpMOCswVQWKzz
-tJUUH0ZQZGzzakw6rz/gjsid7TgAQ0hHdXxLasq1gQNGRXOMaikT3JBLlzrQxs01
-zKMkRX3XArkh4nsj7b6kkonO/ludeOA928UddqNKvN4+nhwfe8rIolYYq9PMR9CS
-a3LaOsxNfLe2UKz/duXGIxcYAgYEQK3NI2c60EZ3InMsfRLu6L/yHXE68m2IaJiX
-RfeZxnI6PJXwFYz7CFh6gsG2NXD9b5+ddAc4cAVKJUHu2hQWyZY5y3TZBCFcMJa8
-8Pe85ixBj9OwJcInc5W5WVmDPe6HQNGxnpDGk4Ft4n82w5h+PGeZHlTedY1bDsTK
-DqiuK2qPRfNu5sRbQv4EShlvfXha/OxMnOkdQmIUfdX2uR4kKqnm1fQp0VUaZ7zZ
-0YSryXiP7u/jXynvv4IFjDzruYzYyUEfO1529ASYWdmE/p95ZBWqHUaW242Ia2Th
-wnd2P3ZwbInBbZub7G0stVMPDJZBOKg3h6lTBvV2I7l4/OD4omiIJ3GIpIfnulkx
-5FMpMBbDpSpiyDBMazUEOjCNjZgo8Tx4mLHqhKctSGUWnnIC2IZOwqIlLinb5Q7V
-MG/cBnHatzw=
-=kJvB
------END PGP SIGNATURE-----
-
---=-yl5CpZC0wjt95Umc6WTt--
+Thanks,
+Ethan
+--
+Ueimor
