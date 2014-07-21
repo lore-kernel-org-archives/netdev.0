@@ -1,38 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] clean up sparse cast warning in do_ip_getsockopt
-Date: Sun, 20 Jul 2014 22:22:46 -0700 (PDT)
-Message-ID: <20140720.222246.722922848026554870.davem@davemloft.net>
-References: <20140720113017.GA8878@gmail.com>
+Subject: Re: [PATCH] isdn/capi: avoid index overrun from command_2_index()
+Date: Sun, 20 Jul 2014 22:25:45 -0700 (PDT)
+Message-ID: <20140720.222545.289290525709647063.davem@davemloft.net>
+References: <20140720134913.13895140074@xenon.ts.pxnet.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jmorris@namei.org, netdev@vger.kernel.org
-To: karoly.kemeny@gmail.com
+Cc: netdev@vger.kernel.org, dan.carpenter@oracle.com,
+	isdn@linux-pingi.de, isdn4linux@listserv.isdn4linux.de
+To: tilman@imap.cc
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53604 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53625 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752041AbaGUFWr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 01:22:47 -0400
-In-Reply-To: <20140720113017.GA8878@gmail.com>
+	with ESMTP id S1750883AbaGUFZq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 01:25:46 -0400
+In-Reply-To: <20140720134913.13895140074@xenon.ts.pxnet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Karoly Kemeny <karoly.kemeny@gmail.com>
-Date: Sun, 20 Jul 2014 13:30:17 +0200
+From: Tilman Schmidt <tilman@imap.cc>
+Date: Sun, 20 Jul 2014 15:49:12 +0200 (CEST)
 
-> There is a sparse warning because of the implicit pointer cast in
-> do_ip_getsockopt.
+> The result of the function command_2_index() is used to index two
+> arrays mnames[] and cpars[] with max. index 0x4e but in its current
+> form that function can produce results up to 3*(0x9+0x9)+0x7f = 0xb5.
+> Legal values for the function's first argument (c) according to the
+> CAPI 2.0 standard are 0x00..0x08, 0x41, 0x80, 0x82..0x88, and 0xff.
+> This patch modifies command_2_index() in such a way that the result
+> is unchanged for legal values of c, and guaranteed to be less or
+> equal to 0x4e for any argument values.
 > 
-> Signed-off-by: Karoly Kemeny <karoly.kemeny@gmail.com>
+> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Signed-off-by: Tilman Schmidt <tilman@imap.cc>
 
-Please format your subject line correctly, it should be of the form:
-
-	[PATCH] ${SUBSYSTEM}: Description.
-
-Your's is missing the subsystem prefix, which in this case should
-be "ipv4: "
-
-> -		msg.msg_control = optval;
-> +		msg.msg_control = (__force void*) optval;
-
-Please put a space between "void" and "*" in the cast.
+Command value validation should occur at the callers, signalling
+errors if invalid values are seen, and command_2_index() should
+BUG_ON() such invalid values.
