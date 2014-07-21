@@ -1,46 +1,32 @@
-From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Subject: [RFC 1/2] net: phy: Set the driver when registering an MDIO bus device
-Date: Mon, 21 Jul 2014 15:26:09 -0300
-Message-ID: <1405967170-19353-2-git-send-email-ezequiel.garcia@free-electrons.com>
-References: <1405967170-19353-1-git-send-email-ezequiel.garcia@free-electrons.com>
-Cc: David Miller <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-To: <netdev@vger.kernel.org>
+From: mihail.dakov@ng4t.com
+Subject: Re: AF_PACKET: tx_ring mirrored in rx_ring?
+Date: Mon, 21 Jul 2014 20:32:53 +0200
+Message-ID: <20140721203253.Horde.9bpg4-qQqIsddySIO6hXOw1@ssl.lux01.de>
+References: <53CD1326.5090006@ng4t.com> <53CD1AE5.10408@redhat.com>
+ <53CD2661.8070707@ng4t.com> <53CD2E08.7070204@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed; DelSp=Yes
+Cc: netdev@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:55872 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S933219AbaGUS1L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 14:27:11 -0400
-In-Reply-To: <1405967170-19353-1-git-send-email-ezequiel.garcia@free-electrons.com>
+Received: from ud15.udmedia.de ([194.117.254.55]:56666 "EHLO
+	mail.ud15.udmedia.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933219AbaGUSc7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 14:32:59 -0400
+In-Reply-To: <53CD2E08.7070204@redhat.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-mdiobus_register() registers a device which is already bound to a driver.
-Hence, the driver pointer should be set properly in order to track down
-the driver associated to the MDIO bus.
 
-This will be used to allow ethernet driver to pin down a MDIO bus driver,
-preventing it from being unloaded while the PHY device is running.
+Quoting Daniel Borkmann <dborkman@redhat.com>:
 
-Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
----
- drivers/net/phy/mdio_bus.c | 1 +
- 1 file changed, 1 insertion(+)
+> On 07/21/2014 04:40 PM, Mihail Dakov wrote:
+> ...
+>> What'd you mean by local traffic? The packets which are replicated  
+>> are destined to remote machine(s).
+>
+> Sure, but you are sending them out via your packet socket.
 
-diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-index 4eaadcf..203651e 100644
---- a/drivers/net/phy/mdio_bus.c
-+++ b/drivers/net/phy/mdio_bus.c
-@@ -255,6 +255,7 @@ int mdiobus_register(struct mii_bus *bus)
- 
- 	bus->dev.parent = bus->parent;
- 	bus->dev.class = &mdio_bus_class;
-+	bus->dev.driver = bus->parent->driver;
- 	bus->dev.groups = NULL;
- 	dev_set_name(&bus->dev, "%s", bus->id);
- 
--- 
-2.0.1
+Well yes. It's just that I interpreted local as if they were not going  
+out of the machine. But in fact they do.
