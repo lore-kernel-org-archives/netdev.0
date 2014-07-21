@@ -1,218 +1,226 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [RFC Patch V1 15/30] mm, igb: Use cpu_to_mem()/numa_mem_id() to
- support memoryless node
-Date: Mon, 21 Jul 2014 12:53:33 -0700
-Message-ID: <CAKgT0UdZdbduP-=R7uRCxJVxt1yCDoHpnercnDoyrCbWNtx=6Q@mail.gmail.com>
-References: <1405064267-11678-1-git-send-email-jiang.liu@linux.intel.com>
-	<1405064267-11678-16-git-send-email-jiang.liu@linux.intel.com>
-	<20140721174218.GD4156@linux.vnet.ibm.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH 3/5] net/netfilter/ipvs/ip_vs_ctl.c: drop argument range
+ check just before the check for equality
+Date: Mon, 21 Jul 2014 23:01:56 +0300 (EEST)
+Message-ID: <alpine.LFD.2.11.1407212253100.2358@ja.home.ssi.bg>
+References: <1405697638-23767-1-git-send-email-andrey.krieger.utkin@gmail.com> <alpine.LFD.2.11.1407182339160.2273@ja.home.ssi.bg> <CANZNk83dJCXAWrQ+i5rh=sdUuiiD5ZhzDua-rjJpBZCzzNGDJA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/alternative; boundary=089e013d06e649da2f04feb97643
-Cc: Jiang Liu <jiang.liu@linux.intel.com>, Andrew Morton <akpm@linux-foundation.org>,
-	Mel Gorman <mgorman@suse.de>, David Rientjes <rientjes@google.com>,
-	Mike Galbraith <umgwanakikbuti@gmail.com>, Peter Zijlstra <peterz@infradead.org>,
-	"Rafael J . Wysocki" <rafael.j.wysocki@intel.com>, Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>, Bruce Allan <bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>, Don Skidmore <donald.c.skidmore@intel.com>,
-	Greg Rose <gregory.v.rose@intel.com>, Alex Duyck <alexander.h.duyck@intel.com>,
-	John Ronciak <john.ronciak@intel.com>, Mitch Williams <mitch.a.williams@intel.com>,
-	Linux NICS <linux.nics@intel.com>, Tony Luck <tony.luck@intel.com>, linux-mm@kvack.org,
-	linux-hotplug@vger.kernel.org, linux-kernel@vger.kernel.org,
-	e1000-devel@lists.sourceforge.net, Netdev <netdev@vger.kernel
-To: Nishanth Aravamudan <nacc@linux.vnet.ibm.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20140721174218.GD4156@linux.vnet.ibm.com>
-Sender: owner-linux-mm@kvack.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org, coreteam@netfilter.org,
+	netfilter-devel@vger.kernel.org, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, dcb314@hotmail.com,
+	David Miller <davem@davemloft.net>, kadlec@blackhole.kfki.hu,
+	Patrick McHardy <kaber@trash.net>, pablo@netfilter.org,
+	Simon Horman <horms@verge.net.au>, wensong@linux-vs.org
+To: Andrey Utkin <andrey.krieger.utkin@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CANZNk83dJCXAWrQ+i5rh=sdUuiiD5ZhzDua-rjJpBZCzzNGDJA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---089e013d06e649da2f04feb97643
-Content-Type: text/plain; charset=UTF-8
 
-I do agree the description should probably be changed.  There shouldn't be
-any panics involved, only a performance impact as it will be reallocating
-always if it is on a node with no memory.
+	Hello,
 
-My intention on this was to make certain that the memory used is from the
-closest node possible.  As such I believe this change likely honours that.
+On Sat, 19 Jul 2014, Andrey Utkin wrote:
 
-Thanks,
+> 2014-07-18 23:48 GMT+03:00 Julian Anastasov <ja@ssi.bg>:
+> >         The above check ensures the set_arglen[] value (some
+> > struct size) does not exceed the arg[MAX_ARG_LEN] space. You can check
+> > commit 04bcef2a83f40c ("ipvs: Add boundary check on ioctl arguments")
+> > for more info.
+> 
+> Thanks for info.
+> What about static check at compilation time?
+> 
+> #if (DAEMON_ARG_LEN > MAX_ARG_LEN) \
+>  || (SERVICE_ARG_LEN > MAX_ARG_LEN) \
+>  || (SVCDEST_ARG_LEN > MAX_ARG_LEN)
+> #error MAX_ARG_LEN exceeded in set_arglen table
+> #endif
 
-Alex
+	I prefer this to be fixed once and for all.
+Here is my attempt, it appears to work. I use union
+to get the max size to use for stack space. checkpatch.pl
+is noisy... Let me know if you have a better idea.
+
+ipvs: reduce stack usage for sockopt data
+
+Use macros and union to reserve the required stack space for
+sockopt data. Now the tables for commands should be more safe
+to extend. The checks added for readability are optimized by
+compiler or warn at compile time if command uses too much stack.
+
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+---
+ net/netfilter/ipvs/ip_vs_ctl.c | 98 ++++++++++++++++++++++++------------------
+ 1 file changed, 55 insertions(+), 43 deletions(-)
+
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index 581a658..08c3389 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -2266,28 +2266,34 @@ static int ip_vs_set_timeout(struct net *net, struct ip_vs_timeout_user *u)
+ }
+ 
+ 
+-#define SET_CMDID(cmd)		(cmd - IP_VS_BASE_CTL)
+-#define SERVICE_ARG_LEN		(sizeof(struct ip_vs_service_user))
+-#define SVCDEST_ARG_LEN		(sizeof(struct ip_vs_service_user) +	\
+-				 sizeof(struct ip_vs_dest_user))
+-#define TIMEOUT_ARG_LEN		(sizeof(struct ip_vs_timeout_user))
+-#define DAEMON_ARG_LEN		(sizeof(struct ip_vs_daemon_user))
+-#define MAX_ARG_LEN		SVCDEST_ARG_LEN
++#define SET_CMDID(cmd)			(cmd - IP_VS_BASE_CTL)
++#define IP_VS_SET_CMDID(c, t)		[SET_CMDID(c)] = sizeof(t),
++#define IP_VS_SET_CMDID_LEN(c, t)	t field_ ## c;
++
++struct ip_vs_svcdest_user {
++	struct ip_vs_service_user	s;
++	struct ip_vs_dest_user		d;
++};
++
++#define IP_VS_SET_CMDID_TABLE(e)					\
++	e(IP_VS_SO_SET_ADD,		struct ip_vs_service_user)	\
++	e(IP_VS_SO_SET_EDIT,		struct ip_vs_service_user)	\
++	e(IP_VS_SO_SET_DEL,		struct ip_vs_service_user)	\
++	e(IP_VS_SO_SET_ADDDEST,		struct ip_vs_svcdest_user)	\
++	e(IP_VS_SO_SET_DELDEST,		struct ip_vs_svcdest_user)	\
++	e(IP_VS_SO_SET_EDITDEST,	struct ip_vs_svcdest_user)	\
++	e(IP_VS_SO_SET_TIMEOUT,		struct ip_vs_timeout_user)	\
++	e(IP_VS_SO_SET_STARTDAEMON,	struct ip_vs_daemon_user)	\
++	e(IP_VS_SO_SET_STOPDAEMON,	struct ip_vs_daemon_user)	\
++	e(IP_VS_SO_SET_ZERO,		struct ip_vs_service_user)
+ 
+ static const unsigned char set_arglen[SET_CMDID(IP_VS_SO_SET_MAX)+1] = {
+-	[SET_CMDID(IP_VS_SO_SET_ADD)]		= SERVICE_ARG_LEN,
+-	[SET_CMDID(IP_VS_SO_SET_EDIT)]		= SERVICE_ARG_LEN,
+-	[SET_CMDID(IP_VS_SO_SET_DEL)]		= SERVICE_ARG_LEN,
+-	[SET_CMDID(IP_VS_SO_SET_FLUSH)]		= 0,
+-	[SET_CMDID(IP_VS_SO_SET_ADDDEST)]	= SVCDEST_ARG_LEN,
+-	[SET_CMDID(IP_VS_SO_SET_DELDEST)]	= SVCDEST_ARG_LEN,
+-	[SET_CMDID(IP_VS_SO_SET_EDITDEST)]	= SVCDEST_ARG_LEN,
+-	[SET_CMDID(IP_VS_SO_SET_TIMEOUT)]	= TIMEOUT_ARG_LEN,
+-	[SET_CMDID(IP_VS_SO_SET_STARTDAEMON)]	= DAEMON_ARG_LEN,
+-	[SET_CMDID(IP_VS_SO_SET_STOPDAEMON)]	= DAEMON_ARG_LEN,
+-	[SET_CMDID(IP_VS_SO_SET_ZERO)]		= SERVICE_ARG_LEN,
++	IP_VS_SET_CMDID_TABLE(IP_VS_SET_CMDID)
+ };
+ 
++union ip_vs_set_arglen { IP_VS_SET_CMDID_TABLE(IP_VS_SET_CMDID_LEN) };
++#define MAX_SET_ARGLEN	sizeof(union ip_vs_set_arglen)
++
+ static void ip_vs_copy_usvc_compat(struct ip_vs_service_user_kern *usvc,
+ 				  struct ip_vs_service_user *usvc_compat)
+ {
+@@ -2325,7 +2331,7 @@ do_ip_vs_set_ctl(struct sock *sk, int cmd, void __user *user, unsigned int len)
+ {
+ 	struct net *net = sock_net(sk);
+ 	int ret;
+-	unsigned char arg[MAX_ARG_LEN];
++	unsigned char arg[MAX_SET_ARGLEN];
+ 	struct ip_vs_service_user *usvc_compat;
+ 	struct ip_vs_service_user_kern usvc;
+ 	struct ip_vs_service *svc;
+@@ -2333,13 +2339,12 @@ do_ip_vs_set_ctl(struct sock *sk, int cmd, void __user *user, unsigned int len)
+ 	struct ip_vs_dest_user_kern udest;
+ 	struct netns_ipvs *ipvs = net_ipvs(net);
+ 
++	BUILD_BUG_ON(sizeof(arg) > 256);
+ 	if (!ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
+ 	if (cmd < IP_VS_BASE_CTL || cmd > IP_VS_SO_SET_MAX)
+ 		return -EINVAL;
+-	if (len < 0 || len >  MAX_ARG_LEN)
+-		return -EINVAL;
+ 	if (len != set_arglen[SET_CMDID(cmd)]) {
+ 		pr_err("set_ctl: len %u != %u\n",
+ 		       len, set_arglen[SET_CMDID(cmd)]);
+@@ -2606,49 +2611,56 @@ __ip_vs_get_timeouts(struct net *net, struct ip_vs_timeout_user *u)
+ }
+ 
+ 
+-#define GET_CMDID(cmd)		(cmd - IP_VS_BASE_CTL)
+-#define GET_INFO_ARG_LEN	(sizeof(struct ip_vs_getinfo))
+-#define GET_SERVICES_ARG_LEN	(sizeof(struct ip_vs_get_services))
+-#define GET_SERVICE_ARG_LEN	(sizeof(struct ip_vs_service_entry))
+-#define GET_DESTS_ARG_LEN	(sizeof(struct ip_vs_get_dests))
+-#define GET_TIMEOUT_ARG_LEN	(sizeof(struct ip_vs_timeout_user))
+-#define GET_DAEMON_ARG_LEN	(sizeof(struct ip_vs_daemon_user) * 2)
++#define GET_CMDID(cmd)			(cmd - IP_VS_BASE_CTL)
++#define IP_VS_GET_CMDID(c, t)		[GET_CMDID(c)] = sizeof(t),
++#define IP_VS_GET_CMDID_LEN(c, t)	t field_ ## c;
++
++struct ip_vs_version_user {
++	char	v[64];
++};
++
++struct ip_vs_daemon_user2 {
++	struct ip_vs_daemon_user	d1, d2;
++};
++
++#define IP_VS_GET_CMDID_TABLE(e)					\
++	e(IP_VS_SO_GET_VERSION,		struct ip_vs_version_user)	\
++	e(IP_VS_SO_GET_INFO,		struct ip_vs_getinfo)		\
++	e(IP_VS_SO_GET_SERVICES,	struct ip_vs_get_services)	\
++	e(IP_VS_SO_GET_SERVICE,		struct ip_vs_service_entry)	\
++	e(IP_VS_SO_GET_DESTS,		struct ip_vs_get_dests)		\
++	e(IP_VS_SO_GET_TIMEOUT,		struct ip_vs_timeout_user)	\
++	e(IP_VS_SO_GET_DAEMON,		struct ip_vs_daemon_user2)
+ 
+ static const unsigned char get_arglen[GET_CMDID(IP_VS_SO_GET_MAX)+1] = {
+-	[GET_CMDID(IP_VS_SO_GET_VERSION)]	= 64,
+-	[GET_CMDID(IP_VS_SO_GET_INFO)]		= GET_INFO_ARG_LEN,
+-	[GET_CMDID(IP_VS_SO_GET_SERVICES)]	= GET_SERVICES_ARG_LEN,
+-	[GET_CMDID(IP_VS_SO_GET_SERVICE)]	= GET_SERVICE_ARG_LEN,
+-	[GET_CMDID(IP_VS_SO_GET_DESTS)]		= GET_DESTS_ARG_LEN,
+-	[GET_CMDID(IP_VS_SO_GET_TIMEOUT)]	= GET_TIMEOUT_ARG_LEN,
+-	[GET_CMDID(IP_VS_SO_GET_DAEMON)]	= GET_DAEMON_ARG_LEN,
++	IP_VS_GET_CMDID_TABLE(IP_VS_GET_CMDID)
+ };
+ 
++union ip_vs_get_arglen { IP_VS_GET_CMDID_TABLE(IP_VS_GET_CMDID_LEN) };
++#define MAX_GET_ARGLEN	sizeof(union ip_vs_get_arglen)
++
+ static int
+ do_ip_vs_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
+ {
+-	unsigned char arg[128];
++	unsigned char arg[MAX_GET_ARGLEN];
+ 	int ret = 0;
+ 	unsigned int copylen;
+ 	struct net *net = sock_net(sk);
+ 	struct netns_ipvs *ipvs = net_ipvs(net);
+ 
+ 	BUG_ON(!net);
++	BUILD_BUG_ON(sizeof(arg) > 256);
+ 	if (!ns_capable(sock_net(sk)->user_ns, CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
+ 	if (cmd < IP_VS_BASE_CTL || cmd > IP_VS_SO_GET_MAX)
+ 		return -EINVAL;
+ 
+-	if (*len < get_arglen[GET_CMDID(cmd)]) {
+-		pr_err("get_ctl: len %u < %u\n",
+-		       *len, get_arglen[GET_CMDID(cmd)]);
+-		return -EINVAL;
+-	}
+-
+ 	copylen = get_arglen[GET_CMDID(cmd)];
+-	if (copylen > 128)
++	if (*len < (int) copylen || *len < 0) {
++		pr_err("get_ctl: len %d < %u\n", *len, copylen);
+ 		return -EINVAL;
++	}
+ 
+ 	if (copy_from_user(arg, user, copylen) != 0)
+ 		return -EFAULT;
+-- 
+1.9.0
 
 
-On Mon, Jul 21, 2014 at 10:42 AM, Nishanth Aravamudan <
-nacc@linux.vnet.ibm.com> wrote:
-
-> On 11.07.2014 [15:37:32 +0800], Jiang Liu wrote:
-> > When CONFIG_HAVE_MEMORYLESS_NODES is enabled,
-> cpu_to_node()/numa_node_id()
-> > may return a node without memory, and later cause system failure/panic
-> > when calling kmalloc_node() and friends with returned node id.
-> > So use cpu_to_mem()/numa_mem_id() instead to get the nearest node with
-> > memory for the/current cpu.
-> >
-> > If CONFIG_HAVE_MEMORYLESS_NODES is disabled, cpu_to_mem()/numa_mem_id()
-> > is the same as cpu_to_node()/numa_node_id().
-> >
-> > Signed-off-by: Jiang Liu <jiang.liu@linux.intel.com>
-> > ---
-> >  drivers/net/ethernet/intel/igb/igb_main.c |    4 ++--
-> >  1 file changed, 2 insertions(+), 2 deletions(-)
-> >
-> > diff --git a/drivers/net/ethernet/intel/igb/igb_main.c
-> b/drivers/net/ethernet/intel/igb/igb_main.c
-> > index f145adbb55ac..2b74bffa5648 100644
-> > --- a/drivers/net/ethernet/intel/igb/igb_main.c
-> > +++ b/drivers/net/ethernet/intel/igb/igb_main.c
-> > @@ -6518,7 +6518,7 @@ static bool igb_can_reuse_rx_page(struct
-> igb_rx_buffer *rx_buffer,
-> >                                 unsigned int truesize)
-> >  {
-> >       /* avoid re-using remote pages */
-> > -     if (unlikely(page_to_nid(page) != numa_node_id()))
-> > +     if (unlikely(page_to_nid(page) != numa_mem_id()))
-> >               return false;
-> >
-> >  #if (PAGE_SIZE < 8192)
-> > @@ -6588,7 +6588,7 @@ static bool igb_add_rx_frag(struct igb_ring
-> *rx_ring,
-> >               memcpy(__skb_put(skb, size), va, ALIGN(size,
-> sizeof(long)));
-> >
-> >               /* we can reuse buffer as-is, just make sure it is local */
-> > -             if (likely(page_to_nid(page) == numa_node_id()))
-> > +             if (likely(page_to_nid(page) == numa_mem_id()))
-> >                       return true;
-> >
-> >               /* this page cannot be reused so discard it */
->
-> This doesn't seem to have anything to do with crashes or errors?
->
-> The original code is checking if the NUMA node of a page is remote to
-> the NUMA node current is running on. Your change makes it check if the
-> NUMA node of a page is not equal to the nearest NUMA node with memory.
-> That's not necessarily local, though, which seems like that is the whole
-> point. In this case, perhaps the driver author doesn't want to reuse the
-> memory at all for performance reasons? In any case, I don't think this
-> patch has appropriate justification.
->
-> Thanks,
-> Nish
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
->
-
---089e013d06e649da2f04feb97643
-Content-Type: text/html; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-
-<div dir=3D"ltr"><div>I do agree the description should probably be changed=
-.=C2=A0 There shouldn&#39;t be any panics involved, only a performance impa=
-ct as it will be reallocating always if it is on a node with no memory.<br>=
-</div>
-<div><br>My intention on this was to make certain that the memory used is f=
-rom the closest node possible.=C2=A0 As such I believe this change likely h=
-onours that.<br><br></div>Thanks,<br><br>Alex<br></div><div class=3D"gmail_=
-extra">
-<br><br><div class=3D"gmail_quote">On Mon, Jul 21, 2014 at 10:42 AM, Nishan=
-th Aravamudan <span dir=3D"ltr">&lt;<a href=3D"mailto:nacc@linux.vnet.ibm.c=
-om" target=3D"_blank">nacc@linux.vnet.ibm.com</a>&gt;</span> wrote:<br><blo=
-ckquote class=3D"gmail_quote" style=3D"margin:0 0 0 .8ex;border-left:1px #c=
-cc solid;padding-left:1ex">
-<div class=3D"HOEnZb"><div class=3D"h5">On 11.07.2014 [15:37:32 +0800], Jia=
-ng Liu wrote:<br>
-&gt; When CONFIG_HAVE_MEMORYLESS_NODES is enabled, cpu_to_node()/numa_node_=
-id()<br>
-&gt; may return a node without memory, and later cause system failure/panic=
-<br>
-&gt; when calling kmalloc_node() and friends with returned node id.<br>
-&gt; So use cpu_to_mem()/numa_mem_id() instead to get the nearest node with=
-<br>
-&gt; memory for the/current cpu.<br>
-&gt;<br>
-&gt; If CONFIG_HAVE_MEMORYLESS_NODES is disabled, cpu_to_mem()/numa_mem_id(=
-)<br>
-&gt; is the same as cpu_to_node()/numa_node_id().<br>
-&gt;<br>
-&gt; Signed-off-by: Jiang Liu &lt;<a href=3D"mailto:jiang.liu@linux.intel.c=
-om">jiang.liu@linux.intel.com</a>&gt;<br>
-&gt; ---<br>
-&gt; =C2=A0drivers/net/ethernet/intel/igb/igb_main.c | =C2=A0 =C2=A04 ++--<=
-br>
-&gt; =C2=A01 file changed, 2 insertions(+), 2 deletions(-)<br>
-&gt;<br>
-&gt; diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/e=
-thernet/intel/igb/igb_main.c<br>
-&gt; index f145adbb55ac..2b74bffa5648 100644<br>
-&gt; --- a/drivers/net/ethernet/intel/igb/igb_main.c<br>
-&gt; +++ b/drivers/net/ethernet/intel/igb/igb_main.c<br>
-&gt; @@ -6518,7 +6518,7 @@ static bool igb_can_reuse_rx_page(struct igb_rx_=
-buffer *rx_buffer,<br>
-&gt; =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 unsigned int truesize)<br>
-&gt; =C2=A0{<br>
-&gt; =C2=A0 =C2=A0 =C2=A0 /* avoid re-using remote pages */<br>
-&gt; - =C2=A0 =C2=A0 if (unlikely(page_to_nid(page) !=3D numa_node_id()))<b=
-r>
-&gt; + =C2=A0 =C2=A0 if (unlikely(page_to_nid(page) !=3D numa_mem_id()))<br=
->
-&gt; =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 return false;<br>
-&gt;<br>
-&gt; =C2=A0#if (PAGE_SIZE &lt; 8192)<br>
-&gt; @@ -6588,7 +6588,7 @@ static bool igb_add_rx_frag(struct igb_ring *rx_=
-ring,<br>
-&gt; =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 memcpy(__skb_put(skb,=
- size), va, ALIGN(size, sizeof(long)));<br>
-&gt;<br>
-&gt; =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 /* we can reuse buffe=
-r as-is, just make sure it is local */<br>
-&gt; - =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (likely(page_to_nid(pag=
-e) =3D=3D numa_node_id()))<br>
-&gt; + =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 if (likely(page_to_nid(pag=
-e) =3D=3D numa_mem_id()))<br>
-&gt; =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =
-=C2=A0 return true;<br>
-&gt;<br>
-&gt; =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 /* this page cannot b=
-e reused so discard it */<br>
-<br>
-</div></div>This doesn&#39;t seem to have anything to do with crashes or er=
-rors?<br>
-<br>
-The original code is checking if the NUMA node of a page is remote to<br>
-the NUMA node current is running on. Your change makes it check if the<br>
-NUMA node of a page is not equal to the nearest NUMA node with memory.<br>
-That&#39;s not necessarily local, though, which seems like that is the whol=
-e<br>
-point. In this case, perhaps the driver author doesn&#39;t want to reuse th=
-e<br>
-memory at all for performance reasons? In any case, I don&#39;t think this<=
-br>
-patch has appropriate justification.<br>
-<br>
-Thanks,<br>
-Nish<br>
-<br>
---<br>
-To unsubscribe from this list: send the line &quot;unsubscribe linux-kernel=
-&quot; in<br>
-<div class=3D"">the body of a message to <a href=3D"mailto:majordomo@vger.k=
-ernel.org">majordomo@vger.kernel.org</a><br>
-More majordomo info at =C2=A0<a href=3D"http://vger.kernel.org/majordomo-in=
-fo.html" target=3D"_blank">http://vger.kernel.org/majordomo-info.html</a><b=
-r>
-</div>Please read the FAQ at =C2=A0<a href=3D"http://www.tux.org/lkml/" tar=
-get=3D"_blank">http://www.tux.org/lkml/</a><br>
-</blockquote></div><br></div>
-
---089e013d06e649da2f04feb97643--
+Regards
 
 --
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Julian Anastasov <ja@ssi.bg>
