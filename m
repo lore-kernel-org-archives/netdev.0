@@ -1,29 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 3/9] gue: Changes to ip_tunnel to support
- Generic UDP Encapsulation
-Date: Sun, 20 Jul 2014 21:39:06 -0700 (PDT)
-Message-ID: <20140720.213906.2075766994230053164.davem@davemloft.net>
-References: <alpine.DEB.2.02.1407162055520.29792@tomh.mtv.corp.google.com>
-	<20140717.145345.1627726281054820171.davem@davemloft.net>
-	<CA+mtBx9+i35xJjDmupJY7UA5quW=Cfmq2aQ6r3j7iJ0M8WmtHg@mail.gmail.com>
+Subject: Re: [PATCH 00/18] Netfilter updates for net-next
+Date: Sun, 20 Jul 2014 21:41:59 -0700 (PDT)
+Message-ID: <20140720.214159.2234980689155341101.davem@davemloft.net>
+References: <1405681272-4994-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: therbert@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53343 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752965AbaGUEjI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 00:39:08 -0400
-In-Reply-To: <CA+mtBx9+i35xJjDmupJY7UA5quW=Cfmq2aQ6r3j7iJ0M8WmtHg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1405681272-4994-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Herbert <therbert@google.com>
-Date: Sun, 20 Jul 2014 20:31:18 -0700
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Fri, 18 Jul 2014 13:00:54 +0200
 
-> Changing to the IP tunnel code to use netlink instead of ioctls looks
-> like a pretty major undertaking.
+> You can pull these changes from:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
 
-It already does via ->newlink()
+Pulled, thanks Pablo.
+
+> BTW, I would need that you pull net into net-next after this batch, most
+> likely we'll have another round of nf_tables updates for net-next
+> that depend on changes that are available in your net tree.
+
+I will work on doing this merge soon, thanks for asking.
+
