@@ -1,69 +1,129 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH -next] tun: stop tx queue when limit is hit
-Date: Mon, 21 Jul 2014 10:31:06 +0200
-Message-ID: <20140721083106.GC21375@breakpoint.cc>
-References: <1405882285-3072-1-git-send-email-fw@strlen.de>
- <20140720.223313.1589952322700027038.davem@davemloft.net>
- <20140721065419.GB21375@breakpoint.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	mst@redhat.com
-To: Florian Westphal <fw@strlen.de>
+From: Antonio Quartulli <antonio@meshcoding.com>
+Subject: [PATCH] skbedit: allow the user to specify bitmask for mark
+Date: Mon, 21 Jul 2014 10:35:20 +0200
+Message-ID: <1405931720-24383-1-git-send-email-antonio@meshcoding.com>
+Cc: netdev@vger.kernel.org, Antonio Quartulli <antonio@open-mesh.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:52780 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753753AbaGUIbM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 04:31:12 -0400
-Content-Disposition: inline
-In-Reply-To: <20140721065419.GB21375@breakpoint.cc>
+Received: from s3.neomailbox.net ([178.209.62.157]:16023 "EHLO
+	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753118AbaGUIfp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 04:35:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Florian Westphal <fw@strlen.de> wrote:
-> David Miller <davem@davemloft.net> wrote:
-> > From: Florian Westphal <fw@strlen.de>
-> > Date: Sun, 20 Jul 2014 20:51:25 +0200
-> > 
-> > > Currently tun just frees the skb and returns NETDEV_TX_OK
-> > > when queue length exceeds txqlen.
-> > > 
-> > > This causes severe packetloss and unneeded resource
-> > > consumption on host when sending to vm connected via tun.
-> > > 
-> > > Instead, lets stop the transmit queue and start it once
-> > > packets are consumed from the queue.  This allows the network
-> > > stack to control applications that send data via tun device.
-> > 
-> > I strongly suspect the current behavior is intentional, see
-> > commit:
-> > 
-> > commit 5d097109257c03a71845729f8db6b5770c4bbedc
-> > Author: Michael S. Tsirkin <mst@redhat.com>
-> > Date:   Mon Dec 3 10:07:14 2012 +0000
-> > 
-> >     tun: only queue packets on device
-> 
-> Looks like you're right :-/
-> 
-> Alright, please ignore my patch.
-> 
-> That being said, the current behaviour isn't ideal either.
-> 
-> It took me quite some time to realize that packetloss
-> was on the sender side inside tun driver and not on the receiver
-> vm.  Not stopping the queue was a bit ... unexpected.
+From: Antonio Quartulli <antonio@open-mesh.com>
 
-Michael, do you think we could restore the 'stop queue' default
-behaviour?
+The user may want to use only some bits of the skb mark in
+his skbedit rules because the remaining part might be used by
+something else.
 
-Looking at your changelog, the only concern seems to be the
-'packets never consumed'/'receiver is stuck forever' case.
+Introduce the "mask" parameter to the skbedit actor in order
+to implement such functionality.
 
-What about reverting 5d097109257c03a7184, and then adding some
-type of tun watchdog that will zap the rcv queue + tx queue wakeup?
+When the mask is specified, only those bits selected by the
+latter are altered really changed by the actor, while the
+rest is left untouched.
 
-That should be quite noisy if we combine it with the WARN_ON
-you usually get when (physical) NIC driver detect stalled tx unit.
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Signed-off-by: Antonio Quartulli <antonio@open-mesh.com>
+---
+ include/net/tc_act/tc_skbedit.h        |  1 +
+ include/uapi/linux/tc_act/tc_skbedit.h |  2 ++
+ net/sched/act_skbedit.c                | 20 +++++++++++++++++---
+ 3 files changed, 20 insertions(+), 3 deletions(-)
 
-What do you think?
+diff --git a/include/net/tc_act/tc_skbedit.h b/include/net/tc_act/tc_skbedit.h
+index 0df9a0d..a385c68 100644
+--- a/include/net/tc_act/tc_skbedit.h
++++ b/include/net/tc_act/tc_skbedit.h
+@@ -26,6 +26,7 @@ struct tcf_skbedit {
+ 	u32			flags;
+ 	u32     		priority;
+ 	u32     		mark;
++	u32			mask;
+ 	u16			queue_mapping;
+ 	/* XXX: 16-bit pad here? */
+ };
+diff --git a/include/uapi/linux/tc_act/tc_skbedit.h b/include/uapi/linux/tc_act/tc_skbedit.h
+index 7a2e910..c7c8c5f 100644
+--- a/include/uapi/linux/tc_act/tc_skbedit.h
++++ b/include/uapi/linux/tc_act/tc_skbedit.h
+@@ -27,6 +27,7 @@
+ #define SKBEDIT_F_PRIORITY		0x1
+ #define SKBEDIT_F_QUEUE_MAPPING		0x2
+ #define SKBEDIT_F_MARK			0x4
++#define SKBEDIT_F_MASK			0x8
+ 
+ struct tc_skbedit {
+ 	tc_gen;
+@@ -39,6 +40,7 @@ enum {
+ 	TCA_SKBEDIT_PRIORITY,
+ 	TCA_SKBEDIT_QUEUE_MAPPING,
+ 	TCA_SKBEDIT_MARK,
++	TCA_SKBEDIT_MASK,
+ 	__TCA_SKBEDIT_MAX
+ };
+ #define TCA_SKBEDIT_MAX (__TCA_SKBEDIT_MAX - 1)
+diff --git a/net/sched/act_skbedit.c b/net/sched/act_skbedit.c
+index fcfeeaf..5fca32b 100644
+--- a/net/sched/act_skbedit.c
++++ b/net/sched/act_skbedit.c
+@@ -43,8 +43,12 @@ static int tcf_skbedit(struct sk_buff *skb, const struct tc_action *a,
+ 	if (d->flags & SKBEDIT_F_QUEUE_MAPPING &&
+ 	    skb->dev->real_num_tx_queues > d->queue_mapping)
+ 		skb_set_queue_mapping(skb, d->queue_mapping);
+-	if (d->flags & SKBEDIT_F_MARK)
+-		skb->mark = d->mark;
++	if (d->flags & SKBEDIT_F_MARK) {
++		/* unset all the bits in the mask */
++		skb->mark = skb->mark & ~d->mask;
++		/* assign the mark value for the masked bit only */
++		skb->mark |= d->mark & d->mask;
++	}
+ 
+ 	spin_unlock(&d->tcf_lock);
+ 	return d->tcf_action;
+@@ -55,6 +59,7 @@ static const struct nla_policy skbedit_policy[TCA_SKBEDIT_MAX + 1] = {
+ 	[TCA_SKBEDIT_PRIORITY]		= { .len = sizeof(u32) },
+ 	[TCA_SKBEDIT_QUEUE_MAPPING]	= { .len = sizeof(u16) },
+ 	[TCA_SKBEDIT_MARK]		= { .len = sizeof(u32) },
++	[TCA_SKBEDIT_MASK]		= { .len = sizeof(u32) },
+ };
+ 
+ static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
+@@ -64,7 +69,7 @@ static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
+ 	struct nlattr *tb[TCA_SKBEDIT_MAX + 1];
+ 	struct tc_skbedit *parm;
+ 	struct tcf_skbedit *d;
+-	u32 flags = 0, *priority = NULL, *mark = NULL;
++	u32 flags = 0, *priority = NULL, *mark = NULL, *mask = NULL;
+ 	u16 *queue_mapping = NULL;
+ 	int ret = 0, err;
+ 
+@@ -93,6 +98,11 @@ static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
+ 		mark = nla_data(tb[TCA_SKBEDIT_MARK]);
+ 	}
+ 
++	if (tb[TCA_SKBEDIT_MASK] != NULL) {
++		flags |= SKBEDIT_F_MASK;
++		mask = nla_data(tb[TCA_SKBEDIT_MASK]);
++	}
++
+ 	if (!flags)
+ 		return -EINVAL;
+ 
+@@ -123,6 +133,10 @@ static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
+ 		d->queue_mapping = *queue_mapping;
+ 	if (flags & SKBEDIT_F_MARK)
+ 		d->mark = *mark;
++	/* default behaviour is to use all the bits */
++	d->mask = 0xffffffff;
++	if (flags & SKBEDIT_F_MASK)
++		d->mask = *mask;
+ 
+ 	d->tcf_action = parm->action;
+ 
+-- 
+1.8.5.5
