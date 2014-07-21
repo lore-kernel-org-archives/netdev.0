@@ -1,7 +1,8 @@
 From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Subject: [RFC 0/2] net: phy: Prevent an MDIO bus from being unloaded while in use
-Date: Mon, 21 Jul 2014 15:26:08 -0300
-Message-ID: <1405967170-19353-1-git-send-email-ezequiel.garcia@free-electrons.com>
+Subject: [RFC 2/2] net: mvneta: Ensure the MDIO bus module is held
+Date: Mon, 21 Jul 2014 15:26:10 -0300
+Message-ID: <1405967170-19353-3-git-send-email-ezequiel.garcia@free-electrons.com>
+References: <1405967170-19353-1-git-send-email-ezequiel.garcia@free-electrons.com>
 Cc: David Miller <davem@davemloft.net>,
 	Florian Fainelli <f.fainelli@gmail.com>,
 	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
@@ -9,57 +10,60 @@ Cc: David Miller <davem@davemloft.net>,
 	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:55866 "EHLO
+Received: from top.free-electrons.com ([176.31.233.9]:55874 "EHLO
 	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S933219AbaGUS1J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 14:27:09 -0400
+	with ESMTP id S933219AbaGUS1O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 14:27:14 -0400
+In-Reply-To: <1405967170-19353-1-git-send-email-ezequiel.garcia@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+This commit adds proper module_{get,put} to prevent the MDIO bus module
+from being unloaded while the phydev is connected. By doing so, we fix
+a kernel panic produced when the mvmdio driver is removed, and one of
+the ethernet interfaces using it is "up".
 
-This small patchset is a first proposal to fix the current lack of relationship
-between an ethernet driver and the MDIO bus behind the PHY device.
-
-In such cases, we would find no visible link between the drivers:
-
-  $ lsmod
-  Module                  Size  Used by    Not tainted
-  mvmdio                  2941  0 
-  mvneta                 22069  0 
-
-Which means nothing prevents the MDIO driver from being removed:
-
-  $ modprobe -r mvmdio
-
-  # Unable to handle kernel NULL pointer dereference at virtual address 00000060
-  pgd = c0004000
-  [00000060] *pgd=00000000
-  Internal error: Oops: 17 [#1] SMP ARM
-  Modules linked in: mvneta [last unloaded: mvmdio]
-  CPU: 0 PID: 22 Comm: kworker/0:1 Not tainted 3.16.0-rc5-01127-g62c0816-dirty #608
-  Workqueue: events_power_efficient phy_state_machine
-  task: df5ec840 ti: df67a000 task.ti: df67a000
-  PC is at phy_state_machine+0x1c/0x468
-  LR is at phy_state_machine+0x18/0x468
-  [snip]
-
-This patchset fixes this by calling module_{get,put} in the ethernet driver.
-After this patch, the mvmdio driver is no longer removable:
-
-  $ modprobe -r mvmdio
-  modprobe: can't unload module mvmdio: Resource temporarily unavailable
-
-Of course, we can expect a few drivers to have the same need and therefore
-we could argue about moving this to be part of the phydev connection.
-
-Ezequiel Garcia (2):
-  net: phy: Set the driver when registering an MDIO bus device
-  net: mvneta: Ensure the MDIO bus module is held
-
+Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+---
  drivers/net/ethernet/marvell/mvneta.c | 12 ++++++++++++
- drivers/net/phy/mdio_bus.c            |  1 +
- 2 files changed, 13 insertions(+)
+ 1 file changed, 12 insertions(+)
 
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index dadd9a5..98d0cd1 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -297,6 +297,7 @@ struct mvneta_port {
+ 	struct mvneta_pcpu_stats *stats;
+ 
+ 	struct mii_bus *mii_bus;
++	struct module *phy_module;
+ 	struct phy_device *phy_dev;
+ 	phy_interface_t phy_interface;
+ 	struct device_node *phy_node;
+@@ -2575,6 +2576,15 @@ static int mvneta_mdio_probe(struct mvneta_port *pp)
+ 		return -ENODEV;
+ 	}
+ 
++	/* Get the MDIO driver so it can't be removed beneath our feet */
++	pp->phy_module = phy_dev->bus->dev.driver ?
++			 phy_dev->bus->dev.driver->owner : NULL;
++	if (!try_module_get(pp->phy_module)) {
++		netdev_err(pp->dev, "could not get the MDIO module\n");
++		phy_disconnect(phy_dev);
++		return -EIO;
++	}
++
+ 	phy_dev->supported &= PHY_GBIT_FEATURES;
+ 	phy_dev->advertising = phy_dev->supported;
+ 
+@@ -2590,6 +2600,8 @@ static void mvneta_mdio_remove(struct mvneta_port *pp)
+ {
+ 	phy_disconnect(pp->phy_dev);
+ 	pp->phy_dev = NULL;
++	module_put(pp->phy_module);
++	pp->phy_module = NULL;
+ }
+ 
+ static int mvneta_open(struct net_device *dev)
 -- 
 2.0.1
