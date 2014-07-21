@@ -1,33 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next] net: mvpp2: Fix error return code in
- mvpp2_probe()
-Date: Sun, 20 Jul 2014 22:27:22 -0700 (PDT)
-Message-ID: <20140720.222722.455470902484170683.davem@davemloft.net>
-References: <1405864963-14217-1-git-send-email-weiyj_lk@163.com>
+Subject: Re: [PATCH -next] tun: stop tx queue when limit is hit
+Date: Sun, 20 Jul 2014 22:33:13 -0700 (PDT)
+Message-ID: <20140720.223313.1589952322700027038.davem@davemloft.net>
+References: <1405882285-3072-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: grant.likely@linaro.org, robh+dt@kernel.org,
-	ezequiel.garcia@free-electrons.com, mw@semihalf.com,
-	yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
-To: weiyj_lk@163.com
+Cc: netdev@vger.kernel.org
+To: fw@strlen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53655 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53696 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752041AbaGUF1X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 01:27:23 -0400
-In-Reply-To: <1405864963-14217-1-git-send-email-weiyj_lk@163.com>
+	with ESMTP id S1751165AbaGUFdO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 01:33:14 -0400
+In-Reply-To: <1405882285-3072-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: weiyj_lk@163.com
-Date: Sun, 20 Jul 2014 22:02:43 +0800
+From: Florian Westphal <fw@strlen.de>
+Date: Sun, 20 Jul 2014 20:51:25 +0200
 
-> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> Currently tun just frees the skb and returns NETDEV_TX_OK
+> when queue length exceeds txqlen.
 > 
-> Fix to return -ENODEV from the no ports enabled error handling
-> case instead of 0.
+> This causes severe packetloss and unneeded resource
+> consumption on host when sending to vm connected via tun.
 > 
-> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> Instead, lets stop the transmit queue and start it once
+> packets are consumed from the queue.  This allows the network
+> stack to control applications that send data via tun device.
 
-Applied.
+I strongly suspect the current behavior is intentional, see
+commit:
+
+commit 5d097109257c03a71845729f8db6b5770c4bbedc
+Author: Michael S. Tsirkin <mst@redhat.com>
+Date:   Mon Dec 3 10:07:14 2012 +0000
+
+    tun: only queue packets on device
+
+for example.
