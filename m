@@ -1,40 +1,63 @@
-From: Tom Gundersen <teg@jklm.no>
-Subject: Re: [PATCH v7 08/33] net: nl80211 - make rdev_add_virtual_intf take name_assign_type
-Date: Mon, 21 Jul 2014 19:03:04 +0200
-Message-ID: <CAG-2HqVhQKQXO-7AHa2y+YfEPco2z1-QvyzoGOThADoLVxVVFg@mail.gmail.com>
-References: <1404980258-30853-1-git-send-email-teg@jklm.no>
- <1404980258-30853-9-git-send-email-teg@jklm.no> <1405935610.32255.5.camel@jlt4.sipsolutions.net>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH] Hyperv: Trigger DHCP renew after host hibernation
+Date: Mon, 21 Jul 2014 12:17:36 -0500
+Message-ID: <1405963056.20886.9.camel@dcbw.local>
+References: <1405680903-28176-1-git-send-email-yuezha@microsoft.com>
+ <CAG-2HqXFBUmpTAE8h13-DmP6Fq42viHzmuH9OfNoLgjW8XcQ3Q@mail.gmail.com>
+ <DC7803B42427924284F2D5252E076A3B4476A6D1@SINEX14MBXC416.southpacific.corp.microsoft.com>
+ <20140721131154.GA23385@tango.0pointer.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	David Herrmann <dh.herrmann@gmail.com>,
-	Kay Sievers <kay@vrfy.org>,
-	John Linville <linville@tuxdriver.com>
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1405935610.32255.5.camel@jlt4.sipsolutions.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "olaf@aepfle.de" <olaf@aepfle.de>, netdev <netdev@vger.kernel.org>,
+ "jasowang@redhat.com" <jasowang@redhat.com>,
+ "driverdev-devel@linuxdriverproject.org"
+ <driverdev-devel@linuxdriverproject.org>,
+ Haiyang Zhang <haiyangz@microsoft.com>, LKML <linux-kernel@vger.kernel.org>,
+ Tom Gundersen <teg@jklm.no>, "Yue Zhang \(OSTC DEV\)" <yuezha@microsoft.com>,
+ Greg KH <gregkh@linuxfoundation.org>, Thomas Shao <huishao@microsoft.com>,
+ David Miller <davem@davemloft.net>
+To: Lennart Poettering <mzxreary@0pointer.de>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20140721131154.GA23385@tango.0pointer.de>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-Hi Johannes,
+On Mon, 2014-07-21 at 15:11 +0200, Lennart Poettering wrote:
+> On Mon, 21.07.14 10:21, Yue Zhang (OSTC DEV) (yuezha@microsoft.com) wrote:
+> 
+> > Some network monitoring daemon, like ifplugd has a deferring mechanism.
+> > When it detects carriers is offline, it doesn't trigger DHCP renew immediately. 
+> > Instead it will wait for another 5 seconds to check whether carrier is back to 
+> > online status. In that case, it will avoid renew DHCP lease.
+> 
+> ifplugd doesn't renew DHCP leases anyway, one of the scripts it invokes
+> does.
+> 
+> ifplugd is obsolete software. I wrote it more than 10 years ago, and
+> haven't really updated it since. it's sounds seriously wrong to add
+> multi-second waits to the kernel just to make this crappy, obsolete
+> software work.
+> 
+> Please fix this properly, and work with the PM guys, so that we get a
+> sane userspace how the kernel can notify userspace about
+> suspends/hibernations triggered from the outside, so that userspace
+> daemons can subscribe to that and then refresh the DHCP leases on their
+> own.
 
-On Mon, Jul 21, 2014 at 11:40 AM, Johannes Berg
-<johannes@sipsolutions.net> wrote:
-> On Thu, 2014-07-10 at 10:17 +0200, Tom Gundersen wrote:
->> Pass the value down and set it at the same place the name itself is set.
->
-> Is this going to be applied as part of one bigger series?
+Yeah, like I've said before, there have been other cases where a "hey,
+my L3 address might be wrong now, so please confirm it" message would be
+useful.  Carrier on/off doesn't necessarily mean that, but even if it
+did, the off interval is a really bad mechanism for that too.  So I'd
+really like some kind of event for this that's distinct from carrier
+that userspace could use.
 
-This patch is superceded by "[PATCH net-next v9 2/9] net: nl80211 -
-make rdev_add_virtual_intf take name_assign_type", which indeed is
-part of a bigger series.
-
-However, if you and David prefer to take it through your tree, let me
-know and I'll split it out from the series and resubmit it to you
-independently.
-
-Cheers,
-
-Tom
+Dan
