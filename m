@@ -1,70 +1,118 @@
-From: Ying Xue <ying.xue@windriver.com>
-Subject: Re: [PATCH -next] tipc: fix sparse non static symbol warnings
-Date: Mon, 21 Jul 2014 10:36:40 +0800
-Message-ID: <53CC7CB8.9090205@windriver.com>
-References: <1405833268-6630-1-git-send-email-weiyj_lk@163.com>
+From: Fugang Duan <b38611@freescale.com>
+Subject: [PATCH] net: fec: ptp: avoid register access when ipg clock is disabled
+Date: Mon, 21 Jul 2014 10:35:55 +0800
+Message-ID: <1405910155-29760-1-git-send-email-b38611@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
-	<netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>
-To: <weiyj_lk@163.com>, Jon Maloy <jon.maloy@ericsson.com>,
-	Allan Stephens <allan.stephens@windriver.com>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <richardcochran@gmail.com>
+To: <shawn.guo@linaro.org>, <b20596@freescale.com>,
+	<davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:63300 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751901AbaGUChP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 20 Jul 2014 22:37:15 -0400
-In-Reply-To: <1405833268-6630-1-git-send-email-weiyj_lk@163.com>
+Received: from mail-bn1lp0141.outbound.protection.outlook.com ([207.46.163.141]:45972
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752326AbaGUCmp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 20 Jul 2014 22:42:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/20/2014 01:14 PM, weiyj_lk@163.com wrote:
-> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> 
-> Fixes the following sparse warnings:
-> 
-> net/tipc/socket.c:545:5: warning:
->  symbol 'tipc_sk_proto_rcv' was not declared. Should it be static?
-> net/tipc/socket.c:2015:5: warning:
->  symbol 'tipc_ioctl' was not declared. Should it be static?
-> 
+FEC ptp driver start one period timer to read 1588 counter register in the
+ptp init function that is called after FEC driver is probed.
 
-Acked-by: Ying Xue <ying.xue@windriver.com>
+To save power, after FEC probe finish, FEC driver disable all clocks including
+ipg clock that is needed for register access.
 
-> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> ---
->  net/tipc/socket.c | 5 +++--
->  1 file changed, 3 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-> index de01622..42c3599 100644
-> --- a/net/tipc/socket.c
-> +++ b/net/tipc/socket.c
-> @@ -542,7 +542,8 @@ static unsigned int tipc_poll(struct file *file, struct socket *sock,
->   * Returns 0 (TIPC_OK) if message was consumed, 1 (TIPC_FWD_MSG) if
->   * (CONN_PROBE_REPLY) message should be forwarded.
->   */
-> -int tipc_sk_proto_rcv(struct tipc_sock *tsk, u32 *dnode, struct sk_buff *buf)
-> +static int tipc_sk_proto_rcv(struct tipc_sock *tsk, u32 *dnode,
-> +			     struct sk_buff *buf)
->  {
->  	struct tipc_msg *msg = buf_msg(buf);
->  	struct tipc_port *port = &tsk->port;
-> @@ -2012,7 +2013,7 @@ static int tipc_getsockopt(struct socket *sock, int lvl, int opt,
->  	return put_user(sizeof(value), ol);
->  }
->  
-> -int tipc_ioctl(struct socket *sk, unsigned int cmd, unsigned long arg)
-> +static int tipc_ioctl(struct socket *sk, unsigned int cmd, unsigned long arg)
->  {
->  	struct tipc_sioc_ln_req lnr;
->  	void __user *argp = (void __user *)arg;
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> 
+i.MX5x, i.MX6q/dl/sl FEC register access don't cause system hang when ipg clock
+is disabled, just return zero value. But for i.MX6sx SOC, it cause system hang.
+
+To avoid the issue, we need to check ptp stack is on, and then start to do ptp
+init and start period timer to read 1588 timer counter. After FEC is stopped,
+it needs to cancel the period timer.
+
+Signed-off-by: Fugang Duan <B38611@freescale.com>
+---
+ drivers/net/ethernet/freescale/fec.h      |    1 +
+ drivers/net/ethernet/freescale/fec_main.c |    5 ++++-
+ drivers/net/ethernet/freescale/fec_ptp.c  |   21 ++++++++++++++++++++-
+ 3 files changed, 25 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
+index bd53caf..bca0f74 100644
+--- a/drivers/net/ethernet/freescale/fec.h
++++ b/drivers/net/ethernet/freescale/fec.h
+@@ -340,6 +340,7 @@ struct fec_enet_private {
+ 
+ void fec_ptp_init(struct platform_device *pdev);
+ void fec_ptp_start_cyclecounter(struct net_device *ndev);
++void fec_ptp_stop(struct net_device *ndev);
+ int fec_ptp_set(struct net_device *ndev, struct ifreq *ifr);
+ int fec_ptp_get(struct net_device *ndev, struct ifreq *ifr);
+ 
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index e0efb21..c4944e1 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -997,7 +997,7 @@ fec_restart(struct net_device *ndev)
+ 	writel(ecntl, fep->hwp + FEC_ECNTRL);
+ 	writel(0, fep->hwp + FEC_R_DES_ACTIVE);
+ 
+-	if (fep->bufdesc_ex)
++	if (fep->bufdesc_ex && (fep->hwts_tx_en || fep->hwts_rx_en))
+ 		fec_ptp_start_cyclecounter(ndev);
+ 
+ 	/* Enable interrupts we wish to service */
+@@ -1026,6 +1026,9 @@ fec_stop(struct net_device *ndev)
+ 	writel(fep->phy_speed, fep->hwp + FEC_MII_SPEED);
+ 	writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
+ 
++	if (fep->bufdesc_ex && (fep->hwts_tx_en || fep->hwts_rx_en))
++		fec_ptp_stop(ndev);
++
+ 	/* We have to keep ENET enabled to have MII interrupt stay working */
+ 	if (id_entry->driver_data & FEC_QUIRK_ENET_MAC) {
+ 		writel(2, fep->hwp + FEC_ECNTRL);
+diff --git a/drivers/net/ethernet/freescale/fec_ptp.c b/drivers/net/ethernet/freescale/fec_ptp.c
+index 82386b2..b2e9eb4 100644
+--- a/drivers/net/ethernet/freescale/fec_ptp.c
++++ b/drivers/net/ethernet/freescale/fec_ptp.c
+@@ -128,6 +128,9 @@ void fec_ptp_start_cyclecounter(struct net_device *ndev)
+ 	timecounter_init(&fep->tc, &fep->cc, ktime_to_ns(ktime_get_real()));
+ 
+ 	spin_unlock_irqrestore(&fep->tmreg_lock, flags);
++
++	if (!timer_pending(&fep->time_keep))
++		add_timer(&fep->time_keep);
+ }
+ 
+ /**
+@@ -390,7 +393,6 @@ void fec_ptp_init(struct platform_device *pdev)
+ 	fep->time_keep.data = (unsigned long)fep;
+ 	fep->time_keep.function = fec_time_keep;
+ 	fep->time_keep.expires = jiffies + HZ;
+-	add_timer(&fep->time_keep);
+ 
+ 	fep->ptp_clock = ptp_clock_register(&fep->ptp_caps, &pdev->dev);
+ 	if (IS_ERR(fep->ptp_clock)) {
+@@ -398,3 +400,20 @@ void fec_ptp_init(struct platform_device *pdev)
+ 		pr_err("ptp_clock_register failed\n");
+ 	}
+ }
++
++/*
++ * Cleanup routine for 1588 module.
++ * When FEC is stopped this routing is called
++ */
++void fec_ptp_stop(struct net_device *ndev)
++{
++	struct fec_enet_private *priv = netdev_priv(ndev);
++
++	writel(0, priv->hwp + FEC_ATIME_CTRL);
++	writel(FEC_T_CTRL_RESTART, priv->hwp + FEC_ATIME_CTRL);
++
++	priv->hwts_tx_en = 0;
++	priv->hwts_rx_en = 0;
++
++	del_timer_sync(&priv->time_keep);
++}
+-- 
+1.7.8
