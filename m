@@ -1,128 +1,27 @@
-From: Bjorn Helgaas <bhelgaas@google.com>
-Subject: Re: [PATCH 0/25] Replace DEFINE_PCI_DEVICE_TABLE macro use
-Date: Mon, 21 Jul 2014 17:16:03 -0600
-Message-ID: <CAErSpo7svKg0HiL=g8wWAHWUN3vs0UgCvVhvd84DM6nVDmT=FQ@mail.gmail.com>
-References: <1405697232-11785-1-git-send-email-benoit.taine@lip6.fr>
-	<20140718162213.GC31114@tuxdriver.com>
-	<20140718164340.GA24960@kroah.com>
-	<1405702472.30262.1.camel@dabdike.int.hansenpartnership.com>
-	<20140718181759.GB2193@kroah.com>
-	<1405709421.30262.8.camel@dabdike.int.hansenpartnership.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 00/11] net: bcmgenet: PM and Wake-on-LAN
+Date: Mon, 21 Jul 2014 16:07:37 -0700 (PDT)
+Message-ID: <20140721.160737.1539725288355580312.davem@davemloft.net>
+References: <1405981769-24618-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-mips@linux-mips.org" <linux-mips@linux-mips.org>,
-	linux-fbdev@vger.kernel.org,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	DRI mailing list <dri-devel@lists.freedesktop.org>,
-	virtualization@lists.linux-foundation.org,
-	Benoit Taine <benoit.taine@lip6.fr>,
-	ath5k-devel@venema.h4ckr.net, linux-acenic@sunsite.dk,
-	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>,
-	users@rt2x00.serialmonkey.com,
-	"linux-rdma@vger.kernel.org" <linux-rdma@vger.kernel.org>,
-	Jingoo Han <jg1.han@samsung.com>, ath10k@lists.infradead.org,
-	linux-hippi@sunsite.dk, industrypack-devel@lists.sourceforge.net,
-	Greg KH <greg@kroah.com>, linux-wireless <linux-wireless@vger.kernel.org>,
-	"xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
-	MPT-FusionLinux.pdl@avagotech.com, ath9k-devel@venema.h4ckr.net,
-	wil6210@qca.qualcomm.com, linux-pcmcia@lists.infradead.org,
-	"John
-To: James Bottomley <James.Bottomley@hansenpartnership.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1405709421.30262.8.camel@dabdike.int.hansenpartnership.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: f.fainelli@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37482 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750795AbaGUXTd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 19:19:33 -0400
+In-Reply-To: <1405981769-24618-1-git-send-email-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-WytjYyBKaW5nb29dCgpPbiBGcmksIEp1bCAxOCwgMjAxNCBhdCAxMjo1MCBQTSwgSmFtZXMgQm90
-dG9tbGV5CjxKYW1lcy5Cb3R0b21sZXlAaGFuc2VucGFydG5lcnNoaXAuY29tPiB3cm90ZToKPiBP
-biBGcmksIDIwMTQtMDctMTggYXQgMTE6MTcgLTA3MDAsIEdyZWcgS0ggd3JvdGU6Cj4+IE9uIEZy
-aSwgSnVsIDE4LCAyMDE0IGF0IDA5OjU0OjMyQU0gLTA3MDAsIEphbWVzIEJvdHRvbWxleSB3cm90
-ZToKPj4gPiBPbiBGcmksIDIwMTQtMDctMTggYXQgMDk6NDMgLTA3MDAsIEdyZWcgS0ggd3JvdGU6
-Cj4+ID4gPiBPbiBGcmksIEp1bCAxOCwgMjAxNCBhdCAxMjoyMjoxM1BNIC0wNDAwLCBKb2huIFcu
-IExpbnZpbGxlIHdyb3RlOgo+PiA+ID4gPiBPbiBGcmksIEp1bCAxOCwgMjAxNCBhdCAwNToyNjo0
-N1BNICswMjAwLCBCZW5vaXQgVGFpbmUgd3JvdGU6Cj4+ID4gPiA+ID4gV2Ugc2hvdWxkIHByZWZl
-ciBgY29uc3Qgc3RydWN0IHBjaV9kZXZpY2VfaWRgIG92ZXIKPj4gPiA+ID4gPiBgREVGSU5FX1BD
-SV9ERVZJQ0VfVEFCTEVgIHRvIG1lZXQga2VybmVsIGNvZGluZyBzdHlsZSBndWlkZWxpbmVzLgo+
-PiA+ID4gPiA+IFRoaXMgaXNzdWUgd2FzIHJlcG9ydGVkIGJ5IGNoZWNrcGF0Y2guCj4+ID4gPiA+
-Cj4+ID4gPiA+IEhvbmVzdGx5LCBJIHByZWZlciB0aGUgbWFjcm8gLS0gaXQgc3RhbmRzLW91dCBt
-b3JlLiAgTWF5YmUgdGhlIHN0eWxlCj4+ID4gPiA+IGd1aWRlbGluZXMgYW5kL29yIGNoZWNrcGF0
-Y2ggc2hvdWxkIGNoYW5nZSBpbnN0ZWFkPwo+PiA+ID4KPj4gPiA+IFRoZSBtYWNybyBpcyBob3Jy
-aWQsIG5vIG90aGVyIGJ1cyBoYXMgdGhpcyB0eXBlIG9mIHRoaW5nIGp1c3QgdG8gc2F2ZSBhCj4+
-ID4gPiBmZXcgY2hhcmFjdGVycyBpbiB0eXBpbmcKPj4gPgo+PiA+IE9LLCBzbyB0aGlzIGlzIHRo
-ZSBtYWNybzoKPj4gPgo+PiA+ICNkZWZpbmUgREVGSU5FX1BDSV9ERVZJQ0VfVEFCTEUoX3RhYmxl
-KSBcCj4+ID4gICAgIGNvbnN0IHN0cnVjdCBwY2lfZGV2aWNlX2lkIF90YWJsZVtdCj4+ID4KPj4g
-PiBDb3VsZCB5b3UgZXhwbGFpbiB3aGF0J3Mgc28gaG9ycmlibGU/Cj4+ID4KPj4gPiBUaGUgcmVh
-c29uIGl0J3MgdXNlZnVsIHRvZGF5IGlzIHRoYXQgcGVvcGxlIGZvcmdldCB0aGUgY29uc3QgKGFu
-ZAo+PiA+IHNvbWV0aW1lcyB0aGUgW10gbWFraW5nIGl0IGEgdHJ1ZSB0YWJsZSBpbnN0ZWFkIG9m
-IGEgcG9pbnRlcikuICBJZiB5b3UKPj4gPiB1c2UgdGhlIERFRklORV9QQ0lfREVWSUNFX1RBQkxF
-IG1hY3JvLCB0aGUgY29tcGlsZSBicmVha3MgaWYgeW91IHVzZSBpdAo+PiA+IHdyb25nbHkgKGdv
-b2QpIGFuZCB5b3UgYXV0b21hdGljYWxseSBnZXQgdGhlIGNvcnJlY3QgYW5ub3RhdGlvbnMuCj4+
-Cj4+IFdlIGhhdmUgYWxtb3N0IDEwMDAgbW9yZSB1c2VzIG9mIHRoZSBub24tbWFjcm8gdmVyc2lv
-biB0aGFuIHRoZSAibWFjcm8iCj4+IHZlcnNpb24gaW4gdGhlIGtlcm5lbCB0b2RheToKPj4gJCBn
-aXQgZ3JlcCAtdyBERUZJTkVfUENJX0RFVklDRV9UQUJMRSB8IHdjIC1sCj4+IDI2Mgo+PiAkIGdp
-dCBncmVwICJjb25zdCBzdHJ1Y3QgcGNpX2RldmljZV9pZCIgfCB3YyAtbAo+PiAxMjU0Cj4+Cj4+
-IE15IGJpZyBjb21wbGFpbnQgaXMgdGhhdCB3ZSBuZWVkIHRvIGJlIGNvbnNpc3RhbnQsIGVpdGhl
-ciBwaWNrIG9uZSBvcgo+PiB0aGUgb3RoZXIgYW5kIHN0aWNrIHRvIGl0LiAgQXMgdGhlIG1hY3Jv
-IGlzIHRoZSBsZWFzdCB1c2VkLCBpdCdzIGVhc2llc3QKPj4gdG8gZml4IHVwLCBhbmQgaXQgYWxz
-byBpcyBtb3JlIGNvbnNpc3RhbnQgd2l0aCBhbGwgb3RoZXIga2VybmVsCj4+IHN1YnN5c3RlbXMg
-d2hpY2ggZG8gbm90IGhhdmUgc3VjaCBhIG1hY3JvLgo+Cj4gSSd2ZSBhIHdlYWsgcHJlZmVyZW5j
-ZSBmb3IgY29uc2lzdGVuY3ksIGJ1dCBub3QgYXQgdGhlIGV4cGVuc2Ugb2YKPiBodW5kcmVkcyBv
-ZiBwYXRjaGVzIGNodXJuaW5nIHRoZSBrZXJuZWwgdG8gcmVtb3ZlIGFuIGlubm9jdW91cyBtYWNy
-by4KPiBDaHVybiBjb3N0cyB0aW1lIGFuZCBlZmZvcnQuCj4KPj4gQXMgdGhlcmUgaXMgbm8gbmVl
-ZCBmb3IgdGhlIF9faW5pdCBtYWNybyBtZXNzIGFueW1vcmUsIHRoZXJlJ3Mgbm8gcmVhbAo+PiBu
-ZWVkIGZvciB0aGUgREVGSU5FX1BDSV9ERVZJQ0VfVEFCTEUgbWFjcm8gZWl0aGVyLiAgSSB0aGlu
-ayBjaGVja3BhdGNoCj4+IHdpbGwgY2F0Y2ggdGhlIHVzZSBvZiBub24tY29uc3QgdXNlcnMgZm9y
-IHRoZSBpZCB0YWJsZSBhbHJlYWR5IHRvZGF5LCBpdAo+PiBjYXRjaGVzIGxvdHMgb2Ygb3RoZXIg
-dXNlcyBsaWtlIHRoaXMgYWxyZWFkeS4KPj4KPj4gPiA+ICwgc28gd2h5IHNob3VsZCBQQ0kgYmUg
-InNwZWNpYWwiIGluIHRoaXMgcmVnYXJkCj4+ID4gPiBhbnltb3JlPwo+PiA+Cj4+ID4gSSB0aGlu
-ayB0aGUgUENJIHVzYWdlIGR3YXJmcyBtb3N0IG90aGVyIGJ1cyB0eXBlcyBub3csIHNvIHlvdSBj
-b3VsZCB0dXJuCj4+ID4gdGhlIHF1ZXN0aW9uIGFyb3VuZC4gIEhvd2V2ZXIsIEkgZG9uJ3QgdGhp
-bmsgbWFqb3JpdHkgdm90aW5nIGlzIGEgZ29vZAo+PiA+IGd1aWRlIHRvIGJlc3QgcHJhY3Rpc2U7
-IGxldHMgZGViYXRlIHRoZSBtZXJpdHMgZm9yIHRoZWlyIG93biBzYWtlLgo+Pgo+PiBOb3QgcmVh
-bGx5ICJkd2FyZiIsIFVTQiBpcyBjbG9zZSB3aXRoIG92ZXIgNzAwIHN1Y2ggc3RydWN0dXJlczoK
-Pj4gJCBnaXQgZ3JlcCAiY29uc3Qgc3RydWN0IHVzYl9kZXZpY2VfaWQiIHwgd2MgLWwKPj4gNzI1
-Cj4+Cj4+IEFuZCBpMmMgaXMgYWxtb3N0IGp1c3QgYXMgYmlnIGFzIFBDSToKPj4gJCBnaXQgZ3Jl
-cCAiY29uc3Qgc3RydWN0IGkyY19kZXZpY2VfaWQiIHwgd2MgLWwKPj4gMTIyMwo+Pgo+PiBTbyBh
-Z2FpbiwgdGhpcyBtYWNybyBpcyBub3QgY29uc2lzdGVudCB3aXRoIHRoZSBtYWpvcml0eSBvZiBQ
-Q0kgZHJpdmVycywKPj4gbm9yIHdpdGggYW55IG90aGVyIHR5cGUgb2YgImRldmljZSBpZCIgZGVj
-bGFyYXRpb24gaW4gdGhlIGtlcm5lbCwgd2hpY2gKPj4gaXMgd2h5IEkgZmVlbCBpdCBzaG91bGQg
-YmUgcmVtb3ZlZC4KPj4KPj4gQW5kIGZpbmFsbHksIHRoZSBQQ0kgZG9jdW1lbnRhdGlvbiBpdHNl
-bGYgc2F5cyB0byBub3QgdXNlIHRoaXMgbWFjcm8sIHNvCj4+IHRoaXMgaXNuJ3QgYSAibmV3IiB0
-aGluZy4gIEZyb20gRG9jdW1lbnRhdGlvbi9QQ0kvcGNpLnR4dDoKPj4KPj4gICAgICAgVGhlIElE
-IHRhYmxlIGlzIGFuIGFycmF5IG9mIHN0cnVjdCBwY2lfZGV2aWNlX2lkIGVudHJpZXMgZW5kaW5n
-IHdpdGggYW4KPj4gICAgICAgYWxsLXplcm8gZW50cnkuICBEZWZpbml0aW9ucyB3aXRoIHN0YXRp
-YyBjb25zdCBhcmUgZ2VuZXJhbGx5IHByZWZlcnJlZC4KPj4gICAgICAgVXNlIG9mIHRoZSBkZXBy
-ZWNhdGVkIG1hY3JvIERFRklORV9QQ0lfREVWSUNFX1RBQkxFIHNob3VsZCBiZSBhdm9pZGVkLgo+
-Pgo+PiBUaGF0IHdvcmRpbmcgd2VudCBpbnRvIHRoZSBmaWxlIGxhc3QgRGVjZW1iZXIsIHdoZW4g
-d2UgbGFzdCB0YWxrZWQgYWJvdXQKPj4gdGhpcyBhbmQgZXZlcnlvbmUgaW4gdGhhdCBkaXNjdXNz
-aW9uIGFncmVlZCB0byByZW1vdmUgdGhlIG1hY3JvIGZvciB0aGUKPj4gYWJvdmUgcmVhc29ucy4K
-Pj4KPj4gQ29uc2lzdGVuY3kgbWF0dGVycy4KPgo+IEluIHRoaXMgY2FzZSwgSSBkb24ndCB0aGlu
-ayBpdCBkb2VzIHRoYXQgbXVjaCAuLi4gYSBjdXQgYW5kIHBhc3RlIGVpdGhlcgo+IHdheSAoZnJv
-bSBhIG1hY3JvIG9yIG5vbi1tYWNybyBiYXNlZCBkcml2ZXIpIHlpZWxkcyBjb3JyZWN0IGNvZGUu
-ICBTaW5jZQo+IHRoZXJlJ3Mgbm8gYnVnIGhlcmUgYW5kIG5vIGFwcGFyZW50IHdheSB0byBtaXN1
-c2UgdGhlIG1hY3JvLCB3aHkgYm90aGVyPwo+Cj4gQW55d2F5LCBpdCdzIFBDSSBjb2RlIC4uLiBs
-ZXQgdGhlIFBDSSBtYWludGFpbmVyIGRlY2lkZS4gIEhvd2V2ZXIsIGlmIGhlCj4gZG9lcyB3YW50
-IHRoaXMgZG8gaXQgYXMgb25lIGJpZyBiYW5nIHBhdGNoIHZpYSBlaXRoZXIgdGhlIFBDSSBvciBU
-cml2aWFsCj4gdHJlZSAobGF0dGVyIGJlY2F1c2UgSmnFmcOtIGhhcyBleHBlcmllbmNlIGRvaW5n
-IHRoaXMsIGJ1dCB0aGUgZm9ybWVyCj4gbWlnaHQgYmUgdXNlZnVsIHNvIHRoZSBkZWNpZGVyIGZl
-ZWxzIHRoZSBwYWluIC4uLikKCkkgZG9uJ3QgZmVlbCBzdHJvbmdseSBlaXRoZXIgd2F5LCBzbyBJ
-IGd1ZXNzIEknbSBPSyB3aXRoIHRoaXMsIGFuZCBpbgp0aGUgc3Bpcml0IG9mIGZlZWxpbmcgdGhl
-IHBhaW4sIEknbSB3aWxsaW5nIHRvIGhhbmRsZSBpdC4gIEppbmdvbwpwcm9wb3NlZCBzaW1pbGFy
-IHBhdGNoZXMsIHNvIGl0IG1pZ2h0IGJlIG5pY2UgdG8gZ2l2ZSBoaW0gc29tZSBjcmVkaXQuCgpC
-ZW5vaXQsIGhvdyBhYm91dCBpZiB5b3Ugd2FpdCB1bnRpbCBhYm91dCBoYWxmLXdheSB0aHJvdWdo
-IHRoZSBtZXJnZQp3aW5kb3cgYWZ0ZXIgdjMuMTYgcmVsZWFzZXMsIGdlbmVyYXRlIGFuIHVwLXRv
-LWRhdGUgc2luZ2xlIHBhdGNoLCBhbmQKcG9zdCB0aGF0PyAgVGhlbiB3ZSBjYW4gdHJ5IHRvIGdl
-dCBpdCBpbiBiZWZvcmUgdjMuMTctcmMxIHRvIG1pbmltaXplCm1lcmdlIGhhc3NsZXMuCgpCam9y
-bgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpWaXJ0dWFs
-aXphdGlvbiBtYWlsaW5nIGxpc3QKVmlydHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlv
-bi5vcmcKaHR0cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8v
-dmlydHVhbGl6YXRpb24=
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Mon, 21 Jul 2014 15:29:18 -0700
+
+> This patchset brings S2/S3 Power Management support to the GENET driver
+> as well as Wake-on-LAN using Magic Packets with or without SecureOn
+> passwords.
+
+Looks good, series applied, th anks Florian.
