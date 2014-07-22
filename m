@@ -1,54 +1,38 @@
-From: Sonic Zhang <sonic.adi@gmail.com>
-Subject: Re: [PATCH v7] bfin_mac: convert bfin Ethernet driver to NAPI framework
-Date: Tue, 22 Jul 2014 18:10:07 +0800
-Message-ID: <CAJxxZ0M5EPY028e_BZHEcyiWibZCeZ1rVq3junawETRb13FUGw@mail.gmail.com>
-References: <1406014682-19188-1-git-send-email-sonic.adi@gmail.com>
-	<1406015984.10255.121.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20140722.010105.2036198226851589509.davem@davemloft.net>
-	<CAJxxZ0Niah8QXGoa4CT4Y5i7qnSjL2xq_GYq7rUHmdJpaNzBHg@mail.gmail.com>
-	<1406022666.10255.128.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	adi-buildroot-devel@lists.sourceforge.net,
-	"Zhang, Sonic" <sonic.zhang@analog.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Tobias Klauser <tklauser@distanz.ch>
+Subject: [PATCH net-next] net: skbuff: Use ALIGN macro instead of open coding it
+Date: Tue, 22 Jul 2014 12:06:23 +0200
+Message-ID: <1406023583-25851-1-git-send-email-tklauser@distanz.ch>
+Cc: netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f47.google.com ([209.85.219.47]:64839 "EHLO
-	mail-oa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754207AbaGVKKH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 06:10:07 -0400
-Received: by mail-oa0-f47.google.com with SMTP id g18so9301143oah.34
-        for <netdev@vger.kernel.org>; Tue, 22 Jul 2014 03:10:07 -0700 (PDT)
-In-Reply-To: <1406022666.10255.128.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail.zhinst.com ([212.126.164.98]:41420 "EHLO mail.zhinst.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754431AbaGVKKQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Jul 2014 06:10:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 22, 2014 at 5:51 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Tue, 2014-07-22 at 16:53 +0800, Sonic Zhang wrote:
->
->> if (!--A)
->>
->> doesn't equal to
->>
->> if (A--)
->>         if (!A)
->
-> It really does, no matter what you think.
->
-> In all cases, A is decremented.
->
-> In all cases, final action is done if and only if A was 1 before the
-> test(s)
->
-> Thats simple logic, and all your arguments about NAPI, IRQ, and moon
-> phase are irrelevant.
->
+Use ALIGN from linux/kernel.h to define SKB_DATA_ALIGN instead of open
+coding it.
 
-Thank you for correcting. I think I made a mistake on the condition logic.
+Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+---
+ include/linux/skbuff.h | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-Regards,
-
-Sonic
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 3694303..b613557 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -112,8 +112,7 @@
+ #define CHECKSUM_COMPLETE	2
+ #define CHECKSUM_PARTIAL	3
+ 
+-#define SKB_DATA_ALIGN(X)	(((X) + (SMP_CACHE_BYTES - 1)) & \
+-				 ~(SMP_CACHE_BYTES - 1))
++#define SKB_DATA_ALIGN(X)	ALIGN(X, SMP_CACHE_BYTES)
+ #define SKB_WITH_OVERHEAD(X)	\
+ 	((X) - SKB_DATA_ALIGN(sizeof(struct skb_shared_info)))
+ #define SKB_MAX_ORDER(X, ORDER) \
+-- 
+2.0.1
