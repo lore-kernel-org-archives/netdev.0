@@ -1,409 +1,496 @@
 From: Andy Zhou <azhou@nicira.com>
-Subject: [net-next 01/10] net: Rename ndo_add_vxlan_port to ndo_add_udp_tunnel_port.
-Date: Tue, 22 Jul 2014 03:19:44 -0700
-Message-ID: <1406024393-6778-2-git-send-email-azhou@nicira.com>
+Subject: [net-next 05/10] net: Add Geneve tunneling protocol driver
+Date: Tue, 22 Jul 2014 03:19:48 -0700
+Message-ID: <1406024393-6778-6-git-send-email-azhou@nicira.com>
 References: <1406024393-6778-1-git-send-email-azhou@nicira.com>
-Cc: netdev@vger.kernel.org, Andy Zhou <azhou@nicira.com>
+Cc: netdev@vger.kernel.org, Andy Zhou <azhou@nicira.com>,
+	Jesse Gross <jesse@nicira.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog137.obsmtp.com ([74.125.149.18]:58981 "HELO
-	na3sys009aog137.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751471AbaGVKbl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 06:31:41 -0400
-Received: by mail-pd0-f181.google.com with SMTP id g10so9369498pdj.26
-        for <netdev@vger.kernel.org>; Tue, 22 Jul 2014 03:31:40 -0700 (PDT)
+Received: from na3sys009aog132.obsmtp.com ([74.125.149.250]:55691 "HELO
+	na3sys009aog132.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751471AbaGVKbw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 06:31:52 -0400
+Received: by mail-pd0-f178.google.com with SMTP id w10so10900386pde.23
+        for <netdev@vger.kernel.org>; Tue, 22 Jul 2014 03:31:46 -0700 (PDT)
 In-Reply-To: <1406024393-6778-1-git-send-email-azhou@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rename ndo_add_vxlan_port() API provided by net_device_ops to
-ndo_add_udp_tunnel_port(). Generalized the API in preparation for
-up coming NICs and device drivers that may support offloading more
-UDP tunnels protocols besides VxLAN.  There is no behavioral changes
-with this patch.
+This adds a device level support for Geneve -- Generic Network
+Virtualization Encapsulation. The protocol is documented at
+http://tools.ietf.org/html/draft-gross-geneve-00
 
+Only protocol layer Geneve support is provided by this driver.
+Openvswitch can be used for configuring, set up and tear down
+functional Geneve tunnels.
+
+Signed-off-by: Jesse Gross <jesse@nicira.com>
 Signed-off-by: Andy Zhou <azhou@nicira.com>
 ---
- drivers/net/ethernet/emulex/benet/be_main.c      |   15 +++++++---
- drivers/net/ethernet/intel/i40e/i40e_main.c      |   16 ++++++++--
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c   |   17 ++++++++---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |   17 ++++++++---
- drivers/net/vxlan.c                              |   23 +++++++-------
- include/linux/netdevice.h                        |   35 ++++++++++++----------
- include/net/udp_tunnel.h                         |    2 ++
- 7 files changed, 84 insertions(+), 41 deletions(-)
+ include/net/geneve.h     |   85 +++++++++++++++
+ include/net/ip_tunnels.h |    2 +
+ net/ipv4/Kconfig         |   14 +++
+ net/ipv4/Makefile        |    1 +
+ net/ipv4/geneve.c        |  273 ++++++++++++++++++++++++++++++++++++++++++++++
+ net/openvswitch/Kconfig  |   11 ++
+ net/openvswitch/vport.c  |    3 +
+ 7 files changed, 389 insertions(+)
+ create mode 100644 include/net/geneve.h
+ create mode 100644 net/ipv4/geneve.c
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 9c50814..028dc6e 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -24,6 +24,7 @@
- #include <linux/if_bridge.h>
- #include <net/busy_poll.h>
- #include <net/vxlan.h>
+diff --git a/include/net/geneve.h b/include/net/geneve.h
+new file mode 100644
+index 0000000..4e3a301
+--- /dev/null
++++ b/include/net/geneve.h
+@@ -0,0 +1,85 @@
++#ifndef __NET_GENEVE_H
++#define __NET_GENEVE_H  1
++
 +#include <net/udp_tunnel.h>
- 
- MODULE_VERSION(DRV_VER);
- MODULE_DEVICE_TABLE(pci, be_dev_ids);
-@@ -4324,7 +4325,7 @@ static int be_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
- 
- #ifdef CONFIG_BE2NET_VXLAN
- static void be_add_vxlan_port(struct net_device *netdev, sa_family_t sa_family,
--			      __be16 port)
-+			      __be16 port, u8 udp_tunnel_type)
- {
- 	struct be_adapter *adapter = netdev_priv(netdev);
- 	struct device *dev = &adapter->pdev->dev;
-@@ -4333,6 +4334,9 @@ static void be_add_vxlan_port(struct net_device *netdev, sa_family_t sa_family,
- 	if (lancer_chip(adapter) || BEx_chip(adapter))
- 		return;
- 
-+	if (udp_tunnel_type != UDP_TUNNEL_TYPE_VXLAN)
-+		return;
 +
- 	if (adapter->flags & BE_FLAGS_VXLAN_OFFLOADS) {
- 		dev_warn(dev, "Cannot add UDP port %d for VxLAN offloads\n",
- 			 be16_to_cpu(port));
-@@ -4365,13 +4369,16 @@ err:
- }
- 
- static void be_del_vxlan_port(struct net_device *netdev, sa_family_t sa_family,
--			      __be16 port)
-+			      __be16 port, u8 udp_tunnel_type)
- {
- 	struct be_adapter *adapter = netdev_priv(netdev);
- 
- 	if (lancer_chip(adapter) || BEx_chip(adapter))
- 		return;
- 
-+	if (udp_tunnel_type != UDP_TUNNEL_TYPE_VXLAN)
-+		return;
++struct geneve_sock {
++	struct udp_tunnel_sock  uts;
++	atomic_t		refcnt;
++	struct udp_offload	udp_offloads;
++};
 +
- 	if (adapter->vxlan_port != port)
- 		return;
++typedef void (geneve_rcv_t)(struct geneve_sock *gs, struct sk_buff *skb);
++
++/* Geneve Header:
++ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ *  |Ver|  Opt Len  |O|C|    Rsvd.  |          Protocol Type        |
++ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ *  |        Virtual Network Identifier (VNI)       |    Reserved   |
++ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ *  |                    Variable Length Options                    |
++ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ *
++ * Option Header:
++ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ *  |          Option Class         |      Type     |R|R|R| Length  |
++ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ *  |                      Variable Option Data                     |
++ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++ */
++
++struct geneve_opt {
++	__be16	opt_class;
++	u8	type;
++#ifdef __LITTLE_ENDIAN_BITFIELD
++	u8	length:5;
++	u8	r3:1;
++	u8	r2:1;
++	u8	r1:1;
++#else
++	u8	r1:1;
++	u8	r2:1;
++	u8	r3:1;
++	u8	length:5;
++#endif
++	u8	opt_data[];
++};
++
++struct genevehdr {
++#ifdef __LITTLE_ENDIAN_BITFIELD
++	u8 opt_len:6;
++	u8 ver:2;
++	u8 rsvd1:6;
++	u8 critical:1;
++	u8 oam:1;
++#else
++	u8 ver:2;
++	u8 opt_len:6;
++	u8 oam:1;
++	u8 critical:1;
++	u8 rsvd1:6;
++#endif
++	__be16 proto_type;
++	u8 vni[3];
++	u8 rsvd2;
++	struct geneve_opt options[];
++};
++
++#define GENEVE_VER 0
++#define GENEVE_BASE_HLEN (sizeof(struct udphdr) + sizeof(struct genevehdr))
++
++#define GENEVE_CRIT_OPT_TYPE (1 << 7)
++
++struct geneve_sock *geneve_sock_add(struct net *net, __be16 port,
++				    geneve_rcv_t *rcv, void *data,
++				    bool no_share, bool ipv6);
++
++void geneve_sock_release(struct geneve_sock *vs);
++
++int geneve_xmit_skb(struct geneve_sock *gs,
++		   struct rtable *rt, struct sk_buff *skb,
++		   __be32 src, __be32 dst, __u8 tos, __u8 ttl, __be16 df,
++		   __be16 src_port, __be16 dst_port, __be16 tun_flags,
++		   u8 vni[3], u8 opt_len, u8 *opt, bool xnet);
++
++#endif
+diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
+index a4daf9e..2e221cd 100644
+--- a/include/net/ip_tunnels.h
++++ b/include/net/ip_tunnels.h
+@@ -81,6 +81,8 @@ struct ip_tunnel {
+ #define TUNNEL_VERSION	__cpu_to_be16(0x40)
+ #define TUNNEL_NO_KEY	__cpu_to_be16(0x80)
+ #define TUNNEL_DONT_FRAGMENT    __cpu_to_be16(0x0100)
++#define TUNNEL_OAM	__cpu_to_be16(0x0200)
++#define TUNNEL_CRIT_OPT	__cpu_to_be16(0x0400)
  
-@@ -4408,8 +4415,8 @@ static const struct net_device_ops be_netdev_ops = {
- 	.ndo_busy_poll		= be_busy_poll,
- #endif
- #ifdef CONFIG_BE2NET_VXLAN
--	.ndo_add_vxlan_port	= be_add_vxlan_port,
--	.ndo_del_vxlan_port	= be_del_vxlan_port,
-+	.ndo_add_udp_tunnel_port	= be_add_vxlan_port,
-+	.ndo_del_udp_tunnel_port	= be_del_vxlan_port,
- #endif
- };
+ struct tnl_ptk_info {
+ 	__be16 flags;
+diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+index dbc10d8..69cb508 100644
+--- a/net/ipv4/Kconfig
++++ b/net/ipv4/Kconfig
+@@ -595,6 +595,20 @@ endchoice
  
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index c34e390..d9fd53b 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -29,6 +29,7 @@
- #include "i40e_diag.h"
- #ifdef CONFIG_I40E_VXLAN
- #include <net/vxlan.h>
+ endif
+ 
++config GENEVE
++       tristate "Generic Network Virtualization Encapsulation (Geneve)"
++       depends on INET
++       select NET_IP_TUNNEL
++       select NET_UDP_TUNNEL
++       ---help---
++	  This allows one to create Geneve virtual interfaces that provide
++	  Layer 2 Networks over Layer 3 Networks. Geneve is often used
++	  to tunnel virtual network infrastructure in virtualized environments.
++	  For more information see:
++	    http://tools.ietf.org/html/draft-gross-geneve-00
++
++	  To compile this driver as a module, choose M here: the module
++
+ config TCP_CONG_CUBIC
+ 	tristate
+ 	depends on !TCP_CONG_ADVANCED
+diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
+index 8ee1cd4..cae2403 100644
+--- a/net/ipv4/Makefile
++++ b/net/ipv4/Makefile
+@@ -54,6 +54,7 @@ obj-$(CONFIG_TCP_CONG_YEAH) += tcp_yeah.o
+ obj-$(CONFIG_TCP_CONG_ILLINOIS) += tcp_illinois.o
+ obj-$(CONFIG_MEMCG_KMEM) += tcp_memcontrol.o
+ obj-$(CONFIG_NETLABEL) += cipso_ipv4.o
++obj-$(CONFIG_GENEVE) += geneve.o
+ 
+ obj-$(CONFIG_XFRM) += xfrm4_policy.o xfrm4_state.o xfrm4_input.o \
+ 		      xfrm4_output.o xfrm4_protocol.o
+diff --git a/net/ipv4/geneve.c b/net/ipv4/geneve.c
+new file mode 100644
+index 0000000..2fda60e
+--- /dev/null
++++ b/net/ipv4/geneve.c
+@@ -0,0 +1,273 @@
++/* Copyright (c) 2014 Nicira, Inc.  */
++
++#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
++
++#include <linux/kernel.h>
++#include <linux/types.h>
++#include <linux/module.h>
++#include <linux/errno.h>
++#include <linux/slab.h>
++#include <linux/skbuff.h>
++#include <linux/rculist.h>
++#include <linux/netdevice.h>
++#include <linux/in.h>
++#include <linux/ip.h>
++#include <linux/udp.h>
++#include <linux/igmp.h>
++#include <linux/etherdevice.h>
++#include <linux/if_ether.h>
++#include <linux/if_vlan.h>
++#include <linux/hash.h>
++#include <linux/ethtool.h>
++#include <net/arp.h>
++#include <net/ndisc.h>
++#include <net/ip.h>
++#include <net/ip_tunnels.h>
++#include <net/icmp.h>
++#include <net/udp.h>
++#include <net/rtnetlink.h>
++#include <net/route.h>
++#include <net/dsfield.h>
++#include <net/inet_ecn.h>
++#include <net/net_namespace.h>
++#include <net/netns/generic.h>
++#include <net/geneve.h>
++#include <net/protocol.h>
 +#include <net/udp_tunnel.h>
- #endif
- 
- const char i40e_driver_name[] = "i40e";
-@@ -6944,9 +6945,11 @@ static u8 i40e_get_vxlan_port_idx(struct i40e_pf *pf, __be16 port)
-  * @netdev: This physical port's netdev
-  * @sa_family: Socket Family that VXLAN is notifying us about
-  * @port: New UDP port number that VXLAN started listening to
-+ * @udp_tunnel_type: Only UDP_TUNNEL_TYPE_VXLAN will be processed.
-  **/
- static void i40e_add_vxlan_port(struct net_device *netdev,
--				sa_family_t sa_family, __be16 port)
-+				sa_family_t sa_family, __be16 port,
-+				u8 udp_tunnel_type)
- {
- 	struct i40e_netdev_priv *np = netdev_priv(netdev);
- 	struct i40e_vsi *vsi = np->vsi;
-@@ -6957,6 +6960,9 @@ static void i40e_add_vxlan_port(struct net_device *netdev,
- 	if (sa_family == AF_INET6)
- 		return;
- 
-+	if (udp_tunnel_type != UDP_TUNNEL_TYPE_VXLAN)
-+		return;
++#if IS_ENABLED(CONFIG_IPV6)
++#include <net/ipv6.h>
++#include <net/addrconf.h>
++#include <net/ip6_tunnel.h>
++#include <net/ip6_checksum.h>
++#endif
 +
- 	idx = i40e_get_vxlan_port_idx(pf, port);
- 
- 	/* Check if port already exists */
-@@ -6986,6 +6992,7 @@ static void i40e_add_vxlan_port(struct net_device *netdev,
-  * @netdev: This physical port's netdev
-  * @sa_family: Socket Family that VXLAN is notifying us about
-  * @port: UDP port number that VXLAN stopped listening to
-+ * @udp_tunnel_type: Only UDP_TUNNEL_TYPE_VXLAN will be processed.
-  **/
- static void i40e_del_vxlan_port(struct net_device *netdev,
- 				sa_family_t sa_family, __be16 port)
-@@ -6998,6 +7005,9 @@ static void i40e_del_vxlan_port(struct net_device *netdev,
- 	if (sa_family == AF_INET6)
- 		return;
- 
-+	if (udp_tunnel_type != UDP_TUNNEL_TYPE_VXLAN)
-+		return;
++static inline struct genevehdr *geneve_hdr(const struct sk_buff *skb)
++{
++	return (struct genevehdr *)(udp_hdr(skb) + 1);
++}
 +
- 	idx = i40e_get_vxlan_port_idx(pf, port);
- 
- 	/* Check if port already exists */
-@@ -7149,8 +7159,8 @@ static const struct net_device_ops i40e_netdev_ops = {
- 	.ndo_set_vf_link_state	= i40e_ndo_set_vf_link_state,
- 	.ndo_set_vf_spoofchk	= i40e_ndo_set_vf_spoofck,
- #ifdef CONFIG_I40E_VXLAN
--	.ndo_add_vxlan_port	= i40e_add_vxlan_port,
--	.ndo_del_vxlan_port	= i40e_del_vxlan_port,
-+	.ndo_add_udp_tunnel_port	= i40e_add_vxlan_port,
-+	.ndo_del_udp_tunnel_port	= i40e_del_vxlan_port,
- #endif
- 	.ndo_get_phys_port_id	= i40e_get_phys_port_id,
- #ifdef HAVE_FDB_OPS
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 887cf01..d5f6b91 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -40,6 +40,7 @@
- #include <net/ip.h>
- #include <net/busy_poll.h>
- #include <net/vxlan.h>
-+#include <net/udp_tunnel.h>
- 
- #include <linux/mlx4/driver.h>
- #include <linux/mlx4/device.h>
-@@ -2326,7 +2327,8 @@ static void mlx4_en_del_vxlan_offloads(struct work_struct *work)
- }
- 
- static void mlx4_en_add_vxlan_port(struct  net_device *dev,
--				   sa_family_t sa_family, __be16 port)
-+				   sa_family_t sa_family, __be16 port,
-+				   u8 udp_tunnel_type)
- {
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
- 	__be16 current_port;
-@@ -2337,6 +2339,9 @@ static void mlx4_en_add_vxlan_port(struct  net_device *dev,
- 	if (sa_family == AF_INET6)
- 		return;
- 
-+	if (udp_tunnel_type != UDP_TUNNEL_TYPE_VXLAN)
-+		return;
++/* Find geneve socket based on network namespace and UDP port */
++static struct geneve_sock *geneve_find_sock(struct net *net, __be16 port)
++{
++	return (struct geneve_sock *)udp_tunnel_find_sock(net, port);
++}
 +
- 	current_port = priv->vxlan_port;
- 	if (current_port && current_port != port) {
- 		en_warn(priv, "vxlan port %d configured, can't add port %d\n",
-@@ -2349,7 +2354,8 @@ static void mlx4_en_add_vxlan_port(struct  net_device *dev,
- }
- 
- static void mlx4_en_del_vxlan_port(struct  net_device *dev,
--				   sa_family_t sa_family, __be16 port)
-+				   sa_family_t sa_family, __be16 port,
-+				   u8 udp_tunnel_type)
- {
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
- 	__be16 current_port;
-@@ -2360,6 +2366,9 @@ static void mlx4_en_del_vxlan_port(struct  net_device *dev,
- 	if (sa_family == AF_INET6)
- 		return;
- 
-+	if (udp_tunnel_type != UDP_TUNNEL_TYPE_VXLAN)
-+		return;
++static void geneve_build_header(struct genevehdr *geneveh,
++				__be16 tun_flags, u8 vni[3],
++				u8 options_len, u8 *options)
++{
++	geneveh->ver = GENEVE_VER;
++	geneveh->opt_len = options_len / 4;
++	geneveh->oam = !!(tun_flags & TUNNEL_OAM);
++	geneveh->critical = !!(tun_flags & TUNNEL_CRIT_OPT);
++	geneveh->rsvd1 = 0;
++	memcpy(geneveh->vni, vni, 3);
++	geneveh->proto_type = htons(ETH_P_TEB);
++	geneveh->rsvd2 = 0;
 +
- 	current_port = priv->vxlan_port;
- 	if (current_port != port) {
- 		en_dbg(DRV, priv, "vxlan port %d isn't configured, ignoring\n", ntohs(port));
-@@ -2397,8 +2406,8 @@ static const struct net_device_ops mlx4_netdev_ops = {
- #endif
- 	.ndo_get_phys_port_id	= mlx4_en_get_phys_port_id,
- #ifdef CONFIG_MLX4_EN_VXLAN
--	.ndo_add_vxlan_port	= mlx4_en_add_vxlan_port,
--	.ndo_del_vxlan_port	= mlx4_en_del_vxlan_port,
-+	.ndo_add_udp_tunnel_port	= mlx4_en_add_vxlan_port,
-+	.ndo_del_udp_tunnel_port	= mlx4_en_del_vxlan_port,
- #endif
- };
- 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 0fdbcc8..a39020d 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -23,6 +23,7 @@
- #include <linux/pci.h>
- #ifdef CONFIG_QLCNIC_VXLAN
- #include <net/vxlan.h>
-+#include <net/udp_tunnel.h>
- #endif
- 
- MODULE_DESCRIPTION("QLogic 1/10 GbE Converged/Intelligent Ethernet Driver");
-@@ -470,7 +471,8 @@ static int qlcnic_get_phys_port_id(struct net_device *netdev,
- 
- #ifdef CONFIG_QLCNIC_VXLAN
- static void qlcnic_add_vxlan_port(struct net_device *netdev,
--				  sa_family_t sa_family, __be16 port)
-+				  sa_family_t sa_family, __be16 port,
-+				  u8 udp_tunnel_type)
- {
- 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
- 	struct qlcnic_hardware_context *ahw = adapter->ahw;
-@@ -481,12 +483,16 @@ static void qlcnic_add_vxlan_port(struct net_device *netdev,
- 	if (!qlcnic_encap_rx_offload(adapter) || ahw->vxlan_port)
- 		return;
- 
-+	if (udp_tunnel_type != UDP_TUNNEL_TYPE_VXLAN)
-+		return;
++	memcpy(geneveh->options, options, options_len);
++}
 +
- 	ahw->vxlan_port = ntohs(port);
- 	adapter->flags |= QLCNIC_ADD_VXLAN_PORT;
- }
- 
- static void qlcnic_del_vxlan_port(struct net_device *netdev,
--				  sa_family_t sa_family, __be16 port)
-+				  sa_family_t sa_family, __be16 port,
-+				  u8 udp_tunnel_type)
- {
- 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
- 	struct qlcnic_hardware_context *ahw = adapter->ahw;
-@@ -495,6 +501,9 @@ static void qlcnic_del_vxlan_port(struct net_device *netdev,
- 	    (ahw->vxlan_port != ntohs(port)))
- 		return;
- 
-+	if (udp_tunnel_type != UDP_TUNNEL_TYPE_VXLAN)
-+		return;
++/* Transmit a fully formated Geneve frame.
++ *
++ * When calling this function. The skb->data should point
++ * to the geneve header which is fully formed.
++ *
++ * This function will add other UDP tunnel headers.
++ */
++int geneve_xmit_skb(struct geneve_sock *gs,
++		    struct rtable *rt, struct sk_buff *skb,
++		    __be32 src, __be32 dst, __u8 tos, __u8 ttl, __be16 df,
++		    __be16 src_port, __be16 dst_port,
++		    __be16 tun_flags, u8 vni[3], u8 opt_len, u8 *opt,
++		    bool xnet)
++{
++	struct genevehdr *gnvh;
++	int min_headroom;
++	int err;
 +
- 	adapter->flags |= QLCNIC_DEL_VXLAN_PORT;
- }
- #endif
-@@ -518,8 +527,8 @@ static const struct net_device_ops qlcnic_netdev_ops = {
- 	.ndo_fdb_dump		= qlcnic_fdb_dump,
- 	.ndo_get_phys_port_id	= qlcnic_get_phys_port_id,
- #ifdef CONFIG_QLCNIC_VXLAN
--	.ndo_add_vxlan_port	= qlcnic_add_vxlan_port,
--	.ndo_del_vxlan_port	= qlcnic_del_vxlan_port,
-+	.ndo_add_udp_tunnel_port	= qlcnic_add_vxlan_port,
-+	.ndo_del_udp_tunnel_port	= qlcnic_del_vxlan_port,
- #endif
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller = qlcnic_poll_controller,
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index d3f3e5d..829d447 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -650,9 +650,11 @@ static void vxlan_notify_add_rx_port(struct vxlan_sock *vs)
- 
- 	rcu_read_lock();
- 	for_each_netdev_rcu(net, dev) {
--		if (dev->netdev_ops->ndo_add_vxlan_port)
--			dev->netdev_ops->ndo_add_vxlan_port(dev, sa_family,
--							    port);
++	skb = udp_tunnel_handle_offloads(skb, !udp_get_no_check6_tx(gs->uts.sock->sk));
++
++	min_headroom = LL_RESERVED_SPACE(rt->dst.dev) + rt->dst.header_len
++			+ GENEVE_BASE_HLEN + opt_len + sizeof(struct iphdr)
++			+ (vlan_tx_tag_present(skb) ? VLAN_HLEN : 0);
++
++	err = skb_cow_head(skb, min_headroom);
++	if (unlikely(err))
++		return err;
++
++	if (vlan_tx_tag_present(skb)) {
++		if (unlikely(!__vlan_put_tag(skb,
++					     skb->vlan_proto,
++					     vlan_tx_tag_get(skb)))) {
++			err = -ENOMEM;
++			return err;
++		}
++		skb->vlan_tci = 0;
++	}
++
++	gnvh = (struct genevehdr *)__skb_push(skb, sizeof(*gnvh));
++	geneve_build_header(gnvh, tun_flags, vni, opt_len, opt);
++
++	return udp_tunnel_xmit_skb(gs->uts.sock, rt, skb, src, dst,
++				   tos, ttl, df, src_port, dst_port, xnet);
++}
++EXPORT_SYMBOL_GPL(geneve_xmit_skb);
++
++static void geneve_notify_add_rx_port(struct geneve_sock *gs)
++{
++	struct net_device *dev;
++	struct sock *sk = gs->uts.sock->sk;
++	struct net *net = sock_net(sk);
++	sa_family_t sa_family = sk->sk_family;
++	__be16 port = inet_sk(sk)->inet_sport;
++	int err;
++
++	if (sa_family == AF_INET) {
++		err = udp_add_offload(&gs->udp_offloads);
++		if (err)
++			pr_warn("geneve: udp_add_offload failed with status %d\n", err);
++	}
++
++	rcu_read_lock();
++	for_each_netdev_rcu(net, dev) {
 +		if (!dev->netdev_ops->ndo_add_udp_tunnel_port)
 +			continue;
 +
 +		dev->netdev_ops->ndo_add_udp_tunnel_port(dev, sa_family, port,
-+							 UDP_TUNNEL_TYPE_VXLAN);
- 	}
- 	rcu_read_unlock();
- }
-@@ -668,9 +670,10 @@ static void vxlan_notify_del_rx_port(struct vxlan_sock *vs)
++						       UDP_TUNNEL_TYPE_GENEVE);
++	}
++	rcu_read_unlock();
++}
++
++/* Callback from net/ipv4/udp.c to receive packets */
++static int geneve_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
++{
++	struct genevehdr *geneveh;
++	struct geneve_sock *gs;
++	int opts_len;
++
++	/* Need Geneve and inner Ethernet header to be present */
++	if (unlikely(!pskb_may_pull(skb, GENEVE_BASE_HLEN)))
++		goto error;
++
++	/* Return packets with reserved bits set */
++	geneveh = geneve_hdr(skb);
++
++	opts_len = geneveh->opt_len * 4;
++	if (iptunnel_pull_header(skb, GENEVE_BASE_HLEN + opts_len,
++				 htons(ETH_P_TEB)))
++		goto drop;
++
++	gs = rcu_dereference_sk_user_data(sk);
++	if (!gs)
++		goto drop;
++
++	skb_pop_rcv_encapsulation(skb);
++
++	gs->uts.rcv(&gs->uts, skb);
++	return 0;
++
++drop:
++	/* Consume bad packet */
++	kfree_skb(skb);
++	return 0;
++
++error:
++	kfree_skb(skb);
++	return 1;
++}
++
++/* Create new listen socket if needed */
++static struct geneve_sock *geneve_socket_create(struct net *net, __be16 port,
++						geneve_rcv_t *rcv, void *data,
++						bool ipv6)
++{
++	struct geneve_sock *gs;
++	struct udp_tunnel_socket_cfg geneve_ts_cfg;
++
++	memset(&geneve_ts_cfg, 0, sizeof(struct udp_tunnel_socket_cfg));
++
++	if (ipv6) {
++		geneve_ts_cfg.port.family = AF_INET6;
++	} else {
++		geneve_ts_cfg.port.family = AF_INET;
++		geneve_ts_cfg.port.local_ip.s_addr = INADDR_ANY;
++	}
++
++	geneve_ts_cfg.tunnel_type = UDP_TUNNEL_TYPE_GENEVE;
++	geneve_ts_cfg.port.local_udp_port = port;
++	geneve_ts_cfg.rcv = (udp_tunnel_rcv_t *)rcv;
++	geneve_ts_cfg.encap_rcv = geneve_udp_encap_recv;
++	geneve_ts_cfg.data = data;
++
++	gs = (struct geneve_sock *)create_udp_tunnel_socket(net, sizeof(*gs),
++							    &geneve_ts_cfg);
++	if (!gs)
++		return ERR_PTR(-ENOMEM);
++
++	atomic_set(&gs->refcnt, 1);
++
++	/* Initialize the geneve udp offloads structure */
++	gs->udp_offloads.port = port;
++	gs->udp_offloads.callbacks.gro_receive = NULL;
++	gs->udp_offloads.callbacks.gro_complete = NULL;
++
++	geneve_notify_add_rx_port(gs);
++
++	return gs;
++}
++
++struct geneve_sock *geneve_sock_add(struct net *net, __be16 port,
++				    geneve_rcv_t *rcv, void *data,
++				    bool no_share, bool ipv6)
++{
++	struct geneve_sock *gs;
++
++	gs = geneve_socket_create(net, port, rcv, data, ipv6);
++	if (!IS_ERR(gs))
++		return gs;
++
++	if (no_share)	/* Return error if sharing is not allowed. */
++		return ERR_PTR(-EINVAL);
++
++	gs = geneve_find_sock(net, port);
++	if (gs) {
++		if (gs->uts.rcv == (udp_tunnel_rcv_t *)rcv)
++			atomic_inc(&gs->refcnt);
++		else
++			gs = ERR_PTR(-EBUSY);
++	} else {
++		gs = ERR_PTR(-EINVAL);
++	}
++
++	return gs;
++}
++EXPORT_SYMBOL_GPL(geneve_sock_add);
++
++void geneve_sock_release(struct geneve_sock *gs)
++{
++	if (!atomic_dec_and_test(&gs->refcnt))
++		return;
++
++	udp_tunnel_sock_release(&gs->uts);
++}
++EXPORT_SYMBOL_GPL(geneve_sock_release);
++
++static int __init geneve_init_module(void)
++{
++	pr_info("Geneve driver\n");
++
++	return 0;
++}
++late_initcall(geneve_init_module);
++
++static void __exit geneve_cleanup_module(void)
++{
++}
++module_exit(geneve_cleanup_module);
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Jesse Gross <jesse@nicira.com>");
++MODULE_DESCRIPTION("Driver for GENEVE encapsulated traffic");
++MODULE_ALIAS_RTNL_LINK("geneve");
+diff --git a/net/openvswitch/Kconfig b/net/openvswitch/Kconfig
+index 6ecf491..ba3bb82 100644
+--- a/net/openvswitch/Kconfig
++++ b/net/openvswitch/Kconfig
+@@ -54,3 +54,14 @@ config OPENVSWITCH_VXLAN
+ 	  Say N to exclude this support and reduce the binary size.
  
- 	rcu_read_lock();
- 	for_each_netdev_rcu(net, dev) {
--		if (dev->netdev_ops->ndo_del_vxlan_port)
--			dev->netdev_ops->ndo_del_vxlan_port(dev, sa_family,
--							    port);
-+		if (!dev->netdev_ops->ndo_del_udp_tunnel_port)
-+			continue;
-+		dev->netdev_ops->ndo_del_udp_tunnel_port(dev, sa_family, port,
-+							 UDP_TUNNEL_TYPE_VXLAN);
- 	}
- 	rcu_read_unlock();
- 
-@@ -2188,9 +2191,9 @@ static struct device_type vxlan_type = {
- 	.name = "vxlan",
+ 	  If unsure, say Y.
++
++config OPENVSWITCH_GENEVE
++	bool "Open vSwitch Geneve tunneling support"
++	depends on INET
++	depends on OPENVSWITCH
++	depends on GENEVE && !(OPENVSWITCH=y && GENEVE=m)
++	default y
++	---help---
++	  If you say Y here, then the Open vSwitch will be able create geneve vport.
++
++	  Say N to exclude this support and reduce the binary size.
+diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
+index 42c0f4a..5b4cb82 100644
+--- a/net/openvswitch/vport.c
++++ b/net/openvswitch/vport.c
+@@ -48,6 +48,9 @@ static const struct vport_ops *vport_ops_list[] = {
+ #ifdef CONFIG_OPENVSWITCH_VXLAN
+ 	&ovs_vxlan_vport_ops,
+ #endif
++#ifdef CONFIG_OPENVSWITCH_GENEVE
++	&ovs_geneve_vport_ops,
++#endif
  };
  
--/* Calls the ndo_add_vxlan_port of the caller in order to
-+/* Calls the ndo_add_tunnel_port of the caller in order to
-  * supply the listening VXLAN udp ports. Callers are expected
-- * to implement the ndo_add_vxlan_port.
-+ * to implement the ndo_add_tunnle_port.
-  */
- void vxlan_get_rx_port(struct net_device *dev)
- {
-@@ -2206,8 +2209,8 @@ void vxlan_get_rx_port(struct net_device *dev)
- 		hlist_for_each_entry_rcu(vs, &vn->sock_list[i], hlist) {
- 			port = inet_sk(vs->sock->sk)->inet_sport;
- 			sa_family = vs->sock->sk->sk_family;
--			dev->netdev_ops->ndo_add_vxlan_port(dev, sa_family,
--							    port);
-+			dev->netdev_ops->ndo_add_udp_tunnel_port(dev,
-+					sa_family, port, UDP_TUNNEL_TYPE_VXLAN);
- 		}
- 	}
- 	spin_unlock(&vn->sock_lock);
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 8e8fb3e..4b79db4 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -966,18 +966,21 @@ typedef u16 (*select_queue_fallback_t)(struct net_device *dev,
-  *	not implement this, it is assumed that the hw is not able to have
-  *	multiple net devices on single physical port.
-  *
-- * void (*ndo_add_vxlan_port)(struct  net_device *dev,
-- *			      sa_family_t sa_family, __be16 port);
-- *	Called by vxlan to notiy a driver about the UDP port and socket
-- *	address family that vxlan is listnening to. It is called only when
-- *	a new port starts listening. The operation is protected by the
-- *	vxlan_net->sock_lock.
-- *
-- * void (*ndo_del_vxlan_port)(struct  net_device *dev,
-- *			      sa_family_t sa_family, __be16 port);
-- *	Called by vxlan to notify the driver about a UDP port and socket
-- *	address family that vxlan is not listening to anymore. The operation
-- *	is protected by the vxlan_net->sock_lock.
-+ * void (*ndo_add_udp_tunnel_port)(struct  net_device *dev,
-+ *				   sa_family_t sa_family, __be16 port,
-+ *				   u8 udp_tunnel_type);
-+ *	Called by udp based tunnels to notify a driver about the UDP port,
-+ *	socket address family and the tunnel type that udp tunnels is
-+ *	listening to. It is called only when a new port starts listening.
-+ *	The operation is protected by the udp_net->sock_lock.
-+ *
-+ * void (*ndo_del_udp_tunnel_port)(struct  net_device *dev,
-+ *				   sa_family_t sa_family, __be16 port,
-+ *				   u8 udp_tunnel_type);
-+ *	Called by udp based tunnels to notify the driver about a UDP port,
-+ *	socket address family and the tunnel type that udp tunnel is not
-+ *	listening to anymore.  The operation is protected by the
-+ *	udp_net->sock_lock.
-  *
-  * void* (*ndo_dfwd_add_station)(struct net_device *pdev,
-  *				 struct net_device *dev)
-@@ -1130,12 +1133,12 @@ struct net_device_ops {
- 						      bool new_carrier);
- 	int			(*ndo_get_phys_port_id)(struct net_device *dev,
- 							struct netdev_phys_port_id *ppid);
--	void			(*ndo_add_vxlan_port)(struct  net_device *dev,
-+	void			(*ndo_add_udp_tunnel_port)(struct net_device *dev,
- 						      sa_family_t sa_family,
--						      __be16 port);
--	void			(*ndo_del_vxlan_port)(struct  net_device *dev,
-+						      __be16 port, u8 type);
-+	void			(*ndo_del_udp_tunnel_port)(struct  net_device *dev,
- 						      sa_family_t sa_family,
--						      __be16 port);
-+						      __be16 port, u8 type);
- 
- 	void*			(*ndo_dfwd_add_station)(struct net_device *pdev,
- 							struct net_device *dev);
-diff --git a/include/net/udp_tunnel.h b/include/net/udp_tunnel.h
-index ffd69cb..3f34c65 100644
---- a/include/net/udp_tunnel.h
-+++ b/include/net/udp_tunnel.h
-@@ -1,6 +1,8 @@
- #ifndef __NET_UDP_TUNNEL_H
- #define __NET_UDP_TUNNEL_H
- 
-+#define UDP_TUNNEL_TYPE_VXLAN 0x01
-+
- struct udp_port_cfg {
- 	u8			family;
- 
+ /* Protected by RCU read lock for reading, ovs_mutex for writing. */
 -- 
 1.7.9.5
