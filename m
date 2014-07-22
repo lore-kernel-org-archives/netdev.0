@@ -1,49 +1,40 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH] ipvs: Maintain all DSCP and ECN bits for ipv6 tun forwarding
-Date: Tue, 22 Jul 2014 16:25:52 +0900
-Message-ID: <1406013952-18522-2-git-send-email-horms@verge.net.au>
-References: <1406013952-18522-1-git-send-email-horms@verge.net.au>
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>, Alex Gartrell <agartrell@fb.com>,
-	Simon Horman <horms@verge.net.au>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 1/2] ethernet: realtek: use
+ module_pci_driver
+Date: Tue, 22 Jul 2014 00:28:50 -0700 (PDT)
+Message-ID: <20140722.002850.1113335731441581168.davem@davemloft.net>
+References: <1406013622-27869-1-git-send-email-varkabhadram@gmail.com>
+	<1406013622-27869-2-git-send-email-varkabhadram@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, varkab@cdac.in
+To: varkabhadram@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:37963 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750740AbaGVHZ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 03:25:57 -0400
-In-Reply-To: <1406013952-18522-1-git-send-email-horms@verge.net.au>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42486 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753262AbaGVH2z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 03:28:55 -0400
+In-Reply-To: <1406013622-27869-2-git-send-email-varkabhadram@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alex Gartrell <agartrell@fb.com>
+From: varkabhadram@gmail.com
+Date: Tue, 22 Jul 2014 12:50:21 +0530
 
-Previously, only the four high bits of the tclass were maintained in the
-ipv6 case.  This matches the behavior of ipv4, though whether or not we
-should reflect ECN bits may be up for debate.
+> @@ -1887,11 +1887,7 @@ static int cp_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
+>  	resource_size_t pciaddr;
+>  	unsigned int addr_len, i, pci_using_dac;
+>  
+> -#ifndef MODULE
+> -	static int version_printed;
+> -	if (version_printed++ == 0)
+> -		pr_info("%s", version);
+> -#endif
+> +	pr_info("%s", version);
 
-Signed-off-by: Alex Gartrell <agartrell@fb.com>
-Acked-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- net/netfilter/ipvs/ip_vs_xmit.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Now you're changing behavior undesirably, it will now print the
+version string into the logs for every instance of the device which is
+discovered.
 
-diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
-index 73ba1cc..6f70bdd 100644
---- a/net/netfilter/ipvs/ip_vs_xmit.c
-+++ b/net/netfilter/ipvs/ip_vs_xmit.c
-@@ -967,8 +967,8 @@ ip_vs_tunnel_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
- 	iph->nexthdr		=	IPPROTO_IPV6;
- 	iph->payload_len	=	old_iph->payload_len;
- 	be16_add_cpu(&iph->payload_len, sizeof(*old_iph));
--	iph->priority		=	old_iph->priority;
- 	memset(&iph->flow_lbl, 0, sizeof(iph->flow_lbl));
-+	ipv6_change_dsfield(iph, 0, ipv6_get_dsfield(old_iph));
- 	iph->daddr = cp->daddr.in6;
- 	iph->saddr = saddr;
- 	iph->hop_limit		=	old_iph->hop_limit;
--- 
-2.0.1
+Seriously, the driver is worse off after these "cleanups".
