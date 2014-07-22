@@ -1,40 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/6] net: mvpp2: Assorted fixes
-Date: Mon, 21 Jul 2014 20:27:49 -0700 (PDT)
-Message-ID: <20140721.202749.913689946944612851.davem@davemloft.net>
-References: <1405961296-5846-1-git-send-email-ezequiel.garcia@free-electrons.com>
+Subject: Re: [PATCH net-next v2 0/2] Display classifier filters using
+ ethtool
+Date: Mon, 21 Jul 2014 20:23:07 -0700 (PDT)
+Message-ID: <20140721.202307.1630620798149459211.davem@davemloft.net>
+References: <1405943538-3086-1-git-send-email-_govind@gmx.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	jason@lakedaemon.net, mw@semihalf.com,
-	thomas.petazzoni@free-electrons.com,
-	gregory.clement@free-electrons.com, tawfik@marvell.com,
-	alior@marvell.com
-To: ezequiel.garcia@free-electrons.com
+Cc: netdev@vger.kernel.org, ssujith@cisco.com, benve@cisco.com
+To: _govind@gmx.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40682 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40787 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751095AbaGVD1v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 23:27:51 -0400
-In-Reply-To: <1405961296-5846-1-git-send-email-ezequiel.garcia@free-electrons.com>
+	with ESMTP id S1750949AbaGVDhF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 23:37:05 -0400
+In-Reply-To: <1405943538-3086-1-git-send-email-_govind@gmx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Date: Mon, 21 Jul 2014 13:48:10 -0300
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Date: Mon, 21 Jul 2014 17:22:16 +0530
 
-> This patchset contains a set of fixes for issues found while doing some
-> more intensive tests on the recently accepted mvpp2 ethernet driver.
+> This series adds ethtool support to show classifier filters added by driver.
 > 
-> David: if we are still in time, we'd like to get the driver fixes merged
-> for v3.17-rc1.
+> v2:
+> The patch 1/2 removes the $ifdef's around the filter structure. Making it
+> available always. So that .get_rxnfc() can be implimented without any #ifdefs
 > 
-> For the devicetree changes, it's already too late for that, since Jason
-> Cooper has already posted the PRs for v3.17. I'll re-post them when
-> v3.17-rc1 is released.
-> 
-> As usual, feedback is welcome.
+> Please apply this to net-next.
 
-This series does not apply to the 'net' tree at all, please respin
-and resubmit.
+Series applied, thanks.
