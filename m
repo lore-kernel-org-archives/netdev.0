@@ -1,99 +1,80 @@
-From: Ethan Zhao <ethan.zhao@oracle.com>
-Subject: [PATCH] i40e: use global pci_vfs_assigned() to
-	replace local i40e_vfs_are_assigned()
-Date: Tue, 22 Jul 2014 09:50:51 +0800
-Message-ID: <1405993851-24375-1-git-send-email-ethan.zhao@oracle.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net-next v6 04/11] net: Export xmit_recursion
+Date: Mon, 21 Jul 2014 18:52:45 -0700
+Message-ID: <CALnjE+p3wHtcn2YpXKhHXB7E-qviap=Oe+iV-vdjCbD5k5_TUQ@mail.gmail.com>
+References: <1405923435-1971-1-git-send-email-pshelar@nicira.com>
+	<063D6719AE5E284EB5DD2968C1650D6D17279E9B@AcuExch.aculab.com>
+	<CALnjE+r7BaX1C1X5=9mz4LUQhZZ9B13prukwh0x5_vBsesZYEA@mail.gmail.com>
+	<20140721.143040.505863988764762548.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Ethan Zhao <ethan.zhao@oracle.com>, linux.nics@intel.com,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ethan.kernel@gmail.com
-To: alexander.h.duyck@intel.com, jeffrey.t.kirsher@intel.com,
-	jesse.brandeburg@intel.com, bruce.w.allan@intel.com,
-	carolyn.wyborny@intel.com, donald.c.skidmore@intel.com,
-	gregory.v.rose@intel.com, john.ronciak@intel.com,
-	mitch.a.williams@intel.com
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Laight <David.Laight@aculab.com>,
+	netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog112.obsmtp.com ([74.125.149.207]:43838 "HELO
+	na3sys009aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752121AbaGVBwq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 21:52:46 -0400
+Received: by mail-vc0-f173.google.com with SMTP id hy10so13565740vcb.4
+        for <netdev@vger.kernel.org>; Mon, 21 Jul 2014 18:52:46 -0700 (PDT)
+In-Reply-To: <20140721.143040.505863988764762548.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There is global funcion pci_vfs_assigned(), so use it instead of composing
-local one.
+On Mon, Jul 21, 2014 at 2:30 PM, David Miller <davem@davemloft.net> wrote:
+> From: Pravin Shelar <pshelar@nicira.com>
+> Date: Mon, 21 Jul 2014 10:01:52 -0700
+>
+>> On Mon, Jul 21, 2014 at 1:52 AM, David Laight <David.Laight@aculab.com> wrote:
+>>> From: Pravin B Shelar
+>>>> Next patch adds re-circulation action to OVS. This is recursive
+>>>> action needs to be limited to safe number recursions to
+>>>> avoid overflowing kernel stack space.  This patch export
+>>>> xmit_recursion so that OVS can increment and check the value
+>>>> before executing recirc action.
+>>> ...
+>>>> +#define NET_RECURSION_LIMIT 10
+>>>
+>>> I'm not entirely sure that any amount of recursion is a good idea
+>>> inside the kernel.
+>>> If the nested call frame is small enough so that your 10 nestings
+>>> are valid it must also be reasonably easy to arrange for the code
+>>> to be converted to a loop.
+>>>
+>>> Remember that the highest stack use is likely to be inside some
+>>> error path (probably inside printk) so any experiments that seem
+>>> to imply that that stack use is ok are doomed.
+>>>
+>>> Static analysis is possible (indirect calls make it tricky) provided
+>>> there is no recursion.
+>>> I did some static stack use analysis for an embedded system many
+>>> years ago. It showed that we needed much larger stacks that we'd
+>>> allowed for.
+>>
+>> I am using same recursion counter as networking stack does. Recursion
+>> in OVS has lesser cost compared to recursion in networking stack, So
+>> it is conservative to use same counter to track recursion in OVS as
+>> networking stack recursion.
+>
+> The networking core uses it is to prevent untenable configurations.
+>
+> I was going to bring this issue up the other day but I've been
+> to busy to do so.  I really want you to seriously look into using
+> an iterative algorithm, it can't be so hard inside of openvswitch
+> itself.
+>
+> Any time you go into openvswitch from "somewhere else" you initialize
+> a per-cpu structure that keeps track of work to do, if you need to pop
+> an MPLS header or whatever and recurse, record it in that structure
+> and just return.
+>
+> This both eliminates recursion, and is faster, since you'll be reusing
+> the same stack frame that's fresh and hot in the caches already.
+>
+OK, since recirc needs more work, I will post the series without recirc patches.
 
-Signed-off-by: Ethan Zhao <ethan.kernel@gmail.com>
----
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |   31 +-------------------
- 1 files changed, 1 insertions(+), 30 deletions(-)
+Thanks,
+Pravin.
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index 02c11a7..ec59190 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -683,35 +683,6 @@ complete_reset:
- 	wr32(hw, I40E_VFGEN_RSTAT1(vf->vf_id), I40E_VFR_VFACTIVE);
- 	i40e_flush(hw);
- }
--
--/**
-- * i40e_vfs_are_assigned
-- * @pf: pointer to the pf structure
-- *
-- * Determine if any VFs are assigned to VMs
-- **/
--static bool i40e_vfs_are_assigned(struct i40e_pf *pf)
--{
--	struct pci_dev *pdev = pf->pdev;
--	struct pci_dev *vfdev;
--
--	/* loop through all the VFs to see if we own any that are assigned */
--	vfdev = pci_get_device(PCI_VENDOR_ID_INTEL, I40E_DEV_ID_VF , NULL);
--	while (vfdev) {
--		/* if we don't own it we don't care */
--		if (vfdev->is_virtfn && pci_physfn(vfdev) == pdev) {
--			/* if it is assigned we cannot release it */
--			if (vfdev->dev_flags & PCI_DEV_FLAGS_ASSIGNED)
--				return true;
--		}
--
--		vfdev = pci_get_device(PCI_VENDOR_ID_INTEL,
--				       I40E_DEV_ID_VF,
--				       vfdev);
--	}
--
--	return false;
--}
- #ifdef CONFIG_PCI_IOV
- 
- /**
-@@ -815,7 +786,7 @@ void i40e_free_vfs(struct i40e_pf *pf)
- 	kfree(pf->vf);
- 	pf->vf = NULL;
- 
--	if (!i40e_vfs_are_assigned(pf)) {
-+	if (!pci_vfs_assigned(pf->pdev)) {
- 		pci_disable_sriov(pf->pdev);
- 		/* Acknowledge VFLR for all VFS. Without this, VFs will fail to
- 		 * work correctly when SR-IOV gets re-enabled.
--- 
-1.7.1
-
-
-------------------------------------------------------------------------------
-Want fast and easy access to all the code in your enterprise? Index and
-search up to 200,000 lines of code with a free copy of Black Duck
-Code Sight - the same software that powers the world's largest code
-search on Ohloh, the Black Duck Open Hub! Try it now.
-http://p.sf.net/sfu/bds
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+> I want to do this in the core networking at some point too.
