@@ -1,29 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] cleanup for realtek 8139CP
-Date: Mon, 21 Jul 2014 23:57:37 -0700 (PDT)
-Message-ID: <20140721.235737.692210604829493861.davem@davemloft.net>
-References: <1406008728-22604-1-git-send-email-varkabhadram@gmail.com>
-	<20140721.235644.1472126512606842714.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: [PATCH] bnx2x: Add FW 7.10.51
+Date: Tue, 22 Jul 2014 09:14:57 +0200
+Message-ID: <1406013297.10255.118.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1405403191-7517-1-git-send-email-Yuval.Mintz@qlogic.com>
+	 <B5657A6538887040AD3A81F1008BEC63B028A1@avmb3.qlogic.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, varkab@cdac.in
-To: varkabhadram@gmail.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "dwmw2@infradead.org" <dwmw2@infradead.org>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>,
+	Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>,
+	Ariel Elior <Ariel.Elior@qlogic.com>,
+	netdev <netdev@vger.kernel.org>
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42280 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751260AbaGVG5l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 02:57:41 -0400
-In-Reply-To: <20140721.235644.1472126512606842714.davem@davemloft.net>
+Received: from mail-wi0-f171.google.com ([209.85.212.171]:53744 "EHLO
+	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750737AbaGVHPM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 03:15:12 -0400
+Received: by mail-wi0-f171.google.com with SMTP id hi2so5391875wib.4
+        for <netdev@vger.kernel.org>; Tue, 22 Jul 2014 00:15:11 -0700 (PDT)
+In-Reply-To: <B5657A6538887040AD3A81F1008BEC63B028A1@avmb3.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogTW9uLCAyMSBK
-dWwgMjAxNCAyMzo1Njo0NCAtMDcwMCAoUERUKQ0KDQo+IEZyb206IHZhcmthYmhhZHJhbUBnbWFp
-bC5jb20NCj4gRGF0ZTogVHVlLCAyMiBKdWwgMjAxNCAxMToyODo0NiArMDUzMA0KPiANCj4+IFZh
-cmthIEJoYWRyYW0gKDIpOg0KPj4gICBldGhlcm5ldDogcmVhbHRlazogdXNlIG1vZHVsZV9wY2lf
-ZHJpdmVyDQo+PiAgIGV0aGVybmV0OiByZWFsdGVrOiB1c2UgcGNpX2RldmljZV9pZA0KPiANCj4g
-Qm90aCBhcHBsaWVkLCB0aGFua3MuDQoNCkFjdHVhbGx5LCByZXZlcnRlZCwgdGVzdCB5b3VyIGNo
-YW5nZXM6DQoNCmRyaXZlcnMvbmV0L2V0aGVybmV0L3JlYWx0ZWsvODEzOWNwLmM6ODI6MTM6IHdh
-cm5pbmc6IKF2ZXJzaW9uoiBkZWZpbmVkIGJ1dCBub3QgdXNlZCBbLVd1bnVzZWQtdmFyaWFibGVd
-DQoNCg==
+On Tue, 2014-07-22 at 04:38 +0000, Yuval Mintz wrote:
+> > Subject: [PATCH] bnx2x: Add FW 7.10.51
+> >
+> > Hi,
+> >
+> > This firmware includes many fixes such as:
+> >
+> >  - (L2) In some multi-function configurations, inter-PF and inter-VF
+> >    Tx switching is incorrectly enabled.
+> >
+> >  - (L2) Wrong assert code in FLR final cleanup in case it is sent not
+> >    after FLR.
+> >
+> >  - (L2) Chip may stall in very rare cases under heavy traffic with FW GRO
+> >    enabled.
+> >
+> >  - (L2) VF malicious notification error fixes.
+> >
+> >  - (L2) Default gre tunnel to IPGRE which allows proper RSS for IPGRE packets,
+> >    L2GRE traffic will reach single queue.
+> >
+> >  - (FCoE) Fix data being placed in wrong buffer when corrupt FCoE frame is
+> >    received.
+> >
+> >  - (FCoE) Burst of FIP packets with destination MAC of ALL-FCF_MACs
+> >    causes FCoE traffic to stop.
+> >
+> > Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+> > Signed-off-by: Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>
+> > Signed-off-by: Ariel Elior <Ariel.Elior@qlogic.com>
+> 
+> Hi,
+> 
+> Any news about this one?
+
+I cant find it in my mails... when was it sent ?
