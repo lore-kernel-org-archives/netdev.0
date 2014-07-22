@@ -1,40 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 1/2] ethernet: realtek: use
- module_pci_driver
-Date: Tue, 22 Jul 2014 00:28:50 -0700 (PDT)
-Message-ID: <20140722.002850.1113335731441581168.davem@davemloft.net>
-References: <1406013622-27869-1-git-send-email-varkabhadram@gmail.com>
-	<1406013622-27869-2-git-send-email-varkabhadram@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: [PATCH] bnx2x: Add FW 7.10.51
+Date: Tue, 22 Jul 2014 09:29:36 +0200
+Message-ID: <1406014176.10255.119.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1405403191-7517-1-git-send-email-Yuval.Mintz@qlogic.com>
+	 <B5657A6538887040AD3A81F1008BEC63B028A1@avmb3.qlogic.org>
+	 <1406013297.10255.118.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <B5657A6538887040AD3A81F1008BEC63B02A2F@avmb3.qlogic.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, varkab@cdac.in
-To: varkabhadram@gmail.com
+Cc: "dwmw2@infradead.org" <dwmw2@infradead.org>,
+	"ben@decadent.org.uk" <ben@decadent.org.uk>,
+	Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>,
+	Ariel Elior <Ariel.Elior@qlogic.com>,
+	netdev <netdev@vger.kernel.org>
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42486 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753262AbaGVH2z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 03:28:55 -0400
-In-Reply-To: <1406013622-27869-2-git-send-email-varkabhadram@gmail.com>
+Received: from mail-we0-f172.google.com ([74.125.82.172]:38791 "EHLO
+	mail-we0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752977AbaGVH3v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 03:29:51 -0400
+Received: by mail-we0-f172.google.com with SMTP id x48so8589160wes.17
+        for <netdev@vger.kernel.org>; Tue, 22 Jul 2014 00:29:50 -0700 (PDT)
+In-Reply-To: <B5657A6538887040AD3A81F1008BEC63B02A2F@avmb3.qlogic.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: varkabhadram@gmail.com
-Date: Tue, 22 Jul 2014 12:50:21 +0530
+On Tue, 2014-07-22 at 07:16 +0000, Yuval Mintz wrote:
 
-> @@ -1887,11 +1887,7 @@ static int cp_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
->  	resource_size_t pciaddr;
->  	unsigned int addr_len, i, pci_using_dac;
->  
-> -#ifndef MODULE
-> -	static int version_printed;
-> -	if (version_printed++ == 0)
-> -		pr_info("%s", version);
-> -#endif
-> +	pr_info("%s", version);
+> A week ago.
+> 
 
-Now you're changing behavior undesirably, it will now print the
-version string into the logs for every instance of the device which is
-discovered.
-
-Seriously, the driver is worse off after these "cleanups".
+No trace of this. mail server issue maybe ?
