@@ -1,413 +1,212 @@
-From: Shradha Shah <sshah@solarflare.com>
-Subject: [PATCH net-next] sfc: Add support for busy polling
-Date: Tue, 22 Jul 2014 14:03:25 +0100
-Message-ID: <53CE611D.7080109@solarflare.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
-To: David Miller <davem@davemloft.net>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net v2] net: sctp: inherit auth_capable on INIT collisions
+Date: Tue, 22 Jul 2014 15:22:45 +0200
+Message-ID: <1406035365-1154-1-git-send-email-dborkman@redhat.com>
+Cc: jgunthorpe@obsidianresearch.com, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:30585 "EHLO
-	nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752692AbaGVNDe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 09:03:34 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:47169 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753763AbaGVNW4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Jul 2014 09:22:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexandre Rames <arames@solarflare.com>
+Jason reported an oops caused by SCTP on his ARM machine with
+SCTP authentication enabled:
 
-This patch adds the sfc driver code for implementing busy polling.
-It adds ndo_busy_poll method and locking between it and napi poll.
-It also adds each napi to the napi_hash right after netif_napi_add().
+Internal error: Oops: 17 [#1] ARM
+CPU: 0 PID: 104 Comm: sctp-test Not tainted 3.13.0-68744-g3632f30c9b20-dirty #1
+task: c6eefa40 ti: c6f52000 task.ti: c6f52000
+PC is at sctp_auth_calculate_hmac+0xc4/0x10c
+LR is at sg_init_table+0x20/0x38
+pc : [<c024bb80>]    lr : [<c00f32dc>]    psr: 40000013
+sp : c6f538e8  ip : 00000000  fp : c6f53924
+r10: c6f50d80  r9 : 00000000  r8 : 00010000
+r7 : 00000000  r6 : c7be4000  r5 : 00000000  r4 : c6f56254
+r3 : c00c8170  r2 : 00000001  r1 : 00000008  r0 : c6f1e660
+Flags: nZcv  IRQs on  FIQs on  Mode SVC_32  ISA ARM  Segment user
+Control: 0005397f  Table: 06f28000  DAC: 00000015
+Process sctp-test (pid: 104, stack limit = 0xc6f521c0)
+Stack: (0xc6f538e8 to 0xc6f54000)
+[...]
+Backtrace:
+[<c024babc>] (sctp_auth_calculate_hmac+0x0/0x10c) from [<c0249af8>] (sctp_packet_transmit+0x33c/0x5c8)
+[<c02497bc>] (sctp_packet_transmit+0x0/0x5c8) from [<c023e96c>] (sctp_outq_flush+0x7fc/0x844)
+[<c023e170>] (sctp_outq_flush+0x0/0x844) from [<c023ef78>] (sctp_outq_uncork+0x24/0x28)
+[<c023ef54>] (sctp_outq_uncork+0x0/0x28) from [<c0234364>] (sctp_side_effects+0x1134/0x1220)
+[<c0233230>] (sctp_side_effects+0x0/0x1220) from [<c02330b0>] (sctp_do_sm+0xac/0xd4)
+[<c0233004>] (sctp_do_sm+0x0/0xd4) from [<c023675c>] (sctp_assoc_bh_rcv+0x118/0x160)
+[<c0236644>] (sctp_assoc_bh_rcv+0x0/0x160) from [<c023d5bc>] (sctp_inq_push+0x6c/0x74)
+[<c023d550>] (sctp_inq_push+0x0/0x74) from [<c024a6b0>] (sctp_rcv+0x7d8/0x888)
 
-Uses efx_start_eventq and efx_stop_eventq in the self tests.
+While we already had various kind of bugs in that area
+ec0223ec48a9 ("net: sctp: fix sctp_sf_do_5_1D_ce to verify if
+we/peer is AUTH capable") and b14878ccb7fa ("net: sctp: cache
+auth_enable per endpoint"), this one is a bit of a different
+kind.
 
-Signed-off-by: Shradha Shah <sshah@solarflare.com>
+Giving a bit more background on why SCTP authentication is
+needed can be found in RFC4895:
+
+  SCTP uses 32-bit verification tags to protect itself against
+  blind attackers. These values are not changed during the
+  lifetime of an SCTP association.
+
+  Looking at new SCTP extensions, there is the need to have a
+  method of proving that an SCTP chunk(s) was really sent by
+  the original peer that started the association and not by a
+  malicious attacker.
+
+To cause this bug, we're triggering an INIT collision between
+peers; normal SCTP handshake where both sides intent to
+authenticate packets contains RANDOM; CHUNKS; HMAC-ALGO
+parameters that are being negotiated among peers:
+
+  ---------- INIT[RANDOM; CHUNKS; HMAC-ALGO] ---------->
+  <------- INIT-ACK[RANDOM; CHUNKS; HMAC-ALGO] ---------
+  -------------------- COOKIE-ECHO -------------------->
+  <-------------------- COOKIE-ACK ---------------------
+
+RFC4895 says that each endpoint therefore knows its own random
+number and the peer's random number *after* the association
+has been established. The local and peer's random number along
+with the shared key are then part of the secret used for
+calculating the HMAC in the AUTH chunk.
+
+Now, in our scenario, we have 2 threads with 1 non-blocking
+SEQ_PACKET socket each, setting up common shared SCTP_AUTH_KEY
+and SCTP_AUTH_ACTIVE_KEY properly, and each of them calling
+sctp_bindx(3), listen(2) and connect(2) against each other,
+thus the handshake looks similar to this, e.g.:
+
+  ---------- INIT[RANDOM; CHUNKS; HMAC-ALGO] ---------->
+  <------- INIT-ACK[RANDOM; CHUNKS; HMAC-ALGO] ---------
+  <--------- INIT[RANDOM; CHUNKS; HMAC-ALGO] -----------
+  -------- INIT-ACK[RANDOM; CHUNKS; HMAC-ALGO] -------->
+  ...
+
+Since such collisions can also happen with verification tags,
+the RFC4895 for AUTH rather vaguely says under section 6.1:
+
+  In case of INIT collision, the rules governing the handling
+  of this Random Number follow the same pattern as those for
+  the Verification Tag, as explained in Section 5.2.4 of
+  RFC 2960 [5]. Therefore, each endpoint knows its own Random
+  Number and the peer's Random Number after the association
+  has been established.
+
+In RFC2960, section 5.2.4, we're eventually hitting Action B:
+
+  B) In this case, both sides may be attempting to start an
+     association at about the same time but the peer endpoint
+     started its INIT after responding to the local endpoint's
+     INIT. Thus it may have picked a new Verification Tag not
+     being aware of the previous Tag it had sent this endpoint.
+     The endpoint should stay in or enter the ESTABLISHED
+     state but it MUST update its peer's Verification Tag from
+     the State Cookie, stop any init or cookie timers that may
+     running and send a COOKIE ACK.
+
+In other words, the handling of the Random parameter is the
+same as behavior for the Verification Tag as described in
+Action B of section 5.2.4.
+
+Looking at the code, we exactly hit the sctp_sf_do_dupcook_b()
+case which triggers an SCTP_CMD_UPDATE_ASSOC command to the
+side effect interpreter, and in fact it properly copies over
+peer_{random, hmacs, chunks} parameters from the newly created
+association to update the existing one.
+
+Also, the old asoc_shared_key is being released and based on
+the new params, sctp_auth_asoc_init_active_key() updated.
+However, the issue observed in this case is that the previous
+asoc->peer.auth_capable was 0, and has *not* been updated, so
+that instead of creating a new secret, we're doing an early
+return from the function sctp_auth_asoc_init_active_key()
+leaving asoc->asoc_shared_key as NULL. However, we now have to
+authenticate chunks from the updated chunk list (e.g. COOKIE-ACK).
+
+That in fact causes the server side when responding with ...
+
+  <------------------ AUTH; COOKIE-ACK -----------------
+
+... to trigger a NULL pointer dereference, since in
+sctp_packet_transmit(), it discovers that an AUTH chunk is
+being queued for xmit, and thus it calls sctp_auth_calculate_hmac().
+
+Since the asoc->active_key_id is still inherited from the
+endpoint, and the same as encoded into the chunk, it uses
+asoc->asoc_shared_key, which is still NULL, as an asoc_key
+and dereferences it in ...
+
+  crypto_hash_setkey(desc.tfm, &asoc_key->data[0], asoc_key->len)
+
+... causing an oops. All this happens because sctp_make_cookie_ack()
+called with the *new* association has the peer.auth_capable=1
+and therefore marks the chunk with auth=1 after checking
+sctp_auth_send_cid(), but it is *actually* sent later on over
+the then *updated* association's transport that didn't initialize
+its shared key due to peer.auth_capable=0. Since control chunks
+in that case are not sent by the temporary association which
+are scheduled for deletion, they are issued for xmit via
+SCTP_CMD_REPLY in the interpreter with the context of the
+*updated* association. peer.auth_capable was 0 in the updated
+association (which went from COOKIE_WAIT into ESTABLISHED state),
+since all previous processing that performed sctp_process_init()
+was being done on temporary associations, that we eventually
+throw away each time.
+
+The correct fix is to update to the new peer.auth_capable
+value as well in the collision case via sctp_assoc_update(),
+so that in case the collision migrated from 0 -> 1,
+sctp_auth_asoc_init_active_key() can properly recalculate
+the secret. This therefore fixes the observed server panic.
+
+Fixes: 730fc3d05cd4 ("[SCTP]: Implete SCTP-AUTH parameter processing")
+Reported-by: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Tested-by: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Cc: Vlad Yasevich <vyasevich@gmail.com>
 ---
- drivers/net/ethernet/sfc/efx.c        |  54 ++++++++++++-
- drivers/net/ethernet/sfc/efx.h        |   2 +
- drivers/net/ethernet/sfc/net_driver.h | 148 ++++++++++++++++++++++++++++++++++
- drivers/net/ethernet/sfc/rx.c         |   6 +-
- drivers/net/ethernet/sfc/selftest.c   |   5 +-
- 5 files changed, 208 insertions(+), 7 deletions(-)
+ v1 -> v2, more notes:
 
-diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index 4b80c0b..4cebe9d 100644
---- a/drivers/net/ethernet/sfc/efx.c
-+++ b/drivers/net/ethernet/sfc/efx.c
-@@ -272,6 +272,9 @@ static int efx_poll(struct napi_struct *napi, int budget)
- 	struct efx_nic *efx = channel->efx;
- 	int spent;
- 
-+	if (!efx_channel_lock_napi(channel))
-+		return budget;
-+
- 	netif_vdbg(efx, intr, efx->net_dev,
- 		   "channel %d NAPI poll executing on CPU %d\n",
- 		   channel->channel, raw_smp_processor_id());
-@@ -311,6 +314,7 @@ static int efx_poll(struct napi_struct *napi, int budget)
- 		efx_nic_eventq_read_ack(channel);
- 	}
- 
-+	efx_channel_unlock_napi(channel);
- 	return spent;
- }
- 
-@@ -357,7 +361,7 @@ static int efx_init_eventq(struct efx_channel *channel)
- }
- 
- /* Enable event queue processing and NAPI */
--static void efx_start_eventq(struct efx_channel *channel)
-+void efx_start_eventq(struct efx_channel *channel)
- {
- 	netif_dbg(channel->efx, ifup, channel->efx->net_dev,
- 		  "chan %d start event queue\n", channel->channel);
-@@ -366,17 +370,20 @@ static void efx_start_eventq(struct efx_channel *channel)
- 	channel->enabled = true;
- 	smp_wmb();
- 
-+	efx_channel_enable(channel);
- 	napi_enable(&channel->napi_str);
- 	efx_nic_eventq_read_ack(channel);
- }
- 
- /* Disable event queue processing and NAPI */
--static void efx_stop_eventq(struct efx_channel *channel)
-+void efx_stop_eventq(struct efx_channel *channel)
- {
- 	if (!channel->enabled)
- 		return;
- 
- 	napi_disable(&channel->napi_str);
-+	while (!efx_channel_disable(channel))
-+		usleep_range(1000, 20000);
- 	channel->enabled = false;
- }
- 
-@@ -1960,6 +1967,8 @@ static void efx_init_napi_channel(struct efx_channel *channel)
- 	channel->napi_dev = efx->net_dev;
- 	netif_napi_add(channel->napi_dev, &channel->napi_str,
- 		       efx_poll, napi_weight);
-+	napi_hash_add(&channel->napi_str);
-+	efx_channel_init_lock(channel);
- }
- 
- static void efx_init_napi(struct efx_nic *efx)
-@@ -1972,8 +1981,10 @@ static void efx_init_napi(struct efx_nic *efx)
- 
- static void efx_fini_napi_channel(struct efx_channel *channel)
- {
--	if (channel->napi_dev)
-+	if (channel->napi_dev) {
- 		netif_napi_del(&channel->napi_str);
-+		napi_hash_del(&channel->napi_str);
-+	}
- 	channel->napi_dev = NULL;
- }
- 
-@@ -2008,6 +2019,37 @@ static void efx_netpoll(struct net_device *net_dev)
- 
- #endif
- 
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+static int efx_busy_poll(struct napi_struct *napi)
-+{
-+	struct efx_channel *channel =
-+		container_of(napi, struct efx_channel, napi_str);
-+	struct efx_nic *efx = channel->efx;
-+	int budget = 4;
-+	int old_rx_packets, rx_packets;
-+
-+	if (!netif_running(efx->net_dev))
-+		return LL_FLUSH_FAILED;
-+
-+	if (!efx_channel_lock_poll(channel))
-+		return LL_FLUSH_BUSY;
-+
-+	old_rx_packets = channel->rx_queue.rx_packets;
-+	efx_process_channel(channel, budget);
-+
-+	rx_packets = channel->rx_queue.rx_packets - old_rx_packets;
-+
-+	/* There is no race condition with NAPI here.
-+	 * NAPI will automatically be rescheduled if it yielded during busy
-+	 * polling, because it was not able to take the lock and thus returned
-+	 * the full budget.
-+	 */
-+	efx_channel_unlock_poll(channel);
-+
-+	return rx_packets;
-+}
-+#endif
-+
- /**************************************************************************
-  *
-  * Kernel net device interface
-@@ -2177,6 +2219,9 @@ static const struct net_device_ops efx_farch_netdev_ops = {
- 	.ndo_poll_controller = efx_netpoll,
- #endif
- 	.ndo_setup_tc		= efx_setup_tc,
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+	.ndo_busy_poll		= efx_busy_poll,
-+#endif
- #ifdef CONFIG_RFS_ACCEL
- 	.ndo_rx_flow_steer	= efx_filter_rfs,
- #endif
-@@ -2197,6 +2242,9 @@ static const struct net_device_ops efx_ef10_netdev_ops = {
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= efx_netpoll,
- #endif
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+	.ndo_busy_poll		= efx_busy_poll,
-+#endif
- #ifdef CONFIG_RFS_ACCEL
- 	.ndo_rx_flow_steer	= efx_filter_rfs,
- #endif
-diff --git a/drivers/net/ethernet/sfc/efx.h b/drivers/net/ethernet/sfc/efx.h
-index b41601e..2587c58 100644
---- a/drivers/net/ethernet/sfc/efx.h
-+++ b/drivers/net/ethernet/sfc/efx.h
-@@ -194,6 +194,8 @@ int efx_init_irq_moderation(struct efx_nic *efx, unsigned int tx_usecs,
- 			    bool rx_may_override_tx);
- void efx_get_irq_moderation(struct efx_nic *efx, unsigned int *tx_usecs,
- 			    unsigned int *rx_usecs, bool *rx_adaptive);
-+void efx_stop_eventq(struct efx_channel *channel);
-+void efx_start_eventq(struct efx_channel *channel);
- 
- /* Dummy PHY ops for PHY drivers */
- int efx_port_dummy_op_int(struct efx_nic *efx);
-diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
-index fb2e3bf..9ede320 100644
---- a/drivers/net/ethernet/sfc/net_driver.h
-+++ b/drivers/net/ethernet/sfc/net_driver.h
-@@ -28,6 +28,7 @@
- #include <linux/vmalloc.h>
- #include <linux/i2c.h>
- #include <linux/mtd/mtd.h>
-+#include <net/busy_poll.h>
- 
- #include "enum.h"
- #include "bitfield.h"
-@@ -387,6 +388,8 @@ enum efx_sync_events_state {
-  * @irq_moderation: IRQ moderation value (in hardware ticks)
-  * @napi_dev: Net device used with NAPI
-  * @napi_str: NAPI control structure
-+ * @state: state for NAPI vs busy polling
-+ * @state_lock: lock protecting @state
-  * @eventq: Event queue buffer
-  * @eventq_mask: Event queue pointer mask
-  * @eventq_read_ptr: Event queue read pointer
-@@ -424,6 +427,22 @@ struct efx_channel {
- 	unsigned int irq_moderation;
- 	struct net_device *napi_dev;
- 	struct napi_struct napi_str;
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+	unsigned int state;
-+	spinlock_t state_lock;
-+#define EFX_CHANNEL_STATE_IDLE		0
-+#define EFX_CHANNEL_STATE_NAPI		(1 << 0)  /* NAPI owns this channel */
-+#define EFX_CHANNEL_STATE_POLL		(1 << 1)  /* poll owns this channel */
-+#define EFX_CHANNEL_STATE_DISABLED	(1 << 2)  /* channel is disabled */
-+#define EFX_CHANNEL_STATE_NAPI_YIELD	(1 << 3)  /* NAPI yielded this channel */
-+#define EFX_CHANNEL_STATE_POLL_YIELD	(1 << 4)  /* poll yielded this channel */
-+#define EFX_CHANNEL_OWNED \
-+	(EFX_CHANNEL_STATE_NAPI | EFX_CHANNEL_STATE_POLL)
-+#define EFX_CHANNEL_LOCKED \
-+	(EFX_CHANNEL_OWNED | EFX_CHANNEL_STATE_DISABLED)
-+#define EFX_CHANNEL_USER_PEND \
-+	(EFX_CHANNEL_STATE_POLL | EFX_CHANNEL_STATE_POLL_YIELD)
-+#endif /* CONFIG_NET_RX_BUSY_POLL */
- 	struct efx_special_buffer eventq;
- 	unsigned int eventq_mask;
- 	unsigned int eventq_read_ptr;
-@@ -457,6 +476,135 @@ struct efx_channel {
- 	u32 sync_timestamp_minor;
- };
- 
-+#ifdef CONFIG_NET_RX_BUSY_POLL
-+static inline void efx_channel_init_lock(struct efx_channel *channel)
-+{
-+	spin_lock_init(&channel->state_lock);
-+}
-+
-+/* Called from the device poll routine to get ownership of a channel. */
-+static inline bool efx_channel_lock_napi(struct efx_channel *channel)
-+{
-+	bool rc = true;
-+
-+	spin_lock_bh(&channel->state_lock);
-+	if (channel->state & EFX_CHANNEL_LOCKED) {
-+		WARN_ON(channel->state & EFX_CHANNEL_STATE_NAPI);
-+		channel->state |= EFX_CHANNEL_STATE_NAPI_YIELD;
-+		rc = false;
-+	} else {
-+		/* we don't care if someone yielded */
-+		channel->state = EFX_CHANNEL_STATE_NAPI;
-+	}
-+	spin_unlock_bh(&channel->state_lock);
-+	return rc;
-+}
-+
-+static inline void efx_channel_unlock_napi(struct efx_channel *channel)
-+{
-+	spin_lock_bh(&channel->state_lock);
-+	WARN_ON(channel->state &
-+		(EFX_CHANNEL_STATE_POLL | EFX_CHANNEL_STATE_NAPI_YIELD));
-+
-+	channel->state &= EFX_CHANNEL_STATE_DISABLED;
-+	spin_unlock_bh(&channel->state_lock);
-+}
-+
-+/* Called from efx_busy_poll(). */
-+static inline bool efx_channel_lock_poll(struct efx_channel *channel)
-+{
-+	bool rc = true;
-+
-+	spin_lock_bh(&channel->state_lock);
-+	if ((channel->state & EFX_CHANNEL_LOCKED)) {
-+		channel->state |= EFX_CHANNEL_STATE_POLL_YIELD;
-+		rc = false;
-+	} else {
-+		/* preserve yield marks */
-+		channel->state |= EFX_CHANNEL_STATE_POLL;
-+	}
-+	spin_unlock_bh(&channel->state_lock);
-+	return rc;
-+}
-+
-+/* Returns true if NAPI tried to get the channel while it was locked. */
-+static inline void efx_channel_unlock_poll(struct efx_channel *channel)
-+{
-+	spin_lock_bh(&channel->state_lock);
-+	WARN_ON(channel->state & EFX_CHANNEL_STATE_NAPI);
-+
-+	/* will reset state to idle, unless channel is disabled */
-+	channel->state &= EFX_CHANNEL_STATE_DISABLED;
-+	spin_unlock_bh(&channel->state_lock);
-+}
-+
-+/* True if a socket is polling, even if it did not get the lock. */
-+static inline bool efx_channel_busy_polling(struct efx_channel *channel)
-+{
-+	WARN_ON(!(channel->state & EFX_CHANNEL_OWNED));
-+	return channel->state & EFX_CHANNEL_USER_PEND;
-+}
-+
-+static inline void efx_channel_enable(struct efx_channel *channel)
-+{
-+	spin_lock_bh(&channel->state_lock);
-+	channel->state = EFX_CHANNEL_STATE_IDLE;
-+	spin_unlock_bh(&channel->state_lock);
-+}
-+
-+/* False if the channel is currently owned. */
-+static inline bool efx_channel_disable(struct efx_channel *channel)
-+{
-+	bool rc = true;
-+
-+	spin_lock_bh(&channel->state_lock);
-+	if (channel->state & EFX_CHANNEL_OWNED)
-+		rc = false;
-+	channel->state |= EFX_CHANNEL_STATE_DISABLED;
-+	spin_unlock_bh(&channel->state_lock);
-+
-+	return rc;
-+}
-+
-+#else /* CONFIG_NET_RX_BUSY_POLL */
-+
-+static inline void efx_channel_init_lock(struct efx_channel *channel)
-+{
-+}
-+
-+static inline bool efx_channel_lock_napi(struct efx_channel *channel)
-+{
-+	return true;
-+}
-+
-+static inline void efx_channel_unlock_napi(struct efx_channel *channel)
-+{
-+}
-+
-+static inline bool efx_channel_lock_poll(struct efx_channel *channel)
-+{
-+	return false;
-+}
-+
-+static inline void efx_channel_unlock_poll(struct efx_channel *channel)
-+{
-+}
-+
-+static inline bool efx_channel_busy_polling(struct efx_channel *channel)
-+{
-+	return false;
-+}
-+
-+static inline void efx_channel_enable(struct efx_channel *channel)
-+{
-+}
-+
-+static inline bool efx_channel_disable(struct efx_channel *channel)
-+{
-+	return true;
-+}
-+#endif /* CONFIG_NET_RX_BUSY_POLL */
-+
- /**
-  * struct efx_msi_context - Context for each MSI
-  * @efx: The associated NIC
-diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
-index a7bb63a..c0ad95d 100644
---- a/drivers/net/ethernet/sfc/rx.c
-+++ b/drivers/net/ethernet/sfc/rx.c
-@@ -462,6 +462,7 @@ efx_rx_packet_gro(struct efx_channel *channel, struct efx_rx_buffer *rx_buf,
- 
- 	skb_record_rx_queue(skb, channel->rx_queue.core_index);
- 
-+	skb_mark_napi_id(skb, &channel->napi_str);
- 	gro_result = napi_gro_frags(napi);
- 	if (gro_result != GRO_DROP)
- 		channel->irq_mod_score += 2;
-@@ -520,6 +521,8 @@ static struct sk_buff *efx_rx_mk_skb(struct efx_channel *channel,
- 	/* Move past the ethernet header */
- 	skb->protocol = eth_type_trans(skb, efx->net_dev);
- 
-+	skb_mark_napi_id(skb, &channel->napi_str);
-+
- 	return skb;
- }
- 
-@@ -666,7 +669,8 @@ void __efx_rx_packet(struct efx_channel *channel)
- 	if (unlikely(!(efx->net_dev->features & NETIF_F_RXCSUM)))
- 		rx_buf->flags &= ~EFX_RX_PKT_CSUMMED;
- 
--	if ((rx_buf->flags & EFX_RX_PKT_TCP) && !channel->type->receive_skb)
-+	if ((rx_buf->flags & EFX_RX_PKT_TCP) && !channel->type->receive_skb &&
-+	    !efx_channel_busy_polling(channel))
- 		efx_rx_packet_gro(channel, rx_buf, channel->rx_pkt_n_frags, eh);
- 	else
- 		efx_rx_deliver(channel, eh, rx_buf, channel->rx_pkt_n_frags);
-diff --git a/drivers/net/ethernet/sfc/selftest.c b/drivers/net/ethernet/sfc/selftest.c
-index 0fc5bae..10b6173 100644
---- a/drivers/net/ethernet/sfc/selftest.c
-+++ b/drivers/net/ethernet/sfc/selftest.c
-@@ -188,7 +188,7 @@ static int efx_test_eventq_irq(struct efx_nic *efx,
- 		schedule_timeout_uninterruptible(wait);
- 
- 		efx_for_each_channel(channel, efx) {
--			napi_disable(&channel->napi_str);
-+			efx_stop_eventq(channel);
- 			if (channel->eventq_read_ptr !=
- 			    read_ptr[channel->channel]) {
- 				set_bit(channel->channel, &napi_ran);
-@@ -200,8 +200,7 @@ static int efx_test_eventq_irq(struct efx_nic *efx,
- 				if (efx_nic_event_test_irq_cpu(channel) >= 0)
- 					clear_bit(channel->channel, &int_pend);
- 			}
--			napi_enable(&channel->napi_str);
--			efx_nic_eventq_read_ack(channel);
-+			efx_start_eventq(channel);
- 		}
- 
- 		wait *= 2;
+  I've only updated the commit description for now, this bug seems
+  clear to me that we would need to fix it; since RFC4895 mentions
+  it explicitly that on collisions, we need to *update* these params
+  accordingly as we would do so in RFC2960. So in other words, this
+  can be explained by having an *inconsistency* when doing the update
+  as auth_capable is *tightly coupled* with peer_random, peer_chunks,
+  peer_hmacs and eventually the asoc_shared_key creation.
+
+  For the rest, I went through the code and currently could not
+  find where we could oops if we don't have the others for now. It
+  needs more time and testing however. It's also not too clear from
+  RFC2960/RFC4960 what needs to be carried over in addition: so we
+  know "The endpoint should stay in or enter the ESTABLISHED state
+  but it MUST update its peer's Verification Tag from the State
+  Cookie, stop any init or cookie timers that may running and send
+  a COOKIE ACK." and we know that we need to update all AUTH related
+  members, which we do *now*.
+
+  In addition, we also need to fix AUTH + COOKIE_ECHO collisions,
+  as they currently cannot be resolved properly into a handshake.
+
+ net/sctp/associola.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+index 9de23a2..06a9ee6 100644
+--- a/net/sctp/associola.c
++++ b/net/sctp/associola.c
+@@ -1097,6 +1097,7 @@ void sctp_assoc_update(struct sctp_association *asoc,
+ 	asoc->c = new->c;
+ 	asoc->peer.rwnd = new->peer.rwnd;
+ 	asoc->peer.sack_needed = new->peer.sack_needed;
++	asoc->peer.auth_capable = new->peer.auth_capable;
+ 	asoc->peer.i = new->peer.i;
+ 	sctp_tsnmap_init(&asoc->peer.tsn_map, SCTP_TSN_MAP_INITIAL,
+ 			 asoc->peer.i.initial_tsn, GFP_ATOMIC);
+-- 
+1.7.11.7
