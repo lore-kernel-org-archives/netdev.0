@@ -1,77 +1,140 @@
 From: Andy Zhou <azhou@nicira.com>
-Subject: [net-next 00/10] Add Geneve
-Date: Tue, 22 Jul 2014 03:19:43 -0700
-Message-ID: <1406024393-6778-1-git-send-email-azhou@nicira.com>
+Subject: [net-next 03/10] vxlan: Remove vxlan_get_rx_port()
+Date: Tue, 22 Jul 2014 03:19:46 -0700
+Message-ID: <1406024393-6778-4-git-send-email-azhou@nicira.com>
+References: <1406024393-6778-1-git-send-email-azhou@nicira.com>
 Cc: netdev@vger.kernel.org, Andy Zhou <azhou@nicira.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aob139.obsmtp.com ([74.125.149.251]:45307 "HELO
-	psmtp.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with SMTP
-	id S1754392AbaGVKaz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Jul 2014 06:30:55 -0400
-Received: by mail-pa0-f44.google.com with SMTP id eu11so11838068pac.3
-        for <netdev@vger.kernel.org>; Tue, 22 Jul 2014 03:30:53 -0700 (PDT)
+Received: from na3sys009aog134.obsmtp.com ([74.125.149.83]:54604 "HELO
+	na3sys009aog134.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751471AbaGVKbC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 06:31:02 -0400
+Received: by mail-pa0-f54.google.com with SMTP id fa1so11680474pad.27
+        for <netdev@vger.kernel.org>; Tue, 22 Jul 2014 03:31:01 -0700 (PDT)
+In-Reply-To: <1406024393-6778-1-git-send-email-azhou@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Following patches adds initial support for Geneve tunnel protocol
-1. Add Geneve driver.
-2. Add common UDP tunnel code into UDP tunnel support function
-3. Refactor vxlan driver to make use of the UDP tunnel support
-4. Refactor Openvswitch  in preparation for #5 
-5. Add Geneve support to Openvswitch.
+Instead of specificly calling vxlan_get_rx_port(), Device driver
+should now call udp_tunnel_get_rx_port() instead.  Making this change
+to support future NICs and device drivers that may support more
+UDP tunnel protocol offloads.
 
-Note: Geneve offload are not supported in this version. We plan to
-post follow on patches that implements them we can verified with
-at least one working NIC that supports Geneve offloading.
+Signed-off-by: Andy Zhou <azhou@nicira.com>
+---
+ drivers/net/ethernet/emulex/benet/be_main.c      |    2 +-
+ drivers/net/ethernet/intel/i40e/i40e_main.c      |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c   |    2 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    2 +-
+ drivers/net/vxlan.c                              |   26 ----------------------
+ include/net/vxlan.h                              |    7 ------
+ 6 files changed, 4 insertions(+), 37 deletions(-)
 
-Andy Zhou (5):
-  net: Rename ndo_add_vxlan_port to ndo_add_udp_tunnel_port.
-  udp: Expand UDP tunnel common APIs
-  vxlan: Remove vxlan_get_rx_port()
-  net: Refactor vxlan driver to make use of common UDP tunnel functions
-  net: Add Geneve tunneling protocol driver
-
-Jesse Gross (5):
-  openvswitch: Eliminate memset() from flow_extract.
-  openvswitch: Add support for matching on OAM packets.
-  openvswitch: Wrap struct ovs_key_ipv4_tunnel in a new structure.
-  openvswitch: Factor out allocation and verification of actions.
-  openvswitch: Add support for Geneve tunneling.
-
- drivers/net/ethernet/emulex/benet/be_main.c      |   17 +-
- drivers/net/ethernet/intel/i40e/i40e_main.c      |   18 +-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c   |   19 +-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |   19 +-
- drivers/net/vxlan.c                              |  273 ++++++----------------
- include/linux/netdevice.h                        |   35 +--
- include/net/geneve.h                             |   85 +++++++
- include/net/ip_tunnels.h                         |    2 +
- include/net/udp_tunnel.h                         |   57 +++++
- include/net/vxlan.h                              |   21 +-
- include/uapi/linux/openvswitch.h                 |    5 +-
- net/ipv4/Kconfig                                 |   14 ++
- net/ipv4/Makefile                                |    1 +
- net/ipv4/geneve.c                                |  273 ++++++++++++++++++++++
- net/ipv4/udp_tunnel.c                            |  257 +++++++++++++++++++-
- net/openvswitch/Kconfig                          |   11 +
- net/openvswitch/Makefile                         |    5 +
- net/openvswitch/actions.c                        |    6 +-
- net/openvswitch/datapath.c                       |   71 ++++--
- net/openvswitch/datapath.h                       |    3 +-
- net/openvswitch/flow.c                           |   62 ++++-
- net/openvswitch/flow.h                           |   41 +++-
- net/openvswitch/flow_netlink.c                   |  184 +++++++++++++--
- net/openvswitch/flow_netlink.h                   |    2 +-
- net/openvswitch/vport-geneve.c                   |  258 ++++++++++++++++++++
- net/openvswitch/vport-gre.c                      |   29 +--
- net/openvswitch/vport-vxlan.c                    |   34 +--
- net/openvswitch/vport.c                          |    8 +-
- net/openvswitch/vport.h                          |    3 +-
- 29 files changed, 1457 insertions(+), 356 deletions(-)
- create mode 100644 include/net/geneve.h
- create mode 100644 net/ipv4/geneve.c
- create mode 100644 net/openvswitch/vport-geneve.c
-
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 028dc6e..b6badc0 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -2922,7 +2922,7 @@ static int be_open(struct net_device *netdev)
+ 
+ #ifdef CONFIG_BE2NET_VXLAN
+ 	if (skyhawk_chip(adapter))
+-		vxlan_get_rx_port(netdev);
++		udp_tunnel_get_rx_port(netdev);
+ #endif
+ 
+ 	return 0;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index d9fd53b..3cebb1b 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -4527,7 +4527,7 @@ static int i40e_open(struct net_device *netdev)
+ 	wr32(&pf->hw, I40E_GLLAN_TSOMSK_L, be32_to_cpu(TCP_FLAG_CWR) >> 16);
+ 
+ #ifdef CONFIG_I40E_VXLAN
+-	vxlan_get_rx_port(netdev);
++	udp_tunnel_get_rx_port(netdev);
+ #endif
+ 
+ 	return 0;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index d5f6b91..d935ad3 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -1721,7 +1721,7 @@ int mlx4_en_start_port(struct net_device *dev)
+ 
+ #ifdef CONFIG_MLX4_EN_VXLAN
+ 	if (priv->mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_VXLAN_OFFLOADS)
+-		vxlan_get_rx_port(dev);
++		udp_tunnel_get_rx_port(dev);
+ #endif
+ 	priv->port_up = true;
+ 	netif_tx_start_all_queues(dev);
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index a39020d..df760f7 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -2002,7 +2002,7 @@ qlcnic_attach(struct qlcnic_adapter *adapter)
+ 
+ #ifdef CONFIG_QLCNIC_VXLAN
+ 	if (qlcnic_encap_rx_offload(adapter))
+-		vxlan_get_rx_port(netdev);
++		udp_tunnel_get_rx_port(netdev);
+ #endif
+ 
+ 	adapter->is_up = QLCNIC_ADAPTER_UP_MAGIC;
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 829d447..93f2e40 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -2191,32 +2191,6 @@ static struct device_type vxlan_type = {
+ 	.name = "vxlan",
+ };
+ 
+-/* Calls the ndo_add_tunnel_port of the caller in order to
+- * supply the listening VXLAN udp ports. Callers are expected
+- * to implement the ndo_add_tunnle_port.
+- */
+-void vxlan_get_rx_port(struct net_device *dev)
+-{
+-	struct vxlan_sock *vs;
+-	struct net *net = dev_net(dev);
+-	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
+-	sa_family_t sa_family;
+-	__be16 port;
+-	unsigned int i;
+-
+-	spin_lock(&vn->sock_lock);
+-	for (i = 0; i < PORT_HASH_SIZE; ++i) {
+-		hlist_for_each_entry_rcu(vs, &vn->sock_list[i], hlist) {
+-			port = inet_sk(vs->sock->sk)->inet_sport;
+-			sa_family = vs->sock->sk->sk_family;
+-			dev->netdev_ops->ndo_add_udp_tunnel_port(dev,
+-					sa_family, port, UDP_TUNNEL_TYPE_VXLAN);
+-		}
+-	}
+-	spin_unlock(&vn->sock_lock);
+-}
+-EXPORT_SYMBOL_GPL(vxlan_get_rx_port);
+-
+ /* Initialize the device structure. */
+ static void vxlan_setup(struct net_device *dev)
+ {
+diff --git a/include/net/vxlan.h b/include/net/vxlan.h
+index d5f59f3..60f9d4d 100644
+--- a/include/net/vxlan.h
++++ b/include/net/vxlan.h
+@@ -50,11 +50,4 @@ int vxlan_xmit_skb(struct vxlan_sock *vs,
+ /* IPv6 header + UDP + VXLAN + Ethernet header */
+ #define VXLAN6_HEADROOM (40 + 8 + 8 + 14)
+ 
+-#if IS_ENABLED(CONFIG_VXLAN)
+-void vxlan_get_rx_port(struct net_device *netdev);
+-#else
+-static inline void vxlan_get_rx_port(struct net_device *netdev)
+-{
+-}
+-#endif
+ #endif
 -- 
 1.7.9.5
