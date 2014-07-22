@@ -1,103 +1,413 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net-next v3 2/3] net: sctp: Rename SCTP_XMIT_NAGLE_DELAY
- to SCTP_XMIT_DELAY
-Date: Tue, 22 Jul 2014 09:03:01 -0400
-Message-ID: <53CE6105.3020302@gmail.com>
-References: <063D6719AE5E284EB5DD2968C1650D6D1727AF03@AcuExch.aculab.com>
+From: Shradha Shah <sshah@solarflare.com>
+Subject: [PATCH net-next] sfc: Add support for busy polling
+Date: Tue, 22 Jul 2014 14:03:25 +0100
+Message-ID: <53CE611D.7080109@solarflare.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>
-To: David Laight <David.Laight@ACULAB.COM>,
-	Linux Networking Development Mailing List
-	<netdev@vger.kernel.org>,
-	"'linux-sctp@vger.kernel.org'" <linux-sctp@vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f50.google.com ([209.85.216.50]:33222 "EHLO
-	mail-qa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750801AbaGVNDF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 09:03:05 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1727AF03@AcuExch.aculab.com>
+Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:30585 "EHLO
+	nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752692AbaGVNDe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 09:03:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/22/2014 04:59 AM, David Laight wrote:
-> MSG_MORE and 'corking' a socket would require that the transmit of
-> a data chunk be delayed.
-> Rename the return value to be less specific.
-> 
-> Signed-off-by: David Laight <david.laight@aculab.com>
+From: Alexandre Rames <arames@solarflare.com>
 
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+This patch adds the sfc driver code for implementing busy polling.
+It adds ndo_busy_poll method and locking between it and napi poll.
+It also adds each napi to the napi_hash right after netif_napi_add().
 
--vlad
+Uses efx_start_eventq and efx_stop_eventq in the self tests.
 
-> ---
-> 
-> Resend with corrected subject line.
-> 
-> No change from v2.
-> 
->  include/net/sctp/constants.h | 2 +-
->  net/sctp/output.c            | 4 ++--
->  net/sctp/outqueue.c          | 4 ++--
->  3 files changed, 5 insertions(+), 5 deletions(-)
-> 
-> diff --git a/include/net/sctp/constants.h b/include/net/sctp/constants.h
-> index 307728f..8c337cd 100644
-> --- a/include/net/sctp/constants.h
-> +++ b/include/net/sctp/constants.h
-> @@ -311,7 +311,7 @@ typedef enum {
->  	SCTP_XMIT_OK,
->  	SCTP_XMIT_PMTU_FULL,
->  	SCTP_XMIT_RWND_FULL,
-> -	SCTP_XMIT_NAGLE_DELAY,
-> +	SCTP_XMIT_DELAY,
->  } sctp_xmit_t;
->  
->  /* These are the commands for manipulating transports.  */
-> diff --git a/net/sctp/output.c b/net/sctp/output.c
-> index 553ba1d..7f28a8e 100644
-> --- a/net/sctp/output.c
-> +++ b/net/sctp/output.c
-> @@ -178,7 +178,7 @@ sctp_xmit_t sctp_packet_transmit_chunk(struct sctp_packet *packet,
->  
->  	case SCTP_XMIT_RWND_FULL:
->  	case SCTP_XMIT_OK:
-> -	case SCTP_XMIT_NAGLE_DELAY:
-> +	case SCTP_XMIT_DELAY:
->  		break;
->  	}
->  
-> @@ -712,7 +712,7 @@ static sctp_xmit_t sctp_packet_can_append_data(struct sctp_packet *packet,
->  		return SCTP_XMIT_OK;
->  
->  	/* Defer until all data acked or packet full */
-> -	return SCTP_XMIT_NAGLE_DELAY;
-> +	return SCTP_XMIT_DELAY;
->  }
->  
->  /* This private function does management things when adding DATA chunk */
-> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-> index 9c77947..9ce0f3d 100644
-> --- a/net/sctp/outqueue.c
-> +++ b/net/sctp/outqueue.c
-> @@ -629,7 +629,7 @@ redo:
->  			done = 1;
->  			break;
->  
-> -		case SCTP_XMIT_NAGLE_DELAY:
-> +		case SCTP_XMIT_DELAY:
->  			/* Send this packet. */
->  			error = sctp_packet_transmit(pkt);
->  
-> @@ -1015,7 +1015,7 @@ static int sctp_outq_flush(struct sctp_outq *q, int rtx_timeout)
->  			switch (status) {
->  			case SCTP_XMIT_PMTU_FULL:
->  			case SCTP_XMIT_RWND_FULL:
-> -			case SCTP_XMIT_NAGLE_DELAY:
-> +			case SCTP_XMIT_DELAY:
->  				/* We could not append this chunk, so put
->  				 * the chunk back on the output queue.
->  				 */
-> 
+Signed-off-by: Shradha Shah <sshah@solarflare.com>
+---
+ drivers/net/ethernet/sfc/efx.c        |  54 ++++++++++++-
+ drivers/net/ethernet/sfc/efx.h        |   2 +
+ drivers/net/ethernet/sfc/net_driver.h | 148 ++++++++++++++++++++++++++++++++++
+ drivers/net/ethernet/sfc/rx.c         |   6 +-
+ drivers/net/ethernet/sfc/selftest.c   |   5 +-
+ 5 files changed, 208 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index 4b80c0b..4cebe9d 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -272,6 +272,9 @@ static int efx_poll(struct napi_struct *napi, int budget)
+ 	struct efx_nic *efx = channel->efx;
+ 	int spent;
+ 
++	if (!efx_channel_lock_napi(channel))
++		return budget;
++
+ 	netif_vdbg(efx, intr, efx->net_dev,
+ 		   "channel %d NAPI poll executing on CPU %d\n",
+ 		   channel->channel, raw_smp_processor_id());
+@@ -311,6 +314,7 @@ static int efx_poll(struct napi_struct *napi, int budget)
+ 		efx_nic_eventq_read_ack(channel);
+ 	}
+ 
++	efx_channel_unlock_napi(channel);
+ 	return spent;
+ }
+ 
+@@ -357,7 +361,7 @@ static int efx_init_eventq(struct efx_channel *channel)
+ }
+ 
+ /* Enable event queue processing and NAPI */
+-static void efx_start_eventq(struct efx_channel *channel)
++void efx_start_eventq(struct efx_channel *channel)
+ {
+ 	netif_dbg(channel->efx, ifup, channel->efx->net_dev,
+ 		  "chan %d start event queue\n", channel->channel);
+@@ -366,17 +370,20 @@ static void efx_start_eventq(struct efx_channel *channel)
+ 	channel->enabled = true;
+ 	smp_wmb();
+ 
++	efx_channel_enable(channel);
+ 	napi_enable(&channel->napi_str);
+ 	efx_nic_eventq_read_ack(channel);
+ }
+ 
+ /* Disable event queue processing and NAPI */
+-static void efx_stop_eventq(struct efx_channel *channel)
++void efx_stop_eventq(struct efx_channel *channel)
+ {
+ 	if (!channel->enabled)
+ 		return;
+ 
+ 	napi_disable(&channel->napi_str);
++	while (!efx_channel_disable(channel))
++		usleep_range(1000, 20000);
+ 	channel->enabled = false;
+ }
+ 
+@@ -1960,6 +1967,8 @@ static void efx_init_napi_channel(struct efx_channel *channel)
+ 	channel->napi_dev = efx->net_dev;
+ 	netif_napi_add(channel->napi_dev, &channel->napi_str,
+ 		       efx_poll, napi_weight);
++	napi_hash_add(&channel->napi_str);
++	efx_channel_init_lock(channel);
+ }
+ 
+ static void efx_init_napi(struct efx_nic *efx)
+@@ -1972,8 +1981,10 @@ static void efx_init_napi(struct efx_nic *efx)
+ 
+ static void efx_fini_napi_channel(struct efx_channel *channel)
+ {
+-	if (channel->napi_dev)
++	if (channel->napi_dev) {
+ 		netif_napi_del(&channel->napi_str);
++		napi_hash_del(&channel->napi_str);
++	}
+ 	channel->napi_dev = NULL;
+ }
+ 
+@@ -2008,6 +2019,37 @@ static void efx_netpoll(struct net_device *net_dev)
+ 
+ #endif
+ 
++#ifdef CONFIG_NET_RX_BUSY_POLL
++static int efx_busy_poll(struct napi_struct *napi)
++{
++	struct efx_channel *channel =
++		container_of(napi, struct efx_channel, napi_str);
++	struct efx_nic *efx = channel->efx;
++	int budget = 4;
++	int old_rx_packets, rx_packets;
++
++	if (!netif_running(efx->net_dev))
++		return LL_FLUSH_FAILED;
++
++	if (!efx_channel_lock_poll(channel))
++		return LL_FLUSH_BUSY;
++
++	old_rx_packets = channel->rx_queue.rx_packets;
++	efx_process_channel(channel, budget);
++
++	rx_packets = channel->rx_queue.rx_packets - old_rx_packets;
++
++	/* There is no race condition with NAPI here.
++	 * NAPI will automatically be rescheduled if it yielded during busy
++	 * polling, because it was not able to take the lock and thus returned
++	 * the full budget.
++	 */
++	efx_channel_unlock_poll(channel);
++
++	return rx_packets;
++}
++#endif
++
+ /**************************************************************************
+  *
+  * Kernel net device interface
+@@ -2177,6 +2219,9 @@ static const struct net_device_ops efx_farch_netdev_ops = {
+ 	.ndo_poll_controller = efx_netpoll,
+ #endif
+ 	.ndo_setup_tc		= efx_setup_tc,
++#ifdef CONFIG_NET_RX_BUSY_POLL
++	.ndo_busy_poll		= efx_busy_poll,
++#endif
+ #ifdef CONFIG_RFS_ACCEL
+ 	.ndo_rx_flow_steer	= efx_filter_rfs,
+ #endif
+@@ -2197,6 +2242,9 @@ static const struct net_device_ops efx_ef10_netdev_ops = {
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ 	.ndo_poll_controller	= efx_netpoll,
+ #endif
++#ifdef CONFIG_NET_RX_BUSY_POLL
++	.ndo_busy_poll		= efx_busy_poll,
++#endif
+ #ifdef CONFIG_RFS_ACCEL
+ 	.ndo_rx_flow_steer	= efx_filter_rfs,
+ #endif
+diff --git a/drivers/net/ethernet/sfc/efx.h b/drivers/net/ethernet/sfc/efx.h
+index b41601e..2587c58 100644
+--- a/drivers/net/ethernet/sfc/efx.h
++++ b/drivers/net/ethernet/sfc/efx.h
+@@ -194,6 +194,8 @@ int efx_init_irq_moderation(struct efx_nic *efx, unsigned int tx_usecs,
+ 			    bool rx_may_override_tx);
+ void efx_get_irq_moderation(struct efx_nic *efx, unsigned int *tx_usecs,
+ 			    unsigned int *rx_usecs, bool *rx_adaptive);
++void efx_stop_eventq(struct efx_channel *channel);
++void efx_start_eventq(struct efx_channel *channel);
+ 
+ /* Dummy PHY ops for PHY drivers */
+ int efx_port_dummy_op_int(struct efx_nic *efx);
+diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
+index fb2e3bf..9ede320 100644
+--- a/drivers/net/ethernet/sfc/net_driver.h
++++ b/drivers/net/ethernet/sfc/net_driver.h
+@@ -28,6 +28,7 @@
+ #include <linux/vmalloc.h>
+ #include <linux/i2c.h>
+ #include <linux/mtd/mtd.h>
++#include <net/busy_poll.h>
+ 
+ #include "enum.h"
+ #include "bitfield.h"
+@@ -387,6 +388,8 @@ enum efx_sync_events_state {
+  * @irq_moderation: IRQ moderation value (in hardware ticks)
+  * @napi_dev: Net device used with NAPI
+  * @napi_str: NAPI control structure
++ * @state: state for NAPI vs busy polling
++ * @state_lock: lock protecting @state
+  * @eventq: Event queue buffer
+  * @eventq_mask: Event queue pointer mask
+  * @eventq_read_ptr: Event queue read pointer
+@@ -424,6 +427,22 @@ struct efx_channel {
+ 	unsigned int irq_moderation;
+ 	struct net_device *napi_dev;
+ 	struct napi_struct napi_str;
++#ifdef CONFIG_NET_RX_BUSY_POLL
++	unsigned int state;
++	spinlock_t state_lock;
++#define EFX_CHANNEL_STATE_IDLE		0
++#define EFX_CHANNEL_STATE_NAPI		(1 << 0)  /* NAPI owns this channel */
++#define EFX_CHANNEL_STATE_POLL		(1 << 1)  /* poll owns this channel */
++#define EFX_CHANNEL_STATE_DISABLED	(1 << 2)  /* channel is disabled */
++#define EFX_CHANNEL_STATE_NAPI_YIELD	(1 << 3)  /* NAPI yielded this channel */
++#define EFX_CHANNEL_STATE_POLL_YIELD	(1 << 4)  /* poll yielded this channel */
++#define EFX_CHANNEL_OWNED \
++	(EFX_CHANNEL_STATE_NAPI | EFX_CHANNEL_STATE_POLL)
++#define EFX_CHANNEL_LOCKED \
++	(EFX_CHANNEL_OWNED | EFX_CHANNEL_STATE_DISABLED)
++#define EFX_CHANNEL_USER_PEND \
++	(EFX_CHANNEL_STATE_POLL | EFX_CHANNEL_STATE_POLL_YIELD)
++#endif /* CONFIG_NET_RX_BUSY_POLL */
+ 	struct efx_special_buffer eventq;
+ 	unsigned int eventq_mask;
+ 	unsigned int eventq_read_ptr;
+@@ -457,6 +476,135 @@ struct efx_channel {
+ 	u32 sync_timestamp_minor;
+ };
+ 
++#ifdef CONFIG_NET_RX_BUSY_POLL
++static inline void efx_channel_init_lock(struct efx_channel *channel)
++{
++	spin_lock_init(&channel->state_lock);
++}
++
++/* Called from the device poll routine to get ownership of a channel. */
++static inline bool efx_channel_lock_napi(struct efx_channel *channel)
++{
++	bool rc = true;
++
++	spin_lock_bh(&channel->state_lock);
++	if (channel->state & EFX_CHANNEL_LOCKED) {
++		WARN_ON(channel->state & EFX_CHANNEL_STATE_NAPI);
++		channel->state |= EFX_CHANNEL_STATE_NAPI_YIELD;
++		rc = false;
++	} else {
++		/* we don't care if someone yielded */
++		channel->state = EFX_CHANNEL_STATE_NAPI;
++	}
++	spin_unlock_bh(&channel->state_lock);
++	return rc;
++}
++
++static inline void efx_channel_unlock_napi(struct efx_channel *channel)
++{
++	spin_lock_bh(&channel->state_lock);
++	WARN_ON(channel->state &
++		(EFX_CHANNEL_STATE_POLL | EFX_CHANNEL_STATE_NAPI_YIELD));
++
++	channel->state &= EFX_CHANNEL_STATE_DISABLED;
++	spin_unlock_bh(&channel->state_lock);
++}
++
++/* Called from efx_busy_poll(). */
++static inline bool efx_channel_lock_poll(struct efx_channel *channel)
++{
++	bool rc = true;
++
++	spin_lock_bh(&channel->state_lock);
++	if ((channel->state & EFX_CHANNEL_LOCKED)) {
++		channel->state |= EFX_CHANNEL_STATE_POLL_YIELD;
++		rc = false;
++	} else {
++		/* preserve yield marks */
++		channel->state |= EFX_CHANNEL_STATE_POLL;
++	}
++	spin_unlock_bh(&channel->state_lock);
++	return rc;
++}
++
++/* Returns true if NAPI tried to get the channel while it was locked. */
++static inline void efx_channel_unlock_poll(struct efx_channel *channel)
++{
++	spin_lock_bh(&channel->state_lock);
++	WARN_ON(channel->state & EFX_CHANNEL_STATE_NAPI);
++
++	/* will reset state to idle, unless channel is disabled */
++	channel->state &= EFX_CHANNEL_STATE_DISABLED;
++	spin_unlock_bh(&channel->state_lock);
++}
++
++/* True if a socket is polling, even if it did not get the lock. */
++static inline bool efx_channel_busy_polling(struct efx_channel *channel)
++{
++	WARN_ON(!(channel->state & EFX_CHANNEL_OWNED));
++	return channel->state & EFX_CHANNEL_USER_PEND;
++}
++
++static inline void efx_channel_enable(struct efx_channel *channel)
++{
++	spin_lock_bh(&channel->state_lock);
++	channel->state = EFX_CHANNEL_STATE_IDLE;
++	spin_unlock_bh(&channel->state_lock);
++}
++
++/* False if the channel is currently owned. */
++static inline bool efx_channel_disable(struct efx_channel *channel)
++{
++	bool rc = true;
++
++	spin_lock_bh(&channel->state_lock);
++	if (channel->state & EFX_CHANNEL_OWNED)
++		rc = false;
++	channel->state |= EFX_CHANNEL_STATE_DISABLED;
++	spin_unlock_bh(&channel->state_lock);
++
++	return rc;
++}
++
++#else /* CONFIG_NET_RX_BUSY_POLL */
++
++static inline void efx_channel_init_lock(struct efx_channel *channel)
++{
++}
++
++static inline bool efx_channel_lock_napi(struct efx_channel *channel)
++{
++	return true;
++}
++
++static inline void efx_channel_unlock_napi(struct efx_channel *channel)
++{
++}
++
++static inline bool efx_channel_lock_poll(struct efx_channel *channel)
++{
++	return false;
++}
++
++static inline void efx_channel_unlock_poll(struct efx_channel *channel)
++{
++}
++
++static inline bool efx_channel_busy_polling(struct efx_channel *channel)
++{
++	return false;
++}
++
++static inline void efx_channel_enable(struct efx_channel *channel)
++{
++}
++
++static inline bool efx_channel_disable(struct efx_channel *channel)
++{
++	return true;
++}
++#endif /* CONFIG_NET_RX_BUSY_POLL */
++
+ /**
+  * struct efx_msi_context - Context for each MSI
+  * @efx: The associated NIC
+diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
+index a7bb63a..c0ad95d 100644
+--- a/drivers/net/ethernet/sfc/rx.c
++++ b/drivers/net/ethernet/sfc/rx.c
+@@ -462,6 +462,7 @@ efx_rx_packet_gro(struct efx_channel *channel, struct efx_rx_buffer *rx_buf,
+ 
+ 	skb_record_rx_queue(skb, channel->rx_queue.core_index);
+ 
++	skb_mark_napi_id(skb, &channel->napi_str);
+ 	gro_result = napi_gro_frags(napi);
+ 	if (gro_result != GRO_DROP)
+ 		channel->irq_mod_score += 2;
+@@ -520,6 +521,8 @@ static struct sk_buff *efx_rx_mk_skb(struct efx_channel *channel,
+ 	/* Move past the ethernet header */
+ 	skb->protocol = eth_type_trans(skb, efx->net_dev);
+ 
++	skb_mark_napi_id(skb, &channel->napi_str);
++
+ 	return skb;
+ }
+ 
+@@ -666,7 +669,8 @@ void __efx_rx_packet(struct efx_channel *channel)
+ 	if (unlikely(!(efx->net_dev->features & NETIF_F_RXCSUM)))
+ 		rx_buf->flags &= ~EFX_RX_PKT_CSUMMED;
+ 
+-	if ((rx_buf->flags & EFX_RX_PKT_TCP) && !channel->type->receive_skb)
++	if ((rx_buf->flags & EFX_RX_PKT_TCP) && !channel->type->receive_skb &&
++	    !efx_channel_busy_polling(channel))
+ 		efx_rx_packet_gro(channel, rx_buf, channel->rx_pkt_n_frags, eh);
+ 	else
+ 		efx_rx_deliver(channel, eh, rx_buf, channel->rx_pkt_n_frags);
+diff --git a/drivers/net/ethernet/sfc/selftest.c b/drivers/net/ethernet/sfc/selftest.c
+index 0fc5bae..10b6173 100644
+--- a/drivers/net/ethernet/sfc/selftest.c
++++ b/drivers/net/ethernet/sfc/selftest.c
+@@ -188,7 +188,7 @@ static int efx_test_eventq_irq(struct efx_nic *efx,
+ 		schedule_timeout_uninterruptible(wait);
+ 
+ 		efx_for_each_channel(channel, efx) {
+-			napi_disable(&channel->napi_str);
++			efx_stop_eventq(channel);
+ 			if (channel->eventq_read_ptr !=
+ 			    read_ptr[channel->channel]) {
+ 				set_bit(channel->channel, &napi_ran);
+@@ -200,8 +200,7 @@ static int efx_test_eventq_irq(struct efx_nic *efx,
+ 				if (efx_nic_event_test_irq_cpu(channel) >= 0)
+ 					clear_bit(channel->channel, &int_pend);
+ 			}
+-			napi_enable(&channel->napi_str);
+-			efx_nic_eventq_read_ack(channel);
++			efx_start_eventq(channel);
+ 		}
+ 
+ 		wait *= 2;
