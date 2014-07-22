@@ -1,16 +1,16 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
 Subject: [PATCH net-next] net: bcmgenet: only update UMAC_CMD if something changed
-Date: Mon, 21 Jul 2014 17:42:16 -0700
-Message-ID: <1405989736-1409-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemlof.net, Florian Fainelli <f.fainelli@gmail.com>
+Date: Mon, 21 Jul 2014 17:42:39 -0700
+Message-ID: <1405989759-1453-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:53562 "EHLO
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:49127 "EHLO
 	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750888AbaGVAmb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 20:42:31 -0400
-Received: by mail-pa0-f48.google.com with SMTP id et14so10830870pad.35
-        for <netdev@vger.kernel.org>; Mon, 21 Jul 2014 17:42:30 -0700 (PDT)
+	with ESMTP id S1750837AbaGVAmy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 20:42:54 -0400
+Received: by mail-pa0-f48.google.com with SMTP id et14so10720953pad.7
+        for <netdev@vger.kernel.org>; Mon, 21 Jul 2014 17:42:53 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
