@@ -1,43 +1,25 @@
-From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next v7 6/6] openvswitch: Add skb_clone NULL check for the sampling action.
-Date: Mon, 21 Jul 2014 23:30:13 -0700
-Message-ID: <1406010613-1893-1-git-send-email-pshelar@nicira.com>
-Cc: netdev@vger.kernel.org, Andy Zhou <azhou@nicira.com>,
-	Pravin B Shelar <pshelar@nicira.com>
-To: davem@davemloft.net
+From: "Billy Hill" <ryackel@acsnet.com>
+Subject: Greetings
+Date: Tue, 22 Jul 2014 15:33:53 +1000
+Message-ID: <201407220522.s6M4l56T009674@smtp.acsnet.com>
+Reply-To: billyzhill@gmail.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog124.obsmtp.com ([74.125.149.151]:59570 "HELO
-	na3sys009aog124.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752522AbaGVGaS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 02:30:18 -0400
-Received: by mail-pd0-f179.google.com with SMTP id ft15so10657007pdb.10
-        for <netdev@vger.kernel.org>; Mon, 21 Jul 2014 23:30:17 -0700 (PDT)
+Received: from mailfoundry.acsnet.com ([66.172.235.7]:56136 "EHLO
+	mailfoundry.acsnet.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750932AbaGVGrN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 02:47:13 -0400
+Received: From smtp.acsnet.com (66.172.236.130) by mailfoundry.acsnet.com (MAILFOUNDRY) id QU2lxBFgEeS+vAAl for netdev@vger.kernel.org; Tue, 22 Jul 2014 05:23:03 -0000 (GMT)
+Received: from SERVER (gtkplu.lnk.telstra.net [120.151.249.154])
+	(authenticated bits=0)
+	by smtp.acsnet.com (8.13.8/8.13.8) with ESMTP id s6M4l56T009674
+	for <netdev@vger.kernel.org>; Tue, 22 Jul 2014 00:22:59 -0500
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Zhou <azhou@nicira.com>
+Hi,
 
-Fix a bug where skb_clone() NULL check is missing in sample action
-implementation.
-
-Signed-off-by: Andy Zhou <azhou@nicira.com>
-Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
----
- net/openvswitch/actions.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-index 146f6cb..c6cd247 100644
---- a/net/openvswitch/actions.c
-+++ b/net/openvswitch/actions.c
-@@ -477,6 +477,8 @@ static int sample(struct datapath *dp, struct sk_buff *skb,
- 		skb_get(skb);
- 	} else {
- 		sample_skb = skb_clone(skb, GFP_ATOMIC);
-+		if (!sample_skb) /* Skip sample action when out of memory. */
-+			return 0;
- 	}
- 
- 	/* Note that do_execute_actions() never consumes skb.
--- 
-1.9.3
+Am Billy Hill, a Banker, Please permit me to discuss an inheritance deal connected to your second name if interested Reply to: billyzhill@gmail.com for more details.
