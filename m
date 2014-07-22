@@ -1,58 +1,53 @@
-From: Varka Bhadram <varkabhadram@gmail.com>
-Subject: Re: [PATCH net-next v2 1/2] ethernet: realtek: use module_pci_driver
-Date: Tue, 22 Jul 2014 13:54:17 +0530
-Message-ID: <53CE1FB1.6020809@gmail.com>
-References: <1406013622-27869-1-git-send-email-varkabhadram@gmail.com>	<1406013622-27869-2-git-send-email-varkabhadram@gmail.com> <20140722.002850.1113335731441581168.davem@davemloft.net>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH/RFC] net: Don't save mid batch datagram processing error
+ for next recvmmsg call
+Date: Tue, 22 Jul 2014 08:33:27 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1727AECC@AcuExch.aculab.com>
+References: <20140721193042.GA20303@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, varkabhadram@gmail.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: Linux Networking Development Mailing List
+	<netdev@vger.kernel.org>,
+	Caitlin Bestler <caitlin.bestler@gmail.com>,
+	Chris Friesen <chris.friesen@windriver.com>,
+	Elie De Brauwer <eliedebrauwer@gmail.com>,
+	Michael Kerrisk <mtk.manpages@gmail.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	=?iso-8859-2?Q?Ond=F8ej_B=EDlka?= <neleai@seznam.cz>,
+	Paul Moore <paul@paul-moore.com>,
+	=?iso-8859-2?Q?R=E9mi_Denis-Courmont?= <remi@remlab.net>,
+	Steven Whitehouse <steve@chygwyn.com>
+To: 'Arnaldo Carvalho de Melo' <acme@kernel.org>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:58816 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751619AbaGVIZg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 04:25:36 -0400
-Received: by mail-pd0-f169.google.com with SMTP id y10so10810858pdj.28
-        for <netdev@vger.kernel.org>; Tue, 22 Jul 2014 01:25:35 -0700 (PDT)
-In-Reply-To: <20140722.002850.1113335731441581168.davem@davemloft.net>
+Received: from mx0.aculab.com ([213.249.233.131]:37060 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752737AbaGVIeq convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 04:34:46 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 00488-04 for <netdev@vger.kernel.org>;
+ Tue, 22 Jul 2014 09:34:37 +0100 (BST)
+In-Reply-To: <20140721193042.GA20303@kernel.org>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/22/2014 12:58 PM, David Miller wrote:
-> From: varkabhadram@gmail.com
-> Date: Tue, 22 Jul 2014 12:50:21 +0530
->
->> @@ -1887,11 +1887,7 @@ static int cp_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
->>   	resource_size_t pciaddr;
->>   	unsigned int addr_len, i, pci_using_dac;
->>   
->> -#ifndef MODULE
->> -	static int version_printed;
->> -	if (version_printed++ == 0)
->> -		pr_info("%s", version);
->> -#endif
->> +	pr_info("%s", version);
-> Now you're changing behavior undesirably, it will now print the
-> version string into the logs for every instance of the device which is
-> discovered.
->
-> Seriously, the driver is worse off after these "cleanups".
+From: Arnaldo Carvalho de Melo 
+> 	I think this addresses the problems reported by David Laight and
+> others, where errors saved on a per socket area could be delivered to a
+> different thread, so I just followed David Laight's suggestion and
+> stopped saving it, we'll return it only if it happens for the first
+> datagram, else we return less entries than asked for.
+> 
+> 	Steven, IIRC you was the one that suggested using this
+> mechanism, no? Do you have anything against this move?
 
-Here we are having two possibilities here:
++	return datagrams ?: err;
 
-1. Removing the version info completely. Ofcourse this is not desirable.
-  
-2. Accepting the version info to be print into log messages.
+Inline patches, don't attach them.
 
-I will put like this by removing #ifdefs:
-	static int version_printed;
-	if (version_printed++ == 0)
-		pr_info("%s", version);
+Don't use non-C constructs.
 
-
-Will it be OK ..?
-
--- 
-Regards,
-Varka Bhadram.
+	David
