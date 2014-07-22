@@ -1,85 +1,109 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net-next v3 3/3] net: sctp: Add support for MSG_MORE on
- SCTP
-Date: Tue, 22 Jul 2014 12:38:17 -0400
-Message-ID: <53CE9379.4030500@gmail.com>
-References: <063D6719AE5E284EB5DD2968C1650D6D1727AF02@AcuExch.aculab.com> <53CE65B5.3090903@gmail.com> <063D6719AE5E284EB5DD2968C1650D6D1727B2A0@AcuExch.aculab.com> <53CE7B2A.90104@gmail.com> <063D6719AE5E284EB5DD2968C1650D6D1727B3E7@AcuExch.aculab.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 4/6] net/macb: add RX checksum offload feature
+Date: Tue, 22 Jul 2014 09:39:15 -0700
+Message-ID: <CAGVrzca2YWZkVkUs_c06ApXrE3hdDgbsC7-6x2M4DS-Qn6S0aQ@mail.gmail.com>
+References: <cover.1405689937.git.cyrille.pitchen@atmel.com>
+ <f29965fee23dc0de99b388373017efeffa1aac10.1405689937.git.cyrille.pitchen@atmel.com>
+ <1405697784.10255.99.camel@edumazet-glaptop2.roam.corp.google.com> <53CE9109.9040407@atmel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>
-To: David Laight <David.Laight@ACULAB.COM>,
-	Linux Networking Development Mailing List
-	<netdev@vger.kernel.org>,
-	"'linux-sctp@vger.kernel.org'" <linux-sctp@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f54.google.com ([209.85.216.54]:35657 "EHLO
-	mail-qa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753936AbaGVQiU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 12:38:20 -0400
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1727B3E7@AcuExch.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	Nicolas Ferre <nicolas.ferre@atmel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	David Miller <davem@davemloft.net>, soren.brinkmann@xilinx.com
+To: Cyrille Pitchen <cyrille.pitchen@atmel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <53CE9109.9040407@atmel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/22/2014 11:22 AM, David Laight wrote:
-> ...
->>> All this is really defining the behaviour for 'broken' apps.
->>> It wouldn't be completely unreasonable if a single message sent with 'MSG_MORE'
->>> never actually got sent.
+2014-07-22 9:27 GMT-07:00 Cyrille Pitchen <cyrille.pitchen@atmel.com>:
+> Le 18/07/2014 17:36, Eric Dumazet a =C3=A9crit :
+>> On Fri, 2014-07-18 at 16:21 +0200, Cyrille Pitchen wrote:
+>>> Signed-off-by: Cyrille Pitchen <cyrille.pitchen@atmel.com>
+>>> ---
+>>>  drivers/net/ethernet/cadence/macb.c | 29 +++++++++++++++++++++++++=
++++-
+>>>  drivers/net/ethernet/cadence/macb.h |  2 ++
+>>>  2 files changed, 30 insertions(+), 1 deletion(-)
+>>>
+>>> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethe=
+rnet/cadence/macb.c
+>>> index 9bdcd1b..6acd6e2 100644
+>>> --- a/drivers/net/ethernet/cadence/macb.c
+>>> +++ b/drivers/net/ethernet/cadence/macb.c
+>>> @@ -766,6 +766,8 @@ static int gem_rx(struct macb *bp, int budget)
+>>>
+>>>              skb->protocol =3D eth_type_trans(skb, bp->dev);
+>>>              skb_checksum_none_assert(skb);
+>>> +            if (bp->dev->features & NETIF_F_RXCSUM)
+>>> +                    skb->ip_summed =3D CHECKSUM_UNNECESSARY;
+>>>
 >>
->> Actually, this code opens up a way to eat kernel memory.  Consider an application
->> that does:
->>    while (1) {
->>        socket(IPPROTO_SCTP);
->>        connect()
->>        sendmsg(MSG_MORE); <- write 1 byte
->>        close();
->>    }
 >>
->> Because we send with MSG_MORE, the 1 byte gets queued to the association.  The close()
->> causes us to enter SHUTDOWN_PENDING state and we never flush the buffer and close
->> the association.
+>> Really ?
 >>
->> This is a malicious example.  Similarly, a broken application could just forget to
->> clear MSG_MORE and when we end up in a condition where the amount of queued data is
->> smaller then MTU and all inflight data has been acked, we'd once again be stuck.
-> 
-> From a system point of view that one doesn't really matter.
-> 
->> Just because application isn't doing the right thing, we can't assume it's broken.  It
->> could be malicious.  We need to make this behavior robust.
-> 
-> Hmmm....
-> The amount of data per-socket is limited by the mtu and socket buffer size,
-> so a malicious app would have to create a lot of sockets to use a significant
-> amount of kernel memory.
+>> If this is what you meant, this deserves a big and fat comment.
+>>
+>>
+>>
+> Hi Eric,
+>
+> Isn't it the proper way to do? According to Cadence documentation abo=
+ut RX checksum offload:
+> "If any of the checksums (IP, TCP or UDP) are verified incorrect by t=
+he GEM, the packet is discarded."
+>
+> If I understand, when RX checksum offload is enabled setting bit 24 o=
+f the Network Configuration Register, the driver only receives RX frame=
+s with correct checksum. Then it tells the kernel that there's no need =
+to verify the checksum again in software. This is done setting skb->ip_=
+summed to CHECKSUM_UNNECESSARY. Intel e1000 driver does the same in e10=
+00_rx_checksum() function.
 
-it's not just the data, all the corresponding data structures which are particularly
-fat in sctp.
+This is not the same thing as what the e1000 driver is doing, the
+e1000 driver is checking a per-packet status mask which tells it
+whether a given packet had its protocol level checksum computed by the
+HW.
 
-> 
-> If close() blocks forever, isn't there a worse problem with a remote app
-> that causes the window to be zero - and so data can't be sent and the
-> close will block forever anyway?
+I think there might be some slight confusion here between the Ethernet
+frame Frame Control Checksum which is at the Ethernet level, and will
+(with most adapters not supporting RX_FCS_ERR) cause the Ethernet
+controller to drop frames at the MAC level, and the higher level
+protocol checksums such as the TCP or UDP checksum.
 
-No, this doesn't happen since there are triggered as retransmissions and
-once we enter SHUTDOWN-PENDING, we can start the shutdown-guard timer
-once we've hit the max retransmit count.  This solves this issue.
+>
+> Also bit 24 of the Network Configuration Register is updated by macb_=
+open() and macb_set_features() so it always matches the state of NETIF_=
+=46_RXCSUM flag in dev->features, once the network interface is up. Tha=
+t's why I'd rather read from dev->features than read from register.
 
-> I've never liked protocols that wait forever for send data to drain on disconnect.
-> Seems like an 'accident' waiting to happen.
-> 
-> I'm not sure what would be needed to be done to cause queued send data to be
-> sent when SCTP_F_TX_MSG_MORE is cleared by close() or set/clear SCTP_NODELAY.
-> It is probably a simple call to the correct function.
+I don't think the Cadence GEM Ethernet controller is any different
+than other hardware out there, there must be a per-packet status bit
+which tells whether the TCP/UDP or other protocol checksum was
+successfully validated by the hardware. One of the reason for that, is
+that depending on the type of traffic your receive (e.g: ARP), there
+might be no protocol-level checksum at all in the packet, and the
+hardware should know about that.
 
-OK. I'll try to come up with some code for this.
+>
+> Did I make a mistake? Is it the kind of comment you expect to be adde=
+d?
+>
+> Regards,
+>
+> Cyrille
+>
+> _______________________________________________
+> linux-arm-kernel mailing list
+> linux-arm-kernel@lists.infradead.org
+> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
 
--vlad
 
-> 
-> 	David
-> 
-> 
-> 
-> 
+
+--=20
+=46lorian
