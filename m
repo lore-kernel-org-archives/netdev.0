@@ -1,62 +1,51 @@
-From: Sonic Zhang <sonic.adi@gmail.com>
-Subject: Re: [PATCH v5] bfin_mac: convert bfin Ethernet driver to NAPI framework
-Date: Tue, 22 Jul 2014 13:19:53 +0800
-Message-ID: <CAJxxZ0PjcCpOb0DXF1JNz+tTWQPue0RS65OcxqZ_sJQGxUH67Q@mail.gmail.com>
-References: <1405504302-21344-1-git-send-email-sonic.adi@gmail.com>
-	<1405516649.10255.59.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20140716.140301.896018835447121717.davem@davemloft.net>
-	<CAJxxZ0OybvReRHvRuL84N=25T6cRG8k1j_gXLcu7U6jHvSZ5Tw@mail.gmail.com>
-	<20140717222906.GA23125@electric-eye.fr.zoreil.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v6] bfin_mac: convert bfin Ethernet driver to NAPI
+ framework
+Date: Mon, 21 Jul 2014 22:31:40 -0700 (PDT)
+Message-ID: <20140721.223140.1559817699583180859.davem@davemloft.net>
+References: <1406006448-14624-1-git-send-email-sonic.adi@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Varka Bhadram <varkabhadram@gmail.com>,
-	adi-buildroot-devel@lists.sourceforge.net,
-	"Zhang, Sonic" <sonic.zhang@analog.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, romieu@fr.zoreil.com,
+	adi-buildroot-devel@lists.sourceforge.net, sonic.zhang@analog.com
+To: sonic.adi@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f41.google.com ([209.85.219.41]:35834 "EHLO
-	mail-oa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750742AbaGVF1C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 01:27:02 -0400
-Received: by mail-oa0-f41.google.com with SMTP id j17so9041186oag.0
-        for <netdev@vger.kernel.org>; Mon, 21 Jul 2014 22:27:01 -0700 (PDT)
-In-Reply-To: <20140717222906.GA23125@electric-eye.fr.zoreil.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41712 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750821AbaGVFbt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 01:31:49 -0400
+In-Reply-To: <1406006448-14624-1-git-send-email-sonic.adi@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Francois,
+From: Sonic Zhang <sonic.adi@gmail.com>
+Date: Tue, 22 Jul 2014 13:20:48 +0800
 
-On Fri, Jul 18, 2014 at 6:29 AM, Francois Romieu <romieu@fr.zoreil.com> wrote:
-> Sonic Zhang <sonic.adi@gmail.com> :
->> On Thu, Jul 17, 2014 at 5:03 AM, David Miller <davem@davemloft.net> wrote:
-> [...]
->> > Please mimick what other drivers do rather than trying to do things in
->> > a special way unique to your driver.
->>
->> Driver realtek/8139cp.c does things in the same way as the bfin_mac
->> NAPI code.
->
-> It wasn't your lucky day.
->
->> In net_poll loop, if napi_complete() is called, the EMAC IRQ is
->> enabled more times than the it is disabled. This is not a problem to
->> drivers which don't call enable_irq()/disable_irq_nosync(). But, the
->> IRQ enabling and disabling operations have to be balanced in the
->> bfin_mac driver via __napi_complete() to avoid the kernel warning.
->
-> Thanks for the explanation.
->
-> In order to use plain napi_complete, may I suggest keeping a mask of
-> bfin_mac_interrupt disabled irq in the device private area then
-> enable_irq relevant one - if any - in bfin_mac_poll ?
->
-> It should keep things balanced.
+> +static int bfin_mac_poll(struct napi_struct *napi, int budget)
+> +{
+ ...
+> +	if (i < budget) {
+> +		napi_complete(napi);
+> +		if (lp->rx_irq_disabled) {
+> +			lp->rx_irq_disabled--;
+> +			enable_irq(IRQ_MAC_RX);
+> +		}
+ ...
+>  /* interrupt routine to handle rx and error signal */
+>  static irqreturn_t bfin_mac_interrupt(int irq, void *dev_id)
+>  {
+ ...
+> +
+> +	bfin_write_DMA1_IRQ_STATUS(status | DMA_DONE | DMA_ERR);
+> +	if ((status & DMA_DONE) && napi_schedule_prep(&lp->napi)) {
+> +		disable_irq_nosync(IRQ_MAC_RX);
+> +		lp->rx_irq_disabled++;
+> +		__napi_schedule(&lp->napi);
+>  	}
 
-This is fine to me.
+How in the world does this work?
 
-Thanks,
-
-Sonic Zhang
+You should only IRQ disable when rx_irq_disabled is zero before the
+increment, and you should only do the IRQ enable when decrementing
+rx_irq_disabled will cause it to become zero.
