@@ -1,69 +1,112 @@
-From: Nick Krause <xerofoify@gmail.com>
-Subject: Re: solos-pci.c: Fix me
-Date: Mon, 21 Jul 2014 23:38:37 -0400
-Message-ID: <CAPDOMVgW2jNR3n68QhbWh7EfTHRMYRNBrZkyKAA2x-T5ZO0ZiA@mail.gmail.com>
-References: <CAPDOMVjnK=OF8mQrXbbgGUtCRJO8oG4+PQOETEcskNk=95GLrg@mail.gmail.com>
-	<20140721091445.1ee700bb@thirdoffive.cmf.nrl.navy.mil>
-	<CAPDOMVh7cx57GtxHk-_tmorSWSj6xci-YkDrecdCLJfTANbHAQ@mail.gmail.com>
-	<20140721141851.7f270f4c@thirdoffive.cmf.nrl.navy.mil>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f177.google.com ([209.85.220.177]:47773 "EHLO
-	mail-vc0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750949AbaGVDii (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 23:38:38 -0400
-In-Reply-To: <20140721141851.7f270f4c@thirdoffive.cmf.nrl.navy.mil>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: [PATCH RFC v3 net-next 0/3] eBPF examples in C
+Date: Mon, 21 Jul 2014 20:45:20 -0700
+Message-ID: <1406000723-4872-1-git-send-email-ast@plumgrid.com>
+Cc: Ingo Molnar <mingo@kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Chema Gonzalez <chema@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Jiri Olsa <jolsa@redhat.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kees Cook <keescook@chromium.org>, linux-api@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 21, 2014 at 2:18 PM, chas williams - CONTRACTOR
-<chas@cmf.nrl.navy.mil> wrote:
-> On Mon, 21 Jul 2014 13:42:01 -0400
-> Nick Krause <xerofoify@gmail.com> wrote:
->
->> On Mon, Jul 21, 2014 at 9:14 AM, chas williams - CONTRACTOR
->> <chas@cmf.nrl.navy.mil> wrote:
-> ...
->> > @@ -850,8 +850,7 @@ static void solos_bh(unsigned long card_arg)
->> >                                 dev_kfree_skb_any(skb);
->> >                                 break;
->> >
->> > -                       case PKT_COMMAND:
->> > -                       default: /* FIXME: Not really, surely? */
->> > +                       default: /* PKT_COMMAND */
->> >                                 if (process_command(card, port, skb))
->> >                                         break;power
->> >                                 spin_lock(&card->cli_queue_lock);
->> >
->> > and be done with it since that will preserve existing behavior.
->>
->>
->> My only question then is this function causing bugs as is?
->> Cheers Nick
->>
->
-> It has been there since the first version of this driver was released.
-> If it were breaking things, I would have to guess it would have been
-> noticed by now.
->
-> Just looking at the PKT_* defines, I would wildly guess that PKT_COMMAND
-> PKT_POPEN and PKT_PCLOSE are all being handled via the PKT_COMMAND|default
-> case.  If not, popen and pclose would be leaking a skb for each usage
-> (which would be opening and closing the PVC -- not very often).
->
-> popen and pclose just seem like specialized PKT_COMMAND types.
-> process_command() woud ignore PKT_POPEN and PKT_PCLOSE since they aren't
-> long enough to contain a command.  So maybe the comment should just go
-> away.
->
-> If you had access to hardware you could probably figure this out pretty
-> quickly.  The programmer's manual doesn't seem to be available.
+Hi,
 
+I've been asked to repost LLVM eBPF backend and examples in C, so here they are.
+LLVM backend is 99% the same as it was in Feb. Not resending it to the list,
+since I only fixed minor things there. See it in my tree.
 
-Seems based on your ideas , I can remove this FIX ME. I will send a patch
-doing this.
-Cheers Nick
+ex1 - is the same example I showed in Feb, but now it works through BPF syscall
+  and Ctrl-C does auto cleanup. This is patch 2/3
+
+ex2 - is a new example that demonstrates key feature of eBPF programs
+  for kernel debugging/tracing. This is patch 3/3
+
+dtrace/systemtap/ktap approach is to use one script file that should provide
+all desired functionality. That architectural decision overcomplicated their
+implementations.
+eBPF follows split model: everything that needs to process millions of events
+per second needs to run in kernel and needs to be short and deterministic,
+all other things like aggregation and nice graphs should run in user space.
+
+In the patch 3/3, kfree_skb events are counted by a program written in C,
+compiled into eBPF and attached to the event. That's ex2_kern.c file.
+The corresponding user space part is ex2_user.c which walks in-kernel map
+every second and prints its contents. So user space and kernel are
+accessing BPF maps in parallel. Kernel is counting events, user space
+prints them.
+
+Patch 1/3 is a parser of .o file generated by LLVM. It looks for pre-defined
+ELF sections like 'license', 'maps', 'events' and loads bpf maps/programs
+via BPF syscall that I posted earlier.
+
+Alexei Starovoitov (3):
+  samples: bpf: elf file loader
+  samples: bpf: eBPF example in C
+  samples: bpf: eBPF dropmon example in C
+
+ samples/bpf/Makefile      |   17 +++-
+ samples/bpf/bpf_helpers.h |   21 +++++
+ samples/bpf/bpf_load.c    |  228 +++++++++++++++++++++++++++++++++++++++++++++
+ samples/bpf/bpf_load.h    |   18 ++++
+ samples/bpf/ex1_kern.c    |   27 ++++++
+ samples/bpf/ex1_user.c    |   11 +++
+ samples/bpf/ex2_kern.c    |   29 ++++++
+ samples/bpf/ex2_user.c    |   28 ++++++
+ 8 files changed, 377 insertions(+), 2 deletions(-)
+ create mode 100644 samples/bpf/bpf_helpers.h
+ create mode 100644 samples/bpf/bpf_load.c
+ create mode 100644 samples/bpf/bpf_load.h
+ create mode 100644 samples/bpf/ex1_kern.c
+ create mode 100644 samples/bpf/ex1_user.c
+ create mode 100644 samples/bpf/ex2_kern.c
+ create mode 100644 samples/bpf/ex2_user.c
+
+----
+
+The following changes since commit 240524089d7a5c0396656574e299beb3a55461e3:
+
+  net: bcmgenet: only update UMAC_CMD if something changed (2014-07-21 19:49:11 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/ast/bpf master
+
+for you to fetch changes up to 27ae0cec12d0aac6f0705b0269ee705a0c599571:
+
+  samples: bpf: eBPF dropmon example in C (2014-07-21 20:01:29 -0700)
+
+----------------------------------------------------------------
+Alexei Starovoitov (20):
+      net: filter: split filter.c into two files
+      bpf: update MAINTAINERS entry
+      net: filter: rename struct sock_filter_int into bpf_insn
+      net: filter: split filter.h and expose eBPF to user space
+      bpf: introduce syscall(BPF, ...) and BPF maps
+      bpf: enable bpf syscall on x64
+      bpf: add lookup/update/delete/iterate methods to BPF maps
+      bpf: add hashtable type of BPF maps
+      bpf: expand BPF syscall with program load/unload
+      bpf: add eBPF verifier
+      bpf: allow eBPF programs to use maps
+      net: sock: allow eBPF programs to be attached to sockets
+      tracing: allow eBPF programs to be attached to events
+      samples: bpf: add mini eBPF library to manipulate maps and programs
+      samples: bpf: example of stateful socket filtering
+      samples: bpf: example of tracing filters with eBPF
+      bpf: llvm backend
+      samples: bpf: elf file loader
+      samples: bpf: eBPF example in C
+      samples: bpf: eBPF dropmon example in C
