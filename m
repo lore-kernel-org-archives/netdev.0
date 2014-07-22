@@ -1,62 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
 Subject: RE: [PATCH] bnx2x: Add FW 7.10.51
-Date: Tue, 22 Jul 2014 09:14:57 +0200
-Message-ID: <1406013297.10255.118.camel@edumazet-glaptop2.roam.corp.google.com>
+Date: Tue, 22 Jul 2014 07:16:20 +0000
+Message-ID: <B5657A6538887040AD3A81F1008BEC63B02A2F@avmb3.qlogic.org>
 References: <1405403191-7517-1-git-send-email-Yuval.Mintz@qlogic.com>
 	 <B5657A6538887040AD3A81F1008BEC63B028A1@avmb3.qlogic.org>
+ <1406013297.10255.118.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: "dwmw2@infradead.org" <dwmw2@infradead.org>,
 	"ben@decadent.org.uk" <ben@decadent.org.uk>,
 	Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>,
-	Ariel Elior <Ariel.Elior@qlogic.com>,
+	"Ariel Elior" <Ariel.Elior@qlogic.com>,
 	netdev <netdev@vger.kernel.org>
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f171.google.com ([209.85.212.171]:53744 "EHLO
-	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750737AbaGVHPM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 03:15:12 -0400
-Received: by mail-wi0-f171.google.com with SMTP id hi2so5391875wib.4
-        for <netdev@vger.kernel.org>; Tue, 22 Jul 2014 00:15:11 -0700 (PDT)
-In-Reply-To: <B5657A6538887040AD3A81F1008BEC63B028A1@avmb3.qlogic.org>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:48243 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750737AbaGVHQu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 03:16:50 -0400
+In-Reply-To: <1406013297.10255.118.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-07-22 at 04:38 +0000, Yuval Mintz wrote:
-> > Subject: [PATCH] bnx2x: Add FW 7.10.51
-> >
-> > Hi,
-> >
-> > This firmware includes many fixes such as:
-> >
-> >  - (L2) In some multi-function configurations, inter-PF and inter-VF
-> >    Tx switching is incorrectly enabled.
-> >
-> >  - (L2) Wrong assert code in FLR final cleanup in case it is sent not
-> >    after FLR.
-> >
-> >  - (L2) Chip may stall in very rare cases under heavy traffic with FW GRO
-> >    enabled.
-> >
-> >  - (L2) VF malicious notification error fixes.
-> >
-> >  - (L2) Default gre tunnel to IPGRE which allows proper RSS for IPGRE packets,
-> >    L2GRE traffic will reach single queue.
-> >
-> >  - (FCoE) Fix data being placed in wrong buffer when corrupt FCoE frame is
-> >    received.
-> >
-> >  - (FCoE) Burst of FIP packets with destination MAC of ALL-FCF_MACs
-> >    causes FCoE traffic to stop.
-> >
-> > Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
-> > Signed-off-by: Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>
-> > Signed-off-by: Ariel Elior <Ariel.Elior@qlogic.com>
-> 
-> Hi,
-> 
-> Any news about this one?
-
-I cant find it in my mails... when was it sent ?
+PiBPbiBUdWUsIDIwMTQtMDctMjIgYXQgMDQ6MzggKzAwMDAsIFl1dmFsIE1pbnR6IHdyb3RlOg0K
+PiA+ID4gU3ViamVjdDogW1BBVENIXSBibngyeDogQWRkIEZXIDcuMTAuNTENCj4gPiA+DQo+ID4g
+PiBIaSwNCj4gPiA+DQo+ID4gPiBUaGlzIGZpcm13YXJlIGluY2x1ZGVzIG1hbnkgZml4ZXMgc3Vj
+aCBhczoNCj4gPiA+DQo+ID4gPiAgLSAoTDIpIEluIHNvbWUgbXVsdGktZnVuY3Rpb24gY29uZmln
+dXJhdGlvbnMsIGludGVyLVBGIGFuZCBpbnRlci1WRg0KPiA+ID4gICAgVHggc3dpdGNoaW5nIGlz
+IGluY29ycmVjdGx5IGVuYWJsZWQuDQo+ID4gPg0KPiA+ID4gIC0gKEwyKSBXcm9uZyBhc3NlcnQg
+Y29kZSBpbiBGTFIgZmluYWwgY2xlYW51cCBpbiBjYXNlIGl0IGlzIHNlbnQgbm90DQo+ID4gPiAg
+ICBhZnRlciBGTFIuDQo+ID4gPg0KPiA+ID4gIC0gKEwyKSBDaGlwIG1heSBzdGFsbCBpbiB2ZXJ5
+IHJhcmUgY2FzZXMgdW5kZXIgaGVhdnkgdHJhZmZpYyB3aXRoIEZXIEdSTw0KPiA+ID4gICAgZW5h
+YmxlZC4NCj4gPiA+DQo+ID4gPiAgLSAoTDIpIFZGIG1hbGljaW91cyBub3RpZmljYXRpb24gZXJy
+b3IgZml4ZXMuDQo+ID4gPg0KPiA+ID4gIC0gKEwyKSBEZWZhdWx0IGdyZSB0dW5uZWwgdG8gSVBH
+UkUgd2hpY2ggYWxsb3dzIHByb3BlciBSU1MgZm9yIElQR1JFDQo+IHBhY2tldHMsDQo+ID4gPiAg
+ICBMMkdSRSB0cmFmZmljIHdpbGwgcmVhY2ggc2luZ2xlIHF1ZXVlLg0KPiA+ID4NCj4gPiA+ICAt
+IChGQ29FKSBGaXggZGF0YSBiZWluZyBwbGFjZWQgaW4gd3JvbmcgYnVmZmVyIHdoZW4gY29ycnVw
+dCBGQ29FIGZyYW1lIGlzDQo+ID4gPiAgICByZWNlaXZlZC4NCj4gPiA+DQo+ID4gPiAgLSAoRkNv
+RSkgQnVyc3Qgb2YgRklQIHBhY2tldHMgd2l0aCBkZXN0aW5hdGlvbiBNQUMgb2YgQUxMLUZDRl9N
+QUNzDQo+ID4gPiAgICBjYXVzZXMgRkNvRSB0cmFmZmljIHRvIHN0b3AuDQo+ID4gPg0KPiA+ID4g
+U2lnbmVkLW9mZi1ieTogWXV2YWwgTWludHogPFl1dmFsLk1pbnR6QHFsb2dpYy5jb20+DQo+ID4g
+PiBTaWduZWQtb2ZmLWJ5OiBEbWl0cnkgS3JhdmtvdiA8RG1pdHJ5LktyYXZrb3ZAcWxvZ2ljLmNv
+bT4NCj4gPiA+IFNpZ25lZC1vZmYtYnk6IEFyaWVsIEVsaW9yIDxBcmllbC5FbGlvckBxbG9naWMu
+Y29tPg0KPiA+DQo+ID4gSGksDQo+ID4NCj4gPiBBbnkgbmV3cyBhYm91dCB0aGlzIG9uZT8NCj4N
+Cj4gSSBjYW50IGZpbmQgaXQgaW4gbXkgbWFpbHMuLi4gd2hlbiB3YXMgaXQgc2VudCA/DQoNCkEg
+d2VlayBhZ28uDQoNCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fDQoNClRoaXMgbWVz
+c2FnZSBhbmQgYW55IGF0dGFjaGVkIGRvY3VtZW50cyBjb250YWluIGluZm9ybWF0aW9uIGZyb20g
+UUxvZ2ljIENvcnBvcmF0aW9uIG9yIGl0cyB3aG9sbHktb3duZWQgc3Vic2lkaWFyaWVzIHRoYXQg
+bWF5IGJlIGNvbmZpZGVudGlhbC4gSWYgeW91IGFyZSBub3QgdGhlIGludGVuZGVkIHJlY2lwaWVu
+dCwgeW91IG1heSBub3QgcmVhZCwgY29weSwgZGlzdHJpYnV0ZSwgb3IgdXNlIHRoaXMgaW5mb3Jt
+YXRpb24uIElmIHlvdSBoYXZlIHJlY2VpdmVkIHRoaXMgdHJhbnNtaXNzaW9uIGluIGVycm9yLCBw
+bGVhc2Ugbm90aWZ5IHRoZSBzZW5kZXIgaW1tZWRpYXRlbHkgYnkgcmVwbHkgZS1tYWlsIGFuZCB0
+aGVuIGRlbGV0ZSB0aGlzIG1lc3NhZ2UuDQo=
