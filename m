@@ -1,41 +1,39 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 0/5] Misc. fix for cxgb4 and iw_cxgb4
-Date: Mon, 21 Jul 2014 20:25:45 -0700 (PDT)
-Message-ID: <20140721.202545.1537372091443918707.davem@davemloft.net>
-References: <1405956316-13591-1-git-send-email-hariprasad@chelsio.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request [net]: batman-adv 20140721
+Date: Mon, 21 Jul 2014 20:19:37 -0700 (PDT)
+Message-ID: <20140721.201937.2036288525192398014.davem@davemloft.net>
+References: <1405929211-30187-1-git-send-email-antonio@meshcoding.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org,
-	leedom-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, kumaras-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
-	anish-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-To: hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1405956316-13591-1-git-send-email-hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: antonio@meshcoding.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40655 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751095AbaGVD1E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 21 Jul 2014 23:27:04 -0400
+In-Reply-To: <1405929211-30187-1-git-send-email-antonio@meshcoding.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hariprasad Shenai <hariprasad-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
-Date: Mon, 21 Jul 2014 20:55:11 +0530
+From: Antonio Quartulli <antonio@meshcoding.com>
+Date: Mon, 21 Jul 2014 09:53:29 +0200
 
-> This patch series adds support to enchance error reporting, log detailed
-> warning for negative advice, support query_qp verb and advertise correct
-> device max attributes for iwarp.
+> here you have two fixes that we have been testing for quite some time
+> (this is why they arrived a bit late in the rc cycle).
 > 
-> The patches series is created against 'net-next' tree.
-> And includes patches on cxgb4 and iw_cxgb4 driver.
+> Patch 1) ensures that BLA packets get dropped and not forwarded to the
+> mesh even if they reach batman-adv within QinQ frames. Forwarding them
+> into the mesh means messing up with the TT database of other nodes which
+> can generate all kind of unexpected behaviours during route computation.
 > 
-> Since this patch-series contains changes which are dependent on commit id
-> 4c2c5763 ("cxgb4/iw_cxgb4: use firmware ord/ird resource limits") of net-next
-> tree we would like to request this patch series to get merged via David Miller's
-> 'net-next' tree.
-> 
-> We have included all the maintainers of respective drivers. Kindly review the
-> change and let us know in case of any review comments.
+> Patch 2) avoids a couple of race conditions triggered upon fast VLAN
+> deletion-addition. Such race conditions are pretty dangerous because
+> they not only create inconsistencies in the TT database of the nodes
+> in the network, but such scenario is also unrecoverable (unless
+> nodes are rebooted).
+ ...
+>   git://git.open-mesh.org/linux-merge.git tags/batman-adv-fix-for-davem
 
-Series applied to net-next, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Pulled, thanks Antonio.
