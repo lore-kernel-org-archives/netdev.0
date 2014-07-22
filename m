@@ -1,42 +1,48 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v2 00/11] net: bcmgenet: PM and Wake-on-LAN
-Date: Tue, 22 Jul 2014 13:29:37 -0700
-Message-ID: <CAGVrzcbjA5mvQdoCMdaa8HixKLQ5zOBWpDuoL7Zjzguqj6rpwA@mail.gmail.com>
-References: <1405981769-24618-1-git-send-email-f.fainelli@gmail.com> <20140722202020.GA13637@electric-eye.fr.zoreil.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v3 1/3] net: sctp: Open out the check for Nagle
+Date: Tue, 22 Jul 2014 13:32:50 -0700 (PDT)
+Message-ID: <20140722.133250.365865462579004160.davem@davemloft.net>
+References: <063D6719AE5E284EB5DD2968C1650D6D1727AF04@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: David.Laight@ACULAB.COM
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f50.google.com ([209.85.219.50]:62668 "EHLO
-	mail-oa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752460AbaGVUaS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 16:30:18 -0400
-Received: by mail-oa0-f50.google.com with SMTP id g18so306327oah.23
-        for <netdev@vger.kernel.org>; Tue, 22 Jul 2014 13:30:17 -0700 (PDT)
-In-Reply-To: <20140722202020.GA13637@electric-eye.fr.zoreil.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51628 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751482AbaGVUcv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 16:32:51 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1727AF04@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: David Laight <David.Laight@ACULAB.COM>
+Date: Tue, 22 Jul 2014 08:59:08 +0000
 
-2014-07-22 13:20 GMT-07:00 Francois Romieu <romieu@fr.zoreil.com>:
-> Florian Fainelli <f.fainelli@gmail.com> :
-> [...]
->> This patchset brings S2/S3 Power Management support to the GENET driver
->> as well as Wake-on-LAN using Magic Packets with or without SecureOn
->> passwords.
->
-> Out of curiosity, do you have a plan to support runtime power suspend,
-> say through phy_driver.link_change_notify ?
+> The check for Nagle contains 6 separate checks all of which must be true
+> before a data packet is delayed.
+> Separate out each into its own 'if (test) return SCTP_XMIT_OK' so that
+> the reasons can be individually described.
+> 
+> Also return directly with SCTP_XMIT_RWND_FULL.
+> Delete the now-unused 'retval' variable and 'finish' label from
+> sctp_packet_can_append_data().
+> 
+> Signed-off-by: David Laight <david.laight@aculab.com>
+> ---
+> 
+> Resend with corrected subject line.
+> 
+> Changes from v2:
+> - Fix inverted test for 'inflight == 0'
 
-The internal PHY (drivers/net/phy/bcm7xxx.c) used in conjunction with
-the GENET or SYSTEMPORT adapters features auto-power down on link
-down, which is where we get most of the power savings.
+Applied, but:
 
-The remaining digital logic is not too power hungry, but I like your
-idea, and will do some testing whether we can save some more power.
+> +	if (inflight == 0)
+> +		/* Nothing unacked */
+> +		return SCTP_XMIT_OK;
+> +	
+   ^^^^^^
 
-Thanks!
--- 
-Florian
+Trailing whitespace I had to fix up by hand.
