@@ -1,71 +1,55 @@
-From: Varka Bhadram <varkabhadram@gmail.com>
-Subject: Re: [PATCH net-next v2 1/2] ethernet: realtek: use module_pci_driver
-Date: Tue, 22 Jul 2014 20:13:42 +0530
-Message-ID: <53CE789E.5070302@gmail.com>
-References: <1406013622-27869-1-git-send-email-varkabhadram@gmail.com> <1406013622-27869-2-git-send-email-varkabhadram@gmail.com> <53CE777B.3080301@cogentembedded.com>
+From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+Subject: Re: [PATCH 0/6] net: mvpp2: Assorted fixes
+Date: Tue, 22 Jul 2014 11:45:19 -0300
+Message-ID: <20140722144519.GA682@arch.cereza>
+References: <1405961296-5846-1-git-send-email-ezequiel.garcia@free-electrons.com>
+ <20140721.202749.913689946944612851.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Varka Bhadram <varkab@cdac.in>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	jason@lakedaemon.net, mw@semihalf.com,
+	thomas.petazzoni@free-electrons.com,
+	gregory.clement@free-electrons.com, tawfik@marvell.com,
+	alior@marvell.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:59460 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753557AbaGVOnq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 10:43:46 -0400
-Received: by mail-pa0-f42.google.com with SMTP id lf10so12236467pab.29
-        for <netdev@vger.kernel.org>; Tue, 22 Jul 2014 07:43:45 -0700 (PDT)
-In-Reply-To: <53CE777B.3080301@cogentembedded.com>
+Received: from top.free-electrons.com ([176.31.233.9]:34005 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753804AbaGVOqR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 10:46:17 -0400
+Content-Disposition: inline
+In-Reply-To: <20140721.202749.913689946944612851.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 22 July 2014 08:08 PM, Sergei Shtylyov wrote:
-> On 07/22/2014 11:20 AM, varkabhadram@gmail.com wrote:
->
->> From: Varka Bhadram <varkab@cdac.in>
->
->> This patch converts to use the macro module_pci_driver, which makes
->> the code smaller and simpler.
->
->> Signed-off-by: Varka Bhadram <varkab@cdac.in>
->> ---
->>   drivers/net/ethernet/realtek/8139cp.c |   22 ++--------------------
->>   1 file changed, 2 insertions(+), 20 deletions(-)
->
->> diff --git a/drivers/net/ethernet/realtek/8139cp.c 
->> b/drivers/net/ethernet/realtek/8139cp.c
->> index 2bc728e..9fb68b9 100644
->> --- a/drivers/net/ethernet/realtek/8139cp.c
->> +++ b/drivers/net/ethernet/realtek/8139cp.c
->> @@ -1887,11 +1887,7 @@ static int cp_init_one (struct pci_dev *pdev, 
->> const struct pci_device_id *ent)
->>       resource_size_t pciaddr;
->>       unsigned int addr_len, i, pci_using_dac;
->>
->> -#ifndef MODULE
->> -    static int version_printed;
->> -    if (version_printed++ == 0)
->> -        pr_info("%s", version);
->> -#endif
->> +    pr_info("%s", version);
->
->    Use pr_info_once().
->
-> WBR, Sergei
->
-I am going to utilize the removed code by removing the #ifndef MODULE...
+On 21 Jul 08:27 PM, David Miller wrote:
+> From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+> Date: Mon, 21 Jul 2014 13:48:10 -0300
+>=20
+> > This patchset contains a set of fixes for issues found while doing =
+some
+> > more intensive tests on the recently accepted mvpp2 ethernet driver=
+=2E
+> >=20
+> > David: if we are still in time, we'd like to get the driver fixes m=
+erged
+> > for v3.17-rc1.
+> >=20
+> > For the devicetree changes, it's already too late for that, since J=
+ason
+> > Cooper has already posted the PRs for v3.17. I'll re-post them when
+> > v3.17-rc1 is released.
+> >=20
+> > As usual, feedback is welcome.
+>=20
+> This series does not apply to the 'net' tree at all, please respin
+> and resubmit.
 
-It will be like:
+This series applies on net-next.
 
-	static int version_printed;
-
-	if (version_printed++ == 0)
-		pr_info("%s", version);
-
-
-Will it be Ok...?
-
--- 
-Regards,
-Varka Bhadram
+Sorry for not mentioning it,
+--=20
+Ezequiel Garc=EDa, Free Electrons
+Embedded Linux, Kernel and Android Engineering
+http://free-electrons.com
