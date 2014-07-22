@@ -1,76 +1,73 @@
-From: Varka Bhadram <varkabhadram@gmail.com>
-Subject: Re: [PATCH net-next v2 1/2] ethernet: realtek: use module_pci_driver
-Date: Tue, 22 Jul 2014 20:33:49 +0530
-Message-ID: <53CE7D55.2090404@gmail.com>
-References: <1406013622-27869-1-git-send-email-varkabhadram@gmail.com> <1406013622-27869-2-git-send-email-varkabhadram@gmail.com> <53CE777B.3080301@cogentembedded.com> <53CE789E.5070302@gmail.com> <53CE7CC5.2070809@cogentembedded.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next v3 3/3] net: sctp: Add support for MSG_MORE on
+ SCTP
+Date: Tue, 22 Jul 2014 15:22:21 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1727B3E7@AcuExch.aculab.com>
+References: <063D6719AE5E284EB5DD2968C1650D6D1727AF02@AcuExch.aculab.com>
+ <53CE65B5.3090903@gmail.com>
+ <063D6719AE5E284EB5DD2968C1650D6D1727B2A0@AcuExch.aculab.com>
+ <53CE7B2A.90104@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, Varka Bhadram <varkab@cdac.in>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>
+To: 'Vlad Yasevich' <vyasevich@gmail.com>,
+	"Linux Networking Development Mailing List" <netdev@vger.kernel.org>,
+	"'linux-sctp@vger.kernel.org'" <linux-sctp@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:39416 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752751AbaGVPDx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 11:03:53 -0400
-Received: by mail-pa0-f52.google.com with SMTP id bj1so12237909pad.39
-        for <netdev@vger.kernel.org>; Tue, 22 Jul 2014 08:03:53 -0700 (PDT)
-In-Reply-To: <53CE7CC5.2070809@cogentembedded.com>
+Received: from mx0.aculab.com ([213.249.233.131]:45820 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752788AbaGVPXl convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 11:23:41 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 25522-01 for <netdev@vger.kernel.org>;
+ Tue, 22 Jul 2014 16:23:32 +0100 (BST)
+In-Reply-To: <53CE7B2A.90104@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 22 July 2014 08:31 PM, Sergei Shtylyov wrote:
-> On 07/22/2014 06:43 PM, Varka Bhadram wrote:
->
->>>> From: Varka Bhadram <varkab@cdac.in>
->
->>>> This patch converts to use the macro module_pci_driver, which makes
->>>> the code smaller and simpler.
->
->>>> Signed-off-by: Varka Bhadram <varkab@cdac.in>
->>>> ---
->>>>   drivers/net/ethernet/realtek/8139cp.c |   22 ++--------------------
->>>>   1 file changed, 2 insertions(+), 20 deletions(-)
->
->>>> diff --git a/drivers/net/ethernet/realtek/8139cp.c
->>>> b/drivers/net/ethernet/realtek/8139cp.c
->>>> index 2bc728e..9fb68b9 100644
->>>> --- a/drivers/net/ethernet/realtek/8139cp.c
->>>> +++ b/drivers/net/ethernet/realtek/8139cp.c
->>>> @@ -1887,11 +1887,7 @@ static int cp_init_one (struct pci_dev 
->>>> *pdev, const
->>>> struct pci_device_id *ent)
->>>>       resource_size_t pciaddr;
->>>>       unsigned int addr_len, i, pci_using_dac;
->>>>
->>>> -#ifndef MODULE
->>>> -    static int version_printed;
->>>> -    if (version_printed++ == 0)
->>>> -        pr_info("%s", version);
->>>> -#endif
->>>> +    pr_info("%s", version);
->
->>>    Use pr_info_once().
->
->>> WBR, Sergei
->
->> I am going to utilize the removed code by removing the #ifndef MODULE...
->
->> It will be like:
->>
->>      static int version_printed;
->>
->>      if (version_printed++ == 0)
->>          pr_info("%s", version);
->
->    pr_info_once() is much shorter and the effect is the same.
->
-> WBR, Sergei
->
-Thanks for your suggestion. I will do this in next version.
+...
+> > All this is really defining the behaviour for 'broken' apps.
+> > It wouldn't be completely unreasonable if a single message sent with 'MSG_MORE'
+> > never actually got sent.
+> 
+> Actually, this code opens up a way to eat kernel memory.  Consider an application
+> that does:
+>    while (1) {
+>        socket(IPPROTO_SCTP);
+>        connect()
+>        sendmsg(MSG_MORE); <- write 1 byte
+>        close();
+>    }
+> 
+> Because we send with MSG_MORE, the 1 byte gets queued to the association.  The close()
+> causes us to enter SHUTDOWN_PENDING state and we never flush the buffer and close
+> the association.
+> 
+> This is a malicious example.  Similarly, a broken application could just forget to
+> clear MSG_MORE and when we end up in a condition where the amount of queued data is
+> smaller then MTU and all inflight data has been acked, we'd once again be stuck.
 
+>From a system point of view that one doesn't really matter.
 
--- 
-Regards,
-Varka Bhadram
+> Just because application isn't doing the right thing, we can't assume it's broken.  It
+> could be malicious.  We need to make this behavior robust.
+
+Hmmm....
+The amount of data per-socket is limited by the mtu and socket buffer size,
+so a malicious app would have to create a lot of sockets to use a significant
+amount of kernel memory.
+
+If close() blocks forever, isn't there a worse problem with a remote app
+that causes the window to be zero - and so data can't be sent and the
+close will block forever anyway?
+I've never liked protocols that wait forever for send data to drain on disconnect.
+Seems like an 'accident' waiting to happen.
+
+I'm not sure what would be needed to be done to cause queued send data to be
+sent when SCTP_F_TX_MSG_MORE is cleared by close() or set/clear SCTP_NODELAY.
+It is probably a simple call to the correct function.
+
+	David
