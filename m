@@ -1,496 +1,461 @@
 From: Andy Zhou <azhou@nicira.com>
-Subject: [net-next 05/10] net: Add Geneve tunneling protocol driver
-Date: Tue, 22 Jul 2014 03:19:48 -0700
-Message-ID: <1406024393-6778-6-git-send-email-azhou@nicira.com>
+Subject: [net-next 08/10] openvswitch: Wrap struct ovs_key_ipv4_tunnel in a new structure.
+Date: Tue, 22 Jul 2014 03:19:51 -0700
+Message-ID: <1406024393-6778-9-git-send-email-azhou@nicira.com>
 References: <1406024393-6778-1-git-send-email-azhou@nicira.com>
-Cc: netdev@vger.kernel.org, Andy Zhou <azhou@nicira.com>,
-	Jesse Gross <jesse@nicira.com>
+Cc: netdev@vger.kernel.org, Jesse Gross <jesse@nicira.com>,
+	Andy Zhou <azhou@nicira.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog132.obsmtp.com ([74.125.149.250]:55691 "HELO
-	na3sys009aog132.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751471AbaGVKbw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 06:31:52 -0400
-Received: by mail-pd0-f178.google.com with SMTP id w10so10900386pde.23
-        for <netdev@vger.kernel.org>; Tue, 22 Jul 2014 03:31:46 -0700 (PDT)
+Received: from na3sys009aog109.obsmtp.com ([74.125.149.201]:48823 "HELO
+	na3sys009aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751471AbaGVKbz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 06:31:55 -0400
+Received: by mail-pa0-f43.google.com with SMTP id lf10so11729140pab.16
+        for <netdev@vger.kernel.org>; Tue, 22 Jul 2014 03:31:55 -0700 (PDT)
 In-Reply-To: <1406024393-6778-1-git-send-email-azhou@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds a device level support for Geneve -- Generic Network
-Virtualization Encapsulation. The protocol is documented at
-http://tools.ietf.org/html/draft-gross-geneve-00
+From: Jesse Gross <jesse@nicira.com>
 
-Only protocol layer Geneve support is provided by this driver.
-Openvswitch can be used for configuring, set up and tear down
-functional Geneve tunnels.
+Currently, the flow information that is matched for tunnels and
+the tunnel data passed around with packets is the same. However,
+as additional information is added this is not necessarily desirable,
+as in the case of pointers.
+
+This adds a new structure for tunnel metadata which currently contains
+only the existing struct. This change is purely internal to the kernel
+since the current OVS_KEY_ATTR_IPV4_TUNNEL is simply a compressed version
+of OVS_KEY_ATTR_TUNNEL that is translated at flow setup.
 
 Signed-off-by: Jesse Gross <jesse@nicira.com>
 Signed-off-by: Andy Zhou <azhou@nicira.com>
 ---
- include/net/geneve.h     |   85 +++++++++++++++
- include/net/ip_tunnels.h |    2 +
- net/ipv4/Kconfig         |   14 +++
- net/ipv4/Makefile        |    1 +
- net/ipv4/geneve.c        |  273 ++++++++++++++++++++++++++++++++++++++++++++++
- net/openvswitch/Kconfig  |   11 ++
- net/openvswitch/vport.c  |    3 +
- 7 files changed, 389 insertions(+)
- create mode 100644 include/net/geneve.h
- create mode 100644 net/ipv4/geneve.c
+ include/uapi/linux/openvswitch.h |    2 +-
+ net/openvswitch/actions.c        |    6 +++---
+ net/openvswitch/datapath.h       |    3 ++-
+ net/openvswitch/flow.c           |   11 +++++++----
+ net/openvswitch/flow.h           |   22 +++++++++++++---------
+ net/openvswitch/flow_netlink.c   |   38 +++++++++++++++++++++++++++++++-------
+ net/openvswitch/vport-gre.c      |   29 +++++++++++++++--------------
+ net/openvswitch/vport-vxlan.c    |   27 +++++++++++++++------------
+ net/openvswitch/vport.c          |    4 ++--
+ net/openvswitch/vport.h          |    2 +-
+ 10 files changed, 90 insertions(+), 54 deletions(-)
 
-diff --git a/include/net/geneve.h b/include/net/geneve.h
-new file mode 100644
-index 0000000..4e3a301
---- /dev/null
-+++ b/include/net/geneve.h
-@@ -0,0 +1,85 @@
-+#ifndef __NET_GENEVE_H
-+#define __NET_GENEVE_H  1
-+
-+#include <net/udp_tunnel.h>
-+
-+struct geneve_sock {
-+	struct udp_tunnel_sock  uts;
-+	atomic_t		refcnt;
-+	struct udp_offload	udp_offloads;
-+};
-+
-+typedef void (geneve_rcv_t)(struct geneve_sock *gs, struct sk_buff *skb);
-+
-+/* Geneve Header:
-+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-+ *  |Ver|  Opt Len  |O|C|    Rsvd.  |          Protocol Type        |
-+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-+ *  |        Virtual Network Identifier (VNI)       |    Reserved   |
-+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-+ *  |                    Variable Length Options                    |
-+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-+ *
-+ * Option Header:
-+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-+ *  |          Option Class         |      Type     |R|R|R| Length  |
-+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-+ *  |                      Variable Option Data                     |
-+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-+ */
-+
-+struct geneve_opt {
-+	__be16	opt_class;
-+	u8	type;
-+#ifdef __LITTLE_ENDIAN_BITFIELD
-+	u8	length:5;
-+	u8	r3:1;
-+	u8	r2:1;
-+	u8	r1:1;
-+#else
-+	u8	r1:1;
-+	u8	r2:1;
-+	u8	r3:1;
-+	u8	length:5;
-+#endif
-+	u8	opt_data[];
-+};
-+
-+struct genevehdr {
-+#ifdef __LITTLE_ENDIAN_BITFIELD
-+	u8 opt_len:6;
-+	u8 ver:2;
-+	u8 rsvd1:6;
-+	u8 critical:1;
-+	u8 oam:1;
-+#else
-+	u8 ver:2;
-+	u8 opt_len:6;
-+	u8 oam:1;
-+	u8 critical:1;
-+	u8 rsvd1:6;
-+#endif
-+	__be16 proto_type;
-+	u8 vni[3];
-+	u8 rsvd2;
-+	struct geneve_opt options[];
-+};
-+
-+#define GENEVE_VER 0
-+#define GENEVE_BASE_HLEN (sizeof(struct udphdr) + sizeof(struct genevehdr))
-+
-+#define GENEVE_CRIT_OPT_TYPE (1 << 7)
-+
-+struct geneve_sock *geneve_sock_add(struct net *net, __be16 port,
-+				    geneve_rcv_t *rcv, void *data,
-+				    bool no_share, bool ipv6);
-+
-+void geneve_sock_release(struct geneve_sock *vs);
-+
-+int geneve_xmit_skb(struct geneve_sock *gs,
-+		   struct rtable *rt, struct sk_buff *skb,
-+		   __be32 src, __be32 dst, __u8 tos, __u8 ttl, __be16 df,
-+		   __be16 src_port, __be16 dst_port, __be16 tun_flags,
-+		   u8 vni[3], u8 opt_len, u8 *opt, bool xnet);
-+
-+#endif
-diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
-index a4daf9e..2e221cd 100644
---- a/include/net/ip_tunnels.h
-+++ b/include/net/ip_tunnels.h
-@@ -81,6 +81,8 @@ struct ip_tunnel {
- #define TUNNEL_VERSION	__cpu_to_be16(0x40)
- #define TUNNEL_NO_KEY	__cpu_to_be16(0x80)
- #define TUNNEL_DONT_FRAGMENT    __cpu_to_be16(0x0100)
-+#define TUNNEL_OAM	__cpu_to_be16(0x0200)
-+#define TUNNEL_CRIT_OPT	__cpu_to_be16(0x0400)
+diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
+index 5e83a95..3b72277 100644
+--- a/include/uapi/linux/openvswitch.h
++++ b/include/uapi/linux/openvswitch.h
+@@ -286,7 +286,7 @@ enum ovs_key_attr {
+ 	OVS_KEY_ATTR_TCP_FLAGS,	/* be16 TCP flags. */
  
- struct tnl_ptk_info {
- 	__be16 flags;
-diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
-index dbc10d8..69cb508 100644
---- a/net/ipv4/Kconfig
-+++ b/net/ipv4/Kconfig
-@@ -595,6 +595,20 @@ endchoice
+ #ifdef __KERNEL__
+-	OVS_KEY_ATTR_IPV4_TUNNEL,  /* struct ovs_key_ipv4_tunnel */
++	OVS_KEY_ATTR_TUNNEL_INFO,  /* struct ovs_tunnel_info */
+ #endif
+ 	__OVS_KEY_ATTR_MAX
+ };
+diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+index e70d8b1..45292da 100644
+--- a/net/openvswitch/actions.c
++++ b/net/openvswitch/actions.c
+@@ -473,8 +473,8 @@ static int execute_set_action(struct sk_buff *skb,
+ 		skb->mark = nla_get_u32(nested_attr);
+ 		break;
  
- endif
+-	case OVS_KEY_ATTR_IPV4_TUNNEL:
+-		OVS_CB(skb)->tun_key = nla_data(nested_attr);
++	case OVS_KEY_ATTR_TUNNEL_INFO:
++		OVS_CB(skb)->tun_info = nla_data(nested_attr);
+ 		break;
  
-+config GENEVE
-+       tristate "Generic Network Virtualization Encapsulation (Geneve)"
-+       depends on INET
-+       select NET_IP_TUNNEL
-+       select NET_UDP_TUNNEL
-+       ---help---
-+	  This allows one to create Geneve virtual interfaces that provide
-+	  Layer 2 Networks over Layer 3 Networks. Geneve is often used
-+	  to tunnel virtual network infrastructure in virtualized environments.
-+	  For more information see:
-+	    http://tools.ietf.org/html/draft-gross-geneve-00
-+
-+	  To compile this driver as a module, choose M here: the module
-+
- config TCP_CONG_CUBIC
- 	tristate
- 	depends on !TCP_CONG_ADVANCED
-diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
-index 8ee1cd4..cae2403 100644
---- a/net/ipv4/Makefile
-+++ b/net/ipv4/Makefile
-@@ -54,6 +54,7 @@ obj-$(CONFIG_TCP_CONG_YEAH) += tcp_yeah.o
- obj-$(CONFIG_TCP_CONG_ILLINOIS) += tcp_illinois.o
- obj-$(CONFIG_MEMCG_KMEM) += tcp_memcontrol.o
- obj-$(CONFIG_NETLABEL) += cipso_ipv4.o
-+obj-$(CONFIG_GENEVE) += geneve.o
+ 	case OVS_KEY_ATTR_ETHERNET:
+@@ -578,7 +578,7 @@ int ovs_execute_actions(struct datapath *dp, struct sk_buff *skb)
+ {
+ 	struct sw_flow_actions *acts = rcu_dereference(OVS_CB(skb)->flow->sf_acts);
  
- obj-$(CONFIG_XFRM) += xfrm4_policy.o xfrm4_state.o xfrm4_input.o \
- 		      xfrm4_output.o xfrm4_protocol.o
-diff --git a/net/ipv4/geneve.c b/net/ipv4/geneve.c
-new file mode 100644
-index 0000000..2fda60e
---- /dev/null
-+++ b/net/ipv4/geneve.c
-@@ -0,0 +1,273 @@
-+/* Copyright (c) 2014 Nicira, Inc.  */
-+
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
-+#include <linux/kernel.h>
-+#include <linux/types.h>
-+#include <linux/module.h>
-+#include <linux/errno.h>
-+#include <linux/slab.h>
-+#include <linux/skbuff.h>
-+#include <linux/rculist.h>
-+#include <linux/netdevice.h>
-+#include <linux/in.h>
-+#include <linux/ip.h>
-+#include <linux/udp.h>
-+#include <linux/igmp.h>
-+#include <linux/etherdevice.h>
-+#include <linux/if_ether.h>
-+#include <linux/if_vlan.h>
-+#include <linux/hash.h>
-+#include <linux/ethtool.h>
-+#include <net/arp.h>
-+#include <net/ndisc.h>
-+#include <net/ip.h>
-+#include <net/ip_tunnels.h>
-+#include <net/icmp.h>
-+#include <net/udp.h>
-+#include <net/rtnetlink.h>
-+#include <net/route.h>
-+#include <net/dsfield.h>
-+#include <net/inet_ecn.h>
-+#include <net/net_namespace.h>
-+#include <net/netns/generic.h>
-+#include <net/geneve.h>
-+#include <net/protocol.h>
-+#include <net/udp_tunnel.h>
-+#if IS_ENABLED(CONFIG_IPV6)
-+#include <net/ipv6.h>
-+#include <net/addrconf.h>
-+#include <net/ip6_tunnel.h>
-+#include <net/ip6_checksum.h>
-+#endif
-+
-+static inline struct genevehdr *geneve_hdr(const struct sk_buff *skb)
-+{
-+	return (struct genevehdr *)(udp_hdr(skb) + 1);
-+}
-+
-+/* Find geneve socket based on network namespace and UDP port */
-+static struct geneve_sock *geneve_find_sock(struct net *net, __be16 port)
-+{
-+	return (struct geneve_sock *)udp_tunnel_find_sock(net, port);
-+}
-+
-+static void geneve_build_header(struct genevehdr *geneveh,
-+				__be16 tun_flags, u8 vni[3],
-+				u8 options_len, u8 *options)
-+{
-+	geneveh->ver = GENEVE_VER;
-+	geneveh->opt_len = options_len / 4;
-+	geneveh->oam = !!(tun_flags & TUNNEL_OAM);
-+	geneveh->critical = !!(tun_flags & TUNNEL_CRIT_OPT);
-+	geneveh->rsvd1 = 0;
-+	memcpy(geneveh->vni, vni, 3);
-+	geneveh->proto_type = htons(ETH_P_TEB);
-+	geneveh->rsvd2 = 0;
-+
-+	memcpy(geneveh->options, options, options_len);
-+}
-+
-+/* Transmit a fully formated Geneve frame.
-+ *
-+ * When calling this function. The skb->data should point
-+ * to the geneve header which is fully formed.
-+ *
-+ * This function will add other UDP tunnel headers.
-+ */
-+int geneve_xmit_skb(struct geneve_sock *gs,
-+		    struct rtable *rt, struct sk_buff *skb,
-+		    __be32 src, __be32 dst, __u8 tos, __u8 ttl, __be16 df,
-+		    __be16 src_port, __be16 dst_port,
-+		    __be16 tun_flags, u8 vni[3], u8 opt_len, u8 *opt,
-+		    bool xnet)
-+{
-+	struct genevehdr *gnvh;
-+	int min_headroom;
-+	int err;
-+
-+	skb = udp_tunnel_handle_offloads(skb, !udp_get_no_check6_tx(gs->uts.sock->sk));
-+
-+	min_headroom = LL_RESERVED_SPACE(rt->dst.dev) + rt->dst.header_len
-+			+ GENEVE_BASE_HLEN + opt_len + sizeof(struct iphdr)
-+			+ (vlan_tx_tag_present(skb) ? VLAN_HLEN : 0);
-+
-+	err = skb_cow_head(skb, min_headroom);
-+	if (unlikely(err))
-+		return err;
-+
-+	if (vlan_tx_tag_present(skb)) {
-+		if (unlikely(!__vlan_put_tag(skb,
-+					     skb->vlan_proto,
-+					     vlan_tx_tag_get(skb)))) {
-+			err = -ENOMEM;
-+			return err;
-+		}
-+		skb->vlan_tci = 0;
-+	}
-+
-+	gnvh = (struct genevehdr *)__skb_push(skb, sizeof(*gnvh));
-+	geneve_build_header(gnvh, tun_flags, vni, opt_len, opt);
-+
-+	return udp_tunnel_xmit_skb(gs->uts.sock, rt, skb, src, dst,
-+				   tos, ttl, df, src_port, dst_port, xnet);
-+}
-+EXPORT_SYMBOL_GPL(geneve_xmit_skb);
-+
-+static void geneve_notify_add_rx_port(struct geneve_sock *gs)
-+{
-+	struct net_device *dev;
-+	struct sock *sk = gs->uts.sock->sk;
-+	struct net *net = sock_net(sk);
-+	sa_family_t sa_family = sk->sk_family;
-+	__be16 port = inet_sk(sk)->inet_sport;
-+	int err;
-+
-+	if (sa_family == AF_INET) {
-+		err = udp_add_offload(&gs->udp_offloads);
-+		if (err)
-+			pr_warn("geneve: udp_add_offload failed with status %d\n", err);
-+	}
-+
-+	rcu_read_lock();
-+	for_each_netdev_rcu(net, dev) {
-+		if (!dev->netdev_ops->ndo_add_udp_tunnel_port)
-+			continue;
-+
-+		dev->netdev_ops->ndo_add_udp_tunnel_port(dev, sa_family, port,
-+						       UDP_TUNNEL_TYPE_GENEVE);
-+	}
-+	rcu_read_unlock();
-+}
-+
-+/* Callback from net/ipv4/udp.c to receive packets */
-+static int geneve_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
-+{
-+	struct genevehdr *geneveh;
-+	struct geneve_sock *gs;
-+	int opts_len;
-+
-+	/* Need Geneve and inner Ethernet header to be present */
-+	if (unlikely(!pskb_may_pull(skb, GENEVE_BASE_HLEN)))
-+		goto error;
-+
-+	/* Return packets with reserved bits set */
-+	geneveh = geneve_hdr(skb);
-+
-+	opts_len = geneveh->opt_len * 4;
-+	if (iptunnel_pull_header(skb, GENEVE_BASE_HLEN + opts_len,
-+				 htons(ETH_P_TEB)))
-+		goto drop;
-+
-+	gs = rcu_dereference_sk_user_data(sk);
-+	if (!gs)
-+		goto drop;
-+
-+	skb_pop_rcv_encapsulation(skb);
-+
-+	gs->uts.rcv(&gs->uts, skb);
-+	return 0;
-+
-+drop:
-+	/* Consume bad packet */
-+	kfree_skb(skb);
-+	return 0;
-+
-+error:
-+	kfree_skb(skb);
-+	return 1;
-+}
-+
-+/* Create new listen socket if needed */
-+static struct geneve_sock *geneve_socket_create(struct net *net, __be16 port,
-+						geneve_rcv_t *rcv, void *data,
-+						bool ipv6)
-+{
-+	struct geneve_sock *gs;
-+	struct udp_tunnel_socket_cfg geneve_ts_cfg;
-+
-+	memset(&geneve_ts_cfg, 0, sizeof(struct udp_tunnel_socket_cfg));
-+
-+	if (ipv6) {
-+		geneve_ts_cfg.port.family = AF_INET6;
+-	OVS_CB(skb)->tun_key = NULL;
++	OVS_CB(skb)->tun_info = NULL;
+ 	return do_execute_actions(dp, skb, acts->actions,
+ 					 acts->actions_len, false);
+ }
+diff --git a/net/openvswitch/datapath.h b/net/openvswitch/datapath.h
+index 7ede507..3b81051 100644
+--- a/net/openvswitch/datapath.h
++++ b/net/openvswitch/datapath.h
+@@ -102,7 +102,8 @@ struct datapath {
+ struct ovs_skb_cb {
+ 	struct sw_flow		*flow;
+ 	struct sw_flow_key	*pkt_key;
+-	struct ovs_key_ipv4_tunnel  *tun_key;
++	struct ovs_tunnel_info  *tun_info;
++	struct vport	        *input_vport;
+ };
+ #define OVS_CB(skb) ((struct ovs_skb_cb *)(skb)->cb)
+ 
+diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
+index 7691b11..3d0adc5 100644
+--- a/net/openvswitch/flow.c
++++ b/net/openvswitch/flow.c
+@@ -450,12 +450,15 @@ int ovs_flow_extract(struct sk_buff *skb, u16 in_port, struct sw_flow_key *key)
+ 	int error;
+ 	struct ethhdr *eth;
+ 
+-	key->phy.priority = skb->priority;
+-	if (OVS_CB(skb)->tun_key)
+-		memcpy(&key->tun_key, OVS_CB(skb)->tun_key, sizeof(key->tun_key));
+-	else
++	if (OVS_CB(skb)->tun_info) {
++		struct ovs_tunnel_info *tun_info = OVS_CB(skb)->tun_info;
++		memcpy(&key->tun_key, &tun_info->tunnel,
++			sizeof(key->tun_key));
 +	} else {
-+		geneve_ts_cfg.port.family = AF_INET;
-+		geneve_ts_cfg.port.local_ip.s_addr = INADDR_ANY;
+ 		memset(&key->tun_key, 0, sizeof(key->tun_key));
 +	}
-+
-+	geneve_ts_cfg.tunnel_type = UDP_TUNNEL_TYPE_GENEVE;
-+	geneve_ts_cfg.port.local_udp_port = port;
-+	geneve_ts_cfg.rcv = (udp_tunnel_rcv_t *)rcv;
-+	geneve_ts_cfg.encap_rcv = geneve_udp_encap_recv;
-+	geneve_ts_cfg.data = data;
-+
-+	gs = (struct geneve_sock *)create_udp_tunnel_socket(net, sizeof(*gs),
-+							    &geneve_ts_cfg);
-+	if (!gs)
-+		return ERR_PTR(-ENOMEM);
-+
-+	atomic_set(&gs->refcnt, 1);
-+
-+	/* Initialize the geneve udp offloads structure */
-+	gs->udp_offloads.port = port;
-+	gs->udp_offloads.callbacks.gro_receive = NULL;
-+	gs->udp_offloads.callbacks.gro_complete = NULL;
-+
-+	geneve_notify_add_rx_port(gs);
-+
-+	return gs;
-+}
-+
-+struct geneve_sock *geneve_sock_add(struct net *net, __be16 port,
-+				    geneve_rcv_t *rcv, void *data,
-+				    bool no_share, bool ipv6)
-+{
-+	struct geneve_sock *gs;
-+
-+	gs = geneve_socket_create(net, port, rcv, data, ipv6);
-+	if (!IS_ERR(gs))
-+		return gs;
-+
-+	if (no_share)	/* Return error if sharing is not allowed. */
-+		return ERR_PTR(-EINVAL);
-+
-+	gs = geneve_find_sock(net, port);
-+	if (gs) {
-+		if (gs->uts.rcv == (udp_tunnel_rcv_t *)rcv)
-+			atomic_inc(&gs->refcnt);
-+		else
-+			gs = ERR_PTR(-EBUSY);
-+	} else {
-+		gs = ERR_PTR(-EINVAL);
-+	}
-+
-+	return gs;
-+}
-+EXPORT_SYMBOL_GPL(geneve_sock_add);
-+
-+void geneve_sock_release(struct geneve_sock *gs)
-+{
-+	if (!atomic_dec_and_test(&gs->refcnt))
-+		return;
-+
-+	udp_tunnel_sock_release(&gs->uts);
-+}
-+EXPORT_SYMBOL_GPL(geneve_sock_release);
-+
-+static int __init geneve_init_module(void)
-+{
-+	pr_info("Geneve driver\n");
-+
-+	return 0;
-+}
-+late_initcall(geneve_init_module);
-+
-+static void __exit geneve_cleanup_module(void)
-+{
-+}
-+module_exit(geneve_cleanup_module);
-+
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Jesse Gross <jesse@nicira.com>");
-+MODULE_DESCRIPTION("Driver for GENEVE encapsulated traffic");
-+MODULE_ALIAS_RTNL_LINK("geneve");
-diff --git a/net/openvswitch/Kconfig b/net/openvswitch/Kconfig
-index 6ecf491..ba3bb82 100644
---- a/net/openvswitch/Kconfig
-+++ b/net/openvswitch/Kconfig
-@@ -54,3 +54,14 @@ config OPENVSWITCH_VXLAN
- 	  Say N to exclude this support and reduce the binary size.
  
- 	  If unsure, say Y.
++	key->phy.priority = skb->priority;
+ 	key->phy.in_port = in_port;
+ 	key->phy.skb_mark = skb->mark;
+ 
+diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
+index 5e5aaed..6261ad0 100644
+--- a/net/openvswitch/flow.h
++++ b/net/openvswitch/flow.h
+@@ -49,20 +49,24 @@ struct ovs_key_ipv4_tunnel {
+ 	u8   ipv4_ttl;
+ } __packed __aligned(4); /* Minimize padding. */
+ 
+-static inline void ovs_flow_tun_key_init(struct ovs_key_ipv4_tunnel *tun_key,
++struct ovs_tunnel_info {
++	struct ovs_key_ipv4_tunnel tunnel;
++};
 +
-+config OPENVSWITCH_GENEVE
-+	bool "Open vSwitch Geneve tunneling support"
-+	depends on INET
-+	depends on OPENVSWITCH
-+	depends on GENEVE && !(OPENVSWITCH=y && GENEVE=m)
-+	default y
-+	---help---
-+	  If you say Y here, then the Open vSwitch will be able create geneve vport.
++static inline void ovs_flow_tun_info_init(struct ovs_tunnel_info *tun_info,
+ 					 const struct iphdr *iph, __be64 tun_id,
+ 					 __be16 tun_flags)
+ {
+-	tun_key->tun_id = tun_id;
+-	tun_key->ipv4_src = iph->saddr;
+-	tun_key->ipv4_dst = iph->daddr;
+-	tun_key->ipv4_tos = iph->tos;
+-	tun_key->ipv4_ttl = iph->ttl;
+-	tun_key->tun_flags = tun_flags;
++	tun_info->tunnel.tun_id = tun_id;
++	tun_info->tunnel.ipv4_src = iph->saddr;
++	tun_info->tunnel.ipv4_dst = iph->daddr;
++	tun_info->tunnel.ipv4_tos = iph->tos;
++	tun_info->tunnel.ipv4_ttl = iph->ttl;
++	tun_info->tunnel.tun_flags = tun_flags;
+ 
+ 	/* clear struct padding. */
+-	memset((unsigned char *) tun_key + OVS_TUNNEL_KEY_SIZE, 0,
+-	       sizeof(*tun_key) - OVS_TUNNEL_KEY_SIZE);
++	memset((unsigned char *) &tun_info->tunnel + OVS_TUNNEL_KEY_SIZE, 0,
++	       sizeof(tun_info->tunnel) - OVS_TUNNEL_KEY_SIZE);
+ }
+ 
+ struct sw_flow_key {
+diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
+index d5837d3..aa7c3d5 100644
+--- a/net/openvswitch/flow_netlink.c
++++ b/net/openvswitch/flow_netlink.c
+@@ -1134,13 +1134,14 @@ out:
+ 	return  (struct nlattr *) ((unsigned char *)(*sfa) + next_offset);
+ }
+ 
+-static int add_action(struct sw_flow_actions **sfa, int attrtype, void *data, int len)
++static struct nlattr *__add_action(struct sw_flow_actions **sfa, int attrtype,
++				   void *data, int len)
+ {
+ 	struct nlattr *a;
+ 
+ 	a = reserve_sfa_size(sfa, nla_attr_size(len));
+ 	if (IS_ERR(a))
+-		return PTR_ERR(a);
++		return a;
+ 
+ 	a->nla_type = attrtype;
+ 	a->nla_len = nla_attr_size(len);
+@@ -1149,6 +1150,18 @@ static int add_action(struct sw_flow_actions **sfa, int attrtype, void *data, in
+ 		memcpy(nla_data(a), data, len);
+ 	memset((unsigned char *) a + a->nla_len, 0, nla_padlen(len));
+ 
++	return a;
++}
 +
-+	  Say N to exclude this support and reduce the binary size.
++static int add_action(struct sw_flow_actions **sfa, int attrtype,
++		      void *data, int len)
++{
++	struct nlattr *a;
++
++	a = __add_action(sfa, attrtype, data, len);
++	if (IS_ERR(a))
++		return PTR_ERR(a);
++
+ 	return 0;
+ }
+ 
+@@ -1254,6 +1267,8 @@ static int validate_and_copy_set_tun(const struct nlattr *attr,
+ {
+ 	struct sw_flow_match match;
+ 	struct sw_flow_key key;
++	struct ovs_tunnel_info *tun_info;
++	struct nlattr *a;
+ 	int err, start;
+ 
+ 	ovs_match_init(&match, &key, NULL);
+@@ -1265,8 +1280,14 @@ static int validate_and_copy_set_tun(const struct nlattr *attr,
+ 	if (start < 0)
+ 		return start;
+ 
+-	err = add_action(sfa, OVS_KEY_ATTR_IPV4_TUNNEL, &match.key->tun_key,
+-			sizeof(match.key->tun_key));
++	a = __add_action(sfa, OVS_KEY_ATTR_TUNNEL_INFO, NULL,
++			sizeof(*tun_info));
++	if (IS_ERR(a))
++		return PTR_ERR(a);
++
++	tun_info = nla_data(a);
++	tun_info->tunnel = key.tun_key;
++
+ 	add_nested_action_end(*sfa, start);
+ 
+ 	return err;
+@@ -1532,17 +1553,20 @@ static int set_action_to_attr(const struct nlattr *a, struct sk_buff *skb)
+ 	int err;
+ 
+ 	switch (key_type) {
+-	case OVS_KEY_ATTR_IPV4_TUNNEL:
++	case OVS_KEY_ATTR_TUNNEL_INFO: {
++		struct ovs_tunnel_info *tun_info = nla_data(ovs_key);
++
+ 		start = nla_nest_start(skb, OVS_ACTION_ATTR_SET);
+ 		if (!start)
+ 			return -EMSGSIZE;
+ 
+-		err = ipv4_tun_to_nlattr(skb, nla_data(ovs_key),
+-					     nla_data(ovs_key));
++		err = ipv4_tun_to_nlattr(skb, &tun_info->tunnel,
++					 &tun_info->tunnel);
+ 		if (err)
+ 			return err;
+ 		nla_nest_end(skb, start);
+ 		break;
++	}
+ 	default:
+ 		if (nla_put(skb, OVS_ACTION_ATTR_SET, nla_len(a), ovs_key))
+ 			return -EMSGSIZE;
+diff --git a/net/openvswitch/vport-gre.c b/net/openvswitch/vport-gre.c
+index f49148a..d4fcbb2 100644
+--- a/net/openvswitch/vport-gre.c
++++ b/net/openvswitch/vport-gre.c
+@@ -63,7 +63,7 @@ static __be16 filter_tnl_flags(__be16 flags)
+ static struct sk_buff *__build_header(struct sk_buff *skb,
+ 				      int tunnel_hlen)
+ {
+-	const struct ovs_key_ipv4_tunnel *tun_key = OVS_CB(skb)->tun_key;
++	const struct ovs_key_ipv4_tunnel *tun_key = &OVS_CB(skb)->tun_info->tunnel;
+ 	struct tnl_ptk_info tpi;
+ 
+ 	skb = gre_handle_offloads(skb, !!(tun_key->tun_flags & TUNNEL_CSUM));
+@@ -92,7 +92,7 @@ static __be64 key_to_tunnel_id(__be32 key, __be32 seq)
+ static int gre_rcv(struct sk_buff *skb,
+ 		   const struct tnl_ptk_info *tpi)
+ {
+-	struct ovs_key_ipv4_tunnel tun_key;
++	struct ovs_tunnel_info tun_info;
+ 	struct ovs_net *ovs_net;
+ 	struct vport *vport;
+ 	__be64 key;
+@@ -103,10 +103,10 @@ static int gre_rcv(struct sk_buff *skb,
+ 		return PACKET_REJECT;
+ 
+ 	key = key_to_tunnel_id(tpi->key, tpi->seq);
+-	ovs_flow_tun_key_init(&tun_key, ip_hdr(skb), key,
+-			      filter_tnl_flags(tpi->flags));
++	ovs_flow_tun_info_init(&tun_info, ip_hdr(skb), key,
++			       filter_tnl_flags(tpi->flags));
+ 
+-	ovs_vport_receive(vport, skb, &tun_key);
++	ovs_vport_receive(vport, skb, &tun_info);
+ 	return PACKET_RCVD;
+ }
+ 
+@@ -128,6 +128,7 @@ static int gre_err(struct sk_buff *skb, u32 info,
+ 
+ static int gre_tnl_send(struct vport *vport, struct sk_buff *skb)
+ {
++	const struct ovs_key_ipv4_tunnel *tun_key = &OVS_CB(skb)->tun_info->tunnel;
+ 	struct net *net = ovs_dp_get_net(vport->dp);
+ 	struct flowi4 fl;
+ 	struct rtable *rt;
+@@ -136,16 +137,16 @@ static int gre_tnl_send(struct vport *vport, struct sk_buff *skb)
+ 	__be16 df;
+ 	int err;
+ 
+-	if (unlikely(!OVS_CB(skb)->tun_key)) {
++	if (unlikely(!tun_key)) {
+ 		err = -EINVAL;
+ 		goto error;
+ 	}
+ 
+ 	/* Route lookup */
+ 	memset(&fl, 0, sizeof(fl));
+-	fl.daddr = OVS_CB(skb)->tun_key->ipv4_dst;
+-	fl.saddr = OVS_CB(skb)->tun_key->ipv4_src;
+-	fl.flowi4_tos = RT_TOS(OVS_CB(skb)->tun_key->ipv4_tos);
++	fl.daddr = tun_key->ipv4_dst;
++	fl.saddr = tun_key->ipv4_src;
++	fl.flowi4_tos = RT_TOS(tun_key->ipv4_tos);
+ 	fl.flowi4_mark = skb->mark;
+ 	fl.flowi4_proto = IPPROTO_GRE;
+ 
+@@ -153,7 +154,7 @@ static int gre_tnl_send(struct vport *vport, struct sk_buff *skb)
+ 	if (IS_ERR(rt))
+ 		return PTR_ERR(rt);
+ 
+-	tunnel_hlen = ip_gre_calc_hlen(OVS_CB(skb)->tun_key->tun_flags);
++	tunnel_hlen = ip_gre_calc_hlen(tun_key->tun_flags);
+ 
+ 	min_headroom = LL_RESERVED_SPACE(rt->dst.dev) + rt->dst.header_len
+ 			+ tunnel_hlen + sizeof(struct iphdr)
+@@ -185,15 +186,15 @@ static int gre_tnl_send(struct vport *vport, struct sk_buff *skb)
+ 		goto err_free_rt;
+ 	}
+ 
+-	df = OVS_CB(skb)->tun_key->tun_flags & TUNNEL_DONT_FRAGMENT ?
++	df = tun_key->tun_flags & TUNNEL_DONT_FRAGMENT ?
+ 		htons(IP_DF) : 0;
+ 
+ 	skb->ignore_df = 1;
+ 
+ 	return iptunnel_xmit(skb->sk, rt, skb, fl.saddr,
+-			     OVS_CB(skb)->tun_key->ipv4_dst, IPPROTO_GRE,
+-			     OVS_CB(skb)->tun_key->ipv4_tos,
+-			     OVS_CB(skb)->tun_key->ipv4_ttl, df, false);
++			     tun_key->ipv4_dst, IPPROTO_GRE,
++			     tun_key->ipv4_tos,
++			     tun_key->ipv4_ttl, df, false);
+ err_free_rt:
+ 	ip_rt_put(rt);
+ error:
+diff --git a/net/openvswitch/vport-vxlan.c b/net/openvswitch/vport-vxlan.c
+index d523e74..3835143 100644
+--- a/net/openvswitch/vport-vxlan.c
++++ b/net/openvswitch/vport-vxlan.c
+@@ -58,7 +58,7 @@ static inline struct vxlan_port *vxlan_vport(const struct vport *vport)
+ /* Called with rcu_read_lock and BH disabled. */
+ static void vxlan_rcv(struct vxlan_sock *vs, struct sk_buff *skb, __be32 vx_vni)
+ {
+-	struct ovs_key_ipv4_tunnel tun_key;
++	struct ovs_tunnel_info tun_info;
+ 	struct vport *vport = vs->uts.data;
+ 	struct iphdr *iph;
+ 	__be64 key;
+@@ -66,9 +66,9 @@ static void vxlan_rcv(struct vxlan_sock *vs, struct sk_buff *skb, __be32 vx_vni)
+ 	/* Save outer tunnel values */
+ 	iph = ip_hdr(skb);
+ 	key = cpu_to_be64(ntohl(vx_vni) >> 8);
+-	ovs_flow_tun_key_init(&tun_key, iph, key, TUNNEL_KEY);
++	ovs_flow_tun_info_init(&tun_info, iph, key, TUNNEL_KEY);
+ 
+-	ovs_vport_receive(vport, skb, &tun_key);
++	ovs_vport_receive(vport, skb, &tun_info);
+ }
+ 
+ static int vxlan_get_options(const struct vport *vport, struct sk_buff *skb)
+@@ -138,6 +138,7 @@ error:
+ 
+ static int vxlan_tnl_send(struct vport *vport, struct sk_buff *skb)
+ {
++	struct ovs_key_ipv4_tunnel *tun_key;
+ 	struct net *net = ovs_dp_get_net(vport->dp);
+ 	struct vxlan_port *vxlan_port = vxlan_vport(vport);
+ 	__be16 dst_port = inet_sk(vxlan_port->vs->uts.sock->sk)->inet_sport;
+@@ -147,16 +148,18 @@ static int vxlan_tnl_send(struct vport *vport, struct sk_buff *skb)
+ 	__be16 df;
+ 	int err;
+ 
+-	if (unlikely(!OVS_CB(skb)->tun_key)) {
++	if (unlikely(!OVS_CB(skb)->tun_info)) {
+ 		err = -EINVAL;
+ 		goto error;
+ 	}
+ 
++	tun_key = &OVS_CB(skb)->tun_info->tunnel;
++
+ 	/* Route lookup */
+ 	memset(&fl, 0, sizeof(fl));
+-	fl.daddr = OVS_CB(skb)->tun_key->ipv4_dst;
+-	fl.saddr = OVS_CB(skb)->tun_key->ipv4_src;
+-	fl.flowi4_tos = RT_TOS(OVS_CB(skb)->tun_key->ipv4_tos);
++	fl.daddr = tun_key->ipv4_dst;
++	fl.saddr = tun_key->ipv4_src;
++	fl.flowi4_tos = RT_TOS(tun_key->ipv4_tos);
+ 	fl.flowi4_mark = skb->mark;
+ 	fl.flowi4_proto = IPPROTO_UDP;
+ 
+@@ -166,7 +169,7 @@ static int vxlan_tnl_send(struct vport *vport, struct sk_buff *skb)
+ 		goto error;
+ 	}
+ 
+-	df = OVS_CB(skb)->tun_key->tun_flags & TUNNEL_DONT_FRAGMENT ?
++	df = tun_key->tun_flags & TUNNEL_DONT_FRAGMENT ?
+ 		htons(IP_DF) : 0;
+ 
+ 	skb->ignore_df = 1;
+@@ -174,11 +177,11 @@ static int vxlan_tnl_send(struct vport *vport, struct sk_buff *skb)
+ 	src_port = udp_flow_src_port(net, skb, 0, 0, true);
+ 
+ 	err = vxlan_xmit_skb(vxlan_port->vs, rt, skb,
+-			     fl.saddr, OVS_CB(skb)->tun_key->ipv4_dst,
+-			     OVS_CB(skb)->tun_key->ipv4_tos,
+-			     OVS_CB(skb)->tun_key->ipv4_ttl, df,
++			     fl.saddr, tun_key->ipv4_dst,
++			     tun_key->ipv4_tos,
++			     tun_key->ipv4_ttl, df,
+ 			     src_port, dst_port,
+-			     htonl(be64_to_cpu(OVS_CB(skb)->tun_key->tun_id) << 8),
++			     htonl(be64_to_cpu(tun_key->tun_id) << 8),
+ 			     false);
+ 	if (err < 0)
+ 		ip_rt_put(rt);
 diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
-index 42c0f4a..5b4cb82 100644
+index 5b4cb82..39e2c9c 100644
 --- a/net/openvswitch/vport.c
 +++ b/net/openvswitch/vport.c
-@@ -48,6 +48,9 @@ static const struct vport_ops *vport_ops_list[] = {
- #ifdef CONFIG_OPENVSWITCH_VXLAN
- 	&ovs_vxlan_vport_ops,
- #endif
-+#ifdef CONFIG_OPENVSWITCH_GENEVE
-+	&ovs_geneve_vport_ops,
-+#endif
- };
+@@ -340,7 +340,7 @@ int ovs_vport_get_options(const struct vport *vport, struct sk_buff *skb)
+  * skb->data should point to the Ethernet header.
+  */
+ void ovs_vport_receive(struct vport *vport, struct sk_buff *skb,
+-		       struct ovs_key_ipv4_tunnel *tun_key)
++		       struct ovs_tunnel_info *tun_info)
+ {
+ 	struct pcpu_sw_netstats *stats;
  
- /* Protected by RCU read lock for reading, ovs_mutex for writing. */
+@@ -350,7 +350,7 @@ void ovs_vport_receive(struct vport *vport, struct sk_buff *skb,
+ 	stats->rx_bytes += skb->len;
+ 	u64_stats_update_end(&stats->syncp);
+ 
+-	OVS_CB(skb)->tun_key = tun_key;
++	OVS_CB(skb)->tun_info = tun_info;
+ 	ovs_dp_process_received_packet(vport, skb);
+ }
+ 
+diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
+index 8d721e6..400cd1e 100644
+--- a/net/openvswitch/vport.h
++++ b/net/openvswitch/vport.h
+@@ -191,7 +191,7 @@ static inline struct vport *vport_from_priv(void *priv)
+ }
+ 
+ void ovs_vport_receive(struct vport *, struct sk_buff *,
+-		       struct ovs_key_ipv4_tunnel *);
++		       struct ovs_tunnel_info *);
+ 
+ /* List of statically compiled vport implementations.  Don't forget to also
+  * add yours to the list at the top of vport.c. */
 -- 
 1.7.9.5
