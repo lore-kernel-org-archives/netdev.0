@@ -1,44 +1,47 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [PATCH 3/5] net/netfilter/ipvs/ip_vs_ctl.c: drop argument range
- check just before the check for equality
-Date: Tue, 22 Jul 2014 12:14:41 +0300
-Message-ID: <20140722091441.GN18338@mwanda>
-References: <1405697638-23767-1-git-send-email-andrey.krieger.utkin@gmail.com>
- <alpine.LFD.2.11.1407182339160.2273@ja.home.ssi.bg>
- <CANZNk83dJCXAWrQ+i5rh=sdUuiiD5ZhzDua-rjJpBZCzzNGDJA@mail.gmail.com>
- <alpine.LFD.2.11.1407212253100.2358@ja.home.ssi.bg>
- <20140722074214.GL25880@mwanda>
- <alpine.LFD.2.11.1407221136420.1949@ja.home.ssi.bg>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v7] bfin_mac: convert bfin Ethernet driver to NAPI
+ framework
+Date: Tue, 22 Jul 2014 11:51:06 +0200
+Message-ID: <1406022666.10255.128.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1406014682-19188-1-git-send-email-sonic.adi@gmail.com>
+	 <1406015984.10255.121.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140722.010105.2036198226851589509.davem@davemloft.net>
+	 <CAJxxZ0Niah8QXGoa4CT4Y5i7qnSjL2xq_GYq7rUHmdJpaNzBHg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrey Utkin <andrey.krieger.utkin@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	kernel-janitors@vger.kernel.org, coreteam@netfilter.org,
-	netfilter-devel@vger.kernel.org, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, dcb314@hotmail.com,
-	David Miller <davem@davemloft.net>, kadlec@blackhole.kfki.hu,
-	Patrick McHardy <kaber@trash.net>, pablo@netfilter.org,
-	Simon Horman <horms@verge.net.au>, wensong@linux-vs.org
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.11.1407221136420.1949@ja.home.ssi.bg>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	adi-buildroot-devel@lists.sourceforge.net,
+	"Zhang, Sonic" <sonic.zhang@analog.com>
+To: Sonic Zhang <sonic.adi@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:43313 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754210AbaGVJv0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 05:51:26 -0400
+Received: by mail-wi0-f176.google.com with SMTP id bs8so5600514wib.9
+        for <netdev@vger.kernel.org>; Tue, 22 Jul 2014 02:51:22 -0700 (PDT)
+In-Reply-To: <CAJxxZ0Niah8QXGoa4CT4Y5i7qnSjL2xq_GYq7rUHmdJpaNzBHg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 22, 2014 at 11:52:02AM +0300, Julian Anastasov wrote:
-> > > -	if (copylen > 128)
-> > > +	if (*len < (int) copylen || *len < 0) {
-> > > +		pr_err("get_ctl: len %d < %u\n", *len, copylen);
-> > 
-> > Don't let users flood dmesg.  Just return an error.  (This can be
-> > triggered by non-root as well).
+On Tue, 2014-07-22 at 16:53 +0800, Sonic Zhang wrote:
+
+> if (!--A)
 > 
-> 	For now both set and get are privileged operations,
-> so we can keep it, it can catch if something wrong happens
-> with the structure sizes.
+> doesn't equal to
+> 
+> if (A--)
+>         if (!A)
 
-If you have namespaces enabled then it's not *that* privaleged.
+It really does, no matter what you think.
 
-regards,
-dan carpenter
+In all cases, A is decremented.
+
+In all cases, final action is done if and only if A was 1 before the
+test(s)
+
+Thats simple logic, and all your arguments about NAPI, IRQ, and moon
+phase are irrelevant.
