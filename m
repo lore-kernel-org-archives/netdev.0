@@ -1,48 +1,29 @@
-From: "Michael Kerrisk (man-pages)" <mtk.manpages@gmail.com>
-Subject: Re: [PATCH] net: Fix recvmmsg timeout handling
-Date: Tue, 22 Jul 2014 20:59:40 +0200
-Message-ID: <53CEB49C.5050304@gmail.com>
-References: <20140721192131.GA3212@kernel.org> <20140721.204538.1952841990990568877.davem@davemloft.net>
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Subject: Re: [PATCH net-next 2/3] ethtool: add rx_copybreak support
+Date: Wed, 23 Jul 2014 00:42:00 +0530 (IST)
+Message-ID: <alpine.LNX.2.03.1407230039010.15542@ws.cisco>
+References: <1406050268-13329-1-git-send-email-_govind@gmx.com>   <1406050268-13329-3-git-send-email-_govind@gmx.com>  <1406051145.7427.2.camel@deadeye.wl.decadent.org.uk>  <alpine.LNX.2.03.1407230004150.15542@ws.cisco>
+ <1406055025.7427.7.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: mtk.manpages@gmail.com, caitlin.bestler@gmail.com,
-	chris.friesen@windriver.com, David.Laight@ACULAB.COM,
-	eliedebrauwer@gmail.com, nhorman@tuxdriver.com, neleai@seznam.cz,
-	paul@paul-moore.com, remi@remlab.net, steve@chygwyn.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, acme@kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Govindarajulu Varadarajan <_govind@gmx.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, ssujith@cisco.com, benve@cisco.com
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f179.google.com ([209.85.212.179]:51434 "EHLO
-	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750970AbaGVTAF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 15:00:05 -0400
-Received: by mail-wi0-f179.google.com with SMTP id f8so973443wiw.0
-        for <netdev@vger.kernel.org>; Tue, 22 Jul 2014 12:00:03 -0700 (PDT)
-In-Reply-To: <20140721.204538.1952841990990568877.davem@davemloft.net>
+Received: from mout.gmx.net ([212.227.17.22]:58726 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751185AbaGVTMk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Jul 2014 15:12:40 -0400
+In-Reply-To: <1406055025.7427.7.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/22/2014 05:45 AM, David Miller wrote:
-> From: Arnaldo Carvalho de Melo <acme@kernel.org>
-> Date: Mon, 21 Jul 2014 16:21:31 -0300
-> 
->> 	Trying to get this merged, finally. I has whas has been
->> discussed so far and agreed wrt the timeout handling.
-> 
-> This gets lots of rejects against the current 'net' tree.
-> 
-> Please respin and integrate Remi's Acked-by, thanks.
-> 
+On Tue, 22 Jul 2014, Ben Hutchings wrote:
+> No, you can't do that either.  Basically you can't change the size or
+> layout of any of the ethtool structures.
 
-+1 -- then this patch could be tested...
+Ok. Can you suggest me how I should add rx_copybreak to ethtool?
 
-Cheers,
+May be add another function, set/get_rxcopybreak(), to ethtool_ops?
 
-Michael
-
-
--- 
-Michael Kerrisk
-Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
-Linux/UNIX System Programming Training: http://man7.org/training/
+Thanks
