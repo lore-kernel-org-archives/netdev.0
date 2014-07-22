@@ -1,84 +1,90 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [net-next 02/10] udp: Expand UDP tunnel common APIs
-Date: Tue, 22 Jul 2014 14:16:11 -0700
-Message-ID: <CA+mtBx9RUe7a2hYsRjHbS3E+TzGOQ4Q8wLZp+-TDHQkV+L5c1Q@mail.gmail.com>
-References: <1406024393-6778-1-git-send-email-azhou@nicira.com>
-	<1406024393-6778-3-git-send-email-azhou@nicira.com>
-	<CA+mtBx9M_BpjT-_Egng+jFxmqJzdC2Npg0ufE2ZSAb9Lhw8hxg@mail.gmail.com>
-	<CACzMAJ+uW0rYQxxmi4GouGF64bbr0VDCsdrBymypWLxCaHQSrA@mail.gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [RFC 0/2] net: phy: Prevent an MDIO bus from being unloaded while
+ in use
+Date: Tue, 22 Jul 2014 14:31:42 -0700
+Message-ID: <CAGVrzcZHTkSZfSGaBoBKiTmWoeoczNK5VY90Zj3osmLaFkH=Fw@mail.gmail.com>
+References: <1405967170-19353-1-git-send-email-ezequiel.garcia@free-electrons.com>
+ <CAGVrzcYo7BKmjxLMfB7u8rkgE1o+CDkDkWvCSL4kZ8S3whx=hw@mail.gmail.com> <20140721185552.GA20027@arch.cereza>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Andy Zhou <azhou@nicira.com>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>
+To: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f171.google.com ([209.85.213.171]:35034 "EHLO
-	mail-ig0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752457AbaGVVQM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 17:16:12 -0400
-Received: by mail-ig0-f171.google.com with SMTP id l13so4508821iga.4
-        for <netdev@vger.kernel.org>; Tue, 22 Jul 2014 14:16:12 -0700 (PDT)
-In-Reply-To: <CACzMAJ+uW0rYQxxmi4GouGF64bbr0VDCsdrBymypWLxCaHQSrA@mail.gmail.com>
+Received: from mail-oa0-f51.google.com ([209.85.219.51]:63036 "EHLO
+	mail-oa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756618AbaGVVcX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 17:32:23 -0400
+Received: by mail-oa0-f51.google.com with SMTP id o6so409216oag.38
+        for <netdev@vger.kernel.org>; Tue, 22 Jul 2014 14:32:22 -0700 (PDT)
+In-Reply-To: <20140721185552.GA20027@arch.cereza>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 22, 2014 at 2:02 PM, Andy Zhou <azhou@nicira.com> wrote:
-> On Tue, Jul 22, 2014 at 12:52 PM, Tom Herbert <therbert@google.com> wrote:
+2014-07-21 11:55 GMT-07:00 Ezequiel Garcia <ezequiel.garcia@free-electr=
+ons.com>:
+> Hi Florian,
+>
+> Thanks for the quick reply.
+>
+> On 21 Jul 11:42 AM, Florian Fainelli wrote:
+> [..]
+>> >
+>> > This patchset fixes this by calling module_{get,put} in the ethern=
+et driver.
+>> > After this patch, the mvmdio driver is no longer removable:
+>> >
+>> >   $ modprobe -r mvmdio
+>> >   modprobe: can't unload module mvmdio: Resource temporarily unava=
+ilable
+>> >
+>> > Of course, we can expect a few drivers to have the same need and t=
+herefore
+>> > we could argue about moving this to be part of the phydev connecti=
+on.
 >>
+>> Right, that's exactly what jumps to mind when I take a look at your
+>> patch set. As long as a PHY device connected to a particular MDIO bu=
+s
+>> is in used, we should make sure its refcount does not hit zero.
 >>
->> On Tue, Jul 22, 2014 at 3:19 AM, Andy Zhou <azhou@nicira.com> wrote:
->>> Added create_udp_tunnel_socket(), packet receive and transmit,  and
->>> other related common functions for UDP tunnels.
->>>
->>> Per net open UDP tunnel ports are tracked in this common layer to
->>> prevent sharing of a single port with more than one UDP tunnel.
->>>
->> bind should already prevent this. I don't really see a need to track udp
->> encap ports separately.
 >
-> When a new network device driver is activated, does it need to get a list
-> of currently open UDP tunnel ports to configure its offloads?
->
-If that's needed it should be driven by the UDP offload registration
-mechanisms, not from UDP tunnel code. It's very conceivable that we
-will have UDP offloads that don't correspond to UDP tunnels in the
-kernel--QUIC comes to mind.
+> Any suggestions about where to do it? I think the right place is
+> after the calls to bus_find_device() in of_phy_find_device() and
+> phy_connect().
 
->>> --- a/include/net/udp_tunnel.h
->>> +++ b/include/net/udp_tunnel.h
->>> @@ -1,7 +1,10 @@
->>>  #ifndef __NET_UDP_TUNNEL_H
->>>  #define __NET_UDP_TUNNEL_H
->>>
->>> -#define UDP_TUNNEL_TYPE_VXLAN 0x01
->>> +#include <net/ip_tunnels.h>
->>> +
->>> +#define UDP_TUNNEL_TYPE_VXLAN  0x01
->>> +#define UDP_TUNNEL_TYPE_GENEVE 0x02
->>>
->> Why do we need to define these? Caller should know what type of port is
->> being opened and provide appropriate encap_rcv.
->
-> Assume udp tunnel layer needs to keep track of open ports, should it
-> also keep track of the protocol associated with the port?
->
-For what purpose? Other than for offloads and rcv_encap functions that
-provide the service function anyway, what need is there for UDP layer
-to know about this. More to the point, if I add a module to the kernel
-with a new flavor of UDP tunneling, I shouldn't have to touch any core
-code for things to work correctly. So by this line of thinking,
-neither the terms VXLAN nor GENEVE should appear in any common code.
+A common place that is guaranteed to be called by all
+phy_{connect,attach}{,_direct} is phy_attach_direct(), presumably
+right after the call to device_bind_driver for instance?
 
->>> +
->>> +/* Calls the ndo_add_tunnel_port of the caller in order to
->>> + * supply the listening VXLAN udp ports. Callers are expected
->>> + * to implement the ndo_add_tunnle_port.
->>> + */
->> Seems a little presumptuous that we're doing VXLAN specific things in what
->> should be common and generic code...
+>
+>> BTW, neither mvmdio nor mvneta seems to set their 'owner' field, is
+>> that intentional?
 >>
-> You are right. Cut-and-past error. It should read "UDP tunnel ports"
-> instead. I will fix it.
+>
+> Actually, I had a patch that did so and then dropped it. The owner
+> is set to unconditionally for plaftorm drivers, so setting it has no
+> effect. See include/linux/platform_device.h:
 
-Given my arguments above, I'm not sure that ndo_add_tunnel_port is the
-right interface either.
+Ah, indeed, I guess a coccinelle spatch could clean up this redundant
+assignment for a bunch of drivers then.
+
+>
+> /*
+>  * use a macro to avoid include chaining to get THIS_MODULE
+>  */
+> #define platform_driver_register(drv) \
+>         __platform_driver_register(drv, THIS_MODULE)
+>
+> --
+> Ezequiel Garc=C3=ADa, Free Electrons
+> Embedded Linux, Kernel and Android Engineering
+> http://free-electrons.com
+
+
+
+--=20
+=46lorian
