@@ -1,55 +1,39 @@
-From: Andrew Bresticker <abrestic@chromium.org>
-Subject: [PATCH] mac80211_hwsim: fix compiler warning on MIPS
-Date: Tue, 22 Jul 2014 14:43:51 -0700
-Message-ID: <1406065431-20813-1-git-send-email-abrestic@chromium.org>
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Andrew Bresticker <abrestic@chromium.org>
-To: "John W. Linville" <linville@tuxdriver.com>,
-	Johannes Berg <johannes.berg@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH net] tcp: Fix integer-overflows in TCP vegas
+Date: Tue, 22 Jul 2014 17:58:40 -0400
+Message-ID: <CADVnQymL5ns=N8iQHZSvPitbbTpatnWTgPs+M0QxpiyL9FJ5Ug@mail.gmail.com>
+References: <1406065017-22102-1-git-send-email-christoph.paasch@uclouvain.be>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>, Doug Leith <doug.leith@nuim.ie>
+To: Christoph Paasch <christoph.paasch@uclouvain.be>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f181.google.com ([74.125.82.181]:65468 "EHLO
+	mail-we0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754866AbaGVV6l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 17:58:41 -0400
+Received: by mail-we0-f181.google.com with SMTP id k48so291599wev.12
+        for <netdev@vger.kernel.org>; Tue, 22 Jul 2014 14:58:40 -0700 (PDT)
+In-Reply-To: <1406065017-22102-1-git-send-email-christoph.paasch@uclouvain.be>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The dividend in do_div() is expected to be an unsigned 64-bit integer,
-which leads to the following warning when building for 32-bit MIPS:
+On Tue, Jul 22, 2014 at 5:36 PM, Christoph Paasch
+<christoph.paasch@uclouvain.be> wrote:
+> In vegas we do a multiplication of the cwnd and the rtt. This
+> may overflow and thus their result is stored in a u64. However, we first
+> need to cast the cwnd so that actually 64-bit arithmetic is done.
+>
+> Cc: Doug Leith <doug.leith@nuim.ie>
+> Fixes: 8d3a564da34e (tcp: tcp_vegas cong avoid fix)
+> Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
+> ---
+>  net/ipv4/tcp_vegas.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 
-  drivers/net/wireless/mac80211_hwsim.c: In function 'mac80211_hwsim_set_tsf':
-  drivers/net/wireless/mac80211_hwsim.c:664:98: warning: comparison of distinct pointer types lacks a cast [enabled by default]
-    data->bcn_delta = do_div(delta, bcn_int);
+Acked-by: Neal Cardwell <ncardwell@google.com>
 
-Since we care about the signedness of delta when adjusting tsf_offset
-and bcm_delta, use the absolute value for the division and compare
-the two timestamps to determine the sign.
+Thanks!
 
-Signed-off-by: Andrew Bresticker <abrestic@chromium.org>
----
- drivers/net/wireless/mac80211_hwsim.c | 11 ++++++++---
- 1 file changed, 8 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/wireless/mac80211_hwsim.c b/drivers/net/wireless/mac80211_hwsim.c
-index 5ea65fc..1326f61 100644
---- a/drivers/net/wireless/mac80211_hwsim.c
-+++ b/drivers/net/wireless/mac80211_hwsim.c
-@@ -685,11 +685,16 @@ static void mac80211_hwsim_set_tsf(struct ieee80211_hw *hw,
- 	struct mac80211_hwsim_data *data = hw->priv;
- 	u64 now = mac80211_hwsim_get_tsf(hw, vif);
- 	u32 bcn_int = data->beacon_int;
--	s64 delta = tsf - now;
-+	u64 delta = abs64(tsf - now);
- 
--	data->tsf_offset += delta;
- 	/* adjust after beaconing with new timestamp at old TBTT */
--	data->bcn_delta = do_div(delta, bcn_int);
-+	if (tsf > now) {
-+		data->tsf_offset += delta;
-+		data->bcn_delta = do_div(delta, bcn_int);
-+	} else {
-+		data->tsf_offset -= delta;
-+		data->bcn_delta = -do_div(delta, bcn_int);
-+	}
- }
- 
- static void mac80211_hwsim_monitor_rx(struct ieee80211_hw *hw,
--- 
-2.0.0.526.g5318336
+neal
