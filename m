@@ -1,50 +1,44 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v7] bfin_mac: convert bfin Ethernet driver to NAPI
- framework
-Date: Tue, 22 Jul 2014 09:10:06 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1727AF5D@AcuExch.aculab.com>
-References: <1406014682-19188-1-git-send-email-sonic.adi@gmail.com>
-	<1406015984.10255.121.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20140722.010105.2036198226851589509.davem@davemloft.net>
- <CAJxxZ0Niah8QXGoa4CT4Y5i7qnSjL2xq_GYq7rUHmdJpaNzBHg@mail.gmail.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [PATCH 3/5] net/netfilter/ipvs/ip_vs_ctl.c: drop argument range
+ check just before the check for equality
+Date: Tue, 22 Jul 2014 12:14:41 +0300
+Message-ID: <20140722091441.GN18338@mwanda>
+References: <1405697638-23767-1-git-send-email-andrey.krieger.utkin@gmail.com>
+ <alpine.LFD.2.11.1407182339160.2273@ja.home.ssi.bg>
+ <CANZNk83dJCXAWrQ+i5rh=sdUuiiD5ZhzDua-rjJpBZCzzNGDJA@mail.gmail.com>
+ <alpine.LFD.2.11.1407212253100.2358@ja.home.ssi.bg>
+ <20140722074214.GL25880@mwanda>
+ <alpine.LFD.2.11.1407221136420.1949@ja.home.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	"adi-buildroot-devel@lists.sourceforge.net"
-	<adi-buildroot-devel@lists.sourceforge.net>,
-	"Zhang, Sonic" <sonic.zhang@analog.com>
-To: 'Sonic Zhang' <sonic.adi@gmail.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:37915 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1752802AbaGVJLZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Jul 2014 05:11:25 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 08472-09 for <netdev@vger.kernel.org>;
- Tue, 22 Jul 2014 10:11:16 +0100 (BST)
-In-Reply-To: <CAJxxZ0Niah8QXGoa4CT4Y5i7qnSjL2xq_GYq7rUHmdJpaNzBHg@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrey Utkin <andrey.krieger.utkin@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	kernel-janitors@vger.kernel.org, coreteam@netfilter.org,
+	netfilter-devel@vger.kernel.org, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, dcb314@hotmail.com,
+	David Miller <davem@davemloft.net>, kadlec@blackhole.kfki.hu,
+	Patrick McHardy <kaber@trash.net>, pablo@netfilter.org,
+	Simon Horman <horms@verge.net.au>, wensong@linux-vs.org
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.11.1407221136420.1949@ja.home.ssi.bg>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogU29uaWMgWmhhbmcNCi4uLg0KPiBpZiAoIS0tQSkNCj4gDQo+IGRvZXNuJ3QgZXF1YWwg
-dG8NCj4gDQo+IGlmIChBLS0pDQo+ICAgICAgICAgaWYgKCFBKQ0KPiANCj4gSW4gbmV0IHBvbGwg
-bG9vcCwgYmVjYXVzZSBvZiBOQVBJIHN0YXRlIGJpdCBOQVBJX1NUQVRFX05QU1ZDLCB0aGUgbmFw
-aQ0KPiBwb2xsIGNhbGxiYWNrIG1heSBiZSBjYWxsZWQgd2l0aCBBID0gMCAoTUFDIFJYIElSUSBp
-cyBlbmFibGVkKSBpZg0KPiBuYXBpX2NvbXBsZXRlKCkgb3RoZXIgdGhhbiBfX25hcGlfY29tcGxl
-dGUoKSBpcyB1c2VkLiBTZWUgdGhlDQo+IGV4cGxhbmF0aW9uIGluIG15IGxhc3QgZW1haWwuDQo+
-IA0KPiBJbiB0aGlzIGNhc2UsIHRoZSB1cCBjb25kaXRpb24gZGVjcmVhc2VzIEEgdG8gYSBuZWdh
-dGl2ZSBudW1iZXIgYW5kDQo+IHRoZSBpbnRlcnJ1cHQgaGFuZGxlciBjb25kaXRpb24gImlmICgh
-QSsrKSIgY2FuIG5ldmVyIGluY3JlYXNlIEEgYmFjaw0KPiB0byAwIChkaXNhYmxlIHRoZSBSWCBJ
-UlEpLiBXaGlsZSwgdGhlIGRvd24gY29uZGl0aW9uIG9ubHkgZGVjcmVhc2VzIEENCj4gaWYgaXQg
-aXMgbm90IDAuDQoNClRoZSBsb2dpYyBkb2Vzbid0IG1hdHRlciwgdGhlIEMgaXMgZXF1aXZhbGVu
-dCAtIHRoZSBjb21waWxlciBwcm9iYWJseQ0KZ2VuZXJhdGVzIHRoZSBzYW1lIGNvZGUuDQpUaGUg
-b25seSB0aW1lIHRoZXkgbWlnaHQgYmUgZGlmZmVyZW50IGlzIGlmICdBJyBpcyB2b2xhdGlsZS4N
-CldlbGwsIGFwYXJ0IGZyb20gdGhlIG5vbi1kZXRlcm1pbmlzdGljIGNhc2VzIHdoZXJlIG90aGVy
-IGNvZGUgaXMNCm1vZGlmeWluZyB0aGUgdmFyaWFibGUgYXQgdGhlIHNhbWUgdGltZSAtIGFuZCB5
-b3UgYXJlIGF0IHRoZSB3aGltDQpvZiB0aGUgY29tcGlsZXIuDQoNCglEYXZpZA0KDQo=
+On Tue, Jul 22, 2014 at 11:52:02AM +0300, Julian Anastasov wrote:
+> > > -	if (copylen > 128)
+> > > +	if (*len < (int) copylen || *len < 0) {
+> > > +		pr_err("get_ctl: len %d < %u\n", *len, copylen);
+> > 
+> > Don't let users flood dmesg.  Just return an error.  (This can be
+> > triggered by non-root as well).
+> 
+> 	For now both set and get are privileged operations,
+> so we can keep it, it can catch if something wrong happens
+> with the structure sizes.
+
+If you have namespaces enabled then it's not *that* privaleged.
+
+regards,
+dan carpenter
