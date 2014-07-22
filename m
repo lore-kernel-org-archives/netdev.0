@@ -1,29 +1,44 @@
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: Re: [PATCH net-next 2/3] ethtool: add rx_copybreak support
-Date: Wed, 23 Jul 2014 00:42:00 +0530 (IST)
-Message-ID: <alpine.LNX.2.03.1407230039010.15542@ws.cisco>
-References: <1406050268-13329-1-git-send-email-_govind@gmx.com>   <1406050268-13329-3-git-send-email-_govind@gmx.com>  <1406051145.7427.2.camel@deadeye.wl.decadent.org.uk>  <alpine.LNX.2.03.1407230004150.15542@ws.cisco>
- <1406055025.7427.7.camel@deadeye.wl.decadent.org.uk>
+From: Arnaldo Carvalho de Melo <acme@kernel.org>
+Subject: Re: [PATCH] net: Fix recvmmsg timeout handling
+Date: Tue, 22 Jul 2014 16:27:11 -0300
+Message-ID: <20140722192711.GF20303@kernel.org>
+References: <20140721192131.GA3212@kernel.org>
+ <20140721.204538.1952841990990568877.davem@davemloft.net>
+ <53CEB49C.5050304@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Govindarajulu Varadarajan <_govind@gmx.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, ssujith@cisco.com, benve@cisco.com
-To: Ben Hutchings <ben@decadent.org.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, caitlin.bestler@gmail.com,
+	chris.friesen@windriver.com, David.Laight@ACULAB.COM,
+	eliedebrauwer@gmail.com, nhorman@tuxdriver.com, neleai@seznam.cz,
+	paul@paul-moore.com, remi@remlab.net, steve@chygwyn.com,
+	netdev@vger.kernel.org
+To: "Michael Kerrisk (man-pages)" <mtk.manpages@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.22]:58726 "EHLO mout.gmx.net"
+Received: from mail.kernel.org ([198.145.19.201]:60324 "EHLO mail.kernel.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751185AbaGVTMk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Jul 2014 15:12:40 -0400
-In-Reply-To: <1406055025.7427.7.camel@deadeye.wl.decadent.org.uk>
+	id S932101AbaGVT1Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Jul 2014 15:27:16 -0400
+Content-Disposition: inline
+In-Reply-To: <53CEB49C.5050304@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 22 Jul 2014, Ben Hutchings wrote:
-> No, you can't do that either.  Basically you can't change the size or
-> layout of any of the ethtool structures.
+Em Tue, Jul 22, 2014 at 08:59:40PM +0200, Michael Kerrisk (man-pages) escreveu:
+> On 07/22/2014 05:45 AM, David Miller wrote:
+> > From: Arnaldo Carvalho de Melo <acme@kernel.org>
+> > Date: Mon, 21 Jul 2014 16:21:31 -0300
+> > 
+> >> 	Trying to get this merged, finally. I has whas has been
+> >> discussed so far and agreed wrt the timeout handling.
+> > 
+> > This gets lots of rejects against the current 'net' tree.
+> > 
+> > Please respin and integrate Remi's Acked-by, thanks.
+> > 
+> 
+> +1 -- then this patch could be tested...
 
-Ok. Can you suggest me how I should add rx_copybreak to ethtool?
+It was done on top of the net-next tree, I'm finishing a make
+allmodconfig to post it on top of davem/net.
 
-May be add another function, set/get_rxcopybreak(), to ethtool_ops?
-
-Thanks
+- Arnaldo
