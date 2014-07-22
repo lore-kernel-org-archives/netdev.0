@@ -1,59 +1,90 @@
-From: Mihail Dakov <mihail.dakov@ng4t.com>
-Subject: Re: AF_PACKET: tx_ring mirrored in rx_ring?
-Date: Tue, 22 Jul 2014 15:39:48 +0200
-Message-ID: <53CE69A4.4040601@ng4t.com>
-References: <53CD1326.5090006@ng4t.com> <53CD1AE5.10408@redhat.com> <53CD2661.8070707@ng4t.com> <53CD2E08.7070204@redhat.com> <20140721203253.Horde.9bpg4-qQqIsddySIO6hXOw1@ssl.lux01.de> <CA+FuTScUC08D_+iHwxVuvWBSDdKgT7bQv-sigwAiopFodFOc=w@mail.gmail.com>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next v3 3/3] net: sctp: Add support for MSG_MORE on
+ SCTP
+Date: Tue, 22 Jul 2014 13:45:37 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1727B2A0@AcuExch.aculab.com>
+References: <063D6719AE5E284EB5DD2968C1650D6D1727AF02@AcuExch.aculab.com>
+ <53CE65B5.3090903@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <dborkman@redhat.com>, netdev@vger.kernel.org
-To: Willem de Bruijn <willemb@google.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>
+To: 'Vlad Yasevich' <vyasevich@gmail.com>,
+	"Linux Networking Development Mailing List" <netdev@vger.kernel.org>,
+	"'linux-sctp@vger.kernel.org'" <linux-sctp@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ud15.udmedia.de ([194.117.254.55]:46430 "EHLO
-	mail.ud15.udmedia.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750737AbaGVNjw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 09:39:52 -0400
-In-Reply-To: <CA+FuTScUC08D_+iHwxVuvWBSDdKgT7bQv-sigwAiopFodFOc=w@mail.gmail.com>
+Received: from mx0.aculab.com ([213.249.233.131]:43567 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752171AbaGVNq6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 09:46:58 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 04047-03 for <netdev@vger.kernel.org>;
+ Tue, 22 Jul 2014 14:46:49 +0100 (BST)
+In-Reply-To: <53CE65B5.3090903@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Vlad Yasevich 
+> On 07/22/2014 04:59 AM, David Laight wrote:
+> > If MSG_MORE is set then the data chunk will be buffered until either
+> > a full packet would be generated, or something causes a chunk to be
+> > sent (eg data without MSG_MORE or a heartbeat).
+> 
+> heartbeat will not cause a data flush.  Only SACKs do that as they control
+> congestion and flow.
 
-On 07/22/2014 12:35 AM, Willem de Bruijn wrote:
->>>> What'd you mean by local traffic? The packets which are replicated are
->>>> destined to remote machine(s).
->>>
->>> Sure, but you are sending them out via your packet socket.
->>
->> Well yes. It's just that I interpreted local as if they were not going out
->> of the machine. But in fact they do.
-> That is a semantic issue. The technical point is that packet
-> sockets read not only incoming packets, but also outgoing
-> ones. The tap in the egress path (dev_queue_xmit_nit) is taken
-> for almost all transmitted packets, included those transmitted
-> by a packet socket.
->
-> There is logic to avoid looping outgoing packets back into the
-> originating socket (and fanout group) by detecting the source
-> socket (skb_loop_sk). Other packet sockets will receive the
-> outgoing packets, however. This is correct behavior, as it is
-> how tcpdump can log all traffic, among others.
->
-> You can use PACKET_QDISC_BYPASS on your transmit
-> packet socket, as Daniel mentions, or attach a BPF filter to
-> your receive socket that filters on !PACKET_OUTGOING, e.g.,:
->
->    struct sock_filter bpf_filter[] = {
->      {BPF_LD | BPF_B | BPF_ABS, 0, 0, (uint32_t) (SKF_AD_OFF + SKF_AD_PKTTYPE)},
->      {BPF_JMP | BPF_JEQ, 1, 0, PACKET_OUTGOING},
->      {BPF_RET, 0, 0, 0x00000000},
->      {BPF_RET, 0, 0, 0x0000ffff},
->    };
->    struct sock_fprog bpf_prog;
->
->    bpf_prog.filter = bpf_filter;
->    bpf_prog.len = sizeof(bpf_filter) / sizeof(struct sock_filter);
->    if (setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &bpf_prog,
->                   sizeof(bpf_prog))) {
->      error(1, errno, "setsockopt filter");
->    }
-Thanks.
+Experimentally heartbeats cause data to be sent.
+I'd only got one IP address at each end - so don't know what happens to
+any 'probe' HBs.
+I frigged my code to set MSG_MORE if the data chunk was over 200 bytes.
+A single long fragment would be collected by a short one, or by a heartbeat.
+I did wonder if that was a bug - but it would happen for data delayed by Nagle.
+
+> That's might actually be a good solution to the problem of the an incorrectly
+> using MSG_MORE.  When a SACK drops inflight to 0, clear MSG_MORE from the
+> association thus allowing any queued data (even less then MTU) to be flushed.
+> 
+> This way, when the data flow just starts, you can use MSG_MORE to control
+> bundling.  However, the app stops sending, even if it forgot to clear MSG_MORE,
+> we'll clear it ourselves once inflight drops to 0.
+
+That will only work if there is enough data to actually send something.
+So more likely to cause confusion than be useful.
+
+All this is really defining the behaviour for 'broken' apps.
+It wouldn't be completely unreasonable if a single message sent with 'MSG_MORE'
+never actually got sent.
+
+> > The MSG_MORE flag is saved 'per association' along with a copy
+> > of the SCTP_NODELAY/Nagle flag.
+> >
+> > It is expected that an application will only set MSG_MORE when it
+> > has an additional data chunk ready to send. The sends could be done
+> > with a single sendmmsg() system call.
+> 
+> Is that really true?  If the application has 5 messages and it sends all
+> 5 with the sendmmsg(), then MSG_MORE will never get cleared and a flush
+> would not get triggered.
+
+Hmmm.... I was thinking that each entry in msgvec[] had its own flags field.
+But I guess that is only used for receive.
+
+I looked at that code at the beginning to see if it made sense to just bundle
+data sent with sendmmsg() - and decided it wasn't worth the effort because
+semdmmsg() is mostly a system call saver, I'd still need to implement the
+same code inside sctp.
+This is made more difficult for 1-many sockets because the buffers for sendmmsg()
+can all have different addresses.
+
+One option for sendmmsg() is set a different flag on all but the last buffer
+if there are no addresses present, and treat it the same as MSG_MORE for sctp.
+
+I'm on holiday for the next 2 weeks. I'll probably manage to read netdev, but
+won't be able to repost the patches from here - and certainly can't test
+anything.
+
+It would be nice to get the current patches (especially 1/3 and 2/3) in now.
+
+	David
