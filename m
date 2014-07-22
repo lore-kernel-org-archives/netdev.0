@@ -1,58 +1,50 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next v3 3/3] net: sctp: Add support for MSG_MORE on
- SCTP
-Date: Tue, 22 Jul 2014 15:25:41 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1727B3F3@AcuExch.aculab.com>
-References: <063D6719AE5E284EB5DD2968C1650D6D1727AF02@AcuExch.aculab.com>
- <53CE65B5.3090903@gmail.com>
- <063D6719AE5E284EB5DD2968C1650D6D1727B2A0@AcuExch.aculab.com>
- <53CE7B2A.90104@gmail.com>
+From: Willem de Bruijn <willemb@google.com>
+Subject: Re: [PATCH net-next v3 1/5] net-timestamp: extend SCM_TIMESTAMPING
+ ancillary data struct
+Date: Tue, 22 Jul 2014 11:45:30 -0400
+Message-ID: <CA+FuTScobCk5EFgsht=S0mfF4fVh1fKqAAV8+mZLk9h1O_uwnA@mail.gmail.com>
+References: <1405971357-22830-1-git-send-email-willemb@google.com>
+ <1405971357-22830-2-git-send-email-willemb@google.com> <20140721.162448.2136956416390069389.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>
-To: 'Vlad Yasevich' <vyasevich@gmail.com>,
-	"Linux Networking Development Mailing List" <netdev@vger.kernel.org>,
-	"'linux-sctp@vger.kernel.org'" <linux-sctp@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
+	Richard Cochran <richardcochran@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:45916 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1754122AbaGVP1B convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 11:27:01 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 25288-05 for <netdev@vger.kernel.org>;
- Tue, 22 Jul 2014 16:26:53 +0100 (BST)
-In-Reply-To: <53CE7B2A.90104@gmail.com>
-Content-Language: en-US
+Received: from mail-vc0-f176.google.com ([209.85.220.176]:62496 "EHLO
+	mail-vc0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753793AbaGVPqB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 11:46:01 -0400
+Received: by mail-vc0-f176.google.com with SMTP id id10so10565039vcb.21
+        for <netdev@vger.kernel.org>; Tue, 22 Jul 2014 08:46:00 -0700 (PDT)
+In-Reply-To: <20140721.162448.2136956416390069389.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich
-> On 07/22/2014 09:45 AM, David Laight wrote:
-> > From: Vlad Yasevich
-> >> On 07/22/2014 04:59 AM, David Laight wrote:
-> >>> If MSG_MORE is set then the data chunk will be buffered until either
-> >>> a full packet would be generated, or something causes a chunk to be
-> >>> sent (eg data without MSG_MORE or a heartbeat).
-> >>
-> >> heartbeat will not cause a data flush.  Only SACKs do that as they control
-> >> congestion and flow.
-> >
-> > Experimentally heartbeats cause data to be sent.
-> > I'd only got one IP address at each end - so don't know what happens to
-> > any 'probe' HBs.
-> > I frigged my code to set MSG_MORE if the data chunk was over 200 bytes.
-> > A single long fragment would be collected by a short one, or by a heartbeat.
-> > I did wonder if that was a bug - but it would happen for data delayed by Nagle.
-> 
-> That sounds kind like a bug.  The end of packet usually causes a flush of the outqueue,
-> but any delayed data shouldn't be sent as HB should not cause a data flush.
+>> 2) Add support to discern timestamps. When multiple timestamped
+>> packets are in flight concurrently, correlating a timestamp with
+>> the right send() call is non-trivial. Define previously unused field
+>> ee_data to communicate a send() specific key, skb->mark. It is
+>> up to the application to optionally set this field to a unique
+>> value for each send call.
+>
+> I'm not so sure about this skb->mark usage, it has other uses for things
+> such as classification, it influences route lookups, netfilter behavior,
+> etc.
+>
+> I do not think you therefore want to add another usage, timestamp packet
+> keying, which may conflict.
 
-I think the data is already in the relevant queue, it would have been sent
-earlier if there had been a packet with anything in it.
-So maybe the HB does get bundled with pending data.
+Ok. I will remove that part.
 
-Try applying my patch and doing some simple tests...
+There are a few alternatives, but none as simple, so this is better
+left to a separate patch. With skb_shinfo(skb)->syststamp deprecated
+for all but the octeon legacy use case, it is possible to repurpose
+those bytes for new uses in a union, including for a new u16 ts_key.
+The sk would still have to grow by a new field, though, e.g.,
+ts_counter. I have to think about this a bit more first.
 
-	David
+> This isn't indented correctly, the tx_flags test is part of the sock_flag()
+> test expression right before it so either:
+
+Thanks.
