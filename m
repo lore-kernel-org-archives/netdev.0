@@ -1,45 +1,66 @@
-From: Michele Baldessari <michele@acksyn.org>
-Subject: Re: Information about SCTP patch
-Date: Tue, 22 Jul 2014 10:03:04 +0200
-Message-ID: <20140722080304.GB7011@fante.int.rhx>
-References: <CAJ5TDg_0GjTWVin1Xr4sZwNhzMiT+bJPZwzfKB0xBdPMuK7T+g@mail.gmail.com>
- <20140627200644.GA9086@marquez.int.rhx>
- <CAJ5TDg_qOkpGe7Ouzn_wfbsODL4FoVLmq7EmQes6hEW-dnMLWg@mail.gmail.com>
+From: Quentin Armitage <quentin@armitage.org.uk>
+Subject: [PATCH v2] ipv4: Make IP_MULTICAST_ALL and IP_MSFILTER work on raw
+ sockets
+Date: Tue, 22 Jul 2014 09:10:10 +0100
+Message-ID: <1406016610.2990.7.camel@samson1.armitage.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-sctp@vger.kernel.org, netdev@vger.kernel.org,
-	prasad.padiyar@nsn.com, sumit.11.kumar@nsn.com
-To: kishan simha <ksimha123@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from palahniuk.acksyn.org ([5.9.7.26]:42795 "EHLO
-	palahniuk.acksyn.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751514AbaGVIDI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 04:03:08 -0400
-Content-Disposition: inline
-In-Reply-To: <CAJ5TDg_qOkpGe7Ouzn_wfbsODL4FoVLmq7EmQes6hEW-dnMLWg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	"David S.Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Kishan,
+Currently, although IP_MULTICAST_ALL and IP_MSFILTER ioctl calls succeed on
+raw sockets, there is no code to implement the functionality on received
+packets; it is only implemented for UDP sockets. The raw(7) man page states:
+"In addition, all ip(7) IPPROTO_IP socket options valid for datagram sockets
+are supported", which implies these ioctls should work on raw sockets.
 
-On Mon, Jul 21, 2014 at 02:08:21PM +0530, kishan simha wrote:
-> We are trying to integrate this patch to a little older kernel 2.6.34.13.
+To fix this, add a call to ip_mc_sf_allow on raw sockets.
 
-This is trivial as we've done so for RHEL 6.5 already.
+This should not break any existing code, since the current position of
+not calling ip_mc_sf_filter makes it behave as if neither the IP_MULTICAST_ALL
+nor the IP_MSFILTER ioctl had been called. Adding the call to ip_mc_sf_allow
+will therefore maintain the current behaviour so long as IP_MULTICAST_ALL and
+IP_MSFILTER ioctls are not called. Any code that currently is calling
+IP_MULTICAST_ALL or IP_MSFILTER ioctls on raw sockets presumably is wanting
+the filter to be applied, although no filtering will currently be occurring.
 
-> Additionally we are planning to give a proc file interface to display the stats.
-> 
-> I came across a review comment for your patch, where the proc solution
-> was rejected.
-> 
-> Can you provide some information on why the solution was rejected ?
+Signed-off-by: Quentin Armitage <quentin@armitage.org.uk>
+---
+v2: * Fixed subject line
+---
+ net/ipv4/raw.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
 
-It was preferred to do it via an API extension, similar to how
-Solaris does it. And, I believe, the /proc interface for these kind of
-things is discouraged.
-
-regards,
-Michele
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+index 2c65160..2e1628c 100644
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -58,6 +58,7 @@
+ #include <linux/in_route.h>
+ #include <linux/route.h>
+ #include <linux/skbuff.h>
++#include <linux/igmp.h>
+ #include <net/net_namespace.h>
+ #include <net/dst.h>
+ #include <net/sock.h>
+@@ -174,7 +175,9 @@ static int raw_v4_input(struct sk_buff *skb, const struct iphdr *iph, int hash)
+ 
+        while (sk) {
+                delivered = 1;
+-               if (iph->protocol != IPPROTO_ICMP || !icmp_filter(sk, skb)) {
++               if ((iph->protocol != IPPROTO_ICMP || !icmp_filter(sk, skb)) &&
++                   ip_mc_sf_allow(sk, iph->daddr, iph->saddr,
++                                  skb->dev->ifindex)) {
+                        struct sk_buff *clone = skb_clone(skb, GFP_ATOMIC);
+ 
+                        /* Not releasing hash table! */
 -- 
-Michele Baldessari            <michele@acksyn.org>
-C2A5 9DA3 9961 4FFB E01B  D0BC DDD4 DCCB 7515 5C6D
+1.7.7.6
