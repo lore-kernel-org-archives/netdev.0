@@ -1,74 +1,150 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 4/4] net/mlx4_en: Reduce memory consumption on kdump kernel
-Date: Tue, 22 Jul 2014 15:44:12 +0300
-Message-ID: <1406033052-16550-5-git-send-email-amirv@mellanox.com>
-References: <1406033052-16550-1-git-send-email-amirv@mellanox.com>
-Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH net-next v3 1/3] net: sctp: Open out the check for Nagle
+Date: Tue, 22 Jul 2014 09:02:22 -0400
+Message-ID: <53CE60DE.4070105@gmail.com>
+References: <063D6719AE5E284EB5DD2968C1650D6D1727AF04@AcuExch.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>
+To: David Laight <David.Laight@ACULAB.COM>,
+	Linux Networking Development Mailing List
+	<netdev@vger.kernel.org>,
+	"'linux-sctp@vger.kernel.org'" <linux-sctp@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:47451 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753375AbaGVMpB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Jul 2014 08:45:01 -0400
-In-Reply-To: <1406033052-16550-1-git-send-email-amirv@mellanox.com>
+Received: from mail-qg0-f53.google.com ([209.85.192.53]:45055 "EHLO
+	mail-qg0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750756AbaGVNCZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 09:02:25 -0400
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1727AF04@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When memory is limited, reduce number of rx and tx rings.
+On 07/22/2014 04:59 AM, David Laight wrote:
+> The check for Nagle contains 6 separate checks all of which must be true
+> before a data packet is delayed.
+> Separate out each into its own 'if (test) return SCTP_XMIT_OK' so that
+> the reasons can be individually described.
+> 
+> Also return directly with SCTP_XMIT_RWND_FULL.
+> Delete the now-unused 'retval' variable and 'finish' label from
+> sctp_packet_can_append_data().
+> 
+> Signed-off-by: David Laight <david.laight@aculab.com>
 
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_main.c | 6 ++++--
- drivers/net/ethernet/mellanox/mlx4/en_rx.c   | 5 +++--
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h | 1 +
- 3 files changed, 8 insertions(+), 4 deletions(-)
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_main.c b/drivers/net/ethernet/mellanox/mlx4/en_main.c
-index f953c1d..3626fdf 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_main.c
-@@ -129,8 +129,10 @@ static int mlx4_en_get_profile(struct mlx4_en_dev *mdev)
- 	int i;
- 
- 	params->udp_rss = udp_rss;
--	params->num_tx_rings_p_up = min_t(int, num_online_cpus(),
--			MLX4_EN_MAX_TX_RING_P_UP);
-+	params->num_tx_rings_p_up = mlx4_low_memory_profile() ?
-+		MLX4_EN_MIN_TX_RING_P_UP :
-+		min_t(int, num_online_cpus(), MLX4_EN_MAX_TX_RING_P_UP);
-+
- 	if (params->udp_rss && !(mdev->dev->caps.flags
- 					& MLX4_DEV_CAP_FLAG_UDP_RSS)) {
- 		mlx4_warn(mdev, "UDP RSS is not supported on this device\n");
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 7765a08..9c909d2 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -335,8 +335,9 @@ void mlx4_en_set_num_rx_rings(struct mlx4_en_dev *mdev)
- 					   dev->caps.comp_pool/
- 					   dev->caps.num_ports) - 1;
- 
--		num_rx_rings = min_t(int, num_of_eqs,
--				     netif_get_num_default_rss_queues());
-+		num_rx_rings = mlx4_low_memory_profile() ? MIN_RX_RINGS :
-+			min_t(int, num_of_eqs,
-+			      netif_get_num_default_rss_queues());
- 		mdev->profile.prof[i].rx_ring_num =
- 			rounddown_pow_of_two(num_rx_rings);
- 	}
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 54c2774..3de41be 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -121,6 +121,7 @@ enum {
- #define MLX4_EN_MIN_TX_SIZE	(4096 / TXBB_SIZE)
- 
- #define MLX4_EN_SMALL_PKT_SIZE		64
-+#define MLX4_EN_MIN_TX_RING_P_UP	1
- #define MLX4_EN_MAX_TX_RING_P_UP	32
- #define MLX4_EN_NUM_UP			8
- #define MLX4_EN_DEF_TX_RING_SIZE	512
--- 
-1.8.3.4
+-vlad
+
+> ---
+> 
+> Resend with corrected subject line.
+> 
+> Changes from v2:
+> - Fix inverted test for 'inflight == 0'
+> 
+>  net/sctp/output.c | 69 +++++++++++++++++++++++++++++--------------------------
+>  1 file changed, 36 insertions(+), 33 deletions(-)
+> 
+> diff --git a/net/sctp/output.c b/net/sctp/output.c
+> index 0f4d15f..553ba1d 100644
+> --- a/net/sctp/output.c
+> +++ b/net/sctp/output.c
+> @@ -633,7 +633,6 @@ nomem:
+>  static sctp_xmit_t sctp_packet_can_append_data(struct sctp_packet *packet,
+>  					   struct sctp_chunk *chunk)
+>  {
+> -	sctp_xmit_t retval = SCTP_XMIT_OK;
+>  	size_t datasize, rwnd, inflight, flight_size;
+>  	struct sctp_transport *transport = packet->transport;
+>  	struct sctp_association *asoc = transport->asoc;
+> @@ -658,15 +657,11 @@ static sctp_xmit_t sctp_packet_can_append_data(struct sctp_packet *packet,
+>  
+>  	datasize = sctp_data_size(chunk);
+>  
+> -	if (datasize > rwnd) {
+> -		if (inflight > 0) {
+> -			/* We have (at least) one data chunk in flight,
+> -			 * so we can't fall back to rule 6.1 B).
+> -			 */
+> -			retval = SCTP_XMIT_RWND_FULL;
+> -			goto finish;
+> -		}
+> -	}
+> +	if (datasize > rwnd && inflight > 0)
+> +		/* We have (at least) one data chunk in flight,
+> +		 * so we can't fall back to rule 6.1 B).
+> +		 */
+> +		return SCTP_XMIT_RWND_FULL;
+>  
+>  	/* RFC 2960 6.1  Transmission of DATA Chunks
+>  	 *
+> @@ -680,36 +675,44 @@ static sctp_xmit_t sctp_packet_can_append_data(struct sctp_packet *packet,
+>  	 *    When a Fast Retransmit is being performed the sender SHOULD
+>  	 *    ignore the value of cwnd and SHOULD NOT delay retransmission.
+>  	 */
+> -	if (chunk->fast_retransmit != SCTP_NEED_FRTX)
+> -		if (flight_size >= transport->cwnd) {
+> -			retval = SCTP_XMIT_RWND_FULL;
+> -			goto finish;
+> -		}
+> +	if (chunk->fast_retransmit != SCTP_NEED_FRTX &&
+> +	    flight_size >= transport->cwnd)
+> +		return SCTP_XMIT_RWND_FULL;
+>  
+>  	/* Nagle's algorithm to solve small-packet problem:
+>  	 * Inhibit the sending of new chunks when new outgoing data arrives
+>  	 * if any previously transmitted data on the connection remains
+>  	 * unacknowledged.
+>  	 */
+> -	if (!sctp_sk(asoc->base.sk)->nodelay && sctp_packet_empty(packet) &&
+> -	    inflight && sctp_state(asoc, ESTABLISHED)) {
+> -		unsigned int max = transport->pathmtu - packet->overhead;
+> -		unsigned int len = chunk->skb->len + q->out_qlen;
+> -
+> -		/* Check whether this chunk and all the rest of pending
+> -		 * data will fit or delay in hopes of bundling a full
+> -		 * sized packet.
+> -		 * Don't delay large message writes that may have been
+> -		 * fragmeneted into small peices.
+> -		 */
+> -		if ((len < max) && chunk->msg->can_delay) {
+> -			retval = SCTP_XMIT_NAGLE_DELAY;
+> -			goto finish;
+> -		}
+> -	}
+>  
+> -finish:
+> -	return retval;
+> +	if (sctp_sk(asoc->base.sk)->nodelay)
+> +		/* Nagle disabled */
+> +		return SCTP_XMIT_OK;
+> +
+> +	if (!sctp_packet_empty(packet))
+> +		/* Append to packet */
+> +		return SCTP_XMIT_OK;
+> +
+> +	if (inflight == 0)
+> +		/* Nothing unacked */
+> +		return SCTP_XMIT_OK;
+> +	
+> +	if (!sctp_state(asoc, ESTABLISHED))
+> +		return SCTP_XMIT_OK;
+> +
+> +	/* Check whether this chunk and all the rest of pending data will fit
+> +	 * or delay in hopes of bundling a full sized packet.
+> +	 */
+> +	if (chunk->skb->len + q->out_qlen >= transport->pathmtu - packet->overhead)
+> +		/* Enough data queued to fill a packet */
+> +		return SCTP_XMIT_OK;
+> +
+> +	/* Don't delay large message writes that may have been fragmented */
+> +	if (!chunk->msg->can_delay)
+> +		return SCTP_XMIT_OK;
+> +
+> +	/* Defer until all data acked or packet full */
+> +	return SCTP_XMIT_NAGLE_DELAY;
+>  }
+>  
+>  /* This private function does management things when adding DATA chunk */
+> 
