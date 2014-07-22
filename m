@@ -1,55 +1,69 @@
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: Re: [PATCH net-next 2/3] ethtool: add rx_copybreak support
-Date: Wed, 23 Jul 2014 00:05:55 +0530 (IST)
-Message-ID: <alpine.LNX.2.03.1407230004150.15542@ws.cisco>
-References: <1406050268-13329-1-git-send-email-_govind@gmx.com>  <1406050268-13329-3-git-send-email-_govind@gmx.com> <1406051145.7427.2.camel@deadeye.wl.decadent.org.uk>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Govindarajulu Varadarajan <_govind@gmx.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, ssujith@cisco.com, benve@cisco.com
-To: Ben Hutchings <ben@decadent.org.uk>
+From: Pravin B Shelar <pshelar@nicira.com>
+Subject: [GIT net-next v8] Open vSwitch
+Date: Tue, 22 Jul 2014 11:34:06 -0700
+Message-ID: <1406054046-1613-1-git-send-email-pshelar@nicira.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.com ([74.208.4.200]:63712 "EHLO mout.gmx.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756183AbaGVSgU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Jul 2014 14:36:20 -0400
-In-Reply-To: <1406051145.7427.2.camel@deadeye.wl.decadent.org.uk>
+Received: from na6sys009bog029.obsmtp.com ([74.125.150.103]:44230 "HELO
+	na6sys009bog029.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751392AbaGVSj4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 14:39:56 -0400
+Received: by mail-pa0-f43.google.com with SMTP id lf10so70112pab.16
+        for <netdev@vger.kernel.org>; Tue, 22 Jul 2014 11:39:54 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 22 Jul 2014, Ben Hutchings wrote:
+Following patches adds three features to OVS
+1. Add fairness to upcall processing.
+2. Hash action.
+3. Enable Tunnel GSO features.
+Rest of patches are bug fixes related to patches from same series.
 
-> On Tue, 2014-07-22 at 23:01 +0530, Govindarajulu Varadarajan wrote:
->> This patch adds rx_copybreak support to ethtool.h header file.
->> This is used to show/set rx_copybreak using ethtool.
->>
->> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
->> ---
->>  include/uapi/linux/ethtool.h | 2 ++
->>  1 file changed, 2 insertions(+)
->>
->> diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
->> index e3c7a71..d2912ad 100644
->> --- a/include/uapi/linux/ethtool.h
->> +++ b/include/uapi/linux/ethtool.h
->> @@ -433,10 +433,12 @@ struct ethtool_ringparam {
->>  	__u32	rx_mini_max_pending;
->>  	__u32	rx_jumbo_max_pending;
->>  	__u32	tx_max_pending;
->> +	__u32	rx_max_copybreak_pending;
->>  	__u32	rx_pending;
->>  	__u32	rx_mini_pending;
->>  	__u32	rx_jumbo_pending;
->>  	__u32	tx_pending;
->> +	__u32	rx_copybreak_pending;
->>  };
->>
->>  /**
->
-> No, you can't rearrange UAPI structures like this.
->
+v2 series changes first patch according to comment from Dave Miller.
+v3 series changes first patch according to comment from Nikolay Aleksandrov.
+v4 series update recirc patch commit msg.
+v5 series resolve conflict with net-next, updated recic action patch.
+v6 series sends all patches.
+v7 series drop recirc patches.
+v8 series checkpatch fix 
+----------------------------------------------------------------
 
-So I will move these 2 variables to the end of the struct?
-Also in ethtool-copy.h in ethtool.
+The following changes since commit 8fd90bb889635fa1e7f80a3950948cc2e74c1446:
 
-Thanks
+  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2014-07-22 00:44:59 -0700)
+
+are available in the git repository at:
+
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pshelar/openvswitch.git net_next_ovs
+
+for you to fetch changes up to bc5dd8ec98f2020778f02b53ab94f042a6eefc45:
+
+  openvswitch: Add skb_clone NULL check for the sampling action. (2014-07-22 09:42:00 -0700)
+
+----------------------------------------------------------------
+Alex Wang (1):
+      openvswitch: Allow each vport to have an array of 'port_id's.
+
+Andy Zhou (3):
+      openvswitch: Add hash action
+      openvswitch: Avoid memory corruption in queue_userspace_packet()
+      openvswitch: Add skb_clone NULL check for the sampling action.
+
+Pravin B Shelar (1):
+      openvswitch: Enable tunnel GSO for OVS bridge.
+
+Simon Horman (1):
+      openvswitch: Sample action without side effects
+
+ include/linux/netdev_features.h      |   8 +++
+ include/uapi/linux/openvswitch.h     |  37 +++++++++++--
+ net/openvswitch/actions.c            |  69 ++++++++++++++++++++----
+ net/openvswitch/datapath.c           |  26 ++++++---
+ net/openvswitch/flow.h               |   1 +
+ net/openvswitch/flow_netlink.c       |  27 +++++++++-
+ net/openvswitch/vport-internal_dev.c |   5 +-
+ net/openvswitch/vport.c              | 101 ++++++++++++++++++++++++++++++++++-
+ net/openvswitch/vport.h              |  27 ++++++++--
+ 9 files changed, 271 insertions(+), 30 deletions(-)
