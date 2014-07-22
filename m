@@ -1,99 +1,46 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH v7] bfin_mac: convert bfin Ethernet driver to NAPI
- framework
-Date: Wed, 23 Jul 2014 00:16:06 +0200
-Message-ID: <20140722221606.GA16444@electric-eye.fr.zoreil.com>
-References: <1406014682-19188-1-git-send-email-sonic.adi@gmail.com>
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: Re: [PATCH 0/6] net: mvpp2: Assorted fixes
+Date: Wed, 23 Jul 2014 00:29:16 +0200
+Message-ID: <20140723002916.67a0bb3c@free-electrons.com>
+References: <1405961296-5846-1-git-send-email-ezequiel.garcia@free-electrons.com>
+	<20140721.202749.913689946944612851.davem@davemloft.net>
+	<20140722144519.GA682@arch.cereza>
+	<20140722.131639.1180592286226896307.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	adi-buildroot-devel@lists.sourceforge.net,
-	Sonic Zhang <sonic.zhang@analog.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Laight <David.Laight@aculab.com>
-To: Sonic Zhang <sonic.adi@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: ezequiel.garcia@free-electrons.com, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, jason@lakedaemon.net,
+	mw@semihalf.com, gregory.clement@free-electrons.com,
+	tawfik@marvell.com, alior@marvell.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:59489 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755563AbaGVWQ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 18:16:28 -0400
-Content-Disposition: inline
-In-Reply-To: <1406014682-19188-1-git-send-email-sonic.adi@gmail.com>
+Received: from top.free-electrons.com ([176.31.233.9]:36901 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932722AbaGVW3U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 18:29:20 -0400
+In-Reply-To: <20140722.131639.1180592286226896307.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sonic Zhang <sonic.adi@gmail.com> :
-[...]
-> diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
-> index 7ae74d4..8924802 100644
-> --- a/drivers/net/ethernet/adi/bfin_mac.c
-> +++ b/drivers/net/ethernet/adi/bfin_mac.c
-[...]
-> @@ -1302,41 +1303,53 @@ out:
->  	current_rx_ptr = current_rx_ptr->next;
->  }
->  
-> +static int bfin_mac_poll(struct napi_struct *napi, int budget)
-> +{
-> +	int i = 0;
-> +	struct bfin_mac_local *lp = container_of(napi,
-> +						 struct bfin_mac_local,
-> +						 napi);
-> +
-> +	while (current_rx_ptr->status.status_word != 0 && i < budget) {
-> +		bfin_mac_rx(lp, budget);
-> +		i++;
-> +	}
-> +
-> +	if (i < budget) {
-> +		napi_complete(napi);
-> +		if (lp->rx_irq_disabled--)
-> +			if (!lp->rx_irq_disabled)
-> +				enable_irq(IRQ_MAC_RX);
-> +	}
-[...]
->  static irqreturn_t bfin_mac_interrupt(int irq, void *dev_id)
->  {
-> +	struct bfin_mac_local *lp = netdev_priv(dev_id);
-> +	u32 status;
-> +
-> +	status = bfin_read_DMA1_IRQ_STATUS();
-> +
-> +	bfin_write_DMA1_IRQ_STATUS(status | DMA_DONE | DMA_ERR);
-> +	if ((status & DMA_DONE) && napi_schedule_prep(&lp->napi)) {
-> +		if (!lp->rx_irq_disabled++)
-> +			disable_irq_nosync(IRQ_MAC_RX);
-> +		__napi_schedule(&lp->napi);
+Dear David Miller,
 
-If netpoll scavenges between napi_schedule_prep and lp->rx_irq_disabled++
-on a different CPU, bfin_mac_interrupt may later __napi_schedule while
-already napi_completed in netpoll...bfin_mac_poll(): bfin_mac_poll won't
-be run in net_rx_action and IRQ_MAC_RX will stay disabled.
+On Tue, 22 Jul 2014 13:16:39 -0700 (PDT), David Miller wrote:
 
-I don't know if something on the blackfin arch prevents the window to
-widen and makes it moot.
+> >> This series does not apply to the 'net' tree at all, please respin
+> >> and resubmit.
+> > 
+> > This series applies on net-next.
+> > 
+> > Sorry for not mentioning it,
+> 
+> They are bonafide bug fixes, therefore should be targetted at 'net'.
 
-As the bfin_mac driver requests the single non shared IRQ_MAC_RX irq,
-couldn't we instead:
+Except that I believe they are fixes for a driver which itself is in
+net-next, i.e scheduled for 3.17.
 
-static irqreturn_t bfin_mac_interrupt(int irq, void *dev_id)
-[...]
-	if (status & DMA_DONE) {
-		disable_irq_nosync(IRQ_MAC_RX);
-		/* Code won't return here until a scheduled poll enables irq. */
-		set_bit(BFIN_IRQ_DISABLED, &lp->flags);
-		napi_schedule(&lp->napi);
-	}
-
-static int bfin_mac_poll(struct napi_struct *napi, int budget)
-[...]
-	if (i < budget) {
-		napi_complete(napi);
-		if (test_and_clear_bit(BFIN_IRQ_DISABLED, &lp->flags))
-			enable_irq(IRQ_MAC_RX);
-	}
-
-Comments ?
-
+Thomas
 -- 
-Ueimor
+Thomas Petazzoni, CTO, Free Electrons
+Embedded Linux, Kernel and Android engineering
+http://free-electrons.com
