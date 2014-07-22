@@ -1,77 +1,147 @@
-From: Sonic Zhang <sonic.adi@gmail.com>
-Subject: Re: [PATCH v7] bfin_mac: convert bfin Ethernet driver to NAPI framework
-Date: Tue, 22 Jul 2014 16:53:30 +0800
-Message-ID: <CAJxxZ0Niah8QXGoa4CT4Y5i7qnSjL2xq_GYq7rUHmdJpaNzBHg@mail.gmail.com>
-References: <1406014682-19188-1-git-send-email-sonic.adi@gmail.com>
-	<1406015984.10255.121.camel@edumazet-glaptop2.roam.corp.google.com>
-	<20140722.010105.2036198226851589509.davem@davemloft.net>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: [PATCH net-next v3 1/3] net: sctp: Open out the check for Nagle
+Date: Tue, 22 Jul 2014 08:59:08 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D1727AF04@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	adi-buildroot-devel@lists.sourceforge.net,
-	"Zhang, Sonic" <sonic.zhang@analog.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: David Miller <davem@davemloft.net>
+To: Linux Networking Development Mailing List
+	<netdev@vger.kernel.org>,
+	"'linux-sctp@vger.kernel.org'" <linux-sctp@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f52.google.com ([209.85.219.52]:54344 "EHLO
-	mail-oa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753318AbaGVIxb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 04:53:31 -0400
-Received: by mail-oa0-f52.google.com with SMTP id o6so9231077oag.11
-        for <netdev@vger.kernel.org>; Tue, 22 Jul 2014 01:53:30 -0700 (PDT)
-In-Reply-To: <20140722.010105.2036198226851589509.davem@davemloft.net>
+Received: from mx0.aculab.com ([213.249.233.131]:37501 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1753482AbaGVJA1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 05:00:27 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 03101-10 for <netdev@vger.kernel.org>;
+ Tue, 22 Jul 2014 10:00:18 +0100 (BST)
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+The check for Nagle contains 6 separate checks all of which must be true
+before a data packet is delayed.
+Separate out each into its own 'if (test) return SCTP_XMIT_OK' so that
+the reasons can be individually described.
 
-On Tue, Jul 22, 2014 at 4:01 PM, David Miller <davem@davemloft.net> wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Tue, 22 Jul 2014 09:59:44 +0200
->
->> On Tue, 2014-07-22 at 15:38 +0800, Sonic Zhang wrote:
->>> From: Sonic Zhang <sonic.zhang@analog.com>
->>
->>> +    if (i < budget) {
->>> +            napi_complete(napi);
->>> +            if (lp->rx_irq_disabled--)
->>> +                    if (!lp->rx_irq_disabled)
->>> +                            enable_irq(IRQ_MAC_RX);
->>
->>
->> You wrote :
->>
->>       if (A--)
->>               if (!A)
->>                       something();
->>
->> Isnt a bit strange ???
->
-> Indeed, it's very strange, how about:
->
->         if (!--lp->rx_irq_disabled)
->
-> which is the canonical way to express this.
+Also return directly with SCTP_XMIT_RWND_FULL.
+Delete the now-unused 'retval' variable and 'finish' label from
+sctp_packet_can_append_data().
 
-if (!--A)
+Signed-off-by: David Laight <david.laight@aculab.com>
+---
 
-doesn't equal to
+Resend with corrected subject line.
 
-if (A--)
-        if (!A)
+Changes from v2:
+- Fix inverted test for 'inflight == 0'
 
-In net poll loop, because of NAPI state bit NAPI_STATE_NPSVC, the napi
-poll callback may be called with A = 0 (MAC RX IRQ is enabled) if
-napi_complete() other than __napi_complete() is used. See the
-explanation in my last email.
+ net/sctp/output.c | 69 +++++++++++++++++++++++++++++--------------------------
+ 1 file changed, 36 insertions(+), 33 deletions(-)
 
-In this case, the up condition decreases A to a negative number and
-the interrupt handler condition "if (!A++)" can never increase A back
-to 0 (disable the RX IRQ). While, the down condition only decreases A
-if it is not 0.
-
-
-Regards,
-
-Sonic
+diff --git a/net/sctp/output.c b/net/sctp/output.c
+index 0f4d15f..553ba1d 100644
+--- a/net/sctp/output.c
++++ b/net/sctp/output.c
+@@ -633,7 +633,6 @@ nomem:
+ static sctp_xmit_t sctp_packet_can_append_data(struct sctp_packet *packet,
+ 					   struct sctp_chunk *chunk)
+ {
+-	sctp_xmit_t retval = SCTP_XMIT_OK;
+ 	size_t datasize, rwnd, inflight, flight_size;
+ 	struct sctp_transport *transport = packet->transport;
+ 	struct sctp_association *asoc = transport->asoc;
+@@ -658,15 +657,11 @@ static sctp_xmit_t sctp_packet_can_append_data(struct sctp_packet *packet,
+ 
+ 	datasize = sctp_data_size(chunk);
+ 
+-	if (datasize > rwnd) {
+-		if (inflight > 0) {
+-			/* We have (at least) one data chunk in flight,
+-			 * so we can't fall back to rule 6.1 B).
+-			 */
+-			retval = SCTP_XMIT_RWND_FULL;
+-			goto finish;
+-		}
+-	}
++	if (datasize > rwnd && inflight > 0)
++		/* We have (at least) one data chunk in flight,
++		 * so we can't fall back to rule 6.1 B).
++		 */
++		return SCTP_XMIT_RWND_FULL;
+ 
+ 	/* RFC 2960 6.1  Transmission of DATA Chunks
+ 	 *
+@@ -680,36 +675,44 @@ static sctp_xmit_t sctp_packet_can_append_data(struct sctp_packet *packet,
+ 	 *    When a Fast Retransmit is being performed the sender SHOULD
+ 	 *    ignore the value of cwnd and SHOULD NOT delay retransmission.
+ 	 */
+-	if (chunk->fast_retransmit != SCTP_NEED_FRTX)
+-		if (flight_size >= transport->cwnd) {
+-			retval = SCTP_XMIT_RWND_FULL;
+-			goto finish;
+-		}
++	if (chunk->fast_retransmit != SCTP_NEED_FRTX &&
++	    flight_size >= transport->cwnd)
++		return SCTP_XMIT_RWND_FULL;
+ 
+ 	/* Nagle's algorithm to solve small-packet problem:
+ 	 * Inhibit the sending of new chunks when new outgoing data arrives
+ 	 * if any previously transmitted data on the connection remains
+ 	 * unacknowledged.
+ 	 */
+-	if (!sctp_sk(asoc->base.sk)->nodelay && sctp_packet_empty(packet) &&
+-	    inflight && sctp_state(asoc, ESTABLISHED)) {
+-		unsigned int max = transport->pathmtu - packet->overhead;
+-		unsigned int len = chunk->skb->len + q->out_qlen;
+-
+-		/* Check whether this chunk and all the rest of pending
+-		 * data will fit or delay in hopes of bundling a full
+-		 * sized packet.
+-		 * Don't delay large message writes that may have been
+-		 * fragmeneted into small peices.
+-		 */
+-		if ((len < max) && chunk->msg->can_delay) {
+-			retval = SCTP_XMIT_NAGLE_DELAY;
+-			goto finish;
+-		}
+-	}
+ 
+-finish:
+-	return retval;
++	if (sctp_sk(asoc->base.sk)->nodelay)
++		/* Nagle disabled */
++		return SCTP_XMIT_OK;
++
++	if (!sctp_packet_empty(packet))
++		/* Append to packet */
++		return SCTP_XMIT_OK;
++
++	if (inflight == 0)
++		/* Nothing unacked */
++		return SCTP_XMIT_OK;
++	
++	if (!sctp_state(asoc, ESTABLISHED))
++		return SCTP_XMIT_OK;
++
++	/* Check whether this chunk and all the rest of pending data will fit
++	 * or delay in hopes of bundling a full sized packet.
++	 */
++	if (chunk->skb->len + q->out_qlen >= transport->pathmtu - packet->overhead)
++		/* Enough data queued to fill a packet */
++		return SCTP_XMIT_OK;
++
++	/* Don't delay large message writes that may have been fragmented */
++	if (!chunk->msg->can_delay)
++		return SCTP_XMIT_OK;
++
++	/* Defer until all data acked or packet full */
++	return SCTP_XMIT_NAGLE_DELAY;
+ }
+ 
+ /* This private function does management things when adding DATA chunk */
+-- 
+1.8.1.2
