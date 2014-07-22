@@ -1,46 +1,51 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: Re: [PATCH 0/6] net: mvpp2: Assorted fixes
-Date: Wed, 23 Jul 2014 00:29:16 +0200
-Message-ID: <20140723002916.67a0bb3c@free-electrons.com>
-References: <1405961296-5846-1-git-send-email-ezequiel.garcia@free-electrons.com>
-	<20140721.202749.913689946944612851.davem@davemloft.net>
-	<20140722144519.GA682@arch.cereza>
-	<20140722.131639.1180592286226896307.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] cxgb4: Fix for SR-IOV VF initialization
+Date: Tue, 22 Jul 2014 15:34:40 -0700 (PDT)
+Message-ID: <20140722.153440.757089942973087670.davem@davemloft.net>
+References: <1406026580-27256-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ezequiel.garcia@free-electrons.com, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, jason@lakedaemon.net,
-	mw@semihalf.com, gregory.clement@free-electrons.com,
-	tawfik@marvell.com, alior@marvell.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com,
+	kumaras@chelsio.com, anish@chelsio.com
+To: hariprasad@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:36901 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932722AbaGVW3U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 18:29:20 -0400
-In-Reply-To: <20140722.131639.1180592286226896307.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52439 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932783AbaGVWel (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 18:34:41 -0400
+In-Reply-To: <1406026580-27256-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear David Miller,
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Tue, 22 Jul 2014 16:26:20 +0530
 
-On Tue, 22 Jul 2014 13:16:39 -0700 (PDT), David Miller wrote:
-
-> >> This series does not apply to the 'net' tree at all, please respin
-> >> and resubmit.
-> > 
-> > This series applies on net-next.
-> > 
-> > Sorry for not mentioning it,
+> Commit 35b1de5 ("rdma/cxgb4: Fixes cxgb4 probe failure in VM when PF is exposed
+> through PCI Passthrough") introduced a regression, where VF failed to
+> initialize. This commit fixes it.
 > 
-> They are bonafide bug fixes, therefore should be targetted at 'net'.
+> Signed-off-by: Casey Leedom <leedom@chelsio.com>
+> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 
-Except that I believe they are fixes for a driver which itself is in
-net-next, i.e scheduled for 3.17.
+This commit message need to explain things better, how exactly was
+the regression introduced, what's exactly wrong with the current code?
 
-Thomas
--- 
-Thomas Petazzoni, CTO, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
+I actually can't figure it out myself, other than to say that maybe
+replacing things with:
+
+	func = PCI_FUNC(pdev->devfn);
+ 	if (func < ARRAY_SIZE(num_vf) && num_vf[func] > 0)
+ 		if (pci_enable_sriov(pdev, num_vf[func]) == 0)
+
+would work equally as well.  That's precisely what the code was
+doing before the mentioned commit.
+
+Why do we have to iterate over _ALL_ functions of the PCI device,
+rather than just directly enable SRIOV on the one function whether
+it bet PCI_FUNC(pdev->devfn) or that WHOAMI value?
+
+You need to explain this so that people understand the how and the
+why of your changes.
+
+Thanks.
