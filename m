@@ -1,56 +1,67 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [PATCH] bnx2x: Add FW 7.10.51
-Date: Tue, 22 Jul 2014 07:16:20 +0000
-Message-ID: <B5657A6538887040AD3A81F1008BEC63B02A2F@avmb3.qlogic.org>
-References: <1405403191-7517-1-git-send-email-Yuval.Mintz@qlogic.com>
-	 <B5657A6538887040AD3A81F1008BEC63B028A1@avmb3.qlogic.org>
- <1406013297.10255.118.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "dwmw2@infradead.org" <dwmw2@infradead.org>,
-	"ben@decadent.org.uk" <ben@decadent.org.uk>,
-	Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>,
-	"Ariel Elior" <Ariel.Elior@qlogic.com>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: varkabhadram@gmail.com
+Subject: [PATCH net-next v2 1/2] ethernet: realtek: use module_pci_driver
+Date: Tue, 22 Jul 2014 12:50:21 +0530
+Message-ID: <1406013622-27869-2-git-send-email-varkabhadram@gmail.com>
+References: <1406013622-27869-1-git-send-email-varkabhadram@gmail.com>
+Cc: davem@davemloft.net, Varka Bhadram <varkab@cdac.in>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:48243 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750737AbaGVHQu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 03:16:50 -0400
-In-Reply-To: <1406013297.10255.118.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:59578 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750743AbaGVHWG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 03:22:06 -0400
+Received: by mail-pd0-f170.google.com with SMTP id g10so10783665pdj.29
+        for <netdev@vger.kernel.org>; Tue, 22 Jul 2014 00:22:06 -0700 (PDT)
+In-Reply-To: <1406013622-27869-1-git-send-email-varkabhadram@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiBPbiBUdWUsIDIwMTQtMDctMjIgYXQgMDQ6MzggKzAwMDAsIFl1dmFsIE1pbnR6IHdyb3RlOg0K
-PiA+ID4gU3ViamVjdDogW1BBVENIXSBibngyeDogQWRkIEZXIDcuMTAuNTENCj4gPiA+DQo+ID4g
-PiBIaSwNCj4gPiA+DQo+ID4gPiBUaGlzIGZpcm13YXJlIGluY2x1ZGVzIG1hbnkgZml4ZXMgc3Vj
-aCBhczoNCj4gPiA+DQo+ID4gPiAgLSAoTDIpIEluIHNvbWUgbXVsdGktZnVuY3Rpb24gY29uZmln
-dXJhdGlvbnMsIGludGVyLVBGIGFuZCBpbnRlci1WRg0KPiA+ID4gICAgVHggc3dpdGNoaW5nIGlz
-IGluY29ycmVjdGx5IGVuYWJsZWQuDQo+ID4gPg0KPiA+ID4gIC0gKEwyKSBXcm9uZyBhc3NlcnQg
-Y29kZSBpbiBGTFIgZmluYWwgY2xlYW51cCBpbiBjYXNlIGl0IGlzIHNlbnQgbm90DQo+ID4gPiAg
-ICBhZnRlciBGTFIuDQo+ID4gPg0KPiA+ID4gIC0gKEwyKSBDaGlwIG1heSBzdGFsbCBpbiB2ZXJ5
-IHJhcmUgY2FzZXMgdW5kZXIgaGVhdnkgdHJhZmZpYyB3aXRoIEZXIEdSTw0KPiA+ID4gICAgZW5h
-YmxlZC4NCj4gPiA+DQo+ID4gPiAgLSAoTDIpIFZGIG1hbGljaW91cyBub3RpZmljYXRpb24gZXJy
-b3IgZml4ZXMuDQo+ID4gPg0KPiA+ID4gIC0gKEwyKSBEZWZhdWx0IGdyZSB0dW5uZWwgdG8gSVBH
-UkUgd2hpY2ggYWxsb3dzIHByb3BlciBSU1MgZm9yIElQR1JFDQo+IHBhY2tldHMsDQo+ID4gPiAg
-ICBMMkdSRSB0cmFmZmljIHdpbGwgcmVhY2ggc2luZ2xlIHF1ZXVlLg0KPiA+ID4NCj4gPiA+ICAt
-IChGQ29FKSBGaXggZGF0YSBiZWluZyBwbGFjZWQgaW4gd3JvbmcgYnVmZmVyIHdoZW4gY29ycnVw
-dCBGQ29FIGZyYW1lIGlzDQo+ID4gPiAgICByZWNlaXZlZC4NCj4gPiA+DQo+ID4gPiAgLSAoRkNv
-RSkgQnVyc3Qgb2YgRklQIHBhY2tldHMgd2l0aCBkZXN0aW5hdGlvbiBNQUMgb2YgQUxMLUZDRl9N
-QUNzDQo+ID4gPiAgICBjYXVzZXMgRkNvRSB0cmFmZmljIHRvIHN0b3AuDQo+ID4gPg0KPiA+ID4g
-U2lnbmVkLW9mZi1ieTogWXV2YWwgTWludHogPFl1dmFsLk1pbnR6QHFsb2dpYy5jb20+DQo+ID4g
-PiBTaWduZWQtb2ZmLWJ5OiBEbWl0cnkgS3JhdmtvdiA8RG1pdHJ5LktyYXZrb3ZAcWxvZ2ljLmNv
-bT4NCj4gPiA+IFNpZ25lZC1vZmYtYnk6IEFyaWVsIEVsaW9yIDxBcmllbC5FbGlvckBxbG9naWMu
-Y29tPg0KPiA+DQo+ID4gSGksDQo+ID4NCj4gPiBBbnkgbmV3cyBhYm91dCB0aGlzIG9uZT8NCj4N
-Cj4gSSBjYW50IGZpbmQgaXQgaW4gbXkgbWFpbHMuLi4gd2hlbiB3YXMgaXQgc2VudCA/DQoNCkEg
-d2VlayBhZ28uDQoNCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fDQoNClRoaXMgbWVz
-c2FnZSBhbmQgYW55IGF0dGFjaGVkIGRvY3VtZW50cyBjb250YWluIGluZm9ybWF0aW9uIGZyb20g
-UUxvZ2ljIENvcnBvcmF0aW9uIG9yIGl0cyB3aG9sbHktb3duZWQgc3Vic2lkaWFyaWVzIHRoYXQg
-bWF5IGJlIGNvbmZpZGVudGlhbC4gSWYgeW91IGFyZSBub3QgdGhlIGludGVuZGVkIHJlY2lwaWVu
-dCwgeW91IG1heSBub3QgcmVhZCwgY29weSwgZGlzdHJpYnV0ZSwgb3IgdXNlIHRoaXMgaW5mb3Jt
-YXRpb24uIElmIHlvdSBoYXZlIHJlY2VpdmVkIHRoaXMgdHJhbnNtaXNzaW9uIGluIGVycm9yLCBw
-bGVhc2Ugbm90aWZ5IHRoZSBzZW5kZXIgaW1tZWRpYXRlbHkgYnkgcmVwbHkgZS1tYWlsIGFuZCB0
-aGVuIGRlbGV0ZSB0aGlzIG1lc3NhZ2UuDQo=
+From: Varka Bhadram <varkab@cdac.in>
+
+This patch converts to use the macro module_pci_driver, which makes
+the code smaller and simpler.
+
+Signed-off-by: Varka Bhadram <varkab@cdac.in>
+---
+ drivers/net/ethernet/realtek/8139cp.c |   22 ++--------------------
+ 1 file changed, 2 insertions(+), 20 deletions(-)
+
+diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/realtek/8139cp.c
+index 2bc728e..9fb68b9 100644
+--- a/drivers/net/ethernet/realtek/8139cp.c
++++ b/drivers/net/ethernet/realtek/8139cp.c
+@@ -1887,11 +1887,7 @@ static int cp_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	resource_size_t pciaddr;
+ 	unsigned int addr_len, i, pci_using_dac;
+ 
+-#ifndef MODULE
+-	static int version_printed;
+-	if (version_printed++ == 0)
+-		pr_info("%s", version);
+-#endif
++	pr_info("%s", version);
+ 
+ 	if (pdev->vendor == PCI_VENDOR_ID_REALTEK &&
+ 	    pdev->device == PCI_DEVICE_ID_REALTEK_8139 && pdev->revision < 0x20) {
+@@ -2121,18 +2117,4 @@ static struct pci_driver cp_driver = {
+ #endif
+ };
+ 
+-static int __init cp_init (void)
+-{
+-#ifdef MODULE
+-	pr_info("%s", version);
+-#endif
+-	return pci_register_driver(&cp_driver);
+-}
+-
+-static void __exit cp_exit (void)
+-{
+-	pci_unregister_driver (&cp_driver);
+-}
+-
+-module_init(cp_init);
+-module_exit(cp_exit);
++module_pci_driver(cp_driver);
+-- 
+1.7.9.5
