@@ -1,75 +1,35 @@
-From: 'Arnaldo Carvalho de Melo' <acme@kernel.org>
-Subject: Re: [PATCH/RFC] net: Don't save mid batch datagram processing error
- for next recvmmsg call
-Date: Tue, 22 Jul 2014 10:24:10 -0300
-Message-ID: <20140722132410.GD20303@kernel.org>
-References: <20140721193042.GA20303@kernel.org>
- <063D6719AE5E284EB5DD2968C1650D6D1727AECC@AcuExch.aculab.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net] net: sctp: inherit auth_capable on INIT collisions
+Date: Tue, 22 Jul 2014 15:25:06 +0200
+Message-ID: <53CE6632.1060707@redhat.com>
+References: <1405620319-2021-1-git-send-email-dborkman@redhat.com> <53C93157.1050002@gmail.com> <53C972BE.5090700@redhat.com> <53C998DE.2030805@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Linux Networking Development Mailing List
-	<netdev@vger.kernel.org>,
-	Caitlin Bestler <caitlin.bestler@gmail.com>,
-	Chris Friesen <chris.friesen@windriver.com>,
-	Elie De Brauwer <eliedebrauwer@gmail.com>,
-	Michael Kerrisk <mtk.manpages@gmail.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	=?utf-8?B?T25kxZllaiBCw61sa2E=?= <neleai@seznam.cz>,
-	Paul Moore <paul@paul-moore.com>,
-	=?iso-8859-1?Q?R=E9mi?= Denis-Courmont <remi@remlab.net>,
-	Steven Whitehouse <steve@chygwyn.com>
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, jgunthorpe@obsidianresearch.com,
+	netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: Vlad Yasevich <vyasevich@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.19.201]:44024 "EHLO mail.kernel.org"
+Received: from mx1.redhat.com ([209.132.183.28]:64977 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753293AbaGVNYT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 22 Jul 2014 09:24:19 -0400
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1727AECC@AcuExch.aculab.com>
+	id S1751876AbaGVNZU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Jul 2014 09:25:20 -0400
+In-Reply-To: <53C998DE.2030805@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em Tue, Jul 22, 2014 at 08:33:27AM +0000, David Laight escreveu:
-> From: Arnaldo Carvalho de Melo 
-> > 	I think this addresses the problems reported by David Laight and
-> > others, where errors saved on a per socket area could be delivered to a
-> > different thread, so I just followed David Laight's suggestion and
-> > stopped saving it, we'll return it only if it happens for the first
-> > datagram, else we return less entries than asked for.
+Hi Vlad,
 
-> > 	Steven, IIRC you was the one that suggested using this
-> > mechanism, no? Do you have anything against this move?
- 
-> +	return datagrams ?: err;
- 
-> Inline patches, don't attach them.
+On 07/18/2014 11:59 PM, Vlad Yasevich wrote:
+...
+> So I think I know why case D ends up not authenticating the COOKIE-ACK.
+> Most likely the reason is the following statement:
+>   repl = sctp_make_cookie_ack(new_asoc, chunk);
+>
+> Note that we use new_asoc, instead of current asoc.
 
-Oh well, ok, will do next time.
- 
-> Don't use non-C constructs.
+Are you sending out a patch for this?
 
-We use it in many places, one could say the kernel isn't written in C
-anyway:
+Thanks,
 
-[acme@zoo linux]$ find . -name "*.[ch]" | xargs grep '?:' | cut -d'/' -f -2 | sort | uniq -c | sort -nr
-    189 ./drivers
-     45 ./arch
-     33 ./crypto
-     30 ./fs
-     25 ./net
-     23 ./kernel
-     22 ./tools
-      9 ./sound
-      8 ./include
-      5 ./security
-      5 ./mm
-      3 ./block
-      2 ./lib
-      1 ./scripts
-      1 ./ipc
-[acme@zoo linux]$
-
-Other than that, are you ok with the change?
-
-- Arnaldo
+Daniel
