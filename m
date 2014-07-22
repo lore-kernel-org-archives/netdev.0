@@ -1,52 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/6] net: mvpp2: Assorted fixes
-Date: Tue, 22 Jul 2014 13:16:39 -0700 (PDT)
-Message-ID: <20140722.131639.1180592286226896307.davem@davemloft.net>
-References: <1405961296-5846-1-git-send-email-ezequiel.garcia@free-electrons.com>
-	<20140721.202749.913689946944612851.davem@davemloft.net>
-	<20140722144519.GA682@arch.cereza>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH net-next v2 00/11] net: bcmgenet: PM and Wake-on-LAN
+Date: Tue, 22 Jul 2014 22:20:20 +0200
+Message-ID: <20140722202020.GA13637@electric-eye.fr.zoreil.com>
+References: <1405981769-24618-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	jason@lakedaemon.net, mw@semihalf.com,
-	thomas.petazzoni@free-electrons.com,
-	gregory.clement@free-electrons.com, tawfik@marvell.com,
-	alior@marvell.com
-To: ezequiel.garcia@free-electrons.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51492 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756345AbaGVUQm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 16:16:42 -0400
-In-Reply-To: <20140722144519.GA682@arch.cereza>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:59138 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752460AbaGVUUY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 16:20:24 -0400
+Content-Disposition: inline
+In-Reply-To: <1405981769-24618-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Date: Tue, 22 Jul 2014 11:45:19 -0300
+Florian Fainelli <f.fainelli@gmail.com> :
+[...]
+> This patchset brings S2/S3 Power Management support to the GENET driver
+> as well as Wake-on-LAN using Magic Packets with or without SecureOn
+> passwords.
 
-> On 21 Jul 08:27 PM, David Miller wrote:
->> From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
->> Date: Mon, 21 Jul 2014 13:48:10 -0300
->> 
->> > This patchset contains a set of fixes for issues found while doing some
->> > more intensive tests on the recently accepted mvpp2 ethernet driver.
->> > 
->> > David: if we are still in time, we'd like to get the driver fixes merged
->> > for v3.17-rc1.
->> > 
->> > For the devicetree changes, it's already too late for that, since Jason
->> > Cooper has already posted the PRs for v3.17. I'll re-post them when
->> > v3.17-rc1 is released.
->> > 
->> > As usual, feedback is welcome.
->> 
->> This series does not apply to the 'net' tree at all, please respin
->> and resubmit.
-> 
-> This series applies on net-next.
-> 
-> Sorry for not mentioning it,
+Out of curiosity, do you have a plan to support runtime power suspend,
+say through phy_driver.link_change_notify ?
 
-They are bonafide bug fixes, therefore should be targetted at 'net'.
+-- 
+Ueimor
