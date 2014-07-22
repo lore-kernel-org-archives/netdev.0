@@ -1,84 +1,54 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH net-next 2/3] ethtool: add rx_copybreak support
-Date: Tue, 22 Jul 2014 18:45:45 +0100
-Message-ID: <1406051145.7427.2.camel@deadeye.wl.decadent.org.uk>
-References: <1406050268-13329-1-git-send-email-_govind@gmx.com>
-	 <1406050268-13329-3-git-send-email-_govind@gmx.com>
+From: Nick Krause <xerofoify@gmail.com>
+Subject: Re: [PATCH] atm: Remove fix me in solos-pci
+Date: Tue, 22 Jul 2014 13:47:37 -0400
+Message-ID: <CAPDOMVge=KHmModReK8PuK123kbJp8MmGpKhkjPdrAeP5gvg0g@mail.gmail.com>
+References: <1406002040-7334-1-git-send-email-xerofoify@gmail.com>
+	<20140722074332.52b8c66b@thirdoffive.cmf.nrl.navy.mil>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-6xqb44bIQ95qEdU5cx7A"
-Cc: davem@davemloft.net, netdev@vger.kernel.org, ssujith@cisco.com,
-	benve@cisco.com
-To: Govindarajulu Varadarajan <_govind@gmx.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org
+To: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:42594 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756285AbaGVRpz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 13:45:55 -0400
-In-Reply-To: <1406050268-13329-3-git-send-email-_govind@gmx.com>
+Received: from mail-vc0-f171.google.com ([209.85.220.171]:60655 "EHLO
+	mail-vc0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756129AbaGVRri (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 13:47:38 -0400
+Received: by mail-vc0-f171.google.com with SMTP id hq11so14157043vcb.30
+        for <netdev@vger.kernel.org>; Tue, 22 Jul 2014 10:47:37 -0700 (PDT)
+In-Reply-To: <20140722074332.52b8c66b@thirdoffive.cmf.nrl.navy.mil>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
---=-6xqb44bIQ95qEdU5cx7A
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Tue, 2014-07-22 at 23:01 +0530, Govindarajulu Varadarajan wrote:
-> This patch adds rx_copybreak support to ethtool.h header file.
-> This is used to show/set rx_copybreak using ethtool.
->=20
-> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
-> ---
->  include/uapi/linux/ethtool.h | 2 ++
->  1 file changed, 2 insertions(+)
->=20
-> diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-> index e3c7a71..d2912ad 100644
-> --- a/include/uapi/linux/ethtool.h
-> +++ b/include/uapi/linux/ethtool.h
-> @@ -433,10 +433,12 @@ struct ethtool_ringparam {
->  	__u32	rx_mini_max_pending;
->  	__u32	rx_jumbo_max_pending;
->  	__u32	tx_max_pending;
-> +	__u32	rx_max_copybreak_pending;
->  	__u32	rx_pending;
->  	__u32	rx_mini_pending;
->  	__u32	rx_jumbo_pending;
->  	__u32	tx_pending;
-> +	__u32	rx_copybreak_pending;
->  };
-> =20
->  /**
-
-No, you can't rearrange UAPI structures like this.
-
-Ben.
-
---=20
-Ben Hutchings
-Beware of programmers who carry screwdrivers. - Leonard Brandwein
-
---=-6xqb44bIQ95qEdU5cx7A
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIVAwUAU86jSee/yOyVhhEJAQp/+xAAu410wwy2GqH2vGsCK56pwaT+Vqp/C/58
-KcPJicqlBfTOVXERfzti0vNa1cYBKnaOc1Nl5tuaB4IHGxN4nekiJe9TyMzIXsD9
-rMGNcx4QKEfDl7NjYa9Osbj8EMHpC/8oa90hwIEjynocjXb7Lzig6r2QKXu07pYJ
-iInpI9A8wIY6Y2ibbrk2qS9sUA2dUMqxjkjLIaEXhmk99LWZO7VFCd2adzfpcLrC
-Wf4FR8b+oEzLdaSGidXE6StyBk3mQEGKRalT7bHUPHfsRfKxRdInoUzPTcPQQnmx
-iKsRohFaNNSPF22EkPehNFNzTDFePyPX9Q9gEIOyFwuJkwP4OLp9OyxA0IOHvWRI
-69xsAQN1KlgQHNLIqGizh3Kx4lNyHSCWo7hnazzx8598w+kiAWSXXAxvdSrzykc3
-hzMn672p5bh1O66AKfpeQMeitMu8Wv3yOZg+jS0Co+y5GWG9oDau4JZHFeSClTE3
-+MLEzaLBXJHd7yJm1E5ZVhmuzb83RObw4t+/sl3fQ8ZvyM8zDsXW5lTqDHoxC8aE
-qgCTIQs0oKhNnRRPBwdgo6WUbMrxfQWPNCapJDfmC9OVul5tbE7PcXgrnC5Pbv9y
-xgX2HEAgR5pQN7w5knCUHDseMt3tqQ13HY76T0TtPLhoVkoAwz7HICQ8AnFCd1fk
-k54LEUBkK34=
-=E5jr
------END PGP SIGNATURE-----
-
---=-6xqb44bIQ95qEdU5cx7A--
+On Tue, Jul 22, 2014 at 7:43 AM, chas williams - CONTRACTOR
+<chas@cmf.nrl.navy.mil> wrote:
+> Guy Ellis of Transverse says that Nathan Williams,
+> nathan@traverse.com.au, will address this issue when he returns
+> from vacation.  So let's just wait for the 'official' fix.
+>
+> On Tue, 22 Jul 2014 00:07:20 -0400
+> Nicholas Krause <xerofoify@gmail.com> wrote:
+>
+>> This removes a fix me as the default statement for solos_bh is correct
+>> and needs no fixing.
+>>
+>> Signed-off-by: Nicholas Krause <xerofoify@gmail.com>
+>> ---
+>>  drivers/atm/solos-pci.c | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
+>> index 943cf0d..58a0a8f 100644
+>> --- a/drivers/atm/solos-pci.c
+>> +++ b/drivers/atm/solos-pci.c
+>> @@ -851,7 +851,7 @@ static void solos_bh(unsigned long card_arg)
+>>                               break;
+>>
+>>                       case PKT_COMMAND:
+>> -                     default: /* FIXME: Not really, surely? */
+>> +                     default:
+>>                               if (process_command(card, port, skb))
+>>                                       break;
+>>                               spin_lock(&card->cli_queue_lock);
+>
+Very well then I just this is closed.
+Cheers Nick
