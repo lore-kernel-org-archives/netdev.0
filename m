@@ -1,109 +1,42 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 4/6] net/macb: add RX checksum offload feature
-Date: Tue, 22 Jul 2014 09:39:15 -0700
-Message-ID: <CAGVrzca2YWZkVkUs_c06ApXrE3hdDgbsC7-6x2M4DS-Qn6S0aQ@mail.gmail.com>
-References: <cover.1405689937.git.cyrille.pitchen@atmel.com>
- <f29965fee23dc0de99b388373017efeffa1aac10.1405689937.git.cyrille.pitchen@atmel.com>
- <1405697784.10255.99.camel@edumazet-glaptop2.roam.corp.google.com> <53CE9109.9040407@atmel.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH net] net: sctp: inherit auth_capable on INIT collisions
+Date: Tue, 22 Jul 2014 12:41:12 -0400
+Message-ID: <53CE9428.9060809@gmail.com>
+References: <1405620319-2021-1-git-send-email-dborkman@redhat.com> <53C93157.1050002@gmail.com> <53C972BE.5090700@redhat.com> <53C998DE.2030805@gmail.com> <53CE6632.1060707@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	David Miller <davem@davemloft.net>, soren.brinkmann@xilinx.com
-To: Cyrille Pitchen <cyrille.pitchen@atmel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <53CE9109.9040407@atmel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, jgunthorpe@obsidianresearch.com,
+	netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f47.google.com ([209.85.192.47]:58052 "EHLO
+	mail-qg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754740AbaGVQlR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 12:41:17 -0400
+In-Reply-To: <53CE6632.1060707@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2014-07-22 9:27 GMT-07:00 Cyrille Pitchen <cyrille.pitchen@atmel.com>:
-> Le 18/07/2014 17:36, Eric Dumazet a =C3=A9crit :
->> On Fri, 2014-07-18 at 16:21 +0200, Cyrille Pitchen wrote:
->>> Signed-off-by: Cyrille Pitchen <cyrille.pitchen@atmel.com>
->>> ---
->>>  drivers/net/ethernet/cadence/macb.c | 29 +++++++++++++++++++++++++=
-+++-
->>>  drivers/net/ethernet/cadence/macb.h |  2 ++
->>>  2 files changed, 30 insertions(+), 1 deletion(-)
->>>
->>> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethe=
-rnet/cadence/macb.c
->>> index 9bdcd1b..6acd6e2 100644
->>> --- a/drivers/net/ethernet/cadence/macb.c
->>> +++ b/drivers/net/ethernet/cadence/macb.c
->>> @@ -766,6 +766,8 @@ static int gem_rx(struct macb *bp, int budget)
->>>
->>>              skb->protocol =3D eth_type_trans(skb, bp->dev);
->>>              skb_checksum_none_assert(skb);
->>> +            if (bp->dev->features & NETIF_F_RXCSUM)
->>> +                    skb->ip_summed =3D CHECKSUM_UNNECESSARY;
->>>
+On 07/22/2014 09:25 AM, Daniel Borkmann wrote:
+> Hi Vlad,
+> 
+> On 07/18/2014 11:59 PM, Vlad Yasevich wrote:
+> ...
+>> So I think I know why case D ends up not authenticating the COOKIE-ACK.
+>> Most likely the reason is the following statement:
+>>   repl = sctp_make_cookie_ack(new_asoc, chunk);
 >>
->>
->> Really ?
->>
->> If this is what you meant, this deserves a big and fat comment.
->>
->>
->>
-> Hi Eric,
->
-> Isn't it the proper way to do? According to Cadence documentation abo=
-ut RX checksum offload:
-> "If any of the checksums (IP, TCP or UDP) are verified incorrect by t=
-he GEM, the packet is discarded."
->
-> If I understand, when RX checksum offload is enabled setting bit 24 o=
-f the Network Configuration Register, the driver only receives RX frame=
-s with correct checksum. Then it tells the kernel that there's no need =
-to verify the checksum again in software. This is done setting skb->ip_=
-summed to CHECKSUM_UNNECESSARY. Intel e1000 driver does the same in e10=
-00_rx_checksum() function.
+>> Note that we use new_asoc, instead of current asoc.
+> 
+> Are you sending out a patch for this?
 
-This is not the same thing as what the e1000 driver is doing, the
-e1000 driver is checking a per-packet status mask which tells it
-whether a given packet had its protocol level checksum computed by the
-HW.
+I didn't plan on it since you said there are further issues.  I thought you
+were still looking.
 
-I think there might be some slight confusion here between the Ethernet
-frame Frame Control Checksum which is at the Ethernet level, and will
-(with most adapters not supporting RX_FCS_ERR) cause the Ethernet
-controller to drop frames at the MAC level, and the higher level
-protocol checksums such as the TCP or UDP checksum.
+-vlad
 
->
-> Also bit 24 of the Network Configuration Register is updated by macb_=
-open() and macb_set_features() so it always matches the state of NETIF_=
-=46_RXCSUM flag in dev->features, once the network interface is up. Tha=
-t's why I'd rather read from dev->features than read from register.
-
-I don't think the Cadence GEM Ethernet controller is any different
-than other hardware out there, there must be a per-packet status bit
-which tells whether the TCP/UDP or other protocol checksum was
-successfully validated by the hardware. One of the reason for that, is
-that depending on the type of traffic your receive (e.g: ARP), there
-might be no protocol-level checksum at all in the packet, and the
-hardware should know about that.
-
->
-> Did I make a mistake? Is it the kind of comment you expect to be adde=
-d?
->
-> Regards,
->
-> Cyrille
->
-> _______________________________________________
-> linux-arm-kernel mailing list
-> linux-arm-kernel@lists.infradead.org
-> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
-
-
-
---=20
-=46lorian
+> 
+> Thanks,
+> 
+> Daniel
