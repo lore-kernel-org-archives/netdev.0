@@ -1,92 +1,56 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [net-next 02/10] udp: Expand UDP tunnel common APIs
-Date: Tue, 22 Jul 2014 16:24:20 -0700
-Message-ID: <CA+mtBx-q0PV4U_jGt-N+v5Ax_uoxYeQjrvHCqmAvU_VEQtFZNg@mail.gmail.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [net-next 05/10] net: Add Geneve tunneling protocol driver
+Date: Tue, 22 Jul 2014 19:24:20 -0400
+Message-ID: <CAEP_g=82H_h85Cog5HNP9P4M5LPJ=ZLz-dzLocAUKAG7cZi7yg@mail.gmail.com>
 References: <1406024393-6778-1-git-send-email-azhou@nicira.com>
-	<1406024393-6778-3-git-send-email-azhou@nicira.com>
-	<CA+mtBx9M_BpjT-_Egng+jFxmqJzdC2Npg0ufE2ZSAb9Lhw8hxg@mail.gmail.com>
-	<CACzMAJ+uW0rYQxxmi4GouGF64bbr0VDCsdrBymypWLxCaHQSrA@mail.gmail.com>
-	<CA+mtBx9RUe7a2hYsRjHbS3E+TzGOQ4Q8wLZp+-TDHQkV+L5c1Q@mail.gmail.com>
-	<CAEP_g=8oQ_Yn1ZDNjoFKgwRaGvpyW+s9RfOd1utEMsNWmJmX-Q@mail.gmail.com>
-	<CA+mtBx830L17hr_eaRKHcA9MaE9Xs7W3pC+sYh7a=E=CVmM3QQ@mail.gmail.com>
-	<53CEEBFD.9020402@intel.com>
+ <1406024393-6778-6-git-send-email-azhou@nicira.com> <53CEEFDB.5030900@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Jesse Gross <jesse@nicira.com>, Andy Zhou <azhou@nicira.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
+Cc: Andy Zhou <azhou@nicira.com>, David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"John W. Linville" <linville@tuxdriver.com>
 To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f172.google.com ([209.85.213.172]:63270 "EHLO
-	mail-ig0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932398AbaGVXYV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 19:24:21 -0400
-Received: by mail-ig0-f172.google.com with SMTP id h15so4609629igd.11
-        for <netdev@vger.kernel.org>; Tue, 22 Jul 2014 16:24:20 -0700 (PDT)
-In-Reply-To: <53CEEBFD.9020402@intel.com>
+Received: from na3sys009aog121.obsmtp.com ([74.125.149.145]:39194 "HELO
+	na3sys009aog121.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S932398AbaGVXYk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 19:24:40 -0400
+Received: by mail-qa0-f53.google.com with SMTP id v10so438615qac.12
+        for <netdev@vger.kernel.org>; Tue, 22 Jul 2014 16:24:40 -0700 (PDT)
+In-Reply-To: <53CEEFDB.5030900@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 22, 2014 at 3:55 PM, Alexander Duyck
+On Tue, Jul 22, 2014 at 7:12 PM, Alexander Duyck
 <alexander.h.duyck@intel.com> wrote:
-> On 07/22/2014 03:38 PM, Tom Herbert wrote:
->> On Tue, Jul 22, 2014 at 2:56 PM, Jesse Gross <jesse@nicira.com> wrote:
->>> On Tue, Jul 22, 2014 at 5:16 PM, Tom Herbert <therbert@google.com> wrote:
->>>> On Tue, Jul 22, 2014 at 2:02 PM, Andy Zhou <azhou@nicira.com> wrote:
->>>>> On Tue, Jul 22, 2014 at 12:52 PM, Tom Herbert <therbert@google.com> wrote:
->>>>>>> --- a/include/net/udp_tunnel.h
->>>>>>> +++ b/include/net/udp_tunnel.h
->>>>>>> @@ -1,7 +1,10 @@
->>>>>>>  #ifndef __NET_UDP_TUNNEL_H
->>>>>>>  #define __NET_UDP_TUNNEL_H
->>>>>>>
->>>>>>> -#define UDP_TUNNEL_TYPE_VXLAN 0x01
->>>>>>> +#include <net/ip_tunnels.h>
->>>>>>> +
->>>>>>> +#define UDP_TUNNEL_TYPE_VXLAN  0x01
->>>>>>> +#define UDP_TUNNEL_TYPE_GENEVE 0x02
->>>>>>>
->>>>>> Why do we need to define these? Caller should know what type of port is
->>>>>> being opened and provide appropriate encap_rcv.
->>>>>
->>>>> Assume udp tunnel layer needs to keep track of open ports, should it
->>>>> also keep track of the protocol associated with the port?
->>>>>
->>>> For what purpose? Other than for offloads and rcv_encap functions that
->>>> provide the service function anyway, what need is there for UDP layer
->>>> to know about this. More to the point, if I add a module to the kernel
->>>> with a new flavor of UDP tunneling, I shouldn't have to touch any core
->>>> code for things to work correctly. So by this line of thinking,
->>>> neither the terms VXLAN nor GENEVE should appear in any common code.
->>>
->>> The hardware will need to know what the header format is so that it
->>> can parse the packets on receive. And since the NIC can't exactly call
->>> into a function pointer like GRO can, I'm not sure that there is a
->>> solution that doesn't involve an identifier that needs to be listed
->>> somewhere. This is a pretty minimal impact - it doesn't actually
->>> appear in the core code.
+> On 07/22/2014 03:19 AM, Andy Zhou wrote:
+>> This adds a device level support for Geneve -- Generic Network
+>> Virtualization Encapsulation. The protocol is documented at
+>> http://tools.ietf.org/html/draft-gross-geneve-00
 >>
->> The hardware doesn't *need* to know this, it's must be optional and
->> should have no bearing on the software stack. Suggest to put them in
->> their own header file. Also, as HW features these should appear in
->> NETIF_F_* list so that we can control on a per device level rather to
->> enable this feature (something like how NETIF_F_GSO_* was done).
+>> Only protocol layer Geneve support is provided by this driver.
+>> Openvswitch can be used for configuring, set up and tear down
+>> functional Geneve tunnels.
 >>
->> What about support for L2TP/UDP?
+>> Signed-off-by: Jesse Gross <jesse@nicira.com>
+>> Signed-off-by: Andy Zhou <azhou@nicira.com>
+>> ---
+>>  include/net/geneve.h     |   85 +++++++++++++++
+>>  include/net/ip_tunnels.h |    2 +
+>>  net/ipv4/Kconfig         |   14 +++
+>>  net/ipv4/Makefile        |    1 +
+>>  net/ipv4/geneve.c        |  273 ++++++++++++++++++++++++++++++++++++++++++++++
+>>  net/openvswitch/Kconfig  |   11 ++
+>>  net/openvswitch/vport.c  |    3 +
+>>  7 files changed, 389 insertions(+)
+>>  create mode 100644 include/net/geneve.h
+>>  create mode 100644 net/ipv4/geneve.c
+>>
 >
-> The hardware needs some means of knowing what UDP port numbers are used
-> for VXLAN and/or GENEVE as the two formats contain subtle differences
-> that we have to be ready for on the Rx path as we have to parse out the
-> frames.
->
-> We already have feature flags controlling the offloads, what the port
-> numbers provide is a means for us to determine what Rx packets we should
-> parse as tunnels vs standard UDP and which tunnel type we should parse
-> it as.
->
-Which feature flags control the receive side parsing in the device?
+> So all this is really doing is enabling a Geneve socket for use by
+> Openvswitch.  Do you have any plans to enable a stand alone interface
+> like what we already have for VXLAN?
 
-> Thanks,
->
-> Alex
->
+Yes, this is the basic protocol code that would be shared by all users
+of Geneve. OVS is the first user but John Linville is looking at
+adding support for connecting this to 'ip' as a non-OVS user.
