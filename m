@@ -1,40 +1,69 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net-next 1/2] net: filter: split filter.c into two files
-Date: Wed, 23 Jul 2014 10:54:04 +0200
-Message-ID: <53CF782C.2040401@redhat.com>
-References: <1406095319-3627-1-git-send-email-ast@plumgrid.com> <1406095319-3627-2-git-send-email-ast@plumgrid.com> <53CF522E.9090408@gmail.com>
+From: Quentin Armitage <quentin@armitage.org.uk>
+Subject: [PATCH v3] ipv4: Make IP_MULTICAST_ALL and IP_MSFILTER work on raw
+ sockets
+Date: Wed, 23 Jul 2014 09:58:01 +0100
+Message-ID: <1406105881.2990.60.camel@samson1.armitage.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Varka Bhadram <varkabhadram@gmail.com>
+Cc: linux-kernel@vger.kernel.org
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	"David S.Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <53CF522E.9090408@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 07/23/2014 08:11 AM, Varka Bhadram wrote:
-> On 07/23/2014 11:31 AM, Alexei Starovoitov wrote:
->> BPF is used in several kernel components. This split creates logical boundary
->> between generic eBPF core and the rest
->>
->> kernel/bpf/core.c: eBPF interpreter
->>
->> net/core/filter.c: classic->eBPF converter, classic verifiers, socket filters
->>
->> This patch only moves functions.
->
-> If we are moving the code also its good to do cleanup.
->
-> Run checkpatch.pl on this...
+Currently, although IP_MULTICAST_ALL and IP_MSFILTER ioctl calls succeed on
+raw sockets, there is no code to implement the functionality on received
+packets; it is only implemented for UDP sockets. The raw(7) man page states:
+"In addition, all ip(7) IPPROTO_IP socket options valid for datagram sockets
+are supported", which implies these ioctls should work on raw sockets.
 
-Not sure what you understand as a cleanup, but there's nothing
-wrong with it and most things reported are either intentional or
-false positives as you might have seen already. The only thing
-one could do later on perhaps is to rename related functions to
-have consistently a 'bpf' prefix instead of 'sk' since they
-won't be under net/ anymore.
+To fix this, add a call to ip_mc_sf_allow on raw sockets.
+
+This should not break any existing code, since the current position of
+not calling ip_mc_sf_filter makes it behave as if neither the IP_MULTICAST_ALL
+nor the IP_MSFILTER ioctl had been called. Adding the call to ip_mc_sf_allow
+will therefore maintain the current behaviour so long as IP_MULTICAST_ALL and
+IP_MSFILTER ioctls are not called. Any code that currently is calling
+IP_MULTICAST_ALL or IP_MSFILTER ioctls on raw sockets presumably is wanting
+the filter to be applied, although no filtering will currently be occurring.
+
+Signed-off-by: Quentin Armitage <quentin@armitage.org.uk>
+---
+v2: * Fixed subject line
+
+v3: * Fix space/tab formatting. With apologies to all concerned.
+
+---
+ net/ipv4/raw.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+index 2c65160..2e1628c 100644
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -58,6 +58,7 @@
+ #include <linux/in_route.h>
+ #include <linux/route.h>
+ #include <linux/skbuff.h>
++#include <linux/igmp.h>
+ #include <net/net_namespace.h>
+ #include <net/dst.h>
+ #include <net/sock.h>
+@@ -174,7 +175,9 @@ static int raw_v4_input(struct sk_buff *skb, const struct iphdr *iph, int hash)
+ 
+ 	while (sk) {
+ 		delivered = 1;
+-		if (iph->protocol != IPPROTO_ICMP || !icmp_filter(sk, skb)) {
++		if ((iph->protocol != IPPROTO_ICMP || !icmp_filter(sk, skb)) &&
++		    ip_mc_sf_allow(sk, iph->daddr, iph->saddr,
++				   skb->dev->ifindex)) {
+ 			struct sk_buff *clone = skb_clone(skb, GFP_ATOMIC);
+ 
+ 			/* Not releasing hash table! */
+-- 
+1.7.7.6
