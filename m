@@ -1,150 +1,89 @@
-From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCHv3] skbedit: allow the user to specify bitmask for mark
-Date: Wed, 23 Jul 2014 21:13:35 +0200
-Message-ID: <1406142815-25537-1-git-send-email-antonio@meshcoding.com>
-Cc: netdev@vger.kernel.org, sergei.shtylyov@cogentembedded.com,
-	eric.dumazet@gmail.com, cwang@twopensource.com,
-	Antonio Quartulli <antonio@open-mesh.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: davem@davemloft.net
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH RFC v2 net-next 05/16] bpf: introduce syscall(BPF, ...)
+ and BPF maps
+Date: Wed, 23 Jul 2014 12:30:24 -0700
+Message-ID: <CAMEtUuwZW5bzreAG5_u1xopXwP7f59HHFk4eJttj11DuZwTBEA@mail.gmail.com>
+References: <1405657206-12060-1-git-send-email-ast@plumgrid.com>
+	<1405657206-12060-6-git-send-email-ast@plumgrid.com>
+	<CAGXu5jJAOyA=UB-k4fmu84RTB_ygHAs2UqtbBfUPs2JCaxo0Eg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Chema Gonzalez <chema@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Jiri Olsa <jolsa@redhat.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Kees Cook <keescook@chromium.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.neomailbox.net ([178.209.62.157]:47140 "EHLO
-	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932514AbaGWTOJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2014 15:14:09 -0400
+Received: from mail-wg0-f41.google.com ([74.125.82.41]:41508 "EHLO
+	mail-wg0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932825AbaGWTa1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2014 15:30:27 -0400
+Received: by mail-wg0-f41.google.com with SMTP id z12so1706884wgg.24
+        for <netdev@vger.kernel.org>; Wed, 23 Jul 2014 12:30:26 -0700 (PDT)
+In-Reply-To: <CAGXu5jJAOyA=UB-k4fmu84RTB_ygHAs2UqtbBfUPs2JCaxo0Eg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <antonio@open-mesh.com>
+On Wed, Jul 23, 2014 at 11:02 AM, Kees Cook <keescook@chromium.org> wrote:
+>> --- a/Documentation/networking/filter.txt
+>> +++ b/Documentation/networking/filter.txt
+>>
+>> +eBPF maps
+>> +---------
+>> +'maps' is a generic storage of different types for sharing data between kernel
+>> +and userspace.
+>> +
+>> +The maps are accessed from user space via BPF syscall, which has commands:
+>> +- create a map with given id, type and attributes
+>> +  map_id = bpf_map_create(int map_id, map_type, struct nlattr *attr, int len)
+>> +  returns positive map id or negative error
+>
+> Looks like these docs need updating for the fd-based approach instead
+> of the map_id approach?
 
-The user may want to use only some bits of the skb mark in
-his skbedit rules because the remaining part might be used by
-something else.
+ohh, yes. updated it in srcs and in commit log, but forgot in docs.
 
-Introduce the "mask" parameter to the skbedit actor in order
-to implement such functionality.
+>> +SYSCALL_DEFINE5(bpf, int, cmd, unsigned long, arg2, unsigned long, arg3,
+>> +               unsigned long, arg4, unsigned long, arg5)
+>> +{
+>> +       if (!capable(CAP_SYS_ADMIN))
+>> +               return -EPERM;
+>
+> It might be valuable to have a comment here describing why this is
+> currently limited to CAP_SYS_ADMIN.
 
-When the mask is specified, only those bits selected by the
-latter are altered really changed by the actor, while the
-rest is left untouched.
+makes sense.
+There are several reasons it should be limited to root initially:
+- to phase changes in gradually
+- verifier is not detecting pointer leaks yet
+- full security audit wasn't performed
+- tracing and network analytics are root only anyway
+Currently eBPF is safe (non-crashing), since safety is relatively easy
+to enforce by static analysis. For somebody with compiler background
+it's natural to think about bounds, alignments, uninitialized access, etc.
+So I'm confident that I didn't miss anything big in 'safety' aspect.
+'Non-root security' is harder. I'll add pointer leak detection first
+and will ask for more suggestions.
 
-Signed-off-by: Antonio Quartulli <antonio@open-mesh.com>
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
----
+>> +       switch (cmd) {
+>> +       case BPF_MAP_CREATE:
+>> +               return map_create((enum bpf_map_type) arg2,
+>> +                                 (struct nlattr __user *) arg3, (int) arg4);
+>
+> I'd recommend requiring arg5 == 0 here, just for future flexibility.
 
-Changes from v2:
-- remove useless comments
-- use nla_put_u32() and fix typ0
-
-Changes from v1:
-- use '&=' tcf_skbedit() to clean the mark
-- extend tcf_skbedit_dump() in order to send the mask as well
-
-
-
- include/net/tc_act/tc_skbedit.h        |  1 +
- include/uapi/linux/tc_act/tc_skbedit.h |  2 ++
- net/sched/act_skbedit.c                | 21 ++++++++++++++++++---
- 3 files changed, 21 insertions(+), 3 deletions(-)
-
-diff --git a/include/net/tc_act/tc_skbedit.h b/include/net/tc_act/tc_skbedit.h
-index 0df9a0d..a385c68 100644
---- a/include/net/tc_act/tc_skbedit.h
-+++ b/include/net/tc_act/tc_skbedit.h
-@@ -26,6 +26,7 @@ struct tcf_skbedit {
- 	u32			flags;
- 	u32     		priority;
- 	u32     		mark;
-+	u32			mask;
- 	u16			queue_mapping;
- 	/* XXX: 16-bit pad here? */
- };
-diff --git a/include/uapi/linux/tc_act/tc_skbedit.h b/include/uapi/linux/tc_act/tc_skbedit.h
-index 7a2e910..c7c8c5f 100644
---- a/include/uapi/linux/tc_act/tc_skbedit.h
-+++ b/include/uapi/linux/tc_act/tc_skbedit.h
-@@ -27,6 +27,7 @@
- #define SKBEDIT_F_PRIORITY		0x1
- #define SKBEDIT_F_QUEUE_MAPPING		0x2
- #define SKBEDIT_F_MARK			0x4
-+#define SKBEDIT_F_MASK			0x8
- 
- struct tc_skbedit {
- 	tc_gen;
-@@ -39,6 +40,7 @@ enum {
- 	TCA_SKBEDIT_PRIORITY,
- 	TCA_SKBEDIT_QUEUE_MAPPING,
- 	TCA_SKBEDIT_MARK,
-+	TCA_SKBEDIT_MASK,
- 	__TCA_SKBEDIT_MAX
- };
- #define TCA_SKBEDIT_MAX (__TCA_SKBEDIT_MAX - 1)
-diff --git a/net/sched/act_skbedit.c b/net/sched/act_skbedit.c
-index fcfeeaf..4409bdb 100644
---- a/net/sched/act_skbedit.c
-+++ b/net/sched/act_skbedit.c
-@@ -43,8 +43,10 @@ static int tcf_skbedit(struct sk_buff *skb, const struct tc_action *a,
- 	if (d->flags & SKBEDIT_F_QUEUE_MAPPING &&
- 	    skb->dev->real_num_tx_queues > d->queue_mapping)
- 		skb_set_queue_mapping(skb, d->queue_mapping);
--	if (d->flags & SKBEDIT_F_MARK)
--		skb->mark = d->mark;
-+	if (d->flags & SKBEDIT_F_MARK) {
-+		skb->mark &= ~d->mask;
-+		skb->mark |= d->mark & d->mask;
-+	}
- 
- 	spin_unlock(&d->tcf_lock);
- 	return d->tcf_action;
-@@ -55,6 +57,7 @@ static const struct nla_policy skbedit_policy[TCA_SKBEDIT_MAX + 1] = {
- 	[TCA_SKBEDIT_PRIORITY]		= { .len = sizeof(u32) },
- 	[TCA_SKBEDIT_QUEUE_MAPPING]	= { .len = sizeof(u16) },
- 	[TCA_SKBEDIT_MARK]		= { .len = sizeof(u32) },
-+	[TCA_SKBEDIT_MASK]		= { .len = sizeof(u32) },
- };
- 
- static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
-@@ -64,7 +67,7 @@ static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
- 	struct nlattr *tb[TCA_SKBEDIT_MAX + 1];
- 	struct tc_skbedit *parm;
- 	struct tcf_skbedit *d;
--	u32 flags = 0, *priority = NULL, *mark = NULL;
-+	u32 flags = 0, *priority = NULL, *mark = NULL, *mask = NULL;
- 	u16 *queue_mapping = NULL;
- 	int ret = 0, err;
- 
-@@ -93,6 +96,11 @@ static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
- 		mark = nla_data(tb[TCA_SKBEDIT_MARK]);
- 	}
- 
-+	if (tb[TCA_SKBEDIT_MASK] != NULL) {
-+		flags |= SKBEDIT_F_MASK;
-+		mask = nla_data(tb[TCA_SKBEDIT_MASK]);
-+	}
-+
- 	if (!flags)
- 		return -EINVAL;
- 
-@@ -123,6 +131,10 @@ static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
- 		d->queue_mapping = *queue_mapping;
- 	if (flags & SKBEDIT_F_MARK)
- 		d->mark = *mark;
-+	/* default behaviour is to use all the bits */
-+	d->mask = 0xffffffff;
-+	if (flags & SKBEDIT_F_MASK)
-+		d->mask = *mask;
- 
- 	d->tcf_action = parm->action;
- 
-@@ -160,6 +172,9 @@ static int tcf_skbedit_dump(struct sk_buff *skb, struct tc_action *a,
- 	    nla_put(skb, TCA_SKBEDIT_MARK, sizeof(d->mark),
- 		    &d->mark))
- 		goto nla_put_failure;
-+	if ((d->flags & SKBEDIT_F_MASK) &&
-+	    nla_put_u32(skb, TCA_SKBEDIT_MASK, d->mask);
-+		goto nla_put_failure;
- 	t.install = jiffies_to_clock_t(jiffies - d->tcf_tm.install);
- 	t.lastuse = jiffies_to_clock_t(jiffies - d->tcf_tm.lastuse);
- 	t.expires = jiffies_to_clock_t(d->tcf_tm.expires);
--- 
-1.8.5.5
+Though I expect all extensions to go through nlattr attributes,
+it's indeed cleaner to enforce arg5==0 here and for all other cmds.
