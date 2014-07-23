@@ -1,68 +1,67 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH net-next] cxgb4: Fix for SR-IOV VF initialization
-Date: Tue, 22 Jul 2014 20:01:04 -0700
-Message-ID: <53CF2570.50103@gmail.com>
-References: <1406026580-27256-1-git-send-email-hariprasad@chelsio.com> <20140722.153440.757089942973087670.davem@davemloft.net>
+From: Jiang Liu <jiang.liu@linux.intel.com>
+Subject: Re: [RFC Patch V1 15/30] mm, igb: Use cpu_to_mem()/numa_mem_id()
+ to support memoryless node
+Date: Wed, 23 Jul 2014 11:20:20 +0800
+Message-ID: <53CF29F4.7040700@linux.intel.com>
+References: <1405064267-11678-1-git-send-email-jiang.liu@linux.intel.com> <1405064267-11678-16-git-send-email-jiang.liu@linux.intel.com> <20140721174218.GD4156@linux.vnet.ibm.com> <CAKgT0UdZdbduP-=R7uRCxJVxt1yCDoHpnercnDoyrCbWNtx=6Q@mail.gmail.com> <20140721210900.GI4156@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com,
-	kumaras@chelsio.com, anish@chelsio.com
-To: David Miller <davem@davemloft.net>, hariprasad@chelsio.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:55612 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755689AbaGWDBH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 23:01:07 -0400
-Received: by mail-pd0-f176.google.com with SMTP id y10so719611pdj.7
-        for <netdev@vger.kernel.org>; Tue, 22 Jul 2014 20:01:06 -0700 (PDT)
-In-Reply-To: <20140722.153440.757089942973087670.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+ Mel Gorman <mgorman@suse.de>,
+ David Rientjes <rientjes@google.com>,
+ Mike Galbraith <umgwanakikbuti@gmail.com>,
+ Peter Zijlstra <peterz@infradead.org>,
+ "Rafael J . Wysocki" <rafael.j.wysocki@intel.com>,
+ Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+ Jesse Brandeburg <jesse.brandeburg@intel.com>,
+ Bruce Allan <bruce.w.allan@intel.com>,
+ Carolyn Wyborny <carolyn.wyborny@intel.com>,
+ Don Skidmore <donald.c.skidmore@intel.com>,
+ Greg Rose <gregory.v.rose@intel.com>,
+ Alex Duyck <alexander.h.duyck@intel.com>,
+ John Ronciak <john.ronciak@intel.com>,
+ Mitch Williams <mitch.a.williams@intel.com>,
+ Linux NICS <linux.nics@intel.com>,
+ Tony Luck <tony.luck@intel.com>, linux-mm@kvack.org,
+ linux-hotplug@vger.kernel.org, linux-kernel@vger.kernel.org,
+ e1000-devel@lists.sourceforge.net, Netdev <netdev@vger.kernel.org>
+To: Nishanth Aravamudan <nacc@linux.vnet.ibm.com>,
+ Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20140721210900.GI4156@linux.vnet.ibm.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On 07/22/2014 03:34 PM, David Miller wrote:
-> From: Hariprasad Shenai <hariprasad@chelsio.com>
-> Date: Tue, 22 Jul 2014 16:26:20 +0530
-> 
->> Commit 35b1de5 ("rdma/cxgb4: Fixes cxgb4 probe failure in VM when PF is exposed
->> through PCI Passthrough") introduced a regression, where VF failed to
->> initialize. This commit fixes it.
->>
->> Signed-off-by: Casey Leedom <leedom@chelsio.com>
->> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
-> 
-> This commit message need to explain things better, how exactly was
-> the regression introduced, what's exactly wrong with the current code?
-> 
-> I actually can't figure it out myself, other than to say that maybe
-> replacing things with:
-> 
-> 	func = PCI_FUNC(pdev->devfn);
->  	if (func < ARRAY_SIZE(num_vf) && num_vf[func] > 0)
->  		if (pci_enable_sriov(pdev, num_vf[func]) == 0)
-> 
-> would work equally as well.  That's precisely what the code was
-> doing before the mentioned commit.
-> 
-> Why do we have to iterate over _ALL_ functions of the PCI device,
-> rather than just directly enable SRIOV on the one function whether
-> it bet PCI_FUNC(pdev->devfn) or that WHOAMI value?
-> 
-> You need to explain this so that people understand the how and the
-> why of your changes.
-> 
-> Thanks.
+Hi Nishanth and Alexander,
+	Thanks for review, will update the comments
+in next version.
+Regards!
+Gerry
 
-What it looks like it is doing is forcing the loop to iterate over
-multiple PFs enabling SR-IOV on each one.  Same thing for disabling on
-remove.  I would think this would fail for a multifunction device since
-calling this a pci_enable_sriov a second time with values when SR-IOV is
-enabled should return -EINVAL.
+On 2014/7/22 5:09, Nishanth Aravamudan wrote:
+> On 21.07.2014 [12:53:33 -0700], Alexander Duyck wrote:
+>> I do agree the description should probably be changed.  There shouldn't be
+>> any panics involved, only a performance impact as it will be reallocating
+>> always if it is on a node with no memory.
+> 
+> Yep, thanks for the review.
+> 
+>> My intention on this was to make certain that the memory used is from the
+>> closest node possible.  As such I believe this change likely honours that.
+> 
+> Absolutely, just wanted to make it explicit that it's not a functional
+> fix, just a performance fix (presuming this shows up at all on systems
+> that have memoryless NUMA nodes).
+> 
+> I'd suggest an update to the comments, as well.
+> 
+> Thanks,
+> Nish
+> 
 
-I thought the use of module parameters for SR-IOV had been deprecated in
-favor of the PCI sysfs approach?  It seems like switching over might be
-a better way to resolve whatever issue this was trying to address.
-
-Thanks,
-
-Alex
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
