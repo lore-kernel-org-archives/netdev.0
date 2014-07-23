@@ -1,58 +1,71 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/2] xfrm: Fix refcount imbalance in xfrm_lookup
-Date: Wed, 23 Jul 2014 19:21:13 +0200
-Message-ID: <1406136073.3363.14.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1406103487-1656-1-git-send-email-steffen.klassert@secunet.com>
-	 <1406103487-1656-2-git-send-email-steffen.klassert@secunet.com>
+From: Kees Cook <keescook@chromium.org>
+Subject: Re: [PATCH RFC v2 net-next 02/16] bpf: update MAINTAINERS entry
+Date: Wed, 23 Jul 2014 10:37:40 -0700
+Message-ID: <CAGXu5j+mGDEPx5rCdVXzAdxR9SwQQ4ERM-Brxt4TmmncdPjzzg@mail.gmail.com>
+References: <1405657206-12060-1-git-send-email-ast@plumgrid.com>
+	<1405657206-12060-3-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f51.google.com ([74.125.82.51]:40460 "EHLO
-	mail-wg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932289AbaGWRV2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2014 13:21:28 -0400
-Received: by mail-wg0-f51.google.com with SMTP id b13so1481543wgh.22
-        for <netdev@vger.kernel.org>; Wed, 23 Jul 2014 10:21:26 -0700 (PDT)
-In-Reply-To: <1406103487-1656-2-git-send-email-steffen.klassert@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Chema Gonzalez <chema@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Jiri Olsa <jolsa@redhat.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1405657206-12060-3-git-send-email-ast@plumgrid.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-07-23 at 10:18 +0200, Steffen Klassert wrote:
-> xfrm_lookup must return a dst_entry with a refcount for the caller.
-> Git commit 1a1ccc96abb ("xfrm: Remove caching of xfrm_policy_sk_bundles")
-> removed this refcount for the socket policy case accidentally.
-> This patch restores it and sets DST_NOCACHE flag to make sure
-> that the dst_entry is freed when the refcount becomes null.
-> 
-> Fixes: 1a1ccc96abb ("xfrm: Remove caching of xfrm_policy_sk_bundles")
-> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+On Thu, Jul 17, 2014 at 9:19 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 > ---
->  net/xfrm/xfrm_policy.c | 2 ++
->  1 file changed, 2 insertions(+)
-> 
-> diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-> index a8ef510..0525d78 100644
-> --- a/net/xfrm/xfrm_policy.c
-> +++ b/net/xfrm/xfrm_policy.c
-> @@ -2097,6 +2097,8 @@ struct dst_entry *xfrm_lookup(struct net *net, struct dst_entry *dst_orig,
->  				goto no_transform;
->  			}
->  
-> +			dst_hold(&xdst->u.dst);
-> +			xdst->u.dst.flags |= DST_NOCACHE;
->  			route = xdst->route;
->  		}
->  	}
+>  MAINTAINERS |    7 +++++++
+>  1 file changed, 7 insertions(+)
+>
+> diff --git a/MAINTAINERS b/MAINTAINERS
+> index ae8cd00215b2..32e24ff46da3 100644
+> --- a/MAINTAINERS
+> +++ b/MAINTAINERS
+> @@ -1912,6 +1912,13 @@ S:       Supported
+>  F:     drivers/net/bonding/
+>  F:     include/uapi/linux/if_bonding.h
+>
+> +BPF (Safe dynamic programs and tools)
+
+bikeshed: I feel like this shouldn't be an acronym. Maybe instead:
+
+BERKELEY PACKET FILTER (BPF: Safe dynamic programs and tools)
+
+-Kees
+
+> +M:     Alexei Starovoitov <ast@kernel.org>
+> +L:     netdev@vger.kernel.org
+> +L:     linux-kernel@vger.kernel.org
+> +S:     Supported
+> +F:     kernel/bpf/
+> +
+>  BROADCOM B44 10/100 ETHERNET DRIVER
+>  M:     Gary Zambrano <zambrano@broadcom.com>
+>  L:     netdev@vger.kernel.org
+> --
+> 1.7.9.5
+>
 
 
-Hmm... are you sure ?
 
-Before 1a1ccc96abb we did a dst_hold() because we kept the dst in
-xfrm_policy_sk_bundles. So keeping a reference count was mandatory.
-
-But after, I don't understand why it is needed at all.
+-- 
+Kees Cook
+Chrome OS Security
