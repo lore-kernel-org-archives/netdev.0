@@ -1,71 +1,38 @@
-From: Kees Cook <keescook@chromium.org>
-Subject: Re: [PATCH RFC v2 net-next 02/16] bpf: update MAINTAINERS entry
-Date: Wed, 23 Jul 2014 10:37:40 -0700
-Message-ID: <CAGXu5j+mGDEPx5rCdVXzAdxR9SwQQ4ERM-Brxt4TmmncdPjzzg@mail.gmail.com>
-References: <1405657206-12060-1-git-send-email-ast@plumgrid.com>
-	<1405657206-12060-3-git-send-email-ast@plumgrid.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Chema Gonzalez <chema@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Jiri Olsa <jolsa@redhat.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linux API <linux-api@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1405657206-12060-3-git-send-email-ast@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 0/5] net: bcmgenet: checkpatch fixes
+Date: Wed, 23 Jul 2014 10:42:10 -0700
+Message-ID: <1406137335-1671-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:50515 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932347AbaGWRnh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2014 13:43:37 -0400
+Received: by mail-pd0-f169.google.com with SMTP id y10so2027259pdj.28
+        for <netdev@vger.kernel.org>; Wed, 23 Jul 2014 10:43:37 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 17, 2014 at 9:19 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-> ---
->  MAINTAINERS |    7 +++++++
->  1 file changed, 7 insertions(+)
->
-> diff --git a/MAINTAINERS b/MAINTAINERS
-> index ae8cd00215b2..32e24ff46da3 100644
-> --- a/MAINTAINERS
-> +++ b/MAINTAINERS
-> @@ -1912,6 +1912,13 @@ S:       Supported
->  F:     drivers/net/bonding/
->  F:     include/uapi/linux/if_bonding.h
->
-> +BPF (Safe dynamic programs and tools)
+Hi David,
 
-bikeshed: I feel like this shouldn't be an acronym. Maybe instead:
+This patch series contains cleanups for CHECK and WARNINGS reported by
+checkpatch.pl. I removed one patch from this series since Joe reported
+this was a false positive due to me not using the latest version.
 
-BERKELEY PACKET FILTER (BPF: Safe dynamic programs and tools)
+Thanks!
 
--Kees
+Florian Fainelli (5):
+  net: bcmgenet: remove FSF mail address
+  net: bcmgenet: re-align multiple lines correctly
+  net: bcmgenet: add and remove missing blank lines
+  net: bcmgenet: add missing braces to some if statements
+  net: bcmgenet: use kcalloc instead of kzalloc
 
-> +M:     Alexei Starovoitov <ast@kernel.org>
-> +L:     netdev@vger.kernel.org
-> +L:     linux-kernel@vger.kernel.org
-> +S:     Supported
-> +F:     kernel/bpf/
-> +
->  BROADCOM B44 10/100 ETHERNET DRIVER
->  M:     Gary Zambrano <zambrano@broadcom.com>
->  L:     netdev@vger.kernel.org
-> --
-> 1.7.9.5
->
-
-
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 285 ++++++++++++-------------
+ drivers/net/ethernet/broadcom/genet/bcmgenet.h |  18 +-
+ drivers/net/ethernet/broadcom/genet/bcmmii.c   |  39 ++--
+ 3 files changed, 154 insertions(+), 188 deletions(-)
 
 -- 
-Kees Cook
-Chrome OS Security
+1.9.1
