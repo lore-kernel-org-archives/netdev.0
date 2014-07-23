@@ -1,27 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/5] net: bcmgenet: checkpatch fixes
-Date: Wed, 23 Jul 2014 15:20:33 -0700 (PDT)
-Message-ID: <20140723.152033.491196673985680395.davem@davemloft.net>
-References: <1406137335-1671-1-git-send-email-f.fainelli@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] netfilter: nf_sockopt_find() should return ERESTARTSYS
+Date: Thu, 24 Jul 2014 00:53:15 +0200
+Message-ID: <1406155995.3363.19.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38396 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933591AbaGWWUf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2014 18:20:35 -0400
-In-Reply-To: <1406137335-1671-1-git-send-email-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+	David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Wed, 23 Jul 2014 10:42:10 -0700
+From: Eric Dumazet <edumazet@google.com>
 
-> This patch series contains cleanups for CHECK and WARNINGS reported by
-> checkpatch.pl. I removed one patch from this series since Joe reported
-> this was a false positive due to me not using the latest version.
+getsockopt() or setsockopt() sometimes returns -EINTR instead of
+-ENOPROTOOPT, causing headaches to application developers.
 
-Series applied, thanks Florian.
+This is because unsupported commands might go through nf_sockopt_find()
+and this function returns -EINTR instead of -ERESTARTSYS if
+a signal is pending.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/netfilter/nf_sockopt.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/netfilter/nf_sockopt.c b/net/netfilter/nf_sockopt.c
+index f042ae521557..37181447715b 100644
+--- a/net/netfilter/nf_sockopt.c
++++ b/net/netfilter/nf_sockopt.c
+@@ -66,7 +66,7 @@ static struct nf_sockopt_ops *nf_sockopt_find(struct sock *sk, u_int8_t pf,
+ 	struct nf_sockopt_ops *ops;
+ 
+ 	if (mutex_lock_interruptible(&nf_sockopt_mutex) != 0)
+-		return ERR_PTR(-EINTR);
++		return ERR_PTR(-ERESTARTSYS);
+ 
+ 	list_for_each_entry(ops, &nf_sockopts, list) {
+ 		if (ops->pf == pf) {
+
+
