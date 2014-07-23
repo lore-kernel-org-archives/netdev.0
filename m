@@ -1,49 +1,51 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCHv2] skbedit: allow the user to specify bitmask for mark
-Date: Wed, 23 Jul 2014 09:16:29 -0400
-Message-ID: <53CFB5AD.9020005@mojatatu.com>
-References: <1406102589-8441-1-git-send-email-antonio@meshcoding.com>
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: Re: [PATCH] amd-xgbe: Fix error return code in xgbe_probe()
+Date: Wed, 23 Jul 2014 08:25:55 -0500
+Message-ID: <53CFB7E3.8060608@amd.com>
+References: <1406077180-28852-1-git-send-email-weiyj_lk@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sergei.shtylyov@cogentembedded.com,
-	eric.dumazet@gmail.com, Antonio Quartulli <antonio@open-mesh.com>
-To: Antonio Quartulli <antonio@meshcoding.com>, davem@davemloft.net
+Cc: Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
+	<netdev@vger.kernel.org>
+To: <weiyj_lk@163.com>, Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <robh+dt@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f172.google.com ([209.85.212.172]:52800 "EHLO
-	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756589AbaGWNRL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2014 09:17:11 -0400
-Received: by mail-wi0-f172.google.com with SMTP id n3so7774429wiv.11
-        for <netdev@vger.kernel.org>; Wed, 23 Jul 2014 06:17:08 -0700 (PDT)
-In-Reply-To: <1406102589-8441-1-git-send-email-antonio@meshcoding.com>
+Received: from mail-bn1lp0140.outbound.protection.outlook.com ([207.46.163.140]:14227
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752798AbaGWN0E (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Jul 2014 09:26:04 -0400
+In-Reply-To: <1406077180-28852-1-git-send-email-weiyj_lk@163.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/23/14 04:03, Antonio Quartulli wrote:
-> From: Antonio Quartulli <antonio@open-mesh.com>
+On 07/22/2014 07:59 PM, weiyj_lk@163.com wrote:
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 >
-> The user may want to use only some bits of the skb mark in
-> his skbedit rules because the remaining part might be used by
-> something else.
+> Fix to return a negative error code from the setting real tx queue
+> count error handling case instead of 0.
 >
-> Introduce the "mask" parameter to the skbedit actor in order
-> to implement such functionality.
->
-> When the mask is specified, only those bits selected by the
-> latter are altered really changed by the actor, while the
-> rest is left untouched.
->
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Signed-off-by: Antonio Quartulli <antonio@open-mesh.com>
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+
+Acked-by: Tom Lendacky <thomas.lendacky@amd.com>
+
 > ---
+>   drivers/net/ethernet/amd/xgbe/xgbe-main.c | 3 ++-
+>   1 file changed, 2 insertions(+), 1 deletion(-)
 >
-> Jamal, I'm not adding your Signed-off because the patches has new part with
-> respect to v1.
+> diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-main.c b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
+> index c83584a..5a1891f 100644
+> --- a/drivers/net/ethernet/amd/xgbe/xgbe-main.c
+> +++ b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
+> @@ -339,7 +339,8 @@ static int xgbe_probe(struct platform_device *pdev)
+>   	/* Calculate the number of Tx and Rx rings to be created */
+>   	pdata->tx_ring_count = min_t(unsigned int, num_online_cpus(),
+>   				     pdata->hw_feat.tx_ch_cnt);
+> -	if (netif_set_real_num_tx_queues(netdev, pdata->tx_ring_count)) {
+> +	ret = netif_set_real_num_tx_queues(netdev, pdata->tx_ring_count);
+> +	if (ret) {
+>   		dev_err(dev, "error setting real tx queue count\n");
+>   		goto err_io;
+>   	}
 >
-
-
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
-
-cheers,
-jamal
