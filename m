@@ -1,47 +1,57 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: linux-next: build failure after merge of the net tree
-Date: Wed, 23 Jul 2014 11:40:40 -0700
-Message-ID: <CAGVrzcZWGQiSjBs0iKofLvnk7wFth2VkZ02ycaic855O5EzxFw@mail.gmail.com>
-References: <20140704113907.468a366a@canb.auug.org.au> <20140707.195330.1593299312055099195.davem@davemloft.net>
- <CAOwfj2PsBhW3j4Tm4UMc1iCf=-xX8bhKcNLuo+iMzQw=jZog+A@mail.gmail.com>
+From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+Subject: Re: [PATCH 2/2] net: phy: Ensure the MDIO bus module is held
+Date: Wed, 23 Jul 2014 15:40:41 -0300
+Message-ID: <20140723184041.GA24850@arch.cereza>
+References: <1406074570-13246-1-git-send-email-ezequiel.garcia@free-electrons.com>
+ <1406074570-13246-3-git-send-email-ezequiel.garcia@free-electrons.com>
+ <CAGVrzcarnqLRnr97FRB-GVKwQLebpYtV7DXHp2ZTmm1gVfY30Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Stephen Rothwell <sfr@canb.auug.org.au>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-next <linux-next@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Vince Bridgers <vbridgers2013@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAOwfj2PsBhW3j4Tm4UMc1iCf=-xX8bhKcNLuo+iMzQw=jZog+A@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from top.free-electrons.com ([176.31.233.9]:43066 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932697AbaGWSll (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2014 14:41:41 -0400
+Content-Disposition: inline
+In-Reply-To: <CAGVrzcarnqLRnr97FRB-GVKwQLebpYtV7DXHp2ZTmm1gVfY30Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2014-07-23 11:38 GMT-07:00 Vince Bridgers <vbridgers2013@gmail.com>:
-> Hi all,
->
-> On Mon, Jul 7, 2014 at 9:53 PM, David Miller <davem@davemloft.net> wrote:
->> From: Stephen Rothwell <sfr@canb.auug.org.au>
->> Date: Fri, 4 Jul 2014 11:39:07 +1000
->>
->>> After merging the net tree, today's linux-next build (x86_64
->>> allmodconfig) failed like this:
->>>
->>> ERROR: "phy_resume" [drivers/net/ethernet/stmicro/stmmac/stmmac.ko] undefined!
->>>
->>> Caused by commit 0acf16768740 ("net: stmmac: add platform init/exit for
->>> Altera's ARM socfpga").
->>>
->>> I reverted that commit for today.
->>
->> Vince you haven't made any effort to fix this build failure, so I am reverting
->> your changes.
->
-> My apologies, I was out on vacation and I should have checked for this
-> before submitting. I have a corrected patch that I'm ready to submit.
+On 23 Jul 11:22 AM, Florian Fainelli wrote:
+> 2014-07-22 17:16 GMT-07:00 Ezequiel Garcia <ezequiel.garcia@free-elec=
+trons.com>:
+> > @@ -614,10 +623,14 @@ int phy_attach_direct(struct net_device *dev,=
+ struct phy_device *phydev,
+> >          */
+> >         err =3D phy_init_hw(phydev);
+> >         if (err)
+> > -               phy_detach(phydev);
+> > -       else
+> > -               phy_resume(phydev);
+> > +               goto err_module_put;
+> >
+> > +       phy_resume(phydev);
+> > +       return err;
+> > +
+> > +err_module_put:
+> > +       module_put(bus_module);
+> > +       phy_detach(phydev);
+>=20
+> Since we are calling phy_detach() which is also attempting to do a
+> module_put(), does not that result in one too many calls to
+> module_put() on error path?
+>=20
 
-net-next does contain a change that adds EXPORT_SYMBOLE() to
-phy_resume and phy_suspend, you might be able to get along with just
-re-submitting your patches if they still apply cleanly?
--- 
-Florian
+As far as I can see all that module_get() and module_put() do
+is increment and decrement refcounters. Therefore, I think you can
+have as many module_{get,put}() calls as you want on a path.
+--=20
+Ezequiel Garc=EDa, Free Electrons
+Embedded Linux, Kernel and Android Engineering
+http://free-electrons.com
