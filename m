@@ -1,27 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/2] cleanup for Realtek 8139CP
-Date: Wed, 23 Jul 2014 14:57:06 -0700 (PDT)
-Message-ID: <20140723.145706.1764292430162233152.davem@davemloft.net>
-References: <1406087389-4436-1-git-send-email-varkabhadram@gmail.com>
+Subject: Re: [PATCH 00/14] arm64: eBPF JIT compiler
+Date: Wed, 23 Jul 2014 14:57:48 -0700 (PDT)
+Message-ID: <20140723.145748.1239383737343402553.davem@davemloft.net>
+References: <20140721091623.GA16122@arm.com>
+	<CAMEtUuyC+MykPDO0ghTc=oex7KPLEy=BLRgWBdW+qJY7JXQmDQ@mail.gmail.com>
+	<CABg9mcsPUwQe_7KrG=-8UJi1cA3+xbaDo1u+niFQ+JQRt37w7Q@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	varkab@cdac.in
-To: varkabhadram@gmail.com
+Cc: ast@plumgrid.com, will.deacon@arm.com, Catalin.Marinas@arm.com,
+	liuj97@gmail.com, takahiro.akashi@linaro.org, dborkman@redhat.com,
+	chema@google.com, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
+To: zlim.lnx@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1406087389-4436-1-git-send-email-varkabhadram@gmail.com>
+In-Reply-To: <CABg9mcsPUwQe_7KrG=-8UJi1cA3+xbaDo1u+niFQ+JQRt37w7Q@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: varkabhadram@gmail.com
-Date: Wed, 23 Jul 2014 09:19:47 +0530
+From: Z Lim <zlim.lnx@gmail.com>
+Date: Tue, 22 Jul 2014 22:24:13 -0700
 
-> From: Varka Bhadram <varkab@cdac.in>
-> 
-> changes since v2:
->         - making version info print once.
-> changes sice v1:
->         - remove unused varible warning
+> David, any chance of pulling this series into net-next for 3.17?
 
-Series applied, thanks.
+I'm more than happy to pull this into net-next as long as the ARM
+folks are OK with it.
+
+And if so, please repost this series with the Acks added.
+
+Thanks.
