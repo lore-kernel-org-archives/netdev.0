@@ -1,45 +1,58 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: [PATCHv2] skbedit: allow the user to specify bitmask for mark
-Date: Wed, 23 Jul 2014 10:16:56 -0700
-Message-ID: <CAHA+R7MvxaWpybUJFZd4W0kEJE4nOMD_ApmSb0KgBkNugbttQA@mail.gmail.com>
-References: <1406102589-8441-1-git-send-email-antonio@meshcoding.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/2] xfrm: Fix refcount imbalance in xfrm_lookup
+Date: Wed, 23 Jul 2014 19:21:13 +0200
+Message-ID: <1406136073.3363.14.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1406103487-1656-1-git-send-email-steffen.klassert@secunet.com>
+	 <1406103487-1656-2-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	sergei.shtylyov@cogentembedded.com,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Antonio Quartulli <antonio@open-mesh.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: Antonio Quartulli <antonio@meshcoding.com>
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f176.google.com ([209.85.217.176]:38970 "EHLO
-	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757549AbaGWRQ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2014 13:16:57 -0400
-Received: by mail-lb0-f176.google.com with SMTP id u10so1163319lbd.35
-        for <netdev@vger.kernel.org>; Wed, 23 Jul 2014 10:16:56 -0700 (PDT)
-In-Reply-To: <1406102589-8441-1-git-send-email-antonio@meshcoding.com>
+Received: from mail-wg0-f51.google.com ([74.125.82.51]:40460 "EHLO
+	mail-wg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932289AbaGWRV2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2014 13:21:28 -0400
+Received: by mail-wg0-f51.google.com with SMTP id b13so1481543wgh.22
+        for <netdev@vger.kernel.org>; Wed, 23 Jul 2014 10:21:26 -0700 (PDT)
+In-Reply-To: <1406103487-1656-2-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 23, 2014 at 1:03 AM, Antonio Quartulli
-<antonio@meshcoding.com> wrote:
->  #define TCA_SKBEDIT_MAX (__TCA_SKBEDIT_MAX - 1)
-> diff --git a/net/sched/act_skbedit.c b/net/sched/act_skbedit.c
-> index fcfeeaf..6111b06 100644
-> --- a/net/sched/act_skbedit.c
-> +++ b/net/sched/act_skbedit.c
-> @@ -43,8 +43,12 @@ static int tcf_skbedit(struct sk_buff *skb, const struct tc_action *a,
->         if (d->flags & SKBEDIT_F_QUEUE_MAPPING &&
->             skb->dev->real_num_tx_queues > d->queue_mapping)
->                 skb_set_queue_mapping(skb, d->queue_mapping);
-> -       if (d->flags & SKBEDIT_F_MARK)
-> -               skb->mark = d->mark;
-> +       if (d->flags & SKBEDIT_F_MARK) {
-> +               /* unset all the bits in the mask */
-> +               skb->mark &= ~d->mask;
-> +               /* assign the mark value for the masked bit only */
-> +               skb->mark |= d->mark & d->mask;
+On Wed, 2014-07-23 at 10:18 +0200, Steffen Klassert wrote:
+> xfrm_lookup must return a dst_entry with a refcount for the caller.
+> Git commit 1a1ccc96abb ("xfrm: Remove caching of xfrm_policy_sk_bundles")
+> removed this refcount for the socket policy case accidentally.
+> This patch restores it and sets DST_NOCACHE flag to make sure
+> that the dst_entry is freed when the refcount becomes null.
+> 
+> Fixes: 1a1ccc96abb ("xfrm: Remove caching of xfrm_policy_sk_bundles")
+> Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
+> ---
+>  net/xfrm/xfrm_policy.c | 2 ++
+>  1 file changed, 2 insertions(+)
+> 
+> diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+> index a8ef510..0525d78 100644
+> --- a/net/xfrm/xfrm_policy.c
+> +++ b/net/xfrm/xfrm_policy.c
+> @@ -2097,6 +2097,8 @@ struct dst_entry *xfrm_lookup(struct net *net, struct dst_entry *dst_orig,
+>  				goto no_transform;
+>  			}
+>  
+> +			dst_hold(&xdst->u.dst);
+> +			xdst->u.dst.flags |= DST_NOCACHE;
+>  			route = xdst->route;
+>  		}
+>  	}
 
-The comments are useless, code is already clear.
+
+Hmm... are you sure ?
+
+Before 1a1ccc96abb we did a dst_hold() because we kept the dst in
+xfrm_policy_sk_bundles. So keeping a reference count was mandatory.
+
+But after, I don't understand why it is needed at all.
