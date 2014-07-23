@@ -1,96 +1,27 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net-next 3/3] vlan: fail early when creating netdev named config
-Date: Wed, 23 Jul 2014 15:17:32 -0700
-Message-ID: <1406153852-22511-4-git-send-email-xiyou.wangcong@gmail.com>
-References: <1406153852-22511-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: stephane.chazelas@gmail.com, davem@davemloft.net,
-	Cong Wang <xiyou.wangcong@gmail.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2 0/5] net: bcmgenet: checkpatch fixes
+Date: Wed, 23 Jul 2014 15:20:33 -0700 (PDT)
+Message-ID: <20140723.152033.491196673985680395.davem@davemloft.net>
+References: <1406137335-1671-1-git-send-email-f.fainelli@gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:42028 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933386AbaGWWR4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2014 18:17:56 -0400
-Received: by mail-pa0-f44.google.com with SMTP id eu11so2584224pac.3
-        for <netdev@vger.kernel.org>; Wed, 23 Jul 2014 15:17:56 -0700 (PDT)
-In-Reply-To: <1406153852-22511-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38396 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933591AbaGWWUf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2014 18:20:35 -0400
+In-Reply-To: <1406137335-1671-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Similarly, vlan will create  /proc/net/vlan/<dev>, so when we
-create dev with name "config", it will confict with
-/proc/net/vlan/config.
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Wed, 23 Jul 2014 10:42:10 -0700
 
-Reported-by: Stephane Chazelas <stephane.chazelas@gmail.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- net/8021q/vlan.c     | 21 +++++++++++++--------
- net/8021q/vlanproc.c |  2 ++
- 2 files changed, 15 insertions(+), 8 deletions(-)
+> This patch series contains cleanups for CHECK and WARNINGS reported by
+> checkpatch.pl. I removed one patch from this series since Joe reported
+> this was a false positive due to me not using the latest version.
 
-diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
-index cba9c21..64c6bed 100644
---- a/net/8021q/vlan.c
-+++ b/net/8021q/vlan.c
-@@ -325,23 +325,24 @@ static void vlan_transfer_features(struct net_device *dev,
- 	netdev_update_features(vlandev);
- }
- 
--static void __vlan_device_event(struct net_device *dev, unsigned long event)
-+static int __vlan_device_event(struct net_device *dev, unsigned long event)
- {
-+	int err = 0;
-+
- 	switch (event) {
- 	case NETDEV_CHANGENAME:
- 		vlan_proc_rem_dev(dev);
--		if (vlan_proc_add_dev(dev) < 0)
--			pr_warn("failed to change proc name for %s\n",
--				dev->name);
-+		err = vlan_proc_add_dev(dev);
- 		break;
- 	case NETDEV_REGISTER:
--		if (vlan_proc_add_dev(dev) < 0)
--			pr_warn("failed to add proc entry for %s\n", dev->name);
-+		err = vlan_proc_add_dev(dev);
- 		break;
- 	case NETDEV_UNREGISTER:
- 		vlan_proc_rem_dev(dev);
- 		break;
- 	}
-+
-+	return err;
- }
- 
- static int vlan_device_event(struct notifier_block *unused, unsigned long event,
-@@ -356,8 +357,12 @@ static int vlan_device_event(struct notifier_block *unused, unsigned long event,
- 	bool last = false;
- 	LIST_HEAD(list);
- 
--	if (is_vlan_dev(dev))
--		__vlan_device_event(dev, event);
-+	if (is_vlan_dev(dev)) {
-+		int err = __vlan_device_event(dev, event);
-+
-+		if (err)
-+			return notifier_from_errno(err);
-+	}
- 
- 	if ((event == NETDEV_UP) &&
- 	    (dev->features & NETIF_F_HW_VLAN_CTAG_FILTER)) {
-diff --git a/net/8021q/vlanproc.c b/net/8021q/vlanproc.c
-index 1d0e8921..ae63cf7 100644
---- a/net/8021q/vlanproc.c
-+++ b/net/8021q/vlanproc.c
-@@ -171,6 +171,8 @@ int vlan_proc_add_dev(struct net_device *vlandev)
- 	struct vlan_dev_priv *vlan = vlan_dev_priv(vlandev);
- 	struct vlan_net *vn = net_generic(dev_net(vlandev), vlan_net_id);
- 
-+	if (!strcmp(vlandev->name, name_conf))
-+		return -EINVAL;
- 	vlan->dent =
- 		proc_create_data(vlandev->name, S_IFREG|S_IRUSR|S_IWUSR,
- 				 vn->proc_vlan_dir, &vlandev_fops, vlandev);
--- 
-1.8.3.1
+Series applied, thanks Florian.
