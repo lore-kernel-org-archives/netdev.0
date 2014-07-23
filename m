@@ -1,31 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 00/14] arm64: eBPF JIT compiler
-Date: Wed, 23 Jul 2014 14:57:48 -0700 (PDT)
-Message-ID: <20140723.145748.1239383737343402553.davem@davemloft.net>
-References: <20140721091623.GA16122@arm.com>
-	<CAMEtUuyC+MykPDO0ghTc=oex7KPLEy=BLRgWBdW+qJY7JXQmDQ@mail.gmail.com>
-	<CABg9mcsPUwQe_7KrG=-8UJi1cA3+xbaDo1u+niFQ+JQRt37w7Q@mail.gmail.com>
+Subject: Re: [PATCH net-next] net/mlx4_en: mlx4_en_[gs]et_priv_flags() can
+ be static
+Date: Wed, 23 Jul 2014 15:00:07 -0700 (PDT)
+Message-ID: <20140723.150007.1891339388720515413.davem@davemloft.net>
+References: <1406097386-11034-1-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ast@plumgrid.com, will.deacon@arm.com, Catalin.Marinas@arm.com,
-	liuj97@gmail.com, takahiro.akashi@linaro.org, dborkman@redhat.com,
-	chema@google.com, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
-To: zlim.lnx@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CABg9mcsPUwQe_7KrG=-8UJi1cA3+xbaDo1u+niFQ+JQRt37w7Q@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, yevgenyp@mellanox.com,
+	ogerlitz@mellanox.com, fengguang.wu@intel.com
+To: amirv@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38213 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933437AbaGWWAI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2014 18:00:08 -0400
+In-Reply-To: <1406097386-11034-1-git-send-email-amirv@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Z Lim <zlim.lnx@gmail.com>
-Date: Tue, 22 Jul 2014 22:24:13 -0700
+From: Amir Vadai <amirv@mellanox.com>
+Date: Wed, 23 Jul 2014 09:36:26 +0300
 
-> David, any chance of pulling this series into net-next for 3.17?
+> From: Fengguang Wu <fengguang.wu@intel.com>
+> 
+> Fixes sparse warning intrduced by commit 0fef9d0 ("net/mlx4_en: Disable
+> blueflame using ethtool private flags")
+> 
+> Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
+> Signed-off-by: Amir Vadai <amirv@mellanox.com>
 
-I'm more than happy to pull this into net-next as long as the ARM
-folks are OK with it.
-
-And if so, please repost this series with the Acks added.
-
-Thanks.
+This doesn't apply to net-next.
