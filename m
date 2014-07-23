@@ -1,65 +1,296 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [net-next 05/10] net: Add Geneve tunneling protocol driver
-Date: Wed, 23 Jul 2014 10:11:26 -0400
-Message-ID: <20140723141126.GB14162@tuxdriver.com>
-References: <1406024393-6778-1-git-send-email-azhou@nicira.com>
- <1406024393-6778-6-git-send-email-azhou@nicira.com>
- <53CEEFDB.5030900@intel.com>
- <CAEP_g=82H_h85Cog5HNP9P4M5LPJ=ZLz-dzLocAUKAG7cZi7yg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
-	Andy Zhou <azhou@nicira.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Jesse Gross <jesse@nicira.com>
+From: Manuel Lauss <manuel.lauss@gmail.com>
+Subject: [PATCH 2/6] MIPS: Alchemy: move ethernet registers to ethernet driver
+Date: Wed, 23 Jul 2014 16:36:22 +0200
+Message-ID: <1406126186-471228-3-git-send-email-manuel.lauss@gmail.com>
+References: <1406126186-471228-1-git-send-email-manuel.lauss@gmail.com>
+Cc: Manuel Lauss <manuel.lauss@gmail.com>, netdev@vger.kernel.org
+To: Linux-MIPS <linux-mips@linux-mips.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:56024 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751904AbaGWOPU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2014 10:15:20 -0400
-Content-Disposition: inline
-In-Reply-To: <CAEP_g=82H_h85Cog5HNP9P4M5LPJ=ZLz-dzLocAUKAG7cZi7yg@mail.gmail.com>
+Received: from mail-wi0-f172.google.com ([209.85.212.172]:42440 "EHLO
+	mail-wi0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753110AbaGWOgr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2014 10:36:47 -0400
+Received: by mail-wi0-f172.google.com with SMTP id n3so7917245wiv.11
+        for <netdev@vger.kernel.org>; Wed, 23 Jul 2014 07:36:44 -0700 (PDT)
+In-Reply-To: <1406126186-471228-1-git-send-email-manuel.lauss@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 22, 2014 at 07:24:20PM -0400, Jesse Gross wrote:
-> On Tue, Jul 22, 2014 at 7:12 PM, Alexander Duyck
-> <alexander.h.duyck@intel.com> wrote:
-> > On 07/22/2014 03:19 AM, Andy Zhou wrote:
-> >> This adds a device level support for Geneve -- Generic Network
-> >> Virtualization Encapsulation. The protocol is documented at
-> >> http://tools.ietf.org/html/draft-gross-geneve-00
-> >>
-> >> Only protocol layer Geneve support is provided by this driver.
-> >> Openvswitch can be used for configuring, set up and tear down
-> >> functional Geneve tunnels.
-> >>
-> >> Signed-off-by: Jesse Gross <jesse@nicira.com>
-> >> Signed-off-by: Andy Zhou <azhou@nicira.com>
-> >> ---
-> >>  include/net/geneve.h     |   85 +++++++++++++++
-> >>  include/net/ip_tunnels.h |    2 +
-> >>  net/ipv4/Kconfig         |   14 +++
-> >>  net/ipv4/Makefile        |    1 +
-> >>  net/ipv4/geneve.c        |  273 ++++++++++++++++++++++++++++++++++++++++++++++
-> >>  net/openvswitch/Kconfig  |   11 ++
-> >>  net/openvswitch/vport.c  |    3 +
-> >>  7 files changed, 389 insertions(+)
-> >>  create mode 100644 include/net/geneve.h
-> >>  create mode 100644 net/ipv4/geneve.c
-> >>
-> >
-> > So all this is really doing is enabling a Geneve socket for use by
-> > Openvswitch.  Do you have any plans to enable a stand alone interface
-> > like what we already have for VXLAN?
-> 
-> Yes, this is the basic protocol code that would be shared by all users
-> of Geneve. OVS is the first user but John Linville is looking at
-> adding support for connecting this to 'ip' as a non-OVS user.
+Move the register offsets and bit descriptions from the au1000.h header
+to their only user, the au1000_eth.c driver.
 
-ACK
+Signed-off-by: Manuel Lauss <manuel.lauss@gmail.com>
+Cc: netdev@vger.kernel.org
+---
+ arch/mips/include/asm/mach-au1x00/au1000.h | 126 -----------------------------
+ drivers/net/ethernet/amd/au1000_eth.c      | 118 +++++++++++++++++++++++++++
+ 2 files changed, 118 insertions(+), 126 deletions(-)
 
+diff --git a/arch/mips/include/asm/mach-au1x00/au1000.h b/arch/mips/include/asm/mach-au1x00/au1000.h
+index 60754fc..e506710 100644
+--- a/arch/mips/include/asm/mach-au1x00/au1000.h
++++ b/arch/mips/include/asm/mach-au1x00/au1000.h
+@@ -1003,132 +1003,6 @@ enum soc_au1200_ints {
+ #define SYS_RTCMATCH2		(SYS_BASE + 0x54)
+ #define SYS_RTCREAD		(SYS_BASE + 0x58)
+ 
+-/* Ethernet Controllers  */
+-
+-/* 4 byte offsets from AU1000_ETH_BASE */
+-#define MAC_CONTROL		0x0
+-#  define MAC_RX_ENABLE		(1 << 2)
+-#  define MAC_TX_ENABLE		(1 << 3)
+-#  define MAC_DEF_CHECK		(1 << 5)
+-#  define MAC_SET_BL(X)		(((X) & 0x3) << 6)
+-#  define MAC_AUTO_PAD		(1 << 8)
+-#  define MAC_DISABLE_RETRY	(1 << 10)
+-#  define MAC_DISABLE_BCAST	(1 << 11)
+-#  define MAC_LATE_COL		(1 << 12)
+-#  define MAC_HASH_MODE		(1 << 13)
+-#  define MAC_HASH_ONLY		(1 << 15)
+-#  define MAC_PASS_ALL		(1 << 16)
+-#  define MAC_INVERSE_FILTER	(1 << 17)
+-#  define MAC_PROMISCUOUS	(1 << 18)
+-#  define MAC_PASS_ALL_MULTI	(1 << 19)
+-#  define MAC_FULL_DUPLEX	(1 << 20)
+-#  define MAC_NORMAL_MODE	0
+-#  define MAC_INT_LOOPBACK	(1 << 21)
+-#  define MAC_EXT_LOOPBACK	(1 << 22)
+-#  define MAC_DISABLE_RX_OWN	(1 << 23)
+-#  define MAC_BIG_ENDIAN	(1 << 30)
+-#  define MAC_RX_ALL		(1 << 31)
+-#define MAC_ADDRESS_HIGH	0x4
+-#define MAC_ADDRESS_LOW		0x8
+-#define MAC_MCAST_HIGH		0xC
+-#define MAC_MCAST_LOW		0x10
+-#define MAC_MII_CNTRL		0x14
+-#  define MAC_MII_BUSY		(1 << 0)
+-#  define MAC_MII_READ		0
+-#  define MAC_MII_WRITE		(1 << 1)
+-#  define MAC_SET_MII_SELECT_REG(X) (((X) & 0x1f) << 6)
+-#  define MAC_SET_MII_SELECT_PHY(X) (((X) & 0x1f) << 11)
+-#define MAC_MII_DATA		0x18
+-#define MAC_FLOW_CNTRL		0x1C
+-#  define MAC_FLOW_CNTRL_BUSY	(1 << 0)
+-#  define MAC_FLOW_CNTRL_ENABLE (1 << 1)
+-#  define MAC_PASS_CONTROL	(1 << 2)
+-#  define MAC_SET_PAUSE(X)	(((X) & 0xffff) << 16)
+-#define MAC_VLAN1_TAG		0x20
+-#define MAC_VLAN2_TAG		0x24
+-
+-/* Ethernet Controller Enable */
+-
+-#  define MAC_EN_CLOCK_ENABLE	(1 << 0)
+-#  define MAC_EN_RESET0		(1 << 1)
+-#  define MAC_EN_TOSS		(0 << 2)
+-#  define MAC_EN_CACHEABLE	(1 << 3)
+-#  define MAC_EN_RESET1		(1 << 4)
+-#  define MAC_EN_RESET2		(1 << 5)
+-#  define MAC_DMA_RESET		(1 << 6)
+-
+-/* Ethernet Controller DMA Channels */
+-
+-#define MAC0_TX_DMA_ADDR	0xB4004000
+-#define MAC1_TX_DMA_ADDR	0xB4004200
+-/* offsets from MAC_TX_RING_ADDR address */
+-#define MAC_TX_BUFF0_STATUS	0x0
+-#  define TX_FRAME_ABORTED	(1 << 0)
+-#  define TX_JAB_TIMEOUT	(1 << 1)
+-#  define TX_NO_CARRIER		(1 << 2)
+-#  define TX_LOSS_CARRIER	(1 << 3)
+-#  define TX_EXC_DEF		(1 << 4)
+-#  define TX_LATE_COLL_ABORT	(1 << 5)
+-#  define TX_EXC_COLL		(1 << 6)
+-#  define TX_UNDERRUN		(1 << 7)
+-#  define TX_DEFERRED		(1 << 8)
+-#  define TX_LATE_COLL		(1 << 9)
+-#  define TX_COLL_CNT_MASK	(0xF << 10)
+-#  define TX_PKT_RETRY		(1 << 31)
+-#define MAC_TX_BUFF0_ADDR	0x4
+-#  define TX_DMA_ENABLE		(1 << 0)
+-#  define TX_T_DONE		(1 << 1)
+-#  define TX_GET_DMA_BUFFER(X)	(((X) >> 2) & 0x3)
+-#define MAC_TX_BUFF0_LEN	0x8
+-#define MAC_TX_BUFF1_STATUS	0x10
+-#define MAC_TX_BUFF1_ADDR	0x14
+-#define MAC_TX_BUFF1_LEN	0x18
+-#define MAC_TX_BUFF2_STATUS	0x20
+-#define MAC_TX_BUFF2_ADDR	0x24
+-#define MAC_TX_BUFF2_LEN	0x28
+-#define MAC_TX_BUFF3_STATUS	0x30
+-#define MAC_TX_BUFF3_ADDR	0x34
+-#define MAC_TX_BUFF3_LEN	0x38
+-
+-#define MAC0_RX_DMA_ADDR	0xB4004100
+-#define MAC1_RX_DMA_ADDR	0xB4004300
+-/* offsets from MAC_RX_RING_ADDR */
+-#define MAC_RX_BUFF0_STATUS	0x0
+-#  define RX_FRAME_LEN_MASK	0x3fff
+-#  define RX_WDOG_TIMER		(1 << 14)
+-#  define RX_RUNT		(1 << 15)
+-#  define RX_OVERLEN		(1 << 16)
+-#  define RX_COLL		(1 << 17)
+-#  define RX_ETHER		(1 << 18)
+-#  define RX_MII_ERROR		(1 << 19)
+-#  define RX_DRIBBLING		(1 << 20)
+-#  define RX_CRC_ERROR		(1 << 21)
+-#  define RX_VLAN1		(1 << 22)
+-#  define RX_VLAN2		(1 << 23)
+-#  define RX_LEN_ERROR		(1 << 24)
+-#  define RX_CNTRL_FRAME	(1 << 25)
+-#  define RX_U_CNTRL_FRAME	(1 << 26)
+-#  define RX_MCAST_FRAME	(1 << 27)
+-#  define RX_BCAST_FRAME	(1 << 28)
+-#  define RX_FILTER_FAIL	(1 << 29)
+-#  define RX_PACKET_FILTER	(1 << 30)
+-#  define RX_MISSED_FRAME	(1 << 31)
+-
+-#  define RX_ERROR (RX_WDOG_TIMER | RX_RUNT | RX_OVERLEN |  \
+-		    RX_COLL | RX_MII_ERROR | RX_CRC_ERROR | \
+-		    RX_LEN_ERROR | RX_U_CNTRL_FRAME | RX_MISSED_FRAME)
+-#define MAC_RX_BUFF0_ADDR	0x4
+-#  define RX_DMA_ENABLE		(1 << 0)
+-#  define RX_T_DONE		(1 << 1)
+-#  define RX_GET_DMA_BUFFER(X)	(((X) >> 2) & 0x3)
+-#  define RX_SET_BUFF_ADDR(X)	((X) & 0xffffffc0)
+-#define MAC_RX_BUFF1_STATUS	0x10
+-#define MAC_RX_BUFF1_ADDR	0x14
+-#define MAC_RX_BUFF2_STATUS	0x20
+-#define MAC_RX_BUFF2_ADDR	0x24
+-#define MAC_RX_BUFF3_STATUS	0x30
+-#define MAC_RX_BUFF3_ADDR	0x34
+-
+ 
+ /*
+  * The IrDA peripheral has an IRFIRSEL pin, but on the DB/PB boards it's not
+diff --git a/drivers/net/ethernet/amd/au1000_eth.c b/drivers/net/ethernet/amd/au1000_eth.c
+index a78e4c1..ad8b058 100644
+--- a/drivers/net/ethernet/amd/au1000_eth.c
++++ b/drivers/net/ethernet/amd/au1000_eth.c
+@@ -89,6 +89,124 @@ MODULE_DESCRIPTION(DRV_DESC);
+ MODULE_LICENSE("GPL");
+ MODULE_VERSION(DRV_VERSION);
+ 
++/* AU1000 MAC registers and bits */
++#define MAC_CONTROL		0x0
++#  define MAC_RX_ENABLE		(1 << 2)
++#  define MAC_TX_ENABLE		(1 << 3)
++#  define MAC_DEF_CHECK		(1 << 5)
++#  define MAC_SET_BL(X)		(((X) & 0x3) << 6)
++#  define MAC_AUTO_PAD		(1 << 8)
++#  define MAC_DISABLE_RETRY	(1 << 10)
++#  define MAC_DISABLE_BCAST	(1 << 11)
++#  define MAC_LATE_COL		(1 << 12)
++#  define MAC_HASH_MODE		(1 << 13)
++#  define MAC_HASH_ONLY		(1 << 15)
++#  define MAC_PASS_ALL		(1 << 16)
++#  define MAC_INVERSE_FILTER	(1 << 17)
++#  define MAC_PROMISCUOUS	(1 << 18)
++#  define MAC_PASS_ALL_MULTI	(1 << 19)
++#  define MAC_FULL_DUPLEX	(1 << 20)
++#  define MAC_NORMAL_MODE	0
++#  define MAC_INT_LOOPBACK	(1 << 21)
++#  define MAC_EXT_LOOPBACK	(1 << 22)
++#  define MAC_DISABLE_RX_OWN	(1 << 23)
++#  define MAC_BIG_ENDIAN	(1 << 30)
++#  define MAC_RX_ALL		(1 << 31)
++#define MAC_ADDRESS_HIGH	0x4
++#define MAC_ADDRESS_LOW		0x8
++#define MAC_MCAST_HIGH		0xC
++#define MAC_MCAST_LOW		0x10
++#define MAC_MII_CNTRL		0x14
++#  define MAC_MII_BUSY		(1 << 0)
++#  define MAC_MII_READ		0
++#  define MAC_MII_WRITE		(1 << 1)
++#  define MAC_SET_MII_SELECT_REG(X) (((X) & 0x1f) << 6)
++#  define MAC_SET_MII_SELECT_PHY(X) (((X) & 0x1f) << 11)
++#define MAC_MII_DATA		0x18
++#define MAC_FLOW_CNTRL		0x1C
++#  define MAC_FLOW_CNTRL_BUSY	(1 << 0)
++#  define MAC_FLOW_CNTRL_ENABLE (1 << 1)
++#  define MAC_PASS_CONTROL	(1 << 2)
++#  define MAC_SET_PAUSE(X)	(((X) & 0xffff) << 16)
++#define MAC_VLAN1_TAG		0x20
++#define MAC_VLAN2_TAG		0x24
++
++/* Ethernet Controller Enable */
++#  define MAC_EN_CLOCK_ENABLE	(1 << 0)
++#  define MAC_EN_RESET0		(1 << 1)
++#  define MAC_EN_TOSS		(0 << 2)
++#  define MAC_EN_CACHEABLE	(1 << 3)
++#  define MAC_EN_RESET1		(1 << 4)
++#  define MAC_EN_RESET2		(1 << 5)
++#  define MAC_DMA_RESET		(1 << 6)
++
++/* Ethernet Controller DMA Channels */
++/* offsets from MAC_TX_RING_ADDR address */
++#define MAC_TX_BUFF0_STATUS	0x0
++#  define TX_FRAME_ABORTED	(1 << 0)
++#  define TX_JAB_TIMEOUT	(1 << 1)
++#  define TX_NO_CARRIER		(1 << 2)
++#  define TX_LOSS_CARRIER	(1 << 3)
++#  define TX_EXC_DEF		(1 << 4)
++#  define TX_LATE_COLL_ABORT	(1 << 5)
++#  define TX_EXC_COLL		(1 << 6)
++#  define TX_UNDERRUN		(1 << 7)
++#  define TX_DEFERRED		(1 << 8)
++#  define TX_LATE_COLL		(1 << 9)
++#  define TX_COLL_CNT_MASK	(0xF << 10)
++#  define TX_PKT_RETRY		(1 << 31)
++#define MAC_TX_BUFF0_ADDR	0x4
++#  define TX_DMA_ENABLE		(1 << 0)
++#  define TX_T_DONE		(1 << 1)
++#  define TX_GET_DMA_BUFFER(X)	(((X) >> 2) & 0x3)
++#define MAC_TX_BUFF0_LEN	0x8
++#define MAC_TX_BUFF1_STATUS	0x10
++#define MAC_TX_BUFF1_ADDR	0x14
++#define MAC_TX_BUFF1_LEN	0x18
++#define MAC_TX_BUFF2_STATUS	0x20
++#define MAC_TX_BUFF2_ADDR	0x24
++#define MAC_TX_BUFF2_LEN	0x28
++#define MAC_TX_BUFF3_STATUS	0x30
++#define MAC_TX_BUFF3_ADDR	0x34
++#define MAC_TX_BUFF3_LEN	0x38
++
++/* offsets from MAC_RX_RING_ADDR */
++#define MAC_RX_BUFF0_STATUS	0x0
++#  define RX_FRAME_LEN_MASK	0x3fff
++#  define RX_WDOG_TIMER		(1 << 14)
++#  define RX_RUNT		(1 << 15)
++#  define RX_OVERLEN		(1 << 16)
++#  define RX_COLL		(1 << 17)
++#  define RX_ETHER		(1 << 18)
++#  define RX_MII_ERROR		(1 << 19)
++#  define RX_DRIBBLING		(1 << 20)
++#  define RX_CRC_ERROR		(1 << 21)
++#  define RX_VLAN1		(1 << 22)
++#  define RX_VLAN2		(1 << 23)
++#  define RX_LEN_ERROR		(1 << 24)
++#  define RX_CNTRL_FRAME	(1 << 25)
++#  define RX_U_CNTRL_FRAME	(1 << 26)
++#  define RX_MCAST_FRAME	(1 << 27)
++#  define RX_BCAST_FRAME	(1 << 28)
++#  define RX_FILTER_FAIL	(1 << 29)
++#  define RX_PACKET_FILTER	(1 << 30)
++#  define RX_MISSED_FRAME	(1 << 31)
++
++#  define RX_ERROR (RX_WDOG_TIMER | RX_RUNT | RX_OVERLEN |  \
++		    RX_COLL | RX_MII_ERROR | RX_CRC_ERROR | \
++		    RX_LEN_ERROR | RX_U_CNTRL_FRAME | RX_MISSED_FRAME)
++#define MAC_RX_BUFF0_ADDR	0x4
++#  define RX_DMA_ENABLE		(1 << 0)
++#  define RX_T_DONE		(1 << 1)
++#  define RX_GET_DMA_BUFFER(X)	(((X) >> 2) & 0x3)
++#  define RX_SET_BUFF_ADDR(X)	((X) & 0xffffffc0)
++#define MAC_RX_BUFF1_STATUS	0x10
++#define MAC_RX_BUFF1_ADDR	0x14
++#define MAC_RX_BUFF2_STATUS	0x20
++#define MAC_RX_BUFF2_ADDR	0x24
++#define MAC_RX_BUFF3_STATUS	0x30
++#define MAC_RX_BUFF3_ADDR	0x34
++
+ /*
+  * Theory of operation
+  *
 -- 
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+2.0.1
