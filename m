@@ -1,81 +1,93 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the wireless
- tree
-Date: Wed, 23 Jul 2014 12:00:54 +1000
-Message-ID: <20140723120054.7c0e08b3@canb.auug.org.au>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [net-next 02/10] udp: Expand UDP tunnel common APIs
+Date: Tue, 22 Jul 2014 19:16:54 -0700
+Message-ID: <53CF1B16.1000009@gmail.com>
+References: <1406024393-6778-1-git-send-email-azhou@nicira.com>	<1406024393-6778-3-git-send-email-azhou@nicira.com>	<CA+mtBx9M_BpjT-_Egng+jFxmqJzdC2Npg0ufE2ZSAb9Lhw8hxg@mail.gmail.com>	<CACzMAJ+uW0rYQxxmi4GouGF64bbr0VDCsdrBymypWLxCaHQSrA@mail.gmail.com>	<CA+mtBx9RUe7a2hYsRjHbS3E+TzGOQ4Q8wLZp+-TDHQkV+L5c1Q@mail.gmail.com>	<CAEP_g=8oQ_Yn1ZDNjoFKgwRaGvpyW+s9RfOd1utEMsNWmJmX-Q@mail.gmail.com>	<CA+mtBx830L17hr_eaRKHcA9MaE9Xs7W3pC+sYh7a=E=CVmM3QQ@mail.gmail.com>	<53CEEBFD.9020402@intel.com> <CA+mtBx-q0PV4U_jGt-N+v5Ax_uoxYeQjrvHCqmAvU_VEQtFZNg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/J9S=tJ7N1qL3kZRoKJynCb7"; protocol="application/pgp-signature"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
-	David Spinadel <david.spinadel@intel.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	"John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Jesse Gross <jesse@nicira.com>, Andy Zhou <azhou@nicira.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:35040 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751875AbaGWCQ4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 22:16:56 -0400
+Received: by mail-pd0-f181.google.com with SMTP id g10so663648pdj.12
+        for <netdev@vger.kernel.org>; Tue, 22 Jul 2014 19:16:55 -0700 (PDT)
+In-Reply-To: <CA+mtBx-q0PV4U_jGt-N+v5Ax_uoxYeQjrvHCqmAvU_VEQtFZNg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Sig_/J9S=tJ7N1qL3kZRoKJynCb7
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+On 07/22/2014 04:24 PM, Tom Herbert wrote:
+> On Tue, Jul 22, 2014 at 3:55 PM, Alexander Duyck
+> <alexander.h.duyck@intel.com> wrote:
+>> On 07/22/2014 03:38 PM, Tom Herbert wrote:
+>>> On Tue, Jul 22, 2014 at 2:56 PM, Jesse Gross <jesse@nicira.com> wrote:
+>>>> On Tue, Jul 22, 2014 at 5:16 PM, Tom Herbert <therbert@google.com> wrote:
+>>>>> On Tue, Jul 22, 2014 at 2:02 PM, Andy Zhou <azhou@nicira.com> wrote:
+>>>>>> On Tue, Jul 22, 2014 at 12:52 PM, Tom Herbert <therbert@google.com> wrote:
+>>>>>>>> --- a/include/net/udp_tunnel.h
+>>>>>>>> +++ b/include/net/udp_tunnel.h
+>>>>>>>> @@ -1,7 +1,10 @@
+>>>>>>>>  #ifndef __NET_UDP_TUNNEL_H
+>>>>>>>>  #define __NET_UDP_TUNNEL_H
+>>>>>>>>
+>>>>>>>> -#define UDP_TUNNEL_TYPE_VXLAN 0x01
+>>>>>>>> +#include <net/ip_tunnels.h>
+>>>>>>>> +
+>>>>>>>> +#define UDP_TUNNEL_TYPE_VXLAN  0x01
+>>>>>>>> +#define UDP_TUNNEL_TYPE_GENEVE 0x02
+>>>>>>>>
+>>>>>>> Why do we need to define these? Caller should know what type of port is
+>>>>>>> being opened and provide appropriate encap_rcv.
+>>>>>>
+>>>>>> Assume udp tunnel layer needs to keep track of open ports, should it
+>>>>>> also keep track of the protocol associated with the port?
+>>>>>>
+>>>>> For what purpose? Other than for offloads and rcv_encap functions that
+>>>>> provide the service function anyway, what need is there for UDP layer
+>>>>> to know about this. More to the point, if I add a module to the kernel
+>>>>> with a new flavor of UDP tunneling, I shouldn't have to touch any core
+>>>>> code for things to work correctly. So by this line of thinking,
+>>>>> neither the terms VXLAN nor GENEVE should appear in any common code.
+>>>>
+>>>> The hardware will need to know what the header format is so that it
+>>>> can parse the packets on receive. And since the NIC can't exactly call
+>>>> into a function pointer like GRO can, I'm not sure that there is a
+>>>> solution that doesn't involve an identifier that needs to be listed
+>>>> somewhere. This is a pretty minimal impact - it doesn't actually
+>>>> appear in the core code.
+>>>
+>>> The hardware doesn't *need* to know this, it's must be optional and
+>>> should have no bearing on the software stack. Suggest to put them in
+>>> their own header file. Also, as HW features these should appear in
+>>> NETIF_F_* list so that we can control on a per device level rather to
+>>> enable this feature (something like how NETIF_F_GSO_* was done).
+>>>
+>>> What about support for L2TP/UDP?
+>>
+>> The hardware needs some means of knowing what UDP port numbers are used
+>> for VXLAN and/or GENEVE as the two formats contain subtle differences
+>> that we have to be ready for on the Rx path as we have to parse out the
+>> frames.
+>>
+>> We already have feature flags controlling the offloads, what the port
+>> numbers provide is a means for us to determine what Rx packets we should
+>> parse as tunnels vs standard UDP and which tunnel type we should parse
+>> it as.
+>>
+> Which feature flags control the receive side parsing in the device?
 
-Hi all,
+The only real features that need the port info are Rx hash and Rx
+checksum.  If those are disabled then there shouldn't be any need for
+the port numbers.  I don't recall if you can disable them separately
+from the non-tunnel case though.  I believe they are linked to the
+standard offloads.
 
-Today's linux-next merge of the net-next tree got a conflict in
-drivers/net/wireless/iwlwifi/mvm/mac80211.c between commit c6a21ff31994
-("iwlwifi: mvm: fix merge damage") from the wireless tree and commit
-fb98be5e9419 ("iwlwifi: mvm: add unified LMAC scan API") from the
-net-next tree.
+Thanks,
 
-I fixed it up (see below) and can carry the fix as necessary (no action
-is required).
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
-diff --cc drivers/net/wireless/iwlwifi/mvm/mac80211.c
-index 98556d03c1ed,2eb6ebee4467..000000000000
---- a/drivers/net/wireless/iwlwifi/mvm/mac80211.c
-+++ b/drivers/net/wireless/iwlwifi/mvm/mac80211.c
-@@@ -303,6 -321,16 +321,9 @@@ int iwl_mvm_mac_setup_register(struct i
-  		hw->uapsd_max_sp_len =3D IWL_UAPSD_MAX_SP;
-  	}
- =20
- -	if (mvm->fw->ucode_capa.flags & IWL_UCODE_TLV_FLAGS_UAPSD_SUPPORT &&
- -	    !iwlwifi_mod_params.uapsd_disable) {
- -		hw->flags |=3D IEEE80211_HW_SUPPORTS_UAPSD;
- -		hw->uapsd_queues =3D IWL_UAPSD_AC_INFO;
- -		hw->uapsd_max_sp_len =3D IWL_UAPSD_MAX_SP;
- -	}
- -
-+ 	if (mvm->fw->ucode_capa.api[0] & IWL_UCODE_TLV_API_LMAC_SCAN)
-+ 		hw->flags |=3D IEEE80211_SINGLE_HW_SCAN_ON_ALL_BANDS;
-+=20
-  	hw->sta_data_size =3D sizeof(struct iwl_mvm_sta);
-  	hw->vif_data_size =3D sizeof(struct iwl_mvm_vif);
-  	hw->chanctx_data_size =3D sizeof(u16);
-
---Sig_/J9S=tJ7N1qL3kZRoKJynCb7
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJTzxddAAoJEMDTa8Ir7ZwVeTMP/0zDAnFq4PJFpqhSbdTbiJaA
-d1PtX/4wujbmQhHdnJsyywrxojVx7h1zZbZURQvcO/ZhYCCmSCY4K1KeeiwOwnEx
-cu49s/fXjM2S9+8a7TL4SbkysQgF74yerhm9Kg3CRkgHb8oM2Zg8wyah1jXBKCCr
-3Nig5aamlrFsi8VAPCbrfmCzW9QnynSxEmZFPGS/S2bMiirK+Rdy6o/qkNtlC/a7
-aNUdPU5UlayGrhP7fiIdQ2KH3RG9xptGliGkUZT1zjFEKC4bzC90yjdCveNUhKYZ
-5ww1Z0wA5ZNcjNN9vLCdiBuwr7/LOPjVi7OQ/9PbMq2I3vLWpsMoZ28XlWx9eeed
-4MbhD9VoZMb3ZkZGW6rLZhL903ZfRTVpKT20XOAbsx8XZUHou9nP58pGJFXeTpsH
-NnSkpW/Z93GQeRLYny6rP55xh4kAuwyGL7IfqvyihyzdHjFQATs5ojKduiriO+5Z
-yHbP76kdSx0FaNjckIPLyXsBo4HZJwO3iyhsxLVxqu4qBcA2QKIqFs+zZPkkgnwF
-LC1azGjiqYpR/H7eOPGEolbXRuN0hq/H3j0sbMfh+ulrkavPpAyvMW8axewZKOB7
-GN2mlksU5yqtNbLYWesR8swtPoCzGjd8+H1W30dxQ9pvfdj2+P55tYZohppDr9If
-r2g9EcV5ildgdKBRXJp+
-=BRSD
------END PGP SIGNATURE-----
-
---Sig_/J9S=tJ7N1qL3kZRoKJynCb7--
+Alex
