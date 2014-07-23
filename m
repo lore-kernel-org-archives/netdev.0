@@ -1,65 +1,170 @@
-From: Alexei Starovoitov <ast@kernel.org>
-Subject: Re: [PATCH net-next 1/2] net: filter: split filter.c into two files
-Date: Wed, 23 Jul 2014 09:49:16 -0700
-Message-ID: <20140723164915.GA5461@pg-vmw-gw1>
-References: <1406095319-3627-1-git-send-email-ast@plumgrid.com>
- <1406095319-3627-2-git-send-email-ast@plumgrid.com>
- <53CF522E.9090408@gmail.com>
- <53CF782C.2040401@redhat.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: [PATCHv2] skbedit: allow the user to specify bitmask for mark
+Date: Wed, 23 Jul 2014 10:15:50 -0700
+Message-ID: <CAHA+R7O_=MY4ehGPUkKru2HA11RZ7efjHhgFv44gyjdtLE2c7w@mail.gmail.com>
+References: <1406102589-8441-1-git-send-email-antonio@meshcoding.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Varka Bhadram <varkabhadram@gmail.com>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	sergei.shtylyov@cogentembedded.com,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Antonio Quartulli <antonio@open-mesh.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: Antonio Quartulli <antonio@meshcoding.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.19.201]:53676 "EHLO mail.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757951AbaGWQtV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Jul 2014 12:49:21 -0400
-Content-Disposition: inline
-In-Reply-To: <53CF782C.2040401@redhat.com>
+Received: from mail-lb0-f179.google.com ([209.85.217.179]:51220 "EHLO
+	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932718AbaGWRPw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2014 13:15:52 -0400
+Received: by mail-lb0-f179.google.com with SMTP id v6so1160136lbi.10
+        for <netdev@vger.kernel.org>; Wed, 23 Jul 2014 10:15:51 -0700 (PDT)
+In-Reply-To: <1406102589-8441-1-git-send-email-antonio@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 23, 2014 at 10:54:04AM +0200, Daniel Borkmann wrote:
-> On 07/23/2014 08:11 AM, Varka Bhadram wrote:
-> >On 07/23/2014 11:31 AM, Alexei Starovoitov wrote:
-> >>BPF is used in several kernel components. This split creates logical boundary
-> >>between generic eBPF core and the rest
-> >>
-> >>kernel/bpf/core.c: eBPF interpreter
-> >>
-> >>net/core/filter.c: classic->eBPF converter, classic verifiers, socket filters
-> >>
-> >>This patch only moves functions.
-> >
-> >If we are moving the code also its good to do cleanup.
-> >
-> >Run checkpatch.pl on this...
-> 
-> Not sure what you understand as a cleanup, but there's nothing
-> wrong with it and most things reported are either intentional or
-> false positives as you might have seen already. The only thing
-
-+1. interpreter code is quite polished already.
-Few lines are longer than 80 char, but wrapping will look ugly.
-The rest are false positives, since checkpatch is struggling to
-understand jump-threaded code.
-
-> one could do later on perhaps is to rename related functions to
-> have consistently a 'bpf' prefix instead of 'sk' since they
-> won't be under net/ anymore.
-
-yes. it's on my todo list. The sk_* functions and 'struct sk_filter'
-look out of place in kernel/bpf/*
-The first renaming patch of sock_filter_int->bpf_insn I've sent as rfc:
-http://patchwork.ozlabs.org/patch/371332/
-
-'struct sk_filter' I'm thinking to rename as 'struct bpf_prog'
-
-Speaking of kernel/bpf/* comment style...
-I would prefer to keep networking comments to save lines.
+On Wed, Jul 23, 2014 at 1:03 AM, Antonio Quartulli
+<antonio@meshcoding.com> wrote:
+> From: Antonio Quartulli <antonio@open-mesh.com>
+>
+> The user may want to use only some bits of the skb mark in
+> his skbedit rules because the remaining part might be used by
+> something else.
+>
+> Introduce the "mask" parameter to the skbedit actor in order
+> to implement such functionality.
+>
+> When the mask is specified, only those bits selected by the
+> latter are altered really changed by the actor, while the
+> rest is left untouched.
+>
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Signed-off-by: Antonio Quartulli <antonio@open-mesh.com>
+> ---
+>
+> Jamal, I'm not adding your Signed-off because the patches has new part with
+> respect to v1.
+>
+>
+> Changes from v1:
+> - use '&=' tcf_skbedit() to clean the mark
+> - extend tcf_skbedit_dump() in order to send the mask as well
+>
+>
+>
+>
+>
+>  include/net/tc_act/tc_skbedit.h        |  1 +
+>  include/uapi/linux/tc_act/tc_skbedit.h |  2 ++
+>  net/sched/act_skbedit.c                | 24 +++++++++++++++++++++---
+>  3 files changed, 24 insertions(+), 3 deletions(-)
+>
+> diff --git a/include/net/tc_act/tc_skbedit.h b/include/net/tc_act/tc_skbedit.h
+> index 0df9a0d..a385c68 100644
+> --- a/include/net/tc_act/tc_skbedit.h
+> +++ b/include/net/tc_act/tc_skbedit.h
+> @@ -26,6 +26,7 @@ struct tcf_skbedit {
+>         u32                     flags;
+>         u32                     priority;
+>         u32                     mark;
+> +       u32                     mask;
+>         u16                     queue_mapping;
+>         /* XXX: 16-bit pad here? */
+>  };
+> diff --git a/include/uapi/linux/tc_act/tc_skbedit.h b/include/uapi/linux/tc_act/tc_skbedit.h
+> index 7a2e910..c7c8c5f 100644
+> --- a/include/uapi/linux/tc_act/tc_skbedit.h
+> +++ b/include/uapi/linux/tc_act/tc_skbedit.h
+> @@ -27,6 +27,7 @@
+>  #define SKBEDIT_F_PRIORITY             0x1
+>  #define SKBEDIT_F_QUEUE_MAPPING                0x2
+>  #define SKBEDIT_F_MARK                 0x4
+> +#define SKBEDIT_F_MASK                 0x8
+>
+>  struct tc_skbedit {
+>         tc_gen;
+> @@ -39,6 +40,7 @@ enum {
+>         TCA_SKBEDIT_PRIORITY,
+>         TCA_SKBEDIT_QUEUE_MAPPING,
+>         TCA_SKBEDIT_MARK,
+> +       TCA_SKBEDIT_MASK,
+>         __TCA_SKBEDIT_MAX
+>  };
+>  #define TCA_SKBEDIT_MAX (__TCA_SKBEDIT_MAX - 1)
+> diff --git a/net/sched/act_skbedit.c b/net/sched/act_skbedit.c
+> index fcfeeaf..6111b06 100644
+> --- a/net/sched/act_skbedit.c
+> +++ b/net/sched/act_skbedit.c
+> @@ -43,8 +43,12 @@ static int tcf_skbedit(struct sk_buff *skb, const struct tc_action *a,
+>         if (d->flags & SKBEDIT_F_QUEUE_MAPPING &&
+>             skb->dev->real_num_tx_queues > d->queue_mapping)
+>                 skb_set_queue_mapping(skb, d->queue_mapping);
+> -       if (d->flags & SKBEDIT_F_MARK)
+> -               skb->mark = d->mark;
+> +       if (d->flags & SKBEDIT_F_MARK) {
+> +               /* unset all the bits in the mask */
+> +               skb->mark &= ~d->mask;
+> +               /* assign the mark value for the masked bit only */
+> +               skb->mark |= d->mark & d->mask;
+> +       }
+>
+>         spin_unlock(&d->tcf_lock);
+>         return d->tcf_action;
+> @@ -55,6 +59,7 @@ static const struct nla_policy skbedit_policy[TCA_SKBEDIT_MAX + 1] = {
+>         [TCA_SKBEDIT_PRIORITY]          = { .len = sizeof(u32) },
+>         [TCA_SKBEDIT_QUEUE_MAPPING]     = { .len = sizeof(u16) },
+>         [TCA_SKBEDIT_MARK]              = { .len = sizeof(u32) },
+> +       [TCA_SKBEDIT_MASK]              = { .len = sizeof(u32) },
+>  };
+>
+>  static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
+> @@ -64,7 +69,7 @@ static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
+>         struct nlattr *tb[TCA_SKBEDIT_MAX + 1];
+>         struct tc_skbedit *parm;
+>         struct tcf_skbedit *d;
+> -       u32 flags = 0, *priority = NULL, *mark = NULL;
+> +       u32 flags = 0, *priority = NULL, *mark = NULL, *mask = NULL;
+>         u16 *queue_mapping = NULL;
+>         int ret = 0, err;
+>
+> @@ -93,6 +98,11 @@ static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
+>                 mark = nla_data(tb[TCA_SKBEDIT_MARK]);
+>         }
+>
+> +       if (tb[TCA_SKBEDIT_MASK] != NULL) {
+> +               flags |= SKBEDIT_F_MASK;
+> +               mask = nla_data(tb[TCA_SKBEDIT_MASK]);
+> +       }
+> +
+>         if (!flags)
+>                 return -EINVAL;
+>
+> @@ -123,6 +133,10 @@ static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
+>                 d->queue_mapping = *queue_mapping;
+>         if (flags & SKBEDIT_F_MARK)
+>                 d->mark = *mark;
+> +       /* default behaviour is to use all the bits */
+> +       d->mask = 0xffffffff;
+> +       if (flags & SKBEDIT_F_MASK)
+> +               d->mask = *mask;
+>
+>         d->tcf_action = parm->action;
+>
+> @@ -160,6 +174,10 @@ static int tcf_skbedit_dump(struct sk_buff *skb, struct tc_action *a,
+>             nla_put(skb, TCA_SKBEDIT_MARK, sizeof(d->mark),
+>                     &d->mark))
+>                 goto nla_put_failure;
+> +       if ((d->flags & SKBEDIT_F_MASK) &&
+> +           nla_put(skb, TCA_SKBEDIT_MASK, sizeof(d->mask),
+> +                   &d->mark))
+> +               goto nla_put_failure;
+>         t.install = jiffies_to_clock_t(jiffies - d->tcf_tm.install);
+>         t.lastuse = jiffies_to_clock_t(jiffies - d->tcf_tm.lastuse);
+>         t.expires = jiffies_to_clock_t(d->tcf_tm.expires);
+> --
+> 1.8.5.5
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
