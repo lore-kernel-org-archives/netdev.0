@@ -1,41 +1,73 @@
-From: Vince Bridgers <vbridgers2013@gmail.com>
-Subject: Re: linux-next: build failure after merge of the net tree
-Date: Wed, 23 Jul 2014 13:38:01 -0500
-Message-ID: <CAOwfj2PsBhW3j4Tm4UMc1iCf=-xX8bhKcNLuo+iMzQw=jZog+A@mail.gmail.com>
-References: <20140704113907.468a366a@canb.auug.org.au>
-	<20140707.195330.1593299312055099195.davem@davemloft.net>
+From: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH RFC v2 net-next 02/16] bpf: update MAINTAINERS entry
+Date: Wed, 23 Jul 2014 11:39:20 -0700
+Message-ID: <CAGXu5jJVomMsMJ1sUu8oT=DykfMcf3tj+o0=eGdjOzMHAZoUaQ@mail.gmail.com>
+References: <1405657206-12060-1-git-send-email-ast@plumgrid.com>
+	<1405657206-12060-3-git-send-email-ast@plumgrid.com>
+	<CAGXu5j+mGDEPx5rCdVXzAdxR9SwQQ4ERM-Brxt4TmmncdPjzzg@mail.gmail.com>
+	<CAMEtUuzcMcYnRryykqb9LQWjnVmYi3ErMtGQ+9nyY5uS+OpwpQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: sfr@canb.auug.org.au,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20140707.195330.1593299312055099195.davem@davemloft.net>
-Sender: linux-next-owner@vger.kernel.org
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAMEtUuzcMcYnRryykqb9LQWjnVmYi3ErMtGQ+9nyY5uS+OpwpQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
-
-On Mon, Jul 7, 2014 at 9:53 PM, David Miller <davem@davemloft.net> wrote:
-> From: Stephen Rothwell <sfr@canb.auug.org.au>
-> Date: Fri, 4 Jul 2014 11:39:07 +1000
+On Wed, Jul 23, 2014 at 10:48 AM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
+> On Wed, Jul 23, 2014 at 10:37 AM, Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org> wrote:
+>> On Thu, Jul 17, 2014 at 9:19 PM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
+>>> Signed-off-by: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+>>> ---
+>>>  MAINTAINERS |    7 +++++++
+>>>  1 file changed, 7 insertions(+)
+>>>
+>>> diff --git a/MAINTAINERS b/MAINTAINERS
+>>> index ae8cd00215b2..32e24ff46da3 100644
+>>> --- a/MAINTAINERS
+>>> +++ b/MAINTAINERS
+>>> @@ -1912,6 +1912,13 @@ S:       Supported
+>>>  F:     drivers/net/bonding/
+>>>  F:     include/uapi/linux/if_bonding.h
+>>>
+>>> +BPF (Safe dynamic programs and tools)
+>>
+>> bikeshed: I feel like this shouldn't be an acronym. Maybe instead:
+>>
+>> BERKELEY PACKET FILTER (BPF: Safe dynamic programs and tools)
 >
->> After merging the net tree, today's linux-next build (x86_64
->> allmodconfig) failed like this:
->>
->> ERROR: "phy_resume" [drivers/net/ethernet/stmicro/stmmac/stmmac.ko] undefined!
->>
->> Caused by commit 0acf16768740 ("net: stmmac: add platform init/exit for
->> Altera's ARM socfpga").
->>
->> I reverted that commit for today.
+> pile on :)
 >
-> Vince you haven't made any effort to fix this build failure, so I am reverting
-> your changes.
+> I think eBPF is no longer acronym. 'e' stands for 'extended',
+> but BPF is no longer 'packet filter' only and definitely not 'berkeley'.
+> So I'd rather keep BPF as a magic abbreviation without spelling it out,
+> since full name is historic and no longer meaningful.
+> I've considered coming up with brand new abbreviation and full name
+> for this instruction set, but none looked good and all lose in comparison
+> to 'eBPF' name, which is concise and carries enough historical
+> references to explain the idea behind new ISA.
 
-My apologies, I was out on vacation and I should have checked for this
-before submitting. I have a corrected patch that I'm ready to submit.
+Yeah, that's a fair point. No sense in using "BEE PEE EFF" :)
 
-Vince
+-Kees
+
+-- 
+Kees Cook
+Chrome OS Security
