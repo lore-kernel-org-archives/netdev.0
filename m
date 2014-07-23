@@ -1,82 +1,85 @@
-From: Catalin Marinas <catalin.marinas@arm.com>
-Subject: Re: [PATCH 00/14] arm64: eBPF JIT compiler
-Date: Wed, 23 Jul 2014 11:32:19 +0100
-Message-ID: <20140723103219.GA1366@localhost>
-References: <1405708100-13604-1-git-send-email-zlim.lnx@gmail.com>
- <20140721091623.GA16122@arm.com>
- <CAMEtUuyC+MykPDO0ghTc=oex7KPLEy=BLRgWBdW+qJY7JXQmDQ@mail.gmail.com>
+From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+Subject: Re: [PATCH 0/6] net: mvpp2: Assorted fixes
+Date: Wed, 23 Jul 2014 07:53:18 -0300
+Message-ID: <20140723105318.GA1729@arch.cereza>
+References: <20140723002916.67a0bb3c@free-electrons.com>
+ <20140722232004.GA7838@arch.cereza>
+ <20140722.174153.413669013449137654.davem@davemloft.net>
+ <20140722.195222.775371949777233094.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Will Deacon <Will.Deacon@arm.com>,
-	Zi Shen Lim <zlim.lnx@gmail.com>,
-	Jiang Liu <liuj97@gmail.com>,
-	AKASHI Takahiro <takahiro.akashi@linaro.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Chema Gonzalez <chema@google.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: thomas.petazzoni@free-electrons.com, alior@marvell.com,
+ jason@lakedaemon.net, tawfik@marvell.com, netdev@vger.kernel.org,
+ gregory.clement@free-electrons.com, mw@semihalf.com,
+ linux-arm-kernel@lists.infradead.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 Content-Disposition: inline
-In-Reply-To: <CAMEtUuyC+MykPDO0ghTc=oex7KPLEy=BLRgWBdW+qJY7JXQmDQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20140722.195222.775371949777233094.davem@davemloft.net>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 21, 2014 at 04:49:29PM +0100, Alexei Starovoitov wrote:
-> On Mon, Jul 21, 2014 at 2:16 AM, Will Deacon <will.deacon@arm.com> wrote:
-> > On Fri, Jul 18, 2014 at 07:28:06PM +0100, Zi Shen Lim wrote:
-> >> This series implements eBPF JIT compiler for arm64.
-> >> Please see [14/14] for change log.
-> >>
-> >> Patches [1-13/14] implement code generation functions.
-> >> Patch [14/14] implements the actual eBPF JIT compiler.
-> >>
-> >> Many thanks to everyone who's reviewed the code from
-> >> RFCv1->RFCv3, especially Alexei for BPF bits, and Will
-> >> for ARM64 codegen bits :)
-> >>
-> >> BTW, I'm happy to maintain arch/arm64/net (i.e. arm64 BPF bits).
-> >> Should I add a patch updating MAINTAINERS as Patch 15?
-> >
-> > I don't think that's necessary at the moment, but if we start seeing an
-> > influx of patches to arch/arm64/net, then that could make sense in the
-> > future.
-> >
-> >> This series requires a patch that exports a function
-> >> from net/core (resulting from RFCv1 discussion). This patch
-> >> has been merged into net-next @ 9f12fbe603f7
-> >> ("net: filter: move load_pointer() into filter.h").
-> >>
-> >> This series applies against net-next and is tested working
-> >> with lib/test_bpf on ARMv8 Foundation Model.
-> >
-> > Looks like it works on my Juno board too, so:
-> >
-> >   Acked-by: Will Deacon <will.deacon@arm.com>
-> >
-> > for the series.
-> >
-> > It's a bit late for 3.17 now, so I guess we'll queue this for 3.18 (which
-> > also means the dependency on -next isn't an issue). Perhaps you could repost
-> > around -rc3?
-> 
-> Thanks for testing! Nice to see it working on real hw.
-> I'm not sure why you're proposing a 4+ week delay. The patches
-> will rot instead of getting used and tested. Imo it makes sense to
-> get them into net-next now for 3.17.
-> JIT is disabled by sysctl by default anyway.
+On 22 Jul 07:52 PM, David Miller wrote:
+> From: David Miller <davem@davemloft.net>
+> Date: Tue, 22 Jul 2014 17:41:53 -0700 (PDT)
+> =
 
-We normally like some patches (especially new functionality) to sit in
-linux-next for a while before the mering window (ideally starting with
--rc4 or -rc5). We are at -rc6 already, so getting close to the 3.17
-merging window.
+> > From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+> > Date: Tue, 22 Jul 2014 20:20:04 -0300
+> > =
 
-Another aspect is that the arm64/bpf branch depends on the net tree, so
-it can't easily go in via the arm64 tree for 3.17 (3.18 would not be a
-problem).
+> >> On 23 Jul 12:29 AM, Thomas Petazzoni wrote:
+> >>> On Tue, 22 Jul 2014 13:16:39 -0700 (PDT), David Miller wrote:
+> >>> =
 
--- 
-Catalin
+> >>> > >> This series does not apply to the 'net' tree at all, please resp=
+in
+> >>> > >> and resubmit.
+> >>> > > =
+
+> >>> > > This series applies on net-next.
+> >>> > > =
+
+> >>> > > Sorry for not mentioning it,
+> >>> > =
+
+> >>> > They are bonafide bug fixes, therefore should be targetted at 'net'.
+> >>> =
+
+> >>> Except that I believe they are fixes for a driver which itself is in
+> >>> net-next, i.e scheduled for 3.17.
+> >>> =
+
+> >> =
+
+> >> That's right. These are fixes for the new mvpp2 driver, which is only
+> >> in net-next.
+> > =
+
+> > Ok, I queued them back up, thanks for the clarification.
+> =
+
+> I've applied the 4 driver patches to net-next.  But, since the ARM
+> device tree file changes did not go into net-next, I can't apply the
+> last two patches to my tree.  You'll need to sort that out yourself.
+> =
+
+> It's a bit unfortunate that things are now out of sync like this, but
+> that's what you asked me to do.
+
+Thanks for applying this. We'll queue the devicetree changes as fixes
+for v3.17-rc1 through the arm-soc tree.
+-- =
+
+Ezequiel Garc=EDa, Free Electrons
+Embedded Linux, Kernel and Android Engineering
+http://free-electrons.com
