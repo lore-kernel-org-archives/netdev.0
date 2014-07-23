@@ -1,85 +1,76 @@
-From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Subject: Re: [PATCH 0/6] net: mvpp2: Assorted fixes
-Date: Wed, 23 Jul 2014 07:53:18 -0300
-Message-ID: <20140723105318.GA1729@arch.cereza>
-References: <20140723002916.67a0bb3c@free-electrons.com>
- <20140722232004.GA7838@arch.cereza>
- <20140722.174153.413669013449137654.davem@davemloft.net>
- <20140722.195222.775371949777233094.davem@davemloft.net>
+From: 'Christoph Paasch' <christoph.paasch@uclouvain.be>
+Subject: Re: [PATCH net] tcp: Fix integer-overflows in TCP vegas
+Date: Wed, 23 Jul 2014 13:18:02 +0200
+Message-ID: <20140723111802.GB6387@cpaasch-mac>
+References: <1406065017-22102-1-git-send-email-christoph.paasch@uclouvain.be>
+ <063D6719AE5E284EB5DD2968C1650D6D1727BEDC@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: thomas.petazzoni@free-electrons.com, alior@marvell.com,
- jason@lakedaemon.net, tawfik@marvell.com, netdev@vger.kernel.org,
- gregory.clement@free-electrons.com, mw@semihalf.com,
- linux-arm-kernel@lists.infradead.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Doug Leith <doug.leith@nuim.ie>,
+	Neal Cardwell <ncardwell@google.com>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:57333 "EHLO
+	smtp5.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754841AbaGWL11 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2014 07:27:27 -0400
 Content-Disposition: inline
-In-Reply-To: <20140722.195222.775371949777233094.davem@davemloft.net>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1727BEDC@AcuExch.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 22 Jul 07:52 PM, David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Tue, 22 Jul 2014 17:41:53 -0700 (PDT)
-> =
+On 23/07/14 - 08:38:30, David Laight wrote:
+> From: Of Christoph Paasch
+> > In vegas we do a multiplication of the cwnd and the rtt. This
+> > may overflow and thus their result is stored in a u64. However, we first
+> > need to cast the cwnd so that actually 64-bit arithmetic is done.
+> > 
+> > Cc: Doug Leith <doug.leith@nuim.ie>
+> > Fixes: 8d3a564da34e (tcp: tcp_vegas cong avoid fix)
+> > Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
+> > ---
+> >  net/ipv4/tcp_vegas.c | 2 +-
+> >  1 file changed, 1 insertion(+), 1 deletion(-)
+> > 
+> > diff --git a/net/ipv4/tcp_vegas.c b/net/ipv4/tcp_vegas.c
+> > index 9a5e05f27f4f..6a4bdea2a0fb 100644
+> > --- a/net/ipv4/tcp_vegas.c
+> > +++ b/net/ipv4/tcp_vegas.c
+> > @@ -218,7 +218,7 @@ static void tcp_vegas_cong_avoid(struct sock *sk, u32 ack, u32 acked)
+> >  			 * This is:
+> >  			 *     (actual rate in segments) * baseRTT
+> >  			 */
+> > -			target_cwnd = tp->snd_cwnd * vegas->baseRTT / rtt;
+> > +			target_cwnd = (u64)tp->snd_cwnd * vegas->baseRTT / rtt;
+> 
+> Won't that add a reference to the 64bit divide function?
 
-> > From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-> > Date: Tue, 22 Jul 2014 20:20:04 -0300
-> > =
+Yes, you are right. Sorry... (that's what happens if one only tests on a
+64-bit system... :S )
 
-> >> On 23 Jul 12:29 AM, Thomas Petazzoni wrote:
-> >>> On Tue, 22 Jul 2014 13:16:39 -0700 (PDT), David Miller wrote:
-> >>> =
+> If snd_cwnd is small then maybe:
+> 	target_cwnd = (256u * vegas->baseRTT) / rtt * tp->snd_cwnd / 256u;
+> If large I think low bits are always zero so:
+> 	target_cwnd = (256u * vegas->baseRTT) / rtt * (tp->snd_cwnd / 256u);
+> Possibly with a different power of 2...
 
-> >>> > >> This series does not apply to the 'net' tree at all, please resp=
-in
-> >>> > >> and resubmit.
-> >>> > > =
+I realize that baseRTT is always smaller or equal to rtt.
 
-> >>> > > This series applies on net-next.
-> >>> > > =
+Thus, target_cwnd will always be <= snd_cwnd. So, I think target_cwnd does not
+need to be a u64.
 
-> >>> > > Sorry for not mentioning it,
-> >>> > =
 
-> >>> > They are bonafide bug fixes, therefore should be targetted at 'net'.
-> >>> =
+I think that it would be safer to do do_div(). That way no matter what the
+difference between baseRTT and rtt, we always set the correct value. Otherwise
+we might set target_cwnd to 0, while with a do_div it would not.
 
-> >>> Except that I believe they are fixes for a driver which itself is in
-> >>> net-next, i.e scheduled for 3.17.
-> >>> =
+But a do_div might be more costly than your solution.
 
-> >> =
 
-> >> That's right. These are fixes for the new mvpp2 driver, which is only
-> >> in net-next.
-> > =
+What do you (or others) think?
 
-> > Ok, I queued them back up, thanks for the clarification.
-> =
 
-> I've applied the 4 driver patches to net-next.  But, since the ARM
-> device tree file changes did not go into net-next, I can't apply the
-> last two patches to my tree.  You'll need to sort that out yourself.
-> =
-
-> It's a bit unfortunate that things are now out of sync like this, but
-> that's what you asked me to do.
-
-Thanks for applying this. We'll queue the devicetree changes as fixes
-for v3.17-rc1 through the arm-soc tree.
--- =
-
-Ezequiel Garc=EDa, Free Electrons
-Embedded Linux, Kernel and Android Engineering
-http://free-electrons.com
+Cheers,
+Christoph
