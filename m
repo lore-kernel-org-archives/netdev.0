@@ -1,49 +1,72 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH net-next 2/6] net: bcmgenet: add missing blank line
- after declaration
-Date: Tue, 22 Jul 2014 21:35:26 -0700
-Message-ID: <1406090126.2755.13.camel@joe-AO725>
-References: <1406051718-15883-1-git-send-email-f.fainelli@gmail.com>
-	 <1406051718-15883-3-git-send-email-f.fainelli@gmail.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [net-next 02/10] udp: Expand UDP tunnel common APIs
+Date: Wed, 23 Jul 2014 00:35:16 -0400
+Message-ID: <CAEP_g=_Kqh8So6v4JFuJqfLwEUWo=Re-_Ak2btEzsdH=bfM8-A@mail.gmail.com>
+References: <1406024393-6778-1-git-send-email-azhou@nicira.com>
+ <1406024393-6778-3-git-send-email-azhou@nicira.com> <CA+mtBx9M_BpjT-_Egng+jFxmqJzdC2Npg0ufE2ZSAb9Lhw8hxg@mail.gmail.com>
+ <CACzMAJ+uW0rYQxxmi4GouGF64bbr0VDCsdrBymypWLxCaHQSrA@mail.gmail.com>
+ <CA+mtBx9RUe7a2hYsRjHbS3E+TzGOQ4Q8wLZp+-TDHQkV+L5c1Q@mail.gmail.com>
+ <CAEP_g=8oQ_Yn1ZDNjoFKgwRaGvpyW+s9RfOd1utEMsNWmJmX-Q@mail.gmail.com>
+ <CA+mtBx830L17hr_eaRKHcA9MaE9Xs7W3pC+sYh7a=E=CVmM3QQ@mail.gmail.com>
+ <53CEEBFD.9020402@intel.com> <CA+mtBx-q0PV4U_jGt-N+v5Ax_uoxYeQjrvHCqmAvU_VEQtFZNg@mail.gmail.com>
+ <53CF1B16.1000009@gmail.com> <CA+mtBx8oUfWNRchbvsmV4UevZro6dZucjRH+RYxmmTtoMmhzmA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Andy Zhou <azhou@nicira.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0011.hostedemail.com ([216.40.44.11]:43917 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751286AbaGWEf3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2014 00:35:29 -0400
-In-Reply-To: <1406051718-15883-3-git-send-email-f.fainelli@gmail.com>
+Received: from na3sys009aog103.obsmtp.com ([74.125.149.71]:35093 "HELO
+	na3sys009aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751777AbaGWEfh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2014 00:35:37 -0400
+Received: by mail-qa0-f46.google.com with SMTP id v10so728470qac.33
+        for <netdev@vger.kernel.org>; Tue, 22 Jul 2014 21:35:37 -0700 (PDT)
+In-Reply-To: <CA+mtBx8oUfWNRchbvsmV4UevZro6dZucjRH+RYxmmTtoMmhzmA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-07-22 at 10:55 -0700, Florian Fainelli wrote:
-> checkpatch flagged a bunch of problems in bcmgenet.h with: WARNING:
-> Missing a blank line after declarations, fix them.
-[]
-> diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.h b/drivers/net/ethernet/broadcom/genet/bcmgenet.h
-[]
-> @@ -438,6 +438,7 @@ struct bcmgenet_mib_counters {
->  struct enet_cb {
->  	struct sk_buff      *skb;
->  	void __iomem *bd_addr;
-> +
->  	DEFINE_DMA_UNMAP_ADDR(dma_addr);
->  	DEFINE_DMA_UNMAP_LEN(dma_len);
->  };
-> @@ -503,6 +504,7 @@ struct bcmgenet_tx_ring {
->  	unsigned int	prod_index;	/* Tx ring producer index SW copy */
->  	unsigned int	cb_ptr;		/* Tx ring initial CB ptr */
->  	unsigned int	end_ptr;	/* Tx ring end CB ptr */
-> +
->  	void (*int_enable)(struct bcmgenet_priv *priv,
->  				struct bcmgenet_tx_ring *);
->  	void (*int_disable)(struct bcmgenet_priv *priv,
+On Tue, Jul 22, 2014 at 11:53 PM, Tom Herbert <therbert@google.com> wrote:
+>>> Which feature flags control the receive side parsing in the device?
+>>
+>> The only real features that need the port info are Rx hash and Rx
+>> checksum.  If those are disabled then there shouldn't be any need for
+>> the port numbers.  I don't recall if you can disable them separately
+>> from the non-tunnel case though.  I believe they are linked to the
+>> standard offloads.
+>>
+> Rx hash is unnecessary consideration because we can derive that from
+> UDP header. The fact that we can deduce a reasonable hash is a major
+> rationale of UDP encapsulation. We will need drivers to start
+> enabling/supporting UDP RSS and providing RX hash to realize full
+> benefits of this.
 
-checkpatch false positives.
+That's true for basic hashing but for more sophisticated things like
+flow steering or sending OAM packets to control queues the hardware
+still needs to be able to look into the header.
 
-The first is a macro definition, the second is a function pointer.
+> Rx checksum is also an unnecessary consideration if devices return
+> CHECKSUM_COMPLETE instead of CHECKSUM_UNNECESSARY. Pretty much
+> anything can (and probably will) be encapsulated in UDP (VXLAN, GRE,
+> MPLS, L2TP, IPIP, SIT, etc.), so if your hardware provides
+> CHECKSUM_COMPLETE this immediately gives us easy calculation the
+> embedded checksums no matter how many encapsulation layers there are.
 
-Please use the version in -next.
+This property only applies to ones-complement checksums though. If I
+recall correctly, I believe you have a desire for something stronger
+:)
+
+> Another need for parsing UDP contents would be for LRO. This would
+> require implementation of each encapsulation format supported. I
+> believe that LRO pretty much deprecated, so maybe this is not an issue
+> either.
+
+I think only the old style of LRO is deprecated. Some drivers provide
+"GRO" where the hardware supplies the original MSS and that works OK.
+
+Some of these are obviously future looking but I think that means that
+even if you got your desired changes, the use of the UDP port on
+receive would only shift, not go away.
