@@ -1,43 +1,52 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] netfilter: nf_sockopt_find() should return ERESTARTSYS
-Date: Thu, 24 Jul 2014 00:53:15 +0200
-Message-ID: <1406155995.3363.19.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH 1/2] xfrm: Fix refcount imbalance in xfrm_lookup
+Date: Thu, 24 Jul 2014 00:54:38 +0200
+Message-ID: <1406156078.3363.20.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1406103487-1656-1-git-send-email-steffen.klassert@secunet.com>
+	 <1406103487-1656-2-git-send-email-steffen.klassert@secunet.com>
+	 <1406136073.3363.14.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140723.150938.1689093120175055002.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-	David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:50122 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751137AbaGWWyy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2014 18:54:54 -0400
+Received: by mail-wi0-f176.google.com with SMTP id bs8so8583082wib.9
+        for <netdev@vger.kernel.org>; Wed, 23 Jul 2014 15:54:53 -0700 (PDT)
+In-Reply-To: <20140723.150938.1689093120175055002.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Wed, 2014-07-23 at 15:09 -0700, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
 
-getsockopt() or setsockopt() sometimes returns -EINTR instead of
--ENOPROTOOPT, causing headaches to application developers.
+> > Hmm... are you sure ?
+> > 
+> > Before 1a1ccc96abb we did a dst_hold() because we kept the dst in
+> > xfrm_policy_sk_bundles. So keeping a reference count was mandatory.
+> > 
+> > But after, I don't understand why it is needed at all.
+> 
+> It should be needed.
+> 
+> We create a new bundle here, from scratch, based upon the socket
+> policy.
+> 
+> Such new bundles make routes with dst refcount == 0.
+> 
+> All callers expect that the route given back to them is either
+> the original 'dst' passed into xfrm_lookup() unmolested, or a
+> new 'dst' having a refcount taken for this caller.
+> 
+> That's why all call sites expect that they can just go
+> "dst_release(dst)" and these objects it works.
+> 
+> So, if we returned 'dst' with refcount == 0 it would not work.
 
-This is because unsupported commands might go through nf_sockopt_find()
-and this function returns -EINTR instead of -ERESTARTSYS if
-a signal is pending.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/netfilter/nf_sockopt.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/netfilter/nf_sockopt.c b/net/netfilter/nf_sockopt.c
-index f042ae521557..37181447715b 100644
---- a/net/netfilter/nf_sockopt.c
-+++ b/net/netfilter/nf_sockopt.c
-@@ -66,7 +66,7 @@ static struct nf_sockopt_ops *nf_sockopt_find(struct sock *sk, u_int8_t pf,
- 	struct nf_sockopt_ops *ops;
- 
- 	if (mutex_lock_interruptible(&nf_sockopt_mutex) != 0)
--		return ERR_PTR(-EINTR);
-+		return ERR_PTR(-ERESTARTSYS);
- 
- 	list_for_each_entry(ops, &nf_sockopts, list) {
- 		if (ops->pf == pf) {
-
-
+OK, I understood, thanks !
