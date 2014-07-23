@@ -1,46 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] dp83640: Fix receive timestamp race
- condition
-Date: Tue, 22 Jul 2014 19:57:20 -0700 (PDT)
-Message-ID: <20140722.195720.2254769990435787100.davem@davemloft.net>
-References: <1406035245-31091-1-git-send-email-stefan.sorensen@spectralink.com>
+Subject: Re: [PATCH net v2] net: sctp: inherit auth_capable on INIT
+ collisions
+Date: Tue, 22 Jul 2014 19:57:42 -0700 (PDT)
+Message-ID: <20140722.195742.54662767046721264.davem@davemloft.net>
+References: <1406035365-1154-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: richardcochran@gmail.com, netdev@vger.kernel.org
-To: stefan.sorensen@spectralink.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jgunthorpe@obsidianresearch.com, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org, vyasevich@gmail.com
+To: dborkman@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54032 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54037 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755250AbaGWC5V convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 22:57:21 -0400
-In-Reply-To: <1406035245-31091-1-git-send-email-stefan.sorensen@spectralink.com>
+	with ESMTP id S1755029AbaGWC5o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 22:57:44 -0400
+In-Reply-To: <1406035365-1154-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Stefan S=F8rensen <stefan.sorensen@spectralink.com>
-Date: Tue, 22 Jul 2014 15:20:45 +0200
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Tue, 22 Jul 2014 15:22:45 +0200
 
-> When timestamping received packets, rx_timestamp_work may be schedule=
-d
-> before the timestamps is received from the hardware resulting in the
-> packet beeing delivered without the timestamp.
->=20
-> This is fixed by changing the receive timestamp path:
->=20
-> On receiving a packet that need timestamping, the rxts list is
-> traversed.  If a match is found, packet+timestamp are delivered,
-> otherwise the packet is added to a rx_queue.
->=20
-> When a timestamp arrives rx_queue is traversed and if a matching
-> packet is found, it is delivered with the timestamp. Otherwise the
-> timestamp is added to the rxts list for matching with packets arrivin=
-g
-> later.
->=20
-> In case the hardware drops a timestamp, a workqueue regularly checks
-> the queue for old packets and delivers them without a timestamp.
->=20
-> Signed-off-by: Stefan S=F8rensen <stefan.sorensen@spectralink.com>
+> Jason reported an oops caused by SCTP on his ARM machine with
+> SCTP authentication enabled:
+ ...
+> While we already had various kind of bugs in that area
+> ec0223ec48a9 ("net: sctp: fix sctp_sf_do_5_1D_ce to verify if
+> we/peer is AUTH capable") and b14878ccb7fa ("net: sctp: cache
+> auth_enable per endpoint"), this one is a bit of a different
+> kind.
+ ...
+> The correct fix is to update to the new peer.auth_capable
+> value as well in the collision case via sctp_assoc_update(),
+> so that in case the collision migrated from 0 -> 1,
+> sctp_auth_asoc_init_active_key() can properly recalculate
+> the secret. This therefore fixes the observed server panic.
+> 
+> Fixes: 730fc3d05cd4 ("[SCTP]: Implete SCTP-AUTH parameter processing")
+> Reported-by: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> Tested-by: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
 
 Applied.
