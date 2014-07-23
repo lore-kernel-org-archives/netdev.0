@@ -1,40 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] ipv4: Make IP_MULTICAST_ALL and IP_MSFILTER work on
- raw sockets
-Date: Wed, 23 Jul 2014 15:13:39 -0700 (PDT)
-Message-ID: <20140723.151339.1682009835391235206.davem@davemloft.net>
-References: <1406105881.2990.60.camel@samson1.armitage.org.uk>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: quentin@armitage.org.uk
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1406105881.2990.60.camel@samson1.armitage.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net-next 0/3] net: forbid net devices named "all" "default" or "config"
+Date: Wed, 23 Jul 2014 15:17:29 -0700
+Message-ID: <1406153852-22511-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: stephane.chazelas@gmail.com, davem@davemloft.net,
+	Cong Wang <xiyou.wangcong@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f181.google.com ([209.85.192.181]:64462 "EHLO
+	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933386AbaGWWRx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2014 18:17:53 -0400
+Received: by mail-pd0-f181.google.com with SMTP id g10so2389113pdj.40
+        for <netdev@vger.kernel.org>; Wed, 23 Jul 2014 15:17:53 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Quentin Armitage <quentin@armitage.org.uk>
-Date: Wed, 23 Jul 2014 09:58:01 +0100
+/proc/sys/net/ipv[46]/conf/<dev> could conflict with
+/proc/sys/net/ipv[46]/conf/(all|default). And /proc/net/vlan/<dev>
+could conflict with /proc/net/vlan/config. Besides kernel warnings,
+undefined behavior such as duplicated proc files also appears, therefore
+we should forbid these names.
 
-> Currently, although IP_MULTICAST_ALL and IP_MSFILTER ioctl calls succeed on
-> raw sockets, there is no code to implement the functionality on received
-> packets; it is only implemented for UDP sockets. The raw(7) man page states:
-> "In addition, all ip(7) IPPROTO_IP socket options valid for datagram sockets
-> are supported", which implies these ioctls should work on raw sockets.
-> 
-> To fix this, add a call to ip_mc_sf_allow on raw sockets.
-> 
-> This should not break any existing code, since the current position of
-> not calling ip_mc_sf_filter makes it behave as if neither the IP_MULTICAST_ALL
-> nor the IP_MSFILTER ioctl had been called. Adding the call to ip_mc_sf_allow
-> will therefore maintain the current behaviour so long as IP_MULTICAST_ALL and
-> IP_MSFILTER ioctls are not called. Any code that currently is calling
-> IP_MULTICAST_ALL or IP_MSFILTER ioctls on raw sockets presumably is wanting
-> the filter to be applied, although no filtering will currently be occurring.
-> 
-> Signed-off-by: Quentin Armitage <quentin@armitage.org.uk>
+Cong Wang (3):
+  ipv4: fail early when creating netdev named all or default
+  ipv6: fail early when creating netdev named all or default
+  vlan: fail early when creating netdev named config
 
-Applied to net-next, thanks.
+ net/8021q/vlan.c     | 21 +++++++++-------
+ net/8021q/vlanproc.c |  2 ++
+ net/ipv4/devinet.c   | 37 ++++++++++++++++++++++-------
+ net/ipv6/addrconf.c  | 67 ++++++++++++++++++++++++++++++++++------------------
+ 4 files changed, 87 insertions(+), 40 deletions(-)
+
+-- 
+1.8.3.1
