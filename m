@@ -1,31 +1,82 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [ethtool PATCH 1/1] ethtool: Support cpsw ale-table registers
- in -d
-Date: Wed, 23 Jul 2014 15:05:48 +0530
-Message-ID: <53CF81F4.8020506@ti.com>
-References: <1406107764-1737-1-git-send-email-mugunthanvnm@ti.com>
+From: Catalin Marinas <catalin.marinas@arm.com>
+Subject: Re: [PATCH 00/14] arm64: eBPF JIT compiler
+Date: Wed, 23 Jul 2014 11:32:19 +0100
+Message-ID: <20140723103219.GA1366@localhost>
+References: <1405708100-13604-1-git-send-email-zlim.lnx@gmail.com>
+ <20140721091623.GA16122@arm.com>
+ <CAMEtUuyC+MykPDO0ghTc=oex7KPLEy=BLRgWBdW+qJY7JXQmDQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>
-To: <ben@decadent.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:44494 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753112AbaGWJgB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2014 05:36:01 -0400
-In-Reply-To: <1406107764-1737-1-git-send-email-mugunthanvnm@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Will Deacon <Will.Deacon@arm.com>,
+	Zi Shen Lim <zlim.lnx@gmail.com>,
+	Jiang Liu <liuj97@gmail.com>,
+	AKASHI Takahiro <takahiro.akashi@linaro.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Chema Gonzalez <chema@google.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAMEtUuyC+MykPDO0ghTc=oex7KPLEy=BLRgWBdW+qJY7JXQmDQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wednesday 23 July 2014 02:59 PM, Mugunthan V N wrote:
-> CPSW ale-table contains useful details of the MAC address added to the
-> table and learnt by the device. This dumps them with the -d option.
->
-> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
-> ---
-The driver patch is already there in net-next, commit id is
-52c4f0ec662bbf02f1b0bcb311a48af2c8e5ee89
+On Mon, Jul 21, 2014 at 04:49:29PM +0100, Alexei Starovoitov wrote:
+> On Mon, Jul 21, 2014 at 2:16 AM, Will Deacon <will.deacon@arm.com> wrote:
+> > On Fri, Jul 18, 2014 at 07:28:06PM +0100, Zi Shen Lim wrote:
+> >> This series implements eBPF JIT compiler for arm64.
+> >> Please see [14/14] for change log.
+> >>
+> >> Patches [1-13/14] implement code generation functions.
+> >> Patch [14/14] implements the actual eBPF JIT compiler.
+> >>
+> >> Many thanks to everyone who's reviewed the code from
+> >> RFCv1->RFCv3, especially Alexei for BPF bits, and Will
+> >> for ARM64 codegen bits :)
+> >>
+> >> BTW, I'm happy to maintain arch/arm64/net (i.e. arm64 BPF bits).
+> >> Should I add a patch updating MAINTAINERS as Patch 15?
+> >
+> > I don't think that's necessary at the moment, but if we start seeing an
+> > influx of patches to arch/arm64/net, then that could make sense in the
+> > future.
+> >
+> >> This series requires a patch that exports a function
+> >> from net/core (resulting from RFCv1 discussion). This patch
+> >> has been merged into net-next @ 9f12fbe603f7
+> >> ("net: filter: move load_pointer() into filter.h").
+> >>
+> >> This series applies against net-next and is tested working
+> >> with lib/test_bpf on ARMv8 Foundation Model.
+> >
+> > Looks like it works on my Juno board too, so:
+> >
+> >   Acked-by: Will Deacon <will.deacon@arm.com>
+> >
+> > for the series.
+> >
+> > It's a bit late for 3.17 now, so I guess we'll queue this for 3.18 (which
+> > also means the dependency on -next isn't an issue). Perhaps you could repost
+> > around -rc3?
+> 
+> Thanks for testing! Nice to see it working on real hw.
+> I'm not sure why you're proposing a 4+ week delay. The patches
+> will rot instead of getting used and tested. Imo it makes sense to
+> get them into net-next now for 3.17.
+> JIT is disabled by sysctl by default anyway.
 
-Regards
-Mugunthan V N
+We normally like some patches (especially new functionality) to sit in
+linux-next for a while before the mering window (ideally starting with
+-rc4 or -rc5). We are at -rc6 already, so getting close to the 3.17
+merging window.
+
+Another aspect is that the arm64/bpf branch depends on the net tree, so
+it can't easily go in via the arm64 tree for 3.17 (3.18 would not be a
+problem).
+
+-- 
+Catalin
