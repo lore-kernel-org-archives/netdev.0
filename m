@@ -1,66 +1,63 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 5/5] net: bcmgenet: use kcalloc instead of kzalloc
-Date: Wed, 23 Jul 2014 10:42:15 -0700
-Message-ID: <1406137335-1671-6-git-send-email-f.fainelli@gmail.com>
-References: <1406137335-1671-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:51261 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932744AbaGWRnn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2014 13:43:43 -0400
-Received: by mail-pd0-f172.google.com with SMTP id ft15so2045346pdb.3
-        for <netdev@vger.kernel.org>; Wed, 23 Jul 2014 10:43:42 -0700 (PDT)
-In-Reply-To: <1406137335-1671-1-git-send-email-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH RFC v2 net-next 02/16] bpf: update MAINTAINERS entry
+Date: Wed, 23 Jul 2014 10:48:55 -0700
+Message-ID: <CAMEtUuzcMcYnRryykqb9LQWjnVmYi3ErMtGQ+9nyY5uS+OpwpQ@mail.gmail.com>
+References: <1405657206-12060-1-git-send-email-ast@plumgrid.com>
+	<1405657206-12060-3-git-send-email-ast@plumgrid.com>
+	<CAGXu5j+mGDEPx5rCdVXzAdxR9SwQQ4ERM-Brxt4TmmncdPjzzg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAGXu5j+mGDEPx5rCdVXzAdxR9SwQQ4ERM-Brxt4TmmncdPjzzg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-There were two places that used kzalloc() with a multiplied sizeof(),
-replace these with kcalloc as recommended by checkpatch.pl.
+On Wed, Jul 23, 2014 at 10:37 AM, Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org> wrote:
+> On Thu, Jul 17, 2014 at 9:19 PM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
+>> Signed-off-by: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+>> ---
+>>  MAINTAINERS |    7 +++++++
+>>  1 file changed, 7 insertions(+)
+>>
+>> diff --git a/MAINTAINERS b/MAINTAINERS
+>> index ae8cd00215b2..32e24ff46da3 100644
+>> --- a/MAINTAINERS
+>> +++ b/MAINTAINERS
+>> @@ -1912,6 +1912,13 @@ S:       Supported
+>>  F:     drivers/net/bonding/
+>>  F:     include/uapi/linux/if_bonding.h
+>>
+>> +BPF (Safe dynamic programs and tools)
+>
+> bikeshed: I feel like this shouldn't be an acronym. Maybe instead:
+>
+> BERKELEY PACKET FILTER (BPF: Safe dynamic programs and tools)
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 6 +++---
- drivers/net/ethernet/broadcom/genet/bcmmii.c   | 2 +-
- 2 files changed, 4 insertions(+), 4 deletions(-)
+pile on :)
 
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-index 6ebc1b979c01..28c8111502cd 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
-@@ -1631,8 +1631,8 @@ static int bcmgenet_init_rx_ring(struct bcmgenet_priv *priv,
- 	priv->rx_bd_assign_index = 0;
- 	priv->rx_c_index = 0;
- 	priv->rx_read_ptr = 0;
--	priv->rx_cbs = kzalloc(priv->num_rx_bds * sizeof(struct enet_cb),
--				GFP_KERNEL);
-+	priv->rx_cbs = kcalloc(priv->num_rx_bds, sizeof(struct enet_cb),
-+			       GFP_KERNEL);
- 	if (!priv->rx_cbs)
- 		return -ENOMEM;
- 
-@@ -1773,7 +1773,7 @@ static int bcmgenet_init_dma(struct bcmgenet_priv *priv)
- 	/* Initialize commont TX ring structures */
- 	priv->tx_bds = priv->base + priv->hw_params->tdma_offset;
- 	priv->num_tx_bds = TOTAL_DESC;
--	priv->tx_cbs = kzalloc(priv->num_tx_bds * sizeof(struct enet_cb),
-+	priv->tx_cbs = kcalloc(priv->num_tx_bds, sizeof(struct enet_cb),
- 			       GFP_KERNEL);
- 	if (!priv->tx_cbs) {
- 		bcmgenet_fini_dma(priv);
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmmii.c b/drivers/net/ethernet/broadcom/genet/bcmmii.c
-index bdd12410fbbe..18961613d385 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmmii.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmmii.c
-@@ -381,7 +381,7 @@ static int bcmgenet_mii_alloc(struct bcmgenet_priv *priv)
- 	snprintf(bus->id, MII_BUS_ID_SIZE, "%s-%d",
- 		 priv->pdev->name, priv->pdev->id);
- 
--	bus->irq = kzalloc(sizeof(int) * PHY_MAX_ADDR, GFP_KERNEL);
-+	bus->irq = kcalloc(PHY_MAX_ADDR, sizeof(int), GFP_KERNEL);
- 	if (!bus->irq) {
- 		mdiobus_free(priv->mii_bus);
- 		return -ENOMEM;
--- 
-1.9.1
+I think eBPF is no longer acronym. 'e' stands for 'extended',
+but BPF is no longer 'packet filter' only and definitely not 'berkeley'.
+So I'd rather keep BPF as a magic abbreviation without spelling it out,
+since full name is historic and no longer meaningful.
+I've considered coming up with brand new abbreviation and full name
+for this instruction set, but none looked good and all lose in comparison
+to 'eBPF' name, which is concise and carries enough historical
+references to explain the idea behind new ISA.
