@@ -1,38 +1,104 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [net-next 05/10] net: Add Geneve tunneling protocol driver
-Date: Wed, 23 Jul 2014 11:20:12 -0700
-Message-ID: <20140723112012.0bf89a0f@haswell>
-References: <1406024393-6778-1-git-send-email-azhou@nicira.com>
-	<1406024393-6778-6-git-send-email-azhou@nicira.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 2/2] net: phy: Ensure the MDIO bus module is held
+Date: Wed, 23 Jul 2014 11:22:20 -0700
+Message-ID: <CAGVrzcarnqLRnr97FRB-GVKwQLebpYtV7DXHp2ZTmm1gVfY30Q@mail.gmail.com>
+References: <1406074570-13246-1-git-send-email-ezequiel.garcia@free-electrons.com>
+ <1406074570-13246-3-git-send-email-ezequiel.garcia@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Jesse Gross <jesse@nicira.com>
-To: Andy Zhou <azhou@nicira.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>
+To: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:56815 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932241AbaGWSUK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2014 14:20:10 -0400
-Received: by mail-pd0-f170.google.com with SMTP id g10so2091216pdj.29
-        for <netdev@vger.kernel.org>; Wed, 23 Jul 2014 11:20:10 -0700 (PDT)
-In-Reply-To: <1406024393-6778-6-git-send-email-azhou@nicira.com>
+Received: from mail-oa0-f43.google.com ([209.85.219.43]:54664 "EHLO
+	mail-oa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932797AbaGWSXB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2014 14:23:01 -0400
+Received: by mail-oa0-f43.google.com with SMTP id i7so2161751oag.30
+        for <netdev@vger.kernel.org>; Wed, 23 Jul 2014 11:23:00 -0700 (PDT)
+In-Reply-To: <1406074570-13246-3-git-send-email-ezequiel.garcia@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 22 Jul 2014 03:19:48 -0700
-Andy Zhou <azhou@nicira.com> wrote:
+2014-07-22 17:16 GMT-07:00 Ezequiel Garcia <ezequiel.garcia@free-electrons.com>:
+> This commit adds proper module_{get,put} to prevent the MDIO bus module
+> from being unloaded while the phydev is connected. By doing so, we fix
+> a kernel panic produced when a MDIO driver is removed, but the phydev
+> that relies on it is attached and running.
+>
+> Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+> ---
+>  drivers/net/phy/phy_device.c | 23 ++++++++++++++++++++---
+>  1 file changed, 20 insertions(+), 3 deletions(-)
+>
+> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+> index 35d753d..a10dc47 100644
+> --- a/drivers/net/phy/phy_device.c
+> +++ b/drivers/net/phy/phy_device.c
+> @@ -575,6 +575,7 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+>                       u32 flags, phy_interface_t interface)
+>  {
+>         struct device *d = &phydev->dev;
+> +       struct module *bus_module;
+>         int err;
+>
+>         /* Assume that if there is no driver, that it doesn't
+> @@ -599,6 +600,14 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+>                 return -EBUSY;
+>         }
+>
+> +       /* Increment the bus module reference count */
+> +       bus_module = phydev->bus->dev.driver ?
+> +                    phydev->bus->dev.driver->owner : NULL;
+> +       if (!try_module_get(bus_module)) {
+> +               dev_err(&dev->dev, "failed to get the bus module\n");
+> +               return -EIO;
+> +       }
+> +
+>         phydev->attached_dev = dev;
+>         dev->phydev = phydev;
+>
+> @@ -614,10 +623,14 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+>          */
+>         err = phy_init_hw(phydev);
+>         if (err)
+> -               phy_detach(phydev);
+> -       else
+> -               phy_resume(phydev);
+> +               goto err_module_put;
+>
+> +       phy_resume(phydev);
+> +       return err;
+> +
+> +err_module_put:
+> +       module_put(bus_module);
+> +       phy_detach(phydev);
 
-> +	geneveh->ver = GENEVE_VER;
-> +	geneveh->opt_len = options_len / 4;
-> +	geneveh->oam = !!(tun_flags & TUNNEL_OAM);
-> +	geneveh->critical = !!(tun_flags & TUNNEL_CRIT_OPT);
-> +	geneveh->rsvd1 = 0;
+Since we are calling phy_detach() which is also attempting to do a
+module_put(), does not that result in one too many calls to
+module_put() on error path?
 
-Bitfield's suck in C.
+>         return err;
+>  }
+>  EXPORT_SYMBOL(phy_attach_direct);
+> @@ -664,6 +677,10 @@ EXPORT_SYMBOL(phy_attach);
+>  void phy_detach(struct phy_device *phydev)
+>  {
+>         int i;
+> +
+> +       if (phydev->bus->dev.driver)
+> +               module_put(phydev->bus->dev.driver->owner);
+> +
+>         phydev->attached_dev->phydev = NULL;
+>         phydev->attached_dev = NULL;
+>         phy_suspend(phydev);
+> --
+> 2.0.1
+>
 
-Setting bitfield values individually generates slow code because
-the compiler has to generate multiple mask operations.
 
-Better to change this part to one set of shifts and do one load.
+
+-- 
+Florian
