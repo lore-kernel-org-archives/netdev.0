@@ -1,154 +1,47 @@
-From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCHv2] skbedit: allow the user to specify bitmask for mark
-Date: Wed, 23 Jul 2014 10:03:09 +0200
-Message-ID: <1406102589-8441-1-git-send-email-antonio@meshcoding.com>
-Cc: netdev@vger.kernel.org, sergei.shtylyov@cogentembedded.com,
-	eric.dumazet@gmail.com, Antonio Quartulli <antonio@open-mesh.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: davem@davemloft.net
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: [PATCH 1/2] xfrm: Fix refcount imbalance in xfrm_lookup
+Date: Wed, 23 Jul 2014 10:18:06 +0200
+Message-ID: <1406103487-1656-2-git-send-email-steffen.klassert@secunet.com>
+References: <1406103487-1656-1-git-send-email-steffen.klassert@secunet.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	<netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.neomailbox.net ([178.209.62.157]:7174 "EHLO
-	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753919AbaGWIDo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2014 04:03:44 -0400
+Received: from a.mx.secunet.com ([195.81.216.161]:39819 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755655AbaGWISX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 23 Jul 2014 04:18:23 -0400
+In-Reply-To: <1406103487-1656-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <antonio@open-mesh.com>
+xfrm_lookup must return a dst_entry with a refcount for the caller.
+Git commit 1a1ccc96abb ("xfrm: Remove caching of xfrm_policy_sk_bundles")
+removed this refcount for the socket policy case accidentally.
+This patch restores it and sets DST_NOCACHE flag to make sure
+that the dst_entry is freed when the refcount becomes null.
 
-The user may want to use only some bits of the skb mark in
-his skbedit rules because the remaining part might be used by
-something else.
-
-Introduce the "mask" parameter to the skbedit actor in order
-to implement such functionality.
-
-When the mask is specified, only those bits selected by the
-latter are altered really changed by the actor, while the
-rest is left untouched.
-
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Signed-off-by: Antonio Quartulli <antonio@open-mesh.com>
+Fixes: 1a1ccc96abb ("xfrm: Remove caching of xfrm_policy_sk_bundles")
+Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
 ---
+ net/xfrm/xfrm_policy.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-Jamal, I'm not adding your Signed-off because the patches has new part with
-respect to v1.
-
-
-Changes from v1:
-- use '&=' tcf_skbedit() to clean the mark
-- extend tcf_skbedit_dump() in order to send the mask as well
-
-
-
-
-
- include/net/tc_act/tc_skbedit.h        |  1 +
- include/uapi/linux/tc_act/tc_skbedit.h |  2 ++
- net/sched/act_skbedit.c                | 24 +++++++++++++++++++++---
- 3 files changed, 24 insertions(+), 3 deletions(-)
-
-diff --git a/include/net/tc_act/tc_skbedit.h b/include/net/tc_act/tc_skbedit.h
-index 0df9a0d..a385c68 100644
---- a/include/net/tc_act/tc_skbedit.h
-+++ b/include/net/tc_act/tc_skbedit.h
-@@ -26,6 +26,7 @@ struct tcf_skbedit {
- 	u32			flags;
- 	u32     		priority;
- 	u32     		mark;
-+	u32			mask;
- 	u16			queue_mapping;
- 	/* XXX: 16-bit pad here? */
- };
-diff --git a/include/uapi/linux/tc_act/tc_skbedit.h b/include/uapi/linux/tc_act/tc_skbedit.h
-index 7a2e910..c7c8c5f 100644
---- a/include/uapi/linux/tc_act/tc_skbedit.h
-+++ b/include/uapi/linux/tc_act/tc_skbedit.h
-@@ -27,6 +27,7 @@
- #define SKBEDIT_F_PRIORITY		0x1
- #define SKBEDIT_F_QUEUE_MAPPING		0x2
- #define SKBEDIT_F_MARK			0x4
-+#define SKBEDIT_F_MASK			0x8
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index a8ef510..0525d78 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -2097,6 +2097,8 @@ struct dst_entry *xfrm_lookup(struct net *net, struct dst_entry *dst_orig,
+ 				goto no_transform;
+ 			}
  
- struct tc_skbedit {
- 	tc_gen;
-@@ -39,6 +40,7 @@ enum {
- 	TCA_SKBEDIT_PRIORITY,
- 	TCA_SKBEDIT_QUEUE_MAPPING,
- 	TCA_SKBEDIT_MARK,
-+	TCA_SKBEDIT_MASK,
- 	__TCA_SKBEDIT_MAX
- };
- #define TCA_SKBEDIT_MAX (__TCA_SKBEDIT_MAX - 1)
-diff --git a/net/sched/act_skbedit.c b/net/sched/act_skbedit.c
-index fcfeeaf..6111b06 100644
---- a/net/sched/act_skbedit.c
-+++ b/net/sched/act_skbedit.c
-@@ -43,8 +43,12 @@ static int tcf_skbedit(struct sk_buff *skb, const struct tc_action *a,
- 	if (d->flags & SKBEDIT_F_QUEUE_MAPPING &&
- 	    skb->dev->real_num_tx_queues > d->queue_mapping)
- 		skb_set_queue_mapping(skb, d->queue_mapping);
--	if (d->flags & SKBEDIT_F_MARK)
--		skb->mark = d->mark;
-+	if (d->flags & SKBEDIT_F_MARK) {
-+		/* unset all the bits in the mask */
-+		skb->mark &= ~d->mask;
-+		/* assign the mark value for the masked bit only */
-+		skb->mark |= d->mark & d->mask;
-+	}
- 
- 	spin_unlock(&d->tcf_lock);
- 	return d->tcf_action;
-@@ -55,6 +59,7 @@ static const struct nla_policy skbedit_policy[TCA_SKBEDIT_MAX + 1] = {
- 	[TCA_SKBEDIT_PRIORITY]		= { .len = sizeof(u32) },
- 	[TCA_SKBEDIT_QUEUE_MAPPING]	= { .len = sizeof(u16) },
- 	[TCA_SKBEDIT_MARK]		= { .len = sizeof(u32) },
-+	[TCA_SKBEDIT_MASK]		= { .len = sizeof(u32) },
- };
- 
- static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
-@@ -64,7 +69,7 @@ static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
- 	struct nlattr *tb[TCA_SKBEDIT_MAX + 1];
- 	struct tc_skbedit *parm;
- 	struct tcf_skbedit *d;
--	u32 flags = 0, *priority = NULL, *mark = NULL;
-+	u32 flags = 0, *priority = NULL, *mark = NULL, *mask = NULL;
- 	u16 *queue_mapping = NULL;
- 	int ret = 0, err;
- 
-@@ -93,6 +98,11 @@ static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
- 		mark = nla_data(tb[TCA_SKBEDIT_MARK]);
++			dst_hold(&xdst->u.dst);
++			xdst->u.dst.flags |= DST_NOCACHE;
+ 			route = xdst->route;
+ 		}
  	}
- 
-+	if (tb[TCA_SKBEDIT_MASK] != NULL) {
-+		flags |= SKBEDIT_F_MASK;
-+		mask = nla_data(tb[TCA_SKBEDIT_MASK]);
-+	}
-+
- 	if (!flags)
- 		return -EINVAL;
- 
-@@ -123,6 +133,10 @@ static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
- 		d->queue_mapping = *queue_mapping;
- 	if (flags & SKBEDIT_F_MARK)
- 		d->mark = *mark;
-+	/* default behaviour is to use all the bits */
-+	d->mask = 0xffffffff;
-+	if (flags & SKBEDIT_F_MASK)
-+		d->mask = *mask;
- 
- 	d->tcf_action = parm->action;
- 
-@@ -160,6 +174,10 @@ static int tcf_skbedit_dump(struct sk_buff *skb, struct tc_action *a,
- 	    nla_put(skb, TCA_SKBEDIT_MARK, sizeof(d->mark),
- 		    &d->mark))
- 		goto nla_put_failure;
-+	if ((d->flags & SKBEDIT_F_MASK) &&
-+	    nla_put(skb, TCA_SKBEDIT_MASK, sizeof(d->mask),
-+		    &d->mark))
-+		goto nla_put_failure;
- 	t.install = jiffies_to_clock_t(jiffies - d->tcf_tm.install);
- 	t.lastuse = jiffies_to_clock_t(jiffies - d->tcf_tm.lastuse);
- 	t.expires = jiffies_to_clock_t(d->tcf_tm.expires);
 -- 
-1.8.5.5
+1.9.1
