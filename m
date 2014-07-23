@@ -1,76 +1,57 @@
-From: 'Christoph Paasch' <christoph.paasch@uclouvain.be>
-Subject: Re: [PATCH net] tcp: Fix integer-overflows in TCP vegas
-Date: Wed, 23 Jul 2014 13:18:02 +0200
-Message-ID: <20140723111802.GB6387@cpaasch-mac>
-References: <1406065017-22102-1-git-send-email-christoph.paasch@uclouvain.be>
- <063D6719AE5E284EB5DD2968C1650D6D1727BEDC@AcuExch.aculab.com>
+From: Jason Cooper <jason@lakedaemon.net>
+Subject: Re: [PATCH 0/6] net: mvpp2: Assorted fixes
+Date: Wed, 23 Jul 2014 08:13:31 -0400
+Message-ID: <20140723121331.GC23220@titan.lakedaemon.net>
+References: <1405961296-5846-1-git-send-email-ezequiel.garcia@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Doug Leith <doug.leith@nuim.ie>,
-	Neal Cardwell <ncardwell@google.com>
-To: David Laight <David.Laight@ACULAB.COM>
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	David Miller <davem@davemloft.net>,
+	Marcin Wojtas <mw@semihalf.com>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Tawfik Bayouk <tawfik@marvell.com>,
+	Lior Amsalem <alior@marvell.com>
+To: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:57333 "EHLO
-	smtp5.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754841AbaGWL11 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2014 07:27:27 -0400
+Received: from mho-03-ewr.mailhop.org ([204.13.248.66]:22789 "EHLO
+	mho-01-ewr.mailhop.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750742AbaGWMNi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2014 08:13:38 -0400
 Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D1727BEDC@AcuExch.aculab.com>
+In-Reply-To: <1405961296-5846-1-git-send-email-ezequiel.garcia@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 23/07/14 - 08:38:30, David Laight wrote:
-> From: Of Christoph Paasch
-> > In vegas we do a multiplication of the cwnd and the rtt. This
-> > may overflow and thus their result is stored in a u64. However, we first
-> > need to cast the cwnd so that actually 64-bit arithmetic is done.
-> > 
-> > Cc: Doug Leith <doug.leith@nuim.ie>
-> > Fixes: 8d3a564da34e (tcp: tcp_vegas cong avoid fix)
-> > Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
-> > ---
-> >  net/ipv4/tcp_vegas.c | 2 +-
-> >  1 file changed, 1 insertion(+), 1 deletion(-)
-> > 
-> > diff --git a/net/ipv4/tcp_vegas.c b/net/ipv4/tcp_vegas.c
-> > index 9a5e05f27f4f..6a4bdea2a0fb 100644
-> > --- a/net/ipv4/tcp_vegas.c
-> > +++ b/net/ipv4/tcp_vegas.c
-> > @@ -218,7 +218,7 @@ static void tcp_vegas_cong_avoid(struct sock *sk, u32 ack, u32 acked)
-> >  			 * This is:
-> >  			 *     (actual rate in segments) * baseRTT
-> >  			 */
-> > -			target_cwnd = tp->snd_cwnd * vegas->baseRTT / rtt;
-> > +			target_cwnd = (u64)tp->snd_cwnd * vegas->baseRTT / rtt;
+On Mon, Jul 21, 2014 at 01:48:10PM -0300, Ezequiel Garcia wrote:
+> This patchset contains a set of fixes for issues found while doing some
+> more intensive tests on the recently accepted mvpp2 ethernet driver.
 > 
-> Won't that add a reference to the 64bit divide function?
+> David: if we are still in time, we'd like to get the driver fixes merged
+> for v3.17-rc1.
+> 
+> For the devicetree changes, it's already too late for that, since Jason
+> Cooper has already posted the PRs for v3.17. I'll re-post them when
+> v3.17-rc1 is released.
+> 
+> As usual, feedback is welcome.
+> 
+> Ezequiel Garcia (3):
+>   net: mvpp2: Fix the BM pool buffer release check
+>   net: mvpp2: Simplify BM pool buffers freeing
+>   ARM: mvebu: Add missing MDIO clock in Armada 375
+> 
+> Marcin Wojtas (3):
+>   net: mvpp2: Fix the periodic XON enable bit
+>   net: mvpp2: Enable proper PHY polling and fix port functionality
+>   ARM: mvebu: Add ethernet aliases required by U-Boot
+> 
+>  arch/arm/boot/dts/armada-375.dtsi    |  3 ++
+>  drivers/net/ethernet/marvell/mvpp2.c | 65 +++++++++++++++++++++++-------------
+>  2 files changed, 44 insertions(+), 24 deletions(-)
 
-Yes, you are right. Sorry... (that's what happens if one only tests on a
-64-bit system... :S )
+Patches 5 and 6 (dtsi changes) applied to mvebu/dt for v3.17
 
-> If snd_cwnd is small then maybe:
-> 	target_cwnd = (256u * vegas->baseRTT) / rtt * tp->snd_cwnd / 256u;
-> If large I think low bits are always zero so:
-> 	target_cwnd = (256u * vegas->baseRTT) / rtt * (tp->snd_cwnd / 256u);
-> Possibly with a different power of 2...
+thx,
 
-I realize that baseRTT is always smaller or equal to rtt.
-
-Thus, target_cwnd will always be <= snd_cwnd. So, I think target_cwnd does not
-need to be a u64.
-
-
-I think that it would be safer to do do_div(). That way no matter what the
-difference between baseRTT and rtt, we always set the correct value. Otherwise
-we might set target_cwnd to 0, while with a do_div it would not.
-
-But a do_div might be more costly than your solution.
-
-
-What do you (or others) think?
-
-
-Cheers,
-Christoph
+Jason.
