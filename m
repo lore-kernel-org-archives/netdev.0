@@ -1,52 +1,74 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next] net/mlx4_en: mlx4_en_[gs]et_priv_flags() can be static
-Date: Wed, 23 Jul 2014 09:36:26 +0300
-Message-ID: <1406097386-11034-1-git-send-email-amirv@mellanox.com>
-Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Fengguang Wu <fengguang.wu@intel.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:37431 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752707AbaGWGgr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Jul 2014 02:36:47 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the scsi tree with the net-next tree
+Date: Wed, 23 Jul 2014 16:40:49 +1000
+Message-ID: <20140723164049.413272e8@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/rVQsC.i=_LPMhX4.0hLTXPD"; protocol="application/pgp-signature"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Anish Bhatt <anish@chelsio.com>, Karen Xie <kxie@chelsio.com>,
+	Manoj Malviya <manojmalviya@chelsio.com>,
+	Hannes Reinecke <hare@suse.de>, Christoph Hellwig <hch@lst.de>
+To: James Bottomley <James.Bottomley@HansenPartnership.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Fengguang Wu <fengguang.wu@intel.com>
+--Sig_/rVQsC.i=_LPMhX4.0hLTXPD
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-Fixes sparse warning intrduced by commit 0fef9d0 ("net/mlx4_en: Disable
-blueflame using ethtool private flags")
+Hi James,
 
-Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Today's linux-next merge of the scsi tree got a conflict in
+drivers/scsi/cxgbi/libcxgbi.h between commit fc8d0590d914 ("libcxgbi:
+Add ipv6 api to driver") from the net-next tree and commit 1abf635d2f33
+("scsi: use 64-bit value for 'max_luns'") from the scsi tree.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-index 881f5c59..16051cc 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-@@ -1221,7 +1221,7 @@ static int mlx4_en_get_ts_info(struct net_device *dev,
- 	return ret;
- }
- 
--int mlx4_en_set_priv_flags(struct net_device *dev, u32 flags)
-+static int mlx4_en_set_priv_flags(struct net_device *dev, u32 flags)
- {
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
- 
-@@ -1246,7 +1246,7 @@ int mlx4_en_set_priv_flags(struct net_device *dev, u32 flags)
- 	return 0;
- }
- 
--u32 mlx4_en_get_priv_flags(struct net_device *dev)
-+static u32 mlx4_en_get_priv_flags(struct net_device *dev)
- {
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
- 
--- 
-1.8.3.4
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc drivers/scsi/cxgbi/libcxgbi.h
+index 8ad73d913f02,538d7a64e138..000000000000
+--- a/drivers/scsi/cxgbi/libcxgbi.h
++++ b/drivers/scsi/cxgbi/libcxgbi.h
+@@@ -708,8 -692,7 +708,8 @@@ struct cxgbi_device *cxgbi_device_regis
+  void cxgbi_device_unregister(struct cxgbi_device *);
+  void cxgbi_device_unregister_all(unsigned int flag);
+  struct cxgbi_device *cxgbi_device_find_by_lldev(void *);
+ +struct cxgbi_device *cxgbi_device_find_by_netdev(struct net_device *, int=
+ *);
+- int cxgbi_hbas_add(struct cxgbi_device *, unsigned int, unsigned int,
++ int cxgbi_hbas_add(struct cxgbi_device *, u64, unsigned int,
+  			struct scsi_host_template *,
+  			struct scsi_transport_template *);
+  void cxgbi_hbas_remove(struct cxgbi_device *);
+
+--Sig_/rVQsC.i=_LPMhX4.0hLTXPD
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJTz1j3AAoJEMDTa8Ir7ZwV9IgQAJN5QgiB9JsR/5a3wAr4U1jq
+4PZ10HfNLYl2vhNBnylSBr4VcAMKmm3fAKbeJUatuXIHt9DTr4noATcVnaXhuXJR
+VFnbLYL+yG8JWdvfAbjlLsCWB9Iv1ZFsA2K7JTOfELIwz3pFrX3OTJeCyDdrK21w
+p27CCDZl288VQyn9uFLYk8yc5fD2euus3XmTz5uujLwXHSwCS4LSa04kJSgn9wFo
+oa4VP6q7bs1IT0Kwh7JMdWN7cGif94gCtFOrU940KPdcddgEXnTvbi6FKTXMW9VS
+oEYhOvqj5yJEiNHsq/2qyPR0lwnkHl43L15UxlZ2M3/7tHUZXKsOybv0qYQHgDm1
+w1oRDTlrSIbNEfOhmX/tDg/Ei5PBDxoobkBfz0BnPda6FeMYx8eg2hteSsYarphW
+ivK2JnKoJcM+jLT2mjel4xRXT5bk7jpc89YfONe2K+U0C8k0dGpcq26ba4T6IEqU
+n5nEoMbz/lWklhJAOdgIoyKUZpZRNtRwl4/IWBAIAyaVXENmU4m+GbOZ+OBJKLdI
+prhWYXiaOlpctOqR63axaKRzXQq8lLS7870BtYEMq0C/HwxknEP8opKsvWmimjuN
+Gie7oM8dYNCcOzx+OEI0I9m0HY9HqP7BvbiuykzZL78gci5AuA3I9B3jpI8oqqYq
+RikGmIrHpOZPWcxvFosY
+=9q0h
+-----END PGP SIGNATURE-----
+
+--Sig_/rVQsC.i=_LPMhX4.0hLTXPD--
