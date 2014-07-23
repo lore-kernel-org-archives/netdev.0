@@ -1,56 +1,38 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH RFC v2 net-next 08/16] bpf: add hashtable type of BPF maps
-Date: Wed, 23 Jul 2014 14:42:01 -0700
-Message-ID: <CAMEtUuxx7e2PHv4cpPtnOHqamandoE3Y8-uMdRBiRGZKYGbv8w@mail.gmail.com>
-References: <1405657206-12060-1-git-send-email-ast@plumgrid.com>
-	<1405657206-12060-9-git-send-email-ast@plumgrid.com>
-	<CAGXu5jK1hrwvPs7f+mSOer+81J9SBxwMrqb=6fFeZQ7hd-FMzA@mail.gmail.com>
-	<CAMEtUuyRUG6ZdRvL0JuakD0zPdYo3WoqQepK7_b_MW+r2aVzVA@mail.gmail.com>
-	<CAGXu5jLbcrR76=omiqRNERhjZS8bsR1-jG+Ctra97uCrpHLPUA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v8 3/6] openvswitch: Add hash action
+Date: Wed, 23 Jul 2014 14:42:48 -0700 (PDT)
+Message-ID: <20140723.144248.119709569087635224.davem@davemloft.net>
+References: <1406054089-1700-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Chema Gonzalez <chema@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Jiri Olsa <jolsa@redhat.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linux API <linux-api@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Kees Cook <keescook@chromium.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAGXu5jLbcrR76=omiqRNERhjZS8bsR1-jG+Ctra97uCrpHLPUA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, azhou@nicira.com
+To: pshelar@nicira.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38051 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933386AbaGWVmv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2014 17:42:51 -0400
+In-Reply-To: <1406054089-1700-1-git-send-email-pshelar@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 23, 2014 at 1:33 PM, Kees Cook <keescook@chromium.org> wrote:
->>
->>>> +       htab->slab_name = kasprintf(GFP_USER, "bpf_htab_%p", htab);
->>>
->>> This leaks a kernel heap memory pointer to userspace. If a unique name
->>> needed, I think map_id should be used instead.
->>
->> it leaks, how? slabinfo is only available to root.
->> The same code exists in conntrack:
->> net/netfilter/nf_conntrack_core.c:1767
->
-> Right, in extreme cases, there are system configurations where leaking
-> addresses even to root can be considered a bug. There are a lot of
-> these situations in the kernel still, that's true. However, if we can
-> at all avoid it, I'd really like to avoid adding new ones. Nearly all
-> the cases of using a memory pointer is for uniqueness concerns, but I
-> think can already get that from the map_id.
+From: Pravin B Shelar <pshelar@nicira.com>
+Date: Tue, 22 Jul 2014 11:34:49 -0700
 
-ok. fair enough. I think slab name doesn't have to be unique anymore.
-It's used to be a requirement in older kernels. If it is ok to reuse now,
-I'll just use the same for all hash-type maps.
-Advice from slab expert would be great...
+> OVS_ACTION_ATTR_HASH is set to 10 to maintain compatibility with
+> existing userspace API.
+
+I don't understand this.
+
+> @@ -521,6 +544,7 @@ enum ovs_action_attr {
+>  	OVS_ACTION_ATTR_PUSH_VLAN,    /* struct ovs_action_push_vlan. */
+>  	OVS_ACTION_ATTR_POP_VLAN,     /* No argument. */
+>  	OVS_ACTION_ATTR_SAMPLE,       /* Nested OVS_SAMPLE_ATTR_*. */
+> +	OVS_ACTION_ATTR_HASH = 10,     /* struct ovs_action_hash. */
+>  	__OVS_ACTION_ATTR_MAX
+>  };
+
+Do you have to force this to skip to '10' because of something
+out-of-tree?  If so, that isn't a reasonable reason to do something
+like this, sorry.
