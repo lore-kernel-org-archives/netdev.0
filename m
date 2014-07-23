@@ -1,76 +1,80 @@
-From: Himangi Saraogi <himangi774@gmail.com>
-Subject: [PATCH] isdn: use constants instead of magicnumbers
-Date: Thu, 24 Jul 2014 02:46:38 +0530
-Message-ID: <20140723211638.GA4283@himangi-Dell>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH RFC v2 net-next 07/16] bpf: add lookup/update/delete/iterate
+ methods to BPF maps
+Date: Wed, 23 Jul 2014 14:22:24 -0700
+Message-ID: <CAMEtUuy6DsrTF1ejA64nfYvBUJ2mUb4M=sjkVAwswf4Ot=P7Gw@mail.gmail.com>
+References: <1405657206-12060-1-git-send-email-ast@plumgrid.com>
+	<1405657206-12060-8-git-send-email-ast@plumgrid.com>
+	<CAGXu5j+cvG5BhNSA=UrcbYs3LPSZUZyj4_ey8=9O0KgbUYUd9g@mail.gmail.com>
+	<CAMEtUuwE1oLUZb2QM243uKGSAfT_ahozducakpi9uvADzsj5XA@mail.gmail.com>
+	<CAGXu5jKA9gArKaqODsD0kswmP0Q77w152VXhq9zCS4pgTZf+Jg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Julia Lawall <julia.lawall@lip6.fr>
-To: Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Chema Gonzalez <chema@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Jiri Olsa <jolsa@redhat.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Kees Cook <keescook@chromium.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:54319 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933498AbaGWVQp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2014 17:16:45 -0400
-Content-Disposition: inline
+Received: from mail-wg0-f50.google.com ([74.125.82.50]:56785 "EHLO
+	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933568AbaGWVW0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2014 17:22:26 -0400
+Received: by mail-wg0-f50.google.com with SMTP id n12so1784103wgh.33
+        for <netdev@vger.kernel.org>; Wed, 23 Jul 2014 14:22:24 -0700 (PDT)
+In-Reply-To: <CAGXu5jKA9gArKaqODsD0kswmP0Q77w152VXhq9zCS4pgTZf+Jg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch changes instances of magic numbers like 4 and 8 to equivalent
-constants.
+On Wed, Jul 23, 2014 at 1:25 PM, Kees Cook <keescook@chromium.org> wrote:
+> On Wed, Jul 23, 2014 at 12:49 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
+>> On Wed, Jul 23, 2014 at 11:25 AM, Kees Cook <keescook@chromium.org> wrote:
+>>>> +
+>>>> +       /* lookup key in a given map referenced by map_id
+>>>> +        * err = bpf_map_lookup_elem(int map_id, void *key, void *value)
+>>>
+>>> This needs map_id documentation updates too?
+>>
+>> yes. will grep for it just to make sure.
+>>
+>>>> +static int get_map_id(struct fd f)
+>>>> +{
+>>>> +       struct bpf_map *map;
+>>>> +
+>>>> +       if (!f.file)
+>>>> +               return -EBADF;
+>>>> +
+>>>> +       if (f.file->f_op != &bpf_map_fops) {
+>>>> +               fdput(f);
+>>>
+>>> It feels weird to me to do the fdput inside this function. Instead,
+>>> should map_lookup_elem get a "err_put" label, instead?
+>>
+>> I don't think it will work, since I'm not sure that fd.flags will be zero
+>> when fd.file == NULL. It looks so by analyzing return code path
+>> in fs/file.c, but I wasn't sure that I followed all code paths,
+>> so I just picked this style from fs/timerfd.c assuming it was
+>> done this away on purpose and there can be the case where
+>> fd.file == null and fd.flags !=0. In such case we cannot call fdput().
+>
+> Yeah, hm, looking around, this does seem to be the case. I guess the
+> thought is that when get_map_id fails, struct fd has been handled.
 
-The Coccinelle semantic patch used for making the change is as follows:
+correct.
 
-// <smpl>
-@r@
-type T;
-T E;
-identifier fld;
-identifier c;
-@@
+> Maybe add a comment above that function as a reminder?
 
-E->fld & c
-
-@s@
-constant C;
-identifier r.c;
-@@
-
-#define c C
-
-@@
-r.T E;
-identifier r.fld;
-identifier r.c;
-constant s.C;
-@@
-
- E->fld &
-- C
-+ c
-// </smpl>
-
-Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
-Acked-by: Julia Lawall <julia.lawall@lip6.fr>
----
-To send to: Karsten Keil <isdn@linux-pingi.de>,netdev@vger.kernel.org,linux-kernel@vger.kernel.org
- drivers/isdn/i4l/isdn_net.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/isdn/i4l/isdn_net.c b/drivers/isdn/i4l/isdn_net.c
-index c2ed624..94affa5 100644
---- a/drivers/isdn/i4l/isdn_net.c
-+++ b/drivers/isdn/i4l/isdn_net.c
-@@ -2918,8 +2918,8 @@ isdn_net_getcfg(isdn_net_ioctl_cfg *cfg)
- 			cfg->callback = 2;
- 		cfg->cbhup = (lp->flags & ISDN_NET_CBHUP) ? 1 : 0;
- 		cfg->dialmode = lp->flags & ISDN_NET_DIALMODE_MASK;
--		cfg->chargehup = (lp->hupflags & 4) ? 1 : 0;
--		cfg->ihup = (lp->hupflags & 8) ? 1 : 0;
-+		cfg->chargehup = (lp->hupflags & ISDN_CHARGEHUP) ? 1 : 0;
-+		cfg->ihup = (lp->hupflags & ISDN_INHUP) ? 1 : 0;
- 		cfg->cbdelay = lp->cbdelay;
- 		cfg->dialmax = lp->dialmax;
- 		cfg->triggercps = lp->triggercps;
--- 
-1.9.1
+yes. will do.
