@@ -1,76 +1,76 @@
-From: David L Stevens <david.stevens@oracle.com>
-Subject: [PATCH net-next] sunvnet: only use connected ports when sending
-Date: Wed, 23 Jul 2014 16:49:29 -0400
-Message-ID: <53D01FD9.5000804@oracle.com>
+From: Himangi Saraogi <himangi774@gmail.com>
+Subject: [PATCH] isdn: use constants instead of magicnumbers
+Date: Thu, 24 Jul 2014 02:46:38 +0530
+Message-ID: <20140723211638.GA4283@himangi-Dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Julia Lawall <julia.lawall@lip6.fr>
+To: Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:37572 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932847AbaGWUte (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2014 16:49:34 -0400
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:54319 "EHLO
+	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933498AbaGWVQp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2014 17:16:45 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The sunvnet driver doesn't check whether or not a port is connected when
-transmitting packets, which results in failures if a port fails to connect
-(e.g., due to a version mismatch). The original code also assumes
-unnecessarily that the first port is up and a switch, even though there is
-a flag for switch ports.
+This patch changes instances of magic numbers like 4 and 8 to equivalent
+constants.
 
-This patch only matches a port if it is connected, and otherwise uses the
-switch_port flag to send the packet to a switch port that is up.
+The Coccinelle semantic patch used for making the change is as follows:
 
-Signed-off-by: David L Stevens <david.stevens@oracle.com>
+// <smpl>
+@r@
+type T;
+T E;
+identifier fld;
+identifier c;
+@@
+
+E->fld & c
+
+@s@
+constant C;
+identifier r.c;
+@@
+
+#define c C
+
+@@
+r.T E;
+identifier r.fld;
+identifier r.c;
+constant s.C;
+@@
+
+ E->fld &
+- C
++ c
+// </smpl>
+
+Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
+Acked-by: Julia Lawall <julia.lawall@lip6.fr>
 ---
- drivers/net/ethernet/sun/sunvnet.c |   22 +++++++++++++++++-----
- 1 files changed, 17 insertions(+), 5 deletions(-)
+To send to: Karsten Keil <isdn@linux-pingi.de>,netdev@vger.kernel.org,linux-kernel@vger.kernel.org
+ drivers/isdn/i4l/isdn_net.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
-index fd411d6..d813bfb 100644
---- a/drivers/net/ethernet/sun/sunvnet.c
-+++ b/drivers/net/ethernet/sun/sunvnet.c
-@@ -610,6 +610,13 @@ static int __vnet_tx_trigger(struct vnet_port *port)
-        return err;
- }
-
-+static inline bool port_is_up(struct vnet_port *vnet)
-+{
-+       struct vio_driver_state *vio = &vnet->vio;
-+
-+       return !!(vio->hs_state & VIO_HS_COMPLETE);
-+}
-+
- struct vnet_port *__tx_port_find(struct vnet *vp, struct sk_buff *skb)
- {
-        unsigned int hash = vnet_hashfn(skb->data);
-@@ -617,14 +624,19 @@ struct vnet_port *__tx_port_find(struct vnet *vp, struct sk_buff *skb)
-        struct vnet_port *port;
-
-        hlist_for_each_entry(port, hp, hash) {
-+               if (!port_is_up(port))
-+                       continue;
-                if (ether_addr_equal(port->raddr, skb->data))
-                        return port;
-        }
--       port = NULL;
--       if (!list_empty(&vp->port_list))
--               port = list_entry(vp->port_list.next, struct vnet_port, list);
--
--       return port;
-+       list_for_each_entry(port, &vp->port_list, list) {
-+               if (!port->switch_port)
-+                       continue;
-+               if (!port_is_up(port))
-+                       continue;
-+               return port;
-+       }
-+       return NULL;
- }
-
- struct vnet_port *tx_port_find(struct vnet *vp, struct sk_buff *skb)
+diff --git a/drivers/isdn/i4l/isdn_net.c b/drivers/isdn/i4l/isdn_net.c
+index c2ed624..94affa5 100644
+--- a/drivers/isdn/i4l/isdn_net.c
++++ b/drivers/isdn/i4l/isdn_net.c
+@@ -2918,8 +2918,8 @@ isdn_net_getcfg(isdn_net_ioctl_cfg *cfg)
+ 			cfg->callback = 2;
+ 		cfg->cbhup = (lp->flags & ISDN_NET_CBHUP) ? 1 : 0;
+ 		cfg->dialmode = lp->flags & ISDN_NET_DIALMODE_MASK;
+-		cfg->chargehup = (lp->hupflags & 4) ? 1 : 0;
+-		cfg->ihup = (lp->hupflags & 8) ? 1 : 0;
++		cfg->chargehup = (lp->hupflags & ISDN_CHARGEHUP) ? 1 : 0;
++		cfg->ihup = (lp->hupflags & ISDN_INHUP) ? 1 : 0;
+ 		cfg->cbdelay = lp->cbdelay;
+ 		cfg->dialmax = lp->dialmax;
+ 		cfg->triggercps = lp->triggercps;
 -- 
-1.7.1
+1.9.1
