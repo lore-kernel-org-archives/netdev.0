@@ -1,88 +1,47 @@
-From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Subject: [PATCH 2/2] net: phy: Ensure the MDIO bus module is held
-Date: Tue, 22 Jul 2014 21:16:10 -0300
-Message-ID: <1406074570-13246-3-git-send-email-ezequiel.garcia@free-electrons.com>
-References: <1406074570-13246-1-git-send-email-ezequiel.garcia@free-electrons.com>
-Cc: David Miller <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-To: <netdev@vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/6] net: mvpp2: Assorted fixes
+Date: Tue, 22 Jul 2014 17:41:53 -0700 (PDT)
+Message-ID: <20140722.174153.413669013449137654.davem@davemloft.net>
+References: <20140722.131639.1180592286226896307.davem@davemloft.net>
+	<20140723002916.67a0bb3c@free-electrons.com>
+	<20140722232004.GA7838@arch.cereza>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: thomas.petazzoni@free-electrons.com, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, jason@lakedaemon.net,
+	mw@semihalf.com, gregory.clement@free-electrons.com,
+	tawfik@marvell.com, alior@marvell.com
+To: ezequiel.garcia@free-electrons.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from top.free-electrons.com ([176.31.233.9]:37436 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1757301AbaGWAR0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 20:17:26 -0400
-In-Reply-To: <1406074570-13246-1-git-send-email-ezequiel.garcia@free-electrons.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53225 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751835AbaGWAl5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 20:41:57 -0400
+In-Reply-To: <20140722232004.GA7838@arch.cereza>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This commit adds proper module_{get,put} to prevent the MDIO bus module
-from being unloaded while the phydev is connected. By doing so, we fix
-a kernel panic produced when a MDIO driver is removed, but the phydev
-that relies on it is attached and running.
+From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+Date: Tue, 22 Jul 2014 20:20:04 -0300
 
-Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
----
- drivers/net/phy/phy_device.c | 23 ++++++++++++++++++++---
- 1 file changed, 20 insertions(+), 3 deletions(-)
+> On 23 Jul 12:29 AM, Thomas Petazzoni wrote:
+>> On Tue, 22 Jul 2014 13:16:39 -0700 (PDT), David Miller wrote:
+>> 
+>> > >> This series does not apply to the 'net' tree at all, please respin
+>> > >> and resubmit.
+>> > > 
+>> > > This series applies on net-next.
+>> > > 
+>> > > Sorry for not mentioning it,
+>> > 
+>> > They are bonafide bug fixes, therefore should be targetted at 'net'.
+>> 
+>> Except that I believe they are fixes for a driver which itself is in
+>> net-next, i.e scheduled for 3.17.
+>> 
+> 
+> That's right. These are fixes for the new mvpp2 driver, which is only
+> in net-next.
 
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index 35d753d..a10dc47 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -575,6 +575,7 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
- 		      u32 flags, phy_interface_t interface)
- {
- 	struct device *d = &phydev->dev;
-+	struct module *bus_module;
- 	int err;
- 
- 	/* Assume that if there is no driver, that it doesn't
-@@ -599,6 +600,14 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
- 		return -EBUSY;
- 	}
- 
-+	/* Increment the bus module reference count */
-+	bus_module = phydev->bus->dev.driver ?
-+		     phydev->bus->dev.driver->owner : NULL;
-+	if (!try_module_get(bus_module)) {
-+		dev_err(&dev->dev, "failed to get the bus module\n");
-+		return -EIO;
-+	}
-+
- 	phydev->attached_dev = dev;
- 	dev->phydev = phydev;
- 
-@@ -614,10 +623,14 @@ int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
- 	 */
- 	err = phy_init_hw(phydev);
- 	if (err)
--		phy_detach(phydev);
--	else
--		phy_resume(phydev);
-+		goto err_module_put;
- 
-+	phy_resume(phydev);
-+	return err;
-+
-+err_module_put:
-+	module_put(bus_module);
-+	phy_detach(phydev);
- 	return err;
- }
- EXPORT_SYMBOL(phy_attach_direct);
-@@ -664,6 +677,10 @@ EXPORT_SYMBOL(phy_attach);
- void phy_detach(struct phy_device *phydev)
- {
- 	int i;
-+
-+	if (phydev->bus->dev.driver)
-+		module_put(phydev->bus->dev.driver->owner);
-+
- 	phydev->attached_dev->phydev = NULL;
- 	phydev->attached_dev = NULL;
- 	phy_suspend(phydev);
--- 
-2.0.1
+Ok, I queued them back up, thanks for the clarification.
