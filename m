@@ -1,47 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/6] net: mvpp2: Assorted fixes
-Date: Tue, 22 Jul 2014 17:41:53 -0700 (PDT)
-Message-ID: <20140722.174153.413669013449137654.davem@davemloft.net>
-References: <20140722.131639.1180592286226896307.davem@davemloft.net>
-	<20140723002916.67a0bb3c@free-electrons.com>
-	<20140722232004.GA7838@arch.cereza>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+From: weiyj_lk@163.com
+Subject: [PATCH] amd-xgbe: Fix error return code in xgbe_probe()
+Date: Wed, 23 Jul 2014 08:59:40 +0800
+Message-ID: <1406077180-28852-1-git-send-email-weiyj_lk@163.com>
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: thomas.petazzoni@free-electrons.com, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, jason@lakedaemon.net,
-	mw@semihalf.com, gregory.clement@free-electrons.com,
-	tawfik@marvell.com, alior@marvell.com
-To: ezequiel.garcia@free-electrons.com
+Cc: Wei Yongjun <yongjun_wei@trendmicro.com.cn>, netdev@vger.kernel.org
+To: Tom Lendacky <thomas.lendacky@amd.com>,
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <robh+dt@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53225 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751835AbaGWAl5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 22 Jul 2014 20:41:57 -0400
-In-Reply-To: <20140722232004.GA7838@arch.cereza>
+Received: from m12-14.163.com ([220.181.12.14]:34480 "EHLO m12-14.163.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751066AbaGWA76 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 22 Jul 2014 20:59:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Date: Tue, 22 Jul 2014 20:20:04 -0300
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-> On 23 Jul 12:29 AM, Thomas Petazzoni wrote:
->> On Tue, 22 Jul 2014 13:16:39 -0700 (PDT), David Miller wrote:
->> 
->> > >> This series does not apply to the 'net' tree at all, please respin
->> > >> and resubmit.
->> > > 
->> > > This series applies on net-next.
->> > > 
->> > > Sorry for not mentioning it,
->> > 
->> > They are bonafide bug fixes, therefore should be targetted at 'net'.
->> 
->> Except that I believe they are fixes for a driver which itself is in
->> net-next, i.e scheduled for 3.17.
->> 
-> 
-> That's right. These are fixes for the new mvpp2 driver, which is only
-> in net-next.
+Fix to return a negative error code from the setting real tx queue
+count error handling case instead of 0.
 
-Ok, I queued them back up, thanks for the clarification.
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+---
+ drivers/net/ethernet/amd/xgbe/xgbe-main.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-main.c b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
+index c83584a..5a1891f 100644
+--- a/drivers/net/ethernet/amd/xgbe/xgbe-main.c
++++ b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
+@@ -339,7 +339,8 @@ static int xgbe_probe(struct platform_device *pdev)
+ 	/* Calculate the number of Tx and Rx rings to be created */
+ 	pdata->tx_ring_count = min_t(unsigned int, num_online_cpus(),
+ 				     pdata->hw_feat.tx_ch_cnt);
+-	if (netif_set_real_num_tx_queues(netdev, pdata->tx_ring_count)) {
++	ret = netif_set_real_num_tx_queues(netdev, pdata->tx_ring_count);
++	if (ret) {
+ 		dev_err(dev, "error setting real tx queue count\n");
+ 		goto err_io;
+ 	}
