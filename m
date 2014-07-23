@@ -1,67 +1,58 @@
-From: Jiang Liu <jiang.liu@linux.intel.com>
-Subject: Re: [RFC Patch V1 15/30] mm, igb: Use cpu_to_mem()/numa_mem_id()
- to support memoryless node
-Date: Wed, 23 Jul 2014 11:20:20 +0800
-Message-ID: <53CF29F4.7040700@linux.intel.com>
-References: <1405064267-11678-1-git-send-email-jiang.liu@linux.intel.com> <1405064267-11678-16-git-send-email-jiang.liu@linux.intel.com> <20140721174218.GD4156@linux.vnet.ibm.com> <CAKgT0UdZdbduP-=R7uRCxJVxt1yCDoHpnercnDoyrCbWNtx=6Q@mail.gmail.com> <20140721210900.GI4156@linux.vnet.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@linux-foundation.org>,
- Mel Gorman <mgorman@suse.de>,
- David Rientjes <rientjes@google.com>,
- Mike Galbraith <umgwanakikbuti@gmail.com>,
- Peter Zijlstra <peterz@infradead.org>,
- "Rafael J . Wysocki" <rafael.j.wysocki@intel.com>,
- Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
- Jesse Brandeburg <jesse.brandeburg@intel.com>,
- Bruce Allan <bruce.w.allan@intel.com>,
- Carolyn Wyborny <carolyn.wyborny@intel.com>,
- Don Skidmore <donald.c.skidmore@intel.com>,
- Greg Rose <gregory.v.rose@intel.com>,
- Alex Duyck <alexander.h.duyck@intel.com>,
- John Ronciak <john.ronciak@intel.com>,
- Mitch Williams <mitch.a.williams@intel.com>,
- Linux NICS <linux.nics@intel.com>,
- Tony Luck <tony.luck@intel.com>, linux-mm@kvack.org,
- linux-hotplug@vger.kernel.org, linux-kernel@vger.kernel.org,
- e1000-devel@lists.sourceforge.net, Netdev <netdev@vger.kernel.org>
-To: Nishanth Aravamudan <nacc@linux.vnet.ibm.com>,
- Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20140721210900.GI4156@linux.vnet.ibm.com>
-Sender: owner-linux-mm@kvack.org
+From: varkabhadram@gmail.com
+Subject: [PATCH net-next v3 2/2] ethernet: realtek: use pci_device_id
+Date: Wed, 23 Jul 2014 09:19:49 +0530
+Message-ID: <1406087389-4436-3-git-send-email-varkabhadram@gmail.com>
+References: <1406087389-4436-1-git-send-email-varkabhadram@gmail.com>
+Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
+	Varka Bhadram <varkab@cdac.in>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1406087389-4436-1-git-send-email-varkabhadram@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Nishanth and Alexander,
-	Thanks for review, will update the comments
-in next version.
-Regards!
-Gerry
+From: Varka Bhadram <varkab@cdac.in>
 
-On 2014/7/22 5:09, Nishanth Aravamudan wrote:
-> On 21.07.2014 [12:53:33 -0700], Alexander Duyck wrote:
->> I do agree the description should probably be changed.  There shouldn't be
->> any panics involved, only a performance impact as it will be reallocating
->> always if it is on a node with no memory.
-> 
-> Yep, thanks for the review.
-> 
->> My intention on this was to make certain that the memory used is from the
->> closest node possible.  As such I believe this change likely honours that.
-> 
-> Absolutely, just wanted to make it explicit that it's not a functional
-> fix, just a performance fix (presuming this shows up at all on systems
-> that have memoryless NUMA nodes).
-> 
-> I'd suggest an update to the comments, as well.
-> 
-> Thanks,
-> Nish
-> 
+This patch use the struct pci_device_id instead of using macro
+DEFINE_PCI_DEVICE_TABLE which is deprecated and should not be used.
+And also moves these ids after probe and remove functionalities.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Signed-off-by: Varka Bhadram <varkab@cdac.in>
+---
+ drivers/net/ethernet/realtek/8139cp.c |   14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/ethernet/realtek/8139cp.c b/drivers/net/ethernet/realtek/8139cp.c
+index be101ca..75b1693 100644
+--- a/drivers/net/ethernet/realtek/8139cp.c
++++ b/drivers/net/ethernet/realtek/8139cp.c
+@@ -382,13 +382,6 @@ static int cp_get_eeprom(struct net_device *dev,
+ static int cp_set_eeprom(struct net_device *dev,
+ 			 struct ethtool_eeprom *eeprom, u8 *data);
+ 
+-static DEFINE_PCI_DEVICE_TABLE(cp_pci_tbl) = {
+-	{ PCI_DEVICE(PCI_VENDOR_ID_REALTEK,	PCI_DEVICE_ID_REALTEK_8139), },
+-	{ PCI_DEVICE(PCI_VENDOR_ID_TTTECH,	PCI_DEVICE_ID_TTTECH_MC322), },
+-	{ },
+-};
+-MODULE_DEVICE_TABLE(pci, cp_pci_tbl);
+-
+ static struct {
+ 	const char str[ETH_GSTRING_LEN];
+ } ethtool_stats_keys[] = {
+@@ -2106,6 +2099,13 @@ static int cp_resume (struct pci_dev *pdev)
+ }
+ #endif /* CONFIG_PM */
+ 
++static const struct pci_device_id cp_pci_tbl[] = {
++        { PCI_DEVICE(PCI_VENDOR_ID_REALTEK,     PCI_DEVICE_ID_REALTEK_8139), },
++        { PCI_DEVICE(PCI_VENDOR_ID_TTTECH,      PCI_DEVICE_ID_TTTECH_MC322), },
++        { },
++};
++MODULE_DEVICE_TABLE(pci, cp_pci_tbl);
++
+ static struct pci_driver cp_driver = {
+ 	.name         = DRV_NAME,
+ 	.id_table     = cp_pci_tbl,
+-- 
+1.7.9.5
