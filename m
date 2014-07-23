@@ -1,51 +1,65 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: Re: [PATCH] amd-xgbe: Fix error return code in xgbe_probe()
-Date: Wed, 23 Jul 2014 08:25:55 -0500
-Message-ID: <53CFB7E3.8060608@amd.com>
-References: <1406077180-28852-1-git-send-email-weiyj_lk@163.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [net-next 05/10] net: Add Geneve tunneling protocol driver
+Date: Wed, 23 Jul 2014 10:11:26 -0400
+Message-ID: <20140723141126.GB14162@tuxdriver.com>
+References: <1406024393-6778-1-git-send-email-azhou@nicira.com>
+ <1406024393-6778-6-git-send-email-azhou@nicira.com>
+ <53CEEFDB.5030900@intel.com>
+ <CAEP_g=82H_h85Cog5HNP9P4M5LPJ=ZLz-dzLocAUKAG7cZi7yg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
-	<netdev@vger.kernel.org>
-To: <weiyj_lk@163.com>, Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <robh+dt@kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	Andy Zhou <azhou@nicira.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1lp0140.outbound.protection.outlook.com ([207.46.163.140]:14227
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752798AbaGWN0E (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Jul 2014 09:26:04 -0400
-In-Reply-To: <1406077180-28852-1-git-send-email-weiyj_lk@163.com>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:56024 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751904AbaGWOPU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2014 10:15:20 -0400
+Content-Disposition: inline
+In-Reply-To: <CAEP_g=82H_h85Cog5HNP9P4M5LPJ=ZLz-dzLocAUKAG7cZi7yg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/22/2014 07:59 PM, weiyj_lk@163.com wrote:
-> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
->
-> Fix to return a negative error code from the setting real tx queue
-> count error handling case instead of 0.
->
-> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+On Tue, Jul 22, 2014 at 07:24:20PM -0400, Jesse Gross wrote:
+> On Tue, Jul 22, 2014 at 7:12 PM, Alexander Duyck
+> <alexander.h.duyck@intel.com> wrote:
+> > On 07/22/2014 03:19 AM, Andy Zhou wrote:
+> >> This adds a device level support for Geneve -- Generic Network
+> >> Virtualization Encapsulation. The protocol is documented at
+> >> http://tools.ietf.org/html/draft-gross-geneve-00
+> >>
+> >> Only protocol layer Geneve support is provided by this driver.
+> >> Openvswitch can be used for configuring, set up and tear down
+> >> functional Geneve tunnels.
+> >>
+> >> Signed-off-by: Jesse Gross <jesse@nicira.com>
+> >> Signed-off-by: Andy Zhou <azhou@nicira.com>
+> >> ---
+> >>  include/net/geneve.h     |   85 +++++++++++++++
+> >>  include/net/ip_tunnels.h |    2 +
+> >>  net/ipv4/Kconfig         |   14 +++
+> >>  net/ipv4/Makefile        |    1 +
+> >>  net/ipv4/geneve.c        |  273 ++++++++++++++++++++++++++++++++++++++++++++++
+> >>  net/openvswitch/Kconfig  |   11 ++
+> >>  net/openvswitch/vport.c  |    3 +
+> >>  7 files changed, 389 insertions(+)
+> >>  create mode 100644 include/net/geneve.h
+> >>  create mode 100644 net/ipv4/geneve.c
+> >>
+> >
+> > So all this is really doing is enabling a Geneve socket for use by
+> > Openvswitch.  Do you have any plans to enable a stand alone interface
+> > like what we already have for VXLAN?
+> 
+> Yes, this is the basic protocol code that would be shared by all users
+> of Geneve. OVS is the first user but John Linville is looking at
+> adding support for connecting this to 'ip' as a non-OVS user.
 
-Acked-by: Tom Lendacky <thomas.lendacky@amd.com>
+ACK
 
-> ---
->   drivers/net/ethernet/amd/xgbe/xgbe-main.c | 3 ++-
->   1 file changed, 2 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-main.c b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-> index c83584a..5a1891f 100644
-> --- a/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-> +++ b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-> @@ -339,7 +339,8 @@ static int xgbe_probe(struct platform_device *pdev)
->   	/* Calculate the number of Tx and Rx rings to be created */
->   	pdata->tx_ring_count = min_t(unsigned int, num_online_cpus(),
->   				     pdata->hw_feat.tx_ch_cnt);
-> -	if (netif_set_real_num_tx_queues(netdev, pdata->tx_ring_count)) {
-> +	ret = netif_set_real_num_tx_queues(netdev, pdata->tx_ring_count);
-> +	if (ret) {
->   		dev_err(dev, "error setting real tx queue count\n");
->   		goto err_io;
->   	}
->
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
