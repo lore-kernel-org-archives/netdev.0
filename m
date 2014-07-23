@@ -1,61 +1,58 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: [PATCH 2/2] xfrm: Fix installation of AH IPsec SAs
-Date: Wed, 23 Jul 2014 10:18:07 +0200
-Message-ID: <1406103487-1656-3-git-send-email-steffen.klassert@secunet.com>
-References: <1406103487-1656-1-git-send-email-steffen.klassert@secunet.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the akpm tree with the net-next tree
+Date: Wed, 23 Jul 2014 18:18:59 +1000
+Message-ID: <20140723181859.09fd1d9f@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	<netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([195.81.216.161]:39813 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751347AbaGWISW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 23 Jul 2014 04:18:22 -0400
-In-Reply-To: <1406103487-1656-1-git-send-email-steffen.klassert@secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/rYEkWlgdi_Y2HekNNcBIL+K"; protocol="application/pgp-signature"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: Andrew Morton <akpm@linux-foundation.org>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tobias Brunner <tobias@strongswan.org>
+--Sig_/rYEkWlgdi_Y2HekNNcBIL+K
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-The SPI check introduced in ea9884b3acf3311c8a11db67bfab21773f6f82ba
-was intended for IPComp SAs but actually prevented AH SAs from getting
-installed (depending on the SPI).
+Hi Andrew,
 
-Fixes: ea9884b3acf3 ("xfrm: check user specified spi for IPComp")
-Cc: Fan Du <fan.du@windriver.com>
-Signed-off-by: Tobias Brunner <tobias@strongswan.org>
-Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
----
- net/xfrm/xfrm_user.c | 7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
+Today's linux-next merge of the akpm tree got a conflict in
+drivers/infiniband/hw/cxgb4/device.c between commit da388973d4a1
+("iw_cxgb4: fix for 64-bit integer division") from the net-next tree
+and commit "drivers/infiniband/hw/cxgb4/device.c: fix 32-bit builds"
+from the akpm tree.
 
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index 412d9dc..d4db6eb 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -177,9 +177,7 @@ static int verify_newsa_info(struct xfrm_usersa_info *p,
- 		    attrs[XFRMA_ALG_AEAD]	||
- 		    attrs[XFRMA_ALG_CRYPT]	||
- 		    attrs[XFRMA_ALG_COMP]	||
--		    attrs[XFRMA_TFCPAD]		||
--		    (ntohl(p->id.spi) >= 0x10000))
--
-+		    attrs[XFRMA_TFCPAD])
- 			goto out;
- 		break;
- 
-@@ -207,7 +205,8 @@ static int verify_newsa_info(struct xfrm_usersa_info *p,
- 		    attrs[XFRMA_ALG_AUTH]	||
- 		    attrs[XFRMA_ALG_AUTH_TRUNC]	||
- 		    attrs[XFRMA_ALG_CRYPT]	||
--		    attrs[XFRMA_TFCPAD])
-+		    attrs[XFRMA_TFCPAD]		||
-+		    (ntohl(p->id.spi) >= 0x10000))
- 			goto out;
- 		break;
- 
--- 
-1.9.1
+I fixed it up (the patches have the same intent, so I just kept the one
+in the net-next tree) and can carry the fix as necessary (no action is
+required).
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Sig_/rYEkWlgdi_Y2HekNNcBIL+K
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJTz2/4AAoJEMDTa8Ir7ZwVCH0QAJaSBpKespFwuI3HVPKFj9SY
+9A38hJ2QeiAjpPohvSOtHhMp/+La1u8mv1liscaIesyNxYUxjEwBYKrzGcdJJzhM
+TyJ0/wiZn7N9xVcgED1fUV6I+ijL3/Z3ljjH6aLY28UaeH/HjzqHIwVCCah/BudS
+VAPAzxbX04J1WZ4jVKJFJzef2CVXpF4ufKrQmQxuduFF/v0lbX8gTqoM80mZAA9y
+bkh6SCaKAGrthXoFGPV1siQ10c8apAqNmjt9Icg6HtaPygwVwkUgO/NsSbDKPqI+
+j8XP03AL7YTtt9tUFkIwd/MDktnJIvKEqTt0YyCiEVFjTe0hoMM+uYoEgkgSp4dn
+khM3twQUM4MPNGELTU278IxW8dcPXkMuHN6mnJeDnZW0khZGnXQaui7K9H0d+rEM
+i28EDtGNorrUhV2uQzMAU5wEpocGy/miBrsXhJJyoulN7/o44PnJQRtWo9U40lXw
+OMmusEwat6A8VVebrTiIhl3M5VwacUEJoJYCyo3W4AjNqcluHtOtrK/Vh9jHPOM9
+IvN5xWhaNFjv6BLSd/q+/hj8+DT9qHAMQjNdNx6DjmriUesidwHnebeFozbz9Y7V
+MyQIbao1XQgqgMUbUx8KsrmTcm2fRJ6TTEdyivkl6oGclKIk5yEKa8Zuvkr52996
+dDRH989IU1tOBXHWgk1P
+=OLUS
+-----END PGP SIGNATURE-----
+
+--Sig_/rYEkWlgdi_Y2HekNNcBIL+K--
