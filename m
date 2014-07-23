@@ -1,86 +1,164 @@
-From: Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH RFC v2 net-next 08/16] bpf: add hashtable type of BPF maps
-Date: Wed, 23 Jul 2014 13:33:29 -0700
-Message-ID: <CAGXu5jLbcrR76=omiqRNERhjZS8bsR1-jG+Ctra97uCrpHLPUA@mail.gmail.com>
-References: <1405657206-12060-1-git-send-email-ast@plumgrid.com>
-	<1405657206-12060-9-git-send-email-ast@plumgrid.com>
-	<CAGXu5jK1hrwvPs7f+mSOer+81J9SBxwMrqb=6fFeZQ7hd-FMzA@mail.gmail.com>
-	<CAMEtUuyRUG6ZdRvL0JuakD0zPdYo3WoqQepK7_b_MW+r2aVzVA@mail.gmail.com>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: [PATCH net-next V2 0/2] send process status in SCM_PROCINFO
+Date: Wed, 23 Jul 2014 13:49:01 -0700
+Message-ID: <CALCETrVMQ9iJxgJRxNQF1kLh_Zgz6=Wq018Nugv8kmwbDPEtjQ@mail.gmail.com>
+References: <1403787354-15177-1-git-send-email-p.wilczek@samsung.com>
+ <20140701.163153.30109595101601494.davem@davemloft.net> <CALCETrUQQTsGKyMYM7BLZjFGjy1h_ji0=6E-P53HgXfgmJOWzw@mail.gmail.com>
+ <53CE5805.9050500@samsung.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
-	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAMEtUuyRUG6ZdRvL0JuakD0zPdYo3WoqQepK7_b_MW+r2aVzVA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	Kyungmin Park <kyungmin.park@samsung.com>,
+	juho80.son@samsung.com,
+	Bartlomiej Zolnierkiewicz <b.zolnierkie@samsung.com>,
+	jkaluza@redhat.com
+To: Piotr Wilczek <p.wilczek@samsung.com>,
+	Serge Hallyn <serge.hallyn@ubuntu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f179.google.com ([209.85.217.179]:41702 "EHLO
+	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932847AbaGWUtX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2014 16:49:23 -0400
+Received: by mail-lb0-f179.google.com with SMTP id v6so1405401lbi.38
+        for <netdev@vger.kernel.org>; Wed, 23 Jul 2014 13:49:21 -0700 (PDT)
+In-Reply-To: <53CE5805.9050500@samsung.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 23, 2014 at 12:57 PM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
-> On Wed, Jul 23, 2014 at 11:36 AM, Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org> wrote:
->>> +static struct bpf_map *htab_map_alloc(struct nlattr *attr[BPF_MAP_ATTR_MAX + 1])
->>> +{
->>> +       struct bpf_htab *htab;
->>> +       int err, i;
->>> +
->>> +       htab = kmalloc(sizeof(*htab), GFP_USER);
+On Tue, Jul 22, 2014 at 5:24 AM, Piotr Wilczek <p.wilczek@samsung.com> wrote:
+> Hi Andy,
+>
+>
+> On 07/02/2014 01:52 AM, Andy Lutomirski wrote:
 >>
->> I'd prefer kzalloc here.
->
-> in this case I agree. will change, since it's not in critical path and we
-> can waste few cycles zeroing memory.
->
->>> +       err = -ENOMEM;
->>> +       htab->buckets = kmalloc(htab->n_buckets * sizeof(struct hlist_head),
->>> +                               GFP_USER);
+>> On Tue, Jul 1, 2014 at 4:31 PM, David Miller <davem@davemloft.net> wrote:
+>>>
+>>> From: Piotr Wilczek <p.wilczek@samsung.com>
+>>> Date: Thu, 26 Jun 2014 14:55:52 +0200
+>>>
+>>>> Server-like processes in many cases need credentials and other
+>>>> metadata of the peer, to decide if the calling process is allowed to
+>>>> request a specific action, or the server just wants to log away this
+>>>> type of information for auditing tasks.
+>>>>
+>>>> The current practice to retrieve such process metadata is to look that
+>>>> information up in procfs with the $PID received over SCM_CREDENTIALS.
+>>>> This is sufficient for long-running tasks, but introduces a race which
+>>>> cannot be worked around for short-living processes; the calling
+>>>> process and all the information in /proc/$PID/ is gone before the
+>>>> receiver of the socket message can look it up.
+>>>>
+>>>> Changes introduced in this patchset can also increase performance
+>>>> of such server-like processes, because current way of opening and
+>>>> parsing /proc/$PID/* files is much more expensive than receiving these
+>>>> metadata using SCM.
+>>>>
+>>>> As an example, this patch set improves systemd-journald performance
+>>>> by about 20%. Generally, performance improvement depends on how heavily
+>>>> procfs is read the calling process.
+>>>> http://comments.gmane.org/gmane.comp.sysutils.systemd.devel/19467
+>>>>
+>>>> This patch set is split in two patches:
+>>>> - the first adds library to retrive process information without
+>>>> dependency on procfs.
+>>>> - the second introduces a new SCM type called SCM_PROCINFO to optionally
+>>>> allow the direct attaching of process status to SCM.
+>>>
+>>>
+>>> I really would like someone smarter than me to review the security
+>>> implications et al. of these changes before I apply them.
+>>>
+>>> Andy?  Maybe you have an opinion?
+>>>
 >>
->> I'd prefer kcalloc here, even though n_buckets can't currently trigger
->> an integer overflow.
->
-> hmm, I would argue that kmalloc_array is a preferred way, but kcalloc ?
-> Few lines below the whole array is inited with INIT_HLIST_HEAD...
-
-Ah! I didn't realize kmalloc_array existed! Perfect. Yes, that would
-be great to use. The zeroing is not needed, due to the init below, as
-you say.
-
->
->>> +       for (i = 0; i < htab->n_buckets; i++)
->>> +               INIT_HLIST_HEAD(&htab->buckets[i]);
->
->>> +       htab->slab_name = kasprintf(GFP_USER, "bpf_htab_%p", htab);
+>> The degree to which I dislike this depends on what "procinfo" is.
 >>
->> This leaks a kernel heap memory pointer to userspace. If a unique name
->> needed, I think map_id should be used instead.
+>>  From the patch, it looks like procinfo includes cmdline.  In which
+>> case, NAK in almost the strongest possible terms.  (If it includes
+>> userspace addresses, then I'll upgrade that to the strongest possible
+>> terms.)  This is a giant information leak.  Imagine what happens when
+>> a privileged program gets one of these things as stdout.  Keep in mind
+>> that procfs has an option to hide pids that belong to other users.
+>>
+>> Even if procinfo were made relatively innocuous, this is just an
+>> extension of a bad interface.  If you all really want a way to
+>> efficiently pass kernel-verified information through a unix socket,
+>> then add something reasonable.  This means:
+>>
+>> 1. It needs to be opt-in, *per send*.  After all of the
+>> vulnerabilities that have happened due to write(2) capturing
+>> unexpected credentials of the caller, there's just no excuse for
+>> adding new examples of this.  Yes, this will prevent you from getting
+>> a magic speed-up with legacy clients, but I've spent long enough
+>> battling this sh*t from a security and correctness POV to care.  Fix
+>> the clients.
+>>
+>> 2. It should be easily extensible, because people keep wanting to add
+>> new things here.
+>>
+>> Here's a proposal for how it could work:
+>>
+>> Senders can send SCM_VERIFIED_INFO.  The payload is a list of (type,
+>> flags, value) where type is the type of verified information and value
+>> is what the sender wants to send.
+>>
+>> Flags can include SCMVI_FLAG_MANDATORY: failure to send this attribute
+>> returns -EPERM.
+>> SCMVI_FLAG_AUTO: value must be blank; the kernel will fill it in.
+>> Any other flags: -EINVAL.
+>>
+>> This could be in CMSG format or in nlattr format.  Or it could be one
+>> cmsg per value (which might be easier).
+>>
+>> Receivers can set SO_PASS_VERIFIED_INFO.  If so, then they'll receive
+>> all of the sent values that have recognized types and pass
+>> verification.
+>>
+>> For stream sockets, presumably the sender would send an
+>> scm_verified_info using setsockopt and the receiver would grab it
+>> using getsockopt.
+>>
+>> Types could include:
+>>
+>> SCMVI_UID
+>> SCMVI_GID
+>> SCMVI_PID (racy, but still better than SCM_CREDENTIALS)
+>> SCMVI_LOGONUID (but only if CONFIG_AUDITSYSCALL, and someone needs to
+>> figure out wtf its semantics are and *document* it before I'd ack such
+>> a thing)
+>> SCMVI_CGROUP (sigh)
+>> SCMVI_AUDIT_SESSIONID (because sessionid is an awful name)
+>> etc.
+>>
+>> I *might* get around to implementing this, but don't expect anything
+>> soon -- my current kernel hacking bandwidth is well-occupied by
+>> seccomp.  But I'd be happy to review.
+>>
+>> --Andy
+>>
 >
-> it leaks, how? slabinfo is only available to root.
-> The same code exists in conntrack:
-> net/netfilter/nf_conntrack_core.c:1767
+> Thank you for comments. We do understand security issues of that patch. For
+> other reasons, the patch is important for us. To speed things up, would you
+> consider cooperation in implementing your SCM_IDENTITY?
 
-Right, in extreme cases, there are system configurations where leaking
-addresses even to root can be considered a bug. There are a lot of
-these situations in the kernel still, that's true. However, if we can
-at all avoid it, I'd really like to avoid adding new ones. Nearly all
-the cases of using a memory pointer is for uniqueness concerns, but I
-think can already get that from the map_id.
+Sure.
 
--Kees
+There's some code here:
+
+https://git.kernel.org/cgit/linux/kernel/git/luto/linux.git/log/?h=scm_identity
+
+It's very much a work-in-progress.  Want to take a look and see if
+it's a good place to start from?
+
+--Andy
+
+>
+> Piotr
+>
+
+
 
 -- 
-Kees Cook
-Chrome OS Security
+Andy Lutomirski
+AMA Capital Management, LLC
