@@ -1,7 +1,7 @@
 From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH net-next 9/9] inet: frag: set limits and make init_net's high_thresh limit global
-Date: Thu, 24 Jul 2014 16:50:37 +0200
-Message-ID: <1406213437-6155-10-git-send-email-nikolay@redhat.com>
+Subject: [PATCH net-next 7/9] inet: frag: remove periodic secret rebuild timer
+Date: Thu, 24 Jul 2014 16:50:35 +0200
+Message-ID: <1406213437-6155-8-git-send-email-nikolay@redhat.com>
 References: <1406213437-6155-1-git-send-email-nikolay@redhat.com>
 Cc: Florian Westphal <fw@strlen.de>,
 	Nikolay Aleksandrov <nikolay@redhat.com>,
@@ -14,220 +14,281 @@ Cc: Florian Westphal <fw@strlen.de>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53584 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:22397 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933576AbaGXOwP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Jul 2014 10:52:15 -0400
+	id S933322AbaGXOwL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Jul 2014 10:52:11 -0400
 In-Reply-To: <1406213437-6155-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch makes init_net's high_thresh limit to be the maximum for all
-namespaces, thus introducing a global memory limit threshold equal to the
-sum of the individual high_thresh limits which are capped.
-It also introduces some sane minimums for low_thresh as it shouldn't be
-able to drop below 0 (or > high_thresh in the unsigned case), and
-overall low_thresh should not ever be above high_thresh, so we make the
-following relations for a namespace:
-init_net:
- high_thresh - max(not capped), min(init_net low_thresh)
- low_thresh - max(init_net high_thresh), min (0)
+From: Florian Westphal <fw@strlen.de>
 
-all other namespaces:
- high_thresh = max(init_net high_thresh), min(namespace's low_thresh)
- low_thresh = max(namespace's high_thresh), min(0)
+merge functionality into the eviction workqueue.
 
-The major issue with having low_thresh > high_thresh is that we'll
-schedule eviction but never evict anything and thus rely only on the
-timers.
+Instead of rebuilding every n seconds, take advantage of the upper
+hash chain length limit.
 
+If we hit it, mark table for rebuild and schedule workqueue.
+To prevent frequent rebuilds when we're completely overloaded,
+don't rebuild more than once every 5 seconds.
+
+ipfrag_secret_interval sysctl is now obsolete and has been marked as
+deprecated, it still can be changed so scripts won't be broken but it
+won't have any effect. A comment is left above each unused secret_timer
+variable to avoid confusion.
+
+Joint work with Nikolay Aleksandrov.
+
+Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
 ---
- Documentation/networking/ip-sysctl.txt  |  3 ++-
- net/ieee802154/reassembly.c             | 12 ++++++++++--
- net/ipv4/ip_fragment.c                  | 10 ++++++++--
- net/ipv6/netfilter/nf_conntrack_reasm.c | 12 ++++++++++--
- net/ipv6/reassembly.c                   | 12 ++++++++++--
- 5 files changed, 40 insertions(+), 9 deletions(-)
+ Documentation/networking/ip-sysctl.txt  | 10 --------
+ include/net/inet_frag.h                 |  4 +--
+ net/ieee802154/reassembly.c             |  5 ++--
+ net/ipv4/inet_fragment.c                | 43 ++++++++++++++++++++++-----------
+ net/ipv4/ip_fragment.c                  |  5 ++--
+ net/ipv6/netfilter/nf_conntrack_reasm.c |  1 -
+ net/ipv6/reassembly.c                   |  5 ++--
+ 7 files changed, 40 insertions(+), 33 deletions(-)
 
 diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index e8c304e37831..29a93518bf18 100644
+index 625c8dda4be7..e8c304e37831 100644
 --- a/Documentation/networking/ip-sysctl.txt
 +++ b/Documentation/networking/ip-sysctl.txt
-@@ -101,7 +101,8 @@ ipfrag_high_thresh - INTEGER
- 	Maximum memory used to reassemble IP fragments. When
- 	ipfrag_high_thresh bytes of memory is allocated for this purpose,
- 	the fragment handler will toss packets until ipfrag_low_thresh
--	is reached.
-+	is reached. This also serves as a maximum limit to namespaces
-+	different from the initial one.
+@@ -111,11 +111,6 @@ ipfrag_low_thresh - INTEGER
+ ipfrag_time - INTEGER
+ 	Time in seconds to keep an IP fragment in memory.
  
- ipfrag_low_thresh - INTEGER
- 	Maximum memory used to reassemble IP fragments before the kernel
+-ipfrag_secret_interval - INTEGER
+-	Regeneration interval (in seconds) of the hash secret (or lifetime
+-	for the hash secret) for IP fragments.
+-	Default: 600
+-
+ ipfrag_max_dist - INTEGER
+ 	ipfrag_max_dist is a non-negative integer value which defines the
+ 	maximum "disorder" which is allowed among fragments which share a
+@@ -1164,11 +1159,6 @@ ip6frag_low_thresh - INTEGER
+ ip6frag_time - INTEGER
+ 	Time in seconds to keep an IPv6 fragment in memory.
+ 
+-ip6frag_secret_interval - INTEGER
+-	Regeneration interval (in seconds) of the hash secret (or lifetime
+-	for the hash secret) for IPv6 fragments.
+-	Default: 600
+-
+ conf/default/*:
+ 	Change the interface-specific default settings.
+ 
+diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
+index 90d21ea62c59..d9cc5bb64854 100644
+--- a/include/net/inet_frag.h
++++ b/include/net/inet_frag.h
+@@ -58,11 +58,11 @@ struct inet_frags {
+ 	 * Its primarily a rebuild protection rwlock.
+ 	 */
+ 	rwlock_t		lock ____cacheline_aligned_in_smp;
+-	int			secret_interval;
+-	struct timer_list	secret_timer;
+ 
+ 	struct work_struct	frags_work;
+ 	unsigned int next_bucket;
++	unsigned long last_rebuild_jiffies;
++	bool rebuild;
+ 
+ 	/* The first call to hashfn is responsible to initialize
+ 	 * rnd. This is best done with net_get_random_once.
 diff --git a/net/ieee802154/reassembly.c b/net/ieee802154/reassembly.c
-index 8da635d92a58..f13d4f32e207 100644
+index b4bc7a50eccf..20d219682d84 100644
 --- a/net/ieee802154/reassembly.c
 +++ b/net/ieee802154/reassembly.c
-@@ -386,20 +386,25 @@ err:
- EXPORT_SYMBOL(lowpan_frag_rcv);
- 
- #ifdef CONFIG_SYSCTL
-+static int zero;
-+
- static struct ctl_table lowpan_frags_ns_ctl_table[] = {
- 	{
- 		.procname	= "6lowpanfrag_high_thresh",
- 		.data		= &init_net.ieee802154_lowpan.frags.high_thresh,
- 		.maxlen		= sizeof(int),
- 		.mode		= 0644,
--		.proc_handler	= proc_dointvec
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= &init_net.ieee802154_lowpan.frags.low_thresh
- 	},
- 	{
- 		.procname	= "6lowpanfrag_low_thresh",
- 		.data		= &init_net.ieee802154_lowpan.frags.low_thresh,
- 		.maxlen		= sizeof(int),
- 		.mode		= 0644,
--		.proc_handler	= proc_dointvec
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= &zero,
-+		.extra2		= &init_net.ieee802154_lowpan.frags.high_thresh
- 	},
- 	{
- 		.procname	= "6lowpanfrag_time",
-@@ -446,7 +451,10 @@ static int __net_init lowpan_frags_ns_sysctl_register(struct net *net)
- 			goto err_alloc;
- 
- 		table[0].data = &ieee802154_lowpan->frags.high_thresh;
-+		table[0].extra1 = &ieee802154_lowpan->frags.low_thresh;
-+		table[0].extra2 = &init_net.ieee802154_lowpan.frags.high_thresh;
- 		table[1].data = &ieee802154_lowpan->frags.low_thresh;
-+		table[1].extra2 = &ieee802154_lowpan->frags.high_thresh;
- 		table[2].data = &ieee802154_lowpan->frags.timeout;
- 		table[3].data = &ieee802154_lowpan->max_dsize;
- 
-diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-index ccee68dffd6e..634fc31aa243 100644
---- a/net/ipv4/ip_fragment.c
-+++ b/net/ipv4/ip_fragment.c
-@@ -700,14 +700,17 @@ static struct ctl_table ip4_frags_ns_ctl_table[] = {
- 		.data		= &init_net.ipv4.frags.high_thresh,
- 		.maxlen		= sizeof(int),
- 		.mode		= 0644,
--		.proc_handler	= proc_dointvec
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= &init_net.ipv4.frags.low_thresh
- 	},
- 	{
- 		.procname	= "ipfrag_low_thresh",
- 		.data		= &init_net.ipv4.frags.low_thresh,
- 		.maxlen		= sizeof(int),
- 		.mode		= 0644,
--		.proc_handler	= proc_dointvec
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= &zero,
-+		.extra2		= &init_net.ipv4.frags.high_thresh
- 	},
- 	{
- 		.procname	= "ipfrag_time",
-@@ -752,7 +755,10 @@ static int __net_init ip4_frags_ns_ctl_register(struct net *net)
- 			goto err_alloc;
- 
- 		table[0].data = &net->ipv4.frags.high_thresh;
-+		table[0].extra1 = &net->ipv4.frags.low_thresh;
-+		table[0].extra2 = &init_net.ipv4.frags.high_thresh;
- 		table[1].data = &net->ipv4.frags.low_thresh;
-+		table[1].extra2 = &net->ipv4.frags.high_thresh;
- 		table[2].data = &net->ipv4.frags.timeout;
- 
- 		/* Don't export sysctls to unprivileged users */
-diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
-index 4d9da1e35f8c..3d4bccf6d67d 100644
---- a/net/ipv6/netfilter/nf_conntrack_reasm.c
-+++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
-@@ -63,6 +63,8 @@ struct nf_ct_frag6_skb_cb
- static struct inet_frags nf_frags;
- 
- #ifdef CONFIG_SYSCTL
-+static int zero;
-+
- static struct ctl_table nf_ct_frag6_sysctl_table[] = {
- 	{
- 		.procname	= "nf_conntrack_frag6_timeout",
-@@ -76,14 +78,17 @@ static struct ctl_table nf_ct_frag6_sysctl_table[] = {
- 		.data		= &init_net.nf_frag.frags.low_thresh,
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
--		.proc_handler	= proc_dointvec,
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= &zero,
-+		.extra2		= &init_net.nf_frag.frags.high_thresh
- 	},
- 	{
- 		.procname	= "nf_conntrack_frag6_high_thresh",
- 		.data		= &init_net.nf_frag.frags.high_thresh,
- 		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
--		.proc_handler	= proc_dointvec,
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= &init_net.nf_frag.frags.low_thresh
- 	},
+@@ -419,10 +419,12 @@ static struct ctl_table lowpan_frags_ns_ctl_table[] = {
  	{ }
  };
-@@ -102,7 +107,10 @@ static int nf_ct_frag6_sysctl_register(struct net *net)
  
- 		table[0].data = &net->nf_frag.frags.timeout;
- 		table[1].data = &net->nf_frag.frags.low_thresh;
-+		table[1].extra2 = &net->nf_frag.frags.high_thresh;
- 		table[2].data = &net->nf_frag.frags.high_thresh;
-+		table[2].extra1 = &net->nf_frag.frags.low_thresh;
-+		table[2].extra2 = &init_net.nf_frag.frags.high_thresh;
++/* secret interval has been deprecated */
++static int lowpan_frags_secret_interval_unused;
+ static struct ctl_table lowpan_frags_ctl_table[] = {
+ 	{
+ 		.procname	= "6lowpanfrag_secret_interval",
+-		.data		= &lowpan_frags.secret_interval,
++		.data		= &lowpan_frags_secret_interval_unused,
+ 		.maxlen		= sizeof(int),
+ 		.mode		= 0644,
+ 		.proc_handler	= proc_dointvec_jiffies,
+@@ -562,7 +564,6 @@ int __init lowpan_net_frag_init(void)
+ 	lowpan_frags.qsize = sizeof(struct frag_queue);
+ 	lowpan_frags.match = lowpan_frag_match;
+ 	lowpan_frags.frag_expire = lowpan_frag_expire;
+-	lowpan_frags.secret_interval = 10 * 60 * HZ;
+ 	inet_frags_init(&lowpan_frags);
+ 
+ 	return ret;
+diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+index 198a5ed7a815..58d4c38534f6 100644
+--- a/net/ipv4/inet_fragment.c
++++ b/net/ipv4/inet_fragment.c
+@@ -28,6 +28,9 @@
+ #define INETFRAGS_EVICT_BUCKETS   128
+ #define INETFRAGS_EVICT_MAX	  512
+ 
++/* don't rebuild inetfrag table with new secret more often than this */
++#define INETFRAGS_MIN_REBUILD_INTERVAL (5 * HZ)
++
+ /* Given the OR values of all fragments, apply RFC 3168 5.3 requirements
+  * Value : 0xff if frame should be dropped.
+  *         0 or INET_ECN_CE value, to be ORed in to final iph->tos field
+@@ -55,16 +58,24 @@ inet_frag_hashfn(const struct inet_frags *f, const struct inet_frag_queue *q)
+ 	return f->hashfn(q) & (INETFRAGS_HASHSZ - 1);
+ }
+ 
+-static void inet_frag_secret_rebuild(unsigned long dummy)
++static bool inet_frag_may_rebuild(struct inet_frags *f)
++{
++	return time_after(jiffies,
++	       f->last_rebuild_jiffies + INETFRAGS_MIN_REBUILD_INTERVAL);
++}
++
++static void inet_frag_secret_rebuild(struct inet_frags *f)
+ {
+-	struct inet_frags *f = (struct inet_frags *)dummy;
+-	unsigned long now = jiffies;
+ 	int i;
+ 
+ 	/* Per bucket lock NOT needed here, due to write lock protection */
+-	write_lock(&f->lock);
++	write_lock_bh(&f->lock);
++
++	if (!inet_frag_may_rebuild(f))
++		goto out;
+ 
+ 	get_random_bytes(&f->rnd, sizeof(u32));
++
+ 	for (i = 0; i < INETFRAGS_HASHSZ; i++) {
+ 		struct inet_frag_bucket *hb;
+ 		struct inet_frag_queue *q;
+@@ -85,9 +96,11 @@ static void inet_frag_secret_rebuild(unsigned long dummy)
+ 			}
+ 		}
  	}
+-	write_unlock(&f->lock);
  
- 	hdr = register_net_sysctl(net, "net/netfilter", table);
-diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
-index 57a9707b2032..f1709c4a289a 100644
---- a/net/ipv6/reassembly.c
-+++ b/net/ipv6/reassembly.c
-@@ -578,20 +578,25 @@ static const struct inet6_protocol frag_protocol =
+-	mod_timer(&f->secret_timer, now + f->secret_interval);
++	f->rebuild = false;
++	f->last_rebuild_jiffies = jiffies;
++out:
++	write_unlock_bh(&f->lock);
+ }
+ 
+ static bool inet_fragq_should_evict(const struct inet_frag_queue *q)
+@@ -162,6 +175,8 @@ static void inet_frag_worker(struct work_struct *work)
+ 	f->next_bucket = i;
+ 
+ 	read_unlock_bh(&f->lock);
++	if (f->rebuild && inet_frag_may_rebuild(f))
++		inet_frag_secret_rebuild(f);
+ }
+ 
+ static void inet_frag_schedule_worker(struct inet_frags *f)
+@@ -183,11 +198,7 @@ void inet_frags_init(struct inet_frags *f)
+ 		INIT_HLIST_HEAD(&hb->chain);
+ 	}
+ 	rwlock_init(&f->lock);
+-
+-	setup_timer(&f->secret_timer, inet_frag_secret_rebuild,
+-			(unsigned long)f);
+-	f->secret_timer.expires = jiffies + f->secret_interval;
+-	add_timer(&f->secret_timer);
++	f->last_rebuild_jiffies = 0;
+ }
+ EXPORT_SYMBOL(inet_frags_init);
+ 
+@@ -199,7 +210,6 @@ EXPORT_SYMBOL(inet_frags_init_net);
+ 
+ void inet_frags_fini(struct inet_frags *f)
+ {
+-	del_timer(&f->secret_timer);
+ 	cancel_work_sync(&f->frags_work);
+ }
+ EXPORT_SYMBOL(inet_frags_fini);
+@@ -399,8 +409,13 @@ struct inet_frag_queue *inet_frag_find(struct netns_frags *nf,
+ 
+ 	if (depth <= INETFRAGS_MAXDEPTH)
+ 		return inet_frag_create(nf, f, key);
+-	else
+-		return ERR_PTR(-ENOBUFS);
++
++	if (inet_frag_may_rebuild(f)) {
++		f->rebuild = true;
++		inet_frag_schedule_worker(f);
++	}
++
++	return ERR_PTR(-ENOBUFS);
+ }
+ EXPORT_SYMBOL(inet_frag_find);
+ 
+diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
+index 8fbeee495037..44e591a7e03f 100644
+--- a/net/ipv4/ip_fragment.c
++++ b/net/ipv4/ip_fragment.c
+@@ -720,10 +720,12 @@ static struct ctl_table ip4_frags_ns_ctl_table[] = {
+ 	{ }
  };
  
- #ifdef CONFIG_SYSCTL
-+static int zero;
-+
- static struct ctl_table ip6_frags_ns_ctl_table[] = {
++/* secret interval has been deprecated */
++static int ip4_frags_secret_interval_unused;
+ static struct ctl_table ip4_frags_ctl_table[] = {
  	{
- 		.procname	= "ip6frag_high_thresh",
- 		.data		= &init_net.ipv6.frags.high_thresh,
+ 		.procname	= "ipfrag_secret_interval",
+-		.data		= &ip4_frags.secret_interval,
++		.data		= &ip4_frags_secret_interval_unused,
  		.maxlen		= sizeof(int),
  		.mode		= 0644,
--		.proc_handler	= proc_dointvec
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= &init_net.ipv6.frags.low_thresh
- 	},
+ 		.proc_handler	= proc_dointvec_jiffies,
+@@ -853,6 +855,5 @@ void __init ipfrag_init(void)
+ 	ip4_frags.qsize = sizeof(struct ipq);
+ 	ip4_frags.match = ip4_frag_match;
+ 	ip4_frags.frag_expire = ip_expire;
+-	ip4_frags.secret_interval = 10 * 60 * HZ;
+ 	inet_frags_init(&ip4_frags);
+ }
+diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
+index fb0f72a0ff31..3b3ef9774cc2 100644
+--- a/net/ipv6/netfilter/nf_conntrack_reasm.c
++++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
+@@ -669,7 +669,6 @@ int nf_ct_frag6_init(void)
+ 	nf_frags.qsize = sizeof(struct frag_queue);
+ 	nf_frags.match = ip6_frag_match;
+ 	nf_frags.frag_expire = nf_ct_frag6_expire;
+-	nf_frags.secret_interval = 10 * 60 * HZ;
+ 	inet_frags_init(&nf_frags);
+ 
+ 	ret = register_pernet_subsys(&nf_ct_net_ops);
+diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
+index af85551682c2..987fea46b915 100644
+--- a/net/ipv6/reassembly.c
++++ b/net/ipv6/reassembly.c
+@@ -604,10 +604,12 @@ static struct ctl_table ip6_frags_ns_ctl_table[] = {
+ 	{ }
+ };
+ 
++/* secret interval has been deprecated */
++static int ip6_frags_secret_interval_unused;
+ static struct ctl_table ip6_frags_ctl_table[] = {
  	{
- 		.procname	= "ip6frag_low_thresh",
- 		.data		= &init_net.ipv6.frags.low_thresh,
+ 		.procname	= "ip6frag_secret_interval",
+-		.data		= &ip6_frags.secret_interval,
++		.data		= &ip6_frags_secret_interval_unused,
  		.maxlen		= sizeof(int),
  		.mode		= 0644,
--		.proc_handler	= proc_dointvec
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= &zero,
-+		.extra2		= &init_net.ipv6.frags.high_thresh
- 	},
- 	{
- 		.procname	= "ip6frag_time",
-@@ -628,7 +633,10 @@ static int __net_init ip6_frags_ns_sysctl_register(struct net *net)
- 			goto err_alloc;
- 
- 		table[0].data = &net->ipv6.frags.high_thresh;
-+		table[0].extra1 = &net->ipv6.frags.low_thresh;
-+		table[0].extra2 = &init_net.ipv6.frags.high_thresh;
- 		table[1].data = &net->ipv6.frags.low_thresh;
-+		table[1].extra2 = &net->ipv6.frags.high_thresh;
- 		table[2].data = &net->ipv6.frags.timeout;
- 
- 		/* Don't export sysctls to unprivileged users */
+ 		.proc_handler	= proc_dointvec_jiffies,
+@@ -737,7 +739,6 @@ int __init ipv6_frag_init(void)
+ 	ip6_frags.qsize = sizeof(struct frag_queue);
+ 	ip6_frags.match = ip6_frag_match;
+ 	ip6_frags.frag_expire = ip6_frag_expire;
+-	ip6_frags.secret_interval = 10 * 60 * HZ;
+ 	inet_frags_init(&ip6_frags);
+ out:
+ 	return ret;
 -- 
 1.9.3
