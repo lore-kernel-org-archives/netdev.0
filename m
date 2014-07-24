@@ -1,78 +1,141 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [Patch net-next 1/3] ipv4: fail early when creating netdev named
- all or default
-Date: Wed, 23 Jul 2014 18:05:07 -0700
-Message-ID: <CAGVrzcbnEkN1gsUVZBYvtRLdYEGtTZnYATG0oVAKJjWHyfGU0w@mail.gmail.com>
-References: <1406153852-22511-1-git-send-email-xiyou.wangcong@gmail.com> <1406153852-22511-2-git-send-email-xiyou.wangcong@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, stephane.chazelas@gmail.com,
-	David Miller <davem@davemloft.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+From: roy.qing.li@gmail.com
+Subject: [PATCH] Revert "usb: gadget: u_ether: synchronize with transmit when stopping queue"
+Date: Thu, 24 Jul 2014 09:49:06 +0800
+Message-ID: <1406166546-21738-1-git-send-email-roy.qing.li@gmail.com>
+Cc: jeff.westfahl@ni.com, tglx@linutronix.de
+To: netdev@vger.kernel.org, linux-usb@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f53.google.com ([209.85.218.53]:43412 "EHLO
-	mail-oi0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756220AbaGXBFs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2014 21:05:48 -0400
-Received: by mail-oi0-f53.google.com with SMTP id e131so1453473oig.26
-        for <netdev@vger.kernel.org>; Wed, 23 Jul 2014 18:05:47 -0700 (PDT)
-In-Reply-To: <1406153852-22511-2-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:58145 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755787AbaGXBtH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2014 21:49:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014-07-23 15:17 GMT-07:00 Cong Wang <xiyou.wangcong@gmail.com>:
-> We create a proc dir for each network device, this will cause
-> conflicts when the devices have name "all" or "default".
->
-> Rather than emitting an ugly kernel warning, we could just
-> fail earlier by checking the device name.
->
-> Reported-by: Stephane Chazelas <stephane.chazelas@gmail.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> ---
+From: Li RongQing <roy.qing.li@gmail.com>
 
-[snip]
+This reverts commit a9232076374334ca2bc2a448dfde96d38a54349a.
 
->
-> -static void devinet_sysctl_register(struct in_device *idev)
-> +static int devinet_sysctl_register(struct in_device *idev)
->  {
-> -       neigh_sysctl_register(idev->dev, idev->arp_parms, NULL);
-> -       __devinet_sysctl_register(dev_net(idev->dev), idev->dev->name,
-> +       int err;
-> +
-> +       if (!strcmp(idev->dev->name, "default") ||
-> +           !strcmp(idev->dev->name, "all"))
-> +               return -EINVAL;
+It introduced a dead lock, and did not fix anything.
 
-Since this exact same check is done in the ipv6 counterpart, how about
-moving this to a helper function like: sysctl_dev_name_is_allowed()
-such that you centralize where the naming policy is enforced? In case
-we need to blacklist some other interface names, there should be one
-place to update.
+it made netif_tx_lock() be called in IRQ context, but in softirq context,
+the same lock is locked without disabling IRQ. In fact, the commit a923207637
+did not fix anything, since netif_stop_queue did not free the any resource
 
-> +
-> +       err = neigh_sysctl_register(idev->dev, idev->arp_parms, NULL);
-> +       if (err)
-> +               return err;
-> +       err = __devinet_sysctl_register(dev_net(idev->dev), idev->dev->name,
->                                         &idev->cnf);
-> +       if (err)
-> +               neigh_sysctl_unregister(idev->arp_parms);
-> +       return err;
->  }
->
->  static void devinet_sysctl_unregister(struct in_device *idev)
-> --
-> 1.8.3.1
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+[   10.154920] =================================
+[   10.156026] [ INFO: inconsistent lock state ]
+[   10.156026] 3.16.0-rc5+ #13 Not tainted
+[   10.156026] ---------------------------------
+[   10.156026] inconsistent {IN-HARDIRQ-W} -> {HARDIRQ-ON-W} usage.
+[   10.156026] swapper/1/0 [HC0[0]:SC1[5]:HE1:SE0] takes:
+[   10.156026]  (_xmit_ETHER){?.-...}, at: [<80948b6a>] sch_direct_xmit+0x7a/0x250
+[   10.156026] {IN-HARDIRQ-W} state was registered at:
+[   10.156026]   [<804811f0>] __lock_acquire+0x800/0x17a0
+[   10.156026]   [<804828ba>] lock_acquire+0x6a/0xf0
+[   10.156026]   [<809ed477>] _raw_spin_lock+0x27/0x40
+[   10.156026]   [<8088d508>] gether_disconnect+0x68/0x280
+[   10.156026]   [<8088e777>] eem_set_alt+0x37/0xc0
+[   10.156026]   [<808847ce>] composite_setup+0x30e/0x1240
+[   10.156026]   [<8088b8ae>] pch_udc_isr+0xa6e/0xf50
+[   10.156026]   [<8048abe8>] handle_irq_event_percpu+0x38/0x1e0
+[   10.156026]   [<8048adc1>] handle_irq_event+0x31/0x50
+[   10.156026]   [<8048d94b>] handle_fasteoi_irq+0x6b/0x140
+[   10.156026]   [<804040a5>] handle_irq+0x65/0x80
+[   10.156026]   [<80403cfc>] do_IRQ+0x3c/0xc0
+[   10.156026]   [<809ee6ae>] common_interrupt+0x2e/0x34
+[   10.156026]   [<804668c5>] finish_task_switch+0x65/0xd0
+[   10.156026]   [<809e89df>] __schedule+0x20f/0x7d0
+[   10.156026]   [<809e94aa>] schedule_preempt_disabled+0x2a/0x70
+[   10.156026]   [<8047bf03>] cpu_startup_entry+0x143/0x410
+[   10.156026]   [<809e2e61>] rest_init+0xa1/0xb0
+[   10.156026]   [<80ce2a3b>] start_kernel+0x336/0x33b
+[   10.156026]   [<80ce22ab>] i386_start_kernel+0x79/0x7d
+[   10.156026] irq event stamp: 52070
+[   10.156026] hardirqs last  enabled at (52070): [<809375de>] neigh_resolve_output+0xee/0x2a0
+[   10.156026] hardirqs last disabled at (52069): [<809375a8>] neigh_resolve_output+0xb8/0x2a0
+[   10.156026] softirqs last  enabled at (52020): [<8044401f>] _local_bh_enable+0x1f/0x50
+[   10.156026] softirqs last disabled at (52021): [<80404036>] do_softirq_own_stack+0x26/0x30
+[   10.156026]
+[   10.156026] other info that might help us debug this:
+[   10.156026]  Possible unsafe locking scenario:
+[   10.156026]
+[   10.156026]        CPU0
+[   10.156026]        ----
+[   10.156026]   lock(_xmit_ETHER);
+[   10.156026]   <Interrupt>
+[   10.156026]     lock(_xmit_ETHER);
+[   10.156026]
+[   10.156026]  *** DEADLOCK ***
+[   10.156026]
+[   10.156026] 4 locks held by swapper/1/0:
+[   10.156026]  #0:  (((&idev->mc_ifc_timer))){+.-...}, at: [<8044b100>] call_timer_fn+0x0/0x190
+[   10.156026]  #1:  (rcu_read_lock){......}, at: [<a0577c40>] mld_sendpack+0x0/0x590 [ipv6]
+[   10.156026]  #2:  (rcu_read_lock_bh){......}, at: [<a055680c>] ip6_finish_output2+0x4c/0x7f0 [ipv6]
+[   10.156026]  #3:  (rcu_read_lock_bh){......}, at: [<8092e510>] __dev_queue_xmit+0x0/0x5f0
+[   10.156026]
+[   10.156026] stack backtrace:
+[   10.156026] CPU: 1 PID: 0 Comm: swapper/1 Not tainted 3.16.0-rc5+ #13
+[   10.156026]  811dbb10 00000000 9e919d10 809e6785 9e8b8000 9e919d3c 809e561e 80b95511
+[   10.156026]  80b9545a 80b9543d 80b95450 80b95441 80b957e4 9e8b84e0 00000002 8047f7b0
+[   10.156026]  9e919d5c 8048043b 00000002 00000000 9e8b8000 00000001 00000004 9e8b8000
+[   10.156026] Call Trace:
+[   10.156026]  [<809e6785>] dump_stack+0x48/0x69
+[   10.156026]  [<809e561e>] print_usage_bug+0x18f/0x19c
+[   10.156026]  [<8047f7b0>] ? print_shortest_lock_dependencies+0x170/0x170
+[   10.156026]  [<8048043b>] mark_lock+0x53b/0x5f0
+[   10.156026]  [<804810cf>] __lock_acquire+0x6df/0x17a0
+[   10.156026]  [<804828ba>] lock_acquire+0x6a/0xf0
+[   10.156026]  [<80948b6a>] ? sch_direct_xmit+0x7a/0x250
+[   10.156026]  [<809ed477>] _raw_spin_lock+0x27/0x40
+[   10.156026]  [<80948b6a>] ? sch_direct_xmit+0x7a/0x250
+[   10.156026]  [<80948b6a>] sch_direct_xmit+0x7a/0x250
+[   10.156026]  [<8092e6bf>] __dev_queue_xmit+0x1af/0x5f0
+[   10.156026]  [<80947fc0>] ? ether_setup+0x80/0x80
+[   10.156026]  [<8092eb0f>] dev_queue_xmit+0xf/0x20
+[   10.156026]  [<8093764c>] neigh_resolve_output+0x15c/0x2a0
+[   10.156026]  [<a0556927>] ip6_finish_output2+0x167/0x7f0 [ipv6]
+[   10.156026]  [<a0559b05>] ip6_finish_output+0x85/0x1c0 [ipv6]
+[   10.156026]  [<a0559cb7>] ip6_output+0x77/0x240 [ipv6]
+[   10.156026]  [<a0578163>] mld_sendpack+0x523/0x590 [ipv6]
+[   10.156026]  [<80480501>] ? mark_held_locks+0x11/0x90
+[   10.156026]  [<a057947d>] mld_ifc_timer_expire+0x15d/0x280 [ipv6]
+[   10.156026]  [<8044b168>] call_timer_fn+0x68/0x190
+[   10.156026]  [<a0579320>] ? igmp6_group_added+0x150/0x150 [ipv6]
+[   10.156026]  [<8044b3fa>] run_timer_softirq+0x16a/0x240
+[   10.156026]  [<a0579320>] ? igmp6_group_added+0x150/0x150 [ipv6]
+[   10.156026]  [<80444984>] __do_softirq+0xd4/0x2f0
+[   10.156026]  [<804448b0>] ? tasklet_action+0x100/0x100
+[   10.156026]  [<80404036>] do_softirq_own_stack+0x26/0x30
+[   10.156026]  <IRQ>  [<80444d05>] irq_exit+0x65/0x70
+[   10.156026]  [<8042d758>] smp_apic_timer_interrupt+0x38/0x50
+[   10.156026]  [<809ee91f>] apic_timer_interrupt+0x2f/0x34
+[   10.156026]  [<8048007b>] ? mark_lock+0x17b/0x5f0
+[   10.156026]  [<8040a912>] ? default_idle+0x22/0xf0
+[   10.156026]  [<8040b13e>] arch_cpu_idle+0xe/0x10
+[   10.156026]  [<8047bfc6>] cpu_startup_entry+0x206/0x410
+[   10.156026]  [<8042bfbd>] start_secondary+0x19d/0x1e0
 
+Reported-by: Thomas Gleixner <tglx@linutronix.de>
+Cc: Jeff Westfahl <jeff.westfahl@ni.com>
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+---
+ drivers/usb/gadget/u_ether.c |    3 ---
+ 1 file changed, 3 deletions(-)
 
-
+diff --git a/drivers/usb/gadget/u_ether.c b/drivers/usb/gadget/u_ether.c
+index 97b0277..3d78a88 100644
+--- a/drivers/usb/gadget/u_ether.c
++++ b/drivers/usb/gadget/u_ether.c
+@@ -1120,10 +1120,7 @@ void gether_disconnect(struct gether *link)
+ 
+ 	DBG(dev, "%s\n", __func__);
+ 
+-	netif_tx_lock(dev->net);
+ 	netif_stop_queue(dev->net);
+-	netif_tx_unlock(dev->net);
+-
+ 	netif_carrier_off(dev->net);
+ 
+ 	/* disable endpoints, forcing (synchronous) completion
 -- 
-Florian
+1.7.10.4
