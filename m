@@ -1,122 +1,80 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH nf-next] netfilter: xt_hashlimit: perform garbage collection
- from process context
-Date: Thu, 24 Jul 2014 06:36:50 +0200
-Message-ID: <1406176610.3363.29.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Z Lim <zlim.lnx@gmail.com>
+Subject: Re: [PATCH 00/14] arm64: eBPF JIT compiler
+Date: Wed, 23 Jul 2014 21:55:36 -0700
+Message-ID: <CABg9mcvU44W5AkPLtyswNWdDdF_nnqvLyKqv7RWhpuRRSWDW3A@mail.gmail.com>
+References: <1405708100-13604-1-git-send-email-zlim.lnx@gmail.com>
+	<20140721091623.GA16122@arm.com>
+	<CAMEtUuyC+MykPDO0ghTc=oex7KPLEy=BLRgWBdW+qJY7JXQmDQ@mail.gmail.com>
+	<20140723103219.GA1366@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>, netfilter-devel@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>, Florian Westphal <fw@strlen.de>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexei Starovoitov <ast@plumgrid.com>,
+	Will Deacon <Will.Deacon@arm.com>,
+	Jiang Liu <liuj97@gmail.com>,
+	AKASHI Takahiro <takahiro.akashi@linaro.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Chema Gonzalez <chema@google.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Catalin Marinas <catalin.marinas@arm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f178.google.com ([74.125.82.178]:57279 "EHLO
-	mail-we0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750884AbaGXEhI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2014 00:37:08 -0400
+Received: from mail-qa0-f51.google.com ([209.85.216.51]:44708 "EHLO
+	mail-qa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750904AbaGXEzh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2014 00:55:37 -0400
+In-Reply-To: <20140723103219.GA1366@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Wed, Jul 23, 2014 at 3:32 AM, Catalin Marinas
+<catalin.marinas@arm.com> wrote:
+> On Mon, Jul 21, 2014 at 04:49:29PM +0100, Alexei Starovoitov wrote:
+>> On Mon, Jul 21, 2014 at 2:16 AM, Will Deacon <will.deacon@arm.com> wrote:
+>> > On Fri, Jul 18, 2014 at 07:28:06PM +0100, Zi Shen Lim wrote:
+[...]
+>> >> This series applies against net-next and is tested working
+>> >> with lib/test_bpf on ARMv8 Foundation Model.
+>> >
+>> > Looks like it works on my Juno board too, so:
+>> >
+>> >   Acked-by: Will Deacon <will.deacon@arm.com>
+>> >
+>> > for the series.
+>> >
+>> > It's a bit late for 3.17 now, so I guess we'll queue this for 3.18 (which
+>> > also means the dependency on -next isn't an issue). Perhaps you could repost
+>> > around -rc3?
+>>
+>> Thanks for testing! Nice to see it working on real hw.
+>> I'm not sure why you're proposing a 4+ week delay. The patches
+>> will rot instead of getting used and tested. Imo it makes sense to
+>> get them into net-next now for 3.17.
+>> JIT is disabled by sysctl by default anyway.
+>
+> We normally like some patches (especially new functionality) to sit in
+> linux-next for a while before the mering window (ideally starting with
+> -rc4 or -rc5). We are at -rc6 already, so getting close to the 3.17
+> merging window.
+>
+> Another aspect is that the arm64/bpf branch depends on the net tree, so
+> it can't easily go in via the arm64 tree for 3.17 (3.18 would not be a
+> problem).
 
-xt_hashlimit cannot be used with large hash tables, because garbage
-collector is run from a timer. If table is really big, its possible
-to hold cpu for more than 500 msec, which is unacceptable.
+Hi Catalin, I take it you prefer this series going through arm64 tree,
+targeting 3.18, is that right?
 
-Switch to a work queue, and use proper scheduling points to remove
-latencies spikes.
+I understand your preference to have it sitting in linux-next for a
+longer period for arm64 material, I'll repost this again after 3.17 so
+it gets more exposure in linux-next.
 
-Later, we also could switch to a smoother garbage collection done
-at lookup time, one bucket at a time...
+BTW, are you open to this series going through net tree? I'm
+(preemptively) asking because during development of this series, I've
+had to rebase a couple times against net-next to handle dependencies.
+Or is the general practice to handle conflicts in linux-next itself?
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Florian Westphal <fw@strlen.de>
-Cc: Patrick McHardy <kaber@trash.net>
----
- net/netfilter/xt_hashlimit.c |   31 ++++++++++++++++---------------
- 1 file changed, 16 insertions(+), 15 deletions(-)
-
-diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
-index a3910fc2122b..47dc6836830a 100644
---- a/net/netfilter/xt_hashlimit.c
-+++ b/net/netfilter/xt_hashlimit.c
-@@ -104,7 +104,7 @@ struct xt_hashlimit_htable {
- 	spinlock_t lock;		/* lock for list_head */
- 	u_int32_t rnd;			/* random seed for hash */
- 	unsigned int count;		/* number entries in table */
--	struct timer_list timer;	/* timer for gc */
-+	struct delayed_work gc_work;
- 
- 	/* seq_file stuff */
- 	struct proc_dir_entry *pde;
-@@ -213,7 +213,7 @@ dsthash_free(struct xt_hashlimit_htable *ht, struct dsthash_ent *ent)
- 	call_rcu_bh(&ent->rcu, dsthash_free_rcu);
- 	ht->count--;
- }
--static void htable_gc(unsigned long htlong);
-+static void htable_gc(struct work_struct *work);
- 
- static int htable_create(struct net *net, struct xt_hashlimit_mtinfo1 *minfo,
- 			 u_int8_t family)
-@@ -273,9 +273,9 @@ static int htable_create(struct net *net, struct xt_hashlimit_mtinfo1 *minfo,
- 	}
- 	hinfo->net = net;
- 
--	setup_timer(&hinfo->timer, htable_gc, (unsigned long)hinfo);
--	hinfo->timer.expires = jiffies + msecs_to_jiffies(hinfo->cfg.gc_interval);
--	add_timer(&hinfo->timer);
-+	INIT_DEFERRABLE_WORK(&hinfo->gc_work, htable_gc);
-+	queue_delayed_work(system_power_efficient_wq, &hinfo->gc_work,
-+			   msecs_to_jiffies(hinfo->cfg.gc_interval));
- 
- 	hlist_add_head(&hinfo->node, &hashlimit_net->htables);
- 
-@@ -300,29 +300,30 @@ static void htable_selective_cleanup(struct xt_hashlimit_htable *ht,
- {
- 	unsigned int i;
- 
--	/* lock hash table and iterate over it */
--	spin_lock_bh(&ht->lock);
- 	for (i = 0; i < ht->cfg.size; i++) {
- 		struct dsthash_ent *dh;
- 		struct hlist_node *n;
-+
-+		spin_lock_bh(&ht->lock);
- 		hlist_for_each_entry_safe(dh, n, &ht->hash[i], node) {
- 			if ((*select)(ht, dh))
- 				dsthash_free(ht, dh);
- 		}
-+		spin_unlock_bh(&ht->lock);
-+		cond_resched();
- 	}
--	spin_unlock_bh(&ht->lock);
- }
- 
--/* hash table garbage collector, run by timer */
--static void htable_gc(unsigned long htlong)
-+static void htable_gc(struct work_struct *work)
- {
--	struct xt_hashlimit_htable *ht = (struct xt_hashlimit_htable *)htlong;
-+	struct xt_hashlimit_htable *ht;
-+
-+	ht = container_of(work, struct xt_hashlimit_htable, gc_work.work);
- 
- 	htable_selective_cleanup(ht, select_gc);
- 
--	/* re-add the timer accordingly */
--	ht->timer.expires = jiffies + msecs_to_jiffies(ht->cfg.gc_interval);
--	add_timer(&ht->timer);
-+	queue_delayed_work(system_power_efficient_wq,
-+			   &ht->gc_work, msecs_to_jiffies(ht->cfg.gc_interval));
- }
- 
- static void htable_remove_proc_entry(struct xt_hashlimit_htable *hinfo)
-@@ -341,7 +342,7 @@ static void htable_remove_proc_entry(struct xt_hashlimit_htable *hinfo)
- 
- static void htable_destroy(struct xt_hashlimit_htable *hinfo)
- {
--	del_timer_sync(&hinfo->timer);
-+	cancel_delayed_work_sync(&hinfo->gc_work);
- 	htable_remove_proc_entry(hinfo);
- 	htable_selective_cleanup(hinfo, select_all);
- 	kfree(hinfo->name);
+>
+> --
+> Catalin
