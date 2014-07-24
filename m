@@ -1,188 +1,96 @@
-From: "Fu, Zhonghui" <zhonghui.fu@linux.intel.com>
-Subject: Re: [PATCH] brcmfmac: prevent watchdog from interfering with scanning
- and connecting
-Date: Thu, 24 Jul 2014 23:22:27 +0800
-Message-ID: <53D124B3.7030807@linux.intel.com>
-References: <539E8559.3010601@linux.intel.com> <539EA79C.7010206@broadcom.com> <53A30F96.3010206@linux.intel.com> <53A311E4.301@broadcom.com> <53CCC44C.2070507@linux.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-mmc@vger.kernel.org, Russell King <linux@arm.linux.org.uk>
-To: Arend van Spriel <arend@broadcom.com>, brudley@broadcom.com,
-	Franky Lin <frankyl@broadcom.com>, meuleman@broadcom.com,
-	linville@tuxdriver.com, pieterpg@broadcom.com, dekim@broadcom.com,
-	mcgrof@do-not-panic.com, antonio@open-mesh.com,
-	johannes.berg@intel.com
-Return-path: <linux-mmc-owner@vger.kernel.org>
-In-Reply-To: <53CCC44C.2070507@linux.intel.com>
-Sender: linux-mmc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Dmitry Kravkov <dkravkov@gmail.com>
+Subject: [PATCH] bnx2x: fix crash during TSO tunneling
+Date: Thu, 24 Jul 2014 18:39:11 +0300
+Message-ID: <1406216351-3230-1-git-send-email-Dmitry.Kravkov@qlogic.com>
+Cc: ypei@redhat.com, mschmidt@redhat.com,
+	Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>
+To: netdev@vger.kernel.org, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:38789 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759390AbaGXPje (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2014 11:39:34 -0400
+Received: by mail-wi0-f177.google.com with SMTP id ho1so4192795wib.10
+        for <netdev@vger.kernel.org>; Thu, 24 Jul 2014 08:39:30 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+When TSO packet is transmitted additional BD w/o mapping is used
+to describe the packed. The BD needs special handling in tx
+completion.
 
-On 2014/7/21 15:42, Fu, Zhonghui wrote:
-> On 2014/6/20 0:37, Arend van Spriel wrote:
->> On 19-06-14 18:28, Fu, Zhonghui wrote:
->>> On 2014/6/16 16:15, Arend van Spriel wrote:
->>>> On 16-06-14 07:49, Fu, Zhonghui wrote:
->>>>>   From 14485894add32aedacb3e486ebb2cc2b73861abf Mon Sep 17 00:00:00 2001
->>>>> From: Fu zhonghui <zhonghui.fu@linux.intel.com>
->>>>> Date: Wed, 11 Jun 2014 11:06:55 +0800
->>>>> Subject: [PATCH] brcmfmac: prevent watchdog from interfering with scanning and connecting
->>>>>
->>>>> Watchdog in brcmfmac driver may make WiFi chip enter sleep mode
->>>>> before completion of scanning or connecting.
->>>>>
->>>>> This will lead to scanning or connecting failure.
->>>>>
->>>>> Increasing temporarily idle-time threshold during scanning or
->>>>> connecting can ensure scanning or connecting success without
->>>>> watchdog interference.
->>>> Are you sure you are not having runtime PM enabled. That could be your problem as the host controller code disables sdio irqs. Please see this thread [1]. For our device runtime pm should not be enabled, but I am not sure if that is taken into account in mmc_attach_sdio() (see code below).
->>> I have tried brcmfmac driver with "CONFIG_PM_RUNTIME is not set", and scanning and connecting  always succeeded. This means that CONFIG_PM_RUNTIME should not be set if we use SDIO WiFi device driven by brcmfmac driver, right?
->> Depends which kernel you are using. In 3.16-rc1 the sdio interrupt issue has been fixed so you should be fine to use CONFIG_PM_RUNTIME. Here is the commit
-Any clues or comments to the following issue?
-> I run 3.16-rc4 and 3.16-rc5 kernel with CONFIG_PM_RUNTIME set, the issue still exists as follows:
->
-> 1 step: modprobe brcmfmac
-> 2 step: iwlist wlan1 scan         get scanning result successfully.
-> 3 step: wait a while, no any operation
-> 4 step: iwlist wlan1 scan         scanning timeout, can't get scanning result.
->
->
-> Thanks,
-> Zhonghui
->
->> commit be138554a7923658ded799b0e8794d9c1d08a6e5
->> Author: Russell King <rmk+kernel@arm.linux.org.uk>
->> Date:   Fri Apr 25 12:55:56 2014 +0100
->>
->>     mmc: sdhci: allow sdio interrupts while sdhci runtime suspended
->>
->> Regards,
->> Arend
->>
->>> Thanks,
->>> Zhonghui
->>>> Gr. AvS
->>>>
->>>> [1] http://www.spinics.net/lists/linux-mmc/msg25978.html
->>>>
->>>> --8<----------------------------------------------------------------
->>>>
->>>>      /*
->>>>       * Enable runtime PM only if supported by host+card+board
->>>>       */
->>>>      if (host->caps & MMC_CAP_POWER_OFF_CARD) {
->>>>          /*
->>>>           * Let runtime PM core know our card is active
->>>>           */
->>>>          err = pm_runtime_set_active(&card->dev);
->>>>          if (err)
->>>>              goto remove;
->>>>
->>>>          /*
->>>>           * Enable runtime PM for this card
->>>>           */
->>>>          pm_runtime_enable(&card->dev);
->>>>      }
->>>>
->>>>> Signed-off-by: Fu zhonghui <zhonghui.fu@linux.intel.com>
->>>>> ---
->>>>>    drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c |   18 ++++++++++++++++--
->>>>>    .../net/wireless/brcm80211/brcmfmac/wl_cfg80211.c  |    3 ++-
->>>>>    2 files changed, 18 insertions(+), 3 deletions(-)
->>>>>
->>>>> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c b/drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c
->>>>> index 13c89a0..729deab 100644
->>>>> --- a/drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c
->>>>> +++ b/drivers/net/wireless/brcm80211/brcmfmac/dhd_sdio.c
->>>>> @@ -34,6 +34,7 @@
->>>>>    #include <linux/vmalloc.h>
->>>>>    #include <linux/platform_data/brcmfmac-sdio.h>
->>>>>    #include <linux/moduleparam.h>
->>>>> +#include <net/cfg80211.h>
->>>>>    #include <asm/unaligned.h>
->>>>>    #include <defs.h>
->>>>>    #include <brcmu_wifi.h>
->>>>> @@ -43,6 +44,10 @@
->>>>>    #include "sdio_host.h"
->>>>>    #include "chip.h"
->>>>>    #include "nvram.h"
->>>>> +#include "dhd.h"
->>>>> +#include "fwil_types.h"
->>>>> +#include "p2p.h"
->>>>> +#include "wl_cfg80211.h"
->>>>>
->>>>>    #define DCMD_RESP_TIMEOUT  2000    /* In milli second */
->>>>>
->>>>> @@ -307,6 +312,7 @@ struct rte_console {
->>>>>                         * when idle
->>>>>                         */
->>>>>    #define BRCMF_IDLE_INTERVAL    1
->>>>> +#define BRCMF_IDLE_INTERVAL_SCANNING_CONNECTING    100
->>>>>
->>>>>    #define KSO_WAIT_US 50
->>>>>    #define MAX_KSO_ATTEMPTS (PMU_MAX_TRANSITION_DLY/KSO_WAIT_US)
->>>>> @@ -3613,9 +3619,9 @@ void brcmf_sdio_isr(struct brcmf_sdio *bus)
->>>>>
->>>>>    static bool brcmf_sdio_bus_watchdog(struct brcmf_sdio *bus)
->>>>>    {
->>>>> -#ifdef DEBUG
->>>>>        struct brcmf_bus *bus_if = dev_get_drvdata(bus->sdiodev->dev);
->>>>> -#endif    /* DEBUG */
->>>>> +    struct brcmf_cfg80211_info *cfg = bus_if->drvr->config;
->>>>> +    struct brcmf_if *ifp = cfg->pub->iflist[0];
->>>>>
->>>>>        brcmf_dbg(TIMER, "Enter\n");
->>>>>
->>>>> @@ -3678,6 +3684,14 @@ static bool brcmf_sdio_bus_watchdog(struct brcmf_sdio *bus)
->>>>>
->>>>>        /* On idle timeout clear activity flag and/or turn off clock */
->>>>>        if ((bus->idletime > 0) && (bus->clkstate == CLK_AVAIL)) {
->>>>> +
->>>>> +        if (test_bit(BRCMF_SCAN_STATUS_BUSY, &cfg->scan_status) ||
->>>>> +            test_bit(BRCMF_VIF_STATUS_CONNECTING, &ifp->vif->sme_state)) {
->>>>> +            bus->idletime = BRCMF_IDLE_INTERVAL_SCANNING_CONNECTING;
->>>>> +        } else {
->>>>> +            bus->idletime = BRCMF_IDLE_INTERVAL;
->>>>> +        }
->>>>> +
->>>>>            if (++bus->idlecount >= bus->idletime) {
->>>>>                bus->idlecount = 0;
->>>>>                if (bus->activity) {
->>>>> diff --git a/drivers/net/wireless/brcm80211/brcmfmac/wl_cfg80211.c b/drivers/net/wireless/brcm80211/brcmfmac/wl_cfg80211.c
->>>>> index be19852..e76517e 100644
->>>>> --- a/drivers/net/wireless/brcm80211/brcmfmac/wl_cfg80211.c
->>>>> +++ b/drivers/net/wireless/brcm80211/brcmfmac/wl_cfg80211.c
->>>>> @@ -913,6 +913,8 @@ brcmf_cfg80211_escan(struct wiphy *wiphy, struct brcmf_cfg80211_vif *vif,
->>>>>            return -EAGAIN;
->>>>>        }
->>>>>
->>>>> +    set_bit(BRCMF_SCAN_STATUS_BUSY, &cfg->scan_status);
->>>>> +
->>>>>        /* If scan req comes for p2p0, send it over primary I/F */
->>>>>        if (vif == cfg->p2p.bss_idx[P2PAPI_BSSCFG_DEVICE].vif)
->>>>>            vif = cfg->p2p.bss_idx[P2PAPI_BSSCFG_PRIMARY].vif;
->>>>> @@ -933,7 +935,6 @@ brcmf_cfg80211_escan(struct wiphy *wiphy, struct brcmf_cfg80211_vif *vif,
->>>>>        }
->>>>>
->>>>>        cfg->scan_request = request;
->>>>> -    set_bit(BRCMF_SCAN_STATUS_BUSY, &cfg->scan_status);
->>>>>        if (escan_req) {
->>>>>            cfg->escan_info.run = brcmf_run_escan;
->>>>>            err = brcmf_p2p_scan_prep(wiphy, request, vif);
->>>>> -- 1.7.1
->>>>>
->>>> -- 
->>>> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
->>>> the body of a message to majordomo@vger.kernel.org
->>>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>>> Please read the FAQ at  http://www.tux.org/lkml/
->> -- 
->> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->> Please read the FAQ at  http://www.tux.org/lkml/
+kernel: Call Trace:
+kernel: <IRQ>  [<ffffffff815e19ba>] dump_stack+0x19/0x1b
+kernel: [<ffffffff8105dee1>] warn_slowpath_common+0x61/0x80
+kernel: [<ffffffff8105df5c>] warn_slowpath_fmt+0x5c/0x80
+kernel: [<ffffffff814a8c0d>] ? find_iova+0x4d/0x90
+kernel: [<ffffffff814ab0e2>] intel_unmap_page.part.36+0x142/0x160
+kernel: [<ffffffff814ad0e6>] intel_unmap_page+0x26/0x30
+kernel: [<ffffffffa01f55d7>] bnx2x_free_tx_pkt+0x157/0x2b0 [bnx2x]
+kernel: [<ffffffffa01f8dac>] bnx2x_tx_int+0xac/0x220 [bnx2x]
+kernel: [<ffffffff8101a0d9>] ? read_tsc+0x9/0x20
+kernel: [<ffffffffa01f8fdb>] bnx2x_poll+0xbb/0x3c0 [bnx2x]
+kernel: [<ffffffff814d041a>] net_rx_action+0x15a/0x250
+kernel: [<ffffffff81067047>] __do_softirq+0xf7/0x290
+kernel: [<ffffffff815f3a5c>] call_softirq+0x1c/0x30
+kernel: [<ffffffff81014d25>] do_softirq+0x55/0x90
+kernel: [<ffffffff810673e5>] irq_exit+0x115/0x120
+kernel: [<ffffffff815f4358>] do_IRQ+0x58/0xf0
+kernel: [<ffffffff815e94ad>] common_interrupt+0x6d/0x6d
+kernel: <EOI>  [<ffffffff810bbff7>] ? clockevents_notify+0x127/0x140
+kernel: [<ffffffff814834df>] ? cpuidle_enter_state+0x4f/0xc0
+kernel: [<ffffffff81483615>] cpuidle_idle_call+0xc5/0x200
+kernel: [<ffffffff8101bc7e>] arch_cpu_idle+0xe/0x30
+kernel: [<ffffffff810b4725>] cpu_startup_entry+0xf5/0x290
+kernel: [<ffffffff815cfee1>] start_secondary+0x265/0x27b
+kernel: ---[ end trace 11aa7726f18d7e80 ]---
 
+Reported-by: Yulong Pei <ypei@redhat.com>
+Cc: Michal Schmidt <mschmidt@redhat.com>
+Signed-off-by: Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h     | 1 +
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 9 +++++++++
+ 2 files changed, 10 insertions(+)
+
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index 4cab09d..8206a29 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -346,6 +346,7 @@ struct sw_tx_bd {
+ 	u8		flags;
+ /* Set on the first BD descriptor when there is a split BD */
+ #define BNX2X_TSO_SPLIT_BD		(1<<0)
++#define BNX2X_HAS_SECOND_PBD		(1<<1)
+ };
+ 
+ struct sw_rx_page {
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index 4b875da..c43e723 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -227,6 +227,12 @@ static u16 bnx2x_free_tx_pkt(struct bnx2x *bp, struct bnx2x_fp_txdata *txdata,
+ 	--nbd;
+ 	bd_idx = TX_BD(NEXT_TX_IDX(bd_idx));
+ 
++	if (tx_buf->flags & BNX2X_HAS_SECOND_PBD) {
++		/* Skip second parse bd... */
++		--nbd;
++		bd_idx = TX_BD(NEXT_TX_IDX(bd_idx));
++	}
++
+ 	/* TSO headers+data bds share a common mapping. See bnx2x_tx_split() */
+ 	if (tx_buf->flags & BNX2X_TSO_SPLIT_BD) {
+ 		tx_data_bd = &txdata->tx_desc_ring[bd_idx].reg_bd;
+@@ -3889,6 +3895,9 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			/* set encapsulation flag in start BD */
+ 			SET_FLAG(tx_start_bd->general_data,
+ 				 ETH_TX_START_BD_TUNNEL_EXIST, 1);
++
++			tx_buf->flags |= BNX2X_HAS_SECOND_PBD;
++
+ 			nbd++;
+ 		} else if (xmit_type & XMIT_CSUM) {
+ 			/* Set PBD in checksum offload case w/o encapsulation */
+-- 
+1.9.3
