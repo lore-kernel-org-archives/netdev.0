@@ -1,57 +1,118 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] netfilter: nf_sockopt_find() should return ERESTARTSYS
-Date: Thu, 24 Jul 2014 18:19:35 +0100
-Message-ID: <3ff5bf70-5db3-4dc4-9f02-abb07843ab81@email.android.com>
-References: <1406155995.3363.19.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [PATCH net-next 2/9] gue: Support for Generic UDP Encapsulation
+ RX path
+Date: Thu, 24 Jul 2014 10:28:13 -0700
+Message-ID: <CA+mtBx91rqPwufokwbRuB95txGiTt6Z9nMbGFD9oWF66iwR+Ww@mail.gmail.com>
+References: <alpine.DEB.2.02.1407162058200.2128@tomh.mtv.corp.google.com>
+	<CAJZOPZLLFjv6t-cz7EF9pg55VtVETQxXqbELBwkb9-=e56HCqg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1406155995.3363.19.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Or Gerlitz <or.gerlitz@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f174.google.com ([209.85.223.174]:39173 "EHLO
+	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758866AbaGXR2O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2014 13:28:14 -0400
+Received: by mail-ie0-f174.google.com with SMTP id rp18so2593254iec.33
+        for <netdev@vger.kernel.org>; Thu, 24 Jul 2014 10:28:13 -0700 (PDT)
+In-Reply-To: <CAJZOPZLLFjv6t-cz7EF9pg55VtVETQxXqbELBwkb9-=e56HCqg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 23. Juli 2014 23:53:15 GMT+01:00, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->From: Eric Dumazet <edumazet@google.com>
+On Thu, Jul 24, 2014 at 12:07 AM, Or Gerlitz <or.gerlitz@gmail.com> wrote:
 >
->getsockopt() or setsockopt() sometimes returns -EINTR instead of
->-ENOPROTOOPT, causing headaches to application developers.
+> On Thu, Jul 17, 2014 at 7:14 AM, Tom Herbert <therbert@google.com> wrote:
+> > This patch provides a Generic UDP Encapsulation receive path
+> > using the XFRM framework (udp_encap_rcv).
+> >
+> > This adds support for both direct encapsulation of IP protocols over
+> > UDP. The bound destination port is used to map to an IP protocol.
+> > This should support GRE over UDP encapsulation, see
+> > http://tools.ietf.org/html/draft-yong-tsvwg-gre-in-udp-encap-02,
+> > as will as the other IP tunneling protocols (IPIP, SIT).
+> >
+> > Signed-off-by: Tom Herbert <therbert@google.com>
+> > ---
+> >  include/net/gue.h |  49 +++++++++++++++++
+> >  net/ipv4/Kconfig  |  10 ++++
+> >  net/ipv4/Makefile |   1 +
+> >  net/ipv4/gue.c    | 159 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+> >  4 files changed, 219 insertions(+)
+> >  create mode 100644 include/net/gue.h
+> >  create mode 100644 net/ipv4/gue.c
+> >
+> > diff --git a/include/net/gue.h b/include/net/gue.h
+> > new file mode 100644
+> > index 0000000..86b91bc
+> > --- /dev/null
+> > +++ b/include/net/gue.h
+> > @@ -0,0 +1,49 @@
+> > +#ifndef __NET_GUE_H
+> > +#define __NET_GUE_H
+> > +
+> > +#if defined(CONFIG_NET_GUE) || defined(CONFIG_NET_GUE_MODULE)
+> > +
+> > +#include <net/udp_tunnel.h>
+> > +
+> > +struct gue_port_cfg {
+> > +       u8                      protocol;
+> > +       struct udp_port_cfg     udp_config;
+> > +};
+> > +
+> > +int gue_port_create(struct net *net, struct gue_port_cfg *cfg,
+> > +                   struct socket **sockp);
+> > +int gue_open_direct_port(unsigned short port, unsigned char proto,
+> > +                        struct socket **sockp);
+> > +void gue_close_port(struct socket *sock);
+> > +
+> > +/* Tunnel protocols can use GUE_TUNNEL_PARMS to set up per module static
+> > + * variables that are used with the common GUE functions (open_gue_port,
+> > + * close_gue_port).
+> > + */
+> > +#define GUE_TUNNEL_PARMS(name, default_port)                   \
+> > +static int gue_udp_port = default_port;                                \
+> > +module_param(gue_udp_port, int, 0);                            \
+> > +MODULE_PARM_DESC(gue_udp_port, name "/UDP port");              \
+> > +static struct socket *gue_sock;
+> > +
+> > +#define open_gue_port(proto)                                   \
+> > +       (gue_udp_port ?                                         \
+> > +        gue_open_direct_port(gue_udp_port, proto, &gue_sock) : \
+> > +        0)
+> > +
+> > +#define close_gue_port() do {                                  \
+> > +       if (gue_sock) {                                         \
+> > +               gue_close_port(gue_sock);                       \
+> > +               gue_sock = NULL;                                \
+> > +       }                                                       \
+> > +} while (0)
+> > +
 >
->This is because unsupported commands might go through nf_sockopt_find()
->and this function returns -EINTR instead of -ERESTARTSYS if
->a signal is pending.
+> Hi Tom,
 >
+> So this is probably a similar feedback to the ioctls vs netlink
+> comment from Dave...
+>
+> I guess we agree that module params should be avoided when possible, right? so
+> this even goes further to a template in a header file used by the
+> caller modules to define
+> their own module param...  should be (a non academic, I read your other comment)
+> alternative here, I hope.
+>
+I'm not sure. The gue_port is a global property of the module and not
+link or device specific. My precedence is vxlan driver which has
+udp_port module parameter.
 
-I'd propose to simply use the non interruptable mutex functions. We
-have many instances where this is really completely unnecessary.
-
-I can take care of this (once my notebook has been repaired).
-
->Signed-off-by: Eric Dumazet <edumazet@google.com>
->---
-> net/netfilter/nf_sockopt.c |    2 +-
-> 1 file changed, 1 insertion(+), 1 deletion(-)
+> Or.
 >
->diff --git a/net/netfilter/nf_sockopt.c b/net/netfilter/nf_sockopt.c
->index f042ae521557..37181447715b 100644
->--- a/net/netfilter/nf_sockopt.c
->+++ b/net/netfilter/nf_sockopt.c
->@@ -66,7 +66,7 @@ static struct nf_sockopt_ops *nf_sockopt_find(struct
->sock *sk, u_int8_t pf,
-> 	struct nf_sockopt_ops *ops;
-> 
-> 	if (mutex_lock_interruptible(&nf_sockopt_mutex) != 0)
->-		return ERR_PTR(-EINTR);
->+		return ERR_PTR(-ERESTARTSYS);
-> 
-> 	list_for_each_entry(ops, &nf_sockopts, list) {
-> 		if (ops->pf == pf) {
->
->
-
-
+> > +#else /* defined(CONFIG_NET_GUE) || defined(CONFIG_NET_GUE_MODULE) */
+> > +
+> > +#define GUE_TUNNEL_PARMS(name, default_port)
+> > +#define open_gue_port(proto) (0)
+> > +#define close_gue_port()
+> > +
+> > +#endif
+> > +
+> > +#endif
