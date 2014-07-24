@@ -1,33 +1,47 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] mac80211_hwsim: fix compiler warning on MIPS
-Date: Thu, 24 Jul 2014 12:54:31 +0200
-Message-ID: <1406199271.14675.10.camel@jlt4.sipsolutions.net>
-References: <1406065431-20813-1-git-send-email-abrestic@chromium.org>
-	 (sfid-20140722_234503_746857_0630E11C)
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: [net-next PATCH 1/1] drivers: net: cpsw: cleanup: remove unused function
+Date: Thu, 24 Jul 2014 16:33:29 +0530
+Message-ID: <1406199809-6720-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Andrew Bresticker <abrestic@chromium.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1406065431-20813-1-git-send-email-abrestic@chromium.org> (sfid-20140722_234503_746857_0630E11C)
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, Mugunthan V N <mugunthanvnm@ti.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from comal.ext.ti.com ([198.47.26.152]:36273 "EHLO comal.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755344AbaGXLDg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Jul 2014 07:03:36 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-07-22 at 14:43 -0700, Andrew Bresticker wrote:
-> The dividend in do_div() is expected to be an unsigned 64-bit integer,
-> which leads to the following warning when building for 32-bit MIPS:
-> 
->   drivers/net/wireless/mac80211_hwsim.c: In function 'mac80211_hwsim_set_tsf':
->   drivers/net/wireless/mac80211_hwsim.c:664:98: warning: comparison of distinct pointer types lacks a cast [enabled by default]
->     data->bcn_delta = do_div(delta, bcn_int);
-> 
-> Since we care about the signedness of delta when adjusting tsf_offset
-> and bcm_delta, use the absolute value for the division and compare
-> the two timestamps to determine the sign.
+removing unused function as part of driver cleanup.`
 
-Applied, thanks.
+Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+---
+ drivers/net/ethernet/ti/cpsw.c | 11 -----------
+ 1 file changed, 11 deletions(-)
 
-johannes
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index c9e86b1..a22deb5 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -1075,17 +1075,6 @@ static void cpsw_get_ethtool_stats(struct net_device *ndev,
+ 	}
+ }
+ 
+-static inline int __show_stat(char *buf, int maxlen, const char *name, u32 val)
+-{
+-	static char *leader = "........................................";
+-
+-	if (!val)
+-		return 0;
+-	else
+-		return snprintf(buf, maxlen, "%s %s %10d\n", name,
+-				leader + strlen(name), val);
+-}
+-
+ static int cpsw_common_res_usage_state(struct cpsw_priv *priv)
+ {
+ 	u32 i;
+-- 
+2.0.2.673.g9ab0882
