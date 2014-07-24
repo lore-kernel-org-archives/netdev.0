@@ -1,45 +1,52 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH RFC v2 net-next 10/16] bpf: add eBPF verifier
-Date: Wed, 23 Jul 2014 22:01:18 -0700
-Message-ID: <CAMEtUuzYD-WqxhDeq9tMhOKi+w9QCDdTbzpzaGgsnR83yEvz1A@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Chema Gonzalez <chema@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Arnaldo Carvalho de Melo <acme@infradead.org>,
-	Jiri Olsa <jolsa@redhat.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linux API <linux-api@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Kees Cook <keescook@chromium.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net-next V1] net/mlx4_en: mlx4_en_[gs]et_priv_flags() can be static
+Date: Thu, 24 Jul 2014 09:11:46 +0300
+Message-ID: <1406182306-27436-1-git-send-email-amirv@mellanox.com>
+Cc: netdev@vger.kernel.org, Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Fengguang Wu <fengguang.wu@intel.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailp.voltaire.com ([193.47.165.129]:38406 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751248AbaGXGL5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Jul 2014 02:11:57 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 23, 2014 at 5:48 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
-> check_reg_arg() is indeed incorrect here. Will fix. That was a good catch.
-> Thank you for review!
+From: Fengguang Wu <fengguang.wu@intel.com>
 
-I fixed this missing check_reg_arg() check, addressed feedback for
-other patches, rebased it and pushed it:
-https://git.kernel.org/cgit/linux/kernel/git/ast/bpf.git/log/
+Fixes sparse warning intrduced by commit 0fef9d0 ("net/mlx4_en: Disable
+blueflame using ethtool private flags")
 
-Also replaced dump into syslog from verifier with print into user supplied
-buffer, so that user space can see why verifier rejected the program.
-The more I play with it the more I like fd-based user interface. Cannot
-thank enough Andy for suggesting it :)
-Currently map_id is still there as kernel internal id that programs are
-using to access maps. I'll try to replace it with direct pointer.
-That will save one idr_find() lookup in critical path. That's a good
-reason to add new 16-byte eBPF instruction. It will be
-"load 64-bit immediate" that we've discussed before.
+Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_ethtool.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+index 50e85cc..e22f24f 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
+@@ -1221,7 +1221,7 @@ static int mlx4_en_get_ts_info(struct net_device *dev,
+ 	return ret;
+ }
+ 
+-int mlx4_en_set_priv_flags(struct net_device *dev, u32 flags)
++static int mlx4_en_set_priv_flags(struct net_device *dev, u32 flags)
+ {
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 	bool bf_enabled_new = !!(flags & MLX4_EN_PRIV_FLAGS_BLUEFLAME);
+@@ -1256,7 +1256,7 @@ int mlx4_en_set_priv_flags(struct net_device *dev, u32 flags)
+ 	return 0;
+ }
+ 
+-u32 mlx4_en_get_priv_flags(struct net_device *dev)
++static u32 mlx4_en_get_priv_flags(struct net_device *dev)
+ {
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 
+-- 
+1.8.3.4
