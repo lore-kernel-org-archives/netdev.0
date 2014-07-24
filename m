@@ -1,48 +1,55 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 1/5] net-timestamp: extend SCM_TIMESTAMPING
- ancillary data struct
-Date: Thu, 24 Jul 2014 14:15:28 -0700 (PDT)
-Message-ID: <20140724.141528.1823901044834131393.davem@davemloft.net>
-References: <CA+FuTScobCk5EFgsht=S0mfF4fVh1fKqAAV8+mZLk9h1O_uwnA@mail.gmail.com>
-	<20140723.211256.2143360320648788946.davem@davemloft.net>
-	<CA+FuTSfMzbvGAM--LmB6i1R5cGZchmQqMNYkbcQGBn6jRAWG9A@mail.gmail.com>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: Please queue some netns bug fixes for stable
+Date: Thu, 24 Jul 2014 14:21:13 -0700
+Message-ID: <CAHA+R7N=fkuWDaSMhK9hakWD_ONLJo9daqd_DfrEdGjYq=Wx0w@mail.gmail.com>
+References: <CAHA+R7MRazPQzcJdPr0UC3KtJUP4xHwqy9ysrP3a=QXFf74zoQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	richardcochran@gmail.com, david.daney@cavium.net,
-	kreese@caviumnetworks.com
-To: willemb@google.com
+Content-Type: text/plain; charset=UTF-8
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54629 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751533AbaGXVPc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2014 17:15:32 -0400
-In-Reply-To: <CA+FuTSfMzbvGAM--LmB6i1R5cGZchmQqMNYkbcQGBn6jRAWG9A@mail.gmail.com>
+Received: from mail-lb0-f171.google.com ([209.85.217.171]:57011 "EHLO
+	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759443AbaGXVVP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2014 17:21:15 -0400
+Received: by mail-lb0-f171.google.com with SMTP id l4so2772235lbv.30
+        for <netdev@vger.kernel.org>; Thu, 24 Jul 2014 14:21:13 -0700 (PDT)
+In-Reply-To: <CAHA+R7MRazPQzcJdPr0UC3KtJUP4xHwqy9ysrP3a=QXFf74zoQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemb@google.com>
-Date: Thu, 24 Jul 2014 16:48:04 -0400
+On Fri, Jun 27, 2014 at 4:17 PM, Cong Wang <cwang@twopensource.com> wrote:
+> Hi, David
+>
+>
+> Please queue the following commits for -stable, all kernels < 3.12.
+>
+> You backported the last one (from me) to 3.14 and 3.12, but for kernels < 3.12
+> we probably need all of these three:
+>
+> commit 50624c934db18ab90aaea4908f60dd39aab4e6e5
+> Author: Eric W. Biederman <ebiederm@xmission.com>
+> Date:   Mon Sep 23 21:19:49 2013 -0700
+>
+>     net: Delay default_device_exit_batch until no devices are unregistering v2
+>
+> commit 5cde282938915f36a2e6769b51c24c4159654859
+> Author: Eric W. Biederman <ebiederm@xmission.com>
+> Date:   Sat Oct 5 19:26:05 2013 -0700
+>
+>     net: Separate the close_list and the unreg_list v2
+>
+> commit 200b916f3575bdf11609cb447661b8d5957b0bbf
+> Author: Cong Wang <cwang@twopensource.com>
+> Date:   Mon May 12 15:11:20 2014 -0700
+>
+>     rtnetlink: wait for unregistering devices in rtnl_link_unregister()
+>
+>
+> AFAIK, all 3.x kernels are affected. Eric should know better than me here.
+>
 
->> I can't believe we're going to hold onto syststamp just for one
->> odd-ball MIPS ethernet driver.  Really?
->>
->> I think putting in whatever work is necessary to convert Octeon over
->> to exposing a proper PTP device is much better than having this
->> syststamp thing rot in our data structures forever.
-> 
-> Implementing ptp_clock_info gettime/settime/adjtime/adjfreq using
-> CVMX_MIO_PTP_CLOCK_[CFG|HI|COMP] might be feasible.
-> 
-> That does not address legacy application dependencies on syststamp.
-> Even with a PTP device, it is unclear whether anyone would invest time
-> to convert their application to use it. The most relevant code I could
-> find is cavium ptp-1588v2 on github. That configures SO_TIMESTAMPING
-> to generate both raw + sys tstamps and preferentially reads the first.
-> If this is the only known octeon timestamping user, then it would be
-> just as safe to simply remove syststamp.
+David, any response? We are still waiting for you to send them to stable. :)
 
-The kernel would simply saw that adjusted HW timestamps are not
-supported, the application has to accomodate the possibility of
-needing to use one of the other timestamping flavors.
+Thanks!
