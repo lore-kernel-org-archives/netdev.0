@@ -1,99 +1,63 @@
-From: Sasha Levin <sasha.levin@oracle.com>
-Subject: Re: net: socket: NULL ptr deref in sendmsg
-Date: Thu, 24 Jul 2014 12:05:31 -0400
-Message-ID: <53D12ECB.2040600@oracle.com>
-References: <53C2FF3D.4030201@oracle.com> <20140714.150847.1399242734159771901.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH RESEND] bnx2x: fix crash during TSO tunneling
+Date: Thu, 24 Jul 2014 18:37:54 +0200
+Message-ID: <1406219874.3363.71.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1406217287-4069-1-git-send-email-Dmitry.Kravkov@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davej@redhat.com, a.ryabinin@samsung.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140714.150847.1399242734159771901.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net, ypei@redhat.com,
+	mschmidt@redhat.com, Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>
+To: Dmitry Kravkov <dkravkov@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f43.google.com ([74.125.82.43]:42973 "EHLO
+	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759448AbaGXQiQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2014 12:38:16 -0400
+Received: by mail-wg0-f43.google.com with SMTP id l18so2903428wgh.2
+        for <netdev@vger.kernel.org>; Thu, 24 Jul 2014 09:38:14 -0700 (PDT)
+In-Reply-To: <1406217287-4069-1-git-send-email-Dmitry.Kravkov@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/14/2014 06:08 PM, David Miller wrote:
-> From: Sasha Levin <sasha.levin@oracle.com>
-> Date: Sun, 13 Jul 2014 17:50:53 -0400
+On Thu, 2014-07-24 at 18:54 +0300, Dmitry Kravkov wrote:
+> From: Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>
 > 
->> While fuzzing with trinity inside a KVM tools guest running the latest -next
->> kernel with the KASAN patchset, I've stumbled on the following spew:
->  ...
->> It's similar to another variation:
->  ...
->> I've tried debugging it, but I don't see a code path that could lead to that.
+> When TSO packet is transmitted additional BD w/o mapping is used
+> to describe the packed. The BD needs special handling in tx
+> completion.
 > 
-> Both of these cases involve working with pointers declared with
-> DECLARE_SOCKADDR, maybe that somehow confuses ASAN code generation?
+> kernel: Call Trace:
+> kernel: <IRQ>  [<ffffffff815e19ba>] dump_stack+0x19/0x1b
+> kernel: [<ffffffff8105dee1>] warn_slowpath_common+0x61/0x80
+> kernel: [<ffffffff8105df5c>] warn_slowpath_fmt+0x5c/0x80
+> kernel: [<ffffffff814a8c0d>] ? find_iova+0x4d/0x90
+> kernel: [<ffffffff814ab0e2>] intel_unmap_page.part.36+0x142/0x160
+> kernel: [<ffffffff814ad0e6>] intel_unmap_page+0x26/0x30
+> kernel: [<ffffffffa01f55d7>] bnx2x_free_tx_pkt+0x157/0x2b0 [bnx2x]
+> kernel: [<ffffffffa01f8dac>] bnx2x_tx_int+0xac/0x220 [bnx2x]
+> kernel: [<ffffffff8101a0d9>] ? read_tsc+0x9/0x20
+> kernel: [<ffffffffa01f8fdb>] bnx2x_poll+0xbb/0x3c0 [bnx2x]
+> kernel: [<ffffffff814d041a>] net_rx_action+0x15a/0x250
+> kernel: [<ffffffff81067047>] __do_softirq+0xf7/0x290
+> kernel: [<ffffffff815f3a5c>] call_softirq+0x1c/0x30
+> kernel: [<ffffffff81014d25>] do_softirq+0x55/0x90
+> kernel: [<ffffffff810673e5>] irq_exit+0x115/0x120
+> kernel: [<ffffffff815f4358>] do_IRQ+0x58/0xf0
+> kernel: [<ffffffff815e94ad>] common_interrupt+0x6d/0x6d
+> kernel: <EOI>  [<ffffffff810bbff7>] ? clockevents_notify+0x127/0x140
+> kernel: [<ffffffff814834df>] ? cpuidle_enter_state+0x4f/0xc0
+> kernel: [<ffffffff81483615>] cpuidle_idle_call+0xc5/0x200
+> kernel: [<ffffffff8101bc7e>] arch_cpu_idle+0xe/0x30
+> kernel: [<ffffffff810b4725>] cpu_startup_entry+0xf5/0x290
+> kernel: [<ffffffff815cfee1>] start_secondary+0x265/0x27b
+> kernel: ---[ end trace 11aa7726f18d7e80 ]---
 > 
+> Reported-by: Yulong Pei <ypei@redhat.com>
+> Cc: Michal Schmidt <mschmidt@redhat.com>
+> Signed-off-by: Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>
+> ---
 
-Hey David,
+How old is this bug ? Can you point original commit adding it ?
 
-Sorry for the delay.
-
-I've confirmed that it's not ASAN's fault by adding:
-
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 1b38f7f..81d86b9 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -2331,7 +2331,7 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *so
-        err = scm_send(sock, msg, siocb->scm, true);
-        if (err < 0)
-                return err;
--
-+       BUG_ON(msg->msg_namelen && !msg->msg_name);
-        if (msg->msg_namelen) {
-                err = -EINVAL;
-                if (addr->nl_family != AF_NETLINK)
-
-And got:
-
-[ 1322.890135] kernel BUG at net/netlink/af_netlink.c:2334!
-[ 1322.890135] invalid opcode: 0000 [#1] PREEMPT SMP DEBUG_PAGEALLOC
-[ 1322.890135] Dumping ftrace buffer:
-[ 1322.890135]    (ftrace buffer empty)
-[ 1322.890135] Modules linked in:
-[ 1322.890135] CPU: 8 PID: 31343 Comm: trinity-c259 Not tainted 3.16.0-rc6-next-20140724-sasha-00046-g7324c87-dirty #931
-[ 1322.890135] task: ffff880311268000 ti: ffff88031bf5c000 task.ti: ffff88031bf5c000
-[ 1322.890135] RIP: 0010:[<ffffffffb567e01b>]  [<ffffffffb567e01b>] netlink_sendmsg+0xc6b/0xce0
-[ 1322.902991] RSP: 0018:ffff88031bf5faa0  EFLAGS: 00010246
-[ 1322.902991] RAX: 0000000000000000 RBX: ffff88031bf5fb38 RCX: dfff97060a600000
-[ 1322.902991] RDX: ffff88031bf5fe80 RSI: 0000000000000000 RDI: ffff88031bf5fe80
-[ 1322.902991] RBP: ffff88031bf5fb80 R08: dfff97060a600000 R09: 0000000000000000
-[ 1322.902991] R10: 0000000000000080 R11: 0000000000000001 R12: ffff88031bf5fe78
-[ 1322.902991] R13: ffff8801d18fd388 R14: 0000000000000000 R15: 0000000000feff98
-[ 1322.902991] FS:  00007f67138b8700(0000) GS:ffff8801de000000(0000) knlGS:0000000000000000
-[ 1322.902991] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[ 1322.902991] CR2: 00007f6708260088 CR3: 000000036ad59000 CR4: 00000000000006a0
-[ 1322.902991] Stack:
-[ 1322.902991]  ffff8801de1e2dc0 ffff88025efbb118 ffffffffb9b9ae30 000000000000092d
-[ 1322.902991]  ffff880311268d00 ffff88031bf5fae0 ffffffffb121185d 0000000000000001
-[ 1322.902991]  ffff88031bf5faf8 ffff88031bf5fea8 ffff8801d7d9c220 0000000000000000
-[ 1322.902991] Call Trace:
-[ 1322.902991]  [<ffffffffb121185d>] ? get_parent_ip+0xd/0x50
-[ 1322.902991]  [<ffffffffb559bc3a>] sock_sendmsg+0xca/0x100
-[ 1322.902991]  [<ffffffffb13b32ed>] ? might_fault+0xed/0x100
-[ 1322.902991]  [<ffffffffb13b327a>] ? might_fault+0x7a/0x100
-[ 1322.902991]  [<ffffffffb55b3ced>] ? verify_iovec+0xcd/0x180
-[ 1322.902991]  [<ffffffffb559cb52>] ___sys_sendmsg+0x312/0x530
-[ 1322.902991]  [<ffffffffb124f42e>] ? put_lock_stats.isra.13+0xe/0x30
-[ 1322.902991]  [<ffffffffb124fad1>] ? lock_release_holdtime+0x121/0x260
-[ 1322.902991]  [<ffffffffb125b2bb>] ? lock_release_non_nested+0x42b/0x4f0
-[ 1322.902991]  [<ffffffffb124f004>] ? check_chain_key+0x1f4/0x2e0
-[ 1322.902991]  [<ffffffffb559daeb>] __sys_sendmmsg+0x9b/0x1c0
-[ 1322.902991]  [<ffffffffb125496d>] ? trace_hardirqs_on_caller+0x1ad/0x380
-[ 1322.902991]  [<ffffffffb1254b4d>] ? trace_hardirqs_on+0xd/0x10
-[ 1322.902991]  [<ffffffffb10b9222>] ? syscall_trace_enter+0x1e2/0x540
-[ 1322.902991]  [<ffffffffb125496d>] ? trace_hardirqs_on_caller+0x1ad/0x380
-[ 1322.902991]  [<ffffffffb559dc22>] SyS_sendmmsg+0x12/0x30
-[ 1322.902991]  [<ffffffffb5e43a13>] tracesys+0xe1/0xe6
-[ 1322.902991] Code: e4 00 00 00 8b 4d 98 45 31 c9 41 b8 d0 00 00 00 48 89 de 8b 55 90 48 c7 04 24 00 00 00 00 4c 89 ef e8 da cb ff ff e9 8d f8 ff ff <0f> 0b e8 5e 3f b9 fb 48 8b bd 68 ff ff ff e8 c2 be da fb 48 8b
-[ 1322.902991] RIP  [<ffffffffb567e01b>] netlink_sendmsg+0xc6b/0xce0
-[ 1322.902991]  RSP <ffff88031bf5faa0>
-
-
-Thanks,
-Sasha
+Thanks !
