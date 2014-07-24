@@ -1,100 +1,103 @@
-From: Dmitry Kravkov <dkravkov@gmail.com>
-Subject: [PATCH RESEND] bnx2x: fix crash during TSO tunneling
-Date: Thu, 24 Jul 2014 18:54:47 +0300
-Message-ID: <1406217287-4069-1-git-send-email-Dmitry.Kravkov@qlogic.com>
-Cc: ypei@redhat.com, mschmidt@redhat.com,
-	Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>
-To: netdev@vger.kernel.org, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:60692 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759323AbaGXPzF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2014 11:55:05 -0400
-Received: by mail-wi0-f174.google.com with SMTP id d1so9883995wiv.13
-        for <netdev@vger.kernel.org>; Thu, 24 Jul 2014 08:55:04 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Cyrille Pitchen <cyrille.pitchen@atmel.com>
+Subject: Re: [PATCH v2 5/6] ARM: at91: change compatibility string for sama5d3x
+ gem
+Date: Thu, 24 Jul 2014 17:57:42 +0200
+Message-ID: <53D12CF6.6070502@atmel.com>
+References: <cover.1406192657.git.cyrille.pitchen@atmel.com> <b8cbfb4e8d5d156d477634164c21cfa6f509c4ea.1406192657.git.cyrille.pitchen@atmel.com> <20140724151529.GA26190@leverpostej>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"soren.brinkmann@xilinx.com" <soren.brinkmann@xilinx.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Mark Rutland <mark.rutland@arm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140724151529.GA26190@leverpostej>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>
+Le 24/07/2014 17:15, Mark Rutland a =E9crit :
+> On Thu, Jul 24, 2014 at 12:51:02PM +0100, Cyrille Pitchen wrote:
+>> this new compatibility string prevents macb/gem driver from using th=
+e
+>> scatter-gather and gso features on sama5d3x boards.
+>=20
+> What will happen were the driver to attempt to use the features on th=
+is
+> board?
+>=20
+> How will this affect existing DTBs?
+>=20
+> Thanks,
+> Mark.
+>
+Hi Mark,
 
-When TSO packet is transmitted additional BD w/o mapping is used
-to describe the packed. The BD needs special handling in tx
-completion.
+patch 2 for then scatter-gather feature introducted a new compatible st=
+ring
+"atmel,sama5d3-gem". Its associated config has the MACB_CAPS_SG_DISABLE=
+D flag
+so the feature is not available indeed.
 
-kernel: Call Trace:
-kernel: <IRQ>  [<ffffffff815e19ba>] dump_stack+0x19/0x1b
-kernel: [<ffffffff8105dee1>] warn_slowpath_common+0x61/0x80
-kernel: [<ffffffff8105df5c>] warn_slowpath_fmt+0x5c/0x80
-kernel: [<ffffffff814a8c0d>] ? find_iova+0x4d/0x90
-kernel: [<ffffffff814ab0e2>] intel_unmap_page.part.36+0x142/0x160
-kernel: [<ffffffff814ad0e6>] intel_unmap_page+0x26/0x30
-kernel: [<ffffffffa01f55d7>] bnx2x_free_tx_pkt+0x157/0x2b0 [bnx2x]
-kernel: [<ffffffffa01f8dac>] bnx2x_tx_int+0xac/0x220 [bnx2x]
-kernel: [<ffffffff8101a0d9>] ? read_tsc+0x9/0x20
-kernel: [<ffffffffa01f8fdb>] bnx2x_poll+0xbb/0x3c0 [bnx2x]
-kernel: [<ffffffff814d041a>] net_rx_action+0x15a/0x250
-kernel: [<ffffffff81067047>] __do_softirq+0xf7/0x290
-kernel: [<ffffffff815f3a5c>] call_softirq+0x1c/0x30
-kernel: [<ffffffff81014d25>] do_softirq+0x55/0x90
-kernel: [<ffffffff810673e5>] irq_exit+0x115/0x120
-kernel: [<ffffffff815f4358>] do_IRQ+0x58/0xf0
-kernel: [<ffffffff815e94ad>] common_interrupt+0x6d/0x6d
-kernel: <EOI>  [<ffffffff810bbff7>] ? clockevents_notify+0x127/0x140
-kernel: [<ffffffff814834df>] ? cpuidle_enter_state+0x4f/0xc0
-kernel: [<ffffffff81483615>] cpuidle_idle_call+0xc5/0x200
-kernel: [<ffffffff8101bc7e>] arch_cpu_idle+0xe/0x30
-kernel: [<ffffffff810b4725>] cpu_startup_entry+0xf5/0x290
-kernel: [<ffffffff815cfee1>] start_secondary+0x265/0x27b
-kernel: ---[ end trace 11aa7726f18d7e80 ]---
+patch 2 also set the very same flag for the config associated to the al=
+ready=20
+existing strings "cdns,pc302-gem" and "cdns,gem". Then if you don't upd=
+ate=20
+your device tree, the scatter-gather feature won't be enabled for gem a=
+nyway.=20
+However SG feature will be enabled for the old macb.
 
-Reported-by: Yulong Pei <ypei@redhat.com>
-Cc: Michal Schmidt <mschmidt@redhat.com>
-Signed-off-by: Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>
----
-Resending with correct From:
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h     | 1 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 9 +++++++++
- 2 files changed, 10 insertions(+)
+The main idea is to do the change in two steps to avoid indroducing bug=
+s. This
+series of patches is the first step. Later an additionnal patch may be=20
+introduced to enable SG feature for gem on all platforms but sama5d3x. =
+This=20
+should be done by removing the MACB_CAPS_SG_DISABLED flag from pc302gem=
+_config.
+Till then you don't need to update your device tree.
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-index 4cab09d..8206a29 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
-@@ -346,6 +346,7 @@ struct sw_tx_bd {
- 	u8		flags;
- /* Set on the first BD descriptor when there is a split BD */
- #define BNX2X_TSO_SPLIT_BD		(1<<0)
-+#define BNX2X_HAS_SECOND_PBD		(1<<1)
- };
- 
- struct sw_rx_page {
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index 4b875da..c43e723 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -227,6 +227,12 @@ static u16 bnx2x_free_tx_pkt(struct bnx2x *bp, struct bnx2x_fp_txdata *txdata,
- 	--nbd;
- 	bd_idx = TX_BD(NEXT_TX_IDX(bd_idx));
- 
-+	if (tx_buf->flags & BNX2X_HAS_SECOND_PBD) {
-+		/* Skip second parse bd... */
-+		--nbd;
-+		bd_idx = TX_BD(NEXT_TX_IDX(bd_idx));
-+	}
-+
- 	/* TSO headers+data bds share a common mapping. See bnx2x_tx_split() */
- 	if (tx_buf->flags & BNX2X_TSO_SPLIT_BD) {
- 		tx_data_bd = &txdata->tx_desc_ring[bd_idx].reg_bd;
-@@ -3889,6 +3895,9 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 			/* set encapsulation flag in start BD */
- 			SET_FLAG(tx_start_bd->general_data,
- 				 ETH_TX_START_BD_TUNNEL_EXIST, 1);
-+
-+			tx_buf->flags |= BNX2X_HAS_SECOND_PBD;
-+
- 			nbd++;
- 		} else if (xmit_type & XMIT_CSUM) {
- 			/* Set PBD in checksum offload case w/o encapsulation */
--- 
-1.9.3
+=46or now, the SG feature is known to be broken on sama5d3x and there i=
+s work in=20
+progress with Cadence support to fix this issue. It seems to be specifi=
+c to=20
+sama5d3x gem. SG feature was successfully tested on sama5d3x macb and a=
+lso on=20
+sama5d4 gem.
+
+Regards,
+
+Cyrille
+
+>>
+>> Signed-off-by: Cyrille Pitchen <cyrille.pitchen@atmel.com>
+>> ---
+>>  arch/arm/boot/dts/sama5d3_gmac.dtsi | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/arch/arm/boot/dts/sama5d3_gmac.dtsi b/arch/arm/boot/dts=
+/sama5d3_gmac.dtsi
+>> index a6cb050..de5ed59 100644
+>> --- a/arch/arm/boot/dts/sama5d3_gmac.dtsi
+>> +++ b/arch/arm/boot/dts/sama5d3_gmac.dtsi
+>> @@ -74,7 +74,7 @@
+>>  			};
+>> =20
+>>  			macb0: ethernet@f0028000 {
+>> -				compatible =3D "cdns,pc302-gem", "cdns,gem";
+>> +				compatible =3D "atmel,sama5d3-gem";
+>>  				reg =3D <0xf0028000 0x100>;
+>>  				interrupts =3D <34 IRQ_TYPE_LEVEL_HIGH 3>;
+>>  				pinctrl-names =3D "default";
+>> --=20
+>> 1.8.2.2
+>>
+>>
+>> _______________________________________________
+>> linux-arm-kernel mailing list
+>> linux-arm-kernel@lists.infradead.org
+>> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+>>
