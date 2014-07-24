@@ -1,67 +1,87 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: net, phonet, rcu: rcu hang within gprs_attach
-Date: Thu, 24 Jul 2014 15:54:31 -0700
-Message-ID: <20140724225431.GW11241@linux.vnet.ibm.com>
-References: <53D1865F.7040604@oracle.com>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [net-next 10/10] openvswitch: Add support for Geneve tunneling.
+Date: Thu, 24 Jul 2014 18:59:50 -0400
+Message-ID: <CAEP_g=-ODoKmfk871wZyDfvtM=V5yYGKgCh0cVS0diU=LNSMPQ@mail.gmail.com>
+References: <1406024393-6778-1-git-send-email-azhou@nicira.com>
+ <1406024393-6778-11-git-send-email-azhou@nicira.com> <CA+mtBx8UWoQhgGoXtyh=hHkhbodZyC8JSxnCfZFM5CpUT1ZZ9A@mail.gmail.com>
+ <CAEP_g=_1q3ACX5NTHxLDnysL+dTMUVzdLpgw1apLKEdDSWPztw@mail.gmail.com> <CA+mtBx9umxiFYtnG1kzFkK+Ev=b=4f3q2OOow2QcfCB5rUTUyA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, courmisch@gmail.com,
-	LKML <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Dave Jones <davej@redhat.com>
-To: Sasha Levin <sasha.levin@oracle.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Andy Zhou <azhou@nicira.com>, David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e37.co.us.ibm.com ([32.97.110.158]:45553 "EHLO
-	e37.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756093AbaGXWyh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2014 18:54:37 -0400
-Received: from /spool/local
-	by e37.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <paulmck@linux.vnet.ibm.com>;
-	Thu, 24 Jul 2014 16:54:36 -0600
-Content-Disposition: inline
-In-Reply-To: <53D1865F.7040604@oracle.com>
+Received: from na3sys009aog119.obsmtp.com ([74.125.149.246]:33317 "HELO
+	na3sys009aog119.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751164AbaGXXAL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2014 19:00:11 -0400
+Received: by mail-qa0-f52.google.com with SMTP id j15so3586976qaq.25
+        for <netdev@vger.kernel.org>; Thu, 24 Jul 2014 16:00:10 -0700 (PDT)
+In-Reply-To: <CA+mtBx9umxiFYtnG1kzFkK+Ev=b=4f3q2OOow2QcfCB5rUTUyA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 24, 2014 at 06:19:11PM -0400, Sasha Levin wrote:
-> Hi all,
-> 
-> While fuzzing with trinity inside a KVM tools guest running the latest -next
-> kernel I've stumbled on the following stack trace (full log attached):
-> 
-> [  370.662014] INFO: task trinity-main:8727 blocked for more than 120 seconds.
-> [  370.662891]       Not tainted 3.16.0-rc6-next-20140724-sasha-00046-g7324c87-dirty #932
-> [  370.663655] "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
-> [  370.664562] trinity-main    D ffff88053cc80000 13064  8727   8714 0x00000000
-> [  370.665328]  ffff88053da6fc10 0000000000000002 ffff8805483e2dc8 ffff880541873000
-> [  370.666147]  000000276ed30787 ffff88053da6c010 ffff88053da6c000 ffff8805452a0000
-> [  370.667243]  ffff880541873000 0000000000000000 7fffffffffffffff ffffffffb3ec51d8
-> [  370.668788] Call Trace:
-> [  370.669118] schedule (kernel/sched/core.c:2847)
-> [  370.670538] schedule_timeout (kernel/time/timer.c:1476)
-> [  370.671524] ? mark_lock (kernel/locking/lockdep.c:2894)
-> [  370.672299] ? __this_cpu_preempt_check (lib/smp_processor_id.c:63)
-> [  370.673227] ? get_parent_ip (kernel/sched/core.c:2561)
-> [  370.674085] wait_for_completion (include/linux/spinlock.h:328 kernel/sched/completion.c:76 kernel/sched/completion.c:93 kernel/sched/completion.c:101 kernel/sched/completion.c:122)
-> [  370.674960] ? wake_up_state (kernel/sched/core.c:2942)
-> [  370.675576] _rcu_barrier (kernel/rcu/tree.c:3325 (discriminator 8))
-> [  370.676109] rcu_barrier (kernel/rcu/tree_plugin.h:920)
-> [  370.676627] netdev_run_todo (net/core/dev.c:6323)
-> [  370.677202] rtnl_unlock (net/core/rtnetlink.c:80)
-> [  370.677714] unregister_netdev (net/core/dev.c:6687)
-> [  370.678266] gprs_attach (net/phonet/pep-gprs.c:311)
-> [  370.679641] pep_setsockopt (net/phonet/pep.c:1016)
-> [  370.681082] sock_common_setsockopt (net/core/sock.c:2603)
-> [  370.682048] SyS_setsockopt (net/socket.c:1914 net/socket.c:1894)
-> [  370.682854] tracesys (arch/x86/kernel/entry_64.S:541)
-> [  370.683586] 1 lock held by trinity-main/8727:
-> [  370.684232] #0: (rcu_preempt_state.barrier_mutex){+.+...}, at: _rcu_barrier (kernel/rcu/tree.c:3233)
-> 
-> This has reproduced couple of times, and has always originated from gprs_attach. I don't see any obvious
-> issues with the code there, so I'm not sure if it's a fault of the phonet or the rcu code.
+On Thu, Jul 24, 2014 at 12:43 PM, Tom Herbert <therbert@google.com> wrote:
+> On Wed, Jul 23, 2014 at 9:10 PM, Jesse Gross <jesse@nicira.com> wrote:
+>> On Wed, Jul 23, 2014 at 4:29 PM, Tom Herbert <therbert@google.com> wrote:
+>> > This check also applies in the OAM case where there is no data packet
+>> > but we still enforce the protocol field to be Ethernert (meaning of
+>> > prot_type when OAM bit is set is ambiguous in the draft). As I
+>> > mentioned on the nvo3 list, this OAM bit is really a 1-bit packet
+>> > type. If this bit is donated to version field (make it a type version
+>> > field) then we can switch on ver_type above and create another
+>> > processing path for OAM so that the prot_type is at least not
+>> > unnecessarily verified in that case and the bits could even be reused
+>> > for some OAM specific purpose.
+>>
+>> I think the draft is clear :) The value of the OAM bit does not change
+>> the interpretation of the protocol field. This is true in the other
+>> drafts as well.
+>
+>
+>>
+>> OAM packets are essentially just high priority packets (presumably
+>> with some kind of control semantics but that depends on the control
+>> plane). That means that they might be BFD or some other heartbeat,
+>> header fragments for tracing, or really anything else that should be
+>> treated as control. In all of these cases, the protocol type still
+>> needs to indicate the format of the data.
+>>
+> I see, I think you're saying that control messages still contain some sort
+> of message after Geneve header whose type is indicated by protocol field.
+> So, if OAM doesn't change the interpretation of the protocol field then this
+> must be an Ether_type protocol, hence control messages must be formatted as
+> Ether_types. So then I would extrapolate that control messages could be
+> directled to the control plane based on demux of protocol field (ie. type is
+> something like NSH, or a new control message Ethertype). Consequently, the
+> OAM bit is really just a hint to request expedited processing but does not
+> influence demux so could in theory be ignored without loss of functionality.
+> Is this interpretation correct?
 
-Can't tell much from this.  Any chance of a .config?
+Yes, this is largely correct. There is one other possible significance
+to the OAM flag, which is to say "do not forward the resulting packet
+after decapsulation". I think this is slightly less likely to be an
+issue for Geneve (although I can imagine situations where it might be)
+but it was a problem with TRILL OAM, which used data-like packets and
+has no OAM bit. The result is that they had to use all kinds of
+special addresses and other things to separate out data traffic from
+OAM.
 
-							Thanx, Paul
+> A concrete example of a control message with headers would be useful in
+> understanding OAM bit. For instance, how would would a mechanism to
+> implement NAT keepalive of UDP flows be implemented (see RFC3948 for how
+> this was done in ESP/UDP)?
+
+A real example that comes to mind is if you want to have a heartbeat
+protocol such as CFM or BFD. You would set the appropriate EtherType
+for this protocol and then run it as the payload. As you said, it
+would already be obvious that this is a control protocol based on the
+EtherType and the OAM bit is not strictly required. However, it would
+allow easy (and generic) separation of control traffic from data
+traffic so in the event that you have a flood of data packets, the
+heartbeats can prioritized to avoid detecting a failure.
+
+If I was trying to implement just a totally simple keep alive, then
+there's really no need to put anything in the payload. I would
+probably just set the EtherType to zero (guaranteed to be unused) and
+leave it at that.
