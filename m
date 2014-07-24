@@ -1,111 +1,132 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH net-next 2/9] gue: Support for Generic UDP Encapsulation
- RX path
-Date: Thu, 24 Jul 2014 10:07:39 +0300
-Message-ID: <CAJZOPZLLFjv6t-cz7EF9pg55VtVETQxXqbELBwkb9-=e56HCqg@mail.gmail.com>
-References: <alpine.DEB.2.02.1407162058200.2128@tomh.mtv.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] ip: make IP identifiers less predictable
+Date: Thu, 24 Jul 2014 10:07:56 +0200
+Message-ID: <1406189276.3363.63.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Jeffrey Knockel <jeffk@cs.unm.edu>,
+	"Jedidiah R. Crandall" <crandall@cs.unm.edu>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Willy Tarreau <w@1wt.eu>, security@kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f42.google.com ([209.85.216.42]:49114 "EHLO
-	mail-qa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934061AbaGXHHk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2014 03:07:40 -0400
-Received: by mail-qa0-f42.google.com with SMTP id j15so2527155qaq.1
-        for <netdev@vger.kernel.org>; Thu, 24 Jul 2014 00:07:39 -0700 (PDT)
-In-Reply-To: <alpine.DEB.2.02.1407162058200.2128@tomh.mtv.corp.google.com>
+Received: from mail-wi0-f169.google.com ([209.85.212.169]:49884 "EHLO
+	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934204AbaGXIIR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2014 04:08:17 -0400
+Received: by mail-wi0-f169.google.com with SMTP id n3so8709238wiv.0
+        for <netdev@vger.kernel.org>; Thu, 24 Jul 2014 01:08:13 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 17, 2014 at 7:14 AM, Tom Herbert <therbert@google.com> wrote:
-> This patch provides a Generic UDP Encapsulation receive path
-> using the XFRM framework (udp_encap_rcv).
->
-> This adds support for both direct encapsulation of IP protocols over
-> UDP. The bound destination port is used to map to an IP protocol.
-> This should support GRE over UDP encapsulation, see
-> http://tools.ietf.org/html/draft-yong-tsvwg-gre-in-udp-encap-02,
-> as will as the other IP tunneling protocols (IPIP, SIT).
->
-> Signed-off-by: Tom Herbert <therbert@google.com>
-> ---
->  include/net/gue.h |  49 +++++++++++++++++
->  net/ipv4/Kconfig  |  10 ++++
->  net/ipv4/Makefile |   1 +
->  net/ipv4/gue.c    | 159 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
->  4 files changed, 219 insertions(+)
->  create mode 100644 include/net/gue.h
->  create mode 100644 net/ipv4/gue.c
->
-> diff --git a/include/net/gue.h b/include/net/gue.h
-> new file mode 100644
-> index 0000000..86b91bc
-> --- /dev/null
-> +++ b/include/net/gue.h
-> @@ -0,0 +1,49 @@
-> +#ifndef __NET_GUE_H
-> +#define __NET_GUE_H
-> +
-> +#if defined(CONFIG_NET_GUE) || defined(CONFIG_NET_GUE_MODULE)
-> +
-> +#include <net/udp_tunnel.h>
-> +
-> +struct gue_port_cfg {
-> +       u8                      protocol;
-> +       struct udp_port_cfg     udp_config;
-> +};
-> +
-> +int gue_port_create(struct net *net, struct gue_port_cfg *cfg,
-> +                   struct socket **sockp);
-> +int gue_open_direct_port(unsigned short port, unsigned char proto,
-> +                        struct socket **sockp);
-> +void gue_close_port(struct socket *sock);
-> +
-> +/* Tunnel protocols can use GUE_TUNNEL_PARMS to set up per module static
-> + * variables that are used with the common GUE functions (open_gue_port,
-> + * close_gue_port).
-> + */
-> +#define GUE_TUNNEL_PARMS(name, default_port)                   \
-> +static int gue_udp_port = default_port;                                \
-> +module_param(gue_udp_port, int, 0);                            \
-> +MODULE_PARM_DESC(gue_udp_port, name "/UDP port");              \
-> +static struct socket *gue_sock;
-> +
-> +#define open_gue_port(proto)                                   \
-> +       (gue_udp_port ?                                         \
-> +        gue_open_direct_port(gue_udp_port, proto, &gue_sock) : \
-> +        0)
-> +
-> +#define close_gue_port() do {                                  \
-> +       if (gue_sock) {                                         \
-> +               gue_close_port(gue_sock);                       \
-> +               gue_sock = NULL;                                \
-> +       }                                                       \
-> +} while (0)
-> +
+From: Eric Dumazet <edumazet@google.com>
 
-Hi Tom,
+In "Counting Packets Sent Between Arbitrary Internet Hosts", Jeffrey and
+Jedidiah describe ways exploiting linux IP identifier generation to
+infer whether two machines are exchanging packets.
 
-So this is probably a similar feedback to the ioctls vs netlink
-comment from Dave...
+With commit 73f156a6e8c1 ("inetpeer: get rid of ip_id_count"), we
+changed IP id generation, but this does not really prevent this
+side-channel technique.
 
-I guess we agree that module params should be avoided when possible, right? so
-this even goes further to a template in a header file used by the
-caller modules to define
-their own module param...  should be (a non academic, I read your other comment)
-alternative here, I hope.
+This patch adds a random amount of perturbation so that IP identifiers
+for a given destination [1] are no longer monotonically increasing after
+an idle period.
 
-Or.
+Note that prandom_u32_max(1) returns 0, so if generator is used at most
+once per jiffy, this patch inserts no hole in the ID suite and do not
+increase collision probability.
 
-> +#else /* defined(CONFIG_NET_GUE) || defined(CONFIG_NET_GUE_MODULE) */
-> +
-> +#define GUE_TUNNEL_PARMS(name, default_port)
-> +#define open_gue_port(proto) (0)
-> +#define close_gue_port()
-> +
-> +#endif
-> +
-> +#endif
+This is jiffies based, so in the worst case (HZ=1000), the id can
+rollover after ~65 seconds of idle time, which should be fine.
+
+If I ping the patched target, we can see ID are now hard to predict.
+
+21:57:11.008086 IP (...)
+    A > target: ICMP echo request, seq 1, length 64
+21:57:11.010752 IP (... id 2081 ...)
+    target > A: ICMP echo reply, seq 1, length 64
+
+21:57:12.013133 IP (...)
+    A > target: ICMP echo request, seq 2, length 64
+21:57:12.015737 IP (... id 3039 ...)
+    target > A: ICMP echo reply, seq 2, length 64
+
+21:57:13.016580 IP (...)
+    A > target: ICMP echo request, seq 3, length 64
+21:57:13.019251 IP (... id 3437 ...)
+    target > A: ICMP echo reply, seq 3, length 64
+
+[1] TCP sessions uses a per flow ID generator not changed by this patch.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Reported-by: Jeffrey Knockel <jeffk@cs.unm.edu>
+Reported-by: Jedidiah R. Crandall <crandall@cs.unm.edu>
+Cc: Willy Tarreau <w@1wt.eu>
+---
+ include/net/ip.h |   11 +----------
+ net/ipv4/route.c |   27 +++++++++++++++++++++++++--
+ 2 files changed, 26 insertions(+), 12 deletions(-)
+
+diff --git a/include/net/ip.h b/include/net/ip.h
+index 0e795df05ec9..7596eb22e1ce 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -309,16 +309,7 @@ static inline unsigned int ip_skb_dst_mtu(const struct sk_buff *skb)
+ 	}
+ }
+ 
+-#define IP_IDENTS_SZ 2048u
+-extern atomic_t *ip_idents;
+-
+-static inline u32 ip_idents_reserve(u32 hash, int segs)
+-{
+-	atomic_t *id_ptr = ip_idents + hash % IP_IDENTS_SZ;
+-
+-	return atomic_add_return(segs, id_ptr) - segs;
+-}
+-
++u32 ip_idents_reserve(u32 hash, int segs);
+ void __ip_select_ident(struct iphdr *iph, int segs);
+ 
+ static inline void ip_select_ident_segs(struct sk_buff *skb, struct sock *sk, int segs)
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 3162ea923ded..2e9713a8966f 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -457,8 +457,31 @@ static struct neighbour *ipv4_neigh_lookup(const struct dst_entry *dst,
+ 	return neigh_create(&arp_tbl, pkey, dev);
+ }
+ 
+-atomic_t *ip_idents __read_mostly;
+-EXPORT_SYMBOL(ip_idents);
++#define IP_IDENTS_SZ 2048u
++struct ip_ident_bucket {
++	atomic_t	id;
++	u32		stamp32;
++};
++
++static struct ip_ident_bucket *ip_idents __read_mostly;
++
++/* In order to protect privacy, we add a perturbation to identifiers
++ * if one generator is seldom used. This makes hard for an attacker
++ * to infer how many packets were sent between two hosts.
++ */
++u32 ip_idents_reserve(u32 hash, int segs)
++{
++	struct ip_ident_bucket *bucket = ip_idents + hash % IP_IDENTS_SZ;
++	u32 old = ACCESS_ONCE(bucket->stamp32);
++	u32 now = (u32)jiffies;
++	u32 delta = 0;
++
++	if (old != now && cmpxchg(&bucket->stamp32, old, now) == old)
++		delta = prandom_u32_max(now - old);
++
++	return atomic_add_return(segs + delta, &bucket->id) - segs;
++}
++EXPORT_SYMBOL(ip_idents_reserve);
+ 
+ void __ip_select_ident(struct iphdr *iph, int segs)
+ {
