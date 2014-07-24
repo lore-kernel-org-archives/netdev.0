@@ -1,37 +1,110 @@
-From: Borislav Petkov <bp@alien8.de>
-Subject: Re: 3.16-rc6+: r8169 fresh new irq lock inversion
-Date: Thu, 24 Jul 2014 11:05:10 +0200
-Message-ID: <20140724090510.GD19239@pd.tnic>
-References: <20140722081840.GA6462@pd.tnic>
- <0835B3720019904CB8F7AA43166CEEB2510016@RTITMBSV03.realtek.com.tw>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v8] bfin_mac: convert bfin Ethernet driver to NAPI
+ framework
+Date: Thu, 24 Jul 2014 11:13:31 +0200
+Message-ID: <1406193211.3363.69.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1406191171-9203-1-git-send-email-sonic.adi@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: nic_swsd <nic_swsd@realtek.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>
-To: Hayes Wang <hayeswang@realtek.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <0835B3720019904CB8F7AA43166CEEB2510016@RTITMBSV03.realtek.com.tw>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	adi-buildroot-devel@lists.sourceforge.net,
+	Sonic Zhang <sonic.zhang@analog.com>
+To: Sonic Zhang <sonic.adi@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f176.google.com ([74.125.82.176]:36996 "EHLO
+	mail-we0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751549AbaGXJNw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2014 05:13:52 -0400
+Received: by mail-we0-f176.google.com with SMTP id q58so2352129wes.7
+        for <netdev@vger.kernel.org>; Thu, 24 Jul 2014 02:13:49 -0700 (PDT)
+In-Reply-To: <1406191171-9203-1-git-send-email-sonic.adi@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 24, 2014 at 09:01:27AM +0000, Hayes Wang wrote:
-> I have no idea about why you see the messages.  I don't think
-> the patches which submitted previously for r8169.c  would cause
-> the problem. Although I have submitted some patches about IPv6,
-> the hw checksum should be off by default. That is, the behavior
-> should be the same with the previous one.
+On Thu, 2014-07-24 at 16:39 +0800, Sonic Zhang wrote:
+> From: Sonic Zhang <sonic.zhang@analog.com>
+> 
+> Ethernet RX DMA buffers are polled in NAPI work queue other than received
+> directly in DMA RX interrupt handler.
+> 
 
-Yeah, the culprit might be somewhere else, follow this thread:
 
-https://lkml.kernel.org/r/20140723095327.GA23131@pd.tnic
+> ---
+>  drivers/net/ethernet/adi/bfin_mac.c | 79 +++++++++++++++++++++++--------------
+>  drivers/net/ethernet/adi/bfin_mac.h |  3 ++
+>  2 files changed, 52 insertions(+), 30 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
+> index 7ae74d4..c1f04aa 100644
+> --- a/drivers/net/ethernet/adi/bfin_mac.c
+> +++ b/drivers/net/ethernet/adi/bfin_mac.c
+> @@ -1218,11 +1218,11 @@ out:
+>  #define RX_ERROR_MASK (RX_LONG | RX_ALIGN | RX_CRC | RX_LEN | \
+>  	RX_FRAG | RX_ADDR | RX_DMAO | RX_PHY | RX_LATE | RX_RANGE)
+>  
+> -static void bfin_mac_rx(struct net_device *dev)
+> +static void bfin_mac_rx(struct bfin_mac_local *lp, int budget)
 
-Thanks for taking a look anyway though.
+budget is not used in this function. (I already mentioned this)
 
--- 
-Regards/Gruss,
-    Boris.
+>  {
+> +	struct net_device *dev = lp->ndev;
+>  	struct sk_buff *skb, *new_skb;
+>  	unsigned short len;
+> -	struct bfin_mac_local *lp __maybe_unused = netdev_priv(dev);
+>  #if defined(BFIN_MAC_CSUM_OFFLOAD)
+>  	unsigned int i;
+>  	unsigned char fcs[ETH_FCS_LEN + 1];
+> @@ -1256,7 +1256,7 @@ static void bfin_mac_rx(struct net_device *dev)
+>  	current_rx_ptr->skb = new_skb;
+>  	current_rx_ptr->desc_a.start_addr = (unsigned long)new_skb->data - 2;
+>  
+> -	len = (unsigned short)((current_rx_ptr->status.status_word) & RX_FRLEN);
+> +	len = (unsigned short)(current_rx_ptr->status.status_word & RX_FRLEN);
+>  	/* Deduce Ethernet FCS length from Ethernet payload length */
+>  	len -= ETH_FCS_LEN;
+>  	skb_put(skb, len);
+> @@ -1294,7 +1294,8 @@ static void bfin_mac_rx(struct net_device *dev)
+>  	}
+>  #endif
+>  
+> -	netif_rx(skb);
+> +	napi_gro_receive(&lp->napi, skb);
+> +
+>  	dev->stats.rx_packets++;
+>  	dev->stats.rx_bytes += len;
+>  out:
+> @@ -1302,41 +1303,52 @@ out:
+>  	current_rx_ptr = current_rx_ptr->next;
+>  }
 
-Sent from a fat crate under my desk. Formatting is fine.
---
+
+> +	if ((status & DMA_DONE)) {
+> +		disable_irq_nosync(IRQ_MAC_RX);
+> +		set_bit(BFIN_MAC_RX_IRQ_DISABLED, &lp->flags);
+> +		napi_schedule(&lp->napi);
+>  	}
+
+	No need for extra ()
+
+	if (status & DMA_DONE) {
+		...
+
+
+
+>+       netif_napi_add(ndev, &lp->napi, bfin_mac_poll, CONFIG_BFIN_RX_DESC_NUM);
+
+
+I already gave a feedback on this. Could you address it ?
+
+Have you checked kernel log ?
+
+You should have hit :
+
+        if (weight > NAPI_POLL_WEIGHT)
+                pr_err_once("netif_napi_add() called with weight %d on device %s\n",
+                            weight, dev->name);
+
+This is because CONFIG_BFIN_RX_DESC_NUM is 100, while NAPI_POLL_WEIGHT is 64.
