@@ -1,70 +1,112 @@
-From: Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>
-Subject: RE: [PATCH RESEND] bnx2x: fix crash during TSO tunneling
-Date: Thu, 24 Jul 2014 21:48:34 +0000
-Message-ID: <87B4DDAD5EAFA041BDC28F314593782D01802C27@avmb3.qlogic.org>
-References: <1406217287-4069-1-git-send-email-Dmitry.Kravkov@qlogic.com>
- <1406219874.3363.71.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: [net-next 00/10] Add Geneve
+Date: Thu, 24 Jul 2014 15:03:52 -0700
+Message-ID: <CA+mtBx9QK9i7rC+AHXGRE4eB1nFexTTstKQwR5mz+4nj+3Hb=Q@mail.gmail.com>
+References: <1406024393-6778-1-git-send-email-azhou@nicira.com>
+	<CAJZOPZ+APJZsECj3D_rFFPw82k3u6jgkbGzYnwaVmTUcrH5xiQ@mail.gmail.com>
+	<CA+mtBx95N+6Z+CzkAc-YD+Yx7_PVVLzC_t_P0=2M51fSFsS3Aw@mail.gmail.com>
+	<CACzMAJKyXaO0CL5XOnH7cHOk3voz_shVaK6Jmd0mx0h2NBtn-w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset=UTF-8
+Cc: Or Gerlitz <or.gerlitz@gmail.com>,
 	David Miller <davem@davemloft.net>,
-	"ypei@redhat.com" <ypei@redhat.com>,
-	"mschmidt@redhat.com" <mschmidt@redhat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Dmitry Kravkov <dkravkov@gmail.com>
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Andy Zhou <azhou@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:25883 "EHLO
-	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759638AbaGXVsk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2014 17:48:40 -0400
-In-Reply-To: <1406219874.3363.71.camel@edumazet-glaptop2.roam.corp.google.com>
-Content-Language: en-US
+Received: from mail-ig0-f177.google.com ([209.85.213.177]:55313 "EHLO
+	mail-ig0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750795AbaGXWDw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2014 18:03:52 -0400
+Received: by mail-ig0-f177.google.com with SMTP id hn18so29162igb.10
+        for <netdev@vger.kernel.org>; Thu, 24 Jul 2014 15:03:52 -0700 (PDT)
+In-Reply-To: <CACzMAJKyXaO0CL5XOnH7cHOk3voz_shVaK6Jmd0mx0h2NBtn-w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IEVyaWMgRHVtYXpldCBbbWFp
-bHRvOmVyaWMuZHVtYXpldEBnbWFpbC5jb21dDQo+IFNlbnQ6IFRodXJzZGF5LCBKdWx5IDI0LCAy
-MDE0IDc6MzggUE0NCj4gVG86IERtaXRyeSBLcmF2a292DQo+IENjOiBuZXRkZXY7IERhdmlkIE1p
-bGxlcjsgeXBlaUByZWRoYXQuY29tOyBtc2NobWlkdEByZWRoYXQuY29tOyBEbWl0cnkNCj4gS3Jh
-dmtvdg0KPiBTdWJqZWN0OiBSZTogW1BBVENIIFJFU0VORF0gYm54Mng6IGZpeCBjcmFzaCBkdXJp
-bmcgVFNPIHR1bm5lbGluZw0KPiANCj4gT24gVGh1LCAyMDE0LTA3LTI0IGF0IDE4OjU0ICswMzAw
-LCBEbWl0cnkgS3JhdmtvdiB3cm90ZToNCj4gPiBGcm9tOiBEbWl0cnkgS3JhdmtvdiA8RG1pdHJ5
-LktyYXZrb3ZAcWxvZ2ljLmNvbT4NCj4gPg0KPiA+IFdoZW4gVFNPIHBhY2tldCBpcyB0cmFuc21p
-dHRlZCBhZGRpdGlvbmFsIEJEIHcvbyBtYXBwaW5nIGlzIHVzZWQgdG8NCj4gPiBkZXNjcmliZSB0
-aGUgcGFja2VkLiBUaGUgQkQgbmVlZHMgc3BlY2lhbCBoYW5kbGluZyBpbiB0eCBjb21wbGV0aW9u
-Lg0KPiA+DQo+ID4ga2VybmVsOiBDYWxsIFRyYWNlOg0KPiA+IGtlcm5lbDogPElSUT4gIFs8ZmZm
-ZmZmZmY4MTVlMTliYT5dIGR1bXBfc3RhY2srMHgxOS8weDFiDQo+ID4ga2VybmVsOiBbPGZmZmZm
-ZmZmODEwNWRlZTE+XSB3YXJuX3Nsb3dwYXRoX2NvbW1vbisweDYxLzB4ODANCj4gPiBrZXJuZWw6
-IFs8ZmZmZmZmZmY4MTA1ZGY1Yz5dIHdhcm5fc2xvd3BhdGhfZm10KzB4NWMvMHg4MA0KPiA+IGtl
-cm5lbDogWzxmZmZmZmZmZjgxNGE4YzBkPl0gPyBmaW5kX2lvdmErMHg0ZC8weDkwDQo+ID4ga2Vy
-bmVsOiBbPGZmZmZmZmZmODE0YWIwZTI+XSBpbnRlbF91bm1hcF9wYWdlLnBhcnQuMzYrMHgxNDIv
-MHgxNjANCj4gPiBrZXJuZWw6IFs8ZmZmZmZmZmY4MTRhZDBlNj5dIGludGVsX3VubWFwX3BhZ2Ur
-MHgyNi8weDMwDQo+ID4ga2VybmVsOiBbPGZmZmZmZmZmYTAxZjU1ZDc+XSBibngyeF9mcmVlX3R4
-X3BrdCsweDE1Ny8weDJiMCBbYm54MnhdDQo+ID4ga2VybmVsOiBbPGZmZmZmZmZmYTAxZjhkYWM+
-XSBibngyeF90eF9pbnQrMHhhYy8weDIyMCBbYm54MnhdDQo+ID4ga2VybmVsOiBbPGZmZmZmZmZm
-ODEwMWEwZDk+XSA/IHJlYWRfdHNjKzB4OS8weDIwDQo+ID4ga2VybmVsOiBbPGZmZmZmZmZmYTAx
-ZjhmZGI+XSBibngyeF9wb2xsKzB4YmIvMHgzYzAgW2JueDJ4XQ0KPiA+IGtlcm5lbDogWzxmZmZm
-ZmZmZjgxNGQwNDFhPl0gbmV0X3J4X2FjdGlvbisweDE1YS8weDI1MA0KPiA+IGtlcm5lbDogWzxm
-ZmZmZmZmZjgxMDY3MDQ3Pl0gX19kb19zb2Z0aXJxKzB4ZjcvMHgyOTANCj4gPiBrZXJuZWw6IFs8
-ZmZmZmZmZmY4MTVmM2E1Yz5dIGNhbGxfc29mdGlycSsweDFjLzB4MzANCj4gPiBrZXJuZWw6IFs8
-ZmZmZmZmZmY4MTAxNGQyNT5dIGRvX3NvZnRpcnErMHg1NS8weDkwDQo+ID4ga2VybmVsOiBbPGZm
-ZmZmZmZmODEwNjczZTU+XSBpcnFfZXhpdCsweDExNS8weDEyMA0KPiA+IGtlcm5lbDogWzxmZmZm
-ZmZmZjgxNWY0MzU4Pl0gZG9fSVJRKzB4NTgvMHhmMA0KPiA+IGtlcm5lbDogWzxmZmZmZmZmZjgx
-NWU5NGFkPl0gY29tbW9uX2ludGVycnVwdCsweDZkLzB4NmQNCj4gPiBrZXJuZWw6IDxFT0k+ICBb
-PGZmZmZmZmZmODEwYmJmZjc+XSA/IGNsb2NrZXZlbnRzX25vdGlmeSsweDEyNy8weDE0MA0KPiA+
-IGtlcm5lbDogWzxmZmZmZmZmZjgxNDgzNGRmPl0gPyBjcHVpZGxlX2VudGVyX3N0YXRlKzB4NGYv
-MHhjMA0KPiA+IGtlcm5lbDogWzxmZmZmZmZmZjgxNDgzNjE1Pl0gY3B1aWRsZV9pZGxlX2NhbGwr
-MHhjNS8weDIwMA0KPiA+IGtlcm5lbDogWzxmZmZmZmZmZjgxMDFiYzdlPl0gYXJjaF9jcHVfaWRs
-ZSsweGUvMHgzMA0KPiA+IGtlcm5lbDogWzxmZmZmZmZmZjgxMGI0NzI1Pl0gY3B1X3N0YXJ0dXBf
-ZW50cnkrMHhmNS8weDI5MA0KPiA+IGtlcm5lbDogWzxmZmZmZmZmZjgxNWNmZWUxPl0gc3RhcnRf
-c2Vjb25kYXJ5KzB4MjY1LzB4MjdiDQo+ID4ga2VybmVsOiAtLS1bIGVuZCB0cmFjZSAxMWFhNzcy
-NmYxOGQ3ZTgwIF0tLS0NCj4gPg0KPiA+IFJlcG9ydGVkLWJ5OiBZdWxvbmcgUGVpIDx5cGVpQHJl
-ZGhhdC5jb20+DQo+ID4gQ2M6IE1pY2hhbCBTY2htaWR0IDxtc2NobWlkdEByZWRoYXQuY29tPg0K
-PiA+IFNpZ25lZC1vZmYtYnk6IERtaXRyeSBLcmF2a292IDxEbWl0cnkuS3JhdmtvdkBxbG9naWMu
-Y29tPg0KPiA+IC0tLQ0KPiANCj4gSG93IG9sZCBpcyB0aGlzIGJ1ZyA/IENhbiB5b3UgcG9pbnQg
-b3JpZ2luYWwgY29tbWl0IGFkZGluZyBpdCA/DQo+IA0KPiBUaGFua3MgIQ0KPg0KQWRkZWQgd2l0
-aCBpbml0aWFsIFRTTyBzdXBwb3J0IGZvciB0dW5uZWxpbmcgYmFjayBpbiAzLjEwIHdpdGgNCmE4
-NDhhZGU0MDhiNmJmYWI1OWQ1NzVkNmMyNDZlZmIyMGFmZTg4ZTMgDQoiYm54Mng6IGFkZCBDU1VN
-IGFuZCBUU08gc3VwcG9ydCBmb3IgZW5jYXBzdWxhdGlvbiBwcm90b2NvbHMiDQphbmQgY2FuIGJl
-IHNlZW4gb25seSB3aXRoICpfaW9tbXU9b24NCiANCg0K
+On Thu, Jul 24, 2014 at 2:03 PM, Andy Zhou <azhou@nicira.com> wrote:
+> @or.gerlitz@gmail.com:  Yes, this is the logical order of the patch
+> series. I can improve the cover letter to make it clearer.
+>
+Please send patches in two different patch sets.
+
+>
+> @therbert@google.com: I will add L2TP refactor to the series in the
+> next version. Given that port number and associated protocol is still
+> required
+> by NIC device driver for advanced offloads, we may still need to
+> define the protocol types. Are you O.K. with this, if not, any other
+> suggestions?
+>
+If you really need this, then put the constants for this should moved
+this to their own header file. Also, something needs to be added to
+the hw_features to have control over the feature-- for instance if I
+discovered that my VXLAN device was incorrectly ignoring UDP
+checksums, I'd want the ability to turn off checksum offload of VXLAN
+without needing to disable checksum offload for everyone else. I'm not
+sure what goes into features since what the device actually does with
+port seems undefined, maybe the features would be purposely generic
+(e.g. NETIF_F_VXLAN_RX_PARSING). Also, we should not blindly be
+telling devices port information for things it doesn't support or need
+to know about, to do so would be a security risk.
+
+Also, L2TP (and probably LISP) are interesting use cases since
+encapsulated protocol does not appear in the header and can only be
+determined from the tunnel context. Telling devices about L2TP ports
+probably isn't enough to do anything meaningful.
+
+> On Thu, Jul 24, 2014 at 10:40 AM, Tom Herbert <therbert@google.com> wrote:
+>> On Wed, Jul 23, 2014 at 11:58 PM, Or Gerlitz <or.gerlitz@gmail.com> wrote:
+>>> On Tue, Jul 22, 2014 at 1:19 PM, Andy Zhou <azhou@nicira.com> wrote:
+>>>> Following patches adds initial support for Geneve tunnel protocol
+>>>
+>>> Just to make this a bit more clear, would it be correct to say that
+>>> the logical ordering here is as follows:
+>>>
+>> Agreed, improvements to the general infrastructure to support UDP
+>> tunneling should be done first. This was already begun with
+>> introduction of udp_tunnel.[ch] and the udp_tunnel_xmit functions seem
+>> like a nice addition at least.
+>>
+>> Also, we have at least two instances of UDP tunneling in the code that
+>> should addressed when interface improvements: VXLAN and L2TP. Please
+>> make sure *both* of these are considered with such patches (also the
+>> needs for Geneve, GUE, LISP, etc. should be considered, but please no
+>> protocol specific stuff in the common infrastructure code!)
+>>
+>>>> 1. Add common UDP tunnel code into UDP tunnel support function
+>>>> 2. Refactor vxlan driver to make use of the UDP tunnel support
+>>>> 3. Add Geneve driver.
+>>>
+>>> implemented by patches 1-5 below)
+>>>
+>>>> Andy Zhou (5):
+>>>>   net: Rename ndo_add_vxlan_port to ndo_add_udp_tunnel_port.
+>>>>   udp: Expand UDP tunnel common APIs
+>>>>   vxlan: Remove vxlan_get_rx_port()
+>>>>   net: Refactor vxlan driver to make use of common UDP tunnel functions
+>>>>   net: Add Geneve tunneling protocol driver
+>>>
+>>> and on top of that
+>>>
+>>>> 4. Refactor Openvswitch  in preparation for #5
+>>>> 5. Add Geneve support to Openvswitch.
+>>>
+>>> implemented by patches 6-10 (below)
+>>>
+>>>> Jesse Gross (5):
+>>>>   openvswitch: Eliminate memset() from flow_extract.
+>>>>   openvswitch: Add support for matching on OAM packets.
+>>>>   openvswitch: Wrap struct ovs_key_ipv4_tunnel in a new structure.
+>>>>   openvswitch: Factor out allocation and verification of actions.
+>>>>   openvswitch: Add support for Geneve tunneling.
+>>>
+>>> I understand the wish to eventually have something that goes beyond
+>>> refactoring of
+>>> the vxlan and tunneling code plus Geneve basics. However, isn't the
+>>> 1st part of the series
+>>> (patches 1-5) have something is common to Tom's GUE work, which is
+>>> currently under review
+>>> too? I think we need first see how the basic elements from your series
+>>> go along together with GUE.
+>>>
+>>> Or.
