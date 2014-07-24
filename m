@@ -1,54 +1,55 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH net-next v3 1/5] net-timestamp: extend SCM_TIMESTAMPING
- ancillary data struct
-Date: Thu, 24 Jul 2014 19:05:14 -0400
-Message-ID: <CA+FuTSfm_WXtFYDeUNspN4=VNAAaQRxe2mvUYDD9Ho-yqJt8GA@mail.gmail.com>
-References: <CA+FuTScobCk5EFgsht=S0mfF4fVh1fKqAAV8+mZLk9h1O_uwnA@mail.gmail.com>
- <20140723.211256.2143360320648788946.davem@davemloft.net> <CA+FuTSfMzbvGAM--LmB6i1R5cGZchmQqMNYkbcQGBn6jRAWG9A@mail.gmail.com>
- <20140724.141528.1823901044834131393.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/7] Backport to stable-3.4 for fix CVE-2014-0181
+Date: Thu, 24 Jul 2014 16:06:13 -0700 (PDT)
+Message-ID: <20140724.160613.1238251785577893186.davem@davemloft.net>
+References: <1405650086-58596-1-git-send-email-wangyufen@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	Richard Cochran <richardcochran@gmail.com>,
-	Chad Reese <kreese@caviumnetworks.com>,
-	ddaney@caviumnetworks.com
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: wangyufen@huawei.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f171.google.com ([209.85.220.171]:32893 "EHLO
-	mail-vc0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751164AbaGXXFq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2014 19:05:46 -0400
-Received: by mail-vc0-f171.google.com with SMTP id hq11so6221852vcb.2
-        for <netdev@vger.kernel.org>; Thu, 24 Jul 2014 16:05:45 -0700 (PDT)
-In-Reply-To: <20140724.141528.1823901044834131393.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55500 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755965AbaGXXGQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2014 19:06:16 -0400
+In-Reply-To: <1405650086-58596-1-git-send-email-wangyufen@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->> That does not address legacy application dependencies on syststamp.
->> Even with a PTP device, it is unclear whether anyone would invest time
->> to convert their application to use it. The most relevant code I could
->> find is cavium ptp-1588v2 on github. That configures SO_TIMESTAMPING
->> to generate both raw + sys tstamps and preferentially reads the first.
->> If this is the only known octeon timestamping user, then it would be
->> just as safe to simply remove syststamp.
->
-> The kernel would simply saw that adjusted HW timestamps are not
-> supported, the application has to accomodate the possibility of
-> needing to use one of the other timestamping flavors.
+From: Wangyufen <wangyufen@huawei.com>
+Date: Fri, 18 Jul 2014 10:21:19 +0800
 
-Cavium's PTP library already programs the device PTP clock,
-just not through the standard interface. It appears to map the
-memory addresses CVMX_MIO_.. directly. In any case, it
-will gracefully handle the loss of syststamp.
+> This backport fix CVE-2014-0181 which would still be vulnerable in
+> stable-3.4, please add it.
+> 
+> patchset from 5187cd055b6e to 90f62cf30a78 fixed CVE-2014-0181,
+> which can't backport to stable-3.4 directly, 
+> 
+> Those three patches are needed:
+> commit 935d8aabd4331f47a89c3e1daa5779d23cf244ee 
+> commit 038e7332b8d4c0629a2965e3ede1a92e8e427bd6
+> commit 3fbc290540a1ed1a8a076ed8f53bee7a38a9f408 
+> 
+> and this patch is unneeded:
+> commit a53b72c83a4216f2eb883ed45a0cbce014b8e62d
 
-I doubt that there are other users of this Octeon interface, but
-if so, they can reasonably be expected to do the same and
-rely on the same legacy Octeon PTP clock interface +
-hwtstamp as alternative. Is that enough justification to remove
-syststamp without patching the driver to implement
-ptp_clock_info?
+Unfortunately this backport has two very serious problems.
 
-Cleanup would be two patches: one to revert the relevant
-code in the octeon driver (mostly, ptp_to_ktime), and a
-follow-up to remove the core code now that the last user
-is gone.
+1) The From: is set to you for each patch, but you are not the author
+   of these patches.  Most of them are written by Eric Biederman and
+   one is written by Linus Torvalds.
+
+   Having to do some backporting when putting together some -stable
+   submissions does not mean you can just usurp authorship from the
+   person who wrote the original change.
+
+2) You failed to include the patch:
+
+	commit 2d7a85f4b06e9c27ff629f07a524c48074f07f81
+	Author: Eric W. Biederman <ebiederm@xmission.com>
+	Date:   Fri May 30 11:04:00 2014 -0700
+
+	    netlink: Only check file credentials for implicit destinations
+
+   which fixes this series to not break applications like Zebra.
