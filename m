@@ -1,35 +1,46 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [PATCH net] ip: make IP identifiers less predictable
-Date: Thu, 24 Jul 2014 11:21:09 -0700
-Message-ID: <CA+55aFyCDNq3E+bZ3aPfS33w8mA_86J+cNWR5V6fdogNihSh2Q@mail.gmail.com>
-References: <1406189276.3363.63.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+Subject: Re: [PATCH RFC v2 net-next 10/16] bpf: add eBPF verifier
+Date: Thu, 24 Jul 2014 11:25:23 -0700
+Message-ID: <CALCETrUt1yLXTt5pDZJd0s4s+4dhs0LB7tbJYd6p1+EbdNWw7w@mail.gmail.com>
+References: <1405657206-12060-1-git-send-email-ast@plumgrid.com> <1405657206-12060-11-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Jeffrey Knockel <jeffk@cs.unm.edu>,
-	"Jedidiah R. Crandall" <crandall@cs.unm.edu>,
-	Willy Tarreau <w@1wt.eu>,
-	"security@kernel.org" <security@kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f171.google.com ([209.85.220.171]:49916 "EHLO
-	mail-vc0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933391AbaGXSVK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2014 14:21:10 -0400
-Received: by mail-vc0-f171.google.com with SMTP id hq11so5602010vcb.30
-        for <netdev@vger.kernel.org>; Thu, 24 Jul 2014 11:21:09 -0700 (PDT)
-In-Reply-To: <1406189276.3363.63.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1405657206-12060-11-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 24, 2014 at 1:07 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->
-> This patch adds a random amount of perturbation so that IP identifiers
-> for a given destination [1] are no longer monotonically increasing after
-> an idle period.
+On Thu, Jul 17, 2014 at 9:20 PM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
+> Safety of eBPF programs is statically determined by the verifier, which detects:
+> - loops
+> - out of range jumps
+> - unreachable instructions
+> - invalid instructions
+> - uninitialized register access
+> - uninitialized stack access
+> - misaligned stack access
+> - out of range stack access
+> - invalid calling convention
 
-This certainly looks good to me. It would be good to have actual
-testing by Jeffrey &al, but this seems simple and complete.
+Is there something that documents exactly what conditions an eBPF
+program must satisfy in order to be considered valid?
 
-            Linus
+--Andy
