@@ -1,66 +1,48 @@
 From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next v9 2/5] openvswitch: Enable tunnel GSO for OVS bridge.
-Date: Thu, 24 Jul 2014 14:39:44 -0700
-Message-ID: <1406237984-1659-1-git-send-email-pshelar@nicira.com>
-Cc: netdev@vger.kernel.org, Pravin B Shelar <pshelar@nicira.com>
+Subject: [PATCH net-next v9 3/5] openvswitch: Avoid memory corruption in queue_userspace_packet()
+Date: Thu, 24 Jul 2014 14:39:54 -0700
+Message-ID: <1406237994-1688-1-git-send-email-pshelar@nicira.com>
+Cc: netdev@vger.kernel.org, Andy Zhou <azhou@nicira.com>,
+	Pravin B Shelar <pshelar@nicira.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog132.obsmtp.com ([74.125.149.250]:54384 "HELO
-	na3sys009aog132.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S933349AbaGXVjw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2014 17:39:52 -0400
-Received: by mail-pa0-f51.google.com with SMTP id ey11so4757669pad.10
-        for <netdev@vger.kernel.org>; Thu, 24 Jul 2014 14:39:51 -0700 (PDT)
+Received: from na3sys009aog133.obsmtp.com ([74.125.149.82]:36413 "HELO
+	na3sys009aog133.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S933349AbaGXVkA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2014 17:40:00 -0400
+Received: by mail-pa0-f47.google.com with SMTP id kx10so4707259pab.6
+        for <netdev@vger.kernel.org>; Thu, 24 Jul 2014 14:39:56 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Following patch enables all available tunnel GSO features for OVS
-bridge device so that ovs can use hardware offloads available to
-underling device.
+From: Andy Zhou <azhou@nicira.com>
 
+In queue_userspace_packet(), the ovs_nla_put_flow return value is
+not checked. This is fine as long as key_attr_size() returns the
+correct value. In case it does not, the current code may corrupt buffer
+memory. Add a run time assertion catch this case to avoid silent
+failure.
+
+Reported-by: Ben Pfaff <blp@nicira.com>
+Signed-off-by: Andy Zhou <azhou@nicira.com>
 Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
-Acked-by: Andy Zhou <azhou@nicira.com>
 ---
- include/linux/netdev_features.h      | 8 ++++++++
- net/openvswitch/vport-internal_dev.c | 5 ++++-
- 2 files changed, 12 insertions(+), 1 deletion(-)
+ net/openvswitch/datapath.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/include/linux/netdev_features.h b/include/linux/netdev_features.h
-index d99800c..dcfdecb 100644
---- a/include/linux/netdev_features.h
-+++ b/include/linux/netdev_features.h
-@@ -176,4 +176,12 @@ enum {
- 				 NETIF_F_HW_VLAN_STAG_RX | \
- 				 NETIF_F_HW_VLAN_STAG_TX)
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index 65a8e5c..3c461e1 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -464,7 +464,8 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
+ 	upcall->dp_ifindex = dp_ifindex;
  
-+#define NETIF_F_GSO_ENCAP_ALL	(NETIF_F_GSO_GRE |			\
-+				 NETIF_F_GSO_GRE_CSUM |			\
-+				 NETIF_F_GSO_IPIP |			\
-+				 NETIF_F_GSO_SIT |			\
-+				 NETIF_F_GSO_UDP_TUNNEL |		\
-+				 NETIF_F_GSO_UDP_TUNNEL_CSUM |		\
-+				 NETIF_F_GSO_MPLS)
-+
- #endif	/* _LINUX_NETDEV_FEATURES_H */
-diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
-index bd65855..8451612 100644
---- a/net/openvswitch/vport-internal_dev.c
-+++ b/net/openvswitch/vport-internal_dev.c
-@@ -140,11 +140,14 @@ static void do_setup(struct net_device *netdev)
- 	netdev->tx_queue_len = 0;
+ 	nla = nla_nest_start(user_skb, OVS_PACKET_ATTR_KEY);
+-	ovs_nla_put_flow(upcall_info->key, upcall_info->key, user_skb);
++	err = ovs_nla_put_flow(upcall_info->key, upcall_info->key, user_skb);
++	BUG_ON(err);
+ 	nla_nest_end(user_skb, nla);
  
- 	netdev->features = NETIF_F_LLTX | NETIF_F_SG | NETIF_F_FRAGLIST |
--			   NETIF_F_HIGHDMA | NETIF_F_HW_CSUM | NETIF_F_GSO_SOFTWARE;
-+			   NETIF_F_HIGHDMA | NETIF_F_HW_CSUM |
-+			   NETIF_F_GSO_SOFTWARE | NETIF_F_GSO_ENCAP_ALL;
- 
- 	netdev->vlan_features = netdev->features;
-+	netdev->hw_enc_features = netdev->features;
- 	netdev->features |= NETIF_F_HW_VLAN_CTAG_TX;
- 	netdev->hw_features = netdev->features & ~NETIF_F_LLTX;
-+
- 	eth_hw_addr_random(netdev);
- }
- 
+ 	if (upcall_info->userdata)
 -- 
 1.9.3
