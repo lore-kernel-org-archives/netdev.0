@@ -1,7 +1,7 @@
 From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH net-next 1/9] inet: frag: constify match, hashfn and constructor arguments
-Date: Thu, 24 Jul 2014 16:50:29 +0200
-Message-ID: <1406213437-6155-2-git-send-email-nikolay@redhat.com>
+Subject: [PATCH net-next 2/9] inet: frag: remove hash size assumptions from callers
+Date: Thu, 24 Jul 2014 16:50:30 +0200
+Message-ID: <1406213437-6155-3-git-send-email-nikolay@redhat.com>
 References: <1406213437-6155-1-git-send-email-nikolay@redhat.com>
 Cc: Florian Westphal <fw@strlen.de>,
 	Nikolay Aleksandrov <nikolay@redhat.com>,
@@ -14,9 +14,9 @@ Cc: Florian Westphal <fw@strlen.de>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52126 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:44845 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932975AbaGXOv7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S933322AbaGXOv7 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 24 Jul 2014 10:51:59 -0400
 In-Reply-To: <1406213437-6155-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
@@ -24,201 +24,145 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Florian Westphal <fw@strlen.de>
 
+hide actual hash size from individual users: The _find
+function will now fold the given hash value into the required range.
+
 Signed-off-by: Florian Westphal <fw@strlen.de>
 ---
- include/net/inet_frag.h                 | 11 ++++++-----
- include/net/ipv6.h                      |  4 ++--
- net/ieee802154/reassembly.c             | 14 +++++++-------
- net/ipv4/ip_fragment.c                  | 14 +++++++-------
- net/ipv6/netfilter/nf_conntrack_reasm.c |  2 +-
- net/ipv6/reassembly.c                   | 14 +++++++-------
- 6 files changed, 30 insertions(+), 29 deletions(-)
+ net/ieee802154/reassembly.c             | 12 ++++--------
+ net/ipv4/inet_fragment.c                | 13 ++++++++++---
+ net/ipv4/ip_fragment.c                  |  2 +-
+ net/ipv6/netfilter/nf_conntrack_reasm.c |  7 ++-----
+ net/ipv6/reassembly.c                   |  8 ++------
+ 5 files changed, 19 insertions(+), 23 deletions(-)
 
-diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
-index 6f59de98dabd..15033057d44e 100644
---- a/include/net/inet_frag.h
-+++ b/include/net/inet_frag.h
-@@ -71,10 +71,11 @@ struct inet_frags {
- 	u32			rnd;
- 	int			qsize;
- 
--	unsigned int		(*hashfn)(struct inet_frag_queue *);
--	bool			(*match)(struct inet_frag_queue *q, void *arg);
-+	unsigned int		(*hashfn)(const struct inet_frag_queue *);
-+	bool			(*match)(const struct inet_frag_queue *q,
-+					 const void *arg);
- 	void			(*constructor)(struct inet_frag_queue *q,
--						void *arg);
-+					       const void *arg);
- 	void			(*destructor)(struct inet_frag_queue *);
- 	void			(*skb_free)(struct sk_buff *);
- 	void			(*frag_expire)(unsigned long data);
-@@ -131,9 +132,9 @@ static inline void init_frag_mem_limit(struct netns_frags *nf)
- 	percpu_counter_init(&nf->mem, 0);
- }
- 
--static inline int sum_frag_mem_limit(struct netns_frags *nf)
-+static inline unsigned int sum_frag_mem_limit(struct netns_frags *nf)
- {
--	int res;
-+	unsigned int res;
- 
- 	local_bh_disable();
- 	res = percpu_counter_sum_positive(&nf->mem);
-diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index a25017247457..25c2170e1298 100644
---- a/include/net/ipv6.h
-+++ b/include/net/ipv6.h
-@@ -496,8 +496,8 @@ struct ip6_create_arg {
- 	u8 ecn;
- };
- 
--void ip6_frag_init(struct inet_frag_queue *q, void *a);
--bool ip6_frag_match(struct inet_frag_queue *q, void *a);
-+void ip6_frag_init(struct inet_frag_queue *q, const void *a);
-+bool ip6_frag_match(const struct inet_frag_queue *q, const void *a);
- 
- /*
-  *	Equivalent of ipv4 struct ip
 diff --git a/net/ieee802154/reassembly.c b/net/ieee802154/reassembly.c
-index b85bd3f7048e..a5588be18024 100644
+index a5588be18024..a707995fd4d7 100644
 --- a/net/ieee802154/reassembly.c
 +++ b/net/ieee802154/reassembly.c
-@@ -61,18 +61,18 @@ static unsigned int lowpan_hash_frag(__be16 tag, u16 d_size,
- 	return c & (INETFRAGS_HASHSZ - 1);
+@@ -50,15 +50,11 @@ static unsigned int lowpan_hash_frag(__be16 tag, u16 d_size,
+ 				     const struct ieee802154_addr *saddr,
+ 				     const struct ieee802154_addr *daddr)
+ {
+-	u32 c;
+-
+ 	net_get_random_once(&lowpan_frags.rnd, sizeof(lowpan_frags.rnd));
+-	c = jhash_3words(ieee802154_addr_hash(saddr),
+-			 ieee802154_addr_hash(daddr),
+-			 (__force u32)(tag + (d_size << 16)),
+-			 lowpan_frags.rnd);
+-
+-	return c & (INETFRAGS_HASHSZ - 1);
++	return jhash_3words(ieee802154_addr_hash(saddr),
++			    ieee802154_addr_hash(daddr),
++			    (__force u32)(tag + (d_size << 16)),
++			    lowpan_frags.rnd);
  }
  
--static unsigned int lowpan_hashfn(struct inet_frag_queue *q)
-+static unsigned int lowpan_hashfn(const struct inet_frag_queue *q)
+ static unsigned int lowpan_hashfn(const struct inet_frag_queue *q)
+diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+index 3b01959bf4bb..930d23870811 100644
+--- a/net/ipv4/inet_fragment.c
++++ b/net/ipv4/inet_fragment.c
+@@ -46,6 +46,12 @@ const u8 ip_frag_ecn_table[16] = {
+ };
+ EXPORT_SYMBOL(ip_frag_ecn_table);
+ 
++static unsigned int
++inet_frag_hashfn(const struct inet_frags *f, const struct inet_frag_queue *q)
++{
++	return f->hashfn(q) & (INETFRAGS_HASHSZ - 1);
++}
++
+ static void inet_frag_secret_rebuild(unsigned long dummy)
  {
--	struct lowpan_frag_queue *fq;
-+	const struct lowpan_frag_queue *fq;
+ 	struct inet_frags *f = (struct inet_frags *)dummy;
+@@ -63,7 +69,7 @@ static void inet_frag_secret_rebuild(unsigned long dummy)
  
- 	fq = container_of(q, struct lowpan_frag_queue, q);
- 	return lowpan_hash_frag(fq->tag, fq->d_size, &fq->saddr, &fq->daddr);
- }
+ 		hb = &f->hash[i];
+ 		hlist_for_each_entry_safe(q, n, &hb->chain, list) {
+-			unsigned int hval = f->hashfn(q);
++			unsigned int hval = inet_frag_hashfn(f, q);
  
--static bool lowpan_frag_match(struct inet_frag_queue *q, void *a)
-+static bool lowpan_frag_match(const struct inet_frag_queue *q, const void *a)
- {
--	struct lowpan_frag_queue *fq;
--	struct lowpan_create_arg *arg = a;
-+	const struct lowpan_frag_queue *fq;
-+	const struct lowpan_create_arg *arg = a;
+ 			if (hval != i) {
+ 				struct inet_frag_bucket *hb_dest;
+@@ -133,7 +139,7 @@ static inline void fq_unlink(struct inet_frag_queue *fq, struct inet_frags *f)
+ 	unsigned int hash;
  
- 	fq = container_of(q, struct lowpan_frag_queue, q);
- 	return	fq->tag == arg->tag && fq->d_size == arg->d_size &&
-@@ -80,10 +80,10 @@ static bool lowpan_frag_match(struct inet_frag_queue *q, void *a)
- 		ieee802154_addr_equal(&fq->daddr, arg->dst);
- }
+ 	read_lock(&f->lock);
+-	hash = f->hashfn(fq);
++	hash = inet_frag_hashfn(f, fq);
+ 	hb = &f->hash[hash];
  
--static void lowpan_frag_init(struct inet_frag_queue *q, void *a)
-+static void lowpan_frag_init(struct inet_frag_queue *q, const void *a)
- {
-+	const struct lowpan_create_arg *arg = a;
- 	struct lowpan_frag_queue *fq;
--	struct lowpan_create_arg *arg = a;
+ 	spin_lock(&hb->chain_lock);
+@@ -252,7 +258,7 @@ static struct inet_frag_queue *inet_frag_intern(struct netns_frags *nf,
+ 	 * the rnd seed, so we need to re-calculate the hash
+ 	 * chain. Fortunatelly the qp_in can be used to get one.
+ 	 */
+-	hash = f->hashfn(qp_in);
++	hash = inet_frag_hashfn(f, qp_in);
+ 	hb = &f->hash[hash];
+ 	spin_lock(&hb->chain_lock);
  
- 	fq = container_of(q, struct lowpan_frag_queue, q);
+@@ -326,6 +332,7 @@ struct inet_frag_queue *inet_frag_find(struct netns_frags *nf,
+ 	struct inet_frag_queue *q;
+ 	int depth = 0;
  
++	hash &= (INETFRAGS_HASHSZ - 1);
+ 	hb = &f->hash[hash];
+ 
+ 	spin_lock(&hb->chain_lock);
 diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-index ed32313e307c..586e6aaf9e6e 100644
+index 586e6aaf9e6e..b769eb6c83c0 100644
 --- a/net/ipv4/ip_fragment.c
 +++ b/net/ipv4/ip_fragment.c
-@@ -112,18 +112,18 @@ static unsigned int ipqhashfn(__be16 id, __be32 saddr, __be32 daddr, u8 prot)
- 			    ip4_frags.rnd) & (INETFRAGS_HASHSZ - 1);
+@@ -109,7 +109,7 @@ static unsigned int ipqhashfn(__be16 id, __be32 saddr, __be32 daddr, u8 prot)
+ 	net_get_random_once(&ip4_frags.rnd, sizeof(ip4_frags.rnd));
+ 	return jhash_3words((__force u32)id << 16 | prot,
+ 			    (__force u32)saddr, (__force u32)daddr,
+-			    ip4_frags.rnd) & (INETFRAGS_HASHSZ - 1);
++			    ip4_frags.rnd);
  }
  
--static unsigned int ip4_hashfn(struct inet_frag_queue *q)
-+static unsigned int ip4_hashfn(const struct inet_frag_queue *q)
- {
--	struct ipq *ipq;
-+	const struct ipq *ipq;
- 
- 	ipq = container_of(q, struct ipq, q);
- 	return ipqhashfn(ipq->id, ipq->saddr, ipq->daddr, ipq->protocol);
- }
- 
--static bool ip4_frag_match(struct inet_frag_queue *q, void *a)
-+static bool ip4_frag_match(const struct inet_frag_queue *q, const void *a)
- {
--	struct ipq *qp;
--	struct ip4_create_arg *arg = a;
-+	const struct ipq *qp;
-+	const struct ip4_create_arg *arg = a;
- 
- 	qp = container_of(q, struct ipq, q);
- 	return	qp->id == arg->iph->id &&
-@@ -133,14 +133,14 @@ static bool ip4_frag_match(struct inet_frag_queue *q, void *a)
- 		qp->user == arg->user;
- }
- 
--static void ip4_frag_init(struct inet_frag_queue *q, void *a)
-+static void ip4_frag_init(struct inet_frag_queue *q, const void *a)
- {
- 	struct ipq *qp = container_of(q, struct ipq, q);
- 	struct netns_ipv4 *ipv4 = container_of(q->net, struct netns_ipv4,
- 					       frags);
- 	struct net *net = container_of(ipv4, struct net, ipv4);
- 
--	struct ip4_create_arg *arg = a;
-+	const struct ip4_create_arg *arg = a;
- 
- 	qp->protocol = arg->iph->protocol;
- 	qp->id = arg->iph->id;
+ static unsigned int ip4_hashfn(const struct inet_frag_queue *q)
 diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
-index 0d5279fd852a..c2c3f2116bc5 100644
+index c2c3f2116bc5..607e4a94ef41 100644
 --- a/net/ipv6/netfilter/nf_conntrack_reasm.c
 +++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
-@@ -156,7 +156,7 @@ static unsigned int nf_hash_frag(__be32 id, const struct in6_addr *saddr,
+@@ -147,12 +147,9 @@ static inline u8 ip6_frag_ecn(const struct ipv6hdr *ipv6h)
+ static unsigned int nf_hash_frag(__be32 id, const struct in6_addr *saddr,
+ 				 const struct in6_addr *daddr)
+ {
+-	u32 c;
+-
+ 	net_get_random_once(&nf_frags.rnd, sizeof(nf_frags.rnd));
+-	c = jhash_3words(ipv6_addr_hash(saddr), ipv6_addr_hash(daddr),
+-			 (__force u32)id, nf_frags.rnd);
+-	return c & (INETFRAGS_HASHSZ - 1);
++	return jhash_3words(ipv6_addr_hash(saddr), ipv6_addr_hash(daddr),
++			    (__force u32)id, nf_frags.rnd);
  }
  
- 
--static unsigned int nf_hashfn(struct inet_frag_queue *q)
-+static unsigned int nf_hashfn(const struct inet_frag_queue *q)
- {
- 	const struct frag_queue *nq;
  
 diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
-index cc85a9ba5010..0c6932cc08cb 100644
+index 0c6932cc08cb..2b76549a1016 100644
 --- a/net/ipv6/reassembly.c
 +++ b/net/ipv6/reassembly.c
-@@ -94,18 +94,18 @@ static unsigned int inet6_hash_frag(__be32 id, const struct in6_addr *saddr,
- 	return c & (INETFRAGS_HASHSZ - 1);
+@@ -85,13 +85,9 @@ static int ip6_frag_reasm(struct frag_queue *fq, struct sk_buff *prev,
+ static unsigned int inet6_hash_frag(__be32 id, const struct in6_addr *saddr,
+ 				    const struct in6_addr *daddr)
+ {
+-	u32 c;
+-
+ 	net_get_random_once(&ip6_frags.rnd, sizeof(ip6_frags.rnd));
+-	c = jhash_3words(ipv6_addr_hash(saddr), ipv6_addr_hash(daddr),
+-			 (__force u32)id, ip6_frags.rnd);
+-
+-	return c & (INETFRAGS_HASHSZ - 1);
++	return jhash_3words(ipv6_addr_hash(saddr), ipv6_addr_hash(daddr),
++			    (__force u32)id, ip6_frags.rnd);
  }
  
--static unsigned int ip6_hashfn(struct inet_frag_queue *q)
-+static unsigned int ip6_hashfn(const struct inet_frag_queue *q)
- {
--	struct frag_queue *fq;
-+	const struct frag_queue *fq;
- 
- 	fq = container_of(q, struct frag_queue, q);
- 	return inet6_hash_frag(fq->id, &fq->saddr, &fq->daddr);
- }
- 
--bool ip6_frag_match(struct inet_frag_queue *q, void *a)
-+bool ip6_frag_match(const struct inet_frag_queue *q, const void *a)
- {
--	struct frag_queue *fq;
--	struct ip6_create_arg *arg = a;
-+	const struct frag_queue *fq;
-+	const struct ip6_create_arg *arg = a;
- 
- 	fq = container_of(q, struct frag_queue, q);
- 	return	fq->id == arg->id &&
-@@ -115,10 +115,10 @@ bool ip6_frag_match(struct inet_frag_queue *q, void *a)
- }
- EXPORT_SYMBOL(ip6_frag_match);
- 
--void ip6_frag_init(struct inet_frag_queue *q, void *a)
-+void ip6_frag_init(struct inet_frag_queue *q, const void *a)
- {
- 	struct frag_queue *fq = container_of(q, struct frag_queue, q);
--	struct ip6_create_arg *arg = a;
-+	const struct ip6_create_arg *arg = a;
- 
- 	fq->id = arg->id;
- 	fq->user = arg->user;
+ static unsigned int ip6_hashfn(const struct inet_frag_queue *q)
 -- 
 1.9.3
