@@ -1,118 +1,77 @@
 From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH net-next 2/9] gue: Support for Generic UDP Encapsulation
- RX path
-Date: Thu, 24 Jul 2014 10:28:13 -0700
-Message-ID: <CA+mtBx91rqPwufokwbRuB95txGiTt6Z9nMbGFD9oWF66iwR+Ww@mail.gmail.com>
-References: <alpine.DEB.2.02.1407162058200.2128@tomh.mtv.corp.google.com>
-	<CAJZOPZLLFjv6t-cz7EF9pg55VtVETQxXqbELBwkb9-=e56HCqg@mail.gmail.com>
+Subject: Re: [net-next 00/10] Add Geneve
+Date: Thu, 24 Jul 2014 10:40:04 -0700
+Message-ID: <CA+mtBx95N+6Z+CzkAc-YD+Yx7_PVVLzC_t_P0=2M51fSFsS3Aw@mail.gmail.com>
+References: <1406024393-6778-1-git-send-email-azhou@nicira.com>
+	<CAJZOPZ+APJZsECj3D_rFFPw82k3u6jgkbGzYnwaVmTUcrH5xiQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
+Cc: Andy Zhou <azhou@nicira.com>, David Miller <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 To: Or Gerlitz <or.gerlitz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f174.google.com ([209.85.223.174]:39173 "EHLO
-	mail-ie0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758866AbaGXR2O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2014 13:28:14 -0400
-Received: by mail-ie0-f174.google.com with SMTP id rp18so2593254iec.33
-        for <netdev@vger.kernel.org>; Thu, 24 Jul 2014 10:28:13 -0700 (PDT)
-In-Reply-To: <CAJZOPZLLFjv6t-cz7EF9pg55VtVETQxXqbELBwkb9-=e56HCqg@mail.gmail.com>
+Received: from mail-ie0-f169.google.com ([209.85.223.169]:58602 "EHLO
+	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932857AbaGXRkF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2014 13:40:05 -0400
+Received: by mail-ie0-f169.google.com with SMTP id rd18so2574120iec.14
+        for <netdev@vger.kernel.org>; Thu, 24 Jul 2014 10:40:04 -0700 (PDT)
+In-Reply-To: <CAJZOPZ+APJZsECj3D_rFFPw82k3u6jgkbGzYnwaVmTUcrH5xiQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 24, 2014 at 12:07 AM, Or Gerlitz <or.gerlitz@gmail.com> wrote:
+On Wed, Jul 23, 2014 at 11:58 PM, Or Gerlitz <or.gerlitz@gmail.com> wrote:
+> On Tue, Jul 22, 2014 at 1:19 PM, Andy Zhou <azhou@nicira.com> wrote:
+>> Following patches adds initial support for Geneve tunnel protocol
 >
-> On Thu, Jul 17, 2014 at 7:14 AM, Tom Herbert <therbert@google.com> wrote:
-> > This patch provides a Generic UDP Encapsulation receive path
-> > using the XFRM framework (udp_encap_rcv).
-> >
-> > This adds support for both direct encapsulation of IP protocols over
-> > UDP. The bound destination port is used to map to an IP protocol.
-> > This should support GRE over UDP encapsulation, see
-> > http://tools.ietf.org/html/draft-yong-tsvwg-gre-in-udp-encap-02,
-> > as will as the other IP tunneling protocols (IPIP, SIT).
-> >
-> > Signed-off-by: Tom Herbert <therbert@google.com>
-> > ---
-> >  include/net/gue.h |  49 +++++++++++++++++
-> >  net/ipv4/Kconfig  |  10 ++++
-> >  net/ipv4/Makefile |   1 +
-> >  net/ipv4/gue.c    | 159 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
-> >  4 files changed, 219 insertions(+)
-> >  create mode 100644 include/net/gue.h
-> >  create mode 100644 net/ipv4/gue.c
-> >
-> > diff --git a/include/net/gue.h b/include/net/gue.h
-> > new file mode 100644
-> > index 0000000..86b91bc
-> > --- /dev/null
-> > +++ b/include/net/gue.h
-> > @@ -0,0 +1,49 @@
-> > +#ifndef __NET_GUE_H
-> > +#define __NET_GUE_H
-> > +
-> > +#if defined(CONFIG_NET_GUE) || defined(CONFIG_NET_GUE_MODULE)
-> > +
-> > +#include <net/udp_tunnel.h>
-> > +
-> > +struct gue_port_cfg {
-> > +       u8                      protocol;
-> > +       struct udp_port_cfg     udp_config;
-> > +};
-> > +
-> > +int gue_port_create(struct net *net, struct gue_port_cfg *cfg,
-> > +                   struct socket **sockp);
-> > +int gue_open_direct_port(unsigned short port, unsigned char proto,
-> > +                        struct socket **sockp);
-> > +void gue_close_port(struct socket *sock);
-> > +
-> > +/* Tunnel protocols can use GUE_TUNNEL_PARMS to set up per module static
-> > + * variables that are used with the common GUE functions (open_gue_port,
-> > + * close_gue_port).
-> > + */
-> > +#define GUE_TUNNEL_PARMS(name, default_port)                   \
-> > +static int gue_udp_port = default_port;                                \
-> > +module_param(gue_udp_port, int, 0);                            \
-> > +MODULE_PARM_DESC(gue_udp_port, name "/UDP port");              \
-> > +static struct socket *gue_sock;
-> > +
-> > +#define open_gue_port(proto)                                   \
-> > +       (gue_udp_port ?                                         \
-> > +        gue_open_direct_port(gue_udp_port, proto, &gue_sock) : \
-> > +        0)
-> > +
-> > +#define close_gue_port() do {                                  \
-> > +       if (gue_sock) {                                         \
-> > +               gue_close_port(gue_sock);                       \
-> > +               gue_sock = NULL;                                \
-> > +       }                                                       \
-> > +} while (0)
-> > +
+> Just to make this a bit more clear, would it be correct to say that
+> the logical ordering here is as follows:
 >
-> Hi Tom,
->
-> So this is probably a similar feedback to the ioctls vs netlink
-> comment from Dave...
->
-> I guess we agree that module params should be avoided when possible, right? so
-> this even goes further to a template in a header file used by the
-> caller modules to define
-> their own module param...  should be (a non academic, I read your other comment)
-> alternative here, I hope.
->
-I'm not sure. The gue_port is a global property of the module and not
-link or device specific. My precedence is vxlan driver which has
-udp_port module parameter.
+Agreed, improvements to the general infrastructure to support UDP
+tunneling should be done first. This was already begun with
+introduction of udp_tunnel.[ch] and the udp_tunnel_xmit functions seem
+like a nice addition at least.
 
-> Or.
+Also, we have at least two instances of UDP tunneling in the code that
+should addressed when interface improvements: VXLAN and L2TP. Please
+make sure *both* of these are considered with such patches (also the
+needs for Geneve, GUE, LISP, etc. should be considered, but please no
+protocol specific stuff in the common infrastructure code!)
+
+>> 1. Add common UDP tunnel code into UDP tunnel support function
+>> 2. Refactor vxlan driver to make use of the UDP tunnel support
+>> 3. Add Geneve driver.
 >
-> > +#else /* defined(CONFIG_NET_GUE) || defined(CONFIG_NET_GUE_MODULE) */
-> > +
-> > +#define GUE_TUNNEL_PARMS(name, default_port)
-> > +#define open_gue_port(proto) (0)
-> > +#define close_gue_port()
-> > +
-> > +#endif
-> > +
-> > +#endif
+> implemented by patches 1-5 below)
+>
+>> Andy Zhou (5):
+>>   net: Rename ndo_add_vxlan_port to ndo_add_udp_tunnel_port.
+>>   udp: Expand UDP tunnel common APIs
+>>   vxlan: Remove vxlan_get_rx_port()
+>>   net: Refactor vxlan driver to make use of common UDP tunnel functions
+>>   net: Add Geneve tunneling protocol driver
+>
+> and on top of that
+>
+>> 4. Refactor Openvswitch  in preparation for #5
+>> 5. Add Geneve support to Openvswitch.
+>
+> implemented by patches 6-10 (below)
+>
+>> Jesse Gross (5):
+>>   openvswitch: Eliminate memset() from flow_extract.
+>>   openvswitch: Add support for matching on OAM packets.
+>>   openvswitch: Wrap struct ovs_key_ipv4_tunnel in a new structure.
+>>   openvswitch: Factor out allocation and verification of actions.
+>>   openvswitch: Add support for Geneve tunneling.
+>
+> I understand the wish to eventually have something that goes beyond
+> refactoring of
+> the vxlan and tunneling code plus Geneve basics. However, isn't the
+> 1st part of the series
+> (patches 1-5) have something is common to Tom's GUE work, which is
+> currently under review
+> too? I think we need first see how the basic elements from your series
+> go along together with GUE.
+>
+> Or.
