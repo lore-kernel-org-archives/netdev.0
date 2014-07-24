@@ -1,74 +1,62 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] gpio: extend gpiod_get*() with flags parameter
-Date: Thu, 24 Jul 2014 18:10:30 +0200
-Message-ID: <6059032.T3tqvLkWTo@wuerfel>
-References: <1406214298-20062-1-git-send-email-acourbot@nvidia.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [net-next 14/14] i40e: always print aqtx answer
+Date: Thu, 24 Jul 2014 11:42:30 -0700
+Message-ID: <1406227350.27221.63.camel@joe-AO725>
+References: <1406207604-31653-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1406207604-31653-15-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, Ulf Hansson <ulf.hansson@linaro.org>,
- Wolfram Sang <wsa@the-dreams.de>, linux-mmc@vger.kernel.org,
- Chris Ball <chris@printf.net>, dri-devel@lists.freedesktop.org,
- Liam Girdwood <lgirdwood@gmail.com>, Peter Ujfalusi <peter.ujfalusi@ti.com>,
- Laurent Pinchart <laurent.pinchart@ideasonboard.com>,
- Pavel Machek <pavel@ucw.cz>, Jiri Slaby <jslaby@suse.cz>, gnurou@gmail.com,
- Florian Fainelli <f.fainelli@gmail.com>, Samuel Ortiz <sameo@linux.intel.com>,
- Alexander Shiyan <shc_work@mail.ru>,
- Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
- Lee Jones <lee.jones@linaro.org>, Paul Handrigan <Paul.Handrigan@cirrus.com>,
- linux-iio@vger.kernel.org, linux-omap@vger.kernel.org,
- Tomi Valkeinen <tomi.valkeinen@ti.com>, Hans Verkuil <hans.verkuil@cisco.com>,
- linux-serial@vger.kernel.org, linux-input@vger.kernel.org,
- Jean-Christophe Plagniol-Villard <plagnioj@jcr
-To: Alexandre Courbot <acourbot@nvidia.com>
-Return-path: <dri-devel-bounces@lists.freedesktop.org>
-In-Reply-To: <1406214298-20062-1-git-send-email-acourbot@nvidia.com>
-List-Unsubscribe: <http://lists.freedesktop.org/mailman/options/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <http://lists.freedesktop.org/archives/dri-devel>
-List-Post: <mailto:dri-devel@lists.freedesktop.org>
-List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <http://lists.freedesktop.org/mailman/listinfo/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: dri-devel-bounces@lists.freedesktop.org
-Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, Shannon Nelson <shannon.nelson@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0012.hostedemail.com ([216.40.44.12]:54932 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S933349AbaGXSmf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2014 14:42:35 -0400
+In-Reply-To: <1406207604-31653-15-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 25 July 2014 00:04:58 Alexandre Courbot wrote:
-> I'm not sure how this could be applied harmlessly though - maybe through
-> a dedicated branch for -next? Problem is that a lot of new code is not
-> yet merged into mainline, and conflicts are very likely to occur. Linus,
-> do you have any suggestion as to how this can be done without blood being
-> spilled?
-
-There is a trick that we sometime use in this situation,
-though it has to be done carefully:
- 
-> diff --git a/Documentation/gpio/consumer.txt b/Documentation/gpio/consumer.txt
-> index 7ff30d2..a3fb1d7 100644
-> --- a/Documentation/gpio/consumer.txt
-> +++ b/Documentation/gpio/consumer.txt
-> @@ -29,13 +29,24 @@ gpiod_get() functions. Like many other kernel subsystems, gpiod_get() takes the
->  device that will use the GPIO and the function the requested GPIO is supposed to
->  fulfill:
->  
-> -       struct gpio_desc *gpiod_get(struct device *dev, const char *con_id)
-> +       struct gpio_desc *gpiod_get(struct device *dev, const char *con_id,
-> +                                   enum gpio_flags flags)
->  
+On Thu, 2014-07-24 at 06:13 -0700, Jeff Kirsher wrote:
+> From: Shannon Nelson <shannon.nelson@intel.com>
 > 
+> Sometimes the AQTX answer comes back with no data, but we still want to print
+> the descriptor that got written back.
+
+Maybe this does some reads from buffer beyond its size
+in i40e_debug_aq?  Is that always safe?
+
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_adminq.c b/drivers/net/ethernet/intel/i40e/i40e_adminq.c
+[]
+> @@ -889,11 +889,9 @@ i40e_status i40e_asq_send_command(struct i40e_hw *hw,
+>  		hw->aq.asq_last_status = (enum i40e_admin_queue_err)retval;
+>  	}
+>  
+> -	if (le16_to_cpu(desc->datalen) == buff_size) {
+> -		i40e_debug(hw, I40E_DEBUG_AQ_MESSAGE,
+> -			   "AQTX: desc and buffer writeback:\n");
+> -		i40e_debug_aq(hw, I40E_DEBUG_AQ_COMMAND, (void *)desc, buff);
+> -	}
+> +	i40e_debug(hw, I40E_DEBUG_AQ_MESSAGE,
+> +		   "AQTX: desc and buffer writeback:\n");
+> +	i40e_debug_aq(hw, I40E_DEBUG_AQ_COMMAND, (void *)desc, buff);
 
 
--	struct gpio_desc *gpiod_get(struct device *dev, const char *con_id)
-+	struct gpio_desc *__gpiod_get(struct device *dev, const char *con_id,
-+					enum gpio_flags flags);
-+
-+#define __gpiod_get(dev, con_id, flags, ...) __gpiod_get(dev, con_id, flags)
-+#define gpiod_get(varargs ...) __gpiod_get(varargs, 0)
-
-This will allow both variants to be called, and any users of the three-argument
-version will pass zero as the fourth argument (or whatever you choose there).
-
-Once the conversion is complete, the macros can be removed.
-
-	ARnd
+void i40e_debug_aq(struct i40e_hw *hw, enum i40e_debug_mask mask, void *desc,
+		   void *buffer)
+{
+	struct i40e_aq_desc *aq_desc = (struct i40e_aq_desc *)desc;
+	u8 *aq_buffer = (u8 *)buffer;
+[]
+		for (i = 0; i < le16_to_cpu(aq_desc->datalen); i++) {
+			data[((i % 16) / 4)] |=
+				((u32)aq_buffer[i]) << (8 * (i % 4));
+			if ((i % 16) == 15) {
+				i40e_debug(hw, mask,
+					   "\t0x%04X  %08X %08X %08X %08X\n",
+					   i - 15, data[0], data[1], data[2],
+					   data[3]);
+				memset(data, 0, sizeof(data));
+			}
