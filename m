@@ -1,7 +1,7 @@
 From: Cyrille Pitchen <cyrille.pitchen@atmel.com>
-Subject: [PATCH v2 5/6] ARM: at91: change compatibility string for sama5d3x gem
-Date: Thu, 24 Jul 2014 13:51:02 +0200
-Message-ID: <b8cbfb4e8d5d156d477634164c21cfa6f509c4ea.1406192657.git.cyrille.pitchen@atmel.com>
+Subject: [PATCH v2 6/6] net/macb: enable scatter-gather feature and set DMA burst length for sama5d4 gem
+Date: Thu, 24 Jul 2014 13:51:03 +0200
+Message-ID: <1918ae71a967c7c58ebd3e0a96fdc0aebde54e80.1406192657.git.cyrille.pitchen@atmel.com>
 References: <cover.1406192657.git.cyrille.pitchen@atmel.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -15,26 +15,34 @@ In-Reply-To: <cover.1406192657.git.cyrille.pitchen@atmel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-this new compatibility string prevents macb/gem driver from using the
-scatter-gather and gso features on sama5d3x boards.
-
 Signed-off-by: Cyrille Pitchen <cyrille.pitchen@atmel.com>
 ---
- arch/arm/boot/dts/sama5d3_gmac.dtsi | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/cadence/macb.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/arch/arm/boot/dts/sama5d3_gmac.dtsi b/arch/arm/boot/dts/sama5d3_gmac.dtsi
-index a6cb050..de5ed59 100644
---- a/arch/arm/boot/dts/sama5d3_gmac.dtsi
-+++ b/arch/arm/boot/dts/sama5d3_gmac.dtsi
-@@ -74,7 +74,7 @@
- 			};
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index 6836f88..ca5d779 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -2005,6 +2005,11 @@ static struct macb_config sama5d3_config = {
+ 	.dma_burst_length = 16,
+ };
  
- 			macb0: ethernet@f0028000 {
--				compatible = "cdns,pc302-gem", "cdns,gem";
-+				compatible = "atmel,sama5d3-gem";
- 				reg = <0xf0028000 0x100>;
- 				interrupts = <34 IRQ_TYPE_LEVEL_HIGH 3>;
- 				pinctrl-names = "default";
++static struct macb_config sama5d4_config = {
++	.caps = 0,
++	.dma_burst_length = 4,
++};
++
+ static const struct of_device_id macb_dt_ids[] = {
+ 	{ .compatible = "cdns,at32ap7000-macb" },
+ 	{ .compatible = "cdns,at91sam9260-macb" },
+@@ -2012,6 +2017,7 @@ static const struct of_device_id macb_dt_ids[] = {
+ 	{ .compatible = "cdns,pc302-gem", .data = &pc302gem_config },
+ 	{ .compatible = "cdns,gem", .data = &pc302gem_config },
+ 	{ .compatible = "atmel,sama5d3-gem", .data = &sama5d3_config },
++	{ .compatible = "atmel,sama5d4-gem", .data = &sama5d4_config },
+ 	{ /* sentinel */ }
+ };
+ MODULE_DEVICE_TABLE(of, macb_dt_ids);
 -- 
 1.8.2.2
