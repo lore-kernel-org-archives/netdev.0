@@ -1,55 +1,90 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/7] Backport to stable-3.4 for fix CVE-2014-0181
-Date: Thu, 24 Jul 2014 16:06:13 -0700 (PDT)
-Message-ID: <20140724.160613.1238251785577893186.davem@davemloft.net>
-References: <1405650086-58596-1-git-send-email-wangyufen@huawei.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next] net: filter: rename 'struct sock_filter_int'
+ into 'struct bpf_insn'
+Date: Fri, 25 Jul 2014 01:21:21 +0200
+Message-ID: <53D194F1.6020603@redhat.com>
+References: <1406237179-3713-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: wangyufen@huawei.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55500 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755965AbaGXXGQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2014 19:06:16 -0400
-In-Reply-To: <1405650086-58596-1-git-send-email-wangyufen@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1406237179-3713-1-git-send-email-ast@plumgrid.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wangyufen <wangyufen@huawei.com>
-Date: Fri, 18 Jul 2014 10:21:19 +0800
+On 07/24/2014 11:26 PM, Alexei Starovoitov wrote:
+> eBPF is used by socket filtering, seccomp and soon by tracing and
+> exposed to userspace, therefore 'sock_filter_int' name is not accurate.
+> Rename it to 'bpf_insn'
+>
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+> ---
+...
+>   #define BPF_ALU64_REG(OP, DST, SRC)				\
+> -	((struct sock_filter_int) {				\
+> +	((struct bpf_insn) {				\
 
-> This backport fix CVE-2014-0181 which would still be vulnerable in
-> stable-3.4, please add it.
-> 
-> patchset from 5187cd055b6e to 90f62cf30a78 fixed CVE-2014-0181,
-> which can't backport to stable-3.4 directly, 
-> 
-> Those three patches are needed:
-> commit 935d8aabd4331f47a89c3e1daa5779d23cf244ee 
-> commit 038e7332b8d4c0629a2965e3ede1a92e8e427bd6
-> commit 3fbc290540a1ed1a8a076ed8f53bee7a38a9f408 
-> 
-> and this patch is unneeded:
-> commit a53b72c83a4216f2eb883ed45a0cbce014b8e62d
+                              ^^^ Please also fix up whitespacing here
+                                  and all the other sections below.
 
-Unfortunately this backport has two very serious problems.
-
-1) The From: is set to you for each patch, but you are not the author
-   of these patches.  Most of them are written by Eric Biederman and
-   one is written by Linus Torvalds.
-
-   Having to do some backporting when putting together some -stable
-   submissions does not mean you can just usurp authorship from the
-   person who wrote the original change.
-
-2) You failed to include the patch:
-
-	commit 2d7a85f4b06e9c27ff629f07a524c48074f07f81
-	Author: Eric W. Biederman <ebiederm@xmission.com>
-	Date:   Fri May 30 11:04:00 2014 -0700
-
-	    netlink: Only check file credentials for implicit destinations
-
-   which fixes this series to not break applications like Zebra.
+>   		.code  = BPF_ALU64 | BPF_OP(OP) | BPF_X,	\
+>   		.dst_reg = DST,					\
+>   		.src_reg = SRC,					\
+> @@ -90,7 +90,7 @@ enum {
+>   		.imm   = 0 })
+>
+>   #define BPF_ALU32_REG(OP, DST, SRC)				\
+> -	((struct sock_filter_int) {				\
+> +	((struct bpf_insn) {				\
+>   		.code  = BPF_ALU | BPF_OP(OP) | BPF_X,		\
+>   		.dst_reg = DST,					\
+>   		.src_reg = SRC,					\
+> @@ -100,7 +100,7 @@ enum {
+>   /* ALU ops on immediates, bpf_add|sub|...: dst_reg += imm32 */
+>
+>   #define BPF_ALU64_IMM(OP, DST, IMM)				\
+> -	((struct sock_filter_int) {				\
+> +	((struct bpf_insn) {				\
+>   		.code  = BPF_ALU64 | BPF_OP(OP) | BPF_K,	\
+>   		.dst_reg = DST,					\
+>   		.src_reg = 0,					\
+> @@ -108,7 +108,7 @@ enum {
+>   		.imm   = IMM })
+>
+>   #define BPF_ALU32_IMM(OP, DST, IMM)				\
+> -	((struct sock_filter_int) {				\
+> +	((struct bpf_insn) {				\
+>   		.code  = BPF_ALU | BPF_OP(OP) | BPF_K,		\
+>   		.dst_reg = DST,					\
+>   		.src_reg = 0,					\
+> @@ -118,7 +118,7 @@ enum {
+>   /* Endianess conversion, cpu_to_{l,b}e(), {l,b}e_to_cpu() */
+>
+>   #define BPF_ENDIAN(TYPE, DST, LEN)				\
+> -	((struct sock_filter_int) {				\
+> +	((struct bpf_insn) {				\
+>   		.code  = BPF_ALU | BPF_END | BPF_SRC(TYPE),	\
+>   		.dst_reg = DST,					\
+>   		.src_reg = 0,					\
+> @@ -128,7 +128,7 @@ enum {
+>   /* Short form of mov, dst_reg = src_reg */
+>
+>   #define BPF_MOV64_REG(DST, SRC)					\
+> -	((struct sock_filter_int) {				\
+> +	((struct bpf_insn) {				\
+>   		.code  = BPF_ALU64 | BPF_MOV | BPF_X,		\
+>   		.dst_reg = DST,					\
+>   		.src_reg = SRC,					\
+> @@ -136,7 +136,7 @@ enum {
+>   		.imm   = 0 })
+>
+>   #define BPF_MOV32_REG(DST, SRC)					\
+> -	((struct sock_filter_int) {				\
+> +	((struct bpf_insn) {				\
+>   		.code  = BPF_ALU | BPF_MOV | BPF_X,		\
+>   		.dst_reg = DST,					\
+>   		.src_reg = SRC,					\
+....
