@@ -1,98 +1,102 @@
-From: Cyrille Pitchen <cyrille.pitchen@atmel.com>
-Subject: Re: [PATCH 4/6] net/macb: add RX checksum offload feature
-Date: Thu, 24 Jul 2014 13:59:21 +0200
-Message-ID: <53D0F519.1050009@atmel.com>
-References: <cover.1405689937.git.cyrille.pitchen@atmel.com>		 <f29965fee23dc0de99b388373017efeffa1aac10.1405689937.git.cyrille.pitchen@atmel.com>	 <1405697784.10255.99.camel@edumazet-glaptop2.roam.corp.google.com>	 <53CE9109.9040407@atmel.com> <1406069908.3363.7.camel@edumazet-glaptop2.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <nicolas.ferre@atmel.com>, <davem@davemloft.net>,
-	<linux-arm-kernel@lists.infradead.org>, <netdev@vger.kernel.org>,
-	<soren.brinkmann@xilinx.com>, <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1406069908.3363.7.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Oliver Neukum <oneukum@suse.de>
+Subject: [PATCH] cdc_subset: deal with a device that needs reset for timeout
+Date: Thu, 24 Jul 2014 13:59:34 +0200
+Message-ID: <1406203174-13102-1-git-send-email-oneukum@suse.de>
+Cc: Oliver Neukum <oneukum@suse.de>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:47446 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758075AbaGXL7i (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Jul 2014 07:59:38 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 23/07/2014 00:58, Eric Dumazet a =C3=A9crit :
-> On Tue, 2014-07-22 at 18:27 +0200, Cyrille Pitchen wrote:
->> Le 18/07/2014 17:36, Eric Dumazet a =C3=A9crit :
->>> On Fri, 2014-07-18 at 16:21 +0200, Cyrille Pitchen wrote:
->>>> Signed-off-by: Cyrille Pitchen <cyrille.pitchen@atmel.com>
->>>> ---
->>>>  drivers/net/ethernet/cadence/macb.c | 29 ++++++++++++++++++++++++=
-++++-
->>>>  drivers/net/ethernet/cadence/macb.h |  2 ++
->>>>  2 files changed, 30 insertions(+), 1 deletion(-)
->>>>
->>>> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/eth=
-ernet/cadence/macb.c
->>>> index 9bdcd1b..6acd6e2 100644
->>>> --- a/drivers/net/ethernet/cadence/macb.c
->>>> +++ b/drivers/net/ethernet/cadence/macb.c
->>>> @@ -766,6 +766,8 @@ static int gem_rx(struct macb *bp, int budget)
->>>> =20
->>>>  		skb->protocol =3D eth_type_trans(skb, bp->dev);
->>>>  		skb_checksum_none_assert(skb);
->>>> +		if (bp->dev->features & NETIF_F_RXCSUM)
->>>> +			skb->ip_summed =3D CHECKSUM_UNNECESSARY;
->>>> =20
->>>
->>>
->>> Really ?
->>>
->>> If this is what you meant, this deserves a big and fat comment.
->>>
->>>
->>>
->> Hi Eric,
->>
->> Isn't it the proper way to do? According to Cadence documentation
->> about RX checksum offload:
->> "If any of the checksums (IP, TCP or UDP) are verified incorrect by
->> the GEM, the packet is discarded."
->>
->> If I understand, when RX checksum offload is enabled setting bit 24 =
-of
->> the Network Configuration Register, the driver only receives RX fram=
-es
->> with correct checksum. Then it tells the kernel that there's no need
->> to verify the checksum again in software. This is done setting
->> skb->ip_summed to CHECKSUM_UNNECESSARY. Intel e1000 driver does the
->> same in e1000_rx_checksum() function.
->>
->> Also bit 24 of the Network Configuration Register is updated by
->> macb_open() and macb_set_features() so it always matches the state o=
-f
->> NETIF_F_RXCSUM flag in dev->features, once the network interface is
->> up. That's why I'd rather read from dev->features than read from
->> register.
->>
->> Did I make a mistake? Is it the kind of comment you expect to be
->> added?
->>
->> Regards,
->=20
-> Usually, frames are not discarded, and a bit is present in rx descrip=
-tor
-> to tell us if (TCP) checksum was validated by the NIC
->=20
-> We want tcpdump to get a copy of corrupted TCP frames, even if TCP st=
-ack
-> drops them later.
->=20
-> If this NIC drops incorrect frames, I am afraid we cant use this RX
-> offload at all.
->=20
->=20
->=20
-OK thanks for your comments. In the next series of patches I'll allow R=
-X=20
-checksum offload only when promiscuous mode is disabled. Also I'll chec=
-k the
-status returned by the GEM through the buffer descriptor.
+This device needs to be reset to recover from a timeout.
+Unfortunately this can be handled only at the level of
+the subdrivers.
 
-Regards,
+Signed-off-by: Oliver Neukum <oneukum@suse.de>
+---
+ drivers/net/usb/cdc_subset.c | 27 +++++++++++++++++++++++++++
+ drivers/net/usb/usbnet.c     |  2 ++
+ include/linux/usb/usbnet.h   |  3 +++
+ 3 files changed, 32 insertions(+)
 
-Cyrille
+diff --git a/drivers/net/usb/cdc_subset.c b/drivers/net/usb/cdc_subset.c
+index 91f0919..3ef411e 100644
+--- a/drivers/net/usb/cdc_subset.c
++++ b/drivers/net/usb/cdc_subset.c
+@@ -85,9 +85,34 @@ static int always_connected (struct usbnet *dev)
+  *
+  *-------------------------------------------------------------------------*/
+ 
++static void m5632_recover(struct usbnet *dev)
++{
++	struct usb_device	*udev = dev->udev;
++	struct usb_interface	*intf = dev->intf;
++	int r;
++
++	r = usb_lock_device_for_reset(udev, intf);
++	if (r < 0)
++		return;
++
++	usb_reset_device(udev);
++	usb_unlock_device(udev);
++}
++
++static int dummy_prereset(struct usb_interface *intf)
++{
++	return 0;
++}
++
++static int dummy_postreset(struct usb_interface *intf)
++{
++	return 0;
++}
++
+ static const struct driver_info	ali_m5632_info = {
+ 	.description =	"ALi M5632",
+ 	.flags       = FLAG_POINTTOPOINT,
++	.recover     = m5632_recover,
+ };
+ 
+ #endif
+@@ -332,6 +357,8 @@ static struct usb_driver cdc_subset_driver = {
+ 	.probe =	usbnet_probe,
+ 	.suspend =	usbnet_suspend,
+ 	.resume =	usbnet_resume,
++	.pre_reset =	dummy_prereset,
++	.post_reset =	dummy_postreset,
+ 	.disconnect =	usbnet_disconnect,
+ 	.id_table =	products,
+ 	.disable_hub_initiated_lpm = 1,
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index f9e96c4..e0b63d2 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -1218,6 +1218,8 @@ void usbnet_tx_timeout (struct net_device *net)
+ 
+ 	unlink_urbs (dev, &dev->txq);
+ 	tasklet_schedule (&dev->bh);
++	if (dev->driver_info->recover)
++		(dev->driver_info->recover)(dev);
+ 
+ 	// FIXME: device recovery -- reset?
+ }
+diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
+index 0662e98..26088fe 100644
+--- a/include/linux/usb/usbnet.h
++++ b/include/linux/usb/usbnet.h
+@@ -148,6 +148,9 @@ struct driver_info {
+ 	struct sk_buff	*(*tx_fixup)(struct usbnet *dev,
+ 				struct sk_buff *skb, gfp_t flags);
+ 
++	/* recover from timeout */
++	void	(*recover)(struct usbnet *dev);
++
+ 	/* early initialization code, can sleep. This is for minidrivers
+ 	 * having 'subminidrivers' that need to do extra initialization
+ 	 * right after minidriver have initialized hardware. */
+-- 
+1.8.4.5
