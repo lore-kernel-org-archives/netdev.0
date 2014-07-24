@@ -1,43 +1,70 @@
-From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next v9 5/5] openvswitch: Add skb_clone NULL check for the sampling action.
-Date: Thu, 24 Jul 2014 14:40:05 -0700
-Message-ID: <1406238005-1748-1-git-send-email-pshelar@nicira.com>
-Cc: netdev@vger.kernel.org, Andy Zhou <azhou@nicira.com>,
-	Pravin B Shelar <pshelar@nicira.com>
-To: davem@davemloft.net
+From: Dmitry Kravkov <Dmitry.Kravkov@qlogic.com>
+Subject: RE: [PATCH RESEND] bnx2x: fix crash during TSO tunneling
+Date: Thu, 24 Jul 2014 21:48:34 +0000
+Message-ID: <87B4DDAD5EAFA041BDC28F314593782D01802C27@avmb3.qlogic.org>
+References: <1406217287-4069-1-git-send-email-Dmitry.Kravkov@qlogic.com>
+ <1406219874.3363.71.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	"ypei@redhat.com" <ypei@redhat.com>,
+	"mschmidt@redhat.com" <mschmidt@redhat.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Dmitry Kravkov <dkravkov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog131.obsmtp.com ([74.125.149.247]:50531 "HELO
-	na3sys009aog131.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S934605AbaGXVkJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2014 17:40:09 -0400
-Received: by mail-pd0-f173.google.com with SMTP id w10so4344700pde.4
-        for <netdev@vger.kernel.org>; Thu, 24 Jul 2014 14:40:08 -0700 (PDT)
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:25883 "EHLO
+	mx0a-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759638AbaGXVsk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2014 17:48:40 -0400
+In-Reply-To: <1406219874.3363.71.camel@edumazet-glaptop2.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andy Zhou <azhou@nicira.com>
-
-Fix a bug where skb_clone() NULL check is missing in sample action
-implementation.
-
-Signed-off-by: Andy Zhou <azhou@nicira.com>
-Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
----
- net/openvswitch/actions.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-index 794a96f..fe5cda0 100644
---- a/net/openvswitch/actions.c
-+++ b/net/openvswitch/actions.c
-@@ -477,6 +477,8 @@ static int sample(struct datapath *dp, struct sk_buff *skb,
- 		skb_get(skb);
- 	} else {
- 		sample_skb = skb_clone(skb, GFP_ATOMIC);
-+		if (!sample_skb) /* Skip sample action when out of memory. */
-+			return 0;
- 	}
- 
- 	/* Note that do_execute_actions() never consumes skb.
--- 
-1.9.3
+DQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IEVyaWMgRHVtYXpldCBbbWFp
+bHRvOmVyaWMuZHVtYXpldEBnbWFpbC5jb21dDQo+IFNlbnQ6IFRodXJzZGF5LCBKdWx5IDI0LCAy
+MDE0IDc6MzggUE0NCj4gVG86IERtaXRyeSBLcmF2a292DQo+IENjOiBuZXRkZXY7IERhdmlkIE1p
+bGxlcjsgeXBlaUByZWRoYXQuY29tOyBtc2NobWlkdEByZWRoYXQuY29tOyBEbWl0cnkNCj4gS3Jh
+dmtvdg0KPiBTdWJqZWN0OiBSZTogW1BBVENIIFJFU0VORF0gYm54Mng6IGZpeCBjcmFzaCBkdXJp
+bmcgVFNPIHR1bm5lbGluZw0KPiANCj4gT24gVGh1LCAyMDE0LTA3LTI0IGF0IDE4OjU0ICswMzAw
+LCBEbWl0cnkgS3JhdmtvdiB3cm90ZToNCj4gPiBGcm9tOiBEbWl0cnkgS3JhdmtvdiA8RG1pdHJ5
+LktyYXZrb3ZAcWxvZ2ljLmNvbT4NCj4gPg0KPiA+IFdoZW4gVFNPIHBhY2tldCBpcyB0cmFuc21p
+dHRlZCBhZGRpdGlvbmFsIEJEIHcvbyBtYXBwaW5nIGlzIHVzZWQgdG8NCj4gPiBkZXNjcmliZSB0
+aGUgcGFja2VkLiBUaGUgQkQgbmVlZHMgc3BlY2lhbCBoYW5kbGluZyBpbiB0eCBjb21wbGV0aW9u
+Lg0KPiA+DQo+ID4ga2VybmVsOiBDYWxsIFRyYWNlOg0KPiA+IGtlcm5lbDogPElSUT4gIFs8ZmZm
+ZmZmZmY4MTVlMTliYT5dIGR1bXBfc3RhY2srMHgxOS8weDFiDQo+ID4ga2VybmVsOiBbPGZmZmZm
+ZmZmODEwNWRlZTE+XSB3YXJuX3Nsb3dwYXRoX2NvbW1vbisweDYxLzB4ODANCj4gPiBrZXJuZWw6
+IFs8ZmZmZmZmZmY4MTA1ZGY1Yz5dIHdhcm5fc2xvd3BhdGhfZm10KzB4NWMvMHg4MA0KPiA+IGtl
+cm5lbDogWzxmZmZmZmZmZjgxNGE4YzBkPl0gPyBmaW5kX2lvdmErMHg0ZC8weDkwDQo+ID4ga2Vy
+bmVsOiBbPGZmZmZmZmZmODE0YWIwZTI+XSBpbnRlbF91bm1hcF9wYWdlLnBhcnQuMzYrMHgxNDIv
+MHgxNjANCj4gPiBrZXJuZWw6IFs8ZmZmZmZmZmY4MTRhZDBlNj5dIGludGVsX3VubWFwX3BhZ2Ur
+MHgyNi8weDMwDQo+ID4ga2VybmVsOiBbPGZmZmZmZmZmYTAxZjU1ZDc+XSBibngyeF9mcmVlX3R4
+X3BrdCsweDE1Ny8weDJiMCBbYm54MnhdDQo+ID4ga2VybmVsOiBbPGZmZmZmZmZmYTAxZjhkYWM+
+XSBibngyeF90eF9pbnQrMHhhYy8weDIyMCBbYm54MnhdDQo+ID4ga2VybmVsOiBbPGZmZmZmZmZm
+ODEwMWEwZDk+XSA/IHJlYWRfdHNjKzB4OS8weDIwDQo+ID4ga2VybmVsOiBbPGZmZmZmZmZmYTAx
+ZjhmZGI+XSBibngyeF9wb2xsKzB4YmIvMHgzYzAgW2JueDJ4XQ0KPiA+IGtlcm5lbDogWzxmZmZm
+ZmZmZjgxNGQwNDFhPl0gbmV0X3J4X2FjdGlvbisweDE1YS8weDI1MA0KPiA+IGtlcm5lbDogWzxm
+ZmZmZmZmZjgxMDY3MDQ3Pl0gX19kb19zb2Z0aXJxKzB4ZjcvMHgyOTANCj4gPiBrZXJuZWw6IFs8
+ZmZmZmZmZmY4MTVmM2E1Yz5dIGNhbGxfc29mdGlycSsweDFjLzB4MzANCj4gPiBrZXJuZWw6IFs8
+ZmZmZmZmZmY4MTAxNGQyNT5dIGRvX3NvZnRpcnErMHg1NS8weDkwDQo+ID4ga2VybmVsOiBbPGZm
+ZmZmZmZmODEwNjczZTU+XSBpcnFfZXhpdCsweDExNS8weDEyMA0KPiA+IGtlcm5lbDogWzxmZmZm
+ZmZmZjgxNWY0MzU4Pl0gZG9fSVJRKzB4NTgvMHhmMA0KPiA+IGtlcm5lbDogWzxmZmZmZmZmZjgx
+NWU5NGFkPl0gY29tbW9uX2ludGVycnVwdCsweDZkLzB4NmQNCj4gPiBrZXJuZWw6IDxFT0k+ICBb
+PGZmZmZmZmZmODEwYmJmZjc+XSA/IGNsb2NrZXZlbnRzX25vdGlmeSsweDEyNy8weDE0MA0KPiA+
+IGtlcm5lbDogWzxmZmZmZmZmZjgxNDgzNGRmPl0gPyBjcHVpZGxlX2VudGVyX3N0YXRlKzB4NGYv
+MHhjMA0KPiA+IGtlcm5lbDogWzxmZmZmZmZmZjgxNDgzNjE1Pl0gY3B1aWRsZV9pZGxlX2NhbGwr
+MHhjNS8weDIwMA0KPiA+IGtlcm5lbDogWzxmZmZmZmZmZjgxMDFiYzdlPl0gYXJjaF9jcHVfaWRs
+ZSsweGUvMHgzMA0KPiA+IGtlcm5lbDogWzxmZmZmZmZmZjgxMGI0NzI1Pl0gY3B1X3N0YXJ0dXBf
+ZW50cnkrMHhmNS8weDI5MA0KPiA+IGtlcm5lbDogWzxmZmZmZmZmZjgxNWNmZWUxPl0gc3RhcnRf
+c2Vjb25kYXJ5KzB4MjY1LzB4MjdiDQo+ID4ga2VybmVsOiAtLS1bIGVuZCB0cmFjZSAxMWFhNzcy
+NmYxOGQ3ZTgwIF0tLS0NCj4gPg0KPiA+IFJlcG9ydGVkLWJ5OiBZdWxvbmcgUGVpIDx5cGVpQHJl
+ZGhhdC5jb20+DQo+ID4gQ2M6IE1pY2hhbCBTY2htaWR0IDxtc2NobWlkdEByZWRoYXQuY29tPg0K
+PiA+IFNpZ25lZC1vZmYtYnk6IERtaXRyeSBLcmF2a292IDxEbWl0cnkuS3JhdmtvdkBxbG9naWMu
+Y29tPg0KPiA+IC0tLQ0KPiANCj4gSG93IG9sZCBpcyB0aGlzIGJ1ZyA/IENhbiB5b3UgcG9pbnQg
+b3JpZ2luYWwgY29tbWl0IGFkZGluZyBpdCA/DQo+IA0KPiBUaGFua3MgIQ0KPg0KQWRkZWQgd2l0
+aCBpbml0aWFsIFRTTyBzdXBwb3J0IGZvciB0dW5uZWxpbmcgYmFjayBpbiAzLjEwIHdpdGgNCmE4
+NDhhZGU0MDhiNmJmYWI1OWQ1NzVkNmMyNDZlZmIyMGFmZTg4ZTMgDQoiYm54Mng6IGFkZCBDU1VN
+IGFuZCBUU08gc3VwcG9ydCBmb3IgZW5jYXBzdWxhdGlvbiBwcm90b2NvbHMiDQphbmQgY2FuIGJl
+IHNlZW4gb25seSB3aXRoICpfaW9tbXU9b24NCiANCg0K
