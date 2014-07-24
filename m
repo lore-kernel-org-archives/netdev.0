@@ -1,44 +1,94 @@
-From: Li RongQing <roy.qing.li@gmail.com>
-Subject: Re: [PATCH] Revert "usb: gadget: u_ether: synchronize with transmit
- when stopping queue"
-Date: Thu, 24 Jul 2014 10:12:40 +0800
-Message-ID: <CAJFZqHy+O0ZaNjXm3NGK=XPcmgO-qaH6KUgi7wGX5WVZgPxvmA@mail.gmail.com>
-References: <1406166546-21738-1-git-send-email-roy.qing.li@gmail.com>
-	<20140724020640.GA20696@kroah.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the wireless
+ tree
+Date: Thu, 24 Jul 2014 12:47:00 +1000
+Message-ID: <20140724124700.602081e7@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>, linux-usb@vger.kernel.org,
-	jeff.westfahl@ni.com, Thomas Gleixner <tglx@linutronix.de>
-To: Greg KH <greg@kroah.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f43.google.com ([209.85.216.43]:47479 "EHLO
-	mail-qa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756120AbaGXCMl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 23 Jul 2014 22:12:41 -0400
-In-Reply-To: <20140724020640.GA20696@kroah.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/Qleug8pSeulOUMoaXBG9p.p"; protocol="application/pgp-signature"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Felix Fietkau <nbd@openwrt.org>,
+	Johannes Berg <johannes.berg@intel.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	"John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 24, 2014 at 10:06 AM, Greg KH <greg@kroah.com> wrote:
->> This reverts commit a9232076374334ca2bc2a448dfde96d38a54349a.
->
-> Any reason you didn't cc: the people on that patch, nor the people that
-> get_maintainer.pl says to?
->
-> Odds are Felipe will miss this one...
+--Sig_/Qleug8pSeulOUMoaXBG9p.p
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-jeff.westfahl@ni.com has been Cced, I think Felipe Balbi is maintainer of usb,
-and I send it to linux-usb@vger.kernel.org, Felipe Balbi can see it.
+Hi all,
 
-Ok, next time, I will use get_maintainer.pl
+Today's linux-next merge of the net-next tree got a conflict in
+net/mac80211/cfg.c between commit fa8f136fe9a8 ("mac80211: fix crash on
+getting sta info with uninitialized rate control") from the wireless
+tree and commit b7ffbd7ef675 ("cfg80211: make ethtool the driver's
+responsibility") from the net-next tree.
 
--Roy
+I fixed it up (the latter moved the code modified by the former, so I
+removed the code and added the following patch) and can carry the fix
+as necessary (no action is required).
 
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Thu, 24 Jul 2014 12:32:49 +1000
+Subject: [PATCH] mac80211: fix for code movement
 
-    crash as eth_start_xmit tries to use resources that gether_disconnect is
-    freeing. Use netif_tx_lock/unlock around netif_stop_queue to ensure no
-    threads are executing during the remainder of gether_disconnect.
+Signed-off-by: Stephen Rothwell <sfr@canb.auug.org.au>
+---
+ net/mac80211/sta_info.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-    Signed-off-by: Jeff Westfahl <jeff.westfahl@ni.com>
-    Tested-by: Jaeden Amero <jaeden.amero@ni.com>
-    Signed-off-by: Felipe Balbi <balbi@ti.com>
+diff --git a/net/mac80211/sta_info.c b/net/mac80211/sta_info.c
+index f41177f58b30..c6ee2139fbc5 100644
+--- a/net/mac80211/sta_info.c
++++ b/net/mac80211/sta_info.c
+@@ -1724,12 +1724,15 @@ void sta_set_sinfo(struct sta_info *sta, struct sta=
+tion_info *sinfo)
+ {
+ 	struct ieee80211_sub_if_data *sdata =3D sta->sdata;
+ 	struct ieee80211_local *local =3D sdata->local;
+-	struct rate_control_ref *ref =3D local->rate_ctrl;
++	struct rate_control_ref *ref =3D NULL;
+ 	struct timespec uptime;
+ 	u64 packets =3D 0;
+ 	u32 thr =3D 0;
+ 	int i, ac;
+=20
++	if (test_sta_flag(sta, WLAN_STA_RATE_CONTROL))
++		ref =3D local->rate_ctrl;
++
+ 	sinfo->generation =3D sdata->local->sta_generation;
+=20
+ 	sinfo->filled =3D STATION_INFO_INACTIVE_TIME |
+--=20
+2.0.1
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Sig_/Qleug8pSeulOUMoaXBG9p.p
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJT0HOqAAoJEMDTa8Ir7ZwVKawP/1Z1lSxXUEXS3R2tWygxbpQP
+4nuxdnZ976GOaDS1I306jPbYAFQ2NbA4/UwBxRBUKq5aH6r4Uyo8Xy4fUSwsvVY+
+dmgJ772N+7avIkPkWejXn1mk5A0MEvI2HPr5poqTjj48W050/OwJiAQtpQfYVExs
+zykm8uHlV0KwEWPzuytdpWrCEFlkqA+SxXu3AIPfvU1C1Wd6iFU5I79vWC4SUsR5
+WhHRkZPLSMi1f13sUkOezVvIlBpf8TWvRPK8C981I8bEvEtdovPZWvdu5oDnnHyp
+1YuJFwWe1o4hbKcyKoukCyf0nFcHqrN3qMA0hznGRMCZ4D3N0fgB2oK33L7eYZ8x
+amPRz5zCjBdwHfS8CmmVHqqrnu325sKE7xH2yCVBumu82n3UYvKCbhxLNTsKkNLl
+giXUMCl1EaI8fNU29B0gewktYGIt3P5WKAxJ8uZsnvXcCkcmY0+syD9DlJwVAFdI
+XYvrtrKPtgTblJo9k0o3xmfDNExZuWtcZ/nuLJZNDBrCjbQrireDuFyJTee4wKwn
+QYyfrfycE5JVgb1xbrj1rNX2UGpIPAlq4Suj4xDnr8nYLXR+Sf8g22Njk8LXITem
+6GHRDbanhk8KBBHvT764HE31JvPOI3cTiIGk4R8hnZXNREpoDM3Rssk/nCzqL8dO
+epG0yx9CwJziVkBmdt23
+=a2Cg
+-----END PGP SIGNATURE-----
+
+--Sig_/Qleug8pSeulOUMoaXBG9p.p--
