@@ -1,107 +1,84 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [net-next 10/10] openvswitch: Add support for Geneve tunneling.
-Date: Thu, 24 Jul 2014 16:45:11 -0700
-Message-ID: <CA+mtBx-A1xAeMtdtLW3LF612ypExVmGPaG3Dz2AwcR5t0Obe4g@mail.gmail.com>
-References: <1406024393-6778-1-git-send-email-azhou@nicira.com>
-	<1406024393-6778-11-git-send-email-azhou@nicira.com>
-	<CA+mtBx8UWoQhgGoXtyh=hHkhbodZyC8JSxnCfZFM5CpUT1ZZ9A@mail.gmail.com>
-	<CAEP_g=_1q3ACX5NTHxLDnysL+dTMUVzdLpgw1apLKEdDSWPztw@mail.gmail.com>
-	<CA+mtBx9umxiFYtnG1kzFkK+Ev=b=4f3q2OOow2QcfCB5rUTUyA@mail.gmail.com>
-	<CAEP_g=-ODoKmfk871wZyDfvtM=V5yYGKgCh0cVS0diU=LNSMPQ@mail.gmail.com>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: [PATCH net-next 1/2] net: filter: split filter.c into two files
+Date: Thu, 24 Jul 2014 19:45:02 -0400
+Message-ID: <39107.1406245502@turing-police.cc.vt.edu>
+References: <1406095319-3627-1-git-send-email-ast@plumgrid.com>
+            <1406095319-3627-2-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Andy Zhou <azhou@nicira.com>, David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Jesse Gross <jesse@nicira.com>
+Content-Type: multipart/signed; boundary="==_Exmh_1406245502_23260P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f180.google.com ([209.85.213.180]:37823 "EHLO
-	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934746AbaGXXpM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2014 19:45:12 -0400
-Received: by mail-ig0-f180.google.com with SMTP id l13so106172iga.13
-        for <netdev@vger.kernel.org>; Thu, 24 Jul 2014 16:45:11 -0700 (PDT)
-In-Reply-To: <CAEP_g=-ODoKmfk871wZyDfvtM=V5yYGKgCh0cVS0diU=LNSMPQ@mail.gmail.com>
+Received: from lennier.cc.vt.edu ([198.82.162.213]:59972 "EHLO
+	lennier.cc.vt.edu" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752268AbaGXXqN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2014 19:46:13 -0400
+In-Reply-To: Your message of "Tue, 22 Jul 2014 23:01:58 -0700."
+             <1406095319-3627-2-git-send-email-ast@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 24, 2014 at 3:59 PM, Jesse Gross <jesse@nicira.com> wrote:
-> On Thu, Jul 24, 2014 at 12:43 PM, Tom Herbert <therbert@google.com> wrote:
->> On Wed, Jul 23, 2014 at 9:10 PM, Jesse Gross <jesse@nicira.com> wrote:
->>> On Wed, Jul 23, 2014 at 4:29 PM, Tom Herbert <therbert@google.com> wrote:
->>> > This check also applies in the OAM case where there is no data packet
->>> > but we still enforce the protocol field to be Ethernert (meaning of
->>> > prot_type when OAM bit is set is ambiguous in the draft). As I
->>> > mentioned on the nvo3 list, this OAM bit is really a 1-bit packet
->>> > type. If this bit is donated to version field (make it a type version
->>> > field) then we can switch on ver_type above and create another
->>> > processing path for OAM so that the prot_type is at least not
->>> > unnecessarily verified in that case and the bits could even be reused
->>> > for some OAM specific purpose.
->>>
->>> I think the draft is clear :) The value of the OAM bit does not change
->>> the interpretation of the protocol field. This is true in the other
->>> drafts as well.
->>
->>
->>>
->>> OAM packets are essentially just high priority packets (presumably
->>> with some kind of control semantics but that depends on the control
->>> plane). That means that they might be BFD or some other heartbeat,
->>> header fragments for tracing, or really anything else that should be
->>> treated as control. In all of these cases, the protocol type still
->>> needs to indicate the format of the data.
->>>
->> I see, I think you're saying that control messages still contain some sort
->> of message after Geneve header whose type is indicated by protocol field.
->> So, if OAM doesn't change the interpretation of the protocol field then this
->> must be an Ether_type protocol, hence control messages must be formatted as
->> Ether_types. So then I would extrapolate that control messages could be
->> directled to the control plane based on demux of protocol field (ie. type is
->> something like NSH, or a new control message Ethertype). Consequently, the
->> OAM bit is really just a hint to request expedited processing but does not
->> influence demux so could in theory be ignored without loss of functionality.
->> Is this interpretation correct?
+--==_Exmh_1406245502_23260P
+Content-Type: text/plain; charset=us-ascii
+
+On Tue, 22 Jul 2014 23:01:58 -0700, Alexei Starovoitov said:
+> BPF is used in several kernel components. This split creates logical boundary
+> between generic eBPF core and the rest
 >
-> Yes, this is largely correct. There is one other possible significance
-> to the OAM flag, which is to say "do not forward the resulting packet
-> after decapsulation". I think this is slightly less likely to be an
-> issue for Geneve (although I can imagine situations where it might be)
-> but it was a problem with TRILL OAM, which used data-like packets and
-> has no OAM bit. The result is that they had to use all kinds of
-> special addresses and other things to separate out data traffic from
-> OAM.
+> kernel/bpf/core.c: eBPF interpreter
 >
-Thanks for the clarification.
-
->> A concrete example of a control message with headers would be useful in
->> understanding OAM bit. For instance, how would would a mechanism to
->> implement NAT keepalive of UDP flows be implemented (see RFC3948 for how
->> this was done in ESP/UDP)?
+> net/core/filter.c: classic->eBPF converter, classic verifiers, socket filters
 >
-> A real example that comes to mind is if you want to have a heartbeat
-> protocol such as CFM or BFD. You would set the appropriate EtherType
-> for this protocol and then run it as the payload. As you said, it
-> would already be obvious that this is a control protocol based on the
-> EtherType and the OAM bit is not strictly required. However, it would
-> allow easy (and generic) separation of control traffic from data
-> traffic so in the event that you have a flood of data packets, the
-> heartbeats can prioritized to avoid detecting a failure.
+> This patch only moves functions.
 >
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+> ---
+>  kernel/Makefile     |    1 +
+>  kernel/bpf/Makefile |    1 +
+>  kernel/bpf/core.c   |  536 +++++++++++++++++++++++++++++++++++++++++++++++++
+++
+>  net/core/filter.c   |  511 ------------------------------------------------
+>  4 files changed, 538 insertions(+), 511 deletions(-)
+>  create mode 100644 kernel/bpf/Makefile
+>  create mode 100644 kernel/bpf/core.c
+>
+> diff --git a/kernel/Makefile b/kernel/Makefile
+> index f2a8b6246ce9..e7360b7c2c0e 100644
+> --- a/kernel/Makefile
+> +++ b/kernel/Makefile
+> @@ -87,6 +87,7 @@ obj-$(CONFIG_RING_BUFFER) += trace/
+>  obj-$(CONFIG_TRACEPOINTS) += trace/
+>  obj-$(CONFIG_IRQ_WORK) += irq_work.o
+>  obj-$(CONFIG_CPU_PM) += cpu_pm.o
+> +obj-$(CONFIG_NET) += bpf/
 
-I don't see a whole lot of value in using a OAM bit as a priority bit,
-we don't have any support in the network which is where we really need
-to apply priority. There are already existing mechanisms in the
-network to deal with prioritization which are more generic (IP TOS,
-Ether priority) and could work today. Sender of these control message
-should be setting priority to reflect it.
+I was expecting to see CONFIG_NETFILTER here.  Is CONFIG_NET intentional?
 
+--==_Exmh_1406245502_23260P
+Content-Type: application/pgp-signature
 
-> If I was trying to implement just a totally simple keep alive, then
-> there's really no need to put anything in the payload. I would
-> probably just set the EtherType to zero (guaranteed to be unused) and
-> leave it at that.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+Comment: Exmh version 2.5 07/13/2001
 
-Interesting idea. I don't think 0 has be reserved for this purpose,
-but it does seem like a NULL ether_type might be useful. Has any other
-encapsulation protocol carrying ether_type specific special meaning of
-zero?
+iQIVAwUBU9GafQdmEQWDXROgAQJlwg/8Dg5Sy72kB44khL+t/7LTkAmesCSLNJIi
+UnKDb5zfsR30dTOAwe6KleEwBK1JoBov4gHdka4D8LBUp8Pt3ixrv/2svXe8oM78
+A01nDp+gT8FNuNE1PvCufEdrw2UGCvWHo1/rOXbRbsCyJPEt9ZKxfw8lkVojS+Qc
+D7lfQ4cKkzcOFk0JUrSAFiCBpaOuv+IsTNtq006+hs0QPtxjntv9YbAH7KJ0yCEw
+89ScoK4yBfvY4sEYeC+t7ziuhwgggMVvweec1X41MuzNCnoxCYcqtZaWKemdP+U/
+xHLgwTKIHFznlmzddQ93mZgzdgdcVJ3zCPHAOuAgghVW85VnVTCzS/arr3iQaSHP
+kgRCddAcfWyFQxIK+VkT7A2+mzuKEO4ja7tABskY9D+vRD1oWgncvpIB8kPQfEDW
++eCT32u7zmPfa+86bnHpxUtjHIQhTDsfGeId1QLF2GBtztTbOz2SqgbQ9+RUUI3m
+E4D4mmdf6Pn4kGtvlAoj+AZSFs3+A0osjqTwKECg7MctIDht87IZ9HAWBZBpDFWU
+fD1ZJKc4SGU4L/Furf2GntenoYALk376ZukFYroMgYoPpVwyZeYa3wAxor+GTCvB
+Pru0dHZEMMoG502xzE4H3Oh02qc0Xh7gNfe4TZ2rTieOHzBk72Lxati/b3t5kjec
+zIJe3qe/oQI=
+=k/IB
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1406245502_23260P--
