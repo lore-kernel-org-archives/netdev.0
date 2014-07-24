@@ -1,7 +1,8 @@
 From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH net-next 0/9] inet: frag: cleanup and update
-Date: Thu, 24 Jul 2014 16:50:28 +0200
-Message-ID: <1406213437-6155-1-git-send-email-nikolay@redhat.com>
+Subject: [PATCH net-next 3/9] inet: frag: move evictor calls into frag_find function
+Date: Thu, 24 Jul 2014 16:50:31 +0200
+Message-ID: <1406213437-6155-4-git-send-email-nikolay@redhat.com>
+References: <1406213437-6155-1-git-send-email-nikolay@redhat.com>
 Cc: Florian Westphal <fw@strlen.de>,
 	Nikolay Aleksandrov <nikolay@redhat.com>,
 	"David S. Miller" <davem@davemloft.net>,
@@ -13,139 +14,188 @@ Cc: Florian Westphal <fw@strlen.de>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:32752 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:13227 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932975AbaGXOwA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Jul 2014 10:52:00 -0400
+	id S933402AbaGXOwB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Jul 2014 10:52:01 -0400
+In-Reply-To: <1406213437-6155-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
-The end goal of this patchset is to remove the LRU list and to move the
-frag eviction to a work queue. It also does a couple of necessary cleanups
-and fixes. Brief patch descriptions:
-Patches 1 - 3 inclusive: necessary clean ups
-Patch 4 moves the eviction from the softirqs to a workqueue.
-Patch 5 removes the nqueues counter which was protected by the LRU lock
-Patch 6 removes the, by now unused, lru list.
-Patch 7 moves the rebuild timer to the workqueue and schedules the rebuilds
-        only if we've hit the maximum queue length on some of the chains.
-Patch 8 migrate the rwlock to a seqlock since the rehash is usually a rare
-        operation.
-Patch 9 introduces an artificial global memory limit based on the value of
-        init_net's high_thresh which is used to cap the high_thresh of the
-        other namespaces. Also introduces some sane limits on the other
-        tunables, and makes it impossible to have low_thresh > high_thresh.
+From: Florian Westphal <fw@strlen.de>
 
-Here are some numbers from running netperf before and after the patchset:
-Each test consists of the following setting: -I 95,5 -i 15,10
+First step to move eviction handling into a work queue.
 
-1. Bound test (-T 4,4)
-1.1 Virtio before the patchset -
-MIGRATED UDP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.122.177 () port 0 AF_INET : +/-2.500% @ 95% conf.  : cpu bind
-Socket  Message  Elapsed      Messages                   CPU      Service
-Size    Size     Time         Okay Errors   Throughput   Util     Demand
-bytes   bytes    secs            #      #   10^6bits/sec % SS     us/KB
+We lose two spots that accounted evicted fragments in MIB counters.
 
-212992   64000   30.00      722177      0    12325.1     34.55    2.025 
-212992           30.00      368020            6280.9     34.05    0.752 
+Accounting will be restored since the upcoming work-queue evictor
+invokes the frag queue timer callbacks instead.
 
-1.2 Virtio after the patchset -
-MIGRATED UDP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.122.177 () port 0 AF_INET : +/-2.500% @ 95% conf.  : cpu bind
-Socket  Message  Elapsed      Messages                   CPU      Service
-Size    Size     Time         Okay Errors   Throughput   Util     Demand
-bytes   bytes    secs            #      #   10^6bits/sec % SS     us/KB
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ include/net/inet_frag.h                 |  1 -
+ net/ieee802154/reassembly.c             |  2 --
+ net/ipv4/inet_fragment.c                | 16 +++++++++-------
+ net/ipv4/ip_fragment.c                  | 15 ---------------
+ net/ipv6/netfilter/nf_conntrack_reasm.c |  4 ----
+ net/ipv6/reassembly.c                   |  6 ------
+ 6 files changed, 9 insertions(+), 35 deletions(-)
 
-212992   64000   30.00      727030      0    12407.9     35.45    1.876 
-212992           30.00      505405            8625.5     34.92    0.693 
-
-2. Virtio unbound test
-2.1 Before the patchset
-MIGRATED UDP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.122.177 () port 0 AF_INET : +/-2.500% @ 95% conf.
-Socket  Message  Elapsed      Messages                
-Size    Size     Time         Okay Errors   Throughput
-bytes   bytes    secs            #      #   10^6bits/sec
-
-212992   64000   30.00      730008      0    12458.77
-212992           30.00      416721           7112.02
-
-2.2 After the patchset
-MIGRATED UDP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.122.177 () port 0 AF_INET : +/-2.500% @ 95% conf. 
-Socket  Message  Elapsed      Messages                
-Size    Size     Time         Okay Errors   Throughput
-bytes   bytes    secs            #      #   10^6bits/sec
-
-212992   64000   30.00      731129      0    12477.89
-212992           30.00      487707           8323.50
-
-3. 10 gig unbound tests
-3.1 Before the patchset
-MIGRATED UDP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.133.1 () port 0 AF_INET : +/-2.500% @ 95% conf. 
-Socket  Message  Elapsed      Messages                
-Size    Size     Time         Okay Errors   Throughput
-bytes   bytes    secs            #      #   10^6bits/sec
-
-212992   64000   30.00      417209      0    7120.33
-212992           30.00      416740           7112.33
-
-3.2 After the patchset
-MIGRATED UDP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.133.1 () port 0 AF_INET : +/-2.500% @ 95% conf. 
-Socket  Message  Elapsed      Messages                
-Size    Size     Time         Okay Errors   Throughput
-bytes   bytes    secs            #      #   10^6bits/sec
-
-212992   64000   30.00      438009      0    7475.33
-212992           30.00      437630           7468.87
-
-
-Given the options each netperf ran between 10 and 15 times for 30 seconds
-to get the necessary confidence, also the tests themselves ran 3 times and
-were consistent.
-Another set of tests that I ran were parallel stress tests which consisted
-of flooding the machine with fragmented packets from different sources with
-frag timeout set to 0 (so there're lots of timeouts) and low_thresh set to
-1 byte (so evictions are happening all the time) and on top of that running
-a namespace create/destroy endless loop with network interfaces and
-addresses that got flooded (for the brief periods they were up) in parallel.
-This test ran for an hour without any issues.
-
-CC: Florian Westphal <fw@strlen.de>
-CC: David S. Miller <davem@davemloft.net>
-CC: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-CC: James Morris <jmorris@namei.org>
-CC: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-CC: Patrick McHardy <kaber@trash.net>
-CC: Alexander Aring <alex.aring@gmail.com>
-CC: Eric Dumazet <eric.dumazet@gmail.com>
-
-Best regards,
- Nikolay Aleksandrov
-
-Florian Westphal (8):
-  inet: frag: constify match, hashfn and constructor arguments
-  inet: frag: remove hash size assumptions from callers
-  inet: frag: move evictor calls into frag_find function
-  inet: frag: move eviction of queues to work queue
-  inet: frag: don't account number of fragment queues
-  inet: frag: remove lru list
-  inet: frag: remove periodic secret rebuild timer
-  inet: frag: use seqlock for hash rebuild
-
-Nikolay Aleksandrov (1):
-  inet: frag: set limits and make init_net's high_thresh limit global
-
- Documentation/networking/ip-sysctl.txt  |  17 +-
- include/net/inet_frag.h                 |  70 +++-----
- include/net/ip.h                        |   1 -
- include/net/ipv6.h                      |   9 +-
- net/ieee802154/reassembly.c             |  47 +++---
- net/ipv4/inet_fragment.c                | 283 +++++++++++++++++++++-----------
- net/ipv4/ip_fragment.c                  |  56 +++----
- net/ipv4/proc.c                         |   5 +-
- net/ipv6/netfilter/nf_conntrack_reasm.c |  29 ++--
- net/ipv6/proc.c                         |   4 +-
- net/ipv6/reassembly.c                   |  51 +++---
- 11 files changed, 305 insertions(+), 267 deletions(-)
-
+diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
+index 15033057d44e..9fe644d1a26e 100644
+--- a/include/net/inet_frag.h
++++ b/include/net/inet_frag.h
+@@ -90,7 +90,6 @@ void inet_frags_exit_net(struct netns_frags *nf, struct inet_frags *f);
+ void inet_frag_kill(struct inet_frag_queue *q, struct inet_frags *f);
+ void inet_frag_destroy(struct inet_frag_queue *q,
+ 				struct inet_frags *f, int *work);
+-int inet_frag_evictor(struct netns_frags *nf, struct inet_frags *f, bool force);
+ struct inet_frag_queue *inet_frag_find(struct netns_frags *nf,
+ 		struct inet_frags *f, void *key, unsigned int hash)
+ 	__releases(&f->lock);
+diff --git a/net/ieee802154/reassembly.c b/net/ieee802154/reassembly.c
+index a707995fd4d7..9503a48556f7 100644
+--- a/net/ieee802154/reassembly.c
++++ b/net/ieee802154/reassembly.c
+@@ -369,8 +369,6 @@ int lowpan_frag_rcv(struct sk_buff *skb, const u8 frag_type)
+ 	if (frag_info->d_size > ieee802154_lowpan->max_dsize)
+ 		goto err;
+ 
+-	inet_frag_evictor(&ieee802154_lowpan->frags, &lowpan_frags, false);
+-
+ 	fq = fq_find(net, frag_info, &source, &dest);
+ 	if (fq != NULL) {
+ 		int ret;
+diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+index 930d23870811..535636017534 100644
+--- a/net/ipv4/inet_fragment.c
++++ b/net/ipv4/inet_fragment.c
+@@ -46,6 +46,8 @@ const u8 ip_frag_ecn_table[16] = {
+ };
+ EXPORT_SYMBOL(ip_frag_ecn_table);
+ 
++static int inet_frag_evictor(struct netns_frags *nf, struct inet_frags *f, bool force);
++
+ static unsigned int
+ inet_frag_hashfn(const struct inet_frags *f, const struct inet_frag_queue *q)
+ {
+@@ -203,16 +205,11 @@ void inet_frag_destroy(struct inet_frag_queue *q, struct inet_frags *f,
+ }
+ EXPORT_SYMBOL(inet_frag_destroy);
+ 
+-int inet_frag_evictor(struct netns_frags *nf, struct inet_frags *f, bool force)
++static int inet_frag_evictor(struct netns_frags *nf, struct inet_frags *f, bool force)
+ {
+ 	struct inet_frag_queue *q;
+ 	int work, evicted = 0;
+ 
+-	if (!force) {
+-		if (frag_mem_limit(nf) <= nf->high_thresh)
+-			return 0;
+-	}
+-
+ 	work = frag_mem_limit(nf) - nf->low_thresh;
+ 	while (work > 0 || force) {
+ 		spin_lock(&nf->lru_lock);
+@@ -242,7 +239,6 @@ int inet_frag_evictor(struct netns_frags *nf, struct inet_frags *f, bool force)
+ 
+ 	return evicted;
+ }
+-EXPORT_SYMBOL(inet_frag_evictor);
+ 
+ static struct inet_frag_queue *inet_frag_intern(struct netns_frags *nf,
+ 		struct inet_frag_queue *qp_in, struct inet_frags *f,
+@@ -296,6 +292,9 @@ static struct inet_frag_queue *inet_frag_alloc(struct netns_frags *nf,
+ {
+ 	struct inet_frag_queue *q;
+ 
++	if (frag_mem_limit(nf) > nf->high_thresh)
++		return NULL;
++
+ 	q = kzalloc(f->qsize, GFP_ATOMIC);
+ 	if (q == NULL)
+ 		return NULL;
+@@ -332,6 +331,9 @@ struct inet_frag_queue *inet_frag_find(struct netns_frags *nf,
+ 	struct inet_frag_queue *q;
+ 	int depth = 0;
+ 
++	if (frag_mem_limit(nf) > nf->high_thresh)
++		inet_frag_evictor(nf, f, false);
++
+ 	hash &= (INETFRAGS_HASHSZ - 1);
+ 	hb = &f->hash[hash];
+ 
+diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
+index b769eb6c83c0..54988672d00d 100644
+--- a/net/ipv4/ip_fragment.c
++++ b/net/ipv4/ip_fragment.c
+@@ -177,18 +177,6 @@ static void ipq_kill(struct ipq *ipq)
+ 	inet_frag_kill(&ipq->q, &ip4_frags);
+ }
+ 
+-/* Memory limiting on fragments.  Evictor trashes the oldest
+- * fragment queue until we are back under the threshold.
+- */
+-static void ip_evictor(struct net *net)
+-{
+-	int evicted;
+-
+-	evicted = inet_frag_evictor(&net->ipv4.frags, &ip4_frags, false);
+-	if (evicted)
+-		IP_ADD_STATS_BH(net, IPSTATS_MIB_REASMFAILS, evicted);
+-}
+-
+ /*
+  * Oops, a fragment queue timed out.  Kill it and send an ICMP reply.
+  */
+@@ -655,9 +643,6 @@ int ip_defrag(struct sk_buff *skb, u32 user)
+ 	net = skb->dev ? dev_net(skb->dev) : dev_net(skb_dst(skb)->dev);
+ 	IP_INC_STATS_BH(net, IPSTATS_MIB_REASMREQDS);
+ 
+-	/* Start by cleaning up the memory. */
+-	ip_evictor(net);
+-
+ 	/* Lookup (or create) queue header */
+ 	if ((qp = ip_find(net, ip_hdr(skb), user)) != NULL) {
+ 		int ret;
+diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
+index 607e4a94ef41..58e32cf91c95 100644
+--- a/net/ipv6/netfilter/nf_conntrack_reasm.c
++++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
+@@ -594,10 +594,6 @@ struct sk_buff *nf_ct_frag6_gather(struct sk_buff *skb, u32 user)
+ 	hdr = ipv6_hdr(clone);
+ 	fhdr = (struct frag_hdr *)skb_transport_header(clone);
+ 
+-	local_bh_disable();
+-	inet_frag_evictor(&net->nf_frag.frags, &nf_frags, false);
+-	local_bh_enable();
+-
+ 	fq = fq_find(net, fhdr->identification, user, &hdr->saddr, &hdr->daddr,
+ 		     ip6_frag_ecn(hdr));
+ 	if (fq == NULL) {
+diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
+index 2b76549a1016..97acbc490d9e 100644
+--- a/net/ipv6/reassembly.c
++++ b/net/ipv6/reassembly.c
+@@ -519,7 +519,6 @@ static int ipv6_frag_rcv(struct sk_buff *skb)
+ 	struct frag_queue *fq;
+ 	const struct ipv6hdr *hdr = ipv6_hdr(skb);
+ 	struct net *net = dev_net(skb_dst(skb)->dev);
+-	int evicted;
+ 
+ 	if (IP6CB(skb)->flags & IP6SKB_FRAGMENTED)
+ 		goto fail_hdr;
+@@ -548,11 +547,6 @@ static int ipv6_frag_rcv(struct sk_buff *skb)
+ 		return 1;
+ 	}
+ 
+-	evicted = inet_frag_evictor(&net->ipv6.frags, &ip6_frags, false);
+-	if (evicted)
+-		IP6_ADD_STATS_BH(net, ip6_dst_idev(skb_dst(skb)),
+-				 IPSTATS_MIB_REASMFAILS, evicted);
+-
+ 	fq = fq_find(net, fhdr->identification, &hdr->saddr, &hdr->daddr,
+ 		     ip6_frag_ecn(hdr));
+ 	if (fq != NULL) {
 -- 
 1.9.3
