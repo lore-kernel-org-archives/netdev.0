@@ -1,89 +1,70 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/14] igb: Add message when malformed packets detected by hw
-Date: Thu, 24 Jul 2014 06:13:15 -0700
-Message-ID: <1406207604-31653-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 03/14] ixgbe: fix use of list_for_each in ixgbe_enumerate_functions
+Date: Thu, 24 Jul 2014 06:13:13 -0700
+Message-ID: <1406207604-31653-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1406207604-31653-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([143.182.124.21]:36503 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759124AbaGXNOF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 24 Jul 2014 09:14:05 -0400
+	id S1758990AbaGXNOE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 24 Jul 2014 09:14:04 -0400
 In-Reply-To: <1406207604-31653-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Carolyn Wyborny <carolyn.wyborny@intel.com>
+From: Jacob Keller <jacob.e.keller@intel.com>
 
-This patch adds a check and prints the error cause register value when
-the hardware detects a malformed packet.  This is a very unlikely
-scenario but has been seen occasionally, so printing the message to
-assist the user.
+Fix a bug in the misuse of the list_for_each macro to loop over every
+entry in the bus_list. Instead of attempting to loop over the list from
+a random entry point, go up to the bus and use the real list_head entry
+point. This prevents the possible read or write of unallocated or
+incorrectly addressed memory.
 
-Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/e1000_regs.h |  1 +
- drivers/net/ethernet/intel/igb/igb_main.c   | 25 +++++++++++++++++++++++++
- 2 files changed, 26 insertions(+)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 17 +++++++----------
+ 1 file changed, 7 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/e1000_regs.h b/drivers/net/ethernet/intel/igb/e1000_regs.h
-index f5ba4e4..6f0490d 100644
---- a/drivers/net/ethernet/intel/igb/e1000_regs.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_regs.h
-@@ -355,6 +355,7 @@
- #define E1000_UTA       0x0A000 /* Unicast Table Array - RW */
- #define E1000_IOVTCL    0x05BBC /* IOV Control Register */
- #define E1000_TXSWC     0x05ACC /* Tx Switch Control */
-+#define E1000_LVMMC	0x03548 /* Last VM Misbehavior cause */
- /* These act per VF so an array friendly macro is used */
- #define E1000_P2VMAILBOX(_n)   (0x00C00 + (4 * (_n)))
- #define E1000_VMBMEM(_n)       (0x00800 + (64 * (_n)))
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 4d2dc17..bd8de67 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -4167,6 +4167,26 @@ static bool igb_thermal_sensor_event(struct e1000_hw *hw, u32 event)
- }
- 
- /**
-+ *  igb_check_lvmmc - check for malformed packets received
-+ *  and indicated in LVMMC register
-+ *  @adapter: pointer to adapter
-+ **/
-+static void igb_check_lvmmc(struct igb_adapter *adapter)
-+{
-+	struct e1000_hw *hw = &adapter->hw;
-+	u32 lvmmc;
-+
-+	lvmmc = rd32(E1000_LVMMC);
-+	if (lvmmc) {
-+		if (unlikely(net_ratelimit())) {
-+			netdev_warn(adapter->netdev,
-+				    "malformed Tx packet detected and dropped, LVMMC:0x%08x\n",
-+				    lvmmc);
-+		}
-+	}
-+}
-+
-+/**
-  *  igb_watchdog - Timer Call-back
-  *  @data: pointer to adapter cast into an unsigned long
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 9aa9d0b..4268a89 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -7973,23 +7973,20 @@ static const struct net_device_ops ixgbe_netdev_ops = {
   **/
-@@ -4361,6 +4381,11 @@ static void igb_watchdog_task(struct work_struct *work)
- 	igb_spoof_check(adapter);
- 	igb_ptp_rx_hang(adapter);
+ static inline int ixgbe_enumerate_functions(struct ixgbe_adapter *adapter)
+ {
+-	struct list_head *entry;
++	struct pci_dev *entry;
+ 	int physfns = 0;
  
-+	/* Check LVMMC register on i350/i354 only */
-+	if ((adapter->hw.mac.type == e1000_i350) ||
-+	    (adapter->hw.mac.type == e1000_i354))
-+		igb_check_lvmmc(adapter);
+ 	/* Some cards can not use the generic count PCIe functions method,
+ 	 * because they are behind a parent switch, so we hardcode these with
+ 	 * the correct number of functions.
+ 	 */
+-	if (ixgbe_pcie_from_parent(&adapter->hw)) {
++	if (ixgbe_pcie_from_parent(&adapter->hw))
+ 		physfns = 4;
+-	} else {
+-		list_for_each(entry, &adapter->pdev->bus_list) {
+-			struct pci_dev *pdev =
+-				list_entry(entry, struct pci_dev, bus_list);
+-			/* don't count virtual functions */
+-			if (!pdev->is_virtfn)
+-				physfns++;
+-		}
 +
- 	/* Reset the timer */
- 	if (!test_bit(__IGB_DOWN, &adapter->state)) {
- 		if (adapter->flags & IGB_FLAG_NEED_LINK_UPDATE)
++	list_for_each_entry(entry, &adapter->pdev->bus->devices, bus_list) {
++		/* don't count virtual functions */
++		if (!entry->is_virtfn)
++			physfns++;
+ 	}
+ 
+ 	return physfns;
 -- 
 1.9.3
