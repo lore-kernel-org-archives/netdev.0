@@ -1,18 +1,31 @@
-From: "Chis, Ioan" <Ioan.Chis@tc.gc.ca>
-Subject: Charity Code: 29Q118
-Date: Fri, 25 Jul 2014 02:28:10 -0400
-Message-ID: <A86DB7EC54752A4EBF9D5BA13DAD33C01BD98B2E66@NCRMXMB04.tc.gc.ca>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] cxgb4: Fixed incorrect check for memory
+ operation in t4_memory_rw
+Date: Thu, 24 Jul 2014 23:28:58 -0700 (PDT)
+Message-ID: <20140724.232858.492013660017227101.davem@davemloft.net>
+References: <1406202390-23012-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Undisclosed recipients:;
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com,
+	kumaras@chelsio.com, anish@chelsio.com
+To: hariprasad@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.tc.gc.ca ([198.103.96.14]:53208 "EHLO tigger.tc.gc.ca"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1758382AbaGYG2f convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jul 2014 02:28:35 -0400
-Content-Language: en-CA
+Received: from shards.monkeyblade.net ([149.20.54.216]:58761 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759853AbaGYG27 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jul 2014 02:28:59 -0400
+In-Reply-To: <1406202390-23012-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-$1 Million USD. Has been donated to you kindly contact the donator Mr. Harry Black via personal email ( harryblack25@rogers.com<mailto:harryblack25@rogers.com> )
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Thu, 24 Jul 2014 17:16:30 +0530
+
+> Fix incorrect check introduced in commit fc5ab020 ("cxgb4: Replaced the
+> backdoor mechanism to access the HW memory with PCIe Window method"). We where
+> checking for write operation and doing a read, changed it accordingly.
+> 
+> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+
+Applied, thanks.
