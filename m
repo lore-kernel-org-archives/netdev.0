@@ -1,43 +1,46 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net-next] net: filter: rename 'struct sk_filter' to 'struct
- bpf_prog'
-Date: Fri, 25 Jul 2014 15:00:09 +0200
-Message-ID: <53D254D9.9030905@redhat.com>
-References: <1406275499-7822-1-git-send-email-ast@plumgrid.com> <53D23EAF.4000001@redhat.com> <20140725115414.GA4770@salvia>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] netfilter: nf_conntrack: remove exceptional & on
+ function name
+Date: Fri, 25 Jul 2014 15:00:53 +0200
+Message-ID: <20140725130053.GB13940@salvia>
+References: <20140724201716.GA16213@himangi-Dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, willemb@google.com,
-	netfilter-devel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Julia Lawall <julia.lawall@lip6.fr>
+To: Himangi Saraogi <himangi774@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140725115414.GA4770@salvia>
+Content-Disposition: inline
+In-Reply-To: <20140724201716.GA16213@himangi-Dell>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 07/25/2014 01:54 PM, Pablo Neira Ayuso wrote:
-> On Fri, Jul 25, 2014 at 01:25:35PM +0200, Daniel Borkmann wrote:
->> [ also Cc'ing Willem, Pablo ]
->>
->> On 07/25/2014 10:04 AM, Alexei Starovoitov wrote:
->>> 'sk_filter' name is used as 'struct sk_filter', function sk_filter() and
->>> as variable 'sk_filter', which makes code hard to read.
->>> Also it's easily confused with 'struct sock_filter'
->>> Rename 'struct sk_filter' to 'struct bpf_prog' to clarify semantics and
->>> align the name with generic BPF use model.
->>
->> Agreed, as we went for kernel/bpf/, renaming makes absolutely sense.
->
-> My nft socket filtering changes are accomodated into struct sk_filter,
-> and will still be, so I still need some generic name there...
+On Fri, Jul 25, 2014 at 01:47:16AM +0530, Himangi Saraogi wrote:
+> In this file, function names are otherwise used as pointers without &.
+> 
+> A simplified version of the Coccinelle semantic patch that makes this
+> change is as follows: 
+> 
+> // <smpl>
+> @r@
+> identifier f;
+> @@
+> 
+> f(...) { ... }
+> 
+> @@
+> identifier r.f;
+> @@
+> 
+> - &f
+> + f
+> // </smpl>
 
-All the parts from filter.c which is BPF's core engine have been moved
-into kernel/bpf/ to get it ready for tracing et al, since there is not
-always a socket context anymore. The *whole* infrastructure around struct
-sk_filter is [e]BPF and used in non-net related contexts as well, whereas
-nft socket filtering is *only* for sockets. Due to the socket-only specific
-use case why doesn't it make more sense to have a union in struct sock
-around sk_filter (or however we name it) and only allow one of the two
-being loaded on a socket?
+Applied, thanks Himangi.
