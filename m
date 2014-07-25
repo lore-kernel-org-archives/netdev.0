@@ -1,88 +1,121 @@
 From: Wangyufen <wangyufen@huawei.com>
-Subject: [PATCH v2 1/8] netlink: Make the sending netlink socket availabe in NETLINK_CB
-Date: Fri, 25 Jul 2014 16:22:22 +0800
-Message-ID: <1406276549-6616-2-git-send-email-wangyufen@huawei.com>
+Subject: [PATCH v2 8/8] netlink: Only check file credentials for implicit destinations
+Date: Fri, 25 Jul 2014 16:22:29 +0800
+Message-ID: <1406276549-6616-9-git-send-email-wangyufen@huawei.com>
 References: <1406276549-6616-1-git-send-email-wangyufen@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>,
 	"Eric W. Biederman" <ebiederm@xmission.com>,
+	<stable@vger.kernel.org>, Andy Lutomirski <luto@amacapital.net>,
 	Wang Yufen <wangyufen@huawei.com>
 To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:35522 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759441AbaGYIYU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jul 2014 04:24:20 -0400
+Return-path: <stable-owner@vger.kernel.org>
 In-Reply-To: <1406276549-6616-1-git-send-email-wangyufen@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric W. Biederman <ebiederm@xmission.com>
+From: "Eric W. Biederman" <ebiederm@xmission.com>
 
-The sending socket of an skb is already available by it's port id
-in the NETLINK_CB.  If you want to know more like to examine the
-credentials on the sending socket you have to look up the sending
-socket by it's port id and all of the needed functions and data
-structures are static inside of af_netlink.c.  So do the simple
-thing and pass the sending socket to the receivers in the NETLINK_CB.
+It was possible to get a setuid root or setcap executable to write to
+it's stdout or stderr (which has been set made a netlink socket) and
+inadvertently reconfigure the networking stack.
 
-I intend to use this to get the user namespace of the sending socket
-in inet_diag so that I can report uids in the context of the process
-who opened the socket, the same way I report uids in the contect
-of the process who opens files.
+To prevent this we check that both the creator of the socket and
+the currentl applications has permission to reconfigure the network
+stack.
 
-Acked-by: David S. Miller <davem@davemloft.net>
-Acked-by: Serge Hallyn <serge.hallyn@canonical.com>
-Signed-off-by: Eric W. Biederman <ebiederm@xmission.com>
+Unfortunately this breaks Zebra which always uses sendto/sendmsg
+and creates it's socket without any privileges.
+
+To keep Zebra working don't bother checking if the creator of the
+socket has privilege when a destination address is specified.  Instead
+rely exclusively on the privileges of the sender of the socket.
+
+Note from Andy: This is exactly Eric's code except for some comment
+clarifications and formatting fixes.  Neither I nor, I think, anyone
+else is thrilled with this approach, but I'm hesitant to wait on a
+better fix since 3.15 is almost here.
+
+Note to stable maintainers: This is a mess.  An earlier series of
+patches in 3.15 fix a rather serious security issue (CVE-2014-0181),
+but they did so in a way that breaks Zebra.  The offending series
+includes:
+
+    commit aa4cf9452f469f16cea8c96283b641b4576d4a7b
+    Author: Eric W. Biederman <ebiederm@xmission.com>
+    Date:   Wed Apr 23 14:28:03 2014 -0700
+
+        net: Add variants of capable for use on netlink messages
+
+If a given kernel version is missing that series of fixes, it's
+probably worth backporting it and this patch.  if that series is
+present, then this fix is critical if you care about Zebra.
+
+Cc: stable@vger.kernel.org
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Signed-off-by: Andy Lutomirski <luto@amacapital.net>
+Signed-off-by: David S. Miller <davem@davemloft.net>
 Signed-off-by: Wang Yufen <wangyufen@huawei.com>
 ---
- include/linux/netlink.h  | 1 +
- net/netlink/af_netlink.c | 6 ++++--
- 2 files changed, 5 insertions(+), 2 deletions(-)
+ include/linux/netlink.h  | 3 ++-
+ net/netlink/af_netlink.c | 7 ++++++-
+ 2 files changed, 8 insertions(+), 2 deletions(-)
 
 diff --git a/include/linux/netlink.h b/include/linux/netlink.h
-index b23e9cd..af6c763 100644
+index f4b56b7..dbf29e5 100644
 --- a/include/linux/netlink.h
 +++ b/include/linux/netlink.h
-@@ -166,6 +166,7 @@ struct netlink_skb_parms {
+@@ -166,9 +166,10 @@ struct netlink_skb_parms {
  	struct ucred		creds;		/* Skb credentials	*/
  	__u32			pid;
  	__u32			dst_group;
-+	struct sock             *ssk;
++	__u32                   flags;
+ 	struct sock             *ssk;
  };
- 
+-
++#define NETLINK_SKB_DST         0x8  /* Dst set in sendto or sendmsg */
  #define NETLINK_CB(skb)		(*(struct netlink_skb_parms*)&((skb)->cb))
+ #define NETLINK_CREDS(skb)	(&NETLINK_CB((skb)).creds)
+ 
 diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index ff960b7..571fc2c 100644
+index 41d345b..231249e 100644
 --- a/net/netlink/af_netlink.c
 +++ b/net/netlink/af_netlink.c
-@@ -899,7 +899,8 @@ static void netlink_rcv_wake(struct sock *sk)
- 		wake_up_interruptible(&nlk->wait);
- }
- 
--static int netlink_unicast_kernel(struct sock *sk, struct sk_buff *skb)
-+static int netlink_unicast_kernel(struct sock *sk, struct sk_buff *skb,
-+				  struct sock *ssk)
+@@ -603,7 +603,9 @@ retry:
+ bool __netlink_ns_capable(const struct netlink_skb_parms *nsp,
+ 			struct user_namespace *user_ns, int cap)
  {
- 	int ret;
- 	struct netlink_sock *nlk = nlk_sk(sk);
-@@ -908,6 +909,7 @@ static int netlink_unicast_kernel(struct sock *sk, struct sk_buff *skb)
- 	if (nlk->netlink_rcv != NULL) {
- 		ret = skb->len;
- 		skb_set_owner_r(skb, sk);
-+		NETLINK_CB(skb).ssk = ssk;
- 		nlk->netlink_rcv(skb);
- 	}
- 	kfree_skb(skb);
-@@ -932,7 +934,7 @@ retry:
- 		return PTR_ERR(sk);
- 	}
- 	if (netlink_is_kernel(sk))
--		return netlink_unicast_kernel(sk, skb);
-+		return netlink_unicast_kernel(sk, skb, ssk);
+-	return sk_ns_capable(nsp->ssk, user_ns, cap);
++	return ((nsp->flags & NETLINK_SKB_DST) ||
++		file_ns_capable(nsp->ssk->sk_socket->file, user_ns, cap)) &&
++		ns_capable(user_ns, cap);
+ }
+ EXPORT_SYMBOL(__netlink_ns_capable);
  
- 	if (sk_filter(sk, skb)) {
- 		err = skb->len;
+@@ -1402,6 +1404,7 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 	struct sk_buff *skb;
+ 	int err;
+ 	struct scm_cookie scm;
++	u32 netlink_skb_flags = 0;
+ 
+ 	if (msg->msg_flags&MSG_OOB)
+ 		return -EOPNOTSUPP;
+@@ -1423,6 +1426,7 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 		if ((dst_group || dst_pid) &&
+ 		    !netlink_allowed(sock, NL_NONROOT_SEND))
+ 			goto out;
++		netlink_skb_flags |= NETLINK_SKB_DST;
+ 	} else {
+ 		dst_pid = nlk->dst_pid;
+ 		dst_group = nlk->dst_group;
+@@ -1444,6 +1448,7 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 
+ 	NETLINK_CB(skb).pid	= nlk->pid;
+ 	NETLINK_CB(skb).dst_group = dst_group;
++	NETLINK_CB(skb).flags   = netlink_skb_flags;
+ 	memcpy(NETLINK_CREDS(skb), &siocb->scm->creds, sizeof(struct ucred));
+ 
+ 	err = -EFAULT;
 -- 
 1.8.0
