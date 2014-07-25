@@ -1,28 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 1/1] drivers: net: cpsw: cleanup: remove
- unused function
-Date: Thu, 24 Jul 2014 23:38:57 -0700 (PDT)
-Message-ID: <20140724.233857.567209693730001481.davem@davemloft.net>
-References: <1406199809-6720-1-git-send-email-mugunthanvnm@ti.com>
+Subject: Re: [PATCH v2 0/6] net/macb: add HW features to macb driver
+Date: Thu, 24 Jul 2014 23:40:26 -0700 (PDT)
+Message-ID: <20140724.234026.1408822707562402333.davem@davemloft.net>
+References: <cover.1406192657.git.cyrille.pitchen@atmel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mugunthanvnm@ti.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58885 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756912AbaGYGi5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jul 2014 02:38:57 -0400
-In-Reply-To: <1406199809-6720-1-git-send-email-mugunthanvnm@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nicolas.ferre@atmel.com, linux-arm-kernel@lists.infradead.org,
+	netdev@vger.kernel.org, soren.brinkmann@xilinx.com,
+	linux-kernel@vger.kernel.org
+To: cyrille.pitchen@atmel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <cover.1406192657.git.cyrille.pitchen@atmel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Date: Thu, 24 Jul 2014 16:33:29 +0530
+From: Cyrille Pitchen <cyrille.pitchen@atmel.com>
+Date: Thu, 24 Jul 2014 13:50:57 +0200
 
-> removing unused function as part of driver cleanup.`
+> this series of patches adds new hardware features to macb driver. These
+> features can be enabled/disabled at runtime using ethtool. Depending on
+> hardware and design configuration, some are enabled by default whereas other
+> are disabled.
 > 
-> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+> For instance, checksum offload features are enabled by default for gem designed
+> for packet buffer mode but disabled for fifo mode design or for old macb.
+> 
+> Besides, the scatter-gather feature is enabled and tested on macb but disabled
+> on sama5d3x gem. When testing this feature on sama5d3x gem, TX lockups occured
+> frequently.
+> 
+> Also, the RX checksum offload feature is enabled at GEM level only when both
+> IFF_PROMISC bit is clear in dev->flags and NETIF_F_RXCSUM bit is set in
+> dev->features.
+> 
+> These patches were made for net-next.git repository.
 
-Applied, thank you.
+Series applied, thanks.
