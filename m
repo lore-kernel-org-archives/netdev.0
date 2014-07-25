@@ -1,41 +1,56 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH 1/1] neighbour : fix ndm_type type error issue
-Date: Sat, 26 Jul 2014 01:24:57 +0200
-Message-ID: <1406330697.989.145785925.1CA960AF@webmail.messagingengine.com>
-References: <1406306339-16151-1-git-send-email-mypopydev@gmail.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: TCP socket timeout after IP address is removed
+Date: Fri, 25 Jul 2014 16:31:35 -0700
+Message-ID: <CAK6E8=fydKiyVq5EGYKkQD1gU+OjOs-aJr0S02FLAxan7MPJ1g@mail.gmail.com>
+References: <53D2B840.4040308@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: Jun Zhao <mypopydev@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <cwang@twopensource.com>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	stephen hemminger <stephen@networkplumber.org>,
-	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org,
-	Francesco Fusco <ffusco@redhat.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Duan Jiong <duanj.fnst@cn.fujitsu.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	David Stevens <dlstevens@us.ibm.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Daniel Borkmann <dborkman@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1406306339-16151-1-git-send-email-mypopydev@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Joby Poriyath <joby.poriyath@citrix.com>
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ig0-f180.google.com ([209.85.213.180]:64459 "EHLO
+	mail-ig0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751364AbaGYXcQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jul 2014 19:32:16 -0400
+Received: by mail-ig0-f180.google.com with SMTP id l13so1484253iga.7
+        for <netdev@vger.kernel.org>; Fri, 25 Jul 2014 16:32:15 -0700 (PDT)
+In-Reply-To: <53D2B840.4040308@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 25, 2014, at 18:38, Jun Zhao wrote:
-> ndm_type means L3 address type, in neighbour proxy and vxlan, it's
-> RTN_UNICAST.
-> NDA_DST is for netlink TLV type, hence it's not right value in this
-> context.
+On Fri, Jul 25, 2014 at 1:04 PM, Zoltan Kiss <zoltan.kiss@citrix.com> wrote:
+> Hi,
+>
+> We have a timout problem on TCP sockets, which probably has some trivial
+> solution, but I couldn't figure it out after hours of staring at the code,
+> so hopefully someone can shed some light on it here.
+> The scenario is the following:
+> - I start an ssh connection from host A to B, it works fine
+> - netstat shows the socket is using local address K
+> - then I remove local address K, and with DHCP I get a new one, L on a
+> different interface (interfaces are always up during the whole time)
+> - the socket is still alive, but my SSH connection doesn't transmit
+> anything, obviously, as netstat says it is still using IP address K
+> - ftrace showed me the data goes through the TCP layer and finally the IP
+> layer drops it because the route is no longer valid
+>
+> On 3.10 kernel it times out after ~15 minutes or so, which isn't too good
+> for me. On 2.6.32 it times out after a couple of minutes, and I would like
+> to achieve the same, but I couldn't figure out how. Could anyone give me
+> some guidance?
 
-The value of NDA_DST == RTN_UNICAST, otherwise we couldn't do this
-change as it would alter e.g. arpd behavior.
+Depending on your scenario, you can either try tweaking the sysctl
+net.ipv4.tcp_retries2 or use setsockopt TCP_USER_TIMEOUT
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+man tcp or see http://patchwork.ozlabs.org/patch/62889/
 
-Thanks,
-Hannes
+
+>
+> Regards,
+>
+> Zoltan Kiss
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
