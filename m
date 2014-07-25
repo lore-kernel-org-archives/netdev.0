@@ -1,63 +1,71 @@
-From: Wolfram Sang <wsa@sang-engineering.com>
-Subject: Re: [can-next PATCH 1/1] net: can: =?UTF-8?Q?c=5Fcan=5Fplatform?=
- =?UTF-8?Q?=3A=20Use=20devm=5Fioremap=20instead=20of=20devm=5Fioremap=5Fre?=
- =?UTF-8?Q?source=2E?=
-Date: Fri, 25 Jul 2014 12:49:25 +0200
-Message-ID: <4a97162dedd6ab064e83c52757f2ce42@mail.zeus03.de>
-References: <1406269181-4092-1-git-send-email-mugunthanvnm@ti.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next] net: filter: rename 'struct sk_filter' to 'struct
+ bpf_prog'
+Date: Fri, 25 Jul 2014 13:25:35 +0200
+Message-ID: <53D23EAF.4000001@redhat.com>
+References: <1406275499-7822-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Wolfgang Grandegger <wg@grandegger.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	Pavel Machek <pavel@denx.de>, Thor Thayer <tthayer@altera.com>,
-	Prabhakar Lad <prabhakar.csengg@gmail.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Chen Gang <gang.chen@asianux.com>,
-	George Cherian <george.cherian@ti.com>,
-	linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1406269181-4092-1-git-send-email-mugunthanvnm@ti.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, willemb@google.com,
+	pablo@netfilter.org
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:24800 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759914AbaGYLZr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Jul 2014 07:25:47 -0400
+In-Reply-To: <1406275499-7822-1-git-send-email-ast@plumgrid.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am 25-07-2014 08:19, schrieb Mugunthan V N:
-> From: George Cherian <george.cherian@ti.com>
-> 
-> The raminit register is shared register for both can0 and can1.
-> Using devm_ioremap_resource fails the mapping for can1 interface
-> leading to a non functional can interface.
-> 
-> Signed-off-by: George Cherian <george.cherian@ti.com>
-> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+[ also Cc'ing Willem, Pablo ]
 
-The patch is a hack, or? It simply works because we drop all sanity 
-checking on the resource.
+On 07/25/2014 10:04 AM, Alexei Starovoitov wrote:
+> 'sk_filter' name is used as 'struct sk_filter', function sk_filter() and
+> as variable 'sk_filter', which makes code hard to read.
+> Also it's easily confused with 'struct sock_filter'
+> Rename 'struct sk_filter' to 'struct bpf_prog' to clarify semantics and
+> align the name with generic BPF use model.
 
-I am on holiday and can't really check, yet I believe the AM335x has 
-devicetree support for accessing single bits in SYSCONF. This is what 
-needs to be applied here, too, AFAICT.
+Agreed, as we went for kernel/bpf/, renaming makes absolutely sense.
 
+> The only ugly place is uapi/linux/netfilter/xt_bpf.h which
+> managed to expose kernel internal structure into uapi header.
+> Though it shouldn't even compile in user space, preserve the mess by
+> adding empty 'struct sk_filter;' there and type cast it to 'struct bpf_prog'
+> inside kernel in net/netfilter/xt_bpf.c
+>
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 > ---
->  drivers/net/can/c_can/c_can_platform.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/can/c_can/c_can_platform.c
-> b/drivers/net/can/c_can/c_can_platform.c
-> index e29b6d0..5dede6e 100644
-> --- a/drivers/net/can/c_can/c_can_platform.c
-> +++ b/drivers/net/can/c_can/c_can_platform.c
-> @@ -278,7 +278,8 @@ static int c_can_plat_probe(struct platform_device 
-> *pdev)
->  			break;
->  		}
-> 
-> -		priv->raminit_ctrlreg = devm_ioremap_resource(&pdev->dev, res);
-> +		priv->raminit_ctrlreg = devm_ioremap(&pdev->dev, res->start,
-> +						     resource_size(res));
->  		if (IS_ERR(priv->raminit_ctrlreg) || priv->instance < 0)
->  			dev_info(&pdev->dev, "control memory is not used for raminit\n");
->  		else
+>
+> alternative fix for xt_bpf.h could be to replace:
+>          /* only used in the kernel */
+> 	struct sk_filter *filter __attribute__((aligned(8)));
+> with
+>          /* only used in the kernel */
+> 	void *filter __attribute__((aligned(8)));
+>
+> but this 'void *' approach may further break broken userspace,
+> whereas the fix implemented here is more seamless.
+
+Yep, that's not good, 'struct sk_filter' should never have been in a uapi
+file actually.
+
+I think your current approach here, as you say, is more seamless, but as
+the struct itself is *only* hidden inside kernel space, and there's no way
+anyone can mess around with it, we might as well go for the more correct
+void pointer, imho, it won't change anything in the structure size at least.
+
+I guess the alignment in xt_bpf_info is for 32bit user space w/ 64bit kernel
+space? I haven't looked so far into how exactly x_tables transfers that back
+to user space, but are we effectively _leaking_ a kernel address after we
+called sk_unattached_filter_create(&info->filter, ...) when dumping back to
+user space? I guess for a possible leak in the _padding_ of the structure,
+we might be copying gargabe from user space to kernel and back, that might
+be less problematic, I think.
+
+> Tested on x64, arm, sparc
+
+[ Rest of the patch looks good, thanks. ]
