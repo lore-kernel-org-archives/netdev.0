@@ -1,32 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv6: remove obsolete comment in
- ip6_append_data()
-Date: Thu, 24 Jul 2014 23:48:35 -0700 (PDT)
-Message-ID: <20140724.234835.2186763007050998297.davem@davemloft.net>
-References: <1406270711-21752-1-git-send-email-roy.qing.li@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: roy.qing.li@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59004 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750916AbaGYGsh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jul 2014 02:48:37 -0400
-In-Reply-To: <1406270711-21752-1-git-send-email-roy.qing.li@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can 2014-07-25
+Date: Fri, 25 Jul 2014 09:36:49 +0200
+Message-ID: <1406273810-19116-1-git-send-email-mkl@pengutronix.de>
+Cc: davem@davemloft.net, linux-can@vger.kernel.org,
+	kernel@pengutronix.de
+To: netdev@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: roy.qing.li@gmail.com
-Date: Fri, 25 Jul 2014 14:45:11 +0800
+Hello David,
 
-> From: Li RongQing <roy.qing.li@gmail.com> 
-> 
-> After 11878b40e[net-timestamp: SOCK_RAW and PING timestamping], this comment
-> becomes obsolete since the codes check not only UDP socket, but also RAW sock;
-> and the codes are clear, not need the comments
-> 
-> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+this is a pull request of one patch for the net tree, hoping to get into the
+3.16 release.
 
-Applied, thanks.
+The patch by George Cherian fixes a regression in the c_can platform driver.
+When using two interfaces the regression leads to a non function second
+interface.
+
+regards,
+Marc
+
+---
+
+The following changes since commit 15ba2236f3556fc01b9ca91394465152b5ea74b6:
+
+  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2014-07-21 22:46:01 -0700)
+
+are available in the git repository at:
+
+  git://gitorious.org/linux-can/linux-can.git tags/linux-can-fixes-for-3.16-20140725
+
+for you to fetch changes up to 33cf75656923ff11d67a937a4f8e9344f58cea77:
+
+  can: c_can_platform: Fix raminit, use devm_ioremap() instead of devm_ioremap_resource() (2014-07-25 09:23:08 +0200)
+
+----------------------------------------------------------------
+linux-can-fixes-for-3.16-20140725
+
+----------------------------------------------------------------
+George Cherian (1):
+      can: c_can_platform: Fix raminit, use devm_ioremap() instead of devm_ioremap_resource()
+
+ drivers/net/can/c_can/c_can_platform.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
