@@ -1,80 +1,41 @@
-From: Sasha Levin <sasha.levin@oracle.com>
-Subject: Re: net, phonet, rcu: rcu hang within gprs_attach
-Date: Fri, 25 Jul 2014 19:23:06 -0400
-Message-ID: <53D2E6DA.9020306@oracle.com>
-References: <53D1865F.7040604@oracle.com> <20140724225431.GW11241@linux.vnet.ibm.com> <53D196A3.1010105@oracle.com> <20140725231903.GI11241@linux.vnet.ibm.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH 1/1] neighbour : fix ndm_type type error issue
+Date: Sat, 26 Jul 2014 01:24:57 +0200
+Message-ID: <1406330697.989.145785925.1CA960AF@webmail.messagingengine.com>
+References: <1406306339-16151-1-git-send-email-mypopydev@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, courmisch@gmail.com,
-	LKML <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Dave Jones <davej@redhat.com>
-To: paulmck@linux.vnet.ibm.com
+Cc: linux-kernel@vger.kernel.org
+To: Jun Zhao <mypopydev@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cong Wang <cwang@twopensource.com>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	stephen hemminger <stephen@networkplumber.org>,
+	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org,
+	Francesco Fusco <ffusco@redhat.com>,
+	Veaceslav Falico <vfalico@redhat.com>,
+	Duan Jiong <duanj.fnst@cn.fujitsu.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	David Stevens <dlstevens@us.ibm.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Daniel Borkmann <dborkman@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140725231903.GI11241@linux.vnet.ibm.com>
+In-Reply-To: <1406306339-16151-1-git-send-email-mypopydev@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 07/25/2014 07:19 PM, Paul E. McKenney wrote:
-> On Thu, Jul 24, 2014 at 07:28:35PM -0400, Sasha Levin wrote:
->> > On 07/24/2014 06:54 PM, Paul E. McKenney wrote:
->>> > > On Thu, Jul 24, 2014 at 06:19:11PM -0400, Sasha Levin wrote:
->>>> > >> Hi all,
->>>> > >>
->>>> > >> While fuzzing with trinity inside a KVM tools guest running the latest -next
->>>> > >> kernel I've stumbled on the following stack trace (full log attached):
->>>> > >>
->>>> > >> [  370.662014] INFO: task trinity-main:8727 blocked for more than 120 seconds.
->>>> > >> [  370.662891]       Not tainted 3.16.0-rc6-next-20140724-sasha-00046-g7324c87-dirty #932
->>>> > >> [  370.663655] "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
->>>> > >> [  370.664562] trinity-main    D ffff88053cc80000 13064  8727   8714 0x00000000
->>>> > >> [  370.665328]  ffff88053da6fc10 0000000000000002 ffff8805483e2dc8 ffff880541873000
->>>> > >> [  370.666147]  000000276ed30787 ffff88053da6c010 ffff88053da6c000 ffff8805452a0000
->>>> > >> [  370.667243]  ffff880541873000 0000000000000000 7fffffffffffffff ffffffffb3ec51d8
->>>> > >> [  370.668788] Call Trace:
->>>> > >> [  370.669118] schedule (kernel/sched/core.c:2847)
->>>> > >> [  370.670538] schedule_timeout (kernel/time/timer.c:1476)
->>>> > >> [  370.671524] ? mark_lock (kernel/locking/lockdep.c:2894)
->>>> > >> [  370.672299] ? __this_cpu_preempt_check (lib/smp_processor_id.c:63)
->>>> > >> [  370.673227] ? get_parent_ip (kernel/sched/core.c:2561)
->>>> > >> [  370.674085] wait_for_completion (include/linux/spinlock.h:328 kernel/sched/completion.c:76 kernel/sched/completion.c:93 kernel/sched/completion.c:101 kernel/sched/completion.c:122)
->>>> > >> [  370.674960] ? wake_up_state (kernel/sched/core.c:2942)
->>>> > >> [  370.675576] _rcu_barrier (kernel/rcu/tree.c:3325 (discriminator 8))
->>>> > >> [  370.676109] rcu_barrier (kernel/rcu/tree_plugin.h:920)
->>>> > >> [  370.676627] netdev_run_todo (net/core/dev.c:6323)
->>>> > >> [  370.677202] rtnl_unlock (net/core/rtnetlink.c:80)
->>>> > >> [  370.677714] unregister_netdev (net/core/dev.c:6687)
->>>> > >> [  370.678266] gprs_attach (net/phonet/pep-gprs.c:311)
->>>> > >> [  370.679641] pep_setsockopt (net/phonet/pep.c:1016)
->>>> > >> [  370.681082] sock_common_setsockopt (net/core/sock.c:2603)
->>>> > >> [  370.682048] SyS_setsockopt (net/socket.c:1914 net/socket.c:1894)
->>>> > >> [  370.682854] tracesys (arch/x86/kernel/entry_64.S:541)
->>>> > >> [  370.683586] 1 lock held by trinity-main/8727:
->>>> > >> [  370.684232] #0: (rcu_preempt_state.barrier_mutex){+.+...}, at: _rcu_barrier (kernel/rcu/tree.c:3233)
->>>> > >>
->>>> > >> This has reproduced couple of times, and has always originated from gprs_attach. I don't see any obvious
->>>> > >> issues with the code there, so I'm not sure if it's a fault of the phonet or the rcu code.
->>> > > 
->>> > > Can't tell much from this.  Any chance of a .config?
->>> > > 
->>> > > 							Thanx, Paul
->>> > > 
->> > 
->> > Attached.
-> If you were doing partial nohz_full= CPUs, there is a recent RCU bug
-> that would result in these symptoms.  No idea how you would make it
-> happen without specifying the nohz_full= boot parameter, but I should
-> be getting the fix into -next in a few days.
-> 
-> But you never know.  So if you are interested in testing sooner, and if
-> my local tests pass, I could send you a modified patch that applies on
-> top of rcu/next.  If you would like such a patch, let me know.
+On Fri, Jul 25, 2014, at 18:38, Jun Zhao wrote:
+> ndm_type means L3 address type, in neighbour proxy and vxlan, it's
+> RTN_UNICAST.
+> NDA_DST is for netlink TLV type, hence it's not right value in this
+> context.
 
-Sure, if you Cc me on it I'll be happy to test it out, just don't go out
-of your way since I've disabled phonet for now anyways, so it's not really
-delaying me.
+The value of NDA_DST == RTN_UNICAST, otherwise we couldn't do this
+change as it would alter e.g. arpd behavior.
 
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
 Thanks,
-Sasha
+Hannes
