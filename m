@@ -1,121 +1,93 @@
 From: Wangyufen <wangyufen@huawei.com>
-Subject: [PATCH v2 8/8] netlink: Only check file credentials for implicit destinations
-Date: Fri, 25 Jul 2014 16:22:29 +0800
-Message-ID: <1406276549-6616-9-git-send-email-wangyufen@huawei.com>
+Subject: [PATCH v2 3/8] Add file_ns_capable() helper function for open-time capability checking
+Date: Fri, 25 Jul 2014 16:22:24 +0800
+Message-ID: <1406276549-6616-4-git-send-email-wangyufen@huawei.com>
 References: <1406276549-6616-1-git-send-email-wangyufen@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	<stable@vger.kernel.org>, Andy Lutomirski <luto@amacapital.net>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
 	Wang Yufen <wangyufen@huawei.com>
 To: <davem@davemloft.net>
-Return-path: <stable-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:35750 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759918AbaGYIYg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jul 2014 04:24:36 -0400
 In-Reply-To: <1406276549-6616-1-git-send-email-wangyufen@huawei.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Eric W. Biederman" <ebiederm@xmission.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
 
-It was possible to get a setuid root or setcap executable to write to
-it's stdout or stderr (which has been set made a netlink socket) and
-inadvertently reconfigure the networking stack.
+Nothing is using it yet, but this will allow us to delay the open-time
+checks to use time, without breaking the normal UNIX permission
+semantics where permissions are determined by the opener (and the file
+descriptor can then be passed to a different process, or the process can
+drop capabilities).
 
-To prevent this we check that both the creator of the socket and
-the currentl applications has permission to reconfigure the network
-stack.
-
-Unfortunately this breaks Zebra which always uses sendto/sendmsg
-and creates it's socket without any privileges.
-
-To keep Zebra working don't bother checking if the creator of the
-socket has privilege when a destination address is specified.  Instead
-rely exclusively on the privileges of the sender of the socket.
-
-Note from Andy: This is exactly Eric's code except for some comment
-clarifications and formatting fixes.  Neither I nor, I think, anyone
-else is thrilled with this approach, but I'm hesitant to wait on a
-better fix since 3.15 is almost here.
-
-Note to stable maintainers: This is a mess.  An earlier series of
-patches in 3.15 fix a rather serious security issue (CVE-2014-0181),
-but they did so in a way that breaks Zebra.  The offending series
-includes:
-
-    commit aa4cf9452f469f16cea8c96283b641b4576d4a7b
-    Author: Eric W. Biederman <ebiederm@xmission.com>
-    Date:   Wed Apr 23 14:28:03 2014 -0700
-
-        net: Add variants of capable for use on netlink messages
-
-If a given kernel version is missing that series of fixes, it's
-probably worth backporting it and this patch.  if that series is
-present, then this fix is critical if you care about Zebra.
-
-Cc: stable@vger.kernel.org
-Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
-Signed-off-by: Andy Lutomirski <luto@amacapital.net>
-Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
 Signed-off-by: Wang Yufen <wangyufen@huawei.com>
 ---
- include/linux/netlink.h  | 3 ++-
- net/netlink/af_netlink.c | 7 ++++++-
- 2 files changed, 8 insertions(+), 2 deletions(-)
+ include/linux/capability.h |  3 ++-
+ kernel/capability.c        | 24 ++++++++++++++++++++++++
+ 2 files changed, 26 insertions(+), 1 deletion(-)
 
-diff --git a/include/linux/netlink.h b/include/linux/netlink.h
-index f4b56b7..dbf29e5 100644
---- a/include/linux/netlink.h
-+++ b/include/linux/netlink.h
-@@ -166,9 +166,10 @@ struct netlink_skb_parms {
- 	struct ucred		creds;		/* Skb credentials	*/
- 	__u32			pid;
- 	__u32			dst_group;
-+	__u32                   flags;
- 	struct sock             *ssk;
- };
+diff --git a/include/linux/capability.h b/include/linux/capability.h
+index 12d52de..7273027 100644
+--- a/include/linux/capability.h
++++ b/include/linux/capability.h
+@@ -373,7 +373,7 @@ struct cpu_vfs_cap_data {
+ #define CAP_TO_MASK(x)      (1 << ((x) & 31)) /* mask for indexed __u32 */
+ 
+ #ifdef __KERNEL__
 -
-+#define NETLINK_SKB_DST         0x8  /* Dst set in sendto or sendmsg */
- #define NETLINK_CB(skb)		(*(struct netlink_skb_parms*)&((skb)->cb))
- #define NETLINK_CREDS(skb)	(&NETLINK_CB((skb)).creds)
++struct file;
+ struct dentry;
+ struct user_namespace;
  
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 41d345b..231249e 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -603,7 +603,9 @@ retry:
- bool __netlink_ns_capable(const struct netlink_skb_parms *nsp,
- 			struct user_namespace *user_ns, int cap)
- {
--	return sk_ns_capable(nsp->ssk, user_ns, cap);
-+	return ((nsp->flags & NETLINK_SKB_DST) ||
-+		file_ns_capable(nsp->ssk->sk_socket->file, user_ns, cap)) &&
-+		ns_capable(user_ns, cap);
- }
- EXPORT_SYMBOL(__netlink_ns_capable);
+@@ -548,6 +548,7 @@ extern bool has_ns_capability_noaudit(struct task_struct *t,
+ extern bool capable(int cap);
+ extern bool ns_capable(struct user_namespace *ns, int cap);
+ extern bool nsown_capable(int cap);
++extern bool file_ns_capable(const struct file *file, struct user_namespace *ns, int cap);
  
-@@ -1402,6 +1404,7 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 	struct sk_buff *skb;
- 	int err;
- 	struct scm_cookie scm;
-+	u32 netlink_skb_flags = 0;
+ /* audit system wants to get cap info from files as well */
+ extern int get_vfs_caps_from_disk(const struct dentry *dentry, struct cpu_vfs_cap_data *cpu_caps);
+diff --git a/kernel/capability.c b/kernel/capability.c
+index 3f1adb6..cc8c4845 100644
+--- a/kernel/capability.c
++++ b/kernel/capability.c
+@@ -393,6 +393,30 @@ bool ns_capable(struct user_namespace *ns, int cap)
+ EXPORT_SYMBOL(ns_capable);
  
- 	if (msg->msg_flags&MSG_OOB)
- 		return -EOPNOTSUPP;
-@@ -1423,6 +1426,7 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 		if ((dst_group || dst_pid) &&
- 		    !netlink_allowed(sock, NL_NONROOT_SEND))
- 			goto out;
-+		netlink_skb_flags |= NETLINK_SKB_DST;
- 	} else {
- 		dst_pid = nlk->dst_pid;
- 		dst_group = nlk->dst_group;
-@@ -1444,6 +1448,7 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 
- 	NETLINK_CB(skb).pid	= nlk->pid;
- 	NETLINK_CB(skb).dst_group = dst_group;
-+	NETLINK_CB(skb).flags   = netlink_skb_flags;
- 	memcpy(NETLINK_CREDS(skb), &siocb->scm->creds, sizeof(struct ucred));
- 
- 	err = -EFAULT;
+ /**
++ * file_ns_capable - Determine if the file's opener had a capability in effect
++ * @file:  The file we want to check
++ * @ns:  The usernamespace we want the capability in
++ * @cap: The capability to be tested for
++ *
++ * Return true if task that opened the file had a capability in effect
++ * when the file was opened.
++ *
++ * This does not set PF_SUPERPRIV because the caller may not
++ * actually be privileged.
++ */
++bool file_ns_capable(const struct file *file, struct user_namespace *ns, int cap)
++{
++	if (WARN_ON_ONCE(!cap_valid(cap)))
++		return false;
++
++	if (security_capable(file->f_cred, ns, cap) == 0)
++		return true;
++
++	return false;
++}
++EXPORT_SYMBOL(file_ns_capable);
++
++/**
+  * capable - Determine if the current task has a superior capability in effect
+  * @cap: The capability to be tested for
+  *
 -- 
 1.8.0
