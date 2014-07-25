@@ -1,36 +1,79 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] [linux-next] netfilter: kill remnants of ulog targets
-Date: Fri, 25 Jul 2014 15:01:34 +0200
-Message-ID: <20140725130134.GC13940@salvia>
-References: <1406107694.12441.8.camel@x220>
- <20140723093949.GA3754@salvia>
- <1406291131.8231.20.camel@x220>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [can-next PATCH 1/1] net: can: c_can_platform: Use devm_ioremap
+ instead of devm_ioremap_resource.
+Date: Fri, 25 Jul 2014 15:06:03 +0200
+Message-ID: <53D2563B.1090703@pengutronix.de>
+References: <1406269181-4092-1-git-send-email-mugunthanvnm@ti.com> <4a97162dedd6ab064e83c52757f2ce42@mail.zeus03.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	coreteam@netfilter.org, bridge@lists.linux-foundation.org,
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="duembwfNjUBjNsAK8or8Qhho4rhcAMHTq"
+Cc: Wolfgang Grandegger <wg@grandegger.com>,
+	Pavel Machek <pavel@denx.de>, Thor Thayer <tthayer@altera.com>,
+	Prabhakar Lad <prabhakar.csengg@gmail.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Chen Gang <gang.chen@asianux.com>,
+	George Cherian <george.cherian@ti.com>,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Paul Bolle <pebolle@tiscali.nl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:58784 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760237AbaGYNBX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Jul 2014 09:01:23 -0400
-Content-Disposition: inline
-In-Reply-To: <1406291131.8231.20.camel@x220>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Wolfram Sang <wsa@sang-engineering.com>,
+	Mugunthan V N <mugunthanvnm@ti.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <4a97162dedd6ab064e83c52757f2ce42@mail.zeus03.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 25, 2014 at 02:25:31PM +0200, Paul Bolle wrote:
-> The ulog targets were recently killed. A few references to the Kconfig
-> macros CONFIG_IP_NF_TARGET_ULOG and CONFIG_BRIDGE_EBT_ULOG were left
-> untouched. Kill these too.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--duembwfNjUBjNsAK8or8Qhho4rhcAMHTq
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-Those were my fault, applied, thanks Paul.
+On 07/25/2014 12:49 PM, Wolfram Sang wrote:
+> Am 25-07-2014 08:19, schrieb Mugunthan V N:
+>> From: George Cherian <george.cherian@ti.com>
+>>
+>> The raminit register is shared register for both can0 and can1.
+>> Using devm_ioremap_resource fails the mapping for can1 interface
+>> leading to a non functional can interface.
+>>
+>> Signed-off-by: George Cherian <george.cherian@ti.com>
+>> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+>=20
+> The patch is a hack, or? It simply works because we drop all sanity
+> checking on the resource.
+
+Well, thinking about it, yes, a bit.
+
+> I am on holiday and can't really check, yet I believe the AM335x has
+> devicetree support for accessing single bits in SYSCONF. This is what
+> needs to be applied here, too, AFAICT.
+
+I cannot find any generic driver for the sysconf, USB and Ethernet have
+an extra driver for their shared register space. I think the d_can can
+access the raminit register via a syscon driver.
+
+Enjoy your holiday :)
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--duembwfNjUBjNsAK8or8Qhho4rhcAMHTq
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+
+iEYEARECAAYFAlPSVjsACgkQjTAFq1RaXHMPMACfUlhII5nD4DcN1u5YEoXtVeUZ
+hP8Ani5sxhhe6a6WfzL48KqolRBU1Bt+
+=sQbT
+-----END PGP SIGNATURE-----
+
+--duembwfNjUBjNsAK8or8Qhho4rhcAMHTq--
