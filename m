@@ -1,80 +1,50 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH] can: c_can_platform: Fix raminit, use devm_ioremap()
- instead of devm_ioremap_resource()
-Date: Fri, 25 Jul 2014 13:21:01 -0700
-Message-ID: <CAGVrzcZT0e2vLF5N-fwgkxYGtLxtcp0_SvV1iYGBfd2+PB=-Ng@mail.gmail.com>
-References: <1406273810-19116-1-git-send-email-mkl@pengutronix.de> <1406273810-19116-2-git-send-email-mkl@pengutronix.de>
+From: Jeffrey Knockel <jeffk@cs.unm.edu>
+Subject: Re: [PATCH net] ip: make IP identifiers less predictable
+Date: Fri, 25 Jul 2014 14:28:35 -0600
+Message-ID: <53D2BDF3.5060909@cs.unm.edu>
+References: <1406189276.3363.63.camel@edumazet-glaptop2.roam.corp.google.com>	 <CA+55aFyCDNq3E+bZ3aPfS33w8mA_86J+cNWR5V6fdogNihSh2Q@mail.gmail.com>	 <53D27E0E.40102@cs.unm.edu> <1406311751.3363.95.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, linux-can@vger.kernel.org,
-	kernel <kernel@pengutronix.de>,
-	George Cherian <george.cherian@ti.com>,
-	Mugunthan V N <mugunthanvnm@ti.com>,
-	linux-stable <stable@vger.kernel.org>,
-	"jg1.han@samsung.com" <jg1.han@samsung.com>
-To: Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1406273810-19116-2-git-send-email-mkl@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Linus Torvalds <torvalds@linux-foundation.org>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"Jedidiah R. Crandall" <crandall@cs.unm.edu>,
+	Willy Tarreau <w@1wt.eu>,
+	"security@kernel.org" <security@kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from snape.cs.unm.edu ([64.106.20.59]:53140 "EHLO snape.cs.unm.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934614AbaGYU2p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Jul 2014 16:28:45 -0400
+In-Reply-To: <1406311751.3363.95.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2014-07-25 0:36 GMT-07:00 Marc Kleine-Budde <mkl@pengutronix.de>:
-> From: George Cherian <george.cherian@ti.com>
->
-> The raminit register is shared register for both can0 and can1. Since commit:
->
->     32766ff net: can: Convert to use devm_ioremap_resource
->
-> devm_ioremap_resource() is used to map raminit register. When using both
-> interfaces the mapping for the can1 interface fails, leading to a non
-> functional can interface.
+On 07/25/2014 12:09 PM, Eric Dumazet wrote:
+> What do you mean by "an attacker who controls a large number of
+> addresses" ?
 
-Unfortunately, this is not the first time that devres conversions
-break drivers because they were semi-automatic conversions without
-taking a look at what the driver expects, see:
+In general, I mean any attacker who can read the packets sent to a large
+number of different Internet addresses.  Even an attacker who has one
+address but can cycle through different assignments may be a problem.
 
-6892b41d9701283085b655c6086fb57a5d63fa47 ("net: davinci: emac: Convert
-to devm_* api") and
-33b7107f59a61236d94ecd6b45e20283cd5abcc8 ("net: davinci_emac: Replace
-devm_request_irq with request_irq")
+> The hash(daddr) -> slot function is not known, as we use a Jenkin hash
+> with a secret ( ip_idents_hashrnd & ip6_idents_hashrnd )
 
-arguably, a comment here explaining why the request_mem_region() on
-this resource should not be done might help people using automated
-tools not to break things in the future...
+That's true, but the secret never changes, right?  I may not be able to
+identify the slot number that any address is hashed to, but I can
+identify when some victim address hashes to the same slot as one of my
+addresses whose packets I can read.  For instance, if I in short succession
 
->
-> Signed-off-by: George Cherian <george.cherian@ti.com>
-> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
-> Cc: linux-stable <stable@vger.kernel.org> # >= v3.11
-> Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
-> ---
->  drivers/net/can/c_can/c_can_platform.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
->
-> diff --git a/drivers/net/can/c_can/c_can_platform.c b/drivers/net/can/c_can/c_can_platform.c
-> index 824108c..12430be 100644
-> --- a/drivers/net/can/c_can/c_can_platform.c
-> +++ b/drivers/net/can/c_can/c_can_platform.c
-> @@ -287,7 +287,8 @@ static int c_can_plat_probe(struct platform_device *pdev)
->                         break;
->                 }
->
-> -               priv->raminit_ctrlreg = devm_ioremap_resource(&pdev->dev, res);
-> +               priv->raminit_ctrlreg = devm_ioremap(&pdev->dev, res->start,
-> +                                                    resource_size(res));
->                 if (IS_ERR(priv->raminit_ctrlreg) || priv->instance < 0)
->                         dev_info(&pdev->dev, "control memory is not used for raminit\n");
->                 else
-> --
-> 2.0.1
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1. Probe value of the IP id counter for each of my addresses
+2. Spoof a large number of (e.g.) echo requests from victim address (or
+something else to the distribution that I can measure)
+3. Again probe value of the IP id counter for each of my addresses
 
+Then I can tell which of my addresses hash to the same slot as the
+victim address by whose value of the IP id counter has jumped as a
+result of the linux machine sending echo replies to the victim.
 
-
--- 
-Florian
+Jeff
