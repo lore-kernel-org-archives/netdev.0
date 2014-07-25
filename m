@@ -1,40 +1,80 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: TCP socket timeout after IP address is removed
-Date: Fri, 25 Jul 2014 21:04:16 +0100
-Message-ID: <53D2B840.4040308@citrix.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] can: c_can_platform: Fix raminit, use devm_ioremap()
+ instead of devm_ioremap_resource()
+Date: Fri, 25 Jul 2014 13:21:01 -0700
+Message-ID: <CAGVrzcZT0e2vLF5N-fwgkxYGtLxtcp0_SvV1iYGBfd2+PB=-Ng@mail.gmail.com>
+References: <1406273810-19116-1-git-send-email-mkl@pengutronix.de> <1406273810-19116-2-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Joby Poriyath <joby.poriyath@citrix.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:4879 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932508AbaGYUE1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Jul 2014 16:04:27 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, linux-can@vger.kernel.org,
+	kernel <kernel@pengutronix.de>,
+	George Cherian <george.cherian@ti.com>,
+	Mugunthan V N <mugunthanvnm@ti.com>,
+	linux-stable <stable@vger.kernel.org>,
+	"jg1.han@samsung.com" <jg1.han@samsung.com>
+To: Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1406273810-19116-2-git-send-email-mkl@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+2014-07-25 0:36 GMT-07:00 Marc Kleine-Budde <mkl@pengutronix.de>:
+> From: George Cherian <george.cherian@ti.com>
+>
+> The raminit register is shared register for both can0 and can1. Since commit:
+>
+>     32766ff net: can: Convert to use devm_ioremap_resource
+>
+> devm_ioremap_resource() is used to map raminit register. When using both
+> interfaces the mapping for the can1 interface fails, leading to a non
+> functional can interface.
 
-We have a timout problem on TCP sockets, which probably has some trivial 
-solution, but I couldn't figure it out after hours of staring at the 
-code, so hopefully someone can shed some light on it here.
-The scenario is the following:
-- I start an ssh connection from host A to B, it works fine
-- netstat shows the socket is using local address K
-- then I remove local address K, and with DHCP I get a new one, L on a 
-different interface (interfaces are always up during the whole time)
-- the socket is still alive, but my SSH connection doesn't transmit 
-anything, obviously, as netstat says it is still using IP address K
-- ftrace showed me the data goes through the TCP layer and finally the 
-IP layer drops it because the route is no longer valid
+Unfortunately, this is not the first time that devres conversions
+break drivers because they were semi-automatic conversions without
+taking a look at what the driver expects, see:
 
-On 3.10 kernel it times out after ~15 minutes or so, which isn't too 
-good for me. On 2.6.32 it times out after a couple of minutes, and I 
-would like to achieve the same, but I couldn't figure out how. Could 
-anyone give me some guidance?
+6892b41d9701283085b655c6086fb57a5d63fa47 ("net: davinci: emac: Convert
+to devm_* api") and
+33b7107f59a61236d94ecd6b45e20283cd5abcc8 ("net: davinci_emac: Replace
+devm_request_irq with request_irq")
 
-Regards,
+arguably, a comment here explaining why the request_mem_region() on
+this resource should not be done might help people using automated
+tools not to break things in the future...
 
-Zoltan Kiss
+>
+> Signed-off-by: George Cherian <george.cherian@ti.com>
+> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+> Cc: linux-stable <stable@vger.kernel.org> # >= v3.11
+> Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
+> ---
+>  drivers/net/can/c_can/c_can_platform.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/can/c_can/c_can_platform.c b/drivers/net/can/c_can/c_can_platform.c
+> index 824108c..12430be 100644
+> --- a/drivers/net/can/c_can/c_can_platform.c
+> +++ b/drivers/net/can/c_can/c_can_platform.c
+> @@ -287,7 +287,8 @@ static int c_can_plat_probe(struct platform_device *pdev)
+>                         break;
+>                 }
+>
+> -               priv->raminit_ctrlreg = devm_ioremap_resource(&pdev->dev, res);
+> +               priv->raminit_ctrlreg = devm_ioremap(&pdev->dev, res->start,
+> +                                                    resource_size(res));
+>                 if (IS_ERR(priv->raminit_ctrlreg) || priv->instance < 0)
+>                         dev_info(&pdev->dev, "control memory is not used for raminit\n");
+>                 else
+> --
+> 2.0.1
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+
+-- 
+Florian
