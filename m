@@ -1,62 +1,67 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH net-next] net: filter: rename 'struct sk_filter' to
- 'struct bpf_prog'
-Date: Fri, 25 Jul 2014 13:54:37 +0200
-Message-ID: <20140725115414.GA4770@salvia>
-References: <1406275499-7822-1-git-send-email-ast@plumgrid.com>
- <53D23EAF.4000001@redhat.com>
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Subject: Re: [PATCH net] tcp: Fix integer-overflows in TCP veno
+Date: Fri, 25 Jul 2014 14:02:50 +0200
+Message-ID: <20140725120250.GC28724@cpaasch-mac>
+References: <1406064838-21782-1-git-send-email-christoph.paasch@uclouvain.be>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Alexei Starovoitov <ast@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, willemb@google.com,
-	netfilter-devel@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:34406 "EHLO
+	smtp5.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750699AbaGYMDB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jul 2014 08:03:01 -0400
 Content-Disposition: inline
-In-Reply-To: <53D23EAF.4000001@redhat.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1406064838-21782-1-git-send-email-christoph.paasch@uclouvain.be>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 25, 2014 at 01:25:35PM +0200, Daniel Borkmann wrote:
-> [ also Cc'ing Willem, Pablo ]
+Hello David,
+
+On 22/07/14 - 23:33:58, Christoph Paasch wrote:
+> In veno we do a multiplication of the cwnd and the rtt. This
+> may overflow and thus their result is stored in a u64. However, we first
+> need to cast the cwnd so that actually 64-bit arithmetic is done.
 > 
-> On 07/25/2014 10:04 AM, Alexei Starovoitov wrote:
-> >'sk_filter' name is used as 'struct sk_filter', function sk_filter() and
-> >as variable 'sk_filter', which makes code hard to read.
-> >Also it's easily confused with 'struct sock_filter'
-> >Rename 'struct sk_filter' to 'struct bpf_prog' to clarify semantics and
-> >align the name with generic BPF use model.
+> A first attempt at fixing 76f1017757aa0 ([TCP]: TCP Veno congestion
+> control) was made by 159131149c2 (tcp: Overflow bug in Vegas), but it
+> failed to add the required cast in tcp_veno_cong_avoid().
 > 
-> Agreed, as we went for kernel/bpf/, renaming makes absolutely sense.
+> Fixes: 76f1017757aa0 ([TCP]: TCP Veno congestion control)
+> Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
+> ---
+>  net/ipv4/tcp_veno.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 
-My nft socket filtering changes are accomodated into struct sk_filter,
-and will still be, so I still need some generic name there...
+I see you marked this one also as "Changes Requested" on patchwork.
 
-Please, leave this as it is.
+But the story here is a bit different than for vegas, because in veno the
+do_div is already present. Do you want me to remove the do_div for -net
+and try to do a similar calculation as in vegas?
 
-> >The only ugly place is uapi/linux/netfilter/xt_bpf.h which
-> >managed to expose kernel internal structure into uapi header.
-> >Though it shouldn't even compile in user space, preserve the mess by
-> >adding empty 'struct sk_filter;' there and type cast it to 'struct bpf_prog'
-> >inside kernel in net/netfilter/xt_bpf.c
-> >
-> >Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-> >---
-> >
-> >alternative fix for xt_bpf.h could be to replace:
-> >         /* only used in the kernel */
-> >	struct sk_filter *filter __attribute__((aligned(8)));
-> >with
-> >         /* only used in the kernel */
-> >	void *filter __attribute__((aligned(8)));
-> >
-> >but this 'void *' approach may further break broken userspace,
-> >whereas the fix implemented here is more seamless.
+Because, my proposed veno-patch already fixes the overflow-issues in veno,
+while a modification to the do_div would be more of a (small) performance
+improvement.
+
+
+Cheers,
+Christoph
+
 > 
-> Yep, that's not good, 'struct sk_filter' should never have been in a uapi
-> file actually.
-
-You can just send me a patch to change it to void. It's an internal
-kernel pointer as the comment states. There is **no** way that
-userspace can lurk with that from iptables at all.
+> diff --git a/net/ipv4/tcp_veno.c b/net/ipv4/tcp_veno.c
+> index 27b9825753d1..8276977d2c85 100644
+> --- a/net/ipv4/tcp_veno.c
+> +++ b/net/ipv4/tcp_veno.c
+> @@ -144,7 +144,7 @@ static void tcp_veno_cong_avoid(struct sock *sk, u32 ack, u32 acked)
+>  
+>  		rtt = veno->minrtt;
+>  
+> -		target_cwnd = (tp->snd_cwnd * veno->basertt);
+> +		target_cwnd = (u64)tp->snd_cwnd * veno->basertt;
+>  		target_cwnd <<= V_PARAM_SHIFT;
+>  		do_div(target_cwnd, rtt);
+>  
+> -- 
+> 1.9.3
+> 
