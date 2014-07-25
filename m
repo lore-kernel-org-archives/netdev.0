@@ -1,46 +1,36 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] netfilter: nf_conntrack: remove exceptional & on
- function name
-Date: Fri, 25 Jul 2014 15:00:53 +0200
-Message-ID: <20140725130053.GB13940@salvia>
-References: <20140724201716.GA16213@himangi-Dell>
+Subject: Re: [PATCH] [linux-next] netfilter: kill remnants of ulog targets
+Date: Fri, 25 Jul 2014 15:01:34 +0200
+Message-ID: <20140725130134.GC13940@salvia>
+References: <1406107694.12441.8.camel@x220>
+ <20140723093949.GA3754@salvia>
+ <1406291131.8231.20.camel@x220>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>,
 	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
 	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
 	James Morris <jmorris@namei.org>,
 	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Julia Lawall <julia.lawall@lip6.fr>
-To: Himangi Saraogi <himangi774@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	coreteam@netfilter.org, bridge@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org
+To: Paul Bolle <pebolle@tiscali.nl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:58784 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760237AbaGYNBX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Jul 2014 09:01:23 -0400
 Content-Disposition: inline
-In-Reply-To: <20140724201716.GA16213@himangi-Dell>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1406291131.8231.20.camel@x220>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 25, 2014 at 01:47:16AM +0530, Himangi Saraogi wrote:
-> In this file, function names are otherwise used as pointers without &.
-> 
-> A simplified version of the Coccinelle semantic patch that makes this
-> change is as follows: 
-> 
-> // <smpl>
-> @r@
-> identifier f;
-> @@
-> 
-> f(...) { ... }
-> 
-> @@
-> identifier r.f;
-> @@
-> 
-> - &f
-> + f
-> // </smpl>
+On Fri, Jul 25, 2014 at 02:25:31PM +0200, Paul Bolle wrote:
+> The ulog targets were recently killed. A few references to the Kconfig
+> macros CONFIG_IP_NF_TARGET_ULOG and CONFIG_BRIDGE_EBT_ULOG were left
+> untouched. Kill these too.
 
-Applied, thanks Himangi.
+Those were my fault, applied, thanks Paul.
