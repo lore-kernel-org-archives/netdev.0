@@ -1,65 +1,64 @@
-From: Sebastian Reichel <sre@kernel.org>
-Subject: Re: net, phonet, rcu: rcu hang within gprs_attach
-Date: Fri, 25 Jul 2014 19:03:27 +0200
-Message-ID: <20140725170327.GA4024@earth.universe>
-References: <53D1865F.7040604@oracle.com>
- <8427f661d1aa5707ee18596e812fd3c5@roundcube.remlab.net>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next] net: filter: rename 'struct sk_filter' to
+ 'struct bpf_prog'
+Date: Fri, 25 Jul 2014 10:24:29 -0700
+Message-ID: <CAMEtUux+dw_GoafXE3ukvmOK2JmZWWf-y0VMobe60TSTfZeNmw@mail.gmail.com>
+References: <1406275499-7822-1-git-send-email-ast@plumgrid.com>
+	<53D23EAF.4000001@redhat.com>
+	<20140725115414.GA4770@salvia>
+	<53D254D9.9030905@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
-	protocol="application/pgp-signature"; boundary="gBBFr7Ir9EOA20Yy"
-Cc: Sasha Levin <sasha.levin@oracle.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+Content-Type: text/plain; charset=UTF-8
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
 	"David S. Miller" <davem@davemloft.net>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	Dave Jones <davej@redhat.com>
-To: =?iso-8859-1?Q?R=E9mi?= Denis-Courmont <remi@remlab.net>
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, willemb@google.com,
+	netfilter-devel@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <8427f661d1aa5707ee18596e812fd3c5@roundcube.remlab.net>
+In-Reply-To: <53D254D9.9030905@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, Jul 25, 2014 at 6:00 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
+> On 07/25/2014 01:54 PM, Pablo Neira Ayuso wrote:
+>>
+>> On Fri, Jul 25, 2014 at 01:25:35PM +0200, Daniel Borkmann wrote:
+>>>
+>>> [ also Cc'ing Willem, Pablo ]
+>>>
+>>> On 07/25/2014 10:04 AM, Alexei Starovoitov wrote:
+>>>>
+>>>> 'sk_filter' name is used as 'struct sk_filter', function sk_filter() and
+>>>> as variable 'sk_filter', which makes code hard to read.
+>>>> Also it's easily confused with 'struct sock_filter'
+>>>> Rename 'struct sk_filter' to 'struct bpf_prog' to clarify semantics and
+>>>> align the name with generic BPF use model.
+>>>
+>>>
+>>> Agreed, as we went for kernel/bpf/, renaming makes absolutely sense.
+>>
+>>
+>> My nft socket filtering changes are accomodated into struct sk_filter,
+>> and will still be, so I still need some generic name there...
+>
+>
+> All the parts from filter.c which is BPF's core engine have been moved
+> into kernel/bpf/ to get it ready for tracing et al, since there is not
+> always a socket context anymore. The *whole* infrastructure around struct
+> sk_filter is [e]BPF and used in non-net related contexts as well, whereas
+> nft socket filtering is *only* for sockets. Due to the socket-only specific
+> use case why doesn't it make more sense to have a union in struct sock
+> around sk_filter (or however we name it) and only allow one of the two
+> being loaded on a socket?
 
---gBBFr7Ir9EOA20Yy
-Content-Type: text/plain; charset=iso-8859-1
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-Hi,
-
-On Fri, Jul 25, 2014 at 10:43:46AM +0300, R=E9mi Denis-Courmont wrote:
-> Maybe Phonet should be dropped though. As much as I like to have my name =
-in
-> MAINTAINERS, I have not heard of any remaining users for up-to-date kernel
-> versions. And with Broadcom shutting down what was Nokia Wireless Modems,=
- I
-> doubt we will see new users ever.
-
-The Nokia N900 modem uses phonet and is supported in the mainline
-kernel since 3.16. See drivers/hsi/clients/ssi_protocol.c
-
--- Sebastian
-
---gBBFr7Ir9EOA20Yy
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBCgAGBQJT0o3fAAoJENju1/PIO/qasG8QAIDapWz/6Ws51JmNEqKe3iND
-an7X/hzcUDUKvVvVtKAUM042iJ/euFkeisdc1QcI2MtvurF+tJlRh0zc3tIG3mmQ
-xcjsxWepO17DvjbB499/+a/lYSfYXae7/wPsXDQuGipLfI79Zg5MUPEUvzuGlBnK
-ASMVNc5C5BIRHfQ2w5LSiLnvwgB0xFhOvVCb1YUofcNui8JNFI3Fd1J0FfSdG0RQ
-fFADTde4vn7lTPCNj1ltEPEM177hZW1HLpMENugi/sLF7wTixEtusVOrT15n4yVL
-oNb3SzaL1dW2+kFQBsfDygsEJR8DHb9n+3Rx8aIGcbKvi2yXJL14Pr+capQUC3K0
-71jlcQSE4nne6vVucPQtNjynRRcyyU192kkMkiT+NbEtXMdE6ZN0kCffENcrrJ08
-K3Uhi0iyqSjzUj/LuHzh4/kp9MiGpiLAWP7m8Kc/47aovFVZAYMxsMKQpxaX4ooY
-f0j0Qzgpp4yHx4ACc0BLZZwkEKp9hmwKEZBgNYSV8g9gU7GUXP6j5CmcNBTYiQOj
-+Lp9p71dFQ6VEtGotrtg5hb0rk6x99kkYEWeT22ntI1fnyFzTRjm8l6dC1bBnj9j
-f0zGvpa2v9dXPsxxTkjoHFfDte7lRfwhigA70HQ69Aeyu8zusBf3le5TSnByL5Eg
-X5RoJ5qKxc+FYelhrT1S
-=Il4e
------END PGP SIGNATURE-----
-
---gBBFr7Ir9EOA20Yy--
+yep.
+Adding nft specific things to struct sk_filter/bpf_prog is not correct,
+since this struct is already part of seccomp and will be used
+in net-less configurations. SK_RUN_FILTER() macro will also be
+renamed into something like RUN_BPF_RPOG(). It's one and only
+way to invoke eBPF programs. Adding nft selector cannot work,
+since eBPF is used with generic context whereas nft is skb specific.
+If you want to add nft filtering capabilities to sockets, you'd need
+to add union around 'struct bpf_prog' inside 'struct sock', which will be
+much cleaner way.
