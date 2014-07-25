@@ -1,83 +1,55 @@
-From: Lee Jones <lee.jones@linaro.org>
-Subject: Re: [PATCH] gpio: extend gpiod_get*() with flags
-	parameter
-Date: Fri, 25 Jul 2014 07:52:50 +0100
-Message-ID: <20140725065250.GF7063@lee--X1>
-References: <1406214298-20062-1-git-send-email-acourbot@nvidia.com>
- <20140724161052.GA15615@kroah.com>
+From: Willem de Bruijn <willemb@google.com>
+Subject: Re: [PATCH net-next] net: filter: rename 'struct sk_filter' to
+ 'struct bpf_prog'
+Date: Fri, 25 Jul 2014 09:53:48 -0400
+Message-ID: <CA+FuTScUJ-oJKAZ-MO_t9Rmah3U6G4sjHXLJSMrXVK5+fN0zyg@mail.gmail.com>
+References: <1406275499-7822-1-git-send-email-ast@plumgrid.com>
+ <53D23EAF.4000001@redhat.com> <20140725115414.GA4770@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: linux-wireless@vger.kernel.org, Ulf Hansson <ulf.hansson@linaro.org>,
- Wolfram Sang <wsa@the-dreams.de>, Takashi Iwai <tiwai@suse.de>,
- linux-mmc@vger.kernel.org, Linus Walleij <linus.walleij@linaro.org>,
- Chris Ball <chris@printf.net>, dri-devel@lists.freedesktop.org,
- Liam Girdwood <lgirdwood@gmail.com>, Peter Ujfalusi <peter.ujfalusi@ti.com>,
- Thierry Reding <thierry.reding@gmail.com>,
- Laurent Pinchart <laurent.pinchart@ideasonboard.com>,
- Pavel Machek <pavel@ucw.cz>, Jiri Slaby <jslaby@suse.cz>, gnurou@gmail.com,
- Florian Fainelli <f.fainelli@gmail.com>, Samuel Ortiz <sameo@linux.intel.com>,
- Alexander Shiyan <shc_work@mail.ru>,
- Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
- Jingoo Han <jg1.han@samsung.com>, Paul Handrigan <Paul.Handrigan@cirrus.com>,
- linux-iio@vger.kernel.org, linux-omap@vger.kernel.org,
- Tomi Valkeinen <tomi.valkeinen@ti.com>, Hans Verkuil <hans.verkuil@ci
-To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Return-path: <alsa-devel-bounces@alsa-project.org>
-Content-Disposition: inline
-In-Reply-To: <20140724161052.GA15615@kroah.com>
-List-Unsubscribe: <http://mailman.alsa-project.org/mailman/options/alsa-devel>,
- <mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
-List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel/>
-List-Post: <mailto:alsa-devel@alsa-project.org>
-List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
-List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
- <mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
-Errors-To: alsa-devel-bounces@alsa-project.org
-Sender: alsa-devel-bounces@alsa-project.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Daniel Borkmann <dborkman@redhat.com>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20140725115414.GA4770@salvia>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gVGh1LCAyNCBKdWwgMjAxNCwgR3JlZyBLcm9haC1IYXJ0bWFuIHdyb3RlOgoKPiBPbiBGcmks
-IEp1bCAyNSwgMjAxNCBhdCAxMjowNDo1OEFNICswOTAwLCBBbGV4YW5kcmUgQ291cmJvdCB3cm90
-ZToKPiA+IFRoZSBodWdlIG1ham9yaXR5IG9mIEdQSU9zIGhhdmUgdGhlaXIgZGlyZWN0aW9uIGFu
-ZCBpbml0aWFsIHZhbHVlIHNldAo+ID4gcmlnaHQgYWZ0ZXIgYmVpbmcgb2J0YWluZWQgYnkgb25l
-IG9mIHRoZSBncGlvZF9nZXQoKSBmdW5jdGlvbnMuIFRoZQo+ID4gaW50ZWdlciBHUElPIEFQSSBo
-YWQgZ3Bpb19yZXF1ZXN0X29uZSgpIHRoYXQgdG9vayBhIGNvbnZlbmllbmNlIGZsYWdzCj4gPiBw
-YXJhbWV0ZXIgYWxsb3dpbmcgdG8gc3BlY2lmeSBhbiBkaXJlY3Rpb24gYW5kIHZhbHVlIGFwcGxp
-ZWQgdG8gdGhlCj4gPiByZXR1cm5lZCBHUElPLiBUaGlzIGZlYXR1cmUgZ3JlYXRseSBzaW1wbGlm
-aWVzIGNsaWVudCBjb2RlIGFuZCBlbnN1cmVzCj4gPiBlcnJvcnMgYXJlIGFsd2F5cyBoYW5kbGVk
-IHByb3Blcmx5Lgo+ID4gCj4gPiBBIHNpbWlsYXIgZmVhdHVyZSBoYXMgYmVlbiByZXF1ZXN0ZWQg
-Zm9yIHRoZSBncGlvZCBBUEkuIFNpbmNlIEdQSU9zIG5lZWQKPiA+IGEgZGlyZWN0aW9uIHRvIGJl
-IHVzZWQgYW55d2F5LCB3ZSBwcmVmZXIgdG8gZXh0ZW5kIHRoZSBleGlzdGluZwo+ID4gZnVuY3Rp
-b25zIGluc3RlYWQgb2YgaW50cm9kdWNpbmcgbmV3IGZ1bmN0aW9ucyB0aGF0IHdvdWxkIHJhaXNl
-IHRoZQo+ID4gbnVtYmVyIG9mIGdwaW9kIGdldHRlcnMgdG8gMTYgKCEpLgo+ID4gCj4gPiBUaGUg
-ZHJhd2JhY2sgb2YgdGhpcyBhcHByb2FjaCBpcyB0aGF0IGFsbCBncGlvZCBjbGllbnRzIG5lZWQg
-dG8gYmUKPiA+IHVwZGF0ZWQsIGJ1dCB0aGVyZSBhcmVuJ3QgdGhhdCBtYW55IGFuZCB0aGUgbW9t
-ZW50IGFuZCB0aGlzIHJlc3VsdHMgaW4KPiA+IHNtYWxsZXIgKGFuZCBob3BlZnVsbHkgc2FmZXIp
-IGNvZGUuCj4gPiAKPiA+IFNpZ25lZC1vZmYtYnk6IEFsZXhhbmRyZSBDb3VyYm90IDxhY291cmJv
-dEBudmlkaWEuY29tPgo+ID4gLS0tCj4gPiBUaGlzIGNoYW5nZSB3aWxsIGJlIGRpZmZpY3VsdCB0
-byBhcHBseSB3aXRob3V0IGJyZWFraW5nIHRoaW5ncywgYnV0Cj4gPiBsZXQncyB0cnkgdG8gZG8g
-aXQgcmlnaHQuIEhvcGVmdWxseSB0aGUgYmVuZWZpdCB3aWxsIG91dHdlaWdodCB0aGUKPiA+IGRp
-c3R1cmJhbmNlLgo+ID4gCj4gPiBUaGlzIGlzIGEgcGF0Y2ggYWdhaW5zdCAtbmV4dCB0byBsaXN0
-IGFuZCB1cGRhdGUgYWxsIGN1cnJlbnQgZ3Bpb2QKPiA+IGNvbnN1bWVycy4gVXBkYXRlcyBhcmUg
-dHJpdmlhbCBhdCBmaXJzdCBzaWdodCwgYnV0IGl0IHdvdWxkIGJlIG5pY2UgdG8KPiA+IGdldCBh
-cyBtYW55IGFja3MgYXMgcG9zc2libGUgZnJvbSB0aGUgcmVzcGVjdGl2ZSBzdWJzeXN0ZW0gbWFp
-bnRhaW5lcnMuCj4gPiAKPiA+IEknbSBub3Qgc3VyZSBob3cgdGhpcyBjb3VsZCBiZSBhcHBsaWVk
-IGhhcm1sZXNzbHkgdGhvdWdoIC0gbWF5YmUgdGhyb3VnaAo+ID4gYSBkZWRpY2F0ZWQgYnJhbmNo
-IGZvciAtbmV4dD8gUHJvYmxlbSBpcyB0aGF0IGEgbG90IG9mIG5ldyBjb2RlIGlzIG5vdAo+ID4g
-eWV0IG1lcmdlZCBpbnRvIG1haW5saW5lLCBhbmQgY29uZmxpY3RzIGFyZSB2ZXJ5IGxpa2VseSB0
-byBvY2N1ci4gTGludXMsCj4gPiBkbyB5b3UgaGF2ZSBhbnkgc3VnZ2VzdGlvbiBhcyB0byBob3cg
-dGhpcyBjYW4gYmUgZG9uZSB3aXRob3V0IGJsb29kIGJlaW5nCj4gPiBzcGlsbGVkPwo+IAo+IERv
-IHRoaXMgaW4gMyBzdGVwcywgbm90IGFsbCBhdCBvbmNlLgo+IAo+IE1ha2UgYSBuZXcgZnVuY3Rp
-b24gdGhhdCB0YWtlcyB0aGUgbmV3IGFyZ3VtZW50LCBnZXQgdGhhdCBtZXJnZWQKPiAKPiBTdWJt
-aXQgcGF0Y2hlcyB0aGF0IGNvbnZlcnQgZHJpdmVycyBvdmVyIHRvIHVzZSB0aGUgbmV3IGZ1bmN0
-aW9uLgo+IAo+IE9uY2UgYWxsIG9mIHRob3NlIGFyZSBtZXJnZWQsIHJlbW92ZSB0aGUgb2xkIGZ1
-bmN0aW9uLgo+IAo+IFRoYXQgd2F5IHRoZXJlIGFyZSBubyAiZmxhZyBkYXlzIiBuZWVkZWQsIGFu
-ZCBldmVyeW9uZSBpcyBoYXBweSB5b3UKPiBkb24ndCBzZW5kIG91dCBlbWFpbHMgd2l0aCA0MCsg
-cGVvcGxlIGluIHRoZSBUbzogYW5kIENjOiBsaW5lcyA6KQoKKzk5OTk5CgotLSAKTGVlIEpvbmVz
-CkxpbmFybyBTVE1pY3JvZWxlY3Ryb25pY3MgTGFuZGluZyBUZWFtIExlYWQKTGluYXJvLm9yZyDi
-lIIgT3BlbiBzb3VyY2Ugc29mdHdhcmUgZm9yIEFSTSBTb0NzCkZvbGxvdyBMaW5hcm86IEZhY2Vi
-b29rIHwgVHdpdHRlciB8IEJsb2cKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX18KQWxzYS1kZXZlbCBtYWlsaW5nIGxpc3QKQWxzYS1kZXZlbEBhbHNhLXByb2pl
-Y3Qub3JnCmh0dHA6Ly9tYWlsbWFuLmFsc2EtcHJvamVjdC5vcmcvbWFpbG1hbi9saXN0aW5mby9h
-bHNhLWRldmVsCg==
+>> >alternative fix for xt_bpf.h could be to replace:
+>> >         /* only used in the kernel */
+>> >     struct sk_filter *filter __attribute__((aligned(8)));
+>> >with
+>> >         /* only used in the kernel */
+>> >     void *filter __attribute__((aligned(8)));
+>> >
+>> >but this 'void *' approach may further break broken userspace,
+>> >whereas the fix implemented here is more seamless.
+>>
+>> Yep, that's not good, 'struct sk_filter' should never have been in a uapi
+>> file actually.
+
+This follows a convention in include/uapi/linux/netfilter/*.h that
+likely predates the introduction of uapi. A search for "Used
+internally by the kernel" shows many more examples. I should not have
+included filter.h, however. The common behavior when using pointers
+to kernel-internal structures is to have a forward declaration. I suggest
+making that change, instead of changing to void *. This avoids having
+to add casts where xt_bpf_info is used in net/netfilter/xt_bpf.c:
+
+-#include <linux/filter.h>
+ #include <linux/types.h>
+
+ #define XT_BPF_MAX_NUM_INSTR   64
+
++struct sk_filter;
++
+ struct xt_bpf_info {
+
+I can send this as a separate patch to net-next, if that helps.
+
+> You can just send me a patch to change it to void. It's an internal
+> kernel pointer as the comment states. There is **no** way that
+> userspace can lurk with that from iptables at all.
