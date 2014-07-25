@@ -1,93 +1,83 @@
 From: Wangyufen <wangyufen@huawei.com>
-Subject: [PATCH v2 3/8] Add file_ns_capable() helper function for open-time capability checking
-Date: Fri, 25 Jul 2014 16:22:24 +0800
-Message-ID: <1406276549-6616-4-git-send-email-wangyufen@huawei.com>
+Subject: [PATCH v2 4/8] netlink: Rename netlink_capable netlink_allowed
+Date: Fri, 25 Jul 2014 16:22:25 +0800
+Message-ID: <1406276549-6616-5-git-send-email-wangyufen@huawei.com>
 References: <1406276549-6616-1-git-send-email-wangyufen@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
 	Wang Yufen <wangyufen@huawei.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:35750 "EHLO
+Received: from szxga03-in.huawei.com ([119.145.14.66]:34868 "EHLO
 	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759918AbaGYIYg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jul 2014 04:24:36 -0400
+	with ESMTP id S1759918AbaGYIYk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jul 2014 04:24:40 -0400
 In-Reply-To: <1406276549-6616-1-git-send-email-wangyufen@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Linus Torvalds <torvalds@linux-foundation.org>
+From: "Eric W. Biederman" <ebiederm@xmission.com>
 
-Nothing is using it yet, but this will allow us to delay the open-time
-checks to use time, without breaking the normal UNIX permission
-semantics where permissions are determined by the opener (and the file
-descriptor can then be passed to a different process, or the process can
-drop capabilities).
+netlink_capable is a static internal function in af_netlink.c and we
+have better uses for the name netlink_capable.
 
-Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+Signed-off-by: "Eric W. Biederman" <ebiederm@xmission.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
 Signed-off-by: Wang Yufen <wangyufen@huawei.com>
 ---
- include/linux/capability.h |  3 ++-
- kernel/capability.c        | 24 ++++++++++++++++++++++++
- 2 files changed, 26 insertions(+), 1 deletion(-)
+ net/netlink/af_netlink.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/include/linux/capability.h b/include/linux/capability.h
-index 12d52de..7273027 100644
---- a/include/linux/capability.h
-+++ b/include/linux/capability.h
-@@ -373,7 +373,7 @@ struct cpu_vfs_cap_data {
- #define CAP_TO_MASK(x)      (1 << ((x) & 31)) /* mask for indexed __u32 */
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 571fc2c..18b4cc6 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -590,7 +590,7 @@ retry:
+ 	return err;
+ }
  
- #ifdef __KERNEL__
--
-+struct file;
- struct dentry;
- struct user_namespace;
+-static inline int netlink_capable(const struct socket *sock, unsigned int flag)
++static inline int netlink_allowed(const struct socket *sock, unsigned int flag)
+ {
+ 	return (nl_table[sock->sk->sk_protocol].nl_nonroot & flag) ||
+ 	       capable(CAP_NET_ADMIN);
+@@ -655,7 +655,7 @@ static int netlink_bind(struct socket *sock, struct sockaddr *addr,
  
-@@ -548,6 +548,7 @@ extern bool has_ns_capability_noaudit(struct task_struct *t,
- extern bool capable(int cap);
- extern bool ns_capable(struct user_namespace *ns, int cap);
- extern bool nsown_capable(int cap);
-+extern bool file_ns_capable(const struct file *file, struct user_namespace *ns, int cap);
+ 	/* Only superuser is allowed to listen multicasts */
+ 	if (nladdr->nl_groups) {
+-		if (!netlink_capable(sock, NL_NONROOT_RECV))
++		if (!netlink_allowed(sock, NL_NONROOT_RECV))
+ 			return -EPERM;
+ 		err = netlink_realloc_groups(sk);
+ 		if (err)
+@@ -708,7 +708,7 @@ static int netlink_connect(struct socket *sock, struct sockaddr *addr,
+ 		return -EINVAL;
  
- /* audit system wants to get cap info from files as well */
- extern int get_vfs_caps_from_disk(const struct dentry *dentry, struct cpu_vfs_cap_data *cpu_caps);
-diff --git a/kernel/capability.c b/kernel/capability.c
-index 3f1adb6..cc8c4845 100644
---- a/kernel/capability.c
-+++ b/kernel/capability.c
-@@ -393,6 +393,30 @@ bool ns_capable(struct user_namespace *ns, int cap)
- EXPORT_SYMBOL(ns_capable);
+ 	/* Only superuser is allowed to send multicasts */
+-	if (nladdr->nl_groups && !netlink_capable(sock, NL_NONROOT_SEND))
++	if (nladdr->nl_groups && !netlink_allowed(sock, NL_NONROOT_SEND))
+ 		return -EPERM;
  
- /**
-+ * file_ns_capable - Determine if the file's opener had a capability in effect
-+ * @file:  The file we want to check
-+ * @ns:  The usernamespace we want the capability in
-+ * @cap: The capability to be tested for
-+ *
-+ * Return true if task that opened the file had a capability in effect
-+ * when the file was opened.
-+ *
-+ * This does not set PF_SUPERPRIV because the caller may not
-+ * actually be privileged.
-+ */
-+bool file_ns_capable(const struct file *file, struct user_namespace *ns, int cap)
-+{
-+	if (WARN_ON_ONCE(!cap_valid(cap)))
-+		return false;
-+
-+	if (security_capable(file->f_cred, ns, cap) == 0)
-+		return true;
-+
-+	return false;
-+}
-+EXPORT_SYMBOL(file_ns_capable);
-+
-+/**
-  * capable - Determine if the current task has a superior capability in effect
-  * @cap: The capability to be tested for
-  *
+ 	if (!nlk->pid)
+@@ -1229,7 +1229,7 @@ static int netlink_setsockopt(struct socket *sock, int level, int optname,
+ 		break;
+ 	case NETLINK_ADD_MEMBERSHIP:
+ 	case NETLINK_DROP_MEMBERSHIP: {
+-		if (!netlink_capable(sock, NL_NONROOT_RECV))
++		if (!netlink_allowed(sock, NL_NONROOT_RECV))
+ 			return -EPERM;
+ 		err = netlink_realloc_groups(sk);
+ 		if (err)
+@@ -1356,7 +1356,7 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 		dst_group = ffs(addr->nl_groups);
+ 		err =  -EPERM;
+ 		if ((dst_group || dst_pid) &&
+-		    !netlink_capable(sock, NL_NONROOT_SEND))
++		    !netlink_allowed(sock, NL_NONROOT_SEND))
+ 			goto out;
+ 	} else {
+ 		dst_pid = nlk->dst_pid;
 -- 
 1.8.0
