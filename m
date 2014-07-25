@@ -1,64 +1,61 @@
 From: Alexei Starovoitov <ast@plumgrid.com>
 Subject: Re: [PATCH net-next] net: filter: rename 'struct sk_filter' to
  'struct bpf_prog'
-Date: Fri, 25 Jul 2014 10:24:29 -0700
-Message-ID: <CAMEtUux+dw_GoafXE3ukvmOK2JmZWWf-y0VMobe60TSTfZeNmw@mail.gmail.com>
+Date: Fri, 25 Jul 2014 10:27:14 -0700
+Message-ID: <CAMEtUuxjvR-3cBq=x0d_7qYtF+TP3NdjPxsYP6pn4iE7gzLhpg@mail.gmail.com>
 References: <1406275499-7822-1-git-send-email-ast@plumgrid.com>
 	<53D23EAF.4000001@redhat.com>
 	<20140725115414.GA4770@salvia>
-	<53D254D9.9030905@redhat.com>
+	<CA+FuTScUJ-oJKAZ-MO_t9Rmah3U6G4sjHXLJSMrXVK5+fN0zyg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Daniel Borkmann <dborkman@redhat.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>, willemb@google.com,
-	netfilter-devel@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <53D254D9.9030905@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>
+To: Willem de Bruijn <willemb@google.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <CA+FuTScUJ-oJKAZ-MO_t9Rmah3U6G4sjHXLJSMrXVK5+fN0zyg@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 25, 2014 at 6:00 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
-> On 07/25/2014 01:54 PM, Pablo Neira Ayuso wrote:
->>
->> On Fri, Jul 25, 2014 at 01:25:35PM +0200, Daniel Borkmann wrote:
+On Fri, Jul 25, 2014 at 6:53 AM, Willem de Bruijn <willemb@google.com> wrote:
+>>> >alternative fix for xt_bpf.h could be to replace:
+>>> >         /* only used in the kernel */
+>>> >     struct sk_filter *filter __attribute__((aligned(8)));
+>>> >with
+>>> >         /* only used in the kernel */
+>>> >     void *filter __attribute__((aligned(8)));
+>>> >
+>>> >but this 'void *' approach may further break broken userspace,
+>>> >whereas the fix implemented here is more seamless.
 >>>
->>> [ also Cc'ing Willem, Pablo ]
->>>
->>> On 07/25/2014 10:04 AM, Alexei Starovoitov wrote:
->>>>
->>>> 'sk_filter' name is used as 'struct sk_filter', function sk_filter() and
->>>> as variable 'sk_filter', which makes code hard to read.
->>>> Also it's easily confused with 'struct sock_filter'
->>>> Rename 'struct sk_filter' to 'struct bpf_prog' to clarify semantics and
->>>> align the name with generic BPF use model.
->>>
->>>
->>> Agreed, as we went for kernel/bpf/, renaming makes absolutely sense.
->>
->>
->> My nft socket filtering changes are accomodated into struct sk_filter,
->> and will still be, so I still need some generic name there...
+>>> Yep, that's not good, 'struct sk_filter' should never have been in a uapi
+>>> file actually.
 >
->
-> All the parts from filter.c which is BPF's core engine have been moved
-> into kernel/bpf/ to get it ready for tracing et al, since there is not
-> always a socket context anymore. The *whole* infrastructure around struct
-> sk_filter is [e]BPF and used in non-net related contexts as well, whereas
-> nft socket filtering is *only* for sockets. Due to the socket-only specific
-> use case why doesn't it make more sense to have a union in struct sock
-> around sk_filter (or however we name it) and only allow one of the two
-> being loaded on a socket?
+> This follows a convention in include/uapi/linux/netfilter/*.h that
+> likely predates the introduction of uapi. A search for "Used
+> internally by the kernel" shows many more examples. I should not have
+> included filter.h, however. The common behavior when using pointers
+> to kernel-internal structures is to have a forward declaration. I suggest
+> making that change, instead of changing to void *. This avoids having
+> to add casts where xt_bpf_info is used in net/netfilter/xt_bpf.c:
 
-yep.
-Adding nft specific things to struct sk_filter/bpf_prog is not correct,
-since this struct is already part of seccomp and will be used
-in net-less configurations. SK_RUN_FILTER() macro will also be
-renamed into something like RUN_BPF_RPOG(). It's one and only
-way to invoke eBPF programs. Adding nft selector cannot work,
-since eBPF is used with generic context whereas nft is skb specific.
-If you want to add nft filtering capabilities to sockets, you'd need
-to add union around 'struct bpf_prog' inside 'struct sock', which will be
-much cleaner way.
+that will not avoid typecast.
+Either 'void *' approach or extra 'struct sk_filter;' approach, both need
+type casts to 'struct bpf_prog' in xt_bpf.c
+(because of SK_RUN_FILTER macro)
+Therefore I prefer extra 'struct sk_filter;' approach.
+
+> -#include <linux/filter.h>
+>  #include <linux/types.h>
+>
+>  #define XT_BPF_MAX_NUM_INSTR   64
+>
+> +struct sk_filter;
+> +
+>  struct xt_bpf_info {
+>
+> I can send this as a separate patch to net-next, if that helps.
