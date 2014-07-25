@@ -1,113 +1,139 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: [net-next 3/4] packet: remove deprecated syststamp timestamp
-Date: Fri, 25 Jul 2014 18:01:31 -0400
-Message-ID: <1406325692-616-4-git-send-email-willemb@google.com>
-References: <1406325692-616-1-git-send-email-willemb@google.com>
-Cc: davem@davemloft.net, richardcochran@gmail.com,
-	kreese@caviumnetworks.com, ddaney@caviumnetworks.com,
-	dborkman@redhat.com, jdmason@kudzu.us,
-	Willem de Bruijn <willemb@google.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f73.google.com ([209.85.219.73]:33001 "EHLO
-	mail-oa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751550AbaGYWBp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jul 2014 18:01:45 -0400
-Received: by mail-oa0-f73.google.com with SMTP id g18so1405230oah.2
-        for <netdev@vger.kernel.org>; Fri, 25 Jul 2014 15:01:44 -0700 (PDT)
-In-Reply-To: <1406325692-616-1-git-send-email-willemb@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: net: socket: NULL ptr deref in sendmsg
+Date: Sat, 26 Jul 2014 00:15:08 +0200
+Message-ID: <1406326508.13203.10.camel@localhost>
+References: <53C2FF3D.4030201@oracle.com> <53D2768E.2040902@samsung.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Sasha Levin <sasha.levin@oracle.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Dave Jones <davej@redhat.com>,
+	Eric Dumazet <edumazet@google.com>
+To: Andrey Ryabinin <a.ryabinin@samsung.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <53D2768E.2040902@samsung.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-No device driver will ever return an skb_shared_info structure with
-syststamp non-zero, so remove the branch that tests for this and
-optionally marks the packet timestamp as TP_STATUS_TS_SYS_HARDWARE.
+On Fr, 2014-07-25 at 19:23 +0400, Andrey Ryabinin wrote:
+> On 07/14/14 01:50, Sasha Levin wrote:
+> 
+> > 
+> > I've tried debugging it, but I don't see a code path that could lead to that.
+> > 
+> 
+> I finally found some time to take look at this and I've found where the problem is.
+> 
+> Sasha, I suppose there was no usual "Unable to handle NULL pointer deference" after KASAN's report, right?
+> 
+> This gave me a clue that address 0 is actually mapped and contains valid socket address structure in it.
+> I've managed to write a simple code (in attachment), which could easily reproduce this bug.
+> 
+> I've fixed it with the following patch, please take a look.
+> 
+> 
+> From: Andrey Ryabinin <a.ryabinin@samsung.com>
+> Subject: [PATCH] net: sendmsg: fix NULL pointer dereference
+> 
+> Sasha's report:
+> 	> While fuzzing with trinity inside a KVM tools guest running the latest -next
+> 	> kernel with the KASAN patchset, I've stumbled on the following spew:
+> 	>
+> 	> [ 4448.949424] ==================================================================
+> 	> [ 4448.951737] AddressSanitizer: user-memory-access on address 0
+> 	> [ 4448.952988] Read of size 2 by thread T19638:
+> 	> [ 4448.954510] CPU: 28 PID: 19638 Comm: trinity-c76 Not tainted 3.16.0-rc4-next-20140711-sasha-00046-g07d3099-dirty #813
+> 	> [ 4448.956823]  ffff88046d86ca40 0000000000000000 ffff880082f37e78 ffff880082f37a40
+> 	> [ 4448.958233]  ffffffffb6e47068 ffff880082f37a68 ffff880082f37a58 ffffffffb242708d
+> 	> [ 4448.959552]  0000000000000000 ffff880082f37a88 ffffffffb24255b1 0000000000000000
+> 	> [ 4448.961266] Call Trace:
+> 	> [ 4448.963158] dump_stack (lib/dump_stack.c:52)
+> 	> [ 4448.964244] kasan_report_user_access (mm/kasan/report.c:184)
+> 	> [ 4448.965507] __asan_load2 (mm/kasan/kasan.c:352)
+> 	> [ 4448.966482] ? netlink_sendmsg (net/netlink/af_netlink.c:2339)
+> 	> [ 4448.967541] netlink_sendmsg (net/netlink/af_netlink.c:2339)
+> 	> [ 4448.968537] ? get_parent_ip (kernel/sched/core.c:2555)
+> 	> [ 4448.970103] sock_sendmsg (net/socket.c:654)
+> 	> [ 4448.971584] ? might_fault (mm/memory.c:3741)
+> 	> [ 4448.972526] ? might_fault (./arch/x86/include/asm/current.h:14 mm/memory.c:3740)
+> 	> [ 4448.973596] ? verify_iovec (net/core/iovec.c:64)
+> 	> [ 4448.974522] ___sys_sendmsg (net/socket.c:2096)
+> 	> [ 4448.975797] ? put_lock_stats.isra.13 (./arch/x86/include/asm/preempt.h:98 kernel/locking/lockdep.c:254)
+> 	> [ 4448.977030] ? lock_release_holdtime (kernel/locking/lockdep.c:273)
+> 	> [ 4448.978197] ? lock_release_non_nested (kernel/locking/lockdep.c:3434 (discriminator 1))
+> 	> [ 4448.979346] ? check_chain_key (kernel/locking/lockdep.c:2188)
+> 	> [ 4448.980535] __sys_sendmmsg (net/socket.c:2181)
+> 	> [ 4448.981592] ? trace_hardirqs_on_caller (kernel/locking/lockdep.c:2600)
+> 	> [ 4448.982773] ? trace_hardirqs_on (kernel/locking/lockdep.c:2607)
+> 	> [ 4448.984458] ? syscall_trace_enter (arch/x86/kernel/ptrace.c:1500 (discriminator 2))
+> 	> [ 4448.985621] ? trace_hardirqs_on_caller (kernel/locking/lockdep.c:2600)
+> 	> [ 4448.986754] SyS_sendmmsg (net/socket.c:2201)
+> 	> [ 4448.987708] tracesys (arch/x86/kernel/entry_64.S:542)
+> 	> [ 4448.988929] ==================================================================
+> 
+> This reports means that we've come to netlink_sendmsg() with msg->msg_name == NULL and msg->msg_namelen > 0.
+> 
+> After this report there was no usual "Unable to handle kernel NULL pointer dereference"
+> and this gave me a clue that address 0 is mapped and contains valid socket address structure in it.
+> 
+> This bug was introduced in f3d3342602f8bcbf37d7c46641cb9bca7618eb1c
+> (net: rework recvmsg handler msg_name and msg_namelen logic).
+> Commit message states that:
+> 	"Set msg->msg_name = NULL if user specified a NULL in msg_name but had a
+> 	 non-null msg_namelen in verify_iovec/verify_compat_iovec. This doesn't
+> 	 affect sendto as it would bail out earlier while trying to copy-in the
+> 	 address."
+> But in fact this affects sendto when address 0 is mapped and contains
+> socket address structure in it. In such case copy-in address will succeed,
+> verify_iovec() function will successfully exit with msg->msg_namelen > 0
+> and msg->msg_name == NULL.
+> 
+> This patch fixes it by assigning m->msg_name to address if move_addr_to_kernel()
+> was successful.
+> 
+> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: <stable@vger.kernel.org>
+> Reported-by: Sasha Levin <sasha.levin@oracle.com>
+> Signed-off-by: Andrey Ryabinin <a.ryabinin@samsung.com>
+> ---
+>  net/compat.c     | 6 ++++--
+>  net/core/iovec.c | 6 ++++--
+>  2 files changed, 8 insertions(+), 4 deletions(-)
+> 
+> diff --git a/net/compat.c b/net/compat.c
+> index 9a76eaf..eefd989 100644
+> --- a/net/compat.c
+> +++ b/net/compat.c
+> @@ -92,9 +92,11 @@ int verify_compat_iovec(struct msghdr *kern_msg, struct iovec *kern_iov,
+>  						      kern_address);
+>  			if (err < 0)
+>  				return err;
+> -		}
+> -		if (kern_msg->msg_name)
+> +
+>  			kern_msg->msg_name = kern_address;
+> +		} else
+> +			if (kern_msg->msg_name)
+> +				kern_msg->msg_name = kern_address;
+>  	} else
+>  		kern_msg->msg_name = NULL;
+> 
 
-Do not remove the definition TP_STATUS_TS_SYS_HARDWARE, as processes
-may refer to it.
+Thanks for looking at this! I certainly have overlooked this case.
 
-Signed-off-by: Willem de Bruijn <willemb@google.com>
----
- Documentation/networking/packet_mmap.txt | 18 ++++++------------
- include/uapi/linux/if_packet.h           |  2 +-
- net/packet/af_packet.c                   | 12 ++++--------
- 3 files changed, 11 insertions(+), 21 deletions(-)
+I wonder, if we allow sendto with valid NULL pointer and positive
+msg_namelen to work, why don't we do the same for recvmsg, as in
+replacing the VERIFY_WRITE case non-null check with an
+access_ok(VERIFY_WRITE, ...) check? We can even get rid of the check
+because recvmsg will do it nonetheless when copying the sockaddrs to
+user space. So kern_msg->msg_name can always be set to kern_address.
 
-diff --git a/Documentation/networking/packet_mmap.txt b/Documentation/networking/packet_mmap.txt
-index 38112d5..a6d7cb9 100644
---- a/Documentation/networking/packet_mmap.txt
-+++ b/Documentation/networking/packet_mmap.txt
-@@ -1008,14 +1008,9 @@ hardware timestamps to be used. Note: you may need to enable the generation
- of hardware timestamps with SIOCSHWTSTAMP (see related information from
- Documentation/networking/timestamping.txt).
- 
--PACKET_TIMESTAMP accepts the same integer bit field as
--SO_TIMESTAMPING.  However, only the SOF_TIMESTAMPING_SYS_HARDWARE
--and SOF_TIMESTAMPING_RAW_HARDWARE values are recognized by
--PACKET_TIMESTAMP.  SOF_TIMESTAMPING_SYS_HARDWARE takes precedence over
--SOF_TIMESTAMPING_RAW_HARDWARE if both bits are set.
--
--    int req = 0;
--    req |= SOF_TIMESTAMPING_SYS_HARDWARE;
-+PACKET_TIMESTAMP accepts the same integer bit field as SO_TIMESTAMPING:
-+
-+    int req = SOF_TIMESTAMPING_RAW_HARDWARE;
-     setsockopt(fd, SOL_PACKET, PACKET_TIMESTAMP, (void *) &req, sizeof(req))
- 
- For the mmap(2)ed ring buffers, such timestamps are stored in the
-@@ -1023,14 +1018,13 @@ tpacket{,2,3}_hdr structure's tp_sec and tp_{n,u}sec members. To determine
- what kind of timestamp has been reported, the tp_status field is binary |'ed
- with the following possible bits ...
- 
--    TP_STATUS_TS_SYS_HARDWARE
-     TP_STATUS_TS_RAW_HARDWARE
-     TP_STATUS_TS_SOFTWARE
- 
- ... that are equivalent to its SOF_TIMESTAMPING_* counterparts. For the
--RX_RING, if none of those 3 are set (i.e. PACKET_TIMESTAMP is not set),
--then this means that a software fallback was invoked *within* PF_PACKET's
--processing code (less precise).
-+RX_RING, if neither is set (i.e. PACKET_TIMESTAMP is not set), then a
-+software fallback was invoked *within* PF_PACKET's processing code (less
-+precise).
- 
- Getting timestamps for the TX_RING works as follows: i) fill the ring frames,
- ii) call sendto() e.g. in blocking mode, iii) wait for status of relevant
-diff --git a/include/uapi/linux/if_packet.h b/include/uapi/linux/if_packet.h
-index bac27fa..da2d668 100644
---- a/include/uapi/linux/if_packet.h
-+++ b/include/uapi/linux/if_packet.h
-@@ -108,7 +108,7 @@ struct tpacket_auxdata {
- 
- /* Rx and Tx ring - header status */
- #define TP_STATUS_TS_SOFTWARE		(1 << 29)
--#define TP_STATUS_TS_SYS_HARDWARE	(1 << 30)
-+#define TP_STATUS_TS_SYS_HARDWARE	(1 << 30) /* deprecated, never set */
- #define TP_STATUS_TS_RAW_HARDWARE	(1 << 31)
- 
- /* Rx ring - feature request bits */
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 614ca91..8d9f804 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -441,14 +441,10 @@ static __u32 tpacket_get_timestamp(struct sk_buff *skb, struct timespec *ts,
- {
- 	struct skb_shared_hwtstamps *shhwtstamps = skb_hwtstamps(skb);
- 
--	if (shhwtstamps) {
--		if ((flags & SOF_TIMESTAMPING_SYS_HARDWARE) &&
--		    ktime_to_timespec_cond(shhwtstamps->syststamp, ts))
--			return TP_STATUS_TS_SYS_HARDWARE;
--		if ((flags & SOF_TIMESTAMPING_RAW_HARDWARE) &&
--		    ktime_to_timespec_cond(shhwtstamps->hwtstamp, ts))
--			return TP_STATUS_TS_RAW_HARDWARE;
--	}
-+	if (shhwtstamps &&
-+	    (flags & SOF_TIMESTAMPING_RAW_HARDWARE) &&
-+	    ktime_to_timespec_cond(shhwtstamps->hwtstamp, ts))
-+		return TP_STATUS_TS_RAW_HARDWARE;
- 
- 	if (ktime_to_timespec_cond(skb->tstamp, ts))
- 		return TP_STATUS_TS_SOFTWARE;
--- 
-2.0.0.526.g5318336
+Otherwise I would just set msg_namelen = 0, too, and just not handle
+passed in NULL pointers to sockaddrs.
+
+Thanks,
+Hannes
