@@ -1,60 +1,62 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH net-next v3 1/5] net-timestamp: extend SCM_TIMESTAMPING
- ancillary data struct
-Date: Thu, 24 Jul 2014 20:10:55 -0400
-Message-ID: <CA+FuTSdVFHVEp0-orPe7KNEbF2-Lsu+myBNdi9bW7kVV3FM6cA@mail.gmail.com>
-References: <CA+FuTSfMzbvGAM--LmB6i1R5cGZchmQqMNYkbcQGBn6jRAWG9A@mail.gmail.com>
- <20140724.141528.1823901044834131393.davem@davemloft.net> <CA+FuTSfm_WXtFYDeUNspN4=VNAAaQRxe2mvUYDD9Ho-yqJt8GA@mail.gmail.com>
- <20140724.165053.659177921712979472.davem@davemloft.net>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: [PATCH net-next 1/2] net: filter: split filter.c into two files
+Date: Thu, 24 Jul 2014 20:48:20 -0400
+Message-ID: <42190.1406249300@turing-police.cc.vt.edu>
+References: <1406095319-3627-1-git-send-email-ast@plumgrid.com> <1406095319-3627-2-git-send-email-ast@plumgrid.com> <39107.1406245502@turing-police.cc.vt.edu>
+            <CAMEtUuyw0PJXF_EWfs+PVzGago_waFXCbndT4B2HGJ0HYiXh2A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	Richard Cochran <richardcochran@gmail.com>,
-	Chad Reese <kreese@caviumnetworks.com>,
-	David Daney <ddaney@caviumnetworks.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f52.google.com ([209.85.218.52]:54424 "EHLO
-	mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934824AbaGYARY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 24 Jul 2014 20:17:24 -0400
-Received: by mail-oi0-f52.google.com with SMTP id h136so2679933oig.25
-        for <netdev@vger.kernel.org>; Thu, 24 Jul 2014 17:17:24 -0700 (PDT)
-In-Reply-To: <20140724.165053.659177921712979472.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; boundary="==_Exmh_1406249300_23260P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: Your message of "Thu, 24 Jul 2014 16:58:23 -0700."
+             <CAMEtUuyw0PJXF_EWfs+PVzGago_waFXCbndT4B2HGJ0HYiXh2A@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->>> The kernel would simply saw that adjusted HW timestamps are not
->>> supported, the application has to accomodate the possibility of
->>> needing to use one of the other timestamping flavors.
->>
->> Cavium's PTP library already programs the device PTP clock,
->> just not through the standard interface. It appears to map the
->> memory addresses CVMX_MIO_.. directly. In any case, it
->> will gracefully handle the loss of syststamp.
->>
->> I doubt that there are other users of this Octeon interface, but
->> if so, they can reasonably be expected to do the same and
->> rely on the same legacy Octeon PTP clock interface +
->> hwtstamp as alternative. Is that enough justification to remove
->> syststamp without patching the driver to implement
->> ptp_clock_info?
->>
->> Cleanup would be two patches: one to revert the relevant
->> code in the octeon driver (mostly, ptp_to_ktime), and a
->> follow-up to remove the core code now that the last user
->> is gone.
+--==_Exmh_1406249300_23260P
+Content-Type: text/plain; charset=us-ascii
+
+On Thu, 24 Jul 2014 16:58:23 -0700, Alexei Starovoitov said:
+> On Thu, Jul 24, 2014 at 4:45 PM,  <Valdis.Kletnieks@vt.edu> wrote:
+> > On Tue, 22 Jul 2014 23:01:58 -0700, Alexei Starovoitov said:
+
+> >> +obj-$(CONFIG_NET) += bpf/
+> >
+> > I was expecting to see CONFIG_NETFILTER here.  Is CONFIG_NET intentional?
 >
-> I'm not sure I understand, can users still get hardware timestamps
-> from Octeon cards after such a change?  Unless I misunderstand, the
-> only thing left available will be software timestamps, right?
+> yes. it is config_net for now, until eBPF is completely separate from net.
+> Then it will gain its own config_bpf, so it can be used in net-less setups
+> or disabled in net-full setups by folks who care about last byte of .text size.
 
-They will still receive hardware timestamps in raw format. The
-only feature that is deprecated is hardware timestamps
-converted to system time format (ptp_to_ktime).
+OH, OK. That works for me. :)
 
-By querying the PTP clock source, users can perform  perform
-this conversion to system time themselves. The Octeon driver
-does not support the standard PTP clock interface, but does
-appear to use its own alternative using shared memory. I'm
-not exactly sure how that memory is setup.
+--==_Exmh_1406249300_23260P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+Comment: Exmh version 2.5 07/13/2001
+
+iQIVAwUBU9GpVAdmEQWDXROgAQKSEw/+N+VkAVJm4CSfKPJaMCQaiHERnZiMioW4
+GG2rIavZEGPC+d+vPnMycr/PN+izgmPxfuuHBGVHa5gfsf9VuRanOy9BLoTTxijF
+fXbpC0Q1C8imsZZFny6m1yaNV/3V0+tkS8RTz+gbZrKMdB69WyPycrfkJQEgRrNY
+Xs+p2OQJv4gJQCyJGMVludh3AiA8wPDVPYxEsFUx0xsR3LX8mh2y4dKEvUjw+4ue
+QEcc9vZGU4F5nfKBaqx0o2Rgq0vleI36kc7dwH5xBYPPWhjEMEPRirjxNvXtO5Xk
+qq45jNiLNm8OVCXLatHhSbDK51bpgRO4qU0eL3EqyBKu84l6Oe76qktCBX1teWXS
+c3HxEpaF/CewTpdalDarqRgV7H5SICaaz2JA/tGJIiAScgwOEnXYhkZSVoqYtOy+
+fjkYqGpJnHA1I2vWZNV/hfNTzp8ZjaW0wZyQ5YJXGuViV1AxKedT7P3Nm3dHQ1nk
+QOvRKeP6U9dFG1vjXNpOif1qfeB0p8M9DQTQJg5ZP9gzQ+NEFQyvKgI5Wn0+WHO6
+RRUzo8qMDtpTLtH49aVelf9jWFX2AF+78V9Zh6Z/ENfrpGfZL3zYtTJILo5zGjdX
+cKJJ3ruQKDRJMUbvn7Vyh5SIAGlYGIB9o3ySJ48c/W/zX5uzC6kIdN0zqz1gB22b
+wmXw0I41PZU=
+=pwMw
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1406249300_23260P--
