@@ -1,48 +1,55 @@
-From: Veaceslav Falico <vfalico@gmail.com>
-Subject: Re: [patch] bonding: fix a memory leak in bond_arp_send_all()
-Date: Fri, 25 Jul 2014 14:24:32 +0200
-Message-ID: <20140725122432.GA28747@mikrodark.usersys.redhat.com>
-References: <20140725122121.GC528@mwanda>
+From: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
+Subject: [RFC PATCH 1/1] ethtool: adding support for multiple slave port configuration
+Date: Fri, 25 Jul 2014 17:58:25 +0530
+Message-ID: <1406291305-22286-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
-	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f180.google.com ([74.125.82.180]:51572 "EHLO
-	mail-we0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752165AbaGYM1b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jul 2014 08:27:31 -0400
-Content-Disposition: inline
-In-Reply-To: <20140725122121.GC528@mwanda>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
+	<linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
+To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 25, 2014 at 03:21:21PM +0300, Dan Carpenter wrote:
->This test is reversed so the memory is always leaked.  It's better style
->to remove the test anyway.
->
->Fixes: 3e403a77779f ('bonding: make it possible to have unlimited nested upper vlans')
->Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Some Ethernet Swtich controllers like CPSW in AM335x, TI814x, DRA7x and
+AM43xx SoCs, Network Coprocessor in AM5K2E0x, Realtek Switch controllers
+etc has to capability of conneting multiple networks using L2 switching
+and has multiple phys. With the existing code, ethtool can communicate
+only to one phy.
 
-Indeed, dunno how I've missed that. And kfree() verifies for the NULL
-situation.
+To enable user to communicate multiple phy connected to single Ethernet
+Switch controller, intoducing a optional new parameter in Ethtool interface
+to pass which slave to set/get the phy configuration.
 
-Acked-by: Veaceslav Falico <vfalico@gmail.com>
+Signed-off-by: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
+---
+ include/uapi/linux/ethtool.h | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
->
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index 023ec36..f0f5eab 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -2287,8 +2287,7 @@ found:
-> 		ip_rt_put(rt);
-> 		bond_arp_send(slave->dev, ARPOP_REQUEST, targets[i],
-> 			      addr, tags);
->-		if (!tags)
->-			kfree(tags);
->+		kfree(tags);
-> 	}
-> }
->
+diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+index 96ade34..3011427 100644
+--- a/include/uapi/linux/ethtool.h
++++ b/include/uapi/linux/ethtool.h
+@@ -60,6 +60,9 @@
+  *	and other link features that the link partner advertised
+  *	through autonegotiation; 0 if unknown or not applicable.
+  *	Read-only.
++ * @slave_port: Specify which slave port to be used to set/get
++ *	parmeters, for example which slave port phy to be used for
++ *	set/get phy capabilities
+  *
+  * The link speed in Mbps is split between @speed and @speed_hi.  Use
+  * the ethtool_cmd_speed() and ethtool_cmd_speed_set() functions to
+@@ -107,7 +110,8 @@ struct ethtool_cmd {
+ 	__u8	eth_tp_mdix;
+ 	__u8	eth_tp_mdix_ctrl;
+ 	__u32	lp_advertising;
+-	__u32	reserved[2];
++	__u32	slave_port;
++	__u32	reserved;
+ };
+ 
+ static inline void ethtool_cmd_speed_set(struct ethtool_cmd *ep,
+-- 
+2.0.2.673.g9ab0882
