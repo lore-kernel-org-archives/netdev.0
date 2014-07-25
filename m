@@ -1,48 +1,48 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH net-next 5/9] inet: frag: don't account number of
- fragment queues
-Date: Fri, 25 Jul 2014 10:32:05 +0200
-Message-ID: <20140725083205.GG18404@breakpoint.cc>
-References: <1406213437-6155-1-git-send-email-nikolay@redhat.com>
- <1406213437-6155-6-git-send-email-nikolay@redhat.com>
- <20140724.231543.185389386835334722.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: nikolay@redhat.com, netdev@vger.kernel.org, fw@strlen.de,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, alex.aring@gmail.com, eric.dumazet@gmail.com
-To: David Miller <davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next] netlink: Fix shadow warning on jiffies
+Date: Fri, 25 Jul 2014 02:18:17 -0700
+Message-ID: <1406279897-6403-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:36763 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756912AbaGYIcU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 25 Jul 2014 04:32:20 -0400
-Content-Disposition: inline
-In-Reply-To: <20140724.231543.185389386835334722.davem@davemloft.net>
+Received: from mga11.intel.com ([192.55.52.93]:8932 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758075AbaGYJSV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Jul 2014 05:18:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> wrote:
-> From: Nikolay Aleksandrov <nikolay@redhat.com>
-> Date: Thu, 24 Jul 2014 16:50:33 +0200
-> 
-> > From: Florian Westphal <fw@strlen.de>
-> > 
-> > The 'nqueues' counter is protected by the lru list lock,
-> > once thats removed this needs to be converted to atomic
-> > counter.  Given this isn't used for anything except for
-> > reporting it to userspace via /proc, just remove it.
-> > 
-> > We still report the memory currently used by fragment
-> > reassembly queues.
-> > 
-> > Signed-off-by: Florian Westphal <fw@strlen.de>
-> 
-> It's a user visible value, you can't just change it's semantics.
+From: Mark Rustad <mark.d.rustad@intel.com>
 
-Really?  It won't break scripts.
-In my tests this never reported any useful information to me.
+Change formal parameter name to not shadow the global jiffies.
 
-If you insist, we can keep this but it seems silly to me to add atomic
-ops just for this one counter which - IMO - does not provide
-any useful information.
+Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ include/net/netlink.h | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/include/net/netlink.h b/include/net/netlink.h
+index 2b47eaa..6c10762 100644
+--- a/include/net/netlink.h
++++ b/include/net/netlink.h
+@@ -949,12 +949,12 @@ static inline int nla_put_flag(struct sk_buff *skb, int attrtype)
+  * nla_put_msecs - Add a msecs netlink attribute to a socket buffer
+  * @skb: socket buffer to add attribute to
+  * @attrtype: attribute type
+- * @jiffies: number of msecs in jiffies
++ * @njiffies: number of jiffies to convert to msecs
+  */
+ static inline int nla_put_msecs(struct sk_buff *skb, int attrtype,
+-				unsigned long jiffies)
++				unsigned long njiffies)
+ {
+-	u64 tmp = jiffies_to_msecs(jiffies);
++	u64 tmp = jiffies_to_msecs(njiffies);
+ 	return nla_put(skb, attrtype, sizeof(u64), &tmp);
+ }
+ 
+-- 
+1.9.3
