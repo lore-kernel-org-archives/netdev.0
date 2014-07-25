@@ -1,7 +1,7 @@
 From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH] neigh: remove exceptional & on function name
-Date: Thu, 24 Jul 2014 23:25:30 -0700 (PDT)
-Message-ID: <20140724.232530.285025608625610961.davem@davemloft.net>
+Date: Thu, 24 Jul 2014 23:25:39 -0700 (PDT)
+Message-ID: <20140724.232539.1322896336149538015.davem@davemloft.net>
 References: <20140724201937.GA16275@himangi-Dell>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
@@ -25,3 +25,5 @@ Date: Fri, 25 Jul 2014 01:49:37 +0530
  ...
 > Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
 > Acked-by: Julia Lawall <julia.lawall@lip6.fr>
+
+Applied.
