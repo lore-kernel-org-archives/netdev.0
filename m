@@ -1,8 +1,7 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next 5/8] amd-xgbe-phy: Updates to rate change complete
- check
-Date: Fri, 25 Jul 2014 16:11:21 -0500
-Message-ID: <20140725211121.32358.43947.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next 6/8] amd-xgbe-phy: Updates to KR training initiation
+Date: Fri, 25 Jul 2014 16:11:27 -0500
+Message-ID: <20140725211127.32358.45712.stgit@tlendack-t1.amdoffice.net>
 References: <20140725211052.32358.54337.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,79 +9,54 @@ Content-Transfer-Encoding: 7bit
 Cc: <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2lp0206.outbound.protection.outlook.com ([207.46.163.206]:2875
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+Received: from mail-by2lp0235.outbound.protection.outlook.com ([207.46.163.235]:40271
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S934542AbaGYVLZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Jul 2014 17:11:25 -0400
+	id S934542AbaGYVLd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Jul 2014 17:11:33 -0400
 In-Reply-To: <20140725211052.32358.54337.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, the logic will loop endlessly waiting for a rate change
-to complete.  Add a counter so that if the rate change signals
-never indicate complete the loop will eventually exit.
+As part of changing rates to KR mode, KR training is initiated. If
+the KR training is restarted it is possible to enter an invalid logic
+state. This can be avoided by asserting a training reset bit before
+initiating the KR training and then clearing the training reset bit.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/phy/amd-xgbe-phy.c |   27 +++++++++++++++++++++++++--
- 1 file changed, 25 insertions(+), 2 deletions(-)
+ drivers/net/phy/amd-xgbe-phy.c |    7 +++++++
+ 1 file changed, 7 insertions(+)
 
 diff --git a/drivers/net/phy/amd-xgbe-phy.c b/drivers/net/phy/amd-xgbe-phy.c
-index b35293d..a2d778a 100644
+index a2d778a..39428e5 100644
 --- a/drivers/net/phy/amd-xgbe-phy.c
 +++ b/drivers/net/phy/amd-xgbe-phy.c
-@@ -95,6 +95,8 @@ MODULE_DESCRIPTION("AMD 10GbE (amd-xgbe) PHY driver");
- #define XNP_MP_FORMATTED		(1 << 13)
- #define XNP_NP_EXCHANGE			(1 << 15)
- 
-+#define XGBE_PHY_RATECHANGE_COUNT	100
-+
- #ifndef MDIO_PMA_10GBR_PMD_CTRL
- #define MDIO_PMA_10GBR_PMD_CTRL		0x0096
+@@ -119,10 +119,13 @@ MODULE_DESCRIPTION("AMD 10GbE (amd-xgbe) PHY driver");
  #endif
-@@ -193,6 +195,16 @@ do {									\
- 	(_var) |= (((_val) & ((0x1 << (_width)) - 1)) << (_index));	\
- } while (0)
  
-+#define XSIR_GET_BITS(_var, _prefix, _field)				\
-+	GET_BITS((_var),						\
-+		 _prefix##_##_field##_INDEX,				\
-+		 _prefix##_##_field##_WIDTH)
-+
-+#define XSIR_SET_BITS(_var, _prefix, _field, _val)			\
-+	SET_BITS((_var),						\
-+		 _prefix##_##_field##_INDEX,				\
-+		 _prefix##_##_field##_WIDTH, (_val))
-+
- /* Macros for reading or writing SerDes integration registers
-  *  The ioread macros will get bit fields or full values using the
-  *  register definitions formed using the input names
-@@ -387,14 +399,25 @@ static void amd_xgbe_phy_serdes_start_ratechange(struct phy_device *phydev)
- static void amd_xgbe_phy_serdes_complete_ratechange(struct phy_device *phydev)
- {
- 	struct amd_xgbe_phy_priv *priv = phydev->priv;
-+	unsigned int wait;
-+	u16 status;
+ /* SerDes integration register offsets */
++#define SIR0_KR_RT_1			0x002c
+ #define SIR0_STATUS			0x0040
+ #define SIR1_SPEED			0x0000
  
- 	/* Release Rx and Tx ratechange */
- 	XSIR1_IOWRITE_BITS(priv, SIR1_SPEED, RATECHANGE, 0);
+ /* SerDes integration register entry bit positions and sizes */
++#define SIR0_KR_RT_1_RESET_INDEX	11
++#define SIR0_KR_RT_1_RESET_WIDTH	1
+ #define SIR0_STATUS_RX_READY_INDEX	0
+ #define SIR0_STATUS_RX_READY_WIDTH	1
+ #define SIR0_STATUS_TX_READY_INDEX	8
+@@ -636,9 +639,13 @@ static enum amd_xgbe_phy_an amd_xgbe_an_tx_training(struct phy_device *phydev,
+ 	if (ret < 0)
+ 		return AMD_XGBE_AN_ERROR;
  
- 	/* Wait for Rx and Tx ready */
--	while (!XSIR0_IOREAD_BITS(priv, SIR0_STATUS, RX_READY) &&
--	       !XSIR0_IOREAD_BITS(priv, SIR0_STATUS, TX_READY))
-+	wait = XGBE_PHY_RATECHANGE_COUNT;
-+	while (wait--) {
- 		usleep_range(10, 20);
++	XSIR0_IOWRITE_BITS(priv, SIR0_KR_RT_1, RESET, 1);
 +
-+		status = XSIR0_IOREAD(priv, SIR0_STATUS);
-+		if (XSIR_GET_BITS(status, SIR0_STATUS, RX_READY) &&
-+		    XSIR_GET_BITS(status, SIR0_STATUS, TX_READY))
-+			return;
-+	}
+ 	ret |= 0x01;
+ 	phy_write_mmd(phydev, MDIO_MMD_PMAPMD, MDIO_PMA_10GBR_PMD_CTRL, ret);
+ 
++	XSIR0_IOWRITE_BITS(priv, SIR0_KR_RT_1, RESET, 0);
 +
-+	netdev_err(phydev->attached_dev, "SerDes rx/tx not ready (%#hx)\n",
-+		   status);
+ 	return AMD_XGBE_AN_EVENT;
  }
  
- static int amd_xgbe_phy_xgmii_mode(struct phy_device *phydev)
