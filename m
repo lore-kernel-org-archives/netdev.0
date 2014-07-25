@@ -1,79 +1,83 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [can-next PATCH 1/1] net: can: c_can_platform: Use devm_ioremap
- instead of devm_ioremap_resource.
-Date: Fri, 25 Jul 2014 15:06:03 +0200
-Message-ID: <53D2563B.1090703@pengutronix.de>
-References: <1406269181-4092-1-git-send-email-mugunthanvnm@ti.com> <4a97162dedd6ab064e83c52757f2ce42@mail.zeus03.de>
+From: Lee Jones <lee.jones@linaro.org>
+Subject: Re: [PATCH] gpio: extend gpiod_get*() with flags
+	parameter
+Date: Fri, 25 Jul 2014 07:52:50 +0100
+Message-ID: <20140725065250.GF7063@lee--X1>
+References: <1406214298-20062-1-git-send-email-acourbot@nvidia.com>
+ <20140724161052.GA15615@kroah.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="duembwfNjUBjNsAK8or8Qhho4rhcAMHTq"
-Cc: Wolfgang Grandegger <wg@grandegger.com>,
-	Pavel Machek <pavel@denx.de>, Thor Thayer <tthayer@altera.com>,
-	Prabhakar Lad <prabhakar.csengg@gmail.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Chen Gang <gang.chen@asianux.com>,
-	George Cherian <george.cherian@ti.com>,
-	linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Wolfram Sang <wsa@sang-engineering.com>,
-	Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <4a97162dedd6ab064e83c52757f2ce42@mail.zeus03.de>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: linux-wireless@vger.kernel.org, Ulf Hansson <ulf.hansson@linaro.org>,
+ Wolfram Sang <wsa@the-dreams.de>, Takashi Iwai <tiwai@suse.de>,
+ linux-mmc@vger.kernel.org, Linus Walleij <linus.walleij@linaro.org>,
+ Chris Ball <chris@printf.net>, dri-devel@lists.freedesktop.org,
+ Liam Girdwood <lgirdwood@gmail.com>, Peter Ujfalusi <peter.ujfalusi@ti.com>,
+ Thierry Reding <thierry.reding@gmail.com>,
+ Laurent Pinchart <laurent.pinchart@ideasonboard.com>,
+ Pavel Machek <pavel@ucw.cz>, Jiri Slaby <jslaby@suse.cz>, gnurou@gmail.com,
+ Florian Fainelli <f.fainelli@gmail.com>, Samuel Ortiz <sameo@linux.intel.com>,
+ Alexander Shiyan <shc_work@mail.ru>,
+ Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
+ Jingoo Han <jg1.han@samsung.com>, Paul Handrigan <Paul.Handrigan@cirrus.com>,
+ linux-iio@vger.kernel.org, linux-omap@vger.kernel.org,
+ Tomi Valkeinen <tomi.valkeinen@ti.com>, Hans Verkuil <hans.verkuil@ci
+To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <alsa-devel-bounces@alsa-project.org>
+Content-Disposition: inline
+In-Reply-To: <20140724161052.GA15615@kroah.com>
+List-Unsubscribe: <http://mailman.alsa-project.org/mailman/options/alsa-devel>,
+ <mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
+List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel/>
+List-Post: <mailto:alsa-devel@alsa-project.org>
+List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
+List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
+ <mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
+Errors-To: alsa-devel-bounces@alsa-project.org
+Sender: alsa-devel-bounces@alsa-project.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---duembwfNjUBjNsAK8or8Qhho4rhcAMHTq
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-
-On 07/25/2014 12:49 PM, Wolfram Sang wrote:
-> Am 25-07-2014 08:19, schrieb Mugunthan V N:
->> From: George Cherian <george.cherian@ti.com>
->>
->> The raminit register is shared register for both can0 and can1.
->> Using devm_ioremap_resource fails the mapping for can1 interface
->> leading to a non functional can interface.
->>
->> Signed-off-by: George Cherian <george.cherian@ti.com>
->> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
->=20
-> The patch is a hack, or? It simply works because we drop all sanity
-> checking on the resource.
-
-Well, thinking about it, yes, a bit.
-
-> I am on holiday and can't really check, yet I believe the AM335x has
-> devicetree support for accessing single bits in SYSCONF. This is what
-> needs to be applied here, too, AFAICT.
-
-I cannot find any generic driver for the sysconf, USB and Ethernet have
-an extra driver for their shared register space. I think the d_can can
-access the raminit register via a syscon driver.
-
-Enjoy your holiday :)
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---duembwfNjUBjNsAK8or8Qhho4rhcAMHTq
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
-
-iEYEARECAAYFAlPSVjsACgkQjTAFq1RaXHMPMACfUlhII5nD4DcN1u5YEoXtVeUZ
-hP8Ani5sxhhe6a6WfzL48KqolRBU1Bt+
-=sQbT
------END PGP SIGNATURE-----
-
---duembwfNjUBjNsAK8or8Qhho4rhcAMHTq--
+T24gVGh1LCAyNCBKdWwgMjAxNCwgR3JlZyBLcm9haC1IYXJ0bWFuIHdyb3RlOgoKPiBPbiBGcmks
+IEp1bCAyNSwgMjAxNCBhdCAxMjowNDo1OEFNICswOTAwLCBBbGV4YW5kcmUgQ291cmJvdCB3cm90
+ZToKPiA+IFRoZSBodWdlIG1ham9yaXR5IG9mIEdQSU9zIGhhdmUgdGhlaXIgZGlyZWN0aW9uIGFu
+ZCBpbml0aWFsIHZhbHVlIHNldAo+ID4gcmlnaHQgYWZ0ZXIgYmVpbmcgb2J0YWluZWQgYnkgb25l
+IG9mIHRoZSBncGlvZF9nZXQoKSBmdW5jdGlvbnMuIFRoZQo+ID4gaW50ZWdlciBHUElPIEFQSSBo
+YWQgZ3Bpb19yZXF1ZXN0X29uZSgpIHRoYXQgdG9vayBhIGNvbnZlbmllbmNlIGZsYWdzCj4gPiBw
+YXJhbWV0ZXIgYWxsb3dpbmcgdG8gc3BlY2lmeSBhbiBkaXJlY3Rpb24gYW5kIHZhbHVlIGFwcGxp
+ZWQgdG8gdGhlCj4gPiByZXR1cm5lZCBHUElPLiBUaGlzIGZlYXR1cmUgZ3JlYXRseSBzaW1wbGlm
+aWVzIGNsaWVudCBjb2RlIGFuZCBlbnN1cmVzCj4gPiBlcnJvcnMgYXJlIGFsd2F5cyBoYW5kbGVk
+IHByb3Blcmx5Lgo+ID4gCj4gPiBBIHNpbWlsYXIgZmVhdHVyZSBoYXMgYmVlbiByZXF1ZXN0ZWQg
+Zm9yIHRoZSBncGlvZCBBUEkuIFNpbmNlIEdQSU9zIG5lZWQKPiA+IGEgZGlyZWN0aW9uIHRvIGJl
+IHVzZWQgYW55d2F5LCB3ZSBwcmVmZXIgdG8gZXh0ZW5kIHRoZSBleGlzdGluZwo+ID4gZnVuY3Rp
+b25zIGluc3RlYWQgb2YgaW50cm9kdWNpbmcgbmV3IGZ1bmN0aW9ucyB0aGF0IHdvdWxkIHJhaXNl
+IHRoZQo+ID4gbnVtYmVyIG9mIGdwaW9kIGdldHRlcnMgdG8gMTYgKCEpLgo+ID4gCj4gPiBUaGUg
+ZHJhd2JhY2sgb2YgdGhpcyBhcHByb2FjaCBpcyB0aGF0IGFsbCBncGlvZCBjbGllbnRzIG5lZWQg
+dG8gYmUKPiA+IHVwZGF0ZWQsIGJ1dCB0aGVyZSBhcmVuJ3QgdGhhdCBtYW55IGFuZCB0aGUgbW9t
+ZW50IGFuZCB0aGlzIHJlc3VsdHMgaW4KPiA+IHNtYWxsZXIgKGFuZCBob3BlZnVsbHkgc2FmZXIp
+IGNvZGUuCj4gPiAKPiA+IFNpZ25lZC1vZmYtYnk6IEFsZXhhbmRyZSBDb3VyYm90IDxhY291cmJv
+dEBudmlkaWEuY29tPgo+ID4gLS0tCj4gPiBUaGlzIGNoYW5nZSB3aWxsIGJlIGRpZmZpY3VsdCB0
+byBhcHBseSB3aXRob3V0IGJyZWFraW5nIHRoaW5ncywgYnV0Cj4gPiBsZXQncyB0cnkgdG8gZG8g
+aXQgcmlnaHQuIEhvcGVmdWxseSB0aGUgYmVuZWZpdCB3aWxsIG91dHdlaWdodCB0aGUKPiA+IGRp
+c3R1cmJhbmNlLgo+ID4gCj4gPiBUaGlzIGlzIGEgcGF0Y2ggYWdhaW5zdCAtbmV4dCB0byBsaXN0
+IGFuZCB1cGRhdGUgYWxsIGN1cnJlbnQgZ3Bpb2QKPiA+IGNvbnN1bWVycy4gVXBkYXRlcyBhcmUg
+dHJpdmlhbCBhdCBmaXJzdCBzaWdodCwgYnV0IGl0IHdvdWxkIGJlIG5pY2UgdG8KPiA+IGdldCBh
+cyBtYW55IGFja3MgYXMgcG9zc2libGUgZnJvbSB0aGUgcmVzcGVjdGl2ZSBzdWJzeXN0ZW0gbWFp
+bnRhaW5lcnMuCj4gPiAKPiA+IEknbSBub3Qgc3VyZSBob3cgdGhpcyBjb3VsZCBiZSBhcHBsaWVk
+IGhhcm1sZXNzbHkgdGhvdWdoIC0gbWF5YmUgdGhyb3VnaAo+ID4gYSBkZWRpY2F0ZWQgYnJhbmNo
+IGZvciAtbmV4dD8gUHJvYmxlbSBpcyB0aGF0IGEgbG90IG9mIG5ldyBjb2RlIGlzIG5vdAo+ID4g
+eWV0IG1lcmdlZCBpbnRvIG1haW5saW5lLCBhbmQgY29uZmxpY3RzIGFyZSB2ZXJ5IGxpa2VseSB0
+byBvY2N1ci4gTGludXMsCj4gPiBkbyB5b3UgaGF2ZSBhbnkgc3VnZ2VzdGlvbiBhcyB0byBob3cg
+dGhpcyBjYW4gYmUgZG9uZSB3aXRob3V0IGJsb29kIGJlaW5nCj4gPiBzcGlsbGVkPwo+IAo+IERv
+IHRoaXMgaW4gMyBzdGVwcywgbm90IGFsbCBhdCBvbmNlLgo+IAo+IE1ha2UgYSBuZXcgZnVuY3Rp
+b24gdGhhdCB0YWtlcyB0aGUgbmV3IGFyZ3VtZW50LCBnZXQgdGhhdCBtZXJnZWQKPiAKPiBTdWJt
+aXQgcGF0Y2hlcyB0aGF0IGNvbnZlcnQgZHJpdmVycyBvdmVyIHRvIHVzZSB0aGUgbmV3IGZ1bmN0
+aW9uLgo+IAo+IE9uY2UgYWxsIG9mIHRob3NlIGFyZSBtZXJnZWQsIHJlbW92ZSB0aGUgb2xkIGZ1
+bmN0aW9uLgo+IAo+IFRoYXQgd2F5IHRoZXJlIGFyZSBubyAiZmxhZyBkYXlzIiBuZWVkZWQsIGFu
+ZCBldmVyeW9uZSBpcyBoYXBweSB5b3UKPiBkb24ndCBzZW5kIG91dCBlbWFpbHMgd2l0aCA0MCsg
+cGVvcGxlIGluIHRoZSBUbzogYW5kIENjOiBsaW5lcyA6KQoKKzk5OTk5CgotLSAKTGVlIEpvbmVz
+CkxpbmFybyBTVE1pY3JvZWxlY3Ryb25pY3MgTGFuZGluZyBUZWFtIExlYWQKTGluYXJvLm9yZyDi
+lIIgT3BlbiBzb3VyY2Ugc29mdHdhcmUgZm9yIEFSTSBTb0NzCkZvbGxvdyBMaW5hcm86IEZhY2Vi
+b29rIHwgVHdpdHRlciB8IEJsb2cKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX18KQWxzYS1kZXZlbCBtYWlsaW5nIGxpc3QKQWxzYS1kZXZlbEBhbHNhLXByb2pl
+Y3Qub3JnCmh0dHA6Ly9tYWlsbWFuLmFsc2EtcHJvamVjdC5vcmcvbWFpbG1hbi9saXN0aW5mby9h
+bHNhLWRldmVsCg==
