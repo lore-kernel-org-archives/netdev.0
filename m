@@ -1,7 +1,8 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next 6/8] amd-xgbe-phy: Updates to KR training initiation
-Date: Fri, 25 Jul 2014 16:11:27 -0500
-Message-ID: <20140725211127.32358.45712.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next 7/8] amd-xgbe-phy: Print out the auto-negotiation
+ method used
+Date: Fri, 25 Jul 2014 16:11:33 -0500
+Message-ID: <20140725211133.32358.45854.stgit@tlendack-t1.amdoffice.net>
 References: <20140725211052.32358.54337.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -9,54 +10,61 @@ Content-Transfer-Encoding: 7bit
 Cc: <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2lp0235.outbound.protection.outlook.com ([207.46.163.235]:40271
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+Received: from mail-bl2lp0211.outbound.protection.outlook.com ([207.46.163.211]:6400
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S934542AbaGYVLd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 25 Jul 2014 17:11:33 -0400
+	id S934542AbaGYVLi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 25 Jul 2014 17:11:38 -0400
 In-Reply-To: <20140725211052.32358.54337.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As part of changing rates to KR mode, KR training is initiated. If
-the KR training is restarted it is possible to enter an invalid logic
-state. This can be avoided by asserting a training reset bit before
-initiating the KR training and then clearing the training reset bit.
+Add a netdev_info statement detailing whether auto-negotiation was
+completed through parallel detection or through the auto-negotiation
+protocol.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/phy/amd-xgbe-phy.c |    7 +++++++
- 1 file changed, 7 insertions(+)
+ drivers/net/phy/amd-xgbe-phy.c |    8 ++++++++
+ 1 file changed, 8 insertions(+)
 
 diff --git a/drivers/net/phy/amd-xgbe-phy.c b/drivers/net/phy/amd-xgbe-phy.c
-index a2d778a..39428e5 100644
+index 39428e5..388e302 100644
 --- a/drivers/net/phy/amd-xgbe-phy.c
 +++ b/drivers/net/phy/amd-xgbe-phy.c
-@@ -119,10 +119,13 @@ MODULE_DESCRIPTION("AMD 10GbE (amd-xgbe) PHY driver");
- #endif
+@@ -857,6 +857,7 @@ static void amd_xgbe_an_state_machine(struct work_struct *work)
+ 	struct phy_device *phydev = priv->phydev;
+ 	enum amd_xgbe_phy_an cur_state;
+ 	int sleep;
++	unsigned int an_supported = 0;
  
- /* SerDes integration register offsets */
-+#define SIR0_KR_RT_1			0x002c
- #define SIR0_STATUS			0x0040
- #define SIR1_SPEED			0x0000
+ 	while (1) {
+ 		mutex_lock(&priv->an_mutex);
+@@ -866,6 +867,7 @@ static void amd_xgbe_an_state_machine(struct work_struct *work)
+ 		switch (priv->an_state) {
+ 		case AMD_XGBE_AN_START:
+ 			priv->an_state = amd_xgbe_an_start(phydev);
++			an_supported = 0;
+ 			break;
  
- /* SerDes integration register entry bit positions and sizes */
-+#define SIR0_KR_RT_1_RESET_INDEX	11
-+#define SIR0_KR_RT_1_RESET_WIDTH	1
- #define SIR0_STATUS_RX_READY_INDEX	0
- #define SIR0_STATUS_RX_READY_WIDTH	1
- #define SIR0_STATUS_TX_READY_INDEX	8
-@@ -636,9 +639,13 @@ static enum amd_xgbe_phy_an amd_xgbe_an_tx_training(struct phy_device *phydev,
- 	if (ret < 0)
- 		return AMD_XGBE_AN_ERROR;
+ 		case AMD_XGBE_AN_EVENT:
+@@ -874,6 +876,7 @@ static void amd_xgbe_an_state_machine(struct work_struct *work)
  
-+	XSIR0_IOWRITE_BITS(priv, SIR0_KR_RT_1, RESET, 1);
+ 		case AMD_XGBE_AN_PAGE_RECEIVED:
+ 			priv->an_state = amd_xgbe_an_page_received(phydev);
++			an_supported++;
+ 			break;
+ 
+ 		case AMD_XGBE_AN_INCOMPAT_LINK:
+@@ -881,6 +884,11 @@ static void amd_xgbe_an_state_machine(struct work_struct *work)
+ 			break;
+ 
+ 		case AMD_XGBE_AN_COMPLETE:
++			netdev_info(phydev->attached_dev, "%s successful\n",
++				    an_supported ? "Auto negotiation"
++						 : "Parallel detection");
++			/* fall through */
 +
- 	ret |= 0x01;
- 	phy_write_mmd(phydev, MDIO_MMD_PMAPMD, MDIO_PMA_10GBR_PMD_CTRL, ret);
- 
-+	XSIR0_IOWRITE_BITS(priv, SIR0_KR_RT_1, RESET, 0);
-+
- 	return AMD_XGBE_AN_EVENT;
- }
- 
+ 		case AMD_XGBE_AN_NO_LINK:
+ 		case AMD_XGBE_AN_EXIT:
+ 			goto exit_unlock;
