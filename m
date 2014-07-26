@@ -1,235 +1,121 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 02/12] ixgbe: Fix spurious release of semaphore in EEPROM access
-Date: Fri, 25 Jul 2014 21:45:12 -0700
-Message-ID: <1406349922-9883-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/12] e1000e: Add code to check return values on NVM accesses
+Date: Fri, 25 Jul 2014 21:45:19 -0700
+Message-ID: <1406349922-9883-10-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1406349922-9883-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
+Cc: David Ertman <david.m.ertman@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:57220 "EHLO mga11.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:13529 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750854AbaGZEp0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 26 Jul 2014 00:45:26 -0400
+	id S1751066AbaGZEpc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 26 Jul 2014 00:45:32 -0400
 In-Reply-To: <1406349922-9883-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mark Rustad <mark.d.rustad@intel.com>
+From: David Ertman <david.m.ertman@intel.com>
 
-Failure to acquire the semaphore would lead to a spurious release
-of the semaphore in several functions. Do not release a semaphore
-that you did not get.
+Adding code to check and respond to previously ignored return values
+from NVM access functions.
 
-Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Issue discovered through static analysis.
+
+Signed-off-by: Dave Ertman <david.m.ertman@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c | 123 +++++++++++---------------
- 1 file changed, 53 insertions(+), 70 deletions(-)
+ drivers/net/ethernet/intel/e1000e/manage.c |  5 ++++-
+ drivers/net/ethernet/intel/e1000e/netdev.c | 22 ++++++++++++++++------
+ drivers/net/ethernet/intel/e1000e/nvm.c    |  4 +++-
+ 3 files changed, 23 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-index 942ad13..efdb517 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_x540.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
+diff --git a/drivers/net/ethernet/intel/e1000e/manage.c b/drivers/net/ethernet/intel/e1000e/manage.c
+index cb37ff1..5885603 100644
+--- a/drivers/net/ethernet/intel/e1000e/manage.c
++++ b/drivers/net/ethernet/intel/e1000e/manage.c
+@@ -327,9 +327,12 @@ bool e1000e_enable_mng_pass_thru(struct e1000_hw *hw)
+ 	} else if ((hw->mac.type == e1000_82574) ||
+ 		   (hw->mac.type == e1000_82583)) {
+ 		u16 data;
++		s32 ret_val;
  
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2013 Intel Corporation.
-+  Copyright(c) 1999 - 2014 Intel Corporation.
+ 		factps = er32(FACTPS);
+-		e1000_read_nvm(hw, NVM_INIT_CONTROL2_REG, 1, &data);
++		ret_val = e1000_read_nvm(hw, NVM_INIT_CONTROL2_REG, 1, &data);
++		if (ret_val)
++			return false;
  
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-@@ -258,13 +258,12 @@ static s32 ixgbe_init_eeprom_params_X540(struct ixgbe_hw *hw)
-  **/
- static s32 ixgbe_read_eerd_X540(struct ixgbe_hw *hw, u16 offset, u16 *data)
- {
--	s32 status = 0;
-+	s32 status;
+ 		if (!(factps & E1000_FACTPS_MNGCG) &&
+ 		    ((data & E1000_NVM_INIT_CTRL2_MNGM) ==
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 201cc93..fe3e42a 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -6708,6 +6708,7 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	int bars, i, err, pci_using_dac;
+ 	u16 eeprom_data = 0;
+ 	u16 eeprom_apme_mask = E1000_EEPROM_APME;
++	s32 rval = 0;
  
--	if (hw->mac.ops.acquire_swfw_sync(hw, IXGBE_GSSR_EEP_SM) ==
--	    0)
--		status = ixgbe_read_eerd_generic(hw, offset, data);
--	else
--		status = IXGBE_ERR_SWFW_SYNC;
-+	if (hw->mac.ops.acquire_swfw_sync(hw, IXGBE_GSSR_EEP_SM))
-+		return IXGBE_ERR_SWFW_SYNC;
-+
-+	status = ixgbe_read_eerd_generic(hw, offset, data);
- 
- 	hw->mac.ops.release_swfw_sync(hw, IXGBE_GSSR_EEP_SM);
- 	return status;
-@@ -282,14 +281,12 @@ static s32 ixgbe_read_eerd_X540(struct ixgbe_hw *hw, u16 offset, u16 *data)
- static s32 ixgbe_read_eerd_buffer_X540(struct ixgbe_hw *hw,
- 				       u16 offset, u16 words, u16 *data)
- {
--	s32 status = 0;
-+	s32 status;
- 
--	if (hw->mac.ops.acquire_swfw_sync(hw, IXGBE_GSSR_EEP_SM) ==
--	    0)
--		status = ixgbe_read_eerd_buffer_generic(hw, offset,
--							words, data);
--	else
--		status = IXGBE_ERR_SWFW_SYNC;
-+	if (hw->mac.ops.acquire_swfw_sync(hw, IXGBE_GSSR_EEP_SM))
-+		return IXGBE_ERR_SWFW_SYNC;
-+
-+	status = ixgbe_read_eerd_buffer_generic(hw, offset, words, data);
- 
- 	hw->mac.ops.release_swfw_sync(hw, IXGBE_GSSR_EEP_SM);
- 	return status;
-@@ -305,12 +302,12 @@ static s32 ixgbe_read_eerd_buffer_X540(struct ixgbe_hw *hw,
-  **/
- static s32 ixgbe_write_eewr_X540(struct ixgbe_hw *hw, u16 offset, u16 data)
- {
--	s32 status = 0;
-+	s32 status;
- 
--	if (hw->mac.ops.acquire_swfw_sync(hw, IXGBE_GSSR_EEP_SM) == 0)
--		status = ixgbe_write_eewr_generic(hw, offset, data);
--	else
--		status = IXGBE_ERR_SWFW_SYNC;
-+	if (hw->mac.ops.acquire_swfw_sync(hw, IXGBE_GSSR_EEP_SM))
-+		return IXGBE_ERR_SWFW_SYNC;
-+
-+	status = ixgbe_write_eewr_generic(hw, offset, data);
- 
- 	hw->mac.ops.release_swfw_sync(hw, IXGBE_GSSR_EEP_SM);
- 	return status;
-@@ -328,14 +325,12 @@ static s32 ixgbe_write_eewr_X540(struct ixgbe_hw *hw, u16 offset, u16 data)
- static s32 ixgbe_write_eewr_buffer_X540(struct ixgbe_hw *hw,
- 					u16 offset, u16 words, u16 *data)
- {
--	s32 status = 0;
-+	s32 status;
- 
--	if (hw->mac.ops.acquire_swfw_sync(hw, IXGBE_GSSR_EEP_SM) ==
--	    0)
--		status = ixgbe_write_eewr_buffer_generic(hw, offset,
--							 words, data);
--	else
--		status = IXGBE_ERR_SWFW_SYNC;
-+	if (hw->mac.ops.acquire_swfw_sync(hw, IXGBE_GSSR_EEP_SM))
-+		return IXGBE_ERR_SWFW_SYNC;
-+
-+	status = ixgbe_write_eewr_buffer_generic(hw, offset, words, data);
- 
- 	hw->mac.ops.release_swfw_sync(hw, IXGBE_GSSR_EEP_SM);
- 	return status;
-@@ -430,44 +425,37 @@ static s32 ixgbe_validate_eeprom_checksum_X540(struct ixgbe_hw *hw,
- 	u16 checksum;
- 	u16 read_checksum = 0;
- 
--	/*
--	 * Read the first word from the EEPROM. If this times out or fails, do
-+	/* Read the first word from the EEPROM. If this times out or fails, do
- 	 * not continue or we could be in for a very long wait while every
- 	 * EEPROM read fails
- 	 */
- 	status = hw->eeprom.ops.read(hw, 0, &checksum);
--
--	if (status != 0) {
-+	if (status) {
- 		hw_dbg(hw, "EEPROM read failed\n");
--		goto out;
-+		return status;
+ 	if (ei->flags2 & FLAG2_DISABLE_ASPM_L0S)
+ 		aspm_disable_flag = PCIE_LINK_STATE_L0S;
+@@ -6940,15 +6941,19 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	} else if (adapter->flags & FLAG_APME_IN_CTRL3) {
+ 		if (adapter->flags & FLAG_APME_CHECK_PORT_B &&
+ 		    (adapter->hw.bus.func == 1))
+-			e1000_read_nvm(&adapter->hw, NVM_INIT_CONTROL3_PORT_B,
+-				       1, &eeprom_data);
++			rval = e1000_read_nvm(&adapter->hw,
++					      NVM_INIT_CONTROL3_PORT_B,
++					      1, &eeprom_data);
+ 		else
+-			e1000_read_nvm(&adapter->hw, NVM_INIT_CONTROL3_PORT_A,
+-				       1, &eeprom_data);
++			rval = e1000_read_nvm(&adapter->hw,
++					      NVM_INIT_CONTROL3_PORT_A,
++					      1, &eeprom_data);
  	}
  
--	if (hw->mac.ops.acquire_swfw_sync(hw, IXGBE_GSSR_EEP_SM) == 0) {
--		checksum = hw->eeprom.ops.calc_checksum(hw);
-+	if (hw->mac.ops.acquire_swfw_sync(hw, IXGBE_GSSR_EEP_SM))
-+		return IXGBE_ERR_SWFW_SYNC;
+ 	/* fetch WoL from EEPROM */
+-	if (eeprom_data & eeprom_apme_mask)
++	if (rval)
++		e_dbg("NVM read error getting WoL initial values: %d\n", rval);
++	else if (eeprom_data & eeprom_apme_mask)
+ 		adapter->eeprom_wol |= E1000_WUFC_MAG;
  
--		/*
--		 * Do not use hw->eeprom.ops.read because we do not want to take
--		 * the synchronization semaphores twice here.
--		 */
--		ixgbe_read_eerd_generic(hw, IXGBE_EEPROM_CHECKSUM,
--					&read_checksum);
--
--		/*
--		 * Verify read checksum from EEPROM is the same as
--		 * calculated checksum
--		 */
--		if (read_checksum != checksum)
--			status = IXGBE_ERR_EEPROM_CHECKSUM;
-+	checksum = hw->eeprom.ops.calc_checksum(hw);
+ 	/* now that we have the eeprom settings, apply the special cases
+@@ -6967,7 +6972,12 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		device_wakeup_enable(&pdev->dev);
  
--		/* If the user cares, return the calculated checksum */
--		if (checksum_val)
--			*checksum_val = checksum;
--	} else {
--		status = IXGBE_ERR_SWFW_SYNC;
--	}
-+	/* Do not use hw->eeprom.ops.read because we do not want to take
-+	 * the synchronization semaphores twice here.
-+	 */
-+	status = ixgbe_read_eerd_generic(hw, IXGBE_EEPROM_CHECKSUM,
-+					 &read_checksum);
- 
- 	hw->mac.ops.release_swfw_sync(hw, IXGBE_GSSR_EEP_SM);
--out:
+ 	/* save off EEPROM version number */
+-	e1000_read_nvm(&adapter->hw, 5, 1, &adapter->eeprom_vers);
++	rval = e1000_read_nvm(&adapter->hw, 5, 1, &adapter->eeprom_vers);
 +
-+	/* If the user cares, return the calculated checksum */
-+	if (checksum_val)
-+		*checksum_val = checksum;
-+
-+	/* Verify read and calculated checksums are the same */
-+	if (read_checksum != checksum)
-+		return IXGBE_ERR_EEPROM_CHECKSUM;
-+
- 	return status;
- }
- 
-@@ -484,34 +472,29 @@ static s32 ixgbe_update_eeprom_checksum_X540(struct ixgbe_hw *hw)
- 	s32 status;
- 	u16 checksum;
- 
--	/*
--	 * Read the first word from the EEPROM. If this times out or fails, do
-+	/* Read the first word from the EEPROM. If this times out or fails, do
- 	 * not continue or we could be in for a very long wait while every
- 	 * EEPROM read fails
- 	 */
- 	status = hw->eeprom.ops.read(hw, 0, &checksum);
--
--	if (status != 0)
-+	if (status) {
- 		hw_dbg(hw, "EEPROM read failed\n");
-+		return status;
++	if (rval) {
++		e_dbg("NVM read error getting EEPROM version: %d\n", rval);
++		adapter->eeprom_vers = 0;
 +	}
  
--	if (hw->mac.ops.acquire_swfw_sync(hw, IXGBE_GSSR_EEP_SM) == 0) {
--		checksum = hw->eeprom.ops.calc_checksum(hw);
-+	if (hw->mac.ops.acquire_swfw_sync(hw, IXGBE_GSSR_EEP_SM))
-+		return  IXGBE_ERR_SWFW_SYNC;
+ 	/* reset the hardware with the new settings */
+ 	e1000e_reset(adapter);
+diff --git a/drivers/net/ethernet/intel/e1000e/nvm.c b/drivers/net/ethernet/intel/e1000e/nvm.c
+index b1f212b..fa6b103 100644
+--- a/drivers/net/ethernet/intel/e1000e/nvm.c
++++ b/drivers/net/ethernet/intel/e1000e/nvm.c
+@@ -327,8 +327,10 @@ s32 e1000e_read_nvm_eerd(struct e1000_hw *hw, u16 offset, u16 words, u16 *data)
  
--		/*
--		 * Do not use hw->eeprom.ops.write because we do not want to
--		 * take the synchronization semaphores twice here.
--		 */
--		status = ixgbe_write_eewr_generic(hw, IXGBE_EEPROM_CHECKSUM,
--						  checksum);
-+	checksum = hw->eeprom.ops.calc_checksum(hw);
+ 		ew32(EERD, eerd);
+ 		ret_val = e1000e_poll_eerd_eewr_done(hw, E1000_NVM_POLL_READ);
+-		if (ret_val)
++		if (ret_val) {
++			e_dbg("NVM read error: %d\n", ret_val);
+ 			break;
++		}
  
--	if (status == 0)
-+	/* Do not use hw->eeprom.ops.write because we do not want to
-+	 * take the synchronization semaphores twice here.
-+	 */
-+	status = ixgbe_write_eewr_generic(hw, IXGBE_EEPROM_CHECKSUM, checksum);
-+	if (!status)
- 		status = ixgbe_update_flash_X540(hw);
--	else
--		status = IXGBE_ERR_SWFW_SYNC;
--	}
- 
- 	hw->mac.ops.release_swfw_sync(hw, IXGBE_GSSR_EEP_SM);
--
- 	return status;
- }
- 
+ 		data[i] = (er32(EERD) >> E1000_NVM_RW_REG_DATA);
+ 	}
 -- 
 1.9.3
