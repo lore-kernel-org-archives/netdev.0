@@ -1,54 +1,41 @@
-From: Tilman Schmidt <tilman@imap.cc>
-Subject: Re: [PATCH] isdn/bas_gigaset: fix a leak on failure path in gigaset_probe()
-Date: Sat, 26 Jul 2014 12:23:06 +0200
-Message-ID: <53D3818A.1060401@imap.cc>
-References: <1406327671-28271-1-git-send-email-khoroshilov@ispras.ru>
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Subject: Re: [PATCH net-next 2/3] ethtool: add rx_copybreak support
+Date: Sat, 26 Jul 2014 16:19:16 +0530 (IST)
+Message-ID: <alpine.LNX.2.03.1407261603450.3407@ws.cisco>
+References: <1406050268-13329-1-git-send-email-_govind@gmx.com>   <1406050268-13329-3-git-send-email-_govind@gmx.com>  <1406051145.7427.2.camel@deadeye.wl.decadent.org.uk>  <alpine.LNX.2.03.1407230004150.15542@ws.cisco> <1406055025.7427.7.camel@deadeye.wl.decadent.org.uk>
+ <alpine.LNX.2.03.1407230039010.15542@ws.cisco>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Karsten Keil <isdn@linux-pingi.de>,
-	gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
-To: Alexey Khoroshilov <khoroshilov@ispras.ru>,
-	Hansjoerg Lipp <hjlipp@web.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1406327671-28271-1-git-send-email-khoroshilov@ispras.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Govindarajulu Varadarajan <_govind@gmx.com>,
+	netdev@vger.kernel.org, ssujith@cisco.com, benve@cisco.com
+To: Ben Hutchings <ben@decadent.org.uk>, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.gmx.com ([74.208.4.200]:51073 "EHLO mout.gmx.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750940AbaGZKto (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 26 Jul 2014 06:49:44 -0400
+In-Reply-To: <alpine.LNX.2.03.1407230039010.15542@ws.cisco>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am 26.07.2014 00:34, schrieb Alexey Khoroshilov:
-> There is a lack of usb_put_dev(udev) on failure path in gigaset_probe=
-().
+On Wed, 23 Jul 2014, Govindarajulu Varadarajan wrote:
 
-You're right. Good catch.
+> On Tue, 22 Jul 2014, Ben Hutchings wrote:
+>> No, you can't do that either.  Basically you can't change the size or
+>> layout of any of the ethtool structures.
+>
+> Ok. Can you suggest me how I should add rx_copybreak to ethtool?
+>
+> May be add another function, set/get_rxcopybreak(), to ethtool_ops?
+>
+> Thanks
+>
 
-> Found by Linux Driver Verification project (linuxtesting.org).
->=20
-> Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Should I drop the idea of ethtool and resubmit just the rx_copybreak changes?
+(use module parameter to change rx_copybreak value).
 
-Acked-by: Tilman Schmidt <tilman@imap.cc>
+Or should I try something like this
+3de0b592394d17b 'ethtool: Support for configurable RSS hash key', Create new
+ethtool cmd for changing driver rx_copybreak value.
 
-> ---
->  drivers/isdn/gigaset/bas-gigaset.c | 1 +
->  1 file changed, 1 insertion(+)
->=20
-> diff --git a/drivers/isdn/gigaset/bas-gigaset.c b/drivers/isdn/gigase=
-t/bas-gigaset.c
-> index c44950d3eb7b..b7ae0a0dd5b6 100644
-> --- a/drivers/isdn/gigaset/bas-gigaset.c
-> +++ b/drivers/isdn/gigaset/bas-gigaset.c
-> @@ -2400,6 +2400,7 @@ allocerr:
->  error:
->  	freeurbs(cs);
->  	usb_set_intfdata(interface, NULL);
-> +	usb_put_dev(udev);
->  	gigaset_freecs(cs);
->  	return rc;
->  }
->=20
-
---=20
-Tilman Schmidt                              E-Mail: tilman@imap.cc
-Bonn, Germany
-Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
-Unge=F6ffnet mindestens haltbar bis: (siehe R=FCckseite)
+Thanks
