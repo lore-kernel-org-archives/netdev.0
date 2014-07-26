@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 09/12] e1000e: Add code to check return values on NVM accesses
-Date: Fri, 25 Jul 2014 21:45:19 -0700
-Message-ID: <1406349922-9883-10-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 10/12] e1000e: Add support for EEE in Sx states
+Date: Fri, 25 Jul 2014 21:45:20 -0700
+Message-ID: <1406349922-9883-11-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1406349922-9883-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: David Ertman <david.m.ertman@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:13529 "EHLO mga01.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:28061 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751066AbaGZEpc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751073AbaGZEpc (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Sat, 26 Jul 2014 00:45:32 -0400
 In-Reply-To: <1406349922-9883-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,104 +18,82 @@ List-ID: <netdev.vger.kernel.org>
 
 From: David Ertman <david.m.ertman@intel.com>
 
-Adding code to check and respond to previously ignored return values
-from NVM access functions.
+On I217 and newer hardware, EEE is enabled in the PHY by the software
+when link is up and disabled by the hardware when link is lost.
 
-Issue discovered through static analysis.
+To enable EEE in Sx (When both ends of the link support, and are enabled
+for, EEE and 100Mbps), we need to disable LPLU and configure the PHY to
+automatically enable EEE when link is up, since there will be no software
+to complete the task.
+
+To configure this in the PHY, the Auto Enable LPI bit in the Low Power
+Idle GPIO Control register must be set.  For normal operation in S0, this
+bit must be cleared.
 
 Signed-off-by: Dave Ertman <david.m.ertman@intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/manage.c |  5 ++++-
- drivers/net/ethernet/intel/e1000e/netdev.c | 22 ++++++++++++++++------
- drivers/net/ethernet/intel/e1000e/nvm.c    |  4 +++-
- 3 files changed, 23 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/e1000e/ich8lan.c | 18 ++++++++++++++++--
+ drivers/net/ethernet/intel/e1000e/ich8lan.h |  4 ++++
+ 2 files changed, 20 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/manage.c b/drivers/net/ethernet/intel/e1000e/manage.c
-index cb37ff1..5885603 100644
---- a/drivers/net/ethernet/intel/e1000e/manage.c
-+++ b/drivers/net/ethernet/intel/e1000e/manage.c
-@@ -327,9 +327,12 @@ bool e1000e_enable_mng_pass_thru(struct e1000_hw *hw)
- 	} else if ((hw->mac.type == e1000_82574) ||
- 		   (hw->mac.type == e1000_82583)) {
- 		u16 data;
-+		s32 ret_val;
+diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.c b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+index 8dbcdc8..48b74a5 100644
+--- a/drivers/net/ethernet/intel/e1000e/ich8lan.c
++++ b/drivers/net/ethernet/intel/e1000e/ich8lan.c
+@@ -4605,14 +4605,23 @@ void e1000_suspend_workarounds_ich8lan(struct e1000_hw *hw)
  
- 		factps = er32(FACTPS);
--		e1000_read_nvm(hw, NVM_INIT_CONTROL2_REG, 1, &data);
-+		ret_val = e1000_read_nvm(hw, NVM_INIT_CONTROL2_REG, 1, &data);
-+		if (ret_val)
-+			return false;
- 
- 		if (!(factps & E1000_FACTPS_MNGCG) &&
- 		    ((data & E1000_NVM_INIT_CTRL2_MNGM) ==
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 201cc93..fe3e42a 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -6708,6 +6708,7 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	int bars, i, err, pci_using_dac;
- 	u16 eeprom_data = 0;
- 	u16 eeprom_apme_mask = E1000_EEPROM_APME;
-+	s32 rval = 0;
- 
- 	if (ei->flags2 & FLAG2_DISABLE_ASPM_L0S)
- 		aspm_disable_flag = PCIE_LINK_STATE_L0S;
-@@ -6940,15 +6941,19 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	} else if (adapter->flags & FLAG_APME_IN_CTRL3) {
- 		if (adapter->flags & FLAG_APME_CHECK_PORT_B &&
- 		    (adapter->hw.bus.func == 1))
--			e1000_read_nvm(&adapter->hw, NVM_INIT_CONTROL3_PORT_B,
--				       1, &eeprom_data);
-+			rval = e1000_read_nvm(&adapter->hw,
-+					      NVM_INIT_CONTROL3_PORT_B,
-+					      1, &eeprom_data);
- 		else
--			e1000_read_nvm(&adapter->hw, NVM_INIT_CONTROL3_PORT_A,
--				       1, &eeprom_data);
-+			rval = e1000_read_nvm(&adapter->hw,
-+					      NVM_INIT_CONTROL3_PORT_A,
-+					      1, &eeprom_data);
- 	}
- 
- 	/* fetch WoL from EEPROM */
--	if (eeprom_data & eeprom_apme_mask)
-+	if (rval)
-+		e_dbg("NVM read error getting WoL initial values: %d\n", rval);
-+	else if (eeprom_data & eeprom_apme_mask)
- 		adapter->eeprom_wol |= E1000_WUFC_MAG;
- 
- 	/* now that we have the eeprom settings, apply the special cases
-@@ -6967,7 +6972,12 @@ static int e1000_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		device_wakeup_enable(&pdev->dev);
- 
- 	/* save off EEPROM version number */
--	e1000_read_nvm(&adapter->hw, 5, 1, &adapter->eeprom_vers);
-+	rval = e1000_read_nvm(&adapter->hw, 5, 1, &adapter->eeprom_vers);
+ 			/* Disable LPLU if both link partners support 100BaseT
+ 			 * EEE and 100Full is advertised on both ends of the
+-			 * link.
++			 * link, and enable Auto Enable LPI since there will
++			 * be no driver to enable LPI while in Sx.
+ 			 */
+ 			if ((eee_advert & I82579_EEE_100_SUPPORTED) &&
+ 			    (dev_spec->eee_lp_ability &
+ 			     I82579_EEE_100_SUPPORTED) &&
+-			    (hw->phy.autoneg_advertised & ADVERTISE_100_FULL))
++			    (hw->phy.autoneg_advertised & ADVERTISE_100_FULL)) {
+ 				phy_ctrl &= ~(E1000_PHY_CTRL_D0A_LPLU |
+ 					      E1000_PHY_CTRL_NOND0A_LPLU);
 +
-+	if (rval) {
-+		e_dbg("NVM read error getting EEPROM version: %d\n", rval);
-+		adapter->eeprom_vers = 0;
-+	}
++				/* Set Auto Enable LPI after link up */
++				e1e_rphy_locked(hw,
++						I217_LPI_GPIO_CTRL, &phy_reg);
++				phy_reg |= I217_LPI_GPIO_CTRL_AUTO_EN_LPI;
++				e1e_wphy_locked(hw,
++						I217_LPI_GPIO_CTRL, phy_reg);
++			}
+ 		}
  
- 	/* reset the hardware with the new settings */
- 	e1000e_reset(adapter);
-diff --git a/drivers/net/ethernet/intel/e1000e/nvm.c b/drivers/net/ethernet/intel/e1000e/nvm.c
-index b1f212b..fa6b103 100644
---- a/drivers/net/ethernet/intel/e1000e/nvm.c
-+++ b/drivers/net/ethernet/intel/e1000e/nvm.c
-@@ -327,8 +327,10 @@ s32 e1000e_read_nvm_eerd(struct e1000_hw *hw, u16 offset, u16 words, u16 *data)
+ 		/* For i217 Intel Rapid Start Technology support,
+@@ -4709,6 +4718,11 @@ void e1000_resume_workarounds_pchlan(struct e1000_hw *hw)
+ 			return;
+ 		}
  
- 		ew32(EERD, eerd);
- 		ret_val = e1000e_poll_eerd_eewr_done(hw, E1000_NVM_POLL_READ);
--		if (ret_val)
-+		if (ret_val) {
-+			e_dbg("NVM read error: %d\n", ret_val);
- 			break;
-+		}
++		/* Clear Auto Enable LPI after link up */
++		e1e_rphy_locked(hw, I217_LPI_GPIO_CTRL, &phy_reg);
++		phy_reg &= ~I217_LPI_GPIO_CTRL_AUTO_EN_LPI;
++		e1e_wphy_locked(hw, I217_LPI_GPIO_CTRL, phy_reg);
++
+ 		if (!(er32(FWSM) & E1000_ICH_FWSM_FW_VALID)) {
+ 			/* Restore clear on SMB if no manageability engine
+ 			 * is present
+diff --git a/drivers/net/ethernet/intel/e1000e/ich8lan.h b/drivers/net/ethernet/intel/e1000e/ich8lan.h
+index 5515126..8066a49 100644
+--- a/drivers/net/ethernet/intel/e1000e/ich8lan.h
++++ b/drivers/net/ethernet/intel/e1000e/ich8lan.h
+@@ -217,6 +217,10 @@
+ #define I217_INBAND_CTRL_LINK_STAT_TX_TIMEOUT_MASK	0x3F00
+ #define I217_INBAND_CTRL_LINK_STAT_TX_TIMEOUT_SHIFT	8
  
- 		data[i] = (er32(EERD) >> E1000_NVM_RW_REG_DATA);
- 	}
++/* Low Power Idle GPIO Control */
++#define I217_LPI_GPIO_CTRL			PHY_REG(772, 18)
++#define I217_LPI_GPIO_CTRL_AUTO_EN_LPI		0x0800
++
+ /* PHY Low Power Idle Control */
+ #define I82579_LPI_CTRL				PHY_REG(772, 20)
+ #define I82579_LPI_CTRL_100_ENABLE		0x2000
 -- 
 1.9.3
