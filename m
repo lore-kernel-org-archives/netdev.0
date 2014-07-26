@@ -1,141 +1,138 @@
-From: Andrey Ryabinin <ryabinin.a.a@gmail.com>
-Subject: [PATCH] net: sendmsg: fix NULL pointer dereference
-Date: Sat, 26 Jul 2014 21:26:58 +0400
-Message-ID: <1406395618-4697-1-git-send-email-a.ryabinin@samsung.com>
-References: <1406390080.22881.75.camel@localhost>
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Sasha Levin <sasha.levin@oracle.com>,
-	Andrey Ryabinin <a.ryabinin@samsung.com>,
-	<stable@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: [PATCH 3.15 077/109] xen-netback: Fix releasing header slot on error path
+Date: Sat, 26 Jul 2014 12:02:39 -0700
+Message-ID: <20140726190226.189158182@linuxfoundation.org>
+References: <20140726190223.834037485@linuxfoundation.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	stable@vger.kernel.org, Zoltan Kiss <zoltan.kiss@citrix.com>,
+	Armin Zentai <armin.zentai@ezit.hu>, netdev@vger.kernel.org,
+	xen-devel@lists.xenproject.org,
+	"David S. Miller" <davem@davemloft.net>
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f170.google.com ([209.85.217.170]:48642 "EHLO
-	mail-lb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751820AbaGZRY6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Jul 2014 13:24:58 -0400
-In-Reply-To: <1406390080.22881.75.camel@localhost>
+Received: from mail.linuxfoundation.org ([140.211.169.12]:34558 "EHLO
+	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754401AbaGZTVE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Jul 2014 15:21:04 -0400
+In-Reply-To: <20140726190223.834037485@linuxfoundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sasha's report:
-	> While fuzzing with trinity inside a KVM tools guest running the latest -next
-	> kernel with the KASAN patchset, I've stumbled on the following spew:
-	>
-	> [ 4448.949424] ==================================================================
-	> [ 4448.951737] AddressSanitizer: user-memory-access on address 0
-	> [ 4448.952988] Read of size 2 by thread T19638:
-	> [ 4448.954510] CPU: 28 PID: 19638 Comm: trinity-c76 Not tainted 3.16.0-rc4-next-20140711-sasha-00046-g07d3099-dirty #813
-	> [ 4448.956823]  ffff88046d86ca40 0000000000000000 ffff880082f37e78 ffff880082f37a40
-	> [ 4448.958233]  ffffffffb6e47068 ffff880082f37a68 ffff880082f37a58 ffffffffb242708d
-	> [ 4448.959552]  0000000000000000 ffff880082f37a88 ffffffffb24255b1 0000000000000000
-	> [ 4448.961266] Call Trace:
-	> [ 4448.963158] dump_stack (lib/dump_stack.c:52)
-	> [ 4448.964244] kasan_report_user_access (mm/kasan/report.c:184)
-	> [ 4448.965507] __asan_load2 (mm/kasan/kasan.c:352)
-	> [ 4448.966482] ? netlink_sendmsg (net/netlink/af_netlink.c:2339)
-	> [ 4448.967541] netlink_sendmsg (net/netlink/af_netlink.c:2339)
-	> [ 4448.968537] ? get_parent_ip (kernel/sched/core.c:2555)
-	> [ 4448.970103] sock_sendmsg (net/socket.c:654)
-	> [ 4448.971584] ? might_fault (mm/memory.c:3741)
-	> [ 4448.972526] ? might_fault (./arch/x86/include/asm/current.h:14 mm/memory.c:3740)
-	> [ 4448.973596] ? verify_iovec (net/core/iovec.c:64)
-	> [ 4448.974522] ___sys_sendmsg (net/socket.c:2096)
-	> [ 4448.975797] ? put_lock_stats.isra.13 (./arch/x86/include/asm/preempt.h:98 kernel/locking/lockdep.c:254)
-	> [ 4448.977030] ? lock_release_holdtime (kernel/locking/lockdep.c:273)
-	> [ 4448.978197] ? lock_release_non_nested (kernel/locking/lockdep.c:3434 (discriminator 1))
-	> [ 4448.979346] ? check_chain_key (kernel/locking/lockdep.c:2188)
-	> [ 4448.980535] __sys_sendmmsg (net/socket.c:2181)
-	> [ 4448.981592] ? trace_hardirqs_on_caller (kernel/locking/lockdep.c:2600)
-	> [ 4448.982773] ? trace_hardirqs_on (kernel/locking/lockdep.c:2607)
-	> [ 4448.984458] ? syscall_trace_enter (arch/x86/kernel/ptrace.c:1500 (discriminator 2))
-	> [ 4448.985621] ? trace_hardirqs_on_caller (kernel/locking/lockdep.c:2600)
-	> [ 4448.986754] SyS_sendmmsg (net/socket.c:2201)
-	> [ 4448.987708] tracesys (arch/x86/kernel/entry_64.S:542)
-	> [ 4448.988929] ==================================================================
+3.15-stable review patch.  If anyone has any objections, please let me know.
 
-This reports means that we've come to netlink_sendmsg() with msg->msg_name == NULL and msg->msg_namelen > 0.
+------------------
 
-After this report there was no usual "Unable to handle kernel NULL pointer dereference"
-and this gave me a clue that address 0 is mapped and contains valid socket address structure in it.
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
 
-This bug was introduced in f3d3342602f8bcbf37d7c46641cb9bca7618eb1c
-(net: rework recvmsg handler msg_name and msg_namelen logic).
-Commit message states that:
-	"Set msg->msg_name = NULL if user specified a NULL in msg_name but had a
-	 non-null msg_namelen in verify_iovec/verify_compat_iovec. This doesn't
-	 affect sendto as it would bail out earlier while trying to copy-in the
-	 address."
-But in fact this affects sendto when address 0 is mapped and contains
-socket address structure in it. In such case copy-in address will succeed,
-verify_iovec() function will successfully exit with msg->msg_namelen > 0
-and msg->msg_name == NULL.
+[ Upstream commit 1b860da0404a76af8533099ffe0a965490939369 ]
 
-This patch fixes it by setting msg_namelen to 0 if msg_name == NULL.
+This patch makes this function aware that the first frag and the header might
+share the same ring slot. That could happen if the first slot is bigger than
+PKT_PROT_LEN. Due to this the error path might release that slot twice or never,
+depending on the error scenario.
+xenvif_idx_release is also removed from xenvif_idx_unmap, and called separately.
 
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: <stable@vger.kernel.org>
-Reported-by: Sasha Levin <sasha.levin@oracle.com>
-Signed-off-by: Andrey Ryabinin <a.ryabinin@samsung.com>
+Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+Reported-by: Armin Zentai <armin.zentai@ezit.hu>
+Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Cc: xen-devel@lists.xenproject.org
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 ---
- net/compat.c     | 9 +++++----
- net/core/iovec.c | 6 +++---
- 2 files changed, 8 insertions(+), 7 deletions(-)
+ drivers/net/xen-netback/netback.c |   38 +++++++++++++++++++++++++++++++++-----
+ 1 file changed, 33 insertions(+), 5 deletions(-)
 
-diff --git a/net/compat.c b/net/compat.c
-index 9a76eaf..bc8aeef 100644
---- a/net/compat.c
-+++ b/net/compat.c
-@@ -85,7 +85,7 @@ int verify_compat_iovec(struct msghdr *kern_msg, struct iovec *kern_iov,
- {
- 	int tot_len;
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -1016,6 +1016,8 @@ static int xenvif_tx_check_gop(struct xe
+ 	 */
+ 	struct skb_shared_info *first_shinfo = NULL;
+ 	int nr_frags = shinfo->nr_frags;
++	const bool sharedslot = nr_frags &&
++				frag_get_pending_idx(&shinfo->frags[0]) == pending_idx;
+ 	int i, err;
  
--	if (kern_msg->msg_namelen) {
-+	if (kern_msg->msg_name && kern_msg->msg_namelen) {
- 		if (mode == VERIFY_READ) {
- 			int err = move_addr_to_kernel(kern_msg->msg_name,
- 						      kern_msg->msg_namelen,
-@@ -93,10 +93,11 @@ int verify_compat_iovec(struct msghdr *kern_msg, struct iovec *kern_iov,
- 			if (err < 0)
- 				return err;
- 		}
--		if (kern_msg->msg_name)
--			kern_msg->msg_name = kern_address;
--	} else
-+		kern_msg->msg_name = kern_address;
-+	} else {
- 		kern_msg->msg_name = NULL;
-+		kern_msg->msg_namelen = 0;
-+	}
- 
- 	tot_len = iov_from_user_compat_to_kern(kern_iov,
- 					  (struct compat_iovec __user *)kern_msg->msg_iov,
-diff --git a/net/core/iovec.c b/net/core/iovec.c
-index 827dd6b..e1ec45a 100644
---- a/net/core/iovec.c
-+++ b/net/core/iovec.c
-@@ -39,7 +39,7 @@ int verify_iovec(struct msghdr *m, struct iovec *iov, struct sockaddr_storage *a
- {
- 	int size, ct, err;
- 
--	if (m->msg_namelen) {
-+	if (m->msg_name && m->msg_namelen) {
- 		if (mode == VERIFY_READ) {
- 			void __user *namep;
- 			namep = (void __user __force *) m->msg_name;
-@@ -48,10 +48,10 @@ int verify_iovec(struct msghdr *m, struct iovec *iov, struct sockaddr_storage *a
- 			if (err < 0)
- 				return err;
- 		}
--		if (m->msg_name)
--			m->msg_name = address;
-+		m->msg_name = address;
- 	} else {
- 		m->msg_name = NULL;
-+		m->msg_namelen = 0;
+ 	/* Check status of header. */
+@@ -1028,7 +1030,10 @@ static int xenvif_tx_check_gop(struct xe
+ 				   (*gopp_copy)->status,
+ 				   pending_idx,
+ 				   (*gopp_copy)->source.u.ref);
+-		xenvif_idx_release(vif, pending_idx, XEN_NETIF_RSP_ERROR);
++		/* The first frag might still have this slot mapped */
++		if (!sharedslot)
++			xenvif_idx_release(vif, pending_idx,
++					   XEN_NETIF_RSP_ERROR);
  	}
  
- 	size = m->msg_iovlen * sizeof(struct iovec);
--- 
-1.8.5.5
+ check_frags:
+@@ -1045,8 +1050,19 @@ check_frags:
+ 						pending_idx,
+ 						gop_map->handle);
+ 			/* Had a previous error? Invalidate this fragment. */
+-			if (unlikely(err))
++			if (unlikely(err)) {
+ 				xenvif_idx_unmap(vif, pending_idx);
++				/* If the mapping of the first frag was OK, but
++				 * the header's copy failed, and they are
++				 * sharing a slot, send an error
++				 */
++				if (i == 0 && sharedslot)
++					xenvif_idx_release(vif, pending_idx,
++							   XEN_NETIF_RSP_ERROR);
++				else
++					xenvif_idx_release(vif, pending_idx,
++							   XEN_NETIF_RSP_OKAY);
++			}
+ 			continue;
+ 		}
+ 
+@@ -1058,15 +1074,27 @@ check_frags:
+ 				   gop_map->status,
+ 				   pending_idx,
+ 				   gop_map->ref);
++
+ 		xenvif_idx_release(vif, pending_idx, XEN_NETIF_RSP_ERROR);
+ 
+ 		/* Not the first error? Preceding frags already invalidated. */
+ 		if (err)
+ 			continue;
+-		/* First error: invalidate preceding fragments. */
++
++		/* First error: if the header haven't shared a slot with the
++		 * first frag, release it as well.
++		 */
++		if (!sharedslot)
++			xenvif_idx_release(vif,
++					   XENVIF_TX_CB(skb)->pending_idx,
++					   XEN_NETIF_RSP_OKAY);
++
++		/* Invalidate preceding fragments of this skb. */
+ 		for (j = 0; j < i; j++) {
+ 			pending_idx = frag_get_pending_idx(&shinfo->frags[j]);
+ 			xenvif_idx_unmap(vif, pending_idx);
++			xenvif_idx_release(vif, pending_idx,
++					   XEN_NETIF_RSP_OKAY);
+ 		}
+ 
+ 		/* And if we found the error while checking the frag_list, unmap
+@@ -1076,6 +1104,8 @@ check_frags:
+ 			for (j = 0; j < first_shinfo->nr_frags; j++) {
+ 				pending_idx = frag_get_pending_idx(&first_shinfo->frags[j]);
+ 				xenvif_idx_unmap(vif, pending_idx);
++				xenvif_idx_release(vif, pending_idx,
++						   XEN_NETIF_RSP_OKAY);
+ 			}
+ 		}
+ 
+@@ -1811,8 +1841,6 @@ void xenvif_idx_unmap(struct xenvif *vif
+ 			   tx_unmap_op.status);
+ 		BUG();
+ 	}
+-
+-	xenvif_idx_release(vif, pending_idx, XEN_NETIF_RSP_OKAY);
+ }
+ 
+ static inline int rx_work_todo(struct xenvif *vif)
