@@ -1,71 +1,81 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH 1/1] neighbour : fix ndm_type type error issue
-Date: Sat, 26 Jul 2014 15:42:46 +0200
-Message-ID: <1406382166.19420.145911853.784D75D0@webmail.messagingengine.com>
-References: <1406306339-16151-1-git-send-email-mypopydev@gmail.com>
- <1406330697.989.145785925.1CA960AF@webmail.messagingengine.com>
- <1406334557.5276.13.camel@popy-debian>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Cong Wang <cwang@twopensource.com>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	stephen hemminger <stephen@networkplumber.org>,
-	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org,
-	Francesco Fusco <ffusco@redhat.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Duan Jiong <duanj.fnst@cn.fujitsu.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	David Stevens <dlstevens@us.ibm.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
+From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+Subject: [PATCH] net: ethernet: intel: i40e: i40e_main.c:  Cleaning up missing null-terminate in conjunction with strncpy
+Date: Sat, 26 Jul 2014 16:23:04 +0200
+Message-ID: <1406384584-2524-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+Cc: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	Alex Duyck <alexander.h.duyck@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	Linux NICS <linux.nics@intel.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Jun Zhao <mypopydev@gmail.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1406334557.5276.13.camel@popy-debian>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Replacing strncpy with strlcpy to avoid strings that lacks null terminate.
 
-On Sat, Jul 26, 2014, at 02:29, Jun Zhao wrote:
-> On Sat, 2014-07-26 at 01:24 +0200, Hannes Frederic Sowa wrote:
-> > On Fri, Jul 25, 2014, at 18:38, Jun Zhao wrote:
-> > > ndm_type means L3 address type, in neighbour proxy and vxlan, it's
-> > > RTN_UNICAST.
-> > > NDA_DST is for netlink TLV type, hence it's not right value in this
-> > > context.
-> > 
-> > The value of NDA_DST == RTN_UNICAST, otherwise we couldn't do this
-> > change as it would alter e.g. arpd behavior.
-> > 
-> > Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> > 
-> > Thanks,
-> > Hannes
-> 
-> But I think NDA_DST/RTN_UNICAST have different means in this context, 
-> even though the value of NDA_DST == RTN_UNICAST.
-> 
-> For arp proxy/NDP proxy context, ndm_type means the peer L3 address,
-> so RTN_UNICAST is the right value. For vxlan have similar semantic for
-> remote ip.
-> 
-> BTW: In the source code, implicit think NDA_DST == RTN_UNICAST maybe
-> not a good idea when we don't have a comment or the other explain.
+Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+---
+ drivers/net/ethernet/intel/i40e/i40e_main.c |   16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
 
-I am totally with you and think your change is good, that's why I also
-gave my ack to your patch.
-
-My comment above was about my concerns regarding making a user space
-visible change, which in the end could alter the behavior of already
-existing software.
-
-Developers maybe have debugged code and seen some different value being
-propagated from the kernel and this software could now break if we would
-change the value after all those years.
-
-Bye,
-Hannes
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 275ca9a..64668ac 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -4193,13 +4193,13 @@ static void i40e_print_link_message(struct i40e_vsi *vsi, bool isup)
+ 
+ 	switch (vsi->back->hw.phy.link_info.link_speed) {
+ 	case I40E_LINK_SPEED_40GB:
+-		strncpy(speed, "40 Gbps", SPEED_SIZE);
++		strlcpy(speed, "40 Gbps", SPEED_SIZE);
+ 		break;
+ 	case I40E_LINK_SPEED_10GB:
+-		strncpy(speed, "10 Gbps", SPEED_SIZE);
++		strlcpy(speed, "10 Gbps", SPEED_SIZE);
+ 		break;
+ 	case I40E_LINK_SPEED_1GB:
+-		strncpy(speed, "1000 Mbps", SPEED_SIZE);
++		strlcpy(speed, "1000 Mbps", SPEED_SIZE);
+ 		break;
+ 	default:
+ 		break;
+@@ -4207,16 +4207,16 @@ static void i40e_print_link_message(struct i40e_vsi *vsi, bool isup)
+ 
+ 	switch (vsi->back->hw.fc.current_mode) {
+ 	case I40E_FC_FULL:
+-		strncpy(fc, "RX/TX", FC_SIZE);
++		strlcpy(fc, "RX/TX", FC_SIZE);
+ 		break;
+ 	case I40E_FC_TX_PAUSE:
+-		strncpy(fc, "TX", FC_SIZE);
++		strlcpy(fc, "TX", FC_SIZE);
+ 		break;
+ 	case I40E_FC_RX_PAUSE:
+-		strncpy(fc, "RX", FC_SIZE);
++		strlcpy(fc, "RX", FC_SIZE);
+ 		break;
+ 	default:
+-		strncpy(fc, "None", FC_SIZE);
++		strlcpy(fc, "None", FC_SIZE);
+ 		break;
+ 	}
+ 
+@@ -5558,7 +5558,7 @@ static void i40e_send_version(struct i40e_pf *pf)
+ 	dv.minor_version = DRV_VERSION_MINOR;
+ 	dv.build_version = DRV_VERSION_BUILD;
+ 	dv.subbuild_version = 0;
+-	strncpy(dv.driver_string, DRV_VERSION, sizeof(dv.driver_string));
++	strlcpy(dv.driver_string, DRV_VERSION, sizeof(dv.driver_string));
+ 	i40e_aq_send_driver_version(&pf->hw, &dv, NULL);
+ }
+ 
+-- 
+1.7.10.4
