@@ -1,102 +1,88 @@
-From: Jun Zhao <mypopydev@gmail.com>
-Subject: Re: [PATCH 1/1] neighbour : fix ndm_type type error issue
-Date: Sat, 26 Jul 2014 23:05:14 +0800
-Message-ID: <1406387114.4985.6.camel@popy-debian>
-References: <1406306339-16151-1-git-send-email-mypopydev@gmail.com>
-	 <1406330697.989.145785925.1CA960AF@webmail.messagingengine.com>
-	 <1406334557.5276.13.camel@popy-debian>
-	 <1406382166.19420.145911853.784D75D0@webmail.messagingengine.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [net-next 11/12] e1000e: Fix EEE in S5 w/ Runtime PM enabled
+Date: Sat, 26 Jul 2014 17:10:05 +0200
+Message-ID: <20140726151005.GA20445@electric-eye.fr.zoreil.com>
+References: <1406349922-9883-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1406349922-9883-12-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Cong Wang <cwang@twopensource.com>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	stephen hemminger <stephen@networkplumber.org>,
-	Tom Herbert <therbert@google.com>, netdev@vger.kernel.org,
-	Francesco Fusco <ffusco@redhat.com>,
-	Veaceslav Falico <vfalico@redhat.com>,
-	Duan Jiong <duanj.fnst@cn.fujitsu.com>,
-	Jiri Pirko <jiri@resnulli.us>,
-	David Stevens <dlstevens@us.ibm.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	linux-kernel@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1406382166.19420.145911853.784D75D0@webmail.messagingengine.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, David Ertman <david.m.ertman@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	"Rafael J. Wysocki" <rafael.j.wysocki@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:43631 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751325AbaGZPKU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Jul 2014 11:10:20 -0400
+Content-Disposition: inline
+In-Reply-To: <1406349922-9883-12-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi, Hannes
+(Rafael Cced:)
 
-On Sat, 2014-07-26 at 15:42 +0200, Hannes Frederic Sowa wrote:
-> Hi,
->=20
-> On Sat, Jul 26, 2014, at 02:29, Jun Zhao wrote:
-> > On Sat, 2014-07-26 at 01:24 +0200, Hannes Frederic Sowa wrote:
-> > > On Fri, Jul 25, 2014, at 18:38, Jun Zhao wrote:
-> > > > ndm_type means L3 address type, in neighbour proxy and vxlan, i=
-t's
-> > > > RTN_UNICAST.
-> > > > NDA_DST is for netlink TLV type, hence it's not right value in =
-this
-> > > > context.
-> > >=20
-> > > The value of NDA_DST =3D=3D RTN_UNICAST, otherwise we couldn't do=
- this
-> > > change as it would alter e.g. arpd behavior.
-> > >=20
-> > > Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> > >=20
-> > > Thanks,
-> > > Hannes
-> >=20
-> > But I think NDA_DST/RTN_UNICAST have different means in this contex=
-t,=20
-> > even though the value of NDA_DST =3D=3D RTN_UNICAST.
-> >=20
-> > For arp proxy/NDP proxy context, ndm_type means the peer L3 address=
-,
-> > so RTN_UNICAST is the right value. For vxlan have similar semantic =
-for
-> > remote ip.
-> >=20
-> > BTW: In the source code, implicit think NDA_DST =3D=3D RTN_UNICAST =
-maybe
-> > not a good idea when we don't have a comment or the other explain.
->=20
-> I am totally with you and think your change is good, that's why I als=
-o
-> gave my ack to your patch.
->=20
-> My comment above was about my concerns regarding making a user space
-> visible change, which in the end could alter the behavior of already
-> existing software.
->=20
-> Developers maybe have debugged code and seen some different value bei=
-ng
-> propagated from the kernel and this software could now break if we wo=
-uld
-> change the value after all those years.
->=20
-> Bye,
-> Hannes
+Jeff Kirsher <jeffrey.t.kirsher@intel.com> :
+> From: David Ertman <david.m.ertman@intel.com>
+> 
+> The process of shutting down the system causes a call to the close PM
+> callback.  The reset in close causes a loss of link, and the resultant
+> LSC interrupt causes the Runtime PM idle callback to be called.  The
+> check for link (while link is down) in the idle callback is wiping the
+> information about the EEE ability of the link partner. The information
+> is still gone when the PHY is powered back up in the shutdown flow. This
+> causes EEE in S5 to fail when Runtime PM is active.
+> 
+> Save the link partner's EEE ability in the idle callback so that a Runtime
+> PM event will not cause a loss of this information.
 
-Lucky=EF=BC=8C NDA_DST =3D=3D RTN_UNICAST is true really in source code=
- =EF=BC=9A=EF=BC=89
+Why does e1000_check_for_copper_link_ich8lan unconditionally wipe the
+information about the EEE ability of the link partner instead of performing
+something similar to the eee_lp_ability detection part e1000_set_eee_pchlan ?
 
-/* rtm_type */
+[...]
+> diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+> index fe3e42a..1ce0d74 100644
+> --- a/drivers/net/ethernet/intel/e1000e/netdev.c
+> +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+> @@ -6357,9 +6357,14 @@ static int e1000e_pm_runtime_idle(struct device *dev)
+>  	struct pci_dev *pdev = to_pci_dev(dev);
+>  	struct net_device *netdev = pci_get_drvdata(pdev);
+>  	struct e1000_adapter *adapter = netdev_priv(netdev);
+> +	u16 eee_lp;
+>  
+> -	if (!e1000e_has_link(adapter))
+> +	eee_lp = adapter->hw.dev_spec.ich8lan.eee_lp_ability;
+> +
+> +	if (!e1000e_has_link(adapter)) {
+> +		adapter->hw.dev_spec.ich8lan.eee_lp_ability = eee_lp;
+>  		pm_schedule_suspend(dev, 5 * MSEC_PER_SEC);
+> +	}
+>  
+>  	return -EBUSY;
 
-enum {
-	RTN_UNSPEC,
-	RTN_UNICAST,	=09
-=2E..
-}
+/me wonders...
 
-enum {
-	NDA_UNSPEC,
-	NDA_DST,
-=2E..
-}
+commit 63eb48f151b5f1d8dba35d6176d0d7c9643b33af
+Author: David Ertman <davidx.m.ertman@intel.com>
+Date:   Fri Feb 14 07:16:46 2014 +0000
+
+    e1000e Refactor of Runtime Power Management
+    
+    Fix issues with:
+    RuntimePM causing the device to repeatedly flip between suspend and resume
+    with the interface administratively downed.
+    Having RuntimePM enabled interfering with the functionality of Energy
+    Efficient Ethernet.
+    
+    Added checks to disallow functions that should not be executed if the
+    device is currently runtime suspended
+    
+    Make runtime_idle callback to use same deterministic behavior as the igb
+    driver.
+
+pm_schedule_suspend is already called from the link change thread
+e1000_watchdog_task. You may consider removing everything from runtime_idle.
+
+-- 
+Ueimor
