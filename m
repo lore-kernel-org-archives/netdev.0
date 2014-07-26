@@ -1,43 +1,54 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH v2 net-next] net: filter: rename 'struct sk_filter' to
- 'struct bpf_prog'
-Date: Sat, 26 Jul 2014 12:18:47 +0200
-Message-ID: <20140726101847.GA3703@salvia>
-References: <1406315469-20010-1-git-send-email-ast@plumgrid.com>
+From: Tilman Schmidt <tilman@imap.cc>
+Subject: Re: [PATCH] isdn/bas_gigaset: fix a leak on failure path in gigaset_probe()
+Date: Sat, 26 Jul 2014 12:23:06 +0200
+Message-ID: <53D3818A.1060401@imap.cc>
+References: <1406327671-28271-1-git-send-email-khoroshilov@ispras.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Willem de Bruijn <willemb@google.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Karsten Keil <isdn@linux-pingi.de>,
+	gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
+To: Alexey Khoroshilov <khoroshilov@ispras.ru>,
+	Hansjoerg Lipp <hjlipp@web.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1406315469-20010-1-git-send-email-ast@plumgrid.com>
+In-Reply-To: <1406327671-28271-1-git-send-email-khoroshilov@ispras.ru>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 25, 2014 at 12:11:09PM -0700, Alexei Starovoitov wrote:
-> 'sk_filter' name is used as 'struct sk_filter', function sk_filter() and
-> as variable 'sk_filter', which makes code hard to read.
-> Also it's easily confused with 'struct sock_filter'
-> Rename 'struct sk_filter' to 'struct bpf_prog' to clarify semantics and
-> align the name with generic BPF use model.
-> 
-> The only ugly place is uapi/linux/netfilter/xt_bpf.h which
-> managed to expose kernel internal structure into uapi header.
-> So replace 'struct sk_filter *' there with 'void *' and type cast it
-> to 'struct bpf_prog *' inside kernel in net/netfilter/xt_bpf.c
-> 
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+Am 26.07.2014 00:34, schrieb Alexey Khoroshilov:
+> There is a lack of usb_put_dev(udev) on failure path in gigaset_probe=
+().
+
+You're right. Good catch.
+
+> Found by Linux Driver Verification project (linuxtesting.org).
+>=20
+> Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
+
+Acked-by: Tilman Schmidt <tilman@imap.cc>
+
 > ---
-> v1->v2:
-> replace 'struct sk_filter *' with 'void *' in uapi/../xt_bpf.h
-> (seems Daniel and Willem prefere this option)
+>  drivers/isdn/gigaset/bas-gigaset.c | 1 +
+>  1 file changed, 1 insertion(+)
+>=20
+> diff --git a/drivers/isdn/gigaset/bas-gigaset.c b/drivers/isdn/gigase=
+t/bas-gigaset.c
+> index c44950d3eb7b..b7ae0a0dd5b6 100644
+> --- a/drivers/isdn/gigaset/bas-gigaset.c
+> +++ b/drivers/isdn/gigaset/bas-gigaset.c
+> @@ -2400,6 +2400,7 @@ allocerr:
+>  error:
+>  	freeurbs(cs);
+>  	usb_set_intfdata(interface, NULL);
+> +	usb_put_dev(udev);
+>  	gigaset_freecs(cs);
+>  	return rc;
+>  }
+>=20
 
-Please, we're still discussing this in the original thread:
-
-http://marc.info/?l=netfilter-devel&m=140632686726741&w=2
-http://marc.info/?l=netfilter-devel&m=140632663526671&w=2
-
-And don't trim me off from the CC. Thanks.
+--=20
+Tilman Schmidt                              E-Mail: tilman@imap.cc
+Bonn, Germany
+Diese Nachricht besteht zu 100% aus wiederverwerteten Bits.
+Unge=F6ffnet mindestens haltbar bis: (siehe R=FCckseite)
