@@ -1,69 +1,60 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/12] ixgbe: Fix ixgbe_write_mbx error result
-Date: Fri, 25 Jul 2014 21:45:14 -0700
-Message-ID: <1406349922-9883-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 11/12] e1000e: Fix EEE in S5 w/ Runtime PM enabled
+Date: Fri, 25 Jul 2014 21:45:21 -0700
+Message-ID: <1406349922-9883-12-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1406349922-9883-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mark Rustad <mark.d.rustad@intel.com>, netdev@vger.kernel.org,
+Cc: David Ertman <david.m.ertman@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:5410 "EHLO mga11.intel.com"
+Received: from mga01.intel.com ([192.55.52.88]:13529 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750992AbaGZEp0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 26 Jul 2014 00:45:26 -0400
+	id S1751074AbaGZEpc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 26 Jul 2014 00:45:32 -0400
 In-Reply-To: <1406349922-9883-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mark Rustad <mark.d.rustad@intel.com>
+From: David Ertman <david.m.ertman@intel.com>
 
-If ixgbe_write_mbx is called and no mbx->ops.write method
-exists, no error code is returned. The corresponding read
-function explicitly returns an error in such a case as do
-other functions, so this appears to be a minor bug. Fix
-it for consistency, and generate return values directly
-to make things clearer.
+The process of shutting down the system causes a call to the close PM
+callback.  The reset in close causes a loss of link, and the resultant
+LSC interrupt causes the Runtime PM idle callback to be called.  The
+check for link (while link is down) in the idle callback is wiping the
+information about the EEE ability of the link partner.  The information is
+still gone when the PHY is powered back up in the shutdown flow.  This
+causes EEE in S5 to fail when Runtime PM is active.
 
-Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
-Tested-by: Phil Schmitt <phillip.j.schmitt@intel.com>
+Save the link partner's EEE ability in the idle callback so that a Runtime
+PM event will not cause a loss of this information.
+
+Signed-off-by: Dave Ertman <david.m.ertman@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c | 11 +++++------
- 1 file changed, 5 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/e1000e/netdev.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c
-index 1918e0a..5047957 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_mbx.c
-@@ -1,7 +1,7 @@
- /*******************************************************************************
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index fe3e42a..1ce0d74 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -6357,9 +6357,14 @@ static int e1000e_pm_runtime_idle(struct device *dev)
+ 	struct pci_dev *pdev = to_pci_dev(dev);
+ 	struct net_device *netdev = pci_get_drvdata(pdev);
+ 	struct e1000_adapter *adapter = netdev_priv(netdev);
++	u16 eee_lp;
  
-   Intel 10 Gigabit PCI Express Linux driver
--  Copyright(c) 1999 - 2013 Intel Corporation.
-+  Copyright(c) 1999 - 2014 Intel Corporation.
+-	if (!e1000e_has_link(adapter))
++	eee_lp = adapter->hw.dev_spec.ich8lan.eee_lp_ability;
++
++	if (!e1000e_has_link(adapter)) {
++		adapter->hw.dev_spec.ich8lan.eee_lp_ability = eee_lp;
+ 		pm_schedule_suspend(dev, 5 * MSEC_PER_SEC);
++	}
  
-   This program is free software; you can redistribute it and/or modify it
-   under the terms and conditions of the GNU General Public License,
-@@ -67,15 +67,14 @@ s32 ixgbe_read_mbx(struct ixgbe_hw *hw, u32 *msg, u16 size, u16 mbx_id)
- s32 ixgbe_write_mbx(struct ixgbe_hw *hw, u32 *msg, u16 size, u16 mbx_id)
- {
- 	struct ixgbe_mbx_info *mbx = &hw->mbx;
--	s32 ret_val = 0;
- 
- 	if (size > mbx->size)
--		ret_val = IXGBE_ERR_MBX;
-+		return IXGBE_ERR_MBX;
- 
--	else if (mbx->ops.write)
--		ret_val = mbx->ops.write(hw, msg, size, mbx_id);
-+	if (!mbx->ops.write)
-+		return IXGBE_ERR_MBX;
- 
--	return ret_val;
-+	return mbx->ops.write(hw, msg, size, mbx_id);
+ 	return -EBUSY;
  }
- 
- /**
 -- 
 1.9.3
