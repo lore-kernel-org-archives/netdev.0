@@ -1,52 +1,41 @@
-From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-Subject: [PATCH] net: ethernet: intel: ixgbe: ixgbe_main.c:  Cleaning up missing null-terminate in conjunction with strncpy
-Date: Sat, 26 Jul 2014 16:24:36 +0200
-Message-ID: <1406384676-2606-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-Cc: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Alex Duyck <alexander.h.duyck@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	Linux NICS <linux.nics@intel.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Rickard Strandqvist <rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org>
+Subject: [PATCH] net: mac80211: trace.h:  Cleaning up missing null-terminate in conjunction with strncpy
+Date: Sat, 26 Jul 2014 16:48:00 +0200
+Message-ID: <1406386080-4062-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+Cc: Rickard Strandqvist <rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 Replacing strncpy with strlcpy to avoid strings that lacks null terminate.
 
-Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+Signed-off-by: Rickard Strandqvist <rickard_strandqvist-IW2WV5XWFqGZkjO+N0TKoMugMpMbD5Xr@public.gmane.org>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/mac80211/trace.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index f5aa331..ccf6a81 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -8161,7 +8161,7 @@ static int ixgbe_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	netdev->netdev_ops = &ixgbe_netdev_ops;
- 	ixgbe_set_ethtool_ops(netdev);
- 	netdev->watchdog_timeo = 5 * HZ;
--	strncpy(netdev->name, pci_name(pdev), sizeof(netdev->name) - 1);
-+	strlcpy(netdev->name, pci_name(pdev), sizeof(netdev->name));
+diff --git a/net/mac80211/trace.h b/net/mac80211/trace.h
+index cfe1a06..e475a29 100644
+--- a/net/mac80211/trace.h
++++ b/net/mac80211/trace.h
+@@ -1445,7 +1445,7 @@ TRACE_EVENT(drv_switch_vif_chanctx,
  
- 	adapter->bd_number = cards_found;
- 
-@@ -8388,7 +8388,7 @@ skip_sriov:
- 
- 	err = ixgbe_read_pba_string_generic(hw, part_str, IXGBE_PBANUM_LENGTH);
- 	if (err)
--		strncpy(part_str, "Unknown", IXGBE_PBANUM_LENGTH);
-+		strlcpy(part_str, "Unknown", IXGBE_PBANUM_LENGTH);
- 	if (ixgbe_is_sfp(hw) && hw->phy.sfp_type != ixgbe_sfp_type_not_present)
- 		e_dev_info("MAC: %d, PHY: %d, SFP+: %d, PBA No: %s\n",
- 			   hw->mac.type, hw->phy.type, hw->phy.sfp_type,
+ 				SWITCH_ENTRY_ASSIGN(vif.vif_type, vif->type);
+ 				SWITCH_ENTRY_ASSIGN(vif.p2p, vif->p2p);
+-				strncpy(local_vifs[i].vif.vif_name,
++				strlcpy(local_vifs[i].vif.vif_name,
+ 					sdata->name,
+ 					sizeof(local_vifs[i].vif.vif_name));
+ 				SWITCH_ENTRY_ASSIGN(old_chandef.control_freq,
 -- 
 1.7.10.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
