@@ -1,7 +1,7 @@
 From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-Subject: [PATCH] net: ethernet: intel: i40e: i40e_main.c:  Cleaning up missing null-terminate in conjunction with strncpy
-Date: Sat, 26 Jul 2014 16:23:04 +0200
-Message-ID: <1406384584-2524-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+Subject: [PATCH] net: ethernet: intel: ixgbe: ixgbe_main.c:  Cleaning up missing null-terminate in conjunction with strncpy
+Date: Sat, 26 Jul 2014 16:24:36 +0200
+Message-ID: <1406384676-2606-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
 Cc: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
 	Bruce Allan <bruce.w.allan@intel.com>,
 	Carolyn Wyborny <carolyn.wyborny@intel.com>,
@@ -23,59 +23,30 @@ Replacing strncpy with strlcpy to avoid strings that lacks null terminate.
 
 Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c |   16 ++++++++--------
- 1 file changed, 8 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 275ca9a..64668ac 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -4193,13 +4193,13 @@ static void i40e_print_link_message(struct i40e_vsi *vsi, bool isup)
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index f5aa331..ccf6a81 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -8161,7 +8161,7 @@ static int ixgbe_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	netdev->netdev_ops = &ixgbe_netdev_ops;
+ 	ixgbe_set_ethtool_ops(netdev);
+ 	netdev->watchdog_timeo = 5 * HZ;
+-	strncpy(netdev->name, pci_name(pdev), sizeof(netdev->name) - 1);
++	strlcpy(netdev->name, pci_name(pdev), sizeof(netdev->name));
  
- 	switch (vsi->back->hw.phy.link_info.link_speed) {
- 	case I40E_LINK_SPEED_40GB:
--		strncpy(speed, "40 Gbps", SPEED_SIZE);
-+		strlcpy(speed, "40 Gbps", SPEED_SIZE);
- 		break;
- 	case I40E_LINK_SPEED_10GB:
--		strncpy(speed, "10 Gbps", SPEED_SIZE);
-+		strlcpy(speed, "10 Gbps", SPEED_SIZE);
- 		break;
- 	case I40E_LINK_SPEED_1GB:
--		strncpy(speed, "1000 Mbps", SPEED_SIZE);
-+		strlcpy(speed, "1000 Mbps", SPEED_SIZE);
- 		break;
- 	default:
- 		break;
-@@ -4207,16 +4207,16 @@ static void i40e_print_link_message(struct i40e_vsi *vsi, bool isup)
+ 	adapter->bd_number = cards_found;
  
- 	switch (vsi->back->hw.fc.current_mode) {
- 	case I40E_FC_FULL:
--		strncpy(fc, "RX/TX", FC_SIZE);
-+		strlcpy(fc, "RX/TX", FC_SIZE);
- 		break;
- 	case I40E_FC_TX_PAUSE:
--		strncpy(fc, "TX", FC_SIZE);
-+		strlcpy(fc, "TX", FC_SIZE);
- 		break;
- 	case I40E_FC_RX_PAUSE:
--		strncpy(fc, "RX", FC_SIZE);
-+		strlcpy(fc, "RX", FC_SIZE);
- 		break;
- 	default:
--		strncpy(fc, "None", FC_SIZE);
-+		strlcpy(fc, "None", FC_SIZE);
- 		break;
- 	}
+@@ -8388,7 +8388,7 @@ skip_sriov:
  
-@@ -5558,7 +5558,7 @@ static void i40e_send_version(struct i40e_pf *pf)
- 	dv.minor_version = DRV_VERSION_MINOR;
- 	dv.build_version = DRV_VERSION_BUILD;
- 	dv.subbuild_version = 0;
--	strncpy(dv.driver_string, DRV_VERSION, sizeof(dv.driver_string));
-+	strlcpy(dv.driver_string, DRV_VERSION, sizeof(dv.driver_string));
- 	i40e_aq_send_driver_version(&pf->hw, &dv, NULL);
- }
- 
+ 	err = ixgbe_read_pba_string_generic(hw, part_str, IXGBE_PBANUM_LENGTH);
+ 	if (err)
+-		strncpy(part_str, "Unknown", IXGBE_PBANUM_LENGTH);
++		strlcpy(part_str, "Unknown", IXGBE_PBANUM_LENGTH);
+ 	if (ixgbe_is_sfp(hw) && hw->phy.sfp_type != ixgbe_sfp_type_not_present)
+ 		e_dev_info("MAC: %d, PHY: %d, SFP+: %d, PBA No: %s\n",
+ 			   hw->mac.type, hw->phy.type, hw->phy.sfp_type,
 -- 
 1.7.10.4
