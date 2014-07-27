@@ -1,45 +1,80 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH v1 08/15] net: sched: RCU cls_tcindex
-Date: Sun, 27 Jul 2014 15:01:12 -0700
-Message-ID: <53D576A8.3010904@gmail.com>
-References: <20140726042439.21036.57721.stgit@nitbit.x32> <20140726042900.21036.45937.stgit@nitbit.x32> <CAM_iQpUJJ02hSkTfw328D8QW_4iuWcZode0JGpguecx5GUf5Jw@mail.gmail.com>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: Re: [net-next PATCH v1 01/15] net: qdisc: use rcu prefix and silence
+ sparse warnings
+Date: Mon, 28 Jul 2014 01:46:36 +0200
+Message-ID: <53D58F5C.3030200@redhat.com>
+References: <20140726042439.21036.57721.stgit@nitbit.x32> <20140726042529.21036.62010.stgit@nitbit.x32>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Paul McKenney <paulmck@linux.vnet.ibm.com>, brouer@redhat.com
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: netdev@vger.kernel.org, paulmck@linux.vnet.ibm.com,
+	brouer@redhat.com
+To: John Fastabend <john.fastabend@gmail.com>,
+	xiyou.wangcong@gmail.com, jhs@mojatatu.com, eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f51.google.com ([209.85.218.51]:40655 "EHLO
-	mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751537AbaG0WB0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jul 2014 18:01:26 -0400
-Received: by mail-oi0-f51.google.com with SMTP id g201so5319905oib.24
-        for <netdev@vger.kernel.org>; Sun, 27 Jul 2014 15:01:25 -0700 (PDT)
-In-Reply-To: <CAM_iQpUJJ02hSkTfw328D8QW_4iuWcZode0JGpguecx5GUf5Jw@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:63722 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751039AbaG0Xqp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 27 Jul 2014 19:46:45 -0400
+In-Reply-To: <20140726042529.21036.62010.stgit@nitbit.x32>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/27/2014 12:15 PM, Cong Wang wrote:
-> On Fri, Jul 25, 2014 at 9:29 PM, John Fastabend
-> <john.fastabend@gmail.com> wrote:
->> +
->> +       if (p->perfect) {
->> +               cp->perfect = kcalloc(cp->hash, sizeof(*r), GFP_KERNEL);
->> +               memcpy(cp->perfect, p->perfect, sizeof(*r) * cp->hash);
->> +       }
->
-> a) You forget to check the return value of kcalloc()
-> b) You can use kmemdup()
->
+On 07/26/2014 06:25 AM, John Fastabend wrote:
+> Add __rcu notation to qdisc handling by doing this we can make
+> smatch output more legible. And anyways some of the cases should
+> be using rcu_dereference() see qdisc_all_tx_empty(),
+> qdisc_tx_chainging(), and so on.
+> 
+> Also *wake_queue() API is commonly called from driver timer routines
+> without rcu lock or rtnl lock. So I added rcu_read_lock() blocks
+> around netif_wake_subqueue and netif_tx_wake_queue.
+> 
+> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> ---
+<<snip>>
+> @@ -416,11 +423,16 @@ static inline bool qdisc_all_tx_empty(const struct net_device *dev)
+>  static inline bool qdisc_tx_changing(const struct net_device *dev)
+>  {
+>  	unsigned int i;
+> +
+> +	rcu_read_lock();
+>  	for (i = 0; i < dev->num_tx_queues; i++) {
+>  		struct netdev_queue *txq = netdev_get_tx_queue(dev, i);
+> -		if (txq->qdisc != txq->qdisc_sleeping)
+> +		if (rcu_dereference(txq->qdisc) != txq->qdisc_sleeping) {
+Since there's going to be a v2 perhaps it'd be better to use
+rcu_access_pointer() here ?
+I don't think the depend barrier is necessary.
 
-Ah good catch. I'll wait a bit for more feedback then send
-a v2 with the fix.
+> +			rcu_read_unlock();
+>  			return true;
+> +		}
+>  	}
+> +	rcu_read_unlock();
+>  	return false;
+>  }
+>  
+<<snip>>
+> @@ -157,9 +160,9 @@ teql_destroy(struct Qdisc *sch)
+>  						txq = netdev_get_tx_queue(master->dev, 0);
+>  						master->slaves = NULL;
+>  
+> -						root_lock = qdisc_root_sleeping_lock(txq->qdisc);
+> +						root_lock = qdisc_root_sleeping_lock(rtnl_dereference(txq->qdisc));
+>  						spin_lock_bh(root_lock);
+> -						qdisc_reset(txq->qdisc);
+> +						qdisc_reset(rtnl_dereference(txq->qdisc));
+>  						spin_unlock_bh(root_lock);
+>  					}
+>  				}
+> @@ -266,7 +269,7 @@ static inline int teql_resolve(struct sk_buff *skb,
+>  	struct dst_entry *dst = skb_dst(skb);
+>  	int res;
+>  
+> -	if (txq->qdisc == &noop_qdisc)
+> +	if (rcu_dereference_bh(txq->qdisc) == &noop_qdisc)
+Same here. Perhaps rcu_access_pointer() ?
 
-Thanks!
-John
-
--- 
-John Fastabend         Intel Corporation
+Cheers,
+ Nik
