@@ -1,63 +1,34 @@
-From: Randy Dunlap <rdunlap@infradead.org>
-Subject: Re: [PATCH] kernel-doc compliant documentation for net_device
-Date: Sun, 27 Jul 2014 09:17:18 -0700
-Message-ID: <53D5260E.9060507@infradead.org>
-References: <1405870622-17222-1-git-send-email-karoly.kemeny@gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [net-next PATCH v1 08/15] net: sched: RCU cls_tcindex
+Date: Sun, 27 Jul 2014 12:15:12 -0700
+Message-ID: <CAM_iQpUJJ02hSkTfw328D8QW_4iuWcZode0JGpguecx5GUf5Jw@mail.gmail.com>
+References: <20140726042439.21036.57721.stgit@nitbit.x32>
+	<20140726042900.21036.45937.stgit@nitbit.x32>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=y
-Content-Transfer-Encoding: 7bit
-To: Karoly Kemeny <karoly.kemeny@gmail.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, trivial@kernel.org,
-	kernel-janitors@vger.kernel.org
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <1405870622-17222-1-git-send-email-karoly.kemeny@gmail.com>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Paul McKenney <paulmck@linux.vnet.ibm.com>, brouer@redhat.com
+To: John Fastabend <john.fastabend@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f48.google.com ([209.85.219.48]:34443 "EHLO
+	mail-oa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751081AbaG0TXZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jul 2014 15:23:25 -0400
+Received: by mail-oa0-f48.google.com with SMTP id m1so7678505oag.7
+        for <netdev@vger.kernel.org>; Sun, 27 Jul 2014 12:23:24 -0700 (PDT)
+In-Reply-To: <20140726042900.21036.45937.stgit@nitbit.x32>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/20/14 08:37, Karoly Kemeny wrote:
-> Net_device is a vast and important structure, but it has no kernel-doc compliant
-> documentation. this patch extracts the comments from the structure to clean it up,
-> and let the scripts extract documentation from it, i know it's big, but it is just
-> reordering of comments into the appropriate form.
-> 
-> Signed-off-by: Karoly Kemeny <karoly.kemeny@gmail.com>
-> ---
->  include/linux/netdevice.h | 367 +++++++++++++++++++++++++++++-----------------
->  1 file changed, 232 insertions(+), 135 deletions(-)
+On Fri, Jul 25, 2014 at 9:29 PM, John Fastabend
+<john.fastabend@gmail.com> wrote:
+> +
+> +       if (p->perfect) {
+> +               cp->perfect = kcalloc(cp->hash, sizeof(*r), GFP_KERNEL);
+> +               memcpy(cp->perfect, p->perfect, sizeof(*r) * cp->hash);
+> +       }
 
-
-[third attempt to reply without message body being truncated]
-
-
-a.  The struct comments should begin with a line like this:
-/**
-to indicated kernel-doc notation.
-
-b.  Blank lines are not allowed in kernel-doc comments. They should instead be:
- *
-
-Warning(..//include/linux/netdevice.h:1277): bad line:  
-Warning(..//include/linux/netdevice.h:1281): bad line:  
-
-c.  A few fields in the struct don't have any comments for them:
-
-Warning(..//include/linux/netdevice.h:1661): No description found for parameter 'name_hlist'
-Warning(..//include/linux/netdevice.h:1661): No description found for parameter 'state'
-Warning(..//include/linux/netdevice.h:1661): No description found for parameter 'dev_list'
-Warning(..//include/linux/netdevice.h:1661): No description found for parameter 'napi_list'
-Warning(..//include/linux/netdevice.h:1661): No description found for parameter 'unreg_list'
-Warning(..//include/linux/netdevice.h:1661): No description found for parameter 'close_list'
-
-
-d.  Don't introduce lines that have trailing whitespace:
-
-Warning: trailing whitespace in lines 1237,1252,1255,1257,1260,1266,1268,1274,1277,1281,1284,1295,1330,1332,1334,1336,1351,1353,1358,1367,1382,1389,1392,1404,1407,1408,1451,1458,1463,1466,1481,1504,1508,1525,1584,1588,1591,1623,1628 of include/linux/netdevice.h
-
-
-e.  I think that this is a good patch idea, so please fix these minor issues
-and resubmit the patch.
-
-Thanks.
-
--- 
-~Randy
+a) You forget to check the return value of kcalloc()
+b) You can use kmemdup()
