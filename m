@@ -1,141 +1,113 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH net-next 2/2] vxlan: Use UDP fast port
-Date: Sat, 26 Jul 2014 15:29:29 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1407261520350.27340@tomh.mtv.corp.google.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH net-next 2/3] ethtool: add rx_copybreak support
+Date: Sun, 27 Jul 2014 01:19:40 +0100
+Message-ID: <1406420380.29010.129.camel@deadeye.wl.decadent.org.uk>
+References: <1406050268-13329-1-git-send-email-_govind@gmx.com>
+	   <1406050268-13329-3-git-send-email-_govind@gmx.com>
+	  <1406051145.7427.2.camel@deadeye.wl.decadent.org.uk>
+	  <alpine.LNX.2.03.1407230004150.15542@ws.cisco>
+	 <1406055025.7427.7.camel@deadeye.wl.decadent.org.uk>
+	 <alpine.LNX.2.03.1407230039010.15542@ws.cisco>
+	 <alpine.LNX.2.03.1407261603450.3407@ws.cisco>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-6uzXNIKd2+xoUJosxNdD"
+Cc: davem@davemloft.net, netdev@vger.kernel.org, ssujith@cisco.com,
+	benve@cisco.com
+To: Govindarajulu Varadarajan <_govind@gmx.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f74.google.com ([209.85.219.74]:62214 "EHLO
-	mail-oa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752327AbaGZW3a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 26 Jul 2014 18:29:30 -0400
-Received: by mail-oa0-f74.google.com with SMTP id eb12so1663929oac.1
-        for <netdev@vger.kernel.org>; Sat, 26 Jul 2014 15:29:29 -0700 (PDT)
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:57506 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750967AbaG0ATz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 26 Jul 2014 20:19:55 -0400
+In-Reply-To: <alpine.LNX.2.03.1407261603450.3407@ws.cisco>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Change to have vxlan register ports with UDP fast port to improve
-RX performance.
 
-Performance test: using 200 TCP_RR netperf streams
+--=-6uzXNIKd2+xoUJosxNdD
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Without UFP
-  94.57 CPU utilization
-  153/245/455 90/95/995% latencies
-  1.18699e+06 tps
+On Sat, 2014-07-26 at 16:19 +0530, Govindarajulu Varadarajan wrote:
+> On Wed, 23 Jul 2014, Govindarajulu Varadarajan wrote:
+>=20
+> > On Tue, 22 Jul 2014, Ben Hutchings wrote:
+> >> No, you can't do that either.  Basically you can't change the size or
+> >> layout of any of the ethtool structures.
+> >
+> > Ok. Can you suggest me how I should add rx_copybreak to ethtool?
+> >
+> > May be add another function, set/get_rxcopybreak(), to ethtool_ops?
+> >
+> > Thanks
+> >
+>=20
+> Should I drop the idea of ethtool and resubmit just the rx_copybreak chan=
+ges?
+> (use module parameter to change rx_copybreak value).
+>=20
+> Or should I try something like this
+> 3de0b592394d17b 'ethtool: Support for configurable RSS hash key', Create =
+new
+> ethtool cmd for changing driver rx_copybreak value.
 
-With UFP enabled
-  94.58 CPU utilization
-  147/230/408 90/95/995% latencies
-  1.20311e+06 tps
+I think that you will need to add new ethtool operations to get and set
+this parameter.  At the same time, please consider whether there are
+other parameters for buffer allocation and use that might usefully be
+configurable in some drivers, so they can be grouped together.
 
-Also tested UDP_RR wihtout encapsulation, did not observe any
-noticeable regression in normal UDP path.
+Some parameters that could be included are:
 
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- drivers/net/vxlan.c | 38 +++++++++++++++++++++++++++++++-------
- include/net/vxlan.h |  2 ++
- 2 files changed, 33 insertions(+), 7 deletions(-)
+- Maximum frame size that should be copied to a pre-allocated DMA
+  buffer rather than DMA-mapped directly from the skb.
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index d3f3e5d..e36eef7 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1060,6 +1060,8 @@ void vxlan_sock_release(struct vxlan_sock *vs)
- 	if (!atomic_dec_and_test(&vs->refcnt))
- 		return;
- 
-+	udp_remove_fast_port(&vs->udp_fast_port);
-+
- 	spin_lock(&vn->sock_lock);
- 	hlist_del_rcu(&vs->hlist);
- 	rcu_assign_sk_user_data(vs->sock->sk, NULL);
-@@ -1132,10 +1134,8 @@ static void vxlan_igmp_leave(struct work_struct *work)
- 	dev_put(vxlan->dev);
- }
- 
--/* Callback from net/ipv4/udp.c to receive packets */
--static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
-+static int __vxlan_encap_recv(struct vxlan_sock *vs, struct sk_buff *skb)
- {
--	struct vxlan_sock *vs;
- 	struct vxlanhdr *vxh;
- 
- 	/* Need Vxlan and inner Ethernet header to be present */
-@@ -1154,10 +1154,6 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
- 	if (iptunnel_pull_header(skb, VXLAN_HLEN, htons(ETH_P_TEB)))
- 		goto drop;
- 
--	vs = rcu_dereference_sk_user_data(sk);
--	if (!vs)
--		goto drop;
--
- 	skb_pop_rcv_encapsulation(skb);
- 
- 	vs->rcv(vs, skb, vxh->vx_vni);
-@@ -1173,6 +1169,30 @@ error:
- 	return 1;
- }
- 
-+/* Callback from net/ipv4/udp.c to receive packets */
-+static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
-+{
-+	struct vxlan_sock *vs;
-+
-+	vs = rcu_dereference_sk_user_data(sk);
-+	if (!vs) {
-+		kfree_skb(skb);
-+		return 0;
-+	}
-+
-+	return __vxlan_encap_recv(vs, skb);
-+}
-+
-+static int vxlan_udp_fast_port_recv(struct udp_fast_port *ufp,
-+				    struct sk_buff *skb)
-+{
-+	struct vxlan_sock *vs;
-+
-+	vs = container_of(ufp, struct vxlan_sock, udp_fast_port);
-+
-+	return __vxlan_encap_recv(vs, skb);
-+}
-+
- static void vxlan_rcv(struct vxlan_sock *vs,
- 		      struct sk_buff *skb, __be32 vx_vni)
- {
-@@ -2429,6 +2449,10 @@ static struct vxlan_sock *vxlan_socket_create(struct net *net, __be16 port,
- #endif
- 		udp_encap_enable();
- 
-+	vs->udp_fast_port.port = port;
-+	vs->udp_fast_port.encap_rcv = vxlan_udp_fast_port_recv;
-+	udp_add_fast_port(&vs->udp_fast_port);
-+
- 	return vs;
- }
- 
-diff --git a/include/net/vxlan.h b/include/net/vxlan.h
-index d5f59f3..1f95ecd 100644
---- a/include/net/vxlan.h
-+++ b/include/net/vxlan.h
-@@ -4,6 +4,7 @@
- #include <linux/skbuff.h>
- #include <linux/netdevice.h>
- #include <linux/udp.h>
-+#include <net/udp.h>
- 
- #define VNI_HASH_BITS	10
- #define VNI_HASH_SIZE	(1<<VNI_HASH_BITS)
-@@ -22,6 +23,7 @@ struct vxlan_sock {
- 	struct hlist_head vni_list[VNI_HASH_SIZE];
- 	atomic_t	  refcnt;
- 	struct udp_offload udp_offloads;
-+	struct udp_fast_port udp_fast_port;
- };
- 
- #define VXLAN_F_LEARN			0x01
--- 
-2.0.0.526.g5318336
+  ibmveth has the module parameter 'tx_copybreak' for this.
+
+- Maximum frame size to be transmitted by PIO rather than DMA, where
+  the hardware supports both methods.
+
+  The mlx4_en and sfc drivers have hardcoded values for this (MAX_BF
+  and EFX_PIOBUF_SIZE_DEF respectively).
+
+- Size of each RX DMA buffer, which is independent of MTU if
+  scatter/gather is enabled.
+
+  benet has the module parameter 'rx_frag_size' for this.
+
+Others on netdev might have some other suggestions for inclusion.  You
+could also add some reserved space for further expansion.
+
+You should probably include maximum fields for all these, which the
+'get' operation would set to 0 if the parameter isn't applicable to the
+device.
+
+Ben.
+
+--=20
+Ben Hutchings
+73.46% of all statistics are made up.
+
+--=-6uzXNIKd2+xoUJosxNdD
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIVAwUAU9RFoOe/yOyVhhEJAQpKPg//aBkmg2UIhi4Orn2xB5nTSx/4Stm//03d
+hEuwvdTI7VyguHx0l6hHMwwAV9SAMq0wnzT7naW1S4O2ry2freaa8dVpKahEgWHU
+jyF7Oh5awjzI+a2iCfq+u9TGdtQiqMW8JJ7k/pQ7bNagplMT6KBFh/cE5x5aECy9
+w32+f3Z8I+CcgY4f9b4G+T6sv6QMVzgFE2dnvElmsQYW51NYEI7tKRPoBF9OUoP2
+CguwhivdqCOoWP/UpDY9iY8+TYSSJ5FK9GprXXE0Rdw6EFlVcyvTCAN4tS3ea/gV
+R8FE+3i+OTGUr9UU4SpU1vsg6++fZTbW7fsVKCGEB4E0Ki14CSIYjtJ1mQV8V0+4
+JBOWTTMyOJTa2oCw2f44qiyrvT4vmjYV6s/xMB2lHgcJv0OXnOrLNk1oGig5UJdJ
+3Eek8lxDjZBAX3w0O/VkvP8X92QE3DTw2R4u85gPNlTU8k1JxfVgXr1Ijvztdsce
+iBYik73mBOVoDrhqPp6RWjnqtsLVYfRuTqT4iUGLQlx8wkuAEU7CCcS/A7VBVMa4
+8MDpQk+yhMp3M6Zo0/inLiGPcv+7W0mRfYqeL+t435rHUtGDDb3eN8VQXTahuGY1
+dCZVOYnaIct6ulVU+8gTD3iI2VFt7fFSSsuZSJlyVse+v7MthwFOITkKjglJAqzl
+f3TEjnhHOyw=
+=LsQV
+-----END PGP SIGNATURE-----
+
+--=-6uzXNIKd2+xoUJosxNdD--
