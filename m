@@ -1,111 +1,153 @@
-From: Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
-Subject: Re: [RFC PATCH 1/1] ethtool: adding support for multiple slave port
- configuration
-Date: Sun, 27 Jul 2014 03:47:01 +0100
-Message-ID: <1406429221.29010.151.camel@deadeye.wl.decadent.org.uk>
-References: <1406291305-22286-1-git-send-email-mugunthanvnm@ti.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH net-next] net: filter: rename 'struct sk_filter' to
+ 'struct bpf_prog'
+Date: Sat, 26 Jul 2014 22:41:04 -0700
+Message-ID: <CAMEtUux8F4xZ77_HQADfoeV-9sibaEWm=XJcAaY+cQyDWb2caA@mail.gmail.com>
+References: <1406275499-7822-1-git-send-email-ast@plumgrid.com>
+	<53D23EAF.4000001@redhat.com>
+	<20140725115414.GA4770@salvia>
+	<53D254D9.9030905@redhat.com>
+	<CAMEtUux+dw_GoafXE3ukvmOK2JmZWWf-y0VMobe60TSTfZeNmw@mail.gmail.com>
+	<20140725221512.GA3729@salvia>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-KYnuXAhc5cLSnEbs1fqH"
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1406291305-22286-1-git-send-email-mugunthanvnm-l0cyMroinI0@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Daniel Borkmann <dborkman@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Willem de Bruijn <willemb@google.com>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140725221512.GA3729@salvia>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, Jul 25, 2014 at 3:17 PM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+> On Fri, Jul 25, 2014 at 10:24:29AM -0700, Alexei Starovoitov wrote:
+>> On Fri, Jul 25, 2014 at 6:00 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
+>> > On 07/25/2014 01:54 PM, Pablo Neira Ayuso wrote:
+>> >>
+>> >> On Fri, Jul 25, 2014 at 01:25:35PM +0200, Daniel Borkmann wrote:
+>> >>>
+>> >>> [ also Cc'ing Willem, Pablo ]
+>> >>>
+>> >>> On 07/25/2014 10:04 AM, Alexei Starovoitov wrote:
+>> >>>>
+>> >>>> 'sk_filter' name is used as 'struct sk_filter', function sk_filter() and
+>> >>>> as variable 'sk_filter', which makes code hard to read.
+>> >>>> Also it's easily confused with 'struct sock_filter'
+>> >>>> Rename 'struct sk_filter' to 'struct bpf_prog' to clarify semantics and
+>> >>>> align the name with generic BPF use model.
+>> >>>
+>> >>>
+>> >>> Agreed, as we went for kernel/bpf/, renaming makes absolutely sense.
+>> >>
+>> >>
+>> >> My nft socket filtering changes are accomodated into struct sk_filter,
+>> >> and will still be, so I still need some generic name there...
+>> >
+>> >
+>> > All the parts from filter.c which is BPF's core engine have been moved
+>> > into kernel/bpf/ to get it ready for tracing et al, since there is not
+>> > always a socket context anymore. The *whole* infrastructure around struct
+>> > sk_filter is [e]BPF and used in non-net related contexts as well, whereas
+>> > nft socket filtering is *only* for sockets. Due to the socket-only specific
+>> > use case why doesn't it make more sense to have a union in struct sock
+>> > around sk_filter (or however we name it) and only allow one of the two
+>> > being loaded on a socket?
+>>
+>> yep.
+>> Adding nft specific things to struct sk_filter/bpf_prog is not correct,
+>> since this struct is already part of seccomp and will be used
+>> in net-less configurations. SK_RUN_FILTER() macro will also be
+>> renamed into something like RUN_BPF_RPOG(). It's one and only
+>> way to invoke eBPF programs. Adding nft selector cannot work,
+>> since eBPF is used with generic context whereas nft is skb specific.
+>> If you want to add nft filtering capabilities to sockets, you'd need
+>> to add union around 'struct bpf_prog' inside 'struct sock', which will be
+>> much cleaner way.
+>
+> The struct sk_filter is almost providing the generic framework, it
+> just needs to be generalized, a quick layout for it:
+>
+> struct sk_filter {
+>         struct sk_filter_cb     *cb;
+>         atomic_t                refcnt;
+>         struct rcu_head         head;
+>         char                    data[0]; /* here, you specific struct bpf_prog */
+> };
+>
+> The refcnt is required sk_filter_{charge,uncharge,release}. The struct
+> rcu_head is also need from sk_filter_release().
+>
+> struct sk_filter_cb {
+>         int type;
+>         struct module *me;
+>         void (*charge)(struct sock *sk, struct sk_filter *fp);
+>         void (*uncharge)(struct sock *sk, struct sk_filter *fp);
+>         unsigned int (*run_filter)(struct sk_filter *fp, struct sk_buff *skb);
+> };
 
---=-KYnuXAhc5cLSnEbs1fqH
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Pablo,
 
-On Fri, 2014-07-25 at 17:58 +0530, Mugunthan V N wrote:
-> Some Ethernet Swtich controllers like CPSW in AM335x, TI814x, DRA7x and
-> AM43xx SoCs, Network Coprocessor in AM5K2E0x, Realtek Switch controllers
-> etc has to capability of conneting multiple networks using L2 switching
-> and has multiple phys. With the existing code, ethtool can communicate
-> only to one phy.
->=20
-> To enable user to communicate multiple phy connected to single Ethernet
-> Switch controller, intoducing a optional new parameter in Ethtool interfa=
-ce
-> to pass which slave to set/get the phy configuration.
+I don't think you understand the scope of BPF.
+'struct module *'? to attach nft to sockets? ouch.
+if you need to do it, go ahead, but please don't present such mess
+as a 'generic' infra.
+What you're proposing won't work even for classic bpf.
+'struct sock *' and 'struct module *' are totally redundant and won't
+work for seccomp, tracing and pretty much everything, but pure
+socket filtering.
+Somehow you think that 'struct sk_filter' is only used in sockets.
+That is not the case. Just grep the git.
+and arguing that 'struct sk_filter' needs to be generalized for nft
+is shortsighted as minimum.
+Every piece of code that is using 'struct sk_filter' knows that it's
+dealing with bpf/ebpf, so renaming is not changing the facts,
+but rather stating the obvious and making code easier to
+understand.
 
-There was some discussion about configuration APIs for hardware/firmware
-bridges earlier this year and I thought there was a consensus for
-assigning a network device to each port.  This would remove the need to
-identify ports within a device.  But I may have misremembered.
+> We have to provide the register/unregister functions for the specific
+> callbacks depending on the socket filtering approach. But I'll have to
+> introduce this myself when I come up with the nft patches again.
 
-> Signed-off-by: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
-> ---
->  include/uapi/linux/ethtool.h | 6 +++++-
->  1 file changed, 5 insertions(+), 1 deletion(-)
->=20
-> diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-> index 96ade34..3011427 100644
-> --- a/include/uapi/linux/ethtool.h
-> +++ b/include/uapi/linux/ethtool.h
-> @@ -60,6 +60,9 @@
->   *	and other link features that the link partner advertised
->   *	through autonegotiation; 0 if unknown or not applicable.
->   *	Read-only.
-> + * @slave_port: Specify which slave port to be used to set/get
-> + *	parmeters, for example which slave port phy to be used for
-> + *	set/get phy capabilities
+yes, please do introduce modules for nft only, since it doesn't
+make sense for sockets and for bpf.
 
-The difficulty with assigning the reserved fields in struct ethtool_cmd
-is that nothing has ever checked that they are set to 0.  So if we were
-to assign this field and support it in ethtool, someone might run it on
-an older kernel version and all configuration changes will be made to
-port 0 rather than the one they specified.  I don't think it would be
-acceptable to tell users that 'oh, the port number option silently fails
-on older kernel versions'.
+> So meanwhile, you should just encapsulate what really belongs to
+> struct bpf_prog, ie. size, bytecode, jitted, etc. and leave struct
+> sk_filter in place.
+>
+> struct sk_filter {
+>         atomic_t                refcnt;
+>         struct rcu_head         head;
+>         u32                     len;
+>         struct bpf_prog         bpf_prog;
+> };
+>
+> The len will go into struct bpf_prog once the generic infrastructure
+> above is introduced since the semantics (number of blocks) is
+> different from nft.
+>
+> If you straight forward rename the entire structure, you'll take
+> things that are not specific from bpf such as refcnt and rcu_head.
 
-So at the very least you would also need to add some way for userland to
-find out whether the driver will check the value of this field.
-
-Ben.
-
->   * The link speed in Mbps is split between @speed and @speed_hi.  Use
->   * the ethtool_cmd_speed() and ethtool_cmd_speed_set() functions to
-> @@ -107,7 +110,8 @@ struct ethtool_cmd {
->  	__u8	eth_tp_mdix;
->  	__u8	eth_tp_mdix_ctrl;
->  	__u32	lp_advertising;
-> -	__u32	reserved[2];
-> +	__u32	slave_port;
-> +	__u32	reserved;
->  };
-> =20
->  static inline void ethtool_cmd_speed_set(struct ethtool_cmd *ep,
-
---=20
-Ben Hutchings
-The generation of random numbers is too important to be left to chance.
-                                                            - Robert Coveyo=
-u
-
---=-KYnuXAhc5cLSnEbs1fqH
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIVAwUAU9RoKue/yOyVhhEJAQpkHQ/8DxYhjnBZN0JCfeowRW7y2q2AXu48uC0o
-o7ARtOlIZcpGKYNmQT/cYxheLGOPfaN9UmhoPMuKYLfEqYiNrXDHqhDlCpwZzTzA
-2T3ngvd+pCb0tqAMxEWStN7oSPgq4QnrMgBCMBtmcbtzeH9c1V6+ZHknJkHC7Kv3
-RNWilpL9mt/E4AAjAwoY33J/WZmaq6BtOHnDLafJlP4jEfcp1BPbOdjZpnipn3Ol
-F1c/G5mEHXXaEcAMo8A9U4tFkvU970G7nuuJG5ltRlCVZ9A7r0WGenZgzsXJY1fy
-jv2mIJXEY/BRuNf1CNkEWzl2fMDnqUhD2ajsU0zzPlEw4X3hW79MBF7hRf8T0vKF
-ZZrffxpoo/E9d6edM9GNVwJSBnSjOU/bnAVYC1LFLNoQ1T2kimQDgg2tPaqALM1E
-K5p60JC53i2+892dbgFQg0961M2rSzqbtuze7RzVPNgRcVEw/WJZPVgM4Bc4PEYi
-Kjj4FWOZPp9mt431GyvVk7njPFi0yacYPJmX6ZSULXQX5dpjAQzHCK9ZynQCakcv
-lgu95uvpvCAew7PtKGImM9HMflzh5OFHqGxoa5G6CEMnIlclewsvwsQsnvnONseT
-26DJwOkpMoZqQ5lDcrjV+zMFdSmvEZ+4n0YbWtvm9j+YvFWKRmZxt/aKggEcfC9O
-VdY1Q9V5rNo=
-=GvEY
------END PGP SIGNATURE-----
-
---=-KYnuXAhc5cLSnEbs1fqH--
+sorry Pablo, I don't think you understand what you're talking about.
+refcnt and rcu_head are key parts of bpf/ebpf infra.
+Programs are refcnt'ed not only by charging sockets. BPF is relying
+on rcu for safe execution as well.
+For example see my tracing filter patch that does:
+void trace_filter_call_bpf(struct event_filter *filter, void *ctx)
+{
+        rcu_read_lock();
+        SK_RUN_FILTER(filter->prog, ctx);
+        rcu_read_unlock();
+}
+One eBPF program can be attached to multiple 'events' where event
+is kprobe, tracepoint, syscall, etc The act of attaching increments
+'struct sk_filter/bpf_prog -> refcnt'.
+Every field of 'struct sk_filter' is used by BPF infra (including 'len'
+and 'work') This struct is a definition of bpf program.
+Seriously if you want to understand, just ask, but objecting due to
+lack of understanding just silly.
