@@ -1,61 +1,63 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [RFC PATCH 1/1] ethtool: adding support for multiple slave port
- configuration
-Date: Sun, 27 Jul 2014 09:09:54 -0700
-Message-ID: <53D52452.2020300@gmail.com>
-References: <1406291305-22286-1-git-send-email-mugunthanvnm@ti.com> <1406429221.29010.151.camel@deadeye.wl.decadent.org.uk>
+From: Randy Dunlap <rdunlap@infradead.org>
+Subject: Re: [PATCH] kernel-doc compliant documentation for net_device
+Date: Sun, 27 Jul 2014 09:17:18 -0700
+Message-ID: <53D5260E.9060507@infradead.org>
+References: <1405870622-17222-1-git-send-email-karoly.kemeny@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=y
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	linux-api@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Ben Hutchings <ben@decadent.org.uk>,
-	Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f50.google.com ([209.85.218.50]:43798 "EHLO
-	mail-oi0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751745AbaG0QKL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 27 Jul 2014 12:10:11 -0400
-In-Reply-To: <1406429221.29010.151.camel@deadeye.wl.decadent.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Karoly Kemeny <karoly.kemeny@gmail.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, trivial@kernel.org,
+	kernel-janitors@vger.kernel.org
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <1405870622-17222-1-git-send-email-karoly.kemeny@gmail.com>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/26/2014 07:47 PM, Ben Hutchings wrote:
-> On Fri, 2014-07-25 at 17:58 +0530, Mugunthan V N wrote:
->> Some Ethernet Swtich controllers like CPSW in AM335x, TI814x, DRA7x and
->> AM43xx SoCs, Network Coprocessor in AM5K2E0x, Realtek Switch controllers
->> etc has to capability of conneting multiple networks using L2 switching
->> and has multiple phys. With the existing code, ethtool can communicate
->> only to one phy.
->>
->> To enable user to communicate multiple phy connected to single Ethernet
->> Switch controller, intoducing a optional new parameter in Ethtool interface
->> to pass which slave to set/get the phy configuration.
->
-> There was some discussion about configuration APIs for hardware/firmware
-> bridges earlier this year and I thought there was a consensus for
-> assigning a network device to each port.  This would remove the need to
-> identify ports within a device.  But I may have misremembered.
->
+On 07/20/14 08:37, Karoly Kemeny wrote:
+> Net_device is a vast and important structure, but it has no kernel-doc compliant
+> documentation. this patch extracts the comments from the structure to clean it up,
+> and let the scripts extract documentation from it, i know it's big, but it is just
+> reordering of comments into the appropriate form.
+> 
+> Signed-off-by: Karoly Kemeny <karoly.kemeny@gmail.com>
+> ---
+>  include/linux/netdevice.h | 367 +++++++++++++++++++++++++++++-----------------
+>  1 file changed, 232 insertions(+), 135 deletions(-)
 
-I like the approach of creating a network device for each port over
-having to use ethtool to program/discover them. I am currently looking
-at writing management applications for this and IMO it is much easier
-to discover and listen for events on network devices vs polling ethtool
-and iterating through slave indexs. Also you miss a lot of functionality
-that may be useful MTU for example that is not available configured via
-ethtool.
 
-One of the sticking points in earlier discussions was how to handle
-devices that have limited support for slave devices. When we create a
-netdev we expect the stack can bind to it and TX/RX packets which as
-I understand is not always possible? (I missed why we couldn't recv the
-packets over a switch port though with some skb->dev manipulation). In
-this case a feature flag could be used to resolve the feature
-dependencies.
+[third attempt to reply without message body being truncated]
 
-.John
 
+a.  The struct comments should begin with a line like this:
+/**
+to indicated kernel-doc notation.
+
+b.  Blank lines are not allowed in kernel-doc comments. They should instead be:
+ *
+
+Warning(..//include/linux/netdevice.h:1277): bad line:  
+Warning(..//include/linux/netdevice.h:1281): bad line:  
+
+c.  A few fields in the struct don't have any comments for them:
+
+Warning(..//include/linux/netdevice.h:1661): No description found for parameter 'name_hlist'
+Warning(..//include/linux/netdevice.h:1661): No description found for parameter 'state'
+Warning(..//include/linux/netdevice.h:1661): No description found for parameter 'dev_list'
+Warning(..//include/linux/netdevice.h:1661): No description found for parameter 'napi_list'
+Warning(..//include/linux/netdevice.h:1661): No description found for parameter 'unreg_list'
+Warning(..//include/linux/netdevice.h:1661): No description found for parameter 'close_list'
+
+
+d.  Don't introduce lines that have trailing whitespace:
+
+Warning: trailing whitespace in lines 1237,1252,1255,1257,1260,1266,1268,1274,1277,1281,1284,1295,1330,1332,1334,1336,1351,1353,1358,1367,1382,1389,1392,1404,1407,1408,1451,1458,1463,1466,1481,1504,1508,1525,1584,1588,1591,1623,1628 of include/linux/netdevice.h
+
+
+e.  I think that this is a good patch idea, so please fix these minor issues
+and resubmit the patch.
+
+Thanks.
 
 -- 
-John Fastabend         Intel Corporation
+~Randy
