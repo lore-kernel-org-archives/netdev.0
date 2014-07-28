@@ -1,34 +1,47 @@
-From: Monica Suwayd <monica.suayd@hotmail.com>
-Subject: =?utf-8?b?RG9icsO9IA==?= =?utf-8?b?dmXEjWVy?=
-Date: Mon, 28 Jul 2014 17:59:04 +0000
-Message-ID: <20140728175904.Horde.VcpVQayA3diVlJfFkIDdMQ1@webmail.drilroc.com>
-Reply-To: monica.suwayd@hotmail.com
+From: Alex Gartrell <agartrell@fb.com>
+Subject: What is the best way to accomplish "decapsulate any" functionality?
+Date: Mon, 28 Jul 2014 11:26:32 -0700
+Message-ID: <20140728112632.5f8e8f5f@agartrell-SH67H>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed	DelSp=Yes
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: unlisted-recipients:; (no To-header on input)
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 67.228.10.34-static.reverse.softlayer.com ([67.228.10.34]:49378
-	"EHLO pluto.businessmedia.ca" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751668AbaG1SBr convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Jul 2014 14:01:47 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: <kernel-team@fb.com>, <ps@fb.com>
+To: <lvs-devel@vger.kernel.org>, <netdev@vger.kernel.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Short Version:
 
+What's the best way to accomplish "decapsulate any" functionality for
+"IPv{4,6} in IPv{4,6}?"  Should I write an xfrm module or is there a
+simple, existing method?
 
-ahoj
-Dobr=C3=BD ve=C4=8Der, j=C3=A1 jsem Monica Suwayd budu muset, m=C3=ADt =
-n=C4=9Bjakou diskusi s
-v=C3=A1mi. Pokud v=C3=A1m to nebude vadit. Pros=C3=ADm, dejte mi v=C4=9B=
-d=C4=9Bt, zda m=C5=AFj dopis
-je v=C3=ADt=C3=A1n. Jde Monica Suwayd.
-=2E........
+Long Version:
 
-Hello
-Good evening, I'm Monica Suwayd I would have like to have some
-discussion with you. If you don't mind. Please let me know if my letter
-is welcome. Regards Monica Suwayd.
+We've been using IPVS with ipip tunneling for ages, and it's been great,
+but our decapsulation story has always been a little weak.  At some point,
+someone figured out that if you create tunnel interfaces for both v4 and v6
+and add loopback or link-local unicast addresses to each, the kernel will
+magically start decapsulating these packets for you, and you can put your
+virtual IPs on any dummy interface you want (or loopback).
+
+So our load balancer's pre-run script basically boils down to:
+ip tunnel add mode ipip
+ip addr add dev tunl0 127.0.0.101/32
+ip link set dev tunl0 up
+ip addr add dev lo ${VIP}/32
+# And then the equivalent for v6
+
+And all was well and good in the kingdom.  But now we're getting ready to
+turn up our IPv6-only internal cluster, and so we're forced to push forward
+on things like v4-in-v6 tunneling (currently unsupported by IPVS, but we've
+got a patch set that we'll put up when we have a working end-to-end-test).
+Predictably, our magic script fell apart and we had to look into how the
+sausage was made.
+
+So, before I go off and write some terrible xfrm decapsulate-any module, is
+there a "right way" to do this with stock linux?
+
+Thanks,
+Alex
