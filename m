@@ -1,51 +1,180 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/2] udp: UDP Fast Port
-Date: Mon, 28 Jul 2014 16:20:22 +0200
-Message-ID: <1406557222.12728.23.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <alpine.DEB.2.02.1407261519050.27164@tomh.mtv.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Tom Herbert <therbert@google.com>
+From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Subject: [PATCH 1/3] driver core: enable drivers to use deferred probe from init
+Date: Mon, 28 Jul 2014 07:34:25 -0700
+Message-ID: <1406558067-25308-1-git-send-email-mcgrof@do-not-panic.com>
+Cc: linux-kernel@vger.kernel.org,
+	"Luis R. Rodriguez" <mcgrof@suse.com>,
+	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
+	Joseph Salisbury <joseph.salisbury@canonical.com>,
+	Kay Sievers <kay@vrfy.org>,
+	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+	Tim Gardner <tim.gardner@canonical.com>,
+	Pierre Fersing <pierre-fersing@pierref.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Oleg Nesterov <oleg@redhat.com>,
+	Benjamin Poirier <bpoirier@suse.de>,
+	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
+	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
+	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
+	Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
+	Hariprasad S <hariprasad@chelsio.com>,
+	Santosh Rastapur <santosh@chelsio.com>,
+	MPT-FusionLinux.pdl@avagotech.com, linux-scsi@vger.kernel.org,
+	netdev@vger.kernel.org
+To: gregkh@linuxfoundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f44.google.com ([74.125.82.44]:50108 "EHLO
-	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752252AbaG1OVY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2014 10:21:24 -0400
-Received: by mail-wg0-f44.google.com with SMTP id m15so7417116wgh.27
-        for <netdev@vger.kernel.org>; Mon, 28 Jul 2014 07:21:23 -0700 (PDT)
-In-Reply-To: <alpine.DEB.2.02.1407261519050.27164@tomh.mtv.corp.google.com>
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:41743 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751175AbaG1Oef (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2014 10:34:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2014-07-26 at 15:29 -0700, Tom Herbert wrote:
-> This patch implements fast ports in UDP. The idea is that a kernel
-> module registers a port and associated receive function. In UDP receive,
-> the list of fast ports is scanned and the destinaton port is matched
-> against the registered port. If there is a match, then the receive
-> function is called to process the packet. When a UDP fast port is used,
-> we can receive encap'ed packets without performing or accessing a
-> socket. This is a performance gain, especially since we don't need to
-> take socket ref count on every packet.
-> 
-> Signed-off-by: Tom Herbert <therbert@google.com>
-> ---
->  include/net/udp.h | 23 +++++++++++++++++++
->  net/ipv4/udp.c    | 69 ++++++++++++++++++++++++++++++++++++++++++++++++++++---
->  net/ipv6/udp.c    | 21 +++++++++++++++--
->  3 files changed, 108 insertions(+), 5 deletions(-)
+From: "Luis R. Rodriguez" <mcgrof@suse.com>
 
-I find this very hacky. I do not think we should have different sorts of
-UDP sockets.
+Tetsuo bisected and found that commit 786235ee "kthread: make
+kthread_create() killable" modified kthread_create() to bail as
+soon as SIGKILL is received. This is causing some issues with
+some drivers and at times boot. Joseph then found that failures
+occur as the systemd-udevd process sends SIGKILL to modprobe if
+probe on a driver takes over 30 seconds. When this happens probe
+will fail on any driver, its why booting on some system will fail
+if the driver happens to be a storage related driver. Some folks
+have suggested fixing this by modifying kthread_create() to not
+leave upon SIGKILL [3], upon review Oleg rejected this change and
+the discussion was punted out to systemd to see if the default
+timeout could be increased from 30 seconds to 120. The opinion of
+the systemd maintainers is that the driver's behavior should
+be fixed [4]. Linus seems to agree [5], however more recently even
+networking drivers have been reported to fail on probe since just
+writing the firmware to a device and kicking it can take easy over
+60 seconds [6]. Benjamim was able to trace the issues recently
+reported on cxgb4 down to the same systemd-udevd 30 second timeout [6].
 
-If we believe we need a fast UDP path, without socket refcount being
-touched, we should remove the SLAB_DESTROY_BY_RCU and switch to rcu
-socket freeing (call_rcu())
+This is an alternative solution which enables drivers that are
+known to take long to use deferred probe workqueue. This avoids
+the 30 second timeout and lets us annotate drivers with long
+init sequences.
 
-At the time we added RCU lookups to UDP, we hadn't vxlan, and fear was
-that the extra RCU grace period at socket dismantle was too heavy cost,
-like TCP sockets.
+As drivers determine a component is not yet available and needs
+to defer probe you'll be notified this happen upon init for each
+device but now with a message such as:
 
-Meanwhile, RCU cleanups got lot of attention, and UDP sockets serve as
-tunnels vehicle.
+pci 0000:03:00.0: Driver cxgb4 requests probe deferral on init
+
+You should see one of these per struct device probed.
+
+[0] https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1276705
+[1] https://bugs.launchpad.net/ubuntu/+source/systemd/+bug/1297248
+[2] http://lists.freedesktop.org/archives/systemd-devel/2014-March/018006.html
+[3] http://thread.gmane.org/gmane.linux.ubuntu.devel.kernel.general/39123
+[4] http://article.gmane.org/gmane.comp.sysutils.systemd.devel/17860
+[5] http://article.gmane.org/gmane.linux.kernel/1671333
+[6] https://bugzilla.novell.com/show_bug.cgi?id=877622
+
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Cc: Joseph Salisbury <joseph.salisbury@canonical.com>
+Cc: Kay Sievers <kay@vrfy.org>
+Cc: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
+Cc: Tim Gardner <tim.gardner@canonical.com>
+Cc: Pierre Fersing <pierre-fersing@pierref.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Oleg Nesterov <oleg@redhat.com>
+Cc: Benjamin Poirier <bpoirier@suse.de>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>
+Cc: Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>
+Cc: Sreekanth Reddy <sreekanth.reddy@avagotech.com>
+Cc: Abhijit Mahajan <abhijit.mahajan@avagotech.com>
+Cc: Hariprasad S <hariprasad@chelsio.com>
+Cc: Santosh Rastapur <santosh@chelsio.com>
+Cc: MPT-FusionLinux.pdl@avagotech.com
+Cc: linux-scsi@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Signed-off-by: Luis R. Rodriguez <mcgrof@suse.com>
+---
+ drivers/base/dd.c      | 15 ++++++++++++++-
+ include/linux/device.h | 12 ++++++++++++
+ 2 files changed, 26 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/base/dd.c b/drivers/base/dd.c
+index e4ffbcf..7a271dc 100644
+--- a/drivers/base/dd.c
++++ b/drivers/base/dd.c
+@@ -374,6 +374,19 @@ void wait_for_device_probe(void)
+ }
+ EXPORT_SYMBOL_GPL(wait_for_device_probe);
+ 
++static int __driver_probe_device(struct device_driver *drv, struct device *dev)
++{
++	if (drv->delay_probe && !dev->init_delayed_probe) {
++		dev_info(dev, "Driver %s requests probe deferral on init\n",
++			 drv->name);
++		dev->init_delayed_probe = true;
++		driver_deferred_probe_add(dev);
++		return -EPROBE_DEFER;
++	}
++
++	return really_probe(dev, drv);
++}
++
+ /**
+  * driver_probe_device - attempt to bind device & driver together
+  * @drv: driver to bind a device to
+@@ -396,7 +409,7 @@ int driver_probe_device(struct device_driver *drv, struct device *dev)
+ 		 drv->bus->name, __func__, dev_name(dev), drv->name);
+ 
+ 	pm_runtime_barrier(dev);
+-	ret = really_probe(dev, drv);
++	ret = __driver_probe_device(drv, dev);
+ 	pm_request_idle(dev);
+ 
+ 	return ret;
+diff --git a/include/linux/device.h b/include/linux/device.h
+index af424ac..11da1b7 100644
+--- a/include/linux/device.h
++++ b/include/linux/device.h
+@@ -200,6 +200,12 @@ extern struct klist *bus_get_device_klist(struct bus_type *bus);
+  * @owner:	The module owner.
+  * @mod_name:	Used for built-in modules.
+  * @suppress_bind_attrs: Disables bind/unbind via sysfs.
++ * @delay_probe: this driver is requesting a deferred probe since
++ *	initialization. This can be desirable if its known the device probe
++ *	or initialization takes more than 30 seconds.
++ * @delayed_probe_devs: devices which have gone through a delayed probe. This
++ * 	is used internally by the driver core to keep track of which devices
++ * 	have gone through a delayed probe.
+  * @of_match_table: The open firmware table.
+  * @acpi_match_table: The ACPI match table.
+  * @probe:	Called to query the existence of a specific device,
+@@ -234,6 +240,9 @@ struct device_driver {
+ 
+ 	bool suppress_bind_attrs;	/* disables bind/unbind via sysfs */
+ 
++	bool delay_probe;		/* requests deferred probe */
++	struct list_head delayed_probe_devs;
++
+ 	const struct of_device_id	*of_match_table;
+ 	const struct acpi_device_id	*acpi_match_table;
+ 
+@@ -715,6 +724,8 @@ struct acpi_dev_node {
+  *
+  * @offline_disabled: If set, the device is permanently online.
+  * @offline:	Set after successful invocation of bus type's .offline().
++ * @init_delayed_probe: lets the coore keep track if the device has already
++ * 	gone through a delayed probe upon init.
+  *
+  * At the lowest level, every device in a Linux system is represented by an
+  * instance of struct device. The device structure contains the information
+@@ -793,6 +804,7 @@ struct device {
+ 
+ 	bool			offline_disabled:1;
+ 	bool			offline:1;
++	bool			init_delayed_probe:1;
+ };
+ 
+ static inline struct device *kobj_to_dev(struct kobject *kobj)
+-- 
+2.0.1
