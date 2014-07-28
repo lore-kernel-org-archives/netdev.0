@@ -1,7 +1,8 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V1 0/2] Helper to find length of headers in an ethernet frame
-Date: Mon, 28 Jul 2014 14:27:59 +0300
-Message-ID: <1406546881-21863-1-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next V1 2/2] net/mlx4_en: Copy exact header to SKB linear part
+Date: Mon, 28 Jul 2014 14:28:01 +0300
+Message-ID: <1406546881-21863-3-git-send-email-amirv@mellanox.com>
+References: <1406546881-21863-1-git-send-email-amirv@mellanox.com>
 Cc: Eric Dumazet <edumazet@google.com>,
 	Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
@@ -10,43 +11,62 @@ Cc: Eric Dumazet <edumazet@google.com>,
 	Ido Shamay <idos@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:57896 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:57897 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752465AbaG1L2P (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752448AbaG1L2P (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 28 Jul 2014 07:28:15 -0400
+In-Reply-To: <1406546881-21863-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Based on patch from Eric Dumazet
+When copying received packet header to the linear section of the SKB,
+copy the exact header (best effort) and not the max possible header,
+using the new network helper function eth_frame_headlen().
+It will return the size of the header up to the latest known header.
 
-This patchset is based on the patch suggested by Eric Dumazet to calculate
-header length of Ethernet headers using flow_dissector [1].
-We have tested it in Mellanox lab, non GRO traffic shows some improvement in
-bandwidth when using the patch, and anyway, the right way is to copy the exact
-header and not just an arbitrary number of bytes.
-Also  tested using a built-in function (the orignal patch [2]). Eric's solution
-gives the same numbers (even a bit better).
-
-[1] - http://patchwork.ozlabs.org/patch/350413/
-[2] - http://patchwork.ozlabs.org/patch/347031/
-
-CC: Alexander Duyck <alexander.h.duyck@intel.com>
-
-Changes from V0:
-- Patch 2/2: net/mlx4_en: Copy exact header to SKB linear part
-  - Fixed commit message
-  - Added empty line after declaration
-
-Amir Vadai (1):
-  net/mlx4_en: Copy exact header to SKB linear part
-
-Eric Dumazet (1):
-  net: Header length compution function
-
+Signed-off-by: Ido Shamay <idos@mellanox.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
  drivers/net/ethernet/mellanox/mlx4/en_rx.c | 14 +++++++++-----
- include/linux/skbuff.h                     |  1 +
- net/core/flow_dissector.c                  | 24 ++++++++++++++++++++++++
- 3 files changed, 34 insertions(+), 5 deletions(-)
+ 1 file changed, 9 insertions(+), 5 deletions(-)
 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index 9c909d2..ca2cfbc 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -588,6 +588,8 @@ static struct sk_buff *mlx4_en_rx_skb(struct mlx4_en_priv *priv,
+ 		skb_copy_to_linear_data(skb, va, length);
+ 		skb->tail += length;
+ 	} else {
++		unsigned int hlen;
++
+ 		/* Move relevant fragments to skb */
+ 		used_frags = mlx4_en_complete_rx_desc(priv, rx_desc, frags,
+ 							skb, length);
+@@ -597,16 +599,18 @@ static struct sk_buff *mlx4_en_rx_skb(struct mlx4_en_priv *priv,
+ 		}
+ 		skb_shinfo(skb)->nr_frags = used_frags;
+ 
++		hlen = eth_frame_headlen(va, length);
++
+ 		/* Copy headers into the skb linear buffer */
+-		memcpy(skb->data, va, HEADER_COPY_SIZE);
+-		skb->tail += HEADER_COPY_SIZE;
++		memcpy(skb->data, va, hlen);
++		skb->tail += hlen;
+ 
+ 		/* Skip headers in first fragment */
+-		skb_shinfo(skb)->frags[0].page_offset += HEADER_COPY_SIZE;
++		skb_shinfo(skb)->frags[0].page_offset += hlen;
+ 
+ 		/* Adjust size of first fragment */
+-		skb_frag_size_sub(&skb_shinfo(skb)->frags[0], HEADER_COPY_SIZE);
+-		skb->data_len = length - HEADER_COPY_SIZE;
++		skb_frag_size_sub(&skb_shinfo(skb)->frags[0], hlen);
++		skb->data_len = length - hlen;
+ 	}
+ 	return skb;
+ }
 -- 
 1.8.3.4
