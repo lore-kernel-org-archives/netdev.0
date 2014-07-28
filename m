@@ -1,83 +1,140 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: Multiqueue TX
-Date: Mon, 28 Jul 2014 16:03:37 -0700
-Message-ID: <53D6D6C9.2070607@gmail.com>
-References: <CAJzFV37uOC15X+3PR0UJDsBGvMzRP9JRDp16CH8-OiiTv2NM7g@mail.gmail.com> <CAJzFV36cL9=qNcF-cb0OSx1A39FP2Gaa98HBqr9D35fQ3BfU=Q@mail.gmail.com>
+From: Dmitry Popov <ixaphire@qrator.net>
+Subject: [PATCH] ip_tunnel(ipv4): fix tunnels with
+ "local any remote $remote_ip"
+Date: Tue, 29 Jul 2014 03:07:52 +0400
+Message-ID: <20140729030752.d156e9522754e8a6262541ec@qrator.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: Sharat Masetty <sharat04@gmail.com>
+Cc: Sergey Popov <pinkbyte@gentoo.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Tom Herbert <therbert@google.com>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f41.google.com ([209.85.219.41]:49409 "EHLO
-	mail-oa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750702AbaG1XDt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2014 19:03:49 -0400
-Received: by mail-oa0-f41.google.com with SMTP id j17so9586205oag.28
-        for <netdev@vger.kernel.org>; Mon, 28 Jul 2014 16:03:49 -0700 (PDT)
-In-Reply-To: <CAJzFV36cL9=qNcF-cb0OSx1A39FP2Gaa98HBqr9D35fQ3BfU=Q@mail.gmail.com>
+Received: from mail-lb0-f175.google.com ([209.85.217.175]:36823 "EHLO
+	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750702AbaG1XH5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2014 19:07:57 -0400
+Received: by mail-lb0-f175.google.com with SMTP id 10so6452946lbg.34
+        for <netdev@vger.kernel.org>; Mon, 28 Jul 2014 16:07:55 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/28/2014 03:37 PM, Sharat Masetty wrote:
-> Hi David,
->
-> Can you please answer my question when you get a chance?
->
-> Regards,
-> Sharat
+Ipv4 tunnels created with "local any remote $ip" didn't work properly since
+7d442fab0 (ipv4: Cache dst in tunnels). 99% of packets sent via those tunnels
+had src addr = 0.0.0.0. That was because only dst_entry was cached, although
+fl4.saddr has to be cached too. Every time ip_tunnel_xmit used cached dst_entry
+(tunnel_rtable_get returned non-NULL), fl4.saddr was initialized with
+tnl_params->saddr (= 0 in our case), and wasn't changed until iptunnel_xmit().
 
-Little patience ;) Monday's are always a bit busy.
+This patch adds saddr to ip_tunnel->dst_cache, fixing this issue.
 
->
-> On Sat, Jul 26, 2014 at 1:31 AM, Sharat Masetty <sharat04@gmail.com> wrote:
->> I have a question from this David's nice presentation
->> http://vger.kernel.org/~davem/davem_nyc09.pdf on multiqueue TX. My
->> questions are on the slide named "PICTURE WITH NON-TRIVIAL QDISC"
->>
->> 1)  What is the rationale behind such an arrangement, where one would
->> have multiple TX queues pointing to the on single Qdisc?
-
-The simplest example is to take a look at sch_tbf and try to work out
-how we could rate limit a device. Here you have a single qdisc being
-used for all TX queues. HTB as you note below is another example.
-
-How would you propose creating rate limits across entire interfaces
-without a single Qdisc.
-
-Its ongoing work to create queuing disciplines that don't bottleneck
-on the qdisc lock and distribute the state.
-
->> 2)  If the Qdisc in this illustration was a non trivial Qdisc such as
->> htb, which has multiple leaf Qdisc's, how would the traffic shaping be
->> preserved?
-
-Not sure I follow. Using HTB as a root qdisc on an interface works the
-same if the interface has 1 queue or 128 queues.
-
-Maybe you need to review netdev_pick_tx and follow skb->queue_mapping
-through the device notice that it is not really used by the qdisc.
-
->> 3) How would the back pressure/flow control of these individual TX
->> queues work in this case?
-
-To sort this out look into netif_stop_subqueue() and how the ethernet
-drivers use this call. Then look at how it is used in ./net/sch_generic
-by the dequeue_skb() call. I think it should be clear by reviewing this
-usage how the back pressure works from the driver to the qdisc. Its
-fairly straight forward and uses a bit to indicate to the qdisc stack
-the driver can not consume more skbs.
-
->>
->> Thanks
->> Sharat
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
-
-
--- 
-John Fastabend         Intel Corporation
+Reported-by: Sergey Popov <pinkbyte@gentoo.org>
+Signed-off-by: Dmitry Popov <ixaphire@qrator.net>
+---
+ include/net/ip_tunnels.h |  1 +
+ net/ipv4/ip_tunnel.c     | 29 ++++++++++++++++++-----------
+ 2 files changed, 19 insertions(+), 11 deletions(-)
+diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
+index a4daf9e..8dd8cab 100644
+--- a/include/net/ip_tunnels.h
++++ b/include/net/ip_tunnels.h
+@@ -40,6 +40,7 @@ struct ip_tunnel_prl_entry {
+ 
+ struct ip_tunnel_dst {
+ 	struct dst_entry __rcu 		*dst;
++	__be32				 saddr;
+ };
+ 
+ struct ip_tunnel {
+diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+index 6f9de61..45920d9 100644
+--- a/net/ipv4/ip_tunnel.c
++++ b/net/ipv4/ip_tunnel.c
+@@ -69,23 +69,25 @@ static unsigned int ip_tunnel_hash(__be32 key, __be32 remote)
+ }
+ 
+ static void __tunnel_dst_set(struct ip_tunnel_dst *idst,
+-			     struct dst_entry *dst)
++			     struct dst_entry *dst, __be32 saddr)
+ {
+ 	struct dst_entry *old_dst;
+ 
+ 	dst_clone(dst);
+ 	old_dst = xchg((__force struct dst_entry **)&idst->dst, dst);
+ 	dst_release(old_dst);
++	idst->saddr = saddr;
+ }
+ 
+-static void tunnel_dst_set(struct ip_tunnel *t, struct dst_entry *dst)
++static void tunnel_dst_set(struct ip_tunnel *t,
++			   struct dst_entry *dst, __be32 saddr)
+ {
+-	__tunnel_dst_set(this_cpu_ptr(t->dst_cache), dst);
++	__tunnel_dst_set(this_cpu_ptr(t->dst_cache), dst, saddr);
+ }
+ 
+ static void tunnel_dst_reset(struct ip_tunnel *t)
+ {
+-	tunnel_dst_set(t, NULL);
++	tunnel_dst_set(t, NULL, 0);
+ }
+ 
+ void ip_tunnel_dst_reset_all(struct ip_tunnel *t)
+@@ -93,20 +95,25 @@ void ip_tunnel_dst_reset_all(struct ip_tunnel *t)
+ 	int i;
+ 
+ 	for_each_possible_cpu(i)
+-		__tunnel_dst_set(per_cpu_ptr(t->dst_cache, i), NULL);
++		__tunnel_dst_set(per_cpu_ptr(t->dst_cache, i), NULL, 0);
+ }
+ EXPORT_SYMBOL(ip_tunnel_dst_reset_all);
+ 
+-static struct rtable *tunnel_rtable_get(struct ip_tunnel *t, u32 cookie)
++static struct rtable *tunnel_rtable_get(struct ip_tunnel *t,
++					u32 cookie, __be32 *saddr)
+ {
++	struct ip_tunnel_dst *idst;
+ 	struct dst_entry *dst;
+ 
+ 	rcu_read_lock();
+-	dst = rcu_dereference(this_cpu_ptr(t->dst_cache)->dst);
++	idst = this_cpu_ptr(t->dst_cache);
++	dst = rcu_dereference(idst->dst);
+ 	if (dst && !atomic_inc_not_zero(&dst->__refcnt))
+ 		dst = NULL;
+ 	if (dst) {
+-		if (dst->obsolete && dst->ops->check(dst, cookie) == NULL) {
++		if (!dst->obsolete || dst->ops->check(dst, cookie)) {
++			*saddr = idst->saddr;
++		} else {
+ 			tunnel_dst_reset(t);
+ 			dst_release(dst);
+ 			dst = NULL;
+@@ -367,7 +374,7 @@ static int ip_tunnel_bind_dev(struct net_device *dev)
+ 
+ 		if (!IS_ERR(rt)) {
+ 			tdev = rt->dst.dev;
+-			tunnel_dst_set(tunnel, &rt->dst);
++			tunnel_dst_set(tunnel, &rt->dst, fl4.saddr);
+ 			ip_rt_put(rt);
+ 		}
+ 		if (dev->type != ARPHRD_ETHER)
+@@ -610,7 +617,7 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
+ 	init_tunnel_flow(&fl4, protocol, dst, tnl_params->saddr,
+ 			 tunnel->parms.o_key, RT_TOS(tos), tunnel->parms.link);
+ 
+-	rt = connected ? tunnel_rtable_get(tunnel, 0) : NULL;
++	rt = connected ? tunnel_rtable_get(tunnel, 0, &fl4.saddr) : NULL;
+ 
+ 	if (!rt) {
+ 		rt = ip_route_output_key(tunnel->net, &fl4);
+@@ -620,7 +627,7 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
+ 			goto tx_error;
+ 		}
+ 		if (connected)
+-			tunnel_dst_set(tunnel, &rt->dst);
++			tunnel_dst_set(tunnel, &rt->dst, fl4.saddr);
+ 	}
+ 
+ 	if (rt->dst.dev == dev) {
