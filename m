@@ -1,85 +1,70 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next 1/2] net: Header length compution function
-Date: Mon, 28 Jul 2014 13:14:10 +0300
-Message-ID: <1406542451-8857-2-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next 2/2] net/mlx4_en: Copy exact header to SKB linear part
+Date: Mon, 28 Jul 2014 13:14:11 +0300
+Message-ID: <1406542451-8857-3-git-send-email-amirv@mellanox.com>
 References: <1406542451-8857-1-git-send-email-amirv@mellanox.com>
 Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
 	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Ido Shamay <idos@mellanox.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
+	Ido Shamay <idos@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:47500 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:50037 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751811AbaG1KOf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Jul 2014 06:14:35 -0400
+	id S1751811AbaG1KOh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Jul 2014 06:14:37 -0400
 In-Reply-To: <1406542451-8857-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
+Based on patch from Eric Dumazet
+When copy received packet header to the linear section of the SKB,
+Copy the exact header (best effort) and not the max possible header,
+using the new network helper function __net_get_headlen.
+It will return the size of the header up to the latest known header.
 
-This commit is based on Eric Dumazet suggestion.
-Use flow dissector to calculate header length.
-Tested the following with a mlx4, and it indeed speeds up GRE traffic,
-as GRO packets can now contain 17 MSS instead of 8.
-(Pulling payload means GRO had to use 2 'frags' per MSS)
-
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Ido Shamay <idos@mellanox.com>
 Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
- include/linux/skbuff.h    |  1 +
- net/core/flow_dissector.c | 24 ++++++++++++++++++++++++
- 2 files changed, 25 insertions(+)
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c | 13 ++++++++-----
+ 1 file changed, 8 insertions(+), 5 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index b613557..1f9af4d 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -3133,6 +3133,7 @@ bool skb_partial_csum_set(struct sk_buff *skb, u16 start, u16 off);
- int skb_checksum_setup(struct sk_buff *skb, bool recalculate);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index 9c909d2..c4471f1 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -588,6 +588,7 @@ static struct sk_buff *mlx4_en_rx_skb(struct mlx4_en_priv *priv,
+ 		skb_copy_to_linear_data(skb, va, length);
+ 		skb->tail += length;
+ 	} else {
++		unsigned int hlen;
+ 		/* Move relevant fragments to skb */
+ 		used_frags = mlx4_en_complete_rx_desc(priv, rx_desc, frags,
+ 							skb, length);
+@@ -597,16 +598,18 @@ static struct sk_buff *mlx4_en_rx_skb(struct mlx4_en_priv *priv,
+ 		}
+ 		skb_shinfo(skb)->nr_frags = used_frags;
  
- u32 __skb_get_poff(const struct sk_buff *skb);
-+u32 eth_frame_headlen(void *data, unsigned int len);
++		hlen = eth_frame_headlen(va, length);
++
+ 		/* Copy headers into the skb linear buffer */
+-		memcpy(skb->data, va, HEADER_COPY_SIZE);
+-		skb->tail += HEADER_COPY_SIZE;
++		memcpy(skb->data, va, hlen);
++		skb->tail += hlen;
  
- /**
-  * skb_head_is_locked - Determine if the skb->head is locked down
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 5f362c1..c3afd27 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -343,6 +343,30 @@ u32 __skb_get_poff(const struct sk_buff *skb)
- 	return poff;
+ 		/* Skip headers in first fragment */
+-		skb_shinfo(skb)->frags[0].page_offset += HEADER_COPY_SIZE;
++		skb_shinfo(skb)->frags[0].page_offset += hlen;
+ 
+ 		/* Adjust size of first fragment */
+-		skb_frag_size_sub(&skb_shinfo(skb)->frags[0], HEADER_COPY_SIZE);
+-		skb->data_len = length - HEADER_COPY_SIZE;
++		skb_frag_size_sub(&skb_shinfo(skb)->frags[0], hlen);
++		skb->data_len = length - hlen;
+ 	}
+ 	return skb;
  }
- 
-+
-+/* Helper to find length of headers in an ethernet frame.
-+ * This can help drivers to pull exact amount of bytes into
-+ * skb->head to get optimal GRO performance.
-+ * TODO: Could also return rxhash while we do a complete flow dissection.
-+ */
-+u32 eth_frame_headlen(void *data, unsigned int len)
-+{
-+	const struct ethhdr *eth = data;
-+	struct sk_buff skb;
-+
-+	if (unlikely(len < ETH_HLEN))
-+		return len;
-+
-+	skb.protocol = eth->h_proto;
-+	skb.head = data + ETH_HLEN;
-+	skb.data = skb.head;
-+	skb_reset_network_header(&skb);
-+	skb.len = len - ETH_HLEN;
-+	skb.data_len = 0;
-+	return __skb_get_poff(&skb) + ETH_HLEN;
-+}
-+EXPORT_SYMBOL(eth_frame_headlen);
-+
- static inline int get_xps_queue(struct net_device *dev, struct sk_buff *skb)
- {
- #ifdef CONFIG_XPS
 -- 
 1.8.3.4
