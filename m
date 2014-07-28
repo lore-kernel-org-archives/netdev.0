@@ -1,13 +1,23 @@
-From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Subject: [PATCH v2 4/4] mptsas: ask for deferred probe
-Date: Mon, 28 Jul 2014 11:28:30 -0700
-Message-ID: <1406572110-26823-5-git-send-email-mcgrof@do-not-panic.com>
-References: <1406572110-26823-1-git-send-email-mcgrof@do-not-panic.com>
-Cc: tiwai@suse.de, linux-kernel@vger.kernel.org,
-	"Luis R. Rodriguez" <mcgrof@suse.com>,
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: [PATCH 1/3] driver core: enable drivers to use deferred probe
+	from init
+Date: Mon, 28 Jul 2014 18:30:29 +0000
+Message-ID: <B5657A6538887040AD3A81F1008BEC63B07066@avmb3.qlogic.org>
+References: <1406558067-25308-1-git-send-email-mcgrof@do-not-panic.com>
+ <B5657A6538887040AD3A81F1008BEC63B06F9A@avmb3.qlogic.org>
+ <20140728153811.GD21930@wotan.suse.de>
+ <B5657A6538887040AD3A81F1008BEC63B06FCF@avmb3.qlogic.org>
+ <20140728165248.GE21930@wotan.suse.de>,<20140728165920.GF21930@wotan.suse.de>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+	boundary="_000_B5657A6538887040AD3A81F1008BEC63B07066avmb3qlogicorg_"
+Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
 	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
 	Joseph Salisbury <joseph.salisbury@canonical.com>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+	Kay Sievers <kay@vrfy.org>,
+	"One Thousand Gnomes" <gnomes@lxorguk.ukuu.org.uk>,
 	Tim Gardner <tim.gardner@canonical.com>,
 	Pierre Fersing <pierre-fersing@pierref.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
@@ -19,61 +29,137 @@ Cc: tiwai@suse.de, linux-kernel@vger.kernel.org,
 	Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
 	Hariprasad S <hariprasad@chelsio.com>,
 	Santosh Rastapur <santosh@chelsio.com>,
-	MPT-FusionLinux.pdl@avagotech.com, linux-scsi@vger.kernel.org,
-	netdev@vger.kernel.org
-To: gregkh@linuxfoundation.org
+	"MPT-FusionLinux.pdl@avagotech.com"
+	<MPT-Fu
+To: "Luis R. Rodriguez" <mcgrof@suse.com>
 Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <1406572110-26823-1-git-send-email-mcgrof@do-not-panic.com>
+In-Reply-To: <20140728165920.GF21930@wotan.suse.de>
+Content-Language: en-US
 Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Luis R. Rodriguez" <mcgrof@suse.com>
+--_000_B5657A6538887040AD3A81F1008BEC63B07066avmb3qlogicorg_
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
 
-Its reported that mptsas can at times take over 30 seconds
-to recognize SCSI storage devices [0], this is done on the
-driver's probe path. Use the the deferred probe workqueue
-to allow long init sequences to complete.
+> On Mon, Jul 28, 2014 at 06:52:48PM +0200, Luis R. Rodriguez wrote:=0A=
+> > On Mon, Jul 28, 2014 at 03:46:32PM +0000, Yuval Mintz wrote:=0A=
+> > > Sorry for not being clear, but I didn't meant 'what guarantees that t=
+he device=0A=
+> > > will be added to the deferred probe', but rather what guarantees that=
+ the=0A=
+> > > deferred workqueue will be scheduled.=0A=
+> > >=0A=
+> > > To the best of my knowledge the deferring mechanism works only if one=
+ device=0A=
+> > > is dependent upon another, e.g., for Multi-function devices where one=
+ device=0A=
+> > > probe is dependent upon the others - which are soon-to-be probed.=0A=
+> >=0A=
+> > The workqueue will be kicked when driver_deferred_probe_trigger() gets=
+=0A=
+> > poked, we do that in the late_initcall(deferred_probe_initcall), it=0A=
+> > also gets flushed there with a flush_workqueue(deferred_wq).=0A=
+=0A=
+> But come to think of it that will work well for devices already plugged i=
+n=0A=
+> so indeed I think that driver_deferred_probe_add() needs a check added=0A=
+> for for if (!driver_deferred_probe_enable) then we have to=0A=
+> driver_deferred_probe_trigger(). The driver_deferred_probe_enable is set=
+=0A=
+> to false upon init, but later on late init it gets set to true so with=0A=
+> that check we'd  only generate the trigger after late init call.=0A=
+=0A=
+> I can fold that in the v2.=0A=
+=0A=
+>   Luis=0A=
+=0A=
+But what about modules being added after the init-calls? If they try try to=
+ use this=0A=
+mechanism, what guarantees they'll eventually get probed?=0A=
 
-[0] https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1276705
+--_000_B5657A6538887040AD3A81F1008BEC63B07066avmb3qlogicorg_
+Content-Disposition: attachment; filename="winmail.dat"
+Content-Transfer-Encoding: base64
+Content-Type: application/ms-tnef; name="winmail.dat"
 
-Cc: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Cc: Joseph Salisbury <joseph.salisbury@canonical.com>
-Cc: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
-Cc: Tim Gardner <tim.gardner@canonical.com>
-Cc: Pierre Fersing <pierre-fersing@pierref.org>
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: Oleg Nesterov <oleg@redhat.com>
-Cc: Benjamin Poirier <bpoirier@suse.de>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>
-Cc: Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>
-Cc: Sreekanth Reddy <sreekanth.reddy@avagotech.com>
-Cc: Abhijit Mahajan <abhijit.mahajan@avagotech.com>
-Cc: Hariprasad S <hariprasad@chelsio.com>
-Cc: Santosh Rastapur <santosh@chelsio.com>
-Cc: MPT-FusionLinux.pdl@avagotech.com
-Cc: linux-scsi@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Cc: netdev@vger.kernel.org
-Signed-off-by: Luis R. Rodriguez <mcgrof@suse.com>
----
- drivers/message/fusion/mptsas.c | 3 +++
- 1 file changed, 3 insertions(+)
+eJ8+Ir4JAQaQCAAEAAAAAAABAAEAAQeQBgAIAAAA5AQAAAAAAADoAAEJgAEAIQAAAERFMUU2Mzk2
+ODMyRDdBNDJBQjlBQ0FDNUY0NDAxOTI4AEEHAQ2ABAACAAAAAgACAAEFgAMADgAAAN4HBwAcABIA
+HgAdAAEAVgEBIIADAA4AAADeBwcAHAASAB4AHQABAFYBAQiABwAYAAAASVBNLk1pY3Jvc29mdCBN
+YWlsLk5vdGUAMQgBBIABAEwAAABSRTogW1BBVENIIDEvM10gZHJpdmVyIGNvcmU6IGVuYWJsZSBk
+cml2ZXJzIHRvIHVzZSBkZWZlcnJlZCBwcm9iZQlmcm9tIGluaXQAuxkBA5AGACAQAAA2AAAAAgF/
+AAEAAAA6AAAAPEI1NjU3QTY1Mzg4ODcwNDBBRDNBODFGMTAwOEJFQzYzQjA3MDY2QGF2bWIzLnFs
+b2dpYy5vcmc+AAAACwAfDgEAAAACAQkQAQAAAGEEAABdBAAAdwcAAExaRnXDvuKYYQAKZmJpZAQA
+AGNjwHBnMTI1MgD+A0PwdGV4dAH3AqQD4wIABGNoCsBzZXQwIO8HbQKDAFARTTIKgAa0AoCWfQqA
+CMg7CWIxOQ7AvwnDFnIKMhZxAoAVYioJsHMJ8ASQYXQFsg5QA2Bzom8BgCBFeBHBbhgwXQZSdgSQ
+F7YCEHIAwHR9CFBuGjEQIAXABaAbZGSaIANSIBAiF7JcdgiQ5HdrC4BkNR1TBPAHQA0XcDAKcRfy
+YmttawZzAZAAICBCTV9C4EVHSU59CvwB8QvxUCA+IE8DoE0CICzIIEp1AyAyOCIgAdAIMTQgGIAg
+MDY6AQ6wOjQ4UE0gK8owAdAwIiBMdQQAB/AqLgfxZAUQZwpQeiBGdwNgECA6XGwLgGVvCoAhoCGv
+IrgzI5AjUDOOMiPDKNEm8Fl1dgdALxjBAjAlbyZSUwWwcnmLHHAFsW4loCBiZQuAnmcb0B5wCsAm
+8GJ1BUDESSAN4GRuJwVAB4DzAHAFQCd3EdAFQCUwCsD3LcEJ4AQgdC4iLxAZ4AEA2R1gY2UqWwPw
+bAMgLAC9IwBkAQAcYBiQL1VmBJDZCXEgcANgLAAnLLQYcb8vcAXALh8vJSpbMid3BbB8a3EKUApQ
+MMcE8C9wZNsiUAmALipaKltUMcQsAF0fYCAZMC2QK2BrK8B3/zhBGdEx6CwiB4AZkgQAHLD3NsIE
+IAIgbCtgBpA9oS+PdyZSJIEBAHAJ8AEALdF1PnACICMAK8EzoSbwZS4sZy4m8CuCTSJQdGngLWZ1
+bmNCIECRPnT/BCAz4ASQGeA+PyrEMrM/n28DoC9iQOMEIC0z0Q5QaK8jAEORGSACIC0YkC0xIfcy
+szhqJelUL3E2zzsgDlC+azaSL3BCwQUQGjFfMiYyXzKzX3QlERgwcij+KTQgEhAOACX4QIBMISbw
+/ndD4THCIxELgC9TC2AQIJJfC4BpdB5RbChNLf1Rhikm8FGgJekHQBkgTqP7HHAKQHM4AS9SQ5ED
+8C8QGyMAVRRfStdSCHdxKfs4diXnQizhBaAHgDGkC4D+azrCUaAvBDDTStJQATDxfyuCQuYHQAlw
+MVArYAtQdf9OQRxgC4El9lShHbEJ4Bxg/y0QWgQvE0y/TcMxUU6BGFD/CYBcoRvQL3BMEDFEJecr
+gvMrgj4BKCFf703DCfABoP8ecE6QL2EDoFAREdAaMDGh/yXnZD9NzCTASpJnn2VJRYL3EgEl5zGx
+ZlSBGeBAc1GC/yy0UTIFwECRUTJtc1qCVNP7EgExo3I3MVShVgJsGDPy+2IkUBAnHGA9pBg1O7RO
+Ff8jAAGAG7FuuFHCWD8tEB5QmwOgAhBsVYJQmHYydY//coAkYlhMWUIz4wGgCGAtgf8EcDgxBCAs
+BDFUdEQvYlGC8i1RwnM/LQA64C9hK2D/ThB+ZTHAVUA7snl3PLdP8fsz/35QJzDxRBBAMTRAMPB3
+ctIFQEjUPyXlFUKEYAAAAB8AQgABAAAAGAAAAFkAdQB2AGEAbAAgAE0AaQBuAHQAegAAAB8AZQAB
+AAAALgAAAFkAdQB2AGEAbAAuAE0AaQBuAHQAegBAAHEAbABvAGcAaQBjAC4AYwBvAG0AAAAAAB8A
+ZAABAAAACgAAAFMATQBUAFAAAAAAAAIBQQABAAAAaAAAAAAAAACBKx+kvqMQGZ1uAN0BD1QCAAAA
+gFkAdQB2AGEAbAAgAE0AaQBuAHQAegAAAFMATQBUAFAAAABZAHUAdgBhAGwALgBNAGkAbgB0AHoA
+QABxAGwAbwBnAGkAYwAuAGMAbwBtAAAAHwACXQEAAAAuAAAAWQB1AHYAYQBsAC4ATQBpAG4AdAB6
+AEAAcQBsAG8AZwBpAGMALgBjAG8AbQAAAAAAHwDlXwEAAAA2AAAAcwBpAHAAOgB5AHUAdgBhAGwA
+LgBtAGkAbgB0AHoAQABxAGwAbwBnAGkAYwAuAGMAbwBtAAAAAAAfABoMAQAAABgAAABZAHUAdgBh
+AGwAIABNAGkAbgB0AHoAAAAfAB8MAQAAAC4AAABZAHUAdgBhAGwALgBNAGkAbgB0AHoAQABxAGwA
+bwBnAGkAYwAuAGMAbwBtAAAAAAAfAB4MAQAAAAoAAABTAE0AVABQAAAAAAACARkMAQAAAGgAAAAA
+AAAAgSsfpL6jEBmdbgDdAQ9UAgAAAIBZAHUAdgBhAGwAIABNAGkAbgB0AHoAAABTAE0AVABQAAAA
+WQB1AHYAYQBsAC4ATQBpAG4AdAB6AEAAcQBsAG8AZwBpAGMALgBjAG8AbQAAAB8AAV0BAAAALgAA
+AFkAdQB2AGEAbAAuAE0AaQBuAHQAegBAAHEAbABvAGcAaQBjAC4AYwBvAG0AAAAAAB8A+D8BAAAA
+GAAAAFkAdQB2AGEAbAAgAE0AaQBuAHQAegAAAB8AI0ABAAAALgAAAFkAdQB2AGEAbAAuAE0AaQBu
+AHQAegBAAHEAbABvAGcAaQBjAC4AYwBvAG0AAAAAAB8AIkABAAAACgAAAFMATQBUAFAAAAAAAAIB
++T8BAAAAaAAAAAAAAACBKx+kvqMQGZ1uAN0BD1QCAAAAgFkAdQB2AGEAbAAgAE0AaQBuAHQAegAA
+AFMATQBUAFAAAABZAHUAdgBhAGwALgBNAGkAbgB0AHoAQABxAGwAbwBnAGkAYwAuAGMAbwBtAAAA
+HwAJXQEAAAAuAAAAWQB1AHYAYQBsAC4ATQBpAG4AdAB6AEAAcQBsAG8AZwBpAGMALgBjAG8AbQAA
+AAAAHwAxQAEAAAACAAAAAAAAAAsAQDoBAAAAHwAwQAEAAAACAAAAAAAAAB8AGgABAAAAEgAAAEkA
+UABNAC4ATgBvAHQAZQAAAAAAAwDxPwkEAAALAEA6AQAAAAMA/T/kBAAAAgELMAEAAAAQAAAA3h5j
+loMtekKrmsrF9EAZKAMAFwABAAAAQAA5AIBQ2QGSqs8BQAAIMOysVQKSqs8BCwApAAAAAAALAACA
+CCAGAAAAAADAAAAAAAAARgAAAAAUhQAAAQAAAAsAIwAAAAAAHwAAgIYDAgAAAAAAwAAAAAAAAEYB
+AAAAHgAAAGEAYwBjAGUAcAB0AGwAYQBuAGcAdQBhAGcAZQAAAAAAAQAAAAwAAABlAG4ALQBVAFMA
+AAALAACACCAGAAAAAADAAAAAAAAARgAAAAAGhQAAAAAAAB8ANwABAAAAmAAAAFIARQA6ACAAWwBQ
+AEEAVABDAEgAIAAxAC8AMwBdACAAZAByAGkAdgBlAHIAIABjAG8AcgBlADoAIABlAG4AYQBiAGwA
+ZQAgAGQAcgBpAHYAZQByAHMAIAB0AG8AIAB1AHMAZQAgAGQAZQBmAGUAcgByAGUAZAAgAHAAcgBv
+AGIAZQAJAGYAcgBvAG0AIABpAG4AaQB0AAAAHwA9AAEAAAAKAAAAUgBFADoAIAAAAAAAAwA2AAAA
+AAADAC4AAAAAAB8AQhABAAAATgAAADwAMgAwADEANAAwADcAMgA4ADEANgA1ADkAMgAwAC4ARwBG
+ADIAMQA5ADMAMABAAHcAbwB0AGEAbgAuAHMAdQBzAGUALgBkAGUAPgAAAAAAAgFxAAEAAAAqAAAA
+AQHPqnnzAnxQWE7GzUSaZGTElDLpfpu1n4JQgACJmwCAAAHTAP//o1FTAAAfAHAAAQAAAJAAAABb
+AFAAQQBUAEMASAAgADEALwAzAF0AIABkAHIAaQB2AGUAcgAgAGMAbwByAGUAOgAgAGUAbgBhAGIA
+bABlACAAZAByAGkAdgBlAHIAcwAgAHQAbwAgAHUAcwBlACAAZABlAGYAZQByAHIAZQBkACAAcABy
+AG8AYgBlAAkAZgByAG8AbQAgAGkAbgBpAHQAAAAfADUQAQAAAHQAAAA8AEIANQA2ADUANwBBADYA
+NQAzADgAOAA4ADcAMAA0ADAAQQBEADMAQQA4ADEARgAxADAAMAA4AEIARQBDADYAMwBCADAANwAw
+ADYANgBAAGEAdgBtAGIAMwAuAHEAbABvAGcAaQBjAC4AbwByAGcAPgAAAB8AORABAAAASgIAADwA
+MQA0ADAANgA1ADUAOAAwADYANwAtADIANQAzADAAOAAtADEALQBnAGkAdAAtAHMAZQBuAGQALQBl
+AG0AYQBpAGwALQBtAGMAZwByAG8AZgBAAGQAbwAtAG4AbwB0AC0AcABhAG4AaQBjAC4AYwBvAG0A
+PgAgADwAQgA1ADYANQA3AEEANgA1ADMAOAA4ADgANwAwADQAMABBAEQAMwBBADgAMQBGADEAMAAw
+ADgAQgBFAEMANgAzAEIAMAA2AEYAOQBBAEAAYQB2AG0AYgAzAC4AcQBsAG8AZwBpAGMALgBvAHIA
+ZwA+ACAAPAAyADAAMQA0ADAANwAyADgAMQA1ADMAOAAxADEALgBHAEQAMgAxADkAMwAwAEAAdwBv
+AHQAYQBuAC4AcwB1AHMAZQAuAGQAZQA+ACAAPABCADUANgA1ADcAQQA2ADUAMwA4ADgAOAA3ADAA
+NAAwAEEARAAzAEEAOAAxAEYAMQAwADAAOABCAEUAQwA2ADMAQgAwADYARgBDAEYAQABhAHYAbQBi
+ADMALgBxAGwAbwBnAGkAYwAuAG8AcgBnAD4AIAA8ADIAMAAxADQAMAA3ADIAOAAxADYANQAyADQA
+OAAuAEcARQAyADEAOQAzADAAQAB3AG8AdABhAG4ALgBzAHUAcwBlAC4AZABlAD4ALAA8ADIAMAAx
+ADQAMAA3ADIAOAAxADYANQA5ADIAMAAuAEcARgAyADEAOQAzADAAQAB3AG8AdABhAG4ALgBzAHUA
+cwBlAC4AZABlAD4AAAAAAAMA3j+fTgAAQAAHMGsIypqRqs8BAwAmAAAAAAACAUcAAQAAAC4AAABj
+PVVTO2E9IDtwPVFMb2dpYztsPUFWTUIzLTE0MDcyODE4MzAyOVotMzI0MzUAAAACARQwAQAAAAwA
+AADRAAAA/a1Hbj4AAAAfAPo/AQAAABgAAABZAHUAdgBhAGwAIABNAGkAbgB0AHoAAAADAA00/T8A
+AB8AAICGAwIAAAAAAMAAAAAAAABGAQAAACAAAAB4AC0AbQBzAC0AaABhAHMALQBhAHQAdABhAGMA
+aAAAAAEAAAACAAAAAAAAAB8AAICGAwIAAAAAAMAAAAAAAABGAQAAACIAAAB4AC0AbwByAGkAZwBp
+AG4AYQB0AGkAbgBnAC0AaQBwAAAAAAABAAAAGAAAAFsAMQAwAC4AMQAuADQALgAxADAAXQAAAB8A
+AICGAwIAAAAAAMAAAAAAAABGAQAAABYAAABkAGkAcwBjAGwAYQBpAG0AZQByAAAAAAABAAAADgAA
+AGIAeQBwAGEAcwBzAAAAAACqNw==
 
-diff --git a/drivers/message/fusion/mptsas.c b/drivers/message/fusion/mptsas.c
-index 711fcb5..3859ac3 100644
---- a/drivers/message/fusion/mptsas.c
-+++ b/drivers/message/fusion/mptsas.c
-@@ -5382,6 +5382,9 @@ MODULE_DEVICE_TABLE(pci, mptsas_pci_table);
- 
- 
- static struct pci_driver mptsas_driver = {
-+	.driver = {
-+		.delay_probe = true,
-+	},
- 	.name		= "mptsas",
- 	.id_table	= mptsas_pci_table,
- 	.probe		= mptsas_probe,
--- 
-2.0.1
-
+--_000_B5657A6538887040AD3A81F1008BEC63B07066avmb3qlogicorg_--
