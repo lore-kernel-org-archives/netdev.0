@@ -1,42 +1,40 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: [PATCH net] bna: fill the magic in bnad_get_eeprom() instead of validating
-Date: Mon, 28 Jul 2014 15:03:52 +0200
-Message-ID: <1406552632-1201-1-git-send-email-ivecera@redhat.com>
-Cc: rmody@brocade.com
-To: netdev@vger.kernel.org
+From: weiyj_lk@163.com
+Subject: [PATCH -next] tipc: remove duplicated include from socket.c
+Date: Mon, 28 Jul 2014 21:30:14 +0800
+Message-ID: <1406554214-30460-1-git-send-email-weiyj_lk@163.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
+	netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net
+To: Jon Maloy <jon.maloy@ericsson.com>,
+	Allan Stephens <allan.stephens@windriver.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:18579 "EHLO mx1.redhat.com"
+Received: from m12-15.163.com ([220.181.12.15]:48690 "EHLO m12-15.163.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752150AbaG1NDz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Jul 2014 09:03:55 -0400
+	id S1752870AbaG1Nah (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Jul 2014 09:30:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A driver should fill magic field of ethtool_eeprom struct in .get_eeprom
-and validate it in .set_eeprom. The bna incorrectly validates it in both
-and this makes its .get_eeprom interface unusable.
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-Signed-off-by: Ivan Vecera <ivecera@redhat.com>
+Remove duplicated include.
+
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 ---
- drivers/net/ethernet/brocade/bna/bnad_ethtool.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+ net/tipc/socket.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/brocade/bna/bnad_ethtool.c b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
-index 882cad7..d26adac 100644
---- a/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
-+++ b/drivers/net/ethernet/brocade/bna/bnad_ethtool.c
-@@ -997,10 +997,8 @@ bnad_get_eeprom(struct net_device *netdev, struct ethtool_eeprom *eeprom,
- 	unsigned long flags = 0;
- 	int ret = 0;
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index 8c5600c..7ce96c7 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -40,7 +40,6 @@
+ #include "node.h"
+ #include "link.h"
+ #include <linux/export.h>
+-#include "link.h"
  
--	/* Check if the flash read request is valid */
--	if (eeprom->magic != (bnad->pcidev->vendor |
--			     (bnad->pcidev->device << 16)))
--		return -EFAULT;
-+	/* Fill the magic value */
-+	eeprom->magic = bnad->pcidev->vendor | (bnad->pcidev->device << 16);
- 
- 	/* Query the flash partition based on the offset */
- 	flash_part = bnad_get_flash_partition_by_offset(bnad,
--- 
-1.8.5.5
+ #define SS_LISTENING	-1	/* socket is listening */
+ #define SS_READY	-2	/* socket is connectionless */
