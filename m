@@ -1,54 +1,51 @@
-From: Akain Salif <akainsalif23@gmail.com>
-Subject: I AM AWAITING YOUR URGENT RESPONSE
-Date: Mon, 28 Jul 2014 13:53:26 +0000
-Message-ID: <CAPzC1TR6sjAyWLER3sVTz0Ke3Kg5=MmNkjbDyHQ=Ag3LDK-8fg@mail.gmail.com>
-Reply-To: akainsalif101@yahoo.fr
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 1/2] udp: UDP Fast Port
+Date: Mon, 28 Jul 2014 16:20:22 +0200
+Message-ID: <1406557222.12728.23.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <alpine.DEB.2.02.1407261519050.27164@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f66.google.com ([209.85.192.66]:38622 "EHLO
-	mail-qg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750752AbaG1Nx1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2014 09:53:27 -0400
-Received: by mail-qg0-f66.google.com with SMTP id a108so2938890qge.1
-        for <netdev@vger.kernel.org>; Mon, 28 Jul 2014 06:53:26 -0700 (PDT)
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:50108 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752252AbaG1OVY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2014 10:21:24 -0400
+Received: by mail-wg0-f44.google.com with SMTP id m15so7417116wgh.27
+        for <netdev@vger.kernel.org>; Mon, 28 Jul 2014 07:21:23 -0700 (PDT)
+In-Reply-To: <alpine.DEB.2.02.1407261519050.27164@tomh.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DEAR FRIEND,
-I am Mr Akain Salif. maneger auditing and accounting department Bank
-of Africa Ouagadougou Burkina Faso.
+On Sat, 2014-07-26 at 15:29 -0700, Tom Herbert wrote:
+> This patch implements fast ports in UDP. The idea is that a kernel
+> module registers a port and associated receive function. In UDP receive,
+> the list of fast ports is scanned and the destinaton port is matched
+> against the registered port. If there is a match, then the receive
+> function is called to process the packet. When a UDP fast port is used,
+> we can receive encap'ed packets without performing or accessing a
+> socket. This is a performance gain, especially since we don't need to
+> take socket ref count on every packet.
+> 
+> Signed-off-by: Tom Herbert <therbert@google.com>
+> ---
+>  include/net/udp.h | 23 +++++++++++++++++++
+>  net/ipv4/udp.c    | 69 ++++++++++++++++++++++++++++++++++++++++++++++++++++---
+>  net/ipv6/udp.c    | 21 +++++++++++++++--
+>  3 files changed, 108 insertions(+), 5 deletions(-)
 
-My purpose of contacting you is for you to collaborate with me in this
-transaction because it is not easy for me to handle this transaction
-alone as the next of kin to the deceased customer MR.ALOYSIUS
-AESCHELMAN.who died along with his family in a plane crash July 31sth
-2000 and left no one to claim his deposit with Bank of Africa here in
-Burkina Faso, West Africa.
+I find this very hacky. I do not think we should have different sorts of
+UDP sockets.
 
-Let me solicit for your confidence and trust in this transaction as it
-is legal. i have taken all necessary arrangement here before
-contacting you in order to ensure that this funds is successfully
-claim and move to you from Burkina Faso without implications, so i
-implore you to comply with me to enable us mutually undertake this
-prospects.
+If we believe we need a fast UDP path, without socket refcount being
+touched, we should remove the SLAB_DESTROY_BY_RCU and switch to rcu
+socket freeing (call_rcu())
 
-The total amount deposited by our late customer is Ten million five
-hundred thousand United state dollars ($10.5 million USD) and we shall
-share the funds in a mutual understanding of 40 % for you while 60%
-will be for me, my 60% will remain in your bank account pending on my
-arrival in your country and I shall invest with my own share in your
-country as soon as the fund is transferred into your bank account. I
-assure you that there is no risk involved in this transaction and also
-all the deceased customer information are with me to back up your
-claim. you must apply first to the bank as relation or next of kin of
-the deceased indicating your bank name, your bank account number, your
-private telephone and fax number for easy and effective communication
-and location where the money will be remmitted.
+At the time we added RCU lookups to UDP, we hadn't vxlan, and fear was
+that the extra RCU grace period at socket dismantle was too heavy cost,
+like TCP sockets.
 
-For More Information Contact Me From My Private Box (mrakainsalif101@yahoo.fr)
-
-Thanks for your co-operation.
-Your sincerely
-Mr Akain Salif
+Meanwhile, RCU cleanups got lot of attention, and UDP sockets serve as
+tunnels vehicle.
