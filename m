@@ -1,40 +1,28 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH net-next 0/3] Make is_kdump_kernel() accessible from modules
-Date: Sun, 27 Jul 2014 17:48:32 -0700
-Message-ID: <877g2y9ulb.fsf@tassilo.jf.intel.com>
-References: <1406473156-4077-1-git-send-email-amirv@mellanox.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] cdc-ether: clean packet filter upon probe
+Date: Sun, 27 Jul 2014 22:30:13 -0700 (PDT)
+Message-ID: <20140727.223013.144325831197355256.davem@davemloft.net>
+References: <1406202989-8047-1-git-send-email-oneukum@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Vivek Goyal <vgoyal@redhat.com>, netdev@vger.kernel.org,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>
-To: Amir Vadai <amirv@mellanox.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: oneukum@suse.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:58927 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751250AbaG1Asd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 27 Jul 2014 20:48:33 -0400
-In-Reply-To: <1406473156-4077-1-git-send-email-amirv@mellanox.com> (Amir
-	Vadai's message of "Sun, 27 Jul 2014 17:59:13 +0300")
+Received: from shards.monkeyblade.net ([149.20.54.216]:49716 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750883AbaG1FaQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2014 01:30:16 -0400
+In-Reply-To: <1406202989-8047-1-git-send-email-oneukum@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Amir Vadai <amirv@mellanox.com> writes:
+From: Oliver Neukum <oneukum@suse.de>
+Date: Thu, 24 Jul 2014 13:56:29 +0200
 
-> Hi,
->
-> I'm sending this patchset to net-next because it touches a commit [1] that was
-> applied lately to net-next.
+> +			1000 /* out of thin air */
 
-It would be better to have a generic function for "run with small
-memory", that can be also triggered in other ways, e.g. a sysctl or
-a boot opion, with kdump just another user.
+Just use USB_CTRL_SET_TIMEOUT if you can't come up with a specific
+reason to use another value.
 
-There are low memory cases which are not kdump.
-
--Andi
-
--- 
-ak@linux.intel.com -- Speaking for myself only
+Thanks.
