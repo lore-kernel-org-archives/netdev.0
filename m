@@ -1,8 +1,8 @@
 From: Ethan Zhao <ethan.zhao@oracle.com>
-Subject: [PATCH] ixgbe: remove useless bd_number from adapter
-	struct
-Date: Mon, 28 Jul 2014 15:41:18 +0800
-Message-ID: <1406533278-27979-1-git-send-email-ethan.zhao@oracle.com>
+Subject: [PATCH] ixgbevf: remove useless bd_number from struct
+	ixgbevf_adapter
+Date: Mon, 28 Jul 2014 15:42:01 +0800
+Message-ID: <1406533321-28011-1-git-send-email-ethan.zhao@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -25,58 +25,55 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Because bd_number is not useful anymore, so remove it from adapter struct, or
-if keep it, we have to fix the boards driven counter bug in ixgbe_remove() and
-ixgbe_probe() only for trival debug purpose -- other output is enough.
+It is useless and buggy, just remove it.
 
 Signed-off-by: Ethan Zhao <ethan.zhao@oracle.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe.h      |    2 --
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    4 ----
- 2 files changed, 0 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf.h      |    1 -
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |    4 ----
+ 2 files changed, 0 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index c6c4ca7..238a74f 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -752,8 +752,6 @@ struct ixgbe_adapter {
- 	u8 __iomem *io_addr; /* Mainly for iounmap use */
- 	u32 wol;
- 
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+index a0a1de9..ba96cb5 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf.h
+@@ -385,7 +385,6 @@ struct ixgbevf_adapter {
+ 	/* structs defined in ixgbe_vf.h */
+ 	struct ixgbe_hw hw;
+ 	u16 msg_enable;
 -	u16 bd_number;
--
- 	u16 eeprom_verh;
- 	u16 eeprom_verl;
- 	u16 eeprom_cap;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index d62e7a2..1e25e8e 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -7929,7 +7929,6 @@ static int ixgbe_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	struct ixgbe_adapter *adapter = NULL;
- 	struct ixgbe_hw *hw;
- 	const struct ixgbe_info *ii = ixgbe_info_tbl[ent->driver_data];
+ 	/* Interrupt Throttle Rate */
+ 	u32 eitr_param;
+ 
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index d0799e8..091b106 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -3464,7 +3464,6 @@ static int ixgbevf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	struct ixgbevf_adapter *adapter = NULL;
+ 	struct ixgbe_hw *hw = NULL;
+ 	const struct ixgbevf_info *ii = ixgbevf_info_tbl[ent->driver_data];
 -	static int cards_found;
- 	int i, err, pci_using_dac, expected_gts;
- 	unsigned int indices = MAX_TX_QUEUES;
- 	u8 part_str[IXGBE_PBANUM_LENGTH];
-@@ -8015,8 +8014,6 @@ static int ixgbe_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	netdev->watchdog_timeo = 5 * HZ;
- 	strncpy(netdev->name, pci_name(pdev), sizeof(netdev->name) - 1);
+ 	int err, pci_using_dac;
+ 
+ 	err = pci_enable_device(pdev);
+@@ -3525,8 +3524,6 @@ static int ixgbevf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	ixgbevf_assign_netdev_ops(netdev);
  
 -	adapter->bd_number = cards_found;
 -
  	/* Setup hw api */
  	memcpy(&hw->mac.ops, ii->mac_ops, sizeof(hw->mac.ops));
  	hw->mac.type  = ii->mac;
-@@ -8295,7 +8292,6 @@ skip_sriov:
- 	ixgbe_add_sanmac_netdev(netdev);
+@@ -3601,7 +3598,6 @@ static int ixgbevf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	hw_dbg(hw, "MAC: %d\n", hw->mac.type);
  
- 	e_dev_info("%s\n", ixgbe_default_device_descr);
+ 	hw_dbg(hw, "Intel(R) 82599 Virtual Function\n");
 -	cards_found++;
+ 	return 0;
  
- #ifdef CONFIG_IXGBE_HWMON
- 	if (ixgbe_sysfs_init(adapter))
+ err_register:
 -- 
 1.7.1
 
