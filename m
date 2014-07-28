@@ -1,140 +1,77 @@
-From: Dmitry Popov <ixaphire@qrator.net>
-Subject: [PATCH] ip_tunnel(ipv4): fix tunnels with
- "local any remote $remote_ip"
-Date: Tue, 29 Jul 2014 03:07:52 +0400
-Message-ID: <20140729030752.d156e9522754e8a6262541ec@qrator.net>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [PATCH net-next V1 1/2] net: Header length compution function
+Date: Mon, 28 Jul 2014 16:08:46 -0700
+Message-ID: <53D6D7FE.6070908@intel.com>
+References: <1406546881-21863-2-git-send-email-amirv@mellanox.com>	<53D66344.2050207@intel.com>	<CAHA+R7NkWxbLM_T202o86G_0MgmpHG71jV+2_fQ3JCjZu9sw1g@mail.gmail.com> <20140728.154211.834824360197491109.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Sergey Popov <pinkbyte@gentoo.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Tom Herbert <therbert@google.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Cc: amirv@mellanox.com, edumazet@google.com, netdev@vger.kernel.org,
+	ogerlitz@mellanox.com, yevgenyp@mellanox.com, idos@mellanox.com,
+	eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>, cwang@twopensource.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f175.google.com ([209.85.217.175]:36823 "EHLO
-	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750702AbaG1XH5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2014 19:07:57 -0400
-Received: by mail-lb0-f175.google.com with SMTP id 10so6452946lbg.34
-        for <netdev@vger.kernel.org>; Mon, 28 Jul 2014 16:07:55 -0700 (PDT)
+Received: from mga02.intel.com ([134.134.136.20]:38922 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750949AbaG1XIs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Jul 2014 19:08:48 -0400
+In-Reply-To: <20140728.154211.834824360197491109.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ipv4 tunnels created with "local any remote $ip" didn't work properly since
-7d442fab0 (ipv4: Cache dst in tunnels). 99% of packets sent via those tunnels
-had src addr = 0.0.0.0. That was because only dst_entry was cached, although
-fl4.saddr has to be cached too. Every time ip_tunnel_xmit used cached dst_entry
-(tunnel_rtable_get returned non-NULL), fl4.saddr was initialized with
-tnl_params->saddr (= 0 in our case), and wasn't changed until iptunnel_xmit().
+On 07/28/2014 03:42 PM, David Miller wrote:
+> From: Cong Wang <cwang@twopensource.com>
+> Date: Mon, 28 Jul 2014 14:26:08 -0700
+> 
+>> On Mon, Jul 28, 2014 at 7:50 AM, Alexander Duyck
+>> <alexander.h.duyck@intel.com> wrote:
+>>> On 07/28/2014 04:28 AM, Amir Vadai wrote:
+>>>> +u32 eth_frame_headlen(void *data, unsigned int len)
+>>>> +{
+>>>> +     const struct ethhdr *eth = data;
+>>>> +     struct sk_buff skb;
+>>>> +
+>>>> +     if (unlikely(len < ETH_HLEN))
+>>>> +             return len;
+>>>> +
+>>>> +     skb.protocol = eth->h_proto;
+>>>> +     skb.head = data + ETH_HLEN;
+>>>> +     skb.data = skb.head;
+>>>> +     skb_reset_network_header(&skb);
+>>>> +     skb.len = len - ETH_HLEN;
+>>>> +     skb.data_len = 0;
+>>>> +     return __skb_get_poff(&skb) + ETH_HLEN;
+>>>> +}
+>>>
+>>> I'm still not a big fan of allocating an sk_buff on the stack.  Seems
+>>> like it isn't maintainable and really opens things up to possible issues
+>>> if someone ever extends the __skb_get_poff call.  But I'm not going to
+>>> force the issue since for now this isn't impacting igb or ixgbe.
+>>>
+>>
+>> +1
+>>
+>> I think you can refactor the code to pass all these input as
+>> arguments instead of a whole skbuff.
+> 
+> I was going to say the same thing, but if you take a look it's not so
+> simple.
+> 
+> The code currently handles fragmented SKBs just fine, and you'd
+> therefore have to make a seperate code path for purely linear buffers,
+> and thus code duplication.
+> 
+> I'm still not sure what's better, to be honest.  Currently I'm leaning
+> towards allowing the version in this patch set, even though it's a bit
+> risky this is in the fast path so perhaps warrants such tricks for
+> performance's sake.
+> 
 
-This patch adds saddr to ip_tunnel->dst_cache, fixing this issue.
+I think if anything it might be nice to add some warnings to
+__skb_get_poff, and skb_flow_dissect pointing back to this code in order
+to warn someone thinking of optimizing it so that they are aware that
+there is a caller that provides partially initialized and incomplete SKBs.
 
-Reported-by: Sergey Popov <pinkbyte@gentoo.org>
-Signed-off-by: Dmitry Popov <ixaphire@qrator.net>
----
- include/net/ip_tunnels.h |  1 +
- net/ipv4/ip_tunnel.c     | 29 ++++++++++++++++++-----------
- 2 files changed, 19 insertions(+), 11 deletions(-)
-diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
-index a4daf9e..8dd8cab 100644
---- a/include/net/ip_tunnels.h
-+++ b/include/net/ip_tunnels.h
-@@ -40,6 +40,7 @@ struct ip_tunnel_prl_entry {
- 
- struct ip_tunnel_dst {
- 	struct dst_entry __rcu 		*dst;
-+	__be32				 saddr;
- };
- 
- struct ip_tunnel {
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index 6f9de61..45920d9 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -69,23 +69,25 @@ static unsigned int ip_tunnel_hash(__be32 key, __be32 remote)
- }
- 
- static void __tunnel_dst_set(struct ip_tunnel_dst *idst,
--			     struct dst_entry *dst)
-+			     struct dst_entry *dst, __be32 saddr)
- {
- 	struct dst_entry *old_dst;
- 
- 	dst_clone(dst);
- 	old_dst = xchg((__force struct dst_entry **)&idst->dst, dst);
- 	dst_release(old_dst);
-+	idst->saddr = saddr;
- }
- 
--static void tunnel_dst_set(struct ip_tunnel *t, struct dst_entry *dst)
-+static void tunnel_dst_set(struct ip_tunnel *t,
-+			   struct dst_entry *dst, __be32 saddr)
- {
--	__tunnel_dst_set(this_cpu_ptr(t->dst_cache), dst);
-+	__tunnel_dst_set(this_cpu_ptr(t->dst_cache), dst, saddr);
- }
- 
- static void tunnel_dst_reset(struct ip_tunnel *t)
- {
--	tunnel_dst_set(t, NULL);
-+	tunnel_dst_set(t, NULL, 0);
- }
- 
- void ip_tunnel_dst_reset_all(struct ip_tunnel *t)
-@@ -93,20 +95,25 @@ void ip_tunnel_dst_reset_all(struct ip_tunnel *t)
- 	int i;
- 
- 	for_each_possible_cpu(i)
--		__tunnel_dst_set(per_cpu_ptr(t->dst_cache, i), NULL);
-+		__tunnel_dst_set(per_cpu_ptr(t->dst_cache, i), NULL, 0);
- }
- EXPORT_SYMBOL(ip_tunnel_dst_reset_all);
- 
--static struct rtable *tunnel_rtable_get(struct ip_tunnel *t, u32 cookie)
-+static struct rtable *tunnel_rtable_get(struct ip_tunnel *t,
-+					u32 cookie, __be32 *saddr)
- {
-+	struct ip_tunnel_dst *idst;
- 	struct dst_entry *dst;
- 
- 	rcu_read_lock();
--	dst = rcu_dereference(this_cpu_ptr(t->dst_cache)->dst);
-+	idst = this_cpu_ptr(t->dst_cache);
-+	dst = rcu_dereference(idst->dst);
- 	if (dst && !atomic_inc_not_zero(&dst->__refcnt))
- 		dst = NULL;
- 	if (dst) {
--		if (dst->obsolete && dst->ops->check(dst, cookie) == NULL) {
-+		if (!dst->obsolete || dst->ops->check(dst, cookie)) {
-+			*saddr = idst->saddr;
-+		} else {
- 			tunnel_dst_reset(t);
- 			dst_release(dst);
- 			dst = NULL;
-@@ -367,7 +374,7 @@ static int ip_tunnel_bind_dev(struct net_device *dev)
- 
- 		if (!IS_ERR(rt)) {
- 			tdev = rt->dst.dev;
--			tunnel_dst_set(tunnel, &rt->dst);
-+			tunnel_dst_set(tunnel, &rt->dst, fl4.saddr);
- 			ip_rt_put(rt);
- 		}
- 		if (dev->type != ARPHRD_ETHER)
-@@ -610,7 +617,7 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
- 	init_tunnel_flow(&fl4, protocol, dst, tnl_params->saddr,
- 			 tunnel->parms.o_key, RT_TOS(tos), tunnel->parms.link);
- 
--	rt = connected ? tunnel_rtable_get(tunnel, 0) : NULL;
-+	rt = connected ? tunnel_rtable_get(tunnel, 0, &fl4.saddr) : NULL;
- 
- 	if (!rt) {
- 		rt = ip_route_output_key(tunnel->net, &fl4);
-@@ -620,7 +627,7 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
- 			goto tx_error;
- 		}
- 		if (connected)
--			tunnel_dst_set(tunnel, &rt->dst);
-+			tunnel_dst_set(tunnel, &rt->dst, fl4.saddr);
- 	}
- 
- 	if (rt->dst.dev == dev) {
+Thanks,
+
+Alex
