@@ -1,42 +1,68 @@
-From: Sharat Masetty <sharat04@gmail.com>
-Subject: Re: Multiqueue TX
-Date: Mon, 28 Jul 2014 16:37:25 -0600
-Message-ID: <CAJzFV36cL9=qNcF-cb0OSx1A39FP2Gaa98HBqr9D35fQ3BfU=Q@mail.gmail.com>
-References: <CAJzFV37uOC15X+3PR0UJDsBGvMzRP9JRDp16CH8-OiiTv2NM7g@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next V1 1/2] net: Header length compution function
+Date: Mon, 28 Jul 2014 15:42:11 -0700 (PDT)
+Message-ID: <20140728.154211.834824360197491109.davem@davemloft.net>
+References: <1406546881-21863-2-git-send-email-amirv@mellanox.com>
+	<53D66344.2050207@intel.com>
+	<CAHA+R7NkWxbLM_T202o86G_0MgmpHG71jV+2_fQ3JCjZu9sw1g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>
-To: Linux Netdev List <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: alexander.h.duyck@intel.com, amirv@mellanox.com,
+	edumazet@google.com, netdev@vger.kernel.org, ogerlitz@mellanox.com,
+	yevgenyp@mellanox.com, idos@mellanox.com, eric.dumazet@gmail.com
+To: cwang@twopensource.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:39432 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751890AbaG1Wh1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2014 18:37:27 -0400
-Received: by mail-wi0-f177.google.com with SMTP id ho1so51571wib.10
-        for <netdev@vger.kernel.org>; Mon, 28 Jul 2014 15:37:25 -0700 (PDT)
-In-Reply-To: <CAJzFV37uOC15X+3PR0UJDsBGvMzRP9JRDp16CH8-OiiTv2NM7g@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33956 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751502AbaG1WmO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2014 18:42:14 -0400
+In-Reply-To: <CAHA+R7NkWxbLM_T202o86G_0MgmpHG71jV+2_fQ3JCjZu9sw1g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+From: Cong Wang <cwang@twopensource.com>
+Date: Mon, 28 Jul 2014 14:26:08 -0700
 
-Can you please answer my question when you get a chance?
+> On Mon, Jul 28, 2014 at 7:50 AM, Alexander Duyck
+> <alexander.h.duyck@intel.com> wrote:
+>> On 07/28/2014 04:28 AM, Amir Vadai wrote:
+>>> +u32 eth_frame_headlen(void *data, unsigned int len)
+>>> +{
+>>> +     const struct ethhdr *eth = data;
+>>> +     struct sk_buff skb;
+>>> +
+>>> +     if (unlikely(len < ETH_HLEN))
+>>> +             return len;
+>>> +
+>>> +     skb.protocol = eth->h_proto;
+>>> +     skb.head = data + ETH_HLEN;
+>>> +     skb.data = skb.head;
+>>> +     skb_reset_network_header(&skb);
+>>> +     skb.len = len - ETH_HLEN;
+>>> +     skb.data_len = 0;
+>>> +     return __skb_get_poff(&skb) + ETH_HLEN;
+>>> +}
+>>
+>> I'm still not a big fan of allocating an sk_buff on the stack.  Seems
+>> like it isn't maintainable and really opens things up to possible issues
+>> if someone ever extends the __skb_get_poff call.  But I'm not going to
+>> force the issue since for now this isn't impacting igb or ixgbe.
+>>
+> 
+> +1
+> 
+> I think you can refactor the code to pass all these input as
+> arguments instead of a whole skbuff.
 
-Regards,
-Sharat
+I was going to say the same thing, but if you take a look it's not so
+simple.
 
-On Sat, Jul 26, 2014 at 1:31 AM, Sharat Masetty <sharat04@gmail.com> wrote:
-> I have a question from this David's nice presentation
-> http://vger.kernel.org/~davem/davem_nyc09.pdf on multiqueue TX. My
-> questions are on the slide named "PICTURE WITH NON-TRIVIAL QDISC"
->
-> 1)  What is the rationale behind such an arrangement, where one would
-> have multiple TX queues pointing to the on single Qdisc?
-> 2)  If the Qdisc in this illustration was a non trivial Qdisc such as
-> htb, which has multiple leaf Qdisc's, how would the traffic shaping be
-> preserved?
-> 3) How would the back pressure/flow control of these individual TX
-> queues work in this case?
->
-> Thanks
-> Sharat
+The code currently handles fragmented SKBs just fine, and you'd
+therefore have to make a seperate code path for purely linear buffers,
+and thus code duplication.
+
+I'm still not sure what's better, to be honest.  Currently I'm leaning
+towards allowing the version in this patch set, even though it's a bit
+risky this is in the fast path so perhaps warrants such tricks for
+performance's sake.
