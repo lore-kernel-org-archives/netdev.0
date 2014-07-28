@@ -1,62 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net] ip: make IP identifiers less predictable
-Date: Mon, 28 Jul 2014 18:47:00 -0700 (PDT)
-Message-ID: <20140728.184700.953380868397707799.davem@davemloft.net>
-References: <1406189276.3363.63.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1406317840.3363.106.camel@edumazet-glaptop2.roam.corp.google.com>
-	<1406357890.12728.9.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] net: ethernet: intel: ixgbe: ixgbe_main.c:  Cleaning up
+ missing null-terminate in conjunction with strncpy
+Date: Mon, 28 Jul 2014 08:39:35 -0700
+Message-ID: <20140728083935.6f4b77c1@samsung-9>
+References: <1406384676-2606-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jeffk@cs.unm.edu, crandall@cs.unm.edu,
-	torvalds@linux-foundation.org, w@1wt.eu, security@kernel.org,
-	hannes@redhat.com
-To: eric.dumazet@gmail.com
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	Alex Duyck <alexander.h.duyck@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Mitch Williams <mitch.a.williams@intel.com>,
+	Linux NICS <linux.nics@intel.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35494 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751425AbaG2BrB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2014 21:47:01 -0400
-In-Reply-To: <1406357890.12728.9.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:65022 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751730AbaG2CkQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2014 22:40:16 -0400
+Received: by mail-pa0-f54.google.com with SMTP id fa1so11403086pad.41
+        for <netdev@vger.kernel.org>; Mon, 28 Jul 2014 19:40:15 -0700 (PDT)
+In-Reply-To: <1406384676-2606-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 26 Jul 2014 08:58:10 +0200
+On Sat, 26 Jul 2014 16:24:36 +0200
+Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se> wrote:
 
-> From: Eric Dumazet <edumazet@google.com>
+> Replacing strncpy with strlcpy to avoid strings that lacks null terminate.
 > 
-> In "Counting Packets Sent Between Arbitrary Internet Hosts", Jeffrey and
-> Jedidiah describe ways exploiting linux IP identifier generation to
-> infer whether two machines are exchanging packets.
-> 
-> With commit 73f156a6e8c1 ("inetpeer: get rid of ip_id_count"), we
-> changed IP id generation, but this does not really prevent this
-> side-channel technique.
-> 
-> This patch adds a random amount of perturbation so that IP identifiers
-> for a given destination [1] are no longer monotonically increasing after
-> an idle period.
-> 
-> Note that prandom_u32_max(1) returns 0, so if generator is used at most
-> once per jiffy, this patch inserts no hole in the ID suite and do not
-> increase collision probability.
-> 
-> This is jiffies based, so in the worst case (HZ=1000), the id can
-> rollover after ~65 seconds of idle time, which should be fine.
-> 
-> We also change the hash used in __ip_select_ident() to not only hash
-> on daddr, but also saddr and protocol, so that ICMP probes can not be
-> used to infer information for other protocols.
-> 
-> For IPv6, adds saddr into the hash as well, but not nexthdr.
-> 
-> If I ping the patched target, we can see ID are now hard to predict.
- ...
-> [1] TCP sessions uses a per flow ID generator not changed by this patch.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Jeffrey Knockel <jeffk@cs.unm.edu>
-> Reported-by: Jedidiah R. Crandall <crandall@cs.unm.edu>
+> Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+> ---
+			   hw->mac.type, hw->phy.type, hw->phy.sfp_type,
 
-Applied and queued up for -stable, thanks everyone.
+This patch doesn't change anything.
+Netdev is already zeroed when allocated therefore doing strncpy() guarantees
+it will be null terminated.
