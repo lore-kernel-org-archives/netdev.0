@@ -1,74 +1,42 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net] net: phy: re-apply PHY fixups during phy_register_device
-Date: Mon, 28 Jul 2014 15:14:42 -0700
-Message-ID: <CAGVrzcZp2wYdfJfZAcgmM3gizstXLWMuT9vAxyHWTayBi+jZ=g@mail.gmail.com>
-References: <1406584645-20081-1-git-send-email-f.fainelli@gmail.com> <20140729001306.00000332@openwrt.org>
+From: Sharat Masetty <sharat04@gmail.com>
+Subject: Re: Multiqueue TX
+Date: Mon, 28 Jul 2014 16:37:25 -0600
+Message-ID: <CAJzFV36cL9=qNcF-cb0OSx1A39FP2Gaa98HBqr9D35fQ3BfU=Q@mail.gmail.com>
+References: <CAJzFV37uOC15X+3PR0UJDsBGvMzRP9JRDp16CH8-OiiTv2NM7g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Hauke Mehrtens <hauke@hauke-m.de>
-To: Jonas Gorski <jogo@openwrt.org>
+Cc: David Miller <davem@davemloft.net>
+To: Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f52.google.com ([209.85.218.52]:35615 "EHLO
-	mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751636AbaG1WPX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2014 18:15:23 -0400
-Received: by mail-oi0-f52.google.com with SMTP id h136so6564845oig.25
-        for <netdev@vger.kernel.org>; Mon, 28 Jul 2014 15:15:22 -0700 (PDT)
-In-Reply-To: <20140729001306.00000332@openwrt.org>
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:39432 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751890AbaG1Wh1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2014 18:37:27 -0400
+Received: by mail-wi0-f177.google.com with SMTP id ho1so51571wib.10
+        for <netdev@vger.kernel.org>; Mon, 28 Jul 2014 15:37:25 -0700 (PDT)
+In-Reply-To: <CAJzFV37uOC15X+3PR0UJDsBGvMzRP9JRDp16CH8-OiiTv2NM7g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014-07-28 15:13 GMT-07:00 Jonas Gorski <jogo@openwrt.org>:
-> On Mon, 28 Jul 2014 14:57:25 -0700
-> Florian Fainelli <f.fainelli@gmail.com> wrote:
->
->> Commit 87aa9f9c61ad ("net: phy: consolidate PHY reset in phy_init_hw()")
->> moved the call to phy_scan_fixups() in phy_init_hw() after a software
->> reset is performed.
->>
->> This broke PHY drivers which do register an early PHY fixup callback to
->> intercept the PHY probing and do things like changing the 32-bits unique
->> PHY identifier when a pseudo-PHY address has been used.
->>
->> Reported-by: Hauke Mehrtens <hauke@hauke-m.de>
->> Reported-by: Jonas Gorski <jogo@openwrt.org>
->> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
->> ---
->> This changes is applicable to 3.14+ thanks!
->>
->>  drivers/net/phy/phy_device.c | 1 +
->>  1 file changed, 1 insertion(+)
->>
->> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
->> index 74a82328dd49..1759d54682c8 100644
->> --- a/drivers/net/phy/phy_device.c
->> +++ b/drivers/net/phy/phy_device.c
->> @@ -355,6 +355,7 @@ int phy_device_register(struct phy_device *phydev)
->>       phydev->bus->phy_map[phydev->addr] = phydev;
->>
->>       /* Run all of the fixups for this PHY */
->> +     phy_scan_fixups(phydev);
->>       err = phy_init_hw(phydev);
->
-> You can safely remove the call to phy_init_hw(), as it will do nothing:
->
-> int phy_init_hw(struct phy_device *phydev)
-> {
->         int ret = 0;
->
->         if (!phydev->drv || ...) <- always true at this point
->                 return 0;
->
->
-> Also you should check the return value of phy_scan_fixups.
->
->>       if (err) {
->>               pr_err("PHY %d failed to initialize\n", phydev->addr);
->
-> So this can be actually hit.
+Hi David,
 
-Good catch, I will resubmit a v2 shortly, thanks!
--- 
-Florian
+Can you please answer my question when you get a chance?
+
+Regards,
+Sharat
+
+On Sat, Jul 26, 2014 at 1:31 AM, Sharat Masetty <sharat04@gmail.com> wrote:
+> I have a question from this David's nice presentation
+> http://vger.kernel.org/~davem/davem_nyc09.pdf on multiqueue TX. My
+> questions are on the slide named "PICTURE WITH NON-TRIVIAL QDISC"
+>
+> 1)  What is the rationale behind such an arrangement, where one would
+> have multiple TX queues pointing to the on single Qdisc?
+> 2)  If the Qdisc in this illustration was a non trivial Qdisc such as
+> htb, which has multiple leaf Qdisc's, how would the traffic shaping be
+> preserved?
+> 3) How would the back pressure/flow control of these individual TX
+> queues work in this case?
+>
+> Thanks
+> Sharat
