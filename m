@@ -1,52 +1,35 @@
 From: Oliver Neukum <oneukum@suse.de>
-Subject: [PATCH] cdc-ether: clean packet filter upon probe
-Date: Mon, 28 Jul 2014 10:56:36 +0200
-Message-ID: <1406537796-20156-1-git-send-email-oneukum@suse.de>
-Cc: Oliver Neukum <oneukum@suse.de>
-To: davem@davemloft.net, netdev@vger.kernel.org
+Subject: Re: [PATCH] cdc-ether: clean packet filter upon probe
+Date: Mon, 28 Jul 2014 11:22:02 +0200
+Message-ID: <1406539322.17754.13.camel@linux-fkkt.site>
+References: <1406202989-8047-1-git-send-email-oneukum@suse.de>
+	 <20140727.223013.144325831197355256.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:47973 "EHLO mx2.suse.de"
+Received: from cantor2.suse.de ([195.135.220.15]:48410 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751394AbaG1I4k (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Jul 2014 04:56:40 -0400
+	id S1751057AbaG1JWf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Jul 2014 05:22:35 -0400
+In-Reply-To: <20140727.223013.144325831197355256.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are devices that don't do reset all the way. So the packet filter should
-be set to a sane initial value. Failure to do so leads to intermittent failures
-of DHCP on some systems under some conditions.
+On Sun, 2014-07-27 at 22:30 -0700, David Miller wrote:
+> From: Oliver Neukum <oneukum@suse.de>
+> Date: Thu, 24 Jul 2014 13:56:29 +0200
+> 
+> > +			1000 /* out of thin air */
+> 
+> Just use USB_CTRL_SET_TIMEOUT if you can't come up with a specific
+> reason to use another value.
+> 
+> Thanks.
 
-Signed-off-by: Oliver Neukum <oneukum@suse.de>
----
- drivers/net/usb/cdc_ether.c | 16 ++++++++++++++++
- 1 file changed, 16 insertions(+)
+Certainly
 
-diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
-index 9ea4bfe..2a32d91 100644
---- a/drivers/net/usb/cdc_ether.c
-+++ b/drivers/net/usb/cdc_ether.c
-@@ -341,6 +341,22 @@ next_desc:
- 		usb_driver_release_interface(driver, info->data);
- 		return -ENODEV;
- 	}
-+
-+	/* Some devices don't initialise properly. In particular
-+	 * the packet filter is not reset. There are devices that
-+	 * don't do reset all the way. So the packet filter should
-+	 * be set to a sane initial value.
-+	 */
-+	usb_control_msg(dev->udev,
-+			usb_sndctrlpipe(dev->udev, 0),
-+			USB_CDC_SET_ETHERNET_PACKET_FILTER,
-+			USB_TYPE_CLASS | USB_RECIP_INTERFACE,
-+			USB_CDC_PACKET_TYPE_ALL_MULTICAST | USB_CDC_PACKET_TYPE_DIRECTED | USB_CDC_PACKET_TYPE_BROADCAST,
-+			intf->cur_altsetting->desc.bInterfaceNumber,
-+			NULL,
-+			0,
-+			USB_CTRL_SET_TIMEOUT
-+		);
- 	return 0;
- 
- bad_desc:
--- 
-1.8.4.5
+	Sorry
+		Oliver
