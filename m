@@ -1,7 +1,7 @@
 From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Subject: [PATCH 2/3] cxgb4: ask for deferred probe
-Date: Mon, 28 Jul 2014 07:34:26 -0700
-Message-ID: <1406558067-25308-2-git-send-email-mcgrof@do-not-panic.com>
+Subject: [PATCH 3/3] mptsas: ask for deferred probe
+Date: Mon, 28 Jul 2014 07:34:27 -0700
+Message-ID: <1406558067-25308-3-git-send-email-mcgrof@do-not-panic.com>
 References: <1406558067-25308-1-git-send-email-mcgrof@do-not-panic.com>
 Cc: linux-kernel@vger.kernel.org,
 	"Luis R. Rodriguez" <mcgrof@suse.com>,
@@ -22,22 +22,19 @@ Cc: linux-kernel@vger.kernel.org,
 	MPT-FusionLinux.pdl@avagotech.com, linux-scsi@vger.kernel.org,
 	netdev@vger.kernel.org
 To: gregkh@linuxfoundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:36888 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752732AbaG1Oek (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2014 10:34:40 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1406558067-25308-1-git-send-email-mcgrof@do-not-panic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: "Luis R. Rodriguez" <mcgrof@suse.com>
 
-cxgb4 probe can take up to over 1 minute when the firmware is
-is written and installed on the device. Use the new delayed probe
-preference so that cxgb4 gets probed on the deferred workqueue.
-Without this devices that require the update on firmware will fail
-on probe.
+Its reported that mptsas can at times take over 30 seconds
+to recognize SCSI storage devices [0], this is done on the
+driver's probe path. Use the the deferred probe workqueue
+to allow long init sequences to complete.
+
+[0] https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1276705
 
 Cc: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
 Cc: Joseph Salisbury <joseph.salisbury@canonical.com>
@@ -60,22 +57,22 @@ Cc: linux-kernel@vger.kernel.org
 Cc: netdev@vger.kernel.org
 Signed-off-by: Luis R. Rodriguez <mcgrof@suse.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 3 +++
+ drivers/message/fusion/mptsas.c | 3 +++
  1 file changed, 3 insertions(+)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 6b11fde..bb5daaf 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -6400,6 +6400,9 @@ static void remove_one(struct pci_dev *pdev)
- }
+diff --git a/drivers/message/fusion/mptsas.c b/drivers/message/fusion/mptsas.c
+index 711fcb5..3859ac3 100644
+--- a/drivers/message/fusion/mptsas.c
++++ b/drivers/message/fusion/mptsas.c
+@@ -5382,6 +5382,9 @@ MODULE_DEVICE_TABLE(pci, mptsas_pci_table);
  
- static struct pci_driver cxgb4_driver = {
+ 
+ static struct pci_driver mptsas_driver = {
 +	.driver = {
 +		.delay_probe = true,
 +	},
- 	.name     = KBUILD_MODNAME,
- 	.id_table = cxgb4_pci_tbl,
- 	.probe    = init_one,
+ 	.name		= "mptsas",
+ 	.id_table	= mptsas_pci_table,
+ 	.probe		= mptsas_probe,
 -- 
 2.0.1
