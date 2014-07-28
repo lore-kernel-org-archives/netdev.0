@@ -1,14 +1,14 @@
-From: "Luis R. Rodriguez" <mcgrof@suse.com>
-Subject: Re: [PATCH 1/3] driver core: enable drivers to use deferred probe
-	from init
-Date: Mon, 28 Jul 2014 20:48:58 +0200
-Message-ID: <20140728184858.GK21930@wotan.suse.de>
-References: <1406558067-25308-1-git-send-email-mcgrof@do-not-panic.com> <B5657A6538887040AD3A81F1008BEC63B06F9A@avmb3.qlogic.org> <20140728153811.GD21930@wotan.suse.de> <B5657A6538887040AD3A81F1008BEC63B06FCF@avmb3.qlogic.org> <B5657A6538887040AD3A81F1008BEC63B07066@avmb3.qlogic.org>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH v2 2/4] driver core: enable drivers to use deferred probe
+ from init
+Date: Mon, 28 Jul 2014 11:55:38 -0700
+Message-ID: <20140728185538.GB17609@kroah.com>
+References: <1406572110-26823-1-git-send-email-mcgrof@do-not-panic.com>
+ <1406572110-26823-3-git-send-email-mcgrof@do-not-panic.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
+Cc: tiwai@suse.de, linux-kernel@vger.kernel.org,
+	"Luis R. Rodriguez" <mcgrof@suse.com>,
 	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
 	Joseph Salisbury <joseph.salisbury@canonical.com>,
 	Kay Sievers <kay@vrfy.org>,
@@ -24,49 +24,71 @@ Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
 	Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
 	Hariprasad S <hariprasad@chelsio.com>,
 	Santosh Rastapur <santosh@chelsio.com>,
-	"MPT-FusionLinux.pdl@avagotech.com"
-	<MPT-Fusi
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>
+	MPT-FusionLinux.pdl@avagotech.com, linux-scsi@vger.kernel.org,
+	netdev@vger.kernel.org
+To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
 Return-path: <linux-scsi-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <B5657A6538887040AD3A81F1008BEC63B07066@avmb3.qlogic.org>
+In-Reply-To: <1406572110-26823-3-git-send-email-mcgrof@do-not-panic.com>
 Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 28, 2014 at 06:30:29PM +0000, Yuval Mintz wrote:
-> > On Mon, Jul 28, 2014 at 06:52:48PM +0200, Luis R. Rodriguez wrote:
-> > > On Mon, Jul 28, 2014 at 03:46:32PM +0000, Yuval Mintz wrote:
-> > > > Sorry for not being clear, but I didn't meant 'what guarantees that the device
-> > > > will be added to the deferred probe', but rather what guarantees that the
-> > > > deferred workqueue will be scheduled.
-> > > >
-> > > > To the best of my knowledge the deferring mechanism works only if one device
-> > > > is dependent upon another, e.g., for Multi-function devices where one device
-> > > > probe is dependent upon the others - which are soon-to-be probed.
-> > >
-> > > The workqueue will be kicked when driver_deferred_probe_trigger() gets
-> > > poked, we do that in the late_initcall(deferred_probe_initcall), it
-> > > also gets flushed there with a flush_workqueue(deferred_wq).
+On Mon, Jul 28, 2014 at 11:28:28AM -0700, Luis R. Rodriguez wrote:
+> From: "Luis R. Rodriguez" <mcgrof@suse.com>
 > 
-> > But come to think of it that will work well for devices already plugged in
-> > so indeed I think that driver_deferred_probe_add() needs a check added
-> > for for if (!driver_deferred_probe_enable) then we have to
-> > driver_deferred_probe_trigger(). The driver_deferred_probe_enable is set
-> > to false upon init, but later on late init it gets set to true so with
-> > that check we'd  only generate the trigger after late init call.
-> 
-> > I can fold that in the v2.
-> 
-> >   Luis
-> 
-> But what about modules being added after the init-calls? If they try try to use this
-> mechanism, what guarantees they'll eventually get probed?
+> Tetsuo bisected and found that commit 786235ee "kthread: make
+> kthread_create() killable" modified kthread_create() to bail as
+> soon as SIGKILL is received. This is causing some issues with
+> some drivers and at times boot. Joseph then found that failures
+> occur as the systemd-udevd process sends SIGKILL to modprobe if
+> probe on a driver takes over 30 seconds.
 
-bus_probe_device --> device_attach() -->
-	__device_attach() --> driver_probe_device() -->
-		__driver_probe_device() --> driver_deferred_probe_add()
+Because no driver should ever take that long for their probe function to
+return.  Why not fix those drivers?
 
-And with the new hunk I mentioned I'd add then we'd trigger the
-workqueue if its after late init. The change is in v2 series.
+> When this happens probe will fail on any driver, its why booting on
+> some system will fail if the driver happens to be a storage related
+> driver. Some folks
+> have suggested fixing this by modifying kthread_create() to not
+> leave upon SIGKILL [3], upon review Oleg rejected this change and
+> the discussion was punted out to systemd to see if the default
+> timeout could be increased from 30 seconds to 120. The opinion of
+> the systemd maintainers is that the driver's behavior should
+> be fixed [4]. Linus seems to agree [5], however more recently even
+> networking drivers have been reported to fail on probe since just
+> writing the firmware to a device and kicking it can take easy over
+> 60 seconds [6]. Benjamim was able to trace the issues recently
+> reported on cxgb4 down to the same systemd-udevd 30 second timeout [6].
 
-  Luis
+Then use the async firmware interface, why is any driver taking longer
+than less than a second in their init function?
+
+> This is an alternative solution which enables drivers that are
+> known to take long to use deferred probe workqueue. This avoids
+> the 30 second timeout and lets us annotate drivers with long
+> init sequences.
+> 
+> As drivers determine a component is not yet available and needs
+> to defer probe you'll be notified this happen upon init for each
+> device but now with a message such as:
+> 
+> pci 0000:03:00.0: Driver cxgb4 requests probe deferral on init
+> 
+> You should see one of these per struct device probed.
+
+I'm all for abusing kernel interfaces, but please, no, don't try to use
+the deferred init code to cover up for broken drivers.  Just fix them
+properly, we have the interfaces to handle it properly (i.e. async
+firmware loading), please use it.
+
+And no PCI driver should ever need "deferred init" as the resources for
+such a device is already present in the system.  Now if userspace is up
+and running yet is a different issue, one that deferred init is not
+there for at all, sorry.
+
+So, what drivers are having problems in their init sequence, and why
+aren't they using async firmware loading?
+
+thanks,
+
+greg k-h
