@@ -1,21 +1,18 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [PATCH 1/3] driver core: enable drivers to use deferred probe
+From: "Luis R. Rodriguez" <mcgrof@suse.com>
+Subject: Re: [PATCH 1/3] driver core: enable drivers to use deferred probe
 	from init
-Date: Mon, 28 Jul 2014 15:46:32 +0000
-Message-ID: <B5657A6538887040AD3A81F1008BEC63B06FCF@avmb3.qlogic.org>
-References: <1406558067-25308-1-git-send-email-mcgrof@do-not-panic.com>
- <B5657A6538887040AD3A81F1008BEC63B06F9A@avmb3.qlogic.org>
- <20140728153811.GD21930@wotan.suse.de>
+Date: Mon, 28 Jul 2014 18:52:48 +0200
+Message-ID: <20140728165248.GE21930@wotan.suse.de>
+References: <1406558067-25308-1-git-send-email-mcgrof@do-not-panic.com> <B5657A6538887040AD3A81F1008BEC63B06F9A@avmb3.qlogic.org> <20140728153811.GD21930@wotan.suse.de> <B5657A6538887040AD3A81F1008BEC63B06FCF@avmb3.qlogic.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="_000_B5657A6538887040AD3A81F1008BEC63B06FCFavmb3qlogicorg_"
+Content-Type: text/plain; charset=us-ascii
 Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
 	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
 	linux-kernel <linux-kernel@vger.kernel.org>,
 	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
 	Joseph Salisbury <joseph.salisbury@canonical.com>,
 	Kay Sievers <kay@vrfy.org>,
-	"One Thousand Gnomes" <gnomes@lxorguk.ukuu.org.uk>,
+	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
 	Tim Gardner <tim.gardner@canonical.com>,
 	Pierre Fersing <pierre-fersing@pierref.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
@@ -28,138 +25,39 @@ Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
 	Hariprasad S <hariprasad@chelsio.com>,
 	Santosh Rastapur <santosh@chelsio.com>,
 	"MPT-FusionLinux.pdl@avagotech.com"
-	<MPT-Fu
-To: "Luis R. Rodriguez" <mcgrof@suse.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <20140728153811.GD21930@wotan.suse.de>
-Content-Language: en-US
-Sender: linux-scsi-owner@vger.kernel.org
+	<MPT-Fusi
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <B5657A6538887040AD3A81F1008BEC63B06FCF@avmb3.qlogic.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---_000_B5657A6538887040AD3A81F1008BEC63B06FCFavmb3qlogicorg_
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
+On Mon, Jul 28, 2014 at 03:46:32PM +0000, Yuval Mintz wrote:
+> > Subject: Re: [PATCH 1/3] driver core: enable drivers to use deferred probe from
+> > init
+> > 
+> > On Mon, Jul 28, 2014 at 03:12:11PM +0000, Yuval Mintz wrote:
+> > > Perhaps this is a silly question, but what guarantees that the
+> > > deferred probe list will actually be triggered, e.g., in case the
+> > > delayed device is the last device in the system?
+> > 
+> > The dev->init_delayed_probe is used to ensure that we'd add the device to the
+> > deferred probe list once making this a per device thing if the driver has the field
+> > delay_probe set to true. This technically also allows this to be a per device thing
+> > so with some more work we could enable drivers to only enable this for specific
+> > devices but at this point this did not seem required.
+> 
+> Sorry for not being clear, but I didn't meant 'what guarantees that the device
+> will be added to the deferred probe', but rather what guarantees that the
+> deferred workqueue will be scheduled.
+> 
+> To the best of my knowledge the deferring mechanism works only if one device
+> is dependent upon another, e.g., for Multi-function devices where one device
+> probe is dependent upon the others - which are soon-to-be probed.
 
-> Subject: Re: [PATCH 1/3] driver core: enable drivers to use deferred prob=
-e from
-> init
->=20
-> On Mon, Jul 28, 2014 at 03:12:11PM +0000, Yuval Mintz wrote:
-> > Perhaps this is a silly question, but what guarantees that the
-> > deferred probe list will actually be triggered, e.g., in case the
-> > delayed device is the last device in the system?
->=20
-> The dev->init_delayed_probe is used to ensure that we'd add the device to=
- the
-> deferred probe list once making this a per device thing if the driver has=
- the field
-> delay_probe set to true. This technically also allows this to be a per de=
-vice thing
-> so with some more work we could enable drivers to only enable this for sp=
-ecific
-> devices but at this point this did not seem required.
+The workqueue will be kicked when driver_deferred_probe_trigger() gets
+poked, we do that in the late_initcall(deferred_probe_initcall), it
+also gets flushed there with a flush_workqueue(deferred_wq).
 
-Sorry for not being clear, but I didn't meant 'what guarantees that the dev=
-ice
-will be added to the deferred probe', but rather what guarantees that the
-deferred workqueue will be scheduled.
-
-To the best of my knowledge the deferring mechanism works only if one devic=
-e
-is dependent upon another, e.g., for Multi-function devices where one devic=
-e
-probe is dependent upon the others - which are soon-to-be probed.
-
-[If I'm incorrect I'd appreciate if someone could correct me]
-
->
-> > [From drivers/base/dd.c  - "A successful driver probe will trigger
-> > moving all devices from the pending to the active list so that the
-> > workqueue will eventually retry them]
-
---_000_B5657A6538887040AD3A81F1008BEC63B06FCFavmb3qlogicorg_
-Content-Disposition: attachment; filename="winmail.dat"
-Content-Transfer-Encoding: base64
-Content-Type: application/ms-tnef; name="winmail.dat"
-
-eJ8+Iq5WAQaQCAAEAAAAAAABAAEAAQeQBgAIAAAA5AQAAAAAAADoAAEJgAEAIQAAADBGRjVFMEEx
-MzgwNzhCNDhBQzNGQTc5NkJCODUyMkE4AEIHAQ2ABAACAAAAAgACAAEFgAMADgAAAN4HBwAcAA8A
-LgAgAAEAZgEBIIADAA4AAADeBwcAHAAPAC4AIAABAGYBAQiABwAYAAAASVBNLk1pY3Jvc29mdCBN
-YWlsLk5vdGUAMQgBBIABAEwAAABSRTogW1BBVENIIDEvM10gZHJpdmVyIGNvcmU6IGVuYWJsZSBk
-cml2ZXJzIHRvIHVzZSBkZWZlcnJlZCBwcm9iZQlmcm9tIGluaXQAuxkBA5AGAGAQAABAAAAAAgF/
-AAEAAAA6AAAAPEI1NjU3QTY1Mzg4ODcwNDBBRDNBODFGMTAwOEJFQzYzQjA2RkNGQGF2bWIzLnFs
-b2dpYy5vcmc+AAAACwAfDgEAAAACAQkQAQAAAI4EAACKBAAAcAcAAExaRnUbJTIOYQAKZmJpZAQA
-AGNjwHBnMTI1MgD+A0PwdGV4dAH3AqQD4wIABGNoCsBzZXQwIO8HbQKDAFARTTIKgAa0AoCWfQqA
-CMg7CWIxOQ7AvwnDFnIKMhZxAoAVYioJsHMJ8ASQYXQFsg5QA2Bzom8BgCBFeBHBbhgwXQZSdgSQ
-F7YCEHIAwHR9CFBuGjEQIAXABaAbZGSaIANSIBAiF7JcdgiQ5HdrC4BkNR1TBPAHQA0XcDAKcRfy
-YmttawZzAZAAICBCTV9C4EVHSU59CvwB8QvxRCA+BgB1YmoFkHQKOgfwZSIwW1BBVABDSCAxLzNd
-IP5kBRAaMRvRCXAiMAnwAaDPHnAjRQQgGJAgdRIAI0CnARAEkAlxIHADYGIZ4OkDUlxsC4BlCoAh
-oAuArGl0Jrcmt08DoE0CIJAsIEp1AyAyOCkAEQHQMTQgGIAgMDMGOg6QKkAxUE0gK8ceoB6gKQBZ
-dXYHQBjBsQIweiB3A2AQIDomt60hoFAEkBHQcCTxaAQAEycwBCBhIACQbGx5LCBxClAfYGko4mJ1
-zQVAdxHQBUBndQrAAHDfECAHkS2QKfEtkGUsaSWN/ybAH2Ar8C5BKeAiEC/QLlJ1JkF0BRBnGDAJ
-cSkAZbguZy4pAAuAG9BhJVG7MM4LYHkcUQEAHWBjGeD/LbEwwTKANUAFQDbmA6A3gsRzeR9gZW0/
-J48SQFM3kTbhLT4nQl82ZV+/JhQtsSVBHGAlEQnwcwhwIzViKfF3ZSccYGFk/zyhOpQ3EiURMMox
-rzKxAiC3NyEAwB2hZy2ELhBwG7H/PoYtoEGxBpA+NCNkEdA3ZPpmCJBsCzA/aDaBO9USAXU+43IK
-UC46cTdSBZBo/wMAHlEuYQdAGSBIMQkAHjDvLYQlESZBQj9nJrdIYQPwfy2QS1EHgEFgI9Er8AWw
-a/89oRvRKTAcYCQvQREuYU1l7y2TGuEuIEJQYwaQDlA/WZ83AgQgLzIwky2xcG8rsXcthA3gHGBu
-LCBGUTkwIGsJcC6QaQlxLia1JrVTfQWwci5wT5JTEiZAQaJjlx5wCsAvFElSwm4nBUDzB4AwASAn
-L38whTbVJrW/MuNJgj4QPJQ+RCWqJy8U/xhxMNAFwFgPMIwlh0yCLpF/ClAy1EYyEcAJgCkwVA9U
-r1tUJkBA8kNwbS5wa1MQ/ndhcRnRW3hBogeAGZIEAP8csEyCBCBOg0NhAiBZfVKi3mVCUB3ACfAF
-QHVSIAOg3wBwLCBdMTSGT5JNKTAu0PgtZnVBMC7SUNddcDRBfWavCjvnZ/03gmkDBCAtX11hDlBL
-wArAONFvAiAtnRiQLSZBJhNUHltJQ3D8SSccsAuABaEJcCIQchH9PeFwJhBP8RiANzFDcEvir2vi
-TQRyhgeAXVQ8PixpTFtGHJIklS9iNUEvkT4QLmMgbxEiQS4g9HVjUSFzanADICNVJhT/MuMz9Sxp
-BGAdYEGxM3FQ1/8chDeRaBJBo1tUMzEjcTKE/0hhMH8hoF/9NvBoUTNkCXB3M/AucDDBbXWmFUKD
-8AAAHwBCAAEAAAAYAAAAWQB1AHYAYQBsACAATQBpAG4AdAB6AAAAHwBlAAEAAAAuAAAAWQB1AHYA
-YQBsAC4ATQBpAG4AdAB6AEAAcQBsAG8AZwBpAGMALgBjAG8AbQAAAAAAHwBkAAEAAAAKAAAAUwBN
-AFQAUAAAAAAAAgFBAAEAAABoAAAAAAAAAIErH6S+oxAZnW4A3QEPVAIAAACAWQB1AHYAYQBsACAA
-TQBpAG4AdAB6AAAAUwBNAFQAUAAAAFkAdQB2AGEAbAAuAE0AaQBuAHQAegBAAHEAbABvAGcAaQBj
-AC4AYwBvAG0AAAAfAAJdAQAAAC4AAABZAHUAdgBhAGwALgBNAGkAbgB0AHoAQABxAGwAbwBnAGkA
-YwAuAGMAbwBtAAAAAAAfAOVfAQAAADYAAABzAGkAcAA6AHkAdQB2AGEAbAAuAG0AaQBuAHQAegBA
-AHEAbABvAGcAaQBjAC4AYwBvAG0AAAAAAB8AGgwBAAAAGAAAAFkAdQB2AGEAbAAgAE0AaQBuAHQA
-egAAAB8AHwwBAAAALgAAAFkAdQB2AGEAbAAuAE0AaQBuAHQAegBAAHEAbABvAGcAaQBjAC4AYwBv
-AG0AAAAAAB8AHgwBAAAACgAAAFMATQBUAFAAAAAAAAIBGQwBAAAAaAAAAAAAAACBKx+kvqMQGZ1u
-AN0BD1QCAAAAgFkAdQB2AGEAbAAgAE0AaQBuAHQAegAAAFMATQBUAFAAAABZAHUAdgBhAGwALgBN
-AGkAbgB0AHoAQABxAGwAbwBnAGkAYwAuAGMAbwBtAAAAHwABXQEAAAAuAAAAWQB1AHYAYQBsAC4A
-TQBpAG4AdAB6AEAAcQBsAG8AZwBpAGMALgBjAG8AbQAAAAAAHwD4PwEAAAAYAAAAWQB1AHYAYQBs
-ACAATQBpAG4AdAB6AAAAHwAjQAEAAAAuAAAAWQB1AHYAYQBsAC4ATQBpAG4AdAB6AEAAcQBsAG8A
-ZwBpAGMALgBjAG8AbQAAAAAAHwAiQAEAAAAKAAAAUwBNAFQAUAAAAAAAAgH5PwEAAABoAAAAAAAA
-AIErH6S+oxAZnW4A3QEPVAIAAACAWQB1AHYAYQBsACAATQBpAG4AdAB6AAAAUwBNAFQAUAAAAFkA
-dQB2AGEAbAAuAE0AaQBuAHQAegBAAHEAbABvAGcAaQBjAC4AYwBvAG0AAAAfAAldAQAAAC4AAABZ
-AHUAdgBhAGwALgBNAGkAbgB0AHoAQABxAGwAbwBnAGkAYwAuAGMAbwBtAAAAAAAfADFAAQAAAAIA
-AAAAAAAACwBAOgEAAAAfADBAAQAAAAIAAAAAAAAAHwAaAAEAAAASAAAASQBQAE0ALgBOAG8AdABl
-AAAAAAADAPE/CQQAAAsAQDoBAAAAAwD9P+QEAAACAQswAQAAABAAAAAP9eChOAeLSKw/p5a7hSKo
-AwAXAAEAAABAADkAADyKGnuqzwFAAAgweEwTG3uqzwELACkAAAAAAAsAIwAAAAAAHwAAgIYDAgAA
-AAAAwAAAAAAAAEYBAAAAHgAAAGEAYwBjAGUAcAB0AGwAYQBuAGcAdQBhAGcAZQAAAAAAAQAAAAwA
-AABlAG4ALQBVAFMAAAALAACACCAGAAAAAADAAAAAAAAARgAAAAAGhQAAAAAAAB8ANwABAAAAmAAA
-AFIARQA6ACAAWwBQAEEAVABDAEgAIAAxAC8AMwBdACAAZAByAGkAdgBlAHIAIABjAG8AcgBlADoA
-IABlAG4AYQBiAGwAZQAgAGQAcgBpAHYAZQByAHMAIAB0AG8AIAB1AHMAZQAgAGQAZQBmAGUAcgBy
-AGUAZAAgAHAAcgBvAGIAZQAJAGYAcgBvAG0AIABpAG4AaQB0AAAAHwA9AAEAAAAKAAAAUgBFADoA
-IAAAAAAAAwA2AAAAAAADAC4AAAAAAB8AQhABAAAATgAAADwAMgAwADEANAAwADcAMgA4ADEANQAz
-ADgAMQAxAC4ARwBEADIAMQA5ADMAMABAAHcAbwB0AGEAbgAuAHMAdQBzAGUALgBkAGUAPgAAAAAA
-AgFxAAEAAAAbAAAAAQHPqnnzAnxQWE7GzUSaZGTElDLpfpu1n4JQAB8AcAABAAAAkAAAAFsAUABB
-AFQAQwBIACAAMQAvADMAXQAgAGQAcgBpAHYAZQByACAAYwBvAHIAZQA6ACAAZQBuAGEAYgBsAGUA
-IABkAHIAaQB2AGUAcgBzACAAdABvACAAdQBzAGUAIABkAGUAZgBlAHIAcgBlAGQAIABwAHIAbwBi
-AGUACQBmAHIAbwBtACAAaQBuAGkAdAAAAB8ANRABAAAAdAAAADwAQgA1ADYANQA3AEEANgA1ADMA
-OAA4ADgANwAwADQAMABBAEQAMwBBADgAMQBGADEAMAAwADgAQgBFAEMANgAzAEIAMAA2AEYAQwBG
-AEAAYQB2AG0AYgAzAC4AcQBsAG8AZwBpAGMALgBvAHIAZwA+AAAAHwA5EAEAAAA6AQAAPAAxADQA
-MAA2ADUANQA4ADAANgA3AC0AMgA1ADMAMAA4AC0AMQAtAGcAaQB0AC0AcwBlAG4AZAAtAGUAbQBh
-AGkAbAAtAG0AYwBnAHIAbwBmAEAAZABvAC0AbgBvAHQALQBwAGEAbgBpAGMALgBjAG8AbQA+ACAA
-PABCADUANgA1ADcAQQA2ADUAMwA4ADgAOAA3ADAANAAwAEEARAAzAEEAOAAxAEYAMQAwADAAOABC
-AEUAQwA2ADMAQgAwADYARgA5AEEAQABhAHYAbQBiADMALgBxAGwAbwBnAGkAYwAuAG8AcgBnAD4A
-IAA8ADIAMAAxADQAMAA3ADIAOAAxADUAMwA4ADEAMQAuAEcARAAyADEAOQAzADAAQAB3AG8AdABh
-AG4ALgBzAHUAcwBlAC4AZABlAD4AAAAAAAMA3j+fTgAACwAAgAggBgAAAAAAwAAAAAAAAEYAAAAA
-A4UAAAAAAAADAACACCAGAAAAAADAAAAAAAAARgAAAAABhQAAAAAAAAMAgBD/////QAAHMERkXhp7
-qs8BCwACAAEAAAADACYAAAAAAAsAKwAAAAAAAgFHAAEAAAAuAAAAYz1VUzthPSA7cD1RTG9naWM7
-bD1BVk1CMy0xNDA3MjgxNTQ2MzJaLTMyMzA3AAAAAgEQMAEAAABGAAAAAAAAACxwvA86UnlDnT3A
-eZ9UZ8IHALVlemU4iHBArTqB8QCL7GMAAAClL2UAAHePrlkptJNCjrFSMZZsrhQAka6BYNQAAAAA
-HwD6PwEAAAAYAAAAWQB1AHYAYQBsACAATQBpAG4AdAB6AAAAAwAJWQEAAAADAACACCAGAAAAAADA
-AAAAAAAARgAAAAAQhQAAAAAAAAsAAIAIIAYAAAAAAMAAAAAAAABGAAAAAA6FAAAAAAAAAwAAgAgg
-BgAAAAAAwAAAAAAAAEYAAAAAGIUAAAAAAAALAACACCAGAAAAAADAAAAAAAAARgAAAACChQAAAAAA
-AB8AAIAIIAYAAAAAAMAAAAAAAABGAAAAANiFAAABAAAAEgAAAEkAUABNAC4ATgBvAHQAZQAAAAAA
-AwANNP0/AAAfAACAhgMCAAAAAADAAAAAAAAARgEAAAAgAAAAeAAtAG0AcwAtAGgAYQBzAC0AYQB0
-AHQAYQBjAGgAAAABAAAAAgAAAAAAAAAfAACAhgMCAAAAAADAAAAAAAAARgEAAAAiAAAAeAAtAG8A
-cgBpAGcAaQBuAGEAdABpAG4AZwAtAGkAcAAAAAAAAQAAABgAAABbADEAMAAuADEALgA0AC4AMQAw
-AF0AAAAfAACAhgMCAAAAAADAAAAAAAAARgEAAAAWAAAAZABpAHMAYwBsAGEAaQBtAGUAcgAAAAAA
-AQAAAA4AAABiAHkAcABhAHMAcwAAAAAAVT4=
-
---_000_B5657A6538887040AD3A81F1008BEC63B06FCFavmb3qlogicorg_--
+  Luis
