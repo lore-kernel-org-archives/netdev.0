@@ -1,12 +1,12 @@
 From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Subject: [PATCH 1/3] driver core: enable drivers to use deferred probe from init
-Date: Mon, 28 Jul 2014 07:34:25 -0700
-Message-ID: <1406558067-25308-1-git-send-email-mcgrof@do-not-panic.com>
+Subject: [PATCH 2/3] cxgb4: ask for deferred probe
+Date: Mon, 28 Jul 2014 07:34:26 -0700
+Message-ID: <1406558067-25308-2-git-send-email-mcgrof@do-not-panic.com>
+References: <1406558067-25308-1-git-send-email-mcgrof@do-not-panic.com>
 Cc: linux-kernel@vger.kernel.org,
 	"Luis R. Rodriguez" <mcgrof@suse.com>,
 	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
 	Joseph Salisbury <joseph.salisbury@canonical.com>,
-	Kay Sievers <kay@vrfy.org>,
 	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
 	Tim Gardner <tim.gardner@canonical.com>,
 	Pierre Fersing <pierre-fersing@pierref.org>,
@@ -23,59 +23,24 @@ Cc: linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
 To: gregkh@linuxfoundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f182.google.com ([209.85.192.182]:41743 "EHLO
-	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751175AbaG1Oef (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2014 10:34:35 -0400
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:36888 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752732AbaG1Oek (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2014 10:34:40 -0400
+In-Reply-To: <1406558067-25308-1-git-send-email-mcgrof@do-not-panic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: "Luis R. Rodriguez" <mcgrof@suse.com>
 
-Tetsuo bisected and found that commit 786235ee "kthread: make
-kthread_create() killable" modified kthread_create() to bail as
-soon as SIGKILL is received. This is causing some issues with
-some drivers and at times boot. Joseph then found that failures
-occur as the systemd-udevd process sends SIGKILL to modprobe if
-probe on a driver takes over 30 seconds. When this happens probe
-will fail on any driver, its why booting on some system will fail
-if the driver happens to be a storage related driver. Some folks
-have suggested fixing this by modifying kthread_create() to not
-leave upon SIGKILL [3], upon review Oleg rejected this change and
-the discussion was punted out to systemd to see if the default
-timeout could be increased from 30 seconds to 120. The opinion of
-the systemd maintainers is that the driver's behavior should
-be fixed [4]. Linus seems to agree [5], however more recently even
-networking drivers have been reported to fail on probe since just
-writing the firmware to a device and kicking it can take easy over
-60 seconds [6]. Benjamim was able to trace the issues recently
-reported on cxgb4 down to the same systemd-udevd 30 second timeout [6].
+cxgb4 probe can take up to over 1 minute when the firmware is
+is written and installed on the device. Use the new delayed probe
+preference so that cxgb4 gets probed on the deferred workqueue.
+Without this devices that require the update on firmware will fail
+on probe.
 
-This is an alternative solution which enables drivers that are
-known to take long to use deferred probe workqueue. This avoids
-the 30 second timeout and lets us annotate drivers with long
-init sequences.
-
-As drivers determine a component is not yet available and needs
-to defer probe you'll be notified this happen upon init for each
-device but now with a message such as:
-
-pci 0000:03:00.0: Driver cxgb4 requests probe deferral on init
-
-You should see one of these per struct device probed.
-
-[0] https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1276705
-[1] https://bugs.launchpad.net/ubuntu/+source/systemd/+bug/1297248
-[2] http://lists.freedesktop.org/archives/systemd-devel/2014-March/018006.html
-[3] http://thread.gmane.org/gmane.linux.ubuntu.devel.kernel.general/39123
-[4] http://article.gmane.org/gmane.comp.sysutils.systemd.devel/17860
-[5] http://article.gmane.org/gmane.linux.kernel/1671333
-[6] https://bugzilla.novell.com/show_bug.cgi?id=877622
-
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Cc: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
 Cc: Joseph Salisbury <joseph.salisbury@canonical.com>
-Cc: Kay Sievers <kay@vrfy.org>
 Cc: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
 Cc: Tim Gardner <tim.gardner@canonical.com>
 Cc: Pierre Fersing <pierre-fersing@pierref.org>
@@ -95,86 +60,22 @@ Cc: linux-kernel@vger.kernel.org
 Cc: netdev@vger.kernel.org
 Signed-off-by: Luis R. Rodriguez <mcgrof@suse.com>
 ---
- drivers/base/dd.c      | 15 ++++++++++++++-
- include/linux/device.h | 12 ++++++++++++
- 2 files changed, 26 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/drivers/base/dd.c b/drivers/base/dd.c
-index e4ffbcf..7a271dc 100644
---- a/drivers/base/dd.c
-+++ b/drivers/base/dd.c
-@@ -374,6 +374,19 @@ void wait_for_device_probe(void)
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 6b11fde..bb5daaf 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -6400,6 +6400,9 @@ static void remove_one(struct pci_dev *pdev)
  }
- EXPORT_SYMBOL_GPL(wait_for_device_probe);
  
-+static int __driver_probe_device(struct device_driver *drv, struct device *dev)
-+{
-+	if (drv->delay_probe && !dev->init_delayed_probe) {
-+		dev_info(dev, "Driver %s requests probe deferral on init\n",
-+			 drv->name);
-+		dev->init_delayed_probe = true;
-+		driver_deferred_probe_add(dev);
-+		return -EPROBE_DEFER;
-+	}
-+
-+	return really_probe(dev, drv);
-+}
-+
- /**
-  * driver_probe_device - attempt to bind device & driver together
-  * @drv: driver to bind a device to
-@@ -396,7 +409,7 @@ int driver_probe_device(struct device_driver *drv, struct device *dev)
- 		 drv->bus->name, __func__, dev_name(dev), drv->name);
- 
- 	pm_runtime_barrier(dev);
--	ret = really_probe(dev, drv);
-+	ret = __driver_probe_device(drv, dev);
- 	pm_request_idle(dev);
- 
- 	return ret;
-diff --git a/include/linux/device.h b/include/linux/device.h
-index af424ac..11da1b7 100644
---- a/include/linux/device.h
-+++ b/include/linux/device.h
-@@ -200,6 +200,12 @@ extern struct klist *bus_get_device_klist(struct bus_type *bus);
-  * @owner:	The module owner.
-  * @mod_name:	Used for built-in modules.
-  * @suppress_bind_attrs: Disables bind/unbind via sysfs.
-+ * @delay_probe: this driver is requesting a deferred probe since
-+ *	initialization. This can be desirable if its known the device probe
-+ *	or initialization takes more than 30 seconds.
-+ * @delayed_probe_devs: devices which have gone through a delayed probe. This
-+ * 	is used internally by the driver core to keep track of which devices
-+ * 	have gone through a delayed probe.
-  * @of_match_table: The open firmware table.
-  * @acpi_match_table: The ACPI match table.
-  * @probe:	Called to query the existence of a specific device,
-@@ -234,6 +240,9 @@ struct device_driver {
- 
- 	bool suppress_bind_attrs;	/* disables bind/unbind via sysfs */
- 
-+	bool delay_probe;		/* requests deferred probe */
-+	struct list_head delayed_probe_devs;
-+
- 	const struct of_device_id	*of_match_table;
- 	const struct acpi_device_id	*acpi_match_table;
- 
-@@ -715,6 +724,8 @@ struct acpi_dev_node {
-  *
-  * @offline_disabled: If set, the device is permanently online.
-  * @offline:	Set after successful invocation of bus type's .offline().
-+ * @init_delayed_probe: lets the coore keep track if the device has already
-+ * 	gone through a delayed probe upon init.
-  *
-  * At the lowest level, every device in a Linux system is represented by an
-  * instance of struct device. The device structure contains the information
-@@ -793,6 +804,7 @@ struct device {
- 
- 	bool			offline_disabled:1;
- 	bool			offline:1;
-+	bool			init_delayed_probe:1;
- };
- 
- static inline struct device *kobj_to_dev(struct kobject *kobj)
+ static struct pci_driver cxgb4_driver = {
++	.driver = {
++		.delay_probe = true,
++	},
+ 	.name     = KBUILD_MODNAME,
+ 	.id_table = cxgb4_pci_tbl,
+ 	.probe    = init_one,
 -- 
 2.0.1
