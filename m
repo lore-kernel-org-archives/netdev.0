@@ -1,73 +1,62 @@
-From: "Luis R. Rodriguez" <mcgrof@suse.com>
-Subject: Re: [PATCH 1/3] driver core: enable drivers to use deferred probe
-	from init
-Date: Mon, 28 Jul 2014 18:59:20 +0200
-Message-ID: <20140728165920.GF21930@wotan.suse.de>
-References: <1406558067-25308-1-git-send-email-mcgrof@do-not-panic.com> <B5657A6538887040AD3A81F1008BEC63B06F9A@avmb3.qlogic.org> <20140728153811.GD21930@wotan.suse.de> <B5657A6538887040AD3A81F1008BEC63B06FCF@avmb3.qlogic.org> <20140728165248.GE21930@wotan.suse.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
-	Joseph Salisbury <joseph.salisbury@canonical.com>,
-	Kay Sievers <kay@vrfy.org>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	Tim Gardner <tim.gardner@canonical.com>,
-	Pierre Fersing <pierre-fersing@pierref.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Oleg Nesterov <oleg@redhat.com>,
-	Benjamin Poirier <bpoirier@suse.de>,
-	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
-	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
-	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
-	Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
-	Hariprasad S <hariprasad@chelsio.com>,
-	Santosh Rastapur <santosh@chelsio.com>,
-	"MPT-FusionLinux.pdl@avagotech.com"
-	<MPT-Fusi
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140728165248.GE21930@wotan.suse.de>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jay Vosburgh <jay.vosburgh@canonical.com>
+Subject: Re: Question about 802.3ad bonding mode.
+Date: Mon, 28 Jul 2014 10:32:47 -0700
+Message-ID: <22242.1406568767@localhost.localdomain>
+References: <CAJN_NGY-u+rB1eBHV8XgdXPzwd2tQSmAf_=ZWFu2yob48siXzw@mail.gmail.com>
+Cc: netdev@vger.kernel.org, willy@meta-x.org, const-g@xpert.com,
+	girouard@us.ibm.com, ctindel@ieee.org, mitch.a.williams@intel.com
+To: Dmitry Krivenok <krivenok.dmitry@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from youngberry.canonical.com ([91.189.89.112]:53339 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751167AbaG1Rc6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2014 13:32:58 -0400
+In-reply-to: <CAJN_NGY-u+rB1eBHV8XgdXPzwd2tQSmAf_=ZWFu2yob48siXzw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 28, 2014 at 06:52:48PM +0200, Luis R. Rodriguez wrote:
-> On Mon, Jul 28, 2014 at 03:46:32PM +0000, Yuval Mintz wrote:
-> > > Subject: Re: [PATCH 1/3] driver core: enable drivers to use deferred probe from
-> > > init
-> > > 
-> > > On Mon, Jul 28, 2014 at 03:12:11PM +0000, Yuval Mintz wrote:
-> > > > Perhaps this is a silly question, but what guarantees that the
-> > > > deferred probe list will actually be triggered, e.g., in case the
-> > > > delayed device is the last device in the system?
-> > > 
-> > > The dev->init_delayed_probe is used to ensure that we'd add the device to the
-> > > deferred probe list once making this a per device thing if the driver has the field
-> > > delay_probe set to true. This technically also allows this to be a per device thing
-> > > so with some more work we could enable drivers to only enable this for specific
-> > > devices but at this point this did not seem required.
-> > 
-> > Sorry for not being clear, but I didn't meant 'what guarantees that the device
-> > will be added to the deferred probe', but rather what guarantees that the
-> > deferred workqueue will be scheduled.
-> > 
-> > To the best of my knowledge the deferring mechanism works only if one device
-> > is dependent upon another, e.g., for Multi-function devices where one device
-> > probe is dependent upon the others - which are soon-to-be probed.
-> 
-> The workqueue will be kicked when driver_deferred_probe_trigger() gets
-> poked, we do that in the late_initcall(deferred_probe_initcall), it
-> also gets flushed there with a flush_workqueue(deferred_wq).
+Dmitry Krivenok <krivenok.dmitry@gmail.com> wrote:
 
-But come to think of it that will work well for devices already plugged in
-so indeed I think that driver_deferred_probe_add() needs a check added
-for for if (!driver_deferred_probe_enable) then we have to
-driver_deferred_probe_trigger(). The driver_deferred_probe_enable is set
-to false upon init, but later on late init it gets set to true so with
-that check we'd  only generate the trigger after late init call.
+>Hello,
+>I have two physical NICs bonded into bond0 interface with bonding
+>mode=4 (i,e, 802.3ad).
+>Both NICs are connected to the same switch and switch ports are *not*
+>configured in "lacp" mode.
+[...]
+>I have IP address configured on bond0 and from what I see it's fully
+>working. I can ping it from various hosts, I can ssh to that host,
+>etc. From user perspective it works just fine except that there is no
+>LAG...
+>
+>Is that correct behavior of dynamic link aggregation via LACP?
+>Shouldn't it be configuration error? Is it 802.1ax compliant?
 
-I can fold that in the v2.
+	Your system is behaving correctly; there is a backwards
+compatibility mechanism in the standard.
 
-  Luis
+	Essentially, if there is no LACPDU exchange, the affected links
+are marked as "Individual" (as opposed to "Aggregatable"), which means
+that those links become members of an aggregator with exactly one
+member: that link.
+
+	Then, when the active aggregator to use for traffic is selected,
+if all links are Individual, then one of those is selected, and there is
+then one link that works for communication with the partner system.
+
+	This is done intentionally to permit communication from a system
+configured for LACP to a system that is not so configured.
+
+	This is mentioned at a high level in IEEE 802.1AX section 5.1.2
+(j), the Individual vs Aggregatable is in 5.3.5 and 5.3.6, the treatment
+of Individual links is in 5.3.9, and 5.4.12 says, in part:
+
+	If no LACPDU is received before the current_while timer expires
+	again, the state machine transits to the DEFAULTED state. [...]
+	This allows configuration of aggregations and individual links
+	when no protocol Partner is present, while still permitting an
+	active Partner to override default settings.  [...]
+
+	-J
+
+---
+	-Jay Vosburgh, jay.vosburgh@canonical.com
