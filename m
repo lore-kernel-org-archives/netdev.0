@@ -1,47 +1,184 @@
-From: Alex Gartrell <agartrell@fb.com>
-Subject: What is the best way to accomplish "decapsulate any" functionality?
-Date: Mon, 28 Jul 2014 11:26:32 -0700
-Message-ID: <20140728112632.5f8e8f5f@agartrell-SH67H>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: <kernel-team@fb.com>, <ps@fb.com>
-To: <lvs-devel@vger.kernel.org>, <netdev@vger.kernel.org>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Sender: lvs-devel-owner@vger.kernel.org
+From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Subject: [PATCH v2 2/4] driver core: enable drivers to use deferred probe from init
+Date: Mon, 28 Jul 2014 11:28:28 -0700
+Message-ID: <1406572110-26823-3-git-send-email-mcgrof@do-not-panic.com>
+References: <1406572110-26823-1-git-send-email-mcgrof@do-not-panic.com>
+Cc: tiwai@suse.de, linux-kernel@vger.kernel.org,
+	"Luis R. Rodriguez" <mcgrof@suse.com>,
+	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
+	Joseph Salisbury <joseph.salisbury@canonical.com>,
+	Kay Sievers <kay@vrfy.org>,
+	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+	Tim Gardner <tim.gardner@canonical.com>,
+	Pierre Fersing <pierre-fersing@pierref.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Oleg Nesterov <oleg@redhat.com>,
+	Benjamin Poirier <bpoirier@suse.de>,
+	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
+	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
+	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
+	Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
+	Hariprasad S <hariprasad@chelsio.com>,
+	Santosh Rastapur <santosh@chelsio.com>,
+	MPT-FusionLinux.pdl@avagotech.com, linux-scsi@vger.kernel.org,
+	netdev@vger.kernel.org
+To: gregkh@linuxfoundation.org
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <1406572110-26823-1-git-send-email-mcgrof@do-not-panic.com>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Short Version:
+From: "Luis R. Rodriguez" <mcgrof@suse.com>
 
-What's the best way to accomplish "decapsulate any" functionality for
-"IPv{4,6} in IPv{4,6}?"  Should I write an xfrm module or is there a
-simple, existing method?
+Tetsuo bisected and found that commit 786235ee "kthread: make
+kthread_create() killable" modified kthread_create() to bail as
+soon as SIGKILL is received. This is causing some issues with
+some drivers and at times boot. Joseph then found that failures
+occur as the systemd-udevd process sends SIGKILL to modprobe if
+probe on a driver takes over 30 seconds. When this happens probe
+will fail on any driver, its why booting on some system will fail
+if the driver happens to be a storage related driver. Some folks
+have suggested fixing this by modifying kthread_create() to not
+leave upon SIGKILL [3], upon review Oleg rejected this change and
+the discussion was punted out to systemd to see if the default
+timeout could be increased from 30 seconds to 120. The opinion of
+the systemd maintainers is that the driver's behavior should
+be fixed [4]. Linus seems to agree [5], however more recently even
+networking drivers have been reported to fail on probe since just
+writing the firmware to a device and kicking it can take easy over
+60 seconds [6]. Benjamim was able to trace the issues recently
+reported on cxgb4 down to the same systemd-udevd 30 second timeout [6].
 
-Long Version:
+This is an alternative solution which enables drivers that are
+known to take long to use deferred probe workqueue. This avoids
+the 30 second timeout and lets us annotate drivers with long
+init sequences.
 
-We've been using IPVS with ipip tunneling for ages, and it's been great,
-but our decapsulation story has always been a little weak.  At some point,
-someone figured out that if you create tunnel interfaces for both v4 and v6
-and add loopback or link-local unicast addresses to each, the kernel will
-magically start decapsulating these packets for you, and you can put your
-virtual IPs on any dummy interface you want (or loopback).
+As drivers determine a component is not yet available and needs
+to defer probe you'll be notified this happen upon init for each
+device but now with a message such as:
 
-So our load balancer's pre-run script basically boils down to:
-ip tunnel add mode ipip
-ip addr add dev tunl0 127.0.0.101/32
-ip link set dev tunl0 up
-ip addr add dev lo ${VIP}/32
-# And then the equivalent for v6
+pci 0000:03:00.0: Driver cxgb4 requests probe deferral on init
 
-And all was well and good in the kingdom.  But now we're getting ready to
-turn up our IPv6-only internal cluster, and so we're forced to push forward
-on things like v4-in-v6 tunneling (currently unsupported by IPVS, but we've
-got a patch set that we'll put up when we have a working end-to-end-test).
-Predictably, our magic script fell apart and we had to look into how the
-sausage was made.
+You should see one of these per struct device probed.
 
-So, before I go off and write some terrible xfrm decapsulate-any module, is
-there a "right way" to do this with stock linux?
+[0] https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1276705
+[1] https://bugs.launchpad.net/ubuntu/+source/systemd/+bug/1297248
+[2] http://lists.freedesktop.org/archives/systemd-devel/2014-March/018006.html
+[3] http://thread.gmane.org/gmane.linux.ubuntu.devel.kernel.general/39123
+[4] http://article.gmane.org/gmane.comp.sysutils.systemd.devel/17860
+[5] http://article.gmane.org/gmane.linux.kernel/1671333
+[6] https://bugzilla.novell.com/show_bug.cgi?id=877622
 
-Thanks,
-Alex
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Cc: Joseph Salisbury <joseph.salisbury@canonical.com>
+Cc: Kay Sievers <kay@vrfy.org>
+Cc: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
+Cc: Tim Gardner <tim.gardner@canonical.com>
+Cc: Pierre Fersing <pierre-fersing@pierref.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Oleg Nesterov <oleg@redhat.com>
+Cc: Benjamin Poirier <bpoirier@suse.de>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>
+Cc: Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>
+Cc: Sreekanth Reddy <sreekanth.reddy@avagotech.com>
+Cc: Abhijit Mahajan <abhijit.mahajan@avagotech.com>
+Cc: Hariprasad S <hariprasad@chelsio.com>
+Cc: Santosh Rastapur <santosh@chelsio.com>
+Cc: MPT-FusionLinux.pdl@avagotech.com
+Cc: linux-scsi@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Signed-off-by: Luis R. Rodriguez <mcgrof@suse.com>
+---
+ drivers/base/dd.c      | 18 +++++++++++++++++-
+ include/linux/device.h |  7 +++++++
+ 2 files changed, 24 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/base/dd.c b/drivers/base/dd.c
+index 9947c2e..d59e4b5 100644
+--- a/drivers/base/dd.c
++++ b/drivers/base/dd.c
+@@ -159,6 +159,9 @@ static void driver_deferred_probe_add(struct device *dev)
+ 		list_add_tail(&dev->p->deferred_probe, &deferred_probe_pending_list);
+ 	}
+ 	mutex_unlock(&deferred_probe_mutex);
++
++	if (driver_deferred_probe_enable)
++		driver_deferred_probe_trigger();
+ }
+ 
+ void driver_deferred_probe_del(struct device *dev)
+@@ -374,6 +377,19 @@ void wait_for_device_probe(void)
+ }
+ EXPORT_SYMBOL_GPL(wait_for_device_probe);
+ 
++static int __driver_probe_device(struct device_driver *drv, struct device *dev)
++{
++	if (drv->delay_probe && !dev->init_delayed_probe) {
++		dev_info(dev, "Driver %s requests probe deferral on init\n",
++			 drv->name);
++		dev->init_delayed_probe = true;
++		driver_deferred_probe_add(dev);
++		return -EPROBE_DEFER;
++	}
++
++	return really_probe(dev, drv);
++}
++
+ /**
+  * driver_probe_device - attempt to bind device & driver together
+  * @drv: driver to bind a device to
+@@ -396,7 +412,7 @@ int driver_probe_device(struct device_driver *drv, struct device *dev)
+ 		 drv->bus->name, __func__, dev_name(dev), drv->name);
+ 
+ 	pm_runtime_barrier(dev);
+-	ret = really_probe(dev, drv);
++	ret = __driver_probe_device(drv, dev);
+ 	pm_request_idle(dev);
+ 
+ 	return ret;
+diff --git a/include/linux/device.h b/include/linux/device.h
+index af424ac..c317dfa 100644
+--- a/include/linux/device.h
++++ b/include/linux/device.h
+@@ -200,6 +200,9 @@ extern struct klist *bus_get_device_klist(struct bus_type *bus);
+  * @owner:	The module owner.
+  * @mod_name:	Used for built-in modules.
+  * @suppress_bind_attrs: Disables bind/unbind via sysfs.
++ * @delay_probe: this driver is requesting a deferred probe since
++ *	initialization. This can be desirable if its known the device probe
++ *	or initialization takes more than 30 seconds.
+  * @of_match_table: The open firmware table.
+  * @acpi_match_table: The ACPI match table.
+  * @probe:	Called to query the existence of a specific device,
+@@ -233,6 +236,7 @@ struct device_driver {
+ 	const char		*mod_name;	/* used for built-in modules */
+ 
+ 	bool suppress_bind_attrs;	/* disables bind/unbind via sysfs */
++	bool delay_probe;		/* requests deferred probe */
+ 
+ 	const struct of_device_id	*of_match_table;
+ 	const struct acpi_device_id	*acpi_match_table;
+@@ -715,6 +719,8 @@ struct acpi_dev_node {
+  *
+  * @offline_disabled: If set, the device is permanently online.
+  * @offline:	Set after successful invocation of bus type's .offline().
++ * @init_delayed_probe: lets the coore keep track if the device has already
++ * 	gone through a delayed probe upon init.
+  *
+  * At the lowest level, every device in a Linux system is represented by an
+  * instance of struct device. The device structure contains the information
+@@ -793,6 +799,7 @@ struct device {
+ 
+ 	bool			offline_disabled:1;
+ 	bool			offline:1;
++	bool			init_delayed_probe:1;
+ };
+ 
+ static inline struct device *kobj_to_dev(struct kobject *kobj)
+-- 
+2.0.1
+
