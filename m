@@ -1,91 +1,69 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [PATCH net-next V1 1/2] net: Header length compution function
-Date: Mon, 28 Jul 2014 07:50:44 -0700
-Message-ID: <53D66344.2050207@intel.com>
-References: <1406546881-21863-1-git-send-email-amirv@mellanox.com> <1406546881-21863-2-git-send-email-amirv@mellanox.com>
+From: Dmitry Krivenok <krivenok.dmitry@gmail.com>
+Subject: Question about 802.3ad bonding mode.
+Date: Mon, 28 Jul 2014 18:59:36 +0400
+Message-ID: <CAJN_NGY-u+rB1eBHV8XgdXPzwd2tQSmAf_=ZWFu2yob48siXzw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Ido Shamay <idos@mellanox.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Amir Vadai <amirv@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: willy@meta-x.org, const-g@xpert.com, girouard@us.ibm.com,
+	ctindel@ieee.org, mitch.a.williams@intel.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:11695 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750915AbaG1OvV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Jul 2014 10:51:21 -0400
-In-Reply-To: <1406546881-21863-2-git-send-email-amirv@mellanox.com>
+Received: from mail-lb0-f180.google.com ([209.85.217.180]:57321 "EHLO
+	mail-lb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752324AbaG1O7i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2014 10:59:38 -0400
+Received: by mail-lb0-f180.google.com with SMTP id v6so5969219lbi.11
+        for <netdev@vger.kernel.org>; Mon, 28 Jul 2014 07:59:36 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/28/2014 04:28 AM, Amir Vadai wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> 
-> This commit is based on Eric Dumazet suggestion.
-> Use flow dissector to calculate header length.
-> Tested the following with a mlx4, and it indeed speeds up GRE traffic,
-> as GRO packets can now contain 17 MSS instead of 8.
-> (Pulling payload means GRO had to use 2 'frags' per MSS)
-> 
-> Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Signed-off-by: Amir Vadai <amirv@mellanox.com>
-> ---
->  include/linux/skbuff.h    |  1 +
->  net/core/flow_dissector.c | 24 ++++++++++++++++++++++++
->  2 files changed, 25 insertions(+)
-> 
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index b613557..1f9af4d 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -3133,6 +3133,7 @@ bool skb_partial_csum_set(struct sk_buff *skb, u16 start, u16 off);
->  int skb_checksum_setup(struct sk_buff *skb, bool recalculate);
->  
->  u32 __skb_get_poff(const struct sk_buff *skb);
-> +u32 eth_frame_headlen(void *data, unsigned int len);
->  
->  /**
->   * skb_head_is_locked - Determine if the skb->head is locked down
-> diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-> index 5f362c1..c3afd27 100644
-> --- a/net/core/flow_dissector.c
-> +++ b/net/core/flow_dissector.c
-> @@ -343,6 +343,30 @@ u32 __skb_get_poff(const struct sk_buff *skb)
->  	return poff;
->  }
->  
-> +
-> +/* Helper to find length of headers in an ethernet frame.
-> + * This can help drivers to pull exact amount of bytes into
-> + * skb->head to get optimal GRO performance.
-> + * TODO: Could also return rxhash while we do a complete flow dissection.
-> + */
-> +u32 eth_frame_headlen(void *data, unsigned int len)
-> +{
-> +	const struct ethhdr *eth = data;
-> +	struct sk_buff skb;
-> +
-> +	if (unlikely(len < ETH_HLEN))
-> +		return len;
-> +
-> +	skb.protocol = eth->h_proto;
-> +	skb.head = data + ETH_HLEN;
-> +	skb.data = skb.head;
-> +	skb_reset_network_header(&skb);
-> +	skb.len = len - ETH_HLEN;
-> +	skb.data_len = 0;
-> +	return __skb_get_poff(&skb) + ETH_HLEN;
-> +}
+Hello,
+I have two physical NICs bonded into bond0 interface with bonding
+mode=4 (i,e, 802.3ad).
+Both NICs are connected to the same switch and switch ports are *not*
+configured in "lacp" mode.
 
-I'm still not a big fan of allocating an sk_buff on the stack.  Seems
-like it isn't maintainable and really opens things up to possible issues
-if someone ever extends the __skb_get_poff call.  But I'm not going to
-force the issue since for now this isn't impacting igb or ixgbe.
+Documentation on this mode says this:
+
+The 802.3ad mode requires that the switch have the appropriate
+ports configured as an 802.3ad aggregation. The precise method used
+to configure this varies from switch to switch, but, for example, a
+Cisco 3550 series switch requires that the appropriate ports first be
+grouped together in a single etherchannel instance, then that
+etherchannel is set to mode "lacp" to enable 802.3ad (instead of
+standard EtherChannel).
+
+I'd expect that in such a case LAG should not be created via LACP. And
+it's actually not created because I see the following LACPDUs coming
+out of my NICs every 30 seconds:
+
+13:27:25.968094 LACPv1, length: 110
+        Actor Information TLV (0x01), length: 20
+          System 00:60:16:56:ab:c1, System Priority 65535, Key 17,
+Port 1, Port Priority 255
+          State Flags [Activity, Aggregation, Synchronization, Default]
+        Partner Information TLV (0x02), length: 20
+          System 00:00:00:00:00:00, System Priority 65535, Key 1, Port
+1, Port Priority 255
+          State Flags [Activity]
+        Collector Information TLV (0x03), length: 16
+          Max Delay 0
+        Terminator TLV (0x00), length: 0
+
+AFAIK state flag "Default" means that we never got any LACPDUs from the switch.
+
+I have IP address configured on bond0 and from what I see it's fully
+working. I can ping it from various hosts, I can ssh to that host,
+etc. From user perspective it works just fine except that there is no
+LAG...
+
+Is that correct behavior of dynamic link aggregation via LACP?
+Shouldn't it be configuration error? Is it 802.1ax compliant?
+
+Any help is very appreciated.
 
 Thanks,
+Dmitry
 
-Alex
+P.S.
+My host is SLES11SP2, kernel 3.0.
