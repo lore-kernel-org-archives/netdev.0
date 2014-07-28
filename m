@@ -1,62 +1,34 @@
-From: Jay Vosburgh <jay.vosburgh@canonical.com>
-Subject: Re: Question about 802.3ad bonding mode.
-Date: Mon, 28 Jul 2014 10:32:47 -0700
-Message-ID: <22242.1406568767@localhost.localdomain>
-References: <CAJN_NGY-u+rB1eBHV8XgdXPzwd2tQSmAf_=ZWFu2yob48siXzw@mail.gmail.com>
-Cc: netdev@vger.kernel.org, willy@meta-x.org, const-g@xpert.com,
-	girouard@us.ibm.com, ctindel@ieee.org, mitch.a.williams@intel.com
-To: Dmitry Krivenok <krivenok.dmitry@gmail.com>
+From: Monica Suwayd <monica.suayd@hotmail.com>
+Subject: =?utf-8?b?RG9icsO9IA==?= =?utf-8?b?dmXEjWVy?=
+Date: Mon, 28 Jul 2014 17:59:04 +0000
+Message-ID: <20140728175904.Horde.VcpVQayA3diVlJfFkIDdMQ1@webmail.drilroc.com>
+Reply-To: monica.suwayd@hotmail.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed	DelSp=Yes
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:53339 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751167AbaG1Rc6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2014 13:32:58 -0400
-In-reply-to: <CAJN_NGY-u+rB1eBHV8XgdXPzwd2tQSmAf_=ZWFu2yob48siXzw@mail.gmail.com>
+Received: from 67.228.10.34-static.reverse.softlayer.com ([67.228.10.34]:49378
+	"EHLO pluto.businessmedia.ca" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751668AbaG1SBr convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Jul 2014 14:01:47 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dmitry Krivenok <krivenok.dmitry@gmail.com> wrote:
 
->Hello,
->I have two physical NICs bonded into bond0 interface with bonding
->mode=4 (i,e, 802.3ad).
->Both NICs are connected to the same switch and switch ports are *not*
->configured in "lacp" mode.
-[...]
->I have IP address configured on bond0 and from what I see it's fully
->working. I can ping it from various hosts, I can ssh to that host,
->etc. From user perspective it works just fine except that there is no
->LAG...
->
->Is that correct behavior of dynamic link aggregation via LACP?
->Shouldn't it be configuration error? Is it 802.1ax compliant?
 
-	Your system is behaving correctly; there is a backwards
-compatibility mechanism in the standard.
+ahoj
+Dobr=C3=BD ve=C4=8Der, j=C3=A1 jsem Monica Suwayd budu muset, m=C3=ADt =
+n=C4=9Bjakou diskusi s
+v=C3=A1mi. Pokud v=C3=A1m to nebude vadit. Pros=C3=ADm, dejte mi v=C4=9B=
+d=C4=9Bt, zda m=C5=AFj dopis
+je v=C3=ADt=C3=A1n. Jde Monica Suwayd.
+=2E........
 
-	Essentially, if there is no LACPDU exchange, the affected links
-are marked as "Individual" (as opposed to "Aggregatable"), which means
-that those links become members of an aggregator with exactly one
-member: that link.
-
-	Then, when the active aggregator to use for traffic is selected,
-if all links are Individual, then one of those is selected, and there is
-then one link that works for communication with the partner system.
-
-	This is done intentionally to permit communication from a system
-configured for LACP to a system that is not so configured.
-
-	This is mentioned at a high level in IEEE 802.1AX section 5.1.2
-(j), the Individual vs Aggregatable is in 5.3.5 and 5.3.6, the treatment
-of Individual links is in 5.3.9, and 5.4.12 says, in part:
-
-	If no LACPDU is received before the current_while timer expires
-	again, the state machine transits to the DEFAULTED state. [...]
-	This allows configuration of aggregations and individual links
-	when no protocol Partner is present, while still permitting an
-	active Partner to override default settings.  [...]
-
-	-J
-
----
-	-Jay Vosburgh, jay.vosburgh@canonical.com
+Hello
+Good evening, I'm Monica Suwayd I would have like to have some
+discussion with you. If you don't mind. Please let me know if my letter
+is welcome. Regards Monica Suwayd.
