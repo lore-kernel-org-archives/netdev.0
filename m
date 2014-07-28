@@ -1,68 +1,53 @@
-From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Subject: Re: [PATCH v2 2/4] driver core: enable drivers to use deferred probe
- from init
-Date: Mon, 28 Jul 2014 12:48:32 -0700
-Message-ID: <CAB=NE6Xmi2zUCis22q+X8_AKRcwMrAtmx-aqSSvTB70Xjet6VQ@mail.gmail.com>
-References: <1406572110-26823-1-git-send-email-mcgrof@do-not-panic.com>
- <1406572110-26823-3-git-send-email-mcgrof@do-not-panic.com>
- <20140728185538.GB17609@kroah.com> <CAB=NE6VebcR7=UA1n0wNVLr5FFukzq6aW5CkeB3nf5FixV=3cA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Takashi Iwai <tiwai@suse.de>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Joseph Salisbury <joseph.salisbury@canonical.com>,
-	Kay Sievers <kay@vrfy.org>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	Tim Gardner <tim.gardner@canonical.com>,
-	Pierre Fersing <pierre-fersing@pierref.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Oleg Nesterov <oleg@redhat.com>,
-	Benjamin Poirier <bpoirier@suse.de>,
-	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
-	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
-	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
-	Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
-	MPT-FusionLinux.pdl@avagotech.com,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Greg KH <gregkh@linuxfoundation.org>,
-	Santosh Rastapur <santosh@chelsio.com>,
-	Hariprasad S <hariprasad@chelsio.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <CAB=NE6VebcR7=UA1n0wNVLr5FFukzq6aW5CkeB3nf5FixV=3cA@mail.gmail.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eli Cohen <eli@dev.mellanox.co.il>
+Subject: [PATCH net-next 0/3] mlx5 driver changes related to PCI handling ***
+Date: Mon, 28 Jul 2014 23:30:21 +0300
+Message-ID: <1406579424-16213-1-git-send-email-eli@mellanox.com>
+Cc: netdev@vger.kernel.org, roland@kernel.org, ogerlitz@mellanox.com,
+	Eli Cohen <eli@mellanox.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f49.google.com ([74.125.82.49]:36129 "EHLO
+	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751991AbaG1Uag (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2014 16:30:36 -0400
+Received: by mail-wg0-f49.google.com with SMTP id k14so7865075wgh.20
+        for <netdev@vger.kernel.org>; Mon, 28 Jul 2014 13:30:34 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 28, 2014 at 12:04 PM, Luis R. Rodriguez
-<mcgrof@do-not-panic.com> wrote:
-> On Mon, Jul 28, 2014 at 11:55 AM, Greg KH <gregkh@linuxfoundation.org> wrote:
->> So, what drivers are having problems in their init sequence, and why
->> aren't they using async firmware loading?
->
-> Fixing drivers is one thing, fixing drivers *now* because *now*
-> drivers are failing due to a regression is another thing and that's
-> what we have now so lets just be clear on that. The 30 second rule is
-> a major driver requirement change and it should not be taken slightly,
-> all of a sudden this is a new requirement but you won't know that
-> unless you're reading these threads or hit an issue. That's an issue
-> in itself.
->
-> The cxgb4: driver is an example where although I did propose patches
-> to use asynch firmware loading the entire registration of the
-> netdevice would need to be changed as well in order to get this right.
-> In short we have to scramble now to first identify drivers that have
-> long init sequences and then fix. There's an assumption that we can
-> easily fix drivers, this can take time. This series, although does
-> take advantage of a kernel interface for other uses, lets us identify
-> these drivers on the kernel ring buffer, so we can go and address
-> fixing them with time.
+Hi Dave,
 
-Another thing that came up during asynch firmware review / integration
-on cxgb4 was that it would not be the only thing that would need to be
-fixed, the driver also has a ton of ports and at least as per my
-review the proper fix would be to use platform regiister stuff. It is
-a major rewrite of the driver but an example of a driver that needs
-quite a bit of work to meet this new 30 second driver requirement.
+The first of these patches is changing the pci device driver from mlx5_ib to
+mlx5_core in a similar manner it is done in mlx4. This set the grounds for us
+to introduce Ethernet driver for HW which uses mlx5.
 
- Luis
+The other two patches contain minor fixes.
+
+Eli
+
+Jack Morgenstein (3):
+  mlx5: Move pci device from mlx5_ib to mlx5_core
+  mlx5: minor fixes (mainly avoidance of hidden casts)
+  mlx5: Adjust events to use unsigned long param instead of void *
+
+ drivers/infiniband/hw/mlx5/cq.c                    |  48 ++--
+ drivers/infiniband/hw/mlx5/mad.c                   |   6 +-
+ drivers/infiniband/hw/mlx5/main.c                  | 292 +++++++--------------
+ drivers/infiniband/hw/mlx5/mem.c                   |   2 +-
+ drivers/infiniband/hw/mlx5/mlx5_ib.h               |  14 +-
+ drivers/infiniband/hw/mlx5/mr.c                    |  48 ++--
+ drivers/infiniband/hw/mlx5/qp.c                    |  88 +++----
+ drivers/infiniband/hw/mlx5/srq.c                   |  26 +-
+ drivers/net/ethernet/mellanox/mlx5/core/alloc.c    |   2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/cmd.c      |   2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/eq.c       |   4 +-
+ drivers/net/ethernet/mellanox/mlx5/core/mad.c      |   2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/main.c     | 292 ++++++++++++++++++++-
+ .../net/ethernet/mellanox/mlx5/core/pagealloc.c    |   2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/port.c     |   2 +-
+ include/linux/mlx5/device.h                        |   4 -
+ include/linux/mlx5/driver.h                        |  27 +-
+ 17 files changed, 522 insertions(+), 339 deletions(-)
+
+-- 
+1.9.3
