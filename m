@@ -1,85 +1,85 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] net: sendmsg: fix NULL pointer dereference
-Date: Mon, 28 Jul 2014 11:50:08 +0200
-Message-ID: <1406541008.21403.0.camel@localhost>
-References: <1406390080.22881.75.camel@localhost>
-	 <1406395618-4697-1-git-send-email-a.ryabinin@samsung.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Sasha Levin <sasha.levin@oracle.com>,
-	Andrey Ryabinin <a.ryabinin@samsung.com>,
-	stable@vger.kernel.org
-To: Andrey Ryabinin <ryabinin.a.a@gmail.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1406395618-4697-1-git-send-email-a.ryabinin@samsung.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net-next 1/2] net: Header length compution function
+Date: Mon, 28 Jul 2014 13:14:10 +0300
+Message-ID: <1406542451-8857-2-git-send-email-amirv@mellanox.com>
+References: <1406542451-8857-1-git-send-email-amirv@mellanox.com>
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Ido Shamay <idos@mellanox.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailp.voltaire.com ([193.47.165.129]:47500 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751811AbaG1KOf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Jul 2014 06:14:35 -0400
+In-Reply-To: <1406542451-8857-1-git-send-email-amirv@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sa, 2014-07-26 at 21:26 +0400, Andrey Ryabinin wrote:
-> Sasha's report:
-> 	> While fuzzing with trinity inside a KVM tools guest running the latest -next
-> 	> kernel with the KASAN patchset, I've stumbled on the following spew:
-> 	>
-> 	> [ 4448.949424] ==================================================================
-> 	> [ 4448.951737] AddressSanitizer: user-memory-access on address 0
-> 	> [ 4448.952988] Read of size 2 by thread T19638:
-> 	> [ 4448.954510] CPU: 28 PID: 19638 Comm: trinity-c76 Not tainted 3.16.0-rc4-next-20140711-sasha-00046-g07d3099-dirty #813
-> 	> [ 4448.956823]  ffff88046d86ca40 0000000000000000 ffff880082f37e78 ffff880082f37a40
-> 	> [ 4448.958233]  ffffffffb6e47068 ffff880082f37a68 ffff880082f37a58 ffffffffb242708d
-> 	> [ 4448.959552]  0000000000000000 ffff880082f37a88 ffffffffb24255b1 0000000000000000
-> 	> [ 4448.961266] Call Trace:
-> 	> [ 4448.963158] dump_stack (lib/dump_stack.c:52)
-> 	> [ 4448.964244] kasan_report_user_access (mm/kasan/report.c:184)
-> 	> [ 4448.965507] __asan_load2 (mm/kasan/kasan.c:352)
-> 	> [ 4448.966482] ? netlink_sendmsg (net/netlink/af_netlink.c:2339)
-> 	> [ 4448.967541] netlink_sendmsg (net/netlink/af_netlink.c:2339)
-> 	> [ 4448.968537] ? get_parent_ip (kernel/sched/core.c:2555)
-> 	> [ 4448.970103] sock_sendmsg (net/socket.c:654)
-> 	> [ 4448.971584] ? might_fault (mm/memory.c:3741)
-> 	> [ 4448.972526] ? might_fault (./arch/x86/include/asm/current.h:14 mm/memory.c:3740)
-> 	> [ 4448.973596] ? verify_iovec (net/core/iovec.c:64)
-> 	> [ 4448.974522] ___sys_sendmsg (net/socket.c:2096)
-> 	> [ 4448.975797] ? put_lock_stats.isra.13 (./arch/x86/include/asm/preempt.h:98 kernel/locking/lockdep.c:254)
-> 	> [ 4448.977030] ? lock_release_holdtime (kernel/locking/lockdep.c:273)
-> 	> [ 4448.978197] ? lock_release_non_nested (kernel/locking/lockdep.c:3434 (discriminator 1))
-> 	> [ 4448.979346] ? check_chain_key (kernel/locking/lockdep.c:2188)
-> 	> [ 4448.980535] __sys_sendmmsg (net/socket.c:2181)
-> 	> [ 4448.981592] ? trace_hardirqs_on_caller (kernel/locking/lockdep.c:2600)
-> 	> [ 4448.982773] ? trace_hardirqs_on (kernel/locking/lockdep.c:2607)
-> 	> [ 4448.984458] ? syscall_trace_enter (arch/x86/kernel/ptrace.c:1500 (discriminator 2))
-> 	> [ 4448.985621] ? trace_hardirqs_on_caller (kernel/locking/lockdep.c:2600)
-> 	> [ 4448.986754] SyS_sendmmsg (net/socket.c:2201)
-> 	> [ 4448.987708] tracesys (arch/x86/kernel/entry_64.S:542)
-> 	> [ 4448.988929] ==================================================================
-> 
-> This reports means that we've come to netlink_sendmsg() with msg->msg_name == NULL and msg->msg_namelen > 0.
-> 
-> After this report there was no usual "Unable to handle kernel NULL pointer dereference"
-> and this gave me a clue that address 0 is mapped and contains valid socket address structure in it.
-> 
-> This bug was introduced in f3d3342602f8bcbf37d7c46641cb9bca7618eb1c
-> (net: rework recvmsg handler msg_name and msg_namelen logic).
-> Commit message states that:
-> 	"Set msg->msg_name = NULL if user specified a NULL in msg_name but had a
-> 	 non-null msg_namelen in verify_iovec/verify_compat_iovec. This doesn't
-> 	 affect sendto as it would bail out earlier while trying to copy-in the
-> 	 address."
-> But in fact this affects sendto when address 0 is mapped and contains
-> socket address structure in it. In such case copy-in address will succeed,
-> verify_iovec() function will successfully exit with msg->msg_namelen > 0
-> and msg->msg_name == NULL.
-> 
-> This patch fixes it by setting msg_namelen to 0 if msg_name == NULL.
-> 
-> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: <stable@vger.kernel.org>
-> Reported-by: Sasha Levin <sasha.levin@oracle.com>
-> Signed-off-by: Andrey Ryabinin <a.ryabinin@samsung.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+This commit is based on Eric Dumazet suggestion.
+Use flow dissector to calculate header length.
+Tested the following with a mlx4, and it indeed speeds up GRE traffic,
+as GRO packets can now contain 17 MSS instead of 8.
+(Pulling payload means GRO had to use 2 'frags' per MSS)
 
-Thank you!
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
+ include/linux/skbuff.h    |  1 +
+ net/core/flow_dissector.c | 24 ++++++++++++++++++++++++
+ 2 files changed, 25 insertions(+)
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index b613557..1f9af4d 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -3133,6 +3133,7 @@ bool skb_partial_csum_set(struct sk_buff *skb, u16 start, u16 off);
+ int skb_checksum_setup(struct sk_buff *skb, bool recalculate);
+ 
+ u32 __skb_get_poff(const struct sk_buff *skb);
++u32 eth_frame_headlen(void *data, unsigned int len);
+ 
+ /**
+  * skb_head_is_locked - Determine if the skb->head is locked down
+diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
+index 5f362c1..c3afd27 100644
+--- a/net/core/flow_dissector.c
++++ b/net/core/flow_dissector.c
+@@ -343,6 +343,30 @@ u32 __skb_get_poff(const struct sk_buff *skb)
+ 	return poff;
+ }
+ 
++
++/* Helper to find length of headers in an ethernet frame.
++ * This can help drivers to pull exact amount of bytes into
++ * skb->head to get optimal GRO performance.
++ * TODO: Could also return rxhash while we do a complete flow dissection.
++ */
++u32 eth_frame_headlen(void *data, unsigned int len)
++{
++	const struct ethhdr *eth = data;
++	struct sk_buff skb;
++
++	if (unlikely(len < ETH_HLEN))
++		return len;
++
++	skb.protocol = eth->h_proto;
++	skb.head = data + ETH_HLEN;
++	skb.data = skb.head;
++	skb_reset_network_header(&skb);
++	skb.len = len - ETH_HLEN;
++	skb.data_len = 0;
++	return __skb_get_poff(&skb) + ETH_HLEN;
++}
++EXPORT_SYMBOL(eth_frame_headlen);
++
+ static inline int get_xps_queue(struct net_device *dev, struct sk_buff *skb)
+ {
+ #ifdef CONFIG_XPS
+-- 
+1.8.3.4
