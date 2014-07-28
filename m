@@ -1,58 +1,153 @@
-From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Subject: Re: [PATCH v2 2/4] driver core: enable drivers to use deferred probe
- from init
-Date: Mon, 28 Jul 2014 12:04:50 -0700
-Message-ID: <CAB=NE6VebcR7=UA1n0wNVLr5FFukzq6aW5CkeB3nf5FixV=3cA@mail.gmail.com>
-References: <1406572110-26823-1-git-send-email-mcgrof@do-not-panic.com>
- <1406572110-26823-3-git-send-email-mcgrof@do-not-panic.com> <20140728185538.GB17609@kroah.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Takashi Iwai <tiwai@suse.de>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Joseph Salisbury <joseph.salisbury@canonical.com>,
-	Kay Sievers <kay@vrfy.org>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	Tim Gardner <tim.gardner@canonical.com>,
-	Pierre Fersing <pierre-fersing@pierref.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Oleg Nesterov <oleg@redhat.com>,
-	Benjamin Poirier <bpoirier@suse.de>,
-	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
-	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
-	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
-	Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
-	MPT-FusionLinux.pdl@avagotech.com,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Greg KH <gregkh@linuxfoundation.org>,
-	Santosh Rastapur <santosh@chelsio.com>,
-	Hariprasad S <hariprasad@chelsio.com>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <20140728185538.GB17609@kroah.com>
-Sender: linux-scsi-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vince Bridgers <vbridgers2013@gmail.com>
+Subject: [PATCH net-next v3] net: stmmac: add platform init/exit for Altera's ARM socfpga
+Date: Mon, 28 Jul 2014 14:07:58 -0500
+Message-ID: <1406574478-19343-1-git-send-email-vbridgers2013@gmail.com>
+Cc: vbridgers2013@gmail.com, vbridger@altera.com
+To: netdev@vger.kernel.org, davem@davemloft.net, peppe.cavallaro@st.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:48523 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750926AbaG1TLf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2014 15:11:35 -0400
+Received: by mail-pa0-f45.google.com with SMTP id eu11so11033423pac.32
+        for <netdev@vger.kernel.org>; Mon, 28 Jul 2014 12:11:35 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 28, 2014 at 11:55 AM, Greg KH <gregkh@linuxfoundation.org> wrote:
-> So, what drivers are having problems in their init sequence, and why
-> aren't they using async firmware loading?
+This patch adds platform init/exit functions and modifications to support
+suspend/resume for the Altera Cyclone 5 SOC Ethernet controller. The platform
+exit function puts the controller into reset using the socfpga reset
+controller driver. The platform init function sets up the Synopsys mac by
+first making sure the Ethernet controller is held in reset, programming the
+phy mode through external support logic, then deasserts reset through
+the socfpga reset manager driver.
 
-Fixing drivers is one thing, fixing drivers *now* because *now*
-drivers are failing due to a regression is another thing and that's
-what we have now so lets just be clear on that. The 30 second rule is
-a major driver requirement change and it should not be taken slightly,
-all of a sudden this is a new requirement but you won't know that
-unless you're reading these threads or hit an issue. That's an issue
-in itself.
+Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
+---
+V3: respin for net-next after phy_suspend was exported by libphy
+    per suggestion from Florian. No changes to patch from V2 -> V3.
+V2: Address review comments - add line break before structure decl
+---
+ .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    |   69 ++++++++++++++++++++
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |    4 ++
+ 2 files changed, 73 insertions(+)
 
-The cxgb4: driver is an example where although I did propose patches
-to use asynch firmware loading the entire registration of the
-netdevice would need to be changed as well in order to get this right.
-In short we have to scramble now to first identify drivers that have
-long init sequences and then fix. There's an assumption that we can
-easily fix drivers, this can take time. This series, although does
-take advantage of a kernel interface for other uses, lets us identify
-these drivers on the kernel ring buffer, so we can go and address
-fixing them with time.
-
- Luis
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+index fd8a217..ec632e6 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+@@ -20,7 +20,9 @@
+ #include <linux/of_net.h>
+ #include <linux/phy.h>
+ #include <linux/regmap.h>
++#include <linux/reset.h>
+ #include <linux/stmmac.h>
++#include "stmmac.h"
+ 
+ #define SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_GMII_MII 0x0
+ #define SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_RGMII 0x1
+@@ -34,6 +36,7 @@ struct socfpga_dwmac {
+ 	u32	reg_shift;
+ 	struct	device *dev;
+ 	struct regmap *sys_mgr_base_addr;
++	struct reset_control *stmmac_rst;
+ };
+ 
+ static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *dev)
+@@ -43,6 +46,13 @@ static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *
+ 	u32 reg_offset, reg_shift;
+ 	int ret;
+ 
++	dwmac->stmmac_rst = devm_reset_control_get(dev,
++						  STMMAC_RESOURCE_NAME);
++	if (IS_ERR(dwmac->stmmac_rst)) {
++		dev_info(dev, "Could not get reset control!\n");
++		return -EINVAL;
++	}
++
+ 	dwmac->interface = of_get_phy_mode(np);
+ 
+ 	sys_mgr_base_addr = syscon_regmap_lookup_by_phandle(np, "altr,sysmgr-syscon");
+@@ -125,6 +135,65 @@ static void *socfpga_dwmac_probe(struct platform_device *pdev)
+ 	return dwmac;
+ }
+ 
++static void socfpga_dwmac_exit(struct platform_device *pdev, void *priv)
++{
++	struct socfpga_dwmac	*dwmac = priv;
++
++	/* On socfpga platform exit, assert and hold reset to the
++	 * enet controller - the default state after a hard reset.
++	 */
++	if (dwmac->stmmac_rst)
++		reset_control_assert(dwmac->stmmac_rst);
++}
++
++static int socfpga_dwmac_init(struct platform_device *pdev, void *priv)
++{
++	struct socfpga_dwmac	*dwmac = priv;
++	struct net_device *ndev = platform_get_drvdata(pdev);
++	struct stmmac_priv *stpriv = NULL;
++	int ret = 0;
++
++	if (ndev)
++		stpriv = netdev_priv(ndev);
++
++	/* Assert reset to the enet controller before changing the phy mode */
++	if (dwmac->stmmac_rst)
++		reset_control_assert(dwmac->stmmac_rst);
++
++	/* Setup the phy mode in the system manager registers according to
++	 * devicetree configuration
++	 */
++	ret = socfpga_dwmac_setup(dwmac);
++
++	/* Deassert reset for the phy configuration to be sampled by
++	 * the enet controller, and operation to start in requested mode
++	 */
++	if (dwmac->stmmac_rst)
++		reset_control_deassert(dwmac->stmmac_rst);
++
++	/* Before the enet controller is suspended, the phy is suspended.
++	 * This causes the phy clock to be gated. The enet controller is
++	 * resumed before the phy, so the clock is still gated "off" when
++	 * the enet controller is resumed. This code makes sure the phy
++	 * is "resumed" before reinitializing the enet controller since
++	 * the enet controller depends on an active phy clock to complete
++	 * a DMA reset. A DMA reset will "time out" if executed
++	 * with no phy clock input on the Synopsys enet controller.
++	 * Verified through Synopsys Case #8000711656.
++	 *
++	 * Note that the phy clock is also gated when the phy is isolated.
++	 * Phy "suspend" and "isolate" controls are located in phy basic
++	 * control register 0, and can be modified by the phy driver
++	 * framework.
++	 */
++	if (stpriv && stpriv->phydev)
++		phy_resume(stpriv->phydev);
++
++	return ret;
++}
++
+ const struct stmmac_of_data socfpga_gmac_data = {
+ 	.setup = socfpga_dwmac_probe,
++	.init = socfpga_dwmac_init,
++	.exit = socfpga_dwmac_exit,
+ };
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 057a120..18315f3 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -2878,6 +2878,10 @@ int stmmac_suspend(struct net_device *ndev)
+ 		clk_disable_unprepare(priv->stmmac_clk);
+ 	}
+ 	spin_unlock_irqrestore(&priv->lock, flags);
++
++	priv->oldlink = 0;
++	priv->speed = 0;
++	priv->oldduplex = -1;
+ 	return 0;
+ }
+ 
+-- 
+1.7.9.5
