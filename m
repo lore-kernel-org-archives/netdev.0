@@ -1,40 +1,54 @@
-From: weiyj_lk@163.com
-Subject: [PATCH -next] tipc: remove duplicated include from socket.c
-Date: Mon, 28 Jul 2014 21:30:14 +0800
-Message-ID: <1406554214-30460-1-git-send-email-weiyj_lk@163.com>
+From: Akain Salif <akainsalif23@gmail.com>
+Subject: I AM AWAITING YOUR URGENT RESPONSE
+Date: Mon, 28 Jul 2014 13:53:26 +0000
+Message-ID: <CAPzC1TR6sjAyWLER3sVTz0Ke3Kg5=MmNkjbDyHQ=Ag3LDK-8fg@mail.gmail.com>
+Reply-To: akainsalif101@yahoo.fr
+Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
-	netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net
-To: Jon Maloy <jon.maloy@ericsson.com>,
-	Allan Stephens <allan.stephens@windriver.com>,
-	"David S. Miller" <davem@davemloft.net>
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from m12-15.163.com ([220.181.12.15]:48690 "EHLO m12-15.163.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752870AbaG1Nah (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Jul 2014 09:30:37 -0400
+Received: from mail-qg0-f66.google.com ([209.85.192.66]:38622 "EHLO
+	mail-qg0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750752AbaG1Nx1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2014 09:53:27 -0400
+Received: by mail-qg0-f66.google.com with SMTP id a108so2938890qge.1
+        for <netdev@vger.kernel.org>; Mon, 28 Jul 2014 06:53:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+DEAR FRIEND,
+I am Mr Akain Salif. maneger auditing and accounting department Bank
+of Africa Ouagadougou Burkina Faso.
 
-Remove duplicated include.
+My purpose of contacting you is for you to collaborate with me in this
+transaction because it is not easy for me to handle this transaction
+alone as the next of kin to the deceased customer MR.ALOYSIUS
+AESCHELMAN.who died along with his family in a plane crash July 31sth
+2000 and left no one to claim his deposit with Bank of Africa here in
+Burkina Faso, West Africa.
 
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
----
- net/tipc/socket.c | 1 -
- 1 file changed, 1 deletion(-)
+Let me solicit for your confidence and trust in this transaction as it
+is legal. i have taken all necessary arrangement here before
+contacting you in order to ensure that this funds is successfully
+claim and move to you from Burkina Faso without implications, so i
+implore you to comply with me to enable us mutually undertake this
+prospects.
 
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 8c5600c..7ce96c7 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -40,7 +40,6 @@
- #include "node.h"
- #include "link.h"
- #include <linux/export.h>
--#include "link.h"
- 
- #define SS_LISTENING	-1	/* socket is listening */
- #define SS_READY	-2	/* socket is connectionless */
+The total amount deposited by our late customer is Ten million five
+hundred thousand United state dollars ($10.5 million USD) and we shall
+share the funds in a mutual understanding of 40 % for you while 60%
+will be for me, my 60% will remain in your bank account pending on my
+arrival in your country and I shall invest with my own share in your
+country as soon as the fund is transferred into your bank account. I
+assure you that there is no risk involved in this transaction and also
+all the deceased customer information are with me to back up your
+claim. you must apply first to the bank as relation or next of kin of
+the deceased indicating your bank name, your bank account number, your
+private telephone and fax number for easy and effective communication
+and location where the money will be remmitted.
+
+For More Information Contact Me From My Private Box (mrakainsalif101@yahoo.fr)
+
+Thanks for your co-operation.
+Your sincerely
+Mr Akain Salif
