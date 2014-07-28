@@ -1,41 +1,58 @@
-From: =?ISO-8859-1?Q?=C1lvaro_Fern=E1ndez_Rojas?= <noltari@gmail.com>
-Subject: [PATCH] ssb: add PCI ID 0x4351
-Date: Mon, 28 Jul 2014 21:01:06 +0200
-Message-ID: <53D69DF2.50301@gmail.com>
+From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Subject: Re: [PATCH v2 2/4] driver core: enable drivers to use deferred probe
+ from init
+Date: Mon, 28 Jul 2014 12:04:50 -0700
+Message-ID: <CAB=NE6VebcR7=UA1n0wNVLr5FFukzq6aW5CkeB3nf5FixV=3cA@mail.gmail.com>
+References: <1406572110-26823-1-git-send-email-mcgrof@do-not-panic.com>
+ <1406572110-26823-3-git-send-email-mcgrof@do-not-panic.com> <20140728185538.GB17609@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:47692 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750929AbaG1TBS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2014 15:01:18 -0400
-Received: by mail-wi0-f177.google.com with SMTP id ho1so4888795wib.10
-        for <netdev@vger.kernel.org>; Mon, 28 Jul 2014 12:01:16 -0700 (PDT)
-Received: from [192.168.1.10] (56.Red-83-35-86.dynamicIP.rima-tde.net. [83.35.86.56])
-        by mx.google.com with ESMTPSA id a4sm34254661wie.21.2014.07.28.12.01.14
-        for <netdev@vger.kernel.org>
-        (version=TLSv1 cipher=ECDHE-RSA-RC4-SHA bits=128/128);
-        Mon, 28 Jul 2014 12:01:14 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Takashi Iwai <tiwai@suse.de>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Joseph Salisbury <joseph.salisbury@canonical.com>,
+	Kay Sievers <kay@vrfy.org>,
+	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+	Tim Gardner <tim.gardner@canonical.com>,
+	Pierre Fersing <pierre-fersing@pierref.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Oleg Nesterov <oleg@redhat.com>,
+	Benjamin Poirier <bpoirier@suse.de>,
+	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
+	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
+	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
+	Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
+	MPT-FusionLinux.pdl@avagotech.com,
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Greg KH <gregkh@linuxfoundation.org>,
+	Santosh Rastapur <santosh@chelsio.com>,
+	Hariprasad S <hariprasad@chelsio.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <20140728185538.GB17609@kroah.com>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-14e4:4351 is found on a Broadcom BCM43222.
+On Mon, Jul 28, 2014 at 11:55 AM, Greg KH <gregkh@linuxfoundation.org> wrote:
+> So, what drivers are having problems in their init sequence, and why
+> aren't they using async firmware loading?
 
-Signed-off-by: =C1lvaro Fern=E1ndez Rojas <noltari@gmail.com>
----
-diff --git a/drivers/ssb/b43_pci_bridge.c b/drivers/ssb/b43_pci_bridge.=
-c
-index 19396dc..bed2fede 100644
---- a/drivers/ssb/b43_pci_bridge.c
-+++ b/drivers/ssb/b43_pci_bridge.c
-@@ -38,6 +38,7 @@ static const struct pci_device_id b43_pci_bridge_tbl[=
-] =3D {
- 	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x432b) },
- 	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x432c) },
- 	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x4350) },
-+	{ PCI_DEVICE(PCI_VENDOR_ID_BROADCOM, 0x4351) },
- 	{ 0, },
- };
- MODULE_DEVICE_TABLE(pci, b43_pci_bridge_tbl);
+Fixing drivers is one thing, fixing drivers *now* because *now*
+drivers are failing due to a regression is another thing and that's
+what we have now so lets just be clear on that. The 30 second rule is
+a major driver requirement change and it should not be taken slightly,
+all of a sudden this is a new requirement but you won't know that
+unless you're reading these threads or hit an issue. That's an issue
+in itself.
+
+The cxgb4: driver is an example where although I did propose patches
+to use asynch firmware loading the entire registration of the
+netdevice would need to be changed as well in order to get this right.
+In short we have to scramble now to first identify drivers that have
+long init sequences and then fix. There's an assumption that we can
+easily fix drivers, this can take time. This series, although does
+take advantage of a kernel interface for other uses, lets us identify
+these drivers on the kernel ring buffer, so we can go and address
+fixing them with time.
+
+ Luis
