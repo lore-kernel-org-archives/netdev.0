@@ -1,9 +1,9 @@
 From: "Luis R. Rodriguez" <mcgrof@suse.com>
 Subject: Re: [PATCH 1/3] driver core: enable drivers to use deferred probe
 	from init
-Date: Mon, 28 Jul 2014 18:52:48 +0200
-Message-ID: <20140728165248.GE21930@wotan.suse.de>
-References: <1406558067-25308-1-git-send-email-mcgrof@do-not-panic.com> <B5657A6538887040AD3A81F1008BEC63B06F9A@avmb3.qlogic.org> <20140728153811.GD21930@wotan.suse.de> <B5657A6538887040AD3A81F1008BEC63B06FCF@avmb3.qlogic.org>
+Date: Mon, 28 Jul 2014 18:59:20 +0200
+Message-ID: <20140728165920.GF21930@wotan.suse.de>
+References: <1406558067-25308-1-git-send-email-mcgrof@do-not-panic.com> <B5657A6538887040AD3A81F1008BEC63B06F9A@avmb3.qlogic.org> <20140728153811.GD21930@wotan.suse.de> <B5657A6538887040AD3A81F1008BEC63B06FCF@avmb3.qlogic.org> <20140728165248.GE21930@wotan.suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
@@ -27,37 +27,47 @@ Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
 	"MPT-FusionLinux.pdl@avagotech.com"
 	<MPT-Fusi
 To: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linux-scsi-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <B5657A6538887040AD3A81F1008BEC63B06FCF@avmb3.qlogic.org>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20140728165248.GE21930@wotan.suse.de>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 28, 2014 at 03:46:32PM +0000, Yuval Mintz wrote:
-> > Subject: Re: [PATCH 1/3] driver core: enable drivers to use deferred probe from
-> > init
+On Mon, Jul 28, 2014 at 06:52:48PM +0200, Luis R. Rodriguez wrote:
+> On Mon, Jul 28, 2014 at 03:46:32PM +0000, Yuval Mintz wrote:
+> > > Subject: Re: [PATCH 1/3] driver core: enable drivers to use deferred probe from
+> > > init
+> > > 
+> > > On Mon, Jul 28, 2014 at 03:12:11PM +0000, Yuval Mintz wrote:
+> > > > Perhaps this is a silly question, but what guarantees that the
+> > > > deferred probe list will actually be triggered, e.g., in case the
+> > > > delayed device is the last device in the system?
+> > > 
+> > > The dev->init_delayed_probe is used to ensure that we'd add the device to the
+> > > deferred probe list once making this a per device thing if the driver has the field
+> > > delay_probe set to true. This technically also allows this to be a per device thing
+> > > so with some more work we could enable drivers to only enable this for specific
+> > > devices but at this point this did not seem required.
 > > 
-> > On Mon, Jul 28, 2014 at 03:12:11PM +0000, Yuval Mintz wrote:
-> > > Perhaps this is a silly question, but what guarantees that the
-> > > deferred probe list will actually be triggered, e.g., in case the
-> > > delayed device is the last device in the system?
+> > Sorry for not being clear, but I didn't meant 'what guarantees that the device
+> > will be added to the deferred probe', but rather what guarantees that the
+> > deferred workqueue will be scheduled.
 > > 
-> > The dev->init_delayed_probe is used to ensure that we'd add the device to the
-> > deferred probe list once making this a per device thing if the driver has the field
-> > delay_probe set to true. This technically also allows this to be a per device thing
-> > so with some more work we could enable drivers to only enable this for specific
-> > devices but at this point this did not seem required.
+> > To the best of my knowledge the deferring mechanism works only if one device
+> > is dependent upon another, e.g., for Multi-function devices where one device
+> > probe is dependent upon the others - which are soon-to-be probed.
 > 
-> Sorry for not being clear, but I didn't meant 'what guarantees that the device
-> will be added to the deferred probe', but rather what guarantees that the
-> deferred workqueue will be scheduled.
-> 
-> To the best of my knowledge the deferring mechanism works only if one device
-> is dependent upon another, e.g., for Multi-function devices where one device
-> probe is dependent upon the others - which are soon-to-be probed.
+> The workqueue will be kicked when driver_deferred_probe_trigger() gets
+> poked, we do that in the late_initcall(deferred_probe_initcall), it
+> also gets flushed there with a flush_workqueue(deferred_wq).
 
-The workqueue will be kicked when driver_deferred_probe_trigger() gets
-poked, we do that in the late_initcall(deferred_probe_initcall), it
-also gets flushed there with a flush_workqueue(deferred_wq).
+But come to think of it that will work well for devices already plugged in
+so indeed I think that driver_deferred_probe_add() needs a check added
+for for if (!driver_deferred_probe_enable) then we have to
+driver_deferred_probe_trigger(). The driver_deferred_probe_enable is set
+to false upon init, but later on late init it gets set to true so with
+that check we'd  only generate the trigger after late init call.
+
+I can fold that in the v2.
 
   Luis
