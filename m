@@ -1,292 +1,65 @@
-From: Eli Cohen <eli@dev.mellanox.co.il>
-Subject: [PATCH net-next 2/3] mlx5: minor fixes (mainly avoidance of hidden casts)
-Date: Mon, 28 Jul 2014 23:30:23 +0300
-Message-ID: <1406579424-16213-3-git-send-email-eli@mellanox.com>
-References: <1406579424-16213-1-git-send-email-eli@mellanox.com>
-Cc: netdev@vger.kernel.org, roland@kernel.org, ogerlitz@mellanox.com,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	Eli Cohen <eli@mellanox.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f177.google.com ([74.125.82.177]:35974 "EHLO
-	mail-we0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752024AbaG1Uap (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2014 16:30:45 -0400
-Received: by mail-we0-f177.google.com with SMTP id w62so7794368wes.22
-        for <netdev@vger.kernel.org>; Mon, 28 Jul 2014 13:30:40 -0700 (PDT)
-In-Reply-To: <1406579424-16213-1-git-send-email-eli@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pravin Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] openvswitch: Use IS_ERR_OR_NULL
+Date: Mon, 28 Jul 2014 13:37:09 -0700
+Message-ID: <CALnjE+pjdWLCKya6FeqfZqYra=p=vjDN2nywrdTWuRErGmpu9w@mail.gmail.com>
+References: <20140727070746.GA4825@himangi-Dell>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org" <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org>,
+ "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Himangi Saraogi <himangi774-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20140727070746.GA4825@himangi-Dell>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Jack Morgenstein <jackm@dev.mellanox.co.il>
+On Sun, Jul 27, 2014 at 12:07 AM, Himangi Saraogi <himangi774-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> This patch introduces the use of the macro IS_ERR_OR_NULL in place of
+> tests for NULL and IS_ERR.
+>
+> The following Coccinelle semantic patch was used for making the change:
+>
+> @@
+> expression e;
+> @@
+>
+> - e == NULL || IS_ERR(e)
+> + IS_ERR_OR_NULL(e)
+>  || ...
+>
+> Signed-off-by: Himangi Saraogi <himangi774-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Acked-by: Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org>
 
-There were many places where parameters which should be u8/u16 were
-integer type.
+Looks good.
+Acked-by: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 
-Additionally, in 2 places, a check for a non-null pointer was added
-before dereferencing the pointer (this is actually a bug fix).
-
-Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.co.il>
-Signed-off-by: Eli Cohen <eli@mellanox.com>
----
- drivers/infiniband/hw/mlx5/cq.c                     | 2 +-
- drivers/infiniband/hw/mlx5/mad.c                    | 2 +-
- drivers/infiniband/hw/mlx5/main.c                   | 2 +-
- drivers/infiniband/hw/mlx5/mem.c                    | 2 +-
- drivers/infiniband/hw/mlx5/mlx5_ib.h                | 2 +-
- drivers/infiniband/hw/mlx5/qp.c                     | 4 ++--
- drivers/net/ethernet/mellanox/mlx5/core/alloc.c     | 2 +-
- drivers/net/ethernet/mellanox/mlx5/core/cmd.c       | 2 +-
- drivers/net/ethernet/mellanox/mlx5/core/eq.c        | 3 ++-
- drivers/net/ethernet/mellanox/mlx5/core/mad.c       | 2 +-
- drivers/net/ethernet/mellanox/mlx5/core/main.c      | 2 +-
- drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c | 2 +-
- drivers/net/ethernet/mellanox/mlx5/core/port.c      | 2 +-
- include/linux/mlx5/device.h                         | 4 ----
- include/linux/mlx5/driver.h                         | 8 ++++----
- 15 files changed, 19 insertions(+), 22 deletions(-)
-
-diff --git a/drivers/infiniband/hw/mlx5/cq.c b/drivers/infiniband/hw/mlx5/cq.c
-index 3b4dc858cef9..e4056279166d 100644
---- a/drivers/infiniband/hw/mlx5/cq.c
-+++ b/drivers/infiniband/hw/mlx5/cq.c
-@@ -348,7 +348,7 @@ static void handle_atomic(struct mlx5_ib_qp *qp, struct mlx5_cqe64 *cqe64,
- static void handle_atomics(struct mlx5_ib_qp *qp, struct mlx5_cqe64 *cqe64,
- 			   u16 tail, u16 head)
- {
--	int idx;
-+	u16 idx;
- 
- 	do {
- 		idx = tail & (qp->sq.wqe_cnt - 1);
-diff --git a/drivers/infiniband/hw/mlx5/mad.c b/drivers/infiniband/hw/mlx5/mad.c
-index e259e7393152..b514bbb5610f 100644
---- a/drivers/infiniband/hw/mlx5/mad.c
-+++ b/drivers/infiniband/hw/mlx5/mad.c
-@@ -41,7 +41,7 @@ enum {
- };
- 
- int mlx5_MAD_IFC(struct mlx5_ib_dev *dev, int ignore_mkey, int ignore_bkey,
--		 int port, struct ib_wc *in_wc, struct ib_grh *in_grh,
-+		 u8 port, struct ib_wc *in_wc, struct ib_grh *in_grh,
- 		 void *in_mad, void *response_mad)
- {
- 	u8 op_modifier = 0;
-diff --git a/drivers/infiniband/hw/mlx5/main.c b/drivers/infiniband/hw/mlx5/main.c
-index f2cfd363a705..166335a95c59 100644
---- a/drivers/infiniband/hw/mlx5/main.c
-+++ b/drivers/infiniband/hw/mlx5/main.c
-@@ -478,7 +478,7 @@ static struct ib_ucontext *mlx5_ib_alloc_ucontext(struct ib_device *ibdev,
- 	int uuarn;
- 	int err;
- 	int i;
--	int reqlen;
-+	size_t reqlen;
- 
- 	if (!dev->ib_active)
- 		return ERR_PTR(-EAGAIN);
-diff --git a/drivers/infiniband/hw/mlx5/mem.c b/drivers/infiniband/hw/mlx5/mem.c
-index 8499aec94db6..a3e81444c825 100644
---- a/drivers/infiniband/hw/mlx5/mem.c
-+++ b/drivers/infiniband/hw/mlx5/mem.c
-@@ -148,7 +148,7 @@ int mlx5_ib_get_buf_offset(u64 addr, int page_shift, u32 *offset)
- 	u64 off_mask;
- 	u64 buf_off;
- 
--	page_size = 1 << page_shift;
-+	page_size = (u64)1 << page_shift;
- 	page_mask = page_size - 1;
- 	buf_off = addr & page_mask;
- 	off_size = page_size >> 6;
-diff --git a/drivers/infiniband/hw/mlx5/mlx5_ib.h b/drivers/infiniband/hw/mlx5/mlx5_ib.h
-index a0e204ffe367..386780f0d1e1 100644
---- a/drivers/infiniband/hw/mlx5/mlx5_ib.h
-+++ b/drivers/infiniband/hw/mlx5/mlx5_ib.h
-@@ -461,7 +461,7 @@ void __mlx5_ib_cq_clean(struct mlx5_ib_cq *cq, u32 qpn, struct mlx5_ib_srq *srq)
- void mlx5_ib_cq_clean(struct mlx5_ib_cq *cq, u32 qpn, struct mlx5_ib_srq *srq);
- void mlx5_ib_free_srq_wqe(struct mlx5_ib_srq *srq, int wqe_index);
- int mlx5_MAD_IFC(struct mlx5_ib_dev *dev, int ignore_mkey, int ignore_bkey,
--		 int port, struct ib_wc *in_wc, struct ib_grh *in_grh,
-+		 u8 port, struct ib_wc *in_wc, struct ib_grh *in_grh,
- 		 void *in_mad, void *response_mad);
- struct ib_ah *create_ib_ah(struct ib_ah_attr *ah_attr,
- 			   struct mlx5_ib_ah *ah);
-diff --git a/drivers/infiniband/hw/mlx5/qp.c b/drivers/infiniband/hw/mlx5/qp.c
-index b8bb6ad6350c..7efe6e3f3542 100644
---- a/drivers/infiniband/hw/mlx5/qp.c
-+++ b/drivers/infiniband/hw/mlx5/qp.c
-@@ -2539,7 +2539,7 @@ int mlx5_ib_post_send(struct ib_qp *ibqp, struct ib_send_wr *wr,
- 			case IB_WR_RDMA_WRITE_WITH_IMM:
- 				set_raddr_seg(seg, wr->wr.rdma.remote_addr,
- 					      wr->wr.rdma.rkey);
--				seg  += sizeof(struct mlx5_wqe_raddr_seg);
-+				seg += sizeof(struct mlx5_wqe_raddr_seg);
- 				size += sizeof(struct mlx5_wqe_raddr_seg) / 16;
- 				break;
- 
-@@ -2668,7 +2668,7 @@ int mlx5_ib_post_send(struct ib_qp *ibqp, struct ib_send_wr *wr,
- 		case IB_QPT_SMI:
- 		case IB_QPT_GSI:
- 			set_datagram_seg(seg, wr);
--			seg  += sizeof(struct mlx5_wqe_datagram_seg);
-+			seg += sizeof(struct mlx5_wqe_datagram_seg);
- 			size += sizeof(struct mlx5_wqe_datagram_seg) / 16;
- 			if (unlikely((seg == qend)))
- 				seg = mlx5_get_send_wqe(qp, 0);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/alloc.c b/drivers/net/ethernet/mellanox/mlx5/core/alloc.c
-index b215742b842f..56779c1c7811 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/alloc.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/alloc.c
-@@ -56,7 +56,7 @@ int mlx5_buf_alloc(struct mlx5_core_dev *dev, int size, int max_direct,
- 	if (size <= max_direct) {
- 		buf->nbufs        = 1;
- 		buf->npages       = 1;
--		buf->page_shift   = get_order(size) + PAGE_SHIFT;
-+		buf->page_shift   = (u8)get_order(size) + PAGE_SHIFT;
- 		buf->direct.buf   = dma_zalloc_coherent(&dev->pdev->dev,
- 							size, &t, GFP_KERNEL);
- 		if (!buf->direct.buf)
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-index 87d1b018a9c3..4671747dd365 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
-@@ -464,7 +464,7 @@ static void dump_command(struct mlx5_core_dev *dev,
- 	struct mlx5_cmd_msg *msg = input ? ent->in : ent->out;
- 	struct mlx5_cmd_mailbox *next = msg->next;
- 	int data_only;
--	int offset = 0;
-+	u32 offset = 0;
- 	int dump_len;
- 
- 	data_only = !!(mlx5_core_debug_mask & (1 << MLX5_CMD_DATA));
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eq.c b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
-index 7f39ebcd6ad0..67cead2c079e 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eq.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eq.c
-@@ -252,7 +252,8 @@ static int mlx5_eq_int(struct mlx5_core_dev *dev, struct mlx5_eq *eq)
- 			case MLX5_PORT_CHANGE_SUBTYPE_GUID:
- 			case MLX5_PORT_CHANGE_SUBTYPE_CLIENT_REREG:
- 			case MLX5_PORT_CHANGE_SUBTYPE_INITIALIZED:
--				dev->event(dev, port_subtype_event(eqe->sub_type), &port);
-+				if (dev->event)
-+					dev->event(dev, port_subtype_event(eqe->sub_type), &port);
- 				break;
- 			default:
- 				mlx5_core_warn(dev, "Port event with unrecognized subtype: port %d, sub_type %d\n",
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/mad.c b/drivers/net/ethernet/mellanox/mlx5/core/mad.c
-index 18d6fd5dd90b..fd80ecfa7195 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/mad.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/mad.c
-@@ -37,7 +37,7 @@
- #include "mlx5_core.h"
- 
- int mlx5_core_mad_ifc(struct mlx5_core_dev *dev, void *inb, void *outb,
--		      u16 opmod, int port)
-+		      u16 opmod, u8 port)
- {
- 	struct mlx5_mad_ifc_mbox_in *in = NULL;
- 	struct mlx5_mad_ifc_mbox_out *out = NULL;
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index 4b7f9da4bf11..fd782bf49dc6 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -311,7 +311,7 @@ static int handle_hca_cap(struct mlx5_core_dev *dev)
- 
- 	copy_rw_fields(&set_ctx->hca_cap, &query_out->hca_cap);
- 
--	if (dev->profile->mask & MLX5_PROF_MASK_QP_SIZE)
-+	if (dev->profile && dev->profile->mask & MLX5_PROF_MASK_QP_SIZE)
- 		set_ctx->hca_cap.log_max_qp = dev->profile->log_max_qp;
- 
- 	flags = be64_to_cpu(query_out->hca_cap.flags);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c b/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
-index c2a953ef0e67..d476918ef269 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c
-@@ -51,7 +51,7 @@ enum {
- 
- struct mlx5_pages_req {
- 	struct mlx5_core_dev *dev;
--	u32	func_id;
-+	u16	func_id;
- 	s32	npages;
- 	struct work_struct work;
- };
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/port.c b/drivers/net/ethernet/mellanox/mlx5/core/port.c
-index 8c9ac870ecb1..313965853e10 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/port.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/port.c
-@@ -86,7 +86,7 @@ struct mlx5_reg_pcap {
- 	__be32			caps_31_0;
- };
- 
--int mlx5_set_port_caps(struct mlx5_core_dev *dev, int port_num, u32 caps)
-+int mlx5_set_port_caps(struct mlx5_core_dev *dev, u8 port_num, u32 caps)
- {
- 	struct mlx5_reg_pcap in;
- 	struct mlx5_reg_pcap out;
-diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
-index 3406cfb1267a..334947151dfc 100644
---- a/include/linux/mlx5/device.h
-+++ b/include/linux/mlx5/device.h
-@@ -456,9 +456,6 @@ struct mlx5_eqe_cq_err {
- 	u8	syndrome;
- };
- 
--struct mlx5_eqe_dropped_packet {
--};
--
- struct mlx5_eqe_port_state {
- 	u8	reserved0[8];
- 	u8	port;
-@@ -498,7 +495,6 @@ union ev_data {
- 	struct mlx5_eqe_comp		comp;
- 	struct mlx5_eqe_qp_srq		qp_srq;
- 	struct mlx5_eqe_cq_err		cq_err;
--	struct mlx5_eqe_dropped_packet	dp;
- 	struct mlx5_eqe_port_state	port;
- 	struct mlx5_eqe_gpio		gpio;
- 	struct mlx5_eqe_congestion	cong;
-diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-index d0cb5984a45f..76de0cc41640 100644
---- a/include/linux/mlx5/driver.h
-+++ b/include/linux/mlx5/driver.h
-@@ -381,8 +381,8 @@ struct mlx5_buf {
- 	struct mlx5_buf_list   *page_list;
- 	int			nbufs;
- 	int			npages;
--	int			page_shift;
- 	int			size;
-+	u8			page_shift;
- };
- 
- struct mlx5_eq {
-@@ -736,7 +736,7 @@ int mlx5_core_dump_fill_mkey(struct mlx5_core_dev *dev, struct mlx5_core_mr *mr,
- int mlx5_core_alloc_pd(struct mlx5_core_dev *dev, u32 *pdn);
- int mlx5_core_dealloc_pd(struct mlx5_core_dev *dev, u32 pdn);
- int mlx5_core_mad_ifc(struct mlx5_core_dev *dev, void *inb, void *outb,
--		      u16 opmod, int port);
-+		      u16 opmod, u8 port);
- void mlx5_pagealloc_init(struct mlx5_core_dev *dev);
- void mlx5_pagealloc_cleanup(struct mlx5_core_dev *dev);
- int mlx5_pagealloc_start(struct mlx5_core_dev *dev);
-@@ -769,7 +769,7 @@ void mlx5_qp_debugfs_cleanup(struct mlx5_core_dev *dev);
- int mlx5_core_access_reg(struct mlx5_core_dev *dev, void *data_in,
- 			 int size_in, void *data_out, int size_out,
- 			 u16 reg_num, int arg, int write);
--int mlx5_set_port_caps(struct mlx5_core_dev *dev, int port_num, u32 caps);
-+int mlx5_set_port_caps(struct mlx5_core_dev *dev, u8 port_num, u32 caps);
- 
- int mlx5_debug_eq_add(struct mlx5_core_dev *dev, struct mlx5_eq *eq);
- void mlx5_debug_eq_remove(struct mlx5_core_dev *dev, struct mlx5_eq *eq);
-@@ -826,7 +826,7 @@ void mlx5_unregister_interface(struct mlx5_interface *intf);
- 
- struct mlx5_profile {
- 	u64	mask;
--	u32	log_max_qp;
-+	u8	log_max_qp;
- 	struct {
- 		int	size;
- 		int	limit;
--- 
-1.9.3
+> ---
+>  net/openvswitch/datapath.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+> index 20f59b6..e3b3c21 100644
+> --- a/net/openvswitch/datapath.c
+> +++ b/net/openvswitch/datapath.c
+> @@ -780,7 +780,7 @@ static struct sk_buff *ovs_flow_cmd_build_info(const struct sw_flow *flow,
+>
+>         skb = ovs_flow_cmd_alloc_info(ovsl_dereference(flow->sf_acts), info,
+>                                       always);
+> -       if (!skb || IS_ERR(skb))
+> +       if (IS_ERR_OR_NULL(skb))
+>                 return skb;
+>
+>         retval = ovs_flow_cmd_fill_info(flow, dp_ifindex, skb,
+> --
+> 1.9.1
+>
