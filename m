@@ -1,86 +1,52 @@
 From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net-next V1 1/2] net: Header length compution function
-Date: Mon, 28 Jul 2014 14:28:00 +0300
-Message-ID: <1406546881-21863-2-git-send-email-amirv@mellanox.com>
-References: <1406546881-21863-1-git-send-email-amirv@mellanox.com>
+Subject: [PATCH net-next V1 0/2] Helper to find length of headers in an ethernet frame
+Date: Mon, 28 Jul 2014 14:27:59 +0300
+Message-ID: <1406546881-21863-1-git-send-email-amirv@mellanox.com>
 Cc: Eric Dumazet <edumazet@google.com>,
 	Alexander Duyck <alexander.h.duyck@intel.com>,
 	netdev@vger.kernel.org, Amir Vadai <amirv@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
 	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Ido Shamay <idos@mellanox.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
+	Ido Shamay <idos@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:40571 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:57896 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751701AbaG1L2N (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 28 Jul 2014 07:28:13 -0400
-In-Reply-To: <1406546881-21863-1-git-send-email-amirv@mellanox.com>
+	id S1752465AbaG1L2P (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 28 Jul 2014 07:28:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
+Hi,
 
-This commit is based on Eric Dumazet suggestion.
-Use flow dissector to calculate header length.
-Tested the following with a mlx4, and it indeed speeds up GRE traffic,
-as GRO packets can now contain 17 MSS instead of 8.
-(Pulling payload means GRO had to use 2 'frags' per MSS)
+This patchset is based on the patch suggested by Eric Dumazet to calculate
+header length of Ethernet headers using flow_dissector [1].
+We have tested it in Mellanox lab, non GRO traffic shows some improvement in
+bandwidth when using the patch, and anyway, the right way is to copy the exact
+header and not just an arbitrary number of bytes.
+Also  tested using a built-in function (the orignal patch [2]). Eric's solution
+gives the same numbers (even a bit better).
 
-Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- include/linux/skbuff.h    |  1 +
- net/core/flow_dissector.c | 24 ++++++++++++++++++++++++
- 2 files changed, 25 insertions(+)
+[1] - http://patchwork.ozlabs.org/patch/350413/
+[2] - http://patchwork.ozlabs.org/patch/347031/
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index b613557..1f9af4d 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -3133,6 +3133,7 @@ bool skb_partial_csum_set(struct sk_buff *skb, u16 start, u16 off);
- int skb_checksum_setup(struct sk_buff *skb, bool recalculate);
- 
- u32 __skb_get_poff(const struct sk_buff *skb);
-+u32 eth_frame_headlen(void *data, unsigned int len);
- 
- /**
-  * skb_head_is_locked - Determine if the skb->head is locked down
-diff --git a/net/core/flow_dissector.c b/net/core/flow_dissector.c
-index 5f362c1..c3afd27 100644
---- a/net/core/flow_dissector.c
-+++ b/net/core/flow_dissector.c
-@@ -343,6 +343,30 @@ u32 __skb_get_poff(const struct sk_buff *skb)
- 	return poff;
- }
- 
-+
-+/* Helper to find length of headers in an ethernet frame.
-+ * This can help drivers to pull exact amount of bytes into
-+ * skb->head to get optimal GRO performance.
-+ * TODO: Could also return rxhash while we do a complete flow dissection.
-+ */
-+u32 eth_frame_headlen(void *data, unsigned int len)
-+{
-+	const struct ethhdr *eth = data;
-+	struct sk_buff skb;
-+
-+	if (unlikely(len < ETH_HLEN))
-+		return len;
-+
-+	skb.protocol = eth->h_proto;
-+	skb.head = data + ETH_HLEN;
-+	skb.data = skb.head;
-+	skb_reset_network_header(&skb);
-+	skb.len = len - ETH_HLEN;
-+	skb.data_len = 0;
-+	return __skb_get_poff(&skb) + ETH_HLEN;
-+}
-+EXPORT_SYMBOL(eth_frame_headlen);
-+
- static inline int get_xps_queue(struct net_device *dev, struct sk_buff *skb)
- {
- #ifdef CONFIG_XPS
+CC: Alexander Duyck <alexander.h.duyck@intel.com>
+
+Changes from V0:
+- Patch 2/2: net/mlx4_en: Copy exact header to SKB linear part
+  - Fixed commit message
+  - Added empty line after declaration
+
+Amir Vadai (1):
+  net/mlx4_en: Copy exact header to SKB linear part
+
+Eric Dumazet (1):
+  net: Header length compution function
+
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c | 14 +++++++++-----
+ include/linux/skbuff.h                     |  1 +
+ net/core/flow_dissector.c                  | 24 ++++++++++++++++++++++++
+ 3 files changed, 34 insertions(+), 5 deletions(-)
+
 -- 
 1.8.3.4
