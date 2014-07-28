@@ -1,17 +1,18 @@
-From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Subject: Re: [PATCH 1/3] driver core: enable drivers to use deferred probe
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: [PATCH 1/3] driver core: enable drivers to use deferred probe
  from init
-Date: Mon, 28 Jul 2014 08:01:22 -0700
-Message-ID: <CAB=NE6Ufgb=N=uZ3Q4HRaz0k+00c4w06L7e5c4RRo5WJxbCX_g@mail.gmail.com>
-References: <1406558067-25308-1-git-send-email-mcgrof@do-not-panic.com> <s5h4my1wn8k.wl%tiwai@suse.de>
+Date: Mon, 28 Jul 2014 15:12:11 +0000
+Message-ID: <B5657A6538887040AD3A81F1008BEC63B06F9A@avmb3.qlogic.org>
+References: <1406558067-25308-1-git-send-email-mcgrof@do-not-panic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Joseph Salisbury <joseph.salisbury@canonical.com>,
+Content-Type: multipart/mixed;
+	boundary="_000_B5657A6538887040AD3A81F1008BEC63B06F9Aavmb3qlogicorg_"
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+	"Luis R. Rodriguez" <mcgrof@suse.com>,
+	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
+	"Joseph Salisbury" <joseph.salisbury@canonical.com>,
 	Kay Sievers <kay@vrfy.org>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+	"One Thousand Gnomes" <gnomes@lxorguk.ukuu.org.uk>,
 	Tim Gardner <tim.gardner@canonical.com>,
 	Pierre Fersing <pierre-fersing@pierref.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
@@ -23,21 +24,120 @@ Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
 	Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
 	Hariprasad S <hariprasad@chelsio.com>,
 	Santosh Rastapur <santosh@chelsio.com>,
-	MPT-FusionLinux.pdl@avagotech.com,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	"net
-To: Takashi Iwai <tiwai@suse.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <s5h4my1wn8k.wl%tiwai@suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
+	"MPT-FusionLinux.pdl@avagotech.com"
+	<MPT-FusionLinux.pdl@avagotech.com>,
+	linux-scsi <linux-scsi@vger.kernel.
+To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+In-Reply-To: <1406558067-25308-1-git-send-email-mcgrof@do-not-panic.com>
+Content-Language: en-US
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 28, 2014 at 7:51 AM, Takashi Iwai <tiwai@suse.de> wrote:
->
-> This field isn't used anywhere actually in the patch...?
+--_000_B5657A6538887040AD3A81F1008BEC63B06F9Aavmb3qlogicorg_
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
 
-Yeah sorry that is not needed, I avoided that by adding the simple
-bool on the struct device, forgot to nuke that. Will spin v2 unless I
-hear otherwise.
+> +static int __driver_probe_device(struct device_driver *drv, struct
+> +device *dev) {
+> +	if (drv->delay_probe && !dev->init_delayed_probe) {
+> +		dev_info(dev, "Driver %s requests probe deferral on init\n",
+> +			 drv->name);
+> +		dev->init_delayed_probe =3D true;
+> +		driver_deferred_probe_add(dev);
+> +		return -EPROBE_DEFER;
+> +	}
+> +
+> +	return really_probe(dev, drv);
+> +}
 
- Luis
+Perhaps this is a silly question, but what guarantees that the deferred pro=
+be
+list will actually be triggered, e.g., in case the delayed device is the la=
+st device
+in the system?
+
+[From drivers/base/dd.c  - "A successful driver probe will trigger moving a=
+ll
+devices from the pending to the active list so that the workqueue will
+eventually retry them]
+
+
+--_000_B5657A6538887040AD3A81F1008BEC63B06F9Aavmb3qlogicorg_
+Content-Disposition: attachment; filename="winmail.dat"
+Content-Transfer-Encoding: base64
+Content-Type: application/ms-tnef; name="winmail.dat"
+
+eJ8+Ip9WAQaQCAAEAAAAAAABAAEAAQeQBgAIAAAA5AQAAAAAAADoAAEJgAEAIQAAAEQ0OEZCN0U0
+MUFCRjQ5NDhCMUFGOTM3NkU3ODE2NEFDAGEHAQ2ABAACAAAAAgACAAEFgAMADgAAAN4HBwAcAA8A
+DAALAAEALwEBIIADAA4AAADeBwcAHAAPAAwACwABAC8BAQiABwAYAAAASVBNLk1pY3Jvc29mdCBN
+YWlsLk5vdGUAMQgBBIABAEwAAABSRTogW1BBVENIIDEvM10gZHJpdmVyIGNvcmU6IGVuYWJsZSBk
+cml2ZXJzIHRvIHVzZSBkZWZlcnJlZCBwcm9iZSBmcm9tIGluaXQA0hkBA5AGAEgOAABAAAAAAgF/
+AAEAAAA6AAAAPEI1NjU3QTY1Mzg4ODcwNDBBRDNBODFGMTAwOEJFQzYzQjA2RjlBQGF2bWIzLnFs
+b2dpYy5vcmc+AAAACwAfDgEAAAACAQkQAQAAABQDAAAQAwAA4QQAAExaRnVyqPvdYQAKZmJpZAQA
+AGNjwHBnMTI1MgD+A0PwdGV4dAH3AqQD4wIABGNoCsBzZXQwIO8HbQKDAFARTTIKgAa0AoCWfQqA
+CMg7CWIxOQ7AvwnDFnIKMhZxAoAVYioJsHMJ8ASQYXQFsg5QA2Bzom8BgCBFeBHBbhgwXQZSdgSQ
+F7YCEHIAwHR9CFBuGjEQIAXABaAbZGSaIANSIBAiF7JcdgiQ5HdrC4BkNR1TBPAHQA0XcDAKcRfy
+YmttawZzAZAAICBCTV9C4EVHSU59CvwB8QvxUCA+ICsfYXQOUCBjC4AFQF9fZAUQGjFfUnADYGJl
+IpBlHWBjxGUoH2BydWMFQCN0iSKVICoioHYsICPk9FxsC4BlCoAhoSN0JSF9I4ApAzAAACYHDIIi
+MGZkICglQS0+AQALYHnBIwQgJiYgISNxKOD5C4BpdCNhKSEJgCMEJ0/3DLEoQSNxXwuAAhAooCOA
+aSVwIkQk1CUEIAlwcf8KUB9gBCApZAEBBJAYcAMgBwIgIjEqcFxcbiIsTyu/LIQkQCjCbmEHgCnf
+FiAwzyRCKj8pgj0cwCQAPmUy3yyyIrQvZCr2X2G8ZGQtYjLPKDIJcHQIcEEDoC1FUFJPH/Bf4ERF
+RkVSOR0DMCBA3yeYJ5w6VQlwB0BsKUUtZG8lQTkLPKYl9VAEkBHQcLkEIHRoBAAiMAQgYSWAawMQ
+PvAgLpNpAiAlcGKadQVAdxHQBUBndQrA/wBwECAHkUJAREFCQC9GHFH/IxMl9SYAH2BEEELxQrAk
+IM9EgEMCKZEj8GlnGDAJceElcGUuZy4lcAuAG9D+YRIARWUqwyRFQoJFcgtgn0chI3Ql9UlxRXJz
+eR9gyGVtP0DsW0YckiKkqHMvYkmxLzigLiIgezqwLbBBJYAkECOwBBBmvnUDICTFKWRHU0hlIARg
+/x1gGcBCsD7gJfUjdAQgHIT9RYFwCfAN4FLhGJBFY0ehXyLBS4BHEhkgRRh3BbBr/y6RClBHQyX1
+I4AJ8EfFOlHmckMgRXFtXUDsFUJbAB8AQgABAAAAGAAAAFkAdQB2AGEAbAAgAE0AaQBuAHQAegAA
+AB8AZQABAAAALgAAAFkAdQB2AGEAbAAuAE0AaQBuAHQAegBAAHEAbABvAGcAaQBjAC4AYwBvAG0A
+AAAAAB8AZAABAAAACgAAAFMATQBUAFAAAAAAAAIBQQABAAAAaAAAAAAAAACBKx+kvqMQGZ1uAN0B
+D1QCAAAAgFkAdQB2AGEAbAAgAE0AaQBuAHQAegAAAFMATQBUAFAAAABZAHUAdgBhAGwALgBNAGkA
+bgB0AHoAQABxAGwAbwBnAGkAYwAuAGMAbwBtAAAAHwACXQEAAAAuAAAAWQB1AHYAYQBsAC4ATQBp
+AG4AdAB6AEAAcQBsAG8AZwBpAGMALgBjAG8AbQAAAAAAHwDlXwEAAAA2AAAAcwBpAHAAOgB5AHUA
+dgBhAGwALgBtAGkAbgB0AHoAQABxAGwAbwBnAGkAYwAuAGMAbwBtAAAAAAAfABoMAQAAABgAAABZ
+AHUAdgBhAGwAIABNAGkAbgB0AHoAAAAfAB8MAQAAAC4AAABZAHUAdgBhAGwALgBNAGkAbgB0AHoA
+QABxAGwAbwBnAGkAYwAuAGMAbwBtAAAAAAAfAB4MAQAAAAoAAABTAE0AVABQAAAAAAACARkMAQAA
+AGgAAAAAAAAAgSsfpL6jEBmdbgDdAQ9UAgAAAIBZAHUAdgBhAGwAIABNAGkAbgB0AHoAAABTAE0A
+VABQAAAAWQB1AHYAYQBsAC4ATQBpAG4AdAB6AEAAcQBsAG8AZwBpAGMALgBjAG8AbQAAAB8AAV0B
+AAAALgAAAFkAdQB2AGEAbAAuAE0AaQBuAHQAegBAAHEAbABvAGcAaQBjAC4AYwBvAG0AAAAAAB8A
++D8BAAAAGAAAAFkAdQB2AGEAbAAgAE0AaQBuAHQAegAAAB8AI0ABAAAALgAAAFkAdQB2AGEAbAAu
+AE0AaQBuAHQAegBAAHEAbABvAGcAaQBjAC4AYwBvAG0AAAAAAB8AIkABAAAACgAAAFMATQBUAFAA
+AAAAAAIB+T8BAAAAaAAAAAAAAACBKx+kvqMQGZ1uAN0BD1QCAAAAgFkAdQB2AGEAbAAgAE0AaQBu
+AHQAegAAAFMATQBUAFAAAABZAHUAdgBhAGwALgBNAGkAbgB0AHoAQABxAGwAbwBnAGkAYwAuAGMA
+bwBtAAAAHwAJXQEAAAAuAAAAWQB1AHYAYQBsAC4ATQBpAG4AdAB6AEAAcQBsAG8AZwBpAGMALgBj
+AG8AbQAAAAAAHwAxQAEAAAACAAAAAAAAAAsAQDoBAAAAHwAwQAEAAAACAAAAAAAAAB8AGgABAAAA
+EgAAAEkAUABNAC4ATgBvAHQAZQAAAAAAAwDxPwkEAAALAEA6AQAAAAMA/T/kBAAAAgELMAEAAAAQ
+AAAA1I+35Bq/SUixr5N254FkrAMAFwABAAAAQAA5AICXFk52qs8BQAAIMN2RK052qs8BCwApAAAA
+AAALACMAAAAAAB8AAICGAwIAAAAAAMAAAAAAAABGAQAAAB4AAABhAGMAYwBlAHAAdABsAGEAbgBn
+AHUAYQBnAGUAAAAAAAEAAAAMAAAAZQBuAC0AVQBTAAAACwAAgAggBgAAAAAAwAAAAAAAAEYAAAAA
+BoUAAAAAAAAfADcAAQAAAJgAAABSAEUAOgAgAFsAUABBAFQAQwBIACAAMQAvADMAXQAgAGQAcgBp
+AHYAZQByACAAYwBvAHIAZQA6ACAAZQBuAGEAYgBsAGUAIABkAHIAaQB2AGUAcgBzACAAdABvACAA
+dQBzAGUAIABkAGUAZgBlAHIAcgBlAGQAIABwAHIAbwBiAGUAIABmAHIAbwBtACAAaQBuAGkAdAAA
+AB8APQABAAAACgAAAFIARQA6ACAAAAAAAAMANgAAAAAAAwAuAAAAAAAfAEIQAQAAAHgAAAA8ADEA
+NAAwADYANQA1ADgAMAA2ADcALQAyADUAMwAwADgALQAxAC0AZwBpAHQALQBzAGUAbgBkAC0AZQBt
+AGEAaQBsAC0AbQBjAGcAcgBvAGYAQABkAG8ALQBuAG8AdAAtAHAAYQBuAGkAYwAuAGMAbwBtAD4A
+AAACAXEAAQAAABsAAAABAc+qcRbLbQPErmnOSoPzQ3R3DO9km7WWQ8AAHwBwAAEAAACQAAAAWwBQ
+AEEAVABDAEgAIAAxAC8AMwBdACAAZAByAGkAdgBlAHIAIABjAG8AcgBlADoAIABlAG4AYQBiAGwA
+ZQAgAGQAcgBpAHYAZQByAHMAIAB0AG8AIAB1AHMAZQAgAGQAZQBmAGUAcgByAGUAZAAgAHAAcgBv
+AGIAZQAgAGYAcgBvAG0AIABpAG4AaQB0AAAAHwA1EAEAAAB0AAAAPABCADUANgA1ADcAQQA2ADUA
+MwA4ADgAOAA3ADAANAAwAEEARAAzAEEAOAAxAEYAMQAwADAAOABCAEUAQwA2ADMAQgAwADYARgA5
+AEEAQABhAHYAbQBiADMALgBxAGwAbwBnAGkAYwAuAG8AcgBnAD4AAAAfADkQAQAAAHgAAAA8ADEA
+NAAwADYANQA1ADgAMAA2ADcALQAyADUAMwAwADgALQAxAC0AZwBpAHQALQBzAGUAbgBkAC0AZQBt
+AGEAaQBsAC0AbQBjAGcAcgBvAGYAQABkAG8ALQBuAG8AdAAtAHAAYQBuAGkAYwAuAGMAbwBtAD4A
+AAADAN4/n04AAAsAAIAIIAYAAAAAAMAAAAAAAABGAAAAAAOFAAAAAAAAAwAAgAggBgAAAAAAwAAA
+AAAAAEYAAAAAAYUAAAAAAAADAIAQ/////0AABzC6rmlMdqrPAQsAAgABAAAAAwAmAAAAAAALACsA
+AAAAAAIBRwABAAAALgAAAGM9VVM7YT0gO3A9UUxvZ2ljO2w9QVZNQjMtMTQwNzI4MTUxMjExWi0z
+MjI4NAAAAAIBEDABAAAARgAAAAAAAAAscLwPOlJ5Q509wHmfVGfCBwC1ZXplOIhwQK06gfEAi+xj
+AAAApS9lAAB3j65ZKbSTQo6xUjGWbK4UAJGugWDTAAAAAB8A+j8BAAAAGAAAAFkAdQB2AGEAbAAg
+AE0AaQBuAHQAegAAAAMACVkBAAAAAwAAgAggBgAAAAAAwAAAAAAAAEYAAAAAEIUAAAAAAAALAACA
+CCAGAAAAAADAAAAAAAAARgAAAAAOhQAAAAAAAAMAAIAIIAYAAAAAAMAAAAAAAABGAAAAABiFAAAA
+AAAACwAAgAggBgAAAAAAwAAAAAAAAEYAAAAAgoUAAAAAAAAfAACACCAGAAAAAADAAAAAAAAARgAA
+AADYhQAAAQAAABIAAABJAFAATQAuAE4AbwB0AGUAAAAAAAMADTT9PwAAHwAAgIYDAgAAAAAAwAAA
+AAAAAEYBAAAAIAAAAHgALQBtAHMALQBoAGEAcwAtAGEAdAB0AGEAYwBoAAAAAQAAAAIAAAAAAAAA
+HwAAgIYDAgAAAAAAwAAAAAAAAEYBAAAAIgAAAHgALQBvAHIAaQBnAGkAbgBhAHQAaQBuAGcALQBp
+AHAAAAAAAAEAAAAYAAAAWwAxADAALgAxAC4ANAAuADEAMABdAAAAHwAAgIYDAgAAAAAAwAAAAAAA
+AEYBAAAAFgAAAGQAaQBzAGMAbABhAGkAbQBlAHIAAAAAAAEAAAAOAAAAYgB5AHAAYQBzAHMAAAAA
+AE6s
+
+--_000_B5657A6538887040AD3A81F1008BEC63B06F9Aavmb3qlogicorg_--
