@@ -1,54 +1,72 @@
-From: Himangi Saraogi <himangi774@gmail.com>
-Subject: [PATCH] svcrdma: delete double assignment
-Date: Mon, 28 Jul 2014 20:59:38 +0530
-Message-ID: <20140728152938.GA3040@himangi-Dell>
+From: "Luis R. Rodriguez" <mcgrof@suse.com>
+Subject: Re: [PATCH 1/3] driver core: enable drivers to use deferred probe
+	from init
+Date: Mon, 28 Jul 2014 17:38:11 +0200
+Message-ID: <20140728153811.GD21930@wotan.suse.de>
+References: <1406558067-25308-1-git-send-email-mcgrof@do-not-panic.com> <B5657A6538887040AD3A81F1008BEC63B06F9A@avmb3.qlogic.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: julia.lawall@lip6.fr
-To: Trond Myklebust <trond.myklebust@primarydata.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	"David S. Miller" <davem@davemloft.net>, linux-nfs@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:39872 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751946AbaG1P3q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2014 11:29:46 -0400
+Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
+	Joseph Salisbury <joseph.salisbury@canonical.com>,
+	Kay Sievers <kay@vrfy.org>,
+	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+	Tim Gardner <tim.gardner@canonical.com>,
+	Pierre Fersing <pierre-fersing@pierref.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Oleg Nesterov <oleg@redhat.com>,
+	Benjamin Poirier <bpoirier@suse.de>,
+	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
+	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
+	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
+	Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
+	Hariprasad S <hariprasad@chelsio.com>,
+	Santosh Rastapur <santosh@chelsio.com>,
+	"MPT-FusionLinux.pdl@avagotech.com"
+	<MPT-Fusi
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <B5657A6538887040AD3A81F1008BEC63B06F9A@avmb3.qlogic.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Delete successive assignments to the same location.
+On Mon, Jul 28, 2014 at 03:12:11PM +0000, Yuval Mintz wrote:
+> > +static int __driver_probe_device(struct device_driver *drv, struct
+> > +device *dev) {
+> > +	if (drv->delay_probe && !dev->init_delayed_probe) {
+> > +		dev_info(dev, "Driver %s requests probe deferral on init\n",
+> > +			 drv->name);
+> > +		dev->init_delayed_probe = true;
+> > +		driver_deferred_probe_add(dev);
+> > +		return -EPROBE_DEFER;
+> > +	}
+> > +
+> > +	return really_probe(dev, drv);
+> > +}
+> 
+> Perhaps this is a silly question, but what guarantees that the deferred probe
+> list will actually be triggered, e.g., in case the delayed device is the last device
+> in the system?
 
-A simplified version of Coccinelle semantic match that finds this problem is as
-follows:
+The dev->init_delayed_probe is used to ensure that we'd add the device to the
+deferred probe list once making this a per device thing if the driver has the
+field delay_probe set to true. This technically also allows this to be a per
+device thing so with some more work we could enable drivers to only enable this
+for specific devices but at this point this did not seem required.
 
-// <smpl>
-@@
-expression i;
-@@
+> [From drivers/base/dd.c  - "A successful driver probe will trigger moving all
+> devices from the pending to the active list so that the workqueue will
+> eventually retry them]
 
-*i = ...;
- i = ...;
-// </smpl>
+I had not noticed this, thanks for pointing this out, in this case
+if __driver_probe_device() is still used to retrigger a probe it will
+be added back to the deferred list but since dev->init_delayed_probe
+is still false. I checked the original commit that added this feature
+d1c3414c but in the code I see that bus_probe_device(dev) is used and
+I only see the device itself being removed from the deferred probe list,
+nothing else.
 
-Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
----
-Should the assignment be the maximum of the 2 values?
- net/sunrpc/xprtrdma/svc_rdma_transport.c | 1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/net/sunrpc/xprtrdma/svc_rdma_transport.c b/net/sunrpc/xprtrdma/svc_rdma_transport.c
-index 06a5d92..8976529 100644
---- a/net/sunrpc/xprtrdma/svc_rdma_transport.c
-+++ b/net/sunrpc/xprtrdma/svc_rdma_transport.c
-@@ -956,7 +956,6 @@ static struct svc_xprt *svc_rdma_accept(struct svc_xprt *xprt)
- 			dprintk("svcrdma: failed to create QP, ret=%d\n", ret);
- 			goto errout;
- 		}
--		newxprt->sc_max_sge = qp_attr.cap.max_send_sge;
- 		newxprt->sc_max_sge = qp_attr.cap.max_recv_sge;
- 		newxprt->sc_sq_depth = qp_attr.cap.max_send_wr;
- 		newxprt->sc_max_requests = qp_attr.cap.max_recv_wr;
--- 
-1.9.1
+  Luis
