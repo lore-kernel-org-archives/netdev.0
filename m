@@ -1,114 +1,106 @@
-From: Josh Triplett <josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org>
-Subject: Re: [PATCH 1/2] lib: Resizable, Scalable,
-	Concurrent Hash Table
-Date: Tue, 29 Jul 2014 08:30:16 -0700
-Message-ID: <20140729153016.GC1437@jtriplet-mobl1>
-References: <cover.1406633945.git.tgraf@suug.ch>
- <1cd2f98b8362052eff24d481b7c9622eb770d091.1406633945.git.tgraf@suug.ch>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH v3 net-next] net: filter: cleanup sk_* and bpf_* names
+Date: Tue, 29 Jul 2014 17:31:24 +0200
+Message-ID: <20140729153124.GA3231@salvia>
+References: <1406615380-3488-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
- walpole-sKt6ljEC1JY3uPMLIKxrzw@public.gmane.org
-To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Willem de Bruijn <willemb@google.com>,
+	Kees Cook <keescook@chromium.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1cd2f98b8362052eff24d481b7c9622eb770d091.1406633945.git.tgraf-G/eBtMaohhA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1406615380-3488-1-git-send-email-ast@plumgrid.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 29, 2014 at 01:41:32PM +0200, Thomas Graf wrote:
-> Generic implementation of a resizable, scalable, concurrent hash table
-> based on [0]. The implementation supports both, fixed size keys specified
-> via an offset and length, or arbitrary keys via own hash and compare
-> functions.
+On Mon, Jul 28, 2014 at 11:29:40PM -0700, Alexei Starovoitov wrote:
+> clean up names related to socket filtering and bpf in the following way:
+> - everything that deals with sockets keeps 'sk_*' prefix
+> - everything that is pure BPF is changed to 'bpf_*' prefix
 > 
-> Lookups are lockless and protected as RCU read side critical sections.
-> Automatic growing/shrinking based on user configurable watermarks is
-> available while allowing concurrent lookups to take place.
+> API for attaching classic BPF to a socket stays the same:
+> sk_attach_filter()/sk_detach_filter()
+> and SK_RUN_FILTER() to execute a program
 > 
-> Objects to be hashed must include a struct rhash_head. The reason for not
-> using the existing struct hlist_head is that the expansion and shrinking
-> will have two buckets point to a single entry which would lead in obscure
-> reverse chaining behaviour.
+> API for 'unattached' BPF programs becomes:
+> bpf_prog_create()/bpf_prog_destroy()
+> and BPF_PROG_RUN() to execute a program
 > 
-> Code includes a boot selftest if CONFIG_TEST_RHASHTABLE is defined.
+> Introduce callback mechanism for 'struct sk_filter', so that different
+> filtering engines can be used in the future (as requested by Pablo)
 > 
-> [0] https://www.usenix.org/legacy/event/atc11/tech/final_files/Triplett.pdf
-> 
-> Signed-off-by: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+> Socket charging logic was complicated, since we had to charge/uncharge a socket
+> multiple times while preparing a filter. Simplify it by fully preparing bpf
+> program (through classic->ebpf conversion and JITing) and then charge
+> the socket memory once.
 
-Thanks for working on this!
+This includes many changes in one single shot. This needs to be
+splitted in smaller patches that can be reviewed separately, that
+makes it easier to others to follow track and spot things.  On top of
+that, we should also take the time to make sure what is already in
+place is correct, this is a good chance to go over the existing code,
+review it and make small changes to accomodate the generic
+infrastructure that should follow up.
 
-Currently reading the algorithm implementation in more detail.  A couple
-of minor issues below.
+Now below the more specific comments.
 
-> --- /dev/null
-> +++ b/include/linux/rhashtable.h
+> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
+> ---
 [...]
-> +struct rhash_head {
-> +	struct rhash_head		*next;
-> +};
+> diff --git a/include/linux/filter.h b/include/linux/filter.h
+> index 20dd50ef7271..448fdd193cdf 100644
+> --- a/include/linux/filter.h
+> +++ b/include/linux/filter.h
+> @@ -296,7 +296,7 @@ enum {
+>  })
+>  
+>  /* Macro to invoke filter function. */
+> -#define SK_RUN_FILTER(filter, ctx)  (*filter->bpf_func)(ctx, filter->insnsi)
+> +#define SK_RUN_FILTER(filter, ctx)  (*filter->run)(ctx, filter)
+>  
+>  struct bpf_insn {
+>  	__u8	code;		/* opcode */
+> @@ -323,12 +323,11 @@ struct sk_buff;
+>  struct sock;
+>  struct seccomp_data;
+>  
+> -struct sk_filter {
+> -	atomic_t		refcnt;
+> +struct bpf_prog {
+>  	u32			jited:1,	/* Is our filter JIT'ed? */
+>  				len:31;		/* Number of filter blocks */
+>  	struct sock_fprog_kern	*orig_prog;	/* Original BPF program */
+> -	struct rcu_head		rcu;
+> +	struct rcu_head		rcu;		/* used by 'unattached' progs */
 
-Arguably this could become a new singly-linked list type in list.h;
-we don't currently have one.
+This rcu_head for unattached filters can be avoided, I'll send a
+follow up patch for this. After that patch, refcnt and rcu_head can go
+out from bpf_prog.
 
-> +/**
-> + * rht_for_each_entry_safe - safely iterate over hash chain of given type
-> + * @pos:	type * to use as a loop cursor.
-> + * @n:		type * to use for temporary next object storage
-> + * @head:	head of the hash chain (struct rhash_head *)
-> + * @ht:		pointer to your struct rhashtable
-> + * @member:	name of the rhash_head within the hashable struct.
-> + *
-> + * This hash chain list-traversal primitive allows for the looped code to
-> + * remove the loop cursor from the list.
-> + */
-> +#define rht_for_each_entry_safe(pos, n, head, ht, member)		\
-> +	for (pos = rht_entry_safe(rht_dereference(head, ht), \
-> +				   typeof(*(pos)), member), \
-> +	     n = rht_entry_safe(rht_dereference((pos)->member.next, ht), \
-> +				 typeof(*(pos)), member); \
-> +	     pos; \
-> +	     pos = n, \
-> +	     n = rht_entry_safe(rht_dereference((pos)->member.next, ht), \
-> +				 typeof(*(pos)), member))
+> -#define sk_filter_proglen(fprog)			\
+> -		(fprog->len * sizeof(fprog->filter[0]))
+> +struct sk_filter {
+> +	atomic_t refcnt;
+> +	struct rcu_head rcu;
+> +	u32 filter_size;
+> +	union {
+> +		struct bpf_prog *prog;
+> +	};
+> +	void (*release)(struct sk_filter *fp);
+> +	int (*get_filter)(struct sk_filter *fp, void **prog, unsigned int *len);
+> +	unsigned int (*run)(const struct sk_buff *skb, struct sk_filter *fp);
 
-Given that removal requires special care, is this something actually
-needed in the public interface, or only internally?  You don't
-necessarily need to define a full set of list primitives.  (Unless of
-course you make this a new list type in list.h.)
+I don't think this is the right moment to add this, but we have to
+keep in mind that something similar to this will need to be
+accomodated in struct sk_filter at some point to avoid sloppy changes
+that may result in reintroducing code later on.
 
-> --- /dev/null
-> +++ b/lib/rhashtable.c
-[...]
-> +#define ASSERT_RHT_MUTEX(HT) BUG_ON(unlikely(!lockdep_rht_mutex_is_held(HT)))
+Next step should be to wrap the specific bpf fields in struct
+bpf_prog in some clean way IMO, which was partially the aim of this
+patch.
 
-BUG_ON and WARN_ON already include unlikely(); you don't need to add it
-yourself.
-
-> +/**
-> + * rht_obj - cast hash head to outer object
-> + * @ht:		hash table
-> + * @he:		hashed node
-> + */
-> +void *rht_obj(const struct rhashtable *ht, const struct rhash_head *he)
-> +{
-> +	return (void *) he - ht->p.head_offset;
-> +}
-> +EXPORT_SYMBOL_GPL(rht_obj);
-
-Should this be a static inline?  And, will the runtime indirection
-involved in head_offset add unnecessary overhead for tables of a known
-type?  (I'd expect a head_offset of 0 in common cases.)
-
-- Josh Triplett
+Thanks.
