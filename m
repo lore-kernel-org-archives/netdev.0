@@ -1,124 +1,129 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH v2 2/2] rcar_can: add device tree support
-Date: Wed, 30 Jul 2014 02:53:41 +0400
-Message-ID: <201407300253.42491.sergei.shtylyov@cogentembedded.com>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH v2 2/4] driver core: enable drivers to use deferred probe
+ from init
+Date: Tue, 29 Jul 2014 16:14:22 -0700
+Message-ID: <20140729231422.GA14494@kroah.com>
+References: <1406572110-26823-1-git-send-email-mcgrof@do-not-panic.com>
+ <1406572110-26823-3-git-send-email-mcgrof@do-not-panic.com>
+ <20140728185538.GB17609@kroah.com>
+ <CAB=NE6VebcR7=UA1n0wNVLr5FFukzq6aW5CkeB3nf5FixV=3cA@mail.gmail.com>
+ <CAB=NE6Xmi2zUCis22q+X8_AKRcwMrAtmx-aqSSvTB70Xjet6VQ@mail.gmail.com>
+ <20140728234644.GA18729@kroah.com>
+ <CAB=NE6UzK1ZEzm+54dwSyPwHGrAWCPtiNtxwhQuJF6tM9NbnYw@mail.gmail.com>
+ <20140729003501.GA17020@kroah.com>
+ <CAB=NE6XMzU+zJ0RMDKaPuSxfXBvN2vZ1DnbgxCjWHJquTD1iqg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-sh@vger.kernel.org, vksavl@gmail.com
-To: netdev@vger.kernel.org, wg@grandegger.com, mkl@pengutronix.de,
-	linux-can@vger.kernel.org, robh+dt@kernel.org,
-	grant.likely@linaro.org, devicetree@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f41.google.com ([209.85.215.41]:46048 "EHLO
-	mail-la0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754456AbaG2Wxn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2014 18:53:43 -0400
-Received: by mail-la0-f41.google.com with SMTP id s18so270436lam.14
-        for <netdev@vger.kernel.org>; Tue, 29 Jul 2014 15:53:41 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Santosh Rastapur <santosh@chelsio.com>,
+	Hariprasad S <hariprasad@chelsio.com>,
+	Takashi Iwai <tiwai@suse.de>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Joseph Salisbury <joseph.salisbury@canonical.com>,
+	Kay Sievers <kay@vrfy.org>,
+	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+	Tim Gardner <tim.gardner@canonical.com>,
+	Pierre Fersing <pierre-fersing@pierref.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Oleg Nesterov <oleg@redhat.com>,
+	Benjamin Poirier <bpoirier@suse.de>,
+	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
+	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
+	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
+	Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
+	MPT-FusionLinux.pdl@avagotech.com,
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	"netdev@vger.kernel.org
+To: "Luis R. Rodriguez" <mcgrof@suse.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAB=NE6XMzU+zJ0RMDKaPuSxfXBvN2vZ1DnbgxCjWHJquTD1iqg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add support of the device tree probing for the Renesas R-Car CAN controllers.
+On Mon, Jul 28, 2014 at 06:13:43PM -0700, Luis R. Rodriguez wrote:
+> >> > Why not just put the initial "register the device" in a single-shot
+> >> > workqueue or thread or something like that so that modprobe returns
+> >> > instantly back with a success and all is fine?
+> >>
+> >> That surely is possible but why not a general solution for such kludges?
+> >
+> > Because the driver should be fixed.  How hard would it be to do what I
+> > just suggested here, 20 lines added at most?
+> 
+> I appreciate the feedback, but don't look at me, I'd happy to go nutty
+> on ripping things apart from hairy drivers, however Chelsie folks
+> expressed concerns over major rework on the driver... so even if we
+> did have something I expect things to take a while to bake / gain
+> confidence from others.
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+"rework"?  Heh, here's a patch that adds 10 lines to the mptsas driver
+that should also work for any other driver as well.  Why not just do
+this instead?
 
----
-The patch is against the 'linux-can-next.git' repo plus the CAN clock handling
-patch I've just posted.
+> This also just addresses this *one* Ethernet driver, there was that
+> SCSI driver that created the original report -- Canonical merged
+> Joseph's fix as a work around,
 
-Changes in version 2:
-- split the device tree bindings document into a separate patch;
-- replaced 0 with CLKR_CLKP1 in the 'clock_select' variable intializer
-- reversed the condition in the *if* stetement handling the reading of the
-  CAN clock selector from the device tree or the paltfrom data;
-- renamed the "clock-select" property to "renesas,can-clock-select";
-- rebased the patch on top of the CAN clock handling fix.
+What fix was that?
 
- drivers/net/can/rcar_can.c |   33 +++++++++++++++++++++++++--------
- 1 file changed, 25 insertions(+), 8 deletions(-)
+> there is no general solution for this yet, and again with that work
+> around you won't find which drivers run into this issue.
 
-Index: linux-can-next/drivers/net/can/rcar_can.c
-===================================================================
---- linux-can-next.orig/drivers/net/can/rcar_can.c
-+++ linux-can-next/drivers/net/can/rcar_can.c
-@@ -20,6 +20,7 @@
- #include <linux/can/dev.h>
- #include <linux/clk.h>
- #include <linux/can/platform/rcar_can.h>
-+#include <linux/of.h>
+Great, fix them as they are found, that's fine.  Again, don't add stuff
+to the driver core to paper over crappy drivers, I'm not going to take
+that type of change.  I _only_ took the defer binding code as there was
+no other way for an individual driver to deal with things if it's
+resources were not present yet due to binding order in the system.
+
+So, anyone care to test the patch below on a system that has this
+problem to let me know if it would work or not?  Odds are, this should
+be a workqueue, to make it cleaner, but a kthread is just so easy to
+use...
+
+thanks,
+
+greg k-h
+
+diff --git a/drivers/message/fusion/mptsas.c b/drivers/message/fusion/mptsas.c
+index 711fcb5cec87..4fd4f36a2d9e 100644
+--- a/drivers/message/fusion/mptsas.c
++++ b/drivers/message/fusion/mptsas.c
+@@ -51,6 +51,7 @@
+ #include <linux/jiffies.h>
+ #include <linux/workqueue.h>
+ #include <linux/delay.h>	/* for mdelay */
++#include <linux/kthread.h>
  
- #define RCAR_CAN_DRV_NAME	"rcar_can"
+ #include <scsi/scsi.h>
+ #include <scsi/scsi_cmnd.h>
+@@ -5393,8 +5394,7 @@ static struct pci_driver mptsas_driver = {
+ #endif
+ };
  
-@@ -738,13 +739,20 @@ static int rcar_can_probe(struct platfor
- 	struct net_device *ndev;
- 	struct resource *mem;
- 	void __iomem *addr;
-+	u32 clock_select = CLKR_CLKP1;
- 	int err = -ENODEV;
- 	int irq;
+-static int __init
+-mptsas_init(void)
++static int mptsas_real_init(void *data)
+ {
+ 	int error;
  
--	pdata = dev_get_platdata(&pdev->dev);
--	if (!pdata) {
--		dev_err(&pdev->dev, "No platform data provided!\n");
--		goto fail;
-+	if (pdev->dev.of_node) {
-+		of_property_read_u32(pdev->dev.of_node,
-+				     "renesas,can-clock-select", &clock_select);
-+	} else {
-+		pdata = dev_get_platdata(&pdev->dev);
-+		if (!pdata) {
-+			dev_err(&pdev->dev, "No platform data provided!\n");
-+			goto fail;
-+		}
-+		clock_select = pdata->clock_select;
- 	}
+@@ -5429,9 +5429,19 @@ mptsas_init(void)
+ 	return error;
+ }
  
- 	irq = platform_get_irq(pdev, 0);
-@@ -776,13 +784,12 @@ static int rcar_can_probe(struct platfor
- 		goto fail_clk;
- 	}
- 
--	if (pdata->clock_select > CLKR_CLKEXT) {
-+	if (clock_select > CLKR_CLKEXT) {
- 		err = -EINVAL;
- 		dev_err(&pdev->dev, "invalid CAN clock selected\n");
- 		goto fail_clk;
- 	}
--	priv->can_clk = devm_clk_get(&pdev->dev,
--				     clock_names[pdata->clock_select]);
-+	priv->can_clk = devm_clk_get(&pdev->dev, clock_names[clock_select]);
- 	if (IS_ERR(priv->can_clk)) {
- 		err = PTR_ERR(priv->can_clk);
- 		dev_err(&pdev->dev, "cannot get CAN clock: %d\n", err);
-@@ -794,7 +801,7 @@ static int rcar_can_probe(struct platfor
- 	ndev->flags |= IFF_ECHO;
- 	priv->ndev = ndev;
- 	priv->regs = addr;
--	priv->clock_select = pdata->clock_select;
-+	priv->clock_select = clock_select;
- 	priv->can.clock.freq = clk_get_rate(priv->can_clk);
- 	priv->can.bittiming_const = &rcar_can_bittiming_const;
- 	priv->can.do_set_mode = rcar_can_do_set_mode;
-@@ -887,10 +894,20 @@ static int __maybe_unused rcar_can_resum
- 
- static SIMPLE_DEV_PM_OPS(rcar_can_pm_ops, rcar_can_suspend, rcar_can_resume);
- 
-+static const struct of_device_id rcar_can_of_table[] __maybe_unused = {
-+	{ .compatible = "renesas,can-r8a7778" },
-+	{ .compatible = "renesas,can-r8a7779" },
-+	{ .compatible = "renesas,can-r8a7790" },
-+	{ .compatible = "renesas,can-r8a7791" },
-+	{ }
-+};
-+MODULE_DEVICE_TABLE(of, rcar_can_of_table);
++static struct task_struct *init_thread;
 +
- static struct platform_driver rcar_can_driver = {
- 	.driver = {
- 		.name = RCAR_CAN_DRV_NAME,
- 		.owner = THIS_MODULE,
-+		.of_match_table = of_match_ptr(rcar_can_of_table),
- 		.pm = &rcar_can_pm_ops,
- 	},
- 	.probe = rcar_can_probe,
++static int __init
++mptsas_init(void)
++{
++	init_thread = kthread_run(mptsas_real_init, NULL, "mptsas_init");
++	return 0;
++}
++
+ static void __exit
+ mptsas_exit(void)
+ {
++	kthread_stop(init_thread);
+ 	pci_unregister_driver(&mptsas_driver);
+ 	sas_release_transport(mptsas_transport_template);
+ 
