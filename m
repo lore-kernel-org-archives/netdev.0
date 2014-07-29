@@ -1,77 +1,46 @@
 From: "Brown, Aaron F" <aaron.f.brown@intel.com>
-Subject: Re: [PATCH] net: ethernet: intel: ixgbe:
- ixgbe_main.c: Cleaning up missing null-terminate in conjunction with
- strncpy
-Date: Tue, 29 Jul 2014 20:20:44 +0000
-Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B73369BE0@ORSMSX104.amr.corp.intel.com>
-References: <1406384676-2606-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-	<20140728083935.6f4b77c1@samsung-9>
-	<CAFo99gacYur41ZPng3v4KUq_6C5vY6hTrXz1fsCJnCGHY5_i0A@mail.gmail.com>
+Subject: Re: [PATCH 3/9] i40e: use correct structure type name in sizeof
+Date: Tue, 29 Jul 2014 20:22:20 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B73369BF3@ORSMSX104.amr.corp.intel.com>
+References: <1406647011-8543-1-git-send-email-Julia.Lawall@lip6.fr>
+ <1406647011-8543-4-git-send-email-Julia.Lawall@lip6.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Allan,
-	Bruce W" <bruce.w.allan@intel.com>, "Brandeburg,
-	Jesse" <jesse.brandeburg@intel.com>,
-	Linux NICS <Linux-nics@isotope.jf.intel.com>, "Ronciak,
-	John" <john.ronciak@intel.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "rickard_strandqvist@spectrumdigital.se"
-	<rickard_strandqvist@spectrumdigital.se>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <CAFo99gacYur41ZPng3v4KUq_6C5vY6hTrXz1fsCJnCGHY5_i0A@mail.gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Rose, Gregory V" <gregory.v.rose@intel.com>,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Williams, Mitch A" <mitch.a.williams@intel.com>,
+	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
+	"linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>,
+	"ceph-devel@vger.kernel.org" <ceph-devel@vger.kernel.org>,
+	"toralf.foerster@gmx.de" <toralf.foerster@gmx.de>,
+	"hmh@hmh.eng.br" <hmh@hmh.eng.br>,
+	Linux NICS <Linux-nics@isotope.jf.intel.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+To: "Julia.Lawall@lip6.fr" <Julia.Lawall@lip6.fr>
+Return-path: <linux-ia64-owner@vger.kernel.org>
+In-Reply-To: <1406647011-8543-4-git-send-email-Julia.Lawall@lip6.fr>
 Content-Language: en-US
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Sender: linux-ia64-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2014-07-29 at 14:15 +0200, Rickard Strandqvist wrote:
-> Den 29 jul 2014 04:40 skrev "Stephen Hemminger" <stephen@networkplumber.org
-> >:
-> >
-> > On Sat, 26 Jul 2014 16:24:36 +0200
-> > Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se> wrote:
-> >
-> > > Replacing strncpy with strlcpy to avoid strings that lacks null
-> terminate.
-> > >
-> > > Signed-off-by: Rickard Strandqvist <
-> rickard_strandqvist@spectrumdigital.se>
-> > > ---
-> >                            hw->mac.type, hw->phy.type, hw->phy.sfp_type,
-> >
-> > This patch doesn't change anything.
-> > Netdev is already zeroed when allocated therefore doing strncpy()
-> guarantees
-> > it will be null terminated.
-> 
-> Hi Stephen
-> 
-> It's not clear that alloc_etherdev_mq() will zero the memory area:
-> 
-<snip>
-
-Thanks Rickard, given strncpy to strlcpy gets suggested by static code
-generators this will probably come up again even if it results in no
-real change.  I (covering for Jeff Kirsher) went ahead and added it to
-our internal tree.
-
-
-------------------------------------------------------------------------------
-Infragistics Professional
-Build stunning WinForms apps today!
-Reboot your WinForms applications with our WinForms controls. 
-Build a bridge from your legacy apps to the future.
-http://pubads.g.doubleclick.net/gampad/clk?id=153845071&iu=/4140/ostg.clktrk
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+T24gVHVlLCAyMDE0LTA3LTI5IGF0IDE3OjE2ICswMjAwLCBKdWxpYSBMYXdhbGwgd3JvdGU6Cj4g
+RnJvbTogSnVsaWEgTGF3YWxsIDxKdWxpYS5MYXdhbGxAbGlwNi5mcj4KPiAKPiBDb3JyZWN0IHR5
+cG8gaW4gdGhlIG5hbWUgb2YgdGhlIHR5cGUgZ2l2ZW4gdG8gc2l6ZW9mLiAgQmVjYXVzZSBpdCBp
+cyB0aGUKPiBzaXplIG9mIGEgcG9pbnRlciB0aGF0IGlzIHdhbnRlZCwgdGhlIHR5cG8gaGFzIG5v
+IGltcGFjdCBvbiBjb21waWxhdGlvbiBvcgo+IGV4ZWN1dGlvbi4KPiAKPiBUaGlzIHByb2JsZW0g
+d2FzIGZvdW5kIHVzaW5nIENvY2NpbmVsbGUgKGh0dHA6Ly9jb2NjaW5lbGxlLmxpcDYuZnIvKS4g
+IFRoZQo+IHNlbWFudGljIHBhdGNoIHVzZWQgY2FuIGJlIGZvdW5kIGluIG1lc3NhZ2UgMCBvZiB0
+aGlzIHBhdGNoIHNlcmllcy4KPiAKPiBTaWduZWQtb2ZmLWJ5OiBKdWxpYSBMYXdhbGwgPEp1bGlh
+Lkxhd2FsbEBsaXA2LmZyPgo+IAo+IC0tLQo+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9p
+NDBlL2k0MGVfbWFpbi5jIHwgICAgMiArLQo+ICAxIGZpbGUgY2hhbmdlZCwgMSBpbnNlcnRpb24o
+KyksIDEgZGVsZXRpb24oLSkKClRoYW5rcyBKdWxpYSwgSSBoYXZlIGFkZGVkIHlvdXIgcGF0Y2gg
+dG8gb3VyIChKZWZmJ3MpIHF1ZXVlLgo=
