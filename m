@@ -1,77 +1,57 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v3 net-next] net: filter: cleanup sk_* and bpf_* names
-Date: Tue, 29 Jul 2014 10:25:25 -0700
-Message-ID: <CAMEtUuxsFdmWM5DFXNRMnDKzqfgsaEashsMvDsKcjnF=T8pbpA@mail.gmail.com>
-References: <1406615380-3488-1-git-send-email-ast@plumgrid.com>
-	<20140729153124.GA3231@salvia>
-	<CAMEtUuwO0nGox4Mfj8Gs2fVudBpYtZ_NSwyFQCFz5NeYKgAdpA@mail.gmail.com>
-	<20140729164226.GA6069@salvia>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: ipv4: net namespace does not inherit network configurations
+Date: Tue, 29 Jul 2014 10:48:37 -0700
+Message-ID: <CAHA+R7MC2gKeSWqR8pDDX26D-Th4BG1AveM+HseMMPjLBJuWDw@mail.gmail.com>
+References: <53D7697C.6020103@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: "David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Willem de Bruijn <willemb@google.com>,
-	Kees Cook <keescook@chromium.org>,
-	Network Development <netdev@vger.kernel.org>,
+	Hong Zhiguo <honkiko@gmail.com>,
 	LKML <linux-kernel@vger.kernel.org>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20140729164226.GA6069@salvia>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	netdev <netdev@vger.kernel.org>,
+	"Tao, Yue" <Yue.Tao@windriver.com>,
+	Alexandre Dietsch <alexandre.dietsch@windriver.com>
+To: zhuyj <zyjzyj2000@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f171.google.com ([209.85.217.171]:51606 "EHLO
+	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751728AbaG2Rsj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2014 13:48:39 -0400
+Received: by mail-lb0-f171.google.com with SMTP id l4so2006lbv.30
+        for <netdev@vger.kernel.org>; Tue, 29 Jul 2014 10:48:37 -0700 (PDT)
+In-Reply-To: <53D7697C.6020103@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 29, 2014 at 9:42 AM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> On Tue, Jul 29, 2014 at 08:55:04AM -0700, Alexei Starovoitov wrote:
->> > I don't think this is the right moment to add this, but we have to
->> > keep in mind that something similar to this will need to be
->> > accomodated in struct sk_filter at some point to avoid sloppy changes
->> > that may result in reintroducing code later on.
->>
->> I thought in v1 series you were arguing exactly about introducing them now...
->> ok, I will drop callbacks and keep refcnt,rcu,filter_size and bpf_prog pointer
->> in there. Sounds good?
+On Tue, Jul 29, 2014 at 2:29 AM, zhuyj <zyjzyj2000@gmail.com> wrote:
+> Hi,all
 >
-> Agreed.
+> I did a test on kernel3.16 rc6:
 >
->> > Next step should be to wrap the specific bpf fields in struct
->> > bpf_prog in some clean way IMO, which was partially the aim of this
->> > patch.
->>
->> it seems your only objection is 'rcu_head' still being there and rebasing
->> on top of yours will fix it...
+> root@qemu1:~# echo 1 > /proc/sys/net/ipv6/conf/all/forwarding
+> root@qemu1:~# echo 1 > /proc/sys/net/ipv4/conf/all/forwarding
+> root@qemu1:~# ip netns list
+> root@qemu1:~# ip netns add fib1
+> root@qemu1:~# ip netns exec fib1 bash
+> root@qemu1:~# cat /proc/sys/net/ipv6/conf/all/forwarding
+> 0
+> root@qemu1:~# cat /proc/sys/net/ipv4/conf/all/forwarding
+> 1
 >
-> Almost. I just wanted to leave in place struct sk_filter for the
-> coming up generalization, that structure should contain the refcnt,
-> rcu_head and the struct bpf_prog after some of your follow up patches.
+> The behavior of ipv4 and ipv6 is very inconsistent. I checked
+> the kernel source code. I found that from this patch
+> [ipv6: fix bad free of addrconf_init_net], the above difference
+> appeared.
+>
+> Since a net namespace is independent to another. That is, there
+> is no any relationship between the net namespaces. So the behavior
+> of ipv4 is not correct.
+>
 
-Yes. something like:
-struct sk_filter {
-        atomic_t refcnt;
-        struct rcu_head rcu;
-        u32 filter_size;
-        struct bpf_prog *prog;
-};
-filter_size also makes sense to add right now to cleanup charging.
+Well, they are already independent, not shared, just that the initial
+value is duplicated from init_net for IPv4.
 
-> Please, also leave sk_filter_charge/uncharge/get_filter whatever will
-> provide the room the generalization under net/core/filter.c, not need
-> to move these to kernel/bpf/
+This change might break existing applications which rely on this
+behavior, but given IPv6 change is almost the same, I think it's ok.
 
-of course, that was never the intent.
-all socket related stuff should keep sk_* prefix and stay in net/
-only net-independent things makes sense to move.
-
-> After my patch (and your follow up), we don't have sloppy usage of
-> rcu_head for unattached filter anymore and I guess Willem is going to
-> same save bytes in his iptables/bpf rules given that he can directly
-> use bpf_prog instead of sk_filter.
-
-yes. exactly.
-
-btw, Dave may request to do a fresh repost of both of your
-patches with v2 tag... Alternatively I can do rebase + fix what we
-discussed above + split and repost yours and mine as single
-series, since they're addressing one area...
-Also I want to do some more testing of your #2 patch for seccomp
-to make sure all is clean.
+BTW, you need to submit a patch as normal, instead of as an attachment.
