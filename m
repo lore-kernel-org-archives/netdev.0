@@ -1,39 +1,72 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: Manual loading of mlx4_en
-Date: Tue, 29 Jul 2014 16:42:24 +0300
-Message-ID: <53D7A4C0.8090004@mellanox.com>
-References: <1406627612.4498.16.camel@chaos.site>	 <53D7748A.6040800@mellanox.com> <20140729123405.6802fbc4@endymion.delvare>	 <53D77B26.3070905@mellanox.com> <1406635578.4498.18.camel@chaos.site>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: Port attributes configuration
+Date: Tue, 29 Jul 2014 06:46:37 -0700
+Message-ID: <53D7A5BD.1070805@gmail.com>
+References: <CACWm-Bc4=4We1AfnZpL7O5VkUSKjKBZ-NK6edXW2fE5b_u-e7g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Or Gerlitz <ogerlitz@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Jean Delvare <jdelvare@suse.de>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Marco Varlese <marco.varlese@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog124.obsmtp.com ([207.126.144.157]:54429 "EHLO
-	eu1sys200aog124.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751143AbaG2NoT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2014 09:44:19 -0400
-In-Reply-To: <1406635578.4498.18.camel@chaos.site>
+Received: from mail-oa0-f41.google.com ([209.85.219.41]:37327 "EHLO
+	mail-oa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750918AbaG2Nqr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2014 09:46:47 -0400
+Received: by mail-oa0-f41.google.com with SMTP id j17so10361682oag.28
+        for <netdev@vger.kernel.org>; Tue, 29 Jul 2014 06:46:47 -0700 (PDT)
+In-Reply-To: <CACWm-Bc4=4We1AfnZpL7O5VkUSKjKBZ-NK6edXW2fE5b_u-e7g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/29/2014 3:06 PM, Jean Delvare wrote:
-> Le Tuesday 29 July 2014 =C3=A0 13:44 +0300, Amir Vadai a =C3=A9crit :
->> On 7/29/2014 1:34 PM, Jean Delvare wrote:
->>> Many thanks for the fast and detailed answer! I'll go backport this
->>> commit to kernel 3.12 (and 3.0, hopefully it doesn't have too many
->>> dependencies?)
->>
->> I don't think there is any dependency for that commit. If you're
->> backporting it, also take a small fix to it:
->> f24f790 net/mlx4_core: Load the Eth driver first
->=20
-> Thanks for the hint. I suppose I should pick 7855bff4 "net/mlx4_core:
-> Load the IB driver when the device supports IBoE" as well?
->=20
-Right - missed it.
+On 07/29/2014 02:15 AM, Marco Varlese wrote:
+> I'm working on a new platform and the network interfaces will have
+> quite few new options (roughly 50) to configure. What I definitely
+> want to achieve is to use the common tools available on Linux to let
+> users configure the port attributes from user-space without writing a
+> brand new ad-hoc tool.
 
-Amir
+Its hard to say without knowing what the attributes are and how many
+of them are new.
+
+>
+> Considered my requirements I think I've a choice of configuring these
+> port attributes via:
+> 1) ethtool: this I guess will require patches to the tool itself plus
+> patches to the kernel to extend the IOCTL calls performed by it;
+
+Many devices already expose many statistics via ethtool -S and features
+via ethtool -k. Depending on the attribute it may make sense to add
+it here.
+
+> 2) sysfs: adding new files under /sys/class/net/DEVICE/ and handle the
+> sysfs extensions in my kernel driver;
+
+Typically most these are read only options. Without knowing your options
+I would guess this is the least likely.
+
+> 3) netlink: I understand this seems to be the path most people prefer
+> but I think it will require a new tool to be written?
+>
+
+Writing a new tool is not necessarily a bad thing IMO but again need
+more details what type of options.
+
+> What would you suggest as the best approach here to have a good
+> solution accepted by most?
+
+more details.
+
+>
+>
+> Thanks,
+> Marco
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+
+
+-- 
+John Fastabend         Intel Corporation
