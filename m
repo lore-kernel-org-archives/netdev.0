@@ -1,59 +1,53 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH 1/2 v2 net-next] netfilter: xt_bpf: add mising opaque
- struct sk_filter definition
-Date: Tue, 29 Jul 2014 12:40:25 -0400
-Message-ID: <CA+FuTSdA-85qfDCDJtqGXJc13mJ5Qe-JMtZ19vrrvy4a-qkwuQ@mail.gmail.com>
-References: <1406650335-5916-1-git-send-email-pablo@netfilter.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH v3 net-next] net: filter: cleanup sk_* and bpf_* names
+Date: Tue, 29 Jul 2014 18:42:26 +0200
+Message-ID: <20140729164226.GA6069@salvia>
+References: <1406615380-3488-1-git-send-email-ast@plumgrid.com>
+ <20140729153124.GA3231@salvia>
+ <CAMEtUuwO0nGox4Mfj8Gs2fVudBpYtZ_NSwyFQCFz5NeYKgAdpA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netfilter-devel <netfilter-devel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	Alexei Starovoitov <ast@plumgrid.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Willem de Bruijn <willemb@google.com>,
 	Kees Cook <keescook@chromium.org>,
-	Daniel Borkmann <dborkman@redhat.com>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f173.google.com ([209.85.220.173]:48204 "EHLO
-	mail-vc0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752030AbaG2QlB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2014 12:41:01 -0400
-Received: by mail-vc0-f173.google.com with SMTP id hy10so13983052vcb.18
-        for <netdev@vger.kernel.org>; Tue, 29 Jul 2014 09:41:00 -0700 (PDT)
-In-Reply-To: <1406650335-5916-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAMEtUuwO0nGox4Mfj8Gs2fVudBpYtZ_NSwyFQCFz5NeYKgAdpA@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 29, 2014 at 12:12 PM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> This structure is not exposed to userspace, so fix this by defining
-> struct sk_filter; so we skip the casting in kernelspace. This is safe
-> since userspace has no way to lurk with that internal pointer.
->
-> Fixes: e6f30c7 ("netfilter: x_tables: add xt_bpf match")
-> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+On Tue, Jul 29, 2014 at 08:55:04AM -0700, Alexei Starovoitov wrote:
+> > I don't think this is the right moment to add this, but we have to
+> > keep in mind that something similar to this will need to be
+> > accomodated in struct sk_filter at some point to avoid sloppy changes
+> > that may result in reintroducing code later on.
+> 
+> I thought in v1 series you were arguing exactly about introducing them now...
+> ok, I will drop callbacks and keep refcnt,rcu,filter_size and bpf_prog pointer
+> in there. Sounds good?
 
-Acked-by: Willem de Bruijn <willemb@google.com>
+Agreed.
 
-> ---
-> v2: address Willem's feedback, we still need uapi/linux/filter.h for
->     userspace iptables builds.
->
->  include/uapi/linux/netfilter/xt_bpf.h |    2 ++
->  1 file changed, 2 insertions(+)
->
-> diff --git a/include/uapi/linux/netfilter/xt_bpf.h b/include/uapi/linux/netfilter/xt_bpf.h
-> index 5dda450..2ec9fbc 100644
-> --- a/include/uapi/linux/netfilter/xt_bpf.h
-> +++ b/include/uapi/linux/netfilter/xt_bpf.h
-> @@ -6,6 +6,8 @@
->
->  #define XT_BPF_MAX_NUM_INSTR   64
->
-> +struct sk_filter;
-> +
->  struct xt_bpf_info {
->         __u16 bpf_program_num_elem;
->         struct sock_filter bpf_program[XT_BPF_MAX_NUM_INSTR];
-> --
-> 1.7.10.4
->
+> > Next step should be to wrap the specific bpf fields in struct
+> > bpf_prog in some clean way IMO, which was partially the aim of this
+> > patch.
+> 
+> it seems your only objection is 'rcu_head' still being there and rebasing
+> on top of yours will fix it...
+
+Almost. I just wanted to leave in place struct sk_filter for the
+coming up generalization, that structure should contain the refcnt,
+rcu_head and the struct bpf_prog after some of your follow up patches.
+Please, also leave sk_filter_charge/uncharge/get_filter whatever will
+provide the room the generalization under net/core/filter.c, not need
+to move these to kernel/bpf/
+
+After my patch (and your follow up), we don't have sloppy usage of
+rcu_head for unattached filter anymore and I guess Willem is going to
+same save bytes in his iptables/bpf rules given that he can directly
+use bpf_prog instead of sk_filter.
