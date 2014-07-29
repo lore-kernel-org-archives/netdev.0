@@ -1,89 +1,160 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v3 net-next] net: filter: cleanup sk_* and bpf_* names
-Date: Tue, 29 Jul 2014 08:55:04 -0700
-Message-ID: <CAMEtUuwO0nGox4Mfj8Gs2fVudBpYtZ_NSwyFQCFz5NeYKgAdpA@mail.gmail.com>
-References: <1406615380-3488-1-git-send-email-ast@plumgrid.com>
-	<20140729153124.GA3231@salvia>
+From: Tobias Klauser <tklauser-93Khv+1bN0NyDzI6CaY1VQ@public.gmane.org>
+Subject: Re: [PATCH 2/2] netlink: Convert netlink_lookup() to use
+ RCU protected hash table
+Date: Tue, 29 Jul 2014 17:58:01 +0200
+Message-ID: <20140729155801.GB10301@distanz.ch>
+References: <cover.1406633945.git.tgraf@suug.ch>
+ <b73872eab661f28345085dbd4bd477a50d7042f6.1406633945.git.tgraf@suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Willem de Bruijn <willemb@google.com>,
-	Kees Cook <keescook@chromium.org>,
-	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20140729153124.GA3231@salvia>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org,
+ davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, walpole-sKt6ljEC1JY3uPMLIKxrzw@public.gmane.org, paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
+ kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <b73872eab661f28345085dbd4bd477a50d7042f6.1406633945.git.tgraf-G/eBtMaohhA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 29, 2014 at 8:31 AM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> On Mon, Jul 28, 2014 at 11:29:40PM -0700, Alexei Starovoitov wrote:
->> Socket charging logic was complicated, since we had to charge/uncharge a socket
->> multiple times while preparing a filter. Simplify it by fully preparing bpf
->> program (through classic->ebpf conversion and JITing) and then charge
->> the socket memory once.
->
-> This includes many changes in one single shot. This needs to be
-> splitted in smaller patches that can be reviewed separately, that
-> makes it easier to others to follow track and spot things.  On top of
+On 2014-07-29 at 13:41:33 +0200, Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org> wrote:
+> Heavy Netlink users such as Open vSwitch spend a considerable amount of
+> time in netlink_lookup() due to the read-lock on nl_table_lock. Use of
+> RCU relieves the lock contention.
+> 
+> Makes use of the new resizable hash table to avoid locking on the
+> lookup.
+> 
+> The hash table will grow if entries exceeds 75% of table size up to a
+> total table size of 64K. It will automatically shrink if usage falls
+> below 50%.
+> 
+> Also splits nl_table_lock into a separate spinlock to protect hash table
+> mutations. This avoids a possible deadlock when the hash table growing
+> waits on RCU readers to complete via synchronize_rcu() while readers
+> holding RCU read lock are waiting on the nl_table_lock() to be released
+> to lock the table for broadcasting.
+> 
+> Before:
+>    9.16%  kpktgend_0  [openvswitch]      [k] masked_flow_lookup
+>    6.42%  kpktgend_0  [pktgen]           [k] mod_cur_headers
+>    6.26%  kpktgend_0  [pktgen]           [k] pktgen_thread_worker
+>    6.23%  kpktgend_0  [kernel.kallsyms]  [k] memset
+>    4.79%  kpktgend_0  [kernel.kallsyms]  [k] netlink_lookup
+>    4.37%  kpktgend_0  [kernel.kallsyms]  [k] memcpy
+>    3.60%  kpktgend_0  [openvswitch]      [k] ovs_flow_extract
+>    2.69%  kpktgend_0  [kernel.kallsyms]  [k] jhash2
+> 
+> After:
+>   15.26%  kpktgend_0  [openvswitch]      [k] masked_flow_lookup
+>    8.12%  kpktgend_0  [pktgen]           [k] pktgen_thread_worker
+>    7.92%  kpktgend_0  [pktgen]           [k] mod_cur_headers
+>    5.11%  kpktgend_0  [kernel.kallsyms]  [k] memset
+>    4.11%  kpktgend_0  [openvswitch]      [k] ovs_flow_extract
+>    4.06%  kpktgend_0  [kernel.kallsyms]  [k] _raw_spin_lock
+>    3.90%  kpktgend_0  [kernel.kallsyms]  [k] jhash2
+>    [...]
+>    0.67%  kpktgend_0  [kernel.kallsyms]  [k] netlink_lookup
+> 
+> Signed-off-by: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+> ---
+>  net/netlink/af_netlink.c | 285 ++++++++++++++++++-----------------------------
+>  net/netlink/af_netlink.h |  18 +--
+>  net/netlink/diag.c       |  11 +-
+>  3 files changed, 119 insertions(+), 195 deletions(-)
+> 
+> diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+> index 1b38f7f..7f44468 100644
+> --- a/net/netlink/af_netlink.c
+> +++ b/net/netlink/af_netlink.c
+[...]
+> @@ -2996,28 +2939,26 @@ static void *netlink_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+>  
+>  	net = seq_file_net(seq);
+>  	iter = seq->private;
+> -	s = v;
+> -	do {
+> -		s = sk_next(s);
+> -	} while (s && !nl_table[s->sk_protocol].compare(net, s));
+> -	if (s)
+> -		return s;
+> +	nlk = v;
+> +
+> +	rht_for_each_entry_rcu(nlk, nlk->node.next, node)
+> +		if (net_eq(sock_net((struct sock *)nlk), net))
+> +			return nlk;
+>  
+>  	i = iter->link;
+>  	j = iter->hash_idx + 1;
+>  
+>  	do {
+> -		struct nl_portid_hash *hash = &nl_table[i].hash;
+> -
+> -		for (; j <= hash->mask; j++) {
+> -			s = sk_head(&hash->table[j]);
+> +		struct rhashtable *ht = &nl_table[i].hash;
+> +		const struct bucket_table *tbl = rht_dereference(ht->tbl, ht);
+>  
+> -			while (s && !nl_table[s->sk_protocol].compare(net, s))
+> -				s = sk_next(s);
+> -			if (s) {
+> -				iter->link = i;
+> -				iter->hash_idx = j;
+> -				return s;
+> +		for (; j <= tbl->size; j++) {
 
-That was the goal of v1 patch.. to deal with 'struct sk_filter' only...
-Sure. I'll split it into multiple.
+Should the condition j < tbl->size here, since the bucket table only
+contains `size' buckets?
 
-> that, we should also take the time to make sure what is already in
-> place is correct, this is a good chance to go over the existing code,
-> review it and make small changes to accomodate the generic
-> infrastructure that should follow up.
+> +			rht_for_each_entry_rcu(nlk, tbl->buckets[j], node) {
+> +				if (net_eq(sock_net((struct sock *)nlk), net)) {
+> +					iter->link = i;
+> +					iter->hash_idx = j;
+> +					return nlk;
+> +				}
+>  			}
+>  		}
+[...]
+> diff --git a/net/netlink/diag.c b/net/netlink/diag.c
+> index 1af29624..7588f34 100644
+> --- a/net/netlink/diag.c
+> +++ b/net/netlink/diag.c
+[...]
+> @@ -101,16 +102,20 @@ static int __netlink_diag_dump(struct sk_buff *skb, struct netlink_callback *cb,
+>  				int protocol, int s_num)
+>  {
+>  	struct netlink_table *tbl = &nl_table[protocol];
+> -	struct nl_portid_hash *hash = &tbl->hash;
+> +	struct rhashtable *ht = &tbl->hash;
+> +	const struct bucket_table *htbl = rht_dereference(ht->tbl, ht);
+>  	struct net *net = sock_net(skb->sk);
+>  	struct netlink_diag_req *req;
+> +	struct netlink_sock *nlsk;
+>  	struct sock *sk;
+>  	int ret = 0, num = 0, i;
+>  
+>  	req = nlmsg_data(cb->nlh);
+>  
+> -	for (i = 0; i <= hash->mask; i++) {
+> -		sk_for_each(sk, &hash->table[i]) {
+> +	for (i = 0; i <= htbl->size; i++) {
 
-I've simplified charging as commit log says. That part always felt
-unclean. I'll split charging cleanup as separate patch.
-Nothing else comes to mind. Pls suggest.
+Same here, condition should be i < htbl->size
 
->> -struct sk_filter {
->> -     atomic_t                refcnt;
->> +struct bpf_prog {
->>       u32                     jited:1,        /* Is our filter JIT'ed? */
->>                               len:31;         /* Number of filter blocks */
->>       struct sock_fprog_kern  *orig_prog;     /* Original BPF program */
->> -     struct rcu_head         rcu;
->> +     struct rcu_head         rcu;            /* used by 'unattached' progs */
->
-> This rcu_head for unattached filters can be avoided, I'll send a
-> follow up patch for this. After that patch, refcnt and rcu_head can go
-> out from bpf_prog.
-
-See the hunk you quoted above. refcnt is already removed.
-I see your prep patch for rcu_head removal...
-I can rebase on top of it and drop rcu_head out of bpf_prog.
-
->> -#define sk_filter_proglen(fprog)                     \
->> -             (fprog->len * sizeof(fprog->filter[0]))
->> +struct sk_filter {
->> +     atomic_t refcnt;
->> +     struct rcu_head rcu;
->> +     u32 filter_size;
->> +     union {
->> +             struct bpf_prog *prog;
->> +     };
->> +     void (*release)(struct sk_filter *fp);
->> +     int (*get_filter)(struct sk_filter *fp, void **prog, unsigned int *len);
->> +     unsigned int (*run)(const struct sk_buff *skb, struct sk_filter *fp);
->
-> I don't think this is the right moment to add this, but we have to
-> keep in mind that something similar to this will need to be
-> accomodated in struct sk_filter at some point to avoid sloppy changes
-> that may result in reintroducing code later on.
-
-I thought in v1 series you were arguing exactly about introducing them now...
-ok, I will drop callbacks and keep refcnt,rcu,filter_size and bpf_prog pointer
-in there. Sounds good?
-
-> Next step should be to wrap the specific bpf fields in struct
-> bpf_prog in some clean way IMO, which was partially the aim of this
-> patch.
-
-it seems your only objection is 'rcu_head' still being there and rebasing
-on top of yours will fix it...
+> +		rht_for_each_entry(nlsk, htbl->buckets[i], ht, node) {
+> +			sk = (struct sock *)nlsk;
+> +
+>  			if (!net_eq(sock_net(sk), net))
+>  				continue;
+>  			if (num < s_num) {
+> -- 
+> 1.9.3
