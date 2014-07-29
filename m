@@ -1,7 +1,8 @@
 From: Vince Bridgers <vbridgers2013@gmail.com>
-Subject: [PATCH net v3 0/6] net: stmmac: Improve mcast/ucast filter for snps
-Date: Tue, 29 Jul 2014 17:06:41 -0500
-Message-ID: <1406671607-27368-1-git-send-email-vbridgers2013@gmail.com>
+Subject: [PATCH net v3 2/6] net: stmmac: Correct set_filter for multicast and unicast cases
+Date: Tue, 29 Jul 2014 17:06:43 -0500
+Message-ID: <1406671607-27368-3-git-send-email-vbridgers2013@gmail.com>
+References: <1406671607-27368-1-git-send-email-vbridgers2013@gmail.com>
 Cc: dinguyen@altera.com, davem@davemloft.net, vbridgers2013@gmail.com,
 	vbridger@altera.com
 To: netdev@vger.kernel.org, devicetree@vger.kernel.org,
@@ -10,53 +11,159 @@ To: netdev@vger.kernel.org, devicetree@vger.kernel.org,
 	linux@arm.linux.org.uk, linux-arm-kernel@lists.infradead.org,
 	robh+dt@kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:45343 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750998AbaG2WK0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2014 18:10:26 -0400
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:52025 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751758AbaG2WKc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2014 18:10:32 -0400
+In-Reply-To: <1406671607-27368-1-git-send-email-vbridgers2013@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series adds Synopsys specific bindings for the Synopsys EMAC
-filter characteristics since those are implementation dependent. The
-multicast and unicast filtering code was improved to handle different
-configuration variations based on device tree settings. 
+This patch removes the check for the number of mulitcast addresses
+when using hash based filtering since it's not necessary. If the number
+of multicast addresses in the list exceeds the number of multicast hash
+bins, the bins will "fold" over into one of the bins configured and
+enabled for the particular component instance.
 
-I verified the operation of the multicast and unicast filters through 
-Synopsys support as requested during the V1 review, and tested the GMAC
-configuration on an Altera Cyclone 5 SOC (which supports 256 multicast
-bins and 128 Unicast addresses). The 10/100 variant of this driver
-modification was not tested, although it was compile tested. I shared
-the email thread results of the investigation through Synopsys with the
-stmmac maintainer.
+The default number of maximum unicast addresses was changed from 32 to 1
+since this number is not dependent on the component revision. The maximum
+number of multicast and unicast addresses is dependent on the configuration
+of the Synopsys EMAC configured by the SOC architect at the time the
+features were selected and configured for a particular component. Sadly,
+Synopsys does not provide a way to query the precise number supported
+by a particular component, so we must fall back on a devicetree entry.
+This configuration could vary from vendor to vendor (such as STMicro,
+Altera, etc).
 
+The multicast bins are set for every possible filtering case (including
+no entries) - previously the bits were set only if multicast filter entries
+were present.
+
+Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
 ---
-V3: Break up the patch into interface and functional change patches
-    per review comments
-V2: Confirm with Synopsys methods to determine number of Multicast bins
-    and Unicast address filter entries per first round review comments.
+V3: Break out patches by interface and functional changes per review
+    comments.
+V2: This particular patch did not exist in prior series submissions
+---
+ drivers/net/ethernet/stmicro/stmmac/common.h       |    2 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac1000.h    |    2 +-
+ .../net/ethernet/stmicro/stmmac/dwmac1000_core.c   |   25 ++++++++------------
+ .../net/ethernet/stmicro/stmmac/dwmac100_core.c    |    2 +-
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |    2 +-
+ 5 files changed, 14 insertions(+), 19 deletions(-)
 
-Vince Bridgers (6):
-  net: stmmac: Change MAC interface to support multiple filter
-    configurations
-  net: stmmac: Correct set_filter for multicast and unicast cases
-  dts: Add bindings for multicast hash bins and perfect filter entries
-  ARM: socfpga: Add socfpga Ethernet filter attributes entries
-  net: stmmac: Support devicetree configs for mcast and ucast filter
-    entries
-  net: stmmac: squelch sparse warning with casts
-
- Documentation/devicetree/bindings/net/stmmac.txt   |    6 +
- arch/arm/boot/dts/socfpga.dtsi                     |    4 +
- drivers/net/ethernet/stmicro/stmmac/common.h       |   47 ++++---
- drivers/net/ethernet/stmicro/stmmac/dwmac1000.h    |    3 +-
- .../net/ethernet/stmicro/stmmac/dwmac1000_core.c   |  131 ++++++++++++++------
- .../net/ethernet/stmicro/stmmac/dwmac100_core.c    |   27 ++--
- .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |    6 +-
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |   38 +++---
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |   71 ++++++++++-
- include/linux/stmmac.h                             |    2 +
- 10 files changed, 240 insertions(+), 95 deletions(-)
-
+diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
+index 96f1f14..49f72e1 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/common.h
++++ b/drivers/net/ethernet/stmicro/stmmac/common.h
+@@ -381,7 +381,7 @@ struct stmmac_ops {
+ 	int (*host_irq_status)(struct mac_device_info *hw,
+ 			       struct stmmac_extra_stats *x);
+ 	/* Multicast filter setting */
+-	void (*set_filter)(struct net_device *dev, int id);
++	void (*set_filter)(struct net_device *dev);
+ 	/* Flow control setting */
+ 	void (*flow_ctrl)(struct mac_device_info *hw, unsigned int duplex,
+ 			  unsigned int fc, unsigned int pause_time);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h b/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
+index f37d90f..285e305 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
+@@ -87,7 +87,7 @@ enum power_event {
+ 				(reg * 8))
+ #define GMAC_ADDR_LOW(reg)	(((reg > 15) ? 0x00000804 : 0x00000044) + \
+ 				(reg * 8))
+-#define GMAC_MAX_PERFECT_ADDRESSES	32
++#define GMAC_MAX_PERFECT_ADDRESSES	1
+ 
+ /* PCS registers (AN/TBI/SGMII/RGMII) offset */
+ #define GMAC_AN_CTRL	0x000000c0	/* AN control */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+index b6081ff..cdcbad1 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
+@@ -97,30 +97,28 @@ static void dwmac1000_get_umac_addr(struct mac_device_info *hw,
+ 			    GMAC_ADDR_LOW(reg_n));
+ }
+ 
+-static void dwmac1000_set_filter(struct net_device *dev, int id)
++static void dwmac1000_set_filter(struct net_device *dev)
+ {
+ 	void __iomem *ioaddr = (void __iomem *)dev->base_addr;
+ 	unsigned int value = 0;
+ 	unsigned int perfect_addr_number;
++	u32 mc_filter[2];
+ 
+ 	pr_debug("%s: # mcasts %d, # unicast %d\n", __func__,
+ 		 netdev_mc_count(dev), netdev_uc_count(dev));
+ 
+-	if (dev->flags & IFF_PROMISC)
++	memset(mc_filter, 0, sizeof(mc_filter));
++
++	if (dev->flags & IFF_PROMISC) {
+ 		value = GMAC_FRAME_FILTER_PR;
+-	else if ((netdev_mc_count(dev) > HASH_TABLE_SIZE)
+-		 || (dev->flags & IFF_ALLMULTI)) {
++	} else if (dev->flags & IFF_ALLMULTI) {
+ 		value = GMAC_FRAME_FILTER_PM;	/* pass all multi */
+-		writel(0xffffffff, ioaddr + GMAC_HASH_HIGH);
+-		writel(0xffffffff, ioaddr + GMAC_HASH_LOW);
+ 	} else if (!netdev_mc_empty(dev)) {
+-		u32 mc_filter[2];
+ 		struct netdev_hw_addr *ha;
+ 
+ 		/* Hash filter for multicast */
+ 		value = GMAC_FRAME_FILTER_HMC;
+ 
+-		memset(mc_filter, 0, sizeof(mc_filter));
+ 		netdev_for_each_mc_addr(ha, dev) {
+ 			/* The upper 6 bits of the calculated CRC are used to
+ 			 * index the contens of the hash table
+@@ -132,15 +130,12 @@ static void dwmac1000_set_filter(struct net_device *dev, int id)
+ 			 */
+ 			mc_filter[bit_nr >> 5] |= 1 << (bit_nr & 31);
+ 		}
+-		writel(mc_filter[0], ioaddr + GMAC_HASH_LOW);
+-		writel(mc_filter[1], ioaddr + GMAC_HASH_HIGH);
+ 	}
+ 
+-	/* Extra 16 regs are available in cores newer than the 3.40. */
+-	if (id > DWMAC_CORE_3_40)
+-		perfect_addr_number = GMAC_MAX_PERFECT_ADDRESSES;
+-	else
+-		perfect_addr_number = GMAC_MAX_PERFECT_ADDRESSES / 2;
++	writel(mc_filter[0], ioaddr + GMAC_HASH_LOW);
++	writel(mc_filter[1], ioaddr + GMAC_HASH_HIGH);
++
++	perfect_addr_number = GMAC_MAX_PERFECT_ADDRESSES;
+ 
+ 	/* Handle multiple unicast addresses (perfect filtering) */
+ 	if (netdev_uc_count(dev) > perfect_addr_number)
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
+index 8bb201a..3a2d633 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
+@@ -95,7 +95,7 @@ static void dwmac100_get_umac_addr(struct mac_device_info *hw,
+ 	stmmac_get_mac_addr(ioaddr, addr, MAC_ADDR_HIGH, MAC_ADDR_LOW);
+ }
+ 
+-static void dwmac100_set_filter(struct net_device *dev, int id)
++static void dwmac100_set_filter(struct net_device *dev)
+ {
+ 	void __iomem *ioaddr = (void __iomem *)dev->base_addr;
+ 	u32 value = readl(ioaddr + MAC_CONTROL);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 40cd95f..921952e 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -2225,7 +2225,7 @@ static void stmmac_set_rx_mode(struct net_device *dev)
+ 	struct stmmac_priv *priv = netdev_priv(dev);
+ 
+ 	spin_lock(&priv->lock);
+-	priv->hw->mac->set_filter(dev, priv->synopsys_id);
++	priv->hw->mac->set_filter(dev);
+ 	spin_unlock(&priv->lock);
+ }
+ 
 -- 
 1.7.9.5
