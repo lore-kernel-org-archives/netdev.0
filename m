@@ -1,62 +1,64 @@
-From: Benjamin Poirier <bpoirier@suse.de>
-Subject: Re: [PATCH v2 2/4] driver core: enable drivers to use deferred
- probefrom init
-Date: Tue, 29 Jul 2014 15:25:29 -0700
-Message-ID: <20140729222529.GC21140@f1.synalogic.ca>
-References: <20140728234644.GA18729@kroah.com>
- <CAB=NE6UzK1ZEzm+54dwSyPwHGrAWCPtiNtxwhQuJF6tM9NbnYw@mail.gmail.com>
- <20140729003501.GA17020@kroah.com>
- <CAB=NE6XMzU+zJ0RMDKaPuSxfXBvN2vZ1DnbgxCjWHJquTD1iqg@mail.gmail.com>
- <53D744E3.10500@suse.de>
- <201407292107.EGB64066.OOQMFSHLJVtFFO@I-love.SAKURA.ne.jp>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/2] udp: UDP Fast Port
+Date: Tue, 29 Jul 2014 15:29:37 -0700 (PDT)
+Message-ID: <20140729.152937.71880257673026429.davem@davemloft.net>
+References: <alpine.DEB.2.02.1407261519050.27164@tomh.mtv.corp.google.com>
+	<1406557222.12728.23.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hare@suse.de, mcgrof@suse.com, gregkh@linuxfoundation.org,
-	santosh@chelsio.com, hariprasad@chelsio.com, tiwai@suse.de,
-	linux-kernel@vger.kernel.org, joseph.salisbury@canonical.com,
-	kay@vrfy.org, gnomes@lxorguk.ukuu.org.uk,
-	tim.gardner@canonical.com, pierre-fersing@pierref.org,
-	akpm@linux-foundation.org, oleg@redhat.com,
-	nagalakshmi.nandigama@avagotech.com,
-	praveen.krishnamoorthy@avagotech.com,
-	sreekanth.reddy@avagotech.com, abhijit.mahajan@avagotech.com,
-	MPT-FusionLinux.pdl@avagotech.com, linux-scsi@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: therbert@google.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:54154 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751203AbaG2WZn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Jul 2014 18:25:43 -0400
-Content-Disposition: inline
-In-Reply-To: <201407292107.EGB64066.OOQMFSHLJVtFFO@I-love.SAKURA.ne.jp>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49776 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751776AbaG2W3k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2014 18:29:40 -0400
+In-Reply-To: <1406557222.12728.23.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2014/07/29 21:07, Tetsuo Handa wrote:
-> Luis R. Rodriguez wrote:
-> > On Mon, Jul 28, 2014 at 5:35 PM, Greg KH <gregkh@linuxfoundation.org> wrote:
-> > > On Mon, Jul 28, 2014 at 05:26:34PM -0700, Luis R. Rodriguez wrote:
-> > >> To ignore SIGKILL ?
-> > >
-> > > Sorry, I thought this was a userspace change that caused this.
-> > >
-> > > As it's a kernel change, well, maybe that patch should be reverted...
-> > 
-> > That's certainly viable. Oleg?
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 28 Jul 2014 16:20:22 +0200
+
+> On Sat, 2014-07-26 at 15:29 -0700, Tom Herbert wrote:
+>> This patch implements fast ports in UDP. The idea is that a kernel
+>> module registers a port and associated receive function. In UDP receive,
+>> the list of fast ports is scanned and the destinaton port is matched
+>> against the registered port. If there is a match, then the receive
+>> function is called to process the packet. When a UDP fast port is used,
+>> we can receive encap'ed packets without performing or accessing a
+>> socket. This is a performance gain, especially since we don't need to
+>> take socket ref count on every packet.
+>> 
+>> Signed-off-by: Tom Herbert <therbert@google.com>
+>> ---
+>>  include/net/udp.h | 23 +++++++++++++++++++
+>>  net/ipv4/udp.c    | 69 ++++++++++++++++++++++++++++++++++++++++++++++++++++---
+>>  net/ipv6/udp.c    | 21 +++++++++++++++--
+>>  3 files changed, 108 insertions(+), 5 deletions(-)
 > 
-> I don't want to revert that patch.
+> I find this very hacky. I do not think we should have different sorts of
+> UDP sockets.
+> 
+> If we believe we need a fast UDP path, without socket refcount being
+> touched, we should remove the SLAB_DESTROY_BY_RCU and switch to rcu
+> socket freeing (call_rcu())
+> 
+> At the time we added RCU lookups to UDP, we hadn't vxlan, and fear was
+> that the extra RCU grace period at socket dismantle was too heavy cost,
+> like TCP sockets.
+> 
+> Meanwhile, RCU cleanups got lot of attention, and UDP sockets serve as
+> tunnels vehicle.
 
-I agree that 786235ee should not be reverted to fix the problem of
-modules that receive sigkill from udev while they are initializing. In
-fact, while it may fix the case that was reported with mptsas, it would
-not fix cxgb4 because there are other code paths that check for pending
-signals and that abort (ex. pci_vpd_pci22_wait()).
+I remember trying to move socket destruction fully to call_rcu() and
+noticing real increases in socket create/destroy latency.
 
-Reverting 786235ee effectively works around the problem by making
-modprobe unkillable. The proper solution would be to make sure that udev
-does not send sigkill to modprobe in the first place, either by making
-the timeout longer or by making the module probe faster.
+But like Eric I dislike these special cased demux objects, just do
+something with real sockets, UDP demux is already too complex.
 
-If you have other reasons for reverting 786235ee, then it's a different
-story.
+One idea is to add a ->decap() operation to the proto ops, and if
+non-NULL the socket demux invokes the ->decap() while still in the RCU
+protected section and returns a NULL socket.  It would elide the
+refcount in this path as well.
