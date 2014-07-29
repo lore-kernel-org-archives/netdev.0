@@ -1,44 +1,50 @@
-From: Jean Delvare <jdelvare@suse.de>
-Subject: Manual loading of mlx4_en
-Date: Tue, 29 Jul 2014 11:53:32 +0200
-Message-ID: <1406627612.4498.16.camel@chaos.site>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Or Gerlitz <ogerlitz@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>
+From: Christoph Paasch <christoph.paasch@uclouvain.be>
+Subject: [PATCH RESUBMIT net] tcp: Fix integer-overflows in TCP veno
+Date: Tue, 29 Jul 2014 12:07:27 +0200
+Message-ID: <1406628447-21130-1-git-send-email-christoph.paasch@uclouvain.be>
+Cc: netdev@vger.kernel.org,
+	Christoph Paasch <christoph.paasch@uclouvain.be>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:41061 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753183AbaG2Jxf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Jul 2014 05:53:35 -0400
+Received: from mail-we0-f182.google.com ([74.125.82.182]:63827 "EHLO
+	mail-we0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752557AbaG2KHh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2014 06:07:37 -0400
+Received: by mail-we0-f182.google.com with SMTP id k48so8628507wev.41
+        for <netdev@vger.kernel.org>; Tue, 29 Jul 2014 03:07:33 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+In veno we do a multiplication of the cwnd and the rtt. This
+may overflow and thus their result is stored in a u64. However, we first
+need to cast the cwnd so that actually 64-bit arithmetic is done.
 
-I have a usability concern with the mlx4_en ethernet network driver. The
-module aliases for all the supported devices are on the mlx4_core
-module, so mlx4_core gets loaded automatically, but mlx4_en does not. I
-must load mlx4_en manually (kernel 3.12.)
+A first attempt at fixing 76f1017757aa0 ([TCP]: TCP Veno congestion
+control) was made by 159131149c2 (tcp: Overflow bug in Vegas), but it
+failed to add the required cast in tcp_veno_cong_avoid().
 
-May I ask why the mlx4 driver was split into mlx4_core and mlx4_en in
-the first place?
+Fixes: 76f1017757aa0 ([TCP]: TCP Veno congestion control)
+Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
+---
 
-I have worked around the problem with the following modprobe directive:
+Notes:
+    Resubmit as requested by David.
 
-install mlx4_core /sbin/modprobe --ignore-install mlx4_core && /sbin/modprobe mlx4_en
+ net/ipv4/tcp_veno.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-But this is kind of a hack and I would expect the right driver to load
-automatically without magic.
-
-Shouldn't the module aliases be attached to mlx4_en instead of
-mlx4_core?
-
-Thanks,
+diff --git a/net/ipv4/tcp_veno.c b/net/ipv4/tcp_veno.c
+index 27b9825753d1..8276977d2c85 100644
+--- a/net/ipv4/tcp_veno.c
++++ b/net/ipv4/tcp_veno.c
+@@ -144,7 +144,7 @@ static void tcp_veno_cong_avoid(struct sock *sk, u32 ack, u32 acked)
+ 
+ 		rtt = veno->minrtt;
+ 
+-		target_cwnd = (tp->snd_cwnd * veno->basertt);
++		target_cwnd = (u64)tp->snd_cwnd * veno->basertt;
+ 		target_cwnd <<= V_PARAM_SHIFT;
+ 		do_div(target_cwnd, rtt);
+ 
 -- 
-Jean Delvare
-SUSE L3 Support
+1.9.3
