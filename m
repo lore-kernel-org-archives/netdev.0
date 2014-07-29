@@ -1,44 +1,37 @@
 From: Shruti Kanetkar <Shruti@Freescale.com>
-Subject: [PATCH] net/fsl: fix misspelled word
-Date: Tue, 29 Jul 2014 14:47:25 -0500
-Message-ID: <1406663245-8781-1-git-send-email-Shruti@Freescale.com>
+Subject: [PATCH] net/fsl: Add format length modifier to avoid negative values
+Date: Tue, 29 Jul 2014 14:53:03 -0500
+Message-ID: <1406663583-8824-1-git-send-email-Shruti@Freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>,
-	Madalin Bucur <madalin.bucur@Freescale.com>,
-	Shruti Kanetkar <Shruti@Freescale.com>
+Cc: <netdev@vger.kernel.org>, Shruti Kanetkar <Shruti@Freescale.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1blp0186.outbound.protection.outlook.com ([207.46.163.186]:30883
+Received: from dns-bn1lp0143.outbound.protection.outlook.com ([207.46.163.143]:11842
 	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751212AbaG2Trc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Jul 2014 15:47:32 -0400
+	id S1751234AbaG2TxJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Jul 2014 15:53:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Madalin Bucur <madalin.bucur@freescale.com>
-
-Fix one misspelled word reported by codespell.
-
-Signed-off-by: Madalin Bucur <madalin.bucur@freescale.com>
-Signed-off-by: Shruti Kanetkar <Shruti@freescale.com>
+Signed-off-by: Shruti Kanetkar <Shruti@Freescale.com>
 ---
  drivers/net/ethernet/freescale/xgmac_mdio.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/freescale/xgmac_mdio.c b/drivers/net/ethernet/freescale/xgmac_mdio.c
-index 0c9d55c..8173407 100644
+index 8173407..6e7db66 100644
 --- a/drivers/net/ethernet/freescale/xgmac_mdio.c
 +++ b/drivers/net/ethernet/freescale/xgmac_mdio.c
-@@ -46,7 +46,7 @@ struct tgec_mdio_controller {
- #define MDIO_DATA_BSY		(1 << 31)
- 
- /*
-- * Wait untill the MDIO bus is free
-+ * Wait until the MDIO bus is free
-  */
- static int xgmac_wait_until_free(struct device *dev,
- 				 struct tgec_mdio_controller __iomem *regs)
+@@ -163,7 +163,7 @@ static int xgmac_mdio_read(struct mii_bus *bus, int phy_id, int regnum)
+ 	/* Return all Fs if nothing was there */
+ 	if (in_be32(&regs->mdio_stat) & MDIO_STAT_RD_ER) {
+ 		dev_err(&bus->dev,
+-			"Error while reading PHY%d reg at %d.%d\n",
++			"Error while reading PHY%d reg at %d.%hhu\n",
+ 			phy_id, dev_addr, regnum);
+ 		return 0xffff;
+ 	}
 -- 
 1.8.3.1
