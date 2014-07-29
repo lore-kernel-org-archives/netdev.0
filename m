@@ -1,237 +1,74 @@
 From: Vince Bridgers <vbridgers2013@gmail.com>
-Subject: [PATCH net v5 1/3] net: libphy: Add phy specific function to access mmd phy registers
-Date: Tue, 29 Jul 2014 15:19:57 -0500
-Message-ID: <1406665199-18174-2-git-send-email-vbridgers2013@gmail.com>
+Subject: [PATCH net v5 3/3] Documentation: networking: phy.txt: Update text for indirect MMD access
+Date: Tue, 29 Jul 2014 15:19:59 -0500
+Message-ID: <1406665199-18174-4-git-send-email-vbridgers2013@gmail.com>
 References: <1406665199-18174-1-git-send-email-vbridgers2013@gmail.com>
 Cc: vbridgers2013@gmail.com, vbridger@altera.com
 To: f.fainelli@gmail.com, rdunlap@infradead.org, davem@davemloft.net,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:33946 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752261AbaG2UXi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2014 16:23:38 -0400
-Received: by mail-pd0-f178.google.com with SMTP id w10so202677pde.9
-        for <netdev@vger.kernel.org>; Tue, 29 Jul 2014 13:23:38 -0700 (PDT)
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:57044 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754150AbaG2UXn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2014 16:23:43 -0400
+Received: by mail-pa0-f41.google.com with SMTP id rd3so203253pab.28
+        for <netdev@vger.kernel.org>; Tue, 29 Jul 2014 13:23:43 -0700 (PDT)
 In-Reply-To: <1406665199-18174-1-git-send-email-vbridgers2013@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-libphy was originally written assuming all phy devices support clause 45
-access extensions to the mmd registers through the indirection registers
-located within the first 16 phy registers. This assumption is not true
-in all cases, and one specific example is the Micrel ksz9021 10/100/1000
-Mbps phy. Using the stmmac driver, accessing the mmd registers to query
-and configure energy efficient Ethernet (EEE) features yielded unexpected
-behavior.
-
-This patch adds mmd access functions to the phy driver that can be
-overriden by the phy specific driver if the phy does not support this
-mechanism or uses it's own non-standard access mechanism. By default,
-the IEEE Compatible clause 45 access mechanism described in clause 22
-is used. With this patch, EEE query/configure functions as expected
-using the stmmac and the Micrel ksz9021 phy.
+Update the PHY library documentation to describe how a specific PHY
+driver can use the PAL MMD register access routines or override those
+routines with it's own in the event the PHY does not support the IEEE
+standard for reading and writing MMD phy registers.
 
 Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
 Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
-V5: Revert name of mmd register access functions, check for phy specific
-    driver override functions in mmd register access functions per
-    Florian's comments to minimize source code changes
+V5: Change rd/wr_mmd_indirect to read/write_mmd_indirect per
+    round of last review comments
 V4: None
-V3: Align function arguments that I missed per review comments
-V2: Split libphy and Micrel specific changes based on review comments
+V3: Update Documentation/networking/phy.txt per review comments.
+V2: None, this patch not present
 ---
- drivers/net/phy/phy.c |   61 ++++++++++++++++++++++++++++++-------------------
- include/linux/phy.h   |   18 +++++++++++++++
- 2 files changed, 56 insertions(+), 23 deletions(-)
+ Documentation/networking/phy.txt |   18 +++++++++++++++++-
+ 1 file changed, 17 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index f7c6181..7a8e810 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -922,7 +922,7 @@ static inline void mmd_phy_indirect(struct mii_bus *bus, int prtad, int devad,
+diff --git a/Documentation/networking/phy.txt b/Documentation/networking/phy.txt
+index 3544c98..e839e7e 100644
+--- a/Documentation/networking/phy.txt
++++ b/Documentation/networking/phy.txt
+@@ -272,6 +272,8 @@ Writing a PHY driver
+    txtsamp: Requests a transmit timestamp at the PHY level for a 'skb'
+    set_wol: Enable Wake-on-LAN at the PHY level
+    get_wol: Get the Wake-on-LAN status at the PHY level
++   read_mmd_indirect: Read PHY MMD indirect register
++   write_mmd_indirect: Write PHY MMD indirect register
  
- /**
-  * phy_read_mmd_indirect - reads data from the MMD registers
-- * @bus: the target MII bus
-+ * @phydev: The PHY device bus
-  * @prtad: MMD Address
-  * @devad: MMD DEVAD
-  * @addr: PHY address on the MII bus
-@@ -935,18 +935,26 @@ static inline void mmd_phy_indirect(struct mii_bus *bus, int prtad, int devad,
-  * 3) Write reg 13 // MMD Data Command for MMD DEVAD
-  * 3) Read  reg 14 // Read MMD data
-  */
--static int phy_read_mmd_indirect(struct mii_bus *bus, int prtad, int devad,
--				 int addr)
-+static int phy_read_mmd_indirect(struct phy_device *phydev, int prtad,
-+				 int devad, int addr)
- {
--	mmd_phy_indirect(bus, prtad, devad, addr);
-+	struct phy_driver *phydrv = phydev->drv;
-+	int value = -1;
+  Of these, only config_aneg and read_status are required to be
+  assigned by the driver code.  The rest are optional.  Also, it is
+@@ -284,7 +286,21 @@ Writing a PHY driver
  
--	/* Read the content of the MMD's selected register */
--	return bus->read(bus, addr, MII_MMD_DATA);
-+	if (phydrv->read_mmd_indirect == NULL) {
-+		mmd_phy_indirect(phydev->bus, prtad, devad, addr);
+  Feel free to look at the Marvell, Cicada, and Davicom drivers in
+  drivers/net/phy/ for examples (the lxt and qsemi drivers have
+- not been tested as of this writing)
++ not been tested as of this writing).
 +
-+		/* Read the content of the MMD's selected register */
-+		value = phydev->bus->read(phydev->bus, addr, MII_MMD_DATA);
-+	} else {
-+		value = phydrv->read_mmd_indirect(phydev, prtad, devad, addr);
-+	}
-+	return value;
- }
++ The PHY's MMD register accesses are handled by the PAL framework
++ by default, but can be overridden by a specific PHY driver if
++ required. This could be the case if a PHY was released for
++ manufacturing before the MMD PHY register definitions were
++ standardized by the IEEE. Most modern PHYs will be able to use
++ the generic PAL framework for accessing the PHY's MMD registers.
++ An example of such usage is for Energy Efficient Ethernet support,
++ implemented in the PAL. This support uses the PAL to access MMD
++ registers for EEE query and configuration if the PHY supports
++ the IEEE standard access mechanisms, or can use the PHY's specific
++ access interfaces if overridden by the specific PHY driver. See
++ the Micrel driver in drivers/net/phy/ for an example of how this
++ can be implemented.
  
- /**
-  * phy_write_mmd_indirect - writes data to the MMD registers
-- * @bus: the target MII bus
-+ * @phydev: The PHY device
-  * @prtad: MMD Address
-  * @devad: MMD DEVAD
-  * @addr: PHY address on the MII bus
-@@ -960,13 +968,19 @@ static int phy_read_mmd_indirect(struct mii_bus *bus, int prtad, int devad,
-  * 3) Write reg 13 // MMD Data Command for MMD DEVAD
-  * 3) Write reg 14 // Write MMD data
-  */
--static void phy_write_mmd_indirect(struct mii_bus *bus, int prtad, int devad,
--				   int addr, u32 data)
-+static void phy_write_mmd_indirect(struct phy_device *phydev, int prtad,
-+				   int devad, int addr, u32 data)
- {
--	mmd_phy_indirect(bus, prtad, devad, addr);
-+	struct phy_driver *phydrv = phydev->drv;
+ Board Fixups
  
--	/* Write the data into MMD's selected register */
--	bus->write(bus, addr, MII_MMD_DATA, data);
-+	if (phydrv->write_mmd_indirect == NULL) {
-+		mmd_phy_indirect(phydev->bus, prtad, devad, addr);
-+
-+		/* Write the data into MMD's selected register */
-+		phydev->bus->write(phydev->bus, addr, MII_MMD_DATA, data);
-+	} else {
-+		phydrv->write_mmd_indirect(phydev, prtad, devad, addr, data);
-+	}
- }
- 
- /**
-@@ -1000,7 +1014,7 @@ int phy_init_eee(struct phy_device *phydev, bool clk_stop_enable)
- 			return status;
- 
- 		/* First check if the EEE ability is supported */
--		eee_cap = phy_read_mmd_indirect(phydev->bus, MDIO_PCS_EEE_ABLE,
-+		eee_cap = phy_read_mmd_indirect(phydev, MDIO_PCS_EEE_ABLE,
- 						MDIO_MMD_PCS, phydev->addr);
- 		if (eee_cap < 0)
- 			return eee_cap;
-@@ -1012,12 +1026,12 @@ int phy_init_eee(struct phy_device *phydev, bool clk_stop_enable)
- 		/* Check which link settings negotiated and verify it in
- 		 * the EEE advertising registers.
- 		 */
--		eee_lp = phy_read_mmd_indirect(phydev->bus, MDIO_AN_EEE_LPABLE,
-+		eee_lp = phy_read_mmd_indirect(phydev, MDIO_AN_EEE_LPABLE,
- 					       MDIO_MMD_AN, phydev->addr);
- 		if (eee_lp < 0)
- 			return eee_lp;
- 
--		eee_adv = phy_read_mmd_indirect(phydev->bus, MDIO_AN_EEE_ADV,
-+		eee_adv = phy_read_mmd_indirect(phydev, MDIO_AN_EEE_ADV,
- 						MDIO_MMD_AN, phydev->addr);
- 		if (eee_adv < 0)
- 			return eee_adv;
-@@ -1032,15 +1046,16 @@ int phy_init_eee(struct phy_device *phydev, bool clk_stop_enable)
- 			/* Configure the PHY to stop receiving xMII
- 			 * clock while it is signaling LPI.
- 			 */
--			int val = phy_read_mmd_indirect(phydev->bus, MDIO_CTRL1,
-+			int val = phy_read_mmd_indirect(phydev, MDIO_CTRL1,
- 							MDIO_MMD_PCS,
- 							phydev->addr);
- 			if (val < 0)
- 				return val;
- 
- 			val |= MDIO_PCS_CTRL1_CLKSTOP_EN;
--			phy_write_mmd_indirect(phydev->bus, MDIO_CTRL1,
--					       MDIO_MMD_PCS, phydev->addr, val);
-+			phy_write_mmd_indirect(phydev, MDIO_CTRL1,
-+					       MDIO_MMD_PCS, phydev->addr,
-+					       val);
- 		}
- 
- 		return 0; /* EEE supported */
-@@ -1059,7 +1074,7 @@ EXPORT_SYMBOL(phy_init_eee);
-  */
- int phy_get_eee_err(struct phy_device *phydev)
- {
--	return phy_read_mmd_indirect(phydev->bus, MDIO_PCS_EEE_WK_ERR,
-+	return phy_read_mmd_indirect(phydev, MDIO_PCS_EEE_WK_ERR,
- 				     MDIO_MMD_PCS, phydev->addr);
- }
- EXPORT_SYMBOL(phy_get_eee_err);
-@@ -1077,21 +1092,21 @@ int phy_ethtool_get_eee(struct phy_device *phydev, struct ethtool_eee *data)
- 	int val;
- 
- 	/* Get Supported EEE */
--	val = phy_read_mmd_indirect(phydev->bus, MDIO_PCS_EEE_ABLE,
-+	val = phy_read_mmd_indirect(phydev, MDIO_PCS_EEE_ABLE,
- 				    MDIO_MMD_PCS, phydev->addr);
- 	if (val < 0)
- 		return val;
- 	data->supported = mmd_eee_cap_to_ethtool_sup_t(val);
- 
- 	/* Get advertisement EEE */
--	val = phy_read_mmd_indirect(phydev->bus, MDIO_AN_EEE_ADV,
-+	val = phy_read_mmd_indirect(phydev, MDIO_AN_EEE_ADV,
- 				    MDIO_MMD_AN, phydev->addr);
- 	if (val < 0)
- 		return val;
- 	data->advertised = mmd_eee_adv_to_ethtool_adv_t(val);
- 
- 	/* Get LP advertisement EEE */
--	val = phy_read_mmd_indirect(phydev->bus, MDIO_AN_EEE_LPABLE,
-+	val = phy_read_mmd_indirect(phydev, MDIO_AN_EEE_LPABLE,
- 				    MDIO_MMD_AN, phydev->addr);
- 	if (val < 0)
- 		return val;
-@@ -1112,7 +1127,7 @@ int phy_ethtool_set_eee(struct phy_device *phydev, struct ethtool_eee *data)
- {
- 	int val = ethtool_adv_to_mmd_eee_adv_t(data->advertised);
- 
--	phy_write_mmd_indirect(phydev->bus, MDIO_AN_EEE_ADV, MDIO_MMD_AN,
-+	phy_write_mmd_indirect(phydev, MDIO_AN_EEE_ADV, MDIO_MMD_AN,
- 			       phydev->addr, val);
- 
- 	return 0;
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 6804144..ed39956 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -545,6 +545,24 @@ struct phy_driver {
- 	 */
- 	void (*link_change_notify)(struct phy_device *dev);
- 
-+	/* A function provided by a phy specific driver to override the
-+	 * the PHY driver framework support for reading a MMD register
-+	 * from the PHY. If not supported, return -1. This function is
-+	 * optional for PHY specific drivers, if not provided then the
-+	 * default MMD read function is used by the PHY framework.
-+	 */
-+	int (*read_mmd_indirect)(struct phy_device *dev, int ptrad,
-+				 int devnum, int regnum);
-+
-+	/* A function provided by a phy specific driver to override the
-+	 * the PHY driver framework support for writing a MMD register
-+	 * from the PHY. This function is optional for PHY specific drivers,
-+	 * if not provided then the default MMD read function is used by
-+	 * the PHY framework.
-+	 */
-+	void (*write_mmd_indirect)(struct phy_device *dev, int ptrad,
-+				   int devnum, int regnum, u32 val);
-+
- 	struct device_driver driver;
- };
- #define to_phy_driver(d) container_of(d, struct phy_driver, driver)
 -- 
 1.7.9.5
