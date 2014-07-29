@@ -1,61 +1,39 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: Re: [PATCH net-next 0/8] amd-xgbe: AMD XGBE driver update 2014-07-25
-Date: Tue, 29 Jul 2014 08:21:23 -0500
-Message-ID: <53D79FD3.5010407@amd.com>
-References: <20140725211052.32358.54337.stgit@tlendack-t1.amdoffice.net>
- <20140728.173359.1659401063111761702.davem@davemloft.net>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: Manual loading of mlx4_en
+Date: Tue, 29 Jul 2014 16:42:24 +0300
+Message-ID: <53D7A4C0.8090004@mellanox.com>
+References: <1406627612.4498.16.camel@chaos.site>	 <53D7748A.6040800@mellanox.com> <20140729123405.6802fbc4@endymion.delvare>	 <53D77B26.3070905@mellanox.com> <1406635578.4498.18.camel@chaos.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Or Gerlitz <ogerlitz@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.co.il>,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Jean Delvare <jdelvare@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1blp0185.outbound.protection.outlook.com ([207.46.163.185]:47090
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751587AbaG2NVg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 29 Jul 2014 09:21:36 -0400
-In-Reply-To: <20140728.173359.1659401063111761702.davem@davemloft.net>
+Received: from eu1sys200aog124.obsmtp.com ([207.126.144.157]:54429 "EHLO
+	eu1sys200aog124.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751143AbaG2NoT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2014 09:44:19 -0400
+In-Reply-To: <1406635578.4498.18.camel@chaos.site>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/28/2014 07:33 PM, David Miller wrote:
-> From: Tom Lendacky <thomas.lendacky@amd.com>
-> Date: Fri, 25 Jul 2014 16:10:52 -0500
->
->> This patch series is dependent on the following patch that was
->> applied to the net tree and needs to be applied to the net-next
->> tree:
->>    332cfc823d18 - amd-xgbe: Fix error return code in xgbe_probe()
+On 7/29/2014 3:06 PM, Jean Delvare wrote:
+> Le Tuesday 29 July 2014 =C3=A0 13:44 +0300, Amir Vadai a =C3=A9crit :
+>> On 7/29/2014 1:34 PM, Jean Delvare wrote:
+>>> Many thanks for the fast and detailed answer! I'll go backport this
+>>> commit to kernel 3.12 (and 3.0, hopefully it doesn't have too many
+>>> dependencies?)
 >>
->> The following series of patches includes fixes and new support in the
->> driver.
->>
->> - Device bindings documentation update
->> - Hardware timestamp support
->> - 2.5GbE support changes
->> - Fifo sizes based on active queues/rings
->> - Phylib driver updates for:
->>    - Rate change completion check
->>    - KR training initiation
->>    - Auto-negotiation results
->> - Traffic class support, including DCB support
->>
->> This patch series is based on net-next.
->
-> I was going to apply this, but I couldn't let those function tracing debug
-> giblets into the tree.
->
-> Please remove all of that DBGPR(...., __func__) stuff.
->
-> We have a generic function tracer which can be used to trace any path
-> of execution in the kernel.
->
+>> I don't think there is any dependency for that commit. If you're
+>> backporting it, also take a small fix to it:
+>> f24f790 net/mlx4_core: Load the Eth driver first
+>=20
+> Thanks for the hint. I suppose I should pick 7855bff4 "net/mlx4_core:
+> Load the IB driver when the device supports IBoE" as well?
+>=20
+Right - missed it.
 
-Will do. I was planning on going through the whole driver and replacing
-all the DBGPR type functions in a future patch. For now I'll just
-remove them from this patch series and address the rest of the driver
-in a future patch.
-
-Thanks,
-Tom
+Amir
