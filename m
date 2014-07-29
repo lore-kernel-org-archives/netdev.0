@@ -1,139 +1,29 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH v2 2/4] driver core: enable drivers to use deferred probe
- from init
-Date: Mon, 28 Jul 2014 17:35:01 -0700
-Message-ID: <20140729003501.GA17020@kroah.com>
-References: <1406572110-26823-1-git-send-email-mcgrof@do-not-panic.com>
- <1406572110-26823-3-git-send-email-mcgrof@do-not-panic.com>
- <20140728185538.GB17609@kroah.com>
- <CAB=NE6VebcR7=UA1n0wNVLr5FFukzq6aW5CkeB3nf5FixV=3cA@mail.gmail.com>
- <CAB=NE6Xmi2zUCis22q+X8_AKRcwMrAtmx-aqSSvTB70Xjet6VQ@mail.gmail.com>
- <20140728234644.GA18729@kroah.com>
- <CAB=NE6UzK1ZEzm+54dwSyPwHGrAWCPtiNtxwhQuJF6tM9NbnYw@mail.gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request: wireless-next 2014-07-25
+Date: Mon, 28 Jul 2014 17:38:16 -0700 (PDT)
+Message-ID: <20140728.173816.1021002301426298724.davem@davemloft.net>
+References: <20140725152303.GA8525@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Santosh Rastapur <santosh@chelsio.com>,
-	Hariprasad S <hariprasad@chelsio.com>,
-	Takashi Iwai <tiwai@suse.de>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Joseph Salisbury <joseph.salisbury@canonical.com>,
-	Kay Sievers <kay@vrfy.org>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	Tim Gardner <tim.gardner@canonical.com>,
-	Pierre Fersing <pierre-fersing@pierref.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Oleg Nesterov <oleg@redhat.com>,
-	Benjamin Poirier <bpoirier@suse.de>,
-	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
-	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
-	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
-	Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
-	MPT-FusionLinux.pdl@avagotech.com,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	"netdev@vger.kernel.org
-To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAB=NE6UzK1ZEzm+54dwSyPwHGrAWCPtiNtxwhQuJF6tM9NbnYw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140725152303.GA8525-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 28, 2014 at 05:26:34PM -0700, Luis R. Rodriguez wrote:
-> On Mon, Jul 28, 2014 at 4:46 PM, Greg KH <gregkh@linuxfoundation.org> wrote:
-> > On Mon, Jul 28, 2014 at 12:48:32PM -0700, Luis R. Rodriguez wrote:
-> >> On Mon, Jul 28, 2014 at 12:04 PM, Luis R. Rodriguez
-> >> <mcgrof@do-not-panic.com> wrote:
-> >> > On Mon, Jul 28, 2014 at 11:55 AM, Greg KH <gregkh@linuxfoundation.org> wrote:
-> >> >> So, what drivers are having problems in their init sequence, and why
-> >> >> aren't they using async firmware loading?
-> >> >
-> >> > Fixing drivers is one thing, fixing drivers *now* because *now*
-> >> > drivers are failing due to a regression is another thing and that's
-> >> > what we have now so lets just be clear on that. The 30 second rule is
-> >> > a major driver requirement change and it should not be taken slightly,
-> >> > all of a sudden this is a new requirement but you won't know that
-> >> > unless you're reading these threads or hit an issue. That's an issue
-> >> > in itself.
-> >
-> > That "regression" is something that userspace has decided to do, not
-> > anything the kernel changed,
-> 
-> Actually commit 786235ee seems to have been the one that caused this
-> issue, systemd would just send the SIGKILL and that change forced a
-> bail on probe then hence Canonical's work around to modify
-> kthread_create() to not leave upon SIGKILL:
-> 
-> http://thread.gmane.org/gmane.linux.ubuntu.devel.kernel.general/39123
-> 
-> > so perhaps you should just patch your
-> > modprobe and be done with it until you can fix up those drivers?
-> 
-> To ignore SIGKILL ?
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Date: Fri, 25 Jul 2014 11:23:04 -0400
 
-Sorry, I thought this was a userspace change that caused this.
+> Please pull this batch of updates intended for the 3.17 stream!
+ ...
+> P.S.  The change to fs/compat_ioctl.c reflects a name change in a
+> Bluetooth header file...
 
-As it's a kernel change, well, maybe that patch should be reverted...
-
-> > And putting a horrid hack in the driver core, just because of some
-> > really bad drivers, is not ok, that's an interface _I_ will have to
-> > support for the next few decades.
-> 
-> I understand, hence review.
-> 
-> > And it's going to take you a while to get something like this ever
-> > merged in anyway, odds are you can fix up the driver faster...
-> 
-> That requires quite a bit of changes and commitment and again, there
-> are quite a bit of drivers that we can run into in the community,
-> we've just spotted 2 so far here for now.
-> 
-> >> > The cxgb4: driver is an example where although I did propose patches
-> >> > to use asynch firmware loading the entire registration of the
-> >> > netdevice would need to be changed as well in order to get this right.
-> >> > In short we have to scramble now to first identify drivers that have
-> >> > long init sequences and then fix. There's an assumption that we can
-> >> > easily fix drivers, this can take time. This series, although does
-> >> > take advantage of a kernel interface for other uses, lets us identify
-> >> > these drivers on the kernel ring buffer, so we can go and address
-> >> > fixing them with time.
-> >>
-> >> Another thing that came up during asynch firmware review / integration
-> >> on cxgb4 was that it would not be the only thing that would need to be
-> >> fixed, the driver also has a ton of ports and at least as per my
-> >> review the proper fix would be to use platform regiister stuff. It is
-> >> a major rewrite of the driver but an example of a driver that needs
-> >> quite a bit of work to meet this new 30 second driver requirement.
-> >
-> > It shouldn't be using any platform driver stuff, it's a pci device, not
-> > a platform device.
-> 
-> The general PCI stuff is already used, the reason for suggesting the
-> platform_device_register_simple() stuff is it has tons of ports and
-> each port will register in turn a new struct netdevice, essentially
-> one device can end up having tons of different network devices, the
-> platform stuff would be to allow handling each netdevice candidate
-> separately as part of the internal driver architecture, right now its
-> some scary loop thing that in my eyes can be very error prone.
-> drivers/net/ethernet/8390/ne.c. This discussion:
-
-No, don't use platform devices as a "catch-all" for when you don't want
-to write your own bus code.  This looks like a device-specific bus,
-great, write the code to do that, it can be done in about 200 lines,
-with comments and whitespace.
-
-Only use platform devices for, wait for it, platform devices.  And even
-then, reconsider and use something else if at all possible.
-
-> > Why not just put the initial "register the device" in a single-shot
-> > workqueue or thread or something like that so that modprobe returns
-> > instantly back with a success and all is fine?
-> 
-> That surely is possible but why not a general solution for such kludges?
-
-Because the driver should be fixed.  How hard would it be to do what I
-just suggested here, 20 lines added at most?
-
-thanks,
-
-greg k-h
+Pulled, thanks John.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
