@@ -1,33 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: irda: delete double assignment
-Date: Tue, 29 Jul 2014 15:47:07 -0700 (PDT)
-Message-ID: <20140729.154707.2014852273209594700.davem@davemloft.net>
-References: <20140728152812.GA3000@himangi-Dell>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] svcrdma: delete double assignment
+Date: Tue, 29 Jul 2014 15:50:50 -0700 (PDT)
+Message-ID: <20140729.155050.311148635959938226.davem@davemloft.net>
+References: <20140728152938.GA3040@himangi-Dell>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: samuel@sortiz.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, julia.lawall@lip6.fr
-To: himangi774@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140728152812.GA3000@himangi-Dell>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, julia.lawall-L2FTfq7BK8M@public.gmane.org
+To: himangi774-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140728152938.GA3040@himangi-Dell>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Himangi Saraogi <himangi774@gmail.com>
-Date: Mon, 28 Jul 2014 20:58:12 +0530
+From: Himangi Saraogi <himangi774-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Mon, 28 Jul 2014 20:59:38 +0530
 
-> @@ -621,7 +621,6 @@ void irlap_send_rd_frame(struct irlap_cb *self)
->  
->  	frame = (struct rd_frame *)skb_put(tx_skb, 2);
->  
-> -	frame->caddr = self->caddr;
->  	frame->caddr = RD_RSP | PF_BIT;
->  
+> Delete successive assignments to the same location.
+> 
+> A simplified version of Coccinelle semantic match that finds this problem is as
+> follows:
+> 
+> // <smpl>
+> @@
+> expression i;
+> @@
+> 
+> *i = ...;
+>  i = ...;
+> // </smpl>
+> 
+> Signed-off-by: Himangi Saraogi <himangi774-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-This doesn't look correct to me.
+I am not so sure about this change either.
 
-I think both lines should be kept, and the second line should be
-changed to assign those bits to frame->control.
+> @@ -956,7 +956,6 @@ static struct svc_xprt *svc_rdma_accept(struct svc_xprt *xprt)
+>  			dprintk("svcrdma: failed to create QP, ret=%d\n", ret);
+>  			goto errout;
+>  		}
+> -		newxprt->sc_max_sge = qp_attr.cap.max_send_sge;
+>  		newxprt->sc_max_sge = qp_attr.cap.max_recv_sge;
+>  		newxprt->sc_sq_depth = qp_attr.cap.max_send_wr;
+>  		newxprt->sc_max_requests = qp_attr.cap.max_recv_wr;
 
-This is consistent with other parts of the file that make use of the PF_BIT.
+->sc_max_sge is used to limit the number of segments used during sends,
+currently in this code.  Grep for where it is used.
+
+Therefore, if anything, the correct thing to do would be to retain the
+first line rather than the second line.
+
+Someone who actually works on this code and understands it should
+really take a close look at this before anyone even thinks about
+applying this patch.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
