@@ -1,34 +1,48 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: Port attributes configuration
-Date: Tue, 29 Jul 2014 10:53:15 -0700
-Message-ID: <CAHA+R7N_X5GuXG-MyRcpHcbzKDLh9kDKr52G7hqT=RwMjrTA1A@mail.gmail.com>
-References: <CACWm-Bc4=4We1AfnZpL7O5VkUSKjKBZ-NK6edXW2fE5b_u-e7g@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 0/4] remove deprecated syststamp
+Date: Tue, 29 Jul 2014 11:40:44 -0700 (PDT)
+Message-ID: <20140729.114044.377340575518627384.davem@davemloft.net>
+References: <1406325692-616-1-git-send-email-willemb@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: Marco Varlese <marco.varlese@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, richardcochran@gmail.com,
+	kreese@caviumnetworks.com, ddaney@caviumnetworks.com,
+	dborkman@redhat.com, jdmason@kudzu.us
+To: willemb@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f44.google.com ([209.85.215.44]:36628 "EHLO
-	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751205AbaG2RxQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2014 13:53:16 -0400
-Received: by mail-la0-f44.google.com with SMTP id e16so11231lan.3
-        for <netdev@vger.kernel.org>; Tue, 29 Jul 2014 10:53:15 -0700 (PDT)
-In-Reply-To: <CACWm-Bc4=4We1AfnZpL7O5VkUSKjKBZ-NK6edXW2fE5b_u-e7g@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47733 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751549AbaG2Sks (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2014 14:40:48 -0400
+In-Reply-To: <1406325692-616-1-git-send-email-willemb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 29, 2014 at 2:15 AM, Marco Varlese <marco.varlese@gmail.com> wrote:
-> I'm working on a new platform and the network interfaces will have
-> quite few new options (roughly 50) to configure. What I definitely
-> want to achieve is to use the common tools available on Linux to let
-> users configure the port attributes from user-space without writing a
-> brand new ad-hoc tool.
->
+From: Willem de Bruijn <willemb@google.com>
+Date: Fri, 25 Jul 2014 18:01:28 -0400
 
-Netlink is definitely preferred unless you have a reason not to use it.
-You don't give any details so I can't tell much.
+> The network stack can generate two kinds of hardware timestamps:
+> - hwtstamp stores a hw timestamp in device-specific raw format
+> - syststamp convers the raw format to system time
+> 
+> The second is deprecated and only implemented by a single device
+> driver. The suggested alternative is to communicate hwtstamp +
+> directly expose the NIC PTP clock device through ptp_clock_info.
+> The remaining driver (octeon) does not expose such a standard
+> interface as of now. It does have its own PTP library that depends
+> on its own shared memory PTP clock interface.
+> 
+> This patchset
+> 1. reverts the syststamp code in the one driver (octeon)
+> 2. reverts an unnecessary zero initialization in another (vxge)
+> 3. modifies PF_PACKET to use syststamp is != 0 (because always == 0)
+> 4. modifies SCM_TIMESTAMPING in the same way
+> 
+> For backwards compatibility, the interfaces are not removed.
+> Applications can still request SOF_TIMESTAMPING_SYS_HARDWARE. The
+> response field in scm_timestamping also remains. As was the case
+> for hardware/drivers that did not implement the feature, the
+> setsockopt succeeds, but the response field is always zero.
 
-You probably don't have to write a new tool from scratch, i.e. parsing
-netlink attributes all by yourself, you probably can just patch existing
-iproute2.
+Series applied, thanks Willem.
