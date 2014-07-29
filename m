@@ -1,82 +1,31 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH v2 1/2] rcar_can: document device tree bindings
-Date: Wed, 30 Jul 2014 02:51:08 +0400
-Message-ID: <201407300251.09436.sergei.shtylyov@cogentembedded.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH -next] tipc: remove duplicated include from socket.c
+Date: Tue, 29 Jul 2014 15:51:28 -0700 (PDT)
+Message-ID: <20140729.155128.564459706509294421.davem@davemloft.net>
+References: <1406554214-30460-1-git-send-email-weiyj_lk@163.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, wg@grandegger.com, mkl@pengutronix.de,
-	linux-can@vger.kernel.org, linux-sh@vger.kernel.org,
-	vksavl@gmail.com
-To: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	devicetree@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jon.maloy@ericsson.com, allan.stephens@windriver.com,
+	yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net
+To: weiyj_lk@163.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49978 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751871AbaG2Wv3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2014 18:51:29 -0400
+In-Reply-To: <1406554214-30460-1-git-send-email-weiyj_lk@163.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Document the R-Car CAN device tree bindings.
+From: weiyj_lk@163.com
+Date: Mon, 28 Jul 2014 21:30:14 +0800
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> 
+> Remove duplicated include.
+> 
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
----
-The patch is against the 'linux-can-next.git' repo.
-
-Changes in version 2:
-- new patch, split from the driver's device tree support patch;
-- adjusted "clocks" property to refer to 3 clocks instead of 1;
-- added mandatory "clock-names" property;
-- renamed the "clock-select" property to "renesas,can-clock-select".
-
- Documentation/devicetree/bindings/net/can/rcar_can.txt |   43 +++++++++++++++++
- 1 file changed, 43 insertions(+)
-
-Index: linux-can-next/Documentation/devicetree/bindings/net/can/rcar_can.txt
-===================================================================
---- /dev/null
-+++ linux-can-next/Documentation/devicetree/bindings/net/can/rcar_can.txt
-@@ -0,0 +1,43 @@
-+Renesas R-Car CAN controller Device Tree Bindings
-+-------------------------------------------------
-+
-+Required properties:
-+- compatible: "renesas,can-r8a7778" if CAN controller is a part of R8A7778 SoC.
-+	      "renesas,can-r8a7779" if CAN controller is a part of R8A7779 SoC.
-+	      "renesas,can-r8a7790" if CAN controller is a part of R8A7790 SoC.
-+	      "renesas,can-r8a7791" if CAN controller is a part of R8A7791 SoC.
-+- reg: physical base address and size of the R-Car CAN register map.
-+- interrupts: interrupt specifier for the sole interrupt.
-+- clocks: phandles and clock specifiers for 3 CAN clock inputs.
-+- clock-names: 3 clock input name strings: "clkp1", "clkp2", "can_clk".
-+- pinctrl-0: pin control group to be used for this controller.
-+- pinctrl-names: must be "default".
-+
-+Optional properties:
-+- renesas,can-clock-select: R-Car CAN Clock Source Select. Valid values are:
-+			    <0x0> (default) : Peripheral clock (clkp1)
-+			    <0x1> : Peripheral clock (clkp2)
-+			    <0x3> : Externally input clock
-+
-+Example
-+-------
-+
-+SoC common .dtsi file:
-+
-+	can0: can@e6e80000 {
-+		compatible = "renesas,can-r8a7791";
-+		reg = <0 0xe6e80000 0 0x1000>;
-+		interrupts = <0 186 IRQ_TYPE_LEVEL_HIGH>;
-+		clocks = <&mstp9_clks R8A7791_CLK_RCAN0>,
-+		       	 <&cpg_clocks R8A7791_CLK_RCAN>, <&can_clk>;
-+		clock-names = "clkp1", "clkp2", "can_clk";
-+		status = "disabled";
-+	};
-+
-+Board specific .dts file:
-+
-+&can0 {
-+	pinctrl-0 = <&can0_pins>;
-+	pinctrl-names = "default";
-+	status = "okay";
-+};
+Applied, thanks.
