@@ -1,160 +1,33 @@
-From: Tobias Klauser <tklauser-93Khv+1bN0NyDzI6CaY1VQ@public.gmane.org>
-Subject: Re: [PATCH 2/2] netlink: Convert netlink_lookup() to use
- RCU protected hash table
-Date: Tue, 29 Jul 2014 17:58:01 +0200
-Message-ID: <20140729155801.GB10301@distanz.ch>
-References: <cover.1406633945.git.tgraf@suug.ch>
- <b73872eab661f28345085dbd4bd477a50d7042f6.1406633945.git.tgraf@suug.ch>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH net-next 1/2] netfilter: xt_bpf: don't include
+ linux/filter.h from uapi header
+Date: Tue, 29 Jul 2014 18:05:49 +0200
+Message-ID: <20140729160549.GA4546@salvia>
+References: <1406648188-3681-1-git-send-email-pablo@netfilter.org>
+ <CA+FuTSdRmnFYK1mTFh14UP1rTkU-EYK-61xyoWWiNvZR3Aig6A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org,
- davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, walpole-sKt6ljEC1JY3uPMLIKxrzw@public.gmane.org, paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org,
- kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel <netfilter-devel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	Alexei Starovoitov <ast@plumgrid.com>,
+	Daniel Borkmann <dborkman@redhat.com>, keescook@chromium.org
+To: Willem de Bruijn <willemb@google.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <b73872eab661f28345085dbd4bd477a50d7042f6.1406633945.git.tgraf-G/eBtMaohhA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <CA+FuTSdRmnFYK1mTFh14UP1rTkU-EYK-61xyoWWiNvZR3Aig6A@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2014-07-29 at 13:41:33 +0200, Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org> wrote:
-> Heavy Netlink users such as Open vSwitch spend a considerable amount of
-> time in netlink_lookup() due to the read-lock on nl_table_lock. Use of
-> RCU relieves the lock contention.
+On Tue, Jul 29, 2014 at 11:43:57AM -0400, Willem de Bruijn wrote:
+> > In e6f30c7 ("netfilter: x_tables: add xt_bpf match"), the internal
+> > linux/filter.h header slipped through in the user exposed xt_bpf.h
+> > header as included file.
 > 
-> Makes use of the new resizable hash table to avoid locking on the
-> lookup.
-> 
-> The hash table will grow if entries exceeds 75% of table size up to a
-> total table size of 64K. It will automatically shrink if usage falls
-> below 50%.
-> 
-> Also splits nl_table_lock into a separate spinlock to protect hash table
-> mutations. This avoids a possible deadlock when the hash table growing
-> waits on RCU readers to complete via synchronize_rcu() while readers
-> holding RCU read lock are waiting on the nl_table_lock() to be released
-> to lock the table for broadcasting.
-> 
-> Before:
->    9.16%  kpktgend_0  [openvswitch]      [k] masked_flow_lookup
->    6.42%  kpktgend_0  [pktgen]           [k] mod_cur_headers
->    6.26%  kpktgend_0  [pktgen]           [k] pktgen_thread_worker
->    6.23%  kpktgend_0  [kernel.kallsyms]  [k] memset
->    4.79%  kpktgend_0  [kernel.kallsyms]  [k] netlink_lookup
->    4.37%  kpktgend_0  [kernel.kallsyms]  [k] memcpy
->    3.60%  kpktgend_0  [openvswitch]      [k] ovs_flow_extract
->    2.69%  kpktgend_0  [kernel.kallsyms]  [k] jhash2
-> 
-> After:
->   15.26%  kpktgend_0  [openvswitch]      [k] masked_flow_lookup
->    8.12%  kpktgend_0  [pktgen]           [k] pktgen_thread_worker
->    7.92%  kpktgend_0  [pktgen]           [k] mod_cur_headers
->    5.11%  kpktgend_0  [kernel.kallsyms]  [k] memset
->    4.11%  kpktgend_0  [openvswitch]      [k] ovs_flow_extract
->    4.06%  kpktgend_0  [kernel.kallsyms]  [k] _raw_spin_lock
->    3.90%  kpktgend_0  [kernel.kallsyms]  [k] jhash2
->    [...]
->    0.67%  kpktgend_0  [kernel.kallsyms]  [k] netlink_lookup
-> 
-> Signed-off-by: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-> ---
->  net/netlink/af_netlink.c | 285 ++++++++++++++++++-----------------------------
->  net/netlink/af_netlink.h |  18 +--
->  net/netlink/diag.c       |  11 +-
->  3 files changed, 119 insertions(+), 195 deletions(-)
-> 
-> diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-> index 1b38f7f..7f44468 100644
-> --- a/net/netlink/af_netlink.c
-> +++ b/net/netlink/af_netlink.c
-[...]
-> @@ -2996,28 +2939,26 @@ static void *netlink_seq_next(struct seq_file *seq, void *v, loff_t *pos)
->  
->  	net = seq_file_net(seq);
->  	iter = seq->private;
-> -	s = v;
-> -	do {
-> -		s = sk_next(s);
-> -	} while (s && !nl_table[s->sk_protocol].compare(net, s));
-> -	if (s)
-> -		return s;
-> +	nlk = v;
-> +
-> +	rht_for_each_entry_rcu(nlk, nlk->node.next, node)
-> +		if (net_eq(sock_net((struct sock *)nlk), net))
-> +			return nlk;
->  
->  	i = iter->link;
->  	j = iter->hash_idx + 1;
->  
->  	do {
-> -		struct nl_portid_hash *hash = &nl_table[i].hash;
-> -
-> -		for (; j <= hash->mask; j++) {
-> -			s = sk_head(&hash->table[j]);
-> +		struct rhashtable *ht = &nl_table[i].hash;
-> +		const struct bucket_table *tbl = rht_dereference(ht->tbl, ht);
->  
-> -			while (s && !nl_table[s->sk_protocol].compare(net, s))
-> -				s = sk_next(s);
-> -			if (s) {
-> -				iter->link = i;
-> -				iter->hash_idx = j;
-> -				return s;
-> +		for (; j <= tbl->size; j++) {
+> is that true? #include <linux/filter.h> should include
+> include/uapi/linux/filter.h in userspace builds.
 
-Should the condition j < tbl->size here, since the bucket table only
-contains `size' buckets?
+You're right. I'm going to send a v2.
 
-> +			rht_for_each_entry_rcu(nlk, tbl->buckets[j], node) {
-> +				if (net_eq(sock_net((struct sock *)nlk), net)) {
-> +					iter->link = i;
-> +					iter->hash_idx = j;
-> +					return nlk;
-> +				}
->  			}
->  		}
-[...]
-> diff --git a/net/netlink/diag.c b/net/netlink/diag.c
-> index 1af29624..7588f34 100644
-> --- a/net/netlink/diag.c
-> +++ b/net/netlink/diag.c
-[...]
-> @@ -101,16 +102,20 @@ static int __netlink_diag_dump(struct sk_buff *skb, struct netlink_callback *cb,
->  				int protocol, int s_num)
->  {
->  	struct netlink_table *tbl = &nl_table[protocol];
-> -	struct nl_portid_hash *hash = &tbl->hash;
-> +	struct rhashtable *ht = &tbl->hash;
-> +	const struct bucket_table *htbl = rht_dereference(ht->tbl, ht);
->  	struct net *net = sock_net(skb->sk);
->  	struct netlink_diag_req *req;
-> +	struct netlink_sock *nlsk;
->  	struct sock *sk;
->  	int ret = 0, num = 0, i;
->  
->  	req = nlmsg_data(cb->nlh);
->  
-> -	for (i = 0; i <= hash->mask; i++) {
-> -		sk_for_each(sk, &hash->table[i]) {
-> +	for (i = 0; i <= htbl->size; i++) {
-
-Same here, condition should be i < htbl->size
-
-> +		rht_for_each_entry(nlsk, htbl->buckets[i], ht, node) {
-> +			sk = (struct sock *)nlsk;
-> +
->  			if (!net_eq(sock_net(sk), net))
->  				continue;
->  			if (num < s_num) {
-> -- 
-> 1.9.3
+We should also cache the linux/filter.h header in the iptables
+sources, would you send a patch for that? Thanks.
