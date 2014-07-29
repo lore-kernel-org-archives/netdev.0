@@ -1,33 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: net: socket: NULL ptr deref in sendmsg
-Date: Mon, 28 Jul 2014 17:19:00 -0700 (PDT)
-Message-ID: <20140728.171900.1527499085392907198.davem@davemloft.net>
-References: <1406326508.13203.10.camel@localhost>
-	<CAPAsAGwc7B2rB+3wTHkL97B5eDchbcuhfkKef56ARCy2CxCGuQ@mail.gmail.com>
-	<1406390080.22881.75.camel@localhost>
+Subject: Re: [net-next] netlink: Fix shadow warning on jiffies
+Date: Mon, 28 Jul 2014 17:20:56 -0700 (PDT)
+Message-ID: <20140728.172056.112070751858781920.davem@davemloft.net>
+References: <1406279897-6403-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ryabinin.a.a@gmail.com, a.ryabinin@samsung.com,
-	sasha.levin@oracle.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, davej@redhat.com, edumazet@google.com
-To: hannes@stressinduktion.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1406390080.22881.75.camel@localhost>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: mark.d.rustad@intel.com, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34851 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751589AbaG2AU6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2014 20:20:58 -0400
+In-Reply-To: <1406279897-6403-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Sat, 26 Jul 2014 17:54:40 +0200
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Fri, 25 Jul 2014 02:18:17 -0700
 
-> On Sa, 2014-07-26 at 19:48 +0400, Andrey Ryabinin wrote:
->> 2014-07-26 2:15 GMT+04:00 Hannes Frederic Sowa <hannes@stressinduktion.org>:
->> > Otherwise I would just set msg_namelen = 0, too, and just not handle
->> > passed in NULL pointers to sockaddrs.
->> >
->> 
->> I like that, how about such chage:
- ...
-> LGTM! Can you send a patch?
+> From: Mark Rustad <mark.d.rustad@intel.com>
+> 
+> Change formal parameter name to not shadow the global jiffies.
+> 
+> Signed-off-by: Mark Rustad <mark.d.rustad@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-I definitely agree that we should treat NULL as no address specified.
+Applied, thanks.
