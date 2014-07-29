@@ -1,169 +1,553 @@
-From: Vince Bridgers <vbridgers2013@gmail.com>
-Subject: [PATCH net v3 2/6] net: stmmac: Correct set_filter for multicast and unicast cases
-Date: Tue, 29 Jul 2014 17:06:43 -0500
-Message-ID: <1406671607-27368-3-git-send-email-vbridgers2013@gmail.com>
+From: Vince Bridgers <vbridgers2013-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net v3 1/6] net: stmmac: Change MAC interface to support multiple filter configurations
+Date: Tue, 29 Jul 2014 17:06:42 -0500
+Message-ID: <1406671607-27368-2-git-send-email-vbridgers2013@gmail.com>
 References: <1406671607-27368-1-git-send-email-vbridgers2013@gmail.com>
-Cc: dinguyen@altera.com, davem@davemloft.net, vbridgers2013@gmail.com,
-	vbridger@altera.com
-To: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-	peppe.cavallaro@st.com, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	linux@arm.linux.org.uk, linux-arm-kernel@lists.infradead.org,
-	robh+dt@kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:52025 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751758AbaG2WKc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2014 18:10:32 -0400
-In-Reply-To: <1406671607-27368-1-git-send-email-vbridgers2013@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dinguyen-EIB2kfCEclfQT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, vbridgers2013-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	vbridger-EIB2kfCEclfQT0dZR+AlfA@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	peppe.cavallaro-qxv4g6HH51o@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
+	ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
+	linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1406671607-27368-1-git-send-email-vbridgers2013-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This patch removes the check for the number of mulitcast addresses
-when using hash based filtering since it's not necessary. If the number
-of multicast addresses in the list exceeds the number of multicast hash
-bins, the bins will "fold" over into one of the bins configured and
-enabled for the particular component instance.
+The synopsys EMAC can be configured for different numbers of multicast hash
+bins and perfect filter entries at device creation time and there's no way
+to query this configuration information at runtime. As a result, a devicetree
+parameter is required in order for the driver to program these filters
+correctly for a particular device instance. This patch modifies the
+10/100/1000 MAC software interface such that these configuration parameters
+can be set at initialization time.
 
-The default number of maximum unicast addresses was changed from 32 to 1
-since this number is not dependent on the component revision. The maximum
-number of multicast and unicast addresses is dependent on the configuration
-of the Synopsys EMAC configured by the SOC architect at the time the
-features were selected and configured for a particular component. Sadly,
-Synopsys does not provide a way to query the precise number supported
-by a particular component, so we must fall back on a devicetree entry.
-This configuration could vary from vendor to vendor (such as STMicro,
-Altera, etc).
-
-The multicast bins are set for every possible filtering case (including
-no entries) - previously the bits were set only if multicast filter entries
-were present.
-
-Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
+Signed-off-by: Vince Bridgers <vbridgers2013-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
-V3: Break out patches by interface and functional changes per review
-    comments.
-V2: This particular patch did not exist in prior series submissions
+V3: Break up the patch into interface and functional change patches
+    per review comments
+V2: Confirm with Synopsys methods to determine number of Multicast bins
+    and Unicast address filter entries per first round review comments.
 ---
- drivers/net/ethernet/stmicro/stmmac/common.h       |    2 +-
- drivers/net/ethernet/stmicro/stmmac/dwmac1000.h    |    2 +-
- .../net/ethernet/stmicro/stmmac/dwmac1000_core.c   |   25 ++++++++------------
- .../net/ethernet/stmicro/stmmac/dwmac100_core.c    |    2 +-
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |    2 +-
- 5 files changed, 14 insertions(+), 19 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/common.h       |   41 ++++++++--------
+ .../net/ethernet/stmicro/stmmac/dwmac1000_core.c   |   50 ++++++++++++++------
+ .../net/ethernet/stmicro/stmmac/dwmac100_core.c    |   24 ++++++----
+ .../net/ethernet/stmicro/stmmac/stmmac_ethtool.c   |    6 +--
+ drivers/net/ethernet/stmicro/stmmac/stmmac_main.c  |   32 ++++++-------
+ 5 files changed, 91 insertions(+), 62 deletions(-)
 
 diff --git a/drivers/net/ethernet/stmicro/stmmac/common.h b/drivers/net/ethernet/stmicro/stmmac/common.h
-index 96f1f14..49f72e1 100644
+index 74610f3..96f1f14 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/common.h
 +++ b/drivers/net/ethernet/stmicro/stmmac/common.h
-@@ -381,7 +381,7 @@ struct stmmac_ops {
- 	int (*host_irq_status)(struct mac_device_info *hw,
- 			       struct stmmac_extra_stats *x);
- 	/* Multicast filter setting */
--	void (*set_filter)(struct net_device *dev, int id);
-+	void (*set_filter)(struct net_device *dev);
- 	/* Flow control setting */
- 	void (*flow_ctrl)(struct mac_device_info *hw, unsigned int duplex,
- 			  unsigned int fc, unsigned int pause_time);
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h b/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
-index f37d90f..285e305 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000.h
-@@ -87,7 +87,7 @@ enum power_event {
- 				(reg * 8))
- #define GMAC_ADDR_LOW(reg)	(((reg > 15) ? 0x00000804 : 0x00000044) + \
- 				(reg * 8))
--#define GMAC_MAX_PERFECT_ADDRESSES	32
-+#define GMAC_MAX_PERFECT_ADDRESSES	1
+@@ -368,34 +368,36 @@ struct stmmac_dma_ops {
+ 	void (*rx_watchdog) (void __iomem *ioaddr, u32 riwt);
+ };
  
- /* PCS registers (AN/TBI/SGMII/RGMII) offset */
- #define GMAC_AN_CTRL	0x000000c0	/* AN control */
++struct mac_device_info;
++
+ struct stmmac_ops {
+ 	/* MAC core initialization */
+-	void (*core_init) (void __iomem *ioaddr, int mtu);
++	void (*core_init)(struct mac_device_info *hw, int mtu);
+ 	/* Enable and verify that the IPC module is supported */
+-	int (*rx_ipc) (void __iomem *ioaddr);
++	int (*rx_ipc)(struct mac_device_info *hw);
+ 	/* Dump MAC registers */
+-	void (*dump_regs) (void __iomem *ioaddr);
++	void (*dump_regs)(struct mac_device_info *hw);
+ 	/* Handle extra events on specific interrupts hw dependent */
+-	int (*host_irq_status) (void __iomem *ioaddr,
+-				struct stmmac_extra_stats *x);
++	int (*host_irq_status)(struct mac_device_info *hw,
++			       struct stmmac_extra_stats *x);
+ 	/* Multicast filter setting */
+-	void (*set_filter) (struct net_device *dev, int id);
++	void (*set_filter)(struct net_device *dev, int id);
+ 	/* Flow control setting */
+-	void (*flow_ctrl) (void __iomem *ioaddr, unsigned int duplex,
+-			   unsigned int fc, unsigned int pause_time);
++	void (*flow_ctrl)(struct mac_device_info *hw, unsigned int duplex,
++			  unsigned int fc, unsigned int pause_time);
+ 	/* Set power management mode (e.g. magic frame) */
+-	void (*pmt) (void __iomem *ioaddr, unsigned long mode);
++	void (*pmt)(struct mac_device_info *hw, unsigned long mode);
+ 	/* Set/Get Unicast MAC addresses */
+-	void (*set_umac_addr) (void __iomem *ioaddr, unsigned char *addr,
+-			       unsigned int reg_n);
+-	void (*get_umac_addr) (void __iomem *ioaddr, unsigned char *addr,
+-			       unsigned int reg_n);
+-	void (*set_eee_mode) (void __iomem *ioaddr);
+-	void (*reset_eee_mode) (void __iomem *ioaddr);
+-	void (*set_eee_timer) (void __iomem *ioaddr, int ls, int tw);
+-	void (*set_eee_pls) (void __iomem *ioaddr, int link);
+-	void (*ctrl_ane) (void __iomem *ioaddr, bool restart);
+-	void (*get_adv) (void __iomem *ioaddr, struct rgmii_adv *adv);
++	void (*set_umac_addr)(struct mac_device_info *hw, unsigned char *addr,
++			      unsigned int reg_n);
++	void (*get_umac_addr)(struct mac_device_info *hw, unsigned char *addr,
++			      unsigned int reg_n);
++	void (*set_eee_mode)(struct mac_device_info *hw);
++	void (*reset_eee_mode)(struct mac_device_info *hw);
++	void (*set_eee_timer)(struct mac_device_info *hw, int ls, int tw);
++	void (*set_eee_pls)(struct mac_device_info *hw, int link);
++	void (*ctrl_ane)(struct mac_device_info *hw, bool restart);
++	void (*get_adv)(struct mac_device_info *hw, struct rgmii_adv *adv);
+ };
+ 
+ struct stmmac_hwtimestamp {
+@@ -439,6 +441,7 @@ struct mac_device_info {
+ 	struct mii_regs mii;	/* MII register Addresses */
+ 	struct mac_link link;
+ 	unsigned int synopsys_uid;
++	void __iomem *pcsr;     /* vpointer to device CSRs */
+ };
+ 
+ struct mac_device_info *dwmac1000_setup(void __iomem *ioaddr);
 diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-index b6081ff..cdcbad1 100644
+index 9d37483..b6081ff 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac1000_core.c
-@@ -97,30 +97,28 @@ static void dwmac1000_get_umac_addr(struct mac_device_info *hw,
+@@ -32,8 +32,9 @@
+ #include <asm/io.h>
+ #include "dwmac1000.h"
+ 
+-static void dwmac1000_core_init(void __iomem *ioaddr, int mtu)
++static void dwmac1000_core_init(struct mac_device_info *hw, int mtu)
+ {
++	void __iomem *ioaddr = hw->pcsr;
+ 	u32 value = readl(ioaddr + GMAC_CONTROL);
+ 	value |= GMAC_CORE_INIT;
+ 	if (mtu > 1500)
+@@ -52,8 +53,9 @@ static void dwmac1000_core_init(void __iomem *ioaddr, int mtu)
+ #endif
+ }
+ 
+-static int dwmac1000_rx_ipc_enable(void __iomem *ioaddr)
++static int dwmac1000_rx_ipc_enable(struct mac_device_info *hw)
+ {
++	void __iomem *ioaddr = hw->pcsr;
+ 	u32 value = readl(ioaddr + GMAC_CONTROL);
+ 
+ 	value |= GMAC_CONTROL_IPC;
+@@ -64,8 +66,9 @@ static int dwmac1000_rx_ipc_enable(void __iomem *ioaddr)
+ 	return !!(value & GMAC_CONTROL_IPC);
+ }
+ 
+-static void dwmac1000_dump_regs(void __iomem *ioaddr)
++static void dwmac1000_dump_regs(struct mac_device_info *hw)
+ {
++	void __iomem *ioaddr = hw->pcsr;
+ 	int i;
+ 	pr_info("\tDWMAC1000 regs (base addr = 0x%p)\n", ioaddr);
+ 
+@@ -76,16 +79,20 @@ static void dwmac1000_dump_regs(void __iomem *ioaddr)
+ 	}
+ }
+ 
+-static void dwmac1000_set_umac_addr(void __iomem *ioaddr, unsigned char *addr,
++static void dwmac1000_set_umac_addr(struct mac_device_info *hw,
++				    unsigned char *addr,
+ 				    unsigned int reg_n)
+ {
++	void __iomem *ioaddr = hw->pcsr;
+ 	stmmac_set_mac_addr(ioaddr, addr, GMAC_ADDR_HIGH(reg_n),
  			    GMAC_ADDR_LOW(reg_n));
  }
  
--static void dwmac1000_set_filter(struct net_device *dev, int id)
-+static void dwmac1000_set_filter(struct net_device *dev)
+-static void dwmac1000_get_umac_addr(void __iomem *ioaddr, unsigned char *addr,
++static void dwmac1000_get_umac_addr(struct mac_device_info *hw,
++				    unsigned char *addr,
+ 				    unsigned int reg_n)
  {
- 	void __iomem *ioaddr = (void __iomem *)dev->base_addr;
- 	unsigned int value = 0;
- 	unsigned int perfect_addr_number;
-+	u32 mc_filter[2];
- 
- 	pr_debug("%s: # mcasts %d, # unicast %d\n", __func__,
- 		 netdev_mc_count(dev), netdev_uc_count(dev));
- 
--	if (dev->flags & IFF_PROMISC)
-+	memset(mc_filter, 0, sizeof(mc_filter));
-+
-+	if (dev->flags & IFF_PROMISC) {
- 		value = GMAC_FRAME_FILTER_PR;
--	else if ((netdev_mc_count(dev) > HASH_TABLE_SIZE)
--		 || (dev->flags & IFF_ALLMULTI)) {
-+	} else if (dev->flags & IFF_ALLMULTI) {
- 		value = GMAC_FRAME_FILTER_PM;	/* pass all multi */
--		writel(0xffffffff, ioaddr + GMAC_HASH_HIGH);
--		writel(0xffffffff, ioaddr + GMAC_HASH_LOW);
- 	} else if (!netdev_mc_empty(dev)) {
--		u32 mc_filter[2];
++	void __iomem *ioaddr = hw->pcsr;
+ 	stmmac_get_mac_addr(ioaddr, addr, GMAC_ADDR_HIGH(reg_n),
+ 			    GMAC_ADDR_LOW(reg_n));
+ }
+@@ -146,7 +153,9 @@ static void dwmac1000_set_filter(struct net_device *dev, int id)
  		struct netdev_hw_addr *ha;
  
- 		/* Hash filter for multicast */
- 		value = GMAC_FRAME_FILTER_HMC;
- 
--		memset(mc_filter, 0, sizeof(mc_filter));
- 		netdev_for_each_mc_addr(ha, dev) {
- 			/* The upper 6 bits of the calculated CRC are used to
- 			 * index the contens of the hash table
-@@ -132,15 +130,12 @@ static void dwmac1000_set_filter(struct net_device *dev, int id)
- 			 */
- 			mc_filter[bit_nr >> 5] |= 1 << (bit_nr & 31);
+ 		netdev_for_each_uc_addr(ha, dev) {
+-			dwmac1000_set_umac_addr(ioaddr, ha->addr, reg);
++			stmmac_get_mac_addr(ioaddr, ha->addr,
++					    GMAC_ADDR_HIGH(reg),
++					    GMAC_ADDR_LOW(reg));
+ 			reg++;
  		}
--		writel(mc_filter[0], ioaddr + GMAC_HASH_LOW);
--		writel(mc_filter[1], ioaddr + GMAC_HASH_HIGH);
  	}
+@@ -162,9 +171,11 @@ static void dwmac1000_set_filter(struct net_device *dev, int id)
+ 		 readl(ioaddr + GMAC_HASH_HIGH), readl(ioaddr + GMAC_HASH_LOW));
+ }
  
--	/* Extra 16 regs are available in cores newer than the 3.40. */
--	if (id > DWMAC_CORE_3_40)
--		perfect_addr_number = GMAC_MAX_PERFECT_ADDRESSES;
--	else
--		perfect_addr_number = GMAC_MAX_PERFECT_ADDRESSES / 2;
-+	writel(mc_filter[0], ioaddr + GMAC_HASH_LOW);
-+	writel(mc_filter[1], ioaddr + GMAC_HASH_HIGH);
+-static void dwmac1000_flow_ctrl(void __iomem *ioaddr, unsigned int duplex,
 +
-+	perfect_addr_number = GMAC_MAX_PERFECT_ADDRESSES;
++static void dwmac1000_flow_ctrl(struct mac_device_info *hw, unsigned int duplex,
+ 				unsigned int fc, unsigned int pause_time)
+ {
++	void __iomem *ioaddr = hw->pcsr;
+ 	unsigned int flow = 0;
  
- 	/* Handle multiple unicast addresses (perfect filtering) */
- 	if (netdev_uc_count(dev) > perfect_addr_number)
+ 	pr_debug("GMAC Flow-Control:\n");
+@@ -185,8 +196,9 @@ static void dwmac1000_flow_ctrl(void __iomem *ioaddr, unsigned int duplex,
+ 	writel(flow, ioaddr + GMAC_FLOW_CTRL);
+ }
+ 
+-static void dwmac1000_pmt(void __iomem *ioaddr, unsigned long mode)
++static void dwmac1000_pmt(struct mac_device_info *hw, unsigned long mode)
+ {
++	void __iomem *ioaddr = hw->pcsr;
+ 	unsigned int pmt = 0;
+ 
+ 	if (mode & WAKE_MAGIC) {
+@@ -201,9 +213,10 @@ static void dwmac1000_pmt(void __iomem *ioaddr, unsigned long mode)
+ 	writel(pmt, ioaddr + GMAC_PMT);
+ }
+ 
+-static int dwmac1000_irq_status(void __iomem *ioaddr,
++static int dwmac1000_irq_status(struct mac_device_info *hw,
+ 				struct stmmac_extra_stats *x)
+ {
++	void __iomem *ioaddr = hw->pcsr;
+ 	u32 intr_status = readl(ioaddr + GMAC_INT_STATUS);
+ 	int ret = 0;
+ 
+@@ -268,8 +281,9 @@ static int dwmac1000_irq_status(void __iomem *ioaddr,
+ 	return ret;
+ }
+ 
+-static void dwmac1000_set_eee_mode(void __iomem *ioaddr)
++static void dwmac1000_set_eee_mode(struct mac_device_info *hw)
+ {
++	void __iomem *ioaddr = hw->pcsr;
+ 	u32 value;
+ 
+ 	/* Enable the link status receive on RGMII, SGMII ore SMII
+@@ -281,8 +295,9 @@ static void dwmac1000_set_eee_mode(void __iomem *ioaddr)
+ 	writel(value, ioaddr + LPI_CTRL_STATUS);
+ }
+ 
+-static void dwmac1000_reset_eee_mode(void __iomem *ioaddr)
++static void dwmac1000_reset_eee_mode(struct mac_device_info *hw)
+ {
++	void __iomem *ioaddr = hw->pcsr;
+ 	u32 value;
+ 
+ 	value = readl(ioaddr + LPI_CTRL_STATUS);
+@@ -290,8 +305,9 @@ static void dwmac1000_reset_eee_mode(void __iomem *ioaddr)
+ 	writel(value, ioaddr + LPI_CTRL_STATUS);
+ }
+ 
+-static void dwmac1000_set_eee_pls(void __iomem *ioaddr, int link)
++static void dwmac1000_set_eee_pls(struct mac_device_info *hw, int link)
+ {
++	void __iomem *ioaddr = hw->pcsr;
+ 	u32 value;
+ 
+ 	value = readl(ioaddr + LPI_CTRL_STATUS);
+@@ -304,8 +320,9 @@ static void dwmac1000_set_eee_pls(void __iomem *ioaddr, int link)
+ 	writel(value, ioaddr + LPI_CTRL_STATUS);
+ }
+ 
+-static void dwmac1000_set_eee_timer(void __iomem *ioaddr, int ls, int tw)
++static void dwmac1000_set_eee_timer(struct mac_device_info *hw, int ls, int tw)
+ {
++	void __iomem *ioaddr = hw->pcsr;
+ 	int value = ((tw & 0xffff)) | ((ls & 0x7ff) << 16);
+ 
+ 	/* Program the timers in the LPI timer control register:
+@@ -318,8 +335,9 @@ static void dwmac1000_set_eee_timer(void __iomem *ioaddr, int ls, int tw)
+ 	writel(value, ioaddr + LPI_TIMER_CTRL);
+ }
+ 
+-static void dwmac1000_ctrl_ane(void __iomem *ioaddr, bool restart)
++static void dwmac1000_ctrl_ane(struct mac_device_info *hw, bool restart)
+ {
++	void __iomem *ioaddr = hw->pcsr;
+ 	/* auto negotiation enable and External Loopback enable */
+ 	u32 value = GMAC_AN_CTRL_ANE | GMAC_AN_CTRL_ELE;
+ 
+@@ -329,8 +347,9 @@ static void dwmac1000_ctrl_ane(void __iomem *ioaddr, bool restart)
+ 	writel(value, ioaddr + GMAC_AN_CTRL);
+ }
+ 
+-static void dwmac1000_get_adv(void __iomem *ioaddr, struct rgmii_adv *adv)
++static void dwmac1000_get_adv(struct mac_device_info *hw, struct rgmii_adv *adv)
+ {
++	void __iomem *ioaddr = hw->pcsr;
+ 	u32 value = readl(ioaddr + GMAC_ANE_ADV);
+ 
+ 	if (value & GMAC_ANE_FD)
+@@ -377,6 +396,7 @@ struct mac_device_info *dwmac1000_setup(void __iomem *ioaddr)
+ 	if (!mac)
+ 		return NULL;
+ 
++	mac->pcsr = ioaddr;
+ 	mac->mac = &dwmac1000_ops;
+ 	mac->dma = &dwmac1000_dma_ops;
+ 
 diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
-index 8bb201a..3a2d633 100644
+index 2ff767b..8bb201a 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac100_core.c
-@@ -95,7 +95,7 @@ static void dwmac100_get_umac_addr(struct mac_device_info *hw,
+@@ -32,8 +32,9 @@
+ #include <asm/io.h>
+ #include "dwmac100.h"
+ 
+-static void dwmac100_core_init(void __iomem *ioaddr, int mtu)
++static void dwmac100_core_init(struct mac_device_info *hw, int mtu)
+ {
++	void __iomem *ioaddr = hw->pcsr;
+ 	u32 value = readl(ioaddr + MAC_CONTROL);
+ 
+ 	writel((value | MAC_CORE_INIT), ioaddr + MAC_CONTROL);
+@@ -43,8 +44,9 @@ static void dwmac100_core_init(void __iomem *ioaddr, int mtu)
+ #endif
+ }
+ 
+-static void dwmac100_dump_mac_regs(void __iomem *ioaddr)
++static void dwmac100_dump_mac_regs(struct mac_device_info *hw)
+ {
++	void __iomem *ioaddr = hw->pcsr;
+ 	pr_info("\t----------------------------------------------\n"
+ 		"\t  DWMAC 100 CSR (base addr = 0x%p)\n"
+ 		"\t----------------------------------------------\n", ioaddr);
+@@ -66,26 +68,30 @@ static void dwmac100_dump_mac_regs(void __iomem *ioaddr)
+ 		readl(ioaddr + MAC_VLAN2));
+ }
+ 
+-static int dwmac100_rx_ipc_enable(void __iomem *ioaddr)
++static int dwmac100_rx_ipc_enable(struct mac_device_info *hw)
+ {
+ 	return 0;
+ }
+ 
+-static int dwmac100_irq_status(void __iomem *ioaddr,
++static int dwmac100_irq_status(struct mac_device_info *hw,
+ 			       struct stmmac_extra_stats *x)
+ {
+ 	return 0;
+ }
+ 
+-static void dwmac100_set_umac_addr(void __iomem *ioaddr, unsigned char *addr,
++static void dwmac100_set_umac_addr(struct mac_device_info *hw,
++				   unsigned char *addr,
+ 				   unsigned int reg_n)
+ {
++	void __iomem *ioaddr = hw->pcsr;
+ 	stmmac_set_mac_addr(ioaddr, addr, MAC_ADDR_HIGH, MAC_ADDR_LOW);
+ }
+ 
+-static void dwmac100_get_umac_addr(void __iomem *ioaddr, unsigned char *addr,
++static void dwmac100_get_umac_addr(struct mac_device_info *hw,
++				   unsigned char *addr,
+ 				   unsigned int reg_n)
+ {
++	void __iomem *ioaddr = hw->pcsr;
  	stmmac_get_mac_addr(ioaddr, addr, MAC_ADDR_HIGH, MAC_ADDR_LOW);
  }
  
--static void dwmac100_set_filter(struct net_device *dev, int id)
-+static void dwmac100_set_filter(struct net_device *dev)
- {
- 	void __iomem *ioaddr = (void __iomem *)dev->base_addr;
- 	u32 value = readl(ioaddr + MAC_CONTROL);
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 40cd95f..921952e 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -2225,7 +2225,7 @@ static void stmmac_set_rx_mode(struct net_device *dev)
- 	struct stmmac_priv *priv = netdev_priv(dev);
- 
- 	spin_lock(&priv->lock);
--	priv->hw->mac->set_filter(dev, priv->synopsys_id);
-+	priv->hw->mac->set_filter(dev);
- 	spin_unlock(&priv->lock);
+@@ -137,9 +143,10 @@ static void dwmac100_set_filter(struct net_device *dev, int id)
+ 	writel(value, ioaddr + MAC_CONTROL);
  }
  
+-static void dwmac100_flow_ctrl(void __iomem *ioaddr, unsigned int duplex,
++static void dwmac100_flow_ctrl(struct mac_device_info *hw, unsigned int duplex,
+ 			       unsigned int fc, unsigned int pause_time)
+ {
++	void __iomem *ioaddr = hw->pcsr;
+ 	unsigned int flow = MAC_FLOW_CTRL_ENABLE;
+ 
+ 	if (duplex)
+@@ -148,7 +155,7 @@ static void dwmac100_flow_ctrl(void __iomem *ioaddr, unsigned int duplex,
+ }
+ 
+ /* No PMT module supported on ST boards with this Eth chip. */
+-static void dwmac100_pmt(void __iomem *ioaddr, unsigned long mode)
++static void dwmac100_pmt(struct mac_device_info *hw, unsigned long mode)
+ {
+ 	return;
+ }
+@@ -175,6 +182,7 @@ struct mac_device_info *dwmac100_setup(void __iomem *ioaddr)
+ 
+ 	pr_info("\tDWMAC100\n");
+ 
++	mac->pcsr = ioaddr;
+ 	mac->mac = &dwmac100_ops;
+ 	mac->dma = &dwmac100_dma_ops;
+ 
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+index c62e67f..9af50ba 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_ethtool.c
+@@ -262,7 +262,7 @@ static int stmmac_ethtool_getsettings(struct net_device *dev,
+ 
+ 		/* Get and convert ADV/LP_ADV from the HW AN registers */
+ 		if (priv->hw->mac->get_adv)
+-			priv->hw->mac->get_adv(priv->ioaddr, &adv);
++			priv->hw->mac->get_adv(priv->hw, &adv);
+ 		else
+ 			return -EOPNOTSUPP;	/* should never happen indeed */
+ 
+@@ -350,7 +350,7 @@ static int stmmac_ethtool_setsettings(struct net_device *dev,
+ 
+ 			spin_lock(&priv->lock);
+ 			if (priv->hw->mac->ctrl_ane)
+-				priv->hw->mac->ctrl_ane(priv->ioaddr, 1);
++				priv->hw->mac->ctrl_ane(priv->hw, 1);
+ 			spin_unlock(&priv->lock);
+ 		}
+ 
+@@ -464,7 +464,7 @@ stmmac_set_pauseparam(struct net_device *netdev,
+ 		if (netif_running(netdev))
+ 			ret = phy_start_aneg(phy);
+ 	} else
+-		priv->hw->mac->flow_ctrl(priv->ioaddr, phy->duplex,
++		priv->hw->mac->flow_ctrl(priv->hw, phy->duplex,
+ 					 priv->flow_ctrl, priv->pause);
+ 	return ret;
+ }
+diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+index 057a120..40cd95f 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+@@ -233,7 +233,7 @@ static void stmmac_enable_eee_mode(struct stmmac_priv *priv)
+ 	/* Check and enter in LPI mode */
+ 	if ((priv->dirty_tx == priv->cur_tx) &&
+ 	    (priv->tx_path_in_lpi_mode == false))
+-		priv->hw->mac->set_eee_mode(priv->ioaddr);
++		priv->hw->mac->set_eee_mode(priv->hw);
+ }
+ 
+ /**
+@@ -244,7 +244,7 @@ static void stmmac_enable_eee_mode(struct stmmac_priv *priv)
+  */
+ void stmmac_disable_eee_mode(struct stmmac_priv *priv)
+ {
+-	priv->hw->mac->reset_eee_mode(priv->ioaddr);
++	priv->hw->mac->reset_eee_mode(priv->hw);
+ 	del_timer_sync(&priv->eee_ctrl_timer);
+ 	priv->tx_path_in_lpi_mode = false;
+ }
+@@ -298,7 +298,7 @@ bool stmmac_eee_init(struct stmmac_priv *priv)
+ 			if (priv->eee_active) {
+ 				pr_debug("stmmac: disable EEE\n");
+ 				del_timer_sync(&priv->eee_ctrl_timer);
+-				priv->hw->mac->set_eee_timer(priv->ioaddr, 0,
++				priv->hw->mac->set_eee_timer(priv->hw, 0,
+ 							     tx_lpi_timer);
+ 			}
+ 			priv->eee_active = 0;
+@@ -313,12 +313,12 @@ bool stmmac_eee_init(struct stmmac_priv *priv)
+ 			priv->eee_ctrl_timer.expires = STMMAC_LPI_T(eee_timer);
+ 			add_timer(&priv->eee_ctrl_timer);
+ 
+-			priv->hw->mac->set_eee_timer(priv->ioaddr,
++			priv->hw->mac->set_eee_timer(priv->hw,
+ 						     STMMAC_DEFAULT_LIT_LS,
+ 						     tx_lpi_timer);
+ 		} else
+ 			/* Set HW EEE according to the speed */
+-			priv->hw->mac->set_eee_pls(priv->ioaddr,
++			priv->hw->mac->set_eee_pls(priv->hw,
+ 						   priv->phydev->link);
+ 
+ 		pr_debug("stmmac: Energy-Efficient Ethernet initialized\n");
+@@ -693,7 +693,7 @@ static void stmmac_adjust_link(struct net_device *dev)
+ 		}
+ 		/* Flow Control operation */
+ 		if (phydev->pause)
+-			priv->hw->mac->flow_ctrl(priv->ioaddr, phydev->duplex,
++			priv->hw->mac->flow_ctrl(priv->hw, phydev->duplex,
+ 						 fc, pause_time);
+ 
+ 		if (phydev->speed != priv->speed) {
+@@ -1531,8 +1531,7 @@ static int stmmac_get_hw_features(struct stmmac_priv *priv)
+ static void stmmac_check_ether_addr(struct stmmac_priv *priv)
+ {
+ 	if (!is_valid_ether_addr(priv->dev->dev_addr)) {
+-		priv->hw->mac->get_umac_addr((void __iomem *)
+-					     priv->dev->base_addr,
++		priv->hw->mac->get_umac_addr(priv->hw,
+ 					     priv->dev->dev_addr, 0);
+ 		if (!is_valid_ether_addr(priv->dev->dev_addr))
+ 			eth_hw_addr_random(priv->dev);
+@@ -1629,14 +1628,14 @@ static int stmmac_hw_setup(struct net_device *dev)
+ 	}
+ 
+ 	/* Copy the MAC addr into the HW  */
+-	priv->hw->mac->set_umac_addr(priv->ioaddr, dev->dev_addr, 0);
++	priv->hw->mac->set_umac_addr(priv->hw, dev->dev_addr, 0);
+ 
+ 	/* If required, perform hw setup of the bus. */
+ 	if (priv->plat->bus_setup)
+ 		priv->plat->bus_setup(priv->ioaddr);
+ 
+ 	/* Initialize the MAC Core */
+-	priv->hw->mac->core_init(priv->ioaddr, dev->mtu);
++	priv->hw->mac->core_init(priv->hw, dev->mtu);
+ 
+ 	/* Enable the MAC Rx/Tx */
+ 	stmmac_set_mac(priv->ioaddr, true);
+@@ -1662,7 +1661,7 @@ static int stmmac_hw_setup(struct net_device *dev)
+ 
+ 	/* Dump DMA/MAC registers */
+ 	if (netif_msg_hw(priv)) {
+-		priv->hw->mac->dump_regs(priv->ioaddr);
++		priv->hw->mac->dump_regs(priv->hw);
+ 		priv->hw->dma->dump_regs(priv->ioaddr);
+ 	}
+ 	priv->tx_lpi_timer = STMMAC_DEFAULT_TWT_LS;
+@@ -1677,7 +1676,7 @@ static int stmmac_hw_setup(struct net_device *dev)
+ 	}
+ 
+ 	if (priv->pcs && priv->hw->mac->ctrl_ane)
+-		priv->hw->mac->ctrl_ane(priv->ioaddr, 0);
++		priv->hw->mac->ctrl_ane(priv->hw, 0);
+ 
+ 	return 0;
+ }
+@@ -2316,8 +2315,7 @@ static irqreturn_t stmmac_interrupt(int irq, void *dev_id)
+ 
+ 	/* To handle GMAC own interrupts */
+ 	if (priv->plat->has_gmac) {
+-		int status = priv->hw->mac->host_irq_status((void __iomem *)
+-							    dev->base_addr,
++		int status = priv->hw->mac->host_irq_status(priv->hw,
+ 							    &priv->xstats);
+ 		if (unlikely(status)) {
+ 			/* For LPI we need to save the tx status */
+@@ -2649,7 +2647,7 @@ static int stmmac_hw_init(struct stmmac_priv *priv)
+ 	/* To use alternate (extended) or normal descriptor structures */
+ 	stmmac_selec_desc_mode(priv);
+ 
+-	ret = priv->hw->mac->rx_ipc(priv->ioaddr);
++	ret = priv->hw->mac->rx_ipc(priv->hw);
+ 	if (!ret) {
+ 		pr_warn(" RX IPC Checksum Offload not configured.\n");
+ 		priv->plat->rx_coe = STMMAC_RX_COE_NONE;
+@@ -2869,7 +2867,7 @@ int stmmac_suspend(struct net_device *ndev)
+ 
+ 	/* Enable Power down mode by programming the PMT regs */
+ 	if (device_may_wakeup(priv->device)) {
+-		priv->hw->mac->pmt(priv->ioaddr, priv->wolopts);
++		priv->hw->mac->pmt(priv->hw, priv->wolopts);
+ 		priv->irq_wake = 1;
+ 	} else {
+ 		stmmac_set_mac(priv->ioaddr, false);
+@@ -2898,7 +2896,7 @@ int stmmac_resume(struct net_device *ndev)
+ 	 * from another devices (e.g. serial console).
+ 	 */
+ 	if (device_may_wakeup(priv->device)) {
+-		priv->hw->mac->pmt(priv->ioaddr, 0);
++		priv->hw->mac->pmt(priv->hw, 0);
+ 		priv->irq_wake = 0;
+ 	} else {
+ 		pinctrl_pm_select_default_state(priv->device);
 -- 
 1.7.9.5
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
