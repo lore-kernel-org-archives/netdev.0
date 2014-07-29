@@ -1,85 +1,63 @@
-From: Vince Bridgers <vbridgers2013@gmail.com>
-Subject: [PATCH net v5 2/3] net: libphy: Add stubs to hook IEEE MMD Register reads and writes
-Date: Tue, 29 Jul 2014 15:19:58 -0500
-Message-ID: <1406665199-18174-3-git-send-email-vbridgers2013@gmail.com>
-References: <1406665199-18174-1-git-send-email-vbridgers2013@gmail.com>
-Cc: vbridgers2013@gmail.com, vbridger@altera.com
-To: f.fainelli@gmail.com, rdunlap@infradead.org, davem@davemloft.net,
-	netdev@vger.kernel.org
+From: Randy Dunlap <rdunlap@infradead.org>
+Subject: Re: [PATCH] net/fsl: Add format length modifier to avoid negative
+ values
+Date: Tue, 29 Jul 2014 13:29:29 -0700
+Message-ID: <53D80429.8070800@infradead.org>
+References: <1406663583-8824-1-git-send-email-Shruti@Freescale.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Shruti Kanetkar <Shruti@Freescale.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:33706 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752832AbaG2UXl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2014 16:23:41 -0400
-Received: by mail-pa0-f41.google.com with SMTP id rd3so205243pab.14
-        for <netdev@vger.kernel.org>; Tue, 29 Jul 2014 13:23:40 -0700 (PDT)
-In-Reply-To: <1406665199-18174-1-git-send-email-vbridgers2013@gmail.com>
+Received: from casper.infradead.org ([85.118.1.10]:39254 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751212AbaG2U3e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2014 16:29:34 -0400
+In-Reply-To: <1406663583-8824-1-git-send-email-Shruti@Freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Micrel ksz9021 PHY does not support standard IEEE standard MMD
-extended register access, therefore requires stubs to fail the read
-register method and do nothing for the write register method when
-libphy attempts to read and/or configure Energy Efficient Ethernet
-features in PHYS that do support those features. This problem
-was observed on an Altera Cyclone V SOC development kit that
-uses the Synopsys EMAC and the Micrel ksz9021 PHY. This patch
-was tested on the same board, and Energy Efficient Ethernet is
-now disabled as expected since the Micrel PHY does not support that
-feature.
+On 07/29/14 12:53, Shruti Kanetkar wrote:
+> Signed-off-by: Shruti Kanetkar <Shruti@Freescale.com>
+> ---
+>  drivers/net/ethernet/freescale/xgmac_mdio.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/freescale/xgmac_mdio.c b/drivers/net/ethernet/freescale/xgmac_mdio.c
+> index 8173407..6e7db66 100644
+> --- a/drivers/net/ethernet/freescale/xgmac_mdio.c
+> +++ b/drivers/net/ethernet/freescale/xgmac_mdio.c
+> @@ -163,7 +163,7 @@ static int xgmac_mdio_read(struct mii_bus *bus, int phy_id, int regnum)
+>  	/* Return all Fs if nothing was there */
+>  	if (in_be32(&regs->mdio_stat) & MDIO_STAT_RD_ER) {
+>  		dev_err(&bus->dev,
+> -			"Error while reading PHY%d reg at %d.%d\n",
+> +			"Error while reading PHY%d reg at %d.%hhu\n",
 
-Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
----
-V5: Change function pointer name in phy_driver structure to
-    match changes per review comments
-V4: Correct error when editing for V3
-V3: Remove unnecessary returns from void functions.
-V2: Split libphy and Micrel specific changes into 2 patches
-    based on review comments
----
- drivers/net/phy/micrel.c |   22 ++++++++++++++++++++++
- 1 file changed, 22 insertions(+)
+I don't get it.  Please explain better.
 
-diff --git a/drivers/net/phy/micrel.c b/drivers/net/phy/micrel.c
-index bc7c7d2..fd0ea7c 100644
---- a/drivers/net/phy/micrel.c
-+++ b/drivers/net/phy/micrel.c
-@@ -420,6 +420,26 @@ static int ksz8873mll_config_aneg(struct phy_device *phydev)
- 	return 0;
- }
- 
-+/* This routine returns -1 as an indication to the caller that the
-+ * Micrel ksz9021 10/100/1000 PHY does not support standard IEEE
-+ * MMD extended PHY registers.
-+ */
-+static int
-+ksz9021_rd_mmd_phyreg(struct phy_device *phydev, int ptrad, int devnum,
-+		      int regnum)
-+{
-+	return -1;
-+}
-+
-+/* This routine does nothing since the Micrel ksz9021 does not support
-+ * standard IEEE MMD extended PHY registers.
-+ */
-+static void
-+ksz9021_wr_mmd_phyreg(struct phy_device *phydev, int ptrad, int devnum,
-+		      int regnum, u32 val)
-+{
-+}
-+
- static struct phy_driver ksphy_driver[] = {
- {
- 	.phy_id		= PHY_ID_KS8737,
-@@ -565,6 +585,8 @@ static struct phy_driver ksphy_driver[] = {
- 	.config_intr	= ksz9021_config_intr,
- 	.suspend	= genphy_suspend,
- 	.resume		= genphy_resume,
-+	.read_mmd_indirect = ksz9021_rd_mmd_phyreg,
-+	.write_mmd_indirect = ksz9021_wr_mmd_phyreg,
- 	.driver		= { .owner = THIS_MODULE, },
- }, {
- 	.phy_id		= PHY_ID_KSZ9031,
+regnum is not an unsigned char, but that is what %hhu indicates, isn't it?
+
+>  			phy_id, dev_addr, regnum);
+
+Earlier in the code, dev_addr is set to:
+	uint16_t dev_addr = regnum >> 16;
+
+and then we see that the register address is the low 16 bits of regnum:
+	/* Set the register address */
+	out_be32(&regs->mdio_addr, regnum & 0xffff);
+
+so maybe this printk (dev_err) should just use regnum & 0xffff and %u format?
+
+I'm certainly not sure about that suggestion, but the patch didn't make sense to me.
+
+Thanks.
+
+>  		return 0xffff;
+>  	}
+> 
+
+
 -- 
-1.7.9.5
+~Randy
