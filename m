@@ -1,127 +1,159 @@
-From: "Ertman, David M" <david.m.ertman@intel.com>
-Subject: RE: [net-next 11/12] e1000e: Fix EEE in S5 w/ Runtime PM enabled
-Date: Tue, 29 Jul 2014 16:14:06 +0000
-Message-ID: <2B0E3F215D1AB84DA946C8BEE234CCC9371476BC@ORSMSX104.amr.corp.intel.com>
-References: <1406349922-9883-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1406349922-9883-12-git-send-email-jeffrey.t.kirsher@intel.com>
- <20140726151005.GA20445@electric-eye.fr.zoreil.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 2/2] netlink: Convert netlink_lookup() to use RCU
+ protected hash table
+Date: Tue, 29 Jul 2014 17:34:20 +0100
+Message-ID: <20140729163420.GA14314@casper.infradead.org>
+References: <cover.1406633945.git.tgraf@suug.ch>
+ <b73872eab661f28345085dbd4bd477a50d7042f6.1406633945.git.tgraf@suug.ch>
+ <20140729155801.GB10301@distanz.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"Wysocki, Rafael J" <rafael.j.wysocki@intel.com>
-To: Francois Romieu <romieu@fr.zoreil.com>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:10425 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751282AbaG2QOI convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2014 12:14:08 -0400
-In-Reply-To: <20140726151005.GA20445@electric-eye.fr.zoreil.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, kaber@trash.net,
+	paulmck@linux.vnet.ibm.com, josh@joshtriplett.org,
+	challa@noironetworks.com, walpole@cs.pdx.edu, dev@openvswitch.org
+To: Tobias Klauser <tklauser@distanz.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140729155801.GB10301@distanz.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Francois Romieu [mailto:romieu@fr.zoreil.com]
-> Sent: Saturday, July 26, 2014 8:10 AM
-> To: Kirsher, Jeffrey T
-> Cc: davem@davemloft.net; Ertman, David M; netdev@vger.kernel.org;
-> nhorman@redhat.com; sassmann@redhat.com; Wysocki, Rafael J
-> Subject: Re: [net-next 11/12] e1000e: Fix EEE in S5 w/ Runtime PM enabled
-> 
-> (Rafael Cced:)
-> 
-> Jeff Kirsher <jeffrey.t.kirsher@intel.com> :
-> > From: David Ertman <david.m.ertman@intel.com>
-> >
-> > The process of shutting down the system causes a call to the close PM
-> > callback.  The reset in close causes a loss of link, and the resultant
-> > LSC interrupt causes the Runtime PM idle callback to be called.  The
-> > check for link (while link is down) in the idle callback is wiping the
-> > information about the EEE ability of the link partner. The information
-> > is still gone when the PHY is powered back up in the shutdown flow.
-> > This causes EEE in S5 to fail when Runtime PM is active.
-> >
-> > Save the link partner's EEE ability in the idle callback so that a
-> > Runtime PM event will not cause a loss of this information.
-> 
-> Why does e1000_check_for_copper_link_ich8lan unconditionally wipe the
-> information about the EEE ability of the link partner instead of performing
-> something similar to the eee_lp_ability detection part
-> e1000_set_eee_pchlan ?
-> 
-
-It might be safe to not wipe the eee_lp_ability value in e1000_check_for_copper_link_ich8lan(), since the same function would be called on a link up event, but some validation would have to be done to determine the impact, as the timing of the events comes into play.  e1000_check_for_copper_link_ich8lan() starts with the assumption of link being false.  In such a case (under normal operating conditions) the value of the link partners EEE capability is eliminated so as to remove the chance of old information being used for a new/different link partner.  Then, if link is determined to be true it will re-populate eee_lp_ability with a current value.  This covers both link up and link down events in this one function.  It is only when Runtime PM, EEE and the transition flow from S0 to an Sx st
- ate all interact that the main problem with timing manifests itself.
-
-The optimal fix for this timing error would be one of two things:  
-  1) RuntimePM should not be actively calling the idle call-back when the system is transitioning from S0 to an Sx state.  Optimally, RuntimePM should have a mechanism in it to be self-aware enough to disable accessing call-backs during these transitions very early in the flow.
-
-And/or 
-
-  2) It would be nice if the kernel system_state variable was updated to "SYSTEM_HALT" or "SYSTEM_POWER_OFF" before the process of calling the close callback was initiated for a shutdown or suspend.  Then we could check for this condition and use this to determine our behavior in the RuntimePM call-backs (and at other points in the driver).
-
-I don't currently have the time to take on either of these tasks.
-
+On 07/29/14 at 05:58pm, Tobias Klauser wrote:
+> On 2014-07-29 at 13:41:33 +0200, Thomas Graf <tgraf@suug.ch> wrote:
+> > Heavy Netlink users such as Open vSwitch spend a considerable amount of
+> > time in netlink_lookup() due to the read-lock on nl_table_lock. Use of
+> > RCU relieves the lock contention.
+> > 
+> > Makes use of the new resizable hash table to avoid locking on the
+> > lookup.
+> > 
+> > The hash table will grow if entries exceeds 75% of table size up to a
+> > total table size of 64K. It will automatically shrink if usage falls
+> > below 50%.
+> > 
+> > Also splits nl_table_lock into a separate spinlock to protect hash table
+> > mutations. This avoids a possible deadlock when the hash table growing
+> > waits on RCU readers to complete via synchronize_rcu() while readers
+> > holding RCU read lock are waiting on the nl_table_lock() to be released
+> > to lock the table for broadcasting.
+> > 
+> > Before:
+> >    9.16%  kpktgend_0  [openvswitch]      [k] masked_flow_lookup
+> >    6.42%  kpktgend_0  [pktgen]           [k] mod_cur_headers
+> >    6.26%  kpktgend_0  [pktgen]           [k] pktgen_thread_worker
+> >    6.23%  kpktgend_0  [kernel.kallsyms]  [k] memset
+> >    4.79%  kpktgend_0  [kernel.kallsyms]  [k] netlink_lookup
+> >    4.37%  kpktgend_0  [kernel.kallsyms]  [k] memcpy
+> >    3.60%  kpktgend_0  [openvswitch]      [k] ovs_flow_extract
+> >    2.69%  kpktgend_0  [kernel.kallsyms]  [k] jhash2
+> > 
+> > After:
+> >   15.26%  kpktgend_0  [openvswitch]      [k] masked_flow_lookup
+> >    8.12%  kpktgend_0  [pktgen]           [k] pktgen_thread_worker
+> >    7.92%  kpktgend_0  [pktgen]           [k] mod_cur_headers
+> >    5.11%  kpktgend_0  [kernel.kallsyms]  [k] memset
+> >    4.11%  kpktgend_0  [openvswitch]      [k] ovs_flow_extract
+> >    4.06%  kpktgend_0  [kernel.kallsyms]  [k] _raw_spin_lock
+> >    3.90%  kpktgend_0  [kernel.kallsyms]  [k] jhash2
+> >    [...]
+> >    0.67%  kpktgend_0  [kernel.kallsyms]  [k] netlink_lookup
+> > 
+> > Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> > ---
+> >  net/netlink/af_netlink.c | 285 ++++++++++++++++++-----------------------------
+> >  net/netlink/af_netlink.h |  18 +--
+> >  net/netlink/diag.c       |  11 +-
+> >  3 files changed, 119 insertions(+), 195 deletions(-)
+> > 
+> > diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+> > index 1b38f7f..7f44468 100644
+> > --- a/net/netlink/af_netlink.c
+> > +++ b/net/netlink/af_netlink.c
 > [...]
-> > diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c
-> > b/drivers/net/ethernet/intel/e1000e/netdev.c
-> > index fe3e42a..1ce0d74 100644
-> > --- a/drivers/net/ethernet/intel/e1000e/netdev.c
-> > +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-> > @@ -6357,9 +6357,14 @@ static int e1000e_pm_runtime_idle(struct device
-> *dev)
-> >  	struct pci_dev *pdev = to_pci_dev(dev);
-> >  	struct net_device *netdev = pci_get_drvdata(pdev);
-> >  	struct e1000_adapter *adapter = netdev_priv(netdev);
-> > +	u16 eee_lp;
-> >
-> > -	if (!e1000e_has_link(adapter))
-> > +	eee_lp = adapter->hw.dev_spec.ich8lan.eee_lp_ability;
+> > @@ -2996,28 +2939,26 @@ static void *netlink_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+> >  
+> >  	net = seq_file_net(seq);
+> >  	iter = seq->private;
+> > -	s = v;
+> > -	do {
+> > -		s = sk_next(s);
+> > -	} while (s && !nl_table[s->sk_protocol].compare(net, s));
+> > -	if (s)
+> > -		return s;
+> > +	nlk = v;
 > > +
-> > +	if (!e1000e_has_link(adapter)) {
-> > +		adapter->hw.dev_spec.ich8lan.eee_lp_ability = eee_lp;
-> >  		pm_schedule_suspend(dev, 5 * MSEC_PER_SEC);
-> > +	}
-> >
-> >  	return -EBUSY;
+> > +	rht_for_each_entry_rcu(nlk, nlk->node.next, node)
+> > +		if (net_eq(sock_net((struct sock *)nlk), net))
+> > +			return nlk;
+> >  
+> >  	i = iter->link;
+> >  	j = iter->hash_idx + 1;
+> >  
+> >  	do {
+> > -		struct nl_portid_hash *hash = &nl_table[i].hash;
+> > -
+> > -		for (; j <= hash->mask; j++) {
+> > -			s = sk_head(&hash->table[j]);
+> > +		struct rhashtable *ht = &nl_table[i].hash;
+> > +		const struct bucket_table *tbl = rht_dereference(ht->tbl, ht);
+> >  
+> > -			while (s && !nl_table[s->sk_protocol].compare(net, s))
+> > -				s = sk_next(s);
+> > -			if (s) {
+> > -				iter->link = i;
+> > -				iter->hash_idx = j;
+> > -				return s;
+> > +		for (; j <= tbl->size; j++) {
 > 
-> /me wonders...
-> 
-> commit 63eb48f151b5f1d8dba35d6176d0d7c9643b33af
-> Author: David Ertman <davidx.m.ertman@intel.com>
-> Date:   Fri Feb 14 07:16:46 2014 +0000
-> 
->     e1000e Refactor of Runtime Power Management
-> 
->     Fix issues with:
->     RuntimePM causing the device to repeatedly flip between suspend and
-> resume
->     with the interface administratively downed.
->     Having RuntimePM enabled interfering with the functionality of Energy
->     Efficient Ethernet.
-> 
->     Added checks to disallow functions that should not be executed if the
->     device is currently runtime suspended
-> 
->     Make runtime_idle callback to use same deterministic behavior as the igb
->     driver.
-> 
-> pm_schedule_suspend is already called from the link change thread
-> e1000_watchdog_task. You may consider removing everything from
-> runtime_idle.
-> 
+> Should the condition j < tbl->size here, since the bucket table only
+> contains `size' buckets?
 
-According to Documentation/power/runtime_pm.txt and Documentation/power/pci.txt, the idle call-back is the correct place to put the check for applicability, and initiation, of a runtime suspend event.  The duplication of effort between watchdog and runtime_idle is something that I need to explore.  There are flow issues involved that will take some unraveling to fully evaluate.  This is an interesting point you raise, and any change will also need to have some validation effort to evaluate the impact.
+Good catch, thanks
 
-
-Thanks for responding.
-
-Dave Ertman
-
-> --
-> Ueimor
+>
+> 
+> > +			rht_for_each_entry_rcu(nlk, tbl->buckets[j], node) {
+> > +				if (net_eq(sock_net((struct sock *)nlk), net)) {
+> > +					iter->link = i;
+> > +					iter->hash_idx = j;
+> > +					return nlk;
+> > +				}
+> >  			}
+> >  		}
+> [...]
+> > diff --git a/net/netlink/diag.c b/net/netlink/diag.c
+> > index 1af29624..7588f34 100644
+> > --- a/net/netlink/diag.c
+> > +++ b/net/netlink/diag.c
+> [...]
+> > @@ -101,16 +102,20 @@ static int __netlink_diag_dump(struct sk_buff *skb, struct netlink_callback *cb,
+> >  				int protocol, int s_num)
+> >  {
+> >  	struct netlink_table *tbl = &nl_table[protocol];
+> > -	struct nl_portid_hash *hash = &tbl->hash;
+> > +	struct rhashtable *ht = &tbl->hash;
+> > +	const struct bucket_table *htbl = rht_dereference(ht->tbl, ht);
+> >  	struct net *net = sock_net(skb->sk);
+> >  	struct netlink_diag_req *req;
+> > +	struct netlink_sock *nlsk;
+> >  	struct sock *sk;
+> >  	int ret = 0, num = 0, i;
+> >  
+> >  	req = nlmsg_data(cb->nlh);
+> >  
+> > -	for (i = 0; i <= hash->mask; i++) {
+> > -		sk_for_each(sk, &hash->table[i]) {
+> > +	for (i = 0; i <= htbl->size; i++) {
+> 
+> Same here, condition should be i < htbl->size
+> 
+> > +		rht_for_each_entry(nlsk, htbl->buckets[i], ht, node) {
+> > +			sk = (struct sock *)nlsk;
+> > +
+> >  			if (!net_eq(sock_net(sk), net))
+> >  				continue;
+> >  			if (num < s_num) {
+> > -- 
+> > 1.9.3
+> 
