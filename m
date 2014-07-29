@@ -1,48 +1,77 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH net-next 1/2] netfilter: xt_bpf: don't include
- linux/filter.h from uapi header
-Date: Tue, 29 Jul 2014 19:03:00 +0200
-Message-ID: <20140729170300.GA6216@salvia>
-References: <1406648188-3681-1-git-send-email-pablo@netfilter.org>
- <CA+FuTSdRmnFYK1mTFh14UP1rTkU-EYK-61xyoWWiNvZR3Aig6A@mail.gmail.com>
- <20140729160549.GA4546@salvia>
- <CA+FuTSfJWjEBADJi9vPat062WYx-TtX5_XtzNZziFtPfe=0oHg@mail.gmail.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v3 net-next] net: filter: cleanup sk_* and bpf_* names
+Date: Tue, 29 Jul 2014 10:25:25 -0700
+Message-ID: <CAMEtUuxsFdmWM5DFXNRMnDKzqfgsaEashsMvDsKcjnF=T8pbpA@mail.gmail.com>
+References: <1406615380-3488-1-git-send-email-ast@plumgrid.com>
+	<20140729153124.GA3231@salvia>
+	<CAMEtUuwO0nGox4Mfj8Gs2fVudBpYtZ_NSwyFQCFz5NeYKgAdpA@mail.gmail.com>
+	<20140729164226.GA6069@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel <netfilter-devel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	Alexei Starovoitov <ast@plumgrid.com>,
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
 	Daniel Borkmann <dborkman@redhat.com>,
-	Kees Cook <keescook@chromium.org>
-To: Willem de Bruijn <willemb@google.com>
+	Willem de Bruijn <willemb@google.com>,
+	Kees Cook <keescook@chromium.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CA+FuTSfJWjEBADJi9vPat062WYx-TtX5_XtzNZziFtPfe=0oHg@mail.gmail.com>
+In-Reply-To: <20140729164226.GA6069@salvia>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 29, 2014 at 12:35:00PM -0400, Willem de Bruijn wrote:
-> On Tue, Jul 29, 2014 at 12:05 PM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> > On Tue, Jul 29, 2014 at 11:43:57AM -0400, Willem de Bruijn wrote:
-> >> > In e6f30c7 ("netfilter: x_tables: add xt_bpf match"), the internal
-> >> > linux/filter.h header slipped through in the user exposed xt_bpf.h
-> >> > header as included file.
-> >>
-> >> is that true? #include <linux/filter.h> should include
-> >> include/uapi/linux/filter.h in userspace builds.
-> >
-> > You're right. I'm going to send a v2.
-> 
-> Thanks for fixing my bug. I agree that it's better to do this
-> independent of the sk_filter/bpf_prog patch.
-> 
-> > We should also cache the linux/filter.h header in the iptables
-> > sources, would you send a patch for that? Thanks.
-> 
-> Will do.  Should I just import the latest version of the file, or is
-> there a sync policy, such as that all kernel headers come from the
-> same kernel release?
+On Tue, Jul 29, 2014 at 9:42 AM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+> On Tue, Jul 29, 2014 at 08:55:04AM -0700, Alexei Starovoitov wrote:
+>> > I don't think this is the right moment to add this, but we have to
+>> > keep in mind that something similar to this will need to be
+>> > accomodated in struct sk_filter at some point to avoid sloppy changes
+>> > that may result in reintroducing code later on.
+>>
+>> I thought in v1 series you were arguing exactly about introducing them now...
+>> ok, I will drop callbacks and keep refcnt,rcu,filter_size and bpf_prog pointer
+>> in there. Sounds good?
+>
+> Agreed.
+>
+>> > Next step should be to wrap the specific bpf fields in struct
+>> > bpf_prog in some clean way IMO, which was partially the aim of this
+>> > patch.
+>>
+>> it seems your only objection is 'rcu_head' still being there and rebasing
+>> on top of yours will fix it...
+>
+> Almost. I just wanted to leave in place struct sk_filter for the
+> coming up generalization, that structure should contain the refcnt,
+> rcu_head and the struct bpf_prog after some of your follow up patches.
 
-Right. The kernel header which is available after make headers_install.
-Thanks.
+Yes. something like:
+struct sk_filter {
+        atomic_t refcnt;
+        struct rcu_head rcu;
+        u32 filter_size;
+        struct bpf_prog *prog;
+};
+filter_size also makes sense to add right now to cleanup charging.
+
+> Please, also leave sk_filter_charge/uncharge/get_filter whatever will
+> provide the room the generalization under net/core/filter.c, not need
+> to move these to kernel/bpf/
+
+of course, that was never the intent.
+all socket related stuff should keep sk_* prefix and stay in net/
+only net-independent things makes sense to move.
+
+> After my patch (and your follow up), we don't have sloppy usage of
+> rcu_head for unattached filter anymore and I guess Willem is going to
+> same save bytes in his iptables/bpf rules given that he can directly
+> use bpf_prog instead of sk_filter.
+
+yes. exactly.
+
+btw, Dave may request to do a fresh repost of both of your
+patches with v2 tag... Alternatively I can do rebase + fix what we
+discussed above + split and repost yours and mine as single
+series, since they're addressing one area...
+Also I want to do some more testing of your #2 patch for seccomp
+to make sure all is clean.
