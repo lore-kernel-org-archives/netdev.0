@@ -1,34 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next v2 0/3] net: forbid net devices named "all"
- "default" or "config"
-Date: Tue, 29 Jul 2014 11:44:14 -0700 (PDT)
-Message-ID: <20140729.114414.292663024559656037.davem@davemloft.net>
-References: <1406327110-17227-1-git-send-email-xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH] isdn/bas_gigaset: fix a leak on failure path in
+ gigaset_probe()
+Date: Tue, 29 Jul 2014 12:18:56 -0700 (PDT)
+Message-ID: <20140729.121856.1236100223837303806.davem@davemloft.net>
+References: <1406327671-28271-1-git-send-email-khoroshilov@ispras.ru>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stephane.chazelas@gmail.com,
-	f.fainelli@gmail.com
-To: xiyou.wangcong@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47773 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751165AbaG2SoP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2014 14:44:15 -0400
-In-Reply-To: <1406327110-17227-1-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: hjlipp@web.de, tilman@imap.cc, isdn@linux-pingi.de,
+	gigaset307x-common@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
+To: khoroshilov@ispras.ru
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1406327671-28271-1-git-send-email-khoroshilov@ispras.ru>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Fri, 25 Jul 2014 15:25:07 -0700
+From: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Date: Sat, 26 Jul 2014 02:34:31 +0400
 
-> /proc/sys/net/ipv[46]/conf/<dev> could conflict with
-> /proc/sys/net/ipv[46]/conf/(all|default). And /proc/net/vlan/<dev>
-> could conflict with /proc/net/vlan/config. Besides kernel warnings,
-> undefined behavior such as duplicated proc files also appears, therefore
-> we should forbid these names.
+> There is a lack of usb_put_dev(udev) on failure path in gigaset_probe().
 > 
-> v2: introduce a helper function, suggested by Florian 
->     fix error handling for ipv6_add_dev() in addrconf_init()
+> Found by Linux Driver Verification project (linuxtesting.org).
+> 
+> Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
 
-Series applied, thank you.
+Applied, thanks.
