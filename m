@@ -1,55 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: filter: rename 'struct sk_filter' to
- 'struct bpf_prog'
-Date: Mon, 28 Jul 2014 18:16:21 -0700 (PDT)
-Message-ID: <20140728.181621.1196619942413270695.davem@davemloft.net>
-References: <CAMEtUux8F4xZ77_HQADfoeV-9sibaEWm=XJcAaY+cQyDWb2caA@mail.gmail.com>
-	<20140728214552.GA4049@salvia>
-	<CAMEtUuyuxfs7Liy_HCDijUX9Q8yziY2kt0XCpJtXUyMR1P941Q@mail.gmail.com>
+Subject: Re: [PATCH net 1/1] tipc: make tipc_buf_append() more robust
+Date: Mon, 28 Jul 2014 18:34:23 -0700 (PDT)
+Message-ID: <20140728.183423.698426909730741975.davem@davemloft.net>
+References: <1406314089-5446-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, dborkman@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, willemb@google.com,
-	netfilter-devel@vger.kernel.org
-To: ast@plumgrid.com
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <CAMEtUuyuxfs7Liy_HCDijUX9Q8yziY2kt0XCpJtXUyMR1P941Q@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
+	erik.hugne@ericsson.com, ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net
+To: jon.maloy@ericsson.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35392 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751771AbaG2BeY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2014 21:34:24 -0400
+In-Reply-To: <1406314089-5446-1-git-send-email-jon.maloy@ericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast@plumgrid.com>
-Date: Mon, 28 Jul 2014 18:12:05 -0700
+From: Jon Maloy <jon.maloy@ericsson.com>
+Date: Fri, 25 Jul 2014 14:48:09 -0400
 
-> On Mon, Jul 28, 2014 at 2:45 PM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
->>> > struct sk_filter_cb {
->>> >         int type;
->>> >         struct module *me;
->>> >         void (*charge)(struct sock *sk, struct sk_filter *fp);
->>> >         void (*uncharge)(struct sock *sk, struct sk_filter *fp);
->>> >         unsigned int (*run_filter)(struct sk_filter *fp, struct sk_buff *skb);
->>> > };
->>>
->>> Pablo,
->>>
->>> I don't think you understand the scope of BPF.
->>> 'struct module *'? to attach nft to sockets? ouch.
->>
->> The idea is that there will be one sk_filter_cb per socket filtering
->> approach. The structure module is just there in case one of the
->> approach is loadable as kernel module, it's the typical code pattern
->> in the kernel. You can git grep for similar code.
+> As per comment from David Miller, we try to make the buffer reassembly
+> function more resilient to user errors than it is today.
 > 
-> socket filtering is available to unprivileged users.
-> So you're proposing to let them increment refcnt of modules?!
-> That's not secure.
+> - We check that the "*buf" parameter always is set, since this is
+>   mandatory input.
+> 
+> - We ensure that *buf->next always is set to NULL before linking in
+>   the buffer, instead of relying of the caller to have done this.
+> 
+> - We ensure that the "tail" pointer in the head buffer's control
+>   block is initialized to NULL when the first fragment arrives.
+> 
+> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 
-It's impossible to avoid, and really is nothing new.
-
-Users can open sockets, and that holds a reference to the module
-implementing that protocol.  Is that not secure too?
-
-This discussion is degenerating into nonsense, please stop ignoring
-Pablo's core points.
-
-Thanks.
+Applied to net-next, since this doesn't really fix any bugs.
