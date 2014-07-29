@@ -1,72 +1,74 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: Port attributes configuration
-Date: Tue, 29 Jul 2014 06:46:37 -0700
-Message-ID: <53D7A5BD.1070805@gmail.com>
-References: <CACWm-Bc4=4We1AfnZpL7O5VkUSKjKBZ-NK6edXW2fE5b_u-e7g@mail.gmail.com>
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: [PATCH net-next v2 0/8] amd-xgbe: AMD XGBE driver update 2014-07-25
+Date: Tue, 29 Jul 2014 08:57:08 -0500
+Message-ID: <20140729135707.2791.75918.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Marco Varlese <marco.varlese@gmail.com>
+Cc: <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f41.google.com ([209.85.219.41]:37327 "EHLO
-	mail-oa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750918AbaG2Nqr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2014 09:46:47 -0400
-Received: by mail-oa0-f41.google.com with SMTP id j17so10361682oag.28
-        for <netdev@vger.kernel.org>; Tue, 29 Jul 2014 06:46:47 -0700 (PDT)
-In-Reply-To: <CACWm-Bc4=4We1AfnZpL7O5VkUSKjKBZ-NK6edXW2fE5b_u-e7g@mail.gmail.com>
+Received: from mail-bn1lp0139.outbound.protection.outlook.com ([207.46.163.139]:13961
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753327AbaG2N5P (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Jul 2014 09:57:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/29/2014 02:15 AM, Marco Varlese wrote:
-> I'm working on a new platform and the network interfaces will have
-> quite few new options (roughly 50) to configure. What I definitely
-> want to achieve is to use the common tools available on Linux to let
-> users configure the port attributes from user-space without writing a
-> brand new ad-hoc tool.
+This patch series is dependent on the following patch that was
+applied to the net tree and needs to be applied to the net-next
+tree:
+  332cfc823d18 - amd-xgbe: Fix error return code in xgbe_probe()
 
-Its hard to say without knowing what the attributes are and how many
-of them are new.
+The following series of patches includes fixes and new support in the
+driver.
 
->
-> Considered my requirements I think I've a choice of configuring these
-> port attributes via:
-> 1) ethtool: this I guess will require patches to the tool itself plus
-> patches to the kernel to extend the IOCTL calls performed by it;
+- Device bindings documentation update
+- Hardware timestamp support
+- 2.5GbE support changes
+- Fifo sizes based on active queues/rings
+- Phylib driver updates for:
+  - Rate change completion check
+  - KR training initiation
+  - Auto-negotiation results
+- Traffic class support, including DCB support
 
-Many devices already expose many statistics via ethtool -S and features
-via ethtool -k. Depending on the attribute it may make sense to add
-it here.
+This patch series is based on net-next.
 
-> 2) sysfs: adding new files under /sys/class/net/DEVICE/ and handle the
-> sysfs extensions in my kernel driver;
+Changes in V2:
+  - Remove DBGPR(...., __func__) calls
 
-Typically most these are read only options. Without knowing your options
-I would guess this is the least likely.
+---
 
-> 3) netlink: I understand this seems to be the path most people prefer
-> but I think it will require a new tool to be written?
->
+Tom Lendacky (8):
+      amd-xgbe: Add dma-coherent to device bindings documentation
+      amd-xgbe: Add hardware timestamp support
+      amd-xgbe: Update/fix 2.5GbE support
+      amd-xgbe: Base queue fifo size and enablement on ring count
+      amd-xgbe-phy: Updates to rate change complete check
+      amd-xgbe-phy: Updates to KR training initiation
+      amd-xgbe-phy: Print out the auto-negotiation method used
+      amd-xgbe: Add traffic class support
 
-Writing a new tool is not necessarily a bad thing IMO but again need
-more details what type of options.
 
-> What would you suggest as the best approach here to have a good
-> solution accepted by most?
-
-more details.
-
->
->
-> Thanks,
-> Marco
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
-
+ .../devicetree/bindings/net/amd-xgbe-phy.txt       |    6 
+ Documentation/devicetree/bindings/net/amd-xgbe.txt |   17 +
+ drivers/net/ethernet/amd/Kconfig                   |   11 +
+ drivers/net/ethernet/amd/xgbe/Makefile             |    4 
+ drivers/net/ethernet/amd/xgbe/xgbe-common.h        |   93 ++++-
+ drivers/net/ethernet/amd/xgbe/xgbe-dcb.c           |  270 +++++++++++++
+ drivers/net/ethernet/amd/xgbe/xgbe-desc.c          |    9 
+ drivers/net/ethernet/amd/xgbe/xgbe-dev.c           |  363 ++++++++++++++++--
+ drivers/net/ethernet/amd/xgbe/xgbe-drv.c           |  401 ++++++++++++++++++--
+ drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c       |   52 ++-
+ drivers/net/ethernet/amd/xgbe/xgbe-main.c          |   36 +-
+ drivers/net/ethernet/amd/xgbe/xgbe-ptp.c           |  285 ++++++++++++++
+ drivers/net/ethernet/amd/xgbe/xgbe.h               |   77 ++++
+ drivers/net/phy/amd-xgbe-phy.c                     |  134 ++++++-
+ 14 files changed, 1631 insertions(+), 127 deletions(-)
+ create mode 100644 drivers/net/ethernet/amd/xgbe/xgbe-dcb.c
+ create mode 100644 drivers/net/ethernet/amd/xgbe/xgbe-ptp.c
 
 -- 
-John Fastabend         Intel Corporation
+Tom Lendacky
