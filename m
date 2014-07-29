@@ -1,48 +1,62 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [net-next 11/12] e1000e: Fix EEE in S5 w/ Runtime PM enabled
-Date: Wed, 30 Jul 2014 00:11:23 +0200
-Message-ID: <20140729221123.GA31298@electric-eye.fr.zoreil.com>
-References: <1406349922-9883-1-git-send-email-jeffrey.t.kirsher@intel.com>
- <1406349922-9883-12-git-send-email-jeffrey.t.kirsher@intel.com>
- <20140726151005.GA20445@electric-eye.fr.zoreil.com>
- <2B0E3F215D1AB84DA946C8BEE234CCC9371476BC@ORSMSX104.amr.corp.intel.com>
+From: Benjamin Poirier <bpoirier@suse.de>
+Subject: Re: [PATCH v2 2/4] driver core: enable drivers to use deferred
+ probefrom init
+Date: Tue, 29 Jul 2014 15:25:29 -0700
+Message-ID: <20140729222529.GC21140@f1.synalogic.ca>
+References: <20140728234644.GA18729@kroah.com>
+ <CAB=NE6UzK1ZEzm+54dwSyPwHGrAWCPtiNtxwhQuJF6tM9NbnYw@mail.gmail.com>
+ <20140729003501.GA17020@kroah.com>
+ <CAB=NE6XMzU+zJ0RMDKaPuSxfXBvN2vZ1DnbgxCjWHJquTD1iqg@mail.gmail.com>
+ <53D744E3.10500@suse.de>
+ <201407292107.EGB64066.OOQMFSHLJVtFFO@I-love.SAKURA.ne.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"nhorman@redhat.com" <nhorman@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"Wysocki, Rafael J" <rafael.j.wysocki@intel.com>
-To: "Ertman, David M" <david.m.ertman@intel.com>
+Cc: hare@suse.de, mcgrof@suse.com, gregkh@linuxfoundation.org,
+	santosh@chelsio.com, hariprasad@chelsio.com, tiwai@suse.de,
+	linux-kernel@vger.kernel.org, joseph.salisbury@canonical.com,
+	kay@vrfy.org, gnomes@lxorguk.ukuu.org.uk,
+	tim.gardner@canonical.com, pierre-fersing@pierref.org,
+	akpm@linux-foundation.org, oleg@redhat.com,
+	nagalakshmi.nandigama@avagotech.com,
+	praveen.krishnamoorthy@avagotech.com,
+	sreekanth.reddy@avagotech.com, abhijit.mahajan@avagotech.com,
+	MPT-FusionLinux.pdl@avagotech.com, linux-scsi@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:52567 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751758AbaG2WLf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2014 18:11:35 -0400
+Received: from cantor2.suse.de ([195.135.220.15]:54154 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751203AbaG2WZn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Jul 2014 18:25:43 -0400
 Content-Disposition: inline
-In-Reply-To: <2B0E3F215D1AB84DA946C8BEE234CCC9371476BC@ORSMSX104.amr.corp.intel.com>
+In-Reply-To: <201407292107.EGB64066.OOQMFSHLJVtFFO@I-love.SAKURA.ne.jp>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Ertman, David M <david.m.ertman@intel.com> :
-[...]
+On 2014/07/29 21:07, Tetsuo Handa wrote:
+> Luis R. Rodriguez wrote:
+> > On Mon, Jul 28, 2014 at 5:35 PM, Greg KH <gregkh@linuxfoundation.org> wrote:
+> > > On Mon, Jul 28, 2014 at 05:26:34PM -0700, Luis R. Rodriguez wrote:
+> > >> To ignore SIGKILL ?
+> > >
+> > > Sorry, I thought this was a userspace change that caused this.
+> > >
+> > > As it's a kernel change, well, maybe that patch should be reverted...
+> > 
+> > That's certainly viable. Oleg?
+> 
+> I don't want to revert that patch.
 
-Thanks for the explanation.
+I agree that 786235ee should not be reverted to fix the problem of
+modules that receive sigkill from udev while they are initializing. In
+fact, while it may fix the case that was reported with mptsas, it would
+not fix cxgb4 because there are other code paths that check for pending
+signals and that abort (ex. pci_vpd_pci22_wait()).
 
-[...]
-> According to Documentation/power/runtime_pm.txt and
-> Documentation/power/pci.txt, the idle call-back is the correct place to
-> put the check for applicability, and initiation, of a runtime suspend
-> event. The duplication of effort between watchdog and runtime_idle is
-> something that I need to explore. There are flow issues involved that will
-> take some unraveling to fully evaluate.
+Reverting 786235ee effectively works around the problem by making
+modprobe unkillable. The proper solution would be to make sure that udev
+does not send sigkill to modprobe in the first place, either by making
+the timeout longer or by making the module probe faster.
 
-I agree (almost: s/the correct place/a correct place/).
-
-Rafael's e4fbce740f078bbc925ba5c86648d9c883968479 illustrated the shrinking
-idle callback. It nicely trimmed some complexity between runtime PM and the
-relevant driver. It may be of use.
-
---
-Ueimor
+If you have other reasons for reverting 786235ee, then it's a different
+story.
