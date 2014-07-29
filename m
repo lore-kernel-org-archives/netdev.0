@@ -1,38 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] sfc: Use __iowrite64_copy instead of a
- slightly different local function
-Date: Tue, 29 Jul 2014 15:30:48 -0700 (PDT)
-Message-ID: <20140729.153048.1378087192291832153.davem@davemloft.net>
-References: <1406427279.29010.139.camel@deadeye.wl.decadent.org.uk>
+Subject: Re: [PATCH] net/ipv4: Use IS_ERR_OR_NULL
+Date: Tue, 29 Jul 2014 15:32:23 -0700 (PDT)
+Message-ID: <20140729.153223.1711793933586070215.davem@davemloft.net>
+References: <20140727070651.GA4787@himangi-Dell>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sshah@solarflare.com, netdev@vger.kernel.org
-To: ben@decadent.org.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49784 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754170AbaG2Wat (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2014 18:30:49 -0400
-In-Reply-To: <1406427279.29010.139.camel@deadeye.wl.decadent.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: xeb@mail.ru, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, julia.lawall@lip6.fr
+To: himangi774@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140727070651.GA4787@himangi-Dell>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings <ben@decadent.org.uk>
-Date: Sun, 27 Jul 2014 03:14:39 +0100
+From: Himangi Saraogi <himangi774@gmail.com>
+Date: Sun, 27 Jul 2014 12:36:51 +0530
 
-> __iowrite64_copy() isn't quite the same as efx_memcpy_64(), but
-> it looks close enough:
+> This patch introduces the use of the macro IS_ERR_OR_NULL in place of
+> tests for NULL and IS_ERR.
 > 
-> - The length is in units of qwords not bytes
-> - It never byte-swaps, but that doesn't make a difference now as PIO
->   is only enabled for x86_64
-> - It doesn't include any memory barriers, but that's OK as there is a
->   barrier just before pushing the doorbell
-> - mlx4_en uses it for the same purpose
+> The following Coccinelle semantic patch was used for making the change:
 > 
-> Compile-tested only.
+> @@
+> expression e;
+> @@
 > 
-> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+> - e == NULL || IS_ERR(e)
+> + IS_ERR_OR_NULL(e)
+>  || ...
+> 
+> Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
+> Acked-by: Julia Lawall <julia.lawall@lip6.fr>
 
-Applied, thanks.
+Applied.
