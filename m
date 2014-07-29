@@ -1,106 +1,51 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH v3 net-next] net: filter: cleanup sk_* and bpf_* names
-Date: Tue, 29 Jul 2014 17:31:24 +0200
-Message-ID: <20140729153124.GA3231@salvia>
-References: <1406615380-3488-1-git-send-email-ast@plumgrid.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Willem de Bruijn <willemb@google.com>,
-	Kees Cook <keescook@chromium.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1406615380-3488-1-git-send-email-ast@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: [PATCH net-next 1/2] netfilter: xt_bpf: don't include linux/filter.h from uapi header
+Date: Tue, 29 Jul 2014 17:36:27 +0200
+Message-ID: <1406648188-3681-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org, ast@plumgrid.com,
+	dborkman@redhat.com, willemb@google.com, keescook@chromium.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:52290 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752446AbaG2PhC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Jul 2014 11:37:02 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 28, 2014 at 11:29:40PM -0700, Alexei Starovoitov wrote:
-> clean up names related to socket filtering and bpf in the following way:
-> - everything that deals with sockets keeps 'sk_*' prefix
-> - everything that is pure BPF is changed to 'bpf_*' prefix
-> 
-> API for attaching classic BPF to a socket stays the same:
-> sk_attach_filter()/sk_detach_filter()
-> and SK_RUN_FILTER() to execute a program
-> 
-> API for 'unattached' BPF programs becomes:
-> bpf_prog_create()/bpf_prog_destroy()
-> and BPF_PROG_RUN() to execute a program
-> 
-> Introduce callback mechanism for 'struct sk_filter', so that different
-> filtering engines can be used in the future (as requested by Pablo)
-> 
-> Socket charging logic was complicated, since we had to charge/uncharge a socket
-> multiple times while preparing a filter. Simplify it by fully preparing bpf
-> program (through classic->ebpf conversion and JITing) and then charge
-> the socket memory once.
+In e6f30c7 ("netfilter: x_tables: add xt_bpf match"), the internal
+linux/filter.h header slipped through in the user exposed xt_bpf.h
+header as included file.
 
-This includes many changes in one single shot. This needs to be
-splitted in smaller patches that can be reviewed separately, that
-makes it easier to others to follow track and spot things.  On top of
-that, we should also take the time to make sure what is already in
-place is correct, this is a good chance to go over the existing code,
-review it and make small changes to accomodate the generic
-infrastructure that should follow up.
+Fix this by defining struct sk_filter; so we skip the casting in
+kernelspace. This is safe since userspace has no way to lurk with
+that internal pointer.
 
-Now below the more specific comments.
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+@David: This patch is very small and it can probably go into net, but it's
+        quite late for changes in -rc7 probably. Your call :-). Thanks.
 
-> Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
-> ---
-[...]
-> diff --git a/include/linux/filter.h b/include/linux/filter.h
-> index 20dd50ef7271..448fdd193cdf 100644
-> --- a/include/linux/filter.h
-> +++ b/include/linux/filter.h
-> @@ -296,7 +296,7 @@ enum {
->  })
->  
->  /* Macro to invoke filter function. */
-> -#define SK_RUN_FILTER(filter, ctx)  (*filter->bpf_func)(ctx, filter->insnsi)
-> +#define SK_RUN_FILTER(filter, ctx)  (*filter->run)(ctx, filter)
->  
->  struct bpf_insn {
->  	__u8	code;		/* opcode */
-> @@ -323,12 +323,11 @@ struct sk_buff;
->  struct sock;
->  struct seccomp_data;
->  
-> -struct sk_filter {
-> -	atomic_t		refcnt;
-> +struct bpf_prog {
->  	u32			jited:1,	/* Is our filter JIT'ed? */
->  				len:31;		/* Number of filter blocks */
->  	struct sock_fprog_kern	*orig_prog;	/* Original BPF program */
-> -	struct rcu_head		rcu;
-> +	struct rcu_head		rcu;		/* used by 'unattached' progs */
+ include/uapi/linux/netfilter/xt_bpf.h |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-This rcu_head for unattached filters can be avoided, I'll send a
-follow up patch for this. After that patch, refcnt and rcu_head can go
-out from bpf_prog.
-
-> -#define sk_filter_proglen(fprog)			\
-> -		(fprog->len * sizeof(fprog->filter[0]))
-> +struct sk_filter {
-> +	atomic_t refcnt;
-> +	struct rcu_head rcu;
-> +	u32 filter_size;
-> +	union {
-> +		struct bpf_prog *prog;
-> +	};
-> +	void (*release)(struct sk_filter *fp);
-> +	int (*get_filter)(struct sk_filter *fp, void **prog, unsigned int *len);
-> +	unsigned int (*run)(const struct sk_buff *skb, struct sk_filter *fp);
-
-I don't think this is the right moment to add this, but we have to
-keep in mind that something similar to this will need to be
-accomodated in struct sk_filter at some point to avoid sloppy changes
-that may result in reintroducing code later on.
-
-Next step should be to wrap the specific bpf fields in struct
-bpf_prog in some clean way IMO, which was partially the aim of this
-patch.
-
-Thanks.
+diff --git a/include/uapi/linux/netfilter/xt_bpf.h b/include/uapi/linux/netfilter/xt_bpf.h
+index 5dda450..93fca65 100644
+--- a/include/uapi/linux/netfilter/xt_bpf.h
++++ b/include/uapi/linux/netfilter/xt_bpf.h
+@@ -1,11 +1,12 @@
+ #ifndef _XT_BPF_H
+ #define _XT_BPF_H
+ 
+-#include <linux/filter.h>
+ #include <linux/types.h>
+ 
+ #define XT_BPF_MAX_NUM_INSTR	64
+ 
++struct sk_filter;
++
+ struct xt_bpf_info {
+ 	__u16 bpf_program_num_elem;
+ 	struct sock_filter bpf_program[XT_BPF_MAX_NUM_INSTR];
+-- 
+1.7.10.4
