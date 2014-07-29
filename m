@@ -1,45 +1,64 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] net: ethernet: intel: ixgbe: ixgbe_main.c:  Cleaning up
- missing null-terminate in conjunction with strncpy
-Date: Mon, 28 Jul 2014 08:39:35 -0700
-Message-ID: <20140728083935.6f4b77c1@samsung-9>
-References: <1406384676-2606-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+From: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Subject: Re: [PATCH] ixgbe: remove useless bd_number from
+	adapter struct
+Date: Tue, 29 Jul 2014 02:51:25 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B73366373@ORSMSX104.amr.corp.intel.com>
+References: <1406533278-27979-1-git-send-email-ethan.zhao@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Alex Duyck <alexander.h.duyck@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Mitch Williams <mitch.a.williams@intel.com>,
-	Linux NICS <linux.nics@intel.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:65022 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751730AbaG2CkQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2014 22:40:16 -0400
-Received: by mail-pa0-f54.google.com with SMTP id fa1so11403086pad.41
-        for <netdev@vger.kernel.org>; Mon, 28 Jul 2014 19:40:15 -0700 (PDT)
-In-Reply-To: <1406384676-2606-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"ethan.kernel@gmail.com" <ethan.kernel@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Linux NICS <Linux-nics@isotope.jf.intel.com>
+To: Ethan Zhao <ethan.zhao@oracle.com>, "Kirsher, Jeffrey T"
+	<jeffrey.t.kirsher@intel.com>, "Brandeburg, Jesse"
+	<jesse.brandeburg@intel.com>, "Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>, "Skidmore, Donald C"
+	<donald.c.skidmore@intel.com>, "Rose,
+	Gregory V" <gregory.v.rose@intel.com>,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>, "Ronciak, John"
+	<john.ronciak@intel.com>, "Williams, Mitch A" <mitch.a.williams@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1406533278-27979-1-git-send-email-ethan.zhao@oracle.com>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Sat, 26 Jul 2014 16:24:36 +0200
-Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se> wrote:
-
-> Replacing strncpy with strlcpy to avoid strings that lacks null terminate.
+> From: linux-kernel-owner@vger.kernel.org [mailto:linux-kernel-
+> owner@vger.kernel.org] On Behalf Of Ethan Zhao
+> Sent: Monday, July 28, 2014 12:41 AM
+> To: Kirsher, Jeffrey T; Brandeburg, Jesse; Allan, Bruce W; Wyborny,
+> Carolyn; Skidmore, Donald C; Rose, Gregory V; Duyck, Alexander H; Ronciak,
+> John; Williams, Mitch A
+> Cc: Linux NICS; e1000-devel@lists.sourceforge.net; netdev@vger.kernel.org;
+> linux-kernel@vger.kernel.org; ethan.kernel@gmail.com; Ethan Zhao
+> Subject: [PATCH] ixgbe: remove useless bd_number from adapter struct
 > 
-> Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-> ---
-			   hw->mac.type, hw->phy.type, hw->phy.sfp_type,
+> Because bd_number is not useful anymore, so remove it from adapter struct,
+> or
+> if keep it, we have to fix the boards driven counter bug in ixgbe_remove()
+> and
+> ixgbe_probe() only for trival debug purpose -- other output is enough.
 
-This patch doesn't change anything.
-Netdev is already zeroed when allocated therefore doing strncpy() guarantees
-it will be null terminated.
+Thanks Ethan, I (briefly covering for Jeff Kirsher) have added this patch and your other one ofr ixgbevf to Jeff's internal tree.
+
+------------------------------------------------------------------------------
+Infragistics Professional
+Build stunning WinForms apps today!
+Reboot your WinForms applications with our WinForms controls. 
+Build a bridge from your legacy apps to the future.
+http://pubads.g.doubleclick.net/gampad/clk?id=153845071&iu=/4140/ostg.clktrk
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
