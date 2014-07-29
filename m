@@ -1,65 +1,48 @@
-From: Vince Bridgers <vbridgers2013@gmail.com>
-Subject: [PATCH net v3 3/6] dts: Add bindings for multicast hash bins and perfect filter entries
-Date: Tue, 29 Jul 2014 17:06:44 -0500
-Message-ID: <1406671607-27368-4-git-send-email-vbridgers2013@gmail.com>
-References: <1406671607-27368-1-git-send-email-vbridgers2013@gmail.com>
-Cc: dinguyen@altera.com, davem@davemloft.net, vbridgers2013@gmail.com,
-	vbridger@altera.com
-To: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-	peppe.cavallaro@st.com, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	linux@arm.linux.org.uk, linux-arm-kernel@lists.infradead.org,
-	robh+dt@kernel.org
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [net-next 11/12] e1000e: Fix EEE in S5 w/ Runtime PM enabled
+Date: Wed, 30 Jul 2014 00:11:23 +0200
+Message-ID: <20140729221123.GA31298@electric-eye.fr.zoreil.com>
+References: <1406349922-9883-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1406349922-9883-12-git-send-email-jeffrey.t.kirsher@intel.com>
+ <20140726151005.GA20445@electric-eye.fr.zoreil.com>
+ <2B0E3F215D1AB84DA946C8BEE234CCC9371476BC@ORSMSX104.amr.corp.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"nhorman@redhat.com" <nhorman@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"Wysocki, Rafael J" <rafael.j.wysocki@intel.com>
+To: "Ertman, David M" <david.m.ertman@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:60987 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751203AbaG2WKg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2014 18:10:36 -0400
-In-Reply-To: <1406671607-27368-1-git-send-email-vbridgers2013@gmail.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:52567 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751758AbaG2WLf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2014 18:11:35 -0400
+Content-Disposition: inline
+In-Reply-To: <2B0E3F215D1AB84DA946C8BEE234CCC9371476BC@ORSMSX104.amr.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This change adds bindings for the number of multicast hash bins and perfect
-filter entries supported by the Synopsys EMAC. The Synopsys EMAC core is
-configurable at device creation time, and can be configured for a different
-number of multicast hash bins and a different number of perfect filter
-entries. The device does not provide a way to query these parameters,
-therefore parameters are required. The Altera Cyclone V SOC has support for
-256 multicast hash bins and 128 perfect filter entries, and is different
-than what's currently provided in the stmmac driver.
+Ertman, David M <david.m.ertman@intel.com> :
+[...]
 
-Signed-off-by: Vince Bridgers <vbridgers2013@gmail.com>
-Acked-by: Rob Herring <robh@kernel.org>
----
-V3: No changes
-V2: No changes
----
- Documentation/devicetree/bindings/net/stmmac.txt |    6 ++++++
- 1 file changed, 6 insertions(+)
+Thanks for the explanation.
 
-diff --git a/Documentation/devicetree/bindings/net/stmmac.txt b/Documentation/devicetree/bindings/net/stmmac.txt
-index a2acd2b..9b03c57 100644
---- a/Documentation/devicetree/bindings/net/stmmac.txt
-+++ b/Documentation/devicetree/bindings/net/stmmac.txt
-@@ -25,6 +25,10 @@ Required properties:
- - snps,force_sf_dma_mode	Force DMA to use the Store and Forward
- 				mode for both tx and rx. This flag is
- 				ignored if force_thresh_dma_mode is set.
-+- snps,multicast-filter-bins:	Number of multicast filter hash bins
-+				supported by this device instance
-+- snps,perfect-filter-entries:	Number of perfect filter entries supported
-+				by this device instance
- 
- Optional properties:
- - resets: Should contain a phandle to the STMMAC reset signal, if any
-@@ -47,6 +51,8 @@ Examples:
- 		mac-address = [000000000000]; /* Filled in by U-Boot */
- 		max-frame-size = <3800>;
- 		phy-mode = "gmii";
-+		snps,multicast-filter-bins = <256>;
-+		snps,perfect-filter-entries = <128>;
- 		clocks = <&clock>;
- 		clock-names = "stmmaceth">;
- 	};
--- 
-1.7.9.5
+[...]
+> According to Documentation/power/runtime_pm.txt and
+> Documentation/power/pci.txt, the idle call-back is the correct place to
+> put the check for applicability, and initiation, of a runtime suspend
+> event. The duplication of effort between watchdog and runtime_idle is
+> something that I need to explore. There are flow issues involved that will
+> take some unraveling to fully evaluate.
+
+I agree (almost: s/the correct place/a correct place/).
+
+Rafael's e4fbce740f078bbc925ba5c86648d9c883968479 illustrated the shrinking
+idle callback. It nicely trimmed some complexity between runtime PM and the
+relevant driver. It may be of use.
+
+--
+Ueimor
