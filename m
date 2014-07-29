@@ -1,49 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/8] Backport to stable-3.4 for fix CVE-2014-0181
-Date: Mon, 28 Jul 2014 17:14:01 -0700 (PDT)
-Message-ID: <20140728.171401.1506592562551382302.davem@davemloft.net>
-References: <1406276549-6616-1-git-send-email-wangyufen@huawei.com>
+Subject: Re: net: socket: NULL ptr deref in sendmsg
+Date: Mon, 28 Jul 2014 17:19:00 -0700 (PDT)
+Message-ID: <20140728.171900.1527499085392907198.davem@davemloft.net>
+References: <1406326508.13203.10.camel@localhost>
+	<CAPAsAGwc7B2rB+3wTHkL97B5eDchbcuhfkKef56ARCy2CxCGuQ@mail.gmail.com>
+	<1406390080.22881.75.camel@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: wangyufen@huawei.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34764 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751890AbaG2AOC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 28 Jul 2014 20:14:02 -0400
-In-Reply-To: <1406276549-6616-1-git-send-email-wangyufen@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ryabinin.a.a@gmail.com, a.ryabinin@samsung.com,
+	sasha.levin@oracle.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, davej@redhat.com, edumazet@google.com
+To: hannes@stressinduktion.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1406390080.22881.75.camel@localhost>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wangyufen <wangyufen@huawei.com>
-Date: Fri, 25 Jul 2014 16:22:21 +0800
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Sat, 26 Jul 2014 17:54:40 +0200
 
-> From: Wang Yufen <wangyufen@huawei.com>
-> 
-> Hi David,
-> 
-> This backport fix CVE-2014-0181 which would still be vulnerable in
-> stable-3.4, please add it.
-> 
-> patchset from 5187cd055b6e to 90f62cf30a78 fixed CVE-2014-0181,
-> which can't backport to stable-3.4 directly, 
-> 
-> Those three patches are needed:
-> commit 935d8aabd4331f47a89c3e1daa5779d23cf244ee 
-> commit 038e7332b8d4c0629a2965e3ede1a92e8e427bd6
-> commit 3fbc290540a1ed1a8a076ed8f53bee7a38a9f408 
-> 
-> and this patch is unneeded:
-> commit a53b72c83a4216f2eb883ed45a0cbce014b8e62d
-> 
-> v2:
-> 1) Add the patch:
->    commit 2d7a85f4b06e9c27ff629f07a524c48074f07f81
->    which fixes this series to not break applications like Zebra.
-> 
-> 2) Change the From: to the original author.
+> On Sa, 2014-07-26 at 19:48 +0400, Andrey Ryabinin wrote:
+>> 2014-07-26 2:15 GMT+04:00 Hannes Frederic Sowa <hannes@stressinduktion.org>:
+>> > Otherwise I would just set msg_namelen = 0, too, and just not handle
+>> > passed in NULL pointers to sockaddrs.
+>> >
+>> 
+>> I like that, how about such chage:
+ ...
+> LGTM! Can you send a patch?
 
-This looks better, I've queued this series up and will submit it to
--stable soon.
+I definitely agree that we should treat NULL as no address specified.
