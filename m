@@ -1,60 +1,82 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] svcrdma: delete double assignment
-Date: Tue, 29 Jul 2014 15:50:50 -0700 (PDT)
-Message-ID: <20140729.155050.311148635959938226.davem@davemloft.net>
-References: <20140728152938.GA3040@himangi-Dell>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH v2 1/2] rcar_can: document device tree bindings
+Date: Wed, 30 Jul 2014 02:51:08 +0400
+Message-ID: <201407300251.09436.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, julia.lawall-L2FTfq7BK8M@public.gmane.org
-To: himangi774-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140728152938.GA3040@himangi-Dell>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: netdev@vger.kernel.org, wg@grandegger.com, mkl@pengutronix.de,
+	linux-can@vger.kernel.org, linux-sh@vger.kernel.org,
+	vksavl@gmail.com
+To: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	devicetree@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Himangi Saraogi <himangi774-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Mon, 28 Jul 2014 20:59:38 +0530
+Document the R-Car CAN device tree bindings.
 
-> Delete successive assignments to the same location.
-> 
-> A simplified version of Coccinelle semantic match that finds this problem is as
-> follows:
-> 
-> // <smpl>
-> @@
-> expression i;
-> @@
-> 
-> *i = ...;
->  i = ...;
-> // </smpl>
-> 
-> Signed-off-by: Himangi Saraogi <himangi774-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-I am not so sure about this change either.
+---
+The patch is against the 'linux-can-next.git' repo.
 
-> @@ -956,7 +956,6 @@ static struct svc_xprt *svc_rdma_accept(struct svc_xprt *xprt)
->  			dprintk("svcrdma: failed to create QP, ret=%d\n", ret);
->  			goto errout;
->  		}
-> -		newxprt->sc_max_sge = qp_attr.cap.max_send_sge;
->  		newxprt->sc_max_sge = qp_attr.cap.max_recv_sge;
->  		newxprt->sc_sq_depth = qp_attr.cap.max_send_wr;
->  		newxprt->sc_max_requests = qp_attr.cap.max_recv_wr;
+Changes in version 2:
+- new patch, split from the driver's device tree support patch;
+- adjusted "clocks" property to refer to 3 clocks instead of 1;
+- added mandatory "clock-names" property;
+- renamed the "clock-select" property to "renesas,can-clock-select".
 
-->sc_max_sge is used to limit the number of segments used during sends,
-currently in this code.  Grep for where it is used.
+ Documentation/devicetree/bindings/net/can/rcar_can.txt |   43 +++++++++++++++++
+ 1 file changed, 43 insertions(+)
 
-Therefore, if anything, the correct thing to do would be to retain the
-first line rather than the second line.
-
-Someone who actually works on this code and understands it should
-really take a close look at this before anyone even thinks about
-applying this patch.
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Index: linux-can-next/Documentation/devicetree/bindings/net/can/rcar_can.txt
+===================================================================
+--- /dev/null
++++ linux-can-next/Documentation/devicetree/bindings/net/can/rcar_can.txt
+@@ -0,0 +1,43 @@
++Renesas R-Car CAN controller Device Tree Bindings
++-------------------------------------------------
++
++Required properties:
++- compatible: "renesas,can-r8a7778" if CAN controller is a part of R8A7778 SoC.
++	      "renesas,can-r8a7779" if CAN controller is a part of R8A7779 SoC.
++	      "renesas,can-r8a7790" if CAN controller is a part of R8A7790 SoC.
++	      "renesas,can-r8a7791" if CAN controller is a part of R8A7791 SoC.
++- reg: physical base address and size of the R-Car CAN register map.
++- interrupts: interrupt specifier for the sole interrupt.
++- clocks: phandles and clock specifiers for 3 CAN clock inputs.
++- clock-names: 3 clock input name strings: "clkp1", "clkp2", "can_clk".
++- pinctrl-0: pin control group to be used for this controller.
++- pinctrl-names: must be "default".
++
++Optional properties:
++- renesas,can-clock-select: R-Car CAN Clock Source Select. Valid values are:
++			    <0x0> (default) : Peripheral clock (clkp1)
++			    <0x1> : Peripheral clock (clkp2)
++			    <0x3> : Externally input clock
++
++Example
++-------
++
++SoC common .dtsi file:
++
++	can0: can@e6e80000 {
++		compatible = "renesas,can-r8a7791";
++		reg = <0 0xe6e80000 0 0x1000>;
++		interrupts = <0 186 IRQ_TYPE_LEVEL_HIGH>;
++		clocks = <&mstp9_clks R8A7791_CLK_RCAN0>,
++		       	 <&cpg_clocks R8A7791_CLK_RCAN>, <&can_clk>;
++		clock-names = "clkp1", "clkp2", "can_clk";
++		status = "disabled";
++	};
++
++Board specific .dts file:
++
++&can0 {
++	pinctrl-0 = <&can0_pins>;
++	pinctrl-names = "default";
++	status = "okay";
++};
