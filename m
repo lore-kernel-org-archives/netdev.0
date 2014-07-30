@@ -1,59 +1,114 @@
-From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
-Subject: Re: [PATCH v2 2/4] driver core: enable drivers to use deferred probefrom init
-Date: Wed, 30 Jul 2014 11:22:14 +0900
-Message-ID: <201407300222.s6U2MElj035655@www262.sakura.ne.jp>
-References: <20140728234644.GA18729@kroah.com> <CAB=NE6UzK1ZEzm+54dwSyPwHGrAWCPtiNtxwhQuJF6tM9NbnYw@mail.gmail.com> <20140729003501.GA17020@kroah.com> <CAB=NE6XMzU+zJ0RMDKaPuSxfXBvN2vZ1DnbgxCjWHJquTD1iqg@mail.gmail.com> <53D744E3.10500@suse.de> <201407292107.EGB64066.OOQMFSHLJVtFFO@I-love.SAKURA.ne.jp> <20140729222529.GC21140@f1.synalogic.ca> <20140730001434.GS21930@wotan.suse.de>
+From: Alex Gartrell <agartrell@fb.com>
+Subject: Re: [RFC] GSO: Questions for IPVS and GSO for IPv6
+Date: Tue, 29 Jul 2014 20:15:37 -0700
+Message-ID: <53D86359.2000604@fb.com>
+References: <alpine.LFD.2.11.1407270957400.2036@ja.home.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-2022-JP"
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: hare@suse.de, gregkh@linuxfoundation.org, santosh@chelsio.com,
-	hariprasad@chelsio.com, tiwai@suse.de,
-	linux-kernel@vger.kernel.org, joseph.salisbury@canonical.com,
-	kay@vrfy.org, gnomes@lxorguk.ukuu.org.uk,
-	tim.gardner@canonical.com, pierre-fersing@pierref.org,
-	akpm@linux-foundation.org, oleg@redhat.com,
-	nagalakshmi.nandigama@avagotech.com,
-	praveen.krishnamoorthy@avagotech.com,
-	sreekanth.reddy@avagotech.com, abhijit.mahajan@avagotech.com,
-	MPT-FusionLinux.pdl@avagotech.com, linux-scsi@vger.kernel.org,
-	netdev@vger.kernel.org, bpoirier@suse.de
-To: mcgrof@suse.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140730001434.GS21930@wotan.suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: <lvs-devel@vger.kernel.org>, kernel-team <Kernel-team@fb.com>
+To: Julian Anastasov <ja@ssi.bg>, <netdev@vger.kernel.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.11.1407270957400.2036@ja.home.ssi.bg>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Luis R. Rodriguez wrote:
-> Tetsuo is it possible / desirable to allow tasks to not kill unless the
-> reason is OOM ? Its unclear if this was discussed before, sorry if it was,
-> have just been a bit busy today to review the archive / discussions on this.
+Thanks for putting this up Julian.  As a meta-point, working with 
+upstream isn't necessarily something that has come easily or obviously 
+to us corporate shills at Internet companies, but it's pretty obvious at 
+this point that it was foolish for us to go it alone :)
 
-Are we aware that the 10 seconds timeout after SIGKILL is not the duration
-between the beginning of module loading and the end of kthread_create() but
-the duration to wait for kthreadd to create a new kernel thread?
+> [PATCH net] ipvs: properly declare tunnel encapsulation
+>
+> The tunneling method should properly use tunnel encapsulation.
+> Fixes problem with CHECKSUM_PARTIAL packets when TCP/UDP csum
+> offload is supported.
+>
+> Thanks to Alex Gartrell for reporting the problem, providing
+> solution and for all suggestions.
+>
+> Reported-by: Alex Gartrell <agartrell@fb.com>
+> TODO: waiting for final ack from Alex before adding Signed-off-by line
 
-If the kthreadd is unable to create a new kernel thread within 10 seconds,
-something very bad is happening. For example, memory allocation deadlock
-sequence shown below might be happening.
+nit-picky comments below, but this looks good to me.
 
- (1) process1 holds a mutex using mutex_lock().
- (2) process1 calls kthread_create() and enters into killable wait state
-     at wait_for_completion_killable().
- (3) kthreadd calls kernel_thread() and enters into oom-killable busy loop
-     due to out of memory at alloc_pages_nodemask().
- (4) process2 is chosen by the OOM killer, but process2 is unable to
-     terminate because process2 is waiting in unkillable state at
-     mutex_lock() which was held by process1 at (1).
- (5) kthreadd continues busy loop because process2 does not release memory
-     and the OOM killer does not kill more processes.
- (6) process1 continues waiting in oom-killable state because process1 is
-     not chosen by the OOM killer.
+> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> ---
+>   net/netfilter/ipvs/ip_vs_xmit.c | 20 ++++++++++++++++----
+>   1 file changed, 16 insertions(+), 4 deletions(-)
+>
+> diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
+> index 73ba1cc..8c1172c 100644
+> --- a/net/netfilter/ipvs/ip_vs_xmit.c
+> +++ b/net/netfilter/ipvs/ip_vs_xmit.c
+> @@ -38,6 +38,7 @@
+>   #include <net/route.h>                  /* for ip_route_output */
+>   #include <net/ipv6.h>
+>   #include <net/ip6_route.h>
+> +#include <net/ip_tunnels.h>
+>   #include <net/addrconf.h>
+>   #include <linux/icmpv6.h>
+>   #include <linux/netfilter.h>
+> @@ -862,14 +863,19 @@ ip_vs_tunnel_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
+>   		old_iph = ip_hdr(skb);
+>   	}
+>
+> -	skb->transport_header = skb->network_header;
+> -
+>   	/* fix old IP header checksum */
+>   	ip_send_check(old_iph);
+>
+> +	skb = iptunnel_handle_offloads(skb, false, SKB_GSO_IPIP);
+> +	if (IS_ERR(skb))
+> +		goto tx_error;
+> +
+> +	skb->transport_header = skb->network_header;
+> +
+>   	skb_push(skb, sizeof(struct iphdr));
+>   	skb_reset_network_header(skb);
+>   	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
+> +	skb_clear_hash(skb);
 
-See? The system will remain unresponding unless somebody releases memory
-that is enough for kthreadd to complete. We cannot teach process1 that
-process1 needs to give up waiting for kthreadd and call mutex_unlock()
-in order to allow process2 to terminate. Also, we cannot teach the OOM
-killer that process1 needs to be oom-killed after process2 is oom-killed.
+We need this in ipv4 but not in ipv6?
 
-Making the 10 seconds timeout after SIGKILL longer is safe.
-Changing it to no-timeout-unless-oom-killed is unsafe.
+>
+>   	/*
+>   	 *	Push down and install the IPIP header.
+> @@ -900,7 +906,8 @@ ip_vs_tunnel_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
+>   	return NF_STOLEN;
+>
+>     tx_error:
+> -	kfree_skb(skb);
+> +	if (!IS_ERR(skb))
+> +		kfree_skb(skb);
+>   	rcu_read_unlock();
+>   	LeaveFunction(10);
+>   	return NF_STOLEN;
+> @@ -953,6 +960,10 @@ ip_vs_tunnel_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+>   		old_iph = ipv6_hdr(skb);
+>   	}
+>
+> +	skb = iptunnel_handle_offloads(skb, false, SKB_GSO_SIT);
+
+It sounds like this is going to take a fair amount of work.  Can we set 
+gso_type_mask to 0 with a scary comment and push it as a fix and then do 
+the right thing as a feature for a future release?
+
+> +	if (IS_ERR(skb))
+> +		goto tx_error;
+> +
+>   	skb->transport_header = skb->network_header;
+>
+>   	skb_push(skb, sizeof(struct ipv6hdr));
+> @@ -988,7 +999,8 @@ ip_vs_tunnel_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
+>   	return NF_STOLEN;
+>
+>   tx_error:
+> -	kfree_skb(skb);
+> +	if (!IS_ERR(skb))
+> +		kfree_skb(skb);
+>   	rcu_read_unlock();
+>   	LeaveFunction(10);
+>   	return NF_STOLEN;
+>
+
