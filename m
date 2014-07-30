@@ -1,114 +1,46 @@
-From: Alex Gartrell <agartrell@fb.com>
-Subject: Re: [RFC] GSO: Questions for IPVS and GSO for IPv6
-Date: Tue, 29 Jul 2014 20:15:37 -0700
-Message-ID: <53D86359.2000604@fb.com>
-References: <alpine.LFD.2.11.1407270957400.2036@ja.home.ssi.bg>
+From: "Mr.Emmanuel Mancon" <fundacja@zobaczycswiat.pl>
+Subject: Darlehen Angebot
+Date: Wed, 30 Jul 2014 03:37:38 +0000 (UTC)
+Message-ID: <20140730032932.D15B4115BF31@zobaczycss.nazwa.pl>
+Reply-To: vancityfinancefirm@qq.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <lvs-devel@vger.kernel.org>, kernel-team <Kernel-team@fb.com>
-To: Julian Anastasov <ja@ssi.bg>, <netdev@vger.kernel.org>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LFD.2.11.1407270957400.2036@ja.home.ssi.bg>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Recipients <fundacja@zobaczycswiat.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from amu139.rev.netart.pl ([85.128.203.139]:35190 "EHLO
+	amu139.rev.netart.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754738AbaG3DhN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2014 23:37:13 -0400
+Content-Description: Mail message body
+Date: Thu, 31 Jul 2014 04:31:19 -0700
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thanks for putting this up Julian.  As a meta-point, working with 
-upstream isn't necessarily something that has come easily or obviously 
-to us corporate shills at Internet companies, but it's pretty obvious at 
-this point that it was foolish for us to go it alone :)
+Haben Sie einen Kredit?
 
-> [PATCH net] ipvs: properly declare tunnel encapsulation
->
-> The tunneling method should properly use tunnel encapsulation.
-> Fixes problem with CHECKSUM_PARTIAL packets when TCP/UDP csum
-> offload is supported.
->
-> Thanks to Alex Gartrell for reporting the problem, providing
-> solution and for all suggestions.
->
-> Reported-by: Alex Gartrell <agartrell@fb.com>
-> TODO: waiting for final ack from Alex before adding Signed-off-by line
+Wir machen alle Arten von Krediten f=FCr Privatpersonen und Unternehmen
+jede Art von Darlehen, die Sie Kredite an Unternehmen ben=F6tigen,
+Steuerzahlungen und so. Wir bieten die besten von Krediten an unsere
+Kunden, die mit einer Rate von 3%, und die R=FCckzahlung der Darlehen a=
+uf
+=46ragte der Kunde beginnt nach sechs Monaten nach Erhalt des
+Loan Sie versuchen, und kontaktieren Sie uns noch heute und wir
+verspricht, das beste zu geben.
 
-nit-picky comments below, but this looks good to me.
+Wenn Sie Interesse an unseren Dienstleistungen Darlehen sind
+bitte kontaktieren Sie uns und komplette Programm Details unten: Die
+Dienstleistungen reichen von einem Minimum von 5.000,00 EURO / CHF-und
+Ein Maximum von 10.000.000,00 EUR / CHF bei 3% Zins.
 
-> Signed-off-by: Julian Anastasov <ja@ssi.bg>
-> ---
->   net/netfilter/ipvs/ip_vs_xmit.c | 20 ++++++++++++++++----
->   1 file changed, 16 insertions(+), 4 deletions(-)
->
-> diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
-> index 73ba1cc..8c1172c 100644
-> --- a/net/netfilter/ipvs/ip_vs_xmit.c
-> +++ b/net/netfilter/ipvs/ip_vs_xmit.c
-> @@ -38,6 +38,7 @@
->   #include <net/route.h>                  /* for ip_route_output */
->   #include <net/ipv6.h>
->   #include <net/ip6_route.h>
-> +#include <net/ip_tunnels.h>
->   #include <net/addrconf.h>
->   #include <linux/icmpv6.h>
->   #include <linux/netfilter.h>
-> @@ -862,14 +863,19 @@ ip_vs_tunnel_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
->   		old_iph = ip_hdr(skb);
->   	}
->
-> -	skb->transport_header = skb->network_header;
-> -
->   	/* fix old IP header checksum */
->   	ip_send_check(old_iph);
->
-> +	skb = iptunnel_handle_offloads(skb, false, SKB_GSO_IPIP);
-> +	if (IS_ERR(skb))
-> +		goto tx_error;
-> +
-> +	skb->transport_header = skb->network_header;
-> +
->   	skb_push(skb, sizeof(struct iphdr));
->   	skb_reset_network_header(skb);
->   	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
-> +	skb_clear_hash(skb);
+Vollst=E4ndiger Name:
+Land:
+Darlehensbetrag:
+Dauer der Ausleihe:
+Telefon:
+Geschlecht:
+Adresse:
 
-We need this in ipv4 but not in ipv6?
+Wir warten auf Antworten f=FCr weitere Informationen.
 
->
->   	/*
->   	 *	Push down and install the IPIP header.
-> @@ -900,7 +906,8 @@ ip_vs_tunnel_xmit(struct sk_buff *skb, struct ip_vs_conn *cp,
->   	return NF_STOLEN;
->
->     tx_error:
-> -	kfree_skb(skb);
-> +	if (!IS_ERR(skb))
-> +		kfree_skb(skb);
->   	rcu_read_unlock();
->   	LeaveFunction(10);
->   	return NF_STOLEN;
-> @@ -953,6 +960,10 @@ ip_vs_tunnel_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
->   		old_iph = ipv6_hdr(skb);
->   	}
->
-> +	skb = iptunnel_handle_offloads(skb, false, SKB_GSO_SIT);
-
-It sounds like this is going to take a fair amount of work.  Can we set 
-gso_type_mask to 0 with a scary comment and push it as a fix and then do 
-the right thing as a feature for a future release?
-
-> +	if (IS_ERR(skb))
-> +		goto tx_error;
-> +
->   	skb->transport_header = skb->network_header;
->
->   	skb_push(skb, sizeof(struct ipv6hdr));
-> @@ -988,7 +999,8 @@ ip_vs_tunnel_xmit_v6(struct sk_buff *skb, struct ip_vs_conn *cp,
->   	return NF_STOLEN;
->
->   tx_error:
-> -	kfree_skb(skb);
-> +	if (!IS_ERR(skb))
-> +		kfree_skb(skb);
->   	rcu_read_unlock();
->   	LeaveFunction(10);
->   	return NF_STOLEN;
->
-
+Mit freundlichen Gr=FC=DFen,
