@@ -1,43 +1,102 @@
-From: Debabrata Banerjee <dbanerje@akamai.com>
-Subject: [PATCH v2] tcp: don't require root to read tcp_metrics
-Date: Wed, 30 Jul 2014 13:50:17 -0400
-Message-ID: <1406742617-10556-1-git-send-email-dbanerje@akamai.com>
-References: <53D92D92.4090403@cogentembedded.com>
-Cc: Debabrata Banerjee <dbanerje@akamai.com>,
-	Julian Anastasov <ja@ssi.bg>, linux-kernel@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <53D92D92.4090403@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next] ipv6: addrconf: fix mcast route for GRE devices
+Date: Wed, 30 Jul 2014 20:03:00 +0200
+Message-ID: <1406743380.1228508.147383982.0ACFF791@webmail.messagingengine.com>
+References: <1406681743-104844-1-git-send-email-equinox@diac24.net>
+ <1406733282.5122.12.camel@localhost>
+ <20140730153503.GJ801478@jupiter.n2.diac24.net>
+ <1406736567.6757.14.camel@localhost>
+ <20140730163140.GL801478@jupiter.n2.diac24.net>
+ <1406739141.6757.22.camel@localhost>
+ <20140730173544.GM801478@jupiter.n2.diac24.net>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: David Lamparter <equinox@diac24.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:59454 "EHLO
+	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755258AbaG3SDC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2014 14:03:02 -0400
+Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
+	by gateway1.nyi.internal (Postfix) with ESMTP id 1BB9B24BE0
+	for <netdev@vger.kernel.org>; Wed, 30 Jul 2014 14:03:01 -0400 (EDT)
+In-Reply-To: <20140730173544.GM801478@jupiter.n2.diac24.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-commit d23ff7016 (tcp: add generic netlink support for tcp_metrics) introduced
-netlink support for the new tcp_metrics, however it restricted getting of
-tcp_metrics to root user only. This is a change from how these values could
-have been fetched when in the old route cache. Unless there's a legitimate
-reason to restrict the reading of these values it would be better if normal
-users could fetch them.
+On Wed, Jul 30, 2014, at 19:35, David Lamparter wrote:
+> On Wed, Jul 30, 2014 at 06:52:21PM +0200, Hannes Frederic Sowa wrote:
+> > On Mi, 2014-07-30 at 18:31 +0200, David Lamparter wrote:
+> > > On Wed, Jul 30, 2014 at 06:09:27PM +0200, Hannes Frederic Sowa wrote:
+> > > [cut]
+> > > > > On Wed, Jul 30, 2014 at 05:14:42PM +0200, Hannes Frederic Sowa wrote:
+> > > > > > On Mi, 2014-07-30 at 02:55 +0200, David Lamparter wrote:
+> > > > > > > GRE devices, for some reason, were coming up with an autoconfigured
+> > > > > > > address, but no ff00::/8 route in the local table.  This breaks any kind
+> > > > > > > of multicast, in particular OSPFv3, mDNS, - and ND.  In fact, IPv6 only
+> > > > > > > works at all because there is little need for ND on PtP devices.
+> > > > > > > 
+> > > > > > > Adding any other IPv6 address on the device would rectify this issue
+> > > > > > > through inet6_addr_add()/addrconf_add_dev() - and would leave the route
+> > > > > > > around even if the address was later removed.  (This is probably why
+> > > > > > > this issue was not discovered earlier.  AFAICS it has been there from
+> > > > > > > the beginning, e.g. aee80b5 "generate link local address for GRE
+> > > > > > > tunnel")
+> > > > > > 
+> > > > > > Yep, this is poor, but changing this will break user space...
+> > > > > 
+> > > > > How exactly will this break user space?
+> > > > 
+> > > > Because the multicast routes will always be restored after e.g. a route
+> > > > flush or manual route deletion. Scripts might depend on this.
+> > > 
+> > > Sorry, I still don't get it.  Without this patch you end up in an
+> > > inconsistent state, where a LL addr exists, but multicast doesn't work
+> > > (since ff00::/8 is missing from RT6_TABLE_LOCAL).
+> > 
+> > Sure, people can remove addresses and routes at will.
+> 
+> That's not the point.
+> 
+> user manually adds address on any if: ff00::/8 added.
+> kernel link-up autoconf addr on !gre: ff00::/8 added.
+> kernel link-up autoconf addr on gre:  no ff00::/8.
 
-Cc: Julian Anastasov <ja@ssi.bg>
-Cc: linux-kernel@vger.kernel.org
+Ah sorry, I am ok with your patch that we generate a ff00::/8 multicast
+route if we set a gre interface up. Getting rid of the logic, that we
+try to add the ff00::/8 on every addition of an address to an interface
+would be a change which concerns because of backward compatibility
+reasons.
 
-Signed-off-by: Debabrata Banerjee <dbanerje@akamai.com>
----
- net/ipv4/tcp_metrics.c | 1 -
- 1 file changed, 1 deletion(-)
+Especially this also creates multicast routes on sit-non-ptp/isatap
+routes, which actually don't need one.
 
-diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
-index 4fe0418..0d54e59 100644
---- a/net/ipv4/tcp_metrics.c
-+++ b/net/ipv4/tcp_metrics.c
-@@ -1093,7 +1093,6 @@ static const struct genl_ops tcp_metrics_nl_ops[] = {
- 		.doit = tcp_metrics_nl_cmd_get,
- 		.dumpit = tcp_metrics_nl_dump,
- 		.policy = tcp_metrics_nl_policy,
--		.flags = GENL_ADMIN_PERM,
- 	},
- 	{
- 		.cmd = TCP_METRICS_CMD_DEL,
--- 
-2.0.3
+> This is about automatic kernel behaviour in device up/change
+> notifications.  The user can always shoot himself in the foot.  This is
+> the kernel shooting the user in the foot in one particular and quite
+> specific instance and without a request to do so.
+
+Agreed.
+
+> > > Userspace is not supposed to touch RT6_TABLE_LOCAL in general, and, the
+> > > kernel will actually refuse installing the ff00::/8 route into the local
+> > > table from userspace (because there will be other ff00::/8 routes from
+> > > other interfaces, so you get "File exists").  You can delete the route
+> > > (and thus break mcast), but not add it.  The only way to add it is to
+> > > add an address.
+> > 
+> > People really do flush the routing table.
+> 
+> This is RT6_TABLE_LOCAL.  Most people aren't even aware it exists.  And
+> even though I can't find a reference for it, my memory tells me that
+> "table local" is supposed to be under the kernel's authority.
+
+Yep, but still provide ip -6 route flush table all, which also clears
+the local table. And I guess people depend on ff00:: multicast routes
+being inserted as soon as they add addresses.
+
+Bye,
+Hannes
