@@ -1,173 +1,154 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Tue, 29 Jul 2014 16:55:32 -0700 (PDT)
-Message-ID: <20140729.165532.599552078692796545.davem@davemloft.net>
+From: "Luis R. Rodriguez" <mcgrof@suse.com>
+Subject: Re: [PATCH v2 2/4] driver core: enable drivers to use deferred
+	probe from init
+Date: Wed, 30 Jul 2014 02:05:41 +0200
+Message-ID: <20140730000541.GR21930@wotan.suse.de>
+References: <1406572110-26823-1-git-send-email-mcgrof@do-not-panic.com> <1406572110-26823-3-git-send-email-mcgrof@do-not-panic.com> <20140728185538.GB17609@kroah.com> <CAB=NE6VebcR7=UA1n0wNVLr5FFukzq6aW5CkeB3nf5FixV=3cA@mail.gmail.com> <CAB=NE6Xmi2zUCis22q+X8_AKRcwMrAtmx-aqSSvTB70Xjet6VQ@mail.gmail.com> <20140728234644.GA18729@kroah.com> <CAB=NE6UzK1ZEzm+54dwSyPwHGrAWCPtiNtxwhQuJF6tM9NbnYw@mail.gmail.com> <20140729003501.GA17020@kroah.com> <CAB=NE6XMzU+zJ0RMDKaPuSxfXBvN2vZ1DnbgxCjWHJquTD1iqg@mail.gmail.com> <20140729231422.GA14494@kroah.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Santosh Rastapur <santosh@chelsio.com>,
+	Hariprasad S <hariprasad@chelsio.com>,
+	Takashi Iwai <tiwai@suse.de>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
+	Joseph Salisbury <joseph.salisbury@canonical.com>,
+	Kay Sievers <kay@vrfy.org>,
+	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+	Tim Gardner <tim.gardner@canonical.com>,
+	Pierre Fersing <pierre-fersing@pierref.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Oleg Nesterov <oleg@redhat.com>,
+	Benjamin Poirier <bpoirier@suse.de>,
+	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
+	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
+	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
+	Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
+	MPT-FusionLinux.pdl@avagotech.com,
+	Linux SCSI List <linux-scsi@vger.kernel.org>,
+	"netdev@vger.kernel.org
+To: Greg KH <gregkh@linuxfoundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:55128 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750702AbaG3AFr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Jul 2014 20:05:47 -0400
+Content-Disposition: inline
+In-Reply-To: <20140729231422.GA14494@kroah.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Tue, Jul 29, 2014 at 04:14:22PM -0700, Greg KH wrote:
+> On Mon, Jul 28, 2014 at 06:13:43PM -0700, Luis R. Rodriguez wrote:
+> > >> > Why not just put the initial "register the device" in a single-shot
+> > >> > workqueue or thread or something like that so that modprobe returns
+> > >> > instantly back with a success and all is fine?
+> > >>
+> > >> That surely is possible but why not a general solution for such kludges?
+> > >
+> > > Because the driver should be fixed.  How hard would it be to do what I
+> > > just suggested here, 20 lines added at most?
+> > 
+> > I appreciate the feedback, but don't look at me, I'd happy to go nutty
+> > on ripping things apart from hairy drivers, however Chelsie folks
+> > expressed concerns over major rework on the driver... so even if we
+> > did have something I expect things to take a while to bake / gain
+> > confidence from others.
+> 
+> "rework"?  Heh, here's a patch that adds 10 lines to the mptsas driver
+> that should also work for any other driver as well.  Why not just do
+> this instead?
 
-1) Make fragmentation IDs less predictable, from Eric Dumazet.
+That's not a rework, that's a kludge, doing something similar for other
+drivers would be replicating kludges, the deferred probe use was trying
+to generalize a kludge with 3 lines of code. But I'm no not yet convinced
+its the best solution now.
 
-2) TSO tunneling can crash in bnx2x driver, fix from Dmitry Kravkov.
+> > This also just addresses this *one* Ethernet driver, there was that
+> > SCSI driver that created the original report -- Canonical merged
+> > Joseph's fix as a work around,
+> 
+> What fix was that?
 
-3) Don't allow NULL msg->msg_name just because msg->msg_namelen is non-zero,
-   from Andrey Ryabinin.
+https://launchpadlibrarian.net/169714201/kthread-Do-not-leave-kthread_create-immediately.patch
 
-4) ndm->ndm_type set using wrong macros, from Jun Zhao.
+It was reviewed and Oleg preferred the timeout instead be reviewed
+on systemd devel mailing list. That didn't go anywhere but today Hannes
+posted a patch and that got merged. Its still not solving all issues
+though as it lets us override the timeout value, systems / drivers
+can still crash without a long timeout.
 
-5) cdc-ether devices can come up with entries in their address filter,
-   so explicitly clear the filter after the device initializes.  From
-   Oliver Neukum.
+> > there is no general solution for this yet, and again with that work
+> > around you won't find which drivers run into this issue.
+> 
+> Great, fix them as they are found, that's fine. 
 
-6) Forgotten refcount bump in xfrm_lookup(), from Steffen Klassert.
+Are we really OK in letting distributions have to deal with crashes
+because of this new driver 30 second timeout ? I think warning about
+it would be better and more friendlier, no? What gains do we have to
+kill the damn thing?
 
-7) Short packets not padded properly, exposing random data, in bcmgenet
-   driver.  Fix from Florian Fainelli.
+> Again, don't add stuff
+> to the driver core to paper over crappy drivers, I'm not going to take
+> that type of change.  I _only_ took the defer binding code as there was
+> no other way for an individual driver to deal with things if it's
+> resources were not present yet due to binding order in the system.
 
-8) xgbe_probe() doesn't return an error code, but rather zero, when
-   netif_set_real_num_tx_queues() fails.  Fix from Wei Yongjun.
+Ok but its a bit unfair to force killing drivers over a new driver 30 second
+timeout requirement for a change that was made implicitly through a series
+of collateral changes.
 
-9) USB speed not probed properly in r8152 driver, from Hayes Wang.
+> So, anyone care to test the patch below on a system that has this
+> problem to let me know if it would work or not?  Odds are, this should
+> be a workqueue, to make it cleaner, but a kthread is just so easy to
+> use...
+> 
+> thanks,
+> 
+> greg k-h
+> 
+> diff --git a/drivers/message/fusion/mptsas.c b/drivers/message/fusion/mptsas.c
+> index 711fcb5cec87..4fd4f36a2d9e 100644
+> --- a/drivers/message/fusion/mptsas.c
+> +++ b/drivers/message/fusion/mptsas.c
+> @@ -51,6 +51,7 @@
+>  #include <linux/jiffies.h>
+>  #include <linux/workqueue.h>
+>  #include <linux/delay.h>	/* for mdelay */
+> +#include <linux/kthread.h>
+>  
+>  #include <scsi/scsi.h>
+>  #include <scsi/scsi_cmnd.h>
+> @@ -5393,8 +5394,7 @@ static struct pci_driver mptsas_driver = {
+>  #endif
+>  };
+>  
+> -static int __init
+> -mptsas_init(void)
+> +static int mptsas_real_init(void *data)
+>  {
+>  	int error;
+>  
+> @@ -5429,9 +5429,19 @@ mptsas_init(void)
+>  	return error;
+>  }
+>  
+> +static struct task_struct *init_thread;
+> +
+> +static int __init
+> +mptsas_init(void)
+> +{
+> +	init_thread = kthread_run(mptsas_real_init, NULL, "mptsas_init");
+> +	return 0;
+> +}
+> +
+>  static void __exit
+>  mptsas_exit(void)
+>  {
+> +	kthread_stop(init_thread);
+>  	pci_unregister_driver(&mptsas_driver);
+>  	sas_release_transport(mptsas_transport_template);
 
-10) Transmit logic choosing the outgoing port in the sunvnet driver needs
-    to consider a) is the port actually up and b) whether it is a switch
-    port.  Fix from David L Stevens.
+So we're OK to see these kludges sprinkled over the kernel instead of
+genrealizing somethiing for them in the meantime?
 
-Please pull, thanks a lot!
-
-The following changes since commit 15ba2236f3556fc01b9ca91394465152b5ea74b6:
-
-  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2014-07-21 22:46:01 -0700)
-
-are available in the git repository at:
-
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
-
-for you to fetch changes up to d92f5dec6325079c550889883af51db1b77d5623:
-
-  net: phy: re-apply PHY fixups during phy_register_device (2014-07-29 12:25:57 -0700)
-
-----------------------------------------------------------------
-Alexey Khoroshilov (1):
-      isdn/bas_gigaset: fix a leak on failure path in gigaset_probe()
-
-Andrey Ryabinin (1):
-      net: sendmsg: fix NULL pointer dereference
-
-Daniel Borkmann (1):
-      net: sctp: inherit auth_capable on INIT collisions
-
-David L Stevens (1):
-      sunvnet: only use connected ports when sending
-
-David S. Miller (5):
-      Merge branch 'master' of git://git.kernel.org/.../klassert/ipsec
-      Merge git://git.kernel.org/.../pablo/nf
-      Merge branch 'mdio_module_unload'
-      Merge tag 'master-2014-07-23' of git://git.kernel.org/.../linville/wireless
-      Merge tag 'linux-can-fixes-for-3.16-20140725' of git://gitorious.org/linux-can/linux-can
-
-Dmitry Kravkov (1):
-      bnx2x: fix crash during TSO tunneling
-
-Eliad Peller (2):
-      cfg80211: fix mic_failure tracing
-      iwlwifi: mvm: pass beacons from foreign APs
-
-Emmanuel Grumbach (1):
-      iwlwifi: mvm: fix merge damage
-
-Eric Dumazet (1):
-      ip: make IP identifiers less predictable
-
-Ezequiel Garcia (2):
-      net: phy: Set the driver when registering an MDIO bus device
-      net: phy: Ensure the MDIO bus module is held
-
-Felix Fietkau (2):
-      mac80211: fix crash on getting sta info with uninitialized rate control
-      ath9k: fix aggregation session lockup
-
-Florian Fainelli (2):
-      net: bcmgenet: correctly pad short packets
-      net: phy: re-apply PHY fixups during phy_register_device
-
-George Cherian (1):
-      can: c_can_platform: Fix raminit, use devm_ioremap() instead of devm_ioremap_resource()
-
-Johannes Berg (1):
-      Revert "mac80211: move "bufferable MMPDU" check to fix AP mode scan"
-
-John W. Linville (3):
-      Merge git://git.kernel.org/.../jberg/mac80211
-      Merge branch 'master' of git://git.kernel.org/.../iwlwifi/iwlwifi-fixes
-      Merge branch 'for-john' of git://git.kernel.org/.../jberg/mac80211
-
-Julian Anastasov (1):
-      ipvs: avoid netns exit crash on ip_vs_conn_drop_conntrack
-
-Jun Zhao (1):
-      neighbour : fix ndm_type type error issue
-
-Oliver Neukum (2):
-      cdc_subset: deal with a device that needs reset for timeout
-      cdc-ether: clean packet filter upon probe
-
-Steffen Klassert (1):
-      xfrm: Fix refcount imbalance in xfrm_lookup
-
-Tobias Brunner (1):
-      xfrm: Fix installation of AH IPsec SAs
-
-Wei Yongjun (2):
-      amd-xgbe: Fix error return code in xgbe_probe()
-      hyperv: Fix error return code in netvsc_init_buf()
-
-Yaniv Rosner (1):
-      bnx2x: fix set_setting for some PHYs
-
-hayeswang (1):
-      r8152: fix the checking of the usb speed
-
- drivers/isdn/gigaset/bas-gigaset.c                  |  1 +
- drivers/net/can/c_can/c_can_platform.c              |  3 ++-
- drivers/net/ethernet/amd/xgbe/xgbe-main.c           |  3 ++-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x.h         |  1 +
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c     |  9 +++++++++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c |  1 +
- drivers/net/ethernet/broadcom/genet/bcmgenet.c      |  5 +++++
- drivers/net/ethernet/sun/sunvnet.c                  | 22 +++++++++++++++++-----
- drivers/net/hyperv/netvsc.c                         |  4 +++-
- drivers/net/phy/mdio_bus.c                          |  1 +
- drivers/net/phy/phy_device.c                        | 15 ++++++++++++++-
- drivers/net/usb/cdc_ether.c                         | 16 ++++++++++++++++
- drivers/net/usb/cdc_subset.c                        | 27 +++++++++++++++++++++++++++
- drivers/net/usb/r8152.c                             |  7 +++----
- drivers/net/usb/usbnet.c                            |  8 ++++++--
- drivers/net/vxlan.c                                 |  2 +-
- drivers/net/wireless/ath/ath9k/xmit.c               |  9 +++++++++
- drivers/net/wireless/iwlwifi/mvm/mac-ctxt.c         | 15 +++++++++++++--
- drivers/net/wireless/iwlwifi/mvm/mac80211.c         |  7 -------
- include/linux/usb/usbnet.h                          |  3 +++
- include/net/ip.h                                    | 11 +----------
- net/compat.c                                        |  9 +++++----
- net/core/iovec.c                                    |  6 +++---
- net/core/neighbour.c                                |  2 +-
- net/ipv4/route.c                                    | 32 +++++++++++++++++++++++++++++---
- net/ipv6/ip6_output.c                               |  2 ++
- net/mac80211/cfg.c                                  |  5 ++++-
- net/mac80211/tx.c                                   | 20 ++++++++++----------
- net/netfilter/ipvs/ip_vs_conn.c                     |  1 -
- net/sctp/associola.c                                |  1 +
- net/wireless/trace.h                                |  3 ++-
- net/xfrm/xfrm_policy.c                              |  2 ++
- net/xfrm/xfrm_user.c                                |  7 +++----
- 33 files changed, 197 insertions(+), 63 deletions(-)
+  Luis
