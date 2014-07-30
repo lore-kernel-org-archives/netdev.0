@@ -1,28 +1,70 @@
 From: Oliver Neukum <oneukum@suse.de>
-Subject: Re: linux-next: build failure after merge of the net tree
-Date: Wed, 30 Jul 2014 10:26:20 +0200
-Message-ID: <1406708780.5347.9.camel@linux-fkkt.site>
-References: <20140730103617.1a9690de@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20140730103617.1a9690de@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Subject: [PATCH] cdc-subset: make compile with all config options
+Date: Wed, 30 Jul 2014 10:54:46 +0200
+Message-ID: <1406710486-29138-1-git-send-email-oneukum@suse.de>
+Cc: Oliver Neukum <oneukum@suse.de>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:33446 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751579AbaG3Iyv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jul 2014 04:54:51 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-07-30 at 10:36 +1000, Stephen Rothwell wrote:
+My earlier patch introduced helper methods errornously
+subject to conditional compilation. This patch makes them
+available under all config options.
 
-> Caused by commit 20fbe3ae990f ("cdc_subset: deal with a device that
-> needs reset for timeout").
-> 
-> I have used the net tree from next-20140729 for today (i.e. up to
-> commit fe26566d8a0515 ("bnx2x: fix crash during TSO tunneling")).
+Signed-off-by: Oliver Neukum <oneukum@suse.de>
+---
+ drivers/net/usb/cdc_subset.c | 20 +++++++++-----------
+ 1 file changed, 9 insertions(+), 11 deletions(-)
 
-Thank you. Patch is on the way.
-
-	Regards
-		Oliver
+diff --git a/drivers/net/usb/cdc_subset.c b/drivers/net/usb/cdc_subset.c
+index 3ef411e..6ea98cf 100644
+--- a/drivers/net/usb/cdc_subset.c
++++ b/drivers/net/usb/cdc_subset.c
+@@ -99,16 +99,6 @@ static void m5632_recover(struct usbnet *dev)
+ 	usb_unlock_device(udev);
+ }
+ 
+-static int dummy_prereset(struct usb_interface *intf)
+-{
+-	return 0;
+-}
+-
+-static int dummy_postreset(struct usb_interface *intf)
+-{
+-	return 0;
+-}
+-
+ static const struct driver_info	ali_m5632_info = {
+ 	.description =	"ALi M5632",
+ 	.flags       = FLAG_POINTTOPOINT,
+@@ -117,7 +107,6 @@ static const struct driver_info	ali_m5632_info = {
+ 
+ #endif
+ 
+-
+ #ifdef	CONFIG_USB_AN2720
+ #define	HAVE_HARDWARE
+ 
+@@ -351,6 +340,15 @@ static const struct usb_device_id	products [] = {
+ MODULE_DEVICE_TABLE(usb, products);
+ 
+ /*-------------------------------------------------------------------------*/
++static int dummy_prereset(struct usb_interface *intf)
++{
++        return 0;
++}
++
++static int dummy_postreset(struct usb_interface *intf)
++{
++        return 0;
++}
+ 
+ static struct usb_driver cdc_subset_driver = {
+ 	.name =		"cdc_subset",
+-- 
+1.8.4.5
