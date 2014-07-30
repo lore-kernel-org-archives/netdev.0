@@ -1,65 +1,51 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build failure after merge of the net tree
-Date: Wed, 30 Jul 2014 10:36:17 +1000
-Message-ID: <20140730103617.1a9690de@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/0ZsdLLQM0BZlXm=WAQbv8Ki"; protocol="application/pgp-signature"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Oliver Neukum <oneukum@suse.de>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Lamparter <equinox@diac24.net>
+Subject: [PATCH net-next] ipv6: addrconf: fix mcast route for GRE devices
+Date: Wed, 30 Jul 2014 02:55:43 +0200
+Message-ID: <1406681743-104844-1-git-send-email-equinox@diac24.net>
+Cc: David Lamparter <equinox@diac24.net>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from spaceboyz.net ([87.106.131.203]:47776 "EHLO spaceboyz.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750926AbaG3BTW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 29 Jul 2014 21:19:22 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Sig_/0ZsdLLQM0BZlXm=WAQbv8Ki
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+GRE devices, for some reason, were coming up with an autoconfigured
+address, but no ff00::/8 route in the local table.  This breaks any kind
+of multicast, in particular OSPFv3, mDNS, - and ND.  In fact, IPv6 only
+works at all because there is little need for ND on PtP devices.
 
-Hi all,
+Adding any other IPv6 address on the device would rectify this issue
+through inet6_addr_add()/addrconf_add_dev() - and would leave the route
+around even if the address was later removed.  (This is probably why
+this issue was not discovered earlier.  AFAICS it has been there from
+the beginning, e.g. aee80b5 "generate link local address for GRE
+tunnel")
 
-After merging the net tree, today's linux-next build (arm
-multi_v7_defconfig) failed like this:
+(Note: multicast is supported on GRE devices of all kinds, including PtP
+GRE, P-t-Mcast GRE and NBMA-GRE.)
 
-drivers/net/usb/cdc_subset.c:360:15: error: 'dummy_prereset' undeclared her=
-e (not in a function)
-  .pre_reset =3D dummy_prereset,
-               ^
-drivers/net/usb/cdc_subset.c:361:16: error: 'dummy_postreset' undeclared he=
-re (not in a function)
-  .post_reset =3D dummy_postreset,
-                ^
+Fixes: aee80b54b235 (ipv6: generate link local address for GRE tunnel)
+Signed-off-by: David Lamparter <equinox@diac24.net>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+---
+ net/ipv6/addrconf.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-Caused by commit 20fbe3ae990f ("cdc_subset: deal with a device that
-needs reset for timeout").
-
-I have used the net tree from next-20140729 for today (i.e. up to
-commit fe26566d8a0515 ("bnx2x: fix crash during TSO tunneling")).
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
---Sig_/0ZsdLLQM0BZlXm=WAQbv8Ki
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJT2D4FAAoJEMDTa8Ir7ZwVqeIP/2vav/H/HJSk9zlUTdFRBWbP
-ID8yGwJYOZaEuq4XUH5h0leTkHvsbHo7gH3U76vEb8Xhusg/wGqgmL3cMP6ZPOeL
-ZfQlUX+3RdXg7PK6LtaACzIR2Blw5Zd5FBFX2bN4BIue8ftMJSJXqCSbL5Pufczi
-b7gRsRYH2jA1+OpPOtx3g4v1eSd3KR0DFWbjr3OBjJSh9nc5SMsfMxLMPHDPrvDm
-Jg02S1ICv9CrmFT8qr+xlA8a8Gjey4/hssrz5bFevR/EDEmkmMJrWByWWwbwNBqh
-HS0N3V9uvaeRoP4cba7QkMYpaHofGWs69O7lSiyDEmmp/FLP1aTl3P1oMs8SYjcG
-9Ze1yX0pR82l9+pD9g5RWz5F0JU+kh/n1MjPViGomdLDZEpv4hRec7OdDv6IgTYl
-e/OMmHKW3eGtn4yWuNsTIyhCAoIOyORW5YC1qFQcOK5as0Ng/q4KJJIO75MDIpz5
-T8b9n9UomkKV7oGJ3mISkKgv7pwYFNuxbFYwmhYqkj8EaFMsfwz0KwyFzOMMwMaZ
-CkFrxrzWPXmhdReATiRaNkzdjAfgbSlQJ4iW80eJtI63BFyS50N7iq44TxgotnQI
-jljNlTtj6sxlhp0fpjLN2u9b81t0kvxK2jxmDZobxQwkD0/XPtDs02R0XfkcMVto
-BE5hiA332bj8HF2/qtrm
-=x0Ja
------END PGP SIGNATURE-----
-
---Sig_/0ZsdLLQM0BZlXm=WAQbv8Ki--
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 0b239fc..655a0df 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -2824,6 +2824,7 @@ static void addrconf_gre_config(struct net_device *dev)
+ 	}
+ 
+ 	addrconf_addr_gen(idev, true);
++	addrconf_add_mroute(dev);
+ }
+ #endif
+ 
+-- 
+1.8.5.5
