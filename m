@@ -1,35 +1,88 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] tcp: don't require root to read tcp_metrics
-Date: Wed, 30 Jul 2014 21:38:26 +0400
-Message-ID: <53D92D92.4090403@cogentembedded.com>
-References: <1406740415-9386-1-git-send-email-dbanerje@akamai.com>
+From: "Frank Ch. Eigler" <fche@redhat.com>
+Subject: Re: [PATCH RFC v3 net-next 3/3] samples: bpf: eBPF dropmon example in C
+Date: Wed, 30 Jul 2014 13:36:38 -0400
+Message-ID: <20140730173638.GB8745@redhat.com>
+References: <1406000723-4872-1-git-send-email-ast@plumgrid.com> <1406000723-4872-4-git-send-email-ast@plumgrid.com> <y0m1tt226lj.fsf@fche.csb> <CAMEtUuxNs=HBhtFwhBX3HOU6+QqtYZ+v7sJ74+cg-o+bi5GdoA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Julian Anastasov <ja@ssi.bg>, linux-kernel@vger.kernel.org
-To: Debabrata Banerjee <dbanerje@akamai.com>, netdev@vger.kernel.org,
-	"David S . Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Chema Gonzalez <chema@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Arnaldo Carvalho de Melo <acme@infradead.org>,
+	Jiri Olsa <jolsa@redhat.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kees Cook <keescook@chromium.org>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1406740415-9386-1-git-send-email-dbanerje@akamai.com>
+Content-Disposition: inline
+In-Reply-To: <CAMEtUuxNs=HBhtFwhBX3HOU6+QqtYZ+v7sJ74+cg-o+bi5GdoA@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+Hi, Alexei -
 
-On 07/30/2014 09:13 PM, Debabrata Banerjee wrote:
+> My understanding of systemtap is that the whole .stp script is converted
+> to C, compiled as .ko and loaded, so all map walking and prints are
+> happening in the kernel. Similarly for ktap which has special functions
+> in kernel to print histograms.
 
-> commit d23ff701643a4a725e2c7a8ba2d567d39daa29ea introduced netlink support for
+That is correct.
 
-    Please also specify that commit's summary line in parens.
+> I thought dtrace printf are also happening from the kernel. What is
+> the trick they use to know which pieces of dtrace script should be
+> run in user space?
 
-> the new tcp_metrics, however it restricted getting of tcp_metrics to root user
-> only. This is a change from how these values could have been fetched when in
-> the old route cache. Unless there's a legitimate reason to restrict the reading
-> of these values it would be better if normal users could fetch them.
+It appears as though the bytecode language running in the kernel sends
+some action commands back out to userspace, not just plain data.
 
-> Cc: Julian Anastasov <ja@ssi.bg>
-> Cc: linux-kernel@vger.kernel.org
 
-    You need to sign off on the patch, else it couldn't be applied.
+> In ebpf examples there are two C files: one for kernel with ebpf isa
+> and one for userspace as native. I thought about combining them,
+> but couldn't figure out a clean way of doing it.
 
-WBR, Sergei
+(#if ?)
+
+
+> > What kind of locking/serialization is provided by the ebpf runtime
+> > over shared variables such as my_map?
+> 
+> it's traditional rcu scheme.
+
+OK, that protects the table structure, but:
+
+> [...] In such case concurrent write access to map value can be done
+> with bpf_xadd instruction, though using normal read/write is also
+> allowed. In some cases the speed of racy var++ is preferred over
+> 'lock xadd'.
+
+... so concurrency control over shared values is left up to the
+programmer.
+
+> There are no lock/unlock function helpers available to ebpf
+> programs, since program may terminate early with div by zero
+> for example, so in-kernel lock helper implementation would
+> be complicated and slow. It's possible to do, but for the use
+> cases so far there is no need.
+
+OK, I hope that works out.  I've been told that dtrace does something
+similiar (!)  by eschewing protection on global variables such as
+strings.  In their case it's less bad than it sounds because they are
+used to offloading computation to userspace or to store only
+thread-local state, and accept the corollary limitations on control.
+
+(Systemtap does fully & automatically protect shared variables, even
+in the face of run-time script errors.)
+
+
+- FChE
