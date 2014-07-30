@@ -1,167 +1,93 @@
-From: David Lamparter <equinox@diac24.net>
-Subject: [RFC alternate] ipv6: addrconf: clean up device type handling
-Date: Wed, 30 Jul 2014 17:58:41 +0200
-Message-ID: <1406735921-122830-1-git-send-email-equinox@diac24.net>
-References: <20140730153503.GJ801478@jupiter.n2.diac24.net>
-Cc: David Lamparter <equinox@diac24.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Jiri Pirko <jiri@resnulli.us>
-To: netdev@vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next] ipv6: addrconf: fix mcast route for GRE devices
+Date: Wed, 30 Jul 2014 18:09:27 +0200
+Message-ID: <1406736567.6757.14.camel@localhost>
+References: <1406681743-104844-1-git-send-email-equinox@diac24.net>
+	 <1406733282.5122.12.camel@localhost>
+	 <20140730153503.GJ801478@jupiter.n2.diac24.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: David Lamparter <equinox@diac24.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spaceboyz.net ([87.106.131.203]:59365 "EHLO spaceboyz.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754109AbaG3P7E (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jul 2014 11:59:04 -0400
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:60304 "EHLO
+	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753705AbaG3QJa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2014 12:09:30 -0400
+Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
+	by gateway1.nyi.internal (Postfix) with ESMTP id 55DCC2341C
+	for <netdev@vger.kernel.org>; Wed, 30 Jul 2014 12:09:29 -0400 (EDT)
 In-Reply-To: <20140730153503.GJ801478@jupiter.n2.diac24.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This realigns addrconf support for the various lower-layer device types,
-and removes a little bit of duplicate code.
+Hi,
 
-For GRE devices, this includes a semantic change in that there is now a
-ff00::/8 route installed on address autogeneration.  This was previously
-missing and broke any kind of IPv6 multicast - unless another address
-was configured from userspace (which then added the missing ff00::/8).
+On Mi, 2014-07-30 at 17:35 +0200, David Lamparter wrote:
+> (New patch following in separate mail - I haven't touched
+> addrconf_sit_config since I have no clue about ISATAP & the likes.)
 
-Fixes: aee80b54b235 (ipv6: generate link local address for GRE tunnel)
-Signed-off-by: David Lamparter <equinox@diac24.net>
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-Cc: Jiri Pirko <jiri@resnulli.us>
----
+isatap shouldn't use multicast and afaik output path does block
+multicast tx. sit in non-ptp mainly depends on 2002:: or 6rd prefix and
+drops others packets. sit-ptp can use multicast.
 
-This is an alternate version, yanking the switch() down and removing
-dev_config/gre_config duplication.  I have no idea what rationale is behind
-prefix_route - the result is a fe80::/64 route, but no address, which is not a
-functioning configuration.  Jiri, you touched this just a few weeks ago, can
-you comment?  (The "XXX: why is GRE special?")
+> 
+> On Wed, Jul 30, 2014 at 05:14:42PM +0200, Hannes Frederic Sowa wrote:
+> > On Mi, 2014-07-30 at 02:55 +0200, David Lamparter wrote:
+> > > GRE devices, for some reason, were coming up with an autoconfigured
+> > > address, but no ff00::/8 route in the local table.  This breaks any kind
+> > > of multicast, in particular OSPFv3, mDNS, - and ND.  In fact, IPv6 only
+> > > works at all because there is little need for ND on PtP devices.
+> > > 
+> > > Adding any other IPv6 address on the device would rectify this issue
+> > > through inet6_addr_add()/addrconf_add_dev() - and would leave the route
+> > > around even if the address was later removed.  (This is probably why
+> > > this issue was not discovered earlier.  AFAICS it has been there from
+> > > the beginning, e.g. aee80b5 "generate link local address for GRE
+> > > tunnel")
+> > 
+> > Yep, this is poor, but changing this will break user space...
+> 
+> How exactly will this break user space?
 
+Because the multicast routes will always be restored after e.g. a route
+flush or manual route deletion. Scripts might depend on this.
 
- net/ipv6/addrconf.c | 87 +++++++++++++++++++++++------------------------------
- 1 file changed, 37 insertions(+), 50 deletions(-)
+> > > (Note: multicast is supported on GRE devices of all kinds, including PtP
+> > > GRE, P-t-Mcast GRE and NBMA-GRE.)
+> > > 
+> > > Fixes: aee80b54b235 (ipv6: generate link local address for GRE tunnel)
+> > > Signed-off-by: David Lamparter <equinox@diac24.net>
+> > > Cc: Stephen Hemminger <stephen@networkplumber.org>
+> > 
+> > We should install routes before joining LL, I would go with
+> > 
+> >         idev = addrconf_add_dev(dev);
+> >         if (IS_ERR(idev))
+> >                 return;
+> > 
+> > in addrconf_gre_config etc.
+> 
+> Well, yeah, to be honest I have no clue why these functions are
+> separated as they are.  Once fixed up, the only difference between
+> addrconf_gre_config and addrconf_dev_config is the true/false value on
+> prefix_route for addrconf_addr_gen...  and what the rationale for that
+> is, I can only consult an oracle for.
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 0b239fc..45746f7 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -2756,31 +2756,6 @@ static void addrconf_addr_gen(struct inet6_dev *idev, bool prefix_route)
- 	}
- }
- 
--static void addrconf_dev_config(struct net_device *dev)
--{
--	struct inet6_dev *idev;
--
--	ASSERT_RTNL();
--
--	if ((dev->type != ARPHRD_ETHER) &&
--	    (dev->type != ARPHRD_FDDI) &&
--	    (dev->type != ARPHRD_ARCNET) &&
--	    (dev->type != ARPHRD_INFINIBAND) &&
--	    (dev->type != ARPHRD_IEEE802154) &&
--	    (dev->type != ARPHRD_IEEE1394) &&
--	    (dev->type != ARPHRD_TUNNEL6) &&
--	    (dev->type != ARPHRD_6LOWPAN)) {
--		/* Alas, we support only Ethernet autoconfiguration. */
--		return;
--	}
--
--	idev = addrconf_add_dev(dev);
--	if (IS_ERR(idev))
--		return;
--
--	addrconf_addr_gen(idev, false);
--}
--
- #if IS_ENABLED(CONFIG_IPV6_SIT)
- static void addrconf_sit_config(struct net_device *dev)
- {
-@@ -2811,21 +2786,51 @@ static void addrconf_sit_config(struct net_device *dev)
- }
- #endif
- 
--#if IS_ENABLED(CONFIG_NET_IPGRE)
--static void addrconf_gre_config(struct net_device *dev)
-+static void addrconf_dev_config(struct net_device *dev)
- {
- 	struct inet6_dev *idev;
-+	bool prefix_route;
- 
- 	ASSERT_RTNL();
- 
--	if ((idev = ipv6_find_idev(dev)) == NULL) {
--		pr_debug("%s: add_dev failed\n", __func__);
-+	switch (dev->type) {
-+	case ARPHRD_LOOPBACK:
-+		init_loopback(dev);
-+		return;
-+
-+	case ARPHRD_ETHER:
-+	case ARPHRD_FDDI:
-+	case ARPHRD_ARCNET:
-+	case ARPHRD_INFINIBAND:
-+	case ARPHRD_IEEE802154:
-+	case ARPHRD_IEEE1394:
-+	case ARPHRD_TUNNEL6:
-+	case ARPHRD_6LOWPAN:
-+		prefix_route = false;
-+		break;
-+
-+#if IS_ENABLED(CONFIG_NET_IPGRE)
-+	case ARPHRD_IPGRE:
-+		/* XXX: why is GRE special? */
-+		prefix_route = true;
-+		break;
-+#endif
-+#if IS_ENABLED(CONFIG_IPV6_SIT)
-+	case ARPHRD_SIT:
-+		addrconf_sit_config(dev);
-+		return;
-+#endif
-+	default:
-+		/* No support autoconfiguration on this type */
- 		return;
- 	}
- 
--	addrconf_addr_gen(idev, true);
-+	idev = addrconf_add_dev(dev);
-+	if (IS_ERR(idev))
-+		return;
-+
-+	addrconf_addr_gen(idev, prefix_route);
- }
--#endif
- 
- static int addrconf_notify(struct notifier_block *this, unsigned long event,
- 			   void *ptr)
-@@ -2883,25 +2888,7 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
- 			run_pending = 1;
- 		}
- 
--		switch (dev->type) {
--#if IS_ENABLED(CONFIG_IPV6_SIT)
--		case ARPHRD_SIT:
--			addrconf_sit_config(dev);
--			break;
--#endif
--#if IS_ENABLED(CONFIG_NET_IPGRE)
--		case ARPHRD_IPGRE:
--			addrconf_gre_config(dev);
--			break;
--#endif
--		case ARPHRD_LOOPBACK:
--			init_loopback(dev);
--			break;
--
--		default:
--			addrconf_dev_config(dev);
--			break;
--		}
-+		addrconf_dev_config(dev);
- 
- 		if (!IS_ERR_OR_NULL(idev)) {
- 			if (run_pending)
--- 
-1.8.5.5
+Basically this is a slalom run to keep exisisting behaviour and clean up
+the code a little bit.
+
+> How about pushing the switch(dev->type) down from addrconf_notify into
+> addrconf_dev_config()?
+> 
+> > Looks like we don't correctly configure ARPHRD_IP6GRE gre tunnels...
+> 
+> IP6GRE doesn't currently auto-generate a link-local address at all, is
+> that what you meant?  (Yeah we could/should add that too...)
+
+Exactly. 
+
+Thanks,
+Hannes
