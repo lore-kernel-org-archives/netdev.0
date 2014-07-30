@@ -1,46 +1,31 @@
-From: "Mr.Emmanuel Mancon" <fundacja@zobaczycswiat.pl>
-Subject: Darlehen Angebot
-Date: Wed, 30 Jul 2014 03:37:38 +0000 (UTC)
-Message-ID: <20140730032932.D15B4115BF31@zobaczycss.nazwa.pl>
-Reply-To: vancityfinancefirm@qq.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT] Networking
+Date: Tue, 29 Jul 2014 20:44:34 -0700 (PDT)
+Message-ID: <20140729.204434.497235655726897367.davem@davemloft.net>
+References: <20140729.165532.599552078692796545.davem@davemloft.net>
+	<20140730103628.234a4036@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Recipients <fundacja@zobaczycswiat.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from amu139.rev.netart.pl ([85.128.203.139]:35190 "EHLO
-	amu139.rev.netart.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754738AbaG3DhN convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2014 23:37:13 -0400
-Content-Description: Mail message body
-Date: Thu, 31 Jul 2014 04:31:19 -0700
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: sfr@canb.auug.org.au
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140730103628.234a4036@canb.auug.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Haben Sie einen Kredit?
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Wed, 30 Jul 2014 10:36:28 +1000
 
-Wir machen alle Arten von Krediten f=FCr Privatpersonen und Unternehmen
-jede Art von Darlehen, die Sie Kredite an Unternehmen ben=F6tigen,
-Steuerzahlungen und so. Wir bieten die besten von Krediten an unsere
-Kunden, die mit einer Rate von 3%, und die R=FCckzahlung der Darlehen a=
-uf
-=46ragte der Kunde beginnt nach sechs Monaten nach Erhalt des
-Loan Sie versuchen, und kontaktieren Sie uns noch heute und wir
-verspricht, das beste zu geben.
+> On Tue, 29 Jul 2014 16:55:32 -0700 (PDT) David Miller <davem@davemloft.net> wrote:
+>>
+>> Oliver Neukum (2):
+>>       cdc_subset: deal with a device that needs reset for timeout
+> 
+> This commit causes a build failure on arm (at least).  See my
+> linux-next email about this.
 
-Wenn Sie Interesse an unseren Dienstleistungen Darlehen sind
-bitte kontaktieren Sie uns und komplette Programm Details unten: Die
-Dienstleistungen reichen von einem Minimum von 5.000,00 EURO / CHF-und
-Ein Maximum von 10.000.000,00 EUR / CHF bei 3% Zins.
+Linus can you just revert that commit after you pull from me for now?
 
-Vollst=E4ndiger Name:
-Land:
-Darlehensbetrag:
-Dauer der Ausleihe:
-Telefon:
-Geschlecht:
-Adresse:
-
-Wir warten auf Antworten f=FCr weitere Informationen.
-
-Mit freundlichen Gr=FC=DFen,
+Thanks.
