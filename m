@@ -1,48 +1,108 @@
-From: "Banerjee, Debabrata" <dbanerje@akamai.com>
-Subject: Re: [PATCH] tcp: don't require root to read tcp_metrics
-Date: Wed, 30 Jul 2014 15:58:38 -0400
-Message-ID: <CFFEC50E.38308%dbanerje@akamai.com>
-References: <1406740415-9386-1-git-send-email-dbanerje@akamai.com>
- <alpine.LFD.2.11.1407302228460.1826@ja.home.ssi.bg>
+From: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+Subject: Re: [PATCH] svcrdma: delete double assignment
+Date: Wed, 30 Jul 2014 14:59:34 -0500
+Message-ID: <53D94EA6.10201@opengridcomputing.com>
+References: <20140728152938.GA3040@himangi-Dell> <20140729.155050.311148635959938226.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S . Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Julian Anastasov <ja@ssi.bg>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mail-xrelay07.akamai.com ([72.246.2.115]:12209 "EHLO
-	prod-mail-xrelay07.akamai.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750969AbaG3T6l convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jul 2014 15:58:41 -0400
-In-Reply-To: <alpine.LFD.2.11.1407302228460.1826@ja.home.ssi.bg>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, julia.lawall-L2FTfq7BK8M@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, himangi774-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20140729.155050.311148635959938226.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
-
-On 7/30/14, 3:33 PM, "Julian Anastasov" <ja@ssi.bg> wrote:
->On Wed, 30 Jul 2014, Debabrata Banerjee wrote:
+On 7/29/2014 5:50 PM, David Miller wrote:
+> From: Himangi Saraogi <himangi774-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Date: Mon, 28 Jul 2014 20:59:38 +0530
 >
->> commit d23ff701643a4a725e2c7a8ba2d567d39daa29ea introduced netlink
->>support for
->> the new tcp_metrics, however it restricted getting of tcp_metrics to
->>root user
->> only. This is a change from how these values could have been fetched
->>when in
->> the old route cache. Unless there's a legitimate reason to restrict the
->>reading
->> of these values it would be better if normal users could fetch them.
+>> Delete successive assignments to the same location.
+>>
+>> A simplified version of Coccinelle semantic match that finds this problem is as
+>> follows:
+>>
+>> // <smpl>
+>> @@
+>> expression i;
+>> @@
+>>
+>> *i = ...;
+>>   i = ...;
+>> // </smpl>
+>>
+>> Signed-off-by: Himangi Saraogi <himangi774-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> I am not so sure about this change either.
 >
->	Not sure how fatal is to show TCP fastopen cookies to
->any user. Otherwise, I don't remember for other restrictions.
+>> @@ -956,7 +956,6 @@ static struct svc_xprt *svc_rdma_accept(struct svc_xprt *xprt)
+>>   			dprintk("svcrdma: failed to create QP, ret=%d\n", ret);
+>>   			goto errout;
+>>   		}
+>> -		newxprt->sc_max_sge = qp_attr.cap.max_send_sge;
+>>   		newxprt->sc_max_sge = qp_attr.cap.max_recv_sge;
+>>   		newxprt->sc_sq_depth = qp_attr.cap.max_send_wr;
+>>   		newxprt->sc_max_requests = qp_attr.cap.max_recv_wr;
+> ->sc_max_sge is used to limit the number of segments used during sends,
+> currently in this code.  Grep for where it is used.
+>
+> Therefore, if anything, the correct thing to do would be to retain the
+> first line rather than the second line.
+>
+> Someone who actually works on this code and understands it should
+> really take a close look at this before anyone even thinks about
+> applying this patch.
+
+We should remove that whole block that tries to recover from a 
+rdma_create_qp() failure.   I don't believe we would ever hit it. The 
+value initially stored in sc_max_sge is from the device attribute 
+max_sge returned from ib_query_device() just above the code we're 
+talking about.  If rdma_create_qp() fails, it would not be because the 
+max_send_sge and max_recv_sge values passed in exceed the device's max...
+
+Like this:
+
+diff --git a/net/sunrpc/xprtrdma/svc_rdma_transport.c 
+b/net/sunrpc/xprtrdma/svc_rdma_transport.c
+index e7323fb..282a43b 100644
+--- a/net/sunrpc/xprtrdma/svc_rdma_transport.c
++++ b/net/sunrpc/xprtrdma/svc_rdma_transport.c
+@@ -942,23 +942,8 @@ static struct svc_xprt *svc_rdma_accept(struct 
+svc_xprt *xprt)
+
+         ret = rdma_create_qp(newxprt->sc_cm_id, newxprt->sc_pd, &qp_attr);
+         if (ret) {
+-               /*
+-                * XXX: This is a hack. We need a xx_request_qp interface
+-                * that will adjust the qp_attr's with a best-effort
+-                * number
+-                */
+-               qp_attr.cap.max_send_sge -= 2;
+-               qp_attr.cap.max_recv_sge -= 2;
+-               ret = rdma_create_qp(newxprt->sc_cm_id, newxprt->sc_pd,
+-                                    &qp_attr);
+-               if (ret) {
+-                       dprintk("svcrdma: failed to create QP, 
+ret=%d\n", ret);
+-                       goto errout;
+-               }
+-               newxprt->sc_max_sge = qp_attr.cap.max_send_sge;
+-               newxprt->sc_max_sge = qp_attr.cap.max_recv_sge;
+-               newxprt->sc_sq_depth = qp_attr.cap.max_send_wr;
+-               newxprt->sc_max_requests = qp_attr.cap.max_recv_wr;
++               dprintk("svcrdma: failed to create QP, ret=%d\n", ret);
++               goto errout;
+         }
+         newxprt->sc_qp = newxprt->sc_cm_id->qp;
 
 
-TFO cookie as reported is sent in the clear in the tcp header. It is not
-the secret/key used to generate the cookie, so this should be fine.
+Steve.
 
--Debabrata
+
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
