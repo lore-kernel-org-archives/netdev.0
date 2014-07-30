@@ -1,58 +1,59 @@
-From: Benjamin Poirier <benjamin.poirier@gmail.com>
-Subject: Re: Manual loading of mlx4_en
-Date: Tue, 29 Jul 2014 19:14:00 -0700
-Message-ID: <20140730021400.GA25996@f1.synalogic.ca>
-References: <1406627612.4498.16.camel@chaos.site>
- <53D7748A.6040800@mellanox.com>
- <20140729123405.6802fbc4@endymion.delvare>
- <53D77B26.3070905@mellanox.com>
- <1406635578.4498.18.camel@chaos.site>
- <53D7A4C0.8090004@mellanox.com>
+From: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Subject: Re: [PATCH v2 2/4] driver core: enable drivers to use deferred probefrom init
+Date: Wed, 30 Jul 2014 11:22:14 +0900
+Message-ID: <201407300222.s6U2MElj035655@www262.sakura.ne.jp>
+References: <20140728234644.GA18729@kroah.com> <CAB=NE6UzK1ZEzm+54dwSyPwHGrAWCPtiNtxwhQuJF6tM9NbnYw@mail.gmail.com> <20140729003501.GA17020@kroah.com> <CAB=NE6XMzU+zJ0RMDKaPuSxfXBvN2vZ1DnbgxCjWHJquTD1iqg@mail.gmail.com> <53D744E3.10500@suse.de> <201407292107.EGB64066.OOQMFSHLJVtFFO@I-love.SAKURA.ne.jp> <20140729222529.GC21140@f1.synalogic.ca> <20140730001434.GS21930@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jean Delvare <jdelvare@suse.de>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.co.il>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Amir Vadai <amirv@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:43014 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754724AbaG3COE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2014 22:14:04 -0400
-Received: by mail-pa0-f53.google.com with SMTP id rd3so636509pab.12
-        for <netdev@vger.kernel.org>; Tue, 29 Jul 2014 19:14:03 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <53D7A4C0.8090004@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-2022-JP"
+Content-Transfer-Encoding: 7bit
+Cc: hare@suse.de, gregkh@linuxfoundation.org, santosh@chelsio.com,
+	hariprasad@chelsio.com, tiwai@suse.de,
+	linux-kernel@vger.kernel.org, joseph.salisbury@canonical.com,
+	kay@vrfy.org, gnomes@lxorguk.ukuu.org.uk,
+	tim.gardner@canonical.com, pierre-fersing@pierref.org,
+	akpm@linux-foundation.org, oleg@redhat.com,
+	nagalakshmi.nandigama@avagotech.com,
+	praveen.krishnamoorthy@avagotech.com,
+	sreekanth.reddy@avagotech.com, abhijit.mahajan@avagotech.com,
+	MPT-FusionLinux.pdl@avagotech.com, linux-scsi@vger.kernel.org,
+	netdev@vger.kernel.org, bpoirier@suse.de
+To: mcgrof@suse.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140730001434.GS21930@wotan.suse.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2014/07/29 16:42, Amir Vadai wrote:
-> On 7/29/2014 3:06 PM, Jean Delvare wrote:
-> > Le Tuesday 29 July 2014 =E0 13:44 +0300, Amir Vadai a =E9crit :
-> >> On 7/29/2014 1:34 PM, Jean Delvare wrote:
-> >>> Many thanks for the fast and detailed answer! I'll go backport th=
-is
-> >>> commit to kernel 3.12 (and 3.0, hopefully it doesn't have too man=
-y
-> >>> dependencies?)
-> >>
-> >> I don't think there is any dependency for that commit. If you're
-> >> backporting it, also take a small fix to it:
-> >> f24f790 net/mlx4_core: Load the Eth driver first
-> >=20
-> > Thanks for the hint. I suppose I should pick 7855bff4 "net/mlx4_cor=
-e:
-> > Load the IB driver when the device supports IBoE" as well?
-> >=20
-> Right - missed it.
+Luis R. Rodriguez wrote:
+> Tetsuo is it possible / desirable to allow tasks to not kill unless the
+> reason is OOM ? Its unclear if this was discussed before, sorry if it was,
+> have just been a bit busy today to review the archive / discussions on this.
 
-Thanks for the pointers.
-Looking at f24f790f, I'm wondering if request_module(EN_DRV_NAME) ought
-to be used instead of _nowait to guarantee the desired effect. Suppose
-for example that the process is migrated to a different cpu between the
-two request_module calls, the second one could complete before the firs=
-t
-one no?
+Are we aware that the 10 seconds timeout after SIGKILL is not the duration
+between the beginning of module loading and the end of kthread_create() but
+the duration to wait for kthreadd to create a new kernel thread?
+
+If the kthreadd is unable to create a new kernel thread within 10 seconds,
+something very bad is happening. For example, memory allocation deadlock
+sequence shown below might be happening.
+
+ (1) process1 holds a mutex using mutex_lock().
+ (2) process1 calls kthread_create() and enters into killable wait state
+     at wait_for_completion_killable().
+ (3) kthreadd calls kernel_thread() and enters into oom-killable busy loop
+     due to out of memory at alloc_pages_nodemask().
+ (4) process2 is chosen by the OOM killer, but process2 is unable to
+     terminate because process2 is waiting in unkillable state at
+     mutex_lock() which was held by process1 at (1).
+ (5) kthreadd continues busy loop because process2 does not release memory
+     and the OOM killer does not kill more processes.
+ (6) process1 continues waiting in oom-killable state because process1 is
+     not chosen by the OOM killer.
+
+See? The system will remain unresponding unless somebody releases memory
+that is enough for kthreadd to complete. We cannot teach process1 that
+process1 needs to give up waiting for kthreadd and call mutex_unlock()
+in order to allow process2 to terminate. Also, we cannot teach the OOM
+killer that process1 needs to be oom-killed after process2 is oom-killed.
+
+Making the 10 seconds timeout after SIGKILL longer is safe.
+Changing it to no-timeout-unless-oom-killed is unsafe.
