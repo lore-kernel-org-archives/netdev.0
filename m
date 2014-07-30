@@ -1,59 +1,43 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH 0/2] linux-wpan-next: lowpan_rcv - skb is freed within function and fix return values.
-Date: Wed, 30 Jul 2014 10:42:09 -0700
-Message-ID: <C8606BA6-2918-4313-BEC5-FC3A377DE347@holtmann.org>
-References: <1406732105-17500-1-git-send-email-martin.townsend@xsilon.com>
-Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: linux-zigbee-devel@lists.sourceforge.net,
-	BlueZ development <linux-bluetooth@vger.kernel.org>,
-	Martin Townsend <martin.townsend@xsilon.com>,
-	Network Development <netdev@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org Wireless"
-	<linux-wireless@vger.kernel.org>
-To: Martin Townsend <mtownsend1973@gmail.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Alexander Aring <alex.aring@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:60514 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754662AbaG3RmL convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2014 13:42:11 -0400
-In-Reply-To: <1406732105-17500-1-git-send-email-martin.townsend@xsilon.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Debabrata Banerjee <dbanerje@akamai.com>
+Subject: [PATCH v2] tcp: don't require root to read tcp_metrics
+Date: Wed, 30 Jul 2014 13:50:17 -0400
+Message-ID: <1406742617-10556-1-git-send-email-dbanerje@akamai.com>
+References: <53D92D92.4090403@cogentembedded.com>
+Cc: Debabrata Banerjee <dbanerje@akamai.com>,
+	Julian Anastasov <ja@ssi.bg>, linux-kernel@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <53D92D92.4090403@cogentembedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Martin,
+commit d23ff7016 (tcp: add generic netlink support for tcp_metrics) introduced
+netlink support for the new tcp_metrics, however it restricted getting of
+tcp_metrics to root user only. This is a change from how these values could
+have been fetched when in the old route cache. Unless there's a legitimate
+reason to restrict the reading of these values it would be better if normal
+users could fetch them.
 
-> Currently it is up to the functions below lowpan_rcv to free the skb on error
->    conditions.  This patch now removes all the UAPI error codes and process data
->    now returns -1 if there is a problem.  In this scenario lowpan_rcv will free
->    the skb and return NET_RX_DROP.  This also fixes the problem where
->    NET_RX_SUCCESS is returned on error
-> 
-> Martin Townsend (2):
->  Remove dev parameter from skb_delivery_cb in 6lowpan.
->  Change lowpan_rcv so skb is freed within function and fix return
->    values.
-> 
-> include/net/6lowpan.h         |  4 ++--
-> net/6lowpan/iphc.c            | 37 ++++++++++++++++++------------------
-> net/bluetooth/6lowpan.c       | 21 ++++++++++-----------
-> net/ieee802154/6lowpan_rtnl.c | 44 +++++++++++++++++++++----------------------
-> 4 files changed, 52 insertions(+), 54 deletions(-)
+Cc: Julian Anastasov <ja@ssi.bg>
+Cc: linux-kernel@vger.kernel.org
 
-I can not take these patches at this point.
+Signed-off-by: Debabrata Banerjee <dbanerje@akamai.com>
+---
+ net/ipv4/tcp_metrics.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-checking file net/ieee802154/6lowpan_rtnl.c
-Hunk #1 FAILED at 143.
-Hunk #2 succeeded at 480 (offset -4 lines).
-1 out of 2 hunks FAILED
-
-We need to get the IEEE 802.15.4 changes merged through John's wireless-next tree. IEEE 802.15.4 going straight into net-next and Bluetooth going into wireless-next will not work out smoothly when both technologies are now utilizing 6LoWPAN and we are heavily working on 6LoWPAN.
-
-John, how confident are you with pulling net-next into wireless-next at this point in time?
-
-Regards
-
-Marcel
+diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
+index 4fe0418..0d54e59 100644
+--- a/net/ipv4/tcp_metrics.c
++++ b/net/ipv4/tcp_metrics.c
+@@ -1093,7 +1093,6 @@ static const struct genl_ops tcp_metrics_nl_ops[] = {
+ 		.doit = tcp_metrics_nl_cmd_get,
+ 		.dumpit = tcp_metrics_nl_dump,
+ 		.policy = tcp_metrics_nl_policy,
+-		.flags = GENL_ADMIN_PERM,
+ 	},
+ 	{
+ 		.cmd = TCP_METRICS_CMD_DEL,
+-- 
+2.0.3
