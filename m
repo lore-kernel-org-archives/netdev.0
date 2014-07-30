@@ -1,201 +1,164 @@
 From: Willem de Bruijn <willemb@google.com>
-Subject: [PATCH net-next v4 2/5] net-timestamp: move timestamp flags out of sk_flags
-Date: Wed, 30 Jul 2014 11:48:45 -0400
-Message-ID: <1406735328-7520-3-git-send-email-willemb@google.com>
+Subject: [PATCH net-next v4 1/5] net-timestamp: extend SCM_TIMESTAMPING ancillary data struct
+Date: Wed, 30 Jul 2014 11:48:44 -0400
+Message-ID: <1406735328-7520-2-git-send-email-willemb@google.com>
 References: <1406735328-7520-1-git-send-email-willemb@google.com>
 Cc: davem@davemloft.net, eric.dumazet@gmail.com,
 	richardcochran@gmail.com, Willem de Bruijn <willemb@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f74.google.com ([209.85.220.74]:51795 "EHLO
-	mail-pa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754555AbaG3Psu (ORCPT
+Received: from mail-yh0-f73.google.com ([209.85.213.73]:47024 "EHLO
+	mail-yh0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754203AbaG3Psu (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2014 11:48:50 -0400
-Received: by mail-pa0-f74.google.com with SMTP id lj1so252997pab.1
+Received: by mail-yh0-f73.google.com with SMTP id f73so173146yha.0
         for <netdev@vger.kernel.org>; Wed, 30 Jul 2014 08:48:50 -0700 (PDT)
 In-Reply-To: <1406735328-7520-1-git-send-email-willemb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-sk_flags is reaching its limit. New timestamping options will not fit.
-Move all of them into a new field sk->sk_tsflags.
+Applications that request kernel tx timestamps with SO_TIMESTAMPING
+read timestamps as recvmsg() ancillary data. The response is defined
+implicitly as timespec[3].
 
-Added benefit is that this removes boilerplate code to convert between
-SOF_TIMESTAMPING_.. and SOCK_TIMESTAMPING_.. in getsockopt/setsockopt.
+1) define struct scm_timestamping explicitly and
 
-SOCK_TIMESTAMPING_RX_SOFTWARE is also used to toggle the receive
-timestamp logic (netstamp_needed). That can be simplified and this
-last key removed, but will leave that for a separate patch.
+2) add support for new tstamp types. On tx, scm_timestamping always
+   accompanies a sock_extended_err. Define previously unused field
+   ee_info to signal the type of ts[0]. Introduce SCM_TSTAMP_SND.
+
+The reception path is not modified. On rx, no struct similar to
+sock_extended_err is passed along with SCM_TIMESTAMPING.
 
 Signed-off-by: Willem de Bruijn <willemb@google.com>
 ---
- include/net/sock.h | 28 ++++++++++------------------
- net/core/sock.c    | 25 ++-----------------------
- net/socket.c       |  8 ++++----
- 3 files changed, 16 insertions(+), 45 deletions(-)
+ include/linux/skbuff.h        |  3 +++
+ include/net/sock.h            |  4 +++-
+ include/uapi/linux/errqueue.h | 15 +++++++++++++++
+ net/core/skbuff.c             |  1 +
+ net/socket.c                  | 20 +++++++++++---------
+ 5 files changed, 33 insertions(+), 10 deletions(-)
 
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 281dece..477f0f6 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -249,6 +249,9 @@ enum {
+ 	SKBTX_SHARED_FRAG = 1 << 5,
+ };
+ 
++#define SKBTX_ANY_SW_TSTAMP	SKBTX_SW_TSTAMP
++#define SKBTX_ANY_TSTAMP	(SKBTX_HW_TSTAMP | SKBTX_ANY_SW_TSTAMP)
++
+ /*
+  * The callback notifies userspace to release buffers when skb DMA is done in
+  * lower device, the skb last reference should be 0 when calling this.
 diff --git a/include/net/sock.h b/include/net/sock.h
-index 02f5b35..cb5e15b 100644
+index b91c886..02f5b35 100644
 --- a/include/net/sock.h
 +++ b/include/net/sock.h
-@@ -67,6 +67,7 @@
- #include <linux/atomic.h>
- #include <net/dst.h>
- #include <net/checksum.h>
-+#include <linux/net_tstamp.h>
- 
- struct cgroup;
- struct cgroup_subsys;
-@@ -411,6 +412,7 @@ struct sock {
- 	void			*sk_protinfo;
- 	struct timer_list	sk_timer;
- 	ktime_t			sk_stamp;
-+	u16			sk_tsflags;
- 	struct socket		*sk_socket;
- 	void			*sk_user_data;
- 	struct page_frag	sk_frag;
-@@ -701,12 +703,7 @@ enum sock_flags {
- 	SOCK_LOCALROUTE, /* route locally only, %SO_DONTROUTE setting */
- 	SOCK_QUEUE_SHRUNK, /* write queue has been shrunk recently */
- 	SOCK_MEMALLOC, /* VM depends on this socket for swapping */
--	SOCK_TIMESTAMPING_TX_HARDWARE,  /* %SOF_TIMESTAMPING_TX_HARDWARE */
--	SOCK_TIMESTAMPING_TX_SOFTWARE,  /* %SOF_TIMESTAMPING_TX_SOFTWARE */
--	SOCK_TIMESTAMPING_RX_HARDWARE,  /* %SOF_TIMESTAMPING_RX_HARDWARE */
- 	SOCK_TIMESTAMPING_RX_SOFTWARE,  /* %SOF_TIMESTAMPING_RX_SOFTWARE */
--	SOCK_TIMESTAMPING_SOFTWARE,     /* %SOF_TIMESTAMPING_SOFTWARE */
--	SOCK_TIMESTAMPING_RAW_HARDWARE, /* %SOF_TIMESTAMPING_RAW_HARDWARE */
- 	SOCK_FASYNC, /* fasync() active */
- 	SOCK_RXQ_OVFL,
- 	SOCK_ZEROCOPY, /* buffers from userspace */
-@@ -2160,20 +2157,17 @@ sock_recv_timestamp(struct msghdr *msg, struct sock *sk, struct sk_buff *skb)
- 
- 	/*
- 	 * generate control messages if
--	 * - receive time stamping in software requested (SOCK_RCVTSTAMP
--	 *   or SOCK_TIMESTAMPING_RX_SOFTWARE)
-+	 * - receive time stamping in software requested
- 	 * - software time stamp available and wanted
--	 *   (SOCK_TIMESTAMPING_SOFTWARE)
- 	 * - hardware time stamps available and wanted
--	 *   SOCK_TIMESTAMPING_RAW_HARDWARE
+@@ -2169,7 +2169,9 @@ sock_recv_timestamp(struct msghdr *msg, struct sock *sk, struct sk_buff *skb)
  	 */
  	if (sock_flag(sk, SOCK_RCVTSTAMP) ||
--	    sock_flag(sk, SOCK_TIMESTAMPING_RX_SOFTWARE) ||
-+	    (sk->sk_tsflags & SOF_TIMESTAMPING_RX_SOFTWARE) ||
- 	    (kt.tv64 &&
--	     (sock_flag(sk, SOCK_TIMESTAMPING_SOFTWARE) ||
-+	     (sk->sk_tsflags & SOF_TIMESTAMPING_SOFTWARE ||
- 	      skb_shinfo(skb)->tx_flags & SKBTX_ANY_SW_TSTAMP)) ||
+ 	    sock_flag(sk, SOCK_TIMESTAMPING_RX_SOFTWARE) ||
+-	    (kt.tv64 && sock_flag(sk, SOCK_TIMESTAMPING_SOFTWARE)) ||
++	    (kt.tv64 &&
++	     (sock_flag(sk, SOCK_TIMESTAMPING_SOFTWARE) ||
++	      skb_shinfo(skb)->tx_flags & SKBTX_ANY_SW_TSTAMP)) ||
  	    (hwtstamps->hwtstamp.tv64 &&
--	     sock_flag(sk, SOCK_TIMESTAMPING_RAW_HARDWARE)))
-+	     (sk->sk_tsflags & SOF_TIMESTAMPING_RAW_HARDWARE)))
+ 	     sock_flag(sk, SOCK_TIMESTAMPING_RAW_HARDWARE)))
  		__sock_recv_timestamp(msg, sk, skb);
- 	else
- 		sk->sk_stamp = kt;
-@@ -2189,11 +2183,11 @@ static inline void sock_recv_ts_and_drops(struct msghdr *msg, struct sock *sk,
- 					  struct sk_buff *skb)
- {
- #define FLAGS_TS_OR_DROPS ((1UL << SOCK_RXQ_OVFL)			| \
--			   (1UL << SOCK_RCVTSTAMP)			| \
--			   (1UL << SOCK_TIMESTAMPING_SOFTWARE)		| \
--			   (1UL << SOCK_TIMESTAMPING_RAW_HARDWARE))
-+			   (1UL << SOCK_RCVTSTAMP))
-+#define TSFLAGS_ANY	  (SOF_TIMESTAMPING_SOFTWARE			| \
-+			   SOF_TIMESTAMPING_RAW_HARDWARE)
+diff --git a/include/uapi/linux/errqueue.h b/include/uapi/linux/errqueue.h
+index aacd4fb..97e1872 100644
+--- a/include/uapi/linux/errqueue.h
++++ b/include/uapi/linux/errqueue.h
+@@ -22,5 +22,20 @@ struct sock_extended_err {
  
--	if (sk->sk_flags & FLAGS_TS_OR_DROPS)
-+	if (sk->sk_flags & FLAGS_TS_OR_DROPS || sk->sk_tsflags & TSFLAGS_ANY)
- 		__sock_recv_ts_and_drops(msg, sk, skb);
- 	else
- 		sk->sk_stamp = skb->tstamp;
-@@ -2203,8 +2197,6 @@ static inline void sock_recv_ts_and_drops(struct msghdr *msg, struct sock *sk,
-  * sock_tx_timestamp - checks whether the outgoing packet is to be time stamped
-  * @sk:		socket sending this packet
-  * @tx_flags:	filled with instructions for time stamping
-- *
-- * Currently only depends on SOCK_TIMESTAMPING* flags.
-  */
- void sock_tx_timestamp(struct sock *sk, __u8 *tx_flags);
+ #define SO_EE_OFFENDER(ee)	((struct sockaddr*)((ee)+1))
  
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 134291d..2ad5407 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -848,22 +848,13 @@ set_rcvbuf:
- 			ret = -EINVAL;
- 			break;
- 		}
--		sock_valbool_flag(sk, SOCK_TIMESTAMPING_TX_HARDWARE,
--				  val & SOF_TIMESTAMPING_TX_HARDWARE);
--		sock_valbool_flag(sk, SOCK_TIMESTAMPING_TX_SOFTWARE,
--				  val & SOF_TIMESTAMPING_TX_SOFTWARE);
--		sock_valbool_flag(sk, SOCK_TIMESTAMPING_RX_HARDWARE,
--				  val & SOF_TIMESTAMPING_RX_HARDWARE);
-+		sk->sk_tsflags = val;
- 		if (val & SOF_TIMESTAMPING_RX_SOFTWARE)
- 			sock_enable_timestamp(sk,
- 					      SOCK_TIMESTAMPING_RX_SOFTWARE);
- 		else
- 			sock_disable_timestamp(sk,
- 					       (1UL << SOCK_TIMESTAMPING_RX_SOFTWARE));
--		sock_valbool_flag(sk, SOCK_TIMESTAMPING_SOFTWARE,
--				  val & SOF_TIMESTAMPING_SOFTWARE);
--		sock_valbool_flag(sk, SOCK_TIMESTAMPING_RAW_HARDWARE,
--				  val & SOF_TIMESTAMPING_RAW_HARDWARE);
- 		break;
++/**
++ *	struct scm_timestamping - timestamps exposed through cmsg
++ *
++ *	The timestamping interfaces SO_TIMESTAMPING, MSG_TSTAMP_*
++ *	communicate network timestamps by passing this struct in a cmsg with
++ *	recvmsg(). See Documentation/networking/timestamping.txt for details.
++ */
++struct scm_timestamping {
++	struct timespec ts[3];
++};
++
++/* type of ts[0], passed in ee_info */
++enum {
++	SCM_TSTAMP_SND = 1,	/* driver passed skb to NIC */
++};
  
- 	case SO_RCVLOWAT:
-@@ -1089,19 +1080,7 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
- 		break;
+ #endif /* _UAPI_LINUX_ERRQUEUE_H */
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index c1a3303..1bcd05d 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3521,6 +3521,7 @@ void skb_tstamp_tx(struct sk_buff *orig_skb,
+ 	memset(serr, 0, sizeof(*serr));
+ 	serr->ee.ee_errno = ENOMSG;
+ 	serr->ee.ee_origin = SO_EE_ORIGIN_TIMESTAMPING;
++	serr->ee.ee_info = hwtstamps ? 0 : SCM_TSTAMP_SND;
  
- 	case SO_TIMESTAMPING:
--		v.val = 0;
--		if (sock_flag(sk, SOCK_TIMESTAMPING_TX_HARDWARE))
--			v.val |= SOF_TIMESTAMPING_TX_HARDWARE;
--		if (sock_flag(sk, SOCK_TIMESTAMPING_TX_SOFTWARE))
--			v.val |= SOF_TIMESTAMPING_TX_SOFTWARE;
--		if (sock_flag(sk, SOCK_TIMESTAMPING_RX_HARDWARE))
--			v.val |= SOF_TIMESTAMPING_RX_HARDWARE;
--		if (sock_flag(sk, SOCK_TIMESTAMPING_RX_SOFTWARE))
--			v.val |= SOF_TIMESTAMPING_RX_SOFTWARE;
--		if (sock_flag(sk, SOCK_TIMESTAMPING_SOFTWARE))
--			v.val |= SOF_TIMESTAMPING_SOFTWARE;
--		if (sock_flag(sk, SOCK_TIMESTAMPING_RAW_HARDWARE))
--			v.val |= SOF_TIMESTAMPING_RAW_HARDWARE;
-+		v.val = sk->sk_tsflags;
- 		break;
+ 	err = sock_queue_err_skb(sk, skb);
  
- 	case SO_RCVTIMEO:
 diff --git a/net/socket.c b/net/socket.c
-index dc0cc5d..255d9b8 100644
+index d8222c0..dc0cc5d 100644
 --- a/net/socket.c
 +++ b/net/socket.c
-@@ -613,9 +613,9 @@ EXPORT_SYMBOL(sock_release);
- void sock_tx_timestamp(struct sock *sk, __u8 *tx_flags)
+@@ -106,6 +106,7 @@
+ #include <linux/sockios.h>
+ #include <linux/atalk.h>
+ #include <net/busy_poll.h>
++#include <linux/errqueue.h>
+ 
+ #ifdef CONFIG_NET_RX_BUSY_POLL
+ unsigned int sysctl_net_busy_read __read_mostly;
+@@ -697,7 +698,7 @@ void __sock_recv_timestamp(struct msghdr *msg, struct sock *sk,
+ 	struct sk_buff *skb)
  {
- 	*tx_flags = 0;
--	if (sock_flag(sk, SOCK_TIMESTAMPING_TX_HARDWARE))
-+	if (sk->sk_tsflags & SOF_TIMESTAMPING_TX_HARDWARE)
- 		*tx_flags |= SKBTX_HW_TSTAMP;
--	if (sock_flag(sk, SOCK_TIMESTAMPING_TX_SOFTWARE))
-+	if (sk->sk_tsflags & SOF_TIMESTAMPING_TX_SOFTWARE)
- 		*tx_flags |= SKBTX_SW_TSTAMP;
- 	if (sock_flag(sk, SOCK_WIFI_STATUS))
- 		*tx_flags |= SKBTX_WIFI_STATUS;
-@@ -723,12 +723,12 @@ void __sock_recv_timestamp(struct msghdr *msg, struct sock *sk,
+ 	int need_software_tstamp = sock_flag(sk, SOCK_RCVTSTAMP);
+-	struct timespec ts[3];
++	struct scm_timestamping tss;
+ 	int empty = 1;
+ 	struct skb_shared_hwtstamps *shhwtstamps =
+ 		skb_hwtstamps(skb);
+@@ -714,24 +715,25 @@ void __sock_recv_timestamp(struct msghdr *msg, struct sock *sk,
+ 			put_cmsg(msg, SOL_SOCKET, SCM_TIMESTAMP,
+ 				 sizeof(tv), &tv);
+ 		} else {
+-			skb_get_timestampns(skb, &ts[0]);
++			struct timespec ts;
++			skb_get_timestampns(skb, &ts);
+ 			put_cmsg(msg, SOL_SOCKET, SCM_TIMESTAMPNS,
+-				 sizeof(ts[0]), &ts[0]);
++				 sizeof(ts), &ts);
+ 		}
  	}
  
- 	memset(&tss, 0, sizeof(tss));
--	if ((sock_flag(sk, SOCK_TIMESTAMPING_SOFTWARE) ||
-+	if ((sk->sk_tsflags & SOF_TIMESTAMPING_SOFTWARE ||
- 	     skb_shinfo(skb)->tx_flags & SKBTX_ANY_SW_TSTAMP) &&
- 	    ktime_to_timespec_cond(skb->tstamp, tss.ts + 0))
+-
+-	memset(ts, 0, sizeof(ts));
+-	if (sock_flag(sk, SOCK_TIMESTAMPING_SOFTWARE) &&
+-	    ktime_to_timespec_cond(skb->tstamp, ts + 0))
++	memset(&tss, 0, sizeof(tss));
++	if ((sock_flag(sk, SOCK_TIMESTAMPING_SOFTWARE) ||
++	     skb_shinfo(skb)->tx_flags & SKBTX_ANY_SW_TSTAMP) &&
++	    ktime_to_timespec_cond(skb->tstamp, tss.ts + 0))
  		empty = 0;
  	if (shhwtstamps &&
--	    sock_flag(sk, SOCK_TIMESTAMPING_RAW_HARDWARE) &&
-+	    (sk->sk_tsflags & SOF_TIMESTAMPING_RAW_HARDWARE) &&
- 	    ktime_to_timespec_cond(shhwtstamps->hwtstamp, tss.ts + 2))
+ 	    sock_flag(sk, SOCK_TIMESTAMPING_RAW_HARDWARE) &&
+-	    ktime_to_timespec_cond(shhwtstamps->hwtstamp, ts + 2))
++	    ktime_to_timespec_cond(shhwtstamps->hwtstamp, tss.ts + 2))
  		empty = 0;
  	if (!empty)
+ 		put_cmsg(msg, SOL_SOCKET,
+-			 SCM_TIMESTAMPING, sizeof(ts), &ts);
++			 SCM_TIMESTAMPING, sizeof(tss), &tss);
+ }
+ EXPORT_SYMBOL_GPL(__sock_recv_timestamp);
+ 
 -- 
 2.0.0.526.g5318336
