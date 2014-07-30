@@ -1,63 +1,110 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: Manual loading of mlx4_en
-Date: Wed, 30 Jul 2014 10:56:23 +0300
-Message-ID: <53D8A527.1070506@mellanox.com>
-References: <1406627612.4498.16.camel@chaos.site> <53D7748A.6040800@mellanox.com> <20140729123405.6802fbc4@endymion.delvare> <53D77B26.3070905@mellanox.com> <1406635578.4498.18.camel@chaos.site> <53D7A4C0.8090004@mellanox.com> <20140730021400.GA25996@f1.synalogic.ca>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jean Delvare <jdelvare@suse.de>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	"Jack Morgenstein" <jackm@dev.mellanox.co.il>,
-	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Benjamin Poirier <benjamin.poirier@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog117.obsmtp.com ([207.126.144.143]:51845 "EHLO
-	eu1sys200aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751003AbaG3H4b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2014 03:56:31 -0400
-In-Reply-To: <20140730021400.GA25996@f1.synalogic.ca>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Zhouyi Zhou <zhouzhouyi@gmail.com>
+Subject: [PATCH net-next] pktgen: add ttl option for pktgen
+Date: Wed, 30 Jul 2014 16:21:26 +0800
+Message-ID: <1406708486-23427-1-git-send-email-zhouzhouyi@gmail.com>
+Cc: Zhouyi Zhou <zhouzhouyi@gmail.com>,
+	Zhouyi Zhou <yizhouzhou@ict.ac.cn>
+To: <rdunlap@infradead.org>, <davem@davemloft.net>,
+	<minipli@googlemail.com>, <brouer@redhat.com>,
+	<steffen.klassert@secunet.com>, <fan.du@windriver.com>,
+	<dborkman@redhat.com>, <fengguang.wu@intel.com>, <tgraf@suug.ch>,
+	<linux-doc@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+Return-path: <linux-doc-owner@vger.kernel.org>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 7/30/2014 5:14 AM, Benjamin Poirier wrote:
-> On 2014/07/29 16:42, Amir Vadai wrote:
->> On 7/29/2014 3:06 PM, Jean Delvare wrote:
->>> Le Tuesday 29 July 2014 =E0 13:44 +0300, Amir Vadai a =E9crit :
->>>> On 7/29/2014 1:34 PM, Jean Delvare wrote:
->>>>> Many thanks for the fast and detailed answer! I'll go backport th=
-is
->>>>> commit to kernel 3.12 (and 3.0, hopefully it doesn't have too man=
-y
->>>>> dependencies?)
->>>>
->>>> I don't think there is any dependency for that commit. If you're
->>>> backporting it, also take a small fix to it:
->>>> f24f790 net/mlx4_core: Load the Eth driver first
->>>
->>> Thanks for the hint. I suppose I should pick 7855bff4 "net/mlx4_cor=
-e:
->>> Load the IB driver when the device supports IBoE" as well?
->>>
->> Right - missed it.
->=20
-> Thanks for the pointers.
-> Looking at f24f790f, I'm wondering if request_module(EN_DRV_NAME) oug=
-ht
-> to be used instead of _nowait to guarantee the desired effect. Suppos=
-e
-> for example that the process is migrated to a different cpu between t=
-he
-> two request_module calls, the second one could complete before the fi=
-rst
-> one no?
->=20
+I think it is useful to add ttl option for pktgen, for example
+if a some ISP want to test its network quality, it could set 
+ttl so that the tested links get the packet while end users won't
+get it. 
 
-The issue was addressed after the commit above, through these two
-commits in a proper and robust way:
-9433c18 IB/mlx4: Invoke UPDATE_QP for proxy QP1 on MAC changes
-ce8d9e0 net/mlx4_core: Add UPDATE_QP SRIOV wrapper support
+Also, add a blank line after declarations in pktgen.c
 
-Thanks,
-Amir
+Signed-off-by: Zhouyi Zhou <yizhouzhou@ict.ac.cn>
+---
+ Documentation/networking/pktgen.txt |    2 +-
+ net/core/pktgen.c                   |   24 ++++++++++++++++++++++++
+ 2 files changed, 25 insertions(+), 1 deletions(-)
+
+diff --git a/Documentation/networking/pktgen.txt b/Documentation/networking/pktgen.txt
+index 0dffc6e..abad388 100644
+--- a/Documentation/networking/pktgen.txt
++++ b/Documentation/networking/pktgen.txt
+@@ -180,7 +180,7 @@ Examples:
+  pgset "vlan_id 9999"     > 4095 remove vlan and svlan tags
+  pgset "svlan 9999"       > 4095 remove svlan tag
+ 
+-
++ pgset "ttl xx"           set former IPv4 TTL field (default 32)
+  pgset "tos XX"           set former IPv4 TOS field (e.g. "tos 28" for AF11 no ECN, default 00)
+  pgset "traffic_class XX" set former IPv6 TRAFFIC CLASS (e.g. "traffic_class B8" for EF no ECN, default 00)
+ 
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index 8b849dd..54cb750 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -318,6 +318,8 @@ struct pktgen_dev {
+ 	__u16 udp_dst_min;	/* inclusive, dest UDP port */
+ 	__u16 udp_dst_max;	/* exclusive, dest UDP port */
+ 
++	__u8 ttl;            /* time to live */
++
+ 	/* DSCP + ECN */
+ 	__u8 tos;            /* six MSB of (former) IPv4 TOS
+ 				are for dscp codepoint */
+@@ -606,6 +608,8 @@ static int pktgen_if_show(struct seq_file *seq, void *v)
+ 			   pkt_dev->svlan_id, pkt_dev->svlan_p,
+ 			   pkt_dev->svlan_cfi);
+ 
++	seq_printf(seq, "     ttl: 0x%02x\n", pkt_dev->ttl);
++
+ 	if (pkt_dev->tos)
+ 		seq_printf(seq, "     tos: 0x%02x\n", pkt_dev->tos);
+ 
+@@ -1667,8 +1671,26 @@ static ssize_t pktgen_if_write(struct file *file,
+ 		return count;
+ 	}
+ 
++	if (!strcmp(name, "ttl")) {
++		__u32 tmp_value = 0;
++
++		len = hex32_arg(&user_buffer[i], 2, &tmp_value);
++		if (len < 0)
++			return len;
++
++		i += len;
++		if (len == 2) {
++			pkt_dev->ttl = tmp_value;
++			sprintf(pg_result, "OK: ttl=0x%02x", pkt_dev->ttl);
++		} else {
++			sprintf(pg_result, "ERROR: tos must be 00-ff");
++		}
++		return count;
++	}
++
+ 	if (!strcmp(name, "tos")) {
+ 		__u32 tmp_value = 0;
++
+ 		len = hex32_arg(&user_buffer[i], 2, &tmp_value);
+ 		if (len < 0)
+ 			return len;
+@@ -1685,6 +1707,7 @@ static ssize_t pktgen_if_write(struct file *file,
+ 
+ 	if (!strcmp(name, "traffic_class")) {
+ 		__u32 tmp_value = 0;
++
+ 		len = hex32_arg(&user_buffer[i], 2, &tmp_value);
+ 		if (len < 0)
+ 			return len;
+@@ -3558,6 +3581,7 @@ static int pktgen_add_device(struct pktgen_thread *t, const char *ifname)
+ 	pkt_dev->udp_src_max = 9;
+ 	pkt_dev->udp_dst_min = 9;
+ 	pkt_dev->udp_dst_max = 9;
++	pkt_dev->ttl = 32;
+ 	pkt_dev->vlan_p = 0;
+ 	pkt_dev->vlan_cfi = 0;
+ 	pkt_dev->vlan_id = 0xffff;
+-- 
+1.7.1
+
