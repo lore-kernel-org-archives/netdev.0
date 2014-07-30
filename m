@@ -1,43 +1,44 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [RFC] GSO: Questions for IPVS and GSO for IPv6
-Date: Thu, 31 Jul 2014 00:39:28 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1407310034030.1826@ja.home.ssi.bg>
-References: <alpine.LFD.2.11.1407270957400.2036@ja.home.ssi.bg> <53D86359.2000604@fb.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: FW: ethtool patch to support bypass / fail-to-wire function
+Date: Thu, 31 Jul 2014 00:03:43 +0200
+Message-ID: <20140730220343.GA309@electric-eye.fr.zoreil.com>
+References: <3BFAEADE799AF145974162DF00E013AF018F794DE5@exchange2010.silicom.local>
+ <1402322812.23860.76.camel@deadeye.wl.decadent.org.uk>
+ <3BFAEADE799AF145974162DF00E013AF018F798C22@exchange2010.silicom.local>
+ <20140611091757.78e1002d@nehalam.linuxnetplumber.net>
+ <3BFAEADE799AF145974162DF00E013AF018F79A137@exchange2010.silicom.local>
+ <20140611113558.6d0c6296@nehalam.linuxnetplumber.net>
+ <3BFAEADE799AF145974162DF00E013AF018F803DED@exchange2010.silicom.local>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, lvs-devel@vger.kernel.org,
-	kernel-team <Kernel-team@fb.com>
-To: Alex Gartrell <agartrell@fb.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Anna Lukin <annal@silicom.co.il>
+To: David Hendel <david@silicom.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:34190 "EHLO ja.home.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752085AbaG3Vjw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jul 2014 17:39:52 -0400
-In-Reply-To: <53D86359.2000604@fb.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:56563 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751548AbaG3WDr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2014 18:03:47 -0400
+Content-Disposition: inline
+In-Reply-To: <3BFAEADE799AF145974162DF00E013AF018F803DED@exchange2010.silicom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-	Hello,
-
-On Tue, 29 Jul 2014, Alex Gartrell wrote:
-
-> > +	skb_clear_hash(skb);
+David Hendel <david@silicom.co.il> :
+[...]
+> We have our bypass driver updated and we would like to move forward with
+> integrating it into the kernel.
+> We think it need to be under drivers/net/
 > 
-> We need this in ipv4 but not in ipv6?
+> The description is per the below, taken from readme in linux.
+> The patch is attached,
+> Let me know how we can proceed with that. what should be the next step.
 
-	I got it from iptunnel_xmit(), I don't see it
-for IPv6 and I was not very sure about it. We can also
-leave it for another patch.
+Executive summary: this code does not even remotely look like network
+kernel code. The patch completely messes code that had been reworked
+in drivers/staging.
 
-> It sounds like this is going to take a fair amount of work.  Can we set
-> gso_type_mask to 0 with a scary comment and push it as a fix and then do the
-> right thing as a feature for a future release?
+It's very embarrassing.
 
-	Yes, 0 or SIT with some comment can be enough
-for a bugfix change.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+-- 
+Ueimor
