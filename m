@@ -1,60 +1,68 @@
-From: David Lamparter <equinox@diac24.net>
-Subject: [PATCH v2] ipv6: addrconf: fix mcast route for GRE devices
-Date: Wed, 30 Jul 2014 17:39:57 +0200
-Message-ID: <1406734797-122248-1-git-send-email-equinox@diac24.net>
-References: <20140730153503.GJ801478@jupiter.n2.diac24.net>
-Cc: David Lamparter <equinox@diac24.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from spaceboyz.net ([87.106.131.203]:59101 "EHLO spaceboyz.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753182AbaG3PkN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jul 2014 11:40:13 -0400
-In-Reply-To: <20140730153503.GJ801478@jupiter.n2.diac24.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: fche-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org (Frank Ch. Eigler)
+Subject: Re: [PATCH RFC v3 net-next 3/3] samples: bpf: eBPF dropmon example in C
+Date: Wed, 30 Jul 2014 11:45:28 -0400
+Message-ID: <y0m1tt226lj.fsf@fche.csb>
+References: <1406000723-4872-1-git-send-email-ast@plumgrid.com>
+	<1406000723-4872-4-git-send-email-ast@plumgrid.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1406000723-4872-4-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> (Alexei Starovoitov's message of "Mon, 21 Jul 2014 20:45:23 -0700")
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-GRE devices, for some reason, were coming up with an autoconfigured
-address, but no ff00::/8 route in the local table.  This breaks any kind
-of multicast, in particular OSPFv3, mDNS, - and ND.  In fact, IPv6 only
-works at all because there is little need for ND on PtP devices.
 
-Adding any other IPv6 address on the device from userspace would rectify
-this issue through inet6_addr_add()/addrconf_add_dev() - and would leave
-the route around even if the address was later removed.  (This is
-probably why this issue was not discovered earlier.  AFAICS it has been
-there from the beginning, e.g. aee80b5 "generate link local address for
-GRE tunnel")
+ast wrote earlier:
 
-(Note: multicast is supported on GRE devices of all kinds, including PtP
-GRE, P-t-Mcast GRE and NBMA-GRE.)
+> [...]
+> dtrace/systemtap/ktap approach is to use one script file that should provide
+> all desired functionality. That architectural decision overcomplicated their
+> implementations.
+>
+> eBPF follows split model: everything that needs to process millions of events
+> per second needs to run in kernel and needs to be short and deterministic,
+> all other things like aggregation and nice graphs should run in user space.
+> [...]
 
-Fixes: aee80b54b235 (ipv6: generate link local address for GRE tunnel)
-Signed-off-by: David Lamparter <equinox@diac24.net>
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Cc: Stephen Hemminger <stephen@networkplumber.org>
----
- net/ipv6/addrconf.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+For the record, this is not entirely accurate as to dtrace.  dtrace
+delegates aggregation and most reporting to userspace.  Also,
+systemtap is "short and deterministic" even for aggregations & nice
+graphs, but since it limits its storage & cpu consumption, its
+arrays/reports cannot get super large.
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 0b239fc..7540a25 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -2818,10 +2818,9 @@ static void addrconf_gre_config(struct net_device *dev)
- 
- 	ASSERT_RTNL();
- 
--	if ((idev = ipv6_find_idev(dev)) == NULL) {
--		pr_debug("%s: add_dev failed\n", __func__);
-+	idev = addrconf_add_dev(dev);
-+	if (IS_ERR(idev))
- 		return;
--	}
- 
- 	addrconf_addr_gen(idev, true);
- }
--- 
-1.8.5.5
+
+> [...]
+> +SEC("events/skb/kfree_skb")
+> +int bpf_prog2(struct bpf_context *ctx)
+> +{
+> +[...]
+> +	value = bpf_map_lookup_elem(&my_map, &loc);
+> +	if (value)
+> +		(*(long *) value) += 1;
+> +	else
+> +		bpf_map_update_elem(&my_map, &loc, &init_val);
+> +	return 0;
+> +}
+
+What kind of locking/serialization is provided by the ebpf runtime
+over shared variables such as my_map?
+
+
+- FChE
