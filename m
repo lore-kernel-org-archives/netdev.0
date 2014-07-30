@@ -1,131 +1,96 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH v2 2/4] driver core: enable drivers to use deferred probe
- from init
-Date: Tue, 29 Jul 2014 17:13:20 -0700
-Message-ID: <20140730001320.GA32364@kroah.com>
-References: <1406572110-26823-3-git-send-email-mcgrof@do-not-panic.com>
- <20140728185538.GB17609@kroah.com>
- <CAB=NE6VebcR7=UA1n0wNVLr5FFukzq6aW5CkeB3nf5FixV=3cA@mail.gmail.com>
- <CAB=NE6Xmi2zUCis22q+X8_AKRcwMrAtmx-aqSSvTB70Xjet6VQ@mail.gmail.com>
- <20140728234644.GA18729@kroah.com>
- <CAB=NE6UzK1ZEzm+54dwSyPwHGrAWCPtiNtxwhQuJF6tM9NbnYw@mail.gmail.com>
- <20140729003501.GA17020@kroah.com>
- <CAB=NE6XMzU+zJ0RMDKaPuSxfXBvN2vZ1DnbgxCjWHJquTD1iqg@mail.gmail.com>
- <20140729231422.GA14494@kroah.com>
- <20140730000541.GR21930@wotan.suse.de>
+From: "Luis R. Rodriguez" <mcgrof@suse.com>
+Subject: Re: [PATCH v2 2/4] driver core: enable drivers to use deferred
+	probefrom init
+Date: Wed, 30 Jul 2014 02:14:34 +0200
+Message-ID: <20140730001434.GS21930@wotan.suse.de>
+References: <20140728234644.GA18729@kroah.com> <CAB=NE6UzK1ZEzm+54dwSyPwHGrAWCPtiNtxwhQuJF6tM9NbnYw@mail.gmail.com> <20140729003501.GA17020@kroah.com> <CAB=NE6XMzU+zJ0RMDKaPuSxfXBvN2vZ1DnbgxCjWHJquTD1iqg@mail.gmail.com> <53D744E3.10500@suse.de> <201407292107.EGB64066.OOQMFSHLJVtFFO@I-love.SAKURA.ne.jp> <20140729222529.GC21140@f1.synalogic.ca>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Santosh Rastapur <santosh@chelsio.com>,
-	Hariprasad S <hariprasad@chelsio.com>,
-	Takashi Iwai <tiwai@suse.de>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>,
-	Joseph Salisbury <joseph.salisbury@canonical.com>,
-	Kay Sievers <kay@vrfy.org>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	Tim Gardner <tim.gardner@canonical.com>,
-	Pierre Fersing <pierre-fersing@pierref.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Oleg Nesterov <oleg@redhat.com>,
-	Benjamin Poirier <bpoirier@suse.de>,
-	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
-	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
-	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
-	Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
-	MPT-FusionLinux.pdl@avagotech.com,
-	Linux SCSI List <linux-scsi@vger.kernel.org>,
-	"netdev@vger.kernel.org
-To: "Luis R. Rodriguez" <mcgrof@suse.com>
+Cc: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>, hare@suse.de,
+	gregkh@linuxfoundation.org, santosh@chelsio.com,
+	hariprasad@chelsio.com, tiwai@suse.de,
+	linux-kernel@vger.kernel.org, joseph.salisbury@canonical.com,
+	kay@vrfy.org, gnomes@lxorguk.ukuu.org.uk,
+	tim.gardner@canonical.com, pierre-fersing@pierref.org,
+	akpm@linux-foundation.org, oleg@redhat.com,
+	nagalakshmi.nandigama@avagotech.com,
+	praveen.krishnamoorthy@avagotech.com,
+	sreekanth.reddy@avagotech.com, abhijit.mahajan@avagotech.com,
+	MPT-FusionLinux.pdl@avagotech.com, linux-scsi@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Benjamin Poirier <bpoirier@suse.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20140730000541.GR21930@wotan.suse.de>
+In-Reply-To: <20140729222529.GC21140@f1.synalogic.ca>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 30, 2014 at 02:05:41AM +0200, Luis R. Rodriguez wrote:
-> On Tue, Jul 29, 2014 at 04:14:22PM -0700, Greg KH wrote:
-> > On Mon, Jul 28, 2014 at 06:13:43PM -0700, Luis R. Rodriguez wrote:
-> > > >> > Why not just put the initial "register the device" in a single-shot
-> > > >> > workqueue or thread or something like that so that modprobe returns
-> > > >> > instantly back with a success and all is fine?
-> > > >>
-> > > >> That surely is possible but why not a general solution for such kludges?
+On Tue, Jul 29, 2014 at 03:25:29PM -0700, Benjamin Poirier wrote:
+> On 2014/07/29 21:07, Tetsuo Handa wrote:
+> > Luis R. Rodriguez wrote:
+> > > On Mon, Jul 28, 2014 at 5:35 PM, Greg KH <gregkh@linuxfoundation.org> wrote:
+> > > > On Mon, Jul 28, 2014 at 05:26:34PM -0700, Luis R. Rodriguez wrote:
+> > > >> To ignore SIGKILL ?
 > > > >
-> > > > Because the driver should be fixed.  How hard would it be to do what I
-> > > > just suggested here, 20 lines added at most?
+> > > > Sorry, I thought this was a userspace change that caused this.
+> > > >
+> > > > As it's a kernel change, well, maybe that patch should be reverted...
 > > > 
-> > > I appreciate the feedback, but don't look at me, I'd happy to go nutty
-> > > on ripping things apart from hairy drivers, however Chelsie folks
-> > > expressed concerns over major rework on the driver... so even if we
-> > > did have something I expect things to take a while to bake / gain
-> > > confidence from others.
+> > > That's certainly viable. Oleg?
 > > 
-> > "rework"?  Heh, here's a patch that adds 10 lines to the mptsas driver
-> > that should also work for any other driver as well.  Why not just do
-> > this instead?
+> > I don't want to revert that patch.
 > 
-> That's not a rework, that's a kludge, doing something similar for other
-> drivers would be replicating kludges, the deferred probe use was trying
-> to generalize a kludge with 3 lines of code. But I'm no not yet convinced
-> its the best solution now.
-
-I'm not saying it's pretty, but it confied to just the broken module,
-and also, it's obvious what needs to be fixed if someone cares.
-
-It sounds like no one cares about these moduls :)
-
-Adding it to the driver core ensures that the drivers will _never_ be
-changed, which isn't ok with me, sorry.
-
-
-> > > This also just addresses this *one* Ethernet driver, there was that
-> > > SCSI driver that created the original report -- Canonical merged
-> > > Joseph's fix as a work around,
-> > 
-> > What fix was that?
+> I agree that 786235ee should not be reverted to fix the problem of
+> modules that receive sigkill from udev while they are initializing. In
+> fact, while it may fix the case that was reported with mptsas, it would
+> not fix cxgb4 because there are other code paths that check for pending
+> signals and that abort (ex. pci_vpd_pci22_wait()).
 > 
-> https://launchpadlibrarian.net/169714201/kthread-Do-not-leave-kthread_create-immediately.patch
-> 
-> It was reviewed and Oleg preferred the timeout instead be reviewed
-> on systemd devel mailing list. That didn't go anywhere but today Hannes
-> posted a patch and that got merged. Its still not solving all issues
-> though as it lets us override the timeout value, systems / drivers
-> can still crash without a long timeout.
+> Reverting 786235ee effectively works around the problem by making
+> modprobe unkillable. The proper solution would be to make sure that udev
+> does not send sigkill to modprobe in the first place, either by making
+> the timeout longer or by making the module probe faster.
 
-Great, work it out with them, again, stay away from the driver core for
-this...
+Hannes sent a patch for systemd that enables a kernel command line override
+for the timeout, this however still means some drivers can fail and distros
+would have to use the longest known timeout for the supported kernel.
 
-> > > there is no general solution for this yet, and again with that work
-> > > around you won't find which drivers run into this issue.
-> > 
-> > Great, fix them as they are found, that's fine. 
-> 
-> Are we really OK in letting distributions have to deal with crashes
-> because of this new driver 30 second timeout ?
+http://lists.freedesktop.org/archives/systemd-devel/2014-July/021601.html
 
-If you don't want to, then revert the kernel change that caused it for
-your distro kernels.
+Tetsuo is it possible / desirable to allow tasks to not kill unless the
+reason is OOM ? Its unclear if this was discussed before, sorry if it was,
+have just been a bit busy today to review the archive / discussions on this.
 
-> I think warning about it would be better and more friendlier, no? What
-> gains do we have to kill the damn thing?
+To *fatally* kill a module if it does not reach a time limit is rather harsh
+without properly thinking about the entire picture of possible issues and 
+reasons for the timeout and also consequences of the kill, essentially
+what has happened is we are breaking ome boots on at least storage drivers
+that take long, and now networking on one driver at least. I think we all
+agree these drivers need fixing, there is no one arguing over that.
+but to allow a timeout to fatally kill the damn system seems rather
+stupid too if what we want to do is to get drivers fixed. It is both *hard
+to debug* (see the bug reports) and simply just irritating to users.
 
-Take it up with the owners of that code...
+The original commit on systemd that introduced the timeout is commit
+e64fae55 but the purpose of that commit was to send to hell drivers
+that are not using asynch firmware loading, but this is not the only
+reason why some drivers would hit the timeout limit. As Benjamin notes
+the cxgb4 driver issue is a bit more complex than that, as I've noted
+I've sent some initial patches to help with asynch firmware but proper
+integration is a bit more complex and even if we remove firmware out
+of the picture (this was tried) the driver *still* takes more than
+30 seconds to load and fails as Benjamin indicated. As Greg notes a bus
+driver stub can be written -- but this will take a bit of time folks,
+even if its a day or two, or a week or to just test things. In the
+meantime we simply have broken systems / networking as collateral to
+a CVE patch that in turn allowed systemd to also kill drivers on a
+30 second timeout under the assumption it was all asynch firmware
+loading. Collateral should not be the way to introduce new driver
+requirements, specially if its breaking boots. All I'm saying is we
+should just try to warn here, and not be fatal.
 
-> > Again, don't add stuff
-> > to the driver core to paper over crappy drivers, I'm not going to take
-> > that type of change.  I _only_ took the defer binding code as there was
-> > no other way for an individual driver to deal with things if it's
-> > resources were not present yet due to binding order in the system.
-> 
-> Ok but its a bit unfair to force killing drivers over a new driver 30 second
-> timeout requirement for a change that was made implicitly through a series
-> of collateral changes.
+Hannes' patch will allow us to override the timeout through the comand
+line but we're essentially still killing drivers that don't meet the new
+implicit rules. This doesn't seem optimal and hence the discussion.
 
-I'm not disagreeing with that, but hey, life isn't fair, and things
-needs to get fixed all the time...
-
-I say fix it _properly_ by fixing the drivers.
-
-best of luck,
-
-greg k-h
+  Luis
