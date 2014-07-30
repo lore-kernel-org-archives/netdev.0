@@ -1,64 +1,101 @@
-From: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
-Subject: Re: [RFC PATCH 1/1] ethtool: adding support for multiple slave port
- configuration
-Date: Wed, 30 Jul 2014 23:04:36 +0530
-Message-ID: <53D92CAC.3070002@ti.com>
-References: <1406291305-22286-1-git-send-email-mugunthanvnm@ti.com> <1406429221.29010.151.camel@deadeye.wl.decadent.org.uk> <53D52452.2020300@gmail.com>
+From: David Lamparter <equinox@diac24.net>
+Subject: Re: [PATCH net-next] ipv6: addrconf: fix mcast route for GRE devices
+Date: Wed, 30 Jul 2014 19:35:44 +0200
+Message-ID: <20140730173544.GM801478@jupiter.n2.diac24.net>
+References: <1406681743-104844-1-git-send-email-equinox@diac24.net>
+ <1406733282.5122.12.camel@localhost>
+ <20140730153503.GJ801478@jupiter.n2.diac24.net>
+ <1406736567.6757.14.camel@localhost>
+ <20140730163140.GL801478@jupiter.n2.diac24.net>
+ <1406739141.6757.22.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	<linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <53D52452.2020300-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Lamparter <equinox@diac24.net>, netdev@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from spaceboyz.net ([87.106.131.203]:60706 "EHLO spaceboyz.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755406AbaG3RgD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jul 2014 13:36:03 -0400
+Content-Disposition: inline
+In-Reply-To: <1406739141.6757.22.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sunday 27 July 2014 09:39 PM, John Fastabend wrote:
-> On 07/26/2014 07:47 PM, Ben Hutchings wrote:
->> On Fri, 2014-07-25 at 17:58 +0530, Mugunthan V N wrote:
->>> Some Ethernet Swtich controllers like CPSW in AM335x, TI814x, DRA7x and
->>> AM43xx SoCs, Network Coprocessor in AM5K2E0x, Realtek Switch
->>> controllers
->>> etc has to capability of conneting multiple networks using L2 switching
->>> and has multiple phys. With the existing code, ethtool can communicate
->>> only to one phy.
->>>
->>> To enable user to communicate multiple phy connected to single Ethernet
->>> Switch controller, intoducing a optional new parameter in Ethtool
->>> interface
->>> to pass which slave to set/get the phy configuration.
->>
->> There was some discussion about configuration APIs for hardware/firmware
->> bridges earlier this year and I thought there was a consensus for
->> assigning a network device to each port.  This would remove the need to
->> identify ports within a device.  But I may have misremembered.
->>
->
-> I like the approach of creating a network device for each port over
-> having to use ethtool to program/discover them. I am currently looking
-> at writing management applications for this and IMO it is much easier
-> to discover and listen for events on network devices vs polling ethtool
-> and iterating through slave indexs. Also you miss a lot of functionality
-> that may be useful MTU for example that is not available configured via
-> ethtool.
->
-> One of the sticking points in earlier discussions was how to handle
-> devices that have limited support for slave devices. When we create a
-> netdev we expect the stack can bind to it and TX/RX packets which as
-> I understand is not always possible? (I missed why we couldn't recv the
-> packets over a switch port though with some skb->dev manipulation). In
-> this case a feature flag could be used to resolve the feature
-> dependencies.
->
->
+On Wed, Jul 30, 2014 at 06:52:21PM +0200, Hannes Frederic Sowa wrote:
+> On Mi, 2014-07-30 at 18:31 +0200, David Lamparter wrote:
+> > On Wed, Jul 30, 2014 at 06:09:27PM +0200, Hannes Frederic Sowa wrote:
+> > [cut]
+> > > > On Wed, Jul 30, 2014 at 05:14:42PM +0200, Hannes Frederic Sowa wrote:
+> > > > > On Mi, 2014-07-30 at 02:55 +0200, David Lamparter wrote:
+> > > > > > GRE devices, for some reason, were coming up with an autoconfigured
+> > > > > > address, but no ff00::/8 route in the local table.  This breaks any kind
+> > > > > > of multicast, in particular OSPFv3, mDNS, - and ND.  In fact, IPv6 only
+> > > > > > works at all because there is little need for ND on PtP devices.
+> > > > > > 
+> > > > > > Adding any other IPv6 address on the device would rectify this issue
+> > > > > > through inet6_addr_add()/addrconf_add_dev() - and would leave the route
+> > > > > > around even if the address was later removed.  (This is probably why
+> > > > > > this issue was not discovered earlier.  AFAICS it has been there from
+> > > > > > the beginning, e.g. aee80b5 "generate link local address for GRE
+> > > > > > tunnel")
+> > > > > 
+> > > > > Yep, this is poor, but changing this will break user space...
+> > > > 
+> > > > How exactly will this break user space?
+> > > 
+> > > Because the multicast routes will always be restored after e.g. a route
+> > > flush or manual route deletion. Scripts might depend on this.
+> > 
+> > Sorry, I still don't get it.  Without this patch you end up in an
+> > inconsistent state, where a LL addr exists, but multicast doesn't work
+> > (since ff00::/8 is missing from RT6_TABLE_LOCAL).
+> 
+> Sure, people can remove addresses and routes at will.
 
-John
+That's not the point.
 
-I am also interested in participating in the above management api
-development.
+user manually adds address on any if: ff00::/8 added.
+kernel link-up autoconf addr on !gre: ff00::/8 added.
+kernel link-up autoconf addr on gre:  no ff00::/8.
 
-Regards
-Mugunthan V N
+This is about automatic kernel behaviour in device up/change
+notifications.  The user can always shoot himself in the foot.  This is
+the kernel shooting the user in the foot in one particular and quite
+specific instance and without a request to do so.
+
+> > Userspace is not supposed to touch RT6_TABLE_LOCAL in general, and, the
+> > kernel will actually refuse installing the ff00::/8 route into the local
+> > table from userspace (because there will be other ff00::/8 routes from
+> > other interfaces, so you get "File exists").  You can delete the route
+> > (and thus break mcast), but not add it.  The only way to add it is to
+> > add an address.
+> 
+> People really do flush the routing table.
+
+This is RT6_TABLE_LOCAL.  Most people aren't even aware it exists.  And
+even though I can't find a reference for it, my memory tells me that
+"table local" is supposed to be under the kernel's authority.
+
+> I'll have a look why the addition of the multicast route throws an
+> error.
+
+While that may be interesting, it won't fix the issue at hand.
+
+(It's probably because the output device is not part of uniqueness
+considerations for ff00::/8.  Might need to be treated as "scope link".)
+
+> > Not changing this behaviour keeps breaking userspace;  ospf6d among
+> > other things assumes an interface has working IPv6 when a link-local
+> > address is present.
+>
+> Yeah, but in the end, people also can drop specific packets and we
+> cannot do anything.
+
+See above, this isn't the user screwing himself, this is the kernel
+doing the wrong thing in one specific corner case.  (Which shouldn't
+even be a corner case.)
+
+
+-David
