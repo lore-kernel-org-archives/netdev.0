@@ -1,96 +1,96 @@
-From: "Luis R. Rodriguez" <mcgrof@suse.com>
-Subject: Re: [PATCH v2 2/4] driver core: enable drivers to use deferred
-	probefrom init
-Date: Wed, 30 Jul 2014 02:14:34 +0200
-Message-ID: <20140730001434.GS21930@wotan.suse.de>
-References: <20140728234644.GA18729@kroah.com> <CAB=NE6UzK1ZEzm+54dwSyPwHGrAWCPtiNtxwhQuJF6tM9NbnYw@mail.gmail.com> <20140729003501.GA17020@kroah.com> <CAB=NE6XMzU+zJ0RMDKaPuSxfXBvN2vZ1DnbgxCjWHJquTD1iqg@mail.gmail.com> <53D744E3.10500@suse.de> <201407292107.EGB64066.OOQMFSHLJVtFFO@I-love.SAKURA.ne.jp> <20140729222529.GC21140@f1.synalogic.ca>
+From: Greg KH <greg@kroah.com>
+Subject: Re: Fwd: Re: GRO issue with kernel 3.4.94 (icmp fragmentation needed)
+Date: Tue, 29 Jul 2014 17:22:55 -0700
+Message-ID: <20140730002255.GA16109@kroah.com>
+References: <1836813.giEndUKvmp@storm>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>, hare@suse.de,
-	gregkh@linuxfoundation.org, santosh@chelsio.com,
-	hariprasad@chelsio.com, tiwai@suse.de,
-	linux-kernel@vger.kernel.org, joseph.salisbury@canonical.com,
-	kay@vrfy.org, gnomes@lxorguk.ukuu.org.uk,
-	tim.gardner@canonical.com, pierre-fersing@pierref.org,
-	akpm@linux-foundation.org, oleg@redhat.com,
-	nagalakshmi.nandigama@avagotech.com,
-	praveen.krishnamoorthy@avagotech.com,
-	sreekanth.reddy@avagotech.com, abhijit.mahajan@avagotech.com,
-	MPT-FusionLinux.pdl@avagotech.com, linux-scsi@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Benjamin Poirier <bpoirier@suse.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>
+To: Thomas Jarosch <thomas.jarosch@intra2net.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:46779 "EHLO
+	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753397AbaG3AX0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 29 Jul 2014 20:23:26 -0400
+Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
+	by gateway1.nyi.internal (Postfix) with ESMTP id EEED12413C
+	for <netdev@vger.kernel.org>; Tue, 29 Jul 2014 20:23:23 -0400 (EDT)
 Content-Disposition: inline
-In-Reply-To: <20140729222529.GC21140@f1.synalogic.ca>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1836813.giEndUKvmp@storm>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 29, 2014 at 03:25:29PM -0700, Benjamin Poirier wrote:
-> On 2014/07/29 21:07, Tetsuo Handa wrote:
-> > Luis R. Rodriguez wrote:
-> > > On Mon, Jul 28, 2014 at 5:35 PM, Greg KH <gregkh@linuxfoundation.org> wrote:
-> > > > On Mon, Jul 28, 2014 at 05:26:34PM -0700, Luis R. Rodriguez wrote:
-> > > >> To ignore SIGKILL ?
-> > > >
-> > > > Sorry, I thought this was a userspace change that caused this.
-> > > >
-> > > > As it's a kernel change, well, maybe that patch should be reverted...
-> > > 
-> > > That's certainly viable. Oleg?
+On Fri, Jul 11, 2014 at 05:12:55PM +0200, Thomas Jarosch wrote:
+> Hi Greg,
+> 
+> I don't have the original patch email, but please include
+> the mentioned commit
+> 
+> ------------------------------------------
+> commit 21d1196a35f5686c4323e42a62fdb4b23b0ab4a3
+> Author: Eric Dumazet <edumazet@google.com>
+> ipv4: set transport header earlier
+> ------------------------------------------
+> 
+> in the 3.4.x stable tree.
+> 
+> After updating from 3.4.91 to 3.4.96, TCP connections
+> from Windows 7 clients slowed down to a crawl.
+> (to be precise: totally unusable)
+> 
+> The commit recommended by Florian Westphal fixes it immediately.
+> 
+> Best regards,
+> Thomas
+> 
+> ----------  Forwarded Message  ----------
+> 
+> Subject: Re: GRO issue with kernel 3.4.94 (icmp fragmentation needed)
+> Date: Friday, 27. June 2014, 11:05:25
+> From: Florian Westphal <fw@strlen.de>
+> To: jungwon park <jwpark2@whitecode.co.kr>
+> CC: netdev@vger.kernel.org
+> 
+> jungwon park <jwpark2@whitecode.co.kr> wrote:
+> > When using the linux router is turned on GRO, router send the 
+> 'fragmentation
+> > needed' packets to the sender.
+> 
+> Indeed 8-(
+> 
+> > When I turned off GRO, the router operate normally, and there is no 
+> problem.
+> > and with 3.4.91 kernel, the router has no problem.
 > > 
-> > I don't want to revert that patch.
+> > I doubt 'ipv4: ip_forward: fix inverted local_df test' patch.
+> > (http://patchwork.ozlabs.org/patch/345509/)
+> > When I revert this patch, the router has no problem.
 > 
-> I agree that 786235ee should not be reverted to fix the problem of
-> modules that receive sigkill from udev while they are initializing. In
-> fact, while it may fix the case that was reported with mptsas, it would
-> not fix cxgb4 because there are other code paths that check for pending
-> signals and that abort (ex. pci_vpd_pci22_wait()).
+> Can you please cherry-pick following patch on top of vanilla 3.4.92?
+> https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=21d1196a35f5686c4323e42a62fdb4b23b0ab4a3
 > 
-> Reverting 786235ee effectively works around the problem by making
-> modprobe unkillable. The proper solution would be to make sure that udev
-> does not send sigkill to modprobe in the first place, either by making
-> the timeout longer or by making the module probe faster.
+> commit 21d1196a35f5686c4323e42a62fdb4b23b0ab4a3
+> Author: Eric Dumazet <edumazet@google.com>
+> ipv4: set transport header earlier
+> 
+> I think that should fix this bug, it should apply cleanly on top of
+> 3.4.y tree.
+> 
+> [ patch is in 3.11, also backported to 3.10.y tree ]
+> 
+> The problem is that, when dealing with GRO packets, we try to determine
+> the size of the individual packets.  To do this, we rely on the
+> transport header.
+> 
+> Unfortunately the transport header is not set for the forward path in 3.4,
+> so we look at the network header instead.
 
-Hannes sent a patch for systemd that enables a kernel command line override
-for the timeout, this however still means some drivers can fail and distros
-would have to use the longest known timeout for the supported kernel.
+Why would this patch matter, as commit 45f00f99d6e, which this patch
+fixes, is not in the 3.4-stable tree at all.
 
-http://lists.freedesktop.org/archives/systemd-devel/2014-July/021601.html
+Also, network stable patches need to go through the network maintainer,
+not me directly.
 
-Tetsuo is it possible / desirable to allow tasks to not kill unless the
-reason is OOM ? Its unclear if this was discussed before, sorry if it was,
-have just been a bit busy today to review the archive / discussions on this.
+thanks,
 
-To *fatally* kill a module if it does not reach a time limit is rather harsh
-without properly thinking about the entire picture of possible issues and 
-reasons for the timeout and also consequences of the kill, essentially
-what has happened is we are breaking ome boots on at least storage drivers
-that take long, and now networking on one driver at least. I think we all
-agree these drivers need fixing, there is no one arguing over that.
-but to allow a timeout to fatally kill the damn system seems rather
-stupid too if what we want to do is to get drivers fixed. It is both *hard
-to debug* (see the bug reports) and simply just irritating to users.
-
-The original commit on systemd that introduced the timeout is commit
-e64fae55 but the purpose of that commit was to send to hell drivers
-that are not using asynch firmware loading, but this is not the only
-reason why some drivers would hit the timeout limit. As Benjamin notes
-the cxgb4 driver issue is a bit more complex than that, as I've noted
-I've sent some initial patches to help with asynch firmware but proper
-integration is a bit more complex and even if we remove firmware out
-of the picture (this was tried) the driver *still* takes more than
-30 seconds to load and fails as Benjamin indicated. As Greg notes a bus
-driver stub can be written -- but this will take a bit of time folks,
-even if its a day or two, or a week or to just test things. In the
-meantime we simply have broken systems / networking as collateral to
-a CVE patch that in turn allowed systemd to also kill drivers on a
-30 second timeout under the assumption it was all asynch firmware
-loading. Collateral should not be the way to introduce new driver
-requirements, specially if its breaking boots. All I'm saying is we
-should just try to warn here, and not be fatal.
-
-Hannes' patch will allow us to override the timeout through the comand
-line but we're essentially still killing drivers that don't meet the new
-implicit rules. This doesn't seem optimal and hence the discussion.
-
-  Luis
+greg k-h
