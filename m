@@ -1,68 +1,78 @@
-From: fche-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org (Frank Ch. Eigler)
-Subject: Re: [PATCH RFC v3 net-next 3/3] samples: bpf: eBPF dropmon example in C
-Date: Wed, 30 Jul 2014 11:45:28 -0400
-Message-ID: <y0m1tt226lj.fsf@fche.csb>
-References: <1406000723-4872-1-git-send-email-ast@plumgrid.com>
-	<1406000723-4872-4-git-send-email-ast@plumgrid.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
-	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1406000723-4872-4-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> (Alexei Starovoitov's message of "Mon, 21 Jul 2014 20:45:23 -0700")
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Willem de Bruijn <willemb@google.com>
+Subject: [PATCH net-next v4 0/5] net-timestamp: additional sw tstamps and
+Date: Wed, 30 Jul 2014 11:48:43 -0400
+Message-ID: <1406735328-7520-1-git-send-email-willemb@google.com>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com,
+	richardcochran@gmail.com, Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yh0-f73.google.com ([209.85.213.73]:48477 "EHLO
+	mail-yh0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753755AbaG3Psu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2014 11:48:50 -0400
+Received: by mail-yh0-f73.google.com with SMTP id f73so173144yha.0
+        for <netdev@vger.kernel.org>; Wed, 30 Jul 2014 08:48:49 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Extend socket tx timestamping:
+- allow multiple types of software timestamps aside from send (1)
+- add software timestamp on tc enqueue (3)
+- add software timestamp for TCP (4)
+- add software timestamp for TCP on ACK (5)
 
-ast wrote earlier:
+The sk_flags option space is nearly exhausted. Also move the
+many timestamp options to a new sk->sk_tstamps (2).
 
-> [...]
-> dtrace/systemtap/ktap approach is to use one script file that should provide
-> all desired functionality. That architectural decision overcomplicated their
-> implementations.
->
-> eBPF follows split model: everything that needs to process millions of events
-> per second needs to run in kernel and needs to be short and deterministic,
-> all other things like aggregation and nice graphs should run in user space.
-> [...]
+The patchset extends Linux tx timestamping to monitoring of latency
+incurred within the kernel stack and to protocols embedded in TCP.
+Complex kernel setups may have multiple layers of queueing, including
+multiple instances of traffic shaping, and many classes per layer.
+Many applications embed discrete payloads into TCP bytestreams for
+reliability, flow control, etcetera. Detecting application tail
+latency in such scenarios relies on identifying the exact queue
+responsible if on the host, or the network latency if otherwise.
 
-For the record, this is not entirely accurate as to dtrace.  dtrace
-delegates aggregation and most reporting to userspace.  Also,
-systemtap is "short and deterministic" even for aggregations & nice
-graphs, but since it limits its storage & cpu consumption, its
-arrays/reports cannot get super large.
+Changelog:
+v3->v4
+  - (v3 review comment) removed skb->mark packet identification (*A)
+  - (v3 review comment) fixed indentation
+  - tcp: fixed poll() to return POLLERR on non-zero queue
+  - rebased to work without syststamp
+  - comments: removed all traces of MSG_TSTAMP_.. (*B)
 
+v2->v3
+  - extend the SO_TIMESTAMPING API, instead of defining a new one.
+  - add protocol independent support to correlate tstamps with data,
+    based on returning skb->mark.
+  - removed no-payload optimization and documentation (for now):
 
-> [...]
-> +SEC("events/skb/kfree_skb")
-> +int bpf_prog2(struct bpf_context *ctx)
-> +{
-> +[...]
-> +	value = bpf_map_lookup_elem(&my_map, &loc);
-> +	if (value)
-> +		(*(long *) value) += 1;
-> +	else
-> +		bpf_map_update_elem(&my_map, &loc, &init_val);
-> +	return 0;
-> +}
+    I have a follow-on patch that reintroduces MSG_TSTAMP along with a
+    new socket option SOF_TIMESTAMPING_OPT_ONFLAG. This is equivalent
+    to sequence setsockopt(<enable>); send(..); setsockopt(<disable>),
+    but avoids the need to define a MSG_TSTAMP_<TYPE> for each type.
 
-What kind of locking/serialization is provided by the ebpf runtime
-over shared variables such as my_map?
+    I will leave these three patches as follow-on, as this patchset is
+    large enough as is.
 
+v1->2
+  - expand timestamping (existing and new) to SOCK_RAW and ping sockets
+  - rename sock_errqueue_timestamping to scm_timestamping
+  - change timestamp data format: do not add fields to scm_timestamping.
+      Doing so could break legacy applications. Instead, communicate
+      through an existing, but unused, field in the error message.
+  - rename SOF_.._OPT_TX_NO_PAYLOAD to shorter SOF_.._OPT_TSONLY
+  - move msg_tstamp test app out of patchset and to github
+      git://github.com/wdebruij/kerneltools.git
 
-- FChE
+v4 comments:
+
+A: unique correlation of payload and timestamp when multiple payloads
+   are in flight requires more extensive changes if we do not use
+   skb->mark. That is better left to a follow-up patch.
+B: similarly, I intend to submit the MSG_TSTAMP short-hand for
+   setsockopt(<enable>); send; setsockopt(<disable>); as follow-up
+   for review.
+
+-- 
+2.0.0.526.g5318336
