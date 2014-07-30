@@ -1,64 +1,53 @@
-From: David Lamparter <equinox@diac24.net>
-Subject: Re: [PATCH net-next] ipv6: addrconf: fix mcast route for GRE devices
-Date: Wed, 30 Jul 2014 18:31:40 +0200
-Message-ID: <20140730163140.GL801478@jupiter.n2.diac24.net>
-References: <1406681743-104844-1-git-send-email-equinox@diac24.net>
- <1406733282.5122.12.camel@localhost>
- <20140730153503.GJ801478@jupiter.n2.diac24.net>
- <1406736567.6757.14.camel@localhost>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [RFC alternate] ipv6: addrconf: clean up device type handling
+Date: Wed, 30 Jul 2014 18:44:46 +0200
+Message-ID: <1406738686.6757.18.camel@localhost>
+References: <20140730153503.GJ801478@jupiter.n2.diac24.net>
+	 <1406735921-122830-1-git-send-email-equinox@diac24.net>
+	 <1406736755.6757.15.camel@localhost>
+	 <20140730162337.GK801478@jupiter.n2.diac24.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Lamparter <equinox@diac24.net>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Jiri Pirko <jiri@resnulli.us>
+To: David Lamparter <equinox@diac24.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spaceboyz.net ([87.106.131.203]:59846 "EHLO spaceboyz.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753921AbaG3Qb5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jul 2014 12:31:57 -0400
-Content-Disposition: inline
-In-Reply-To: <1406736567.6757.14.camel@localhost>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:49138 "EHLO
+	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754948AbaG3Qot (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2014 12:44:49 -0400
+Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
+	by gateway1.nyi.internal (Postfix) with ESMTP id C357124B73
+	for <netdev@vger.kernel.org>; Wed, 30 Jul 2014 12:44:48 -0400 (EDT)
+In-Reply-To: <20140730162337.GK801478@jupiter.n2.diac24.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 30, 2014 at 06:09:27PM +0200, Hannes Frederic Sowa wrote:
-[cut]
-> > On Wed, Jul 30, 2014 at 05:14:42PM +0200, Hannes Frederic Sowa wrote:
-> > > On Mi, 2014-07-30 at 02:55 +0200, David Lamparter wrote:
-> > > > GRE devices, for some reason, were coming up with an autoconfigured
-> > > > address, but no ff00::/8 route in the local table.  This breaks any kind
-> > > > of multicast, in particular OSPFv3, mDNS, - and ND.  In fact, IPv6 only
-> > > > works at all because there is little need for ND on PtP devices.
-> > > > 
-> > > > Adding any other IPv6 address on the device would rectify this issue
-> > > > through inet6_addr_add()/addrconf_add_dev() - and would leave the route
-> > > > around even if the address was later removed.  (This is probably why
-> > > > this issue was not discovered earlier.  AFAICS it has been there from
-> > > > the beginning, e.g. aee80b5 "generate link local address for GRE
-> > > > tunnel")
-> > > 
-> > > Yep, this is poor, but changing this will break user space...
+On Mi, 2014-07-30 at 18:23 +0200, David Lamparter wrote:
+> On Wed, Jul 30, 2014 at 06:12:35PM +0200, Hannes Frederic Sowa wrote:
+> > On Mi, 2014-07-30 at 17:58 +0200, David Lamparter wrote:
+> [cut]
+> > > This is an alternate version, yanking the switch() down and removing
+> > > dev_config/gre_config duplication.  I have no idea what rationale is behind
+> > > prefix_route - the result is a fe80::/64 route, but no address, which is not a
+> > > functioning configuration.  Jiri, you touched this just a few weeks ago, can
+> > > you comment?  (The "XXX: why is GRE special?")
 > > 
-> > How exactly will this break user space?
+> > Sure, it is valid. You can still use global addresses to talk to link
+> > local addresses on the same link, even from another interface.
 > 
-> Because the multicast routes will always be restored after e.g. a route
-> flush or manual route deletion. Scripts might depend on this.
+> Okay, well, that may give some purpose to it, but doesn't really explain
+> why GRE is special in this regard...
+> 
+> (And it's a violation of RFC4291 section 2.1 - "All interfaces are
+> required to have at least one Link-Local unicast address" - and I'd bet
+> on ndisc doing weird things in a setup like that.)
 
-Sorry, I still don't get it.  Without this patch you end up in an
-inconsistent state, where a LL addr exists, but multicast doesn't work
-(since ff00::/8 is missing from RT6_TABLE_LOCAL).
+Yep - sure. But we also allow someone to remove the ll address manually.
+And people did do that to transition the interface into an
+disable_ipv6=1 mode, which had its own problems.
 
-Userspace is not supposed to touch RT6_TABLE_LOCAL in general, and, the
-kernel will actually refuse installing the ff00::/8 route into the local
-table from userspace (because there will be other ff00::/8 routes from
-other interfaces, so you get "File exists").  You can delete the route
-(and thus break mcast), but not add it.  The only way to add it is to
-add an address.
-
-Not changing this behaviour keeps breaking userspace;  ospf6d among
-other things assumes an interface has working IPv6 when a link-local
-address is present.
-
-
--David
+We don't care if the user does rfc compliant configurations. :)
+The settings in the kernel should just be reasonable.
