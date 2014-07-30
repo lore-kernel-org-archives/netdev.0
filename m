@@ -1,108 +1,33 @@
-From: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
-Subject: Re: [PATCH] svcrdma: delete double assignment
-Date: Wed, 30 Jul 2014 14:59:34 -0500
-Message-ID: <53D94EA6.10201@opengridcomputing.com>
-References: <20140728152938.GA3040@himangi-Dell> <20140729.155050.311148635959938226.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] cdc-subset: make compile with all config options
+Date: Wed, 30 Jul 2014 13:20:00 -0700 (PDT)
+Message-ID: <20140730.132000.301302545563342971.davem@davemloft.net>
+References: <1406710486-29138-1-git-send-email-oneukum@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org, bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, julia.lawall-L2FTfq7BK8M@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, himangi774-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20140729.155050.311148635959938226.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: oneukum@suse.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36013 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750923AbaG3UUE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2014 16:20:04 -0400
+In-Reply-To: <1406710486-29138-1-git-send-email-oneukum@suse.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 7/29/2014 5:50 PM, David Miller wrote:
-> From: Himangi Saraogi <himangi774-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Date: Mon, 28 Jul 2014 20:59:38 +0530
->
->> Delete successive assignments to the same location.
->>
->> A simplified version of Coccinelle semantic match that finds this problem is as
->> follows:
->>
->> // <smpl>
->> @@
->> expression i;
->> @@
->>
->> *i = ...;
->>   i = ...;
->> // </smpl>
->>
->> Signed-off-by: Himangi Saraogi <himangi774-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> I am not so sure about this change either.
->
->> @@ -956,7 +956,6 @@ static struct svc_xprt *svc_rdma_accept(struct svc_xprt *xprt)
->>   			dprintk("svcrdma: failed to create QP, ret=%d\n", ret);
->>   			goto errout;
->>   		}
->> -		newxprt->sc_max_sge = qp_attr.cap.max_send_sge;
->>   		newxprt->sc_max_sge = qp_attr.cap.max_recv_sge;
->>   		newxprt->sc_sq_depth = qp_attr.cap.max_send_wr;
->>   		newxprt->sc_max_requests = qp_attr.cap.max_recv_wr;
-> ->sc_max_sge is used to limit the number of segments used during sends,
-> currently in this code.  Grep for where it is used.
->
-> Therefore, if anything, the correct thing to do would be to retain the
-> first line rather than the second line.
->
-> Someone who actually works on this code and understands it should
-> really take a close look at this before anyone even thinks about
-> applying this patch.
+From: Oliver Neukum <oneukum@suse.de>
+Date: Wed, 30 Jul 2014 10:54:46 +0200
 
-We should remove that whole block that tries to recover from a 
-rdma_create_qp() failure.   I don't believe we would ever hit it. The 
-value initially stored in sc_max_sge is from the device attribute 
-max_sge returned from ib_query_device() just above the code we're 
-talking about.  If rdma_create_qp() fails, it would not be because the 
-max_send_sge and max_recv_sge values passed in exceed the device's max...
+> My earlier patch introduced helper methods errornously
+> subject to conditional compilation. This patch makes them
+> available under all config options.
+> 
+> Signed-off-by: Oliver Neukum <oneukum@suse.de>
 
-Like this:
+Oliver, since I had Linus revert your patch (in order to expedite the
+3.16-final release), you'll need to send me your original patch with
+these fixes here included.
 
-diff --git a/net/sunrpc/xprtrdma/svc_rdma_transport.c 
-b/net/sunrpc/xprtrdma/svc_rdma_transport.c
-index e7323fb..282a43b 100644
---- a/net/sunrpc/xprtrdma/svc_rdma_transport.c
-+++ b/net/sunrpc/xprtrdma/svc_rdma_transport.c
-@@ -942,23 +942,8 @@ static struct svc_xprt *svc_rdma_accept(struct 
-svc_xprt *xprt)
-
-         ret = rdma_create_qp(newxprt->sc_cm_id, newxprt->sc_pd, &qp_attr);
-         if (ret) {
--               /*
--                * XXX: This is a hack. We need a xx_request_qp interface
--                * that will adjust the qp_attr's with a best-effort
--                * number
--                */
--               qp_attr.cap.max_send_sge -= 2;
--               qp_attr.cap.max_recv_sge -= 2;
--               ret = rdma_create_qp(newxprt->sc_cm_id, newxprt->sc_pd,
--                                    &qp_attr);
--               if (ret) {
--                       dprintk("svcrdma: failed to create QP, 
-ret=%d\n", ret);
--                       goto errout;
--               }
--               newxprt->sc_max_sge = qp_attr.cap.max_send_sge;
--               newxprt->sc_max_sge = qp_attr.cap.max_recv_sge;
--               newxprt->sc_sq_depth = qp_attr.cap.max_send_wr;
--               newxprt->sc_max_requests = qp_attr.cap.max_recv_wr;
-+               dprintk("svcrdma: failed to create QP, ret=%d\n", ret);
-+               goto errout;
-         }
-         newxprt->sc_qp = newxprt->sc_cm_id->qp;
-
-
-Steve.
-
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks.
