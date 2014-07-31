@@ -1,47 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/8] amd-xgbe: AMD XGBE driver update
- 2014-07-25
-Date: Wed, 30 Jul 2014 18:48:08 -0700 (PDT)
-Message-ID: <20140730.184808.404820283176806159.davem@davemloft.net>
-References: <20140729135707.2791.75918.stgit@tlendack-t1.amdoffice.net>
+From: zhuyj <zyjzyj2000@gmail.com>
+Subject: Re: ipv4: net namespace does not inherit network configurations
+Date: Thu, 31 Jul 2014 09:59:12 +0800
+Message-ID: <53D9A2F0.4040808@gmail.com>
+References: <53D7697C.6020103@gmail.com> <CAHA+R7MC2gKeSWqR8pDDX26D-Th4BG1AveM+HseMMPjLBJuWDw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: thomas.lendacky@amd.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38355 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752288AbaGaBsJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2014 21:48:09 -0400
-In-Reply-To: <20140729135707.2791.75918.stgit@tlendack-t1.amdoffice.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Hong Zhiguo <honkiko@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	"Tao, Yue" <Yue.Tao@windriver.com>,
+	Alexandre Dietsch <alexandre.dietsch@windriver.com>,
+	zhuyj <zyjzyj2000@gmail.com>
+To: Cong Wang <cwang@twopensource.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAHA+R7MC2gKeSWqR8pDDX26D-Th4BG1AveM+HseMMPjLBJuWDw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Date: Tue, 29 Jul 2014 08:57:08 -0500
+On 07/30/2014 01:48 AM, Cong Wang wrote:
+> On Tue, Jul 29, 2014 at 2:29 AM, zhuyj <zyjzyj2000@gmail.com> wrote:
+>> Hi,all
+>>
+>> I did a test on kernel3.16 rc6:
+>>
+>> root@qemu1:~# echo 1 > /proc/sys/net/ipv6/conf/all/forwarding
+>> root@qemu1:~# echo 1 > /proc/sys/net/ipv4/conf/all/forwarding
+>> root@qemu1:~# ip netns list
+>> root@qemu1:~# ip netns add fib1
+>> root@qemu1:~# ip netns exec fib1 bash
+>> root@qemu1:~# cat /proc/sys/net/ipv6/conf/all/forwarding
+>> 0
+>> root@qemu1:~# cat /proc/sys/net/ipv4/conf/all/forwarding
+>> 1
+>>
+>> The behavior of ipv4 and ipv6 is very inconsistent. I checked
+>> the kernel source code. I found that from this patch
+>> [ipv6: fix bad free of addrconf_init_net], the above difference
+>> appeared.
+>>
+>> Since a net namespace is independent to another. That is, there
+>> is no any relationship between the net namespaces. So the behavior
+>> of ipv4 is not correct.
+>>
+> Well, they are already independent, not shared, just that the initial
+> value is duplicated from init_net for IPv4.
+>
+> This change might break existing applications which rely on this
+> behavior, but given IPv6 change is almost the same, I think it's ok.
+>
+> BTW, you need to submit a patch as normal, instead of as an attachment.
+>
+OK. Thanks a lot.
 
-> This patch series is dependent on the following patch that was
-> applied to the net tree and needs to be applied to the net-next
-> tree:
->   332cfc823d18 - amd-xgbe: Fix error return code in xgbe_probe()
-> 
-> The following series of patches includes fixes and new support in the
-> driver.
-> 
-> - Device bindings documentation update
-> - Hardware timestamp support
-> - 2.5GbE support changes
-> - Fifo sizes based on active queues/rings
-> - Phylib driver updates for:
->   - Rate change completion check
->   - KR training initiation
->   - Auto-negotiation results
-> - Traffic class support, including DCB support
-> 
-> This patch series is based on net-next.
-> 
-> Changes in V2:
->   - Remove DBGPR(...., __func__) calls
-
-Series applied, thanks Tom.
+Zhu Yanjun
