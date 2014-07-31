@@ -1,44 +1,43 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH v2] net: fix the counter
- ICMP_MIB_INERRORS/ICMP6_MIB_INERRORS
-Date: Thu, 31 Jul 2014 23:05:26 +0200
-Message-ID: <1406840726.13603.3.camel@localhost>
-References: <53D75922.2090106@cn.fujitsu.com>
-	 <53DA1258.90203@cn.fujitsu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 06/15] i40e: Move some variable declarations out of
+ a loop
+Date: Thu, 31 Jul 2014 14:05:59 -0700 (PDT)
+Message-ID: <20140731.140559.2090702986159656213.davem@davemloft.net>
+References: <1406766731-4209-1-git-send-email-aaron.f.brown@intel.com>
+	<1406766731-4209-7-git-send-email-aaron.f.brown@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	netdev <netdev@vger.kernel.org>
-To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Cc: akeem.g.abodunrin@intel.com, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: aaron.f.brown@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:33779 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751826AbaGaVFb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2014 17:05:31 -0400
-Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
-	by gateway1.nyi.internal (Postfix) with ESMTP id 99FA2227B5
-	for <netdev@vger.kernel.org>; Thu, 31 Jul 2014 17:05:28 -0400 (EDT)
-In-Reply-To: <53DA1258.90203@cn.fujitsu.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50982 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753140AbaGaVGC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2014 17:06:02 -0400
+In-Reply-To: <1406766731-4209-7-git-send-email-aaron.f.brown@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Do, 2014-07-31 at 17:54 +0800, Duan Jiong wrote:
-> When dealing with ICMPv[46] Error Message, function icmp_socket_deliver()
-> and icmpv6_notify() do some valid checks on packet's length, but then some
-> protocols check packet's length redaudantly. So remove those duplicated
-> statements, and increase counter ICMP_MIB_INERRORS/ICMP6_MIB_INERRORS in
-> function icmp_socket_deliver() and icmpv6_notify() respectively.
-> 
-> In addition, add missed counter in udp6/udplite6 when socket is NULL.
-> 
-> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-> ---
-> 
-> v2: remove nested rcu_read_lock from icmpv6_notify
+From: Aaron Brown <aaron.f.brown@intel.com>
+Date: Wed, 30 Jul 2014 17:32:02 -0700
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> From: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
+> 
+> Declare some variables once outside of the loop instead of in
+> every iteration of the loop.
+> 
+> Change-ID: I436913777c7da3c16dc0031b59e3ffa61de74718
+> Signed-off-by: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
+> Tested-by: Jim Young <jamesx.m.young@intel.com>
+> Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
 
-IPv4 handler can also be cleaned up. ;)
+Why?  Decreasing the scope of variables makes the code easier to
+understand and audit.
 
-Thanks!
+Now that it's declared at the top level people have to check whether
+is it initialized properly in all possible code paths, in the entire
+function, rather than just inside of the loop.
+
+Please respin this series with this patch removed, thanks.
