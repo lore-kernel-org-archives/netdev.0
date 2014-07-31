@@ -1,44 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bridge: Don't include NDA_VLAN for FDB
- entries with vid 0
-Date: Thu, 31 Jul 2014 12:19:23 -0700 (PDT)
-Message-ID: <20140731.121923.1328533021640488126.davem@davemloft.net>
-References: <1406694711-8521-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Subject: Re: GRO issue with kernel 3.4.94 (icmp fragmentation needed)
+Date: Thu, 31 Jul 2014 12:21:20 -0700 (PDT)
+Message-ID: <20140731.122120.1264255119985284020.davem@davemloft.net>
+References: <1836813.giEndUKvmp@storm>
+	<20140730002255.GA16109@kroah.com>
+	<20140730063703.GA24753@breakpoint.cc>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, vyasevic@redhat.com,
-	bridge@lists.linux-foundation.org, netdev@vger.kernel.org
-To: makita.toshiaki@lab.ntt.co.jp
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1406694711-8521-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: greg@kroah.com, thomas.jarosch@intra2net.com,
+	netdev@vger.kernel.org
+To: fw@strlen.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49889 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752206AbaGaTVV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2014 15:21:21 -0400
+In-Reply-To: <20140730063703.GA24753@breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Date: Wed, 30 Jul 2014 13:31:51 +0900
+From: Florian Westphal <fw@strlen.de>
+Date: Wed, 30 Jul 2014 08:37:03 +0200
 
-> An FDB entry with vlan_id 0 doesn't mean it is used in vlan 0, but used when
-> vlan_filtering is disabled.
+> However, given the numerous problems reported with the GRO changes in
+> older stable kernels I think the commit
+> 29a3cd46644ec8098dbe1c12f89643b5c11831a9 in 3.4.y should be reverted.
 > 
-> There is inconsistency around NDA_VLAN whose payload is 0 - even if we add
-> an entry by RTM_NEWNEIGH without any NDA_VLAN, and even though adding an
-> entry with NDA_VLAN 0 is prohibited, we get an entry with NDA_VLAN 0 by
-> RTM_GETNEIGH.
-> 
-> Dumping an FDB entry with vlan_id 0 shouldn't include NDA_VLAN.
-> 
-> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+> [ In 3.2.y its caa5344994778a2b4725b2d75c74430f76925e4a ]
+ ...
+> David, in case I remember wrong and you did not recommend the revert
+> after all, do you want me to submit 3.2/3.4.y backport of Erics
+> 'set transport header earlier' patch?
 
-This is clearly the right thing to do, since upon FDB addition we reject
-NDA_VLAN attributes with value zero.
+Yes, the above two patches above should be reverted.
 
-Applied, thanks.
+Thanks Florian.
