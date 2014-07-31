@@ -1,89 +1,102 @@
 From: Aaron Brown <aaron.f.brown@intel.com>
-Subject: [net-next 04/15] i40e: expose debug_write_register request
-Date: Wed, 30 Jul 2014 17:32:00 -0700
-Message-ID: <1406766731-4209-5-git-send-email-aaron.f.brown@intel.com>
+Subject: [net-next 11/15] i40evf: future-proof vfr_stat state check
+Date: Wed, 30 Jul 2014 17:32:07 -0700
+Message-ID: <1406766731-4209-12-git-send-email-aaron.f.brown@intel.com>
 References: <1406766731-4209-1-git-send-email-aaron.f.brown@intel.com>
-Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
+Cc: Ashish Shah <ashish.n.shah@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Aaron Brown <aaron.f.brown@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:65019 "EHLO mga01.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:24424 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754221AbaGaA2R (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jul 2014 20:28:17 -0400
+	id S1756061AbaGaA2V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jul 2014 20:28:21 -0400
 In-Reply-To: <1406766731-4209-1-git-send-email-aaron.f.brown@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shannon Nelson <shannon.nelson@intel.com>
+From: Ashish Shah <ashish.n.shah@intel.com>
 
-Now that the HW registers are no longer in debug mode and many are
-locked down for writes, we need to expose the Firmware API request
-used to do writes on the driver's behalf.
+Previously defined state I40E_VFR_VFACTIVE uses bit 1 which is now set to
+"reserved."  Update the state checks to also include I40E_VFR_COMPLETED.
+This change will allow the VF to work with both existing and future PFs.
 
-Change-ID: I09a05c4dc9ea0b24c00193faac34d7799eaa8496
-Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
-Tested-by: Jim Young <jamesx.m.young>
+Change-ID: Ifd1d34f79f3b0ffd6d2550ee4dadc55825ff52f8
+Signed-off-by: Ashish Shah <ashish.n.shah@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_common.c    | 29 ++++++++++++++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_prototype.h |  3 +++
- 2 files changed, 32 insertions(+)
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 23 +++++++++++++++++------
+ 1 file changed, 17 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index a010584..df43e7c 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -2002,6 +2002,35 @@ i40e_status i40e_aq_send_msg_to_vf(struct i40e_hw *hw, u16 vfid,
- }
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 937785d..4c01079 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -1298,12 +1298,16 @@ static void i40evf_watchdog_task(struct work_struct *work)
+ 					  struct i40evf_adapter,
+ 					  watchdog_task);
+ 	struct i40e_hw *hw = &adapter->hw;
++	uint32_t rstat_val;
  
- /**
-+ * i40e_aq_debug_write_register
-+ * @hw: pointer to the hw struct
-+ * @reg_addr: register address
-+ * @reg_val: register value
-+ * @cmd_details: pointer to command details structure or NULL
-+ *
-+ * Write to a register using the admin queue commands
-+ **/
-+i40e_status i40e_aq_debug_write_register(struct i40e_hw *hw,
-+					u32 reg_addr, u64 reg_val,
-+					struct i40e_asq_cmd_details *cmd_details)
-+{
-+	struct i40e_aq_desc desc;
-+	struct i40e_aqc_debug_reg_read_write *cmd =
-+		(struct i40e_aqc_debug_reg_read_write *)&desc.params.raw;
-+	i40e_status status;
-+
-+	i40e_fill_default_direct_cmd_desc(&desc, i40e_aqc_opc_debug_write_reg);
-+
-+	cmd->address = cpu_to_le32(reg_addr);
-+	cmd->value_high = cpu_to_le32((u32)(reg_val >> 32));
-+	cmd->value_low = cpu_to_le32((u32)(reg_val & 0xFFFFFFFF));
-+
-+	status = i40e_asq_send_command(hw, &desc, NULL, 0, cmd_details);
-+
-+	return status;
-+}
-+
-+/**
-  * i40e_aq_set_hmc_resource_profile
-  * @hw: pointer to the hw struct
-  * @profile: type of profile the HMC is to be set as
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_prototype.h b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-index 8cd4390..949a9a0 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-@@ -70,6 +70,9 @@ i40e_status i40e_aq_get_firmware_version(struct i40e_hw *hw,
- 				u16 *fw_major_version, u16 *fw_minor_version,
- 				u16 *api_major_version, u16 *api_minor_version,
- 				struct i40e_asq_cmd_details *cmd_details);
-+i40e_status i40e_aq_debug_write_register(struct i40e_hw *hw,
-+					u32 reg_addr, u64 reg_val,
-+					struct i40e_asq_cmd_details *cmd_details);
- i40e_status i40e_aq_set_phy_debug(struct i40e_hw *hw, u8 cmd_flags,
- 				struct i40e_asq_cmd_details *cmd_details);
- i40e_status i40e_aq_set_default_vsi(struct i40e_hw *hw, u16 vsi_id,
+ 	if (test_and_set_bit(__I40EVF_IN_CRITICAL_TASK, &adapter->crit_section))
+ 		goto restart_watchdog;
+ 
+ 	if (adapter->flags & I40EVF_FLAG_PF_COMMS_FAILED) {
+-		if ((rd32(hw, I40E_VFGEN_RSTAT) & 0x3) == I40E_VFR_VFACTIVE) {
++		rstat_val = rd32(hw, I40E_VFGEN_RSTAT) &
++			    I40E_VFGEN_RSTAT_VFR_STATE_MASK;
++		if ((rstat_val == I40E_VFR_VFACTIVE) ||
++		    (rstat_val == I40E_VFR_COMPLETED)) {
+ 			/* A chance for redemption! */
+ 			dev_err(&adapter->pdev->dev, "Hardware came out of reset. Attempting reinit.\n");
+ 			adapter->state = __I40EVF_STARTUP;
+@@ -1329,8 +1333,11 @@ static void i40evf_watchdog_task(struct work_struct *work)
+ 		goto watchdog_done;
+ 
+ 	/* check for reset */
++	rstat_val = rd32(hw, I40E_VFGEN_RSTAT) &
++			    I40E_VFGEN_RSTAT_VFR_STATE_MASK;
+ 	if (!(adapter->flags & I40EVF_FLAG_RESET_PENDING) &&
+-	    (rd32(hw, I40E_VFGEN_RSTAT) & 0x3) != I40E_VFR_VFACTIVE) {
++	    (rstat_val != I40E_VFR_VFACTIVE) &&
++	    (rstat_val != I40E_VFR_COMPLETED)) {
+ 		adapter->state = __I40EVF_RESETTING;
+ 		adapter->flags |= I40EVF_FLAG_RESET_PENDING;
+ 		dev_err(&adapter->pdev->dev, "Hardware reset detected\n");
+@@ -1496,7 +1503,8 @@ static void i40evf_reset_task(struct work_struct *work)
+ 	for (i = 0; i < I40EVF_RESET_WAIT_COUNT; i++) {
+ 		rstat_val = rd32(hw, I40E_VFGEN_RSTAT) &
+ 			    I40E_VFGEN_RSTAT_VFR_STATE_MASK;
+-		if (rstat_val != I40E_VFR_VFACTIVE)
++		if ((rstat_val != I40E_VFR_VFACTIVE) &&
++		    (rstat_val != I40E_VFR_COMPLETED))
+ 			break;
+ 		else
+ 			msleep(I40EVF_RESET_WAIT_MS);
+@@ -1510,7 +1518,8 @@ static void i40evf_reset_task(struct work_struct *work)
+ 	for (i = 0; i < I40EVF_RESET_WAIT_COUNT; i++) {
+ 		rstat_val = rd32(hw, I40E_VFGEN_RSTAT) &
+ 			    I40E_VFGEN_RSTAT_VFR_STATE_MASK;
+-		if (rstat_val == I40E_VFR_VFACTIVE)
++		if ((rstat_val == I40E_VFR_VFACTIVE) ||
++		    (rstat_val == I40E_VFR_COMPLETED))
+ 			break;
+ 		else
+ 			msleep(I40EVF_RESET_WAIT_MS);
+@@ -1947,8 +1956,10 @@ static int i40evf_check_reset_complete(struct i40e_hw *hw)
+ 	int i;
+ 
+ 	for (i = 0; i < 100; i++) {
+-		rstat = rd32(hw, I40E_VFGEN_RSTAT);
+-		if (rstat == I40E_VFR_VFACTIVE)
++		rstat = rd32(hw, I40E_VFGEN_RSTAT) &
++			    I40E_VFGEN_RSTAT_VFR_STATE_MASK;
++		if ((rstat == I40E_VFR_VFACTIVE) ||
++		    (rstat == I40E_VFR_COMPLETED))
+ 			return 0;
+ 		udelay(10);
+ 	}
 -- 
 1.9.3
