@@ -1,53 +1,36 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 2/2] random32: do not feed jiffies as seed from lpfc driver
-Date: Thu, 31 Jul 2014 22:08:37 +0200
-Message-ID: <1406837317-13648-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, James Bottomley <JBottomley@Parallels.com>,
-	James Smart <james.smart@emulex.com>
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] team: fix releasing uninitialized pointer to
+ BPF prog
+Date: Thu, 31 Jul 2014 13:10:29 -0700 (PDT)
+Message-ID: <20140731.131029.385699833260567908.davem@davemloft.net>
+References: <1406836139-11943-1-git-send-email-dborkman@redhat.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, pablo@netfilter.org, ast@plumgrid.com,
+	jiri@resnulli.us
+To: dborkman@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:25702 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750868AbaGaUIo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jul 2014 16:08:44 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:50403 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750836AbaGaUKe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2014 16:10:34 -0400
+In-Reply-To: <1406836139-11943-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In prandom we have already reseeding mechanisms that trigger
-periodically from a much better entropy source than just
-feeding in jiffies through lpfc_mbx_cmpl_fcf_scan_read_fcf_rec()
-[what a function name 8-)]. Therefore, just remove this.
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Thu, 31 Jul 2014 21:48:59 +0200
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Cc: James Bottomley <JBottomley@Parallels.com>
-Cc: James Smart <james.smart@emulex.com>
----
- This can also go via James, how you prefer it.
+> Commit 34c5bd66e5ed introduced the possibility that an
+> uninitialized pointer on the stack (orig_fp) can call into
+> sk_unattached_filter_destroy() when its value is non NULL.
+> 
+> Before that commit orig_fp was only destroyed in the same
+> block where it was assigned a valid BPF prog before. Fix it
+> up by initializing it to NULL.
+> 
+> Fixes: 34c5bd66e5ed ("net: filter: don't release unattached filter through call_rcu()")
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 
- drivers/scsi/lpfc/lpfc_hbadisc.c | 4 ----
- 1 file changed, 4 deletions(-)
-
-diff --git a/drivers/scsi/lpfc/lpfc_hbadisc.c b/drivers/scsi/lpfc/lpfc_hbadisc.c
-index 2a17e31..5072bb2 100644
---- a/drivers/scsi/lpfc/lpfc_hbadisc.c
-+++ b/drivers/scsi/lpfc/lpfc_hbadisc.c
-@@ -2146,7 +2146,6 @@ lpfc_mbx_cmpl_fcf_scan_read_fcf_rec(struct lpfc_hba *phba, LPFC_MBOXQ_t *mboxq)
- 	uint16_t fcf_index, next_fcf_index;
- 	struct lpfc_fcf_rec *fcf_rec = NULL;
- 	uint16_t vlan_id;
--	uint32_t seed;
- 	bool select_new_fcf;
- 	int rc;
- 
-@@ -2383,9 +2382,6 @@ lpfc_mbx_cmpl_fcf_scan_read_fcf_rec(struct lpfc_hba *phba, LPFC_MBOXQ_t *mboxq)
- 		phba->fcf.fcf_flag |= FCF_AVAILABLE;
- 		/* Setup initial running random FCF selection count */
- 		phba->fcf.eligible_fcf_cnt = 1;
--		/* Seeding the random number generator for random selection */
--		seed = (uint32_t)(0xFFFFFFFF & jiffies);
--		prandom_seed(seed);
- 	}
- 	spin_unlock_irq(&phba->hbalock);
- 	goto read_next_fcf;
--- 
-1.7.11.7
+Applied, thanks Daniel.
