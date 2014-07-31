@@ -1,59 +1,74 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: Query: Is it possible  to lose interrupts between vhost and
- virtio_net during migration?
-Date: Thu, 31 Jul 2014 16:37:25 +0200
-Message-ID: <20140731143725.GA3875@redhat.com>
-References: <53DA2CCC.1040606@huawei.com>
- <20140731143100.GA3834@redhat.com>
-Mime-Version: 1.0
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH 0/2] linux-wpan-next: lowpan_rcv - skb is freed within function and fix return values.
+Date: Thu, 31 Jul 2014 08:14:42 -0700
+Message-ID: <6930C094-CF61-4424-9296-8B0023B8B1DE@holtmann.org>
+References: <1406732105-17500-1-git-send-email-martin.townsend@xsilon.com> <C8606BA6-2918-4313-BEC5-FC3A377DE347@holtmann.org> <20140730182738.GA21664@omega> <362B23B3-72BB-4E0E-9E06-ABD19C1F2BEF@holtmann.org> <20140731135945.GB17560@tuxdriver.com>
+Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jasowang@redhat.com, qinchuanyu@huawei.com,
-	liuyongan@huawei.com, davem@davemloft.net
-To: "Zhangjie (HZ)" <zhangjie14@huawei.com>
+Content-Transfer-Encoding: 8BIT
+Cc: Alexander Aring <alex.aring@gmail.com>,
+	Martin Townsend <mtownsend1973@gmail.com>,
+	linux-zigbee-devel@lists.sourceforge.net,
+	BlueZ development <linux-bluetooth@vger.kernel.org>,
+	Martin Townsend <martin.townsend@xsilon.com>,
+	Network Development <netdev@vger.kernel.org>,
+	"linux-wireless@vger.kernel.org Wireless"
+	<linux-wireless@vger.kernel.org>
+To: "John W. Linville" <linville@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49338 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750996AbaGaOhX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jul 2014 10:37:23 -0400
-Content-Disposition: inline
-In-Reply-To: <20140731143100.GA3834@redhat.com>
+Received: from senator.holtmann.net ([87.106.208.187]:54975 "EHLO
+	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751041AbaGaPOp convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2014 11:14:45 -0400
+In-Reply-To: <20140731135945.GB17560@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 31, 2014 at 04:31:00PM +0200, Michael S. Tsirkin wrote:
-> On Thu, Jul 31, 2014 at 07:47:24PM +0800, Zhangjie (HZ) wrote:
-> > [The test scenario]:
-> > 
-> > Doing migration between two Hosts roundly(A->B, B->A) ,after about 20 times, network of the VM is unreachable.
-> > There are other 20 VMs in each Host, and they send ipv4 or ipv6 and multicast packets to each other.
-> > Sometimes the CPU idle of the Host maybe 0;
-> > 
-> > [Problem description]:
-> > 
-> > I wonder if it was interrupts missing that cause the network unreachable.
-> > In the migration process of kvm, source end should suspend, which include steps as follows:
-> > 1.	do_vm_stop->pause_all_vcpus
-> > 2.	vm_state_notify-> vhost_net_stop->set_guest_notifiers->kvm_virtio_pci_vq_vector_release
-> > 3.	vm_state_notify-> vhost_net_stop-> vhost_net_stop_one->OST_NET_SET_BACKEND-> vhost_net_flush_vq-> vhost_work_flush
-> > This may cause interrupts missing. Supose the scene that, virtqueue_notify() is called in virtio_net,
-> > then the VM is paused. And, just before the portiowrite being handled, eventfd of kvm is released.
-> > Then, vhost could not sense the notify, and the tx notify is lost.
-> > On the other side, if eventfd of kvm is released just after vhost_notify(), and before eventfd_signal(), then rx signal by vhost is lost.
+Hi John,
+
+>>>>> Currently it is up to the functions below lowpan_rcv to free the skb on error
+>>>>>  conditions.  This patch now removes all the UAPI error codes and process data
+>>>>>  now returns -1 if there is a problem.  In this scenario lowpan_rcv will free
+>>>>>  the skb and return NET_RX_DROP.  This also fixes the problem where
+>>>>>  NET_RX_SUCCESS is returned on error
+>>>>> 
+>>>>> Martin Townsend (2):
+>>>>> Remove dev parameter from skb_delivery_cb in 6lowpan.
+>>>>> Change lowpan_rcv so skb is freed within function and fix return
+>>>>>  values.
+>>>>> 
+>>>>> include/net/6lowpan.h         |  4 ++--
+>>>>> net/6lowpan/iphc.c            | 37 ++++++++++++++++++------------------
+>>>>> net/bluetooth/6lowpan.c       | 21 ++++++++++-----------
+>>>>> net/ieee802154/6lowpan_rtnl.c | 44 +++++++++++++++++++++----------------------
+>>>>> 4 files changed, 52 insertions(+), 54 deletions(-)
+>>>> 
+>>>> I can not take these patches at this point.
+>>>> 
+>>>> checking file net/ieee802154/6lowpan_rtnl.c
+>>>> Hunk #1 FAILED at 143.
+>>>> Hunk #2 succeeded at 480 (offset -4 lines).
+>>>> 1 out of 2 hunks FAILED
+>>>> 
+>>>> We need to get the IEEE 802.15.4 changes merged through John's wireless-next tree. IEEE 802.15.4 going straight into net-next and Bluetooth going into wireless-next will not work out smoothly when both technologies are now utilizing 6LoWPAN and we are heavily working on 6LoWPAN.
+>>>> 
+>>> 
+>>> I already told Martin that these patches should be based on bluetooth
+>>> (better bluetooth-next, 802.15.4 hasn't a real stable strategie and there
+>>> are also some known other issues in the current implementation). I don't
+>>> think that the current implementation is used in a real environment.
+>>> 
+>>> I get this patch-series in a resend of this series, after Martin
+>>> subscribed the linux-zigbee-devel mailinglist, then I told Martin that I
+>>> need some time for review and he want to resend them tomorrow or friday.
+>>> The resend should based on bluetooth-next then, if this is okay for you.
+>> 
+>> if patches are based on bluetooth-next, then we have no problem here. I can easily merge them.
 > 
-> Could be a bug in userspace: should should cleanups notifiers
-> after it stops vhost.
-> 
-> Could you please send this to appropriate mailing lists?
-> I have a policy against off-list discussions.
+> Does that resolve it?  That probably won't make 3.17, fwiw...
 
-Also, Jason, could you take a look please?
-Looks like your patch a9f98bb5ebe6fb1869321dcc58e72041ae626ad8
-changed the order of stopping the device.
-Previously vhost_dev_stop would disable backend and only afterwards,
-unset guest notifiers.  You now unset guest notifiers while vhost is still
-active. Looks like this can lose events?
+I agree that this is out of the question for 3.17 at this point in time. Johan send our last pull request which includes what we have for 6LoWPAN right now. Everything else needs to wait for 3.18.
 
+Regards
 
-
-> -- 
-> MST
+Marcel
