@@ -1,131 +1,218 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 1/9] netfilter: bridge: add reject support
-Date: Thu, 31 Jul 2014 21:27:00 +0200
-Message-ID: <1406834828-8500-2-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 2/9] netfilter: nf_tables: simplify set dump through netlink
+Date: Thu, 31 Jul 2014 21:27:01 +0200
+Message-ID: <1406834828-8500-3-git-send-email-pablo@netfilter.org>
 References: <1406834828-8500-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:35645 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:35650 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751966AbaGaT1H (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jul 2014 15:27:07 -0400
+	id S1751983AbaGaT1K (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Jul 2014 15:27:10 -0400
 In-Reply-To: <1406834828-8500-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-So you can reject IPv4 and IPv6 packets from bridge tables. If the ether
-proto is now known, default on dropping the packet instead.
+This patch uses the cb->data pointer that allows us to store the
+context when dumping the set list. Thus, we don't need to parse the
+original netlink message containing the dump request for each recvmsg()
+call when dumping the set list. The different function flavours
+depending on the dump criteria has been also merged into one single
+generic function. This saves us ~100 lines of code.
 
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/bridge/netfilter/Kconfig             |    6 +++
- net/bridge/netfilter/Makefile            |    1 +
- net/bridge/netfilter/nft_reject_bridge.c |   67 ++++++++++++++++++++++++++++++
- 3 files changed, 74 insertions(+)
- create mode 100644 net/bridge/netfilter/nft_reject_bridge.c
+ net/netfilter/nf_tables_api.c |  131 +++++++++--------------------------------
+ 1 file changed, 27 insertions(+), 104 deletions(-)
 
-diff --git a/net/bridge/netfilter/Kconfig b/net/bridge/netfilter/Kconfig
-index 4ce0b31..9cebf47 100644
---- a/net/bridge/netfilter/Kconfig
-+++ b/net/bridge/netfilter/Kconfig
-@@ -14,6 +14,12 @@ config NFT_BRIDGE_META
- 	help
- 	  Add support for bridge dedicated meta key.
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index 8746ff9..ecffb26 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -2247,80 +2247,7 @@ err:
+ 	return err;
+ }
  
-+config NFT_BRIDGE_REJECT
-+	tristate "Netfilter nf_tables bridge reject support"
-+	depends on NFT_REJECT && NFT_REJECT_IPV4 && NFT_REJECT_IPV6
-+	help
-+	  Add support to reject packets.
-+
- config NF_LOG_BRIDGE
- 	tristate "Bridge packet logging"
+-static int nf_tables_dump_sets_table(struct nft_ctx *ctx, struct sk_buff *skb,
+-				     struct netlink_callback *cb)
+-{
+-	const struct nft_set *set;
+-	unsigned int idx = 0, s_idx = cb->args[0];
+-
+-	if (cb->args[1])
+-		return skb->len;
+-
+-	rcu_read_lock();
+-	cb->seq = ctx->net->nft.base_seq;
+-
+-	list_for_each_entry_rcu(set, &ctx->table->sets, list) {
+-		if (idx < s_idx)
+-			goto cont;
+-		if (nf_tables_fill_set(skb, ctx, set, NFT_MSG_NEWSET,
+-				       NLM_F_MULTI) < 0) {
+-			cb->args[0] = idx;
+-			goto done;
+-		}
+-		nl_dump_check_consistent(cb, nlmsg_hdr(skb));
+-cont:
+-		idx++;
+-	}
+-	cb->args[1] = 1;
+-done:
+-	rcu_read_unlock();
+-	return skb->len;
+-}
+-
+-static int nf_tables_dump_sets_family(struct nft_ctx *ctx, struct sk_buff *skb,
+-				      struct netlink_callback *cb)
+-{
+-	const struct nft_set *set;
+-	unsigned int idx, s_idx = cb->args[0];
+-	struct nft_table *table, *cur_table = (struct nft_table *)cb->args[2];
+-
+-	if (cb->args[1])
+-		return skb->len;
+-
+-	rcu_read_lock();
+-	cb->seq = ctx->net->nft.base_seq;
+-
+-	list_for_each_entry_rcu(table, &ctx->afi->tables, list) {
+-		if (cur_table) {
+-			if (cur_table != table)
+-				continue;
+-
+-			cur_table = NULL;
+-		}
+-		ctx->table = table;
+-		idx = 0;
+-		list_for_each_entry_rcu(set, &ctx->table->sets, list) {
+-			if (idx < s_idx)
+-				goto cont;
+-			if (nf_tables_fill_set(skb, ctx, set, NFT_MSG_NEWSET,
+-					       NLM_F_MULTI) < 0) {
+-				cb->args[0] = idx;
+-				cb->args[2] = (unsigned long) table;
+-				goto done;
+-			}
+-			nl_dump_check_consistent(cb, nlmsg_hdr(skb));
+-cont:
+-			idx++;
+-		}
+-	}
+-	cb->args[1] = 1;
+-done:
+-	rcu_read_unlock();
+-	return skb->len;
+-}
+-
+-static int nf_tables_dump_sets_all(struct nft_ctx *ctx, struct sk_buff *skb,
+-				   struct netlink_callback *cb)
++static int nf_tables_dump_sets(struct sk_buff *skb, struct netlink_callback *cb)
+ {
+ 	const struct nft_set *set;
+ 	unsigned int idx, s_idx = cb->args[0];
+@@ -2328,6 +2255,7 @@ static int nf_tables_dump_sets_all(struct nft_ctx *ctx, struct sk_buff *skb,
+ 	struct nft_table *table, *cur_table = (struct nft_table *)cb->args[2];
+ 	struct net *net = sock_net(skb->sk);
+ 	int cur_family = cb->args[3];
++	struct nft_ctx *ctx = cb->data, ctx_set;
  
-diff --git a/net/bridge/netfilter/Makefile b/net/bridge/netfilter/Makefile
-index 1f78ea0..061d121 100644
---- a/net/bridge/netfilter/Makefile
-+++ b/net/bridge/netfilter/Makefile
-@@ -4,6 +4,7 @@
+ 	if (cb->args[1])
+ 		return skb->len;
+@@ -2336,28 +2264,34 @@ static int nf_tables_dump_sets_all(struct nft_ctx *ctx, struct sk_buff *skb,
+ 	cb->seq = net->nft.base_seq;
  
- obj-$(CONFIG_NF_TABLES_BRIDGE) += nf_tables_bridge.o
- obj-$(CONFIG_NFT_BRIDGE_META)  += nft_meta_bridge.o
-+obj-$(CONFIG_NFT_BRIDGE_REJECT)  += nft_reject_bridge.o
+ 	list_for_each_entry_rcu(afi, &net->nft.af_info, list) {
++		if (ctx->afi && ctx->afi != afi)
++			continue;
++
+ 		if (cur_family) {
+ 			if (afi->family != cur_family)
+ 				continue;
  
- # packet logging
- obj-$(CONFIG_NF_LOG_BRIDGE) += nf_log_bridge.o
-diff --git a/net/bridge/netfilter/nft_reject_bridge.c b/net/bridge/netfilter/nft_reject_bridge.c
-new file mode 100644
-index 0000000..ee3ffe9
---- /dev/null
-+++ b/net/bridge/netfilter/nft_reject_bridge.c
-@@ -0,0 +1,67 @@
-+/*
-+ * Copyright (c) 2014 Pablo Neira Ayuso <pablo@netfilter.org>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ */
+ 			cur_family = 0;
+ 		}
+-
+ 		list_for_each_entry_rcu(table, &afi->tables, list) {
++			if (ctx->table && ctx->table != table)
++				continue;
 +
-+#include <linux/kernel.h>
-+#include <linux/init.h>
-+#include <linux/module.h>
-+#include <linux/netlink.h>
-+#include <linux/netfilter.h>
-+#include <linux/netfilter/nf_tables.h>
-+#include <net/netfilter/nf_tables.h>
-+#include <net/netfilter/nft_reject.h>
+ 			if (cur_table) {
+ 				if (cur_table != table)
+ 					continue;
+ 
+ 				cur_table = NULL;
+ 			}
+-
+-			ctx->table = table;
+-			ctx->afi = afi;
+ 			idx = 0;
+-			list_for_each_entry_rcu(set, &ctx->table->sets, list) {
++			list_for_each_entry_rcu(set, &table->sets, list) {
+ 				if (idx < s_idx)
+ 					goto cont;
+-				if (nf_tables_fill_set(skb, ctx, set,
 +
-+static void nft_reject_bridge_eval(const struct nft_expr *expr,
-+				 struct nft_data data[NFT_REG_MAX + 1],
-+				 const struct nft_pktinfo *pkt)
-+{
-+	switch (eth_hdr(pkt->skb)->h_proto) {
-+	case htons(ETH_P_IP):
-+		return nft_reject_ipv4_eval(expr, data, pkt);
-+	case htons(ETH_P_IPV6):
-+		return nft_reject_ipv6_eval(expr, data, pkt);
-+	default:
-+		/* No explicit way to reject this protocol, drop it. */
-+		data[NFT_REG_VERDICT].verdict = NF_DROP;
-+		break;
-+	}
-+}
++				ctx_set = *ctx;
++				ctx_set.table = table;
++				ctx_set.afi = afi;
++				if (nf_tables_fill_set(skb, &ctx_set, set,
+ 						       NFT_MSG_NEWSET,
+ 						       NLM_F_MULTI) < 0) {
+ 					cb->args[0] = idx;
+@@ -2379,31 +2313,10 @@ done:
+ 	return skb->len;
+ }
+ 
+-static int nf_tables_dump_sets(struct sk_buff *skb, struct netlink_callback *cb)
++static int nf_tables_dump_sets_done(struct netlink_callback *cb)
+ {
+-	const struct nfgenmsg *nfmsg = nlmsg_data(cb->nlh);
+-	struct nlattr *nla[NFTA_SET_MAX + 1];
+-	struct nft_ctx ctx;
+-	int err, ret;
+-
+-	err = nlmsg_parse(cb->nlh, sizeof(*nfmsg), nla, NFTA_SET_MAX,
+-			  nft_set_policy);
+-	if (err < 0)
+-		return err;
+-
+-	err = nft_ctx_init_from_setattr(&ctx, cb->skb, cb->nlh, (void *)nla);
+-	if (err < 0)
+-		return err;
+-
+-	if (ctx.table == NULL) {
+-		if (ctx.afi == NULL)
+-			ret = nf_tables_dump_sets_all(&ctx, skb, cb);
+-		else
+-			ret = nf_tables_dump_sets_family(&ctx, skb, cb);
+-	} else
+-		ret = nf_tables_dump_sets_table(&ctx, skb, cb);
+-
+-	return ret;
++	kfree(cb->data);
++	return 0;
+ }
+ 
+ #define NFT_SET_INACTIVE	(1 << 15)	/* Internal set flag */
+@@ -2426,7 +2339,17 @@ static int nf_tables_getset(struct sock *nlsk, struct sk_buff *skb,
+ 	if (nlh->nlmsg_flags & NLM_F_DUMP) {
+ 		struct netlink_dump_control c = {
+ 			.dump = nf_tables_dump_sets,
++			.done = nf_tables_dump_sets_done,
+ 		};
++		struct nft_ctx *ctx_dump;
 +
-+static struct nft_expr_type nft_reject_bridge_type;
-+static const struct nft_expr_ops nft_reject_bridge_ops = {
-+	.type		= &nft_reject_bridge_type,
-+	.size		= NFT_EXPR_SIZE(sizeof(struct nft_reject)),
-+	.eval		= nft_reject_bridge_eval,
-+	.init		= nft_reject_init,
-+	.dump		= nft_reject_dump,
-+};
++		ctx_dump = kmalloc(sizeof(*ctx_dump), GFP_KERNEL);
++		if (ctx_dump == NULL)
++			return -ENOMEM;
 +
-+static struct nft_expr_type nft_reject_bridge_type __read_mostly = {
-+	.family		= NFPROTO_BRIDGE,
-+	.name		= "reject",
-+	.ops		= &nft_reject_bridge_ops,
-+	.policy		= nft_reject_policy,
-+	.maxattr	= NFTA_REJECT_MAX,
-+	.owner		= THIS_MODULE,
-+};
++		*ctx_dump = ctx;
++		c.data = ctx_dump;
 +
-+static int __init nft_reject_bridge_module_init(void)
-+{
-+	return nft_register_expr(&nft_reject_bridge_type);
-+}
-+
-+static void __exit nft_reject_bridge_module_exit(void)
-+{
-+	nft_unregister_expr(&nft_reject_bridge_type);
-+}
-+
-+module_init(nft_reject_bridge_module_init);
-+module_exit(nft_reject_bridge_module_exit);
-+
-+MODULE_LICENSE("GPL");
-+MODULE_AUTHOR("Pablo Neira Ayuso <pablo@netfilter.org>");
-+MODULE_ALIAS_NFT_AF_EXPR(AF_BRIDGE, "reject");
+ 		return netlink_dump_start(nlsk, skb, nlh, &c);
+ 	}
+ 
 -- 
 1.7.10.4
