@@ -1,72 +1,70 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 8/9] netfilter: nfnetlink_acct: avoid using NFACCT_F_OVERQUOTA with bit helper functions
-Date: Thu, 31 Jul 2014 21:27:07 +0200
-Message-ID: <1406834828-8500-9-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 6/9] netfilter: kill remnants of ulog targets
+Date: Thu, 31 Jul 2014 21:27:05 +0200
+Message-ID: <1406834828-8500-7-git-send-email-pablo@netfilter.org>
 References: <1406834828-8500-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:35678 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:35676 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752370AbaGaT1T (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jul 2014 15:27:19 -0400
+	id S1752796AbaGaT1S (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Jul 2014 15:27:18 -0400
 In-Reply-To: <1406834828-8500-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexey Perevalov <a.perevalov@samsung.com>
+From: Paul Bolle <pebolle@tiscali.nl>
 
-Bit helper functions were used for manipulation with NFACCT_F_OVERQUOTA,
-but they are accepting pit position, but not a bit mask. As a result
-not a third bit for NFACCT_F_OVERQUOTA was set, but forth. Such
-behaviour was dangarous and could lead to unexpected overquota report
-result.
+The ulog targets were recently killed. A few references to the Kconfig
+macros CONFIG_IP_NF_TARGET_ULOG and CONFIG_BRIDGE_EBT_ULOG were left
+untouched. Kill these too.
 
-Signed-off-by: Alexey Perevalov <a.perevalov@samsung.com>
+Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nfnetlink_acct.c |    8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+ include/net/netns/x_tables.h  |    6 ------
+ net/bridge/netfilter/Makefile |    1 -
+ net/ipv4/netfilter/Makefile   |    1 -
+ 3 files changed, 8 deletions(-)
 
-diff --git a/net/netfilter/nfnetlink_acct.c b/net/netfilter/nfnetlink_acct.c
-index 11d863c..3ea0eac 100644
---- a/net/netfilter/nfnetlink_acct.c
-+++ b/net/netfilter/nfnetlink_acct.c
-@@ -41,6 +41,7 @@ struct nf_acct {
+diff --git a/include/net/netns/x_tables.h b/include/net/netns/x_tables.h
+index 02fe40f..c24060e 100644
+--- a/include/net/netns/x_tables.h
++++ b/include/net/netns/x_tables.h
+@@ -15,11 +15,5 @@ struct netns_xt {
+ 	struct ebt_table *frame_filter;
+ 	struct ebt_table *frame_nat;
+ #endif
+-#if IS_ENABLED(CONFIG_IP_NF_TARGET_ULOG)
+-	bool ulog_warn_deprecated;
+-#endif
+-#if IS_ENABLED(CONFIG_BRIDGE_EBT_ULOG)
+-	bool ebt_ulog_warn_deprecated;
+-#endif
  };
+ #endif
+diff --git a/net/bridge/netfilter/Makefile b/net/bridge/netfilter/Makefile
+index 061d121..be4d0ce 100644
+--- a/net/bridge/netfilter/Makefile
++++ b/net/bridge/netfilter/Makefile
+@@ -37,5 +37,4 @@ obj-$(CONFIG_BRIDGE_EBT_SNAT) += ebt_snat.o
  
- #define NFACCT_F_QUOTA (NFACCT_F_QUOTA_PKTS | NFACCT_F_QUOTA_BYTES)
-+#define NFACCT_OVERQUOTA_BIT	2	/* NFACCT_F_OVERQUOTA */
+ # watchers
+ obj-$(CONFIG_BRIDGE_EBT_LOG) += ebt_log.o
+-obj-$(CONFIG_BRIDGE_EBT_ULOG) += ebt_ulog.o
+ obj-$(CONFIG_BRIDGE_EBT_NFLOG) += ebt_nflog.o
+diff --git a/net/ipv4/netfilter/Makefile b/net/ipv4/netfilter/Makefile
+index 245db9d..3300162 100644
+--- a/net/ipv4/netfilter/Makefile
++++ b/net/ipv4/netfilter/Makefile
+@@ -57,7 +57,6 @@ obj-$(CONFIG_IP_NF_TARGET_ECN) += ipt_ECN.o
+ obj-$(CONFIG_IP_NF_TARGET_MASQUERADE) += ipt_MASQUERADE.o
+ obj-$(CONFIG_IP_NF_TARGET_REJECT) += ipt_REJECT.o
+ obj-$(CONFIG_IP_NF_TARGET_SYNPROXY) += ipt_SYNPROXY.o
+-obj-$(CONFIG_IP_NF_TARGET_ULOG) += ipt_ULOG.o
  
- static int
- nfnl_acct_new(struct sock *nfnl, struct sk_buff *skb,
-@@ -77,7 +78,8 @@ nfnl_acct_new(struct sock *nfnl, struct sk_buff *skb,
- 			smp_mb__before_atomic();
- 			/* reset overquota flag if quota is enabled. */
- 			if ((matching->flags & NFACCT_F_QUOTA))
--				clear_bit(NFACCT_F_OVERQUOTA, &matching->flags);
-+				clear_bit(NFACCT_OVERQUOTA_BIT,
-+					  &matching->flags);
- 			return 0;
- 		}
- 		return -EBUSY;
-@@ -150,7 +152,7 @@ nfnl_acct_fill_info(struct sk_buff *skb, u32 portid, u32 seq, u32 type,
- 		bytes = atomic64_xchg(&acct->bytes, 0);
- 		smp_mb__before_atomic();
- 		if (acct->flags & NFACCT_F_QUOTA)
--			clear_bit(NFACCT_F_OVERQUOTA, &acct->flags);
-+			clear_bit(NFACCT_OVERQUOTA_BIT, &acct->flags);
- 	} else {
- 		pkts = atomic64_read(&acct->pkts);
- 		bytes = atomic64_read(&acct->bytes);
-@@ -414,7 +416,7 @@ int nfnl_acct_overquota(const struct sk_buff *skb, struct nf_acct *nfacct)
- 	ret = now > *quota;
- 
- 	if (now >= *quota &&
--	    !test_and_set_bit(NFACCT_F_OVERQUOTA, &nfacct->flags)) {
-+	    !test_and_set_bit(NFACCT_OVERQUOTA_BIT, &nfacct->flags)) {
- 		nfnl_overquota_report(nfacct);
- 	}
- 
+ # generic ARP tables
+ obj-$(CONFIG_IP_NF_ARPTABLES) += arp_tables.o
 -- 
 1.7.10.4
