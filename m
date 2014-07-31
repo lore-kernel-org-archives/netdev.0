@@ -1,358 +1,300 @@
 From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next 2/3] openvswitch: Convert mask list into mask array.
-Date: Thu, 31 Jul 2014 16:57:47 -0700
-Message-ID: <1406851067-1651-1-git-send-email-pshelar@nicira.com>
+Subject: [PATCH net-next 3/3] openvswitch: Introduce flow mask cache.
+Date: Thu, 31 Jul 2014 16:57:54 -0700
+Message-ID: <1406851074-1680-1-git-send-email-pshelar@nicira.com>
 Cc: netdev@vger.kernel.org, Pravin B Shelar <pshelar@nicira.com>,
 	Andy Zhou <azhou@nicira.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog109.obsmtp.com ([74.125.149.201]:50708 "HELO
-	na3sys009aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752579AbaGaX5u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2014 19:57:50 -0400
-Received: by mail-pd0-f170.google.com with SMTP id g10so4398095pdj.15
-        for <netdev@vger.kernel.org>; Thu, 31 Jul 2014 16:57:50 -0700 (PDT)
+Received: from na3sys009aog120.obsmtp.com ([74.125.149.140]:38148 "HELO
+	na3sys009aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752796AbaGaX55 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2014 19:57:57 -0400
+Received: by mail-pd0-f171.google.com with SMTP id z10so4399281pdj.16
+        for <netdev@vger.kernel.org>; Thu, 31 Jul 2014 16:57:56 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Next patch introduces cache for masks which stores index of
-mask. list is not very convenient data structure for indexing
-an element. Therefore this patch converts mask list into mask
-array.
+On a packet OVS needs to lookup flow-table with every mask
+until it finds a match. The packet flow-key is first masked
+with mask in the list and then the masked key is looked up in
+flow-table. Therefore number of masks can affect packet
+processing performance.
 
-This patch does not change functionality.
+Following patch introduces caching for masks. It uses packet
+RSS as key to lookup entry in mask cache. Mask cache has index
+of the mask in mask-array.
+This has doubled throughput performance when OVS has 20 masks
+and packets are hitting all of these different masks evenly.
 
 Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 Signed-off-by: Andy Zhou <azhou@nicira.com>
+Tested-by: Vasmi Abidi <vabidi@vmware.com>
 Acked-by: Thomas Graf <tgraf@redhat.com>
 ---
- net/openvswitch/flow.h       |   1 -
- net/openvswitch/flow_table.c | 182 ++++++++++++++++++++++++++++++++++++-------
- net/openvswitch/flow_table.h |   8 +-
- 3 files changed, 159 insertions(+), 32 deletions(-)
+ net/openvswitch/datapath.c   |   3 +-
+ net/openvswitch/flow_table.c | 124 +++++++++++++++++++++++++++++++++++++------
+ net/openvswitch/flow_table.h |  11 +++-
+ 3 files changed, 119 insertions(+), 19 deletions(-)
 
-diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
-index 5e5aaed..40ee7b0 100644
---- a/net/openvswitch/flow.h
-+++ b/net/openvswitch/flow.h
-@@ -123,7 +123,6 @@ struct sw_flow_key_range {
- struct sw_flow_mask {
- 	int ref_count;
- 	struct rcu_head rcu;
--	struct list_head list;
- 	struct sw_flow_key_range range;
- 	struct sw_flow_key key;
- };
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index e5cc62b..ac57c0b 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -260,7 +260,8 @@ void ovs_dp_process_received_packet(struct vport *p, struct sk_buff *skb)
+ 	}
+ 
+ 	/* Look up flow. */
+-	flow = ovs_flow_tbl_lookup_stats(&dp->table, &key, &n_mask_hit);
++	flow = ovs_flow_tbl_lookup_stats(&dp->table, &key, skb_get_hash(skb),
++					 &n_mask_hit);
+ 	if (unlikely(!flow)) {
+ 		struct dp_upcall_info upcall;
+ 
 diff --git a/net/openvswitch/flow_table.c b/net/openvswitch/flow_table.c
-index 02d15d8..4ba5244 100644
+index 4ba5244..13ecef8 100644
 --- a/net/openvswitch/flow_table.c
 +++ b/net/openvswitch/flow_table.c
-@@ -45,6 +45,7 @@
- #include <net/ndisc.h>
- 
- #define TBL_MIN_BUCKETS		1024
-+#define MASK_ARRAY_SIZE_MIN	16
+@@ -48,6 +48,10 @@
+ #define MASK_ARRAY_SIZE_MIN	16
  #define REHASH_INTERVAL		(10 * 60 * HZ)
  
++#define MC_HASH_SHIFT		8
++#define MC_HASH_ENTRIES		(1u << MC_HASH_SHIFT)
++#define MC_HASH_SEGS		((sizeof(uint32_t) * 8) / MC_HASH_SHIFT)
++
  static struct kmem_cache *flow_cache;
-@@ -198,20 +199,70 @@ static struct table_instance *table_instance_alloc(int new_size)
- 	return ti;
- }
+ struct kmem_cache *flow_stats_cache __read_mostly;
  
-+static struct mask_array *tbl_mask_array_alloc(int size)
-+{
-+	struct mask_array *new;
-+
-+	new = kzalloc(sizeof(*new) +
-+		      sizeof(struct sw_flow_mask *) * size, GFP_KERNEL);
-+	if (!new)
-+		return NULL;
-+
-+	new->count = 0;
-+	new->max = size;
-+
-+	return new;
-+}
-+
-+static int tbl_mask_array_realloc(struct flow_table *tbl, int size)
-+{
-+	struct mask_array *old;
-+	struct mask_array *new;
-+
-+	new = tbl_mask_array_alloc(size);
-+	if (!new)
-+		return -ENOMEM;
-+
-+	old = ovsl_dereference(tbl->mask_array);
-+	if (old) {
-+		int i;
-+
-+		for (i = 0; i < min(old->max, new->max); i++)
-+			new->masks[i] = old->masks[i];
-+
-+		BUG_ON(old->count > new->max);
-+		new->count = old->count;
-+	}
-+	rcu_assign_pointer(tbl->mask_array, new);
-+
-+	if (old)
-+		kfree_rcu(old, rcu);
-+
-+	return 0;
-+}
-+
- int ovs_flow_tbl_init(struct flow_table *table)
+@@ -245,10 +249,17 @@ int ovs_flow_tbl_init(struct flow_table *table)
  {
  	struct table_instance *ti;
-+	struct mask_array *ma;
- 
--	ti = table_instance_alloc(TBL_MIN_BUCKETS);
-+	ma = tbl_mask_array_alloc(MASK_ARRAY_SIZE_MIN);
-+	if (!ma)
+ 	struct mask_array *ma;
++	int cache_size;
++
++	cache_size = sizeof(struct mask_cache_entry) * MC_HASH_ENTRIES;
++	table->mask_cache = __alloc_percpu(cache_size,
++					   __alignof__(struct mask_cache_entry));
++	if (!table->mask_cache)
 +		return -ENOMEM;
  
-+	ti = table_instance_alloc(TBL_MIN_BUCKETS);
- 	if (!ti)
+ 	ma = tbl_mask_array_alloc(MASK_ARRAY_SIZE_MIN);
+ 	if (!ma)
 -		return -ENOMEM;
-+		goto free_mask_array;
++		goto free_mask_cache;
  
- 	rcu_assign_pointer(table->ti, ti);
--	INIT_LIST_HEAD(&table->mask_list);
-+	rcu_assign_pointer(table->mask_array, ma);
- 	table->last_rehash = jiffies;
- 	table->count = 0;
- 	return 0;
-+
-+free_mask_array:
-+	kfree(ma);
-+	return -ENOMEM;
+ 	ti = table_instance_alloc(TBL_MIN_BUCKETS);
+ 	if (!ti)
+@@ -262,6 +273,8 @@ int ovs_flow_tbl_init(struct flow_table *table)
+ 
+ free_mask_array:
+ 	kfree(ma);
++free_mask_cache:
++	free_percpu(table->mask_cache);
+ 	return -ENOMEM;
  }
  
- static void flow_tbl_destroy_rcu_cb(struct rcu_head *rcu)
-@@ -255,6 +306,7 @@ skip_flows:
-  */
+@@ -307,6 +320,7 @@ skip_flows:
  void ovs_flow_tbl_destroy(struct flow_table *table)
  {
-+	kfree(rcu_dereference_raw(table->mask_array));
+ 	kfree(rcu_dereference_raw(table->mask_array));
++	free_percpu(table->mask_cache);
  	table_instance_destroy(rcu_dereference_raw(table->ti), false);
  }
  
-@@ -432,19 +484,26 @@ static struct sw_flow *masked_flow_lookup(struct table_instance *ti,
- }
+@@ -462,7 +476,8 @@ bool ovs_flow_cmp_unmasked_key(const struct sw_flow *flow,
  
- struct sw_flow *ovs_flow_tbl_lookup_stats(struct flow_table *tbl,
--				    const struct sw_flow_key *key,
--				    u32 *n_mask_hit)
-+					  const struct sw_flow_key *key,
+ static struct sw_flow *masked_flow_lookup(struct table_instance *ti,
+ 					  const struct sw_flow_key *unmasked,
+-					  struct sw_flow_mask *mask)
++					  struct sw_flow_mask *mask,
 +					  u32 *n_mask_hit)
  {
- 	struct table_instance *ti = rcu_dereference_ovsl(tbl->ti);
--	struct sw_flow_mask *mask;
-+	struct mask_array *ma;
  	struct sw_flow *flow;
-+	int i;
- 
- 	*n_mask_hit = 0;
--	list_for_each_entry_rcu(mask, &tbl->mask_list, list) {
--		(*n_mask_hit)++;
--		flow = masked_flow_lookup(ti, key, mask);
--		if (flow)  /* Found */
--			return flow;
-+	ma = rcu_dereference_ovsl(tbl->mask_array);
-+	for (i = 0; i < ma->max; i++) {
-+		struct sw_flow_mask *mask;
-+
-+		mask = rcu_dereference_ovsl(ma->masks[i]);
-+		if (mask) {
-+			(*n_mask_hit)++;
-+			flow = masked_flow_lookup(ti, key, mask);
-+			if (flow)  /* Found */
-+				return flow;
-+		}
- 	}
+ 	struct hlist_head *head;
+@@ -474,6 +489,7 @@ static struct sw_flow *masked_flow_lookup(struct table_instance *ti,
+ 	ovs_flow_mask_key(&masked_key, unmasked, mask);
+ 	hash = flow_hash(&masked_key, key_start, key_end);
+ 	head = find_bucket(ti, hash);
++	(*n_mask_hit)++;
+ 	hlist_for_each_entry_rcu(flow, head, hash_node[ti->node_ver]) {
+ 		if (flow->mask == mask && flow->hash == hash &&
+ 		    flow_cmp_masked_key(flow, &masked_key,
+@@ -483,37 +499,112 @@ static struct sw_flow *masked_flow_lookup(struct table_instance *ti,
  	return NULL;
  }
-@@ -460,14 +519,18 @@ struct sw_flow *ovs_flow_tbl_lookup(struct flow_table *tbl,
- struct sw_flow *ovs_flow_tbl_lookup_exact(struct flow_table *tbl,
- 					  struct sw_flow_match *match)
+ 
+-struct sw_flow *ovs_flow_tbl_lookup_stats(struct flow_table *tbl,
+-					  const struct sw_flow_key *key,
+-					  u32 *n_mask_hit)
++static struct sw_flow *flow_lookup(struct flow_table *tbl,
++				   struct table_instance *ti,
++				   struct mask_array *ma,
++				   const struct sw_flow_key *key,
++				   u32 *n_mask_hit,
++				   u32 *index)
  {
 -	struct table_instance *ti = rcu_dereference_ovsl(tbl->ti);
--	struct sw_flow_mask *mask;
--	struct sw_flow *flow;
-+	struct mask_array *ma = ovsl_dereference(tbl->mask_array);
-+	int i;
+-	struct mask_array *ma;
+ 	struct sw_flow *flow;
+ 	int i;
  
- 	/* Always called under ovs-mutex. */
--	list_for_each_entry(mask, &tbl->mask_list, list) {
-+	for (i = 0; i < ma->count; i++) {
-+		struct table_instance *ti = ovsl_dereference(tbl->ti);
-+		struct sw_flow_mask *mask;
-+		struct sw_flow *flow;
-+
-+		mask = ovsl_dereference(ma->masks[i]);
- 		flow = masked_flow_lookup(ti, match->key, mask);
--		if (flow && ovs_flow_cmp_unmasked_key(flow, match))  /* Found */
-+		if (flow && ovs_flow_cmp_unmasked_key(flow, match))
- 			return flow;
- 	}
- 	return NULL;
-@@ -475,13 +538,10 @@ struct sw_flow *ovs_flow_tbl_lookup_exact(struct flow_table *tbl,
+-	*n_mask_hit = 0;
+-	ma = rcu_dereference_ovsl(tbl->mask_array);
+ 	for (i = 0; i < ma->max; i++) {
+ 		struct sw_flow_mask *mask;
  
- int ovs_flow_tbl_num_masks(const struct flow_table *table)
- {
--	struct sw_flow_mask *mask;
--	int num = 0;
-+	struct mask_array *ma;
- 
--	list_for_each_entry(mask, &table->mask_list, list)
--		num++;
--
--	return num;
-+	ma = rcu_dereference_ovsl(table->mask_array);
-+	return ma->count;
- }
- 
- static struct table_instance *table_instance_expand(struct table_instance *ti)
-@@ -489,6 +549,36 @@ static struct table_instance *table_instance_expand(struct table_instance *ti)
- 	return table_instance_rehash(ti, ti->n_buckets * 2);
- }
- 
-+static void tbl_mask_array_delete_mask(struct mask_array *ma,
-+				       const struct sw_flow_mask *mask)
-+{
-+	int i = 0;
-+
-+	/* Delete a mask pointer from the valid section.
-+	 *
-+	 * Also move the last entry in its place, so there is no
-+	 * hole in the valid section (ma->masks[0 ... count-1]).
-+	 *
-+	 * Notice the last entry still points to the original mask.
-+	 */
-+	for (i = 0; i < ma->count; i++) {
-+		if (mask == ovsl_dereference(ma->masks[i])) {
-+			struct sw_flow_mask *last;
-+
-+			last = ovsl_dereference(ma->masks[ma->count - 1]);
-+			rcu_assign_pointer(ma->masks[i], last);
-+			ma->count--;
+ 		mask = rcu_dereference_ovsl(ma->masks[i]);
+-		if (mask) {
+-			(*n_mask_hit)++;
+-			flow = masked_flow_lookup(ti, key, mask);
+-			if (flow)  /* Found */
+-				return flow;
++		if (!mask)
 +			break;
-+		}
-+	}
 +
-+	/* Remove the deleted mask pointers from the invalid section. */
-+	for (i = ma->count; i < ma->max; i++) {
-+		if (mask == ovsl_dereference(ma->masks[i]))
-+			RCU_INIT_POINTER(ma->masks[i], NULL);
-+	}
-+}
-+
- /* Remove 'mask' from the mask list, if it is not needed any more. */
- static void flow_mask_remove(struct flow_table *tbl, struct sw_flow_mask *mask)
- {
-@@ -501,7 +591,17 @@ static void flow_mask_remove(struct flow_table *tbl, struct sw_flow_mask *mask)
- 		mask->ref_count--;
- 
- 		if (!mask->ref_count) {
--			list_del_rcu(&mask->list);
-+			struct mask_array *ma;
-+
-+			ma = ovsl_dereference(tbl->mask_array);
-+			/* Shrink the mask array if necessary. */
-+			if ((ma->max > MASK_ARRAY_SIZE_MIN * 2) &&
-+			    ma->count <= ma->max / 4) {
-+				tbl_mask_array_realloc(tbl, ma->max / 2);
-+				ma = ovsl_dereference(tbl->mask_array);
-+			}
-+
-+			tbl_mask_array_delete_mask(ma, mask);
- 			kfree_rcu(mask, rcu);
++		flow = masked_flow_lookup(ti, key, mask, n_mask_hit);
++		if (flow) { /* Found */
++			*index = i;
++			return flow;
  		}
  	}
-@@ -547,13 +647,16 @@ static bool mask_equal(const struct sw_flow_mask *a,
- static struct sw_flow_mask *flow_mask_find(const struct flow_table *tbl,
- 					   const struct sw_flow_mask *mask)
- {
--	struct list_head *ml;
-+	struct mask_array *ma;
-+	int i;
-+
-+	ma = ovsl_dereference(tbl->mask_array);
-+	for (i = 0; i < ma->count; i++) {
-+		struct sw_flow_mask *t;
- 
--	list_for_each(ml, &tbl->mask_list) {
--		struct sw_flow_mask *m;
--		m = container_of(ml, struct sw_flow_mask, list);
--		if (mask_equal(mask, m))
--			return m;
-+		t = ovsl_dereference(ma->masks[i]);
-+		if (t && mask_equal(mask, t))
-+			return t;
- 	}
- 
  	return NULL;
-@@ -564,15 +667,34 @@ static int flow_mask_insert(struct flow_table *tbl, struct sw_flow *flow,
- 			    struct sw_flow_mask *new)
- {
- 	struct sw_flow_mask *mask;
+ }
+ 
++/* mask_cache maps packet to probable mask. It uses packet RSS as key
++ * to lookup mask. This cache is not tightly coupled cache, It means
++ * updates to mask list can result in inconsistent cache entry in mask
++ * cache, in such cases full lookup is done.
++ * This is per cpu cache and is divided in MC_HASH_SEGS segments.
++ */
++struct sw_flow *ovs_flow_tbl_lookup_stats(struct flow_table *tbl,
++					  const struct sw_flow_key *key,
++					  u32 skb_hash,
++					  u32 *n_mask_hit)
++{
++	struct mask_array *ma = rcu_dereference(tbl->mask_array);
++	struct table_instance *ti = rcu_dereference(tbl->ti);
++	struct mask_cache_entry *entries, *ce;
++	struct sw_flow *flow;
++	u32 hash = skb_hash;
++	int seg;
 +
- 	mask = flow_mask_find(tbl, new);
- 	if (!mask) {
-+		struct mask_array *ma;
++	*n_mask_hit = 0;
++	if (unlikely(!skb_hash)) {
++		u32 __always_unused mask_index;
 +
- 		/* Allocate a new mask if none exsits. */
- 		mask = mask_alloc();
- 		if (!mask)
- 			return -ENOMEM;
- 		mask->key = new->key;
- 		mask->range = new->range;
--		list_add_rcu(&mask->list, &tbl->mask_list);
++		return flow_lookup(tbl, ti, ma, key, n_mask_hit, &mask_index);
++	}
 +
-+		/* Add mask to mask-array. */
-+		ma = ovsl_dereference(tbl->mask_array);
-+		if (ma->count >= ma->max) {
-+			int err;
++	ce = NULL;
++	entries = this_cpu_ptr(tbl->mask_cache);
 +
-+			err = tbl_mask_array_realloc(tbl, ma->max +
-+						     MASK_ARRAY_SIZE_MIN);
-+			if (err) {
-+				kfree(mask);
-+				return err;
++	/* Find the cache entry 'ce' to operate on. */
++	for (seg = 0; seg < MC_HASH_SEGS; seg++) {
++		int index = hash & (MC_HASH_ENTRIES - 1);
++		struct mask_cache_entry *e;
++
++		e = &entries[index];
++		if (e->skb_hash == skb_hash) {
++			struct sw_flow_mask *cache;
++			int i = e->mask_index;
++
++			if (likely(i < ma->max)) {
++				cache = rcu_dereference(ma->masks[i]);
++				if (cache) {
++					flow = masked_flow_lookup(ti, key,
++								  cache,
++								  n_mask_hit);
++					if (flow)
++						return flow;
++				}
 +			}
-+			ma = ovsl_dereference(tbl->mask_array);
++
++			/* Cache miss. This is the best cache
++			 * replacement candidate.
++			 */
++			e->skb_hash = 0;
++			ce = e;
++			break;
 +		}
 +
-+		rcu_assign_pointer(ma->masks[ma->count], mask);
-+		ma->count++;
- 	} else {
- 		BUG_ON(!mask->ref_count);
- 		mask->ref_count++;
++		if (!ce || e->skb_hash < ce->skb_hash)
++			ce = e;  /* A better replacement cache candidate. */
++
++		hash >>= MC_HASH_SHIFT;
++	}
++
++	/* Cache miss, do full lookup. */
++	flow = flow_lookup(tbl, ti, ma, key, n_mask_hit, &ce->mask_index);
++	if (flow)
++		ce->skb_hash = skb_hash;
++
++	return flow;
++}
++
+ struct sw_flow *ovs_flow_tbl_lookup(struct flow_table *tbl,
+ 				    const struct sw_flow_key *key)
+ {
++	struct table_instance *ti = rcu_dereference_ovsl(tbl->ti);
++	struct mask_array *ma = rcu_dereference_ovsl(tbl->mask_array);
+ 	u32 __always_unused n_mask_hit;
++	u32 __always_unused index;
+ 
+-	return ovs_flow_tbl_lookup_stats(tbl, key, &n_mask_hit);
++	return flow_lookup(tbl, ti, ma, key, &n_mask_hit, &index);
+ }
+ 
+ struct sw_flow *ovs_flow_tbl_lookup_exact(struct flow_table *tbl,
+@@ -525,11 +616,12 @@ struct sw_flow *ovs_flow_tbl_lookup_exact(struct flow_table *tbl,
+ 	/* Always called under ovs-mutex. */
+ 	for (i = 0; i < ma->count; i++) {
+ 		struct table_instance *ti = ovsl_dereference(tbl->ti);
++		u32 __always_unused n_mask_hit;
+ 		struct sw_flow_mask *mask;
+ 		struct sw_flow *flow;
+ 
+ 		mask = ovsl_dereference(ma->masks[i]);
+-		flow = masked_flow_lookup(ti, match->key, mask);
++		flow = masked_flow_lookup(ti, match->key, mask, &n_mask_hit);
+ 		if (flow && ovs_flow_cmp_unmasked_key(flow, match))
+ 			return flow;
+ 	}
 diff --git a/net/openvswitch/flow_table.h b/net/openvswitch/flow_table.h
-index f682c8c..2bab294 100644
+index 2bab294..98ec990b 100644
 --- a/net/openvswitch/flow_table.h
 +++ b/net/openvswitch/flow_table.h
-@@ -36,6 +36,12 @@
+@@ -36,6 +36,11 @@
  
  #include "flow.h"
  
-+struct mask_array {
-+	struct rcu_head rcu;
-+	int count, max;
-+	struct sw_flow_mask __rcu *masks[];
++struct mask_cache_entry {
++	u32 skb_hash;
++	u32 mask_index;
 +};
 +
- struct table_instance {
- 	struct flex_array *buckets;
- 	unsigned int n_buckets;
-@@ -47,7 +53,7 @@ struct table_instance {
+ struct mask_array {
+ 	struct rcu_head rcu;
+ 	int count, max;
+@@ -53,6 +58,7 @@ struct table_instance {
  
  struct flow_table {
  	struct table_instance __rcu *ti;
--	struct list_head mask_list;
-+	struct mask_array __rcu *mask_array;
++	struct mask_cache_entry __percpu *mask_cache;
+ 	struct mask_array __rcu *mask_array;
  	unsigned long last_rehash;
  	unsigned int count;
- };
+@@ -78,8 +84,9 @@ int  ovs_flow_tbl_num_masks(const struct flow_table *table);
+ struct sw_flow *ovs_flow_tbl_dump_next(struct table_instance *table,
+ 				       u32 *bucket, u32 *idx);
+ struct sw_flow *ovs_flow_tbl_lookup_stats(struct flow_table *,
+-				    const struct sw_flow_key *,
+-				    u32 *n_mask_hit);
++					  const struct sw_flow_key *,
++					  u32 skb_hash,
++					  u32 *n_mask_hit);
+ struct sw_flow *ovs_flow_tbl_lookup(struct flow_table *,
+ 				    const struct sw_flow_key *);
+ struct sw_flow *ovs_flow_tbl_lookup_exact(struct flow_table *tbl,
 -- 
 1.9.3
