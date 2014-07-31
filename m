@@ -1,159 +1,63 @@
-From: David Lamparter <equinox@diac24.net>
-Subject: [PATCH 2/2] ipv6: addrconf: clean up device type handling
-Date: Thu, 31 Jul 2014 22:53:54 +0200
-Message-ID: <1406840034-140848-3-git-send-email-equinox@diac24.net>
-References: <20140731201926.GA754314@jupiter.n2.diac24.net>
- <1406840034-140848-1-git-send-email-equinox@diac24.net>
-Cc: David Miller <davem@davemloft.net>,
-	David Lamparter <equinox@diac24.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from spaceboyz.net ([87.106.131.203]:54568 "EHLO spaceboyz.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752961AbaGaUya (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jul 2014 16:54:30 -0400
-In-Reply-To: <1406840034-140848-1-git-send-email-equinox@diac24.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v4 net-next 5/5] net: filter: split 'struct sk_filter'
+ into socket and bpf parts
+Date: Thu, 31 Jul 2014 14:02:19 -0700
+Message-ID: <CAMEtUuy+iABzHagoono+CPB=Ex4Ew4vQBK65x1jDRC9_W9L7Dw@mail.gmail.com>
+References: <1406777656-27755-1-git-send-email-ast@plumgrid.com>
+	<1406777656-27755-6-git-send-email-ast@plumgrid.com>
+	<20140731194059.GA8681@salvia>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Willem de Bruijn <willemb@google.com>,
+	Kees Cook <keescook@chromium.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20140731194059.GA8681@salvia>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This realigns addrconf support for the various lower-layer device types,
-and removes a little bit of duplicate code.  Behaviour should be exactly
-identical before and after the patch.
+On Thu, Jul 31, 2014 at 12:40 PM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+> On Wed, Jul 30, 2014 at 08:34:16PM -0700, Alexei Starovoitov wrote:
+>> clean up names related to socket filtering and bpf in the following way:
+>> - everything that deals with sockets keeps 'sk_*' prefix
+>> - everything that is pure BPF is changed to 'bpf_*' prefix
+>>
+>> split 'struct sk_filter' into
+>> struct sk_filter {
+>>       atomic_t        refcnt;
+>>       struct rcu_head rcu;
+>>       struct bpf_prog *prog;
+>> };
+>
+> I think you can use 'struct bpf_prog prog' instead so the entire
+> sk_filter remains in the same memory blob (as it is before this
+> patch).
+>
+> You can add an inline function to retrieve the bpg prog from the
+> filter:
+>
+> static inline struct bpf_prog *sk_filter_bpf(struct sk_filter *)
+>
+> and use it whenever possible to fetch the bpf program. I'm suggesting
+> this because we can use the zero array size in the socket filtering
+> abstraction later on, if the function above is used, this just needs
+> one line in that function to be updated to fetch the program from the
+> placeholder.
 
-(Also adds a comment to explain the weird fe80::/64 on GRE.)
-
-Signed-off-by: David Lamparter <equinox@diac24.net>
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- net/ipv6/addrconf.c | 87 ++++++++++++++++++++++++-----------------------------
- 1 file changed, 39 insertions(+), 48 deletions(-)
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 7540a25..aa17ee6 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -2756,31 +2756,6 @@ static void addrconf_addr_gen(struct inet6_dev *idev, bool prefix_route)
- 	}
- }
- 
--static void addrconf_dev_config(struct net_device *dev)
--{
--	struct inet6_dev *idev;
--
--	ASSERT_RTNL();
--
--	if ((dev->type != ARPHRD_ETHER) &&
--	    (dev->type != ARPHRD_FDDI) &&
--	    (dev->type != ARPHRD_ARCNET) &&
--	    (dev->type != ARPHRD_INFINIBAND) &&
--	    (dev->type != ARPHRD_IEEE802154) &&
--	    (dev->type != ARPHRD_IEEE1394) &&
--	    (dev->type != ARPHRD_TUNNEL6) &&
--	    (dev->type != ARPHRD_6LOWPAN)) {
--		/* Alas, we support only Ethernet autoconfiguration. */
--		return;
--	}
--
--	idev = addrconf_add_dev(dev);
--	if (IS_ERR(idev))
--		return;
--
--	addrconf_addr_gen(idev, false);
--}
--
- #if IS_ENABLED(CONFIG_IPV6_SIT)
- static void addrconf_sit_config(struct net_device *dev)
- {
-@@ -2811,20 +2786,54 @@ static void addrconf_sit_config(struct net_device *dev)
- }
- #endif
- 
--#if IS_ENABLED(CONFIG_NET_IPGRE)
--static void addrconf_gre_config(struct net_device *dev)
-+static void addrconf_dev_config(struct net_device *dev)
- {
- 	struct inet6_dev *idev;
-+	bool prefix_route;
- 
- 	ASSERT_RTNL();
- 
-+	switch (dev->type) {
-+	case ARPHRD_LOOPBACK:
-+		init_loopback(dev);
-+		return;
-+
-+	case ARPHRD_ETHER:
-+	case ARPHRD_FDDI:
-+	case ARPHRD_ARCNET:
-+	case ARPHRD_INFINIBAND:
-+	case ARPHRD_IEEE802154:
-+	case ARPHRD_IEEE1394:
-+	case ARPHRD_TUNNEL6:
-+	case ARPHRD_6LOWPAN:
-+		prefix_route = false;
-+		break;
-+
-+#if IS_ENABLED(CONFIG_NET_IPGRE)
-+	case ARPHRD_IPGRE:
-+		/* XXX: This special-case behaviour is there to have a
-+		 * fe80::/64 route around even if no link-local address gets
-+		 * generated, which happens when gre's local == 0.0.0.0.
-+		 * See commit 08b4465 for more information. */
-+		prefix_route = true;
-+		break;
-+#endif
-+#if IS_ENABLED(CONFIG_IPV6_SIT)
-+	case ARPHRD_SIT:
-+		addrconf_sit_config(dev);
-+		return;
-+#endif
-+	default:
-+		/* No support autoconfiguration on this type */
-+		return;
-+	}
-+
- 	idev = addrconf_add_dev(dev);
- 	if (IS_ERR(idev))
- 		return;
- 
--	addrconf_addr_gen(idev, true);
-+	addrconf_addr_gen(idev, prefix_route);
- }
--#endif
- 
- static int addrconf_notify(struct notifier_block *this, unsigned long event,
- 			   void *ptr)
-@@ -2882,25 +2891,7 @@ static int addrconf_notify(struct notifier_block *this, unsigned long event,
- 			run_pending = 1;
- 		}
- 
--		switch (dev->type) {
--#if IS_ENABLED(CONFIG_IPV6_SIT)
--		case ARPHRD_SIT:
--			addrconf_sit_config(dev);
--			break;
--#endif
--#if IS_ENABLED(CONFIG_NET_IPGRE)
--		case ARPHRD_IPGRE:
--			addrconf_gre_config(dev);
--			break;
--#endif
--		case ARPHRD_LOOPBACK:
--			init_loopback(dev);
--			break;
--
--		default:
--			addrconf_dev_config(dev);
--			break;
--		}
-+		addrconf_dev_config(dev);
- 
- 		if (!IS_ERR_OR_NULL(idev)) {
- 			if (run_pending)
--- 
-1.8.5.5
+correct. It would speed up SK_RUN_FILTER macro a little and I've
+considered it, but decided to go with the pointer for two reasons:
+1.In sk_attach_filter() the bpf_prog is allocated, then reallocated
+as part of bpf_prepare_filter(). My patch #1 cleans up that part to
+avoid 'struct sock *' dependency, so all bpf_* functions work
+purely with bpf_prog... If bpf_prog is embedded inside sk_filter,
+bpf_prepare_filter would need to have a callback to reallocate
+the container struct and pass this callback through the chain
+of calls, which is ugly.
+2. having it as a pointer helps nft in the long run, since whole of
+bpf_prog doesn't stay around inside sk_filter when it's not used.
+So I think embedding pointer was a cleaner solution.
