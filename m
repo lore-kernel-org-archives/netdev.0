@@ -1,59 +1,46 @@
 From: Aaron Brown <aaron.f.brown@intel.com>
-Subject: [net-next 15/15] i40evf: Fixed guest OS panic when removing vf driver
-Date: Wed, 30 Jul 2014 17:32:11 -0700
-Message-ID: <1406766731-4209-16-git-send-email-aaron.f.brown@intel.com>
+Subject: [net-next 07/15] i40e: disable local loopback on vmdq vsi
+Date: Wed, 30 Jul 2014 17:32:03 -0700
+Message-ID: <1406766731-4209-8-git-send-email-aaron.f.brown@intel.com>
 References: <1406766731-4209-1-git-send-email-aaron.f.brown@intel.com>
-Cc: Serey Kong <serey.kong@intel.com>, netdev@vger.kernel.org,
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Aaron Brown <aaron.f.brown@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:24434 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:24422 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756072AbaGaA2X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jul 2014 20:28:23 -0400
+	id S1756037AbaGaA2S (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jul 2014 20:28:18 -0400
 In-Reply-To: <1406766731-4209-1-git-send-email-aaron.f.brown@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Serey Kong <serey.kong@intel.com>
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-Removing VF driver during device still in reset caused guest OS panic.
+The local loopback should only be enabled for VSIs that are supporting
+cascaded VEBs or VEPA setups.  This is not the case here, and we need
+to stop the VEB from echoing the VMDQ VSI packets back at the VSI.
 
-in the i40evf_remove(), we're trying to clean mac_filter_list which has
-not been initialized since the device is still stuck at the reset.
-The change is to initialize the filter_list before setting any task.
-
-Change-ID: I8b59df7384416c7e6f2d264b598f447e1c2c92b0
-Signed-off-by: Serey Kong <serey.kong@intel.com>
-Tested-by: Sibai Li <sibai.li@intel.com>
+Change-ID: I9dfb6ac79db24d04360d7efde62d81e20abc5090
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Tested-by: Jim Young <jamesx.m.young@intel.com>
 Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index e5679d8..ab15f4d 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -2137,8 +2137,6 @@ static void i40evf_init_task(struct work_struct *work)
- 	ether_addr_copy(netdev->dev_addr, adapter->hw.mac.addr);
- 	ether_addr_copy(netdev->perm_addr, adapter->hw.mac.addr);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 66a1070..715242a 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -7575,7 +7575,6 @@ static int i40e_add_vsi(struct i40e_vsi *vsi)
+ 		 * should be set to zero by default.
+ 		 */
+ 		ctxt.info.switch_id = 0;
+-		ctxt.info.switch_id |= cpu_to_le16(I40E_AQ_VSI_SW_ID_FLAG_LOCAL_LB);
+ 		ctxt.info.switch_id |= cpu_to_le16(I40E_AQ_VSI_SW_ID_FLAG_ALLOW_LB);
  
--	INIT_LIST_HEAD(&adapter->mac_filter_list);
--	INIT_LIST_HEAD(&adapter->vlan_filter_list);
- 	f = kzalloc(sizeof(*f), GFP_ATOMIC);
- 	if (NULL == f)
- 		goto err_sw_init;
-@@ -2320,6 +2318,9 @@ static int i40evf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	hw->bus.device = PCI_SLOT(pdev->devfn);
- 	hw->bus.func = PCI_FUNC(pdev->devfn);
- 
-+	INIT_LIST_HEAD(&adapter->mac_filter_list);
-+	INIT_LIST_HEAD(&adapter->vlan_filter_list);
-+
- 	INIT_WORK(&adapter->reset_task, i40evf_reset_task);
- 	INIT_WORK(&adapter->adminq_task, i40evf_adminq_task);
- 	INIT_WORK(&adapter->watchdog_task, i40evf_watchdog_task);
+ 		/* Setup the VSI tx/rx queue map for TC0 only for now */
 -- 
 1.9.3
