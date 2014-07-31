@@ -1,89 +1,94 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: [RFC][PATCH] wireless: ath9k: Convert from timespecs to ktime_t
-Date: Thu, 31 Jul 2014 10:27:50 +1000
-Message-ID: <20140731102750.4a4c1315@canb.auug.org.au>
-References: <1406764865-26860-1-git-send-email-john.stultz@linaro.org>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/T8/6ZYX0pF7eB=Ym6s4ZggQ"; protocol="application/pgp-signature"
-Cc: linux-kernel@vger.kernel.org, Ingo Molnar <mingo@elte.hu>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	David Miller <davem@davemloft.net>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Felix Fietkau <nbd@openwrt.org>,
-	Rajkumar Manoharan <rmanohar@qti.qualcomm.com>,
-	<netdev@vger.kernel.org>,
-	QCA ath9k Development <ath9k-devel@qca.qualcomm.com>,
-	linux-next@vger.kernel.org
-To: John Stultz <john.stultz@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1406764865-26860-1-git-send-email-john.stultz@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Aaron Brown <aaron.f.brown@intel.com>
+Subject: [net-next 00/15] Intel Wired LAN Driver Updates
+Date: Wed, 30 Jul 2014 17:31:56 -0700
+Message-ID: <1406766731-4209-1-git-send-email-aaron.f.brown@intel.com>
+Cc: Aaron Brown <aaron.f.brown@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:64996 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752965AbaGaA2M (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jul 2014 20:28:12 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Sig_/T8/6ZYX0pF7eB=Ym6s4ZggQ
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+This series contains updates to the i40e and i40evf drivers.  
 
-Hi John,
+Vasu adds FCOE support, build options and a documentation pointer to i40e.
 
-One obvious thing ...
+Shannon exposes a Firmware API request used to do register writes on the
+driver's behalf and disables local loopback on VMDQ VSI in order to stop the
+VEB from echoing the VMDQ packets back at the VSI.
 
-On Wed, 30 Jul 2014 17:01:05 -0700 John Stultz <john.stultz@linaro.org> wro=
-te:
->
-> diff --git a/drivers/net/wireless/ath/ath9k/hw.c b/drivers/net/wireless/a=
-th/ath9k/hw.c
-> index fd0158f..d15f48e 100644
-> --- a/drivers/net/wireless/ath/ath9k/hw.c
-> +++ b/drivers/net/wireless/ath/ath9k/hw.c
-> @@ -1731,19 +1731,14 @@ fail:
->  	return -EINVAL;
->  }
-> =20
-> -u32 ath9k_hw_get_tsf_offset(struct timespec *last, struct timespec *cur)
-> +u32 ath9k_hw_get_tsf_offset(ktime_t *last, ktime_t *cur)
->  {
-> -	struct timespec ts;
->  	s64 usec;
-> =20
-> -	if (!cur) {
-> -		getrawmonotonic(&ts);
-> -		cur =3D &ts;
-> -	}
-> -
-> -	usec =3D cur->tv_sec * 1000000ULL + cur->tv_nsec / 1000;
-> -	usec -=3D last->tv_sec * 1000000ULL + last->tv_nsec / 1000;
-> +	if (!cur)
-> +		*cur =3D ktime_get_raw();
+Ashish corrects the vf_id offset for virtchnl messages in the case of multiple
+PFs, removes support for vf unicast promiscuos mode to disallow VFs from
+receiving traffic intended for another VF, updates the vfr_stat state check to
+handle the existing and future mechanism and adds an adapter state check to
+prevent re-arming the watchdog timer after i40evf_remove has been called and
+the timer has been deleted.
 
-You are assigning through a NULL pointer here ...
+Serey fixes an issue where a guest OS would panic when removing the vf driver
+while the device is being reset due to an attempt to clean a non initialized
+mac_filter_list.
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+Akeem moves some variable from inside a loop to where they are supposed to be 
+and makes a minor comment change.
 
---Sig_/T8/6ZYX0pF7eB=Ym6s4ZggQ
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
+Jessie changes an instance of sprintf to snprintf that was missed when the
+driver was converted to use snprintf everywhere.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
+Mitch plugs a few memory leaks.
 
-iQIcBAEBCAAGBQJT2Y2KAAoJEMDTa8Ir7ZwVGI0P/AxRKaCBh4gUUEO/c9eN9Vjv
-32yYcKIF4HLBQ02dCVsqiRJbfhj4v4ON+ptA2rxW7XH8KsP74cdymmX99NBC79nr
-pA5J54AE0mhXtIFOl1pavsxcSgDdGSyphfm4rE2WrL+Ipw10omPbc3Hn7xBYe+LD
-EsHz/IO6qF8CaigwAMPM7BJ3paztDlaX0G3RkHb1wexqkZApvC1r07xFekku2dtR
-NNouzAZzAK3L9WYPzZUNzAvAwHIYZyPjXOkK5rH3KuDAgSJ/TpEzeVNrCpKfaAkJ
-l5+R+rEqmUMxbi3k+P4PAM1+miF1/h1qgQd3S8ViDLB2//ld6K9AD4+fgehGlmrL
-kuVpNLR5RAoTmU4ZKgQjUjaluKGsRnko15HjjUdw6/CnCRNiYJc5fr75zkPUdApJ
-z4vXD5xmlmwoiT7d0s/UYVFYbQL+qld5kwnXRTgSh70jQODUfO8oExr73oabdh7t
-YBA/z7XjD61sVp5xNv8Dds3LSVIC5YqvkqbLYfYFf9CKn/WxeMp9cZ1NBna3SRP5
-sew0sYsk0rjvnb5mQGnGiWMPiADvOcdCQFt/Xf8K1a9P1359EDcxkZxoLrUsNqAJ
-uCVv5dvUXCmWRagMhaAAgFjgJ6BnWRqqapGxHzRK4zFyYrVDj+VUwbSI4pH0tpw0
-1vtlP6r0nDWUNnRWgAQI
-=hB7F
------END PGP SIGNATURE-----
+Akeem G Abodunrin (2):
+  i40e: Move some variable declarations out of a loop
+  i40e: Minor comment changes
 
---Sig_/T8/6ZYX0pF7eB=Ym6s4ZggQ--
+Ashish Shah (4):
+  i40e: use correct vf_id offset for virtchnl message
+  i40e: remove support for vf unicast promiscuous mode
+  i40evf: future-proof vfr_stat state check
+  i40evf: do not re-arm watchdog after remove
+
+Jesse Brandeburg (1):
+  i40evf: fix scan warning on sprintf
+
+Mitch Williams (2):
+  i40evf: don't leak queue vectors
+  i40evf: fix memory leak on unused interfaces
+
+Serey Kong (1):
+  i40evf: Fixed guest OS panic when removing vf driver
+
+Shannon Nelson (2):
+  i40e: expose debug_write_register request
+  i40e: disable local loopback on vmdq vsi
+
+Vasu Dev (3):
+  i40e: adds FCoE code to the i40e driver
+  i40e: Adds FCoE related code to i40e core driver
+  i40e: adds FCoE to build and updates its documentation
+
+ Documentation/networking/i40e.txt                  |    7 +-
+ drivers/net/ethernet/intel/i40e/Makefile           |    1 +
+ drivers/net/ethernet/intel/i40e/i40e.h             |   62 +
+ drivers/net/ethernet/intel/i40e/i40e_common.c      |   56 +
+ drivers/net/ethernet/intel/i40e/i40e_debugfs.c     |   19 +
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |   35 +
+ drivers/net/ethernet/intel/i40e/i40e_fcoe.c        | 1561 ++++++++++++++++++++
+ drivers/net/ethernet/intel/i40e/i40e_fcoe.h        |  128 ++
+ drivers/net/ethernet/intel/i40e/i40e_main.c        |  276 +++-
+ drivers/net/ethernet/intel/i40e/i40e_osdep.h       |    3 +
+ drivers/net/ethernet/intel/i40e/i40e_prototype.h   |    6 +
+ drivers/net/ethernet/intel/i40e/i40e_txrx.c        |   37 +-
+ drivers/net/ethernet/intel/i40e/i40e_txrx.h        |    9 +
+ drivers/net/ethernet/intel/i40e/i40e_type.h        |  138 ++
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |   34 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c |    2 +-
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c    |   59 +-
+ 17 files changed, 2396 insertions(+), 37 deletions(-)
+ create mode 100644 drivers/net/ethernet/intel/i40e/i40e_fcoe.c
+ create mode 100644 drivers/net/ethernet/intel/i40e/i40e_fcoe.h
+
+-- 
+1.9.3
