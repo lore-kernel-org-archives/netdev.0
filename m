@@ -1,43 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 06/15] i40e: Move some variable declarations out of
- a loop
-Date: Thu, 31 Jul 2014 14:05:59 -0700 (PDT)
-Message-ID: <20140731.140559.2090702986159656213.davem@davemloft.net>
-References: <1406766731-4209-1-git-send-email-aaron.f.brown@intel.com>
-	<1406766731-4209-7-git-send-email-aaron.f.brown@intel.com>
+Subject: Re: [PATCH v2] tcp: don't require root to read tcp_metrics
+Date: Thu, 31 Jul 2014 14:07:50 -0700 (PDT)
+Message-ID: <20140731.140750.2142330641462047009.davem@davemloft.net>
+References: <53D92D92.4090403@cogentembedded.com>
+	<1406742617-10556-1-git-send-email-dbanerje@akamai.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akeem.g.abodunrin@intel.com, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
-To: aaron.f.brown@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50982 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753140AbaGaVGC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2014 17:06:02 -0400
-In-Reply-To: <1406766731-4209-7-git-send-email-aaron.f.brown@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org,
+	ja@ssi.bg, linux-kernel@vger.kernel.org
+To: dbanerje@akamai.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1406742617-10556-1-git-send-email-dbanerje@akamai.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Aaron Brown <aaron.f.brown@intel.com>
-Date: Wed, 30 Jul 2014 17:32:02 -0700
+From: Debabrata Banerjee <dbanerje@akamai.com>
+Date: Wed, 30 Jul 2014 13:50:17 -0400
 
-> From: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
+> commit d23ff7016 (tcp: add generic netlink support for tcp_metrics) introduced
+> netlink support for the new tcp_metrics, however it restricted getting of
+> tcp_metrics to root user only. This is a change from how these values could
+> have been fetched when in the old route cache. Unless there's a legitimate
+> reason to restrict the reading of these values it would be better if normal
+> users could fetch them.
 > 
-> Declare some variables once outside of the loop instead of in
-> every iteration of the loop.
+> Cc: Julian Anastasov <ja@ssi.bg>
+> Cc: linux-kernel@vger.kernel.org
 > 
-> Change-ID: I436913777c7da3c16dc0031b59e3ffa61de74718
-> Signed-off-by: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
-> Tested-by: Jim Young <jamesx.m.young@intel.com>
-> Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
+> Signed-off-by: Debabrata Banerjee <dbanerje@akamai.com>
 
-Why?  Decreasing the scope of variables makes the code easier to
-understand and audit.
-
-Now that it's declared at the top level people have to check whether
-is it initialized properly in all possible code paths, in the entire
-function, rather than just inside of the loop.
-
-Please respin this series with this patch removed, thanks.
+Applied to net-next, thanks.
