@@ -1,94 +1,133 @@
 From: Aaron Brown <aaron.f.brown@intel.com>
-Subject: [net-next 00/15] Intel Wired LAN Driver Updates
-Date: Wed, 30 Jul 2014 17:31:56 -0700
-Message-ID: <1406766731-4209-1-git-send-email-aaron.f.brown@intel.com>
-Cc: Aaron Brown <aaron.f.brown@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 05/15] i40e: use correct vf_id offset for virtchnl message
+Date: Wed, 30 Jul 2014 17:32:01 -0700
+Message-ID: <1406766731-4209-6-git-send-email-aaron.f.brown@intel.com>
+References: <1406766731-4209-1-git-send-email-aaron.f.brown@intel.com>
+Cc: Ashish Shah <ashish.n.shah@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Aaron Brown <aaron.f.brown@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga01.intel.com ([192.55.52.88]:64996 "EHLO mga01.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752965AbaGaA2M (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jul 2014 20:28:12 -0400
+	id S1756034AbaGaA2S (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jul 2014 20:28:18 -0400
+In-Reply-To: <1406766731-4209-1-git-send-email-aaron.f.brown@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to the i40e and i40evf drivers.  
+From: Ashish Shah <ashish.n.shah@intel.com>
 
-Vasu adds FCOE support, build options and a documentation pointer to i40e.
+The vf_id needs to be offset by the vf_base_id from hw function capabilities
+for the case of multiple PFs.
 
-Shannon exposes a Firmware API request used to do register writes on the
-driver's behalf and disables local loopback on VMDQ VSI in order to stop the
-VEB from echoing the VMDQ packets back at the VSI.
+Change-ID: I20ca8621f98e9cdf98649380b8eeaa35db52677c
+Signed-off-by: Ashish Shah <ashish.n.shah@intel.com>
+Tested-by: Sibai Li <sibai.li@intel.com>
+Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 19 +++++++++++++------
+ 1 file changed, 13 insertions(+), 6 deletions(-)
 
-Ashish corrects the vf_id offset for virtchnl messages in the case of multiple
-PFs, removes support for vf unicast promiscuos mode to disallow VFs from
-receiving traffic intended for another VF, updates the vfr_stat state check to
-handle the existing and future mechanism and adds an adapter state check to
-prevent re-arming the watchdog timer after i40evf_remove has been called and
-the timer has been deleted.
-
-Serey fixes an issue where a guest OS would panic when removing the vf driver
-while the device is being reset due to an attempt to clean a non initialized
-mac_filter_list.
-
-Akeem moves some variable from inside a loop to where they are supposed to be 
-and makes a minor comment change.
-
-Jessie changes an instance of sprintf to snprintf that was missed when the
-driver was converted to use snprintf everywhere.
-
-Mitch plugs a few memory leaks.
-
-Akeem G Abodunrin (2):
-  i40e: Move some variable declarations out of a loop
-  i40e: Minor comment changes
-
-Ashish Shah (4):
-  i40e: use correct vf_id offset for virtchnl message
-  i40e: remove support for vf unicast promiscuous mode
-  i40evf: future-proof vfr_stat state check
-  i40evf: do not re-arm watchdog after remove
-
-Jesse Brandeburg (1):
-  i40evf: fix scan warning on sprintf
-
-Mitch Williams (2):
-  i40evf: don't leak queue vectors
-  i40evf: fix memory leak on unused interfaces
-
-Serey Kong (1):
-  i40evf: Fixed guest OS panic when removing vf driver
-
-Shannon Nelson (2):
-  i40e: expose debug_write_register request
-  i40e: disable local loopback on vmdq vsi
-
-Vasu Dev (3):
-  i40e: adds FCoE code to the i40e driver
-  i40e: Adds FCoE related code to i40e core driver
-  i40e: adds FCoE to build and updates its documentation
-
- Documentation/networking/i40e.txt                  |    7 +-
- drivers/net/ethernet/intel/i40e/Makefile           |    1 +
- drivers/net/ethernet/intel/i40e/i40e.h             |   62 +
- drivers/net/ethernet/intel/i40e/i40e_common.c      |   56 +
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c     |   19 +
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |   35 +
- drivers/net/ethernet/intel/i40e/i40e_fcoe.c        | 1561 ++++++++++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_fcoe.h        |  128 ++
- drivers/net/ethernet/intel/i40e/i40e_main.c        |  276 +++-
- drivers/net/ethernet/intel/i40e/i40e_osdep.h       |    3 +
- drivers/net/ethernet/intel/i40e/i40e_prototype.h   |    6 +
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        |   37 +-
- drivers/net/ethernet/intel/i40e/i40e_txrx.h        |    9 +
- drivers/net/ethernet/intel/i40e/i40e_type.h        |  138 ++
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |   34 +-
- drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c |    2 +-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    |   59 +-
- 17 files changed, 2396 insertions(+), 37 deletions(-)
- create mode 100644 drivers/net/ethernet/intel/i40e/i40e_fcoe.c
- create mode 100644 drivers/net/ethernet/intel/i40e/i40e_fcoe.h
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index cafda0c..504bdf5 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -1005,7 +1005,7 @@ static int i40e_vc_send_msg_to_vf(struct i40e_vf *vf, u32 v_opcode,
+ {
+ 	struct i40e_pf *pf = vf->pf;
+ 	struct i40e_hw *hw = &pf->hw;
+-	int true_vf_id = vf->vf_id + hw->func_caps.vf_base_id;
++	int abs_vf_id = vf->vf_id + hw->func_caps.vf_base_id;
+ 	i40e_status aq_ret;
+ 
+ 	/* single place to detect unsuccessful return values */
+@@ -1025,7 +1025,7 @@ static int i40e_vc_send_msg_to_vf(struct i40e_vf *vf, u32 v_opcode,
+ 		vf->num_valid_msgs++;
+ 	}
+ 
+-	aq_ret = i40e_aq_send_msg_to_vf(hw, true_vf_id,	v_opcode, v_retval,
++	aq_ret = i40e_aq_send_msg_to_vf(hw, abs_vf_id,	v_opcode, v_retval,
+ 					msg, msglen, NULL);
+ 	if (aq_ret) {
+ 		dev_err(&pf->pdev->dev,
+@@ -1935,15 +1935,17 @@ static void i40e_vc_vf_broadcast(struct i40e_pf *pf,
+ {
+ 	struct i40e_hw *hw = &pf->hw;
+ 	struct i40e_vf *vf = pf->vf;
++	int abs_vf_id = vf->vf_id + hw->func_caps.vf_base_id;
+ 	int i;
+ 
+ 	for (i = 0; i < pf->num_alloc_vfs; i++) {
+ 		/* Ignore return value on purpose - a given VF may fail, but
+ 		 * we need to keep going and send to all of them
+ 		 */
+-		i40e_aq_send_msg_to_vf(hw, vf->vf_id, v_opcode, v_retval,
++		i40e_aq_send_msg_to_vf(hw, abs_vf_id, v_opcode, v_retval,
+ 				       msg, msglen, NULL);
+ 		vf++;
++		abs_vf_id = vf->vf_id + hw->func_caps.vf_base_id;
+ 	}
+ }
+ 
+@@ -1959,6 +1961,7 @@ void i40e_vc_notify_link_state(struct i40e_pf *pf)
+ 	struct i40e_hw *hw = &pf->hw;
+ 	struct i40e_vf *vf = pf->vf;
+ 	struct i40e_link_status *ls = &pf->hw.phy.link_info;
++	int abs_vf_id = vf->vf_id + hw->func_caps.vf_base_id;
+ 	int i;
+ 
+ 	pfe.event = I40E_VIRTCHNL_EVENT_LINK_CHANGE;
+@@ -1973,10 +1976,11 @@ void i40e_vc_notify_link_state(struct i40e_pf *pf)
+ 				ls->link_info & I40E_AQ_LINK_UP;
+ 			pfe.event_data.link_event.link_speed = ls->link_speed;
+ 		}
+-		i40e_aq_send_msg_to_vf(hw, vf->vf_id, I40E_VIRTCHNL_OP_EVENT,
++		i40e_aq_send_msg_to_vf(hw, abs_vf_id, I40E_VIRTCHNL_OP_EVENT,
+ 				       0, (u8 *)&pfe, sizeof(pfe),
+ 				       NULL);
+ 		vf++;
++		abs_vf_id = vf->vf_id + hw->func_caps.vf_base_id;
+ 	}
+ }
+ 
+@@ -2005,10 +2009,11 @@ void i40e_vc_notify_reset(struct i40e_pf *pf)
+ void i40e_vc_notify_vf_reset(struct i40e_vf *vf)
+ {
+ 	struct i40e_virtchnl_pf_event pfe;
++	int abs_vf_id = vf->vf_id + vf->pf->hw.func_caps.vf_base_id;
+ 
+ 	pfe.event = I40E_VIRTCHNL_EVENT_RESET_IMPENDING;
+ 	pfe.severity = I40E_PF_EVENT_SEVERITY_CERTAIN_DOOM;
+-	i40e_aq_send_msg_to_vf(&vf->pf->hw, vf->vf_id, I40E_VIRTCHNL_OP_EVENT,
++	i40e_aq_send_msg_to_vf(&vf->pf->hw, abs_vf_id, I40E_VIRTCHNL_OP_EVENT,
+ 			       I40E_SUCCESS, (u8 *)&pfe,
+ 			       sizeof(struct i40e_virtchnl_pf_event), NULL);
+ }
+@@ -2345,6 +2350,7 @@ int i40e_ndo_set_vf_link_state(struct net_device *netdev, int vf_id, int link)
+ 	struct i40e_virtchnl_pf_event pfe;
+ 	struct i40e_hw *hw = &pf->hw;
+ 	struct i40e_vf *vf;
++	int abs_vf_id;
+ 	int ret = 0;
+ 
+ 	/* validate the request */
+@@ -2355,6 +2361,7 @@ int i40e_ndo_set_vf_link_state(struct net_device *netdev, int vf_id, int link)
+ 	}
+ 
+ 	vf = &pf->vf[vf_id];
++	abs_vf_id = vf->vf_id + hw->func_caps.vf_base_id;
+ 
+ 	pfe.event = I40E_VIRTCHNL_EVENT_LINK_CHANGE;
+ 	pfe.severity = I40E_PF_EVENT_SEVERITY_INFO;
+@@ -2384,7 +2391,7 @@ int i40e_ndo_set_vf_link_state(struct net_device *netdev, int vf_id, int link)
+ 		goto error_out;
+ 	}
+ 	/* Notify the VF of its new link state */
+-	i40e_aq_send_msg_to_vf(hw, vf->vf_id, I40E_VIRTCHNL_OP_EVENT,
++	i40e_aq_send_msg_to_vf(hw, abs_vf_id, I40E_VIRTCHNL_OP_EVENT,
+ 			       0, (u8 *)&pfe, sizeof(pfe), NULL);
+ 
+ error_out:
 -- 
 1.9.3
