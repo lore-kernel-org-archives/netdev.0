@@ -1,159 +1,84 @@
 From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH v4 net-next 4/5] net: filter: rename sk_convert_filter() -> bpf_convert_filter()
-Date: Wed, 30 Jul 2014 20:34:15 -0700
-Message-ID: <1406777656-27755-5-git-send-email-ast@plumgrid.com>
-References: <1406777656-27755-1-git-send-email-ast@plumgrid.com>
+Subject: [PATCH v4 net-next 0/5] net: filter: split sk_filter into socket and bpf, cleanup names
+Date: Wed, 30 Jul 2014 20:34:11 -0700
+Message-ID: <1406777656-27755-1-git-send-email-ast@plumgrid.com>
 Cc: Daniel Borkmann <dborkman@redhat.com>,
 	Willem de Bruijn <willemb@google.com>,
 	Pablo Neira Ayuso <pablo@netfilter.org>,
 	Kees Cook <keescook@chromium.org>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:46837 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932222AbaGaDef (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2014 23:34:35 -0400
-Received: by mail-pa0-f44.google.com with SMTP id eu11so2759389pac.31
-        for <netdev@vger.kernel.org>; Wed, 30 Jul 2014 20:34:34 -0700 (PDT)
-In-Reply-To: <1406777656-27755-1-git-send-email-ast@plumgrid.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-to indicate that this function is converting classic BPF into eBPF
-and not related to sockets
+The main goal of the series is to split 'struct sk_filter' into socket and
+bpf parts and cleanup names in the following way:
+- everything that deals with sockets keeps 'sk_*' prefix
+- everything that is pure BPF is changed to 'bpf_*' prefix
 
-Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
----
- arch/x86/net/bpf_jit_comp.c |    2 +-
- include/linux/filter.h      |    4 ++--
- kernel/bpf/core.c           |    2 +-
- kernel/seccomp.c            |    4 ++--
- net/core/filter.c           |   16 ++++++++--------
- 5 files changed, 14 insertions(+), 14 deletions(-)
+split 'struct sk_filter' into
+struct sk_filter {
+	atomic_t        refcnt;
+	struct rcu_head rcu;
+	struct bpf_prog *prog;
+};
+and
+struct bpf_prog {
+        u32                     jited:1,
+                                len:31;
+        struct sock_fprog_kern  *orig_prog;
+        unsigned int            (*bpf_func)(const struct sk_buff *skb,
+                                            const struct bpf_insn *filter);
+        union {
+                struct sock_filter      insns[0];
+                struct bpf_insn         insnsi[0];
+                struct work_struct      work;
+        };
+};
+so that 'struct bpf_prog' can be used independent of sockets and cleans up
+'unattached' bpf use cases:
+isdn, ppp, team, seccomp, ptp, xt_bpf, cls_bpf, test_bpf
+which don't need refcnt/rcu fields.
 
-diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
-index 71737a83f022..e2ecc1380b3d 100644
---- a/arch/x86/net/bpf_jit_comp.c
-+++ b/arch/x86/net/bpf_jit_comp.c
-@@ -235,7 +235,7 @@ static int do_jit(struct sk_filter *bpf_prog, int *addrs, u8 *image,
- 	/* mov qword ptr [rbp-X],rbx */
- 	EMIT3_off32(0x48, 0x89, 0x9D, -stacksize);
- 
--	/* sk_convert_filter() maps classic BPF register X to R7 and uses R8
-+	/* bpf_convert_filter() maps classic BPF register X to R7 and uses R8
- 	 * as temporary, so all tcpdump filters need to spill/fill R7(r13) and
- 	 * R8(r14). R9(r15) spill could be made conditional, but there is only
- 	 * one 'bpf_error' return path out of helper functions inside bpf_jit.S
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index c4d0be4c5e75..7cb9b40e9a2f 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -351,8 +351,8 @@ int sk_filter(struct sock *sk, struct sk_buff *skb);
- void sk_filter_select_runtime(struct sk_filter *fp);
- void sk_filter_free(struct sk_filter *fp);
- 
--int sk_convert_filter(struct sock_filter *prog, int len,
--		      struct bpf_insn *new_prog, int *new_len);
-+int bpf_convert_filter(struct sock_filter *prog, int len,
-+		       struct bpf_insn *new_prog, int *new_len);
- 
- int sk_unattached_filter_create(struct sk_filter **pfp,
- 				struct sock_fprog_kern *fprog);
-diff --git a/kernel/bpf/core.c b/kernel/bpf/core.c
-index b479807ec383..188ac5ba3900 100644
---- a/kernel/bpf/core.c
-+++ b/kernel/bpf/core.c
-@@ -446,7 +446,7 @@ load_word:
- 		/* BPF_LD + BPD_ABS and BPF_LD + BPF_IND insns are
- 		 * only appearing in the programs where ctx ==
- 		 * skb. All programs keep 'ctx' in regs[BPF_REG_CTX]
--		 * == BPF_R6, sk_convert_filter() saves it in BPF_R6,
-+		 * == BPF_R6, bpf_convert_filter() saves it in BPF_R6,
- 		 * internal BPF verifier will check that BPF_R6 ==
- 		 * ctx.
- 		 *
-diff --git a/kernel/seccomp.c b/kernel/seccomp.c
-index f4a77d23f209..33a3a97e2b58 100644
---- a/kernel/seccomp.c
-+++ b/kernel/seccomp.c
-@@ -249,7 +249,7 @@ static long seccomp_attach_filter(struct sock_fprog *fprog)
- 		goto free_prog;
- 
- 	/* Convert 'sock_filter' insns to 'bpf_insn' insns */
--	ret = sk_convert_filter(fp, fprog->len, NULL, &new_len);
-+	ret = bpf_convert_filter(fp, fprog->len, NULL, &new_len);
- 	if (ret)
- 		goto free_prog;
- 
-@@ -265,7 +265,7 @@ static long seccomp_attach_filter(struct sock_fprog *fprog)
- 	if (!filter->prog)
- 		goto free_filter;
- 
--	ret = sk_convert_filter(fp, fprog->len, filter->prog->insnsi, &new_len);
-+	ret = bpf_convert_filter(fp, fprog->len, filter->prog->insnsi, &new_len);
- 	if (ret)
- 		goto free_filter_prog;
- 	kfree(fp);
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 5740ea08a3ad..6ac901613bee 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -312,7 +312,7 @@ static bool convert_bpf_extensions(struct sock_filter *fp,
- }
- 
- /**
-- *	sk_convert_filter - convert filter program
-+ *	bpf_convert_filter - convert filter program
-  *	@prog: the user passed filter program
-  *	@len: the length of the user passed filter program
-  *	@new_prog: buffer where converted program will be stored
-@@ -322,12 +322,12 @@ static bool convert_bpf_extensions(struct sock_filter *fp,
-  * Conversion workflow:
-  *
-  * 1) First pass for calculating the new program length:
-- *   sk_convert_filter(old_prog, old_len, NULL, &new_len)
-+ *   bpf_convert_filter(old_prog, old_len, NULL, &new_len)
-  *
-  * 2) 2nd pass to remap in two passes: 1st pass finds new
-  *    jump offsets, 2nd pass remapping:
-  *   new_prog = kmalloc(sizeof(struct bpf_insn) * new_len);
-- *   sk_convert_filter(old_prog, old_len, new_prog, &new_len);
-+ *   bpf_convert_filter(old_prog, old_len, new_prog, &new_len);
-  *
-  * User BPF's register A is mapped to our BPF register 6, user BPF
-  * register X is mapped to BPF register 7; frame pointer is always
-@@ -335,8 +335,8 @@ static bool convert_bpf_extensions(struct sock_filter *fp,
-  * for socket filters: ctx == 'struct sk_buff *', for seccomp:
-  * ctx == 'struct seccomp_data *'.
-  */
--int sk_convert_filter(struct sock_filter *prog, int len,
--		      struct bpf_insn *new_prog, int *new_len)
-+int bpf_convert_filter(struct sock_filter *prog, int len,
-+		       struct bpf_insn *new_prog, int *new_len)
- {
- 	int new_flen = 0, pass = 0, target, i;
- 	struct bpf_insn *new_insn;
-@@ -921,7 +921,7 @@ static struct sk_filter *__sk_migrate_filter(struct sk_filter *fp)
- 	}
- 
- 	/* 1st pass: calculate the new program length. */
--	err = sk_convert_filter(old_prog, old_len, NULL, &new_len);
-+	err = bpf_convert_filter(old_prog, old_len, NULL, &new_len);
- 	if (err)
- 		goto out_err_free;
- 
-@@ -940,9 +940,9 @@ static struct sk_filter *__sk_migrate_filter(struct sk_filter *fp)
- 	fp->len = new_len;
- 
- 	/* 2nd pass: remap sock_filter insns into bpf_insn insns. */
--	err = sk_convert_filter(old_prog, old_len, fp->insnsi, &new_len);
-+	err = bpf_convert_filter(old_prog, old_len, fp->insnsi, &new_len);
- 	if (err)
--		/* 2nd sk_convert_filter() can fail only if it fails
-+		/* 2nd bpf_convert_filter() can fail only if it fails
- 		 * to allocate memory, remapping must succeed. Note,
- 		 * that at this time old_fp has already been released
- 		 * by krealloc().
+It's a follow up to the rcu cleanup started by Pablo in
+commit 34c5bd66e5 ("net: filter: don't release unattached filter through call_rcu()")
+
+Patch 1 - cleans up socket memory charging and makes it possible for functions
+  sk(bpf)_migrate_filter(), sk(bpf)_prepare_filter() to be socket independent
+Patches 2-4 - trivial renames
+Patch 5 - sk_filter split and renames of related sk_*() functions
+
+Alexei Starovoitov (5):
+  net: filter: simplify socket charging
+  net: filter: rename sk_filter_proglen -> bpf_classic_proglen
+  net: filter: rename sk_chk_filter() -> bpf_check_classic()
+  net: filter: rename sk_convert_filter() -> bpf_convert_filter()
+  net: filter: split 'struct sk_filter' into socket and bpf parts
+
+ Documentation/networking/filter.txt      |   12 +-
+ arch/arm/net/bpf_jit_32.c                |    8 +-
+ arch/mips/net/bpf_jit.c                  |    8 +-
+ arch/powerpc/net/bpf_jit_comp.c          |    8 +-
+ arch/s390/net/bpf_jit_comp.c             |    4 +-
+ arch/sparc/net/bpf_jit_comp.c            |    4 +-
+ arch/x86/net/bpf_jit_comp.c              |   14 +--
+ drivers/isdn/i4l/isdn_ppp.c              |   26 ++---
+ drivers/net/ppp/ppp_generic.c            |   28 ++---
+ drivers/net/team/team_mode_loadbalance.c |   14 +--
+ include/linux/filter.h                   |   51 +++++----
+ include/linux/isdn_ppp.h                 |    4 +-
+ include/uapi/linux/netfilter/xt_bpf.h    |    4 +-
+ kernel/bpf/core.c                        |   34 +++---
+ kernel/seccomp.c                         |   18 +--
+ lib/test_bpf.c                           |   24 ++--
+ net/core/filter.c                        |  183 +++++++++++++++---------------
+ net/core/ptp_classifier.c                |    6 +-
+ net/core/sock.c                          |    9 +-
+ net/core/sock_diag.c                     |    4 +-
+ net/netfilter/xt_bpf.c                   |    6 +-
+ net/sched/cls_bpf.c                      |   12 +-
+ 22 files changed, 243 insertions(+), 238 deletions(-)
+
 -- 
 1.7.9.5
