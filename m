@@ -1,82 +1,100 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH v3 1/2] rcar_can: document device tree bindings
-Date: Fri, 1 Aug 2014 01:24:25 +0400
-Message-ID: <201408010124.26505.sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH v3 2/2] rcar_can: add device tree support
+Date: Fri, 1 Aug 2014 01:25:53 +0400
+Message-ID: <201408010125.54723.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, wg@grandegger.com, mkl@pengutronix.de,
-	linux-can@vger.kernel.org, linux-sh@vger.kernel.org,
-	vksavl@gmail.com
-To: robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	devicetree@vger.kernel.org
+Cc: linux-sh@vger.kernel.org, vksavl@gmail.com
+To: netdev@vger.kernel.org, wg@grandegger.com, mkl@pengutronix.de,
+	linux-can@vger.kernel.org, robh+dt@kernel.org,
+	grant.likely@linaro.org, devicetree@vger.kernel.org
 Return-path: <linux-sh-owner@vger.kernel.org>
 Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Document the R-Car CAN device tree bindings.
+Add support of the device tree probing for the Renesas R-Car CAN controllers.
 
 Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
 ---
-The patch is against the 'linux-can-next.git' repo.
+The patch is against the 'linux-can-next.git' repo plus the CAN clock handling
+patch I've just posted.
+
+Changes in version 3:
+- resolved rejects due to the 'clock_select' variable declaration being moved to
+  the CAN clock handling patch.
 
 Changes in version 2:
-- new patch, split from the driver's device tree support patch;
-- adjusted "clocks" property to refer to 3 clocks instead of 1;
-- added mandatory "clock-names" property;
-- renamed the "clock-select" property to "renesas,can-clock-select".
+- split the device tree bindings document into a separate patch;
+- replaced 0 with CLKR_CLKP1 in the 'clock_select' variable intializer
+- reversed the condition in the *if* stetement handling the reading of the
+  CAN clock selector from the device tree or the paltfrom data;
+- renamed the "clock-select" property to "renesas,can-clock-select";
+- rebased the patch on top of the CAN clock handling fix.
 
- Documentation/devicetree/bindings/net/can/rcar_can.txt |   43 +++++++++++++++++
- 1 file changed, 43 insertions(+)
+ drivers/net/can/rcar_can.c |   28 ++++++++++++++++++++++------
+ 1 file changed, 22 insertions(+), 6 deletions(-)
 
-Index: linux-can-next/Documentation/devicetree/bindings/net/can/rcar_can.txt
+Index: linux-can-next/drivers/net/can/rcar_can.c
 ===================================================================
---- /dev/null
-+++ linux-can-next/Documentation/devicetree/bindings/net/can/rcar_can.txt
-@@ -0,0 +1,43 @@
-+Renesas R-Car CAN controller Device Tree Bindings
-+-------------------------------------------------
-+
-+Required properties:
-+- compatible: "renesas,can-r8a7778" if CAN controller is a part of R8A7778 SoC.
-+	      "renesas,can-r8a7779" if CAN controller is a part of R8A7779 SoC.
-+	      "renesas,can-r8a7790" if CAN controller is a part of R8A7790 SoC.
-+	      "renesas,can-r8a7791" if CAN controller is a part of R8A7791 SoC.
-+- reg: physical base address and size of the R-Car CAN register map.
-+- interrupts: interrupt specifier for the sole interrupt.
-+- clocks: phandles and clock specifiers for 3 CAN clock inputs.
-+- clock-names: 3 clock input name strings: "clkp1", "clkp2", "can_clk".
-+- pinctrl-0: pin control group to be used for this controller.
-+- pinctrl-names: must be "default".
-+
-+Optional properties:
-+- renesas,can-clock-select: R-Car CAN Clock Source Select. Valid values are:
-+			    <0x0> (default) : Peripheral clock (clkp1)
-+			    <0x1> : Peripheral clock (clkp2)
-+			    <0x3> : Externally input clock
-+
-+Example
-+-------
-+
-+SoC common .dtsi file:
-+
-+	can0: can@e6e80000 {
-+		compatible = "renesas,can-r8a7791";
-+		reg = <0 0xe6e80000 0 0x1000>;
-+		interrupts = <0 186 IRQ_TYPE_LEVEL_HIGH>;
-+		clocks = <&mstp9_clks R8A7791_CLK_RCAN0>,
-+		       	 <&cpg_clocks R8A7791_CLK_RCAN>, <&can_clk>;
-+		clock-names = "clkp1", "clkp2", "can_clk";
-+		status = "disabled";
-+	};
-+
-+Board specific .dts file:
-+
-+&can0 {
-+	pinctrl-0 = <&can0_pins>;
-+	pinctrl-names = "default";
-+	status = "okay";
+--- linux-can-next.orig/drivers/net/can/rcar_can.c
++++ linux-can-next/drivers/net/can/rcar_can.c
+@@ -20,6 +20,7 @@
+ #include <linux/can/dev.h>
+ #include <linux/clk.h>
+ #include <linux/can/platform/rcar_can.h>
++#include <linux/of.h>
+ 
+ #define RCAR_CAN_DRV_NAME	"rcar_can"
+ 
+@@ -738,16 +739,21 @@ static int rcar_can_probe(struct platfor
+ 	struct net_device *ndev;
+ 	struct resource *mem;
+ 	void __iomem *addr;
+-	u32 clock_select;
++	u32 clock_select = CLKR_CLKP1;
+ 	int err = -ENODEV;
+ 	int irq;
+ 
+-	pdata = dev_get_platdata(&pdev->dev);
+-	if (!pdata) {
+-		dev_err(&pdev->dev, "No platform data provided!\n");
+-		goto fail;
++	if (pdev->dev.of_node) {
++		of_property_read_u32(pdev->dev.of_node,
++				     "renesas,can-clock-select", &clock_select);
++	} else {
++		pdata = dev_get_platdata(&pdev->dev);
++		if (!pdata) {
++			dev_err(&pdev->dev, "No platform data provided!\n");
++			goto fail;
++		}
++		clock_select = pdata->clock_select;
+ 	}
+-	clock_select = pdata->clock_select;
+ 
+ 	irq = platform_get_irq(pdev, 0);
+ 	if (!irq) {
+@@ -888,10 +894,20 @@ static int __maybe_unused rcar_can_resum
+ 
+ static SIMPLE_DEV_PM_OPS(rcar_can_pm_ops, rcar_can_suspend, rcar_can_resume);
+ 
++static const struct of_device_id rcar_can_of_table[] __maybe_unused = {
++	{ .compatible = "renesas,can-r8a7778" },
++	{ .compatible = "renesas,can-r8a7779" },
++	{ .compatible = "renesas,can-r8a7790" },
++	{ .compatible = "renesas,can-r8a7791" },
++	{ }
 +};
++MODULE_DEVICE_TABLE(of, rcar_can_of_table);
++
+ static struct platform_driver rcar_can_driver = {
+ 	.driver = {
+ 		.name = RCAR_CAN_DRV_NAME,
+ 		.owner = THIS_MODULE,
++		.of_match_table = of_match_ptr(rcar_can_of_table),
+ 		.pm = &rcar_can_pm_ops,
+ 	},
+ 	.probe = rcar_can_probe,
