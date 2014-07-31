@@ -1,158 +1,40 @@
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Subject: Re: [PATCH] net: fix the counter ICMP_MIB_INERRORS/ICMP6_MIB_INERRORS
-Date: Thu, 31 Jul 2014 10:58:28 +0800
-Message-ID: <53D9B0D4.8040909@cn.fujitsu.com>
-References: <53D75922.2090106@cn.fujitsu.com> <1406727930.13572.5.camel@localhost>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v5 0/3] net: libphy: Add phy specific functions to
+ access mmd regs
+Date: Wed, 30 Jul 2014 20:00:47 -0700 (PDT)
+Message-ID: <20140730.200047.853167282063603089.davem@davemloft.net>
+References: <1406665199-18174-1-git-send-email-vbridgers2013@gmail.com>
+	<CAGVrzcYpYQAXOJMCuEdG0Yi9BiYVTUgQxehACYN=5LdZN21fQw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Cc: vbridgers2013@gmail.com, rdunlap@infradead.org,
+	netdev@vger.kernel.org, vbridger@altera.com
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([59.151.112.132]:39730 "EHLO
-	heian.cn.fujitsu.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1755433AbaGaC6p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2014 22:58:45 -0400
-In-Reply-To: <1406727930.13572.5.camel@localhost>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38822 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754477AbaGaDAs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2014 23:00:48 -0400
+In-Reply-To: <CAGVrzcYpYQAXOJMCuEdG0Yi9BiYVTUgQxehACYN=5LdZN21fQw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/30/2014 09:45 PM, Hannes Frederic Sowa wrote:
-> On Di, 2014-07-29 at 16:19 +0800, Duan Jiong wrote:
->> When dealing with ICMPv[46] Error Message, function icmp_socket_deliver()
->> and icmpv6_notify() do some valid checks on packet's length, but then some
->> protocols check packet's length redaudantly. So remove those duplicated
->> statements, and increase counter ICMP_MIB_INERRORS/ICMP6_MIB_INERRORS in
->> function icmp_socket_deliver() and icmpv6_notify() respectively.
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Tue, 29 Jul 2014 14:29:53 -0700
+
+> 2014-07-29 13:19 GMT-07:00 Vince Bridgers <vbridgers2013@gmail.com>:
+>> This set of patches addresses a problem found with the Micrel ksz9021 phy and
+>> libphy, where the ksz9021 phy does not support mmd extended register access
+>> per the IEEE specification as assumed by libphy. The first patch adds a
+>> framework for phy specific support to specify their own function to access
+>> extended phy registers, return a failure code if not supported, or to default
+>> to libphy's IEEE defined method for accessing the mmd extended phy registers.
 >>
->> In addition, add missed counter in udp6/udplite6 when socket is NULL.
+>> This issue was found by using the Synopsys EMAC and a Micrel ksz9021 phy on the
+>> Altera Cyclone 5 SOC development kit. This patch was tested on the same system
+>> in both positive and negative test cases.
 > 
-> I am ok with adding the error counters, but...
-> 
->> ---
->>  net/ipv4/icmp.c     |  4 +++-
->>  net/ipv4/tcp_ipv4.c |  5 -----
->>  net/ipv6/icmp.c     | 11 ++++++++---
->>  net/ipv6/udp.c      |  8 ++++++--
->>  net/sctp/input.c    |  5 -----
->>  5 files changed, 17 insertions(+), 16 deletions(-)
->>
->> diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
->> index 42b7bcf..092400e 100644
->> --- a/net/ipv4/icmp.c
->> +++ b/net/ipv4/icmp.c
->> @@ -663,8 +663,10 @@ static void icmp_socket_deliver(struct sk_buff *skb, u32 info)
->>  	/* Checkin full IP header plus 8 bytes of protocol to
->>  	 * avoid additional coding at protocol handlers.
->>  	 */
->> -	if (!pskb_may_pull(skb, iph->ihl * 4 + 8))
->> +	if (!pskb_may_pull(skb, iph->ihl * 4 + 8)) {
->> +		ICMP_INC_STATS_BH(dev_net(skb->dev), ICMP_MIB_INERRORS);
->>  		return;
->> +	}
->>  
->>  	raw_icmp_error(skb, protocol, info);
->>  
->> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
->> index 77cccda..715cf6b 100644
->> --- a/net/ipv4/tcp_ipv4.c
->> +++ b/net/ipv4/tcp_ipv4.c
->> @@ -342,11 +342,6 @@ void tcp_v4_err(struct sk_buff *icmp_skb, u32 info)
->>  	int err;
->>  	struct net *net = dev_net(icmp_skb->dev);
->>  
->> -	if (icmp_skb->len < (iph->ihl << 2) + 8) {
->> -		ICMP_INC_STATS_BH(net, ICMP_MIB_INERRORS);
->> -		return;
->> -	}
->> -
->>  	sk = inet_lookup(net, &tcp_hashinfo, iph->daddr, th->dest,
->>  			iph->saddr, th->source, inet_iif(icmp_skb));
->>  	if (!sk) {
->> diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
->> index f6c84a6..8ca3cc0 100644
->> --- a/net/ipv6/icmp.c
->> +++ b/net/ipv6/icmp.c
->> @@ -626,9 +626,10 @@ void icmpv6_notify(struct sk_buff *skb, u8 type, u8 code, __be32 info)
->>  	int inner_offset;
->>  	__be16 frag_off;
->>  	u8 nexthdr;
->> +	struct net *net = dev_net(skb->dev);
->>  
->>  	if (!pskb_may_pull(skb, sizeof(struct ipv6hdr)))
->> -		return;
->> +		goto out;
->>  
->>  	nexthdr = ((struct ipv6hdr *)skb->data)->nexthdr;
->>  	if (ipv6_ext_hdr(nexthdr)) {
->> @@ -636,14 +637,14 @@ void icmpv6_notify(struct sk_buff *skb, u8 type, u8 code, __be32 info)
->>  		inner_offset = ipv6_skip_exthdr(skb, sizeof(struct ipv6hdr),
->>  						&nexthdr, &frag_off);
->>  		if (inner_offset<0)
->> -			return;
->> +			goto out;
->>  	} else {
->>  		inner_offset = sizeof(struct ipv6hdr);
->>  	}
->>  
->>  	/* Checkin header including 8 bytes of inner protocol header. */
->>  	if (!pskb_may_pull(skb, inner_offset+8))
->> -		return;
->> +		goto out;
->>  
->>  	/* BUGGG_FUTURE: we should try to parse exthdrs in this packet.
->>  	   Without this we will not able f.e. to make source routed
->> @@ -659,6 +660,10 @@ void icmpv6_notify(struct sk_buff *skb, u8 type, u8 code, __be32 info)
->>  	rcu_read_unlock();
->>  
->>  	raw6_icmp_error(skb, nexthdr, type, code, inner_offset, info);
->> +	return;
->> +
->> +out:
->> +	ICMP6_INC_STATS_BH(net, __in6_dev_get(skb->dev), ICMP6_MIB_INERRORS);
-> 
-> ... please don't use __in6_dev_get in BH without rcu, but inet6_iif. You
-> risk a lockdep error otherwise. You don't have rtnl locked and no RCU
-> read lock.
-> 
+> Thanks for putting this together, this looks good to me now!
 
-May be we can use in6_dev_get instead of __in6_dev_get, and 
-use in6_dev_put to release the reference later.
-
-
->>  }
->>  
->>  /*
->> diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
->> index 7092ff7..f13d297 100644
->> --- a/net/ipv6/udp.c
->> +++ b/net/ipv6/udp.c
->> @@ -534,11 +534,15 @@ void __udp6_lib_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
->>  	struct udphdr *uh = (struct udphdr*)(skb->data+offset);
->>  	struct sock *sk;
->>  	int err;
->> +	struct net *net = dev_net(skb->dev);
->>  
->> -	sk = __udp6_lib_lookup(dev_net(skb->dev), daddr, uh->dest,
->> +	sk = __udp6_lib_lookup(net, daddr, uh->dest,
->>  			       saddr, uh->source, inet6_iif(skb), udptable);
->> -	if (sk == NULL)
->> +	if (sk == NULL) {
->> +		ICMP6_INC_STATS_BH(net, __in6_dev_get(skb->dev),
->> +				   ICMP6_MIB_INERRORS);
-> 
-> It is not really necessary here, as you like.
-> 
-
-I add it just because i saw the same statements in dccp6/sctp6/tcp6 error
-handler.
-
-Thanks,
-  Duan
-
-> Bye,
-> Hannes
-> 
-> .
-> 
+Series applied to net-next, thanks everyone.
