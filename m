@@ -1,34 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RESUBMIT net] tcp: Fix integer-overflows in TCP veno
-Date: Wed, 30 Jul 2014 17:31:34 -0700 (PDT)
-Message-ID: <20140730.173134.865256818780740961.davem@davemloft.net>
-References: <1406628447-21130-1-git-send-email-christoph.paasch@uclouvain.be>
+Subject: Re: [PATCH v3 net] tcp: Fix integer-overflow in TCP vegas
+Date: Wed, 30 Jul 2014 17:31:47 -0700 (PDT)
+Message-ID: <20140730.173147.1009537751381441905.davem@davemloft.net>
+References: <1406634057-1289-1-git-send-email-christoph.paasch@uclouvain.be>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
+	ncardwell@google.com, eric.dumazet@gmail.com,
+	David.Laight@ACULAB.COM, doug.leith@nuim.ie
 To: christoph.paasch@uclouvain.be
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37810 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37814 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756101AbaGaAbf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2014 20:31:35 -0400
-In-Reply-To: <1406628447-21130-1-git-send-email-christoph.paasch@uclouvain.be>
+	with ESMTP id S1755348AbaGaAbs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2014 20:31:48 -0400
+In-Reply-To: <1406634057-1289-1-git-send-email-christoph.paasch@uclouvain.be>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Date: Tue, 29 Jul 2014 12:07:27 +0200
+Date: Tue, 29 Jul 2014 13:40:57 +0200
 
-> In veno we do a multiplication of the cwnd and the rtt. This
+> In vegas we do a multiplication of the cwnd and the rtt. This
 > may overflow and thus their result is stored in a u64. However, we first
 > need to cast the cwnd so that actually 64-bit arithmetic is done.
 > 
-> A first attempt at fixing 76f1017757aa0 ([TCP]: TCP Veno congestion
-> control) was made by 159131149c2 (tcp: Overflow bug in Vegas), but it
-> failed to add the required cast in tcp_veno_cong_avoid().
+> Then, we need to do do_div to allow this to be used on 32-bit arches.
 > 
-> Fixes: 76f1017757aa0 ([TCP]: TCP Veno congestion control)
+> Cc: Stephen Hemminger <stephen@networkplumber.org>
+> Cc: Neal Cardwell <ncardwell@google.com>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: David Laight <David.Laight@ACULAB.COM>
+> Cc: Doug Leith <doug.leith@nuim.ie>
+> Fixes: 8d3a564da34e (tcp: tcp_vegas cong avoid fix)
 > Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
 
-Applied and queued up for -stable.
+Applied and queued up for -stable, thanks.
