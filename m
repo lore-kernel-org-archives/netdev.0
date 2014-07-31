@@ -1,48 +1,53 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next] team: fix releasing uninitialized pointer to BPF prog
-Date: Thu, 31 Jul 2014 21:48:59 +0200
-Message-ID: <1406836139-11943-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, Pablo Neira <pablo@netfilter.org>,
-	Alexei Starovoitov <ast@plumgrid.com>,
-	Jiri Pirko <jiri@resnulli.us>
+Subject: [PATCH net-next 2/2] random32: do not feed jiffies as seed from lpfc driver
+Date: Thu, 31 Jul 2014 22:08:37 +0200
+Message-ID: <1406837317-13648-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, James Bottomley <JBottomley@Parallels.com>,
+	James Smart <james.smart@emulex.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:21116 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:25702 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751796AbaGaTtO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jul 2014 15:49:14 -0400
+	id S1750868AbaGaUIo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Jul 2014 16:08:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 34c5bd66e5ed introduced the possibility that an
-uninitialized pointer on the stack (orig_fp) can call into
-sk_unattached_filter_destroy() when its value is non NULL.
+In prandom we have already reseeding mechanisms that trigger
+periodically from a much better entropy source than just
+feeding in jiffies through lpfc_mbx_cmpl_fcf_scan_read_fcf_rec()
+[what a function name 8-)]. Therefore, just remove this.
 
-Before that commit orig_fp was only destroyed in the same
-block where it was assigned a valid BPF prog before. Fix it
-up by initializing it to NULL.
-
-Fixes: 34c5bd66e5ed ("net: filter: don't release unattached filter through call_rcu()")
 Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Cc: Pablo Neira <pablo@netfilter.org>
-Cc: Alexei Starovoitov <ast@plumgrid.com>
-Cc: Jiri Pirko <jiri@resnulli.us>
+Cc: James Bottomley <JBottomley@Parallels.com>
+Cc: James Smart <james.smart@emulex.com>
 ---
- drivers/net/team/team_mode_loadbalance.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ This can also go via James, how you prefer it.
 
-diff --git a/drivers/net/team/team_mode_loadbalance.c b/drivers/net/team/team_mode_loadbalance.c
-index 7106f34..d7be9b3 100644
---- a/drivers/net/team/team_mode_loadbalance.c
-+++ b/drivers/net/team/team_mode_loadbalance.c
-@@ -272,7 +272,7 @@ static int lb_bpf_func_set(struct team *team, struct team_gsetter_ctx *ctx)
- {
- 	struct lb_priv *lb_priv = get_lb_priv(team);
- 	struct sk_filter *fp = NULL;
--	struct sk_filter *orig_fp;
-+	struct sk_filter *orig_fp = NULL;
- 	struct sock_fprog_kern *fprog = NULL;
- 	int err;
+ drivers/scsi/lpfc/lpfc_hbadisc.c | 4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/drivers/scsi/lpfc/lpfc_hbadisc.c b/drivers/scsi/lpfc/lpfc_hbadisc.c
+index 2a17e31..5072bb2 100644
+--- a/drivers/scsi/lpfc/lpfc_hbadisc.c
++++ b/drivers/scsi/lpfc/lpfc_hbadisc.c
+@@ -2146,7 +2146,6 @@ lpfc_mbx_cmpl_fcf_scan_read_fcf_rec(struct lpfc_hba *phba, LPFC_MBOXQ_t *mboxq)
+ 	uint16_t fcf_index, next_fcf_index;
+ 	struct lpfc_fcf_rec *fcf_rec = NULL;
+ 	uint16_t vlan_id;
+-	uint32_t seed;
+ 	bool select_new_fcf;
+ 	int rc;
  
+@@ -2383,9 +2382,6 @@ lpfc_mbx_cmpl_fcf_scan_read_fcf_rec(struct lpfc_hba *phba, LPFC_MBOXQ_t *mboxq)
+ 		phba->fcf.fcf_flag |= FCF_AVAILABLE;
+ 		/* Setup initial running random FCF selection count */
+ 		phba->fcf.eligible_fcf_cnt = 1;
+-		/* Seeding the random number generator for random selection */
+-		seed = (uint32_t)(0xFFFFFFFF & jiffies);
+-		prandom_seed(seed);
+ 	}
+ 	spin_unlock_irq(&phba->hbalock);
+ 	goto read_next_fcf;
 -- 
-1.9.0
+1.7.11.7
