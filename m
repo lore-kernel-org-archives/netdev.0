@@ -1,37 +1,38 @@
-From: "Zhangjie (HZ)" <zhangjie14@huawei.com>
-Subject: Query: Is it possible  to lose interrupts between vhost and virtio_net
- during migration?
-Date: Thu, 31 Jul 2014 19:47:24 +0800
-Message-ID: <53DA2CCC.1040606@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <jasowang@redhat.com>, <mst@redhat.com>, <qinchuanyu@huawei.com>,
-	<liuyongan@huawei.com>, <zhangjie14@huawei.com>,
-	<davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net] ipv6: data of fwmark_reflect needs to be updated on netns construction
+Date: Thu, 31 Jul 2014 14:34:55 +0200
+Message-ID: <2a80411c2242306dde7de22d4446717362e082d6.1406809674.git.hannes@stressinduktion.org>
+Cc: Lorenzo Colitti <lorenzo@google.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:1241 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750866AbaGaLsf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2014 07:48:35 -0400
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:36263 "EHLO
+	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751277AbaGaMfE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2014 08:35:04 -0400
+Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
+	by gateway1.nyi.internal (Postfix) with ESMTP id DCE4821F22
+	for <netdev@vger.kernel.org>; Thu, 31 Jul 2014 08:35:03 -0400 (EDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-[The test scenario]:
+Fixes: e110861f86094cd ("net: add a sysctl to reflect the fwmark on replies")
+Cc: Lorenzo Colitti <lorenzo@google.com>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+ net/ipv6/sysctl_net_ipv6.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-Doing migration between two Hosts roundly(A->B, B->A) ,after about 20 times, network of the VM is unreachable.
-There are other 20 VMs in each Host, and they send ipv4 or ipv6 and multicast packets to each other.
-Sometimes the CPU idle of the Host maybe 0;
-
-[Problem description]:
-
-I wonder if it was interrupts missing that cause the network unreachable.
-In the migration process of kvm, source end should suspend, which include steps as follows:
-1.	do_vm_stop->pause_all_vcpus
-2.	vm_state_notify-> vhost_net_stop->set_guest_notifiers->kvm_virtio_pci_vq_vector_release
-3.	vm_state_notify-> vhost_net_stop-> vhost_net_stop_one->OST_NET_SET_BACKEND-> vhost_net_flush_vq-> vhost_work_flush
-This may cause interrupts missing. Supose the scene that, virtqueue_notify() is called in virtio_net,
-then the VM is paused. And, just before the portiowrite being handled, eventfd of kvm is released.
-Then, vhost could not sense the notify, and the tx notify is lost.
-On the other side, if eventfd of kvm is released just after vhost_notify(), and before eventfd_signal(), then rx signal by vhost is lost.
+diff --git a/net/ipv6/sysctl_net_ipv6.c b/net/ipv6/sysctl_net_ipv6.c
+index 5bf7b61..0c56c93 100644
+--- a/net/ipv6/sysctl_net_ipv6.c
++++ b/net/ipv6/sysctl_net_ipv6.c
+@@ -82,6 +82,7 @@ static int __net_init ipv6_sysctl_net_init(struct net *net)
+ 	ipv6_table[1].data = &net->ipv6.sysctl.anycast_src_echo_reply;
+ 	ipv6_table[2].data = &net->ipv6.sysctl.flowlabel_consistency;
+ 	ipv6_table[3].data = &net->ipv6.sysctl.auto_flowlabels;
++	ipv6_table[4].data = &net->ipv6.sysctl.fwmark_reflect;
+ 
+ 	ipv6_route_table = ipv6_route_sysctl_init(net);
+ 	if (!ipv6_route_table)
+-- 
+1.9.3
