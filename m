@@ -1,8 +1,9 @@
 From: Casey Schaufler <casey@schaufler-ca.com>
-Subject: Re: [PATCH 0/4] Fix the NetLabel LSM category mappings
-Date: Thu, 31 Jul 2014 15:47:29 -0700
-Message-ID: <53DAC781.3010502@schaufler-ca.com>
-References: <20140731212856.4991.49396.stgit@localhost>
+Subject: Re: [PATCH 1/4] netlabel: fix a problem when setting bits below the
+ previously lowest bit
+Date: Thu, 31 Jul 2014 15:48:54 -0700
+Message-ID: <53DAC7D6.5090000@schaufler-ca.com>
+References: <20140731212856.4991.49396.stgit@localhost> <20140731214426.4991.90097.stgit@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
@@ -11,64 +12,197 @@ Cc: Christian Evans <frodox@zoho.com>,
 To: Paul Moore <pmoore@redhat.com>, netdev@vger.kernel.org,
 	linux-security-module@vger.kernel.org, selinux@tycho.nsa.gov
 Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <20140731212856.4991.49396.stgit@localhost>
+In-Reply-To: <20140731214426.4991.90097.stgit@localhost>
 Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On 7/31/2014 2:44 PM, Paul Moore wrote:
-> As you will see in the patch descriptions below, the NetLabel LSM
-> category mappings are very badly broken.  This patchset should repair
-> things and make life better in the future.  The first three patches
-> are straight-up bug fixes; the fourth patch doesn't actually fix any
-> faulty logic in the code, but rather shortens some stupidly long
-> function and structure names relating to the NetLabel category
-> mappings.  I should probably do something similar with a lot of other
-> NetLabel APIs, but that is for another time.
+> The NetLabel category (catmap) functions have a problem in that they
+> assume categories will be set in an increasing manner, e.g. the next
+> category set will always be larger than the last.  Unfortunately, this
+> is not a valid assumption and could result in problems when attempting
+> to set categories less than the startbit in the lowest catmap node.
+> In some cases kernel panics and other nasties can result.
 >
-> Thanks to Christian Evans for pointing out one of the original
-> problems.  I don't think he realized how many problems there really
-> were, but I still owe him one for getting me to revisit this ugly,
-> nasty code.  I apologize it took so long to get a fix out and that
-> things were broken this badly in the first place.
+> This patch corrects the problem by checking for this and allocating a
+> new catmap node instance and placing it at the front of the list.
 >
-> Casey, I'm CC'ing you here because this patchset does touch some of
-> the Smack code, but as you can see the changes are trivial.  I will
-> be very surprised if you find anything objectionable in there.
-> However, if you do, let me know and I'll fix it.
+> Cc: stable@vger.kernel.org
+> Reported-by: Christian Evans <frodox@zoho.com>
+> Signed-off-by: Paul Moore <pmoore@redhat.com>
 
-The code passes my tests. I'll mark the patches "Tested-by:".
+Tested-by: Casey Schaufler <casey@schaufler-ca.com>
 
-> DaveM/netdev folks, you guys are included here for the obvious reason
-> that a good chunk of the code changes live in net/*.  However, the
-> net/* related changes are all within the NetLabel code and not in the
-> core networking stack so I doubt this is something you'll care too
-> much about.  I'm going to guess that as far as you're concerned, this
-> is just another bugfix to a subsystem you don't really care about.
->
-> DaveM, unless you have any objections, I'm planning on pushing this
-> via the SELinux tree up through James' LSM tree since that seems to
-> make the most sense to me.  If you would rather push it via the netdev
-> tree please let me know.
->
-> -Paul
->
 > ---
+>  include/net/netlabel.h        |    8 ++++----
+>  net/ipv4/cipso_ipv4.c         |    6 +++---
+>  net/netlabel/netlabel_kapi.c  |   26 ++++++++++++++++++--------
+>  security/smack/smack_access.c |    2 +-
+>  4 files changed, 26 insertions(+), 16 deletions(-)
 >
-> Paul Moore (4):
->       netlabel: fix a problem when setting bits below the previously lowest bit
->       netlabel: fix the horribly broken catmap functions
->       netlabel: fix the catmap walking functions
->       netlabel: shorter names for the NetLabel catmap funcs/structs
+> diff --git a/include/net/netlabel.h b/include/net/netlabel.h
+> index 4fe018c..1c40d65 100644
+> --- a/include/net/netlabel.h
+> +++ b/include/net/netlabel.h
+> @@ -394,10 +394,10 @@ int netlbl_secattr_catmap_walk(struct netlbl_lsm_secattr_catmap *catmap,
+>  			       u32 offset);
+>  int netlbl_secattr_catmap_walk_rng(struct netlbl_lsm_secattr_catmap *catmap,
+>  				   u32 offset);
+> -int netlbl_secattr_catmap_setbit(struct netlbl_lsm_secattr_catmap *catmap,
+> +int netlbl_secattr_catmap_setbit(struct netlbl_lsm_secattr_catmap **catmap,
+>  				 u32 bit,
+>  				 gfp_t flags);
+> -int netlbl_secattr_catmap_setrng(struct netlbl_lsm_secattr_catmap *catmap,
+> +int netlbl_secattr_catmap_setrng(struct netlbl_lsm_secattr_catmap **catmap,
+>  				 u32 start,
+>  				 u32 end,
+>  				 gfp_t flags);
+> @@ -505,14 +505,14 @@ static inline int netlbl_secattr_catmap_walk_rng(
+>  	return -ENOENT;
+>  }
+>  static inline int netlbl_secattr_catmap_setbit(
+> -	                              struct netlbl_lsm_secattr_catmap *catmap,
+> +				      struct netlbl_lsm_secattr_catmap **catmap,
+>  				      u32 bit,
+>  				      gfp_t flags)
+>  {
+>  	return 0;
+>  }
+>  static inline int netlbl_secattr_catmap_setrng(
+> -	                              struct netlbl_lsm_secattr_catmap *catmap,
+> +				      struct netlbl_lsm_secattr_catmap **catmap,
+>  				      u32 start,
+>  				      u32 end,
+>  				      gfp_t flags)
+> diff --git a/net/ipv4/cipso_ipv4.c b/net/ipv4/cipso_ipv4.c
+> index 69e77c8..dd433c9 100644
+> --- a/net/ipv4/cipso_ipv4.c
+> +++ b/net/ipv4/cipso_ipv4.c
+> @@ -973,7 +973,7 @@ static int cipso_v4_map_cat_rbm_ntoh(const struct cipso_v4_doi *doi_def,
+>  				return -EPERM;
+>  			break;
+>  		}
+> -		ret_val = netlbl_secattr_catmap_setbit(secattr->attr.mls.cat,
+> +		ret_val = netlbl_secattr_catmap_setbit(&secattr->attr.mls.cat,
+>  						       host_spot,
+>  						       GFP_ATOMIC);
+>  		if (ret_val != 0)
+> @@ -1075,7 +1075,7 @@ static int cipso_v4_map_cat_enum_ntoh(const struct cipso_v4_doi *doi_def,
+>  	u32 iter;
+>  
+>  	for (iter = 0; iter < net_cat_len; iter += 2) {
+> -		ret_val = netlbl_secattr_catmap_setbit(secattr->attr.mls.cat,
+> +		ret_val = netlbl_secattr_catmap_setbit(&secattr->attr.mls.cat,
+>  				get_unaligned_be16(&net_cat[iter]),
+>  				GFP_ATOMIC);
+>  		if (ret_val != 0)
+> @@ -1217,7 +1217,7 @@ static int cipso_v4_map_cat_rng_ntoh(const struct cipso_v4_doi *doi_def,
+>  		else
+>  			cat_low = 0;
+>  
+> -		ret_val = netlbl_secattr_catmap_setrng(secattr->attr.mls.cat,
+> +		ret_val = netlbl_secattr_catmap_setrng(&secattr->attr.mls.cat,
+>  						       cat_low,
+>  						       cat_high,
+>  						       GFP_ATOMIC);
+> diff --git a/net/netlabel/netlabel_kapi.c b/net/netlabel/netlabel_kapi.c
+> index 3045a96..84e810b 100644
+> --- a/net/netlabel/netlabel_kapi.c
+> +++ b/net/netlabel/netlabel_kapi.c
+> @@ -522,7 +522,7 @@ int netlbl_secattr_catmap_walk_rng(struct netlbl_lsm_secattr_catmap *catmap,
+>  
+>  /**
+>   * netlbl_secattr_catmap_setbit - Set a bit in a LSM secattr catmap
+> - * @catmap: the category bitmap
+> + * @catmap: pointer to the category bitmap
+>   * @bit: the bit to set
+>   * @flags: memory allocation flags
+>   *
+> @@ -531,18 +531,25 @@ int netlbl_secattr_catmap_walk_rng(struct netlbl_lsm_secattr_catmap *catmap,
+>   * negative values on failure.
+>   *
+>   */
+> -int netlbl_secattr_catmap_setbit(struct netlbl_lsm_secattr_catmap *catmap,
+> +int netlbl_secattr_catmap_setbit(struct netlbl_lsm_secattr_catmap **catmap,
+>  				 u32 bit,
+>  				 gfp_t flags)
+>  {
+> -	struct netlbl_lsm_secattr_catmap *iter = catmap;
+> +	struct netlbl_lsm_secattr_catmap *iter = *catmap;
+>  	u32 node_bit;
+>  	u32 node_idx;
+>  
+>  	while (iter->next != NULL &&
+>  	       bit >= (iter->startbit + NETLBL_CATMAP_SIZE))
+>  		iter = iter->next;
+> -	if (bit >= (iter->startbit + NETLBL_CATMAP_SIZE)) {
+> +	if (bit < iter->startbit) {
+> +		iter = netlbl_secattr_catmap_alloc(flags);
+> +		if (iter == NULL)
+> +			return -ENOMEM;
+> +		iter->next = *catmap;
+> +		iter->startbit = bit & ~(NETLBL_CATMAP_SIZE - 1);
+> +		*catmap = iter;
+> +	} else if (bit >= (iter->startbit + NETLBL_CATMAP_SIZE)) {
+>  		iter->next = netlbl_secattr_catmap_alloc(flags);
+>  		if (iter->next == NULL)
+>  			return -ENOMEM;
+> @@ -560,7 +567,7 @@ int netlbl_secattr_catmap_setbit(struct netlbl_lsm_secattr_catmap *catmap,
+>  
+>  /**
+>   * netlbl_secattr_catmap_setrng - Set a range of bits in a LSM secattr catmap
+> - * @catmap: the category bitmap
+> + * @catmap: pointer to the category bitmap
+>   * @start: the starting bit
+>   * @end: the last bit in the string
+>   * @flags: memory allocation flags
+> @@ -570,15 +577,16 @@ int netlbl_secattr_catmap_setbit(struct netlbl_lsm_secattr_catmap *catmap,
+>   * on success, negative values on failure.
+>   *
+>   */
+> -int netlbl_secattr_catmap_setrng(struct netlbl_lsm_secattr_catmap *catmap,
+> +int netlbl_secattr_catmap_setrng(struct netlbl_lsm_secattr_catmap **catmap,
+>  				 u32 start,
+>  				 u32 end,
+>  				 gfp_t flags)
+>  {
+>  	int ret_val = 0;
+> -	struct netlbl_lsm_secattr_catmap *iter = catmap;
+> +	struct netlbl_lsm_secattr_catmap *iter = *catmap;
+>  	u32 iter_max_spot;
+>  	u32 spot;
+> +	u32 orig_spot = iter->startbit;
+>  
+>  	/* XXX - This could probably be made a bit faster by combining writes
+>  	 * to the catmap instead of setting a single bit each time, but for
+> @@ -596,7 +604,9 @@ int netlbl_secattr_catmap_setrng(struct netlbl_lsm_secattr_catmap *catmap,
+>  			iter = iter->next;
+>  			iter_max_spot = iter->startbit + NETLBL_CATMAP_SIZE;
+>  		}
+> -		ret_val = netlbl_secattr_catmap_setbit(iter, spot, flags);
+> +		ret_val = netlbl_secattr_catmap_setbit(&iter, spot, flags);
+> +		if (iter->startbit < orig_spot)
+> +			*catmap = iter;
+>  	}
+>  
+>  	return ret_val;
+> diff --git a/security/smack/smack_access.c b/security/smack/smack_access.c
+> index 14293cd..9ecf4f4 100644
+> --- a/security/smack/smack_access.c
+> +++ b/security/smack/smack_access.c
+> @@ -444,7 +444,7 @@ int smk_netlbl_mls(int level, char *catset, struct netlbl_lsm_secattr *sap,
+>  		for (m = 0x80; m != 0; m >>= 1, cat++) {
+>  			if ((m & *cp) == 0)
+>  				continue;
+> -			rc = netlbl_secattr_catmap_setbit(sap->attr.mls.cat,
+> +			rc = netlbl_secattr_catmap_setbit(&sap->attr.mls.cat,
+>  							  cat, GFP_ATOMIC);
+>  			if (rc < 0) {
+>  				netlbl_secattr_catmap_free(sap->attr.mls.cat);
 >
->
->  include/net/netlabel.h        |   94 +++++++-----
->  net/ipv4/cipso_ipv4.c         |   47 ++----
->  net/netlabel/netlabel_kapi.c  |  327 ++++++++++++++++++++++++++++-------------
->  security/selinux/ss/ebitmap.c |  133 +++++++----------
->  security/selinux/ss/ebitmap.h |    8 +
->  security/smack/smack_access.c |   11 +
->  security/smack/smack_lsm.c    |    6 -
->  security/smack/smackfs.c      |   14 +-
->  8 files changed, 366 insertions(+), 274 deletions(-)
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-security-module" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 >
 
