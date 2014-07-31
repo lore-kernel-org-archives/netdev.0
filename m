@@ -1,131 +1,74 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH 2/2] ipv6: addrconf: clean up device type handling
-Date: Fri, 01 Aug 2014 00:13:35 +0200
-Message-ID: <1406844815.13603.24.camel@localhost>
-References: <20140731201926.GA754314@jupiter.n2.diac24.net>
-	 <1406840034-140848-1-git-send-email-equinox@diac24.net>
-	 <1406840034-140848-3-git-send-email-equinox@diac24.net>
+From: Casey Schaufler <casey@schaufler-ca.com>
+Subject: Re: [PATCH 0/4] Fix the NetLabel LSM category mappings
+Date: Thu, 31 Jul 2014 15:47:29 -0700
+Message-ID: <53DAC781.3010502@schaufler-ca.com>
+References: <20140731212856.4991.49396.stgit@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: David Lamparter <equinox@diac24.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:36737 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752522AbaGaWNj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2014 18:13:39 -0400
-Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
-	by gateway1.nyi.internal (Postfix) with ESMTP id 626ED2260F
-	for <netdev@vger.kernel.org>; Thu, 31 Jul 2014 18:13:37 -0400 (EDT)
-In-Reply-To: <1406840034-140848-3-git-send-email-equinox@diac24.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Christian Evans <frodox@zoho.com>,
+	Casey Schaufler <casey@schaufler-ca.com>
+To: Paul Moore <pmoore@redhat.com>, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org, selinux@tycho.nsa.gov
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20140731212856.4991.49396.stgit@localhost>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Do, 2014-07-31 at 22:53 +0200, David Lamparter wrote:
-> This realigns addrconf support for the various lower-layer device types,
-> and removes a little bit of duplicate code.  Behaviour should be exactly
-> identical before and after the patch.
-> 
-> (Also adds a comment to explain the weird fe80::/64 on GRE.)
-> 
-> Signed-off-by: David Lamparter <equinox@diac24.net>
-> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Cc: Stephen Hemminger <stephen@networkplumber.org>
-> Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+On 7/31/2014 2:44 PM, Paul Moore wrote:
+> As you will see in the patch descriptions below, the NetLabel LSM
+> category mappings are very badly broken.  This patchset should repair
+> things and make life better in the future.  The first three patches
+> are straight-up bug fixes; the fourth patch doesn't actually fix any
+> faulty logic in the code, but rather shortens some stupidly long
+> function and structure names relating to the NetLabel category
+> mappings.  I should probably do something similar with a lot of other
+> NetLabel APIs, but that is for another time.
+>
+> Thanks to Christian Evans for pointing out one of the original
+> problems.  I don't think he realized how many problems there really
+> were, but I still owe him one for getting me to revisit this ugly,
+> nasty code.  I apologize it took so long to get a fix out and that
+> things were broken this badly in the first place.
+>
+> Casey, I'm CC'ing you here because this patchset does touch some of
+> the Smack code, but as you can see the changes are trivial.  I will
+> be very surprised if you find anything objectionable in there.
+> However, if you do, let me know and I'll fix it.
+
+The code passes my tests. I'll mark the patches "Tested-by:".
+
+> DaveM/netdev folks, you guys are included here for the obvious reason
+> that a good chunk of the code changes live in net/*.  However, the
+> net/* related changes are all within the NetLabel code and not in the
+> core networking stack so I doubt this is something you'll care too
+> much about.  I'm going to guess that as far as you're concerned, this
+> is just another bugfix to a subsystem you don't really care about.
+>
+> DaveM, unless you have any objections, I'm planning on pushing this
+> via the SELinux tree up through James' LSM tree since that seems to
+> make the most sense to me.  If you would rather push it via the netdev
+> tree please let me know.
+>
+> -Paul
+>
 > ---
->  net/ipv6/addrconf.c | 87 ++++++++++++++++++++++++-----------------------------
->  1 file changed, 39 insertions(+), 48 deletions(-)
-> 
-> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> index 7540a25..aa17ee6 100644
-> --- a/net/ipv6/addrconf.c
-> +++ b/net/ipv6/addrconf.c
-> @@ -2756,31 +2756,6 @@ static void addrconf_addr_gen(struct inet6_dev *idev, bool prefix_route)
->  	}
->  }
->  
-> -static void addrconf_dev_config(struct net_device *dev)
-> -{
-> -	struct inet6_dev *idev;
-> -
-> -	ASSERT_RTNL();
-> -
-> -	if ((dev->type != ARPHRD_ETHER) &&
-> -	    (dev->type != ARPHRD_FDDI) &&
-> -	    (dev->type != ARPHRD_ARCNET) &&
-> -	    (dev->type != ARPHRD_INFINIBAND) &&
-> -	    (dev->type != ARPHRD_IEEE802154) &&
-> -	    (dev->type != ARPHRD_IEEE1394) &&
-> -	    (dev->type != ARPHRD_TUNNEL6) &&
-> -	    (dev->type != ARPHRD_6LOWPAN)) {
-> -		/* Alas, we support only Ethernet autoconfiguration. */
-> -		return;
-> -	}
-> -
-> -	idev = addrconf_add_dev(dev);
-> -	if (IS_ERR(idev))
-> -		return;
-> -
-> -	addrconf_addr_gen(idev, false);
-> -}
-> -
->  #if IS_ENABLED(CONFIG_IPV6_SIT)
->  static void addrconf_sit_config(struct net_device *dev)
->  {
-> @@ -2811,20 +2786,54 @@ static void addrconf_sit_config(struct net_device *dev)
->  }
->  #endif
->  
-> -#if IS_ENABLED(CONFIG_NET_IPGRE)
-> -static void addrconf_gre_config(struct net_device *dev)
-> +static void addrconf_dev_config(struct net_device *dev)
->  {
->  	struct inet6_dev *idev;
-> +	bool prefix_route;
->  
->  	ASSERT_RTNL();
->  
-> +	switch (dev->type) {
-> +	case ARPHRD_LOOPBACK:
-> +		init_loopback(dev);
-> +		return;
-> +
-> +	case ARPHRD_ETHER:
-> +	case ARPHRD_FDDI:
-> +	case ARPHRD_ARCNET:
-> +	case ARPHRD_INFINIBAND:
-> +	case ARPHRD_IEEE802154:
-> +	case ARPHRD_IEEE1394:
-> +	case ARPHRD_TUNNEL6:
-> +	case ARPHRD_6LOWPAN:
-> +		prefix_route = false;
-> +		break;
-> +
-> +#if IS_ENABLED(CONFIG_NET_IPGRE)
-> +	case ARPHRD_IPGRE:
-> +		/* XXX: This special-case behaviour is there to have a
-> +		 * fe80::/64 route around even if no link-local address gets
-> +		 * generated, which happens when gre's local == 0.0.0.0.
-> +		 * See commit 08b4465 for more information. */
-> +		prefix_route = true;
-> +		break;
-> +#endif
+>
+> Paul Moore (4):
+>       netlabel: fix a problem when setting bits below the previously lowest bit
+>       netlabel: fix the horribly broken catmap functions
+>       netlabel: fix the catmap walking functions
+>       netlabel: shorter names for the NetLabel catmap funcs/structs
+>
+>
+>  include/net/netlabel.h        |   94 +++++++-----
+>  net/ipv4/cipso_ipv4.c         |   47 ++----
+>  net/netlabel/netlabel_kapi.c  |  327 ++++++++++++++++++++++++++++-------------
+>  security/selinux/ss/ebitmap.c |  133 +++++++----------
+>  security/selinux/ss/ebitmap.h |    8 +
+>  security/smack/smack_access.c |   11 +
+>  security/smack/smack_lsm.c    |    6 -
+>  security/smack/smackfs.c      |   14 +-
+>  8 files changed, 366 insertions(+), 274 deletions(-)
+>
 
-I don't see a need for the macro protection any more. We can drop this
-now.
-
-David, can you respin this series without the macros and maybe add the
-
-"case ARPHRD_IP6GRE:" stuff
-
-as a separate patch (which should also go into net/stable). If you don't
-want to do this, I also can take care of this, no problem.
-
-You can then repost this one separate and state in the comment section
-that this cleanup patch depends on the other two, so Dave can merge it
-accordingly to net and net-next?
-
-Otherwise this patch is fine, thanks!
