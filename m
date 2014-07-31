@@ -1,60 +1,69 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 7/9] netfilter: nfnetlink_acct: dump unmodified nfacct flags
-Date: Thu, 31 Jul 2014 21:27:06 +0200
-Message-ID: <1406834828-8500-8-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 9/9] netfilter: nf_tables: check for unset NFTA_SET_ELEM_LIST_ELEMENTS attribute
+Date: Thu, 31 Jul 2014 21:27:08 +0200
+Message-ID: <1406834828-8500-10-git-send-email-pablo@netfilter.org>
 References: <1406834828-8500-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:35671 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:35684 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752646AbaGaT1R (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jul 2014 15:27:17 -0400
+	id S1753040AbaGaT1U (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Jul 2014 15:27:20 -0400
 In-Reply-To: <1406834828-8500-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexey Perevalov <a.perevalov@samsung.com>
+Otherwise, the kernel oopses in nla_for_each_nested when iterating over
+the unset attribute NFTA_SET_ELEM_LIST_ELEMENTS in the
+nf_tables_{new,del}setelem() path.
 
-NFNL_MSG_ACCT_GET_CTRZERO modifies dumped flags, in this case
-client see unmodified (uncleared) counter value and cleared
-overquota state - end user doesn't know anything about overquota state,
-unless end user subscribed on overquota report.
+netlink: 65524 bytes leftover after parsing attributes in process `nft'.
+[...]
+Oops: 0000 [#1] SMP
+[...]
+CPU: 2 PID: 6287 Comm: nft Not tainted 3.16.0-rc2+ #169
+RIP: 0010:[<ffffffffa0526e61>]  [<ffffffffa0526e61>] nf_tables_newsetelem+0x82/0xec [nf_tables]
+[...]
+Call Trace:
+ [<ffffffffa05178c4>] nfnetlink_rcv+0x2e7/0x3d7 [nfnetlink]
+ [<ffffffffa0517939>] ? nfnetlink_rcv+0x35c/0x3d7 [nfnetlink]
+ [<ffffffff8137d300>] netlink_unicast+0xf8/0x17a
+ [<ffffffff8137d6a5>] netlink_sendmsg+0x323/0x351
+[...]
 
-Signed-off-by: Alexey Perevalov <a.perevalov@samsung.com>
+Fix this by returning -EINVAL if this attribute is not set, which
+doesn't make sense at all since those commands are there to add and to
+delete elements from the set.
+
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nfnetlink_acct.c |    4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ net/netfilter/nf_tables_api.c |    6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/net/netfilter/nfnetlink_acct.c b/net/netfilter/nfnetlink_acct.c
-index 2baa125..11d863c 100644
---- a/net/netfilter/nfnetlink_acct.c
-+++ b/net/netfilter/nfnetlink_acct.c
-@@ -129,6 +129,7 @@ nfnl_acct_fill_info(struct sk_buff *skb, u32 portid, u32 seq, u32 type,
- 	struct nfgenmsg *nfmsg;
- 	unsigned int flags = portid ? NLM_F_MULTI : 0;
- 	u64 pkts, bytes;
-+	u32 old_flags;
+diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
+index ecffb26..93692d6 100644
+--- a/net/netfilter/nf_tables_api.c
++++ b/net/netfilter/nf_tables_api.c
+@@ -3073,6 +3073,9 @@ static int nf_tables_newsetelem(struct sock *nlsk, struct sk_buff *skb,
+ 	struct nft_ctx ctx;
+ 	int rem, err = 0;
  
- 	event |= NFNL_SUBSYS_ACCT << 8;
- 	nlh = nlmsg_put(skb, portid, seq, event, sizeof(*nfmsg), flags);
-@@ -143,6 +144,7 @@ nfnl_acct_fill_info(struct sk_buff *skb, u32 portid, u32 seq, u32 type,
- 	if (nla_put_string(skb, NFACCT_NAME, acct->name))
- 		goto nla_put_failure;
++	if (nla[NFTA_SET_ELEM_LIST_ELEMENTS] == NULL)
++		return -EINVAL;
++
+ 	err = nft_ctx_init_from_elemattr(&ctx, skb, nlh, nla, true);
+ 	if (err < 0)
+ 		return err;
+@@ -3156,6 +3159,9 @@ static int nf_tables_delsetelem(struct sock *nlsk, struct sk_buff *skb,
+ 	struct nft_ctx ctx;
+ 	int rem, err = 0;
  
-+	old_flags = acct->flags;
- 	if (type == NFNL_MSG_ACCT_GET_CTRZERO) {
- 		pkts = atomic64_xchg(&acct->pkts, 0);
- 		bytes = atomic64_xchg(&acct->bytes, 0);
-@@ -160,7 +162,7 @@ nfnl_acct_fill_info(struct sk_buff *skb, u32 portid, u32 seq, u32 type,
- 	if (acct->flags & NFACCT_F_QUOTA) {
- 		u64 *quota = (u64 *)acct->data;
- 
--		if (nla_put_be32(skb, NFACCT_FLAGS, htonl(acct->flags)) ||
-+		if (nla_put_be32(skb, NFACCT_FLAGS, htonl(old_flags)) ||
- 		    nla_put_be64(skb, NFACCT_QUOTA, cpu_to_be64(*quota)))
- 			goto nla_put_failure;
- 	}
++	if (nla[NFTA_SET_ELEM_LIST_ELEMENTS] == NULL)
++		return -EINVAL;
++
+ 	err = nft_ctx_init_from_elemattr(&ctx, skb, nlh, nla, false);
+ 	if (err < 0)
+ 		return err;
 -- 
 1.7.10.4
