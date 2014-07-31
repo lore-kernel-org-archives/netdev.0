@@ -1,35 +1,61 @@
-From: Govindarajulu Varadarajan <_govind@gmx.com>
-Subject: Re: [PATCH net-next v2 2/3] ethtool: Add support for DMA buffer
- settings
-Date: Fri, 1 Aug 2014 03:33:26 +0530 (IST)
-Message-ID: <alpine.LNX.2.03.1408010331120.458@ws.cisco>
-References: <1406634039-15030-1-git-send-email-_govind@gmx.com> <1406634039-15030-3-git-send-email-_govind@gmx.com> <20140730.175306.483788306179792581.davem@davemloft.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH 1/2] ipv6: addrconf: fix mcast route for GRE devices
+Date: Fri, 01 Aug 2014 00:05:25 +0200
+Message-ID: <1406844325.13603.16.camel@localhost>
+References: <20140731201926.GA754314@jupiter.n2.diac24.net>
+	 <1406840034-140848-1-git-send-email-equinox@diac24.net>
+	 <1406840034-140848-2-git-send-email-equinox@diac24.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: _govind@gmx.com, ben@decadent.org.uk, netdev@vger.kernel.org,
-	ssujith@cisco.com, benve@cisco.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: David Lamparter <equinox@diac24.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.com ([74.208.4.200]:63043 "EHLO mout.gmx.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751656AbaGaWDq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jul 2014 18:03:46 -0400
-In-Reply-To: <20140730.175306.483788306179792581.davem@davemloft.net>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:49572 "EHLO
+	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750906AbaGaWFb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2014 18:05:31 -0400
+Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
+	by gateway1.nyi.internal (Postfix) with ESMTP id 7E19D229AD
+	for <netdev@vger.kernel.org>; Thu, 31 Jul 2014 18:05:27 -0400 (EDT)
+In-Reply-To: <1406840034-140848-2-git-send-email-equinox@diac24.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 30 Jul 2014, David Miller wrote:
-> However I wonder what value that "max" thing has, I think setting the
-> value to infinity is just fine, it just means every packet will be
-> copied.
->
-> So if we remove the 'max', we just have the copybreak itself, and you
-> can therefore use ethtool_value and allocate the ethtool command
-> numbers.
+Hi David,
 
-Yes, we can drop the max thing.
+Next time please also specify which tree you want this patch applied to.
+We use [PATCH net] for patches which should go into the rc2+ and [PATCH
+net-next] for rc1. Thanks!
 
-I will use ethtool_value and allocate new ethtool command for rx_copybreak
-and send the patch soon.
+On Do, 2014-07-31 at 22:53 +0200, David Lamparter wrote:
+> GRE devices, for some reason, were coming up with an autoconfigured
+> address, but no ff00::/8 route in the local table.  This breaks any kind
+> of multicast, in particular OSPFv3, mDNS, - and ND.  In fact, IPv6 only
+> works at all because there is little need for ND on PtP devices.
+> 
+> Adding any other IPv6 address on the device from userspace would rectify
+> this issue through inet6_addr_add()/addrconf_add_dev() - and would leave
+> the route around even if the address was later removed.  (This is
+> probably why this issue was not discovered earlier.  AFAICS it has been
+> there from the beginning, e.g. aee80b5 "generate link local address for
+> GRE tunnel")
+> 
+> (Note: multicast is supported on GRE devices of all kinds, including PtP
+> GRE, P-t-Mcast GRE and NBMA-GRE.)
+> 
+> Fixes: aee80b54b235 (ipv6: generate link local address for GRE tunnel)
+> Signed-off-by: David Lamparter <equinox@diac24.net>
+> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Cc: Stephen Hemminger <stephen@networkplumber.org>
+> Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-Thanks
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+
+Dave, it would make sense to queue this up for net and stable (or only
+net-next if there is no merge before the release).
+
+Thanks,
+Hannes
