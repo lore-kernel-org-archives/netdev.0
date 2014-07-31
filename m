@@ -1,149 +1,146 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: [PATCH 2/3] xen-netfront: release per-queue Tx and Rx resource when disconnecting
-Date: Thu, 31 Jul 2014 17:38:23 +0100
-Message-ID: <1406824704-2275-3-git-send-email-david.vrabel@citrix.com>
-References: <1406824704-2275-1-git-send-email-david.vrabel@citrix.com>
+From: David Daney <ddaney.cavm@gmail.com>
+Subject: Re: [PATCH] netdev: octeon_mgmt: Use devm_ioremap_resource
+Date: Thu, 31 Jul 2014 10:19:59 -0700
+Message-ID: <53DA7ABF.8000406@gmail.com>
+References: <20140731070653.GA3759@himangi-Dell>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: David Vrabel <david.vrabel@citrix.com>,
-	<xen-devel@lists.xenproject.org>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	Boris Ostrovsky <boris.ostrovsky@oracle.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:30533 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751620AbaGaQid (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jul 2014 12:38:33 -0400
-In-Reply-To: <1406824704-2275-1-git-send-email-david.vrabel@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Luka Perkov <luka@openwrt.org>,
+	Russell King <rmk+kernel@arm.linux.org.uk>,
+	David Daney <david.daney@cavium.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Julia Lawall <julia.lawall@lip6.fr>
+To: Himangi Saraogi <himangi774@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140731070653.GA3759@himangi-Dell>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since netfront may reconnect to a backend with a different number of
-queues, all per-queue Rx and Tx resources (skbs and grant references)
-should be freed when disconnecting.
+On 07/31/2014 12:06 AM, Himangi Saraogi wrote:
+> This patch introduces the use of devm_ioremap_resource instead of
+> devm_request_mem_region and devm_ioremap. The error handling on the
+> platform_get_resource is done way with. The size and start fields in the
+> octeon_mgmt are no longer needed. So they are removed and there
+> initialization skipped. Also, error handling is added on the values
+> returned by devm_ioremap_resource.
+>
+> Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
+> Acked-by: Julia Lawall <julia.lawall@lip6.fr>
+> ---
+> Not compile tested.
 
-Without this fix, the Tx and Rx grant refs are not released and
-netfront will exhaust them after only a few reconnections.  netfront
-will fail to connect when no free grant references are available.
+There are compilers available for systems with this device:
 
-Since all Rx bufs are freed and reallocated instead of reused this
-will add some additional delay to the reconnection but this is
-expected to be small compared to the time taken by any backend hotplug
-scripts etc.
 
-Signed-off-by: David Vrabel <david.vrabel@citrix.com>
----
- drivers/net/xen-netfront.c |   68 +++++---------------------------------------
- 1 file changed, 7 insertions(+), 61 deletions(-)
+ftp://ftp.kernel.org/pub/tools/crosstool/files/bin/x86_64/4.9.0/x86_64-gcc-4.9.0-nolibc_mips64-linux.tar.xz
 
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index 1cc46d0..0b133a3 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -1196,22 +1196,6 @@ static void xennet_release_rx_bufs(struct netfront_queue *queue)
- 	spin_unlock_bh(&queue->rx_lock);
- }
- 
--static void xennet_uninit(struct net_device *dev)
--{
--	struct netfront_info *np = netdev_priv(dev);
--	unsigned int num_queues = dev->real_num_tx_queues;
--	struct netfront_queue *queue;
--	unsigned int i;
--
--	for (i = 0; i < num_queues; ++i) {
--		queue = &np->queues[i];
--		xennet_release_tx_bufs(queue);
--		xennet_release_rx_bufs(queue);
--		gnttab_free_grant_references(queue->gref_tx_head);
--		gnttab_free_grant_references(queue->gref_rx_head);
--	}
--}
--
- static netdev_features_t xennet_fix_features(struct net_device *dev,
- 	netdev_features_t features)
- {
-@@ -1313,7 +1297,6 @@ static void xennet_poll_controller(struct net_device *dev)
- 
- static const struct net_device_ops xennet_netdev_ops = {
- 	.ndo_open            = xennet_open,
--	.ndo_uninit          = xennet_uninit,
- 	.ndo_stop            = xennet_close,
- 	.ndo_start_xmit      = xennet_start_xmit,
- 	.ndo_change_mtu	     = xennet_change_mtu,
-@@ -1455,6 +1438,11 @@ static void xennet_disconnect_backend(struct netfront_info *info)
- 
- 		napi_synchronize(&queue->napi);
- 
-+		xennet_release_tx_bufs(queue);
-+		xennet_release_rx_bufs(queue);
-+		gnttab_free_grant_references(queue->gref_tx_head);
-+		gnttab_free_grant_references(queue->gref_rx_head);
-+
- 		/* End access and free the pages */
- 		xennet_end_access(queue->tx_ring_ref, queue->tx.sring);
- 		xennet_end_access(queue->rx_ring_ref, queue->rx.sring);
-@@ -2010,10 +1998,7 @@ static int xennet_connect(struct net_device *dev)
- {
- 	struct netfront_info *np = netdev_priv(dev);
- 	unsigned int num_queues = 0;
--	int i, requeue_idx, err;
--	struct sk_buff *skb;
--	grant_ref_t ref;
--	struct xen_netif_rx_request *req;
-+	int err;
- 	unsigned int feature_rx_copy;
- 	unsigned int j = 0;
- 	struct netfront_queue *queue = NULL;
-@@ -2040,47 +2025,8 @@ static int xennet_connect(struct net_device *dev)
- 	netdev_update_features(dev);
- 	rtnl_unlock();
- 
--	/* By now, the queue structures have been set up */
--	for (j = 0; j < num_queues; ++j) {
--		queue = &np->queues[j];
--
--		/* Step 1: Discard all pending TX packet fragments. */
--		spin_lock_irq(&queue->tx_lock);
--		xennet_release_tx_bufs(queue);
--		spin_unlock_irq(&queue->tx_lock);
--
--		/* Step 2: Rebuild the RX buffer freelist and the RX ring itself. */
--		spin_lock_bh(&queue->rx_lock);
--
--		for (requeue_idx = 0, i = 0; i < NET_RX_RING_SIZE; i++) {
--			skb_frag_t *frag;
--			const struct page *page;
--			if (!queue->rx_skbs[i])
--				continue;
--
--			skb = queue->rx_skbs[requeue_idx] = xennet_get_rx_skb(queue, i);
--			ref = queue->grant_rx_ref[requeue_idx] = xennet_get_rx_ref(queue, i);
--			req = RING_GET_REQUEST(&queue->rx, requeue_idx);
--
--			frag = &skb_shinfo(skb)->frags[0];
--			page = skb_frag_page(frag);
--			gnttab_grant_foreign_access_ref(
--				ref, queue->info->xbdev->otherend_id,
--				pfn_to_mfn(page_to_pfn(page)),
--				0);
--			req->gref = ref;
--			req->id   = requeue_idx;
--
--			requeue_idx++;
--		}
--
--		queue->rx.req_prod_pvt = requeue_idx;
--
--		spin_unlock_bh(&queue->rx_lock);
--	}
--
- 	/*
--	 * Step 3: All public and private state should now be sane.  Get
-+	 * All public and private state should now be sane.  Get
- 	 * ready to start sending and receiving packets and give the driver
- 	 * domain a kick because we've probably just requeued some
- 	 * packets.
--- 
-1.7.10.4
+Could you try to at least see if it compiles?
+
+David Daney
+
+
+>   drivers/net/ethernet/octeon/octeon_mgmt.c | 64 +++++++------------------------
+>   1 file changed, 13 insertions(+), 51 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/octeon/octeon_mgmt.c b/drivers/net/ethernet/octeon/octeon_mgmt.c
+> index 979c698..5d61a26 100644
+> --- a/drivers/net/ethernet/octeon/octeon_mgmt.c
+> +++ b/drivers/net/ethernet/octeon/octeon_mgmt.c
+> @@ -148,12 +148,6 @@ struct octeon_mgmt {
+>   	struct tasklet_struct tx_clean_tasklet;
+>   	struct phy_device *phydev;
+>   	struct device_node *phy_np;
+> -	resource_size_t mix_phys;
+> -	resource_size_t mix_size;
+> -	resource_size_t agl_phys;
+> -	resource_size_t agl_size;
+> -	resource_size_t agl_prt_ctl_phys;
+> -	resource_size_t agl_prt_ctl_size;
+>   };
+>
+>   static void octeon_mgmt_set_rx_irq(struct octeon_mgmt *p, int enable)
+> @@ -1418,6 +1412,7 @@ static int octeon_mgmt_probe(struct platform_device *pdev)
+>   	struct resource *res_agl_prt_ctl;
+>   	int len;
+>   	int result;
+> +	void *ret;
+>
+>   	netdev = alloc_etherdev(sizeof(struct octeon_mgmt));
+>   	if (netdev == NULL)
+> @@ -1452,62 +1447,29 @@ static int octeon_mgmt_probe(struct platform_device *pdev)
+>   	p->irq = result;
+>
+>   	res_mix = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+> -	if (res_mix == NULL) {
+> -		dev_err(&pdev->dev, "no 'reg' resource\n");
+> -		result = -ENXIO;
+> +	ret = devm_ioremap_resource(&pdev->dev, res_mix);
+> +	if (IS_ERR(ret)) {
+> +		result = PTR_ERR(ret);
+>   		goto err;
+>   	}
+> +	p->mix = (u64)ret;
+>
+>   	res_agl = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+> -	if (res_agl == NULL) {
+> -		dev_err(&pdev->dev, "no 'reg' resource\n");
+> -		result = -ENXIO;
+> +	ret = devm_ioremap_resource(&pdev->dev, res_agl);
+> +	if (IS_ERR(ret)) {
+> +		result = PTR_ERR(ret);
+>   		goto err;
+>   	}
+> +	p->agl = (u64)ret;
+>
+>   	res_agl_prt_ctl = platform_get_resource(pdev, IORESOURCE_MEM, 3);
+> -	if (res_agl_prt_ctl == NULL) {
+> -		dev_err(&pdev->dev, "no 'reg' resource\n");
+> -		result = -ENXIO;
+> -		goto err;
+> -	}
+> -
+> -	p->mix_phys = res_mix->start;
+> -	p->mix_size = resource_size(res_mix);
+> -	p->agl_phys = res_agl->start;
+> -	p->agl_size = resource_size(res_agl);
+> -	p->agl_prt_ctl_phys = res_agl_prt_ctl->start;
+> -	p->agl_prt_ctl_size = resource_size(res_agl_prt_ctl);
+> -
+> -
+> -	if (!devm_request_mem_region(&pdev->dev, p->mix_phys, p->mix_size,
+> -				     res_mix->name)) {
+> -		dev_err(&pdev->dev, "request_mem_region (%s) failed\n",
+> -			res_mix->name);
+> -		result = -ENXIO;
+> -		goto err;
+> -	}
+> -
+> -	if (!devm_request_mem_region(&pdev->dev, p->agl_phys, p->agl_size,
+> -				     res_agl->name)) {
+> -		result = -ENXIO;
+> -		dev_err(&pdev->dev, "request_mem_region (%s) failed\n",
+> -			res_agl->name);
+> -		goto err;
+> -	}
+> -
+> -	if (!devm_request_mem_region(&pdev->dev, p->agl_prt_ctl_phys,
+> -				     p->agl_prt_ctl_size, res_agl_prt_ctl->name)) {
+> -		result = -ENXIO;
+> -		dev_err(&pdev->dev, "request_mem_region (%s) failed\n",
+> -			res_agl_prt_ctl->name);
+> +	ret = devm_ioremap_resource(&pdev->dev, res_agl_prt_ctl);
+> +	if (IS_ERR(ret)) {
+> +		result = PTR_ERR(ret);
+>   		goto err;
+>   	}
+> +	p->agl_prt_ctl = (u64)ret;
+>
+> -	p->mix = (u64)devm_ioremap(&pdev->dev, p->mix_phys, p->mix_size);
+> -	p->agl = (u64)devm_ioremap(&pdev->dev, p->agl_phys, p->agl_size);
+> -	p->agl_prt_ctl = (u64)devm_ioremap(&pdev->dev, p->agl_prt_ctl_phys,
+> -					   p->agl_prt_ctl_size);
+>   	spin_lock_init(&p->lock);
+>
+>   	skb_queue_head_init(&p->tx_list);
+>
