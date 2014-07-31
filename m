@@ -1,43 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/9] i40e: use correct structure type name in sizeof
-Date: Wed, 30 Jul 2014 19:14:17 -0700 (PDT)
-Message-ID: <20140730.191417.1138940655186691666.davem@davemloft.net>
-References: <1406647011-8543-1-git-send-email-Julia.Lawall@lip6.fr>
-	<1406647011-8543-4-git-send-email-Julia.Lawall@lip6.fr>
+Subject: Re: [PATCH 1/2 v2 net-next] netfilter: xt_bpf: add mising opaque
+ struct sk_filter definition
+Date: Wed, 30 Jul 2014 19:57:04 -0700 (PDT)
+Message-ID: <20140730.195704.1972856285516371876.davem@davemloft.net>
+References: <1406650335-5916-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, kernel-janitors@vger.kernel.org,
-	linux-ia64@vger.kernel.org, ceph-devel@vger.kernel.org,
-	toralf.foerster@gmx.de, hmh@hmh.eng.br, jesse.brandeburg@intel.com,
-	bruce.w.allan@intel.com, carolyn.wyborny@intel.com,
-	donald.c.skidmore@intel.com, gregory.v.rose@intel.com,
-	alexander.h.duyck@intel.com, john.ronciak@intel.com,
-	mitch.a.williams@intel.com, linux.nics@intel.com,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Julia.Lawall@lip6.fr
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	ast@plumgrid.com, keescook@chromium.org, willemb@google.com,
+	dborkman@redhat.com
+To: pablo@netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38509 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38778 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751352AbaGaCOT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2014 22:14:19 -0400
-In-Reply-To: <1406647011-8543-4-git-send-email-Julia.Lawall@lip6.fr>
+	with ESMTP id S1755270AbaGaC5I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2014 22:57:08 -0400
+In-Reply-To: <1406650335-5916-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Date: Tue, 29 Jul 2014 17:16:45 +0200
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Tue, 29 Jul 2014 18:12:15 +0200
 
-> From: Julia Lawall <Julia.Lawall@lip6.fr>
+> This structure is not exposed to userspace, so fix this by defining
+> struct sk_filter; so we skip the casting in kernelspace. This is safe
+> since userspace has no way to lurk with that internal pointer.
 > 
-> Correct typo in the name of the type given to sizeof.  Because it is the
-> size of a pointer that is wanted, the typo has no impact on compilation or
-> execution.
-> 
-> This problem was found using Coccinelle (http://coccinelle.lip6.fr/).  The
-> semantic patch used can be found in message 0 of this patch series.
-> 
-> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+> Fixes: e6f30c7 ("netfilter: x_tables: add xt_bpf match")
+> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+> ---
+> v2: address Willem's feedback, we still need uapi/linux/filter.h for
+>     userspace iptables builds.
 
-I'll let the Intel driver folks pick this one up, thanks!
+Applied.
