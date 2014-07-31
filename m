@@ -1,36 +1,35 @@
-From: Tobias Klauser <tklauser@distanz.ch>
-Subject: [PATCH net-next] netlink: Use PAGE_ALIGNED macro
-Date: Thu, 31 Jul 2014 12:17:08 +0200
-Message-ID: <1406801828-4220-1-git-send-email-tklauser@distanz.ch>
-Cc: netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: pull request (net-next): ipsec-next 2014-07-30
+Date: Thu, 31 Jul 2014 12:29:21 +0200
+Message-ID: <20140731102921.GB3396@secunet.com>
+References: <1406718748-21144-1-git-send-email-steffen.klassert@secunet.com>
+ <53D9A4FE.4080401@windriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	<netdev@vger.kernel.org>
+To: Ying Xue <ying.xue@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.zhinst.com ([212.126.164.98]:55849 "EHLO mail.zhinst.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:60108 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756384AbaGaKRN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jul 2014 06:17:13 -0400
+	id S1755880AbaGaK3x (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Jul 2014 06:29:53 -0400
+Content-Disposition: inline
+In-Reply-To: <53D9A4FE.4080401@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use PAGE_ALIGNED(...) instead of IS_ALIGNED(..., PAGE_SIZE).
+On Thu, Jul 31, 2014 at 10:07:58AM +0800, Ying Xue wrote:
+> Hi Steffen,
+> 
+> Sorry, it seems you don't include below patch in your pull request:
+> http://patchwork.ozlabs.org/patch/369818/
+> 
 
-Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
----
- net/netlink/af_netlink.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 1b38f7f..ce82722 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -374,7 +374,7 @@ static int netlink_set_ring(struct sock *sk, struct nl_mmap_req *req,
- 
- 		if ((int)req->nm_block_size <= 0)
- 			return -EINVAL;
--		if (!IS_ALIGNED(req->nm_block_size, PAGE_SIZE))
-+		if (!PAGE_ALIGNED(req->nm_block_size))
- 			return -EINVAL;
- 		if (req->nm_frame_size < NL_MMAP_HDRLEN)
- 			return -EINVAL;
--- 
-2.0.1
+It was marked as RFC, that's why I it is not included.
+Please resubmit during the next development cycle or
+ask David to iclude it directly if you want to have
+it applied now. I can't take it now because I'll be
+off for some time and it would stay in my tree during
+the merge window.
