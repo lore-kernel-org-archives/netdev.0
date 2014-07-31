@@ -1,91 +1,88 @@
-From: Sergey Popov <pinkbyte@gentoo.org>
-Subject: Re: Issue with GRE tunnel, created with "local any" on kernel 3.14
-Date: Thu, 31 Jul 2014 10:29:00 +0400
-Message-ID: <53D9E22C.6030804@gentoo.org>
-References: <53C91AA3.1020106@gentoo.org> <20140718223204.9422aa8df81f7ac5187588bb@qrator.net>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: [PATCH net-next 0/3] Make is_kdump_kernel() accessible from modules
+Date: Thu, 31 Jul 2014 09:51:53 +0300
+Message-ID: <53D9E789.4070607@mellanox.com>
+References: <1406473156-4077-1-git-send-email-amirv@mellanox.com> <877g2y9ulb.fsf@tassilo.jf.intel.com> <20140728122609.GB32337@redhat.com> <20140729.164632.2258407062406773850.davem@davemloft.net> <20140730123513.GB14804@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="Fr0mi1l4sHFnaUGSIeMW1NxBPvrQoeXJ8"
-Cc: Tom Herbert <therbert@google.com>, netdev@vger.kernel.org
-To: Dmitry Popov <ixaphire@qrator.net>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <akpm@linux-foundation.org>, <netdev@vger.kernel.org>,
+	<ogerlitz@mellanox.com>, <yevgenyp@mellanox.com>
+To: Vivek Goyal <vgoyal@redhat.com>, <andi@firstfloor.org>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:45830 "EHLO smtp.gentoo.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752112AbaGaG3M (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jul 2014 02:29:12 -0400
-In-Reply-To: <20140718223204.9422aa8df81f7ac5187588bb@qrator.net>
+Received: from eu1sys200aog104.obsmtp.com ([207.126.144.117]:59970 "EHLO
+	eu1sys200aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751117AbaGaGwO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2014 02:52:14 -0400
+In-Reply-To: <20140730123513.GB14804@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---Fr0mi1l4sHFnaUGSIeMW1NxBPvrQoeXJ8
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-
-18.07.2014 22:32, Dmitry Popov =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> On Fri, 18 Jul 2014 17:01:23 +0400
-> Sergey Popov <pinkbyte@gentoo.org> wrote:
->=20
->> Hi. I have updated kernel on one of my servers to 3.14 and hit strange=
-
->> issue:
->=20
->> serv1(172.30.0.100) <-> serv2(172.30.0.251)
->=20
->> Gre tunnel(serv1):
->> ip tunnel add tun_test mode gre remote 172.30.0.251 local any ttl 225
->> ifconfig tun_test 192.168.0.1/30
+On 7/30/2014 3:35 PM, Vivek Goyal wrote:
+> On Tue, Jul 29, 2014 at 04:46:32PM -0700, David Miller wrote:
+>> From: Vivek Goyal <vgoyal@redhat.com>
+>> Date: Mon, 28 Jul 2014 08:26:09 -0400
 >>
->> Gre tunnel(serv2):
->> ip tunnel add tun_test mode gre remote 172.30.0.100 local any ttl 225
->> ifconfig tun_test 192.168.0.2/30
->=20
->> 16:49:39.340971 IP 0.0.0.0 > 172.30.0.100: GREv0, length 88: IP
->> 192.168.0.2 > 192.168.0.1: ICMP echo request, id 5259, seq 7, length 6=
-4
->=20
-> Hi!
->=20
-> It seems we have this issue since 7d442fab0 (ipv4: Cache dst in tunnels=
-).
-> It is in ip_tunnel_xmit: fl4 is initialized with saddr =3D 0 in
-> init_tunnel_flow(&fl4, protocol, dst, ...), net/ipv4/ip_tunnel.c:610,
-> and isn't changed until iptunnel_xmit(skb->sk, ...), line 677, because =
+>>> On Sun, Jul 27, 2014 at 05:48:32PM -0700, Andi Kleen wrote:
+>>>> Amir Vadai <amirv@mellanox.com> writes:
+>>>>
+>>>>> Hi,
+>>>>>
+>>>>> I'm sending this patchset to net-next because it touches a commit [1] that was
+>>>>> applied lately to net-next.
+>>>>
+>>>> It would be better to have a generic function for "run with small
+>>>> memory", that can be also triggered in other ways, e.g. a sysctl or
+>>>> a boot opion, with kdump just another user.
+>>>>
+>>>> There are low memory cases which are not kdump.
+>>>
+>>> I am fine with a boot option to suggest low memory profile and kdump
+>>> scripts can be modified to automatically append that command line option
+>>> to second kernel.
+>>
+>> I'm therefore going to assume that this patch series will be updated when the
+>> new facility is added.
+> 
+> Hi Amir,
+> 
+> Can you please add a new kernel parameter say, "low_memory_env" and change
+> rest of the patches to make use of this kernel parameter and repost.
+Sure.
 
-> connected =3D true and rt is almost always cached.
->=20
-> I have no patch to fix this issue, but as a workaround, you can use=20
-> ip tunnel change tun_test tos inherit.
+I thought about it some more in the last day - aren't we making life too
+complicated? I think the trigger that my driver (and maybe other) would
+like to see is is_kdump_kernel and not is_low_mem - in mlx4_en we need
+two assumptions that derive from is_kdump_kernel():
+1. We are low on memory
+2. This is kdump environment, and therefore we can assume that not many
+vlans be used, no Infiniband support, performance can be compromised etc.
+Just saying low memory might be less accurate - and will add some
+complexity with the user space scripts (I know it is not very
+complicated - but what are the benefits?)
 
-Thanks, your workaround works as expected if tos value defined
-explicitly. Though, I do not understand why: iproute2 documentation says
-that default tos value in 'ip tunnel' command is already 'inherit'.
+If I didn't convince you :) - I have a small technical question:
+I was looking for a place to put the __setup() and the low_mem_env
+declaration and couldn't decide by myself - do you have a suggestion for
+a proper c file and h file?
 
---=20
-Best regards, Sergey Popov
-Gentoo developer
-Gentoo Desktop Effects project lead
-Gentoo Qt project lead
-Gentoo Proxy maintainers project lead
+> 
+> I think for the drivers who were using "reset_devices" to switch to low
+> memory profile, you will have to retain that otherwise new kernel will
+> be broken with old kexec-tools/scripts which don't know that a new
+> parameter "low_memory_env" needs to be passed. 
+> 
+> May be we can do following.
+> 
+> /* TODO: Get rid of dependency on reset_devices after some time */
+> if (low_memory_env || reset_devices)
+> 	use_low_memory_profile;
+Agree (This is part of the complexity I referred to above)
 
+> 
+> Thanks
+> Vivek
+> 
 
---Fr0mi1l4sHFnaUGSIeMW1NxBPvrQoeXJ8
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-
-iQEcBAEBAgAGBQJT2eIsAAoJECo/aRed9267xbUH/jktg6ZJ6rAi1jJS1zdvUJFn
-X8I79OVSWrXlgbzSURdQ7qFRFXaU1a8BQdKYJ1uwSuUosaRA1SaVJZ9lpGpinyeK
-NCJIpzfo4cINxIsKiBEe+4PG1JLJLCMYyt7VYvZJcJOygo2JtG+i0kha+rQsB7KX
-6NuvoI7kJff52q1n4wtKGn6lffeyW5582J+f6THNPaejtjZ+pvTGpnZ18Mh0Wkqz
-KtXxiLuzPpYAv9Nt8M7JY8641cY11WFpA6W4mx67nim8NqzAQYMRwCHQGiApe+bS
-Gb9U4Y6pVToofnqfawpazh5IRqzXd5LD153NOqnMrvgN24xrXbh+uZNNjD8nDxY=
-=kZdB
------END PGP SIGNATURE-----
-
---Fr0mi1l4sHFnaUGSIeMW1NxBPvrQoeXJ8--
+Amir
