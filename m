@@ -1,47 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] ipv6: addrconf: fix mcast route for GRE devices
-Date: Thu, 31 Jul 2014 12:06:52 -0700 (PDT)
-Message-ID: <20140731.120652.225147288366144806.davem@davemloft.net>
-References: <20140730153503.GJ801478@jupiter.n2.diac24.net>
-	<1406734797-122248-1-git-send-email-equinox@diac24.net>
+Subject: Re: [PATCH net] bridge: Don't include NDA_VLAN for FDB
+ entries with vid 0
+Date: Thu, 31 Jul 2014 12:19:23 -0700 (PDT)
+Message-ID: <20140731.121923.1328533021640488126.davem@davemloft.net>
+References: <1406694711-8521-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org,
-	stephen@networkplumber.org
-To: equinox@diac24.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49725 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750709AbaGaTGx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2014 15:06:53 -0400
-In-Reply-To: <1406734797-122248-1-git-send-email-equinox@diac24.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: stephen@networkplumber.org, vyasevic@redhat.com,
+	bridge@lists.linux-foundation.org, netdev@vger.kernel.org
+To: makita.toshiaki@lab.ntt.co.jp
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1406694711-8521-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: David Lamparter <equinox@diac24.net>
-Date: Wed, 30 Jul 2014 17:39:57 +0200
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Date: Wed, 30 Jul 2014 13:31:51 +0900
 
-> GRE devices, for some reason, were coming up with an autoconfigured
-> address, but no ff00::/8 route in the local table.  This breaks any kind
-> of multicast, in particular OSPFv3, mDNS, - and ND.  In fact, IPv6 only
-> works at all because there is little need for ND on PtP devices.
+> An FDB entry with vlan_id 0 doesn't mean it is used in vlan 0, but used when
+> vlan_filtering is disabled.
 > 
-> Adding any other IPv6 address on the device from userspace would rectify
-> this issue through inet6_addr_add()/addrconf_add_dev() - and would leave
-> the route around even if the address was later removed.  (This is
-> probably why this issue was not discovered earlier.  AFAICS it has been
-> there from the beginning, e.g. aee80b5 "generate link local address for
-> GRE tunnel")
+> There is inconsistency around NDA_VLAN whose payload is 0 - even if we add
+> an entry by RTM_NEWNEIGH without any NDA_VLAN, and even though adding an
+> entry with NDA_VLAN 0 is prohibited, we get an entry with NDA_VLAN 0 by
+> RTM_GETNEIGH.
 > 
-> (Note: multicast is supported on GRE devices of all kinds, including PtP
-> GRE, P-t-Mcast GRE and NBMA-GRE.)
+> Dumping an FDB entry with vlan_id 0 shouldn't include NDA_VLAN.
 > 
-> Fixes: aee80b54b235 (ipv6: generate link local address for GRE tunnel)
-> Signed-off-by: David Lamparter <equinox@diac24.net>
-> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Cc: Stephen Hemminger <stephen@networkplumber.org>
+> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 
-Hannes, are you OK with this version?  Please ACK if so.
+This is clearly the right thing to do, since upon FDB addition we reject
+NDA_VLAN attributes with value zero.
 
-Thanks.
+Applied, thanks.
