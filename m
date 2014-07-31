@@ -1,38 +1,82 @@
-From: Veaceslav Falico <vfalico@gmail.com>
-Subject: Re: [PATCH net-next] bonding: use kobject_put instead of _del after
- kobject_add
-Date: Thu, 31 Jul 2014 12:46:01 +0200
-Message-ID: <20140731104601.GA4373@mikrodark.usersys.redhat.com>
-References: <1406633263-2115-1-git-send-email-vfalico@gmail.com>
- <20140730.173743.1842150455499005693.davem@davemloft.net>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH v2] netfilter: nf_sockopt_find() / nf_register_sockopt()
+ should not return EINTR
+Date: Thu, 31 Jul 2014 12:55:25 +0200
+Message-ID: <20140731105525.GA4680@salvia>
+References: <1406155995.3363.19.camel@edumazet-glaptop2.roam.corp.google.com>
+ <3ff5bf70-5db3-4dc4-9f02-abb07843ab81@email.android.com>
+ <1406234495.3363.79.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, andy@greyhouse.net
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f50.google.com ([74.125.82.50]:52347 "EHLO
-	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932225AbaGaKtD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2014 06:49:03 -0400
-Received: by mail-wg0-f50.google.com with SMTP id n12so2507960wgh.21
-        for <netdev@vger.kernel.org>; Thu, 31 Jul 2014 03:49:00 -0700 (PDT)
+Content-Type: multipart/mixed; boundary="1yeeQ81UyVL57Vl7"
+Cc: Patrick McHardy <kaber@trash.net>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20140730.173743.1842150455499005693.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1406234495.3363.79.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 30, 2014 at 05:37:43PM -0700, David Miller wrote:
->From: Veaceslav Falico <vfalico@gmail.com>
->Date: Tue, 29 Jul 2014 13:27:43 +0200
->
->> Otherwise the name of the kobject isn't getting freed and other stuff from
->> kobject_cleanup() isn't getting called. kobject_put() will call
->> kobject_del() on its own in kobject_cleanup().
->>
->> CC: Jay Vosburgh <j.vosburgh@gmail.com>
->> CC: Andy Gospodarek <andy@greyhouse.net>
->> Signed-off-by: Veaceslav Falico <vfalico@gmail.com>
->
->Introduced in v3.14, so maybe steer this to 'net' instead?
 
-Good idea. Should I re-send it or can you just apply it to net?
+--1yeeQ81UyVL57Vl7
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+On Thu, Jul 24, 2014 at 10:41:35PM +0200, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> getsockopt() or setsockopt() sometimes returns -EINTR instead of
+> -ENOPROTOOPT, causing headaches to application developers.
+> 
+> This is because unsupported commands might go through nf_sockopt_find()
+> and this function returns -EINTR if a signal is pending.
+> 
+> Just use non interruptible mutex functions, as there is no reason
+> we should sleep for a long time here.
+
+On top of this patch, I think that at least we can also ged rid of
+these interruptible mutex from the netfilter/core code too (see
+preliminary patch attached).
+
+I can also adapt the callers so they don't check anymore the return
+value as they will always succeed.
+
+Comments? Thanks.
+
+--1yeeQ81UyVL57Vl7
+Content-Type: text/x-diff; charset=us-ascii
+Content-Disposition: attachment; filename="x.patch"
+
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index 1fbab0c..a93c97f 100644
+--- a/net/netfilter/core.c
++++ b/net/netfilter/core.c
+@@ -35,11 +35,7 @@ EXPORT_SYMBOL_GPL(nf_ipv6_ops);
+ 
+ int nf_register_afinfo(const struct nf_afinfo *afinfo)
+ {
+-	int err;
+-
+-	err = mutex_lock_interruptible(&afinfo_mutex);
+-	if (err < 0)
+-		return err;
++	mutex_lock(&afinfo_mutex);
+ 	RCU_INIT_POINTER(nf_afinfo[afinfo->family], afinfo);
+ 	mutex_unlock(&afinfo_mutex);
+ 	return 0;
+@@ -68,11 +64,8 @@ static DEFINE_MUTEX(nf_hook_mutex);
+ int nf_register_hook(struct nf_hook_ops *reg)
+ {
+ 	struct nf_hook_ops *elem;
+-	int err;
+ 
+-	err = mutex_lock_interruptible(&nf_hook_mutex);
+-	if (err < 0)
+-		return err;
++	mutex_lock(&nf_hook_mutex);
+ 	list_for_each_entry(elem, &nf_hooks[reg->pf][reg->hooknum], list) {
+ 		if (reg->priority < elem->priority)
+ 			break;
+
+--1yeeQ81UyVL57Vl7--
