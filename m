@@ -1,52 +1,46 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [PATCH net-next 1/2] net: Header length compution function
-Date: Thu, 31 Jul 2014 08:34:22 -0700
-Message-ID: <53DA61FE.40406@intel.com>
-References: <20140729.215853.2058634690190963314.davem@davemloft.net>	<1406703644.3178.30.camel@edumazet-glaptop2.roam.corp.google.com>	<53D90099.6040906@intel.com> <20140730.183907.1435538533126954589.davem@davemloft.net>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: [PATCH 3/3] xen-netfront: print correct number of queues
+Date: Thu, 31 Jul 2014 17:38:24 +0100
+Message-ID: <1406824704-2275-4-git-send-email-david.vrabel@citrix.com>
+References: <1406824704-2275-1-git-send-email-david.vrabel@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, amirv@mellanox.com, netdev@vger.kernel.org,
-	ogerlitz@mellanox.com, yevgenyp@mellanox.com, idos@mellanox.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain
+Cc: David Vrabel <david.vrabel@citrix.com>,
+	<xen-devel@lists.xenproject.org>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Boris Ostrovsky <boris.ostrovsky@oracle.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:59582 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752976AbaGaPex (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jul 2014 11:34:53 -0400
-In-Reply-To: <20140730.183907.1435538533126954589.davem@davemloft.net>
+Received: from smtp02.citrix.com ([66.165.176.63]:61406 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752436AbaGaQic (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2014 12:38:32 -0400
+In-Reply-To: <1406824704-2275-1-git-send-email-david.vrabel@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/30/2014 06:39 PM, David Miller wrote:
-> From: Alexander Duyck <alexander.h.duyck@intel.com>
-> Date: Wed, 30 Jul 2014 07:26:33 -0700
-> 
->> It wasn't that I don't trust the core function.  We already had some of
->> our own code floating around for the out-of-tree LRO and so I simply
->> made use of that as it allowed for code reuse in our driver.
-> 
-> It would be nice if this code were converted to use the generic
-> infrastructure, at some point at least.
+When less than the requested number of queues could be created, include
+the actual number in the warning (instead of the requested number).
 
-I agree.  That is one of the reasons why I supported an earlier approach
-that had made a function that was shared between the drivers.  My only
-real concern was the on-stack skb approach.
+Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+---
+ drivers/net/xen-netfront.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-The only other change I see that I might need to address would be to add
-FCoE support to the function and then I can probably switch over ixgbe
-to use it.
-
-> 
-> I don't think my proposed patch is a bad trade off.  Where we have the
-> __skb_header_pointer() thing that takes preloaded pointers and header
-> length values.  It adds only one test which frankly should never
-> trigger and can be moved down into skb_copy_bits() or similar.
-> 
-
-This works for me.  Once it is in I can see about pushing a patch to add
-some FCoE support and work on moving over igb and ixgbe.
-
-Thanks,
-
-Alex
+diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+index 0b133a3..28204bc 100644
+--- a/drivers/net/xen-netfront.c
++++ b/drivers/net/xen-netfront.c
+@@ -1815,8 +1815,8 @@ static int xennet_create_queues(struct netfront_info *info,
+ 
+ 		ret = xennet_init_queue(queue);
+ 		if (ret < 0) {
+-			dev_warn(&info->netdev->dev, "only created %d queues\n",
+-				 num_queues);
++			dev_warn(&info->netdev->dev,
++				 "only created %d queues\n", i);
+ 			num_queues = i;
+ 			break;
+ 		}
+-- 
+1.7.10.4
