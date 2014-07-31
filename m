@@ -1,41 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v4 0/5] net: stmmac: Improve mcast/ucast filter for
- snps
-Date: Thu, 31 Jul 2014 14:13:57 -0700 (PDT)
-Message-ID: <20140731.141357.559911187001982866.davem@davemloft.net>
-References: <1406839757-10905-1-git-send-email-vbridgers2013@gmail.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH net-next 3/4] inet: frags: use INET_FRAG_EVICTED to
+ prevent icmp messages
+Date: Thu, 31 Jul 2014 23:23:27 +0200
+Message-ID: <20140731212327.GF23865@breakpoint.cc>
+References: <1406819499-11198-1-git-send-email-nikolay@redhat.com>
+ <1406819499-11198-4-git-send-email-nikolay@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-	peppe.cavallaro@st.com, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	linux@arm.linux.org.uk, linux-arm-kernel@lists.infradead.org,
-	robh+dt@kernel.org, dinguyen@altera.com, vbridger@altera.com
-To: vbridgers2013@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Alexander Aring <alex.aring@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Nikolay Aleksandrov <nikolay@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51063 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750907AbaGaVN6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2014 17:13:58 -0400
-In-Reply-To: <1406839757-10905-1-git-send-email-vbridgers2013@gmail.com>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:52866 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751120AbaGaVXc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2014 17:23:32 -0400
+Content-Disposition: inline
+In-Reply-To: <1406819499-11198-4-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vince Bridgers <vbridgers2013@gmail.com>
-Date: Thu, 31 Jul 2014 15:49:12 -0500
+Nikolay Aleksandrov <nikolay@redhat.com> wrote:
+> Now that we have INET_FRAG_EVICTED we might as well use it to stop
+> sending icmp messages in the "frag_expire" functions instead of
+> stripping INET_FRAG_FIRST_IN from their flags when evicting.
 
-> This patch series adds Synopsys specific bindings for the Synopsys EMAC
-> filter characteristics since those are implementation dependent. The
-> multicast and unicast filtering code was improved to handle different
-> configuration variations based on device tree settings. 
-> 
-> I verified the operation of the multicast and unicast filters through 
-> Synopsys support as requested during the V1 review, and tested the GMAC
-> configuration on an Altera Cyclone 5 SOC (which supports 256 multicast
-> bins and 128 Unicast addresses). The 10/100 variant of this driver
-> modification was not tested, although it was compile tested. I shared
-> the email thread results of the investigation through Synopsys with the
-> stmmac maintainer.
+Right, that makes sense.
 
-Series applied to net-next, thanks Vince.
+Reviewed-by: Florian Westphal <fw@strlen.de>
