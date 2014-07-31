@@ -1,31 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] net: bcmgenet: correct spelling
-Date: Wed, 30 Jul 2014 20:02:09 -0700 (PDT)
-Message-ID: <20140730.200209.804276543144228337.davem@davemloft.net>
-References: <1406668693-2084-1-git-send-email-computersforpeace@gmail.com>
-	<1406669654-18119-1-git-send-email-computersforpeace@gmail.com>
+Subject: Re: pull request (net-next): ipsec-next 2014-07-30
+Date: Wed, 30 Jul 2014 20:06:16 -0700 (PDT)
+Message-ID: <20140730.200616.70801919910766783.davem@davemloft.net>
+References: <1406718748-21144-1-git-send-email-steffen.klassert@secunet.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, f.fainelli@gmail.com
-To: computersforpeace@gmail.com
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38831 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38853 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755270AbaGaDCK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2014 23:02:10 -0400
-In-Reply-To: <1406669654-18119-1-git-send-email-computersforpeace@gmail.com>
+	with ESMTP id S1754477AbaGaDGR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2014 23:06:17 -0400
+In-Reply-To: <1406718748-21144-1-git-send-email-steffen.klassert@secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Brian Norris <computersforpeace@gmail.com>
-Date: Tue, 29 Jul 2014 14:34:14 -0700
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Wed, 30 Jul 2014 13:12:25 +0200
 
-> Signed-off-by: Brian Norris <computersforpeace@gmail.com>
-> Cc: Florian Fainelli <f.fainelli@gmail.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> ---
-> v2: * Correct the 'Cc:' comment
->     * Rebase to next-next.git
+> This is the last pull request for ipsec-next before I'll be
+> off for two weeks starting on friday. David, can you please
+> take urgent ipsec patches directly into net/net-next during
+> this time?
 
-Applied, thanks.
+Sure, no problem.
+
+> 1) Error handling simplifications for vti and vti6.
+>    From Mathias Krause.
+> 
+> 2) Remove a duplicate semicolon after a return statement.
+>    From Christoph Paasch.
+> 
+> Please pull or let me know if there are problems.
+
+Pulled, thanks Steffen.
