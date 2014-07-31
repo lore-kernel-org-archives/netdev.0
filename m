@@ -1,42 +1,48 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH net] macvlan: Initialize vlan_features to turn on offload support.
-Date: Thu, 31 Jul 2014 10:30:25 -0400
-Message-ID: <1406817025-17738-1-git-send-email-vyasevic@redhat.com>
-Cc: Vlad Yasevich <vyasevic@redhat.com>
-To: netdev@vger.kernel.org
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: Query: Is it possible  to lose interrupts between vhost and
+ virtio_net during migration?
+Date: Thu, 31 Jul 2014 16:31:00 +0200
+Message-ID: <20140731143100.GA3834@redhat.com>
+References: <53DA2CCC.1040606@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, jasowang@redhat.com, qinchuanyu@huawei.com,
+	liuyongan@huawei.com, davem@davemloft.net
+To: "Zhangjie (HZ)" <zhangjie14@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52545 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:26240 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750768AbaGaOab (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jul 2014 10:30:31 -0400
-Received: from int-mx14.intmail.prod.int.phx2.redhat.com (int-mx14.intmail.prod.int.phx2.redhat.com [10.5.11.27])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s6VEUVVW015155
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Thu, 31 Jul 2014 10:30:31 -0400
+	id S1750949AbaGaOax (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Jul 2014 10:30:53 -0400
+Content-Disposition: inline
+In-Reply-To: <53DA2CCC.1040606@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Macvlan devices do not initialize vlan_features.  As a result,
-any vlan devices configured on top of macvlans perform very poorly.
-Initialize vlan_features based on the vlan features of the lower-level
-device.
+On Thu, Jul 31, 2014 at 07:47:24PM +0800, Zhangjie (HZ) wrote:
+> [The test scenario]:
+> 
+> Doing migration between two Hosts roundly(A->B, B->A) ,after about 20 times, network of the VM is unreachable.
+> There are other 20 VMs in each Host, and they send ipv4 or ipv6 and multicast packets to each other.
+> Sometimes the CPU idle of the Host maybe 0;
+> 
+> [Problem description]:
+> 
+> I wonder if it was interrupts missing that cause the network unreachable.
+> In the migration process of kvm, source end should suspend, which include steps as follows:
+> 1.	do_vm_stop->pause_all_vcpus
+> 2.	vm_state_notify-> vhost_net_stop->set_guest_notifiers->kvm_virtio_pci_vq_vector_release
+> 3.	vm_state_notify-> vhost_net_stop-> vhost_net_stop_one->OST_NET_SET_BACKEND-> vhost_net_flush_vq-> vhost_work_flush
+> This may cause interrupts missing. Supose the scene that, virtqueue_notify() is called in virtio_net,
+> then the VM is paused. And, just before the portiowrite being handled, eventfd of kvm is released.
+> Then, vhost could not sense the notify, and the tx notify is lost.
+> On the other side, if eventfd of kvm is released just after vhost_notify(), and before eventfd_signal(), then rx signal by vhost is lost.
 
-Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
----
- drivers/net/macvlan.c | 1 +
- 1 file changed, 1 insertion(+)
+Could be a bug in userspace: should should cleanups notifiers
+after it stops vhost.
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index 958df38..ef8a5c2 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -646,6 +646,7 @@ static int macvlan_init(struct net_device *dev)
- 				  (lowerdev->state & MACVLAN_STATE_MASK);
- 	dev->features 		= lowerdev->features & MACVLAN_FEATURES;
- 	dev->features		|= ALWAYS_ON_FEATURES;
-+	dev->vlan_features	= lowerdev->vlan_features & MACVLAN_FEATURES;
- 	dev->gso_max_size	= lowerdev->gso_max_size;
- 	dev->iflink		= lowerdev->ifindex;
- 	dev->hard_header_len	= lowerdev->hard_header_len;
+Could you please send this to appropriate mailing lists?
+I have a policy against off-list discussions.
+
 -- 
-1.9.3
+MST
