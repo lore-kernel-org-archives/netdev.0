@@ -1,50 +1,52 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] ISDN: pcbit: off by one bugs in pcbit_set_msn()
-Date: Thu, 31 Jul 2014 18:30:11 +0300
-Message-ID: <20140731153011.GF31539@mwanda>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [PATCH net-next 1/2] net: Header length compution function
+Date: Thu, 31 Jul 2014 08:34:22 -0700
+Message-ID: <53DA61FE.40406@intel.com>
+References: <20140729.215853.2058634690190963314.davem@davemloft.net>	<1406703644.3178.30.camel@edumazet-glaptop2.roam.corp.google.com>	<53D90099.6040906@intel.com> <20140730.183907.1435538533126954589.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Karsten Keil <isdn@linux-pingi.de>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, amirv@mellanox.com, netdev@vger.kernel.org,
+	ogerlitz@mellanox.com, yevgenyp@mellanox.com, idos@mellanox.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:59582 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752976AbaGaPex (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Jul 2014 11:34:53 -0400
+In-Reply-To: <20140730.183907.1435538533126954589.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-1) We don't allocate enough space for the NUL terminator so we end up
-   corrupting one character beyond the end of the buffer.
+On 07/30/2014 06:39 PM, David Miller wrote:
+> From: Alexander Duyck <alexander.h.duyck@intel.com>
+> Date: Wed, 30 Jul 2014 07:26:33 -0700
+> 
+>> It wasn't that I don't trust the core function.  We already had some of
+>> our own code floating around for the out-of-tree LRO and so I simply
+>> made use of that as it allowed for code reuse in our driver.
+> 
+> It would be nice if this code were converted to use the generic
+> infrastructure, at some point at least.
 
-2) The "len - 1" should just be "len".  The code is trying to copy a
-   word from a buffer up to a comma or the last word in the buffer.
-   Say you have the buffer, "foo,bar,baz", then this code truncates the
-   last letter off each word so you get "fo", "ba", and "ba".  You would
-   hope this kind of bug would get noticed in testing...
+I agree.  That is one of the reasons why I supported an earlier approach
+that had made a function that was shared between the drivers.  My only
+real concern was the on-stack skb approach.
 
-   I'm not very familiar with this code and I can't test it, but I think
-   we should copy the final character.
+The only other change I see that I might need to address would be to add
+FCoE support to the function and then I can probably switch over ixgbe
+to use it.
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> 
+> I don't think my proposed patch is a bad trade off.  Where we have the
+> __skb_header_pointer() thing that takes preloaded pointers and header
+> length values.  It adds only one test which frankly should never
+> trigger and can be moved down into skb_copy_bits() or similar.
+> 
 
-diff --git a/drivers/isdn/pcbit/drv.c b/drivers/isdn/pcbit/drv.c
-index f02cc50..4172e22 100644
---- a/drivers/isdn/pcbit/drv.c
-+++ b/drivers/isdn/pcbit/drv.c
-@@ -1035,14 +1035,14 @@ static void pcbit_set_msn(struct pcbit_dev *dev, char *list)
- 		}
- 		ptr->next = NULL;
- 
--		ptr->msn = kmalloc(len, GFP_ATOMIC);
-+		ptr->msn = kmalloc(len + 1, GFP_ATOMIC);
- 		if (!ptr->msn) {
- 			printk(KERN_WARNING "kmalloc failed\n");
- 			kfree(ptr);
- 			return;
- 		}
- 
--		memcpy(ptr->msn, sp, len - 1);
-+		memcpy(ptr->msn, sp, len);
- 		ptr->msn[len] = 0;
- 
- #ifdef DEBUG
+This works for me.  Once it is in I can see about pushing a patch to add
+some FCoE support and work on moving over igb and ixgbe.
+
+Thanks,
+
+Alex
