@@ -1,43 +1,160 @@
-From: Dmitry Popov <ixaphire@qrator.net>
-Subject: Re: Issue with GRE tunnel, created with "local any" on kernel 3.14
-Date: Thu, 31 Jul 2014 12:47:37 +0400
-Message-ID: <20140731124737.442be6f4c55fec059028eae2@qrator.net>
-References: <53C91AA3.1020106@gentoo.org>
-	<20140718223204.9422aa8df81f7ac5187588bb@qrator.net>
-	<53D9E22C.6030804@gentoo.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] net: fix the counter
+ ICMP_MIB_INERRORS/ICMP6_MIB_INERRORS
+Date: Thu, 31 Jul 2014 11:10:59 +0200
+Message-ID: <1406797859.15894.27.camel@localhost>
+References: <53D75922.2090106@cn.fujitsu.com>
+		 <1406727930.13572.5.camel@localhost> <53D9B0D4.8040909@cn.fujitsu.com>
+	 <1406793138.14086.1.camel@localhost> <53D9FF7F.4070406@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Sergey Popov <pinkbyte@gentoo.org>
+Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+	netdev <netdev@vger.kernel.org>
+To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f48.google.com ([209.85.215.48]:43941 "EHLO
-	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932247AbaGaIro (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2014 04:47:44 -0400
-Received: by mail-la0-f48.google.com with SMTP id gl10so1799322lab.35
-        for <netdev@vger.kernel.org>; Thu, 31 Jul 2014 01:47:40 -0700 (PDT)
-In-Reply-To: <53D9E22C.6030804@gentoo.org>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:49748 "EHLO
+	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932265AbaGaJLC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2014 05:11:02 -0400
+Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
+	by gateway1.nyi.internal (Postfix) with ESMTP id 3E38C239FB
+	for <netdev@vger.kernel.org>; Thu, 31 Jul 2014 05:11:01 -0400 (EDT)
+In-Reply-To: <53D9FF7F.4070406@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 31 Jul 2014 10:29:00 +0400
-Sergey Popov <pinkbyte@gentoo.org> wrote:
-
-> > I have no patch to fix this issue, but as a workaround, you can use 
-> > ip tunnel change tun_test tos inherit.
+On Do, 2014-07-31 at 16:34 +0800, Duan Jiong wrote:
+> On 07/31/2014 03:52 PM, Hannes Frederic Sowa wrote:
+> > On Do, 2014-07-31 at 10:58 +0800, Duan Jiong wrote:
+> >> On 07/30/2014 09:45 PM, Hannes Frederic Sowa wrote:
+> >>> On Di, 2014-07-29 at 16:19 +0800, Duan Jiong wrote:
+> >>>> When dealing with ICMPv[46] Error Message, function icmp_socket_deliver()
+> >>>> and icmpv6_notify() do some valid checks on packet's length, but then some
+> >>>> protocols check packet's length redaudantly. So remove those duplicated
+> >>>> statements, and increase counter ICMP_MIB_INERRORS/ICMP6_MIB_INERRORS in
+> >>>> function icmp_socket_deliver() and icmpv6_notify() respectively.
+> >>>>
+> >>>> In addition, add missed counter in udp6/udplite6 when socket is NULL.
+> >>>
+> >>> I am ok with adding the error counters, but...
+> >>>
+> >>>> ---
+> >>>>  net/ipv4/icmp.c     |  4 +++-
+> >>>>  net/ipv4/tcp_ipv4.c |  5 -----
+> >>>>  net/ipv6/icmp.c     | 11 ++++++++---
+> >>>>  net/ipv6/udp.c      |  8 ++++++--
+> >>>>  net/sctp/input.c    |  5 -----
+> >>>>  5 files changed, 17 insertions(+), 16 deletions(-)
+> >>>>
+> >>>> diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+> >>>> index 42b7bcf..092400e 100644
+> >>>> --- a/net/ipv4/icmp.c
+> >>>> +++ b/net/ipv4/icmp.c
+> >>>> @@ -663,8 +663,10 @@ static void icmp_socket_deliver(struct sk_buff *skb, u32 info)
+> >>>>  	/* Checkin full IP header plus 8 bytes of protocol to
+> >>>>  	 * avoid additional coding at protocol handlers.
+> >>>>  	 */
+> >>>> -	if (!pskb_may_pull(skb, iph->ihl * 4 + 8))
+> >>>> +	if (!pskb_may_pull(skb, iph->ihl * 4 + 8)) {
+> >>>> +		ICMP_INC_STATS_BH(dev_net(skb->dev), ICMP_MIB_INERRORS);
+> >>>>  		return;
+> >>>> +	}
+> >>>>  
+> >>>>  	raw_icmp_error(skb, protocol, info);
+> >>>>  
+> >>>> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+> >>>> index 77cccda..715cf6b 100644
+> >>>> --- a/net/ipv4/tcp_ipv4.c
+> >>>> +++ b/net/ipv4/tcp_ipv4.c
+> >>>> @@ -342,11 +342,6 @@ void tcp_v4_err(struct sk_buff *icmp_skb, u32 info)
+> >>>>  	int err;
+> >>>>  	struct net *net = dev_net(icmp_skb->dev);
+> >>>>  
+> >>>> -	if (icmp_skb->len < (iph->ihl << 2) + 8) {
+> >>>> -		ICMP_INC_STATS_BH(net, ICMP_MIB_INERRORS);
+> >>>> -		return;
+> >>>> -	}
+> >>>> -
+> >>>>  	sk = inet_lookup(net, &tcp_hashinfo, iph->daddr, th->dest,
+> >>>>  			iph->saddr, th->source, inet_iif(icmp_skb));
+> >>>>  	if (!sk) {
+> >>>> diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+> >>>> index f6c84a6..8ca3cc0 100644
+> >>>> --- a/net/ipv6/icmp.c
+> >>>> +++ b/net/ipv6/icmp.c
+> >>>> @@ -626,9 +626,10 @@ void icmpv6_notify(struct sk_buff *skb, u8 type, u8 code, __be32 info)
+> >>>>  	int inner_offset;
+> >>>>  	__be16 frag_off;
+> >>>>  	u8 nexthdr;
+> >>>> +	struct net *net = dev_net(skb->dev);
+> >>>>  
+> >>>>  	if (!pskb_may_pull(skb, sizeof(struct ipv6hdr)))
+> >>>> -		return;
+> >>>> +		goto out;
+> >>>>  
+> >>>>  	nexthdr = ((struct ipv6hdr *)skb->data)->nexthdr;
+> >>>>  	if (ipv6_ext_hdr(nexthdr)) {
+> >>>> @@ -636,14 +637,14 @@ void icmpv6_notify(struct sk_buff *skb, u8 type, u8 code, __be32 info)
+> >>>>  		inner_offset = ipv6_skip_exthdr(skb, sizeof(struct ipv6hdr),
+> >>>>  						&nexthdr, &frag_off);
+> >>>>  		if (inner_offset<0)
+> >>>> -			return;
+> >>>> +			goto out;
+> >>>>  	} else {
+> >>>>  		inner_offset = sizeof(struct ipv6hdr);
+> >>>>  	}
+> >>>>  
+> >>>>  	/* Checkin header including 8 bytes of inner protocol header. */
+> >>>>  	if (!pskb_may_pull(skb, inner_offset+8))
+> >>>> -		return;
+> >>>> +		goto out;
+> >>>>  
+> >>>>  	/* BUGGG_FUTURE: we should try to parse exthdrs in this packet.
+> >>>>  	   Without this we will not able f.e. to make source routed
+> >>>> @@ -659,6 +660,10 @@ void icmpv6_notify(struct sk_buff *skb, u8 type, u8 code, __be32 info)
+> >>>>  	rcu_read_unlock();
+> >>>>  
+> >>>>  	raw6_icmp_error(skb, nexthdr, type, code, inner_offset, info);
+> >>>> +	return;
+> >>>> +
+> >>>> +out:
+> >>>> +	ICMP6_INC_STATS_BH(net, __in6_dev_get(skb->dev), ICMP6_MIB_INERRORS);
+> >>>
+> >>> ... please don't use __in6_dev_get in BH without rcu, but inet6_iif. You
+> >>> risk a lockdep error otherwise. You don't have rtnl locked and no RCU
+> >>> read lock.
+> >>>
+> >>
+> >> May be we can use in6_dev_get instead of __in6_dev_get, and 
+> >> use in6_dev_put to release the reference later.
+> > 
+> > Sure, you can. You can also protect the update of the counter with an
+> > rcu read lock, but you won't find anything easier than inet6_iif. ;)
 > 
-> Thanks, your workaround works as expected if tos value defined
-> explicitly. Though, I do not understand why: iproute2 documentation says
-> that default tos value in 'ip tunnel' command is already 'inherit'.
+> Are you sure using inet6_iif is fine?
+> 
+> function inet6_iif() return int, but we need struct inet6_dev *.
 
-man ip-tunnel says default tos is 00, and that's true. If you're about *.tex
-files under iproute2.git/doc, they are more than 10 years old, I doubt if they
-are maintained. Otherwise I don't know where you found it.
+No, sorry, you are correct, my fault. ;)
 
-This workaround works because setting tos=inherit disables tunnel route cache,
-which is buggy in your release (it doesn't cache source address).
+Somehow I thought *6_INC_STATS just take an interface index.
 
-Btw, thanks for the report, David has accepted the patch today, commit
-95cb574 (ip_tunnel(ipv4): fix tunnels with "local any remote $remote_ip"), so
-I think next kernel releases will have it.
+I would just propose to rcu lock this section like:
+
+rcu_read_lock();
+ICMP6_INC_STATS_BH(net, __in6_dev_get(skb->dev), ICMP6_MIB_INERRORS);
+rcu_read_unlock();
+
+If you look at the invocations of icmpv6_notify, they are all rcu read
+lock protected, so your initial patch already was perfectly correct,
+just the rcu_read_unlock() in the context of the change and the use of
+__in6_dev_get alerted me.
+
+As we have a nested rcu_read_lock/unlock invocation just above in
+icmpv6_notify, I would still add the rcu_read_lock as noted above for
+documentation/review purposes (or remove the rcu_read_lock from the
+err_handler dispatch part of icmpv6_notify).
+
+Thank you,
+Hannes
