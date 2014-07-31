@@ -1,33 +1,49 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] Make is_kdump_kernel() accessible from
- modules
-Date: Thu, 31 Jul 2014 12:22:44 -0700 (PDT)
-Message-ID: <20140731.122244.665794236590108427.davem@davemloft.net>
-References: <20140730123513.GB14804@redhat.com>
-	<53D9E789.4070607@mellanox.com>
-	<20140731130756.GE11063@redhat.com>
+Subject: Re: [PATCH] net: ipv4: raw: don't agree to 0 sized headers
+Date: Thu, 31 Jul 2014 12:24:32 -0700 (PDT)
+Message-ID: <20140731.122432.358447367571730334.davem@davemloft.net>
+References: <1406726468-19035-1-git-send-email-sasha.levin@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: amirv@mellanox.com, andi@firstfloor.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, ogerlitz@mellanox.com,
-	yevgenyp@mellanox.com
-To: vgoyal@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49927 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751057AbaGaTWp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2014 15:22:45 -0400
-In-Reply-To: <20140731130756.GE11063@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: sasha.levin@oracle.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1406726468-19035-1-git-send-email-sasha.levin@oracle.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Vivek Goyal <vgoyal@redhat.com>
-Date: Thu, 31 Jul 2014 09:07:56 -0400
+From: Sasha Levin <sasha.levin@oracle.com>
+Date: Wed, 30 Jul 2014 09:21:08 -0400
 
-> If there are performance implications of low memory profile, then user
-> needs to live with it. Otherwise they should not use low_memory_env
-> boot option to begin with.
+> For raw sockets, we'd always assume that a header is supplied and will attempt
+> to copy it into the ip header space using memcpy_fromiovecend():
+> 
+> 	if (memcpy_fromiovecend((void *)iph, from, 0, length))
+> 		goto error_free;
+> 
+> The problem is that memcpy_fromiovecend() assumes that there are actual data
+> to read from the iovec and doesn't deal with cases where there are none:
+> 
+> 	int memcpy_fromiovecend(unsigned char *kdata, const struct iovec *iov,
+> 				int offset, int len)
+> 	{
+> 		/* Skip over the finished iovecs */
+> 		while (offset >= iov->iov_len) {
+> 			offset -= iov->iov_len;
+> 			iov++;
+> 		}
+> 		[...]
+> 
+> So when offset == 0 and iov->iov_len == 0, we'll just run iov into random
+> kernel memory until it hits something bad and dies in a BUG/panic - either
+> killing the kernel or leaking memory and held locks.
+> 
+> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
 
-I personally think we should avoid changing scripts, by having a kdump
-kernel force this low_mem profile to be true.
+I sincerely think that memcpy_fromiovecend() is the part at fault here.
+
+Defensively it should handle zero length copies, as memcpy_fromiovec()
+right above it does.
