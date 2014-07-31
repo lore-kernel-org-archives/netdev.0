@@ -1,97 +1,131 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 0/9] Netfilter updates for net-next
-Date: Thu, 31 Jul 2014 21:26:59 +0200
-Message-ID: <1406834828-8500-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 1/9] netfilter: bridge: add reject support
+Date: Thu, 31 Jul 2014 21:27:00 +0200
+Message-ID: <1406834828-8500-2-git-send-email-pablo@netfilter.org>
+References: <1406834828-8500-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:35645 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751966AbaGaT1H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Jul 2014 15:27:07 -0400
+In-Reply-To: <1406834828-8500-1-git-send-email-pablo@netfilter.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+So you can reject IPv4 and IPv6 packets from bridge tables. If the ether
+proto is now known, default on dropping the packet instead.
 
-The following patchset contains netfilter updates for net-next, they are:
-
-1) Add the reject expression for the nf_tables bridge family, this
-   allows us to send explicit reject (TCP RST / ICMP dest unrech) to
-   the packets matching a rule.
-
-2) Simplify and consolidate the nf_tables set dumping logic. This uses
-   netlink control->data to filter out depending on the request.
-
-3) Perform garbage collection in xt_hashlimit using a workqueue instead
-   of a timer, which is problematic when many entries are in place in
-   the tables, from Eric Dumazet.
-
-4) Remove leftover code from the removed ulog target support, from
-   Paul Bolle.
-
-5) Dump unmodified flags in the netfilter packet accounting when resetting
-   counters, so userspace knows that a counter was in overquota situation,
-   from Alexey Perevalov.
-
-6) Fix wrong usage of the bitwise functions in nfnetlink_acct, also from
-   Alexey.
-
-7) Fix a crash when adding new set element with an empty NFTA_SET_ELEM_LIST
-   attribute.
-
-This patchset also includes a couple of cleanups for xt_LED from
-Duan Jiong and for nf_conntrack_ipv4 (using coccinelle) from
-Himangi Saraogi.
-
-You can pull these changes from:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
-
-Thanks!
-
-----------------------------------------------------------------
-
-The following changes since commit 8fd90bb889635fa1e7f80a3950948cc2e74c1446:
-
-  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2014-07-22 00:44:59 -0700)
-
-are available in the git repository at:
-
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git master
-
-for you to fetch changes up to 7d5570ca8972aad58de0b4ad03a5e991c41d4ce2:
-
-  netfilter: nf_tables: check for unset NFTA_SET_ELEM_LIST_ELEMENTS attribute (2014-07-31 21:11:43 +0200)
-
-----------------------------------------------------------------
-Alexey Perevalov (2):
-      netfilter: nfnetlink_acct: dump unmodified nfacct flags
-      netfilter: nfnetlink_acct: avoid using NFACCT_F_OVERQUOTA with bit helper functions
-
-Duan Jiong (1):
-      netfilter: xt_LED: don't output error message redundantly
-
-Eric Dumazet (1):
-      netfilter: xt_hashlimit: perform garbage collection from process context
-
-Himangi Saraogi (1):
-      netfilter: nf_conntrack: remove exceptional & on function name
-
-Pablo Neira Ayuso (3):
-      netfilter: bridge: add reject support
-      netfilter: nf_tables: simplify set dump through netlink
-      netfilter: nf_tables: check for unset NFTA_SET_ELEM_LIST_ELEMENTS attribute
-
-Paul Bolle (1):
-      netfilter: kill remnants of ulog targets
-
- include/net/netns/x_tables.h                   |    6 --
- net/bridge/netfilter/Kconfig                   |    6 ++
- net/bridge/netfilter/Makefile                  |    2 +-
- net/bridge/netfilter/nft_reject_bridge.c       |   67 ++++++++++++
- net/ipv4/netfilter/Makefile                    |    1 -
- net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |    2 +-
- net/netfilter/nf_tables_api.c                  |  137 ++++++------------------
- net/netfilter/nfnetlink_acct.c                 |   12 ++-
- net/netfilter/xt_LED.c                         |    4 +-
- net/netfilter/xt_hashlimit.c                   |   31 +++---
- 10 files changed, 133 insertions(+), 135 deletions(-)
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/bridge/netfilter/Kconfig             |    6 +++
+ net/bridge/netfilter/Makefile            |    1 +
+ net/bridge/netfilter/nft_reject_bridge.c |   67 ++++++++++++++++++++++++++++++
+ 3 files changed, 74 insertions(+)
  create mode 100644 net/bridge/netfilter/nft_reject_bridge.c
+
+diff --git a/net/bridge/netfilter/Kconfig b/net/bridge/netfilter/Kconfig
+index 4ce0b31..9cebf47 100644
+--- a/net/bridge/netfilter/Kconfig
++++ b/net/bridge/netfilter/Kconfig
+@@ -14,6 +14,12 @@ config NFT_BRIDGE_META
+ 	help
+ 	  Add support for bridge dedicated meta key.
+ 
++config NFT_BRIDGE_REJECT
++	tristate "Netfilter nf_tables bridge reject support"
++	depends on NFT_REJECT && NFT_REJECT_IPV4 && NFT_REJECT_IPV6
++	help
++	  Add support to reject packets.
++
+ config NF_LOG_BRIDGE
+ 	tristate "Bridge packet logging"
+ 
+diff --git a/net/bridge/netfilter/Makefile b/net/bridge/netfilter/Makefile
+index 1f78ea0..061d121 100644
+--- a/net/bridge/netfilter/Makefile
++++ b/net/bridge/netfilter/Makefile
+@@ -4,6 +4,7 @@
+ 
+ obj-$(CONFIG_NF_TABLES_BRIDGE) += nf_tables_bridge.o
+ obj-$(CONFIG_NFT_BRIDGE_META)  += nft_meta_bridge.o
++obj-$(CONFIG_NFT_BRIDGE_REJECT)  += nft_reject_bridge.o
+ 
+ # packet logging
+ obj-$(CONFIG_NF_LOG_BRIDGE) += nf_log_bridge.o
+diff --git a/net/bridge/netfilter/nft_reject_bridge.c b/net/bridge/netfilter/nft_reject_bridge.c
+new file mode 100644
+index 0000000..ee3ffe9
+--- /dev/null
++++ b/net/bridge/netfilter/nft_reject_bridge.c
+@@ -0,0 +1,67 @@
++/*
++ * Copyright (c) 2014 Pablo Neira Ayuso <pablo@netfilter.org>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++
++#include <linux/kernel.h>
++#include <linux/init.h>
++#include <linux/module.h>
++#include <linux/netlink.h>
++#include <linux/netfilter.h>
++#include <linux/netfilter/nf_tables.h>
++#include <net/netfilter/nf_tables.h>
++#include <net/netfilter/nft_reject.h>
++
++static void nft_reject_bridge_eval(const struct nft_expr *expr,
++				 struct nft_data data[NFT_REG_MAX + 1],
++				 const struct nft_pktinfo *pkt)
++{
++	switch (eth_hdr(pkt->skb)->h_proto) {
++	case htons(ETH_P_IP):
++		return nft_reject_ipv4_eval(expr, data, pkt);
++	case htons(ETH_P_IPV6):
++		return nft_reject_ipv6_eval(expr, data, pkt);
++	default:
++		/* No explicit way to reject this protocol, drop it. */
++		data[NFT_REG_VERDICT].verdict = NF_DROP;
++		break;
++	}
++}
++
++static struct nft_expr_type nft_reject_bridge_type;
++static const struct nft_expr_ops nft_reject_bridge_ops = {
++	.type		= &nft_reject_bridge_type,
++	.size		= NFT_EXPR_SIZE(sizeof(struct nft_reject)),
++	.eval		= nft_reject_bridge_eval,
++	.init		= nft_reject_init,
++	.dump		= nft_reject_dump,
++};
++
++static struct nft_expr_type nft_reject_bridge_type __read_mostly = {
++	.family		= NFPROTO_BRIDGE,
++	.name		= "reject",
++	.ops		= &nft_reject_bridge_ops,
++	.policy		= nft_reject_policy,
++	.maxattr	= NFTA_REJECT_MAX,
++	.owner		= THIS_MODULE,
++};
++
++static int __init nft_reject_bridge_module_init(void)
++{
++	return nft_register_expr(&nft_reject_bridge_type);
++}
++
++static void __exit nft_reject_bridge_module_exit(void)
++{
++	nft_unregister_expr(&nft_reject_bridge_type);
++}
++
++module_init(nft_reject_bridge_module_init);
++module_exit(nft_reject_bridge_module_exit);
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Pablo Neira Ayuso <pablo@netfilter.org>");
++MODULE_ALIAS_NFT_AF_EXPR(AF_BRIDGE, "reject");
+-- 
+1.7.10.4
