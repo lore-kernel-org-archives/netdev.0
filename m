@@ -1,48 +1,48 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: Query: Is it possible  to lose interrupts between vhost and
- virtio_net during migration?
-Date: Thu, 31 Jul 2014 16:31:00 +0200
-Message-ID: <20140731143100.GA3834@redhat.com>
-References: <53DA2CCC.1040606@huawei.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: [PATCH net-next] sunvnet: ldc_connect() should not return EINVAL
+ when handshake is in progress.
+Date: Thu, 31 Jul 2014 10:31:26 -0400
+Message-ID: <20140731143126.GA7979@oracle.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jasowang@redhat.com, qinchuanyu@huawei.com,
-	liuyongan@huawei.com, davem@davemloft.net
-To: "Zhangjie (HZ)" <zhangjie14@huawei.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net, karl.volz@oracle.com,
+	sowmini.varadhan@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:26240 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750949AbaGaOax (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jul 2014 10:30:53 -0400
+Received: from userp1040.oracle.com ([156.151.31.81]:22216 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751412AbaGaObg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2014 10:31:36 -0400
 Content-Disposition: inline
-In-Reply-To: <53DA2CCC.1040606@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 31, 2014 at 07:47:24PM +0800, Zhangjie (HZ) wrote:
-> [The test scenario]:
-> 
-> Doing migration between two Hosts roundly(A->B, B->A) ,after about 20 times, network of the VM is unreachable.
-> There are other 20 VMs in each Host, and they send ipv4 or ipv6 and multicast packets to each other.
-> Sometimes the CPU idle of the Host maybe 0;
-> 
-> [Problem description]:
-> 
-> I wonder if it was interrupts missing that cause the network unreachable.
-> In the migration process of kvm, source end should suspend, which include steps as follows:
-> 1.	do_vm_stop->pause_all_vcpus
-> 2.	vm_state_notify-> vhost_net_stop->set_guest_notifiers->kvm_virtio_pci_vq_vector_release
-> 3.	vm_state_notify-> vhost_net_stop-> vhost_net_stop_one->OST_NET_SET_BACKEND-> vhost_net_flush_vq-> vhost_work_flush
-> This may cause interrupts missing. Supose the scene that, virtqueue_notify() is called in virtio_net,
-> then the VM is paused. And, just before the portiowrite being handled, eventfd of kvm is released.
-> Then, vhost could not sense the notify, and the tx notify is lost.
-> On the other side, if eventfd of kvm is released just after vhost_notify(), and before eventfd_signal(), then rx signal by vhost is lost.
 
-Could be a bug in userspace: should should cleanups notifiers
-after it stops vhost.
+The LDC handshake could have been asynchronously triggered
+after ldc_bind() enables the ldc_rx() receive interrupt-handler 
+(and thus intercepts incoming control packets)
+and before vio_port_up() calls ldc_connect(). If that is the case,
+ldc_connect() should return 0 and let the state-machine
+progress.
 
-Could you please send this to appropriate mailing lists?
-I have a policy against off-list discussions.
+Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Acked-by: Karl Volz <karl.volz@oracle.com>
+---
+ arch/sparc/kernel/ldc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
+diff --git a/arch/sparc/kernel/ldc.c b/arch/sparc/kernel/ldc.c
+index e01d75d..66dacd5 100644
+--- a/arch/sparc/kernel/ldc.c
++++ b/arch/sparc/kernel/ldc.c
+@@ -1336,7 +1336,7 @@ int ldc_connect(struct ldc_channel *lp)
+ 	if (!(lp->flags & LDC_FLAG_ALLOCED_QUEUES) ||
+ 	    !(lp->flags & LDC_FLAG_REGISTERED_QUEUES) ||
+ 	    lp->hs_state != LDC_HS_OPEN)
+-		err = -EINVAL;
++		err = ((lp->hs_state > LDC_HS_OPEN) ? 0 : -EINVAL);
+ 	else
+ 		err = start_handshake(lp);
+ 
 -- 
-MST
+1.8.4.2
