@@ -1,49 +1,97 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ipv4: raw: don't agree to 0 sized headers
-Date: Thu, 31 Jul 2014 12:24:32 -0700 (PDT)
-Message-ID: <20140731.122432.358447367571730334.davem@davemloft.net>
-References: <1406726468-19035-1-git-send-email-sasha.levin@oracle.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: sasha.levin@oracle.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1406726468-19035-1-git-send-email-sasha.levin@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 0/9] Netfilter updates for net-next
+Date: Thu, 31 Jul 2014 21:26:59 +0200
+Message-ID: <1406834828-8500-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sasha Levin <sasha.levin@oracle.com>
-Date: Wed, 30 Jul 2014 09:21:08 -0400
+Hi David,
 
-> For raw sockets, we'd always assume that a header is supplied and will attempt
-> to copy it into the ip header space using memcpy_fromiovecend():
-> 
-> 	if (memcpy_fromiovecend((void *)iph, from, 0, length))
-> 		goto error_free;
-> 
-> The problem is that memcpy_fromiovecend() assumes that there are actual data
-> to read from the iovec and doesn't deal with cases where there are none:
-> 
-> 	int memcpy_fromiovecend(unsigned char *kdata, const struct iovec *iov,
-> 				int offset, int len)
-> 	{
-> 		/* Skip over the finished iovecs */
-> 		while (offset >= iov->iov_len) {
-> 			offset -= iov->iov_len;
-> 			iov++;
-> 		}
-> 		[...]
-> 
-> So when offset == 0 and iov->iov_len == 0, we'll just run iov into random
-> kernel memory until it hits something bad and dies in a BUG/panic - either
-> killing the kernel or leaking memory and held locks.
-> 
-> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+The following patchset contains netfilter updates for net-next, they are:
 
-I sincerely think that memcpy_fromiovecend() is the part at fault here.
+1) Add the reject expression for the nf_tables bridge family, this
+   allows us to send explicit reject (TCP RST / ICMP dest unrech) to
+   the packets matching a rule.
 
-Defensively it should handle zero length copies, as memcpy_fromiovec()
-right above it does.
+2) Simplify and consolidate the nf_tables set dumping logic. This uses
+   netlink control->data to filter out depending on the request.
+
+3) Perform garbage collection in xt_hashlimit using a workqueue instead
+   of a timer, which is problematic when many entries are in place in
+   the tables, from Eric Dumazet.
+
+4) Remove leftover code from the removed ulog target support, from
+   Paul Bolle.
+
+5) Dump unmodified flags in the netfilter packet accounting when resetting
+   counters, so userspace knows that a counter was in overquota situation,
+   from Alexey Perevalov.
+
+6) Fix wrong usage of the bitwise functions in nfnetlink_acct, also from
+   Alexey.
+
+7) Fix a crash when adding new set element with an empty NFTA_SET_ELEM_LIST
+   attribute.
+
+This patchset also includes a couple of cleanups for xt_LED from
+Duan Jiong and for nf_conntrack_ipv4 (using coccinelle) from
+Himangi Saraogi.
+
+You can pull these changes from:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git
+
+Thanks!
+
+----------------------------------------------------------------
+
+The following changes since commit 8fd90bb889635fa1e7f80a3950948cc2e74c1446:
+
+  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2014-07-22 00:44:59 -0700)
+
+are available in the git repository at:
+
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git master
+
+for you to fetch changes up to 7d5570ca8972aad58de0b4ad03a5e991c41d4ce2:
+
+  netfilter: nf_tables: check for unset NFTA_SET_ELEM_LIST_ELEMENTS attribute (2014-07-31 21:11:43 +0200)
+
+----------------------------------------------------------------
+Alexey Perevalov (2):
+      netfilter: nfnetlink_acct: dump unmodified nfacct flags
+      netfilter: nfnetlink_acct: avoid using NFACCT_F_OVERQUOTA with bit helper functions
+
+Duan Jiong (1):
+      netfilter: xt_LED: don't output error message redundantly
+
+Eric Dumazet (1):
+      netfilter: xt_hashlimit: perform garbage collection from process context
+
+Himangi Saraogi (1):
+      netfilter: nf_conntrack: remove exceptional & on function name
+
+Pablo Neira Ayuso (3):
+      netfilter: bridge: add reject support
+      netfilter: nf_tables: simplify set dump through netlink
+      netfilter: nf_tables: check for unset NFTA_SET_ELEM_LIST_ELEMENTS attribute
+
+Paul Bolle (1):
+      netfilter: kill remnants of ulog targets
+
+ include/net/netns/x_tables.h                   |    6 --
+ net/bridge/netfilter/Kconfig                   |    6 ++
+ net/bridge/netfilter/Makefile                  |    2 +-
+ net/bridge/netfilter/nft_reject_bridge.c       |   67 ++++++++++++
+ net/ipv4/netfilter/Makefile                    |    1 -
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |    2 +-
+ net/netfilter/nf_tables_api.c                  |  137 ++++++------------------
+ net/netfilter/nfnetlink_acct.c                 |   12 ++-
+ net/netfilter/xt_LED.c                         |    4 +-
+ net/netfilter/xt_hashlimit.c                   |   31 +++---
+ 10 files changed, 133 insertions(+), 135 deletions(-)
+ create mode 100644 net/bridge/netfilter/nft_reject_bridge.c
