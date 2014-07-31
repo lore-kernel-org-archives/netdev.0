@@ -1,160 +1,88 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] net: fix the counter
- ICMP_MIB_INERRORS/ICMP6_MIB_INERRORS
-Date: Thu, 31 Jul 2014 11:10:59 +0200
-Message-ID: <1406797859.15894.27.camel@localhost>
-References: <53D75922.2090106@cn.fujitsu.com>
-		 <1406727930.13572.5.camel@localhost> <53D9B0D4.8040909@cn.fujitsu.com>
-	 <1406793138.14086.1.camel@localhost> <53D9FF7F.4070406@cn.fujitsu.com>
+Subject: Re: [RFC alternate] ipv6: addrconf: clean up device type handling
+Date: Thu, 31 Jul 2014 11:27:08 +0200
+Message-ID: <1406798828.15894.31.camel@localhost>
+References: <20140730153503.GJ801478@jupiter.n2.diac24.net>
+	 <1406735921-122830-1-git-send-email-equinox@diac24.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	netdev <netdev@vger.kernel.org>
-To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Cc: netdev@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Jiri Pirko <jiri@resnulli.us>
+To: David Lamparter <equinox@diac24.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:49748 "EHLO
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:36466 "EHLO
 	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932265AbaGaJLC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2014 05:11:02 -0400
+	by vger.kernel.org with ESMTP id S932265AbaGaJ1K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2014 05:27:10 -0400
 Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
-	by gateway1.nyi.internal (Postfix) with ESMTP id 3E38C239FB
-	for <netdev@vger.kernel.org>; Thu, 31 Jul 2014 05:11:01 -0400 (EDT)
-In-Reply-To: <53D9FF7F.4070406@cn.fujitsu.com>
+	by gateway1.nyi.internal (Postfix) with ESMTP id 1A419238CA
+	for <netdev@vger.kernel.org>; Thu, 31 Jul 2014 05:27:10 -0400 (EDT)
+In-Reply-To: <1406735921-122830-1-git-send-email-equinox@diac24.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Do, 2014-07-31 at 16:34 +0800, Duan Jiong wrote:
-> On 07/31/2014 03:52 PM, Hannes Frederic Sowa wrote:
-> > On Do, 2014-07-31 at 10:58 +0800, Duan Jiong wrote:
-> >> On 07/30/2014 09:45 PM, Hannes Frederic Sowa wrote:
-> >>> On Di, 2014-07-29 at 16:19 +0800, Duan Jiong wrote:
-> >>>> When dealing with ICMPv[46] Error Message, function icmp_socket_deliver()
-> >>>> and icmpv6_notify() do some valid checks on packet's length, but then some
-> >>>> protocols check packet's length redaudantly. So remove those duplicated
-> >>>> statements, and increase counter ICMP_MIB_INERRORS/ICMP6_MIB_INERRORS in
-> >>>> function icmp_socket_deliver() and icmpv6_notify() respectively.
-> >>>>
-> >>>> In addition, add missed counter in udp6/udplite6 when socket is NULL.
-> >>>
-> >>> I am ok with adding the error counters, but...
-> >>>
-> >>>> ---
-> >>>>  net/ipv4/icmp.c     |  4 +++-
-> >>>>  net/ipv4/tcp_ipv4.c |  5 -----
-> >>>>  net/ipv6/icmp.c     | 11 ++++++++---
-> >>>>  net/ipv6/udp.c      |  8 ++++++--
-> >>>>  net/sctp/input.c    |  5 -----
-> >>>>  5 files changed, 17 insertions(+), 16 deletions(-)
-> >>>>
-> >>>> diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-> >>>> index 42b7bcf..092400e 100644
-> >>>> --- a/net/ipv4/icmp.c
-> >>>> +++ b/net/ipv4/icmp.c
-> >>>> @@ -663,8 +663,10 @@ static void icmp_socket_deliver(struct sk_buff *skb, u32 info)
-> >>>>  	/* Checkin full IP header plus 8 bytes of protocol to
-> >>>>  	 * avoid additional coding at protocol handlers.
-> >>>>  	 */
-> >>>> -	if (!pskb_may_pull(skb, iph->ihl * 4 + 8))
-> >>>> +	if (!pskb_may_pull(skb, iph->ihl * 4 + 8)) {
-> >>>> +		ICMP_INC_STATS_BH(dev_net(skb->dev), ICMP_MIB_INERRORS);
-> >>>>  		return;
-> >>>> +	}
-> >>>>  
-> >>>>  	raw_icmp_error(skb, protocol, info);
-> >>>>  
-> >>>> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-> >>>> index 77cccda..715cf6b 100644
-> >>>> --- a/net/ipv4/tcp_ipv4.c
-> >>>> +++ b/net/ipv4/tcp_ipv4.c
-> >>>> @@ -342,11 +342,6 @@ void tcp_v4_err(struct sk_buff *icmp_skb, u32 info)
-> >>>>  	int err;
-> >>>>  	struct net *net = dev_net(icmp_skb->dev);
-> >>>>  
-> >>>> -	if (icmp_skb->len < (iph->ihl << 2) + 8) {
-> >>>> -		ICMP_INC_STATS_BH(net, ICMP_MIB_INERRORS);
-> >>>> -		return;
-> >>>> -	}
-> >>>> -
-> >>>>  	sk = inet_lookup(net, &tcp_hashinfo, iph->daddr, th->dest,
-> >>>>  			iph->saddr, th->source, inet_iif(icmp_skb));
-> >>>>  	if (!sk) {
-> >>>> diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
-> >>>> index f6c84a6..8ca3cc0 100644
-> >>>> --- a/net/ipv6/icmp.c
-> >>>> +++ b/net/ipv6/icmp.c
-> >>>> @@ -626,9 +626,10 @@ void icmpv6_notify(struct sk_buff *skb, u8 type, u8 code, __be32 info)
-> >>>>  	int inner_offset;
-> >>>>  	__be16 frag_off;
-> >>>>  	u8 nexthdr;
-> >>>> +	struct net *net = dev_net(skb->dev);
-> >>>>  
-> >>>>  	if (!pskb_may_pull(skb, sizeof(struct ipv6hdr)))
-> >>>> -		return;
-> >>>> +		goto out;
-> >>>>  
-> >>>>  	nexthdr = ((struct ipv6hdr *)skb->data)->nexthdr;
-> >>>>  	if (ipv6_ext_hdr(nexthdr)) {
-> >>>> @@ -636,14 +637,14 @@ void icmpv6_notify(struct sk_buff *skb, u8 type, u8 code, __be32 info)
-> >>>>  		inner_offset = ipv6_skip_exthdr(skb, sizeof(struct ipv6hdr),
-> >>>>  						&nexthdr, &frag_off);
-> >>>>  		if (inner_offset<0)
-> >>>> -			return;
-> >>>> +			goto out;
-> >>>>  	} else {
-> >>>>  		inner_offset = sizeof(struct ipv6hdr);
-> >>>>  	}
-> >>>>  
-> >>>>  	/* Checkin header including 8 bytes of inner protocol header. */
-> >>>>  	if (!pskb_may_pull(skb, inner_offset+8))
-> >>>> -		return;
-> >>>> +		goto out;
-> >>>>  
-> >>>>  	/* BUGGG_FUTURE: we should try to parse exthdrs in this packet.
-> >>>>  	   Without this we will not able f.e. to make source routed
-> >>>> @@ -659,6 +660,10 @@ void icmpv6_notify(struct sk_buff *skb, u8 type, u8 code, __be32 info)
-> >>>>  	rcu_read_unlock();
-> >>>>  
-> >>>>  	raw6_icmp_error(skb, nexthdr, type, code, inner_offset, info);
-> >>>> +	return;
-> >>>> +
-> >>>> +out:
-> >>>> +	ICMP6_INC_STATS_BH(net, __in6_dev_get(skb->dev), ICMP6_MIB_INERRORS);
-> >>>
-> >>> ... please don't use __in6_dev_get in BH without rcu, but inet6_iif. You
-> >>> risk a lockdep error otherwise. You don't have rtnl locked and no RCU
-> >>> read lock.
-> >>>
-> >>
-> >> May be we can use in6_dev_get instead of __in6_dev_get, and 
-> >> use in6_dev_put to release the reference later.
-> > 
-> > Sure, you can. You can also protect the update of the counter with an
-> > rcu read lock, but you won't find anything easier than inet6_iif. ;)
+On Mi, 2014-07-30 at 17:58 +0200, David Lamparter wrote:
+> This realigns addrconf support for the various lower-layer device types,
+> and removes a little bit of duplicate code.
 > 
-> Are you sure using inet6_iif is fine?
+> For GRE devices, this includes a semantic change in that there is now a
+> ff00::/8 route installed on address autogeneration.  This was previously
+> missing and broke any kind of IPv6 multicast - unless another address
+> was configured from userspace (which then added the missing ff00::/8).
 > 
-> function inet6_iif() return int, but we need struct inet6_dev *.
+> Fixes: aee80b54b235 (ipv6: generate link local address for GRE tunnel)
+> Signed-off-by: David Lamparter <equinox@diac24.net>
+> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Cc: Stephen Hemminger <stephen@networkplumber.org>
+> Cc: Jiri Pirko <jiri@resnulli.us>
+> ---
+> 
+> This is an alternate version, yanking the switch() down and removing
+> dev_config/gre_config duplication.  I have no idea what rationale is behind
+> prefix_route - the result is a fe80::/64 route, but no address, which is not a
+> functioning configuration.  Jiri, you touched this just a few weeks ago, can
+> you comment?  (The "XXX: why is GRE special?")
 
-No, sorry, you are correct, my fault. ;)
+IIRC some time ago it was decided that randomizing the perm_addr and
+generate LL addresses based on that is not the way to go and fragile. We
+have this behaviour for ipv6 tunnels, but (IIRC) should not be expanded
+and leave user space with this burden.
 
-Somehow I thought *6_INC_STATS just take an interface index.
+> -#if IS_ENABLED(CONFIG_NET_IPGRE)
+> -static void addrconf_gre_config(struct net_device *dev)
+> +static void addrconf_dev_config(struct net_device *dev)
+>  {
+>  	struct inet6_dev *idev;
+> +	bool prefix_route;
+>  
+>  	ASSERT_RTNL();
+>  
+> -	if ((idev = ipv6_find_idev(dev)) == NULL) {
+> -		pr_debug("%s: add_dev failed\n", __func__);
+> +	switch (dev->type) {
+> +	case ARPHRD_LOOPBACK:
+> +		init_loopback(dev);
+> +		return;
+> +
+> +	case ARPHRD_ETHER:
+> +	case ARPHRD_FDDI:
+> +	case ARPHRD_ARCNET:
+> +	case ARPHRD_INFINIBAND:
+> +	case ARPHRD_IEEE802154:
+> +	case ARPHRD_IEEE1394:
+> +	case ARPHRD_TUNNEL6:
+> +	case ARPHRD_6LOWPAN:
+> +		prefix_route = false;
+> +		break;
+> +
+> +#if IS_ENABLED(CONFIG_NET_IPGRE)
+> +	case ARPHRD_IPGRE:
 
-I would just propose to rcu lock this section like:
+We can now also add ARPHRD_IP6GRE, maybe in a separate patch.
 
-rcu_read_lock();
-ICMP6_INC_STATS_BH(net, __in6_dev_get(skb->dev), ICMP6_MIB_INERRORS);
-rcu_read_unlock();
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-If you look at the invocations of icmpv6_notify, they are all rcu read
-lock protected, so your initial patch already was perfectly correct,
-just the rcu_read_unlock() in the context of the change and the use of
-__in6_dev_get alerted me.
-
-As we have a nested rcu_read_lock/unlock invocation just above in
-icmpv6_notify, I would still add the rcu_read_lock as noted above for
-documentation/review purposes (or remove the rcu_read_lock from the
-err_handler dispatch part of icmpv6_notify).
-
-Thank you,
+Thanks,
 Hannes
