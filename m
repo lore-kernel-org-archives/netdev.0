@@ -1,63 +1,44 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH v4 net-next 5/5] net: filter: split 'struct sk_filter'
- into socket and bpf parts
-Date: Thu, 31 Jul 2014 14:02:19 -0700
-Message-ID: <CAMEtUuy+iABzHagoono+CPB=Ex4Ew4vQBK65x1jDRC9_W9L7Dw@mail.gmail.com>
-References: <1406777656-27755-1-git-send-email-ast@plumgrid.com>
-	<1406777656-27755-6-git-send-email-ast@plumgrid.com>
-	<20140731194059.GA8681@salvia>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v2] net: fix the counter
+ ICMP_MIB_INERRORS/ICMP6_MIB_INERRORS
+Date: Thu, 31 Jul 2014 23:05:26 +0200
+Message-ID: <1406840726.13603.3.camel@localhost>
+References: <53D75922.2090106@cn.fujitsu.com>
+	 <53DA1258.90203@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Willem de Bruijn <willemb@google.com>,
-	Kees Cook <keescook@chromium.org>,
-	Network Development <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	netfilter-devel <netfilter-devel@vger.kernel.org>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20140731194059.GA8681@salvia>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+	netdev <netdev@vger.kernel.org>
+To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:33779 "EHLO
+	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751826AbaGaVFb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2014 17:05:31 -0400
+Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
+	by gateway1.nyi.internal (Postfix) with ESMTP id 99FA2227B5
+	for <netdev@vger.kernel.org>; Thu, 31 Jul 2014 17:05:28 -0400 (EDT)
+In-Reply-To: <53DA1258.90203@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 31, 2014 at 12:40 PM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> On Wed, Jul 30, 2014 at 08:34:16PM -0700, Alexei Starovoitov wrote:
->> clean up names related to socket filtering and bpf in the following way:
->> - everything that deals with sockets keeps 'sk_*' prefix
->> - everything that is pure BPF is changed to 'bpf_*' prefix
->>
->> split 'struct sk_filter' into
->> struct sk_filter {
->>       atomic_t        refcnt;
->>       struct rcu_head rcu;
->>       struct bpf_prog *prog;
->> };
->
-> I think you can use 'struct bpf_prog prog' instead so the entire
-> sk_filter remains in the same memory blob (as it is before this
-> patch).
->
-> You can add an inline function to retrieve the bpg prog from the
-> filter:
->
-> static inline struct bpf_prog *sk_filter_bpf(struct sk_filter *)
->
-> and use it whenever possible to fetch the bpf program. I'm suggesting
-> this because we can use the zero array size in the socket filtering
-> abstraction later on, if the function above is used, this just needs
-> one line in that function to be updated to fetch the program from the
-> placeholder.
+On Do, 2014-07-31 at 17:54 +0800, Duan Jiong wrote:
+> When dealing with ICMPv[46] Error Message, function icmp_socket_deliver()
+> and icmpv6_notify() do some valid checks on packet's length, but then some
+> protocols check packet's length redaudantly. So remove those duplicated
+> statements, and increase counter ICMP_MIB_INERRORS/ICMP6_MIB_INERRORS in
+> function icmp_socket_deliver() and icmpv6_notify() respectively.
+> 
+> In addition, add missed counter in udp6/udplite6 when socket is NULL.
+> 
+> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+> ---
+> 
+> v2: remove nested rcu_read_lock from icmpv6_notify
 
-correct. It would speed up SK_RUN_FILTER macro a little and I've
-considered it, but decided to go with the pointer for two reasons:
-1.In sk_attach_filter() the bpf_prog is allocated, then reallocated
-as part of bpf_prepare_filter(). My patch #1 cleans up that part to
-avoid 'struct sock *' dependency, so all bpf_* functions work
-purely with bpf_prog... If bpf_prog is embedded inside sk_filter,
-bpf_prepare_filter would need to have a callback to reallocate
-the container struct and pass this callback through the chain
-of calls, which is ugly.
-2. having it as a pointer helps nft in the long run, since whole of
-bpf_prog doesn't stay around inside sk_filter when it's not used.
-So I think embedding pointer was a cleaner solution.
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+
+IPv4 handler can also be cleaned up. ;)
+
+Thanks!
