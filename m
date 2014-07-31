@@ -1,102 +1,59 @@
 From: Aaron Brown <aaron.f.brown@intel.com>
-Subject: [net-next 11/15] i40evf: future-proof vfr_stat state check
-Date: Wed, 30 Jul 2014 17:32:07 -0700
-Message-ID: <1406766731-4209-12-git-send-email-aaron.f.brown@intel.com>
+Subject: [net-next 06/15] i40e: Move some variable declarations out of a loop
+Date: Wed, 30 Jul 2014 17:32:02 -0700
+Message-ID: <1406766731-4209-7-git-send-email-aaron.f.brown@intel.com>
 References: <1406766731-4209-1-git-send-email-aaron.f.brown@intel.com>
-Cc: Ashish Shah <ashish.n.shah@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
 	Aaron Brown <aaron.f.brown@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:24424 "EHLO mga14.intel.com"
+Received: from mga14.intel.com ([192.55.52.115]:24422 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756061AbaGaA2V (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 30 Jul 2014 20:28:21 -0400
+	id S1756033AbaGaA2S (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 30 Jul 2014 20:28:18 -0400
 In-Reply-To: <1406766731-4209-1-git-send-email-aaron.f.brown@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ashish Shah <ashish.n.shah@intel.com>
+From: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
 
-Previously defined state I40E_VFR_VFACTIVE uses bit 1 which is now set to
-"reserved."  Update the state checks to also include I40E_VFR_COMPLETED.
-This change will allow the VF to work with both existing and future PFs.
+Declare some variables once outside of the loop instead of in
+every iteration of the loop.
 
-Change-ID: Ifd1d34f79f3b0ffd6d2550ee4dadc55825ff52f8
-Signed-off-by: Ashish Shah <ashish.n.shah@intel.com>
-Tested-by: Sibai Li <sibai.li@intel.com>
+Change-ID: I436913777c7da3c16dc0031b59e3ffa61de74718
+Signed-off-by: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
+Tested-by: Jim Young <jamesx.m.young@intel.com>
 Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 23 +++++++++++++++++------
- 1 file changed, 17 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index 937785d..4c01079 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -1298,12 +1298,16 @@ static void i40evf_watchdog_task(struct work_struct *work)
- 					  struct i40evf_adapter,
- 					  watchdog_task);
- 	struct i40e_hw *hw = &adapter->hw;
-+	uint32_t rstat_val;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 6ac8487..66a1070 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -812,7 +812,10 @@ static void i40e_update_vsi_stats(struct i40e_vsi *vsi)
+ 	struct i40e_eth_stats *oes;
+ 	struct i40e_eth_stats *es;     /* device's eth stats */
+ 	u32 tx_restart, tx_busy;
++	struct i40e_ring *p;
+ 	u32 rx_page, rx_buf;
++	u64 bytes, packets;
++	unsigned int start;
+ 	u64 rx_p, rx_b;
+ 	u64 tx_p, tx_b;
+ 	u16 q;
+@@ -836,10 +839,6 @@ static void i40e_update_vsi_stats(struct i40e_vsi *vsi)
+ 	rx_buf = 0;
+ 	rcu_read_lock();
+ 	for (q = 0; q < vsi->num_queue_pairs; q++) {
+-		struct i40e_ring *p;
+-		u64 bytes, packets;
+-		unsigned int start;
+-
+ 		/* locate Tx ring */
+ 		p = ACCESS_ONCE(vsi->tx_rings[q]);
  
- 	if (test_and_set_bit(__I40EVF_IN_CRITICAL_TASK, &adapter->crit_section))
- 		goto restart_watchdog;
- 
- 	if (adapter->flags & I40EVF_FLAG_PF_COMMS_FAILED) {
--		if ((rd32(hw, I40E_VFGEN_RSTAT) & 0x3) == I40E_VFR_VFACTIVE) {
-+		rstat_val = rd32(hw, I40E_VFGEN_RSTAT) &
-+			    I40E_VFGEN_RSTAT_VFR_STATE_MASK;
-+		if ((rstat_val == I40E_VFR_VFACTIVE) ||
-+		    (rstat_val == I40E_VFR_COMPLETED)) {
- 			/* A chance for redemption! */
- 			dev_err(&adapter->pdev->dev, "Hardware came out of reset. Attempting reinit.\n");
- 			adapter->state = __I40EVF_STARTUP;
-@@ -1329,8 +1333,11 @@ static void i40evf_watchdog_task(struct work_struct *work)
- 		goto watchdog_done;
- 
- 	/* check for reset */
-+	rstat_val = rd32(hw, I40E_VFGEN_RSTAT) &
-+			    I40E_VFGEN_RSTAT_VFR_STATE_MASK;
- 	if (!(adapter->flags & I40EVF_FLAG_RESET_PENDING) &&
--	    (rd32(hw, I40E_VFGEN_RSTAT) & 0x3) != I40E_VFR_VFACTIVE) {
-+	    (rstat_val != I40E_VFR_VFACTIVE) &&
-+	    (rstat_val != I40E_VFR_COMPLETED)) {
- 		adapter->state = __I40EVF_RESETTING;
- 		adapter->flags |= I40EVF_FLAG_RESET_PENDING;
- 		dev_err(&adapter->pdev->dev, "Hardware reset detected\n");
-@@ -1496,7 +1503,8 @@ static void i40evf_reset_task(struct work_struct *work)
- 	for (i = 0; i < I40EVF_RESET_WAIT_COUNT; i++) {
- 		rstat_val = rd32(hw, I40E_VFGEN_RSTAT) &
- 			    I40E_VFGEN_RSTAT_VFR_STATE_MASK;
--		if (rstat_val != I40E_VFR_VFACTIVE)
-+		if ((rstat_val != I40E_VFR_VFACTIVE) &&
-+		    (rstat_val != I40E_VFR_COMPLETED))
- 			break;
- 		else
- 			msleep(I40EVF_RESET_WAIT_MS);
-@@ -1510,7 +1518,8 @@ static void i40evf_reset_task(struct work_struct *work)
- 	for (i = 0; i < I40EVF_RESET_WAIT_COUNT; i++) {
- 		rstat_val = rd32(hw, I40E_VFGEN_RSTAT) &
- 			    I40E_VFGEN_RSTAT_VFR_STATE_MASK;
--		if (rstat_val == I40E_VFR_VFACTIVE)
-+		if ((rstat_val == I40E_VFR_VFACTIVE) ||
-+		    (rstat_val == I40E_VFR_COMPLETED))
- 			break;
- 		else
- 			msleep(I40EVF_RESET_WAIT_MS);
-@@ -1947,8 +1956,10 @@ static int i40evf_check_reset_complete(struct i40e_hw *hw)
- 	int i;
- 
- 	for (i = 0; i < 100; i++) {
--		rstat = rd32(hw, I40E_VFGEN_RSTAT);
--		if (rstat == I40E_VFR_VFACTIVE)
-+		rstat = rd32(hw, I40E_VFGEN_RSTAT) &
-+			    I40E_VFGEN_RSTAT_VFR_STATE_MASK;
-+		if ((rstat == I40E_VFR_VFACTIVE) ||
-+		    (rstat == I40E_VFR_COMPLETED))
- 			return 0;
- 		udelay(10);
- 	}
 -- 
 1.9.3
