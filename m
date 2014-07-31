@@ -1,65 +1,55 @@
-From: "Abodunrin, Akeem G" <akeem.g.abodunrin@intel.com>
-Subject: RE: [net-next 06/15] i40e: Move some variable declarations out of a
- loop
-Date: Thu, 31 Jul 2014 23:56:19 +0000
-Message-ID: <CFEEE81102D91947B9CC368106979EBA479BEBE6@ORSMSX105.amr.corp.intel.com>
-References: <1406766731-4209-1-git-send-email-aaron.f.brown@intel.com>
-	<1406766731-4209-7-git-send-email-aaron.f.brown@intel.com>
- <20140731.140559.2090702986159656213.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: David Miller <davem@davemloft.net>,
-	"Brown, Aaron F" <aaron.f.brown@intel.com>
+From: Pravin B Shelar <pshelar@nicira.com>
+Subject: [GIT net-next] Open vSwitch
+Date: Thu, 31 Jul 2014 16:57:37 -0700
+Message-ID: <1406851057-1593-1-git-send-email-pshelar@nicira.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:20219 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751759AbaGaX43 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2014 19:56:29 -0400
-In-Reply-To: <20140731.140559.2090702986159656213.davem@davemloft.net>
-Content-Language: en-US
+Received: from na3sys009aog106.obsmtp.com ([74.125.149.77]:35968 "HELO
+	na3sys009aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751541AbaGaX5j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2014 19:57:39 -0400
+Received: by mail-pa0-f43.google.com with SMTP id lf10so4624186pab.2
+        for <netdev@vger.kernel.org>; Thu, 31 Jul 2014 16:57:38 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Following patches introduces flow mask cache. To process any packet
+OVS need to apply flow mask to the flow and lookup the flow in flow table.
+so packet processing performance is directly dependant on number of entries
+in mask list.
 
+Following patch adds mask cache so that we do not need to iterate over
+all entries in mask list on every packet. We have seen good performance
+improvement with this patch.
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Thursday, July 31, 2014 2:06 PM
-> To: Brown, Aaron F
-> Cc: Abodunrin, Akeem G; netdev@vger.kernel.org; gospo@redhat.com;
-> sassmann@redhat.com
-> Subject: Re: [net-next 06/15] i40e: Move some variable declarations out of a
-> loop
-> 
-> From: Aaron Brown <aaron.f.brown@intel.com>
-> Date: Wed, 30 Jul 2014 17:32:02 -0700
-> 
-> > From: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
-> >
-> > Declare some variables once outside of the loop instead of in every
-> > iteration of the loop.
-> >
-> > Change-ID: I436913777c7da3c16dc0031b59e3ffa61de74718
-> > Signed-off-by: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
-> > Tested-by: Jim Young <jamesx.m.young@intel.com>
-> > Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
-> 
-> Why?  Decreasing the scope of variables makes the code easier to understand
-> and audit.
-> 
-> Now that it's declared at the top level people have to check whether is it
-> initialized properly in all possible code paths, in the entire function, rather than
-> just inside of the loop.
-> 
-> Please respin this series with this patch removed, thanks.
+Before the mask-cache, a single stream which matched the first mask
+got a throughput of about 900K pps. A stream which matched the 20th mask
+got a throughput of about 400K pps. After the mask-cache patch, all
+streams throughput went back up to 900K pps.
 
-This is done because other codes have to use it before the loop...
+----------------------------------------------------------------
 
-Hope you understand the reason for this - and that is how it supposed to be originally, we have to increase the scope of the variables so that other code that are not in the loop can use it.
+The following changes since commit 2f55daa5464e8dfc8787ec863b6d1094522dbd69:
 
-Regards,
-~Akeem G Abodunrin
+  net: stmmac: Support devicetree configs for mcast and ucast filter entries (2014-07-31 15:31:02 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pshelar/openvswitch.git net_next_ovs
+
+for you to fetch changes up to 4955f0f9cbefa73577cd30ec262538ffc73dd4c2:
+
+  openvswitch: Introduce flow mask cache. (2014-07-31 15:49:55 -0700)
+
+----------------------------------------------------------------
+Pravin B Shelar (3):
+      openvswitch: Move table destroy to dp-rcu callback.
+      openvswitch: Convert mask list into mask array.
+      openvswitch: Introduce flow mask cache.
+
+ net/openvswitch/datapath.c   |   8 +-
+ net/openvswitch/flow.h       |   1 -
+ net/openvswitch/flow_table.c | 293 +++++++++++++++++++++++++++++++++++++------
+ net/openvswitch/flow_table.h |  21 +++-
+ 4 files changed, 275 insertions(+), 48 deletions(-)
