@@ -1,74 +1,214 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH 0/2] linux-wpan-next: lowpan_rcv - skb is freed within function and fix return values.
-Date: Thu, 31 Jul 2014 08:14:42 -0700
-Message-ID: <6930C094-CF61-4424-9296-8B0023B8B1DE@holtmann.org>
-References: <1406732105-17500-1-git-send-email-martin.townsend@xsilon.com> <C8606BA6-2918-4313-BEC5-FC3A377DE347@holtmann.org> <20140730182738.GA21664@omega> <362B23B3-72BB-4E0E-9E06-ABD19C1F2BEF@holtmann.org> <20140731135945.GB17560@tuxdriver.com>
-Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Alexander Aring <alex.aring@gmail.com>,
-	Martin Townsend <mtownsend1973@gmail.com>,
-	linux-zigbee-devel@lists.sourceforge.net,
-	BlueZ development <linux-bluetooth@vger.kernel.org>,
-	Martin Townsend <martin.townsend@xsilon.com>,
-	Network Development <netdev@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org Wireless"
-	<linux-wireless@vger.kernel.org>
-To: "John W. Linville" <linville@tuxdriver.com>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: [PATCH net-next 4/4] inet: frags: use kmem_cache for inet_frag_queue
+Date: Thu, 31 Jul 2014 17:11:39 +0200
+Message-ID: <1406819499-11198-5-git-send-email-nikolay@redhat.com>
+References: <1406819499-11198-1-git-send-email-nikolay@redhat.com>
+Cc: Florian Westphal <fw@strlen.de>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Alexander Aring <alex.aring@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:54975 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751041AbaGaPOp convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2014 11:14:45 -0400
-In-Reply-To: <20140731135945.GB17560@tuxdriver.com>
+Received: from mx1.redhat.com ([209.132.183.28]:34229 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751132AbaGaPOt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Jul 2014 11:14:49 -0400
+In-Reply-To: <1406819499-11198-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi John,
+Use kmem_cache to allocate/free inet_frag_queue objects since they're
+all the same size per inet_frags user and are alloced/freed in high volumes
+thus making it a perfect case for kmem_cache.
 
->>>>> Currently it is up to the functions below lowpan_rcv to free the skb on error
->>>>>  conditions.  This patch now removes all the UAPI error codes and process data
->>>>>  now returns -1 if there is a problem.  In this scenario lowpan_rcv will free
->>>>>  the skb and return NET_RX_DROP.  This also fixes the problem where
->>>>>  NET_RX_SUCCESS is returned on error
->>>>> 
->>>>> Martin Townsend (2):
->>>>> Remove dev parameter from skb_delivery_cb in 6lowpan.
->>>>> Change lowpan_rcv so skb is freed within function and fix return
->>>>>  values.
->>>>> 
->>>>> include/net/6lowpan.h         |  4 ++--
->>>>> net/6lowpan/iphc.c            | 37 ++++++++++++++++++------------------
->>>>> net/bluetooth/6lowpan.c       | 21 ++++++++++-----------
->>>>> net/ieee802154/6lowpan_rtnl.c | 44 +++++++++++++++++++++----------------------
->>>>> 4 files changed, 52 insertions(+), 54 deletions(-)
->>>> 
->>>> I can not take these patches at this point.
->>>> 
->>>> checking file net/ieee802154/6lowpan_rtnl.c
->>>> Hunk #1 FAILED at 143.
->>>> Hunk #2 succeeded at 480 (offset -4 lines).
->>>> 1 out of 2 hunks FAILED
->>>> 
->>>> We need to get the IEEE 802.15.4 changes merged through John's wireless-next tree. IEEE 802.15.4 going straight into net-next and Bluetooth going into wireless-next will not work out smoothly when both technologies are now utilizing 6LoWPAN and we are heavily working on 6LoWPAN.
->>>> 
->>> 
->>> I already told Martin that these patches should be based on bluetooth
->>> (better bluetooth-next, 802.15.4 hasn't a real stable strategie and there
->>> are also some known other issues in the current implementation). I don't
->>> think that the current implementation is used in a real environment.
->>> 
->>> I get this patch-series in a resend of this series, after Martin
->>> subscribed the linux-zigbee-devel mailinglist, then I told Martin that I
->>> need some time for review and he want to resend them tomorrow or friday.
->>> The resend should based on bluetooth-next then, if this is okay for you.
->> 
->> if patches are based on bluetooth-next, then we have no problem here. I can easily merge them.
-> 
-> Does that resolve it?  That probably won't make 3.17, fwiw...
+Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+---
+Note: I didn't use SLAB_HWCACHE_ALIGN to save some bytes in the allocation
+      although they can easily be accounted for, in my tests I didn't find
+      noticeable difference so I decided against it.
 
-I agree that this is out of the question for 3.17 at this point in time. Johan send our last pull request which includes what we have for 6LoWPAN right now. Everything else needs to wait for 3.18.
+ include/net/inet_frag.h                 |  4 +++-
+ net/ieee802154/reassembly.c             |  7 ++++++-
+ net/ipv4/inet_fragment.c                | 13 ++++++++++---
+ net/ipv4/ip_fragment.c                  |  5 ++++-
+ net/ipv6/netfilter/nf_conntrack_reasm.c |  8 ++++++--
+ net/ipv6/reassembly.c                   |  7 ++++++-
+ 6 files changed, 35 insertions(+), 9 deletions(-)
 
-Regards
-
-Marcel
+diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
+index 90015c47b447..65a8855e99fe 100644
+--- a/include/net/inet_frag.h
++++ b/include/net/inet_frag.h
+@@ -101,9 +101,11 @@ struct inet_frags {
+ 	void			(*destructor)(struct inet_frag_queue *);
+ 	void			(*skb_free)(struct sk_buff *);
+ 	void			(*frag_expire)(unsigned long data);
++	struct kmem_cache	*frags_cachep;
++	const char		*frags_cache_name;
+ };
+ 
+-void inet_frags_init(struct inet_frags *);
++int inet_frags_init(struct inet_frags *);
+ void inet_frags_fini(struct inet_frags *);
+ 
+ void inet_frags_init_net(struct netns_frags *nf);
+diff --git a/net/ieee802154/reassembly.c b/net/ieee802154/reassembly.c
+index 5607accd2fee..ffec6ce51005 100644
+--- a/net/ieee802154/reassembly.c
++++ b/net/ieee802154/reassembly.c
+@@ -30,6 +30,8 @@
+ 
+ #include "reassembly.h"
+ 
++static const char lowpan_frags_cache_name[] = "lowpan-frags";
++
+ struct lowpan_frag_info {
+ 	__be16 d_tag;
+ 	u16 d_size;
+@@ -571,7 +573,10 @@ int __init lowpan_net_frag_init(void)
+ 	lowpan_frags.qsize = sizeof(struct frag_queue);
+ 	lowpan_frags.match = lowpan_frag_match;
+ 	lowpan_frags.frag_expire = lowpan_frag_expire;
+-	inet_frags_init(&lowpan_frags);
++	lowpan_frags.frags_cache_name = lowpan_frags_cache_name;
++	ret = inet_frags_init(&lowpan_frags);
++	if (ret)
++		goto err_pernet;
+ 
+ 	return ret;
+ err_pernet:
+diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+index 1e9a9592a8ac..9d331d7ce646 100644
+--- a/net/ipv4/inet_fragment.c
++++ b/net/ipv4/inet_fragment.c
+@@ -198,7 +198,7 @@ static void inet_frag_schedule_worker(struct inet_frags *f)
+ 		schedule_work(&f->frags_work);
+ }
+ 
+-void inet_frags_init(struct inet_frags *f)
++int inet_frags_init(struct inet_frags *f)
+ {
+ 	int i;
+ 
+@@ -213,6 +213,12 @@ void inet_frags_init(struct inet_frags *f)
+ 
+ 	seqlock_init(&f->rnd_seqlock);
+ 	f->last_rebuild_jiffies = 0;
++	f->frags_cachep = kmem_cache_create(f->frags_cache_name, f->qsize, 0, 0,
++					    NULL);
++	if (!f->frags_cachep)
++		return -ENOMEM;
++
++	return 0;
+ }
+ EXPORT_SYMBOL(inet_frags_init);
+ 
+@@ -225,6 +231,7 @@ EXPORT_SYMBOL(inet_frags_init_net);
+ void inet_frags_fini(struct inet_frags *f)
+ {
+ 	cancel_work_sync(&f->frags_work);
++	kmem_cache_destroy(f->frags_cachep);
+ }
+ EXPORT_SYMBOL(inet_frags_fini);
+ 
+@@ -327,7 +334,7 @@ void inet_frag_destroy(struct inet_frag_queue *q, struct inet_frags *f)
+ 
+ 	if (f->destructor)
+ 		f->destructor(q);
+-	kfree(q);
++	kmem_cache_free(f->frags_cachep, q);
+ }
+ EXPORT_SYMBOL(inet_frag_destroy);
+ 
+@@ -375,7 +382,7 @@ static struct inet_frag_queue *inet_frag_alloc(struct netns_frags *nf,
+ 		return NULL;
+ 	}
+ 
+-	q = kzalloc(f->qsize, GFP_ATOMIC);
++	q = kmem_cache_zalloc(f->frags_cachep, GFP_ATOMIC);
+ 	if (q == NULL)
+ 		return NULL;
+ 
+diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
+index cb56bcc1eee2..15f0e2bad7ad 100644
+--- a/net/ipv4/ip_fragment.c
++++ b/net/ipv4/ip_fragment.c
+@@ -55,6 +55,7 @@
+  */
+ 
+ static int sysctl_ipfrag_max_dist __read_mostly = 64;
++static const char ip_frag_cache_name[] = "ip4-frags";
+ 
+ struct ipfrag_skb_cb
+ {
+@@ -860,5 +861,7 @@ void __init ipfrag_init(void)
+ 	ip4_frags.qsize = sizeof(struct ipq);
+ 	ip4_frags.match = ip4_frag_match;
+ 	ip4_frags.frag_expire = ip_expire;
+-	inet_frags_init(&ip4_frags);
++	ip4_frags.frags_cache_name = ip_frag_cache_name;
++	if (inet_frags_init(&ip4_frags))
++		panic("IP: failed to allocate ip4_frags cache\n");
+ }
+diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
+index cca686e42b97..6f187c8d8a1b 100644
+--- a/net/ipv6/netfilter/nf_conntrack_reasm.c
++++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
+@@ -50,6 +50,7 @@
+ #include <linux/module.h>
+ #include <net/netfilter/ipv6/nf_defrag_ipv6.h>
+ 
++static const char nf_frags_cache_name[] = "nf-frags";
+ 
+ struct nf_ct_frag6_skb_cb
+ {
+@@ -677,12 +678,15 @@ int nf_ct_frag6_init(void)
+ 	nf_frags.qsize = sizeof(struct frag_queue);
+ 	nf_frags.match = ip6_frag_match;
+ 	nf_frags.frag_expire = nf_ct_frag6_expire;
+-	inet_frags_init(&nf_frags);
+-
++	nf_frags.frags_cache_name = nf_frags_cache_name;
++	ret = inet_frags_init(&nf_frags);
++	if (ret)
++		goto out;
+ 	ret = register_pernet_subsys(&nf_ct_net_ops);
+ 	if (ret)
+ 		inet_frags_fini(&nf_frags);
+ 
++out:
+ 	return ret;
+ }
+ 
+diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
+index beb6872a8fa5..c6557d9f7808 100644
+--- a/net/ipv6/reassembly.c
++++ b/net/ipv6/reassembly.c
+@@ -60,6 +60,8 @@
+ #include <net/inet_frag.h>
+ #include <net/inet_ecn.h>
+ 
++static const char ip6_frag_cache_name[] = "ip6-frags";
++
+ struct ip6frag_skb_cb
+ {
+ 	struct inet6_skb_parm	h;
+@@ -748,7 +750,10 @@ int __init ipv6_frag_init(void)
+ 	ip6_frags.qsize = sizeof(struct frag_queue);
+ 	ip6_frags.match = ip6_frag_match;
+ 	ip6_frags.frag_expire = ip6_frag_expire;
+-	inet_frags_init(&ip6_frags);
++	ip6_frags.frags_cache_name = ip6_frag_cache_name;
++	ret = inet_frags_init(&ip6_frags);
++	if (ret)
++		goto err_pernet;
+ out:
+ 	return ret;
+ 
+-- 
+1.9.3
