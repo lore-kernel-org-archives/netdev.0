@@ -1,39 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net] tcp: Fix integer-overflow in TCP vegas
-Date: Wed, 30 Jul 2014 17:31:47 -0700 (PDT)
-Message-ID: <20140730.173147.1009537751381441905.davem@davemloft.net>
-References: <1406634057-1289-1-git-send-email-christoph.paasch@uclouvain.be>
+From: KY Srinivasan <kys@microsoft.com>
+Subject: RE: [PATCH 1/1] Drivers: net-next: hyperv
+Date: Thu, 31 Jul 2014 00:31:56 +0000
+Message-ID: <5d85f8205f3840449e0b678bab49e777@BY2PR0301MB0711.namprd03.prod.outlook.com>
+References: <1406769616-29871-1-git-send-email-kys@microsoft.com>
+ <20140730.172523.1080858143706717134.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
-	ncardwell@google.com, eric.dumazet@gmail.com,
-	David.Laight@ACULAB.COM, doug.leith@nuim.ie
-To: christoph.paasch@uclouvain.be
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37814 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755348AbaGaAbs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 30 Jul 2014 20:31:48 -0400
-In-Reply-To: <1406634057-1289-1-git-send-email-christoph.paasch@uclouvain.be>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "jasowang@redhat.com" <jasowang@redhat.com>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "apw@canonical.com" <apw@canonical.com>,
+ "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20140730.172523.1080858143706717134.davem@davemloft.net>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-From: Christoph Paasch <christoph.paasch@uclouvain.be>
-Date: Tue, 29 Jul 2014 13:40:57 +0200
 
-> In vegas we do a multiplication of the cwnd and the rtt. This
-> may overflow and thus their result is stored in a u64. However, we first
-> need to cast the cwnd so that actually 64-bit arithmetic is done.
+
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Wednesday, July 30, 2014 5:25 PM
+> To: KY Srinivasan
+> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
+> devel@linuxdriverproject.org; olaf@aepfle.de; apw@canonical.com;
+> jasowang@redhat.com
+> Subject: Re: [PATCH 1/1] Drivers: net-next: hyperv
 > 
-> Then, we need to do do_div to allow this to be used on 32-bit arches.
+> From: "K. Y. Srinivasan" <kys@microsoft.com>
+> Date: Wed, 30 Jul 2014 18:20:16 -0700
 > 
-> Cc: Stephen Hemminger <stephen@networkplumber.org>
-> Cc: Neal Cardwell <ncardwell@google.com>
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: David Laight <David.Laight@ACULAB.COM>
-> Cc: Doug Leith <doug.leith@nuim.ie>
-> Fixes: 8d3a564da34e (tcp: tcp_vegas cong avoid fix)
-> Signed-off-by: Christoph Paasch <christoph.paasch@uclouvain.be>
+> > For forwarding scenarios, it will be useful to allocate larger
+> > sendbuf. Make the necessary adjustments to permit this.
+> >
+> > Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+> 
+> Please submit this with a proper Subject line, something like "[PATCH 1/1]
+> hyperv: ${DESCRIPTION}" would be fine.
+> 
+> As is, nobody scanning the commit headers in the tree history can see what
+> might be unique about this change to the hyperv driver vs. all others,
+> because you haven't written a proper description.
+Oops; sorry about that. I will resend this.
 
-Applied and queued up for -stable, thanks.
+K. Y
