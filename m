@@ -1,59 +1,70 @@
-From: David Lamparter <equinox@diac24.net>
-Subject: Re: [PATCH v2] ipv6: addrconf: fix mcast route for GRE devices
-Date: Thu, 31 Jul 2014 22:19:26 +0200
-Message-ID: <20140731201926.GA754314@jupiter.n2.diac24.net>
-References: <20140730153503.GJ801478@jupiter.n2.diac24.net>
- <1406734797-122248-1-git-send-email-equinox@diac24.net>
- <20140731.120652.225147288366144806.davem@davemloft.net>
- <1406835454.13603.1.camel@localhost>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] xen-netfront: Fix handling packets on compound pages
+ with skb_segment
+Date: Thu, 31 Jul 2014 13:25:20 -0700 (PDT)
+Message-ID: <20140731.132520.1889577477638334755.davem@davemloft.net>
+References: <1406726730-17994-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, equinox@diac24.net,
-	netdev@vger.kernel.org, stephen@networkplumber.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from spaceboyz.net ([87.106.131.203]:54126 "EHLO spaceboyz.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750836AbaGaUTs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jul 2014 16:19:48 -0400
-Content-Disposition: inline
-In-Reply-To: <1406835454.13603.1.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: konrad.wilk@oracle.com, boris.ostrovsky@oracle.com,
+	david.vrabel@citrix.com, wei.liu2@citrix.com,
+	Ian.Campbell@citrix.com, paul.durrant@citrix.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	xen-devel@lists.xenproject.org
+To: zoltan.kiss@citrix.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1406726730-17994-1-git-send-email-zoltan.kiss@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 31, 2014 at 09:37:34PM +0200, Hannes Frederic Sowa wrote:
-> On Do, 2014-07-31 at 12:06 -0700, David Miller wrote:
-> > From: David Lamparter <equinox@diac24.net>
-> > Date: Wed, 30 Jul 2014 17:39:57 +0200
-> > 
-> > > GRE devices, for some reason, were coming up with an autoconfigured
-> > > address, but no ff00::/8 route in the local table.  This breaks any kind
-> > > of multicast, in particular OSPFv3, mDNS, - and ND.  In fact, IPv6 only
-> > > works at all because there is little need for ND on PtP devices.
-> > > 
-> > > Adding any other IPv6 address on the device from userspace would rectify
-> > > this issue through inet6_addr_add()/addrconf_add_dev() - and would leave
-> > > the route around even if the address was later removed.  (This is
-> > > probably why this issue was not discovered earlier.  AFAICS it has been
-> > > there from the beginning, e.g. aee80b5 "generate link local address for
-> > > GRE tunnel")
-> > > 
-> > > (Note: multicast is supported on GRE devices of all kinds, including PtP
-> > > GRE, P-t-Mcast GRE and NBMA-GRE.)
-> > > 
-> > > Fixes: aee80b54b235 (ipv6: generate link local address for GRE tunnel)
-> > > Signed-off-by: David Lamparter <equinox@diac24.net>
-> > > Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> > > Cc: Stephen Hemminger <stephen@networkplumber.org>
-> > 
-> > Hannes, are you OK with this version?  Please ACK if so.
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Date: Wed, 30 Jul 2014 14:25:30 +0100
+
+> There is a long known problem with the netfront/netback interface: if the guest
+> tries to send a packet which constitues more than MAX_SKB_FRAGS + 1 ring slots,
+> it gets dropped. The reason is that netback maps these slots to a frag in the
+> frags array, which is limited by size. Having so many slots can occur since
+> compound pages were introduced, as the ring protocol slice them up into
+> individual (non-compound) page aligned slots. The theoretical worst case
+> scenario looks like this (note, skbs are limited to 64 Kb here):
+> linear buffer: at most PAGE_SIZE - 17 * 2 bytes, overlapping page boundary,
+> using 2 slots
+> first 15 frags: 1 + PAGE_SIZE + 1 bytes long, first and last bytes are at the
+> end and the beginning of a page, therefore they use 3 * 15 = 45 slots
+> last 2 frags: 1 + 1 bytes, overlapping page boundary, 2 * 2 = 4 slots
+> Although I don't think this 51 slots skb can really happen, we need a solution
+> which can deal with every scenario. In real life there is only a few slots
+> overdue, but usually it causes the TCP stream to be blocked, as the retry will
+> most likely have the same buffer layout.
+> This patch solves this problem by slicing up the skb itself with the help of
+> skb_segment, and calling xennet_start_xmit again on the resulting packets. It
+> also works with the theoretical worst case, where there is a 3 level recursion.
+> The good thing is that skb_segment only copies the header part, the frags will
+> be just referenced again.
 > 
-> The alternate version does provide the same semantic change and makes
-> the code more readable. Both changes are technically correct, I acked
-> the alternate version already.
+> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
 
-Give me a few min, I'll go base the other one on this one, that way
-there's one 2-line patch changing semantics (this one) and another
-50-line patch just mechanically moving stuff around.
+This is a really scary change :-)
 
--David
+I definitely see some potential problem here.
+
+First of all, even in cases where it might "work", such as TCP, you
+are modifying the data stream.  The sizes are changing, the packet
+counts are different, and all of this will have side effects such as
+potentially harming TCP performance.
+
+Secondly, for something like UDP you can't just split the packet up
+like this, or for any other datagram protocol for that matter.
+
+I know you're in a difficult situation, but I just can't see this
+being an acceptable approach to solving the problem right now.
+
+Where does the MAX_SKB_FRAGS + 1 limit really come from, the size of
+the TX queue?
+
+If you were to have a 64-slot TX queue, you ought to be able to handle
+this theoretical 51 slot SKB.
+
+And I don't think it's so theoretical, a carefully crafted sequence of
+sendfile() calls during a TCP_CORK sequence should be able to do it.
