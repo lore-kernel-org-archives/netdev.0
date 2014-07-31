@@ -1,69 +1,72 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 9/9] netfilter: nf_tables: check for unset NFTA_SET_ELEM_LIST_ELEMENTS attribute
-Date: Thu, 31 Jul 2014 21:27:08 +0200
-Message-ID: <1406834828-8500-10-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 8/9] netfilter: nfnetlink_acct: avoid using NFACCT_F_OVERQUOTA with bit helper functions
+Date: Thu, 31 Jul 2014 21:27:07 +0200
+Message-ID: <1406834828-8500-9-git-send-email-pablo@netfilter.org>
 References: <1406834828-8500-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:35684 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:35678 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753040AbaGaT1U (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jul 2014 15:27:20 -0400
+	id S1752370AbaGaT1T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Jul 2014 15:27:19 -0400
 In-Reply-To: <1406834828-8500-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Otherwise, the kernel oopses in nla_for_each_nested when iterating over
-the unset attribute NFTA_SET_ELEM_LIST_ELEMENTS in the
-nf_tables_{new,del}setelem() path.
+From: Alexey Perevalov <a.perevalov@samsung.com>
 
-netlink: 65524 bytes leftover after parsing attributes in process `nft'.
-[...]
-Oops: 0000 [#1] SMP
-[...]
-CPU: 2 PID: 6287 Comm: nft Not tainted 3.16.0-rc2+ #169
-RIP: 0010:[<ffffffffa0526e61>]  [<ffffffffa0526e61>] nf_tables_newsetelem+0x82/0xec [nf_tables]
-[...]
-Call Trace:
- [<ffffffffa05178c4>] nfnetlink_rcv+0x2e7/0x3d7 [nfnetlink]
- [<ffffffffa0517939>] ? nfnetlink_rcv+0x35c/0x3d7 [nfnetlink]
- [<ffffffff8137d300>] netlink_unicast+0xf8/0x17a
- [<ffffffff8137d6a5>] netlink_sendmsg+0x323/0x351
-[...]
+Bit helper functions were used for manipulation with NFACCT_F_OVERQUOTA,
+but they are accepting pit position, but not a bit mask. As a result
+not a third bit for NFACCT_F_OVERQUOTA was set, but forth. Such
+behaviour was dangarous and could lead to unexpected overquota report
+result.
 
-Fix this by returning -EINVAL if this attribute is not set, which
-doesn't make sense at all since those commands are there to add and to
-delete elements from the set.
-
+Signed-off-by: Alexey Perevalov <a.perevalov@samsung.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_tables_api.c |    6 ++++++
- 1 file changed, 6 insertions(+)
+ net/netfilter/nfnetlink_acct.c |    8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index ecffb26..93692d6 100644
---- a/net/netfilter/nf_tables_api.c
-+++ b/net/netfilter/nf_tables_api.c
-@@ -3073,6 +3073,9 @@ static int nf_tables_newsetelem(struct sock *nlsk, struct sk_buff *skb,
- 	struct nft_ctx ctx;
- 	int rem, err = 0;
+diff --git a/net/netfilter/nfnetlink_acct.c b/net/netfilter/nfnetlink_acct.c
+index 11d863c..3ea0eac 100644
+--- a/net/netfilter/nfnetlink_acct.c
++++ b/net/netfilter/nfnetlink_acct.c
+@@ -41,6 +41,7 @@ struct nf_acct {
+ };
  
-+	if (nla[NFTA_SET_ELEM_LIST_ELEMENTS] == NULL)
-+		return -EINVAL;
-+
- 	err = nft_ctx_init_from_elemattr(&ctx, skb, nlh, nla, true);
- 	if (err < 0)
- 		return err;
-@@ -3156,6 +3159,9 @@ static int nf_tables_delsetelem(struct sock *nlsk, struct sk_buff *skb,
- 	struct nft_ctx ctx;
- 	int rem, err = 0;
+ #define NFACCT_F_QUOTA (NFACCT_F_QUOTA_PKTS | NFACCT_F_QUOTA_BYTES)
++#define NFACCT_OVERQUOTA_BIT	2	/* NFACCT_F_OVERQUOTA */
  
-+	if (nla[NFTA_SET_ELEM_LIST_ELEMENTS] == NULL)
-+		return -EINVAL;
-+
- 	err = nft_ctx_init_from_elemattr(&ctx, skb, nlh, nla, false);
- 	if (err < 0)
- 		return err;
+ static int
+ nfnl_acct_new(struct sock *nfnl, struct sk_buff *skb,
+@@ -77,7 +78,8 @@ nfnl_acct_new(struct sock *nfnl, struct sk_buff *skb,
+ 			smp_mb__before_atomic();
+ 			/* reset overquota flag if quota is enabled. */
+ 			if ((matching->flags & NFACCT_F_QUOTA))
+-				clear_bit(NFACCT_F_OVERQUOTA, &matching->flags);
++				clear_bit(NFACCT_OVERQUOTA_BIT,
++					  &matching->flags);
+ 			return 0;
+ 		}
+ 		return -EBUSY;
+@@ -150,7 +152,7 @@ nfnl_acct_fill_info(struct sk_buff *skb, u32 portid, u32 seq, u32 type,
+ 		bytes = atomic64_xchg(&acct->bytes, 0);
+ 		smp_mb__before_atomic();
+ 		if (acct->flags & NFACCT_F_QUOTA)
+-			clear_bit(NFACCT_F_OVERQUOTA, &acct->flags);
++			clear_bit(NFACCT_OVERQUOTA_BIT, &acct->flags);
+ 	} else {
+ 		pkts = atomic64_read(&acct->pkts);
+ 		bytes = atomic64_read(&acct->bytes);
+@@ -414,7 +416,7 @@ int nfnl_acct_overquota(const struct sk_buff *skb, struct nf_acct *nfacct)
+ 	ret = now > *quota;
+ 
+ 	if (now >= *quota &&
+-	    !test_and_set_bit(NFACCT_F_OVERQUOTA, &nfacct->flags)) {
++	    !test_and_set_bit(NFACCT_OVERQUOTA_BIT, &nfacct->flags)) {
+ 		nfnl_overquota_report(nfacct);
+ 	}
+ 
 -- 
 1.7.10.4
