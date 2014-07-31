@@ -1,8 +1,7 @@
 From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH net-next 3/4] inet: frags: use INET_FRAG_EVICTED to prevent icmp messages
-Date: Thu, 31 Jul 2014 17:11:38 +0200
-Message-ID: <1406819499-11198-4-git-send-email-nikolay@redhat.com>
-References: <1406819499-11198-1-git-send-email-nikolay@redhat.com>
+Subject: [PATCH net-next 0/4] inet: frags: cleanup and kmem_cache use
+Date: Thu, 31 Jul 2014 17:11:35 +0200
+Message-ID: <1406819499-11198-1-git-send-email-nikolay@redhat.com>
 Cc: Florian Westphal <fw@strlen.de>,
 	Nikolay Aleksandrov <nikolay@redhat.com>,
 	"David S. Miller" <davem@davemloft.net>,
@@ -14,115 +13,83 @@ Cc: Florian Westphal <fw@strlen.de>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:5692 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:43712 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751634AbaGaPOu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 31 Jul 2014 11:14:50 -0400
-In-Reply-To: <1406819499-11198-1-git-send-email-nikolay@redhat.com>
+	id S1751620AbaGaPOt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 31 Jul 2014 11:14:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now that we have INET_FRAG_EVICTED we might as well use it to stop
-sending icmp messages in the "frag_expire" functions instead of
-stripping INET_FRAG_FIRST_IN from their flags when evicting.
-Also fix the comment style in ip6_expire_frag_queue().
+Hello,
+This patchset does a couple of small cleanups in patches 1-3 and then in
+patch 04 it introduces the use of kmem_cache for allocation/freeing of
+inet_frag_queue+header objects.
 
-Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
----
- net/ipv4/inet_fragment.c |  2 --
- net/ipv4/ip_fragment.c   | 14 +++++++-------
- net/ipv6/reassembly.c    | 15 ++++++++-------
- 3 files changed, 15 insertions(+), 16 deletions(-)
+Here are the results of a couple of netperf runs:
+netperf options: -l 30 -I95,5 -i 15,10 -m 64k
 
-diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
-index 01d9b268f863..1e9a9592a8ac 100644
---- a/net/ipv4/inet_fragment.c
-+++ b/net/ipv4/inet_fragment.c
-@@ -151,8 +151,6 @@ evict_again:
- 			goto evict_again;
- 		}
- 
--		/* suppress xmit of (icmp) error packet */
--		fq->flags &= ~INET_FRAG_FIRST_IN;
- 		fq->flags |= INET_FRAG_EVICTED;
- 		hlist_del(&fq->list);
- 		hlist_add_head(&fq->list, &expired);
-diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-index 6fce1ecc5bca..cb56bcc1eee2 100644
---- a/net/ipv4/ip_fragment.c
-+++ b/net/ipv4/ip_fragment.c
-@@ -189,16 +189,18 @@ static void ip_expire(unsigned long arg)
- 		goto out;
- 
- 	ipq_kill(qp);
--
--	if (!(qp->q.flags & INET_FRAG_EVICTED))
--		IP_INC_STATS_BH(net, IPSTATS_MIB_REASMTIMEOUT);
- 	IP_INC_STATS_BH(net, IPSTATS_MIB_REASMFAILS);
- 
--	if ((qp->q.flags & INET_FRAG_FIRST_IN) && qp->q.fragments != NULL) {
-+	if (!(qp->q.flags & INET_FRAG_EVICTED)) {
- 		struct sk_buff *head = qp->q.fragments;
- 		const struct iphdr *iph;
- 		int err;
- 
-+		IP_INC_STATS_BH(net, IPSTATS_MIB_REASMTIMEOUT);
-+
-+		if (!(qp->q.flags & INET_FRAG_FIRST_IN) || !qp->q.fragments)
-+			goto out;
-+
- 		rcu_read_lock();
- 		head->dev = dev_get_by_index_rcu(net, qp->iif);
- 		if (!head->dev)
-@@ -211,8 +213,7 @@ static void ip_expire(unsigned long arg)
- 		if (err)
- 			goto out_rcu_unlock;
- 
--		/*
--		 * Only an end host needs to send an ICMP
-+		/* Only an end host needs to send an ICMP
- 		 * "Fragment Reassembly Timeout" message, per RFC792.
- 		 */
- 		if (qp->user == IP_DEFRAG_AF_PACKET ||
-@@ -221,7 +222,6 @@ static void ip_expire(unsigned long arg)
- 		     (skb_rtable(head)->rt_type != RTN_LOCAL)))
- 			goto out_rcu_unlock;
- 
--
- 		/* Send an ICMP "Fragment Reassembly Timeout" message. */
- 		icmp_send(head, ICMP_TIME_EXCEEDED, ICMP_EXC_FRAGTIME, 0);
- out_rcu_unlock:
-diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
-index b4baceed0d0d..beb6872a8fa5 100644
---- a/net/ipv6/reassembly.c
-+++ b/net/ipv6/reassembly.c
-@@ -141,19 +141,20 @@ void ip6_expire_frag_queue(struct net *net, struct frag_queue *fq,
- 	if (!dev)
- 		goto out_rcu_unlock;
- 
--	if (!(fq->q.flags & INET_FRAG_EVICTED))
--		IP6_INC_STATS_BH(net, __in6_dev_get(dev),
--				 IPSTATS_MIB_REASMTIMEOUT);
- 	IP6_INC_STATS_BH(net, __in6_dev_get(dev), IPSTATS_MIB_REASMFAILS);
- 
-+	if (fq->q.flags & INET_FRAG_EVICTED)
-+		goto out_rcu_unlock;
-+
-+	IP6_INC_STATS_BH(net, __in6_dev_get(dev), IPSTATS_MIB_REASMTIMEOUT);
-+
- 	/* Don't send error if the first segment did not arrive. */
- 	if (!(fq->q.flags & INET_FRAG_FIRST_IN) || !fq->q.fragments)
- 		goto out_rcu_unlock;
- 
--	/*
--	   But use as source device on which LAST ARRIVED
--	   segment was received. And do not use fq->dev
--	   pointer directly, device might already disappeared.
-+	/* But use as source device on which LAST ARRIVED
-+	 * segment was received. And do not use fq->dev
-+	 * pointer directly, device might already disappeared.
- 	 */
- 	fq->q.fragments->dev = dev;
- 	icmpv6_send(fq->q.fragments, ICMPV6_TIME_EXCEED, ICMPV6_EXC_FRAGTIME, 0);
+- 10 gig before the patchset
+MIGRATED UDP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.155.1 () port 0 AF_INET : +/-2.500% @ 95% conf. 
+Socket  Message  Elapsed      Messages                
+Size    Size     Time         Okay Errors   Throughput
+bytes   bytes    secs            #      #   10^6bits/sec
+
+212992   64000   30.00      442466      0    7551.39
+212992           30.00      439130           7494.45
+
+- 10 gig after the patchset
+MIGRATED UDP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.155.1 () port 0 AF_INET : +/-2.500% @ 95% conf. 
+Socket  Message  Elapsed      Messages                
+Size    Size     Time         Okay Errors   Throughput
+bytes   bytes    secs            #      #   10^6bits/sec
+
+212992   64000   30.00      458846      0    7830.94
+212992           30.00      457575           7809.25
+
+- Virtio before the patchset
+MIGRATED UDP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.144.1 () port 0 AF_INET : +/-2.500% @ 95% conf.
+Socket  Message  Elapsed      Messages                
+Size    Size     Time         Okay Errors   Throughput
+bytes   bytes    secs            #      #   10^6bits/sec
+
+212992   64000   30.00      735000      0    12543.96
+212992           30.00      560322           9562.79
+
+- Virtio after the patchset
+MIGRATED UDP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 192.168.144.1 () port 0 AF_INET : +/-2.500% @ 95% conf. 
+Socket  Message  Elapsed      Messages                
+Size    Size     Time         Okay Errors   Throughput
+bytes   bytes    secs            #      #   10^6bits/sec
+
+212992   64000   30.00      731729      0    12488.14
+212992           30.00      647241           11046.21
+
+CC: Florian Westphal <fw@strlen.de>
+CC: David S. Miller <davem@davemloft.net>
+CC: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+CC: James Morris <jmorris@namei.org>
+CC: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+CC: Patrick McHardy <kaber@trash.net>
+CC: Alexander Aring <alex.aring@gmail.com>
+CC: Eric Dumazet <eric.dumazet@gmail.com>
+
+Best regards,
+ Nikolay Aleksandrov
+
+Nikolay Aleksandrov (4):
+  inet: frags: use INC_STATS_BH in the ipv6 reassembly code
+  inet: frags: rename last_in to flags, enum the definitions and add
+    comments
+  inet: frags: use INET_FRAG_EVICTED to prevent icmp messages
+  inet: frags: use kmem_cache for inet_frag_queue
+
+ include/net/inet_frag.h                 | 50 +++++++++++++++++++++++++--------
+ net/ieee802154/reassembly.c             | 21 ++++++++------
+ net/ipv4/inet_fragment.c                | 38 ++++++++++++++-----------
+ net/ipv4/ip_fragment.c                  | 35 ++++++++++++-----------
+ net/ipv6/netfilter/nf_conntrack_reasm.c | 20 +++++++------
+ net/ipv6/reassembly.c                   | 45 ++++++++++++++++-------------
+ 6 files changed, 130 insertions(+), 79 deletions(-)
+
 -- 
 1.9.3
