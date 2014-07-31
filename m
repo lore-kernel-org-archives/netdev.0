@@ -1,57 +1,46 @@
-From: zhuyj <zyjzyj2000@gmail.com>
-Subject: Re: ipv4: net namespace does not inherit network configurations
-Date: Thu, 31 Jul 2014 09:59:12 +0800
-Message-ID: <53D9A2F0.4040808@gmail.com>
-References: <53D7697C.6020103@gmail.com> <CAHA+R7MC2gKeSWqR8pDDX26D-Th4BG1AveM+HseMMPjLBJuWDw@mail.gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 0/2 net-next] Lockless netlink_lookup() with
+ new concurrent hash table
+Date: Wed, 30 Jul 2014 19:08:24 -0700 (PDT)
+Message-ID: <20140730.190824.1834967880150777985.davem@davemloft.net>
+References: <cover.1406633945.git.tgraf@suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Hong Zhiguo <honkiko@gmail.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	"Tao, Yue" <Yue.Tao@windriver.com>,
-	Alexandre Dietsch <alexandre.dietsch@windriver.com>,
-	zhuyj <zyjzyj2000@gmail.com>
-To: Cong Wang <cwang@twopensource.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHA+R7MC2gKeSWqR8pDDX26D-Th4BG1AveM+HseMMPjLBJuWDw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
+ walpole-sKt6ljEC1JY3uPMLIKxrzw@public.gmane.org
+To: tgraf-G/eBtMaohhA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <cover.1406633945.git.tgraf-G/eBtMaohhA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On 07/30/2014 01:48 AM, Cong Wang wrote:
-> On Tue, Jul 29, 2014 at 2:29 AM, zhuyj <zyjzyj2000@gmail.com> wrote:
->> Hi,all
->>
->> I did a test on kernel3.16 rc6:
->>
->> root@qemu1:~# echo 1 > /proc/sys/net/ipv6/conf/all/forwarding
->> root@qemu1:~# echo 1 > /proc/sys/net/ipv4/conf/all/forwarding
->> root@qemu1:~# ip netns list
->> root@qemu1:~# ip netns add fib1
->> root@qemu1:~# ip netns exec fib1 bash
->> root@qemu1:~# cat /proc/sys/net/ipv6/conf/all/forwarding
->> 0
->> root@qemu1:~# cat /proc/sys/net/ipv4/conf/all/forwarding
->> 1
->>
->> The behavior of ipv4 and ipv6 is very inconsistent. I checked
->> the kernel source code. I found that from this patch
->> [ipv6: fix bad free of addrconf_init_net], the above difference
->> appeared.
->>
->> Since a net namespace is independent to another. That is, there
->> is no any relationship between the net namespaces. So the behavior
->> of ipv4 is not correct.
->>
-> Well, they are already independent, not shared, just that the initial
-> value is duplicated from init_net for IPv4.
->
-> This change might break existing applications which rely on this
-> behavior, but given IPv6 change is almost the same, I think it's ok.
->
-> BTW, you need to submit a patch as normal, instead of as an attachment.
->
-OK. Thanks a lot.
+From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+Date: Tue, 29 Jul 2014 13:41:31 +0200
 
-Zhu Yanjun
+> Netlink sockets are maintained in a hash table to allow efficient lookup
+> via the port ID for unicast messages. However, lookups currently require
+> a read lock to be taken. This series adds a new generic, resizable,
+> scalable, concurrent hash table based on the paper referenced in the first
+> patch. It then makes use of the new data type to implement lockless
+> netlink_lookup().
+> 
+> Against net-next since the initial user of the new hash table is in net/
+> 
+> Thomas Graf (2):
+>   lib: Resizable, Scalable, Concurrent Hash Table
+>   netlink: Convert netlink_lookup() to use RCU protected hash table
+
+This series looks great, please post an updated series once you have
+addressed the current feedback.
+
+Thanks!
