@@ -1,43 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bonding: use kobject_put instead of _del
- after kobject_add
-Date: Thu, 31 Jul 2014 11:16:28 -0700 (PDT)
-Message-ID: <20140731.111628.1288677880511822667.davem@davemloft.net>
-References: <1406633263-2115-1-git-send-email-vfalico@gmail.com>
-	<20140730.173743.1842150455499005693.davem@davemloft.net>
-	<20140731104601.GA4373@mikrodark.usersys.redhat.com>
+Subject: Re: [PATCH net v3 0/6] net: stmmac: Improve mcast/ucast filter for
+ snps
+Date: Thu, 31 Jul 2014 11:59:11 -0700 (PDT)
+Message-ID: <20140731.115911.404121838921688216.davem@davemloft.net>
+References: <1406671607-27368-1-git-send-email-vbridgers2013@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, j.vosburgh@gmail.com, andy@greyhouse.net
-To: vfalico@gmail.com
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+	peppe.cavallaro@st.com, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	linux@arm.linux.org.uk, linux-arm-kernel@lists.infradead.org,
+	robh+dt@kernel.org, dinguyen@altera.com, vbridger@altera.com
+To: vbridgers2013@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48675 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49618 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752154AbaGaSQa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2014 14:16:30 -0400
-In-Reply-To: <20140731104601.GA4373@mikrodark.usersys.redhat.com>
+	with ESMTP id S1751008AbaGaS7O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2014 14:59:14 -0400
+In-Reply-To: <1406671607-27368-1-git-send-email-vbridgers2013@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Veaceslav Falico <vfalico@gmail.com>
-Date: Thu, 31 Jul 2014 12:46:01 +0200
+From: Vince Bridgers <vbridgers2013@gmail.com>
+Date: Tue, 29 Jul 2014 17:06:41 -0500
 
-> On Wed, Jul 30, 2014 at 05:37:43PM -0700, David Miller wrote:
->>From: Veaceslav Falico <vfalico@gmail.com>
->>Date: Tue, 29 Jul 2014 13:27:43 +0200
->>
->>> Otherwise the name of the kobject isn't getting freed and other stuff
->>> from
->>> kobject_cleanup() isn't getting called. kobject_put() will call
->>> kobject_del() on its own in kobject_cleanup().
->>>
->>> CC: Jay Vosburgh <j.vosburgh@gmail.com>
->>> CC: Andy Gospodarek <andy@greyhouse.net>
->>> Signed-off-by: Veaceslav Falico <vfalico@gmail.com>
->>
->>Introduced in v3.14, so maybe steer this to 'net' instead?
+> This patch series adds Synopsys specific bindings for the Synopsys EMAC
+> filter characteristics since those are implementation dependent. The
+> multicast and unicast filtering code was improved to handle different
+> configuration variations based on device tree settings. 
 > 
-> Good idea. Should I re-send it or can you just apply it to net?
+> I verified the operation of the multicast and unicast filters through 
+> Synopsys support as requested during the V1 review, and tested the GMAC
+> configuration on an Altera Cyclone 5 SOC (which supports 256 multicast
+> bins and 128 Unicast addresses). The 10/100 variant of this driver
+> modification was not tested, although it was compile tested. I shared
+> the email thread results of the investigation through Synopsys with the
+> stmmac maintainer.
 
-I'll just apply it, thanks.
+Please update this series taking into account the feedback you've
+received for patch #6, thanks.
