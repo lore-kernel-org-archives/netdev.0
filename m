@@ -1,31 +1,72 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net-next 3/3] nftables: Convert nft_hash to use generic
- rhashtable
-Date: Fri, 1 Aug 2014 14:49:01 +0100
-Message-ID: <20140801134901.GD7331@casper.infradead.org>
-References: <cover.1406891028.git.tgraf@suug.ch>
- <bd4d9fa542072358cb0bd77e493ec5785a1d9666.1406891028.git.tgraf@suug.ch>
- <53DB864B.2070205@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kaber@trash.net,
-	paulmck@linux.vnet.ibm.com, josh@joshtriplett.org,
-	challa@noironetworks.com, walpole@cs.pdx.edu, dev@openvswitch.org,
-	tklauser@distanz.ch, netfilter-devel@vger.kernel.org
-To: Nikolay Aleksandrov <nikolay@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <53DB864B.2070205@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Oliver Neukum <oneukum@suse.de>
+Subject: [PATCH] r8152: correct error returns
+Date: Fri,  1 Aug 2014 15:56:10 +0200
+Message-ID: <1406901370-6847-1-git-send-email-oneukum@suse.de>
+Cc: Oliver Neukum <oneukum@suse.de>
+To: davem@davemloft.net, netdev@vger.kernel.org, nic_swsd@realtek.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:55579 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753770AbaHAN4Q (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Aug 2014 09:56:16 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/01/14 at 02:21pm, Nikolay Aleksandrov wrote:
-> Sorry for the late response but I just got around to check the 3rd patch now,
-> so my question about this fragment is: before nft_hash_remove() would free the
-> element after removal, but after this change I don't see where and when the
-> removed element would get freed ?
+If an autoresume fails the internal error codes of the PM
+subsystem mustn't be leaked to user space. Replace them by EIO
 
-You are right. Looking at this closer we were leaking references even
-before the change because it would not call nft_data_uninit() to release
-the data objects. So it should really just call nft_hash_elem_destroy().
+Signed-off-by: Oliver Neukum <oneukum@suse.de>
+---
+ drivers/net/usb/r8152.c | 13 ++++++++++---
+ 1 file changed, 10 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index 87f7104..0e5b9f9 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -2810,6 +2810,7 @@ static int rtl8152_open(struct net_device *netdev)
+ 	res = usb_autopm_get_interface(tp->intf);
+ 	if (res < 0) {
+ 		free_all_mem(tp);
++		res = -EIO;
+ 		goto out;
+ 	}
+ 
+@@ -3116,8 +3117,10 @@ static int rtl8152_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
+ 	int ret;
+ 
+ 	ret = usb_autopm_get_interface(tp->intf);
+-	if (ret < 0)
++	if (ret < 0) {
++		ret = -EIO;
+ 		goto out_set_wol;
++	}
+ 
+ 	__rtl_set_wol(tp, wol->wolopts);
+ 	tp->saved_wolopts = wol->wolopts & WAKE_ANY;
+@@ -3169,8 +3172,10 @@ static int rtl8152_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 	int ret;
+ 
+ 	ret = usb_autopm_get_interface(tp->intf);
+-	if (ret < 0)
++	if (ret < 0) {
++		ret = -EIO;
+ 		goto out;
++	}
+ 
+ 	ret = rtl8152_set_speed(tp, cmd->autoneg, cmd->speed, cmd->duplex);
+ 
+@@ -3267,8 +3272,10 @@ static int rtl8152_ioctl(struct net_device *netdev, struct ifreq *rq, int cmd)
+ 		return -ENODEV;
+ 
+ 	res = usb_autopm_get_interface(tp->intf);
+-	if (res < 0)
++	if (res < 0) {
++		res = -EIO;
+ 		goto out;
++	}
+ 
+ 	switch (cmd) {
+ 	case SIOCGMIIPHY:
+-- 
+1.8.4.5
