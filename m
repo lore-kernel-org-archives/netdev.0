@@ -1,38 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] ipv6: addrconf: clean up device type handling
-Date: Thu, 31 Jul 2014 22:31:10 -0700 (PDT)
-Message-ID: <20140731.223110.1134366032001151674.davem@davemloft.net>
-References: <1406840034-140848-1-git-send-email-equinox@diac24.net>
-	<1406840034-140848-3-git-send-email-equinox@diac24.net>
-	<1406844815.13603.24.camel@localhost>
+Subject: Re: [PATCH net-next v4 0/5] net-timestamp: additional sw tstamps
+ and
+Date: Thu, 31 Jul 2014 22:35:02 -0700 (PDT)
+Message-ID: <20140731.223502.1817836164659773906.davem@davemloft.net>
+References: <1406735328-7520-1-git-send-email-willemb@google.com>
+	<20140731.134330.1615160836103431950.davem@davemloft.net>
+	<CA+FuTSe1T4-CtK88rBrm_yymer5iEPR7f8p-+bYHSW_4zMpAUg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: equinox@diac24.net, netdev@vger.kernel.org,
-	stephen@networkplumber.org, nicolas.dichtel@6wind.com
-To: hannes@stressinduktion.org
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	richardcochran@gmail.com
+To: willemb@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54483 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54501 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750745AbaHAFbL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Aug 2014 01:31:11 -0400
-In-Reply-To: <1406844815.13603.24.camel@localhost>
+	with ESMTP id S1750851AbaHAFfF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Aug 2014 01:35:05 -0400
+In-Reply-To: <CA+FuTSe1T4-CtK88rBrm_yymer5iEPR7f8p-+bYHSW_4zMpAUg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Fri, 01 Aug 2014 00:13:35 +0200
+From: Willem de Bruijn <willemb@google.com>
+Date: Thu, 31 Jul 2014 17:36:16 -0400
 
-> David, can you respin this series without the macros and maybe add the
-> 
-> "case ARPHRD_IP6GRE:" stuff
-> 
-> as a separate patch (which should also go into net/stable). If you don't
-> want to do this, I also can take care of this, no problem.
-> 
-> You can then repost this one separate and state in the comment section
-> that this cleanup patch depends on the other two, so Dave can merge it
-> accordingly to net and net-next?
+> An earlier internal version of the patch did not lock the buffers,
+> but recorded the seqno in skb_shared_info and referenced that in
+> these cases. The obvious drawback is having to store an u32 in
+> skb_shinfo. We did just regain 64b with the removal of syststamp,
+> though. Would this be a reasonable approach?
 
-Indeed, please respin this series making the target tree(s) more
-explicit, thanks.
+At the time we were discussing the removal syststamp, the intention
+was to use that space for a new value that can be use to match up
+timestamps properly with the packets they are for.
+
+Originally you wanted to use skb->mark for this and then we discussed
+all of the drawbacks and shortcoming of that.
+
+What happened to those plans?
+
+Also, there might be 4 bytes available in tcp_skb_cb.
