@@ -1,93 +1,85 @@
-From: KY Srinivasan <kys@microsoft.com>
-Subject: RE: [PATCH 1/1] Drivers: net-next: hyperv: Increase the size of the
- sendbuf region
-Date: Fri, 1 Aug 2014 17:51:44 +0000
-Message-ID: <e19aea30a421423090ba63db9ff8e0af@BY2PR0301MB0711.namprd03.prod.outlook.com>
-References: <1406770549-29982-1-git-send-email-kys@microsoft.com>
- <20140731.215907.860867918938148695.davem@davemloft.net>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH v4 net-next 5/5] net: filter: split 'struct sk_filter'
+ into socket and bpf parts
+Date: Fri, 1 Aug 2014 21:03:41 +0200
+Message-ID: <20140801190341.GA28642@salvia>
+References: <1406777656-27755-1-git-send-email-ast@plumgrid.com>
+ <1406777656-27755-6-git-send-email-ast@plumgrid.com>
+ <20140731194059.GA8681@salvia>
+ <CAMEtUuy+iABzHagoono+CPB=Ex4Ew4vQBK65x1jDRC9_W9L7Dw@mail.gmail.com>
+ <20140801160612.GA4679@salvia>
+ <CAMEtUuympZm+qVOc+4MJoSnAwSZ-Gx=tSOaHwudtP7Q92eHAtw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "jasowang@redhat.com" <jasowang@redhat.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "apw@canonical.com" <apw@canonical.com>,
- "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20140731.215907.860867918938148695.davem@davemloft.net>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Willem de Bruijn <willemb@google.com>,
+	Kees Cook <keescook@chromium.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAMEtUuympZm+qVOc+4MJoSnAwSZ-Gx=tSOaHwudtP7Q92eHAtw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Thursday, July 31, 2014 9:59 PM
-> To: KY Srinivasan
-> Cc: netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
-> devel@linuxdriverproject.org; olaf@aepfle.de; apw@canonical.com;
-> jasowang@redhat.com
-> Subject: Re: [PATCH 1/1] Drivers: net-next: hyperv: Increase the size of the
-> sendbuf region
-> 
-> From: "K. Y. Srinivasan" <kys@microsoft.com>
-> Date: Wed, 30 Jul 2014 18:35:49 -0700
-> 
-> > For forwarding scenarios, it will be useful to allocate larger
-> > sendbuf. Make the necessary adjustments to permit this.
+On Fri, Aug 01, 2014 at 09:50:31AM -0700, Alexei Starovoitov wrote:
+> On Fri, Aug 1, 2014 at 9:06 AM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+> > On Thu, Jul 31, 2014 at 02:02:19PM -0700, Alexei Starovoitov wrote:
+> >> On Thu, Jul 31, 2014 at 12:40 PM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+> >> > On Wed, Jul 30, 2014 at 08:34:16PM -0700, Alexei Starovoitov wrote:
+> >> >> clean up names related to socket filtering and bpf in the following way:
+> >> >> - everything that deals with sockets keeps 'sk_*' prefix
+> >> >> - everything that is pure BPF is changed to 'bpf_*' prefix
+> >> >>
+> >> >> split 'struct sk_filter' into
+> >> >> struct sk_filter {
+> >> >>       atomic_t        refcnt;
+> >> >>       struct rcu_head rcu;
+> >> >>       struct bpf_prog *prog;
+> >> >> };
+> >> >
+> >> > I think you can use 'struct bpf_prog prog' instead so the entire
+> >> > sk_filter remains in the same memory blob (as it is before this
+> >> > patch).
+> >> >
+> >> > You can add an inline function to retrieve the bpg prog from the
+> >> > filter:
+> >> >
+> >> > static inline struct bpf_prog *sk_filter_bpf(struct sk_filter *)
+> >> >
+> >> > and use it whenever possible to fetch the bpf program. I'm suggesting
+> >> > this because we can use the zero array size in the socket filtering
+> >> > abstraction later on, if the function above is used, this just needs
+> >> > one line in that function to be updated to fetch the program from the
+> >> > placeholder.
+> >>
+> >> correct. It would speed up SK_RUN_FILTER macro a little and I've
+> >> considered it, but decided to go with the pointer for two reasons:
+> >> 1.In sk_attach_filter() the bpf_prog is allocated, then reallocated
+> >> as part of bpf_prepare_filter(). My patch #1 cleans up that part to
+> >> avoid 'struct sock *' dependency, so all bpf_* functions work
+> >> purely with bpf_prog... If bpf_prog is embedded inside sk_filter,
+> >> bpf_prepare_filter would need to have a callback to reallocate
+> >> the container struct and pass this callback through the chain
+> >> of calls, which is ugly
 > >
-> > Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+> > I think you can allocate the sk_filter once you get the final bpf
+> > program, then you can memcpy() it. This adds some extra overhead in
+> > the sk_attach_filter(), but that path is executed from user context
+> > and it's also a rare operation (only once to attach the filter). It's
+> > still not going to be a beauty, but IMO it's worth to focus on getting
+> > that little speed up in the packet path at the cost of adding some
+> > overhead on the socket attach path.
 > 
-> This needs more information.
-> 
-> You're increasing the size by 16 times, 1MB --> 16MB, thus less cache locality.
-> 
-> You're also now using vmalloc() memory, thus more TLB misses and
-> thrashing.
-> 
-> This must have a negative impact on performance, and you have to test for
-> that and quantify it when making a change as serious as this one.
-> 
-> You also haven't gone into detail as to why forwarding scenerios require
-> more buffer space, than say thousands of local sockets sending bulk TCP
-> data.
+> memcpy of 'bpf_prog' is not just 'not a beauty', it won't work, since
+> bpf_prog is freed via work_queue due to JIT. See bpf_jit_free()
+[...]
 
-David,
+I see, in this patch you renamed sk_filter to bpf_prog in
+bpf_jit_free() so no access to sk_filter anymore and alignment needs a
+closer look.
 
-Intel did some benchmarking on our network throughput when Linux on Hyper-V was used as a gateway.
-This fix gave us almost a 1 Gbps additional throughput on about 5Gbps base throughput we had prior to
-Increasing the sendbuf size. The sendbuf mechanism is a copy based transport that we have which is clearly
-more optimal than the copy-free page flipping mechanism (for small packets). In the forwarding scenario, we deal
-only with MTU sized packets, and increasing the size of the senbuf area gave us the additional performance.
-
-For what it is worth, Windows guests on Hyper-V, I am told use similar sendbuf size as well.
-
-The exact value of sendbuf I think is less important than the fact that it needs to be larger than what Linux can
-allocate as physically contiguous memory. Thus the change over to allocating via vmalloc(). As you know we currently
-allocate 16MB receive buffer and we use vmalloc there for allocation. Also the low level channel code has already been
-modified to deal with physically dis-contiguous memory in the ringbuffer setup.
-
-Again based on experimentation Intel did, they say there was some improvement in throughput as the sendbuf size was
-Increased up to 16MB and there was no effect on throughput beyond 16MB. Thus I chose 16MB here.
-
-Increasing the sendbuf value makes a material difference in small packet handling. Let me know what I should do to
-make this patch acceptable.
-
-Regards,
-
-K. Y
-
- 
-> 
-> I'm not applying this, it needs a lot more work.
+OK... let's stick to the struct bpf_prog pointer.
