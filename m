@@ -1,92 +1,61 @@
 From: Aaron Brown <aaron.f.brown@intel.com>
-Subject: [net-next 00/14] Intel Wired LAN Driver Updates
-Date: Fri,  1 Aug 2014 13:27:01 -0700
-Message-ID: <1406924835-31550-1-git-send-email-aaron.f.brown@intel.com>
-Cc: Aaron Brown <aaron.f.brown@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com
+Subject: [net-next 03/14] i40e: adds FCoE to build and updates its documentation
+Date: Fri,  1 Aug 2014 13:27:04 -0700
+Message-ID: <1406924835-31550-4-git-send-email-aaron.f.brown@intel.com>
+References: <1406924835-31550-1-git-send-email-aaron.f.brown@intel.com>
+Cc: Vasu Dev <vasu.dev@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com,
+	Aaron Brown <aaron.f.brown@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([143.182.124.21]:60887 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755837AbaHAUXR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Aug 2014 16:23:17 -0400
+	id S1754818AbaHAUXW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Aug 2014 16:23:22 -0400
+In-Reply-To: <1406924835-31550-1-git-send-email-aaron.f.brown@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to the i40e and i40evf drivers.
+From: Vasu Dev <vasu.dev@intel.com>
 
-Vasu adds FCOE support, build options and a documentation pointer to i40e.
+Adds newly added FCoE files to the build but only if FCoE module is configured.
 
-Shannon exposes a Firmware API request used to do register writes on the
-driver's behalf and disables local loopback on VMDQ VSI in order to stop the
-VEB from echoing the VMDQ packets back at the VSI.
+Also, updates i40e document for added FCoE support.
 
-Ashish corrects the vf_id offset for virtchnl messages in the case of multiple
-PFs, removes support for vf unicast promiscuos mode to disallow VFs from
-receiving traffic intended for another VF, updates the vfr_stat state check to
-handle the existing and future mechanism and adds an adapter state check to
-prevent re-arming the watchdog timer after i40evf_remove has been called and
-the timer has been deleted.
+Signed-off-by: Vasu Dev <vasu.dev@intel.com>
+Tested-by: Jack Morgan<jack.morgan@intel.com>
+Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
+---
+ Documentation/networking/i40e.txt        | 7 +++++--
+ drivers/net/ethernet/intel/i40e/Makefile | 1 +
+ 2 files changed, 6 insertions(+), 2 deletions(-)
 
-Serey fixes an issue where a guest OS would panic when removing the vf driver
-while the device is being reset due to an attempt to clean a non initialized
-mac_filter_list.
-
-Akeem makes a minor comment change.
-
-Jessie changes an instance of sprintf to snprintf that was missed when the
-driver was converted to use snprintf everywhere.
-
-Mitch plugs a few memory leaks.
-
-Akeem G Abodunrin (1):
-  i40e: Minor comment changes
-
-Ashish Shah (4):
-  i40e: use correct vf_id offset for virtchnl message
-  i40e: remove support for vf unicast promiscuous mode
-  i40evf: future-proof vfr_stat state check
-  i40evf: do not re-arm watchdog after remove
-
-Jesse Brandeburg (1):
-  i40evf: fix scan warning on sprintf
-
-Mitch Williams (2):
-  i40evf: don't leak queue vectors
-  i40evf: fix memory leak on unused interfaces
-
-Serey Kong (1):
-  i40evf: Fixed guest OS panic when removing vf driver
-
-Shannon Nelson (2):
-  i40e: expose debug_write_register request
-  i40e: disable local loopback on vmdq vsi
-
-Vasu Dev (3):
-  i40e: adds FCoE code to the i40e driver
-  i40e: Adds FCoE related code to i40e core driver
-  i40e: adds FCoE to build and updates its documentation
-
- Documentation/networking/i40e.txt                  |    7 +-
- drivers/net/ethernet/intel/i40e/Makefile           |    1 +
- drivers/net/ethernet/intel/i40e/i40e.h             |   62 +
- drivers/net/ethernet/intel/i40e/i40e_common.c      |   56 +
- drivers/net/ethernet/intel/i40e/i40e_debugfs.c     |   19 +
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |   35 +
- drivers/net/ethernet/intel/i40e/i40e_fcoe.c        | 1561 ++++++++++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_fcoe.h        |  128 ++
- drivers/net/ethernet/intel/i40e/i40e_main.c        |  269 +++-
- drivers/net/ethernet/intel/i40e/i40e_osdep.h       |    3 +
- drivers/net/ethernet/intel/i40e/i40e_prototype.h   |    6 +
- drivers/net/ethernet/intel/i40e/i40e_txrx.c        |   37 +-
- drivers/net/ethernet/intel/i40e/i40e_txrx.h        |    9 +
- drivers/net/ethernet/intel/i40e/i40e_type.h        |  138 ++
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |   34 +-
- drivers/net/ethernet/intel/i40evf/i40evf_ethtool.c |    2 +-
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    |   59 +-
- 17 files changed, 2393 insertions(+), 33 deletions(-)
- create mode 100644 drivers/net/ethernet/intel/i40e/i40e_fcoe.c
- create mode 100644 drivers/net/ethernet/intel/i40e/i40e_fcoe.h
-
+diff --git a/Documentation/networking/i40e.txt b/Documentation/networking/i40e.txt
+index f737273..a251bf4 100644
+--- a/Documentation/networking/i40e.txt
++++ b/Documentation/networking/i40e.txt
+@@ -69,8 +69,11 @@ Additional Configurations
+ 
+   FCoE
+   ----
+-  Fiber Channel over Ethernet (FCoE) hardware offload is not currently
+-  supported.
++  The driver supports Fiber Channel over Ethernet (FCoE) and Data Center
++  Bridging (DCB) functionality. Configuring DCB and FCoE is outside the scope
++  of this driver doc. Refer to http://www.open-fcoe.org/ for FCoE project
++  information and http://www.open-lldp.org/ or email list
++  e1000-eedc@lists.sourceforge.net for DCB information.
+ 
+   MAC and VLAN anti-spoofing feature
+   ----------------------------------
+diff --git a/drivers/net/ethernet/intel/i40e/Makefile b/drivers/net/ethernet/intel/i40e/Makefile
+index d9eb80a..4b94ddb 100644
+--- a/drivers/net/ethernet/intel/i40e/Makefile
++++ b/drivers/net/ethernet/intel/i40e/Makefile
+@@ -44,3 +44,4 @@ i40e-objs := i40e_main.o \
+ 	i40e_virtchnl_pf.o
+ 
+ i40e-$(CONFIG_I40E_DCB) += i40e_dcb.o i40e_dcb_nl.o
++i40e-$(CONFIG_FCOE:m=y) += i40e_fcoe.o
 -- 
 1.9.3
