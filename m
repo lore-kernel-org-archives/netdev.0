@@ -1,27 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] netlink: Use PAGE_ALIGNED macro
-Date: Thu, 31 Jul 2014 22:05:43 -0700 (PDT)
-Message-ID: <20140731.220543.1894373562509830625.davem@davemloft.net>
-References: <1406801828-4220-1-git-send-email-tklauser@distanz.ch>
+Subject: Re: [PATCH 1/1] AX88179_178A: Add ethtool ops for EEE support
+Date: Thu, 31 Jul 2014 22:08:06 -0700 (PDT)
+Message-ID: <20140731.220806.404506771081570403.davem@davemloft.net>
+References: <1406804795-2754-1-git-send-email-freddy@asix.com.tw>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: tklauser@distanz.ch
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54282 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753946AbaHAFFo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Aug 2014 01:05:44 -0400
-In-Reply-To: <1406801828-4220-1-git-send-email-tklauser@distanz.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, louis@asix.com.tw
+To: freddy@asix.com.tw
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1406804795-2754-1-git-send-email-freddy@asix.com.tw>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tobias Klauser <tklauser@distanz.ch>
-Date: Thu, 31 Jul 2014 12:17:08 +0200
+From: freddy@asix.com.tw
+Date: Thu, 31 Jul 2014 19:06:35 +0800
 
-> Use PAGE_ALIGNED(...) instead of IS_ALIGNED(..., PAGE_SIZE).
+> From: Freddy Xin <freddy@asix.com.tw>
 > 
-> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+> Add functions to support ethtool EEE manipulating, and the EEE
+> is disabled in default setting to enhance the compatibility
+> with certain switch.
+> 
+> Signed-off-by: Freddy Xin <freddy@asix.com.tw>
 
 Applied, thanks.
