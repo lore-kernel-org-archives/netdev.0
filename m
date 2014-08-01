@@ -1,56 +1,55 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/2] random32: improvements to prandom_bytes
-Date: Thu, 31 Jul 2014 22:28:04 -0700 (PDT)
-Message-ID: <20140731.222804.1403723639172562683.davem@davemloft.net>
-References: <1406837476-13776-1-git-send-email-dborkman@redhat.com>
+Subject: Re: [PATCH net] net: Correctly set segment mac_len in
+ skb_segment().
+Date: Thu, 31 Jul 2014 22:29:12 -0700 (PDT)
+Message-ID: <20140731.222912.1916841568774711697.davem@davemloft.net>
+References: <1406817186-17844-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org
-To: dborkman@redhat.com
+Cc: netdev@vger.kernel.org, edumazet@google.com
+To: vyasevic@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54460 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54472 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750851AbaHAF2F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Aug 2014 01:28:05 -0400
-In-Reply-To: <1406837476-13776-1-git-send-email-dborkman@redhat.com>
+	with ESMTP id S1750851AbaHAF3N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Aug 2014 01:29:13 -0400
+In-Reply-To: <1406817186-17844-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Thu, 31 Jul 2014 22:11:16 +0200
+From: Vlad Yasevich <vyasevic@redhat.com>
+Date: Thu, 31 Jul 2014 10:33:06 -0400
 
-> -		for (j = 0; j < sizeof(u32); j++) {
-> -			p[i + j] = random;
-> -			random >>= BITS_PER_BYTE;
-> -		}
-> +	while (bytes > sizeof(u32)) {
-> +		put_unaligned(prandom_u32_state(state), (u32 *) ptr);
-> +		ptr += sizeof(u32);
-> +		bytes -= sizeof(u32);
->  	}
-> -	if (i < bytes) {
-> -		u32 random = prandom_u32_state(state);
->  
-> -		for (; i < bytes; i++) {
-> -			p[i] = random;
-> -			random >>= BITS_PER_BYTE;
-> -		}
-> +	if (bytes > 0) {
-> +		u32 rem = prandom_u32_state(state);
-> +		do {
-> +			*ptr++ = (u8) rem;
-> +			bytes--;
-> +			rem >>= BITS_PER_BYTE;
-> +		} while (bytes > 0);
->  	}
+> When performing segmentation, the mac_len value is copied right
+> out of the original skb.  However, this value is not always set correctly
+> (like when the packet is VLAN-tagged) and we'll end up copying a bad
+> value.
+> 
+> One way to demonstrate this is to configure a VM which tags
+> packets internally and turn off VLAN acceleration on the forwarding
+> bridge port.  The packets show up corrupt like this:
+> 16:18:24.985548 52:54:00:ab:be:25 > 52:54:00:26:ce:a3, ethertype 802.1Q
+> (0x8100), length 1518: vlan 100, p 0, ethertype 0x05e0,
+>         0x0000:  8cdb 1c7c 8cdb 0064 4006 b59d 0a00 6402 ...|...d@.....d.
+>         0x0010:  0a00 6401 9e0d b441 0a5e 64ec 0330 14fa ..d....A.^d..0..
+>         0x0020:  29e3 01c9 f871 0000 0101 080a 000a e833)....q.........3
+>         0x0030:  000f 8c75 6e65 7470 6572 6600 6e65 7470 ...unetperf.netp
+>         0x0040:  6572 6600 6e65 7470 6572 6600 6e65 7470 erf.netperf.netp
+>         0x0050:  6572 6600 6e65 7470 6572 6600 6e65 7470 erf.netperf.netp
+>         0x0060:  6572 6600 6e65 7470 6572 6600 6e65 7470 erf.netperf.netp
+>         ...
+> 
+> This also leads to awful throughput as GSO packets are dropped and
+> cause retransmissions.
+> 
+> The solution is to set the mac_len using the values already available
+> in then new skb.  We've already adjusted all of the header offset, so we
+> might as well correctly figure out the mac_len using skb_reset_mac_len().
+> After this change, packets are segmented correctly and performance
+> is restored.
+> 
+> CC: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 
-This conversion to put_unaligned() is not an equivalent depending
-upon the endianness of the cpu.
-
-And this means the random value gets distributed differently into
-full words than it will into trailing bytes.
-
-Let's just not mess around with this, ok?
-
-Thanks.
+Applied, and I'm assuming this is meant to go to -stable too right?
