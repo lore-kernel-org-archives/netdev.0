@@ -1,28 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] AX88179_178A: Add ethtool ops for EEE support
-Date: Thu, 31 Jul 2014 22:08:06 -0700 (PDT)
-Message-ID: <20140731.220806.404506771081570403.davem@davemloft.net>
-References: <1406804795-2754-1-git-send-email-freddy@asix.com.tw>
+Subject: Re: [PATCH net] ipv6: data of fwmark_reflect needs to be updated
+ on netns construction
+Date: Thu, 31 Jul 2014 22:09:27 -0700 (PDT)
+Message-ID: <20140731.220927.1291287710369710161.davem@davemloft.net>
+References: <2a80411c2242306dde7de22d4446717362e082d6.1406809674.git.hannes@stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, louis@asix.com.tw
-To: freddy@asix.com.tw
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1406804795-2754-1-git-send-email-freddy@asix.com.tw>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, lorenzo@google.com
+To: hannes@stressinduktion.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54317 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753432AbaHAFJ2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Aug 2014 01:09:28 -0400
+In-Reply-To: <2a80411c2242306dde7de22d4446717362e082d6.1406809674.git.hannes@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: freddy@asix.com.tw
-Date: Thu, 31 Jul 2014 19:06:35 +0800
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Thu, 31 Jul 2014 14:34:55 +0200
 
-> From: Freddy Xin <freddy@asix.com.tw>
-> 
-> Add functions to support ethtool EEE manipulating, and the EEE
-> is disabled in default setting to enhance the compatibility
-> with certain switch.
-> 
-> Signed-off-by: Freddy Xin <freddy@asix.com.tw>
+> Fixes: e110861f86094cd ("net: add a sysctl to reflect the fwmark on replies")
+> Cc: Lorenzo Colitti <lorenzo@google.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-Applied, thanks.
+This doesn't apply cleanly to the 'net' tree, please respin.
