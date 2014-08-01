@@ -1,55 +1,31 @@
-From: Peter Moody <pmoody@google.com>
-Subject: Re: [PATCH v2 0/2] RFC, aiding pid/network correlation
-Date: Fri, 01 Aug 2014 10:22:01 -0700
-Message-ID: <r3noaw4m8g6.fsf@perdido.sfo.corp.google.com>
-References: <1406856100-21674-1-git-send-email-pmoody@google.com>
-	<87y4v876bs.fsf@synack.fr>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [cxgb4i] INFO: suspicious RCU usage. ]
+Date: Fri, 1 Aug 2014 10:27:13 -0700
+Message-ID: <CAM_iQpVz_UsFfyv2kjDbgt=KgSQHS8G6mEmjM63rvFnTFjDmoQ@mail.gmail.com>
+References: <20140730140235.GA13959@localhost>
+	<20140801123225.GA6728@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-security-module@vger.kernel.org, brandon.carpenter@pnnl.gov,
-	casey@schaufler-ca.com, netdev@vger.kernel.org
-To: Samir Bellabes <sam@synack.fr>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <87y4v876bs.fsf@synack.fr> (Samir Bellabes's message of "Fri\, 01
-	Aug 2014 14\:16\:55 +0200")
-Sender: linux-security-module-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Anish Bhatt <anish@chelsio.com>, Jet Chen <jet.chen@intel.com>,
+	Su Tao <tao.su@intel.com>, Yuanhan Liu <yuanhan.liu@intel.com>,
+	LKP <lkp@01.org>, LKML <linux-kernel@vger.kernel.org>,
+	"Lu, Aaron" <aaron.lu@intel.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Fengguang Wu <fengguang.wu@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140801123225.GA6728@localhost>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-
-Hi Samir,
-
->>  * Is there already an existing mechanism to do this?
+On Fri, Aug 1, 2014 at 5:32 AM, Fengguang Wu <fengguang.wu@intel.com> wrote:
+> Hi Anish,
 >
-> Hi Peter,
-> I have built a such subsystem, for years now.
-> Please, you can access latest public patchset here :
+> FYI, here is one more bug message for
 >
-> https://lkml.org/lkml/2011/5/5/132
-
-Interesting, thanks! I hadn't know about snet.
-
-The patches don't apply cleanly, and while the merge wasn't difficult,
-it looks like the code has gotten out of sync with mainline and doesn't
-build (at least when applied to security-next). Did anything ever happen
-with snet?
-
->From looking at the code, it looks kind of like a 'little-snitch' for
-linux, is that right? A process tries to open a socket/etc and snet
-requests that the user accept/reject the connection, and presumably
-while the user is being queried one could dig through /proc to find the
-exe/cmdline of the process making the request.
-
-One thing that Hone does which snet doesn't seem to do (apologies if
-this is incorrect but I can't test) is that it provides a full process
-tree for a given pid back to init. When doing an investigation into a
-system compromise, knowing what started the process making the
-suspicious connection(s) (and what started *that* process) is often just
-as important as knowing that there's a compromise to begin with.
-
-Cheers,
-
-> monitoring events is possible with snet.
+> git://git.kernel.org/pub/scm/linux/kernel/git/next/linux-next.git master
+> commit 759a0cc5a3e1bc2cc48fa3c0b91bdcad8b8f87d6 ("cxgb4i: Add ipv6 code to driver, call into libcxgbi ipv6 api")
 >
-> thanks,
->
-> (resending, first mail didn't hit lists)
+
+I don't see the point of holding rcu read lock in cxgbi_inet6addr_handler(),
+I think we can just remove it.
