@@ -1,107 +1,162 @@
 From: Himangi Saraogi <himangi774@gmail.com>
-Subject: [PATCH] cirrus: cs89x0: Use managed interfaces
-Date: Fri, 1 Aug 2014 20:58:19 +0530
-Message-ID: <20140801152819.GA11441@himangi-Dell>
+Subject: [PATCH] net: ks8851-ml: Use devm_ioremap_resource
+Date: Fri, 1 Aug 2014 20:59:13 +0530
+Message-ID: <20140801152913.GA11494@himangi-Dell>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Julia Lawall <julia.lawall@lip6.fr>
-To: "Eric W. Biederman" <ebiederm@xmission.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Jingoo Han <jg1.han@samsung.com>,
+	Michael Opdenacker <michael.opdenacker@free-electrons.com>,
+	Arend van Spriel <arend@broadcom.com>,
+	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch introduces the use of managed interfaces like
-devm_ioremap_resource and does away with the functions to free the
-allocated memory in the probe and remove functions. Also, many labels
-are done away with. The field size in no longer needed and is hence
-removed from the struct net_local.
+This patch introduces the use of devm_ioremap_resource, devm_kmalloc and
+does away with the functions to free the allocated memory in the probe
+and remove functions. Also, some labels are done away with. A bug is
+fixed as two regions are allocated in the probe function, but only one
+is freed in the remove function.
 
 Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
 Acked-by: Julia Lawall <julia.lawall@lip6.fr>
 ---
- drivers/net/ethernet/cirrus/cs89x0.c | 32 +++++++-------------------------
- 1 file changed, 7 insertions(+), 25 deletions(-)
+ drivers/net/ethernet/micrel/ks8851_mll.c | 59 ++++++++++++--------------------
+ 1 file changed, 21 insertions(+), 38 deletions(-)
 
-diff --git a/drivers/net/ethernet/cirrus/cs89x0.c b/drivers/net/ethernet/cirrus/cs89x0.c
-index fe84fba..9823a0e 100644
---- a/drivers/net/ethernet/cirrus/cs89x0.c
-+++ b/drivers/net/ethernet/cirrus/cs89x0.c
-@@ -145,7 +145,6 @@ struct net_local {
- 	int force;		/* force various values; see FORCE* above. */
- 	spinlock_t lock;
- 	void __iomem *virt_addr;/* CS89x0 virtual address. */
--	unsigned long size;	/* Length of CS89x0 memory region. */
- #if ALLOW_DMA
- 	int use_dma;		/* Flag: we're using dma */
- 	int dma;		/* DMA channel */
-@@ -1854,41 +1853,29 @@ static int __init cs89x0_platform_probe(struct platform_device *pdev)
+diff --git a/drivers/net/ethernet/micrel/ks8851_mll.c b/drivers/net/ethernet/micrel/ks8851_mll.c
+index c83d16d..0eb4764 100644
+--- a/drivers/net/ethernet/micrel/ks8851_mll.c
++++ b/drivers/net/ethernet/micrel/ks8851_mll.c
+@@ -1519,7 +1519,8 @@ static int ks_hw_init(struct ks_net *ks)
+ 	ks->all_mcast = 0;
+ 	ks->mcast_lst_size = 0;
  
- 	lp = netdev_priv(dev);
+-	ks->frame_head_info = kmalloc(MHEADER_SIZE, GFP_KERNEL);
++	ks->frame_head_info = devm_kmalloc(&ks->pdev->dev, MHEADER_SIZE,
++					   GFP_KERNEL);
+ 	if (!ks->frame_head_info)
+ 		return false;
  
--	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	dev->irq = platform_get_irq(pdev, 0);
--	if (mem_res == NULL || dev->irq <= 0) {
--		dev_warn(&dev->dev, "memory/interrupt resource missing\n");
-+	if (dev->irq <= 0) {
-+		dev_warn(&dev->dev, "interrupt resource missing\n");
- 		err = -ENXIO;
- 		goto free;
- 	}
+@@ -1537,44 +1538,41 @@ MODULE_DEVICE_TABLE(of, ks8851_ml_dt_ids);
  
--	lp->size = resource_size(mem_res);
--	if (!request_mem_region(mem_res->start, lp->size, DRV_NAME)) {
--		dev_warn(&dev->dev, "request_mem_region() failed\n");
--		err = -EBUSY;
-+	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-+	virt_addr = devm_ioremap_resource(&pdev->dev, mem_res);
-+	if (IS_ERR(virt_addr)) {
-+		err = PTR_ERR(virt_addr);
- 		goto free;
- 	}
- 
--	virt_addr = ioremap(mem_res->start, lp->size);
--	if (!virt_addr) {
--		dev_warn(&dev->dev, "ioremap() failed\n");
--		err = -ENOMEM;
--		goto release;
--	}
--
- 	err = cs89x0_probe1(dev, virt_addr, 0);
- 	if (err) {
- 		dev_warn(&dev->dev, "no cs8900 or cs8920 detected\n");
--		goto unmap;
-+		goto free;
- 	}
- 
- 	platform_set_drvdata(pdev, dev);
- 	return 0;
- 
--unmap:
--	iounmap(virt_addr);
--release:
--	release_mem_region(mem_res->start, lp->size);
- free:
- 	free_netdev(dev);
- 	return err;
-@@ -1897,17 +1884,12 @@ free:
- static int cs89x0_platform_remove(struct platform_device *pdev)
+ static int ks8851_probe(struct platform_device *pdev)
  {
- 	struct net_device *dev = platform_get_drvdata(pdev);
--	struct net_local *lp = netdev_priv(dev);
--	struct resource *mem_res;
+-	int err = -ENOMEM;
++	int err;
+ 	struct resource *io_d, *io_c;
+ 	struct net_device *netdev;
+ 	struct ks_net *ks;
+ 	u16 id, data;
+ 	const char *mac;
  
- 	/* This platform_get_resource() call will not return NULL, because
- 	 * the same call in cs89x0_platform_probe() has returned a non NULL
- 	 * value.
- 	 */
--	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	unregister_netdev(dev);
--	iounmap(lp->virt_addr);
--	release_mem_region(mem_res->start, lp->size);
- 	free_netdev(dev);
+-	io_d = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+-	io_c = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+-
+-	if (!request_mem_region(io_d->start, resource_size(io_d), DRV_NAME))
+-		goto err_mem_region;
+-
+-	if (!request_mem_region(io_c->start, resource_size(io_c), DRV_NAME))
+-		goto err_mem_region1;
+-
+ 	netdev = alloc_etherdev(sizeof(struct ks_net));
+ 	if (!netdev)
+-		goto err_alloc_etherdev;
++		return -ENOMEM;
+ 
+ 	SET_NETDEV_DEV(netdev, &pdev->dev);
+ 
+ 	ks = netdev_priv(netdev);
+ 	ks->netdev = netdev;
+-	ks->hw_addr = ioremap(io_d->start, resource_size(io_d));
+ 
+-	if (!ks->hw_addr)
+-		goto err_ioremap;
++	io_d = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	ks->hw_addr = devm_ioremap_resource(&pdev->dev, io_d);
++	if (IS_ERR(ks->hw_addr)) {
++		err = PTR_ERR(ks->hw_addr);
++		goto err_free;
++	}
+ 
+-	ks->hw_addr_cmd = ioremap(io_c->start, resource_size(io_c));
+-	if (!ks->hw_addr_cmd)
+-		goto err_ioremap1;
++	io_c = platform_get_resource(pdev, IORESOURCE_MEM, 1);
++	ks->hw_addr_cmd = devm_ioremap_resource(&pdev->dev, io_c);
++	if (IS_ERR(ks->hw_addr_cmd)) {
++		err = PTR_ERR(ks->hw_addr_cmd);
++		goto err_free;
++	}
+ 
+ 	netdev->irq = platform_get_irq(pdev, 0);
+ 
+ 	if ((int)netdev->irq < 0) {
+ 		err = netdev->irq;
+-		goto err_get_irq;
++		goto err_free;
+ 	}
+ 
+ 	ks->pdev = pdev;
+@@ -1604,18 +1602,18 @@ static int ks8851_probe(struct platform_device *pdev)
+ 	if ((ks_rdreg16(ks, KS_CIDER) & ~CIDER_REV_MASK) != CIDER_ID) {
+ 		netdev_err(netdev, "failed to read device ID\n");
+ 		err = -ENODEV;
+-		goto err_register;
++		goto err_free;
+ 	}
+ 
+ 	if (ks_read_selftest(ks)) {
+ 		netdev_err(netdev, "failed to read device ID\n");
+ 		err = -ENODEV;
+-		goto err_register;
++		goto err_free;
+ 	}
+ 
+ 	err = register_netdev(netdev);
+ 	if (err)
+-		goto err_register;
++		goto err_free;
+ 
+ 	platform_set_drvdata(pdev, netdev);
+ 
+@@ -1663,32 +1661,17 @@ static int ks8851_probe(struct platform_device *pdev)
+ 
+ err_pdata:
+ 	unregister_netdev(netdev);
+-err_register:
+-err_get_irq:
+-	iounmap(ks->hw_addr_cmd);
+-err_ioremap1:
+-	iounmap(ks->hw_addr);
+-err_ioremap:
++err_free:
+ 	free_netdev(netdev);
+-err_alloc_etherdev:
+-	release_mem_region(io_c->start, resource_size(io_c));
+-err_mem_region1:
+-	release_mem_region(io_d->start, resource_size(io_d));
+-err_mem_region:
+ 	return err;
+ }
+ 
+ static int ks8851_remove(struct platform_device *pdev)
+ {
+ 	struct net_device *netdev = platform_get_drvdata(pdev);
+-	struct ks_net *ks = netdev_priv(netdev);
+-	struct resource *iomem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 
+-	kfree(ks->frame_head_info);
+ 	unregister_netdev(netdev);
+-	iounmap(ks->hw_addr);
+ 	free_netdev(netdev);
+-	release_mem_region(iomem->start, resource_size(iomem));
  	return 0;
+ 
  }
 -- 
 1.9.1
