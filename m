@@ -1,66 +1,63 @@
-From: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-Subject: Re: [PATCH net-next 1/3] lib: Resizable, Scalable,
- Concurrent Hash Table
-Date: Fri, 1 Aug 2014 12:26:32 +0200
-Message-ID: <20140801102632.GA19476@server.your-server.de>
-References: <cover.1406882738.git.tgraf@suug.ch>
- <15a766adefc269dd26001474e9b67dbbd0d5bc82.1406882738.git.tgraf@suug.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- tklauser-93Khv+1bN0NyDzI6CaY1VQ@public.gmane.org, paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
- walpole-sKt6ljEC1JY3uPMLIKxrzw@public.gmane.org
-To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <15a766adefc269dd26001474e9b67dbbd0d5bc82.1406882738.git.tgraf-G/eBtMaohhA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: [PATCH net-next v2 1/6] inet: frags: use INC_STATS_BH in the ipv6 reassembly code
+Date: Fri,  1 Aug 2014 12:29:43 +0200
+Message-ID: <1406888988-20742-2-git-send-email-nikolay@redhat.com>
+References: <1406888988-20742-1-git-send-email-nikolay@redhat.com>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Florian Westphal <fw@strlen.de>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Alexander Aring <alex.aring@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:25698 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753515AbaHAKav (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Aug 2014 06:30:51 -0400
+In-Reply-To: <1406888988-20742-1-git-send-email-nikolay@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Aug 01, 2014 at 10:51:58AM +0200, Thomas Graf wrote:
-> --- /dev/null
-> +++ b/include/linux/rhashtable.h
-> @@ -0,0 +1,213 @@
-> +/*
-> + * Resizable, Scalable, Concurrent Hash Table
-> + *
-> + * Copyright (c) 2014 Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-> + *
-> + * Based on the following paper by Josh Triplett, Paul E. McKenney
-> + * and Jonathan Walpole:
-> + * https://www.usenix.org/legacy/event/atc11/tech/final_files/Triplett.pdf
-> + *
-> + * Code partially derived from nft_hash:
-> + * Copyright (c) 2008-2014 Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+Softirqs are already disabled so no need to do it again, thus let's be
+consistent and use the IP6_INC_STATS_BH variant.
 
-Minor request: german copyright law as an assumption of authorship for
-authors marked in the work. When doing GPL enforcement I would prefer
-any discussions about what derived from specifically means in this
-case and whether this constitutes a normal statement of authorship,
-and since this clearly contains a lot of literal code I have written,
-please change this to something like
+Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+v2: no changes
 
-Copyright ... Thomas Graf
-Copyright ... Patrick McHardy
+ net/ipv6/reassembly.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-...
-
-Code partially derived from nft_hash.
-
-Thanks!
-
-> + *
-> + * This program is free software; you can redistribute it and/or modify
-> + * it under the terms of the GNU General Public License version 2 as
-> + * published by the Free Software Foundation.
-> + */
+diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
+index f1709c4a289a..512ccc027ce3 100644
+--- a/net/ipv6/reassembly.c
++++ b/net/ipv6/reassembly.c
+@@ -355,8 +355,8 @@ found:
+ discard_fq:
+ 	inet_frag_kill(&fq->q, &ip6_frags);
+ err:
+-	IP6_INC_STATS(net, ip6_dst_idev(skb_dst(skb)),
+-		      IPSTATS_MIB_REASMFAILS);
++	IP6_INC_STATS_BH(net, ip6_dst_idev(skb_dst(skb)),
++			 IPSTATS_MIB_REASMFAILS);
+ 	kfree_skb(skb);
+ 	return -1;
+ }
+@@ -566,7 +566,8 @@ static int ipv6_frag_rcv(struct sk_buff *skb)
+ 	return -1;
+ 
+ fail_hdr:
+-	IP6_INC_STATS(net, ip6_dst_idev(skb_dst(skb)), IPSTATS_MIB_INHDRERRORS);
++	IP6_INC_STATS_BH(net, ip6_dst_idev(skb_dst(skb)),
++			 IPSTATS_MIB_INHDRERRORS);
+ 	icmpv6_param_prob(skb, ICMPV6_HDR_FIELD, skb_network_header_len(skb));
+ 	return -1;
+ }
+-- 
+1.9.3
