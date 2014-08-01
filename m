@@ -1,69 +1,88 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: Query: Is it possible  to lose interrupts between vhost and virtio_net
- during migration?
-Date: Fri, 01 Aug 2014 19:14:49 +0800
-Message-ID: <53DB76A9.8010305@redhat.com>
-References: <53DA2CCC.1040606@huawei.com> <20140731143100.GA3834@redhat.com> <20140731143725.GA3875@redhat.com> <53DB705F.2000405@redhat.com>
+From: Jaroslav =?utf-8?B?xaBhZmth?= <jaroslav.safka@tieto.com>
+Subject: iproute2 small patches for xfrm
+Date: Fri, 01 Aug 2014 13:16:09 +0200
+Message-ID: <2141002.LfKmUBSlWz@ul001176>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, qinchuanyu@huawei.com,
-	liuyongan@huawei.com, davem@davemloft.net
-To: "Michael S. Tsirkin" <mst@redhat.com>,
-	"Zhangjie (HZ)" <zhangjie14@huawei.com>
+Content-Type: multipart/mixed; boundary="nextPart14368611.dDquY92tuI"
+Content-Transfer-Encoding: 7Bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:30932 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751008AbaHALPB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Aug 2014 07:15:01 -0400
-In-Reply-To: <53DB705F.2000405@redhat.com>
+Received: from mail-la0-f44.google.com ([209.85.215.44]:38296 "EHLO
+	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751303AbaHALQJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Aug 2014 07:16:09 -0400
+Received: by mail-la0-f44.google.com with SMTP id e16so3112709lan.31
+        for <netdev@vger.kernel.org>; Fri, 01 Aug 2014 04:16:07 -0700 (PDT)
+Received: from ul001176.eu.tieto.com ([131.207.242.140])
+        by mx.google.com with ESMTPSA id xx9sm12766536lbb.30.2014.08.01.04.16.04
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Fri, 01 Aug 2014 04:16:05 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/01/2014 06:47 PM, Jason Wang wrote:
-> On 07/31/2014 10:37 PM, Michael S. Tsirkin wrote:
->> > On Thu, Jul 31, 2014 at 04:31:00PM +0200, Michael S. Tsirkin wrote:
->>>> >> > On Thu, Jul 31, 2014 at 07:47:24PM +0800, Zhangjie (HZ) wrote:
->>>>>> >>> > > [The test scenario]:
->>>>>> >>> > > 
->>>>>> >>> > > Doing migration between two Hosts roundly(A->B, B->A) ,after about 20 times, network of the VM is unreachable.
->>>>>> >>> > > There are other 20 VMs in each Host, and they send ipv4 or ipv6 and multicast packets to each other.
->>>>>> >>> > > Sometimes the CPU idle of the Host maybe 0;
->>>>>> >>> > > 
->>>>>> >>> > > [Problem description]:
->>>>>> >>> > > 
->>>>>> >>> > > I wonder if it was interrupts missing that cause the network unreachable.
->>>>>> >>> > > In the migration process of kvm, source end should suspend, which include steps as follows:
->>>>>> >>> > > 1.	do_vm_stop->pause_all_vcpus
->>>>>> >>> > > 2.	vm_state_notify-> vhost_net_stop->set_guest_notifiers->kvm_virtio_pci_vq_vector_release
->>>>>> >>> > > 3.	vm_state_notify-> vhost_net_stop-> vhost_net_stop_one->OST_NET_SET_BACKEND-> vhost_net_flush_vq-> vhost_work_flush
->>>>>> >>> > > This may cause interrupts missing. Supose the scene that, virtqueue_notify() is called in virtio_net,
->>>>>> >>> > > then the VM is paused. And, just before the portiowrite being handled, eventfd of kvm is released.
->>>>>> >>> > > Then, vhost could not sense the notify, and the tx notify is lost.
->>>>>> >>> > > On the other side, if eventfd of kvm is released just after vhost_notify(), and before eventfd_signal(), then rx signal by vhost is lost.
->>>> >> > 
->>>> >> > Could be a bug in userspace: should should cleanups notifiers
->>>> >> > after it stops vhost.
->>>> >> > 
->>>> >> > Could you please send this to appropriate mailing lists?
->>>> >> > I have a policy against off-list discussions.
->> > Also, Jason, could you take a look please?
->> > Looks like your patch a9f98bb5ebe6fb1869321dcc58e72041ae626ad8
->> > changed the order of stopping the device.
->> > Previously vhost_dev_stop would disable backend and only afterwards,
->> > unset guest notifiers.  You now unset guest notifiers while vhost is still
->> > active. Looks like this can lose events?
-> Not sure it will really cause the issue. Since during guest notifier
-> deassign in virtio_queue_set_guest_notifier_fd_handler() it will test
-> the notifier and trigger callback if set. Looks like this can guarantee
-> the interrupt was not lost.
+This is a multi-part message in MIME format.
 
-More thought on this, looks like it was still a window between guest
-notifiers disabling and vhost_net stopping.
+--nextPart14368611.dDquY92tuI
+Content-Transfer-Encoding: 7Bit
+Content-Type: text/plain; charset="utf-8"
 
-Please Zhang Jie test the patch of changing its order and if it works,
-sends a formal patch to qemu-devel.
+Hi,
+I found the tool "ip xfrm" is not able to add "cipher_null" because there is 
+no possibility to set key with zero length.
 
-btw, vhost_scsi may need the fix as well since it may meet the same issue.
+I solved it by this change:
 
-Thanks
+-       if (slen > 2 && strncmp(key, "0x", 2) == 0) {
++       if (slen >= 2 && strncmp(key, "0x", 2) == 0) {
+
+By this change you can specify key as "0x" which will pass for key existence 
+and set key len to 0.
+
+this patch is against version iproute2-3.14.0
+
+Second patch enable use proto ip. Because it is supported by kernel.
+
+Have a nice day :)
+
+Regards
+Jarek
+
+--nextPart14368611.dDquY92tuI
+Content-Disposition: attachment; filename="cipher_null.patch"
+Content-Transfer-Encoding: 7Bit
+Content-Type: text/x-patch; charset="utf-8"; name="cipher_null.patch"
+
+diff --git a/ip/xfrm_state.c b/ip/xfrm_state.c
+index 140a450..d7d13c8 100644
+--- a/ip/xfrm_state.c
++++ b/ip/xfrm_state.c
+@@ -125,7 +125,7 @@ static int xfrm_algo_parse(struct xfrm_algo *alg, enum xfrm_attr_type_t type,
+ 
+ 	strncpy(alg->alg_name, name, sizeof(alg->alg_name));
+ 
+-	if (slen > 2 && strncmp(key, "0x", 2) == 0) {
++	if (slen >= 2 && strncmp(key, "0x", 2) == 0) {
+ 		/* split two chars "0x" from the top */
+ 		char *p = key + 2;
+ 		int plen = slen - 2;
+
+--nextPart14368611.dDquY92tuI
+Content-Disposition: attachment; filename="proto_ip.patch"
+Content-Transfer-Encoding: 7Bit
+Content-Type: text/x-patch; charset="utf-8"; name="proto_ip.patch"
+
+diff --git a/ip/ipxfrm.c b/ip/ipxfrm.c
+index cce5151..05e4098 100644
+--- a/ip/ipxfrm.c
++++ b/ip/ipxfrm.c
+@@ -1280,6 +1281,7 @@ static int xfrm_selector_upspec_parse(struct xfrm_selector *sel,
+ 		missarg("UPSPEC");
+ 	if (sportp || dportp) {
+ 		switch (sel->proto) {
++		case IPPROTO_IP:
+ 		case IPPROTO_TCP:
+ 		case IPPROTO_UDP:
+ 		case IPPROTO_SCTP:
+
+--nextPart14368611.dDquY92tuI--
