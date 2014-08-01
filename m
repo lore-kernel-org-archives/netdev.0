@@ -1,38 +1,66 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH net-next 3/3] nftables: Convert nft_hash to use generic rhashtable
-Date: Fri, 01 Aug 2014 11:17:03 +0100
-Message-ID: <970429e5-2465-40f2-998b-b82dab3debe8@email.android.com>
-References: <cover.1406882738.git.tgraf@suug.ch><cover.1406882738.git.tgraf@suug.ch> <ea51f2fdfb1ce84ff109d03bf37811e4b24135c5.1406882738.git.tgraf@suug.ch>
+From: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+Subject: Re: [PATCH net-next 1/3] lib: Resizable, Scalable,
+ Concurrent Hash Table
+Date: Fri, 1 Aug 2014 12:26:32 +0200
+Message-ID: <20140801102632.GA19476@server.your-server.de>
+References: <cover.1406882738.git.tgraf@suug.ch>
+ <15a766adefc269dd26001474e9b67dbbd0d5bc82.1406882738.git.tgraf@suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org, paulmck@linux.vnet.ibm.com,
-	josh@joshtriplett.org, challa@noironetworks.com,
-	walpole@cs.pdx.edu, dev@openvswitch.org, tklauser@distanz.ch,
-	netfilter-devel@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>, davem@davemloft.net,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:54028 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751401AbaHAKRW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Aug 2014 06:17:22 -0400
-In-Reply-To: <ea51f2fdfb1ce84ff109d03bf37811e4b24135c5.1406882738.git.tgraf@suug.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ tklauser-93Khv+1bN0NyDzI6CaY1VQ@public.gmane.org, paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+ walpole-sKt6ljEC1JY3uPMLIKxrzw@public.gmane.org
+To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <15a766adefc269dd26001474e9b67dbbd0d5bc82.1406882738.git.tgraf-G/eBtMaohhA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On 1. August 2014 09:52:00 GMT+01:00, Thomas Graf <tgraf@suug.ch> wrote:
->If the set size is known in advance, the table is sized accordingly,
->otherwise the table size will default to 64. This is a slight change
->in behaviour as previously the default was 4 which eventually required
->many expansion iterations.
+On Fri, Aug 01, 2014 at 10:51:58AM +0200, Thomas Graf wrote:
+> --- /dev/null
+> +++ b/include/linux/rhashtable.h
+> @@ -0,0 +1,213 @@
+> +/*
+> + * Resizable, Scalable, Concurrent Hash Table
+> + *
+> + * Copyright (c) 2014 Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+> + *
+> + * Based on the following paper by Josh Triplett, Paul E. McKenney
+> + * and Jonathan Walpole:
+> + * https://www.usenix.org/legacy/event/atc11/tech/final_files/Triplett.pdf
+> + *
+> + * Code partially derived from nft_hash:
+> + * Copyright (c) 2008-2014 Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
 
-That's assuming a sufficient number of entries will be added. I think there
-will be many cases in nftables where the number will be lower. Since
-expansion is not very expansive this number was chosen very deliberately
-and I'd prefer to keep it.
+Minor request: german copyright law as an assumption of authorship for
+authors marked in the work. When doing GPL enforcement I would prefer
+any discussions about what derived from specifically means in this
+case and whether this constitutes a normal statement of authorship,
+and since this clearly contains a lot of literal code I have written,
+please change this to something like
 
-Other than that:
+Copyright ... Thomas Graf
+Copyright ... Patrick McHardy
 
-Acked-by: Patrick McHardy <kaber@trash.net>
+...
+
+Code partially derived from nft_hash.
+
+Thanks!
+
+> + *
+> + * This program is free software; you can redistribute it and/or modify
+> + * it under the terms of the GNU General Public License version 2 as
+> + * published by the Free Software Foundation.
+> + */
