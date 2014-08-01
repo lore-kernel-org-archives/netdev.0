@@ -1,137 +1,89 @@
 From: Karoly Kemeny <karoly.kemeny@gmail.com>
-Subject: [PATCH 1/2] net: socket.h structures documentation
-Date: Fri,  1 Aug 2014 23:31:22 +0200
-Message-ID: <1406928683-4317-1-git-send-email-karoly.kemeny@gmail.com>
+Subject: [PATCH 2/2] ipv6: header documentation
+Date: Fri,  1 Aug 2014 23:31:23 +0200
+Message-ID: <1406928683-4317-2-git-send-email-karoly.kemeny@gmail.com>
+References: <1406928683-4317-1-git-send-email-karoly.kemeny@gmail.com>
 Cc: Karoly Kemeny <karoly.kemeny@gmail.com>
 To: netdev@vger.kernel.org, davem@davemloft.net,
 	linux-doc@vger.kernel.org
-Return-path: <linux-doc-owner@vger.kernel.org>
-Sender: linux-doc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f171.google.com ([209.85.212.171]:65300 "EHLO
+	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756377AbaHAVbd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Aug 2014 17:31:33 -0400
+In-Reply-To: <1406928683-4317-1-git-send-email-karoly.kemeny@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Karoly Kemeny <karoly.kemeny@gmail.com>
 ---
- include/linux/socket.h | 78 ++++++++++++++++++++++++++++++++++++--------------
- 1 file changed, 57 insertions(+), 21 deletions(-)
+ include/net/ipv6.h | 40 ++++++++++++++++++++++++++++------------
+ 1 file changed, 28 insertions(+), 12 deletions(-)
 
-diff --git a/include/linux/socket.h b/include/linux/socket.h
-index ec538fc..18c225a 100644
---- a/include/linux/socket.h
-+++ b/include/linux/socket.h
-@@ -25,15 +25,27 @@ typedef __kernel_sa_family_t	sa_family_t;
- /*
-  *	1003.1g requires sa_family_t and that sa_data is char.
-  */
-- 
-+
-+/**
-+ * 	struct sockaddr - A common base for address structures
-+ * 	@sa_family:	 address family, AF_xxx
-+ * 	@sa_data:	14 bytes of protocol address
-+ */
-+
- struct sockaddr {
--	sa_family_t	sa_family;	/* address family, AF_xxx	*/
--	char		sa_data[14];	/* 14 bytes of protocol address	*/
-+	sa_family_t	sa_family;
-+	char		sa_data[14];
- };
- 
-+/**
-+ * 	struct linger -	Linger options on socket closing
-+ * 	@l_onoff:	Linger active
-+ * 	@l_linger:	How long to linger for
-+ */
-+
- struct linger {
--	int		l_onoff;	/* Linger active		*/
--	int		l_linger;	/* How long to linger for	*/
-+	int		l_onoff;
-+	int		l_linger;
- };
- 
- #define sockaddr_storage __kernel_sockaddr_storage
-@@ -43,33 +55,53 @@ struct linger {
-  *	system, not 4.3. Thus msg_accrights(len) are now missing. They
-  *	belong in an obscure libc emulation or the bin.
-  */
-- 
-+
-+/**
-+ * 	struct msghdr - Includes the data blocks to send or to fill for
-+ * 			sendmsg() and recvmsg(), and some other parameters
-+ * 	@msg_name:	ptr to socket address structure
-+ * 	@msg_namelen:	size of socket address structure
-+ * 	@msg_iov:	scatter/gather array
-+ * 	@msg_iovlen:	number of elements in msg_iov
-+ * 	@msg_control:	ancillary data
-+ * 	@msg_controllen: ancillary data buffer length
-+ * 	@msg_flags:	flags on received message
-+ */
-+
- struct msghdr {
--	void		*msg_name;	/* ptr to socket address structure */
--	int		msg_namelen;	/* size of socket address structure */
--	struct iovec	*msg_iov;	/* scatter/gather array */
--	__kernel_size_t	msg_iovlen;	/* # elements in msg_iov */
--	void		*msg_control;	/* ancillary data */
--	__kernel_size_t	msg_controllen;	/* ancillary data buffer length */
--	unsigned int	msg_flags;	/* flags on received message */
-+	void		*msg_name;
-+	int		msg_namelen;
-+	struct iovec	*msg_iov;
-+	__kernel_size_t	msg_iovlen;
-+	void		*msg_control;
-+	__kernel_size_t	msg_controllen;
-+	unsigned int	msg_flags;
- };
- 
--/* For recvmmsg/sendmmsg */
-+/**
-+ * struct mmsghdr - wrapper for recvmmsg/sendmmsg
-+ * @msg_hdr:	the real message header embedded
-+ * @msg_len:	length of the message header
-+ */
-+
- struct mmsghdr {
- 	struct msghdr   msg_hdr;
- 	unsigned int        msg_len;
- };
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index a2db816..7798a97 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -100,8 +100,20 @@
+ #define IPV6_ADDR_MC_FLAG_RENDEZVOUS(a)	\
+ 	((a)->s6_addr[1] & 0x40)
  
 -/*
-- *	POSIX 1003.1g - ancillary data object information
-- *	Ancillary data consits of a sequence of pairs of
-- *	(cmsghdr, cmsg_data[])
+- *	fragmentation header
 +/**
-+ *	struct cmsghdr - POSIX 1003.1g - ancillary data object information
-+ *			 Ancillary data consists of a sequence of pairs of
-+ *			 (cmsghdr, cmsg_data[])
-+ *	@cmsg_len:	data byte count, including hdr
-+ *	@cmsg_level:	originating protocol
-+ *	@cmsg_type:	protocol specific type
++ *	struct frag_hdr - fragmentation header
++ *	@nexthdr	- type of the next header
++ *	@reserved	- reserved field, init to zeroes on transmission,
++ *			  ignore on reception
++ *	@frag_off	- 13 MSB bit: offset relative to the start of the
++ *				      fragmented part of the packet.
++ *			- 14-15 bit : reserved, as @reserved
++ *			- LSB	    : indicates if it is the last fragment
++ *					of the file. 0 = last fragment
++ *	@identification - id of the fragmented packet,
++ *			  must be the same for all fragments of the same packet
++ *
++ *	for more info see RFC-2460
   */
  
- struct cmsghdr {
--	__kernel_size_t	cmsg_len;	/* data byte count, including hdr */
--        int		cmsg_level;	/* originating protocol */
--        int		cmsg_type;	/* protocol-specific type */
-+	__kernel_size_t	cmsg_len;
-+        int		cmsg_level;
-+        int		cmsg_type;
- };
+ struct frag_hdr {
+@@ -200,23 +212,27 @@ struct ip6_ra_chain {
+ extern struct ip6_ra_chain	*ip6_ra_chain;
+ extern rwlock_t ip6_ra_lock;
  
- /*
-@@ -131,6 +163,10 @@ static inline struct cmsghdr * cmsg_nxthdr (struct msghdr *__msg, struct cmsghdr
- #define SCM_CREDENTIALS 0x02		/* rw: struct ucred		*/
- #define SCM_SECURITY	0x03		/* rw: security label		*/
- 
+-/*
+-   This structure is prepared by protocol, when parsing
+-   ancillary data and passed to IPv6.
 +/**
-+ *  struct ucred - credentials represented an a struct in the ancilliary message
-+ */
-+
- struct ucred {
- 	__u32	pid;
- 	__u32	uid;
++ * struct ipv6_txoption - This structure is prepared by protocol, when parsing
++ * 			  ancillary data and passed to IPv6.
++ * @tot_len		- length of this structure
++ * @opt_flen		- length of extension header after fragment header
++ * @opt_nlen		- length of extension header before fragment header
++ * @hopopt		- pointer to the hop-by-hop header
++ * @dst0opt		- pointer to the first destination header
++ * @srcrt		- pointer to the routing header
++ * @dst1opt		- pointer to the second destination header
++ *
+  */
+ 
+ struct ipv6_txoptions {
+-	/* Length of this structure */
+ 	int			tot_len;
+-
+-	/* length of extension headers   */
+-
+-	__u16			opt_flen;	/* after fragment hdr */
+-	__u16			opt_nflen;	/* before fragment hdr */
++	__u16			opt_flen;
++	__u16			opt_nflen;
+ 
+ 	struct ipv6_opt_hdr	*hopopt;
+ 	struct ipv6_opt_hdr	*dst0opt;
+-	struct ipv6_rt_hdr	*srcrt;	/* Routing Header */
++	struct ipv6_rt_hdr	*srcrt;
+ 	struct ipv6_opt_hdr	*dst1opt;
+ 
+ 	/* Option buffer, as read by IPV6_PKTOPTIONS, starts here. */
 -- 
 1.9.1
-
