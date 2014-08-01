@@ -1,28 +1,39 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net-next 2/2] random32: do not feed jiffies as seed from
- lpfc driver
-Date: Fri, 01 Aug 2014 13:23:14 +0200
-Message-ID: <53DB78A2.4090504@redhat.com>
-References: <1406837317-13648-1-git-send-email-dborkman@redhat.com> <1406866378.5442.9.camel@jarvis>
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: Re: [PATCH net-next v2 0/6] inet: frags: cleanup and kmem_cache use
+Date: Fri, 1 Aug 2014 13:24:35 +0200
+Message-ID: <20140801112433.GA12179@omega>
+References: <1406888988-20742-1-git-send-email-nikolay@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"james.smart@emulex.com" <james.smart@emulex.com>
-To: James Bottomley <jbottomley@parallels.com>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Florian Westphal <fw@strlen.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Nikolay Aleksandrov <nikolay@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:18430 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751327AbaHALXY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Aug 2014 07:23:24 -0400
-In-Reply-To: <1406866378.5442.9.camel@jarvis>
+Received: from mail-we0-f176.google.com ([74.125.82.176]:53054 "EHLO
+	mail-we0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754832AbaHALYo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Aug 2014 07:24:44 -0400
+Received: by mail-we0-f176.google.com with SMTP id q58so4184073wes.35
+        for <netdev@vger.kernel.org>; Fri, 01 Aug 2014 04:24:42 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1406888988-20742-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/01/2014 06:12 AM, James Bottomley wrote:
-...
-> Could you send to linux-scsi@vger.kernel.org; Christoph Hellwig is
-> gathering patches for SCSI via that list.
+On Fri, Aug 01, 2014 at 12:29:42PM +0200, Nikolay Aleksandrov wrote:
+> Hello,
+> This patchset does a couple of small cleanups in patches 1-5 and then in
+> patch 06 it introduces the use of kmem_cache for allocation/freeing of
+> inet_frag_queue+header objects.
+> 
 
-Sure, done, thanks.
+For net/ieee802154/reassembly.c:
+
+Acked-by: Alexander Aring <alex.aring@gmail.com>
