@@ -1,162 +1,153 @@
 From: Himangi Saraogi <himangi774@gmail.com>
-Subject: [PATCH] net: ks8851-ml: Use devm_ioremap_resource
-Date: Fri, 1 Aug 2014 20:59:13 +0530
-Message-ID: <20140801152913.GA11494@himangi-Dell>
+Subject: [PATCH] drivers/net: Use managed interfaces
+Date: Fri, 1 Aug 2014 21:00:03 +0530
+Message-ID: <20140801153003.GA11527@himangi-Dell>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Julia Lawall <julia.lawall@lip6.fr>
 To: "David S. Miller" <davem@davemloft.net>,
-	Jingoo Han <jg1.han@samsung.com>,
-	Michael Opdenacker <michael.opdenacker@free-electrons.com>,
-	Arend van Spriel <arend@broadcom.com>,
-	Joe Perches <joe@perches.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch introduces the use of devm_ioremap_resource, devm_kmalloc and
-does away with the functions to free the allocated memory in the probe
-and remove functions. Also, some labels are done away with. A bug is
-fixed as two regions are allocated in the probe function, but only one
-is freed in the remove function.
+This patch introduces the use of managed interfaces like
+devm_ioremap_resource and does away with the calls to free the
+allocated memory in the probe and remove functions. Also, some
+labels and variable are done away with. This fixes a bug as there
+was a missing release_mem_region in the remove function.
 
 Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
 Acked-by: Julia Lawall <julia.lawall@lip6.fr>
 ---
- drivers/net/ethernet/micrel/ks8851_mll.c | 59 ++++++++++++--------------------
- 1 file changed, 21 insertions(+), 38 deletions(-)
+ drivers/net/ethernet/dnet.c | 46 ++++++++++++---------------------------------
+ 1 file changed, 12 insertions(+), 34 deletions(-)
 
-diff --git a/drivers/net/ethernet/micrel/ks8851_mll.c b/drivers/net/ethernet/micrel/ks8851_mll.c
-index c83d16d..0eb4764 100644
---- a/drivers/net/ethernet/micrel/ks8851_mll.c
-+++ b/drivers/net/ethernet/micrel/ks8851_mll.c
-@@ -1519,7 +1519,8 @@ static int ks_hw_init(struct ks_net *ks)
- 	ks->all_mcast = 0;
- 	ks->mcast_lst_size = 0;
+diff --git a/drivers/net/ethernet/dnet.c b/drivers/net/ethernet/dnet.c
+index e9b0fab..a379c3e 100644
+--- a/drivers/net/ethernet/dnet.c
++++ b/drivers/net/ethernet/dnet.c
+@@ -323,7 +323,8 @@ static int dnet_mii_init(struct dnet *bp)
  
--	ks->frame_head_info = kmalloc(MHEADER_SIZE, GFP_KERNEL);
-+	ks->frame_head_info = devm_kmalloc(&ks->pdev->dev, MHEADER_SIZE,
-+					   GFP_KERNEL);
- 	if (!ks->frame_head_info)
- 		return false;
+ 	bp->mii_bus->priv = bp;
  
-@@ -1537,44 +1538,41 @@ MODULE_DEVICE_TABLE(of, ks8851_ml_dt_ids);
+-	bp->mii_bus->irq = kmalloc(sizeof(int) * PHY_MAX_ADDR, GFP_KERNEL);
++	bp->mii_bus->irq = devm_kmalloc(&bp->pdev->dev,
++					sizeof(int) * PHY_MAX_ADDR, GFP_KERNEL);
+ 	if (!bp->mii_bus->irq) {
+ 		err = -ENOMEM;
+ 		goto err_out;
+@@ -334,7 +335,7 @@ static int dnet_mii_init(struct dnet *bp)
  
- static int ks8851_probe(struct platform_device *pdev)
- {
--	int err = -ENOMEM;
+ 	if (mdiobus_register(bp->mii_bus)) {
+ 		err = -ENXIO;
+-		goto err_out_free_mdio_irq;
++		goto err_out;
+ 	}
+ 
+ 	if (dnet_mii_probe(bp->dev) != 0) {
+@@ -346,8 +347,6 @@ static int dnet_mii_init(struct dnet *bp)
+ 
+ err_out_unregister_bus:
+ 	mdiobus_unregister(bp->mii_bus);
+-err_out_free_mdio_irq:
+-	kfree(bp->mii_bus->irq);
+ err_out:
+ 	mdiobus_free(bp->mii_bus);
+ 	return err;
+@@ -825,28 +824,14 @@ static int dnet_probe(struct platform_device *pdev)
+ 	struct net_device *dev;
+ 	struct dnet *bp;
+ 	struct phy_device *phydev;
+-	int err = -ENXIO;
+-	unsigned int mem_base, mem_size, irq;
 +	int err;
- 	struct resource *io_d, *io_c;
- 	struct net_device *netdev;
- 	struct ks_net *ks;
- 	u16 id, data;
- 	const char *mac;
++	unsigned int irq;
  
--	io_d = platform_get_resource(pdev, IORESOURCE_MEM, 0);
--	io_c = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+-	if (!res) {
+-		dev_err(&pdev->dev, "no mmio resource defined\n");
+-		goto err_out;
+-	}
+-	mem_base = res->start;
+-	mem_size = resource_size(res);
+ 	irq = platform_get_irq(pdev, 0);
+ 
+-	if (!request_mem_region(mem_base, mem_size, DRV_NAME)) {
+-		dev_err(&pdev->dev, "no memory region available\n");
+-		err = -EBUSY;
+-		goto err_out;
+-	}
 -
--	if (!request_mem_region(io_d->start, resource_size(io_d), DRV_NAME))
--		goto err_mem_region;
--
--	if (!request_mem_region(io_c->start, resource_size(io_c), DRV_NAME))
--		goto err_mem_region1;
--
- 	netdev = alloc_etherdev(sizeof(struct ks_net));
- 	if (!netdev)
--		goto err_alloc_etherdev;
+-	err = -ENOMEM;
+ 	dev = alloc_etherdev(sizeof(*bp));
+ 	if (!dev)
+-		goto err_out_release_mem;
 +		return -ENOMEM;
  
- 	SET_NETDEV_DEV(netdev, &pdev->dev);
+ 	/* TODO: Actually, we have some interesting features... */
+ 	dev->features |= 0;
+@@ -859,10 +844,10 @@ static int dnet_probe(struct platform_device *pdev)
  
- 	ks = netdev_priv(netdev);
- 	ks->netdev = netdev;
--	ks->hw_addr = ioremap(io_d->start, resource_size(io_d));
+ 	spin_lock_init(&bp->lock);
  
--	if (!ks->hw_addr)
--		goto err_ioremap;
-+	io_d = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-+	ks->hw_addr = devm_ioremap_resource(&pdev->dev, io_d);
-+	if (IS_ERR(ks->hw_addr)) {
-+		err = PTR_ERR(ks->hw_addr);
-+		goto err_free;
-+	}
- 
--	ks->hw_addr_cmd = ioremap(io_c->start, resource_size(io_c));
--	if (!ks->hw_addr_cmd)
--		goto err_ioremap1;
-+	io_c = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-+	ks->hw_addr_cmd = devm_ioremap_resource(&pdev->dev, io_c);
-+	if (IS_ERR(ks->hw_addr_cmd)) {
-+		err = PTR_ERR(ks->hw_addr_cmd);
-+		goto err_free;
-+	}
- 
- 	netdev->irq = platform_get_irq(pdev, 0);
- 
- 	if ((int)netdev->irq < 0) {
- 		err = netdev->irq;
--		goto err_get_irq;
-+		goto err_free;
+-	bp->regs = ioremap(mem_base, mem_size);
+-	if (!bp->regs) {
+-		dev_err(&pdev->dev, "failed to map registers, aborting.\n");
+-		err = -ENOMEM;
++	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++	bp->regs = devm_ioremap_resource(&pdev->dev, res);
++	if (IS_ERR(bp->regs)) {
++		err = PTR_ERR(bp->regs);
+ 		goto err_out_free_dev;
  	}
  
- 	ks->pdev = pdev;
-@@ -1604,18 +1602,18 @@ static int ks8851_probe(struct platform_device *pdev)
- 	if ((ks_rdreg16(ks, KS_CIDER) & ~CIDER_REV_MASK) != CIDER_ID) {
- 		netdev_err(netdev, "failed to read device ID\n");
- 		err = -ENODEV;
--		goto err_register;
-+		goto err_free;
+@@ -871,7 +856,7 @@ static int dnet_probe(struct platform_device *pdev)
+ 	if (err) {
+ 		dev_err(&pdev->dev, "Unable to request IRQ %d (error %d)\n",
+ 		       irq, err);
+-		goto err_out_iounmap;
++		goto err_out_free_dev;
  	}
  
- 	if (ks_read_selftest(ks)) {
- 		netdev_err(netdev, "failed to read device ID\n");
- 		err = -ENODEV;
--		goto err_register;
-+		goto err_free;
- 	}
+ 	dev->netdev_ops = &dnet_netdev_ops;
+@@ -908,7 +893,7 @@ static int dnet_probe(struct platform_device *pdev)
+ 		goto err_out_unregister_netdev;
  
- 	err = register_netdev(netdev);
- 	if (err)
--		goto err_register;
-+		goto err_free;
- 
- 	platform_set_drvdata(pdev, netdev);
- 
-@@ -1663,32 +1661,17 @@ static int ks8851_probe(struct platform_device *pdev)
- 
- err_pdata:
- 	unregister_netdev(netdev);
--err_register:
--err_get_irq:
--	iounmap(ks->hw_addr_cmd);
--err_ioremap1:
--	iounmap(ks->hw_addr);
--err_ioremap:
-+err_free:
- 	free_netdev(netdev);
--err_alloc_etherdev:
--	release_mem_region(io_c->start, resource_size(io_c));
--err_mem_region1:
--	release_mem_region(io_d->start, resource_size(io_d));
--err_mem_region:
+ 	dev_info(&pdev->dev, "Dave DNET at 0x%p (0x%08x) irq %d %pM\n",
+-	       bp->regs, mem_base, dev->irq, dev->dev_addr);
++	       bp->regs, (unsigned int)res->start, dev->irq, dev->dev_addr);
+ 	dev_info(&pdev->dev, "has %smdio, %sirq, %sgigabit, %sdma\n",
+ 	       (bp->capabilities & DNET_HAS_MDIO) ? "" : "no ",
+ 	       (bp->capabilities & DNET_HAS_IRQ) ? "" : "no ",
+@@ -925,13 +910,8 @@ err_out_unregister_netdev:
+ 	unregister_netdev(dev);
+ err_out_free_irq:
+ 	free_irq(dev->irq, dev);
+-err_out_iounmap:
+-	iounmap(bp->regs);
+ err_out_free_dev:
+ 	free_netdev(dev);
+-err_out_release_mem:
+-	release_mem_region(mem_base, mem_size);
+-err_out:
  	return err;
  }
  
- static int ks8851_remove(struct platform_device *pdev)
- {
- 	struct net_device *netdev = platform_get_drvdata(pdev);
--	struct ks_net *ks = netdev_priv(netdev);
--	struct resource *iomem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+@@ -948,11 +928,9 @@ static int dnet_remove(struct platform_device *pdev)
+ 		if (bp->phy_dev)
+ 			phy_disconnect(bp->phy_dev);
+ 		mdiobus_unregister(bp->mii_bus);
+-		kfree(bp->mii_bus->irq);
+ 		mdiobus_free(bp->mii_bus);
+ 		unregister_netdev(dev);
+ 		free_irq(dev->irq, dev);
+-		iounmap(bp->regs);
+ 		free_netdev(dev);
+ 	}
  
--	kfree(ks->frame_head_info);
- 	unregister_netdev(netdev);
--	iounmap(ks->hw_addr);
- 	free_netdev(netdev);
--	release_mem_region(iomem->start, resource_size(iomem));
- 	return 0;
- 
- }
 -- 
 1.9.1
