@@ -1,45 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] xen-netback: Turn off the carrier if the guest is not
- able to receive
-Date: Thu, 31 Jul 2014 21:53:44 -0700 (PDT)
-Message-ID: <20140731.215344.1226846407150746376.davem@davemloft.net>
-References: <1406749849-4356-1-git-send-email-zoltan.kiss@citrix.com>
-	<1406749849-4356-2-git-send-email-zoltan.kiss@citrix.com>
+Subject: Re: [PATCH 1/1] Drivers: net-next: hyperv: Increase the size of
+ the sendbuf region
+Date: Thu, 31 Jul 2014 21:59:07 -0700 (PDT)
+Message-ID: <20140731.215907.860867918938148695.davem@davemloft.net>
+References: <1406770549-29982-1-git-send-email-kys@microsoft.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: wei.liu2@citrix.com, Ian.Campbell@citrix.com,
-	david.vrabel@citrix.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, xen-devel@lists.xenproject.org
-To: zoltan.kiss@citrix.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1406749849-4356-2-git-send-email-zoltan.kiss@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
+ linux-kernel@vger.kernel.org, apw@canonical.com, devel@linuxdriverproject.org
+To: kys@microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1406770549-29982-1-git-send-email-kys@microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Date: Wed, 30 Jul 2014 20:50:49 +0100
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Date: Wed, 30 Jul 2014 18:35:49 -0700
 
-> Currently when the guest is not able to receive more packets, qdisc layer starts
-> a timer, and when it goes off, qdisc is started again to deliver a packet again.
-> This is a very slow way to drain the queues, consumes unnecessary resources and
-> slows down other guests shutdown.
-> This patch change the behaviour by turning the carrier off when that timer
-> fires, so all the packets are freed up which were stucked waiting for that vif.
-> Instead of the rx_queue_purge bool it uses the VIF_STATUS_RX_PURGE_EVENT bit to
-> signal the thread that either the timout happened or an RX interrupt arrived, so
-> the thread can check what it should do. It also disables NAPI, so the guest
-> can't transmit, but leaves the interrupts on, so it can resurrect.
+> For forwarding scenarios, it will be useful to allocate larger
+> sendbuf. Make the necessary adjustments to permit this.
 > 
-> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
-> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+> Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
 
-When posting a multi-part patch set, number your patches and have a header
-"[PATCH 0/N] " posting which describes at a high level what the patch
-series is doing, and why.
+This needs more information.
 
-> +				for (i = 0; i < num_queues; ++i) {
+You're increasing the size by 16 times, 1MB --> 16MB, thus less
+cache locality.
 
-Please use the more canonical "i++" increment.
+You're also now using vmalloc() memory, thus more TLB misses and
+thrashing.
 
-Thanks.
+This must have a negative impact on performance, and you have to
+test for that and quantify it when making a change as serious as
+this one.
+
+You also haven't gone into detail as to why forwarding scenerios
+require more buffer space, than say thousands of local sockets
+sending bulk TCP data.
+
+I'm not applying this, it needs a lot more work.
