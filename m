@@ -1,74 +1,153 @@
-From: Hans de Goede <hdegoede@redhat.com>
-Subject: stmmac: Needs to check dma_map return values (oops when build with
- CONFIG_DMA_API_DEBUG)
-Date: Fri, 01 Aug 2014 11:52:08 +0200
-Message-ID: <53DB6348.70404@redhat.com>
+From: Nikolay Aleksandrov <nikolay-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH net-next 1/3] lib: Resizable, Scalable,
+ Concurrent Hash Table
+Date: Fri, 01 Aug 2014 12:01:16 +0200
+Message-ID: <53DB656C.9000907@redhat.com>
+References: <cover.1406882738.git.tgraf@suug.ch>
+ <15a766adefc269dd26001474e9b67dbbd0d5bc82.1406882738.git.tgraf@suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53050 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751190AbaHAJwQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Aug 2014 05:52:16 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org,
+ netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, tklauser-93Khv+1bN0NyDzI6CaY1VQ@public.gmane.org,
+ paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, walpole-sKt6ljEC1JY3uPMLIKxrzw@public.gmane.org
+To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <15a766adefc269dd26001474e9b67dbbd0d5bc82.1406882738.git.tgraf-G/eBtMaohhA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On 08/01/2014 10:51 AM, Thomas Graf wrote:
+> Generic implementation of a resizable, scalable, concurrent hash table
+> based on [0]. The implementation supports both, fixed size keys specified
+> via an offset and length, or arbitrary keys via own hash and compare
+> functions.
+> 
+> Lookups are lockless and protected as RCU read side critical sections.
+> Automatic growing/shrinking based on user configurable watermarks is
+> available while allowing concurrent lookups to take place.
+> 
+> Objects to be hashed must include a struct rhash_head. The reason for not
+> using the existing struct hlist_head is that the expansion and shrinking
+> will have two buckets point to a single entry which would lead in obscure
+> reverse chaining behaviour.
+> 
+> Code includes a boot selftest if CONFIG_TEST_RHASHTABLE is defined.
+> 
+> [0] https://www.usenix.org/legacy/event/atc11/tech/final_files/Triplett.pdf
+> 
+> Signed-off-by: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+> ---
+>  include/linux/rhashtable.h | 213 ++++++++++++
+>  lib/Kconfig.debug          |   8 +
+>  lib/Makefile               |   2 +-
+>  lib/rhashtable.c           | 797 +++++++++++++++++++++++++++++++++++++++++++++
+>  4 files changed, 1019 insertions(+), 1 deletion(-)
+>  create mode 100644 include/linux/rhashtable.h
+>  create mode 100644 lib/rhashtable.c
+> 
+<<snip>>
+> +
+> +/**
+> + * rhashtable_init - initialize a new hash table
+> + * @ht:		hash table to be initialized
+> + * @params:	configuration parameters
+> + *
+> + * Initializes a new hash table based on the provided configuration
+> + * parameters. A table can be configured either with a variable or
+> + * fixed length key:
+> + *
+> + * Configuration Example 1: Fixed length keys
+> + * struct test_obj {
+> + *	int			key;
+> + *	void *			my_member;
+> + *	struct rhash_head	node;
+> + * };
+> + *
+> + * struct rhashtable_params params = {
+> + *	.head_offset = offsetof(struct test_obj, node),
+> + *	.key_offset = offsetof(struct test_obj, key),
+> + *	.key_len = sizeof(int),
+> + *	.hashfn = arch_fast_hash,
+> + *	.mutex_is_held = &my_mutex_is_held,
+> + * };
+> + *
+> + * Configuration Example 2: Variable length keys
+> + * struct test_obj {
+> + *	[...]
+> + *	struct rhash_head	node;
+> + * };
+> + *
+> + * u32 my_hash_fn(const void *data, u32 seed)
+> + * {
+> + *	struct test_obj *obj = data;
+> + *
+> + *	return [... hash ...];
+> + * }
+> + *
+> + * struct rhashtable_params params = {
+> + *	.head_offset = offsetof(struct test_obj, node),
+> + *	.hashfn = arch_fast_hash,
+> + *	.obj_hashfn = my_hash_fn,
+> + *	.mutex_is_held = &my_mutex_is_held,
+> + * };
+> + */
+> +int rhashtable_init(struct rhashtable *ht, struct rhashtable_params *params)
+> +{
+> +	struct bucket_table *tbl;
+> +	size_t size;
+> +
+> +	size = HASH_MIN_SIZE;
+> +
+> +	if ((params->key_len && !params->hashfn) ||
+> +	    (!params->key_len && !params->obj_hashfn))
+> +		return -EINVAL;
+> +
+> +	if (params->nelem_hint)
+> +		size = rounded_hashtable_size(params->nelem_hint);
+> +
+> +	tbl = bucket_table_alloc(size, GFP_KERNEL);
+> +	if (tbl == NULL)
+> +		return -ENOMEM;
+> +
+> +	ht->shift = ilog2(tbl->size);
+> +
+> +	memset(ht, 0, sizeof(*ht));
+Hi Thomas,
+I see that ht->shift is being set but then ht is being zeroed, wouldn't this
+allow for the table to double ilog2(tbl->size) times more ?
 
-When booting a Fedora rawhide kernel, which is build with
-CONFIG_DMA_API_DEBUG enabled, I get the following oops:
+Nik
 
-[  162.398116] ------------[ cut here ]------------
-[  162.402770] WARNING: CPU: 0 PID: 0 at lib/dma-debug.c:1140 check_unmap+0x6ec/0x824()
-[  162.410507] stmmaceth 1c50000.ethernet: DMA-API: device driver failed to check map error[device address=0x0000000068a1d002] [size=90 bytes] [mapped as single]
-[  162.424480] Modules linked in: ip6t_rpfilter ip6t_REJECT xt_conntrack cfg80211 rfkill ebtable_nat ebtable_broute bridge stp llc ebtable_filter ebtables ip6table_nat nf_conntrack_ipv6 nf_defrag_ipv6 nf_nat_ipv6 ip6table_mangle ip6table_security ip6table_raw ip6table_filter ip6_tables iptable_nat nf_conntrack_ipv4 nf_defrag_ipv4 nf_nat_ipv4 nf_nat nf_conntrack iptable_mangle iptable_security iptable_raw stmmac ptp pps_core i2c_mv64xxx sun4i_ts ohci_platform sunxi_sid rtc_sunxi phy_sun4i_usb sunxi_wdt leds_gpio mmc_block sunxi_mmc mmc_core ehci_platform ahci_sunxi libahci_platform
-[  162.476435] CPU: 0 PID: 0 Comm: swapper/0 Not tainted 3.16.0-0.rc7.git1.1.fc22.armv7hl #1
-[  162.484622] [<c02188dc>] (unwind_backtrace) from [<c0212bb0>] (show_stack+0x18/0x1c)
-[  162.492366] [<c0212bb0>] (show_stack) from [<c0938d20>] (dump_stack+0x84/0xb0)
-[  162.499590] [<c0938d20>] (dump_stack) from [<c0252444>] (warn_slowpath_common+0x70/0x94)
-[  162.507678] [<c0252444>] (warn_slowpath_common) from [<c025249c>] (warn_slowpath_fmt+0x34/0x44)
-[  162.516374] [<c025249c>] (warn_slowpath_fmt) from [<c058a65c>] (check_unmap+0x6ec/0x824)
-[  162.524463] [<c058a65c>] (check_unmap) from [<c058a7f8>] (debug_dma_unmap_page+0x64/0x70)
-[  162.532667] [<c058a7f8>] (debug_dma_unmap_page) from [<bf08dde0>] (stmmac_tx_clean+0x260/0x494 [stmmac])
-[  162.542242] [<bf08dde0>] (stmmac_tx_clean [stmmac]) from [<c025f988>] (call_timer_fn+0xd0/0x310)
-[  162.551025] [<c025f988>] (call_timer_fn) from [<c0260578>] (run_timer_softirq+0x268/0x360)
-[  162.559287] [<c0260578>] (run_timer_softirq) from [<c0258628>] (__do_softirq+0x184/0x4d0)
-[  162.567461] [<c0258628>] (__do_softirq) from [<c0258c58>] (irq_exit+0x8c/0xfc)
-[  162.574683] [<c0258c58>] (irq_exit) from [<c020f52c>] (handle_IRQ+0x74/0x98)
-[  162.581730] [<c020f52c>] (handle_IRQ) from [<c0208920>] (gic_handle_irq+0x4c/0x70)
-[  162.589299] [<c0208920>] (gic_handle_irq) from [<c0942b04>] (__irq_svc+0x44/0x58)
-[  162.596774] Exception stack(0xc0d95f58 to 0xc0d95fa0)
-[  162.601823] 5f40:                                                       00000001 00000004
-[  162.609995] 5f60: 00000000 c0da2128 c0d94000 00000000 00000000 c0d915d0 00000000 ffffffed
-[  162.618168] 5f80: c0d94000 c0d9de8c 00000000 c0d95fa0 c02a6d4c c020f8bc 200f0013 ffffffff
-[  162.626344] [<c0942b04>] (__irq_svc) from [<c020f8bc>] (arch_cpu_idle+0x38/0x44)
-[  162.633742] [<c020f8bc>] (arch_cpu_idle) from [<c029e780>] (cpu_startup_entry+0x21c/0x6ac)
-[  162.642008] [<c029e780>] (cpu_startup_entry) from [<c0cabb98>] (start_kernel+0x374/0x3dc)
-[  162.650176] ---[ end trace 70ec89df0de626f3 ]---
-[  162.654787] Mapped at:
-[  162.657145]  [<c07ed840>] dev_hard_start_xmit+0x350/0x8a0
-[  162.662550]  [<c080fcf8>] sch_direct_xmit+0x74/0x264
-[  162.667526]  [<c07ee1ec>] __dev_queue_xmit+0x45c/0x8e0
-[  162.672675]  [<c08a8c84>] ip6_finish_output2+0x7cc/0xa80
-[  162.677999]  [<c08d3a20>] mld_sendpack+0x3fc/0x808
-
-This is caused by various calls to dma_map_single not being error checked.
-
-A call to dma_map_single should look something like this:
-
-	dma_handle = dma_map_single(dev, addr, size, direction);
-	if (dma_mapping_error(dma_handle))
-		/* do error */
-
-I believe that the calls to skb_frag_dma_map should be error
-checked similarly, but I'm not 100% sure on that.
-
-I looked into fixing this myself, but esp. for the jumbo frame paths
-fixing this looks like it is non trivial.
-
-Regards,
-
-Hans
+> +	memcpy(&ht->p, params, sizeof(*params));
+> +	RCU_INIT_POINTER(ht->tbl, tbl);
+> +
+> +	if (!ht->p.hash_rnd)
+> +		get_random_bytes(&ht->p.hash_rnd, sizeof(ht->p.hash_rnd));
+> +
+> +	return 0;
+> +}
+> +EXPORT_SYMBOL_GPL(rhashtable_init);
+> +
+> +/**
+> + * rhashtable_destroy - destroy hash table
+> + * @ht:		the hash table to destroy
+> + *
+> + * Frees the bucket array.
+> + */
+> +void rhashtable_destroy(const struct rhashtable *ht)
+> +{
+> +	const struct bucket_table *tbl = rht_dereference(ht->tbl, ht);
+> +
+> +	bucket_table_free(tbl);
+> +}
+> +EXPORT_SYMBOL_GPL(rhashtable_destroy);
+<<snip>>
