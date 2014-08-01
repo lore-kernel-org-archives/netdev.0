@@ -1,57 +1,67 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH net-next 3/3] nftables: Convert nft_hash to use generic rhashtable
-Date: Fri, 01 Aug 2014 16:00:00 +0100
-Message-ID: <68a32a9d-9421-4fdd-91db-8106eaa0897a@email.android.com>
-References: <cover.1406891028.git.tgraf@suug.ch> <bd4d9fa542072358cb0bd77e493ec5785a1d9666.1406891028.git.tgraf@suug.ch> <53DB864B.2070205@redhat.com> <20140801134901.GD7331@casper.infradead.org> <0d77fb6a-4465-432f-9d6a-b1c1497a780b@email.android.com> <20140801145145.GE7331@casper.infradead.org>
-Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: Nikolay Aleksandrov <nikolay@redhat.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	paulmck@linux.vnet.ibm.com, josh@joshtriplett.org,
-	challa@noironetworks.com, walpole@cs.pdx.edu, dev@openvswitch.org,
-	tklauser@distanz.ch, netfilter-devel@vger.kernel.org,
-	pablo@netfilter.org
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20140801145145.GE7331@casper.infradead.org>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Ulrich Hecht <ulrich.hecht+renesas@gmail.com>
+Subject: [PATCH net-next] net: sh_eth: Add r8a7794 support
+Date: Fri,  1 Aug 2014 17:03:00 +0200
+Message-ID: <1406905380-25068-1-git-send-email-ulrich.hecht+renesas@gmail.com>
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
+	horms@verge.net.au, magnus.damm@gmail.com,
+	Hisashi Nakamura <hisashi.nakamura.ak@renesas.com>,
+	Ulrich Hecht <ulrich.hecht+renesas@gmail.com>
+To: davem@davemloft.net
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 1. August 2014 15:51:45 GMT+01:00, Thomas Graf <tgraf@suug.ch> wrote:
->On 08/01/14 at 03:12pm, Patrick McHardy wrote:
->> On 1. August 2014 14:49:01 GMT+01:00, Thomas Graf <tgraf@suug.ch>
->wrote:
->> >On 08/01/14 at 02:21pm, Nikolay Aleksandrov wrote:
->> >> Sorry for the late response but I just got around to check the 3rd
->> >patch now,
->> >> so my question about this fragment is: before nft_hash_remove()
->would
->> >free the
->> >> element after removal, but after this change I don't see where and
->> >when the
->> >> removed element would get freed ?
->> >
->> >You are right. Looking at this closer we were leaking references
->even
->> >before the change because it would not call nft_data_uninit() to
->> >release
->> >the data objects. So it should really just call
->> >nft_hash_elem_destroy().
->> 
->> No, the data uninit is performed by the set core. Just freeing it is
->fine.
->
->OK, I can see the uninit on the data in nft_del_setelem() for maps
->prior to the actual commit. The location is slightly unexpected since
->the element is still findable in the hash table at that point.
+From: Hisashi Nakamura <hisashi.nakamura.ak@renesas.com>
 
-That's most likely a bug from the transaction API.
+Signed-off-by: Hisashi Nakamura <hisashi.nakamura.ak@renesas.com>
+[uli: added bindings documentation]
+Signed-off-by: Ulrich Hecht <ulrich.hecht+renesas@gmail.com>
+---
+Hi!
 
-Pablo?
+I have broken this patch out of a larger series of patches comprising
+changes to other drivers which this patch does not depend on.  Please
+consider including this patch in net-next.
 
->I'll wait a short while to see if there is more feedback and resubmit
->afterwards.
+CU
+Uli
 
+ Documentation/devicetree/bindings/net/sh_eth.txt | 1 +
+ drivers/net/ethernet/renesas/sh_eth.c            | 2 ++
+ 2 files changed, 3 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/net/sh_eth.txt b/Documentation/devicetree/bindings/net/sh_eth.txt
+index e7106b5..34d4db1 100644
+--- a/Documentation/devicetree/bindings/net/sh_eth.txt
++++ b/Documentation/devicetree/bindings/net/sh_eth.txt
+@@ -9,6 +9,7 @@ Required properties:
+ 	      "renesas,ether-r8a7779"  if the device is a part of R8A7779 SoC.
+ 	      "renesas,ether-r8a7790"  if the device is a part of R8A7790 SoC.
+ 	      "renesas,ether-r8a7791"  if the device is a part of R8A7791 SoC.
++	      "renesas,ether-r8a7794"  if the device is a part of R8A7794 SoC.
+ 	      "renesas,ether-r7s72100" if the device is a part of R7S72100 SoC.
+ - reg: offset and length of (1) the E-DMAC/feLic register block (required),
+        (2) the TSU register block (optional).
+diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+index 7622213..ef2c9ce 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.c
++++ b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -2752,6 +2752,7 @@ static const struct of_device_id sh_eth_match_table[] = {
+ 	{ .compatible = "renesas,ether-r8a7779", .data = &r8a777x_data },
+ 	{ .compatible = "renesas,ether-r8a7790", .data = &r8a779x_data },
+ 	{ .compatible = "renesas,ether-r8a7791", .data = &r8a779x_data },
++	{ .compatible = "renesas,ether-r8a7794", .data = &r8a779x_data },
+ 	{ .compatible = "renesas,ether-r7s72100", .data = &r7s72100_data },
+ 	{ }
+ };
+@@ -2978,6 +2979,7 @@ static struct platform_device_id sh_eth_id_table[] = {
+ 	{ "r8a777x-ether", (kernel_ulong_t)&r8a777x_data },
+ 	{ "r8a7790-ether", (kernel_ulong_t)&r8a779x_data },
+ 	{ "r8a7791-ether", (kernel_ulong_t)&r8a779x_data },
++	{ "r8a7794-ether", (kernel_ulong_t)&r8a779x_data },
+ 	{ }
+ };
+ MODULE_DEVICE_TABLE(platform, sh_eth_id_table);
+-- 
+1.8.4.5
 
