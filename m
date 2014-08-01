@@ -1,35 +1,107 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 06/15] i40e: Move some variable declarations out of
- a loop
-Date: Thu, 31 Jul 2014 18:31:09 -0700 (PDT)
-Message-ID: <20140731.183109.742589264674095169.davem@davemloft.net>
-References: <1406766731-4209-7-git-send-email-aaron.f.brown@intel.com>
-	<20140731.140559.2090702986159656213.davem@davemloft.net>
-	<CFEEE81102D91947B9CC368106979EBA479BEBE6@ORSMSX105.amr.corp.intel.com>
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Subject: [PATCH net-next] net: use inet6_iif instead of IP6CB()->iif
+Date: Fri, 1 Aug 2014 09:52:58 +0800
+Message-ID: <53DAF2FA.50706@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: aaron.f.brown@intel.com, netdev@vger.kernel.org, gospo@redhat.com,
-	sassmann@redhat.com
-To: akeem.g.abodunrin@intel.com
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52925 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751736AbaHABbM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2014 21:31:12 -0400
-In-Reply-To: <CFEEE81102D91947B9CC368106979EBA479BEBE6@ORSMSX105.amr.corp.intel.com>
+Received: from cn.fujitsu.com ([59.151.112.132]:48326 "EHLO
+	heian.cn.fujitsu.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751120AbaHABxN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2014 21:53:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Abodunrin, Akeem G" <akeem.g.abodunrin@intel.com>
-Date: Thu, 31 Jul 2014 23:56:19 +0000
 
-> This is done because other codes have to use it before the loop...
-> 
-> Hope you understand the reason for this - and that is how it supposed to be originally, we have to increase the scope of the variables so that other code that are not in the loop can use it.
+Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+---
+ net/ipv4/ping.c     | 2 +-
+ net/ipv6/raw.c      | 8 ++++----
+ net/ipv6/udp.c      | 2 +-
+ net/l2tp/l2tp_ip6.c | 2 +-
+ 4 files changed, 7 insertions(+), 7 deletions(-)
 
-What codes?  I looked at the patches after this one and none of them use
-the variables.
-
-If anything you should make this change in the patch that needs it, not
-beforehand.
+diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
+index 044a0dd..a3c59a0 100644
+--- a/net/ipv4/ping.c
++++ b/net/ipv4/ping.c
+@@ -911,7 +911,7 @@ int ping_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 				sin6->sin6_flowinfo = ip6_flowinfo(ip6);
+ 			sin6->sin6_scope_id =
+ 				ipv6_iface_scope_id(&sin6->sin6_addr,
+-						    IP6CB(skb)->iif);
++						    inet6_iif(skb));
+ 			*addr_len = sizeof(*sin6);
+ 		}
+ 
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index dee80fb..39d4422 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -176,7 +176,7 @@ static bool ipv6_raw_deliver(struct sk_buff *skb, int nexthdr)
+ 		goto out;
+ 
+ 	net = dev_net(skb->dev);
+-	sk = __raw_v6_lookup(net, sk, nexthdr, daddr, saddr, IP6CB(skb)->iif);
++	sk = __raw_v6_lookup(net, sk, nexthdr, daddr, saddr, inet6_iif(skb));
+ 
+ 	while (sk) {
+ 		int filtered;
+@@ -220,7 +220,7 @@ static bool ipv6_raw_deliver(struct sk_buff *skb, int nexthdr)
+ 			}
+ 		}
+ 		sk = __raw_v6_lookup(net, sk_next(sk), nexthdr, daddr, saddr,
+-				     IP6CB(skb)->iif);
++				     inet6_iif(skb));
+ 	}
+ out:
+ 	read_unlock(&raw_v6_hashinfo.lock);
+@@ -375,7 +375,7 @@ void raw6_icmp_error(struct sk_buff *skb, int nexthdr,
+ 		net = dev_net(skb->dev);
+ 
+ 		while ((sk = __raw_v6_lookup(net, sk, nexthdr, saddr, daddr,
+-						IP6CB(skb)->iif))) {
++						inet6_iif(skb)))) {
+ 			rawv6_err(sk, skb, NULL, type, code,
+ 					inner_offset, info);
+ 			sk = sk_next(sk);
+@@ -506,7 +506,7 @@ static int rawv6_recvmsg(struct kiocb *iocb, struct sock *sk,
+ 		sin6->sin6_addr = ipv6_hdr(skb)->saddr;
+ 		sin6->sin6_flowinfo = 0;
+ 		sin6->sin6_scope_id = ipv6_iface_scope_id(&sin6->sin6_addr,
+-							  IP6CB(skb)->iif);
++							  inet6_iif(skb));
+ 		*addr_len = sizeof(*sin6);
+ 	}
+ 
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 5b6091d..5559fab 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -472,7 +472,7 @@ try_again:
+ 			sin6->sin6_addr = ipv6_hdr(skb)->saddr;
+ 			sin6->sin6_scope_id =
+ 				ipv6_iface_scope_id(&sin6->sin6_addr,
+-						    IP6CB(skb)->iif);
++						    inet6_iif(skb));
+ 		}
+ 		*addr_len = sizeof(*sin6);
+ 	}
+diff --git a/net/l2tp/l2tp_ip6.c b/net/l2tp/l2tp_ip6.c
+index f3f98a1..0edb263 100644
+--- a/net/l2tp/l2tp_ip6.c
++++ b/net/l2tp/l2tp_ip6.c
+@@ -687,7 +687,7 @@ static int l2tp_ip6_recvmsg(struct kiocb *iocb, struct sock *sk,
+ 		lsa->l2tp_scope_id = 0;
+ 		lsa->l2tp_conn_id = 0;
+ 		if (ipv6_addr_type(&lsa->l2tp_addr) & IPV6_ADDR_LINKLOCAL)
+-			lsa->l2tp_scope_id = IP6CB(skb)->iif;
++			lsa->l2tp_scope_id = inet6_iif(skb);
+ 	}
+ 
+ 	if (np->rxopt.all)
+-- 
+1.8.3.1
