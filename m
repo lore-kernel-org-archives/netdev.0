@@ -1,133 +1,102 @@
 From: Aaron Brown <aaron.f.brown@intel.com>
-Subject: [net-next 05/14] i40e: use correct vf_id offset for virtchnl message
-Date: Fri,  1 Aug 2014 13:27:06 -0700
-Message-ID: <1406924835-31550-6-git-send-email-aaron.f.brown@intel.com>
+Subject: [net-next 10/14] i40evf: future-proof vfr_stat state check
+Date: Fri,  1 Aug 2014 13:27:11 -0700
+Message-ID: <1406924835-31550-11-git-send-email-aaron.f.brown@intel.com>
 References: <1406924835-31550-1-git-send-email-aaron.f.brown@intel.com>
 Cc: Ashish Shah <ashish.n.shah@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Aaron Brown <aaron.f.brown@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:60887 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:49261 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756162AbaHAUXY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Aug 2014 16:23:24 -0400
+	id S1755270AbaHAUXa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Aug 2014 16:23:30 -0400
 In-Reply-To: <1406924835-31550-1-git-send-email-aaron.f.brown@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ashish Shah <ashish.n.shah@intel.com>
 
-The vf_id needs to be offset by the vf_base_id from hw function capabilities
-for the case of multiple PFs.
+Previously defined state I40E_VFR_VFACTIVE uses bit 1 which is now set to
+"reserved."  Update the state checks to also include I40E_VFR_COMPLETED.
+This change will allow the VF to work with both existing and future PFs.
 
-Change-ID: I20ca8621f98e9cdf98649380b8eeaa35db52677c
+Change-ID: Ifd1d34f79f3b0ffd6d2550ee4dadc55825ff52f8
 Signed-off-by: Ashish Shah <ashish.n.shah@intel.com>
 Tested-by: Sibai Li <sibai.li@intel.com>
 Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 19 +++++++++++++------
- 1 file changed, 13 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/i40evf/i40evf_main.c | 23 +++++++++++++++++------
+ 1 file changed, 17 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-index cafda0c..504bdf5 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
-@@ -1005,7 +1005,7 @@ static int i40e_vc_send_msg_to_vf(struct i40e_vf *vf, u32 v_opcode,
- {
- 	struct i40e_pf *pf = vf->pf;
- 	struct i40e_hw *hw = &pf->hw;
--	int true_vf_id = vf->vf_id + hw->func_caps.vf_base_id;
-+	int abs_vf_id = vf->vf_id + hw->func_caps.vf_base_id;
- 	i40e_status aq_ret;
+diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+index 937785d..4c01079 100644
+--- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
++++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
+@@ -1298,12 +1298,16 @@ static void i40evf_watchdog_task(struct work_struct *work)
+ 					  struct i40evf_adapter,
+ 					  watchdog_task);
+ 	struct i40e_hw *hw = &adapter->hw;
++	uint32_t rstat_val;
  
- 	/* single place to detect unsuccessful return values */
-@@ -1025,7 +1025,7 @@ static int i40e_vc_send_msg_to_vf(struct i40e_vf *vf, u32 v_opcode,
- 		vf->num_valid_msgs++;
- 	}
+ 	if (test_and_set_bit(__I40EVF_IN_CRITICAL_TASK, &adapter->crit_section))
+ 		goto restart_watchdog;
  
--	aq_ret = i40e_aq_send_msg_to_vf(hw, true_vf_id,	v_opcode, v_retval,
-+	aq_ret = i40e_aq_send_msg_to_vf(hw, abs_vf_id,	v_opcode, v_retval,
- 					msg, msglen, NULL);
- 	if (aq_ret) {
- 		dev_err(&pf->pdev->dev,
-@@ -1935,15 +1935,17 @@ static void i40e_vc_vf_broadcast(struct i40e_pf *pf,
- {
- 	struct i40e_hw *hw = &pf->hw;
- 	struct i40e_vf *vf = pf->vf;
-+	int abs_vf_id = vf->vf_id + hw->func_caps.vf_base_id;
+ 	if (adapter->flags & I40EVF_FLAG_PF_COMMS_FAILED) {
+-		if ((rd32(hw, I40E_VFGEN_RSTAT) & 0x3) == I40E_VFR_VFACTIVE) {
++		rstat_val = rd32(hw, I40E_VFGEN_RSTAT) &
++			    I40E_VFGEN_RSTAT_VFR_STATE_MASK;
++		if ((rstat_val == I40E_VFR_VFACTIVE) ||
++		    (rstat_val == I40E_VFR_COMPLETED)) {
+ 			/* A chance for redemption! */
+ 			dev_err(&adapter->pdev->dev, "Hardware came out of reset. Attempting reinit.\n");
+ 			adapter->state = __I40EVF_STARTUP;
+@@ -1329,8 +1333,11 @@ static void i40evf_watchdog_task(struct work_struct *work)
+ 		goto watchdog_done;
+ 
+ 	/* check for reset */
++	rstat_val = rd32(hw, I40E_VFGEN_RSTAT) &
++			    I40E_VFGEN_RSTAT_VFR_STATE_MASK;
+ 	if (!(adapter->flags & I40EVF_FLAG_RESET_PENDING) &&
+-	    (rd32(hw, I40E_VFGEN_RSTAT) & 0x3) != I40E_VFR_VFACTIVE) {
++	    (rstat_val != I40E_VFR_VFACTIVE) &&
++	    (rstat_val != I40E_VFR_COMPLETED)) {
+ 		adapter->state = __I40EVF_RESETTING;
+ 		adapter->flags |= I40EVF_FLAG_RESET_PENDING;
+ 		dev_err(&adapter->pdev->dev, "Hardware reset detected\n");
+@@ -1496,7 +1503,8 @@ static void i40evf_reset_task(struct work_struct *work)
+ 	for (i = 0; i < I40EVF_RESET_WAIT_COUNT; i++) {
+ 		rstat_val = rd32(hw, I40E_VFGEN_RSTAT) &
+ 			    I40E_VFGEN_RSTAT_VFR_STATE_MASK;
+-		if (rstat_val != I40E_VFR_VFACTIVE)
++		if ((rstat_val != I40E_VFR_VFACTIVE) &&
++		    (rstat_val != I40E_VFR_COMPLETED))
+ 			break;
+ 		else
+ 			msleep(I40EVF_RESET_WAIT_MS);
+@@ -1510,7 +1518,8 @@ static void i40evf_reset_task(struct work_struct *work)
+ 	for (i = 0; i < I40EVF_RESET_WAIT_COUNT; i++) {
+ 		rstat_val = rd32(hw, I40E_VFGEN_RSTAT) &
+ 			    I40E_VFGEN_RSTAT_VFR_STATE_MASK;
+-		if (rstat_val == I40E_VFR_VFACTIVE)
++		if ((rstat_val == I40E_VFR_VFACTIVE) ||
++		    (rstat_val == I40E_VFR_COMPLETED))
+ 			break;
+ 		else
+ 			msleep(I40EVF_RESET_WAIT_MS);
+@@ -1947,8 +1956,10 @@ static int i40evf_check_reset_complete(struct i40e_hw *hw)
  	int i;
  
- 	for (i = 0; i < pf->num_alloc_vfs; i++) {
- 		/* Ignore return value on purpose - a given VF may fail, but
- 		 * we need to keep going and send to all of them
- 		 */
--		i40e_aq_send_msg_to_vf(hw, vf->vf_id, v_opcode, v_retval,
-+		i40e_aq_send_msg_to_vf(hw, abs_vf_id, v_opcode, v_retval,
- 				       msg, msglen, NULL);
- 		vf++;
-+		abs_vf_id = vf->vf_id + hw->func_caps.vf_base_id;
+ 	for (i = 0; i < 100; i++) {
+-		rstat = rd32(hw, I40E_VFGEN_RSTAT);
+-		if (rstat == I40E_VFR_VFACTIVE)
++		rstat = rd32(hw, I40E_VFGEN_RSTAT) &
++			    I40E_VFGEN_RSTAT_VFR_STATE_MASK;
++		if ((rstat == I40E_VFR_VFACTIVE) ||
++		    (rstat == I40E_VFR_COMPLETED))
+ 			return 0;
+ 		udelay(10);
  	}
- }
- 
-@@ -1959,6 +1961,7 @@ void i40e_vc_notify_link_state(struct i40e_pf *pf)
- 	struct i40e_hw *hw = &pf->hw;
- 	struct i40e_vf *vf = pf->vf;
- 	struct i40e_link_status *ls = &pf->hw.phy.link_info;
-+	int abs_vf_id = vf->vf_id + hw->func_caps.vf_base_id;
- 	int i;
- 
- 	pfe.event = I40E_VIRTCHNL_EVENT_LINK_CHANGE;
-@@ -1973,10 +1976,11 @@ void i40e_vc_notify_link_state(struct i40e_pf *pf)
- 				ls->link_info & I40E_AQ_LINK_UP;
- 			pfe.event_data.link_event.link_speed = ls->link_speed;
- 		}
--		i40e_aq_send_msg_to_vf(hw, vf->vf_id, I40E_VIRTCHNL_OP_EVENT,
-+		i40e_aq_send_msg_to_vf(hw, abs_vf_id, I40E_VIRTCHNL_OP_EVENT,
- 				       0, (u8 *)&pfe, sizeof(pfe),
- 				       NULL);
- 		vf++;
-+		abs_vf_id = vf->vf_id + hw->func_caps.vf_base_id;
- 	}
- }
- 
-@@ -2005,10 +2009,11 @@ void i40e_vc_notify_reset(struct i40e_pf *pf)
- void i40e_vc_notify_vf_reset(struct i40e_vf *vf)
- {
- 	struct i40e_virtchnl_pf_event pfe;
-+	int abs_vf_id = vf->vf_id + vf->pf->hw.func_caps.vf_base_id;
- 
- 	pfe.event = I40E_VIRTCHNL_EVENT_RESET_IMPENDING;
- 	pfe.severity = I40E_PF_EVENT_SEVERITY_CERTAIN_DOOM;
--	i40e_aq_send_msg_to_vf(&vf->pf->hw, vf->vf_id, I40E_VIRTCHNL_OP_EVENT,
-+	i40e_aq_send_msg_to_vf(&vf->pf->hw, abs_vf_id, I40E_VIRTCHNL_OP_EVENT,
- 			       I40E_SUCCESS, (u8 *)&pfe,
- 			       sizeof(struct i40e_virtchnl_pf_event), NULL);
- }
-@@ -2345,6 +2350,7 @@ int i40e_ndo_set_vf_link_state(struct net_device *netdev, int vf_id, int link)
- 	struct i40e_virtchnl_pf_event pfe;
- 	struct i40e_hw *hw = &pf->hw;
- 	struct i40e_vf *vf;
-+	int abs_vf_id;
- 	int ret = 0;
- 
- 	/* validate the request */
-@@ -2355,6 +2361,7 @@ int i40e_ndo_set_vf_link_state(struct net_device *netdev, int vf_id, int link)
- 	}
- 
- 	vf = &pf->vf[vf_id];
-+	abs_vf_id = vf->vf_id + hw->func_caps.vf_base_id;
- 
- 	pfe.event = I40E_VIRTCHNL_EVENT_LINK_CHANGE;
- 	pfe.severity = I40E_PF_EVENT_SEVERITY_INFO;
-@@ -2384,7 +2391,7 @@ int i40e_ndo_set_vf_link_state(struct net_device *netdev, int vf_id, int link)
- 		goto error_out;
- 	}
- 	/* Notify the VF of its new link state */
--	i40e_aq_send_msg_to_vf(hw, vf->vf_id, I40E_VIRTCHNL_OP_EVENT,
-+	i40e_aq_send_msg_to_vf(hw, abs_vf_id, I40E_VIRTCHNL_OP_EVENT,
- 			       0, (u8 *)&pfe, sizeof(pfe), NULL);
- 
- error_out:
 -- 
 1.9.3
