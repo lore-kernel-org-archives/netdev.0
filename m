@@ -1,7 +1,7 @@
 From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH net-next v2 6/6] inet: frags: use kmem_cache for inet_frag_queue
-Date: Fri,  1 Aug 2014 12:29:48 +0200
-Message-ID: <1406888988-20742-7-git-send-email-nikolay@redhat.com>
+Subject: [PATCH net-next v2 5/6] inet: frags: use INET_FRAG_EVICTED to prevent icmp messages
+Date: Fri,  1 Aug 2014 12:29:47 +0200
+Message-ID: <1406888988-20742-6-git-send-email-nikolay@redhat.com>
 References: <1406888988-20742-1-git-send-email-nikolay@redhat.com>
 Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
 	Florian Westphal <fw@strlen.de>,
@@ -15,200 +15,118 @@ Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:9338 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:41186 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754713AbaHAKbG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Aug 2014 06:31:06 -0400
+	id S1754685AbaHAKbE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Aug 2014 06:31:04 -0400
 In-Reply-To: <1406888988-20742-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use kmem_cache to allocate/free inet_frag_queue objects since they're
-all the same size per inet_frags user and are alloced/freed in high volumes
-thus making it a perfect case for kmem_cache.
+Now that we have INET_FRAG_EVICTED we might as well use it to stop
+sending icmp messages in the "frag_expire" functions instead of
+stripping INET_FRAG_FIRST_IN from their flags when evicting.
+Also fix the comment style in ip6_expire_frag_queue().
 
 Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
-Acked-by: Florian Westphal <fw@strlen.de>
+Reviewed-by: Florian Westphal <fw@strlen.de>
 ---
 v2: no changes
 
- include/net/inet_frag.h                 |  4 +++-
- net/ieee802154/reassembly.c             |  7 ++++++-
- net/ipv4/inet_fragment.c                | 13 ++++++++++---
- net/ipv4/ip_fragment.c                  |  5 ++++-
- net/ipv6/netfilter/nf_conntrack_reasm.c |  8 ++++++--
- net/ipv6/reassembly.c                   |  7 ++++++-
- 6 files changed, 35 insertions(+), 9 deletions(-)
+ net/ipv4/inet_fragment.c |  2 --
+ net/ipv4/ip_fragment.c   | 14 +++++++-------
+ net/ipv6/reassembly.c    | 15 ++++++++-------
+ 3 files changed, 15 insertions(+), 16 deletions(-)
 
-diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
-index 90015c47b447..65a8855e99fe 100644
---- a/include/net/inet_frag.h
-+++ b/include/net/inet_frag.h
-@@ -101,9 +101,11 @@ struct inet_frags {
- 	void			(*destructor)(struct inet_frag_queue *);
- 	void			(*skb_free)(struct sk_buff *);
- 	void			(*frag_expire)(unsigned long data);
-+	struct kmem_cache	*frags_cachep;
-+	const char		*frags_cache_name;
- };
- 
--void inet_frags_init(struct inet_frags *);
-+int inet_frags_init(struct inet_frags *);
- void inet_frags_fini(struct inet_frags *);
- 
- void inet_frags_init_net(struct netns_frags *nf);
-diff --git a/net/ieee802154/reassembly.c b/net/ieee802154/reassembly.c
-index 5607accd2fee..ffec6ce51005 100644
---- a/net/ieee802154/reassembly.c
-+++ b/net/ieee802154/reassembly.c
-@@ -30,6 +30,8 @@
- 
- #include "reassembly.h"
- 
-+static const char lowpan_frags_cache_name[] = "lowpan-frags";
-+
- struct lowpan_frag_info {
- 	__be16 d_tag;
- 	u16 d_size;
-@@ -571,7 +573,10 @@ int __init lowpan_net_frag_init(void)
- 	lowpan_frags.qsize = sizeof(struct frag_queue);
- 	lowpan_frags.match = lowpan_frag_match;
- 	lowpan_frags.frag_expire = lowpan_frag_expire;
--	inet_frags_init(&lowpan_frags);
-+	lowpan_frags.frags_cache_name = lowpan_frags_cache_name;
-+	ret = inet_frags_init(&lowpan_frags);
-+	if (ret)
-+		goto err_pernet;
- 
- 	return ret;
- err_pernet:
 diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
-index 4baa76c60398..9eb89f3f0ee4 100644
+index fa49916c23a0..4baa76c60398 100644
 --- a/net/ipv4/inet_fragment.c
 +++ b/net/ipv4/inet_fragment.c
-@@ -198,7 +198,7 @@ static void inet_frag_schedule_worker(struct inet_frags *f)
- 		schedule_work(&f->frags_work);
- }
+@@ -151,8 +151,6 @@ evict_again:
+ 			goto evict_again;
+ 		}
  
--void inet_frags_init(struct inet_frags *f)
-+int inet_frags_init(struct inet_frags *f)
- {
- 	int i;
- 
-@@ -213,6 +213,12 @@ void inet_frags_init(struct inet_frags *f)
- 
- 	seqlock_init(&f->rnd_seqlock);
- 	f->last_rebuild_jiffies = 0;
-+	f->frags_cachep = kmem_cache_create(f->frags_cache_name, f->qsize, 0, 0,
-+					    NULL);
-+	if (!f->frags_cachep)
-+		return -ENOMEM;
-+
-+	return 0;
- }
- EXPORT_SYMBOL(inet_frags_init);
- 
-@@ -225,6 +231,7 @@ EXPORT_SYMBOL(inet_frags_init_net);
- void inet_frags_fini(struct inet_frags *f)
- {
- 	cancel_work_sync(&f->frags_work);
-+	kmem_cache_destroy(f->frags_cachep);
- }
- EXPORT_SYMBOL(inet_frags_fini);
- 
-@@ -327,7 +334,7 @@ void inet_frag_destroy(struct inet_frag_queue *q, struct inet_frags *f)
- 
- 	if (f->destructor)
- 		f->destructor(q);
--	kfree(q);
-+	kmem_cache_free(f->frags_cachep, q);
- }
- EXPORT_SYMBOL(inet_frag_destroy);
- 
-@@ -377,7 +384,7 @@ static struct inet_frag_queue *inet_frag_alloc(struct netns_frags *nf,
- 		return NULL;
- 	}
- 
--	q = kzalloc(f->qsize, GFP_ATOMIC);
-+	q = kmem_cache_zalloc(f->frags_cachep, GFP_ATOMIC);
- 	if (q == NULL)
- 		return NULL;
- 
+-		/* suppress xmit of (icmp) error packet */
+-		fq->flags &= ~INET_FRAG_FIRST_IN;
+ 		fq->flags |= INET_FRAG_EVICTED;
+ 		hlist_del(&fq->list);
+ 		hlist_add_head(&fq->list, &expired);
 diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
-index cb56bcc1eee2..15f0e2bad7ad 100644
+index 6fce1ecc5bca..cb56bcc1eee2 100644
 --- a/net/ipv4/ip_fragment.c
 +++ b/net/ipv4/ip_fragment.c
-@@ -55,6 +55,7 @@
-  */
+@@ -189,16 +189,18 @@ static void ip_expire(unsigned long arg)
+ 		goto out;
  
- static int sysctl_ipfrag_max_dist __read_mostly = 64;
-+static const char ip_frag_cache_name[] = "ip4-frags";
- 
- struct ipfrag_skb_cb
- {
-@@ -860,5 +861,7 @@ void __init ipfrag_init(void)
- 	ip4_frags.qsize = sizeof(struct ipq);
- 	ip4_frags.match = ip4_frag_match;
- 	ip4_frags.frag_expire = ip_expire;
--	inet_frags_init(&ip4_frags);
-+	ip4_frags.frags_cache_name = ip_frag_cache_name;
-+	if (inet_frags_init(&ip4_frags))
-+		panic("IP: failed to allocate ip4_frags cache\n");
- }
-diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
-index cca686e42b97..6f187c8d8a1b 100644
---- a/net/ipv6/netfilter/nf_conntrack_reasm.c
-+++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
-@@ -50,6 +50,7 @@
- #include <linux/module.h>
- #include <net/netfilter/ipv6/nf_defrag_ipv6.h>
- 
-+static const char nf_frags_cache_name[] = "nf-frags";
- 
- struct nf_ct_frag6_skb_cb
- {
-@@ -677,12 +678,15 @@ int nf_ct_frag6_init(void)
- 	nf_frags.qsize = sizeof(struct frag_queue);
- 	nf_frags.match = ip6_frag_match;
- 	nf_frags.frag_expire = nf_ct_frag6_expire;
--	inet_frags_init(&nf_frags);
+ 	ipq_kill(qp);
 -
-+	nf_frags.frags_cache_name = nf_frags_cache_name;
-+	ret = inet_frags_init(&nf_frags);
-+	if (ret)
-+		goto out;
- 	ret = register_pernet_subsys(&nf_ct_net_ops);
- 	if (ret)
- 		inet_frags_fini(&nf_frags);
+-	if (!(qp->q.flags & INET_FRAG_EVICTED))
+-		IP_INC_STATS_BH(net, IPSTATS_MIB_REASMTIMEOUT);
+ 	IP_INC_STATS_BH(net, IPSTATS_MIB_REASMFAILS);
  
-+out:
- 	return ret;
- }
+-	if ((qp->q.flags & INET_FRAG_FIRST_IN) && qp->q.fragments != NULL) {
++	if (!(qp->q.flags & INET_FRAG_EVICTED)) {
+ 		struct sk_buff *head = qp->q.fragments;
+ 		const struct iphdr *iph;
+ 		int err;
  
++		IP_INC_STATS_BH(net, IPSTATS_MIB_REASMTIMEOUT);
++
++		if (!(qp->q.flags & INET_FRAG_FIRST_IN) || !qp->q.fragments)
++			goto out;
++
+ 		rcu_read_lock();
+ 		head->dev = dev_get_by_index_rcu(net, qp->iif);
+ 		if (!head->dev)
+@@ -211,8 +213,7 @@ static void ip_expire(unsigned long arg)
+ 		if (err)
+ 			goto out_rcu_unlock;
+ 
+-		/*
+-		 * Only an end host needs to send an ICMP
++		/* Only an end host needs to send an ICMP
+ 		 * "Fragment Reassembly Timeout" message, per RFC792.
+ 		 */
+ 		if (qp->user == IP_DEFRAG_AF_PACKET ||
+@@ -221,7 +222,6 @@ static void ip_expire(unsigned long arg)
+ 		     (skb_rtable(head)->rt_type != RTN_LOCAL)))
+ 			goto out_rcu_unlock;
+ 
+-
+ 		/* Send an ICMP "Fragment Reassembly Timeout" message. */
+ 		icmp_send(head, ICMP_TIME_EXCEEDED, ICMP_EXC_FRAGTIME, 0);
+ out_rcu_unlock:
 diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
-index beb6872a8fa5..c6557d9f7808 100644
+index b4baceed0d0d..beb6872a8fa5 100644
 --- a/net/ipv6/reassembly.c
 +++ b/net/ipv6/reassembly.c
-@@ -60,6 +60,8 @@
- #include <net/inet_frag.h>
- #include <net/inet_ecn.h>
+@@ -141,19 +141,20 @@ void ip6_expire_frag_queue(struct net *net, struct frag_queue *fq,
+ 	if (!dev)
+ 		goto out_rcu_unlock;
  
-+static const char ip6_frag_cache_name[] = "ip6-frags";
+-	if (!(fq->q.flags & INET_FRAG_EVICTED))
+-		IP6_INC_STATS_BH(net, __in6_dev_get(dev),
+-				 IPSTATS_MIB_REASMTIMEOUT);
+ 	IP6_INC_STATS_BH(net, __in6_dev_get(dev), IPSTATS_MIB_REASMFAILS);
+ 
++	if (fq->q.flags & INET_FRAG_EVICTED)
++		goto out_rcu_unlock;
 +
- struct ip6frag_skb_cb
- {
- 	struct inet6_skb_parm	h;
-@@ -748,7 +750,10 @@ int __init ipv6_frag_init(void)
- 	ip6_frags.qsize = sizeof(struct frag_queue);
- 	ip6_frags.match = ip6_frag_match;
- 	ip6_frags.frag_expire = ip6_frag_expire;
--	inet_frags_init(&ip6_frags);
-+	ip6_frags.frags_cache_name = ip6_frag_cache_name;
-+	ret = inet_frags_init(&ip6_frags);
-+	if (ret)
-+		goto err_pernet;
- out:
- 	return ret;
++	IP6_INC_STATS_BH(net, __in6_dev_get(dev), IPSTATS_MIB_REASMTIMEOUT);
++
+ 	/* Don't send error if the first segment did not arrive. */
+ 	if (!(fq->q.flags & INET_FRAG_FIRST_IN) || !fq->q.fragments)
+ 		goto out_rcu_unlock;
  
+-	/*
+-	   But use as source device on which LAST ARRIVED
+-	   segment was received. And do not use fq->dev
+-	   pointer directly, device might already disappeared.
++	/* But use as source device on which LAST ARRIVED
++	 * segment was received. And do not use fq->dev
++	 * pointer directly, device might already disappeared.
+ 	 */
+ 	fq->q.fragments->dev = dev;
+ 	icmpv6_send(fq->q.fragments, ICMPV6_TIME_EXCEED, ICMPV6_EXC_FRAGTIME, 0);
 -- 
 1.9.3
