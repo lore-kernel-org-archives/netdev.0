@@ -1,40 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] sunvnet: ldc_connect() should not return
- EINVAL when handshake is in progress.
-Date: Thu, 31 Jul 2014 22:11:00 -0700 (PDT)
-Message-ID: <20140731.221100.853245332445696300.davem@davemloft.net>
-References: <20140731143126.GA7979@oracle.com>
+Subject: Re: [PATCH net-next 2/4] inet: frags: rename last_in to flags,
+ enum the definitions and add comments
+Date: Thu, 31 Jul 2014 22:13:49 -0700 (PDT)
+Message-ID: <20140731.221349.304058285592989214.davem@davemloft.net>
+References: <1406819499-11198-1-git-send-email-nikolay@redhat.com>
+	<1406819499-11198-3-git-send-email-nikolay@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: karl.volz@oracle.com, netdev@vger.kernel.org
-To: sowmini.varadhan@oracle.com
+Cc: netdev@vger.kernel.org, fw@strlen.de, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	alex.aring@gmail.com, eric.dumazet@gmail.com
+To: nikolay@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54335 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54374 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752580AbaHAFLB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Aug 2014 01:11:01 -0400
-In-Reply-To: <20140731143126.GA7979@oracle.com>
+	with ESMTP id S1750703AbaHAFNu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Aug 2014 01:13:50 -0400
+In-Reply-To: <1406819499-11198-3-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Date: Thu, 31 Jul 2014 10:31:26 -0400
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Date: Thu, 31 Jul 2014 17:11:37 +0200
 
-> 
-> The LDC handshake could have been asynchronously triggered
-> after ldc_bind() enables the ldc_rx() receive interrupt-handler 
-> (and thus intercepts incoming control packets)
-> and before vio_port_up() calls ldc_connect(). If that is the case,
-> ldc_connect() should return 0 and let the state-machine
-> progress.
-> 
-> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-> Acked-by: Karl Volz <karl.volz@oracle.com>
+> The last_in field has been used to store various flags different from
+> first/last frag in so give it a more descriptive name: flags. Move
+> the flags to an enum definion, swap FIRST_IN/LAST_IN to be in logical
+> order and add comments explaining each flag, also add comments explaining
+> the inet_frag_queue struct members. While at it align some function
+> declarations.
 
-This is a sparc architecture change, not a networking one.
+When I hear things like "also" and "while at it", what I really hear is
+"that should be done in a separate patch".
 
-Please submit it to the appropriate mailing list, as per the top-level
-MAINTAINERS file.
-
-Thanks.
+Please don't clump so many unrelated changes together, it makes the
+patch harder to review than necessary, thanks.
