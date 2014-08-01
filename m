@@ -1,48 +1,117 @@
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Subject: Re: [PATCH v2] net: fix the counter ICMP_MIB_INERRORS/ICMP6_MIB_INERRORS
-Date: Fri, 1 Aug 2014 09:09:17 +0800
-Message-ID: <53DAE8BD.30907@cn.fujitsu.com>
-References: <53D75922.2090106@cn.fujitsu.com>	 <53DA1258.90203@cn.fujitsu.com> <1406840726.13603.3.camel@localhost>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([59.151.112.132]:18077 "EHLO
-	heian.cn.fujitsu.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750977AbaHABJe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 31 Jul 2014 21:09:34 -0400
-In-Reply-To: <1406840726.13603.3.camel@localhost>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Peter Moody <pmoody@google.com>
+Subject: [PATCH v2 0/2] RFC, aiding pid/network correlation
+Date: Thu, 31 Jul 2014 18:21:38 -0700
+Message-ID: <1406856100-21674-1-git-send-email-pmoody@google.com>
+Cc: brandon.carpenter@pnnl.gov, casey@schaufler-ca.com,
+	netdev@vger.kernel.org, Peter Moody <pmoody@google.com>
+To: linux-security-module@vger.kernel.org
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/01/2014 05:05 AM, Hannes Frederic Sowa wrote:
-> On Do, 2014-07-31 at 17:54 +0800, Duan Jiong wrote:
->> When dealing with ICMPv[46] Error Message, function icmp_socket_deliver()
->> and icmpv6_notify() do some valid checks on packet's length, but then some
->> protocols check packet's length redaudantly. So remove those duplicated
->> statements, and increase counter ICMP_MIB_INERRORS/ICMP6_MIB_INERRORS in
->> function icmp_socket_deliver() and icmpv6_notify() respectively.
->>
->> In addition, add missed counter in udp6/udplite6 when socket is NULL.
->>
->> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
->> ---
->>
->> v2: remove nested rcu_read_lock from icmpv6_notify
-> 
-> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> 
-> IPv4 handler can also be cleaned up. ;)
+I'm interested in having a host-based monitoring mechanism in
+place in the linux kernel. At this point I'm specifically looking
+to tie any given packet seen on the network back to the process
+that sent or received it. This is the sort of information our
+incident responders are constantly asking for.
 
-Ok, i will make another patch soon. :)
+This is round 2 of the patchset. It's essentially taking HONE [1],
+a kernel module originally written by Brandon Carpenter and switches
+the hooks to use the standard (plus a new one, task_post_create) LSM
+hooks + a run through cleanfile/checkpatch.
 
-Thanks,
-  Duan
+At a high level, Hone hooks process/socket creations/terminations
+and inet/inet6 packets that are sent or received. A userspace
+application can then correlate packet to process by reading the
+events from the kernel.
 
-> 
-> Thanks!
-> 
-> 
+(Note, there doesn't appear to be outbound version of the callback
+socket_sock_rcv_skb and the socket_sendmsg/socket_recvmsg
+are called too early in the process to be used so this uses netfilter
+hooks.)
+
+This patchset makes the events available as text via securityfs
+in /sys/kernel/security/hone/text and /sys/kernel/security/hone/pcapng.
+The text output looks like
+
+3.350826817 EXEC 718 1 0 0 "/usr/sbin/cupsd" /usr/sbin/cupsd -f
+3.350826817 SOCK O 718 1 0 0 b14e0000
+...
+5301.871561546 EXEC 2652 2586 1000 1000 "/bin/less" less
+5303.104510870 EXEC 2653 2651 0 0 "/bin/cat" cat /sys/kernel/security/hone/text
+5303.110322648 PAKT O 382d0700 2524 TCPv4 169.254.0.11:22 -> 169.254.0.2:49387 120
+
+and the pcapng format is described in hone_pcapng.h.
+
+There are some drawbacks with this method. Notably, it doesn't
+accurately track the owning pid of sockets passed via dup(), dup2()
+etc.
+
+This particular approach is all very experimental. We had a need
+for this level of monitoring on some of our machines (did I mention
+the incident responders?) and HONE had the best features/efficiency.
+
+I've CC'd the netdev folks at James' suggestion. I CC'd you, Casey
+as you were the one who suggested this be a proper LSM.
+
+So I'm humbly requesting comments.
+
+ * Is there a better (more efficient/extensible) way to do this?
+ * Is there already an existing mechanism to do this?
+ * Is there any interest in something like this living in the
+   kernel? Or is the dkms distributed path the way to go?
+
+And if this is all reasonable, is it possible to add a
+socket_sock_send_skb callback and where might that go?
+
+Finally, the linux-sensor project was released under the GPL but
+I'm not sure if there are any copyright issues ... ? I've just
+kept the copyright comments in any event.
+
+This has been tested against security-next
+
+[1] https://github.com/HoneProject/Linux-Sensor
+
+Peter Moody (2):
+  security: create task_post_create callback.
+  security: Hone LSM
+
+ include/linux/hone.h               |  50 +++
+ include/linux/security.h           |   8 +
+ kernel/fork.c                      |   1 +
+ security/Kconfig                   |   1 +
+ security/Makefile                  |   2 +
+ security/capability.c              |   5 +
+ security/hone/Kconfig              |   8 +
+ security/hone/Makefile             |   3 +
+ security/hone/hone.h               | 164 ++++++++++
+ security/hone/hone_event.c         | 625 +++++++++++++++++++++++++++++++++++++
+ security/hone/hone_lsm.c           | 183 +++++++++++
+ security/hone/hone_mmutil.c        | 106 +++++++
+ security/hone/hone_mmutil.h        |  20 ++
+ security/hone/hone_notify.c        | 450 ++++++++++++++++++++++++++
+ security/hone/hone_pcapng.c        | 596 +++++++++++++++++++++++++++++++++++
+ security/hone/hone_pcapng.h        |  30 ++
+ security/hone/hone_ringbuf.c       |  51 +++
+ security/hone/hone_ringbuf.h       |  34 ++
+ security/hone/hone_socket_lookup.c | 264 ++++++++++++++++
+ security/security.c                |   5 +
+ 20 files changed, 2606 insertions(+)
+ create mode 100644 include/linux/hone.h
+ create mode 100644 security/hone/Kconfig
+ create mode 100644 security/hone/Makefile
+ create mode 100644 security/hone/hone.h
+ create mode 100644 security/hone/hone_event.c
+ create mode 100644 security/hone/hone_lsm.c
+ create mode 100644 security/hone/hone_mmutil.c
+ create mode 100644 security/hone/hone_mmutil.h
+ create mode 100644 security/hone/hone_notify.c
+ create mode 100644 security/hone/hone_pcapng.c
+ create mode 100644 security/hone/hone_pcapng.h
+ create mode 100644 security/hone/hone_ringbuf.c
+ create mode 100644 security/hone/hone_ringbuf.h
+ create mode 100644 security/hone/hone_socket_lookup.c
+
+-- 
+2.0.0.526.g5318336
+
