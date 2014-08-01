@@ -1,7 +1,8 @@
 From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next 1/2] amd-xgbe: Remove unnecessary spinlocks
-Date: Fri, 1 Aug 2014 11:56:29 -0500
-Message-ID: <20140801165629.20602.64450.stgit@tlendack-t1.amdoffice.net>
+Subject: [PATCH net-next 2/2] amd-xgbe-phy: Allow more time for Rx/Tx to
+ become ready
+Date: Fri, 1 Aug 2014 11:56:36 -0500
+Message-ID: <20140801165636.20602.82088.stgit@tlendack-t1.amdoffice.net>
 References: <20140801165623.20602.457.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -9,119 +10,55 @@ Content-Transfer-Encoding: 7bit
 Cc: <davem@davemloft.net>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1blp0181.outbound.protection.outlook.com ([207.46.163.181]:54252
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+Received: from mail-by2lp0237.outbound.protection.outlook.com ([207.46.163.237]:45809
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751204AbaHAQ4g (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Aug 2014 12:56:36 -0400
+	id S1755240AbaHAQ4l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Aug 2014 12:56:41 -0400
 In-Reply-To: <20140801165623.20602.457.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove the spinlocks around the ethtool get and set settings
-functions and within the link adjustment callback routine.
+The current time range waiting for Rx/Tx to become ready can sometimes
+be too short if a connection is not present.  Increase the number of
+retries and the sleep to give a bit more time. Also, change level of
+the message issued from _err to _dbg if Rx/Tx do not become ready
+since the underlying logic will function as if no link is established
+and retry eventually.
 
 Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
 ---
- drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c |   20 +++++---------------
- drivers/net/ethernet/amd/xgbe/xgbe-mdio.c    |    5 -----
- 2 files changed, 5 insertions(+), 20 deletions(-)
+ drivers/net/phy/amd-xgbe-phy.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
-index 6005b60..a076aca 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-ethtool.c
-@@ -290,13 +290,9 @@ static int xgbe_get_settings(struct net_device *netdev,
- 	if (!pdata->phydev)
- 		return -ENODEV;
+diff --git a/drivers/net/phy/amd-xgbe-phy.c b/drivers/net/phy/amd-xgbe-phy.c
+index 388e302..f3230ee 100644
+--- a/drivers/net/phy/amd-xgbe-phy.c
++++ b/drivers/net/phy/amd-xgbe-phy.c
+@@ -95,7 +95,7 @@ MODULE_DESCRIPTION("AMD 10GbE (amd-xgbe) PHY driver");
+ #define XNP_MP_FORMATTED		(1 << 13)
+ #define XNP_NP_EXCHANGE			(1 << 15)
  
--	spin_lock_irq(&pdata->lock);
--
- 	ret = phy_ethtool_gset(pdata->phydev, cmd);
- 	cmd->transceiver = XCVR_EXTERNAL;
+-#define XGBE_PHY_RATECHANGE_COUNT	100
++#define XGBE_PHY_RATECHANGE_COUNT	500
  
--	spin_unlock_irq(&pdata->lock);
--
- 	DBGPR("<--xgbe_get_settings\n");
+ #ifndef MDIO_PMA_10GBR_PMD_CTRL
+ #define MDIO_PMA_10GBR_PMD_CTRL		0x0096
+@@ -411,7 +411,7 @@ static void amd_xgbe_phy_serdes_complete_ratechange(struct phy_device *phydev)
+ 	/* Wait for Rx and Tx ready */
+ 	wait = XGBE_PHY_RATECHANGE_COUNT;
+ 	while (wait--) {
+-		usleep_range(10, 20);
++		usleep_range(50, 75);
  
- 	return ret;
-@@ -315,17 +311,14 @@ static int xgbe_set_settings(struct net_device *netdev,
- 	if (!pdata->phydev)
- 		return -ENODEV;
- 
--	spin_lock_irq(&pdata->lock);
--
- 	speed = ethtool_cmd_speed(cmd);
- 
--	ret = -EINVAL;
- 	if (cmd->phy_address != phydev->addr)
--		goto unlock;
-+		return -EINVAL;
- 
- 	if ((cmd->autoneg != AUTONEG_ENABLE) &&
- 	    (cmd->autoneg != AUTONEG_DISABLE))
--		goto unlock;
-+		return -EINVAL;
- 
- 	if (cmd->autoneg == AUTONEG_DISABLE) {
- 		switch (speed) {
-@@ -334,16 +327,16 @@ static int xgbe_set_settings(struct net_device *netdev,
- 		case SPEED_1000:
- 			break;
- 		default:
--			goto unlock;
-+			return -EINVAL;
- 		}
- 
- 		if (cmd->duplex != DUPLEX_FULL)
--			goto unlock;
-+			return -EINVAL;
+ 		status = XSIR0_IOREAD(priv, SIR0_STATUS);
+ 		if (XSIR_GET_BITS(status, SIR0_STATUS, RX_READY) &&
+@@ -419,7 +419,7 @@ static void amd_xgbe_phy_serdes_complete_ratechange(struct phy_device *phydev)
+ 			return;
  	}
  
- 	cmd->advertising &= phydev->supported;
- 	if ((cmd->autoneg == AUTONEG_ENABLE) && !cmd->advertising)
--		goto unlock;
-+		return -EINVAL;
- 
- 	ret = 0;
- 	phydev->autoneg = cmd->autoneg;
-@@ -359,9 +352,6 @@ static int xgbe_set_settings(struct net_device *netdev,
- 	if (netif_running(netdev))
- 		ret = phy_start_aneg(phydev);
- 
--unlock:
--	spin_unlock_irq(&pdata->lock);
--
- 	DBGPR("<--xgbe_set_settings\n");
- 
- 	return ret;
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c b/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
-index 225f22d..eecd360 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-mdio.c
-@@ -163,7 +163,6 @@ static void xgbe_adjust_link(struct net_device *netdev)
- 	struct xgbe_prv_data *pdata = netdev_priv(netdev);
- 	struct xgbe_hw_if *hw_if = &pdata->hw_if;
- 	struct phy_device *phydev = pdata->phydev;
--	unsigned long flags;
- 	int new_state = 0;
- 
- 	if (phydev == NULL)
-@@ -172,8 +171,6 @@ static void xgbe_adjust_link(struct net_device *netdev)
- 	DBGPR_MDIO("-->xgbe_adjust_link: address=%d, newlink=%d, curlink=%d\n",
- 		   phydev->addr, phydev->link, pdata->phy_link);
- 
--	spin_lock_irqsave(&pdata->lock, flags);
--
- 	if (phydev->link) {
- 		/* Flow control support */
- 		if (pdata->pause_autoneg) {
-@@ -229,8 +226,6 @@ static void xgbe_adjust_link(struct net_device *netdev)
- 	if (new_state)
- 		phy_print_status(phydev);
- 
--	spin_unlock_irqrestore(&pdata->lock, flags);
--
- 	DBGPR_MDIO("<--xgbe_adjust_link\n");
+-	netdev_err(phydev->attached_dev, "SerDes rx/tx not ready (%#hx)\n",
++	netdev_dbg(phydev->attached_dev, "SerDes rx/tx not ready (%#hx)\n",
+ 		   status);
  }
  
