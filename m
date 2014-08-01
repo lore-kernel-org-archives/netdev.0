@@ -1,43 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv6: rename __ipv6_addr_jhash()
-Date: Thu, 31 Jul 2014 21:56:46 -0700 (PDT)
-Message-ID: <20140731.215646.951740411089334213.davem@davemloft.net>
-References: <1406756298.3178.52.camel@edumazet-glaptop2.roam.corp.google.com>
+Subject: Re: [PATCH v2] net: fix the counter
+ ICMP_MIB_INERRORS/ICMP6_MIB_INERRORS
+Date: Thu, 31 Jul 2014 22:04:38 -0700 (PDT)
+Message-ID: <20140731.220438.1984870938307560536.davem@davemloft.net>
+References: <53D75922.2090106@cn.fujitsu.com>
+	<53DA1258.90203@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: hannes@stressinduktion.org, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org
+To: duanj.fnst@cn.fujitsu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54221 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54277 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753197AbaHAE4r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Aug 2014 00:56:47 -0400
-In-Reply-To: <1406756298.3178.52.camel@edumazet-glaptop2.roam.corp.google.com>
+	with ESMTP id S1750851AbaHAFEj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Aug 2014 01:04:39 -0400
+In-Reply-To: <53DA1258.90203@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 30 Jul 2014 23:38:18 +0200
+From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+Date: Thu, 31 Jul 2014 17:54:32 +0800
 
-> From: Eric Dumazet <edumazet@google.com>
 > 
-> Remove '__' prefix, it has no purpose.
+> When dealing with ICMPv[46] Error Message, function icmp_socket_deliver()
+> and icmpv6_notify() do some valid checks on packet's length, but then some
+> protocols check packet's length redaudantly. So remove those duplicated
+> statements, and increase counter ICMP_MIB_INERRORS/ICMP6_MIB_INERRORS in
+> function icmp_socket_deliver() and icmpv6_notify() respectively.
 > 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> In addition, add missed counter in udp6/udplite6 when socket is NULL.
+> 
+> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+> ---
+> 
+> v2: remove nested rcu_read_lock from icmpv6_notify
 
-Actually, I think it does.
-
-If you look at where this came from, it's commit:
-
-commit b50026b5ac8fe2932e6af0c54b21da0913c4c1c7
-Author: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date:   Sat Oct 19 21:48:52 2013 +0200
-
-    ipv6: split inet6_ehashfn to hash functions per compilation unit
-
-and in that change Hannes uses the convention that __foo() functions
-take an initval argument for the hash computation where as foo()
-functions do not.
-
-I'm not applying this, sorry :)
+Applied to net-next, thanks.
