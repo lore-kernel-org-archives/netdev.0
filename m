@@ -1,55 +1,54 @@
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Subject: [PATCH net-next] ipv4: remove nested rcu_read_lock/unlock
-Date: Fri, 1 Aug 2014 14:00:36 +0800
-Message-ID: <53DB2D04.6030909@cn.fujitsu.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] ipv6: rename __ipv6_addr_jhash()
+Date: Fri, 01 Aug 2014 08:46:15 +0200
+Message-ID: <1406875575.3178.55.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1406756298.3178.52.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <20140731.215646.951740411089334213.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([59.151.112.132]:39879 "EHLO
-	heian.cn.fujitsu.com" rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750745AbaHAGAv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Aug 2014 02:00:51 -0400
+Received: from mail-wg0-f44.google.com ([74.125.82.44]:62798 "EHLO
+	mail-wg0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750892AbaHAGqU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Aug 2014 02:46:20 -0400
+Received: by mail-wg0-f44.google.com with SMTP id m15so3784247wgh.27
+        for <netdev@vger.kernel.org>; Thu, 31 Jul 2014 23:46:19 -0700 (PDT)
+In-Reply-To: <20140731.215646.951740411089334213.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, 2014-07-31 at 21:56 -0700, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Wed, 30 Jul 2014 23:38:18 +0200
+> 
+> > From: Eric Dumazet <edumazet@google.com>
+> > 
+> > Remove '__' prefix, it has no purpose.
+> > 
+> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+> 
+> Actually, I think it does.
+> 
+> If you look at where this came from, it's commit:
+> 
+> commit b50026b5ac8fe2932e6af0c54b21da0913c4c1c7
+> Author: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Date:   Sat Oct 19 21:48:52 2013 +0200
+> 
+>     ipv6: split inet6_ehashfn to hash functions per compilation unit
+> 
+> and in that change Hannes uses the convention that __foo() functions
+> take an initval argument for the hash computation where as foo()
+> functions do not.
+> 
+> I'm not applying this, sorry :)
 
-ip_local_deliver_finish() already have a rcu_read_lock/unlock, so
-the rcu_read_lock/unlock is unnecessary.
+Well, there is no ipv6_addr_jhash() anymore.
 
-See the stack below:
-ip_local_deliver_finish
-	|
-	|
-	->icmp_rcv
-		|
-		|
-		->icmp_socket_deliver
+Should we rename jhash() to __jhash() then ????
 
-Suggested-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
----
- net/ipv4/icmp.c | 2 --
- 1 file changed, 2 deletions(-)
-
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index 092400e..ea7d4af 100644
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -670,11 +670,9 @@ static void icmp_socket_deliver(struct sk_buff *skb, u32 info)
- 
- 	raw_icmp_error(skb, protocol, info);
- 
--	rcu_read_lock();
- 	ipprot = rcu_dereference(inet_protos[protocol]);
- 	if (ipprot && ipprot->err_handler)
- 		ipprot->err_handler(skb, info);
--	rcu_read_unlock();
- }
- 
- static bool icmp_tag_validation(int proto)
--- 
-1.8.3.1
+This seems pretty odd and useless.
