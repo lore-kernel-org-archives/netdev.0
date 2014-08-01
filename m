@@ -1,45 +1,65 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH net-next 2/4] inet: frags: rename last_in to flags, enum
- the definitions and add comments
-Date: Fri, 01 Aug 2014 10:27:42 +0200
-Message-ID: <53DB4F7E.2070001@redhat.com>
-References: <1406819499-11198-1-git-send-email-nikolay@redhat.com>	<1406819499-11198-3-git-send-email-nikolay@redhat.com> <20140731.221349.304058285592989214.davem@davemloft.net>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next] ipv6: rename __ipv6_addr_jhash()
+Date: Fri, 01 Aug 2014 10:47:27 +0200
+Message-ID: <1406882847.1781790.147998398.54D3639D@webmail.messagingengine.com>
+References: <1406756298.3178.52.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20140731.215646.951740411089334213.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fw@strlen.de, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	alex.aring@gmail.com, eric.dumazet@gmail.com
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:26596 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754578AbaHAI2c (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Aug 2014 04:28:32 -0400
-In-Reply-To: <20140731.221349.304058285592989214.davem@davemloft.net>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:41619 "EHLO
+	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751492AbaHAIr2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Aug 2014 04:47:28 -0400
+Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
+	by gateway1.nyi.internal (Postfix) with ESMTP id 129D62122B
+	for <netdev@vger.kernel.org>; Fri,  1 Aug 2014 04:47:27 -0400 (EDT)
+In-Reply-To: <20140731.215646.951740411089334213.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/01/2014 07:13 AM, David Miller wrote:
-> From: Nikolay Aleksandrov <nikolay@redhat.com>
-> Date: Thu, 31 Jul 2014 17:11:37 +0200
+Hi,
+
+On Fri, Aug 1, 2014, at 06:56, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Wed, 30 Jul 2014 23:38:18 +0200
 > 
->> The last_in field has been used to store various flags different from
->> first/last frag in so give it a more descriptive name: flags. Move
->> the flags to an enum definion, swap FIRST_IN/LAST_IN to be in logical
->> order and add comments explaining each flag, also add comments explaining
->> the inet_frag_queue struct members. While at it align some function
->> declarations.
+> > From: Eric Dumazet <edumazet@google.com>
+> > 
+> > Remove '__' prefix, it has no purpose.
+> > 
+> > Signed-off-by: Eric Dumazet <edumazet@google.com>
 > 
-> When I hear things like "also" and "while at it", what I really hear is
-> "that should be done in a separate patch".
+> Actually, I think it does.
 > 
-> Please don't clump so many unrelated changes together, it makes the
-> patch harder to review than necessary, thanks.
+> If you look at where this came from, it's commit:
 > 
-Sorry about that, but I thought aligning 2-3 function declarations in
-inet_fragment.c was not worth a separate patch.
-Anyway I'll break the aligning out.
+> commit b50026b5ac8fe2932e6af0c54b21da0913c4c1c7
+> Author: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Date:   Sat Oct 19 21:48:52 2013 +0200
+> 
+>     ipv6: split inet6_ehashfn to hash functions per compilation unit
+> 
+> and in that change Hannes uses the convention that __foo() functions
+> take an initval argument for the hash computation where as foo()
+> functions do not.
+> 
+> I'm not applying this, sorry :)
+
+The idea was that all the hashing functions (like socket hashing etc.)
+provide the secret to ipv6_addr_jhash and thus this function should not
+be called directly but by helper functions. I normally use '__' prefixed
+function which need a bit more care to handle them correctly (e.g.
+unlocked versions, argument hiding etc.) and I think this was also the
+reason I did so at that time.
+
+That said, nowadays most hashing functions need (should have) a secret
+in the network stack and programmers should already know how to deal
+with that. I don't have a strong opinion on that but would be fine if
+you apply Eric's patch.
 
 Thanks,
- Nik
+Hannes
