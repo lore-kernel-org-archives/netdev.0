@@ -1,46 +1,51 @@
-From: Paul Moore <pmoore@redhat.com>
-Subject: Re: [PATCH 0/4] Fix the NetLabel LSM category mappings
-Date: Fri, 01 Aug 2014 11:43:53 -0400
-Message-ID: <2162573.KyEhY0bOD3@sifl>
-References: <20140731212856.4991.49396.stgit@localhost> <53DAC781.3010502@schaufler-ca.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: iproute2 small patches for xfrm
+Date: Fri, 1 Aug 2014 09:05:08 -0700
+Message-ID: <20140801090508.384adbc1@haswell.linuxnetplumber.net>
+References: <2141002.LfKmUBSlWz@ul001176>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	selinux@tycho.nsa.gov, Christian Evans <frodox@zoho.com>
-To: Casey Schaufler <casey@schaufler-ca.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <53DAC781.3010502@schaufler-ca.com>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Jaroslav =?utf-8?B?xaBhZmth?= <jaroslav.safka@tieto.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:36270 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754615AbaHAQFM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Aug 2014 12:05:12 -0400
+Received: by mail-pa0-f42.google.com with SMTP id lf10so6059074pab.29
+        for <netdev@vger.kernel.org>; Fri, 01 Aug 2014 09:05:11 -0700 (PDT)
+In-Reply-To: <2141002.LfKmUBSlWz@ul001176>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thursday, July 31, 2014 03:47:29 PM Casey Schaufler wrote:
-> On 7/31/2014 2:44 PM, Paul Moore wrote:
-> > As you will see in the patch descriptions below, the NetLabel LSM
-> > category mappings are very badly broken.  This patchset should repair
-> > things and make life better in the future.  The first three patches
-> > are straight-up bug fixes; the fourth patch doesn't actually fix any
-> > faulty logic in the code, but rather shortens some stupidly long
-> > function and structure names relating to the NetLabel category
-> > mappings.  I should probably do something similar with a lot of other
-> > NetLabel APIs, but that is for another time.
-> > 
-> > Thanks to Christian Evans for pointing out one of the original
-> > problems.  I don't think he realized how many problems there really
-> > were, but I still owe him one for getting me to revisit this ugly,
-> > nasty code.  I apologize it took so long to get a fix out and that
-> > things were broken this badly in the first place.
-> > 
-> > Casey, I'm CC'ing you here because this patchset does touch some of
-> > the Smack code, but as you can see the changes are trivial.  I will
-> > be very surprised if you find anything objectionable in there.
-> > However, if you do, let me know and I'll fix it.
-> 
-> The code passes my tests. I'll mark the patches "Tested-by:".
+On Fri, 01 Aug 2014 13:16:09 +0200
+Jaroslav =C5=A0afka <jaroslav.safka@tieto.com> wrote:
 
-Great, thanks for testing.
+> Hi,
+> I found the tool "ip xfrm" is not able to add "cipher_null" because t=
+here is=20
+> no possibility to set key with zero length.
+>=20
+> I solved it by this change:
+>=20
+> -       if (slen > 2 && strncmp(key, "0x", 2) =3D=3D 0) {
+> +       if (slen >=3D 2 && strncmp(key, "0x", 2) =3D=3D 0) {
+>=20
+> By this change you can specify key as "0x" which will pass for key ex=
+istence=20
+> and set key len to 0.
+>=20
+> this patch is against version iproute2-3.14.0
+>=20
+> Second patch enable use proto ip. Because it is supported by kernel.
+>=20
+> Have a nice day :)
+>=20
+> Regards
+> Jarek
 
--- 
-paul moore
-security and virtualization @ redhat
-
+Please format patches in same manner as kernel patches as described
+in Documentation/SubmittingPatches.  One patch per email; email with [P=
+ATCH]
+in subject line; and please don't use attachments if possible.
