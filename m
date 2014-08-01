@@ -1,59 +1,89 @@
 From: Aaron Brown <aaron.f.brown@intel.com>
-Subject: [net-next 14/14] i40evf: Fixed guest OS panic when removing vf driver
-Date: Fri,  1 Aug 2014 13:27:15 -0700
-Message-ID: <1406924835-31550-15-git-send-email-aaron.f.brown@intel.com>
+Subject: [net-next 04/14] i40e: expose debug_write_register request
+Date: Fri,  1 Aug 2014 13:27:05 -0700
+Message-ID: <1406924835-31550-5-git-send-email-aaron.f.brown@intel.com>
 References: <1406924835-31550-1-git-send-email-aaron.f.brown@intel.com>
-Cc: Serey Kong <serey.kong@intel.com>, netdev@vger.kernel.org,
+Cc: Shannon Nelson <shannon.nelson@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Aaron Brown <aaron.f.brown@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga03.intel.com ([143.182.124.21]:60887 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756254AbaHAUXb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Aug 2014 16:23:31 -0400
+	id S1754966AbaHAUXX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Aug 2014 16:23:23 -0400
 In-Reply-To: <1406924835-31550-1-git-send-email-aaron.f.brown@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Serey Kong <serey.kong@intel.com>
+From: Shannon Nelson <shannon.nelson@intel.com>
 
-Removing VF driver during device still in reset caused guest OS panic.
+Now that the HW registers are no longer in debug mode and many are
+locked down for writes, we need to expose the Firmware API request
+used to do writes on the driver's behalf.
 
-in the i40evf_remove(), we're trying to clean mac_filter_list which has
-not been initialized since the device is still stuck at the reset.
-The change is to initialize the filter_list before setting any task.
-
-Change-ID: I8b59df7384416c7e6f2d264b598f447e1c2c92b0
-Signed-off-by: Serey Kong <serey.kong@intel.com>
-Tested-by: Sibai Li <sibai.li@intel.com>
+Change-ID: I09a05c4dc9ea0b24c00193faac34d7799eaa8496
+Signed-off-by: Shannon Nelson <shannon.nelson@intel.com>
+Tested-by: Jim Young <jamesx.m.young>
 Signed-off-by: Aaron Brown <aaron.f.brown@intel.com>
 ---
- drivers/net/ethernet/intel/i40evf/i40evf_main.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_common.c    | 29 ++++++++++++++++++++++++
+ drivers/net/ethernet/intel/i40e/i40e_prototype.h |  3 +++
+ 2 files changed, 32 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/i40evf/i40evf_main.c b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-index e5679d8..ab15f4d 100644
---- a/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-+++ b/drivers/net/ethernet/intel/i40evf/i40evf_main.c
-@@ -2137,8 +2137,6 @@ static void i40evf_init_task(struct work_struct *work)
- 	ether_addr_copy(netdev->dev_addr, adapter->hw.mac.addr);
- 	ether_addr_copy(netdev->perm_addr, adapter->hw.mac.addr);
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
+index a010584..df43e7c 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_common.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
+@@ -2002,6 +2002,35 @@ i40e_status i40e_aq_send_msg_to_vf(struct i40e_hw *hw, u16 vfid,
+ }
  
--	INIT_LIST_HEAD(&adapter->mac_filter_list);
--	INIT_LIST_HEAD(&adapter->vlan_filter_list);
- 	f = kzalloc(sizeof(*f), GFP_ATOMIC);
- 	if (NULL == f)
- 		goto err_sw_init;
-@@ -2320,6 +2318,9 @@ static int i40evf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	hw->bus.device = PCI_SLOT(pdev->devfn);
- 	hw->bus.func = PCI_FUNC(pdev->devfn);
- 
-+	INIT_LIST_HEAD(&adapter->mac_filter_list);
-+	INIT_LIST_HEAD(&adapter->vlan_filter_list);
+ /**
++ * i40e_aq_debug_write_register
++ * @hw: pointer to the hw struct
++ * @reg_addr: register address
++ * @reg_val: register value
++ * @cmd_details: pointer to command details structure or NULL
++ *
++ * Write to a register using the admin queue commands
++ **/
++i40e_status i40e_aq_debug_write_register(struct i40e_hw *hw,
++					u32 reg_addr, u64 reg_val,
++					struct i40e_asq_cmd_details *cmd_details)
++{
++	struct i40e_aq_desc desc;
++	struct i40e_aqc_debug_reg_read_write *cmd =
++		(struct i40e_aqc_debug_reg_read_write *)&desc.params.raw;
++	i40e_status status;
 +
- 	INIT_WORK(&adapter->reset_task, i40evf_reset_task);
- 	INIT_WORK(&adapter->adminq_task, i40evf_adminq_task);
- 	INIT_WORK(&adapter->watchdog_task, i40evf_watchdog_task);
++	i40e_fill_default_direct_cmd_desc(&desc, i40e_aqc_opc_debug_write_reg);
++
++	cmd->address = cpu_to_le32(reg_addr);
++	cmd->value_high = cpu_to_le32((u32)(reg_val >> 32));
++	cmd->value_low = cpu_to_le32((u32)(reg_val & 0xFFFFFFFF));
++
++	status = i40e_asq_send_command(hw, &desc, NULL, 0, cmd_details);
++
++	return status;
++}
++
++/**
+  * i40e_aq_set_hmc_resource_profile
+  * @hw: pointer to the hw struct
+  * @profile: type of profile the HMC is to be set as
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_prototype.h b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
+index 8cd4390..949a9a0 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_prototype.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
+@@ -70,6 +70,9 @@ i40e_status i40e_aq_get_firmware_version(struct i40e_hw *hw,
+ 				u16 *fw_major_version, u16 *fw_minor_version,
+ 				u16 *api_major_version, u16 *api_minor_version,
+ 				struct i40e_asq_cmd_details *cmd_details);
++i40e_status i40e_aq_debug_write_register(struct i40e_hw *hw,
++					u32 reg_addr, u64 reg_val,
++					struct i40e_asq_cmd_details *cmd_details);
+ i40e_status i40e_aq_set_phy_debug(struct i40e_hw *hw, u8 cmd_flags,
+ 				struct i40e_asq_cmd_details *cmd_details);
+ i40e_status i40e_aq_set_default_vsi(struct i40e_hw *hw, u16 vsi_id,
 -- 
 1.9.3
