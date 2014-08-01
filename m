@@ -1,7 +1,7 @@
 From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH net-next v2 3/6] inet: frags: enum the flag definitions and add descriptions
-Date: Fri,  1 Aug 2014 12:29:45 +0200
-Message-ID: <1406888988-20742-4-git-send-email-nikolay@redhat.com>
+Subject: [PATCH net-next v2 6/6] inet: frags: use kmem_cache for inet_frag_queue
+Date: Fri,  1 Aug 2014 12:29:48 +0200
+Message-ID: <1406888988-20742-7-git-send-email-nikolay@redhat.com>
 References: <1406888988-20742-1-git-send-email-nikolay@redhat.com>
 Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
 	Florian Westphal <fw@strlen.de>,
@@ -15,89 +15,200 @@ Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:9268 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:9338 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754130AbaHAKax (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Aug 2014 06:30:53 -0400
+	id S1754713AbaHAKbG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Aug 2014 06:31:06 -0400
 In-Reply-To: <1406888988-20742-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Move the flags to an enum definion, swap FIRST_IN/LAST_IN to be in increasing
-order and add comments explaining each flag and the inet_frag_queue struct
-members.
+Use kmem_cache to allocate/free inet_frag_queue objects since they're
+all the same size per inet_frags user and are alloced/freed in high volumes
+thus making it a perfect case for kmem_cache.
 
 Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+Acked-by: Florian Westphal <fw@strlen.de>
 ---
-v2: new patch, broken off the old patch 02
+v2: no changes
 
- include/net/inet_frag.h | 46 +++++++++++++++++++++++++++++++++++-----------
- 1 file changed, 35 insertions(+), 11 deletions(-)
+ include/net/inet_frag.h                 |  4 +++-
+ net/ieee802154/reassembly.c             |  7 ++++++-
+ net/ipv4/inet_fragment.c                | 13 ++++++++++---
+ net/ipv4/ip_fragment.c                  |  5 ++++-
+ net/ipv6/netfilter/nf_conntrack_reasm.c |  8 ++++++--
+ net/ipv6/reassembly.c                   |  7 ++++++-
+ 6 files changed, 35 insertions(+), 9 deletions(-)
 
 diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
-index 5024d6c20407..90015c47b447 100644
+index 90015c47b447..65a8855e99fe 100644
 --- a/include/net/inet_frag.h
 +++ b/include/net/inet_frag.h
-@@ -15,25 +15,49 @@ struct netns_frags {
- 	int			low_thresh;
+@@ -101,9 +101,11 @@ struct inet_frags {
+ 	void			(*destructor)(struct inet_frag_queue *);
+ 	void			(*skb_free)(struct sk_buff *);
+ 	void			(*frag_expire)(unsigned long data);
++	struct kmem_cache	*frags_cachep;
++	const char		*frags_cache_name;
  };
  
-+/**
-+ * fragment queue flags
-+ *
-+ * @INET_FRAG_FIRST_IN: first fragment has arrived
-+ * @INET_FRAG_LAST_IN: final fragment has arrived
-+ * @INET_FRAG_COMPLETE: frag queue has been processed and is due for destruction
-+ * @INET_FRAG_EVICTED: frag queue is being evicted
-+ */
-+enum {
-+	INET_FRAG_FIRST_IN	= BIT(0),
-+	INET_FRAG_LAST_IN	= BIT(1),
-+	INET_FRAG_COMPLETE	= BIT(2),
-+	INET_FRAG_EVICTED	= BIT(3)
-+};
+-void inet_frags_init(struct inet_frags *);
++int inet_frags_init(struct inet_frags *);
+ void inet_frags_fini(struct inet_frags *);
+ 
+ void inet_frags_init_net(struct netns_frags *nf);
+diff --git a/net/ieee802154/reassembly.c b/net/ieee802154/reassembly.c
+index 5607accd2fee..ffec6ce51005 100644
+--- a/net/ieee802154/reassembly.c
++++ b/net/ieee802154/reassembly.c
+@@ -30,6 +30,8 @@
+ 
+ #include "reassembly.h"
+ 
++static const char lowpan_frags_cache_name[] = "lowpan-frags";
 +
-+/**
-+ * struct inet_frag_queue - fragment queue
-+ *
-+ * @lock: spinlock protecting the queue
-+ * @timer: queue expiration timer
-+ * @list: hash bucket list
-+ * @refcnt: reference count of the queue
-+ * @fragments: received fragments head
-+ * @fragments_tail: received fragments tail
-+ * @stamp: timestamp of the last received fragment
-+ * @len: total length of the original datagram
-+ * @meat: length of received fragments so far
-+ * @flags: fragment queue flags
-+ * @max_size: (ipv4 only) maximum received fragment size with IP_DF set
-+ * @net: namespace that this frag belongs to
-+ */
- struct inet_frag_queue {
- 	spinlock_t		lock;
--	struct timer_list	timer;      /* when will this queue expire? */
-+	struct timer_list	timer;
- 	struct hlist_node	list;
- 	atomic_t		refcnt;
--	struct sk_buff		*fragments; /* list of received fragments */
-+	struct sk_buff		*fragments;
- 	struct sk_buff		*fragments_tail;
- 	ktime_t			stamp;
--	int			len;        /* total length of orig datagram */
-+	int			len;
- 	int			meat;
--	__u8			flags;    /* first/last segment arrived? */
+ struct lowpan_frag_info {
+ 	__be16 d_tag;
+ 	u16 d_size;
+@@ -571,7 +573,10 @@ int __init lowpan_net_frag_init(void)
+ 	lowpan_frags.qsize = sizeof(struct frag_queue);
+ 	lowpan_frags.match = lowpan_frag_match;
+ 	lowpan_frags.frag_expire = lowpan_frag_expire;
+-	inet_frags_init(&lowpan_frags);
++	lowpan_frags.frags_cache_name = lowpan_frags_cache_name;
++	ret = inet_frags_init(&lowpan_frags);
++	if (ret)
++		goto err_pernet;
+ 
+ 	return ret;
+ err_pernet:
+diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+index 4baa76c60398..9eb89f3f0ee4 100644
+--- a/net/ipv4/inet_fragment.c
++++ b/net/ipv4/inet_fragment.c
+@@ -198,7 +198,7 @@ static void inet_frag_schedule_worker(struct inet_frags *f)
+ 		schedule_work(&f->frags_work);
+ }
+ 
+-void inet_frags_init(struct inet_frags *f)
++int inet_frags_init(struct inet_frags *f)
+ {
+ 	int i;
+ 
+@@ -213,6 +213,12 @@ void inet_frags_init(struct inet_frags *f)
+ 
+ 	seqlock_init(&f->rnd_seqlock);
+ 	f->last_rebuild_jiffies = 0;
++	f->frags_cachep = kmem_cache_create(f->frags_cache_name, f->qsize, 0, 0,
++					    NULL);
++	if (!f->frags_cachep)
++		return -ENOMEM;
++
++	return 0;
+ }
+ EXPORT_SYMBOL(inet_frags_init);
+ 
+@@ -225,6 +231,7 @@ EXPORT_SYMBOL(inet_frags_init_net);
+ void inet_frags_fini(struct inet_frags *f)
+ {
+ 	cancel_work_sync(&f->frags_work);
++	kmem_cache_destroy(f->frags_cachep);
+ }
+ EXPORT_SYMBOL(inet_frags_fini);
+ 
+@@ -327,7 +334,7 @@ void inet_frag_destroy(struct inet_frag_queue *q, struct inet_frags *f)
+ 
+ 	if (f->destructor)
+ 		f->destructor(q);
+-	kfree(q);
++	kmem_cache_free(f->frags_cachep, q);
+ }
+ EXPORT_SYMBOL(inet_frag_destroy);
+ 
+@@ -377,7 +384,7 @@ static struct inet_frag_queue *inet_frag_alloc(struct netns_frags *nf,
+ 		return NULL;
+ 	}
+ 
+-	q = kzalloc(f->qsize, GFP_ATOMIC);
++	q = kmem_cache_zalloc(f->frags_cachep, GFP_ATOMIC);
+ 	if (q == NULL)
+ 		return NULL;
+ 
+diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
+index cb56bcc1eee2..15f0e2bad7ad 100644
+--- a/net/ipv4/ip_fragment.c
++++ b/net/ipv4/ip_fragment.c
+@@ -55,6 +55,7 @@
+  */
+ 
+ static int sysctl_ipfrag_max_dist __read_mostly = 64;
++static const char ip_frag_cache_name[] = "ip4-frags";
+ 
+ struct ipfrag_skb_cb
+ {
+@@ -860,5 +861,7 @@ void __init ipfrag_init(void)
+ 	ip4_frags.qsize = sizeof(struct ipq);
+ 	ip4_frags.match = ip4_frag_match;
+ 	ip4_frags.frag_expire = ip_expire;
+-	inet_frags_init(&ip4_frags);
++	ip4_frags.frags_cache_name = ip_frag_cache_name;
++	if (inet_frags_init(&ip4_frags))
++		panic("IP: failed to allocate ip4_frags cache\n");
+ }
+diff --git a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_conntrack_reasm.c
+index cca686e42b97..6f187c8d8a1b 100644
+--- a/net/ipv6/netfilter/nf_conntrack_reasm.c
++++ b/net/ipv6/netfilter/nf_conntrack_reasm.c
+@@ -50,6 +50,7 @@
+ #include <linux/module.h>
+ #include <net/netfilter/ipv6/nf_defrag_ipv6.h>
+ 
++static const char nf_frags_cache_name[] = "nf-frags";
+ 
+ struct nf_ct_frag6_skb_cb
+ {
+@@ -677,12 +678,15 @@ int nf_ct_frag6_init(void)
+ 	nf_frags.qsize = sizeof(struct frag_queue);
+ 	nf_frags.match = ip6_frag_match;
+ 	nf_frags.frag_expire = nf_ct_frag6_expire;
+-	inet_frags_init(&nf_frags);
 -
--#define INET_FRAG_EVICTED	8
--#define INET_FRAG_COMPLETE	4
--#define INET_FRAG_FIRST_IN	2
--#define INET_FRAG_LAST_IN	1
--
-+	__u8			flags;
- 	u16			max_size;
--
- 	struct netns_frags	*net;
- };
++	nf_frags.frags_cache_name = nf_frags_cache_name;
++	ret = inet_frags_init(&nf_frags);
++	if (ret)
++		goto out;
+ 	ret = register_pernet_subsys(&nf_ct_net_ops);
+ 	if (ret)
+ 		inet_frags_fini(&nf_frags);
+ 
++out:
+ 	return ret;
+ }
+ 
+diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
+index beb6872a8fa5..c6557d9f7808 100644
+--- a/net/ipv6/reassembly.c
++++ b/net/ipv6/reassembly.c
+@@ -60,6 +60,8 @@
+ #include <net/inet_frag.h>
+ #include <net/inet_ecn.h>
+ 
++static const char ip6_frag_cache_name[] = "ip6-frags";
++
+ struct ip6frag_skb_cb
+ {
+ 	struct inet6_skb_parm	h;
+@@ -748,7 +750,10 @@ int __init ipv6_frag_init(void)
+ 	ip6_frags.qsize = sizeof(struct frag_queue);
+ 	ip6_frags.match = ip6_frag_match;
+ 	ip6_frags.frag_expire = ip6_frag_expire;
+-	inet_frags_init(&ip6_frags);
++	ip6_frags.frags_cache_name = ip6_frag_cache_name;
++	ret = inet_frags_init(&ip6_frags);
++	if (ret)
++		goto err_pernet;
+ out:
+ 	return ret;
  
 -- 
 1.9.3
