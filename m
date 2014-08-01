@@ -1,38 +1,49 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: Query: Is it possible  to lose interrupts between vhost and
- virtio_net during migration?
-Date: Tue, 5 Aug 2014 11:49:57 +0200
-Message-ID: <20140805094957.GB24619@redhat.com>
-References: <53DA2CCC.1040606@huawei.com>
- <20140731143100.GA3834@redhat.com>
- <20140731143725.GA3875@redhat.com>
- <53DB705F.2000405@redhat.com>
- <53DB76A9.8010305@redhat.com>
- <53E079C8.7050700@huawei.com>
+From: Haiyang Zhang <thomas1206@gmail.com>
+Subject: [PATCH net-next] hyperv: Increase the buffer length for
+ netvsc_channel_cb()
+Date: Fri,  1 Aug 2014 15:55:30 +0000
+Message-ID: <1406908530-22667-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jason Wang <jasowang@redhat.com>, netdev@vger.kernel.org,
-	qinchuanyu@huawei.com, liuyongan@huawei.com, davem@davemloft.net
-To: "Zhangjie (HZ)" <zhangjie14@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47831 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933035AbaHEJuG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Aug 2014 05:50:06 -0400
-Content-Disposition: inline
-In-Reply-To: <53E079C8.7050700@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: olaf@aepfle.de, jasowang@redhat.com, driverdev-devel@linuxdriverproject.org,
+ linux-kernel@vger.kernel.org, haiyangz@microsoft.com
+To: davem@davemloft.net,
+	netdev@vger.kernel.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 05, 2014 at 02:29:28PM +0800, Zhangjie (HZ) wrote:
-> Jason is right, the new order is not the cause of network unreachable.
-> Changing order seems not work. After about 40 times, the problem occurs again.
-> Maybe there is other hidden reasons for that.
+When the buffer is too small for a packet from VMBus, a bigger buffer will be
+allocated in netvsc_channel_cb() and retry reading the packet from VMBus.
+Increasing this buffer size will reduce the retry overhead.
 
-To make sure, you tested the patch that I posted to list:
-"vhost_net: stop guest notifiers after backend"?
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Reviewed-by: Dexuan Cui <decui@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Please confirm.
-
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 24441ae..3960acd 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -591,7 +591,7 @@ struct nvsp_message {
+ 
+ #define NETVSC_RECEIVE_BUFFER_ID		0xcafe
+ 
+-#define NETVSC_PACKET_SIZE                      2048
++#define NETVSC_PACKET_SIZE                      4096
+ 
+ #define VRSS_SEND_TAB_SIZE 16
+ 
 -- 
-MST
+1.7.1
