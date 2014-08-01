@@ -1,41 +1,54 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next] ipv4: remove nested rcu_read_lock/unlock
-Date: Fri, 01 Aug 2014 21:12:09 +0200
-Message-ID: <1406920329.28434.28.camel@localhost>
-References: <53DB2D04.6030909@cn.fujitsu.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH v4 net-next 5/5] net: filter: split 'struct sk_filter'
+ into socket and bpf parts
+Date: Fri, 1 Aug 2014 12:12:36 -0700
+Message-ID: <CAMEtUuxDSGysNKr12qYQAXjmb4qP45trh3qVx41W7WVduPS5zw@mail.gmail.com>
+References: <1406777656-27755-1-git-send-email-ast@plumgrid.com>
+	<1406777656-27755-6-git-send-email-ast@plumgrid.com>
+	<20140731194059.GA8681@salvia>
+	<CAMEtUuy+iABzHagoono+CPB=Ex4Ew4vQBK65x1jDRC9_W9L7Dw@mail.gmail.com>
+	<20140801160612.GA4679@salvia>
+	<CAMEtUuympZm+qVOc+4MJoSnAwSZ-Gx=tSOaHwudtP7Q92eHAtw@mail.gmail.com>
+	<20140801190341.GA28642@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:55806 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754697AbaHATMM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Aug 2014 15:12:12 -0400
-Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
-	by gateway1.nyi.internal (Postfix) with ESMTP id 067C622F78
-	for <netdev@vger.kernel.org>; Fri,  1 Aug 2014 15:12:12 -0400 (EDT)
-In-Reply-To: <53DB2D04.6030909@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Willem de Bruijn <willemb@google.com>,
+	Kees Cook <keescook@chromium.org>,
+	Network Development <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	netfilter-devel <netfilter-devel@vger.kernel.org>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20140801190341.GA28642@salvia>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fr, 2014-08-01 at 14:00 +0800, Duan Jiong wrote:
-> ip_local_deliver_finish() already have a rcu_read_lock/unlock, so
-> the rcu_read_lock/unlock is unnecessary.
-> 
-> See the stack below:
-> ip_local_deliver_finish
-> 	|
-> 	|
-> 	->icmp_rcv
-> 		|
-> 		|
-> 		->icmp_socket_deliver
-> 
-> Suggested-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+On Fri, Aug 1, 2014 at 12:03 PM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+>> > I think you can allocate the sk_filter once you get the final bpf
+>> > program, then you can memcpy() it. This adds some extra overhead in
+>> > the sk_attach_filter(), but that path is executed from user context
+>> > and it's also a rare operation (only once to attach the filter). It's
+>> > still not going to be a beauty, but IMO it's worth to focus on getting
+>> > that little speed up in the packet path at the cost of adding some
+>> > overhead on the socket attach path.
+>>
+>> memcpy of 'bpf_prog' is not just 'not a beauty', it won't work, since
+>> bpf_prog is freed via work_queue due to JIT. See bpf_jit_free()
+> [...]
+>
+> I see, in this patch you renamed sk_filter to bpf_prog in
+> bpf_jit_free() so no access to sk_filter anymore and alignment needs a
+> closer look.
+>
+> OK... let's stick to the struct bpf_prog pointer.
 
-Cool, thanks!
+great. Once nft comes along we can always revisit this bit.
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Dave, this patch has trivial conflict with Daniel's
+("team: fix releasing uninitialized pointer to BPF prog") fix.
+Let me know if you want me to respin the series or you'll patch up
+the conflict yourself.
+
+Thanks
