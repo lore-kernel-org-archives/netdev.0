@@ -1,59 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 net-next 0/5] net: filter: split sk_filter into
- socket and bpf, cleanup names
-Date: Sat, 02 Aug 2014 15:09:56 -0700 (PDT)
-Message-ID: <20140802.150956.747835720193799195.davem@davemloft.net>
-References: <1406777656-27755-1-git-send-email-ast@plumgrid.com>
+Subject: Re: [PATCH v4 net-next 5/5] net: filter: split 'struct sk_filter'
+ into socket and bpf parts
+Date: Sat, 02 Aug 2014 15:10:24 -0700 (PDT)
+Message-ID: <20140802.151024.636036304502082388.davem@davemloft.net>
+References: <CAMEtUuympZm+qVOc+4MJoSnAwSZ-Gx=tSOaHwudtP7Q92eHAtw@mail.gmail.com>
+	<20140801190341.GA28642@salvia>
+	<CAMEtUuxDSGysNKr12qYQAXjmb4qP45trh3qVx41W7WVduPS5zw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dborkman@redhat.com, willemb@google.com, pablo@netfilter.org,
+Cc: pablo@netfilter.org, dborkman@redhat.com, willemb@google.com,
 	keescook@chromium.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org
 To: ast@plumgrid.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1406777656-27755-1-git-send-email-ast@plumgrid.com>
+In-Reply-To: <CAMEtUuxDSGysNKr12qYQAXjmb4qP45trh3qVx41W7WVduPS5zw@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Alexei Starovoitov <ast@plumgrid.com>
-Date: Wed, 30 Jul 2014 20:34:11 -0700
+Date: Fri, 1 Aug 2014 12:12:36 -0700
 
-> The main goal of the series is to split 'struct sk_filter' into socket and
-> bpf parts and cleanup names in the following way:
-> - everything that deals with sockets keeps 'sk_*' prefix
-> - everything that is pure BPF is changed to 'bpf_*' prefix
-> 
-> split 'struct sk_filter' into
-> struct sk_filter {
-> 	atomic_t        refcnt;
-> 	struct rcu_head rcu;
-> 	struct bpf_prog *prog;
-> };
-> and
-> struct bpf_prog {
->         u32                     jited:1,
->                                 len:31;
->         struct sock_fprog_kern  *orig_prog;
->         unsigned int            (*bpf_func)(const struct sk_buff *skb,
->                                             const struct bpf_insn *filter);
->         union {
->                 struct sock_filter      insns[0];
->                 struct bpf_insn         insnsi[0];
->                 struct work_struct      work;
->         };
-> };
-> so that 'struct bpf_prog' can be used independent of sockets and cleans up
-> 'unattached' bpf use cases:
-> isdn, ppp, team, seccomp, ptp, xt_bpf, cls_bpf, test_bpf
-> which don't need refcnt/rcu fields.
-> 
-> It's a follow up to the rcu cleanup started by Pablo in
-> commit 34c5bd66e5 ("net: filter: don't release unattached filter through call_rcu()")
-> 
-> Patch 1 - cleans up socket memory charging and makes it possible for functions
->   sk(bpf)_migrate_filter(), sk(bpf)_prepare_filter() to be socket independent
-> Patches 2-4 - trivial renames
-> Patch 5 - sk_filter split and renames of related sk_*() functions
+> Dave, this patch has trivial conflict with Daniel's
+> ("team: fix releasing uninitialized pointer to BPF prog") fix.
+> Let me know if you want me to respin the series or you'll patch up
+> the conflict yourself.
 
-Series applied, thanks Alexei.
+I took care of this, it was easy to resolve.
+
+Thanks.
