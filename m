@@ -1,31 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers/net: Use managed interfaces
-Date: Sat, 02 Aug 2014 16:41:26 -0700 (PDT)
-Message-ID: <20140802.164126.415120903689434848.davem@davemloft.net>
-References: <20140801153003.GA11527@himangi-Dell>
+Subject: Re: [PATCH 0/3] Netfilter/IPVS fixes for net
+Date: Sat, 02 Aug 2014 16:49:46 -0700 (PDT)
+Message-ID: <20140802.164946.1059611435908084703.davem@davemloft.net>
+References: <1406911239-6250-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: paul.gortmaker@windriver.com, f.fainelli@gmail.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	julia.lawall@lip6.fr
-To: himangi774@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140801153003.GA11527@himangi-Dell>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1406911239-6250-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Himangi Saraogi <himangi774@gmail.com>
-Date: Fri, 1 Aug 2014 21:00:03 +0530
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Fri,  1 Aug 2014 18:40:36 +0200
 
-> This patch introduces the use of managed interfaces like
-> devm_ioremap_resource and does away with the calls to free the
-> allocated memory in the probe and remove functions. Also, some
-> labels and variable are done away with. This fixes a bug as there
-> was a missing release_mem_region in the remove function.
+> The following patchset contains Netfilter/IPVS fixes for your net tree,
+> they are:
 > 
-> Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
-> Acked-by: Julia Lawall <julia.lawall@lip6.fr>
+> 1) Maintain all DSCP and ECN bits for IPv6 tun forwarding. This
+>    resolves an inconsistency between IPv4 and IPv6 behaviour.
+>    Patch from Alex Gartrell via Simon Horman.
+> 
+> 2) Fix unnoticeable blink in xt_LED when the led-always-blink option is
+>    used, from Jiri Prchal.
+> 
+> 3) Add missing return in nft_del_setelem(), otherwise this results in a
+>    double call of nft_data_uninit() in the nf_tables code, from Thomas Graf.
+> 
+> You can pull these changes from:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git
 
-I adjusted the Subject subsystem prefix to "net: dnet:" and applied
-this, thanks.
+Pulled, thanks Pablo.
