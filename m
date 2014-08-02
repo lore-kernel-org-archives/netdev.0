@@ -1,39 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] xen-netfront: Fix handling packets on compound pages
- with skb_segment
-Date: Sat, 02 Aug 2014 15:33:37 -0700 (PDT)
-Message-ID: <20140802.153337.1399638752235662112.davem@davemloft.net>
-References: <1406726730-17994-1-git-send-email-zoltan.kiss@citrix.com>
-	<20140731.132520.1889577477638334755.davem@davemloft.net>
-	<20140801110246.GB17947@zion.uk.xensource.com>
+Subject: Re: [PATCH] cdc_subset: deal with a device that needs reset for
+ timeout
+Date: Sat, 02 Aug 2014 15:44:32 -0700 (PDT)
+Message-ID: <20140802.154432.279508234748584239.davem@davemloft.net>
+References: <1406894511-26808-1-git-send-email-oneukum@suse.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: zoltan.kiss@citrix.com, konrad.wilk@oracle.com,
-	boris.ostrovsky@oracle.com, david.vrabel@citrix.com,
-	Ian.Campbell@citrix.com, paul.durrant@citrix.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	xen-devel@lists.xenproject.org
-To: wei.liu2@citrix.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140801110246.GB17947@zion.uk.xensource.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: oneukum@suse.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49757 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754973AbaHBWod (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Aug 2014 18:44:33 -0400
+In-Reply-To: <1406894511-26808-1-git-send-email-oneukum@suse.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Wei Liu <wei.liu2@citrix.com>
-Date: Fri, 1 Aug 2014 12:02:46 +0100
+From: Oliver Neukum <oneukum@suse.de>
+Date: Fri,  1 Aug 2014 14:01:51 +0200
 
-> On Thu, Jul 31, 2014 at 01:25:20PM -0700, David Miller wrote:
->> If you were to have a 64-slot TX queue, you ought to be able to handle
->> this theoretical 51 slot SKB.
+> This device needs to be reset to recover from a timeout.
+> Unfortunately this can be handled only at the level of
+> the subdrivers.
 > 
-> There's two problems:
-> 1. IIRC a single page ring has 256 slots, allowing 64 slots packet
->    yields 4 in-flight packets in worst case.
-> 2. Older netback could not handle this large number of slots and it's
->    likely to deem the frontend malicious.
-> 
-> For #1, we don't actually care that much if guest screws itself by
-> generating 64 slot packets. #2 is more concerning.
+> Signed-off-by: Oliver Neukum <oneukum@suse.de>
 
-How many slots can the older netback handle?
+Applied, thanks Oliver.
