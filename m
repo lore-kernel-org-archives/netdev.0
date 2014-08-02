@@ -1,39 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv4: remove nested rcu_read_lock/unlock
-Date: Sat, 02 Aug 2014 15:27:48 -0700 (PDT)
-Message-ID: <20140802.152748.2171811750703626175.davem@davemloft.net>
-References: <53DB2D04.6030909@cn.fujitsu.com>
+Subject: Re: [patch] dm9000: NULL dereferences on error in probe()
+Date: Sat, 02 Aug 2014 15:28:38 -0700 (PDT)
+Message-ID: <20140802.152838.10096907007372226.davem@davemloft.net>
+References: <20140801082357.GC28869@mwanda>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org, netdev@vger.kernel.org
-To: duanj.fnst@cn.fujitsu.com
+Cc: grant.likely@linaro.org, robh+dt@kernel.org,
+	andrew.ruder@elecsyscorp.com, nikita@compulab.co.il,
+	grinberg@compulab.co.il, paul.gortmaker@windriver.com,
+	jg1.han@samsung.com, ebiederm@xmission.com,
+	michael.abbott@diamond.ac.uk, Baohua.Song@csr.com,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49617 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49625 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750995AbaHBW1t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Aug 2014 18:27:49 -0400
-In-Reply-To: <53DB2D04.6030909@cn.fujitsu.com>
+	with ESMTP id S1751578AbaHBW2j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Aug 2014 18:28:39 -0400
+In-Reply-To: <20140801082357.GC28869@mwanda>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Duan Jiong <duanj.fnst@cn.fujitsu.com>
-Date: Fri, 1 Aug 2014 14:00:36 +0800
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Fri, 1 Aug 2014 11:23:57 +0300
 
+> The dm9000_release_board() function is called with NULL ->data_req and
+> ->addr_req pointers if dm9000_probe() fails.
 > 
-> ip_local_deliver_finish() already have a rcu_read_lock/unlock, so
-> the rcu_read_lock/unlock is unnecessary.
-> 
-> See the stack below:
-> ip_local_deliver_finish
-> 	|
-> 	|
-> 	->icmp_rcv
-> 		|
-> 		|
-> 		->icmp_socket_deliver
-> 
-> Suggested-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Signed-off-by: Duan Jiong <duanj.fnst@cn.fujitsu.com>
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-Applied, thank you.
+Applied to net-next, thanks Dan.
