@@ -1,31 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 net-next 5/5] net: filter: split 'struct sk_filter'
- into socket and bpf parts
-Date: Sat, 02 Aug 2014 15:10:24 -0700 (PDT)
-Message-ID: <20140802.151024.636036304502082388.davem@davemloft.net>
-References: <CAMEtUuympZm+qVOc+4MJoSnAwSZ-Gx=tSOaHwudtP7Q92eHAtw@mail.gmail.com>
-	<20140801190341.GA28642@salvia>
-	<CAMEtUuxDSGysNKr12qYQAXjmb4qP45trh3qVx41W7WVduPS5zw@mail.gmail.com>
+Subject: Re: [GIT net-next] Open vSwitch
+Date: Sat, 02 Aug 2014 15:16:30 -0700 (PDT)
+Message-ID: <20140802.151630.929949940730781279.davem@davemloft.net>
+References: <1406851057-1593-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, dborkman@redhat.com, willemb@google.com,
-	keescook@chromium.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: ast@plumgrid.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMEtUuxDSGysNKr12qYQAXjmb4qP45trh3qVx41W7WVduPS5zw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: pshelar@nicira.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49565 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755152AbaHBWQb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Aug 2014 18:16:31 -0400
+In-Reply-To: <1406851057-1593-1-git-send-email-pshelar@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexei Starovoitov <ast@plumgrid.com>
-Date: Fri, 1 Aug 2014 12:12:36 -0700
+From: Pravin B Shelar <pshelar@nicira.com>
+Date: Thu, 31 Jul 2014 16:57:37 -0700
 
-> Dave, this patch has trivial conflict with Daniel's
-> ("team: fix releasing uninitialized pointer to BPF prog") fix.
-> Let me know if you want me to respin the series or you'll patch up
-> the conflict yourself.
+> Following patch adds mask cache so that we do not need to iterate over
+> all entries in mask list on every packet. We have seen good performance
+> improvement with this patch.
 
-I took care of this, it was easy to resolve.
+How much have you thought about the DoS'ability of openvswitch's
+datastructures?
 
-Thanks.
+What are the upper bounds for performance of packet switching?
+
+To be quite honest, a lot of the openvswitch data structures
+adjustments that hit my inbox seem to me to only address specific
+situations that specific user configurations have run into.
+
+It took us two decades, but we ripped out the ipv4 routing cache
+because external entities could provoke unreasonable worst case
+behavior in routing lookups.
+
+With openvswitch you guys have a unique opportunity to try and design
+all of your features such that they absolutely can use scalable
+datastructures from the beginning that provide reasonable performance
+in the common case and precise upper bounds for any possible sequence
+of incoming packets.
+
+New features tend to blind the developer to the eventual long term
+ramifications on performance.  Would you add a new feature if you
+could know ahead of time that you'll never be able to design a
+datastructure which supports that feature and is not DoS'able by a
+remote entity?
