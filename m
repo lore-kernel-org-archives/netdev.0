@@ -1,105 +1,80 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: weird behaviour, getting EAGAIN on a connect() call on a unix
- stream socket
-Date: Sat, 02 Aug 2014 08:28:09 +0200
-Message-ID: <1406960889.3178.60.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <53DC6039.2010002@windriver.com>
+From: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+Subject: [PATCH net-next v5 0/3] Lockless netlink_lookup() with
+	new concurrent hash table
+Date: Sat,  2 Aug 2014 11:47:43 +0200
+Message-ID: <cover.1406971567.git.tgraf@suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Chris Friesen <chris.friesen@windriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f176.google.com ([74.125.82.176]:50714 "EHLO
-	mail-we0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750850AbaHBG2O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Aug 2014 02:28:14 -0400
-Received: by mail-we0-f176.google.com with SMTP id q58so5220571wes.21
-        for <netdev@vger.kernel.org>; Fri, 01 Aug 2014 23:28:12 -0700 (PDT)
-In-Reply-To: <53DC6039.2010002@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org,
+ nikolay-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, walpole-sKt6ljEC1JY3uPMLIKxrzw@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2014-08-01 at 21:51 -0600, Chris Friesen wrote:
-> Hi,
-> 
-> I'm trying to figure out what would case a connect() call on a unix stream
-> socket to return EAGAIN.  (On a 3.4 kernel, if it matters.)
-> 
-> I've got two unix stream sockets on the system, created by two qemu instances
-> as virtio-serial channels.
-> 
-> I've got an app that tries to connect() to both of them in turn.  The connect()
-> to the first socket fails with EAGAIN, the second one succeeds, and all
-> subsequent retries on the first fail.  Here's an strace() of the sequence:
-> 
-> socket(PF_FILE, SOCK_STREAM, 0)         = 6
-> fcntl(6, F_GETFL)                       = 0x2 (flags O_RDWR)
-> fcntl(6, F_SETFL, O_RDWR|O_NONBLOCK)    = 0
+Netlink sockets are maintained in a hash table to allow efficient lookup
+via the port ID for unicast messages. However, lookups currently require
+a read lock to be taken. This series adds a new generic, resizable,
+scalable, concurrent hash table based on the paper referenced in the first
+patch. It then makes use of the new data type to implement lockless
+netlink_lookup().
 
-Non blocking socket : If listener queue is full, -EAGAIN is expected
+Patch 3/3 to convert nft_hash is included for reference but should be
+merged via the netfilter tree. Inclusion in this series is to provide
+context for the suggested API.
 
-> connect(6, {sa_family=AF_FILE, sun_path="/var/lib/libvirt/qemu/cgcs.messaging.instance-00000007.sock"}, 61) = -1 EAGAIN (Resource temporarily unavailable)
-> clock_gettime(CLOCK_MONOTONIC, {158877, 262941763}) = 0
-> socket(PF_FILE, SOCK_STREAM, 0)         = 7
-> fcntl(7, F_GETFL)                       = 0x2 (flags O_RDWR)
-> fcntl(7, F_SETFL, O_RDWR|O_NONBLOCK)    = 0
-> connect(7, {sa_family=AF_FILE, sun_path="/var/lib/libvirt/qemu/cgcs.messaging.instance-00000008.sock"}, 61) = 0
-> getdents(5, /* 0 entries */, 32768)     = 0
-> close(5)                                = 0
-> clock_gettime(CLOCK_MONOTONIC, {158877, 265359109}) = 0
-> poll([{fd=3, events=POLLIN}, {fd=4, events=POLLIN}, {fd=7, events=POLLIN}], 3, 997) = 0 (Timeout)
-> clock_gettime(CLOCK_MONOTONIC, {158878, 265914614}) = 0
-> connect(6, {sa_family=AF_FILE, sun_path="/var/lib/libvirt/qemu/cgcs.messaging.instance-00000007.sock"}, 61) = -1 EAGAIN (Resource temporarily unavailable)
-> 
-> 
-> With the app not running, netstat seems to show that something is trying to
-> connect to the socket in question:
-> 
-> root@compute-0:~# netstat -ap unix |grep messaging
-> unix  2      [ ACC ]     STREAM     LISTENING     1109818  17379/qemu-system-x /var/lib/libvirt/qemu/cgcs.messaging.instance-00000007.sock
-> unix  2      [ ACC ]     STREAM     LISTENING     1110051  17425/qemu-system-x /var/lib/libvirt/qemu/cgcs.messaging.instance-00000008.sock
-> unix  2      [ ]         STREAM     CONNECTING    0        -                   /var/lib/libvirt/qemu/cgcs.messaging.instance-00000007.sock
-> unix  2      [ ]         STREAM     CONNECTING    0        -                   /var/lib/libvirt/qemu/cgcs.messaging.instance-00000007.sock
-> unix  2      [ ]         STREAM     CONNECTED     1109848  17379/qemu-system-x /var/lib/libvirt/qemu/cgcs.messaging.instance-00000007.sock
-> 
-> 
-> Here's /proc/net/unix for completeness:
-> 
-> root@compute-0:~/host-guest-comm# grep -a messaging /proc/net/unix
-> ffff880045c35540: 00000002 00000000 00010000 0001 01 1109818 /var/lib/libvirt/qemu/cgcs.messaging.instance-00000007.sock
-> ffff8800576b8a80: 00000002 00000000 00010000 0001 01 1110051 /var/lib/libvirt/qemu/cgcs.messaging.instance-00000008.sock
-> ffff880045e2f040: 00000002 00000000 00000000 0001 02     0 /var/lib/libvirt/qemu/cgcs.messaging.instance-00000007.sock
-> ffff88004bc5ea80: 00000002 00000000 00000000 0001 02     0 /var/lib/libvirt/qemu/cgcs.messaging.instance-00000007.sock
-> ffff880045e2f540: 00000002 00000000 00000000 0001 03 1109848 /var/lib/libvirt/qemu/cgcs.messaging.instance-00000007.sock
-> 
-> 
-> 
-> The crazy thing is that I can't figure out what could be causing the
-> CONNECTED/CONNECTING sockets.  There are no background processes of the
-> connecting app running, no zombie processes, no forked children, etc.
-> 
-> Just to make things more interesting, I successfully ran this application
-> several times (connecting to both sockets) before this behaviour started
-> happening.  I was running it under strace and just killed it with ctrl-C.
-> 
-> Anyone got any ideas?   Please CC me since I'm not subscribed to the list.
+Against net-next since the initial user of the new hash table is in net/
 
-The application might use a too small listen() backlog ?
+Changes:
+v4-v5:
+ - use GFP_KERNEL to alloc Netlink buckets as suggested by Nikolay
+   Aleksandrov
+ - free nft hash element on removal as spotted by Nikolay Aleksandrov
+   and Patrick McHardy
+v3-v4:
+ - fixed wrong shift assignment placement as spotted by Nikolay Aleksandrov
+ - reverted default size of nft_hash to 4 as requested by Patrick McHardy,
+   default size for other hash tables remains at 64 if no hint is given
+ - fixed copyright as requested by Patrick McHardy
+v2-v3:
+ - fixed typo in nft_hash_destroy() when passing rhashtable handle
+v1-v2:
+ - fixed traversal off-by-one as spotted by Tobias Klauser
+ - removed unlikely() from BUG_ON() as spotted by Josh Triplett
+ - new 3rd patch to convert nft_hash to rhashtable
+ - make rhashtable_insert() return void
+ - nl_sk_hash_lock must be a mutex
+ - fixed wrong name of rht_shrink_below_30()
+ - exported symbols rht_grow_above_75() and rht_shrink_below_30()
+ - allow table freeing with RCU callback
 
-Try this debugging patch : (note this might break some applications
-parsing /proc/net/unix)
+Thomas Graf (3):
+  lib: Resizable, Scalable, Concurrent Hash Table
+  netlink: Convert netlink_lookup() to use RCU protected hash table
+  nftables: Convert nft_hash to use generic rhashtable
 
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index e96884380732..78b7a7cf3071 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -2380,6 +2380,8 @@ static int unix_seq_show(struct seq_file *seq, void *v)
- 			for ( ; i < len; i++)
- 				seq_putc(seq, u->addr->name->sun_path[i]);
- 		}
-+		seq_printf(seq, " %u/%u", skb_queue_len(&s->sk_receive_queue),
-+			   s->sk_max_ack_backlog);
- 		unix_state_unlock(s);
- 		seq_putc(seq, '\n');
- 	}
+ include/linux/rhashtable.h | 213 ++++++++++++
+ lib/Kconfig.debug          |   8 +
+ lib/Makefile               |   2 +-
+ lib/rhashtable.c           | 797 +++++++++++++++++++++++++++++++++++++++++++++
+ net/netfilter/nft_hash.c   | 291 ++++-------------
+ net/netlink/af_netlink.c   | 285 ++++++----------
+ net/netlink/af_netlink.h   |  18 +-
+ net/netlink/diag.c         |  11 +-
+ 8 files changed, 1193 insertions(+), 432 deletions(-)
+ create mode 100644 include/linux/rhashtable.h
+ create mode 100644 lib/rhashtable.c
+
+-- 
+1.9.3
