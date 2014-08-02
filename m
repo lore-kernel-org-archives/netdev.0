@@ -1,84 +1,53 @@
-From: Chris Friesen <chris.friesen@windriver.com>
-Subject: weird behaviour, getting EAGAIN on a connect() call on a unix stream
- socket
-Date: Fri, 1 Aug 2014 21:51:21 -0600
-Message-ID: <53DC6039.2010002@windriver.com>
+From: Alex Elsayed <eternaleye@gmail.com>
+Subject: Re: [PATCH v2 0/2] RFC, aiding pid/network correlation
+Date: Fri, 01 Aug 2014 21:55:27 -0700
+Message-ID: <lrhr02$ncj$1@ger.gmane.org>
+References: <1406856100-21674-1-git-send-email-pmoody@google.com> <87y4v876bs.fsf@synack.fr> <r3noaw4m8g6.fsf@perdido.sfo.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:49648 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753237AbaHBDvX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Aug 2014 23:51:23 -0400
-Received: from ALA-HCA.corp.ad.wrs.com (ala-hca.corp.ad.wrs.com [147.11.189.40])
-	by mail.windriver.com (8.14.9/8.14.5) with ESMTP id s723pNEI009063
-	(version=TLSv1/SSLv3 cipher=AES128-SHA bits=128 verify=FAIL)
-	for <netdev@vger.kernel.org>; Fri, 1 Aug 2014 20:51:23 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org
+To: linux-security-module@vger.kernel.org
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+Peter Moody wrote:
 
-I'm trying to figure out what would case a connect() call on a unix stream
-socket to return EAGAIN.  (On a 3.4 kernel, if it matters.)
+<snip>
+> One thing that Hone does which snet doesn't seem to do (apologies if
+> this is incorrect but I can't test) is that it provides a full process
+> tree for a given pid back to init. When doing an investigation into a
+> system compromise, knowing what started the process making the
+> suspicious connection(s) (and what started *that* process) is often just
+> as important as knowing that there's a compromise to begin with.
 
-I've got two unix stream sockets on the system, created by two qemu instances
-as virtio-serial channels.
+Out of curiosity, have you looked at Tomoyo much at all? In particular, it:
 
-I've got an app that tries to connect() to both of them in turn.  The connect()
-to the first socket fails with EAGAIN, the second one succeeds, and all
-subsequent retries on the first fail.  Here's an strace() of the sequence:
+1.) Keeps a tree all the way back to init
+2.) Has network event hooks (see footnote [1])
+3.) Has an interactive API for managing policy violations (tomoyo-queryd[2] 
+uses it)
+4.) Is in mainline already.
 
-socket(PF_FILE, SOCK_STREAM, 0)         = 6
-fcntl(6, F_GETFL)                       = 0x2 (flags O_RDWR)
-fcntl(6, F_SETFL, O_RDWR|O_NONBLOCK)    = 0
-connect(6, {sa_family=AF_FILE, sun_path="/var/lib/libvirt/qemu/cgcs.messaging.instance-00000007.sock"}, 61) = -1 EAGAIN (Resource temporarily unavailable)
-clock_gettime(CLOCK_MONOTONIC, {158877, 262941763}) = 0
-socket(PF_FILE, SOCK_STREAM, 0)         = 7
-fcntl(7, F_GETFL)                       = 0x2 (flags O_RDWR)
-fcntl(7, F_SETFL, O_RDWR|O_NONBLOCK)    = 0
-connect(7, {sa_family=AF_FILE, sun_path="/var/lib/libvirt/qemu/cgcs.messaging.instance-00000008.sock"}, 61) = 0
-getdents(5, /* 0 entries */, 32768)     = 0
-close(5)                                = 0
-clock_gettime(CLOCK_MONOTONIC, {158877, 265359109}) = 0
-poll([{fd=3, events=POLLIN}, {fd=4, events=POLLIN}, {fd=7, events=POLLIN}], 3, 997) = 0 (Timeout)
-clock_gettime(CLOCK_MONOTONIC, {158878, 265914614}) = 0
-connect(6, {sa_family=AF_FILE, sun_path="/var/lib/libvirt/qemu/cgcs.messaging.instance-00000007.sock"}, 61) = -1 EAGAIN (Resource temporarily unavailable)
+The combination is actually sufficient to implement what you want for Hone 
+_today_ as far as I can tell, and there's even the out-of-tree AKARI variant 
+if you want to use it together with another LSM.
 
+There's also Caitsith[3] (also from Tetsuo Handa), which might be even 
+better suited but is not in mainline yet.
 
-With the app not running, netstat seems to show that something is trying to
-connect to the socket in question:
+[1] It has these hooks for inet sockets, and similar for unix:
+network inet stream bind $ADDRESS $PORT
+network inet stream listen $ADDRESS $PORT
+network inet stream connect $ADDRESS $PORT
+network inet dgram bind $ADDRESS $PORT
+network inet dgram send $ADDRESS $PORT
+network inet raw bind $ADDRESS $PROTOCOL
+network inet raw send $ADDRESS $PROTOCOL
 
-root@compute-0:~# netstat -ap unix |grep messaging
-unix  2      [ ACC ]     STREAM     LISTENING     1109818  17379/qemu-system-x /var/lib/libvirt/qemu/cgcs.messaging.instance-00000007.sock
-unix  2      [ ACC ]     STREAM     LISTENING     1110051  17425/qemu-system-x /var/lib/libvirt/qemu/cgcs.messaging.instance-00000008.sock
-unix  2      [ ]         STREAM     CONNECTING    0        -                   /var/lib/libvirt/qemu/cgcs.messaging.instance-00000007.sock
-unix  2      [ ]         STREAM     CONNECTING    0        -                   /var/lib/libvirt/qemu/cgcs.messaging.instance-00000007.sock
-unix  2      [ ]         STREAM     CONNECTED     1109848  17379/qemu-system-x /var/lib/libvirt/qemu/cgcs.messaging.instance-00000007.sock
+See http://tomoyo.sourceforge.jp/2.5/policy-specification/domain-policy-syntax.html.en#network_inet
 
+[2] http://tomoyo.sourceforge.jp/2.5/man-pages/tomoyo-queryd.html.en
+[3] http://caitsith.sourceforge.jp/
 
-Here's /proc/net/unix for completeness:
-
-root@compute-0:~/host-guest-comm# grep -a messaging /proc/net/unix
-ffff880045c35540: 00000002 00000000 00010000 0001 01 1109818 /var/lib/libvirt/qemu/cgcs.messaging.instance-00000007.sock
-ffff8800576b8a80: 00000002 00000000 00010000 0001 01 1110051 /var/lib/libvirt/qemu/cgcs.messaging.instance-00000008.sock
-ffff880045e2f040: 00000002 00000000 00000000 0001 02     0 /var/lib/libvirt/qemu/cgcs.messaging.instance-00000007.sock
-ffff88004bc5ea80: 00000002 00000000 00000000 0001 02     0 /var/lib/libvirt/qemu/cgcs.messaging.instance-00000007.sock
-ffff880045e2f540: 00000002 00000000 00000000 0001 03 1109848 /var/lib/libvirt/qemu/cgcs.messaging.instance-00000007.sock
-
-
-
-The crazy thing is that I can't figure out what could be causing the
-CONNECTED/CONNECTING sockets.  There are no background processes of the
-connecting app running, no zombie processes, no forked children, etc.
-
-Just to make things more interesting, I successfully ran this application
-several times (connecting to both sockets) before this behaviour started
-happening.  I was running it under strace and just killed it with ctrl-C.
-
-Anyone got any ideas?   Please CC me since I'm not subscribed to the list.
-
-Thanks,
-Chris
