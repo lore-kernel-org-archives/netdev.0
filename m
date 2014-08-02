@@ -1,32 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2] ipv6: data of fwmark_reflect sysctl needs to be
- updated on netns construction
-Date: Sat, 02 Aug 2014 16:17:53 -0700 (PDT)
-Message-ID: <20140802.161753.287652834100823770.davem@davemloft.net>
-References: <8775e97335210450f3ed5a16e64e4d03df026713.1406896673.git.hannes@stressinduktion.org>
+Subject: Re: [PATCH] r8152: correct error returns
+Date: Sat, 02 Aug 2014 16:34:18 -0700 (PDT)
+Message-ID: <20140802.163418.1314777407262254543.davem@davemloft.net>
+References: <1406901370-6847-1-git-send-email-oneukum@suse.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, lorenzo@google.com
-To: hannes@stressinduktion.org
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com
+To: oneukum@suse.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49954 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50036 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750733AbaHBXRz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Aug 2014 19:17:55 -0400
-In-Reply-To: <8775e97335210450f3ed5a16e64e4d03df026713.1406896673.git.hannes@stressinduktion.org>
+	with ESMTP id S1750780AbaHBXeT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Aug 2014 19:34:19 -0400
+In-Reply-To: <1406901370-6847-1-git-send-email-oneukum@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Fri,  1 Aug 2014 14:41:10 +0200
+From: Oliver Neukum <oneukum@suse.de>
+Date: Fri,  1 Aug 2014 15:56:10 +0200
 
-> Fixes: e110861f86094cd ("net: add a sysctl to reflect the fwmark on replies")
-> Cc: Lorenzo Colitti <lorenzo@google.com>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> ---
+> If an autoresume fails the internal error codes of the PM
+> subsystem mustn't be leaked to user space. Replace them by EIO
 > 
-> Sorry, missed the correct patch on the earlier submission. This knob
-> needs to be renumbered to '4' when merged with net-next.
+> Signed-off-by: Oliver Neukum <oneukum@suse.de>
 
-Ok applied, thanks Hannes.
+Really?
+
+Then even the core usbnet driver gets this wrong, as well as many
+other drivers I scanned over for this problem.
