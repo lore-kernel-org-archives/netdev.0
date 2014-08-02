@@ -1,97 +1,91 @@
-From: "K. Y. Srinivasan" <kys@microsoft.com>
-Subject: [PATCH 1/1 V2] Drivers: net-next: hyperv: Increase the size of the
- sendbuf region
-Date: Sat,  2 Aug 2014 10:42:02 -0700
-Message-ID: <1407001322-12010-1-git-send-email-kys@microsoft.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [net-next 1/5] net: Add rx-vxlan feature bit
+Date: Sat, 2 Aug 2014 11:16:32 -0700
+Message-ID: <CAEP_g=-tHYAmLF1Mq6C1vHW6U_3+Pn_MXVU3C8v+zvF-RrfD0Q@mail.gmail.com>
+References: <1406930085-26445-1-git-send-email-azhou@nicira.com>
+ <1406930085-26445-2-git-send-email-azhou@nicira.com> <CA+mtBx8p-kx7O45fmMgR-DAz_xMSCW_hDdv80yT-RcxbxhZ0og@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: davem@davemloft.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- devel@linuxdriverproject.org, olaf@aepfle.de, apw@canonical.com,
- jasowang@redhat.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Andy Zhou <azhou@nicira.com>, David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog134.obsmtp.com ([74.125.149.83]:42566 "HELO
+	na3sys009aog134.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754723AbaHBSQy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Aug 2014 14:16:54 -0400
+Received: by mail-qg0-f49.google.com with SMTP id j107so7139548qga.22
+        for <netdev@vger.kernel.org>; Sat, 02 Aug 2014 11:16:53 -0700 (PDT)
+In-Reply-To: <CA+mtBx8p-kx7O45fmMgR-DAz_xMSCW_hDdv80yT-RcxbxhZ0og@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Intel did some benchmarking on our network throughput when Linux on Hyper-V
-is as used as a gateway. This fix gave us almost a 1 Gbps additional throughput
-on about 5Gbps base throughput we hadi, prior to increasing the sendbuf size.
-The sendbuf mechanism is a copy based transport that we have which is clearly
-more optimal than the copy-free page flipping mechanism (for small packets).
-In the forwarding scenario, we deal only with MTU sized packets,
-and increasing the size of the senbuf area gave us the additional performance.
-For what it is worth, Windows guests on Hyper-V, I am told use similar sendbuf
-size as well.
+On Sat, Aug 2, 2014 at 8:53 AM, Tom Herbert <therbert@google.com> wrote:
+> On Fri, Aug 1, 2014 at 2:54 PM, Andy Zhou <azhou@nicira.com> wrote:
+>> Add a ndo feature bit that controls turning on and off NIC VXLAN
+>> receive offload
+>>
+>> Signed-off-by: Andy Zhou <azhou@nicira.com>
+>> ---
+>>  Documentation/networking/netdev-features.txt     |    5 +++++
+>>  drivers/net/ethernet/emulex/benet/be_main.c      |    6 ++++--
+>>  drivers/net/ethernet/intel/i40e/i40e_main.c      |    1 +
+>>  drivers/net/ethernet/mellanox/mlx4/en_netdev.c   |   11 ++++++++---
+>>  drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    7 +++++--
+>>  include/linux/netdev_features.h                  |    4 ++++
+>>  net/core/ethtool.c                               |    1 +
+>>  7 files changed, 28 insertions(+), 7 deletions(-)
+>>
+>> diff --git a/Documentation/networking/netdev-features.txt b/Documentation/networking/netdev-features.txt
+>> index f310ede..6436768 100644
+>> --- a/Documentation/networking/netdev-features.txt
+>> +++ b/Documentation/networking/netdev-features.txt
+>> @@ -165,3 +165,8 @@ This requests that the NIC receive all possible frames, including errored
+>>  frames (such as bad FCS, etc).  This can be helpful when sniffing a link with
+>>  bad packets on it.  Some NICs may receive more packets if also put into normal
+>>  PROMISC mode.
+>> +
+>> +*   rx-vxlan
+>> +NIC can parse udp tunneled frames. The NIC may make use of the inner frame
+>> +information, in addition to the outer UDP frame to verify, offload(RX)
+>> +and steer the packet.
+>
+> Sorry Andy, I still don't like this feature! I am worried that we are
+> opening a can of worms in encouraging HW vendors to focus on narrow
+> protocol specific features as opposed to general features that can be
+> applied to a wider range of protocols.
+>
+> For UDP tunneling protocols where source port is set to a hash this
+> should sufficient for the most common purposes of RSS and ECMP. This
+> is precisely why we are interested in UDP encapsulation in the first
+> place, existing NICs and switches support it. Any extra value in HW
+> parsing VXLAN for steering is marginal (at least not a compelling
+> reason for me run out and buy new NICs).
+>
+> This functionality might have merit for UDP flows where the source
+> port cannot be arbitrary, like what would be needed to get the UDP
+> flow to work over a stateful NAT. An example of this might be in QUIC.
+> In the case the 5-tuple might not be sufficient the inner flow, but a
+> device could conceivably parse the packet and use the QUIC connection
+> identifier for flow identification and steering. However, if this
+> becomes a real HW feature we would need a different interface anyway.
+> QUIC is implemented in user space and to the kernel is just another
+> UDP socket. The correct interface would probably be to configure the
+> capability in ethtool, not through the UDP stack.
 
-The exact value of sendbuf I think is less important than the fact that it needs
-to be larger than what Linux can allocate as physically contiguous memory.
-Thus the change over to allocating via vmalloc().
+This actually is a patch against ethtool :)
 
-We currently allocate 16MB receive buffer and we use vmalloc there for allocation.
-Also the low level channel code has already been modified to deal with physically
-dis-contiguous memory in the ringbuffer setup.
+I think this is probably getting somewhat ideological or at least use
+case-specific. I understand your goal is to be generic where possible
+but enough examples have come up in this discussion that it seems like
+there shouldn't be much of an argument about whether this is useful at
+this point. Things like the cost/benefit of buying a new NIC or how
+QUIC would use it in the future seem a little beside the point,
+honestly.
 
-Based on experimentation Intel did, they say there was some improvement in throughput
-as the sendbuf size was increased up to 16MB and there was no effect on throughput
-beyond 16MB. Thus I have chosen 16MB here.
-
-Increasing the sendbuf value makes a material difference in small packet handling
-
-In this version of the patch, based on David's feedback, I have added
-additional details in the commit log.
-
-
-Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
----
- drivers/net/hyperv/hyperv_net.h |    2 +-
- drivers/net/hyperv/netvsc.c     |    7 ++-----
- 2 files changed, 3 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 6cc37c1..40ba1ef 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -584,7 +584,7 @@ struct nvsp_message {
- 
- #define NETVSC_RECEIVE_BUFFER_SIZE		(1024*1024*16)	/* 16MB */
- #define NETVSC_RECEIVE_BUFFER_SIZE_LEGACY	(1024*1024*15)  /* 15MB */
--#define NETVSC_SEND_BUFFER_SIZE			(1024 * 1024)   /* 1MB */
-+#define NETVSC_SEND_BUFFER_SIZE			(1024 * 1024 * 16)   /* 16MB */
- #define NETVSC_INVALID_INDEX			-1
- 
- 
-diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-index c041f63..c76178e 100644
---- a/drivers/net/hyperv/netvsc.c
-+++ b/drivers/net/hyperv/netvsc.c
-@@ -193,8 +193,7 @@ static int netvsc_destroy_buf(struct netvsc_device *net_device)
- 	}
- 	if (net_device->send_buf) {
- 		/* Free up the receive buffer */
--		free_pages((unsigned long)net_device->send_buf,
--			   get_order(net_device->send_buf_size));
-+		vfree(net_device->send_buf);
- 		net_device->send_buf = NULL;
- 	}
- 	kfree(net_device->send_section_map);
-@@ -303,9 +302,7 @@ static int netvsc_init_buf(struct hv_device *device)
- 
- 	/* Now setup the send buffer.
- 	 */
--	net_device->send_buf =
--		(void *)__get_free_pages(GFP_KERNEL|__GFP_ZERO,
--					 get_order(net_device->send_buf_size));
-+	net_device->send_buf = vzalloc(net_device->send_buf_size);
- 	if (!net_device->send_buf) {
- 		netdev_err(ndev, "unable to allocate send "
- 			   "buffer of size %d\n", net_device->send_buf_size);
--- 
-1.7.4.1
+In any case, this specific patch is just about giving people the
+ability to control VXLAN offloads, which I think should make you happy
+given that it is already present in the stack and on by default. I
+think Andy has done his best to take your comments into account to
+make this as clean as possible and on the larger point we probably
+just need to move on.
