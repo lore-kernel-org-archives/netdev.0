@@ -1,10 +1,10 @@
 From: Nikolay Aleksandrov <nikolay-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net-next 1/3] lib: Resizable, Scalable,
- Concurrent Hash Table
-Date: Sat, 02 Aug 2014 12:32:41 +0200
-Message-ID: <53DCBE49.5040507@redhat.com>
+Subject: Re: [PATCH net-next 2/3] netlink: Convert
+ netlink_lookup() to use RCU protected hash table
+Date: Sat, 02 Aug 2014 12:44:14 +0200
+Message-ID: <53DCC0FE.5010502@redhat.com>
 References: <cover.1406971567.git.tgraf@suug.ch>
- <f7740ef7d22a334a775348caee916f1ddb3c584d.1406971567.git.tgraf@suug.ch>
+ <a0370889bd1b1bdf097f74df7017d39ae845c12e.1406971567.git.tgraf@suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -13,7 +13,7 @@ Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5
  walpole-sKt6ljEC1JY3uPMLIKxrzw@public.gmane.org
 To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <f7740ef7d22a334a775348caee916f1ddb3c584d.1406971567.git.tgraf-G/eBtMaohhA@public.gmane.org>
+In-Reply-To: <a0370889bd1b1bdf097f74df7017d39ae845c12e.1406971567.git.tgraf-G/eBtMaohhA@public.gmane.org>
 List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
  <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://openvswitch.org/pipermail/dev>
@@ -26,33 +26,48 @@ Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
 On 08/02/2014 11:47 AM, Thomas Graf wrote:
-> Generic implementation of a resizable, scalable, concurrent hash table
-> based on [0]. The implementation supports both, fixed size keys specified
-> via an offset and length, or arbitrary keys via own hash and compare
-> functions.
+> Heavy Netlink users such as Open vSwitch spend a considerable amount of
+> time in netlink_lookup() due to the read-lock on nl_table_lock. Use of
+> RCU relieves the lock contention.
 > 
-> Lookups are lockless and protected as RCU read side critical sections.
-> Automatic growing/shrinking based on user configurable watermarks is
-> available while allowing concurrent lookups to take place.
+> Makes use of the new resizable hash table to avoid locking on the
+> lookup.
 > 
-> Objects to be hashed must include a struct rhash_head. The reason for not
-> using the existing struct hlist_head is that the expansion and shrinking
-> will have two buckets point to a single entry which would lead in obscure
-> reverse chaining behaviour.
+> The hash table will grow if entries exceeds 75% of table size up to a
+> total table size of 64K. It will automatically shrink if usage falls
+> below 30%.
 > 
-> Code includes a boot selftest if CONFIG_TEST_RHASHTABLE is defined.
+> Also splits nl_table_lock into a separate mutex to protect hash table
+> mutations and allow synchronize_rcu() to sleep while waiting for readers
+> during expansion and shrinking.
 > 
-> [0] https://www.usenix.org/legacy/event/atc11/tech/final_files/Triplett.pdf
+> Before:
+>    9.16%  kpktgend_0  [openvswitch]      [k] masked_flow_lookup
+>    6.42%  kpktgend_0  [pktgen]           [k] mod_cur_headers
+>    6.26%  kpktgend_0  [pktgen]           [k] pktgen_thread_worker
+>    6.23%  kpktgend_0  [kernel.kallsyms]  [k] memset
+>    4.79%  kpktgend_0  [kernel.kallsyms]  [k] netlink_lookup
+>    4.37%  kpktgend_0  [kernel.kallsyms]  [k] memcpy
+>    3.60%  kpktgend_0  [openvswitch]      [k] ovs_flow_extract
+>    2.69%  kpktgend_0  [kernel.kallsyms]  [k] jhash2
+> 
+> After:
+>   15.26%  kpktgend_0  [openvswitch]      [k] masked_flow_lookup
+>    8.12%  kpktgend_0  [pktgen]           [k] pktgen_thread_worker
+>    7.92%  kpktgend_0  [pktgen]           [k] mod_cur_headers
+>    5.11%  kpktgend_0  [kernel.kallsyms]  [k] memset
+>    4.11%  kpktgend_0  [openvswitch]      [k] ovs_flow_extract
+>    4.06%  kpktgend_0  [kernel.kallsyms]  [k] _raw_spin_lock
+>    3.90%  kpktgend_0  [kernel.kallsyms]  [k] jhash2
+>    [...]
+>    0.67%  kpktgend_0  [kernel.kallsyms]  [k] netlink_lookup
 > 
 > Signed-off-by: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
 > ---
->  include/linux/rhashtable.h | 213 ++++++++++++
->  lib/Kconfig.debug          |   8 +
->  lib/Makefile               |   2 +-
->  lib/rhashtable.c           | 797 +++++++++++++++++++++++++++++++++++++++++++++
->  4 files changed, 1019 insertions(+), 1 deletion(-)
->  create mode 100644 include/linux/rhashtable.h
->  create mode 100644 lib/rhashtable.c
+>  net/netlink/af_netlink.c | 285 ++++++++++++++++++-----------------------------
+>  net/netlink/af_netlink.h |  18 +--
+>  net/netlink/diag.c       |  11 +-
+>  3 files changed, 119 insertions(+), 195 deletions(-)
 > 
 
 Reviewed-by: Nikolay Aleksandrov <nikolay-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
