@@ -1,40 +1,45 @@
-From: Nikolay Aleksandrov <nikolay-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net-next 3/3] nftables: Convert nft_hash to
- use generic rhashtable
-Date: Sat, 02 Aug 2014 12:56:15 +0200
-Message-ID: <53DCC3CF.4000003@redhat.com>
-References: <cover.1406971567.git.tgraf@suug.ch>
- <583cb5fc8f1bc2f47d338dfba06f514e7b89a548.1406971567.git.tgraf@suug.ch>
+From: Himangi Saraogi <himangi774-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH] net: wireless: wl1251: Remove unnecessary free_irq
+Date: Sat, 2 Aug 2014 16:51:30 +0530
+Message-ID: <20140802112130.GA3193@himangi-Dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org,
- netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
- walpole-sKt6ljEC1JY3uPMLIKxrzw@public.gmane.org
-To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <583cb5fc8f1bc2f47d338dfba06f514e7b89a548.1406971567.git.tgraf-G/eBtMaohhA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: julia.lawall-L2FTfq7BK8M@public.gmane.org
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 08/02/2014 11:47 AM, Thomas Graf wrote:
-> The sizing of the hash table and the practice of requiring a lookup
-> to retrieve the pprev to be stored in the element cookie before the
-> deletion of an entry is left intact.
-> 
-> Signed-off-by: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
-> Acked-by: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-> ---
->  net/netfilter/nft_hash.c | 291 +++++++++--------------------------------------
->  1 file changed, 55 insertions(+), 236 deletions(-)
-> 
+This patch does away with free_irq in the remove function as the irq is
+allocated with a devm_request_irq.
 
-Reviewed-by: Nikolay Aleksandrov <nikolay-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Himangi Saraogi <himangi774-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+I'm not sure that devm_request_irq should be used in
+the first place, as it will move the stopping of the interrupt over
+wl1251_free_hw. Should I use request_irq?
+ drivers/net/wireless/ti/wl1251/spi.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/net/wireless/ti/wl1251/spi.c b/drivers/net/wireless/ti/wl1251/spi.c
+index a0aa8fa..735be53 100644
+--- a/drivers/net/wireless/ti/wl1251/spi.c
++++ b/drivers/net/wireless/ti/wl1251/spi.c
+@@ -345,7 +345,6 @@ static int wl1251_spi_remove(struct spi_device *spi)
+ {
+ 	struct wl1251 *wl = spi_get_drvdata(spi);
+ 
+-	free_irq(wl->irq, wl);
+ 	wl1251_free_hw(wl);
+ 	regulator_disable(wl->vio);
+ 
+-- 
+1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
