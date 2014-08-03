@@ -1,77 +1,50 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [GIT net-next] Open vSwitch
-Date: Sun, 3 Aug 2014 12:20:32 -0700
-Message-ID: <CALnjE+rAXDpzkL9H9EAHKZ0yGCW3HHu+LgihwOj5Yx_5SASzsA@mail.gmail.com>
-References: <1406851057-1593-1-git-send-email-pshelar@nicira.com>
-	<20140802.151630.929949940730781279.davem@davemloft.net>
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: Re: ieee802154: pull requests for ieee802154/mac802154 branches
+Date: Sun, 3 Aug 2014 21:29:26 +0200
+Message-ID: <20140803192925.GA5664@omega>
+References: <20140729082829.GA2560@omega>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Cc: marcel@holtmann.org, davem@davemloft.net, netdev@vger.kernel.org
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog107.obsmtp.com ([74.125.149.197]:35538 "HELO
-	na3sys009aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750965AbaHCTUd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Aug 2014 15:20:33 -0400
-Received: by mail-ig0-f174.google.com with SMTP id c1so4186817igq.1
-        for <netdev@vger.kernel.org>; Sun, 03 Aug 2014 12:20:32 -0700 (PDT)
-In-Reply-To: <20140802.151630.929949940730781279.davem@davemloft.net>
+Received: from mail-wi0-f174.google.com ([209.85.212.174]:60895 "EHLO
+	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751261AbaHCT3d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Aug 2014 15:29:33 -0400
+Received: by mail-wi0-f174.google.com with SMTP id d1so3942165wiv.1
+        for <netdev@vger.kernel.org>; Sun, 03 Aug 2014 12:29:31 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20140729082829.GA2560@omega>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Aug 2, 2014 at 3:16 PM, David Miller <davem@davemloft.net> wrote:
-> From: Pravin B Shelar <pshelar@nicira.com>
-> Date: Thu, 31 Jul 2014 16:57:37 -0700
->
->> Following patch adds mask cache so that we do not need to iterate over
->> all entries in mask list on every packet. We have seen good performance
->> improvement with this patch.
->
-> How much have you thought about the DoS'ability of openvswitch's
-> datastructures?
->
-This cache is populated by flow lookup in fast path. The mask cache is
-fixed in size. Userspace or number of packets can not change its size.
-Memory is statically allocated, no garbage collection. So DoS attack
-can not exploit this cache to increase ovs memory footprint.
+Hi,
 
-> What are the upper bounds for performance of packet switching?
->
-Cache is keyed on packet RSS. Worst case scenario this cache adds one
-extra flow-table lookup for the flow if RSS hash matches but packet
-belong to different flow (hash collision).
-This is designed to be lightweight, stateless cache (does not take any
-reference on other data structures) to have least impact on
-DoS'ability of Open vSwitch.
+ping?
 
-> To be quite honest, a lot of the openvswitch data structures
-> adjustments that hit my inbox seem to me to only address specific
-> situations that specific user configurations have run into.
->
+I talked with Marcel today and he would accept pull request for
+net/ieee802154 and net/mac802154 work. I will catch all patches from the
+newly generated linux-wpan (IEEE 802.15.4/IEEE 802.15.4 6LoWPAN) list.
 
-Overall OVS DoS defense has improved since introduction of mega-flow.
-Recently introduced OVS feature allows userspace to set multiple
-sockets for upcall processing for given vport. This adds fairness by
-separating upcall from different flows to a socket. Userspace process
-upcall from these sockets in round-robin fashion. This helps to avoid
-one port monopolize upcall communication path.
+I would base my repository on bluetooth/bluetooth-next branches then.
 
-I agree there is scope for improving DoS defense and we will keep
-working on this issue.
+This option is better, because there exist shared 6LoWPAN code which is
+used by bluetooth and 802154.
 
-> It took us two decades, but we ripped out the ipv4 routing cache
-> because external entities could provoke unreasonable worst case
-> behavior in routing lookups.
->
-> With openvswitch you guys have a unique opportunity to try and design
-> all of your features such that they absolutely can use scalable
-> datastructures from the beginning that provide reasonable performance
-> in the common case and precise upper bounds for any possible sequence
-> of incoming packets.
->
-> New features tend to blind the developer to the eventual long term
-> ramifications on performance.  Would you add a new feature if you
-> could know ahead of time that you'll never be able to design a
-> datastructure which supports that feature and is not DoS'able by a
-> remote entity?
->
+
+David and John, is this okay for you? The alternative would be that I
+send pull request to wireless, but then we have the net/6lowpan
+conflicts issue. Bluetooth and 802154 should have the net/6lowpan
+directory mostly up-to-date.
+
+If this is fine, can I take all patches for net/mac802154 and net/ieee802154?
+So no patches for this going into net-next/net to avoid conflicts.
+
+
+For the net/6lowpan branch all patches should go into
+bluetooth/bluetooth-next. Please let me know if this is fine.
+
+Thanks.
+
+- Alex
