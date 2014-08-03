@@ -1,38 +1,77 @@
-From: Dmitry Popov <ixaphire@qrator.net>
-Subject: [PATCH] tcp: md5: remove unneeded check in tcp_v4_parse_md5_keys
-Date: Sun, 3 Aug 2014 22:45:19 +0400
-Message-ID: <20140803224519.49a40242da5c1cbe61f97753@qrator.net>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [GIT net-next] Open vSwitch
+Date: Sun, 3 Aug 2014 12:20:32 -0700
+Message-ID: <CALnjE+rAXDpzkL9H9EAHKZ0yGCW3HHu+LgihwOj5Yx_5SASzsA@mail.gmail.com>
+References: <1406851057-1593-1-git-send-email-pshelar@nicira.com>
+	<20140802.151630.929949940730781279.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f178.google.com ([209.85.217.178]:51793 "EHLO
-	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751536AbaHCSp1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Aug 2014 14:45:27 -0400
-Received: by mail-lb0-f178.google.com with SMTP id c11so4710656lbj.9
-        for <netdev@vger.kernel.org>; Sun, 03 Aug 2014 11:45:25 -0700 (PDT)
+Received: from na3sys009aog107.obsmtp.com ([74.125.149.197]:35538 "HELO
+	na3sys009aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1750965AbaHCTUd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Aug 2014 15:20:33 -0400
+Received: by mail-ig0-f174.google.com with SMTP id c1so4186817igq.1
+        for <netdev@vger.kernel.org>; Sun, 03 Aug 2014 12:20:32 -0700 (PDT)
+In-Reply-To: <20140802.151630.929949940730781279.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-tcpm_key is an array inside struct tcp_md5sig, there is no need to check it
-against NULL.
+On Sat, Aug 2, 2014 at 3:16 PM, David Miller <davem@davemloft.net> wrote:
+> From: Pravin B Shelar <pshelar@nicira.com>
+> Date: Thu, 31 Jul 2014 16:57:37 -0700
+>
+>> Following patch adds mask cache so that we do not need to iterate over
+>> all entries in mask list on every packet. We have seen good performance
+>> improvement with this patch.
+>
+> How much have you thought about the DoS'ability of openvswitch's
+> datastructures?
+>
+This cache is populated by flow lookup in fast path. The mask cache is
+fixed in size. Userspace or number of packets can not change its size.
+Memory is statically allocated, no garbage collection. So DoS attack
+can not exploit this cache to increase ovs memory footprint.
 
-Signed-off-by: Dmitry Popov <ixaphire@qrator.net>
----
- net/ipv4/tcp_ipv4.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 77cccda..8ea4eff 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -1064,7 +1064,7 @@ static int tcp_v4_parse_md5_keys(struct sock *sk, char __user *optval,
- 	if (sin->sin_family != AF_INET)
- 		return -EINVAL;
- 
--	if (!cmd.tcpm_key || !cmd.tcpm_keylen)
-+	if (!cmd.tcpm_keylen)
- 		return tcp_md5_do_del(sk, (union tcp_md5_addr *)&sin->sin_addr.s_addr,
- 				      AF_INET);
- 
+> What are the upper bounds for performance of packet switching?
+>
+Cache is keyed on packet RSS. Worst case scenario this cache adds one
+extra flow-table lookup for the flow if RSS hash matches but packet
+belong to different flow (hash collision).
+This is designed to be lightweight, stateless cache (does not take any
+reference on other data structures) to have least impact on
+DoS'ability of Open vSwitch.
+
+> To be quite honest, a lot of the openvswitch data structures
+> adjustments that hit my inbox seem to me to only address specific
+> situations that specific user configurations have run into.
+>
+
+Overall OVS DoS defense has improved since introduction of mega-flow.
+Recently introduced OVS feature allows userspace to set multiple
+sockets for upcall processing for given vport. This adds fairness by
+separating upcall from different flows to a socket. Userspace process
+upcall from these sockets in round-robin fashion. This helps to avoid
+one port monopolize upcall communication path.
+
+I agree there is scope for improving DoS defense and we will keep
+working on this issue.
+
+> It took us two decades, but we ripped out the ipv4 routing cache
+> because external entities could provoke unreasonable worst case
+> behavior in routing lookups.
+>
+> With openvswitch you guys have a unique opportunity to try and design
+> all of your features such that they absolutely can use scalable
+> datastructures from the beginning that provide reasonable performance
+> in the common case and precise upper bounds for any possible sequence
+> of incoming packets.
+>
+> New features tend to blind the developer to the eventual long term
+> ramifications on performance.  Would you add a new feature if you
+> could know ahead of time that you'll never be able to design a
+> datastructure which supports that feature and is not DoS'able by a
+> remote entity?
+>
