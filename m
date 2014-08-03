@@ -1,32 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] amd-xgbe: AMD XGBE driver update
- 2014-08-01
-Date: Sat, 02 Aug 2014 19:31:00 -0700 (PDT)
-Message-ID: <20140802.193100.251109735631225265.davem@davemloft.net>
-References: <20140801165623.20602.457.stgit@tlendack-t1.amdoffice.net>
+From: Jean Sacren <sakiwit@gmail.com>
+Subject: [PATCH net-next 0/2] Fix some typos and an excessive
+	space character
+Date: Sat,  2 Aug 2014 20:37:09 -0600
+Message-ID: <1407026820-26552-1-git-send-email-mysctp@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: thomas.lendacky@amd.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51023 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751911AbaHCCbE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Aug 2014 22:31:04 -0400
-In-Reply-To: <20140801165623.20602.457.stgit@tlendack-t1.amdoffice.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	Linux NICS <linux.nics@intel.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	<aaron.f.brown@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Date: Fri, 1 Aug 2014 11:56:23 -0500
+This small series fixes some typos in the kernel doc and an
+excessive space character in the debug message. Both are associated
+with e1000_mng_enable_host_if() of the Intel e1000e driver.
 
-> The following series of patches includes minor fixes/updates to the
-> driver.
-> 
-> - Remove some uses of spinlock around ethtool/phylib areas
-> - Update Rx/Tx ready check logic
-> 
-> This patch series is based on net-next.
+Please apply in the order as annotated.
 
-Series applied, thanks Tom.
+Jean Sacren (2):
+  e1000e: delete excessive space character in debug message
+  e1000e: fix trivial kernel doc typos
+
+ drivers/net/ethernet/intel/e1000e/manage.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+
+------------------------------------------------------------------------------
+Want fast and easy access to all the code in your enterprise? Index and
+search up to 200,000 lines of code with a free copy of Black Duck
+Code Sight - the same software that powers the world's largest code
+search on Ohloh, the Black Duck Open Hub! Try it now.
+http://p.sf.net/sfu/bds
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
