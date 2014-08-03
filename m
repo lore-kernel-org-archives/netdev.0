@@ -1,53 +1,54 @@
-From: Hans Wennborg <hans@hanshq.net>
-Subject: Re: [PATCH 1/1] cris: fix %d confusingly prefixed with 0x in format
- string
-Date: Sat, 02 Aug 2014 18:19:19 -0700
-Message-ID: <53DD8E17.1@hanshq.net>
-References: <1407018043-648-1-git-send-email-hans@hanshq.net> <1407026806.1835.21.camel@joe-AO725>
+From: Peter Moody <pmoody@google.com>
+Subject: Re: [PATCH v2 0/2] RFC, aiding pid/network correlation
+Date: Sat, 02 Aug 2014 18:34:00 -0700
+Message-ID: <r3nzjfmjr07.fsf@perdido.sfo.corp.google.com>
+References: <1406856100-21674-1-git-send-email-pmoody@google.com>
+	<87y4v876bs.fsf@synack.fr> <r3noaw4m8g6.fsf@perdido.sfo.corp.google.com>
+	<lrhr02$ncj$1@ger.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: starvik@axis.com, linux-cris-kernel@axis.com,
-	linux-kernel@vger.kernel.org,
-	kernel-janitors <kernel-janitors@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	devel <devel@driverdev.osuosl.org>, linux-cifs@vger.kernel.org,
-	alsa-devel@alsa-project.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1407026806.1835.21.camel@joe-AO725>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: linux-security-module@vger.kernel.org, netdev@vger.kernel.org
+To: Alex Elsayed <eternaleye@gmail.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <lrhr02$ncj$1@ger.gmane.org> (Alex Elsayed's message of "Fri\, 01
+	Aug 2014 21\:55\:27 -0700")
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
+Hey Alex,
 
-On 08/02/2014 05:46 PM, Joe Perches wrote:
-> On Sat, 2014-08-02 at 15:20 -0700, Hans Wennborg wrote:
->> Signed-off-by: Hans Wennborg <hans@hanshq.net>
->> ---
->>   arch/cris/arch-v32/drivers/cryptocop.c | 2 +-
->>   1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/arch/cris/arch-v32/drivers/cryptocop.c b/arch/cris/arch-v32/drivers/cryptocop.c
-> []
->> @@ -3155,7 +3155,7 @@ static void print_dma_descriptors(struct cryptocop_int_operation *iop)
->>   	printk("print_dma_descriptors start\n");
->>
->>   	printk("iop:\n");
->> -	printk("\tsid: 0x%lld\n", iop->sid);
->> +	printk("\tsid: 0x%llx\n", iop->sid);
->>
->>   	printk("\tcdesc_out: 0x%p\n", iop->cdesc_out);
->>   	printk("\tcdesc_in: 0x%p\n", iop->cdesc_in);
+On Fri, Aug 01 2014 at 21:55, Alex Elsayed wrote:
+> Out of curiosity, have you looked at Tomoyo much at all? In particular, it:
 >
-> Thanks.
->
-> This is a surprisingly common error:
->
-> $ /usr/bin/git grep -P '0x\%(?!ull\b|ul\b|u\b|lu\b|llu\b|llux\b|lux\b|lx\b|lluX\b|luX\b|lX\b)[ul]*[ud]'
-[...]
+> 1.) Keeps a tree all the way back to init
+> 2.) Has network event hooks (see footnote [1])
+> 3.) Has an interactive API for managing policy violations (tomoyo-queryd[2] 
+> uses it)
+> 4.) Is in mainline already.
 
-Yes, I have a patch for a bunch of these, but I figured it would be 
-easier to get it merged if I split it up. (Complete kernel newbie here.)
+I have looked at tomoyo before. There were a couple of things that kept
+it from being suitable for our needs:
 
-  - Hans
+The big one is that since the process tree is used to check policy, it's
+kept in-kernel and I'm primarily interested in having these events be
+easily exportable.  IIRC (at least when I last looked), it wasn't
+possible to stream the events as they happened. tomoyo-queryd looks like
+it gets me real-time policy violations, but I don't have any policy
+per-se. I'm just trying to monitor processes and network activity.
+
+We also already use apparmor so switching to a different LSM was a
+non-trivial task (admittedly this is now an issue for hone too, but hone
+wasn't an LSM initially).
+
+> The combination is actually sufficient to implement what you want for Hone 
+> _today_ as far as I can tell, and there's even the out-of-tree AKARI variant 
+> if you want to use it together with another LSM.
+>
+> There's also Caitsith[3] (also from Tetsuo Handa), which might be even 
+> better suited but is not in mainline yet.
+
+I'm not familiar with AKARI or Caitsith. I'll take a look.
+
+ Cheers,
+ peter
