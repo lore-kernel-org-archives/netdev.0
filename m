@@ -1,125 +1,59 @@
-From: Himangi Saraogi <himangi774@gmail.com>
-Subject: [PATCH v2] net: phy: spi_ks8995: Introduce the use of devm_kzalloc
-Date: Sun, 3 Aug 2014 13:39:43 +0530
-Message-ID: <20140803080943.GA4323@himangi-Dell>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH] xen-netfront: Fix handling packets on compound pages
+ with skb_segment
+Date: Sun, 3 Aug 2014 10:11:10 +0100
+Message-ID: <20140803091110.GA7093@zion.uk.xensource.com>
+References: <1406726730-17994-1-git-send-email-zoltan.kiss@citrix.com>
+ <20140731.132520.1889577477638334755.davem@davemloft.net>
+ <20140801110246.GB17947@zion.uk.xensource.com>
+ <20140802.153337.1399638752235662112.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: julia.lawall@lip6.fr
-To: "David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Philipp Zabel <p.zabel@pengutronix.de>,
-	Jingoo Han <jg1.han@samsung.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:59981 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751207AbaHCIJq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Aug 2014 04:09:46 -0400
+Content-Type: text/plain; charset="us-ascii"
+Cc: <wei.liu2@citrix.com>, <zoltan.kiss@citrix.com>,
+	<konrad.wilk@oracle.com>, <boris.ostrovsky@oracle.com>,
+	<david.vrabel@citrix.com>, <Ian.Campbell@citrix.com>,
+	<paul.durrant@citrix.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <xen-devel@lists.xenproject.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20140802.153337.1399638752235662112.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch introduces the use of devm_kzalloc and does away with the
-kfrees in the probe and remove functions. Also, a label is removed.
+On Sat, Aug 02, 2014 at 03:33:37PM -0700, David Miller wrote:
+> From: Wei Liu <wei.liu2@citrix.com>
+> Date: Fri, 1 Aug 2014 12:02:46 +0100
+> 
+> > On Thu, Jul 31, 2014 at 01:25:20PM -0700, David Miller wrote:
+> >> If you were to have a 64-slot TX queue, you ought to be able to handle
+> >> this theoretical 51 slot SKB.
+> > 
+> > There's two problems:
+> > 1. IIRC a single page ring has 256 slots, allowing 64 slots packet
+> >    yields 4 in-flight packets in worst case.
+> > 2. Older netback could not handle this large number of slots and it's
+> >    likely to deem the frontend malicious.
+> > 
+> > For #1, we don't actually care that much if guest screws itself by
+> > generating 64 slot packets. #2 is more concerning.
+> 
+> How many slots can the older netback handle?
 
-Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
-Acked-by: Julia Lawall <julia.lawall@lip6.fr>
----
-v2: adding netdev@vger.kernel.org
- drivers/net/phy/spi_ks8995.c | 26 ++++++++------------------
- 1 file changed, 8 insertions(+), 18 deletions(-)
+I listed those two problems in the context "if we were to lift this
+limit in the latest net-next tree", so "older netback" actually refers
+to netback from 3.10 to 3.16.
 
-diff --git a/drivers/net/phy/spi_ks8995.c b/drivers/net/phy/spi_ks8995.c
-index 22b047f..eab57fc 100644
---- a/drivers/net/phy/spi_ks8995.c
-+++ b/drivers/net/phy/spi_ks8995.c
-@@ -277,7 +277,7 @@ static int ks8995_probe(struct spi_device *spi)
- 	/* Chip description */
- 	pdata = spi->dev.platform_data;
- 
--	ks = kzalloc(sizeof(*ks), GFP_KERNEL);
-+	ks = devm_kzalloc(&spi->dev, sizeof(*ks), GFP_KERNEL);
- 	if (!ks)
- 		return -ENOMEM;
- 
-@@ -291,14 +291,14 @@ static int ks8995_probe(struct spi_device *spi)
- 	err = spi_setup(spi);
- 	if (err) {
- 		dev_err(&spi->dev, "spi_setup failed, err=%d\n", err);
--		goto err_drvdata;
-+		return err;
- 	}
- 
- 	err = ks8995_read(ks, ids, KS8995_REG_ID0, sizeof(ids));
- 	if (err < 0) {
- 		dev_err(&spi->dev, "unable to read id registers, err=%d\n",
- 				err);
--		goto err_drvdata;
-+		return err;
- 	}
- 
- 	switch (ids[0]) {
-@@ -306,8 +306,7 @@ static int ks8995_probe(struct spi_device *spi)
- 		break;
- 	default:
- 		dev_err(&spi->dev, "unknown family id:%02x\n", ids[0]);
--		err = -ENODEV;
--		goto err_drvdata;
-+		return -ENODEV;
- 	}
- 
- 	memcpy(&ks->regs_attr, &ks8995_registers_attr, sizeof(ks->regs_attr));
-@@ -320,24 +319,24 @@ static int ks8995_probe(struct spi_device *spi)
- 			dev_err(&spi->dev,
- 				"unable to read chip id register, err=%d\n",
- 				err);
--			goto err_drvdata;
-+			return err;
- 		}
- 		if ((val & 0x80) == 0) {
- 			dev_err(&spi->dev, "unknown chip:%02x,0\n", ids[1]);
--			goto err_drvdata;
-+			return err;
- 		}
- 		ks->regs_attr.size = KSZ8864_REGS_SIZE;
- 	}
- 
- 	err = ks8995_reset(ks);
- 	if (err)
--		goto err_drvdata;
-+		return err;
- 
- 	err = sysfs_create_bin_file(&spi->dev.kobj, &ks->regs_attr);
- 	if (err) {
- 		dev_err(&spi->dev, "unable to create sysfs file, err=%d\n",
- 				    err);
--		goto err_drvdata;
-+		return err;
- 	}
- 
- 	if (get_chip_id(ids[1]) == CHIPID_M) {
-@@ -350,21 +349,12 @@ static int ks8995_probe(struct spi_device *spi)
- 	}
- 
- 	return 0;
--
--err_drvdata:
--	kfree(ks);
--	return err;
- }
- 
- static int ks8995_remove(struct spi_device *spi)
- {
--	struct ks8995_data      *ks8995;
--
--	ks8995 = spi_get_drvdata(spi);
- 	sysfs_remove_bin_file(&spi->dev.kobj, &ks8995_registers_attr);
- 
--	kfree(ks8995);
--
- 	return 0;
- }
- 
--- 
-1.9.1
+The current implementation allows the number of slots X:
+ 1. X <= 18, valid packet
+ 2. 18 < X < fatal_slot_count, dropped
+ 3. X >= fatal_slot_count, malicious frontend
+
+fatal_slot_count has default value of 20.
+
+Wei.
+
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
