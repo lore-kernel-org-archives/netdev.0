@@ -1,54 +1,36 @@
-From: Alex Elsayed <eternaleye@gmail.com>
-Subject: Re: [PATCH v2 0/2] RFC, aiding pid/network correlation
-Date: Sat, 02 Aug 2014 20:41:38 -0700
-Message-ID: <lrkb1l$4oh$1@ger.gmane.org>
-References: <1406856100-21674-1-git-send-email-pmoody@google.com> <87y4v876bs.fsf@synack.fr> <r3noaw4m8g6.fsf@perdido.sfo.corp.google.com> <lrhr02$ncj$1@ger.gmane.org> <r3nzjfmjr07.fsf@perdido.sfo.corp.google.com> <lrk4f5$4vo$2@ger.gmane.org> <r3nvbqajovk.fsf@perdido.sfo.corp.google.com> <lrk6or$unu$2@ger.gmane.org> <r3nr40yjo1e.fsf@perdido.sfo.corp.google.com> <lrk7gb$unu$4@ger.gmane.org> <lrk7s8$88k$2@ger.gmane.org> <r3nk36qjmc9.fsf@perdido.sfo.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org
-To: linux-security-module@vger.kernel.org
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Sender: linux-security-module-owner@vger.kernel.org
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: pull request: wireless-next 2014-08-01
+Date: Sat, 2 Aug 2014 21:06:49 -0700
+Message-ID: <C1E000CB-3DC7-458D-B249-8EE08A8072DD@holtmann.org>
+References: <20140801165738.GA26953@tuxdriver.com> <20140802.193939.2179004210212543536.davem@davemloft.net>
+Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	"linux-wireless@vger.kernel.org Wireless"
+	<linux-wireless@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140802.193939.2179004210212543536.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Peter Moody wrote:
+Hi Dave,
 
+>> Please pull this last(?) batch of wireless change intended for the
+>> 3.17 stream...
 > 
-> On Sat, Aug 02 2014 at 19:47, Alex Elsayed wrote:
->>> #2012/04/08 05:03:03# global-pid=3720 result=allowed priority=100 / read
->>> path="/tmp/file1" task.pid=3720 task.ppid=3653 task.uid=0 task.gid=0
->>> task.euid=0 task.egid=0 task.suid=0 task.sgid=0 task.fsuid=0
->>> task.fsgid=0 task.type!=execute_handler task.exe="/bin/cat"
->>> task.domain="/usr/sbin/sshd" path.uid=0 path.gid=0 path.ino=2113451
->>> path.major=8 path.minor=1 path.perm=0644 path.type=file
->>> path.fsmagic=0xEF53 path.parent.uid=0 path.parent.gid=0
->>> path.parent.ino=2097153 path.parent.major=8 path.parent.minor=1
->>> path.parent.perm=01777 path.parent.type=directory
->>> path.parent.fsmagic=0xEF53
->>
->> Actually, now that I look at that, you'd need to audit 'domain
->> transition' events too - since that contains all the relevant PIDs, then
->> the most recent domain transition with all of the right PIDs is
->> sufficient to rebuild the tree back to init (recursively)
+> When I pull this I get tons of conflicts for:
 > 
-> How are network events logged? The documentation on caitsith.sourceforge
-> is lacking.
+> CONFLICT (content): Merge conflict in net/6lowpan/iphc.c
+> 
+> I don't feel comfortable fixing these up, where are they coming
+> from?
 
-It depends on the event - if you look at the per-event docs[1], you'll see 
-the variables it'll log. For instance, inet_stream_bind has 'ip', 'port', 
-and 'task.$attribute' listed (and hyperlinked), so it'll log like this:
+they are coding style fixes to bring net/6lowpan/ in sync with net subsystem coding style. That code is still a bit outdated. I took a first stab at fixing the obvious mistakes.
 
-// These fields are common across all events:
-// time, root-pid-ns PID, result, acl-priority, and chroot path
-#2012/04/08 05:03:03# global-pid=3720 result=unmatched priority=0 /
-// Then the action
-inet_stream_bind
-// then the variables
-ip=0.0.0.0 port=80 task.pid=2245 task.ppid=3422 task.uid=81 task.gid=81
-task.euid=81 task.egid=81 task.suid=0 task.sgid=0 task.fsuid=81
-task.fsgid=81 task.type!=execute_handler task.exe="/user/bin/httpd"
-task.domain="/usr/bin/httpd"
+Regards
 
-[1] Start at http://caitsith.sourceforge.jp/#5.26 and scroll
-
+Marcel
