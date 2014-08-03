@@ -1,60 +1,38 @@
-From: Jean Sacren <sakiwit@gmail.com>
-Subject: [PATCH net-next 2/2] e1000e: delete excessive space
-	character in debug message
-Date: Sat,  2 Aug 2014 20:37:11 -0600
-Message-ID: <1407026820-26552-3-git-send-email-mysctp@gmail.com>
-References: <1407026820-26552-1-git-send-email-mysctp@gmail.com>
+From: Peter Moody <pmoody@google.com>
+Subject: Re: [PATCH v2 0/2] RFC, aiding pid/network correlation
+Date: Sat, 02 Aug 2014 19:38:05 -0700
+Message-ID: <r3nr40yjo1e.fsf@perdido.sfo.corp.google.com>
+References: <1406856100-21674-1-git-send-email-pmoody@google.com>
+	<87y4v876bs.fsf@synack.fr> <r3noaw4m8g6.fsf@perdido.sfo.corp.google.com>
+	<lrhr02$ncj$1@ger.gmane.org> <r3nzjfmjr07.fsf@perdido.sfo.corp.google.com>
+	<lrk4f5$4vo$2@ger.gmane.org> <r3nvbqajovk.fsf@perdido.sfo.corp.google.com>
+	<lrk6or$unu$2@ger.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Linux NICS <linux.nics@intel.com>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	<aaron.f.brown@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1407026820-26552-1-git-send-email-mysctp@gmail.com>
-In-Reply-To: <1407026820-26552-1-git-send-email-mysctp@gmail.com>
-References: <1407026820-26552-1-git-send-email-mysctp@gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain
+Cc: linux-security-module@vger.kernel.org, netdev@vger.kernel.org
+To: Alex Elsayed <eternaleye@gmail.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <lrk6or$unu$2@ger.gmane.org> (Alex Elsayed's message of "Sat\, 02
+	Aug 2014 19\:28\:43 -0700")
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There is an excessive space character between the word and the
-period in the debug message. So delete it.
 
-Signed-off-by: Jean Sacren <sakiwit@gmail.com>
----
- drivers/net/ethernet/intel/e1000e/manage.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+On Sat, Aug 02 2014 at 19:28, Alex Elsayed wrote:
 
-diff --git a/drivers/net/ethernet/intel/e1000e/manage.c b/drivers/net/ethernet/intel/e1000e/manage.c
-index 58856032298d..38a0a83b1400 100644
---- a/drivers/net/ethernet/intel/e1000e/manage.c
-+++ b/drivers/net/ethernet/intel/e1000e/manage.c
-@@ -78,7 +78,7 @@ static s32 e1000_mng_enable_host_if(struct e1000_hw *hw)
- 	}
- 
- 	if (i == E1000_MNG_DHCP_COMMAND_TIMEOUT) {
--		e_dbg("Previous command timeout failed .\n");
-+		e_dbg("Previous command timeout failed.\n");
- 		return -E1000_ERR_HOST_INTERFACE_COMMAND;
- 	}
- 
+> Oh, I see now. Okay, that's actually considerably simpler - I just had 
+> somehow gotten it fixated into my mind that the info would be used to decide 
+> on allow/deny actions.
+>
+> The trick to do what you want is the 'audit' support in both - 
+> here I'll use CaitSith as an example since the syntax is nicer.
 
-------------------------------------------------------------------------------
-Want fast and easy access to all the code in your enterprise? Index and
-search up to 200,000 lines of code with a free copy of Black Duck
-Code Sight - the same software that powers the world's largest code
-search on Ohloh, the Black Duck Open Hub! Try it now.
-http://p.sf.net/sfu/bds
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Do these audit logs end up with the audit subsystem? My experience with
+the audit subsystem is that performance takes a big hit when you start
+sending thousands (or even hundreds) of audit messages per second.
+
+> In the header of a CaitSith policy, you specify resource limits for audit 
+> logs in the format
+
+I will definitely check out caitsith though. I think I saw Tetsuo talk
+about it at LSS in San Diego a few years ago.
