@@ -1,63 +1,101 @@
-From: Alex Elsayed <eternaleye@gmail.com>
-Subject: Re: [PATCH v2 0/2] RFC, aiding pid/network correlation
-Date: Sun, 03 Aug 2014 15:18:11 -0700
-Message-ID: <lrmcf4$l9j$1@ger.gmane.org>
-References: <1406856100-21674-1-git-send-email-pmoody@google.com> <87y4v876bs.fsf@synack.fr> <r3noaw4m8g6.fsf@perdido.sfo.corp.google.com> <lrhr02$ncj$1@ger.gmane.org> <r3nzjfmjr07.fsf@perdido.sfo.corp.google.com> <lrk4f5$4vo$2@ger.gmane.org> <r3nvbqajovk.fsf@perdido.sfo.corp.google.com> <lrk6or$unu$2@ger.gmane.org> <r3nr40yjo1e.fsf@perdido.sfo.corp.google.com> <lrk7gb$unu$4@ger.gmane.org> <lrk7s8$88k$2@ger.gmane.org> <r3nk36qjmc9.fsf@perdido.sfo.corp.google.com> <lrkb1l$4oh$1@ger.gmane.org> <r3nd2chjkxc.fsf@perdido.sfo.corp.google.com>
+From: Randy Dunlap <rdunlap@infradead.org>
+Subject: Re: [PATCH 2/2] ipv6: header documentation
+Date: Sun, 03 Aug 2014 15:48:40 -0700
+Message-ID: <53DEBC48.5030309@infradead.org>
+References: <1406928683-4317-1-git-send-email-karoly.kemeny@gmail.com> <1406928683-4317-2-git-send-email-karoly.kemeny@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org
-To: linux-security-module@vger.kernel.org
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+To: Karoly Kemeny <karoly.kemeny@gmail.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, linux-doc@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:59764 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751835AbaHCWsr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Aug 2014 18:48:47 -0400
+In-Reply-To: <1406928683-4317-2-git-send-email-karoly.kemeny@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Peter Moody wrote:
-
+On 08/01/14 14:31, Karoly Kemeny wrote:
+> Signed-off-by: Karoly Kemeny <karoly.kemeny@gmail.com>
+> ---
+>  include/net/ipv6.h | 40 ++++++++++++++++++++++++++++------------
+>  1 file changed, 28 insertions(+), 12 deletions(-)
 > 
-> On Sat, Aug 02 2014 at 20:41, Alex Elsayed wrote:
->> Peter Moody wrote:
->>
->>> 
->>> On Sat, Aug 02 2014 at 19:47, Alex Elsayed wrote:
->>>>> #2012/04/08 05:03:03# global-pid=3720 result=allowed priority=100 /
->>>>> #read
->>>>> path="/tmp/file1" task.pid=3720 task.ppid=3653 task.uid=0 task.gid=0
->>>>> task.euid=0 task.egid=0 task.suid=0 task.sgid=0 task.fsuid=0
->>>>> task.fsgid=0 task.type!=execute_handler task.exe="/bin/cat"
->>>>> task.domain="/usr/sbin/sshd" path.uid=0 path.gid=0 path.ino=2113451
->>>>> path.major=8 path.minor=1 path.perm=0644 path.type=file
->>>>> path.fsmagic=0xEF53 path.parent.uid=0 path.parent.gid=0
->>>>> path.parent.ino=2097153 path.parent.major=8 path.parent.minor=1
->>>>> path.parent.perm=01777 path.parent.type=directory
->>>>> path.parent.fsmagic=0xEF53
->>>>
->>>> Actually, now that I look at that, you'd need to audit 'domain
->>>> transition' events too - since that contains all the relevant PIDs,
->>>> then the most recent domain transition with all of the right PIDs is
->>>> sufficient to rebuild the tree back to init (recursively)
->>> 
->>> How are network events logged? The documentation on caitsith.sourceforge
->>> is lacking.
->>
->> It depends on the event - if you look at the per-event docs[1], you'll
->> see the variables it'll log. For instance, inet_stream_bind has 'ip',
->> 'port', and 'task.$attribute' listed (and hyperlinked), so it'll log like
->> this:
+> diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+> index a2db816..7798a97 100644
+> --- a/include/net/ipv6.h
+> +++ b/include/net/ipv6.h
+> @@ -100,8 +100,20 @@
+>  #define IPV6_ADDR_MC_FLAG_RENDEZVOUS(a)	\
+>  	((a)->s6_addr[1] & 0x40)
+>  
+> -/*
+> - *	fragmentation header
+> +/**
+> + *	struct frag_hdr - fragmentation header
+> + *	@nexthdr	- type of the next header
+> + *	@reserved	- reserved field, init to zeroes on transmission,
+> + *			  ignore on reception
+> + *	@frag_off	- 13 MSB bit: offset relative to the start of the
+> + *				      fragmented part of the packet.
+> + *			- 14-15 bit : reserved, as @reserved
+> + *			- LSB	    : indicates if it is the last fragment
+> + *					of the file. 0 = last fragment
+> + *	@identification - id of the fragmented packet,
+> + *			  must be the same for all fragments of the same packet
+> + *
+> + *	for more info see RFC-2460
+
+The fields (members) within a struct are listed with ':' separating them from
+their descriptions (not '-').
+
+Ditto for below.
+
+>   */
+>  
+>  struct frag_hdr {
+> @@ -200,23 +212,27 @@ struct ip6_ra_chain {
+>  extern struct ip6_ra_chain	*ip6_ra_chain;
+>  extern rwlock_t ip6_ra_lock;
+>  
+> -/*
+> -   This structure is prepared by protocol, when parsing
+> -   ancillary data and passed to IPv6.
+> +/**
+> + * struct ipv6_txoption - This structure is prepared by protocol, when parsing
+> + * 			  ancillary data and passed to IPv6.
+> + * @tot_len		- length of this structure
+> + * @opt_flen		- length of extension header after fragment header
+> + * @opt_nlen		- length of extension header before fragment header
+> + * @hopopt		- pointer to the hop-by-hop header
+> + * @dst0opt		- pointer to the first destination header
+> + * @srcrt		- pointer to the routing header
+> + * @dst1opt		- pointer to the second destination header
+> + *
+>   */
+>  
+>  struct ipv6_txoptions {
+> -	/* Length of this structure */
+>  	int			tot_len;
+> -
+> -	/* length of extension headers   */
+> -
+> -	__u16			opt_flen;	/* after fragment hdr */
+> -	__u16			opt_nflen;	/* before fragment hdr */
+> +	__u16			opt_flen;
+> +	__u16			opt_nflen;
+>  
+>  	struct ipv6_opt_hdr	*hopopt;
+>  	struct ipv6_opt_hdr	*dst0opt;
+> -	struct ipv6_rt_hdr	*srcrt;	/* Routing Header */
+> +	struct ipv6_rt_hdr	*srcrt;
+>  	struct ipv6_opt_hdr	*dst1opt;
+>  
+>  	/* Option buffer, as read by IPV6_PKTOPTIONS, starts here. */
 > 
-> Is this all caitsaith-specific? I don't see how to test what you're
-> describing with tomoyo.
 
-Looking at Tomoyo, it seems to do it differently (and less conveniently) - 
-the best way might be to:
 
-1.) be in "permissive" mode so that "deny" doesn't actually prevent anything
-2.) Set "grant_log=no" and "reject_log=yes" in the CONFIG section
-3.) in acl_group zero, allow by default but deny network operations
-4.) Watch the logs
-
-It does seem like the logs are less verbose than CaitSith, though.
-
-Note that CaitSith can be built as a kernel module (without patching), so 
-that might be worth testing as well.
-
+-- 
+~Randy
