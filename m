@@ -1,54 +1,106 @@
-From: Peter Moody <pmoody@google.com>
-Subject: Re: [PATCH v2 0/2] RFC, aiding pid/network correlation
-Date: Sat, 02 Aug 2014 19:19:59 -0700
-Message-ID: <r3nvbqajovk.fsf@perdido.sfo.corp.google.com>
-References: <1406856100-21674-1-git-send-email-pmoody@google.com>
-	<87y4v876bs.fsf@synack.fr> <r3noaw4m8g6.fsf@perdido.sfo.corp.google.com>
-	<lrhr02$ncj$1@ger.gmane.org> <r3nzjfmjr07.fsf@perdido.sfo.corp.google.com>
-	<lrk4f5$4vo$2@ger.gmane.org>
+From: Steve French <smfrench-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH 1/1] cris: fix %d confusingly prefixed with 0x in format string
+Date: Sat, 2 Aug 2014 21:26:37 -0500
+Message-ID: <CAH2r5msfV4qCvL+g_moRDnusX+OefomGQ3AQQjcLtWKUeHZO9w@mail.gmail.com>
+References: <1407018043-648-1-git-send-email-hans@hanshq.net> <1407026806.1835.21.camel@joe-AO725>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-security-module@vger.kernel.org, netdev@vger.kernel.org
-To: Alex Elsayed <eternaleye@gmail.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <lrk4f5$4vo$2@ger.gmane.org> (Alex Elsayed's message of "Sat\, 02
-	Aug 2014 18\:49\:25 -0700")
-Sender: linux-security-module-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Hans Wennborg <hans-7z9IcJk4adCsTnJN9+BGXg@public.gmane.org>, starvik-VrBV9hrLPhE@public.gmane.org,
+	linux-cris-kernel-VrBV9hrLPhE@public.gmane.org, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	kernel-janitors <kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	devel <devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org>,
+	"linux-cifs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-cifs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	alsa-devel-K7yf7f+aM1XWsZ/bQMPhNw@public.gmane.org
+To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-cifs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1407026806.1835.21.camel@joe-AO725>
+Sender: linux-cifs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+Thanks for pointing this out.  I fixed the instances of this that you
+spotted in the cifs.ko driver (pushed to cifs-2.6.git for-next) and
+noted that you pointed it out in the commit message.
 
-On Sat, Aug 02 2014 at 18:49, Alex Elsayed wrote:
-
-> Well, the simple answer is "define a policy that allows everything except 
-> network operations, and denies those" - this is reasonably simple if you use 
-> ACL groups because you can set the 'default policy' with acl group 0.
-
-I'm not understanding. I don't want to deny network operations, I just
-want to be able to associate the operation with the 'offending' process.
-
-> Yeah, there are flavors of Tomoyo (out-of-tree) that can be stacked, and 
-> there's the ongoing effort from Casey Schaufler to enable stacking more 
-> generally.
-
-Yeah, Casey was the one who suggested that I re-write this as an LSM. I
-think he saw the monitoring that I'm trying to do (as opposed to
-standard LSM deny/permit) as a good candidate for stacking.
+http://git.samba.org/?p=sfrench/cifs-2.6.git;a=commit;h=59b04c5df75bd715002bb535930ae1982a739269
 
 
-> CaitSith is rather different, in that rather than having domain be the 
-> primary key things operate off of, the action is the central piece. So while 
-> Tomoyo's policy syntax is
+
+On Sat, Aug 2, 2014 at 7:46 PM, Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org> wrote:
+> On Sat, 2014-08-02 at 15:20 -0700, Hans Wennborg wrote:
+>> Signed-off-by: Hans Wennborg <hans-7z9IcJk4adCsTnJN9+BGXg@public.gmane.org>
+>> ---
+>>  arch/cris/arch-v32/drivers/cryptocop.c | 2 +-
+>>  1 file changed, 1 insertion(+), 1 deletion(-)
+>>
+>> diff --git a/arch/cris/arch-v32/drivers/cryptocop.c b/arch/cris/arch-v32/drivers/cryptocop.c
+> []
+>> @@ -3155,7 +3155,7 @@ static void print_dma_descriptors(struct cryptocop_int_operation *iop)
+>>       printk("print_dma_descriptors start\n");
+>>
+>>       printk("iop:\n");
+>> -     printk("\tsid: 0x%lld\n", iop->sid);
+>> +     printk("\tsid: 0x%llx\n", iop->sid);
+>>
+>>       printk("\tcdesc_out: 0x%p\n", iop->cdesc_out);
+>>       printk("\tcdesc_in: 0x%p\n", iop->cdesc_in);
 >
-> DOMAIN
->     POLICY ACTION CONDITION
+> Thanks.
 >
-> CaitSith's is
+> This is a surprisingly common error:
 >
-> ACTION [QUALIFIER]
->     PRIORITY POLICY CONDITION [CONDITION...]
+> $ /usr/bin/git grep -P '0x\%(?!ull\b|ul\b|u\b|lu\b|llu\b|llux\b|lux\b|lx\b|lluX\b|luX\b|lX\b)[ul]*[ud]'
+> arch/arm/mach-omap2/id.c:               pr_warn("%s: unknown idcode=0x%08x (hawkeye=0x%08x,rev=0x%d)\n",
+> arch/cris/arch-v32/drivers/cryptocop.c: printk("\tsid: 0x%lld\n", iop->sid);
+> drivers/atm/eni.c:                      return sprintf(page,"tx[%d]:    0x%ld-0x%ld "
+> drivers/atm/eni.c:                              length += sprintf(page+length,"0x%ld-0x%ld "
+> drivers/block/DAC960.c:         DAC960_Error("IO port 0x%d busy for Controller at\n",
+> drivers/block/DAC960.c:         DAC960_Error("IO port 0x%d busy for Controller at\n",
+> drivers/block/cciss.c:  dev_dbg(&h->pdev->dev, "   Max outstanding commands = 0x%d\n",
+> drivers/media/platform/s5p-mfc/s5p_mfc_opr_v6.c:        mfc_debug(2, "stream buf addr: 0x%08lx, size: 0x%d\n",
+> drivers/mfd/htc-i2cpld.c:       snprintf(client->name, I2C_NAME_SIZE, "Chip_0x%d", client->addr);
+> drivers/mfd/omap-usb-host.c:                     "USB HOST Rev:0x%d not recognized, assuming %d ports\n",
+> drivers/misc/sgi-gru/grumain.c: gru_dbg(grudev, "gid %d, gts %p, gms %p, ctxnum 0x%d, asidmap 0x%lx\n",
+> drivers/net/ethernet/smsc/smc911x.c:    DBG(SMC_DEBUG_MISC, dev, "phy_id1=0x%x, phy_id2=0x%x phyaddr=0x%d\n",
+> drivers/net/wireless/ath/ath6kl/init.c:                            "found reserved ram size ie 0x%d\n",
+> drivers/net/wireless/ath/ath6kl/main.c:         ath6kl_err("failed to write 0x%x during diagnose window to 0x%d\n",
+> drivers/net/wireless/iwlegacy/4965-mac.c:                       IL_ERR("failed setting tx power (0x%d).\n", ret);
+> drivers/net/wireless/rtlwifi/pci.c:                              "more desc left, wake skb_queue@%d, ring->idx = %d, skb_queue_len = 0x%d\n",
+> drivers/net/wireless/rtlwifi/pci.c:                              "No more TX desc@%d, ring->idx = %d, idx = %d, skb_queue_len = 0x%d\n",
+> drivers/net/wireless/rtlwifi/pci.c:                      "less desc left, stop skb_queue@%d, ring->idx = %d, idx = %d, skb_queue_len = 0x%d\n",
+> drivers/net/wireless/rtlwifi/rtl8192de/phy.c:            "MCSTxPowerLevelOriginalOffset[%d][%d] = 0x%ulx\n",
+> drivers/net/wireless/rtlwifi/rtl8192de/phy.c:                   "ver 1 set RF-A, 5G,    0x28 = 0x%ulx !!\n", u4tmp);
+> drivers/net/wireless/rtlwifi/rtl8192de/phy.c:                   "ver 3 set RF-B, 2G, 0x28 = 0x%ulx !!\n", u4tmp);
+> drivers/net/wireless/rtlwifi/rtl8192de/phy.c:                   "ver 3 set RF-B, 2G, 0x28 = 0x%ulx !!\n",
+> drivers/parisc/dino.c:          printk(KERN_ERR "DINO: Hey! Someone took my MMIO space (0x%ld)!\n",
+> drivers/scsi/hpsa.c:    dev_info(dev, "   Max outstanding commands = 0x%d\n",
+> drivers/staging/nokia_h4p/nokia_core.c:         dev_err(info->dev, "Cannot get GPIO line 0x%d",
+> drivers/staging/rtl8192ee/pci.c:                                 ("more desc left, wake skb_queue@%d,ring->idx = %d, skb_queue_len = 0x%d\n",
+> drivers/staging/rtl8192ee/pci.c:                                 ("No more TX desc@%d, ring->idx = %d, idx = %d, skb_queue_len = 0x%d\n",
+> drivers/staging/rtl8192ee/pci.c:                         ("less desc left, stop skb_queue@%d, ring->idx = %d, idx = %d, skb_queue_len = 0x%d\n",
+> drivers/staging/rtl8821ae/pci.c:                                         "skb_queue_len = 0x%d\n",
+> drivers/staging/rtl8821ae/pci.c:                                  "idx = %d, skb_queue_len = 0x%d\n",
+> drivers/staging/rtl8821ae/pci.c:                          "idx = %d, skb_queue_len = 0x%d\n",
+> fs/cifs/cifs_debug.c:                                   "\n\tPathComponentMax: %d Status: 0x%d",
+> fs/cifs/misc.c:                 cifs_dbg(FYI, "notify err 0x%d\n",
+> fs/cifs/misc.c: cifs_dbg(FYI, "oplock type 0x%d level 0x%d\n",
+> fs/cifs/smb2misc.c:             cifs_dbg(FYI, "lease key match, lease break 0x%d\n",
+> fs/cifs/smb2misc.c:             cifs_dbg(FYI, "lease key match, lease break 0x%d\n",
+> fs/cifs/smb2misc.c:     cifs_dbg(FYI, "oplock level 0x%d\n", rsp->OplockLevel);
+> sound/firewire/fireworks/fireworks_proc.c:                          "phys in grp[0x%d]: type 0x%d, count 0x%d\n",
+> sound/firewire/fireworks/fireworks_proc.c:                          "phys out grps[0x%d]: type 0x%d, count 0x%d\n",
+> sound/pci/riptide/riptide.c:    snd_printdd("sent mixer %d: 0x%d 0x%d\n", num, rval, lval);
+> sound/pci/riptide/riptide.c:    snd_printdd("got mixer %d: 0x%d 0x%d\n", num, *rval, *lval);
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-cifs" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Interesting. It sounds like it's still primary designed to deny/permit
-actions (based on some policy) and I'm really just looking to monitor.
 
- Cheers,
- peter
+
+-- 
+Thanks,
+
+Steve
