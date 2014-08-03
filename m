@@ -1,38 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] r8152: add missing Makefile rule
-Date: Sat, 02 Aug 2014 20:41:34 -0700 (PDT)
-Message-ID: <20140802.204134.360329908595614221.davem@davemloft.net>
-References: <53DC2230.9010504@gmx.com>
+From: Alex Elsayed <eternaleye@gmail.com>
+Subject: Re: [PATCH v2 0/2] RFC, aiding pid/network correlation
+Date: Sat, 02 Aug 2014 20:41:38 -0700
+Message-ID: <lrkb1l$4oh$1@ger.gmane.org>
+References: <1406856100-21674-1-git-send-email-pmoody@google.com> <87y4v876bs.fsf@synack.fr> <r3noaw4m8g6.fsf@perdido.sfo.corp.google.com> <lrhr02$ncj$1@ger.gmane.org> <r3nzjfmjr07.fsf@perdido.sfo.corp.google.com> <lrk4f5$4vo$2@ger.gmane.org> <r3nvbqajovk.fsf@perdido.sfo.corp.google.com> <lrk6or$unu$2@ger.gmane.org> <r3nr40yjo1e.fsf@perdido.sfo.corp.google.com> <lrk7gb$unu$4@ger.gmane.org> <lrk7s8$88k$2@ger.gmane.org> <r3nk36qjmc9.fsf@perdido.sfo.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: nic_swsd@realtek.com, netdev@vger.kernel.org
-To: jflf-kernel@gmx.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51390 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755194AbaHCDlf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Aug 2014 23:41:35 -0400
-In-Reply-To: <53DC2230.9010504@gmx.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org
+To: linux-security-module@vger.kernel.org
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: jflf-kernel@gmx.com
-Date: Sat, 02 Aug 2014 01:26:40 +0200
+Peter Moody wrote:
 
->  Is seems that this issue has existed ever since the driver was
->  added back in 3.10. In Linus' git tree the drivers/net/Makefile was
->  last modified before the inclusion of the driver, so I don't know
->  if it's ever been possible to build it.
+> 
+> On Sat, Aug 02 2014 at 19:47, Alex Elsayed wrote:
+>>> #2012/04/08 05:03:03# global-pid=3720 result=allowed priority=100 / read
+>>> path="/tmp/file1" task.pid=3720 task.ppid=3653 task.uid=0 task.gid=0
+>>> task.euid=0 task.egid=0 task.suid=0 task.sgid=0 task.fsuid=0
+>>> task.fsgid=0 task.type!=execute_handler task.exe="/bin/cat"
+>>> task.domain="/usr/sbin/sshd" path.uid=0 path.gid=0 path.ino=2113451
+>>> path.major=8 path.minor=1 path.perm=0644 path.type=file
+>>> path.fsmagic=0xEF53 path.parent.uid=0 path.parent.gid=0
+>>> path.parent.ino=2097153 path.parent.major=8 path.parent.minor=1
+>>> path.parent.perm=01777 path.parent.type=directory
+>>> path.parent.fsmagic=0xEF53
+>>
+>> Actually, now that I look at that, you'd need to audit 'domain
+>> transition' events too - since that contains all the relevant PIDs, then
+>> the most recent domain transition with all of the right PIDs is
+>> sufficient to rebuild the tree back to init (recursively)
+> 
+> How are network events logged? The documentation on caitsith.sourceforge
+> is lacking.
 
-It gets built, as long as at least one other USB networking driver has
-been selected.
+It depends on the event - if you look at the per-event docs[1], you'll see 
+the variables it'll log. For instance, inet_stream_bind has 'ip', 'port', 
+and 'task.$attribute' listed (and hyperlinked), so it'll log like this:
 
-Most people (distributions, developers, maintainers) select all
-drivers or some large subset thereof, so would never actually run into
-this problem.
+// These fields are common across all events:
+// time, root-pid-ns PID, result, acl-priority, and chroot path
+#2012/04/08 05:03:03# global-pid=3720 result=unmatched priority=0 /
+// Then the action
+inet_stream_bind
+// then the variables
+ip=0.0.0.0 port=80 task.pid=2245 task.ppid=3422 task.uid=81 task.gid=81
+task.euid=81 task.egid=81 task.suid=0 task.sgid=0 task.fsuid=81
+task.fsgid=81 task.type!=execute_handler task.exe="/user/bin/httpd"
+task.domain="/usr/bin/httpd"
 
-You'd have to specifically have a configuration that enabled r8152 and
-no other USB networking driver, in order to trigger this.
+[1] Start at http://caitsith.sourceforge.jp/#5.26 and scroll
 
-Anyways, I'll apply this, thanks.
