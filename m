@@ -1,69 +1,74 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: weird behaviour, getting EAGAIN on a connect() call on a unix
- stream socket
-Date: Sun, 03 Aug 2014 08:14:02 +0200
-Message-ID: <1407046442.3178.64.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <53DC6039.2010002@windriver.com>
-	 <1406960889.3178.60.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <53DCF19F.5030002@windriver.com>
+From: Oliver Neukum <oneukum@suse.de>
+Subject: Re: [PATCH] r8152: correct error returns
+Date: Sun, 03 Aug 2014 09:06:58 +0200
+Message-ID: <1407049618.26893.8.camel@linux-fkkt.site>
+References: <1406901370-6847-1-git-send-email-oneukum@suse.de>
+	 <20140802.163418.1314777407262254543.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Chris Friesen <chris.friesen@windriver.com>
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f173.google.com ([209.85.212.173]:56828 "EHLO
-	mail-wi0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750858AbaHCGOG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Aug 2014 02:14:06 -0400
-Received: by mail-wi0-f173.google.com with SMTP id f8so3357754wiw.6
-        for <netdev@vger.kernel.org>; Sat, 02 Aug 2014 23:14:04 -0700 (PDT)
-In-Reply-To: <53DCF19F.5030002@windriver.com>
+Received: from cantor2.suse.de ([195.135.220.15]:44638 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750899AbaHCHHD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Aug 2014 03:07:03 -0400
+In-Reply-To: <20140802.163418.1314777407262254543.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2014-08-02 at 08:11 -0600, Chris Friesen wrote:
-> On 08/02/2014 12:28 AM, Eric Dumazet wrote:
-> > On Fri, 2014-08-01 at 21:51 -0600, Chris Friesen wrote:
+On Sat, 2014-08-02 at 16:34 -0700, David Miller wrote:
+> From: Oliver Neukum <oneukum@suse.de>
+> Date: Fri,  1 Aug 2014 15:56:10 +0200
 > 
-> >> I've got an app that tries to connect() to both of them in turn.  The connect()
-> >> to the first socket fails with EAGAIN, the second one succeeds, and all
-> >> subsequent retries on the first fail.  Here's an strace() of the sequence:
-> >>
-> >> socket(PF_FILE, SOCK_STREAM, 0)         = 6
-> >> fcntl(6, F_GETFL)                       = 0x2 (flags O_RDWR)
-> >> fcntl(6, F_SETFL, O_RDWR|O_NONBLOCK)    = 0
-> >
-> > Non blocking socket : If listener queue is full, -EAGAIN is expected
+> > If an autoresume fails the internal error codes of the PM
+> > subsystem mustn't be leaked to user space. Replace them by EIO
+> > 
+> > Signed-off-by: Oliver Neukum <oneukum@suse.de>
 > 
-> 
-> That doesn't make any sense though, there is only one process that ever 
-> attempts to connect() to this socket, and I only ran it one instance at 
-> a time.  That implies that the first time I got EAGAIN the queue would 
-> have been empty when the connection request came in.
+> Really?
 
-This looks like an application bug, missing a POLLIN event and it always
-call accept() too late.
+Yes. You can get results like returning -EINVAL
+from open().
 
-> Looking at the qemu code I think it's calling listen(sock,1) which makes 
-> sense since I think it's only designed to allow a single connection up 
-> into the guest at a time.
+You can call down into
+drivers/core/power/runtime.c::static int rpm_resume(struct device *dev,
+int rpmflags)
 
+As you can see it uses errors in its own ways:
 
+static int rpm_resume(struct device *dev, int rpmflags)
+        __releases(&dev->power.lock) __acquires(&dev->power.lock)
+{
+        int (*callback)(struct device *);
+        struct device *parent = NULL;
+        int retval = 0;
 
-> 
-> Not sure how that could be the problem though, since there is only one 
-> process that tries to connect() to the application, and I only ran it 
-> one instance at a time.
+        trace_rpm_resume(dev, rpmflags);
 
-Well, change listen() backlog to 10, and maybe it will hide the
-application bug.
+ repeat:
+        if (dev->power.runtime_error)
+                retval = -EINVAL;
+        else if (dev->power.disable_depth == 1 &&
+dev->power.is_suspended
+            && dev->power.runtime_status == RPM_ACTIVE)
+                retval = 1;
+        else if (dev->power.disable_depth > 0)
+                retval = -EACCES;
+        if (retval)
+                goto out;
 
-> 
-> I'll give the patch a try, but how would that explain the sockets that 
-> are in a CONNECTING state when as far as I can tell they don't belong to 
-> any process?
+The call chain is
+usb_autopm_get_interface()->pm_runtime_get_sync()->__pm_runtime_resume()
+->rpm_resume()
 
-The accept() call comes too late.
+> Then even the core usbnet driver gets this wrong, as well as many
+> other drivers I scanned over for this problem.
 
-You have the CONNECTING state as long accept() was not yet called.
+OK, I just looked at this single driver. I'll try to come up with
+a generic solution. The mapping is a bit simplistic. I should let
+-ENOMEM pass for example.
+
+	Regards
+		Oliver
