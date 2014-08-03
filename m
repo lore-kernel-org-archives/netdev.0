@@ -1,46 +1,32 @@
-From: Peter Moody <pmoody@google.com>
-Subject: Re: [PATCH v2 0/2] RFC, aiding pid/network correlation
-Date: Sat, 02 Aug 2014 20:14:46 -0700
-Message-ID: <r3nk36qjmc9.fsf@perdido.sfo.corp.google.com>
-References: <1406856100-21674-1-git-send-email-pmoody@google.com>
-	<87y4v876bs.fsf@synack.fr> <r3noaw4m8g6.fsf@perdido.sfo.corp.google.com>
-	<lrhr02$ncj$1@ger.gmane.org> <r3nzjfmjr07.fsf@perdido.sfo.corp.google.com>
-	<lrk4f5$4vo$2@ger.gmane.org> <r3nvbqajovk.fsf@perdido.sfo.corp.google.com>
-	<lrk6or$unu$2@ger.gmane.org> <r3nr40yjo1e.fsf@perdido.sfo.corp.google.com>
-	<lrk7gb$unu$4@ger.gmane.org> <lrk7s8$88k$2@ger.gmane.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] cxgb4i : remove spurious use of rcu
+Date: Sat, 02 Aug 2014 20:34:27 -0700 (PDT)
+Message-ID: <20140802.203427.334773977447118350.davem@davemloft.net>
+References: <1407019844-21148-1-git-send-email-anish@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-security-module@vger.kernel.org, netdev@vger.kernel.org
-To: Alex Elsayed <eternaleye@gmail.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <lrk7s8$88k$2@ger.gmane.org> (Alex Elsayed's message of "Sat\, 02
-	Aug 2014 19\:47\:36 -0700")
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, hch@infradead.org, kxie@chelsio.com,
+	manojmalviya@chelsio.com, aaron.lu@intel.com,
+	xiyou.wangcong@gmail.com, fengguang.wu@intel.com
+To: anish@chelsio.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51369 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754537AbaHCDea (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Aug 2014 23:34:30 -0400
+In-Reply-To: <1407019844-21148-1-git-send-email-anish@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Anish Bhatt <anish@chelsio.com>
+Date: Sat,  2 Aug 2014 15:50:44 -0700
 
-On Sat, Aug 02 2014 at 19:47, Alex Elsayed wrote:
->> #2012/04/08 05:03:03# global-pid=3720 result=allowed priority=100 / read
->> path="/tmp/file1" task.pid=3720 task.ppid=3653 task.uid=0 task.gid=0
->> task.euid=0 task.egid=0 task.suid=0 task.sgid=0 task.fsuid=0 task.fsgid=0
->> task.type!=execute_handler task.exe="/bin/cat"
->> task.domain="/usr/sbin/sshd" path.uid=0 path.gid=0 path.ino=2113451
->> path.major=8 path.minor=1 path.perm=0644 path.type=file
->> path.fsmagic=0xEF53 path.parent.uid=0 path.parent.gid=0
->> path.parent.ino=2097153 path.parent.major=8 path.parent.minor=1
->> path.parent.perm=01777 path.parent.type=directory
->> path.parent.fsmagic=0xEF53
->
-> Actually, now that I look at that, you'd need to audit 'domain transition' 
-> events too - since that contains all the relevant PIDs, then the most recent 
-> domain transition with all of the right PIDs is sufficient to rebuild the 
-> tree back to init (recursively)
+> As pointed out by the intel guys, there is no need to hold rcu read lock in
+> cxgbi_inet6addr_handler(), this patch removes it.
+> 
+> Fixes: 759a0cc5a3e1 ("cxgb4i: Add ipv6 code to driver, call into libcxgbi ipv6
+> api")
+> Signed-off-by: Anish Bhatt <anish@chelsio.com>
 
-How are network events logged? The documentation on caitsith.sourceforge
-is lacking.
-
-In any event, it seems like it might be worth testing performance of
-tomoyo audit vs. hone. At least when the stacking issues are worked out.
-
- Cheers,
- peter
+Applied, thanks.
