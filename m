@@ -1,73 +1,53 @@
-From: Jean Delvare <jdelvare@suse.de>
-Subject: Re: [PATCH] drivers/isdn/hisax/Kconfig: Let HISAX_NETJET skip
- microblaze architecture
-Date: Mon, 4 Aug 2014 21:23:54 +0200
-Message-ID: <20140804212354.74b97cd7@endymion.delvare>
-References: <53DFCFC9.6060307@gmail.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [GIT net-next] Open vSwitch
+Date: Mon, 4 Aug 2014 12:35:59 -0700
+Message-ID: <CALnjE+oEKGakFMZvSBir3OUmMdQmZdF2+YEy5kDV=P=_BNKU4Q@mail.gmail.com>
+References: <1406851057-1593-1-git-send-email-pshelar@nicira.com>
+	<20140802.151630.929949940730781279.davem@davemloft.net>
+	<CALnjE+rAXDpzkL9H9EAHKZ0yGCW3HHu+LgihwOj5Yx_5SASzsA@mail.gmail.com>
+	<20140803.212131.1256448650945676000.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: isdn@linux-pingi.de, davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, monstr@monstr.eu
-To: Chen Gang <gang.chen.5i5j@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <53DFCFC9.6060307@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na6sys009bog032.obsmtp.com ([74.125.150.106]:59994 "HELO
+	na6sys009bog032.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751727AbaHDTgA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Aug 2014 15:36:00 -0400
+Received: by mail-ie0-f179.google.com with SMTP id rl12so10308186iec.24
+        for <netdev@vger.kernel.org>; Mon, 04 Aug 2014 12:35:59 -0700 (PDT)
+In-Reply-To: <20140803.212131.1256448650945676000.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Chen Gang,
+On Sun, Aug 3, 2014 at 9:21 PM, David Miller <davem@davemloft.net> wrote:
+> From: Pravin Shelar <pshelar@nicira.com>
+> Date: Sun, 3 Aug 2014 12:20:32 -0700
+>
+>> On Sat, Aug 2, 2014 at 3:16 PM, David Miller <davem@davemloft.net> wrote:
+>>> From: Pravin B Shelar <pshelar@nicira.com>
+>>> Date: Thu, 31 Jul 2014 16:57:37 -0700
+>>>
+>>>> Following patch adds mask cache so that we do not need to iterate over
+>>>> all entries in mask list on every packet. We have seen good performance
+>>>> improvement with this patch.
+>>>
+>>> How much have you thought about the DoS'ability of openvswitch's
+>>> datastructures?
+>>>
+>> This cache is populated by flow lookup in fast path. The mask cache is
+>> fixed in size. Userspace or number of packets can not change its size.
+>> Memory is statically allocated, no garbage collection. So DoS attack
+>> can not exploit this cache to increase ovs memory footprint.
+>
+> An attacker can construct a packet sequence such that every mask cache
+> lookup misses, making the cache effectively useless.
 
-On Tue, 05 Aug 2014 02:24:09 +0800, Chen Gang wrote:
-> For HISAX_NETJET, HISAX_NETJET_U or related config needs !__BIG_ENDIAN,
-> so skip microblaze, just like skip all other architectures which have
-> no CONFIG_*_ENDIAN.
-> 
-> The related error (with allmodconfig under microblaze):
-> 
->     CC [M]  drivers/isdn/hisax/nj_s.o
->   drivers/isdn/hisax/nj_s.c: In function 'setup_netjet_s':
->   drivers/isdn/hisax/nj_s.c:265:2: error: #error "not running on big endian machines now"
->    #error "not running on big endian machines now"
->     ^
-> 
-> Signed-off-by: Chen Gang <gang.chen.5i5j@gmail.com>
-> ---
->  drivers/isdn/hisax/Kconfig | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/isdn/hisax/Kconfig b/drivers/isdn/hisax/Kconfig
-> index 97465ac..eb83d94 100644
-> --- a/drivers/isdn/hisax/Kconfig
-> +++ b/drivers/isdn/hisax/Kconfig
-> @@ -237,7 +237,7 @@ config HISAX_MIC
->  
->  config HISAX_NETJET
->  	bool "NETjet card"
-> -	depends on PCI && (BROKEN || !(PPC || PARISC || M68K || (MIPS && !CPU_LITTLE_ENDIAN) || FRV || (XTENSA && !CPU_LITTLE_ENDIAN)))
-> +	depends on PCI && (BROKEN || !(PPC || PARISC || M68K || (MIPS && !CPU_LITTLE_ENDIAN) || FRV || (XTENSA && !CPU_LITTLE_ENDIAN) || MICROBLAZE))
->  	depends on VIRT_TO_BUS
->  	help
->  	  This enables HiSax support for the NetJet from Traverse
-> @@ -249,7 +249,7 @@ config HISAX_NETJET
->  
->  config HISAX_NETJET_U
->  	bool "NETspider U card"
-> -	depends on PCI && (BROKEN || !(PPC || PARISC || M68K || (MIPS && !CPU_LITTLE_ENDIAN) || FRV || (XTENSA && !CPU_LITTLE_ENDIAN)))
-> +	depends on PCI && (BROKEN || !(PPC || PARISC || M68K || (MIPS && !CPU_LITTLE_ENDIAN) || FRV || (XTENSA && !CPU_LITTLE_ENDIAN) || MICROBLAZE))
->  	depends on VIRT_TO_BUS
->  	help
->  	  This enables HiSax support for the Netspider U interface ISDN card
-
-Fine with me, however the list is getting long. It would be better if
-we could depend on a functional symbol rather than a negated list of
-architectures. Would it make sense to have CONFIG_CPU_LITTLE_ENDIAN
-defined on all little-endian architectures, so that driver can depend
-on that if needed?
-
-Alternatively, it might make more sense to list the architectures where
-these drivers are actually used in practice. I guess that's X86, maybe
-ARM and IA64, and that's all?
-
--- 
-Jean Delvare
-SUSE L3 Support
+Yes, but it does work in normal traffic situations. I have posted
+performance numbers in the cover letter.
+Under DoS attack as you said attacker need to build sequence of
+packets to make cache ineffective. Which results in cache miss and a
+full in-kernel flow lookup. Therefore with this cache there is one
+more lookup done under DoS. But this is not very different than
+current OVS anyways.
