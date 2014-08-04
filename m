@@ -1,13 +1,13 @@
 From: "Koehrer Mathias (ETAS/ESW5)" <mathias.koehrer@etas.com>
-Subject: PROBLEM: Running ptpd2 using an Intel 82572EI (e1000e) leads to a
- kernel oops (3.12.26)
-Date: Mon, 4 Aug 2014 12:22:49 +0000
-Message-ID: <af07a299dc05486387acbb84f7a4a78e@FE-MBX1012.de.bosch.com>
+Subject: PROBLEM: [x86] Running ptpd2 using an Intel 82572EI (e1000e) leads
+ to a kernel oops (3.12.26)
+Date: Mon, 4 Aug 2014 12:26:08 +0000
+Message-ID: <50f83e65cecd4882b22887858bfdf484@FE-MBX1012.de.bosch.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-To: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vget.kernel.org" <netdev@vget.kernel.org>
+To: "'linux-kernel@vger.kernel.org'" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Language: de-DE
 Sender: linux-kernel-owner@vger.kernel.org
