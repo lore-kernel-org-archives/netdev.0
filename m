@@ -1,45 +1,123 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next 1/1] net: remove spurious zd1201 rule.
-Date: Mon, 4 Aug 2014 23:47:44 +0200
-Message-ID: <20140804214744.GA1862@electric-eye.fr.zoreil.com>
+From: Andy Zhou <azhou@nicira.com>
+Subject: Re: [net-next 1/5] net: Add rx-vxlan feature bit
+Date: Mon, 4 Aug 2014 15:00:38 -0700
+Message-ID: <CACzMAJK0bWcfNiV_RMd3_yA=6=NBmfvuv9uTMTbxSDO++dn_AA@mail.gmail.com>
+References: <1406930085-26445-1-git-send-email-azhou@nicira.com>
+	<1406930085-26445-2-git-send-email-azhou@nicira.com>
+	<CA+mtBx8p-kx7O45fmMgR-DAz_xMSCW_hDdv80yT-RcxbxhZ0og@mail.gmail.com>
+	<CAEP_g=-tHYAmLF1Mq6C1vHW6U_3+Pn_MXVU3C8v+zvF-RrfD0Q@mail.gmail.com>
+	<CA+mtBx_eGu=VsnLzOjutgaZPvWu-4LMD69Y6TcU3qaCUH8BDVw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, Pavel Machek <pavel@ucw.cz>,
-	"John W. Linville" <linville@tuxdriver.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Jesse Gross <jesse@nicira.com>, David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:39944 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751641AbaHDVr7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Aug 2014 17:47:59 -0400
-Content-Disposition: inline
+Received: from na6sys009bog010.obsmtp.com ([74.125.150.60]:32834 "HELO
+	na6sys009bog010.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752513AbaHDWAj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Aug 2014 18:00:39 -0400
+Received: by mail-oi0-f51.google.com with SMTP id g201so42165oib.38
+        for <netdev@vger.kernel.org>; Mon, 04 Aug 2014 15:00:38 -0700 (PDT)
+In-Reply-To: <CA+mtBx_eGu=VsnLzOjutgaZPvWu-4LMD69Y6TcU3qaCUH8BDVw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Francois Romieu <romieu@fr.zoreil.com>
+Hi, Tom,
 
-Leftover from 5c601d0c942f5aaf7f3cff7e08f61047d70a964e ("wireless: move
-zd1201 where it belongs").
+Do you envision those configuration can be applied dynamically, as the
+ports are added and removed under programming API control, for
+example, openFlow?  If yes, what would be appropriate API/protocol?
 
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
----
- drivers/net/Makefile | 1 -
- 1 file changed, 1 deletion(-)
+Given that we have not reached consensus on the value and approach of
+receive side offloading, I plan to withdraw this patch from this patch
+series so that we
+can concentrate on common UDP tunnel functions, with vxlan and L2tp
+re-factoring so that  we minimize code duplication when introducing
+Geneve support.
 
-It should be able to wait for 8 more years if it's a bit
-late for net-next.
+I will send out the next rev this series in a few days.
 
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index 3fef8a8..fa49d45 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -67,7 +67,6 @@ obj-$(CONFIG_USB_PEGASUS)       += usb/
- obj-$(CONFIG_USB_RTL8150)       += usb/
- obj-$(CONFIG_USB_HSO)		+= usb/
- obj-$(CONFIG_USB_USBNET)        += usb/
--obj-$(CONFIG_USB_ZD1201)        += usb/
- obj-$(CONFIG_USB_IPHETH)        += usb/
- obj-$(CONFIG_USB_CDC_PHONET)   += usb/
- 
--- 
-1.9.3
+Thanks,
+
+Andy
+
+On Sat, Aug 2, 2014 at 12:21 PM, Tom Herbert <therbert@google.com> wrote:
+> On Sat, Aug 2, 2014 at 11:16 AM, Jesse Gross <jesse@nicira.com> wrote:
+>> On Sat, Aug 2, 2014 at 8:53 AM, Tom Herbert <therbert@google.com> wrote:
+>>> On Fri, Aug 1, 2014 at 2:54 PM, Andy Zhou <azhou@nicira.com> wrote:
+>>>> Add a ndo feature bit that controls turning on and off NIC VXLAN
+>>>> receive offload
+>>>>
+>>>> Signed-off-by: Andy Zhou <azhou@nicira.com>
+>>>> ---
+>>>>  Documentation/networking/netdev-features.txt     |    5 +++++
+>>>>  drivers/net/ethernet/emulex/benet/be_main.c      |    6 ++++--
+>>>>  drivers/net/ethernet/intel/i40e/i40e_main.c      |    1 +
+>>>>  drivers/net/ethernet/mellanox/mlx4/en_netdev.c   |   11 ++++++++---
+>>>>  drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    7 +++++--
+>>>>  include/linux/netdev_features.h                  |    4 ++++
+>>>>  net/core/ethtool.c                               |    1 +
+>>>>  7 files changed, 28 insertions(+), 7 deletions(-)
+>>>>
+>>>> diff --git a/Documentation/networking/netdev-features.txt b/Documentation/networking/netdev-features.txt
+>>>> index f310ede..6436768 100644
+>>>> --- a/Documentation/networking/netdev-features.txt
+>>>> +++ b/Documentation/networking/netdev-features.txt
+>>>> @@ -165,3 +165,8 @@ This requests that the NIC receive all possible frames, including errored
+>>>>  frames (such as bad FCS, etc).  This can be helpful when sniffing a link with
+>>>>  bad packets on it.  Some NICs may receive more packets if also put into normal
+>>>>  PROMISC mode.
+>>>> +
+>>>> +*   rx-vxlan
+>>>> +NIC can parse udp tunneled frames. The NIC may make use of the inner frame
+>>>> +information, in addition to the outer UDP frame to verify, offload(RX)
+>>>> +and steer the packet.
+>>>
+>>> Sorry Andy, I still don't like this feature! I am worried that we are
+>>> opening a can of worms in encouraging HW vendors to focus on narrow
+>>> protocol specific features as opposed to general features that can be
+>>> applied to a wider range of protocols.
+>>>
+>>> For UDP tunneling protocols where source port is set to a hash this
+>>> should sufficient for the most common purposes of RSS and ECMP. This
+>>> is precisely why we are interested in UDP encapsulation in the first
+>>> place, existing NICs and switches support it. Any extra value in HW
+>>> parsing VXLAN for steering is marginal (at least not a compelling
+>>> reason for me run out and buy new NICs).
+>>>
+>>> This functionality might have merit for UDP flows where the source
+>>> port cannot be arbitrary, like what would be needed to get the UDP
+>>> flow to work over a stateful NAT. An example of this might be in QUIC.
+>>> In the case the 5-tuple might not be sufficient the inner flow, but a
+>>> device could conceivably parse the packet and use the QUIC connection
+>>> identifier for flow identification and steering. However, if this
+>>> becomes a real HW feature we would need a different interface anyway.
+>>> QUIC is implemented in user space and to the kernel is just another
+>>> UDP socket. The correct interface would probably be to configure the
+>>> capability in ethtool, not through the UDP stack.
+>>
+>> This actually is a patch against ethtool :)
+>>
+> What I mean by using ethtool is that it should provide the generic
+> interface to enable per UDP port HW-specific functionality (or more
+> generally match to some protocol fields filter). This entails sending
+> commands to the device specifying port and key meaningful to the
+> device on how to process packets on that port. This is similar to how
+> we can program the RSS table or hashing algorithms without having the
+> stack needing to do anything or track its tunnels.
+>
+>> I think this is probably getting somewhat ideological or at least use
+>> case-specific. I understand your goal is to be generic where possible
+>> but enough examples have come up in this discussion that it seems like
+>> there shouldn't be much of an argument about whether this is useful at
+>> this point. Things like the cost/benefit of buying a new NIC or how
+>> QUIC would use it in the future seem a little beside the point,
+>> honestly.
+>>
+>> In any case, this specific patch is just about giving people the
+>> ability to control VXLAN offloads, which I think should make you happy
+>> given that it is already present in the stack and on by default. I
+>> think Andy has done his best to take your comments into account to
+>> make this as clean as possible and on the larger point we probably
+>> just need to move on.
