@@ -1,70 +1,45 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH] xen-netfront: Fix handling packets on compound pages
- with skb_segment
-Date: Mon, 4 Aug 2014 21:35:54 +0100
-Message-ID: <20140804203554.GA23767@zion.uk.xensource.com>
-References: <1406726730-17994-1-git-send-email-zoltan.kiss@citrix.com>
- <20140731.132520.1889577477638334755.davem@davemloft.net>
- <53DFC2FE.8070105@citrix.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH net-next 1/1] net: remove spurious zd1201 rule.
+Date: Mon, 4 Aug 2014 23:47:44 +0200
+Message-ID: <20140804214744.GA1862@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: David Miller <davem@davemloft.net>, <konrad.wilk@oracle.com>,
-	<boris.ostrovsky@oracle.com>, <david.vrabel@citrix.com>,
-	<wei.liu2@citrix.com>, <Ian.Campbell@citrix.com>,
-	<paul.durrant@citrix.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <xen-devel@lists.xenproject.org>
-To: Zoltan Kiss <zoltan.kiss@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, Pavel Machek <pavel@ucw.cz>,
+	"John W. Linville" <linville@tuxdriver.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:39944 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751641AbaHDVr7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Aug 2014 17:47:59 -0400
 Content-Disposition: inline
-In-Reply-To: <53DFC2FE.8070105@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 04, 2014 at 06:29:34PM +0100, Zoltan Kiss wrote:
-> On 31/07/14 21:25, David Miller wrote:
-> >From: Zoltan Kiss <zoltan.kiss@citrix.com>
-> >Date: Wed, 30 Jul 2014 14:25:30 +0100
-> >
-> >>There is a long known problem with the netfront/netback interface: if the guest
-> >>tries to send a packet which constitues more than MAX_SKB_FRAGS + 1 ring slots,
-> >>it gets dropped. The reason is that netback maps these slots to a frag in the
-> >>frags array, which is limited by size. Having so many slots can occur since
-> >>compound pages were introduced, as the ring protocol slice them up into
-> >>individual (non-compound) page aligned slots. The theoretical worst case
-> >>scenario looks like this (note, skbs are limited to 64 Kb here):
-> >>linear buffer: at most PAGE_SIZE - 17 * 2 bytes, overlapping page boundary,
-> >>using 2 slots
-> >>first 15 frags: 1 + PAGE_SIZE + 1 bytes long, first and last bytes are at the
-> >>end and the beginning of a page, therefore they use 3 * 15 = 45 slots
-> >>last 2 frags: 1 + 1 bytes, overlapping page boundary, 2 * 2 = 4 slots
-> >>Although I don't think this 51 slots skb can really happen, we need a solution
-> >>which can deal with every scenario. In real life there is only a few slots
-> >>overdue, but usually it causes the TCP stream to be blocked, as the retry will
-> >>most likely have the same buffer layout.
-> >>This patch solves this problem by slicing up the skb itself with the help of
-> >>skb_segment, and calling xennet_start_xmit again on the resulting packets. It
-> >>also works with the theoretical worst case, where there is a 3 level recursion.
-> >>The good thing is that skb_segment only copies the header part, the frags will
-> >>be just referenced again.
-> >>
-> >>Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
-> >
-> >This is a really scary change :-)
-> I admit that :)
-> >
-> >I definitely see some potential problem here.
-> >
-> >First of all, even in cases where it might "work", such as TCP, you
-> >are modifying the data stream.  The sizes are changing, the packet
-> >counts are different, and all of this will have side effects such as
-> >potentially harming TCP performance.
-> >
-> >Secondly, for something like UDP you can't just split the packet up
-> >like this, or for any other datagram protocol for that matter.
-> The netback/netfront interface currently only supports TSO and TSO6. That's
-> why I did the pktgen TCP patch
+From: Francois Romieu <romieu@fr.zoreil.com>
 
-IMO if this approach is known to be broken in the future (say if we want
-to support UFO) we'd better avoid it.
+Leftover from 5c601d0c942f5aaf7f3cff7e08f61047d70a964e ("wireless: move
+zd1201 where it belongs").
 
-Wei.
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+---
+ drivers/net/Makefile | 1 -
+ 1 file changed, 1 deletion(-)
+
+It should be able to wait for 8 more years if it's a bit
+late for net-next.
+
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index 3fef8a8..fa49d45 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -67,7 +67,6 @@ obj-$(CONFIG_USB_PEGASUS)       += usb/
+ obj-$(CONFIG_USB_RTL8150)       += usb/
+ obj-$(CONFIG_USB_HSO)		+= usb/
+ obj-$(CONFIG_USB_USBNET)        += usb/
+-obj-$(CONFIG_USB_ZD1201)        += usb/
+ obj-$(CONFIG_USB_IPHETH)        += usb/
+ obj-$(CONFIG_USB_CDC_PHONET)   += usb/
+ 
+-- 
+1.9.3
