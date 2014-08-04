@@ -1,68 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 2/3] ethtool: Add support for DMA buffer
- settings
-Date: Mon, 04 Aug 2014 15:15:39 -0700 (PDT)
-Message-ID: <20140804.151539.185781551061535031.davem@davemloft.net>
-References: <1406634039-15030-3-git-send-email-_govind@gmx.com>
-	<20140730.175306.483788306179792581.davem@davemloft.net>
-	<1406987782.30258.43.camel@deadeye.wl.decadent.org.uk>
+Subject: Re: [PATCH] r8152: correct error returns
+Date: Mon, 04 Aug 2014 15:18:27 -0700 (PDT)
+Message-ID: <20140804.151827.179999106523102125.davem@davemloft.net>
+References: <1406901370-6847-1-git-send-email-oneukum@suse.de>
+	<20140802.163418.1314777407262254543.davem@davemloft.net>
+	<1407049618.26893.8.camel@linux-fkkt.site>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: _govind@gmx.com, netdev@vger.kernel.org, ssujith@cisco.com,
-	benve@cisco.com
-To: ben@decadent.org.uk
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com
+To: oneukum@suse.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46607 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46658 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751498AbaHDWPk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Aug 2014 18:15:40 -0400
-In-Reply-To: <1406987782.30258.43.camel@deadeye.wl.decadent.org.uk>
+	with ESMTP id S1752354AbaHDWS3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Aug 2014 18:18:29 -0400
+In-Reply-To: <1407049618.26893.8.camel@linux-fkkt.site>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <ben@decadent.org.uk>
-Date: Sat, 02 Aug 2014 14:56:22 +0100
+From: Oliver Neukum <oneukum@suse.de>
+Date: Sun, 03 Aug 2014 09:06:58 +0200
 
-> How about adding a generic operation for independent tunables:
-> 
-> struct ethtool_get_tunable {
-> 	u32	cmd;
-> 	u32	id;
-> 	u64	value, min, max;
-> };
-> 
-> struct ethtool_set_tunable {
-> 	u32	cmd;
-> 	u32	id;
-> 	u64	value;
-> };
-> 
-> 	int (*get_tunable)(struct net_device *, struct ethtool_get_tunable *);
-> 	int (*set_tunable)(struct net_device *, const struct ethtool_set_tunable *);
-> 
-> The id to name mapping could be provided either through a stringset or
-> macros in <uapi/linux/ethtool.h>.  And perhaps we could split the id
-> space to allow for driver-specific tunables (while strongly discouraging
-> those for in-tree drivers).
+> OK, I just looked at this single driver. I'll try to come up with
+> a generic solution. The mapping is a bit simplistic. I should let
+> -ENOMEM pass for example.
 
-That would certainly work, and another approach would be that we could
-also create a tunable namespace of sorts.
+And the problem also isn't limited USB networking drivers, just
+about every driver I looked at passed these autopm errors right
+back to userspace.
 
-struct ethtool_tunable {
-	u32	cmd;
-	u32	len;
-	u32	data[];
-};
+Largely people just call the autopm interfaces and propagate any
+errors they get.  So you probably want to put the translator/filter
+there.
 
-#define ETHTOOL_GTUNABLE	x
-#define ETHTOOL_STUNABLE	y
-
-...
-
-#define ETHTOOL_TUNABLE_COPYBREAK	0x00000001	/* u32 */
-
-etc.
-
-I understand the reason to gravitate towards stringset, in that it would
-minimize the amount of code needed in the ethtool utility itself.
+But of course, that doesn't handle the non-autopm code paths into the
+PM layer that can end up in this situation.
