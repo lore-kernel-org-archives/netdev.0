@@ -1,137 +1,60 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [net-next 1/5] net: Add rx-vxlan feature bit
-Date: Mon, 4 Aug 2014 16:13:16 -0700
-Message-ID: <CA+mtBx9eH5Giir_eQP2Wm77b-zoZw_wyhXcAJXHuZO-G=9L8hA@mail.gmail.com>
-References: <1406930085-26445-1-git-send-email-azhou@nicira.com>
-	<1406930085-26445-2-git-send-email-azhou@nicira.com>
-	<CA+mtBx8p-kx7O45fmMgR-DAz_xMSCW_hDdv80yT-RcxbxhZ0og@mail.gmail.com>
-	<CAEP_g=-tHYAmLF1Mq6C1vHW6U_3+Pn_MXVU3C8v+zvF-RrfD0Q@mail.gmail.com>
-	<CA+mtBx_eGu=VsnLzOjutgaZPvWu-4LMD69Y6TcU3qaCUH8BDVw@mail.gmail.com>
-	<CACzMAJK0bWcfNiV_RMd3_yA=6=NBmfvuv9uTMTbxSDO++dn_AA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jesse Gross <jesse@nicira.com>, David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Andy Zhou <azhou@nicira.com>
+From: Anish Bhatt <anish@chelsio.com>
+Subject: [PATCH net-next] cxgb4i : Move stray CPL definitions to cxgb4 driver
+Date: Mon,  4 Aug 2014 16:17:51 -0700
+Message-ID: <1407194271-620-1-git-send-email-anish@chelsio.com>
+Cc: davem@davemloft.net, hch@infradead.org, kxie@chelsio.com,
+	hariprasad@chelsio.com, leedom@chelsio.com,
+	Anish Bhatt <anish@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f52.google.com ([209.85.219.52]:48220 "EHLO
-	mail-oa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753187AbaHDXNQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Aug 2014 19:13:16 -0400
-Received: by mail-oa0-f52.google.com with SMTP id o6so104630oag.11
-        for <netdev@vger.kernel.org>; Mon, 04 Aug 2014 16:13:16 -0700 (PDT)
-In-Reply-To: <CACzMAJK0bWcfNiV_RMd3_yA=6=NBmfvuv9uTMTbxSDO++dn_AA@mail.gmail.com>
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:58304
+	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752583AbaHDXTt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Aug 2014 19:19:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 4, 2014 at 3:00 PM, Andy Zhou <azhou@nicira.com> wrote:
-> Hi, Tom,
->
-> Do you envision those configuration can be applied dynamically, as the
-> ports are added and removed under programming API control, for
-> example, openFlow?  If yes, what would be appropriate API/protocol?
->
-I think it's more generic to use an out of band mechanism to this to
-cover all use cases. For instance, if I was implementing a simple
-router there might not even be a kernel socket or even any socket
-opened for the port, but I might still want the advanced steering
-capabilities for certain ports.
+These belong to the t4 msg header, will ensure there is no accidental code
+duplication in the future
 
-Actually, I'm wondering if this can just be part of rx-filtering, that
-already allows specifying rules by l4proto and dst_port and action
-could be an indication to device of which special processing to apply.
+Signed-off-by: Anish Bhatt <anish@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/t4_msg.h | 2 ++
+ drivers/scsi/cxgbi/cxgb4i/cxgb4i.c          | 2 --
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-> Given that we have not reached consensus on the value and approach of
-> receive side offloading, I plan to withdraw this patch from this patch
-> series so that we
-> can concentrate on common UDP tunnel functions, with vxlan and L2tp
-> re-factoring so that  we minimize code duplication when introducing
-> Geneve support.
->
-Thanks for considering both vxlan and l2tp in these patches!
-
-> I will send out the next rev this series in a few days.
->
-> Thanks,
->
-> Andy
->
-> On Sat, Aug 2, 2014 at 12:21 PM, Tom Herbert <therbert@google.com> wrote:
->> On Sat, Aug 2, 2014 at 11:16 AM, Jesse Gross <jesse@nicira.com> wrote:
->>> On Sat, Aug 2, 2014 at 8:53 AM, Tom Herbert <therbert@google.com> wrote:
->>>> On Fri, Aug 1, 2014 at 2:54 PM, Andy Zhou <azhou@nicira.com> wrote:
->>>>> Add a ndo feature bit that controls turning on and off NIC VXLAN
->>>>> receive offload
->>>>>
->>>>> Signed-off-by: Andy Zhou <azhou@nicira.com>
->>>>> ---
->>>>>  Documentation/networking/netdev-features.txt     |    5 +++++
->>>>>  drivers/net/ethernet/emulex/benet/be_main.c      |    6 ++++--
->>>>>  drivers/net/ethernet/intel/i40e/i40e_main.c      |    1 +
->>>>>  drivers/net/ethernet/mellanox/mlx4/en_netdev.c   |   11 ++++++++---
->>>>>  drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    7 +++++--
->>>>>  include/linux/netdev_features.h                  |    4 ++++
->>>>>  net/core/ethtool.c                               |    1 +
->>>>>  7 files changed, 28 insertions(+), 7 deletions(-)
->>>>>
->>>>> diff --git a/Documentation/networking/netdev-features.txt b/Documentation/networking/netdev-features.txt
->>>>> index f310ede..6436768 100644
->>>>> --- a/Documentation/networking/netdev-features.txt
->>>>> +++ b/Documentation/networking/netdev-features.txt
->>>>> @@ -165,3 +165,8 @@ This requests that the NIC receive all possible frames, including errored
->>>>>  frames (such as bad FCS, etc).  This can be helpful when sniffing a link with
->>>>>  bad packets on it.  Some NICs may receive more packets if also put into normal
->>>>>  PROMISC mode.
->>>>> +
->>>>> +*   rx-vxlan
->>>>> +NIC can parse udp tunneled frames. The NIC may make use of the inner frame
->>>>> +information, in addition to the outer UDP frame to verify, offload(RX)
->>>>> +and steer the packet.
->>>>
->>>> Sorry Andy, I still don't like this feature! I am worried that we are
->>>> opening a can of worms in encouraging HW vendors to focus on narrow
->>>> protocol specific features as opposed to general features that can be
->>>> applied to a wider range of protocols.
->>>>
->>>> For UDP tunneling protocols where source port is set to a hash this
->>>> should sufficient for the most common purposes of RSS and ECMP. This
->>>> is precisely why we are interested in UDP encapsulation in the first
->>>> place, existing NICs and switches support it. Any extra value in HW
->>>> parsing VXLAN for steering is marginal (at least not a compelling
->>>> reason for me run out and buy new NICs).
->>>>
->>>> This functionality might have merit for UDP flows where the source
->>>> port cannot be arbitrary, like what would be needed to get the UDP
->>>> flow to work over a stateful NAT. An example of this might be in QUIC.
->>>> In the case the 5-tuple might not be sufficient the inner flow, but a
->>>> device could conceivably parse the packet and use the QUIC connection
->>>> identifier for flow identification and steering. However, if this
->>>> becomes a real HW feature we would need a different interface anyway.
->>>> QUIC is implemented in user space and to the kernel is just another
->>>> UDP socket. The correct interface would probably be to configure the
->>>> capability in ethtool, not through the UDP stack.
->>>
->>> This actually is a patch against ethtool :)
->>>
->> What I mean by using ethtool is that it should provide the generic
->> interface to enable per UDP port HW-specific functionality (or more
->> generally match to some protocol fields filter). This entails sending
->> commands to the device specifying port and key meaningful to the
->> device on how to process packets on that port. This is similar to how
->> we can program the RSS table or hashing algorithms without having the
->> stack needing to do anything or track its tunnels.
->>
->>> I think this is probably getting somewhat ideological or at least use
->>> case-specific. I understand your goal is to be generic where possible
->>> but enough examples have come up in this discussion that it seems like
->>> there shouldn't be much of an argument about whether this is useful at
->>> this point. Things like the cost/benefit of buying a new NIC or how
->>> QUIC would use it in the future seem a little beside the point,
->>> honestly.
->>>
->>> In any case, this specific patch is just about giving people the
->>> ability to control VXLAN offloads, which I think should make you happy
->>> given that it is already present in the stack and on by default. I
->>> think Andy has done his best to take your comments into account to
->>> make this as clean as possible and on the larger point we probably
->>> just need to move on.
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
+index 0259feeab1b3..52e08103f221 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
+@@ -75,6 +75,7 @@ enum {
+ 	CPL_RX_DATA_DDP       = 0x42,
+ 	CPL_PASS_ACCEPT_REQ   = 0x44,
+ 	CPL_TRACE_PKT_T5      = 0x48,
++	CPL_RX_ISCSI_DDP      = 0x49,
+ 
+ 	CPL_RDMA_READ_REQ     = 0x60,
+ 
+@@ -86,6 +87,7 @@ enum {
+ 	CPL_SGE_EGR_UPDATE    = 0xA5,
+ 
+ 	CPL_TRACE_PKT         = 0xB0,
++	CPL_ISCSI_DATA	      = 0xB2,
+ 
+ 	CPL_FW4_MSG           = 0xC0,
+ 	CPL_FW4_PLD           = 0xC1,
+diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
+index d31f9e600639..79788a12712d 100644
+--- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
++++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
+@@ -1384,8 +1384,6 @@ rel_resource:
+ 	return -EINVAL;
+ }
+ 
+-#define CPL_ISCSI_DATA		0xB2
+-#define CPL_RX_ISCSI_DDP	0x49
+ cxgb4i_cplhandler_func cxgb4i_cplhandlers[NUM_CPL_CMDS] = {
+ 	[CPL_ACT_ESTABLISH] = do_act_establish,
+ 	[CPL_ACT_OPEN_RPL] = do_act_open_rpl,
+-- 
+2.0.3
