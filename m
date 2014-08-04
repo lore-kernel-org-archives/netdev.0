@@ -1,67 +1,42 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [Xen-devel] [PATCH] xen-netback: Turn off the carrier if the
- guest is not able to receive
-Date: Mon, 4 Aug 2014 14:35:32 +0100
-Message-ID: <53DF8C24.6030709@citrix.com>
-References: <1406749849-4356-1-git-send-email-zoltan.kiss@citrix.com> <1406749849-4356-2-git-send-email-zoltan.kiss@citrix.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: [PATCH net-next v4 0/3] pktgen: Upstreaming features useful for xen-netback/front testing
+Date: Mon, 4 Aug 2014 14:37:10 +0100
+Message-ID: <1407159435-7951-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>,
-	David Vrabel <david.vrabel@citrix.com>,
-	<linux-kernel@vger.kernel.org>
-To: Zoltan Kiss <zoltan.kiss@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>
+Content-Type: text/plain
+Cc: Zoltan Kiss <zoltan.kiss@citrix.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Thomas Graf <tgraf@suug.ch>, Joe Perches <joe@perches.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<xen-devel@lists.xenproject.org>
+To: Steffen Klassert <steffen.klassert@secunet.com>,
+	Mathias Krause <minipli@googlemail.com>,
+	Daniel Borkmann <dborkman@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1406749849-4356-2-git-send-email-zoltan.kiss@citrix.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 30/07/14 20:50, Zoltan Kiss wrote:
-> Currently when the guest is not able to receive more packets, qdisc layer starts
-> a timer, and when it goes off, qdisc is started again to deliver a packet again.
-> This is a very slow way to drain the queues, consumes unnecessary resources and
-> slows down other guests shutdown.
-> This patch change the behaviour by turning the carrier off when that timer
-> fires, so all the packets are freed up which were stucked waiting for that vif.
-> Instead of the rx_queue_purge bool it uses the VIF_STATUS_RX_PURGE_EVENT bit to
-> signal the thread that either the timout happened or an RX interrupt arrived, so
-> the thread can check what it should do. It also disables NAPI, so the guest
-> can't transmit, but leaves the interrupts on, so it can resurrect.
+This series is my work during stressing the xen network drivers, hopefully
+others can benefit from it.
+1/4: Filling payload with pattern, useful for checking data correctness when the
+packets travelling without checksum (~ intrahost VM-to-VM). Already sent it
+separately few times, so its version number differs
+2/4: fine-grained buffer geometrics
+3/4: fix UDP checksuming
+4/4: sending TCP GSO packets. This is an RFC yet, as I'm not certain about all
+things changed here
 
-I don't think you should disable NAPI, particularly since you have to
-fiddle with the bits directly instead of usign the API to do so.
+Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Thomas Graf <tgraf@suug.ch>
+Cc: Joe Perches <joe@perches.com>
+Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Cc: xen-devel@lists.xenproject.org
 
-I looked at some hardware drivers and none of them disabled NAPI -- they
-just allow it to naturally end once hardware queues are drained.
+v2: respin for net-next changes
 
-netback is a little different as a frontend could stop processing
-to-guest packets but continue sending from-guest ones.  I don't see any
-problem with allowing this.
-
-> @@ -1955,24 +1955,78 @@ int xenvif_kthread_guest_rx(void *data)
->  		 */
->  		if (unlikely(queue->vif->disabled && queue->id == 0))
->  			xenvif_carrier_off(queue->vif);
-> +		else if (unlikely(test_and_clear_bit(QUEUE_STATUS_RX_PURGE_EVENT,
-> +						     &queue->status))) {
-> +			/* Either the last unsuccesful skb or at least 1 slot
-> +			 * should fit
-> +			 */
-> +			int needed = queue->rx_last_skb_slots ?
-> +				     queue->rx_last_skb_slots : 1;
->  
-> -		if (kthread_should_stop())
-> -			break;
-> -
-> -		if (queue->rx_queue_purge) {
-> +			/* It is assumed that if the guest post new
-> +			 * slots after this, the RX interrupt will set
-> +			 * the bit and wake up the thread again
-> +			 */
-> +			set_bit(QUEUE_STATUS_RX_STALLED, &queue->status);
-
-This big if needs to go in a new function.
-
-David
+v3:
+- code style changes and smaller bugfixes
+- new patch to fix UDP checksuming
+- rework TCP checksuming and GSO in the last patch
