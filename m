@@ -1,359 +1,49 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH] net/usb/hso: Add support for Option GTM671WFS
-Date: Mon, 04 Aug 2014 13:30:57 -0500
-Message-ID: <1407177057.9447.2.camel@dcbw.local>
-References: <1407143509-27683-1-git-send-email-ricardo.ribalda@gmail.com>
-	 <CAPybu_0E3P0f0dXwx7Ak=ZduWHbRXVMh4SJf9q22Je6yc3AWNg@mail.gmail.com>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: [PATCH net-next] hyperv: Increase the buffer length for
+ netvsc_channel_cb()
+Date: Mon,  4 Aug 2014 12:33:45 -0700
+Message-ID: <1407180825-21832-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Jan Dumon <j.dumon@option.com>,
-	Linux USB Mailing List <linux-usb@vger.kernel.org>,
-	netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
-To: Ricardo Ribalda Delgado <ricardo.ribalda@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAPybu_0E3P0f0dXwx7Ak=ZduWHbRXVMh4SJf9q22Je6yc3AWNg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: olaf@aepfle.de, jasowang@redhat.com, driverdev-devel@linuxdriverproject.org,
+ linux-kernel@vger.kernel.org, haiyangz@microsoft.com
+To: davem@davemloft.net,
+	netdev@vger.kernel.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2014-08-04 at 11:20 +0200, Ricardo Ribalda Delgado wrote:
-> Suggested-by: Dan Williams <dcbw@redhat.com>
+When the buffer is too small for a packet from VMBus, a bigger buffer will be
+allocated in netvsc_channel_cb() and retry reading the packet from VMBus.
+Increasing this buffer size will reduce the retry overhead.
 
-Before we apply this patch though, can you grab for the following for
-me?
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Reviewed-by: Dexuan Cui <decui@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-cat /sys/class/tty/*/hsotype
-
-and lets see if the firmware actually responds.  Also, do you get an
-'hso0' network interface as reported by ifconfig or /sbin/ip?  If you
-do, then lets do some additional verification to ensure it should be
-driven by 'hso' instead of option.
-
-Dan
-
-> On Mon, Aug 4, 2014 at 11:11 AM, Ricardo Ribalda Delgado
-> <ricardo.ribalda@gmail.com> wrote:
-> > After this patch:
-> >
-> > [ 32.985530] hso: drivers/net/usb/hso.c: Option Wireless
-> > [ 33.000452] hso 2-1.4:1.7: Not our interface
-> > [ 33.001849] usbcore: registered new interface driver hso
-> >
-> > root@qt5022:~# ls /dev/ttyHS*
-> > /dev/ttyHS0  /dev/ttyHS1  /dev/ttyHS2  /dev/ttyHS3  /dev/ttyHS4
-> > /dev/ttyHS5
-> >
-> > root@qt5022:~# lsusb -d 0af0: -vvv
-> >
-> > Bus 002 Device 003: ID 0af0:9200 Option
-> > Device Descriptor:
-> >   bLength                18
-> >   bDescriptorType         1
-> >   bcdUSB               2.00
-> >   bDeviceClass          255 Vendor Specific Class
-> >   bDeviceSubClass       255 Vendor Specific Subclass
-> >   bDeviceProtocol       255 Vendor Specific Protocol
-> >   bMaxPacketSize0        64
-> >   idVendor           0x0af0 Option
-> >   idProduct          0x9200
-> >   bcdDevice            0.00
-> >   iManufacturer           3 Option N.V.
-> >   iProduct                2 Globetrotter HSUPA Modem
-> >   iSerial                 0
-> >   bNumConfigurations      1
-> >   Configuration Descriptor:
-> >     bLength                 9
-> >     bDescriptorType         2
-> >     wTotalLength          200
-> >     bNumInterfaces          8
-> >     bConfigurationValue     1
-> >     iConfiguration          1 Option Configuration
-> >     bmAttributes         0xe0
-> >       Self Powered
-> >       Remote Wakeup
-> >     MaxPower              100mA
-> >     Interface Descriptor:
-> >       bLength                 9
-> >       bDescriptorType         4
-> >       bInterfaceNumber        0
-> >       bAlternateSetting       0
-> >       bNumEndpoints           2
-> >       bInterfaceClass       255 Vendor Specific Class
-> >       bInterfaceSubClass    255 Vendor Specific Subclass
-> >       bInterfaceProtocol    255 Vendor Specific Protocol
-> >       iInterface              0
-> >       Endpoint Descriptor:
-> >         bLength                 7
-> >         bDescriptorType         5
-> >         bEndpointAddress     0x81  EP 1 IN
-> >         bmAttributes            2
-> >           Transfer Type            Bulk
-> >           Synch Type               None
-> >           Usage Type               Data
-> >         wMaxPacketSize     0x0200  1x 512 bytes
-> >         bInterval              32
-> >       Endpoint Descriptor:
-> >         bLength                 7
-> >         bDescriptorType         5
-> >         bEndpointAddress     0x01  EP 1 OUT
-> >         bmAttributes            2
-> >           Transfer Type            Bulk
-> >           Synch Type               None
-> >           Usage Type               Data
-> >         wMaxPacketSize     0x0200  1x 512 bytes
-> >         bInterval              32
-> >     Interface Descriptor:
-> >       bLength                 9
-> >       bDescriptorType         4
-> >       bInterfaceNumber        1
-> >       bAlternateSetting       0
-> >       bNumEndpoints           2
-> >       bInterfaceClass       255 Vendor Specific Class
-> >       bInterfaceSubClass    255 Vendor Specific Subclass
-> >       bInterfaceProtocol    255 Vendor Specific Protocol
-> >       iInterface              0
-> >       Endpoint Descriptor:
-> >         bLength                 7
-> >         bDescriptorType         5
-> >         bEndpointAddress     0x82  EP 2 IN
-> >         bmAttributes            2
-> >           Transfer Type            Bulk
-> >           Synch Type               None
-> >           Usage Type               Data
-> >         wMaxPacketSize     0x0200  1x 512 bytes
-> >         bInterval              32
-> >       Endpoint Descriptor:
-> >         bLength                 7
-> >         bDescriptorType         5
-> >         bEndpointAddress     0x02  EP 2 OUT
-> >         bmAttributes            2
-> >           Transfer Type            Bulk
-> >           Synch Type               None
-> >           Usage Type               Data
-> >         wMaxPacketSize     0x0200  1x 512 bytes
-> >         bInterval              32
-> >     Interface Descriptor:
-> >       bLength                 9
-> >       bDescriptorType         4
-> >       bInterfaceNumber        2
-> >       bAlternateSetting       0
-> >       bNumEndpoints           2
-> >       bInterfaceClass       255 Vendor Specific Class
-> >       bInterfaceSubClass    255 Vendor Specific Subclass
-> >       bInterfaceProtocol    255 Vendor Specific Protocol
-> >       iInterface              0
-> >       Endpoint Descriptor:
-> >         bLength                 7
-> >         bDescriptorType         5
-> >         bEndpointAddress     0x83  EP 3 IN
-> >         bmAttributes            2
-> >           Transfer Type            Bulk
-> >           Synch Type               None
-> >           Usage Type               Data
-> >         wMaxPacketSize     0x0200  1x 512 bytes
-> >         bInterval              32
-> >       Endpoint Descriptor:
-> >         bLength                 7
-> >         bDescriptorType         5
-> >         bEndpointAddress     0x03  EP 3 OUT
-> >         bmAttributes            2
-> >           Transfer Type            Bulk
-> >           Synch Type               None
-> >           Usage Type               Data
-> >         wMaxPacketSize     0x0200  1x 512 bytes
-> >         bInterval              32
-> >     Interface Descriptor:
-> >       bLength                 9
-> >       bDescriptorType         4
-> >       bInterfaceNumber        3
-> >       bAlternateSetting       0
-> >       bNumEndpoints           2
-> >       bInterfaceClass       255 Vendor Specific Class
-> >       bInterfaceSubClass    255 Vendor Specific Subclass
-> >       bInterfaceProtocol    255 Vendor Specific Protocol
-> >       iInterface              0
-> >       Endpoint Descriptor:
-> >         bLength                 7
-> >         bDescriptorType         5
-> >         bEndpointAddress     0x84  EP 4 IN
-> >         bmAttributes            2
-> >           Transfer Type            Bulk
-> >           Synch Type               None
-> >           Usage Type               Data
-> >         wMaxPacketSize     0x0200  1x 512 bytes
-> >         bInterval              32
-> >       Endpoint Descriptor:
-> >         bLength                 7
-> >         bDescriptorType         5
-> >         bEndpointAddress     0x04  EP 4 OUT
-> >         bmAttributes            2
-> >           Transfer Type            Bulk
-> >           Synch Type               None
-> >           Usage Type               Data
-> >         wMaxPacketSize     0x0200  1x 512 bytes
-> >         bInterval              32
-> >     Interface Descriptor:
-> >       bLength                 9
-> >       bDescriptorType         4
-> >       bInterfaceNumber        4
-> >       bAlternateSetting       0
-> >       bNumEndpoints           2
-> >       bInterfaceClass       255 Vendor Specific Class
-> >       bInterfaceSubClass    255 Vendor Specific Subclass
-> >       bInterfaceProtocol    255 Vendor Specific Protocol
-> >       iInterface              0
-> >       Endpoint Descriptor:
-> >         bLength                 7
-> >         bDescriptorType         5
-> >         bEndpointAddress     0x85  EP 5 IN
-> >         bmAttributes            2
-> >           Transfer Type            Bulk
-> >           Synch Type               None
-> >           Usage Type               Data
-> >         wMaxPacketSize     0x0200  1x 512 bytes
-> >         bInterval              32
-> >       Endpoint Descriptor:
-> >         bLength                 7
-> >         bDescriptorType         5
-> >         bEndpointAddress     0x05  EP 5 OUT
-> >         bmAttributes            2
-> >           Transfer Type            Bulk
-> >           Synch Type               None
-> >           Usage Type               Data
-> >         wMaxPacketSize     0x0200  1x 512 bytes
-> >         bInterval              32
-> >     Interface Descriptor:
-> >       bLength                 9
-> >       bDescriptorType         4
-> >       bInterfaceNumber        5
-> >       bAlternateSetting       0
-> >       bNumEndpoints           2
-> >       bInterfaceClass       255 Vendor Specific Class
-> >       bInterfaceSubClass    255 Vendor Specific Subclass
-> >       bInterfaceProtocol    255 Vendor Specific Protocol
-> >       iInterface              0
-> >       Endpoint Descriptor:
-> >         bLength                 7
-> >         bDescriptorType         5
-> >         bEndpointAddress     0x06  EP 6 OUT
-> >         bmAttributes            2
-> >           Transfer Type            Bulk
-> >           Synch Type               None
-> >           Usage Type               Data
-> >         wMaxPacketSize     0x0200  1x 512 bytes
-> >         bInterval              32
-> >       Endpoint Descriptor:
-> >         bLength                 7
-> >         bDescriptorType         5
-> >         bEndpointAddress     0x86  EP 6 IN
-> >         bmAttributes            2
-> >           Transfer Type            Bulk
-> >           Synch Type               None
-> >           Usage Type               Data
-> >         wMaxPacketSize     0x0200  1x 512 bytes
-> >         bInterval              32
-> >     Interface Descriptor:
-> >       bLength                 9
-> >       bDescriptorType         4
-> >       bInterfaceNumber        6
-> >       bAlternateSetting       0
-> >       bNumEndpoints           3
-> >       bInterfaceClass       255 Vendor Specific Class
-> >       bInterfaceSubClass    255 Vendor Specific Subclass
-> >       bInterfaceProtocol    255 Vendor Specific Protocol
-> >       iInterface              0
-> >       Endpoint Descriptor:
-> >         bLength                 7
-> >         bDescriptorType         5
-> >         bEndpointAddress     0x87  EP 7 IN
-> >         bmAttributes            3
-> >           Transfer Type            Interrupt
-> >           Synch Type               None
-> >           Usage Type               Data
-> >         wMaxPacketSize     0x0040  1x 64 bytes
-> >         bInterval               5
-> >       Endpoint Descriptor:
-> >         bLength                 7
-> >         bDescriptorType         5
-> >         bEndpointAddress     0x88  EP 8 IN
-> >         bmAttributes            2
-> >           Transfer Type            Bulk
-> >           Synch Type               None
-> >           Usage Type               Data
-> >         wMaxPacketSize     0x0200  1x 512 bytes
-> >         bInterval              32
-> >       Endpoint Descriptor:
-> >         bLength                 7
-> >         bDescriptorType         5
-> >         bEndpointAddress     0x07  EP 7 OUT
-> >         bmAttributes            2
-> >           Transfer Type            Bulk
-> >           Synch Type               None
-> >           Usage Type               Data
-> >         wMaxPacketSize     0x0200  1x 512 bytes
-> >         bInterval              32
-> >     Interface Descriptor:
-> >       bLength                 9
-> >       bDescriptorType         4
-> >       bInterfaceNumber        7
-> >       bAlternateSetting       0
-> >       bNumEndpoints           2
-> >       bInterfaceClass         8 Mass Storage
-> >       bInterfaceSubClass      6 SCSI
-> >       bInterfaceProtocol     80 Bulk-Only
-> >       iInterface              0
-> >       Endpoint Descriptor:
-> >         bLength                 7
-> >         bDescriptorType         5
-> >         bEndpointAddress     0x08  EP 8 OUT
-> >         bmAttributes            2
-> >           Transfer Type            Bulk
-> >           Synch Type               None
-> >           Usage Type               Data
-> >         wMaxPacketSize     0x0200  1x 512 bytes
-> >         bInterval               1
-> >       Endpoint Descriptor:
-> >         bLength                 7
-> >         bDescriptorType         5
-> >         bEndpointAddress     0x89  EP 9 IN
-> >         bmAttributes            2
-> >           Transfer Type            Bulk
-> >           Synch Type               None
-> >           Usage Type               Data
-> >         wMaxPacketSize     0x0200  1x 512 bytes
-> >         bInterval               1
-> > Device Qualifier (for other device speed):
-> >   bLength                10
-> >   bDescriptorType         6
-> >   bcdUSB               2.00
-> >   bDeviceClass          255 Vendor Specific Class
-> >   bDeviceSubClass       255 Vendor Specific Subclass
-> >   bDeviceProtocol       255 Vendor Specific Protocol
-> >   bMaxPacketSize0        64
-> >   bNumConfigurations      1
-> > Device Status:     0x0001
-> >   Self Powered
-> >
-> > Signed-off-by: Ricardo Ribalda Delgado <ricardo.ribalda@gmail.com>
-> > ---
-> >  drivers/net/usb/hso.c | 1 +
-> >  1 file changed, 1 insertion(+)
-> >
-> > diff --git a/drivers/net/usb/hso.c b/drivers/net/usb/hso.c
-> > index a3a0586..eb12261 100644
-> > --- a/drivers/net/usb/hso.c
-> > +++ b/drivers/net/usb/hso.c
-> > @@ -469,6 +469,7 @@ static const struct usb_device_id hso_ids[] = {
-> >         {USB_DEVICE(0x0af0, 0x8800)},
-> >         {USB_DEVICE(0x0af0, 0x8900)},
-> >         {USB_DEVICE(0x0af0, 0x9000)},
-> > +       {USB_DEVICE(0x0af0, 0x9200)},           /* Option GTM671WFS */
-> >         {USB_DEVICE(0x0af0, 0xd035)},
-> >         {USB_DEVICE(0x0af0, 0xd055)},
-> >         {USB_DEVICE(0x0af0, 0xd155)},
-> > --
-> > 2.0.1
-> >
-> 
-> 
-> 
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 24441ae..3960acd 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -591,7 +591,7 @@ struct nvsp_message {
+ 
+ #define NETVSC_RECEIVE_BUFFER_ID		0xcafe
+ 
+-#define NETVSC_PACKET_SIZE                      2048
++#define NETVSC_PACKET_SIZE                      4096
+ 
+ #define VRSS_SEND_TAB_SIZE 16
+ 
+-- 
+1.7.1
