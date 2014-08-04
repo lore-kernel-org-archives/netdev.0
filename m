@@ -1,29 +1,63 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: phy: spi_ks8995: Introduce the use of
- devm_kzalloc
-Date: Mon, 04 Aug 2014 12:55:43 -0700 (PDT)
-Message-ID: <20140804.125543.174590535265021164.davem@davemloft.net>
-References: <20140803080943.GA4323@himangi-Dell>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [ANNOUNCE] iproute2 3.16.0 release
+Date: Mon, 4 Aug 2014 12:56:49 -0700
+Message-ID: <20140804125649.49fcbf92@haswell.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, paul.gortmaker@windriver.com,
-	p.zabel@pengutronix.de, jg1.han@samsung.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	julia.lawall@lip6.fr
-To: himangi774@gmail.com
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140803080943.GA4323@himangi-Dell>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Himangi Saraogi <himangi774@gmail.com>
-Date: Sun, 3 Aug 2014 13:39:43 +0530
+Time for the release of iproute2 for 3.16.
 
-> This patch introduces the use of devm_kzalloc and does away with the
-> kfrees in the probe and remove functions. Also, a label is removed.
-> 
-> Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
-> Acked-by: Julia Lawall <julia.lawall@lip6.fr>
+Source:
+  http://www.kernel.org/pub/linux/utils/net/iproute2/iproute2-3.16.0.tar.gz
 
-Applied, thank you.
+Repository:
+  git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
+
+Report problems (or enhancements) to the netdev@vger.kernel.org mailing list.
+
+---
+
+Daniel Borkmann (1):
+      man: token: fix couple of typos
+
+Dmitry Popov (1):
+      fix ip tunnel for vti tunnels with ikey
+
+Jamal Hadi Salim (1):
+      iproute2 bridge: bring to above par with brctl show macs
+
+Jay Vosburgh (1):
+      tc/netem: loss gemodel options fixes
+
+Masatake YAMATO (1):
+      ip: add nlmon as a device type to help message
+
+Rami Rosen (1):
+      iplink: macvtap: fix man page
+
+Roopa Prabhu (2):
+      bridge: Add master device name to bridge fdb show
+      link dump filter
+
+Stephen Hemminger (7):
+      Update to current net-next kernel headers
+      Merge branch 'net-next'
+      Update kernel headers to 3.16-rc5
+      ip: add paren to silence warning
+      ip: check for missing dev arg when doing VF rate
+      cleanup warnings
+      v3.16.0
+
+Sucheta Chakraborty (1):
+      Add support to configure SR-IOV VF minimum and maximum Tx rate through ip tool
+
+Vasily Averin (1):
+      ipnetns: fixed typo "seting" -> "setTing"
+
+vadimk (1):
+      ip: Added missing usage for netconf object
