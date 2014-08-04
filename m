@@ -1,43 +1,36 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [PATCH net-next 0/2] xen-netback: Changes around carrier handling
-Date: Mon, 4 Aug 2014 16:34:22 +0100
-Message-ID: <53DFA7FE.3000507@citrix.com>
-References: <1407165658-20146-1-git-send-email-zoltan.kiss@citrix.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] bridge: remove a useless comment
+Date: Mon, 4 Aug 2014 08:45:32 -0700
+Message-ID: <20140804084532.6b84524c@haswell.linuxnetplumber.net>
+References: <1407158554-17384-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Vrabel <david.vrabel@citrix.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <xen-devel@lists.xenproject.org>
-To: Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1407165658-20146-1-git-send-email-zoltan.kiss@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1407158554-17384-1-git-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 04/08/14 16:20, Zoltan Kiss wrote:
-> This series starts using carrier off as a way to purge packets when the guest is
-> not able (or willing) to receive them. It is a much faster way to get rid of
-> packets waiting for an overwhelmed guest.
-> The first patch changes current netback code where it relies currently on
-> netif_carrier_ok.
-> The second turns off the carrier if the guest times out on a queue, and only
-> turn it on again if that queue (or queues) resurrects.
->
-> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
-> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
-> Cc: netdev@vger.kernel.org
-> Cc: linux-kernel@vger.kernel.org
-> Cc: xen-devel@lists.xenproject.org
->
+On Mon, 4 Aug 2014 15:22:40 +0200
+"Michael S. Tsirkin" <mst@redhat.com> wrote:
 
-Sorry, I forgot to include v2 in the subject header, and the version 
-history for the second patch:
+> commit 6cbdceeb1cb12c7d620161925a8c3e81daadb2e4
+>     bridge: Dump vlan information from a bridge port
+> introduced a comment in an attempt to explain the
+> code logic. The comment is unfinished so it confuses more
+> than it explains, remove it.
+> 
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 
-v2:
-- added a lot more comments
-- fixing the bit checking in RX interrupt
-- move out the bulk of the code from the main thread function into
-   xenvif_rx_purge_event
-
-Zoli
+Acked-by: Stephen Hemminger <stephen@networkplumber.org>
