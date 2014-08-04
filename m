@@ -1,38 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] hyperv: Increase the buffer length for
- netvsc_channel_cb()
-Date: Mon, 04 Aug 2014 15:08:42 -0700 (PDT)
-Message-ID: <20140804.150842.507300261765977637.davem@davemloft.net>
-References: <1407180825-21832-1-git-send-email-haiyangz@microsoft.com>
+Subject: Re: [PATCH net-next v2 0/2] xfrm: scalability enhancements for
+ policy database
+Date: Mon, 04 Aug 2014 15:09:22 -0700 (PDT)
+Message-ID: <20140804.150922.1383964106587443773.davem@davemloft.net>
+References: <1399902325-1788-1-git-send-email-christophe.gouault@6wind.com>
+	<1406884348-12423-1-git-send-email-christophe.gouault@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
- driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
-To: haiyangz@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1407180825-21832-1-git-send-email-haiyangz@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Cc: steffen.klassert@secunet.com, netdev@vger.kernel.org
+To: christophe.gouault@6wind.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46563 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752843AbaHDWJX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Aug 2014 18:09:23 -0400
+In-Reply-To: <1406884348-12423-1-git-send-email-christophe.gouault@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Date: Mon,  4 Aug 2014 12:33:45 -0700
+From: Christophe Gouault <christophe.gouault@6wind.com>
+Date: Fri,  1 Aug 2014 11:12:26 +0200
 
-> When the buffer is too small for a packet from VMBus, a bigger buffer will be
-> allocated in netvsc_channel_cb() and retry reading the packet from VMBus.
-> Increasing this buffer size will reduce the retry overhead.
+> This patchset enables to hash more policies than just non-prefixed
+> ones: hash policies whose prefix lengths are greater or equal to
+> configurable thresholds.
 > 
-> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> Reviewed-by: Dexuan Cui <decui@microsoft.com>
+> These thresholds are configured via netlink message
+> XFRM_MSG_NEWSPDINFO, attributes XFRMA_SPD_IPV4_HTHRESH and
+> XFRMA_SPD_IPV6_HTHRESH.
+> 
+> The related iproute2 patch for configuring the thresholds is available
+> on demand.
 
-Now netvsc_device is significantly larger than a page, you should probably
-therefore allocate netvsc_device->cb_buffer indirectly instead of inlining
-it into the structure.
+Since this is not urgent, and a new feature, I'll let Steffen review this
+when he gets back.
