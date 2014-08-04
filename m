@@ -1,38 +1,73 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] r8152: correct error returns
-Date: Mon, 04 Aug 2014 15:18:27 -0700 (PDT)
-Message-ID: <20140804.151827.179999106523102125.davem@davemloft.net>
-References: <1406901370-6847-1-git-send-email-oneukum@suse.de>
-	<20140802.163418.1314777407262254543.davem@davemloft.net>
-	<1407049618.26893.8.camel@linux-fkkt.site>
+Subject: Re: [PATCH] xen-netfront: Fix handling packets on compound pages
+ with skb_segment
+Date: Mon, 04 Aug 2014 15:24:11 -0700 (PDT)
+Message-ID: <20140804.152411.1486639478907964423.davem@davemloft.net>
+References: <20140801110246.GB17947@zion.uk.xensource.com>
+	<20140802.153337.1399638752235662112.davem@davemloft.net>
+	<20140803091110.GA7093@zion.uk.xensource.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com
-To: oneukum@suse.de
+Cc: zoltan.kiss@citrix.com, konrad.wilk@oracle.com,
+	boris.ostrovsky@oracle.com, david.vrabel@citrix.com,
+	Ian.Campbell@citrix.com, paul.durrant@citrix.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	xen-devel@lists.xenproject.org
+To: wei.liu2@citrix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46658 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:46696 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752354AbaHDWS3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Aug 2014 18:18:29 -0400
-In-Reply-To: <1407049618.26893.8.camel@linux-fkkt.site>
+	with ESMTP id S1751939AbaHDWYM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Aug 2014 18:24:12 -0400
+In-Reply-To: <20140803091110.GA7093@zion.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Oliver Neukum <oneukum@suse.de>
-Date: Sun, 03 Aug 2014 09:06:58 +0200
+From: Wei Liu <wei.liu2@citrix.com>
+Date: Sun, 3 Aug 2014 10:11:10 +0100
 
-> OK, I just looked at this single driver. I'll try to come up with
-> a generic solution. The mapping is a bit simplistic. I should let
-> -ENOMEM pass for example.
+> On Sat, Aug 02, 2014 at 03:33:37PM -0700, David Miller wrote:
+>> From: Wei Liu <wei.liu2@citrix.com>
+>> Date: Fri, 1 Aug 2014 12:02:46 +0100
+>> 
+>> > On Thu, Jul 31, 2014 at 01:25:20PM -0700, David Miller wrote:
+>> >> If you were to have a 64-slot TX queue, you ought to be able to handle
+>> >> this theoretical 51 slot SKB.
+>> > 
+>> > There's two problems:
+>> > 1. IIRC a single page ring has 256 slots, allowing 64 slots packet
+>> >    yields 4 in-flight packets in worst case.
+>> > 2. Older netback could not handle this large number of slots and it's
+>> >    likely to deem the frontend malicious.
+>> > 
+>> > For #1, we don't actually care that much if guest screws itself by
+>> > generating 64 slot packets. #2 is more concerning.
+>> 
+>> How many slots can the older netback handle?
+> 
+> I listed those two problems in the context "if we were to lift this
+> limit in the latest net-next tree", so "older netback" actually refers
+> to netback from 3.10 to 3.16.
+> 
+> The current implementation allows the number of slots X:
+>  1. X <= 18, valid packet
+>  2. 18 < X < fatal_slot_count, dropped
+>  3. X >= fatal_slot_count, malicious frontend
+> 
+> fatal_slot_count has default value of 20.
 
-And the problem also isn't limited USB networking drivers, just
-about every driver I looked at passed these autopm errors right
-back to userspace.
+Given what I've seen so far, I think the only option is to linearize
+the packet.
 
-Largely people just call the autopm interfaces and propagate any
-errors they get.  So you probably want to put the translator/filter
-there.
+BTW, we do have a netdev->gso_max_segs tunable drivers can set, but
+it might not cover all of the cases you need to handle.
 
-But of course, that doesn't handle the non-autopm code paths into the
-PM layer that can end up in this situation.
+Maybe we can create a similar tunable which triggers
+skb_needs_linearize() in the transmit path.
+
+The advantage of such a tunable is that this can be worked with
+inside of TCP to avoid creating such packets in the first place.
+
+For example, all of the MAX_SKB_FRAGS checks you see in net/ipv4/tcp.c
+could be replaced with tests against this new tunable in struct netdevice.
