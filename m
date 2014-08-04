@@ -1,69 +1,70 @@
-From: Arend van Spriel <arend@broadcom.com>
-Subject: Re: [PATCH] brcmfmac: prevent watchdog from interfering with	scanning
- and connecting
-Date: Mon, 4 Aug 2014 22:12:35 +0200
-Message-ID: <53DFE933.2080805@broadcom.com>
-References: <539E8559.3010601@linux.intel.com> <539EA79C.7010206@broadcom.com> <53A30F96.3010206@linux.intel.com> <53A311E4.301@broadcom.com> <53CCC44C.2070507@linux.intel.com> <53D124B3.7030807@linux.intel.com> <53DFB6A1.7040900@linux.intel.com> <20140804165202.GG30282@n2100.arm.linux.org.uk>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH] xen-netfront: Fix handling packets on compound pages
+ with skb_segment
+Date: Mon, 4 Aug 2014 21:35:54 +0100
+Message-ID: <20140804203554.GA23767@zion.uk.xensource.com>
+References: <1406726730-17994-1-git-send-email-zoltan.kiss@citrix.com>
+ <20140731.132520.1889577477638334755.davem@davemloft.net>
+ <53DFC2FE.8070105@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Fu, Zhonghui" <zhonghui.fu@linux.intel.com>,
-	<brudley@broadcom.com>, Franky Lin <frankyl@broadcom.com>,
-	<meuleman@broadcom.com>, <linville@tuxdriver.com>,
-	<pieterpg@broadcom.com>, <dekim@broadcom.com>,
-	<mcgrof@do-not-panic.com>, <antonio@open-mesh.com>,
-	<johannes.berg@intel.com>, <linux-wireless@vger.kernel.org>,
-	<brcm80211-dev-list@broadcom.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <linux-mmc@vger.kernel.org>
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Return-path: <linux-mmc-owner@vger.kernel.org>
-In-Reply-To: <20140804165202.GG30282@n2100.arm.linux.org.uk>
-Sender: linux-mmc-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: David Miller <davem@davemloft.net>, <konrad.wilk@oracle.com>,
+	<boris.ostrovsky@oracle.com>, <david.vrabel@citrix.com>,
+	<wei.liu2@citrix.com>, <Ian.Campbell@citrix.com>,
+	<paul.durrant@citrix.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <xen-devel@lists.xenproject.org>
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <53DFC2FE.8070105@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 08/04/14 18:52, Russell King - ARM Linux wrote:
-> On Tue, Aug 05, 2014 at 12:36:49AM +0800, Fu, Zhonghui wrote:
->> Hi, Arend
->>
->> I investigated this issue, and its root cause is still that sdio
->> controller can't receive interrupts from WiFi chip on sdio bus when
->> sdio controller is in runtime suspend status. I am running 3.16-rc5
->> linux kernel on ASUS T100TA tablet, and using sdhci-acpi driver.
->
-> That's the root cause.  I fixed this with the Freescale i.MX SD driver
-> which is now able to report pending SDIO interrupts while runtime PM
-> suspended.
->
-> Other host drivers probably need fixing too, or having runtime PM
-> disabled on them - if you can't receive SDIO interrupts while runtime
-> PM suspended, then entering runtime PM while you have a SDIO device
-> attached is a bug.
->
-> This is something for the MMC people to deal with rather than Arend.
+On Mon, Aug 04, 2014 at 06:29:34PM +0100, Zoltan Kiss wrote:
+> On 31/07/14 21:25, David Miller wrote:
+> >From: Zoltan Kiss <zoltan.kiss@citrix.com>
+> >Date: Wed, 30 Jul 2014 14:25:30 +0100
+> >
+> >>There is a long known problem with the netfront/netback interface: if the guest
+> >>tries to send a packet which constitues more than MAX_SKB_FRAGS + 1 ring slots,
+> >>it gets dropped. The reason is that netback maps these slots to a frag in the
+> >>frags array, which is limited by size. Having so many slots can occur since
+> >>compound pages were introduced, as the ring protocol slice them up into
+> >>individual (non-compound) page aligned slots. The theoretical worst case
+> >>scenario looks like this (note, skbs are limited to 64 Kb here):
+> >>linear buffer: at most PAGE_SIZE - 17 * 2 bytes, overlapping page boundary,
+> >>using 2 slots
+> >>first 15 frags: 1 + PAGE_SIZE + 1 bytes long, first and last bytes are at the
+> >>end and the beginning of a page, therefore they use 3 * 15 = 45 slots
+> >>last 2 frags: 1 + 1 bytes, overlapping page boundary, 2 * 2 = 4 slots
+> >>Although I don't think this 51 slots skb can really happen, we need a solution
+> >>which can deal with every scenario. In real life there is only a few slots
+> >>overdue, but usually it causes the TCP stream to be blocked, as the retry will
+> >>most likely have the same buffer layout.
+> >>This patch solves this problem by slicing up the skb itself with the help of
+> >>skb_segment, and calling xennet_start_xmit again on the resulting packets. It
+> >>also works with the theoretical worst case, where there is a 3 level recursion.
+> >>The good thing is that skb_segment only copies the header part, the frags will
+> >>be just referenced again.
+> >>
+> >>Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+> >
+> >This is a really scary change :-)
+> I admit that :)
+> >
+> >I definitely see some potential problem here.
+> >
+> >First of all, even in cases where it might "work", such as TCP, you
+> >are modifying the data stream.  The sizes are changing, the packet
+> >counts are different, and all of this will have side effects such as
+> >potentially harming TCP performance.
+> >
+> >Secondly, for something like UDP you can't just split the packet up
+> >like this, or for any other datagram protocol for that matter.
+> The netback/netfront interface currently only supports TSO and TSO6. That's
+> why I did the pktgen TCP patch
 
-Occasionally, the itch is there to fix mmc code, but this looks a bit 
-tricky. The fun starts in sdio.c:mmc_attach_sdio():
+IMO if this approach is known to be broken in the future (say if we want
+to support UFO) we'd better avoid it.
 
-	/*
-	 * Enable runtime PM only if supported by host+card+board
-	 */
-	if (host->caps & MMC_CAP_POWER_OFF_CARD) {
-		/*
-		 * Let runtime PM core know our card is active
-		 */
-		err = pm_runtime_set_active(&card->dev);
-		if (err)
-			goto remove;
-
-		/*
-		 * Enable runtime PM for this card
-		 */
-		pm_runtime_enable(&card->dev);
-	}
-
-The comment above the if statement seems to be stating the right idea, 
-but the code only looks at the host controller capability flags.
-
-Regards,
-Arend
-
+Wei.
