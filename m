@@ -1,42 +1,48 @@
-From: Luigi Rizzo <rizzo@iet.unipi.it>
-Subject: tutorial on Netmap in Mountain View - Aug.28
-Date: Mon, 4 Aug 2014 13:03:44 +0200
-Message-ID: <20140804110344.GC12625@onelab2.iet.unipi.it>
+From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+Subject: Re: [PATCH 02/19] drivers: atm: fix %d confusingly prefixed with 0x
+ in format strings
+Date: Mon, 4 Aug 2014 07:16:38 -0400
+Message-ID: <20140804071638.32fd85ed@thirdoffive.cmf.nrl.navy.mil>
+References: <1407111500-14547-1-git-send-email-hans@hanshq.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from onelab2.iet.unipi.it ([131.114.59.238]:54282 "EHLO
-	onelab2.iet.unipi.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752562AbaHDLJx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Aug 2014 07:09:53 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Hans Wennborg <hans@hanshq.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1407111500-14547-1-git-send-email-hans@hanshq.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In case someone (especially those in the bay area) is interested:
-I will give a half day tutorial on netmap at Hot Interconnects,
-in Mountain View on August 28, 2014
+Acked-by: Chas Williams <chas@cmf.nrl.navy.mil>
 
-	http://www.hoti.org/hoti22/tutorials/#tut4
+On Sun,  3 Aug 2014 17:18:20 -0700
+Hans Wennborg <hans@hanshq.net> wrote:
 
-This tutorial targets hardware vendors, network engineers, and
-researchers looking for solutions to: OS support for high speed NICs;
-efficient software packet processing techniques for SDN products;
-high speed networking in VMs. We will show how to achieve these
-results using netmap.
-
-	cheers
-	luigi
-
-(P.S. I have no financial interest in the event. I am posting the info
-because I think it might be useful to people on this list, and of course
-having a larger audience at the tutorial will generate more interesting
-feedback from participants)
-
------------------------------------------+-------------------------------
-  Prof. Luigi RIZZO, rizzo@iet.unipi.it  . Dip. di Ing. dell'Informazione
-  http://www.iet.unipi.it/~luigi/        . Universita` di Pisa
-  TEL      +39-050-2211611               . via Diotisalvi 2
-  Mobile   +39-338-6809875               . 56122 PISA (Italy)
------------------------------------------+-------------------------------
+> Signed-off-by: Hans Wennborg <hans@hanshq.net>
+> ---
+>  drivers/atm/eni.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/atm/eni.c b/drivers/atm/eni.c
+> index b1955ba..d65975a 100644
+> --- a/drivers/atm/eni.c
+> +++ b/drivers/atm/eni.c
+> @@ -2155,7 +2155,7 @@ static int eni_proc_read(struct atm_dev *dev,loff_t *pos,char *page)
+>  
+>  		if (!tx->send) continue;
+>  		if (!--left) {
+> -			return sprintf(page,"tx[%d]:    0x%ld-0x%ld "
+> +			return sprintf(page, "tx[%d]:    0x%lx-0x%lx "
+>  			    "(%6ld bytes), rsv %d cps, shp %d cps%s\n",i,
+>  			    (unsigned long) (tx->send - eni_dev->ram),
+>  			    tx->send-eni_dev->ram+tx->words*4-1,tx->words*4,
+> @@ -2181,7 +2181,7 @@ static int eni_proc_read(struct atm_dev *dev,loff_t *pos,char *page)
+>  			if (--left) continue;
+>  			length = sprintf(page,"vcc %4d: ",vcc->vci);
+>  			if (eni_vcc->rx) {
+> -				length += sprintf(page+length,"0x%ld-0x%ld "
+> +				length += sprintf(page+length, "0x%lx-0x%lx "
+>  				    "(%6ld bytes)",
+>  				    (unsigned long) (eni_vcc->recv - eni_dev->ram),
+>  				    eni_vcc->recv-eni_dev->ram+eni_vcc->words*4-1,
