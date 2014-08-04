@@ -1,82 +1,64 @@
-From: Sasha Levin <sasha.levin@oracle.com>
-Subject: Re: [PATCH] NFC: Read frag at a time when sending packets
-Date: Mon, 04 Aug 2014 15:39:33 -0400
-Message-ID: <53DFE175.5040602@oracle.com>
-References: <1403234596-19149-1-git-send-email-sasha.levin@oracle.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT net-next] Open vSwitch
+Date: Mon, 04 Aug 2014 12:42:46 -0700 (PDT)
+Message-ID: <20140804.124246.819301748264471598.davem@davemloft.net>
+References: <CALnjE+rAXDpzkL9H9EAHKZ0yGCW3HHu+LgihwOj5Yx_5SASzsA@mail.gmail.com>
+	<20140803.212131.1256448650945676000.davem@davemloft.net>
+	<CALnjE+oEKGakFMZvSBir3OUmMdQmZdF2+YEy5kDV=P=_BNKU4Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, linux-nfc@ml01.01.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Sasha Levin <sasha.levin@oracle.com>, lauro.venancio@openbossa.org,
-	aloisio.almeida@openbossa.org, sameo@linux.intel.com,
-	davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1403234596-19149-1-git-send-email-sasha.levin@oracle.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: pshelar@nicira.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45225 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750714AbaHDTmr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Aug 2014 15:42:47 -0400
+In-Reply-To: <CALnjE+oEKGakFMZvSBir3OUmMdQmZdF2+YEy5kDV=P=_BNKU4Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ping?
+From: Pravin Shelar <pshelar@nicira.com>
+Date: Mon, 4 Aug 2014 12:35:59 -0700
 
-On 06/19/2014 11:23 PM, Sasha Levin wrote:
-> Right now userspace can pass a large chunk of data and the kernel
-> will attempt to allocate all of it to copy it in from userspace.
+> On Sun, Aug 3, 2014 at 9:21 PM, David Miller <davem@davemloft.net> wrote:
+>> From: Pravin Shelar <pshelar@nicira.com>
+>> Date: Sun, 3 Aug 2014 12:20:32 -0700
+>>
+>>> On Sat, Aug 2, 2014 at 3:16 PM, David Miller <davem@davemloft.net> wrote:
+>>>> From: Pravin B Shelar <pshelar@nicira.com>
+>>>> Date: Thu, 31 Jul 2014 16:57:37 -0700
+>>>>
+>>>>> Following patch adds mask cache so that we do not need to iterate over
+>>>>> all entries in mask list on every packet. We have seen good performance
+>>>>> improvement with this patch.
+>>>>
+>>>> How much have you thought about the DoS'ability of openvswitch's
+>>>> datastructures?
+>>>>
+>>> This cache is populated by flow lookup in fast path. The mask cache is
+>>> fixed in size. Userspace or number of packets can not change its size.
+>>> Memory is statically allocated, no garbage collection. So DoS attack
+>>> can not exploit this cache to increase ovs memory footprint.
+>>
+>> An attacker can construct a packet sequence such that every mask cache
+>> lookup misses, making the cache effectively useless.
 > 
-> The problem is that there is no upper limit on the size userspace
-> can pass. Right now userspace can even force a machine to run out
-> of memory by forcing the kernel to allocate large chunks of memory.
-> 
-> To avoid imposing a limit, instead of allocating the entire block,
-> we can allocate just the size of the biggest frag possible and read
-> it from userspace one frag at a time.
-> 
-> Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
-> ---
-> 
->  ** WARNING: COMPLETELY UNTESTED ** (I don't have the hardware).
-> 
->  net/nfc/llcp_commands.c |   18 +++++++++---------
->  1 file changed, 9 insertions(+), 9 deletions(-)
-> 
-> diff --git a/net/nfc/llcp_commands.c b/net/nfc/llcp_commands.c
-> index a3ad69a..da68924 100644
-> --- a/net/nfc/llcp_commands.c
-> +++ b/net/nfc/llcp_commands.c
-> @@ -727,27 +727,27 @@ int nfc_llcp_send_ui_frame(struct nfc_llcp_sock *sock, u8 ssap, u8 dsap,
->  	if (local == NULL)
->  		return -ENODEV;
->  
-> -	msg_data = kzalloc(len, GFP_KERNEL);
-> +	remote_miu = sock->remote_miu > LLCP_MAX_MIU ?
-> +			local->remote_miu : sock->remote_miu;
-> +
-> +	msg_data = kzalloc(remote_miu, GFP_KERNEL);
->  	if (msg_data == NULL)
->  		return -ENOMEM;
->  
-> -	if (memcpy_fromiovec(msg_data, msg->msg_iov, len)) {
-> -		kfree(msg_data);
-> -		return -EFAULT;
-> -	}
-> -
->  	remaining_len = len;
->  	msg_ptr = msg_data;
->  
->  	do {
-> -		remote_miu = sock->remote_miu > LLCP_MAX_MIU ?
-> -				local->remote_miu : sock->remote_miu;
-> -
->  		frag_len = min_t(size_t, remote_miu, remaining_len);
->  
->  		pr_debug("Fragment %zd bytes remaining %zd",
->  			 frag_len, remaining_len);
->  
-> +		if (memcpy_fromiovec(msg_data, msg->msg_iov, frag_len)) {
-> +			kfree(msg_data);
-> +			return -EFAULT;
-> +		}
-> +
->  		pdu = nfc_alloc_send_skb(sock->dev, &sock->sk, MSG_DONTWAIT,
->  					 frag_len + LLCP_HEADER_SIZE, &err);
->  		if (pdu == NULL) {
-> 
+> Yes, but it does work in normal traffic situations.
+
+You're basically just reiterating the point I'm trying to make.
+
+Your caches are designed for specific configuration and packet traffic
+pattern cases, and can be easily duped into a worse case performance
+scenerio by an attacker.
+
+Caches, basically, do not work on the real internet.
+
+Make the fundamental core data structures fast and scalable enough,
+rather than bolting caches (which are basically hacks) on top every
+time they don't perform to your expectations.
+
+What if you made the full flow lookup fundamentally faster?  Then an
+attacker can't do anything about that.  That's a real performance
+improvement, one that sustains arbitrary traffic patterns.
