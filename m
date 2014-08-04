@@ -1,63 +1,69 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [ANNOUNCE] iproute2 3.16.0 release
-Date: Mon, 4 Aug 2014 12:56:49 -0700
-Message-ID: <20140804125649.49fcbf92@haswell.linuxnetplumber.net>
+From: Arend van Spriel <arend@broadcom.com>
+Subject: Re: [PATCH] brcmfmac: prevent watchdog from interfering with	scanning
+ and connecting
+Date: Mon, 4 Aug 2014 22:12:35 +0200
+Message-ID: <53DFE933.2080805@broadcom.com>
+References: <539E8559.3010601@linux.intel.com> <539EA79C.7010206@broadcom.com> <53A30F96.3010206@linux.intel.com> <53A311E4.301@broadcom.com> <53CCC44C.2070507@linux.intel.com> <53D124B3.7030807@linux.intel.com> <53DFB6A1.7040900@linux.intel.com> <20140804165202.GG30282@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "Fu, Zhonghui" <zhonghui.fu@linux.intel.com>,
+	<brudley@broadcom.com>, Franky Lin <frankyl@broadcom.com>,
+	<meuleman@broadcom.com>, <linville@tuxdriver.com>,
+	<pieterpg@broadcom.com>, <dekim@broadcom.com>,
+	<mcgrof@do-not-panic.com>, <antonio@open-mesh.com>,
+	<johannes.berg@intel.com>, <linux-wireless@vger.kernel.org>,
+	<brcm80211-dev-list@broadcom.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <linux-mmc@vger.kernel.org>
+To: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Return-path: <linux-mmc-owner@vger.kernel.org>
+In-Reply-To: <20140804165202.GG30282@n2100.arm.linux.org.uk>
+Sender: linux-mmc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Time for the release of iproute2 for 3.16.
+On 08/04/14 18:52, Russell King - ARM Linux wrote:
+> On Tue, Aug 05, 2014 at 12:36:49AM +0800, Fu, Zhonghui wrote:
+>> Hi, Arend
+>>
+>> I investigated this issue, and its root cause is still that sdio
+>> controller can't receive interrupts from WiFi chip on sdio bus when
+>> sdio controller is in runtime suspend status. I am running 3.16-rc5
+>> linux kernel on ASUS T100TA tablet, and using sdhci-acpi driver.
+>
+> That's the root cause.  I fixed this with the Freescale i.MX SD driver
+> which is now able to report pending SDIO interrupts while runtime PM
+> suspended.
+>
+> Other host drivers probably need fixing too, or having runtime PM
+> disabled on them - if you can't receive SDIO interrupts while runtime
+> PM suspended, then entering runtime PM while you have a SDIO device
+> attached is a bug.
+>
+> This is something for the MMC people to deal with rather than Arend.
 
-Source:
-  http://www.kernel.org/pub/linux/utils/net/iproute2/iproute2-3.16.0.tar.gz
+Occasionally, the itch is there to fix mmc code, but this looks a bit 
+tricky. The fun starts in sdio.c:mmc_attach_sdio():
 
-Repository:
-  git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
+	/*
+	 * Enable runtime PM only if supported by host+card+board
+	 */
+	if (host->caps & MMC_CAP_POWER_OFF_CARD) {
+		/*
+		 * Let runtime PM core know our card is active
+		 */
+		err = pm_runtime_set_active(&card->dev);
+		if (err)
+			goto remove;
 
-Report problems (or enhancements) to the netdev@vger.kernel.org mailing list.
+		/*
+		 * Enable runtime PM for this card
+		 */
+		pm_runtime_enable(&card->dev);
+	}
 
----
+The comment above the if statement seems to be stating the right idea, 
+but the code only looks at the host controller capability flags.
 
-Daniel Borkmann (1):
-      man: token: fix couple of typos
+Regards,
+Arend
 
-Dmitry Popov (1):
-      fix ip tunnel for vti tunnels with ikey
-
-Jamal Hadi Salim (1):
-      iproute2 bridge: bring to above par with brctl show macs
-
-Jay Vosburgh (1):
-      tc/netem: loss gemodel options fixes
-
-Masatake YAMATO (1):
-      ip: add nlmon as a device type to help message
-
-Rami Rosen (1):
-      iplink: macvtap: fix man page
-
-Roopa Prabhu (2):
-      bridge: Add master device name to bridge fdb show
-      link dump filter
-
-Stephen Hemminger (7):
-      Update to current net-next kernel headers
-      Merge branch 'net-next'
-      Update kernel headers to 3.16-rc5
-      ip: add paren to silence warning
-      ip: check for missing dev arg when doing VF rate
-      cleanup warnings
-      v3.16.0
-
-Sucheta Chakraborty (1):
-      Add support to configure SR-IOV VF minimum and maximum Tx rate through ip tool
-
-Vasily Averin (1):
-      ipnetns: fixed typo "seting" -> "setTing"
-
-vadimk (1):
-      ip: Added missing usage for netconf object
