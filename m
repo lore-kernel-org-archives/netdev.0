@@ -1,87 +1,209 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 00/12] dsa: support for Broadcom Starfighter 2
-Date: Tue,  5 Aug 2014 15:31:34 -0700
-Message-ID: <1407277906-19989-1-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 05/12] net: dsa: allow for more complex PHY setups
+Date: Tue,  5 Aug 2014 15:31:39 -0700
+Message-ID: <1407277906-19989-6-git-send-email-f.fainelli@gmail.com>
+References: <1407277906-19989-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, linville@tuxdriver.com,
 	Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:48236 "EHLO
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:40645 "EHLO
 	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752866AbaHEWcF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 18:32:05 -0400
-Received: by mail-pa0-f52.google.com with SMTP id bj1so2201102pad.39
-        for <netdev@vger.kernel.org>; Tue, 05 Aug 2014 15:32:04 -0700 (PDT)
+	with ESMTP id S1753805AbaHEWcL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 18:32:11 -0400
+Received: by mail-pa0-f52.google.com with SMTP id bj1so2201225pad.39
+        for <netdev@vger.kernel.org>; Tue, 05 Aug 2014 15:32:10 -0700 (PDT)
+In-Reply-To: <1407277906-19989-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+Modify the DSA slave interface to be bound to an arbitray PHY, not just
+the ones that are available as child PHY devices of the switch MDIO bus.
 
-This patch series adds support for the Broadcom Starfighter 2 (Roboswitch
-successor) using the existing DSA infrastructure. This integrated switch
-is heavily used in Set Top Box, Cable gateways and DSL gateways products
-from Broadcom, and to a larger extend the new ARM-based Wi-Fi routers although
-slightly differently.
+This allows us for instance to have external PHYs connected to a
+separate MDIO bus, but yet also connected to a given switch port.
 
-The biggest changes from v1 of this patch series are:
+Under certain configurations, the physical port mask might not be a 1:1
+mapping to the MII PHYs mask. This is the case, if e.g: Port 1 of the
+switch is used and connects to a PHY at a MDIO address different than 1.
 
-- use the new fixed PHY helpers
-- improved the switch driver with more complete features (interrupts,
-  (RG)MII configuration, memory arrays power down/up, port disabling/enable
-  VLAN separation
+Introduce a phys_mii_mask variable which allows driver to implement and
+divert their own MDIO read/writes operations for a subset of the MDIO
+PHY addresses.
 
-Future work will focus on bringing the upstream driver in feature parity with
-the current downstream driver, including:
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+Changes in v2:
+- introduce phys_mii_mask to allow switch drivers to divert MDIO operations
+  for some PHY addresses
 
-- adding Wake-on-LAN support to the switch
-- adding suspend/resume callbacks for S2/S3 Power Management modes
-- extending the switch register interface to cover BCM5310X SoCs
+- use the latest fixed PHY API
+- iron out non-OF setups
 
-Thanks!
+ include/net/dsa.h  |  1 +
+ net/dsa/dsa.c      |  5 ++++
+ net/dsa/dsa_priv.h |  4 +++
+ net/dsa/slave.c    | 76 +++++++++++++++++++++++++++++++++++++++++++++++++++---
+ 4 files changed, 83 insertions(+), 3 deletions(-)
 
-Florian Fainelli (12):
-  net: phy: add generic UniMAC MDIO bus driver
-  net: dsa: add Broadcom tag hook
-  net: dsa: provide a switch device device tree node pointer
-  net: dsa: retain a per-port device_node pointer
-  net: dsa: allow for more complex PHY setups
-  net: dsa: allow switches to work without tagging
-  net: dsa: allow drivers to do link adjustment
-  net: dsa: allow updating fixed PHY link information
-  net: dsa: add Broadcom tag RX/TX handler
-  net: dsa: add Broadcom SF2 switch driver
-  Documentation: devicetree: update dsa binding with optional properties
-  Documentation: devicetree: add Broadcom Starfighter 2 binding
-
- .../bindings/net/broadcom-mdio-unimac.txt          |  39 ++
- .../devicetree/bindings/net/broadcom-sf2.txt       |  78 +++
- Documentation/devicetree/bindings/net/dsa/dsa.txt  |  17 +
- drivers/net/dsa/Kconfig                            |  11 +
- drivers/net/dsa/Makefile                           |   1 +
- drivers/net/dsa/bcm_sf2.c                          | 626 +++++++++++++++++++++
- drivers/net/dsa/bcm_sf2.h                          | 139 +++++
- drivers/net/dsa/bcm_sf2_regs.h                     | 228 ++++++++
- drivers/net/phy/Kconfig                            |   6 +
- drivers/net/phy/Makefile                           |   1 +
- drivers/net/phy/mdio-bcm-unimac.c                  | 212 +++++++
- include/linux/netdevice.h                          |  10 +
- include/net/dsa.h                                  |  24 +
- include/uapi/linux/if_ether.h                      |   1 +
- net/dsa/Kconfig                                    |   3 +
- net/dsa/Makefile                                   |   1 +
- net/dsa/dsa.c                                      |  15 +
- net/dsa/dsa_priv.h                                 |   8 +
- net/dsa/slave.c                                    | 153 ++++-
- net/dsa/tag_brcm.c                                 | 170 ++++++
- net/ethernet/eth.c                                 |   2 +
- 21 files changed, 1738 insertions(+), 7 deletions(-)
- create mode 100644 Documentation/devicetree/bindings/net/broadcom-mdio-unimac.txt
- create mode 100644 Documentation/devicetree/bindings/net/broadcom-sf2.txt
- create mode 100644 drivers/net/dsa/bcm_sf2.c
- create mode 100644 drivers/net/dsa/bcm_sf2.h
- create mode 100644 drivers/net/dsa/bcm_sf2_regs.h
- create mode 100644 drivers/net/phy/mdio-bcm-unimac.c
- create mode 100644 net/dsa/tag_brcm.c
-
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index c435eaa772d5..35141155f368 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -127,6 +127,7 @@ struct dsa_switch {
+ 	 */
+ 	u32			dsa_port_mask;
+ 	u32			phys_port_mask;
++	u32			phys_mii_mask;
+ 	struct mii_bus		*slave_mii_bus;
+ 	struct net_device	*ports[DSA_MAX_PORTS];
+ };
+diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
+index 788b2b2f39f2..62f2f4e67d7d 100644
+--- a/net/dsa/dsa.c
++++ b/net/dsa/dsa.c
+@@ -144,6 +144,11 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
+ 		goto out;
+ 	}
+ 
++	/* Make the built-in MII bus mask match the number of ports,
++	 * switch drivers can override this later
++	 */
++	ds->phys_mii_mask = ds->phys_port_mask;
++
+ 	/*
+ 	 * If the CPU connects to this switch, set the switch tree
+ 	 * tagging protocol to the preferred tagging format of this
+diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
+index d4cf5cc747e3..a7f6f0c5fa31 100644
+--- a/net/dsa/dsa_priv.h
++++ b/net/dsa/dsa_priv.h
+@@ -33,6 +33,10 @@ struct dsa_slave_priv {
+ 	 * to this port.
+ 	 */
+ 	struct phy_device	*phy;
++	phy_interface_t		phy_interface;
++	int			old_link;
++	int			old_pause;
++	int			old_duplex;
+ };
+ 
+ /* dsa.c */
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 9e4d3816c54e..b4b6d457bfd0 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -12,6 +12,8 @@
+ #include <linux/netdevice.h>
+ #include <linux/etherdevice.h>
+ #include <linux/phy.h>
++#include <linux/of_net.h>
++#include <linux/of_mdio.h>
+ #include "dsa_priv.h"
+ 
+ /* slave mii_bus handling ***************************************************/
+@@ -19,7 +21,7 @@ static int dsa_slave_phy_read(struct mii_bus *bus, int addr, int reg)
+ {
+ 	struct dsa_switch *ds = bus->priv;
+ 
+-	if (ds->phys_port_mask & (1 << addr))
++	if (ds->phys_mii_mask & (1 << addr))
+ 		return ds->drv->phy_read(ds, addr, reg);
+ 
+ 	return 0xffff;
+@@ -29,7 +31,7 @@ static int dsa_slave_phy_write(struct mii_bus *bus, int addr, int reg, u16 val)
+ {
+ 	struct dsa_switch *ds = bus->priv;
+ 
+-	if (ds->phys_port_mask & (1 << addr))
++	if (ds->phys_mii_mask & (1 << addr))
+ 		return ds->drv->phy_write(ds, addr, reg, val);
+ 
+ 	return 0;
+@@ -330,7 +332,70 @@ static const struct net_device_ops trailer_netdev_ops = {
+ };
+ #endif
+ 
++static void dsa_slave_adjust_link(struct net_device *dev)
++{
++	struct dsa_slave_priv *p = netdev_priv(dev);
++	unsigned int status_changed = 0;
++
++	if (p->old_link != p->phy->link) {
++		status_changed = 1;
++		p->old_link = p->phy->link;
++	}
++
++	if (p->old_duplex != p->phy->duplex) {
++		status_changed = 1;
++		p->old_duplex = p->phy->duplex;
++	}
++
++	if (p->old_pause != p->phy->pause) {
++		status_changed = 1;
++		p->old_pause = p->phy->pause;
++	}
++
++	if (status_changed)
++		phy_print_status(p->phy);
++}
++
+ /* slave device setup *******************************************************/
++static void dsa_slave_phy_setup(struct dsa_slave_priv *p,
++				struct net_device *slave_dev)
++{
++	struct dsa_switch *ds = p->parent;
++	struct dsa_chip_data *cd = ds->pd;
++	struct device_node *phy_dn, *port_dn;
++	int ret;
++
++	port_dn = cd->port_dn[p->port];
++	p->phy_interface = of_get_phy_mode(port_dn);
++
++	phy_dn = of_parse_phandle(port_dn, "phy-handle", 0);
++	if (of_phy_is_fixed_link(port_dn)) {
++		/* In the case of a fixed PHY, the DT node associated
++		 * to the fixed PHY is the Port DT node
++		 */
++		ret = of_phy_register_fixed_link(port_dn);
++		if (ret) {
++			pr_err("failed to register fixed PHY\n");
++			return;
++		}
++		phy_dn = port_dn;
++	}
++
++	if (phy_dn)
++		p->phy = of_phy_connect(slave_dev, phy_dn,
++					dsa_slave_adjust_link, 0,
++					p->phy_interface);
++
++	/* We could not connect to a designated PHY, so use the switch internal
++	 * MDIO bus instead
++	 */
++	if (!p->phy)
++		p->phy = ds->slave_mii_bus->phy_map[p->port];
++	else
++		pr_info("attached PHY at address %d [%s]\n",
++			p->phy->addr, p->phy->drv->name);
++}
++
+ struct net_device *
+ dsa_slave_create(struct dsa_switch *ds, struct device *parent,
+ 		 int port, char *name)
+@@ -378,7 +443,12 @@ dsa_slave_create(struct dsa_switch *ds, struct device *parent,
+ 	p->dev = slave_dev;
+ 	p->parent = ds;
+ 	p->port = port;
+-	p->phy = ds->slave_mii_bus->phy_map[port];
++
++	p->old_pause = -1;
++	p->old_link = -1;
++	p->old_duplex = -1;
++
++	dsa_slave_phy_setup(p, slave_dev);
+ 
+ 	ret = register_netdev(slave_dev);
+ 	if (ret) {
 -- 
 1.9.1
