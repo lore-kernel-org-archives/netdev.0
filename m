@@ -1,66 +1,80 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH v3 1/2] rcar_can: document device tree bindings
-Date: Tue, 05 Aug 2014 08:15:43 +0200
-Message-ID: <53E0768F.8030406@pengutronix.de>
-References: <201408010124.26505.sergei.shtylyov@cogentembedded.com> <53DAB5CF.8000407@pengutronix.de> <53DFC0CE.4050602@cogentembedded.com>
+From: "Zhangjie (HZ)" <zhangjie14@huawei.com>
+Subject: Re: Query: Is it possible  to lose interrupts between vhost and virtio_net
+ during migration?
+Date: Tue, 5 Aug 2014 14:29:28 +0800
+Message-ID: <53E079C8.7050700@huawei.com>
+References: <53DA2CCC.1040606@huawei.com> <20140731143100.GA3834@redhat.com> <20140731143725.GA3875@redhat.com> <53DB705F.2000405@redhat.com> <53DB76A9.8010305@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="xn8EFqBR5OMu8Sj3dp8lr4UR5M4vTQgkG"
-Cc: netdev@vger.kernel.org, wg@grandegger.com,
-	linux-can@vger.kernel.org, linux-sh@vger.kernel.org,
-	vksavl@gmail.com
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	devicetree@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <53DFC0CE.4050602@cogentembedded.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <qinchuanyu@huawei.com>,
+	<liuyongan@huawei.com>, <davem@davemloft.net>
+To: Jason Wang <jasowang@redhat.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:39692 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755920AbaHEGcb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 02:32:31 -0400
+In-Reply-To: <53DB76A9.8010305@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---xn8EFqBR5OMu8Sj3dp8lr4UR5M4vTQgkG
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Jason is right, the new order is not the cause of network unreachable.
+Changing order seems not work. After about 40 times, the problem occurs again.
+Maybe there is other hidden reasons for that.
 
-On 08/04/2014 07:20 PM, Sergei Shtylyov wrote:
-> Hello.
->=20
-> On 08/01/2014 01:31 AM, Marc Kleine-Budde wrote:
->=20
->>> Document the R-Car CAN device tree bindings.
->=20
->>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
->=20
->> The series looks good from the CAN perpective. I'll apply the patches
->> after we've got an Acked-by from the DT folks.
->=20
->    How about the prior CAN clock support patch?
+On 2014/8/1 19:14, Jason Wang wrote:
+> On 08/01/2014 06:47 PM, Jason Wang wrote:
+>> On 07/31/2014 10:37 PM, Michael S. Tsirkin wrote:
+>>>> On Thu, Jul 31, 2014 at 04:31:00PM +0200, Michael S. Tsirkin wrote:
+>>>>>>>> On Thu, Jul 31, 2014 at 07:47:24PM +0800, Zhangjie (HZ) wrote:
+>>>>>>>>>>>> [The test scenario]:
+>>>>>>>>>>>>
+>>>>>>>>>>>> Doing migration between two Hosts roundly(A->B, B->A) ,after about 20 times, network of the VM is unreachable.
+>>>>>>>>>>>> There are other 20 VMs in each Host, and they send ipv4 or ipv6 and multicast packets to each other.
+>>>>>>>>>>>> Sometimes the CPU idle of the Host maybe 0;
+>>>>>>>>>>>>
+>>>>>>>>>>>> [Problem description]:
+>>>>>>>>>>>>
+>>>>>>>>>>>> I wonder if it was interrupts missing that cause the network unreachable.
+>>>>>>>>>>>> In the migration process of kvm, source end should suspend, which include steps as follows:
+>>>>>>>>>>>> 1.	do_vm_stop->pause_all_vcpus
+>>>>>>>>>>>> 2.	vm_state_notify-> vhost_net_stop->set_guest_notifiers->kvm_virtio_pci_vq_vector_release
+>>>>>>>>>>>> 3.	vm_state_notify-> vhost_net_stop-> vhost_net_stop_one->OST_NET_SET_BACKEND-> vhost_net_flush_vq-> vhost_work_flush
+>>>>>>>>>>>> This may cause interrupts missing. Supose the scene that, virtqueue_notify() is called in virtio_net,
+>>>>>>>>>>>> then the VM is paused. And, just before the portiowrite being handled, eventfd of kvm is released.
+>>>>>>>>>>>> Then, vhost could not sense the notify, and the tx notify is lost.
+>>>>>>>>>>>> On the other side, if eventfd of kvm is released just after vhost_notify(), and before eventfd_signal(), then rx signal by vhost is lost.
+>>>>>>>>
+>>>>>>>> Could be a bug in userspace: should should cleanups notifiers
+>>>>>>>> after it stops vhost.
+>>>>>>>>
+>>>>>>>> Could you please send this to appropriate mailing lists?
+>>>>>>>> I have a policy against off-list discussions.
+>>>> Also, Jason, could you take a look please?
+>>>> Looks like your patch a9f98bb5ebe6fb1869321dcc58e72041ae626ad8
+>>>> changed the order of stopping the device.
+>>>> Previously vhost_dev_stop would disable backend and only afterwards,
+>>>> unset guest notifiers.  You now unset guest notifiers while vhost is still
+>>>> active. Looks like this can lose events?
+>> Not sure it will really cause the issue. Since during guest notifier
+>> deassign in virtio_queue_set_guest_notifier_fd_handler() it will test
+>> the notifier and trigger callback if set. Looks like this can guarantee
+>> the interrupt was not lost.
+> 
+> More thought on this, looks like it was still a window between guest
+> notifiers disabling and vhost_net stopping.
+> 
+> Please Zhang Jie test the patch of changing its order and if it works,
+> sends a formal patch to qemu-devel.
+> 
+> btw, vhost_scsi may need the fix as well since it may meet the same issue.
+> 
+> Thanks
+> .
+> 
 
-That looks good, too.
-
-Marc
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---xn8EFqBR5OMu8Sj3dp8lr4UR5M4vTQgkG
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-Comment: Using GnuPG with Icedove - http://www.enigmail.net/
-
-iEYEARECAAYFAlPgdo8ACgkQjTAFq1RaXHNdOACfXuSAf+fJj41EgZ/2jJLn4/O3
-ANoAn2/h1ZSLnl326pdZm1QK5jBvaduT
-=ZqsA
------END PGP SIGNATURE-----
-
---xn8EFqBR5OMu8Sj3dp8lr4UR5M4vTQgkG--
+-- 
+Best Wishes!
+Zhang Jie
