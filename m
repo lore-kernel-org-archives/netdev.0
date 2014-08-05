@@ -1,312 +1,114 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 09/12] net: dsa: add Broadcom tag RX/TX handler
-Date: Tue,  5 Aug 2014 15:31:43 -0700
-Message-ID: <1407277906-19989-10-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 12/12] Documentation: devicetree: add Broadcom Starfighter 2 binding
+Date: Tue,  5 Aug 2014 15:31:46 -0700
+Message-ID: <1407277906-19989-13-git-send-email-f.fainelli@gmail.com>
 References: <1407277906-19989-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, linville@tuxdriver.com,
 	Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:33692 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753990AbaHEWcQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 18:32:16 -0400
-Received: by mail-pd0-f173.google.com with SMTP id w10so2087550pde.18
-        for <netdev@vger.kernel.org>; Tue, 05 Aug 2014 15:32:15 -0700 (PDT)
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:57120 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753322AbaHEWcT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 18:32:19 -0400
+Received: by mail-pd0-f174.google.com with SMTP id fp1so2092245pdb.33
+        for <netdev@vger.kernel.org>; Tue, 05 Aug 2014 15:32:19 -0700 (PDT)
 In-Reply-To: <1407277906-19989-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for the 4-bytes Broadcom tag that built-in switches such as
-the Starfighter 2 might insert when receiving packets, or that we need
-to insert while targetting specific switch ports.
+Add the binding documentation for the Broadcom Starfighter 2 integrated
+switch hardware.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- net/dsa/Kconfig    |   3 +
- net/dsa/Makefile   |   1 +
- net/dsa/dsa.c      |   6 ++
- net/dsa/dsa_priv.h |   4 ++
- net/dsa/slave.c    |  17 ++++++
- net/dsa/tag_brcm.c | 171 +++++++++++++++++++++++++++++++++++++++++++++++++++++
- 6 files changed, 202 insertions(+)
- create mode 100644 net/dsa/tag_brcm.c
+ .../devicetree/bindings/net/broadcom-sf2.txt       | 78 ++++++++++++++++++++++
+ 1 file changed, 78 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/broadcom-sf2.txt
 
-diff --git a/net/dsa/Kconfig b/net/dsa/Kconfig
-index f5eede1d6cb8..a585fd6352eb 100644
---- a/net/dsa/Kconfig
-+++ b/net/dsa/Kconfig
-@@ -12,6 +12,9 @@ config NET_DSA
- if NET_DSA
- 
- # tagging formats
-+config NET_DSA_TAG_BRCM
-+	bool
-+
- config NET_DSA_TAG_DSA
- 	bool
- 
-diff --git a/net/dsa/Makefile b/net/dsa/Makefile
-index 7b9fcbbeda5d..da06ed1df620 100644
---- a/net/dsa/Makefile
-+++ b/net/dsa/Makefile
-@@ -3,6 +3,7 @@ obj-$(CONFIG_NET_DSA) += dsa_core.o
- dsa_core-y += dsa.o slave.o
- 
- # tagging formats
-+dsa_core-$(CONFIG_NET_DSA_TAG_BRCM) += tag_brcm.o
- dsa_core-$(CONFIG_NET_DSA_TAG_DSA) += tag_dsa.o
- dsa_core-$(CONFIG_NET_DSA_TAG_EDSA) += tag_edsa.o
- dsa_core-$(CONFIG_NET_DSA_TAG_TRAILER) += tag_trailer.o
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 62f2f4e67d7d..cd33ddf6ff4f 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -650,6 +650,9 @@ static int __init dsa_init_module(void)
- #ifdef CONFIG_NET_DSA_TAG_TRAILER
- 	dev_add_pack(&trailer_packet_type);
- #endif
-+#ifdef CONFIG_NET_DSA_TAG_BRCM
-+	dev_add_pack(&brcm_tag_packet_type);
-+#endif
- 	return 0;
- }
- module_init(dsa_init_module);
-@@ -665,6 +668,9 @@ static void __exit dsa_cleanup_module(void)
- #ifdef CONFIG_NET_DSA_TAG_DSA
- 	dev_remove_pack(&dsa_packet_type);
- #endif
-+#ifdef CONFIG_NET_DSA_TAG_BRCM
-+	dev_remove_pack(&brcm_tag_packet_type);
-+#endif
- 	platform_driver_unregister(&dsa_driver);
- }
- module_exit(dsa_cleanup_module);
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index a7f6f0c5fa31..8fb71da70dd6 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -60,5 +60,9 @@ extern struct packet_type edsa_packet_type;
- netdev_tx_t trailer_xmit(struct sk_buff *skb, struct net_device *dev);
- extern struct packet_type trailer_packet_type;
- 
-+/* tag_brcm.c */
-+netdev_tx_t brcm_tag_xmit(struct sk_buff *skb, struct net_device *dev);
-+extern struct packet_type brcm_tag_packet_type;
-+
- 
- #endif
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 129eadf3a657..d86309271446 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -295,6 +295,18 @@ static const struct ethtool_ops dsa_slave_ethtool_ops = {
- 	.get_sset_count		= dsa_slave_get_sset_count,
- };
- 
-+#ifdef CONFIG_NET_DSA_TAG_BRCM
-+static const struct net_device_ops brcm_netdev_ops = {
-+	.ndo_init		= dsa_slave_init,
-+	.ndo_open		= dsa_slave_open,
-+	.ndo_stop		= dsa_slave_close,
-+	.ndo_start_xmit		= brcm_tag_xmit,
-+	.ndo_change_rx_flags	= dsa_slave_change_rx_flags,
-+	.ndo_set_rx_mode	= dsa_slave_set_rx_mode,
-+	.ndo_set_mac_address	= dsa_slave_set_mac_address,
-+	.ndo_do_ioctl		= dsa_slave_ioctl,
-+};
-+#endif
- #ifdef CONFIG_NET_DSA_TAG_DSA
- static const struct net_device_ops dsa_netdev_ops = {
- 	.ndo_init		= dsa_slave_init,
-@@ -474,6 +486,11 @@ dsa_slave_create(struct dsa_switch *ds, struct device *parent,
- 		slave_dev->netdev_ops = &trailer_netdev_ops;
- 		break;
- #endif
-+#ifdef CONFIG_NET_DSA_TAG_BRCM
-+	case htons(ETH_P_BRCMTAG):
-+		slave_dev->netdev_ops = &brcm_netdev_ops;
-+		break;
-+#endif
- 	default:
- 		slave_dev->netdev_ops = &dummy_netdev_ops;
- 		break;
-diff --git a/net/dsa/tag_brcm.c b/net/dsa/tag_brcm.c
+diff --git a/Documentation/devicetree/bindings/net/broadcom-sf2.txt b/Documentation/devicetree/bindings/net/broadcom-sf2.txt
 new file mode 100644
-index 000000000000..a75cd427250d
+index 000000000000..30d487597ecb
 --- /dev/null
-+++ b/net/dsa/tag_brcm.c
-@@ -0,0 +1,171 @@
-+/*
-+ * Broadcom tag support
-+ *
-+ * Copyright (C) 2014 Broadcom Corporation
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License as published by
-+ * the Free Software Foundation; either version 2 of the License, or
-+ * (at your option) any later version.
-+ */
++++ b/Documentation/devicetree/bindings/net/broadcom-sf2.txt
+@@ -0,0 +1,78 @@
++* Broadcom Starfighter 2 integrated swich
 +
-+#include <linux/etherdevice.h>
-+#include <linux/list.h>
-+#include <linux/netdevice.h>
-+#include <linux/slab.h>
-+#include "dsa_priv.h"
++Required properties:
 +
-+/* This tag length is 4 bytes, older ones were 6 bytes, we do not
-+ * handle them
-+ */
-+#define BRCM_TAG_LEN	4
++- compatible: should be "brcm,bcm7445-switch-v4.0"
++- reg: addresses and length of the register sets for the device, must be 6
++  pairs of register addresses and lengths
++- interrupts: interrupts for the devices, must be two interrupts
++- dsa,mii-bus: phandle to the MDIO bus controller, see dsa/dsa.txt
++- dsa,ethernet: phandle to the CPU network interface controller, see dsa/dsa.txt
++- #size-cells: must be 0
++- #address-cells: must be 2, see dsa/dsa.txt
 +
-+/* Tag is constructed and desconstructed using byte by byte access
-+ * because the tag is placed after the MAC Source Address, which does
-+ * not make it 4-bytes aligned, so this might cause unaligned accesses
-+ * on most systems where this is used.
-+ */
++Subnodes:
 +
-+/* Ingress and egress opcodes */
-+#define BRCM_OPCODE_SHIFT	5
-+#define BRCM_OPCODE_MASK	0x7
++The integrated switch subnode should be specified according to the binding
++described in dsa/dsa.txt.
 +
-+/* Ingress fields */
-+/* 1st byte in the tag */
-+#define BRCM_IG_TC_SHIFT	2
-+#define BRCM_IG_TC_MASK		0x7
-+/* 2nd byte in the tag */
-+#define BRCM_IG_TE_MASK		0x3
-+#define BRCM_IG_TS_SHIFT	7
-+/* 3rd byte in the tag */
-+#define BRCM_IG_DSTMAP2_MASK	1
-+#define BRCM_IG_DSTMAP1_MASK	0xff
++Optional properties:
 +
-+/* Egress fields */
++- reg-names: litteral names for the device base register addresses, when present
++  must be: "core", "reg", "intrl2_0", "intrl2_1", "fcb", "acb"
 +
-+/* 2nd byte in the tag */
-+#define BRCM_EG_CID_MASK	0xff
++- interrupt-names: litternal names for the device interrupt lines, when present
++  must be: "switch_0" and "switch_1"
 +
-+/* 3rd byte in the tag */
-+#define BRCM_EG_RC_MASK		0xff
-+#define  BRCM_EG_RC_RSVD	(3 << 6)
-+#define  BRCM_EG_RC_EXCEPTION	(1 << 5)
-+#define  BRCM_EG_RC_PROT_SNOOP	(1 << 4)
-+#define  BRCM_EG_RC_PROT_TERM	(1 << 3)
-+#define  BRCM_EG_RC_SWITCH	(1 << 2)
-+#define  BRCM_EG_RC_MAC_LEARN	(1 << 1)
-+#define  BRCM_EG_RC_MIRROR	(1 << 0)
-+#define BRCM_EG_TC_SHIFT	5
-+#define BRCM_EG_TC_MASK		0x7
-+#define BRCM_EG_PID_MASK	0x1f
++- brcm,num-gphy: specify the maximum number of integrated gigabit PHYs in the
++  switch
 +
-+netdev_tx_t brcm_tag_xmit(struct sk_buff *skb, struct net_device *dev)
-+{
-+	struct dsa_slave_priv *p = netdev_priv(dev);
-+	u8 *brcm_tag;
++- brcm,num-rgmii-ports: specify the maximum number of RGMII interfaces supported
++  by the switch
 +
-+	dev->stats.tx_packets++;
-+	dev->stats.tx_bytes += skb->len;
++- brcm,fcb-pause-override: boolean property, if present indicates that the switch
++  supports Failover Control Block pause override capability
 +
-+	if (skb_cow_head(skb, BRCM_TAG_LEN) < 0)
-+		goto out_free;
++- brcm,acb-packets-inflight: boolean property, if present indicates that the switch
++  Admission Control Block supports reporting the number of packets in-flight in a
++  switch queue
 +
-+	skb_push(skb, BRCM_TAG_LEN);
++Example:
 +
-+	memmove(skb->data, skb->data + BRCM_TAG_LEN, 2 * ETH_ALEN);
++switch_top@f0b00000 {
++	compatible = "simple-bus";
++	#size-cells = <1>;
++	#address-cells = <1>;
++	ranges = <0 0xf0b00000 0x40804>;
 +
-+	/* Build the tag after the MAC Source Address */
-+	brcm_tag = skb->data + 2 * ETH_ALEN;
++	ethernet_switch@0 {
++		compatible = "brcm,bcm7445-switch-v4.0";
++		#size-cells = <0>;
++		#address-cells = <2>;
++		reg = <0x0 0x40000
++			0x40000 0x110
++			0x40340 0x30
++			0x40380 0x30
++			0x40400 0x34
++			0x40600 0x208>;
++		interrupts = <0 0x18 0
++				0 0x19 0>;
++		brcm,num-gphy = <1>;
++		brcm,num-rgmii-ports = <2>;
++		brcm,fcb-pause-override;
++		brcm,acb-packets-inflight;
 +
-+	/* Set the ingress opcode, traffic class, tag enforcment is
-+	 * deprecated
-+	 */
-+	brcm_tag[0] = (1 << BRCM_OPCODE_SHIFT) |
-+			((skb->priority << BRCM_IG_TC_SHIFT) & BRCM_IG_TC_MASK);
-+	brcm_tag[1] = 0;
-+	brcm_tag[2] = 0;
-+	if (p->port == 8)
-+		brcm_tag[2] = BRCM_IG_DSTMAP2_MASK;
-+	brcm_tag[3] = (1 << p->port) & BRCM_IG_DSTMAP1_MASK;
++		...
++		switch@0 {
++			reg = <0 0>;
++			#size-cells = <0>;
++			#address-cells <1>;
 +
-+	/* Queue the SKB for transmission on the parent interface, but
-+	 * do not modify its EtherType
-+	 */
-+	skb->protocol = htons(ETH_P_BRCMTAG);
-+	skb->dev = p->parent->dst->master_netdev;
-+	dev_queue_xmit(skb);
-+
-+	return NETDEV_TX_OK;
-+
-+out_free:
-+	kfree_skb(skb);
-+	return NETDEV_TX_OK;
-+}
-+
-+static int brcm_tag_rcv(struct sk_buff *skb, struct net_device *dev,
-+			struct packet_type *pt, struct net_device *orig_dev)
-+{
-+	struct dsa_switch_tree *dst = dev->dsa_ptr;
-+	struct dsa_switch *ds = dst->ds[0];
-+	int source_port;
-+	u8 *brcm_tag;
-+
-+	if (unlikely(dst == NULL))
-+		goto out_drop;
-+
-+	skb = skb_unshare(skb, GFP_ATOMIC);
-+	if (skb == NULL)
-+		goto out;
-+
-+	if (unlikely(!pskb_may_pull(skb, BRCM_TAG_LEN)))
-+		goto out_drop;
-+
-+	/* skb->data points to the EtherType, the tag is right before it */
-+	brcm_tag = skb->data - 2;
-+
-+	/* The opcode should never be different than 0b000 */
-+	if (unlikely((brcm_tag[0] >> BRCM_OPCODE_SHIFT) & BRCM_OPCODE_MASK))
-+		goto out_drop;
-+
-+	/* We should never see a reserved reason code without knowing how to
-+	 * handle it
-+	 */
-+	WARN_ON(brcm_tag[2] & BRCM_EG_RC_RSVD);
-+
-+	/* Locate which port this is coming from */
-+	source_port = brcm_tag[3] & BRCM_EG_PID_MASK;
-+
-+	/* Validate port against switch setup, either the port is totally */
-+	if (source_port >= DSA_MAX_PORTS || ds->ports[source_port] == NULL)
-+		goto out_drop;
-+
-+	/* Remove Broadcom tag and update checksum */
-+	skb_pull_rcsum(skb, BRCM_TAG_LEN);
-+
-+	/* Move the Ethernet DA and SA */
-+	memmove(skb->data - ETH_HLEN,
-+		skb->data - ETH_HLEN - BRCM_TAG_LEN,
-+		2 * ETH_ALEN);
-+
-+	skb_push(skb, ETH_HLEN);
-+	skb->pkt_type = PACKET_HOST;
-+	skb->dev = ds->ports[source_port];
-+	skb->protocol = eth_type_trans(skb, skb->dev);
-+
-+	skb->dev->stats.rx_packets++;
-+	skb->dev->stats.rx_bytes += skb->len;
-+
-+	netif_receive_skb(skb);
-+
-+	return 0;
-+
-+out_drop:
-+	kfree_skb(skb);
-+out:
-+	return 0;
-+}
-+
-+struct packet_type brcm_tag_packet_type __read_mostly = {
-+	.type	= cpu_to_be16(ETH_P_BRCMTAG),
-+	.func	= brcm_tag_rcv,
++			port@0 {
++				label = "gphy";
++				reg = <0>;
++			};
++			...
++		};
++	};
 +};
 -- 
 1.9.1
