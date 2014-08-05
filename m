@@ -1,29 +1,54 @@
-From: beautyy443 <beautyy443mmmmmmmmmm@libero.it>
-Subject: Hello
-Date: Tue, 5 Aug 2014 18:43:33 +0200 (CEST)
-Message-ID: <5698226.988401407257013347.JavaMail.defaultUser@defaultHost>
-Reply-To: mirabeljohnson49@yahoo.com
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Subject: Re: [PATCH net-next 1/2] amd-xgbe: Use dma_set_mask_and_coherent
+ to set DMA mask
+Date: Tue, 5 Aug 2014 13:15:00 -0500
+Message-ID: <53E11F24.9070204@amd.com>
+References: <20140805162113.28088.67523.stgit@tlendack-t1.amdoffice.net>
+ <20140805162119.28088.36709.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
-Content-Type: text/plain;charset="UTF-8"
+Content-Type: text/plain; charset="UTF-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-To: unlisted-recipients:; (no To-header on input)
+Cc: <davem@davemloft.net>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from outrelay02.libero.it ([212.52.84.102]:44696 "EHLO
-	outrelay02.libero.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755636AbaHEQoI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 12:44:08 -0400
+Received: from mail-by2lp0237.outbound.protection.outlook.com ([207.46.163.237]:37920
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753604AbaHESPU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Aug 2014 14:15:20 -0400
+In-Reply-To: <20140805162119.28088.36709.stgit@tlendack-t1.amdoffice.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello
-My name is Mirabel Johnson
-i saw your profile today and became interested in you,i will also like to know 
-you the more,and i want you to send an email to my email address so i can give 
-you my picture for you to know whom i am.Here is my email address 
-(mirabeljohnson49@yahoo.com)
-I believe we can move from here!I am waiting for your mail to my email address 
-above.
-Mirabel.
-please contact me here (mirabeljohnson49@yahoo.com)
-(Remember the distance or colour does not matter but love matters a lot in 
-life)
+On 08/05/2014 11:21 AM, Tom Lendacky wrote:
+> Use the dma_set_mask_and_coherent function to set the DMA mask rather
+> than setting the DMA mask fields directly.  This was originally done
+> to work around a bug in the arm64 DMA support when RAM started above
+> the 4GB boundary which has since been fixed.
+>
+> Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
+> ---
+>   drivers/net/ethernet/amd/xgbe/xgbe-main.c |    3 +--
+>   1 file changed, 1 insertion(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-main.c b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
+> index ec977d3..9991bc7 100644
+> --- a/drivers/net/ethernet/amd/xgbe/xgbe-main.c
+> +++ b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
+> @@ -303,8 +303,7 @@ static int xgbe_probe(struct platform_device *pdev)
+>   	/* Set the DMA mask */
+>   	if (!dev->dma_mask)
+>   		dev->dma_mask = &dev->coherent_dma_mask;
+> -	*(dev->dma_mask) = DMA_BIT_MASK(40);
+> -	dev->coherent_dma_mask = DMA_BIT_MASK(40);
+> +	dma_set_mask_and_coherent(dev, DMA_BIT_MASK(40));
+
+Forgot to check the return value of this call, v2 to follow.
+
+Thanks,
+Tom
+
+>
+>   	if (of_property_read_bool(dev->of_node, "dma-coherent")) {
+>   		pdata->axdomain = XGBE_DMA_OS_AXDOMAIN;
+>
