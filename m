@@ -1,85 +1,87 @@
-From: "Fu, Zhonghui" <zhonghui.fu-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
-Subject: Re: [PATCH] brcmfmac: prevent watchdog from interfering with	scanning
- and connecting
-Date: Tue, 05 Aug 2014 13:42:11 +0800
-Message-ID: <53E06EB3.4000507@linux.intel.com>
-References: <539E8559.3010601@linux.intel.com> <539EA79C.7010206@broadcom.com> <53A30F96.3010206@linux.intel.com> <53A311E4.301@broadcom.com> <53CCC44C.2070507@linux.intel.com> <53D124B3.7030807@linux.intel.com> <53DFB6A1.7040900@linux.intel.com> <20140804165202.GG30282@n2100.arm.linux.org.uk> <53DFE933.2080805@broadcom.com>
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next 2/3] netlink: Convert
+ netlink_lookup() to use RCU protected hash table
+Date: Tue, 05 Aug 2014 07:50:07 +0200
+Message-ID: <1407217807.3178.70.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <cover.1406971567.git.tgraf@suug.ch>
+ <a0370889bd1b1bdf097f74df7017d39ae845c12e.1406971567.git.tgraf@suug.ch>
+ <53E03D0B.3000208@oracle.com>
+ <20140804.195841.536725238366145203.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, Franky Lin <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
-	pieterpg-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, dekim-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, mcgrof-3uybbJdB1yH774rrrx3eTA@public.gmane.org,
-	antonio-2BnEqQcu77q1Z/+hSey0Gg@public.gmane.org, johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Russell King - ARM Linux <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <53DFE933.2080805-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, nikolay-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
+ walpole-sKt6ljEC1JY3uPMLIKxrzw@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20140804.195841.536725238366145203.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
+On Mon, 2014-08-04 at 19:58 -0700, David Miller wrote:
+> From: Sasha Levin <sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> Date: Mon, 04 Aug 2014 22:10:19 -0400
+> 
+> > On 08/02/2014 05:47 AM, Thomas Graf wrote:
+> >>  static void *netlink_seq_start(struct seq_file *seq, loff_t *pos)
+> >> -	__acquires(nl_table_lock)
+> >>  {
+> >> -	read_lock(&nl_table_lock);
+> >> +	rcu_read_lock();
+> >>  	return *pos ? netlink_seq_socket_idx(seq, *pos - 1) : SEQ_START_TOKEN;
+> >>  }
+> > 
+> > I'm not sure how you expect this code to work. You're replacing a local lock
+> > with a RCU critical section. Imagine you're doing spin_lock() and just going
+> > back to userspace.
+> > 
+> > It's quite easy to trigger this issue:
+> 
+> I think he expected the end of the seq sequence to drop the RCU lock,
+> via netlink_seq_stop().
+> --
 
-On 2014/8/5 4:12, Arend van Spriel wrote:
-> On 08/04/14 18:52, Russell King - ARM Linux wrote:
->> On Tue, Aug 05, 2014 at 12:36:49AM +0800, Fu, Zhonghui wrote:
->>> Hi, Arend
->>>
->>> I investigated this issue, and its root cause is still that sdio
->>> controller can't receive interrupts from WiFi chip on sdio bus when
->>> sdio controller is in runtime suspend status. I am running 3.16-rc5
->>> linux kernel on ASUS T100TA tablet, and using sdhci-acpi driver.
->>
->> That's the root cause.  I fixed this with the Freescale i.MX SD driver
->> which is now able to report pending SDIO interrupts while runtime PM
->> suspended.
->>
->> Other host drivers probably need fixing too, or having runtime PM
->> disabled on them - if you can't receive SDIO interrupts while runtime
->> PM suspended, then entering runtime PM while you have a SDIO device
->> attached is a bug.
->>
->> This is something for the MMC people to deal with rather than Arend.
->
-> Occasionally, the itch is there to fix mmc code, but this looks a bit tricky. The fun starts in sdio.c:mmc_attach_sdio():
->
->     /*
->      * Enable runtime PM only if supported by host+card+board
->      */
->     if (host->caps & MMC_CAP_POWER_OFF_CARD) {
->         /*
->          * Let runtime PM core know our card is active
->          */
->         err = pm_runtime_set_active(&card->dev);
->         if (err)
->             goto remove;
->
->         /*
->          * Enable runtime PM for this card
->          */
->         pm_runtime_enable(&card->dev);
->     }
->
-> The comment above the if statement seems to be stating the right idea, but the code only looks at the host controller capability flags.
+Yes, two places use rht_dereference() instead of rht_dereference_rcu()
 
-Yes, this code section is not implemented as its comments.
+[PATCH net-next] netlink: fix lockdep splats
 
-Thanks,
-Zhonghui
+With netlink_lookup() conversion to RCU, we need to use appropriate
+rcu dereference in netlink_seq_socket_idx() & netlink_seq_next()
 
->
-> Regards,
-> Arend
->
-> -- 
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Reported-by: Sasha Levin <sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Cc: 
+Fixes: e341694e3eb57fc ("netlink: Convert netlink_lookup() to use RCU protected hash table")
+---
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 0b89ca51a3af..479a344563d8 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -2899,7 +2899,7 @@ static struct sock *netlink_seq_socket_idx(struct seq_file *seq, loff_t pos)
+ 
+ 	for (i = 0; i < MAX_LINKS; i++) {
+ 		struct rhashtable *ht = &nl_table[i].hash;
+-		const struct bucket_table *tbl = rht_dereference(ht->tbl, ht);
++		const struct bucket_table *tbl = rht_dereference_rcu(ht->tbl, ht);
+ 
+ 		for (j = 0; j < tbl->size; j++) {
+ 			rht_for_each_entry_rcu(nlk, tbl->buckets[j], node) {
+@@ -2950,7 +2950,7 @@ static void *netlink_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ 
+ 	do {
+ 		struct rhashtable *ht = &nl_table[i].hash;
+-		const struct bucket_table *tbl = rht_dereference(ht->tbl, ht);
++		const struct bucket_table *tbl = rht_dereference_rcu(ht->tbl, ht);
+ 
+ 		for (; j < tbl->size; j++) {
+ 			rht_for_each_entry_rcu(nlk, tbl->buckets[j], node) {
