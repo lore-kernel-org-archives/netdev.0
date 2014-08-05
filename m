@@ -1,32 +1,30 @@
-From: Dave Jones <davej@redhat.com>
-Subject: BUG: using __this_cpu_add() in preemptible code (sctp)
-Date: Tue, 5 Aug 2014 09:41:15 -0400
-Message-ID: <20140805134115.GA25110@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] sctp: fix possible seqlock seadlock in
+ sctp_packet_transmit()
+Date: Tue, 05 Aug 2014 16:49:52 +0200
+Message-ID: <1407250192.3178.86.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140805134115.GA25110@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
+	linux-sctp@vger.kernel.org,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: Dave Jones <davej@redhat.com>, Vlad Yasevich <vyasevich@gmail.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:9945 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752020AbaHENlW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Aug 2014 09:41:22 -0400
-Received: from int-mx09.intmail.prod.int.phx2.redhat.com (int-mx09.intmail.prod.int.phx2.redhat.com [10.5.11.22])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s75DfMKI013906
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Tue, 5 Aug 2014 09:41:22 -0400
-Received: from gelk.kernelslacker.org (ovpn-113-45.phx2.redhat.com [10.3.113.45])
-	by int-mx09.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id s75DfGBE015085
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Tue, 5 Aug 2014 09:41:21 -0400
-Received: from gelk.kernelslacker.org (localhost [127.0.0.1])
-	by gelk.kernelslacker.org (8.14.8/8.14.7) with ESMTP id s75DfF48025116
-	for <netdev@vger.kernel.org>; Tue, 5 Aug 2014 09:41:15 -0400
-Received: (from davej@localhost)
-	by gelk.kernelslacker.org (8.14.8/8.14.8/Submit) id s75DfF3A025115
-	for netdev@vger.kernel.org; Tue, 5 Aug 2014 09:41:15 -0400
-Content-Disposition: inline
+Received: from mail-we0-f179.google.com ([74.125.82.179]:50371 "EHLO
+	mail-we0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751885AbaHEOt6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 10:49:58 -0400
+In-Reply-To: <20140805134115.GA25110@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+From: Eric Dumazet <edumazet@google.com>
+
+Dave reported following splat, caused by improper use of
+IP_INC_STATS_BH() in process context.
 
 BUG: using __this_cpu_add() in preemptible [00000000] code: trinity-c117/14551
 caller is __this_cpu_preempt_check+0x13/0x20
@@ -60,3 +58,28 @@ Call Trace:
  [<ffffffff9e0136b0>] ? syscall_trace_enter+0x250/0x330
  [<ffffffff9e68c3ce>] SyS_sendto+0xe/0x10
  [<ffffffff9e7f9be4>] tracesys+0xdd/0xe2
+
+This is a followup of commits f1d8cba61c3c4b ("inet: fix possible
+seqlock deadlocks") and 7f88c6b23afbd315 ("ipv6: fix possible seqlock
+deadlock in ip6_finish_output2")
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Reported-by: Dave Jones <davej@redhat.com>
+---
+ net/sctp/output.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/sctp/output.c b/net/sctp/output.c
+index 1eedba5195a3..42dffd428389 100644
+--- a/net/sctp/output.c
++++ b/net/sctp/output.c
+@@ -599,7 +599,7 @@ out:
+ 	return err;
+ no_route:
+ 	kfree_skb(nskb);
+-	IP_INC_STATS_BH(sock_net(asoc->base.sk), IPSTATS_MIB_OUTNOROUTES);
++	IP_INC_STATS(sock_net(asoc->base.sk), IPSTATS_MIB_OUTNOROUTES);
+ 
+ 	/* FIXME: Returning the 'err' will effect all the associations
+ 	 * associated with a socket, although only one of the paths of the
