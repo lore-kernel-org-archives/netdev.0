@@ -1,42 +1,32 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next v2 0/2] amd-xgbe: AMD XGBE driver update 2014-08-05
-Date: Tue, 5 Aug 2014 13:30:32 -0500
-Message-ID: <20140805183032.32561.85828.stgit@tlendack-t1.amdoffice.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] r8152: correct error returns
+Date: Tue, 05 Aug 2014 12:52:04 -0700 (PDT)
+Message-ID: <20140805.125204.500612433909991155.davem@davemloft.net>
+References: <1407049618.26893.8.camel@linux-fkkt.site>
+	<20140804.151827.179999106523102125.davem@davemloft.net>
+	<1407224584.12844.5.camel@linux-fkkt.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com
+To: oneukum@suse.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2lp0203.outbound.protection.outlook.com ([207.46.163.203]:5143
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756031AbaHESas (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Aug 2014 14:30:48 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:57749 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754087AbaHETwF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 15:52:05 -0400
+In-Reply-To: <1407224584.12844.5.camel@linux-fkkt.site>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The following series of patches includes fixes/updates to the driver.
+From: Oliver Neukum <oneukum@suse.de>
+Date: Tue, 05 Aug 2014 09:43:04 +0200
 
-- Use dma_set_mask_and_coherent to set the DMA mask
-- Move the phy connect/disconnect logic to allow for module unloading
+> On Mon, 2014-08-04 at 15:18 -0700, David Miller wrote:
+>> But of course, that doesn't handle the non-autopm code paths into the
+>> PM layer that can end up in this situation.
+> Hm. Are they numerous? Which did you find?
 
-This patch series is based on net-next.
-
-Changes in V2:
-- Check the return value of the dma_set_mask_and_coherent call
-
----
-
-Tom Lendacky (2):
-      amd-xgbe: Use dma_set_mask_and_coherent to set DMA mask
-      amd-xgbe: Perform phy connect/disconnect at dev open/stop
-
-
- drivers/net/ethernet/amd/xgbe/xgbe-drv.c  |  122 +++++++++++++++++++++++++++++
- drivers/net/ethernet/amd/xgbe/xgbe-main.c |    7 +-
- drivers/net/ethernet/amd/xgbe/xgbe-mdio.c |   98 -----------------------
- 3 files changed, 126 insertions(+), 101 deletions(-)
-
--- 
-Tom Lendacky
+I didn't find any specifically, I just know that there are other
+callers of that inner-most helper function so those paths need
+to be checked too.
