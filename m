@@ -1,84 +1,84 @@
-From: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH] net: sun4i-emac: fix memory leak on bad packet
-Date: Tue, 5 Aug 2014 23:07:04 +0200
-Message-ID: <20140805210704.GG2019@lukather>
-References: <1407253479-30076-1-git-send-email-marc.zyngier@arm.com>
-Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH net-next 1/1] net: reduce USB network driver config options.
+Date: Tue, 5 Aug 2014 23:10:52 +0200
+Message-ID: <20140805211052.GA29600@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="YH9Qf6Fh2G5kB/85"
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org,
-	Stefan Roese <sr-ynQEQJNshbs@public.gmane.org>
-To: Marc Zyngier <marc.zyngier-5wv7dgnIgG8@public.gmane.org>
-Return-path: <linux-sunxi+bncBD2ZNBF5VYJRBKUQQWPQKGQERQFRCIY-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1407253479-30076-1-git-send-email-marc.zyngier-5wv7dgnIgG8@public.gmane.org>
-List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <http://groups.google.com/group/linux-sunxi
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <http://groups.google.com/group/linux-sunxi/subscribe>
-List-Id: netdev.vger.kernel.org
-
-
---YH9Qf6Fh2G5kB/85
 Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, linux-usb@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:43094 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752020AbaHEVK6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 17:10:58 -0400
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 05, 2014 at 04:44:39PM +0100, Marc Zyngier wrote:
-> Upon reception of a new frame, the emac driver checks for a number
-> of error conditions, and flag the packet as "bad" if any of these
-> are present. It then allocates a skb unconditionally, but only uses
-> it if the packet is "good". On the error path, the skb is just forgotten,
-> and the system leaks memory.
->=20
-> The piece of junk I have on my desk seems to encounter such error
-> frequently enough so that the box goes OOM after a couple of days,
-> which makes me grumpy.
->=20
-> Fix this by moving the allocation on the "good_packet" path (and
-> convert it to netdev_alloc_skb while we're at it).
->=20
-> Tested on a random Allwinner A20 board.
->=20
-> Cc: Stefan Roese <sr-ynQEQJNshbs@public.gmane.org>
-> Cc: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
-> Cc: <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org> # 3.11+
-> Signed-off-by: Marc Zyngier <marc.zyngier-5wv7dgnIgG8@public.gmane.org>
+From: Francois Romieu <romieu@fr.zoreil.com>
 
-Acked-by: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+USB network drivers are already handled in drivers/net/usb/Kconfig.
+Let's save the maintenance burden of dependencies in drivers/net/Makefile.
 
-Thanks!
-Maxime
+The newly introduced USB_NET_DRIVERS umbrella config option defaults
+to 'y' so as to minimize the changes of behavior.
 
---=20
-Maxime Ripard, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+---
+ drivers/net/Makefile    |  9 +--------
+ drivers/net/usb/Kconfig | 13 ++++++++-----
+ 2 files changed, 9 insertions(+), 13 deletions(-)
 
---YH9Qf6Fh2G5kB/85
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJT4Ud4AAoJEBx+YmzsjxAgWWYP/ji640bhoX+Sv4GNn+8d38DY
-x+aTw2/62VYP/6vwnXumM/0PI8Ve1sFzqjnLnC91sx4MsGsvb84nmkhvYKcZET9y
-5xOtN8OQxLR9KXTvtmaOuSA7QWIv2N5TPZR6MtTG2myEx4M1puNFm/Nltw+CoR2Y
-yMOUvy/Sn9rDAiG8RpLnZ+17lgFqC3yBs80mtIRCX9Bw4LKWqBfzaoybjREyFhdV
-kHOriX73BrT3aez2tiTKn62xWE2DS9P9P0RH9fBSP3RFhTqTCfN1BSJOFuIjF27d
-dSqlJaFgC9QhFPDDV0SNC+fsWqJ0rwU+e4vx6GUbww5tetn/FNXeFNSL8N4ekZv0
-rFBnrrrwTcamIwl8Tb2aBjzIVg8fn16sV7xqOwKNHTi0RBCB1rnVnEeKDtb1s60i
-KfDGeS0t2ibdqP9JHljy64smHt16zSrITDc22KRSRMeITYSmn6kO45BnOX8k4YE4
-xxrGNBotPq2q0witPEIZ2sJNTh6zmuci5HSkdmuGrnqji2YlKvdtUJrbLX5Bni/P
-mWND9h1CjMrzkumpUuNkC9EzQdCWtiuKuJKewf+Qdy5C9U4RBILD0EHPMmGgpAFu
-kfEEuY7YZI1b2DkJceldKEeXmApblCS0m0/UFqYxvqrbh5xYuPi3UEu956xcUnvp
-2eTMV4v96fimTltE3IuF
-=Mbjq
------END PGP SIGNATURE-----
-
---YH9Qf6Fh2G5kB/85--
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index fa49d45..61aefdd 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -61,14 +61,7 @@ obj-$(CONFIG_VMXNET3) += vmxnet3/
+ obj-$(CONFIG_XEN_NETDEV_FRONTEND) += xen-netfront.o
+ obj-$(CONFIG_XEN_NETDEV_BACKEND) += xen-netback/
+ 
+-obj-$(CONFIG_USB_CATC)          += usb/
+-obj-$(CONFIG_USB_KAWETH)        += usb/
+-obj-$(CONFIG_USB_PEGASUS)       += usb/
+-obj-$(CONFIG_USB_RTL8150)       += usb/
+-obj-$(CONFIG_USB_HSO)		+= usb/
+-obj-$(CONFIG_USB_USBNET)        += usb/
+-obj-$(CONFIG_USB_IPHETH)        += usb/
+-obj-$(CONFIG_USB_CDC_PHONET)   += usb/
++obj-$(CONFIG_USB_NET_DRIVERS) += usb/
+ 
+ obj-$(CONFIG_HYPERV_NET) += hyperv/
+ obj-$(CONFIG_NTB_NETDEV) += ntb_netdev.o
+diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
+index 7e7269f..9f194a0 100644
+--- a/drivers/net/usb/Kconfig
++++ b/drivers/net/usb/Kconfig
+@@ -1,12 +1,16 @@
+ #
+ # USB Network devices configuration
+ #
+-comment "Networking support is needed for USB Network Adapter support"
+-	depends on USB && !NET
++comment "Host-side USB support is needed for USB Network Adapter support"
++	depends on !USB && NET
+ 
+-menu "USB Network Adapters"
++menuconfig USB_NET_DRIVERS
++	bool "USB Network Adapters"
++	default y
+ 	depends on USB && NET
+ 
++if USB_NET_DRIVERS
++
+ config USB_CATC
+ 	tristate "USB CATC NetMate-based Ethernet device support"
+ 	select CRC32
+@@ -568,5 +572,4 @@ config USB_VL600
+ 
+ 	  http://ubuntuforums.org/showpost.php?p=10589647&postcount=17
+ 
+-
+-endmenu
++endif # USB_NET_DRIVERS
+-- 
+1.9.3
