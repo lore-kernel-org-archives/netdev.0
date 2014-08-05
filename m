@@ -1,32 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] r8152: correct error returns
-Date: Tue, 05 Aug 2014 12:52:04 -0700 (PDT)
-Message-ID: <20140805.125204.500612433909991155.davem@davemloft.net>
-References: <1407049618.26893.8.camel@linux-fkkt.site>
-	<20140804.151827.179999106523102125.davem@davemloft.net>
-	<1407224584.12844.5.camel@linux-fkkt.site>
+Subject: Re: [PATCH net-next] hyperv: Increase the buffer length for
+ netvsc_channel_cb()
+Date: Tue, 05 Aug 2014 13:03:46 -0700 (PDT)
+Message-ID: <20140805.130346.2080401893280146356.davem@davemloft.net>
+References: <1406908530-22667-1-git-send-email-haiyangz@microsoft.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com
-To: oneukum@suse.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57749 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754087AbaHETwF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 15:52:05 -0400
-In-Reply-To: <1407224584.12844.5.camel@linux-fkkt.site>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
+ driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org,
+ haiyangz@microsoft.com
+To: thomas1206@gmail.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1406908530-22667-1-git-send-email-haiyangz@microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-From: Oliver Neukum <oneukum@suse.de>
-Date: Tue, 05 Aug 2014 09:43:04 +0200
+From: Haiyang Zhang <thomas1206@gmail.com>
+Date: Fri,  1 Aug 2014 15:55:30 +0000
 
-> On Mon, 2014-08-04 at 15:18 -0700, David Miller wrote:
->> But of course, that doesn't handle the non-autopm code paths into the
->> PM layer that can end up in this situation.
-> Hm. Are they numerous? Which did you find?
+> When the buffer is too small for a packet from VMBus, a bigger buffer will be
+> allocated in netvsc_channel_cb() and retry reading the packet from VMBus.
+> Increasing this buffer size will reduce the retry overhead.
+> 
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Reviewed-by: Dexuan Cui <decui@microsoft.com>
 
-I didn't find any specifically, I just know that there are other
-callers of that inner-most helper function so those paths need
-to be checked too.
+I'm not applying this, sorry.
+
+I said that because the structure that contains this buffer is now
+larger than a page, you should allocate the CB buffer externally
+via another kmalloc() or via the page allocator.
