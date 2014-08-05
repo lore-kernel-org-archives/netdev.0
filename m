@@ -1,56 +1,119 @@
 From: Antonio Quartulli <antonio@meshcoding.com>
-Subject: [PATCH 3/4] batman-adv: increase default hop penalty
-Date: Tue,  5 Aug 2014 09:36:27 +0200
-Message-ID: <1407224188-28626-4-git-send-email-antonio@meshcoding.com>
+Subject: [PATCH 2/4] batman-adv: remove unnecessary logspam
+Date: Tue,  5 Aug 2014 09:36:26 +0200
+Message-ID: <1407224188-28626-3-git-send-email-antonio@meshcoding.com>
 References: <1407224188-28626-1-git-send-email-antonio@meshcoding.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Simon Wunderlich <simon@open-mesh.com>,
+	=?UTF-8?q?Andr=C3=A9=20Gaul?= <gaul@web-yard.de>,
 	Marek Lindner <mareklindner@neomailbox.ch>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.neomailbox.net ([178.209.62.157]:20716 "EHLO
+Received: from s3.neomailbox.net ([178.209.62.157]:32413 "EHLO
 	s3.neomailbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756471AbaHEHhU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 03:37:20 -0400
+	with ESMTP id S1755202AbaHEHhS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 03:37:18 -0400
 In-Reply-To: <1407224188-28626-1-git-send-email-antonio@meshcoding.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Simon Wunderlich <simon@open-mesh.com>
+=46rom: Andr=C3=A9 Gaul <gaul@web-yard.de>
 
-The default hop penalty is currently set to 15, which is applied like
-that for multi interface devices (e.g. dual band APs). Single band
-devices will still use an effective penalty of 30 (hop penalty + wifi
-penalty).
+This patch removes unnecessary logspam which resulted from superfluous
+calls to net_ratelimit(). With the supplied patch, net_ratelimit() is
+called after the loglevel has been checked.
 
-After receiving reports of too long paths in mesh networks with dual
-band APs which were fixed by increasing the hop penalty, we'd like to
-suggest to increase that default value in the default setting as well.
-We've evaluated that increase in a handful of medium sized mesh
-networks (5-20 nodes) with single and dual band devices, with changes
-for the better (shorter routes, higher throughput) or no change at all.
-
-This patch changes the hop penalty to 30, which will give an effective
-penalty of 60 on single band devices (hop penalty + wifi penalty).
-
-Signed-off-by: Simon Wunderlich <simon@open-mesh.com>
+Signed-off-by: Andr=C3=A9 Gaul <gaul@web-yard.de>
 Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
 ---
- net/batman-adv/soft-interface.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/batman-adv/main.h    | 20 ++++++++++++++------
+ net/batman-adv/routing.c | 18 +++++++++---------
+ 2 files changed, 23 insertions(+), 15 deletions(-)
 
-diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
-index e0a7239..5467955 100644
---- a/net/batman-adv/soft-interface.c
-+++ b/net/batman-adv/soft-interface.c
-@@ -751,7 +751,7 @@ static int batadv_softif_init_late(struct net_device *dev)
- 	atomic_set(&bat_priv->gw.bandwidth_down, 100);
- 	atomic_set(&bat_priv->gw.bandwidth_up, 20);
- 	atomic_set(&bat_priv->orig_interval, 1000);
--	atomic_set(&bat_priv->hop_penalty, 15);
-+	atomic_set(&bat_priv->hop_penalty, 30);
- #ifdef CONFIG_BATMAN_ADV_DEBUG
- 	atomic_set(&bat_priv->log_level, 0);
+diff --git a/net/batman-adv/main.h b/net/batman-adv/main.h
+index 118b990..257840e 100644
+--- a/net/batman-adv/main.h
++++ b/net/batman-adv/main.h
+@@ -238,21 +238,29 @@ enum batadv_dbg_level {
+ int batadv_debug_log(struct batadv_priv *bat_priv, const char *fmt, ..=
+=2E)
+ __printf(2, 3);
+=20
+-#define batadv_dbg(type, bat_priv, fmt, arg...)			\
++/* possibly ratelimited debug output */
++#define _batadv_dbg(type, bat_priv, ratelimited, fmt, arg...)	\
+ 	do {							\
+-		if (atomic_read(&bat_priv->log_level) & type)	\
++		if (atomic_read(&bat_priv->log_level) & type && \
++		    (!ratelimited || net_ratelimit()))		\
+ 			batadv_debug_log(bat_priv, fmt, ## arg);\
+ 	}							\
+ 	while (0)
+ #else /* !CONFIG_BATMAN_ADV_DEBUG */
+-__printf(3, 4)
+-static inline void batadv_dbg(int type __always_unused,
+-			      struct batadv_priv *bat_priv __always_unused,
+-			      const char *fmt __always_unused, ...)
++__printf(4, 5)
++static inline void _batadv_dbg(int type __always_unused,
++			       struct batadv_priv *bat_priv __always_unused,
++			       int ratelimited __always_unused,
++			       const char *fmt __always_unused, ...)
+ {
+ }
  #endif
--- 
+=20
++#define batadv_dbg(type, bat_priv, arg...) \
++	_batadv_dbg(type, bat_priv, 0, ## arg)
++#define batadv_dbg_ratelimited(type, bat_priv, arg...) \
++	_batadv_dbg(type, bat_priv, 1, ## arg)
++
+ #define batadv_info(net_dev, fmt, arg...)				\
+ 	do {								\
+ 		struct net_device *_netdev =3D (net_dev);                 \
+diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
+index 3514153..35f76f2 100644
+--- a/net/batman-adv/routing.c
++++ b/net/batman-adv/routing.c
+@@ -706,11 +706,11 @@ static int batadv_check_unicast_ttvn(struct batad=
+v_priv *bat_priv,
+ 	if (batadv_tt_local_client_is_roaming(bat_priv, ethhdr->h_dest, vid))=
+ {
+ 		if (batadv_reroute_unicast_packet(bat_priv, unicast_packet,
+ 						  ethhdr->h_dest, vid))
+-			net_ratelimited_function(batadv_dbg, BATADV_DBG_TT,
+-						 bat_priv,
+-						 "Rerouting unicast packet to %pM (dst=3D%pM): Local Roaming\n",
+-						 unicast_packet->dest,
+-						 ethhdr->h_dest);
++			batadv_dbg_ratelimited(BATADV_DBG_TT,
++					       bat_priv,
++					       "Rerouting unicast packet to %pM (dst=3D%pM): Local Roamin=
+g\n",
++					       unicast_packet->dest,
++					       ethhdr->h_dest);
+ 		/* at this point the mesh destination should have been
+ 		 * substituted with the originator address found in the global
+ 		 * table. If not, let the packet go untouched anyway because
+@@ -752,10 +752,10 @@ static int batadv_check_unicast_ttvn(struct batad=
+v_priv *bat_priv,
+ 	 */
+ 	if (batadv_reroute_unicast_packet(bat_priv, unicast_packet,
+ 					  ethhdr->h_dest, vid)) {
+-		net_ratelimited_function(batadv_dbg, BATADV_DBG_TT, bat_priv,
+-					 "Rerouting unicast packet to %pM (dst=3D%pM): TTVN mismatch old_=
+ttvn=3D%u new_ttvn=3D%u\n",
+-					 unicast_packet->dest, ethhdr->h_dest,
+-					 old_ttvn, curr_ttvn);
++		batadv_dbg_ratelimited(BATADV_DBG_TT, bat_priv,
++				       "Rerouting unicast packet to %pM (dst=3D%pM): TTVN mismatch=
+ old_ttvn=3D%u new_ttvn=3D%u\n",
++				       unicast_packet->dest, ethhdr->h_dest,
++				       old_ttvn, curr_ttvn);
+ 		return 1;
+ 	}
+=20
+--=20
 1.8.5.5
