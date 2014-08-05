@@ -1,92 +1,58 @@
-From: Shawn Guo <shawn.guo@freescale.com>
-Subject: Re: [PATCH v2 1/2] net: phy: Set the driver when registering an MDIO
- bus device
-Date: Tue, 5 Aug 2014 12:41:39 +0800
-Message-ID: <20140805044137.GE2167@dragon>
-References: <1406144852-7379-1-git-send-email-ezequiel.garcia@free-electrons.com>
- <1406144852-7379-2-git-send-email-ezequiel.garcia@free-electrons.com>
- <CAOMZO5CH0VystNR+qpXQFB_1f9=0DZzm7xxD5Fxy+uxFmAa-0Q@mail.gmail.com>
- <20140805032257.GD2167@dragon> <53E05702.9000007@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Fabio Estevam <festevam@gmail.com>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Marek =?utf-8?B?VmHFoXV0?= <marex@denx.de>,
-	Sascha Hauer <kernel@pengutronix.de>,
-	Russell King <linux@arm.linux.org.uk>
-To: Florian Fainelli <f.fainelli@gmail.com>
+From: Guy Harris <guy@alum.mit.edu>
+Subject: Re: Problems with TPACKET_V3 delivery of wakeups (and empty buffer blocks)
+Date: Mon, 4 Aug 2014 21:52:27 -0700
+Message-ID: <C7B99DBD-8362-4A39-B9AD-D7AC14880DA5@alum.mit.edu>
+References: <FBF13AD0-7721-4CEF-94AE-A14C1B06E84C@alum.mit.edu> <53DF3F44.6090804@redhat.com> <CAAsGZS5GNcYhXz5cD9W2iOR9mKHLJi9NpksKW5YGdPr9mb3ZnQ@mail.gmail.com>
+Mime-Version: 1.0 (Mac OS X Mail 6.6 \(1510\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: Daniel Borkmann <dborkman@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: chetan loke <loke.chetan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2lp0240.outbound.protection.outlook.com ([207.46.163.240]:57402
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753032AbaHEEmC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Aug 2014 00:42:02 -0400
-Content-Disposition: inline
-In-Reply-To: <53E05702.9000007@gmail.com>
+Received: from d.mail.sonic.net ([64.142.111.50]:53875 "EHLO d.mail.sonic.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752121AbaHEEwg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 00:52:36 -0400
+In-Reply-To: <CAAsGZS5GNcYhXz5cD9W2iOR9mKHLJi9NpksKW5YGdPr9mb3ZnQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 04, 2014 at 09:01:06PM -0700, Florian Fainelli wrote:
-> On 08/04/14 20:22, Shawn Guo wrote:
-> >On Mon, Aug 04, 2014 at 11:55:22PM -0300, Fabio Estevam wrote:
-> >>Hi Ezequiel,
-> >>
-> >>On Wed, Jul 23, 2014 at 4:47 PM, Ezequiel Garcia
-> >><ezequiel.garcia@free-electrons.com> wrote:
-> >>>mdiobus_register() registers a device which is already bound to a driver.
-> >>>Hence, the driver pointer should be set properly in order to track down
-> >>>the driver associated to the MDIO bus.
-> >>>
-> >>>This will be used to allow ethernet driver to pin down a MDIO bus driver,
-> >>>preventing it from being unloaded while the PHY device is running.
-> >>>
-> >>>Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-> >>>Tested-by: Florian Fainelli <f.fainelli@gmail.com>
-> >>>Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-> >>>---
-> >>>  drivers/net/phy/mdio_bus.c | 1 +
-> >>>  1 file changed, 1 insertion(+)
-> >>>
-> >>>diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
-> >>>index 4eaadcf..203651e 100644
-> >>>--- a/drivers/net/phy/mdio_bus.c
-> >>>+++ b/drivers/net/phy/mdio_bus.c
-> >>>@@ -255,6 +255,7 @@ int mdiobus_register(struct mii_bus *bus)
-> >>>
-> >>>         bus->dev.parent = bus->parent;
-> >>>         bus->dev.class = &mdio_bus_class;
-> >>>+       bus->dev.driver = bus->parent->driver;
-> >>>         bus->dev.groups = NULL;
-> >>>         dev_set_name(&bus->dev, "%s", bus->id);
-> >>
-> >>This patches causes the following regression in 3.16 (tested on mx5/mx6):
-> >
-> >The change will trigger a device_suspend() call on mii_bus device with
-> >the pm suspend/resume callbacks being fec driver ones, since
-> >bus->parent->driver points to fec driver.
-> >
-> >So net result is fec_suspend() will be called twice during suspend, once
-> >in mii_bus device context and the other in fec device context.  In fec
-> >context, it works just fine.  And the issue we're seeing is from mii_bus
-> >device context, where the driver_data of the device is invalid.
-> >
-> >I do not think fec_suspend() should be called in mii_bus device context.
+
+On Aug 4, 2014, at 8:23 PM, chetan loke <loke.chetan@gmail.com> wrote:
+
+> Empty buffer blocks have to be delivered. The patch explains it why.
+
+If by "the patch" you mean
+
+	https://lkml.org/lkml/2011/6/21/463
+
+and the comment
+
+> E2) Also implemented basic timeout mechanism to close 'a' current block.
+>     That way, user-space won't be blocked forever on an idle link.
+>     This is a much needed feature while monitoring multiple ports.
+>     Look at 3) below.
+
+then that's presumably referring to 3.4.2 in
+
+> 3) Port aggregation analysis:
+>    Multiple ports are viewed/analyzed as one logical pipe.
+>    Example:
+>    3.1) up-stream    path can be tapped in eth1
+>    3.2) down-stream  path can be tapped in eth2
+>    3.3) Network TAP splits Rx/Tx paths and then feeds to eth1,eth2.
 > 
-> Right, that does not sound like a good thing to do. Does it work if
-> you call pm_suspend_ignore_children() either in the FEC driver or in
-> mdiobus_register()?
-
-No, it doesn't stop fec_suspend() being called from mii_bus device
-context.
-
+>    If both eth1,eth2 need to be viewed as one logical channel,
+>    then that implies we need to timesort the packets as they come across
+>    eth1,eth2.
 > 
-> I am not exactly sure what the best solution looks like at this point
+>    3.4) But following issues further complicates the problem:
+>         3.4.1)What if one stream is bursty and other is flowing
+>               at line rate?
+>         3.4.2)How long do we wait before we can actually make a
+>               decision in the app-space and bail-out from the spin-wait?
 
-Let's see if Ezequiel has any idea, but otherwise we should probably
-revert the patch for 3.16 stable.
+and presumably this is referring to some mechanism by which eth1 and eth2 are handled by *one* socket, because if it's handled by *two* sockets, you use select()/poll()/epoll() on the two sockets, and, when *either* of the devices either fills up a block or times out, a wakeup is delivered to its socket and userland wakes up.
 
-Shawn
+And even if there's some reason why a wakeup has to be delivered when the timer expires even if *no* packets are available, what is the reason why you don't just deliver a wakeup but *no* buffer blocks, so that userland just says "well, I woke up, but there are no buffer blocks available for that particular socket, so there's nothing to process for that socket"?
