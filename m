@@ -1,84 +1,29 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH net-next 1/1] net: reduce USB network driver config options.
-Date: Tue, 5 Aug 2014 23:10:52 +0200
-Message-ID: <20140805211052.GA29600@electric-eye.fr.zoreil.com>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: [PATCH iproute2] tc/netem: loss gemodel options fixes
+Date: Tue, 5 Aug 2014 23:25:00 +0200
+Message-ID: <CAPh34mfV1TaxBgP0bXpavUeR8pUmdM0M0=kaJtwHiW=uSuyHgQ@mail.gmail.com>
+References: <29682.1399754098@localhost.localdomain>
+	<CAPh34mf4ahPyTDf-tEhsNKSFBL6GYjES9+TTvDjhMf2YLTr04Q@mail.gmail.com>
+	<11467.1400183199@localhost.localdomain>
+	<20140804123709.502bbe1d@haswell.linuxnetplumber.net>
+	<CAPh34meHr_7z4nznKBeKV6Y4Dypni72yM7bSOdkQ6hopsnjzGg@mail.gmail.com>
+	<5354.1407263356@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, linux-usb@vger.kernel.org
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	netdev <netdev@vger.kernel.org>, netem@lists.linux-foundation.org
+To: Jay Vosburgh <jay.vosburgh@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:43094 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752020AbaHEVK6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 17:10:58 -0400
-Content-Disposition: inline
+Received: from mail-vc0-f170.google.com ([209.85.220.170]:55532 "EHLO
+	mail-vc0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753727AbaHEVZA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 17:25:00 -0400
+Received: by mail-vc0-f170.google.com with SMTP id lf12so2684582vcb.1
+        for <netdev@vger.kernel.org>; Tue, 05 Aug 2014 14:25:00 -0700 (PDT)
+In-Reply-To: <5354.1407263356@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Francois Romieu <romieu@fr.zoreil.com>
+Great Jay, I did not read that you tested/validated your patch.
 
-USB network drivers are already handled in drivers/net/usb/Kconfig.
-Let's save the maintenance burden of dependencies in drivers/net/Makefile.
-
-The newly introduced USB_NET_DRIVERS umbrella config option defaults
-to 'y' so as to minimize the changes of behavior.
-
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
----
- drivers/net/Makefile    |  9 +--------
- drivers/net/usb/Kconfig | 13 ++++++++-----
- 2 files changed, 9 insertions(+), 13 deletions(-)
-
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index fa49d45..61aefdd 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -61,14 +61,7 @@ obj-$(CONFIG_VMXNET3) += vmxnet3/
- obj-$(CONFIG_XEN_NETDEV_FRONTEND) += xen-netfront.o
- obj-$(CONFIG_XEN_NETDEV_BACKEND) += xen-netback/
- 
--obj-$(CONFIG_USB_CATC)          += usb/
--obj-$(CONFIG_USB_KAWETH)        += usb/
--obj-$(CONFIG_USB_PEGASUS)       += usb/
--obj-$(CONFIG_USB_RTL8150)       += usb/
--obj-$(CONFIG_USB_HSO)		+= usb/
--obj-$(CONFIG_USB_USBNET)        += usb/
--obj-$(CONFIG_USB_IPHETH)        += usb/
--obj-$(CONFIG_USB_CDC_PHONET)   += usb/
-+obj-$(CONFIG_USB_NET_DRIVERS) += usb/
- 
- obj-$(CONFIG_HYPERV_NET) += hyperv/
- obj-$(CONFIG_NTB_NETDEV) += ntb_netdev.o
-diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
-index 7e7269f..9f194a0 100644
---- a/drivers/net/usb/Kconfig
-+++ b/drivers/net/usb/Kconfig
-@@ -1,12 +1,16 @@
- #
- # USB Network devices configuration
- #
--comment "Networking support is needed for USB Network Adapter support"
--	depends on USB && !NET
-+comment "Host-side USB support is needed for USB Network Adapter support"
-+	depends on !USB && NET
- 
--menu "USB Network Adapters"
-+menuconfig USB_NET_DRIVERS
-+	bool "USB Network Adapters"
-+	default y
- 	depends on USB && NET
- 
-+if USB_NET_DRIVERS
-+
- config USB_CATC
- 	tristate "USB CATC NetMate-based Ethernet device support"
- 	select CRC32
-@@ -568,5 +572,4 @@ config USB_VL600
- 
- 	  http://ubuntuforums.org/showpost.php?p=10589647&postcount=17
- 
--
--endmenu
-+endif # USB_NET_DRIVERS
--- 
-1.9.3
+Acked-by: Hagen Paul Pfeifer <hagen@jauu.net>
