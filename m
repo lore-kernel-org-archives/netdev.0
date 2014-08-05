@@ -1,48 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v4 0/6] net-timestamp: new tx tstamps and tcp
-Date: Tue, 05 Aug 2014 16:36:37 -0700 (PDT)
-Message-ID: <20140805.163637.1158175402127833659.davem@davemloft.net>
-References: <1407204710-21778-1-git-send-email-willemb@google.com>
+Subject: Re: [PATCH net-next] bridge: Update outdated comment on
+ promiscuous mode
+Date: Tue, 05 Aug 2014 16:37:32 -0700 (PDT)
+Message-ID: <20140805.163732.670307887248646429.davem@davemloft.net>
+References: <1407221835-15529-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
-	richardcochran@gmail.com
-To: willemb@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60401 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750922AbaHEXgj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 19:36:39 -0400
-In-Reply-To: <1407204710-21778-1-git-send-email-willemb@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: stephen@networkplumber.org, vyasevic@redhat.com,
+	bridge@lists.linux-foundation.org, netdev@vger.kernel.org
+To: makita.toshiaki@lab.ntt.co.jp
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1407221835-15529-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Willem de Bruijn <willemb@google.com>
-Date: Mon,  4 Aug 2014 22:11:44 -0400
+From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+Date: Tue,  5 Aug 2014 15:57:15 +0900
 
-> Extend socket tx timestamping:
-> - allow multiple types of software timestamps aside from send (1)
-> - add software timestamp on enter packet scheduling (4)
-> - add software timestamp for TCP (5)
-> - add software timestamp for TCP on ACK (6)
+> Now bridge ports can be non-promiscuous, vlan_vid_add() is no longer an
+> unnecessary operation.
 > 
-> The sk_flags option space is nearly exhausted. Also move the
-> many timestamp options to a new sk->sk_tstamps (2).
-> 
-> To disambiguate data when tstamps may arrive out of order,
-> optionally return a sequential ID assigned at send (3).
-> 
-> Extend Linux tx timestamping to monitoring of latency
-> incurred within the kernel stack and to protocols embedded in TCP.
-> Complex kernel setups may have multiple layers of queueing, including
-> multiple instances of packet scheduling, and many classes per layer.
-> Many applications embed discrete payloads into TCP bytestreams for
-> reliability, flow control, etcetera. Detecting application tail
-> latency in such scenarios relies on identifying the exact queue
-> responsible if on the host, or the network latency if otherwise.
+> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 
-This looks really good, thanks for taking the time to refine the
-interface and how the internal sequence numbering works.
-
-Applied to net-next.
+Applied.
