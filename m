@@ -1,49 +1,78 @@
-From: Haiyang Zhang <thomas1206@gmail.com>
-Subject: [PATCH net-next] hyperv: Increase the buffer length for
- netvsc_channel_cb()
-Date: Fri,  1 Aug 2014 15:55:30 +0000
-Message-ID: <1406908530-22667-1-git-send-email-haiyangz@microsoft.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, jasowang@redhat.com, driverdev-devel@linuxdriverproject.org,
- linux-kernel@vger.kernel.org, haiyangz@microsoft.com
-To: davem@davemloft.net,
-	netdev@vger.kernel.org
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net-next] cxgb4vf: Turn off SGE RX/TX Callback Timers and interrupts in PCI shutdown routine
+Date: Tue,  5 Aug 2014 15:41:28 +0530
+Message-ID: <1407233488-17030-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
+	kumaras@chelsio.com, anish@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:59173
+	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S933078AbaHEKFo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 06:05:44 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When the buffer is too small for a packet from VMBus, a bigger buffer will be
-allocated in netvsc_channel_cb() and retry reading the packet from VMBus.
-Increasing this buffer size will reduce the retry overhead.
+Need to turn off  SGE RX/TX Callback Timers & interrupt in cxgb4vf PCI Shutdown
+routine in order to prevent crashes during reboot/poweroff when traffic is
+running.
 
-Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-Reviewed-by: Dexuan Cui <decui@microsoft.com>
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- drivers/net/hyperv/hyperv_net.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    |   29 ++++++++++---------
+ 1 files changed, 15 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
-index 24441ae..3960acd 100644
---- a/drivers/net/hyperv/hyperv_net.h
-+++ b/drivers/net/hyperv/hyperv_net.h
-@@ -591,7 +591,7 @@ struct nvsp_message {
+diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+index f002af1..d8d28e8 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
+@@ -2876,24 +2876,24 @@ static void cxgb4vf_pci_shutdown(struct pci_dev *pdev)
+ 	if (!adapter)
+ 		return;
  
- #define NETVSC_RECEIVE_BUFFER_ID		0xcafe
+-	/*
+-	 * Disable all Virtual Interfaces.  This will shut down the
++	/* Disable all Virtual Interfaces.  This will shut down the
+ 	 * delivery of all ingress packets into the chip for these
+ 	 * Virtual Interfaces.
+ 	 */
+-	for_each_port(adapter, pidx) {
+-		struct net_device *netdev;
+-		struct port_info *pi;
+-
+-		if (!test_bit(pidx, &adapter->registered_device_map))
+-			continue;
+-
+-		netdev = adapter->port[pidx];
+-		if (!netdev)
+-			continue;
++	for_each_port(adapter, pidx)
++		if (test_bit(pidx, &adapter->registered_device_map))
++			unregister_netdev(adapter->port[pidx]);
  
--#define NETVSC_PACKET_SIZE                      2048
-+#define NETVSC_PACKET_SIZE                      4096
+-		pi = netdev_priv(netdev);
+-		t4vf_enable_vi(adapter, pi->viid, false, false);
++	/* Free up all Queues which will prevent further DMA and
++	 * Interrupts allowing various internal pathways to drain.
++	 */
++	t4vf_sge_stop(adapter);
++	if (adapter->flags & USING_MSIX) {
++		pci_disable_msix(adapter->pdev);
++		adapter->flags &= ~USING_MSIX;
++	} else if (adapter->flags & USING_MSI) {
++		pci_disable_msi(adapter->pdev);
++		adapter->flags &= ~USING_MSI;
+ 	}
  
- #define VRSS_SEND_TAB_SIZE 16
+ 	/*
+@@ -2901,6 +2901,7 @@ static void cxgb4vf_pci_shutdown(struct pci_dev *pdev)
+ 	 * Interrupts allowing various internal pathways to drain.
+ 	 */
+ 	t4vf_free_sge_resources(adapter);
++	pci_set_drvdata(pdev, NULL);
+ }
  
+ /*
 -- 
 1.7.1
