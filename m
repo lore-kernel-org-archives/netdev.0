@@ -1,50 +1,41 @@
-From: Oliver Neukum <oneukum@suse.de>
-Subject: Re: [PATCH] r8152: correct error returns
-Date: Tue, 05 Aug 2014 09:43:04 +0200
-Message-ID: <1407224584.12844.5.camel@linux-fkkt.site>
-References: <1406901370-6847-1-git-send-email-oneukum@suse.de>
-	 <20140802.163418.1314777407262254543.davem@davemloft.net>
-	 <1407049618.26893.8.camel@linux-fkkt.site>
-	 <20140804.151827.179999106523102125.davem@davemloft.net>
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: [PATCH iproute2] tc/netem: loss gemodel options fixes
+Date: Tue, 5 Aug 2014 10:09:17 +0200
+Message-ID: <CAPh34meHr_7z4nznKBeKV6Y4Dypni72yM7bSOdkQ6hopsnjzGg@mail.gmail.com>
+References: <29682.1399754098@localhost.localdomain>
+	<CAPh34mf4ahPyTDf-tEhsNKSFBL6GYjES9+TTvDjhMf2YLTr04Q@mail.gmail.com>
+	<11467.1400183199@localhost.localdomain>
+	<20140804123709.502bbe1d@haswell.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Jay Vosburgh <jay.vosburgh@canonical.com>,
+	netdev <netdev@vger.kernel.org>, netem@lists.linux-foundation.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:42947 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753608AbaHEHnJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Aug 2014 03:43:09 -0400
-In-Reply-To: <20140804.151827.179999106523102125.davem@davemloft.net>
+Received: from mail-vc0-f177.google.com ([209.85.220.177]:47963 "EHLO
+	mail-vc0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932516AbaHEIJS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 04:09:18 -0400
+Received: by mail-vc0-f177.google.com with SMTP id hy4so858761vcb.8
+        for <netdev@vger.kernel.org>; Tue, 05 Aug 2014 01:09:17 -0700 (PDT)
+In-Reply-To: <20140804123709.502bbe1d@haswell.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2014-08-04 at 15:18 -0700, David Miller wrote:
-> From: Oliver Neukum <oneukum@suse.de>
-> Date: Sun, 03 Aug 2014 09:06:58 +0200
-> 
-> > OK, I just looked at this single driver. I'll try to come up with
-> > a generic solution. The mapping is a bit simplistic. I should let
-> > -ENOMEM pass for example.
-> 
-> And the problem also isn't limited USB networking drivers, just
-> about every driver I looked at passed these autopm errors right
-> back to userspace.
+On 4 August 2014 21:37, Stephen Hemminger <stephen@networkplumber.org> wrote:
 
-I drilled a gas bubble.
+> I went ahead and applied these. They make sense and got no response.
 
-> Largely people just call the autopm interfaces and propagate any
-> errors they get.  So you probably want to put the translator/filter
-> there.
+Wait Stephen,
 
-That would swallow up all error returns and hurt the users who actually
-use the error codes. How about a native and a sanitized
-version?
+Jay do you compared your changes with the expected results? I mean did
+you run tests that the Markov chain model is _now_  working correctly
+(in all states)?
 
-> But of course, that doesn't handle the non-autopm code paths into the
-> PM layer that can end up in this situation.
-Hm. Are they numerous? Which did you find?
+The setup will be easy: send 10000 packets, capture the packets and
+'wc -l tcpdump -r trace.pcap' and compare to the expected number of
+packets for a given markov state setup. Enough bugs here where the
+should be no bugs at all. Some simple tests should be enough to get
+rid of them.
 
-	Regards
-		Oliver
+Hagen
