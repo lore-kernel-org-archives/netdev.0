@@ -1,46 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] drivers: net: ethernet: intel: i40e: Fix
- missing uapi/linux/dcbnl.h include in i40e_fcoe.c
-Date: Tue, 05 Aug 2014 16:45:07 -0700 (PDT)
-Message-ID: <20140805.164507.779439224391996731.davem@davemloft.net>
-References: <20140805131143.GA29685@ttmp-linux>
+Subject: Re: [PATCH net-next v2 0/2] amd-xgbe: AMD XGBE driver update
+ 2014-08-05
+Date: Tue, 05 Aug 2014 16:47:23 -0700 (PDT)
+Message-ID: <20140805.164723.1980380162725348147.davem@davemloft.net>
+References: <20140805183032.32561.85828.stgit@tlendack-t1.amdoffice.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kernelnewbies@kernelnewbies.org, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, bruce.w.allan@intel.com,
-	jesse.brandeburg@intel.com, linux-kernel@vger.kernel.org
-To: tanure@linux.com
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20140805131143.GA29685@ttmp-linux>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: thomas.lendacky@amd.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60619 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753307AbaHEXrY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 19:47:24 -0400
+In-Reply-To: <20140805183032.32561.85828.stgit@tlendack-t1.amdoffice.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Lucas Tanure <tanure@linux.com>
-Date: Tue, 5 Aug 2014 10:11:43 -0300
+From: Tom Lendacky <thomas.lendacky@amd.com>
+Date: Tue, 5 Aug 2014 13:30:32 -0500
 
-> Fix missing include in intel i40e driver. Without this include linux next
-> tree won't compile.
+> The following series of patches includes fixes/updates to the driver.
 > 
-> Signed-off-by: Lucas Tanure <tanure@linux.com>
+> - Use dma_set_mask_and_coherent to set the DMA mask
+> - Move the phy connect/disconnect logic to allow for module unloading
+> 
+> This patch series is based on net-next.
+> 
+> Changes in V2:
+> - Check the return value of the dma_set_mask_and_coherent call
 
-Applied, thank you.
-
-------------------------------------------------------------------------------
-Infragistics Professional
-Build stunning WinForms apps today!
-Reboot your WinForms applications with our WinForms controls. 
-Build a bridge from your legacy apps to the future.
-http://pubads.g.doubleclick.net/gampad/clk?id=153845071&iu=/4140/ostg.clktrk
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Series applied, thanks.
