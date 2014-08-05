@@ -1,68 +1,79 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 03/12] net: dsa: provide a switch device device tree node pointer
-Date: Tue,  5 Aug 2014 15:31:37 -0700
-Message-ID: <1407277906-19989-4-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 07/12] net: dsa: allow drivers to do link adjustment
+Date: Tue,  5 Aug 2014 15:31:41 -0700
+Message-ID: <1407277906-19989-8-git-send-email-f.fainelli@gmail.com>
 References: <1407277906-19989-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, linville@tuxdriver.com,
 	Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:58041 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753322AbaHEWcI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 18:32:08 -0400
-Received: by mail-pa0-f52.google.com with SMTP id bj1so2195717pad.11
-        for <netdev@vger.kernel.org>; Tue, 05 Aug 2014 15:32:08 -0700 (PDT)
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:53485 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753322AbaHEWcN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 18:32:13 -0400
+Received: by mail-pa0-f48.google.com with SMTP id et14so2197640pad.21
+        for <netdev@vger.kernel.org>; Tue, 05 Aug 2014 15:32:13 -0700 (PDT)
 In-Reply-To: <1407277906-19989-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We might need to fetch additional resources from the device tree node
-pointer, such as register ranges or other properties. Keep a device_node
-pointer around for this.
+Whenever libphy determines that the link status of a given PHY/port has
+changed, allow to call into the switch driver link adjustment callback
+so proper actions can be taken care of by the switch driver upon link
+notification.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
  include/net/dsa.h | 7 +++++++
- net/dsa/dsa.c     | 1 +
- 2 files changed, 8 insertions(+)
+ net/dsa/slave.c   | 4 ++++
+ 2 files changed, 11 insertions(+)
 
 diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 0ada9c814ff9..9a16c5290738 100644
+index 35141155f368..e024511dbcdb 100644
 --- a/include/net/dsa.h
 +++ b/include/net/dsa.h
-@@ -15,6 +15,7 @@
- #include <linux/list.h>
+@@ -16,6 +16,7 @@
  #include <linux/timer.h>
  #include <linux/workqueue.h>
-+#include <linux/of.h>
+ #include <linux/of.h>
++#include <linux/phy.h>
  
  #define DSA_MAX_SWITCHES	4
  #define DSA_MAX_PORTS		12
-@@ -26,6 +27,12 @@ struct dsa_chip_data {
- 	struct device	*mii_bus;
- 	int		sw_addr;
+@@ -179,6 +180,12 @@ struct dsa_switch_driver {
+ 	void	(*poll_link)(struct dsa_switch *ds);
  
-+	/* Device tree node pointer for this specific switch chip
-+	 * used during switch setup in case additional properties
-+	 * and resources needs to be used
-+	 */
-+	struct device_node *of_node;
-+
  	/*
- 	 * The names of the switch's ports.  Use "cpu" to
- 	 * designate the switch port that the cpu is connected to,
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 0a49632fac47..069586547cf5 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -410,6 +410,7 @@ static int dsa_of_probe(struct platform_device *pdev)
- 		chip_index++;
- 		cd = &pd->chip[chip_index];
++	 * Link state adjustment (called from libphy)
++	 */
++	void	(*adjust_link)(struct dsa_switch *ds, int port,
++				struct phy_device *phydev);
++
++	/*
+ 	 * ethtool hardware statistics.
+ 	 */
+ 	void	(*get_strings)(struct dsa_switch *ds, int port, uint8_t *data);
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index d1dfa3d8552f..08a92db7f109 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -357,6 +357,7 @@ static const struct net_device_ops dummy_netdev_ops = {
+ static void dsa_slave_adjust_link(struct net_device *dev)
+ {
+ 	struct dsa_slave_priv *p = netdev_priv(dev);
++	struct dsa_switch *ds = p->parent;
+ 	unsigned int status_changed = 0;
  
-+		cd->of_node = child;
- 		cd->mii_bus = &mdio_bus->dev;
+ 	if (p->old_link != p->phy->link) {
+@@ -374,6 +375,9 @@ static void dsa_slave_adjust_link(struct net_device *dev)
+ 		p->old_pause = p->phy->pause;
+ 	}
  
- 		sw_addr = of_get_property(child, "reg", NULL);
++	if (ds->drv->adjust_link && status_changed)
++		ds->drv->adjust_link(ds, p->port, p->phy);
++
+ 	if (status_changed)
+ 		phy_print_status(p->phy);
+ }
 -- 
 1.9.1
