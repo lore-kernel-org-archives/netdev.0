@@ -1,34 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/2] amd-xgbe: AMD XGBE driver update
- 2014-08-05
-Date: Tue, 05 Aug 2014 16:47:23 -0700 (PDT)
-Message-ID: <20140805.164723.1980380162725348147.davem@davemloft.net>
-References: <20140805183032.32561.85828.stgit@tlendack-t1.amdoffice.net>
+Subject: Re: [PATCH net-next 1/1] net: reduce USB network driver config
+ options.
+Date: Tue, 05 Aug 2014 16:49:26 -0700 (PDT)
+Message-ID: <20140805.164926.787486099717166994.davem@davemloft.net>
+References: <20140805211052.GA29600@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: thomas.lendacky@amd.com
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
+To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60619 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60651 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753307AbaHEXrY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 19:47:24 -0400
-In-Reply-To: <20140805183032.32561.85828.stgit@tlendack-t1.amdoffice.net>
+	with ESMTP id S1751963AbaHEXt1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 19:49:27 -0400
+In-Reply-To: <20140805211052.GA29600@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Date: Tue, 5 Aug 2014 13:30:32 -0500
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Tue, 5 Aug 2014 23:10:52 +0200
 
-> The following series of patches includes fixes/updates to the driver.
+> From: Francois Romieu <romieu@fr.zoreil.com>
 > 
-> - Use dma_set_mask_and_coherent to set the DMA mask
-> - Move the phy connect/disconnect logic to allow for module unloading
+> USB network drivers are already handled in drivers/net/usb/Kconfig.
+> Let's save the maintenance burden of dependencies in drivers/net/Makefile.
 > 
-> This patch series is based on net-next.
+> The newly introduced USB_NET_DRIVERS umbrella config option defaults
+> to 'y' so as to minimize the changes of behavior.
 > 
-> Changes in V2:
-> - Check the return value of the dma_set_mask_and_coherent call
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 
-Series applied, thanks.
+Looks great, applied, thanks!
