@@ -1,42 +1,66 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next 2/3] netlink: Convert
- netlink_lookup() to use RCU protected hash table
-Date: Mon, 04 Aug 2014 22:58:39 -0700 (PDT)
-Message-ID: <20140804.225839.1596745671912500243.davem@davemloft.net>
-References: <53E03D0B.3000208@oracle.com>
- <20140804.195841.536725238366145203.davem@davemloft.net>
- <1407217807.3178.70.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH v3 1/2] rcar_can: document device tree bindings
+Date: Tue, 05 Aug 2014 08:15:43 +0200
+Message-ID: <53E0768F.8030406@pengutronix.de>
+References: <201408010124.26505.sergei.shtylyov@cogentembedded.com> <53DAB5CF.8000407@pengutronix.de> <53DFC0CE.4050602@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, nikolay-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
- walpole-sKt6ljEC1JY3uPMLIKxrzw@public.gmane.org
-To: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1407217807.3178.70.camel-XN9IlZ5yJG9HTL0Zs8A6p/gx64E7kk8eUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="xn8EFqBR5OMu8Sj3dp8lr4UR5M4vTQgkG"
+Cc: netdev@vger.kernel.org, wg@grandegger.com,
+	linux-can@vger.kernel.org, linux-sh@vger.kernel.org,
+	vksavl@gmail.com
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	robh+dt@kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
+	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
+	devicetree@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <53DFC0CE.4050602@cogentembedded.com>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Tue, 05 Aug 2014 07:50:07 +0200
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--xn8EFqBR5OMu8Sj3dp8lr4UR5M4vTQgkG
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-> [PATCH net-next] netlink: fix lockdep splats
-> 
-> With netlink_lookup() conversion to RCU, we need to use appropriate
-> rcu dereference in netlink_seq_socket_idx() & netlink_seq_next()
-> 
-> Reported-by: Sasha Levin <sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> Signed-off-by: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
-> Fixes: e341694e3eb57fc ("netlink: Convert netlink_lookup() to use RCU protected hash table")
+On 08/04/2014 07:20 PM, Sergei Shtylyov wrote:
+> Hello.
+>=20
+> On 08/01/2014 01:31 AM, Marc Kleine-Budde wrote:
+>=20
+>>> Document the R-Car CAN device tree bindings.
+>=20
+>>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+>=20
+>> The series looks good from the CAN perpective. I'll apply the patches
+>> after we've got an Acked-by from the DT folks.
+>=20
+>    How about the prior CAN clock support patch?
 
-Applied, thanks Eric.
+That looks good, too.
+
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--xn8EFqBR5OMu8Sj3dp8lr4UR5M4vTQgkG
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+Comment: Using GnuPG with Icedove - http://www.enigmail.net/
+
+iEYEARECAAYFAlPgdo8ACgkQjTAFq1RaXHNdOACfXuSAf+fJj41EgZ/2jJLn4/O3
+ANoAn2/h1ZSLnl326pdZm1QK5jBvaduT
+=ZqsA
+-----END PGP SIGNATURE-----
+
+--xn8EFqBR5OMu8Sj3dp8lr4UR5M4vTQgkG--
