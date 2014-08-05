@@ -1,54 +1,40 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: Re: [PATCH net-next 1/2] amd-xgbe: Use dma_set_mask_and_coherent
- to set DMA mask
-Date: Tue, 5 Aug 2014 13:15:00 -0500
-Message-ID: <53E11F24.9070204@amd.com>
-References: <20140805162113.28088.67523.stgit@tlendack-t1.amdoffice.net>
- <20140805162119.28088.36709.stgit@tlendack-t1.amdoffice.net>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH 3.4-stable] ipv6: reallocate addrconf router for ipv6
+ address when lo, device up
+Date: Tue, 5 Aug 2014 11:18:33 -0700
+Message-ID: <20140805181833.GB9959@kroah.com>
+References: <53A0173F.8090107@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, stable@vger.kernel.org,
+	Li Zefan <lizefan@huawei.com>
+To: chenweilong <chenweilong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2lp0237.outbound.protection.outlook.com ([207.46.163.237]:37920
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753604AbaHESPU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Aug 2014 14:15:20 -0400
-In-Reply-To: <20140805162119.28088.36709.stgit@tlendack-t1.amdoffice.net>
+Received: from mail.linuxfoundation.org ([140.211.169.12]:52647 "EHLO
+	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755478AbaHESSf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 14:18:35 -0400
+Content-Disposition: inline
+In-Reply-To: <53A0173F.8090107@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/05/2014 11:21 AM, Tom Lendacky wrote:
-> Use the dma_set_mask_and_coherent function to set the DMA mask rather
-> than setting the DMA mask fields directly.  This was originally done
-> to work around a bug in the arm64 DMA support when RAM started above
-> the 4GB boundary which has since been fixed.
->
-> Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
-> ---
->   drivers/net/ethernet/amd/xgbe/xgbe-main.c |    3 +--
->   1 file changed, 1 insertion(+), 2 deletions(-)
->
-> diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-main.c b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-> index ec977d3..9991bc7 100644
-> --- a/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-> +++ b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-> @@ -303,8 +303,7 @@ static int xgbe_probe(struct platform_device *pdev)
->   	/* Set the DMA mask */
->   	if (!dev->dma_mask)
->   		dev->dma_mask = &dev->coherent_dma_mask;
-> -	*(dev->dma_mask) = DMA_BIT_MASK(40);
-> -	dev->coherent_dma_mask = DMA_BIT_MASK(40);
-> +	dma_set_mask_and_coherent(dev, DMA_BIT_MASK(40));
+On Tue, Jun 17, 2014 at 06:23:59PM +0800, chenweilong wrote:
+> Hi Greg,
+> 
+> Please queue this for 3.4 stable kernel.
+> 
+> It fix the bug 67951 on bugzilla
+> https://bugzilla.kernel.org/show_bug.cgi?id=67951
+> 
+> The patch can't be applied directly, as it' used the function introduced
+> by "commit 94e187c0" ip6_rt_put(), that patch can't be applied directly
+> either. So I had to write this one.
 
-Forgot to check the return value of this call, v2 to follow.
+Now applied, can you also provide a version for 3.10-stable as I think
+it is needd there also, right?
 
-Thanks,
-Tom
+thanks,
 
->
->   	if (of_property_read_bool(dev->of_node, "dma-coherent")) {
->   		pdata->axdomain = XGBE_DMA_OS_AXDOMAIN;
->
+greg k-h
