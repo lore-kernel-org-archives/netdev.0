@@ -1,79 +1,100 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 07/12] net: dsa: allow drivers to do link adjustment
-Date: Tue,  5 Aug 2014 15:31:41 -0700
-Message-ID: <1407277906-19989-8-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 08/12] net: dsa: allow updating fixed PHY link information
+Date: Tue,  5 Aug 2014 15:31:42 -0700
+Message-ID: <1407277906-19989-9-git-send-email-f.fainelli@gmail.com>
 References: <1407277906-19989-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, linville@tuxdriver.com,
 	Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:53485 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753322AbaHEWcN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 18:32:13 -0400
-Received: by mail-pa0-f48.google.com with SMTP id et14so2197640pad.21
-        for <netdev@vger.kernel.org>; Tue, 05 Aug 2014 15:32:13 -0700 (PDT)
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:43271 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753322AbaHEWcP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 18:32:15 -0400
+Received: by mail-pd0-f169.google.com with SMTP id y10so2102949pdj.0
+        for <netdev@vger.kernel.org>; Tue, 05 Aug 2014 15:32:14 -0700 (PDT)
 In-Reply-To: <1407277906-19989-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Whenever libphy determines that the link status of a given PHY/port has
-changed, allow to call into the switch driver link adjustment callback
-so proper actions can be taken care of by the switch driver upon link
-notification.
+Allow switch drivers to hook a PHY link update callback to perform
+port-specific link work.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- include/net/dsa.h | 7 +++++++
- net/dsa/slave.c   | 4 ++++
- 2 files changed, 11 insertions(+)
+ include/net/dsa.h |  3 +++
+ net/dsa/slave.c   | 17 +++++++++++++++++
+ 2 files changed, 20 insertions(+)
 
 diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 35141155f368..e024511dbcdb 100644
+index e024511dbcdb..983c8400fd09 100644
 --- a/include/net/dsa.h
 +++ b/include/net/dsa.h
-@@ -16,6 +16,7 @@
- #include <linux/timer.h>
+@@ -17,6 +17,7 @@
  #include <linux/workqueue.h>
  #include <linux/of.h>
-+#include <linux/phy.h>
+ #include <linux/phy.h>
++#include <linux/phy_fixed.h>
  
  #define DSA_MAX_SWITCHES	4
  #define DSA_MAX_PORTS		12
-@@ -179,6 +180,12 @@ struct dsa_switch_driver {
- 	void	(*poll_link)(struct dsa_switch *ds);
+@@ -184,6 +185,8 @@ struct dsa_switch_driver {
+ 	 */
+ 	void	(*adjust_link)(struct dsa_switch *ds, int port,
+ 				struct phy_device *phydev);
++	void	(*fixed_link_update)(struct dsa_switch *ds, int port,
++				struct fixed_phy_status *st);
  
  	/*
-+	 * Link state adjustment (called from libphy)
-+	 */
-+	void	(*adjust_link)(struct dsa_switch *ds, int port,
-+				struct phy_device *phydev);
-+
-+	/*
  	 * ethtool hardware statistics.
- 	 */
- 	void	(*get_strings)(struct dsa_switch *ds, int port, uint8_t *data);
 diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index d1dfa3d8552f..08a92db7f109 100644
+index 08a92db7f109..129eadf3a657 100644
 --- a/net/dsa/slave.c
 +++ b/net/dsa/slave.c
-@@ -357,6 +357,7 @@ static const struct net_device_ops dummy_netdev_ops = {
- static void dsa_slave_adjust_link(struct net_device *dev)
- {
- 	struct dsa_slave_priv *p = netdev_priv(dev);
-+	struct dsa_switch *ds = p->parent;
- 	unsigned int status_changed = 0;
- 
- 	if (p->old_link != p->phy->link) {
-@@ -374,6 +375,9 @@ static void dsa_slave_adjust_link(struct net_device *dev)
- 		p->old_pause = p->phy->pause;
- 	}
- 
-+	if (ds->drv->adjust_link && status_changed)
-+		ds->drv->adjust_link(ds, p->port, p->phy);
-+
- 	if (status_changed)
+@@ -382,6 +382,18 @@ static void dsa_slave_adjust_link(struct net_device *dev)
  		phy_print_status(p->phy);
  }
+ 
++static int dsa_slave_fixed_link_update(struct net_device *dev,
++				       struct fixed_phy_status *status)
++{
++	struct dsa_slave_priv *p = netdev_priv(dev);
++	struct dsa_switch *ds = p->parent;
++
++	if (ds->drv->fixed_link_update)
++		ds->drv->fixed_link_update(ds, p->port, status);
++
++	return 0;
++}
++
+ /* slave device setup *******************************************************/
+ static void dsa_slave_phy_setup(struct dsa_slave_priv *p,
+ 				struct net_device *slave_dev)
+@@ -389,6 +401,7 @@ static void dsa_slave_phy_setup(struct dsa_slave_priv *p,
+ 	struct dsa_switch *ds = p->parent;
+ 	struct dsa_chip_data *cd = ds->pd;
+ 	struct device_node *phy_dn, *port_dn;
++	bool phy_is_fixed = false;
+ 	int ret;
+ 
+ 	port_dn = cd->port_dn[p->port];
+@@ -404,6 +417,7 @@ static void dsa_slave_phy_setup(struct dsa_slave_priv *p,
+ 			pr_err("failed to register fixed PHY\n");
+ 			return;
+ 		}
++		phy_is_fixed = true;
+ 		phy_dn = port_dn;
+ 	}
+ 
+@@ -412,6 +426,9 @@ static void dsa_slave_phy_setup(struct dsa_slave_priv *p,
+ 					dsa_slave_adjust_link, 0,
+ 					p->phy_interface);
+ 
++	if (p->phy && phy_is_fixed)
++		fixed_phy_set_link_update(p->phy, dsa_slave_fixed_link_update);
++
+ 	/* We could not connect to a designated PHY, so use the switch internal
+ 	 * MDIO bus instead
+ 	 */
 -- 
 1.9.1
