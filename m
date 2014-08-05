@@ -1,41 +1,38 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: [PATCH iproute2] tc/netem: loss gemodel options fixes
-Date: Tue, 5 Aug 2014 10:09:17 +0200
-Message-ID: <CAPh34meHr_7z4nznKBeKV6Y4Dypni72yM7bSOdkQ6hopsnjzGg@mail.gmail.com>
-References: <29682.1399754098@localhost.localdomain>
-	<CAPh34mf4ahPyTDf-tEhsNKSFBL6GYjES9+TTvDjhMf2YLTr04Q@mail.gmail.com>
-	<11467.1400183199@localhost.localdomain>
-	<20140804123709.502bbe1d@haswell.linuxnetplumber.net>
+From: Humboldt University of Berlin <ivan.yudianto@fe.unpad.ac.id>
+Subject: Achtung Benutzer
+Date: Tue, 05 Aug 2014 13:58:02 +0530
+Message-ID: <53e095bc.c2ae440a.1d0a.23e8@mx.google.com>
+Reply-To: account_cc@noreply.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jay Vosburgh <jay.vosburgh@canonical.com>,
-	netdev <netdev@vger.kernel.org>, netem@lists.linux-foundation.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Recipients <info@admin.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f177.google.com ([209.85.220.177]:47963 "EHLO
-	mail-vc0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932516AbaHEIJS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 04:09:18 -0400
-Received: by mail-vc0-f177.google.com with SMTP id hy4so858761vcb.8
-        for <netdev@vger.kernel.org>; Tue, 05 Aug 2014 01:09:17 -0700 (PDT)
-In-Reply-To: <20140804123709.502bbe1d@haswell.linuxnetplumber.net>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:43635 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754921AbaHEI2x convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 04:28:53 -0400
+Received: by mail-pa0-f53.google.com with SMTP id rd3so975410pab.26
+        for <netdev@vger.kernel.org>; Tue, 05 Aug 2014 01:28:53 -0700 (PDT)
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 4 August 2014 21:37, Stephen Hemminger <stephen@networkplumber.org> wrote:
+Achtung Benutzer=20
 
-> I went ahead and applied these. They make sense and got no response.
+Dies ist ein Hinweis, dass H=F6flichkeit Sie n=E4hern sich der Grenze v=
+on 2 GB Datentarif. Ihre E-Mail-Konto senden und empfangen E-Mails, wen=
+n Ihr E-Mail Konto nicht innerhalb von 24 Stunden =FCberpr=FCft blockie=
+rt werden w=FCrde.=20
 
-Wait Stephen,
+Sie werden nicht in der Lage zu senden oder zu empfangen neue E-Mail, b=
+is Sie Ihre E-Mail-Kontingent zu aktualisieren.=20
+Sie k=F6nnen auf den entsprechenden Link klicken Sie unten auf Ihr Kont=
+o zu reaktivieren=20
 
-Jay do you compared your changes with the expected results? I mean did
-you run tests that the Markov chain model is _now_  working correctly
-(in all states)?
+http://humboldt-1universittzuberlin.yolasite.com/
 
-The setup will be easy: send 10000 packets, capture the packets and
-'wc -l tcpdump -r trace.pcap' and compare to the expected number of
-packets for a given markov state setup. Enough bugs here where the
-should be no bugs at all. Some simple tests should be enough to get
-rid of them.
+* Wichtiger Hinweis:=20
+In der Regel innerhalb von 24 Stunden wird Ihr Konto aktiviert werden.=20
 
-Hagen
+Service Provider International. =A9 2014
