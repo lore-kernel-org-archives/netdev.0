@@ -1,166 +1,60 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [RFC][PATCH 0/7] nested sleeps, fixes and debug infra
-Date: Tue, 5 Aug 2014 15:06:46 +0200
-Message-ID: <20140805130646.GZ19379@twins.programming.kicks-ass.net>
-References: <20140804103025.478913141@infradead.org>
- <CALFYKtBo2p5uNtkJZOy_rN7JbdFs1RbB1OfcF7TR+qDaMU0Kvg@mail.gmail.com>
+From: Lucas Tanure <tanure@linux.com>
+Subject: [PATCH] drivers: net: ethernet: intel: i40e: Fix
+ missing uapi/linux/dcbnl.h include in i40e_fcoe.c
+Date: Tue, 5 Aug 2014 10:11:43 -0300
+Message-ID: <20140805131143.GA29685@ttmp-linux>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="DnA9obu+/I5ICgZN"
-Cc: Ingo Molnar <mingo@kernel.org>, oleg@redhat.com,
-	Linus Torvalds <torvalds@linux-foundation.org>, tglx@linutronix.de,
-	Mike Galbraith <umgwanakikbuti@gmail.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org, linux-mm@kvack.org
-To: Ilya Dryomov <ilya.dryomov@inktank.com>
-Return-path: <owner-linux-mm@kvack.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kernelnewbies@kernelnewbies.org, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, Bruce Allan <bruce.w.allan@intel.com>,
+	linux-kernel@vger.kernel.org
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
 Content-Disposition: inline
-In-Reply-To: <CALFYKtBo2p5uNtkJZOy_rN7JbdFs1RbB1OfcF7TR+qDaMU0Kvg@mail.gmail.com>
-Sender: owner-linux-mm@kvack.org
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
+Fix missing include in intel i40e driver. Without this include linux next
+tree won't compile.
 
---DnA9obu+/I5ICgZN
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Tue, Aug 05, 2014 at 12:33:16PM +0400, Ilya Dryomov wrote:
-> On Mon, Aug 4, 2014 at 2:30 PM, Peter Zijlstra <peterz@infradead.org> wro=
-te:
-> > Hi,
-> >
-> > Ilya recently tripped over a nested sleep which made Ingo suggest we sh=
-ould
-> > have debug checks for that. So I did some, see patch 7. Of course that
-> > triggered a whole bunch of fail the instant I tried to boot my machine.
-> >
-> > With this series I can boot my test box and build a kernel on it, I'm f=
-airly
-> > sure that's far too limited a test to have found all, but its a start.
->=20
-> FWIW, I'm getting a lot of these during light rbd testing.  CC'ed
-> netdev and linux-mm.
-
-Both are cond_resched() calls, and that's not blocking as such, just a
-preemption point, so lets exclude those.
-
-=46rom the school of '_' are free:
-
+Signed-off-by: Lucas Tanure <tanure@linux.com>
 ---
- include/linux/kernel.h |    3 +++
- include/linux/sched.h  |    6 +++---
- kernel/sched/core.c    |   12 +++++++++---
- 3 files changed, 15 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/i40e/i40e_fcoe.c | 1 +
+ 1 file changed, 1 insertion(+)
 
---- a/include/linux/kernel.h
-+++ b/include/linux/kernel.h
-@@ -162,6 +162,7 @@ extern int _cond_resched(void);
- #endif
-=20
- #ifdef CONFIG_DEBUG_ATOMIC_SLEEP
-+  void ___might_sleep(const char *file, int line, int preempt_offset);
-   void __might_sleep(const char *file, int line, int preempt_offset);
- /**
-  * might_sleep - annotation for functions that can sleep
-@@ -176,6 +177,8 @@ extern int _cond_resched(void);
- # define might_sleep() \
- 	do { __might_sleep(__FILE__, __LINE__, 0); might_resched(); } while (0)
- #else
-+  static inline void ___might_sleep(const char *file, int line,
-+				   int preempt_offset) { }
-   static inline void __might_sleep(const char *file, int line,
- 				   int preempt_offset) { }
- # define might_sleep() do { might_resched(); } while (0)
---- a/include/linux/sched.h
-+++ b/include/linux/sched.h
-@@ -2754,7 +2754,7 @@ static inline int signal_pending_state(l
- extern int _cond_resched(void);
-=20
- #define cond_resched() ({			\
--	__might_sleep(__FILE__, __LINE__, 0);	\
-+	___might_sleep(__FILE__, __LINE__, 0);	\
- 	_cond_resched();			\
- })
-=20
-@@ -2767,14 +2767,14 @@ extern int __cond_resched_lock(spinlock_
- #endif
-=20
- #define cond_resched_lock(lock) ({				\
--	__might_sleep(__FILE__, __LINE__, PREEMPT_LOCK_OFFSET);	\
-+	___might_sleep(__FILE__, __LINE__, PREEMPT_LOCK_OFFSET);\
- 	__cond_resched_lock(lock);				\
- })
-=20
- extern int __cond_resched_softirq(void);
-=20
- #define cond_resched_softirq() ({					\
--	__might_sleep(__FILE__, __LINE__, SOFTIRQ_DISABLE_OFFSET);	\
-+	___might_sleep(__FILE__, __LINE__, SOFTIRQ_DISABLE_OFFSET);	\
- 	__cond_resched_softirq();					\
- })
-=20
---- a/kernel/sched/core.c
-+++ b/kernel/sched/core.c
-@@ -7078,8 +7078,6 @@ static inline int preempt_count_equals(i
-=20
- void __might_sleep(const char *file, int line, int preempt_offset)
- {
--	static unsigned long prev_jiffy;	/* ratelimiting */
--
- 	/*
- 	 * Blocking primitives will set (and therefore destroy) current->state,
- 	 * since we will exit with TASK_RUNNING make sure we enter with it,
-@@ -7093,6 +7091,14 @@ void __might_sleep(const char *file, int
- 			(void *)current->task_state_change))
- 		__set_current_state(TASK_RUNNING);
-=20
-+	___might_sleep(file, line, preempt_offset);
-+}
-+EXPORT_SYMBOL(__might_sleep);
-+
-+void ___might_sleep(const char *file, int line, int preempt_offset)
-+{
-+	static unsigned long prev_jiffy;	/* ratelimiting */
-+
- 	rcu_sleep_check(); /* WARN_ON_ONCE() by default, no rate limit reqd. */
- 	if ((preempt_count_equals(preempt_offset) && !irqs_disabled() &&
- 	     !is_idle_task(current)) ||
-@@ -7122,7 +7128,7 @@ void __might_sleep(const char *file, int
- #endif
- 	dump_stack();
- }
--EXPORT_SYMBOL(__might_sleep);
-+EXPORT_SYMBOL(___might_sleep);
- #endif
-=20
- #ifdef CONFIG_MAGIC_SYSRQ
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_fcoe.c b/drivers/net/ethernet/intel/i40e/i40e_fcoe.c
+index 6938fc1..5d01db1 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_fcoe.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_fcoe.c
+@@ -33,6 +33,7 @@
+ #include <scsi/fc/fc_fcoe.h>
+ #include <scsi/libfc.h>
+ #include <scsi/libfcoe.h>
++#include <uapi/linux/dcbnl.h>
+ 
+ #include "i40e.h"
+ #include "i40e_fcoe.h"
+-- 
+2.0.0
 
---DnA9obu+/I5ICgZN
-Content-Type: application/pgp-signature
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIcBAEBAgAGBQJT4NbmAAoJEHZH4aRLwOS6PbwP/jnw7oRWl+vglQdWDV6TkeV4
-Rj2EE/EZl9ftFUgi1XbdD7qfNpCpN+jjo82P8r66Qz0hsZr9XEsNsvlv7Q+dUd0j
-Y9U8WxUzcdu9rnnmN4Be9HrKgPA6TkDN8Pu5+6fSAsv0TvYBFFIlm2t/bemBHZMq
-9dw1uE6dLGomf9l2k9vtPO8vWWFvT2+CIiRjAp7RRdx20hqJGJoQwuDaZ6Ol+VxU
-f+IbFqltv0Q0Gnaw+7jW6j/C3wBTHIvSuzpf9OBOqlBZmZAxuaeTj+P8UkC6K1gp
-6BhBaIQ+jUrOpjfE3om0uQ45ry8ELeKt7k1zm3iwBQR1Sscpz+CDsrDwRiVNC6QD
-SqY6MZYl6QrOdTDZLw0CK06D3HzkeWxwARWjQqB7TgxlQql1EQPQy4XN1xPOcOXJ
-x94CFlP90oWj+/5Iqi+b7quzUQ9fZ1f8HKZZs5vF1hHj+puaRaBlVLiADJHvNOra
-k5zTODEFW4BdFoiQCXAHrDEGAR1z2KnyE1nuhzC1HQZ3xQWip68dz+IJGJUT+RLI
-+Cwd40bdrPySRoz10uSaDWQzBIxFwnLFG8wKrzM38Ug9rmoxjoYh9qum8mDGnzz+
-gqadS84VWTCLZuMIwdfv8yrWBsyZBR5SOm5G1k7ztOjwonErModZLb9F+kcdj47t
-LdHabG3soJJ/pTbKm2UN
-=vRLc
------END PGP SIGNATURE-----
-
---DnA9obu+/I5ICgZN--
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+------------------------------------------------------------------------------
+Infragistics Professional
+Build stunning WinForms apps today!
+Reboot your WinForms applications with our WinForms controls. 
+Build a bridge from your legacy apps to the future.
+http://pubads.g.doubleclick.net/gampad/clk?id=153845071&iu=/4140/ostg.clktrk
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
