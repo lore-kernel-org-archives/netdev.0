@@ -1,45 +1,90 @@
-From: Tom Lendacky <thomas.lendacky@amd.com>
-Subject: [PATCH net-next 1/2] amd-xgbe: Use dma_set_mask_and_coherent to set
- DMA mask
-Date: Tue, 5 Aug 2014 11:21:19 -0500
-Message-ID: <20140805162119.28088.36709.stgit@tlendack-t1.amdoffice.net>
-References: <20140805162113.28088.67523.stgit@tlendack-t1.amdoffice.net>
+From: Chen Gang <gang.chen.5i5j@gmail.com>
+Subject: Re: [PATCH] drivers/isdn/hisax/Kconfig: Let HISAX_NETJET skip microblaze
+ architecture
+Date: Wed, 06 Aug 2014 00:30:41 +0800
+Message-ID: <53E106B1.9040704@gmail.com>
+References: <53DFCFC9.6060307@gmail.com>	<20140804212354.74b97cd7@endymion.delvare> <CAMuHMdVGgW11UziFieCgXT7mSNA=_QgOaGAt42kEXqU9CUgqxA@mail.gmail.com> <53E05BC9.3060500@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2lp0204.outbound.protection.outlook.com ([207.46.163.204]:35290
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755468AbaHEQVo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Aug 2014 12:21:44 -0400
-In-Reply-To: <20140805162113.28088.67523.stgit@tlendack-t1.amdoffice.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Karsten Keil <isdn@linux-pingi.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Michal Simek <monstr@monstr.eu>, Arnd Bergmann <arnd@arndb.de>
+To: Geert Uytterhoeven <geert@linux-m68k.org>,
+	Jean Delvare <jdelvare@suse.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <53E05BC9.3060500@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Use the dma_set_mask_and_coherent function to set the DMA mask rather
-than setting the DMA mask fields directly.  This was originally done
-to work around a bug in the arm64 DMA support when RAM started above
-the 4GB boundary which has since been fixed.
+On 08/05/2014 12:21 PM, Chen Gang wrote:
+> 
+> 
+> On 08/05/2014 03:44 AM, Geert Uytterhoeven wrote:
+>> On Mon, Aug 4, 2014 at 9:23 PM, Jean Delvare <jdelvare@suse.de> wrote:
+>>>> --- a/drivers/isdn/hisax/Kconfig
+>>>> +++ b/drivers/isdn/hisax/Kconfig
+>>>> @@ -237,7 +237,7 @@ config HISAX_MIC
+>>>>
+>>>>  config HISAX_NETJET
+>>>>       bool "NETjet card"
+>>>> -     depends on PCI && (BROKEN || !(PPC || PARISC || M68K || (MIPS && !CPU_LITTLE_ENDIAN) || FRV || (XTENSA && !CPU_LITTLE_ENDIAN)))
+>>>> +     depends on PCI && (BROKEN || !(PPC || PARISC || M68K || (MIPS && !CPU_LITTLE_ENDIAN) || FRV || (XTENSA && !CPU_LITTLE_ENDIAN) || MICROBLAZE))
+>>>>       depends on VIRT_TO_BUS
+>>>>       help
+>>>>         This enables HiSax support for the NetJet from Traverse
+>>>> @@ -249,7 +249,7 @@ config HISAX_NETJET
+>>>>
+>>>>  config HISAX_NETJET_U
+>>>>       bool "NETspider U card"
+>>>> -     depends on PCI && (BROKEN || !(PPC || PARISC || M68K || (MIPS && !CPU_LITTLE_ENDIAN) || FRV || (XTENSA && !CPU_LITTLE_ENDIAN)))
+>>>> +     depends on PCI && (BROKEN || !(PPC || PARISC || M68K || (MIPS && !CPU_LITTLE_ENDIAN) || FRV || (XTENSA && !CPU_LITTLE_ENDIAN) || MICROBLAZE))
+>>>>       depends on VIRT_TO_BUS
+>>>>       help
+>>>>         This enables HiSax support for the Netspider U interface ISDN card
+>>>
+>>> Fine with me, however the list is getting long. It would be better if
+>>> we could depend on a functional symbol rather than a negated list of
+>>> architectures. Would it make sense to have CONFIG_CPU_LITTLE_ENDIAN
+>>> defined on all little-endian architectures, so that driver can depend
+>>> on that if needed?
+>>
+>> Yes, that idea pops up once in a while.
+>>
+>> BTW, these days little endian PPC is also supported by Linux...
+>>
+>>> Alternatively, it might make more sense to list the architectures where
+>>> these drivers are actually used in practice. I guess that's X86, maybe
+>>> ARM and IA64, and that's all?
+>>
+>> || COMPILE_TEST ....
+>>
+> 
 
-Signed-off-by: Tom Lendacky <thomas.lendacky@amd.com>
----
- drivers/net/ethernet/amd/xgbe/xgbe-main.c |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+If no additional response within 3 days, I shall continue to try to send
+patch for it.
 
-diff --git a/drivers/net/ethernet/amd/xgbe/xgbe-main.c b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-index ec977d3..9991bc7 100644
---- a/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-+++ b/drivers/net/ethernet/amd/xgbe/xgbe-main.c
-@@ -303,8 +303,7 @@ static int xgbe_probe(struct platform_device *pdev)
- 	/* Set the DMA mask */
- 	if (!dev->dma_mask)
- 		dev->dma_mask = &dev->coherent_dma_mask;
--	*(dev->dma_mask) = DMA_BIT_MASK(40);
--	dev->coherent_dma_mask = DMA_BIT_MASK(40);
-+	dma_set_mask_and_coherent(dev, DMA_BIT_MASK(40));
- 
- 	if (of_property_read_bool(dev->of_node, "dma-coherent")) {
- 		pdata->axdomain = XGBE_DMA_OS_AXDOMAIN;
+Excuse me, I need additional thinking of for it, so I plan to send patch
+for discussing and review within next week end (2014-08-17).
+
+And welcome any members' ideas, suggestions and completions.
+
+Thanks.
+
+> OK, thanks, what all of you said sounds reasonable to me.
+> 
+> Hello Geert:
+> 
+> Could you help send the related patch for it?
+> 
+> 
+> Thanks.
+> 
+
+
+-- 
+Chen Gang
+
+Open share and attitude like air water and life which God blessed
