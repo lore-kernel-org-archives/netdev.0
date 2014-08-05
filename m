@@ -1,58 +1,103 @@
-From: Guy Harris <guy@alum.mit.edu>
-Subject: Re: Problems with TPACKET_V3 delivery of wakeups (and empty buffer blocks)
-Date: Mon, 4 Aug 2014 21:52:27 -0700
-Message-ID: <C7B99DBD-8362-4A39-B9AD-D7AC14880DA5@alum.mit.edu>
-References: <FBF13AD0-7721-4CEF-94AE-A14C1B06E84C@alum.mit.edu> <53DF3F44.6090804@redhat.com> <CAAsGZS5GNcYhXz5cD9W2iOR9mKHLJi9NpksKW5YGdPr9mb3ZnQ@mail.gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 6.6 \(1510\))
+From: Greg KH <greg@kroah.com>
+Subject: Re: Fwd: Re: GRO issue with kernel 3.4.94 (icmp fragmentation needed)
+Date: Mon, 4 Aug 2014 21:52:54 -0700
+Message-ID: <20140805045254.GA31762@kroah.com>
+References: <1836813.giEndUKvmp@storm>
+ <20140730002255.GA16109@kroah.com>
+ <20140730063703.GA24753@breakpoint.cc>
+Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Daniel Borkmann <dborkman@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: chetan loke <loke.chetan@gmail.com>
+Cc: Thomas Jarosch <thomas.jarosch@intra2net.com>,
+	netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from d.mail.sonic.net ([64.142.111.50]:53875 "EHLO d.mail.sonic.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752121AbaHEEwg convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 00:52:36 -0400
-In-Reply-To: <CAAsGZS5GNcYhXz5cD9W2iOR9mKHLJi9NpksKW5YGdPr9mb3ZnQ@mail.gmail.com>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:41353 "EHLO
+	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752121AbaHEEx2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 00:53:28 -0400
+Received: from compute3.internal (compute3.nyi.internal [10.202.2.43])
+	by gateway1.nyi.internal (Postfix) with ESMTP id 2A13C22777
+	for <netdev@vger.kernel.org>; Tue,  5 Aug 2014 00:53:25 -0400 (EDT)
+Content-Disposition: inline
+In-Reply-To: <20140730063703.GA24753@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-On Aug 4, 2014, at 8:23 PM, chetan loke <loke.chetan@gmail.com> wrote:
-
-> Empty buffer blocks have to be delivered. The patch explains it why.
-
-If by "the patch" you mean
-
-	https://lkml.org/lkml/2011/6/21/463
-
-and the comment
-
-> E2) Also implemented basic timeout mechanism to close 'a' current block.
->     That way, user-space won't be blocked forever on an idle link.
->     This is a much needed feature while monitoring multiple ports.
->     Look at 3) below.
-
-then that's presumably referring to 3.4.2 in
-
-> 3) Port aggregation analysis:
->    Multiple ports are viewed/analyzed as one logical pipe.
->    Example:
->    3.1) up-stream    path can be tapped in eth1
->    3.2) down-stream  path can be tapped in eth2
->    3.3) Network TAP splits Rx/Tx paths and then feeds to eth1,eth2.
+On Wed, Jul 30, 2014 at 08:37:03AM +0200, Florian Westphal wrote:
+> Greg KH <greg@kroah.com> wrote:
 > 
->    If both eth1,eth2 need to be viewed as one logical channel,
->    then that implies we need to timesort the packets as they come across
->    eth1,eth2.
+> [ CCing David.  If I understood him correctly, he recommended to revert
+>   the GRO forwarding changes for oldstable 3.2/3.4.y series. I second
+>   this.  But see below for answer to your question ]
 > 
->    3.4) But following issues further complicates the problem:
->         3.4.1)What if one stream is bursty and other is flowing
->               at line rate?
->         3.4.2)How long do we wait before we can actually make a
->               decision in the app-space and bail-out from the spin-wait?
+> > On Fri, Jul 11, 2014 at 05:12:55PM +0200, Thomas Jarosch wrote:
+> > > Subject: Re: GRO issue with kernel 3.4.94 (icmp fragmentation needed)
+> > > Date: Friday, 27. June 2014, 11:05:25
+> > > From: Florian Westphal <fw@strlen.de>
+> > > To: jungwon park <jwpark2@whitecode.co.kr>
+> > > CC: netdev@vger.kernel.org
+> > > 
+> > > jungwon park <jwpark2@whitecode.co.kr> wrote:
+> > > > When using the linux router is turned on GRO, router send the 
+> > > 'fragmentation
+> > > > needed' packets to the sender.
+> > > 
+> > > Indeed 8-(
+> > > 
+> > > > When I turned off GRO, the router operate normally, and there is no 
+> > > problem.
+> > > > and with 3.4.91 kernel, the router has no problem.
+> > > > 
+> > > > I doubt 'ipv4: ip_forward: fix inverted local_df test' patch.
+> > > > (http://patchwork.ozlabs.org/patch/345509/)
+> > > > When I revert this patch, the router has no problem.
+> > > 
+> > > Can you please cherry-pick following patch on top of vanilla 3.4.92?
+> > > https://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/commit/?id=21d1196a35f5686c4323e42a62fdb4b23b0ab4a3
+> > > 
+> > > commit 21d1196a35f5686c4323e42a62fdb4b23b0ab4a3
+> > > Author: Eric Dumazet <edumazet@google.com>
+> > > ipv4: set transport header earlier
+> > > 
+> > > I think that should fix this bug, it should apply cleanly on top of
+> > > 3.4.y tree.
+> > > 
+> > > [ patch is in 3.11, also backported to 3.10.y tree ]
+> > > 
+> > > The problem is that, when dealing with GRO packets, we try to determine
+> > > the size of the individual packets.  To do this, we rely on the
+> > > transport header.
+> > > 
+> > > Unfortunately the transport header is not set for the forward path in 3.4,
+> > > so we look at the network header instead.
+> > 
+> > Why would this patch matter, as commit 45f00f99d6e, which this patch
+> > fixes, is not in the 3.4-stable tree at all.
+> 
+> It helps, because I underestimated the changes the network stacki went through
+> since 3.2 and 3.4 had been released.
+> 
+> The GRO forwarding change, (fe6cc55f3a9a053482a76f5a6b2257cee51b4663
+> upstream) depends on having the transport header available in the
+> forward path, and not just in the input/local delivery path.
+> 
+> The Patch from Eric Dumazet that I referenced above made this change.
+> So, while its unrelated to the GRO forward patch, it is a dependency.
+> 
+> However, given the numerous problems reported with the GRO changes in
+> older stable kernels I think the commit
+> 29a3cd46644ec8098dbe1c12f89643b5c11831a9 in 3.4.y should be reverted.
+> 
+> [ In 3.2.y its caa5344994778a2b4725b2d75c74430f76925e4a ]
+> 
+> > Also, network stable patches need to go through the network maintainer,
+> > not me directly.
+> 
+> Greg, is above explanation enough for you to revert?
 
-and presumably this is referring to some mechanism by which eth1 and eth2 are handled by *one* socket, because if it's handled by *two* sockets, you use select()/poll()/epoll() on the two sockets, and, when *either* of the devices either fills up a block or times out, a wakeup is delivered to its socket and userland wakes up.
+Yup, that's good enough, I had to do the revert by hand, a verification
+would be nice to have.
 
-And even if there's some reason why a wakeup has to be delivered when the timer expires even if *no* packets are available, what is the reason why you don't just deliver a wakeup but *no* buffer blocks, so that userland just says "well, I woke up, but there are no buffer blocks available for that particular socket, so there's nothing to process for that socket"?
+thanks,
+
+greg k-h
