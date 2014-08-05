@@ -1,90 +1,29 @@
-From: Chen Gang <gang.chen.5i5j@gmail.com>
-Subject: Re: [PATCH] drivers/isdn/hisax/Kconfig: Let HISAX_NETJET skip microblaze
- architecture
-Date: Wed, 06 Aug 2014 00:30:41 +0800
-Message-ID: <53E106B1.9040704@gmail.com>
-References: <53DFCFC9.6060307@gmail.com>	<20140804212354.74b97cd7@endymion.delvare> <CAMuHMdVGgW11UziFieCgXT7mSNA=_QgOaGAt42kEXqU9CUgqxA@mail.gmail.com> <53E05BC9.3060500@gmail.com>
+From: beautyy443 <beautyy443mmmmmmmmmm@libero.it>
+Subject: Hello
+Date: Tue, 5 Aug 2014 18:43:33 +0200 (CEST)
+Message-ID: <5698226.988401407257013347.JavaMail.defaultUser@defaultHost>
+Reply-To: mirabeljohnson49@yahoo.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain;charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Karsten Keil <isdn@linux-pingi.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Michal Simek <monstr@monstr.eu>, Arnd Bergmann <arnd@arndb.de>
-To: Geert Uytterhoeven <geert@linux-m68k.org>,
-	Jean Delvare <jdelvare@suse.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <53E05BC9.3060500@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from outrelay02.libero.it ([212.52.84.102]:44696 "EHLO
+	outrelay02.libero.it" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755636AbaHEQoI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 12:44:08 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/05/2014 12:21 PM, Chen Gang wrote:
-> 
-> 
-> On 08/05/2014 03:44 AM, Geert Uytterhoeven wrote:
->> On Mon, Aug 4, 2014 at 9:23 PM, Jean Delvare <jdelvare@suse.de> wrote:
->>>> --- a/drivers/isdn/hisax/Kconfig
->>>> +++ b/drivers/isdn/hisax/Kconfig
->>>> @@ -237,7 +237,7 @@ config HISAX_MIC
->>>>
->>>>  config HISAX_NETJET
->>>>       bool "NETjet card"
->>>> -     depends on PCI && (BROKEN || !(PPC || PARISC || M68K || (MIPS && !CPU_LITTLE_ENDIAN) || FRV || (XTENSA && !CPU_LITTLE_ENDIAN)))
->>>> +     depends on PCI && (BROKEN || !(PPC || PARISC || M68K || (MIPS && !CPU_LITTLE_ENDIAN) || FRV || (XTENSA && !CPU_LITTLE_ENDIAN) || MICROBLAZE))
->>>>       depends on VIRT_TO_BUS
->>>>       help
->>>>         This enables HiSax support for the NetJet from Traverse
->>>> @@ -249,7 +249,7 @@ config HISAX_NETJET
->>>>
->>>>  config HISAX_NETJET_U
->>>>       bool "NETspider U card"
->>>> -     depends on PCI && (BROKEN || !(PPC || PARISC || M68K || (MIPS && !CPU_LITTLE_ENDIAN) || FRV || (XTENSA && !CPU_LITTLE_ENDIAN)))
->>>> +     depends on PCI && (BROKEN || !(PPC || PARISC || M68K || (MIPS && !CPU_LITTLE_ENDIAN) || FRV || (XTENSA && !CPU_LITTLE_ENDIAN) || MICROBLAZE))
->>>>       depends on VIRT_TO_BUS
->>>>       help
->>>>         This enables HiSax support for the Netspider U interface ISDN card
->>>
->>> Fine with me, however the list is getting long. It would be better if
->>> we could depend on a functional symbol rather than a negated list of
->>> architectures. Would it make sense to have CONFIG_CPU_LITTLE_ENDIAN
->>> defined on all little-endian architectures, so that driver can depend
->>> on that if needed?
->>
->> Yes, that idea pops up once in a while.
->>
->> BTW, these days little endian PPC is also supported by Linux...
->>
->>> Alternatively, it might make more sense to list the architectures where
->>> these drivers are actually used in practice. I guess that's X86, maybe
->>> ARM and IA64, and that's all?
->>
->> || COMPILE_TEST ....
->>
-> 
-
-If no additional response within 3 days, I shall continue to try to send
-patch for it.
-
-Excuse me, I need additional thinking of for it, so I plan to send patch
-for discussing and review within next week end (2014-08-17).
-
-And welcome any members' ideas, suggestions and completions.
-
-Thanks.
-
-> OK, thanks, what all of you said sounds reasonable to me.
-> 
-> Hello Geert:
-> 
-> Could you help send the related patch for it?
-> 
-> 
-> Thanks.
-> 
-
-
--- 
-Chen Gang
-
-Open share and attitude like air water and life which God blessed
+Hello
+My name is Mirabel Johnson
+i saw your profile today and became interested in you,i will also like to know 
+you the more,and i want you to send an email to my email address so i can give 
+you my picture for you to know whom i am.Here is my email address 
+(mirabeljohnson49@yahoo.com)
+I believe we can move from here!I am waiting for your mail to my email address 
+above.
+Mirabel.
+please contact me here (mirabeljohnson49@yahoo.com)
+(Remember the distance or colour does not matter but love matters a lot in 
+life)
