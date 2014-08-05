@@ -1,33 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] xen-netfront: Fix handling packets on compound pages
- with skb_segment
-Date: Tue, 05 Aug 2014 16:45:00 -0700 (PDT)
-Message-ID: <20140805.164500.1875405528479445448.davem@davemloft.net>
-References: <20140803091110.GA7093@zion.uk.xensource.com>
-	<20140804.152411.1486639478907964423.davem@davemloft.net>
-	<53E0D56E.7020205@citrix.com>
+Subject: Re: [PATCH] drivers: net: ethernet: intel: i40e: Fix
+ missing uapi/linux/dcbnl.h include in i40e_fcoe.c
+Date: Tue, 05 Aug 2014 16:45:07 -0700 (PDT)
+Message-ID: <20140805.164507.779439224391996731.davem@davemloft.net>
+References: <20140805131143.GA29685@ttmp-linux>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: wei.liu2@citrix.com, konrad.wilk@oracle.com,
-	boris.ostrovsky@oracle.com, david.vrabel@citrix.com,
-	Ian.Campbell@citrix.com, paul.durrant@citrix.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	xen-devel@lists.xenproject.org
-To: zoltan.kiss@citrix.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <53E0D56E.7020205@citrix.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: kernelnewbies@kernelnewbies.org, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, bruce.w.allan@intel.com,
+	jesse.brandeburg@intel.com, linux-kernel@vger.kernel.org
+To: tanure@linux.com
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20140805131143.GA29685@ttmp-linux>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Date: Tue, 5 Aug 2014 14:00:30 +0100
+From: Lucas Tanure <tanure@linux.com>
+Date: Tue, 5 Aug 2014 10:11:43 -0300
 
-> On 04/08/14 23:24, David Miller wrote:
->> Given what I've seen so far, I think the only option is to linearize
->> the packet.
-> I think that would have more performance penalty than calling
-> skb_gso_segment, but maybe I'm wrong.
+> Fix missing include in intel i40e driver. Without this include linux next
+> tree won't compile.
+> 
+> Signed-off-by: Lucas Tanure <tanure@linux.com>
 
-We have firmly established that you cannot legally use GSO segmenting
-as an option, so it doesn't matter if it's faster or not.
+Applied, thank you.
+
+------------------------------------------------------------------------------
+Infragistics Professional
+Build stunning WinForms apps today!
+Reboot your WinForms applications with our WinForms controls. 
+Build a bridge from your legacy apps to the future.
+http://pubads.g.doubleclick.net/gampad/clk?id=153845071&iu=/4140/ostg.clktrk
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
