@@ -1,48 +1,48 @@
 From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Subject: [PATCH net-next] bridge: Update outdated comment on
-	promiscuous mode
-Date: Tue,  5 Aug 2014 15:57:15 +0900
-Message-ID: <1407221835-15529-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-Cc: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org
+Subject: [PATCH net-next] team: Simplify return path of team_newlink
+Date: Tue,  5 Aug 2014 15:58:50 +0900
+Message-ID: <1407221930-15590-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	netdev@vger.kernel.org
 To: "David S . Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+	Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from tama50.ecl.ntt.co.jp ([129.60.39.147]:41056 "EHLO
+	tama50.ecl.ntt.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932084AbaHEG7M (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 02:59:12 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Now bridge ports can be non-promiscuous, vlan_vid_add() is no longer an
-unnecessary operation.
+The variable "err" is not necessary.
+Return register_netdevice() directly.
 
 Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
 ---
- net/bridge/br_vlan.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+ drivers/net/team/team.c | 8 +-------
+ 1 file changed, 1 insertion(+), 7 deletions(-)
 
-diff --git a/net/bridge/br_vlan.c b/net/bridge/br_vlan.c
-index 2b2774f..febb0f8 100644
---- a/net/bridge/br_vlan.c
-+++ b/net/bridge/br_vlan.c
-@@ -55,10 +55,8 @@ static int __vlan_add(struct net_port_vlans *v, u16 vid, u16 flags)
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index b4958c7..ef10302 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -2045,16 +2045,10 @@ static void team_setup(struct net_device *dev)
+ static int team_newlink(struct net *src_net, struct net_device *dev,
+ 			struct nlattr *tb[], struct nlattr *data[])
+ {
+-	int err;
+-
+ 	if (tb[IFLA_ADDRESS] == NULL)
+ 		eth_hw_addr_random(dev);
  
- 	if (p) {
- 		/* Add VLAN to the device filter if it is supported.
--		 * Stricly speaking, this is not necessary now, since
--		 * devices are made promiscuous by the bridge, but if
--		 * that ever changes this code will allow tagged
--		 * traffic to enter the bridge.
-+		 * This ensures tagged traffic enters the bridge when
-+		 * promiscuous mode is disabled by br_manage_promisc().
- 		 */
- 		err = vlan_vid_add(dev, br->vlan_proto, vid);
- 		if (err)
+-	err = register_netdevice(dev);
+-	if (err)
+-		return err;
+-
+-	return 0;
++	return register_netdevice(dev);
+ }
+ 
+ static int team_validate(struct nlattr *tb[], struct nlattr *data[])
 -- 
 1.8.1.2
