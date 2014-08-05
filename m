@@ -1,80 +1,166 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [PATCH] xen-netfront: Fix handling packets on compound pages
- with skb_segment
-Date: Tue, 5 Aug 2014 14:00:30 +0100
-Message-ID: <53E0D56E.7020205@citrix.com>
-References: <20140801110246.GB17947@zion.uk.xensource.com>	<20140802.153337.1399638752235662112.davem@davemloft.net>	<20140803091110.GA7093@zion.uk.xensource.com> <20140804.152411.1486639478907964423.davem@davemloft.net>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [RFC][PATCH 0/7] nested sleeps, fixes and debug infra
+Date: Tue, 5 Aug 2014 15:06:46 +0200
+Message-ID: <20140805130646.GZ19379@twins.programming.kicks-ass.net>
+References: <20140804103025.478913141@infradead.org>
+ <CALFYKtBo2p5uNtkJZOy_rN7JbdFs1RbB1OfcF7TR+qDaMU0Kvg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <konrad.wilk@oracle.com>, <boris.ostrovsky@oracle.com>,
-	<david.vrabel@citrix.com>, <Ian.Campbell@citrix.com>,
-	<paul.durrant@citrix.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <xen-devel@lists.xenproject.org>
-To: David Miller <davem@davemloft.net>, <wei.liu2@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140804.152411.1486639478907964423.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="DnA9obu+/I5ICgZN"
+Cc: Ingo Molnar <mingo@kernel.org>, oleg@redhat.com,
+	Linus Torvalds <torvalds@linux-foundation.org>, tglx@linutronix.de,
+	Mike Galbraith <umgwanakikbuti@gmail.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@vger.kernel.org, linux-mm@kvack.org
+To: Ilya Dryomov <ilya.dryomov@inktank.com>
+Return-path: <owner-linux-mm@kvack.org>
+Content-Disposition: inline
+In-Reply-To: <CALFYKtBo2p5uNtkJZOy_rN7JbdFs1RbB1OfcF7TR+qDaMU0Kvg@mail.gmail.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On 04/08/14 23:24, David Miller wrote:
-> From: Wei Liu <wei.liu2@citrix.com>
-> Date: Sun, 3 Aug 2014 10:11:10 +0100
->
->> On Sat, Aug 02, 2014 at 03:33:37PM -0700, David Miller wrote:
->>> From: Wei Liu <wei.liu2@citrix.com>
->>> Date: Fri, 1 Aug 2014 12:02:46 +0100
->>>
->>>> On Thu, Jul 31, 2014 at 01:25:20PM -0700, David Miller wrote:
->>>>> If you were to have a 64-slot TX queue, you ought to be able to handle
->>>>> this theoretical 51 slot SKB.
->>>>
->>>> There's two problems:
->>>> 1. IIRC a single page ring has 256 slots, allowing 64 slots packet
->>>>     yields 4 in-flight packets in worst case.
->>>> 2. Older netback could not handle this large number of slots and it's
->>>>     likely to deem the frontend malicious.
->>>>
->>>> For #1, we don't actually care that much if guest screws itself by
->>>> generating 64 slot packets. #2 is more concerning.
->>>
->>> How many slots can the older netback handle?
->>
->> I listed those two problems in the context "if we were to lift this
->> limit in the latest net-next tree", so "older netback" actually refers
->> to netback from 3.10 to 3.16.
->>
->> The current implementation allows the number of slots X:
->>   1. X <= 18, valid packet
->>   2. 18 < X < fatal_slot_count, dropped
->>   3. X >= fatal_slot_count, malicious frontend
->>
->> fatal_slot_count has default value of 20.
->
-> Given what I've seen so far, I think the only option is to linearize
-> the packet.
-I think that would have more performance penalty than calling 
-skb_gso_segment, but maybe I'm wrong.
->
-> BTW, we do have a netdev->gso_max_segs tunable drivers can set, but
-> it might not cover all of the cases you need to handle.
-Indeed. Even a packet with one frag can be too scattered for us.
->
-> Maybe we can create a similar tunable which triggers
-> skb_needs_linearize() in the transmit path.
->
-> The advantage of such a tunable is that this can be worked with
-> inside of TCP to avoid creating such packets in the first place.
->
-> For example, all of the MAX_SKB_FRAGS checks you see in net/ipv4/tcp.c
-> could be replaced with tests against this new tunable in struct netdevice.
-You would need to implement xennet_count_skb_frag_slots and count the 
-slots for every skb heading to a device with this tunable set. And not 
-just for TCP, but for any packet source.
-I think it would be better to check for that tunable in 
-dev_hard_start_xmit, and mask out the GSO bits in 'features' to force 
-segmentation there. That would do essentially the same as this patch, 
-but not in the netfront's start_xmit. One minor flaw is that it does one 
-round of segmentation only, which doesn't handle the theoretical worst case.
 
-Zoli
+--DnA9obu+/I5ICgZN
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Tue, Aug 05, 2014 at 12:33:16PM +0400, Ilya Dryomov wrote:
+> On Mon, Aug 4, 2014 at 2:30 PM, Peter Zijlstra <peterz@infradead.org> wro=
+te:
+> > Hi,
+> >
+> > Ilya recently tripped over a nested sleep which made Ingo suggest we sh=
+ould
+> > have debug checks for that. So I did some, see patch 7. Of course that
+> > triggered a whole bunch of fail the instant I tried to boot my machine.
+> >
+> > With this series I can boot my test box and build a kernel on it, I'm f=
+airly
+> > sure that's far too limited a test to have found all, but its a start.
+>=20
+> FWIW, I'm getting a lot of these during light rbd testing.  CC'ed
+> netdev and linux-mm.
+
+Both are cond_resched() calls, and that's not blocking as such, just a
+preemption point, so lets exclude those.
+
+=46rom the school of '_' are free:
+
+---
+ include/linux/kernel.h |    3 +++
+ include/linux/sched.h  |    6 +++---
+ kernel/sched/core.c    |   12 +++++++++---
+ 3 files changed, 15 insertions(+), 6 deletions(-)
+
+--- a/include/linux/kernel.h
++++ b/include/linux/kernel.h
+@@ -162,6 +162,7 @@ extern int _cond_resched(void);
+ #endif
+=20
+ #ifdef CONFIG_DEBUG_ATOMIC_SLEEP
++  void ___might_sleep(const char *file, int line, int preempt_offset);
+   void __might_sleep(const char *file, int line, int preempt_offset);
+ /**
+  * might_sleep - annotation for functions that can sleep
+@@ -176,6 +177,8 @@ extern int _cond_resched(void);
+ # define might_sleep() \
+ 	do { __might_sleep(__FILE__, __LINE__, 0); might_resched(); } while (0)
+ #else
++  static inline void ___might_sleep(const char *file, int line,
++				   int preempt_offset) { }
+   static inline void __might_sleep(const char *file, int line,
+ 				   int preempt_offset) { }
+ # define might_sleep() do { might_resched(); } while (0)
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -2754,7 +2754,7 @@ static inline int signal_pending_state(l
+ extern int _cond_resched(void);
+=20
+ #define cond_resched() ({			\
+-	__might_sleep(__FILE__, __LINE__, 0);	\
++	___might_sleep(__FILE__, __LINE__, 0);	\
+ 	_cond_resched();			\
+ })
+=20
+@@ -2767,14 +2767,14 @@ extern int __cond_resched_lock(spinlock_
+ #endif
+=20
+ #define cond_resched_lock(lock) ({				\
+-	__might_sleep(__FILE__, __LINE__, PREEMPT_LOCK_OFFSET);	\
++	___might_sleep(__FILE__, __LINE__, PREEMPT_LOCK_OFFSET);\
+ 	__cond_resched_lock(lock);				\
+ })
+=20
+ extern int __cond_resched_softirq(void);
+=20
+ #define cond_resched_softirq() ({					\
+-	__might_sleep(__FILE__, __LINE__, SOFTIRQ_DISABLE_OFFSET);	\
++	___might_sleep(__FILE__, __LINE__, SOFTIRQ_DISABLE_OFFSET);	\
+ 	__cond_resched_softirq();					\
+ })
+=20
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -7078,8 +7078,6 @@ static inline int preempt_count_equals(i
+=20
+ void __might_sleep(const char *file, int line, int preempt_offset)
+ {
+-	static unsigned long prev_jiffy;	/* ratelimiting */
+-
+ 	/*
+ 	 * Blocking primitives will set (and therefore destroy) current->state,
+ 	 * since we will exit with TASK_RUNNING make sure we enter with it,
+@@ -7093,6 +7091,14 @@ void __might_sleep(const char *file, int
+ 			(void *)current->task_state_change))
+ 		__set_current_state(TASK_RUNNING);
+=20
++	___might_sleep(file, line, preempt_offset);
++}
++EXPORT_SYMBOL(__might_sleep);
++
++void ___might_sleep(const char *file, int line, int preempt_offset)
++{
++	static unsigned long prev_jiffy;	/* ratelimiting */
++
+ 	rcu_sleep_check(); /* WARN_ON_ONCE() by default, no rate limit reqd. */
+ 	if ((preempt_count_equals(preempt_offset) && !irqs_disabled() &&
+ 	     !is_idle_task(current)) ||
+@@ -7122,7 +7128,7 @@ void __might_sleep(const char *file, int
+ #endif
+ 	dump_stack();
+ }
+-EXPORT_SYMBOL(__might_sleep);
++EXPORT_SYMBOL(___might_sleep);
+ #endif
+=20
+ #ifdef CONFIG_MAGIC_SYSRQ
+
+--DnA9obu+/I5ICgZN
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBAgAGBQJT4NbmAAoJEHZH4aRLwOS6PbwP/jnw7oRWl+vglQdWDV6TkeV4
+Rj2EE/EZl9ftFUgi1XbdD7qfNpCpN+jjo82P8r66Qz0hsZr9XEsNsvlv7Q+dUd0j
+Y9U8WxUzcdu9rnnmN4Be9HrKgPA6TkDN8Pu5+6fSAsv0TvYBFFIlm2t/bemBHZMq
+9dw1uE6dLGomf9l2k9vtPO8vWWFvT2+CIiRjAp7RRdx20hqJGJoQwuDaZ6Ol+VxU
+f+IbFqltv0Q0Gnaw+7jW6j/C3wBTHIvSuzpf9OBOqlBZmZAxuaeTj+P8UkC6K1gp
+6BhBaIQ+jUrOpjfE3om0uQ45ry8ELeKt7k1zm3iwBQR1Sscpz+CDsrDwRiVNC6QD
+SqY6MZYl6QrOdTDZLw0CK06D3HzkeWxwARWjQqB7TgxlQql1EQPQy4XN1xPOcOXJ
+x94CFlP90oWj+/5Iqi+b7quzUQ9fZ1f8HKZZs5vF1hHj+puaRaBlVLiADJHvNOra
+k5zTODEFW4BdFoiQCXAHrDEGAR1z2KnyE1nuhzC1HQZ3xQWip68dz+IJGJUT+RLI
++Cwd40bdrPySRoz10uSaDWQzBIxFwnLFG8wKrzM38Ug9rmoxjoYh9qum8mDGnzz+
+gqadS84VWTCLZuMIwdfv8yrWBsyZBR5SOm5G1k7ztOjwonErModZLb9F+kcdj47t
+LdHabG3soJJ/pTbKm2UN
+=vRLc
+-----END PGP SIGNATURE-----
+
+--DnA9obu+/I5ICgZN--
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
