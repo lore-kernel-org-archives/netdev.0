@@ -1,61 +1,49 @@
-From: Anish Bhatt <anish@chelsio.com>
-Subject: [PATCH net-next] cxgb4 : Disable recursive mailbox commands when enabling vi
-Date: Tue,  5 Aug 2014 16:05:23 -0700
-Message-ID: <1407279923-9288-1-git-send-email-anish@chelsio.com>
-Cc: davem@davemloft.net, hariprasad@chelsio.com, leedom@chelsio.com,
-	Anish Bhatt <anish@chelsio.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:60995
-	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751085AbaHEXGH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 19:06:07 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/2] xen-netback: Changes around carrier
+ handling
+Date: Tue, 05 Aug 2014 16:07:48 -0700 (PDT)
+Message-ID: <20140805.160748.1185917042908283028.davem@davemloft.net>
+References: <1407165658-20146-1-git-send-email-zoltan.kiss@citrix.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: wei.liu2@citrix.com, Ian.Campbell@citrix.com,
+	david.vrabel@citrix.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, xen-devel@lists.xenproject.org
+To: zoltan.kiss@citrix.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1407165658-20146-1-git-send-email-zoltan.kiss@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Enabling a Virtual Interface can result in an interrupt during the processing
- of the VI Enable command and, in some paths, result in an attempt to issue
-another command in the interrupt context, eventually crashing the system. Thus,
- we disable interrupts during the course of the VI Enable command and ensure 
-enable doesn't sleep.
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Date: Mon, 4 Aug 2014 16:20:56 +0100
 
-Signed-off-by: Anish Bhatt <anish@chelsio.com>
-Signed-off-by: Casey Leedom <leedom@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 5 ++++-
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      | 2 +-
- 2 files changed, 5 insertions(+), 2 deletions(-)
+> This series starts using carrier off as a way to purge packets when the guest is
+> not able (or willing) to receive them. It is a much faster way to get rid of
+> packets waiting for an overwhelmed guest.
+> The first patch changes current netback code where it relies currently on
+> netif_carrier_ok.
+> The second turns off the carrier if the guest times out on a queue, and only
+> turn it on again if that queue (or queues) resurrects.
+> 
+> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 8b46534b06c1..4247356c16ff 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -673,9 +673,12 @@ static int link_start(struct net_device *dev)
- 	if (ret == 0)
- 		ret = t4_link_start(pi->adapter, mb, pi->tx_chan,
- 				    &pi->link_cfg);
--	if (ret == 0)
-+	if (ret == 0) {
-+		local_bh_disable();
- 		ret = t4_enable_vi_params(pi->adapter, mb, pi->viid, true,
- 					  true, CXGB4_DCB_ENABLED);
-+		local_bh_enable();
-+	}
- 
- 	return ret;
- }
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-index 448bec119c3c..a853133d8db8 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
-@@ -3558,7 +3558,7 @@ int t4_enable_vi_params(struct adapter *adap, unsigned int mbox,
- 	c.ien_to_len16 = htonl(FW_VI_ENABLE_CMD_IEN(rx_en) |
- 			       FW_VI_ENABLE_CMD_EEN(tx_en) | FW_LEN16(c) |
- 			       FW_VI_ENABLE_CMD_DCB_INFO(dcb_en));
--	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
-+	return t4_wr_mbox_ns(adap, mbox, &c, sizeof(c), NULL);
- }
- 
- /**
--- 
-2.0.3
+Applied, but I have some reservations:
+
+1) This is starting to bleed what is normally qdisc type policy into the
+   driver.
+
+2) There are other drivers that could run into this kind of situation and
+   have similar concerns, therefore we should make sure we have a consistent
+   approach that such entities use to handle this problem.
+
+Part of the problem is that netif_carrier_off() only partially mimicks
+the situation.  It expresses the "transmitter is down so packets
+aren't going onto the wire" part, which keeps the watchdog from
+spitting out log messages ever time it fires.  But it doesn't deal
+with packet freeing policy meanwhile, which I guess is the part that
+this patch series is largely trying to address.
+
+Thanks.
