@@ -1,34 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request net: batman-adv 2014-08-04
-Date: Tue, 05 Aug 2014 16:22:49 -0700 (PDT)
-Message-ID: <20140805.162249.1442705693919283325.davem@davemloft.net>
-References: <1407167221-10575-1-git-send-email-antonio@meshcoding.com>
+Subject: Re: [PATCH net 0/3] qlcnic: Bug fixes
+Date: Tue, 05 Aug 2014 16:24:02 -0700 (PDT)
+Message-ID: <20140805.162402.1902639431720311788.davem@davemloft.net>
+References: <1407167478-22277-1-git-send-email-rajesh.borundia@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
-To: antonio@meshcoding.com
+Cc: netdev@vger.kernel.org, Dept-HSGLinuxNICDev@qlogic.com
+To: rajesh.borundia@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60166 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60186 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750922AbaHEXWv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 19:22:51 -0400
-In-Reply-To: <1407167221-10575-1-git-send-email-antonio@meshcoding.com>
+	with ESMTP id S1750922AbaHEXYD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 19:24:03 -0400
+In-Reply-To: <1407167478-22277-1-git-send-email-rajesh.borundia@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <antonio@meshcoding.com>
-Date: Mon,  4 Aug 2014 17:47:00 +0200
+From: Rajesh Borundia <rajesh.borundia@qlogic.com>
+Date: Mon, 4 Aug 2014 11:51:15 -0400
 
-> this is a pull request intended for net.
+> The patch series contains following bug fixes.
 > 
-> It just contains a patch by Sven Eckelmann that fixes the
-> reception of out-of-order fragments. As explained in the
-> commit message, the issue was due to a wrong assumption
-> about hlist_for_each_entry() in batadv_frag_insert_packet().
-> 
-> Please pull or let me know of any problem.
-> *If possible, this patch should also be enqueued for stable*
+> * Aggregating tx stats in adapter variable was resulting
+>   in increase of stats when user runs ifconfig command
+>   and no traffic is running. Instead aggregate tx stats
+>   in local variable and then assign it to adapter struct
+>   variable.
+> * Set_driver_version was called after registering netdev
+>   which was resulting in a race between FLR in open
+>   handler and set_driver_version command as open handler
+>   can be called simulatneously on another cpu even if probe
+>   is not complete. So call this command before registering
+>   netdev.
+> * dcbnl_ops should be initialized before registering netdev
+>   as they are referenced in open handler.
+>    
+> Please apply this series to net.
 
-As you can see this didn't make it in time for the 3.16 release,
-I've pulled and queued this patch up for -stable.
+Series applied, thanks.
