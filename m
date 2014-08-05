@@ -1,60 +1,36 @@
-From: Anish Bhatt <anish@chelsio.com>
-Subject: [PATCH net-next] cxgb4i : Move stray CPL definitions to cxgb4 driver
-Date: Mon,  4 Aug 2014 16:17:51 -0700
-Message-ID: <1407194271-620-1-git-send-email-anish@chelsio.com>
-Cc: davem@davemloft.net, hch@infradead.org, kxie@chelsio.com,
-	hariprasad@chelsio.com, leedom@chelsio.com,
-	Anish Bhatt <anish@chelsio.com>
-To: netdev@vger.kernel.org
+From: "Brown, Aaron F" <aaron.f.brown@intel.com>
+Subject: Re: [PATCH net-next 0/2] Fix some typos and an excessive space
+ character
+Date: Tue, 5 Aug 2014 00:12:20 +0000
+Message-ID: <309B89C4C689E141A5FF6A0C5FB2118B7338522C@ORSMSX101.amr.corp.intel.com>
+References: <1407026820-26552-1-git-send-email-mysctp@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	Linux NICS <Linux-nics@isotope.jf.intel.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "sakiwit@gmail.com" <sakiwit@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:58304
-	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752583AbaHDXTt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Aug 2014 19:19:49 -0400
+Received: from mga02.intel.com ([134.134.136.20]:11794 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752583AbaHEAMV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Aug 2014 20:12:21 -0400
+In-Reply-To: <1407026820-26552-1-git-send-email-mysctp@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-These belong to the t4 msg header, will ensure there is no accidental code
-duplication in the future
-
-Signed-off-by: Anish Bhatt <anish@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/t4_msg.h | 2 ++
- drivers/scsi/cxgbi/cxgb4i/cxgb4i.c          | 2 --
- 2 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
-index 0259feeab1b3..52e08103f221 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
-@@ -75,6 +75,7 @@ enum {
- 	CPL_RX_DATA_DDP       = 0x42,
- 	CPL_PASS_ACCEPT_REQ   = 0x44,
- 	CPL_TRACE_PKT_T5      = 0x48,
-+	CPL_RX_ISCSI_DDP      = 0x49,
- 
- 	CPL_RDMA_READ_REQ     = 0x60,
- 
-@@ -86,6 +87,7 @@ enum {
- 	CPL_SGE_EGR_UPDATE    = 0xA5,
- 
- 	CPL_TRACE_PKT         = 0xB0,
-+	CPL_ISCSI_DATA	      = 0xB2,
- 
- 	CPL_FW4_MSG           = 0xC0,
- 	CPL_FW4_PLD           = 0xC1,
-diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-index d31f9e600639..79788a12712d 100644
---- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-+++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-@@ -1384,8 +1384,6 @@ rel_resource:
- 	return -EINVAL;
- }
- 
--#define CPL_ISCSI_DATA		0xB2
--#define CPL_RX_ISCSI_DDP	0x49
- cxgb4i_cplhandler_func cxgb4i_cplhandlers[NUM_CPL_CMDS] = {
- 	[CPL_ACT_ESTABLISH] = do_act_establish,
- 	[CPL_ACT_OPEN_RPL] = do_act_open_rpl,
--- 
-2.0.3
+T24gU2F0LCAyMDE0LTA4LTAyIGF0IDIwOjM3IC0wNjAwLCBKZWFuIFNhY3JlbiB3cm90ZToKPiBU
+aGlzIHNtYWxsIHNlcmllcyBmaXhlcyBzb21lIHR5cG9zIGluIHRoZSBrZXJuZWwgZG9jIGFuZCBh
+bgo+IGV4Y2Vzc2l2ZSBzcGFjZSBjaGFyYWN0ZXIgaW4gdGhlIGRlYnVnIG1lc3NhZ2UuIEJvdGgg
+YXJlIGFzc29jaWF0ZWQKPiB3aXRoIGUxMDAwX21uZ19lbmFibGVfaG9zdF9pZigpIG9mIHRoZSBJ
+bnRlbCBlMTAwMGUgZHJpdmVyLgo+IAo+IFBsZWFzZSBhcHBseSBpbiB0aGUgb3JkZXIgYXMgYW5u
+b3RhdGVkLgo+IAo+IEplYW4gU2FjcmVuICgyKToKPiAgIGUxMDAwZTogZGVsZXRlIGV4Y2Vzc2l2
+ZSBzcGFjZSBjaGFyYWN0ZXIgaW4gZGVidWcgbWVzc2FnZQo+ICAgZTEwMDBlOiBmaXggdHJpdmlh
+bCBrZXJuZWwgZG9jIHR5cG9zCj4gCj4gIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2UxMDAw
+ZS9tYW5hZ2UuYyB8IDQgKystLQo+ICAxIGZpbGUgY2hhbmdlZCwgMiBpbnNlcnRpb25zKCspLCAy
+IGRlbGV0aW9ucygtKQo+IAoKVGhhbmtzIEplYW4sIEkgaGF2ZSBhZGRlZCB0aGVzZSBwYXRjaGVz
+IHRvIEplZmYncyBxdWV1ZS4KLUFhcm9uCg==
