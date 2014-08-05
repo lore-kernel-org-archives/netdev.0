@@ -1,43 +1,77 @@
 From: Fabio Estevam <festevam@gmail.com>
-Subject: Re: [PATCH v2 1/2] net: phy: Set the driver when registering an MDIO
- bus device
-Date: Tue, 5 Aug 2014 08:02:13 -0300
-Message-ID: <CAOMZO5CMC9aKRBBV62D7gaPwuCEf-CHNKcC9m3TMeLS4xR1Xqw@mail.gmail.com>
-References: <1406144852-7379-1-git-send-email-ezequiel.garcia@free-electrons.com>
-	<1406144852-7379-2-git-send-email-ezequiel.garcia@free-electrons.com>
-	<CAOMZO5CH0VystNR+qpXQFB_1f9=0DZzm7xxD5Fxy+uxFmAa-0Q@mail.gmail.com>
-	<20140805032257.GD2167@dragon>
-	<53E05702.9000007@gmail.com>
-	<20140805044137.GE2167@dragon>
-	<20140805104332.GA2704@arch.cereza>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Shawn Guo <shawn.guo@freescale.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	=?UTF-8?B?TWFyZWsgVmHFoXV0?= <marex@denx.de>,
-	Sascha Hauer <kernel@pengutronix.de>,
-	Russell King <linux@arm.linux.org.uk>
-To: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f54.google.com ([209.85.215.54]:39163 "EHLO
-	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932343AbaHELCP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 07:02:15 -0400
-Received: by mail-la0-f54.google.com with SMTP id hz20so562089lab.41
-        for <netdev@vger.kernel.org>; Tue, 05 Aug 2014 04:02:13 -0700 (PDT)
-In-Reply-To: <20140805104332.GA2704@arch.cereza>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Subject: [PATCH] Revert "net: phy: Set the driver when registering an MDIO bus device"
+Date: Tue,  5 Aug 2014 08:13:42 -0300
+Message-ID: <1407237222-3148-1-git-send-email-festevam@gmail.com>
+Cc: f.fainelli@gmail.com, linux@arm.linux.org.uk,
+	shawn.guo@freescale.com, netdev@vger.kernel.org,
+	ezequiel.garcia@free-electrons.com,
+	Fabio Estevam <fabio.estevam@freescale.com>,
+	<stable@vger.kernel.org>
+To: davem@davemloft.net
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 5, 2014 at 7:43 AM, Ezequiel Garcia
-<ezequiel.garcia@free-electrons.com> wrote:
+From: Fabio Estevam <fabio.estevam@freescale.com>
 
-> Indeed, this commit should be reverted.
+Commit a71e3c37960ce5f9 ("net: phy: Set the driver when registering an MDIO bus
+device") caused the following regression on the fec driver:
 
-Ok, will send a patch reverting it.
+root@imx6qsabresd:~# echo mem > /sys/power/state
+PM: Syncing filesystems ... done.
+Freezing user space processes ... (elapsed 0.003 seconds) done.
+Freezing remaining freezable tasks ... (elapsed 0.002 seconds) done.
+Unable to handle kernel NULL pointer dereference at virtual address 0000002c
+pgd = bcd14000
+[0000002c] *pgd=4d9e0831, *pte=00000000, *ppte=00000000
+Internal error: Oops: 17 [#1] SMP ARM
+Modules linked in:
+CPU: 0 PID: 617 Comm: sh Not tainted 3.16.0 #17
+task: bc0c4e00 ti: bceb6000 task.ti: bceb6000
+PC is at fec_suspend+0x10/0x70
+LR is at dpm_run_callback.isra.7+0x34/0x6c
+pc : [<803f8a98>]    lr : [<80361f44>]    psr: 600f0013
+sp : bceb7d70  ip : bceb7d88  fp : bceb7d84
+r10: 8091523c  r9 : 00000000  r8 : bd88f478
+r7 : 803f8a88  r6 : 81165988  r5 : 00000000  r4 : 00000000
+r3 : 00000000  r2 : 00000000  r1 : bd88f478  r0 : bd88f478
+Flags: nZCv  IRQs on  FIQs on  Mode SVC_32  ISA ARM  Segment user
+Control: 10c5387d  Table: 4cd1404a  DAC: 00000015
+Process sh (pid: 617, stack limit = 0xbceb6240)
+Stack: (0xbceb7d70 to 0xbceb8000)
+....
 
-Thanks
+The problem with the original commit is explained by Russell King:
+
+"It has the effect (as can be seen from the oops) of attaching the MDIO bus
+device (itself is a bus-less device) to the platform driver, which means
+that if the platform driver supports power management, it will be called
+to power manage the MDIO bus device.
+
+Moreover, drivers do not expect to be called for power management
+operations for devices which they haven't probed, and certainly not for
+devices which aren't part of the same bus that the driver is registered
+against."
+
+This reverts commit a71e3c37960ce5f9c6a519bc1215e3ba9fa83e75.
+
+Cc: <stable@vger.kernel.org> #3.16
+Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+---
+ drivers/net/phy/mdio_bus.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+index 203651e..4eaadcf 100644
+--- a/drivers/net/phy/mdio_bus.c
++++ b/drivers/net/phy/mdio_bus.c
+@@ -255,7 +255,6 @@ int mdiobus_register(struct mii_bus *bus)
+ 
+ 	bus->dev.parent = bus->parent;
+ 	bus->dev.class = &mdio_bus_class;
+-	bus->dev.driver = bus->parent->driver;
+ 	bus->dev.groups = NULL;
+ 	dev_set_name(&bus->dev, "%s", bus->id);
+ 
+-- 
+1.9.1
