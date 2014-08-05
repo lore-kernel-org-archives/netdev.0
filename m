@@ -1,195 +1,61 @@
-From: Mark Einon <mark.einon@gmail.com>
-Subject: [PATCH] staging: et131x: Fix errors caused by phydev->addr accesses before initialisation
-Date: Tue,  5 Aug 2014 23:57:06 +0100
-Message-ID: <1407279426-8021-1-git-send-email-mark.einon@gmail.com>
-Cc: devel@driverdev.osuosl.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, Mark Einon <mark.einon@gmail.com>,
-	stable@vger.kernel.org
-To: gregkh@linuxfoundation.org
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Anish Bhatt <anish@chelsio.com>
+Subject: [PATCH net-next] cxgb4 : Disable recursive mailbox commands when enabling vi
+Date: Tue,  5 Aug 2014 16:05:23 -0700
+Message-ID: <1407279923-9288-1-git-send-email-anish@chelsio.com>
+Cc: davem@davemloft.net, hariprasad@chelsio.com, leedom@chelsio.com,
+	Anish Bhatt <anish@chelsio.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:60995
+	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751085AbaHEXGH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 19:06:07 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Fix two reported bugs, caused by et131x_adapter->phydev->addr being accessed
-before it is initialised, by:
+Enabling a Virtual Interface can result in an interrupt during the processing
+ of the VI Enable command and, in some paths, result in an attempt to issue
+another command in the interrupt context, eventually crashing the system. Thus,
+ we disable interrupts during the course of the VI Enable command and ensure 
+enable doesn't sleep.
 
-- letting et131x_mii_write() take a phydev address, instead of using the one
-  stored in adapter by default. This is so et131x_mdio_write() can use it's own
-  addr value.
-- removing implementation of et131x_mdio_reset(), as it's not needed.
-- moving a call to et131x_disable_phy_coma() in et131x_pci_setup(), which uses
-  phydev->addr, until after the mdiobus has been registered.
-
-Link: https://bugzilla.kernel.org/show_bug.cgi?id=80751
-Link: https://bugzilla.kernel.org/show_bug.cgi?id=77121
-Cc: stable@vger.kernel.org
-Signed-off-by: Mark Einon <mark.einon@gmail.com>
+Signed-off-by: Anish Bhatt <anish@chelsio.com>
+Signed-off-by: Casey Leedom <leedom@chelsio.com>
 ---
- drivers/staging/et131x/et131x.c | 68 ++++++++++++++++-------------------------
- 1 file changed, 27 insertions(+), 41 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 5 ++++-
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      | 2 +-
+ 2 files changed, 5 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/staging/et131x/et131x.c b/drivers/staging/et131x/et131x.c
-index 8bf1eb4..831b7c6 100644
---- a/drivers/staging/et131x/et131x.c
-+++ b/drivers/staging/et131x/et131x.c
-@@ -1421,22 +1421,16 @@ static int et131x_mii_read(struct et131x_adapter *adapter, u8 reg, u16 *value)
-  * @reg: the register to read
-  * @value: 16-bit value to write
-  */
--static int et131x_mii_write(struct et131x_adapter *adapter, u8 reg, u16 value)
-+static int et131x_mii_write(struct et131x_adapter *adapter, u8 addr, u8 reg,
-+			    u16 value)
- {
- 	struct mac_regs __iomem *mac = &adapter->regs->mac;
--	struct phy_device *phydev = adapter->phydev;
- 	int status = 0;
--	u8 addr;
- 	u32 delay = 0;
- 	u32 mii_addr;
- 	u32 mii_cmd;
- 	u32 mii_indicator;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 8b46534b06c1..4247356c16ff 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -673,9 +673,12 @@ static int link_start(struct net_device *dev)
+ 	if (ret == 0)
+ 		ret = t4_link_start(pi->adapter, mb, pi->tx_chan,
+ 				    &pi->link_cfg);
+-	if (ret == 0)
++	if (ret == 0) {
++		local_bh_disable();
+ 		ret = t4_enable_vi_params(pi->adapter, mb, pi->viid, true,
+ 					  true, CXGB4_DCB_ENABLED);
++		local_bh_enable();
++	}
  
--	if (!phydev)
--		return -EIO;
--
--	addr = phydev->addr;
--
- 	/* Save a local copy of the registers we are dealing with so we can
- 	 * set them back
- 	 */
-@@ -1631,17 +1625,7 @@ static int et131x_mdio_write(struct mii_bus *bus, int phy_addr,
- 	struct net_device *netdev = bus->priv;
- 	struct et131x_adapter *adapter = netdev_priv(netdev);
- 
--	return et131x_mii_write(adapter, reg, value);
--}
--
--static int et131x_mdio_reset(struct mii_bus *bus)
--{
--	struct net_device *netdev = bus->priv;
--	struct et131x_adapter *adapter = netdev_priv(netdev);
--
--	et131x_mii_write(adapter, MII_BMCR, BMCR_RESET);
--
--	return 0;
-+	return et131x_mii_write(adapter, phy_addr, reg, value);
+ 	return ret;
+ }
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index 448bec119c3c..a853133d8db8 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -3558,7 +3558,7 @@ int t4_enable_vi_params(struct adapter *adap, unsigned int mbox,
+ 	c.ien_to_len16 = htonl(FW_VI_ENABLE_CMD_IEN(rx_en) |
+ 			       FW_VI_ENABLE_CMD_EEN(tx_en) | FW_LEN16(c) |
+ 			       FW_VI_ENABLE_CMD_DCB_INFO(dcb_en));
+-	return t4_wr_mbox(adap, mbox, &c, sizeof(c), NULL);
++	return t4_wr_mbox_ns(adap, mbox, &c, sizeof(c), NULL);
  }
  
- /*	et1310_phy_power_switch	-	PHY power control
-@@ -1656,18 +1640,20 @@ static int et131x_mdio_reset(struct mii_bus *bus)
- static void et1310_phy_power_switch(struct et131x_adapter *adapter, bool down)
- {
- 	u16 data;
-+	struct  phy_device *phydev = adapter->phydev;
- 
- 	et131x_mii_read(adapter, MII_BMCR, &data);
- 	data &= ~BMCR_PDOWN;
- 	if (down)
- 		data |= BMCR_PDOWN;
--	et131x_mii_write(adapter, MII_BMCR, data);
-+	et131x_mii_write(adapter, phydev->addr, MII_BMCR, data);
- }
- 
- /* et131x_xcvr_init - Init the phy if we are setting it into force mode */
- static void et131x_xcvr_init(struct et131x_adapter *adapter)
- {
- 	u16 lcr2;
-+	struct  phy_device *phydev = adapter->phydev;
- 
- 	/* Set the LED behavior such that LED 1 indicates speed (off =
- 	 * 10Mbits, blink = 100Mbits, on = 1000Mbits) and LED 2 indicates
-@@ -1688,7 +1674,7 @@ static void et131x_xcvr_init(struct et131x_adapter *adapter)
- 		else
- 			lcr2 |= (LED_VAL_LINKON << LED_TXRX_SHIFT);
- 
--		et131x_mii_write(adapter, PHY_LED_2, lcr2);
-+		et131x_mii_write(adapter, phydev->addr, PHY_LED_2, lcr2);
- 	}
- }
- 
-@@ -3643,14 +3629,14 @@ static void et131x_adjust_link(struct net_device *netdev)
- 
- 			et131x_mii_read(adapter, PHY_MPHY_CONTROL_REG,
- 					 &register18);
--			et131x_mii_write(adapter, PHY_MPHY_CONTROL_REG,
--					 register18 | 0x4);
--			et131x_mii_write(adapter, PHY_INDEX_REG,
-+			et131x_mii_write(adapter, phydev->addr,
-+					 PHY_MPHY_CONTROL_REG, register18 | 0x4);
-+			et131x_mii_write(adapter, phydev->addr, PHY_INDEX_REG,
- 					 register18 | 0x8402);
--			et131x_mii_write(adapter, PHY_DATA_REG,
-+			et131x_mii_write(adapter, phydev->addr, PHY_DATA_REG,
- 					 register18 | 511);
--			et131x_mii_write(adapter, PHY_MPHY_CONTROL_REG,
--					 register18);
-+			et131x_mii_write(adapter, phydev->addr,
-+					 PHY_MPHY_CONTROL_REG, register18);
- 		}
- 
- 		et1310_config_flow_control(adapter);
-@@ -3662,7 +3648,8 @@ static void et131x_adjust_link(struct net_device *netdev)
- 			et131x_mii_read(adapter, PHY_CONFIG, &reg);
- 			reg &= ~ET_PHY_CONFIG_TX_FIFO_DEPTH;
- 			reg |= ET_PHY_CONFIG_FIFO_DEPTH_32;
--			et131x_mii_write(adapter, PHY_CONFIG, reg);
-+			et131x_mii_write(adapter, phydev->addr, PHY_CONFIG,
-+					 reg);
- 		}
- 
- 		et131x_set_rx_dma_timer(adapter);
-@@ -3675,14 +3662,14 @@ static void et131x_adjust_link(struct net_device *netdev)
- 
- 			et131x_mii_read(adapter, PHY_MPHY_CONTROL_REG,
- 					 &register18);
--			et131x_mii_write(adapter, PHY_MPHY_CONTROL_REG,
--					 register18 | 0x4);
--			et131x_mii_write(adapter, PHY_INDEX_REG,
--					 register18 | 0x8402);
--			et131x_mii_write(adapter, PHY_DATA_REG,
--					 register18 | 511);
--			et131x_mii_write(adapter, PHY_MPHY_CONTROL_REG,
--					 register18);
-+			et131x_mii_write(adapter, phydev->addr,
-+					PHY_MPHY_CONTROL_REG, register18 | 0x4);
-+			et131x_mii_write(adapter, phydev->addr,
-+					PHY_INDEX_REG, register18 | 0x8402);
-+			et131x_mii_write(adapter, phydev->addr,
-+					PHY_DATA_REG, register18 | 511);
-+			et131x_mii_write(adapter, phydev->addr,
-+					PHY_MPHY_CONTROL_REG, register18);
- 		}
- 
- 		/* Free the packets being actively sent & stopped */
-@@ -4644,10 +4631,6 @@ static int et131x_pci_setup(struct pci_dev *pdev,
- 	/* Copy address into the net_device struct */
- 	memcpy(netdev->dev_addr, adapter->addr, ETH_ALEN);
- 
--	/* Init variable for counting how long we do not have link status */
--	adapter->boot_coma = 0;
--	et1310_disable_phy_coma(adapter);
--
- 	rc = -ENOMEM;
- 
- 	/* Setup the mii_bus struct */
-@@ -4663,7 +4646,6 @@ static int et131x_pci_setup(struct pci_dev *pdev,
- 	adapter->mii_bus->priv = netdev;
- 	adapter->mii_bus->read = et131x_mdio_read;
- 	adapter->mii_bus->write = et131x_mdio_write;
--	adapter->mii_bus->reset = et131x_mdio_reset;
- 	adapter->mii_bus->irq = kmalloc_array(PHY_MAX_ADDR, sizeof(int),
- 					      GFP_KERNEL);
- 	if (!adapter->mii_bus->irq)
-@@ -4687,6 +4669,10 @@ static int et131x_pci_setup(struct pci_dev *pdev,
- 	/* Setup et1310 as per the documentation */
- 	et131x_adapter_setup(adapter);
- 
-+	/* Init variable for counting how long we do not have link status */
-+	adapter->boot_coma = 0;
-+	et1310_disable_phy_coma(adapter);
-+
- 	/* We can enable interrupts now
- 	 *
- 	 *  NOTE - Because registration of interrupt handler is done in the
+ /**
 -- 
-2.0.1
+2.0.3
