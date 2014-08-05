@@ -1,48 +1,76 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next 2/3] netlink: Convert
- netlink_lookup() to use RCU protected hash table
-Date: Mon, 04 Aug 2014 19:58:41 -0700 (PDT)
-Message-ID: <20140804.195841.536725238366145203.davem@davemloft.net>
-References: <cover.1406971567.git.tgraf@suug.ch>
- <a0370889bd1b1bdf097f74df7017d39ae845c12e.1406971567.git.tgraf@suug.ch>
- <53E03D0B.3000208@oracle.com>
+From: Shawn Guo <shawn.guo@freescale.com>
+Subject: Re: [PATCH v2 1/2] net: phy: Set the driver when registering an MDIO
+ bus device
+Date: Tue, 5 Aug 2014 11:22:58 +0800
+Message-ID: <20140805032257.GD2167@dragon>
+References: <1406144852-7379-1-git-send-email-ezequiel.garcia@free-electrons.com>
+ <1406144852-7379-2-git-send-email-ezequiel.garcia@free-electrons.com>
+ <CAOMZO5CH0VystNR+qpXQFB_1f9=0DZzm7xxD5Fxy+uxFmAa-0Q@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, nikolay-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, walpole-sKt6ljEC1JY3uPMLIKxrzw@public.gmane.org
-To: sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <53E03D0B.3000208-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Marek =?utf-8?B?VmHFoXV0?= <marex@denx.de>,
+	Sascha Hauer <kernel@pengutronix.de>,
+	Russell King <linux@arm.linux.org.uk>
+To: Fabio Estevam <festevam@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1lp0144.outbound.protection.outlook.com ([207.46.163.144]:12386
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754919AbaHEDXW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Aug 2014 23:23:22 -0400
+Content-Disposition: inline
+In-Reply-To: <CAOMZO5CH0VystNR+qpXQFB_1f9=0DZzm7xxD5Fxy+uxFmAa-0Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sasha Levin <sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Date: Mon, 04 Aug 2014 22:10:19 -0400
-
-> On 08/02/2014 05:47 AM, Thomas Graf wrote:
->>  static void *netlink_seq_start(struct seq_file *seq, loff_t *pos)
->> -	__acquires(nl_table_lock)
->>  {
->> -	read_lock(&nl_table_lock);
->> +	rcu_read_lock();
->>  	return *pos ? netlink_seq_socket_idx(seq, *pos - 1) : SEQ_START_TOKEN;
->>  }
+On Mon, Aug 04, 2014 at 11:55:22PM -0300, Fabio Estevam wrote:
+> Hi Ezequiel,
 > 
-> I'm not sure how you expect this code to work. You're replacing a local lock
-> with a RCU critical section. Imagine you're doing spin_lock() and just going
-> back to userspace.
+> On Wed, Jul 23, 2014 at 4:47 PM, Ezequiel Garcia
+> <ezequiel.garcia@free-electrons.com> wrote:
+> > mdiobus_register() registers a device which is already bound to a driver.
+> > Hence, the driver pointer should be set properly in order to track down
+> > the driver associated to the MDIO bus.
+> >
+> > This will be used to allow ethernet driver to pin down a MDIO bus driver,
+> > preventing it from being unloaded while the PHY device is running.
+> >
+> > Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+> > Tested-by: Florian Fainelli <f.fainelli@gmail.com>
+> > Signed-off-by: Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
+> > ---
+> >  drivers/net/phy/mdio_bus.c | 1 +
+> >  1 file changed, 1 insertion(+)
+> >
+> > diff --git a/drivers/net/phy/mdio_bus.c b/drivers/net/phy/mdio_bus.c
+> > index 4eaadcf..203651e 100644
+> > --- a/drivers/net/phy/mdio_bus.c
+> > +++ b/drivers/net/phy/mdio_bus.c
+> > @@ -255,6 +255,7 @@ int mdiobus_register(struct mii_bus *bus)
+> >
+> >         bus->dev.parent = bus->parent;
+> >         bus->dev.class = &mdio_bus_class;
+> > +       bus->dev.driver = bus->parent->driver;
+> >         bus->dev.groups = NULL;
+> >         dev_set_name(&bus->dev, "%s", bus->id);
 > 
-> It's quite easy to trigger this issue:
+> This patches causes the following regression in 3.16 (tested on mx5/mx6):
 
-I think he expected the end of the seq sequence to drop the RCU lock,
-via netlink_seq_stop().
+The change will trigger a device_suspend() call on mii_bus device with
+the pm suspend/resume callbacks being fec driver ones, since
+bus->parent->driver points to fec driver.
+
+So net result is fec_suspend() will be called twice during suspend, once
+in mii_bus device context and the other in fec device context.  In fec
+context, it works just fine.  And the issue we're seeing is from mii_bus
+device context, where the driver_data of the device is invalid.
+
+I do not think fec_suspend() should be called in mii_bus device context.
+
+Shawn
