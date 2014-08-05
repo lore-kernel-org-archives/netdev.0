@@ -1,79 +1,212 @@
-From: Sasha Levin <sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net-next 2/3] netlink: Convert
- netlink_lookup() to use RCU protected hash table
-Date: Mon, 04 Aug 2014 22:10:19 -0400
-Message-ID: <53E03D0B.3000208@oracle.com>
-References: <cover.1406971567.git.tgraf@suug.ch>
- <a0370889bd1b1bdf097f74df7017d39ae845c12e.1406971567.git.tgraf@suug.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org,
- nikolay-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- "Paul E. McKenney" <paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
- walpole-sKt6ljEC1JY3uPMLIKxrzw@public.gmane.org
-To: Thomas Graf <tgraf-G/eBtMaohhA@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <a0370889bd1b1bdf097f74df7017d39ae845c12e.1406971567.git.tgraf-G/eBtMaohhA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Willem de Bruijn <willemb@google.com>
+Subject: [PATCH net-next v4 5/6] net-timestamp: TCP timestamping
+Date: Mon,  4 Aug 2014 22:11:49 -0400
+Message-ID: <1407204710-21778-6-git-send-email-willemb@google.com>
+References: <1407204710-21778-1-git-send-email-willemb@google.com>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com,
+	richardcochran@gmail.com, Willem de Bruijn <willemb@google.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f202.google.com ([209.85.223.202]:60844 "EHLO
+	mail-ie0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753445AbaHECLx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Aug 2014 22:11:53 -0400
+Received: by mail-ie0-f202.google.com with SMTP id rl12so65568iec.3
+        for <netdev@vger.kernel.org>; Mon, 04 Aug 2014 19:11:52 -0700 (PDT)
+In-Reply-To: <1407204710-21778-1-git-send-email-willemb@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/02/2014 05:47 AM, Thomas Graf wrote:
->  static void *netlink_seq_start(struct seq_file *seq, loff_t *pos)
-> -	__acquires(nl_table_lock)
->  {
-> -	read_lock(&nl_table_lock);
-> +	rcu_read_lock();
->  	return *pos ? netlink_seq_socket_idx(seq, *pos - 1) : SEQ_START_TOKEN;
->  }
+TCP timestamping extends SO_TIMESTAMPING to bytestreams.
 
-I'm not sure how you expect this code to work. You're replacing a local lock
-with a RCU critical section. Imagine you're doing spin_lock() and just going
-back to userspace.
+Bytestreams do not have a 1:1 relationship between send() buffers and
+network packets. The feature interprets a send call on a bytestream as
+a request for a timestamp for the last byte in that send() buffer.
 
-It's quite easy to trigger this issue:
+The choice corresponds to a request for a timestamp when all bytes in
+the buffer have been sent. That assumption depends on in-order kernel
+transmission. This is the common case. That said, it is possible to
+construct a traffic shaping tree that would result in reordering.
+The guarantee is strong, then, but not ironclad.
 
-[  531.479773] ===============================
-[  531.482951] [ INFO: suspicious RCU usage. ]
-[  531.485512] 3.16.0-next-20140804-sasha-00029-gcb12d07 #995 Not tainted
-[  531.489198] -------------------------------
-[  531.491518] net/netlink/af_netlink.c:2953 suspicious rcu_dereference_protected() usage!
-[  531.495781]
-[  531.495781] other info that might help us debug this:
-[  531.495781]
-[  531.499094]
-[  531.499094] rcu_scheduler_active = 1, debug_locks = 1
-[  531.502685] 3 locks held by trinity-c490/9673:
-[  531.505179] #0: (&f->f_pos_lock){+.+.+.}, at: __fdget_pos (fs/file.c:714)
-[  531.510057] #1: (&p->lock){+.+.+.}, at: seq_lseek (fs/seq_file.c:322)
-[  531.514819] #2: (rcu_read_lock){......}, at: netlink_seq_start (net/netlink/af_netlink.c:2923)
-[  531.517956]
-[  531.517956] stack backtrace:
-[  531.519054] CPU: 7 PID: 9673 Comm: cat Not tainted 3.16.0-next-20140804-sasha-00029-gcb12d07 #995
-[  531.521526]  0000000000000000 00000000917b9e45 ffff881efe493e20 ffffffffa55825a1
-[  531.523616]  ffff881efebeb000 ffff881efe493e50 ffffffffa21d3a75 ffffffffa81ce2c0
-[  531.527426]  0000000000000002 ffff8807cb581d90 ffff880fa3da8000 ffff881efe493ea0
-[  531.532068] Call Trace:
-[  531.533595] dump_stack (lib/dump_stack.c:52)
-[  531.536398] lockdep_rcu_suspicious (kernel/locking/lockdep.c:4259)
-[  531.537934] netlink_seq_next (net/netlink/af_netlink.c:2953 (discriminator 5))
-[  531.539355] traverse (fs/seq_file.c:142)
-[  531.541241] ? mutex_lock_nested (./arch/x86/include/asm/preempt.h:98 kernel/locking/mutex.c:567 kernel/locking/mutex.c:584)
-[  531.544797] seq_lseek (fs/seq_file.c:331 (discriminator 1))
-[  531.547485] proc_reg_llseek (fs/proc/inode.c:197)
-[  531.549904] SyS_lseek (fs/read_write.c:264 fs/read_write.c:289 fs/read_write.c:280)
-[  531.552190] tracesys (arch/x86/kernel/entry_64.S:541)
+This implementation supports send and sendpages (splice). GSO replaces
+one large packet with multiple smaller packets. This patch also copies
+the option into the correct smaller packet.
 
-I'd suggest testing any RCU related patches with CONFIG_PROVE_RCU in the future.
+This patch does not yet support timestamping on data in an initial TCP
+Fast Open SYN, because that takes a very different data path.
 
+If ID generation in ee_data is enabled, bytestream timestamps return a
+byte offset, instead of the packet counter for datagrams.
 
-Thanks,
-Sasha
+The implementation supports a single timestamp per packet. It silenty
+replaces requests for previous timestamps. To avoid missing tstamps,
+flush the tcp queue by disabling Nagle, cork and autocork. Missing
+tstamps can be detected by offset when the ee_data ID is enabled.
+
+Implementation details:
+
+- On GSO, the timestamping code can be included in the main loop. I
+moved it into its own loop to reduce the impact on the common case
+to a single branch.
+
+- To avoid leaking the absolute seqno to userspace, the offset
+returned in ee_data must always be relative. It is an offset between
+an skb and sk field. The first is always set (also for GSO & ACK).
+The second must also never be uninitialized. Only allow the ID
+option on sockets in the ESTABLISHED state, for which the seqno
+is available. Never reset it to zero (instead, move it to the
+current seqno when reenabling the option).
+
+Signed-off-by: Willem de Bruijn <willemb@google.com>
+
+---
+---
+ net/core/skbuff.c      |  5 ++++-
+ net/core/sock.c        | 13 +++++++++++--
+ net/ipv4/tcp.c         | 22 +++++++++++++++++++---
+ net/ipv4/tcp_offload.c | 18 ++++++++++++++++++
+ 4 files changed, 52 insertions(+), 6 deletions(-)
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 9705c07..3dec029 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3522,8 +3522,11 @@ void __skb_tstamp_tx(struct sk_buff *orig_skb,
+ 	serr->ee.ee_errno = ENOMSG;
+ 	serr->ee.ee_origin = SO_EE_ORIGIN_TIMESTAMPING;
+ 	serr->ee.ee_info = tstype;
+-	if (sk->sk_tsflags & SOF_TIMESTAMPING_OPT_ID)
++	if (sk->sk_tsflags & SOF_TIMESTAMPING_OPT_ID) {
+ 		serr->ee.ee_data = skb_shinfo(skb)->tskey;
++		if (sk->sk_protocol == IPPROTO_TCP)
++			serr->ee.ee_data -= sk->sk_tskey;
++	}
+ 
+ 	err = sock_queue_err_skb(sk, skb);
+ 
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 1e0f1c6..2714811 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -849,8 +849,17 @@ set_rcvbuf:
+ 			break;
+ 		}
+ 		if (val & SOF_TIMESTAMPING_OPT_ID &&
+-		    !(sk->sk_tsflags & SOF_TIMESTAMPING_OPT_ID))
+-			sk->sk_tskey = 0;
++		    !(sk->sk_tsflags & SOF_TIMESTAMPING_OPT_ID)) {
++			if (sk->sk_protocol == IPPROTO_TCP) {
++				if (sk->sk_state != TCP_ESTABLISHED) {
++					ret = -EINVAL;
++					break;
++				}
++				sk->sk_tskey = tcp_sk(sk)->snd_una;
++			} else {
++				sk->sk_tskey = 0;
++			}
++		}
+ 		sk->sk_tsflags = val;
+ 		if (val & SOF_TIMESTAMPING_RX_SOFTWARE)
+ 			sock_enable_timestamp(sk,
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 9d2118e..744af67 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -426,6 +426,15 @@ void tcp_init_sock(struct sock *sk)
+ }
+ EXPORT_SYMBOL(tcp_init_sock);
+ 
++void tcp_tx_timestamp(struct sock *sk, struct sk_buff *skb)
++{
++	struct skb_shared_info *shinfo = skb_shinfo(skb);
++
++	sock_tx_timestamp(sk, &shinfo->tx_flags);
++	if (shinfo->tx_flags & SKBTX_ANY_SW_TSTAMP)
++		shinfo->tskey = TCP_SKB_CB(skb)->seq + skb->len - 1;
++}
++
+ /*
+  *	Wait for a TCP event.
+  *
+@@ -523,7 +532,7 @@ unsigned int tcp_poll(struct file *file, struct socket *sock, poll_table *wait)
+ 	}
+ 	/* This barrier is coupled with smp_wmb() in tcp_reset() */
+ 	smp_rmb();
+-	if (sk->sk_err)
++	if (sk->sk_err || !skb_queue_empty(&sk->sk_error_queue))
+ 		mask |= POLLERR;
+ 
+ 	return mask;
+@@ -959,8 +968,10 @@ new_segment:
+ 
+ 		copied += copy;
+ 		offset += copy;
+-		if (!(size -= copy))
++		if (!(size -= copy)) {
++			tcp_tx_timestamp(sk, skb);
+ 			goto out;
++		}
+ 
+ 		if (skb->len < size_goal || (flags & MSG_OOB))
+ 			continue;
+@@ -1252,8 +1263,10 @@ new_segment:
+ 
+ 			from += copy;
+ 			copied += copy;
+-			if ((seglen -= copy) == 0 && iovlen == 0)
++			if ((seglen -= copy) == 0 && iovlen == 0) {
++				tcp_tx_timestamp(sk, skb);
+ 				goto out;
++			}
+ 
+ 			if (skb->len < max || (flags & MSG_OOB) || unlikely(tp->repair))
+ 				continue;
+@@ -1617,6 +1630,9 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 	struct sk_buff *skb;
+ 	u32 urg_hole = 0;
+ 
++	if (unlikely(flags & MSG_ERRQUEUE))
++		return ip_recv_error(sk, msg, len, addr_len);
++
+ 	if (sk_can_busy_loop(sk) && skb_queue_empty(&sk->sk_receive_queue) &&
+ 	    (sk->sk_state == TCP_ESTABLISHED))
+ 		sk_busy_loop(sk, nonblock);
+diff --git a/net/ipv4/tcp_offload.c b/net/ipv4/tcp_offload.c
+index 55046ec..f597119 100644
+--- a/net/ipv4/tcp_offload.c
++++ b/net/ipv4/tcp_offload.c
+@@ -14,6 +14,21 @@
+ #include <net/tcp.h>
+ #include <net/protocol.h>
+ 
++void tcp_gso_tstamp(struct sk_buff *skb, unsigned int ts_seq, unsigned int seq,
++		    unsigned int mss)
++{
++	while (skb) {
++		if (ts_seq < (__u64) seq + mss) {
++			skb_shinfo(skb)->tx_flags = SKBTX_SW_TSTAMP;
++			skb_shinfo(skb)->tskey = ts_seq;
++			return;
++		}
++
++		skb = skb->next;
++		seq += mss;
++	}
++}
++
+ struct sk_buff *tcp_gso_segment(struct sk_buff *skb,
+ 				netdev_features_t features)
+ {
+@@ -91,6 +106,9 @@ struct sk_buff *tcp_gso_segment(struct sk_buff *skb,
+ 	th = tcp_hdr(skb);
+ 	seq = ntohl(th->seq);
+ 
++	if (unlikely(skb_shinfo(gso_skb)->tx_flags & SKBTX_SW_TSTAMP))
++		tcp_gso_tstamp(segs, skb_shinfo(gso_skb)->tskey, seq, mss);
++
+ 	newcheck = ~csum_fold((__force __wsum)((__force u32)th->check +
+ 					       (__force u32)delta));
+ 
+-- 
+2.0.0.526.g5318336
