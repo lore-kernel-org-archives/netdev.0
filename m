@@ -1,52 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless-next 2014-08-01
-Date: Mon, 04 Aug 2014 22:57:29 -0700 (PDT)
-Message-ID: <20140804.225729.663353171881658413.davem@davemloft.net>
-References: <C2EB98EF-6873-4F44-B914-A9F89146914A@holtmann.org>
-	<20140804145342.GB16658@tuxdriver.com>
-	<ED6BF15D-CA1F-4E35-8301-E9A9EEDE3AD6@holtmann.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next 2/3] netlink: Convert
+ netlink_lookup() to use RCU protected hash table
+Date: Mon, 04 Aug 2014 22:58:39 -0700 (PDT)
+Message-ID: <20140804.225839.1596745671912500243.davem@davemloft.net>
+References: <53E03D0B.3000208@oracle.com>
+ <20140804.195841.536725238366145203.davem@davemloft.net>
+ <1407217807.3178.70.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: marcel@holtmann.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49462 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755569AbaHEF5a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 01:57:30 -0400
-In-Reply-To: <ED6BF15D-CA1F-4E35-8301-E9A9EEDE3AD6@holtmann.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ josh-iaAMLnmF4UmaiuxdJuQwMA@public.gmane.org, nikolay-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, paulmck-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
+ walpole-sKt6ljEC1JY3uPMLIKxrzw@public.gmane.org
+To: eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1407217807.3178.70.camel-XN9IlZ5yJG9HTL0Zs8A6p/gx64E7kk8eUsxypvmhUTTZJqsBc5GL+g@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Marcel Holtmann <marcel@holtmann.org>
-Date: Mon, 4 Aug 2014 22:39:47 -0700
+From: Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Tue, 05 Aug 2014 07:50:07 +0200
 
-> Hi Dave,
+> [PATCH net-next] netlink: fix lockdep splats
 > 
->>>>> Please pull this last(?) batch of wireless change intended for the
->>>>> 3.17 stream...
->>>> 
->>>> When I pull this I get tons of conflicts for:
->>>> 
->>>> CONFLICT (content): Merge conflict in net/6lowpan/iphc.c
->>>> 
->>>> I don't feel comfortable fixing these up, where are they coming
->>>> from?
->>> 
->>> I was short on time yesterday, but now I checked up on this in detail. The merge conflicts are actually simple to resolve. You can just rely on John's tree to have the more recent net/6lowpan/ tree. I should have insisted on merging net/6lowpan/ through bluetooth-next and wireless-next way earlier to avoid conflicts.
->>> 
->>> In the future we will avoid this by ensuring that all goes via bluetooth-next first. Sorry for this confusion. John mentioned these merge conflicts in his footnote.
->>> 
->>> John, do you just want to resolve the merge conflicts and send Dave a new pull request?
->> 
->> I'm happy to do that, if Dave wants.  But as you say, once the initial
->> shock of all those conflicts passes the resolution really is fairly
->> simple. :-)
+> With netlink_lookup() conversion to RCU, we need to use appropriate
+> rcu dereference in netlink_seq_socket_idx() & netlink_seq_next()
 > 
-> do you want John to just do the merge conflict resolution? They are all trivial.
+> Reported-by: Sasha Levin <sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> Signed-off-by: Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+> Fixes: e341694e3eb57fc ("netlink: Convert netlink_lookup() to use RCU protected hash table")
 
-I am going to try and do it myself, I just haven't gotten around to it.
-
-Thanks for asking.
+Applied, thanks Eric.
