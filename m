@@ -1,53 +1,63 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: Fw: [Bug 81661] New: Network Performance Regression for large TCP
- transfers starting with v3.10
-Date: Tue, 5 Aug 2014 11:43:01 -0400
-Message-ID: <CADVnQym=zutyx=WDtaTnGQ=chKNcf553P5sry+FXDoyQQRykww@mail.gmail.com>
-References: <20140804090529.1a5d146d@haswell.linuxnetplumber.net>
-	<CADVnQy=mp+m3s1xp7cZ0r4gpwHbMAnBNxAxcQx-AUtB7dZieiQ@mail.gmail.com>
-	<CADVnQynpqRkkY8eYrDZkkHUwyRgQsahyqVoU=T89ggG4xZi-Ww@mail.gmail.com>
-	<E23079EBE6B5834E93E29FB5CC9C14930FD8DC0D@MUCSE502.eu.infineon.com>
+From: Marc Zyngier <marc.zyngier-5wv7dgnIgG8@public.gmane.org>
+Subject: [PATCH] net: sun4i-emac: fix memory leak on bad packet
+Date: Tue,  5 Aug 2014 16:44:39 +0100
+Message-ID: <1407253479-30076-1-git-send-email-marc.zyngier@arm.com>
+Reply-To: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Yuchung Cheng <ycheng@google.com>
-To: Alexander.Steffen@infineon.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f175.google.com ([209.85.212.175]:41454 "EHLO
-	mail-wi0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755262AbaHEPnF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 11:43:05 -0400
-Received: by mail-wi0-f175.google.com with SMTP id ho1so7264108wib.2
-        for <netdev@vger.kernel.org>; Tue, 05 Aug 2014 08:43:01 -0700 (PDT)
-In-Reply-To: <E23079EBE6B5834E93E29FB5CC9C14930FD8DC0D@MUCSE502.eu.infineon.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Stefan Roese <sr-ynQEQJNshbs@public.gmane.org>,
+	Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+Return-path: <linux-sunxi+bncBCPZR5X4TYBBBA7YQOPQKGQEAALOK2I-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Post: <http://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Help: <http://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Archive: <http://groups.google.com/group/linux-sunxi
+Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
+List-Subscribe: <http://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
+List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
+ <http://groups.google.com/group/linux-sunxi/subscribe>
+List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 5, 2014 at 10:52 AM,  <Alexander.Steffen@infineon.com> wrote:
->> The  capture-bad-site1 trace seems to be a sender-side trace that
->> shows SACK blocks with sequence numbers that are 613M bytes ahead of
->> what has actually been sent, suggesting perhaps a middlebox is
->> rewriting sequence numbers, but not SACK options, or vice versa.
->
-> It seems plausible that the network equipment somewhere tampers with
-> the data passing through. I've asked our network experts to check the
-> configuration again, specifically with regard to this suggestion.
+Upon reception of a new frame, the emac driver checks for a number
+of error conditions, and flag the packet as "bad" if any of these
+are present. It then allocates a skb unconditionally, but only uses
+it if the packet is "good". On the error path, the skb is just forgotten,
+and the system leaks memory.
 
-Great. Thanks!
+The piece of junk I have on my desk seems to encounter such error
+frequently enough so that the box goes OOM after a couple of days,
+which makes me grumpy.
 
->> Would you be able to reproduce the capture-bad-site2 case but take a
->> sender-side tcpdump trace?
->
-> capture-bad-site1 and capture-bad-site2 are already traces for the same events,
-> taken simultaneously at the sending (site1) and the receiving (site2) end.
-> Or is this not what you meant?
+Fix this by moving the allocation on the "good_packet" path (and
+convert it to netdev_alloc_skb while we're at it).
 
-OK, great. Yes, that's what I meant, but I didn't realize that those
-two traces were
-of the same event. In that case, it definitely seems like the problem
-is that some
-middlebox rewrote the receiver's SACK values, invalidating them, so the sender
-was unable to recover except via a retransmission timeout to repair each hole.
+Tested on a random Allwinner A20 board.
 
-neal
+Cc: Stefan Roese <sr-ynQEQJNshbs@public.gmane.org>
+Cc: Maxime Ripard <maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org>
+Cc: <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org> # 3.11+
+Signed-off-by: Marc Zyngier <marc.zyngier-5wv7dgnIgG8@public.gmane.org>
+---
+ drivers/net/ethernet/allwinner/sun4i-emac.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/allwinner/sun4i-emac.c b/drivers/net/ethernet/allwinner/sun4i-emac.c
+index d81e716..29b9f08 100644
+--- a/drivers/net/ethernet/allwinner/sun4i-emac.c
++++ b/drivers/net/ethernet/allwinner/sun4i-emac.c
+@@ -633,8 +633,10 @@ static void emac_rx(struct net_device *dev)
+ 		}
+ 
+ 		/* Move data from EMAC */
+-		skb = dev_alloc_skb(rxlen + 4);
+-		if (good_packet && skb) {
++		if (good_packet) {
++			skb = netdev_alloc_skb(dev, rxlen + 4);
++			if (!skb)
++				continue;
+ 			skb_reserve(skb, 2);
+ 			rdptr = (u8 *) skb_put(skb, rxlen - 4);
+ 
+-- 
+2.0.0
