@@ -1,102 +1,92 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [PATCH net-next v2 02/12] net: dsa: add Broadcom tag hook
-Date: Wed, 06 Aug 2014 07:47:26 -0700
-Message-ID: <53E23FFE.2090707@intel.com>
-References: <1407277906-19989-1-git-send-email-f.fainelli@gmail.com> <1407277906-19989-3-git-send-email-f.fainelli@gmail.com>
+From: Denis Kirjanov <kda@linux-powerpc.org>
+Subject: Re: [PATCH] myri10ge: check for pci_map_page errors
+Date: Wed, 6 Aug 2014 18:47:48 +0400
+Message-ID: <CAOJe8K1EwVpGeiMSwSX98-Vonxb-2N2nbYVyEVJjZPsu-3=R+Q@mail.gmail.com>
+References: <20140806132516.GA3222@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, linville@tuxdriver.com
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, Hyong-Youb Kim <hykim@myri.com>
+To: Stanislaw Gruszka <sgruszka@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([192.55.52.115]:26328 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753221AbaHFOrq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Aug 2014 10:47:46 -0400
-In-Reply-To: <1407277906-19989-3-git-send-email-f.fainelli@gmail.com>
+Received: from mail-oi0-f53.google.com ([209.85.218.53]:49835 "EHLO
+	mail-oi0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755519AbaHFOrt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2014 10:47:49 -0400
+Received: by mail-oi0-f53.google.com with SMTP id e131so1728924oig.12
+        for <netdev@vger.kernel.org>; Wed, 06 Aug 2014 07:47:48 -0700 (PDT)
+In-Reply-To: <20140806132516.GA3222@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/05/2014 03:31 PM, Florian Fainelli wrote:
-> Register a fake Ethertype for the Broadcom tag to allow us to hook into
-> a given Ethernet device receive path and parse this Broadcom tag.
-> 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+On 8/6/14, Stanislaw Gruszka <sgruszka@redhat.com> wrote:
+> On IOMMU systems DMA mapping can fail, we need to check for that
+> possibility.
+>
+> Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
 > ---
->  include/linux/netdevice.h     | 10 ++++++++++
->  include/net/dsa.h             |  5 +++++
->  include/uapi/linux/if_ether.h |  1 +
->  net/ethernet/eth.c            |  2 ++
->  4 files changed, 18 insertions(+)
-> 
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 38377392d082..290b44ceefec 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -1801,6 +1801,16 @@ static inline bool netdev_uses_trailer_tags(struct net_device *dev)
->  	return 0;
->  }
->  
-> +static inline bool netdev_uses_brcm_tags(struct net_device *dev)
-> +{
-> +#ifdef CONFIG_NET_DSA_TAG_BRCM
-> +	if (dev->dsa_ptr != NULL)
-> +		return dsa_uses_brcm_tags(dev->dsa_ptr);
-> +#endif
-> +
-> +	return 0;
-> +}
-> +
->  /**
->   *	netdev_priv - access network device private data
->   *	@dev: network device
-> diff --git a/include/net/dsa.h b/include/net/dsa.h
-> index 6efce384451e..0ada9c814ff9 100644
-> --- a/include/net/dsa.h
-> +++ b/include/net/dsa.h
-> @@ -203,4 +203,9 @@ static inline bool dsa_uses_trailer_tags(struct dsa_switch_tree *dst)
->  	return !!(dst->tag_protocol == htons(ETH_P_TRAILER));
->  }
->  
-> +static inline bool dsa_uses_brcm_tags(struct dsa_switch_tree *dst)
-> +{
-> +	return !!(dst->tag_protocol == htons(ETH_P_BRCMTAG));
-> +}
-> +
->  #endif
-> diff --git a/include/uapi/linux/if_ether.h b/include/uapi/linux/if_ether.h
-> index 0f8210b8e0bc..2e9f13768abd 100644
-> --- a/include/uapi/linux/if_ether.h
-> +++ b/include/uapi/linux/if_ether.h
-> @@ -128,6 +128,7 @@
->  #define ETH_P_PHONET	0x00F5		/* Nokia Phonet frames          */
->  #define ETH_P_IEEE802154 0x00F6		/* IEEE802.15.4 frame		*/
->  #define ETH_P_CAIF	0x00F7		/* ST-Ericsson CAIF protocol	*/
-> +#define ETH_P_BRCMTAG	0x00F8		/* Broadcom tag (4 bytes *)	*/
->  
->  /*
->   *	This is an Ethernet frame header.
-> diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
-> index f405e0592407..6b67653d5283 100644
-> --- a/net/ethernet/eth.c
-> +++ b/net/ethernet/eth.c
-> @@ -186,6 +186,8 @@ __be16 eth_type_trans(struct sk_buff *skb, struct net_device *dev)
->  
->  	if (unlikely(netdev_uses_trailer_tags(dev)))
->  		return htons(ETH_P_TRAILER);
-> +	if (netdev_uses_brcm_tags(dev))
-> +		return htons(ETH_P_BRCMTAG);
->  
->  	if (likely(ntohs(eth->h_proto) >= ETH_P_802_3_MIN))
->  		return eth->h_proto;
-> 
+>  drivers/net/ethernet/myricom/myri10ge/myri10ge.c | 21
+> ++++++++++++++++++---
+>  1 file changed, 18 insertions(+), 3 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+> b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+> index f3d5d79..17f869a 100644
+> --- a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+> +++ b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
 
-Maybe we should consider some change to this logic.  Maybe a bit flag in
-the dsa_switch_tree structure that indicates if eth_type_trans should
-override the protocol or not.  Otherwise this is going to start becoming
-a rather large conditional statement if we have to add a new if every
-time a new switch is added.
-
-Thanks,
-
-Alex
+You did miss the one in myri10ge_xmit
+> @@ -872,6 +872,10 @@ static int myri10ge_dma_test(struct myri10ge_priv *mgp,
+> int test_type)
+>  		return -ENOMEM;
+>  	dmatest_bus = pci_map_page(mgp->pdev, dmatest_page, 0, PAGE_SIZE,
+>  				   DMA_BIDIRECTIONAL);
+> +	if (unlikely(pci_dma_mapping_error(mgp->pdev, dmatest_bus))) {
+> +		__free_page(dmatest_page);
+> +		return -ENOMEM;
+> +	}
+>
+>  	/* Run a small DMA test.
+>  	 * The magic multipliers to the length tell the firmware
+> @@ -1293,6 +1297,7 @@ myri10ge_alloc_rx_pages(struct myri10ge_priv *mgp,
+> struct myri10ge_rx_buf *rx,
+>  			int bytes, int watchdog)
+>  {
+>  	struct page *page;
+> +	dma_addr_t bus;
+>  	int idx;
+>  #if MYRI10GE_ALLOC_SIZE > 4096
+>  	int end_offset;
+> @@ -1317,11 +1322,21 @@ myri10ge_alloc_rx_pages(struct myri10ge_priv *mgp,
+> struct myri10ge_rx_buf *rx,
+>  					rx->watchdog_needed = 1;
+>  				return;
+>  			}
+> +
+> +			bus = pci_map_page(mgp->pdev, page, 0,
+> +					   MYRI10GE_ALLOC_SIZE,
+> +					   PCI_DMA_FROMDEVICE);
+> +			if (unlikely(pci_dma_mapping_error(mgp->pdev, bus))) {
+> +				__free_pages(page, MYRI10GE_ALLOC_ORDER);
+> +				if (rx->fill_cnt - rx->cnt < 16)
+> +					rx->watchdog_needed = 1;
+> +				return;
+> +			}
+> +
+>  			rx->page = page;
+>  			rx->page_offset = 0;
+> -			rx->bus = pci_map_page(mgp->pdev, page, 0,
+> -					       MYRI10GE_ALLOC_SIZE,
+> -					       PCI_DMA_FROMDEVICE);
+> +			rx->bus = bus;
+> +
+>  		}
+>  		rx->info[idx].page = rx->page;
+>  		rx->info[idx].page_offset = rx->page_offset;
+> --
+> 1.9.0
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
