@@ -1,35 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] Drivers: net-next: hyperv: Adjust the size of
- sendbuf region to support ws2008r2
-Date: Wed, 06 Aug 2014 13:52:32 -0700 (PDT)
-Message-ID: <20140806.135232.339777611093154433.davem@davemloft.net>
-References: <1407348660-6844-1-git-send-email-kys@microsoft.com>
+Subject: Re: [PATCH net-next 0/4 v5] pktgen: Upstreaming features useful
+ for xen-netback/front testing
+Date: Wed, 06 Aug 2014 13:53:10 -0700 (PDT)
+Message-ID: <20140806.135310.1924341636144726761.davem@davemloft.net>
+References: <1407349024-2489-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
- linux-kernel@vger.kernel.org, apw@canonical.com, devel@linuxdriverproject.org
-To: kys@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1407348660-6844-1-git-send-email-kys@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+Cc: steffen.klassert@secunet.com, minipli@googlemail.com,
+	dborkman@redhat.com, tgraf@suug.ch, joe@perches.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	xen-devel@lists.xenproject.org
+To: zoltan.kiss@citrix.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1407349024-2489-1-git-send-email-zoltan.kiss@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "K. Y. Srinivasan" <kys@microsoft.com>
-Date: Wed,  6 Aug 2014 11:11:00 -0700
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Date: Wed, 6 Aug 2014 19:17:00 +0100
 
-> WS2008R2 is a supported platform and it turns out that the maximum sendbuf
-> size that ws2008R2 can support is only 15MB. Make the necessary
-> adjustment.
+> This series is my work during stressing the xen network drivers, hopefully
+> others can benefit from it.
+> 1/4: Filling payload with pattern, useful for checking data correctness when the
+> packets travelling without checksum (~ intrahost VM-to-VM). Already sent it
+> separately few times, so its version number differs
+> 2/4: fine-grained buffer geometrics
+> 3/4: fix UDP checksuming
+> 4/4: sending TCP GSO packets. This is an RFC yet, as I'm not certain about all
+> things changed here
 > 
-> Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
 
-Applied, thanks.
+Zoltan, please resubmit this after the merge window closes and I re-open
+the net-next tree.
+
+Thank you.
