@@ -1,85 +1,100 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v2 02/12] net: dsa: add Broadcom tag hook
-Date: Wed, 06 Aug 2014 11:37:59 -0700
-Message-ID: <53E27607.8030301@gmail.com>
-References: <1407277906-19989-1-git-send-email-f.fainelli@gmail.com> <1407277906-19989-3-git-send-email-f.fainelli@gmail.com> <53E23FFE.2090707@intel.com>
+From: Dmitry Popov <ixaphire@qrator.net>
+Subject: Re: [PATCH net-next] tcp: md5: check md5 signature without socket
+ lock
+Date: Wed, 6 Aug 2014 22:49:02 +0400
+Message-ID: <20140806224902.180d8bbee02b9f4ce82cbe5c@qrator.net>
+References: <20140805025452.1a5bec4ad0d0c5a30a22a589@qrator.net>
+	<20140805.162703.362629415553579077.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, linville@tuxdriver.com
-To: Alexander Duyck <alexander.h.duyck@intel.com>,
+Cc: yoshfuji@linux-ipv6.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:50890 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756294AbaHFSiM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2014 14:38:12 -0400
-Received: by mail-pa0-f46.google.com with SMTP id lj1so3922043pab.33
-        for <netdev@vger.kernel.org>; Wed, 06 Aug 2014 11:38:11 -0700 (PDT)
-In-Reply-To: <53E23FFE.2090707@intel.com>
+Received: from mail-la0-f47.google.com ([209.85.215.47]:55574 "EHLO
+	mail-la0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756103AbaHFStH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2014 14:49:07 -0400
+Received: by mail-la0-f47.google.com with SMTP id mc6so2676697lab.34
+        for <netdev@vger.kernel.org>; Wed, 06 Aug 2014 11:49:05 -0700 (PDT)
+In-Reply-To: <20140805.162703.362629415553579077.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/06/2014 07:47 AM, Alexander Duyck wrote:
-> On 08/05/2014 03:31 PM, Florian Fainelli wrote:
->> Register a fake Ethertype for the Broadcom tag to allow us to hook into
->> a given Ethernet device receive path and parse this Broadcom tag.
->>
->> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+On Tue, 05 Aug 2014 16:27:03 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-[snip]
-
->> diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
->> index f405e0592407..6b67653d5283 100644
->> --- a/net/ethernet/eth.c
->> +++ b/net/ethernet/eth.c
->> @@ -186,6 +186,8 @@ __be16 eth_type_trans(struct sk_buff *skb, struct net_device *dev)
->>  
->>  	if (unlikely(netdev_uses_trailer_tags(dev)))
->>  		return htons(ETH_P_TRAILER);
->> +	if (netdev_uses_brcm_tags(dev))
->> +		return htons(ETH_P_BRCMTAG);
->>  
->>  	if (likely(ntohs(eth->h_proto) >= ETH_P_802_3_MIN))
->>  		return eth->h_proto;
->>
-> 
-> Maybe we should consider some change to this logic.  Maybe a bit flag in
-> the dsa_switch_tree structure that indicates if eth_type_trans should
-> override the protocol or not.
-
-I just tested something like this, which becomes protocol agnostic:
-
-if (unlikely(netdev_uses_dsa(dev)))
-	return dsa_tag_protocol(dev);
-
-include/linux/netdevice.h:
-static inline bool netdev_uses_dsa(struct net_device *dev)
-{
-#ifdef CONFIG_NET_DSA
-	return dev->dsa_ptr != NULL;
-#else
-	return false;
-#endif
-}
-
-include/net/dsa.h:
-static __be16 netdev_dsa_protocol(struct net_device *dev)
-{
-#ifdef CONFIG_NET_DSA
-	struct dsa_switch_tree *dst = dev->dsa_ptr;
-	return dst->tag_protocol;
-#endif
-}
-
-> Otherwise this is going to start becoming
-> a rather large conditional statement if we have to add a new if every
-> time a new switch is added.
-
-Agreed.
+> > +#ifdef CONFIG_TCP_MD5SIG
+> > +	/*
+> > +	 * We really want to reject the packet as early as possible
+> > +	 * if:
+> > +	 *  o We're expecting an MD5'd packet and this is no MD5 tcp option
+> > +	 *  o There is an MD5 option and we're not expecting one
+> > +	 */
+> > +	if (tcp_v4_inbound_md5_hash(sk, skb))
+> > +		goto discard_and_relse;
+> > +#endif
 
 > 
-> Thanks,
+> The original ordering seemed very much intentional, as per the comment.
 > 
-> Alex
+> You need to either make your locking change without disturbing this
+> ordering, or proprosed first and separately that the early check
+> should be changed.
 > 
+> Also, you really shouldn't just move the early md5 check _after_ the
+> TCP_ESTABLISHED fast path, and keep the comment there as well.  The
+> comment makes no sense any longer if the MD5 check happens after the
+> TCP_ESTABLISHED fast path, right?
+> 
+> I'm not applying this, sorry.
+> 
+
+It seems your arguments are based on the assumption that I moved md5 signature
+check down the tcp processing chain. But I did exactly the opposite, md5 is
+checked earlier in this patch.
+
+I moved tcp_v{4,6}_inbound_md5_hash from tcp_v{4,6}_do_rcv to tcp_v{4,6}_rcv,
+and tcp_v{4,6}_do_rcv is always called from tcp_v{4,6}_rcv (either directly or
+via sk_backlog). 
+
+For ipv4 it looks something like this (and ipv6 is almost the same):
+
+tcp_v4_rcv(skb):
+... /* various checks like pkt size, checksum and so on */
+	sk = __inet_lookup_skb(&tcp_hashinfo, skb, th->source, th->dest);
+... /* some more checks */
+	if (!xfrm4_policy_check(sk, XFRM_POLICY_IN, skb))
+...
++	if (tcp_v4_inbound_md5_hash(sk, skb))
++		goto discard_and_relse;
+	nf_reset(skb);
+
+	if (sk_filter(sk, skb))
+		goto discard_and_relse;
+
+	sk_mark_napi_id(sk, skb);
+	skb->dev = NULL;
+
+	bh_lock_sock_nested(sk);
+	if ( /* NET_DMA, sk_backlog and tcp_prequeue checks */ )
+        	ret = tcp_v4_do_rcv(sk, skb);
+...
+        bh_unlock_sock(sk);
+	sock_put(sk);
+        return ret;
+
+tcp_v4_do_rcv(sk, skb):
+-	if (tcp_v4_inbound_md5_hash(sk, skb))
+-		goto discard_and_relse;
+... /* do further processing */
+
+So, speaking of ordering, only nf_reset, sk_filter, sk_mark_napi_id,
+skb->dev=NULL, sk_backlogging, tcp_prequeue and NET_DMA things would be done
+after tcp_v4_inbound_md5_hash (instead of before) if this patch is applied. 
+I don't see anything bad about that, correct me if I'm wrong.
+
+I could also move tcp_v4_inbound_md5_hash before xfrm4_policy_check or after
+sk_filter: I don't have any strong arguments here, so I am ok to resubmit
+with other ordering of these calls.
