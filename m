@@ -1,40 +1,36 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: [PATCH v2] net: reallocate new socket option number for
- IPV6_AUTOFLOWLABEL
-Date: Wed, 6 Aug 2014 19:00:22 -0400
-Message-ID: <20140806230022.GA23144@redhat.com>
-References: <1407363429-3870-1-git-send-email-pablo@netfilter.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/1] net: fix USB network driver config option.
+Date: Wed, 06 Aug 2014 16:00:46 -0700 (PDT)
+Message-ID: <20140806.160046.771071329736545016.davem@davemloft.net>
+References: <20140806223640.GA24673@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: therbert@google.com, netfilter-devel@vger.kernel.org,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	linville@tuxdriver.com
+To: romieu@fr.zoreil.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:39105 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753243AbaHFXAe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Aug 2014 19:00:34 -0400
-Content-Disposition: inline
-In-Reply-To: <1407363429-3870-1-git-send-email-pablo@netfilter.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44522 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753243AbaHFXAv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2014 19:00:51 -0400
+In-Reply-To: <20140806223640.GA24673@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 07, 2014 at 12:17:09AM +0200, Pablo Neira Ayuso wrote:
- > cb1ce2e ("ipv6: Implement automatic flow label generation on transmit")
- > accidentally uses socket option 64, which is already used by ip6tables:
- > 
- >  IP6T_SO_SET_REPLACE / IP6T_SO_GET_INFO               64
- >  IP6T_SO_SET_ADD_COUNTERS / IP6T_SO_GET_ENTRIES       65
- > 
- > There is comment include/uapi/linux/in6.h warning about that.
- > 
- > Allocate 70 for this, which seems to be unused instead.
- > 
- > Cc: Tom Herbert <therbert@google.com>
- > Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Thu, 7 Aug 2014 00:36:40 +0200
 
-Just tested this, ip6tables works fine now.
+> From: Francois Romieu <romieu@fr.zoreil.com>
+> 
+> It must be tristate to avoid broken dependencies with kernel built-in
+> usb network drivers when usb support is module only.
+> 
+> When net config option is set, least surprize default should match usb.
+> 
+> Wireless RNDIS USB driver used to select USB_USBNET. USB_USBNET now
+> depends on USB_NET_DRIVERS so the latter should be selected as well.
+> 
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 
-thanks Pablo.
-
-	Dave
+Ok, applied, thanks.
