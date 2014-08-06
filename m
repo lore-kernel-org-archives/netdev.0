@@ -1,28 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 06/15] vmxnet3: fix decimal printf format specifiers
- prefixed with 0x
-Date: Wed, 06 Aug 2014 14:13:58 -0700 (PDT)
-Message-ID: <20140806.141358.1388775651933022161.davem@davemloft.net>
-References: <1407300161-32600-1-git-send-email-hans@hanshq.net>
+Subject: Re: [RFC][PATCH 0/7] nested sleeps, fixes and debug infra
+Date: Wed, 06 Aug 2014 14:16:03 -0700 (PDT)
+Message-ID: <20140806.141603.1422005306896590750.davem@davemloft.net>
+References: <20140805130646.GZ19379@twins.programming.kicks-ass.net>
+	<CALFYKtAVQ9Rgu_QWCqUkNHk4-wbiVK0FeiwLDttaxZC5bnnG5w@mail.gmail.com>
+	<20140806083134.GQ9918@twins.programming.kicks-ass.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sbhatewara@vmware.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: hans@hanshq.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1407300161-32600-1-git-send-email-hans@hanshq.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: ilya.dryomov@inktank.com, mingo@kernel.org, oleg@redhat.com,
+ torvalds@linux-foundation.org, tglx@linutronix.de,
+ umgwanakikbuti@gmail.com, linux-kernel@vger.kernel.org,
+ netdev@vger.kernel.org, linux-mm@kvack.org
+To: peterz@infradead.org
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20140806083134.GQ9918@twins.programming.kicks-ass.net>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-From: Hans Wennborg <hans@hanshq.net>
-Date: Tue,  5 Aug 2014 21:42:41 -0700
+From: Peter Zijlstra <peterz@infradead.org>
+Date: Wed, 6 Aug 2014 10:31:34 +0200
 
-> The prefix suggests the number should be printed in hex, so use
-> the %x specifier to do that.
+> On Wed, Aug 06, 2014 at 11:51:29AM +0400, Ilya Dryomov wrote:
 > 
-> Found by using regex suggested by Joe Perches.
+>> OK, this one is a bit different.
+>> 
+>> WARNING: CPU: 1 PID: 1744 at kernel/sched/core.c:7104 __might_sleep+0x58/0x90()
+>> do not call blocking ops when !TASK_RUNNING; state=1 set at [<ffffffff81070e10>] prepare_to_wait+0x50 /0xa0
 > 
-> Signed-off-by: Hans Wennborg <hans@hanshq.net>
+>>  [<ffffffff8105bc38>] __might_sleep+0x58/0x90
+>>  [<ffffffff8148c671>] lock_sock_nested+0x31/0xb0
+>>  [<ffffffff81498aaa>] sk_stream_wait_memory+0x18a/0x2d0
+> 
+> Urgh, tedious. Its not an actual bug as is. Due to the condition check
+> in sk_wait_event() we can call lock_sock() with ->state != TASK_RUNNING.
+> 
+> I'm not entirely sure what the cleanest way is to make this go away.
+> Possibly something like so:
 
-Applied, thank you.
+If you submit this formally to netdev with a signoff I'm willing to apply
+this if it helps the debug infrastructure.
+
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
