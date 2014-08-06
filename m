@@ -1,37 +1,36 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: Re: [Regression] FEC: Panic on suspend in 3.16
-Date: Wed, 6 Aug 2014 13:01:28 -0300
-Message-ID: <CAOMZO5ASEsy0NUus3w13zkhq2FsF9x6X5Ce28dXqZFAbQ0E6uA@mail.gmail.com>
-References: <53E24147.4050304@parkeon.com>
-	<53E24525.2020809@mentor.com>
-	<53E24A99.2020604@denx.de>
-	<20140806154711.GQ30282@n2100.arm.linux.org.uk>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH 3.4-stable v2] ipv6: reallocate addrconf router for ipv6
+ address when lo device up
+Date: Wed, 6 Aug 2014 09:54:12 -0700
+Message-ID: <20140806165412.GA11827@kroah.com>
+References: <53E1E4C9.4010006@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Stefano Babic <sbabic@denx.de>,
-	Nathan Lynch <Nathan_Lynch@mentor.com>,
-	Martin Fuzzey <mfuzzey@parkeon.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, stable@vger.kernel.org,
+	Sabrina Dubroca <sd@queasysnail.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Gao feng <gaofeng@cn.fujitsu.com>,
+	Li Zefan <lizefan@huawei.com>
+To: chenweilong <chenweilong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f42.google.com ([209.85.215.42]:42402 "EHLO
-	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753191AbaHFQBa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2014 12:01:30 -0400
-Received: by mail-la0-f42.google.com with SMTP id pv20so2319108lab.29
-        for <netdev@vger.kernel.org>; Wed, 06 Aug 2014 09:01:29 -0700 (PDT)
-In-Reply-To: <20140806154711.GQ30282@n2100.arm.linux.org.uk>
+Received: from mail.linuxfoundation.org ([140.211.169.12]:36298 "EHLO
+	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932404AbaHFQyo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2014 12:54:44 -0400
+Content-Disposition: inline
+In-Reply-To: <53E1E4C9.4010006@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 6, 2014 at 12:47 PM, Russell King - ARM Linux
-<linux@arm.linux.org.uk> wrote:
+On Wed, Aug 06, 2014 at 04:18:17PM +0800, chenweilong wrote:
+> It fix the bug 67951 on bugzilla
+> https://bugzilla.kernel.org/show_bug.cgi?id=67951
+> 
+> The patch can't be applied directly, as it' used the function introduced
+> by "commit 94e187c0" ip6_rt_put(), that patch can't be applied directly
+> either.
 
-> As Nathan says, the problem is caused by a71e3c37960c and the fix which
-> will soon be merged into mainline and stable trees will be a revert of
-> that commit.
+Much better, thanks for the fixed patch.
 
-Yes, Dave has already queued the revert for stable:
-https://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=ce7991e8198b80eb6b4441b6f6114bea4a665d66
+greg k-h
