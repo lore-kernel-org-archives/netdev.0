@@ -1,29 +1,22 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] tcp: md5: check md5 signature without
- socket lock
-Date: Wed, 06 Aug 2014 14:52:18 -0700 (PDT)
-Message-ID: <20140806.145218.1742159418901363810.davem@davemloft.net>
-References: <20140807014953.d8c4cde302bb9b30f8efe0e1@qrator.net>
+Subject: netlabel build warning...
+Date: Wed, 06 Aug 2014 14:55:08 -0700 (PDT)
+Message-ID: <20140806.145508.377690541948141573.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: ixaphire@qrator.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140807014953.d8c4cde302bb9b30f8efe0e1@qrator.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org
+To: paul@paul-moore.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44085 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751908AbaHFVzK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2014 17:55:10 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dmitry Popov <ixaphire@qrator.net>
-Date: Thu, 7 Aug 2014 01:49:53 +0400
-
-> Since a8afca032 (tcp: md5: protects md5sig_info with RCU) tcp_md5_do_lookup
-> doesn't require socket lock, rcu_read_lock is enough. Therefore socket lock is
-> no longer required for tcp_v{4,6}_inbound_md5_hash too, so we can move these
-> calls (wrapped with rcu_read_{,un}lock) before bh_lock_sock:
-> from tcp_v{4,6}_do_rcv to tcp_v{4,6}_rcv.
-> 
-> Signed-off-by: Dmitry Popov <ixaphire@qrator.net>
-
-Please respin this against the current 'net' tree, it doesn't apply.
+DQpQbGVhc2UgYWRkIGlubGluZSB0byB0aGUgbm9wIHZlcnNpb25zIG9mIHRoZXNlIGhlbHBlcnMs
+IHRoYW5rczoNCg0KaW5jbHVkZS9uZXQvbmV0bGFiZWwuaDo1Mjc6MTI6IHdhcm5pbmc6IKFuZXRs
+YmxfY2F0bWFwX3NldGxvbmeiIGRlZmluZWQgYnV0IG5vdCB1c2VkIFstV3VudXNlZC1mdW5jdGlv
+bl0NCmluY2x1ZGUvbmV0L25ldGxhYmVsLmg6NTI3OjEyOiB3YXJuaW5nOiChbmV0bGJsX2NhdG1h
+cF9zZXRsb25noiBkZWZpbmVkIGJ1dCBub3QgdXNlZCBbLVd1bnVzZWQtZnVuY3Rpb25dDQo=
