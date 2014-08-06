@@ -1,113 +1,95 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: PROBLEM: [x86] Running ptpd2 using an Intel 82572EI (e1000e) leads
- to a kernel oops (3.12.26)
-Date: Wed, 06 Aug 2014 11:29:27 +0200
-Message-ID: <1407317367.1360819.149688237.188FBBFC@webmail.messagingengine.com>
-References: <50f83e65cecd4882b22887858bfdf484@FE-MBX1012.de.bosch.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net-timestamp: sock_tx_timestamp() fix
+Date: Wed, 06 Aug 2014 11:49:29 +0200
+Message-ID: <1407318569.11943.5.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1407204710-21778-1-git-send-email-willemb@google.com>
+	 <1407204710-21778-6-git-send-email-willemb@google.com>
+	 <1407308749.14097.13.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net
-To: Koehrer Mathias <mathias.koehrer@etas.com>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <50f83e65cecd4882b22887858bfdf484@FE-MBX1012.de.bosch.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	richardcochran@gmail.com
+To: Willem de Bruijn <willemb@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f179.google.com ([209.85.212.179]:51788 "EHLO
+	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753806AbaHFJtd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2014 05:49:33 -0400
+Received: by mail-wi0-f179.google.com with SMTP id f8so2840938wiw.6
+        for <netdev@vger.kernel.org>; Wed, 06 Aug 2014 02:49:32 -0700 (PDT)
+In-Reply-To: <1407308749.14097.13.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[added e1000-devel]
+From: Eric Dumazet <edumazet@google.com>
 
-Hi,
+sock_tx_timestamp() should not ignore initial *tx_flags value, as TCP
+stack can store SKBTX_SHARED_FRAG in it.
 
-On Mon, Aug 4, 2014, at 14:26, Koehrer Mathias (ETAS/ESW5) wrote:
-> [1.] One line summary of the problem: 
-> Running ptpd2 using an Intel 82572EI (e1000e) leads to a kernel oops
-> (3.12.26)
-> 
-> [2.] Full description of the problem/report:
-> I run the PTP daemon ptpd2 (http://ptpd.sourceforge.net/), version 2.3.1
-> on a x86 PC using an Intel 82572EI NIC (driver e1000e).
-> The ptpd2 is started as
-> ptpd2 -i eth0 --masteronly --foreground --verbose
-> I have another PC in the same network that is running the PTP slave.
-> After a couple of seconds the kernel generates an Oops.
-> 
-> Using a different network adapter works fine.
-> 
-> Thanks for any support on this!
-> 
-> [3.] Keywords (i.e., modules, networking, kernel):
-> PTP, networking, e1000e
-> 
-> [4.] Kernel information
-> 
-> [4.1.] Kernel version (from /proc/version):
-> Linux version 3.12.26-4 (user@rtpc) (gcc version 4.7.2 (Debian 4.7.2-5) )
-> #1 SMP PREEMPT Mon Aug 4 11:04:11 CEST 2014
-> 
-> [4.2.] Kernel .config file:
-> [...]
+Also first argument (struct sock *) can be const.
 
-> ------------[ cut here ]------------
-> WARNING: CPU: 0 PID: 5358 at kernel/workqueue.c:1386
-> __queue_work+0x18f/0x300()
-> Modules linked in: e100 mii e1000 nfsd exportfs nfs lockd sunrpc igb
-> i2c_algo_bit i2c_core dca bridge stp llc e1000e smsc47b397 coretemp
-> kvm_intel kvm usb_storage tg3 psmouse ptp pps_core libphy ehci_pci pcspkr
-> processor parport_pc parport thermal_sys hwmon reiserfs sg sr_mod sd_mod
-> cdrom ahci libahci microcode uhci_hcd ehci_hcd
-> CPU: 0 PID: 5358 Comm: ptpd2 Not tainted 3.12.26-4 #1
-> Hardware name: Hewlett-Packard HP xw4600 Workstation/0AA0h, BIOS 786F3
-> v01.13 06/25/2008
->  00000000 00000000 f48dfad4 c07b2d07 00000000 f48dfb04 c0440e64 c08ee514
->  00000000 000014ee c08f4e3c 0000056a c045775f c045775f f5877100 f501f900
->  f5875e80 f48dfb14 c0440ea2 00000009 00000000 f48dfb48 c045775f f48dfb34
-> Call Trace:
->  [<c07b2d07>] dump_stack+0x4b/0x79
->  [<c0440e64>] warn_slowpath_common+0x84/0xa0
->  [<c045775f>] ? __queue_work+0x18f/0x300
->  [<c045775f>] ? __queue_work+0x18f/0x300
->  [<c0440ea2>] warn_slowpath_null+0x22/0x30
->  [<c045775f>] __queue_work+0x18f/0x300
->  [<c045795d>] queue_work_on+0x3d/0x50
->  [<f9f806e5>] schedule_work+0x15/0x20 [e1000e]
->  [<f9f845ba>] e1000_xmit_frame+0xc4a/0xcb0 [e1000e]
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Fixes: 4ed2d765dfac ("net-timestamp: TCP timestamping")
+Cc: Willem de Bruijn <willemb@google.com>
+---
+ include/net/sock.h |    6 ++++--
+ net/socket.c       |   20 +++++++++++++-------
+ 2 files changed, 17 insertions(+), 9 deletions(-)
 
-Quick analysis so far:
-Looks like the socket enabled hw timestamping but the network card (from
-the lspci output below) is not capable of hw timestamping. queue_work
-thus gets fed an uninitialized work struct and bails out here.
-
->  [<c07368bb>] ? harmonize_features+0x2b/0x1d0
->  [<c0737033>] dev_hard_start_xmit+0x2c3/0x560
->  [<c0724e61>] ? sock_alloc_send_pskb+0x161/0x380
->  [<c074d602>] sch_direct_xmit+0xa2/0x190
->  [<c0737454>] dev_queue_xmit+0x184/0x410
->  [<c075f7c1>] ip_finish_output+0x1f1/0x3c0
->  [<c076036f>] ip_mc_output+0x8f/0x140
->  [<c075fd60>] ip_local_out+0x20/0x30
->  [<c0760e4a>] ip_send_skb+0x1a/0x80
->  [<c078395a>] udp_send_skb+0x1fa/0x280
->  [<c0783ce3>] udp_sendmsg+0x2a3/0x8b0
->  [<c075e350>] ? ip_setup_cork+0xf0/0xf0
->  [<c0472cf1>] ? dequeue_task_fair+0x211/0x660
->  [<c046fa68>] ? __enqueue_entity+0x78/0x80
->  [<c078d3d0>] inet_sendmsg+0x70/0xa0
->  [<c07213e2>] sock_sendmsg+0x62/0xa0
->  [<c05c67b5>] ? _copy_from_user+0x35/0x50
->  [<c0721991>] SYSC_sendto+0xf1/0x130
->  [<c044ed4a>] ? ptrace_do_notify+0x8a/0xa0
->  [<c0721f5d>] SyS_sendto+0x2d/0x30
->  [<c0722908>] SyS_socketcall+0x1c8/0x300
->  [<c07b848f>] syscall_call+0x7/0x7
-> ---[ end trace d87b1e283af6ddc9 ]---
-> [7.] A small shell script or example program which triggers the
->      problem (if possible)
-> ptpd2 -i eth0 --masteronly --foreground --verbose
-> 
-
-> 34:00.0 Ethernet controller: Intel Corporation 82572EI Gigabit Ethernet
-> Controller (Copper) (rev 06)
-
-Bye,
-Hannes
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 52fe0bc5598a..38805fa02e48 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -2199,9 +2199,11 @@ static inline void sock_recv_ts_and_drops(struct msghdr *msg, struct sock *sk,
+ /**
+  * sock_tx_timestamp - checks whether the outgoing packet is to be time stamped
+  * @sk:		socket sending this packet
+- * @tx_flags:	filled with instructions for time stamping
++ * @tx_flags:	completed with instructions for time stamping
++ *
++ * Note : callers should take care of initial *tx_flags value (usually 0)
+  */
+-void sock_tx_timestamp(struct sock *sk, __u8 *tx_flags);
++void sock_tx_timestamp(const struct sock *sk, __u8 *tx_flags);
+ 
+ /**
+  * sk_eat_skb - Release a skb if it is no longer needed
+diff --git a/net/socket.c b/net/socket.c
+index ae89569a2db5..95ee7d8682e7 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -610,20 +610,26 @@ void sock_release(struct socket *sock)
+ }
+ EXPORT_SYMBOL(sock_release);
+ 
+-void sock_tx_timestamp(struct sock *sk, __u8 *tx_flags)
++void sock_tx_timestamp(const struct sock *sk, __u8 *tx_flags)
+ {
+-	*tx_flags = 0;
++	u8 flags = *tx_flags;
++
+ 	if (sk->sk_tsflags & SOF_TIMESTAMPING_TX_HARDWARE)
+-		*tx_flags |= SKBTX_HW_TSTAMP;
++		flags |= SKBTX_HW_TSTAMP;
++
+ 	if (sk->sk_tsflags & SOF_TIMESTAMPING_TX_SOFTWARE)
+-		*tx_flags |= SKBTX_SW_TSTAMP;
++		flags |= SKBTX_SW_TSTAMP;
++
+ 	if (sk->sk_tsflags & SOF_TIMESTAMPING_TX_SCHED)
+-		*tx_flags |= SKBTX_SCHED_TSTAMP;
++		flags |= SKBTX_SCHED_TSTAMP;
++
+ 	if (sk->sk_tsflags & SOF_TIMESTAMPING_TX_ACK)
+-		*tx_flags |= SKBTX_ACK_TSTAMP;
++		flags |= SKBTX_ACK_TSTAMP;
+ 
+ 	if (sock_flag(sk, SOCK_WIFI_STATUS))
+-		*tx_flags |= SKBTX_WIFI_STATUS;
++		flags |= SKBTX_WIFI_STATUS;
++
++	*tx_flags = flags;
+ }
+ EXPORT_SYMBOL(sock_tx_timestamp);
+ 
