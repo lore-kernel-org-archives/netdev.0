@@ -1,47 +1,59 @@
-From: "Koehrer Mathias (ETAS/ESW5)" <mathias.koehrer@etas.com>
-Subject: RE: PROBLEM: [x86] Running ptpd2 using an Intel 82572EI (e1000e)
- leads to a kernel oops (3.12.26)
-Date: Wed, 6 Aug 2014 10:52:12 +0000
-Message-ID: <6360ed72fccb44b2907bfaddef31cbbe@FE-MBX1012.de.bosch.com>
-References: <50f83e65cecd4882b22887858bfdf484@FE-MBX1012.de.bosch.com>
- <CAPDOMVieG6RoOyQM1JG5vCQ1qSgqz-cy37X9GPnkzPUTyRBFBA@mail.gmail.com>
- <20140806083315.GA3102@fancy-poultry.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Heinz Diehl <htd@fancy-poultry.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140806083315.GA3102@fancy-poultry.org>
-Content-Language: de-DE
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCHv2 net-next] cxgb4: Fix for SR-IOV VF initialization
+Date: Wed,  6 Aug 2014 17:10:59 +0530
+Message-ID: <1407325259-1637-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
+	kumaras@chelsio.com, anish@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:33709
+	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755486AbaHFLfR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2014 07:35:17 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Commit 35b1de5 ("rdma/cxgb4: Fixes cxgb4 probe failure in VM when PF is exposed
+through PCI Passthrough") introduced a regression, where VF failed to
+initialize for Physical function 0 to Physical Function 3. In the above
+commit, we removed the code which used to enable sriov for PF0 to PF3. Now
+adding it back to get sriov working.
 
+V2:
+ Removed SRIOV loop for PF[0..3] to instantiate the VF's as per David Miller's
+ comment
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
-> Behalf Of Heinz Diehl
-> Sent: Wednesday, August 06, 2014 10:33 AM
-> To: linux-kernel@vger.kernel.org
-> Cc: Koehrer Mathias (ETAS/ESW5); netdev@vger.kernel.org
-> Subject: Re: PROBLEM: [x86] Running ptpd2 using an Intel 82572EI (e1000e) leads
-> to a kernel oops (3.12.26)
-> 
-> On 06.08.2014, Nick Krause wrote:
-> 
-> > I am going to have to ask a few questions first, what distribution is
-> > and is this a vanilla kernel?
-> 
-> Read his mail. He's on Debian, and it's a Debian kernel.
-I am on Debian. But it is a vanilla kernel from kernel.org without any additional patches.
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |    7 +++----
+ 1 files changed, 3 insertions(+), 4 deletions(-)
 
-> 
-> > If it's not just send the report to the distribution developers.
-> 
-> His mail is quite sure a copy from the data entered into the Debian
-> bugtracker.
-No. I've never entered this into the Debian bugtracker.
-
-Mathias
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 4247356..1a162d2 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -6527,11 +6527,9 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	/* We control everything through one PF */
+ 	func = SOURCEPF_GET(readl(adapter->regs + PL_WHOAMI));
+-	if ((pdev->device == 0xa000 && func != 0) ||
+-	    func != ent->driver_data) {
++	if (func != ent->driver_data) {
+ 		pci_save_state(pdev);        /* to restore SR-IOV later */
+-		err = 0;
+-		goto out_unmap_bar0;
++		goto sriov;
+ 	}
+ 
+ 	adapter->pdev = pdev;
+@@ -6697,6 +6695,7 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	if (is_offload(adapter))
+ 		attach_ulds(adapter);
+ 
++sriov:
+ #ifdef CONFIG_PCI_IOV
+ 	if (func < ARRAY_SIZE(num_vf) && num_vf[func] > 0)
+ 		if (pci_enable_sriov(pdev, num_vf[func]) == 0)
+-- 
+1.7.1
