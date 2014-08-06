@@ -1,83 +1,57 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [PATCH] Fix e1000e with Intel 82572EI that has no hardware timestamp
- support
-Date: Wed, 06 Aug 2014 13:19:37 -0700
-Message-ID: <53E28DD9.6060503@intel.com>
-References: <be459158bb5c46fcaf73129858342da4@FE-MBX1012.de.bosch.com>	<53E23BEF.9030701@cogentembedded.com>	<1407337757.772491.149802333.5E523CB0@webmail.messagingengine.com>	<53E24800.4030102@intel.com>	<53E2490E.70608@intel.com> <CAPDOMVgHmQeqOGj1MegRa=gusGXMn5t7cwCNnutpc1_q_fzyYg@mail.gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next] xen-netback: Fix vif->disable handling
+Date: Thu, 07 Aug 2014 00:31:32 +0400
+Message-ID: <53E290A4.1020900@cogentembedded.com>
+References: <1407353598-14185-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Henrique de Moraes Holschuh <hmh@hmh.eng.br>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Koehrer Mathias <mathias.koehrer@etas.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Nick Krause <xerofoify@gmail.com>
+Cc: David Vrabel <david.vrabel@citrix.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, xen-devel@lists.xenproject.org
+To: Zoltan Kiss <zoltan.kiss@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAPDOMVgHmQeqOGj1MegRa=gusGXMn5t7cwCNnutpc1_q_fzyYg@mail.gmail.com>
+In-Reply-To: <1407353598-14185-1-git-send-email-zoltan.kiss@citrix.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 08/06/2014 12:03 PM, Nick Krause wrote:
-> On Wed, Aug 6, 2014 at 11:26 AM, Alexander Duyck
-> <alexander.h.duyck@intel.com> wrote:
->> On 08/06/2014 08:21 AM, Alexander Duyck wrote:
->>> On 08/06/2014 08:09 AM, Henrique de Moraes Holschuh wrote:
->>>> On Wed, Aug 6, 2014, at 11:30, Sergei Shtylyov wrote:
->>>>> On 8/6/2014 6:27 PM, Koehrer Mathias (ETAS/ESW5) wrote:
->>>>>
->>>>>> With the Intel 82527EI (driver: e1000e) there is an issue when running
->>>>>> the ptpd2 program, that leads to a kernel oops.
->>>>>> The reason is here that in e1000_xmit_frame() a work queue will be
->>>>>> scheduled that has not been initialized in this case.
->>>>>> The work queue "tx_hwstamp_work" will only be initialized if
->>>>>> adapter->flags & FLAG_HAS_HW_TIMESTAMP set.
->>>>>> This check is missing in e1000_xmit_frame().
->>>>>
->>>>>> The following patch adds the missing check.
->>>>>
->>>>>     OK, but this time you forgot your sign-off. :-)
->>>>
->>>> Also, shouldn't the added test be inside the unlikely() ?
->>>>
->>>
->>> That shouldn't be necessary, but it might be better to place the new
->>> check after the unlikely.  So you do the unlikely check first, then the
->>> adapter check to see if we support Tx timestamping.  That way we can
->>> avoid any unnecessary checks in the adapter structure.
->>>
->>> Thanks,
->>>
->>> Alex
->>>
->>
->>
->> Actually you might want to even take it one step further and break out
->> the test as follows (note this is only pseudo-code:
->>   unlikely(skb->tx_flags & HW_TSTAMP) &&
->>   (adapter->flags & HAS_HW_TSTAMP) &&
->>   !adapter->tx_hwtstamp_skb
->>
->> There isn't much point in wrapping the entire statement in unlikely, by
->> wrapping just the first test the rest of the conditional checks can be
->> pushed into the branch which will likely require a jump to some remote
->> block of code and should streamline the hot-path.
->>
->> Thanks,
->>
->> Alex
-> 
-> Alex,
-> Has this patch been resent or not. If not I can clean it up and sent
-> as my own patch against linus's tree.
-> Regards NIck
-> 
+Hello.
 
-Nick,
+On 08/06/2014 11:33 PM, Zoltan Kiss wrote:
 
-Please give Mathias a chance to complete his own patch.  Also this is
-would be against Dave Miller's net tree, not Linus's tree.
+> In the patch called "xen-netback: Turn off the carrier if the guest is not able
+> to receive" new branches were introduced to this if statement, risking that a
+> queue with non-zero id can reenable the disabled interface.
 
-Thanks,
+> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+> Cc: netdev@vger.kernel.org
+> Cc: linux-kernel@vger.kernel.org
+> Cc: xen-devel@lists.xenproject.org
 
-Alex
+> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+> index aa20933..f84516f 100644
+> --- a/drivers/net/xen-netback/netback.c
+> +++ b/drivers/net/xen-netback/netback.c
+> @@ -2027,7 +2027,13 @@ int xenvif_kthread_guest_rx(void *data)
+>   		 */
+>   		if (unlikely(queue->vif->disabled && queue->id == 0))
+>   			xenvif_carrier_off(queue->vif);
+> -		else if (unlikely(test_and_clear_bit(QUEUE_STATUS_RX_PURGE_EVENT,
+> +		else if (unlikely(queue->vif->disabled)) {
+
+    Perhaps it's time to fix the coding style and add {} around the first arm 
+of the *if* statement?
+
+> +			/* kthread_stop() would be called upon this thread soon,
+> +			 * be a bit proactive
+> +			 */
+> +			skb_queue_purge(&queue->rx_queue);
+> +			queue->rx_last_skb_slots = 0;
+> +		} else if (unlikely(test_and_clear_bit(QUEUE_STATUS_RX_PURGE_EVENT,
+>   						     &queue->status))) {
+>   			xenvif_rx_purge_event(queue);
+>   		} else if (!netif_carrier_ok(queue->vif->dev)) {
+
+WBR, Sergei
