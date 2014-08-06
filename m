@@ -1,85 +1,82 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [PATCH net-next v2 02/12] net: dsa: add Broadcom tag hook
-Date: Wed, 06 Aug 2014 13:16:23 -0700
-Message-ID: <53E28D17.8080406@intel.com>
-References: <1407277906-19989-1-git-send-email-f.fainelli@gmail.com> <1407277906-19989-3-git-send-email-f.fainelli@gmail.com> <53E23FFE.2090707@intel.com> <53E27607.8030301@gmail.com>
+Subject: Re: [PATCH] Fix e1000e with Intel 82572EI that has no hardware timestamp
+ support
+Date: Wed, 06 Aug 2014 13:19:37 -0700
+Message-ID: <53E28DD9.6060503@intel.com>
+References: <be459158bb5c46fcaf73129858342da4@FE-MBX1012.de.bosch.com>	<53E23BEF.9030701@cogentembedded.com>	<1407337757.772491.149802333.5E523CB0@webmail.messagingengine.com>	<53E24800.4030102@intel.com>	<53E2490E.70608@intel.com> <CAPDOMVgHmQeqOGj1MegRa=gusGXMn5t7cwCNnutpc1_q_fzyYg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, linville@tuxdriver.com
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:22167 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753805AbaHFUQb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Aug 2014 16:16:31 -0400
-In-Reply-To: <53E27607.8030301@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Henrique de Moraes Holschuh <hmh@hmh.eng.br>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Koehrer Mathias <mathias.koehrer@etas.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Nick Krause <xerofoify@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAPDOMVgHmQeqOGj1MegRa=gusGXMn5t7cwCNnutpc1_q_fzyYg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/06/2014 11:37 AM, Florian Fainelli wrote:
-> On 08/06/2014 07:47 AM, Alexander Duyck wrote:
->> On 08/05/2014 03:31 PM, Florian Fainelli wrote:
->>> Register a fake Ethertype for the Broadcom tag to allow us to hook into
->>> a given Ethernet device receive path and parse this Broadcom tag.
+On 08/06/2014 12:03 PM, Nick Krause wrote:
+> On Wed, Aug 6, 2014 at 11:26 AM, Alexander Duyck
+> <alexander.h.duyck@intel.com> wrote:
+>> On 08/06/2014 08:21 AM, Alexander Duyck wrote:
+>>> On 08/06/2014 08:09 AM, Henrique de Moraes Holschuh wrote:
+>>>> On Wed, Aug 6, 2014, at 11:30, Sergei Shtylyov wrote:
+>>>>> On 8/6/2014 6:27 PM, Koehrer Mathias (ETAS/ESW5) wrote:
+>>>>>
+>>>>>> With the Intel 82527EI (driver: e1000e) there is an issue when running
+>>>>>> the ptpd2 program, that leads to a kernel oops.
+>>>>>> The reason is here that in e1000_xmit_frame() a work queue will be
+>>>>>> scheduled that has not been initialized in this case.
+>>>>>> The work queue "tx_hwstamp_work" will only be initialized if
+>>>>>> adapter->flags & FLAG_HAS_HW_TIMESTAMP set.
+>>>>>> This check is missing in e1000_xmit_frame().
+>>>>>
+>>>>>> The following patch adds the missing check.
+>>>>>
+>>>>>     OK, but this time you forgot your sign-off. :-)
+>>>>
+>>>> Also, shouldn't the added test be inside the unlikely() ?
+>>>>
 >>>
->>> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> 
-> [snip]
-> 
->>> diff --git a/net/ethernet/eth.c b/net/ethernet/eth.c
->>> index f405e0592407..6b67653d5283 100644
->>> --- a/net/ethernet/eth.c
->>> +++ b/net/ethernet/eth.c
->>> @@ -186,6 +186,8 @@ __be16 eth_type_trans(struct sk_buff *skb, struct net_device *dev)
->>>  
->>>  	if (unlikely(netdev_uses_trailer_tags(dev)))
->>>  		return htons(ETH_P_TRAILER);
->>> +	if (netdev_uses_brcm_tags(dev))
->>> +		return htons(ETH_P_BRCMTAG);
->>>  
->>>  	if (likely(ntohs(eth->h_proto) >= ETH_P_802_3_MIN))
->>>  		return eth->h_proto;
+>>> That shouldn't be necessary, but it might be better to place the new
+>>> check after the unlikely.  So you do the unlikely check first, then the
+>>> adapter check to see if we support Tx timestamping.  That way we can
+>>> avoid any unnecessary checks in the adapter structure.
+>>>
+>>> Thanks,
+>>>
+>>> Alex
 >>>
 >>
->> Maybe we should consider some change to this logic.  Maybe a bit flag in
->> the dsa_switch_tree structure that indicates if eth_type_trans should
->> override the protocol or not.
+>>
+>> Actually you might want to even take it one step further and break out
+>> the test as follows (note this is only pseudo-code:
+>>   unlikely(skb->tx_flags & HW_TSTAMP) &&
+>>   (adapter->flags & HAS_HW_TSTAMP) &&
+>>   !adapter->tx_hwtstamp_skb
+>>
+>> There isn't much point in wrapping the entire statement in unlikely, by
+>> wrapping just the first test the rest of the conditional checks can be
+>> pushed into the branch which will likely require a jump to some remote
+>> block of code and should streamline the hot-path.
+>>
+>> Thanks,
+>>
+>> Alex
 > 
-> I just tested something like this, which becomes protocol agnostic:
-> 
-> if (unlikely(netdev_uses_dsa(dev)))
-> 	return dsa_tag_protocol(dev);
-> 
-> include/linux/netdevice.h:
-> static inline bool netdev_uses_dsa(struct net_device *dev)
-> {
-> #ifdef CONFIG_NET_DSA
-> 	return dev->dsa_ptr != NULL;
-> #else
-> 	return false;
-> #endif
-> }
-> 
-> include/net/dsa.h:
-> static __be16 netdev_dsa_protocol(struct net_device *dev)
-> {
-> #ifdef CONFIG_NET_DSA
-> 	struct dsa_switch_tree *dst = dev->dsa_ptr;
-> 	return dst->tag_protocol;
-> #endif
-> }
-> 
->> Otherwise this is going to start becoming
->> a rather large conditional statement if we have to add a new if every
->> time a new switch is added.
-> 
-> Agreed.
+> Alex,
+> Has this patch been resent or not. If not I can clean it up and sent
+> as my own patch against linus's tree.
+> Regards NIck
 > 
 
-I think EDSA does not have same logic for inserting the tags.  You may
-want to look into that to determine if this is acceptable for that case
-or not.
+Nick,
+
+Please give Mathias a chance to complete his own patch.  Also this is
+would be against Dave Miller's net tree, not Linus's tree.
 
 Thanks,
 
