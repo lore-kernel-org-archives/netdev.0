@@ -1,31 +1,53 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH] Fix e1000e with Intel 82572EI that has no hardware
- timestamp support
-Date: Wed, 6 Aug 2014 21:54:33 +0200
-Message-ID: <20140806195433.GD6611@netboy>
-References: <bbcbf584e3624059bf7a0d2186fec6b4@FE-MBX1012.de.bosch.com>
- <20140806191744.GB6611@netboy>
- <CAPDOMVjYkfM49E9DM0=SDDRncLQbXxR8NQE9SrsW++YycMGU5w@mail.gmail.com>
- <20140806193211.GC6611@netboy>
- <CAPDOMViFCifeUoOgExuG7Q6_ObGj20g59siyMxWeKN=Zr2Kbdg@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: ip6tables filter breakage.
+Date: Wed, 06 Aug 2014 13:13:54 -0700 (PDT)
+Message-ID: <20140806.131354.1888027200650409969.davem@davemloft.net>
+References: <20140806195222.GA10618@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Koehrer Mathias (ETAS/ESW5)" <mathias.koehrer@etas.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Nick Krause <xerofoify@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAPDOMViFCifeUoOgExuG7Q6_ObGj20g59siyMxWeKN=Zr2Kbdg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: davej@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43194 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753502AbaHFUN5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2014 16:13:57 -0400
+In-Reply-To: <20140806195222.GA10618@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 06, 2014 at 03:38:18PM -0400, Nick Krause wrote:
-> I checked them and this patch seems fine to me.
+From: Dave Jones <davej@redhat.com>
+Date: Wed, 6 Aug 2014 15:52:22 -0400
 
-No, it isn't fine. It ignores Alexander's comments.  Mathias, can you
-please fix it?
+CC:'ing netfilter-devel, Dave please do this in the future for
+netfilter reports, thanks.
 
-Thanks,
-Richard
+> After updating to Linus' current tree with todays net/ merge,
+> I noticed that ip6tables doesn't work any more..
+> 
+> # ip6tables -F
+> ip6tables v1.4.19.1: can't initialize ip6tables table `filter': No
+> chain/target/match by that name
+> Perhaps ip6tables or your kernel needs to be upgraded
+> 
+> My config has CONFIG_IP6_NF_FILTER=m
+> I also note that ip6table_filter.ko doesn't get auto-loaded now.
+> But even after modprobing it, I get the same message.
+> 
+> Is there some additional option I now need to enable ?
+> 
+> 
+> I was a little surprised by how CONFIG_NF_TABLES is mandatory
+> for iptables to keep working, even if you don't have nft userspace.
+> (The only relevant thing in the Kconfig was related to x_tables,
+>  which I wasn't using).
+> 
+> Perhaps either some select's, or additional help text ?
+> 
+> 	Dave
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
