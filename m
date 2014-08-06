@@ -1,42 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/2] udp: UDP Fast Port
-Date: Wed, 06 Aug 2014 17:41:03 +0200
-Message-ID: <1407339663.11943.15.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <alpine.DEB.2.02.1407261519050.27164@tomh.mtv.corp.google.com>
-	 <1406557222.12728.23.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <20140729.152937.71880257673026429.davem@davemloft.net>
-	 <CA+mtBx_kXTU8Dyn-bR8W2EnrZqU8Rp-2MeP2R2nv3L67aoh==Q@mail.gmail.com>
+From: Nathan Lynch <Nathan_Lynch@mentor.com>
+Subject: Re: [Regression] FEC: Panic on suspend in 3.16
+Date: Wed, 6 Aug 2014 10:43:19 -0500
+Message-ID: <53E24D17.90704@mentor.com>
+References: <53E24147.4050304@parkeon.com> <53E24525.2020809@mentor.com> <53E24A99.2020604@denx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
+Cc: Martin Fuzzey <mfuzzey@parkeon.com>, <netdev@vger.kernel.org>,
+	<festevam@gmail.com>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>
+To: Stefano Babic <sbabic@denx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f180.google.com ([74.125.82.180]:64598 "EHLO
-	mail-we0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752854AbaHFPlI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2014 11:41:08 -0400
-Received: by mail-we0-f180.google.com with SMTP id w61so2784573wes.25
-        for <netdev@vger.kernel.org>; Wed, 06 Aug 2014 08:41:07 -0700 (PDT)
-In-Reply-To: <CA+mtBx_kXTU8Dyn-bR8W2EnrZqU8Rp-2MeP2R2nv3L67aoh==Q@mail.gmail.com>
+Received: from relay1.mentorg.com ([192.94.38.131]:57725 "EHLO
+	relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753240AbaHFPnY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2014 11:43:24 -0400
+In-Reply-To: <53E24A99.2020604@denx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-07-29 at 16:21 -0700, Tom Herbert wrote:
+On 08/06/2014 10:32 AM, Stefano Babic wrote:
+> Hi Nathan, Martin,
+> 
+> On 06/08/2014 17:09, Nathan Lynch wrote:
+>> On 08/06/2014 09:52 AM, Martin Fuzzey wrote:
+>>> Hi all,
+>>>
+>>> I am using the fec ethernet driver on a i.MX53 SoC.
+>>>
+>>> All was working fine on 3.13 but, after upgrading to 3.16 I now get a
+>>> panic on suspend:
+>>
+>> Same issue reported here:
+>>
+>> http://lists.infradead.org/pipermail/linux-arm-kernel/2014-August/277728.html
+>>
+>> a71e3c37960c (net: phy: Set the driver when registering an MDIO bus
+>> device) has been implicated; try reverting that.
+>>
+> 
+> I confirm this issue (on a i.MX35). The ndev pointer is NULL in the
+> suspend function. I added the check for the pointer:
 
-> We still need a context to do the decap though. If we were able to use
-> the socket only with rcu and without taking a reference we could just
-> call encap_rcv directly from the lookup. I suppose it might be
-> plausible to have socket point to another context data structure which
-> could be accessed with just rcu protection...
+I'm not sure this is the right fix.  The fec driver's suspend function
+is being called for a device it did not probe (I verified this on mx6q).
 
-I'll work on UDP stack to get rid of SLAB_DESTROY_BY_RCU, to avoid
-refcount atomic ops, and make receiver side faster.
+See Russell's explanation here:
 
-1) UDP sockets are way smaller than TCP ones.
-
-2) Applications wanting fast UDP communications do not
-allocate/deallocate sockets for short amount of time.
-
-(netperf has -t TCP_CRR , but no UDP_CRR for example)
+http://lists.infradead.org/pipermail/linux-arm-kernel/2014-August/277823.html
