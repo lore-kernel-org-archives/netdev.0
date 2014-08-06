@@ -1,69 +1,31 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: linux-next: net/netlink/diag.c:106 suspicious rcu_dereference_protected()
- usage!
-Date: Wed, 6 Aug 2014 14:20:59 -0700
-Message-ID: <CAHA+R7OB_gTYPKtqw-iry+nfkTbmApw4GPpeKjqfXugcit4Guw@mail.gmail.com>
-References: <CANaxB-ySsRXHPSEPOuExeKAvDX7esZ1WBZAVMTWQxtmfN2=i4w@mail.gmail.com>
-	<CAHA+R7N0c83by=AAgw2nKPibYETNyv6JTEWnu5XOo-67fHMELw@mail.gmail.com>
-	<20140806195127.GA26832@casper.infradead.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: IPv6 over IEEE 802.15.4 aka 6LoWPAN - Neighbor discovery issue
+Date: Wed, 06 Aug 2014 14:26:56 -0700 (PDT)
+Message-ID: <20140806.142656.1615174630283176908.davem@davemloft.net>
+References: <20140805121516.GB14196@omega>
+	<53E1797C.8000207@miraclelinux.com>
+	<20140806103642.GA32302@omega>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=001a11345e0e72f2da04fffc8cc0
-Cc: Andrey Wagin <avagin@gmail.com>, netdev <netdev@vger.kernel.org>
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: hideaki.yoshifuji@miraclelinux.com, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
+	netdev@vger.kernel.org, linux-wpan@vger.kernel.org
+To: alex.aring@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f42.google.com ([209.85.215.42]:46417 "EHLO
-	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754266AbaHFVVB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2014 17:21:01 -0400
-Received: by mail-la0-f42.google.com with SMTP id pv20so2840252lab.15
-        for <netdev@vger.kernel.org>; Wed, 06 Aug 2014 14:21:00 -0700 (PDT)
-In-Reply-To: <20140806195127.GA26832@casper.infradead.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43916 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754063AbaHFV05 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2014 17:26:57 -0400
+In-Reply-To: <20140806103642.GA32302@omega>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---001a11345e0e72f2da04fffc8cc0
-Content-Type: text/plain; charset=UTF-8
+From: Alexander Aring <alex.aring@gmail.com>
+Date: Wed, 6 Aug 2014 12:36:44 +0200
 
-On Wed, Aug 6, 2014 at 12:51 PM, Thomas Graf <tgraf@suug.ch> wrote:
-> On 08/06/14 at 10:52am, Cong Wang wrote:
->>
->> Looks like we should hold rcu_read_lock() before calling __netlink_diag_dump().
->
-> netlink_diag_dump() still acquires nl_table_lock which is pointless as
-> a separate mutex has been introduced to protect mutations. I will send
-> a patch to RCU'ify it properly.
+> I can't also use ARPHRD_6LOWPAN otherwise bluetooth will do these
+> 802.15.4 specific things in neighbor discovery.
 
-Agreed, but that's likely a net-next material.
-
-I think we need the following quick fix for net.
-
---001a11345e0e72f2da04fffc8cc0
-Content-Type: text/plain; charset=US-ASCII; name="netlink-diag.diff"
-Content-Disposition: attachment; filename="netlink-diag.diff"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_hyj5tq9g0
-
-ZGlmZiAtLWdpdCBhL25ldC9uZXRsaW5rL2RpYWcuYyBiL25ldC9uZXRsaW5rL2RpYWcuYwppbmRl
-eCA3MzAxODUwLi4yZDk0YzQ5IDEwMDY0NAotLS0gYS9uZXQvbmV0bGluay9kaWFnLmMKKysrIGIv
-bmV0L25ldGxpbmsvZGlhZy5jCkBAIC0xMDMsNyArMTAzLDcgQEAgc3RhdGljIGludCBfX25ldGxp
-bmtfZGlhZ19kdW1wKHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBuZXRsaW5rX2NhbGxiYWNr
-ICpjYiwKIHsKIAlzdHJ1Y3QgbmV0bGlua190YWJsZSAqdGJsID0gJm5sX3RhYmxlW3Byb3RvY29s
-XTsKIAlzdHJ1Y3Qgcmhhc2h0YWJsZSAqaHQgPSAmdGJsLT5oYXNoOwotCWNvbnN0IHN0cnVjdCBi
-dWNrZXRfdGFibGUgKmh0YmwgPSByaHRfZGVyZWZlcmVuY2UoaHQtPnRibCwgaHQpOworCWNvbnN0
-IHN0cnVjdCBidWNrZXRfdGFibGUgKmh0Ymw7CiAJc3RydWN0IG5ldCAqbmV0ID0gc29ja19uZXQo
-c2tiLT5zayk7CiAJc3RydWN0IG5ldGxpbmtfZGlhZ19yZXEgKnJlcTsKIAlzdHJ1Y3QgbmV0bGlu
-a19zb2NrICpubHNrOwpAQCAtMTEyLDggKzExMiwxMSBAQCBzdGF0aWMgaW50IF9fbmV0bGlua19k
-aWFnX2R1bXAoc3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IG5ldGxpbmtfY2FsbGJhY2sgKmNi
-LAogCiAJcmVxID0gbmxtc2dfZGF0YShjYi0+bmxoKTsKIAorCXJjdV9yZWFkX2xvY2soKTsKKwlo
-dGJsID0gcmh0X2RlcmVmZXJlbmNlX3JjdShodC0+dGJsLCBodCk7CisKIAlmb3IgKGkgPSAwOyBp
-IDwgaHRibC0+c2l6ZTsgaSsrKSB7Ci0JCXJodF9mb3JfZWFjaF9lbnRyeShubHNrLCBodGJsLT5i
-dWNrZXRzW2ldLCBodCwgbm9kZSkgeworCQlyaHRfZm9yX2VhY2hfZW50cnlfcmN1KG5sc2ssIGh0
-YmwtPmJ1Y2tldHNbaV0sIG5vZGUpIHsKIAkJCXNrID0gKHN0cnVjdCBzb2NrICopbmxzazsKIAog
-CQkJaWYgKCFuZXRfZXEoc29ja19uZXQoc2spLCBuZXQpKQpAQCAtMTI5LDEyICsxMzIsMTQgQEAg
-c3RhdGljIGludCBfX25ldGxpbmtfZGlhZ19kdW1wKHN0cnVjdCBza19idWZmICpza2IsIHN0cnVj
-dCBuZXRsaW5rX2NhbGxiYWNrICpjYiwKIAkJCQkJIE5MTV9GX01VTFRJLAogCQkJCQkgc29ja19p
-X2lubyhzaykpIDwgMCkgewogCQkJCXJldCA9IDE7CisJCQkJcmN1X3JlYWRfdW5sb2NrKCk7CiAJ
-CQkJZ290byBkb25lOwogCQkJfQogCiAJCQludW0rKzsKIAkJfQogCX0KKwlyY3VfcmVhZF91bmxv
-Y2soKTsKIAogCXNrX2Zvcl9lYWNoX2JvdW5kKHNrLCAmdGJsLT5tY19saXN0KSB7CiAJCWlmIChz
-a19oYXNoZWQoc2spKQo=
---001a11345e0e72f2da04fffc8cc0--
+Have the ndisc handlers look at what the underlying device actually
+is.
