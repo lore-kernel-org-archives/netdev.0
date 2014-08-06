@@ -1,85 +1,84 @@
-From: Alexander Aring <alex.aring@gmail.com>
-Subject: Re: IPv6 over IEEE 802.15.4 aka 6LoWPAN - Neighbor discovery issue
-Date: Wed, 6 Aug 2014 09:47:17 +0200
-Message-ID: <20140806074715.GA31022@omega>
-References: <20140805121516.GB14196@omega>
- <53E1B912.5000508@gmail.com>
- <20140806071025.GA29810@omega>
- <53E1D60F.3090602@gmail.com>
+From: Ilya Dryomov <ilya.dryomov@inktank.com>
+Subject: Re: [RFC][PATCH 0/7] nested sleeps, fixes and debug infra
+Date: Wed, 6 Aug 2014 11:51:29 +0400
+Message-ID: <CALFYKtAVQ9Rgu_QWCqUkNHk4-wbiVK0FeiwLDttaxZC5bnnG5w@mail.gmail.com>
+References: <20140804103025.478913141@infradead.org>
+	<CALFYKtBo2p5uNtkJZOy_rN7JbdFs1RbB1OfcF7TR+qDaMU0Kvg@mail.gmail.com>
+	<20140805130646.GZ19379@twins.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
-	linux-wpan@vger.kernel.org
-To: Varka Bhadram <varkabhadram@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f47.google.com ([74.125.82.47]:52748 "EHLO
-	mail-wg0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752963AbaHFHrY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2014 03:47:24 -0400
-Content-Disposition: inline
-In-Reply-To: <53E1D60F.3090602@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Ingo Molnar <mingo@kernel.org>, oleg@redhat.com,
+	Linus Torvalds <torvalds@linux-foundation.org>, tglx@linutronix.de,
+	Mike Galbraith <umgwanakikbuti@gmail.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org, linux-mm@kvack.org
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20140805130646.GZ19379@twins.programming.kicks-ass.net>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 06, 2014 at 12:45:27PM +0530, Varka Bhadram wrote:
-> On 08/06/2014 12:40 PM, Alexander Aring wrote:
-> >Hi Varka,
-> >
-> >On Wed, Aug 06, 2014 at 10:41:46AM +0530, Varka Bhadram wrote:
-> >>The 6LoWPAN Neighbor Discovery protocol (RFC6775) is an optimized version of the
-> >>standard IPv6 Neighbor Discovery protocol. 6LoWPAN-ND  uses the same standard
-> >>ND (RFC4861) messages (ICMPv6) with some additional options (ARO , 6CO and ABRO).
-> >>Two new messages (DAR and DAC) have been added to consider the support of Neighbor Discovery
-> >>for bootstrapping, header compression, mobility, fault tolerance, etc.
-> >>
-> >>We implemented 6LoWPAN-ND for linux kernel 3.12, which handles ARO option
-> >>in NS(Neighbour Solicitation) and sends NA (Neighbour Advertisement) with
-> >>updated ARO option as per RFC6775. We may send you the patches for this implementation.
-> >>And we implemented handling of DAR and DAC.
-> >>
-> >Did you have solve the issue between short and extended address? For
-> >RFC6775 we need also context based address compression, we don't support
-> >this mainline right now.
-> 
-> We only supported extended address. We did not include the context based
-> address compression.
-> 
-
-ok.
-
-> >
-> >If yes then you can send me these patches.
-> >
-> >>Handing of RS (Router Solicitation) and RA (Router Advertisement) will take care
-> >>by radvd (Router Advertisement Daemon) in Linux. We added the ABRO and 6CO option
-> >>support in radvd. You can find the implementation in [1].
-> >>
-> >>
-> >>[1]: https://github.com/reubenhwk/radvd/blob/master/send.c#L536
-> >>
-> >I see you use the ContextID there, then you need the CID value from
-> >6LoWPAN header there. I am very interest for patches which introduce
-> >context based address compression and make it also available in
-> >userspace to handle the ContextID with radvd.
-> 
-> Right now we providing the contextID from user space through radvd.conf.
-> 
-> Context based implementation is not supported so we are only using the
-> context identifier from user space.
+On Tue, Aug 5, 2014 at 5:06 PM, Peter Zijlstra <peterz@infradead.org> wrote:
+> On Tue, Aug 05, 2014 at 12:33:16PM +0400, Ilya Dryomov wrote:
+>> On Mon, Aug 4, 2014 at 2:30 PM, Peter Zijlstra <peterz@infradead.org> wrote:
+>> > Hi,
+>> >
+>> > Ilya recently tripped over a nested sleep which made Ingo suggest we should
+>> > have debug checks for that. So I did some, see patch 7. Of course that
+>> > triggered a whole bunch of fail the instant I tried to boot my machine.
+>> >
+>> > With this series I can boot my test box and build a kernel on it, I'm fairly
+>> > sure that's far too limited a test to have found all, but its a start.
+>>
+>> FWIW, I'm getting a lot of these during light rbd testing.  CC'ed
+>> netdev and linux-mm.
 >
+> Both are cond_resched() calls, and that's not blocking as such, just a
+> preemption point, so lets exclude those.
 
-A static CID value in radvd.conf? Sorry, I don't know how this can be
-working without very limitations of use.
+OK, this one is a bit different.
 
+WARNING: CPU: 1 PID: 1744 at kernel/sched/core.c:7104 __might_sleep+0x58/0x90()
+do not call blocking ops when !TASK_RUNNING; state=1 set at
+[<ffffffff81070e10>] prepare_to_wait+0x50 /0xa0
+Modules linked in:
+CPU: 1 PID: 1744 Comm: lt-ceph_test_li Not tainted 3.16.0-vm+ #113
+Hardware name: Bochs Bochs, BIOS Bochs 01/01/2007
+ 0000000000001bc0 ffff88006c4479d8 ffffffff8156f455 0000000000000000
+ ffff88006c447a28 ffff88006c447a18 ffffffff81033357 0000000000000001
+ 0000000000000000 0000000000000950 ffffffff817ee48a ffff88006dba6120
+Call Trace:
+ [<ffffffff8156f455>] dump_stack+0x4f/0x7c
+ [<ffffffff81033357>] warn_slowpath_common+0x87/0xb0
+ [<ffffffff81033421>] warn_slowpath_fmt+0x41/0x50
+ [<ffffffff81078bb2>] ? trace_hardirqs_on_caller+0x182/0x1f0
+ [<ffffffff81070e10>] ? prepare_to_wait+0x50/0xa0
+ [<ffffffff81070e10>] ? prepare_to_wait+0x50/0xa0
+ [<ffffffff8105bc38>] __might_sleep+0x58/0x90
+ [<ffffffff8148c671>] lock_sock_nested+0x31/0xb0
+ [<ffffffff8148dfeb>] ? release_sock+0x1bb/0x200
+ [<ffffffff81498aaa>] sk_stream_wait_memory+0x18a/0x2d0
+ [<ffffffff810709a0>] ? woken_wake_function+0x10/0x10
+ [<ffffffff814e058f>] tcp_sendmsg+0xb6f/0xd70
+ [<ffffffff81509e9f>] inet_sendmsg+0xdf/0x100
+ [<ffffffff81509dc0>] ? inet_recvmsg+0x100/0x100
+ [<ffffffff81489f07>] sock_sendmsg+0x67/0x90
+ [<ffffffff810fe391>] ? might_fault+0x51/0xb0
+ [<ffffffff8148a252>] ___sys_sendmsg+0x2d2/0x2e0
+ [<ffffffff811428a0>] ? do_dup2+0xd0/0xd0
+ [<ffffffff811428a0>] ? do_dup2+0xd0/0xd0
+ [<ffffffff8105bfe0>] ? finish_task_switch+0x50/0x100
+ [<ffffffff811429d5>] ? __fget_light+0x45/0x60
+ [<ffffffff811429fe>] ? __fdget+0xe/0x10
+ [<ffffffff8148ad14>] __sys_sendmsg+0x44/0x70
+ [<ffffffff8148ad49>] SyS_sendmsg+0x9/0x10
+ [<ffffffff815764d2>] system_call_fastpath+0x16/0x1b
 
+Thanks,
 
-Nevertheless, I want to find some solution to handle short and extended
-addresses in neighbor discovery to get something working which should
-already work in the current state. After that we can care about RFC6775.
+                Ilya
 
-This is more a "bugfix" and RFC6775 a new feature. Really, I have no
-idea what happens if we get a short address 6LoWPAN nd message packet and
-I got nightmares because this.
-
-- Alex
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
