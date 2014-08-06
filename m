@@ -1,82 +1,75 @@
-From: "Koehrer Mathias (ETAS/ESW5)" <mathias.koehrer@etas.com>
-Subject: RE: PROBLEM: [x86] Running ptpd2 using an Intel 82572EI (e1000e)
- leads to a kernel oops (3.12.26)
-Date: Wed, 6 Aug 2014 13:25:11 +0000
-Message-ID: <4ad0764f38504a98a272dab1f0ac704f@FE-MBX1012.de.bosch.com>
-References: <50f83e65cecd4882b22887858bfdf484@FE-MBX1012.de.bosch.com>
-	<CAPDOMVieG6RoOyQM1JG5vCQ1qSgqz-cy37X9GPnkzPUTyRBFBA@mail.gmail.com>
-	<ff2e6995521f40268c42d09e92cfe627@FE-MBX1012.de.bosch.com>
-	<CAPDOMVgFA-jTL=iDD2vLzPHrsO_=qsupAebTSUm0k0VmmHvX6A@mail.gmail.com>
-	<d7c17267f87c4e64a1559fa706cf1ead@FE-MBX1012.de.bosch.com>
- <CAPDOMVjWO9rfZjnHOgK+yB-3MVkmVz_00piBgnDFdf6j=56+GA@mail.gmail.com>
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Subject: [PATCH] myri10ge: check for pci_map_page errors
+Date: Wed, 6 Aug 2014 15:25:16 +0200
+Message-ID: <20140806132516.GA3222@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Nick Krause <xerofoify@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAPDOMVjWO9rfZjnHOgK+yB-3MVkmVz_00piBgnDFdf6j=56+GA@mail.gmail.com>
-Content-Language: de-DE
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Hyong-Youb Kim <hykim@myri.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:43464 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751770AbaHFN1P (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Aug 2014 09:27:15 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Nick Krause [mailto:xerofoify@gmail.com]
-> Sent: Wednesday, August 06, 2014 2:37 PM
-> To: Koehrer Mathias (ETAS/ESW5)
-> Cc: linux-kernel@vger.kernel.org; netdev@vger.kernel.org
-> Subject: Re: PROBLEM: [x86] Running ptpd2 using an Intel 82572EI (e1000e) leads
-> to a kernel oops (3.12.26)
-> 
-> On Wed, Aug 6, 2014 at 8:17 AM, Koehrer Mathias (ETAS/ESW5)
-> <mathias.koehrer@etas.com> wrote:
-> >> Mathias ,
-> >> After tracing this it seems to be either one of two things based on
-> >> the warn on messages in
-> >> __queue_work. Normally it would be because of this line.
-> >> WARN_ON_ONCE(!irqs_disabled());.
-> >> However it would also be the second warn on, If you want I can send a
-> >> simple patch with
-> >> a printk statement to see which one it is.
-> >> Regards Nick
-> > That would be helpful. I can try to see what's happening.
-> >
-> > Regards
-> >
-> > Mathias
-> Sorry for the late reply but couldn't figure out how to print the flags.
-> Cheers Nick
-Hi Nick,
-thanks for the patch.
-I applied it, however there was no change at all in the output.
+On IOMMU systems DMA mapping can fail, we need to check for that
+possibility.
 
-My impression is, that it has to do with the network driver as everything works fine if I am using a different NIC.
+Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
+---
+ drivers/net/ethernet/myricom/myri10ge/myri10ge.c | 21 ++++++++++++++++++---
+ 1 file changed, 18 insertions(+), 3 deletions(-)
 
-When I apply the patch
-
-Index: linux-3.12.26/drivers/net/ethernet/intel/e1000e/netdev.c
-===================================================================
---- linux-3.12.26.orig/drivers/net/ethernet/intel/e1000e/netdev.c       2014-08-04 10:56:56.000000000 +0200
-+++ linux-3.12.26/drivers/net/ethernet/intel/e1000e/netdev.c    2014-08-06 15:15:42.000000000 +0200
-@@ -5549,7 +5549,8 @@
-        count = e1000_tx_map(tx_ring, skb, first, adapter->tx_fifo_limit,
-                             nr_frags);
-        if (count) {
--               if (unlikely((skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) &&
-+               if ((adapter->flags & FLAG_HAS_HW_TIMESTAMP) &&
-+                        unlikely((skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) &&
-                             !adapter->tx_hwtstamp_skb)) {
-                        skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
-                        tx_flags |= E1000_TX_FLAGS_HWTSTAMP;
-
-to the e1000e driver it seems to work...
-This makes sense as the work queue is only created if  "adapter->flags & FLAG_HAS_HW_TIMESTAMP"  is set.
-With this NIC this is *not* the case.
-
-
-Regards
-
-Mathias
-
+diff --git a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+index f3d5d79..17f869a 100644
+--- a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
++++ b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+@@ -872,6 +872,10 @@ static int myri10ge_dma_test(struct myri10ge_priv *mgp, int test_type)
+ 		return -ENOMEM;
+ 	dmatest_bus = pci_map_page(mgp->pdev, dmatest_page, 0, PAGE_SIZE,
+ 				   DMA_BIDIRECTIONAL);
++	if (unlikely(pci_dma_mapping_error(mgp->pdev, dmatest_bus))) {
++		__free_page(dmatest_page);
++		return -ENOMEM;
++	}
+ 
+ 	/* Run a small DMA test.
+ 	 * The magic multipliers to the length tell the firmware
+@@ -1293,6 +1297,7 @@ myri10ge_alloc_rx_pages(struct myri10ge_priv *mgp, struct myri10ge_rx_buf *rx,
+ 			int bytes, int watchdog)
+ {
+ 	struct page *page;
++	dma_addr_t bus;
+ 	int idx;
+ #if MYRI10GE_ALLOC_SIZE > 4096
+ 	int end_offset;
+@@ -1317,11 +1322,21 @@ myri10ge_alloc_rx_pages(struct myri10ge_priv *mgp, struct myri10ge_rx_buf *rx,
+ 					rx->watchdog_needed = 1;
+ 				return;
+ 			}
++
++			bus = pci_map_page(mgp->pdev, page, 0,
++					   MYRI10GE_ALLOC_SIZE,
++					   PCI_DMA_FROMDEVICE);
++			if (unlikely(pci_dma_mapping_error(mgp->pdev, bus))) {
++				__free_pages(page, MYRI10GE_ALLOC_ORDER);
++				if (rx->fill_cnt - rx->cnt < 16)
++					rx->watchdog_needed = 1;
++				return;
++			}
++
+ 			rx->page = page;
+ 			rx->page_offset = 0;
+-			rx->bus = pci_map_page(mgp->pdev, page, 0,
+-					       MYRI10GE_ALLOC_SIZE,
+-					       PCI_DMA_FROMDEVICE);
++			rx->bus = bus;
++
+ 		}
+ 		rx->info[idx].page = rx->page;
+ 		rx->info[idx].page_offset = rx->page_offset;
 -- 
+1.9.0
