@@ -1,52 +1,48 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: ip6tables filter breakage.
-Date: Thu, 7 Aug 2014 00:01:35 +0200
-Message-ID: <20140806215638.GA31519@salvia>
-References: <20140806195222.GA10618@redhat.com>
- <20140806.131354.1888027200650409969.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davej@redhat.com, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, therbert@google.com
-To: David Miller <davem@davemloft.net>
+Subject: [PATCH] net: reallocate new socket option number for IPV6_AUTOFLOWLABEL
+Date: Thu,  7 Aug 2014 00:10:50 +0200
+Message-ID: <1407363050-3573-1-git-send-email-pablo@netfilter.org>
+Cc: netfilter-devel@vger.kernel.org, davem@davemloft.net,
+	davej@redhat.com, netdev@vger.kernel.org
+To: therbert@google.com
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140806.131354.1888027200650409969.davem@davemloft.net>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 06, 2014 at 01:13:54PM -0700, David Miller wrote:
-> From: Dave Jones <davej@redhat.com>
-> Date: Wed, 6 Aug 2014 15:52:22 -0400
-> 
-> CC:'ing netfilter-devel, Dave please do this in the future for
-> netfilter reports, thanks.
-> 
-> > After updating to Linus' current tree with todays net/ merge,
-> > I noticed that ip6tables doesn't work any more..
-> > 
-> > # ip6tables -F
-> > ip6tables v1.4.19.1: can't initialize ip6tables table `filter': No
-> > chain/target/match by that name
-> > Perhaps ip6tables or your kernel needs to be upgraded
-> > 
-> > My config has CONFIG_IP6_NF_FILTER=m
-> > I also note that ip6table_filter.ko doesn't get auto-loaded now.
-> > But even after modprobing it, I get the same message.
-> > 
-> > Is there some additional option I now need to enable ?
-> > 
-> > 
-> > I was a little surprised by how CONFIG_NF_TABLES is mandatory
-> > for iptables to keep working, even if you don't have nft userspace.
-> > (The only relevant thing in the Kconfig was related to x_tables,
-> >  which I wasn't using).
-> > 
-> > Perhaps either some select's, or additional help text ?
+cb1ce2e ("ipv6: Implement automatic flow label generation on transmit")
+accidentally uses socket option 64, which is already used by ip6tables:
 
-Cc'ing Tom:
+ IP6T_SO_SET_REPLACE / IP6T_SO_GET_INFO               64
+ IP6T_SO_SET_ADD_COUNTERS / IP6T_SO_GET_ENTRIES       65
 
-cb1ce2e ipv6: Implement automatic flow label generation on transmit
-has allocated socket option 64 which is already reserved by ip6tables.
+There is comment include/uapi/linux/in6.h warning about that.
 
-I'm going to send a patch to fix this.
+Cc: Tom Herbert <therbert@google.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ include/uapi/linux/in6.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/uapi/linux/in6.h b/include/uapi/linux/in6.h
+index 22b7a69..1d929c0 100644
+--- a/include/uapi/linux/in6.h
++++ b/include/uapi/linux/in6.h
+@@ -233,7 +233,6 @@ struct in6_flowlabel_req {
+ #if 0	/* not yet */
+ #define IPV6_USE_MIN_MTU	63
+ #endif
+-#define IPV6_AUTOFLOWLABEL	64
+ 
+ /*
+  * Netfilter (1)
+@@ -250,6 +249,7 @@ struct in6_flowlabel_req {
+  */
+ #define IPV6_RECVTCLASS		66
+ #define IPV6_TCLASS		67
++#define IPV6_AUTOFLOWLABEL	68
+ 
+ /*
+  * Netfilter (2)
+-- 
+1.7.10.4
+
