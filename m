@@ -1,46 +1,44 @@
-From: Cong Wang <cwang@twopensource.com>
-Subject: Re: linux-next: net/netlink/diag.c:106 suspicious rcu_dereference_protected()
- usage!
-Date: Wed, 6 Aug 2014 10:52:01 -0700
-Message-ID: <CAHA+R7N0c83by=AAgw2nKPibYETNyv6JTEWnu5XOo-67fHMELw@mail.gmail.com>
-References: <CANaxB-ySsRXHPSEPOuExeKAvDX7esZ1WBZAVMTWQxtmfN2=i4w@mail.gmail.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net-next v4 4/4 RFC] pktgen: Allow sending IPv4 TCP packets
+Date: Wed, 6 Aug 2014 19:09:40 +0100
+Message-ID: <53E26F64.6080301@citrix.com>
+References: <1407159435-7951-1-git-send-email-zoltan.kiss@citrix.com>	<1407159435-7951-5-git-send-email-zoltan.kiss@citrix.com> <20140805.130901.2116578415179622318.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>, Thomas Graf <tgraf@suug.ch>
-To: Andrey Wagin <avagin@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f45.google.com ([209.85.215.45]:58434 "EHLO
-	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752027AbaHFRwD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2014 13:52:03 -0400
-Received: by mail-la0-f45.google.com with SMTP id ty20so2516439lab.4
-        for <netdev@vger.kernel.org>; Wed, 06 Aug 2014 10:52:01 -0700 (PDT)
-In-Reply-To: <CANaxB-ySsRXHPSEPOuExeKAvDX7esZ1WBZAVMTWQxtmfN2=i4w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <steffen.klassert@secunet.com>, <minipli@googlemail.com>,
+	<dborkman@redhat.com>, <tgraf@suug.ch>, <joe@perches.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<xen-devel@lists.xenproject.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140805.130901.2116578415179622318.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 6, 2014 at 10:29 AM, Andrey Wagin <avagin@gmail.com> wrote:
-> [   40.072199] ===============================
-> [   40.072350] [ INFO: suspicious RCU usage. ]
-> [   40.072501] 3.16.0-next-20140806 #1 Not tainted
-> [   40.072659] -------------------------------
-> [   40.072807] net/netlink/diag.c:106 suspicious
-> rcu_dereference_protected() usage!
-> [   40.073047]
-> other info that might help us debug this:
+On 05/08/14 21:09, David Miller wrote:
+> From: Zoltan Kiss <zoltan.kiss@citrix.com>
+> Date: Mon, 4 Aug 2014 14:37:14 +0100
 >
-> [   40.073276]
-> rcu_scheduler_active = 1, debug_locks = 0
-> [   40.073494] 4 locks held by criu/2838:
-> [   40.073635]  #0:  (sock_diag_mutex){+.+.+.}, at:
-> [<ffffffff81689afb>] sock_diag_rcv+0x1b/0x40
-> [   40.074226]  #1:  (sock_diag_table_mutex){+.+.+.}, at:
-> [<ffffffff81689c6d>] sock_diag_rcv_msg+0x6d/0x140
-> [   40.074803]  #2:  (nlk->cb_mutex){+.+.+.}, at: [<ffffffff816a28f1>]
-> netlink_dump+0x21/0x2d0
-> [   40.075382]  #3:  (nl_table_lock){.+.?..}, at: [<ffffffffa0286601>]
-> netlink_diag_dump+0x31/0xb0 [netlink_diag]
-> [   40.076351]
+>> @@ -3559,6 +3616,14 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
+>>   		pkt_dev->last_pkt_size = pkt_dev->skb->len;
+>>   		pkt_dev->allocated_skbs++;
+>>   		pkt_dev->clone_count = 0;	/* reset counter */
+>> +
+>> +		if (netif_needs_gso(pkt_dev->skb, netif_skb_features(pkt_dev->skb))) {
+>> +			pr_err("Device don't have necessary GSO features! netif_skb_features: %llX summed %u\n",
+>> +			       netif_skb_features(pkt_dev->skb),
+>> +			       pkt_dev->skb->ip_summed);
+>> +			pkt_dev->sofar++;
+>> +			goto out;
+>> +		}
+>>   	}
+>>
+>>   	if (pkt_dev->delay && pkt_dev->last_ok)
+>
+> Woe be to the person who actually triggers this condition.  This function
+> happens potentially millions of times per second, there is no value in
+> emitting a log message every time.
+Indeed, I'll put a ratelimit around it.
 
-
-Looks like we should hold rcu_read_lock() before calling __netlink_diag_dump().
+Zoli
