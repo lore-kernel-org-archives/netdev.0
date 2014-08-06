@@ -1,35 +1,65 @@
-From: Dmitry Popov <ixaphire@qrator.net>
-Subject: Re: [PATCH net-next v2] tcp: md5: check md5 signature without
- socket lock
-Date: Thu, 7 Aug 2014 02:33:47 +0400
-Message-ID: <20140807023347.ad7215e4c192672ef23ee3ac@qrator.net>
-References: <20140807014953.d8c4cde302bb9b30f8efe0e1@qrator.net>
-	<20140806.145218.1742159418901363810.davem@davemloft.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH 1/1] net: fix USB network driver config option.
+Date: Thu, 7 Aug 2014 00:36:40 +0200
+Message-ID: <20140806223640.GA24673@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140806.145218.1742159418901363810.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, linux-usb@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:46420 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752417AbaHFWhE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2014 18:37:04 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 06 Aug 2014 14:52:18 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+From: Francois Romieu <romieu@fr.zoreil.com>
 
-> From: Dmitry Popov <ixaphire@qrator.net>
-> Date: Thu, 7 Aug 2014 01:49:53 +0400
-> 
-> > Since a8afca032 (tcp: md5: protects md5sig_info with RCU) tcp_md5_do_lookup
-> > doesn't require socket lock, rcu_read_lock is enough. Therefore socket lock is
-> > no longer required for tcp_v{4,6}_inbound_md5_hash too, so we can move these
-> > calls (wrapped with rcu_read_{,un}lock) before bh_lock_sock:
-> > from tcp_v{4,6}_do_rcv to tcp_v{4,6}_rcv.
-> > 
-> > Signed-off-by: Dmitry Popov <ixaphire@qrator.net>
-> 
-> Please respin this against the current 'net' tree, it doesn't apply.
+It must be tristate to avoid broken dependencies with kernel built-in
+usb network drivers when usb support is module only.
 
-Oops, my bad, sorry. I will resubmit.
+When net config option is set, least surprize default should match usb.
+
+Wireless RNDIS USB driver used to select USB_USBNET. USB_USBNET now
+depends on USB_NET_DRIVERS so the latter should be selected as well.
+
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+---
+ drivers/net/usb/Kconfig      | 4 ++--
+ drivers/net/wireless/Kconfig | 1 +
+ 2 files changed, 3 insertions(+), 2 deletions(-)
+
+It applies against plain linus 85417aef44fc58b08773117ceb1bc6ca5684e973.
+
+diff --git a/drivers/net/usb/Kconfig b/drivers/net/usb/Kconfig
+index 9f194a0..37eed4d 100644
+--- a/drivers/net/usb/Kconfig
++++ b/drivers/net/usb/Kconfig
+@@ -5,8 +5,8 @@ comment "Host-side USB support is needed for USB Network Adapter support"
+ 	depends on !USB && NET
+ 
+ menuconfig USB_NET_DRIVERS
+-	bool "USB Network Adapters"
+-	default y
++	tristate "USB Network Adapters"
++	default USB if USB
+ 	depends on USB && NET
+ 
+ if USB_NET_DRIVERS
+diff --git a/drivers/net/wireless/Kconfig b/drivers/net/wireless/Kconfig
+index b2137e8..16604bd 100644
+--- a/drivers/net/wireless/Kconfig
++++ b/drivers/net/wireless/Kconfig
+@@ -189,6 +189,7 @@ config USB_NET_RNDIS_WLAN
+ 	tristate "Wireless RNDIS USB support"
+ 	depends on USB
+ 	depends on CFG80211
++	select USB_NET_DRIVERS
+ 	select USB_USBNET
+ 	select USB_NET_CDCETHER
+ 	select USB_NET_RNDIS_HOST
+-- 
+1.9.3
