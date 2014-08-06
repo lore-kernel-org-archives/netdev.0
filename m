@@ -1,30 +1,48 @@
-From: Hyong-Youb Kim <hyong-youb.kim@myricom.com>
-Subject: Re: [PATCH] myri10ge: check for pci_map_page errors
-Date: Wed, 6 Aug 2014 22:37:48 +0900
-Message-ID: <53E22FAC.7040502@myricom.com>
-References: <20140806132516.GA3222@redhat.com>
+From: "Koehrer Mathias (ETAS/ESW5)" <mathias.koehrer@etas.com>
+Subject: [PATCH] Fix e1000e with Intel 82572EI that has no hardware
+ timestamp support
+Date: Wed, 6 Aug 2014 13:56:43 +0000
+Message-ID: <ef09199e48ab4d4a80c4ba554c9e3853@FE-MBX1012.de.bosch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Hyong-Youb Kim <hykim@myri.com>
-To: Stanislaw Gruszka <sgruszka@redhat.com>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Nick Krause <xerofoify@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1blp0188.outbound.protection.outlook.com ([207.46.163.188]:33720
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750945AbaHFNiU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Aug 2014 09:38:20 -0400
-In-Reply-To: <20140806132516.GA3222@redhat.com>
+Received: from smtp6-v.fe.bosch.de ([139.15.237.11]:48691 "EHLO
+	smtp6-v.fe.bosch.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753837AbaHFN4u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2014 09:56:50 -0400
+Content-Language: de-DE
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-On 8/6/2014 10:25 PM, Stanislaw Gruszka wrote:
-> On IOMMU systems DMA mapping can fail, we need to check for that
-> possibility.
->
-> Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
-
-Acked-by: Hyong-Youb Kim <hykim@myri.com>
-
-Thanks for the patch.
+V2l0aCB0aGUgSW50ZWwgODI1MjdFSSAoZHJpdmVyOiBlMTAwMGUpIHRoZXJlIGlzIGFuIGlzc3Vl
+IHdoZW4gcnVubmluZyB0aGUgcHRwZDIgcHJvZ3JhbSwgdGhhdCBsZWFkcyB0byBhIGtlcm5lbCBv
+b3BzLg0KVGhlIHJlYXNvbiBpcyBoZXJlIHRoYXQgaW4gZTEwMDBfeG1pdF9mcmFtZSgpIGEgd29y
+ayBxdWV1ZSB3aWxsIGJlIHNjaGVkdWxlZCB0aGF0IGhhcyBub3QgYmVlbiBpbml0aWFsaXplZCBp
+biB0aGlzIGNhc2UuDQpUaGUgd29yayBxdWV1ZSAidHhfaHdzdGFtcF93b3JrIiB3aWxsIG9ubHkg
+YmUgaW5pdGlhbGl6ZWQgaWYgYWRhcHRlci0+ZmxhZ3MgJiBGTEFHX0hBU19IV19USU1FU1RBTVAg
+c2V0Lg0KVGhpcyBjaGVjayBpcyBtaXNzaW5nIGluIGUxMDAwX3htaXRfZnJhbWUoKS4NCg0KVGhl
+IGZvbGxvd2luZyBwYXRjaCBhZGRzIHRoZSBtaXNzaW5nIGNoZWNrLg0KDQpTaWduZWQtb2ZmLWJ5
+OiBNYXRoaWFzIEtvZWhyZXIgPG1hdGhpYXMua29laHJlckBldGFzLmNvbT4NCi0tLQ0KIGRyaXZl
+cnMvbmV0L2V0aGVybmV0L2ludGVsL2UxMDAwZS9uZXRkZXYuYyB8ICAgIDMgKystDQogMSBmaWxl
+IGNoYW5nZWQsIDIgaW5zZXJ0aW9ucygrKSwgMSBkZWxldGlvbigtKQ0KDQpJbmRleDogbGludXgt
+My4xMi4yNi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9lMTAwMGUvbmV0ZGV2LmMNCj09PT09
+PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
+PT09PT0NCi0tLSBsaW51eC0zLjEyLjI2Lm9yaWcvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwv
+ZTEwMDBlL25ldGRldi5jICAgICAgIDIwMTQtMDgtMDQgMTA6NTY6NTYuMDAwMDAwMDAwICswMjAw
+DQorKysgbGludXgtMy4xMi4yNi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9lMTAwMGUvbmV0
+ZGV2LmMgICAgMjAxNC0wOC0wNiAxNToxNTo0Mi4wMDAwMDAwMDAgKzAyMDANCkBAIC01NTQ5LDcg
+KzU1NDksOCBAQA0KICAgICAgICBjb3VudCA9IGUxMDAwX3R4X21hcCh0eF9yaW5nLCBza2IsIGZp
+cnN0LCBhZGFwdGVyLT50eF9maWZvX2xpbWl0LA0KICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICBucl9mcmFncyk7DQogICAgICAgIGlmIChjb3VudCkgew0KLSAgICAgICAgICAgICAgIGlmICh1
+bmxpa2VseSgoc2tiX3NoaW5mbyhza2IpLT50eF9mbGFncyAmIFNLQlRYX0hXX1RTVEFNUCkgJiYN
+CisgICAgICAgICAgICAgICBpZiAoKGFkYXB0ZXItPmZsYWdzICYgRkxBR19IQVNfSFdfVElNRVNU
+QU1QKSAmJg0KKyAgICAgICAgICAgICAgICAgICAgICAgIHVubGlrZWx5KChza2Jfc2hpbmZvKHNr
+YiktPnR4X2ZsYWdzICYgU0tCVFhfSFdfVFNUQU1QKSAmJg0KICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAhYWRhcHRlci0+dHhfaHd0c3RhbXBfc2tiKSkgew0KICAgICAgICAgICAgICAgICAg
+ICAgICAgc2tiX3NoaW5mbyhza2IpLT50eF9mbGFncyB8PSBTS0JUWF9JTl9QUk9HUkVTUzsNCiAg
+ICAgICAgICAgICAgICAgICAgICAgIHR4X2ZsYWdzIHw9IEUxMDAwX1RYX0ZMQUdTX0hXVFNUQU1Q
+Ow0KDQoNCi0tIA0KDQoNCg==
