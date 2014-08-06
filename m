@@ -1,31 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] xen-netback: Changes around carrier
- handling
-Date: Tue, 05 Aug 2014 18:50:20 -0700 (PDT)
-Message-ID: <20140805.185020.1023253825371873808.davem@davemloft.net>
-References: <1407165658-20146-1-git-send-email-zoltan.kiss@citrix.com>
-	<20140805.160748.1185917042908283028.davem@davemloft.net>
-	<20140806000059.GA7315@zion.uk.xensource.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: zoltan.kiss@citrix.com, Ian.Campbell@citrix.com,
-	david.vrabel@citrix.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, xen-devel@lists.xenproject.org
-To: wei.liu2@citrix.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33848 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753435AbaHFBuY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 21:50:24 -0400
-In-Reply-To: <20140806000059.GA7315@zion.uk.xensource.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Hans Wennborg <hans@hanshq.net>
+Subject: [PATCH 06/15] vmxnet3: fix decimal printf format specifiers prefixed with 0x
+Date: Tue,  5 Aug 2014 21:42:41 -0700
+Message-ID: <1407300161-32600-1-git-send-email-hans@hanshq.net>
+Cc: Hans Wennborg <hans@hanshq.net>
+To: sbhatewara@vmware.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei Liu <wei.liu2@citrix.com>
-Date: Wed, 6 Aug 2014 01:00:59 +0100
+The prefix suggests the number should be printed in hex, so use
+the %x specifier to do that.
 
-> DaveM, could you please advise how to deal with this situation?
+Found by using regex suggested by Joe Perches.
 
-The merge window is just openning, you have two months to fix any
-problems.
+Signed-off-by: Hans Wennborg <hans@hanshq.net>
+---
+ drivers/net/vmxnet3/vmxnet3_drv.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index b76f7dc..d0db371 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -766,7 +766,7 @@ vmxnet3_map_pkt(struct sk_buff *skb, struct vmxnet3_tx_ctx *ctx,
+ 			gdesc->dword[3] = 0;
+ 
+ 			netdev_dbg(adapter->netdev,
+-				"txd[%u]: 0x%llu %u %u\n",
++				"txd[%u]: 0x%llx %u %u\n",
+ 				tq->tx_ring.next2fill, le64_to_cpu(gdesc->txd.addr),
+ 				le32_to_cpu(gdesc->dword[2]), gdesc->dword[3]);
+ 			vmxnet3_cmd_ring_adv_next2fill(&tq->tx_ring);
+-- 
+2.0.0.526.g5318336
