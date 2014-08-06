@@ -1,48 +1,103 @@
-From: "Koehrer Mathias (ETAS/ESW5)" <mathias.koehrer@etas.com>
-Subject: [PATCH] Fix e1000e with Intel 82572EI that has no hardware
- timestamp support
-Date: Wed, 6 Aug 2014 13:56:43 +0000
-Message-ID: <ef09199e48ab4d4a80c4ba554c9e3853@FE-MBX1012.de.bosch.com>
+From: Luis Henriques <luis.henriques@canonical.com>
+Subject: Re: [PATCH 3.4-stable v2] ipv6: reallocate addrconf router for ipv6
+ address when lo device up
+Date: Wed, 6 Aug 2014 15:05:09 +0100
+Message-ID: <20140806140509.GB12150@hercules>
+References: <53E1E4C9.4010006@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Nick Krause <xerofoify@gmail.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	stable@vger.kernel.org, Sabrina Dubroca <sd@queasysnail.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Gao feng <gaofeng@cn.fujitsu.com>,
+	Li Zefan <lizefan@huawei.com>
+To: chenweilong <chenweilong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp6-v.fe.bosch.de ([139.15.237.11]:48691 "EHLO
-	smtp6-v.fe.bosch.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753837AbaHFN4u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2014 09:56:50 -0400
-Content-Language: de-DE
+Received: from youngberry.canonical.com ([91.189.89.112]:51944 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751148AbaHFOFP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2014 10:05:15 -0400
+Content-Disposition: inline
+In-Reply-To: <53E1E4C9.4010006@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-V2l0aCB0aGUgSW50ZWwgODI1MjdFSSAoZHJpdmVyOiBlMTAwMGUpIHRoZXJlIGlzIGFuIGlzc3Vl
-IHdoZW4gcnVubmluZyB0aGUgcHRwZDIgcHJvZ3JhbSwgdGhhdCBsZWFkcyB0byBhIGtlcm5lbCBv
-b3BzLg0KVGhlIHJlYXNvbiBpcyBoZXJlIHRoYXQgaW4gZTEwMDBfeG1pdF9mcmFtZSgpIGEgd29y
-ayBxdWV1ZSB3aWxsIGJlIHNjaGVkdWxlZCB0aGF0IGhhcyBub3QgYmVlbiBpbml0aWFsaXplZCBp
-biB0aGlzIGNhc2UuDQpUaGUgd29yayBxdWV1ZSAidHhfaHdzdGFtcF93b3JrIiB3aWxsIG9ubHkg
-YmUgaW5pdGlhbGl6ZWQgaWYgYWRhcHRlci0+ZmxhZ3MgJiBGTEFHX0hBU19IV19USU1FU1RBTVAg
-c2V0Lg0KVGhpcyBjaGVjayBpcyBtaXNzaW5nIGluIGUxMDAwX3htaXRfZnJhbWUoKS4NCg0KVGhl
-IGZvbGxvd2luZyBwYXRjaCBhZGRzIHRoZSBtaXNzaW5nIGNoZWNrLg0KDQpTaWduZWQtb2ZmLWJ5
-OiBNYXRoaWFzIEtvZWhyZXIgPG1hdGhpYXMua29laHJlckBldGFzLmNvbT4NCi0tLQ0KIGRyaXZl
-cnMvbmV0L2V0aGVybmV0L2ludGVsL2UxMDAwZS9uZXRkZXYuYyB8ICAgIDMgKystDQogMSBmaWxl
-IGNoYW5nZWQsIDIgaW5zZXJ0aW9ucygrKSwgMSBkZWxldGlvbigtKQ0KDQpJbmRleDogbGludXgt
-My4xMi4yNi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9lMTAwMGUvbmV0ZGV2LmMNCj09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
-PT09PT0NCi0tLSBsaW51eC0zLjEyLjI2Lm9yaWcvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwv
-ZTEwMDBlL25ldGRldi5jICAgICAgIDIwMTQtMDgtMDQgMTA6NTY6NTYuMDAwMDAwMDAwICswMjAw
-DQorKysgbGludXgtMy4xMi4yNi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9lMTAwMGUvbmV0
-ZGV2LmMgICAgMjAxNC0wOC0wNiAxNToxNTo0Mi4wMDAwMDAwMDAgKzAyMDANCkBAIC01NTQ5LDcg
-KzU1NDksOCBAQA0KICAgICAgICBjb3VudCA9IGUxMDAwX3R4X21hcCh0eF9yaW5nLCBza2IsIGZp
-cnN0LCBhZGFwdGVyLT50eF9maWZvX2xpbWl0LA0KICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICBucl9mcmFncyk7DQogICAgICAgIGlmIChjb3VudCkgew0KLSAgICAgICAgICAgICAgIGlmICh1
-bmxpa2VseSgoc2tiX3NoaW5mbyhza2IpLT50eF9mbGFncyAmIFNLQlRYX0hXX1RTVEFNUCkgJiYN
-CisgICAgICAgICAgICAgICBpZiAoKGFkYXB0ZXItPmZsYWdzICYgRkxBR19IQVNfSFdfVElNRVNU
-QU1QKSAmJg0KKyAgICAgICAgICAgICAgICAgICAgICAgIHVubGlrZWx5KChza2Jfc2hpbmZvKHNr
-YiktPnR4X2ZsYWdzICYgU0tCVFhfSFdfVFNUQU1QKSAmJg0KICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAhYWRhcHRlci0+dHhfaHd0c3RhbXBfc2tiKSkgew0KICAgICAgICAgICAgICAgICAg
-ICAgICAgc2tiX3NoaW5mbyhza2IpLT50eF9mbGFncyB8PSBTS0JUWF9JTl9QUk9HUkVTUzsNCiAg
-ICAgICAgICAgICAgICAgICAgICAgIHR4X2ZsYWdzIHw9IEUxMDAwX1RYX0ZMQUdTX0hXVFNUQU1Q
-Ow0KDQoNCi0tIA0KDQoNCg==
+On Wed, Aug 06, 2014 at 04:18:17PM +0800, chenweilong wrote:
+> It fix the bug 67951 on bugzilla
+> https://bugzilla.kernel.org/show_bug.cgi?id=3D67951
+>=20
+> The patch can't be applied directly, as it' used the function introdu=
+ced
+> by "commit 94e187c0" ip6_rt_put(), that patch can't be applied direct=
+ly
+> either.
+>
+
+I'm queuing this commit for the 3.11 kernel as well.  Thanks!
+
+Cheers,
+--
+Lu=EDs
+
+> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+>=20
+> From: Gao feng <gaofeng@cn.fujitsu.com>
+>=20
+> commit 33d99113b1102c2d2f8603b9ba72d89d915c13f5 upstream.
+>=20
+> This commit don't have a stable tag, but it fix the bug
+> no reply after loopback down-up.It's very worthy to be
+> applied to stable 3.4 kernels.
+>=20
+> The bug is 67951 on bugzilla
+> https://bugzilla.kernel.org/show_bug.cgi?id=3D67951
+>=20
+>=20
+> CC: Sabrina Dubroca <sd@queasysnail.net>
+> CC: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Reported-by: Weilong Chen <chenweilong@huawei.com>
+> Signed-off-by: Weilong Chen <chenweilong@huawei.com>
+> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
+> [weilong: s/ip6_rt_put/dst_release]
+> Signed-off-by: Chen Weilong <chenweilong@huawei.com>
+> ---
+>  net/ipv6/addrconf.c | 14 ++++++++++++--
+>  1 file changed, 12 insertions(+), 2 deletions(-)
+>=20
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index abfa007..25399bf 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -2435,8 +2435,18 @@ static void init_loopback(struct net_device *d=
+ev)
+>  			if (sp_ifa->flags & (IFA_F_DADFAILED | IFA_F_TENTATIVE))
+>  				continue;
+>=20
+> -			if (sp_ifa->rt)
+> -				continue;
+> +			if (sp_ifa->rt) {
+> +				/* This dst has been added to garbage list when
+> +				 * lo device down, release this obsolete dst and
+> +				 * reallocate a new router for ifa.
+> +				 */
+> +				if (sp_ifa->rt->dst.obsolete > 0) {
+> +					dst_release(&sp_ifa->rt->dst);
+> +					sp_ifa->rt =3D NULL;
+> +				} else {
+> +					continue;
+> +				}
+> +			}
+>=20
+>  			sp_rt =3D addrconf_dst_alloc(idev, &sp_ifa->addr, 0);
+>=20
+> -- 1.7.12
+>=20
+> --
+> To unsubscribe from this list: send the line "unsubscribe stable" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
