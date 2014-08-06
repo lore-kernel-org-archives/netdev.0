@@ -1,36 +1,47 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH 3.4-stable v2] ipv6: reallocate addrconf router for ipv6
- address when lo device up
-Date: Wed, 6 Aug 2014 09:54:12 -0700
-Message-ID: <20140806165412.GA11827@kroah.com>
-References: <53E1E4C9.4010006@huawei.com>
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Subject: [PATCH 1/1] Drivers: net-next: hyperv: Adjust the size of sendbuf
+ region to support ws2008r2
+Date: Wed,  6 Aug 2014 11:11:00 -0700
+Message-ID: <1407348660-6844-1-git-send-email-kys@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, stable@vger.kernel.org,
-	Sabrina Dubroca <sd@queasysnail.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Gao feng <gaofeng@cn.fujitsu.com>,
-	Li Zefan <lizefan@huawei.com>
-To: chenweilong <chenweilong@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:36298 "EHLO
-	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932404AbaHFQyo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2014 12:54:44 -0400
-Content-Disposition: inline
-In-Reply-To: <53E1E4C9.4010006@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: davem@davemloft.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+ devel@linuxdriverproject.org, olaf@aepfle.de, apw@canonical.com,
+ jasowang@redhat.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 06, 2014 at 04:18:17PM +0800, chenweilong wrote:
-> It fix the bug 67951 on bugzilla
-> https://bugzilla.kernel.org/show_bug.cgi?id=67951
-> 
-> The patch can't be applied directly, as it' used the function introduced
-> by "commit 94e187c0" ip6_rt_put(), that patch can't be applied directly
-> either.
+WS2008R2 is a supported platform and it turns out that the maximum sendbuf
+size that ws2008R2 can support is only 15MB. Make the necessary
+adjustment.
 
-Much better, thanks for the fixed patch.
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+---
+ drivers/net/hyperv/hyperv_net.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-greg k-h
+diff --git a/drivers/net/hyperv/hyperv_net.h b/drivers/net/hyperv/hyperv_net.h
+index 40ba1ef..459b823 100644
+--- a/drivers/net/hyperv/hyperv_net.h
++++ b/drivers/net/hyperv/hyperv_net.h
+@@ -584,7 +584,7 @@ struct nvsp_message {
+ 
+ #define NETVSC_RECEIVE_BUFFER_SIZE		(1024*1024*16)	/* 16MB */
+ #define NETVSC_RECEIVE_BUFFER_SIZE_LEGACY	(1024*1024*15)  /* 15MB */
+-#define NETVSC_SEND_BUFFER_SIZE			(1024 * 1024 * 16)   /* 16MB */
++#define NETVSC_SEND_BUFFER_SIZE			(1024 * 1024 * 15)   /* 15MB */
+ #define NETVSC_INVALID_INDEX			-1
+ 
+ 
+-- 
+1.7.4.1
