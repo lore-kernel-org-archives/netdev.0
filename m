@@ -1,48 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC][PATCH 0/7] nested sleeps, fixes and debug infra
-Date: Wed, 06 Aug 2014 14:16:03 -0700 (PDT)
-Message-ID: <20140806.141603.1422005306896590750.davem@davemloft.net>
-References: <20140805130646.GZ19379@twins.programming.kicks-ass.net>
-	<CALFYKtAVQ9Rgu_QWCqUkNHk4-wbiVK0FeiwLDttaxZC5bnnG5w@mail.gmail.com>
-	<20140806083134.GQ9918@twins.programming.kicks-ass.net>
+From: Cong Wang <cwang@twopensource.com>
+Subject: Re: linux-next: net/netlink/diag.c:106 suspicious rcu_dereference_protected()
+ usage!
+Date: Wed, 6 Aug 2014 14:20:59 -0700
+Message-ID: <CAHA+R7OB_gTYPKtqw-iry+nfkTbmApw4GPpeKjqfXugcit4Guw@mail.gmail.com>
+References: <CANaxB-ySsRXHPSEPOuExeKAvDX7esZ1WBZAVMTWQxtmfN2=i4w@mail.gmail.com>
+	<CAHA+R7N0c83by=AAgw2nKPibYETNyv6JTEWnu5XOo-67fHMELw@mail.gmail.com>
+	<20140806195127.GA26832@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ilya.dryomov@inktank.com, mingo@kernel.org, oleg@redhat.com,
- torvalds@linux-foundation.org, tglx@linutronix.de,
- umgwanakikbuti@gmail.com, linux-kernel@vger.kernel.org,
- netdev@vger.kernel.org, linux-mm@kvack.org
-To: peterz@infradead.org
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <20140806083134.GQ9918@twins.programming.kicks-ass.net>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed; boundary=001a11345e0e72f2da04fffc8cc0
+Cc: Andrey Wagin <avagin@gmail.com>, netdev <netdev@vger.kernel.org>
+To: Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f42.google.com ([209.85.215.42]:46417 "EHLO
+	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754266AbaHFVVB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2014 17:21:01 -0400
+Received: by mail-la0-f42.google.com with SMTP id pv20so2840252lab.15
+        for <netdev@vger.kernel.org>; Wed, 06 Aug 2014 14:21:00 -0700 (PDT)
+In-Reply-To: <20140806195127.GA26832@casper.infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Peter Zijlstra <peterz@infradead.org>
-Date: Wed, 6 Aug 2014 10:31:34 +0200
+--001a11345e0e72f2da04fffc8cc0
+Content-Type: text/plain; charset=UTF-8
 
-> On Wed, Aug 06, 2014 at 11:51:29AM +0400, Ilya Dryomov wrote:
-> 
->> OK, this one is a bit different.
->> 
->> WARNING: CPU: 1 PID: 1744 at kernel/sched/core.c:7104 __might_sleep+0x58/0x90()
->> do not call blocking ops when !TASK_RUNNING; state=1 set at [<ffffffff81070e10>] prepare_to_wait+0x50 /0xa0
-> 
->>  [<ffffffff8105bc38>] __might_sleep+0x58/0x90
->>  [<ffffffff8148c671>] lock_sock_nested+0x31/0xb0
->>  [<ffffffff81498aaa>] sk_stream_wait_memory+0x18a/0x2d0
-> 
-> Urgh, tedious. Its not an actual bug as is. Due to the condition check
-> in sk_wait_event() we can call lock_sock() with ->state != TASK_RUNNING.
-> 
-> I'm not entirely sure what the cleanest way is to make this go away.
-> Possibly something like so:
+On Wed, Aug 6, 2014 at 12:51 PM, Thomas Graf <tgraf@suug.ch> wrote:
+> On 08/06/14 at 10:52am, Cong Wang wrote:
+>>
+>> Looks like we should hold rcu_read_lock() before calling __netlink_diag_dump().
+>
+> netlink_diag_dump() still acquires nl_table_lock which is pointless as
+> a separate mutex has been introduced to protect mutations. I will send
+> a patch to RCU'ify it properly.
 
-If you submit this formally to netdev with a signoff I'm willing to apply
-this if it helps the debug infrastructure.
+Agreed, but that's likely a net-next material.
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+I think we need the following quick fix for net.
+
+--001a11345e0e72f2da04fffc8cc0
+Content-Type: text/plain; charset=US-ASCII; name="netlink-diag.diff"
+Content-Disposition: attachment; filename="netlink-diag.diff"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_hyj5tq9g0
+
+ZGlmZiAtLWdpdCBhL25ldC9uZXRsaW5rL2RpYWcuYyBiL25ldC9uZXRsaW5rL2RpYWcuYwppbmRl
+eCA3MzAxODUwLi4yZDk0YzQ5IDEwMDY0NAotLS0gYS9uZXQvbmV0bGluay9kaWFnLmMKKysrIGIv
+bmV0L25ldGxpbmsvZGlhZy5jCkBAIC0xMDMsNyArMTAzLDcgQEAgc3RhdGljIGludCBfX25ldGxp
+bmtfZGlhZ19kdW1wKHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBuZXRsaW5rX2NhbGxiYWNr
+ICpjYiwKIHsKIAlzdHJ1Y3QgbmV0bGlua190YWJsZSAqdGJsID0gJm5sX3RhYmxlW3Byb3RvY29s
+XTsKIAlzdHJ1Y3Qgcmhhc2h0YWJsZSAqaHQgPSAmdGJsLT5oYXNoOwotCWNvbnN0IHN0cnVjdCBi
+dWNrZXRfdGFibGUgKmh0YmwgPSByaHRfZGVyZWZlcmVuY2UoaHQtPnRibCwgaHQpOworCWNvbnN0
+IHN0cnVjdCBidWNrZXRfdGFibGUgKmh0Ymw7CiAJc3RydWN0IG5ldCAqbmV0ID0gc29ja19uZXQo
+c2tiLT5zayk7CiAJc3RydWN0IG5ldGxpbmtfZGlhZ19yZXEgKnJlcTsKIAlzdHJ1Y3QgbmV0bGlu
+a19zb2NrICpubHNrOwpAQCAtMTEyLDggKzExMiwxMSBAQCBzdGF0aWMgaW50IF9fbmV0bGlua19k
+aWFnX2R1bXAoc3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IG5ldGxpbmtfY2FsbGJhY2sgKmNi
+LAogCiAJcmVxID0gbmxtc2dfZGF0YShjYi0+bmxoKTsKIAorCXJjdV9yZWFkX2xvY2soKTsKKwlo
+dGJsID0gcmh0X2RlcmVmZXJlbmNlX3JjdShodC0+dGJsLCBodCk7CisKIAlmb3IgKGkgPSAwOyBp
+IDwgaHRibC0+c2l6ZTsgaSsrKSB7Ci0JCXJodF9mb3JfZWFjaF9lbnRyeShubHNrLCBodGJsLT5i
+dWNrZXRzW2ldLCBodCwgbm9kZSkgeworCQlyaHRfZm9yX2VhY2hfZW50cnlfcmN1KG5sc2ssIGh0
+YmwtPmJ1Y2tldHNbaV0sIG5vZGUpIHsKIAkJCXNrID0gKHN0cnVjdCBzb2NrICopbmxzazsKIAog
+CQkJaWYgKCFuZXRfZXEoc29ja19uZXQoc2spLCBuZXQpKQpAQCAtMTI5LDEyICsxMzIsMTQgQEAg
+c3RhdGljIGludCBfX25ldGxpbmtfZGlhZ19kdW1wKHN0cnVjdCBza19idWZmICpza2IsIHN0cnVj
+dCBuZXRsaW5rX2NhbGxiYWNrICpjYiwKIAkJCQkJIE5MTV9GX01VTFRJLAogCQkJCQkgc29ja19p
+X2lubyhzaykpIDwgMCkgewogCQkJCXJldCA9IDE7CisJCQkJcmN1X3JlYWRfdW5sb2NrKCk7CiAJ
+CQkJZ290byBkb25lOwogCQkJfQogCiAJCQludW0rKzsKIAkJfQogCX0KKwlyY3VfcmVhZF91bmxv
+Y2soKTsKIAogCXNrX2Zvcl9lYWNoX2JvdW5kKHNrLCAmdGJsLT5tY19saXN0KSB7CiAJCWlmIChz
+a19oYXNoZWQoc2spKQo=
+--001a11345e0e72f2da04fffc8cc0--
