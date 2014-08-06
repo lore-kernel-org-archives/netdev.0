@@ -1,95 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net-timestamp: sock_tx_timestamp() fix
-Date: Wed, 06 Aug 2014 11:49:29 +0200
-Message-ID: <1407318569.11943.5.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <1407204710-21778-1-git-send-email-willemb@google.com>
-	 <1407204710-21778-6-git-send-email-willemb@google.com>
-	 <1407308749.14097.13.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next 1/2] random32: improvements to prandom_bytes
+Date: Wed, 06 Aug 2014 12:12:33 +0200
+Message-ID: <53E1FF91.8040200@redhat.com>
+References: <1406837476-13776-1-git-send-email-dborkman@redhat.com> <20140731.222804.1403723639172562683.davem@davemloft.net> <53DF56F1.4020701@redhat.com> <20140804.114146.2155043446693665715.davem@davemloft.net> <53E0F544.4020504@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	richardcochran@gmail.com
-To: Willem de Bruijn <willemb@google.com>
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org,
+	akinobu.mita@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f179.google.com ([209.85.212.179]:51788 "EHLO
-	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753806AbaHFJtd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2014 05:49:33 -0400
-Received: by mail-wi0-f179.google.com with SMTP id f8so2840938wiw.6
-        for <netdev@vger.kernel.org>; Wed, 06 Aug 2014 02:49:32 -0700 (PDT)
-In-Reply-To: <1407308749.14097.13.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from mx1.redhat.com ([209.132.183.28]:33524 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753806AbaHFKMl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Aug 2014 06:12:41 -0400
+In-Reply-To: <53E0F544.4020504@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On 08/05/2014 05:16 PM, Daniel Borkmann wrote:
+> On 08/04/2014 08:41 PM, David Miller wrote:
+>> From: Daniel Borkmann <dborkman@redhat.com>
+>> Date: Mon, 04 Aug 2014 11:48:33 +0200
+>>
+>>> Akinobu and I also tested this patch with the above fix included,
+>>> and it runs through the 3 relevant test cases _without_ any errors
+>>> on the nandsim device (simulator for MTD devs):
+>>
+>> On one endianness only perhaps?
+>
+> On x86_64, ppc64, ARM (i.MX28, i.MX53 and i.MX6).
 
-sock_tx_timestamp() should not ignore initial *tx_flags value, as TCP
-stack can store SKBTX_SHARED_FRAG in it.
+Not really urgent, so if there are no further objections,
+I'd respin it with the code fix included, proper Tested-by
+tags from MTD people, and updated commit message when
+net-next reopens again.
 
-Also first argument (struct sock *) can be const.
+Thanks,
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Fixes: 4ed2d765dfac ("net-timestamp: TCP timestamping")
-Cc: Willem de Bruijn <willemb@google.com>
----
- include/net/sock.h |    6 ++++--
- net/socket.c       |   20 +++++++++++++-------
- 2 files changed, 17 insertions(+), 9 deletions(-)
-
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 52fe0bc5598a..38805fa02e48 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -2199,9 +2199,11 @@ static inline void sock_recv_ts_and_drops(struct msghdr *msg, struct sock *sk,
- /**
-  * sock_tx_timestamp - checks whether the outgoing packet is to be time stamped
-  * @sk:		socket sending this packet
-- * @tx_flags:	filled with instructions for time stamping
-+ * @tx_flags:	completed with instructions for time stamping
-+ *
-+ * Note : callers should take care of initial *tx_flags value (usually 0)
-  */
--void sock_tx_timestamp(struct sock *sk, __u8 *tx_flags);
-+void sock_tx_timestamp(const struct sock *sk, __u8 *tx_flags);
- 
- /**
-  * sk_eat_skb - Release a skb if it is no longer needed
-diff --git a/net/socket.c b/net/socket.c
-index ae89569a2db5..95ee7d8682e7 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -610,20 +610,26 @@ void sock_release(struct socket *sock)
- }
- EXPORT_SYMBOL(sock_release);
- 
--void sock_tx_timestamp(struct sock *sk, __u8 *tx_flags)
-+void sock_tx_timestamp(const struct sock *sk, __u8 *tx_flags)
- {
--	*tx_flags = 0;
-+	u8 flags = *tx_flags;
-+
- 	if (sk->sk_tsflags & SOF_TIMESTAMPING_TX_HARDWARE)
--		*tx_flags |= SKBTX_HW_TSTAMP;
-+		flags |= SKBTX_HW_TSTAMP;
-+
- 	if (sk->sk_tsflags & SOF_TIMESTAMPING_TX_SOFTWARE)
--		*tx_flags |= SKBTX_SW_TSTAMP;
-+		flags |= SKBTX_SW_TSTAMP;
-+
- 	if (sk->sk_tsflags & SOF_TIMESTAMPING_TX_SCHED)
--		*tx_flags |= SKBTX_SCHED_TSTAMP;
-+		flags |= SKBTX_SCHED_TSTAMP;
-+
- 	if (sk->sk_tsflags & SOF_TIMESTAMPING_TX_ACK)
--		*tx_flags |= SKBTX_ACK_TSTAMP;
-+		flags |= SKBTX_ACK_TSTAMP;
- 
- 	if (sock_flag(sk, SOCK_WIFI_STATUS))
--		*tx_flags |= SKBTX_WIFI_STATUS;
-+		flags |= SKBTX_WIFI_STATUS;
-+
-+	*tx_flags = flags;
- }
- EXPORT_SYMBOL(sock_tx_timestamp);
- 
+Daniel
