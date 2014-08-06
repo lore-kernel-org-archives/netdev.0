@@ -1,57 +1,78 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH net-next v4 5/6] net-timestamp: TCP timestamping
-Date: Wed, 6 Aug 2014 15:20:39 -0400
-Message-ID: <CA+FuTSdnuBw4ex7Hj=ko_r0P7SqPs5gA2qcTX1tHMbo3YndMJQ@mail.gmail.com>
-References: <1407204710-21778-1-git-send-email-willemb@google.com>
- <1407204710-21778-6-git-send-email-willemb@google.com> <1407308749.14097.13.camel@edumazet-glaptop2.roam.corp.google.com>
- <CA+FuTSf96KH=JkO4Va4pfbvYHngHjxtTc33ipbif_xC9kdgaLQ@mail.gmail.com> <1407335823.11943.10.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net-next 0/2] xen-netback: Changes around carrier handling
+Date: Wed, 6 Aug 2014 20:20:55 +0100
+Message-ID: <53E28017.9040908@citrix.com>
+References: <1407165658-20146-1-git-send-email-zoltan.kiss@citrix.com> <20140805.160748.1185917042908283028.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Network Development <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Richard Cochran <richardcochran@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <wei.liu2@citrix.com>, <Ian.Campbell@citrix.com>,
+	<david.vrabel@citrix.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <xen-devel@lists.xenproject.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f53.google.com ([209.85.216.53]:53588 "EHLO
-	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932246AbaHFTVK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2014 15:21:10 -0400
-Received: by mail-qa0-f53.google.com with SMTP id v10so2893914qac.40
-        for <netdev@vger.kernel.org>; Wed, 06 Aug 2014 12:21:09 -0700 (PDT)
-In-Reply-To: <1407335823.11943.10.camel@edumazet-glaptop2.roam.corp.google.com>
+Received: from smtp.citrix.com ([66.165.176.89]:55615 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932246AbaHFTVU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Aug 2014 15:21:20 -0400
+In-Reply-To: <20140805.160748.1185917042908283028.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 6, 2014 at 10:37 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2014-08-06 at 10:23 -0400, Willem de Bruijn wrote:
->> > I believe you missed fact that a GSO packet can be split into 2 or many
->> > skbs, when tcp_write_xmit() has to send a lower amount.
->> >
->> > This is done in tso_fragment()
->>
->> Thanks, I missed that case. I'll look into it.
->>
->> > Also, I am a bit worried about retransmits ?
->>
->> For the same reason, i.e., possibly calling tcp_fragment?
+On 06/08/14 00:07, David Miller wrote:
+> From: Zoltan Kiss <zoltan.kiss@citrix.com>
+> Date: Mon, 4 Aug 2014 16:20:56 +0100
 >
-> Yes,
+>> This series starts using carrier off as a way to purge packets when the guest is
+>> not able (or willing) to receive them. It is a much faster way to get rid of
+>> packets waiting for an overwhelmed guest.
+>> The first patch changes current netback code where it relies currently on
+>> netif_carrier_ok.
+>> The second turns off the carrier if the guest times out on a queue, and only
+>> turn it on again if that queue (or queues) resurrects.
+>>
+>> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+>> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+>
+> Applied, but I have some reservations:
+>
+> 1) This is starting to bleed what is normally qdisc type policy into the
+>     driver.
+Yeah. The fundamental problem with netback that start_xmit place the 
+packet into an internal queue, and then the thread does the actual 
+transmission from that queue, but it doesn't know whether it will 
+succeed in a finite time period.
+There is slot estimation in start_xmit to prevent QDisc pouring more 
+packets into the internal queue when it seems it won't fit. When that 
+happens, we stop QDisc and start a timer, and when the timer fires, 
+before this patch we just ditched the internal queue and started QDisc 
+again. If the frontend were dead, it lead to a quite long delay until 
+packets destined to it were freed.
+I just noticed a possible problem with start_xmit: if this slot 
+estimation fails, and the packet is likely to be stalled at least for a 
+while, it still place the skb into the internal queue and return 
+NETDEV_TX_OK. Shouldn't we return NETDEV_TX_BUSY and not placing the 
+packet into the internal queue? It will be requeued later, or dropped by 
+QDisc. I think it will be more natural. But it can decrease performance 
+if these "not enough slot" situations are very frequent and short 
+living, and by the time the RX thread wakes up
+My long term idea is to move part of the thread's work into start_xmit, 
+so it can set up the grant operations and if there isn't enough slot it 
+can return the skb to QDisc with NETDEV_TX_BUSY for requeueing. Then the 
+thread can only do the batching of the grant copy operations and 
+releasing the skbs. And we can ditch a good part of the code ...
 
-Good catch, thanks. Both cases only affect the correctness of this
-feature, not existing code, so I will work on a separate fix for net
-later.
-
-> but also that we're going to send multiple reports back to error
-> queue.
-
-I see. The optimization patch to queue timestamps without payload will
-mitigate that somewhat. I dropped that from the initial patchset, but
-will fix it up for net-next. It may also be possible to squash
-multiple timestamped packets on the errqueue together when they all
-have the same payload, resulting in a single (possibly no-payload)
-packet with repeating cmsgs IP_RECVERR and SCM_TIMESTAMPING. That
-would give O(1) overhead regardless of number of retransmits.
-
-I just sent the fix to the other issues.
-
+>
+> 2) There are other drivers that could run into this kind of situation and
+>     have similar concerns, therefore we should make sure we have a consistent
+>     approach that such entities use to handle this problem.
+>
+> Part of the problem is that netif_carrier_off() only partially mimicks
+> the situation.  It expresses the "transmitter is down so packets
+> aren't going onto the wire" part, which keeps the watchdog from
+> spitting out log messages ever time it fires.  But it doesn't deal
+> with packet freeing policy meanwhile, which I guess is the part that
+> this patch series is largely trying to address.
+>
+> Thanks.
 >
