@@ -1,44 +1,64 @@
 From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: Re: [PATCH net-next v4 4/4 RFC] pktgen: Allow sending IPv4 TCP packets
-Date: Wed, 6 Aug 2014 19:09:40 +0100
-Message-ID: <53E26F64.6080301@citrix.com>
-References: <1407159435-7951-1-git-send-email-zoltan.kiss@citrix.com>	<1407159435-7951-5-git-send-email-zoltan.kiss@citrix.com> <20140805.130901.2116578415179622318.davem@davemloft.net>
+Subject: [PATCH] xen-netback: Small fixes around internal queue purging
+Date: Wed, 6 Aug 2014 19:16:12 +0100
+Message-ID: <1407348973-2433-4-git-send-email-zoltan.kiss@citrix.com>
+References: <1407348973-2433-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <steffen.klassert@secunet.com>, <minipli@googlemail.com>,
-	<dborkman@redhat.com>, <tgraf@suug.ch>, <joe@perches.com>,
+Content-Type: text/plain
+Cc: Zoltan Kiss <zoltan.kiss@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>,
 	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
 	<xen-devel@lists.xenproject.org>
-To: David Miller <davem@davemloft.net>
+To: Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140805.130901.2116578415179622318.davem@davemloft.net>
+In-Reply-To: <1407348973-2433-1-git-send-email-zoltan.kiss@citrix.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 05/08/14 21:09, David Miller wrote:
-> From: Zoltan Kiss <zoltan.kiss@citrix.com>
-> Date: Mon, 4 Aug 2014 14:37:14 +0100
->
->> @@ -3559,6 +3616,14 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
->>   		pkt_dev->last_pkt_size = pkt_dev->skb->len;
->>   		pkt_dev->allocated_skbs++;
->>   		pkt_dev->clone_count = 0;	/* reset counter */
->> +
->> +		if (netif_needs_gso(pkt_dev->skb, netif_skb_features(pkt_dev->skb))) {
->> +			pr_err("Device don't have necessary GSO features! netif_skb_features: %llX summed %u\n",
->> +			       netif_skb_features(pkt_dev->skb),
->> +			       pkt_dev->skb->ip_summed);
->> +			pkt_dev->sofar++;
->> +			goto out;
->> +		}
->>   	}
->>
->>   	if (pkt_dev->delay && pkt_dev->last_ok)
->
-> Woe be to the person who actually triggers this condition.  This function
-> happens potentially millions of times per second, there is no value in
-> emitting a log message every time.
-Indeed, I'll put a ratelimit around it.
+This patch adds an extra internal queue purging for xenvif_carrier_off. It makes
+sense to do this when the carrier is switched off.
+Also, it uses the proper helper instead of a while loop to the purging at
+another place.
 
-Zoli
+Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Cc: xen-devel@lists.xenproject.org 
+diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+index cbe6b51..df9507e 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -533,6 +533,9 @@ void xenvif_carrier_off(struct xenvif *vif)
+ 	}
+ 
+ 	rtnl_unlock();
++
++	skb_queue_purge(&vif->rx_queue);
++	vif->rx_last_skb_slots = 0;
+ }
+ 
+ void xenvif_disconnect(struct xenvif *vif)
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index e462cf2c..f728f73 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -1932,7 +1932,6 @@ static void xenvif_start_queue(struct xenvif *vif)
+ int xenvif_kthread_guest_rx(void *data)
+ {
+ 	struct xenvif *vif = data;
+-	struct sk_buff *skb;
+ 
+ 	while (!kthread_should_stop()) {
+ 		wait_event_interruptible(vif->wq,
+@@ -2009,8 +2008,7 @@ int xenvif_kthread_guest_rx(void *data)
+ 	}
+ 
+ 	/* Bin any remaining skbs */
+-	while ((skb = skb_dequeue(&vif->rx_queue)) != NULL)
+-		dev_kfree_skb(skb);
++	skb_queue_purge(&vif->rx_queue);
+ 
+ 	return 0;
+ }
