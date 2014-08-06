@@ -1,59 +1,31 @@
-From: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kv5ZCJ6Jek6Iux5piO?=
-	<hideaki.yoshifuji@miraclelinux.com>
-Subject: Re: IPv6 over IEEE 802.15.4 aka 6LoWPAN - Neighbor discovery issue
-Date: Wed, 06 Aug 2014 09:40:28 +0900
-Message-ID: <53E1797C.8000207@miraclelinux.com>
-References: <20140805121516.GB14196@omega>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/2] xen-netback: Changes around carrier
+ handling
+Date: Tue, 05 Aug 2014 18:50:20 -0700 (PDT)
+Message-ID: <20140805.185020.1023253825371873808.davem@davemloft.net>
+References: <1407165658-20146-1-git-send-email-zoltan.kiss@citrix.com>
+	<20140805.160748.1185917042908283028.davem@davemloft.net>
+	<20140806000059.GA7315@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hideaki.yoshifuji@miraclelinux.com, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	netdev@vger.kernel.org, linux-wpan@vger.kernel.org
-To: Alexander Aring <alex.aring@gmail.com>, davem@davemloft.net
+Cc: zoltan.kiss@citrix.com, Ian.Campbell@citrix.com,
+	david.vrabel@citrix.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, xen-devel@lists.xenproject.org
+To: wei.liu2@citrix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from exprod7og126.obsmtp.com ([64.18.2.206]:54016 "HELO
-	exprod7og126.obsmtp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1754039AbaHFAkc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 20:40:32 -0400
-Received: by mail-pd0-f169.google.com with SMTP id y10so2254172pdj.14
-        for <netdev@vger.kernel.org>; Tue, 05 Aug 2014 17:40:32 -0700 (PDT)
-In-Reply-To: <20140805121516.GB14196@omega>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33848 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753435AbaHFBuY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Aug 2014 21:50:24 -0400
+In-Reply-To: <20140806000059.GA7315@zion.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Wei Liu <wei.liu2@citrix.com>
+Date: Wed, 6 Aug 2014 01:00:59 +0100
 
-Alexander Aring wrote:
-> There exist no mapping between extended and short addresses. The global problem
-> that the neighbor discovery cache handle the address length with a static addr_len
-> value from net_device, this value should not be changed during runtime.
->
->
-> To handle 6LoWPAN over IEEE 802.15.4 correctly we need to indicate that the neighbor
-> discovery stores an extended or short address.
-:
-> My idea:
->
-> Let addr_len to extended_address_length + 1. In the last byte we have a bit which
-> indicate that is it a short address. If this bit isn't set we have an extended
-> address.
->
-> If we do that, we need some conversions about generating the ICMPv6 messages according
-> to [1]. We can solve that with some hooks in net/ipv6/ndisc.c like the ndisc_mc_map
-> function for mapping mac multicast addresses.
->
-> Another idea to avoid hooks in net/ipv6/ndisc.c  is to parse and rebuild the ICMPv6
-> header while replacing IPv6 with the 6LoWPAN header.
+> DaveM, could you please advise how to deal with this situation?
 
-Please avoid magling icmpv6/ipv6 bits as much as possible.
-
-> Please I need help and I need a solution which is also acceptable for mainline.
-
-We can have L2-specific private data per NCE, and 6lowpan uses ARPHRD_IEEE802154.
-Please consider using it for L2 private data, if you need L2-speicic extra
-information per NCE.
-
-Regards,
-
---yoshfuji
+The merge window is just openning, you have two months to fix any
+problems.
