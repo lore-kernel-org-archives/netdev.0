@@ -1,51 +1,53 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: linux-next: net/netlink/diag.c:106 suspicious
- rcu_dereference_protected() usage!
-Date: Wed, 6 Aug 2014 20:51:27 +0100
-Message-ID: <20140806195127.GA26832@casper.infradead.org>
-References: <CANaxB-ySsRXHPSEPOuExeKAvDX7esZ1WBZAVMTWQxtmfN2=i4w@mail.gmail.com>
- <CAHA+R7N0c83by=AAgw2nKPibYETNyv6JTEWnu5XOo-67fHMELw@mail.gmail.com>
+From: Dave Jones <davej@redhat.com>
+Subject: ip6tables filter breakage.
+Date: Wed, 6 Aug 2014 15:52:22 -0400
+Message-ID: <20140806195222.GA10618@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrey Wagin <avagin@gmail.com>, netdev <netdev@vger.kernel.org>
-To: Cong Wang <cwang@twopensource.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:43937 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754494AbaHFTv3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2014 15:51:29 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:15712 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753502AbaHFTwa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Aug 2014 15:52:30 -0400
+Received: from int-mx10.intmail.prod.int.phx2.redhat.com (int-mx10.intmail.prod.int.phx2.redhat.com [10.5.11.23])
+	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id s76JqTjU002326
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=OK)
+	for <netdev@vger.kernel.org>; Wed, 6 Aug 2014 15:52:29 -0400
+Received: from gelk.kernelslacker.org (ovpn-113-45.phx2.redhat.com [10.3.113.45])
+	by int-mx10.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id s76JqNDR029348
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Wed, 6 Aug 2014 15:52:28 -0400
+Received: from gelk.kernelslacker.org (localhost [127.0.0.1])
+	by gelk.kernelslacker.org (8.14.8/8.14.7) with ESMTP id s76JqMWB012126
+	for <netdev@vger.kernel.org>; Wed, 6 Aug 2014 15:52:22 -0400
+Received: (from davej@localhost)
+	by gelk.kernelslacker.org (8.14.8/8.14.8/Submit) id s76JqMPC012125
+	for netdev@vger.kernel.org; Wed, 6 Aug 2014 15:52:22 -0400
 Content-Disposition: inline
-In-Reply-To: <CAHA+R7N0c83by=AAgw2nKPibYETNyv6JTEWnu5XOo-67fHMELw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/06/14 at 10:52am, Cong Wang wrote:
-> On Wed, Aug 6, 2014 at 10:29 AM, Andrey Wagin <avagin@gmail.com> wrote:
-> > [   40.072199] ===============================
-> > [   40.072350] [ INFO: suspicious RCU usage. ]
-> > [   40.072501] 3.16.0-next-20140806 #1 Not tainted
-> > [   40.072659] -------------------------------
-> > [   40.072807] net/netlink/diag.c:106 suspicious
-> > rcu_dereference_protected() usage!
-> > [   40.073047]
-> > other info that might help us debug this:
-> >
-> > [   40.073276]
-> > rcu_scheduler_active = 1, debug_locks = 0
-> > [   40.073494] 4 locks held by criu/2838:
-> > [   40.073635]  #0:  (sock_diag_mutex){+.+.+.}, at:
-> > [<ffffffff81689afb>] sock_diag_rcv+0x1b/0x40
-> > [   40.074226]  #1:  (sock_diag_table_mutex){+.+.+.}, at:
-> > [<ffffffff81689c6d>] sock_diag_rcv_msg+0x6d/0x140
-> > [   40.074803]  #2:  (nlk->cb_mutex){+.+.+.}, at: [<ffffffff816a28f1>]
-> > netlink_dump+0x21/0x2d0
-> > [   40.075382]  #3:  (nl_table_lock){.+.?..}, at: [<ffffffffa0286601>]
-> > netlink_diag_dump+0x31/0xb0 [netlink_diag]
-> > [   40.076351]
-> 
-> 
-> Looks like we should hold rcu_read_lock() before calling __netlink_diag_dump().
+After updating to Linus' current tree with todays net/ merge,
+I noticed that ip6tables doesn't work any more..
 
-netlink_diag_dump() still acquires nl_table_lock which is pointless as
-a separate mutex has been introduced to protect mutations. I will send
-a patch to RCU'ify it properly.
+# ip6tables -F
+ip6tables v1.4.19.1: can't initialize ip6tables table `filter': No
+chain/target/match by that name
+Perhaps ip6tables or your kernel needs to be upgraded
+
+My config has CONFIG_IP6_NF_FILTER=m
+I also note that ip6table_filter.ko doesn't get auto-loaded now.
+But even after modprobing it, I get the same message.
+
+Is there some additional option I now need to enable ?
+
+
+I was a little surprised by how CONFIG_NF_TABLES is mandatory
+for iptables to keep working, even if you don't have nft userspace.
+(The only relevant thing in the Kconfig was related to x_tables,
+ which I wasn't using).
+
+Perhaps either some select's, or additional help text ?
+
+	Dave
