@@ -1,45 +1,36 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: [PATCH net-next] xen-netback: Fix vif->disable handling
-Date: Wed, 6 Aug 2014 20:33:18 +0100
-Message-ID: <1407353598-14185-1-git-send-email-zoltan.kiss@citrix.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net-timestamp: sock_tx_timestamp() fix
+Date: Wed, 06 Aug 2014 12:38:32 -0700 (PDT)
+Message-ID: <20140806.123832.908328158138196740.davem@davemloft.net>
+References: <1407204710-21778-6-git-send-email-willemb@google.com>
+	<1407308749.14097.13.camel@edumazet-glaptop2.roam.corp.google.com>
+	<1407318569.11943.5.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Zoltan Kiss <zoltan.kiss@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<xen-devel@lists.xenproject.org>
-To: Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: willemb@google.com, netdev@vger.kernel.org,
+	richardcochran@gmail.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42891 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753222AbaHFTid (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2014 15:38:33 -0400
+In-Reply-To: <1407318569.11943.5.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In the patch called "xen-netback: Turn off the carrier if the guest is not able
-to receive" new branches were introduced to this if statement, risking that a
-queue with non-zero id can reenable the disabled interface.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 06 Aug 2014 11:49:29 +0200
 
-Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
-Signed-off-by: David Vrabel <david.vrabel@citrix.com>
-Cc: netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Cc: xen-devel@lists.xenproject.org
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> sock_tx_timestamp() should not ignore initial *tx_flags value, as TCP
+> stack can store SKBTX_SHARED_FRAG in it.
+> 
+> Also first argument (struct sock *) can be const.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Fixes: 4ed2d765dfac ("net-timestamp: TCP timestamping")
 
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index aa20933..f84516f 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -2027,7 +2027,13 @@ int xenvif_kthread_guest_rx(void *data)
- 		 */
- 		if (unlikely(queue->vif->disabled && queue->id == 0))
- 			xenvif_carrier_off(queue->vif);
--		else if (unlikely(test_and_clear_bit(QUEUE_STATUS_RX_PURGE_EVENT,
-+		else if (unlikely(queue->vif->disabled)) {
-+			/* kthread_stop() would be called upon this thread soon,
-+			 * be a bit proactive
-+			 */
-+			skb_queue_purge(&queue->rx_queue);
-+			queue->rx_last_skb_slots = 0;
-+		} else if (unlikely(test_and_clear_bit(QUEUE_STATUS_RX_PURGE_EVENT,
- 						     &queue->status))) {
- 			xenvif_rx_purge_event(queue);
- 		} else if (!netif_carrier_ok(queue->vif->dev)) {
+Applied, thanks Eric.
