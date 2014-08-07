@@ -1,38 +1,68 @@
-From: Deepak <deepak_das@mentor.com>
-Subject: [RFC] net: Replace del_timer() with del_timer_sync()
-Date: Thu, 07 Aug 2014 11:48:47 +0530
-Message-ID: <53E31A47.9000407@mentor.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH] Fix e1000e with Intel 82572EI that has no hardware
+ timestamp support
+Date: Wed, 6 Aug 2014 23:20:27 -0700
+Message-ID: <CAL3LdT5-pyfBTC8=sn=Nk_WEzeCJweK=NyYcOepOfESz44eOhg@mail.gmail.com>
+References: <bbcbf584e3624059bf7a0d2186fec6b4@FE-MBX1012.de.bosch.com>
+	<20140806191744.GB6611@netboy>
+	<CAPDOMVjYkfM49E9DM0=SDDRncLQbXxR8NQE9SrsW++YycMGU5w@mail.gmail.com>
+	<20140806193211.GC6611@netboy>
+	<CAPDOMViFCifeUoOgExuG7Q6_ObGj20g59siyMxWeKN=Zr2Kbdg@mail.gmail.com>
+	<20140806195433.GD6611@netboy>
+	<bdf5ba14c73340f7b39f6d3df2473a43@FE-MBX1012.de.bosch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Richard Cochran <richardcochran@gmail.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Koehrer Mathias (ETAS/ESW5)" <mathias.koehrer@etas.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <bdf5ba14c73340f7b39f6d3df2473a43@FE-MBX1012.de.bosch.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-     on SMP system, del_timer() might return even if the timer function
-     is running on other cpu so sk_stop_timer() will execute __sock_put()
-     while timer is accessing the socket on other cpu causing 
-"use-after-free".
+On Wed, Aug 6, 2014 at 11:10 PM, Koehrer Mathias (ETAS/ESW5)
+<mathias.koehrer@etas.com> wrote:
+> With the Intel 82527EI (driver: e1000e) there is an issue when running
+> the ptpd2 program, that leads to a kernel oops.  The reason is here that
+> in e1000_xmit_frame() a work queue will be scheduled that has not been
+> initialized in this case.  The work queue "tx_hwstamp_work" will only be
+> initialized if adapter->flags & FLAG_HAS_HW_TIMESTAMP set.  This check
+> is missing in e1000_xmit_frame().
+>
+> The following patch adds the missing check.
+>
+> Signed-off-by: Mathias Koehrer <mathias.koehrer@etas.com>
+>
+> ---
+>  drivers/net/ethernet/intel/e1000e/netdev.c |    3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+>
+> Index: linux-3.12.26/drivers/net/ethernet/intel/e1000e/netdev.c
+> ===================================================================
+> --- linux-3.12.26.orig/drivers/net/ethernet/intel/e1000e/netdev.c       2014-08-04 10:56:56.000000000 +0200
+> +++ linux-3.12.26/drivers/net/ethernet/intel/e1000e/netdev.c    2014-08-07 08:05:17.000000000 +0200
+> @@ -5550,7 +5550,8 @@
+>                              nr_frags);
+>         if (count) {
+>                 if (unlikely((skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) &&
+> -                            !adapter->tx_hwtstamp_skb)) {
+> +                            !adapter->tx_hwtstamp_skb &&
+> +                            (adapter->flags & FLAG_HAS_HW_TIMESTAMP))) {
+>                         skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
+>                         tx_flags |= E1000_TX_FLAGS_HWTSTAMP;
+>                         adapter->tx_hwtstamp_skb = skb_get(skb);
+>
 
-     This commit replaces del_timer() with del_timer_sync() in 
-sk_stop_timer().
-     del_timer_sync() will wait untill the timer function is not running in
-     any other cpu hence making sk_stop_timer() SMP safe.
+So is this v2 of your patch?  and you are ignoring Alex's last suggestion to do:
 
-     Signed-off-by: Deepak Das <deepak_das@mentor.com>
+  unlikely(skb->tx_flags & HW_TSTAMP) &&
+  (adapter->flags & HAS_HW_TSTAMP) &&
+  !adapter->tx_hwtstamp_skb
 
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 026e01f..491a84d 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -2304,7 +2304,7 @@ EXPORT_SYMBOL(sk_reset_timer);
+Just wondering....
 
-  void sk_stop_timer(struct sock *sk, struct timer_list* timer)
-  {
--       if (del_timer(timer))
-+       if (del_timer_sync(timer))
-                 __sock_put(sk);
-  }
-  EXPORT_SYMBOL(sk_stop_timer);
+-- 
+Cheers,
+Jeff
