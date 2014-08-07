@@ -1,83 +1,97 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: sel_netif_init: 'err' is used uninitialized (was: Re: selinux: reduce
- the number of calls to synchronize_net() when flushing caches)
-Date: Thu, 7 Aug 2014 12:31:15 +0200
-Message-ID: <CAMuHMdV4VpaH1nHYO5hr66Xib5o_Pib863JzGRtg2kYcjMp2TQ@mail.gmail.com>
+From: Himangi Saraogi <himangi774@gmail.com>
+Subject: [PATCH] wireless: wlcore: Use devm_kzalloc
+Date: Thu, 7 Aug 2014 16:32:45 +0530
+Message-ID: <20140807110244.GA10257@himangi-Dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-security-module@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Paul Moore <pmoore@redhat.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Sender: linux-security-module-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Julia Lawall <julia.lawall@lip6.fr>
+To: "John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 6, 2014 at 6:27 PM, Linux Kernel Mailing List
-<linux-kernel@vger.kernel.org> wrote:
-> Gitweb:     http://git.kernel.org/linus/;a=3Dcommit;h=3D615e51fdda6f2=
-74e94b1e905fcaf6111e0d9aa20
-> Commit:     615e51fdda6f274e94b1e905fcaf6111e0d9aa20
-> Parent:     f31e799459659ae88c341aeac16a8a5efb1271d4
-> Refname:    refs/heads/master
-> Author:     Paul Moore <pmoore@redhat.com>
-> AuthorDate: Thu Jun 26 14:33:56 2014 -0400
-> Committer:  Paul Moore <pmoore@redhat.com>
-> CommitDate: Thu Jun 26 14:33:56 2014 -0400
->
->     selinux: reduce the number of calls to synchronize_net() when flu=
-shing caches
->
->     When flushing the AVC, such as during a policy load, the various
->     network caches are also flushed, with each making a call to
->     synchronize_net() which has shown to be expensive in some cases.
->     This patch consolidates the network cache flushes into a single A=
-VC
->     callback which only calls synchronize_net() once for each AVC cac=
-he
->     flush.
+This patch introduces the use of devm_kzalloc and does away with the
+kfrees in the probe and remove functions. Also, a couple of labels and
+the initial assignment of the ret variable in the probe function are
+removed.
 
-> --- a/security/selinux/netif.c
-> +++ b/security/selinux/netif.c
+Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
+Acked-by: Julia Lawall <julia.lawall@lip6.fr>
+---
+ drivers/net/wireless/ti/wlcore/spi.c | 20 ++++++--------------
+ 1 file changed, 6 insertions(+), 14 deletions(-)
 
-> @@ -291,10 +282,6 @@ static __init int sel_netif_init(void)
->
->         register_netdevice_notifier(&sel_netif_netdev_notifier);
->
-> -       err =3D avc_add_callback(sel_netif_avc_callback, AVC_CALLBACK=
-_RESET);
-> -       if (err)
-> -               panic("avc_add_callback() failed, error %d\n", err);
-> -
->         return err;
-
-security/selinux/netif.c: In function =E2=80=98sel_netif_init=E2=80=99:
-/scratch/geert/linux/linux-m68k/security/selinux/netif.c:285: warning:
-=E2=80=98err=E2=80=99 is used uninitialized in this function
-
-Should it just return 0, like before?
-Or should it return the return value of register_netdevice_notifier() i=
-nstead,
-which also returns an error code? Or is that failure non-critical?
-
->  }
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-=
-m68k.org
-
-In personal conversations with technical people, I call myself a hacker=
-=2E But
-when I'm talking to journalists I just say "programmer" or something li=
-ke that.
-                                -- Linus Torvalds
---
-To unsubscribe from this list: send the line "unsubscribe linux-securit=
-y-module" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/wireless/ti/wlcore/spi.c b/drivers/net/wireless/ti/wlcore/spi.c
+index 392c882..69601f6 100644
+--- a/drivers/net/wireless/ti/wlcore/spi.c
++++ b/drivers/net/wireless/ti/wlcore/spi.c
+@@ -327,23 +327,22 @@ static int wl1271_probe(struct spi_device *spi)
+ 	struct wl12xx_spi_glue *glue;
+ 	struct wlcore_platdev_data pdev_data;
+ 	struct resource res[1];
+-	int ret = -ENOMEM;
++	int ret;
+ 
+ 	memset(&pdev_data, 0x00, sizeof(pdev_data));
+ 
+ 	pdev_data.pdata = dev_get_platdata(&spi->dev);
+ 	if (!pdev_data.pdata) {
+ 		dev_err(&spi->dev, "no platform data\n");
+-		ret = -ENODEV;
+-		goto out;
++		return -ENODEV;
+ 	}
+ 
+ 	pdev_data.if_ops = &spi_ops;
+ 
+-	glue = kzalloc(sizeof(*glue), GFP_KERNEL);
++	glue = devm_kzalloc(&spi->dev, sizeof(*glue), GFP_KERNEL);
+ 	if (!glue) {
+ 		dev_err(&spi->dev, "can't allocate glue\n");
+-		goto out;
++		return -ENOMEM;
+ 	}
+ 
+ 	glue->dev = &spi->dev;
+@@ -357,14 +356,13 @@ static int wl1271_probe(struct spi_device *spi)
+ 	ret = spi_setup(spi);
+ 	if (ret < 0) {
+ 		dev_err(glue->dev, "spi_setup failed\n");
+-		goto out_free_glue;
++		return ret;
+ 	}
+ 
+ 	glue->core = platform_device_alloc("wl12xx", PLATFORM_DEVID_AUTO);
+ 	if (!glue->core) {
+ 		dev_err(glue->dev, "can't allocate platform_device\n");
+-		ret = -ENOMEM;
+-		goto out_free_glue;
++		return -ENOMEM;
+ 	}
+ 
+ 	glue->core->dev.parent = &spi->dev;
+@@ -398,11 +396,6 @@ static int wl1271_probe(struct spi_device *spi)
+ 
+ out_dev_put:
+ 	platform_device_put(glue->core);
+-
+-out_free_glue:
+-	kfree(glue);
+-
+-out:
+ 	return ret;
+ }
+ 
+@@ -411,7 +404,6 @@ static int wl1271_remove(struct spi_device *spi)
+ 	struct wl12xx_spi_glue *glue = spi_get_drvdata(spi);
+ 
+ 	platform_device_unregister(glue->core);
+-	kfree(glue);
+ 
+ 	return 0;
+ }
+-- 
+1.9.1
