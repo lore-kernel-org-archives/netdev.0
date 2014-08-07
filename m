@@ -1,33 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] net: ucc_geth: drop acquired references in probe
- error path and remove
-Date: Thu, 07 Aug 2014 16:07:19 -0700 (PDT)
-Message-ID: <20140807.160719.1981028891400963453.davem@davemloft.net>
-References: <1407448106-1819-1-git-send-email-u.kleine-koenig@pengutronix.de>
+Subject: Re: [PATCH] drivers/net: Remove typedef axnet_dev_t
+Date: Thu, 07 Aug 2014 16:06:59 -0700 (PDT)
+Message-ID: <20140807.160659.413581430334650996.davem@davemloft.net>
+References: <20140807204133.GA21448@himangi-Dell>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: leoli@freescale.com, linuxppc-dev@lists.ozlabs.org,
-	netdev@vger.kernel.org, kernel@pengutronix.de, f.fainelli@gmail.com
-To: u.kleine-koenig@pengutronix.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53698 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755322AbaHGXHU convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2014 19:07:20 -0400
-In-Reply-To: <1407448106-1819-1-git-send-email-u.kleine-koenig@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: tedheadster@gmail.com, paul.gortmaker@windriver.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	julia.lawall@lip6.fr
+To: himangi774@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140807204133.GA21448@himangi-Dell>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
-Date: Thu,  7 Aug 2014 23:48:24 +0200
+From: Himangi Saraogi <himangi774@gmail.com>
+Date: Fri, 8 Aug 2014 02:11:33 +0530
 
-> The ucc_geth_probe function assigns to ug_info->tbi_node and
-> ug_info->phy_node a value returned by of_parse_phandle which returns =
-a
-> new reference. Put this reference again in the error path of
-> ucc_geth_probe and when removing the device.
->=20
-> Signed-off-by: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
+> The Linux kernel coding style guidelines suggest not using typedefs
+> for structure types. This patch gets rid of the typedef for axnet_dev_t.
+> Also, the name of the struct is changed to drop the _t, to make the
+> name look less typedef-like.
+> 
+> The following Coccinelle semantic patch detects the case:
+ ...
+> Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
+> Acked-by: Julia Lawall <julia.lawall@lip6.fr>
 
 Applied.
