@@ -1,49 +1,32 @@
-From: Richard Weinberger <richard.weinberger@gmail.com>
-Subject: Re: [PATCH] Hyperv: Trigger DHCP renew after host hibernation
-Date: Fri, 8 Aug 2014 00:37:28 +0200
-Message-ID: <CAFLxGvyfy1UkxN6_-c_ST7f8n7DvqYsCPKChWmt9CerWb0dh7g@mail.gmail.com>
-References: <DC7803B42427924284F2D5252E076A3B4476A479@SINEX14MBXC416.southpacific.corp.microsoft.com>
- <53CCD6F2.6020909@nod.at> <20140721091851.GA28171@aepfle.de>
- <20140721.143225.2040366896972949930.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] cxgb4: IEEE fixes for DCBx state machine
+Date: Thu, 07 Aug 2014 16:01:13 -0700 (PDT)
+Message-ID: <20140807.160113.1118554897109315806.davem@davemloft.net>
+References: <1407442256-7308-1-git-send-email-anish@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "jasowang@redhat.com" <jasowang@redhat.com>,
- driverdev-devel@linuxdriverproject.org, LKML <linux-kernel@vger.kernel.org>,
- huishao@microsoft.com, Greg KH <gregkh@linuxfoundation.org>,
- haiyangz@microsoft.com
-To: David Miller <davem@davemloft.net>, Yue Zhang <yuezha@microsoft.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20140721.143225.2040366896972949930.davem@davemloft.net>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, hariprasad@chelsio.com, leedom@chelsio.com
+To: anish@chelsio.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53594 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751197AbaHGXBS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2014 19:01:18 -0400
+In-Reply-To: <1407442256-7308-1-git-send-email-anish@chelsio.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 21, 2014 at 11:32 PM, David Miller <davem@davemloft.net> wrote:
-> From: Olaf Hering <olaf@aepfle.de>
-> Date: Mon, 21 Jul 2014 11:18:51 +0200
->
->> On Mon, Jul 21, Richard Weinberger wrote:
->>
->>> My concern is that 10 seconds is maybe not a the right choice.
->>> (As we cannot know all implementations)
->>
->> Until someone reports an issue with it, 10 is fine. Just like 20 or 666.
->
-> Wrong, this is policy and belongs in userspace.
+From: Anish Bhatt <anish@chelsio.com>
+Date: Thu,  7 Aug 2014 13:10:56 -0700
 
-The "/etc/init.d/network restart" nonsense now hit Linus' tree.
-Yue, what is your proposal to fix that?
+> +	netdev_info(dev, "%s: Initializing DCB state for port[%d]\n",
+> +		    __func__, pi->port_id);
+ ...
+> +	netdev_info(dev, "%s: State change from %d to %d for %s\n",
+> +		    __func__, dcb->state, transition_to, dev->name);
 
--- 
-Thanks,
-//richard
+These logging messages look excessive, especially at KERN_INFO logging
+level.
+
+Either remove them or make them _dbg() or similar.
