@@ -1,39 +1,33 @@
-From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
-Subject: Re: [PATCH 3/5] drivers/atm/atmtcp.c: fix error return code
-Date: Thu, 7 Aug 2014 09:41:16 -0400
-Message-ID: <20140807094116.20efc324@thirdoffive.cmf.nrl.navy.mil>
-References: <1407415749-19978-1-git-send-email-Julia.Lawall@lip6.fr>
-	<1407415749-19978-3-git-send-email-Julia.Lawall@lip6.fr>
-	<20140807091012.793ef5c7@thirdoffive.cmf.nrl.navy.mil>
-	<alpine.DEB.2.10.1408071530230.2337@hadrien>
+From: Dmitry Popov <ixaphire@qrator.net>
+Subject: Re: Weird NET_RX softirq behavior
+Date: Thu, 7 Aug 2014 18:18:13 +0400
+Message-ID: <20140807181813.37b73927513266381d55ad0d@qrator.net>
+References: <20140807171050.77819b10@xhacker>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org,
-	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Julia Lawall <julia.lawall@lip6.fr>
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: Jisheng Zhang <jszhang@marvell.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.10.1408071530230.2337@hadrien>
+In-Reply-To: <20140807171050.77819b10@xhacker>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 7 Aug 2014 15:31:05 +0200 (CEST)
-Julia Lawall <julia.lawall@lip6.fr> wrote:
+On Thu, 7 Aug 2014 17:10:50 +0800
+Jisheng Zhang <jszhang@marvell.com> wrote:
 
+> 2. only one netdev in the system: eth0.
 
-> diff --git a/drivers/atm/atmtcp.c b/drivers/atm/atmtcp.c
-> index 0e3f8f9..c8e4fb4 100644
-> --- a/drivers/atm/atmtcp.c
-> +++ b/drivers/atm/atmtcp.c
-> @@ -299,6 +299,7 @@ static int atmtcp_c_send(struct atm_vcc *vcc,struct sk_buff *skb)
->  	out_vcc = find_vcc(dev, ntohs(hdr->vpi), ntohs(hdr->vci));
->  	read_unlock(&vcc_sklist_lock);
->  	if (!out_vcc) {
-> +		result = -EUNATCH;
->  		atomic_inc(&vcc->stats->tx_err);
->  		goto done;
->  	}
+There should also be lo (loopback) at least.
+
+> 4. But NET_RX seems abnormal
+> ~ # cat /proc/softirqs 
+>                     CPU0       CPU1       CPU2       CPU3       
+>       NET_RX:     445587        322        983          0
 > 
+> I'm expecting NET_RX under CPU1, 2, 3 should be zero. Any suggestions
+> about this abnormal behavior?
 
-Acked-by: Chas Williams <chas@cmf.nrl.navy.mil>
+Do you have any loopback traffic? It could be handled by CPU1/2 explaining
+non-zero NET_RX counters.
