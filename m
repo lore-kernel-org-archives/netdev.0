@@ -1,62 +1,56 @@
-From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
-Subject: Re: [setsockopt] WARNING: CPU: 0 PID: 1444 at
- kernel/sched/core.c:7088 __might_sleep+0x51/0x16f()
-Date: Thu, 7 Aug 2014 12:59:48 -0400
-Message-ID: <20140807125948.2b7f1472@thirdoffive.cmf.nrl.navy.mil>
-References: <20140805214624.GA9973@localhost>
-	<20140807151741.GP19379@twins.programming.kicks-ass.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Fengguang Wu <fengguang.wu@intel.com>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>, lkp@01.org,
-	linux-atm-general@lists.sourceforge.net
-To: Peter Zijlstra <peterz@infradead.org>
+From: Takero Funaki <raphanus@gmail.com>
+Subject: [PATCH] netfilter: xt_u32: Accept negative offset in AT operation
+Date: Fri,  8 Aug 2014 02:24:37 +0900
+Message-ID: <1407432277-2032-1-git-send-email-raphanus@gmail.com>
+Cc: Takero Funaki <raphanus@gmail.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	netfilter-devel@vger.kernel.org (open list:NETFILTER/IPTABLES),
+	netfilter@vger.kernel.org (open list:NETFILTER/IPTABLES),
+	coreteam@netfilter.org (open list:NETFILTER/IPTABLES),
+	netdev@vger.kernel.org (open list:NETWORKING [GENERAL]),
+	linux-kernel@vger.kernel.org (open list)
+To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140807151741.GP19379@twins.programming.kicks-ass.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 7 Aug 2014 17:17:41 +0200
-Peter Zijlstra <peterz@infradead.org> wrote:
+Remove unnecessary uint wraparound checks which prohibited two's
+complement representation of negative number in "@" operation.
+It is required to test last N bytes of variable length formats and to be
+consistent with libxt parser which silently replaces negative number by
+its compliment.
 
-> Subject: atm: Fix blocking in wait loop
-> 
-> One should not call blocking primitives inside a wait loop, since both
-> require task_struct::state to sleep, so the inner will destroy the outer
-> state.
-> 
-> In this instance sigd_enq() will possible sleep for alloc_skb(), now if
-> I understand the code right, we do not actually need to call sigd_enq()
-> after the initial prepare_to_wait(), because we test the termination
-> condition before schedule() anyhow.
-> 
-> So we can simply move it up a bit and avoid the entire confusion.
-> 
-> Signed-off-by: Peter Zijlstra <peterz@infradead.org>
-> ---
->  net/atm/svc.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/atm/svc.c b/net/atm/svc.c
-> index d8e5d0c2ebbc..445ac238b69b 100644
-> --- a/net/atm/svc.c
-> +++ b/net/atm/svc.c
-> @@ -297,8 +297,8 @@ static int svc_listen(struct socket *sock, int backlog)
->  		goto out;
->  	}
->  	set_bit(ATM_VF_WAITING, &vcc->flags);
-> -	prepare_to_wait(sk_sleep(sk), &wait, TASK_UNINTERRUPTIBLE);
->  	sigd_enq(vcc, as_listen, NULL, NULL, &vcc->local);
-> +	prepare_to_wait(sk_sleep(sk), &wait, TASK_UNINTERRUPTIBLE);
->  	while (test_bit(ATM_VF_WAITING, &vcc->flags) && sigd) {
->  		schedule();
->  		prepare_to_wait(sk_sleep(sk), &wait, TASK_UNINTERRUPTIBLE);
+For example, --u32 '0&0xFFFF@-4=0' will read IPv4 total length header
+then add complement of -4 to test if the last 4 bytes are 0. Previously,
+it would never match as (total length)+0xFFFFFFFC always overflow.
 
+Signed-off-by: Takero Funaki <raphanus@gmail.com>
+---
+ net/netfilter/xt_u32.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-This isn't the only place that we queue a message for the signalling
-daemon after a prepare_to_wait() uninterruptibly so this patch would
-be incomplete as is.
-
-What bothers me is the TASK_UNINTERRUPTIBLE -- I don't have a good
-reason why any of these should be sleeping uninterruptibly.
+diff --git a/net/netfilter/xt_u32.c b/net/netfilter/xt_u32.c
+index a95b5034..9de339d 100644
+--- a/net/netfilter/xt_u32.c
++++ b/net/netfilter/xt_u32.c
+@@ -57,12 +57,12 @@ static bool u32_match_it(const struct xt_u32 *data,
+ 				val >>= number;
+ 				break;
+ 			case XT_U32_AT:
+-				if (at + val < at)
+-					return false;
+ 				at += val;
+ 				pos = number;
+-				if (at + 4 < at || skb->len < at + 4 ||
+-				    pos > skb->len - at - 4)
++				/* unsigned integer may wraparound
++				 * to represent negative offset
++				 */
++				if (at + pos > skb->len - 4)
+ 					return false;
+ 
+ 				if (skb_copy_bits(skb, at + pos, &n,
+-- 
+1.9.1
