@@ -1,33 +1,43 @@
-From: Dmitry Popov <ixaphire@qrator.net>
-Subject: Re: Weird NET_RX softirq behavior
-Date: Thu, 7 Aug 2014 18:18:13 +0400
-Message-ID: <20140807181813.37b73927513266381d55ad0d@qrator.net>
-References: <20140807171050.77819b10@xhacker>
+From: Paul Moore <paul@paul-moore.com>
+Subject: Re: sel_netif_init: 'err' is used uninitialized (was: Re: selinux: reduce the number of calls to synchronize_net() when flushing caches)
+Date: Thu, 07 Aug 2014 10:26:14 -0400
+Message-ID: <5750080.46d2jsPKXX@sifl>
+References: <CAMuHMdV4VpaH1nHYO5hr66Xib5o_Pib863JzGRtg2kYcjMp2TQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: Jisheng Zhang <jszhang@marvell.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-security-module@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Geert Uytterhoeven <geert@linux-m68k.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140807171050.77819b10@xhacker>
+In-Reply-To: <CAMuHMdV4VpaH1nHYO5hr66Xib5o_Pib863JzGRtg2kYcjMp2TQ@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 7 Aug 2014 17:10:50 +0800
-Jisheng Zhang <jszhang@marvell.com> wrote:
+On Thursday, August 07, 2014 12:31:15 PM Geert Uytterhoeven wrote:
+>=20
+> security/selinux/netif.c: In function =E2=80=98sel_netif_init=E2=80=99=
+:
+> /scratch/geert/linux/linux-m68k/security/selinux/netif.c:285: warning=
+:
+> =E2=80=98err=E2=80=99 is used uninitialized in this function
+>=20
+> Should it just return 0, like before?
+> Or should it return the return value of register_netdevice_notifier()
+> instead, which also returns an error code? Or is that failure non-cri=
+tical?
 
-> 2. only one netdev in the system: eth0.
+Hi,
 
-There should also be lo (loopback) at least.
+I posted a fix for this two days ago to the SELinux list (see below).  =
+As soon=20
+as -rc1 is released and linux-next is back in business I'll be pushing =
+the=20
+patch to the SELinux #next branch.
 
-> 4. But NET_RX seems abnormal
-> ~ # cat /proc/softirqs 
->                     CPU0       CPU1       CPU2       CPU3       
->       NET_RX:     445587        322        983          0
-> 
-> I'm expecting NET_RX under CPU1, 2, 3 should be zero. Any suggestions
-> about this abnormal behavior?
+ * http://marc.info/?l=3Dselinux&m=3D140727033030054&w=3D2
 
-Do you have any loopback traffic? It could be handled by CPU1/2 explaining
-non-zero NET_RX counters.
+--=20
+paul moore
+www.paul-moore.com
