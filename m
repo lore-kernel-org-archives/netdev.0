@@ -1,38 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: sel_netif_init: 'err' is used uninitialized
-Date: Thu, 07 Aug 2014 12:04:54 -0700 (PDT)
-Message-ID: <20140807.120454.1646328149054855088.davem@davemloft.net>
-References: <CAMuHMdV4VpaH1nHYO5hr66Xib5o_Pib863JzGRtg2kYcjMp2TQ@mail.gmail.com>
-	<5750080.46d2jsPKXX@sifl>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] 6lowpan: Allow 6LoWPAN to be
+	modular
+Date: Thu, 07 Aug 2014 12:05:12 -0700 (PDT)
+Message-ID: <20140807.120512.1190683458101132981.davem@davemloft.net>
+References: <1407424003-15073-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: geert@linux-m68k.org, linux-security-module@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: paul@paul-moore.com
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <5750080.46d2jsPKXX@sifl>
-Sender: linux-security-module-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+In-Reply-To: <1407424003-15073-1-git-send-email-geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogUGF1bCBNb29yZSA8cGF1bEBwYXVsLW1vb3JlLmNvbT4NCkRhdGU6IFRodSwgMDcgQXVn
-IDIwMTQgMTA6MjY6MTQgLTA0MDANCg0KPiBPbiBUaHVyc2RheSwgQXVndXN0IDA3LCAyMDE0IDEy
-OjMxOjE1IFBNIEdlZXJ0IFV5dHRlcmhvZXZlbiB3cm90ZToNCj4+IA0KPj4gc2VjdXJpdHkvc2Vs
-aW51eC9uZXRpZi5jOiBJbiBmdW5jdGlvbiChc2VsX25ldGlmX2luaXSiOg0KPj4gL3NjcmF0Y2gv
-Z2VlcnQvbGludXgvbGludXgtbTY4ay9zZWN1cml0eS9zZWxpbnV4L25ldGlmLmM6Mjg1OiB3YXJu
-aW5nOg0KPj4goWVycqIgaXMgdXNlZCB1bmluaXRpYWxpemVkIGluIHRoaXMgZnVuY3Rpb24NCj4+
-IA0KPj4gU2hvdWxkIGl0IGp1c3QgcmV0dXJuIDAsIGxpa2UgYmVmb3JlPw0KPj4gT3Igc2hvdWxk
-IGl0IHJldHVybiB0aGUgcmV0dXJuIHZhbHVlIG9mIHJlZ2lzdGVyX25ldGRldmljZV9ub3RpZmll
-cigpDQo+PiBpbnN0ZWFkLCB3aGljaCBhbHNvIHJldHVybnMgYW4gZXJyb3IgY29kZT8gT3IgaXMg
-dGhhdCBmYWlsdXJlIG5vbi1jcml0aWNhbD8NCj4gDQo+IEhpLA0KPiANCj4gSSBwb3N0ZWQgYSBm
-aXggZm9yIHRoaXMgdHdvIGRheXMgYWdvIHRvIHRoZSBTRUxpbnV4IGxpc3QgKHNlZSBiZWxvdyku
-ICBBcyBzb29uIA0KPiBhcyAtcmMxIGlzIHJlbGVhc2VkIGFuZCBsaW51eC1uZXh0IGlzIGJhY2sg
-aW4gYnVzaW5lc3MgSSdsbCBiZSBwdXNoaW5nIHRoZSANCj4gcGF0Y2ggdG8gdGhlIFNFTGludXgg
-I25leHQgYnJhbmNoLg0KPiANCj4gICogaHR0cDovL21hcmMuaW5mby8/bD1zZWxpbnV4Jm09MTQw
-NzI3MDMzMDMwMDU0Jnc9Mg0KDQpXaXRoIHJlc3BlY3QgdG8gdGhpcyBhbmQgdGhlIGxhY2stb2Yt
-aW5saW5lIHdhcm5pbmcgZml4IHdlIHNwb2tlIGFib3V0DQp5ZXN0ZXJkYXksIHdoeSBhcmUgeW91
-IHdhaXRpbmcgYW5kIG9ubHkgcHVzaGluZyBzdWNoIGJ1ZyBmaXhlcyBpbnRvIHlvdXINCiJuZXh0
-IiBicmFuY2g/DQoNClRob3NlIHNvcnQgb2YgdGhpbmdzIHNob3VsZCBiZSBzZW50IHRvIExpbnVz
-IG5vdyB0byBjb3JyZWN0IHRoZSBlcnJvcnMNCmludHJvZHVjZWQgZHVyaW5nIHRoZSBtZXJnZSB3
-aW5kb3csIGFzIEkgaGF2ZSBkb25lIGxhc3QgbmlnaHQgZm9yIGFsbA0Kb2YgdGhlIG5ldHdvcmtp
-bmcgbWVyZ2UgZmFsbG91dC4NCg==
+From: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+Date: Thu,  7 Aug 2014 17:06:43 +0200
+
+> Change config symbol 6LOWPAN from type bool to type tristate, so
+> 6LoWPAN can be built modular, just like IPV6
+> 
+> Signed-off-by: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+
+Applied, thanks.
+
+------------------------------------------------------------------------------
+Infragistics Professional
+Build stunning WinForms apps today!
+Reboot your WinForms applications with our WinForms controls. 
+Build a bridge from your legacy apps to the future.
+http://pubads.g.doubleclick.net/gampad/clk?id=153845071&iu=/4140/ostg.clktrk
