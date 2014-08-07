@@ -1,82 +1,61 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: [RFC] net: Replace del_timer() with del_timer_sync()
-Date: Thu, 07 Aug 2014 18:48:03 +0200
-Message-ID: <1407430083.11943.37.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <53E31A47.9000407@mentor.com>
-	,<1407394542.11943.21.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <38E11AEFEB035045A1BA4C1177FBFC424A89BEBE@EU-MBX-03.mgc.mentorg.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: Re: [PATCH net-next 0/2] xen-netback: Changes around carrier handling
+Date: Thu, 7 Aug 2014 17:49:37 +0100
+Message-ID: <53E3AE21.50109@citrix.com>
+References: <1407165658-20146-1-git-send-email-zoltan.kiss@citrix.com> <20140805.160748.1185917042908283028.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: "Das, Deepak" <Deepak_Das@mentor.com>
+Cc: <wei.liu2@citrix.com>, <Ian.Campbell@citrix.com>,
+	<david.vrabel@citrix.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <xen-devel@lists.xenproject.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <38E11AEFEB035045A1BA4C1177FBFC424A89BEBE@EU-MBX-03.mgc.mentorg.com>
+In-Reply-To: <20140805.160748.1185917042908283028.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-08-07 at 15:15 +0000, Das, Deepak wrote:
+On 06/08/14 00:07, David Miller wrote:
+> From: Zoltan Kiss <zoltan.kiss@citrix.com>
+> Date: Mon, 4 Aug 2014 16:20:56 +0100
+>
+>> This series starts using carrier off as a way to purge packets when the guest is
+>> not able (or willing) to receive them. It is a much faster way to get rid of
+>> packets waiting for an overwhelmed guest.
+>> The first patch changes current netback code where it relies currently on
+>> netif_carrier_ok.
+>> The second turns off the carrier if the guest times out on a queue, and only
+>> turn it on again if that queue (or queues) resurrects.
+>>
+>> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+>> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+>
+> Applied, but I have some reservations:
+>
+> 1) This is starting to bleed what is normally qdisc type policy into the
+>     driver.
+>
+> 2) There are other drivers that could run into this kind of situation and
+>     have similar concerns, therefore we should make sure we have a consistent
+>     approach that such entities use to handle this problem.
+>
+> Part of the problem is that netif_carrier_off() only partially mimicks
+> the situation.  It expresses the "transmitter is down so packets
+> aren't going onto the wire" part, which keeps the watchdog from
+> spitting out log messages ever time it fires.  But it doesn't deal
+> with packet freeing policy meanwhile, which I guess is the part that
+> this patch series is largely trying to address.
 
-Please do not top post on netdev, thanks.
+David Vrabel pointed out an important question in a reply to the 
+previous version of this series: this patch deschedule NAPI if the 
+carrier goes down. The backend doesn't receive packets from the guest. 
+DavidVr and others said we shouldn't do this, the guest should be able 
+to transmit even if it's not able/willing to receive. Other drivers 
+doesn't deschedule NAPI at carrier off as well, however the "carrier 
+off" information comes from the hardware, not from an untrusted guest 
+who is not posting buffers on the receive ring.
+I don't have any good argument why I did it the current way, other than 
+a hunch that it feels more natural.
+David, do you have an opinion on that?
 
-> I apologies for not explaining the scenario previously.
-> 
-> sk_stop_timer() is used to stop the tcp timers with expiry callback
-> tcp_write_timer(), tcp_delack_timer(), tcp_keepalive_timer(), ...
-> del_timer() is used to stop the the timer in sk_stop_timer(), which
-> might return a non-zero result even if one of these timer handler functions
-> (tcp_write_timer(), tcp_delack_timer(), tcp_keepalive_timer(), ...)
-> is already executing on another processor.
-> 
-> Following is the possible scenario :-
-> on CPU #0: sk_stop_timer() decrements the sk->sk_refcnt if del_timer(timer)
-> returns non-zero.
-> 
-> on CPU #1: If a timer handler callback runs then it also calls sock_put(sk)
-> which decrements sk->sk_refcnt and if the sk_refcnt becomes zero it frees the
-> structure sock pointed to by sk.
-> 
-> if the sk->sk_refcnt decrements twice then that will cause a mismatch in the
-> number of "puts" and "holds" resulting in a malfunction of the sk->sk_refcnt mechanism.
-
-Not at all.
-
-There is no mismatch, sk_refcnt is decremented once in all cases.
-
-I believe you misunderstood del_timer_sync() / del_timer() behaviors and
-differences.
-
-In the case you describe, del_timer() should return 0, and timer
-function will call sock_put() to decrement socket refcount.
-
-The problem' of del_timer() is the following :
-
-When/If it returns 0, another cpu _might_ be running the timer, we have
-no guarantee timer function is completed.
-
-For sockets, we do not care, because the active timer owns a refcount on
-the socket. When timer is finally completed, refcount will be released.
-
-> 
-> The solution is to use del_timer_sync() instead of del_timer()
-> because del_timer_sync() will wait for timer handler functions to
-> complete execution.
-
-Except that some sk_stop_timer() callers hold the socket lock, so the
-timer will deadlock trying to acquire it.
-
-> 
-> yes, we are facing some memory corruption issues due to access of already released
-> struct sock in our environment. Our memory corruption issue looks like memory locations
-> being decremented which could be consistent with a rogue decrement of a reference counter.
-
-Is 'Your environment' some out of tree module or is it part of standard
-linux kernel ?
-
-> 
-> similar suggestion is also made by Dean Jenkins in rfcomm_dlc_clear_timer() and accepted by Marcel.
-> http://www.spinics.net/lists/linux-bluetooth/msg51132.html
-
-Fix might be good in this case, but the changelog is completely bogus.
+Zoli
