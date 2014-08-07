@@ -1,36 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 3/5] drivers/atm/atmtcp.c: fix error return code
-Date: Thu, 07 Aug 2014 16:05:10 -0700 (PDT)
-Message-ID: <20140807.160510.734997025610406474.davem@davemloft.net>
-References: <1407415749-19978-3-git-send-email-Julia.Lawall@lip6.fr>
-	<20140807091012.793ef5c7@thirdoffive.cmf.nrl.navy.mil>
-	<alpine.DEB.2.10.1408071530230.2337@hadrien>
+Subject: Re: [PATCH] net: gianfar: no need to check parameter being != NULL
+ for of_node_put
+Date: Thu, 07 Aug 2014 16:05:39 -0700 (PDT)
+Message-ID: <20140807.160539.392980842870853316.davem@davemloft.net>
+References: <1407439212-16661-1-git-send-email-u.kleine-koenig@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: chas@cmf.nrl.navy.mil, kernel-janitors@vger.kernel.org,
-	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: julia.lawall@lip6.fr
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <alpine.DEB.2.10.1408071530230.2337@hadrien>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, julia.lawall@lip6.fr,
+	claudiu.manoil@freescale.com, kernel@pengutronix.de,
+	f.fainelli@gmail.com, fabio.estevam@freescale.com
+To: u.kleine-koenig@pengutronix.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53639 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755202AbaHGXFk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2014 19:05:40 -0400
+In-Reply-To: <1407439212-16661-1-git-send-email-u.kleine-koenig@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Julia Lawall <julia.lawall@lip6.fr>
-Date: Thu, 7 Aug 2014 15:31:05 +0200 (CEST)
+=46rom: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
+Date: Thu,  7 Aug 2014 21:20:12 +0200
 
-> From: Julia Lawall <Julia.Lawall@lip6.fr>
-> 
-> Convert a zero return value on error to a negative one, as returned
-> elsewhere in the function.
-> 
-> A simplified version of the semantic match that finds this problem is as
-> follows: (http://coccinelle.lip6.fr/)
- ...
-> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
-> 
-> ---
-> v2; changed error code to -EUNATCH
+> of_node_put is a noop when being called with NULL.
+>=20
+> Signed-off-by: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
 
 Applied.
