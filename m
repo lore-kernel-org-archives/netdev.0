@@ -1,71 +1,82 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH] 6lowpan: Allow 6LoWPAN to be modular
-Date: Thu, 7 Aug 2014 18:44:35 +0200
-Message-ID: <CAMuHMdU214_aDNQBH=Nk6DZwsdCB3FQY1DY0ZQ8WQGQ86dGFUQ@mail.gmail.com>
-References: <1407424003-15073-1-git-send-email-geert@linux-m68k.org>
-	<ABE15994-F47B-4E4B-A6FC-79C6BCAC9FF3@holtmann.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: [RFC] net: Replace del_timer() with del_timer_sync()
+Date: Thu, 07 Aug 2014 18:48:03 +0200
+Message-ID: <1407430083.11943.37.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <53E31A47.9000407@mentor.com>
+	,<1407394542.11943.21.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <38E11AEFEB035045A1BA4C1177FBFC424A89BEBE@EU-MBX-03.mgc.mentorg.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Aring <alex.aring@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-zigbee-devel@lists.sourceforge.net,
-	BlueZ development <linux-bluetooth@vger.kernel.org>,
-	linux-wpan@vger.kernel.org,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Marcel Holtmann <marcel@holtmann.org>
+To: "Das, Deepak" <Deepak_Das@mentor.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <ABE15994-F47B-4E4B-A6FC-79C6BCAC9FF3@holtmann.org>
+In-Reply-To: <38E11AEFEB035045A1BA4C1177FBFC424A89BEBE@EU-MBX-03.mgc.mentorg.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Marcel,
+On Thu, 2014-08-07 at 15:15 +0000, Das, Deepak wrote:
 
-On Thu, Aug 7, 2014 at 6:00 PM, Marcel Holtmann <marcel@holtmann.org> wrote:
->> Change config symbol 6LOWPAN from type bool to type tristate, so
->> 6LoWPAN can be built modular, just like IPV6
->>
->> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
->> ---
->> net/6lowpan/Kconfig | 2 +-
->> 1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/net/6lowpan/Kconfig b/net/6lowpan/Kconfig
->> index 028a5c6d1f61..e4a02ef55102 100644
->> --- a/net/6lowpan/Kconfig
->> +++ b/net/6lowpan/Kconfig
->> @@ -1,5 +1,5 @@
->> config 6LOWPAN
->> -     bool "6LoWPAN Support"
->> +     tristate "6LoWPAN Support"
->
-> is this a regression from the previous CONFIG_6LOWPAN separation that we introduced? If it is, then it might be easiest if Dave just takes it into his net tree. Otherwise I take it through bluetooth-next.
+Please do not top post on netdev, thanks.
 
-I hadn't thought about that... Checking...
+> I apologies for not explaining the scenario previously.
+> 
+> sk_stop_timer() is used to stop the tcp timers with expiry callback
+> tcp_write_timer(), tcp_delack_timer(), tcp_keepalive_timer(), ...
+> del_timer() is used to stop the the timer in sk_stop_timer(), which
+> might return a non-zero result even if one of these timer handler functions
+> (tcp_write_timer(), tcp_delack_timer(), tcp_keepalive_timer(), ...)
+> is already executing on another processor.
+> 
+> Following is the possible scenario :-
+> on CPU #0: sk_stop_timer() decrements the sk->sk_refcnt if del_timer(timer)
+> returns non-zero.
+> 
+> on CPU #1: If a timer handler callback runs then it also calls sock_put(sk)
+> which decrements sk->sk_refcnt and if the sk_refcnt becomes zero it frees the
+> structure sock pointed to by sk.
+> 
+> if the sk->sk_refcnt decrements twice then that will cause a mismatch in the
+> number of "puts" and "holds" resulting in a malfunction of the sk->sk_refcnt mechanism.
 
-Yes, I believe this is a regression.
+Not at all.
 
-In v3.16, my allmodconfig build had:
+There is no mismatch, sk_refcnt is decremented once in all cases.
 
-CONFIG_IEEE802154_6LOWPAN=m
-CONFIG_6LOWPAN_IPHC=m
-CONFIG_BT_6LOWPAN=y
+I believe you misunderstood del_timer_sync() / del_timer() behaviors and
+differences.
 
-Without my patch it has:
+In the case you describe, del_timer() should return 0, and timer
+function will call sock_put() to decrement socket refcount.
 
-CONFIG_6LOWPAN=y
-CONFIG_IEEE802154_6LOWPAN=m
-CONFIG_BT_6LOWPAN=m
+The problem' of del_timer() is the following :
 
-and iphc is what's in net/6lowpan/built-in.o now.
+When/If it returns 0, another cpu _might_ be running the timer, we have
+no guarantee timer function is completed.
 
-Gr{oetje,eeting}s,
+For sockets, we do not care, because the active timer owns a refcount on
+the socket. When timer is finally completed, refcount will be released.
 
-                        Geert
+> 
+> The solution is to use del_timer_sync() instead of del_timer()
+> because del_timer_sync() will wait for timer handler functions to
+> complete execution.
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+Except that some sk_stop_timer() callers hold the socket lock, so the
+timer will deadlock trying to acquire it.
 
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+> 
+> yes, we are facing some memory corruption issues due to access of already released
+> struct sock in our environment. Our memory corruption issue looks like memory locations
+> being decremented which could be consistent with a rogue decrement of a reference counter.
+
+Is 'Your environment' some out of tree module or is it part of standard
+linux kernel ?
+
+> 
+> similar suggestion is also made by Dean Jenkins in rfcomm_dlc_clear_timer() and accepted by Marcel.
+> http://www.spinics.net/lists/linux-bluetooth/msg51132.html
+
+Fix might be good in this case, but the changelog is completely bogus.
