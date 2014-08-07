@@ -1,51 +1,48 @@
-From: "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>
-Subject: Re: Silicom bypass driver promote from staging
-Date: Thu, 7 Aug 2014 13:19:47 -0700
-Message-ID: <20140807201947.GA6060@kroah.com>
-References: <3BFAEADE799AF145974162DF00E013AF018F80FFCF@exchange2010.silicom.local>
- <20140805150957.GC27303@kroah.com>
- <3BFAEADE799AF145974162DF00E013AF018F814DAB@exchange2010.silicom.local>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"arnd@arndb.de" <arnd@arndb.de>, Anna Lukin <annal@silicom.co.il>
-To: David Hendel <david@silicom.co.il>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net] netlink: reset network header before passing to taps
+Date: Thu,  7 Aug 2014 22:22:47 +0200
+Message-ID: <1407442967-2109-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, marcel@holtmann.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:47820 "EHLO
-	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751197AbaHGUTs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2014 16:19:48 -0400
-Content-Disposition: inline
-In-Reply-To: <3BFAEADE799AF145974162DF00E013AF018F814DAB@exchange2010.silicom.local>
+Received: from mx1.redhat.com ([209.132.183.28]:8679 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752614AbaHGUWy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Aug 2014 16:22:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 07, 2014 at 09:26:54AM +0000, David Hendel wrote:
-> Hello Netdev group,
-> 
-> For the /driver/staging/silicom that we want to promote.
-> We have our bypass driver updated and we would like to move forward with integrating it into the kernel mainline We are not sure of what is the best location to have these driver located, as this is not really a network driver.
-> The options that we see are:
-> driver/misc/silicom/...
-> driver/char/silicom/...
-> driver/bypass/silicom/....
-> 
-> The description of the functionality of the driver is below per readme of this driver in the /driver/staging/silicom.
-> 
-> Currently in the attached driver we have defined it to be in driver/bypass/silicom/....
-> If this is OK with you then we can continue with that. if you thing that it needs to be in another location then we can change the patch.
+netlink doesn't set any network header offset thus when the skb is
+being passed to tap devices via dev_queue_xmit_nit(), it emits klog
+false positives due to it being unset like:
 
-Making your patch an attachment in base64 mode, makes it impossible to
-quote to review it :(
+  ...
+  [  124.990397] protocol 0000 is buggy, dev nlmon0
+  [  124.990411] protocol 0000 is buggy, dev nlmon0
+  ...
 
-Anyway, I stopped at the first header file.  The kernel already has BIT
-definitions, no driver should ever have to redefine these and do it on
-their own.  That leads me to believe that this code really isn't all
-that "cleaned up" at all.
+So just reset the network header before passing to the device; for
+packet sockets that just means nothing will change - mac and net
+offset hold the same value just as before.
 
-Should I just look at what is in drivers/staging/silicom/ right now as
-code to review?  Or have you changed it any by making this patch?
+Reported-by: Marcel Holtmann <marcel@holtmann.org>
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ net/netlink/af_netlink.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-thanks,
-
-greg k-h
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index a324b4b..2e152e5 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -213,7 +213,7 @@ static int __netlink_deliver_tap_skb(struct sk_buff *skb,
+ 		nskb->protocol = htons((u16) sk->sk_protocol);
+ 		nskb->pkt_type = netlink_is_kernel(sk) ?
+ 				 PACKET_KERNEL : PACKET_USER;
+-
++		skb_reset_network_header(nskb);
+ 		ret = dev_queue_xmit(nskb);
+ 		if (unlikely(ret > 0))
+ 			ret = net_xmit_errno(ret);
+-- 
+1.7.11.7
