@@ -1,31 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/3] Fix duplicate #include headers
-Date: Thu, 07 Aug 2014 16:04:33 -0700 (PDT)
-Message-ID: <20140807.160433.517203433717468732.davem@davemloft.net>
-References: <1407415846-10277-3-git-send-email-sakiwit@gmail.com>
+Subject: Re: [PATCH net-next v2] xen-netback: Fix vif->disable handling
+Date: Thu, 07 Aug 2014 16:04:24 -0700 (PDT)
+Message-ID: <20140807.160424.419426873249476082.davem@davemloft.net>
+References: <1407415118-16365-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sakiwit@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53617 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755630AbaHGXEe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2014 19:04:34 -0400
-In-Reply-To: <1407415846-10277-3-git-send-email-sakiwit@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: wei.liu2@citrix.com, Ian.Campbell@citrix.com,
+	david.vrabel@citrix.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, xen-devel@lists.xenproject.org
+To: zoltan.kiss@citrix.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1407415118-16365-1-git-send-email-zoltan.kiss@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jean Sacren <sakiwit@gmail.com>
-Date: Thu,  7 Aug 2014 06:50:45 -0600
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Date: Thu, 7 Aug 2014 13:38:38 +0100
 
-> This series fixes duplicate #include headers in the current net
-> tree.
+> In the patch called "xen-netback: Turn off the carrier if the guest is not able
+> to receive" new branches were introduced to this if statement, risking that a
+> queue with non-zero id can reenable the disabled interface.
 > 
-> Jean Sacren (3):
->   amd: xgbe: delete duplicate linux/phy.h header
->   batman: delete duplicate multicast.h header
->   openvswitch: fix duplicate #include headers
+> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+> Cc: netdev@vger.kernel.org
+> Cc: linux-kernel@vger.kernel.org
+> Cc: xen-devel@lists.xenproject.org
+> ---
+> v2: fix a code style error in this "if" as well
 
-Series applied.
+Applied.
