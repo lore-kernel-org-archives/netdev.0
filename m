@@ -1,49 +1,62 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH net-next v4 5/6] net-timestamp: TCP timestamping
-Date: Wed, 6 Aug 2014 20:59:30 -0400
-Message-ID: <CA+FuTSdevrKsHCwfX4wwhz-1SxWONsO=bOnD0bjP=yaG+pU5kQ@mail.gmail.com>
-References: <CA+FuTSf96KH=JkO4Va4pfbvYHngHjxtTc33ipbif_xC9kdgaLQ@mail.gmail.com>
- <1407335823.11943.10.camel@edumazet-glaptop2.roam.corp.google.com>
- <CA+FuTSdnuBw4ex7Hj=ko_r0P7SqPs5gA2qcTX1tHMbo3YndMJQ@mail.gmail.com> <20140806.143213.1466007351572839621.davem@davemloft.net>
+From: Tom Herbert <therbert@google.com>
+Subject: Re: ip6tables filter breakage.
+Date: Wed, 6 Aug 2014 18:13:17 -0700
+Message-ID: <CA+mtBx91JyKzMwTVsc-xuKj1jFxi1mdiWZCRHUHTYVU3Uw-U1g@mail.gmail.com>
+References: <20140806195222.GA10618@redhat.com>
+	<20140806.131354.1888027200650409969.davem@davemloft.net>
+	<20140806215638.GA31519@salvia>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Network Development <netdev@vger.kernel.org>,
-	Richard Cochran <richardcochran@gmail.com>
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, davej@redhat.com,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	netfilter-devel@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f45.google.com ([209.85.192.45]:60500 "EHLO
-	mail-qg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754120AbaHGBAB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2014 21:00:01 -0400
-Received: by mail-qg0-f45.google.com with SMTP id f51so3667389qge.18
-        for <netdev@vger.kernel.org>; Wed, 06 Aug 2014 18:00:00 -0700 (PDT)
-In-Reply-To: <20140806.143213.1466007351572839621.davem@davemloft.net>
+Received: from mail-ie0-f180.google.com ([209.85.223.180]:37140 "EHLO
+	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754158AbaHGBNS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2014 21:13:18 -0400
+Received: by mail-ie0-f180.google.com with SMTP id at20so3718659iec.25
+        for <netdev@vger.kernel.org>; Wed, 06 Aug 2014 18:13:17 -0700 (PDT)
+In-Reply-To: <20140806215638.GA31519@salvia>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>> but also that we're going to send multiple reports back to error
->>> queue.
+Thanks for catch an fix!
+
+On Wed, Aug 6, 2014 at 3:01 PM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+> On Wed, Aug 06, 2014 at 01:13:54PM -0700, David Miller wrote:
+>> From: Dave Jones <davej@redhat.com>
+>> Date: Wed, 6 Aug 2014 15:52:22 -0400
 >>
->> I see. The optimization patch to queue timestamps without payload will
->> mitigate that somewhat. I dropped that from the initial patchset, but
->> will fix it up for net-next. It may also be possible to squash
->> multiple timestamped packets on the errqueue together when they all
->> have the same payload, resulting in a single (possibly no-payload)
->> packet with repeating cmsgs IP_RECVERR and SCM_TIMESTAMPING. That
->> would give O(1) overhead regardless of number of retransmits.
+>> CC:'ing netfilter-devel, Dave please do this in the future for
+>> netfilter reports, thanks.
+>>
+>> > After updating to Linus' current tree with todays net/ merge,
+>> > I noticed that ip6tables doesn't work any more..
+>> >
+>> > # ip6tables -F
+>> > ip6tables v1.4.19.1: can't initialize ip6tables table `filter': No
+>> > chain/target/match by that name
+>> > Perhaps ip6tables or your kernel needs to be upgraded
+>> >
+>> > My config has CONFIG_IP6_NF_FILTER=m
+>> > I also note that ip6table_filter.ko doesn't get auto-loaded now.
+>> > But even after modprobing it, I get the same message.
+>> >
+>> > Is there some additional option I now need to enable ?
+>> >
+>> >
+>> > I was a little surprised by how CONFIG_NF_TABLES is mandatory
+>> > for iptables to keep working, even if you don't have nft userspace.
+>> > (The only relevant thing in the Kconfig was related to x_tables,
+>> >  which I wasn't using).
+>> >
+>> > Perhaps either some select's, or additional help text ?
 >
-> We could attach a singly linked list of small sequence number cookies
-> to the SKB when it gets queued up.
-
-To avoid queuing a clone of the skb for each timestamp with
-sock_queue_err_skb, only queue the first occurrence. Record
-subsequent (tstype, tstamp) tuples to the queued skb with
-matching tskey, and at ip_recv_error convert each into a cmsg?
-
-> Upon an ACK, we need only look at the entries at the front of the list
-> until we see one past the cumulative ACK.
+> Cc'ing Tom:
 >
-> There's a little bit of work to do when SKBs are coalesced or chopped
-> up, but in return the timestamp indications the user gets will be very
-> accurate.
+> cb1ce2e ipv6: Implement automatic flow label generation on transmit
+> has allocated socket option 64 which is already reserved by ip6tables.
+>
+> I'm going to send a patch to fix this.
