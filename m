@@ -1,80 +1,51 @@
-From: =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: [PATCH v4] net: gianfar: fix reference counting for phy_node
-Date: Thu,  7 Aug 2014 22:17:07 +0200
-Message-ID: <1407442627-1508-1-git-send-email-u.kleine-koenig@pengutronix.de>
-References: <1407441707-27172-1-git-send-email-u.kleine-koenig@pengutronix.de>
+From: "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>
+Subject: Re: Silicom bypass driver promote from staging
+Date: Thu, 7 Aug 2014 13:19:47 -0700
+Message-ID: <20140807201947.GA6060@kroah.com>
+References: <3BFAEADE799AF145974162DF00E013AF018F80FFCF@exchange2010.silicom.local>
+ <20140805150957.GC27303@kroah.com>
+ <3BFAEADE799AF145974162DF00E013AF018F814DAB@exchange2010.silicom.local>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Claudiu Manoil <claudiu.manoil@freescale.com>,
-	kernel@pengutronix.de, Florian Fainelli <f.fainelli@gmail.com>,
-	Fabio Estevam <fabio.estevam@freescale.com>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"arnd@arndb.de" <arnd@arndb.de>, Anna Lukin <annal@silicom.co.il>
+To: David Hendel <david@silicom.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:49007 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754696AbaHGURN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2014 16:17:13 -0400
-In-Reply-To: <1407441707-27172-1-git-send-email-u.kleine-koenig@pengutronix.de>
+Received: from mail.linuxfoundation.org ([140.211.169.12]:47820 "EHLO
+	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751197AbaHGUTs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2014 16:19:48 -0400
+Content-Disposition: inline
+In-Reply-To: <3BFAEADE799AF145974162DF00E013AF018F814DAB@exchange2010.silicom.local>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The line before the changed if condition is:
+On Thu, Aug 07, 2014 at 09:26:54AM +0000, David Hendel wrote:
+> Hello Netdev group,
+> 
+> For the /driver/staging/silicom that we want to promote.
+> We have our bypass driver updated and we would like to move forward with integrating it into the kernel mainline We are not sure of what is the best location to have these driver located, as this is not really a network driver.
+> The options that we see are:
+> driver/misc/silicom/...
+> driver/char/silicom/...
+> driver/bypass/silicom/....
+> 
+> The description of the functionality of the driver is below per readme of this driver in the /driver/staging/silicom.
+> 
+> Currently in the attached driver we have defined it to be in driver/bypass/silicom/....
+> If this is OK with you then we can continue with that. if you thing that it needs to be in another location then we can change the patch.
 
-	priv->phy_node =3D of_parse_phandle(np, "phy-handle", 0);
+Making your patch an attachment in base64 mode, makes it impossible to
+quote to review it :(
 
-=2E If this call succeeds priv->phy_node must not be overwritten in the=
- if
-block; otherwise the reference to the node returned by of_parse_phandle
-is lost. So add a check that the if block isn't executed in this case.
+Anyway, I stopped at the first header file.  The kernel already has BIT
+definitions, no driver should ever have to redefine these and do it on
+their own.  That leads me to believe that this code really isn't all
+that "cleaned up" at all.
 
-=46urthermore in the fixed phy case no reference is aquired for phy_nod=
-e
-resulting in an of_node_put without holding a reference. To fix that,
-get a reference on the MAC dt node.
+Should I just look at what is in drivers/staging/silicom/ right now as
+code to review?  Or have you changed it any by making this patch?
 
-=46ixes: be40364544bd ("gianfar: use the new fixed PHY helpers")
-Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
----
-Hello,
+thanks,
 
-I don't know how, but somehow I managed to add unrelated stuff to v3. S=
-o:
-
-Changes since v3:
-
- - Reset patch to the v2 one.
-
-Sorry for the patch flood, I hope I got it right this time.
-
-Best regards
-Uwe
-
- drivers/net/ethernet/freescale/gianfar.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/eth=
-ernet/freescale/gianfar.c
-index 6b0c4775cd0d..fb29d049f4e1 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -892,12 +892,12 @@ static int gfar_of_init(struct platform_device *o=
-fdev, struct net_device **pdev)
- 	/* In the case of a fixed PHY, the DT node associated
- 	 * to the PHY is the Ethernet MAC DT node.
- 	 */
--	if (of_phy_is_fixed_link(np)) {
-+	if (!priv->phy_node && of_phy_is_fixed_link(np)) {
- 		err =3D of_phy_register_fixed_link(np);
- 		if (err)
- 			goto err_grp_init;
-=20
--		priv->phy_node =3D np;
-+		priv->phy_node =3D of_node_get(np);
- 	}
-=20
- 	/* Find the TBI PHY.  If it's not there, we don't support SGMII */
---=20
-2.0.1
+greg k-h
