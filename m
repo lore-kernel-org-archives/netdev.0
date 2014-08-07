@@ -1,34 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] rtl8150: Check if RSR is already defined
-Date: Wed, 06 Aug 2014 22:36:11 -0700 (PDT)
-Message-ID: <20140806.223611.1134627526934618200.davem@davemloft.net>
-References: <1407389095-31426-1-git-send-email-xerofoiify@gmail.com>
+From: "Koehrer Mathias (ETAS/ESW5)" <mathias.koehrer@etas.com>
+Subject: [PATCH] Fix e1000e with Intel 82572EI that has no hardware
+ timestamp support
+Date: Thu, 7 Aug 2014 06:10:10 +0000
+Message-ID: <bdf5ba14c73340f7b39f6d3df2473a43@FE-MBX1012.de.bosch.com>
+References: <bbcbf584e3624059bf7a0d2186fec6b4@FE-MBX1012.de.bosch.com>
+ <20140806191744.GB6611@netboy>
+ <CAPDOMVjYkfM49E9DM0=SDDRncLQbXxR8NQE9SrsW++YycMGU5w@mail.gmail.com>
+ <20140806193211.GC6611@netboy>
+ <CAPDOMViFCifeUoOgExuG7Q6_ObGj20g59siyMxWeKN=Zr2Kbdg@mail.gmail.com>
+ <20140806195433.GD6611@netboy>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: petkan@nucleusys.com, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: xerofoiify@gmail.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Richard Cochran <richardcochran@gmail.com>,
+	Nick Krause <xerofoify@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1407389095-31426-1-git-send-email-xerofoiify@gmail.com>
+In-Reply-To: <20140806195433.GD6611@netboy>
+Content-Language: de-DE
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Nick Krause <xerofoiify@gmail.com>
-Date: Thu,  7 Aug 2014 07:24:54 +0200
+With the Intel 82527EI (driver: e1000e) there is an issue when running
+the ptpd2 program, that leads to a kernel oops.  The reason is here that
+in e1000_xmit_frame() a work queue will be scheduled that has not been
+initialized in this case.  The work queue "tx_hwstamp_work" will only be
+initialized if adapter->flags & FLAG_HAS_HW_TIMESTAMP set.  This check
+is missing in e1000_xmit_frame().
 
-> I am getting the following warn
-> 
-> drivers/net/usb/rtl8150.c:30:0: warning: "RSR" redefined
-> arch/xtensa/include/asm/processor.h:189:0: note: this is the location of the previous definition
-> 
-> I wanted to remove RSR as it is not being used but it is not clear if being used
-> for documenting purpose. undefining should be enough.
-> 
-> Signed-off-by: Nick Krause <xerofoify@gmail.com>
+The following patch adds the missing check.
 
-This isn't the right way to fix this.
+Signed-off-by: Mathias Koehrer <mathias.koehrer@etas.com>
 
-Rather, the thing to do is to give the macros in this driver an
-appropriate prefix such as "RTL8150_" so that they don't collide
-with things in the global namespace.
+---
+ drivers/net/ethernet/intel/e1000e/netdev.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+Index: linux-3.12.26/drivers/net/ethernet/intel/e1000e/netdev.c
+===================================================================
+--- linux-3.12.26.orig/drivers/net/ethernet/intel/e1000e/netdev.c	2014-08-04 10:56:56.000000000 +0200
++++ linux-3.12.26/drivers/net/ethernet/intel/e1000e/netdev.c	2014-08-07 08:05:17.000000000 +0200
+@@ -5550,7 +5550,8 @@
+ 			     nr_frags);
+ 	if (count) {
+ 		if (unlikely((skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) &&
+-			     !adapter->tx_hwtstamp_skb)) {
++			     !adapter->tx_hwtstamp_skb &&
++			     (adapter->flags & FLAG_HAS_HW_TIMESTAMP))) {
+ 			skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
+ 			tx_flags |= E1000_TX_FLAGS_HWTSTAMP;
+ 			adapter->tx_hwtstamp_skb = skb_get(skb);
+
+-- 
