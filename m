@@ -1,66 +1,53 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: [PATCH 3/5] drivers/atm/atmtcp.c: fix error return code
-Date: Thu,  7 Aug 2014 14:49:06 +0200
-Message-ID: <1407415749-19978-3-git-send-email-Julia.Lawall@lip6.fr>
-References: <1407415749-19978-1-git-send-email-Julia.Lawall@lip6.fr>
-Cc: kernel-janitors@vger.kernel.org,
-	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Chas Williams <chas@cmf.nrl.navy.mil>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2-relais-roc.national.inria.fr ([192.134.164.83]:14488 "EHLO
-	mail2-relais-roc.national.inria.fr" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757441AbaHGMwV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2014 08:52:21 -0400
-In-Reply-To: <1407415749-19978-1-git-send-email-Julia.Lawall@lip6.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Will Deacon <will.deacon@arm.com>
+Subject: Re: [PATCH] smsc: Undefine SMC_inb and SMC_outb before define
+Date: Thu, 7 Aug 2014 13:55:57 +0100
+Message-ID: <20140807125557.GL13703@arm.com>
+References: <1407392942-22183-1-git-send-email-xerofoiify@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Nicolas Pitre <nico@fluxnic.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linus Walleij <linus.walleij@linaro.org>,
+	Ben Boeckel <mathstuf@gmail.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Michael Opdenacker <michael.opdenacker@free-electrons.com>,
+	"open list:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
+	open list <linux-kernel@vger.kernel.org>
+To: Nick Krause <xerofoiify@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1407392942-22183-1-git-send-email-xerofoiify@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Julia Lawall <Julia.Lawall@lip6.fr>
+On Thu, Aug 07, 2014 at 07:29:00AM +0100, Nick Krause wrote:
+> Undefine SMC_inb and SMC_outb before redifing to prevent warning which follows
+> 
+> drivers/net/ethernet/smsc/smc91x.h:490:0: warning: "SMC_inb" redefined [enabled by default]
+> drivers/net/ethernet/smsc/smc91x.h:199:0: note: this is the location of the previous definition
+> drivers/net/ethernet/smsc/smc91x.h:491:0: warning: "SMC_outb" redefined [enabled by default]
+> drivers/net/ethernet/smsc/smc91x.h:201:0: note: this is the location of the previous definition
+> 
+> Signed-off-by: Nick Krause <xerofoify@gmail.com>
+> ---
+>  drivers/net/ethernet/smsc/smc91x.h | 2 ++
+>  1 file changed, 2 insertions(+)
+> 
+> diff --git a/drivers/net/ethernet/smsc/smc91x.h b/drivers/net/ethernet/smsc/smc91x.h
+> index 47dce91..d1c5441 100644
+> --- a/drivers/net/ethernet/smsc/smc91x.h
+> +++ b/drivers/net/ethernet/smsc/smc91x.h
+> @@ -487,6 +487,8 @@ smc_pxa_dma_irq(int dma, void *dummy)
+>  #endif
+>  
+>  #if ! SMC_CAN_USE_8BIT
+> +#undef  SMC_inb
+> +#undef  SMC_outb
+>  #define SMC_inb(ioaddr, reg)		({ BUG(); 0; })
+>  #define SMC_outb(x, ioaddr, reg)	BUG()
+>  #define SMC_insb(a, r, p, l)		BUG()
 
-Convert a zero return value on error to a negative one, as returned
-elsewhere in the function.
+Nak. The real issue here appears to be that the CONFIG_M32R code defines
+SMC_CAN_USE_8BIT as 0 but then defines SMC_inb/SMC_outb anyway.
 
-A simplified version of the semantic match that finds this problem is as
-follows: (http://coccinelle.lip6.fr/)
-
-// <smpl>
-@@
-identifier ret; expression e1,e2;
-@@
-(
-if (\(ret < 0\|ret != 0\))
- { ... return ret; }
-|
-ret = 0
-)
-... when != ret = e1
-    when != &ret
-*if(...)
-{
-  ... when != ret = e2
-      when forall
- return ret;
-}
-// </smpl>
-
-Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
-
----
-Another return value could be more appropriate.
-
- drivers/atm/atmtcp.c |    1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/drivers/atm/atmtcp.c b/drivers/atm/atmtcp.c
-index 0e3f8f9..c8e4fb4 100644
---- a/drivers/atm/atmtcp.c
-+++ b/drivers/atm/atmtcp.c
-@@ -299,6 +299,7 @@ static int atmtcp_c_send(struct atm_vcc *vcc,struct sk_buff *skb)
- 	out_vcc = find_vcc(dev, ntohs(hdr->vpi), ntohs(hdr->vci));
- 	read_unlock(&vcc_sklist_lock);
- 	if (!out_vcc) {
-+		result = -ESRCH;
- 		atomic_inc(&vcc->stats->tx_err);
- 		goto done;
- 	}
+Will
