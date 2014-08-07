@@ -1,82 +1,253 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: Silicom bypass driver promote from staging
-Date: Thu, 7 Aug 2014 02:46:15 -0700
-Message-ID: <CAL3LdT6-OUJOZ4WHDKfS1ytDubDLMv0RaoQGoPjA2fScuYxnUg@mail.gmail.com>
-References: <3BFAEADE799AF145974162DF00E013AF018F80FFCF@exchange2010.silicom.local>
-	<20140805150957.GC27303@kroah.com>
-	<3BFAEADE799AF145974162DF00E013AF018F814DAB@exchange2010.silicom.local>
+From: Petko Manolov <petkan@nucleusys.com>
+Subject: Re: [PATCH] rtl8150: Prefix macros with RTL8150 to avoid collides
+Date: Thu, 7 Aug 2014 12:57:00 +0300
+Message-ID: <20140807095700.GC4839@bender.nucleusys.com>
+References: <1407391461-1833-1-git-send-email-xerofoiify@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"arnd@arndb.de" <arnd@arndb.de>, Anna Lukin <annal@silicom.co.il>,
-	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>
-To: David Hendel <david@silicom.co.il>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f172.google.com ([209.85.214.172]:57292 "EHLO
-	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757238AbaHGJqQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2014 05:46:16 -0400
-Received: by mail-ob0-f172.google.com with SMTP id wn1so2736805obc.17
-        for <netdev@vger.kernel.org>; Thu, 07 Aug 2014 02:46:15 -0700 (PDT)
-In-Reply-To: <3BFAEADE799AF145974162DF00E013AF018F814DAB@exchange2010.silicom.local>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "open list:USB RTL8150 DRIVER" <linux-usb@vger.kernel.org>,
+	"open list:USB RTL8150 DRIVER" <netdev@vger.kernel.org>,
+	open list <linux-kernel@vger.kernel.org>, davem@davemloft.net
+To: Nick Krause <xerofoiify@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1407391461-1833-1-git-send-email-xerofoiify@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 7, 2014 at 2:26 AM, David Hendel <david@silicom.co.il> wrote:
-> Hello Netdev group,
->
-> For the /driver/staging/silicom that we want to promote.
-> We have our bypass driver updated and we would like to move forward with integrating it into the kernel mainline We are not sure of what is the best location to have these driver located, as this is not really a network driver.
-> The options that we see are:
-> driver/misc/silicom/...
-> driver/char/silicom/...
-> driver/bypass/silicom/....
->
-> The description of the functionality of the driver is below per readme of this driver in the /driver/staging/silicom.
->
-> Currently in the attached driver we have defined it to be in driver/bypass/silicom/....
-> If this is OK with you then we can continue with that. if you thing that it needs to be in another location then we can change the patch.
->
-> Let me know how we can proceed with that. what should be the next step.
-> -------------
-> Theory of Operation:
-> The Silicom Bypass Network Interface Cards (NICs) are network cards with paired ports (2 or 4).
+ACK
 
-Based on the above description alone, the best location of your driver would be:
-drivers/net/ethernet/silicom/...
 
-I would suggest submitting patches to move your bypass driver to the
-suggested location (drivers/net/ethernet/silicom/) to the netdev
-mailing list, and we can go from there.
-
-> The pairs either act as a "wire" allowing the network packets to pass or insert the device in between the two ports.  When paired with the on-board hardware watchdog or other failsafe, they provide high availability for the network in the face of software outages or maintenance.
->
-> The software requirements are for a kernel level driver that interfaces with the bypass and watchdog, as well as for control software. User control can be either the provided standalone executable
-> (/bin/bpctl) or the API exposed by the Silicom library.
-> ----------------------
->
-> Regards, David
->
-> -----Original Message-----
-> From: gregkh@linuxfoundation.org [mailto:gregkh@linuxfoundation.org]
-> Sent: Monday, June 09, 2014 11:04 PM
-> To: David Hendel
-> Subject: Re: FW: ethtool patch to support bypass / fail-to-wire function
->
-> On Mon, Jun 09, 2014 at 07:29:08PM +0000, David Hendel wrote:
->> Hello Greg Kroah-Hartman,
->>
->> My name is David Hendel, I am Silicom V.P of R&D and was working with Anna Lukin our senior software developer to incorporate our bypass / Fail-to-Wire functionality into ethtool.
->>
->> We have been working with our partner Citrix in doing that and they
->> think that it will be very valuable if this will be added to the kernel distribution ethtool We have our bypass driver already in the kernel  - /drivers/staging/silicom/ bpctl_mode ...
->
-> Ah, I was wondering what was up with that driver.  I wanted to remove it soon as it didn't seem like anyone was working on merging it to the "proper" place in the Linux kernel tree.  Are you planning on helping to clean up the code to get it merged properly soon?
->
->> Per Ben Hutchings we need to work with networking community, not sure
->> if you are the one to approach,
->
-> Nope, I'm not a networking developer, try the netdev@vger.kernel.org mailing list, that is where the Linux kernel networking developers are at.
->
-> greg k-h
+On 14-08-07 08:04:21, Nick Krause wrote:
+> Avoid collides in global namespaces by prefixing macros with RTL8150 as
+> suggested by David Miller. Collides as follows:
+> 
+> drivers/net/usb/rtl8150.c:30:0: warning: "RSR" redefined
+> arch/xtensa/include/asm/processor.h:189:0: note: this is the location of the previous definition
+> 
+> with help from kernelnewbies. Test compiled on sandybridge.
+> 
+> Signed-off-by: Nick Krause <xerofoify@gmail.com>
+> Suggested-by: David Miller <davem@davemloft.net>
+> ---
+>  drivers/net/usb/rtl8150.c | 102 +++++++++++++++++++++++-----------------------
+>  1 file changed, 52 insertions(+), 50 deletions(-)
+> 
+> diff --git a/drivers/net/usb/rtl8150.c b/drivers/net/usb/rtl8150.c
+> index 6e87e57..1e1c408 100644
+> --- a/drivers/net/usb/rtl8150.c
+> +++ b/drivers/net/usb/rtl8150.c
+> @@ -21,27 +21,27 @@
+>  #define DRIVER_AUTHOR "Petko Manolov <petkan@users.sourceforge.net>"
+>  #define DRIVER_DESC "rtl8150 based usb-ethernet driver"
+>  
+> -#define	IDR			0x0120
+> -#define	MAR			0x0126
+> -#define	CR			0x012e
+> -#define	TCR			0x012f
+> -#define	RCR			0x0130
+> -#define	TSR			0x0132
+> -#define	RSR			0x0133
+> -#define	CON0			0x0135
+> -#define	CON1			0x0136
+> -#define	MSR			0x0137
+> -#define	PHYADD			0x0138
+> -#define	PHYDAT			0x0139
+> -#define	PHYCNT			0x013b
+> -#define	GPPC			0x013d
+> -#define	BMCR			0x0140
+> -#define	BMSR			0x0142
+> -#define	ANAR			0x0144
+> -#define	ANLP			0x0146
+> -#define	AER			0x0148
+> -#define CSCR			0x014C  /* This one has the link status */
+> -#define CSCR_LINK_STATUS	(1 << 3)
+> +#define	RTL8150_IDR			0x0120
+> +#define	RTL8150_MAR			0x0126
+> +#define	RTL8150_CR			0x012e
+> +#define	RTL8150_TCR			0x012f
+> +#define	RTL8150_RCR			0x0130
+> +#define	RTL8150_TSR			0x0132
+> +#define	RTL8150_RSR			0x0133
+> +#define	RTL8150_CON0			0x0135
+> +#define	RTL8150_CON1			0x0136
+> +#define	RTL8150_MSR			0x0137
+> +#define	RTL8150_PHYADD			0x0138
+> +#define	RTL8150_PHYDAT			0x0139
+> +#define	RTL8150_PHYCNT			0x013b
+> +#define	RTL8150_GPPC			0x013d
+> +#define	RTL8150_BMCR			0x0140
+> +#define	RTL8150_BMSR			0x0142
+> +#define	RTL8150_ANAR			0x0144
+> +#define	RTL8150_ANLP			0x0146
+> +#define	RTL8150_AER			0x0148
+> +#define RTL8150_CSCR			0x014C  /*This one has the link status*/
+> +#define RTL8150_CSCR_LINK_STATUS	(1 << 3)
+>  
+>  #define	IDR_EEPROM		0x1202
+>  
+> @@ -220,14 +220,14 @@ static int read_mii_word(rtl8150_t * dev, u8 phy, __u8 indx, u16 * reg)
+>  	tmp = indx | PHY_READ | PHY_GO;
+>  	i = 0;
+>  
+> -	set_registers(dev, PHYADD, sizeof(data), data);
+> -	set_registers(dev, PHYCNT, 1, &tmp);
+> +	set_registers(dev, RTL8150_PHYADD, sizeof(data), data);
+> +	set_registers(dev, RTL8150_PHYCNT, 1, &tmp);
+>  	do {
+> -		get_registers(dev, PHYCNT, 1, data);
+> +		get_registers(dev, RTL8150_PHYCNT, 1, data);
+>  	} while ((data[0] & PHY_GO) && (i++ < MII_TIMEOUT));
+>  
+>  	if (i <= MII_TIMEOUT) {
+> -		get_registers(dev, PHYDAT, 2, data);
+> +		get_registers(dev, RTL8150_PHYDAT, 2, data);
+>  		*reg = data[0] | (data[1] << 8);
+>  		return 0;
+>  	} else
+> @@ -245,10 +245,10 @@ static int write_mii_word(rtl8150_t * dev, u8 phy, __u8 indx, u16 reg)
+>  	tmp = indx | PHY_WRITE | PHY_GO;
+>  	i = 0;
+>  
+> -	set_registers(dev, PHYADD, sizeof(data), data);
+> -	set_registers(dev, PHYCNT, 1, &tmp);
+> +	set_registers(dev, RTL8150_PHYADD, sizeof(data), data);
+> +	set_registers(dev, RTL8150_PHYCNT, 1, &tmp);
+>  	do {
+> -		get_registers(dev, PHYCNT, 1, data);
+> +		get_registers(dev, RTL8150_PHYCNT, 1, data);
+>  	} while ((data[0] & PHY_GO) && (i++ < MII_TIMEOUT));
+>  
+>  	if (i <= MII_TIMEOUT)
+> @@ -261,7 +261,7 @@ static inline void set_ethernet_addr(rtl8150_t * dev)
+>  {
+>  	u8 node_id[6];
+>  
+> -	get_registers(dev, IDR, sizeof(node_id), node_id);
+> +	get_registers(dev, RTL8150_IDR, sizeof(node_id), node_id);
+>  	memcpy(dev->netdev->dev_addr, node_id, sizeof(node_id));
+>  }
+>  
+> @@ -275,17 +275,17 @@ static int rtl8150_set_mac_address(struct net_device *netdev, void *p)
+>  
+>  	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
+>  	netdev_dbg(netdev, "Setting MAC address to %pM\n", netdev->dev_addr);
+> -	/* Set the IDR registers. */
+> -	set_registers(dev, IDR, netdev->addr_len, netdev->dev_addr);
+> +	/* Set the RTL8150_IDR registers. */
+> +	set_registers(dev, RTL8150_IDR, netdev->addr_len, netdev->dev_addr);
+>  #ifdef EEPROM_WRITE
+>  	{
+>  	int i;
+>  	u8 cr;
+> -	/* Get the CR contents. */
+> -	get_registers(dev, CR, 1, &cr);
+> +	/* Get the RTL8150_CR contents. */
+> +	get_registers(dev, RTL8150_CR, 1, &cr);
+>  	/* Set the WEPROM bit (eeprom write enable). */
+>  	cr |= 0x20;
+> -	set_registers(dev, CR, 1, &cr);
+> +	set_registers(dev, RTL8150_CR, 1, &cr);
+>  	/* Write the MAC address into eeprom. Eeprom writes must be word-sized,
+>  	   so we need to split them up. */
+>  	for (i = 0; i * 2 < netdev->addr_len; i++) {
+> @@ -294,7 +294,7 @@ static int rtl8150_set_mac_address(struct net_device *netdev, void *p)
+>  	}
+>  	/* Clear the WEPROM bit (preventing accidental eeprom writes). */
+>  	cr &= 0xdf;
+> -	set_registers(dev, CR, 1, &cr);
+> +	set_registers(dev, RTL8150_CR, 1, &cr);
+>  	}
+>  #endif
+>  	return 0;
+> @@ -305,9 +305,9 @@ static int rtl8150_reset(rtl8150_t * dev)
+>  	u8 data = 0x10;
+>  	int i = HZ;
+>  
+> -	set_registers(dev, CR, 1, &data);
+> +	set_registers(dev, RTL8150_CR, 1, &data);
+>  	do {
+> -		get_registers(dev, CR, 1, &data);
+> +		get_registers(dev, RTL8150_CR, 1, &data);
+>  	} while ((data & 0x10) && --i);
+>  
+>  	return (i > 0) ? 1 : 0;
+> @@ -617,16 +617,18 @@ static int enable_net_traffic(rtl8150_t * dev)
+>  	if (!rtl8150_reset(dev)) {
+>  		dev_warn(&dev->udev->dev, "device reset failed\n");
+>  	}
+> -	/* RCR bit7=1 attach Rx info at the end;  =0 HW CRC (which is broken) */
+> +	/* RTL8150_RCR bit7=1 attach Rx info at the end;
+> +	 * =0 HW CRC (which is broken)
+> +	 */
+>  	rcr = 0x9e;
+>  	tcr = 0xd8;
+>  	cr = 0x0c;
+>  	if (!(rcr & 0x80))
+>  		set_bit(RTL8150_HW_CRC, &dev->flags);
+> -	set_registers(dev, RCR, 1, &rcr);
+> -	set_registers(dev, TCR, 1, &tcr);
+> -	set_registers(dev, CR, 1, &cr);
+> -	get_registers(dev, MSR, 1, &msr);
+> +	set_registers(dev, RTL8150_RCR, 1, &rcr);
+> +	set_registers(dev, RTL8150_TCR, 1, &tcr);
+> +	set_registers(dev, RTL8150_CR, 1, &cr);
+> +	get_registers(dev, RTL8150_MSR, 1, &msr);
+>  
+>  	return 0;
+>  }
+> @@ -635,9 +637,9 @@ static void disable_net_traffic(rtl8150_t * dev)
+>  {
+>  	u8 cr;
+>  
+> -	get_registers(dev, CR, 1, &cr);
+> +	get_registers(dev, RTL8150_CR, 1, &cr);
+>  	cr &= 0xf3;
+> -	set_registers(dev, CR, 1, &cr);
+> +	set_registers(dev, RTL8150_CR, 1, &cr);
+>  }
+>  
+>  static void rtl8150_tx_timeout(struct net_device *netdev)
+> @@ -666,7 +668,7 @@ static void rtl8150_set_multicast(struct net_device *netdev)
+>  		/* ~RX_MULTICAST, ~RX_PROMISCUOUS */
+>  		rx_creg &= 0x00fc;
+>  	}
+> -	async_set_registers(dev, RCR, sizeof(rx_creg), rx_creg);
+> +	async_set_registers(dev, RTL8150_RCR, sizeof(rx_creg), rx_creg);
+>  	netif_wake_queue(netdev);
+>  }
+>  
+> @@ -706,8 +708,8 @@ static void set_carrier(struct net_device *netdev)
+>  	rtl8150_t *dev = netdev_priv(netdev);
+>  	short tmp;
+>  
+> -	get_registers(dev, CSCR, 2, &tmp);
+> -	if (tmp & CSCR_LINK_STATUS)
+> +	get_registers(dev, RTL8150_CSCR, 2, &tmp);
+> +	if (tmp & RTL8150_CSCR_LINK_STATUS)
+>  		netif_carrier_on(netdev);
+>  	else
+>  		netif_carrier_off(netdev);
+> @@ -723,7 +725,7 @@ static int rtl8150_open(struct net_device *netdev)
+>  	if (!dev->rx_skb)
+>  		return -ENOMEM;
+>  
+> -	set_registers(dev, IDR, 6, netdev->dev_addr);
+> +	set_registers(dev, RTL8150_IDR, 6, netdev->dev_addr);
+>  
+>  	usb_fill_bulk_urb(dev->rx_urb, dev->udev, usb_rcvbulkpipe(dev->udev, 1),
+>  		      dev->rx_skb->data, RTL8150_MTU, read_bulk_callback, dev);
+> @@ -786,8 +788,8 @@ static int rtl8150_get_settings(struct net_device *netdev, struct ethtool_cmd *e
+>  	ecmd->port = PORT_TP;
+>  	ecmd->transceiver = XCVR_INTERNAL;
+>  	ecmd->phy_address = dev->phy;
+> -	get_registers(dev, BMCR, 2, &bmcr);
+> -	get_registers(dev, ANLP, 2, &lpa);
+> +	get_registers(dev, RTL8150_BMCR, 2, &bmcr);
+> +	get_registers(dev, RTL8150_ANLP, 2, &lpa);
+>  	if (bmcr & BMCR_ANENABLE) {
+>  		u32 speed = ((lpa & (LPA_100HALF | LPA_100FULL)) ?
+>  			     SPEED_100 : SPEED_10);
+> -- 
+> 2.0.1
+> 
