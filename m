@@ -1,124 +1,613 @@
-From: =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: [PATCH v3] net: gianfar: fix reference counting for phy_node
-Date: Thu,  7 Aug 2014 22:01:47 +0200
-Message-ID: <1407441707-27172-1-git-send-email-u.kleine-koenig@pengutronix.de>
-References: <1407440506-20028-1-git-send-email-u.kleine-koenig@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Claudiu Manoil <claudiu.manoil@freescale.com>,
-	kernel@pengutronix.de, Florian Fainelli <f.fainelli@gmail.com>,
-	Fabio Estevam <fabio.estevam@freescale.com>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+From: Anish Bhatt <anish@chelsio.com>
+Subject: [PATCH net-next] cxgb4: IEEE fixes for DCBx state machine
+Date: Thu,  7 Aug 2014 13:10:56 -0700
+Message-ID: <1407442256-7308-1-git-send-email-anish@chelsio.com>
+Cc: davem@davemloft.net, hariprasad@chelsio.com, leedom@chelsio.com,
+	Anish Bhatt <anish@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:33687 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750874AbaHGUBy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2014 16:01:54 -0400
-In-Reply-To: <1407440506-20028-1-git-send-email-u.kleine-koenig@pengutronix.de>
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:36574
+	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750874AbaHGULI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2014 16:11:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The line before the changed if condition is:
+* Changes required due to 16eecd9be4b05 ("dcbnl : Fix misleading
+  dcb_app->priority explanation")
+* Driver was previously not aware of what DCBx version was negotiated by
+  firmware, this could lead to DCB app table  in kernel or in firmware being
+  populated wrong  since IEEE/CEE used different formats made clear by above
+  mentioned commit, both cases addressed.
+* Driver was missing a couple of state transitions that could be caused
+  by other drivers that use chelsio hardware, resulting in incorrect behaviour
+  (the change that addresses this also flips the state machine to switch on
+   state instead of transition, hope this is okay in current window)
+* Prio queue info & tsa is no longer thrown away
 
-	priv->phy_node =3D of_parse_phandle(np, "phy-handle", 0);
-
-=2E If this call succeeds priv->phy_node must not be overwritten in the=
- if
-block; otherwise the reference to the node returned by of_parse_phandle
-is lost. So add a check that the if block isn't executed in this case.
-
-=46urthermore in the fixed phy case no reference is aquired for phy_nod=
-e
-resulting in an of_node_put without holding a reference. To fix that,
-get a reference on the MAC dt node.
-
-=46ixes: be40364544bd ("gianfar: use the new fixed PHY helpers")
-Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
+Signed-off-by: Anish Bhatt <anish@chelsio.com>
 ---
-Changes since v2:
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |   3 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c  | 260 +++++++++++++++++-------
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.h  |  10 +
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   2 +
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   |  12 +-
+ 5 files changed, 216 insertions(+), 71 deletions(-)
 
- - add a Fixes: footer as suggested by Thomas Petazzoni via irc
-
- drivers/net/ethernet/broadcom/genet/bcmmii.c          | 6 ++++--
- drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c | 2 +-
- drivers/net/ethernet/freescale/gianfar.c              | 4 ++--
- 3 files changed, 7 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmmii.c b/drivers/net=
-/ethernet/broadcom/genet/bcmmii.c
-index add8d8596084..693659f05776 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmmii.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmmii.c
-@@ -311,12 +311,12 @@ static int bcmgenet_mii_probe(struct net_device *=
-dev)
- 	/* In the case of a fixed PHY, the DT node associated
- 	 * to the PHY is the Ethernet MAC DT node.
- 	 */
--	if (of_phy_is_fixed_link(dn)) {
-+	if (!priv->phy_dn && of_phy_is_fixed_link(dn)) {
- 		ret =3D of_phy_register_fixed_link(dn);
- 		if (ret)
- 			return ret;
-=20
--		priv->phy_dn =3D dn;
-+		priv->phy_dn =3D of_get_node(dn);
- 	}
-=20
- 	phydev =3D of_phy_connect(dev, priv->phy_dn, bcmgenet_mii_setup, 0,
-@@ -452,6 +452,7 @@ int bcmgenet_mii_init(struct net_device *dev)
- 	return 0;
-=20
- out:
-+	of_node_put(priv->phy_dn);
- 	mdiobus_unregister(priv->mii_bus);
- out_free:
- 	kfree(priv->mii_bus->irq);
-@@ -463,6 +464,7 @@ void bcmgenet_mii_exit(struct net_device *dev)
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index c9b922cc3e67..7c5e3eb4ab4b 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -522,6 +522,9 @@ struct sge_txq {
+ struct sge_eth_txq {                /* state for an SGE Ethernet Tx queue */
+ 	struct sge_txq q;
+ 	struct netdev_queue *txq;   /* associated netdev TX queue */
++#ifdef CONFIG_CHELSIO_T4_DCB
++	u8 dcb_prio;		    /* DCB Priority bound to queue */
++#endif
+ 	unsigned long tso;          /* # of TSO requests */
+ 	unsigned long tx_cso;       /* # of Tx checksum offloads */
+ 	unsigned long vlan_ins;     /* # of Tx VLAN insertions */
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
+index 0d3a9df5be36..2c5ceea3e89a 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.c
+@@ -20,6 +20,17 @@
+ 
+ #include "cxgb4.h"
+ 
++/* DCBx version control
++ */
++char *dcb_ver_array[] = {
++	"Unknown",
++	"DCBx-CIN",
++	"DCBx-CEE 1.01",
++	"DCBx-IEEE",
++	"", "", "",
++	"Auto Negotiated"
++};
++
+ /* Initialize a port's Data Center Bridging state.  Typically used after a
+  * Link Down event.
+  */
+@@ -27,25 +38,45 @@ void cxgb4_dcb_state_init(struct net_device *dev)
  {
- 	struct bcmgenet_priv *priv =3D netdev_priv(dev);
-=20
-+	of_node_put(priv->phy_dn);
- 	mdiobus_unregister(priv->mii_bus);
- 	kfree(priv->mii_bus->irq);
- 	mdiobus_free(priv->mii_bus);
-diff --git a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c b/dr=
-ivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
-index cfaf17b70f3f..748fd24d3d9e 100644
---- a/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
-+++ b/drivers/net/ethernet/freescale/fs_enet/fs_enet-main.c
-@@ -1033,7 +1033,7 @@ static int fs_enet_probe(struct platform_device *=
-ofdev)
- 		/* In the case of a fixed PHY, the DT node associated
- 		 * to the PHY is the Ethernet MAC DT node.
- 		 */
--		fpi->phy_node =3D ofdev->dev.of_node;
-+		fpi->phy_node =3D of_node_get(ofdev->dev.of_node);
+ 	struct port_info *pi = netdev2pinfo(dev);
+ 	struct port_dcb_info *dcb = &pi->dcb;
++	int version_temp = dcb->dcb_version;
+ 
+ 	memset(dcb, 0, sizeof(struct port_dcb_info));
+ 	dcb->state = CXGB4_DCB_STATE_START;
++	if (version_temp)
++		dcb->dcb_version = version_temp;
++
++	netdev_info(dev, "%s: Initializing DCB state for port[%d]\n",
++		    __func__, pi->port_id);
++}
++
++void cxgb4_dcb_version_init(struct net_device *dev)
++{
++	struct port_info *pi = netdev2pinfo(dev);
++	struct port_dcb_info *dcb = &pi->dcb;
++
++	/* Any writes here are only done on kernels that exlicitly need
++	 * a specific version, say < 2.6.38 which only support CEE
++	 */
++	dcb->dcb_version = FW_PORT_DCB_VER_AUTO;
+ }
+ 
+ /* Finite State machine for Data Center Bridging.
+  */
+ void cxgb4_dcb_state_fsm(struct net_device *dev,
+-			 enum cxgb4_dcb_state_input input)
++			 enum cxgb4_dcb_state_input transition_to)
+ {
+ 	struct port_info *pi = netdev2pinfo(dev);
+ 	struct port_dcb_info *dcb = &pi->dcb;
+ 	struct adapter *adap = pi->adapter;
++	enum cxgb4_dcb_state current_state = dcb->state;
+ 
+-	switch (input) {
+-	case CXGB4_DCB_INPUT_FW_DISABLED: {
+-		/* Firmware tells us it's not doing DCB */
+-		switch (dcb->state) {
+-		case CXGB4_DCB_STATE_START: {
++	netdev_info(dev, "%s: State change from %d to %d for %s\n",
++		    __func__, dcb->state, transition_to, dev->name);
++
++	switch (current_state) {
++	case CXGB4_DCB_STATE_START: {
++		switch (transition_to) {
++		case CXGB4_DCB_INPUT_FW_DISABLED: {
+ 			/* we're going to use Host DCB */
+ 			dcb->state = CXGB4_DCB_STATE_HOST;
+ 			dcb->supported = CXGB4_DCBX_HOST_SUPPORT;
+@@ -53,48 +84,62 @@ void cxgb4_dcb_state_fsm(struct net_device *dev,
+ 			break;
+ 		}
+ 
+-		case CXGB4_DCB_STATE_HOST: {
+-			/* we're alreaady in Host DCB mode */
++		case CXGB4_DCB_INPUT_FW_ENABLED: {
++			/* we're going to use Firmware DCB */
++			dcb->state = CXGB4_DCB_STATE_FW_INCOMPLETE;
++			dcb->supported = CXGB4_DCBX_FW_SUPPORT;
++			break;
++		}
++
++		case CXGB4_DCB_INPUT_FW_INCOMPLETE: {
++			/* expected transition */
++			break;
++		}
++
++		case CXGB4_DCB_INPUT_FW_ALLSYNCED: {
++			dcb->state = CXGB4_DCB_STATE_FW_ALLSYNCED;
+ 			break;
+ 		}
+ 
+ 		default:
+-			goto bad_state_transition;
++			goto bad_state_input;
+ 		}
+ 		break;
  	}
-=20
- 	if (of_device_is_compatible(ofdev->dev.of_node, "fsl,mpc5125-fec")) {
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/eth=
-ernet/freescale/gianfar.c
-index 6b0c4775cd0d..fb29d049f4e1 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -892,12 +892,12 @@ static int gfar_of_init(struct platform_device *o=
-fdev, struct net_device **pdev)
- 	/* In the case of a fixed PHY, the DT node associated
- 	 * to the PHY is the Ethernet MAC DT node.
- 	 */
--	if (of_phy_is_fixed_link(np)) {
-+	if (!priv->phy_node && of_phy_is_fixed_link(np)) {
- 		err =3D of_phy_register_fixed_link(np);
+ 
+-	case CXGB4_DCB_INPUT_FW_ENABLED: {
+-		/* Firmware tells us that it is doing DCB */
+-		switch (dcb->state) {
+-		case CXGB4_DCB_STATE_START: {
+-			/* we're going to use Firmware DCB */
+-			dcb->state = CXGB4_DCB_STATE_FW_INCOMPLETE;
+-			dcb->supported = CXGB4_DCBX_FW_SUPPORT;
++	case CXGB4_DCB_STATE_FW_INCOMPLETE: {
++		switch (transition_to) {
++		case CXGB4_DCB_INPUT_FW_ENABLED: {
++			/* we're alreaady in firmware DCB mode */
+ 			break;
+ 		}
+ 
+-		case CXGB4_DCB_STATE_FW_INCOMPLETE:
+-		case CXGB4_DCB_STATE_FW_ALLSYNCED: {
+-			/* we're alreaady in firmware DCB mode */
++		case CXGB4_DCB_INPUT_FW_INCOMPLETE: {
++			/* we're already incomplete */
++			break;
++		}
++
++		case CXGB4_DCB_INPUT_FW_ALLSYNCED: {
++			dcb->state = CXGB4_DCB_STATE_FW_ALLSYNCED;
++			dcb->enabled = 1;
++			linkwatch_fire_event(dev);
+ 			break;
+ 		}
+ 
+ 		default:
+-			goto bad_state_transition;
++			goto bad_state_input;
+ 		}
+ 		break;
+ 	}
+ 
+-	case CXGB4_DCB_INPUT_FW_INCOMPLETE: {
+-		/* Firmware tells us that its DCB state is incomplete */
+-		switch (dcb->state) {
+-		case CXGB4_DCB_STATE_FW_INCOMPLETE: {
+-			/* we're already incomplete */
++	case CXGB4_DCB_STATE_FW_ALLSYNCED: {
++		switch (transition_to) {
++		case CXGB4_DCB_INPUT_FW_ENABLED: {
++			/* we're alreaady in firmware DCB mode */
+ 			break;
+ 		}
+ 
+-		case CXGB4_DCB_STATE_FW_ALLSYNCED: {
++		case CXGB4_DCB_INPUT_FW_INCOMPLETE: {
+ 			/* We were successfully running with firmware DCB but
+ 			 * now it's telling us that it's in an "incomplete
+ 			 * state.  We need to reset back to a ground state
+@@ -107,46 +152,48 @@ void cxgb4_dcb_state_fsm(struct net_device *dev,
+ 			break;
+ 		}
+ 
+-		default:
+-			goto bad_state_transition;
+-		}
+-		break;
+-	}
+-
+-	case CXGB4_DCB_INPUT_FW_ALLSYNCED: {
+-		/* Firmware tells us that its DCB state is complete */
+-		switch (dcb->state) {
+-		case CXGB4_DCB_STATE_FW_INCOMPLETE: {
+-			dcb->state = CXGB4_DCB_STATE_FW_ALLSYNCED;
++		case CXGB4_DCB_INPUT_FW_ALLSYNCED: {
++			/* we're already all sync'ed
++			 * this is only applicable for IEEE or
++			 * when another VI already completed negotiaton
++			 */
+ 			dcb->enabled = 1;
+ 			linkwatch_fire_event(dev);
+ 			break;
+ 		}
+ 
+-		case CXGB4_DCB_STATE_FW_ALLSYNCED: {
+-			/* we're already all sync'ed */
++		default:
++			goto bad_state_input;
++		}
++		break;
++	}
++
++	case CXGB4_DCB_STATE_HOST: {
++		switch (transition_to) {
++		case CXGB4_DCB_INPUT_FW_DISABLED: {
++			/* we're alreaady in Host DCB mode */
+ 			break;
+ 		}
+ 
+ 		default:
+-			goto bad_state_transition;
++			goto bad_state_input;
+ 		}
+ 		break;
+ 	}
+ 
+ 	default:
+-		goto  bad_state_input;
++		goto bad_state_transition;
+ 	}
+ 	return;
+ 
+ bad_state_input:
+ 	dev_err(adap->pdev_dev, "cxgb4_dcb_state_fsm: illegal input symbol %d\n",
+-		input);
++		transition_to);
+ 	return;
+ 
+ bad_state_transition:
+ 	dev_err(adap->pdev_dev, "cxgb4_dcb_state_fsm: bad state transition, state = %d, input = %d\n",
+-		dcb->state, input);
++		current_state, transition_to);
+ }
+ 
+ /* Handle a DCB/DCBX update message from the firmware.
+@@ -160,6 +207,7 @@ void cxgb4_dcb_handle_fw_update(struct adapter *adap,
+ 	struct port_info *pi = netdev_priv(dev);
+ 	struct port_dcb_info *dcb = &pi->dcb;
+ 	int dcb_type = pcmd->u.dcb.pgid.type;
++	int dcb_running_version;
+ 
+ 	/* Handle Firmware DCB Control messages separately since they drive
+ 	 * our state machine.
+@@ -171,6 +219,25 @@ void cxgb4_dcb_handle_fw_update(struct adapter *adap,
+ 			 ? CXGB4_DCB_STATE_FW_ALLSYNCED
+ 			 : CXGB4_DCB_STATE_FW_INCOMPLETE);
+ 
++		if (dcb->dcb_version != FW_PORT_DCB_VER_UNKNOWN) {
++			dcb_running_version = FW_PORT_CMD_DCB_VERSION_GET(
++				be16_to_cpu(
++				pcmd->u.dcb.control.dcb_version_to_app_state));
++			if (dcb_running_version == FW_PORT_DCB_VER_CEE1D01 ||
++			    dcb_running_version == FW_PORT_DCB_VER_IEEE) {
++				dcb->dcb_version = dcb_running_version;
++				dev_warn(adap->pdev_dev, "Interface %s is running %s\n",
++					 dev->name,
++					 dcb_ver_array[dcb->dcb_version]);
++			} else {
++				dev_warn(adap->pdev_dev,
++					 "Something screwed up, requested firmware for %s, but firmware returned %s instead\n",
++					 dcb_ver_array[dcb->dcb_version],
++					 dcb_ver_array[dcb_running_version]);
++				dcb->dcb_version = FW_PORT_DCB_VER_UNKNOWN;
++			}
++		}
++
+ 		cxgb4_dcb_state_fsm(dev, input);
+ 		return;
+ 	}
+@@ -199,7 +266,11 @@ void cxgb4_dcb_handle_fw_update(struct adapter *adap,
+ 		dcb->pg_num_tcs_supported = fwdcb->pgrate.num_tcs_supported;
+ 		memcpy(dcb->pgrate, &fwdcb->pgrate.pgrate,
+ 		       sizeof(dcb->pgrate));
++		memcpy(dcb->tsa, &fwdcb->pgrate.tsa,
++		       sizeof(dcb->tsa));
+ 		dcb->msgs |= CXGB4_DCB_FW_PGRATE;
++		if (dcb->msgs & CXGB4_DCB_FW_PGID)
++			IEEE_FAUX_SYNC(dev, dcb);
+ 		break;
+ 
+ 	case FW_PORT_DCB_TYPE_PRIORATE:
+@@ -212,6 +283,7 @@ void cxgb4_dcb_handle_fw_update(struct adapter *adap,
+ 		dcb->pfcen = fwdcb->pfc.pfcen;
+ 		dcb->pfc_num_tcs_supported = fwdcb->pfc.max_pfc_tcs;
+ 		dcb->msgs |= CXGB4_DCB_FW_PFC;
++		IEEE_FAUX_SYNC(dev, dcb);
+ 		break;
+ 
+ 	case FW_PORT_DCB_TYPE_APP_ID: {
+@@ -220,13 +292,25 @@ void cxgb4_dcb_handle_fw_update(struct adapter *adap,
+ 		struct app_priority *ap = &dcb->app_priority[idx];
+ 
+ 		struct dcb_app app = {
+-			.selector = fwap->sel_field,
+ 			.protocol = be16_to_cpu(fwap->protocolid),
+-			.priority = fwap->user_prio_map,
+ 		};
+ 		int err;
+ 
+-		err = dcb_setapp(dev, &app);
++		/* Convert from firmware format to relevant format
++		 * when using app selector
++		 */
++		if (dcb->dcb_version == FW_PORT_DCB_VER_IEEE) {
++			app.selector = (fwap->sel_field + 1);
++			app.priority = ffs(fwap->user_prio_map) - 1;
++			err = dcb_ieee_setapp(dev, &app);
++			IEEE_FAUX_SYNC(dev, dcb);
++		} else {
++			/* Default is CEE */
++			app.selector = !!(fwap->sel_field);
++			app.priority = fwap->user_prio_map;
++			err = dcb_setapp(dev, &app);
++		}
++
  		if (err)
- 			goto err_grp_init;
-=20
--		priv->phy_node =3D np;
-+		priv->phy_node =3D of_node_get(np);
+ 			dev_err(adap->pdev_dev,
+ 				"Failed DCB Set Application Priority: sel=%d, prot=%d, prio=%d, err=%d\n",
+@@ -408,9 +492,10 @@ static void cxgb4_getpgbwgcfg(struct net_device *dev, int pgid, u8 *bw_per,
+ 	if (err != FW_PORT_DCB_CFG_SUCCESS) {
+ 		dev_err(adap->pdev_dev, "DCB read PGRATE failed with %d\n",
+ 			-err);
+-	} else {
+-		*bw_per = pcmd.u.dcb.pgrate.pgrate[pgid];
++		return;
  	}
-=20
- 	/* Find the TBI PHY.  If it's not there, we don't support SGMII */
---=20
-2.0.1
++
++	*bw_per = pcmd.u.dcb.pgrate.pgrate[pgid];
+ }
+ 
+ static void cxgb4_getpgbwgcfg_tx(struct net_device *dev, int pgid, u8 *bw_per)
+@@ -637,7 +722,8 @@ static int __cxgb4_getapp(struct net_device *dev, u8 app_idtype, u16 app_id,
+ 			return err;
+ 		}
+ 		if (be16_to_cpu(pcmd.u.dcb.app_priority.protocolid) == app_id)
+-			return pcmd.u.dcb.app_priority.user_prio_map;
++			if (pcmd.u.dcb.app_priority.sel_field == app_idtype)
++				return pcmd.u.dcb.app_priority.user_prio_map;
+ 
+ 		/* exhausted app list */
+ 		if (!pcmd.u.dcb.app_priority.protocolid)
+@@ -657,8 +743,8 @@ static int cxgb4_getapp(struct net_device *dev, u8 app_idtype, u16 app_id)
+ 
+ /* Write a new Application User Priority Map for the specified Application ID
+  */
+-static int cxgb4_setapp(struct net_device *dev, u8 app_idtype, u16 app_id,
+-			u8 app_prio)
++static int __cxgb4_setapp(struct net_device *dev, u8 app_idtype, u16 app_id,
++			  u8 app_prio)
+ {
+ 	struct fw_port_cmd pcmd;
+ 	struct port_info *pi = netdev2pinfo(dev);
+@@ -673,10 +759,6 @@ static int cxgb4_setapp(struct net_device *dev, u8 app_idtype, u16 app_id,
+ 	if (!netif_carrier_ok(dev))
+ 		return -ENOLINK;
+ 
+-	if (app_idtype != DCB_APP_IDTYPE_ETHTYPE &&
+-	    app_idtype != DCB_APP_IDTYPE_PORTNUM)
+-		return -EINVAL;
+-
+ 	for (i = 0; i < CXGB4_MAX_DCBX_APP_SUPPORTED; i++) {
+ 		INIT_PORT_DCB_READ_LOCAL_CMD(pcmd, pi->port_id);
+ 		pcmd.u.dcb.app_priority.type = FW_PORT_DCB_TYPE_APP_ID;
+@@ -725,6 +807,30 @@ static int cxgb4_setapp(struct net_device *dev, u8 app_idtype, u16 app_id,
+ 	return 0;
+ }
+ 
++/* Priority for CEE inside dcb_app is bitmask, with 0 being an invalid value */
++static int cxgb4_setapp(struct net_device *dev, u8 app_idtype, u16 app_id,
++			u8 app_prio)
++{
++	int ret;
++	struct dcb_app app = {
++		.selector = app_idtype,
++		.protocol = app_id,
++		.priority = app_prio,
++	};
++
++	if (app_idtype != DCB_APP_IDTYPE_ETHTYPE &&
++	    app_idtype != DCB_APP_IDTYPE_PORTNUM)
++		return -EINVAL;
++
++	/* Convert app_idtype to a format that firmware understands */
++	ret = __cxgb4_setapp(dev, app_idtype == DCB_APP_IDTYPE_ETHTYPE ?
++			      app_idtype : 3, app_id, app_prio);
++	if (ret)
++		return ret;
++
++	return dcb_setapp(dev, &app);
++}
++
+ /* Return whether IEEE Data Center Bridging has been negotiated.
+  */
+ static inline int cxgb4_ieee_negotiation_complete(struct net_device *dev)
+@@ -738,6 +844,7 @@ static inline int cxgb4_ieee_negotiation_complete(struct net_device *dev)
+ 
+ /* Fill in the Application User Priority Map associated with the
+  * specified Application.
++ * Priority for IEEE dcb_app is an integer, with 0 being a valid value
+  */
+ static int cxgb4_ieee_getapp(struct net_device *dev, struct dcb_app *app)
+ {
+@@ -748,28 +855,39 @@ static int cxgb4_ieee_getapp(struct net_device *dev, struct dcb_app *app)
+ 	if (!(app->selector && app->protocol))
+ 		return -EINVAL;
+ 
+-	prio = dcb_getapp(dev, app);
+-	if (prio == 0) {
+-		/* If app doesn't exist in dcb_app table, try firmware
+-		 * directly.
+-		 */
+-		prio = __cxgb4_getapp(dev, app->selector, app->protocol, 0);
+-	}
++	/* Try querying firmware first, use firmware format */
++	prio = __cxgb4_getapp(dev, app->selector - 1, app->protocol, 0);
++
++	if (prio < 0)
++		prio = dcb_ieee_getapp_mask(dev, app);
+ 
+-	app->priority = prio;
++	app->priority = ffs(prio) - 1;
+ 	return 0;
+ }
+ 
+-/* Write a new Application User Priority Map for the specified App id. */
++/* Write a new Application User Priority Map for the specified Application ID.
++ * Priority for IEEE dcb_app is an integer, with 0 being a valid value
++ */
+ static int cxgb4_ieee_setapp(struct net_device *dev, struct dcb_app *app)
+ {
++	int ret;
++
+ 	if (!cxgb4_ieee_negotiation_complete(dev))
+ 		return -EINVAL;
+-	if (!(app->selector && app->protocol && app->priority))
++	if (!(app->selector && app->protocol))
++		return -EINVAL;
++
++	if (!(app->selector > IEEE_8021QAZ_APP_SEL_ETHERTYPE  &&
++	      app->selector < IEEE_8021QAZ_APP_SEL_ANY))
+ 		return -EINVAL;
+ 
+-	cxgb4_setapp(dev, app->selector, app->protocol, app->priority);
+-	return dcb_setapp(dev, app);
++	/* change selector to a format that firmware understands */
++	ret = __cxgb4_setapp(dev, app->selector - 1, app->protocol,
++			     (1 << app->priority));
++	if (ret)
++		return ret;
++
++	return dcb_ieee_setapp(dev, app);
+ }
+ 
+ /* Return our DCBX parameters.
+@@ -794,8 +912,9 @@ static u8 cxgb4_setdcbx(struct net_device *dev, u8 dcb_request)
+ 	    != dcb_request)
+ 		return 1;
+ 
+-	/* Can't set DCBX capabilities if DCBX isn't enabled. */
+-	if (!pi->dcb.state)
++	/* Can't enable DCB if we haven't successfully negotiated it.
++	 */
++	if (pi->dcb.state != CXGB4_DCB_STATE_FW_ALLSYNCED)
+ 		return 1;
+ 
+ 	/* There's currently no mechanism to allow for the firmware DCBX
+@@ -874,7 +993,8 @@ static int cxgb4_getpeerapp_tbl(struct net_device *dev, struct dcb_app *table)
+ 		table[i].selector = pcmd.u.dcb.app_priority.sel_field;
+ 		table[i].protocol =
+ 			be16_to_cpu(pcmd.u.dcb.app_priority.protocolid);
+-		table[i].priority = pcmd.u.dcb.app_priority.user_prio_map;
++		table[i].priority =
++			ffs(pcmd.u.dcb.app_priority.user_prio_map) - 1;
+ 	}
+ 	return err;
+ }
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.h
+index 1ec1d834e257..2a6aa88984f4 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_dcb.h
+@@ -63,6 +63,13 @@
+ #define INIT_PORT_DCB_WRITE_CMD(__pcmd, __port) \
+ 	INIT_PORT_DCB_CMD(__pcmd, __port, EXEC, FW_PORT_ACTION_L2_DCB_CFG)
+ 
++#define IEEE_FAUX_SYNC(__dev, __dcb) \
++	do { \
++		if ((__dcb)->dcb_version == FW_PORT_DCB_VER_IEEE) \
++			cxgb4_dcb_state_fsm((__dev), \
++					    CXGB4_DCB_STATE_FW_ALLSYNCED); \
++	} while (0)
++
+ /* States we can be in for a port's Data Center Bridging.
+  */
+ enum cxgb4_dcb_state {
+@@ -108,11 +115,13 @@ struct port_dcb_info {
+ 	 * Native Endian format).
+ 	 */
+ 	u32	pgid;			/* Priority Group[0..7] */
++	u8	dcb_version;		/* Running DCBx version */
+ 	u8	pfcen;			/* Priority Flow Control[0..7] */
+ 	u8	pg_num_tcs_supported;	/* max PG Traffic Classes */
+ 	u8	pfc_num_tcs_supported;	/* max PFC Traffic Classes */
+ 	u8	pgrate[8];		/* Priority Group Rate[0..7] */
+ 	u8	priorate[8];		/* Priority Rate[0..7] */
++	u8	tsa[8];			/* TSA Algorithm[0..7] */
+ 	struct app_priority { /* Application Information */
+ 		u8	user_prio_map;	/* Priority Map bitfield */
+ 		u8	sel_field;	/* Protocol ID interpretation */
+@@ -121,6 +130,7 @@ struct port_dcb_info {
+ };
+ 
+ void cxgb4_dcb_state_init(struct net_device *);
++void cxgb4_dcb_version_init(struct net_device *);
+ void cxgb4_dcb_state_fsm(struct net_device *, enum cxgb4_dcb_state_input);
+ void cxgb4_dcb_handle_fw_update(struct adapter *, const struct fw_port_cmd *);
+ void cxgb4_dcb_set_caps(struct adapter *, const struct fw_port_cmd *);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 1a162d21d8ac..a62d3f468c52 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -522,6 +522,8 @@ static void dcb_tx_queue_prio_enable(struct net_device *dev, int enable)
+ 			dev_err(adap->pdev_dev,
+ 				"Can't %s DCB Priority on port %d, TX Queue %d: err=%d\n",
+ 				enable ? "set" : "unset", pi->port_id, i, -err);
++		else
++			txq->dcb_prio = value;
+ 	}
+ }
+ #endif /* CONFIG_CHELSIO_T4_DCB */
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+index ff709e3b3e7e..0549170d7e2e 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+@@ -1629,6 +1629,14 @@ enum fw_port_l2cfg_ctlbf {
+ 	FW_PORT_L2_CTLBF_TXIPG	= 0x20
+ };
+ 
++enum fw_port_dcb_versions {
++	FW_PORT_DCB_VER_UNKNOWN,
++	FW_PORT_DCB_VER_CEE1D0,
++	FW_PORT_DCB_VER_CEE1D01,
++	FW_PORT_DCB_VER_IEEE,
++	FW_PORT_DCB_VER_AUTO = 7
++};
++
+ enum fw_port_dcb_cfg {
+ 	FW_PORT_DCB_CFG_PG	= 0x01,
+ 	FW_PORT_DCB_CFG_PFC	= 0x02,
+@@ -1709,6 +1717,7 @@ struct fw_port_cmd {
+ 				__u8   r10_lo[5];
+ 				__u8   num_tcs_supported;
+ 				__u8   pgrate[8];
++				__u8   tsa[8];
+ 			} pgrate;
+ 			struct fw_port_dcb_priorate {
+ 				__u8   type;
+@@ -1735,7 +1744,7 @@ struct fw_port_cmd {
+ 			struct fw_port_dcb_control {
+ 				__u8   type;
+ 				__u8   all_syncd_pkd;
+-				__be16 pfc_state_to_app_state;
++				__be16 dcb_version_to_app_state;
+ 				__be32 r11;
+ 				__be64 r12;
+ 			} control;
+@@ -1778,6 +1787,7 @@ struct fw_port_cmd {
+ #define FW_PORT_CMD_DCBXDIS (1U << 7)
+ #define FW_PORT_CMD_APPLY (1U <<  7)
+ #define FW_PORT_CMD_ALL_SYNCD (1U << 7)
++#define FW_PORT_CMD_DCB_VERSION_GET(x) (((x) >> 8) & 0xf)
+ 
+ #define FW_PORT_CMD_PPPEN(x) ((x) << 31)
+ #define FW_PORT_CMD_TPSRC(x) ((x) << 28)
+-- 
+2.0.4
