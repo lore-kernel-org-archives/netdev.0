@@ -1,39 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] cxgb4: IEEE fixes for DCBx state machine
-Date: Thu, 07 Aug 2014 16:19:07 -0700 (PDT)
-Message-ID: <20140807.161907.762636102147198603.davem@davemloft.net>
-References: <1407453243-8826-1-git-send-email-anish@chelsio.com>
+From: Willem de Bruijn <willemb@google.com>
+Subject: Re: [PATCH net-next v4 0/6] net-timestamp: new tx tstamps and tcp
+Date: Thu, 7 Aug 2014 19:39:56 -0400
+Message-ID: <CA+FuTSen+eX-0VW+2vgt=ecaM8Wz1bKHXgiMk=UcAtepR1ewCQ@mail.gmail.com>
+References: <1407204710-21778-1-git-send-email-willemb@google.com> <87lhqzkic9.fsf@tassilo.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hariprasad@chelsio.com, leedom@chelsio.com
-To: anish@chelsio.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Richard Cochran <richardcochran@gmail.com>
+To: Andi Kleen <andi@firstfloor.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53803 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751197AbaHGXTJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2014 19:19:09 -0400
-In-Reply-To: <1407453243-8826-1-git-send-email-anish@chelsio.com>
+Received: from mail-qg0-f48.google.com ([209.85.192.48]:49399 "EHLO
+	mail-qg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751780AbaHGXk1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2014 19:40:27 -0400
+Received: by mail-qg0-f48.google.com with SMTP id i50so5162548qgf.21
+        for <netdev@vger.kernel.org>; Thu, 07 Aug 2014 16:40:26 -0700 (PDT)
+In-Reply-To: <87lhqzkic9.fsf@tassilo.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Anish Bhatt <anish@chelsio.com>
-Date: Thu,  7 Aug 2014 16:14:03 -0700
+On Thu, Aug 7, 2014 at 7:09 PM, Andi Kleen <andi@firstfloor.org> wrote:
+> Willem de Bruijn <willemb@google.com> writes:
+>
+>> Extend socket tx timestamping:
+>> - allow multiple types of software timestamps aside from send (1)
+>> - add software timestamp on enter packet scheduling (4)
+>> - add software timestamp for TCP (5)
+>> - add software timestamp for TCP on ACK (6)
+>
+> Is there any freely available reference library or tool to make use of
+> all these new time stamps?
 
-> * Changes required due to 16eecd9be4b05 ("dcbnl : Fix misleading
->   dcb_app->priority explanation")
-> * Driver was previously not aware of what DCBx version was negotiated by
->   firmware, this could lead to DCB app table  in kernel or in firmware being
->   populated wrong  since IEEE/CEE used different formats made clear by above
->   mentioned commit
-> * Driver was missing a couple of state transitions that could be caused
->   by other drivers that use chelsio hardware, resulting in incorrect behaviour
->   (the change that addresses this also flips the state machine to switch on
->    state instead of transition, hope this is okay in current window)
-> * Prio queue info & tsa is no longer thrown away
-> 
-> v2: Print DCBx state transition messages only when debug is enabled
-> 
-> Signed-off-by: Anish Bhatt <anish@chelsio.com>
+I posted one on github.com/wdebruij/kerneltools earlier, but the
+interface has changed in the meantime. I just updated it to work with
+the latest API.
 
-That looks better, applied, thanks.
+There are still references to the old MSG_TSTAMP API in the test file
+(txtimestamp.c), so I will need to clean it up some more. But it
+works as is.
+
+The v1 patchset also had a patch to the documentation. I will revise
+that to match the latest interface, too, and send both files for
+inclusion in Documention once net-next opens.
