@@ -1,40 +1,75 @@
-From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
-Subject: Re: [PATCH 2/5] solos-pci: fix error return code
-Date: Thu, 7 Aug 2014 09:14:09 -0400
-Message-ID: <20140807091409.522c7b6a@thirdoffive.cmf.nrl.navy.mil>
-References: <1407415749-19978-1-git-send-email-Julia.Lawall@lip6.fr>
-	<1407415749-19978-4-git-send-email-Julia.Lawall@lip6.fr>
+From: Alexander Aring <alex.aring@gmail.com>
+Subject: Re: Modular 6LoWPAN? (was: Re: 6lowpan: introduce new net/6lowpan
+ directory)
+Date: Thu, 7 Aug 2014 15:26:09 +0200
+Message-ID: <20140807132606.GB17452@omega>
+References: <CAMuHMdXnGXGqy7B2-wujVxUPA9+3ZfYhcdKb6_jpDV4P7_KMxw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org,
-	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Julia Lawall <Julia.Lawall@lip6.fr>
+Content-Type: text/plain; charset=utf-8
+Cc: linux-bluetooth@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-wpan@vger.kernel.org
+To: Geert Uytterhoeven <geert@linux-m68k.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1407415749-19978-4-git-send-email-Julia.Lawall@lip6.fr>
+Content-Disposition: inline
+In-Reply-To: <CAMuHMdXnGXGqy7B2-wujVxUPA9+3ZfYhcdKb6_jpDV4P7_KMxw@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu,  7 Aug 2014 14:49:07 +0200
-Julia Lawall <Julia.Lawall@lip6.fr> wrote:
-
-...
->  drivers/atm/solos-pci.c |    1 +
->  1 file changed, 1 insertion(+)
+On Thu, Aug 07, 2014 at 02:37:38PM +0200, Geert Uytterhoeven wrote:
+> Hi Alexander,
 > 
-> diff --git a/drivers/atm/solos-pci.c b/drivers/atm/solos-pci.c
-> index 943cf0d..7652e8d 100644
-> --- a/drivers/atm/solos-pci.c
-> +++ b/drivers/atm/solos-pci.c
-> @@ -1278,6 +1278,7 @@ static int fpga_probe(struct pci_dev *dev, const struct pci_device_id *id)
->  			card->dma_bounce = kmalloc(card->nr_ports * BUF_SIZE, GFP_KERNEL);
->  			if (!card->dma_bounce) {
->  				dev_warn(&card->dev->dev, "Failed to allocate DMA bounce buffers\n");
-> +				err = -ENOMEM;
->  				/* Fallback to MMIO doesn't work */
->  				goto out_unmap_both;
->  			}
+> On Wed, Aug 6, 2014 at 6:46 PM, Linux Kernel Mailing List
+> <linux-kernel@vger.kernel.org> wrote:
+> > Gitweb:     http://git.kernel.org/linus/;a=commit;h=2c6bed7cfcd3f594ed9e4d6919fa2ebea2243d19
+> > Commit:     2c6bed7cfcd3f594ed9e4d6919fa2ebea2243d19
+> > Parent:     6c53823ae0e10e723131055e1e65dd6a328a228e
+> > Refname:    refs/heads/master
+> > Author:     Alexander Aring <alex.aring@gmail.com>
+> > AuthorDate: Fri Jul 11 10:24:18 2014 +0200
+> > Committer:  Marcel Holtmann <marcel@holtmann.org>
+> > CommitDate: Sat Jul 12 01:53:30 2014 +0200
+> >
+> >     6lowpan: introduce new net/6lowpan directory
+> >
+> >     This patch moves generic code which is used by bluetooth and ieee802154
+> >     6lowpan to a new net/6lowpan directory. This directory contains generic
+> >     6LoWPAN code which is shared between bluetooth and ieee802154 MAC-Layer.
+> >
+> >     This is the IPHC - "IPv6 Header Compression" format at the moment. Which
+> >     is described by RFC 6282 [0]. The BLTE 6LoWPAN draft describes that the
+> >     IPHC is the same format like IEEE 802.15.4, see [1].
+> >
+> >     Futuremore we can put more code into this directory which is shared
+> >     between BLTE and IEEE 802.15.4 6LoWPAN like RFC 6775 or the routing
+> >     protocol RPL RFC 6550.
+> >
+> >     To avoid naming conflicts I renamed 6lowpan-y to ieee802154_6lowpan-y
+> >     in net/ieee802154/Makefile.
+> >
+> >     [0] http://tools.ietf.org/html/rfc6282
+> >     [1] http://tools.ietf.org/html/draft-ietf-6lowpan-btle-12#section-3.2
+> >     [2] http://tools.ietf.org/html/rfc6775
+> >     [3] http://tools.ietf.org/html/rfc6550
+> >
+> >     Signed-off-by: Alexander Aring <alex.aring@gmail.com>
+> >     Acked-by: Jukka Rissanen <jukka.rissanen@linux.intel.com>
+> >     Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
 > 
+> > --- /dev/null
+> > +++ b/net/6lowpan/Kconfig
+> > @@ -0,0 +1,6 @@
+> > +config 6LOWPAN
+> > +       bool "6LoWPAN Support"
+> 
+> Is there any specific reason 6LOWPAN is bool instead of tristate?
+> IPV6 can be modular.
+> 
+Indeed this can be modular. I see no special reason why it should not be
+tristate. Sorry, that I didn't see this. Can you please send patches to
+change it?
 
-Acked-by: Chas Williams <chas@cmf.nrl.navy.mil>
+Thanks.
+
+- Alex
