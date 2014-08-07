@@ -1,77 +1,50 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Modular 6LoWPAN? (was: Re: 6lowpan: introduce new net/6lowpan directory)
-Date: Thu, 7 Aug 2014 14:37:38 +0200
-Message-ID: <CAMuHMdXnGXGqy7B2-wujVxUPA9+3ZfYhcdKb6_jpDV4P7_KMxw@mail.gmail.com>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: [PATCH net-next v2] xen-netback: Fix vif->disable handling
+Date: Thu, 7 Aug 2014 13:38:38 +0100
+Message-ID: <1407415118-16365-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-bluetooth@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Alexander Aring <alex.aring@gmail.com>
+Content-Type: text/plain
+Cc: Zoltan Kiss <zoltan.kiss@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<xen-devel@lists.xenproject.org>
+To: Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Alexander,
+In the patch called "xen-netback: Turn off the carrier if the guest is not able
+to receive" new branches were introduced to this if statement, risking that a
+queue with non-zero id can reenable the disabled interface.
 
-On Wed, Aug 6, 2014 at 6:46 PM, Linux Kernel Mailing List
-<linux-kernel@vger.kernel.org> wrote:
-> Gitweb:     http://git.kernel.org/linus/;a=commit;h=2c6bed7cfcd3f594ed9e4d6919fa2ebea2243d19
-> Commit:     2c6bed7cfcd3f594ed9e4d6919fa2ebea2243d19
-> Parent:     6c53823ae0e10e723131055e1e65dd6a328a228e
-> Refname:    refs/heads/master
-> Author:     Alexander Aring <alex.aring@gmail.com>
-> AuthorDate: Fri Jul 11 10:24:18 2014 +0200
-> Committer:  Marcel Holtmann <marcel@holtmann.org>
-> CommitDate: Sat Jul 12 01:53:30 2014 +0200
->
->     6lowpan: introduce new net/6lowpan directory
->
->     This patch moves generic code which is used by bluetooth and ieee802154
->     6lowpan to a new net/6lowpan directory. This directory contains generic
->     6LoWPAN code which is shared between bluetooth and ieee802154 MAC-Layer.
->
->     This is the IPHC - "IPv6 Header Compression" format at the moment. Which
->     is described by RFC 6282 [0]. The BLTE 6LoWPAN draft describes that the
->     IPHC is the same format like IEEE 802.15.4, see [1].
->
->     Futuremore we can put more code into this directory which is shared
->     between BLTE and IEEE 802.15.4 6LoWPAN like RFC 6775 or the routing
->     protocol RPL RFC 6550.
->
->     To avoid naming conflicts I renamed 6lowpan-y to ieee802154_6lowpan-y
->     in net/ieee802154/Makefile.
->
->     [0] http://tools.ietf.org/html/rfc6282
->     [1] http://tools.ietf.org/html/draft-ietf-6lowpan-btle-12#section-3.2
->     [2] http://tools.ietf.org/html/rfc6775
->     [3] http://tools.ietf.org/html/rfc6550
->
->     Signed-off-by: Alexander Aring <alex.aring@gmail.com>
->     Acked-by: Jukka Rissanen <jukka.rissanen@linux.intel.com>
->     Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
+Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+Signed-off-by: David Vrabel <david.vrabel@citrix.com>
+Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Cc: xen-devel@lists.xenproject.org
+---
+v2: fix a code style error in this "if" as well
 
-> --- /dev/null
-> +++ b/net/6lowpan/Kconfig
-> @@ -0,0 +1,6 @@
-> +config 6LOWPAN
-> +       bool "6LoWPAN Support"
-
-Is there any specific reason 6LOWPAN is bool instead of tristate?
-IPV6 can be modular.
-
-> +       depends on IPV6
-> +       ---help---
-> +         This enables IPv6 over Low power Wireless Personal Area Network -
-> +         "6LoWPAN" which is supported by IEEE 802.15.4 or Bluetooth stacks.
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+index aa20933..4734472 100644
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@ -2025,9 +2025,15 @@ int xenvif_kthread_guest_rx(void *data)
+ 		 * context so we defer it here, if this thread is
+ 		 * associated with queue 0.
+ 		 */
+-		if (unlikely(queue->vif->disabled && queue->id == 0))
++		if (unlikely(queue->vif->disabled && queue->id == 0)) {
+ 			xenvif_carrier_off(queue->vif);
+-		else if (unlikely(test_and_clear_bit(QUEUE_STATUS_RX_PURGE_EVENT,
++		} else if (unlikely(queue->vif->disabled)) {
++			/* kthread_stop() would be called upon this thread soon,
++			 * be a bit proactive
++			 */
++			skb_queue_purge(&queue->rx_queue);
++			queue->rx_last_skb_slots = 0;
++		} else if (unlikely(test_and_clear_bit(QUEUE_STATUS_RX_PURGE_EVENT,
+ 						     &queue->status))) {
+ 			xenvif_rx_purge_event(queue);
+ 		} else if (!netif_carrier_ok(queue->vif->dev)) {
