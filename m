@@ -1,33 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] xen-netback: Fix vif->disable handling
-Date: Thu, 07 Aug 2014 16:04:24 -0700 (PDT)
-Message-ID: <20140807.160424.419426873249476082.davem@davemloft.net>
-References: <1407415118-16365-1-git-send-email-zoltan.kiss@citrix.com>
+Subject: Re: [PATCH 2/5] solos-pci: fix error return code
+Date: Thu, 07 Aug 2014 16:04:59 -0700 (PDT)
+Message-ID: <20140807.160459.766871119996172680.davem@davemloft.net>
+References: <1407415749-19978-1-git-send-email-Julia.Lawall@lip6.fr>
+	<1407415749-19978-4-git-send-email-Julia.Lawall@lip6.fr>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: wei.liu2@citrix.com, Ian.Campbell@citrix.com,
-	david.vrabel@citrix.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, xen-devel@lists.xenproject.org
-To: zoltan.kiss@citrix.com
+Cc: chas@cmf.nrl.navy.mil, kernel-janitors@vger.kernel.org,
+	linux-atm-general@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Julia.Lawall@lip6.fr
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1407415118-16365-1-git-send-email-zoltan.kiss@citrix.com>
+In-Reply-To: <1407415749-19978-4-git-send-email-Julia.Lawall@lip6.fr>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Date: Thu, 7 Aug 2014 13:38:38 +0100
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Date: Thu,  7 Aug 2014 14:49:07 +0200
 
-> In the patch called "xen-netback: Turn off the carrier if the guest is not able
-> to receive" new branches were introduced to this if statement, risking that a
-> queue with non-zero id can reenable the disabled interface.
+> From: Julia Lawall <Julia.Lawall@lip6.fr>
 > 
-> Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
-> Signed-off-by: David Vrabel <david.vrabel@citrix.com>
-> Cc: netdev@vger.kernel.org
-> Cc: linux-kernel@vger.kernel.org
-> Cc: xen-devel@lists.xenproject.org
-> ---
-> v2: fix a code style error in this "if" as well
+> Convert a zero return value on error to a negative one, as returned
+> elsewhere in the function.
+> 
+> A simplified version of the semantic match that finds this problem is as
+> follows: (http://coccinelle.lip6.fr/)
+ ...
+> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
 Applied.
