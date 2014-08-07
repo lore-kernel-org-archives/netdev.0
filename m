@@ -1,49 +1,45 @@
-From: "Lad, Prabhakar" <prabhakar.csengg@gmail.com>
-Subject: [PATCH] can: dev: remove unused variable from can_calc_bittiming() function
-Date: Thu,  7 Aug 2014 09:17:24 +0100
-Message-ID: <1407399444-16427-1-git-send-email-prabhakar.csengg@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"Lad, Prabhakar" <prabhakar.csengg@gmail.com>
-To: Wolfgang Grandegger <wg@grandegger.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	linux-can@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: [PATCH net-next] cxgb4: Update FW version string to match FW binary version
+Date: Thu,  7 Aug 2014 14:38:51 +0530
+Message-ID: <1407402531-14283-1-git-send-email-hariprasad@chelsio.com>
+Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
+	kumaras@chelsio.com, anish@chelsio.com,
+	Hariprasad Shenai <hariprasad@chelsio.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:35626
+	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754072AbaHGJDO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2014 05:03:14 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-this patch removes best_rate variable from can_calc_bittiming()
-function which was set but was never used.
-
-Signed-off-by: Lad, Prabhakar <prabhakar.csengg@gmail.com>
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- drivers/net/can/dev.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
-index e318e87..56e1069 100644
---- a/drivers/net/can/dev.c
-+++ b/drivers/net/can/dev.c
-@@ -103,11 +103,11 @@ static int can_calc_bittiming(struct net_device *dev, struct can_bittiming *bt,
- 			      const struct can_bittiming_const *btc)
- {
- 	struct can_priv *priv = netdev_priv(dev);
--	long rate, best_rate = 0;
- 	long best_error = 1000000000, error = 0;
- 	int best_tseg = 0, best_brp = 0, brp = 0;
- 	int tsegall, tseg = 0, tseg1 = 0, tseg2 = 0;
- 	int spt_error = 1000, spt = 0, sampl_pt;
-+	long rate;
- 	u64 v64;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+index c9b922c..cc42ab3 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4.h
+@@ -50,13 +50,13 @@
+ #include "cxgb4_uld.h"
  
- 	/* Use CIA recommended sample points */
-@@ -152,7 +152,6 @@ static int can_calc_bittiming(struct net_device *dev, struct can_bittiming *bt,
- 		}
- 		best_tseg = tseg / 2;
- 		best_brp = brp;
--		best_rate = rate;
- 		if (error == 0)
- 			break;
- 	}
+ #define T4FW_VERSION_MAJOR 0x01
+-#define T4FW_VERSION_MINOR 0x09
+-#define T4FW_VERSION_MICRO 0x17
++#define T4FW_VERSION_MINOR 0x0B
++#define T4FW_VERSION_MICRO 0x1B
+ #define T4FW_VERSION_BUILD 0x00
+ 
+ #define T5FW_VERSION_MAJOR 0x01
+-#define T5FW_VERSION_MINOR 0x09
+-#define T5FW_VERSION_MICRO 0x17
++#define T5FW_VERSION_MINOR 0x0B
++#define T5FW_VERSION_MICRO 0x1B
+ #define T5FW_VERSION_BUILD 0x00
+ 
+ #define CH_WARN(adap, fmt, ...) dev_warn(adap->pdev_dev, fmt, ## __VA_ARGS__)
 -- 
-1.9.1
-
+1.7.1
