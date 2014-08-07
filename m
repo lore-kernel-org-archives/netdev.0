@@ -1,93 +1,49 @@
-From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH v10 3/4] dts: Add bindings for APM X-Gene SoC ethernet driver
-Date: Thu,  7 Aug 2014 15:14:27 -0700
-Message-ID: <1407449668-13520-4-git-send-email-isubramanian@apm.com>
-References: <1407449668-13520-1-git-send-email-isubramanian@apm.com>
-Cc: dnelson@redhat.com, gregkh@linuxfoundation.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	jcm@redhat.com, patches@apm.com,
-	Iyappan Subramanian <isubramanian@apm.com>,
-	Ravi Patel <rapatel@apm.com>, Keyur Chudgar <kchudgar@apm.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	devicetree@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1407449668-13520-1-git-send-email-isubramanian@apm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Richard Weinberger <richard.weinberger@gmail.com>
+Subject: Re: [PATCH] Hyperv: Trigger DHCP renew after host hibernation
+Date: Fri, 8 Aug 2014 00:37:28 +0200
+Message-ID: <CAFLxGvyfy1UkxN6_-c_ST7f8n7DvqYsCPKChWmt9CerWb0dh7g@mail.gmail.com>
+References: <DC7803B42427924284F2D5252E076A3B4476A479@SINEX14MBXC416.southpacific.corp.microsoft.com>
+ <53CCD6F2.6020909@nod.at> <20140721091851.GA28171@aepfle.de>
+ <20140721.143225.2040366896972949930.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "jasowang@redhat.com" <jasowang@redhat.com>,
+ driverdev-devel@linuxdriverproject.org, LKML <linux-kernel@vger.kernel.org>,
+ huishao@microsoft.com, Greg KH <gregkh@linuxfoundation.org>,
+ haiyangz@microsoft.com
+To: David Miller <davem@davemloft.net>, Yue Zhang <yuezha@microsoft.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20140721.143225.2040366896972949930.davem@davemloft.net>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds bindings for APM X-Gene SoC ethernet driver.
+On Mon, Jul 21, 2014 at 11:32 PM, David Miller <davem@davemloft.net> wrote:
+> From: Olaf Hering <olaf@aepfle.de>
+> Date: Mon, 21 Jul 2014 11:18:51 +0200
+>
+>> On Mon, Jul 21, Richard Weinberger wrote:
+>>
+>>> My concern is that 10 seconds is maybe not a the right choice.
+>>> (As we cannot know all implementations)
+>>
+>> Until someone reports an issue with it, 10 is fine. Just like 20 or 666.
+>
+> Wrong, this is policy and belongs in userspace.
 
-Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
-Signed-off-by: Ravi Patel <rapatel@apm.com>
-Signed-off-by: Keyur Chudgar <kchudgar@apm.com>
----
- arch/arm64/boot/dts/apm-mustang.dts |  4 ++++
- arch/arm64/boot/dts/apm-storm.dtsi  | 30 +++++++++++++++++++++++++++---
- 2 files changed, 31 insertions(+), 3 deletions(-)
+The "/etc/init.d/network restart" nonsense now hit Linus' tree.
+Yue, what is your proposal to fix that?
 
-diff --git a/arch/arm64/boot/dts/apm-mustang.dts b/arch/arm64/boot/dts/apm-mustang.dts
-index 6541962..b2f5622 100644
---- a/arch/arm64/boot/dts/apm-mustang.dts
-+++ b/arch/arm64/boot/dts/apm-mustang.dts
-@@ -28,3 +28,7 @@
- &serial0 {
- 	status = "ok";
- };
-+
-+&menet {
-+	status = "ok";
-+};
-diff --git a/arch/arm64/boot/dts/apm-storm.dtsi b/arch/arm64/boot/dts/apm-storm.dtsi
-index 40aa96c..c0aceef 100644
---- a/arch/arm64/boot/dts/apm-storm.dtsi
-+++ b/arch/arm64/boot/dts/apm-storm.dtsi
-@@ -167,14 +167,13 @@
- 				clock-output-names = "ethclk";
- 			};
- 
--			eth8clk: eth8clk {
-+			menetclk: menetclk {
- 				compatible = "apm,xgene-device-clock";
- 				#clock-cells = <1>;
- 				clocks = <&ethclk 0>;
--				clock-names = "eth8clk";
- 				reg = <0x0 0x1702C000 0x0 0x1000>;
- 				reg-names = "csr-reg";
--				clock-output-names = "eth8clk";
-+				clock-output-names = "menetclk";
- 			};
- 
- 			sataphy1clk: sataphy1clk@1f21c000 {
-@@ -397,5 +396,30 @@
- 			#clock-cells = <1>;
- 			clocks = <&rtcclk 0>;
- 		};
-+
-+		menet: ethernet@17020000 {
-+			compatible = "apm,xgene-enet";
-+			status = "disabled";
-+			reg = <0x0 0x17020000 0x0 0xd100>,
-+			      <0x0 0X17030000 0x0 0X400>,
-+			      <0x0 0X10000000 0x0 0X200>;
-+			reg-names = "enet_csr", "ring_csr", "ring_cmd";
-+			interrupts = <0x0 0x3c 0x4>;
-+			dma-coherent;
-+			clocks = <&menetclk 0>;
-+			local-mac-address = [00 01 73 00 00 01];
-+			phy-connection-type = "rgmii";
-+			phy-handle = <&menetphy>;
-+			mdio {
-+				compatible = "apm,xgene-mdio";
-+				#address-cells = <1>;
-+				#size-cells = <0>;
-+				menetphy: menetphy@3 {
-+					compatible = "ethernet-phy-id001c.c915";
-+					reg = <0x3>;
-+				};
-+
-+			};
-+		};
- 	};
- };
 -- 
-1.9.1
+Thanks,
+//richard
