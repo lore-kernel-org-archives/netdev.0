@@ -1,27 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] cxgb4: Update FW version string to match FW
- binary version
-Date: Thu, 07 Aug 2014 16:04:19 -0700 (PDT)
-Message-ID: <20140807.160419.2117615738714340619.davem@davemloft.net>
-References: <1407402531-14283-1-git-send-email-hariprasad@chelsio.com>
+Subject: Re: [PATCH net 0/3] Fix duplicate #include headers
+Date: Thu, 07 Aug 2014 16:04:33 -0700 (PDT)
+Message-ID: <20140807.160433.517203433717468732.davem@davemloft.net>
+References: <1407415846-10277-3-git-send-email-sakiwit@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, leedom@chelsio.com, nirranjan@chelsio.com,
-	kumaras@chelsio.com, anish@chelsio.com
-To: hariprasad@chelsio.com
+Cc: netdev@vger.kernel.org
+To: sakiwit@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53611 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53617 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751237AbaHGXEU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2014 19:04:20 -0400
-In-Reply-To: <1407402531-14283-1-git-send-email-hariprasad@chelsio.com>
+	with ESMTP id S1755630AbaHGXEe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2014 19:04:34 -0400
+In-Reply-To: <1407415846-10277-3-git-send-email-sakiwit@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Date: Thu,  7 Aug 2014 14:38:51 +0530
+From: Jean Sacren <sakiwit@gmail.com>
+Date: Thu,  7 Aug 2014 06:50:45 -0600
 
-> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+> This series fixes duplicate #include headers in the current net
+> tree.
+> 
+> Jean Sacren (3):
+>   amd: xgbe: delete duplicate linux/phy.h header
+>   batman: delete duplicate multicast.h header
+>   openvswitch: fix duplicate #include headers
 
-Applied.
+Series applied.
