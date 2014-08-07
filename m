@@ -1,40 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] netlink: reset network header before passing to
- taps
-Date: Thu, 07 Aug 2014 16:06:17 -0700 (PDT)
-Message-ID: <20140807.160617.1417231506028535686.davem@davemloft.net>
-References: <1407442967-2109-1-git-send-email-dborkman@redhat.com>
+Subject: Re: [PATCH] drivers/net: ethernet: Remove typedef for struct and
+ enum
+Date: Thu, 07 Aug 2014 16:06:42 -0700 (PDT)
+Message-ID: <20140807.160642.1780454276654586342.davem@davemloft.net>
+References: <20140807203915.GA21337@himangi-Dell>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, marcel@holtmann.org
-To: dborkman@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53659 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755437AbaHGXGS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2014 19:06:18 -0400
-In-Reply-To: <1407442967-2109-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: paul.gortmaker@windriver.com, w-lkml@lebenslange-mailadresse.de,
+	balbi@ti.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	julia.lawall@lip6.fr
+To: himangi774@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140807203915.GA21337@himangi-Dell>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Thu,  7 Aug 2014 22:22:47 +0200
+From: Himangi Saraogi <himangi774@gmail.com>
+Date: Fri, 8 Aug 2014 02:09:16 +0530
 
-> netlink doesn't set any network header offset thus when the skb is
-> being passed to tap devices via dev_queue_xmit_nit(), it emits klog
-> false positives due to it being unset like:
+> The Linux kernel coding style guidelines suggest not using typedefs
+> for structure and enum types. This patch gets rid of the typedef for
+> cardtype_t and local_info_t. Also, the names of the struct and enum
+> are changed to drop the _t, to make the name look less typedef-like.
 > 
->   ...
->   [  124.990397] protocol 0000 is buggy, dev nlmon0
->   [  124.990411] protocol 0000 is buggy, dev nlmon0
->   ...
-> 
-> So just reset the network header before passing to the device; for
-> packet sockets that just means nothing will change - mac and net
-> offset hold the same value just as before.
-> 
-> Reported-by: Marcel Holtmann <marcel@holtmann.org>
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> The following Coccinelle semantic patch detects the case for struct type:
+...
+> Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
+> Acked-by: Julia Lawall <julia.lawall@lip6.fr>
 
-Applied and queued up for -stable.
+Applied.
