@@ -1,69 +1,93 @@
-From: =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: [PATCH v2] net: gianfar: fix reference counting for phy_node
-Date: Thu,  7 Aug 2014 21:41:46 +0200
-Message-ID: <1407440506-20028-1-git-send-email-u.kleine-koenig@pengutronix.de>
-References: <1407440131-15517-1-git-send-email-u.kleine-koenig@pengutronix.de>
+From: Julia Lawall <julia.lawall@lip6.fr>
+Subject: Re: [PATCH] net: gianfar: no need to check parameter being != NULL
+ for of_node_put
+Date: Thu, 7 Aug 2014 21:49:22 +0200 (CEST)
+Message-ID: <alpine.DEB.2.02.1408072148400.2043@localhost6.localdomain6>
+References: <1407439212-16661-1-git-send-email-u.kleine-koenig@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Claudiu Manoil <claudiu.manoil@freescale.com>,
+Content-Type: MULTIPART/MIXED; BOUNDARY="8323328-149610876-1407440964=:2043"
+Cc: netdev@vger.kernel.org,
+	Claudiu Manoil <claudiu.manoil@freescale.com>,
 	kernel@pengutronix.de, Florian Fainelli <f.fainelli@gmail.com>,
-	Fabio Estevam <fabio.estevam@freescale.com>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-To: netdev@vger.kernel.org
+	Fabio Estevam <fabio.estevam@freescale.com>
+To: =?ISO-8859-15?Q?Uwe_Kleine-K=F6nig?=
+	<u.kleine-koenig@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:58493 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750890AbaHGTl5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2014 15:41:57 -0400
-In-Reply-To: <1407440131-15517-1-git-send-email-u.kleine-koenig@pengutronix.de>
+Received: from mail3-relais-sop.national.inria.fr ([192.134.164.104]:16343
+	"EHLO mail3-relais-sop.national.inria.fr" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751399AbaHGTtZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2014 15:49:25 -0400
+In-Reply-To: <1407439212-16661-1-git-send-email-u.kleine-koenig@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The line before the changed if condition is:
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-	priv->phy_node =3D of_parse_phandle(np, "phy-handle", 0);
+--8323328-149610876-1407440964=:2043
+Content-Type: TEXT/PLAIN; charset=utf-8
+Content-Transfer-Encoding: 8BIT
 
-=2E If this call succeeds priv->phy_node must not be overwritten in the=
- if
-block; otherwise the reference to the node returned by of_parse_phandle
-is lost. So add a check that the if block isn't executed in this case.
+On Thu, 7 Aug 2014, Uwe Kleine-König wrote:
 
-=46urthermore in the fixed phy case no reference is aquired for phy_nod=
-e
-resulting in an of_node_put without holding a reference. To fix that,
-get a reference on the MAC dt node.
+> of_node_put is a noop when being called with NULL.
+> 
+> Signed-off-by: Uwe Kleine-König <u.kleine-koenig@pengutronix.de>
+> ---
+> Hello,
+> 
+> @Julia: I'm sure it's easy to create a coccinelle rule for this.
 
-Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
----
-Changes since (implicit) v1:
+@@
+expression e;
+@@
 
- - really do both fixes mentioned in the commit log
+-if (e)
+   of_node_put(e);
 
- drivers/net/ethernet/freescale/gianfar.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+It matches in 25 files.
 
-diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/eth=
-ernet/freescale/gianfar.c
-index 6b0c4775cd0d..fb29d049f4e1 100644
---- a/drivers/net/ethernet/freescale/gianfar.c
-+++ b/drivers/net/ethernet/freescale/gianfar.c
-@@ -892,12 +892,12 @@ static int gfar_of_init(struct platform_device *o=
-fdev, struct net_device **pdev)
- 	/* In the case of a fixed PHY, the DT node associated
- 	 * to the PHY is the Ethernet MAC DT node.
- 	 */
--	if (of_phy_is_fixed_link(np)) {
-+	if (!priv->phy_node && of_phy_is_fixed_link(np)) {
- 		err =3D of_phy_register_fixed_link(np);
- 		if (err)
- 			goto err_grp_init;
-=20
--		priv->phy_node =3D np;
-+		priv->phy_node =3D of_node_get(np);
- 	}
-=20
- 	/* Find the TBI PHY.  If it's not there, we don't support SGMII */
---=20
-2.0.1
+julia
+
+> 
+> Best regards
+> Uwe
+> 
+>  drivers/net/ethernet/freescale/gianfar.c | 12 ++++--------
+>  1 file changed, 4 insertions(+), 8 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+> index a6cf40e62f3a..6b0c4775cd0d 100644
+> --- a/drivers/net/ethernet/freescale/gianfar.c
+> +++ b/drivers/net/ethernet/freescale/gianfar.c
+> @@ -1435,10 +1435,8 @@ register_fail:
+>  	unmap_group_regs(priv);
+>  	gfar_free_rx_queues(priv);
+>  	gfar_free_tx_queues(priv);
+> -	if (priv->phy_node)
+> -		of_node_put(priv->phy_node);
+> -	if (priv->tbi_node)
+> -		of_node_put(priv->tbi_node);
+> +	of_node_put(priv->phy_node);
+> +	of_node_put(priv->tbi_node);
+>  	free_gfar_dev(priv);
+>  	return err;
+>  }
+> @@ -1447,10 +1445,8 @@ static int gfar_remove(struct platform_device *ofdev)
+>  {
+>  	struct gfar_private *priv = platform_get_drvdata(ofdev);
+>  
+> -	if (priv->phy_node)
+> -		of_node_put(priv->phy_node);
+> -	if (priv->tbi_node)
+> -		of_node_put(priv->tbi_node);
+> +	of_node_put(priv->phy_node);
+> +	of_node_put(priv->tbi_node);
+>  
+>  	unregister_netdev(priv->ndev);
+>  	unmap_group_regs(priv);
+> -- 
+> 2.0.1
+> 
+> 
+--8323328-149610876-1407440964=:2043--
