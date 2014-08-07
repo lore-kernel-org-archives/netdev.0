@@ -1,64 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v4 5/6] net-timestamp: TCP timestamping
-Date: Wed, 06 Aug 2014 20:50:49 -0700 (PDT)
-Message-ID: <20140806.205049.737444744145587077.davem@davemloft.net>
-References: <CA+FuTSdevrKsHCwfX4wwhz-1SxWONsO=bOnD0bjP=yaG+pU5kQ@mail.gmail.com>
-	<20140806.190310.2063368448518362055.davem@davemloft.net>
-	<CA+FuTSf27abEh0SjY80zX3DxMDL_h2Q_iL6gU2gaJypZXHDhOw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	richardcochran@gmail.com
-To: willemb@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46439 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754342AbaHGDuw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Aug 2014 23:50:52 -0400
-In-Reply-To: <CA+FuTSf27abEh0SjY80zX3DxMDL_h2Q_iL6gU2gaJypZXHDhOw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nick Krause <xerofoiify@gmail.com>
+Subject: [PATCH] rtl8150: Check if RSR is already defined
+Date: Thu,  7 Aug 2014 07:24:54 +0200
+Message-ID: <1407389095-31426-1-git-send-email-xerofoiify@gmail.com>
+To: Petko Manolov <petkan@nucleusys.com>,
+	linux-usb@vger.kernel.org (open list:USB RTL8150 DRIVER),
+	netdev@vger.kernel.org (open list:USB RTL8150 DRIVER),
+	linux-kernel@vger.kernel.org (open list)
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Willem de Bruijn <willemb@google.com>
-Date: Wed, 6 Aug 2014 23:43:11 -0400
+I am getting the following warn
 
-> On Wed, Aug 6, 2014 at 10:03 PM, David Miller <davem@davemloft.net> wrote:
->> From: Willem de Bruijn <willemb@google.com>
->> Date: Wed, 6 Aug 2014 20:59:30 -0400
->>
->>>>>> but also that we're going to send multiple reports back to error
->>>>>> queue.
->>>>>
->>>>> I see. The optimization patch to queue timestamps without payload will
->>>>> mitigate that somewhat. I dropped that from the initial patchset, but
->>>>> will fix it up for net-next. It may also be possible to squash
->>>>> multiple timestamped packets on the errqueue together when they all
->>>>> have the same payload, resulting in a single (possibly no-payload)
->>>>> packet with repeating cmsgs IP_RECVERR and SCM_TIMESTAMPING. That
->>>>> would give O(1) overhead regardless of number of retransmits.
->>>>
->>>> We could attach a singly linked list of small sequence number cookies
->>>> to the SKB when it gets queued up.
->>>
->>> To avoid queuing a clone of the skb for each timestamp with
->>> sock_queue_err_skb, only queue the first occurrence. Record
->>> subsequent (tstype, tstamp) tuples to the queued skb with
->>> matching tskey, and at ip_recv_error convert each into a cmsg?
->>
->> The retransmit queue only contains the original transmit SKB(s).
->>
->> So the only modification in tcp_clean_rtx_queue() is to walk the
->> list of timestamp sequence number cookies.
-> 
-> I think I may have misunderstood the design. When are cookies
-> added to this list and what exactly do they record? Attach a
-> cookie to the SKB on each invocation of skb_tstamp_tx, instead
-> of cloning the SKB every time and queuing each clone onto
-> the errqueue. Build this list of cookies and flush them at once on
-> the final ACK timestamp? If so, then cookies record a timestamp
-> and -type, but all refer to the same skb_shinfo(skb)->tskey.
+drivers/net/usb/rtl8150.c:30:0: warning: "RSR" redefined
+arch/xtensa/include/asm/processor.h:189:0: note: this is the location of the previous definition
 
-When transmit packets are built in TCP for which we will provide
-a timestamp, that is when we will allocate the cookie blob and
-link it into the SKB.
+I wanted to remove RSR as it is not being used but it is not clear if being used
+for documenting purpose. undefining should be enough.
+
+Signed-off-by: Nick Krause <xerofoify@gmail.com>
+---
+ drivers/net/usb/rtl8150.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/net/usb/rtl8150.c b/drivers/net/usb/rtl8150.c
+index 6e87e57..7d9a6ba 100644
+--- a/drivers/net/usb/rtl8150.c
++++ b/drivers/net/usb/rtl8150.c
+@@ -21,6 +21,10 @@
+ #define DRIVER_AUTHOR "Petko Manolov <petkan@users.sourceforge.net>"
+ #define DRIVER_DESC "rtl8150 based usb-ethernet driver"
+ 
++#ifdef RSR
++#undef RSR
++#endif
++
+ #define	IDR			0x0120
+ #define	MAR			0x0126
+ #define	CR			0x012e
+-- 
+2.0.1
