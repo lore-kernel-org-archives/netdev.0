@@ -1,68 +1,45 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] Fix e1000e with Intel 82572EI that has no hardware
+From: "Koehrer Mathias (ETAS/ESW5)" <mathias.koehrer@etas.com>
+Subject: [PATCHv2] Fix e1000e with Intel 82572EI that has no hardware
  timestamp support
-Date: Wed, 6 Aug 2014 23:20:27 -0700
-Message-ID: <CAL3LdT5-pyfBTC8=sn=Nk_WEzeCJweK=NyYcOepOfESz44eOhg@mail.gmail.com>
-References: <bbcbf584e3624059bf7a0d2186fec6b4@FE-MBX1012.de.bosch.com>
-	<20140806191744.GB6611@netboy>
-	<CAPDOMVjYkfM49E9DM0=SDDRncLQbXxR8NQE9SrsW++YycMGU5w@mail.gmail.com>
-	<20140806193211.GC6611@netboy>
-	<CAPDOMViFCifeUoOgExuG7Q6_ObGj20g59siyMxWeKN=Zr2Kbdg@mail.gmail.com>
-	<20140806195433.GD6611@netboy>
-	<bdf5ba14c73340f7b39f6d3df2473a43@FE-MBX1012.de.bosch.com>
+Date: Thu, 7 Aug 2014 06:29:34 +0000
+Message-ID: <fae55865c8fb40f8b2f05b56b070433c@FE-MBX1012.de.bosch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: Richard Cochran <richardcochran@gmail.com>,
 	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
 	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Koehrer Mathias (ETAS/ESW5)" <mathias.koehrer@etas.com>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <bdf5ba14c73340f7b39f6d3df2473a43@FE-MBX1012.de.bosch.com>
+Content-Language: de-DE
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 6, 2014 at 11:10 PM, Koehrer Mathias (ETAS/ESW5)
-<mathias.koehrer@etas.com> wrote:
-> With the Intel 82527EI (driver: e1000e) there is an issue when running
-> the ptpd2 program, that leads to a kernel oops.  The reason is here that
-> in e1000_xmit_frame() a work queue will be scheduled that has not been
-> initialized in this case.  The work queue "tx_hwstamp_work" will only be
-> initialized if adapter->flags & FLAG_HAS_HW_TIMESTAMP set.  This check
-> is missing in e1000_xmit_frame().
->
-> The following patch adds the missing check.
->
-> Signed-off-by: Mathias Koehrer <mathias.koehrer@etas.com>
->
-> ---
->  drivers/net/ethernet/intel/e1000e/netdev.c |    3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
->
-> Index: linux-3.12.26/drivers/net/ethernet/intel/e1000e/netdev.c
-> ===================================================================
-> --- linux-3.12.26.orig/drivers/net/ethernet/intel/e1000e/netdev.c       2014-08-04 10:56:56.000000000 +0200
-> +++ linux-3.12.26/drivers/net/ethernet/intel/e1000e/netdev.c    2014-08-07 08:05:17.000000000 +0200
-> @@ -5550,7 +5550,8 @@
->                              nr_frags);
->         if (count) {
->                 if (unlikely((skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) &&
-> -                            !adapter->tx_hwtstamp_skb)) {
-> +                            !adapter->tx_hwtstamp_skb &&
-> +                            (adapter->flags & FLAG_HAS_HW_TIMESTAMP))) {
->                         skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
->                         tx_flags |= E1000_TX_FLAGS_HWTSTAMP;
->                         adapter->tx_hwtstamp_skb = skb_get(skb);
->
-
-So is this v2 of your patch?  and you are ignoring Alex's last suggestion to do:
-
-  unlikely(skb->tx_flags & HW_TSTAMP) &&
-  (adapter->flags & HAS_HW_TSTAMP) &&
-  !adapter->tx_hwtstamp_skb
-
-Just wondering....
-
--- 
-Cheers,
-Jeff
+V2l0aCB0aGUgSW50ZWwgODI1MjdFSSAoZHJpdmVyOiBlMTAwMGUpIHRoZXJlIGlzIGFuIGlzc3Vl
+IHdoZW4gcnVubmluZw0KdGhlIHB0cGQyIHByb2dyYW0sIHRoYXQgbGVhZHMgdG8gYSBrZXJuZWwg
+b29wcy4gIFRoZSByZWFzb24gaXMgaGVyZSB0aGF0DQppbiBlMTAwMF94bWl0X2ZyYW1lKCkgYSB3
+b3JrIHF1ZXVlIHdpbGwgYmUgc2NoZWR1bGVkIHRoYXQgaGFzIG5vdCBiZWVuDQppbml0aWFsaXpl
+ZCBpbiB0aGlzIGNhc2UuICBUaGUgd29yayBxdWV1ZSAidHhfaHdzdGFtcF93b3JrIiB3aWxsIG9u
+bHkgYmUNCmluaXRpYWxpemVkIGlmIGFkYXB0ZXItPmZsYWdzICYgRkxBR19IQVNfSFdfVElNRVNU
+QU1QIHNldC4gIFRoaXMgY2hlY2sNCmlzIG1pc3NpbmcgaW4gZTEwMDBfeG1pdF9mcmFtZSgpLg0K
+DQpUaGUgZm9sbG93aW5nIHBhdGNoIGFkZHMgdGhlIG1pc3NpbmcgY2hlY2suDQoNClNpZ25lZC1v
+ZmYtYnk6IE1hdGhpYXMgS29laHJlciA8bWF0aGlhcy5rb2VocmVyQGV0YXMuY29tPg0KDQotLS0N
+CiBkcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9lMTAwMGUvbmV0ZGV2LmMgfCAgICA1ICsrKy0t
+DQogMSBmaWxlIGNoYW5nZWQsIDMgaW5zZXJ0aW9ucygrKSwgMiBkZWxldGlvbnMoLSkNCg0KSW5k
+ZXg6IGxpbnV4LTMuMTIuMjYvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvZTEwMDBlL25ldGRl
+di5jDQo9PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
+PT09PT09PT09PT09PT09DQotLS0gbGludXgtMy4xMi4yNi5vcmlnL2RyaXZlcnMvbmV0L2V0aGVy
+bmV0L2ludGVsL2UxMDAwZS9uZXRkZXYuYwkyMDE0LTA4LTA0IDEwOjU2OjU2LjAwMDAwMDAwMCAr
+MDIwMA0KKysrIGxpbnV4LTMuMTIuMjYvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvZTEwMDBl
+L25ldGRldi5jCTIwMTQtMDgtMDcgMDg6Mjc6MDkuMDAwMDAwMDAwICswMjAwDQpAQCAtNTU0OSw4
+ICs1NTQ5LDkgQEANCiAJY291bnQgPSBlMTAwMF90eF9tYXAodHhfcmluZywgc2tiLCBmaXJzdCwg
+YWRhcHRlci0+dHhfZmlmb19saW1pdCwNCiAJCQkgICAgIG5yX2ZyYWdzKTsNCiAJaWYgKGNvdW50
+KSB7DQotCQlpZiAodW5saWtlbHkoKHNrYl9zaGluZm8oc2tiKS0+dHhfZmxhZ3MgJiBTS0JUWF9I
+V19UU1RBTVApICYmDQotCQkJICAgICAhYWRhcHRlci0+dHhfaHd0c3RhbXBfc2tiKSkgew0KKwkJ
+aWYgKHVubGlrZWx5KHNrYl9zaGluZm8oc2tiKS0+dHhfZmxhZ3MgJiBTS0JUWF9IV19UU1RBTVAp
+ICYmDQorCQkgICAgKGFkYXB0ZXItPmZsYWdzICYgRkxBR19IQVNfSFdfVElNRVNUQU1QKSAmJg0K
+KwkJICAgICFhZGFwdGVyLT50eF9od3RzdGFtcF9za2IpIHsNCiAJCQlza2Jfc2hpbmZvKHNrYikt
+PnR4X2ZsYWdzIHw9IFNLQlRYX0lOX1BST0dSRVNTOw0KIAkJCXR4X2ZsYWdzIHw9IEUxMDAwX1RY
+X0ZMQUdTX0hXVFNUQU1QOw0KIAkJCWFkYXB0ZXItPnR4X2h3dHN0YW1wX3NrYiA9IHNrYl9nZXQo
+c2tiKTsNCg0KLS0gDQoNCg==
