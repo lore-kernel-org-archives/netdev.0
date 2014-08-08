@@ -1,43 +1,64 @@
-From: Jisheng Zhang <jszhang@marvell.com>
-Subject: Re: Weird NET_RX softirq behavior
-Date: Fri, 8 Aug 2014 14:55:33 +0800
-Message-ID: <20140808145533.5675e695@xhacker>
-References: <20140807171050.77819b10@xhacker>
-	<20140807181813.37b73927513266381d55ad0d@qrator.net>
-	<20140808103734.677bff7e@xhacker>
-	<1407476878.3604.0.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Dexuan Cui <decui@microsoft.com>
+Subject: RE: [PATCH] Hyperv: Trigger DHCP renew after host hibernation
+Date: Fri, 8 Aug 2014 08:11:20 +0000
+Message-ID: <EE124450C0AAF944A40DD71E61F878C991569A@SINEX14MBXC417.southpacific.corp.microsoft.com>
+References: <DC7803B42427924284F2D5252E076A3B4476A479@SINEX14MBXC416.southpacific.corp.microsoft.com>
+ <53CCD6F2.6020909@nod.at> <20140721091851.GA28171@aepfle.de>
+ <20140721.143225.2040366896972949930.davem@davemloft.net>
+ <CAFLxGvyfy1UkxN6_-c_ST7f8n7DvqYsCPKChWmt9CerWb0dh7g@mail.gmail.com>
+ <EE124450C0AAF944A40DD71E61F878C99149D0@SINEX14MBXC417.southpacific.corp.microsoft.com>
+ <20140808033220.GB10503@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Dmitry Popov <ixaphire@qrator.net>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-0016f401.pphosted.com ([67.231.156.173]:7730 "EHLO
-	mx0b-0016f401.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752547AbaHHG5r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Aug 2014 02:57:47 -0400
-In-Reply-To: <1407476878.3604.0.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
+ Richard Weinberger <richard.weinberger@gmail.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "jasowang@redhat.com" <jasowang@redhat.com>,
+ "driverdev-devel@linuxdriverproject.org"
+ <driverdev-devel@linuxdriverproject.org>, Haiyang
+ Zhang <haiyangz@microsoft.com>, LKML <linux-kernel@vger.kernel.org>,
+ Thomas Shao <huishao@microsoft.com>,
+ "Yue Zhang \(OSTC DEV\)" <yuezha@microsoft.com>,
+ David Miller <davem@davemloft.net>
+To: Greg KH <gregkh@linuxfoundation.org>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20140808033220.GB10503@kroah.com>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 7 Aug 2014 22:47:58 -0700
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-
-> On Fri, 2014-08-08 at 10:37 +0800, Jisheng Zhang wrote:
-> > nd and recive 7 packets so far, about 1400bytes. Seems small
-> > comparing with the CPU1 and CPU2 NET_RX softirq numbers, right?
-> > 
-> > Any other possible case?
+> From: Greg KH [mailto:gregkh@linuxfoundation.org]
+> Sent: Friday, August 8, 2014 11:32 AM
+> > Hi Richard and all,
+> >
+> > IMO the most feasible and need-the-least-change solution may be:
+> > the hyperv network VSC driver passes the event
+> > RNDIS_STATUS_NETWORK_CHANGE to the udev daemon?
+> >
+> > In this way, every distro only needs to add a udev rule, which should
+> > be simple.
 > 
-> Multicast loop. Check dev_loopback_xmit() and its callers.
+> No, don't do that, again, act like any other network device, drop the
+> link and bring it up when it comes back.
 > 
-> 
+> greg k-h
 
-That's it! This make sense
+Hi Greg,
+Thanks for the comment!
 
-I didn't see any NET_RX on CPU1,2,3 if I disabled mulitcast
+Do you mean tearing down the net device and re-creating it (by
+register_netdev() and unregister_netdev)?
 
-Thanks very much.
+Sorry, I'm new to network drivers. I'll have to try this to see if this
+works or not, though I suppose it would work.
+
+-- Dexuan
