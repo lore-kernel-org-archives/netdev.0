@@ -1,171 +1,381 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: [PATCH net 2/3] xen-netback: don't stop dealloc kthread too early
-Date: Fri, 8 Aug 2014 17:22:59 +0100
-Message-ID: <1407514980-2117-3-git-send-email-wei.liu2@citrix.com>
-References: <1407514980-2117-1-git-send-email-wei.liu2@citrix.com>
+From: Heiko =?ISO-8859-1?Q?St=FCbner?= <heiko@sntech.de>
+Subject: Re: [PATCH 2/2] ethernet: arc: Add support for Rockchip SoC glue layer device tree bindings
+Date: Fri, 08 Aug 2014 18:25:06 +0200
+Message-ID: <6643752.VIXJ29g27a@diego>
+References: <1407500875-23851-1-git-send-email-romain.perier@gmail.com> <1407500875-23851-2-git-send-email-romain.perier@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Zoltan Kiss <zoltan.kill@citrix.com>
-To: <netdev@vger.kernel.org>, <xen-devel@lists.xen.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: davem@davemloft.net, max.schwarz@online.de, b.galvani@gmail.com,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: Romain Perier <romain.perier@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:16853 "EHLO SMTP.CITRIX.COM"
+Received: from gloria.sntech.de ([95.129.55.99]:40766 "EHLO gloria.sntech.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755924AbaHHQXF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Aug 2014 12:23:05 -0400
-In-Reply-To: <1407514980-2117-1-git-send-email-wei.liu2@citrix.com>
+	id S1756521AbaHHQXe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Aug 2014 12:23:34 -0400
+In-Reply-To: <1407500875-23851-2-git-send-email-romain.perier@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Reference count the number of packets in host stack, so that we don't
-stop the deallocation thread too early. If not, we can end up with
-xenvif_free permanently waiting for deallocation thread to unmap grefs.
+Hi Romain,
 
-Reported-by: Thomas Leonard <talex5@gmail.com>
-Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-Cc: Ian Campbell <ian.campbell@citrix.com>
-Cc: Zoltan Kiss <zoltan.kill@citrix.com>
----
- drivers/net/xen-netback/common.h    |    5 +++++
- drivers/net/xen-netback/interface.c |   16 ++++++++++++++++
- drivers/net/xen-netback/netback.c   |   24 ++++++++++++++++++++----
- 3 files changed, 41 insertions(+), 4 deletions(-)
+this new emac-variant is missing a dt-bindings document.
+And additional to Varka's comments, more inline:
 
-diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-index ef3026f..d9b7f85 100644
---- a/drivers/net/xen-netback/common.h
-+++ b/drivers/net/xen-netback/common.h
-@@ -165,6 +165,8 @@ struct xenvif_queue { /* Per-queue data for xenvif */
- 	u16 dealloc_ring[MAX_PENDING_REQS];
- 	struct task_struct *dealloc_task;
- 	wait_queue_head_t dealloc_wq;
-+	wait_queue_head_t inflight_wq;
-+	atomic_t inflight_packets;
- 
- 	/* Use kthread for guest RX */
- 	struct task_struct *task;
-@@ -329,4 +331,7 @@ extern unsigned int xenvif_max_queues;
- extern struct dentry *xen_netback_dbg_root;
- #endif
- 
-+void xenvif_inc_inflight_packets(struct xenvif_queue *queue);
-+void xenvif_dec_inflight_packets(struct xenvif_queue *queue);
-+
- #endif /* __XEN_NETBACK__COMMON_H__ */
-diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index fdb4fca..6488801 100644
---- a/drivers/net/xen-netback/interface.c
-+++ b/drivers/net/xen-netback/interface.c
-@@ -43,6 +43,17 @@
- #define XENVIF_QUEUE_LENGTH 32
- #define XENVIF_NAPI_WEIGHT  64
- 
-+void xenvif_inc_inflight_packets(struct xenvif_queue *queue)
-+{
-+	atomic_inc(&queue->inflight_packets);
-+}
-+
-+void xenvif_dec_inflight_packets(struct xenvif_queue *queue)
-+{
-+	if (atomic_dec_and_test(&queue->inflight_packets))
-+		wake_up(&queue->inflight_wq);
-+}
-+
- static inline void xenvif_stop_queue(struct xenvif_queue *queue)
- {
- 	struct net_device *dev = queue->vif->dev;
-@@ -561,6 +572,8 @@ int xenvif_connect(struct xenvif_queue *queue, unsigned long tx_ring_ref,
- 
- 	init_waitqueue_head(&queue->wq);
- 	init_waitqueue_head(&queue->dealloc_wq);
-+	init_waitqueue_head(&queue->inflight_wq);
-+	atomic_set(&queue->inflight_packets, 0);
- 
- 	if (tx_evtchn == rx_evtchn) {
- 		/* feature-split-event-channels == 0 */
-@@ -687,6 +700,9 @@ void xenvif_disconnect(struct xenvif *vif)
- 			queue->task = NULL;
- 		}
- 
-+		wait_event(queue->inflight_wq,
-+			   atomic_read(&queue->inflight_packets) == 0);
-+
- 		if (queue->dealloc_task) {
- 			kthread_stop(queue->dealloc_task);
- 			queue->dealloc_task = NULL;
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 4734472..d2f0c7d7 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -107,6 +107,18 @@ static inline unsigned long idx_to_kaddr(struct xenvif_queue *queue,
- #define callback_param(vif, pending_idx) \
- 	(vif->pending_tx_info[pending_idx].callback_struct)
- 
-+/* This function is used to set SKBTX_DEV_ZEROCOPY as well as
-+ * increasing the inflight counter. We need to increase the inflight
-+ * counter because core driver calls into xenvif_zerocopy_callback
-+ * which calls xenvif_dec_inflight_packets.
-+ */
-+static void set_skb_zerocopy(struct xenvif_queue *queue,
-+			     struct sk_buff *skb)
-+{
-+	skb_shinfo(skb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
-+	xenvif_inc_inflight_packets(queue);
-+}
-+
- /* Find the containing VIF's structure from a pointer in pending_tx_info array
-  */
- static inline struct xenvif_queue *ubuf_to_queue(const struct ubuf_info *ubuf)
-@@ -1525,10 +1537,13 @@ static int xenvif_handle_frag_list(struct xenvif_queue *queue, struct sk_buff *s
- 	/* remove traces of mapped pages and frag_list */
- 	skb_frag_list_init(skb);
- 	uarg = skb_shinfo(skb)->destructor_arg;
-+	/* See comment on set_skb_zerocopy */
-+	if (uarg->callback == xenvif_zerocopy_callback)
-+		xenvif_inc_inflight_packets(queue);
- 	uarg->callback(uarg, true);
- 	skb_shinfo(skb)->destructor_arg = NULL;
- 
--	skb_shinfo(nskb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
-+	set_skb_zerocopy(queue, nskb);
- 	kfree_skb(nskb);
- 
- 	return 0;
-@@ -1589,7 +1604,7 @@ static int xenvif_tx_submit(struct xenvif_queue *queue)
- 				if (net_ratelimit())
- 					netdev_err(queue->vif->dev,
- 						   "Not enough memory to consolidate frag_list!\n");
--				skb_shinfo(skb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
-+				set_skb_zerocopy(queue, skb);
- 				kfree_skb(skb);
- 				continue;
- 			}
-@@ -1609,7 +1624,7 @@ static int xenvif_tx_submit(struct xenvif_queue *queue)
- 				   "Can't setup checksum in net_tx_action\n");
- 			/* We have to set this flag to trigger the callback */
- 			if (skb_shinfo(skb)->destructor_arg)
--				skb_shinfo(skb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
-+				set_skb_zerocopy(queue, skb);
- 			kfree_skb(skb);
- 			continue;
- 		}
-@@ -1641,7 +1656,7 @@ static int xenvif_tx_submit(struct xenvif_queue *queue)
- 		 * skb. E.g. the __pskb_pull_tail earlier can do such thing.
- 		 */
- 		if (skb_shinfo(skb)->destructor_arg) {
--			skb_shinfo(skb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
-+			set_skb_zerocopy(queue, skb);
- 			queue->stats.tx_zerocopy_sent++;
- 		}
- 
-@@ -1681,6 +1696,7 @@ void xenvif_zerocopy_callback(struct ubuf_info *ubuf, bool zerocopy_success)
- 		queue->stats.tx_zerocopy_success++;
- 	else
- 		queue->stats.tx_zerocopy_fail++;
-+	xenvif_dec_inflight_packets(queue);
- }
- 
- static inline void xenvif_tx_dealloc_action(struct xenvif_queue *queue)
--- 
-1.7.10.4
+Am Freitag, 8. August 2014, 12:27:55 schrieb Romain Perier:
+> This patch defines a platform glue layer for Rockchip SoCs which support
+> arc-emac driver. It ensures that regulator for the rmii is on before trying
+> to connect to the ethernet controller. It applies right speed and mode
+> changes to the grf when ethernet settings changes.
+> 
+> Signed-off-by: Romain Perier <romain.perier@gmail.com>
+> ---
+>  arch/arm/boot/dts/rk3188-radxarock.dts   |   2 +
+>  arch/arm/boot/dts/rk3xxx.dtsi            |   3 +
+>  drivers/net/ethernet/arc/Kconfig         |   9 ++
+>  drivers/net/ethernet/arc/Makefile        |   1 +
+>  drivers/net/ethernet/arc/emac_rockchip.c | 191
+> +++++++++++++++++++++++++++++++ 5 files changed, 206 insertions(+)
+>  create mode 100644 drivers/net/ethernet/arc/emac_rockchip.c
+> 
+> diff --git a/arch/arm/boot/dts/rk3188-radxarock.dts
+> b/arch/arm/boot/dts/rk3188-radxarock.dts index d149155..773a433 100644
+> --- a/arch/arm/boot/dts/rk3188-radxarock.dts
+> +++ b/arch/arm/boot/dts/rk3188-radxarock.dts
+> @@ -110,12 +110,14 @@
+> 
+>  &emac {
+>  	status = "okay";
+> +	compatible = "rockchip,rk3188-emac";
+> 
+>  	pinctrl-names = "default";
+>  	pinctrl-0 = <&emac_xfer>, <&emac_mdio>, <&phy_int>;
+> 
+>  	mac-address = [ c6 ef 91 8e 60 4b ];
+>  	phy = <&phy0>;
+> +	phy-supply = <&vcc_rmii>;
+> 
+>  	phy0: ethernet-phy@0 {
+>  		reg = <0>;
+> diff --git a/arch/arm/boot/dts/rk3xxx.dtsi b/arch/arm/boot/dts/rk3xxx.dtsi
+> index 80ed3dc..66c8b85 100644
+> --- a/arch/arm/boot/dts/rk3xxx.dtsi
+> +++ b/arch/arm/boot/dts/rk3xxx.dtsi
+> @@ -101,8 +101,11 @@
+>  		#address-cells = <1>;
+>  		#size-cells = <0>;
+> 
+> +		rockchip,grf = <&grf>;
+> +
+>  		clocks = <&cru HCLK_EMAC>;
+>  		max-speed = <100>;
+> +		phy-mode = "rmii";
+> 
+>  		status = "disabled";
+>  	};
+
+please don't include dts changes in driver patches ... they should be 
+individual patches, as they're normally going through a separate tree.
+
+Also in this case, you based your dts changes on my development-branch and 
+there is currently no emac support at all in the mainline trees, so you should 
+add the complete nodes.
+
+
+> diff --git a/drivers/net/ethernet/arc/Kconfig
+> b/drivers/net/ethernet/arc/Kconfig index d73d971..196e9e7 100644
+> --- a/drivers/net/ethernet/arc/Kconfig
+> +++ b/drivers/net/ethernet/arc/Kconfig
+> @@ -28,4 +28,13 @@ config ARC_EMAC
+>  	  non-standard on-chip ethernet device ARC EMAC 10/100 is used.
+>  	  Say Y here if you have such a board.  If unsure, say N.
+> 
+> +config EMAC_ROCKCHIP
+> +       tristate "Rockchip EMAC support"
+> +       depends on MFD_SYSCON && ARCH_ROCKCHIP
+> +       ---help---
+> +         Support for Rockchip RK3066/RK3188 EMAC ethernet controllers.
+> +         This selects Rockchip SoC glue layer support for the
+> +         emac device driver. This driver is used for RK3066/RK3188
+> +         EMAC ethernet controller.
+> +
+>  endif # NET_VENDOR_ARC
+> diff --git a/drivers/net/ethernet/arc/Makefile
+> b/drivers/net/ethernet/arc/Makefile index b6f15b4..cf10cf3 100644
+> --- a/drivers/net/ethernet/arc/Makefile
+> +++ b/drivers/net/ethernet/arc/Makefile
+> @@ -4,3 +4,4 @@
+> 
+>  obj-$(CONFIG_NET_VENDOR_ARC) += emac_main.o emac_mdio.o
+>  obj-$(CONFIG_ARC_EMAC) += emac_arc.o
+> +obj-$(CONFIG_EMAC_ROCKCHIP) += emac_rockchip.o
+> diff --git a/drivers/net/ethernet/arc/emac_rockchip.c
+> b/drivers/net/ethernet/arc/emac_rockchip.c new file mode 100644
+> index 0000000..2ea724f
+> --- /dev/null
+> +++ b/drivers/net/ethernet/arc/emac_rockchip.c
+> @@ -0,0 +1,191 @@
+> +/**
+> + * emac-rockchip.c - Rockchip EMAC specific glue layer
+> + *
+> + * Copyright (C) 2014 Romain Perier
+> + *
+> + * Romain Perier  <romain.perier@gmail.com>
+> + *
+> + * This program is free software; you can redistribute it and/or modify
+> + * it under the terms of the GNU General Public License as published by
+> + * the Free Software Foundation; either version 2 of the License, or
+> + * (at your option) any later version.
+> + *
+> + * This program is distributed in the hope that it will be useful,
+> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
+> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+> + * GNU General Public License for more details.
+> + */
+> +
+> +#include "emac.h"
+> +#include <linux/of_net.h>
+> +#include <linux/platform_device.h>
+> +#include <linux/regulator/consumer.h>
+> +#include <linux/mfd/syscon.h>
+> +#include <linux/regmap.h>
+> +#include <linux/module.h>
+> +#include <linux/clk.h>
+> +
+> +#define DRV_NAME        "rockchip_emac"
+> +#define DRV_VERSION     "1.0"
+> +
+> +#define GRF_MODE_MII   BIT(0)
+> +#define GRF_MODE_RMII  0x0
+> +#define GRF_SPEED_10M  0x0
+> +#define GRF_SPEED_100M BIT(1)
+> +
+> +struct rockchip_priv_data {
+> +	struct regmap *grf;
+> +	unsigned int grf_offset;
+> +	int interface;
+> +	struct regulator *regulator;
+> +};
+> +
+> +static const unsigned int rockchip_emac_soc_grf_offset[] = {
+> +	0x154, /* rk3066 */
+> +	0x0a4, /* rk3188 */
+> +};
+> +
+> +static const struct of_device_id rockchip_emac_dt_ids[] = {
+> +	{ .compatible = "rockchip,rk3066-emac", .data = (void
+> *)rockchip_emac_soc_grf_offset }, +	{ .compatible = "rockchip,rk3188-emac",
+> .data = (void *)rockchip_emac_soc_grf_offset + 1 }, +	{ /* Sentinel */ }
+> +};
+> +
+> +MODULE_DEVICE_TABLE(of, rockchip_emac_dt_ids);
+> +
+> +static int rockchip_grf_set_phy_speed(const struct rockchip_priv_data
+> *emac, unsigned int speed) +{
+> +	/* write-enable bits */
+> +	u32 data = BIT(17) | BIT(16);
+> +
+> +	switch(speed) {
+> +	case 10:
+> +		data |= GRF_SPEED_10M << 1;
+> +		break;
+> +	case 100:
+> +		data |= GRF_SPEED_100M << 1;
+
+I don't understand the "<< 1" here, the speed-bit in the register is already 
+bit(1) as defined in the GRF_SPEED_100M at the top, so this code would move the 
+bit to bit(2)
+
+
+> +		break;
+> +	default:
+> +		return -ENOTSUPP;
+> +	}
+> +
+> +	switch(emac->interface) {
+> +	case PHY_INTERFACE_MODE_RMII:
+> +		data |= GRF_MODE_RMII;
+> +		break;
+> +	case PHY_INTERFACE_MODE_MII:
+> +		data |= GRF_MODE_MII;
+> +		break;
+> +	default:
+> +		return -ENOTSUPP;
+> +	}
+
+setting the interface mode could be done only once in _probe, especially when 
+you take into account the necessary clock settings described below.
+
+
+> +
+> +	return regmap_write(emac->grf, emac->grf_offset, data);
+> +}
+> +
+> +static void rockchip_set_mac_speed(void *priv, unsigned int speed)
+> +{
+> +	struct rockchip_priv_data *emac = priv;
+> +	int ret = 0;
+> +
+> +	ret = rockchip_grf_set_phy_speed(emac, speed);
+> +	if (ret) {
+> +		if (ret == -ENOTSUPP)
+> +			pr_err("phy interface (%d) or speed (%u) not supported\n",
+> emac->interface, speed); +		return ret;
+> +	}
+> +}
+> +
+> +static int rockchip_emac_probe(struct platform_device *pdev)
+> +{
+> +	struct rockchip_priv_data *emac = NULL;
+> +	struct emac_platform_data *emac_plat_data = NULL;
+> +	struct device *dev = &pdev->dev;
+> +	const struct of_device_id *match = NULL;
+> +	int ret = 0;
+> +	u32 data = 0;
+> +
+> +	emac = dev_get_platdata(dev);
+
+Rockchip support is devicetree-only, so you could simply error out in a 
+theoretical non-dt case with:
+
+if (!pdev->of_node)
+	return -ENODEV;
+
+Otherwise if you really want to get a previous defined platform-data struct, 
+you should not overwrite it unconditionally below.
+
+
+> +
+> +	if (!emac) {
+> +		emac = devm_kzalloc(dev, sizeof(*emac), GFP_KERNEL);
+> +		if (!emac)
+> +			return -ENOMEM;
+> +	}
+> +
+> +	emac_plat_data = devm_kzalloc(dev, sizeof(*emac_plat_data), GFP_KERNEL);
+> +	if (!emac_plat_data)
+> +		return -ENOMEM;
+> +	emac_plat_data->name = DRV_NAME;
+> +	emac_plat_data->version = DRV_VERSION;
+> +	emac_plat_data->set_mac_speed = rockchip_set_mac_speed;
+> +	emac_plat_data->priv = emac;
+> +
+> +	emac->interface = of_get_phy_mode(dev->of_node);
+> +	emac_plat_data->interface = emac->interface;
+> +
+> +	emac->grf = syscon_regmap_lookup_by_phandle(dev->of_node, "rockchip,grf");
+> +	if (IS_ERR(emac->grf)) {
+> +		dev_err(dev, "unable to find syscon grf (%ld)\n", PTR_ERR(emac->grf));
+> +		return PTR_ERR_OR_ZERO(emac->grf);
+> +	}
+> +
+> +	match = of_match_node(rockchip_emac_dt_ids, dev->of_node);
+> +	emac->grf_offset = *(unsigned int *)match;
+> +
+> +	emac_plat_data->clk = of_clk_get(dev->of_node, 0);
+> +	if (IS_ERR(emac_plat_data->clk)) {
+> +		dev_err(dev, "failed to retrieve clock from device tree\n");
+> +		return PTR_ERR_OR_ZERO(emac_plat_data->clk);
+> +	}
+
+The clock handling needs a bit more work.
+
+For one, the rockchip emac needs two clocks (the hclk and the macref clock). 
+Additionally the macref clk needs to be set to different values depending on 
+the interface type.
+
+In RMII mode it should be set to 50MHz and I guess in MII mode to 25MHz [0].
+
+And secondly, you could use devm_clk_get because mixing devm_ and non-devm_ 
+function doesn't work that well (and you're missing the clk_put here)
+
+So combined:
+
+emac_plat_data->clk = devm_clk_get(dev, "ahb_hclk");
+if (IS_ERR(...))
+	...
+
+emac->refclk = devm_clk_get(dev, "macref");
+...
+
+	switch(emac->interface) {
+	case PHY_INTERFACE_MODE_RMII:
+		data = GRF_MODE_RMII;
+		rate = 50000000;
+		break;
+	case PHY_INTERFACE_MODE_MII:
+		data = GRF_MODE_MII;
+		rate = 25000000;
+		break;
+	default:
+		return -ENOTSUPP;
+	}
+
+	ret = regmap_write(emac->grf, emac->grf_offset, data);
+	if (ret)
+		foo
+
+	ret = clk_set_rate(emac->refclk, rate);
+	if (ret)
+		foo
+
+
+Heiko
+
+
+[0] 
+http://en.wikipedia.org/wiki/Media_Independent_Interface#Reduced_Media_Independent_Interface
+
+> +
+> +        /* Optional regulator for PHY */
+> +	emac->regulator = devm_regulator_get_optional(dev, "phy");
+> +	if (IS_ERR(emac->regulator)) {
+> +		if (PTR_ERR(emac->regulator) == -EPROBE_DEFER)
+> +			return ERR_PTR(-EPROBE_DEFER);
+> +		dev_info(dev, "no regulator found\n");
+> +		emac->regulator = NULL;
+> +	}
+> +
+> +	if (emac->regulator) {
+> +		ret = regulator_enable(emac->regulator);
+> +		if (ret)
+> +			return ret;
+> +	}
+> +
+> +	ret = rockchip_grf_set_phy_speed(emac, 100);
+> +	if (ret) {
+> +		if (ret == -ENOTSUPP)
+> +			dev_err(dev, "phy interface not supported (%d)\n", emac-
+>interface);
+> +		return ret;
+> +	}
+> +
+> +	return emac_drv_probe(dev, emac_plat_data);
+> +}
+> +
+> +static int rockchip_emac_remove(struct platform_device *pdev)
+> +{
+> +	struct rockchip_priv_data *emac = dev_get_platdata(&pdev->dev);
+> +	struct net_device *ndev = dev_get_drvdata(&pdev->dev);
+> +
+> +	if (emac->regulator)
+> +		regulator_disable(emac->regulator);
+> +	return emac_drv_remove(ndev);
+> +}
+> +
+> +static struct platform_driver rockchip_emac_driver = {
+> +	.probe = rockchip_emac_probe,
+> +	.remove = rockchip_emac_remove,
+> +	.driver = {
+> +		.name = DRV_NAME,
+> +		.owner = THIS_MODULE,
+> +		.of_match_table  = rockchip_emac_dt_ids,
+> +	},
+> +};
+> +
+> +module_platform_driver(rockchip_emac_driver);
+> +
+> +MODULE_AUTHOR("Romain Perier <romain.perier@gmail.com>");
+> +MODULE_DESCRIPTION("Rockchip EMAC driver");
+> +MODULE_LICENSE("GPL");
