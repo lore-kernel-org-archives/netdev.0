@@ -1,46 +1,44 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: [PATCH net v2 0/3] xen-netback: synchronisation between core driver and netback
-Date: Fri, 8 Aug 2014 17:37:10 +0100
-Message-ID: <1407515833-2550-1-git-send-email-wei.liu2@citrix.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net v2 1/3] xen-netback: move NAPI add/remove calls
+Date: Fri, 08 Aug 2014 20:49:10 +0400
+Message-ID: <53E4FF86.8040505@cogentembedded.com>
+References: <1407515833-2550-1-git-send-email-wei.liu2@citrix.com> <1407515833-2550-2-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Wei Liu <wei.liu2@citrix.com>
-To: <netdev@vger.kernel.org>, <xen-devel@lists.xen.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ian Campbell <ian.campbell@citrix.com>,
+	Zoltan Kiss <zoltan.kiss@citrix.com>
+To: Wei Liu <wei.liu2@citrix.com>, netdev@vger.kernel.org,
+	xen-devel@lists.xen.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:47189 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756141AbaHHQhO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Aug 2014 12:37:14 -0400
+Received: from mail-la0-f45.google.com ([209.85.215.45]:37240 "EHLO
+	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757097AbaHHQtP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Aug 2014 12:49:15 -0400
+Received: by mail-la0-f45.google.com with SMTP id ty20so4883042lab.32
+        for <netdev@vger.kernel.org>; Fri, 08 Aug 2014 09:49:13 -0700 (PDT)
+In-Reply-To: <1407515833-2550-2-git-send-email-wei.liu2@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The zero-copy netback has far more interactions with core network driver than
-the old copying backend. One significant thing is that netback now relies on
-a callback from core driver to correctly release resources.
+Hello.
 
-However correct synchronisation between core driver and netback is missing.
-Currently netback relies on a loop to wait for core driver to release
-resources. This is proven not enough and erronous recently, partly due to code
-structure, partly due to missing synchronisation. Short-live domains like
-OpenMirage unikernels can easily trigger race in backend, rendering backend
-unresponsive.
+On 08/08/2014 08:37 PM, Wei Liu wrote:
 
-This patch series aims to slove this issue by introducing proper
-synchronisation between core driver and netback.
+> Originally napi_add was in init_queue and napi_del was in deinit_queue,
+> while kthreads were handled in _connect and _disconnect. Move napi_add
+> and napi_remove
 
-Wei.
+    netif_napi_{add|del}()?
 
-Change in v2: fix Zoltan's email address in commit message
+ > to _connect and _disconnect so that they reside togother
 
-Wei Liu (3):
-  xen-netback: move NAPI add/remove calls
-  xen-netback: don't stop dealloc kthread too early
-  xen-netback: remove loop waiting function
+    Together.
 
- drivers/net/xen-netback/common.h    |    5 +++
- drivers/net/xen-netback/interface.c |   57 +++++++++++++++--------------------
- drivers/net/xen-netback/netback.c   |   24 ++++++++++++---
- 3 files changed, 49 insertions(+), 37 deletions(-)
+> with kthread operations.
 
--- 
-1.7.10.4
+> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+> Cc: Ian Campbell <ian.campbell@citrix.com>
+> Cc: Zoltan Kiss <zoltan.kiss@citrix.com>
+
+WBR, Sergei
