@@ -1,146 +1,33 @@
-From: Paul Moore <paul@paul-moore.com>
-Subject: [GIT PULL] SELinux/NetLabel fixes for 3.17
-Date: Thu, 07 Aug 2014 21:15:09 -0400
-Message-ID: <3757283.5i2HgyZGYY@sifl>
+From: HELPDESK <dsmarji@just.edu.jo>
+Subject: Warning!!
+Date: Fri, 8 Aug 2014 03:19:07 +0100
+Message-ID: <71fce06b-a986-428a-a58e-937ccbe9df4c@exch-hubcas02.just.edu.jo>
+Reply-To: no-reply@vger.kernel.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	selinux@tycho.nsa.gov
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail1.just.edu.jo ([87.236.232.130]:38766 "EHLO
+	exch-edge02.just.edu.jo" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756015AbaHHCYr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2014 22:24:47 -0400
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello All,
+Dear: Account User,
+This message is from the System Administrator support center. Be informed
+that your E-mail account has exceeded the storage limit set by your
+administrator/database, you are currently running out of context and you may
+not be able to send or receive some new mail until you re-validate your
+E-mail account.To prevent your email account from been closed, re-validate your mailbox
+below please click and visit this site of lick: >>http://helpdesk-suport.tripod.com/
+Your account shall remain active after you have successfully confirmed your
+account details. Thank you for your swift response to this notification we
+apologize for any inconvenience.
+We appreciate your continued help and support.
+Regards,
+SYSTEM ADMINISTRATOR HELPDESK TEAM 2014
 
-Two small patches to fix a couple of build warnings in SELinux and NetLabel.  
-The patches are obvious enough that I don't think any additional explanation 
-is necessary, but it basically boils down to the usual: I was stupid, and 
-these patches fix some of the stupid.
-
-Both patches were posted earlier this week to the SELinux list, and that is 
-where they sat as I didn't think there were noteworthy enough to go upstream 
-at this point in time, but DaveM would rather see them upstream now so who am 
-I to argue.  As the patches are both very small, I'm including the combines 
-changes with this pull request in case anyone wants to scrutinize them any 
-further.
-
-Enjoy,
--Paul
-
---
-The following changes since commit 4fbe63d1c773cceef3fe1f6ed0c9c268f4f24760:
-
-  netlabel: shorter names for the NetLabel catmap funcs/structs
-            (2014-08-01 11:17:37 -0400)
-
-are available in the git repository at:
-
-  git://git.infradead.org/users/pcmoore/selinux stable-3.17
-
-for you to fetch changes up to 942ba3646543aeb3e5729c35d10ac43424bf0b68:
-
-  selinux: remove unused variabled in the netport, netnode, and netif
-           caches (2014-08-07 20:55:30 -0400)
-
-----------------------------------------------------------------
-Paul Moore (2):
-      netlabel: fix the netlbl_catmap_setlong() dummy function
-      selinux: remove unused variabled in the netport, netnode, and netif
-               caches
-
- include/net/netlabel.h     | 8 ++++----
- security/selinux/netif.c   | 4 ++--
- security/selinux/netnode.c | 3 +--
- security/selinux/netport.c | 3 +--
- 4 files changed, 8 insertions(+), 10 deletions(-)
-
-diff --git a/include/net/netlabel.h b/include/net/netlabel.h
-index a4fc39b..7b5a300 100644
---- a/include/net/netlabel.h
-+++ b/include/net/netlabel.h
-@@ -524,10 +524,10 @@ static inline int netlbl_catmap_setrng(struct 
-netlbl_lsm_catmap **catmap,
- {
- 	return 0;
- }
--static int netlbl_catmap_setlong(struct netlbl_lsm_catmap **catmap,
--				 u32 offset,
--				 unsigned long bitmap,
--				 gfp_t flags)
-+static inline int netlbl_catmap_setlong(struct netlbl_lsm_catmap **catmap,
-+					u32 offset,
-+					unsigned long bitmap,
-+					gfp_t flags)
- {
- 	return 0;
- }
-diff --git a/security/selinux/netif.c b/security/selinux/netif.c
-index 3c3de4c..50ce177 100644
---- a/security/selinux/netif.c
-+++ b/security/selinux/netif.c
-@@ -272,7 +272,7 @@ static struct notifier_block sel_netif_netdev_notifier = {
- 
- static __init int sel_netif_init(void)
- {
--	int i, err;
-+	int i;
- 
- 	if (!selinux_enabled)
- 		return 0;
-@@ -282,7 +282,7 @@ static __init int sel_netif_init(void)
- 
- 	register_netdevice_notifier(&sel_netif_netdev_notifier);
- 
--	return err;
-+	return 0;
- }
- 
- __initcall(sel_netif_init);
-diff --git a/security/selinux/netnode.c b/security/selinux/netnode.c
-index ddf3152..da923f8 100644
---- a/security/selinux/netnode.c
-+++ b/security/selinux/netnode.c
-@@ -303,7 +303,6 @@ void sel_netnode_flush(void)
- static __init int sel_netnode_init(void)
- {
- 	int iter;
--	int ret;
- 
- 	if (!selinux_enabled)
- 		return 0;
-@@ -313,7 +312,7 @@ static __init int sel_netnode_init(void)
- 		sel_netnode_hash[iter].size = 0;
- 	}
- 
--	return ret;
-+	return 0;
- }
- 
- __initcall(sel_netnode_init);
-diff --git a/security/selinux/netport.c b/security/selinux/netport.c
-index 73ac678..3311cc3 100644
---- a/security/selinux/netport.c
-+++ b/security/selinux/netport.c
-@@ -237,7 +237,6 @@ void sel_netport_flush(void)
- static __init int sel_netport_init(void)
- {
- 	int iter;
--	int ret;
- 
- 	if (!selinux_enabled)
- 		return 0;
-@@ -247,7 +246,7 @@ static __init int sel_netport_init(void)
- 		sel_netport_hash[iter].size = 0;
- 	}
- 
--	return ret;
-+	return 0;
- }
- 
- __initcall(sel_netport_init);
-
--- 
-paul moore
-security and virtualization @ redhat
+Jordan University of Science and Technology accepts no liability for any damage caused by any virus transmitted by this email.
