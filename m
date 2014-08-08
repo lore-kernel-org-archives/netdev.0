@@ -1,27 +1,71 @@
-From: Helpdsk <dsmarji@just.edu.jo>
-Subject: Dear:  Account User
-Date: Fri, 8 Aug 2014 14:28:02 +0100
-Message-ID: <07f74e0e-b419-4efc-93ef-ffb605160bbd@exch-hubcas02.just.edu.jo>
-Reply-To: No-reply@vger.kernel.org
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH] Hyperv: Trigger DHCP renew after host hibernation
+Date: Fri, 8 Aug 2014 06:45:49 -0700
+Message-ID: <20140808134549.GD4427@kroah.com>
+References: <DC7803B42427924284F2D5252E076A3B4476A479@SINEX14MBXC416.southpacific.corp.microsoft.com>
+ <53CCD6F2.6020909@nod.at> <20140721091851.GA28171@aepfle.de>
+ <20140721.143225.2040366896972949930.davem@davemloft.net>
+ <CAFLxGvyfy1UkxN6_-c_ST7f8n7DvqYsCPKChWmt9CerWb0dh7g@mail.gmail.com>
+ <EE124450C0AAF944A40DD71E61F878C99149D0@SINEX14MBXC417.southpacific.corp.microsoft.com>
+ <20140808033220.GB10503@kroah.com>
+ <EE124450C0AAF944A40DD71E61F878C991569A@SINEX14MBXC417.southpacific.corp.microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <dsmarji@just.edu.jo>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.just.edu.jo ([87.236.232.130]:27082 "EHLO
-	exch-edge01.just.edu.jo" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752115AbaHHN2V convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Aug 2014 09:28:21 -0400
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
+ Richard Weinberger <richard.weinberger@gmail.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ Haiyang Zhang <haiyangz@microsoft.com>,
+ "driverdev-devel@linuxdriverproject.org"
+ <driverdev-devel@linuxdriverproject.org>, LKML <linux-kernel@vger.kernel.org>,
+ David Miller <davem@davemloft.net>,
+ "Yue Zhang \(OSTC DEV\)" <yuezha@microsoft.com>,
+ Thomas Shao <huishao@microsoft.com>,
+ "jasowang@redhat.com" <jasowang@redhat.com>
+To: Dexuan Cui <decui@microsoft.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Disposition: inline
+In-Reply-To: <EE124450C0AAF944A40DD71E61F878C991569A@SINEX14MBXC417.southpacific.corp.microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
- Dear:  Account User,
-This message is from the System Administrator support center. Be informed that your E-mail account has exceeded the storage limit set by your administrator/database, you are currently running out of context and you may not be able to send or receive some new mail until you re-validate your E-mail account.
-To prevent your email account from been closed, re-validate your mailbox below please click and visit this site of lick: >>>>   http://upgradeyouraccount-click.tripod.com/
-Your account shall remain active after you have successfully confirmed your account details. Thank you for your swift response to this notification we apologize for any inconvenience.
-We appreciate your continued help and support.
-Regards,
-SYSTEM ADMINISTRATOR HELPDESK TEAM 2014.
+On Fri, Aug 08, 2014 at 08:11:20AM +0000, Dexuan Cui wrote:
+> > From: Greg KH [mailto:gregkh@linuxfoundation.org]
+> > Sent: Friday, August 8, 2014 11:32 AM
+> > > Hi Richard and all,
+> > >
+> > > IMO the most feasible and need-the-least-change solution may be:
+> > > the hyperv network VSC driver passes the event
+> > > RNDIS_STATUS_NETWORK_CHANGE to the udev daemon?
+> > >
+> > > In this way, every distro only needs to add a udev rule, which should
+> > > be simple.
+> > 
+> > No, don't do that, again, act like any other network device, drop the
+> > link and bring it up when it comes back.
+> > 
+> > greg k-h
+> 
+> Hi Greg,
+> Thanks for the comment!
+> 
+> Do you mean tearing down the net device and re-creating it (by
+> register_netdev() and unregister_netdev)?
 
-Jordan University of Science and Technology accepts no liability for any damage caused by any virus transmitted by this email.
+No, don't you have link-detect for your network device?  Toggle that, I
+thought patches to do this were posted a while ago...
+
+But if you really want to tear the whole network device down and then
+back up again, sure, that would also work.
+
+good luck,
+
+greg k-h
