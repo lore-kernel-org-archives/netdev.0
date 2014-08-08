@@ -1,35 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/14] net: axienet: delete unneeded test before
- of_node_put
-Date: Fri, 08 Aug 2014 10:29:06 -0700 (PDT)
-Message-ID: <20140808.102906.1434751133512128265.davem@davemloft.net>
-References: <1407492475-26283-2-git-send-email-Julia.Lawall@lip6.fr>
+Subject: Re: [PATCH net-next] xen-netback: Don't deschedule NAPI when
+ carrier off
+Date: Fri, 08 Aug 2014 10:29:31 -0700 (PDT)
+Message-ID: <20140808.102931.1051613105167978317.davem@davemloft.net>
+References: <1407494580-19404-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: anirudh@xilinx.com, kernel-janitors@vger.kernel.org,
-	John.Linn@xilinx.com, michal.simek@xilinx.com,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org, u.kleine-koenig@pengutronix.de
-To: Julia.Lawall@lip6.fr
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1407492475-26283-2-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: wei.liu2@citrix.com, Ian.Campbell@citrix.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	xen-devel@lists.xenproject.org
+To: zoltan.kiss@citrix.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60359 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751822AbaHHR3d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Aug 2014 13:29:33 -0400
+In-Reply-To: <1407494580-19404-1-git-send-email-zoltan.kiss@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Julia Lawall <Julia.Lawall@lip6.fr>
-Date: Fri,  8 Aug 2014 12:07:43 +0200
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Date: Fri, 8 Aug 2014 11:43:00 +0100
 
-> From: Julia Lawall <Julia.Lawall@lip6.fr>
->=20
-> Of_node_put supports NULL as its argument, so the initial test is not
-> necessary.
->=20
-> Suggested by Uwe Kleine-K=F6nig.
->=20
-> The semantic patch that fixes this problem is as follows:
-> (http://coccinelle.lip6.fr/)
- ...
-> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+> +	if (unlikely(queue->vif->disabled )) {
+                                         ^^
 
-Applied.
+Please get rid of that space and resubmit this patch, thank you.
