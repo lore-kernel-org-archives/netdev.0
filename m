@@ -1,52 +1,76 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: Re: [GIT PULL] SELinux/NetLabel fixes for 3.17
-Date: Fri, 8 Aug 2014 12:53:34 +1000
-Message-ID: <20140808125334.662670bb@canb.auug.org.au>
-References: <3757283.5i2HgyZGYY@sifl>
+From: Dexuan Cui <decui@microsoft.com>
+Subject: RE: [PATCH] Hyperv: Trigger DHCP renew after host hibernation
+Date: Fri, 8 Aug 2014 03:13:58 +0000
+Message-ID: <EE124450C0AAF944A40DD71E61F878C99149D0@SINEX14MBXC417.southpacific.corp.microsoft.com>
+References: <DC7803B42427924284F2D5252E076A3B4476A479@SINEX14MBXC416.southpacific.corp.microsoft.com>
+ <53CCD6F2.6020909@nod.at>	<20140721091851.GA28171@aepfle.de>
+ <20140721.143225.2040366896972949930.davem@davemloft.net>
+ <CAFLxGvyfy1UkxN6_-c_ST7f8n7DvqYsCPKChWmt9CerWb0dh7g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/o52sRoP16KsM0rwGNg3m1GH"; protocol="application/pgp-signature"
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-security-module@vger.kernel.org, selinux@tycho.nsa.gov
-To: Paul Moore <paul@paul-moore.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <3757283.5i2HgyZGYY@sifl>
-Sender: linux-security-module-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "jasowang@redhat.com" <jasowang@redhat.com>,
+ "driverdev-devel@linuxdriverproject.org"
+ <driverdev-devel@linuxdriverproject.org>, LKML <linux-kernel@vger.kernel.org>,
+ Thomas Shao <huishao@microsoft.com>, Greg KH <gregkh@linuxfoundation.org>,
+ Haiyang Zhang <haiyangz@microsoft.com>
+To: Richard Weinberger <richard.weinberger@gmail.com>, David Miller
+ <davem@davemloft.net>, "Yue Zhang (OSTC DEV)" <yuezha@microsoft.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <CAFLxGvyfy1UkxN6_-c_ST7f8n7DvqYsCPKChWmt9CerWb0dh7g@mail.gmail.com>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
 List-Id: netdev.vger.kernel.org
 
---Sig_/o52sRoP16KsM0rwGNg3m1GH
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+> -----Original Message-----
+> From: Richard Weinberger [mailto:richard.weinberger@gmail.com]
+> Sent: Friday, August 8, 2014 6:37 AM
+> To: David Miller; Yue Zhang (OSTC DEV)
+> Cc: olaf@aepfle.de; netdev@vger.kernel.org; driverdev-
+> devel@linuxdriverproject.org; LKML; Greg KH; jasowang@redhat.com;
+> Haiyang Zhang; KY Srinivasan; Thomas Shao; Dexuan Cui
+> Subject: Re: [PATCH] Hyperv: Trigger DHCP renew after host hibernation
+> 
+> On Mon, Jul 21, 2014 at 11:32 PM, David Miller <davem@davemloft.net>
+> wrote:
+> > From: Olaf Hering <olaf@aepfle.de>
+> > Date: Mon, 21 Jul 2014 11:18:51 +0200
+> >
+> >> On Mon, Jul 21, Richard Weinberger wrote:
+> >>
+> >>> My concern is that 10 seconds is maybe not a the right choice.
+> >>> (As we cannot know all implementations)
+> >>
+> >> Until someone reports an issue with it, 10 is fine. Just like 20 or 666.
+> >
+> > Wrong, this is policy and belongs in userspace.
+> 
+> The "/etc/init.d/network restart" nonsense now hit Linus' tree.
+> Yue, what is your proposal to fix that?
+> 
+> //richard
 
-Hi Paul,
+Hi Richard and all,
+Sorry for the late response -- actually we have been trying to
+figure out a solution that's acceptable to all.
 
-I am not sure who this was directed at, but if you want Linus to pull
-these (and that would be good) you need to send this to him explicitly.
+IMO the most feasible and need-the-least-change solution may be:
+the hyperv network VSC driver passes the event
+RNDIS_STATUS_NETWORK_CHANGE to the udev daemon?
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+In this way, every distro only needs to add a udev rule, which should
+be simple.
 
---Sig_/o52sRoP16KsM0rwGNg3m1GH
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
+Any comment?
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJT5DuyAAoJEMDTa8Ir7ZwVgBsP/1Nn81d87ftD/LiJm6Q9tkhZ
-QtVNEw96b584ZEwWrmORwWVNcqSWOAskxNActVph+GzIpGQc//TYCewKJnfNHxHt
-fQZ1NP/Y/RP18gHGYaKk9kyOUb/vlqeBcIr4sCOZwxkvEJkWF+o1SwBc8wWDINqK
-jmbaCqdyhxVeKEq/C6GXABPbgcrsc4wg/DFBEFBMU8UboX01ypVIycikcsdoGRs0
-MhbUfNUQfIp47T0AncroDvteYHN0ipkBuOBYrpNrQlCMaEtPdqNofDFErGNPKZ68
-qO9FUbz0TEA1C1X694+RMtbkeAIikZSNZSlas44JCMQmDJGDvBRyCYpjOw+Kqo+A
-n84kP5/FxV6bdXfO8XGk6wtxB1lFq+t4bLkdPE1/ZOn3407FmXv8LwAglM5wQJTO
-P42fLHz5w8Y+anLb9zoVf4weZn792LWKNFneDEE4f6nDoshCKoAePDdAnHKPPRtT
-N6cFp0k7TvzQHF1kJcVYBvOqWcM/fvh1lEm2gOwWh5NifjnuGGsN8FkXriFuXOVc
-2SeVC1ncZC+ciCmhz6T5RcMSnaUqb8y3hRPODwK0aHp3OxXoofomyxFAM76F2AvA
-3gFTMve1L/FiQVQmcyFA1hx7yUWeOgmzVeXwkdk4GrojCBfryifXZunhXmXzzglw
-IEo4WF4QHHDsoqyX1pCM
-=Ovkd
------END PGP SIGNATURE-----
-
---Sig_/o52sRoP16KsM0rwGNg3m1GH--
+-- Dexuan
