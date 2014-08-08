@@ -1,45 +1,42 @@
-From: Julia Lawall <Julia.Lawall@lip6.fr>
-Subject: =?UTF-8?q?=5BPATCH=202/14=5D=20net=3A=20axienet=3A=20delete=20unneeded=20test=20before=20of=5Fnode=5Fput?=
-Date: Fri,  8 Aug 2014 12:07:43 +0200
-Message-ID: <1407492475-26283-2-git-send-email-Julia.Lawall@lip6.fr>
+From: Zoltan Kiss <zoltan.kiss@citrix.com>
+Subject: [PATCH net-next] xen-netback: Don't deschedule NAPI when carrier off
+Date: Fri, 8 Aug 2014 11:43:00 +0100
+Message-ID: <1407494580-19404-1-git-send-email-zoltan.kiss@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
- linux-kernel@vger.kernel.org, Michal Simek <michal.simek@xilinx.com>,
- =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?= <u.kleine-koenig@pengutronix.de>,
- John Linn <John.Linn@xilinx.com>, linux-arm-kernel@lists.infradead.org
-To: Anirudha Sarangi <anirudh@xilinx.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: text/plain
+Cc: Zoltan Kiss <zoltan.kiss@citrix.com>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <xen-devel@lists.xenproject.org>
+To: Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogSnVsaWEgTGF3YWxsIDxKdWxpYS5MYXdhbGxAbGlwNi5mcj4KCk9mX25vZGVfcHV0IHN1
-cHBvcnRzIE5VTEwgYXMgaXRzIGFyZ3VtZW50LCBzbyB0aGUgaW5pdGlhbCB0ZXN0IGlzIG5vdApu
-ZWNlc3NhcnkuCgpTdWdnZXN0ZWQgYnkgVXdlIEtsZWluZS1Lw7ZuaWcuCgpUaGUgc2VtYW50aWMg
-cGF0Y2ggdGhhdCBmaXhlcyB0aGlzIHByb2JsZW0gaXMgYXMgZm9sbG93czoKKGh0dHA6Ly9jb2Nj
-aW5lbGxlLmxpcDYuZnIvKQoKLy8gPHNtcGw+CkBACmV4cHJlc3Npb24gZTsKQEAKCi1pZiAoZSkK
-ICAgb2Zfbm9kZV9wdXQoZSk7Ci8vIDwvc21wbD4KClNpZ25lZC1vZmYtYnk6IEp1bGlhIExhd2Fs
-bCA8SnVsaWEuTGF3YWxsQGxpcDYuZnI+CgotLS0KIGRyaXZlcnMvbmV0L2V0aGVybmV0L3hpbGlu
-eC94aWxpbnhfYXhpZW5ldF9tYWluLmMgfCAgICAzICstLQogMSBmaWxlIGNoYW5nZWQsIDEgaW5z
-ZXJ0aW9uKCspLCAyIGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVy
-bmV0L3hpbGlueC94aWxpbnhfYXhpZW5ldF9tYWluLmMgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC94
-aWxpbngveGlsaW54X2F4aWVuZXRfbWFpbi5jCmluZGV4IDdiMGE3MzUuLjMwZTg2MDggMTAwNjQ0
-Ci0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L3hpbGlueC94aWxpbnhfYXhpZW5ldF9tYWluLmMK
-KysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQveGlsaW54L3hpbGlueF9heGllbmV0X21haW4uYwpA
-QCAtMTYzMCw4ICsxNjMwLDcgQEAgc3RhdGljIGludCBheGllbmV0X29mX3JlbW92ZShzdHJ1Y3Qg
-cGxhdGZvcm1fZGV2aWNlICpvcCkKIAlheGllbmV0X21kaW9fdGVhcmRvd24obHApOwogCXVucmVn
-aXN0ZXJfbmV0ZGV2KG5kZXYpOwogCi0JaWYgKGxwLT5waHlfbm9kZSkKLQkJb2Zfbm9kZV9wdXQo
-bHAtPnBoeV9ub2RlKTsKKwlvZl9ub2RlX3B1dChscC0+cGh5X25vZGUpOwogCWxwLT5waHlfbm9k
-ZSA9IE5VTEw7CiAKIAlpb3VubWFwKGxwLT5yZWdzKTsKCgpfX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fXwpsaW51eC1hcm0ta2VybmVsIG1haWxpbmcgbGlzdAps
-aW51eC1hcm0ta2VybmVsQGxpc3RzLmluZnJhZGVhZC5vcmcKaHR0cDovL2xpc3RzLmluZnJhZGVh
-ZC5vcmcvbWFpbG1hbi9saXN0aW5mby9saW51eC1hcm0ta2VybmVsCg==
+In the patch called "xen-netback: Turn off the carrier if the guest is not able
+to receive" NAPI was descheduled when the carrier was set off. That's
+not what most of the drivers do, and we don't have any specific reason to do so
+as well, so revert that change.
+
+Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
+Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Cc: xen-devel@lists.xenproject.org
+---
+diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+index 48a55cd..12656f6 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -78,12 +78,8 @@ int xenvif_poll(struct napi_struct *napi, int budget)
+ 	/* This vif is rogue, we pretend we've there is nothing to do
+ 	 * for this vif to deschedule it from NAPI. But this interface
+ 	 * will be turned off in thread context later.
+-	 * Also, if a guest doesn't post enough slots to receive data on one of
+-	 * its queues, the carrier goes down and NAPI is descheduled here so
+-	 * the guest can't send more packets until it's ready to receive.
+ 	 */
+-	if (unlikely(queue->vif->disabled ||
+-		     !netif_carrier_ok(queue->vif->dev))) {
++	if (unlikely(queue->vif->disabled )) {
+ 		napi_complete(napi);
+ 		return 0;
+ 	}
