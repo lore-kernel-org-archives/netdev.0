@@ -1,41 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] xen-netback: Changes around carrier
- handling
-Date: Thu, 07 Aug 2014 22:29:05 -0700 (PDT)
-Message-ID: <20140807.222905.354652678816300998.davem@davemloft.net>
-References: <1407165658-20146-1-git-send-email-zoltan.kiss@citrix.com>
-	<20140805.160748.1185917042908283028.davem@davemloft.net>
-	<53E3AE21.50109@citrix.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Weird NET_RX softirq behavior
+Date: Fri, 08 Aug 2014 07:47:58 +0200
+Message-ID: <1407476878.3604.0.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <20140807171050.77819b10@xhacker>
+	 <20140807181813.37b73927513266381d55ad0d@qrator.net>
+	 <20140808103734.677bff7e@xhacker>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: wei.liu2@citrix.com, Ian.Campbell@citrix.com,
-	david.vrabel@citrix.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, xen-devel@lists.xenproject.org
-To: zoltan.kiss@citrix.com
+Cc: Dmitry Popov <ixaphire@qrator.net>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Jisheng Zhang <jszhang@marvell.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55651 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755799AbaHHF3G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Aug 2014 01:29:06 -0400
-In-Reply-To: <53E3AE21.50109@citrix.com>
+Received: from mail-we0-f175.google.com ([74.125.82.175]:45746 "EHLO
+	mail-we0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755543AbaHHFsE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Aug 2014 01:48:04 -0400
+In-Reply-To: <20140808103734.677bff7e@xhacker>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Date: Thu, 7 Aug 2014 17:49:37 +0100
+On Fri, 2014-08-08 at 10:37 +0800, Jisheng Zhang wrote:
+> nd and recive 7 packets so far, about 1400bytes. Seems small
+> comparing with the CPU1 and CPU2 NET_RX softirq numbers, right?
+> 
+> Any other possible case?
 
-> David Vrabel pointed out an important question in a reply to the
-> previous version of this series: this patch deschedule NAPI if the
-> carrier goes down. The backend doesn't receive packets from the
-> guest. DavidVr and others said we shouldn't do this, the guest should
-> be able to transmit even if it's not able/willing to receive. Other
-> drivers doesn't deschedule NAPI at carrier off as well, however the
-> "carrier off" information comes from the hardware, not from an
-> untrusted guest who is not posting buffers on the receive ring.
-> I don't have any good argument why I did it the current way, other
-> than a hunch that it feels more natural.
-> David, do you have an opinion on that?
-
-Unless you have a strong reason for doing so, I don't think disabling
-receives when the TX path backs up is necessary.
+Multicast loop. Check dev_loopback_xmit() and its callers.
