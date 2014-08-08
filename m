@@ -1,28 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv4: removed redundant conditional
-Date: Fri, 08 Aug 2014 10:22:33 -0700 (PDT)
-Message-ID: <20140808.102233.61018398976947649.davem@davemloft.net>
-References: <20140808082737.GA3847@localhost.localdomain>
+Subject: Re: [PATCH 13/14] fec_mpc52xx: delete unneeded test before
+ of_node_put
+Date: Fri, 08 Aug 2014 10:28:49 -0700 (PDT)
+Message-ID: <20140808.102849.869385054592371813.davem@davemloft.net>
+References: <1407492475-26283-13-git-send-email-Julia.Lawall@lip6.fr>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: executerx@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60307 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751002AbaHHRWg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Aug 2014 13:22:36 -0400
-In-Reply-To: <20140808082737.GA3847@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	linux-kernel@vger.kernel.org, u.kleine-koenig@pengutronix.de
+To: Julia.Lawall@lip6.fr
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1407492475-26283-13-git-send-email-Julia.Lawall@lip6.fr>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Niv Yehezkel <executerx@gmail.com>
-Date: Fri, 8 Aug 2014 04:27:37 -0400
+=46rom: Julia Lawall <Julia.Lawall@lip6.fr>
+Date: Fri,  8 Aug 2014 12:07:54 +0200
 
-> Since fib_lookup cannot return ESRCH no longer,
-> checking for this error code is no longer neccesary.
-> 
-> Signed-off-by: Niv Yehezkel <executerx@gmail.com>
+> From: Julia Lawall <Julia.Lawall@lip6.fr>
+>=20
+> Of_node_put supports NULL as its argument, so the initial test is not
+> necessary.
+>=20
+> Suggested by Uwe Kleine-K=F6nig.
+>=20
+> The semantic patch that fixes this problem is as follows:
+> (http://coccinelle.lip6.fr/)
+ ...
+> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
-Applied, thank you.
+Applied.
