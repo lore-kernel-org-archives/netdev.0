@@ -1,82 +1,78 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] Hyperv: Trigger DHCP renew after host hibernation
-Date: Fri, 8 Aug 2014 09:28:42 -0700
-Message-ID: <20140808092842.5602afe1@haswell.linuxnetplumber.net>
-References: <DC7803B42427924284F2D5252E076A3B4476A479@SINEX14MBXC416.southpacific.corp.microsoft.com>
- <53CCD6F2.6020909@nod.at> <20140721091851.GA28171@aepfle.de>
- <20140721.143225.2040366896972949930.davem@davemloft.net>
- <CAFLxGvyfy1UkxN6_-c_ST7f8n7DvqYsCPKChWmt9CerWb0dh7g@mail.gmail.com>
- <EE124450C0AAF944A40DD71E61F878C99149D0@SINEX14MBXC417.southpacific.corp.microsoft.com>
- <20140808033220.GB10503@kroah.com>
- <EE124450C0AAF944A40DD71E61F878C991569A@SINEX14MBXC417.southpacific.corp.microsoft.com>
- <20140808134549.GD4427@kroah.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: [PATCH net v2 1/3] xen-netback: move NAPI add/remove calls
+Date: Fri, 8 Aug 2014 17:37:11 +0100
+Message-ID: <1407515833-2550-2-git-send-email-wei.liu2@citrix.com>
+References: <1407515833-2550-1-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "driverdev-devel@linuxdriverproject.org\"
- <driverdev-devel@linuxdriverproject.org>,
- Haiyang Zhang  <haiyangz@microsoft.com>, LKML <linux-kernel@vger.kernel.org>,
- Thomas Shao  <huishao@microsoft.com>, "@osuosl.org,
- "olaf@aepfle.de" <olaf@aepfle.de>, Yue@osuosl.org,
- Richard Weinberger <richard.weinberger@gmail.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "jasowang@redhat.com" <jasowang@redhat.com>,
- OSTC DEV <" <yuezha@microsoft.com>,
- David Miller <davem@davemloft.net>"@osuosl.org>, Zhang@osuosl.org
-To: Greg KH <gregkh@linuxfoundation.org>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20140808134549.GD4427@kroah.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Zoltan Kiss <zoltan.kiss@citrix.com>
+To: <netdev@vger.kernel.org>, <xen-devel@lists.xen.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:47189 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756398AbaHHQhO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Aug 2014 12:37:14 -0400
+In-Reply-To: <1407515833-2550-1-git-send-email-wei.liu2@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 8 Aug 2014 06:45:49 -0700
-Greg KH <gregkh@linuxfoundation.org> wrote:
+Originally napi_add was in init_queue and napi_del was in deinit_queue,
+while kthreads were handled in _connect and _disconnect. Move napi_add
+and napi_remove to _connect and _disconnect so that they reside togother
+with kthread operations.
 
-> On Fri, Aug 08, 2014 at 08:11:20AM +0000, Dexuan Cui wrote:
-> > > From: Greg KH [mailto:gregkh@linuxfoundation.org]
-> > > Sent: Friday, August 8, 2014 11:32 AM
-> > > > Hi Richard and all,
-> > > >
-> > > > IMO the most feasible and need-the-least-change solution may be:
-> > > > the hyperv network VSC driver passes the event
-> > > > RNDIS_STATUS_NETWORK_CHANGE to the udev daemon?
-> > > >
-> > > > In this way, every distro only needs to add a udev rule, which should
-> > > > be simple.
-> > > 
-> > > No, don't do that, again, act like any other network device, drop the
-> > > link and bring it up when it comes back.
-> > > 
-> > > greg k-h
-> > 
-> > Hi Greg,
-> > Thanks for the comment!
-> > 
-> > Do you mean tearing down the net device and re-creating it (by
-> > register_netdev() and unregister_netdev)?
-> 
-> No, don't you have link-detect for your network device?  Toggle that, I
-> thought patches to do this were posted a while ago...
-> 
-> But if you really want to tear the whole network device down and then
-> back up again, sure, that would also work.
-> 
-> good luck,
-> 
-> greg k-h
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+Cc: Ian Campbell <ian.campbell@citrix.com>
+Cc: Zoltan Kiss <zoltan.kiss@citrix.com>
+---
+ drivers/net/xen-netback/interface.c |   12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
 
-
-Call netif_carrier_off then netif_carrier_on to toggle the link detect
-state of netdevice.
+diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
+index 48a55cd..fdb4fca 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -528,9 +528,6 @@ int xenvif_init_queue(struct xenvif_queue *queue)
+ 
+ 	init_timer(&queue->rx_stalled);
+ 
+-	netif_napi_add(queue->vif->dev, &queue->napi, xenvif_poll,
+-			XENVIF_NAPI_WEIGHT);
+-
+ 	return 0;
+ }
+ 
+@@ -618,6 +615,9 @@ int xenvif_connect(struct xenvif_queue *queue, unsigned long tx_ring_ref,
+ 	wake_up_process(queue->task);
+ 	wake_up_process(queue->dealloc_task);
+ 
++	netif_napi_add(queue->vif->dev, &queue->napi, xenvif_poll,
++			XENVIF_NAPI_WEIGHT);
++
+ 	return 0;
+ 
+ err_rx_unbind:
+@@ -675,6 +675,11 @@ void xenvif_disconnect(struct xenvif *vif)
+ 
+ 	for (queue_index = 0; queue_index < num_queues; ++queue_index) {
+ 		queue = &vif->queues[queue_index];
++		netif_napi_del(&queue->napi);
++	}
++
++	for (queue_index = 0; queue_index < num_queues; ++queue_index) {
++		queue = &vif->queues[queue_index];
+ 
+ 		if (queue->task) {
+ 			del_timer_sync(&queue->rx_stalled);
+@@ -708,7 +713,6 @@ void xenvif_disconnect(struct xenvif *vif)
+ void xenvif_deinit_queue(struct xenvif_queue *queue)
+ {
+ 	free_xenballooned_pages(MAX_PENDING_REQS, queue->mmap_pages);
+-	netif_napi_del(&queue->napi);
+ }
+ 
+ void xenvif_free(struct xenvif *vif)
+-- 
+1.7.10.4
