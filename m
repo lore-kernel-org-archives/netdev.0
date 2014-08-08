@@ -1,33 +1,51 @@
-From: HELPDESK <dsmarji@just.edu.jo>
-Subject: Warning!!
-Date: Fri, 8 Aug 2014 03:19:07 +0100
-Message-ID: <71fce06b-a986-428a-a58e-937ccbe9df4c@exch-hubcas02.just.edu.jo>
-Reply-To: no-reply@vger.kernel.org
+From: Jisheng Zhang <jszhang@marvell.com>
+Subject: Re: Weird NET_RX softirq behavior
+Date: Fri, 8 Aug 2014 10:37:34 +0800
+Message-ID: <20140808103734.677bff7e@xhacker>
+References: <20140807171050.77819b10@xhacker>
+	<20140807181813.37b73927513266381d55ad0d@qrator.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.just.edu.jo ([87.236.232.130]:38766 "EHLO
-	exch-edge02.just.edu.jo" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756015AbaHHCYr convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2014 22:24:47 -0400
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Dmitry Popov <ixaphire@qrator.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140807181813.37b73927513266381d55ad0d@qrator.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Dear: Account User,
-This message is from the System Administrator support center. Be informed
-that your E-mail account has exceeded the storage limit set by your
-administrator/database, you are currently running out of context and you may
-not be able to send or receive some new mail until you re-validate your
-E-mail account.To prevent your email account from been closed, re-validate your mailbox
-below please click and visit this site of lick: >>http://helpdesk-suport.tripod.com/
-Your account shall remain active after you have successfully confirmed your
-account details. Thank you for your swift response to this notification we
-apologize for any inconvenience.
-We appreciate your continued help and support.
-Regards,
-SYSTEM ADMINISTRATOR HELPDESK TEAM 2014
+Hi Dmitry,
 
-Jordan University of Science and Technology accepts no liability for any damage caused by any virus transmitted by this email.
+On Thu, 7 Aug 2014 07:18:13 -0700
+Dmitry Popov <ixaphire@qrator.net> wrote:
+
+> On Thu, 7 Aug 2014 17:10:50 +0800
+> Jisheng Zhang <jszhang@marvell.com> wrote:
+> 
+> > 2. only one netdev in the system: eth0.
+> 
+> There should also be lo (loopback) at least.
+
+Yep, I forget that ;)
+
+> 
+> > 4. But NET_RX seems abnormal
+> > ~ # cat /proc/softirqs 
+> >                     CPU0       CPU1       CPU2       CPU3       
+> >       NET_RX:     445587        322        983          0
+> > 
+> > I'm expecting NET_RX under CPU1, 2, 3 should be zero. Any suggestions
+> > about this abnormal behavior?
+> 
+> Do you have any loopback traffic? It could be handled by CPU1/2 explaining
+> non-zero NET_RX counters.
+
+Yes. lo only send and recive 7 packets so far, about 1400bytes. Seems small
+comparing with the CPU1 and CPU2 NET_RX softirq numbers, right?
+
+Any other possible case?
+
+Thanks for your reply,
+Jisheng
