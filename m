@@ -1,79 +1,55 @@
-From: "Mr.tb joshua" <info@kwiatekteam.com>
-Subject: Kredit-Angebot
-Date: Fri, 8 Aug 2014 09:09:50 +0000 (UTC)
-Message-ID: <20140808090011.D654BE02E98D@clb555724ffe.nazwa.pl>
-Reply-To: tbjoshualender@carib.com
+From: Julia Lawall <Julia.Lawall@lip6.fr>
+Subject: =?UTF-8?q?=5BPATCH=2013/14=5D=20fec=5Fmpc52xx=3A=20delete=20unneeded=20test=20before=20of=5Fnode=5Fput?=
+Date: Fri,  8 Aug 2014 12:07:54 +0200
+Message-ID: <1407492475-26283-13-git-send-email-Julia.Lawall@lip6.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Recipients <info@kwiatekteam.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from afa210.rev.netart.pl ([77.55.130.210]:56222 "EHLO
-	afa210.rev.netart.pl" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752889AbaHHJJh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Aug 2014 05:09:37 -0400
-Content-Description: Mail message body
-Date: Sat, 09 Aug 2014 10:02:11 -0700
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kernel-janitors@vger.kernel.org, linux-kernel@vger.kernel.org,
+	=?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
+	<u.kleine-koenig@pengutronix.de>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hallo,
-Dies ist die Synagoge Kirche aller Nationen - Polen Zweig. wir sind
-religi=F6se und Darlehensgeber, die Business-Darlehen, pers=F6nliche
-Kredite, Darlehen, Auto-Kredit, Studenten Darlehen, Schuldenkonsolidier=
-ung Darlehen, unbesicherte Darlehen, ist Risikokapital.Sie der richtige=
- Ort f=FCr Ihr Darlehen L=F6sungen und sind bereit, Ihnen zu dienen.
-Ich gebe zu, Kredite an Unternehmen und Privatpersonen in einer niedrig=
-en und erschwinglichen Zinssatz von 2% Zinsen. Kontaktieren Sie uns f=FC=
-r das Follow-up-Prozess des Darlehens und Transfer.
+=46rom: Julia Lawall <Julia.Lawall@lip6.fr>
 
-INFORMATION Kreditnehmer
+Of_node_put supports NULL as its argument, so the initial test is not
+necessary.
 
-Kreditnehmer vollen Namen
-    Darlehensbetrag:
-Dauer der Ausleihe:
-B=FCro-Adresse:
-=46amilienstand:
-Beruf:
-Geschlecht:
-Telefon:
-Religion:
-Vielen Dank f=FCr Ihre Zeit und Verst=E4ndnis, die bereit sind zu verbe=
-ssern
-dienen.
+Suggested by Uwe Kleine-K=C3=B6nig.
 
+The semantic patch that fixes this problem is as follows:
+(http://coccinelle.lip6.fr/)
 
-Mit freundlichen Gr=FC=DFen,
-Emmanuel TV
------------------------------------------------------------------------=
------------------------------------------------------------------------=
------------------------------------------------------------------------=
--------------------------
+// <smpl>
+@@
+expression e;
+@@
 
-Hello,
-This is the Synagogue Church of All Nations - poland branch. we are
-religious and lenders offer business loans, personal
-Loans, loan, auto loan, student loan, debt consolidation loans, unsecur=
-ed loans, Risikokapital.Sie are in the right place for your loan soluti=
-ons and are ready to serve you.
-I admit, loans to businesses and individuals at a low and affordable in=
-terest rate of 2% interest rate. Contact us for the follow-up process o=
-f the loan and transfer.
+-if (e)
+   of_node_put(e);
+// </smpl>
 
-INFORMATION borrowers
+Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
-Borrowers full name
-  Loan amount:
-Loan duration:
-Street address:
-Marital status:
-Occupation:
-Gender:
-Phone:
-Religion:
-Thanks for your time and understanding, willing to better
-serve.
+---
+ drivers/net/ethernet/freescale/fec_mpc52xx.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-
-Best regards,
-Emmanuel TV
+diff --git a/drivers/net/ethernet/freescale/fec_mpc52xx.c b/drivers/net=
+/ethernet/freescale/fec_mpc52xx.c
+index 9947765..ff55fbb 100644
+--- a/drivers/net/ethernet/freescale/fec_mpc52xx.c
++++ b/drivers/net/ethernet/freescale/fec_mpc52xx.c
+@@ -1015,8 +1015,7 @@ mpc52xx_fec_remove(struct platform_device *op)
+=20
+ 	unregister_netdev(ndev);
+=20
+-	if (priv->phy_node)
+-		of_node_put(priv->phy_node);
++	of_node_put(priv->phy_node);
+ 	priv->phy_node =3D NULL;
+=20
+ 	irq_dispose_mapping(ndev->irq);
