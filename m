@@ -1,67 +1,40 @@
-From: Michal Simek <michal.simek@xilinx.com>
-Subject: Re: [PATCH 12/14] ll_temac: delete unneeded test before of_node_put
-Date: Fri, 8 Aug 2014 12:45:11 +0200
-Message-ID: <8c6f53e8-f0ae-4b5e-b852-50603bff0060@BN1BFFO11FD029.protection.gbl>
-References: <1407492475-26283-12-git-send-email-Julia.Lawall@lip6.fr>
+From: Tobias Klauser <tklauser-93Khv+1bN0NyDzI6CaY1VQ@public.gmane.org>
+Subject: Re: [PATCH v10 4/4] drivers: net: Add APM X-Gene SoC ethernet driver
+ support.
+Date: Fri, 8 Aug 2014 13:50:09 +0200
+Message-ID: <20140808115009.GE29832@distanz.ch>
+References: <1407449668-13520-1-git-send-email-isubramanian@apm.com>
+ <1407449668-13520-5-git-send-email-isubramanian@apm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <kernel-janitors@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-kernel@vger.kernel.org>,
-	=?UTF-8?B?VXdlIEtsZWluZS1Lw7ZuaWc=?=
-	<u.kleine-koenig@pengutronix.de>
-To: Julia Lawall <Julia.Lawall@lip6.fr>,
-	Michal Simek <michal.simek@xilinx.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1407492475-26283-12-git-send-email-Julia.Lawall@lip6.fr>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dnelson-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, jcm-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	patches-qTEPVZfXA3Y@public.gmane.org, Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>,
+	Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>
+To: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1407449668-13520-5-git-send-email-isubramanian-qTEPVZfXA3Y@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 08/08/2014 12:07 PM, Julia Lawall wrote:
-> From: Julia Lawall <Julia.Lawall@lip6.fr>
->=20
-> Of_node_put supports NULL as its argument, so the initial test is not
-> necessary.
->=20
-> Suggested by Uwe Kleine-K=C3=B6nig.
->=20
-> The semantic patch that fixes this problem is as follows:
-> (http://coccinelle.lip6.fr/)
->=20
-> // <smpl>
-> @@
-> expression e;
-> @@
->=20
-> -if (e)
->    of_node_put(e);
-> // </smpl>
->=20
-> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
->=20
-> ---
->  drivers/net/ethernet/xilinx/ll_temac_main.c |    3 +--
->  1 file changed, 1 insertion(+), 2 deletions(-)
->=20
-> diff --git a/drivers/net/ethernet/xilinx/ll_temac_main.c b/drivers/ne=
-t/ethernet/xilinx/ll_temac_main.c
-> index 8a6e5c2..36f4459 100644
-> --- a/drivers/net/ethernet/xilinx/ll_temac_main.c
-> +++ b/drivers/net/ethernet/xilinx/ll_temac_main.c
-> @@ -1148,8 +1148,7 @@ static int temac_of_remove(struct platform_devi=
-ce *op)
->  	temac_mdio_teardown(lp);
->  	unregister_netdev(ndev);
->  	sysfs_remove_group(&lp->dev->kobj, &temac_attr_group);
-> -	if (lp->phy_node)
-> -		of_node_put(lp->phy_node);
-> +	of_node_put(lp->phy_node);
->  	lp->phy_node =3D NULL;
->  	iounmap(lp->regs);
->  	if (lp->sdma_regs)
+On 2014-08-08 at 00:14:28 +0200, Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org> wrote:
+> This patch adds network driver for APM X-Gene SoC ethernet.
+> 
+> Signed-off-by: Iyappan Subramanian <isubramanian-qTEPVZfXA3Y@public.gmane.org>
+> Signed-off-by: Ravi Patel <rapatel-qTEPVZfXA3Y@public.gmane.org>
+> Signed-off-by: Keyur Chudgar <kchudgar-qTEPVZfXA3Y@public.gmane.org>
+> Signed-off-by: Dean Nelson <dnelson-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 
-Reviewed-by: Michal Simek <michal.simek@xilinx.com>
+All my review comments for v9 of this series have been properly
+adressed.
 
-Thanks,
-Michal
+Reviewed-by: Tobias Klauser <tklauser-93Khv+1bN0NyDzI6CaY1VQ@public.gmane.org>
+
+Thanks
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
