@@ -1,46 +1,73 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH net-next v4 0/6] net-timestamp: new tx tstamps and tcp
-Date: Thu, 7 Aug 2014 19:39:56 -0400
-Message-ID: <CA+FuTSen+eX-0VW+2vgt=ecaM8Wz1bKHXgiMk=UcAtepR1ewCQ@mail.gmail.com>
-References: <1407204710-21778-1-git-send-email-willemb@google.com> <87lhqzkic9.fsf@tassilo.jf.intel.com>
+From: Paul Moore <paul@paul-moore.com>
+Subject: Re: sel_netif_init: 'err' is used uninitialized
+Date: Thu, 07 Aug 2014 21:01:19 -0400
+Message-ID: <5275439.odfNAhPpkP@sifl>
+References: <CAMuHMdV4VpaH1nHYO5hr66Xib5o_Pib863JzGRtg2kYcjMp2TQ@mail.gmail.com> <5750080.46d2jsPKXX@sifl> <20140807.120454.1646328149054855088.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Network Development <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Richard Cochran <richardcochran@gmail.com>
-To: Andi Kleen <andi@firstfloor.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f48.google.com ([209.85.192.48]:49399 "EHLO
-	mail-qg0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751780AbaHGXk1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Aug 2014 19:40:27 -0400
-Received: by mail-qg0-f48.google.com with SMTP id i50so5162548qgf.21
-        for <netdev@vger.kernel.org>; Thu, 07 Aug 2014 16:40:26 -0700 (PDT)
-In-Reply-To: <87lhqzkic9.fsf@tassilo.jf.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: geert@linux-m68k.org, linux-security-module@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20140807.120454.1646328149054855088.davem@davemloft.net>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 7, 2014 at 7:09 PM, Andi Kleen <andi@firstfloor.org> wrote:
-> Willem de Bruijn <willemb@google.com> writes:
->
->> Extend socket tx timestamping:
->> - allow multiple types of software timestamps aside from send (1)
->> - add software timestamp on enter packet scheduling (4)
->> - add software timestamp for TCP (5)
->> - add software timestamp for TCP on ACK (6)
->
-> Is there any freely available reference library or tool to make use of
-> all these new time stamps?
+On Thursday, August 07, 2014 12:04:54 PM David Miller wrote:
+> From: Paul Moore <paul@paul-moore.com>
+> Date: Thu, 07 Aug 2014 10:26:14 -0400
+>=20
+> > On Thursday, August 07, 2014 12:31:15 PM Geert Uytterhoeven wrote:
+> >=20
+> >>=20
+> >> security/selinux/netif.c: In function =E2=80=98sel_netif_init=E2=80=
+=99:
+> >> /scratch/geert/linux/linux-m68k/security/selinux/netif.c:285: warn=
+ing:
+> >> =E2=80=98err=E2=80=99 is used uninitialized in this function
+> >>=20
+> >> Should it just return 0, like before?
+> >> Or should it return the return value of register_netdevice_notifie=
+r()
+> >> instead, which also returns an error code? Or is that failure
+> >> non-critical?
+> >=20
+> > Hi,
+> >=20
+> > I posted a fix for this two days ago to the SELinux list (see below=
+).  As
+> > soon as -rc1 is released and linux-next is back in business I'll be
+> > pushing the patch to the SELinux #next branch.
+> >=20
+> >  * http://marc.info/?l=3Dselinux&m=3D140727033030054&w=3D2
+>=20
+> With respect to this and the lack-of-inline warning fix we spoke abou=
+t
+> yesterday, why are you waiting and only pushing such bug fixes into y=
+our
+> "next" branch?
 
-I posted one on github.com/wdebruij/kerneltools earlier, but the
-interface has changed in the meantime. I just updated it to work with
-the latest API.
+Simply put, I didn't think the patches were significant enough to push =
+at this=20
+point in time.
+=20
+> Those sort of things should be sent to Linus now to correct the error=
+s
+> introduced during the merge window, as I have done last night for all
+> of the networking merge fallout.
 
-There are still references to the old MSG_TSTAMP API in the test file
-(txtimestamp.c), so I will need to clean it up some more. But it
-works as is.
+I'll (re)post the patches with a pull request in just a moment, CC'ing =
+all the=20
+various mailing lists and you guys can figure out who best to merge the=
+m.
 
-The v1 patchset also had a patch to the documentation. I will revise
-that to match the latest interface, too, and send both files for
-inclusion in Documention once net-next opens.
+--=20
+paul moore
+www.paul-moore.com
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-securit=
+y-module" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
