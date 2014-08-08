@@ -1,42 +1,71 @@
-From: Zoltan Kiss <zoltan.kiss@citrix.com>
-Subject: [PATCH net-next] xen-netback: Don't deschedule NAPI when carrier off
-Date: Fri, 8 Aug 2014 11:43:00 +0100
-Message-ID: <1407494580-19404-1-git-send-email-zoltan.kiss@citrix.com>
+From: Michal Simek <michal.simek@xilinx.com>
+Subject: Re: [PATCH 2/14] net: axienet: delete unneeded test before
+	of_node_put
+Date: Fri, 8 Aug 2014 12:44:59 +0200
+Message-ID: <982aa979-17f6-4f7d-af29-084c2f263652@BY2FFO11FD060.protection.gbl>
+References: <1407492475-26283-2-git-send-email-Julia.Lawall@lip6.fr>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Zoltan Kiss <zoltan.kiss@citrix.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <xen-devel@lists.xenproject.org>
-To: Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <Ian.Campbell@citrix.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <kernel-janitors@vger.kernel.org>,
+	John Linn <John.Linn@xilinx.com>,
+	Michal Simek <michal.simek@xilinx.com>,
+	<netdev@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>,
+	<linux-kernel@vger.kernel.org>,
+	=?UTF-8?B?VXdlIEtsZWluZS1Lw7ZuaWc=?=
+	<u.kleine-koenig@pengutronix.de>
+To: Julia Lawall <Julia.Lawall@lip6.fr>,
+	Anirudha Sarangi <anirudh@xilinx.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1407492475-26283-2-git-send-email-Julia.Lawall@lip6.fr>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In the patch called "xen-netback: Turn off the carrier if the guest is not able
-to receive" NAPI was descheduled when the carrier was set off. That's
-not what most of the drivers do, and we don't have any specific reason to do so
-as well, so revert that change.
+On 08/08/2014 12:07 PM, Julia Lawall wrote:
+> From: Julia Lawall <Julia.Lawall@lip6.fr>
+>=20
+> Of_node_put supports NULL as its argument, so the initial test is not
+> necessary.
+>=20
+> Suggested by Uwe Kleine-K=C3=B6nig.
+>=20
+> The semantic patch that fixes this problem is as follows:
+> (http://coccinelle.lip6.fr/)
+>=20
+> // <smpl>
+> @@
+> expression e;
+> @@
+>=20
+> -if (e)
+>    of_node_put(e);
+> // </smpl>
+>=20
+> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
+>=20
+> ---
+>  drivers/net/ethernet/xilinx/xilinx_axienet_main.c |    3 +--
+>  1 file changed, 1 insertion(+), 2 deletions(-)
+>=20
+> diff --git a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c b/driv=
+ers/net/ethernet/xilinx/xilinx_axienet_main.c
+> index 7b0a735..30e8608 100644
+> --- a/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
+> +++ b/drivers/net/ethernet/xilinx/xilinx_axienet_main.c
+> @@ -1630,8 +1630,7 @@ static int axienet_of_remove(struct platform_de=
+vice *op)
+>  	axienet_mdio_teardown(lp);
+>  	unregister_netdev(ndev);
+> =20
+> -	if (lp->phy_node)
+> -		of_node_put(lp->phy_node);
+> +	of_node_put(lp->phy_node);
+>  	lp->phy_node =3D NULL;
+> =20
+>  	iounmap(lp->regs);
+>=20
 
-Signed-off-by: Zoltan Kiss <zoltan.kiss@citrix.com>
-Cc: netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Cc: xen-devel@lists.xenproject.org
----
-diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index 48a55cd..12656f6 100644
---- a/drivers/net/xen-netback/interface.c
-+++ b/drivers/net/xen-netback/interface.c
-@@ -78,12 +78,8 @@ int xenvif_poll(struct napi_struct *napi, int budget)
- 	/* This vif is rogue, we pretend we've there is nothing to do
- 	 * for this vif to deschedule it from NAPI. But this interface
- 	 * will be turned off in thread context later.
--	 * Also, if a guest doesn't post enough slots to receive data on one of
--	 * its queues, the carrier goes down and NAPI is descheduled here so
--	 * the guest can't send more packets until it's ready to receive.
- 	 */
--	if (unlikely(queue->vif->disabled ||
--		     !netif_carrier_ok(queue->vif->dev))) {
-+	if (unlikely(queue->vif->disabled )) {
- 		napi_complete(napi);
- 		return 0;
- 	}
+Reviewed-by: Michal Simek <michal.simek@xilinx.com>
+
+Thanks,
+Michal
