@@ -1,33 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] rtnetlink: fix VF info size
-Date: Fri, 08 Aug 2014 10:34:34 -0700 (PDT)
-Message-ID: <20140808.103434.1754779724613937273.davem@davemloft.net>
-References: <8491096ac8f0e7cc7745411c0af87fb5a146d44e.1407509058.git.jbenc@redhat.com>
+Subject: Re: [PATCH net] net: Always untag vlan-tagged traffic on input.
+Date: Fri, 08 Aug 2014 10:37:43 -0700 (PDT)
+Message-ID: <20140808.103743.1027471237079294169.davem@davemloft.net>
+References: <1407423334-3422-1-git-send-email-vyasevic@redhat.com>
+	<20140808152618.GC1878@nanopsycho.orion>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ronye@mellanox.com
-To: jbenc@redhat.com
+Cc: vyasevic@redhat.com, netdev@vger.kernel.org, kaber@trash.net,
+	nsujir@broadcom.com, mchan@broadcom.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60440 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60474 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750738AbaHHRef (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Aug 2014 13:34:35 -0400
-In-Reply-To: <8491096ac8f0e7cc7745411c0af87fb5a146d44e.1407509058.git.jbenc@redhat.com>
+	with ESMTP id S1750738AbaHHRhp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Aug 2014 13:37:45 -0400
+In-Reply-To: <20140808152618.GC1878@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Benc <jbenc@redhat.com>
-Date: Fri,  8 Aug 2014 16:44:32 +0200
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Fri, 8 Aug 2014 17:26:18 +0200
 
-> Commit 1d8faf48c74b8 ("net/core: Add VF link state control") added new
-> attribute to IFLA_VF_INFO group in rtnl_fill_ifinfo but did not adjust size
-> of the allocated memory in if_nlmsg_size/rtnl_vfinfo_size. As the result, we
-> may trigger warnings in rtnl_getlink and similar functions when many VF
-> links are enabled, as the information does not fit into the allocated skb.
+> Thu, Aug 07, 2014 at 04:55:34PM CEST, vyasevic@redhat.com wrote:
+>>+struct sk_buff *skb_untag(struct sk_buff *skb)
 > 
-> Fixes: 1d8faf48c74b8 ("net/core: Add VF link state control")
-> Reported-by: Yulong Pei <ypei@redhat.com>
-> Signed-off-by: Jiri Benc <jbenc@redhat.com>
+> I would suggest to rename this to "skb_vlan_untag" to make this clear.
+> Other than that, the patch looks good to me.
 
-Applied and queued up for -stable, thanks!
+Agreed.
