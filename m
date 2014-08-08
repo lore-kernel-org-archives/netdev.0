@@ -1,51 +1,52 @@
-From: Jisheng Zhang <jszhang@marvell.com>
-Subject: Re: Weird NET_RX softirq behavior
-Date: Fri, 8 Aug 2014 10:37:34 +0800
-Message-ID: <20140808103734.677bff7e@xhacker>
-References: <20140807171050.77819b10@xhacker>
-	<20140807181813.37b73927513266381d55ad0d@qrator.net>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: [GIT PULL] SELinux/NetLabel fixes for 3.17
+Date: Fri, 8 Aug 2014 12:53:34 +1000
+Message-ID: <20140808125334.662670bb@canb.auug.org.au>
+References: <3757283.5i2HgyZGYY@sifl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Dmitry Popov <ixaphire@qrator.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140807181813.37b73927513266381d55ad0d@qrator.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/o52sRoP16KsM0rwGNg3m1GH"; protocol="application/pgp-signature"
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-security-module@vger.kernel.org, selinux@tycho.nsa.gov
+To: Paul Moore <paul@paul-moore.com>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <3757283.5i2HgyZGYY@sifl>
+Sender: linux-security-module-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dmitry,
+--Sig_/o52sRoP16KsM0rwGNg3m1GH
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-On Thu, 7 Aug 2014 07:18:13 -0700
-Dmitry Popov <ixaphire@qrator.net> wrote:
+Hi Paul,
 
-> On Thu, 7 Aug 2014 17:10:50 +0800
-> Jisheng Zhang <jszhang@marvell.com> wrote:
-> 
-> > 2. only one netdev in the system: eth0.
-> 
-> There should also be lo (loopback) at least.
+I am not sure who this was directed at, but if you want Linus to pull
+these (and that would be good) you need to send this to him explicitly.
 
-Yep, I forget that ;)
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-> 
-> > 4. But NET_RX seems abnormal
-> > ~ # cat /proc/softirqs 
-> >                     CPU0       CPU1       CPU2       CPU3       
-> >       NET_RX:     445587        322        983          0
-> > 
-> > I'm expecting NET_RX under CPU1, 2, 3 should be zero. Any suggestions
-> > about this abnormal behavior?
-> 
-> Do you have any loopback traffic? It could be handled by CPU1/2 explaining
-> non-zero NET_RX counters.
+--Sig_/o52sRoP16KsM0rwGNg3m1GH
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
 
-Yes. lo only send and recive 7 packets so far, about 1400bytes. Seems small
-comparing with the CPU1 and CPU2 NET_RX softirq numbers, right?
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-Any other possible case?
+iQIcBAEBCAAGBQJT5DuyAAoJEMDTa8Ir7ZwVgBsP/1Nn81d87ftD/LiJm6Q9tkhZ
+QtVNEw96b584ZEwWrmORwWVNcqSWOAskxNActVph+GzIpGQc//TYCewKJnfNHxHt
+fQZ1NP/Y/RP18gHGYaKk9kyOUb/vlqeBcIr4sCOZwxkvEJkWF+o1SwBc8wWDINqK
+jmbaCqdyhxVeKEq/C6GXABPbgcrsc4wg/DFBEFBMU8UboX01ypVIycikcsdoGRs0
+MhbUfNUQfIp47T0AncroDvteYHN0ipkBuOBYrpNrQlCMaEtPdqNofDFErGNPKZ68
+qO9FUbz0TEA1C1X694+RMtbkeAIikZSNZSlas44JCMQmDJGDvBRyCYpjOw+Kqo+A
+n84kP5/FxV6bdXfO8XGk6wtxB1lFq+t4bLkdPE1/ZOn3407FmXv8LwAglM5wQJTO
+P42fLHz5w8Y+anLb9zoVf4weZn792LWKNFneDEE4f6nDoshCKoAePDdAnHKPPRtT
+N6cFp0k7TvzQHF1kJcVYBvOqWcM/fvh1lEm2gOwWh5NifjnuGGsN8FkXriFuXOVc
+2SeVC1ncZC+ciCmhz6T5RcMSnaUqb8y3hRPODwK0aHp3OxXoofomyxFAM76F2AvA
+3gFTMve1L/FiQVQmcyFA1hx7yUWeOgmzVeXwkdk4GrojCBfryifXZunhXmXzzglw
+IEo4WF4QHHDsoqyX1pCM
+=Ovkd
+-----END PGP SIGNATURE-----
 
-Thanks for your reply,
-Jisheng
+--Sig_/o52sRoP16KsM0rwGNg3m1GH--
