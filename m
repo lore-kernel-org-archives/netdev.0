@@ -1,155 +1,65 @@
-From: Michael Schmitz <schmitzmic@gmail.com>
-Subject: Re: [PATCH] m68k/atari: EtherNEC - rewrite to use mainstream ne.c,
- take two
-Date: Sat, 09 Aug 2014 13:09:35 +1200
-Message-ID: <53E574CF.2050702@gmail.com>
-References: <1327085843-6980-1-git-send-email-geert@linux-m68k.org>	<4F4B2BB6.900@gmail.com>	<CAP=VYLqxtE4OamrdN2RXaQu_2kK5_57-x80z48JXzt+xEtQ7pw@mail.gmail.com>	<CAMuHMdX=4Vn=OsNTp04YcrhDOwz8NOFrWKankj2+3utvEfE-2A@mail.gmail.com>	<4F5A0679.1020604@windriver.com>	<4F7816B0.3090802@gmail.com>	<4F7CB31D.8060002@windriver.com> <CAMuHMdWSzG4npwjpJ=cwNFKhyBZjvgPn1sp6nZ2re6QsRWPpXg@mail.gmail.com> <4F7D9D1B.3000801@windriver.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH 2/2] ethernet: arc: Add support for Rockchip SoC glue
+ layer device tree bindings
+Date: Fri, 8 Aug 2014 20:21:59 -0700
+Message-ID: <CAGVrzcbBNnwD9UHgPweDMCtDJYPdm=j5Gn53-qf2w462hYLodQ@mail.gmail.com>
+References: <1407500875-23851-1-git-send-email-romain.perier@gmail.com>
+ <1407500875-23851-2-git-send-email-romain.perier@gmail.com> <20140808202830.GA25105@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Romain Perier <romain.perier@gmail.com>,
+	David Miller <davem@davemloft.net>, heiko@sntech.de,
+	max.schwarz@online.de, Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: Beniamino Galvani <b.galvani@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:41884 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751012AbaHIBJe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Aug 2014 21:09:34 -0400
-Received: by mail-pa0-f51.google.com with SMTP id ey11so8137753pad.38
-        for <netdev@vger.kernel.org>; Fri, 08 Aug 2014 18:09:33 -0700 (PDT)
-In-Reply-To: <4F7D9D1B.3000801@windriver.com>
+Received: from mail-ig0-f174.google.com ([209.85.213.174]:53635 "EHLO
+	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750820AbaHIDWk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Aug 2014 23:22:40 -0400
+Received: by mail-ig0-f174.google.com with SMTP id c1so1955650igq.7
+        for <netdev@vger.kernel.org>; Fri, 08 Aug 2014 20:22:39 -0700 (PDT)
+In-Reply-To: <20140808202830.GA25105@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Paul,
-
-I hate to bring this up again after such a long delay - my usual 
-slackness is to blame, sorry.
-
-Geert has reminded me that the IRQ-less ne.c driver is one of the few 
-remaining unmerged patches in his queue.
-We had resolved the polling from timer interrupt issues in the m68k 
-interrupt code, with a little help from Thomas Gleixner (commit 
-b39898cd4077f4b6ec706e717c938751c34e1dc4) so changes to ne.c are now 
-minimal.
-
-Are you willing to review this minimal patch again?
-Regards,
-
-    Michael Schmitz
-
-> On 12-04-05 05:28 AM, Geert Uytterhoeven wrote:
->   
->> On Wed, Apr 4, 2012 at 22:46, Paul Gortmaker
->> <paul.gortmaker@windriver.com> wrote:
->>     
->>> On 12-04-01 04:49 AM, Michael Schmitz wrote:
->>>       
->>>>> And on re-reading the comments in the other part of the patch, i.e.
->>>>> "...emulates the card interrupt via a timer"  --perhaps the driver
->>>>> should be just fixed to support generic netpoll, instead of adding
->>>>> an arch specific thing that amounts to netpoll.  Then anyone can
->>>>> attempt to limp along and use one of these ancient relics w/o IRQ.
->>>>>
->>>>>           
->>>> Here's take two of my patch to convert the m68k Atari ROM port Ethernet
->>>> driver to use mainstream ne.c, with minimal changes to the core NE2000
->>>> code.
->>>>
->>>> In particular:
->>>>
->>>> Changes to core net code:
->>>> * add a platform specific IRQ flag, so ne.c can share a hardware or
->>>> timer interrupt with some other interrupt source.
->>>>
->>>> Changes to arch/m68k code:
->>>> * register the 8390 platform device on Atari only if the hardware is present
->>>> * retain the old driver (atari_ethernec.c in Geert's tree) under a
->>>> different config option, to be removed soon.
->>>>
->>>> Regarding your suggestion that netpoll be used instead of a dedicated
->>>> timer interrupt: no changes to ne.c or 8390p.c are required to use
->>>> netpoll, it all works out of the box. All that is needed to use the
->>>> driver with netpoll is setting the device interrupt to some source that
->>>> can be registered, and enabling CONFIG_NETPOLL. Interrupt rate and hence
->>>> throughput is lower with netpoll though, which is why I still prefer the
->>>> dedicated timer option.
->>>>         
->>> How much lower?  Enough to matter?  Implicit in that question is
->>> the assumption that this is largely a hobbyist platform and nobody
->>> is using it in a closet to route gigabytes of traffic.
->>>       
->> One other thing we could do is increase CONFIG_HZ to 250.
+2014-08-08 13:28 GMT-07:00 Beniamino Galvani <b.galvani@gmail.com>:
+> On Fri, Aug 08, 2014 at 12:27:55PM +0000, Romain Perier wrote:
+>> This patch defines a platform glue layer for Rockchip SoCs which support
+>> arc-emac driver. It ensures that regulator for the rmii is on before trying
+>> to connect to the ethernet controller. It applies right speed and mode changes
+>> to the grf when ethernet settings changes.
 >>
->>     
->>> Also, the only advantage to modifying ne.c is to allow dumping
->>> the old driver.  What is the "remove soon" plan?  Any reason
->>> for it to not be synchronous?  That would eliminate the Kconfig
->>> churn and the introduction of the _OLD option.  Modifying ne.c
->>> and then deciding to keep the old driver because it is "faster"
->>> would make this change pointless.
->>>       
->> From my point of view, "remove soon" means it will never hit mainline.
->>     
+>> Signed-off-by: Romain Perier <romain.perier@gmail.com>
 >
-> Can you clarify what "it" is?   It isn't clear to me if you
-> mean the _removal_ will never hit mainline, or the transient
-> renamed "old" driver will never hit mainline.
+> (...)
 >
-> If the former, then there is no point pursuing this any further
-> as I said above.
+>> +struct rockchip_priv_data {
+>> +     struct regmap *grf;
+>> +     unsigned int grf_offset;
+>> +     int interface;
+>> +     struct regulator *regulator;
+>> +};
+>> +
+>> +static const unsigned int rockchip_emac_soc_grf_offset[] = {
+>> +     0x154, /* rk3066 */
+>> +     0x0a4, /* rk3188 */
+>> +};
+>> +
+>> +static const struct of_device_id rockchip_emac_dt_ids[] = {
+>> +     { .compatible = "rockchip,rk3066-emac", .data = (void *)rockchip_emac_soc_grf_offset },
+>> +     { .compatible = "rockchip,rk3188-emac", .data = (void *)rockchip_emac_soc_grf_offset + 1 },
 >
-> If the latter, then the commit sent out for review should have
-> no instances of this "renaming to old" related changes.
+> Hi Romain,
 >
-> Thanks,
-> Paul.
->
->   
->>>> diff --git a/drivers/net/ethernet/8390/8390.h
->>>> b/drivers/net/ethernet/8390/8390.h
->>>> index ef325ff..9416245 100644
->>>> --- a/drivers/net/ethernet/8390/8390.h
->>>> +++ b/drivers/net/ethernet/8390/8390.h
->>>> @@ -32,6 +32,14 @@ extern void ei_poll(struct net_device *dev);
->>>>  extern void eip_poll(struct net_device *dev);
->>>>  #endif
->>>>
->>>> +/* Some platforms may need special IRQ flags */
->>>> +#if IS_ENABLED(CONFIG_ATARI_ETHERNEC)
->>>> +#  define EI_IRQ_FLAGS    IRQF_SHARED
->>>> +#endif
->>>> +
->>>> +#ifndef EI_IRQ_FLAGS
->>>> +#  define EI_IRQ_FLAGS    0
->>>> +#endif
->>>>         
->>> This seems more klunky than it needs to be.  If we assume that anyone
->>> building ne.c on atari is hence trying to drive an ethernec device
->>> than it can just be
->>>
->>> #ifdef CONFIG_ATARI
->>> #define EI_IRQ_FLAGS    IRQF_SHARED
->>> #else
->>> #define EI_IRQ_FLAGS    0
->>> #endif
->>>       
->> Indeed, with a small modification (keep multi-platform kernels in mind):
->>
->> #ifdef CONFIG_ATARI
->> #define EI_IRQ_FLAGS    (MACH_IS_ATARI ? IRQF_SHARED : 0)
->> #else
->> #define EI_IRQ_FLAGS    0
->> #endif
->>
->> Gr{oetje,eeting}s,
->>
->>                         Geert
->>
->> --
->> Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
->>
->> In personal conversations with technical people, I call myself a hacker. But
->> when I'm talking to journalists I just say "programmer" or something like that.
->>                                 -- Linus Torvalds
->>     
+> I think you need parenthesis around "rockchip_emac_soc_grf_offset + 1"
+> because the cast has higher precedence. Anyway, wouldn't it be simpler
+> to avoid the indirection and pass the offset directly in the data field?
+
+I would create separate structures for rk3066 and rk3188, it might
+just contain a single member for now which is an offset, but in case
+you need to extend it with more parameters, it's much easier, and you
+won't have to rework the matching logic. The current use of +1 is
+extremely error prone.
+--
+Florian
