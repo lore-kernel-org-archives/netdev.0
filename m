@@ -1,65 +1,77 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 2/2] ethernet: arc: Add support for Rockchip SoC glue
- layer device tree bindings
-Date: Fri, 8 Aug 2014 20:21:59 -0700
-Message-ID: <CAGVrzcbBNnwD9UHgPweDMCtDJYPdm=j5Gn53-qf2w462hYLodQ@mail.gmail.com>
-References: <1407500875-23851-1-git-send-email-romain.perier@gmail.com>
- <1407500875-23851-2-git-send-email-romain.perier@gmail.com> <20140808202830.GA25105@gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH v2 net] net: Always untag vlan-tagged traffic on input.
+Date: Sat, 9 Aug 2014 08:44:31 +0200
+Message-ID: <20140809064431.GA1872@nanopsycho.orion>
+References: <1407523333-31455-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Romain Perier <romain.perier@gmail.com>,
-	David Miller <davem@davemloft.net>, heiko@sntech.de,
-	max.schwarz@online.de, Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Beniamino Galvani <b.galvani@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	Nithin Nayak Sujir <nsujir@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>
+To: Vladislav Yasevich <vyasevic@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ig0-f174.google.com ([209.85.213.174]:53635 "EHLO
-	mail-ig0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750820AbaHIDWk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Aug 2014 23:22:40 -0400
-Received: by mail-ig0-f174.google.com with SMTP id c1so1955650igq.7
-        for <netdev@vger.kernel.org>; Fri, 08 Aug 2014 20:22:39 -0700 (PDT)
-In-Reply-To: <20140808202830.GA25105@gmail.com>
+Received: from mail-we0-f173.google.com ([74.125.82.173]:52488 "EHLO
+	mail-we0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751023AbaHIGoe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Aug 2014 02:44:34 -0400
+Received: by mail-we0-f173.google.com with SMTP id q58so6548834wes.18
+        for <netdev@vger.kernel.org>; Fri, 08 Aug 2014 23:44:32 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1407523333-31455-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2014-08-08 13:28 GMT-07:00 Beniamino Galvani <b.galvani@gmail.com>:
-> On Fri, Aug 08, 2014 at 12:27:55PM +0000, Romain Perier wrote:
->> This patch defines a platform glue layer for Rockchip SoCs which support
->> arc-emac driver. It ensures that regulator for the rmii is on before trying
->> to connect to the ethernet controller. It applies right speed and mode changes
->> to the grf when ethernet settings changes.
->>
->> Signed-off-by: Romain Perier <romain.perier@gmail.com>
+Fri, Aug 08, 2014 at 08:42:13PM CEST, vyasevic@redhat.com wrote:
+>Currently the functionality to untag traffic on input resides
+>as part of the vlan module and is build only when VLAN support
+>is enabled in the kernel.  When VLAN is disabled, the function
+>vlan_untag() turns into a stub and doesn't really untag the
+>packets.  This seems to create an interesting interaction
+>between VMs supporting checksum offloading and some network drivers.
 >
-> (...)
+>There are some drivers that do not allow the user to change
+>tx-vlan-offload feature of the driver.  These drivers also seem
+>to assume that any VLAN-tagged traffic they transmit will
+>have the vlan information in the vlan_tci and not in the vlan
+>header already in the skb.  When transmitting skbs that already
+>have tagged data with partial checksum set, the checksum doesn't
+>appear to be updated correctly by the card thus resulting in a
+>failure to establish TCP connections.
 >
->> +struct rockchip_priv_data {
->> +     struct regmap *grf;
->> +     unsigned int grf_offset;
->> +     int interface;
->> +     struct regulator *regulator;
->> +};
->> +
->> +static const unsigned int rockchip_emac_soc_grf_offset[] = {
->> +     0x154, /* rk3066 */
->> +     0x0a4, /* rk3188 */
->> +};
->> +
->> +static const struct of_device_id rockchip_emac_dt_ids[] = {
->> +     { .compatible = "rockchip,rk3066-emac", .data = (void *)rockchip_emac_soc_grf_offset },
->> +     { .compatible = "rockchip,rk3188-emac", .data = (void *)rockchip_emac_soc_grf_offset + 1 },
+>The following is a packet trace taken on the receiver where a
+>sender is a VM with a VLAN configued.  The host VM is running on
+>doest not have VLAN support and the outging interface on the
+>host is tg3:
+>10:12:43.503055 52:54:00:ae:42:3f > 28:d2:44:7d:c2:de, ethertype 802.1Q
+>(0x8100), length 78: vlan 100, p 0, ethertype IPv4, (tos 0x0, ttl 64, id 27243,
+>offset 0, flags [DF], proto TCP (6), length 60)
+>    10.0.100.1.58545 > 10.0.100.10.ircu-2: Flags [S], cksum 0xdc39 (incorrect
+>-> 0x48d9), seq 1069378582, win 29200, options [mss 1460,sackOK,TS val
+>4294837885 ecr 0,nop,wscale 7], length 0
+>10:12:44.505556 52:54:00:ae:42:3f > 28:d2:44:7d:c2:de, ethertype 802.1Q
+>(0x8100), length 78: vlan 100, p 0, ethertype IPv4, (tos 0x0, ttl 64, id 27244,
+>offset 0, flags [DF], proto TCP (6), length 60)
+>    10.0.100.1.58545 > 10.0.100.10.ircu-2: Flags [S], cksum 0xdc39 (incorrect
+>-> 0x44ee), seq 1069378582, win 29200, options [mss 1460,sackOK,TS val
+>4294838888 ecr 0,nop,wscale 7], length 0
 >
-> Hi Romain,
+>This connection finally times out.
 >
-> I think you need parenthesis around "rockchip_emac_soc_grf_offset + 1"
-> because the cast has higher precedence. Anyway, wouldn't it be simpler
-> to avoid the indirection and pass the offset directly in the data field?
+>I've only access to the TG3 hardware in this configuration thus have
+>only tested this with TG3 driver.  There are a lot of other drivers
+>that do not permit user changes to vlan acceleration features, and
+>I don't know if they all suffere from a similar issue.
+>
+>The patch attempt to fix this another way.  It moves the vlan header
+>stipping code out of the vlan module and always builds it into the
+>kernel network core.  This way, even if vlan is not supported on
+>a virtualizatoin host, the virtual machines running on top of such
+>host will still work with VLANs enabled.
+>
+>CC: Patrick McHardy <kaber@trash.net>
+>CC: Nithin Nayak Sujir <nsujir@broadcom.com>
+>CC: Michael Chan <mchan@broadcom.com>
+>CC: Jiri Pirko <jiri@resnulli.us>
+>Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
 
-I would create separate structures for rk3066 and rk3188, it might
-just contain a single member for now which is an offset, but in case
-you need to extend it with more parameters, it's much easier, and you
-won't have to rework the matching logic. The current use of +1 is
-extremely error prone.
---
-Florian
+Acked-by: Jiri Pirko <jiri@resnulli.us>
