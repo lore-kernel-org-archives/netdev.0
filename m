@@ -1,75 +1,53 @@
-From: Tom Herbert <therbert@google.com>
-Subject: [PATCH v2 net-next] udp: clear rps flow table for packets recv on
- UDP unconnected sockets
-Date: Sat, 9 Aug 2014 10:15:30 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1408091013240.1087@tomh.mtv.corp.google.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: Use CAP_NET_ADMIN and alias netdev-nlmon instead
+Date: Sat, 09 Aug 2014 21:32:18 +0200
+Message-ID: <53E67742.9080405@redhat.com>
+References: <7B1A5F4E-7DCD-4054-9E8C-E5511AF64CE3@holtmann.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: eric.dumazet@gmail.com
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Marcel Holtmann <marcel@holtmann.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f73.google.com ([209.85.219.73]:39379 "EHLO
-	mail-oa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751821AbaHIRPb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Aug 2014 13:15:31 -0400
-Received: by mail-oa0-f73.google.com with SMTP id g18so1233575oah.0
-        for <netdev@vger.kernel.org>; Sat, 09 Aug 2014 10:15:30 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:18397 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751069AbaHITcY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 9 Aug 2014 15:32:24 -0400
+In-Reply-To: <7B1A5F4E-7DCD-4054-9E8C-E5511AF64CE3@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch addresses a problem posed by Eric Dumazet in RPS/RFS
-concerning the interaction between connected sockets and traffic on
-unnconnected sockets.
+On 08/08/2014 11:22 PM, Marcel Holtmann wrote:
+> Hi,
+>
+> so I am running this command sequence:
+>
+> 	ip link add name nlmon type nlmon
+> 	ip link set dev nlmon up
+>
+> With that I get this message in dmesg:
+>
+> Loading kernel module for a network device with CAP_SYS_MODULE (deprecated).
+ > Use CAP_NET_ADMIN and alias netdev-nlmon instead.
+>
+> The kernel section producing this is dev_load() from net/core/dev_ioctl.c:
+>
+>          no_module = !dev;
+>          if (no_module && capable(CAP_NET_ADMIN))
+>                  no_module = request_module("netdev-%s", name);
+>          if (no_module && capable(CAP_SYS_MODULE)) {
+>                  if (!request_module("%s", name))
+>                          pr_warn("Loading kernel module for a network device with CAP_SYS_MODULE (deprecated).  Use CAP_NET_ADMIN and alias netdev-%s instead.\n",
+>                                  name);
+>          }
+>
+> Since I am explicitly giving the name from userspace, I have no idea why the
+ > kernel bugs me in providing netdev-nlmon alias. It makes no sense to me. What
+ > is the reasoning behind this?
 
-On a server which has both traffic using connected connected sockets
-and traffic that is going through unconnected UDP sockets, it is
-very possible that the connected sockets could heavily populate the
-RPS flow tables. Packets received on unconnected sockets would then
-be steered based on unrelated entries in the flow tables which leads
-to suboptimal steering. This happens even if the connections that
-populate the table are inactive with no traffic, as long as the
-connected sockets simply remain open unrelated traffic can be steered
-using that information. This problem would further be exacerbated
-if the packets on the unconnected UDP sockets are actually part of
-long lived flows (which apparently would happen with QUIC in their
-current implementation).
+Could it just be that your process doesn't have CAP_NET_ADMIN set
+but CAP_SYS_MODULE instead thus triggering this pr_warn()?
 
-This patch clears the RPS flow hash table for packet recieved on
-unnconnected UDP sockets. The effect is that the "flows" on unconnected
-socekts will be steered using RPS. We don't do this for unconnected UDP
-tunnels (encap_rcv) under the assumption that the flow table entries
-will be adjusted during processing of inner packets.
+  grep Cap /proc/$$/status ?
 
-Tested using super_netperf UDP_RR with 200 flows. Did not see any
-noticeable regression in writing to flow table for every packet.
-
-Before fix:
-  76.99% CPU utilization
-  112/158/230 90/95/99% latencies
-  1.62776e+06 tps
-
-After fix:
-  76.03% CPU utilization
-  115/162/239 90/95/99% latencies
-  1.62257e+06 tps
-
-Signed-off-by: Tom Herbert <therbert@google.com>
----
- net/ipv4/udp.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index f57c0e4..7ba764a 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1444,6 +1444,8 @@ static int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
- 	if (inet_sk(sk)->inet_daddr) {
- 		sock_rps_save_rxhash(sk, skb);
- 		sk_mark_napi_id(sk, skb);
-+	} else {
-+		sock_rps_reset_flow_hash(skb->hash);
- 	}
- 
- 	rc = sock_queue_rcv_skb(sk, skb);
--- 
-2.0.0.526.g5318336
+Hm, I don't think this is nlmon related, above works fine on my side.
