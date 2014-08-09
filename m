@@ -1,56 +1,93 @@
-From: Paul Moore <paul@paul-moore.com>
-Subject: Re: netlabel build warning...
-Date: Sat, 09 Aug 2014 12:23:18 -0400
-Message-ID: <efdc8ee2-f7ea-4601-9118-88595281bc5d@email.android.com>
-References: <20140806.145508.377690541948141573.davem@davemloft.net> <CAHC9VhTRWhx=qB5XO7f2TmY0-gqR5kWa0d_X8EY9k42tQRVymQ@mail.gmail.com> <CAOesGMgCDd9+=x9M=sP+rRgJOKrT+SC7VNw_X_mj5WZtiPxW1g@mail.gmail.com>
+From: "Luis R. Rodriguez" <mcgrof@suse.com>
+Subject: Re: [PATCH v2 2/4] driver core: enable drivers to use deferred
+	probe from init
+Date: Sat, 9 Aug 2014 18:41:19 +0200
+Message-ID: <20140809164119.GI21930@wotan.suse.de>
+References: <1406572110-26823-1-git-send-email-mcgrof@do-not-panic.com> <1406572110-26823-3-git-send-email-mcgrof@do-not-panic.com> <20140730.151107.1328294951387764830.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>
-To: Olof Johansson <olof@lixom.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f46.google.com ([209.85.192.46]:64916 "EHLO
-	mail-qg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751698AbaHIQ26 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Aug 2014 12:28:58 -0400
-Received: by mail-qg0-f46.google.com with SMTP id z60so7143448qgd.19
-        for <netdev@vger.kernel.org>; Sat, 09 Aug 2014 09:28:57 -0700 (PDT)
-In-Reply-To: <CAOesGMgCDd9+=x9M=sP+rRgJOKrT+SC7VNw_X_mj5WZtiPxW1g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: mcgrof@do-not-panic.com, tiwai@suse.de,
+	linux-kernel@vger.kernel.org, penguin-kernel@I-love.SAKURA.ne.jp,
+	joseph.salisbury@canonical.com, kay@vrfy.org,
+	gnomes@lxorguk.ukuu.org.uk, tim.gardner@canonical.com,
+	pierre-fersing@pierref.org, akpm@linux-foundation.org,
+	oleg@redhat.com, bpoirier@suse.de,
+	nagalakshmi.nandigama@avagotech.com,
+	praveen.krishnamoorthy@avagotech.com,
+	sreekanth.reddy@avagotech.com, abhijit.mahajan@avagotech.com,
+	hariprasad@chelsio.com, santosh@chelsio.com,
+	MPT-FusionLinux.pdl@avagotech.com, linux-scsi@vger.kernel.org,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, gregkh@linuxfoundation.org
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140730.151107.1328294951387764830.davem@davemloft.net>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On August 9, 2014 12:19:02 PM EDT, Olof Johansson <olof@lixom.net> wrot=
-e:
->On Wed, Aug 6, 2014 at 4:23 PM, Paul Moore <paul@paul-moore.com> wrote=
-:
->> On Wed, Aug 6, 2014 at 5:55 PM, David Miller <davem@davemloft.net>
->wrote:
->>>
->>> Please add inline to the nop versions of these helpers, thanks:
->>>
->>> include/net/netlabel.h:527:12: warning: =E2=80=98netlbl_catmap_setl=
-ong=E2=80=99
->defined but not used [-Wunused-function]
->>> include/net/netlabel.h:527:12: warning: =E2=80=98netlbl_catmap_setl=
-ong=E2=80=99
->defined but not used [-Wunused-function]
->>
->> I posted a fix to the SELinux list yesterday (link below); in
->> retrospect, I should have CC'd netdev, my apologies.  As soon as -rc=
-1
->> is released and linux-next opens for business I'll be pushing the
->> patch to the SELinux #next branch.
->>
->>  * http://marc.info/?l=3Dselinux&m=3D140726989229890&w=3D2
->
->Why hold it off for 3.18? It's small and trivial and removes a
->warning, might as well go in sooner.
->
->
->-Olof
+On Wed, Jul 30, 2014 at 03:11:07PM -0700, David Miller wrote:
+> From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+> Date: Mon, 28 Jul 2014 11:28:28 -0700
+> 
+> > Tetsuo bisected and found that commit 786235ee "kthread: make
+> > kthread_create() killable" modified kthread_create() to bail as
+> > soon as SIGKILL is received. This is causing some issues with
+> > some drivers and at times boot. Joseph then found that failures
+> > occur as the systemd-udevd process sends SIGKILL to modprobe if
+> > probe on a driver takes over 30 seconds. When this happens probe
+> > will fail on any driver, its why booting on some system will fail
+> > if the driver happens to be a storage related driver. Some folks
+> > have suggested fixing this by modifying kthread_create() to not
+> > leave upon SIGKILL [3], upon review Oleg rejected this change and
+> > the discussion was punted out to systemd to see if the default
+> > timeout could be increased from 30 seconds to 120. The opinion of
+> > the systemd maintainers is that the driver's behavior should
+> > be fixed [4]. Linus seems to agree [5], however more recently even
+> > networking drivers have been reported to fail on probe since just
+> > writing the firmware to a device and kicking it can take easy over
+> > 60 seconds [6]. Benjamim was able to trace the issues recently
+> > reported on cxgb4 down to the same systemd-udevd 30 second timeout [6].
+> > 
+> > This is an alternative solution which enables drivers that are
+> > known to take long to use deferred probe workqueue. This avoids
+> > the 30 second timeout and lets us annotate drivers with long
+> > init sequences.
+> > 
+> > As drivers determine a component is not yet available and needs
+> > to defer probe you'll be notified this happen upon init for each
+> > device but now with a message such as:
+> > 
+> > pci 0000:03:00.0: Driver cxgb4 requests probe deferral on init
+> > 
+> > You should see one of these per struct device probed.
+> 
+> It seems we're still discussing this.
+> 
+> I think I understand all of the underlying issues, and what I'll say
+> is that perhaps we should use what Greg KH requested but via a helper
+> that is easy to grep for.
+> 
+> I don't care if it's something like "module_long_probe_init()" and
+> "module_long_probe_exit()", but it just needs to be some properly
+> named interface which does the whole kthread or whatever bit.
 
-I sent a pull request to Linus yesterday and CC'd netdev.
---=20
-paul moore
-www.paul-moore.com=20
+I've tested the alternative kthread_run() proposal but unfortunately it
+does not help resolve the issue, the timeout is still hit and a SIGKILL
+still kills the driver probe. Please let me know how you'd all like us
+to proceed, these defer probe patches do help cure the issue though.
+
+I should also note that these work around patches can only be done once we
+already know a driver fails to go over the timeout, root causing and
+associating driver issues to the timeout has been very difficult with a few
+drivers already, for this reason I've submitted a change for systemd to issue a
+warning instead of killing kmod usage on udev after a timeout, that would make
+this regression non-fatal, and let us more easily then hunt drivers that need
+fixing much easily [0] [1]. As noted we'd still want to have drivers easily
+annotated which require fixing, this orignal series would allow us to do that
+by hunting for delay_probe. If there alternative and preferred strategies
+please let me know.
+
+[0] http://lists.freedesktop.org/archives/systemd-devel/2014-August/021812.html
+[1] http://lists.freedesktop.org/archives/systemd-devel/2014-August/021821.html
+
+  Luis
