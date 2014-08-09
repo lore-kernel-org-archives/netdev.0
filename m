@@ -1,46 +1,88 @@
-From: Olof Johansson <olof@lixom.net>
-Subject: Re: netlabel build warning...
-Date: Sat, 9 Aug 2014 09:19:02 -0700
-Message-ID: <CAOesGMgCDd9+=x9M=sP+rRgJOKrT+SC7VNw_X_mj5WZtiPxW1g@mail.gmail.com>
-References: <20140806.145508.377690541948141573.davem@davemloft.net>
-	<CAHC9VhTRWhx=qB5XO7f2TmY0-gqR5kWa0d_X8EY9k42tQRVymQ@mail.gmail.com>
+From: Himangi Saraogi <himangi774@gmail.com>
+Subject: [PATCH] atmel: Remove typedef atmel_priv_ioctl
+Date: Sat, 9 Aug 2014 21:52:20 +0530
+Message-ID: <20140809162220.GA18091@himangi-Dell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>
-To: Paul Moore <paul@paul-moore.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Julia Lawall <julia.lawall@lip6.fr>
+To: Simon Kelley <simon@thekelleys.org.uk>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f46.google.com ([209.85.219.46]:36984 "EHLO
-	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751698AbaHIQTC convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Aug 2014 12:19:02 -0400
-Received: by mail-oa0-f46.google.com with SMTP id m1so4936803oag.5
-        for <netdev@vger.kernel.org>; Sat, 09 Aug 2014 09:19:02 -0700 (PDT)
-In-Reply-To: <CAHC9VhTRWhx=qB5XO7f2TmY0-gqR5kWa0d_X8EY9k42tQRVymQ@mail.gmail.com>
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:38000 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751698AbaHIQW1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Aug 2014 12:22:27 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 6, 2014 at 4:23 PM, Paul Moore <paul@paul-moore.com> wrote:
-> On Wed, Aug 6, 2014 at 5:55 PM, David Miller <davem@davemloft.net> wr=
-ote:
->>
->> Please add inline to the nop versions of these helpers, thanks:
->>
->> include/net/netlabel.h:527:12: warning: =E2=80=98netlbl_catmap_setlo=
-ng=E2=80=99 defined but not used [-Wunused-function]
->> include/net/netlabel.h:527:12: warning: =E2=80=98netlbl_catmap_setlo=
-ng=E2=80=99 defined but not used [-Wunused-function]
->
-> I posted a fix to the SELinux list yesterday (link below); in
-> retrospect, I should have CC'd netdev, my apologies.  As soon as -rc1
-> is released and linux-next opens for business I'll be pushing the
-> patch to the SELinux #next branch.
->
->  * http://marc.info/?l=3Dselinux&m=3D140726989229890&w=3D2
+The Linux kernel coding style guidelines suggest not using typedefs
+for structure types. This patch gets rid of the typedef for
+atmel_priv_ioctl. 
 
-Why hold it off for 3.18? It's small and trivial and removes a
-warning, might as well go in sooner.
+The following Coccinelle semantic patch detects the case:
 
+@tn@
+identifier i;
+type td;
+@@
 
--Olof
+-typedef
+ struct i { ... }
+-td
+ ;
+
+@@
+type tn.td;
+identifier tn.i;
+@@
+
+-td
++ struct i
+
+Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
+Acked-by: Julia Lawall <julia.lawall@lip6.fr>
+---
+ drivers/net/wireless/atmel.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/wireless/atmel.c b/drivers/net/wireless/atmel.c
+index 1fe41af..9183f1c 100644
+--- a/drivers/net/wireless/atmel.c
++++ b/drivers/net/wireless/atmel.c
+@@ -2598,11 +2598,11 @@ static const iw_handler atmel_private_handler[] =
+ 	NULL,				/* SIOCIWFIRSTPRIV */
+ };
+ 
+-typedef struct atmel_priv_ioctl {
++struct atmel_priv_ioctl {
+ 	char id[32];
+ 	unsigned char __user *data;
+ 	unsigned short len;
+-} atmel_priv_ioctl;
++};
+ 
+ #define ATMELFWL	SIOCIWFIRSTPRIV
+ #define ATMELIDIFC	ATMELFWL + 1
+@@ -2615,7 +2615,7 @@ static const struct iw_priv_args atmel_private_args[] = {
+ 		.cmd = ATMELFWL,
+ 		.set_args = IW_PRIV_TYPE_BYTE
+ 				| IW_PRIV_SIZE_FIXED
+-				| sizeof (atmel_priv_ioctl),
++				| sizeof(struct atmel_priv_ioctl),
+ 		.get_args = IW_PRIV_TYPE_NONE,
+ 		.name = "atmelfwl"
+ 	}, {
+@@ -2645,7 +2645,7 @@ static int atmel_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+ {
+ 	int i, rc = 0;
+ 	struct atmel_private *priv = netdev_priv(dev);
+-	atmel_priv_ioctl com;
++	struct atmel_priv_ioctl com;
+ 	struct iwreq *wrq = (struct iwreq *) rq;
+ 	unsigned char *new_firmware;
+ 	char domain[REGDOMAINSZ + 1];
+-- 
+1.9.1
