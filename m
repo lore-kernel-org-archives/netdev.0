@@ -1,311 +1,153 @@
-From: Himangi Saraogi <himangi774@gmail.com>
-Subject: [PATCH] hdlc: Remove typedefs from struct names
-Date: Sat, 9 Aug 2014 22:17:16 +0530
-Message-ID: <20140809164716.GA21548@himangi-Dell>
+From: "edubezval@gmail.com" <edubezval@gmail.com>
+Subject: Re: [PATCH] drivers: fixed spelling of "celcius" to "celsius"
+Date: Sat, 9 Aug 2014 12:49:54 -0400
+Message-ID: <CAC-25o-qMVTsZ=pvXNDJGKTsubGd_sfVJ6AJmsov=Nrz3o9VxQ@mail.gmail.com>
+References: <1407571352-33867-1-git-send-email-learnertilldeath@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Julia Lawall <julia.lawall@lip6.fr>
-To: Krzysztof Halasa <khc@pm.waw.pl>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: airlied@linux.ie, shahed.shaikh@qlogic.com, sre@kernel.org,
+	dbaryshkov@gmail.com, dwmw2@infradead.org,
+	Zhang Rui <rui.zhang@intel.com>,
+	dri-devel@lists.freedesktop.org,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	"linux-pm@vger.kernel.org" <linux-pm@vger.kernel.org>
+To: Ankit <learnertilldeath@gmail.com>
+Return-path: <linux-pm-owner@vger.kernel.org>
+In-Reply-To: <1407571352-33867-1-git-send-email-learnertilldeath@gmail.com>
+Sender: linux-pm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The Linux kernel coding style guidelines suggest not using typedefs
-for structure types. This patch gets rid of the typedefs for
-fr_hdr and pvc_device. Also, the names of the structs are changed to
-drop the _t, to make the name look less typedef-like.
+Hello Ankit,
 
-The following Coccinelle semantic patch detects the case fr_hdr and a
-similar one detects the case for pvc_device.
+On Sat, Aug 9, 2014 at 4:02 AM, Ankit <learnertilldeath@gmail.com> wrote:
+> Fixed spelling issue -- changed celcius to celsius
+>
+> Kernel version: mainline
+>
+> Signed-off-by: Ankit <learnertilldeath@gmail.com>
 
-@tn1@
-type td;
-@@
+On the thermal part,
 
-typedef struct { ... } td;
+Acked-by: Eduardo Valentin <edubezval@gmail.com>
 
-@script:python tf@
-td << tn1.td;
-tdres;
-@@
+but I think might be worth splitting the change per domain, so we
+avoid merge conflicts. The change is just one liner though.
 
-coccinelle.tdres = td;
+> ---
+>  drivers/gpu/drm/nouveau/core/engine/graph/nv10.c  | 4 ++--
+>  drivers/gpu/drm/nouveau/core/engine/graph/nv20.c  | 2 +-
+>  drivers/gpu/drm/nouveau/core/engine/graph/nv25.c  | 2 +-
+>  drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c | 2 +-
+>  drivers/power/ds2780_battery.c                    | 2 +-
+>  drivers/power/ds2782_battery.c                    | 2 +-
+>  drivers/thermal/thermal_core.c                    | 2 +-
+>  7 files changed, 8 insertions(+), 8 deletions(-)
+>
+> diff --git a/drivers/gpu/drm/nouveau/core/engine/graph/nv10.c b/drivers/gpu/drm/nouveau/core/engine/graph/nv10.c
+> index 4532f7e..1faeeb1 100644
+> --- a/drivers/gpu/drm/nouveau/core/engine/graph/nv10.c
+> +++ b/drivers/gpu/drm/nouveau/core/engine/graph/nv10.c
+> @@ -451,7 +451,7 @@ nv10_graph_sclass[] = {
+>         { 0x0093, &nv04_graph_ofuncs }, /* surf3d */
+>         { 0x0094, &nv04_graph_ofuncs }, /* ttri */
+>         { 0x0095, &nv04_graph_ofuncs }, /* mtri */
+> -       { 0x0056, &nv04_graph_ofuncs }, /* celcius */
+> +       { 0x0056, &nv04_graph_ofuncs }, /* celsius */
+>         {},
+>  };
+>
+> @@ -474,7 +474,7 @@ nv15_graph_sclass[] = {
+>         { 0x0093, &nv04_graph_ofuncs }, /* surf3d */
+>         { 0x0094, &nv04_graph_ofuncs }, /* ttri */
+>         { 0x0095, &nv04_graph_ofuncs }, /* mtri */
+> -       { 0x0096, &nv04_graph_ofuncs }, /* celcius */
+> +       { 0x0096, &nv04_graph_ofuncs }, /* celsius */
+>         {},
+>  };
+>
+> diff --git a/drivers/gpu/drm/nouveau/core/engine/graph/nv20.c b/drivers/gpu/drm/nouveau/core/engine/graph/nv20.c
+> index d145e08..eb00689 100644
+> --- a/drivers/gpu/drm/nouveau/core/engine/graph/nv20.c
+> +++ b/drivers/gpu/drm/nouveau/core/engine/graph/nv20.c
+> @@ -31,7 +31,7 @@ nv20_graph_sclass[] = {
+>         { 0x0072, &nv04_graph_ofuncs, NULL }, /* beta4 */
+>         { 0x0089, &nv04_graph_ofuncs, NULL }, /* sifm */
+>         { 0x008a, &nv04_graph_ofuncs, NULL }, /* ifc */
+> -       { 0x0096, &nv04_graph_ofuncs, NULL }, /* celcius */
+> +       { 0x0096, &nv04_graph_ofuncs, NULL }, /* celsius */
+>         { 0x0097, &nv04_graph_ofuncs, NULL }, /* kelvin */
+>         { 0x009e, &nv04_graph_ofuncs, NULL }, /* swzsurf */
+>         { 0x009f, &nv04_graph_ofuncs, NULL }, /* imageblit */
+> diff --git a/drivers/gpu/drm/nouveau/core/engine/graph/nv25.c b/drivers/gpu/drm/nouveau/core/engine/graph/nv25.c
+> index 7a80d00..fcfe1c5 100644
+> --- a/drivers/gpu/drm/nouveau/core/engine/graph/nv25.c
+> +++ b/drivers/gpu/drm/nouveau/core/engine/graph/nv25.c
+> @@ -28,7 +28,7 @@ nv25_graph_sclass[] = {
+>         { 0x0072, &nv04_graph_ofuncs, NULL }, /* beta4 */
+>         { 0x0089, &nv04_graph_ofuncs, NULL }, /* sifm */
+>         { 0x008a, &nv04_graph_ofuncs, NULL }, /* ifc */
+> -       { 0x0096, &nv04_graph_ofuncs, NULL }, /* celcius */
+> +       { 0x0096, &nv04_graph_ofuncs, NULL }, /* celsius */
+>         { 0x009e, &nv04_graph_ofuncs, NULL }, /* swzsurf */
+>         { 0x009f, &nv04_graph_ofuncs, NULL }, /* imageblit */
+>         { 0x0597, &nv04_graph_ofuncs, NULL }, /* kelvin */
+> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
+> index f5786d5..b0f7ab0 100644
+> --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
+> +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
+> @@ -1264,7 +1264,7 @@ static ssize_t qlcnic_hwmon_show_temp(struct device *dev,
+>                 value = QLC_SHARED_REG_RD32(adapter, QLCNIC_ASIC_TEMP);
+>
+>         temperature = qlcnic_get_temp_val(value);
+> -       /* display millidegree celcius */
+> +       /* display millidegree celsius */
+>         temperature *= 1000;
+>         return sprintf(buf, "%u\n", temperature);
+>  }
+> diff --git a/drivers/power/ds2780_battery.c b/drivers/power/ds2780_battery.c
+> index 9f418fa..bf7d4bd 100644
+> --- a/drivers/power/ds2780_battery.c
+> +++ b/drivers/power/ds2780_battery.c
+> @@ -210,7 +210,7 @@ static int ds2780_get_temperature(struct ds2780_device_info *dev_info,
+>                 return ret;
+>
+>         /*
+> -        * Temperature is measured in units of 0.125 degrees celcius, the
+> +        * Temperature is measured in units of 0.125 degrees celsius, the
+>          * power_supply class measures temperature in tenths of degrees
+>          * celsius. The temperature value is stored as a 10 bit number, plus
+>          * sign in the upper bits of a 16 bit register.
+> diff --git a/drivers/power/ds2782_battery.c b/drivers/power/ds2782_battery.c
+> index 041f9b6..adc7d32 100644
+> --- a/drivers/power/ds2782_battery.c
+> +++ b/drivers/power/ds2782_battery.c
+> @@ -104,7 +104,7 @@ static int ds278x_get_temp(struct ds278x_info *info, int *temp)
+>         int err;
+>
+>         /*
+> -        * Temperature is measured in units of 0.125 degrees celcius, the
+> +        * Temperature is measured in units of 0.125 degrees celsius, the
+>          * power_supply class measures temperature in tenths of degrees
+>          * celsius. The temperature value is stored as a 10 bit number, plus
+>          * sign in the upper bits of a 16 bit register.
+> diff --git a/drivers/thermal/thermal_core.c b/drivers/thermal/thermal_core.c
+> index 71b0ec0..e69db4f 100644
+> --- a/drivers/thermal/thermal_core.c
+> +++ b/drivers/thermal/thermal_core.c
+> @@ -691,7 +691,7 @@ passive_store(struct device *dev, struct device_attribute *attr,
+>         if (!sscanf(buf, "%d\n", &state))
+>                 return -EINVAL;
+>
+> -       /* sanity check: values below 1000 millicelcius don't make sense
+> +       /* sanity check: values below 1000 millicelsius don't make sense
+>          * and can cause the system to go into a thermal heart attack
+>          */
+>         if (state && state < 1000)
+> --
+> 1.8.3.4 (Apple Git-47)
+>
 
-@@
-type tn1.td;
-identifier tf.tdres;
-@@
 
--typedef
- struct
-+  tdres
-   { ... }
--td
- ;
 
-@@
-type tn1.td;
-identifier tf.tdres;
-@@
-
--td
-+ struct tdres
-
-Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
-Acked-by: Julia Lawall <julia.lawall@lip6.fr>
----
-To send to: Krzysztof Halasa <khc@pm.waw.pl>,netdev@vger.kernel.org,linux-kernel@vger.kernel.org
- drivers/net/wan/hdlc_fr.c | 63 ++++++++++++++++++++++++-----------------------
- 1 file changed, 32 insertions(+), 31 deletions(-)
-
-diff --git a/drivers/net/wan/hdlc_fr.c b/drivers/net/wan/hdlc_fr.c
-index 7cc64ea..e5c7e61 100644
---- a/drivers/net/wan/hdlc_fr.c
-+++ b/drivers/net/wan/hdlc_fr.c
-@@ -90,7 +90,7 @@
- #define LMI_ANSI_LENGTH		  14
- 
- 
--typedef struct {
-+struct fr_hdr {
- #if defined(__LITTLE_ENDIAN_BITFIELD)
- 	unsigned ea1:	1;
- 	unsigned cr:	1;
-@@ -112,14 +112,14 @@ typedef struct {
- 	unsigned de:	1;
- 	unsigned ea2:	1;
- #endif
--}__packed fr_hdr;
-+} __packed;
- 
- 
--typedef struct pvc_device_struct {
-+struct pvc_device {
- 	struct net_device *frad;
- 	struct net_device *main;
- 	struct net_device *ether;	/* bridged Ethernet interface	*/
--	struct pvc_device_struct *next;	/* Sorted in ascending DLCI order */
-+	struct pvc_device *next;	/* Sorted in ascending DLCI order */
- 	int dlci;
- 	int open_count;
- 
-@@ -132,11 +132,11 @@ typedef struct pvc_device_struct {
- 		unsigned int becn: 1;
- 		unsigned int bandwidth;	/* Cisco LMI reporting only */
- 	}state;
--}pvc_device;
-+};
- 
- struct frad_state {
- 	fr_proto settings;
--	pvc_device *first_pvc;
-+	struct pvc_device *first_pvc;
- 	int dce_pvc_count;
- 
- 	struct timer_list timer;
-@@ -174,9 +174,9 @@ static inline struct frad_state* state(hdlc_device *hdlc)
- }
- 
- 
--static inline pvc_device* find_pvc(hdlc_device *hdlc, u16 dlci)
-+static inline struct pvc_device *find_pvc(hdlc_device *hdlc, u16 dlci)
- {
--	pvc_device *pvc = state(hdlc)->first_pvc;
-+	struct pvc_device *pvc = state(hdlc)->first_pvc;
- 
- 	while (pvc) {
- 		if (pvc->dlci == dlci)
-@@ -190,10 +190,10 @@ static inline pvc_device* find_pvc(hdlc_device *hdlc, u16 dlci)
- }
- 
- 
--static pvc_device* add_pvc(struct net_device *dev, u16 dlci)
-+static struct pvc_device *add_pvc(struct net_device *dev, u16 dlci)
- {
- 	hdlc_device *hdlc = dev_to_hdlc(dev);
--	pvc_device *pvc, **pvc_p = &state(hdlc)->first_pvc;
-+	struct pvc_device *pvc, **pvc_p = &state(hdlc)->first_pvc;
- 
- 	while (*pvc_p) {
- 		if ((*pvc_p)->dlci == dlci)
-@@ -203,7 +203,7 @@ static pvc_device* add_pvc(struct net_device *dev, u16 dlci)
- 		pvc_p = &(*pvc_p)->next;
- 	}
- 
--	pvc = kzalloc(sizeof(pvc_device), GFP_ATOMIC);
-+	pvc = kzalloc(sizeof(*pvc), GFP_ATOMIC);
- #ifdef DEBUG_PVC
- 	printk(KERN_DEBUG "add_pvc: allocated pvc %p, frad %p\n", pvc, dev);
- #endif
-@@ -218,13 +218,13 @@ static pvc_device* add_pvc(struct net_device *dev, u16 dlci)
- }
- 
- 
--static inline int pvc_is_used(pvc_device *pvc)
-+static inline int pvc_is_used(struct pvc_device *pvc)
- {
- 	return pvc->main || pvc->ether;
- }
- 
- 
--static inline void pvc_carrier(int on, pvc_device *pvc)
-+static inline void pvc_carrier(int on, struct pvc_device *pvc)
- {
- 	if (on) {
- 		if (pvc->main)
-@@ -246,11 +246,11 @@ static inline void pvc_carrier(int on, pvc_device *pvc)
- 
- static inline void delete_unused_pvcs(hdlc_device *hdlc)
- {
--	pvc_device **pvc_p = &state(hdlc)->first_pvc;
-+	struct pvc_device **pvc_p = &state(hdlc)->first_pvc;
- 
- 	while (*pvc_p) {
- 		if (!pvc_is_used(*pvc_p)) {
--			pvc_device *pvc = *pvc_p;
-+			struct pvc_device *pvc = *pvc_p;
- #ifdef DEBUG_PVC
- 			printk(KERN_DEBUG "freeing unused pvc: %p\n", pvc);
- #endif
-@@ -263,7 +263,8 @@ static inline void delete_unused_pvcs(hdlc_device *hdlc)
- }
- 
- 
--static inline struct net_device** get_dev_p(pvc_device *pvc, int type)
-+static inline struct net_device **get_dev_p(struct pvc_device *pvc,
-+					    int type)
- {
- 	if (type == ARPHRD_ETHER)
- 		return &pvc->ether;
-@@ -342,7 +343,7 @@ static int fr_hard_header(struct sk_buff **skb_p, u16 dlci)
- 
- static int pvc_open(struct net_device *dev)
- {
--	pvc_device *pvc = dev->ml_priv;
-+	struct pvc_device *pvc = dev->ml_priv;
- 
- 	if ((pvc->frad->flags & IFF_UP) == 0)
- 		return -EIO;  /* Frad must be UP in order to activate PVC */
-@@ -362,7 +363,7 @@ static int pvc_open(struct net_device *dev)
- 
- static int pvc_close(struct net_device *dev)
- {
--	pvc_device *pvc = dev->ml_priv;
-+	struct pvc_device *pvc = dev->ml_priv;
- 
- 	if (--pvc->open_count == 0) {
- 		hdlc_device *hdlc = dev_to_hdlc(pvc->frad);
-@@ -381,7 +382,7 @@ static int pvc_close(struct net_device *dev)
- 
- static int pvc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- {
--	pvc_device *pvc = dev->ml_priv;
-+	struct pvc_device *pvc = dev->ml_priv;
- 	fr_proto_pvc_info info;
- 
- 	if (ifr->ifr_settings.type == IF_GET_PROTO) {
-@@ -409,7 +410,7 @@ static int pvc_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- 
- static netdev_tx_t pvc_xmit(struct sk_buff *skb, struct net_device *dev)
- {
--	pvc_device *pvc = dev->ml_priv;
-+	struct pvc_device *pvc = dev->ml_priv;
- 
- 	if (pvc->state.active) {
- 		if (dev->type == ARPHRD_ETHER) {
-@@ -444,7 +445,7 @@ static netdev_tx_t pvc_xmit(struct sk_buff *skb, struct net_device *dev)
- 	return NETDEV_TX_OK;
- }
- 
--static inline void fr_log_dlci_active(pvc_device *pvc)
-+static inline void fr_log_dlci_active(struct pvc_device *pvc)
- {
- 	netdev_info(pvc->frad, "DLCI %d [%s%s%s]%s %s\n",
- 		    pvc->dlci,
-@@ -469,7 +470,7 @@ static void fr_lmi_send(struct net_device *dev, int fullrep)
- {
- 	hdlc_device *hdlc = dev_to_hdlc(dev);
- 	struct sk_buff *skb;
--	pvc_device *pvc = state(hdlc)->first_pvc;
-+	struct pvc_device *pvc = state(hdlc)->first_pvc;
- 	int lmi = state(hdlc)->settings.lmi;
- 	int dce = state(hdlc)->settings.dce;
- 	int len = lmi == LMI_ANSI ? LMI_ANSI_LENGTH : LMI_CCITT_CISCO_LENGTH;
-@@ -566,7 +567,7 @@ static void fr_lmi_send(struct net_device *dev, int fullrep)
- static void fr_set_link_state(int reliable, struct net_device *dev)
- {
- 	hdlc_device *hdlc = dev_to_hdlc(dev);
--	pvc_device *pvc = state(hdlc)->first_pvc;
-+	struct pvc_device *pvc = state(hdlc)->first_pvc;
- 
- 	state(hdlc)->reliable = reliable;
- 	if (reliable) {
-@@ -652,7 +653,7 @@ static void fr_timer(unsigned long arg)
- static int fr_lmi_recv(struct net_device *dev, struct sk_buff *skb)
- {
- 	hdlc_device *hdlc = dev_to_hdlc(dev);
--	pvc_device *pvc;
-+	struct pvc_device *pvc;
- 	u8 rxseq, txseq;
- 	int lmi = state(hdlc)->settings.lmi;
- 	int dce = state(hdlc)->settings.dce;
-@@ -869,10 +870,10 @@ static int fr_rx(struct sk_buff *skb)
- {
- 	struct net_device *frad = skb->dev;
- 	hdlc_device *hdlc = dev_to_hdlc(frad);
--	fr_hdr *fh = (fr_hdr*)skb->data;
-+	struct fr_hdr *fh = (struct fr_hdr *)skb->data;
- 	u8 *data = skb->data;
- 	u16 dlci;
--	pvc_device *pvc;
-+	struct pvc_device *pvc;
- 	struct net_device *dev = NULL;
- 
- 	if (skb->len <= 4 || fh->ea1 || data[2] != FR_UI)
-@@ -1028,7 +1029,7 @@ static void fr_stop(struct net_device *dev)
- static void fr_close(struct net_device *dev)
- {
- 	hdlc_device *hdlc = dev_to_hdlc(dev);
--	pvc_device *pvc = state(hdlc)->first_pvc;
-+	struct pvc_device *pvc = state(hdlc)->first_pvc;
- 
- 	while (pvc) {		/* Shutdown all PVCs for this FRAD */
- 		if (pvc->main)
-@@ -1060,7 +1061,7 @@ static const struct net_device_ops pvc_ops = {
- static int fr_add_pvc(struct net_device *frad, unsigned int dlci, int type)
- {
- 	hdlc_device *hdlc = dev_to_hdlc(frad);
--	pvc_device *pvc;
-+	struct pvc_device *pvc;
- 	struct net_device *dev;
- 	int used;
- 
-@@ -1117,7 +1118,7 @@ static int fr_add_pvc(struct net_device *frad, unsigned int dlci, int type)
- 
- static int fr_del_pvc(hdlc_device *hdlc, unsigned int dlci, int type)
- {
--	pvc_device *pvc;
-+	struct pvc_device *pvc;
- 	struct net_device *dev;
- 
- 	if ((pvc = find_pvc(hdlc, dlci)) == NULL)
-@@ -1145,13 +1146,13 @@ static int fr_del_pvc(hdlc_device *hdlc, unsigned int dlci, int type)
- static void fr_destroy(struct net_device *frad)
- {
- 	hdlc_device *hdlc = dev_to_hdlc(frad);
--	pvc_device *pvc = state(hdlc)->first_pvc;
-+	struct pvc_device *pvc = state(hdlc)->first_pvc;
- 	state(hdlc)->first_pvc = NULL; /* All PVCs destroyed */
- 	state(hdlc)->dce_pvc_count = 0;
- 	state(hdlc)->dce_changed = 1;
- 
- 	while (pvc) {
--		pvc_device *next = pvc->next;
-+		struct pvc_device *next = pvc->next;
- 		/* destructors will free_netdev() main and ether */
- 		if (pvc->main)
- 			unregister_netdevice(pvc->main);
 -- 
-1.9.1
+Eduardo Bezerra Valentin
