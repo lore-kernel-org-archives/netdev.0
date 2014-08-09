@@ -1,7 +1,7 @@
 From: Paul Moore <paul@paul-moore.com>
 Subject: Re: netlabel build warning...
-Date: Sat, 09 Aug 2014 12:27:37 -0400
-Message-ID: <85a9815b-c0a9-406e-8e06-02044515376a@email.android.com>
+Date: Sat, 09 Aug 2014 12:23:18 -0400
+Message-ID: <efdc8ee2-f7ea-4601-9118-88595281bc5d@email.android.com>
 References: <20140806.145508.377690541948141573.davem@davemloft.net> <CAHC9VhTRWhx=qB5XO7f2TmY0-gqR5kWa0d_X8EY9k42tQRVymQ@mail.gmail.com> <CAOesGMgCDd9+=x9M=sP+rRgJOKrT+SC7VNw_X_mj5WZtiPxW1g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -10,12 +10,12 @@ Cc: David Miller <davem@davemloft.net>,
 	Network Development <netdev@vger.kernel.org>
 To: Olof Johansson <olof@lixom.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f172.google.com ([209.85.216.172]:43719 "EHLO
-	mail-qc0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751698AbaHIQ2D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Aug 2014 12:28:03 -0400
-Received: by mail-qc0-f172.google.com with SMTP id i8so356276qcq.31
-        for <netdev@vger.kernel.org>; Sat, 09 Aug 2014 09:28:02 -0700 (PDT)
+Received: from mail-qg0-f46.google.com ([209.85.192.46]:64916 "EHLO
+	mail-qg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751698AbaHIQ26 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Aug 2014 12:28:58 -0400
+Received: by mail-qg0-f46.google.com with SMTP id z60so7143448qgd.19
+        for <netdev@vger.kernel.org>; Sat, 09 Aug 2014 09:28:57 -0700 (PDT)
 In-Reply-To: <CAOesGMgCDd9+=x9M=sP+rRgJOKrT+SC7VNw_X_mj5WZtiPxW1g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
