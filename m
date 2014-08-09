@@ -1,62 +1,53 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: Use CAP_NET_ADMIN and alias netdev-nlmon instead
-Date: Sat, 9 Aug 2014 13:23:24 -0700
-Message-ID: <09B6E85F-9B01-435B-B18B-71730DBD450D@holtmann.org>
-References: <7B1A5F4E-7DCD-4054-9E8C-E5511AF64CE3@holtmann.org> <53E67742.9080405@redhat.com>
-Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Daniel Borkmann <dborkman@redhat.com>
+From: Miss Brown <pastor.june_ali@yahoo.com>
+Subject: I DO APPRECIATE ALL YOUR EFFORTS.
+Date: Sat, 9 Aug 2014 23:10:44 +0000
+Message-ID: <CAG6fYHo0sisSKm7XwCr-+Yt+9krdmD5vTCmdxacA1Y2=NaMY1A@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:44758 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751055AbaHIUW5 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Aug 2014 16:22:57 -0400
-In-Reply-To: <53E67742.9080405@redhat.com>
+Received: from mail-lb0-f194.google.com ([209.85.217.194]:45335 "EHLO
+	mail-lb0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751341AbaHIXKq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Aug 2014 19:10:46 -0400
+Received: by mail-lb0-f194.google.com with SMTP id s7so1896535lbd.9
+        for <netdev@vger.kernel.org>; Sat, 09 Aug 2014 16:10:44 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Daniel,
+Dear Partner.
 
->> so I am running this command sequence:
->> 
->> 	ip link add name nlmon type nlmon
->> 	ip link set dev nlmon up
->> 
->> With that I get this message in dmesg:
->> 
->> Loading kernel module for a network device with CAP_SYS_MODULE (deprecated).
-> > Use CAP_NET_ADMIN and alias netdev-nlmon instead.
->> 
->> The kernel section producing this is dev_load() from net/core/dev_ioctl.c:
->> 
->>         no_module = !dev;
->>         if (no_module && capable(CAP_NET_ADMIN))
->>                 no_module = request_module("netdev-%s", name);
->>         if (no_module && capable(CAP_SYS_MODULE)) {
->>                 if (!request_module("%s", name))
->>                         pr_warn("Loading kernel module for a network device with CAP_SYS_MODULE (deprecated).  Use CAP_NET_ADMIN and alias netdev-%s instead.\n",
->>                                 name);
->>         }
->> 
->> Since I am explicitly giving the name from userspace, I have no idea why the
-> > kernel bugs me in providing netdev-nlmon alias. It makes no sense to me. What
-> > is the reasoning behind this?
-> 
-> Could it just be that your process doesn't have CAP_NET_ADMIN set
-> but CAP_SYS_MODULE instead thus triggering this pr_warn()?
-> 
-> grep Cap /proc/$$/status ?
-> 
-> Hm, I don't think this is nlmon related, above works fine on my side.
+I'm happy to inform you about my success in getting the fund
+transferred under the cooperation of a new partner from UNITED STATES
+OF AMERICA. Presently I'm in AMERICA for investment projects with my
+own share of the total sum. Meanwhile, I didn't forget your past
+efforts and attempts to assist me in transferring those funds despite
+that it failed us some how.
 
-so I have not nlmon.ko loaded or compiled into the kernel. This means the ip command will trigger the autoloading. Command is either run with sudo or as root. So this is not a capability issue.
+Now contact my PASTOR, JUNE ALI and her private Email Address
+(pastor.june_ali@yahoo.com) ask him to send you the total $500.000.00
+dollars only to your account since the money was deposited in Apex
+Bank Of Africa which I kept for your compensation for all the past
+efforts and attempts to assist me in this matter.
 
-I think this is just a wrong check when handling loading of modules. I still do not understand how a netdev-%s alias makes any sense. Or even trying to load module nlmon.ko since I created interface nlmon.
+I appreciated your efforts at that time very much. So feel free and
+get in touched with my pastor as a honest man of God and instruct him
+where to send the amount to you through apex bank where the money was
+deposited.
 
-The real module loading should also be done in the type and not the name.
+Please do let me know immediately you receive it so that we can share
+the joy after all the sufferness at that time. in the moment, I am
+very busy here because of the investment projects which me and the new
+partner are having at hand, finally, remember that I had forwarded
+instruction to the pastor on your behalf to receive that amount, so
+feel free to get in touch with Pastor June Ali and he will send the
+amount to you without any delay through apex bank where I deposited
+the money under fix depositing account.
 
-Regards
+With best regards.
 
-Marcel
+
+323 KATAHDIN .
+LEXINGTON, 02421
+MASSACHUSETTS,
+UNITED STATES OF AMERICA
