@@ -1,19 +1,19 @@
 From: Tom Herbert <therbert@google.com>
-Subject: [PATCH net-next] udp: clear rps flow table for packets recv on UDP
- unconnected sockets
-Date: Sat, 9 Aug 2014 09:51:23 -0700 (PDT)
-Message-ID: <alpine.DEB.2.02.1408090943160.16111@tomh.mtv.corp.google.com>
+Subject: [PATCH v2 net-next] udp: clear rps flow table for packets recv on
+ UDP unconnected sockets
+Date: Sat, 9 Aug 2014 10:15:30 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1408091013240.1087@tomh.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: eric.dumazet@gmail.com
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f201.google.com ([209.85.192.201]:38415 "EHLO
-	mail-pd0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751821AbaHIQvY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Aug 2014 12:51:24 -0400
-Received: by mail-pd0-f201.google.com with SMTP id g10so1738870pdj.4
-        for <netdev@vger.kernel.org>; Sat, 09 Aug 2014 09:51:24 -0700 (PDT)
+Received: from mail-oa0-f73.google.com ([209.85.219.73]:39379 "EHLO
+	mail-oa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751821AbaHIRPb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Aug 2014 13:15:31 -0400
+Received: by mail-oa0-f73.google.com with SMTP id g18so1233575oah.0
+        for <netdev@vger.kernel.org>; Sat, 09 Aug 2014 10:15:30 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -59,7 +59,7 @@ Signed-off-by: Tom Herbert <therbert@google.com>
  1 file changed, 2 insertions(+)
 
 diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index f57c0e4..8778bec 100644
+index f57c0e4..7ba764a 100644
 --- a/net/ipv4/udp.c
 +++ b/net/ipv4/udp.c
 @@ -1444,6 +1444,8 @@ static int __udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
@@ -67,7 +67,7 @@ index f57c0e4..8778bec 100644
  		sock_rps_save_rxhash(sk, skb);
  		sk_mark_napi_id(sk, skb);
 +	} else {
-+		sock_rps_reset_flow_hash(skb->rxhash);
++		sock_rps_reset_flow_hash(skb->hash);
  	}
  
  	rc = sock_queue_rcv_skb(sk, skb);
