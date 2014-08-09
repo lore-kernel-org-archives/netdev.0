@@ -1,93 +1,135 @@
-From: "Luis R. Rodriguez" <mcgrof@suse.com>
-Subject: Re: [PATCH v2 2/4] driver core: enable drivers to use deferred
-	probe from init
-Date: Sat, 9 Aug 2014 18:41:19 +0200
-Message-ID: <20140809164119.GI21930@wotan.suse.de>
-References: <1406572110-26823-1-git-send-email-mcgrof@do-not-panic.com> <1406572110-26823-3-git-send-email-mcgrof@do-not-panic.com> <20140730.151107.1328294951387764830.davem@davemloft.net>
+From: Himangi Saraogi <himangi774-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH] airo_cs: Remove typedef local_info_t
+Date: Sat, 9 Aug 2014 22:16:23 +0530
+Message-ID: <20140809164623.GA21522@himangi-Dell>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: mcgrof@do-not-panic.com, tiwai@suse.de,
-	linux-kernel@vger.kernel.org, penguin-kernel@I-love.SAKURA.ne.jp,
-	joseph.salisbury@canonical.com, kay@vrfy.org,
-	gnomes@lxorguk.ukuu.org.uk, tim.gardner@canonical.com,
-	pierre-fersing@pierref.org, akpm@linux-foundation.org,
-	oleg@redhat.com, bpoirier@suse.de,
-	nagalakshmi.nandigama@avagotech.com,
-	praveen.krishnamoorthy@avagotech.com,
-	sreekanth.reddy@avagotech.com, abhijit.mahajan@avagotech.com,
-	hariprasad@chelsio.com, santosh@chelsio.com,
-	MPT-FusionLinux.pdl@avagotech.com, linux-scsi@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, gregkh@linuxfoundation.org
-Return-path: <linux-scsi-owner@vger.kernel.org>
+Cc: Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org>
+To: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20140730.151107.1328294951387764830.davem@davemloft.net>
-Sender: linux-scsi-owner@vger.kernel.org
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 30, 2014 at 03:11:07PM -0700, David Miller wrote:
-> From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-> Date: Mon, 28 Jul 2014 11:28:28 -0700
-> 
-> > Tetsuo bisected and found that commit 786235ee "kthread: make
-> > kthread_create() killable" modified kthread_create() to bail as
-> > soon as SIGKILL is received. This is causing some issues with
-> > some drivers and at times boot. Joseph then found that failures
-> > occur as the systemd-udevd process sends SIGKILL to modprobe if
-> > probe on a driver takes over 30 seconds. When this happens probe
-> > will fail on any driver, its why booting on some system will fail
-> > if the driver happens to be a storage related driver. Some folks
-> > have suggested fixing this by modifying kthread_create() to not
-> > leave upon SIGKILL [3], upon review Oleg rejected this change and
-> > the discussion was punted out to systemd to see if the default
-> > timeout could be increased from 30 seconds to 120. The opinion of
-> > the systemd maintainers is that the driver's behavior should
-> > be fixed [4]. Linus seems to agree [5], however more recently even
-> > networking drivers have been reported to fail on probe since just
-> > writing the firmware to a device and kicking it can take easy over
-> > 60 seconds [6]. Benjamim was able to trace the issues recently
-> > reported on cxgb4 down to the same systemd-udevd 30 second timeout [6].
-> > 
-> > This is an alternative solution which enables drivers that are
-> > known to take long to use deferred probe workqueue. This avoids
-> > the 30 second timeout and lets us annotate drivers with long
-> > init sequences.
-> > 
-> > As drivers determine a component is not yet available and needs
-> > to defer probe you'll be notified this happen upon init for each
-> > device but now with a message such as:
-> > 
-> > pci 0000:03:00.0: Driver cxgb4 requests probe deferral on init
-> > 
-> > You should see one of these per struct device probed.
-> 
-> It seems we're still discussing this.
-> 
-> I think I understand all of the underlying issues, and what I'll say
-> is that perhaps we should use what Greg KH requested but via a helper
-> that is easy to grep for.
-> 
-> I don't care if it's something like "module_long_probe_init()" and
-> "module_long_probe_exit()", but it just needs to be some properly
-> named interface which does the whole kthread or whatever bit.
+The Linux kernel coding style guidelines suggest not using typedefs
+for structure types. This patch gets rid of the typedef for
+local_info_t. Also, the name of the struct is changed to drop the _t,
+to make the name look less typedef-like.
 
-I've tested the alternative kthread_run() proposal but unfortunately it
-does not help resolve the issue, the timeout is still hit and a SIGKILL
-still kills the driver probe. Please let me know how you'd all like us
-to proceed, these defer probe patches do help cure the issue though.
+The following Coccinelle semantic patch detects the case:
 
-I should also note that these work around patches can only be done once we
-already know a driver fails to go over the timeout, root causing and
-associating driver issues to the timeout has been very difficult with a few
-drivers already, for this reason I've submitted a change for systemd to issue a
-warning instead of killing kmod usage on udev after a timeout, that would make
-this regression non-fatal, and let us more easily then hunt drivers that need
-fixing much easily [0] [1]. As noted we'd still want to have drivers easily
-annotated which require fixing, this orignal series would allow us to do that
-by hunting for delay_probe. If there alternative and preferred strategies
-please let me know.
+@tn@
+identifier i;
+type td;
+@@
 
-[0] http://lists.freedesktop.org/archives/systemd-devel/2014-August/021812.html
-[1] http://lists.freedesktop.org/archives/systemd-devel/2014-August/021821.html
+-typedef
+ struct i { ... }
+-td
+ ;
 
-  Luis
+@@
+type tn.td;
+identifier tn.i;
+@@
+
+-td
++ struct i
+
+Signed-off-by: Himangi Saraogi <himangi774-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Acked-by: Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org>
+---
+ drivers/net/wireless/airo_cs.c | 25 +++++++++++++------------
+ 1 file changed, 13 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/wireless/airo_cs.c b/drivers/net/wireless/airo_cs.c
+index 7e9ede6..d9ed22b 100644
+--- a/drivers/net/wireless/airo_cs.c
++++ b/drivers/net/wireless/airo_cs.c
+@@ -56,18 +56,18 @@ static void airo_release(struct pcmcia_device *link);
+ 
+ static void airo_detach(struct pcmcia_device *p_dev);
+ 
+-typedef struct local_info_t {
++struct local_info {
+ 	struct net_device *eth_dev;
+-} local_info_t;
++};
+ 
+ static int airo_probe(struct pcmcia_device *p_dev)
+ {
+-	local_info_t *local;
++	struct local_info *local;
+ 
+ 	dev_dbg(&p_dev->dev, "airo_attach()\n");
+ 
+ 	/* Allocate space for private device-specific data */
+-	local = kzalloc(sizeof(local_info_t), GFP_KERNEL);
++	local = kzalloc(sizeof(*local), GFP_KERNEL);
+ 	if (!local)
+ 		return -ENOMEM;
+ 
+@@ -82,10 +82,11 @@ static void airo_detach(struct pcmcia_device *link)
+ 
+ 	airo_release(link);
+ 
+-	if (((local_info_t *)link->priv)->eth_dev) {
+-		stop_airo_card(((local_info_t *)link->priv)->eth_dev, 0);
++	if (((struct local_info *)link->priv)->eth_dev) {
++		stop_airo_card(((struct local_info *)link->priv)->eth_dev,
++			       0);
+ 	}
+-	((local_info_t *)link->priv)->eth_dev = NULL;
++	((struct local_info *)link->priv)->eth_dev = NULL;
+ 
+ 	kfree(link->priv);
+ } /* airo_detach */
+@@ -101,7 +102,7 @@ static int airo_cs_config_check(struct pcmcia_device *p_dev, void *priv_data)
+ 
+ static int airo_config(struct pcmcia_device *link)
+ {
+-	local_info_t *dev;
++	struct local_info *dev;
+ 	int ret;
+ 
+ 	dev = link->priv;
+@@ -121,10 +122,10 @@ static int airo_config(struct pcmcia_device *link)
+ 	ret = pcmcia_enable_device(link);
+ 	if (ret)
+ 		goto failed;
+-	((local_info_t *)link->priv)->eth_dev =
++	((struct local_info *)link->priv)->eth_dev =
+ 		init_airo_card(link->irq,
+ 			       link->resource[0]->start, 1, &link->dev);
+-	if (!((local_info_t *)link->priv)->eth_dev)
++	if (!((struct local_info *)link->priv)->eth_dev)
+ 		goto failed;
+ 
+ 	return 0;
+@@ -142,7 +143,7 @@ static void airo_release(struct pcmcia_device *link)
+ 
+ static int airo_suspend(struct pcmcia_device *link)
+ {
+-	local_info_t *local = link->priv;
++	struct local_info *local = link->priv;
+ 
+ 	netif_device_detach(local->eth_dev);
+ 
+@@ -151,7 +152,7 @@ static int airo_suspend(struct pcmcia_device *link)
+ 
+ static int airo_resume(struct pcmcia_device *link)
+ {
+-	local_info_t *local = link->priv;
++	struct local_info *local = link->priv;
+ 
+ 	if (link->open) {
+ 		reset_airo_card(local->eth_dev);
+-- 
+1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
