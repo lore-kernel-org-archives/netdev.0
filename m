@@ -1,18 +1,10 @@
 From: "Razya Ladelsky" <razya@il.ibm.com>
 Subject: [PATCH] vhost: Add polling mode
 Date: Sun, 10 Aug 2014 11:30:35 +0300 (IDT)
-Message-ID: <20140810083035.0CF58380729__14295.6024072648$1407659475$gmane$org@moren.haifa.ibm.com>
+Message-ID: <20140810083035.0CF58380729__40733.3691059195$1407659476$gmane$org@moren.haifa.ibm.com>
 References: <1407659404-razya@il.ibm.com>
 Cc: GLIKSON@il.ibm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp17.uk.ibm.com ([195.75.94.113]:37859 "EHLO
-	e06smtp17.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751194AbaHJIai (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Aug 2014 04:30:38 -0400
-Received: from /spool/local
-	by e06smtp17.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <razya@il.ibm.com>;
-	Sun, 10 Aug 2014 09:30:36 +0100
+Return-path: <kvm-owner@vger.kernel.org>
 Cc: ERANRA@il.ibm.com
 Cc: YOSSIKU@il.ibm.com
 Cc: JOELN@il.ibm.com
@@ -22,8 +14,8 @@ Cc: netdev@vger.kernel.org
 Cc: virtualization@lists.linux-foundation.org
 To: mst@redhat.com
 To: kvm@vger.kernel.org
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Razya Ladelsky <razya@il.ibm.com>
 Date: Thu, 31 Jul 2014 09:47:20 +0300
@@ -578,3 +570,4 @@ index 3eda654..11aaaf4 100644
  void vhost_dev_init(struct vhost_dev *, struct vhost_virtqueue **vqs, int nvqs);
 -- 
 1.7.9.5
+
