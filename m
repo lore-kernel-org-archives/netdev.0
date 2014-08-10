@@ -1,70 +1,45 @@
-From: Daniel Mack <zonque@gmail.com>
-Subject: Re: [PATCH] drivers: net: davinci_cpdma: drop devm_kfree of devm_kzalloc'd
- data
-Date: Sun, 10 Aug 2014 22:26:47 +0200
-Message-ID: <53E7D587.9040303@gmail.com>
-References: <20140810195819.GA3880@himangi-Dell>
+From: Hannes Frederic Sowa <hannes@redhat.com>
+Subject: Re: [PATCH] ipv6: do not add link-local address if one already
+ exists
+Date: Sun, 10 Aug 2014 22:37:12 +0200
+Message-ID: <1407703032.2161.22.camel@localhost>
+References: <d630f87aa617098553c3a3361fcf50aa@mail.marples.name>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Julia Lawall <julia.lawall@lip6.fr>
-To: Himangi Saraogi <himangi774@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Olof Johansson <olof@lixom.net>,
-	Dan Carpenter <dan.carpenter@oracle.com>,
-	Felipe Balbi <balbi@ti.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org,
+	"David S. Miller\" <davem@davemloft.net>, Alexey Kuznetsov "
+	 "<kuznet@ms2.inr.ac.ru>, Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>, "
+	 Patrick McHardy <kaber@trash.net>
+To: Roy Marples <roy@marples.name>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f173.google.com ([74.125.82.173]:50887 "EHLO
-	mail-we0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751138AbaHJU1B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Aug 2014 16:27:01 -0400
-In-Reply-To: <20140810195819.GA3880@himangi-Dell>
+Received: from mx1.redhat.com ([209.132.183.28]:3830 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751173AbaHJUhV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 10 Aug 2014 16:37:21 -0400
+In-Reply-To: <d630f87aa617098553c3a3361fcf50aa@mail.marples.name>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/10/2014 09:58 PM, Himangi Saraogi wrote:
-> devm_kfree should not have to be explicitly used.
-> 
-> The Coccinelle semantic patch that fixes this problem is as follows:
-> 
-> // <smpl>
-> @@
-> expression x,d;
-> @@
-> 
-> x = devm_kzalloc(...)
-> ...
-> ?-devm_kfree(d,x);
-> // </smpl>
-> 
-> Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
-> Acked-by: Julia Lawall <julia.lawall@lip6.fr>
+Hi,
 
-Acked-by: Daniel Mack <zonque@gmail.com>
-
-However, you need to resend this patch after 3.17-rc1 has been released
-and the net-next branch was opened again.
-
-
-Thanks,
-Daniel
-
-
-> ---
->  drivers/net/ethernet/ti/davinci_cpdma.c | 1 -
->  1 file changed, 1 deletion(-)
+On So, 2014-08-10 at 19:56 +0000, Roy Marples wrote:
+> Currently the kernel will always add an IPv6 link-local address
+> based on the hardware address when the interface is brought up.
+> This is probably based on the assumption that userland would
+> never add one before the interface is brought up.
 > 
-> diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
-> index 4a000f6..af673f5 100644
-> --- a/drivers/net/ethernet/ti/davinci_cpdma.c
-> +++ b/drivers/net/ethernet/ti/davinci_cpdma.c
-> @@ -512,7 +512,6 @@ struct cpdma_chan *cpdma_chan_create(struct cpdma_ctlr *ctlr, int chan_num,
->  	spin_lock_irqsave(&ctlr->lock, flags);
->  	if (ctlr->channels[chan_num]) {
->  		spin_unlock_irqrestore(&ctlr->lock, flags);
-> -		devm_kfree(ctlr->dev, chan);
->  		return ERR_PTR(-EBUSY);
->  	}
->  
+> However, one at least one userland application (dhcpcd) does this so
+> it can implement RFC7217 which can be used for link-local addresses
+> as well.
 > 
+> Attached is a patch which checks to see if a link-local address exists
+> before indiscriminately adding one.
+
+Please have a look at:
+https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=bc91b0f07ada5535427373a4e2050877bcc12218
+
+This was recently implemented just for this specific case.
+
+Bye,
+Hannes
