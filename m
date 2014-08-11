@@ -1,24 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v10 0/4] net: Add APM X-Gene SoC Ethernet driver support
-Date: Mon, 11 Aug 2014 11:56:51 -0700 (PDT)
-Message-ID: <20140811.115651.606803355162766650.davem@davemloft.net>
-References: <1407449668-13520-1-git-send-email-isubramanian@apm.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-	dnelson@redhat.com, gregkh@linuxfoundation.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	jcm@redhat.com, patches@apm.com, rapatel@apm.com, kchudgar@apm.com
-To: isubramanian@apm.com
+From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+Subject: [PATCH V2] net: ethernet: myricom: myri10ge: myri10ge.c:  Cleaning up missing null-terminate after strncpy call
+Date: Mon, 11 Aug 2014 21:18:16 +0200
+Message-ID: <1407784696-31698-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+Cc: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
+	linux-kernel@vger.kernel.org
+To: Hyong-Youb Kim <hykim@myri.com>, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1407449668-13520-1-git-send-email-isubramanian@apm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Iyappan Subramanian <isubramanian@apm.com>
-Date: Thu,  7 Aug 2014 15:14:24 -0700
+Added a guaranteed null-terminate after call to strncpy.
 
-> Adding APM X-Gene SoC Ethernet driver.
+Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+---
+ drivers/net/ethernet/myricom/myri10ge/myri10ge.c |    1 +
+ 1 file changed, 1 insertion(+)
 
-Series applied, thanks.
+diff --git a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+index f3d5d79..69c26f0 100644
+--- a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
++++ b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+@@ -574,6 +574,7 @@ myri10ge_validate_firmware(struct myri10ge_priv *mgp,
+ 
+ 	/* save firmware version for ethtool */
+ 	strncpy(mgp->fw_version, hdr->version, sizeof(mgp->fw_version));
++	mgp->fw_version[sizeof(mgp->fw_version) - 1] = '\0';
+ 
+ 	sscanf(mgp->fw_version, "%d.%d.%d", &mgp->fw_ver_major,
+ 	       &mgp->fw_ver_minor, &mgp->fw_ver_tiny);
+-- 
+1.7.10.4
