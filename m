@@ -1,32 +1,43 @@
-From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-Subject: [PATCH V2] net: ethernet: myricom: myri10ge: myri10ge.c:  Cleaning up missing null-terminate after strncpy call
-Date: Mon, 11 Aug 2014 21:18:16 +0200
-Message-ID: <1407784696-31698-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-Cc: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
-	linux-kernel@vger.kernel.org
-To: Hyong-Youb Kim <hykim@myri.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net] net: Always untag vlan-tagged traffic on input.
+Date: Mon, 11 Aug 2014 12:17:26 -0700 (PDT)
+Message-ID: <20140811.121726.433178704630420349.davem@davemloft.net>
+References: <1407523333-31455-1-git-send-email-vyasevic@redhat.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kaber@trash.net, nsujir@broadcom.com,
+	mchan@broadcom.com, jiri@resnulli.us
+To: vyasevic@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58282 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752325AbaHKTR1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2014 15:17:27 -0400
+In-Reply-To: <1407523333-31455-1-git-send-email-vyasevic@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Added a guaranteed null-terminate after call to strncpy.
+From: Vladislav Yasevich <vyasevic@redhat.com>
+Date: Fri,  8 Aug 2014 14:42:13 -0400
 
-Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
----
- drivers/net/ethernet/myricom/myri10ge/myri10ge.c |    1 +
- 1 file changed, 1 insertion(+)
+> Currently the functionality to untag traffic on input resides
+> as part of the vlan module and is build only when VLAN support
+> is enabled in the kernel.  When VLAN is disabled, the function
+> vlan_untag() turns into a stub and doesn't really untag the
+> packets.  This seems to create an interesting interaction
+> between VMs supporting checksum offloading and some network drivers.
+ ...
+> The patch attempt to fix this another way.  It moves the vlan header
+> stipping code out of the vlan module and always builds it into the
+> kernel network core.  This way, even if vlan is not supported on
+> a virtualizatoin host, the virtual machines running on top of such
+> host will still work with VLANs enabled.
+> 
+> CC: Patrick McHardy <kaber@trash.net>
+> CC: Nithin Nayak Sujir <nsujir@broadcom.com>
+> CC: Michael Chan <mchan@broadcom.com>
+> CC: Jiri Pirko <jiri@resnulli.us>
+> Signed-off-by: Vladislav Yasevich <vyasevic@redhat.com>
 
-diff --git a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-index f3d5d79..69c26f0 100644
---- a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-+++ b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-@@ -574,6 +574,7 @@ myri10ge_validate_firmware(struct myri10ge_priv *mgp,
- 
- 	/* save firmware version for ethtool */
- 	strncpy(mgp->fw_version, hdr->version, sizeof(mgp->fw_version));
-+	mgp->fw_version[sizeof(mgp->fw_version) - 1] = '\0';
- 
- 	sscanf(mgp->fw_version, "%d.%d.%d", &mgp->fw_ver_major,
- 	       &mgp->fw_ver_minor, &mgp->fw_ver_tiny);
--- 
-1.7.10.4
+Applied and queued up for -stable, thanks Vlad.
