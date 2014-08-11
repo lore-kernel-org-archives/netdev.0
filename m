@@ -1,31 +1,49 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH] smsc: replace WARN_ON() with WARN_ON_SMP()
-Date: Mon, 11 Aug 2014 16:20:15 +0800
-Message-ID: <20140811082015.GA1422@kroah.com>
-References: <1407744983-29289-1-git-send-email-sanjeev_sharma@mentor.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: [PATCH net v3 0/3] xen-netback: synchronisation between core driver and netback
+Date: Mon, 11 Aug 2014 11:11:21 +0100
+Message-ID: <1407751884-9005-1-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: steve.glendinning@shawell.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Sanjeev Sharma <sanjeev_sharma@mentor.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1407744983-29289-1-git-send-email-sanjeev_sharma@mentor.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <ian.campbell@citrix.com>, <zoltan.kiss@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>
+To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:20270 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753165AbaHKKL0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Aug 2014 06:11:26 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 11, 2014 at 01:46:23PM +0530, Sanjeev Sharma wrote:
-> spin_is_locked() always return false in uniprocessor configuration and therefore it
-> would be advise to repalce with WARN_ON_SMP().
-> 
-> Signed-off-by: Sanjeev Sharma <Sanjeev_Sharma@mentor.com>
-> ---
->  drivers/net/ethernet/smsc/smsc911x.h | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+The zero-copy netback has far more interactions with core network driver than
+the old copying backend. One significant thing is that netback now relies on
+a callback from core driver to correctly release resources.
 
-Hint, I have nothing to do with this file, no need to send a patch for
-it to me, I can't do anything with it...
+However correct synchronisation between core driver and netback is missing.
+Currently netback relies on a loop to wait for core driver to release
+resources. This is proven not enough and erronous recently, partly due to code
+structure, partly due to missing synchronisation. Short-live domains like
+OpenMirage unikernels can easily trigger race in backend, rendering backend
+unresponsive.
 
-thanks,
+This patch series aims to slove this issue by introducing proper
+synchronisation between core driver and netback.
 
-greg k-h
+Wei.
+
+Change in v3: improve commit message in patch 1
+
+Change in v2: fix Zoltan's email address in commit message
+
+Wei Liu (3):
+  xen-netback: move NAPI add/remove calls
+  xen-netback: don't stop dealloc kthread too early
+  xen-netback: remove loop waiting function
+
+ drivers/net/xen-netback/common.h    |    5 +++
+ drivers/net/xen-netback/interface.c |   57 +++++++++++++++--------------------
+ drivers/net/xen-netback/netback.c   |   24 ++++++++++++---
+ 3 files changed, 49 insertions(+), 37 deletions(-)
+
+-- 
+1.7.10.4
