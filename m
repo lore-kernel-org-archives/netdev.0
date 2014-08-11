@@ -1,60 +1,148 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH] allow setting wiphy.perm_addr after driver probe
-Date: Mon, 11 Aug 2014 15:41:38 -0700
-Message-ID: <28066DB2-9EA9-4748-9C89-D3FBD3EC51F5@holtmann.org>
-References: <1407780269.28221.63.camel@chimera> <54DF22CF-59D7-4633-A625-896F58C26A64@holtmann.org> <1407789645.28221.68.camel@chimera> <37210DB5-2911-4FA3-9299-7701C5003945@holtmann.org> <1407791075.28221.74.camel@chimera>
-Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	"linux-wireless@vger.kernel.org Wireless"
-	<linux-wireless@vger.kernel.org>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-kernel@vger.kernel.org
-To: Daniel Gimpelevich <daniel@gimpelevich.san-francisco.ca.us>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1407791075.28221.74.camel@chimera>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Subject: [PATCH stable 3.4 1/2] ipv4: move route garbage collector to work queue
+Date: Mon, 11 Aug 2014 19:41:05 -0300
+Message-ID: <fc0168a71c064457c18f2563371176380d0012c7.1407796232.git.mleitner@redhat.com>
+Cc: hannes@redhat.com, netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:38771 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755269AbaHKWlc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Aug 2014 18:41:32 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Daniel,
+Currently the route garbage collector gets called by dst_alloc() if it
+have more entries than the threshold. But it's an expensive call, that
+don't really need to be done by then.
 
->> The initial wlan0 can be removed as every other netdev attached to the
->> wiphy. It can also be as easily re-created.
->> 
->> Since the wiphy does not have a valid MAC address, my proposal here
->> would be to just not create the wlan0 in the first place. This means
->> that the wiphy can be still discovered via nl80211.
-> 
-> I repeat, currently wlan0 is *not* created.
+Another issue with current way is that it allows running the garbage
+collector with the same start parameters on multiple CPUs at once, which
+is not optimal. A system may even soft lockup if the cache is big enough
+as the garbage collectors will be fighting over the hash lock entries.
 
-what kind of hardware are you actually using here?
+This patch thus moves the garbage collector to run asynchronously on a
+work queue, much similar to how rt_expire_check runs.
 
->> It also means that the wlan0 netdev needs to be created by userspace
->> now. And a valid NL80211_ATTR_MAC be provided. Similar to what is
->> already done for P2P devices at the moment. That should just solve the
->> problem.
-> 
-> The creation of wlan0 already comes from userspace, but the PHY has its
-> own MAC.
-> 
->> We really do not want to announce a netdev when registering the wiphy
->> device and then having to mess with its MAC address via sysfs somehow.
->> This all needs to be properly reflected over RTNL.
->> 
-> Again, no netdev is announced. There just isn't a way to set the MAC of
-> the wiphy device itself.
-> 
-> How about this: What if the driver were to leave the MAC at all zeros
-> initially, and sysfs could set that if and only if it's all zeros at the
-> time?
+There is one condition left that allows multiple executions, which is
+handled by the next patch.
 
-Internally it might do that, but I do not see it exposing the NL80211_ATTR_MAC when you get the attributes for wiphy.
+Signed-off-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Cc: Hannes Frederic Sowa <hannes@redhat.com>
+---
 
-So I am still saying that when you do NL80211_CMD_NEW_INTERFACE allow providing NL80211_ATTR_MAC to set the MAC address to be used. It might be useful that the wiphy exposes an attribute saying that it does not have a default MAC address, but that should be it. I do not like these magic 00:00:00:00:00:00 games. As I mentioned earlier, in Bluetooth we just deal with allowing the driver to set a flag that it does not have a valid address. And then the core takes care of dealing with it.
+Notes:
+    Hi,
+    
+    This set is needed for stables <= 3.4, as the IPv4 route cache was
+    removed after that.
+    
+    Thanks
 
-Regards
+ net/ipv4/route.c | 43 +++++++++++++++++++++++++++++--------------
+ 1 file changed, 29 insertions(+), 14 deletions(-)
 
-Marcel
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 90bc88bbd2a4f73304671e0182df72f450fa901a..2ad1cdb2c9e45f5ec5a6c1fa9b781657b1c292ec 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -150,6 +150,9 @@ static void		 ipv4_link_failure(struct sk_buff *skb);
+ static void		 ip_rt_update_pmtu(struct dst_entry *dst, u32 mtu);
+ static int rt_garbage_collect(struct dst_ops *ops);
+ 
++static void __rt_garbage_collect(struct work_struct *w);
++static DECLARE_WORK(rt_gc_worker, __rt_garbage_collect);
++
+ static void ipv4_dst_ifdown(struct dst_entry *dst, struct net_device *dev,
+ 			    int how)
+ {
+@@ -977,7 +980,7 @@ static void rt_emergency_hash_rebuild(struct net *net)
+    and when load increases it reduces to limit cache size.
+  */
+ 
+-static int rt_garbage_collect(struct dst_ops *ops)
++static void __do_rt_garbage_collect(int elasticity, int min_interval)
+ {
+ 	static unsigned long expire = RT_GC_TIMEOUT;
+ 	static unsigned long last_gc;
+@@ -996,7 +999,7 @@ static int rt_garbage_collect(struct dst_ops *ops)
+ 
+ 	RT_CACHE_STAT_INC(gc_total);
+ 
+-	if (now - last_gc < ip_rt_gc_min_interval &&
++	if (now - last_gc < min_interval &&
+ 	    entries < ip_rt_max_size) {
+ 		RT_CACHE_STAT_INC(gc_ignored);
+ 		goto out;
+@@ -1004,7 +1007,7 @@ static int rt_garbage_collect(struct dst_ops *ops)
+ 
+ 	entries = dst_entries_get_slow(&ipv4_dst_ops);
+ 	/* Calculate number of entries, which we want to expire now. */
+-	goal = entries - (ip_rt_gc_elasticity << rt_hash_log);
++	goal = entries - (elasticity << rt_hash_log);
+ 	if (goal <= 0) {
+ 		if (equilibrium < ipv4_dst_ops.gc_thresh)
+ 			equilibrium = ipv4_dst_ops.gc_thresh;
+@@ -1021,7 +1024,7 @@ static int rt_garbage_collect(struct dst_ops *ops)
+ 		equilibrium = entries - goal;
+ 	}
+ 
+-	if (now - last_gc >= ip_rt_gc_min_interval)
++	if (now - last_gc >= min_interval)
+ 		last_gc = now;
+ 
+ 	if (goal <= 0) {
+@@ -1086,15 +1089,33 @@ static int rt_garbage_collect(struct dst_ops *ops)
+ 	if (net_ratelimit())
+ 		pr_warn("dst cache overflow\n");
+ 	RT_CACHE_STAT_INC(gc_dst_overflow);
+-	return 1;
++	return;
+ 
+ work_done:
+-	expire += ip_rt_gc_min_interval;
++	expire += min_interval;
+ 	if (expire > ip_rt_gc_timeout ||
+ 	    dst_entries_get_fast(&ipv4_dst_ops) < ipv4_dst_ops.gc_thresh ||
+ 	    dst_entries_get_slow(&ipv4_dst_ops) < ipv4_dst_ops.gc_thresh)
+ 		expire = ip_rt_gc_timeout;
+-out:	return 0;
++out:	return;
++}
++
++static void __rt_garbage_collect(struct work_struct *w)
++{
++	__do_rt_garbage_collect(ip_rt_gc_elasticity, ip_rt_gc_min_interval);
++}
++
++static int rt_garbage_collect(struct dst_ops *ops)
++{
++	if (!work_pending(&rt_gc_worker))
++		schedule_work(&rt_gc_worker);
++
++	if (dst_entries_get_fast(&ipv4_dst_ops) >= ip_rt_max_size ||
++		dst_entries_get_slow(&ipv4_dst_ops) >= ip_rt_max_size) {
++		RT_CACHE_STAT_INC(gc_dst_overflow);
++		return 1;
++	}
++	return 0;
+ }
+ 
+ /*
+@@ -1288,13 +1309,7 @@ restart:
+ 			   it is most likely it holds some neighbour records.
+ 			 */
+ 			if (attempts-- > 0) {
+-				int saved_elasticity = ip_rt_gc_elasticity;
+-				int saved_int = ip_rt_gc_min_interval;
+-				ip_rt_gc_elasticity	= 1;
+-				ip_rt_gc_min_interval	= 0;
+-				rt_garbage_collect(&ipv4_dst_ops);
+-				ip_rt_gc_min_interval	= saved_int;
+-				ip_rt_gc_elasticity	= saved_elasticity;
++				__do_rt_garbage_collect(1, 0);
+ 				goto restart;
+ 			}
+ 
+-- 
+1.9.3
