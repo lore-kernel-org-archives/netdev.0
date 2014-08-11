@@ -1,52 +1,60 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [linux-nics] linux-next: Tree for Aug 11
- (net/ethernet/intel/i40e)
-Date: Mon, 11 Aug 2014 15:20:20 -0700 (PDT)
-Message-ID: <20140811.152020.1502253914281568304.davem@davemloft.net>
-References: <1407786786.2189.0.camel@jtkirshe-mobl.jf.intel.com>
-	<20140811.145454.185028525560881583.davem@davemloft.net>
-	<1407795392.2189.13.camel@jtkirshe-mobl.jf.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: sfr@canb.auug.org.au, linux.nics@intel.com,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	rdunlap@infradead.org, linux-kernel@vger.kernel.org,
-	linux-next@vger.kernel.org
-To: jeffrey.t.kirsher@intel.com
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1407795392.2189.13.camel@jtkirshe-mobl.jf.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH] allow setting wiphy.perm_addr after driver probe
+Date: Mon, 11 Aug 2014 15:41:38 -0700
+Message-ID: <28066DB2-9EA9-4748-9C89-D3FBD3EC51F5@holtmann.org>
+References: <1407780269.28221.63.camel@chimera> <54DF22CF-59D7-4633-A625-896F58C26A64@holtmann.org> <1407789645.28221.68.camel@chimera> <37210DB5-2911-4FA3-9299-7701C5003945@holtmann.org> <1407791075.28221.74.camel@chimera>
+Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	"linux-wireless@vger.kernel.org Wireless"
+	<linux-wireless@vger.kernel.org>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	linux-kernel@vger.kernel.org
+To: Daniel Gimpelevich <daniel@gimpelevich.san-francisco.ca.us>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1407791075.28221.74.camel@chimera>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Mon, 11 Aug 2014 15:16:32 -0700
+Hi Daniel,
 
-> On Mon, 2014-08-11 at 14:54 -0700, David Miller wrote:
->> I see no such change in my tree.
+>> The initial wlan0 can be removed as every other netdev attached to the
+>> wiphy. It can also be as easily re-created.
+>> 
+>> Since the wiphy does not have a valid MAC address, my proposal here
+>> would be to just not create the wlan0 in the first place. This means
+>> that the wiphy can be still discovered via nl80211.
 > 
-> http://patchwork.ozlabs.org/patch/376699/
+> I repeat, currently wlan0 is *not* created.
+
+what kind of hardware are you actually using here?
+
+>> It also means that the wlan0 netdev needs to be created by userspace
+>> now. And a valid NL80211_ATTR_MAC be provided. Similar to what is
+>> already done for P2P devices at the moment. That should just solve the
+>> problem.
 > 
-> This is what I was referring to, it looks like you set the patch status
-> to "Awaiting upstream" yet you responded that you applied it.  So my
-> bad, I thought you had already sucked it into you tree.  I get this
-> resolved and send you this and a few other fixes later today.
+> The creation of wlan0 already comes from userspace, but the PHY has its
+> own MAC.
+> 
+>> We really do not want to announce a netdev when registering the wiphy
+>> device and then having to mess with its MAC address via sysfs somehow.
+>> This all needs to be properly reflected over RTNL.
+>> 
+> Again, no netdev is announced. There just isn't a way to set the MAC of
+> the wiphy device itself.
+> 
+> How about this: What if the driver were to leave the MAC at all zeros
+> initially, and sysfs could set that if and only if it's all zeros at the
+> time?
 
-My bad, I mis-replied to that patch, and indeed I do expect to get it
-upstream via your tree.
+Internally it might do that, but I do not see it exposing the NL80211_ATTR_MAC when you get the attributes for wiphy.
 
-Thanks for catching that Jeff.
+So I am still saying that when you do NL80211_CMD_NEW_INTERFACE allow providing NL80211_ATTR_MAC to set the MAC address to be used. It might be useful that the wiphy exposes an attribute saying that it does not have a default MAC address, but that should be it. I do not like these magic 00:00:00:00:00:00 games. As I mentioned earlier, in Bluetooth we just deal with allowing the driver to set a flag that it does not have a valid address. And then the core takes care of dealing with it.
 
-------------------------------------------------------------------------------
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Regards
+
+Marcel
