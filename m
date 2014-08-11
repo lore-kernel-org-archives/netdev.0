@@ -1,35 +1,87 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net 0/4] net: bcmgenet: Wake-on-LAN and suspend fixes
-Date: Mon, 11 Aug 2014 14:50:41 -0700
-Message-ID: <1407793845-30895-1-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net 2/4] net: bcmgenet: correctly suspend and resume PHY device
+Date: Mon, 11 Aug 2014 14:50:43 -0700
+Message-ID: <1407793845-30895-3-git-send-email-f.fainelli@gmail.com>
+References: <1407793845-30895-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:39802 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752031AbaHKVvF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2014 17:51:05 -0400
-Received: by mail-pa0-f51.google.com with SMTP id ey11so11860339pad.10
-        for <netdev@vger.kernel.org>; Mon, 11 Aug 2014 14:51:04 -0700 (PDT)
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:37373 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753634AbaHKVvG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2014 17:51:06 -0400
+Received: by mail-pa0-f48.google.com with SMTP id et14so11771145pad.35
+        for <netdev@vger.kernel.org>; Mon, 11 Aug 2014 14:51:06 -0700 (PDT)
+In-Reply-To: <1407793845-30895-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+Make sure that we properly suspend and resume the PHY device when we
+enter low power modes. We had two calls to bcmgenet_mii_reset() which
+will issue a software-reset to the PHY without using the PHY library,
+get rid of them since they are completely bogus and mess up with the PHY
+library state. Make sure that we reset the PHY library cached values
+(link, pause and duplex) to allow the link adjustment callback to be
+invoked when needed.
 
-This patch series fixes some mistakes that were introduced during the driver
-changes adding support suspend/resume and Wake-on-LAN.
+Fixes: b6e978e50444 ("net: bcmgenet: add suspend/resume callbacks")
+Fixes: 1c1008c793fa4 ("net: bcmgenet: add main driver file")
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
 
-Thanks!
-
-Florian Fainelli (4):
-  net: bcmgenet: request and enable main clock earlier
-  net: bcmgenet: correctly suspend and resume PHY device
-  net: bcmgenet: update UMAC_CMD only when link is detected
-  net: bcmgenet: correctly resume adapter from Wake-on-LAN
-
- drivers/net/ethernet/broadcom/genet/bcmgenet.c | 37 +++++++++++++++++---------
- drivers/net/ethernet/broadcom/genet/bcmmii.c   |  8 ++++--
- 2 files changed, 30 insertions(+), 15 deletions(-)
-
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index 7a3661c090ee..90eb9c4b1b2c 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -739,7 +739,6 @@ static void bcmgenet_power_down(struct bcmgenet_priv *priv,
+ 
+ 	case GENET_POWER_PASSIVE:
+ 		/* Power down LED */
+-		bcmgenet_mii_reset(priv->dev);
+ 		if (priv->hw_params->flags & GENET_HAS_EXT) {
+ 			reg = bcmgenet_ext_readl(priv, EXT_EXT_PWR_MGMT);
+ 			reg |= (EXT_PWR_DOWN_PHY |
+@@ -779,7 +778,9 @@ static void bcmgenet_power_up(struct bcmgenet_priv *priv,
+ 	}
+ 
+ 	bcmgenet_ext_writel(priv, reg, EXT_EXT_PWR_MGMT);
+-	bcmgenet_mii_reset(priv->dev);
++
++	if (mode == GENET_POWER_PASSIVE)
++		bcmgenet_mii_reset(priv->dev);
+ }
+ 
+ /* ioctl handle special commands that are not present in ethtool. */
+@@ -2164,6 +2165,10 @@ static void bcmgenet_netif_stop(struct net_device *dev)
+ 	 * disabled no new work will be scheduled.
+ 	 */
+ 	cancel_work_sync(&priv->bcmgenet_irq_work);
++
++	priv->old_pause = -1;
++	priv->old_link = -1;
++	priv->old_duplex = -1;
+ }
+ 
+ static int bcmgenet_close(struct net_device *dev)
+@@ -2611,6 +2616,8 @@ static int bcmgenet_suspend(struct device *d)
+ 
+ 	bcmgenet_netif_stop(dev);
+ 
++	phy_suspend(priv->phydev);
++
+ 	netif_device_detach(dev);
+ 
+ 	/* Disable MAC receive */
+@@ -2693,6 +2700,8 @@ static int bcmgenet_resume(struct device *d)
+ 
+ 	netif_device_attach(dev);
+ 
++	phy_resume(priv->phydev);
++
+ 	bcmgenet_netif_start(dev);
+ 
+ 	return 0;
 -- 
 1.9.1
