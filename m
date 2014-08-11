@@ -1,42 +1,37 @@
-From: Mark Einon <mark.einon@gmail.com>
-Subject: Re: [PATCH RESEND] staging: et131x: Fix errors caused by
- phydev->addr accesses before initialisation
-Date: Mon, 11 Aug 2014 08:35:29 +0100
-Message-ID: <20140811073529.GA4620@leicester.auvation.com>
-References: <1407705415-14886-1-git-send-email-mark.einon@gmail.com>
- <CAJL_dMub6FN+HvueQ4ZJCT2TPi9-86x8VF2hG00K8CDm5bR7rw@mail.gmail.com>
- <20140811053959.GD13727@kroah.com>
+From: Sanjeev Sharma <sanjeev_sharma@mentor.com>
+Subject: [PATCH] smsc: replace WARN_ON() with WARN_ON_SMP()
+Date: Mon, 11 Aug 2014 13:46:23 +0530
+Message-ID: <1407744983-29289-1-git-send-email-sanjeev_sharma@mentor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: STAGING SUBSYSTEM <devel@driverdev.osuosl.org>,
-	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
-	stable <stable@vger.kernel.org>, gregkh@linuxfoundation.org
-To: Anca Emanuel <anca.emanuel@gmail.com>
-Return-path: <stable-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20140811053959.GD13727@kroah.com>
-Sender: stable-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Sanjeev Sharma <sanjeev_sharma@mentor.com>,
+	Sanjeev Sharma <Sanjeev_Sharma@mentor.com>
+To: <gregkh@linuxfoundation.org>, <steve.glendinning@shawell.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 11, 2014 at 01:39:59PM +0800, gregkh@linuxfoundation.org wrote:
-> On Mon, Aug 11, 2014 at 12:32:55AM +0300, Anca Emanuel wrote:
-> > Do you have this hardware ? And did you test this ?
-> 
-> Mark is the maintainer of this driver, I assume he has the hardware, if
-> not, I don't care, I trust him :)
-> 
+spin_is_locked() always return false in uniprocessor configuration and therefore it
+would be advise to repalce with WARN_ON_SMP().
 
-Hi there,
+Signed-off-by: Sanjeev Sharma <Sanjeev_Sharma@mentor.com>
+---
+ drivers/net/ethernet/smsc/smsc911x.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-:) Yes, all tested on hardware.
-
-> > How can you cc stable without an Tested by somebody else ?
-> 
-> Since when is a tested-by a requirement for a stable@ marking?  Please
-> read Documentation/stable_kernel_rules.txt for the details.
-
-As Greg says, easily if you follow those rules.
-
-Cheers,
-
-Mark
+diff --git a/drivers/net/ethernet/smsc/smsc911x.h b/drivers/net/ethernet/smsc/smsc911x.h
+index 2395395..54d6489 100644
+--- a/drivers/net/ethernet/smsc/smsc911x.h
++++ b/drivers/net/ethernet/smsc/smsc911x.h
+@@ -51,7 +51,7 @@
+ 
+ #ifdef CONFIG_DEBUG_SPINLOCK
+ #define SMSC_ASSERT_MAC_LOCK(pdata) \
+-		WARN_ON(!spin_is_locked(&pdata->mac_lock))
++		WARN_ON_SMP(!spin_is_locked(&pdata->mac_lock))
+ #else
+ #define SMSC_ASSERT_MAC_LOCK(pdata) do {} while (0)
+ #endif				/* CONFIG_DEBUG_SPINLOCK */
+-- 
+1.7.11.7
