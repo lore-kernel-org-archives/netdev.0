@@ -1,72 +1,71 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH] allow setting wiphy.perm_addr after driver probe
-Date: Mon, 11 Aug 2014 13:25:40 -0700
-Message-ID: <54DF22CF-59D7-4633-A625-896F58C26A64@holtmann.org>
-References: <1407780269.28221.63.camel@chimera>
-Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	"linux-wireless@vger.kernel.org Wireless"
-	<linux-wireless@vger.kernel.org>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-kernel@vger.kernel.org
-To: Daniel Gimpelevich <daniel@gimpelevich.san-francisco.ca.us>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1407780269.28221.63.camel@chimera>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [Xen-devel] [PATCH net v2 2/3] xen-netback: don't stop dealloc
+ kthread too early
+Date: Mon, 11 Aug 2014 21:39:51 +0100
+Message-ID: <20140811203951.GB12352@zion.uk.xensource.com>
+References: <1407515833-2550-1-git-send-email-wei.liu2@citrix.com>
+ <1407515833-2550-3-git-send-email-wei.liu2@citrix.com>
+ <53E8B2A4.9070008@citrix.com>
+ <20140811134847.GF3249@zion.uk.xensource.com>
+ <53E8CBF5.1030600@citrix.com>
+ <53E8CF95.5050209@citrix.com>
+ <20140811144440.GJ3249@zion.uk.xensource.com>
+ <53E8DFF0.8040702@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	Zoltan Kiss <zoltan.kiss@citrix.com>, <netdev@vger.kernel.org>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	<xen-devel@lists.xen.org>
+To: David Vrabel <david.vrabel@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:27231 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932082AbaHKUjw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Aug 2014 16:39:52 -0400
+Content-Disposition: inline
+In-Reply-To: <53E8DFF0.8040702@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Daniel,
-
-> On embedded devices, often the BSSID of an access point must be set from
-> userspace during the boot process. This provides a relatively clean way
-> of doing that without major side effects.
+On Mon, Aug 11, 2014 at 04:23:28PM +0100, David Vrabel wrote:
+> On 11/08/14 15:44, Wei Liu wrote:
+> > On Mon, Aug 11, 2014 at 03:13:41PM +0100, Zoltan Kiss wrote:
+> > [...]
+> >>> And cleaning it up a bit (the while() could be a for(;;)).
+> >>
+> >> I would recommend this:
+> >> ---
+> >> @@ -2066,7 +2066,7 @@ int xenvif_dealloc_kthread(void *data)
+> >>  		wait_event_interruptible(queue->dealloc_wq,
+> >>  					 tx_dealloc_work_todo(queue) ||
+> >>  					 kthread_should_stop());
+> >> -		if (kthread_should_stop())
+> >> +		if (kthread_should_stop() && !atomic_read(&queue->inflight_packets))
+> >>  			break;
+> >>  
+> >>  		xenvif_tx_dealloc_action(queue);
+> >> ---
+> >> If kthread_stop called, this will keep the main loop running until all callbacks are called.
+> >> Then it proceeds to the exit branch, otherwise doesn't disrupt normal operation.
+> > 
+> > This snippet lacks change to while().
+> > 
+> > I would generally go for a shorter solution if the code is
+> > self-explanatory.
+> > 
+> > @@ -2078,21 +2066,19 @@ int xenvif_dealloc_kthread(void *data)
+> >  {
+> >         struct xenvif_queue *queue = data;
+> >  
+> > -       while (!kthread_should_stop()) {
+> > +       for (;;) {
+> >                 wait_event_interruptible(queue->dealloc_wq,
+> >                                          tx_dealloc_work_todo(queue) ||
+> >                                          kthread_should_stop());
 > 
-> Signed-off-by: Daniel Gimpelevich <daniel@gimpelevich.san-francisco.ca.us>
-> --- 
-> --- a/net/wireless/sysfs.c	2014-04-19 08:36:52.048511623 -0700
-> +++ b/net/wireless/sysfs.c	2014-04-19 08:38:09.196894176 -0700
-> @@ -24,18 +24,30 @@
-> 	return container_of(dev, struct cfg80211_registered_device, wiphy.dev);
-> }
+> This will never sleep if the thread is being stopped when there are
+> packets in flight.
 > 
-> -#define SHOW_FMT(name, fmt, member)					\
-> +#define SHOW_FMT(name, fmt, member, perm)				\
-> static ssize_t name ## _show(struct device *dev,			\
-> 			      struct device_attribute *attr,		\
-> 			      char *buf)				\
-> {									\
-> 	return sprintf(buf, fmt "\n", dev_to_rdev(dev)->member);	\
-> }									\
-> -static DEVICE_ATTR_RO(name)
-> +static DEVICE_ATTR_ ## perm(name)
-> 
-> -SHOW_FMT(index, "%d", wiphy_idx);
-> -SHOW_FMT(macaddress, "%pM", wiphy.perm_addr);
-> -SHOW_FMT(address_mask, "%pM", wiphy.addr_mask);
-> +static ssize_t macaddress_store(struct device *dev,
-> +			      struct device_attribute *attr,
-> +			      const char *buf, size_t count)
-> +{
-> +	u8 temp[ETH_ALEN];
-> +
-> +	if (sscanf(buf, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx", temp, temp + 1,
-> +			temp + 2, temp + 3, temp + 4, temp + 5) == ETH_ALEN)
-> +		memcpy(dev_to_rdev(dev)->wiphy.perm_addr, temp, ETH_ALEN);
-> +	return count;
-> +}
-> +
-> +SHOW_FMT(index, "%d", wiphy_idx, RO);
-> +SHOW_FMT(macaddress, "%pM", wiphy.perm_addr, RW);
-> +SHOW_FMT(address_mask, "%pM", wiphy.addr_mask, RO);
 
-isn't this dangerous to just allow writing to wiphy.perm_addr via sysfs. We ran into the same issue with Bluetooth and ROM only devices that have to unique address. Doing this via sysfs seems the wrong approach. It is messy and full of potential race conditions. I clearly opted against the sysfs solution for Bluetooth. Instead we build an infrastructure that allowed doing it cleanly via the Bluetooth mgmt API. Controllers that have no unique address are brought up as unconfigured and userspace clearly knows that it has to take steps to get an address programmed into the controller.
-
-And I think something similar should be done for WiFi. It might be better to not create the initial wlan0 netdev interface if the hardware has not a single unique address available. That way the supplicant can just either get one from the flash filesystem or make up a proper random one before creating the netdev interface.
-
-Regards
-
-Marcel
+Good catch.
