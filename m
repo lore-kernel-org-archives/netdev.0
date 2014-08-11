@@ -1,74 +1,68 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 1/4] netfilter: nf_tables: uninitialize element key/data from the commit path
-Date: Mon, 11 Aug 2014 19:06:16 +0200
-Message-ID: <1407776779-9113-2-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 4/4] netfilter: nf_tables: fix error return code
+Date: Mon, 11 Aug 2014 19:06:19 +0200
+Message-ID: <1407776779-9113-5-git-send-email-pablo@netfilter.org>
 References: <1407776779-9113-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:40026 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754588AbaHKRGO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Aug 2014 13:06:14 -0400
 In-Reply-To: <1407776779-9113-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This should happen once the element has been effectively released in
-the commit path, not before. This fixes a possible chain refcount leak
-if the transaction is aborted.
+From: Julia Lawall <Julia.Lawall@lip6.fr>
 
-Reported-by: Thomas Graf <tgraf@suug.ch>
+Convert a zero return value on error to a negative one, as returned
+elsewhere in the function.
+
+A simplified version of the semantic match that finds this problem is as
+follows: (http://coccinelle.lip6.fr/)
+
+// <smpl>
+@@
+identifier ret; expression e1,e2;
+@@
+(
+if (\(ret < 0\|ret != 0\))
+ { ... return ret; }
+|
+ret = 0
+)
+... when != ret = e1
+    when != &ret
+*if(...)
+{
+  ... when != ret = e2
+      when forall
+ return ret;
+}
+// </smpl>
+
+Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nf_tables_api.c |   23 +++++++++++------------
- 1 file changed, 11 insertions(+), 12 deletions(-)
+ net/netfilter/nf_tables_api.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
 diff --git a/net/netfilter/nf_tables_api.c b/net/netfilter/nf_tables_api.c
-index b8035c2..c6f9d3d 100644
+index 9aa31f1..deeb95f 100644
 --- a/net/netfilter/nf_tables_api.c
 +++ b/net/netfilter/nf_tables_api.c
-@@ -3139,11 +3139,6 @@ static int nft_del_setelem(struct nft_ctx *ctx, struct nft_set *set,
+@@ -3137,8 +3137,10 @@ static int nft_del_setelem(struct nft_ctx *ctx, struct nft_set *set,
+ 		goto err2;
+ 
+ 	trans = nft_trans_elem_alloc(ctx, NFT_MSG_DELSETELEM, set);
+-	if (trans == NULL)
++	if (trans == NULL) {
++		err = -ENOMEM;
+ 		goto err2;
++	}
  
  	nft_trans_elem(trans) = elem;
  	list_add_tail(&trans->list, &ctx->net->nft.commit_list);
--
--	nft_data_uninit(&elem.key, NFT_DATA_VALUE);
--	if (set->flags & NFT_SET_MAP)
--		nft_data_uninit(&elem.data, set->dtype);
--
- 	return 0;
- err2:
- 	nft_data_uninit(&elem.key, desc.type);
-@@ -3310,7 +3305,7 @@ static int nf_tables_commit(struct sk_buff *skb)
- {
- 	struct net *net = sock_net(skb->sk);
- 	struct nft_trans *trans, *next;
--	struct nft_set *set;
-+	struct nft_trans_elem *te;
- 
- 	/* Bump generation counter, invalidate any dump in progress */
- 	while (++net->nft.base_seq == 0);
-@@ -3396,13 +3391,17 @@ static int nf_tables_commit(struct sk_buff *skb)
- 			nft_trans_destroy(trans);
- 			break;
- 		case NFT_MSG_DELSETELEM:
--			nf_tables_setelem_notify(&trans->ctx,
--						 nft_trans_elem_set(trans),
--						 &nft_trans_elem(trans),
-+			te = (struct nft_trans_elem *)trans->data;
-+			nf_tables_setelem_notify(&trans->ctx, te->set,
-+						 &te->elem,
- 						 NFT_MSG_DELSETELEM, 0);
--			set = nft_trans_elem_set(trans);
--			set->ops->get(set, &nft_trans_elem(trans));
--			set->ops->remove(set, &nft_trans_elem(trans));
-+			te->set->ops->get(te->set, &te->elem);
-+			te->set->ops->remove(te->set, &te->elem);
-+			nft_data_uninit(&te->elem.key, NFT_DATA_VALUE);
-+			if (te->elem.flags & NFT_SET_MAP) {
-+				nft_data_uninit(&te->elem.data,
-+						te->set->dtype);
-+			}
- 			nft_trans_destroy(trans);
- 			break;
- 		}
 -- 
 1.7.10.4
-
