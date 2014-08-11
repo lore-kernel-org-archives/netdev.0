@@ -1,78 +1,42 @@
-From: Uwe =?iso-8859-1?Q?Kleine-K=F6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: Re: [PATCH] net: ugg_geth: Fix build error in -next
-Date: Mon, 11 Aug 2014 07:35:16 +0200
-Message-ID: <20140811053516.GE5134@pengutronix.de>
-References: <1407687554-14539-1-git-send-email-linux@roeck-us.net>
- <20140810183622.GC5134@pengutronix.de>
- <53E7BD21.6010301@roeck-us.net>
+From: "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH RESEND] staging: et131x: Fix errors caused by
+ phydev->addr accesses before initialisation
+Date: Mon, 11 Aug 2014 13:39:59 +0800
+Message-ID: <20140811053959.GD13727@kroah.com>
+References: <1407705415-14886-1-git-send-email-mark.einon@gmail.com>
+ <CAJL_dMub6FN+HvueQ4ZJCT2TPi9-86x8VF2hG00K8CDm5bR7rw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Li Yang <leoli@freescale.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org
-To: Guenter Roeck <linux@roeck-us.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:56784 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752179AbaHKFf1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2014 01:35:27 -0400
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: STAGING SUBSYSTEM <devel@driverdev.osuosl.org>,
+ Mark Einon <mark.einon@gmail.com>, LKML <linux-kernel@vger.kernel.org>,
+ stable <stable@vger.kernel.org>, netdev@vger.kernel.org
+To: Anca Emanuel <anca.emanuel@gmail.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
 Content-Disposition: inline
-In-Reply-To: <53E7BD21.6010301@roeck-us.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <CAJL_dMub6FN+HvueQ4ZJCT2TPi9-86x8VF2hG00K8CDm5bR7rw@mail.gmail.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: driverdev-devel-bounces@linuxdriverproject.org
+List-Id: netdev.vger.kernel.org
 
-Hello Guenter,
+On Mon, Aug 11, 2014 at 12:32:55AM +0300, Anca Emanuel wrote:
+> Do you have this hardware ? And did you test this ?
 
-On Sun, Aug 10, 2014 at 11:42:41AM -0700, Guenter Roeck wrote:
-> On 08/10/2014 11:36 AM, Uwe Kleine-K=F6nig wrote:
-> >On Sun, Aug 10, 2014 at 09:19:14AM -0700, Guenter Roeck wrote:
-> >>powerpc:mpc83xx_defconfig and other builds fail with
-> >>
-> >>drivers/net/ethernet/freescale/ucc_geth.c: In function 'ucc_geth_re=
-move':
-> >>drivers/net/ethernet/freescale/ucc_geth.c:3927:19: error:
-> >>	'struct ucc_geth_private' has no member named 'info'
-> >>   of_node_put(ugeth->info->tbi_node);
-> >>                      ^
-> >>drivers/net/ethernet/freescale/ucc_geth.c:3928:19: error:
-> >>	     'struct ucc_geth_private' has no member named 'info'
-> >>   of_node_put(ugeth->info->phy_node);
-> >>   		     ^
-> >>
-> >>Introduced by commit "net: ucc_geth: drop acquired references in pr=
-obe error
-> >>path and remove".
-> >>
-> >> From the context, it appears that the variable is named ug_info.
-> >>
-> >>Cc: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
-> >>Signed-off-by: Guenter Roeck <linux@roeck-us.net>
-> >>---
-> >>Only seen in -next.
-> >My patch was only sent just now, but it has the subject right:
-> >
-> Excellent.
->=20
-> >	http://mid.gmane.org/1407695525-32227-1-git-send-email-u.kleine-koe=
-nig@pengutronix.de
-> >
-> The link doesn't seem to work for some reason.
-It didn't work for me when I sent the mail either. I thought gmane will
-have indexed the mail in a few minutes though. Gmane is broken somehow,
-when I follow the Subject link of
-http://article.gmane.org/gmane.linux.network/326013 I also get a No suc=
-h
-article page?! :-(
+Mark is the maintainer of this driver, I assume he has the hardware, if
+not, I don't care, I trust him :)
 
-http://patchwork.ozlabs.org/patch/378854/ is a link that works for me.
+> How can you cc stable without an Tested by somebody else ?
 
-Best regards
-Uwe
+Since when is a tested-by a requirement for a stable@ marking?  Please
+read Documentation/stable_kernel_rules.txt for the details.
 
---=20
-Pengutronix e.K.                           | Uwe Kleine-K=F6nig        =
-    |
-Industrial Linux Solutions                 | http://www.pengutronix.de/=
-  |
+thanks,
+
+greg k-h
