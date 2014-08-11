@@ -1,244 +1,102 @@
-From: =?UTF-8?q?Uwe=20Kleine-K=C3=B6nig?=
-	<u.kleine-koenig@pengutronix.de>
-Subject: [PATCH] net: fec: Support phys probed from devicetree and fixed-link
-Date: Mon, 11 Aug 2014 17:35:33 +0200
-Message-ID: <1407771333-24683-1-git-send-email-u.kleine-koenig@pengutronix.de>
+From: Andrew Vagin <avagin@parallels.com>
+Subject: Re: [CRIU] linux-next: WARNING: CPU: 0 PID: 2825 at
+ net/ipv4/tcp_input.c:3078 tcp_ack+0x11f5/0x1380()
+Date: Mon, 11 Aug 2014 19:37:06 +0400
+Message-ID: <20140811153706.GD22836@paralelels.com>
+References: <CANaxB-x7UVwLUi6RwQ9fU_j-AB3jhBmFehis-+XVaHet4wmsLg@mail.gmail.com>
+ <1407766352.10122.34.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
-	Fabio Estevam <fabio.estevam@freescale.com>,
-	kernel@pengutronix.de, devicetree@vger.kernel.org,
-	Sascha Hauer <s.hauer@pengutronix.de>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="koi8-r"
+Cc: Andrey Wagin <avagin@gmail.com>,
+	"criu@openvz.org" <criu@openvz.org>, <netdev@vger.kernel.org>,
+	Pavel Emelyanov <xemul@parallels.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:58957 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753692AbaHKPfn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2014 11:35:43 -0400
+Received: from relay.parallels.com ([195.214.232.42]:50961 "EHLO
+	relay.parallels.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753914AbaHKPhM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2014 11:37:12 -0400
+Content-Disposition: inline
+In-Reply-To: <1407766352.10122.34.camel@edumazet-glaptop2.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds support for specifying the phy to be used with the fec in the
-devicetree using the standard phy-handle property and also supports
-fixed-link.
+On Mon, Aug 11, 2014 at 04:12:32PM +0200, Eric Dumazet wrote:
+> On Mon, 2014-08-11 at 17:35 +0400, Andrey Wagin wrote:
+> > Hi All,
+> > 
+> > I execute CRIU tests on linux-next. Today I started to check the tain
+> > flag and found a warning:
+> > 
+> > [  866.469685] Peer 127.0.0.1:46524/8880 unexpectedly shrunk window
+> > 2532634294:2557500938 (repaired)
+> > [  879.562534] ------------[ cut here ]------------
+> > [  879.562947] WARNING: CPU: 0 PID: 2825 at net/ipv4/tcp_input.c:3078
+> > tcp_ack+0x11f5/0x1380()
+> > [  879.563571] Modules linked in: tun netlink_diag af_packet_diag
+> > udp_diag tcp_diag inet_diag unix_diag ip6t_rpfilter ip6t_REJECT
+> > xt_conntrack cfg80211 rfkill ebtable_nat ebtable_broute bridge stp llc
+> > ebtable_filter ebtables ppdev ip6table_nat nf_conntrack_ipv6
+> > nf_defrag_ipv6 nf_nat_ipv6 ip6table_mangle ip6table_security
+> > ip6table_raw ip6table_filter ip6_tables iptable_nat nf_conntrack_ipv4
+> > nf_defrag_ipv4 nf_nat_ipv4 nf_nat nf_conntrack iptable_mangle
+> > iptable_security iptable_raw microcode serio_raw i2c_piix4 parport_pc
+> > parport nfsd auth_rpcgss nfs_acl lockd sunrpc virtio_blk virtio_net
+> > virtio_pci virtio_ring virtio ata_generic pata_acpi
+> > [  879.567253] CPU: 0 PID: 2825 Comm: socket-tcpbuf-l Not tainted
+> > 3.16.0-next-20140811 #1
+> > [  879.567829] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
+> > [  879.568177]  0000000000000000 00000000c532680c ffff880039643d00
+> > ffffffff817aa2d2
+> > [  879.568776]  0000000000000000 ffff880039643d38 ffffffff8109afbd
+> > ffff880039d6ba80
+> > [  879.569386]  ffff88003a449800 000000002983d6bd 0000000000000000
+> > 000000002983d6bc
+> > [  879.569982] Call Trace:
+> > [  879.570264]  [<ffffffff817aa2d2>] dump_stack+0x4d/0x66
+> > [  879.570599]  [<ffffffff8109afbd>] warn_slowpath_common+0x7d/0xa0
+> > [  879.570935]  [<ffffffff8109b0ea>] warn_slowpath_null+0x1a/0x20
+> > [  879.571292]  [<ffffffff816d0a05>] tcp_ack+0x11f5/0x1380
+> > [  879.571614]  [<ffffffff816d10bd>] tcp_rcv_established+0x1ed/0x710
+> > [  879.571958]  [<ffffffff816dc9da>] tcp_v4_do_rcv+0x10a/0x370
+> > [  879.572315]  [<ffffffff81657459>] release_sock+0x89/0x1d0
+> > [  879.572642]  [<ffffffff816c81a0>] do_tcp_setsockopt.isra.36+0x120/0x860
+> > [  879.573000]  [<ffffffff8110a52e>] ? rcu_read_lock_held+0x6e/0x80
+> > [  879.573352]  [<ffffffff816c8912>] tcp_setsockopt+0x32/0x40
+> > [  879.573678]  [<ffffffff81654ac4>] sock_common_setsockopt+0x14/0x20
+> > [  879.574031]  [<ffffffff816537b0>] SyS_setsockopt+0x80/0xf0
+> > [  879.574393]  [<ffffffff817b40a9>] system_call_fastpath+0x16/0x1b
+> > [  879.574730] ---[ end trace a17cbc38eb8c5c00 ]---
+> > [  893.880049] Peer 0000:0000:0000:0000:0000:0000:0000:0001:60450/8880
+> > unexpectedly shrunk window 6341700:31207524 (repaired)
+> > 
+> > During tests a few tcp connections have been repaired. I think the
+> > problem is around these sockets. I'm going to look what wrong here.
+> > --
+> 
+> Hmmff
+> 
+> net/ipv4/tcp.c at line 1195 should be updated I guess.
 
-Signed-off-by: Sascha Hauer <s.hauer@pengutronix.de>
-Signed-off-by: Uwe Kleine-K=C3=B6nig <u.kleine-koenig@pengutronix.de>
----
- Documentation/devicetree/bindings/net/fsl-fec.txt | 29 ++++++++-
- drivers/net/ethernet/freescale/fec.h              |  1 +
- drivers/net/ethernet/freescale/fec_main.c         | 76 +++++++++++++++=
-+-------
- 3 files changed, 84 insertions(+), 22 deletions(-)
+Yes. We need to initialize skb->skb_mstamp here. Thanks.
 
-diff --git a/Documentation/devicetree/bindings/net/fsl-fec.txt b/Docume=
-ntation/devicetree/bindings/net/fsl-fec.txt
-index 6bc84adb10c0..8a2c7b55ec16 100644
---- a/Documentation/devicetree/bindings/net/fsl-fec.txt
-+++ b/Documentation/devicetree/bindings/net/fsl-fec.txt
-@@ -12,7 +12,14 @@ Optional properties:
-   only if property "phy-reset-gpios" is available.  Missing the proper=
-ty
-   will have the duration be 1 millisecond.  Numbers greater than 1000 =
-are
-   invalid and 1 millisecond will be used instead.
--- phy-supply: regulator that powers the Ethernet PHY.
-+- phy-supply : regulator that powers the Ethernet PHY.
-+- phy-handle : phandle to the PHY device connected to this device.
-+- fixed-link : Assume a fixed link. See fixed-link.txt in the same dir=
-ectory.
-+  Use instead of phy-handle.
-+
-+Optional subnodes:
-+- mdio : specifies the mdio bus in the FEC, used as a container for ph=
-y nodes
-+  according to phy.txt in the same directory
-=20
- Example:
-=20
-@@ -25,3 +32,23 @@ ethernet@83fec000 {
- 	local-mac-address =3D [00 04 9F 01 1B B9];
- 	phy-supply =3D <&reg_fec_supply>;
- };
-+
-+Example with phy specified:
-+
-+ethernet@83fec000 {
-+	compatible =3D "fsl,imx51-fec", "fsl,imx27-fec";
-+	reg =3D <0x83fec000 0x4000>;
-+	interrupts =3D <87>;
-+	phy-mode =3D "mii";
-+	phy-reset-gpios =3D <&gpio2 14 0>; /* GPIO2_14 */
-+	local-mac-address =3D [00 04 9F 01 1B B9];
-+	phy-supply =3D <&reg_fec_supply>;
-+	phy-handle =3D <&ethphy>;
-+	mdio {
-+		ethphy: ethernet-phy@6 {
-+			compatible =3D "ethernet-phy-ieee802.3-c22";
-+			reg =3D <6>;
-+			max-speed =3D <100>;
-+		};
-+	};
-+};
-diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/etherne=
-t/freescale/fec.h
-index 671d080105a7..f643d3e8f81d 100644
---- a/drivers/net/ethernet/freescale/fec.h
-+++ b/drivers/net/ethernet/freescale/fec.h
-@@ -317,6 +317,7 @@ struct fec_enet_private {
- 	int	mii_timeout;
- 	uint	phy_speed;
- 	phy_interface_t	phy_interface;
-+	struct device_node *phy_node;
- 	int	link;
- 	int	full_duplex;
- 	int	speed;
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/et=
-hernet/freescale/fec_main.c
-index 77037fd377b8..9816392982d6 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -52,6 +52,7 @@
- #include <linux/of.h>
- #include <linux/of_device.h>
- #include <linux/of_gpio.h>
-+#include <linux/of_mdio.h>
- #include <linux/of_net.h>
- #include <linux/regulator/consumer.h>
- #include <linux/if_vlan.h>
-@@ -1636,29 +1637,37 @@ static int fec_enet_mii_probe(struct net_device=
- *ndev)
-=20
- 	fep->phy_dev =3D NULL;
-=20
--	/* check for attached phy */
--	for (phy_id =3D 0; (phy_id < PHY_MAX_ADDR); phy_id++) {
--		if ((fep->mii_bus->phy_mask & (1 << phy_id)))
--			continue;
--		if (fep->mii_bus->phy_map[phy_id] =3D=3D NULL)
--			continue;
--		if (fep->mii_bus->phy_map[phy_id]->phy_id =3D=3D 0)
--			continue;
--		if (dev_id--)
--			continue;
--		strncpy(mdio_bus_id, fep->mii_bus->id, MII_BUS_ID_SIZE);
--		break;
--	}
-+	if (fep->phy_node) {
-+		phy_dev =3D of_phy_connect(ndev, fep->phy_node,
-+					 &fec_enet_adjust_link, 0,
-+					 fep->phy_interface);
-+	} else {
-+		/* check for attached phy */
-+		for (phy_id =3D 0; (phy_id < PHY_MAX_ADDR); phy_id++) {
-+			if ((fep->mii_bus->phy_mask & (1 << phy_id)))
-+				continue;
-+			if (fep->mii_bus->phy_map[phy_id] =3D=3D NULL)
-+				continue;
-+			if (fep->mii_bus->phy_map[phy_id]->phy_id =3D=3D 0)
-+				continue;
-+			if (dev_id--)
-+				continue;
-+			strncpy(mdio_bus_id, fep->mii_bus->id, MII_BUS_ID_SIZE);
-+			break;
-+		}
-=20
--	if (phy_id >=3D PHY_MAX_ADDR) {
--		netdev_info(ndev, "no PHY, assuming direct connection to switch\n");
--		strncpy(mdio_bus_id, "fixed-0", MII_BUS_ID_SIZE);
--		phy_id =3D 0;
-+		if (phy_id >=3D PHY_MAX_ADDR) {
-+			netdev_info(ndev, "no PHY, assuming direct connection to switch\n")=
-;
-+			strncpy(mdio_bus_id, "fixed-0", MII_BUS_ID_SIZE);
-+			phy_id =3D 0;
-+		}
-+
-+		snprintf(phy_name, sizeof(phy_name),
-+			 PHY_ID_FMT, mdio_bus_id, phy_id);
-+		phy_dev =3D phy_connect(ndev, phy_name, &fec_enet_adjust_link,
-+				      fep->phy_interface);
- 	}
-=20
--	snprintf(phy_name, sizeof(phy_name), PHY_ID_FMT, mdio_bus_id, phy_id)=
-;
--	phy_dev =3D phy_connect(ndev, phy_name, &fec_enet_adjust_link,
--			      fep->phy_interface);
- 	if (IS_ERR(phy_dev)) {
- 		netdev_err(ndev, "could not attach to PHY\n");
- 		return PTR_ERR(phy_dev);
-@@ -1694,6 +1703,7 @@ static int fec_enet_mii_init(struct platform_devi=
-ce *pdev)
- 	struct fec_enet_private *fep =3D netdev_priv(ndev);
- 	const struct platform_device_id *id_entry =3D
- 				platform_get_device_id(fep->pdev);
-+	struct device_node *node;
- 	int err =3D -ENXIO, i;
-=20
- 	/*
-@@ -1761,7 +1771,15 @@ static int fec_enet_mii_init(struct platform_dev=
-ice *pdev)
- 	for (i =3D 0; i < PHY_MAX_ADDR; i++)
- 		fep->mii_bus->irq[i] =3D PHY_POLL;
-=20
--	if (mdiobus_register(fep->mii_bus))
-+	node =3D of_get_child_by_name(pdev->dev.of_node, "mdio");
-+	if (node) {
-+		err =3D of_mdiobus_register(fep->mii_bus, node);
-+		of_node_put(node);
-+	} else {
-+		err =3D mdiobus_register(fep->mii_bus);
-+	}
-+
-+	if (err)
- 		goto err_out_free_mdio_irq;
-=20
- 	mii_cnt++;
-@@ -2485,6 +2503,7 @@ fec_probe(struct platform_device *pdev)
- 	struct resource *r;
- 	const struct of_device_id *of_id;
- 	static int dev_id;
-+	struct device_node *np =3D pdev->dev.of_node, *phy_node;
-=20
- 	of_id =3D of_match_device(fec_dt_ids, &pdev->dev);
- 	if (of_id)
-@@ -2524,6 +2543,18 @@ fec_probe(struct platform_device *pdev)
-=20
- 	platform_set_drvdata(pdev, ndev);
-=20
-+	phy_node =3D of_parse_phandle(np, "phy-handle", 0);
-+	if (!phy_node && of_phy_is_fixed_link(np)) {
-+		ret =3D of_phy_register_fixed_link(np);
-+		if (ret < 0) {
-+			dev_err(&pdev->dev,
-+				"broken fixed-link specification\n");
-+			goto failed_phy;
-+		}
-+		phy_node =3D of_node_get(np);
-+	}
-+	fep->phy_node =3D phy_node;
-+
- 	ret =3D of_get_phy_mode(pdev->dev.of_node);
- 	if (ret < 0) {
- 		pdata =3D dev_get_platdata(&pdev->dev);
-@@ -2628,6 +2659,8 @@ failed_init:
- failed_regulator:
- 	fec_enet_clk_enable(ndev, false);
- failed_clk:
-+failed_phy:
-+	of_node_put(phy_node);
- failed_ioremap:
- 	free_netdev(ndev);
-=20
-@@ -2649,6 +2682,7 @@ fec_drv_remove(struct platform_device *pdev)
- 	if (fep->ptp_clock)
- 		ptp_clock_unregister(fep->ptp_clock);
- 	fec_enet_clk_enable(ndev, false);
-+	of_node_put(fep->phy_node);
- 	free_netdev(ndev);
-=20
- 	return 0;
---=20
-2.0.1
+> 
+> Although I do not really understand the logic here.
+> 
+> If we do not have a valid timestamp on repair, why force using current
+> time ?
+> 
+> It breaks rtt estimations.
+
+Yes, it does. We hope that tcp code will fix rtt according with next
+packages.
+
+ps: Add Pavel in CC.
+
+> 
+> 
+> 
+> _______________________________________________
+> CRIU mailing list
+> CRIU@openvz.org
+> https://lists.openvz.org/mailman/listinfo/criu
