@@ -1,53 +1,77 @@
 From: Wei Liu <wei.liu2@citrix.com>
 Subject: Re: [Xen-devel] [PATCH net v2 2/3] xen-netback: don't stop dealloc
  kthread too early
-Date: Mon, 11 Aug 2014 15:39:18 +0100
-Message-ID: <20140811143918.GI3249@zion.uk.xensource.com>
+Date: Mon, 11 Aug 2014 15:44:41 +0100
+Message-ID: <20140811144440.GJ3249@zion.uk.xensource.com>
 References: <1407515833-2550-1-git-send-email-wei.liu2@citrix.com>
  <1407515833-2550-3-git-send-email-wei.liu2@citrix.com>
  <53E8B2A4.9070008@citrix.com>
  <20140811134847.GF3249@zion.uk.xensource.com>
  <53E8CBF5.1030600@citrix.com>
- <20140811143107.GH3249@zion.uk.xensource.com>
- <53E8D488.1020305@citrix.com>
+ <53E8CF95.5050209@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: Wei Liu <wei.liu2@citrix.com>, <netdev@vger.kernel.org>,
-	<xen-devel@lists.xen.org>, Ian Campbell <ian.campbell@citrix.com>,
-	Zoltan Kiss <zoltan.kiss@citrix.com>
-To: David Vrabel <david.vrabel@citrix.com>
+Cc: David Vrabel <david.vrabel@citrix.com>,
+	Wei Liu <wei.liu2@citrix.com>, <netdev@vger.kernel.org>,
+	<xen-devel@lists.xen.org>, Ian Campbell <ian.campbell@citrix.com>
+To: Zoltan Kiss <zoltan.kiss@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:7244 "EHLO SMTP02.CITRIX.COM"
+Received: from smtp.citrix.com ([66.165.176.89]:20900 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753235AbaHKOjU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Aug 2014 10:39:20 -0400
+	id S1753700AbaHKOom (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Aug 2014 10:44:42 -0400
 Content-Disposition: inline
-In-Reply-To: <53E8D488.1020305@citrix.com>
+In-Reply-To: <53E8CF95.5050209@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Aug 11, 2014 at 03:34:48PM +0100, David Vrabel wrote:
+On Mon, Aug 11, 2014 at 03:13:41PM +0100, Zoltan Kiss wrote:
 [...]
-> >>
-> >> And cleaning it up a bit (the while() could be a for(;;)).
-> >>
-> > 
-> > Unfortunately this approach is bogus. If xenbus thread is not blocked it
-> > can free up various resources while dealloc thread is running -- queue
-> > can be gone under dealloc thread's feet.
+> > And cleaning it up a bit (the while() could be a for(;;)).
 > 
-> kthread_stop() waits until the thread exits (like pthread_join()).
-> 
-> /**
->  * kthread_stop - stop a thread created by kthread_create().
->  * @k: thread created by kthread_create().
->  *
->  * Sets kthread_should_stop() for @k to return true, wakes it, and
->  * waits for it to exit.
-> 
+> I would recommend this:
+> ---
+> @@ -2066,7 +2066,7 @@ int xenvif_dealloc_kthread(void *data)
+>  		wait_event_interruptible(queue->dealloc_wq,
+>  					 tx_dealloc_work_todo(queue) ||
+>  					 kthread_should_stop());
+> -		if (kthread_should_stop())
+> +		if (kthread_should_stop() && !atomic_read(&queue->inflight_packets))
+>  			break;
+>  
+>  		xenvif_tx_dealloc_action(queue);
+> ---
+> If kthread_stop called, this will keep the main loop running until all callbacks are called.
+> Then it proceeds to the exit branch, otherwise doesn't disrupt normal operation.
 
-Ah, misremeber the behaviour of kthread_stop. Sorry for the noise.
+This snippet lacks change to while().
 
-Wei.
+I would generally go for a shorter solution if the code is
+self-explanatory.
 
-> David
+@@ -2078,21 +2066,19 @@ int xenvif_dealloc_kthread(void *data)
+ {
+        struct xenvif_queue *queue = data;
+ 
+-       while (!kthread_should_stop()) {
++       for (;;) {
+                wait_event_interruptible(queue->dealloc_wq,
+                                         tx_dealloc_work_todo(queue) ||
+                                         kthread_should_stop());
+-               if (kthread_should_stop())
++               if (kthread_should_stop() &&
++                   !atomic_read(&queue->inflight_packets) &&
++                   !tx_dealloc_work_todo(queue))
+                        break;
+ 
+                xenvif_tx_dealloc_action(queue);
+                cond_resched();
+        }
+ 
+-       /* Unmap anything remaining*/
+-       if (tx_dealloc_work_todo(queue))
+-               xenvif_tx_dealloc_action(queue);
+-
+        return 0;
+ }
+ 
