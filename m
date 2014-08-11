@@ -1,55 +1,24 @@
-From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-Subject: [PATCH] net: wireless: ipw2x00: ipw2200.c:  Cleaning up missing null-terminate in conjunction with strncpy
-Date: Mon, 11 Aug 2014 20:52:56 +0200
-Message-ID: <1407783176-31297-2-git-send-email-rickard_strandqvist@spectrumdigital.se>
-References: <1407783176-31297-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-Cc: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Stanislav Yakovlev <stas.yakovlev@gmail.com>,
-	"John W. Linville" <linville@tuxdriver.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v10 0/4] net: Add APM X-Gene SoC Ethernet driver support
+Date: Mon, 11 Aug 2014 11:56:51 -0700 (PDT)
+Message-ID: <20140811.115651.606803355162766650.davem@davemloft.net>
+References: <1407449668-13520-1-git-send-email-isubramanian@apm.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+	dnelson@redhat.com, gregkh@linuxfoundation.org,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	jcm@redhat.com, patches@apm.com, rapatel@apm.com, kchudgar@apm.com
+To: isubramanian@apm.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1407783176-31297-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+In-Reply-To: <1407449668-13520-1-git-send-email-isubramanian@apm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Replacing strncpy with strlcpy to avoid strings that lacks null terminate.
+From: Iyappan Subramanian <isubramanian@apm.com>
+Date: Thu,  7 Aug 2014 15:14:24 -0700
 
-Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
----
- drivers/net/wireless/ipw2x00/ipw2200.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+> Adding APM X-Gene SoC Ethernet driver.
 
-diff --git a/drivers/net/wireless/ipw2x00/ipw2200.c b/drivers/net/wireless/ipw2x00/ipw2200.c
-index c5aa404..5fb1b5d 100644
---- a/drivers/net/wireless/ipw2x00/ipw2200.c
-+++ b/drivers/net/wireless/ipw2x00/ipw2200.c
-@@ -5552,7 +5552,7 @@ static int ipw_find_adhoc_network(struct ipw_priv *priv,
- 			    min(network->ssid_len, priv->essid_len)))) {
- 			char escaped[IW_ESSID_MAX_SIZE * 2 + 1];
- 
--			strncpy(escaped,
-+			strlcpy(escaped,
- 				print_ssid(ssid, network->ssid,
- 					   network->ssid_len),
- 				sizeof(escaped));
-@@ -5765,7 +5765,7 @@ static int ipw_best_network(struct ipw_priv *priv,
- 		     memcmp(network->ssid, priv->essid,
- 			    min(network->ssid_len, priv->essid_len)))) {
- 			char escaped[IW_ESSID_MAX_SIZE * 2 + 1];
--			strncpy(escaped,
-+			strlcpy(escaped,
- 				print_ssid(ssid, network->ssid,
- 					   network->ssid_len),
- 				sizeof(escaped));
-@@ -5782,7 +5782,7 @@ static int ipw_best_network(struct ipw_priv *priv,
- 	 * testing everything else. */
- 	if (match->network && match->network->stats.rssi > network->stats.rssi) {
- 		char escaped[IW_ESSID_MAX_SIZE * 2 + 1];
--		strncpy(escaped,
-+		strlcpy(escaped,
- 			print_ssid(ssid, network->ssid, network->ssid_len),
- 			sizeof(escaped));
- 		IPW_DEBUG_ASSOC("Network '%s (%pM)' excluded because "
--- 
-1.7.10.4
+Series applied, thanks.
