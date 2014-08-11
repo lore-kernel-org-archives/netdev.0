@@ -1,80 +1,68 @@
-From: Mark D Rustad <mrustad@gmail.com>
-Subject: Re: [PATCH] net: ethernet: myricom: myri10ge: myri10ge.c:  Cleaning up missing null-terminate after strncpy call
-Date: Sun, 10 Aug 2014 17:58:46 -0700
-Message-ID: <85985E13-E12F-4C4A-A9AC-374C0E28312E@gmail.com>
-References: <1407627638-24208-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
-Content-Type: multipart/signed; boundary="Apple-Mail=_06A30A93-0794-459E-B0C0-3C4C3857649E"; protocol="application/pgp-signature"; micalg=pgp-sha1
-Cc: Hyong-Youb Kim <hykim@myri.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1407627638-24208-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-
---Apple-Mail=_06A30A93-0794-459E-B0C0-3C4C3857649E
-Content-Transfer-Encoding: quoted-printable
-Content-Type: text/plain;
-	charset=us-ascii
-
-On Aug 9, 2014, at 4:40 PM, Rickard Strandqvist =
-<rickard_strandqvist@spectrumdigital.se> wrote:
-
-> Added a guaranteed null-terminate after call to strncpy.
->=20
-> Signed-off-by: Rickard Strandqvist =
-<rickard_strandqvist@spectrumdigital.se>
-> ---
-> drivers/net/ethernet/myricom/myri10ge/myri10ge.c |    1 +
-> 1 file changed, 1 insertion(+)
->=20
-> diff --git a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c =
-b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-> index f3d5d79..de327b6 100644
-> --- a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-> +++ b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
-> @@ -574,6 +574,7 @@ myri10ge_validate_firmware(struct myri10ge_priv =
-*mgp,
->=20
-> 	/* save firmware version for ethtool */
-> 	strncpy(mgp->fw_version, hdr->version, sizeof(mgp->fw_version));
-> +	mgp->fw_version[sizeif(mgp->fw_version) - 1] =3D '\0';
-
-Surely you meant sizeof above. Did you really not even compile this?
-
-> 	sscanf(mgp->fw_version, "%d.%d.%d", &mgp->fw_ver_major,
-> 	       &mgp->fw_ver_minor, &mgp->fw_ver_tiny);
-
---=20
-Mark Rustad, MRustad@gmail.com
-
-
---Apple-Mail=_06A30A93-0794-459E-B0C0-3C4C3857649E
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next] udp: clear rps flow table for packets recv
+ on UDP unconnected sockets
+Date: Mon, 11 Aug 2014 03:07:48 +0200
+Message-ID: <1407719268.10122.32.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <alpine.DEB.2.02.1408091013240.1087@tomh.mtv.corp.google.com>
+	 <1407689978.10122.9.camel@edumazet-glaptop2.roam.corp.google.com>
+	 <CA+mtBx_1f=861mJRjR_Te3y=va=+n1j8fUtcPrexHpWU=zQcnA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename=signature.asc
-Content-Type: application/pgp-signature;
-	name=signature.asc
-Content-Description: Message signed with OpenPGP using GPGMail
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Tom Herbert <therbert@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:38590 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751711AbaHKBHu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Aug 2014 21:07:50 -0400
+Received: by mail-pd0-f173.google.com with SMTP id w10so9807486pde.4
+        for <netdev@vger.kernel.org>; Sun, 10 Aug 2014 18:07:50 -0700 (PDT)
+In-Reply-To: <CA+mtBx_1f=861mJRjR_Te3y=va=+n1j8fUtcPrexHpWU=zQcnA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
------BEGIN PGP SIGNATURE-----
-Comment: GPGTools - http://gpgtools.org
+On Sun, 2014-08-10 at 13:14 -0700, Tom Herbert wrote:
 
-iQIcBAEBAgAGBQJT6BVGAAoJEDwO/+eO4+5u2LoQAIqUgCLRQ61r0ti20fkEPRTs
-/MGKIurB8jjEjhoHdkd/nj5THBFCpDRaR42eUojhcIjkZWQh56oexxOdO24Z/Mei
-C6vedGwSIbdFCb0TAe1iGuTfUntu2PKloHyRVNUqUB+mfxPlZe0W6lFGx6bmvx5c
-JKoEFqUPLFhwhZwp+TLsfn+d7d4q6EwMYjDXYftMwLECWt9kxI9VNvMy7+mGY4XW
-s4jeOd/uHgD/92s8BZuxn2JlwcucPPkRf63Ax0mI/msfYOuhW/JVWAWBshA36SKK
-2KpfDuq6RIICLd5cG6WUsqOJ0G8mQSoScYOe1oagGPr7n8S/eGOBUbGsnTmXI6V1
-SPn90kVk23oL9Rt9herNKLfMD2YvYwyyaR4dXI0EcYtpeQQ6YBmPfvd0Stbz38nQ
-+4KsQ0RiPoSzUcelVE+ZkXpc30sCAzoi8BvkDJx2rYHB6Y1bihuhKwcrtiDlcsZJ
-ZcCoWrMsOICyfC2CwR/K9mV69P6AOgRr9DsO9l/Oa06ESDrRMisa+xcIkJibyQif
-2VlLji2uTrwBzllWcngmQ8BVk0SeKDmNup/HJe0nI55mwZXQ6RBNAaSlYo3j+03V
-T8uYAk8cBSd8gOtrvmadAYDD2jVQL7u6B2CchswLgwN5r2AMl+xg6D4iIRa+ZIfG
-42j0twQ4w8yvbo0KUaT/
-=k1IK
------END PGP SIGNATURE-----
+> Sorry, I don't see how this is feasible and would fundamentally break
+> the whole model that RPS/RFS is flow based, not protocol-flow based--
 
---Apple-Mail=_06A30A93-0794-459E-B0C0-3C4C3857649E--
+In a 5-tuple we _do_ have the protocol : TCP, UDP, ...
+
+I do not know why you want to say it should be protocol independent.
+
+This is only because you want to use a NIC provided hash, but this is
+wrong in many cases (tunnels...), and we often fallback to flow
+dissection anyway.
+
+The thing is : 100% of TCP packets are flows steered.
+
+And 99% of UDP packets are not, especially on servers where network
+performance is an issue.
+
+Current UDP stack do not allow to use millions of connected UDP flows on
+a server. So a 'server' is _forced_ to use non connected UDP sockets.
+
+RFS _assumed_ that all packets would participate in the dance, while its
+obviously not true. When we have a mix of connected/unconnected packets,
+then the RFS hit rate is very low.
+
+Allowing TCP packets to use RFS, and only TCP packets, would immediately
+solve the problem, and remove one cache miss per incoming UDP packet.
+
+
+> Even in TCP, if the number of active connections far exceeds
+> the flow table size P(x) could start to approach 1.
+
+Experiments show that only a fraction of flows are really active at a
+given point. For the others, we do not care which cpu handles the one
+packet every xx seconds.
+
+Experiments show that increasing flow hash table has very little impact,
+but overall memory increase.
+
+If we have a lot of TCP "active" flows, then RFS is not worth it.
+
+Prefer a normal steering on a multiqueue NIC, because affine wakeups
+will be far better. 
