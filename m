@@ -1,68 +1,42 @@
-From: Ivan Vecera <ivecera@redhat.com>
-Subject: Re: [PATCH v7 ethtool 0/2] patchset - Support for configurable RSS
- hash key
-Date: Mon, 11 Aug 2014 09:02:17 +0200
-Message-ID: <53E86A79.8010700@redhat.com>
-References: <e8020e05-df87-4251-90b1-cbaf53296631@CMEXHTCAS1.ad.emulex.com> <BF3270C86E8B1349A26C34E4EC1C44CB2C908A15@CMEXMB1.ad.emulex.com>
+From: Mark Einon <mark.einon@gmail.com>
+Subject: Re: [PATCH RESEND] staging: et131x: Fix errors caused by
+ phydev->addr accesses before initialisation
+Date: Mon, 11 Aug 2014 08:35:29 +0100
+Message-ID: <20140811073529.GA4620@leicester.auvation.com>
+References: <1407705415-14886-1-git-send-email-mark.einon@gmail.com>
+ <CAJL_dMub6FN+HvueQ4ZJCT2TPi9-86x8VF2hG00K8CDm5bR7rw@mail.gmail.com>
+ <20140811053959.GD13727@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Venkat Duvvuru <VenkatKumar.Duvvuru@Emulex.Com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "ben@decadent.org.uk" <ben@decadent.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48449 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752533AbaHKHCX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Aug 2014 03:02:23 -0400
-In-Reply-To: <BF3270C86E8B1349A26C34E4EC1C44CB2C908A15@CMEXMB1.ad.emulex.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: STAGING SUBSYSTEM <devel@driverdev.osuosl.org>,
+	LKML <linux-kernel@vger.kernel.org>, netdev@vger.kernel.org,
+	stable <stable@vger.kernel.org>, gregkh@linuxfoundation.org
+To: Anca Emanuel <anca.emanuel@gmail.com>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140811053959.GD13727@kroah.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 31.7.2014 09:43, Venkat Duvvuru wrote:
->
->
->> -----Original Message-----
->> From: netdev-owner@vger.kernel.org [mailto:netdev-
->> owner@vger.kernel.org] On Behalf Of Venkat Duvvuru
->> Sent: Tuesday, July 22, 2014 5:51 PM
->> To: ben@decadent.org.uk
->> Cc: netdev@vger.kernel.org; Venkat Duvvuru
->> Subject: [PATCH v7 ethtool 0/2] patchset - Support for configurable RSS hash
->> key
->>
->> NIC drivers that support RSS use either a hard-coded value or a random value
->> for the RSS hash key. Irrespective of the type of the key used, the user
->> would want to change the hash key if he/she is not satisfied with the
->> effectiveness of the default hash-key in spreading the incoming flows evenly
->> across the RSS queues.
->>
->> This patch set adds support for configuring the RSS hash-key via the ethtool
->> interface using -X/-x option.
->>
->> v7:
->> 1. Changed rss string to RSS to be consistent with other parts of the error
->> codes
->>     and documentation.
->> 2. Corrected a few error messages
->> 3. Changed error codes to use either 1 or 2 based on the situation
->> 4. Added test cases in test-cmdline.c
->>
->> Venkat Duvvuru (2):
->>    ethtool: Support for configurable RSS hash key.
->>    ethtool: Support for configurable RSS hash key.
->>
->>   ethtool-copy.h |  478
->> ++++++++++++++++++++++++++++++++++++++++++--------------
->>   ethtool.8.in   |   18 ++-
->>   ethtool.c      |  393 +++++++++++++++++++++++++++++++++++++++--------
->>   test-cmdline.c |   11 ++
->>   4 files changed, 717 insertions(+), 183 deletions(-)
->
-> Ben, Please let me know if you have any further comments on this.
->
-> /Venkat.
-Hi Ben,
-any objection?
+On Mon, Aug 11, 2014 at 01:39:59PM +0800, gregkh@linuxfoundation.org wrote:
+> On Mon, Aug 11, 2014 at 12:32:55AM +0300, Anca Emanuel wrote:
+> > Do you have this hardware ? And did you test this ?
+> 
+> Mark is the maintainer of this driver, I assume he has the hardware, if
+> not, I don't care, I trust him :)
+> 
 
-Ivan
+Hi there,
+
+:) Yes, all tested on hardware.
+
+> > How can you cc stable without an Tested by somebody else ?
+> 
+> Since when is a tested-by a requirement for a stable@ marking?  Please
+> read Documentation/stable_kernel_rules.txt for the details.
+
+As Greg says, easily if you follow those rules.
+
+Cheers,
+
+Mark
