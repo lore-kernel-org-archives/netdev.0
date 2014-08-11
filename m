@@ -1,28 +1,33 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Missing support for PACKET_RECV_OUTPUT
-Date: Sun, 10 Aug 2014 21:28:15 -0700
-Message-ID: <49E58C04-6C48-421D-B718-CD4733C1766B@holtmann.org>
-Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: ucc_geth: fix build failure
+Date: Sun, 10 Aug 2014 21:40:25 -0700 (PDT)
+Message-ID: <20140810.214025.1717177470256485891.davem@davemloft.net>
+References: <20140808.135237.120203200807493642.davem@davemloft.net>
+	<1407695525-32227-1-git-send-email-u.kleine-koenig@pengutronix.de>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: leoli@freescale.com, linuxppc-dev@lists.ozlabs.org,
+	netdev@vger.kernel.org, kernel@pengutronix.de, f.fainelli@gmail.com
+To: u.kleine-koenig@pengutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from senator.holtmann.net ([87.106.208.187]:54820 "EHLO
-	mail.holtmann.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750800AbaHKE1r convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2014 00:27:47 -0400
-Received: from [192.168.1.123] (S010620c9d099deff.vc.shawcable.net [24.84.124.211])
-	by mail.holtmann.org (Postfix) with ESMTPSA id AEEFC8B30E
-	for <netdev@vger.kernel.org>; Mon, 11 Aug 2014 06:27:41 +0200 (CEST)
+Received: from shards.monkeyblade.net ([149.20.54.216]:52826 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751511AbaHKEk1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2014 00:40:27 -0400
+In-Reply-To: <1407695525-32227-1-git-send-email-u.kleine-koenig@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+=46rom: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
+Date: Sun, 10 Aug 2014 20:32:05 +0200
 
-I wonder why AF_PACKET does not support PACKET_RECV_OUTPUT socket option. I would find this useful when using AF_SOCKET to capture traffic on all interfaces, but only for a specific ETH_P_x specified in the socket call. Right now I have to manually enable promiscuous mode for every ifindex separately.
+> My series to fix the reference counting of dt nodes introduced a buil=
+d
+> failure. Fix it.
+>=20
+> Fixes: fa310789a488 ("net: ucc_geth: drop acquired references in prob=
+e error path and remove")
+> Signed-off-by: Uwe Kleine-K=F6nig <u.kleine-koenig@pengutronix.de>
 
-Is there any specific reason why this socket option has not been implemented? It is listed in linux/if_packet.h after all. Or is this just one of these things where nobody ended up implementing it?
-
-Regards
-
-Marcel
+Applied, thanks.
