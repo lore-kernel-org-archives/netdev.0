@@ -1,76 +1,54 @@
 From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [Xen-devel] [PATCH net v2 1/3] xen-netback: move NAPI add/remove
- calls
-Date: Mon, 11 Aug 2014 13:35:00 +0100
-Message-ID: <53E8B874.8070906@citrix.com>
-References: <1407515833-2550-1-git-send-email-wei.liu2@citrix.com> <1407515833-2550-2-git-send-email-wei.liu2@citrix.com>
+Subject: Re: [Xen-devel] [PATCH] xen-netback: Turn off the carrier if the
+ guest is not able to receive
+Date: Mon, 11 Aug 2014 13:37:40 +0100
+Message-ID: <53E8B914.8080504@citrix.com>
+References: <1406749849-4356-1-git-send-email-zoltan.kiss@citrix.com>	<1406749849-4356-2-git-send-email-zoltan.kiss@citrix.com>	<53DF8C24.6030709@citrix.com>	<53DFA30E.2000301@citrix.com> <20140808093356.04d7228b@haswell.linuxnetplumber.net> <53E8B7BF.2020107@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: Ian Campbell <ian.campbell@citrix.com>,
-	Zoltan Kiss <zoltan.kiss@citrix.com>
-To: Wei Liu <wei.liu2@citrix.com>, <netdev@vger.kernel.org>,
-	<xen-devel@lists.xen.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:8349 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753332AbaHKMfC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Aug 2014 08:35:02 -0400
-In-Reply-To: <1407515833-2550-2-git-send-email-wei.liu2@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	<netdev@vger.kernel.org>, <xen-devel@lists.xenproject.org>,
+	<linux-kernel@vger.kernel.org>
+To: Zoltan Kiss <zoltan.kiss@citrix.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <53E8B7BF.2020107@citrix.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 08/08/14 17:37, Wei Liu wrote:
-> Originally napi_add was in init_queue and napi_del was in deinit_queue,
-> while kthreads were handled in _connect and _disconnect. Move napi_add
-> and napi_remove to _connect and _disconnect so that they reside togother
-> with kthread operations.
+On 11/08/14 13:31, Zoltan Kiss wrote:
+> On 08/08/14 17:33, Stephen Hemminger wrote:
+>> This idea of bouncing carrier is wrong. If guest is flow blocked you
+>> don't
+>> want to toggle carrier. That will cause problems because applications
+>> that are
+>> looking for carrier transistions like routing daemons will be notified.
+>>
+>> If running a routing daemon this will also lead to link flapping which
+>> is very bad and cause lots of other work for peer routing daemons.
+>>
+>> Carrier is not a suitable flow control mechanism.
+>>
 > 
-> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-> Cc: Ian Campbell <ian.campbell@citrix.com>
-> Cc: Zoltan Kiss <zoltan.kiss@citrix.com>
-> ---
->  drivers/net/xen-netback/interface.c |   12 ++++++++----
->  1 file changed, 8 insertions(+), 4 deletions(-)
+> Hi,
 > 
-> diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-> index 48a55cd..fdb4fca 100644
-> --- a/drivers/net/xen-netback/interface.c
-> +++ b/drivers/net/xen-netback/interface.c
-> @@ -528,9 +528,6 @@ int xenvif_init_queue(struct xenvif_queue *queue)
->  
->  	init_timer(&queue->rx_stalled);
->  
-> -	netif_napi_add(queue->vif->dev, &queue->napi, xenvif_poll,
-> -			XENVIF_NAPI_WEIGHT);
-> -
->  	return 0;
->  }
->  
-> @@ -618,6 +615,9 @@ int xenvif_connect(struct xenvif_queue *queue, unsigned long tx_ring_ref,
->  	wake_up_process(queue->task);
->  	wake_up_process(queue->dealloc_task);
->  
-> +	netif_napi_add(queue->vif->dev, &queue->napi, xenvif_poll,
-> +			XENVIF_NAPI_WEIGHT);
-> +
->  	return 0;
->  
->  err_rx_unbind:
-> @@ -675,6 +675,11 @@ void xenvif_disconnect(struct xenvif *vif)
->  
->  	for (queue_index = 0; queue_index < num_queues; ++queue_index) {
->  		queue = &vif->queues[queue_index];
-> +		netif_napi_del(&queue->napi);
-> +	}
+> Indeed, I also had some concerns about using carrier state to solve this
+> problem, as the notifier can kick a lot of things, and flapping is not
+> impossible. That's why the frontend has 10 seconds by default to do
+> something. Practice shows that if a frontend can't do any receive work
+> for that time, it is unlikely it will be able to do it soon.
+> So worst case carrier flapping can happen only in every 10 seconds, I
+> think that's manageable. I think the majority of the users have simple
+> bridged setups where this carrier change doesn't start any expensive
+> operation.
+> The reason we choose carrier change for this purpose because we needed
+> something which ditched everything in QDisc and made sure nothing will
+> be queued up there until there is a chance we can transmit to the guest.
+> Calling dev_deactivate straight away seemed less appropriate.
 
-Why have you added an additional loop over all the queues?  The ordering
-looks wrong as well.  I think you want
-
-  1. unbind from irqhandler
-  2. napi del
-  3. stop task
-  4. stop dealloc task
-  5. unmap frontend rings.
+I do think we need to revisit this and introduce a per-queue
+stop_and_flush operation we can use instead.
 
 David
