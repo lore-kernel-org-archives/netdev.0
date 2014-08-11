@@ -1,60 +1,28 @@
-From: Daniel Gimpelevich <daniel@gimpelevich.san-francisco.ca.us>
-Subject: [PATCH] allow setting wiphy.perm_addr after driver probe
-Date: Mon, 11 Aug 2014 11:04:29 -0700
-Message-ID: <1407780269.28221.63.camel@chimera>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [PATCH net-next 2/2] random32: do not feed jiffies as seed from
+ lpfc driver
+Date: Mon, 11 Aug 2014 11:18:41 -0700
+Message-ID: <20140811181841.GA29747@infradead.org>
+References: <1406837317-13648-1-git-send-email-dborkman@redhat.com>
+ <282a2dc3-6381-42d6-ac34-81ceb56f1534@CMEXHTCAS2.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Borkmann <dborkman@redhat.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, James Bottomley <JBottomley@Parallels.com>,
+	"linux-scsi@vger.kernel.org" <linux-scsi@vger.kernel.org>
+To: James Smart <james.smart@emulex.com>
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <282a2dc3-6381-42d6-ac34-81ceb56f1534@CMEXHTCAS2.ad.emulex.com>
+Sender: linux-scsi-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On embedded devices, often the BSSID of an access point must be set from
-userspace during the boot process. This provides a relatively clean way
-of doing that without major side effects.
+On Mon, Aug 11, 2014 at 01:07:15PM -0400, James Smart wrote:
+> Acked-by:  James Smart  <james.smart@emulex.com>
 
-Signed-off-by: Daniel Gimpelevich <daniel@gimpelevich.san-francisco.ca.us>
---- 
---- a/net/wireless/sysfs.c	2014-04-19 08:36:52.048511623 -0700
-+++ b/net/wireless/sysfs.c	2014-04-19 08:38:09.196894176 -0700
-@@ -24,18 +24,30 @@
- 	return container_of(dev, struct cfg80211_registered_device, wiphy.dev);
- }
- 
--#define SHOW_FMT(name, fmt, member)					\
-+#define SHOW_FMT(name, fmt, member, perm)				\
- static ssize_t name ## _show(struct device *dev,			\
- 			      struct device_attribute *attr,		\
- 			      char *buf)				\
- {									\
- 	return sprintf(buf, fmt "\n", dev_to_rdev(dev)->member);	\
- }									\
--static DEVICE_ATTR_RO(name)
-+static DEVICE_ATTR_ ## perm(name)
- 
--SHOW_FMT(index, "%d", wiphy_idx);
--SHOW_FMT(macaddress, "%pM", wiphy.perm_addr);
--SHOW_FMT(address_mask, "%pM", wiphy.addr_mask);
-+static ssize_t macaddress_store(struct device *dev,
-+			      struct device_attribute *attr,
-+			      const char *buf, size_t count)
-+{
-+	u8 temp[ETH_ALEN];
-+
-+	if (sscanf(buf, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx", temp, temp + 1,
-+			temp + 2, temp + 3, temp + 4, temp + 5) == ETH_ALEN)
-+		memcpy(dev_to_rdev(dev)->wiphy.perm_addr, temp, ETH_ALEN);
-+	return count;
-+}
-+
-+SHOW_FMT(index, "%d", wiphy_idx, RO);
-+SHOW_FMT(macaddress, "%pM", wiphy.perm_addr, RW);
-+SHOW_FMT(address_mask, "%pM", wiphy.addr_mask, RO);
- 
- static ssize_t name_show(struct device *dev,
- 			 struct device_attribute *attr,
+Can you jsut queue this up (and the pci fix as well) together with
+anything else you have pending for 3.18?
+
+I'd really like to move towards a model where maintainers of driver
+collect everything for their area to spread work a bit better.
+
