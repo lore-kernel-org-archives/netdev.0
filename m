@@ -1,60 +1,93 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH] allow setting wiphy.perm_addr after driver probe
-Date: Mon, 11 Aug 2014 13:56:26 -0700
-Message-ID: <37210DB5-2911-4FA3-9299-7701C5003945@holtmann.org>
-References: <1407780269.28221.63.camel@chimera> <54DF22CF-59D7-4633-A625-896F58C26A64@holtmann.org> <1407789645.28221.68.camel@chimera>
-Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	"linux-wireless@vger.kernel.org Wireless"
-	<linux-wireless@vger.kernel.org>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-kernel@vger.kernel.org
-To: Daniel Gimpelevich <daniel@gimpelevich.san-francisco.ca.us>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1407789645.28221.68.camel@chimera>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] sunvnet: Fixes to avoid soft lockup in sunvnet
+Date: Mon, 11 Aug 2014 13:56:42 -0700 (PDT)
+Message-ID: <20140811.135642.2149726326739266234.davem@davemloft.net>
+References: <20140810194807.GB5222@oracle.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: raghuram.kothakota@oracle.com, netdev@vger.kernel.org
+To: sowmini.varadhan@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58905 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932130AbaHKU4r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2014 16:56:47 -0400
+In-Reply-To: <20140810194807.GB5222@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Daniel,
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Date: Sun, 10 Aug 2014 15:48:07 -0400
 
->> isn't this dangerous to just allow writing to wiphy.perm_addr via
->> sysfs. We ran into the same issue with Bluetooth and ROM only devices
->> that have to unique address. Doing this via sysfs seems the wrong
->> approach. It is messy and full of potential race conditions. I clearly
->> opted against the sysfs solution for Bluetooth. Instead we build an
->> infrastructure that allowed doing it cleanly via the Bluetooth mgmt
->> API. Controllers that have no unique address are brought up as
->> unconfigured and userspace clearly knows that it has to take steps to
->> get an address programmed into the controller.
 > 
-> My inclination is to agree; however, this does not exist for WiFi and
-> implementing it would require modifying every single driver.
+> 1. ldc_rx -> vnet_rx -> .. -> vnet_walk_rx->vnet_send_ack should not
+>    spin into an infinite loop waiting  EAGAIN to lift.
+> 
+>    The sender could have sent us a burst, and gone to lunch without
+>    doing any more ldc_read()'s. That should not cause the receiver to
+>    loop infinitely till soft-lockup kicks in.
+> 
+> 2. Similarly __vnet_tx_trigger should only loop on EAGAIN a finite
+>    number of times. The caller (vnet_start_xmit()) already has code
+>    to reset the dring state and bail on errors from __vnet_tx_trigger()
+> 
+> 3. No need to ask for an ack with every vnet_start_xmit()- the single
+>    ACK with DRING_STOPPED is sufficient for the protocol, and we free
+>    the sk_buff in vnet_start_xmit itself, so we dont need an ACK back.
+> 
+> 4. At the tail of vnet_event(), if we hit the maybe_tx_wakeup()
+>    condition, we try to take the netif_tx_lock() in the
+>    recv-interrupt-context and can deadlock with dev_watchdog().
+>    Two changes to fix this:
+>    (a) The contents of maybe_tx_wakeup() should be moved into
+>        vnet_tx_timeout
+>    (b) vnet_event() should kick off a tasklet that triggers
+>        netif_wake_queue()
+> 
+> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+> Acked-by: Raghuram Kothakota <raghuram.kothakota@oracle.com>
 
-so what? That is not a reason to just hack something into sysfs. If it means every driver needs to be modified, then that has to be done.
+Please don't fix multiple things in one huge patch, split up the
+changes into separate easily reviewed patches.
 
->> And I think something similar should be done for WiFi. It might be
->> better to not create the initial wlan0 netdev interface if the
->> hardware has not a single unique address available. That way the
->> supplicant can just either get one from the flash filesystem or make
->> up a proper random one before creating the netdev interface.
->> 
-> The initial wlan0 netdev interface is *not* created, but the PHY records
-> a MAC address that cannot be overriden at the level that this sysfs node
-> reads. Perhaps a compromise would be to create a single new syscall to
-> write to it?
+> +/*
+> + * Heuristic for the number of times to exponentially backoff and
+> + * retry sending an LDC trigger when EAGAIN is encountered
+> + */
 
-The initial wlan0 can be removed as every other netdev attached to the wiphy. It can also be as easily re-created.
+In the networking, comments are formatted:
 
-Since the wiphy does not have a valid MAC address, my proposal here would be to just not create the wlan0 in the first place. This means that the wiphy can be still discovered via nl80211.
+/* Like
+ * this.
+ */
 
-It also means that the wlan0 netdev needs to be created by userspace now. And a valid NL80211_ATTR_MAC be provided. Similar to what is already done for P2P devices at the moment. That should just solve the problem.
+> +			printk(KERN_INFO 
+> +			    "ECONNRESET %x:%x:%x:%x:%x:%x\n",
+> +			    port->raddr[0], port->raddr[1],
+> +			    port->raddr[2], port->raddr[3],
+> +			    port->raddr[4], port->raddr[5]);
 
-We really do not want to announce a netdev when registering the wiphy device and then having to mess with its MAC address via sysfs somehow. This all needs to be properly reflected over RTNL.
+This is not indented correctly.  The second and subsequent lines
+of the printk() function call should start at exactly the first
+column after the openning parenthesis of the function call.
 
-Regards
+> +	/*
+> +	 * Kick off a tasklet to wake the queue.  We cannot call 
+> +	 * maybe_tx_wakeup directly here because we could deadlock on
+> +	 * netif_tx_lock() with dev_watchdog()
+> +	 */
 
-Marcel
+Comment formatting.
+
+> +	/*
+> +	 * We don't rely on the ACKs to free the skb in vnet_start_xmit(),
+> +	 * thus it is safe to not set VIO_ACK_ENABLE for each transmission:
+> +	 * the protocol itself does not require it as long as the peer
+> +	 * sends a VIO_SUBTYPE_ACK for VIO_DRING_STOPPED. 
+> +	 *
+> +	 * An ACK for every packet in the ring is expensive as the
+> +	 * sending of LDC messages is slow and affects performance.
+> +	 */
+
+Likewise.
