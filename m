@@ -1,38 +1,31 @@
-From: Randy Dunlap <rdunlap@infradead.org>
-Subject: Re: linux-next: Tree for Aug 11 (net/ethernet/intel/i40e)
-Date: Mon, 11 Aug 2014 09:17:45 -0700
-Message-ID: <53E8ECA9.6060806@infradead.org>
-References: <20140811155213.0aa083ce@canb.auug.org.au>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 4/5] netfilter: nf_tables: fix error return code
+Date: Mon, 11 Aug 2014 18:41:14 +0200
+Message-ID: <20140811164114.GA7770@salvia>
+References: <1407415749-19978-1-git-send-email-Julia.Lawall@lip6.fr>
+ <1407415749-19978-5-git-send-email-Julia.Lawall@lip6.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	linux.nics@intel.com
-To: Stephen Rothwell <sfr@canb.auug.org.au>, linux-next@vger.kernel.org
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20140811155213.0aa083ce@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: kernel-janitors@vger.kernel.org, Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Julia Lawall <Julia.Lawall@lip6.fr>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:37272 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753127AbaHKQlA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Aug 2014 12:41:00 -0400
+Content-Disposition: inline
+In-Reply-To: <1407415749-19978-5-git-send-email-Julia.Lawall@lip6.fr>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 08/10/14 22:52, Stephen Rothwell wrote:
-> Hi all,
+On Thu, Aug 07, 2014 at 02:49:08PM +0200, Julia Lawall wrote:
+> From: Julia Lawall <Julia.Lawall@lip6.fr>
 > 
-> Please do not add code intended for v3.18 until after v3.17-rc1 is
-> released.
-> 
-> Changes since 20140808:
-> 
+> Convert a zero return value on error to a negative one, as returned
+> elsewhere in the function.
 
-on i386 and x86_64:
-
-../drivers/net/ethernet/intel/i40e/i40e_fcoe.c: In function 'i40e_get_fcoe_tc_map':
-../drivers/net/ethernet/intel/i40e/i40e_fcoe.c:354:23: error: 'IEEE_8021QAZ_APP_SEL_ETHERTYPE' undeclared (first use in this function)
-   if (app.selector == IEEE_8021QAZ_APP_SEL_ETHERTYPE &&
-
-
-Needs to #include <uapi/linux/dcbnl.h> ??
-
-
--- 
-~Randy
+Applied, thanks Julia.
