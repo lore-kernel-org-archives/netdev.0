@@ -1,66 +1,73 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net 3/4] net: bcmgenet: update UMAC_CMD only when link is detected
-Date: Mon, 11 Aug 2014 14:50:44 -0700
-Message-ID: <1407793845-30895-4-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net 4/4] net: bcmgenet: correctly resume adapter from Wake-on-LAN
+Date: Mon, 11 Aug 2014 14:50:45 -0700
+Message-ID: <1407793845-30895-5-git-send-email-f.fainelli@gmail.com>
 References: <1407793845-30895-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:38579 "EHLO
-	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752031AbaHKVvH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2014 17:51:07 -0400
-Received: by mail-pd0-f175.google.com with SMTP id r10so11423814pdi.20
-        for <netdev@vger.kernel.org>; Mon, 11 Aug 2014 14:51:07 -0700 (PDT)
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:40372 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752031AbaHKVvJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2014 17:51:09 -0400
+Received: by mail-pa0-f46.google.com with SMTP id lj1so11877958pab.33
+        for <netdev@vger.kernel.org>; Mon, 11 Aug 2014 14:51:08 -0700 (PDT)
 In-Reply-To: <1407793845-30895-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When we bring the interface down, phy_stop() will schedule the PHY state
-machine to call our link adjustment callback. By the time we do so, we
-may have clock gated off the GENET hardware block, and this will cause
-bus errors to happen in bcmgenet_mii_setup():
+In case we configured the adapter to be a wake up source from
+Wake-on-LAN, but we never actually woke up using Wake-on-LAN, we will
+leave the adapter in MagicPacket matching mode, which prevents any other
+type of packets from reaching the RX engine. Fix this by calling
+bcmgenet_power_up() with GENET_POWER_WOL_MAGIC to restore the adapter
+configuration in bcmgenet_resume().
 
-Make sure that we only touch the UMAC_CMD register when there is an
-actual link. This is safe to do for two reasons:
+The second problem we had was an imbalanced clock disabling in
+bcmgenet_wol_resume(), the Wake-on-LAN slow clock is only enabled in
+bcmgenet_suspend() if we configured Wake-on-LAN, yet we unconditionally
+disabled the clock in bcmgenet_wol_resume().
 
-- updating the Ethernet MAC registers only make sense when a physical
-  link is present
-- the PHY library state machine first set phydev->link = 0 before
-  invoking phydev->adjust_link in the PHY_HALTED case
-
-Fixes: 240524089d7a ("net: bcmgenet: only update UMAC_CMD if something changed")
+Fixes: 8c90db72f926 ("net: bcmgenet: suspend and resume from Wake-on-LAN")
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/broadcom/genet/bcmmii.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/broadcom/genet/bcmgenet.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/genet/bcmmii.c b/drivers/net/ethernet/broadcom/genet/bcmmii.c
-index b56f1bbb17bf..c88f7ae99636 100644
---- a/drivers/net/ethernet/broadcom/genet/bcmmii.c
-+++ b/drivers/net/ethernet/broadcom/genet/bcmmii.c
-@@ -129,7 +129,10 @@ static void bcmgenet_mii_setup(struct net_device *dev)
- 			cmd_bits |= CMD_RX_PAUSE_IGNORE | CMD_TX_PAUSE_IGNORE;
+diff --git a/drivers/net/ethernet/broadcom/genet/bcmgenet.c b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+index 90eb9c4b1b2c..3f9d4de8173c 100644
+--- a/drivers/net/ethernet/broadcom/genet/bcmgenet.c
++++ b/drivers/net/ethernet/broadcom/genet/bcmgenet.c
+@@ -1962,7 +1962,8 @@ static void bcmgenet_set_hw_addr(struct bcmgenet_priv *priv,
+ static int bcmgenet_wol_resume(struct bcmgenet_priv *priv)
+ {
+ 	/* From WOL-enabled suspend, switch to regular clock */
+-	clk_disable_unprepare(priv->clk_wol);
++	if (priv->wolopts)
++		clk_disable_unprepare(priv->clk_wol);
+ 
+ 	phy_init_hw(priv->phydev);
+ 	/* Speed settings must be restored */
+@@ -2668,9 +2669,7 @@ static int bcmgenet_resume(struct device *d)
+ 	if (ret)
+ 		goto out_clk_disable;
+ 
+-	if (priv->wolopts)
+-		ret = bcmgenet_wol_resume(priv);
+-
++	ret = bcmgenet_wol_resume(priv);
+ 	if (ret)
+ 		goto out_clk_disable;
+ 
+@@ -2685,6 +2684,9 @@ static int bcmgenet_resume(struct device *d)
+ 		bcmgenet_ext_writel(priv, reg, EXT_EXT_PWR_MGMT);
  	}
  
--	if (status_changed) {
-+	if (!status_changed)
-+		return;
++	if (priv->wolopts)
++		bcmgenet_power_up(priv, GENET_POWER_WOL_MAGIC);
 +
-+	if (phydev->link) {
- 		reg = bcmgenet_umac_readl(priv, UMAC_CMD);
- 		reg &= ~((CMD_SPEED_MASK << CMD_SPEED_SHIFT) |
- 			       CMD_HD_EN |
-@@ -137,8 +140,9 @@ static void bcmgenet_mii_setup(struct net_device *dev)
- 		reg |= cmd_bits;
- 		bcmgenet_umac_writel(priv, reg, UMAC_CMD);
+ 	/* Disable RX/TX DMA and flush TX queues */
+ 	dma_ctrl = bcmgenet_dma_disable(priv);
  
--		phy_print_status(phydev);
- 	}
-+
-+	phy_print_status(phydev);
- }
- 
- void bcmgenet_mii_reset(struct net_device *dev)
 -- 
 1.9.1
