@@ -1,83 +1,50 @@
-From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-Subject: Re: [PATCH RFC v2 net-next 10/16] bpf: add eBPF verifier
-Date: Tue, 12 Aug 2014 13:10:47 -0700
-Message-ID: <CALCETrUV+CSJzBzec7fRc6k4yDd+kCxz6Zi8zGNOQvACoKkP9A@mail.gmail.com>
-References: <1405657206-12060-1-git-send-email-ast@plumgrid.com>
- <1405657206-12060-11-git-send-email-ast@plumgrid.com> <CALCETrUt1yLXTt5pDZJd0s4s+4dhs0LB7tbJYd6p1+EbdNWw7w@mail.gmail.com>
- <CAMEtUuygJoH+PBNksTwRHyRObCZixoTDFzmnHroErZHZLaGNbg@mail.gmail.com>
- <CALCETrUDb6kLH_Qp=YMm=m3P_hmEu3dfDTse=ptCsdpO9EEcAQ@mail.gmail.com> <CAMEtUuz2DS8Ks0L15K0Jsj_nFjgvDh0TBwb+5pHzrdU+o6co_g@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH stable 3.4 1/2] ipv4: move route garbage collector to
+ work queue
+Date: Tue, 12 Aug 2014 13:23:23 -0700
+Message-ID: <1407875003.6804.0.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <fc0168a71c064457c18f2563371176380d0012c7.1407796232.git.mleitner@redhat.com>
+	 <1407869404.27163.5.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
-	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAMEtUuz2DS8Ks0L15K0Jsj_nFjgvDh0TBwb+5pHzrdU+o6co_g-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Marcelo Ricardo Leitner <mleitner@redhat.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Hannes Frederic Sowa <hannes@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:53621 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753505AbaHLUXY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2014 16:23:24 -0400
+Received: by mail-pd0-f182.google.com with SMTP id fp1so13203948pdb.13
+        for <netdev@vger.kernel.org>; Tue, 12 Aug 2014 13:23:24 -0700 (PDT)
+In-Reply-To: <1407869404.27163.5.camel@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 12, 2014 at 1:00 PM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
-> On Tue, Aug 12, 2014 at 12:32 PM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org> wrote:
->> On Thu, Jul 24, 2014 at 12:25 PM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
->>> On Thu, Jul 24, 2014 at 11:25 AM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org> wrote:
->>>> On Thu, Jul 17, 2014 at 9:20 PM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
->>>>> Safety of eBPF programs is statically determined by the verifier, which detects:
->>>>> - loops
->>>>> - out of range jumps
->>>>> - unreachable instructions
->>>>> - invalid instructions
->>>>> - uninitialized register access
->>>>> - uninitialized stack access
->>>>> - misaligned stack access
->>>>> - out of range stack access
->>>>> - invalid calling convention
->>>>
->>>> Is there something that documents exactly what conditions an eBPF
->>>> program must satisfy in order to be considered valid?
->>>
->>> I did a writeup in the past on things that verifiers checks and gave it
->>> to internal folks to review. Guys have said that now they understand very
->>> well how it works, but in reality it didn't help at all to write valid programs.
->>> What worked is 'verification trace' = the instruction by instruction dump
->>> of verifier state while it's analyzing the program.
->>> I gave few simple examples of it in
->>> 'Understanding eBPF verifier messages' section:
->>> https://git.kernel.org/cgit/linux/kernel/git/ast/bpf.git/diff/Documentation/networking/filter.txt?id=b22459133b9f52d2176c8c0f8b5eb036478a40c9
->>> Every example there is what "program must satisfy to be valid"...
->>>
->>> Therefore I'm addressing two things:
->>> 1. how verifier works and what it checks for.
->>>   that is described in 'eBPF verifier' section of the doc and
->>>   in 200 lines of comments inside verifier.c
->>
->> That doc is pretty good.  I'll try to read it carefully soon.  Sorry
->> for the huge delay here -- I've been on vacation.
->
-> I've been sitting on v4 for few weeks, since it's a merge window.
-> So please hold on a careful review. I'll post v4 later today.
-> Mainly I've split the verifier into several patches to make it
-> easier to read.
-> Thanks!
+On Tue, 2014-08-12 at 20:50 +0200, Hannes Frederic Sowa wrote:
+> On Mo, 2014-08-11 at 19:41 -0300, Marcelo Ricardo Leitner wrote:
+> > Currently the route garbage collector gets called by dst_alloc() if it
+> > have more entries than the threshold. But it's an expensive call, that
+> > don't really need to be done by then.
+> > 
+> > Another issue with current way is that it allows running the garbage
+> > collector with the same start parameters on multiple CPUs at once, which
+> > is not optimal. A system may even soft lockup if the cache is big enough
+> > as the garbage collectors will be fighting over the hash lock entries.
+> > 
+> > This patch thus moves the garbage collector to run asynchronously on a
+> > work queue, much similar to how rt_expire_check runs.
+> > 
+> > There is one condition left that allows multiple executions, which is
+> > handled by the next patch.
+> > 
+> > Signed-off-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
+> > Cc: Hannes Frederic Sowa <hannes@redhat.com>
+> 
+> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-Will you be at KS / LSS / LinuxCon?
 
---Andy
+This does not look as stable material.
 
--- 
-Andy Lutomirski
-AMA Capital Management, LLC
+One can always disable route cache in 3.4 kernels
