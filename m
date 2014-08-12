@@ -1,49 +1,43 @@
-From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 6/6] cxgb4: Issue mbox commands on correct mbox
-Date: Tue, 12 Aug 2014 11:09:13 +0530
-Message-ID: <1407821953-8711-7-git-send-email-hariprasad@chelsio.com>
-References: <1407821953-8711-1-git-send-email-hariprasad@chelsio.com>
-Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
-	kumaras@chelsio.com, anish@chelsio.com,
-	Hariprasad Shenai <hariprasad@chelsio.com>
-To: netdev@vger.kernel.org
+From: Sanjeev Sharma <sanjeev_sharma@mentor.com>
+Subject: [PATCH] zd1211rw: replace ZD_ASSERT with lockdep_assert_held()
+Date: Tue, 12 Aug 2014 12:35:33 +0530
+Message-ID: <1407827133-29493-1-git-send-email-sanjeev_sharma@mentor.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <linville@tuxdriver.com>, <linux-wireless@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Sanjeev Sharma <sanjeev_sharma@mentor.com>,
+	Sanjeev Sharma <Sanjeev_Sharma@mentor.com>
+To: <dsd@gentoo.org>, <kune@deine-taler.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:43206
-	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752455AbaHLFdr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2014 01:33:47 -0400
-In-Reply-To: <1407821953-8711-1-git-send-email-hariprasad@chelsio.com>
+Received: from relay1.mentorg.com ([192.94.38.131]:64785 "EHLO
+	relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750976AbaHLGwm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2014 02:52:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |    6 ++++--
- 1 files changed, 4 insertions(+), 2 deletions(-)
+on some architecture spin_is_locked() always return false in
+uniprocessor configuration and therefore it would be advise
+to replace with lockdep_assert_held().
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 684ada0..66b762a 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -5959,7 +5959,8 @@ static int adap_init0(struct adapter *adap)
- 		params[3] = FW_PARAM_PFVF(CQ_END);
- 		params[4] = FW_PARAM_PFVF(OCQ_START);
- 		params[5] = FW_PARAM_PFVF(OCQ_END);
--		ret = t4_query_params(adap, 0, 0, 0, 6, params, val);
-+		ret = t4_query_params(adap, adap->mbox, adap->fn, 0, 6, params,
-+				      val);
- 		if (ret < 0)
- 			goto bye;
- 		adap->vres.qp.start = val[0];
-@@ -5971,7 +5972,8 @@ static int adap_init0(struct adapter *adap)
+Signed-off-by: Sanjeev Sharma <Sanjeev_Sharma@mentor.com>
+---
+ drivers/net/wireless/zd1211rw/zd_mac.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/zd1211rw/zd_mac.c b/drivers/net/wireless/zd1211rw/zd_mac.c
+index e7af261..72c0bc2 100644
+--- a/drivers/net/wireless/zd1211rw/zd_mac.c
++++ b/drivers/net/wireless/zd1211rw/zd_mac.c
+@@ -235,7 +235,7 @@ void zd_mac_clear(struct zd_mac *mac)
+ {
+ 	flush_workqueue(zd_workqueue);
+ 	zd_chip_clear(&mac->chip);
+-	ZD_ASSERT(!spin_is_locked(&mac->lock));
++	lockdep_assert_held(!spin_is_locked(&mac->lock));
+ 	ZD_MEMCLEAR(mac, sizeof(struct zd_mac));
+ }
  
- 		params[0] = FW_PARAM_DEV(MAXORDIRD_QP);
- 		params[1] = FW_PARAM_DEV(MAXIRD_ADAPTER);
--		ret = t4_query_params(adap, 0, 0, 0, 2, params, val);
-+		ret = t4_query_params(adap, adap->mbox, adap->fn, 0, 2, params,
-+				      val);
- 		if (ret < 0) {
- 			adap->params.max_ordird_qp = 8;
- 			adap->params.max_ird_adapter = 32 * adap->tids.ntids;
 -- 
-1.7.1
+1.7.11.7
