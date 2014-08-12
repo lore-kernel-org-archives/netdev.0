@@ -1,62 +1,46 @@
-From: Dexuan Cui <decui@microsoft.com>
-Subject: RE: [PATCH] Hyperv: Trigger DHCP renew after host hibernation
-Date: Tue, 12 Aug 2014 07:51:53 +0000
-Message-ID: <EE124450C0AAF944A40DD71E61F878C99210BC@SINEX14MBXC417.southpacific.corp.microsoft.com>
-References: <DC7803B42427924284F2D5252E076A3B4476A479@SINEX14MBXC416.southpacific.corp.microsoft.com>
- <53CCD6F2.6020909@nod.at>	<20140721091851.GA28171@aepfle.de>
- <20140721.143225.2040366896972949930.davem@davemloft.net>
- <CAFLxGvyfy1UkxN6_-c_ST7f8n7DvqYsCPKChWmt9CerWb0dh7g@mail.gmail.com>
- <EE124450C0AAF944A40DD71E61F878C99149D0@SINEX14MBXC417.southpacific.corp.microsoft.com>
- <20140808033220.GB10503@kroah.com>
- <EE124450C0AAF944A40DD71E61F878C991569A@SINEX14MBXC417.southpacific.corp.microsoft.com>
- <20140808134549.GD4427@kroah.com>
- <EE124450C0AAF944A40DD71E61F878C991B653@SINEX14MBXC417.southpacific.corp.microsoft.com>
- <53E83DD4.1060500@gmail.com>
- <20140811002210.2a697052767e9ec1989cb219@mindspring.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
- "olaf@aepfle.de" <olaf@aepfle.de>,
- Richard Weinberger <richard.weinberger@gmail.com>,
- Greg KH <gregkh@linuxfoundation.org>,
- "jasowang@redhat.com" <jasowang@redhat.com>,
- "driverdev-devel@linuxdriverproject.org"
- <driverdev-devel@linuxdriverproject.org>, LKML <linux-kernel@vger.kernel.org>,
- David Miller <davem@davemloft.net>,
- "Yue Zhang \(OSTC DEV\)" <yuezha@microsoft.com>,
- Thomas Shao <huishao@microsoft.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- Haiyang Zhang <haiyangz@microsoft.com>
-To: Bill Fink <billfink@mindspring.com>, Florian Fainelli
- <f.fainelli@gmail.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20140811002210.2a697052767e9ec1989cb219@mindspring.com>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: driverdev-devel-bounces@linuxdriverproject.org
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH] allow setting wiphy.perm_addr after driver probe
+Date: Tue, 12 Aug 2014 00:59:14 -0700
+Message-ID: <70001DBA-E1CE-49D6-9A37-6F7CE31B61E6@holtmann.org>
+References: <1407780269.28221.63.camel@chimera> <54DF22CF-59D7-4633-A625-896F58C26A64@holtmann.org> <1407789645.28221.68.camel@chimera> <37210DB5-2911-4FA3-9299-7701C5003945@holtmann.org> <1407791075.28221.74.camel@chimera> <28066DB2-9EA9-4748-9C89-D3FBD3EC51F5@holtmann.org> <1407798738.28221.81.camel@chimera> <52896C9C-8560-4CE4-A1FB-C896D766EC87@holtmann.org> <1407801666.28221.84.camel@chimera>
+Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "John W. Linville" <linville@tuxdriver.com>,
+	"linux-wireless@vger.kernel.org Wireless"
+	<linux-wireless@vger.kernel.org>,
+	Johannes Berg <johannes@sipsolutions.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>,
+	linux-kernel@vger.kernel.org
+To: Daniel Gimpelevich <daniel@gimpelevich.san-francisco.ca.us>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1407801666.28221.84.camel@chimera>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Bill Fink 
-> In the case of ifplugd, it has parameters -u | --delay-up= which
-> defaults to 0 seconds, and -d | --delay-down= which defaults to
-> 5 seconds.  Maybe for hyperv you could specify --delay-down=0.
-> I don't know if other daemons such as systemd have similar options.
-> It might still be good to have some modest delay between the
-> netif_carrier_off(net) and netif_carrier_on(net).
-> 
-> 		-Bill
-Thanks, Bill!
+Hi Daniel,
 
-I'll try these parameters and see if a modest delay is necessary here.
+>> the way I read the nl80211 code is that the NL80211_CMD_NEW_INTERFACE
+>> requires a wiphy device to be specified. And that is actually just a
+>> number. So I have no idea what the MAC has to here.
+>> 
+> OpenWrt finds a wiphy by its MAC.
 
-Thanks,
--- Dexuan
+maybe that is the first problem right there. I see that over sysfs you get phy80211/macaddress. However if you do a dump via NL80211_CMD_GET_WIPHY then you do not have the MAC address there.
+
+>> Why does the wiphy need to know the MAC if it is always specified from
+>> userspace when actually creating the new netdev interface. Works for
+>> P2P devices, so why wouldn't it work for access point and station
+>> mode?
+>> 
+> A MAC can be specified for the netdev, but it is assigned to a wiphy
+> identified by its MAC.
+
+That you find the wiphy device by its MAC address seems to be your problem. As I said, on nl80211 you are using the wiphy unique number and not a MAC address.
+
+If you want to use some sort of device discovery via sysfs, then use phy80211/index and other attributes to uniquely identify the device. Basing this on the MAC address seems dangerous. Especially since it might be not valid or an identical default for all cards.
+
+Regards
+
+Marcel
