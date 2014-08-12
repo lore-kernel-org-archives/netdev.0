@@ -1,12 +1,13 @@
 From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Subject: [PATCH v3 2/3] cxgb4: use module_long_probe_init()
-Date: Tue, 12 Aug 2014 15:28:26 -0700
-Message-ID: <1407882507-325-3-git-send-email-mcgrof@do-not-panic.com>
+Subject: [PATCH v3 1/3] init / kthread: add module_long_probe_init() and module_long_probe_exit()
+Date: Tue, 12 Aug 2014 15:28:25 -0700
+Message-ID: <1407882507-325-2-git-send-email-mcgrof@do-not-panic.com>
 References: <1407882507-325-1-git-send-email-mcgrof@do-not-panic.com>
 Cc: tiwai@suse.de, linux-kernel@vger.kernel.org,
 	"Luis R. Rodriguez" <mcgrof@suse.com>,
 	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
 	Joseph Salisbury <joseph.salisbury@canonical.com>,
+	Kay Sievers <kay@vrfy.org>,
 	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
 	Tim Gardner <tim.gardner@canonical.com>,
 	Pierre Fersing <pierre-fersing@pierref.org>,
@@ -29,16 +30,42 @@ List-Id: netdev.vger.kernel.org
 
 From: "Luis R. Rodriguez" <mcgrof@suse.com>
 
-cxgb4 probe can take up to over 1 minute when the firmware is
-is written and installed on the device, even after this the device
-driver still does some device probing and can take quite a bit.
-This driver needs fixing but right now it simply wont' work on
-some systems. Use the new module_long_probe_init() to annotate
-this driver's probe is broken and require some love, but makes
-the driver operational until that is fixed.
+Tetsuo bisected and found that commit 786235ee "kthread: make
+kthread_create() killable" modified kthread_create() to bail as
+soon as SIGKILL is received. This is causing some issues with
+some drivers and at times boot. Joseph then found that failures
+occur as the systemd-udevd process sends SIGKILL to modprobe if
+probe on a driver takes over 30 seconds. When this happens probe
+will fail on any driver, its why booting on some system will fail
+if the driver happens to be a storage related driver. Some folks
+have suggested fixing this by modifying kthread_create() to not
+leave upon SIGKILL [3], upon review Oleg rejected this change and
+the discussion was punted out to systemd to see if the default
+timeout could be increased from 30 seconds to 120. The opinion of
+the systemd maintainers is that the driver's behavior should
+be fixed [4]. Linus seems to agree [5], however more recently even
+networking drivers have been reported to fail on probe since just
+writing the firmware to a device and kicking it can take easy over
+60 seconds [6]. Benjamim was able to trace the issues recently
+reported on cxgb4 down to the same systemd-udevd 30 second timeout [6].
 
+This is an alternative solution which enables drivers that are
+known to take long to use kthread_run(), this avoids the 30 second
+timeout and lets us annotate drivers with long init sequences that
+need some love.
+
+[0] https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1276705
+[1] https://bugs.launchpad.net/ubuntu/+source/systemd/+bug/1297248
+[2] http://lists.freedesktop.org/archives/systemd-devel/2014-March/018006.html
+[3] http://thread.gmane.org/gmane.linux.ubuntu.devel.kernel.general/39123
+[4] http://article.gmane.org/gmane.comp.sysutils.systemd.devel/17860
+[5] http://article.gmane.org/gmane.linux.kernel/1671333
+[6] https://bugzilla.novell.com/show_bug.cgi?id=877622
+
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Cc: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
 Cc: Joseph Salisbury <joseph.salisbury@canonical.com>
+Cc: Kay Sievers <kay@vrfy.org>
 Cc: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
 Cc: Tim Gardner <tim.gardner@canonical.com>
 Cc: Pierre Fersing <pierre-fersing@pierref.org>
@@ -58,28 +85,71 @@ Cc: linux-kernel@vger.kernel.org
 Cc: netdev@vger.kernel.org
 Signed-off-by: Luis R. Rodriguez <mcgrof@suse.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 36ebbda..5d8231d 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -34,6 +34,7 @@
+A few implementation notes:
+
+1) Two wrappers are used to simply enable the same prototype
+   as expected on modules for module_init()
+
+2) The new helpers are stuffed under kthread.h since including
+   kthread.h on init.h caused major issues which are not easy
+   to resolve, in fact even including kernel.h in init.h cases
+   some issues. We could have keep this under init.h if we ifef'd
+   on _LINUX_KTHREAD_H as well but this seems a bit cleaner.
+
+ include/linux/kthread.h | 35 +++++++++++++++++++++++++++++++++++
+ 1 file changed, 35 insertions(+)
+
+diff --git a/include/linux/kthread.h b/include/linux/kthread.h
+index 13d5520..2b5555a 100644
+--- a/include/linux/kthread.h
++++ b/include/linux/kthread.h
+@@ -1,6 +1,7 @@
+ #ifndef _LINUX_KTHREAD_H
+ #define _LINUX_KTHREAD_H
+ /* Simple interface for creating and stopping kernel threads without mess. */
++#include <linux/init.h>
+ #include <linux/err.h>
+ #include <linux/sched.h>
  
- #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+@@ -128,4 +129,38 @@ bool queue_kthread_work(struct kthread_worker *worker,
+ void flush_kthread_work(struct kthread_work *work);
+ void flush_kthread_worker(struct kthread_worker *worker);
  
-+#include <linux/kthread.h>
- #include <linux/bitmap.h>
- #include <linux/crc32.h>
- #include <linux/ctype.h>
-@@ -6815,5 +6816,5 @@ static void __exit cxgb4_cleanup_module(void)
- 	destroy_workqueue(workq);
- }
- 
--module_init(cxgb4_init_module);
--module_exit(cxgb4_cleanup_module);
-+module_long_probe_init(cxgb4_init_module);
-+module_long_probe_exit(cxgb4_cleanup_module);
++#ifndef MODULE
++
++#define module_long_probe_init(x)      __initcall(x);
++#define module_long_probe_exit(x)      __exitcall(x);
++
++#else
++/* To be used by modules which can take over 30 seconds at probe */
++#define module_long_probe_init(initfn)				\
++	static struct task_struct *__init_thread;		\
++	static int _long_probe_##initfn(void *arg)		\
++	{							\
++		return initfn();				\
++	}							\
++	static inline __init int __long_probe_##initfn(void)	\
++	{							\
++		__init_thread = kthread_run(_long_probe_##initfn,\
++					    NULL,		\
++					    #initfn);		\
++		if (IS_ERR(__init_thread))			\
++			return PTR_ERR(__init_thread);		\
++		return 0;					\
++	}							\
++	module_init(__long_probe_##initfn);
++/* To be used by modules that require module_long_probe_init() */
++#define module_long_probe_exit(exitfn)				\
++	static inline void __long_probe_##exitfn(void)		\
++	{							\
++		exitfn();					\
++		if (__init_thread)				\
++			kthread_stop(__init_thread);		\
++	}							\
++	module_exit(__long_probe_##exitfn);
++#endif /* MODULE */
++
+ #endif /* _LINUX_KTHREAD_H */
 -- 
 2.0.3
