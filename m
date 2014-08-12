@@ -1,32 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] irda: Fix rd_frame control field initialization in
- irlap_send_rd_frame()
-Date: Tue, 12 Aug 2014 15:18:22 -0700 (PDT)
-Message-ID: <20140812.151822.59429190017355826.davem@davemloft.net>
-References: <1407870656.4174.9.camel@ubuntu>
+Subject: Re: [patch 1/1] drivers/net/irda/donauboe.c: convert to
+ module_pci_driver
+Date: Tue, 12 Aug 2014 15:19:25 -0700 (PDT)
+Message-ID: <20140812.151925.956006740469768145.davem@davemloft.net>
+References: <53ea79ba.8fEEEBaYTgGJgBaz%akpm@linux-foundation.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, irda-users@lists.sourceforge.net,
-	samuel@sortiz.org
-To: maksqwe1@ukr.net
+Cc: samuel@sortiz.org, netdev@vger.kernel.org,
+	clbchenlibo.chen@huawei.com
+To: akpm@linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39568 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39582 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753389AbaHLWSY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2014 18:18:24 -0400
-In-Reply-To: <1407870656.4174.9.camel@ubuntu>
+	with ESMTP id S1753389AbaHLWT0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2014 18:19:26 -0400
+In-Reply-To: <53ea79ba.8fEEEBaYTgGJgBaz%akpm@linux-foundation.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Maks Naumov <maksqwe1@ukr.net>
-Date: Tue, 12 Aug 2014 12:10:56 -0700
+From: akpm@linux-foundation.org
+Date: Tue, 12 Aug 2014 13:31:54 -0700
 
-> From 4b2031adff2418d18f634be3655c2cebb51212e3 Mon Sep 17 00:00:00 2001
-> From: Maks Naumov <maksqwe1@ukr.net>
-> Date: Tue, 12 Aug 2014 11:28:41 -0700
-> Subject: [PATCH] irda: Fix rd_frame control field initialization in irlap_send_rd_frame()
+> From: Libo Chen <clbchenlibo.chen@huawei.com>
+> Subject: drivers/net/irda/donauboe.c: convert to module_pci_driver
 > 
-> Signed-off-by: Maks Naumov <maksqwe1@ukr.net>
+> Signed-off-by: Libo Chen <libo.chen@huawei.com>
+> Cc: Samuel Ortiz <samuel@sortiz.org>
+> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 
-Applied, thank you.
+Applied, thanks.
