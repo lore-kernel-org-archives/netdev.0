@@ -1,109 +1,77 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net] tcp: don't allow syn packets without timestamps to pass tcp_tw_recycle logic
-Date: Tue, 12 Aug 2014 02:21:36 +0200
-Message-ID: <69ff43477a795a1117302b11583bc8ea8c5dc811.1407802666.git.hannes@stressinduktion.org>
-Cc: Florian Westphal <fw@strlen.de>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:50297 "EHLO
-	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750991AbaHLAVo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Aug 2014 20:21:44 -0400
-Received: from compute4.internal (compute4.nyi.internal [10.202.2.44])
-	by gateway1.nyi.internal (Postfix) with ESMTP id 8E9A522CD2
-	for <netdev@vger.kernel.org>; Mon, 11 Aug 2014 20:21:43 -0400 (EDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH] Made bpf_internal_load_pointer_neg_helper static: fixes
+ Sparse warning
+Date: Mon, 11 Aug 2014 17:57:23 -0700
+Message-ID: <CAADnVQKbYheiRF_fmUnUUfSQgxUupY5vrjcjwimwwy-gnGhz2w@mail.gmail.com>
+References: <1405708449.11800.2.camel@oc1318858833.ibm.com>
+	<1407794456.12335.3.camel@oc1318858833.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	dany@us.ibm.com, dany4madden@gmail.com, benjamin.fik.lee@gmail.com
+To: Benjamin Lee <leeben@linux.vnet.ibm.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1407794456.12335.3.camel@oc1318858833.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If tw_recycle is enabled, non-timestamped SYN packets could get past
-the tw_recycle check and create a new connection. This is dangerous
-as we cannot verify that segments from an old connection won't be
-accepted by the new one in tcp_validate_incoming because of the missing
-timestamps. Note that Windows seems to have timestamps disabled by
-default. Thus this broken situation could easily arise by a Linux and
-Windows box sharing one IP address and talking to a tcp_tw_recycle
-enabled server.
+On Mon, Aug 11, 2014 at 3:00 PM, Benjamin Lee <leeben@linux.vnet.ibm.com> wrote:
+> I wanted to know what the current status of my patch is since my
+> internship will be ending this Friday and I want to know before then. if
+> there are any problems with it I can fix them before Thursday. Thank you
+> in advance.
 
-We don't change the behavior regarding how many SYNs we queue up from
-non timestamping hosts (the second tcp_peer_is_proven check), because the
-second call to tcp_peer_is_proven does not use the new boolean timestamp
-argument at all because PAWS check is disabled.
+using scripts/get_maintainer.pl for cc list would have helped to
+receive response sooner.
 
-Cc: Florian Westphal <fw@strlen.de>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- include/net/tcp.h      | 2 +-
- net/ipv4/tcp_input.c   | 9 ++++++---
- net/ipv4/tcp_metrics.c | 6 ++++--
- 3 files changed, 11 insertions(+), 6 deletions(-)
+> On Fri, 2014-07-18 at 11:34 -0700, Benjamin Lee wrote:
+>> This patch fixes the following Sparse warning:
+>>
+>> net/core/filter.c:52:6: warning: symbol
+>> 'bpf_internal_load_pointer_neg_helper' was not declared. Should it be
+>> static?
+>>
+>> I declared bpf_internal_load_pointer_neg_helper as static because it
+>> is not referenced elsewhere in the kernel. The patched kernel boots
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index dafa1cb..68425af 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -417,7 +417,7 @@ void tcp_update_metrics(struct sock *sk);
- void tcp_init_metrics(struct sock *sk);
- void tcp_metrics_init(void);
- bool tcp_peer_is_proven(struct request_sock *req, struct dst_entry *dst,
--			bool paws_check);
-+			bool paws_check, bool timestamps);
- bool tcp_remember_stamp(struct sock *sk);
- bool tcp_tw_remember_stamp(struct inet_timewait_sock *tw);
- void tcp_fetch_timewait_stamp(struct sock *sk, struct dst_entry *dst);
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index a3d47af..a0eb435 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -5979,12 +5979,14 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
- 		 * timewait bucket, so that all the necessary checks
- 		 * are made in the function processing timewait state.
- 		 */
--		if (tmp_opt.saw_tstamp && tcp_death_row.sysctl_tw_recycle) {
-+		if (tcp_death_row.sysctl_tw_recycle) {
- 			bool strict;
- 
- 			dst = af_ops->route_req(sk, &fl, req, &strict);
-+
- 			if (dst && strict &&
--			    !tcp_peer_is_proven(req, dst, true)) {
-+			    !tcp_peer_is_proven(req, dst, true,
-+						tmp_opt.saw_tstamp)) {
- 				NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_PAWSPASSIVEREJECTED);
- 				goto drop_and_release;
- 			}
-@@ -5993,7 +5995,8 @@ int tcp_conn_request(struct request_sock_ops *rsk_ops,
- 		else if (!sysctl_tcp_syncookies &&
- 			 (sysctl_max_syn_backlog - inet_csk_reqsk_queue_len(sk) <
- 			  (sysctl_max_syn_backlog >> 2)) &&
--			 !tcp_peer_is_proven(req, dst, false)) {
-+			 !tcp_peer_is_proven(req, dst, false,
-+					     tmp_opt.saw_tstamp)) {
- 			/* Without syncookies last quarter of
- 			 * backlog is filled with destinations,
- 			 * proven to be alive.
-diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
-index 0d54e59..ed9c9a9 100644
---- a/net/ipv4/tcp_metrics.c
-+++ b/net/ipv4/tcp_metrics.c
-@@ -576,7 +576,8 @@ reset:
- 	tp->snd_cwnd_stamp = tcp_time_stamp;
- }
- 
--bool tcp_peer_is_proven(struct request_sock *req, struct dst_entry *dst, bool paws_check)
-+bool tcp_peer_is_proven(struct request_sock *req, struct dst_entry *dst,
-+			bool paws_check, bool timestamps)
- {
- 	struct tcp_metrics_block *tm;
- 	bool ret;
-@@ -589,7 +590,8 @@ bool tcp_peer_is_proven(struct request_sock *req, struct dst_entry *dst, bool pa
- 	if (paws_check) {
- 		if (tm &&
- 		    (u32)get_seconds() - tm->tcpm_ts_stamp < TCP_PAWS_MSL &&
--		    (s32)(tm->tcpm_ts - req->ts_recent) > TCP_PAWS_WINDOW)
-+		    ((s32)(tm->tcpm_ts - req->ts_recent) > TCP_PAWS_WINDOW ||
-+		     !timestamps))
- 			ret = false;
- 		else
- 			ret = true;
--- 
-1.9.3
+the patch is incorrect, since this function is called out of assembler.
+Try 'git grep bpf_internal_load_pointer_neg_helper'
+
+>> and runs OK. I verified that the section of code is actually being
+
+your kernel likely compiled ok, because you don't have
+CONFIG_BPF_JIT=y in your .config
+For this reason doing 'make allmodconfig' is recommended.
+
+>> compiled by temporarily placing a #pragma message inside the function.
+>> I also verified that the function is being called by temporarily
+>> inserting a call to panic.
+>>
+>> I am a high school student trying to become familiar with the open
+>> source process and the Linux kernel, so your guidance is appreciated.
+>>
+>> Signed-off-by Benjamin Lee <leeben@linux.vnet.ibm.com>
+>> Reviewed-by: Dany Madden <danymadden@us.ibm.com>
+>> Reviewed-by: Jim Keniston <jkenisto@us.ibm.com>
+>>
+>> ---
+>>   net/core/filter.c |    3 ++-
+>>   1 files changed, 2 insertions(+), 1 deletions(-)
+>>
+>> diff --git a/net/core/filter.c b/net/core/filter.c
+>> index 735fad8..068442a 100644
+>> --- a/net/core/filter.c
+>> +++ b/net/core/filter.c
+>> @@ -70,7 +70,8 @@
+>>    *
+>>    * Exported for the bpf jit load helper.
+>>    */
+>> -void *bpf_internal_load_pointer_neg_helper(const struct sk_buff *skb, int k, unsigned int size)
+>> +static void *bpf_internal_load_pointer_neg_helper(const struct sk_buff *skb,
+>> +                                                 int k, unsigned int
+>> size)
+>>   {
+>>         u8 *ptr = NULL;
+>>
