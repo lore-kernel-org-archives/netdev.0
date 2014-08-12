@@ -1,65 +1,46 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Subject: Re: [PATCH net] tcp: don't allow syn packets without timestamps to pass
  tcp_tw_recycle logic
-Date: Tue, 12 Aug 2014 10:03:53 +0200
-Message-ID: <1407830633.3312295.151750837.3F816F09@webmail.messagingengine.com>
+Date: Tue, 12 Aug 2014 10:08:42 +0200
+Message-ID: <1407830922.3313272.151751729.150ABE1E@webmail.messagingengine.com>
 References: <69ff43477a795a1117302b11583bc8ea8c5dc811.1407802666.git.hannes@stressinduktion.org>
- <1407807170.10122.53.camel@edumazet-glaptop2.roam.corp.google.com>
+ <20140811.200807.1174604291924802129.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org, fw@strlen.de
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:49939 "EHLO
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:40142 "EHLO
 	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754215AbaHLID4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2014 04:03:56 -0400
-Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
-	by gateway1.nyi.internal (Postfix) with ESMTP id 5781F23A02
-	for <netdev@vger.kernel.org>; Tue, 12 Aug 2014 04:03:53 -0400 (EDT)
-In-Reply-To: <1407807170.10122.53.camel@edumazet-glaptop2.roam.corp.google.com>
+	by vger.kernel.org with ESMTP id S1752162AbaHLIIn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2014 04:08:43 -0400
+Received: from compute5.internal (compute5.nyi.internal [10.202.2.45])
+	by gateway1.nyi.internal (Postfix) with ESMTP id F131F22B2B
+	for <netdev@vger.kernel.org>; Tue, 12 Aug 2014 04:08:42 -0400 (EDT)
+In-Reply-To: <20140811.200807.1174604291924802129.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 12, 2014, at 03:32, Eric Dumazet wrote:
-> On Tue, 2014-08-12 at 02:21 +0200, Hannes Frederic Sowa wrote:
-> > If tw_recycle is enabled, non-timestamped SYN packets could get past
-> > the tw_recycle check and create a new connection. This is dangerous
-> > as we cannot verify that segments from an old connection won't be
-> > accepted by the new one in tcp_validate_incoming because of the missing
-> > timestamps. Note that Windows seems to have timestamps disabled by
-> > default. Thus this broken situation could easily arise by a Linux and
-> > Windows box sharing one IP address and talking to a tcp_tw_recycle
-> > enabled server.
-> > 
-> > We don't change the behavior regarding how many SYNs we queue up from
-> > non timestamping hosts (the second tcp_peer_is_proven check), because the
-> > second call to tcp_peer_is_proven does not use the new boolean timestamp
-> > argument at all because PAWS check is disabled.
-> > 
-> > Cc: Florian Westphal <fw@strlen.de>
-> > Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> > ---
+
+
+On Tue, Aug 12, 2014, at 05:08, David Miller wrote:
+> From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Date: Tue, 12 Aug 2014 02:21:36 +0200
 > 
-> Not sure what you try to achieve here.
->
-> tw_recycle can only be used in very controlled environment, no NAT, and
-> all hosts using timestamps.
+> > Thus this broken situation could easily arise by a Linux and Windows
+> > box sharing one IP address and talking to a tcp_tw_recycle enabled
+> > server.
 > 
-> If using NAT, then tw_recycle can not be used, even if all hosts are
-> linux boxes with timestamps enabled.
+> As Eric Dumazet mentioned, timewait recycling does not work if any
+> traffic goes through a NAT box.
+> 
+> So this situation of two boxes "sharing one IP address" fundamentally
+> makes timewait recycling unusable.
 
-Mostly me being pessimistic. ;)
-
-I noticed that tw_recycle nonetheless tries to cope with the fact that
-sometimes non-timestamped SYNs arrive. E.g. the scheduling of the
-time-wait timeout only happens for only RTO in case the host saw
-timestamps on the connection, otherwise normal TIMEWAIT_MSL applies.
-
-So I wanted to stop "illegal" connection setups and trade that against
-possible data corruption in case someone switches this knob on in a not
-controlled environment.
+Exactly, I'll just throw away the SYN packet instead of opening a
+connection where we couldn't very if the preconditions for timewait
+recycling did not hold.
 
 Bye,
 Hannes
