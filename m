@@ -1,43 +1,88 @@
-From: Maks Naumov <maksqwe1@ukr.net>
-Subject: [PATCH] irda: Fix rd_frame control field initialization in
- irlap_send_rd_frame()
-Date: Tue, 12 Aug 2014 12:10:56 -0700
-Message-ID: <1407870656.4174.9.camel@ubuntu>
+From: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
+Subject: Re: [PATCH RFC v2 net-next 10/16] bpf: add eBPF verifier
+Date: Tue, 12 Aug 2014 12:32:31 -0700
+Message-ID: <CALCETrUDb6kLH_Qp=YMm=m3P_hmEu3dfDTse=ptCsdpO9EEcAQ@mail.gmail.com>
+References: <1405657206-12060-1-git-send-email-ast@plumgrid.com>
+ <1405657206-12060-11-git-send-email-ast@plumgrid.com> <CALCETrUt1yLXTt5pDZJd0s4s+4dhs0LB7tbJYd6p1+EbdNWw7w@mail.gmail.com>
+ <CAMEtUuygJoH+PBNksTwRHyRObCZixoTDFzmnHroErZHZLaGNbg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Samuel Ortiz <samuel@sortiz.org>
-To: netdev@vger.kernel.org, irda-users@lists.sourceforge.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from frv153.fwdcdn.com ([212.42.77.153]:40249 "EHLO
-	frv153.fwdcdn.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753019AbaHLTcf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2014 15:32:35 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	Arnaldo Carvalho de Melo <acme-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Jiri Olsa <jolsa-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CAMEtUuygJoH+PBNksTwRHyRObCZixoTDFzmnHroErZHZLaGNbg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
->From 4b2031adff2418d18f634be3655c2cebb51212e3 Mon Sep 17 00:00:00 2001
-From: Maks Naumov <maksqwe1@ukr.net>
-Date: Tue, 12 Aug 2014 11:28:41 -0700
-Subject: [PATCH] irda: Fix rd_frame control field initialization in irlap_send_rd_frame()
+On Thu, Jul 24, 2014 at 12:25 PM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
+> On Thu, Jul 24, 2014 at 11:25 AM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org> wrote:
+>> On Thu, Jul 17, 2014 at 9:20 PM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
+>>> Safety of eBPF programs is statically determined by the verifier, which detects:
+>>> - loops
+>>> - out of range jumps
+>>> - unreachable instructions
+>>> - invalid instructions
+>>> - uninitialized register access
+>>> - uninitialized stack access
+>>> - misaligned stack access
+>>> - out of range stack access
+>>> - invalid calling convention
+>>
+>> Is there something that documents exactly what conditions an eBPF
+>> program must satisfy in order to be considered valid?
+>
+> I did a writeup in the past on things that verifiers checks and gave it
+> to internal folks to review. Guys have said that now they understand very
+> well how it works, but in reality it didn't help at all to write valid programs.
+> What worked is 'verification trace' = the instruction by instruction dump
+> of verifier state while it's analyzing the program.
+> I gave few simple examples of it in
+> 'Understanding eBPF verifier messages' section:
+> https://git.kernel.org/cgit/linux/kernel/git/ast/bpf.git/diff/Documentation/networking/filter.txt?id=b22459133b9f52d2176c8c0f8b5eb036478a40c9
+> Every example there is what "program must satisfy to be valid"...
+>
+> Therefore I'm addressing two things:
+> 1. how verifier works and what it checks for.
+>   that is described in 'eBPF verifier' section of the doc and
+>   in 200 lines of comments inside verifier.c
 
-Signed-off-by: Maks Naumov <maksqwe1@ukr.net>
----
- net/irda/irlap_frame.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+That doc is pretty good.  I'll try to read it carefully soon.  Sorry
+for the huge delay here -- I've been on vacation.
 
-diff --git a/net/irda/irlap_frame.c b/net/irda/irlap_frame.c
-index 9ea0c93..a37998c 100644
---- a/net/irda/irlap_frame.c
-+++ b/net/irda/irlap_frame.c
-@@ -622,7 +622,7 @@ void irlap_send_rd_frame(struct irlap_cb *self)
- 	frame = (struct rd_frame *)skb_put(tx_skb, 2);
- 
- 	frame->caddr = self->caddr;
--	frame->caddr = RD_RSP | PF_BIT;
-+	frame->control = RD_RSP | PF_BIT;
- 
- 	irlap_queue_xmit(self, tx_skb);
- }
+--Andy
+
+> 2. how to write valid programs
+>  that's more important one, since it's a key to happy users.
+>  'verification trace' is the first step. I'm planning to add debug info and
+>  user space tool that points out to line in C instead of assembler trace.
+>  In other words to bring errors to user as early as possible during
+>  compilation process.
+>  This is not a concern when programs are written in assembler,
+>  since the programs will be much shorter and thought through by
+>  the author. However I don't think there will be too many users
+>  willing to understand ebpf assembler.
+>
+> I suspect you're more concerned about #1 at this point whereas
+> I'm concerned about #2.
+
+
+
 -- 
-1.9.1
+Andy Lutomirski
+AMA Capital Management, LLC
