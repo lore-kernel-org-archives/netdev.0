@@ -1,43 +1,85 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] libcxgbi/cxgb4i : Fix ipv6 build failure
- caught with randconfig
-Date: Tue, 12 Aug 2014 15:22:15 -0700 (PDT)
-Message-ID: <20140812.152215.2300902059999669762.davem@davemloft.net>
-References: <1407880481-22352-1-git-send-email-anish@chelsio.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hch@infradead.org, kxie@chelsio.com,
-	manojmalviya@chelsio.com, jim.epost@gmail.com, sfr@canb.auug.org.au
-To: anish@chelsio.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39591 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751415AbaHLWWR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2014 18:22:17 -0400
-In-Reply-To: <1407880481-22352-1-git-send-email-anish@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
+Subject: [PATCH v3 2/3] cxgb4: use module_long_probe_init()
+Date: Tue, 12 Aug 2014 15:28:26 -0700
+Message-ID: <1407882507-325-3-git-send-email-mcgrof@do-not-panic.com>
+References: <1407882507-325-1-git-send-email-mcgrof@do-not-panic.com>
+Cc: tiwai@suse.de, linux-kernel@vger.kernel.org,
+	"Luis R. Rodriguez" <mcgrof@suse.com>,
+	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
+	Joseph Salisbury <joseph.salisbury@canonical.com>,
+	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+	Tim Gardner <tim.gardner@canonical.com>,
+	Pierre Fersing <pierre-fersing@pierref.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Oleg Nesterov <oleg@redhat.com>,
+	Benjamin Poirier <bpoirier@suse.de>,
+	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
+	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
+	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
+	Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
+	Hariprasad S <hariprasad@chelsio.com>,
+	Santosh Rastapur <santosh@chelsio.com>,
+	MPT-FusionLinux.pdl@avagotech.com, linux-scsi@vger.kernel.org,
+	netdev@vger.kernel.org
+To: gregkh@linuxfoundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1407882507-325-1-git-send-email-mcgrof@do-not-panic.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Anish Bhatt <anish@chelsio.com>
-Date: Tue, 12 Aug 2014 14:54:41 -0700
+From: "Luis R. Rodriguez" <mcgrof@suse.com>
 
-> Previous guard of IS_ENABLED(CONFIG_IPV6) is not sufficient when cxgbi drivers
-> are built into kernel but ipv6 is not. Change guard to only enable when either
-> ipv6 is built-in or both are modules.
-> 
-> Fixes: e81fbf6cd652 ("libcxgbi:cxgb4i Guard ipv6 code with a config check")
-> Fixes: fc8d0590d914 ("libcxgbi: Add ipv6 api to driver")
-> Signed-off-by: Anish Bhatt <anish@chelsio.com>
+cxgb4 probe can take up to over 1 minute when the firmware is
+is written and installed on the device, even after this the device
+driver still does some device probing and can take quite a bit.
+This driver needs fixing but right now it simply wont' work on
+some systems. Use the new module_long_probe_init() to annotate
+this driver's probe is broken and require some love, but makes
+the driver operational until that is fixed.
 
-That's not how you fix problems like this.
+Cc: Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>
+Cc: Joseph Salisbury <joseph.salisbury@canonical.com>
+Cc: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
+Cc: Tim Gardner <tim.gardner@canonical.com>
+Cc: Pierre Fersing <pierre-fersing@pierref.org>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Oleg Nesterov <oleg@redhat.com>
+Cc: Benjamin Poirier <bpoirier@suse.de>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>
+Cc: Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>
+Cc: Sreekanth Reddy <sreekanth.reddy@avagotech.com>
+Cc: Abhijit Mahajan <abhijit.mahajan@avagotech.com>
+Cc: Hariprasad S <hariprasad@chelsio.com>
+Cc: Santosh Rastapur <santosh@chelsio.com>
+Cc: MPT-FusionLinux.pdl@avagotech.com
+Cc: linux-scsi@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Signed-off-by: Luis R. Rodriguez <mcgrof@suse.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-Instead, you should use Kconfig conditions to make sure your driver is
-enabled in a manner which is compatible with what IPV6 has been set to.
-
-No user should have to know about these strange dependencies just to get
-IPV6 enabled in your driver.
-
-Really, your change makes IPV6 get disabled if IPV6 is modular and your
-driver is built statically.  I do not think any user would consider that
-reasonable behavior.
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index 36ebbda..5d8231d 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -34,6 +34,7 @@
+ 
+ #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+ 
++#include <linux/kthread.h>
+ #include <linux/bitmap.h>
+ #include <linux/crc32.h>
+ #include <linux/ctype.h>
+@@ -6815,5 +6816,5 @@ static void __exit cxgb4_cleanup_module(void)
+ 	destroy_workqueue(workq);
+ }
+ 
+-module_init(cxgb4_init_module);
+-module_exit(cxgb4_cleanup_module);
++module_long_probe_init(cxgb4_init_module);
++module_long_probe_exit(cxgb4_cleanup_module);
+-- 
+2.0.3
