@@ -1,36 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] libcxgbi/cxgb4i : Fix ipv6 build failure
- caught with randconfig
-Date: Tue, 12 Aug 2014 15:00:46 -0700 (PDT)
-Message-ID: <20140812.150046.1688536224368523573.davem@davemloft.net>
-References: <1407880481-22352-1-git-send-email-anish@chelsio.com>
+Subject: Re: [PATCH] atm/svc: Fix blocking in wait loop
+Date: Tue, 12 Aug 2014 15:02:25 -0700 (PDT)
+Message-ID: <20140812.150225.33325749199708788.davem@davemloft.net>
+References: <20140807172514.GY9918@twins.programming.kicks-ass.net>
+	<20140807172901.GH3588@twins.programming.kicks-ass.net>
+	<20140812081226.0fb0534e@thirdoffive.cmf.nrl.navy.mil>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hch@infradead.org, kxie@chelsio.com,
-	manojmalviya@chelsio.com, jim.epost@gmail.com, sfr@canb.auug.org.au
-To: anish@chelsio.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39425 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753117AbaHLWAr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2014 18:00:47 -0400
-In-Reply-To: <1407880481-22352-1-git-send-email-anish@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: peterz@infradead.org, fengguang.wu@intel.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org, lkp@01.org,
+	linux-atm-general@lists.sourceforge.net
+To: chas@cmf.nrl.navy.mil
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20140812081226.0fb0534e@thirdoffive.cmf.nrl.navy.mil>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Anish Bhatt <anish@chelsio.com>
-Date: Tue, 12 Aug 2014 14:54:41 -0700
+From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
+Date: Tue, 12 Aug 2014 08:12:26 -0400
 
-> Previous guard of IS_ENABLED(CONFIG_IPV6) is not sufficient when cxgbi drivers
-> are built into kernel but ipv6 is not. Change guard to only enable when either
-> ipv6 is built-in or both are modules.
+> One should not call blocking primitives inside a wait loop, since both
+> require task_struct::state to sleep, so the inner will destroy the
+> outer state.
 > 
-> Fixes: e81fbf6cd652 ("libcxgbi:cxgb4i Guard ipv6 code with a config check")
-> Fixes: fc8d0590d914 ("libcxgbi: Add ipv6 api to driver")
-> Signed-off-by: Anish Bhatt <anish@chelsio.com>
+> sigd_enq() will possibly sleep for alloc_skb().  Move sigd_enq() before
+> prepare_to_wait() to avoid sleeping while waiting interruptibly.  You do
+> not actually need to call sigd_enq() after the initial prepare_to_wait()
+> because we test the termination condition before calling schedule().
+> 
+> Based on suggestions from Peter Zijlstra.
+> 
+> Signed-off-by: Chas Williams <chas@cmf.n4rl.navy.mil>
+> Acked-by: Peter Zijlstra <peterz@infradead.org>
 
-Why are you targetting a serious fix at the net-next tree?
-
-'net-next' is for new features and cleanups, whereas 'net' is for
-bug fixes.
+Applied.
