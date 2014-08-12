@@ -1,66 +1,78 @@
 From: Willem de Bruijn <willemb@google.com>
-Subject: [PATCH net 1/2] net-timestamp: fix missing ACK timestamp
-Date: Tue, 12 Aug 2014 14:53:16 -0400
-Message-ID: <1407869597-9583-1-git-send-email-willemb@google.com>
+Subject: [PATCH net 2/2] net-timestamp: fix missing tcp fragmentation cases
+Date: Tue, 12 Aug 2014 14:53:17 -0400
+Message-ID: <1407869597-9583-2-git-send-email-willemb@google.com>
+References: <1407869597-9583-1-git-send-email-willemb@google.com>
 Cc: davem@davemloft.net, eric.dumazet@gmail.com,
 	richardcochran@gmail.com, Willem de Bruijn <willemb@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f73.google.com ([209.85.219.73]:45367 "EHLO
-	mail-oa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754036AbaHLSx2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2014 14:53:28 -0400
-Received: by mail-oa0-f73.google.com with SMTP id g18so1906225oah.2
-        for <netdev@vger.kernel.org>; Tue, 12 Aug 2014 11:53:27 -0700 (PDT)
+Received: from mail-vc0-f201.google.com ([209.85.220.201]:34712 "EHLO
+	mail-vc0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932165AbaHLS7u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2014 14:59:50 -0400
+Received: by mail-vc0-f201.google.com with SMTP id le20so1306476vcb.2
+        for <netdev@vger.kernel.org>; Tue, 12 Aug 2014 11:59:49 -0700 (PDT)
+In-Reply-To: <1407869597-9583-1-git-send-email-willemb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ACK timestamps are generated in tcp_clean_rtx_queue. The TSO datapath
-can break out early, causing the timestamp code to be skipped. Move
-the code up before the break.
+Bytestream timestamps are correlated with a single byte in the skbuff,
+recorded in skb_shinfo(skb)->tskey. When fragmenting skbuffs, ensure
+that the tskey is set for the fragment in which the tskey falls
+(seqno <= tskey < end_seqno).
 
-Reported-by: David S. Miller <davem@davemloft.net>
+The original implementation did not address fragmentation in
+tcp_fragment or tso_fragment. Add code to inspect the sequence numbers
+and move both tskey and the relevant tx_flags if necessary.
 
-Also fix a boundary condition: tp->snd_una is the next unacknowledged
-byte and between tests inclusive (a <= b <= c), so generate a an ACK
-timestamp if (prior_snd_una <= tskey <= tp->snd_una - 1).
-
+Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
 Signed-off-by: Willem de Bruijn <willemb@google.com>
 ---
- net/ipv4/tcp_input.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+ net/ipv4/tcp_output.c | 17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
 
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index a3d47af..1a8e89f 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -3050,10 +3050,15 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
- 	first_ackt.v64 = 0;
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 8fcfc91..c07064e 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -1069,6 +1069,21 @@ static void tcp_adjust_pcount(struct sock *sk, const struct sk_buff *skb, int de
+ 	tcp_verify_left_out(tp);
+ }
  
- 	while ((skb = tcp_write_queue_head(sk)) && skb != tcp_send_head(sk)) {
-+		struct skb_shared_info *shinfo = skb_shinfo(skb);
- 		struct tcp_skb_cb *scb = TCP_SKB_CB(skb);
- 		u8 sacked = scb->sacked;
- 		u32 acked_pcount;
- 
-+		if (unlikely(shinfo->tx_flags & SKBTX_ACK_TSTAMP) &&
-+		    between(shinfo->tskey, prior_snd_una, tp->snd_una - 1))
-+			__skb_tstamp_tx(skb, NULL, sk, SCM_TSTAMP_ACK);
++static void tcp_fragment_tstamp(struct sk_buff *skb, struct sk_buff *skb2)
++{
++	struct skb_shared_info *shinfo = skb_shinfo(skb);
 +
- 		/* Determine how many packets and what bytes were acked, tso and else */
- 		if (after(scb->end_seq, tp->snd_una)) {
- 			if (tcp_skb_pcount(skb) == 1 ||
-@@ -3107,11 +3112,6 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
- 			tp->retrans_stamp = 0;
- 		}
++	if (unlikely(shinfo->tx_flags & SKBTX_ANY_TSTAMP) &&
++	    after(shinfo->tskey, TCP_SKB_CB(skb)->end_seq)) {
++		struct skb_shared_info *shinfo2 = skb_shinfo(skb2);
++		u8 tsflags = shinfo->tx_flags & SKBTX_ANY_TSTAMP;
++
++		shinfo->tx_flags &= ~tsflags;
++		shinfo2->tx_flags |= tsflags;
++		swap(shinfo->tskey, shinfo2->tskey);
++	}
++}
++
+ /* Function to create two new TCP segments.  Shrinks the given segment
+  * to the specified size and appends a new segment with the rest of the
+  * packet to the list.  This won't be called frequently, I hope.
+@@ -1136,6 +1151,7 @@ int tcp_fragment(struct sock *sk, struct sk_buff *skb, u32 len,
+ 	 */
+ 	TCP_SKB_CB(buff)->when = TCP_SKB_CB(skb)->when;
+ 	buff->tstamp = skb->tstamp;
++	tcp_fragment_tstamp(skb, buff);
  
--		if (unlikely(skb_shinfo(skb)->tx_flags & SKBTX_ACK_TSTAMP) &&
--		    between(skb_shinfo(skb)->tskey, prior_snd_una,
--			    tp->snd_una + 1))
--			__skb_tstamp_tx(skb, NULL, sk, SCM_TSTAMP_ACK);
--
- 		if (!fully_acked)
- 			break;
+ 	old_factor = tcp_skb_pcount(skb);
  
+@@ -1652,6 +1668,7 @@ static int tso_fragment(struct sock *sk, struct sk_buff *skb, unsigned int len,
+ 
+ 	buff->ip_summed = skb->ip_summed = CHECKSUM_PARTIAL;
+ 	skb_split(skb, buff, len);
++	tcp_fragment_tstamp(skb, buff);
+ 
+ 	/* Fix up tso_factor for both original and new SKB.  */
+ 	tcp_set_skb_tso_segs(sk, skb, mss_now);
 -- 
 2.1.0.rc2.206.gedb03e5
