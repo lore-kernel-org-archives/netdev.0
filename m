@@ -1,39 +1,55 @@
-From: Srinivas Kandagatla <srinivas.kandagatla@linaro.org>
-Subject: [PATCH] ath6kl: Add SDIO device ID for QCA6234X Support
-Date: Tue, 12 Aug 2014 11:45:59 +0100
-Message-ID: <1407840359-6658-1-git-send-email-srinivas.kandadgatla@linaro.org>
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-arm-msm@vger.kernel.org,
-	Srinivas Kandagatla <srinivas.kandagatla@linaro.org>
-To: Kalle Valo <kvalo@qca.qualcomm.com>,
-	"John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-Sender: linux-arm-msm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: [PATCH net v4 0/3] xen-netback: synchronisation between core driver and netback
+Date: Tue, 12 Aug 2014 11:48:05 +0100
+Message-ID: <1407840488-20026-1-git-send-email-wei.liu2@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <ian.campbell@citrix.com>, <zoltan.kiss@citrix.com>,
+	<david.vrabel@citrix.com>, Wei Liu <wei.liu2@citrix.com>
+To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:22181 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752063AbaHLKsM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Aug 2014 06:48:12 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Srinivas Kandagatla <srinivas.kandagatla@linaro.org>
+The zero-copy netback has far more interactions with core network driver than
+the old copying backend. One significant thing is that netback now relies on
+a callback from core driver to correctly release resources.
 
-This patch adds device ID 402 to support QCA6234X found in APQ8064 SOC
-in IFC6410 board.
+However correct synchronisation between core driver and netback is missing.
+Currently netback relies on a loop to wait for core driver to release
+resources. This is proven not enough and erroneous recently, partly due to code
+structure, partly due to missing synchronisation. Short-live domains like
+OpenMirage unikernels can easily trigger race in backend, rendering backend
+unresponsive.
 
-Tested with mainline mmci sdio driver.
+This patch series aims to slove this issue by introducing proper
+synchronisation between core driver and netback.
 
-Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@linaro.org>
----
- drivers/net/wireless/ath/ath6kl/sdio.c | 1 +
- 1 file changed, 1 insertion(+)
+Wei.
 
-diff --git a/drivers/net/wireless/ath/ath6kl/sdio.c b/drivers/net/wireless/ath/ath6kl/sdio.c
-index 339d89f..eab0ab9 100644
---- a/drivers/net/wireless/ath/ath6kl/sdio.c
-+++ b/drivers/net/wireless/ath/ath6kl/sdio.c
-@@ -1400,6 +1400,7 @@ static const struct sdio_device_id ath6kl_sdio_devices[] = {
- 	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_AR6003_BASE | 0x1))},
- 	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_AR6004_BASE | 0x0))},
- 	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_AR6004_BASE | 0x1))},
-+	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_AR6004_BASE | 0x2))},
- 	{},
- };
- 
+Chagges in v4:
+* avoid using wait queue
+* remove dedicated loop for netif_napi_del
+* remove unnecessary check on callback
+
+Change in v3: improve commit message in patch 1
+
+Change in v2: fix Zoltan's email address in commit message
+
+
+Wei Liu (3):
+  xen-netback: move NAPI add/remove calls
+  xen-netback: don't stop dealloc kthread too early
+  xen-netback: remove loop waiting function
+
+ drivers/net/xen-netback/common.h    |    5 ++++
+ drivers/net/xen-netback/interface.c |   56 ++++++++++++++---------------------
+ drivers/net/xen-netback/netback.c   |   26 +++++++++++-----
+ 3 files changed, 47 insertions(+), 40 deletions(-)
+
 -- 
-1.9.1
+1.7.10.4
