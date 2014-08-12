@@ -1,61 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 3/3] sunvnet: Schedule maybe_tx_wakeup as a
- tasklet from ldc_rx path
-Date: Tue, 12 Aug 2014 15:13:52 -0700 (PDT)
-Message-ID: <20140812.151352.2235795686370279748.davem@davemloft.net>
-References: <20140812143531.GJ2404@oracle.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH] rtlwifi: btcoexist: adjust double test
+Date: Tue, 12 Aug 2014 17:14:31 -0500
+Message-ID: <53EA91C7.5010103@lwfinger.net>
+References: <20140812193929.GA4233@himangi-Dell>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: raghuram.kothakota@oracle.com, netdev@vger.kernel.org
-To: sowmini.varadhan@oracle.com
+Cc: julia.lawall@lip6.fr
+To: Himangi Saraogi <himangi774@gmail.com>,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39535 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753168AbaHLWNx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2014 18:13:53 -0400
-In-Reply-To: <20140812143531.GJ2404@oracle.com>
+Received: from mail-oa0-f46.google.com ([209.85.219.46]:33627 "EHLO
+	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753168AbaHLWOd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2014 18:14:33 -0400
+In-Reply-To: <20140812193929.GA4233@himangi-Dell>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Date: Tue, 12 Aug 2014 10:35:31 -0400
-
-> @@ -489,28 +491,13 @@ static int handle_mcast(struct vnet_port *port, void *msgbuf)
->  	return 0;
->  }
+On 08/12/2014 02:39 PM, Himangi Saraogi wrote:
+> Rewrite a duplicated test to test the correct value
+> 
+> The Coccinelle semantic patch that finds this problem is:
+> 
+> // <smpl>
+> @@
+> expression E;
+> @@
+> 
+> (
+> * E
+>   || ... || E
+> |
+> * E
+>   && ... && E
+> )
+> // </smpl>
+> 
+> Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
+> ---
+> In file drivers/staging/rtl8192ee/btcoexist/halbtcoutsrc.c, there is a
+> similar function that tests for WIRELESS_MODE_G and WIRELESS_MODE_B.
+> I have not tested the code, so you am not sure whether it is the
+> correct solution.
+> 
+>  drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.c b/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.c
+> index 33da3df..d4bd550 100644
+> --- a/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.c
+> +++ b/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.c
+> @@ -101,7 +101,7 @@ static bool halbtc_legacy(struct rtl_priv *adapter)
 >  
-> -static void maybe_tx_wakeup(struct vnet *vp)
-> +static void maybe_tx_wakeup(unsigned long param)
->  {
-> +	struct vnet *vp = (struct vnet *)param;
->  	struct net_device *dev = vp->dev;
+>  	bool is_legacy = false;
 >  
- ...
-> -	}
-> +	vnet_tx_timeout(dev);
->  	netif_tx_unlock(dev);
->  }
+> -	if ((mac->mode == WIRELESS_MODE_B) || (mac->mode == WIRELESS_MODE_B))
+> +	if ((mac->mode == WIRELESS_MODE_B) || (mac->mode == WIRELESS_MODE_G))
+>  		is_legacy = true;
 >  
-> @@ -764,7 +756,25 @@ out_dropped:
->  
->  static void vnet_tx_timeout(struct net_device *dev)
->  {
-> -	/* XXX Implement me XXX */
-> +	struct vnet *vp = netdev_priv(dev);
-> +
+>  	return is_legacy;
 
-Please do not usurp vnet_tx_timeout() to handle queue waking.
+The latest version of the vendor driver has this change already applied.
 
-It is hooked up to netdev_ops->ndo_tx_timeout() which is invoked when
-the qdisc watchdog triggers after dev->watchdog_timeout time elapses
-after the queue is stopped without a subsequent wake.
+Acked-by: Larry.Finger <Larry.Finger@lwfinger.net>
 
-This method is a therefore executed after a hard timeout, meaning that
-the device should probably be reset, whereas maybe_tx_wakeup() is
-normal processing meant to drive the engine of TX flow control.
-
-In the context of sunvnet, vnet_tx_timeout() should probably reset the
-LDC channel(s) of the unresponsive peer(s).
-
-Thanks.
+Larry
