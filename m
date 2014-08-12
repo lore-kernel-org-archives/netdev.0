@@ -1,7 +1,7 @@
 From: Wei Liu <wei.liu2@citrix.com>
-Subject: [PATCH net v4 2/3] xen-netback: don't stop dealloc kthread too early
-Date: Tue, 12 Aug 2014 11:48:07 +0100
-Message-ID: <1407840488-20026-3-git-send-email-wei.liu2@citrix.com>
+Subject: [PATCH net v4 3/3] xen-netback: remove loop waiting function
+Date: Tue, 12 Aug 2014 11:48:08 +0100
+Message-ID: <1407840488-20026-4-git-send-email-wei.liu2@citrix.com>
 References: <1407840488-20026-1-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,165 +9,76 @@ Cc: <ian.campbell@citrix.com>, <zoltan.kiss@citrix.com>,
 	<david.vrabel@citrix.com>, Wei Liu <wei.liu2@citrix.com>
 To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:65100 "EHLO SMTP.CITRIX.COM"
+Received: from smtp.citrix.com ([66.165.176.89]:22181 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752080AbaHLKsM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Aug 2014 06:48:12 -0400
+	id S1752102AbaHLKsN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Aug 2014 06:48:13 -0400
 In-Reply-To: <1407840488-20026-1-git-send-email-wei.liu2@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Reference count the number of packets in host stack, so that we don't
-stop the deallocation thread too early. If not, we can end up with
-xenvif_free permanently waiting for deallocation thread to unmap grefs.
+The original implementation relies on a loop to check if all inflight
+packets are freed. Now we have proper reference counting, there's no
+need to use loop anymore.
 
-Reported-by: Thomas Leonard <talex5@gmail.com>
 Signed-off-by: Wei Liu <wei.liu2@citrix.com>
 Cc: Ian Campbell <ian.campbell@citrix.com>
 Cc: Zoltan Kiss <zoltan.kiss@citrix.com>
 ---
- drivers/net/xen-netback/common.h    |    5 +++++
- drivers/net/xen-netback/interface.c |   18 ++++++++++++++++++
- drivers/net/xen-netback/netback.c   |   26 +++++++++++++++++++-------
- 3 files changed, 42 insertions(+), 7 deletions(-)
+ drivers/net/xen-netback/interface.c |   29 -----------------------------
+ 1 file changed, 29 deletions(-)
 
-diff --git a/drivers/net/xen-netback/common.h b/drivers/net/xen-netback/common.h
-index ef3026f..d4eb8d2 100644
---- a/drivers/net/xen-netback/common.h
-+++ b/drivers/net/xen-netback/common.h
-@@ -165,6 +165,7 @@ struct xenvif_queue { /* Per-queue data for xenvif */
- 	u16 dealloc_ring[MAX_PENDING_REQS];
- 	struct task_struct *dealloc_task;
- 	wait_queue_head_t dealloc_wq;
-+	atomic_t inflight_packets;
- 
- 	/* Use kthread for guest RX */
- 	struct task_struct *task;
-@@ -329,4 +330,8 @@ extern unsigned int xenvif_max_queues;
- extern struct dentry *xen_netback_dbg_root;
- #endif
- 
-+void xenvif_skb_zerocopy_prepare(struct xenvif_queue *queue,
-+				 struct sk_buff *skb);
-+void xenvif_skb_zerocopy_complete(struct xenvif_queue *queue);
-+
- #endif /* __XEN_NETBACK__COMMON_H__ */
 diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index 5f3d6c0..0aaca90 100644
+index 0aaca90..e29e15d 100644
 --- a/drivers/net/xen-netback/interface.c
 +++ b/drivers/net/xen-netback/interface.c
-@@ -43,6 +43,23 @@
- #define XENVIF_QUEUE_LENGTH 32
- #define XENVIF_NAPI_WEIGHT  64
- 
-+/* This function is used to set SKBTX_DEV_ZEROCOPY as well as
-+ * increasing the inflight counter. We need to increase the inflight
-+ * counter because core driver calls into xenvif_zerocopy_callback
-+ * which calls xenvif_skb_zerocopy_complete.
-+ */
-+void xenvif_skb_zerocopy_prepare(struct xenvif_queue *queue,
-+				 struct sk_buff *skb)
-+{
-+	skb_shinfo(skb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
-+	atomic_inc(&queue->inflight_packets);
-+}
-+
-+void xenvif_skb_zerocopy_complete(struct xenvif_queue *queue)
-+{
-+	atomic_dec(&queue->inflight_packets);
-+}
-+
- static inline void xenvif_stop_queue(struct xenvif_queue *queue)
- {
- 	struct net_device *dev = queue->vif->dev;
-@@ -557,6 +574,7 @@ int xenvif_connect(struct xenvif_queue *queue, unsigned long tx_ring_ref,
- 
- 	init_waitqueue_head(&queue->wq);
- 	init_waitqueue_head(&queue->dealloc_wq);
-+	atomic_set(&queue->inflight_packets, 0);
- 
- 	if (tx_evtchn == rx_evtchn) {
- 		/* feature-split-event-channels == 0 */
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index 4734472..08f6599 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -1525,10 +1525,12 @@ static int xenvif_handle_frag_list(struct xenvif_queue *queue, struct sk_buff *s
- 	/* remove traces of mapped pages and frag_list */
- 	skb_frag_list_init(skb);
- 	uarg = skb_shinfo(skb)->destructor_arg;
-+	/* increase inflight counter to offset decrement in callback */
-+	atomic_inc(&queue->inflight_packets);
- 	uarg->callback(uarg, true);
- 	skb_shinfo(skb)->destructor_arg = NULL;
- 
--	skb_shinfo(nskb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
-+	xenvif_skb_zerocopy_prepare(queue, nskb);
- 	kfree_skb(nskb);
- 
- 	return 0;
-@@ -1589,7 +1591,7 @@ static int xenvif_tx_submit(struct xenvif_queue *queue)
- 				if (net_ratelimit())
- 					netdev_err(queue->vif->dev,
- 						   "Not enough memory to consolidate frag_list!\n");
--				skb_shinfo(skb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
-+				xenvif_skb_zerocopy_prepare(queue, skb);
- 				kfree_skb(skb);
- 				continue;
- 			}
-@@ -1609,7 +1611,7 @@ static int xenvif_tx_submit(struct xenvif_queue *queue)
- 				   "Can't setup checksum in net_tx_action\n");
- 			/* We have to set this flag to trigger the callback */
- 			if (skb_shinfo(skb)->destructor_arg)
--				skb_shinfo(skb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
-+				xenvif_skb_zerocopy_prepare(queue, skb);
- 			kfree_skb(skb);
- 			continue;
- 		}
-@@ -1641,7 +1643,7 @@ static int xenvif_tx_submit(struct xenvif_queue *queue)
- 		 * skb. E.g. the __pskb_pull_tail earlier can do such thing.
- 		 */
- 		if (skb_shinfo(skb)->destructor_arg) {
--			skb_shinfo(skb)->tx_flags |= SKBTX_DEV_ZEROCOPY;
-+			xenvif_skb_zerocopy_prepare(queue, skb);
- 			queue->stats.tx_zerocopy_sent++;
- 		}
- 
-@@ -1681,6 +1683,7 @@ void xenvif_zerocopy_callback(struct ubuf_info *ubuf, bool zerocopy_success)
- 		queue->stats.tx_zerocopy_success++;
- 	else
- 		queue->stats.tx_zerocopy_fail++;
-+	xenvif_skb_zerocopy_complete(queue);
+@@ -660,25 +660,6 @@ void xenvif_carrier_off(struct xenvif *vif)
+ 	rtnl_unlock();
  }
  
- static inline void xenvif_tx_dealloc_action(struct xenvif_queue *queue)
-@@ -2058,15 +2061,24 @@ int xenvif_kthread_guest_rx(void *data)
- 	return 0;
- }
- 
-+static bool xenvif_dealloc_kthread_should_stop(struct xenvif_queue *queue)
-+{
-+	/* Dealloc thread must remain running until all inflight
-+	 * packets complete.
-+	 */
-+	return kthread_should_stop() &&
-+		!atomic_read(&queue->inflight_packets);
-+}
-+
- int xenvif_dealloc_kthread(void *data)
+-static void xenvif_wait_unmap_timeout(struct xenvif_queue *queue,
+-				      unsigned int worst_case_skb_lifetime)
+-{
+-	int i, unmap_timeout = 0;
+-
+-	for (i = 0; i < MAX_PENDING_REQS; ++i) {
+-		if (queue->grant_tx_handle[i] != NETBACK_INVALID_HANDLE) {
+-			unmap_timeout++;
+-			schedule_timeout(msecs_to_jiffies(1000));
+-			if (unmap_timeout > worst_case_skb_lifetime &&
+-			    net_ratelimit())
+-				netdev_err(queue->vif->dev,
+-					   "Page still granted! Index: %x\n",
+-					   i);
+-			i = -1;
+-		}
+-	}
+-}
+-
+ void xenvif_disconnect(struct xenvif *vif)
  {
- 	struct xenvif_queue *queue = data;
+ 	struct xenvif_queue *queue = NULL;
+@@ -731,21 +712,11 @@ void xenvif_free(struct xenvif *vif)
+ 	struct xenvif_queue *queue = NULL;
+ 	unsigned int num_queues = vif->num_queues;
+ 	unsigned int queue_index;
+-	/* Here we want to avoid timeout messages if an skb can be legitimately
+-	 * stuck somewhere else. Realistically this could be an another vif's
+-	 * internal or QDisc queue. That another vif also has this
+-	 * rx_drain_timeout_msecs timeout, so give it time to drain out.
+-	 * Although if that other guest wakes up just before its timeout happens
+-	 * and takes only one skb from QDisc, it can hold onto other skbs for a
+-	 * longer period.
+-	 */
+-	unsigned int worst_case_skb_lifetime = (rx_drain_timeout_msecs/1000);
  
--	while (!kthread_should_stop()) {
-+	for (;;) {
- 		wait_event_interruptible(queue->dealloc_wq,
- 					 tx_dealloc_work_todo(queue) ||
--					 kthread_should_stop());
--		if (kthread_should_stop())
-+					 xenvif_dealloc_kthread_should_stop(queue));
-+		if (xenvif_dealloc_kthread_should_stop(queue))
- 			break;
+ 	unregister_netdev(vif->dev);
  
- 		xenvif_tx_dealloc_action(queue);
+ 	for (queue_index = 0; queue_index < num_queues; ++queue_index) {
+ 		queue = &vif->queues[queue_index];
+-		xenvif_wait_unmap_timeout(queue, worst_case_skb_lifetime);
+ 		xenvif_deinit_queue(queue);
+ 	}
+ 
 -- 
 1.7.10.4
