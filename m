@@ -1,46 +1,65 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: [PATCH] allow setting wiphy.perm_addr after driver probe
-Date: Tue, 12 Aug 2014 00:59:14 -0700
-Message-ID: <70001DBA-E1CE-49D6-9A37-6F7CE31B61E6@holtmann.org>
-References: <1407780269.28221.63.camel@chimera> <54DF22CF-59D7-4633-A625-896F58C26A64@holtmann.org> <1407789645.28221.68.camel@chimera> <37210DB5-2911-4FA3-9299-7701C5003945@holtmann.org> <1407791075.28221.74.camel@chimera> <28066DB2-9EA9-4748-9C89-D3FBD3EC51F5@holtmann.org> <1407798738.28221.81.camel@chimera> <52896C9C-8560-4CE4-A1FB-C896D766EC87@holtmann.org> <1407801666.28221.84.camel@chimera>
-Mime-Version: 1.0 (Mac OS X Mail 7.3 \(1878.6\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	"linux-wireless@vger.kernel.org Wireless"
-	<linux-wireless@vger.kernel.org>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-kernel@vger.kernel.org
-To: Daniel Gimpelevich <daniel@gimpelevich.san-francisco.ca.us>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1407801666.28221.84.camel@chimera>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net] tcp: don't allow syn packets without timestamps to pass
+ tcp_tw_recycle logic
+Date: Tue, 12 Aug 2014 10:03:53 +0200
+Message-ID: <1407830633.3312295.151750837.3F816F09@webmail.messagingengine.com>
+References: <69ff43477a795a1117302b11583bc8ea8c5dc811.1407802666.git.hannes@stressinduktion.org>
+ <1407807170.10122.53.camel@edumazet-glaptop2.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:49939 "EHLO
+	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754215AbaHLID4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2014 04:03:56 -0400
+Received: from compute6.internal (compute6.nyi.internal [10.202.2.46])
+	by gateway1.nyi.internal (Postfix) with ESMTP id 5781F23A02
+	for <netdev@vger.kernel.org>; Tue, 12 Aug 2014 04:03:53 -0400 (EDT)
+In-Reply-To: <1407807170.10122.53.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Daniel,
+On Tue, Aug 12, 2014, at 03:32, Eric Dumazet wrote:
+> On Tue, 2014-08-12 at 02:21 +0200, Hannes Frederic Sowa wrote:
+> > If tw_recycle is enabled, non-timestamped SYN packets could get past
+> > the tw_recycle check and create a new connection. This is dangerous
+> > as we cannot verify that segments from an old connection won't be
+> > accepted by the new one in tcp_validate_incoming because of the missing
+> > timestamps. Note that Windows seems to have timestamps disabled by
+> > default. Thus this broken situation could easily arise by a Linux and
+> > Windows box sharing one IP address and talking to a tcp_tw_recycle
+> > enabled server.
+> > 
+> > We don't change the behavior regarding how many SYNs we queue up from
+> > non timestamping hosts (the second tcp_peer_is_proven check), because the
+> > second call to tcp_peer_is_proven does not use the new boolean timestamp
+> > argument at all because PAWS check is disabled.
+> > 
+> > Cc: Florian Westphal <fw@strlen.de>
+> > Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> > ---
+> 
+> Not sure what you try to achieve here.
+>
+> tw_recycle can only be used in very controlled environment, no NAT, and
+> all hosts using timestamps.
+> 
+> If using NAT, then tw_recycle can not be used, even if all hosts are
+> linux boxes with timestamps enabled.
 
->> the way I read the nl80211 code is that the NL80211_CMD_NEW_INTERFACE
->> requires a wiphy device to be specified. And that is actually just a
->> number. So I have no idea what the MAC has to here.
->> 
-> OpenWrt finds a wiphy by its MAC.
+Mostly me being pessimistic. ;)
 
-maybe that is the first problem right there. I see that over sysfs you get phy80211/macaddress. However if you do a dump via NL80211_CMD_GET_WIPHY then you do not have the MAC address there.
+I noticed that tw_recycle nonetheless tries to cope with the fact that
+sometimes non-timestamped SYNs arrive. E.g. the scheduling of the
+time-wait timeout only happens for only RTO in case the host saw
+timestamps on the connection, otherwise normal TIMEWAIT_MSL applies.
 
->> Why does the wiphy need to know the MAC if it is always specified from
->> userspace when actually creating the new netdev interface. Works for
->> P2P devices, so why wouldn't it work for access point and station
->> mode?
->> 
-> A MAC can be specified for the netdev, but it is assigned to a wiphy
-> identified by its MAC.
+So I wanted to stop "illegal" connection setups and trade that against
+possible data corruption in case someone switches this knob on in a not
+controlled environment.
 
-That you find the wiphy device by its MAC address seems to be your problem. As I said, on nl80211 you are using the wiphy unique number and not a MAC address.
-
-If you want to use some sort of device discovery via sysfs, then use phy80211/index and other attributes to uniquely identify the device. Basing this on the MAC address seems dangerous. Especially since it might be not valid or an identical default for all cards.
-
-Regards
-
-Marcel
+Bye,
+Hannes
