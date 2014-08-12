@@ -1,168 +1,119 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH net-next 3/3] sunvnet: Schedule maybe_tx_wakeup as a tasklet
- from ldc_rx path
-Date: Tue, 12 Aug 2014 10:35:31 -0400
-Message-ID: <20140812143531.GJ2404@oracle.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH] tcp: don't use timestamp from repaired skb-s to calculate RTT
+Date: Tue, 12 Aug 2014 07:53:57 -0700
+Message-ID: <CAK6E8=c7VEJViP_KeqCBo_dePL-wh8J5+nu=YGrrPq2GKtmBBQ@mail.gmail.com>
+References: <1407836714-26813-1-git-send-email-avagin@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: sowmini.varadhan@oracle.com, davem@davemloft.net,
-	raghuram.kothakota@oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:26914 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752625AbaHLOfj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2014 10:35:39 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Pavel Emelyanov <xemul@parallels.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Andrey Vagin <avagin@openvz.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1407836714-26813-1-git-send-email-avagin@openvz.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Tue, Aug 12, 2014 at 2:45 AM, Andrey Vagin <avagin@openvz.org> wrote:
+> We don't know right timestamp for repaired skb-s. Wrong RTT estimations
+> isn't good, because some congestion modules heavily depends on it.
+>
+> This patch adds the TCPCB_REPAIRED flag, which is included in
+> TCPCB_RETRANS.
+>
+> Thanks to Eric for the advice how to fix this issue.
+>
+> This patch fixes the warning:
+> [  879.562947] WARNING: CPU: 0 PID: 2825 at net/ipv4/tcp_input.c:3078 tcp_ack+0x11f5/0x1380()
+> [  879.567253] CPU: 0 PID: 2825 Comm: socket-tcpbuf-l Not tainted 3.16.0-next-20140811 #1
+> [  879.567829] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
+> [  879.568177]  0000000000000000 00000000c532680c ffff880039643d00 ffffffff817aa2d2
+> [  879.568776]  0000000000000000 ffff880039643d38 ffffffff8109afbd ffff880039d6ba80
+> [  879.569386]  ffff88003a449800 000000002983d6bd 0000000000000000 000000002983d6bc
+> [  879.569982] Call Trace:
+> [  879.570264]  [<ffffffff817aa2d2>] dump_stack+0x4d/0x66
+> [  879.570599]  [<ffffffff8109afbd>] warn_slowpath_common+0x7d/0xa0
+> [  879.570935]  [<ffffffff8109b0ea>] warn_slowpath_null+0x1a/0x20
+> [  879.571292]  [<ffffffff816d0a05>] tcp_ack+0x11f5/0x1380
+> [  879.571614]  [<ffffffff816d10bd>] tcp_rcv_established+0x1ed/0x710
+> [  879.571958]  [<ffffffff816dc9da>] tcp_v4_do_rcv+0x10a/0x370
+> [  879.572315]  [<ffffffff81657459>] release_sock+0x89/0x1d0
+> [  879.572642]  [<ffffffff816c81a0>] do_tcp_setsockopt.isra.36+0x120/0x860
+> [  879.573000]  [<ffffffff8110a52e>] ? rcu_read_lock_held+0x6e/0x80
+> [  879.573352]  [<ffffffff816c8912>] tcp_setsockopt+0x32/0x40
+> [  879.573678]  [<ffffffff81654ac4>] sock_common_setsockopt+0x14/0x20
+> [  879.574031]  [<ffffffff816537b0>] SyS_setsockopt+0x80/0xf0
+> [  879.574393]  [<ffffffff817b40a9>] system_call_fastpath+0x16/0x1b
+> [  879.574730] ---[ end trace a17cbc38eb8c5c00 ]---
+>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Pavel Emelyanov <xemul@parallels.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Signed-off-by: Andrey Vagin <avagin@openvz.org>
+> ---
+>  include/net/tcp.h |  4 +++-
+>  net/ipv4/tcp.c    | 16 +++++++++-------
+>  2 files changed, 12 insertions(+), 8 deletions(-)
+>
+> diff --git a/include/net/tcp.h b/include/net/tcp.h
+> index dafa1cb..36f5525 100644
+> --- a/include/net/tcp.h
+> +++ b/include/net/tcp.h
+> @@ -705,8 +705,10 @@ struct tcp_skb_cb {
+>  #define TCPCB_SACKED_RETRANS   0x02    /* SKB retransmitted            */
+>  #define TCPCB_LOST             0x04    /* SKB is lost                  */
+>  #define TCPCB_TAGBITS          0x07    /* All tag bits                 */
+> +#define TCPCB_REPAIRED         0x10    /* SKB repaired (no skb_mstamp) */
+>  #define TCPCB_EVER_RETRANS     0x80    /* Ever retransmitted frame     */
+> -#define TCPCB_RETRANS          (TCPCB_SACKED_RETRANS|TCPCB_EVER_RETRANS)
+> +#define TCPCB_RETRANS          (TCPCB_SACKED_RETRANS|TCPCB_EVER_RETRANS| \
+> +                               TCPCB_REPAIRED)
+>
+>         __u8            ip_dsfield;     /* IPv4 tos or IPv6 dsfield     */
+>         /* 1 byte hole */
+> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+> index 181b70e..cb5f548 100644
+> --- a/net/ipv4/tcp.c
+> +++ b/net/ipv4/tcp.c
+> @@ -1188,13 +1188,6 @@ new_segment:
+>                                         goto wait_for_memory;
+>
+>                                 /*
+> -                                * All packets are restored as if they have
+> -                                * already been sent.
+> -                                */
+> -                               if (tp->repair)
+> -                                       TCP_SKB_CB(skb)->when = tcp_time_stamp;
+> -
+> -                               /*
+>                                  * Check whether we can use HW checksum.
+>                                  */
+>                                 if (sk->sk_route_caps & NETIF_F_ALL_CSUM)
+> @@ -1203,6 +1196,15 @@ new_segment:
+>                                 skb_entail(sk, skb);
+>                                 copy = size_goal;
+>                                 max = size_goal;
+> +
+> +                               /* All packets are restored as if they have
+> +                                * already been sent. skb_mstamp isn't set to
+> +                                * avoid wrong rtt estimation.
+> +                                */
+> +                               if (tp->repair) {
+> +                                       TCP_SKB_CB(skb)->sacked |= TCPCB_REPAIRED;
+> +                                       TCP_SKB_CB(skb)->when = tcp_time_stamp;
+But this still allow RTT samples from TCP timestamp options even if
+the packet is marked retransmitted/repaired in tcp_ack_update_rtt()?
 
-This patch must be applied after
-"[PATCH net-next 2/3] sunvnet: Do not spin in an infinite loop when vio_ldc_send() returns EAGAIN"
-
-At the tail of vnet_event(), if we hit the maybe_tx_wakeup()
-condition, we try to take the netif_tx_lock() in the
-recv-interrupt-context and can deadlock with dev_watchdog().
-Two changes to fix this:
-
-- The contents of maybe_tx_wakeup() should be moved into
-  vnet_tx_timeout
-- vnet_event() should kick off a tasklet that triggers
-  netif_wake_queue()
-
-Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Acked-by: Raghuram Kothakota <raghuram.kothakota@oracle.com>
-
----
- drivers/net/ethernet/sun/sunvnet.c | 52 +++++++++++++++++++++++---------------
- drivers/net/ethernet/sun/sunvnet.h |  4 +++
- 2 files changed, 36 insertions(+), 20 deletions(-)
-
-diff --git a/drivers/net/ethernet/sun/sunvnet.c b/drivers/net/ethernet/sun/sunvnet.c
-index 39c39bf..c75a638 100644
---- a/drivers/net/ethernet/sun/sunvnet.c
-+++ b/drivers/net/ethernet/sun/sunvnet.c
-@@ -32,6 +32,8 @@ MODULE_DESCRIPTION("Sun LDOM virtual network driver");
- MODULE_LICENSE("GPL");
- MODULE_VERSION(DRV_MODULE_VERSION);
- 
-+static void vnet_tx_timeout(struct net_device *dev);
-+
- /* Heuristic for the number of times to exponentially backoff and
-  * retry sending an LDC trigger when EAGAIN is encountered
-  */
-@@ -489,28 +491,13 @@ static int handle_mcast(struct vnet_port *port, void *msgbuf)
- 	return 0;
- }
- 
--static void maybe_tx_wakeup(struct vnet *vp)
-+static void maybe_tx_wakeup(unsigned long param)
- {
-+	struct vnet *vp = (struct vnet *)param;
- 	struct net_device *dev = vp->dev;
- 
- 	netif_tx_lock(dev);
--	if (likely(netif_queue_stopped(dev))) {
--		struct vnet_port *port;
--		int wake = 1;
--
--		list_for_each_entry(port, &vp->port_list, list) {
--			struct vio_dring_state *dr;
--
--			dr = &port->vio.drings[VIO_DRIVER_TX_RING];
--			if (vnet_tx_dring_avail(dr) <
--			    VNET_TX_WAKEUP_THRESH(dr)) {
--				wake = 0;
--				break;
--			}
--		}
--		if (wake)
--			netif_wake_queue(dev);
--	}
-+	vnet_tx_timeout(dev);
- 	netif_tx_unlock(dev);
- }
- 
-@@ -587,8 +574,13 @@ static void vnet_event(void *arg, int event)
- 			break;
- 	}
- 	spin_unlock(&vio->lock);
-+	/* Kick off a tasklet to wake the queue.  We cannot call
-+	 * maybe_tx_wakeup directly here because we could deadlock on
-+	 * netif_tx_lock() with dev_watchdog()
-+	 */
- 	if (unlikely(tx_wakeup && err != -ECONNRESET))
--		maybe_tx_wakeup(port->vp);
-+		tasklet_schedule(&port->vp->vnet_tx_wakeup);
-+
- 	local_irq_restore(flags);
- }
- 
-@@ -764,7 +756,25 @@ out_dropped:
- 
- static void vnet_tx_timeout(struct net_device *dev)
- {
--	/* XXX Implement me XXX */
-+	struct vnet *vp = netdev_priv(dev);
-+
-+	if (likely(netif_queue_stopped(dev))) {
-+		struct vnet_port *port;
-+		int wake = 1;
-+
-+		list_for_each_entry(port, &vp->port_list, list) {
-+			struct vio_dring_state *dr;
-+
-+			dr = &port->vio.drings[VIO_DRIVER_TX_RING];
-+			if (vnet_tx_dring_avail(dr) <
-+			    VNET_TX_WAKEUP_THRESH(dr)) {
-+				wake = 0;
-+				break;
-+			}
-+		}
-+		if (wake)
-+			netif_wake_queue(dev);
-+	}
- }
- 
- static int vnet_open(struct net_device *dev)
-@@ -1071,6 +1081,7 @@ static struct vnet *vnet_new(const u64 *local_mac)
- 	vp = netdev_priv(dev);
- 
- 	spin_lock_init(&vp->lock);
-+	tasklet_init(&vp->vnet_tx_wakeup, maybe_tx_wakeup, (unsigned long)vp);
- 	vp->dev = dev;
- 
- 	INIT_LIST_HEAD(&vp->port_list);
-@@ -1130,6 +1141,7 @@ static void vnet_cleanup(void)
- 		vp = list_first_entry(&vnet_list, struct vnet, list);
- 		list_del(&vp->list);
- 		dev = vp->dev;
-+		tasklet_kill(&vp->vnet_tx_wakeup);
- 		/* vio_unregister_driver() should have cleaned up port_list */
- 		BUG_ON(!list_empty(&vp->port_list));
- 		unregister_netdev(dev);
-diff --git a/drivers/net/ethernet/sun/sunvnet.h b/drivers/net/ethernet/sun/sunvnet.h
-index d347a5b..0e872aa 100644
---- a/drivers/net/ethernet/sun/sunvnet.h
-+++ b/drivers/net/ethernet/sun/sunvnet.h
-@@ -1,6 +1,8 @@
- #ifndef _SUNVNET_H
- #define _SUNVNET_H
- 
-+#include <linux/interrupt.h>
-+
- #define DESC_NCOOKIES(entry_size)	\
- 	((entry_size) - sizeof(struct vio_net_desc))
- 
-@@ -78,6 +80,8 @@ struct vnet {
- 
- 	struct list_head	list;
- 	u64			local_mac;
-+
-+	struct tasklet_struct	vnet_tx_wakeup;
- };
- 
- #endif /* _SUNVNET_H */
--- 
-1.8.4.2
+> +                               }
+>                         }
+>
+>                         /* Try to append data to the end of skb. */
+> --
+> 1.9.3
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
