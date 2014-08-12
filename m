@@ -1,119 +1,89 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [PATCH] tcp: don't use timestamp from repaired skb-s to calculate RTT
-Date: Tue, 12 Aug 2014 07:53:57 -0700
-Message-ID: <CAK6E8=c7VEJViP_KeqCBo_dePL-wh8J5+nu=YGrrPq2GKtmBBQ@mail.gmail.com>
-References: <1407836714-26813-1-git-send-email-avagin@openvz.org>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: [PATCH] m68k/atari: EtherNEC - ethernet support (ne),>
+Date: Tue, 12 Aug 2014 10:55:46 -0400
+Message-ID: <53EA2AF2.3040709@windriver.com>
+References: <1407636153-24864-1-git-send-email-schmitzmic@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Andrey Vagin <avagin@openvz.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1407836714-26813-1-git-send-email-avagin@openvz.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <geert@linux-m68k.org>, <debian-68k@lists.debian.org>,
+	<davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Michael Schmitz <schmitz@debian.org>
+To: Michael Schmitz <schmitzmic@gmail.com>,
+	<linux-m68k@vger.kernel.org>
+Return-path: <linux-m68k-owner@vger.kernel.org>
+In-Reply-To: <1407636153-24864-1-git-send-email-schmitzmic@gmail.com>
+Sender: linux-m68k-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 12, 2014 at 2:45 AM, Andrey Vagin <avagin@openvz.org> wrote:
-> We don't know right timestamp for repaired skb-s. Wrong RTT estimations
-> isn't good, because some congestion modules heavily depends on it.
->
-> This patch adds the TCPCB_REPAIRED flag, which is included in
-> TCPCB_RETRANS.
->
-> Thanks to Eric for the advice how to fix this issue.
->
-> This patch fixes the warning:
-> [  879.562947] WARNING: CPU: 0 PID: 2825 at net/ipv4/tcp_input.c:3078 tcp_ack+0x11f5/0x1380()
-> [  879.567253] CPU: 0 PID: 2825 Comm: socket-tcpbuf-l Not tainted 3.16.0-next-20140811 #1
-> [  879.567829] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
-> [  879.568177]  0000000000000000 00000000c532680c ffff880039643d00 ffffffff817aa2d2
-> [  879.568776]  0000000000000000 ffff880039643d38 ffffffff8109afbd ffff880039d6ba80
-> [  879.569386]  ffff88003a449800 000000002983d6bd 0000000000000000 000000002983d6bc
-> [  879.569982] Call Trace:
-> [  879.570264]  [<ffffffff817aa2d2>] dump_stack+0x4d/0x66
-> [  879.570599]  [<ffffffff8109afbd>] warn_slowpath_common+0x7d/0xa0
-> [  879.570935]  [<ffffffff8109b0ea>] warn_slowpath_null+0x1a/0x20
-> [  879.571292]  [<ffffffff816d0a05>] tcp_ack+0x11f5/0x1380
-> [  879.571614]  [<ffffffff816d10bd>] tcp_rcv_established+0x1ed/0x710
-> [  879.571958]  [<ffffffff816dc9da>] tcp_v4_do_rcv+0x10a/0x370
-> [  879.572315]  [<ffffffff81657459>] release_sock+0x89/0x1d0
-> [  879.572642]  [<ffffffff816c81a0>] do_tcp_setsockopt.isra.36+0x120/0x860
-> [  879.573000]  [<ffffffff8110a52e>] ? rcu_read_lock_held+0x6e/0x80
-> [  879.573352]  [<ffffffff816c8912>] tcp_setsockopt+0x32/0x40
-> [  879.573678]  [<ffffffff81654ac4>] sock_common_setsockopt+0x14/0x20
-> [  879.574031]  [<ffffffff816537b0>] SyS_setsockopt+0x80/0xf0
-> [  879.574393]  [<ffffffff817b40a9>] system_call_fastpath+0x16/0x1b
-> [  879.574730] ---[ end trace a17cbc38eb8c5c00 ]---
->
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: Pavel Emelyanov <xemul@parallels.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Signed-off-by: Andrey Vagin <avagin@openvz.org>
-> ---
->  include/net/tcp.h |  4 +++-
->  net/ipv4/tcp.c    | 16 +++++++++-------
->  2 files changed, 12 insertions(+), 8 deletions(-)
->
-> diff --git a/include/net/tcp.h b/include/net/tcp.h
-> index dafa1cb..36f5525 100644
-> --- a/include/net/tcp.h
-> +++ b/include/net/tcp.h
-> @@ -705,8 +705,10 @@ struct tcp_skb_cb {
->  #define TCPCB_SACKED_RETRANS   0x02    /* SKB retransmitted            */
->  #define TCPCB_LOST             0x04    /* SKB is lost                  */
->  #define TCPCB_TAGBITS          0x07    /* All tag bits                 */
-> +#define TCPCB_REPAIRED         0x10    /* SKB repaired (no skb_mstamp) */
->  #define TCPCB_EVER_RETRANS     0x80    /* Ever retransmitted frame     */
-> -#define TCPCB_RETRANS          (TCPCB_SACKED_RETRANS|TCPCB_EVER_RETRANS)
-> +#define TCPCB_RETRANS          (TCPCB_SACKED_RETRANS|TCPCB_EVER_RETRANS| \
-> +                               TCPCB_REPAIRED)
->
->         __u8            ip_dsfield;     /* IPv4 tos or IPv6 dsfield     */
->         /* 1 byte hole */
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index 181b70e..cb5f548 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -1188,13 +1188,6 @@ new_segment:
->                                         goto wait_for_memory;
->
->                                 /*
-> -                                * All packets are restored as if they have
-> -                                * already been sent.
-> -                                */
-> -                               if (tp->repair)
-> -                                       TCP_SKB_CB(skb)->when = tcp_time_stamp;
-> -
-> -                               /*
->                                  * Check whether we can use HW checksum.
->                                  */
->                                 if (sk->sk_route_caps & NETIF_F_ALL_CSUM)
-> @@ -1203,6 +1196,15 @@ new_segment:
->                                 skb_entail(sk, skb);
->                                 copy = size_goal;
->                                 max = size_goal;
-> +
-> +                               /* All packets are restored as if they have
-> +                                * already been sent. skb_mstamp isn't set to
-> +                                * avoid wrong rtt estimation.
-> +                                */
-> +                               if (tp->repair) {
-> +                                       TCP_SKB_CB(skb)->sacked |= TCPCB_REPAIRED;
-> +                                       TCP_SKB_CB(skb)->when = tcp_time_stamp;
-But this still allow RTT samples from TCP timestamp options even if
-the packet is marked retransmitted/repaired in tcp_ack_update_rtt()?
+[Subject added from patch]
 
-> +                               }
->                         }
->
->                         /* Try to append data to the end of skb. */
-> --
-> 1.9.3
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On 14-08-09 10:02 PM, Michael Schmitz wrote:
+> new version of the patch adding Atari EtherNEC (IRQ-less ROM port ISA NE2k
+> adapter) support to ne.c, as announced before.
+> 
+> Thanks,
+> 
+> 	Michael Schmitz
+
+Please don't send subjectless mails by attaching a commit to a mail,
+just use git send-email directly.
+
+> 
+> From 224ce049f71577d6ec380aeb94a4d25c3c4016a7 Mon Sep 17 00:00:00 2001
+> From: Michael Schmitz <schmitzmic@gmail.com>
+> Date: Sat, 6 Apr 2013 13:26:42 +1300
+> Subject: [PATCH] m68k/atari: EtherNEC - ethernet support (ne)
+> 
+> Support for Atari EtherNEC ROM port adapters in ne.c
+
+Is that all there is to say about these?  Nothing about which platforms
+might have it, or what it was tested on or ... ?
+
+> 
+> Signed-off-by: Michael Schmitz <schmitz@debian.org>
+> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+> ---
+>  drivers/net/ethernet/8390/Kconfig |    3 ++-
+>  drivers/net/ethernet/8390/ne.c    |    2 ++
+>  2 files changed, 4 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/8390/Kconfig b/drivers/net/ethernet/8390/Kconfig
+> index 0988811..2d89bd0 100644
+> --- a/drivers/net/ethernet/8390/Kconfig
+> +++ b/drivers/net/ethernet/8390/Kconfig
+> @@ -91,7 +91,8 @@ config MCF8390
+>  
+>  config NE2000
+>  	tristate "NE2000/NE1000 support"
+> -	depends on (ISA || (Q40 && m) || M32R || MACH_TX49XX)
+> +	depends on (ISA || (Q40 && m) || M32R || MACH_TX49XX || \
+> +		    ATARI_ETHERNEC)
+>  	select CRC32
+>  	---help---
+>  	  If you have a network (Ethernet) card of this type, say Y and read
+> diff --git a/drivers/net/ethernet/8390/ne.c b/drivers/net/ethernet/8390/ne.c
+> index 58eaa8f..de566fb 100644
+> --- a/drivers/net/ethernet/8390/ne.c
+> +++ b/drivers/net/ethernet/8390/ne.c
+> @@ -169,6 +169,8 @@ bad_clone_list[] __initdata = {
+>  #elif defined(CONFIG_PLAT_OAKS32R)  || \
+>     defined(CONFIG_MACH_TX49XX)
+>  #  define DCR_VAL 0x48		/* 8-bit mode */
+> +#elif defined(CONFIG_ATARI)	/* 8-bit mode on Atari, normal on Q40 */
+> +#  define DCR_VAL (MACH_IS_ATARI ? 0x48 : 0x49)
+
+This doesn't make sense.  Is not MACH_IS_ATARI set when CONFIG_ATARI
+is set?  And even if it isn't then just set 48 for MACH_IS_ATARI and
+let the default of 49 below take the ATARI=y and IS_ATARI=n case,
+without the need for the ?: operator at all.  On top of that, why
+aren't you using the ATARI_ETHERNEC option here for your 48 trigger,
+instead of the much higher arch/mach level triggers at all?
+
+P.
+--
+
+>  #else
+>  #  define DCR_VAL 0x49
+>  #endif
+> 
