@@ -1,50 +1,54 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH stable 3.4 1/2] ipv4: move route garbage collector to
- work queue
-Date: Tue, 12 Aug 2014 13:23:23 -0700
-Message-ID: <1407875003.6804.0.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <fc0168a71c064457c18f2563371176380d0012c7.1407796232.git.mleitner@redhat.com>
-	 <1407869404.27163.5.camel@localhost>
+From: akpm@linux-foundation.org
+Subject: [patch 1/1] drivers/net/irda/donauboe.c: convert to
+ module_pci_driver
+Date: Tue, 12 Aug 2014 13:31:54 -0700
+Message-ID: <53ea79ba.8fEEEBaYTgGJgBaz%akpm@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Marcelo Ricardo Leitner <mleitner@redhat.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Hannes Frederic Sowa <hannes@redhat.com>
+To: samuel@sortiz.org, netdev@vger.kernel.org,
+	akpm@linux-foundation.org, clbchenlibo.chen@huawei.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f182.google.com ([209.85.192.182]:53621 "EHLO
-	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753505AbaHLUXY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2014 16:23:24 -0400
-Received: by mail-pd0-f182.google.com with SMTP id fp1so13203948pdb.13
-        for <netdev@vger.kernel.org>; Tue, 12 Aug 2014 13:23:24 -0700 (PDT)
-In-Reply-To: <1407869404.27163.5.camel@localhost>
+Received: from mail-oa0-f73.google.com ([209.85.219.73]:44532 "EHLO
+	mail-oa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751247AbaHLUiv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2014 16:38:51 -0400
+Received: by mail-oa0-f73.google.com with SMTP id g18so1938539oah.0
+        for <netdev@vger.kernel.org>; Tue, 12 Aug 2014 13:38:51 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2014-08-12 at 20:50 +0200, Hannes Frederic Sowa wrote:
-> On Mo, 2014-08-11 at 19:41 -0300, Marcelo Ricardo Leitner wrote:
-> > Currently the route garbage collector gets called by dst_alloc() if it
-> > have more entries than the threshold. But it's an expensive call, that
-> > don't really need to be done by then.
-> > 
-> > Another issue with current way is that it allows running the garbage
-> > collector with the same start parameters on multiple CPUs at once, which
-> > is not optimal. A system may even soft lockup if the cache is big enough
-> > as the garbage collectors will be fighting over the hash lock entries.
-> > 
-> > This patch thus moves the garbage collector to run asynchronously on a
-> > work queue, much similar to how rt_expire_check runs.
-> > 
-> > There is one condition left that allows multiple executions, which is
-> > handled by the next patch.
-> > 
-> > Signed-off-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
-> > Cc: Hannes Frederic Sowa <hannes@redhat.com>
-> 
-> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+From: Libo Chen <clbchenlibo.chen@huawei.com>
+Subject: drivers/net/irda/donauboe.c: convert to module_pci_driver
 
+Signed-off-by: Libo Chen <libo.chen@huawei.com>
+Cc: Samuel Ortiz <samuel@sortiz.org>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
 
-This does not look as stable material.
+ drivers/net/irda/donauboe.c |   15 +--------------
+ 1 file changed, 1 insertion(+), 14 deletions(-)
 
-One can always disable route cache in 3.4 kernels
+diff -puN drivers/net/irda/donauboe.c~drivers-net-irda-donauboe-convert-to-module_pci_driver drivers/net/irda/donauboe.c
+--- a/drivers/net/irda/donauboe.c~drivers-net-irda-donauboe-convert-to-module_pci_driver
++++ a/drivers/net/irda/donauboe.c
+@@ -1755,17 +1755,4 @@ static struct pci_driver donauboe_pci_dr
+ 	.resume		= toshoboe_wakeup 
+ };
+ 
+-static int __init
+-donauboe_init (void)
+-{
+-  return pci_register_driver(&donauboe_pci_driver);
+-}
+-
+-static void __exit
+-donauboe_cleanup (void)
+-{
+-  pci_unregister_driver(&donauboe_pci_driver);
+-}
+-
+-module_init(donauboe_init);
+-module_exit(donauboe_cleanup);
++module_pci_driver(donauboe_pci_driver);
+_
