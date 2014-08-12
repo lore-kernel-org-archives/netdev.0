@@ -1,75 +1,87 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: [PATCH net 1/2] xen-netback: fix debugfs write length check
-Date: Tue, 12 Aug 2014 11:59:29 +0100
-Message-ID: <1407841170-20916-2-git-send-email-wei.liu2@citrix.com>
-References: <1407841170-20916-1-git-send-email-wei.liu2@citrix.com>
+From: chenweilong <chenweilong@huawei.com>
+Subject: [PATCH 3.10] ipv6: reallocate addrconf router for ipv6 address, when
+ lo device up
+Date: Tue, 12 Aug 2014 19:53:46 +0800
+Message-ID: <53EA004A.9020300@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <ian.campbell@citrix.com>, <zoltan.kiss@citrix.com>,
-	Wei Liu <wei.liu2@citrix.com>
-To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:31541 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752157AbaHLK7d (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Aug 2014 06:59:33 -0400
-In-Reply-To: <1407841170-20916-1-git-send-email-wei.liu2@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	<stable@vger.kernel.org>, Sabrina Dubroca <sd@queasysnail.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	"Gao feng" <gaofeng@cn.fujitsu.com>, Li Zefan <lizefan@huawei.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Enlarge buffer size and check input length properly, so that we don't
-misuse -ENOSPC.
+Hi,
 
-Note that command like "kickXXXX" is still allowed, that's one patch for
-another day if we really want to be very strict on this.
+Please queue this patch for stable 3.10 kernels.
 
-Reported-by: SeeChen Ng <seechen81@gmail.com>
-Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-Cc: Zoltan Kiss <zoltan.kiss@citrix.com>
-Cc: Ian Campbell <ian.campbell@citrix.com>
+Thanks.
+
+====================
+commit 33d99113b1102c2d2f8603b9ba72d89d915c13f5 upstream.
+
+commit 25fb6ca4ed9cad72f14f61629b68dc03c0d9713f
+"net IPv6 : Fix broken IPv6 routing table after loopback down-up"
+allocates addrconf router for ipv6 address when lo device up.
+but commit a881ae1f625c599b460cc8f8a7fcb1c438f699ad
+"ipv6:don't call addrconf_dst_alloc again when enable lo" breaks
+this behavior.
+
+Since the addrconf router is moved to the garbage list when
+lo device down, we should release this router and rellocate
+a new one for ipv6 address when lo device up.
+
+This patch solves bug 67951 on bugzilla
+https://bugzilla.kernel.org/show_bug.cgi?id=67951
+
+change from v1:
+use ip6_rt_put to repleace ip6_del_rt, thanks Hannes!
+change code style, suggested by Sergei.
+
+CC: Sabrina Dubroca <sd@queasysnail.net>
+CC: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Reported-by: Weilong Chen <chenweilong@huawei.com>
+Signed-off-by: Weilong Chen <chenweilong@huawei.com>
+Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+[weilong: s/ip6_rt_put/dst_release]
+Signed-off-by: Chen Weilong <chenweilong@huawei.com>
+Signed-off-by: Li Zefan <lizefan@huawei.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 ---
- drivers/net/xen-netback/xenbus.c |    9 ++++++---
- 1 file changed, 6 insertions(+), 3 deletions(-)
+ net/ipv6/addrconf.c | 14 ++++++++++++--
+ 1 file changed, 12 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/xen-netback/xenbus.c b/drivers/net/xen-netback/xenbus.c
-index 580517d..4c9041e 100644
---- a/drivers/net/xen-netback/xenbus.c
-+++ b/drivers/net/xen-netback/xenbus.c
-@@ -116,6 +116,7 @@ static int xenvif_read_io_ring(struct seq_file *m, void *v)
- }
- 
- #define XENVIF_KICK_STR "kick"
-+#define BUFFER_SIZE     32
- 
- static ssize_t
- xenvif_write_io_ring(struct file *filp, const char __user *buf, size_t count,
-@@ -124,22 +125,24 @@ xenvif_write_io_ring(struct file *filp, const char __user *buf, size_t count,
- 	struct xenvif_queue *queue =
- 		((struct seq_file *)filp->private_data)->private;
- 	int len;
--	char write[sizeof(XENVIF_KICK_STR)];
-+	char write[BUFFER_SIZE];
- 
- 	/* don't allow partial writes and check the length */
- 	if (*ppos != 0)
- 		return 0;
--	if (count < sizeof(XENVIF_KICK_STR) - 1)
-+	if (count >= sizeof(write))
- 		return -ENOSPC;
- 
- 	len = simple_write_to_buffer(write,
--				     sizeof(write),
-+				     sizeof(write) - 1,
- 				     ppos,
- 				     buf,
- 				     count);
- 	if (len < 0)
- 		return len;
- 
-+	write[len] = '\0';
-+
- 	if (!strncmp(write, XENVIF_KICK_STR, sizeof(XENVIF_KICK_STR) - 1))
- 		xenvif_interrupt(0, (void *)queue);
- 	else {
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index f976c38..be58760 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -2438,8 +2438,18 @@ static void init_loopback(struct net_device *dev)
+ 			if (sp_ifa->flags & (IFA_F_DADFAILED | IFA_F_TENTATIVE))
+ 				continue;
+
+-			if (sp_ifa->rt)
+-				continue;
++			if (sp_ifa->rt) {
++				/* This dst has been added to garbage list when
++				 * lo device down, release this obsolete dst and
++				 * reallocate a new router for ifa.
++				 */
++				if (sp_ifa->rt->dst.obsolete > 0) {
++					dst_release(&sp_ifa->rt->dst);
++					sp_ifa->rt = NULL;
++				} else {
++					continue;
++				}
++			}
+
+ 			sp_rt = addrconf_dst_alloc(idev, &sp_ifa->addr, 0);
+
 -- 
-1.7.10.4
+1.7.12
