@@ -1,46 +1,39 @@
-From: Hyong-Youb Kim <hyong-youb.kim@myricom.com>
-Subject: Re: [PATCH v2] myri10ge: check for DMA mapping errors
-Date: Tue, 12 Aug 2014 19:04:24 +0900
-Message-ID: <53E9E6A8.2060908@myricom.com>
-References: <20140812083518.GA1836@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Hyong-Youb Kim <hykim@myri.com>
-To: Stanislaw Gruszka <sgruszka@redhat.com>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1blp0185.outbound.protection.outlook.com ([207.46.163.185]:10723
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751155AbaHLKFA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Aug 2014 06:05:00 -0400
-In-Reply-To: <20140812083518.GA1836@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Srinivas Kandagatla <srinivas.kandagatla@linaro.org>
+Subject: [PATCH] ath6kl: Add SDIO device ID for QCA6234X Support
+Date: Tue, 12 Aug 2014 11:45:59 +0100
+Message-ID: <1407840359-6658-1-git-send-email-srinivas.kandadgatla@linaro.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-arm-msm@vger.kernel.org,
+	Srinivas Kandagatla <srinivas.kandagatla@linaro.org>
+To: Kalle Valo <kvalo@qca.qualcomm.com>,
+	"John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+From: Srinivas Kandagatla <srinivas.kandagatla@linaro.org>
 
-On 8/12/2014 5:35 PM, Stanislaw Gruszka wrote:
-> On IOMMU systems DMA mapping can fail, we need to check for
-> that possibility.
->
-> Signed-off-by: Stanislaw Gruszka <sgruszka@redhat.com>
-> ---
-> v1 -> v2: check also for errors on myri10ge_xmit()
+This patch adds device ID 402 to support QCA6234X found in APQ8064 SOC
+in IFC6410 board.
 
-It looks okay to me.
+Tested with mainline mmci sdio driver.
 
->   abort_linearize:
-[...]
-> -	tx->info[idx].skb = NULL;
+Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@linaro.org>
+---
+ drivers/net/wireless/ath/ath6kl/sdio.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-I think this last line was a bug.  Thanks for fixing this too.  It would 
-lead the code below to call pci_unmap_page() on the header buffer.  It 
-should call pci_unmap_single() instead.
-
-> -	do {
-[...]
-> -			if (tx->info[idx].skb != NULL)
-> -				pci_unmap_single(mgp->pdev,
-[...]
-> -			else
-> -				pci_unmap_page(mgp->pdev,
+diff --git a/drivers/net/wireless/ath/ath6kl/sdio.c b/drivers/net/wireless/ath/ath6kl/sdio.c
+index 339d89f..eab0ab9 100644
+--- a/drivers/net/wireless/ath/ath6kl/sdio.c
++++ b/drivers/net/wireless/ath/ath6kl/sdio.c
+@@ -1400,6 +1400,7 @@ static const struct sdio_device_id ath6kl_sdio_devices[] = {
+ 	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_AR6003_BASE | 0x1))},
+ 	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_AR6004_BASE | 0x0))},
+ 	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_AR6004_BASE | 0x1))},
++	{SDIO_DEVICE(MANUFACTURER_CODE, (MANUFACTURER_ID_AR6004_BASE | 0x2))},
+ 	{},
+ };
+ 
+-- 
+1.9.1
