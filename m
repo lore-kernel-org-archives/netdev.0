@@ -1,45 +1,99 @@
-From: Jonas Gorski <jogo-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
-Subject: Re: [PATCH] allow setting wiphy.perm_addr after driver probe
-Date: Tue, 12 Aug 2014 10:43:27 +0200
-Message-ID: <CAOiHx=mWkvOf=An=TzWDidK2o4+KGQmz8MAHNo3rSuwbBzUWEg@mail.gmail.com>
-References: <1407780269.28221.63.camel@chimera> <54DF22CF-59D7-4633-A625-896F58C26A64@holtmann.org>
- <1407789645.28221.68.camel@chimera> <37210DB5-2911-4FA3-9299-7701C5003945@holtmann.org>
- <1407791075.28221.74.camel@chimera> <28066DB2-9EA9-4748-9C89-D3FBD3EC51F5@holtmann.org>
- <1407798738.28221.81.camel@chimera> <52896C9C-8560-4CE4-A1FB-C896D766EC87@holtmann.org>
- <1407801666.28221.84.camel@chimera> <70001DBA-E1CE-49D6-9A37-6F7CE31B61E6@holtmann.org>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [net 4/6] i40e: Cleaning up missing null-terminate in
+ conjunction with strncpy
+Date: Tue, 12 Aug 2014 08:43:33 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D174755A8@AcuExch.aculab.com>
+References: <1407832707-26034-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1407832707-26034-5-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Daniel Gimpelevich <daniel-R/FLGEdV95bo9U+Z1CfBt0SU0eOFXohjCypLqA8HKkk@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org Wireless"
-	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <70001DBA-E1CE-49D6-9A37-6F7CE31B61E6-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"nhorman@redhat.com" <nhorman@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: 'Jeff Kirsher' <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:40634 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752153AbaHLIpX convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2014 04:45:23 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 10003-06 for <netdev@vger.kernel.org>;
+ Tue, 12 Aug 2014 09:45:15 +0100 (BST)
+In-Reply-To: <1407832707-26034-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 12, 2014 at 9:59 AM, Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org> wrote:
-> Hi Daniel,
->
->>> the way I read the nl80211 code is that the NL80211_CMD_NEW_INTERFACE
->>> requires a wiphy device to be specified. And that is actually just a
->>> number. So I have no idea what the MAC has to here.
->>>
->> OpenWrt finds a wiphy by its MAC.
->
-> maybe that is the first problem right there. I see that over sysfs you get phy80211/macaddress. However if you do a dump via NL80211_CMD_GET_WIPHY then you do not have the MAC address there.
+From: Jeff Kirsher
+> From: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+> 
+> Replacing strncpy with strlcpy to avoid strings that lacks null terminate.
+...
+> diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+> index 2ac8f45..871474f 100644
+> --- a/drivers/net/ethernet/intel/i40e/i40e_main.c
+> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+> @@ -4415,13 +4415,13 @@ static void i40e_print_link_message(struct i40e_vsi *vsi, bool isup)
+> 
+>  	switch (vsi->back->hw.phy.link_info.link_speed) {
+>  	case I40E_LINK_SPEED_40GB:
+> -		strncpy(speed, "40 Gbps", SPEED_SIZE);
+> +		strlcpy(speed, "40 Gbps", SPEED_SIZE);
+>  		break;
+>  	case I40E_LINK_SPEED_10GB:
+> -		strncpy(speed, "10 Gbps", SPEED_SIZE);
+> +		strlcpy(speed, "10 Gbps", SPEED_SIZE);
+>  		break;
+>  	case I40E_LINK_SPEED_1GB:
+> -		strncpy(speed, "1000 Mbps", SPEED_SIZE);
+> +		strlcpy(speed, "1000 Mbps", SPEED_SIZE);
+>  		break;
+>  	default:
+>  		break;
 
-OpenWrt nowadays uses the device path in sysfs/devices to identify
-wiphys, not the mac anymore (e.g 'pci0000:00/0000:00:01.0/ssb0:0').
+Could 'speed' be change to be a 'const char *' ?
+(and 'fc' below).
 
+	David
 
-Jonas
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> @@ -4429,16 +4429,16 @@ static void i40e_print_link_message(struct i40e_vsi *vsi, bool isup)
+> 
+>  	switch (vsi->back->hw.fc.current_mode) {
+>  	case I40E_FC_FULL:
+> -		strncpy(fc, "RX/TX", FC_SIZE);
+> +		strlcpy(fc, "RX/TX", FC_SIZE);
+>  		break;
+>  	case I40E_FC_TX_PAUSE:
+> -		strncpy(fc, "TX", FC_SIZE);
+> +		strlcpy(fc, "TX", FC_SIZE);
+>  		break;
+>  	case I40E_FC_RX_PAUSE:
+> -		strncpy(fc, "RX", FC_SIZE);
+> +		strlcpy(fc, "RX", FC_SIZE);
+>  		break;
+>  	default:
+> -		strncpy(fc, "None", FC_SIZE);
+> +		strlcpy(fc, "None", FC_SIZE);
+>  		break;
+>  	}
+> 
+> @@ -5839,7 +5839,7 @@ static void i40e_send_version(struct i40e_pf *pf)
+>  	dv.minor_version = DRV_VERSION_MINOR;
+>  	dv.build_version = DRV_VERSION_BUILD;
+>  	dv.subbuild_version = 0;
+> -	strncpy(dv.driver_string, DRV_VERSION, sizeof(dv.driver_string));
+> +	strlcpy(dv.driver_string, DRV_VERSION, sizeof(dv.driver_string));
+>  	i40e_aq_send_driver_version(&pf->hw, &dv, NULL);
+>  }
+> 
+> --
+> 1.9.3
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
