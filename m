@@ -1,43 +1,52 @@
-From: Sanjeev Sharma <sanjeev_sharma@mentor.com>
-Subject: [PATCH] zd1211rw: replace ZD_ASSERT with lockdep_assert_held()
-Date: Tue, 12 Aug 2014 12:35:33 +0530
-Message-ID: <1407827133-29493-1-git-send-email-sanjeev_sharma@mentor.com>
+From: Christoph Jaeger <cj-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH] openvswitch: Fix memory leak in ovs_vport_alloc()
+	error path
+Date: Tue, 12 Aug 2014 09:27:57 +0200
+Message-ID: <1407828477-10287-1-git-send-email-cj@linux.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linville@tuxdriver.com>, <linux-wireless@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	Sanjeev Sharma <sanjeev_sharma@mentor.com>,
-	Sanjeev Sharma <Sanjeev_Sharma@mentor.com>
-To: <dsd@gentoo.org>, <kune@deine-taler.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay1.mentorg.com ([192.94.38.131]:64785 "EHLO
-	relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750976AbaHLGwm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2014 02:52:42 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Christoph Jaeger <cj-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
+To: pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-on some architecture spin_is_locked() always return false in
-uniprocessor configuration and therefore it would be advise
-to replace with lockdep_assert_held().
+ovs_vport_alloc() bails out without freeing the memory 'vport' points to.
 
-Signed-off-by: Sanjeev Sharma <Sanjeev_Sharma@mentor.com>
+Picked up by Coverity - CID 1230503.
+
+Fixes: 5cd667b0a4 ("openvswitch: Allow each vport to have an array of 'port_id's.")
+Signed-off-by: Christoph Jaeger <cj-vYTEC60ixJUAvxtiuMwx3w@public.gmane.org>
 ---
- drivers/net/wireless/zd1211rw/zd_mac.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/openvswitch/vport.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/wireless/zd1211rw/zd_mac.c b/drivers/net/wireless/zd1211rw/zd_mac.c
-index e7af261..72c0bc2 100644
---- a/drivers/net/wireless/zd1211rw/zd_mac.c
-+++ b/drivers/net/wireless/zd1211rw/zd_mac.c
-@@ -235,7 +235,7 @@ void zd_mac_clear(struct zd_mac *mac)
- {
- 	flush_workqueue(zd_workqueue);
- 	zd_chip_clear(&mac->chip);
--	ZD_ASSERT(!spin_is_locked(&mac->lock));
-+	lockdep_assert_held(!spin_is_locked(&mac->lock));
- 	ZD_MEMCLEAR(mac, sizeof(struct zd_mac));
- }
+diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
+index 702fb21..6d8f2ec 100644
+--- a/net/openvswitch/vport.c
++++ b/net/openvswitch/vport.c
+@@ -137,8 +137,10 @@ struct vport *ovs_vport_alloc(int priv_size, const struct vport_ops *ops,
+ 	vport->ops = ops;
+ 	INIT_HLIST_NODE(&vport->dp_hash_node);
  
+-	if (ovs_vport_set_upcall_portids(vport, parms->upcall_portids))
++	if (ovs_vport_set_upcall_portids(vport, parms->upcall_portids)) {
++		kfree(vport);
+ 		return ERR_PTR(-EINVAL);
++	}
+ 
+ 	vport->percpu_stats = netdev_alloc_pcpu_stats(struct pcpu_sw_netstats);
+ 	if (!vport->percpu_stats) {
 -- 
-1.7.11.7
+1.9.3
