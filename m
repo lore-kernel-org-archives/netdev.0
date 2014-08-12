@@ -1,71 +1,36 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH] rtlwifi: btcoexist: adjust double test
-Date: Tue, 12 Aug 2014 17:14:31 -0500
-Message-ID: <53EA91C7.5010103@lwfinger.net>
-References: <20140812193929.GA4233@himangi-Dell>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 1/2] net-timestamp: fix missing ACK timestamp
+Date: Tue, 12 Aug 2014 15:16:25 -0700 (PDT)
+Message-ID: <20140812.151625.928342154282151683.davem@davemloft.net>
+References: <1407869597-9583-1-git-send-email-willemb@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: julia.lawall@lip6.fr
-To: Himangi Saraogi <himangi774@gmail.com>,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com,
+	richardcochran@gmail.com
+To: willemb@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f46.google.com ([209.85.219.46]:33627 "EHLO
-	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753168AbaHLWOd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2014 18:14:33 -0400
-In-Reply-To: <20140812193929.GA4233@himangi-Dell>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39551 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753537AbaHLWQ0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2014 18:16:26 -0400
+In-Reply-To: <1407869597-9583-1-git-send-email-willemb@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 08/12/2014 02:39 PM, Himangi Saraogi wrote:
-> Rewrite a duplicated test to test the correct value
-> 
-> The Coccinelle semantic patch that finds this problem is:
-> 
-> // <smpl>
-> @@
-> expression E;
-> @@
-> 
-> (
-> * E
->   || ... || E
-> |
-> * E
->   && ... && E
-> )
-> // </smpl>
-> 
-> Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
-> ---
-> In file drivers/staging/rtl8192ee/btcoexist/halbtcoutsrc.c, there is a
-> similar function that tests for WIRELESS_MODE_G and WIRELESS_MODE_B.
-> I have not tested the code, so you am not sure whether it is the
-> correct solution.
-> 
->  drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.c b/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.c
-> index 33da3df..d4bd550 100644
-> --- a/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.c
-> +++ b/drivers/net/wireless/rtlwifi/btcoexist/halbtcoutsrc.c
-> @@ -101,7 +101,7 @@ static bool halbtc_legacy(struct rtl_priv *adapter)
->  
->  	bool is_legacy = false;
->  
-> -	if ((mac->mode == WIRELESS_MODE_B) || (mac->mode == WIRELESS_MODE_B))
-> +	if ((mac->mode == WIRELESS_MODE_B) || (mac->mode == WIRELESS_MODE_G))
->  		is_legacy = true;
->  
->  	return is_legacy;
+From: Willem de Bruijn <willemb@google.com>
+Date: Tue, 12 Aug 2014 14:53:16 -0400
 
-The latest version of the vendor driver has this change already applied.
+> ACK timestamps are generated in tcp_clean_rtx_queue. The TSO datapath
+> can break out early, causing the timestamp code to be skipped. Move
+> the code up before the break.
+> 
+> Reported-by: David S. Miller <davem@davemloft.net>
+> 
+> Also fix a boundary condition: tp->snd_una is the next unacknowledged
+> byte and between tests inclusive (a <= b <= c), so generate a an ACK
+> timestamp if (prior_snd_una <= tskey <= tp->snd_una - 1).
+> 
+> Signed-off-by: Willem de Bruijn <willemb@google.com>
 
-Acked-by: Larry.Finger <Larry.Finger@lwfinger.net>
-
-Larry
+Applied.
