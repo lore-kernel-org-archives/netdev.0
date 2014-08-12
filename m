@@ -1,44 +1,38 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 0/6] Trivial fixes for cxgb4
-Date: Tue, 12 Aug 2014 11:09:07 +0530
-Message-ID: <1407821953-8711-1-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 1/6] cxgb4: Fix for handling 1Gb/s SFP+ Transceiver Modules
+Date: Tue, 12 Aug 2014 11:09:08 +0530
+Message-ID: <1407821953-8711-2-git-send-email-hariprasad@chelsio.com>
+References: <1407821953-8711-1-git-send-email-hariprasad@chelsio.com>
 Cc: davem@davemloft.net, leedom@chelsio.com, nirranjan@chelsio.com,
 	kumaras@chelsio.com, anish@chelsio.com,
 	Hariprasad Shenai <hariprasad@chelsio.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:43188
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:43191
 	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751341AbaHLFdb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2014 01:33:31 -0400
+	by vger.kernel.org with ESMTP id S1752334AbaHLFdd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2014 01:33:33 -0400
+In-Reply-To: <1407821953-8711-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Signed-off-by: Casey Leedom <leedom@chelsio.com>
+Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
-This patch series adds support to fix T5 adapter accessing T4 adapter registers,
-issue mbox command on correct mbox for physical function, avoid dumping write
-only registers, use correct length for adapter part number and support to detect
-and display firmware reported errors.
-
-The patches series is created against 'net-next' tree.
-And includes patches on cxgb4 driver.
-
-We have included all the maintainers of respective drivers. Kindly review the
-change and let us know in case of any review comments.
-
-Thanks
-
-Hariprasad Shenai (6):
-  cxgb4: Fix for handling 1Gb/s SFP+ Transceiver Modules
-  cxgb4: Fixed the code to use correct length for part number
-  cxgb4: Fix T5 adapter accessing T4 adapter registers
-  cxgb4: Detect and display firmware reported errors
-  cxgb4: Avoid dumping Write-only registers in register dump
-  cxgb4: Issue mbox commands on correct mbox
-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   16 +++--
- drivers/net/ethernet/chelsio/cxgb4/t4_hw.c      |   79 +++++++++++++++++++----
- drivers/net/ethernet/chelsio/cxgb4/t4_regs.h    |    2 +
- drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   |    4 +
- 4 files changed, 84 insertions(+), 17 deletions(-)
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index a853133..6b92c4c 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -3742,6 +3742,7 @@ int t4_handle_fw_rpl(struct adapter *adap, const __be64 *rpl)
+ 			lc->link_ok = link_ok;
+ 			lc->speed = speed;
+ 			lc->fc = fc;
++			lc->supported = be16_to_cpu(p->u.info.pcap);
+ 			t4_os_link_changed(adap, port, link_ok);
+ 		}
+ 		if (mod != pi->mod_type) {
+-- 
+1.7.1
