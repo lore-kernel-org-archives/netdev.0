@@ -1,50 +1,68 @@
-From: chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>
-Subject: [PATCH 2/2] lec: Fix bug introduced by b67bfe0d42cac56c512dd5da4b1b347a23f4b70a
-Date: Tue, 12 Aug 2014 08:24:20 -0400
-Message-ID: <201408121224.s7CCOKCk008781@thirdoffive.cmf.nrl.navy.mil>
+From: Andrew Vagin <avagin@parallels.com>
+Subject: Re: [PATCH] tcp: don't use timestamp from repaired skb-s to
+ calculate RTT
+Date: Tue, 12 Aug 2014 16:33:20 +0400
+Message-ID: <20140812123320.GA27421@paralelels.com>
+References: <1407836714-26813-1-git-send-email-avagin@openvz.org>
+ <1407845701.10122.60.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: netdev@vger.kernel.org, linux-atm-general@lists.sourceforge.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hedwig.cmf.nrl.navy.mil ([134.207.12.162]:33390 "EHLO
-	hedwig.cmf.nrl.navy.mil" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751573AbaHLMYg convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2014 08:24:36 -0400
-Content-ID: <8759.1407846254.1@thirdoffive.cmf.nrl.navy.mil>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="koi8-r"
+Cc: Andrey Vagin <avagin@openvz.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, Eric Dumazet <edumazet@google.com>,
+	Pavel Emelyanov <xemul@parallels.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1407845701.10122.60.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-b67bfe0d42cac56c512dd5da4b1b347a23f4b70a dropped the node parameters
-from iterators which lec_tbl_walk() was using to iterate the list.
+On Tue, Aug 12, 2014 at 05:15:01AM -0700, Eric Dumazet wrote:
+> On Tue, 2014-08-12 at 13:45 +0400, Andrey Vagin wrote:
+> > We don't know right timestamp for repaired skb-s. Wrong RTT estimations
+> > isn't good, because some congestion modules heavily depends on it.
+> > 
+> > This patch adds the TCPCB_REPAIRED flag, which is included in
+> > TCPCB_RETRANS.
+> 
+> ...
+> 
+> > +
+> > +				/* All packets are restored as if they have
+> > +				 * already been sent. skb_mstamp isn't set to
+> > +				 * avoid wrong rtt estimation.
+> > +				 */
+> > +				if (tp->repair) {
+> > +					TCP_SKB_CB(skb)->sacked |= TCPCB_REPAIRED;
+> > +					TCP_SKB_CB(skb)->when = tcp_time_stamp;
+> > +				}
+> >  			}
+> >  
+> >  			/* Try to append data to the end of skb. */
+> 
+> 
+> Are you sure TCP_SKB_CB(skb)->when needs to be set ?
 
-Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
----
- net/atm/lec.c | 5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
+It's used in tcp_rearm_rto() for calculating a retransmit timeout.
+...
+	const u32 rto_time_stamp = TCP_SKB_CB(skb)->when + rto;
+	s32 delta = (s32)(rto_time_stamp - tcp_time_stamp);
+...
 
-diff --git a/net/atm/lec.c b/net/atm/lec.c
-index 4c5b8ba..e4853b5 100644
---- a/net/atm/lec.c
-+++ b/net/atm/lec.c
-@@ -833,7 +833,6 @@ static void *lec_tbl_walk(struct lec_state *state, struct hlist_head *tbl,
- 			  loff_t *l)
- {
- 	struct hlist_node *e = state->node;
--	struct lec_arp_table *tmp;
- 
- 	if (!e)
- 		e = tbl->first;
-@@ -842,9 +841,7 @@ static void *lec_tbl_walk(struct lec_state *state, struct hlist_head *tbl,
- 		--*l;
- 	}
- 
--	tmp = container_of(e, struct lec_arp_table, next);
--
--	hlist_for_each_entry_from(tmp, next) {
-+	for (; e; e = e->next) {
- 		if (--*l < 0)
- 			break;
- 	}
--- 
-1.9.3
+"when" is used as a start point, so I think it's acceptable here.
+
+I will add a comment. Thanks.
+
+> 
+> It should not anymore.
+> 
+> If yes, I believe a comment would help a lot here.
+> 
+> Also, please include this tag to ease stable backports (3.15+) :
+> 
+> Fixes: 431a91242d8d ("tcp: timestamp SYN+DATA messages")
+> Fixes: 740b0f1841f6 ("tcp: switch rtt estimations to usec resolution")
+
+Thanks,
+Andrew
