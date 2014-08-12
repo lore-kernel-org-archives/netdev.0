@@ -1,84 +1,87 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: [PATCH net v4 3/3] xen-netback: remove loop waiting function
-Date: Tue, 12 Aug 2014 11:48:08 +0100
-Message-ID: <1407840488-20026-4-git-send-email-wei.liu2@citrix.com>
-References: <1407840488-20026-1-git-send-email-wei.liu2@citrix.com>
+From: Razya Ladelsky <razya@il.ibm.com>
+Subject: Re: [PATCH] vhost: Add polling mode
+Date: Tue, 12 Aug 2014 13:57:05 +0300
+Message-ID: <OF93E480CE.EFA0854D-ONC2257D32.003BE092-C2257D32.003C1F49@il.ibm.com>
+References: <1407659404-razya@il.ibm.com>
+	<20140810083035.0CF58380729@moren.haifa.ibm.com>
+	<20140810194559.GA4344@redhat.com>
+	<20140811.124621.576073630604147753.davem@davemloft.net>
+	<20140812091850.GD6440@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <ian.campbell@citrix.com>, <zoltan.kiss@citrix.com>,
-	<david.vrabel@citrix.com>, Wei Liu <wei.liu2@citrix.com>
-To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:22181 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752102AbaHLKsN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Aug 2014 06:48:13 -0400
-In-Reply-To: <1407840488-20026-1-git-send-email-wei.liu2@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Eran Raichstein <ERANRA@il.ibm.com>, kvm@vger.kernel.org,
+	linux-kernel@vger.kernel.org, abel.gordon@gmail.com,
+	Alex Glikson <GLIKSON@il.ibm.com>, Yossi Kuperman1 <YOSSIKU@il.ibm.com>,
+	Joel Nider <JOELN@il.ibm.com>, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	David Miller <davem@davemloft.net>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20140812091850.GD6440@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-The original implementation relies on a loop to check if all inflight
-packets are freed. Now we have proper reference counting, there's no
-need to use loop anymore.
+"Michael S. Tsirkin" <mst@redhat.com> wrote on 12/08/2014 12:18:50 PM:
 
-Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-Cc: Ian Campbell <ian.campbell@citrix.com>
-Cc: Zoltan Kiss <zoltan.kiss@citrix.com>
----
- drivers/net/xen-netback/interface.c |   29 -----------------------------
- 1 file changed, 29 deletions(-)
+> From: "Michael S. Tsirkin" <mst@redhat.com>
+> To: David Miller <davem@davemloft.net>
+> Cc: Razya Ladelsky/Haifa/IBM@IBMIL, kvm@vger.kernel.org, Alex 
+> Glikson/Haifa/IBM@IBMIL, Eran Raichstein/Haifa/IBM@IBMIL, Yossi 
+> Kuperman1/Haifa/IBM@IBMIL, Joel Nider/Haifa/IBM@IBMIL, 
+> abel.gordon@gmail.com, linux-kernel@vger.kernel.org, 
+> netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
+> Date: 12/08/2014 12:18 PM
+> Subject: Re: [PATCH] vhost: Add polling mode
+> 
+> On Mon, Aug 11, 2014 at 12:46:21PM -0700, David Miller wrote:
+> > From: "Michael S. Tsirkin" <mst@redhat.com>
+> > Date: Sun, 10 Aug 2014 21:45:59 +0200
+> > 
+> > > On Sun, Aug 10, 2014 at 11:30:35AM +0300, Razya Ladelsky wrote:
+> >  ...
+> > > And, did your tests actually produce 100% load on both host CPUs?
+> >  ...
+> > 
+> > Michael, please do not quote an entire patch just to ask a one line
+> > question.
+> > 
+> > I truly, truly, wish it was simpler in modern email clients to delete
+> > the unrelated quoted material because I bet when people do this they
+> > are simply being lazy.
+> > 
+> > Thank you.
+> 
+> Lazy - mea culpa, though I'm using mutt so it isn't even hard.
+> 
+> The question still stands: the test results are only valid
+> if CPU was at 100% in all configurations.
+> This is the reason I generally prefer it when people report
+> throughput divided by CPU (power would be good too but it still
+> isn't easy for people to get that number).
+> 
 
-diff --git a/drivers/net/xen-netback/interface.c b/drivers/net/xen-netback/interface.c
-index 0aaca90..e29e15d 100644
---- a/drivers/net/xen-netback/interface.c
-+++ b/drivers/net/xen-netback/interface.c
-@@ -660,25 +660,6 @@ void xenvif_carrier_off(struct xenvif *vif)
- 	rtnl_unlock();
- }
- 
--static void xenvif_wait_unmap_timeout(struct xenvif_queue *queue,
--				      unsigned int worst_case_skb_lifetime)
--{
--	int i, unmap_timeout = 0;
--
--	for (i = 0; i < MAX_PENDING_REQS; ++i) {
--		if (queue->grant_tx_handle[i] != NETBACK_INVALID_HANDLE) {
--			unmap_timeout++;
--			schedule_timeout(msecs_to_jiffies(1000));
--			if (unmap_timeout > worst_case_skb_lifetime &&
--			    net_ratelimit())
--				netdev_err(queue->vif->dev,
--					   "Page still granted! Index: %x\n",
--					   i);
--			i = -1;
--		}
--	}
--}
--
- void xenvif_disconnect(struct xenvif *vif)
- {
- 	struct xenvif_queue *queue = NULL;
-@@ -731,21 +712,11 @@ void xenvif_free(struct xenvif *vif)
- 	struct xenvif_queue *queue = NULL;
- 	unsigned int num_queues = vif->num_queues;
- 	unsigned int queue_index;
--	/* Here we want to avoid timeout messages if an skb can be legitimately
--	 * stuck somewhere else. Realistically this could be an another vif's
--	 * internal or QDisc queue. That another vif also has this
--	 * rx_drain_timeout_msecs timeout, so give it time to drain out.
--	 * Although if that other guest wakes up just before its timeout happens
--	 * and takes only one skb from QDisc, it can hold onto other skbs for a
--	 * longer period.
--	 */
--	unsigned int worst_case_skb_lifetime = (rx_drain_timeout_msecs/1000);
- 
- 	unregister_netdev(vif->dev);
- 
- 	for (queue_index = 0; queue_index < num_queues; ++queue_index) {
- 		queue = &vif->queues[queue_index];
--		xenvif_wait_unmap_timeout(queue, worst_case_skb_lifetime);
- 		xenvif_deinit_queue(queue);
- 	}
- 
--- 
-1.7.10.4
+Hi Michael,
+
+Sorry for the delay, had some problems with my mailbox, and I realized 
+just now that 
+my reply wasn't sent.
+The vm indeed ALWAYS utilized 100% cpu, whether polling was enabled or 
+not.
+The vhost thread utilized less than 100% (of the other cpu) when polling 
+was disabled.
+Enabling polling increased its utilization to 100% (in which case both 
+cpus were 100% utilized). 
+
+
+> -- 
+> MST
+> 
