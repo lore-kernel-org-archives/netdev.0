@@ -1,87 +1,54 @@
-From: chenweilong <chenweilong@huawei.com>
-Subject: [PATCH 3.10] ipv6: reallocate addrconf router for ipv6 address, when
- lo device up
-Date: Tue, 12 Aug 2014 19:53:46 +0800
-Message-ID: <53EA004A.9020300@huawei.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] tcp: don't use timestamp from repaired skb-s to
+ calculate RTT
+Date: Tue, 12 Aug 2014 05:15:01 -0700
+Message-ID: <1407845701.10122.60.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <1407836714-26813-1-git-send-email-avagin@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	<stable@vger.kernel.org>, Sabrina Dubroca <sd@queasysnail.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	"Gao feng" <gaofeng@cn.fujitsu.com>, Li Zefan <lizefan@huawei.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Eric Dumazet <edumazet@google.com>,
+	Pavel Emelyanov <xemul@parallels.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Andrey Vagin <avagin@openvz.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1407836714-26813-1-git-send-email-avagin@openvz.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Tue, 2014-08-12 at 13:45 +0400, Andrey Vagin wrote:
+> We don't know right timestamp for repaired skb-s. Wrong RTT estimations
+> isn't good, because some congestion modules heavily depends on it.
+> 
+> This patch adds the TCPCB_REPAIRED flag, which is included in
+> TCPCB_RETRANS.
 
-Please queue this patch for stable 3.10 kernels.
+...
 
-Thanks.
+> +
+> +				/* All packets are restored as if they have
+> +				 * already been sent. skb_mstamp isn't set to
+> +				 * avoid wrong rtt estimation.
+> +				 */
+> +				if (tp->repair) {
+> +					TCP_SKB_CB(skb)->sacked |= TCPCB_REPAIRED;
+> +					TCP_SKB_CB(skb)->when = tcp_time_stamp;
+> +				}
+>  			}
+>  
+>  			/* Try to append data to the end of skb. */
 
-====================
-commit 33d99113b1102c2d2f8603b9ba72d89d915c13f5 upstream.
 
-commit 25fb6ca4ed9cad72f14f61629b68dc03c0d9713f
-"net IPv6 : Fix broken IPv6 routing table after loopback down-up"
-allocates addrconf router for ipv6 address when lo device up.
-but commit a881ae1f625c599b460cc8f8a7fcb1c438f699ad
-"ipv6:don't call addrconf_dst_alloc again when enable lo" breaks
-this behavior.
+Are you sure TCP_SKB_CB(skb)->when needs to be set ?
 
-Since the addrconf router is moved to the garbage list when
-lo device down, we should release this router and rellocate
-a new one for ipv6 address when lo device up.
+It should not anymore.
 
-This patch solves bug 67951 on bugzilla
-https://bugzilla.kernel.org/show_bug.cgi?id=67951
+If yes, I believe a comment would help a lot here.
 
-change from v1:
-use ip6_rt_put to repleace ip6_del_rt, thanks Hannes!
-change code style, suggested by Sergei.
+Also, please include this tag to ease stable backports (3.15+) :
 
-CC: Sabrina Dubroca <sd@queasysnail.net>
-CC: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Reported-by: Weilong Chen <chenweilong@huawei.com>
-Signed-off-by: Weilong Chen <chenweilong@huawei.com>
-Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-[weilong: s/ip6_rt_put/dst_release]
-Signed-off-by: Chen Weilong <chenweilong@huawei.com>
-Signed-off-by: Li Zefan <lizefan@huawei.com>
-Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
----
- net/ipv6/addrconf.c | 14 ++++++++++++--
- 1 file changed, 12 insertions(+), 2 deletions(-)
+Fixes: 431a91242d8d ("tcp: timestamp SYN+DATA messages")
+Fixes: 740b0f1841f6 ("tcp: switch rtt estimations to usec resolution")
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index f976c38..be58760 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -2438,8 +2438,18 @@ static void init_loopback(struct net_device *dev)
- 			if (sp_ifa->flags & (IFA_F_DADFAILED | IFA_F_TENTATIVE))
- 				continue;
-
--			if (sp_ifa->rt)
--				continue;
-+			if (sp_ifa->rt) {
-+				/* This dst has been added to garbage list when
-+				 * lo device down, release this obsolete dst and
-+				 * reallocate a new router for ifa.
-+				 */
-+				if (sp_ifa->rt->dst.obsolete > 0) {
-+					dst_release(&sp_ifa->rt->dst);
-+					sp_ifa->rt = NULL;
-+				} else {
-+					continue;
-+				}
-+			}
-
- 			sp_rt = addrconf_dst_alloc(idev, &sp_ifa->addr, 0);
-
--- 
-1.7.12
+Thanks !
