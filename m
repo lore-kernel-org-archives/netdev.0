@@ -1,31 +1,28 @@
-From: Eli Cohen <eli@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next 00/10] IB core and mlx5 changes
-Date: Wed, 13 Aug 2014 22:47:36 +0300
-Message-ID: <20140813194736.GB16343@mtldesk30>
-References: <1407929951-16362-1-git-send-email-eli@mellanox.com>
- <20140813.124416.1998231383384799167.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2 v2] cbq: incorrectly low bandwidth setting blocks
+ limited traffic
+Date: Wed, 13 Aug 2014 12:57:00 -0700 (PDT)
+Message-ID: <20140813.125700.1957791707247654892.davem@davemloft.net>
+References: <1407941451.6804.10.camel@edumazet-glaptop2.roam.corp.google.com>
+	<53EB9E8A.5010704@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: roland@kernel.org, netdev@vger.kernel.org, rdma@vger.kernel.org,
-	amirv@mellanox.com, yevgenyp@mellanox.com, eli@mellanox.com
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com, eric.dumazet@gmail.com
+To: vvs@parallels.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f181.google.com ([74.125.82.181]:55288 "EHLO
-	mail-we0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752765AbaHMTrm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2014 15:47:42 -0400
-Received: by mail-we0-f181.google.com with SMTP id k48so197864wev.40
-        for <netdev@vger.kernel.org>; Wed, 13 Aug 2014 12:47:41 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20140813.124416.1998231383384799167.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46706 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751866AbaHMT5B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2014 15:57:01 -0400
+In-Reply-To: <53EB9E8A.5010704@parallels.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 13, 2014 at 12:44:16PM -0700, David Miller wrote:
-> 
-> The net-next tree is not open yet, I said that I would explicitly
-> state when the net-next tree is open with a posting here in
-> the netdev list so please watch for it before making new net-next
-> submissions.
-> 
-OK, sorry about that. Will pay attention next time.
+
+When you need to resubmit a patch in response to feedback, you cannot
+just send that one patch again if it's part of a series.
+
+Instead, you must freshly resubmit the entire series.
+
+Thanks.
