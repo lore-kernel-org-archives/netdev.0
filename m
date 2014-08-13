@@ -1,79 +1,54 @@
-From: Vasily Averin <vvs@parallels.com>
-Subject: [PATCH 2/2] cbq: now_rt removal
-Date: Wed, 13 Aug 2014 16:38:41 +0400
-Message-ID: <53EB5C51.8060403@parallels.com>
-References: <cover.1407918877.git.vvs@openvz.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 1/2] cbq: incorrectly low bandwidth setting blocks limited
+ traffic
+Date: Wed, 13 Aug 2014 16:45:28 +0400
+Message-ID: <53EB5DE8.7030302@cogentembedded.com>
+References: <cover.1407918877.git.vvs@openvz.org> <53EB5C3A.1040206@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-To: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>,
+To: Vasily Averin <vvs@parallels.com>, netdev@vger.kernel.org,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
 	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:15488 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752223AbaHMMkT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Aug 2014 08:40:19 -0400
-In-Reply-To: <cover.1407918877.git.vvs@openvz.org>
+Received: from mail-lb0-f179.google.com ([209.85.217.179]:65141 "EHLO
+	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751500AbaHMMpb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2014 08:45:31 -0400
+Received: by mail-lb0-f179.google.com with SMTP id v6so8172536lbi.10
+        for <netdev@vger.kernel.org>; Wed, 13 Aug 2014 05:45:29 -0700 (PDT)
+In-Reply-To: <53EB5C3A.1040206@parallels.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Now q->now_rt is identical to q->now and is not required anymore.
+Hello.
 
-Signed-off-by: Vasily Averin <vvs@openvz.org>
----
- net/sched/sch_cbq.c |   11 +----------
- 1 files changed, 1 insertions(+), 10 deletions(-)
+On 8/13/2014 4:38 PM, Vasily Averin wrote:
 
-diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
-index 550be95..762a04b 100644
---- a/net/sched/sch_cbq.c
-+++ b/net/sched/sch_cbq.c
-@@ -159,7 +159,6 @@ struct cbq_sched_data {
- 	struct cbq_class	*tx_borrowed;
- 	int			tx_len;
- 	psched_time_t		now;		/* Cached timestamp */
--	psched_time_t		now_rt;		/* Cached real time */
- 	unsigned int		pmask;
- 
- 	struct hrtimer		delay_timer;
-@@ -353,12 +352,7 @@ cbq_mark_toplevel(struct cbq_sched_data *q, struct cbq_class *cl)
- 	int toplevel = q->toplevel;
- 
- 	if (toplevel > cl->level && !(qdisc_is_throttled(cl->q))) {
--		psched_time_t now;
--		psched_tdiff_t incr;
--
--		now = psched_get_time();
--		incr = now - q->now_rt;
--		now = q->now + incr;
-+		psched_time_t now = psched_get_time();
- 
- 		do {
- 			if (cl->undertime < now) {
-@@ -956,7 +950,6 @@ cbq_dequeue(struct Qdisc *sch)
- 		cbq_update(q);
- 
- 	q->now = now;
--	q->now_rt = now;
- 
- 	for (;;) {
- 		q->wd_expires = 0;
-@@ -1212,7 +1205,6 @@ cbq_reset(struct Qdisc *sch)
- 	hrtimer_cancel(&q->delay_timer);
- 	q->toplevel = TC_CBQ_MAXLEVEL;
- 	q->now = psched_get_time();
--	q->now_rt = q->now;
- 
- 	for (prio = 0; prio <= TC_CBQ_MAXPRIO; prio++)
- 		q->active[prio] = NULL;
-@@ -1396,7 +1388,6 @@ static int cbq_init(struct Qdisc *sch, struct nlattr *opt)
- 	q->delay_timer.function = cbq_undelay;
- 	q->toplevel = TC_CBQ_MAXLEVEL;
- 	q->now = psched_get_time();
--	q->now_rt = q->now;
- 
- 	cbq_link_class(&q->link);
- 
--- 
-1.7.1
+> Mainstream commit f0f6ee1f70c4eaab9d52cf7d255df4bd89f8d1c2 have side effect:
+
+    Please also specify that commit's summary line in parens.
+
+> if cbq bandwidth setting is less than real interface throughput
+> non-limited traffic can delay limited traffic for a very long time.
+
+> This happen because of q->now changes incorrectly in cbq_dequeue():
+> in described scenario L2T is much greater than real time delay,
+> and q->now gets an extra boost for each transmitted packet.
+
+> Accumulated boost prevents update q->now, and blocked class can wait
+> very long time until (q->now >= cl->undertime) will be true again.
+
+> To fix the problem the patch updates q->now on each cbq_update() call.
+> L2T-related pre-modification q->now was moved to cbq_update().
+
+> My testing confirmed that it fixes the problem and did not discovered
+
+   Discover.
+
+> any side-effects.
+
+> Signed-off-by: Vasily Averin <vvs@openvz.org>
+
+WBR, Sergei
