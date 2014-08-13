@@ -1,50 +1,45 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [PATCH RFC v4 net-next 01/26] net: filter: add "load 64-bit
- immediate" eBPF instruction
-Date: Wed, 13 Aug 2014 09:08:24 -0700
-Message-ID: <CALCETrXzZVxMGUgDPOKwN0DPLvupU=ew1z6D4U-jHg+RoyZyLg@mail.gmail.com>
-References: <1407916658-8731-1-git-send-email-ast@plumgrid.com> <1407916658-8731-2-git-send-email-ast@plumgrid.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH 2/2] ipv4: add a sock pointer to dst->output() path.
+Date: Wed, 13 Aug 2014 19:02:43 +0200
+Message-ID: <20140813170243.GA1869@nanopsycho.orion>
+References: <20140415.134916.1941040568700162970.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Chema Gonzalez <chema@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kees Cook <keescook@chromium.org>,
-	Linux API <linux-api@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1407916658-8731-2-git-send-email-ast@plumgrid.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.dumazet@gmail.com, nasa4836@gmail.com, jchapman@katalix.com,
+	lucien.xin@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f169.google.com ([74.125.82.169]:48801 "EHLO
+	mail-we0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751145AbaHMRCq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2014 13:02:46 -0400
+Received: by mail-we0-f169.google.com with SMTP id u56so27913wes.0
+        for <netdev@vger.kernel.org>; Wed, 13 Aug 2014 10:02:45 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20140415.134916.1941040568700162970.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 13, 2014 at 12:57 AM, Alexei Starovoitov <ast@plumgrid.com> wrote:
-> add BPF_LD_IMM64 instruction to load 64-bit immediate value into register.
-> All previous instructions were 8-byte. This is first 16-byte instruction.
-> Two consecutive 'struct bpf_insn' blocks are interpreted as single instruction:
-> insn[0/1].code = BPF_LD | BPF_DW | BPF_IMM
-> insn[0/1].dst_reg = destination register
-> insn[0].imm = lower 32-bit
-> insn[1].imm = upper 32-bit
+Tue, Apr 15, 2014 at 07:49:16PM CEST, davem@davemloft.net wrote:
+>
+>From: Eric Dumazet <edumazet@google.com>
+>
+>In the dst->output() path for ipv4, the code assumes the skb it has to
+>transmit is attached to an inet socket, specifically via
+>ip_mc_output() : The sk_mc_loop() test triggers a WARN_ON() when the
+>provider of the packet is an AF_PACKET socket.
+>
+>The dst->output() method gets an additional 'struct sock *sk'
+>parameter. This needs a cascade of changes so that this parameter can
+>be propagated from vxlan to final consumer.
 
-This might be unnecessarily difficult for fancy static analysis tools
-to reason about.  Would it make sense to assign two different codes
-for this?  For example, insn[0].code = code_for_load_low,
-insns[1].code = code_for_load_high, along with a verifier check that
-they come in matched pairs and that code_for_load_high isn't a jump
-target?
+Actually, the same issue is present for ipv6. But it is not that easy to
+fix it there. sk_mc_loop is called from
+ip6_finish_output2(ip6_finish_output) which is called as a okfn from
+NF_HOOK_COND. So to fix it here, it would be needed to add struct sock *sk
+to a lot of places.
 
-(Something else that I find confusing about eBPF: the instruction
-mnemonics are very strange.  Have you considered giving them real
-names?  For example, load.imm.low instead of BPF_LD | BPF_DW | BPF_IMM
-is easier to read and pronounce.)
+The question is, is it the correct way? Or perhaps something like
+skb->output_sk would serve this better?
 
---Andy
+Thoughts?
