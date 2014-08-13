@@ -1,78 +1,46 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net/udp_offload: Drop unnecessary continue
-Date: Wed, 13 Aug 2014 07:48:11 -0700
-Message-ID: <1407941291.6804.7.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <20140813091605.GA2947@himangi-Dell>
+Subject: Re: [PATCH 1/2] cbq: incorrectly low bandwidth setting blocks
+ limited traffic
+Date: Wed, 13 Aug 2014 07:50:51 -0700
+Message-ID: <1407941451.6804.10.camel@edumazet-glaptop2.roam.corp.google.com>
+References: <cover.1407918877.git.vvs@openvz.org>
+	 <53EB5C3A.1040206@parallels.com> <53EB5DE8.7030302@cogentembedded.com>
+	 <53EB5FFE.1070604@parallels.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Julia Lawall <julia.lawall@lip6.fr>
-To: Himangi Saraogi <himangi774@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20140813091605.GA2947@himangi-Dell>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+To: Vasily Averin <vvs@parallels.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:55351 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752088AbaHMOuz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2014 10:50:55 -0400
+Received: by mail-pd0-f175.google.com with SMTP id r10so14550518pdi.20
+        for <netdev@vger.kernel.org>; Wed, 13 Aug 2014 07:50:55 -0700 (PDT)
+In-Reply-To: <53EB5FFE.1070604@parallels.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2014-08-13 at 14:46 +0530, Himangi Saraogi wrote:
-> Continue is not needed at the bottom of a loop.
-> 
-> The Coccinelle semantic patch implementing this change is:
-> 
-> @@
-> @@
-> 
-> for (...;...;...) {
->   ...
->   if (...) {
->     ...
-> -   continue;
->   }
-> }
-> 
-> Signed-off-by: Himangi Saraogi <himangi774@gmail.com>
-> Acked-by: Julia Lawall <julia.lawall@lip6.fr>
-> ---
->  net/ipv4/udp_offload.c | 4 +---
->  1 file changed, 1 insertion(+), 3 deletions(-)
-> 
-> diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
-> index 59035bc..62d5b9b 100644
-> --- a/net/ipv4/udp_offload.c
-> +++ b/net/ipv4/udp_offload.c
-> @@ -269,10 +269,8 @@ unflush:
->  			continue;
->  
->  		uh2 = (struct udphdr   *)(p->data + off);
-> -		if ((*(u32 *)&uh->source != *(u32 *)&uh2->source)) {
-> +		if ((*(u32 *)&uh->source != *(u32 *)&uh2->source))
->  			NAPI_GRO_CB(p)->same_flow = 0;
-> -			continue;
-> -		}
->  	}
->  
->  	skb_gro_pull(skb, sizeof(struct udphdr)); /* pull encapsulating udp header */
+On Wed, 2014-08-13 at 16:54 +0400, Vasily Averin wrote:
+> On 08/13/2014 04:45 PM, Sergei Shtylyov wrote:
+> > Hello.
+> > 
+> > On 8/13/2014 4:38 PM, Vasily Averin wrote:
+> > 
+> >> Mainstream commit f0f6ee1f70c4eaab9d52cf7d255df4bd89f8d1c2 have side effect:
+> > 
+> >    Please also specify that commit's summary line in parens.
+> cbq: incorrect processing of high limits
 
+So a more useful way to include the information is to add :
 
-Please do not do that.
+Fixes: f0f6ee1f70c4 ("cbq: incorrect processing of high limits")
 
-If we add another check later, we'll miss that the 'continue;' needs to
-be put back.
+Because it will help automatic tools to decide if this fix needs to be
+backported to old stable kernels.
 
-GRO stack is quite difficult to maintain, I prefer we keep this as is
-for consistency and code readability.
-
-Every time we clear same_flow, we use the "continue;" construct.
-
- if (...) {
-     NAPI_GRO_CB(p)->same_flow = 0;
-     continue;
- }
-
-<here we can eventually add some other check>
-
-Compiler generates the same code anyway.
+Thanks.
