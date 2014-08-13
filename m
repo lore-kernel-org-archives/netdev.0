@@ -1,38 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: 'net' GIT tree status...
-Date: Wed, 13 Aug 2014 16:14:49 -0700 (PDT)
-Message-ID: <20140813.161449.1433254581662150252.davem@davemloft.net>
+Subject: Re: [PATCH net-next] tg3: fix return value in tg3_get_stats64
+Date: Wed, 13 Aug 2014 16:17:34 -0700 (PDT)
+Message-ID: <20140813.161734.2107510820154608070.davem@davemloft.net>
+References: <1407915296-12692-1-git-send-email-_govind@gmx.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: prashant@broadcom.com, mchan@broadcom.com, netdev@vger.kernel.org
+To: _govind@gmx.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48039 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48048 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750772AbaHMXOx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2014 19:14:53 -0400
-Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
-	(Authenticated sender: davem-davemloft)
-	by shards.monkeyblade.net (Postfix) with ESMTPSA id D16135887DD
-	for <netdev@vger.kernel.org>; Wed, 13 Aug 2014 16:14:52 -0700 (PDT)
+	with ESMTP id S1752138AbaHMXRf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2014 19:17:35 -0400
+In-Reply-To: <1407915296-12692-1-git-send-email-_govind@gmx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Date: Wed, 13 Aug 2014 13:04:56 +0530
 
-Hey folks, you've probably noticed that nothing I applied yesterday
-has shown up in my public 'net' tree yet, and there is a reason for
-that.
+> When tp->hw_stats is 0, tg3_get_stats64 should display previously
+> recorded stats. So it returns &tp->net_stats_prev. But the caller,
+> dev_get_stats, ignores the return value.
+> 
+> Fix this by assigning tp->net_stats_prev to stats and returning stats.
+> 
+> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
 
-I sent a pull request against that tree to Linus two days ago and he
-still hasn't pulled.
+Applied, but please target 'net' for bug fixes in the future.
 
-While a pull request is pending, I don't want to push new changes
-there so that he really gets what I said he would get in my pull
-request email.
-
-I will try to resolve this one way or another by the end of tomorrow.
-
-Either Linus will pull from my tree or I will send him an email
-telling him to ignore my pull request from the other day.
-
-Thanks for your patience.
+Thanks.
