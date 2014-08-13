@@ -1,128 +1,52 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [PATCH RFC v4 net-next 01/26] net: filter: add "load 64-bit
- immediate" eBPF instruction
-Date: Wed, 13 Aug 2014 14:17:24 -0700
-Message-ID: <CALCETrVDrbD3goYmZsUdmEhVfaNxovyghCz6y+_q5+G+rVwtWg@mail.gmail.com>
-References: <1407916658-8731-1-git-send-email-ast@plumgrid.com>
- <1407916658-8731-2-git-send-email-ast@plumgrid.com> <CALCETrXzZVxMGUgDPOKwN0DPLvupU=ew1z6D4U-jHg+RoyZyLg@mail.gmail.com>
- <CAMEtUuxog0w-XkYMHM=Zto_gejy8x5agxohAWOs1zPEtXTr0Sw@mail.gmail.com>
- <CALCETrXfp+7FmEzAoLiqzqY73NBzt8JsD40hzvhT3=gr-Scp=g@mail.gmail.com> <CAMEtUuwx6Y4qxyz4TGK9=M2BH-dXnPsm+JrusqbyjzK20yUv6A@mail.gmail.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH v2 1/1] net: fec: ptp: avoid register access when ipg
+ clock is disabled
+Date: Wed, 13 Aug 2014 23:19:42 +0200
+Message-ID: <20140813211941.GB4840@netboy>
+References: <1407905705-27984-1-git-send-email-b38611@freescale.com>
+ <1407905705-27984-2-git-send-email-b38611@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Chema Gonzalez <chema@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kees Cook <keescook@chromium.org>,
-	Linux API <linux-api@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Alexei Starovoitov <ast@plumgrid.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMEtUuwx6Y4qxyz4TGK9=M2BH-dXnPsm+JrusqbyjzK20yUv6A@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: shawn.guo@linaro.org, davem@davemloft.net, netdev@vger.kernel.org
+To: Fugang Duan <b38611@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f178.google.com ([74.125.82.178]:42257 "EHLO
+	mail-we0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752132AbaHMVTz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2014 17:19:55 -0400
+Received: by mail-we0-f178.google.com with SMTP id w61so290189wes.37
+        for <netdev@vger.kernel.org>; Wed, 13 Aug 2014 14:19:53 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1407905705-27984-2-git-send-email-b38611@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 13, 2014 at 2:02 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
-> On Wed, Aug 13, 2014 at 11:35 AM, Andy Lutomirski <luto@amacapital.net> wrote:
->>
->> The compiler can still think of it as a single insn, though, but some
->> future compiler might not.
->
-> I think that would be very dangerous.
-> compiler (user space) and kernel interpreter must have the same
-> understanding of ISA.
->
->> In any case, I think that, if you use the
->> same code for high and for low, you need logic in the JIT that's at
->> least as complicated.
->
-> why do you think so? Handling of pseudo BPF_LD_IMM64 is done
-> in single patch #11 which is one of the smallest...
->
->> For example, what happens if you have two
->> consecutive 64-bit immediate loads to the same register?  Now you have
->> four consecutive 8-byte insn words that differ only in their immediate
->> values, and you need to split them correctly.
->
-> I don't need to do anything special in this case.
-> Two 16-byte instructions back to back is not a problem.
-> Interpreter or JIT don't care whether they move the same or different
-> immediates into the same or different register. Interpreter and JITs
-> are dumb on purpose.
-> when verifier sees two back to back ld_imm64, the 2nd will simply
-> override the value loaded by first one. It's not any different than
-> two back to back 'mov dst_reg, imm32' instructions.
+On Wed, Aug 13, 2014 at 12:55:05PM +0800, Fugang Duan wrote:
 
-But this patch makes the JIT code (and any interpreter) weirdly
-stateful.  You have:
+> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+> index 66fe1f6..8befa2c 100644
+> --- a/drivers/net/ethernet/freescale/fec_main.c
+> +++ b/drivers/net/ethernet/freescale/fec_main.c
+> @@ -2198,6 +2198,8 @@ fec_enet_open(struct net_device *ndev)
+>  	napi_enable(&fep->napi);
+>  	phy_start(fep->phy_dev);
+>  	netif_start_queue(ndev);
+> +	if (fep->hwts_tx_en)
+> +		schedule_delayed_work(&fep->time_keep, HZ);
+>  	return 0;
+>  }
+>  
+> @@ -2206,6 +2208,9 @@ fec_enet_close(struct net_device *ndev)
+>  {
+>  	struct fec_enet_private *fep = netdev_priv(ndev);
+>  
+> +	if (fep->hwts_tx_en)
+> +		cancel_delayed_work_sync(&fep->time_keep);
 
-+               case BPF_LD | BPF_IMM | BPF_DW:
-+                       /* movabsq %rax, imm64 */
-+                       EMIT2(add_1mod(0x48, dst_reg), add_1reg(0xB8, dst_reg));
-+                       EMIT(insn->imm, 4);
-+                       insn++;
-+                       i++;
-+                       EMIT(insn->imm, 4);
-+                       break;
+You make the clock logic depend on whether time stamping is enabled or
+not. Why do you do that?
 
-If you have more than two BPF_LD | BPF_IMM | BPF_DW instructions in a
-row, then the way in which they pair up depends on where you start.
+The clock should keep ticking, even if time stamping is disabled.
 
-I think it would be a lot clearer if you made these be "load low" and
-"load high", with JIT code like:
-
-+               case BPF_LOAD_LOW:
-+                       /* movabsq %rax, imm64 */
-+                       if (next insn is BPF_LOAD_HIGH) {
-+                           EMIT2(add_1mod(0x48, dst_reg),
-add_1reg(0xB8, dst_reg));
-+                           EMIT(insn->imm, 4);
-+                           insn++;
-+                           i++;
-+                           EMIT(insn->imm, 4);
-+                       } else {
-+                           emit a real load low;
-+                       }
-+                       break;
-
-(and you'd have to deal with whether load low by itself is illegal,
-zero extends, sign extends, or preserves high bits).
-
-Alternatively, and possibly better, you could have a real encoding for
-multiword instructions.  Reserve a bit in the opcode to mark a
-continuation of the previous instruction, and do:
-
-+               case BPF_LD | BPF_IMM | BPF_DW:
-+                       assert(insn[1] in bounds && insn[1].code == BPF_CONT);
-+                       /* movabsq %rax, imm64 */
-+                       EMIT2(add_1mod(0x48, dst_reg), add_1reg(0xB8, dst_reg));
-+                       EMIT(insn->imm, 4);
-+                       insn++;
-+                       i++;
-+                       EMIT(insn->imm, 4);
-+                       break;
-
-This has a nice benefit for future-proofing: it gives you 119 bits of
-payload for 16-byte instructions.
-
-On the other hand, a u8 for the opcode is kind of small, and killing
-half of that space like this is probably bad.  Maybe reserve two high
-bits, with:
-
-0: normal opcode or start of a multiword sequence
-1: continuation of a multiword sequence
-2, 3: reserved for future longer opcode numbers (e.g. 2 could indicate
-that "code" is actually 16 bits)
-
---Andy
-
--- 
-Andy Lutomirski
-AMA Capital Management, LLC
+Thanks,
+Richard
