@@ -1,36 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 3/3] sunvnet: Schedule maybe_tx_wakeup as a
- tasklet from ldc_rx path
-Date: Tue, 12 Aug 2014 21:31:57 -0700 (PDT)
-Message-ID: <20140812.213157.60038488349789826.davem@davemloft.net>
-References: <20140812.151352.2235795686370279748.davem@davemloft.net>
-	<20140813015817.GA13600@oracle.com>
-	<163B73C6-95EF-4398-B399-ECD5B95F5EC8@oracle.com>
+From: Fugang Duan <b38611@freescale.com>
+Subject: [PATCH v2 0/1] net: fec: ptp: avoid register access when ipg clock is disabled
+Date: Wed, 13 Aug 2014 12:55:04 +0800
+Message-ID: <1407905705-27984-1-git-send-email-b38611@freescale.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sowmini.varadhan@oracle.com, netdev@vger.kernel.org
-To: Raghuram.Kothakota@oracle.com
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <b38611@freescale.com>
+To: <shawn.guo@linaro.org>, <davem@davemloft.net>,
+	<richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41360 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750707AbaHMEb6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2014 00:31:58 -0400
-In-Reply-To: <163B73C6-95EF-4398-B399-ECD5B95F5EC8@oracle.com>
+Received: from mail-by2lp0241.outbound.protection.outlook.com ([207.46.163.241]:26289
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750742AbaHMFJk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Aug 2014 01:09:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Raghuram Kothakota <Raghuram.Kothakota@oracle.com>
-Date: Tue, 12 Aug 2014 21:26:28 -0700
+V2:
+* As Richard Cochran's suggestion, use schedule_delayed_work instead of period timer.
+* Stop delayed work before ipg clock disable like suspend, ethx close.
 
-> One important point to keep in mind that packets to different peers shouldn't
-> be blocked by one blocked peer. Any flow controlling or dropping of the packets
-> needs to be done on a per-port basis.
+Fugang Duan (1):
+  net: fec: ptp: avoid register access when ipg clock is disabled
 
-Until we use a big hammer and reset the LDC channel of that peer, we
-_absolutely_ should not reorder traffic and send to non-stuck peers.
+ drivers/net/ethernet/freescale/fec.h      |    2 +-
+ drivers/net/ethernet/freescale/fec_main.c |   12 +++++++++++-
+ drivers/net/ethernet/freescale/fec_ptp.c  |   15 +++++++--------
+ 3 files changed, 19 insertions(+), 10 deletions(-)
 
-A networking stack should avoid packet reordering in all cases when it
-has the ability to do so, and sending packets which came in later to
-unstuck peers when there are older packets still pending to the stuck
-peer violates that requirement.
+-- 
+1.7.8
