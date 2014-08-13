@@ -1,142 +1,130 @@
-From: Himangi Saraogi <himangi774-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v2] atmel_cs: Remove typedef local_info_t
-Date: Wed, 13 Aug 2014 22:40:24 +0530
-Message-ID: <20140813171024.GA16596@himangi-Dell>
+From: Vasily Averin <vvs@parallels.com>
+Subject: [PATCH 1/2 v2] cbq: incorrectly low bandwidth setting blocks limited
+ traffic
+Date: Wed, 13 Aug 2014 21:21:14 +0400
+Message-ID: <53EB9E8A.5010704@parallels.com>
+References: <1407941451.6804.10.camel@edumazet-glaptop2.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org>, Kalle Valo <kvalo-BkwN83ws05HQT0dZR+AlfA@public.gmane.org>
-To: Simon Kelley <simon-xn1N/tgparsycpQjotevgVpr/1R2p/CL@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TaqPxH82wqD4g@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+To: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailhub.sw.ru ([195.214.232.25]:37420 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751516AbaHMRWj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Aug 2014 13:22:39 -0400
+In-Reply-To: <1407941451.6804.10.camel@edumazet-glaptop2.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The Linux kernel coding style guidelines suggest not using typedefs
-for structure types. This patch gets rid of the typedef for
-local_info_t. Also, the name of the struct is changed to drop the _t,
-to make the name look less typedef-like.
+v2: comment cleanup
 
-The following Coccinelle semantic patch detects the case:
+Fixes: f0f6ee1f70c4 ("cbq: incorrect processing of high limits")
 
-@tn@
-identifier i;
-type td;
-@@
+Mainstream commit f0f6ee1f70c4 have side effect:
+if cbq bandwidth setting is less than real interface throughput
+non-limited traffic can delay limited traffic for a very long time.
 
--typedef
- struct i { ... }
--td
- ;
+This happen because of q->now changes incorrectly in cbq_dequeue():
+in described scenario L2T is much greater than real time delay,
+and q->now gets an extra boost for each transmitted packet.
 
-@@
-type tn.td;
-identifier tn.i;
-@@
+Accumulated boost prevents update q->now, and blocked class can wait
+very long time until (q->now >= cl->undertime) will be true again.
 
--td
-+ struct i
+To fix the problem the patch updates q->now on each cbq_update() call.
+L2T-related pre-modification q->now was moved to cbq_update().
 
-Signed-off-by: Himangi Saraogi <himangi774-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Acked-by: Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org>
+My testing confirmed that it fixes the problem and did not discover
+any side-effects
+
+Signed-off-by: Vasily Averin <vvs@openvz.org>
 ---
-v2: correct prefix.
-Not compile tested.
- drivers/net/wireless/atmel_cs.c | 22 +++++++++++-----------
- 1 file changed, 11 insertions(+), 11 deletions(-)
+ net/sched/sch_cbq.c |   37 +++++++++++++------------------------
+ 1 files changed, 13 insertions(+), 24 deletions(-)
 
-diff --git a/drivers/net/wireless/atmel_cs.c b/drivers/net/wireless/atmel_cs.c
-index 4cfb4d9..7afc9c5 100644
---- a/drivers/net/wireless/atmel_cs.c
-+++ b/drivers/net/wireless/atmel_cs.c
-@@ -66,18 +66,18 @@ static void atmel_release(struct pcmcia_device *link);
+diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
+index ead5264..550be95 100644
+--- a/net/sched/sch_cbq.c
++++ b/net/sched/sch_cbq.c
+@@ -700,8 +700,13 @@ cbq_update(struct cbq_sched_data *q)
+ 	struct cbq_class *this = q->tx_class;
+ 	struct cbq_class *cl = this;
+ 	int len = q->tx_len;
++	psched_time_t now;
  
- static void atmel_detach(struct pcmcia_device *p_dev);
+ 	q->tx_class = NULL;
++	/* Time integrator. We calculate EOS time
++	 * by adding expected packet transmission time.
++	 */
++	now = q->now + L2T(&q->link, len);
  
--typedef struct local_info_t {
-+struct local_info {
- 	struct net_device *eth_dev;
--} local_info_t;
-+};
+ 	for ( ; cl; cl = cl->share) {
+ 		long avgidle = cl->avgidle;
+@@ -717,7 +722,7 @@ cbq_update(struct cbq_sched_data *q)
+ 		 *	idle = (now - last) - last_pktlen/rate
+ 		 */
  
- static int atmel_probe(struct pcmcia_device *p_dev)
- {
--	local_info_t *local;
-+	struct local_info *local;
+-		idle = q->now - cl->last;
++		idle = now - cl->last;
+ 		if ((unsigned long)idle > 128*1024*1024) {
+ 			avgidle = cl->maxidle;
+ 		} else {
+@@ -761,7 +766,7 @@ cbq_update(struct cbq_sched_data *q)
+ 			idle -= L2T(&q->link, len);
+ 			idle += L2T(cl, len);
  
- 	dev_dbg(&p_dev->dev, "atmel_attach()\n");
+-			cl->undertime = q->now + idle;
++			cl->undertime = now + idle;
+ 		} else {
+ 			/* Underlimit */
  
- 	/* Allocate space for private device-specific data */
--	local = kzalloc(sizeof(local_info_t), GFP_KERNEL);
-+	local = kzalloc(sizeof(*local), GFP_KERNEL);
- 	if (!local)
- 		return -ENOMEM;
+@@ -771,7 +776,8 @@ cbq_update(struct cbq_sched_data *q)
+ 			else
+ 				cl->avgidle = avgidle;
+ 		}
+-		cl->last = q->now;
++		if ((s64)(now - cl->last) > 0)
++			cl->last = now;
+ 	}
  
-@@ -117,7 +117,7 @@ static int atmel_config_check(struct pcmcia_device *p_dev, void *priv_data)
+ 	cbq_update_toplevel(q, this, q->tx_borrowed);
+@@ -943,30 +949,13 @@ cbq_dequeue(struct Qdisc *sch)
+ 	struct sk_buff *skb;
+ 	struct cbq_sched_data *q = qdisc_priv(sch);
+ 	psched_time_t now;
+-	psched_tdiff_t incr;
  
- static int atmel_config(struct pcmcia_device *link)
- {
--	local_info_t *dev;
-+	struct local_info *dev;
- 	int ret;
- 	const struct pcmcia_device_id *did;
+ 	now = psched_get_time();
+-	incr = now - q->now_rt;
+-
+-	if (q->tx_class) {
+-		psched_tdiff_t incr2;
+-		/* Time integrator. We calculate EOS time
+-		 * by adding expected packet transmission time.
+-		 * If real time is greater, we warp artificial clock,
+-		 * so that:
+-		 *
+-		 * cbq_time = max(real_time, work);
+-		 */
+-		incr2 = L2T(&q->link, q->tx_len);
+-		q->now += incr2;
++
++	if (q->tx_class)
+ 		cbq_update(q);
+-		if ((incr -= incr2) < 0)
+-			incr = 0;
+-		q->now += incr;
+-	} else {
+-		if (now > q->now)
+-			q->now = now;
+-	}
++
++	q->now = now;
+ 	q->now_rt = now;
  
-@@ -141,14 +141,14 @@ static int atmel_config(struct pcmcia_device *link)
- 	if (ret)
- 		goto failed;
- 
--	((local_info_t*)link->priv)->eth_dev =
-+	((struct local_info *)link->priv)->eth_dev =
- 		init_atmel_card(link->irq,
- 				link->resource[0]->start,
- 				did ? did->driver_info : ATMEL_FW_TYPE_NONE,
- 				&link->dev,
- 				card_present,
- 				link);
--	if (!((local_info_t*)link->priv)->eth_dev)
-+	if (!((struct local_info *)link->priv)->eth_dev)
- 			goto failed;
- 
- 
-@@ -161,20 +161,20 @@ static int atmel_config(struct pcmcia_device *link)
- 
- static void atmel_release(struct pcmcia_device *link)
- {
--	struct net_device *dev = ((local_info_t*)link->priv)->eth_dev;
-+	struct net_device *dev = ((struct local_info *)link->priv)->eth_dev;
- 
- 	dev_dbg(&link->dev, "atmel_release\n");
- 
- 	if (dev)
- 		stop_atmel_card(dev);
--	((local_info_t*)link->priv)->eth_dev = NULL;
-+	((struct local_info *)link->priv)->eth_dev = NULL;
- 
- 	pcmcia_disable_device(link);
- }
- 
- static int atmel_suspend(struct pcmcia_device *link)
- {
--	local_info_t *local = link->priv;
-+	struct local_info *local = link->priv;
- 
- 	netif_device_detach(local->eth_dev);
- 
-@@ -183,7 +183,7 @@ static int atmel_suspend(struct pcmcia_device *link)
- 
- static int atmel_resume(struct pcmcia_device *link)
- {
--	local_info_t *local = link->priv;
-+	struct local_info *local = link->priv;
- 
- 	atmel_open(local->eth_dev);
- 	netif_device_attach(local->eth_dev);
+ 	for (;;) {
 -- 
-1.9.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1.7.1
