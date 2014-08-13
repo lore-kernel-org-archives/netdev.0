@@ -1,100 +1,61 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] vhost: Add polling mode
-Date: Wed, 13 Aug 2014 14:15:50 +0200
-Message-ID: <20140813121550.GA21026@redhat.com>
-References: <1407659404-razya@il.ibm.com>
-	<20140810083035.0CF58380729@moren.haifa.ibm.com>
-	<20140810194559.GA4344@redhat.com>
-	<20140811.124621.576073630604147753.davem@davemloft.net>
-	<20140812091850.GD6440@redhat.com>
-	<OF93E480CE.EFA0854D-ONC2257D32.003BE092-C2257D32.003C1F49@il.ibm.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 02/10] IB/mlx5: Add support for extended query
+ device
+Date: Wed, 13 Aug 2014 16:29:00 +0400
+Message-ID: <53EB5A0C.8040209@cogentembedded.com>
+References: <1407929951-16362-1-git-send-email-eli@mellanox.com> <1407929951-16362-3-git-send-email-eli@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Eran Raichstein <ERANRA@il.ibm.com>, kvm@vger.kernel.org,
-	linux-kernel@vger.kernel.org, abel.gordon@gmail.com,
-	Alex Glikson <GLIKSON@il.ibm.com>, Yossi Kuperman1 <YOSSIKU@il.ibm.com>,
-	Joel Nider <JOELN@il.ibm.com>, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	David Miller <davem@davemloft.net>
-To: Razya Ladelsky <razya@il.ibm.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <OF93E480CE.EFA0854D-ONC2257D32.003BE092-C2257D32.003C1F49@il.ibm.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, rdma@vger.kernel.org, amirv@mellanox.com,
+	yevgenyp@mellanox.com, Eli Cohen <eli@mellanox.com>
+To: Eli Cohen <eli@dev.mellanox.co.il>, roland@kernel.org,
+	davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f182.google.com ([209.85.217.182]:47853 "EHLO
+	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750751AbaHMM3E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2014 08:29:04 -0400
+Received: by mail-lb0-f182.google.com with SMTP id z11so8287232lbi.27
+        for <netdev@vger.kernel.org>; Wed, 13 Aug 2014 05:29:02 -0700 (PDT)
+In-Reply-To: <1407929951-16362-3-git-send-email-eli@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Aug 12, 2014 at 01:57:05PM +0300, Razya Ladelsky wrote:
-> "Michael S. Tsirkin" <mst@redhat.com> wrote on 12/08/2014 12:18:50 PM:
-> 
-> > From: "Michael S. Tsirkin" <mst@redhat.com>
-> > To: David Miller <davem@davemloft.net>
-> > Cc: Razya Ladelsky/Haifa/IBM@IBMIL, kvm@vger.kernel.org, Alex 
-> > Glikson/Haifa/IBM@IBMIL, Eran Raichstein/Haifa/IBM@IBMIL, Yossi 
-> > Kuperman1/Haifa/IBM@IBMIL, Joel Nider/Haifa/IBM@IBMIL, 
-> > abel.gordon@gmail.com, linux-kernel@vger.kernel.org, 
-> > netdev@vger.kernel.org, virtualization@lists.linux-foundation.org
-> > Date: 12/08/2014 12:18 PM
-> > Subject: Re: [PATCH] vhost: Add polling mode
-> > 
-> > On Mon, Aug 11, 2014 at 12:46:21PM -0700, David Miller wrote:
-> > > From: "Michael S. Tsirkin" <mst@redhat.com>
-> > > Date: Sun, 10 Aug 2014 21:45:59 +0200
-> > > 
-> > > > On Sun, Aug 10, 2014 at 11:30:35AM +0300, Razya Ladelsky wrote:
-> > >  ...
-> > > > And, did your tests actually produce 100% load on both host CPUs?
-> > >  ...
-> > > 
-> > > Michael, please do not quote an entire patch just to ask a one line
-> > > question.
-> > > 
-> > > I truly, truly, wish it was simpler in modern email clients to delete
-> > > the unrelated quoted material because I bet when people do this they
-> > > are simply being lazy.
-> > > 
-> > > Thank you.
-> > 
-> > Lazy - mea culpa, though I'm using mutt so it isn't even hard.
-> > 
-> > The question still stands: the test results are only valid
-> > if CPU was at 100% in all configurations.
-> > This is the reason I generally prefer it when people report
-> > throughput divided by CPU (power would be good too but it still
-> > isn't easy for people to get that number).
-> > 
-> 
-> Hi Michael,
-> 
-> Sorry for the delay, had some problems with my mailbox, and I realized 
-> just now that 
-> my reply wasn't sent.
-> The vm indeed ALWAYS utilized 100% cpu, whether polling was enabled or 
-> not.
-> The vhost thread utilized less than 100% (of the other cpu) when polling 
-> was disabled.
-> Enabling polling increased its utilization to 100% (in which case both 
-> cpus were 100% utilized). 
+Hello.
 
-Hmm this means the testing wasn't successful then, as you said:
+On 8/13/2014 3:39 PM, Eli Cohen wrote:
 
-	The idea was to get it 100% loaded, so we can see that the polling is
-	getting it to produce higher throughput.
+> Add a new entry for query device extended which currently has identical
+> functionality to query_device and publish support for it.
 
-in fact here you are producing more throughput but spending more power
-to produce it, which can have any number of explanations besides polling
-improving the efficiency. For example, increasing system load might
-disable host power management.
+> Signed-off-by: Eli Cohen <eli@mellanox.com>
+> ---
+>   drivers/infiniband/hw/mlx5/main.c | 25 +++++++++++++++++++++++--
+>   1 file changed, 23 insertions(+), 2 deletions(-)
 
+> diff --git a/drivers/infiniband/hw/mlx5/main.c b/drivers/infiniband/hw/mlx5/main.c
+> index d8907b20522a..63fddeec90af 100644
+> --- a/drivers/infiniband/hw/mlx5/main.c
+> +++ b/drivers/infiniband/hw/mlx5/main.c
+[...]
+> @@ -775,6 +781,17 @@ static int mlx5_ib_dealloc_pd(struct ib_pd *pd)
+>   	return 0;
+>   }
+>
+> +static int mlx5_ib_query_device_ex(struct ib_device *device,
+> +				   struct ib_device_attr *attr,
+> +				   struct ib_udata *uhw)
+> +{
+> +	int err;
+> +
+> +	err = query_device(device, attr);
+> +
+> +	return err;
+> +}
 
-> > -- 
-> > MST
-> > 
+   Why not just:
+
+	return query_device(device, attr);
+
+WBR, Sergei
