@@ -1,45 +1,47 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH 2/2] ipv4: add a sock pointer to dst->output() path.
-Date: Wed, 13 Aug 2014 19:02:43 +0200
-Message-ID: <20140813170243.GA1869@nanopsycho.orion>
-References: <20140415.134916.1941040568700162970.davem@davemloft.net>
+Subject: Re: [PATCH V2] net: ethernet: myricom: myri10ge: myri10ge.c:
+  Cleaning up missing null-terminate after strncpy call
+Date: Wed, 13 Aug 2014 19:06:39 +0200
+Message-ID: <20140813170639.GB1869@nanopsycho.orion>
+References: <1407784696-31698-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, nasa4836@gmail.com, jchapman@katalix.com,
-	lucien.xin@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f169.google.com ([74.125.82.169]:48801 "EHLO
-	mail-we0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751145AbaHMRCq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2014 13:02:46 -0400
-Received: by mail-we0-f169.google.com with SMTP id u56so27913wes.0
-        for <netdev@vger.kernel.org>; Wed, 13 Aug 2014 10:02:45 -0700 (PDT)
+Cc: Hyong-Youb Kim <hykim@myri.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20140415.134916.1941040568700162970.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1407784696-31698-1-git-send-email-rickard_strandqvist@spectrumdigital.se>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tue, Apr 15, 2014 at 07:49:16PM CEST, davem@davemloft.net wrote:
+Mon, Aug 11, 2014 at 09:18:16PM CEST, rickard_strandqvist@spectrumdigital.se wrote:
+>Added a guaranteed null-terminate after call to strncpy.
 >
->From: Eric Dumazet <edumazet@google.com>
+>Signed-off-by: Rickard Strandqvist <rickard_strandqvist@spectrumdigital.se>
+>---
+> drivers/net/ethernet/myricom/myri10ge/myri10ge.c |    1 +
+> 1 file changed, 1 insertion(+)
 >
->In the dst->output() path for ipv4, the code assumes the skb it has to
->transmit is attached to an inet socket, specifically via
->ip_mc_output() : The sk_mc_loop() test triggers a WARN_ON() when the
->provider of the packet is an AF_PACKET socket.
+>diff --git a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+>index f3d5d79..69c26f0 100644
+>--- a/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+>+++ b/drivers/net/ethernet/myricom/myri10ge/myri10ge.c
+>@@ -574,6 +574,7 @@ myri10ge_validate_firmware(struct myri10ge_priv *mgp,
+> 
+> 	/* save firmware version for ethtool */
+> 	strncpy(mgp->fw_version, hdr->version, sizeof(mgp->fw_version));
+>+	mgp->fw_version[sizeof(mgp->fw_version) - 1] = '\0';
+
+	Why not to use strlcpy?
+
+> 
+> 	sscanf(mgp->fw_version, "%d.%d.%d", &mgp->fw_ver_major,
+> 	       &mgp->fw_ver_minor, &mgp->fw_ver_tiny);
+>-- 
+>1.7.10.4
 >
->The dst->output() method gets an additional 'struct sock *sk'
->parameter. This needs a cascade of changes so that this parameter can
->be propagated from vxlan to final consumer.
-
-Actually, the same issue is present for ipv6. But it is not that easy to
-fix it there. sk_mc_loop is called from
-ip6_finish_output2(ip6_finish_output) which is called as a okfn from
-NF_HOOK_COND. So to fix it here, it would be needed to add struct sock *sk
-to a lot of places.
-
-The question is, is it the correct way? Or perhaps something like
-skb->output_sk would serve this better?
-
-Thoughts?
+>--
+>To unsubscribe from this list: send the line "unsubscribe netdev" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
