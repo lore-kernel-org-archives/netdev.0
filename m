@@ -1,66 +1,52 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 3/4] rhashtable: fix annotations for rht_for_each_entry_rcu()
-Date: Wed, 13 Aug 2014 16:38:31 +0200
-Message-ID: <c5111b2af20d30e8f5da12002eb3c5d7293413e1.1407939963.git.tgraf@suug.ch>
+Subject: [PATCH 4/4] netlink: Annotate RCU locking for seq_file walker
+Date: Wed, 13 Aug 2014 16:38:32 +0200
+Message-ID: <2e10a91c76740d06bad47adf4e36f21e6a62fd4b.1407939963.git.tgraf@suug.ch>
 References: <cover.1407939963.git.tgraf@suug.ch>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bombadil.infradead.org ([198.137.202.9]:54741 "EHLO
+Received: from bombadil.infradead.org ([198.137.202.9]:54742 "EHLO
 	bombadil.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752829AbaHMOij (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2014 10:38:39 -0400
+	with ESMTP id S1751145AbaHMOik (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2014 10:38:40 -0400
 Received: from 77-56-195-25.dclient.hispeed.ch ([77.56.195.25] helo=lsx.localdomain)
 	by bombadil.infradead.org with esmtpsa (Exim 4.80.1 #2 (Red Hat Linux))
-	id 1XHZhH-00056M-64
-	for netdev@vger.kernel.org; Wed, 13 Aug 2014 14:38:39 +0000
+	id 1XHZhI-00056M-4B
+	for netdev@vger.kernel.org; Wed, 13 Aug 2014 14:38:40 +0000
 In-Reply-To: <cover.1407939963.git.tgraf@suug.ch>
 In-Reply-To: <cover.1407939963.git.tgraf@suug.ch>
 References: <cover.1407939963.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Call rcu_deference_raw() directly from within rht_for_each_entry_rcu()
-as list_for_each_entry_rcu() does.
+Silences the following sparse warnings:
+net/netlink/af_netlink.c:2926:21: warning: context imbalance in 'netlink_seq_start' - wrong count at exit
+net/netlink/af_netlink.c:2972:13: warning: context imbalance in 'netlink_seq_stop' - unexpected unlock
 
-Fixes the following sparse warnings:
-net/netlink/af_netlink.c:2906:25:    expected struct rhash_head const *__mptr
-net/netlink/af_netlink.c:2906:25:    got struct rhash_head [noderef] <asn:4>*<noident>
-
-Fixes: e341694e3eb57fc ("netlink: Convert netlink_lookup() to use RCU protected hash table")
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 ---
- include/linux/rhashtable.h | 12 ++++--------
- 1 file changed, 4 insertions(+), 8 deletions(-)
+ net/netlink/af_netlink.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/include/linux/rhashtable.h b/include/linux/rhashtable.h
-index af967c4..36826c0 100644
---- a/include/linux/rhashtable.h
-+++ b/include/linux/rhashtable.h
-@@ -123,11 +123,6 @@ void rhashtable_destroy(const struct rhashtable *ht);
- 	typeof(ptr) __ptr = (ptr); \
- 	   __ptr ? rht_entry(__ptr, type, member) : NULL; \
- })
--#define rht_entry_safe_rcu(ptr, type, member) \
--({ \
--	typeof(*ptr) __rcu *__ptr = (typeof(*ptr) __rcu __force *)ptr; \
--	__ptr ? container_of((typeof(ptr))rcu_dereference_raw(__ptr), type, member) : NULL; \
--})
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 2e152e5..c416725 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -2921,6 +2921,7 @@ static struct sock *netlink_seq_socket_idx(struct seq_file *seq, loff_t pos)
+ }
  
- #define rht_next_entry_safe(pos, ht, member) \
- ({ \
-@@ -204,9 +199,10 @@ void rhashtable_destroy(const struct rhashtable *ht);
-  * traversal is guarded by rcu_read_lock().
-  */
- #define rht_for_each_entry_rcu(pos, head, member) \
--	for (pos = rht_entry_safe_rcu(head, typeof(*(pos)), member); \
-+	for (pos = rht_entry_safe(rcu_dereference_raw(head), \
-+				  typeof(*(pos)), member); \
- 	     pos; \
--	     pos = rht_entry_safe_rcu((pos)->member.next, \
--				      typeof(*(pos)), member))
-+	     pos = rht_entry_safe(rcu_dereference_raw((pos)->member.next), \
-+				  typeof(*(pos)), member))
+ static void *netlink_seq_start(struct seq_file *seq, loff_t *pos)
++	__acquires(RCU)
+ {
+ 	rcu_read_lock();
+ 	return *pos ? netlink_seq_socket_idx(seq, *pos - 1) : SEQ_START_TOKEN;
+@@ -2970,6 +2971,7 @@ static void *netlink_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ }
  
- #endif /* _LINUX_RHASHTABLE_H */
+ static void netlink_seq_stop(struct seq_file *seq, void *v)
++	__releases(RCU)
+ {
+ 	rcu_read_unlock();
+ }
 -- 
 1.9.3
