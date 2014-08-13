@@ -1,130 +1,64 @@
-From: Vasily Averin <vvs@parallels.com>
-Subject: [PATCH 1/2 v2] cbq: incorrectly low bandwidth setting blocks limited
- traffic
-Date: Wed, 13 Aug 2014 21:21:14 +0400
-Message-ID: <53EB9E8A.5010704@parallels.com>
-References: <1407941451.6804.10.camel@edumazet-glaptop2.roam.corp.google.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH RFC v4 net-next 00/26] BPF syscall, maps, verifier,
+ samples, llvm
+Date: Wed, 13 Aug 2014 10:30:54 -0700
+Message-ID: <CAMEtUuyULyzVb1nkJn_Tj_aKjokcBQaw_EnWBdDvtvf9iV7uXA@mail.gmail.com>
+References: <1407916658-8731-1-git-send-email-ast@plumgrid.com>
+	<063D6719AE5E284EB5DD2968C1650D6D174760F3@AcuExch.aculab.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-To: netdev@vger.kernel.org, Jamal Hadi Salim <jhs@mojatatu.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:37420 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751516AbaHMRWj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Aug 2014 13:22:39 -0400
-In-Reply-To: <1407941451.6804.10.camel@edumazet-glaptop2.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Andy Lutomirski <luto@amacapital.net>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Chema Gonzalez <chema@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kees Cook <keescook@chromium.org>,
+	"linux-api@vger.kernel.org" <linux-api@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Laight <David.Laight@aculab.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D174760F3@AcuExch.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-v2: comment cleanup
+On Wed, Aug 13, 2014 at 1:52 AM, David Laight <David.Laight@aculab.com> wrote:
+> From: Of Alexei Starovoitov
+>> one more RFC...
+>>
+>> Major difference vs previous set is a new 'load 64-bit immediate' eBPF insn.
+>> Which is first 16-byte instruction. It shows how eBPF ISA can be extended
+>> while maintaining backward compatibility, but mainly it cleans up eBPF
+>> program access to maps and improves run-time performance.
+>
+> Wouldn't it be more sensible to follow the scheme used by a lot of cpus
+> and add a 'load high' instruction (follow with 'add' or 'or').
 
-Fixes: f0f6ee1f70c4 ("cbq: incorrect processing of high limits")
+that was what I used before in pred_tree_walker->ebpf patch
+(4 existing instructions (2 movs, shift, or) to load 'pred' pointer)
+It's slower in interpreter than single instruction.
 
-Mainstream commit f0f6ee1f70c4 have side effect:
-if cbq bandwidth setting is less than real interface throughput
-non-limited traffic can delay limited traffic for a very long time.
+> It still takes 16 bytes to load a 64bit immediate value, but the instruction
+> size remains constant.
 
-This happen because of q->now changes incorrectly in cbq_dequeue():
-in described scenario L2T is much greater than real time delay,
-and q->now gets an extra boost for each transmitted packet.
+size of instruction is not important. 99% of instructions are 8 byte long
+and one is 16 byte. Big deal. It doesn't affect interpreter performance,
+easy for verifier and was straightforward to do in LLVM as well.
 
-Accumulated boost prevents update q->now, and blocked class can wait
-very long time until (q->now >= cl->undertime) will be true again.
+> There is nothing to stop any JIT software detecting the instruction pair.
 
-To fix the problem the patch updates q->now on each cbq_update() call.
-L2T-related pre-modification q->now was moved to cbq_update().
-
-My testing confirmed that it fixes the problem and did not discover
-any side-effects
-
-Signed-off-by: Vasily Averin <vvs@openvz.org>
----
- net/sched/sch_cbq.c |   37 +++++++++++++------------------------
- 1 files changed, 13 insertions(+), 24 deletions(-)
-
-diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
-index ead5264..550be95 100644
---- a/net/sched/sch_cbq.c
-+++ b/net/sched/sch_cbq.c
-@@ -700,8 +700,13 @@ cbq_update(struct cbq_sched_data *q)
- 	struct cbq_class *this = q->tx_class;
- 	struct cbq_class *cl = this;
- 	int len = q->tx_len;
-+	psched_time_t now;
- 
- 	q->tx_class = NULL;
-+	/* Time integrator. We calculate EOS time
-+	 * by adding expected packet transmission time.
-+	 */
-+	now = q->now + L2T(&q->link, len);
- 
- 	for ( ; cl; cl = cl->share) {
- 		long avgidle = cl->avgidle;
-@@ -717,7 +722,7 @@ cbq_update(struct cbq_sched_data *q)
- 		 *	idle = (now - last) - last_pktlen/rate
- 		 */
- 
--		idle = q->now - cl->last;
-+		idle = now - cl->last;
- 		if ((unsigned long)idle > 128*1024*1024) {
- 			avgidle = cl->maxidle;
- 		} else {
-@@ -761,7 +766,7 @@ cbq_update(struct cbq_sched_data *q)
- 			idle -= L2T(&q->link, len);
- 			idle += L2T(cl, len);
- 
--			cl->undertime = q->now + idle;
-+			cl->undertime = now + idle;
- 		} else {
- 			/* Underlimit */
- 
-@@ -771,7 +776,8 @@ cbq_update(struct cbq_sched_data *q)
- 			else
- 				cl->avgidle = avgidle;
- 		}
--		cl->last = q->now;
-+		if ((s64)(now - cl->last) > 0)
-+			cl->last = now;
- 	}
- 
- 	cbq_update_toplevel(q, this, q->tx_borrowed);
-@@ -943,30 +949,13 @@ cbq_dequeue(struct Qdisc *sch)
- 	struct sk_buff *skb;
- 	struct cbq_sched_data *q = qdisc_priv(sch);
- 	psched_time_t now;
--	psched_tdiff_t incr;
- 
- 	now = psched_get_time();
--	incr = now - q->now_rt;
--
--	if (q->tx_class) {
--		psched_tdiff_t incr2;
--		/* Time integrator. We calculate EOS time
--		 * by adding expected packet transmission time.
--		 * If real time is greater, we warp artificial clock,
--		 * so that:
--		 *
--		 * cbq_time = max(real_time, work);
--		 */
--		incr2 = L2T(&q->link, q->tx_len);
--		q->now += incr2;
-+
-+	if (q->tx_class)
- 		cbq_update(q);
--		if ((incr -= incr2) < 0)
--			incr = 0;
--		q->now += incr;
--	} else {
--		if (now > q->now)
--			q->now = now;
--	}
-+
-+	q->now = now;
- 	q->now_rt = now;
- 
- 	for (;;) {
--- 
-1.7.1
+well, it's actually very complicated to detect a sequence of
+instructions that compute single 64-bit value.
+Patch #11 detects and patches pseudo BPF_LD_IMM64 in
+a single 'for' loop (see replace_map_fd_with_map_ptr), because
+it's _single_ instruction. Any sequence of insns would require
+building control and data flow graphs for verifier and JIT.
+If you remember I resisted initially when Chema proposed
+'load 64-bit immediate' equivalent, since back then the use cases
+didn't require it. With maps done via FDs, the need has arisen.
