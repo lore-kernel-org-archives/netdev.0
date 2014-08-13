@@ -1,140 +1,50 @@
-From: Himangi Saraogi <himangi774-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH] drivers/net/wireless: Remove typedef local_info_t
-Date: Wed, 13 Aug 2014 14:47:13 +0530
-Message-ID: <20140813091713.GA2995@himangi-Dell>
+From: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH RFC v4 net-next 01/26] net: filter: add "load 64-bit immediate"
+ eBPF instruction
+Date: Wed, 13 Aug 2014 11:17:37 +0200
+Message-ID: <53EB2D31.8090204@redhat.com>
+References: <1407916658-8731-1-git-send-email-ast@plumgrid.com> <1407916658-8731-2-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org>
-To: Simon Kelley <simon-xn1N/tgparsycpQjotevgVpr/1R2p/CL@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1407916658-8731-2-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The Linux kernel coding style guidelines suggest not using typedefs
-for structure types. This patch gets rid of the typedef for
-local_info_t. Also, the name of the struct is changed to drop the _t,
-to make the name look less typedef-like.
+On 08/13/2014 09:57 AM, Alexei Starovoitov wrote:
+> add BPF_LD_IMM64 instruction to load 64-bit immediate value into register.
+> All previous instructions were 8-byte. This is first 16-byte instruction.
+> Two consecutive 'struct bpf_insn' blocks are interpreted as single instruction:
+> insn[0/1].code = BPF_LD | BPF_DW | BPF_IMM
+> insn[0/1].dst_reg = destination register
+> insn[0].imm = lower 32-bit
+> insn[1].imm = upper 32-bit
+>
+> Classic BPF has similar instruction: BPF_LD | BPF_W | BPF_IMM
+> which loads 32-bit immediate value into a register.
+>
+> x64 JITs it as single 'movabsq %rax, imm64'
+> arm64 may JIT as sequence of four 'movk x0, #imm16, lsl #shift' insn
+>
+> Note that old eBPF programs are binary compatible with new interpreter.
+>
+> Signed-off-by: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
 
-The following Coccinelle semantic patch detects the case:
-
-@tn@
-identifier i;
-type td;
-@@
-
--typedef
- struct i { ... }
--td
- ;
-
-@@
-type tn.td;
-identifier tn.i;
-@@
-
--td
-+ struct i
-
-Signed-off-by: Himangi Saraogi <himangi774-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Acked-by: Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org>
----
- drivers/net/wireless/atmel_cs.c | 22 +++++++++++-----------
- 1 file changed, 11 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/net/wireless/atmel_cs.c b/drivers/net/wireless/atmel_cs.c
-index 4cfb4d9..7afc9c5 100644
---- a/drivers/net/wireless/atmel_cs.c
-+++ b/drivers/net/wireless/atmel_cs.c
-@@ -66,18 +66,18 @@ static void atmel_release(struct pcmcia_device *link);
- 
- static void atmel_detach(struct pcmcia_device *p_dev);
- 
--typedef struct local_info_t {
-+struct local_info {
- 	struct net_device *eth_dev;
--} local_info_t;
-+};
- 
- static int atmel_probe(struct pcmcia_device *p_dev)
- {
--	local_info_t *local;
-+	struct local_info *local;
- 
- 	dev_dbg(&p_dev->dev, "atmel_attach()\n");
- 
- 	/* Allocate space for private device-specific data */
--	local = kzalloc(sizeof(local_info_t), GFP_KERNEL);
-+	local = kzalloc(sizeof(*local), GFP_KERNEL);
- 	if (!local)
- 		return -ENOMEM;
- 
-@@ -117,7 +117,7 @@ static int atmel_config_check(struct pcmcia_device *p_dev, void *priv_data)
- 
- static int atmel_config(struct pcmcia_device *link)
- {
--	local_info_t *dev;
-+	struct local_info *dev;
- 	int ret;
- 	const struct pcmcia_device_id *did;
- 
-@@ -141,14 +141,14 @@ static int atmel_config(struct pcmcia_device *link)
- 	if (ret)
- 		goto failed;
- 
--	((local_info_t*)link->priv)->eth_dev =
-+	((struct local_info *)link->priv)->eth_dev =
- 		init_atmel_card(link->irq,
- 				link->resource[0]->start,
- 				did ? did->driver_info : ATMEL_FW_TYPE_NONE,
- 				&link->dev,
- 				card_present,
- 				link);
--	if (!((local_info_t*)link->priv)->eth_dev)
-+	if (!((struct local_info *)link->priv)->eth_dev)
- 			goto failed;
- 
- 
-@@ -161,20 +161,20 @@ static int atmel_config(struct pcmcia_device *link)
- 
- static void atmel_release(struct pcmcia_device *link)
- {
--	struct net_device *dev = ((local_info_t*)link->priv)->eth_dev;
-+	struct net_device *dev = ((struct local_info *)link->priv)->eth_dev;
- 
- 	dev_dbg(&link->dev, "atmel_release\n");
- 
- 	if (dev)
- 		stop_atmel_card(dev);
--	((local_info_t*)link->priv)->eth_dev = NULL;
-+	((struct local_info *)link->priv)->eth_dev = NULL;
- 
- 	pcmcia_disable_device(link);
- }
- 
- static int atmel_suspend(struct pcmcia_device *link)
- {
--	local_info_t *local = link->priv;
-+	struct local_info *local = link->priv;
- 
- 	netif_device_detach(local->eth_dev);
- 
-@@ -183,7 +183,7 @@ static int atmel_suspend(struct pcmcia_device *link)
- 
- static int atmel_resume(struct pcmcia_device *link)
- {
--	local_info_t *local = link->priv;
-+	struct local_info *local = link->priv;
- 
- 	atmel_open(local->eth_dev);
- 	netif_device_attach(local->eth_dev);
--- 
-1.9.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+For follow-ups on this series, can you put the actual motivation
+for this change from the cover letter into this commit log as it
+otherwise doesn't say anything clearly why it is needed. Code and
+test case looks good to me.
