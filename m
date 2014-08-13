@@ -1,71 +1,142 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH] ipv6: do not add link-local address if one already exists
-Date: Wed, 13 Aug 2014 19:10:27 +0200
-Message-ID: <20140813171027.GC1869@nanopsycho.orion>
-References: <d630f87aa617098553c3a3361fcf50aa@mail.marples.name>
- <1407703032.2161.22.camel@localhost>
- <c612bb8cad5480b08919e32f39c6d6ea@mail.marples.name>
- <1407715900.2161.24.camel@localhost>
- <5734a020ebb2bd95d61ba282243719bd@mail.marples.name>
+From: Himangi Saraogi <himangi774-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH v2] atmel_cs: Remove typedef local_info_t
+Date: Wed, 13 Aug 2014 22:40:24 +0530
+Message-ID: <20140813171024.GA16596@himangi-Dell>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Hannes Frederic Sowa <hannes@redhat.com>, netdev@vger.kernel.org
-To: Roy Marples <roy@marples.name>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f169.google.com ([209.85.212.169]:36121 "EHLO
-	mail-wi0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752831AbaHMRKa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2014 13:10:30 -0400
-Received: by mail-wi0-f169.google.com with SMTP id n3so8707128wiv.0
-        for <netdev@vger.kernel.org>; Wed, 13 Aug 2014 10:10:29 -0700 (PDT)
+Cc: Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org>, Kalle Valo <kvalo-BkwN83ws05HQT0dZR+AlfA@public.gmane.org>
+To: Simon Kelley <simon-xn1N/tgparsycpQjotevgVpr/1R2p/CL@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TaqPxH82wqD4g@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <5734a020ebb2bd95d61ba282243719bd@mail.marples.name>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Mon, Aug 11, 2014 at 11:22:04PM CEST, roy@marples.name wrote:
->Hi
->
->On 2014-08-11 01:11, Hannes Frederic Sowa wrote:
->>On Mo, 2014-08-11 at 00:05 +0000, Roy Marples wrote:
->>>On 2014-08-10 20:37, Hannes Frederic Sowa wrote:
->>>> On So, 2014-08-10 at 19:56 +0000, Roy Marples wrote:
->>>>> Currently the kernel will always add an IPv6 link-local address
->>>>> based on the hardware address when the interface is brought up.
->>>>> This is probably based on the assumption that userland would
->>>>> never add one before the interface is brought up.
->>>>>
->>>>> However, one at least one userland application (dhcpcd) does this so
->>>>> it can implement RFC7217 which can be used for link-local addresses
->>>>> as well.
->>>>>
->>>>> Attached is a patch which checks to see if a link-local address exists
->>>>> before indiscriminately adding one.
->>>>
->>>> Please have a look at:
->>>> https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=bc91b0f07ada5535427373a4e2050877bcc12218
->>>>
->>>> This was recently implemented just for this specific case.
->>>
->>>Is that tunable available in /proc or /sys?
->>>I'm not overly keen on adding a netlink call just for that in dhcpcd, it
->>>would be a lot of bloat compared to the kernel patch.
->>
->>Can you call iproute via a script? Would that fit your needs?
->>https://git.kernel.org/cgit/linux/kernel/git/shemminger/iproute2.git/commit/?h=net-next&id=ff7c20844049be836c10087cb2418b99ff36ca2b
->
->Not really as there is no guarantee iproute2 is installed on the host.
->For now, I've added a netlink call at the expense of around 400 bytes.
+The Linux kernel coding style guidelines suggest not using typedefs
+for structure types. This patch gets rid of the typedef for
+local_info_t. Also, the name of the struct is changed to drop the _t,
+to make the name look less typedef-like.
 
-The iface to idev->addr_gen_mode can be certainly added to sysfs. Feel
-free to do so.
+The following Coccinelle semantic patch detects the case:
 
+@tn@
+identifier i;
+type td;
+@@
 
->
->Thanks
->
->Roy
->--
->To unsubscribe from this list: send the line "unsubscribe netdev" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-typedef
+ struct i { ... }
+-td
+ ;
+
+@@
+type tn.td;
+identifier tn.i;
+@@
+
+-td
++ struct i
+
+Signed-off-by: Himangi Saraogi <himangi774-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Acked-by: Julia Lawall <julia.lawall-L2FTfq7BK8M@public.gmane.org>
+---
+v2: correct prefix.
+Not compile tested.
+ drivers/net/wireless/atmel_cs.c | 22 +++++++++++-----------
+ 1 file changed, 11 insertions(+), 11 deletions(-)
+
+diff --git a/drivers/net/wireless/atmel_cs.c b/drivers/net/wireless/atmel_cs.c
+index 4cfb4d9..7afc9c5 100644
+--- a/drivers/net/wireless/atmel_cs.c
++++ b/drivers/net/wireless/atmel_cs.c
+@@ -66,18 +66,18 @@ static void atmel_release(struct pcmcia_device *link);
+ 
+ static void atmel_detach(struct pcmcia_device *p_dev);
+ 
+-typedef struct local_info_t {
++struct local_info {
+ 	struct net_device *eth_dev;
+-} local_info_t;
++};
+ 
+ static int atmel_probe(struct pcmcia_device *p_dev)
+ {
+-	local_info_t *local;
++	struct local_info *local;
+ 
+ 	dev_dbg(&p_dev->dev, "atmel_attach()\n");
+ 
+ 	/* Allocate space for private device-specific data */
+-	local = kzalloc(sizeof(local_info_t), GFP_KERNEL);
++	local = kzalloc(sizeof(*local), GFP_KERNEL);
+ 	if (!local)
+ 		return -ENOMEM;
+ 
+@@ -117,7 +117,7 @@ static int atmel_config_check(struct pcmcia_device *p_dev, void *priv_data)
+ 
+ static int atmel_config(struct pcmcia_device *link)
+ {
+-	local_info_t *dev;
++	struct local_info *dev;
+ 	int ret;
+ 	const struct pcmcia_device_id *did;
+ 
+@@ -141,14 +141,14 @@ static int atmel_config(struct pcmcia_device *link)
+ 	if (ret)
+ 		goto failed;
+ 
+-	((local_info_t*)link->priv)->eth_dev =
++	((struct local_info *)link->priv)->eth_dev =
+ 		init_atmel_card(link->irq,
+ 				link->resource[0]->start,
+ 				did ? did->driver_info : ATMEL_FW_TYPE_NONE,
+ 				&link->dev,
+ 				card_present,
+ 				link);
+-	if (!((local_info_t*)link->priv)->eth_dev)
++	if (!((struct local_info *)link->priv)->eth_dev)
+ 			goto failed;
+ 
+ 
+@@ -161,20 +161,20 @@ static int atmel_config(struct pcmcia_device *link)
+ 
+ static void atmel_release(struct pcmcia_device *link)
+ {
+-	struct net_device *dev = ((local_info_t*)link->priv)->eth_dev;
++	struct net_device *dev = ((struct local_info *)link->priv)->eth_dev;
+ 
+ 	dev_dbg(&link->dev, "atmel_release\n");
+ 
+ 	if (dev)
+ 		stop_atmel_card(dev);
+-	((local_info_t*)link->priv)->eth_dev = NULL;
++	((struct local_info *)link->priv)->eth_dev = NULL;
+ 
+ 	pcmcia_disable_device(link);
+ }
+ 
+ static int atmel_suspend(struct pcmcia_device *link)
+ {
+-	local_info_t *local = link->priv;
++	struct local_info *local = link->priv;
+ 
+ 	netif_device_detach(local->eth_dev);
+ 
+@@ -183,7 +183,7 @@ static int atmel_suspend(struct pcmcia_device *link)
+ 
+ static int atmel_resume(struct pcmcia_device *link)
+ {
+-	local_info_t *local = link->priv;
++	struct local_info *local = link->priv;
+ 
+ 	atmel_open(local->eth_dev);
+ 	netif_device_attach(local->eth_dev);
+-- 
+1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
