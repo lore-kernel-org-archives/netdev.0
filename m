@@ -1,7 +1,7 @@
 From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: [PATCH RFC v4 net-next 10/26] bpf: verifier (add ability to receive verification log)
-Date: Wed, 13 Aug 2014 00:57:21 -0700
-Message-ID: <1407916658-8731-11-git-send-email-ast@plumgrid.com>
+Subject: [PATCH RFC v4 net-next 25/26] samples: bpf: counting eBPF example in C
+Date: Wed, 13 Aug 2014 00:57:36 -0700
+Message-ID: <1407916658-8731-26-git-send-email-ast@plumgrid.com>
 References: <1407916658-8731-1-git-send-email-ast@plumgrid.com>
 Cc: Ingo Molnar <mingo@kernel.org>,
 	Linus Torvalds <torvalds@linux-foundation.org>,
@@ -21,300 +21,259 @@ In-Reply-To: <1407916658-8731-1-git-send-email-ast@plumgrid.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-add optional attributes for BPF_PROG_LOAD syscall:
-  BPF_PROG_LOG_LEVEL,     /* verbosity level of eBPF verifier */
-  BPF_PROG_LOG_BUF,       /* user supplied buffer */
-  BPF_PROG_LOG_SIZE,      /* size of user buffer */
+this example has two probes in C that use two different maps.
 
-In such case the verifier will return its verification log in the user
-supplied buffer which can be used by humans to analyze why verifier
-rejected given program
+1st probe is the similar to dropmon.c. It attaches to kfree_skb tracepoint and
+count number of packet drops at different locations
+
+2nd probe attaches to kprobe/sys_write and computes a histogram of different
+write sizes
+
+Usage:
+$ sudo ex2
+
+Should see:
+writing bpf-5 -> /sys/kernel/debug/tracing/events/skb/kfree_skb/filter
+writing bpf-8 -> /sys/kernel/debug/tracing/events/kprobes/sys_write/filter
+location 0xffffffff816efc67 count 1
+
+location 0xffffffff815d8030 count 1
+location 0xffffffff816efc67 count 3
+
+location 0xffffffff815d8030 count 4
+location 0xffffffff816efc67 count 9
+
+           syscall write() stats
+     byte_size       : count     distribution
+       1 -> 1        : 3141     |****                                  |
+       2 -> 3        : 2        |                                      |
+       4 -> 7        : 14       |                                      |
+       8 -> 15       : 3268     |*****                                 |
+      16 -> 31       : 732      |                                      |
+      32 -> 63       : 20042    |************************************* |
+      64 -> 127      : 12154    |**********************                |
+     128 -> 255      : 2215     |***                                   |
+     256 -> 511      : 9        |                                      |
+     512 -> 1023     : 0        |                                      |
+    1024 -> 2047     : 1        |                                      |
+
+Ctrl-C at any time. Kernel will auto cleanup maps and programs
 
 Signed-off-by: Alexei Starovoitov <ast@plumgrid.com>
 ---
- include/uapi/linux/bpf.h |    4 +
- kernel/bpf/syscall.c     |    3 +
- kernel/bpf/verifier.c    |  236 ++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 243 insertions(+)
+ samples/bpf/Makefile   |    6 ++--
+ samples/bpf/ex2_kern.c |   73 +++++++++++++++++++++++++++++++++++++
+ samples/bpf/ex2_user.c |   94 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 171 insertions(+), 2 deletions(-)
+ create mode 100644 samples/bpf/ex2_kern.c
+ create mode 100644 samples/bpf/ex2_user.c
 
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index aa09ba084ebc..72bed3950bf1 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -372,6 +372,10 @@ enum bpf_prog_attributes {
- 	BPF_PROG_UNSPEC,
- 	BPF_PROG_TEXT,		/* array of eBPF instructions */
- 	BPF_PROG_LICENSE,	/* license string */
-+	/* optional program attributes */
-+	BPF_PROG_LOG_LEVEL,	/* verbosity level of eBPF verifier */
-+	BPF_PROG_LOG_BUF,	/* user supplied buffer */
-+	BPF_PROG_LOG_SIZE,	/* size of user buffer */
- 	__BPF_PROG_ATTR_MAX,
- };
- #define BPF_PROG_ATTR_MAX (__BPF_PROG_ATTR_MAX - 1)
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index a3581646ee11..60cb760cb423 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -443,6 +443,9 @@ struct bpf_prog *bpf_prog_get(u32 ufd)
- static const struct nla_policy prog_policy[BPF_PROG_ATTR_MAX + 1] = {
- 	[BPF_PROG_TEXT]      = { .type = NLA_BINARY },
- 	[BPF_PROG_LICENSE]   = { .type = NLA_NUL_STRING },
-+	[BPF_PROG_LOG_LEVEL] = { .type = NLA_U32 },
-+	[BPF_PROG_LOG_BUF]   = { .len = sizeof(void *) },
-+	[BPF_PROG_LOG_SIZE]  = { .type = NLA_U32 },
- };
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index c97f408fcd6d..b865a5df5c60 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -2,19 +2,21 @@
+ obj- := dummy.o
  
- static int bpf_prog_load(enum bpf_prog_type type, struct nlattr __user *uattr,
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index cf8a0131cd91..27b34e1c8fbf 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -143,9 +143,245 @@
-  * load/store to bpf_context are checked against known fields
-  */
+ # List of programs to build
+-hostprogs-y := sock_example dropmon ex1
++hostprogs-y := sock_example dropmon ex1 ex2
  
-+/* single container for all structs
-+ * one verifier_env per bpf_check() call
-+ */
-+struct verifier_env {
+ sock_example-objs := sock_example.o libbpf.o
+ dropmon-objs := dropmon.o libbpf.o
+ ex1-objs := bpf_load.o libbpf.o ex1_user.o
++ex2-objs := bpf_load.o libbpf.o ex2_user.o
+ 
+ # Tell kbuild to always build the programs
+-always := $(hostprogs-y) ex1_kern.o
++always := $(hostprogs-y) ex1_kern.o ex2_kern.o
+ 
+ HOSTCFLAGS += -I$(objtree)/usr/include
+ 
+ HOSTCFLAGS_bpf_load.o += -I$(objtree)/usr/include -Wno-unused-variable
+ HOSTLOADLIBES_ex1 += -lelf
++HOSTLOADLIBES_ex2 += -lelf
+ 
+ LLC=$(srctree)/tools/bpf/llvm/bld/Debug+Asserts/bin/llc
+ 
+diff --git a/samples/bpf/ex2_kern.c b/samples/bpf/ex2_kern.c
+new file mode 100644
+index 000000000000..2daa50b27ce5
+--- /dev/null
++++ b/samples/bpf/ex2_kern.c
+@@ -0,0 +1,73 @@
++#include <linux/skbuff.h>
++#include <linux/netdevice.h>
++#include <uapi/linux/bpf.h>
++#include <trace/bpf_trace.h>
++#include "bpf_helpers.h"
++
++struct bpf_map_def SEC("maps") my_map = {
++	.type = BPF_MAP_TYPE_HASH,
++	.key_size = sizeof(long),
++	.value_size = sizeof(long),
++	.max_entries = 1024,
 +};
 +
-+/* verbose verifier prints what it's seeing
-+ * bpf_check() is called under lock, so no race to access these global vars
-+ */
-+static u32 log_level, log_size, log_len;
-+static void *log_buf;
-+
-+static DEFINE_MUTEX(bpf_verifier_lock);
-+
-+/* log_level controls verbosity level of eBPF verifier.
-+ * verbose() is used to dump the verification trace to the log, so the user
-+ * can figure out what's wrong with the program
-+ */
-+static void verbose(const char *fmt, ...)
++SEC("events/skb/kfree_skb")
++int bpf_prog2(struct bpf_context *ctx)
 +{
-+	va_list args;
++	long loc = ctx->arg2;
++	long init_val = 1;
++	void *value;
 +
-+	if (log_level == 0 || log_len >= log_size - 1)
-+		return;
-+
-+	va_start(args, fmt);
-+	log_len += vscnprintf(log_buf + log_len, log_size - log_len, fmt, args);
-+	va_end(args);
++	value = bpf_map_lookup_elem(&my_map, &loc);
++	if (value)
++		(*(long *) value) += 1;
++	else
++		bpf_map_update_elem(&my_map, &loc, &init_val);
++	return 0;
 +}
 +
-+static const char *const bpf_class_string[] = {
-+	[BPF_LD]    = "ld",
-+	[BPF_LDX]   = "ldx",
-+	[BPF_ST]    = "st",
-+	[BPF_STX]   = "stx",
-+	[BPF_ALU]   = "alu",
-+	[BPF_JMP]   = "jmp",
-+	[BPF_RET]   = "BUG",
-+	[BPF_ALU64] = "alu64",
-+};
-+
-+static const char *const bpf_alu_string[] = {
-+	[BPF_ADD >> 4]  = "+=",
-+	[BPF_SUB >> 4]  = "-=",
-+	[BPF_MUL >> 4]  = "*=",
-+	[BPF_DIV >> 4]  = "/=",
-+	[BPF_OR  >> 4]  = "|=",
-+	[BPF_AND >> 4]  = "&=",
-+	[BPF_LSH >> 4]  = "<<=",
-+	[BPF_RSH >> 4]  = ">>=",
-+	[BPF_NEG >> 4]  = "neg",
-+	[BPF_MOD >> 4]  = "%=",
-+	[BPF_XOR >> 4]  = "^=",
-+	[BPF_MOV >> 4]  = "=",
-+	[BPF_ARSH >> 4] = "s>>=",
-+	[BPF_END >> 4]  = "endian",
-+};
-+
-+static const char *const bpf_ldst_string[] = {
-+	[BPF_W >> 3]  = "u32",
-+	[BPF_H >> 3]  = "u16",
-+	[BPF_B >> 3]  = "u8",
-+	[BPF_DW >> 3] = "u64",
-+};
-+
-+static const char *const bpf_jmp_string[] = {
-+	[BPF_JA >> 4]   = "jmp",
-+	[BPF_JEQ >> 4]  = "==",
-+	[BPF_JGT >> 4]  = ">",
-+	[BPF_JGE >> 4]  = ">=",
-+	[BPF_JSET >> 4] = "&",
-+	[BPF_JNE >> 4]  = "!=",
-+	[BPF_JSGT >> 4] = "s>",
-+	[BPF_JSGE >> 4] = "s>=",
-+	[BPF_CALL >> 4] = "call",
-+	[BPF_EXIT >> 4] = "exit",
-+};
-+
-+static void print_bpf_insn(struct bpf_insn *insn)
++static unsigned int log2(unsigned int v)
 +{
-+	u8 class = BPF_CLASS(insn->code);
++	unsigned int r;
++	unsigned int shift;
 +
-+	if (class == BPF_ALU || class == BPF_ALU64) {
-+		if (BPF_SRC(insn->code) == BPF_X)
-+			verbose("(%02x) %sr%d %s %sr%d\n",
-+				insn->code, class == BPF_ALU ? "(u32) " : "",
-+				insn->dst_reg,
-+				bpf_alu_string[BPF_OP(insn->code) >> 4],
-+				class == BPF_ALU ? "(u32) " : "",
-+				insn->src_reg);
-+		else
-+			verbose("(%02x) %sr%d %s %s%d\n",
-+				insn->code, class == BPF_ALU ? "(u32) " : "",
-+				insn->dst_reg,
-+				bpf_alu_string[BPF_OP(insn->code) >> 4],
-+				class == BPF_ALU ? "(u32) " : "",
-+				insn->imm);
-+	} else if (class == BPF_STX) {
-+		if (BPF_MODE(insn->code) == BPF_MEM)
-+			verbose("(%02x) *(%s *)(r%d %+d) = r%d\n",
-+				insn->code,
-+				bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
-+				insn->dst_reg,
-+				insn->off, insn->src_reg);
-+		else if (BPF_MODE(insn->code) == BPF_XADD)
-+			verbose("(%02x) lock *(%s *)(r%d %+d) += r%d\n",
-+				insn->code,
-+				bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
-+				insn->dst_reg, insn->off,
-+				insn->src_reg);
-+		else
-+			verbose("BUG_%02x\n", insn->code);
-+	} else if (class == BPF_ST) {
-+		if (BPF_MODE(insn->code) != BPF_MEM) {
-+			verbose("BUG_st_%02x\n", insn->code);
-+			return;
-+		}
-+		verbose("(%02x) *(%s *)(r%d %+d) = %d\n",
-+			insn->code,
-+			bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
-+			insn->dst_reg,
-+			insn->off, insn->imm);
-+	} else if (class == BPF_LDX) {
-+		if (BPF_MODE(insn->code) != BPF_MEM) {
-+			verbose("BUG_ldx_%02x\n", insn->code);
-+			return;
-+		}
-+		verbose("(%02x) r%d = *(%s *)(r%d %+d)\n",
-+			insn->code, insn->dst_reg,
-+			bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
-+			insn->src_reg, insn->off);
-+	} else if (class == BPF_LD) {
-+		if (BPF_MODE(insn->code) == BPF_ABS) {
-+			verbose("(%02x) r0 = *(%s *)skb[%d]\n",
-+				insn->code,
-+				bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
-+				insn->imm);
-+		} else if (BPF_MODE(insn->code) == BPF_IND) {
-+			verbose("(%02x) r0 = *(%s *)skb[r%d + %d]\n",
-+				insn->code,
-+				bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
-+				insn->src_reg, insn->imm);
-+		} else if (BPF_MODE(insn->code) == BPF_IMM) {
-+			verbose("(%02x) r%d = 0x%x\n",
-+				insn->code, insn->dst_reg, insn->imm);
-+		} else {
-+			verbose("BUG_ld_%02x\n", insn->code);
-+			return;
-+		}
-+	} else if (class == BPF_JMP) {
-+		u8 opcode = BPF_OP(insn->code);
-+
-+		if (opcode == BPF_CALL) {
-+			verbose("(%02x) call %d\n", insn->code, insn->imm);
-+		} else if (insn->code == (BPF_JMP | BPF_JA)) {
-+			verbose("(%02x) goto pc%+d\n",
-+				insn->code, insn->off);
-+		} else if (insn->code == (BPF_JMP | BPF_EXIT)) {
-+			verbose("(%02x) exit\n", insn->code);
-+		} else if (BPF_SRC(insn->code) == BPF_X) {
-+			verbose("(%02x) if r%d %s r%d goto pc%+d\n",
-+				insn->code, insn->dst_reg,
-+				bpf_jmp_string[BPF_OP(insn->code) >> 4],
-+				insn->src_reg, insn->off);
-+		} else {
-+			verbose("(%02x) if r%d %s 0x%x goto pc%+d\n",
-+				insn->code, insn->dst_reg,
-+				bpf_jmp_string[BPF_OP(insn->code) >> 4],
-+				insn->imm, insn->off);
-+		}
-+	} else {
-+		verbose("(%02x) %s\n", insn->code, bpf_class_string[class]);
-+	}
++	r = (v > 0xFFFF) << 4; v >>= r;
++	shift = (v > 0xFF) << 3; v >>= shift; r |= shift;
++	shift = (v > 0xF) << 2; v >>= shift; r |= shift;
++	shift = (v > 0x3) << 1; v >>= shift; r |= shift;
++	r |= (v >> 1);
++	return r;
 +}
 +
- int bpf_check(struct bpf_prog *prog, struct nlattr *tb[BPF_PROG_ATTR_MAX + 1])
- {
-+	void __user *log_ubuf = NULL;
-+	struct verifier_env *env;
- 	int ret = -EINVAL;
- 
-+	if (prog->len <= 0 || prog->len > BPF_MAXINSNS)
-+		return -E2BIG;
++static unsigned int log2l(unsigned long v)
++{
++	unsigned int hi = v >> 32;
++	if (hi)
++		return log2(hi) + 32;
++	else
++		return log2(v);
++}
 +
-+	/* 'struct verifier_env' can be global, but since it's not small,
-+	 * allocate/free it every time bpf_check() is called
-+	 */
-+	env = kzalloc(sizeof(struct verifier_env), GFP_KERNEL);
-+	if (!env)
-+		return -ENOMEM;
++struct bpf_map_def SEC("maps") my_hist_map = {
++	.type = BPF_MAP_TYPE_HASH,
++	.key_size = sizeof(u32),
++	.value_size = sizeof(long),
++	.max_entries = 64,
++};
 +
-+	/* grab the mutex to protect few globals used by verifier */
-+	mutex_lock(&bpf_verifier_lock);
++SEC("events/kprobes/sys_write")
++int bpf_prog3(struct bpf_context *ctx)
++{
++	long write_size = ctx->arg3;
++	long init_val = 1;
++	void *value;
++	u32 index = log2l(write_size);
 +
-+	if (tb[BPF_PROG_LOG_LEVEL] && tb[BPF_PROG_LOG_BUF] &&
-+	    tb[BPF_PROG_LOG_SIZE]) {
-+		/* user requested verbose verifier output
-+		 * and supplied buffer to store the verification trace
-+		 */
-+		log_level = nla_get_u32(tb[BPF_PROG_LOG_LEVEL]);
-+		log_ubuf = *(void __user **) nla_data(tb[BPF_PROG_LOG_BUF]);
-+		log_size = nla_get_u32(tb[BPF_PROG_LOG_SIZE]);
-+		log_len = 0;
++	value = bpf_map_lookup_elem(&my_hist_map, &index);
++	if (value)
++		__sync_fetch_and_add((long *)value, 1);
++	else
++		bpf_map_update_elem(&my_hist_map, &index, &init_val);
++	return 0;
++}
++char license[] SEC("license") = "GPL";
+diff --git a/samples/bpf/ex2_user.c b/samples/bpf/ex2_user.c
+new file mode 100644
+index 000000000000..fd5ce21ae60a
+--- /dev/null
++++ b/samples/bpf/ex2_user.c
+@@ -0,0 +1,94 @@
++#include <stdio.h>
++#include <unistd.h>
++#include <stdlib.h>
++#include <signal.h>
++#include <linux/bpf.h>
++#include "libbpf.h"
++#include "bpf_load.h"
 +
-+		ret = -EINVAL;
-+		/* log_* values have to be sane */
-+		if (log_size < 128 || log_size > UINT_MAX >> 8 ||
-+		    log_level == 0 || log_ubuf == NULL)
-+			goto free_env;
++#define MAX_INDEX	64
++#define MAX_STARS	38
 +
-+		ret = -ENOMEM;
-+		log_buf = vmalloc(log_size);
-+		if (!log_buf)
-+			goto free_env;
-+	} else {
-+		log_level = 0;
++static void stars(char *str, long val, long max, int width)
++{
++	int i;
++
++	for (i = 0; i < (width * val / max) - 1 && i < width - 1; i++)
++		str[i] = '*';
++	if (val > max)
++		str[i - 1] = '+';
++	str[i] = '\0';
++}
++
++static void print_hist(int fd)
++{
++	int key, next_key;
++	long value;
++	long data[MAX_INDEX] = {};
++	char starstr[MAX_STARS];
++	int i;
++	int max_ind = -1;
++	long max_value = 0;
++
++	key = -1; /* some unknown key */
++	while (bpf_get_next_key(fd, &key, &next_key) == 0) {
++		bpf_lookup_elem(fd, &next_key, &value);
++		if (next_key > MAX_INDEX) {
++			printf("BUG: invalid index %d\n", next_key);
++		} else {
++			data[next_key] = value;
++			if (next_key > max_ind)
++				max_ind = next_key;
++			if (value > max_value)
++				max_value = value;
++		}
++		key = next_key;
 +	}
 +
-+	/* ret = do_check(env); */
++	printf("           syscall write() stats\n");
++	printf("     byte_size       : count     distribution\n");
++	for (i = 1; i <= max_ind + 1; i++) {
++		stars(starstr, data[i - 1], max_value, MAX_STARS);
++		printf("%8ld -> %-8ld : %-8ld |%-*s|\n",
++		       (1l << i) >> 1, (1l << i) - 1, data[i - 1],
++		       MAX_STARS, starstr);
++	}
++}
++static void int_exit(int sig)
++{
++	print_hist(map_fd[1]);
++	exit(0);
++}
 +
-+	if (log_level && log_len >= log_size - 1) {
-+		BUG_ON(log_len >= log_size);
-+		/* verifier log exceeded user supplied buffer */
-+		ret = -ENOSPC;
-+		/* fall through to return what was recorded */
++int main(int ac, char **argv)
++{
++	char filename[256];
++	long key, next_key, value;
++	int i;
++
++	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
++
++	signal(SIGINT, int_exit);
++
++	i = system("echo 'p:sys_write sys_write' > /sys/kernel/debug/tracing/kprobe_events");
++
++	if (load_bpf_file(filename)) {
++		printf("%s", bpf_log_buf);
++		return 1;
 +	}
 +
-+	/* copy verifier log back to user space including trailing zero */
-+	if (log_level && copy_to_user(log_ubuf, log_buf, log_len + 1) != 0) {
-+		ret = -EFAULT;
-+		goto free_log_buf;
++	for (i = 0; i < 5; i++) {
++		key = 0;
++		while (bpf_get_next_key(map_fd[0], &key, &next_key) == 0) {
++			bpf_lookup_elem(map_fd[0], &next_key, &value);
++			printf("location 0x%lx count %ld\n", next_key, value);
++			key = next_key;
++		}
++		if (key)
++			printf("\n");
++		sleep(1);
 +	}
++	print_hist(map_fd[1]);
 +
-+
-+free_log_buf:
-+	if (log_level)
-+		vfree(log_buf);
-+free_env:
-+	kfree(env);
-+	mutex_unlock(&bpf_verifier_lock);
- 	return ret;
- }
++	return 0;
++}
 -- 
 1.7.9.5
