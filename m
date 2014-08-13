@@ -1,8 +1,8 @@
-From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+From: Alexei Starovoitov <ast@plumgrid.com>
 Subject: Re: [PATCH RFC v4 net-next 01/26] net: filter: add "load 64-bit
  immediate" eBPF instruction
-Date: Wed, 13 Aug 2014 14:43:34 -0700
-Message-ID: <CAMEtUuxhYQ0R=1C9h9yVZFP5PxyS8dqB_KBs7QxJ9EHMJHo3vQ@mail.gmail.com>
+Date: Wed, 13 Aug 2014 14:56:44 -0700
+Message-ID: <CAMEtUuzqjNnLRML=4Npda5FpU+B6-PCaKTySKfJw4Z+-Mg=KLQ@mail.gmail.com>
 References: <1407916658-8731-1-git-send-email-ast@plumgrid.com>
 	<1407916658-8731-2-git-send-email-ast@plumgrid.com>
 	<CALCETrXzZVxMGUgDPOKwN0DPLvupU=ew1z6D4U-jHg+RoyZyLg@mail.gmail.com>
@@ -13,33 +13,52 @@ References: <1407916658-8731-1-git-send-email-ast@plumgrid.com>
 	<53EBD6D5.3050706@zytor.com>
 	<CALCETrUghSd-Z3+z_MUierWHQnA_dDOQcJ++EKryUeGTh5LbbA@mail.gmail.com>
 	<53EBD848.1060203@zytor.com>
-	<CALCETrVUPofE2w2t-_iwcTim8kbdcx93yW==+CwoqVqsaNnXHg@mail.gmail.com>
+	<CAMEtUuwO028MV8TQXQew1SOQjUvSbQ_bazAqorGRxojXXYXEnA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CALCETrVUPofE2w2t-_iwcTim8kbdcx93yW==+CwoqVqsaNnXHg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Andy Lutomirski <luto@amacapital.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Chema Gonzalez <chema@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kees Cook <keescook@chromium.org>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: "H. Peter Anvin" <hpa@zytor.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAMEtUuwO028MV8TQXQew1SOQjUvSbQ_bazAqorGRxojXXYXEnA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 13, 2014 at 2:41 PM, Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org> wrote:
+On Wed, Aug 13, 2014 at 2:38 PM, Alexei Starovoitov <ast@plumgrid.com> wrote:
+> On Wed, Aug 13, 2014 at 2:27 PM, H. Peter Anvin <hpa@zytor.com> wrote:
+>> On 08/13/2014 02:23 PM, Andy Lutomirski wrote:
+>>> On Wed, Aug 13, 2014 at 2:21 PM, H. Peter Anvin <hpa@zytor.com> wrote:
+>>>> One thing about this that may be a serious concern: allowing the user to
+>>>> control 8 contiguous bytes of kernel memory may be a security hazard.
+>>>
+>>> I'm confused.  What kind of memory?  I can control a lot more than 8
+>>> bytes of stack very easily.
+>>>
+>>> Or are you concerned about 8 contiguous bytes of *executable* memory?
+>>>
+>>
+>> Yes.  Useful for some kinds of ROP custom gadgets.
 >
-> I think this is moot on non-SMEP machines.  And I'm not entirely
-> convinced that it's worth worrying about in general, especially if we
-> take some care to randomize the location of the JIT mapping.
+> I don't get it. What is ROP ?
+> What is the concern about 8 bytes ?
 
-JIT start address is already randomized...
+looked it up. too many abbreviations now days.
+x64 jit spraying was fixed by Eric some time ago, so JIT emitting
+movabsq doesn't increase attack surface. various movs of 32-bit
+immediates can be used for 'custom gadget' just as well.
+Worst case JIT won't be enabled.
+In classic BPF we allow junk to be stored in used fields of
+'struct sock_filter' and so far that wasn't a problem.
+eBPF is more paranoid regarding verification.
