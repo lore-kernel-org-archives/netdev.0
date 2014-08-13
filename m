@@ -1,103 +1,75 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: Re: [PATCH net-next 3/3] sunvnet: Schedule maybe_tx_wakeup as a
- tasklet from ldc_rx path
-Date: Wed, 13 Aug 2014 07:20:10 -0400
-Message-ID: <20140813112010.GC16865@oracle.com>
-References: <20140812143531.GJ2404@oracle.com>
- <20140812.151352.2235795686370279748.davem@davemloft.net>
- <20140813015817.GA13600@oracle.com>
- <20140812.212513.96441522917129709.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: raghuram.kothakota@oracle.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [linux-stable] i40e: Don't stop driver probe when querying DCB config fails
+Date: Wed, 13 Aug 2014 04:30:55 -0700
+Message-ID: <1407929455-8443-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Neerav Parikh <neerav.parikh@intel.com>, netdev@vger.kernel.org,
+	stable@vger.kernel.org,
+	Catherine Sullivan <catherine.sullivan@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: gregkh@linuxfoundation.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:33896 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750757AbaHMLUP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2014 07:20:15 -0400
-Content-Disposition: inline
-In-Reply-To: <20140812.212513.96441522917129709.davem@davemloft.net>
+Received: from mga02.intel.com ([134.134.136.20]:20620 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751341AbaHMLbR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Aug 2014 07:31:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On (08/12/14 21:25), David Miller wrote:
-> 
-> However, don't get ahead of yourself.  All I'm saying in the context
-> of reviewing this patch #3 is that you should leave vnet_tx_timeout()
-> alone and just put what you were putting into vnet_tx_timeout() into
-> maybe_tx_wakeup().
+From: Neerav Parikh <neerav.parikh@intel.com>
 
-And just leave vnet_tx_timeout() as before (i.e, "XXX implement me"?)?
+Commit id: 014269ff376f552363ecdab78d3d947fbe2237d9 in Linus's tree
+should be queued up for stable 3.14 & 3.15 since the i40e driver will
+not load when DCB is enabled, unless this patch is applied.
 
-Sure, I can generate that (as a stand-alone unified-diff patch?) 
-it would be the minimum fix needed to avoid the deadlock on 
-netif_tx_lock() itself.
+In case of any AQ command to query port's DCB configuration fails
+during driver's probe time; the probe fails and returns an error.
 
-> This doesn't match my understanding.   My understanding is that when
-> an LDC connection resets, the peer on the other side should automatically
-> try to re-bind or whatever is necessary to re-establish the LDC link.
-> 
-> It's supposed to be fault tolerant in as many situations as possible
-> without the need for explicit adminstrator intervention.
+This patch prevents this issue by continuing the driver probe even
+when an error is returned.
 
-Ideally, yes. But that's not what I was observing when I tested this.
+Also, added an error message to dump the AQ error status to show what
+error caused the failure to get the DCB configuration from firmware.
 
-> But besides that, an LDC reset is a big hammer.  So I would say that it
-> should be deferred to the last possible point.
+Change-ID: Ifd5663512588bca684069bb7d4fb586dd72221af
+Signed-off-by: Neerav Parikh <neerav.parikh@intel.com>
+Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-Correct, and that's why it feels ok (to me) to do this when the
-DRING_STOPPED fails (so that we also fail subsequent ldc_write's
-from vnet_start_xmit()) but not in any other case.
-
-Note that, as I pointed out to Raghuram already, doing ldc_disconnect
-does *not* send any reset events. The code may have other missing
-functionality. 
-
-> So initially we do the backoff spinning loop synchronously.  If that
-> doesn't succeed, we schedule a workqueue that can poll the LDC channel
-> some more trying to do the write, in a sleepable context (so a loop
-> with delays and preemption points) until a much larger timeout.  Only
-> at this second timeout do we declare things to be serious enough for
-> an LDC channel reset.
-> 
-> > So for case 1 we could do something very similar- I haven't tried this yet,
-> > but here's what I'm thinking: vnet_start_xmit() should not do a
-> > netif_stop_queue.  Instead it should do a (new function) "vio_stop_queue()"
-> > which sets some (new) VIO_DR_FLOW_CONTROLLED  state in the vio_driver_state, 
-> > (or perhaps some flag bit in the ldc_channel?) and also marks a 
-> > (new) boolean is_flow_controlled state variable in the struct vnet 
-> > as TRUE.
-> > 
-> > The modified maybe_tx_wakeup would check is_flow_controlled on the vnet,
-> > and call a new vnet_wake_queue() to reset VIO_DR_FLOW_CONTROLLED
-> > if appropriate.
-> > 
-> > vnet_start_xmit should drop packets as long as VIO_DR_FLOW_CONTROLLED
-> > is set.
-> 
-> Again, as I stated yesterday, you really cannot do this.  Head of line
-> blocking when one peer gets wedged is absolutely necessary.
-
-In the light of the subsequent discussion about head-of-line blocking
-(and it's applicability per ldc_channel, instead of per-net_device),
-do we still think the above has issues, or is otherwise not worth
-doing?
-
-Further in the thread, David Miller wrote:
-
-> So the question is how to manage this on the driver side, and the most
-> natural way I see do this would be to use multiple TX netdev queues
-> and a custom netdev_ops->ndo_select_queue() method which selects the
-> queue based upon the peer that would be selected.
-
-This might work well for the current sunvnet model (and even
-there, it has limitations- if all the traffic is going out 
-via the switchport to a gateway, you are again back to the 
-head-of-line blocking model).
-
-But how generally useful is this model? For point-to-multipoint links
-like ethernet, I dont think you actually track one channel per
-peer.  
-
---Sowmini
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index b901371..5d3206d 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -4024,6 +4024,9 @@ static int i40e_init_pf_dcb(struct i40e_pf *pf)
+ 				       DCB_CAP_DCBX_VER_IEEE;
+ 			pf->flags |= I40E_FLAG_DCB_ENABLED;
+ 		}
++	} else {
++		dev_info(&pf->pdev->dev, "AQ Querying DCB configuration failed: %d\n",
++			 pf->hw.aq.asq_last_status);
+ 	}
+ 
+ out:
+@@ -8003,7 +8006,7 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	if (err) {
+ 		dev_info(&pdev->dev, "init_pf_dcb failed: %d\n", err);
+ 		pf->flags &= ~I40E_FLAG_DCB_ENABLED;
+-		goto err_init_dcb;
++		/* Continue without DCB enabled */
+ 	}
+ #endif /* CONFIG_I40E_DCB */
+ 
+@@ -8119,9 +8122,6 @@ err_vsis:
+ err_switch_setup:
+ 	i40e_reset_interrupt_capability(pf);
+ 	del_timer_sync(&pf->service_timer);
+-#ifdef CONFIG_I40E_DCB
+-err_init_dcb:
+-#endif /* CONFIG_I40E_DCB */
+ err_mac_addr:
+ err_configure_lan_hmc:
+ 	(void)i40e_shutdown_lan_hmc(hw);
+-- 
+1.9.3
