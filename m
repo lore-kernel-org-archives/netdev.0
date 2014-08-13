@@ -1,40 +1,47 @@
-From: "Mrs. Rosemary Peter" <jucaramsucar@ufrnet.br>
-Subject: (unknown)
-Date: Tue, 12 Aug 2014 20:40:20 -0300
-Message-ID: <5bd3a09496da8617a5d7315d9aab9f31.squirrel@webmail.ufrnet.br>
-Reply-To: ecowas_scamvictim@foxmail.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH stable 3.4 1/2] ipv4: move route garbage collector to
+ work queue
+Date: Tue, 12 Aug 2014 17:46:21 -0700 (PDT)
+Message-ID: <20140812.174621.1935425856781215649.davem@davemloft.net>
+References: <1407879692.16087.5.camel@localhost>
+	<20140812.154255.2235928819945086905.davem@davemloft.net>
+	<1407885074.3535486.152056309.7BDE2766@webmail.messagingengine.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: undisclosed-recipients:;
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: hannes@redhat.com, eric.dumazet@gmail.com, mleitner@redhat.com,
+	netdev@vger.kernel.org
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.ufrnet.br ([177.20.144.7]:35860 "EHLO mail.ufrnet.br"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751942AbaHLXtF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Aug 2014 19:49:05 -0400
-Subject: 
+Received: from shards.monkeyblade.net ([149.20.54.216]:40234 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751639AbaHMAqX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Aug 2014 20:46:23 -0400
+In-Reply-To: <1407885074.3535486.152056309.7BDE2766@webmail.messagingengine.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Wed, 13 Aug 2014 01:11:14 +0200
 
+> On Wed, Aug 13, 2014, at 00:42, David Miller wrote:
+>> Just bite the bullet and put a spinlock around the GC operation.
+> 
+> We had a spinlock around the GC operation at first but still were
+> capable to cause softlockups, I don't remember if a complete lockup
+> happend.
 
+This much I understand.
 
-Dear Victims of scam,
+What I'm saying is retain this patch #1, in order to make the normal
+GCs run asynchronously via a work queue, but on top of that put a
+spinlock around the GC function.
 
-This is to bring to your notice that our bank (ECOBANK INTL. PLC) is
-delegated by the ECOWAS/UNITED NATIONS in Central Bank to compensate
-victims of scam $500,000 (Five Hundred Thousand Dollars Only).
+> Should be no problem to conditional synchronize with the neighbour
+> overflow path.
 
-Your Name.___ Address.__Phone ._ Amount Defrauded._ Country._
+Once you have the spinlock around the GC it should be just fine.
 
-Send a copy of your response with the PAYMENT CODE
-NUMBER(ECB/06654).
-
-NAME: MR.CLEMENT SYLVANIUS
-      SCAMMED VICTIM/REF/PAYMENTS CODE:
-      ECB/06654 $500,000 USD.
-
-Yours Faithfully,
-Mrs. Rosemary Peter
-PUBLIC RELATIONS OFFICER
-Copyright 2014
+If we hit the neighbour table overflow condition when an async GC is
+operating, the direct GC call from the neighbour table overflow path
+will just spin on the lock waiting for the async GC to complete.
