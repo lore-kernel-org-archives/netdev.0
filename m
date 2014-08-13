@@ -1,64 +1,60 @@
-From: Alexei Starovoitov <ast@plumgrid.com>
-Subject: Re: [PATCH RFC v4 net-next 00/26] BPF syscall, maps, verifier,
- samples, llvm
-Date: Wed, 13 Aug 2014 10:30:54 -0700
-Message-ID: <CAMEtUuyULyzVb1nkJn_Tj_aKjokcBQaw_EnWBdDvtvf9iV7uXA@mail.gmail.com>
+From: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Subject: Re: [PATCH RFC v4 net-next 01/26] net: filter: add "load 64-bit
+ immediate" eBPF instruction
+Date: Wed, 13 Aug 2014 10:34:00 -0700
+Message-ID: <CAMEtUuzo6xQkhg+y0h_WEArVZi9cxVoGAcTBDcwMXza+eQGBTw@mail.gmail.com>
 References: <1407916658-8731-1-git-send-email-ast@plumgrid.com>
-	<063D6719AE5E284EB5DD2968C1650D6D174760F3@AcuExch.aculab.com>
+	<1407916658-8731-2-git-send-email-ast@plumgrid.com>
+	<53EB2D31.8090204@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Ingo Molnar <mingo@kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Andy Lutomirski <luto@amacapital.net>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Chema Gonzalez <chema@google.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Kees Cook <keescook@chromium.org>,
-	"linux-api@vger.kernel.org" <linux-api@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Laight <David.Laight@aculab.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D174760F3@AcuExch.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Linux API <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <53EB2D31.8090204-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 13, 2014 at 1:52 AM, David Laight <David.Laight@aculab.com> wrote:
-> From: Of Alexei Starovoitov
->> one more RFC...
+On Wed, Aug 13, 2014 at 2:17 AM, Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> On 08/13/2014 09:57 AM, Alexei Starovoitov wrote:
 >>
->> Major difference vs previous set is a new 'load 64-bit immediate' eBPF insn.
->> Which is first 16-byte instruction. It shows how eBPF ISA can be extended
->> while maintaining backward compatibility, but mainly it cleans up eBPF
->> program access to maps and improves run-time performance.
+>> add BPF_LD_IMM64 instruction to load 64-bit immediate value into register.
+>> All previous instructions were 8-byte. This is first 16-byte instruction.
+>> Two consecutive 'struct bpf_insn' blocks are interpreted as single
+>> instruction:
+>> insn[0/1].code = BPF_LD | BPF_DW | BPF_IMM
+>> insn[0/1].dst_reg = destination register
+>> insn[0].imm = lower 32-bit
+>> insn[1].imm = upper 32-bit
+>>
+>> Classic BPF has similar instruction: BPF_LD | BPF_W | BPF_IMM
+>> which loads 32-bit immediate value into a register.
+>>
+>> x64 JITs it as single 'movabsq %rax, imm64'
+>> arm64 may JIT as sequence of four 'movk x0, #imm16, lsl #shift' insn
+>>
+>> Note that old eBPF programs are binary compatible with new interpreter.
+>>
+>> Signed-off-by: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
 >
-> Wouldn't it be more sensible to follow the scheme used by a lot of cpus
-> and add a 'load high' instruction (follow with 'add' or 'or').
+>
+> For follow-ups on this series, can you put the actual motivation
+> for this change from the cover letter into this commit log as it
+> otherwise doesn't say anything clearly why it is needed. Code and
+> test case looks good to me.
 
-that was what I used before in pred_tree_walker->ebpf patch
-(4 existing instructions (2 movs, shift, or) to load 'pred' pointer)
-It's slower in interpreter than single instruction.
-
-> It still takes 16 bytes to load a 64bit immediate value, but the instruction
-> size remains constant.
-
-size of instruction is not important. 99% of instructions are 8 byte long
-and one is 16 byte. Big deal. It doesn't affect interpreter performance,
-easy for verifier and was straightforward to do in LLVM as well.
-
-> There is nothing to stop any JIT software detecting the instruction pair.
-
-well, it's actually very complicated to detect a sequence of
-instructions that compute single 64-bit value.
-Patch #11 detects and patches pseudo BPF_LD_IMM64 in
-a single 'for' loop (see replace_map_fd_with_map_ptr), because
-it's _single_ instruction. Any sequence of insns would require
-building control and data flow graphs for verifier and JIT.
-If you remember I resisted initially when Chema proposed
-'load 64-bit immediate' equivalent, since back then the use cases
-didn't require it. With maps done via FDs, the need has arisen.
+ok. As you saw the full explanation is long, so I opted for 'it_does_this'
+commit log. In the next rev will add more reasons to this log. Sure.
