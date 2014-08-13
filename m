@@ -1,49 +1,61 @@
-From: Prashant Sreedharan <prashant@broadcom.com>
-Subject: Re: [PATCH net-next] tg3: fix return value in tg3_get_stats64
-Date: Wed, 13 Aug 2014 13:52:42 -0700
-Message-ID: <1407963162.19680.1.camel@prashant>
-References: <1407915296-12692-1-git-send-email-_govind@gmx.com>
+From: Alexei Starovoitov <ast@plumgrid.com>
+Subject: Re: [PATCH RFC v4 net-next 01/26] net: filter: add "load 64-bit
+ immediate" eBPF instruction
+Date: Wed, 13 Aug 2014 14:02:50 -0700
+Message-ID: <CAMEtUuwx6Y4qxyz4TGK9=M2BH-dXnPsm+JrusqbyjzK20yUv6A@mail.gmail.com>
+References: <1407916658-8731-1-git-send-email-ast@plumgrid.com>
+	<1407916658-8731-2-git-send-email-ast@plumgrid.com>
+	<CALCETrXzZVxMGUgDPOKwN0DPLvupU=ew1z6D4U-jHg+RoyZyLg@mail.gmail.com>
+	<CAMEtUuxog0w-XkYMHM=Zto_gejy8x5agxohAWOs1zPEtXTr0Sw@mail.gmail.com>
+	<CALCETrXfp+7FmEzAoLiqzqY73NBzt8JsD40hzvhT3=gr-Scp=g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <mchan@broadcom.com>,
-	<netdev@vger.kernel.org>
-To: Govindarajulu Varadarajan <_govind@gmx.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:8249 "EHLO
-	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751457AbaHMVAr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2014 17:00:47 -0400
-In-Reply-To: <1407915296-12692-1-git-send-email-_govind@gmx.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Chema Gonzalez <chema@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kees Cook <keescook@chromium.org>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Andy Lutomirski <luto@amacapital.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CALCETrXfp+7FmEzAoLiqzqY73NBzt8JsD40hzvhT3=gr-Scp=g@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2014-08-13 at 13:04 +0530, Govindarajulu Varadarajan wrote:
-> When tp->hw_stats is 0, tg3_get_stats64 should display previously
-> recorded stats. So it returns &tp->net_stats_prev. But the caller,
-> dev_get_stats, ignores the return value.
-> 
-> Fix this by assigning tp->net_stats_prev to stats and returning stats.
-> 
-> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
+On Wed, Aug 13, 2014 at 11:35 AM, Andy Lutomirski <luto@amacapital.net> wrote:
+>
+> The compiler can still think of it as a single insn, though, but some
+> future compiler might not.
 
-Acked-by: Prashant Sreedharan <prashant@broadcom.com>
-> ---
->  drivers/net/ethernet/broadcom/tg3.c | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-> index a3dd5dc..4296b3d26 100644
-> --- a/drivers/net/ethernet/broadcom/tg3.c
-> +++ b/drivers/net/ethernet/broadcom/tg3.c
-> @@ -14093,8 +14093,9 @@ static struct rtnl_link_stats64 *tg3_get_stats64(struct net_device *dev,
->  
->  	spin_lock_bh(&tp->lock);
->  	if (!tp->hw_stats) {
-> +		*stats = tp->net_stats_prev;
->  		spin_unlock_bh(&tp->lock);
-> -		return &tp->net_stats_prev;
-> +		return stats;
->  	}
->  
->  	tg3_get_nstats(tp, stats);
+I think that would be very dangerous.
+compiler (user space) and kernel interpreter must have the same
+understanding of ISA.
+
+> In any case, I think that, if you use the
+> same code for high and for low, you need logic in the JIT that's at
+> least as complicated.
+
+why do you think so? Handling of pseudo BPF_LD_IMM64 is done
+in single patch #11 which is one of the smallest...
+
+> For example, what happens if you have two
+> consecutive 64-bit immediate loads to the same register?  Now you have
+> four consecutive 8-byte insn words that differ only in their immediate
+> values, and you need to split them correctly.
+
+I don't need to do anything special in this case.
+Two 16-byte instructions back to back is not a problem.
+Interpreter or JIT don't care whether they move the same or different
+immediates into the same or different register. Interpreter and JITs
+are dumb on purpose.
+when verifier sees two back to back ld_imm64, the 2nd will simply
+override the value loaded by first one. It's not any different than
+two back to back 'mov dst_reg, imm32' instructions.
