@@ -1,29 +1,49 @@
-From: "Taylor,Shirley" <Shirley.Taylor@tridenttech.edu>
-Subject: RE: FIF-2014
-Date: Wed, 13 Aug 2014 20:30:54 +0000
-Message-ID: <FC0338E68966844E903F70BA660CAA499DD64EC8__10940.3669870973$1407962208$gmane$org@MBX4.tridentad.org>
-References: <FC0338E68966844E903F70BA660CAA499DD6408A@MBX4.tridentad.org>
+From: Prashant Sreedharan <prashant@broadcom.com>
+Subject: Re: [PATCH net-next] tg3: fix return value in tg3_get_stats64
+Date: Wed, 13 Aug 2014 13:52:42 -0700
+Message-ID: <1407963162.19680.1.camel@prashant>
+References: <1407915296-12692-1-git-send-email-_govind@gmx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=Windows-1252
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: "Taylor,Shirley" <Shirley.Taylor@tridenttech.edu>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <mchan@broadcom.com>,
+	<netdev@vger.kernel.org>
+To: Govindarajulu Varadarajan <_govind@gmx.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.tridenttech.edu ([199.67.23.71]:56585 "EHLO
-	EXCHTMG2.tridentad.org" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751529AbaHMUgX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2014 16:36:23 -0400
-In-Reply-To: <FC0338E68966844E903F70BA660CAA499DD6408A@MBX4.tridentad.org>
-Content-Language: en-US
+Received: from mail-gw1-out.broadcom.com ([216.31.210.62]:8249 "EHLO
+	mail-gw1-out.broadcom.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751457AbaHMVAr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2014 17:00:47 -0400
+In-Reply-To: <1407915296-12692-1-git-send-email-_govind@gmx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, 2014-08-13 at 13:04 +0530, Govindarajulu Varadarajan wrote:
+> When tp->hw_stats is 0, tg3_get_stats64 should display previously
+> recorded stats. So it returns &tp->net_stats_prev. But the caller,
+> dev_get_stats, ignores the return value.
+> 
+> Fix this by assigning tp->net_stats_prev to stats and returning stats.
+> 
+> Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
 
-
-________________________________
-=46rom: Taylor,Shirley
-Sent: Wednesday, August 13, 2014 4:19 PM
-To: Taylor,Shirley
-Subject: FIF-2014
-
-Contact Maria-Elisabeth Schaeffler For Info About Donation On (mariaeli=
-sabeth.s@outlook.com) About (=801.700.000)
+Acked-by: Prashant Sreedharan <prashant@broadcom.com>
+> ---
+>  drivers/net/ethernet/broadcom/tg3.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+> index a3dd5dc..4296b3d26 100644
+> --- a/drivers/net/ethernet/broadcom/tg3.c
+> +++ b/drivers/net/ethernet/broadcom/tg3.c
+> @@ -14093,8 +14093,9 @@ static struct rtnl_link_stats64 *tg3_get_stats64(struct net_device *dev,
+>  
+>  	spin_lock_bh(&tp->lock);
+>  	if (!tp->hw_stats) {
+> +		*stats = tp->net_stats_prev;
+>  		spin_unlock_bh(&tp->lock);
+> -		return &tp->net_stats_prev;
+> +		return stats;
+>  	}
+>  
+>  	tg3_get_nstats(tp, stats);
