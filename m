@@ -1,56 +1,50 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: Re: Parent device of MDIO bus
-Date: Wed, 13 Aug 2014 12:43:14 -0300
-Message-ID: <CAOMZO5CAfLYq_LTHMhemHY1GZKFYEs-ucW313F9CmpTjWRdNig@mail.gmail.com>
-References: <m3egwkwl9v.fsf@t19.piap.pl>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: [PATCH RFC v4 net-next 01/26] net: filter: add "load 64-bit
+ immediate" eBPF instruction
+Date: Wed, 13 Aug 2014 09:08:24 -0700
+Message-ID: <CALCETrXzZVxMGUgDPOKwN0DPLvupU=ew1z6D4U-jHg+RoyZyLg@mail.gmail.com>
+References: <1407916658-8731-1-git-send-email-ast@plumgrid.com> <1407916658-8731-2-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>
-To: =?UTF-8?Q?Krzysztof_Ha=C5=82asa?= <khalasa@piap.pl>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f54.google.com ([209.85.215.54]:42631 "EHLO
-	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752916AbaHMPnQ convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2014 11:43:16 -0400
-Received: by mail-la0-f54.google.com with SMTP id hz20so9095316lab.41
-        for <netdev@vger.kernel.org>; Wed, 13 Aug 2014 08:43:14 -0700 (PDT)
-In-Reply-To: <m3egwkwl9v.fsf@t19.piap.pl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Ingo Molnar <mingo@kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	Daniel Borkmann <dborkman@redhat.com>,
+	Chema Gonzalez <chema@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Kees Cook <keescook@chromium.org>,
+	Linux API <linux-api@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Alexei Starovoitov <ast@plumgrid.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1407916658-8731-2-git-send-email-ast@plumgrid.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 13, 2014 at 10:51 AM, Krzysztof Ha=C5=82asa <khalasa@piap.p=
-l> wrote:
-> Hi,
->
-> I noticed a recent change a71e3c37960ce5f9c6a519bc1215e3ba9fa83e75:
->     net: phy: Set the driver when registering an MDIO bus device
->
->     mdiobus_register() registers a device which is already bound to a=
- driver.
->     Hence, the driver pointer should be set properly in order to trac=
-k down
->     the driver associated to the MDIO bus.
->
->     This will be used to allow ethernet driver to pin down a MDIO bus=
- driver,
->     preventing it from being unloaded while the PHY device is running=
-=2E
->
-> Does this mean an MDIO driver must now be separate from its Ethernet
-> driver in order for the latter to be rmmod-able? Otherwise, the Ether=
-net
-> .probe (*_init_one()) calls mdiobus_register() and immediately bumps
-> refcount (for both drivers in a common module) forever.
->
-> The other option seems to be moving mdio_register() from Ethernet's
-> .probe() to dev->open(). This will make the driver un-rmmod-able when
-> the Ethernet device is open (not a big problem and we had it this way
-> some time ago). It will be rmmod-able again when all Ethernets are
-> closed.
->
-> Or am I missing something?
-> What do you think?
+On Wed, Aug 13, 2014 at 12:57 AM, Alexei Starovoitov <ast@plumgrid.com> wrote:
+> add BPF_LD_IMM64 instruction to load 64-bit immediate value into register.
+> All previous instructions were 8-byte. This is first 16-byte instruction.
+> Two consecutive 'struct bpf_insn' blocks are interpreted as single instruction:
+> insn[0/1].code = BPF_LD | BPF_DW | BPF_IMM
+> insn[0/1].dst_reg = destination register
+> insn[0].imm = lower 32-bit
+> insn[1].imm = upper 32-bit
 
-This patch has been reverted in mainline.
+This might be unnecessarily difficult for fancy static analysis tools
+to reason about.  Would it make sense to assign two different codes
+for this?  For example, insn[0].code = code_for_load_low,
+insns[1].code = code_for_load_high, along with a verifier check that
+they come in matched pairs and that code_for_load_high isn't a jump
+target?
+
+(Something else that I find confusing about eBPF: the instruction
+mnemonics are very strange.  Have you considered giving them real
+names?  For example, load.imm.low instead of BPF_LD | BPF_DW | BPF_IMM
+is easier to read and pronounce.)
+
+--Andy
