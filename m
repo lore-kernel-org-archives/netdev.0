@@ -1,58 +1,49 @@
-From: Kevin Wilson <wkevils@gmail.com>
-Subject: BRIDGE_FLAGS_MASTER is used instead of BRIDGE_VLAN_INFO_MASTER flag
- in bridge/vlan.c
-Date: Wed, 13 Aug 2014 22:20:13 +0300
-Message-ID: <CAGXs5wVPS6YdTsiPxj3aaiwHVSgUhiXtUHxFUNTKDUKxRKTD5A@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [linux-stable] i40e: Don't stop driver probe when querying DCB
+ config fails
+Date: Wed, 13 Aug 2014 12:43:40 -0700 (PDT)
+Message-ID: <20140813.124340.1193598133586058303.davem@davemloft.net>
+References: <1407929455-8443-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Stephen Hemminger <stephen@networkplumber.org>, vyasevic@redhat.com
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: gregkh@linuxfoundation.org, neerav.parikh@intel.com,
+	netdev@vger.kernel.org, stable@vger.kernel.org,
+	catherine.sullivan@intel.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f43.google.com ([209.85.218.43]:35964 "EHLO
-	mail-oi0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751227AbaHMTUN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2014 15:20:13 -0400
-Received: by mail-oi0-f43.google.com with SMTP id u20so146845oif.16
-        for <netdev@vger.kernel.org>; Wed, 13 Aug 2014 12:20:13 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:46625 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751471AbaHMTnn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2014 15:43:43 -0400
+In-Reply-To: <1407929455-8443-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Wed, 13 Aug 2014 04:30:55 -0700
 
-The BRIDGE_VLAN_INFO_MASTER flag was added to /include/uapi/linux/if_bridge.h
-by commit 407af3299ef1ac7e87ce3fb530e32a009d1a9efd,
-"Add netlink interface to configure vlans on bridge ports".
-The value of this flag is checked in the kernel only in the br_afspec()
-method, net/bridge/br_netlink.c.
+> From: Neerav Parikh <neerav.parikh@intel.com>
+> 
+> Commit id: 014269ff376f552363ecdab78d3d947fbe2237d9 in Linus's tree
+> should be queued up for stable 3.14 & 3.15 since the i40e driver will
+> not load when DCB is enabled, unless this patch is applied.
+> 
+> In case of any AQ command to query port's DCB configuration fails
+> during driver's probe time; the probe fails and returns an error.
+> 
+> This patch prevents this issue by continuing the driver probe even
+> when an error is returned.
+> 
+> Also, added an error message to dump the AQ error status to show what
+> error caused the failure to get the DCB configuration from firmware.
+> 
+> Change-ID: Ifd5663512588bca684069bb7d4fb586dd72221af
+> Signed-off-by: Neerav Parikh <neerav.parikh@intel.com>
+> Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
+This is a very confusing submission.
 
-Can someone please explain how and where is the BRIDGE_VLAN_INFO_MASTER
-flag set in userspace? I cannot find such a case. The natural place
-for it is bridge/vlan.c ?(of
-proute2), but it is not set there, and  not in any other module of iproute2.
-see:
-http://git.kernel.org/cgit/linux/kernel/git/shemminger/iproute2.git/tree/bridge/vlan.c
-
-There is another flag named "BRIDGE_FLAGS_MASTER" which is set in
-bridge/vlan.c of iproute2.
-
-Both these flags, BRIDGE_FLAGS_MASTER and BRIDGE_VLAN_INFO_MASTER,
-appear in include/linux/if_bridge.h in iproute2, and both have the
-value 1.
-
-Could it be a mistake, and in fact when setting BRIDGE_FLAGS_MASTER
-in bridge/vlan.c of iproute2, the meaning was to set
-BRIDGE_VLAN_INFO_MASTER (but since both there values are the same,
-it was not noticed since it caused no problem)? It
-seems to me that we do not really mean to set
-a bridge flag (BRIDGE_FLAGS_MASTER) in a vlan module.
-This mistake is the only explanation I can think of for why
-BRIDGE_VLAN_INFO_MASTER
-is not used in bridge/vlan.c of iproute2.
-
-If this is the case, I volunteer to send a patch to fix this
-by setting BRIDGE_VLAN_INFO_MASTER instead of BRIDGE_FLAGS_MASTER
-in bridge/vlan.c.
-
-Regards,
-Kevin
+Is this an already applied patch that you want accepted into the -stable
+tree?  If so, which tree(s)?
