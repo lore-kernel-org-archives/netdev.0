@@ -1,75 +1,65 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [linux-stable] i40e: Don't stop driver probe when querying DCB config fails
-Date: Wed, 13 Aug 2014 04:30:55 -0700
-Message-ID: <1407929455-8443-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Neerav Parikh <neerav.parikh@intel.com>, netdev@vger.kernel.org,
-	stable@vger.kernel.org,
-	Catherine Sullivan <catherine.sullivan@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: gregkh@linuxfoundation.org, davem@davemloft.net
+From: Eli Cohen <eli@dev.mellanox.co.il>
+Subject: [PATCH net-next 00/10] IB core and mlx5 changes
+Date: Wed, 13 Aug 2014 14:39:01 +0300
+Message-ID: <1407929951-16362-1-git-send-email-eli@mellanox.com>
+Cc: netdev@vger.kernel.org, rdma@vger.kernel.org, amirv@mellanox.com,
+	yevgenyp@mellanox.com, Eli Cohen <eli@mellanox.com>
+To: roland@kernel.org, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:20620 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751341AbaHMLbR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Aug 2014 07:31:17 -0400
+Received: from mail-wg0-f50.google.com ([74.125.82.50]:48707 "EHLO
+	mail-wg0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751843AbaHMLj3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2014 07:39:29 -0400
+Received: by mail-wg0-f50.google.com with SMTP id n12so10896180wgh.21
+        for <netdev@vger.kernel.org>; Wed, 13 Aug 2014 04:39:28 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neerav Parikh <neerav.parikh@intel.com>
+Hi Roland and Dave,
+Following are patches that extend IB verbs to support extended capabilities and
+extended atomic operations which further extend the operations introduced for
+ConnectX. There are also some bug fixes and also first introduction to using a
+set of macros to set/get values from command mailboxes based on a special
+header file that describes hardware registers layout.
 
-Commit id: 014269ff376f552363ecdab78d3d947fbe2237d9 in Linus's tree
-should be queued up for stable 3.14 & 3.15 since the i40e driver will
-not load when DCB is enabled, unless this patch is applied.
+I am sending to net-next since these patches heavily depend on commit
+9603b61de1eee ("mlx5: Move pci device handling from mlx5_ib to mlx5_core")
+which is available in net-next but not yet in ib-next.
 
-In case of any AQ command to query port's DCB configuration fails
-during driver's probe time; the probe fails and returns an error.
+Eli Cohen (10):
+  IB/core: Add support for extended query device caps
+  IB/mlx5: Add support for extended query device
+  mlx5: Use hardware registers description header file
+  IB/mlx5: Remove duplicate code from mlx5_set_path
+  IB/core: Define big endian response for atomic operations
+  IB/mlx5: Add extended atomic support
+  IB/mlx4: Add extended atomic support
+  IB/mlx5: Clear umr resources after ib_unregister_device
+  IB/mlx5: Improve debug prints in mlx5_ib_reg_user_mr
+  IB/core: Avoid leakage from kernel to user space
 
-This patch prevents this issue by continuing the driver probe even
-when an error is returned.
+ drivers/infiniband/core/uverbs.h               |    1 +
+ drivers/infiniband/core/uverbs_cmd.c           |  142 +-
+ drivers/infiniband/core/uverbs_main.c          |    4 +-
+ drivers/infiniband/hw/mlx4/main.c              |    3 +
+ drivers/infiniband/hw/mlx5/cq.c                |    8 +-
+ drivers/infiniband/hw/mlx5/mad.c               |    2 +-
+ drivers/infiniband/hw/mlx5/main.c              |  154 +-
+ drivers/infiniband/hw/mlx5/mr.c                |    6 +-
+ drivers/infiniband/hw/mlx5/qp.c                |  115 +-
+ drivers/infiniband/hw/mlx5/srq.c               |    6 +-
+ drivers/net/ethernet/mellanox/mlx5/core/cmd.c  |   35 +
+ drivers/net/ethernet/mellanox/mlx5/core/eq.c   |    2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/fw.c   |  102 +-
+ drivers/net/ethernet/mellanox/mlx5/core/main.c |  199 +-
+ drivers/net/ethernet/mellanox/mlx5/core/uar.c  |    4 +-
+ include/linux/mlx5/device.h                    |   99 +-
+ include/linux/mlx5/driver.h                    |   85 +-
+ include/linux/mlx5/mlx5_ifc.h                  | 4389 ++++++++++++++++++++++++
+ include/rdma/ib_verbs.h                        |   10 +-
+ include/uapi/rdma/ib_user_verbs.h              |   64 +-
+ 20 files changed, 5147 insertions(+), 283 deletions(-)
+ create mode 100644 include/linux/mlx5/mlx5_ifc.h
 
-Also, added an error message to dump the AQ error status to show what
-error caused the failure to get the DCB configuration from firmware.
-
-Change-ID: Ifd5663512588bca684069bb7d4fb586dd72221af
-Signed-off-by: Neerav Parikh <neerav.parikh@intel.com>
-Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_main.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index b901371..5d3206d 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -4024,6 +4024,9 @@ static int i40e_init_pf_dcb(struct i40e_pf *pf)
- 				       DCB_CAP_DCBX_VER_IEEE;
- 			pf->flags |= I40E_FLAG_DCB_ENABLED;
- 		}
-+	} else {
-+		dev_info(&pf->pdev->dev, "AQ Querying DCB configuration failed: %d\n",
-+			 pf->hw.aq.asq_last_status);
- 	}
- 
- out:
-@@ -8003,7 +8006,7 @@ static int i40e_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	if (err) {
- 		dev_info(&pdev->dev, "init_pf_dcb failed: %d\n", err);
- 		pf->flags &= ~I40E_FLAG_DCB_ENABLED;
--		goto err_init_dcb;
-+		/* Continue without DCB enabled */
- 	}
- #endif /* CONFIG_I40E_DCB */
- 
-@@ -8119,9 +8122,6 @@ err_vsis:
- err_switch_setup:
- 	i40e_reset_interrupt_capability(pf);
- 	del_timer_sync(&pf->service_timer);
--#ifdef CONFIG_I40E_DCB
--err_init_dcb:
--#endif /* CONFIG_I40E_DCB */
- err_mac_addr:
- err_configure_lan_hmc:
- 	(void)i40e_shutdown_lan_hmc(hw);
 -- 
 1.9.3
