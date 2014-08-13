@@ -1,87 +1,46 @@
-From: Michael Schmitz <schmitzmic@gmail.com>
-Subject: Re: [PATCH] m68k/atari: EtherNEC - ethernet support (ne),>
-Date: Wed, 13 Aug 2014 20:37:33 +1200
-Message-ID: <53EB23CD.2060101@gmail.com>
-References: <1407636153-24864-1-git-send-email-schmitzmic@gmail.com>	<53EA2AF2.3040709@windriver.com>	<CAOmrzk+m7b58Xb=zFv6Kf=_HgGR4FzwpwRvsh08uGMkg0xPLWA@mail.gmail.com> <CAMuHMdWqXPf_1a1b=VGGayS2y2DPEibeOpFMFZth6KZUMue6BQ@mail.gmail.com>
+From: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
+Subject: RE: [PATCH RFC v4 net-next 00/26] BPF syscall, maps, verifier,
+ samples, llvm
+Date: Wed, 13 Aug 2014 08:52:30 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D174760F3@AcuExch.aculab.com>
+References: <1407916658-8731-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Linux/m68k <linux-m68k@vger.kernel.org>,
-	debian m68k <debian-68k@lists.debian.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:48441 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751647AbaHMIhj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2014 04:37:39 -0400
-In-Reply-To: <CAMuHMdWqXPf_1a1b=VGGayS2y2DPEibeOpFMFZth6KZUMue6BQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	"Peter Zijlstra" <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
+	"Andrew Morton" <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	"linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: 'Alexei Starovoitov' <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1407916658-8731-1-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Content-Language: en-US
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Geert,
+From: Of Alexei Starovoitov
+> one more RFC...
+> 
+> Major difference vs previous set is a new 'load 64-bit immediate' eBPF insn.
+> Which is first 16-byte instruction. It shows how eBPF ISA can be extended
+> while maintaining backward compatibility, but mainly it cleans up eBPF
+> program access to maps and improves run-time performance.
 
->
->> Would you be OK if I expanded the comment like this?
->>
->> /* ne.c is used on m68k Atari and Q40 computers - the Atari ROM-port
->> adapter is 8-bit, Q40 uses ISA */
->>     
->
-> DaveM already applied it to his tree, and sent a pull request to Linus.
->   
+Wouldn't it be more sensible to follow the scheme used by a lot of cpus
+and add a 'load high' instruction (follow with 'add' or 'or').
+It still takes 16 bytes to load a 64bit immediate value, but the instruction
+size remains constant.
+There is nothing to stop any JIT software detecting the instruction pair.
 
-OK - won't resend then unless explicitly requested.
-
-Many thanks, Dave!
-
->> This would limit the runtime test to the case where it is actually
->> needed (untested):
->>
->> #elif defined(CONFIG_ATARI) && defined(CONFIG_Q40)
->> /* multiplatform m68k kernel - the Atari ROM-port adapter is 8-bit,
->> Q40 uses ISA */
->> #  define DCR_VAL (MACH_IS_ATARI ? 0x48 : 0x49)
->> #elif defined(CONFIG_ATARI) /* no Q40 support - 8-bit mode on Atari ROM port */
->> #  define DCR_VAL 0x48
->> #else
->> #  define DCR_VAL 0x49
->> #endif
->>     
->
-> MACH_IS_ATARI already evaluates to a constant on single-platform
-> kernels, so this is optimized at compile time.
-> Hence there's not really a need for this.
->   
-
-I was hoping it would. More of an attempt to make the logic easier to 
-understand, but a comment would be sufficient (and avoid redundancy).
-
->> Are there any other m68k platforms that use the ne.c driver, Geert?
->> apne, hydra and zorro8390 all have their own separate drivers - any
->> others?
->>     
->
-> Not that I'm aware of. Only Q40 has CONFIG_NE2000 in defconfig.
->   
-
-Good - we can finally put this one to rest.
-
-Cheers,
-
-    Michael
-
-
-> Gr{oetje,eeting}s,
->
->                         Geert
->
-> --
-> Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
->
-> In personal conversations with technical people, I call myself a hacker. But
-> when I'm talking to journalists I just say "programmer" or something like that.
->                                 -- Linus Torvalds
->   
+	David
