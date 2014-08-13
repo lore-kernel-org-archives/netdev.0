@@ -1,39 +1,32 @@
-From: Anish Bhatt <anish@chelsio.com>
-Subject: RE: [PATCH v3 2/3] cxgb4: use module_long_probe_init()
-Date: Wed, 13 Aug 2014 23:33:32 +0000
-Message-ID: <525DB349B3FB5444AE057A887CB2A8D85A0977@nice.asicdesigners.com>
-References: <1407882507-325-1-git-send-email-mcgrof@do-not-panic.com>,<1407882507-325-3-git-send-email-mcgrof@do-not-panic.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv2 net-next 3/3] sunvnet: Schedule maybe_tx_wakeup() as
+ a tasklet from ldc_rx path
+Date: Wed, 13 Aug 2014 16:34:29 -0700 (PDT)
+Message-ID: <20140813.163429.2256509090025006188.davem@davemloft.net>
+References: <20140813142941.GD16865@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "tiwai@suse.de" <tiwai@suse.de>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Luis R. Rodriguez" <mcgrof@suse.com>,
-	"Tetsuo Handa" <penguin-kernel@I-love.SAKURA.ne.jp>,
-	Joseph Salisbury <joseph.salisbury@canonical.com>,
-	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
-	Tim Gardner <tim.gardner@canonical.com>,
-	"Pierre Fersing" <pierre-fersing@pierref.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Oleg Nesterov <oleg@redhat.com>,
-	"Benjamin Poirier" <bpoirier@suse.de>,
-	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
-	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
-	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
-	Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
-	Hariprasad S <hariprasad@chelsio.com>,
-	Santosh Rastapur <santosh@chelsio.com>,
-	"MPT-FusionLinux.pdl@avagotech.com"
-	<MPT-FusionLinux.pdl@avagotech.com>,
-	"linux-scs
-To: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
-	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-	Casey Leedom <leedom@chelsio.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1407882507-325-3-git-send-email-mcgrof@do-not-panic.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: sowmini.varadhan@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48183 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752001AbaHMXea (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2014 19:34:30 -0400
+In-Reply-To: <20140813142941.GD16865@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Adding Casey who's actually incharge of this code and missing from the CC list
--Anish
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Date: Wed, 13 Aug 2014 10:29:41 -0400
+
+> At the tail of vnet_event(), if we hit the maybe_tx_wakeup()
+> condition, we try to take the netif_tx_lock() in the
+> recv-interrupt-context and can deadlock with dev_watchdog().
+> vnet_event() should schedule maybe_tx_wakeup() as a tasklet
+> to avoid this deadlock
+> 
+> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+
+Applied, thanks.
