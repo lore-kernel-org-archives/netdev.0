@@ -1,54 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 3/3] sunvnet: Schedule maybe_tx_wakeup as a
- tasklet from ldc_rx path
-Date: Tue, 12 Aug 2014 22:29:41 -0700 (PDT)
-Message-ID: <20140812.222941.2255442432293393813.davem@davemloft.net>
-References: <163B73C6-95EF-4398-B399-ECD5B95F5EC8@oracle.com>
-	<20140812.213157.60038488349789826.davem@davemloft.net>
-	<8BE2AE04-EF39-45A0-9AB4-15F5160C1449@oracle.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sowmini.varadhan@oracle.com, netdev@vger.kernel.org
-To: Raghuram.Kothakota@oracle.com
+From: Anish Bhatt <anish@chelsio.com>
+Subject: [PATCH net v2] libcxgbi/cxgb4i : Fix ipv6 build failure caught with  randconfig
+Date: Tue, 12 Aug 2014 22:38:26 -0700
+Message-ID: <1407908306-10790-1-git-send-email-anish@chelsio.com>
+Cc: davem@davemloft.net, hch@infradead.org, kxie@chelsio.com,
+	manojmalviya@chelsio.com, jim.epost@gmail.com,
+	sfr@canb.auug.org.au, Anish Bhatt <anish@chelsio.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41579 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750810AbaHMF3o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2014 01:29:44 -0400
-In-Reply-To: <8BE2AE04-EF39-45A0-9AB4-15F5160C1449@oracle.com>
+Received: from 99-65-72-227.uvs.sntcca.sbcglobal.net ([99.65.72.227]:46116
+	"EHLO stargate3.asicdesigners.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750740AbaHMFjX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2014 01:39:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Raghuram Kothakota <Raghuram.Kothakota@oracle.com>
-Date: Tue, 12 Aug 2014 22:14:09 -0700
+Previous guard of IS_ENABLED(CONFIG_IPV6) is not sufficient when cxgbi drivers
+are built into kernel but ipv6 is not.
 
-> On Aug 12, 2014, at 9:31 PM, David Miller <davem@davemloft.net> wrote:
-> 
->> From: Raghuram Kothakota <Raghuram.Kothakota@oracle.com>
->> Date: Tue, 12 Aug 2014 21:26:28 -0700
->> 
->>> One important point to keep in mind that packets to different peers shouldn't
->>> be blocked by one blocked peer. Any flow controlling or dropping of the packets
->>> needs to be done on a per-port basis.
->> 
->> Until we use a big hammer and reset the LDC channel of that peer, we
->> _absolutely_ should not reorder traffic and send to non-stuck peers.
-> 
-> The packet ordering requirement applies only for packets destined to
-> a specific destination. The packets to different destinations can flow
-> as long as they do not cause ordering issues. In case of sunvnet, 
-> each peer except the switch-port would be for a specific destination,
-> so sending packets to other ports would not result in re-ordering of the packets.
-> 
-> Even if the peer to peer LDC is the one that is blocked then disconnecting
-> that LDC channel and sending the packets via switch-port would not be
-> expected to change the order of the packet as the LDC reset is expect
-> to drop all packets in the ring so far.  
+v2: Use Kconfig to disable compiling cxgbi built into kernel when ipv6 is
+compiled as a module
 
-Ok, that makes sense.
+Fixes: e81fbf6cd652 ("libcxgbi:cxgb4i Guard ipv6 code with a config check")
+Fixes: fc8d0590d914 ("libcxgbi: Add ipv6 api to driver")
+Signed-off-by: Anish Bhatt <anish@chelsio.com>
+---
+ drivers/scsi/cxgbi/cxgb3i/Kconfig | 2 +-
+ drivers/scsi/cxgbi/cxgb4i/Kconfig | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-So the question is how to manage this on the driver side, and the most
-natural way I see do this would be to use multiple TX netdev queues
-and a custom netdev_ops->ndo_select_queue() method which selects the
-queue based upon the peer that would be selected.
+diff --git a/drivers/scsi/cxgbi/cxgb3i/Kconfig b/drivers/scsi/cxgbi/cxgb3i/Kconfig
+index 6bbc36f..e460398 100644
+--- a/drivers/scsi/cxgbi/cxgb3i/Kconfig
++++ b/drivers/scsi/cxgbi/cxgb3i/Kconfig
+@@ -1,6 +1,6 @@
+ config SCSI_CXGB3_ISCSI
+ 	tristate "Chelsio T3 iSCSI support"
+-	depends on PCI && INET
++	depends on PCI && INET && (IPV6 || IPV6=n)
+ 	select NETDEVICES
+ 	select ETHERNET
+ 	select NET_VENDOR_CHELSIO
+diff --git a/drivers/scsi/cxgbi/cxgb4i/Kconfig b/drivers/scsi/cxgbi/cxgb4i/Kconfig
+index 16b2c7d..8c4e423 100644
+--- a/drivers/scsi/cxgbi/cxgb4i/Kconfig
++++ b/drivers/scsi/cxgbi/cxgb4i/Kconfig
+@@ -1,6 +1,6 @@
+ config SCSI_CXGB4_ISCSI
+ 	tristate "Chelsio T4 iSCSI support"
+-	depends on PCI && INET
++	depends on PCI && INET && (IPV6 || IPV6=n)
+ 	select NETDEVICES
+ 	select ETHERNET
+ 	select NET_VENDOR_CHELSIO
+-- 
+2.0.4
