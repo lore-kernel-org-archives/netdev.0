@@ -1,50 +1,71 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH RFC v4 net-next 00/26] BPF syscall, maps, verifier,
- samples, llvm
-Date: Wed, 13 Aug 2014 16:25:16 -0700 (PDT)
-Message-ID: <20140813.162516.1876660483788283579.davem@davemloft.net>
-References: <1407916658-8731-1-git-send-email-ast@plumgrid.com>
-	<063D6719AE5E284EB5DD2968C1650D6D174760F3@AcuExch.aculab.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 3/3] sunvnet: Schedule maybe_tx_wakeup as a
+ tasklet from ldc_rx path
+Date: Wed, 13 Aug 2014 16:29:07 -0700 (PDT)
+Message-ID: <20140813.162907.967701143801775936.davem@davemloft.net>
+References: <20140813015817.GA13600@oracle.com>
+	<20140812.212513.96441522917129709.davem@davemloft.net>
+	<20140813112010.GC16865@oracle.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org, mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org, rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org, dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org, a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org,
-	hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org,
-	linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D174760F3-VkEWCZq2GCInGFn1LkZF6NBPR1lH4CV8@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: raghuram.kothakota@oracle.com, netdev@vger.kernel.org
+To: sowmini.varadhan@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48147 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751405AbaHMX3I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2014 19:29:08 -0400
+In-Reply-To: <20140813112010.GC16865@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Laight <David.Laight-ZS65k/vG3HxXrIkS9f7CXA@public.gmane.org>
-Date: Wed, 13 Aug 2014 08:52:30 +0000
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Date: Wed, 13 Aug 2014 07:20:10 -0400
 
-> From: Of Alexei Starovoitov
->> one more RFC...
+> On (08/12/14 21:25), David Miller wrote:
 >> 
->> Major difference vs previous set is a new 'load 64-bit immediate' eBPF insn.
->> Which is first 16-byte instruction. It shows how eBPF ISA can be extended
->> while maintaining backward compatibility, but mainly it cleans up eBPF
->> program access to maps and improves run-time performance.
+>> However, don't get ahead of yourself.  All I'm saying in the context
+>> of reviewing this patch #3 is that you should leave vnet_tx_timeout()
+>> alone and just put what you were putting into vnet_tx_timeout() into
+>> maybe_tx_wakeup().
 > 
-> Wouldn't it be more sensible to follow the scheme used by a lot of cpus
-> and add a 'load high' instruction (follow with 'add' or 'or').
-> It still takes 16 bytes to load a 64bit immediate value, but the instruction
-> size remains constant.
-> There is nothing to stop any JIT software detecting the instruction pair.
+> And just leave vnet_tx_timeout() as before (i.e, "XXX implement me"?)?
 
-The opposite argument is that JITs can expand the IMM64 load into whatever
-sequence of instructions is most optimal.
+Yes, and I see this is what you have done.
 
-My only real gripe with IMM64 loads is that it's not mainly for
-loading an immediate, it's for loading a pointer.  And this
-distinction is important for some JITs.
+> Note that, as I pointed out to Raghuram already, doing ldc_disconnect
+> does *not* send any reset events. The code may have other missing
+> functionality. 
 
-For example, on sparc64 all symbol based addresses are actually 32-bit
-because of the code model we use to compile the kernel and all modules.
-So if we knew this is a pointer load and it's to a symbol in a kernel
-or module image, we could do a 32-bit load.
+For the caller of ldc_disconnect() the reset is implied, if this is
+what you are talking about.
+
+I don't see any value for generating an event the user of the LDC
+channel itself generated.
+
+>> So the question is how to manage this on the driver side, and the most
+>> natural way I see do this would be to use multiple TX netdev queues
+>> and a custom netdev_ops->ndo_select_queue() method which selects the
+>> queue based upon the peer that would be selected.
+> 
+> This might work well for the current sunvnet model (and even
+> there, it has limitations- if all the traffic is going out 
+> via the switchport to a gateway, you are again back to the 
+> head-of-line blocking model).
+> 
+> But how generally useful is this model? For point-to-multipoint links
+> like ethernet, I dont think you actually track one channel per
+> peer.  
+
+I don't understand what your concern could be.
+
+Ethernet is a broadcast medium, so all traffic (as far as the NIC is
+concerned) goes via the same single queue.
+
+But here we have independent queues leading up to different
+destinations, so representing that as independent queues makes
+sense.
+
+This way, if one non-switch peer goes down, all switch based traffic
+will still continue to flow, and vice versa.
