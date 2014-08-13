@@ -1,67 +1,43 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH] m68k/atari: EtherNEC - ethernet support (ne),>
-Date: Wed, 13 Aug 2014 09:15:47 +0200
-Message-ID: <CAMuHMdWqXPf_1a1b=VGGayS2y2DPEibeOpFMFZth6KZUMue6BQ@mail.gmail.com>
-References: <1407636153-24864-1-git-send-email-schmitzmic@gmail.com>
-	<53EA2AF2.3040709@windriver.com>
-	<CAOmrzk+m7b58Xb=zFv6Kf=_HgGR4FzwpwRvsh08uGMkg0xPLWA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
-	"Linux/m68k" <linux-m68k@vger.kernel.org>,
-	debian m68k <debian-68k@lists.debian.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Michael Schmitz <schmitzmic@gmail.com>
+From: Govindarajulu Varadarajan <_govind@gmx.com>
+Subject: [PATCH net-next] tg3: fix return value in tg3_get_stats64
+Date: Wed, 13 Aug 2014 13:04:56 +0530
+Message-ID: <1407915296-12692-1-git-send-email-_govind@gmx.com>
+Cc: Govindarajulu Varadarajan <_govind@gmx.com>
+To: davem@davemloft.net, prashant@broadcom.com, mchan@broadcom.com,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f176.google.com ([209.85.217.176]:40986 "EHLO
-	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750759AbaHMHPt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Aug 2014 03:15:49 -0400
-In-Reply-To: <CAOmrzk+m7b58Xb=zFv6Kf=_HgGR4FzwpwRvsh08uGMkg0xPLWA@mail.gmail.com>
+Received: from mout.gmx.com ([74.208.4.201]:53939 "EHLO mout.gmx.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750772AbaHMHfW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Aug 2014 03:35:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Michael,
+When tp->hw_stats is 0, tg3_get_stats64 should display previously
+recorded stats. So it returns &tp->net_stats_prev. But the caller,
+dev_get_stats, ignores the return value.
 
-On Tue, Aug 12, 2014 at 11:40 PM, Michael Schmitz <schmitzmic@gmail.com> wrote:
-> Would you be OK if I expanded the comment like this?
->
-> /* ne.c is used on m68k Atari and Q40 computers - the Atari ROM-port
-> adapter is 8-bit, Q40 uses ISA */
+Fix this by assigning tp->net_stats_prev to stats and returning stats.
 
-DaveM already applied it to his tree, and sent a pull request to Linus.
+Signed-off-by: Govindarajulu Varadarajan <_govind@gmx.com>
+---
+ drivers/net/ethernet/broadcom/tg3.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-> This would limit the runtime test to the case where it is actually
-> needed (untested):
->
-> #elif defined(CONFIG_ATARI) && defined(CONFIG_Q40)
-> /* multiplatform m68k kernel - the Atari ROM-port adapter is 8-bit,
-> Q40 uses ISA */
-> #  define DCR_VAL (MACH_IS_ATARI ? 0x48 : 0x49)
-> #elif defined(CONFIG_ATARI) /* no Q40 support - 8-bit mode on Atari ROM port */
-> #  define DCR_VAL 0x48
-> #else
-> #  define DCR_VAL 0x49
-> #endif
-
-MACH_IS_ATARI already evaluates to a constant on single-platform
-kernels, so this is optimized at compile time.
-Hence there's not really a need for this.
-
-> Are there any other m68k platforms that use the ne.c driver, Geert?
-> apne, hydra and zorro8390 all have their own separate drivers - any
-> others?
-
-Not that I'm aware of. Only Q40 has CONFIG_NE2000 in defconfig.
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index a3dd5dc..4296b3d26 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -14093,8 +14093,9 @@ static struct rtnl_link_stats64 *tg3_get_stats64(struct net_device *dev,
+ 
+ 	spin_lock_bh(&tp->lock);
+ 	if (!tp->hw_stats) {
++		*stats = tp->net_stats_prev;
+ 		spin_unlock_bh(&tp->lock);
+-		return &tp->net_stats_prev;
++		return stats;
+ 	}
+ 
+ 	tg3_get_nstats(tp, stats);
+-- 
+2.0.4
