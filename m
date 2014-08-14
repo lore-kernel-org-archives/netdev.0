@@ -1,90 +1,75 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net 2/3] net: phy: bcm7xxx: re-advertise all supported modes out of suspend
-Date: Thu, 14 Aug 2014 16:52:52 -0700
-Message-ID: <1408060373-5996-3-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net 1/3] net: phy: bcm7xxx: remove 28nm wildcard entry
+Date: Thu, 14 Aug 2014 16:52:51 -0700
+Message-ID: <1408060373-5996-2-git-send-email-f.fainelli@gmail.com>
 References: <1408060373-5996-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:58588 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750749AbaHNXxR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 19:53:17 -0400
-Received: by mail-pa0-f53.google.com with SMTP id rd3so2523088pab.12
-        for <netdev@vger.kernel.org>; Thu, 14 Aug 2014 16:53:17 -0700 (PDT)
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:56859 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751299AbaHNXxQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 19:53:16 -0400
+Received: by mail-pd0-f176.google.com with SMTP id y10so2414279pdj.21
+        for <netdev@vger.kernel.org>; Thu, 14 Aug 2014 16:53:16 -0700 (PDT)
 In-Reply-To: <1408060373-5996-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The BCM7xxx internal Gigabit PHYs on 28nm process platforms come out
-reset without any half-duplex or "hub" compatible advertised modes,
-which was causing auto-negotiation issues coming out of S3
-suspend/resume, we just could not establish a link with a half-duplex
-only link partner.
-
-Make sure that the resume function properly re-configures the PHY device
-to advertise all supported modes.
+A wildcard entry with the 32-bits OUI 0x600d8400 was added as part of
+the BCM7xxx internal PHY driver, but that entry might match other PHYs
+that are not covered by this driver, so let's just remove it.
 
 Fixes: b560a58c45c6 ("net: phy: add Broadcom BCM7xxx internal PHY driver")
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/phy/bcm7xxx.c | 23 ++++++++++++++++++++---
- 1 file changed, 20 insertions(+), 3 deletions(-)
+ drivers/net/phy/bcm7xxx.c | 14 --------------
+ include/linux/brcmphy.h   |  1 -
+ 2 files changed, 15 deletions(-)
 
 diff --git a/drivers/net/phy/bcm7xxx.c b/drivers/net/phy/bcm7xxx.c
-index 2b40548c85d5..a8ca03ff4f1e 100644
+index 526b94cea569..2b40548c85d5 100644
 --- a/drivers/net/phy/bcm7xxx.c
 +++ b/drivers/net/phy/bcm7xxx.c
-@@ -157,6 +157,23 @@ static int bcm7xxx_28nm_config_init(struct phy_device *phydev)
- 	return bcm7xxx_28nm_afe_config_init(phydev);
- }
- 
-+static int bcm7xxx_28nm_resume(struct phy_device *phydev)
-+{
-+	int ret;
-+
-+	/* Re-apply workarounds coming out suspend/resume */
-+	ret = bcm7xxx_28nm_config_init(phydev);
-+	if (ret)
-+		return ret;
-+
-+	/* 28nm Gigabit PHYs come out of reset without any half-duplex
-+	 * or "hub" compliant advertised mode, fix that. This does not
-+	 * cause any problems with the PHY library since genphy_config_aneg()
-+	 * gracefully handles auto-negotiated and forced modes.
-+	 */
-+	return genphy_config_aneg(phydev);
-+}
-+
- static int phy_set_clr_bits(struct phy_device *dev, int location,
- 					int set_mask, int clr_mask)
- {
-@@ -258,7 +275,7 @@ static struct phy_driver bcm7xxx_driver[] = {
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
- 	.suspend	= bcm7xxx_suspend,
--	.resume		= bcm7xxx_28nm_afe_config_init,
-+	.resume		= bcm7xxx_28nm_resume,
+@@ -287,19 +287,6 @@ static struct phy_driver bcm7xxx_driver[] = {
+ 	.resume		= bcm7xxx_28nm_config_init,
  	.driver		= { .owner = THIS_MODULE },
  }, {
- 	.phy_id		= PHY_ID_BCM7439,
-@@ -271,7 +288,7 @@ static struct phy_driver bcm7xxx_driver[] = {
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
- 	.suspend	= bcm7xxx_suspend,
--	.resume		= bcm7xxx_28nm_afe_config_init,
-+	.resume		= bcm7xxx_28nm_resume,
- 	.driver		= { .owner = THIS_MODULE },
- }, {
- 	.phy_id		= PHY_ID_BCM7445,
-@@ -284,7 +301,7 @@ static struct phy_driver bcm7xxx_driver[] = {
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
- 	.suspend	= bcm7xxx_suspend,
+-	.name		= "Broadcom BCM7XXX 28nm",
+-	.phy_id		= PHY_ID_BCM7XXX_28,
+-	.phy_id_mask	= PHY_BCM_OUI_MASK,
+-	.features	= PHY_GBIT_FEATURES |
+-			  SUPPORTED_Pause | SUPPORTED_Asym_Pause,
+-	.flags		= PHY_IS_INTERNAL,
+-	.config_init	= bcm7xxx_28nm_config_init,
+-	.config_aneg	= genphy_config_aneg,
+-	.read_status	= genphy_read_status,
+-	.suspend	= bcm7xxx_suspend,
 -	.resume		= bcm7xxx_28nm_config_init,
-+	.resume		= bcm7xxx_28nm_afe_config_init,
- 	.driver		= { .owner = THIS_MODULE },
- }, {
+-	.driver		= { .owner = THIS_MODULE },
+-}, {
  	.phy_id		= PHY_BCM_OUI_4,
+ 	.phy_id_mask	= 0xffff0000,
+ 	.name		= "Broadcom BCM7XXX 40nm",
+@@ -331,7 +318,6 @@ static struct mdio_device_id __maybe_unused bcm7xxx_tbl[] = {
+ 	{ PHY_ID_BCM7366, 0xfffffff0, },
+ 	{ PHY_ID_BCM7439, 0xfffffff0, },
+ 	{ PHY_ID_BCM7445, 0xfffffff0, },
+-	{ PHY_ID_BCM7XXX_28, 0xfffffc00 },
+ 	{ PHY_BCM_OUI_4, 0xffff0000 },
+ 	{ PHY_BCM_OUI_5, 0xffffff00 },
+ 	{ }
+diff --git a/include/linux/brcmphy.h b/include/linux/brcmphy.h
+index 6f76277baf39..61219b9b3445 100644
+--- a/include/linux/brcmphy.h
++++ b/include/linux/brcmphy.h
+@@ -16,7 +16,6 @@
+ #define PHY_ID_BCM7366			0x600d8490
+ #define PHY_ID_BCM7439			0x600d8480
+ #define PHY_ID_BCM7445			0x600d8510
+-#define PHY_ID_BCM7XXX_28		0x600d8400
+ 
+ #define PHY_BCM_OUI_MASK		0xfffffc00
+ #define PHY_BCM_OUI_1			0x00206000
 -- 
 1.9.1
