@@ -1,125 +1,72 @@
-From: Emmanuel Grumbach <egrumbach@gmail.com>
+From: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
 Subject: Re: Intel wireless microcode problem..
-Date: Thu, 14 Aug 2014 08:50:49 -0700
-Message-ID: <CANUX_P19EOs1Qmn6MY=wvHSpkMUANLaa1R3dd0v4duqOYy-_=w@mail.gmail.com>
+Date: Thu, 14 Aug 2014 09:51:14 -0600
+Message-ID: <CA+55aFw1LWO+zxePYtUBi9YOWHPX+98xbM2h3j4pcN+6V0G1zA@mail.gmail.com>
 References: <CA+55aFxdt-9e9X0EYCu2Ku8sSTspUGPk5qKa72XH63zrkdPthw@mail.gmail.com>
+	<53ECD8D0.4050709@lwfinger.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Johannes Berg <johannes.berg@intel.com>,
-	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
-	Intel Linux Wireless <ilw@linux.intel.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Linux Wireless List <linux-wireless@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f171.google.com ([209.85.217.171]:40394 "EHLO
-	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755103AbaHNPuv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 11:50:51 -0400
-In-Reply-To: <CA+55aFxdt-9e9X0EYCu2Ku8sSTspUGPk5qKa72XH63zrkdPthw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Emmanuel Grumbach <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Intel Linux Wireless <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <53ECD8D0.4050709-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Linus,
-
-On Thu, Aug 14, 2014 at 8:05 AM, Linus Torvalds
-<torvalds@linux-foundation.org> wrote:
-> Ok, so it seems the current merge window introduces some horrid intel
-> microcode problem, because I don't seem to see this with 3.16. But
-> maybe that's just happenstance.
+On Thu, Aug 14, 2014 at 9:42 AM, Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org> wrote:
 >
-> Any ideas? This fills up all the logs etc.
->
->                       Linus
->
-> ---
->
-> iwlwifi 0000:01:00.0: L1 Disabled; Enabling L0S
-> iwlwifi 0000:01:00.0: L1 Disabled; Enabling L0S
-> iwlwifi 0000:01:00.0: Microcode SW error detected.  Restarting 0x2000000.
-> iwlwifi 0000:01:00.0: CSR values:
-> iwlwifi 0000:01:00.0: (2nd byte of CSR_INT_COALESCING is CSR_INT_PERIODIC_REG)
-> iwlwifi 0000:01:00.0:        CSR_HW_IF_CONFIG_REG: 0X40489204
-> iwlwifi 0000:01:00.0:          CSR_INT_COALESCING: 0X80000040
-> iwlwifi 0000:01:00.0:                     CSR_INT: 0X00000000
-> iwlwifi 0000:01:00.0:                CSR_INT_MASK: 0X00000000
-> iwlwifi 0000:01:00.0:           CSR_FH_INT_STATUS: 0X00000000
-> iwlwifi 0000:01:00.0:                 CSR_GPIO_IN: 0X00000000
-> iwlwifi 0000:01:00.0:                   CSR_RESET: 0X00000000
-> iwlwifi 0000:01:00.0:                CSR_GP_CNTRL: 0X080403c5
-> iwlwifi 0000:01:00.0:                  CSR_HW_REV: 0X00000144
-> iwlwifi 0000:01:00.0:              CSR_EEPROM_REG: 0X00000000
-> iwlwifi 0000:01:00.0:               CSR_EEPROM_GP: 0X80000000
-> iwlwifi 0000:01:00.0:              CSR_OTP_GP_REG: 0X803a0000
-> iwlwifi 0000:01:00.0:                 CSR_GIO_REG: 0X00080044
-> iwlwifi 0000:01:00.0:            CSR_GP_UCODE_REG: 0X00000000
-> iwlwifi 0000:01:00.0:           CSR_GP_DRIVER_REG: 0X00000000
-> iwlwifi 0000:01:00.0:           CSR_UCODE_DRV_GP1: 0X00000000
-> iwlwifi 0000:01:00.0:           CSR_UCODE_DRV_GP2: 0X00000000
-> iwlwifi 0000:01:00.0:                 CSR_LED_REG: 0X00000060
-> iwlwifi 0000:01:00.0:        CSR_DRAM_INT_TBL_REG: 0X880d8e9d
-> iwlwifi 0000:01:00.0:        CSR_GIO_CHICKEN_BITS: 0X27800200
-> iwlwifi 0000:01:00.0:             CSR_ANA_PLL_CFG: 0Xd55555d5
-> iwlwifi 0000:01:00.0:      CSR_MONITOR_STATUS_REG: 0X3d0801bd
-> iwlwifi 0000:01:00.0:           CSR_HW_REV_WA_REG: 0X0001001a
-> iwlwifi 0000:01:00.0:        CSR_DBG_HPET_MEM_REG: 0Xffff0000
-> iwlwifi 0000:01:00.0: FH register values:
-> iwlwifi 0000:01:00.0:         FH_RSCSR_CHNL0_STTS_WPTR_REG: 0X0d42d300
-> iwlwifi 0000:01:00.0:        FH_RSCSR_CHNL0_RBDCB_BASE_REG: 0X00d42d20
-> iwlwifi 0000:01:00.0:                  FH_RSCSR_CHNL0_WPTR: 0X00000028
-> iwlwifi 0000:01:00.0:         FH_MEM_RCSR_CHNL0_CONFIG_REG: 0X80801114
-> iwlwifi 0000:01:00.0:          FH_MEM_RSSR_SHARED_CTRL_REG: 0X000000fc
-> iwlwifi 0000:01:00.0:            FH_MEM_RSSR_RX_STATUS_REG: 0X07030000
-> iwlwifi 0000:01:00.0:    FH_MEM_RSSR_RX_ENABLE_ERR_IRQ2DRV: 0X00000000
-> iwlwifi 0000:01:00.0:                FH_TSSR_TX_STATUS_REG: 0X07ff0001
-> iwlwifi 0000:01:00.0:                 FH_TSSR_TX_ERROR_REG: 0X00000000
-> iwlwifi 0000:01:00.0: Start IWL Error Log Dump:
-> iwlwifi 0000:01:00.0: Status: 0x00000000, count: 6
-> iwlwifi 0000:01:00.0: Loaded firmware version: 23.214.9.0
-> iwlwifi 0000:01:00.0: 0x0000277B | ADVANCED_SYSASSERT
-> iwlwifi 0000:01:00.0: 0x00A002A0 | uPc
-> iwlwifi 0000:01:00.0: 0x00000000 | branchlink1
-> iwlwifi 0000:01:00.0: 0x00000BA4 | branchlink2
-> iwlwifi 0000:01:00.0: 0x000166A4 | interruptlink1
-> iwlwifi 0000:01:00.0: 0x004C0648 | interruptlink2
-> iwlwifi 0000:01:00.0: 0x00000021 | data1
-> iwlwifi 0000:01:00.0: 0x00000016 | data2
-> iwlwifi 0000:01:00.0: 0xDEADBEEF | data3
-> iwlwifi 0000:01:00.0: 0x003CC2EC | beacon time
-> iwlwifi 0000:01:00.0: 0x00033D3D | tsf low
-> iwlwifi 0000:01:00.0: 0x00000000 | tsf hi
-> iwlwifi 0000:01:00.0: 0x00000000 | time gp1
-> iwlwifi 0000:01:00.0: 0x00033D3D | time gp2
-> iwlwifi 0000:01:00.0: 0x00000000 | time gp3
-> iwlwifi 0000:01:00.0: 0x000417D6 | uCode version
-> iwlwifi 0000:01:00.0: 0x00000144 | hw version
-> iwlwifi 0000:01:00.0: 0x40489204 | board version
-> iwlwifi 0000:01:00.0: 0x0000001C | hcmd
-> iwlwifi 0000:01:00.0: 0x00022000 | isr0
-> iwlwifi 0000:01:00.0: 0x01000000 | isr1
-> iwlwifi 0000:01:00.0: 0x00000002 | isr2
-> iwlwifi 0000:01:00.0: 0x004058C0 | isr3
-> iwlwifi 0000:01:00.0: 0x00000001 | isr4
-> iwlwifi 0000:01:00.0: 0x00000110 | isr_pref
-> iwlwifi 0000:01:00.0: 0x00000000 | wait_event
-> iwlwifi 0000:01:00.0: 0x00000850 | l2p_control
-> iwlwifi 0000:01:00.0: 0x00018000 | l2p_duration
-> iwlwifi 0000:01:00.0: 0x0000003F | l2p_mhvalid
-> iwlwifi 0000:01:00.0: 0x00000081 | l2p_addr_match
-> iwlwifi 0000:01:00.0: 0x00000005 | lmpm_pmg_sel
-> iwlwifi 0000:01:00.0: 0x18051651 | timestamp
-> iwlwifi 0000:01:00.0: 0x00002830 | flow_handler
+> There is a new firmware that seems to help the problem. You can get it from
+> Emmanuel's git clone. As he wrote earlier
 
-Thanks for your report. Someone else complained too. I am currently
-travelling, but I am currently trying to reproduce.
-I will report  back when I have something useful to share.
+So quite frankly, this is *not* acceptable. We have regression
+policies for the kernel, and this seems to be a kernel regression with
+the currently released firmware. And I'm not downloading experimental
+firmware while traveling with this laptop being my only way to work.
 
-In the meantime - you can try this firmware:
+The warnings cause *so* much message log spam that the machine is
+occasionally spending 5% of CPU time on systemd journaling, and
+presumably filling up disk space too.
 
-https://git.kernel.org/cgit/linux/kernel/git/egrumbach/linux-firmware.git/log/?h=Core6
+And the same way we don't tell people "update your buggy user space"
+when we introduce kernel regressions, we don't tell people "try a new
+firmware".
 
-Of course, even if this one does work, we'll still make sure that your
-current firmware will work with the current driver.
+People who have old systems (old distributions, old firmware, old
+hardware, old *anything*) that works with their previous kernel, are
+supposed to be able to upgrade their kernel with no regressions.
+That's the rules for the kernel, and that's what the rules have been
+for a long time. Kernel developers - including wireless driver writers
+- had better understand that rule. It's the absolute #1 rule when it
+comes to kernel development. This is not something new and surprosing.
 
-Thank you.
+The insane amount of logging needs to be fixed. The wireless *works*,
+but the logging is too verbose.
+
+Now, maybe this isn't actually a kernel regression at all - maybe
+triggered by the horrid internet I have while traveling - but I tried
+twice, and when I booted into the regular Fedora kernel for testing
+(oh, just noticed that it's 3.15.8, not 3.16-based), I didn't see this
+kind of log spamming. So it looks like a regression to me, and we have
+rules about regressions. And they are just about the ONLY hard rules
+we have. But that regression rule really is very very important
+indeed.
+
+The wireless *works* with the current firmware, so all that is
+required is to make sure that the kernel stops spamming the logs so
+heavily. It would obviously be better to try to figure out *why* the
+microcode error happens, and what changed in the kernel to trigger it,
+but the "don't make the machine have trouble with the insane amount of
+logs" is at least an acceptable workaround.
+
+Ok?
+
+               Linus
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
