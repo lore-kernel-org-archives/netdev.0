@@ -1,96 +1,153 @@
-From: Emmanuel Grumbach <egrumbach-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: Intel wireless microcode problem..
-Date: Thu, 14 Aug 2014 09:34:56 -0700
-Message-ID: <CANUX_P2KXKO9UcJbF1TniP64uY6ZJY2SqbKsoEsNqDTT0KFhdw@mail.gmail.com>
-References: <CA+55aFxdt-9e9X0EYCu2Ku8sSTspUGPk5qKa72XH63zrkdPthw@mail.gmail.com>
-	<53ECD8D0.4050709@lwfinger.net>
-	<CA+55aFw1LWO+zxePYtUBi9YOWHPX+98xbM2h3j4pcN+6V0G1zA@mail.gmail.com>
-	<0BA3FCBA62E2DC44AF3030971E174FB31B266E67@hasmsx107.ger.corp.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8BIT
-Cc: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
-	"Berg, Johannes" <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Intel Linux Wireless <ilw-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	Linux Wireless List <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "Grumbach, Emmanuel" <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <0BA3FCBA62E2DC44AF3030971E174FB31B266E67-Jy8z56yoSI9wl47ZQwxUxrfspsVTdybXVpNB7YpNyf8@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Neal Cardwell <ncardwell@google.com>
+Subject: [PATCH net] tcp: fix tcp_release_cb() to dispatch via address family for mtu_reduced()
+Date: Thu, 14 Aug 2014 12:40:05 -0400
+Message-ID: <1408034405-30596-1-git-send-email-ncardwell@google.com>
+Cc: netdev@vger.kernel.org, Neal Cardwell <ncardwell@google.com>,
+	Eric Dumazet <edumazet@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f73.google.com ([209.85.220.73]:47219 "EHLO
+	mail-pa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751243AbaHNQkP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 12:40:15 -0400
+Received: by mail-pa0-f73.google.com with SMTP id kx10so371306pab.4
+        for <netdev@vger.kernel.org>; Thu, 14 Aug 2014 09:40:14 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->> >
->> > There is a new firmware that seems to help the problem. You can get it
->> > from Emmanuel's git clone. As he wrote earlier
->>
->> So quite frankly, this is *not* acceptable. We have regression policies for the
->> kernel, and this seems to be a kernel regression with the currently released
->> firmware. And I'm not downloading experimental firmware while traveling
->> with this laptop being my only way to work.
->>
->> The warnings cause *so* much message log spam that the machine is
->> occasionally spending 5% of CPU time on systemd journaling, and
->> presumably filling up disk space too.
->>
->> And the same way we don't tell people "update your buggy user space"
->> when we introduce kernel regressions, we don't tell people "try a new
->> firmware".
->>
->> People who have old systems (old distributions, old firmware, old hardware,
->> old *anything*) that works with their previous kernel, are supposed to be
->> able to upgrade their kernel with no regressions.
->> That's the rules for the kernel, and that's what the rules have been for a long
->> time. Kernel developers - including wireless driver writers
->> - had better understand that rule. It's the absolute #1 rule when it comes to
->> kernel development. This is not something new and surprosing.
->>
->> The insane amount of logging needs to be fixed. The wireless *works*, but
->> the logging is too verbose.
->>
->> Now, maybe this isn't actually a kernel regression at all - maybe triggered by
->> the horrid internet I have while traveling - but I tried twice, and when I
->> booted into the regular Fedora kernel for testing (oh, just noticed that it's
->> 3.15.8, not 3.16-based), I didn't see this kind of log spamming. So it looks like
->> a regression to me, and we have rules about regressions. And they are just
->> about the ONLY hard rules we have. But that regression rule really is very
->> very important indeed.
->>
->> The wireless *works* with the current firmware, so all that is required is to
->> make sure that the kernel stops spamming the logs so heavily. It would
->> obviously be better to try to figure out *why* the microcode error happens,
->> and what changed in the kernel to trigger it, but the "don't make the
->> machine have trouble with the insane amount of logs" is at least an
->> acceptable workaround.
->>
->> Ok?
->>
-> As I said, I am tyring to repro right now - you are 100% right we are fully committed to make the current firmware work. The "experimental" firmware is just a firmware with a version problem - this is why I didn't release it formally. You can safely use it until we fix the problem.
-> And we will fix it.
-> And no - it is not related to the internet - this is surely a bug in our driver / firmware interface. I am currently trying to see how I can fix it - but I am also travelling...
+Make sure we use the correct address-family-specific function for
+handling MTU reductions from within tcp_release_cb().
 
-Ok - I think I have a fix. I could reproduce your problem and I verified my fix.
+Previously AF_INET6 sockets were incorrectly always using the IPv6
+code path when sometimes they were handling IPv4 traffic and thus had
+an IPv4 dst.
 
-diff --git a/drivers/net/wireless/iwlwifi/mvm/mac80211.c
-b/drivers/net/wireless/iwlwifi/mvm/mac80211.c
-index 0d6a8b7..66ef6a8 100644
---- a/drivers/net/wireless/iwlwifi/mvm/mac80211.c
-+++ b/drivers/net/wireless/iwlwifi/mvm/mac80211.c
-@@ -396,7 +396,8 @@ int iwl_mvm_mac_setup_register(struct iwl_mvm *mvm)
-        else
-                hw->wiphy->flags &= ~WIPHY_FLAG_PS_ON_BY_DEFAULT;
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Diagnosed-by: Willem de Bruijn <willemb@google.com>
+Fixes: 563d34d057862 ("tcp: dont drop MTU reduction indications")
+---
+ include/net/inet_connection_sock.h | 1 +
+ include/net/sock.h                 | 1 -
+ include/net/tcp.h                  | 1 +
+ net/ipv4/tcp_ipv4.c                | 5 +++--
+ net/ipv4/tcp_output.c              | 2 +-
+ net/ipv6/tcp_ipv6.c                | 3 ++-
+ 6 files changed, 8 insertions(+), 5 deletions(-)
 
--       hw->wiphy->flags |= WIPHY_FLAG_SUPPORTS_SCHED_SCAN;
-+       /* TODO: enable that for firmwares that don't crash only... */
-+       /* hw->wiphy->flags |= WIPHY_FLAG_SUPPORTS_SCHED_SCAN; */
-        hw->wiphy->max_sched_scan_ssids = PROBE_OPTION_MAX;
-        hw->wiphy->max_match_sets = IWL_SCAN_MAX_PROFILES;
-        /* we create the 802.11 header and zero length SSID IE. */
-
-pull request on the way...
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/include/net/inet_connection_sock.h b/include/net/inet_connection_sock.h
+index 7a43138..5fbe656 100644
+--- a/include/net/inet_connection_sock.h
++++ b/include/net/inet_connection_sock.h
+@@ -62,6 +62,7 @@ struct inet_connection_sock_af_ops {
+ 	void	    (*addr2sockaddr)(struct sock *sk, struct sockaddr *);
+ 	int	    (*bind_conflict)(const struct sock *sk,
+ 				     const struct inet_bind_bucket *tb, bool relax);
++	void	    (*mtu_reduced)(struct sock *sk);
+ };
+ 
+ /** inet_connection_sock - INET connection oriented sock
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 38805fa..7f2ab72 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -987,7 +987,6 @@ struct proto {
+ 						struct sk_buff *skb);
+ 
+ 	void		(*release_cb)(struct sock *sk);
+-	void		(*mtu_reduced)(struct sock *sk);
+ 
+ 	/* Keeping track of sk's, looking them up, and port selection methods. */
+ 	void			(*hash)(struct sock *sk);
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index dafa1cb..2486915 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -448,6 +448,7 @@ const u8 *tcp_parse_md5sig_option(const struct tcphdr *th);
+  */
+ 
+ void tcp_v4_send_check(struct sock *sk, struct sk_buff *skb);
++void tcp_v4_mtu_reduced(struct sock *sk);
+ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb);
+ struct sock *tcp_create_openreq_child(struct sock *sk,
+ 				      struct request_sock *req,
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index dceff5f..cd17f00 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -271,7 +271,7 @@ EXPORT_SYMBOL(tcp_v4_connect);
+  * It can be called through tcp_release_cb() if socket was owned by user
+  * at the time tcp_v4_err() was called to handle ICMP message.
+  */
+-static void tcp_v4_mtu_reduced(struct sock *sk)
++void tcp_v4_mtu_reduced(struct sock *sk)
+ {
+ 	struct dst_entry *dst;
+ 	struct inet_sock *inet = inet_sk(sk);
+@@ -302,6 +302,7 @@ static void tcp_v4_mtu_reduced(struct sock *sk)
+ 		tcp_simple_retransmit(sk);
+ 	} /* else let the usual retransmit timer handle it */
+ }
++EXPORT_SYMBOL(tcp_v4_mtu_reduced);
+ 
+ static void do_redirect(struct sk_buff *skb, struct sock *sk)
+ {
+@@ -1787,6 +1788,7 @@ const struct inet_connection_sock_af_ops ipv4_specific = {
+ 	.compat_setsockopt = compat_ip_setsockopt,
+ 	.compat_getsockopt = compat_ip_getsockopt,
+ #endif
++	.mtu_reduced	   = tcp_v4_mtu_reduced,
+ };
+ EXPORT_SYMBOL(ipv4_specific);
+ 
+@@ -2406,7 +2408,6 @@ struct proto tcp_prot = {
+ 	.sendpage		= tcp_sendpage,
+ 	.backlog_rcv		= tcp_v4_do_rcv,
+ 	.release_cb		= tcp_release_cb,
+-	.mtu_reduced		= tcp_v4_mtu_reduced,
+ 	.hash			= inet_hash,
+ 	.unhash			= inet_unhash,
+ 	.get_port		= inet_csk_get_port,
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index ef4a051..ce955d5 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -800,7 +800,7 @@ void tcp_release_cb(struct sock *sk)
+ 		__sock_put(sk);
+ 	}
+ 	if (flags & (1UL << TCP_MTU_REDUCED_DEFERRED)) {
+-		sk->sk_prot->mtu_reduced(sk);
++		inet_csk(sk)->icsk_af_ops->mtu_reduced(sk);
+ 		__sock_put(sk);
+ 	}
+ }
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index f2ce955..29964c3 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1595,6 +1595,7 @@ static const struct inet_connection_sock_af_ops ipv6_specific = {
+ 	.compat_setsockopt = compat_ipv6_setsockopt,
+ 	.compat_getsockopt = compat_ipv6_getsockopt,
+ #endif
++	.mtu_reduced	   = tcp_v6_mtu_reduced,
+ };
+ 
+ #ifdef CONFIG_TCP_MD5SIG
+@@ -1625,6 +1626,7 @@ static const struct inet_connection_sock_af_ops ipv6_mapped = {
+ 	.compat_setsockopt = compat_ipv6_setsockopt,
+ 	.compat_getsockopt = compat_ipv6_getsockopt,
+ #endif
++	.mtu_reduced	   = tcp_v4_mtu_reduced,
+ };
+ 
+ #ifdef CONFIG_TCP_MD5SIG
+@@ -1864,7 +1866,6 @@ struct proto tcpv6_prot = {
+ 	.sendpage		= tcp_sendpage,
+ 	.backlog_rcv		= tcp_v6_do_rcv,
+ 	.release_cb		= tcp_release_cb,
+-	.mtu_reduced		= tcp_v6_mtu_reduced,
+ 	.hash			= tcp_v6_hash,
+ 	.unhash			= inet_unhash,
+ 	.get_port		= inet_csk_get_port,
+-- 
+2.1.0.rc2.206.gedb03e5
