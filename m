@@ -1,52 +1,94 @@
-From: Alexey Khoroshilov <khoroshilov@ispras.ru>
-Subject: [PATCH] at76c50x-usb: fix use after free on failure path in at76_probe()
-Date: Fri, 15 Aug 2014 03:00:06 +0400
-Message-ID: <1408057206-8854-1-git-send-email-khoroshilov@ispras.ru>
-Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
-To: Andrea Merello <andrea.merello@gmail.com>,
-	"John W. Linville" <linville@tuxdriver.com>
+From: "Luis R. Rodriguez" <mcgrof@suse.com>
+Subject: Re: [PATCH v3 1/3] init / kthread: add module_long_probe_init()
+	and module_long_probe_exit()
+Date: Fri, 15 Aug 2014 01:10:28 +0200
+Message-ID: <20140814231028.GQ21930@wotan.suse.de>
+References: <1407882507-325-1-git-send-email-mcgrof@do-not-panic.com> <1407882507-325-2-git-send-email-mcgrof@do-not-panic.com> <20140813175101.GA7156@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>,
+	gregkh@linuxfoundation.org, tiwai@suse.de,
+	linux-kernel@vger.kernel.org,
+	Tetsuo Handa <penguin-kernel@I-love.SAKURA.ne.jp>,
+	Joseph Salisbury <joseph.salisbury@canonical.com>,
+	Kay Sievers <kay@vrfy.org>,
+	One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>,
+	Tim Gardner <tim.gardner@canonical.com>,
+	Pierre Fersing <pierre-fersing@pierref.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Benjamin Poirier <bpoirier@suse.de>,
+	Nagalakshmi Nandigama <nagalakshmi.nandigama@avagotech.com>,
+	Praveen Krishnamoorthy <praveen.krishnamoorthy@avagotech.com>,
+	Sreekanth Reddy <sreekanth.reddy@avagotech.com>,
+	Abhijit Mahajan <abhijit.mahajan@avagotech.com>,
+	Hariprasad S <hariprasad@chelsio.com>,
+	Santosh Rastapur <santosh@chelsio.com>,
+	MPT-FusionLinux.pdl@avagotech.com, linux-scsi@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Oleg Nesterov <oleg@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20140813175101.GA7156@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-After commit 174beab7d445 ("at76c50x-usb: Don't perform DMA from stack memory")
-at76_delete_device() and usb_put_dev() are called both
-if at76_init_new_device() fails in at76_probe().
-But at76_delete_device() does usb_put_dev(priv->dev) itself
-that means double usb_put_dev().
+On Wed, Aug 13, 2014 at 07:51:01PM +0200, Oleg Nesterov wrote:
+> On 08/12, Luis R. Rodriguez wrote:
+> >
+> > +/* To be used by modules which can take over 30 seconds at probe */
+> 
+> Probably the comment should explain that this hack should only be
+> used if the driver is buggy and is wating for "real fix".
+> 
+> > +#define module_long_probe_init(initfn)				\
+> > +	static struct task_struct *__init_thread;		\
+> > +	static int _long_probe_##initfn(void *arg)		\
+> > +	{							\
+> > +		return initfn();				\
+> > +	}							\
+> > +	static inline __init int __long_probe_##initfn(void)	\
+> > +	{							\
+> > +		__init_thread = kthread_run(_long_probe_##initfn,\
+> > +					    NULL,		\
+> > +					    #initfn);		\
+> > +		if (IS_ERR(__init_thread))			\
+> > +			return PTR_ERR(__init_thread);		\
+> > +		return 0;					\
+> > +	}							\
+> > +	module_init(__long_probe_##initfn);
+> > +/* To be used by modules that require module_long_probe_init() */
+> > +#define module_long_probe_exit(exitfn)				\
+> > +	static inline void __long_probe_##exitfn(void)		\
+> > +	{							\
+> > +		exitfn();					\
+> > +		if (__init_thread)				\
+> > +			kthread_stop(__init_thread);		\
+> > +	}							\
+> 
+> exitfn() should be called after kthread_stop(), and only if initfn()
+> returns 0. So it should probably do
+> 
+> 	int err = kthread_stop(__init_thread);
+> 	if (!err)
+> 		exitfn();
 
-The patch avoids the problem by moving usb_put_dev() from
-at76_delete_device() to at76_disconnect().
+Thanks! With the check for __init_thread as well as it can be
+ERR_PTR(-ENOMEM), ERR_PTR(-EINTR), or NULL (for whatever other
+reason).
 
-Found by Linux Driver Verification project (linuxtesting.org).
+> But there is an additional complication, you can't use __init_thread
+> without get_task_struct(),
 
-Signed-off-by: Alexey Khoroshilov <khoroshilov@ispras.ru>
----
- drivers/net/wireless/at76c50x-usb.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+Can you elaborate why ? kthread_stop() uses get_task_struct(), 
+wake_up_process() and finally put_task_struct(), and we're the
+only user of this thread. Also kthread_run() ensures wake_up_process()
+gets called on startup, so not sure where the race would be provided
+all users here and with the respective helpers on buggy drivers.
 
-diff --git a/drivers/net/wireless/at76c50x-usb.c b/drivers/net/wireless/at76c50x-usb.c
-index 334c2ece855a..da92bfa76b7c 100644
---- a/drivers/net/wireless/at76c50x-usb.c
-+++ b/drivers/net/wireless/at76c50x-usb.c
-@@ -2423,8 +2423,6 @@ static void at76_delete_device(struct at76_priv *priv)
- 
- 	kfree_skb(priv->rx_skb);
- 
--	usb_put_dev(priv->udev);
--
- 	at76_dbg(DBG_PROC_ENTRY, "%s: before freeing priv/ieee80211_hw",
- 		 __func__);
- 	ieee80211_free_hw(priv->hw);
-@@ -2558,6 +2556,7 @@ static void at76_disconnect(struct usb_interface *interface)
- 
- 	wiphy_info(priv->hw->wiphy, "disconnecting\n");
- 	at76_delete_device(priv);
-+	usb_put_dev(priv->udev);
- 	dev_info(&interface->dev, "disconnected\n");
- }
- 
--- 
-1.9.1
+> so  __long_probe_##initfn() can't use
+> kthread_run(). It needs kthread_create() + get_task_struct() + wakeup.
+
+I fail to see why we'd need to add get_task_struct() on
+module_long_probe_init(), can you clarify?
+
+  Luis
