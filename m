@@ -1,44 +1,40 @@
-From: Yoann Juet <veilletechno-irts@univ-nantes.fr>
-Subject: ixgbe: SR-IOV, macvlan filter on VFs
-Date: Thu, 14 Aug 2014 14:04:25 +0200
-Message-ID: <53ECA5C9.2020904@univ-nantes.fr>
-Reply-To: Yoann Juet <veilletechno-irts@univ-nantes.fr>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 8BIT
-Cc: Yoann Juet <yoann.juet@univ-nantes.fr>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+From: Andreas Ruprecht <rupran@einserver.de>
+Subject: [PATCH] net: ethernet: ibm: ehea: Remove duplicate object from Makefile
+Date: Thu, 14 Aug 2014 14:26:23 +0200
+Message-ID: <1408019183-5709-1-git-send-email-rupran@einserver.de>
+Cc: netdev@vger.kernel.org, Andreas Ruprecht <rupran@einserver.de>
+To: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtptls1-cha.cpub.univ-nantes.fr ([193.52.103.113]:50219 "EHLO
-	smtp-tls.univ-nantes.fr" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753901AbaHNMKV convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 08:10:21 -0400
+Received: from mail-la0-f48.google.com ([209.85.215.48]:44012 "EHLO
+	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753689AbaHNM0N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 08:26:13 -0400
+Received: by mail-la0-f48.google.com with SMTP id gl10so922484lab.21
+        for <netdev@vger.kernel.org>; Thu, 14 Aug 2014 05:26:11 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+In the Makefile, ehea_phyp.o is included twice in the list of
+object files compile into ehea.o.
 
-We are trying to make VRRP with VMAC address work on VMs using SR-IOV. 
-The well known Keepalived VRRP framework implements such a feature with 
-a macvlan device per physical interface. In our setup, this means we get 
-a new macvlan device per VF. To make it partially work, we first have to 
-disable the ixgbe anti-spoofing feature on the PFs that are involved:
+This change removes one instance.
 
-ip link set dev <ethX> vf <x> spoofchk off
+Signed-off-by: Andreas Ruprecht <rupran@einserver.de>
+---
+ drivers/net/ethernet/ibm/ehea/Makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Now, VIPs' Virtual Mac Address are known from clients (arp answers are 
-transmitted). But this is not enough ; VIPs are still not reachable from 
-clients as they are attached to a macvlan device. Each time a VMAC is 
-set on a macvlan device, we get the following messages:
-
-[674943.437989] ixgbe 0000:04:00.0 eth2: VF 0 requested MACVLAN filter 
-but is administratively denied
-[674943.458875] ixgbe 0000:04:00.0 eth2: VF 1 requested MACVLAN filter 
-but is administratively denied
-
-Looks like macvlan on VF only works for outbound traffic from VMs. 
-Inbound traffic is filtered. Is there a solution to disable macvlan 
-filtering on a VF basis ?
-
-Thanks,
-Best Regards,
+diff --git a/drivers/net/ethernet/ibm/ehea/Makefile b/drivers/net/ethernet/ibm/ehea/Makefile
+index 775d996..cd473e2 100644
+--- a/drivers/net/ethernet/ibm/ehea/Makefile
++++ b/drivers/net/ethernet/ibm/ehea/Makefile
+@@ -1,6 +1,6 @@
+ #
+ # Makefile for the eHEA ethernet device driver for IBM eServer System p
+ #
+-ehea-y = ehea_main.o ehea_phyp.o ehea_qmr.o ehea_ethtool.o ehea_phyp.o
++ehea-y = ehea_main.o ehea_phyp.o ehea_qmr.o ehea_ethtool.o
+ obj-$(CONFIG_EHEA) += ehea.o
+ 
+-- 
+1.9.1
