@@ -1,53 +1,150 @@
-From: Brendan Gregg <brendan.d.gregg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH RFC v4 net-next 23/26] samples: bpf: elf file loader
-Date: Thu, 14 Aug 2014 12:29:09 -0700
-Message-ID: <CAE40pddG1e3Q8OZ8t5QQimGhHzS5FbqK3YuvKnFywEEoSUbGzQ@mail.gmail.com>
-References: <1407916658-8731-1-git-send-email-ast@plumgrid.com>
-	<1407916658-8731-24-git-send-email-ast@plumgrid.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
-	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
-	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
-	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1407916658-8731-24-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
-Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Subject: [PATCH stable 3.4 v2 1/2] ipv4: move route garbage collector to work queue
+Date: Thu, 14 Aug 2014 16:44:52 -0300
+Message-ID: <547688b69ee9a258cc04e4dad17a90ca6ab182d0.1408045325.git.mleitner@redhat.com>
+Cc: hannes@redhat.com, netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:50198 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752402AbaHNTpC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Aug 2014 15:45:02 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Aug 13, 2014 at 12:57 AM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
-[...]
-> +static int load_and_attach(const char *event, struct bpf_insn *prog, int size)
-> +{
-> +       int fd, event_fd, err;
-> +       char fmt[32];
-> +       char path[256] = DEBUGFS;
-> +
-> +       fd = bpf_prog_load(BPF_PROG_TYPE_TRACING_FILTER, prog, size, license);
-> +
-> +       if (fd < 0) {
-> +               printf("err %d errno %d\n", fd, errno);
-> +               return fd;
-> +       }
+Currently the route garbage collector gets called by dst_alloc() if it
+have more entries than the threshold. But it's an expensive call, that
+don't really need to be done by then.
 
-Minor suggestion: since this is sample code, I'd always print the bpf
-log after this this printf() error message:
+Another issue with current way is that it allows running the garbage
+collector with the same start parameters on multiple CPUs at once, which
+is not optimal. A system may even soft lockup if the cache is big enough
+as the garbage collectors will be fighting over the hash lock entries.
 
-printf("%s", bpf_log_buf);
+This patch thus moves the garbage collector to run asynchronously on a
+work queue, much similar to how rt_expire_check runs.
 
-Which has helped me debug my eBPF programs, as will be the case for
-anyone hacking on the examples. Or have a function for logdie(), if
-the log buffer may be populated with useful messages from other error
-paths as well.
+There is one condition left that allows multiple executions, which is
+handled by the next patch.
 
-Brendan
+Signed-off-by: Marcelo Ricardo Leitner <mleitner@redhat.com>
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+---
+
+Notes:
+    Hi,
+    
+    This set is needed for stables <= 3.4, as the IPv4 route cache was
+    removed after that.
+    
+    v1->v2: addressed indentation issue noticed by David Miller
+    
+    Thanks!
+
+ net/ipv4/route.c | 43 +++++++++++++++++++++++++++++--------------
+ 1 file changed, 29 insertions(+), 14 deletions(-)
+
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 90bc88bbd2a4f73304671e0182df72f450fa901a..9017f2f8aff196b665fc7d4e36116bfda7450011 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -150,6 +150,9 @@ static void		 ipv4_link_failure(struct sk_buff *skb);
+ static void		 ip_rt_update_pmtu(struct dst_entry *dst, u32 mtu);
+ static int rt_garbage_collect(struct dst_ops *ops);
+ 
++static void __rt_garbage_collect(struct work_struct *w);
++static DECLARE_WORK(rt_gc_worker, __rt_garbage_collect);
++
+ static void ipv4_dst_ifdown(struct dst_entry *dst, struct net_device *dev,
+ 			    int how)
+ {
+@@ -977,7 +980,7 @@ static void rt_emergency_hash_rebuild(struct net *net)
+    and when load increases it reduces to limit cache size.
+  */
+ 
+-static int rt_garbage_collect(struct dst_ops *ops)
++static void __do_rt_garbage_collect(int elasticity, int min_interval)
+ {
+ 	static unsigned long expire = RT_GC_TIMEOUT;
+ 	static unsigned long last_gc;
+@@ -996,7 +999,7 @@ static int rt_garbage_collect(struct dst_ops *ops)
+ 
+ 	RT_CACHE_STAT_INC(gc_total);
+ 
+-	if (now - last_gc < ip_rt_gc_min_interval &&
++	if (now - last_gc < min_interval &&
+ 	    entries < ip_rt_max_size) {
+ 		RT_CACHE_STAT_INC(gc_ignored);
+ 		goto out;
+@@ -1004,7 +1007,7 @@ static int rt_garbage_collect(struct dst_ops *ops)
+ 
+ 	entries = dst_entries_get_slow(&ipv4_dst_ops);
+ 	/* Calculate number of entries, which we want to expire now. */
+-	goal = entries - (ip_rt_gc_elasticity << rt_hash_log);
++	goal = entries - (elasticity << rt_hash_log);
+ 	if (goal <= 0) {
+ 		if (equilibrium < ipv4_dst_ops.gc_thresh)
+ 			equilibrium = ipv4_dst_ops.gc_thresh;
+@@ -1021,7 +1024,7 @@ static int rt_garbage_collect(struct dst_ops *ops)
+ 		equilibrium = entries - goal;
+ 	}
+ 
+-	if (now - last_gc >= ip_rt_gc_min_interval)
++	if (now - last_gc >= min_interval)
+ 		last_gc = now;
+ 
+ 	if (goal <= 0) {
+@@ -1086,15 +1089,33 @@ static int rt_garbage_collect(struct dst_ops *ops)
+ 	if (net_ratelimit())
+ 		pr_warn("dst cache overflow\n");
+ 	RT_CACHE_STAT_INC(gc_dst_overflow);
+-	return 1;
++	return;
+ 
+ work_done:
+-	expire += ip_rt_gc_min_interval;
++	expire += min_interval;
+ 	if (expire > ip_rt_gc_timeout ||
+ 	    dst_entries_get_fast(&ipv4_dst_ops) < ipv4_dst_ops.gc_thresh ||
+ 	    dst_entries_get_slow(&ipv4_dst_ops) < ipv4_dst_ops.gc_thresh)
+ 		expire = ip_rt_gc_timeout;
+-out:	return 0;
++out:	return;
++}
++
++static void __rt_garbage_collect(struct work_struct *w)
++{
++	__do_rt_garbage_collect(ip_rt_gc_elasticity, ip_rt_gc_min_interval);
++}
++
++static int rt_garbage_collect(struct dst_ops *ops)
++{
++	if (!work_pending(&rt_gc_worker))
++		schedule_work(&rt_gc_worker);
++
++	if (dst_entries_get_fast(&ipv4_dst_ops) >= ip_rt_max_size ||
++	    dst_entries_get_slow(&ipv4_dst_ops) >= ip_rt_max_size) {
++		RT_CACHE_STAT_INC(gc_dst_overflow);
++		return 1;
++	}
++	return 0;
+ }
+ 
+ /*
+@@ -1288,13 +1309,7 @@ restart:
+ 			   it is most likely it holds some neighbour records.
+ 			 */
+ 			if (attempts-- > 0) {
+-				int saved_elasticity = ip_rt_gc_elasticity;
+-				int saved_int = ip_rt_gc_min_interval;
+-				ip_rt_gc_elasticity	= 1;
+-				ip_rt_gc_min_interval	= 0;
+-				rt_garbage_collect(&ipv4_dst_ops);
+-				ip_rt_gc_min_interval	= saved_int;
+-				ip_rt_gc_elasticity	= saved_elasticity;
++				__do_rt_garbage_collect(1, 0);
+ 				goto restart;
+ 			}
+ 
+-- 
+1.9.3
