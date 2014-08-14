@@ -1,56 +1,76 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH v2 1/1] net: fec: ptp: avoid register access when ipg
- clock is disabled
-Date: Thu, 14 Aug 2014 16:33:51 +0200
-Message-ID: <20140814143351.GA29615@netboy>
-References: <1407905705-27984-1-git-send-email-b38611@freescale.com>
- <1407905705-27984-2-git-send-email-b38611@freescale.com>
- <20140813211941.GB4840@netboy>
- <4dcf48cd1c11473c82fcec0c8963ece2@BLUPR03MB373.namprd03.prod.outlook.com>
- <20140814081036.GB7555@netboy>
- <e84f5b51501e4add8cf08819c64ef554@BLUPR03MB373.namprd03.prod.outlook.com>
- <20140814084251.GC7555@netboy>
- <4977c4d325c949019549211d74c6982d@BLUPR03MB373.namprd03.prod.outlook.com>
- <20140814091259.GA11727@netboy>
- <4f93901dbe7a4746aacc795ae825ee60@BLUPR03MB373.namprd03.prod.outlook.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: ixgbe: SR-IOV, macvlan filter on VFs
+Date: Thu, 14 Aug 2014 07:47:29 -0700
+Message-ID: <53ECCC01.4050400@gmail.com>
+References: <53ECA5C9.2020904@univ-nantes.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "shawn.guo@linaro.org" <shawn.guo@linaro.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "fugang.duan@freescale.com" <fugang.duan@freescale.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Yoann Juet <yoann.juet@univ-nantes.fr>
+To: Yoann Juet <veilletechno-irts@univ-nantes.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f179.google.com ([209.85.212.179]:46101 "EHLO
-	mail-wi0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755016AbaHNOd7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 10:33:59 -0400
-Received: by mail-wi0-f179.google.com with SMTP id f8so2402796wiw.6
-        for <netdev@vger.kernel.org>; Thu, 14 Aug 2014 07:33:58 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <4f93901dbe7a4746aacc795ae825ee60@BLUPR03MB373.namprd03.prod.outlook.com>
+Received: from mail-oa0-f52.google.com ([209.85.219.52]:42425 "EHLO
+	mail-oa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754827AbaHNOrp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 10:47:45 -0400
+Received: by mail-oa0-f52.google.com with SMTP id o6so1066130oag.11
+        for <netdev@vger.kernel.org>; Thu, 14 Aug 2014 07:47:45 -0700 (PDT)
+In-Reply-To: <53ECA5C9.2020904@univ-nantes.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Aug 14, 2014 at 09:26:45AM +0000, fugang.duan@freescale.com wrote:
-> When ethx disable, all clocks are disabled. For gettime(), your mean that we check clock is on or not,
-> If clock is disabled, return an error in .fec_ptp_gettime() ?
+On 08/14/2014 05:04 AM, Yoann Juet wrote:
+> Hi all,
+>
+> We are trying to make VRRP with VMAC address work on VMs using SR-IOV.
+> The well known Keepalived VRRP framework implements such a feature with
+> a macvlan device per physical interface. In our setup, this means we get
+> a new macvlan device per VF. To make it partially work, we first have to
+> disable the ixgbe anti-spoofing feature on the PFs that are involved:
+>
+> ip link set dev <ethX> vf <x> spoofchk off
+>
+> Now, VIPs' Virtual Mac Address are known from clients (arp answers are
+> transmitted). But this is not enough ; VIPs are still not reachable from
+> clients as they are attached to a macvlan device. Each time a VMAC is
+> set on a macvlan device, we get the following messages:
+>
+> [674943.437989] ixgbe 0000:04:00.0 eth2: VF 0 requested MACVLAN filter
+> but is administratively denied
+> [674943.458875] ixgbe 0000:04:00.0 eth2: VF 1 requested MACVLAN filter
+> but is administratively denied
+>
+> Looks like macvlan on VF only works for outbound traffic from VMs.
+> Inbound traffic is filtered. Is there a solution to disable macvlan
+> filtering on a VF basis ?
+>
+> Thanks,
+> Best Regards,
+>
+> --
 
-Yes.
+hmm this should work I think.
 
-> How did it in the delayed work ?
+Did you set the VF mac address at some point with,
 
-The work must run whenever the physical clock is runnning.
+	ip link set dev DEVICE vf NUM mac ADDR
 
-This is COMPLETELY INDEPENDENT from time stamping.
+If not this how did you setup the virtual functions? Manually via
+sriov_numvfs? Or via libvirt or other library. Basically there is a
+check in the driver to see if the MAC was set via the physical function
+and in this case the driver doesn't allow the VF to add/remove any
+MAC addresses on the rx filters.
 
-If your patch has anything with "fep->hwts_tx_en", then it is wrong.
+In the ixgbe driver if ixgbe_ndo_set_vf_mac is ever called it sets
+the pf_set_mac bit (this is the check) and denies any further mac
+updates. This function gets called when ever a netlink IFLA_VF_MAC
+attribute is setup. This is what is invoked by the above 'ip link'
+command.
 
-> Thanks for your review, I am confused by your suggestion.
-
-Just start and stop the work queue when you start and stop the
-physical clock.
-
-Is it clear now?
 
 Thanks,
-Richard
+John
+
+-- 
+John Fastabend         Intel Corporation
