@@ -1,107 +1,68 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: Query: Is it possible  to lose interrupts between vhost and
- virtio_net during migration?
-Date: Thu, 14 Aug 2014 12:02:31 +0200
-Message-ID: <20140814100231.GB30944@redhat.com>
-References: <53DA2CCC.1040606@huawei.com>
- <20140731143100.GA3834@redhat.com>
- <20140731143725.GA3875@redhat.com>
- <53DB705F.2000405@redhat.com>
- <53DB76A9.8010305@redhat.com>
- <53E079C8.7050700@huawei.com>
- <20140805094957.GB24619@redhat.com>
- <53E0CAA4.8010303@huawei.com>
- <53E37561.5060302@huawei.com>
- <53EC78D8.6070405@redhat.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH] can: c_can: Fix return value check in c_can_plat_probe()
+Date: Thu, 14 Aug 2014 12:11:35 +0200
+Message-ID: <53EC8B57.6070300@pengutronix.de>
+References: <1407977939-15287-1-git-send-email-weiyj_lk@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Zhangjie (HZ)" <zhangjie14@huawei.com>, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, qinchuanyu@huawei.com,
-	liuyongan@huawei.com, davem@davemloft.net
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51699 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752368AbaHNKHS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Aug 2014 06:07:18 -0400
-Content-Disposition: inline
-In-Reply-To: <53EC78D8.6070405@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="xTHf24oj5adGBeUdotujF50GRjsdkRsSL"
+Cc: Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org
+To: weiyj_lk@163.com, Wolfgang Grandegger <wg@grandegger.com>,
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <robh+dt@kernel.org>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Chen Gang <gang.chen@asianux.com>,
+	George Cherian <george.cherian@ti.com>,
+	Sachin Kamat <sachin.kamat@linaro.org>,
+	"Lad, Prabhakar" <prabhakar.csengg@gmail.com>,
+	Pavel Machek <pavel@denx.de>, Thor Thayer <tthayer@altera.com>,
+	Mugunthan V N <mugunthanvnm@ti.com>,
+	Wolfram Sang <wsa@sang-engineering.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1407977939-15287-1-git-send-email-weiyj_lk@163.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 14, 2014 at 04:52:40PM +0800, Jason Wang wrote:
-> On 08/07/2014 08:47 PM, Zhangjie (HZ) wrote:
-> > On 2014/8/5 20:14, Zhangjie (HZ) wrote:
-> >> On 2014/8/5 17:49, Michael S. Tsirkin wrote:
-> >>> On Tue, Aug 05, 2014 at 02:29:28PM +0800, Zhangjie (HZ) wrote:
-> >>>> Jason is right, the new order is not the cause of network unreachable.
-> >>>> Changing order seems not work. After about 40 times, the problem occurs again.
-> >>>> Maybe there is other hidden reasons for that.
-> >> I modified the code to change the order myself yesterday.
-> >> This result is about my code.
-> >>> To make sure, you tested the patch that I posted to list:
-> >>> "vhost_net: stop guest notifiers after backend"?
-> >>>
-> >>> Please confirm.
-> >>>
-> >> OK, I will test with your patch "vhost_net: stop guest notifiers after backend".
-> >>
-> > Unfortunately, after using the patch "vhost_net: stop guest notifiers after backend",
-> > Linux VMs stopt themselves a few minutes after they were started.
-> >> @@ -308,6 +308,12 @@ int vhost_net_start(VirtIODevice *dev, NetClientState *ncs,
-> >>         goto err;
-> >>     }
-> >>
-> >> +    r = k->set_guest_notifiers(qbus->parent, total_queues * 2, true);
-> >> +    if (r < 0) {
-> >> +        error_report("Error binding guest notifier: %d", -r);
-> >> +        goto err;
-> >> +    }
-> >> +
-> >>     for (i = 0; i < total_queues; i++) {
-> >>         r = vhost_net_start_one(get_vhost_net(ncs[i].peer), dev, i * 2);
-> >>
-> >> @@ -316,12 +322,6 @@ int vhost_net_start(VirtIODevice *dev, NetClientState *ncs,
-> >>         }
-> >>     }
-> >>
-> >> -    r = k->set_guest_notifiers(qbus->parent, total_queues * 2, true);
-> >> -    if (r < 0) {
-> >> -        error_report("Error binding guest notifier: %d", -r);
-> >> -        goto err;
-> >> -    }
-> >> -
-> >>     return 0;
-> > I wonder if k->set_guest_notifiers should be called after "hdev->started = true;" in vhost_dev_start.
-> 
-> Michael, can we just remove those assertions? Since you may want to set
-> guest notifiers before starting the backend.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--xTHf24oj5adGBeUdotujF50GRjsdkRsSL
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-Which assertions?
+On 08/14/2014 02:58 AM, weiyj_lk@163.com wrote:
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+>=20
+> In case of error, the function devm_ioremap() returns NULL pointer
+> not ERR_PTR(). The IS_ERR() test in the return value check should
+> be replaced with NULL test.
+>=20
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-> Another question for virtio_pci_vector_poll(): why not using
-> msix_notify() instead of msix_set_pending().
+Dan Carpenter already provided this fix. It will be included in my next
+pull request to David's net.
 
-We can do that but the effect will be same since we know
-vector is masked.
+Thanks,
+Marc
 
-> If so, there's no need to
-> change the vhost_net_start() ?
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
-Confused, don't see the connection.
 
-> Zhang Jie, is this a regression? If yes, could you please do a bisection
-> to find the first bad commit.
-> 
-> Thanks
+--xTHf24oj5adGBeUdotujF50GRjsdkRsSL
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
-Pretty sure it's the mq patch: a9f98bb5ebe6fb1869321dcc58e72041ae626ad8
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
 
-    Since we may have many vhost/net devices for a virtio-net device.  The setting of
-    guest notifiers were moved out of the starting/stopping of a specific vhost
-    thread. The vhost_net_{start|stop}() were renamed to
-    vhost_net_{start|stop}_one(), and a new vhost_net_{start|stop}() were introduced
-    to configure the guest notifiers and start/stop all vhost/vhost_net devices.
+iEYEARECAAYFAlPsi1cACgkQjTAFq1RaXHOG+QCbBcCEd47GOKmJq2SRwo/WxshI
+LX8An0aSDZkCPONqP23zyNm0rHtPmspO
+=1+wN
+-----END PGP SIGNATURE-----
 
--- 
-MST
+--xTHf24oj5adGBeUdotujF50GRjsdkRsSL--
