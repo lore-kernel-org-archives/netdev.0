@@ -1,78 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Performance regression on kernels 3.10 and newer
-Date: Thu, 14 Aug 2014 11:46:02 -0700
-Message-ID: <1408041962.6804.31.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <53ECFDAB.5010701@intel.com>
+From: Brendan Gregg <brendan.d.gregg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH RFC v4 net-next 00/26] BPF syscall, maps, verifier,
+ samples, llvm
+Date: Thu, 14 Aug 2014 12:17:39 -0700
+Message-ID: <CAE40pdcsEnCg-zVyYR-hkYZ9Zd4kmX2BS11cFWAKZK3=HfBUMg@mail.gmail.com>
+References: <1407916658-8731-1-git-send-email-ast@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:51520 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753350AbaHNSqE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 14:46:04 -0400
-Received: by mail-pd0-f179.google.com with SMTP id v10so2031351pde.38
-        for <netdev@vger.kernel.org>; Thu, 14 Aug 2014 11:46:03 -0700 (PDT)
-In-Reply-To: <53ECFDAB.5010701@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Andy Lutomirski <luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org>,
+	Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>,
+	Daniel Borkmann <dborkman-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Chema Gonzalez <chema-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Peter Zijlstra <a.p.zijlstra-/NLkJaSkS4VmR6Xm/wNWPw@public.gmane.org>,
+	"H. Peter Anvin" <hpa-YMNOUZJC4hwAvxtiuMwx3w@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1407916658-8731-1-git-send-email-ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2014-08-14 at 11:19 -0700, Alexander Duyck wrote:
-> Yesterday I tripped over a bit of an issue and it seems like we are
-> seeing significant cache thrash on kernels 3.10 and newer when running
-> multiple streams of small packet stress on multiple NUMA nodes for a
-> single NIC.
-> 
-> I did some bisection and found that I was able to trace it back to
-> upstream commit 093162553c33e9479283e107b4431378271c735d (tcp: force a
-> dst refcount when prequeue packet).
-> 
-> Recreating this issue is pretty strait forward.  All I did was setup 2
-> dual socket Xeon systems connected back to back with ixgbe and ran the
-> following script after disabling tcp_autocork on the transmitting system:
->   for i in `seq 0 19`
->   do
->     for j in `seq 0 2`
->     do
->       netperf -H 192.168.10.1 -t TCP_STREAM \
->               -l 10 -c -C -T $i,$i -P 0 -- \
->               -m 64 -s 64K -D
->     done
->   done
-> 
-> The current net tree as-is will give me about 2Gb/s of data w/ 100% CPU
-> utilization on the receiving system, and with the patch above reverted
-> on that system it gives me about 4Gb/s with only 21% CPU utilization.
-> If I set tcp_low_latency=1 I can get the CPU utilization down to about
-> 12% on the same test with about 4Gb/s of throughput.
-> 
-> I'm still working on determining the exact root cause but it looks to me
-> like there is some significant cache thrash going on in regards to the
-> dst entries.
-> 
-> Below is a quick breakdown of the top CPU users for tcp_low_latency
-> on/off using perf top:
-> 
-> tcp_low_latency = 0
+On Wed, Aug 13, 2014 at 12:57 AM, Alexei Starovoitov <ast-uqk4Ao+rVK5Wk0Htik3J/w@public.gmane.org> wrote:
+[...]
+> Tracing use case got some improvements as well. Now eBPF programs can be
+> attached to tracepoint, syscall, kprobe and C examples are more usable:
+> ex1_kern.c - demonstrate how programs can walk in-kernel data structures
+> ex2_kern.c - in-kernel event accounting and user space histograms
+> See patch #25
 
-> 
-> tcp_low_latency = 1
-> Any input/advice on where I should look or patches to possibly test
-> would be appreciated.
+This is great, thanks! I've been using this new support, and
+successfully ported an an older tool of mine (bitesize) to eBPF. I was
+using the block:block_rq_issue tracepoint, and performing a custom
+in-kernel histogram, like in the ex2_kern.c example, for I/O size.
 
+I also did some quick overhead testing and found eBPF with JIT to be
+relatively fast. (I'd share numbers but it's platform specific.) The
+syscall tracepoints were a bit slower than hoped, for what I think is
+a well known issue.
 
-I believe you answered your own question : prequeue mode does not work
-very well when one host has hundred of active TCP flows to one other.
+Are there thoughts in general for how this might be used for embedded
+devices, where installing clang/llvm might be prohibitive? Compile on
+another system and move the binaries over? thanks,
 
-In real life, applications do not use prequeue, because nobody wants one
-thread per flow.
-
-Each socket has its own dst now route cache was removed, but if your
-netperf migrates cpu (and NUMA node), we do not detect the dst should be
-re-created onto a different NUMA node.
-
-But really, I am not sure we want to care about prequeue, as modern
-applications uses epoll()/poll()/select() instead of blocking on
-recvmsg()
+Brendan
