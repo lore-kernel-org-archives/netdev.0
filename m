@@ -1,57 +1,56 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH net v2] tcp: don't allow syn packets without timestamps
- to pass tcp_tw_recycle logic
-Date: Thu, 14 Aug 2014 14:40:55 -0700 (PDT)
-Message-ID: <20140814.144055.2100860870774307871.davem@redhat.com>
-References: <6c91df2ee8f92c4687c98342d5dde52bbc3c5fe8.1408046709.git.hannes@stressinduktion.org>
+Subject: Re: [PATCH net] tcp: fix ssthresh and undo for consecutive short
+ FRTO episodes
+Date: Thu, 14 Aug 2014 14:41:06 -0700 (PDT)
+Message-ID: <20140814.144106.1946147822858723625.davem@redhat.com>
+References: <1408047187-983-1-git-send-email-ncardwell@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, fw@strlen.de
-To: hannes@stressinduktion.org
+Cc: netdev@vger.kernel.org, ycheng@google.com
+To: ncardwell@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:31161 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:22458 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932068AbaHNVlH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Aug 2014 17:41:07 -0400
-In-Reply-To: <6c91df2ee8f92c4687c98342d5dde52bbc3c5fe8.1408046709.git.hannes@stressinduktion.org>
+	id S1754251AbaHNVlJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Aug 2014 17:41:09 -0400
+In-Reply-To: <1408047187-983-1-git-send-email-ncardwell@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Thu, 14 Aug 2014 22:06:12 +0200
+From: Neal Cardwell <ncardwell@google.com>
+Date: Thu, 14 Aug 2014 16:13:07 -0400
 
-> tcp_tw_recycle heavily relies on tcp timestamps to build a per-host
-> ordering of incoming connections and teardowns without the need to
-> hold state on a specific quadruple for TCP_TIMEWAIT_LEN, but only for
-> the last measured RTO. To do so, we keep the last seen timestamp in a
-> per-host indexed data structure and verify if the incoming timestamp
-> in a connection request is strictly greater than the saved one during
-> last connection teardown. Thus we can verify later on that no old data
-> packets will be accepted by the new connection.
+> Fix TCP FRTO logic so that it always notices when snd_una advances,
+> indicating that any RTO after that point will be a new and distinct
+> loss episode.
 > 
-> During moving a socket to time-wait state we already verify if timestamps
-> where seen on a connection. Only if that was the case we let the
-> time-wait socket expire after the RTO, otherwise normal TCP_TIMEWAIT_LEN
-> will be used. But we don't verify this on incoming SYN packets. If a
-> connection teardown was less than TCP_PAWS_MSL seconds in the past we
-> cannot guarantee to not accept data packets from an old connection if
-> no timestamps are present. We should drop this SYN packet. This patch
-> closes this loophole.
+> Previously there was a very specific sequence that could cause FRTO to
+> fail to notice a new loss episode had started:
 > 
-> Please note, this patch does not make tcp_tw_recycle in any way more
-> usable but only adds another safety check:
-> Sporadic drops of SYN packets because of reordering in the network or
-> in the socket backlog queues can happen. Users behing NAT trying to
-> connect to a tcp_tw_recycle enabled server can get caught in blackholes
-> and their connection requests may regullary get dropped because hosts
-> behind an address translator don't have synchronized tcp timestamp clocks.
-> tcp_tw_recycle cannot work if peers don't have tcp timestamps enabled.
+> (1) RTO timer fires, enter FRTO and retransmit packet 1 in write queue
+> (2) receiver ACKs packet 1
+> (3) FRTO sends 2 more packets
+> (4) RTO timer fires again (should start a new loss episode)
 > 
-> In general, use of tcp_tw_recycle is disadvised.
+> The problem was in step (3) above, where tcp_process_loss() returned
+> early (in the spot marked "Step 2.b"), so that it never got to the
+> logic to clear icsk_retransmits. Thus icsk_retransmits stayed
+> non-zero. Thus in step (4) tcp_enter_loss() would see the non-zero
+> icsk_retransmits, decide that this RTO is not a new episode, and
+> decide not to cut ssthresh and remember the current cwnd and ssthresh
+> for undo.
 > 
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: Florian Westphal <fw@strlen.de>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> There were two main consequences to the bug that we have
+> observed. First, ssthresh was not decreased in step (4). Second, when
+> there was a series of such FRTO (1-4) sequences that happened to be
+> followed by an FRTO undo, we would restore the cwnd and ssthresh from
+> before the entire series started (instead of the cwnd and ssthresh
+> from before the most recent RTO). This could result in cwnd and
+> ssthresh being restored to values much bigger than the proper values.
+> 
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+> Fixes: e33099f96d99c ("tcp: implement RFC5682 F-RTO")
 
-Applied.
+Applied and queued up for -stable, thanks.
