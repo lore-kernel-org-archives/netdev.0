@@ -1,68 +1,56 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: [PATCH v2] sit: Fix ipip6_tunnel_lookup device matching criteria
-Date: Thu, 14 Aug 2014 13:49:50 +0300
-Message-ID: <1408013390-17273-1-git-send-email-shmulik.ladkani@gmail.com>
-References: <53EC8CA1.6060909@6wind.com>
-Cc: Sascha Hlusiak <contact@saschahlusiak.de>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Shmulik Ladkani <shmulik.ladkani@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: Issue with commit 33c133cc7598e60976a phy: IRQ cannot be shared
+Date: Thu, 14 Aug 2014 15:03:31 +0400
+Message-ID: <53EC9783.3020809@cogentembedded.com>
+References: <53EC57B9.8080903@c-s.fr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: leroy christophe <christophe.leroy@c-s.fr>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f174.google.com ([209.85.212.174]:45717 "EHLO
-	mail-wi0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753901AbaHNKun (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 06:50:43 -0400
-Received: by mail-wi0-f174.google.com with SMTP id d1so8719350wiv.7
-        for <netdev@vger.kernel.org>; Thu, 14 Aug 2014 03:50:42 -0700 (PDT)
-In-Reply-To: <53EC8CA1.6060909@6wind.com>
+Received: from mail-la0-f54.google.com ([209.85.215.54]:52947 "EHLO
+	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754329AbaHNLDf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 07:03:35 -0400
+Received: by mail-la0-f54.google.com with SMTP id hz20so863702lab.13
+        for <netdev@vger.kernel.org>; Thu, 14 Aug 2014 04:03:34 -0700 (PDT)
+In-Reply-To: <53EC57B9.8080903@c-s.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As of 4fddbf5d78 ("sit: strictly restrict incoming traffic to tunnel
-link device"), when looking up a tunnel, tunnel's underlying
-interface (t->parms.link) is verified to match incoming traffic's
-ingress device.
+Hello.
 
-However the comparison was incorrectly based on skb->dev->iflink.
+On 8/14/2014 10:31 AM, leroy christophe wrote:
 
-Instead, dev->ifindex should be used, which correctly represents the
-interface from which the IP stack hands the ipip6 packets.
+> I have an hardware with two ethernet interfaces, and with the two PHYs inside
+> the same component INTEL LXT973 which has only one interrupt.
+> I also have another hardware with two ethernet interfaces and two independant
+> PHYs. But the two PHYs are wired to the same interrupt.
+> This is working perfectly up to Linux 3.12.
 
-This allows setting up sit tunnels bound to vlan interfaces (otherwise
-incoming ipip6 traffic on the vlan interface was dropped due to
-ipip6_tunnel_lookup match failure).
+    Hm, I'm surprised it works. Are you sure you're getting interrupts from 
+both PHYs? Because if both Ethernet controllers are active simultaneously, 
+only the first registered PHY IRQ handler should get all the interrupts.
 
-Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
----
- net/ipv6/sit.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+> But since your commit, introduced in Linux 3.13, my interfaces don't work
+> anymore as the second PHYs can't register IRQ.
 
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index 2e9ba035fb..6163f851dc 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -101,19 +101,19 @@ static struct ip_tunnel *ipip6_tunnel_lookup(struct net *net,
- 	for_each_ip_tunnel_rcu(t, sitn->tunnels_r_l[h0 ^ h1]) {
- 		if (local == t->parms.iph.saddr &&
- 		    remote == t->parms.iph.daddr &&
--		    (!dev || !t->parms.link || dev->iflink == t->parms.link) &&
-+		    (!dev || !t->parms.link || dev->ifindex == t->parms.link) &&
- 		    (t->dev->flags & IFF_UP))
- 			return t;
- 	}
- 	for_each_ip_tunnel_rcu(t, sitn->tunnels_r[h0]) {
- 		if (remote == t->parms.iph.daddr &&
--		    (!dev || !t->parms.link || dev->iflink == t->parms.link) &&
-+		    (!dev || !t->parms.link || dev->ifindex == t->parms.link) &&
- 		    (t->dev->flags & IFF_UP))
- 			return t;
- 	}
- 	for_each_ip_tunnel_rcu(t, sitn->tunnels_l[h1]) {
- 		if (local == t->parms.iph.saddr &&
--		    (!dev || !t->parms.link || dev->iflink == t->parms.link) &&
-+		    (!dev || !t->parms.link || dev->ifindex == t->parms.link) &&
- 		    (t->dev->flags & IFF_UP))
- 			return t;
- 	}
--- 
-1.9.0
+    Strange too, the phylib should use polling in case request_irq() fails.
+
+> Reading the commit log, I can't really understand the reason for the change.
+
+    The shared IRQ handler should check for IRQ from its device and return 
+IRQ_NONE if there's no IRQ active; phy_interrupt() doesn't do that (this is 
+pushed to the workqueue).
+
+> Is it really worth it, and therefore how shall my case be handled ?
+
+    PHY IRQs are not necessary for the phylib state machine.
+
+> Christophe
+
+WBR, Sergei
