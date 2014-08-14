@@ -1,41 +1,38 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH] tcp: don't use timestamp from repaired skb-s to
- calculate RTT (v2)
-Date: Thu, 14 Aug 2014 14:39:29 -0700 (PDT)
-Message-ID: <20140814.143929.1671828120262010871.davem@redhat.com>
-References: <1407931390-3162-1-git-send-email-avagin@openvz.org>
+Subject: Re: [PATCH net] net: xgene: Check negative return value of
+ xgene_enet_get_ring_size()
+Date: Thu, 14 Aug 2014 14:39:53 -0700 (PDT)
+Message-ID: <20140814.143953.179653300813812591.davem@redhat.com>
+References: <1408017582-1133-1-git-send-email-tklauser@distanz.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	edumazet@google.com, xemul@parallels.com
-To: avagin@openvz.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1407931390-3162-1-git-send-email-avagin@openvz.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: isubramanian@apm.com, kchudgar@apm.com, rapatel@apm.com,
+	netdev@vger.kernel.org
+To: tklauser@distanz.ch
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:25556 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932143AbaHNVkA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Aug 2014 17:40:00 -0400
+In-Reply-To: <1408017582-1133-1-git-send-email-tklauser@distanz.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andrey Vagin <avagin@openvz.org>
-Date: Wed, 13 Aug 2014 16:03:10 +0400
+From: Tobias Klauser <tklauser@distanz.ch>
+Date: Thu, 14 Aug 2014 13:59:42 +0200
 
-> We don't know right timestamp for repaired skb-s. Wrong RTT estimations
-> isn't good, because some congestion modules heavily depends on it.
+> xgene_enet_get_ring_size() returns a negative value in case of an error,
+> but its only caller in xgene_enet_create_desc_ring() currently uses the
+> return value directly as u32. Instead, check for a negative value first and
+> error out in case. Also move the call to xgene_enet_get_ring_size() before
+> devm_kzalloc() so we don't need to free anything in the error path.
 > 
-> This patch adds the TCPCB_REPAIRED flag, which is included in
-> TCPCB_RETRANS.
+> This fixes the following issue reported by the Coverity Scanner:
 > 
-> Thanks to Eric for the advice how to fix this issue.
+> ** CID 1231336:  Improper use of negative value  (NEGATIVE_RETURNS)
+> /drivers/net/ethernet/apm/xgene/xgene_enet_main.c: 596 in xgene_enet_create_desc_ring()
 > 
-> This patch fixes the warning:
- ...
-> v2: moving setting of skb->when for repaired skb-s in tcp_write_xmit,
->     where it's set for other skb-s.
-> 
-> Fixes: 431a91242d8d ("tcp: timestamp SYN+DATA messages")
-> Fixes: 740b0f1841f6 ("tcp: switch rtt estimations to usec resolution")
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: Pavel Emelyanov <xemul@parallels.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Signed-off-by: Andrey Vagin <avagin@openvz.org>
+> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
 
 Applied.
