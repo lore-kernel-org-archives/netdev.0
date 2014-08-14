@@ -1,32 +1,69 @@
-From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: Re: [PATCH] ath6kl: Add SDIO device ID for QCA6234X Support
-Date: Thu, 14 Aug 2014 15:26:51 +0300
-Message-ID: <877g2bmf3o.fsf@kamboji.qca.qualcomm.com>
-References: <1407840359-6658-1-git-send-email-srinivas.kandadgatla@linaro.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: "John W. Linville" <linville@tuxdriver.com>,
-	<linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-arm-msm@vger.kernel.org>, <ath6kl@lists.infradead.org>
-To: Srinivas Kandagatla <srinivas.kandagatla@linaro.org>
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-In-Reply-To: <1407840359-6658-1-git-send-email-srinivas.kandadgatla@linaro.org>
-	(Srinivas Kandagatla's message of "Tue, 12 Aug 2014 11:45:59 +0100")
-Sender: linux-arm-msm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: [PATCH v3] sit: Fix ipip6_tunnel_lookup device matching criteria
+Date: Thu, 14 Aug 2014 15:27:20 +0300
+Message-ID: <1408019240-17751-1-git-send-email-shmulik.ladkani@gmail.com>
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Sascha Hlusiak <contact@saschahlusiak.de>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Shmulik Ladkani <shmulik.ladkani@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wg0-f45.google.com ([74.125.82.45]:52063 "EHLO
+	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752368AbaHNM1p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 08:27:45 -0400
+Received: by mail-wg0-f45.google.com with SMTP id x12so994320wgg.4
+        for <netdev@vger.kernel.org>; Thu, 14 Aug 2014 05:27:44 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Srinivas Kandagatla <srinivas.kandagatla@linaro.org> writes:
+As of 4fddbf5d78 ("sit: strictly restrict incoming traffic to tunnel link device"),
+when looking up a tunnel, tunnel's underlying interface (t->parms.link)
+is verified to match incoming traffic's ingress device.
 
-> From: Srinivas Kandagatla <srinivas.kandagatla@linaro.org>
->
-> This patch adds device ID 402 to support QCA6234X found in APQ8064 SOC
-> in IFC6410 board.
->
-> Tested with mainline mmci sdio driver.
->
-> Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@linaro.org>
+However the comparison was incorrectly based on skb->dev->iflink.
 
-Thanks, applied.
+Instead, dev->ifindex should be used, which correctly represents the
+interface from which the IP stack hands the ipip6 packets.
 
+This allows setting up sit tunnels bound to vlan interfaces (otherwise
+incoming ipip6 traffic on the vlan interface was dropped due to
+ipip6_tunnel_lookup match failure).
+
+Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Acked-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+v3: no splitting of quoted summary line
+
+ net/ipv6/sit.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index 2e9ba035fb..6163f851dc 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -101,19 +101,19 @@ static struct ip_tunnel *ipip6_tunnel_lookup(struct net *net,
+ 	for_each_ip_tunnel_rcu(t, sitn->tunnels_r_l[h0 ^ h1]) {
+ 		if (local == t->parms.iph.saddr &&
+ 		    remote == t->parms.iph.daddr &&
+-		    (!dev || !t->parms.link || dev->iflink == t->parms.link) &&
++		    (!dev || !t->parms.link || dev->ifindex == t->parms.link) &&
+ 		    (t->dev->flags & IFF_UP))
+ 			return t;
+ 	}
+ 	for_each_ip_tunnel_rcu(t, sitn->tunnels_r[h0]) {
+ 		if (remote == t->parms.iph.daddr &&
+-		    (!dev || !t->parms.link || dev->iflink == t->parms.link) &&
++		    (!dev || !t->parms.link || dev->ifindex == t->parms.link) &&
+ 		    (t->dev->flags & IFF_UP))
+ 			return t;
+ 	}
+ 	for_each_ip_tunnel_rcu(t, sitn->tunnels_l[h1]) {
+ 		if (local == t->parms.iph.saddr &&
+-		    (!dev || !t->parms.link || dev->iflink == t->parms.link) &&
++		    (!dev || !t->parms.link || dev->ifindex == t->parms.link) &&
+ 		    (t->dev->flags & IFF_UP))
+ 			return t;
+ 	}
 -- 
-Kalle Valo
+1.9.0
