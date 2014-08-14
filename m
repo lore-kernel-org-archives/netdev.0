@@ -1,38 +1,41 @@
 From: David Miller <davem@redhat.com>
-Subject: Re: [PATCH net] net: xgene: Check negative return value of
- xgene_enet_get_ring_size()
-Date: Thu, 14 Aug 2014 14:39:53 -0700 (PDT)
-Message-ID: <20140814.143953.179653300813812591.davem@redhat.com>
-References: <1408017582-1133-1-git-send-email-tklauser@distanz.ch>
+Subject: Re: [PATCH v3] sit: Fix ipip6_tunnel_lookup device matching
+ criteria
+Date: Thu, 14 Aug 2014 14:40:10 -0700 (PDT)
+Message-ID: <20140814.144010.2242230149048926758.davem@redhat.com>
+References: <1408019240-17751-1-git-send-email-shmulik.ladkani@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: isubramanian@apm.com, kchudgar@apm.com, rapatel@apm.com,
-	netdev@vger.kernel.org
-To: tklauser@distanz.ch
+Cc: netdev@vger.kernel.org, sergei.shtylyov@cogentembedded.com,
+	contact@saschahlusiak.de, nicolas.dichtel@6wind.com
+To: shmulik.ladkani@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:25556 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:17779 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932143AbaHNVkA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 14 Aug 2014 17:40:00 -0400
-In-Reply-To: <1408017582-1133-1-git-send-email-tklauser@distanz.ch>
+	id S932176AbaHNVkU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 14 Aug 2014 17:40:20 -0400
+In-Reply-To: <1408019240-17751-1-git-send-email-shmulik.ladkani@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tobias Klauser <tklauser@distanz.ch>
-Date: Thu, 14 Aug 2014 13:59:42 +0200
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Date: Thu, 14 Aug 2014 15:27:20 +0300
 
-> xgene_enet_get_ring_size() returns a negative value in case of an error,
-> but its only caller in xgene_enet_create_desc_ring() currently uses the
-> return value directly as u32. Instead, check for a negative value first and
-> error out in case. Also move the call to xgene_enet_get_ring_size() before
-> devm_kzalloc() so we don't need to free anything in the error path.
+> As of 4fddbf5d78 ("sit: strictly restrict incoming traffic to tunnel link device"),
+> when looking up a tunnel, tunnel's underlying interface (t->parms.link)
+> is verified to match incoming traffic's ingress device.
 > 
-> This fixes the following issue reported by the Coverity Scanner:
+> However the comparison was incorrectly based on skb->dev->iflink.
 > 
-> ** CID 1231336:  Improper use of negative value  (NEGATIVE_RETURNS)
-> /drivers/net/ethernet/apm/xgene/xgene_enet_main.c: 596 in xgene_enet_create_desc_ring()
+> Instead, dev->ifindex should be used, which correctly represents the
+> interface from which the IP stack hands the ipip6 packets.
 > 
-> Signed-off-by: Tobias Klauser <tklauser@distanz.ch>
+> This allows setting up sit tunnels bound to vlan interfaces (otherwise
+> incoming ipip6 traffic on the vlan interface was dropped due to
+> ipip6_tunnel_lookup match failure).
+> 
+> Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+> Acked-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
 Applied.
