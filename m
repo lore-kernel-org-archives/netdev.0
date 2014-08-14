@@ -1,69 +1,58 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: [PATCH v3] sit: Fix ipip6_tunnel_lookup device matching criteria
-Date: Thu, 14 Aug 2014 15:27:20 +0300
-Message-ID: <1408019240-17751-1-git-send-email-shmulik.ladkani@gmail.com>
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Sascha Hlusiak <contact@saschahlusiak.de>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Shmulik Ladkani <shmulik.ladkani@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+From: =?UTF-8?q?S=C3=A9bastien=20Barr=C3=A9?=
+	<sebastien.barre@uclouvain.be>
+Subject: [PATCH] ipv4: Restore accept_local behaviour in fib_validate_source()
+Date: Thu, 14 Aug 2014 14:45:52 +0200
+Message-ID: <1408020352-22841-1-git-send-email-sebastien.barre@uclouvain.be>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?S=C3=A9bastien=20Barr=C3=A9?=
+	<sebastien.barre@uclouvain.be>, <netdev@vger.kernel.org>,
+	Gregory Detal <gregory.detal@uclouvain.be>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f45.google.com ([74.125.82.45]:52063 "EHLO
-	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752368AbaHNM1p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 08:27:45 -0400
-Received: by mail-wg0-f45.google.com with SMTP id x12so994320wgg.4
-        for <netdev@vger.kernel.org>; Thu, 14 Aug 2014 05:27:44 -0700 (PDT)
+Received: from smtp.sgsi.ucl.ac.be ([130.104.5.67]:52246 "EHLO
+	smtp5.sgsi.ucl.ac.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754791AbaHNMwm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 08:52:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As of 4fddbf5d78 ("sit: strictly restrict incoming traffic to tunnel link device"),
-when looking up a tunnel, tunnel's underlying interface (t->parms.link)
-is verified to match incoming traffic's ingress device.
+Commit 7a9bc9b introduced a short-circuit to avoid calling
+fib_validate_source when not needed. That change took rp_filter
+into account, but not accept_local. This resulted in a change
+of behaviour: with rp_filter and accept_local off, incoming
+packets with a local address in the source field should be
+dropped.
 
-However the comparison was incorrectly based on skb->dev->iflink.
+Here is how to reproduce the change pre/post 7a9bc9b commit:
+-configure the same IPv4 address on hosts A and B.
+-try to send an arp request from B to A.
+-The arp request will be dropped before commit 7a9bc9b,
+but accepted and answered after that commit.
 
-Instead, dev->ifindex should be used, which correctly represents the
-interface from which the IP stack hands the ipip6 packets.
+This adds a check for ACCEPT_LOCAL, to maintain full
+fib validation in case it is 0.
 
-This allows setting up sit tunnels bound to vlan interfaces (otherwise
-incoming ipip6 traffic on the vlan interface was dropped due to
-ipip6_tunnel_lookup match failure).
+Signed-off-by: S=C3=A9bastien Barr=C3=A9 <sebastien.barre@uclouvain.be>
 
-Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Acked-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
-v3: no splitting of quoted summary line
+ net/ipv4/fib_frontend.c | 1 +
+ 1 file changed, 1 insertion(+)
 
- net/ipv6/sit.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index 2e9ba035fb..6163f851dc 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -101,19 +101,19 @@ static struct ip_tunnel *ipip6_tunnel_lookup(struct net *net,
- 	for_each_ip_tunnel_rcu(t, sitn->tunnels_r_l[h0 ^ h1]) {
- 		if (local == t->parms.iph.saddr &&
- 		    remote == t->parms.iph.daddr &&
--		    (!dev || !t->parms.link || dev->iflink == t->parms.link) &&
-+		    (!dev || !t->parms.link || dev->ifindex == t->parms.link) &&
- 		    (t->dev->flags & IFF_UP))
- 			return t;
- 	}
- 	for_each_ip_tunnel_rcu(t, sitn->tunnels_r[h0]) {
- 		if (remote == t->parms.iph.daddr &&
--		    (!dev || !t->parms.link || dev->iflink == t->parms.link) &&
-+		    (!dev || !t->parms.link || dev->ifindex == t->parms.link) &&
- 		    (t->dev->flags & IFF_UP))
- 			return t;
- 	}
- 	for_each_ip_tunnel_rcu(t, sitn->tunnels_l[h1]) {
- 		if (local == t->parms.iph.saddr &&
--		    (!dev || !t->parms.link || dev->iflink == t->parms.link) &&
-+		    (!dev || !t->parms.link || dev->ifindex == t->parms.link) &&
- 		    (t->dev->flags & IFF_UP))
- 			return t;
- 	}
--- 
-1.9.0
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+index 255aa99..fa1fb2d 100644
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -321,6 +321,7 @@ int fib_validate_source(struct sk_buff *skb, __be32=
+ src, __be32 dst,
+ 	int r =3D secpath_exists(skb) ? 0 : IN_DEV_RPFILTER(idev);
+=20
+ 	if (!r && !fib_num_tclassid_users(dev_net(dev)) &&
++	    IN_DEV_ACCEPT_LOCAL(idev) &&
+ 	    (dev->ifindex !=3D oif || !IN_DEV_TX_REDIRECTS(idev))) {
+ 		*itag =3D 0;
+ 		return 0;
+--=20
+tg: (f0094b2..) net-next/accept_local-fib_validate_source (depends on: =
+net-next/master)
