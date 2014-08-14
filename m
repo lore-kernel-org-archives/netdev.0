@@ -1,44 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Performance regression on kernels 3.10 and newer
-Date: Thu, 14 Aug 2014 13:51:06 -0700
-Message-ID: <1408049466.6804.40.camel@edumazet-glaptop2.roam.corp.google.com>
-References: <53ECFDAB.5010701@intel.com>
-	 <1408041962.6804.31.camel@edumazet-glaptop2.roam.corp.google.com>
-	 <53ED1516.6020801@hp.com> <53ED1CB2.7050006@intel.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: smsc911x_suspend crash (was: Re: [PATCH] ARM: shmobile: r8a7778:
+ Add missing call to shmobile_init_late())
+Date: Fri, 15 Aug 2014 06:17:13 +0900
+Message-ID: <20140814211712.GC2029@verge.net.au>
+References: <CAMuHMdV7u-9DQ=TGBYSh2GvQgzQE3EAabXoEGU=3N4XyZ_Dx6w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Rick Jones <rick.jones2@hp.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Geert Uytterhoeven <geert+renesas@glider.be>,
+	Kuninori Morimoto <kuninori.morimoto.gx@renesas.com>,
+	Magnus Damm <magnus.damm@gmail.com>,
+	Linux-sh list <linux-sh@vger.kernel.org>,
+	Kevin Hilman <khilman@linaro.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Geert Uytterhoeven <geert@linux-m68k.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:43538 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752493AbaHNUvI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 16:51:08 -0400
-Received: by mail-pd0-f173.google.com with SMTP id w10so2199974pde.18
-        for <netdev@vger.kernel.org>; Thu, 14 Aug 2014 13:51:07 -0700 (PDT)
-In-Reply-To: <53ED1CB2.7050006@intel.com>
+Received: from kirsty.vergenet.net ([202.4.237.240]:43968 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932194AbaHNVRQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Aug 2014 17:17:16 -0400
+Content-Disposition: inline
+In-Reply-To: <CAMuHMdV7u-9DQ=TGBYSh2GvQgzQE3EAabXoEGU=3N4XyZ_Dx6w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2014-08-14 at 13:31 -0700, Alexander Duyck wrote:
+On Thu, Aug 14, 2014 at 10:52:30AM +0200, Geert Uytterhoeven wrote:
+> Hi Simon,
+> 
+> (taking this to netdev for the crash in smsc911x_suspend())
+> 
+> On Thu, Aug 14, 2014 at 8:16 AM, Simon Horman <horms@verge.net.au> wrote:
+> > while this may be part of the puzzle my light testing shows
+> > that suspend-to-ram does not appear to work with this patch applied.
+> 
+> Thanks for testing!
+> 
+> > My procedure is as followw.
+> >
+> > 1. Apply this patch on top of renesas-devel-v3.16-20140811
+> > 2. make bockw_defconfig
+> > 3. Select CONFIG_SUSPEND
+> > 4. Update r8a7778-bockw.dts to include no_console_suspend in bootargs
+> 
+> Alternative:
+> 
+> echo 0 > /sys/module/printk/parameters/console_suspend
 
-> My concern here is that netperf is a standard tool to use for testing
-> network performance, and the kernel default is to run with
-> tcp_low_latency disabled.  As such the prequeue is a part of the
-> standard path is it not?  If the prequeue isn't really useful anymore
-> should we consider pulling it out of the kernel, or disabling it by
-> making tcp_low_latency the default?
+Thanks, I didn't know that.
 
-Feel free to use netperf, but please do not complain if linux kernel is
-not optimized for netperf, using a 20 years old application design (one
-thread per flow)
+> > 4. Boot and then:
+> >
+> >    i. echo enabled > /sys/devices/platform/sh-sci.0/tty/ttySC0/power/wakeup
+> >    ii. echo mem > /sys/power/wakeup_count
+> 
+> Uh?
+> 
+> echo mem > /sys/power/state
+> 
+> > root@debian:~# echo mem > /sys/power/wakeup_count
+> > -bash: echo: write error: Invalid argument
+> 
+> I guess there's an "echo mem > /sys/power/state" here?
 
-prequeue only works when few TCP flows are active.
-
-For dozen of active flows, then you probably need some tweaks,
-like the ones in Documentation/networking/scaling.txt
-
-Then, prequeue or not, you would not notice.
+Yes, sorry about that noise. I had some stray commands in my test-run
+and edited out the correct one.
